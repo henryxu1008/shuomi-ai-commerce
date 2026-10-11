@@ -17,6 +17,7 @@ import (
 	"task-processor/internal/httproute"
 	c "task-processor/internal/operationscockpit"
 	"time"
+	"unicode/utf8"
 )
 
 const Base = "/api/v1/workbench/operations-cockpit"
@@ -439,8 +440,19 @@ func goalEvidence(snapshot c.Snapshot) []goalStoreEvidence {
 }
 
 func (h *Handler) projection(g *gin.Context, path string, scope c.Scope, access c.Access) {
-	if err := query(g, "startDate", "endDate", "storeId", "page", "state", "search", "sort", "level", "kind"); err != nil {
+	allowed := []string{"startDate", "endDate", "storeId", "page", "state", "search", "sort", "level", "kind"}
+	if path == "/stores" {
+		allowed = append(allowed, "platform", "region")
+	}
+	if err := query(g, allowed...); err != nil {
 		failure(g, err)
+		return
+	}
+	if utf8.RuneCountInString(g.Query("search")) > 100 || utf8.RuneCountInString(g.Query("platform")) > 64 || utf8.RuneCountInString(g.Query("region")) > 100 ||
+		!filterValue(g.Query("state"), "loss", "break_even", "recorded_complete", "data_incomplete") ||
+		!filterValue(g.Query("sort"), "profit") || !filterValue(g.Query("level"), "critical", "attention", "data") ||
+		!filterValue(g.Query("kind"), "period_loss", "data_missing", "goal_assessment") {
+		failure(g, c.ErrInvalid)
 		return
 	}
 	module := strings.TrimPrefix(path, "/")
@@ -483,12 +495,34 @@ func (h *Handler) projection(g *gin.Context, path string, scope c.Scope, access 
 			ids = append(ids, s.ID)
 		}
 	} else {
+		if len(ids) > 500 {
+			failure(g, c.ErrInvalid)
+			return
+		}
+		seen := map[string]bool{}
 		for _, id := range ids {
 			if _, ok := names[id]; !ok {
 				failure(g, c.ErrForbidden)
 				return
 			}
+			if seen[id] {
+				failure(g, c.ErrInvalid)
+				return
+			}
+			seen[id] = true
 		}
+	}
+	// Validate every explicit ID before narrowing the current authorized directory.
+	if path == "/stores" {
+		filteredIDs := []string{}
+		for _, id := range ids {
+			store := names[id]
+			if g.Query("platform") != "" && store.Platform != g.Query("platform") || g.Query("region") != "" && store.Region != g.Query("region") {
+				continue
+			}
+			filteredIDs = append(filteredIDs, id)
+		}
+		ids = filteredIDs
 	}
 	snapshot, err := h.Repository.Snapshot(g.Request.Context(), scope, c.Query{Module: module, Period: p, StoreIDs: ids})
 	if err != nil {
@@ -546,15 +580,22 @@ func (h *Handler) projection(g *gin.Context, path string, scope c.Scope, access 
 			return
 		}
 		filtered := []c.Rule{}
+		summary := map[string]int{"total": 0, "critical": 0, "attention": 0, "data": 0}
+		search := strings.ToLower(g.Query("search"))
 		for _, r := range rules {
 			if g.Query("kind") != "" && r.Kind != g.Query("kind") || g.Query("level") != "" && r.Level != g.Query("level") {
 				continue
 			}
+			if search != "" && !strings.Contains(strings.ToLower(r.Title), search) && !strings.Contains(strings.ToLower(names[r.StoreID].Name), search) {
+				continue
+			}
 			filtered = append(filtered, r)
+			summary["total"]++
+			summary[r.Level]++
 		}
 		start := min((n-1)*50, len(filtered))
 		end := min(start+50, len(filtered))
-		reply(g, gin.H{"rules": filtered[start:end], "total": len(filtered), "page": n, "capturedAt": snapshot.CapturedAt, "goalUnavailable": snapshot.GoalUnavailable, "observations": observation})
+		reply(g, gin.H{"rules": filtered[start:end], "total": len(filtered), "summary": summary, "page": n, "capturedAt": snapshot.CapturedAt, "goalUnavailable": snapshot.GoalUnavailable, "observations": observation})
 		return
 	}
 	rows := []matrixRow{}
@@ -599,4 +640,16 @@ func (h *Handler) projection(g *gin.Context, path string, scope c.Scope, access 
 	start := min((n-1)*50, len(rows))
 	end := min(start+50, len(rows))
 	reply(g, gin.H{"rows": rows[start:end], "total": len(rows), "page": n, "summary": summary, "summaryComplete": allComplete && len(ids) > 0, "states": states, "capturedAt": snapshot.CapturedAt})
+}
+
+func filterValue(value string, allowed ...string) bool {
+	if value == "" {
+		return true
+	}
+	for _, item := range allowed {
+		if value == item {
+			return true
+		}
+	}
+	return false
 }

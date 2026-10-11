@@ -147,6 +147,10 @@ source of truth for long-lived rules.
 
 ## Supporting Context
 
+- [`operations-cockpit-figma-read-v1.md`](./operations-cockpit-figma-read-v1.md)
+  - #619 four-page Figma alignment and bounded readonly cockpit summary/query
+    supplement; admission is stated in the document, preserving #627 frozen owners.
+
 - [`ai-workbench-reports-v1.md`](./ai-workbench-reports-v1.md)
   - #628 frozen IMPLEMENTATION_READY personal report snapshots, favorites and
     exact source-version capture. Shared runtime wiring and actual user acceptance
