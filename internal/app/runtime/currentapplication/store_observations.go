@@ -9,6 +9,7 @@ import (
 type StoreObservationsConfig struct {
 	TemporalAddress   string `json:"temporalAddress"`
 	TemporalNamespace string `json:"temporalNamespace"`
+	PreparationOnly   bool   `json:"preparationOnly"`
 }
 
 func (c *Config) validateStoreObservations() error {
@@ -16,8 +17,11 @@ func (c *Config) validateStoreObservations() error {
 		return nil
 	}
 	s := c.StoreCenter.Observations
-	if !c.StoreCenter.Enabled || len(c.StoreCenter.OfficialApplications) == 0 || c.Identity.TenantDirectoryToken == "" {
+	if !c.StoreCenter.Enabled || c.Identity.TenantDirectoryToken == "" {
 		return errors.New("Store observations require current Store, official applications and exact membership authorization")
+	}
+	if s.PreparationOnly && len(c.StoreCenter.OfficialApplications) != 0 || !s.PreparationOnly && len(c.StoreCenter.OfficialApplications) == 0 {
+		return errors.New("Store observations require official applications in full mode and no applications in explicit preparation mode")
 	}
 	host, port, err := net.SplitHostPort(s.TemporalAddress)
 	p, portErr := strconv.Atoi(port)

@@ -25,7 +25,7 @@ it("keeps original scopes and only forwards readonly endpoints", async () => {
         organizationId: "org-a",
         userId: "actor-a",
         data: {
-          available: true,
+          available: true, runtimeReady: true, providerConfigured: true,
           canSync: true,
           kind: "orders",
           site: "shein-us",
@@ -59,7 +59,7 @@ it("keeps original scopes and only forwards readonly endpoints", async () => {
       organizationId: "other",
       userId: "actor-a",
       data: {
-        available: true,
+        available: true, runtimeReady: true, providerConfigured: true,
         canSync: true,
         kind: "orders",
         site: "shein-us",

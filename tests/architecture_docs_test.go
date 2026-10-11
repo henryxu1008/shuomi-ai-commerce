@@ -10,6 +10,16 @@ import (
 	"testing"
 )
 
+func TestStoreObservationsPreparationDocumentKeepsExecutionClosed(t *testing.T) {
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "store-observations-preparation-runtime.md"), []string{
+		"IMPLEMENTATION_READY", "preparationOnly=true", "zero", "configured official applications",
+		"Available and CanSync remain false", "refuses any existing row", "No schema/role changes occur in serving",
+		"observations-only", "does not run Store base migrations", "No previous initializer is rerun",
+		"Rollback", "revoking only", "leave all four tables and their data intact",
+		"Real SHEIN/model/payment and final user business acceptance remain NOT_RUN",
+	})
+}
+
 func TestPhase2ClosureDocumentsRuntimeOwnershipAndDeferredDebt(t *testing.T) {
 	requireDocumentPhrases(t, filepath.Join("..", "docs", "development", "repository-structure.md"), []string{
 		"Phase 2 runtime foundation closure",
