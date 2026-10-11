@@ -115,7 +115,7 @@ func (s *AcquisitionPlanService) Create(ctx context.Context, key string, input C
 	}
 	effective.TemplateID = input.TemplateID
 	effective.TemplateRevision = input.TemplateRevision
-	p := sourcing.AcquisitionPlan{ID: collection.StableID(scope.OrganizationID, scope.ActorID, "acquisition-plan", key), Key: key, Scope: scope, Input: effective, Revision: 1, Items: []sourcing.AcquisitionPlanItem{}, DiscoveryFailures: []sourcing.DiscoveryFailure{}, State: "pending", CreatedAt: time.Now().UTC()}
+	p := sourcing.AcquisitionPlan{ID: collection.StableID(scope.OrganizationID, scope.ActorID, "acquisition-plan", key), Key: key, Scope: scope, Input: effective, Revision: 1, Items: []sourcing.AcquisitionPlanItem{}, DiscoveryFailures: []sourcing.DiscoveryFailure{}, PreparationIDs: []string{}, State: "pending", CreatedAt: time.Now().UTC()}
 	if input.Mode == sourcing.DiscoveryProduct {
 		p.DiscoveryIndex = len(effective.Inputs)
 		for _, source := range effective.Inputs {
@@ -175,6 +175,7 @@ func (s *AcquisitionPlanService) Advance(ctx context.Context, id string, expecte
 	}
 	p.FailureCode = ""
 	p.Items = append([]sourcing.AcquisitionPlanItem{}, p.Items...)
+	p.PreparationIDs = append([]string{}, p.PreparationIDs...)
 	if p.DiscoveryIndex < len(p.Input.Inputs) {
 		if s.discover == nil {
 			p.State = "paused"
@@ -235,7 +236,7 @@ func (s *AcquisitionPlanService) Advance(ctx context.Context, id string, expecte
 		item.ChildKey = planChildKey(p.ID, item.Source)
 		var result sourcing.AcquisitionResult
 		if item.State == "needs_verification" {
-			result, err = s.child.Verify(ctx, item.ChildKey, item.Source)
+			result, err = s.recoverChild(ctx, p.Scope, *item)
 		} else {
 			result, err = s.child.Acquire(ctx, item.ChildKey, item.Source)
 		}
@@ -327,72 +328,140 @@ func (s *AcquisitionPlanService) Advance(ctx context.Context, id string, expecte
 	return s.finishOrSave(ctx, p, check)
 }
 
+// recoverChild delegates recovery to the original single-source owner. Verify
+// only resolves publishing; acquiring/prepared require its original Acquire key.
+func (s *AcquisitionPlanService) recoverChild(ctx context.Context, scope sourcing.AcquisitionPlanScope, item sourcing.AcquisitionPlanItem) (sourcing.AcquisitionResult, error) {
+	source, err := sourcing.Canonical1688Source(item.Source)
+	if err != nil {
+		return sourcing.AcquisitionResult{}, err
+	}
+	expected := acquisitionOperation(sourcing.PublicationScope{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID}, item.ChildKey, source)
+	result, err := s.child.Read(ctx, expected.ID)
+	if errors.Is(err, sourcing.ErrAcquisitionNotFound) {
+		return s.child.Acquire(ctx, item.ChildKey, item.Source)
+	}
+	if err != nil {
+		return sourcing.AcquisitionResult{}, err
+	}
+	if sameAcquisition(expected, result.Operation) != nil {
+		return sourcing.AcquisitionResult{}, sourcing.ErrAcquisitionUnavailable
+	}
+	switch result.Operation.State {
+	case sourcing.AcquisitionAcquiring, sourcing.AcquisitionPrepared:
+		return s.child.Acquire(ctx, item.ChildKey, item.Source)
+	case sourcing.AcquisitionPublishing:
+		return s.child.Verify(ctx, item.ChildKey, item.Source)
+	case sourcing.AcquisitionPublished, sourcing.AcquisitionFailed:
+		return result, nil
+	default:
+		return sourcing.AcquisitionResult{}, sourcing.ErrAcquisitionUnavailable
+	}
+}
+
+type planTransferIntent struct {
+	Key   string                    `json:"key"`
+	Input preparation.TransferInput `json:"input"`
+}
+
 func (s *AcquisitionPlanService) finishOrSave(ctx context.Context, p sourcing.AcquisitionPlan, check sourcing.PlanAuthorityCheck) (sourcing.AcquisitionPlan, error) {
 	for _, item := range p.Items {
 		if item.State != "published" && item.State != "failed" {
 			return s.repository.Save(ctx, p, check)
 		}
 	}
-	selected := []string{}
-	batchID := ""
-	for _, item := range p.Items {
-		if item.Evaluation == nil || item.Evaluation.State != sourcing.RuleMatched || !p.Input.AutoTransfer {
-			continue
-		}
-		if item.CollectionItemID == "" || batchID != "" && batchID != item.CollectionBatchID {
-			return p, sourcing.ErrAcquisitionConflict
-		}
-		batchID = item.CollectionBatchID
-		selected = append(selected, item.CollectionItemID)
-	}
-	if len(selected) == 0 {
-		p.State = "completed"
-		return s.repository.Save(ctx, p, check)
-	}
 	if len(p.TransferInputJSON) == 0 {
+		groups := []planTransferIntent{}
+		indices := map[string]int{}
 		for _, item := range p.Items {
-			if item.CollectionItemID == "" || item.Evaluation == nil || item.Evaluation.State != sourcing.RuleMatched {
+			if item.Evaluation == nil || item.Evaluation.State != sourcing.RuleMatched || !p.Input.AutoTransfer {
 				continue
+			}
+			if !collection.ValidID(item.CollectionItemID) || !collection.ValidID(item.CollectionBatchID) {
+				return p, sourcing.ErrAcquisitionConflict
 			}
 			detail, err := s.collections.ReadItem(ctx, item.CollectionItemID)
 			if err != nil {
 				return p, err
 			}
-			if detail.Item.ID != item.CollectionItemID || detail.Item.BatchID != batchID || detail.Item.Revision != item.CollectionRevision || detail.Item.Source.OperationID != item.OperationID || detail.Item.ArchivedAt != nil {
+			if detail.Item.ID != item.CollectionItemID || detail.Item.BatchID != item.CollectionBatchID || detail.Item.Revision != item.CollectionRevision || detail.Item.Source.OperationID != item.OperationID || detail.Item.ArchivedAt != nil {
 				return p, sourcing.ErrAcquisitionConflict
 			}
+			index, ok := indices[item.CollectionBatchID]
+			if !ok {
+				batch, err := s.collections.ReadBatch(ctx, item.CollectionBatchID)
+				if err != nil {
+					return p, err
+				}
+				if batch.ID != item.CollectionBatchID || batch.Revision < 1 {
+					return p, sourcing.ErrAcquisitionConflict
+				}
+				index = len(groups)
+				indices[item.CollectionBatchID] = index
+				groups = append(groups, planTransferIntent{Key: collection.StableID(p.ID, batch.ID, "transfer"), Input: preparation.TransferInput{BatchID: batch.ID, ExpectedRevision: batch.Revision, ItemIDs: []string{}}})
+			}
+			groups[index].Input.ItemIDs = append(groups[index].Input.ItemIDs, item.CollectionItemID)
 		}
-		batch, err := s.collections.ReadBatch(ctx, batchID)
-		if err != nil {
-			return p, err
+		if len(groups) == 0 {
+			p.State = "completed"
+			return s.repository.Save(ctx, p, check)
 		}
-		input := preparation.TransferInput{BatchID: batchID, ExpectedRevision: batch.Revision, ItemIDs: selected}
-		p.TransferInputJSON, _ = json.Marshal(input)
+		raw, err := json.Marshal(groups)
+		if err != nil || len(raw) > sourcing.MaxPlanBodyBytes {
+			return p, sourcing.ErrInvalidAcquisition
+		}
+		p.TransferInputJSON = raw
 		p.TransferKey = collection.StableID(p.ID, "transfer")
 		p.State = "transfer_pending"
-		// Freeze intent first. The next explicit advance consumes the original key.
+		// Freeze every original intent before any transfer. Later advances consume one.
 		return s.repository.Save(ctx, p, check)
 	}
-	var input preparation.TransferInput
-	if json.Unmarshal(p.TransferInputJSON, &input) != nil || len(input.ItemIDs) == 0 || input.Validate() != nil {
+	var groups []planTransferIntent
+	if len(p.TransferInputJSON) > sourcing.MaxPlanBodyBytes || p.TransferKey != collection.StableID(p.ID, "transfer") || json.Unmarshal(p.TransferInputJSON, &groups) != nil || len(groups) == 0 || len(groups) > sourcing.MaxPlanProducts || len(p.PreparationIDs) > len(groups) {
 		return p, sourcing.ErrInvalidAcquisition
 	}
-	receipt, err := s.preparations.ReadByKey(ctx, p.TransferKey)
+	scope := preparation.Scope{OrganizationID: p.Scope.OrganizationID, ActorID: p.Scope.ActorID, MemberID: p.Scope.MemberID}
+	seenBatches, seenItems := map[string]bool{}, map[string]bool{}
+	for i, group := range groups {
+		if group.Key != collection.StableID(p.ID, group.Input.BatchID, "transfer") || group.Input.Validate() != nil || len(group.Input.ItemIDs) == 0 || seenBatches[group.Input.BatchID] {
+			return p, sourcing.ErrInvalidAcquisition
+		}
+		seenBatches[group.Input.BatchID] = true
+		for _, id := range group.Input.ItemIDs {
+			if seenItems[id] {
+				return p, sourcing.ErrInvalidAcquisition
+			}
+			seenItems[id] = true
+		}
+		if i < len(p.PreparationIDs) && p.PreparationIDs[i] != preparation.OperationID(scope, group.Key) {
+			return p, sourcing.ErrInvalidAcquisition
+		}
+	}
+	if len(seenItems) > sourcing.MaxPlanProducts {
+		return p, sourcing.ErrInvalidAcquisition
+	}
+	if len(p.PreparationIDs) == len(groups) {
+		p.State = "completed"
+		return s.repository.Save(ctx, p, check)
+	}
+	group := groups[len(p.PreparationIDs)]
+	receipt, err := s.preparations.ReadByKey(ctx, group.Key)
 	if errors.Is(err, preparation.ErrNotFound) {
-		receipt, err = s.preparations.Transfer(ctx, p.TransferKey, input)
+		receipt, err = s.preparations.Transfer(ctx, group.Key, group.Input)
 	}
 	if err != nil {
 		p.State = "transfer_pending"
 		p.FailureCode = "transfer_needs_verification"
 		return s.repository.Save(ctx, p, check)
 	}
-	scope := preparation.Scope{OrganizationID: p.Scope.OrganizationID, ActorID: p.Scope.ActorID, MemberID: p.Scope.MemberID}
-	if receipt.Preparation.ID != preparation.OperationID(scope, p.TransferKey) || receipt.Preparation.SourceBatchID != input.BatchID || receipt.Preparation.SourceRevision != input.ExpectedRevision || receipt.Preparation.Count != int64(len(input.ItemIDs)) {
+	if receipt.Preparation.ID != preparation.OperationID(scope, group.Key) || receipt.Preparation.SourceBatchID != group.Input.BatchID || receipt.Preparation.SourceRevision != group.Input.ExpectedRevision || receipt.Preparation.Count != int64(len(group.Input.ItemIDs)) {
 		return p, sourcing.ErrAcquisitionUnavailable
 	}
-	p.PreparationID = receipt.Preparation.ID
-	p.State = "completed"
+	p.PreparationIDs = append(p.PreparationIDs, receipt.Preparation.ID)
+	p.State = "transfer_pending"
 	p.FailureCode = ""
+	if len(p.PreparationIDs) == len(groups) {
+		p.State = "completed"
+	}
 	return s.repository.Save(ctx, p, check)
 }
 func planChildKey(plan, source string) string {

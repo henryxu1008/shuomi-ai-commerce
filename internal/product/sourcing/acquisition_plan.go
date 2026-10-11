@@ -290,7 +290,7 @@ type AcquisitionPlan struct {
 	DiscoveryFailures []DiscoveryFailure    `json:"discoveryFailures"`
 	TransferKey       string                `json:"-"`
 	TransferInputJSON []byte                `json:"-"`
-	PreparationID     string                `json:"preparationId,omitempty"`
+	PreparationIDs    []string              `json:"preparationIds"`
 	CreatedAt         time.Time             `json:"createdAt"`
 	Fence             int64                 `json:"-"`
 	LeaseUntil        time.Time             `json:"-"`

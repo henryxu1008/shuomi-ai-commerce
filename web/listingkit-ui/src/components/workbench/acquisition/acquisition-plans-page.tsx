@@ -18,7 +18,7 @@ import {isAcquisitionUUID} from "@/lib/contracts/product-acquisition";
 import styles from "./acquisition-plans.module.css";
 
 const modes=[{id:"product",label:"指定商品",field:"1688 商品链接",placeholder:"粘贴 1688 商品链接，支持批量输入，每行一条"},{id:"page",label:"按页采集",field:"1688 页面链接",placeholder:"粘贴公开搜索结果页或店铺商品列表页链接，每行一条"},{id:"keyword",label:"按关键词",field:"采集关键词",placeholder:"输入关键词，支持批量输入，每行一个关键词"}] as const;
-const messages:Record<string,string>={INVALID_ACQUISITION:"请检查来源链接、价格范围和起批量。",INVALID_REQUEST:"请检查输入。",FORBIDDEN:"当前身份没有所需权限，请确认当前企业和授权。",ACQUISITION_UNAVAILABLE:"采集服务暂不可用，已发出的请求请按原计划核实。",ACQUISITION_NOT_FOUND:"原计划尚未读到，可用原请求再次确认创建。",IDEMPOTENCY_CONFLICT:"计划正在处理或版本已变化，请先读取最新计划。",OUTCOME_UNKNOWN:"请求结果暂未确认，请读取原计划后继续。",DEADLINE_EXCEEDED:"请求超时，请读取原计划后继续。",SOURCE_TOO_LARGE:"输入或返回内容超过上限。",collector_capacity_or_cooldown:"采集器处于限速或冷却状态，请稍后继续原计划。",discovery_unavailable:"公开列表暂时无法读取，请稍后继续原计划。",transfer_needs_verification:"转入结果待核实，继续时将读取原转入回执。",capacity_or_quota_unavailable:"数据额度不足或采集器繁忙，请补充额度或稍后继续。",outcome_unknown:"该商品结果待核实，继续时只核实原请求。",source_unavailable:"来源不可用或需要登录、验证。",source_facts_unavailable:"规则所需公开事实缺失。",source_currency_unavailable:"公开价格缺少明确人民币币种。",source_moq_unavailable:"公开最小起订量缺失。"};
+const messages:Record<string,string>={INVALID_ACQUISITION:"请检查来源链接、价格范围和起批量。",INVALID_REQUEST:"请检查输入。",FORBIDDEN:"当前身份没有所需权限，请确认当前企业和授权。",ACQUISITION_UNAVAILABLE:"采集服务暂不可用，已发出的请求请按原计划核实。",ACQUISITION_NOT_FOUND:"原计划尚未读到，可用原请求再次确认创建。",IDEMPOTENCY_CONFLICT:"计划正在处理或版本已变化，请先读取最新计划。",OUTCOME_UNKNOWN:"请求结果暂未确认，请读取原计划后继续。",DEADLINE_EXCEEDED:"请求超时，请读取原计划后继续。",SOURCE_TOO_LARGE:"输入或返回内容超过上限。",collector_capacity_or_cooldown:"采集器处于限速或冷却状态，请稍后继续原计划。",discovery_unavailable:"公开列表暂时无法读取，请稍后继续原计划。",transfer_needs_verification:"转入结果待核实，继续时将读取原转入回执。",capacity_or_quota_unavailable:"数据额度不足或采集器繁忙，请补充额度或稍后继续。",outcome_unknown:"该商品结果待核实，继续时按原请求恢复。",source_unavailable:"来源不可用或需要登录、验证。",source_facts_unavailable:"规则所需公开事实缺失。",source_currency_unavailable:"公开价格缺少明确人民币币种。",source_moq_unavailable:"公开最小起订量缺失。"};
 const failureText=(e:unknown)=>e instanceof AcquisitionAPIError?messages[e.code]??`请求未完成（${e.code}）`:"请求未完成，请先读取原计划核实。";
 const storage=(scope:AcquisitionContext,kind:string)=>`listingkit:acquisition:${kind}:${scope.userId}:${scope.organizationId}`;
 const pendingPlanSchema=z.object({key:z.string().refine(isAcquisitionUUID),input:createPlanSchema}).strict();
@@ -44,7 +44,7 @@ export function AcquisitionPlansPage({scope,initialOpen=false}:{scope:Acquisitio
  const remember=(p:AcquisitionPlan)=>{if(!alive.current)return;setActivePlan(p);setPlans(values=>[p,...values.filter(v=>v.id!==p.id)]);};
  async function advance(p:AcquisitionPlan,abort:AbortController){
   running.current=true;
-  for(let step=0;step<224&&running.current&&!abort.signal.aborted&&alive.current;step++){
+  for(let step=0;step<422&&running.current&&!abort.signal.aborted&&alive.current;step++){
    if(p.state==="completed")break;
    p=await api.advanceAcquisitionPlan(scope,p,abort.signal);
    if(abort.signal.aborted||!alive.current)break;remember(p);
@@ -90,7 +90,7 @@ export function AcquisitionPlansPage({scope,initialOpen=false}:{scope:Acquisitio
    {activePlan.truncated?<p role="status">结果达到读取或商品数量上限，已截断；本计划不代表整页全部商品。</p>:null}
    {activePlan.failureCode?<p role="status">{messages[activePlan.failureCode]??activePlan.failureCode}</p>:null}
    {activePlan.discoveryFailures.map(f=><p key={f.inputIndex}>第 {f.inputIndex+1} 行：公开来源不可用，未开始商品采集。</p>)}
-   {activePlan.preparationId?<Button asChild variant="outline"><Link href={`/workbench/supply/mine/waiting?preparation=${activePlan.preparationId}`}>查看待适配</Link></Button>:null}
+   {activePlan.preparationIds.map((id,index)=><Button key={id} asChild variant="outline"><Link href={`/workbench/supply/mine/waiting?preparation=${id}`}>查看待适配 {index+1}</Link></Button>)}
    <div className={styles.itemList}>{activePlan.items.map(i=><div key={i.source}><span className="break-all">{i.source}</span><span>{i.state==="published"?"已保存":i.state==="failed"?"来源失败":i.state==="needs_verification"?"结果待核实":"待采集"}{i.evaluation?` · ${i.evaluation.state==="matched"?"规则通过":i.evaluation.state==="not_matched"?"未通过规则，保留在我的数据":"规则事实不足，保留在我的数据"}`:""}</span>{i.failureCode?<span>{messages[i.failureCode]??i.failureCode}</span>:null}{i.operationId&&i.state==="published"?<Link href={`/workbench/supply/acquisition/operation/${i.operationId}`}>查看商品</Link>:null}</div>)}</div>
   </Card>:null}
   <Card className="mt-4 space-y-3 p-5"><h2 className="font-semibold">找回单商品采集结果</h2><p className="text-sm text-muted-foreground">已有操作 ID 可直接读取原结果。</p><div className="flex max-w-xl gap-2"><Input aria-label="操作 ID" value={operationID} onChange={e=>setOperationID(e.target.value)}/><Button asChild variant="outline" disabled={!isAcquisitionUUID(operationID)}><Link aria-disabled={!isAcquisitionUUID(operationID)} href={isAcquisitionUUID(operationID)?`/workbench/supply/acquisition/operation/${operationID}`:"#"}>读取</Link></Button></div></Card>

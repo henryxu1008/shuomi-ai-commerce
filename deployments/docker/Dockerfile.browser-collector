@@ -13,6 +13,8 @@ ENV PLAYWRIGHT_DRIVER_PATH=/opt/playwright-driver PLAYWRIGHT_BROWSERS_PATH=/opt/
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /out/playwright-driver /usr/local/bin/playwright-driver
 RUN playwright-driver install --with-deps chromium && \
+    chmod -R a+rX /opt/playwright-driver /opt/playwright-browsers && \
+    chmod a+rx /opt/playwright-driver/node && \
     ln -s "$(find /opt/playwright-browsers -path '*/chrome-linux64/chrome' -type f | head -n 1)" /usr/local/bin/collector-chromium && \
     test -x /usr/local/bin/collector-chromium
 COPY --from=builder /out/collector /usr/local/bin/collector

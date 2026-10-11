@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
+	"slices"
 	"time"
 
 	"gorm.io/gorm"
@@ -270,6 +271,7 @@ func projection(p sourcing.AcquisitionPlan) ([]byte, error) {
 		return nil, sourcing.ErrInvalidAcquisition
 	}
 	p.Items = []sourcing.AcquisitionPlanItem{}
+	p.PreparationIDs = append([]string{}, p.PreparationIDs...)
 	raw, e := json.Marshal(p)
 	if e != nil || len(raw) > maxProjection {
 		return nil, sourcing.ErrSourcePublicationTooLarge
@@ -368,6 +370,9 @@ func (r *Repository) Save(ctx context.Context, p sourcing.AcquisitionPlan, check
 			return e
 		}
 		if old.Fence != p.Fence || old.Revision != p.Revision || old.Key != p.Key || !reflect.DeepEqual(old.Input, p.Input) || len(p.Items) < len(old.Items) || old.TransferKey != "" && (old.TransferKey != p.TransferKey || !reflect.DeepEqual(old.TransferInputJSON, p.TransferInputJSON)) {
+			return sourcing.ErrAcquisitionConflict
+		}
+		if len(p.PreparationIDs) < len(old.PreparationIDs) || !slices.Equal(old.PreparationIDs, p.PreparationIDs[:len(old.PreparationIDs)]) {
 			return sourcing.ErrAcquisitionConflict
 		}
 		next := p

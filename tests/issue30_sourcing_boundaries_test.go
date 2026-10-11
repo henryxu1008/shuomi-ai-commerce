@@ -38,6 +38,8 @@ func TestIssue30InternalProducerIsOnlyWiredByAdmittedProductReview(t *testing.T)
 		filepath.Join("..", "internal", "app", "httpapi", "product_agent_application.go"):                  {},
 		filepath.Join("..", "internal", "app", "httpapi", "product_review_application.go"):                 {},
 		filepath.Join("..", "internal", "app", "httpapi", "product_acquisition_application.go"):            {},
+		// #637 frozen design admits only the current plan composition file.
+		filepath.Join("..", "internal", "app", "httpapi", "acquisition_plan_application.go"): {},
 	}
 	assertNoBannedImportPrefixes(t, filepath.Join("..", "internal"), []string{"task-processor/internal/app/productsourcing"}, allowed)
 	commands := map[string]struct{}{filepath.Join("..", "cmd", "product-acquisition-init", "main.go"): {}}

@@ -61,7 +61,10 @@ func TestPlanRefusesChangedSelectedCollectionBeforeFreezingTransfer(t *testing.T
 	require.Zero(t, preps.calls)
 }
 
-type planMemory struct{ plan sourcing.AcquisitionPlan }
+type planMemory struct {
+	plan           sourcing.AcquisitionPlan
+	losePrefixSave bool
+}
 
 func (r *planMemory) Create(_ context.Context, p sourcing.AcquisitionPlan, _ sourcing.PlanAuthorityCheck) (sourcing.AcquisitionPlan, error) {
 	r.plan = p
@@ -84,15 +87,22 @@ func (r *planMemory) Claim(_ context.Context, _ sourcing.AcquisitionPlanScope, _
 	return r.plan, nil
 }
 func (r *planMemory) Save(_ context.Context, p sourcing.AcquisitionPlan, _ sourcing.PlanAuthorityCheck) (sourcing.AcquisitionPlan, error) {
+	if r.losePrefixSave && len(p.PreparationIDs) > 0 {
+		r.losePrefixSave = false
+		return p, sourcing.ErrAcquisitionUnknown
+	}
 	p.Revision++
 	r.plan = p
 	return p, nil
 }
 
 type planChild struct {
-	acquire, verify int
-	result          sourcing.AcquisitionResult
-	err             error
+	acquire, verify                  int
+	result                           sourcing.AcquisitionResult
+	err                              error
+	readResult                       sourcing.AcquisitionResult
+	readErr                          error
+	readIDs, acquireKeys, verifyKeys []string
 }
 
 type failedDiscovery struct{}
@@ -117,16 +127,19 @@ func TestDiscoveryFailureReturnsEmptyArrayAndContinuesRemainingInputs(t *testing
 	require.Contains(t, string(raw), `"items":[]`)
 }
 
-func (c *planChild) Acquire(context.Context, string, string) (sourcing.AcquisitionResult, error) {
+func (c *planChild) Acquire(_ context.Context, key string, _ string) (sourcing.AcquisitionResult, error) {
 	c.acquire++
+	c.acquireKeys = append(c.acquireKeys, key)
 	return c.result, c.err
 }
-func (c *planChild) Verify(context.Context, string, string) (sourcing.AcquisitionResult, error) {
+func (c *planChild) Verify(_ context.Context, key string, _ string) (sourcing.AcquisitionResult, error) {
 	c.verify++
+	c.verifyKeys = append(c.verifyKeys, key)
 	return c.result, c.err
 }
-func (c *planChild) Read(context.Context, string) (sourcing.AcquisitionResult, error) {
-	return c.result, c.err
+func (c *planChild) Read(_ context.Context, id string) (sourcing.AcquisitionResult, error) {
+	c.readIDs = append(c.readIDs, id)
+	return c.readResult, c.readErr
 }
 
 func TestPlanUnknownKeepsOriginalChildAndDoesNotAcquireAgain(t *testing.T) {
@@ -140,6 +153,9 @@ func TestPlanUnknownKeepsOriginalChildAndDoesNotAcquireAgain(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "needs_verification", p.Items[0].State)
 	original := p.Items[0].ChildKey
+	source, _ := sourcing.Canonical1688Source(p.Items[0].Source)
+	child.readResult.Operation = acquisitionOperation(sourcing.PublicationScope{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID}, original, source)
+	child.readResult.Operation.State = sourcing.AcquisitionPublishing
 	p, err = service.Advance(context.Background(), r.plan.ID, p.Revision)
 	require.NoError(t, err)
 	require.Equal(t, 1, child.acquire)

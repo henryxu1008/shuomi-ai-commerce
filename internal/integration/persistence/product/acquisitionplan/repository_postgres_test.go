@@ -74,7 +74,8 @@ func TestPlanScopeFenceAndFrozenIntent(t *testing.T) {
 	_, e = repo.Claim(ctx, scope, p.ID, 1, check)
 	require.ErrorIs(t, e, sourcing.ErrAcquisitionConflict)
 	first.TransferKey = uuid.NewString()
-	first.TransferInputJSON = []byte(`{"batchId":"fixture"}`)
+	first.TransferInputJSON = []byte(`[{"key":"fixture-key","input":{"batchId":"fixture"}}]`)
+	first.PreparationIDs = []string{uuid.NewString()}
 	first.Items[0].CollectionBatchID = uuid.NewString()
 	first.Items[0].CollectionRevision = 4
 	saved, e := repo.Save(ctx, first, check)
@@ -90,6 +91,14 @@ func TestPlanScopeFenceAndFrozenIntent(t *testing.T) {
 	require.ErrorIs(t, e, sourcing.ErrAcquisitionConflict)
 	saved, e = repo.Claim(ctx, scope, p.ID, 2, check)
 	require.NoError(t, e)
+	changed := saved
+	changed.TransferInputJSON = []byte(`[]`)
+	_, e = repo.Save(ctx, changed, check)
+	require.ErrorIs(t, e, sourcing.ErrAcquisitionConflict)
+	changed = saved
+	changed.PreparationIDs = []string{uuid.NewString()}
+	_, e = repo.Save(ctx, changed, check)
+	require.ErrorIs(t, e, sourcing.ErrAcquisitionConflict)
 	_, e = repo.Save(ctx, saved, func(context.Context) error { return sourcing.ErrPublicationForbidden })
 	require.ErrorIs(t, e, sourcing.ErrPublicationForbidden)
 	replay, e = repo.Read(ctx, scope, p.ID)

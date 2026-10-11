@@ -222,3 +222,13 @@ PG 测试使用任务隔离数据库；UI 仅核对本入口/模板/实际状态
 
 当前 **IMPLEMENTATION_READY**：产品细节与适用独立 Architecture Review 均已完成。
 实现期按本冻结基线和 IMPLEMENTATION_TEST 推进；真实来源和用户验收仍为 NOT_RUN。
+
+## 9. Exact composition admission
+
+`internal/app/httpapi/acquisition_plan_application.go` alone consumes
+`productsourcing.PlanAuthority`, `NewAcquisitionPlanService`,
+`AcquisitionPlanService` and `CreatePlanInput`. The existing
+`cmd/product-acquisition-init/main.go` additionally consumes only
+`EnableAcquisitionPlans` for explicit additive initialization. Existing exact
+file/API guards retain sibling/subpackage and unrelated API rejection; serving
+composition never invokes either initializer. No directory-wide exemption.
