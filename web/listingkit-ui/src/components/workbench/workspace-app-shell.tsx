@@ -9,6 +9,7 @@ import { Menu, X } from "lucide-react";
 import { useWorkbenchContext } from "@/components/providers/workbench-context-provider";
 import { OrganizationSwitcher, workbenchErrorMessage } from "@/components/workbench/organization-switcher";
 import { Button } from "@/components/ui/button";
+import { SupportLauncher } from "@/components/workbench/support-launcher";
 import { ConsoleNavigation } from "@/components/workbench/console/console-navigation";
 import { parseCaptureEntry } from "@/app/capture/1688/capture-handoff";
 import { NotificationPopover } from "@/components/workbench/notifications/notification-center";
@@ -19,7 +20,7 @@ const MOBILE_NAVIGATION_ID = "workbench-mobile-navigation";
 const subscribeToHydration = () => () => {};
 const getClientHydrationSnapshot = () => true;
 const getServerHydrationSnapshot = () => false;
-export function WorkspaceAppShell({ children, dataServicesAvailable = false, reportCenterAvailable = false, toolMarketAvailable = false, supplyMarketAvailable = false, productAcquisitionAvailable = false, productCollectionsAvailable = false, supplyChainAvailable = false, knowledgeAvailable = false, productReviewAvailable = false, ecoservicesAvailable = false, sheinRecordsAvailable = false, notificationCenterAvailable = false }: { children: ReactNode; dataServicesAvailable?: boolean; reportCenterAvailable?: boolean; toolMarketAvailable?: boolean; supplyMarketAvailable?: boolean; productAcquisitionAvailable?: boolean; productCollectionsAvailable?: boolean; supplyChainAvailable?: boolean; knowledgeAvailable?: boolean; productReviewAvailable?: boolean; ecoservicesAvailable?: boolean; sheinRecordsAvailable?: boolean; notificationCenterAvailable?: boolean }) {
+export function WorkspaceAppShell({ children, dataServicesAvailable = false, reportCenterAvailable = false, toolMarketAvailable = false, supplyMarketAvailable = false, productAcquisitionAvailable = false, productCollectionsAvailable = false, supplyChainAvailable = false, knowledgeAvailable = false, productReviewAvailable = false, ecoservicesAvailable = false, sheinRecordsAvailable = false, notificationCenterAvailable = false, supportAvailable = false }: { children: ReactNode; dataServicesAvailable?: boolean; reportCenterAvailable?: boolean; toolMarketAvailable?: boolean; supplyMarketAvailable?: boolean; productAcquisitionAvailable?: boolean; productCollectionsAvailable?: boolean; supplyChainAvailable?: boolean; knowledgeAvailable?: boolean; productReviewAvailable?: boolean; ecoservicesAvailable?: boolean; sheinRecordsAvailable?: boolean; notificationCenterAvailable?: boolean; supportAvailable?: boolean }) {
   const pathname = usePathname() ?? "/workbench";
   const router = useRouter();
   const context = useWorkbenchContext();
@@ -121,7 +122,7 @@ export function WorkspaceAppShell({ children, dataServicesAvailable = false, rep
   }
 
   return (
-    <WorkbenchFrame dataServicesAvailable={dataServicesAvailable} reportCenterAvailable={reportCenterAvailable} toolMarketAvailable={toolMarketAvailable} supplyMarketAvailable={supplyMarketAvailable} key={pathname} pathname={pathname} productCollectionsAvailable={productCollectionsAvailable} supplyChainAvailable={supplyChainAvailable} productAcquisitionAvailable={productAcquisitionAvailable} knowledgeAvailable={knowledgeAvailable} productReviewAvailable={productReviewAvailable} ecoservicesAvailable={ecoservicesAvailable} sheinRecordsAvailable={sheinRecordsAvailable} notificationCenterAvailable={notificationCenterAvailable}>
+    <WorkbenchFrame supportAvailable={supportAvailable} dataServicesAvailable={dataServicesAvailable} reportCenterAvailable={reportCenterAvailable} toolMarketAvailable={toolMarketAvailable} supplyMarketAvailable={supplyMarketAvailable} key={pathname} pathname={pathname} productCollectionsAvailable={productCollectionsAvailable} supplyChainAvailable={supplyChainAvailable} productAcquisitionAvailable={productAcquisitionAvailable} knowledgeAvailable={knowledgeAvailable} productReviewAvailable={productReviewAvailable} ecoservicesAvailable={ecoservicesAvailable} sheinRecordsAvailable={sheinRecordsAvailable} notificationCenterAvailable={notificationCenterAvailable}>
       {context.selectionRequired && !hasIndependentIdentityRoute && !isBrowserCaptureRoute ? (
         <section
           className="flex min-h-[40vh] items-center justify-center px-6 text-center"
@@ -141,7 +142,7 @@ export function WorkspaceAppShell({ children, dataServicesAvailable = false, rep
   );
 }
 
-function WorkbenchFrame({ children, pathname, dataServicesAvailable, reportCenterAvailable, toolMarketAvailable, supplyMarketAvailable, productAcquisitionAvailable, productCollectionsAvailable, supplyChainAvailable, knowledgeAvailable, productReviewAvailable, ecoservicesAvailable, sheinRecordsAvailable, notificationCenterAvailable }: { children: ReactNode; pathname: string; dataServicesAvailable: boolean; reportCenterAvailable: boolean; toolMarketAvailable: boolean; supplyMarketAvailable: boolean; productAcquisitionAvailable: boolean; productCollectionsAvailable: boolean; supplyChainAvailable: boolean; knowledgeAvailable: boolean; productReviewAvailable: boolean; ecoservicesAvailable: boolean; sheinRecordsAvailable: boolean; notificationCenterAvailable: boolean }) {
+function WorkbenchFrame({ children, pathname, dataServicesAvailable, reportCenterAvailable, toolMarketAvailable, supplyMarketAvailable, productAcquisitionAvailable, productCollectionsAvailable, supplyChainAvailable, knowledgeAvailable, productReviewAvailable, ecoservicesAvailable, sheinRecordsAvailable, notificationCenterAvailable, supportAvailable }: { children: ReactNode; pathname: string; dataServicesAvailable: boolean; reportCenterAvailable: boolean; toolMarketAvailable: boolean; supplyMarketAvailable: boolean; productAcquisitionAvailable: boolean; productCollectionsAvailable: boolean; supplyChainAvailable: boolean; knowledgeAvailable: boolean; productReviewAvailable: boolean; ecoservicesAvailable: boolean; sheinRecordsAvailable: boolean; notificationCenterAvailable: boolean; supportAvailable: boolean }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
   const context = useWorkbenchContext();
@@ -163,7 +164,7 @@ function WorkbenchFrame({ children, pathname, dataServicesAvailable, reportCente
           <Button ref={trigger} className="md:hidden" variant="ghost" size="icon" aria-controls={MOBILE_NAVIGATION_ID} aria-expanded={mobileOpen} aria-label={mobileOpen ? "关闭工作台导航" : "打开工作台导航"} onClick={() => setMobileOpen((value) => !value)}>{mobileOpen ? <X aria-hidden="true" /> : <Menu aria-hidden="true" />}</Button>
           <div className="console-top-context"><p className="console-tagline">打造属于自己的AI电商团队</p><div className="console-organization">{contextConfirmed ? <OrganizationSwitcher /> : <span className="text-xs text-muted-foreground">企业上下文尚未确认</span>}</div></div>
           <div className="console-global-actions">
-            <Button disabled title="客服服务暂未接入" variant="outline">联系客服</Button>
+            <SupportLauncher available={supportAvailable && !context.isSwitching} key={`${context.user?.id ?? ""}:${context.effectiveOrganization?.id ?? ""}:${context.isSwitching}`} />
             {notificationCenterAvailable ? <NotificationPopover /> : <Button disabled title="通知中心尚未启用" variant="outline">通知</Button>}
             <button className="console-theme-toggle" type="button" role="switch" aria-label="浅色模式" aria-checked={light} onClick={() => setTheme(light ? "dark" : "light")}>{light ? "浅色" : "深色"}<span aria-hidden="true" /></button>
             <details className="console-user"><summary>我的账户 ⌄</summary><div><p className="break-words text-xs text-muted-foreground">已登录账号</p><p className="mt-1 break-all text-sm">{contextConfirmed ? context.user?.id : null}</p><Link href="/workbench/account/profile" prefetch={false}>账户资料</Link><a href="/api/zitadel-auth/logout">退出登录</a></div></details>
