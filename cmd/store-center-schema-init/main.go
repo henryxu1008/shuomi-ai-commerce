@@ -18,6 +18,7 @@ import (
 
 	storeschema "task-processor/internal/app/schema/storecenter"
 	coreconfig "task-processor/internal/core/config"
+	observationschema "task-processor/internal/integration/persistence/sheinobservations"
 	platformdatabase "task-processor/internal/platform/database"
 	"task-processor/internal/storecenter"
 )
@@ -26,34 +27,63 @@ func main() {
 	path := flag.String("config", "", "absolute private Store schema-owner JSON config")
 	observations := flag.Bool("observations", false, "install readonly platform observations on an authorized fresh empty Store instance")
 	observationsOnly := flag.Bool("observations-only", false, "verify retained Store schema and install only observations; no base migrations or general grants")
+	grantsOnly := flag.Bool("observations-grants-only", false, "explicitly restore original observation grants on an existing owner-controlled schema")
+	verify := flag.Bool("observations-verify", false, "read-only verification using the private store_center_runtime config")
 	cockpit := flag.Bool("operations-cockpit", false, "install manual financial facts and goals on an authorized fresh empty Store instance")
 	flag.Parse()
-	if err := run(*path, *observations, *cockpit, *observationsOnly); err != nil {
+	if err := run(*path, *observations, *cockpit, *observationsOnly, *grantsOnly, *verify); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	if *observationsOnly {
+	if *verify {
+		fmt.Println("Store observation schema and serving privileges verified; no schema operation")
+	} else if *grantsOnly {
+		fmt.Println("Original Store observation grants restored; schema and facts retained")
+	} else if *observationsOnly {
 		fmt.Println("Store observations installed; base schema, facts and permissions retained")
 	} else {
 		fmt.Println("current Store schema installed and narrow runtime roles granted")
 	}
 }
 
-func run(storePath string, observations, cockpit, observationsOnly bool) error {
-	if observationsOnly && (observations || cockpit) {
-		return errors.New("observations-only cannot be combined with base or Cockpit installation")
+func run(storePath string, observations, cockpit, observationsOnly, grantsOnly, verify bool) error {
+	narrowModes := 0
+	for _, enabled := range []bool{observationsOnly, grantsOnly, verify} {
+		if enabled {
+			narrowModes++
+		}
+	}
+	if narrowModes > 1 || narrowModes > 0 && (observations || cockpit) {
+		return errors.New("observation narrow modes cannot be combined with each other, base or Cockpit installation")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	storeCfg, err := loadOwnerConfig(storePath, "store_center_owner")
+	role := "store_center_owner"
+	if verify {
+		role = "store_center_runtime"
+	}
+	storeCfg, err := loadOwnerConfig(storePath, role)
 	if err != nil {
 		return err
 	}
-	records, err := platformdatabase.OpenExistingWritableContext(ctx, storeCfg)
+	open := platformdatabase.OpenExistingWritableContext
+	if verify {
+		open = platformdatabase.OpenExistingReadOnlyContext
+	}
+	records, err := open(ctx, storeCfg)
 	if err != nil {
-		return errors.New("open Store schema-owner database failed")
+		return errors.New("open private Store role database failed")
 	}
 	defer platformdatabase.Close(records)
+	if verify {
+		return observationschema.VerifyRuntime(ctx, records)
+	}
+	if grantsOnly {
+		if err := storecenter.VerifyCurrentSchema(ctx, records); err != nil {
+			return fmt.Errorf("verify retained Store schema: %w", err)
+		}
+		return storeschema.RestoreObservationsGrants(ctx, records)
+	}
 	if observationsOnly {
 		if err := storecenter.VerifyCurrentSchema(ctx, records); err != nil {
 			return fmt.Errorf("verify retained Store schema: %w", err)

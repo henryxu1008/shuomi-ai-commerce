@@ -16,7 +16,7 @@ func TestStoreObservationsRetainedInitializerIdentityAndRepeat(t *testing.T) {
 	if _, e := exec.LookPath("jq"); e != nil {
 		t.Fatal("jq required")
 	}
-	for _, variant := range []string{"repeat", "changed-base", "changed-output", "interrupted", "configured-app"} {
+	for _, variant := range []string{"repeat", "changed-base", "changed-output", "revoked-grants", "interrupted", "configured-app"} {
 		t.Run(variant, func(t *testing.T) {
 			root := t.TempDir()
 			for _, dir := range []string{"base", "runtime", "secrets/store-owner", "bin"} {
@@ -34,7 +34,7 @@ func TestStoreObservationsRetainedInitializerIdentityAndRepeat(t *testing.T) {
 			write("base/current-application.json", base)
 			write("secrets/store-owner/store-owner-password", "synthetic-test-password")
 			calls := filepath.Join(root, "owner-calls")
-			writeAccountComposeExecutable(t, filepath.Join(root, "bin", "store-center-schema-init"), "#!/bin/sh\ntest \"$1\" = -config && test \"$3\" = -observations-only || exit 97\nprintf 'called\\n' >> "+shellQuote(calls)+"\n")
+			writeAccountComposeExecutable(t, filepath.Join(root, "bin", "store-center-schema-init"), "#!/bin/sh\ntest \"$1\" = -config || exit 97\nif test \"$3\" = -observations-verify; then test ! -f "+shellQuote(filepath.Join(root, "revoked"))+"; exit $?; fi\ntest \"$3\" = -observations-only || exit 97\nprintf 'called\\n' >> "+shellQuote(calls)+"\n")
 			input, e := os.ReadFile(filepath.Join("..", "deployments", "docker", "account-compose", "store-observations-init.sh"))
 			if e != nil {
 				t.Fatal(e)
@@ -82,6 +82,9 @@ func TestStoreObservationsRetainedInitializerIdentityAndRepeat(t *testing.T) {
 			}
 			if variant == "changed-output" {
 				write("runtime/current-application.json", string(before)+"\n")
+			}
+			if variant == "revoked-grants" {
+				write("revoked", "revoked")
 			}
 			err := run()
 			if (err == nil) != (variant == "repeat") {

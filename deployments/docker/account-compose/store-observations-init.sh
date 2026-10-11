@@ -11,12 +11,17 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 jq '.storeCenter.observations={temporalAddress:"127.0.0.1:7233",temporalNamespace:"default",preparationOnly:true}' /base/current-application.json > "$work/runtime.json"
 output_hash=$(sha256sum "$work/runtime.json" | cut -d ' ' -f 1)
+jq '.storeCenter.database | .maxConnections=1 | .maxIdleConnections=0' /base/current-application.json > "$work/serving.json"
+verify_serving() {
+ store-center-schema-init -config "$work/serving.json" -observations-verify || fail 'Observation serving privileges unavailable; explicit owner observations-grants-only restoration required after rollback'
+}
 if test -e /runtime/.complete; then
  test "$(cat /runtime/.complete)" = store-observations-preparation-v1 || fail 'Unknown observation initializer marker'
  test "$(cat /runtime/source.sha256)" = "$source_hash" || fail 'Original manifest changed; explicit operator decision required'
  test "$(cat /runtime/runtime.sha256)" = "$output_hash" || fail 'Expected observation manifest changed'
  test "$(sha256sum /runtime/current-application.json | cut -d ' ' -f 1)" = "$output_hash" || fail 'Private observation manifest changed'
- echo 'Existing observation preparation manifest verified; no schema operation'
+ verify_serving
+ echo 'Existing observation preparation manifest and serving privileges verified; no schema operation'
  exit 0
 fi
 test ! -e /runtime/.initializing && test ! -e /runtime/current-application.json && test ! -e /runtime/source.sha256 && test ! -e /runtime/runtime.sha256 || fail 'Interrupted observation installation; inspect before retrying'
@@ -24,6 +29,7 @@ mkdir /runtime/.initializing || fail 'Observation installation already in progre
 jq -n --rawfile password /secrets/store-owner/store-owner-password \
  '{host:"127.0.0.1",port:5433,user:"store_center_owner",password:($password|rtrimstr("\n")),database:"store_center",maxConnections:2,maxIdleConnections:1}' > "$work/owner.json"
 store-center-schema-init -config "$work/owner.json" -observations-only
+verify_serving
 # The owner command must complete before a serving manifest is published.
 cp "$work/runtime.json" /runtime/current-application.json.tmp
 chmod 600 /runtime/current-application.json.tmp
