@@ -53,7 +53,7 @@ func (s *Service) overviewAt(ctx context.Context, scope Scope, mode, zone string
 				break
 			}
 			v := s.resolve(taskCtx, scope, Reference{Kind: "BUSINESS_TASK", TargetID: id})
-			if !v.Available || v.TaskState == "" {
+			if taskCtx.Err() != nil || !v.Available || v.TaskState == "" {
 				complete = false
 				break
 			}
@@ -85,6 +85,10 @@ func (s *Service) overviewAt(ctx context.Context, scope Scope, mode, zone string
 				break
 			}
 			v := s.resolve(storeCtx, scope, Reference{Kind: "STORE", TargetID: id})
+			if storeCtx.Err() != nil {
+				out.StoresAvailable = false
+				break
+			}
 			if !v.Available {
 				out.StoresAvailable = false
 				continue

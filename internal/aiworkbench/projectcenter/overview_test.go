@@ -129,3 +129,20 @@ func TestOverviewSourceDeadlineKeepsLocalFiguresAndUnknownWaiting(t *testing.T) 
 	require.False(t, out.StoresAvailable)
 	require.Empty(t, out.Stores)
 }
+
+type lateOverviewReader struct{}
+
+func (*lateOverviewReader) Resolve(ctx context.Context, _ Scope, ref Reference) (ReferenceView, error) {
+	<-ctx.Done()
+	return ReferenceView{Kind: ref.Kind, TargetID: ref.TargetID, Available: true, Title: "late source", Href: "/workbench/stores/a", TaskState: "WAITING_CONFIRMATION"}, nil
+}
+func TestOverviewRejectsLastSourceResultReturnedAfterItsDeadline(t *testing.T) {
+	scope := Scope{"org-a", "actor-a"}
+	repo := &overviewRepo{snapshot: OverviewSnapshot{Scope: scope, TaskIDs: []string{"550e8400-e29b-41d4-a716-446655440000"}, StoreIDs: []string{"store-a"}}}
+	s := Service{Store: repo, Reader: &lateOverviewReader{}, Authorize: func(context.Context, Scope, bool) error { return nil }}
+	out, e := s.Overview(context.Background(), scope, "active", "UTC")
+	require.NoError(t, e)
+	require.Nil(t, out.WaitingTasks)
+	require.False(t, out.StoresAvailable)
+	require.Empty(t, out.Stores)
+}
