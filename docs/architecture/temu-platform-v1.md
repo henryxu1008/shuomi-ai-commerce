@@ -51,6 +51,8 @@ Accepted Risks：本任务没有新增用户批准的风险豁免。官方资料
 
 本土 V3 自动推断类目/属性是已存在的官方能力，不能复制一个本地推断平台。本批优先采用当前 Recommended V2 的显式资料合同，以便用户检查创建内容；不静默切换 V3 或把平台推断当作本地审批。V2 externalGoodsId 单店唯一、最大 40 字符，V3 同名字段规则不同，必须按版本绑定；externalGoodsId 与列表 outGoodsSn 的映射尚未证实，不用于自动 adopt。
 
+2026-10-12 新读 E42 确认 V2 也可能由平台补填/转换缺失或不合格信息，并在成功响应返回要求前往 Seller Center 确认的 warnings。按既有 M3/M5 保留批准 payload 与官方警告；本地仍拒绝缺失事实/规格，不依赖补填通过。成功只确认创建，不能声称远端全部字段等于批准内容、已审核或在售；没有已证实 opt-out 参数，不自行增加。V2 自定义规格使用当前模板的 parentSpecId/specName，不先调用独立规格 create；模板必须重读，不能将观察到的旧 variationType=0 强改为2。该合同补充属于 IMPLEMENTATION_TEST（结果投影/提交切片门槛），不改变 owner/状态/授权边界或重开冻结设计。公告的 UDP 未有本批应用分区依据，不猜网关。
+
 “平台草稿”在本任务首先是当前 TargetRecord 中尚未提交的资料；列表支持 DRAFT 筛选不证明有远端保存草稿 mutation。只实现已证实的官方操作，不发明 save-draft endpoint。
 
 ## 3. 当前代码根因与职责

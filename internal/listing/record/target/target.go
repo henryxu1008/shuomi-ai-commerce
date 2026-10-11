@@ -7,6 +7,7 @@ import (
 	"task-processor/internal/authidentity"
 	"task-processor/internal/listing/preparation"
 	"task-processor/internal/marketplace/shein/goods"
+	temumodel "task-processor/internal/marketplace/temu/model"
 	"task-processor/internal/product/asset"
 	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/collection"
@@ -25,6 +26,7 @@ type TargetInput struct {
 	EffectiveVersion uint64                   `json:"effectiveVersion,string"`
 	ApplyReceiptID   string                   `json:"applyReceiptId,omitempty"`
 	Draft            goods.OfficialDraftInput `json:"draft"`
+	TemuRules        *temumodel.RuleSelection `json:"temuRules,omitempty"`
 }
 type TargetRecord struct {
 	ID                string                                `json:"id"`
@@ -164,6 +166,11 @@ func (s *TargetService) CreateForExecution(ctx context.Context, scope collection
 }
 
 func (s *TargetService) create(ctx context.Context, scope collection.Scope, key string, input TargetInput, selectSource func(context.Context, string) (preparation.AuthorizedSource, error), reauthorize func(context.Context) error) (TargetReceipt, error) {
+	// Named TEMU metadata is query-only until the admitted TEMU record/payload
+	// variant is complete. Never save it through the qualified SHEIN builder.
+	if input.TemuRules != nil {
+		return TargetReceipt{}, ErrNotReady
+	}
 	if !collection.ValidID(key) || !collection.ValidID(input.SourceID) || !collection.ValidID(input.StoreID) || input.ExpectedRevision < 0 || input.ExpectedRevision >= 1<<63-1 || input.EffectiveVersion == 0 || input.EffectiveVersion > 1<<63-1 || input.ApplyReceiptID != "" && !authidentity.IsBoundedIdentifier(input.ApplyReceiptID) {
 		return TargetReceipt{}, ErrInvalid
 	}
