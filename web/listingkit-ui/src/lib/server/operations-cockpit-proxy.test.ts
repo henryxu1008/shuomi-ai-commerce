@@ -4,6 +4,20 @@ beforeEach(() => vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL", "https://app.test"));
 afterEach(() => {vi.unstubAllGlobals();vi.unstubAllEnvs();});
 const id = "123e4567-e89b-42d3-a456-426614174000";
 const headers = { "X-Expected-User-ID": "actor-a", "X-Expected-Organization-ID": "org-a", Cookie: "shuomi_effective_organization=org-a", Origin: "https://app.test", "Content-Type": "application/json", "Idempotency-Key": id };
+it.each([["",""],["shein","US"]])("dispatches single platform/site parameters only for the matrix (%s/%s)",async(platform,region)=>{
+ vi.stubEnv("LISTINGKIT_SERVICE_API_BASE","http://localhost:8085/api/v1");
+ const totals={revenue:0,refunds:0,procurement:0,logistics:0,platform:0,advertising:0,other:0,netRevenue:0,netProfit:0,margin:null};
+ const fetcher=vi.fn<typeof fetch>(async()=>Response.json({rows:[],total:0,page:1,summary:totals,summaryComplete:false,states:{loss:0,break_even:0,recorded_complete:0,data_incomplete:0},capturedAt:"2026-10-10T01:00:00Z"}));vi.stubGlobal("fetch",fetcher);
+ const query=new URLSearchParams({startDate:"2026-10-01",endDate:"2026-10-09",platform,region});
+ const response=await proxyCockpit(new Request("https://app.test/api/operations-cockpit/stores?"+query,{headers}),"fixture-token","actor-a");
+ expect(response.status).toBe(200);expect(fetcher).toHaveBeenCalledOnce();
+ const forwarded=new URL(String(fetcher.mock.calls[0][0]));expect(forwarded.searchParams.get("platform")).toBe(platform);expect(forwarded.searchParams.get("region")).toBe(region);
+ fetcher.mockClear();
+ for(const path of ["alerts?"+query,"advice?"+query,"stores?"+query+"&platform=other","stores?"+query+"&region=CA"]){
+  expect((await proxyCockpit(new Request("https://app.test/api/operations-cockpit/"+path,{headers}),"fixture-token","actor-a")).status).toBe(400);
+ }
+ expect(fetcher).not.toHaveBeenCalled();
+});
 it("rejects stale organization and incomplete cost facts before dispatch", async () => {
  const fetcher = vi.fn();vi.stubGlobal("fetch",fetcher);
  const stale = new Request("https://app.test/api/operations-cockpit/capabilities",{headers:{...headers,"X-Expected-Organization-ID":"org-b"}});
