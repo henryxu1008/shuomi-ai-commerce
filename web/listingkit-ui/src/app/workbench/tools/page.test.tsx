@@ -10,16 +10,19 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-it("opens the existing official tools page when the module is mounted", () => {
+it("keeps its independent homepage and exposes official tools when mounted", () => {
   vi.stubEnv("LISTINGKIT_TOOL_MARKET_ENABLED", "true");
-  navigate.redirect.mockImplementation(() => { throw new Error("NEXT_REDIRECT"); });
-  expect(() => Page()).toThrow("NEXT_REDIRECT");
-  expect(navigate.redirect).toHaveBeenCalledWith("/workbench/tools/official");
+  render(<Page />);
+  expect(navigate.redirect).not.toHaveBeenCalled();
+  expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("按业务场景启用工具");
+  expect(screen.getByRole("link", { name: /浏览官方工具/ })).toHaveAttribute("href", "/workbench/tools/official");
 });
 
 it.each([undefined, "false", "TRUE"])("keeps an unconfigured module unavailable (%s)", (enabled) => {
   vi.stubEnv("LISTINGKIT_TOOL_MARKET_ENABLED", enabled);
   render(<Page />);
   expect(navigate.redirect).not.toHaveBeenCalled();
-  expect(screen.getByText("暂未启用")).toBeVisible();
+  expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("按业务场景启用工具");
+  expect(screen.getAllByText("暂未启用")).toHaveLength(3);
+  expect(screen.queryByRole("link", { name: /浏览官方工具/ })).not.toBeInTheDocument();
 });

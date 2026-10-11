@@ -38,3 +38,12 @@ it("cancels the old scope and never displays its late profit after switching ent
   await act(async () => resolve({ ...matrix, summaryComplete: true }));
   expect(screen.queryByText("¥200.00")).not.toBeInTheDocument();
 });
+it.each([false, true])("preserves unavailable goal evaluation alongside actual rules (%s)", async (hasRules) => {
+  const rule = { id: "rule-a", title: "真实经营预警", reason: "已保存成本", advice: "核对成本", level: "attention", actionPath: "/workbench/overview/stores", actionLabel: "查看" };
+  vi.mocked(cockpitRequest).mockImplementation(async (_scope, path) => path === "capabilities" ? { ...capabilities, access: { ...access, alertsRead: true, adviceRead: true } } : path.startsWith("stores?") ? matrix : { rules: hasRules ? [rule] : [], goalUnavailable: true });
+  mount();
+  await waitFor(() => expect(screen.getAllByText("企业当前目标或关联店铺不可访问，目标评判暂不可用。")).toHaveLength(2));
+  expect(screen.queryByText("当前范围暂无规则预警")).not.toBeInTheDocument();
+  expect(screen.queryByText("当前范围暂无人工处理建议")).not.toBeInTheDocument();
+  if (hasRules) expect(screen.getAllByText("真实经营预警")).toHaveLength(2);
+});
