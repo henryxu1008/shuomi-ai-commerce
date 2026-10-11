@@ -55,3 +55,16 @@ it("refresh failure and organization switch hide previous summary",async()=>{
  context.effectiveOrganization={id:"org-b"};view.rerender(ui());
  await waitFor(()=>expect(screen.queryByText("61",{selector:"strong"})).not.toBeInTheDocument());
 });
+
+it("unreadable existing goal is never presented as an unconfigured goal",async()=>{
+ context.permissions=["workbench.cockpit.goals.read"];
+ const unavailable={goal:null,evaluation:null,head:{goalId:id,revision:"2",scopeValid:false,canReconfigure:true},goalUnavailable:true,capturedAt:rules.capturedAt,basis:[]};
+ vi.stubGlobal("fetch",vi.fn(async(url:string)=>Response.json(url.endsWith("capabilities")?caps:unavailable)));
+ render(<QueryClientProvider client={client()}><CockpitPage mode="goals"/></QueryClientProvider>);
+ expect(await screen.findByText("不可访问",{selector:"span"})).toBeVisible();
+ expect(screen.getAllByText("无法读取",{selector:"strong"})).toHaveLength(3);
+ expect(screen.queryByText("尚未设置")).not.toBeInTheDocument();
+ expect(screen.queryByText("尚未选择经营范围")).not.toBeInTheDocument();
+ expect(screen.getByText("版本记录不可读取，原目标仍保留。")).toBeVisible();
+ expect(screen.getByRole("link",{name:"维护经营目标"})).toHaveAttribute("href","/workbench/overview/goals/settings");
+});

@@ -1,4 +1,7 @@
 .cockpit { --cockpit-accent: var(--primary); --cockpit-purple: #7360ff; display: grid; gap: 16px; }
+.cockpit>:global(.console-breadcrumb) { margin-bottom: -10px; }
+.cockpit>:global(.console-page-header) { margin-bottom: 0; }
+.cockpit :global(.console-page-header h1) { font-size: 26px; line-height: 34px; }
 .panel,.toolbar { padding: 18px; border: 1px solid var(--console-border, var(--border)); background: var(--console-card, var(--card)); border-radius: 12px; min-width: 0; }
 .panel h2 { font-size: 16px; font-weight: 650; margin: 0 0 12px; }
 .panel h3 { font-size: 14px; font-weight: 600; margin: 16px 0 8px; }
