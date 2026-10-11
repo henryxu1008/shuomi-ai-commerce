@@ -1,13 +1,20 @@
-# Opt in only for an authorized app runtime. No Chatwoot admin/API credentials.
+# Opt in only for an authorized app runtime; token is server-only.
 services:
+  runtime-network:
+    networks: [default, support-api]
   listingkit-ui:
     environment:
-      CHATWOOT_ORIGIN: ${CHATWOOT_ORIGIN:?HTTPS support origin; HTTP allowed for loopback trials only}
-      CHATWOOT_WEBSITE_TOKEN: ${CHATWOOT_WEBSITE_TOKEN:?Public token from the dedicated website inbox}
-      CHATWOOT_IDENTITY_SECRET_FILE: /private/chatwoot/identity-secret
+      CHATWOOT_ORIGIN: http://chatwoot-rails:3000
+      CHATWOOT_ACCOUNT_ID: ${CHATWOOT_ACCOUNT_ID:?Dedicated account ID}
+      CHATWOOT_INBOX_ID: ${CHATWOOT_INBOX_ID:?Dedicated API inbox ID}
+      CHATWOOT_API_TOKEN_FILE: /private/chatwoot/api-token
     volumes:
       - type: bind
-        source: ${CHATWOOT_IDENTITY_SECRET_HOST_FILE:?Absolute path to a private inbox HMAC secret file}
-        target: /private/chatwoot/identity-secret
+        source: ${CHATWOOT_API_TOKEN_HOST_FILE:?Absolute path to private integration operator token}
+        target: /private/chatwoot/api-token
         read_only: true
         bind: { create_host_path: false }
+networks:
+  support-api:
+    external: true
+    name: ${CHATWOOT_NETWORK_NAME:?Provider project support-api network name}

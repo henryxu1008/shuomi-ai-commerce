@@ -7,12 +7,13 @@ export function readChatwootConfig() {
   try {
     const raw = process.env.CHATWOOT_ORIGIN?.trim() ?? "";
     const url = new URL(raw);
-    const loopback = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
-    if (raw !== url.origin || url.username || url.password || !(url.protocol === "https:" || url.protocol === "http:" && loopback) || url.origin === new URL(resolvePublicAppOrigin()).origin) return null;
-    const websiteToken = process.env.CHATWOOT_WEBSITE_TOKEN?.trim() ?? "";
-    if (!/^[A-Za-z0-9_-]{8,256}$/.test(websiteToken)) return null;
-    const secretFile = process.env.CHATWOOT_IDENTITY_SECRET_FILE?.trim();
-    const inlineSecret = process.env.CHATWOOT_IDENTITY_SECRET?.trim();
+    const privateHost = ["localhost", "127.0.0.1", "[::1]", "chatwoot-rails"].includes(url.hostname);
+    if (raw !== url.origin || url.username || url.password || !(url.protocol === "https:" || url.protocol === "http:" && privateHost) || url.origin === new URL(resolvePublicAppOrigin()).origin) return null;
+    const accountId = Number(process.env.CHATWOOT_ACCOUNT_ID);
+    const inboxId = Number(process.env.CHATWOOT_INBOX_ID);
+    if (![accountId, inboxId].every(id => Number.isSafeInteger(id) && id > 0)) return null;
+    const secretFile = process.env.CHATWOOT_API_TOKEN_FILE?.trim();
+    const inlineSecret = process.env.CHATWOOT_API_TOKEN?.trim();
     if (secretFile && inlineSecret) return null;
     let secret = inlineSecret ?? "";
     if (secretFile) {
@@ -24,9 +25,8 @@ export function readChatwootConfig() {
         secret = bytes.subarray(0, size).toString("utf8").trim();
       } finally { closeSync(fd); }
     }
-    // Chatwoot has_secure_token generates 24-character inbox HMAC secrets.
-    if (secret.length < 24 || secret.length > 4096 || /[\r\n\u0000]/.test(secret)) return null;
-    return { origin: url.origin, websiteToken, secret };
+    if (secret.length < 16 || secret.length > 4096 || !/^[A-Za-z0-9._-]+$/.test(secret)) return null;
+    return { origin: url.origin, accountId, inboxId, token: secret };
   } catch { return null; }
 }
 
