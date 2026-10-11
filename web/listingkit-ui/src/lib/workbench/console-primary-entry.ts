@@ -28,7 +28,7 @@ export function firstConnectedConsoleEntry(pathname: string, capabilities: Conso
       return capabilities.supplyChainAvailable ? "/workbench/supply/mine" : null;
     case "/workbench/agents": return "/workbench/agents/market";
     case "/workbench/tools": return capabilities.toolMarketAvailable ? "/workbench/tools/official" : null;
-    case "/workbench/services": return capabilities.ecoservicesAvailable ? "/workbench/services/market" : null;
+    case "/workbench/services": return capabilities.ecoservicesAvailable ? "/workbench/services" : null;
     case "/workbench/data":
       if (capabilities.dataServicesAvailable) return "/workbench/data/market";
       return capabilities.productCollectionsAvailable ? "/workbench/data/mine" : null;

@@ -53,20 +53,29 @@ it("does not open Supply Chain without its existing Collections dependency", () 
 });
 
 it.each([
-  ["true", "true", "/workbench/data/market"],
-  ["false", "true", "/workbench/data/mine"],
-])("opens only mounted data capabilities (%s/%s)", (data, collections, destination) => {
+  ["true", "true"],
+  ["true", "false"],
+  ["false", "true"],
+  [undefined, "false"],
+])("keeps the data introduction and links only mounted capabilities (%s/%s)", (data, collections) => {
   vi.stubEnv("LISTINGKIT_DATA_SERVICES_ENABLED", data);
   vi.stubEnv("LISTINGKIT_PRODUCT_COLLECTIONS_ENABLED", collections);
-  expectDestination(DataPage, destination);
-});
-
-it("keeps missing data modules unavailable", () => {
-  vi.stubEnv("LISTINGKIT_DATA_SERVICES_ENABLED", undefined);
-  vi.stubEnv("LISTINGKIT_PRODUCT_COLLECTIONS_ENABLED", "false");
+  fixture.redirect.mockImplementation(() => { throw new Error("NEXT_REDIRECT"); });
   render(<DataPage />);
   expect(fixture.redirect).not.toHaveBeenCalled();
-  expect(screen.getByText("暂未启用")).toBeVisible();
+  expect(screen.getByRole("heading", { level: 1, name: "让数据成为可调用、可沉淀、可复用的业务资产" })).toBeVisible();
+  const destinations = [
+    { name: /浏览数据市场/, href: "/workbench/data/market", available: data === "true" },
+    { name: /管理API/, href: "/workbench/data/api", available: data === "true" },
+    { name: /查看我的数据/, href: "/workbench/data/mine", available: collections === "true" },
+  ];
+  for (const { name, href, available } of destinations) {
+    const link = screen.queryByRole("link", { name });
+    if (available) expect(link).toHaveAttribute("href", href);
+    else expect(link).not.toBeInTheDocument();
+  }
+  expect(screen.queryAllByText("暂未启用")).toHaveLength(destinations.filter(item => !item.available).length);
+  expect(screen.getByRole("heading", { name: "如何开始使用" })).toBeVisible();
 });
 
 it("opens the existing Agent configuration catalog without executing an Agent", () => {
