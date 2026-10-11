@@ -1,7 +1,7 @@
 # Supply 未绑定店铺待补全草稿
 
 Design Basis: Independent Architecture
-Admission Status: NOT_READY — 待独立高风险边界检查；不得据此修改生产代码。
+Admission Status: IMPLEMENTATION_READY / FROZEN — 2026-10-12 独立高风险边界检查通过。
 
 ## 1. Outcome / authority / boundary
 
@@ -30,6 +30,8 @@ Out of Scope：新 canonical Product、修改来源、自动 Store 绑定/同步
 启用为显式 `supplyCompletionDrafts` 能力，要求 ProductCollections、原 Product pool、当前 membership 与 live permissions，不要求 SupplyChain、Store 官方配置、Asset pool、Temporal 或模型。runtime、HTTP route admission、schema/grant verifier、BFF、UI flags 必须一致；disabled 不开放写路径。Product acquisition capability union 须完整覆盖所有已启用消费者，不能靠忽略严格 grant verifier 消除启动失败。
 
 Serving 只验证 schema/grants，不能 DDL。新增显式 schema-owner 安装入口只创建本节三表及最小权限；新安装/受控测试可使用，现有保留实例的安装在候选完成后另行取得具体授权。原有 Compose 层、私有配置值、业务卷不重置。
+
+组合细节：该 opt-in 独立组合原 Preparation core 和六项转入/来源路由，不要求 AcquisitionPlans/BrowserCollector。与 AcquisitionPlans 同时启用时复用同一 core 并避免重复注册；完整 SupplyChain 启用时复用其 app/core 和原完整路由。三个草稿表权限加上必要的原 Preparation 权限进入所有 Product 消费者共同的 RuntimeCapabilities union，旧 disabled composition 对新增权限仍拒绝。不能修改全库授予函数来安装当前实例，保留实例只用新增 owner 的有界 additive grant/verify 入口。
 
 ## 3. Persistence / transaction / idempotency
 
@@ -71,3 +73,11 @@ Legacy decision: EXTRACT | RETIRE。复用当前 Preparation/Catalog 的 source 
 TDD 与必要验证：空缺字段可保存、刷新准确读回、并发 revision CAS、同键不同载荷拒绝、同键重放旧 record、事务部分失败回滚与 COMMIT-unknown 原键恢复、跨 org/actor/member 和撤权/来源读取拒绝、payload/查询上限；真实隔离 PostgreSQL 下 schema/最小 grants 与 extra grant 拒绝；API/BFF 无 Store 可保存但原 target/执行未开放；UI late response/context isolation、保存版本与再次编辑、显式带入不覆盖正式 target；scope 内 Figma 视觉核对、必需 CI 和最终一次独立交付检查。
 
 数据保留：当前实例原事实、备份、schema、grant 和命名卷在开发/隔离测试期间不修改。候选完成后交出新增三表、最小 grant、回退/验证步骤和镜像组合，取得本地安装授权后才能应用；回退停新能力后保留三表/所有记录，不删除或恢复旧全库覆盖新记录。真实 SHEIN/付费模型、合并、部署、Issue 关闭和用户验收分别保留其原授权与 NOT_RUN。
+
+## 7. Independent Architecture R1
+
+2026-10-12，独立 Reviewer `/root/native_auth_review` 实查 #605 当前正文、原 source/owner/TargetRecord 与 runtime/grant 组合，以 `3f049c8691c43747436a37e45caf3fb90d32b42e` 加 §2 组合补充（设计 blob `a9a0860702e66fdaff99ac96015c4ec005623a8b`）确认 **IMPLEMENTATION_READY，无设计 BLOCKER**。只复核本次新草稿边界，不重复未变化的 #654。
+
+Finding R1: 保存、回读与原键恢复。Classification: IMPLEMENTATION_TEST；影响准确持久化、不越权和不覆盖并发更新 Must，合并及本地试用前须通过。短效 source proof 在提交及回执读取时重新核对 live scope/source；真实 PG 验证原子性、revision CAS、旧键旧 record、COMMIT UNKNOWN、撤权/member 替换。
+
+Finding R2: 独立能力及权限组合。Classification: IMPLEMENTATION_TEST；影响无 Store/collector 可转入与保存且执行关闭 Must，合并及本地试用前须通过。落实原六 Preparation 路由、plans/full 去重、所有 Product 消费者同一 capability union、有界 additive grants；回退只撤本能力独有 grant，保留事实和其他消费者权限，严格 disabled preflight 不放松。
