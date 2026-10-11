@@ -2,7 +2,7 @@
 import {useEffect,useRef,useState} from "react";
 import {useQuery} from "@tanstack/react-query";
 import {z} from "zod";
-import {Pencil,Plus,Trash2} from "lucide-react";
+import {Plus} from "lucide-react";
 import {useWorkbenchContext} from "@/components/providers/workbench-context-provider";
 import {Button} from "@/components/ui/button";
 import {Input} from "@/components/ui/input";
@@ -17,7 +17,7 @@ import {StoreSyncDialog} from "./store-sync-dialog";
 import styles from "./store-catalog.module.css";
 
 export type CatalogDialog={kind:"bind"}|{kind:"groups"}|{kind:"profile"|"rename"|"sync";item:CatalogItem;initialKind?:"products"|"orders"}|{kind:"assign";items:CatalogItem[]};
-type Props={dialog:CatalogDialog;scope:StoreCenterScope;groups:Group[];canManageGroups:boolean;onClose:()=>void;onChanged:()=>Promise<unknown>};
+type Props={dialog:CatalogDialog;scope:StoreCenterScope;groups:(Group & {count?:number})[];canManageGroups:boolean;onClose:()=>void;onChanged:()=>Promise<unknown>};
 export function StoreCatalogDialogs(props:Props){
  const {dialog}=props;
  if(dialog.kind==="bind")return <BindDialog {...props}/>;
@@ -69,13 +69,15 @@ function MetadataDialog({dialog,scope,groups,canManageGroups,onClose,onChanged}:
  // Keep the original captured versions until an explicit re-read after a conflict.
  const title=dialog.kind==="groups"?"分组管理":dialog.kind==="assign"?"加入店铺分组":"负责人和库存预警";
  return <ResourceDialog title={title} className={styles.dialog} onClose={onClose} locked={operation.pending}>
-  <p>{dialog.kind==="groups"?"分组用于整理店铺，删除分组不会解绑店铺。":dialog.kind==="assign"?`将 ${dialog.items.length} 家选定店铺加入同一分组，全部成功后保存。`:item?.name}</p>
+  <p>{dialog.kind==="groups"?"统一维护店铺分组，绑定店铺时可直接选择。":dialog.kind==="assign"?`将 ${dialog.items.length} 家选定店铺加入同一分组，全部成功后保存。`:item?.name}</p>
   {operation.message?<p role="status" className={operation.rejected?styles.error:styles.hint}>{operation.message}</p>:null}
   {operation.intent?<div className={styles.hint}><p>原操作：{operation.intent.command.action} · {operation.intent.key}</p><Button size="sm" disabled={operation.pending} onClick={()=>void operation.verify()}>确认原操作结果</Button><Button size="sm" variant="outline" disabled={operation.pending} onClick={()=>void operation.retry()}>重试原请求</Button>{operation.rejected?<Button size="sm" variant="ghost" onClick={()=>void operation.discard()}>{dialog.kind==="groups"?"刷新后重新编辑":"刷新列表并关闭"}</Button>:null}</div>:null}
   {dialog.kind==="groups"?<>
-   <ul className={styles.groupList}>{available.map(group=><li key={group.id}><span>{group.name}<small>版本 {group.groupVersion}</small></span>{canManageGroups?<><Button variant="ghost" size="sm" disabled={locked} aria-label={`重命名${group.name}`} onClick={()=>{setEditing(group);setDeleting(null);setName(group.name)}}><Pencil size={13}/></Button><Button variant="ghost" size="sm" disabled={locked} aria-label={`删除${group.name}`} onClick={()=>{setDeleting(group);setEditing(null);setName("")}}><Trash2 size={13}/></Button></>:null}</li>)}</ul>
+   {canManageGroups?<form className={styles.groupEditor} onSubmit={event=>{event.preventDefault();submit()}}>{deleting?<p className={styles.error}>确认删除“{deleting.name}”？该组店铺会自动移出分组，授权和服务不会改变。</p>:<label>{editing?"分组名称":"新建分组"}<Input value={name} disabled={locked} maxLength={60} onChange={event=>setName(event.target.value)} placeholder="输入分组名称"/></label>}<footer>{editing||deleting?<Button type="button" variant="outline" disabled={locked} onClick={()=>{setEditing(null);setDeleting(null);setName("")}}>取消</Button>:null}<Button disabled={locked || (!deleting&&!name.trim())} type="submit">{deleting?"确认删除":editing?"保存名称":<><Plus size={14}/>新建分组</>}</Button></footer></form>:<p className={styles.hint}>企业管理员可创建、重命名和删除共享分组。</p>}
+   <div className={styles.groupColumns}><span>分组名称</span><span>店铺数量</span><span>操作</span></div>
+   <ul className={styles.groupList}>{available.map(group=>{const count=groups.find(value=>value.id===group.id)?.count;return <li key={group.id}><span>{group.name}</span><span>{count===undefined?"数量待确认":`${count} 家店铺`}</span><div>{canManageGroups?<><Button variant="outline" size="sm" disabled={locked} aria-label={`重命名${group.name}`} onClick={()=>{setEditing(group);setDeleting(null);setName(group.name)}}>重命名</Button><Button variant="outline" size="sm" className={styles.groupDelete} disabled={locked} aria-label={`删除${group.name}`} onClick={()=>{setDeleting(group);setEditing(null);setName("")}}>删除</Button></>:<span>仅查看</span>}</div></li>})}</ul>
    {query.isError?<p className={styles.error}>暂时无法读取最新分组，请重试。</p>:null}
-   {canManageGroups?<form onSubmit={event=>{event.preventDefault();submit()}}>{deleting?<p className={styles.error}>确认删除“{deleting.name}”？该组店铺会自动移出分组，授权和服务不会改变。</p>:<label>{editing?"分组名称":"新建分组"}<Input value={name} disabled={locked} maxLength={60} onChange={event=>setName(event.target.value)} placeholder="输入分组名称"/></label>}<footer>{editing||deleting?<Button type="button" variant="outline" disabled={locked} onClick={()=>{setEditing(null);setDeleting(null);setName("")}}>取消</Button>:null}<Button disabled={locked || (!deleting&&!name.trim())} type="submit">{deleting?"确认删除":editing?"保存名称":<><Plus size={14}/>新建分组</>}</Button></footer></form>:<p className={styles.hint}>企业管理员可创建、重命名和删除共享分组。</p>}
+   <p>删除分组不会解绑店铺，分组内店铺将自动移出该分组。</p>
   </>:<form onSubmit={event=>{event.preventDefault();submit()}}>
    <label>店铺分组<Select value={groupId} disabled={locked || query.isError} onChange={event=>setGroupId(event.target.value)}><option value="">未分组</option>{available.map(group=><option key={group.id} value={group.id}>{group.name}</option>)}</Select></label>
    {dialog.kind==="profile"?<><ResponsiblePicker scope={scope} value={responsible} onChange={setResponsible} disabled={locked || !context.permissions.includes("workbench.organization_member.read")}/><label>低库存阈值（件）<Input type="number" min={0} max={Number.MAX_SAFE_INTEGER} step={1} value={threshold} disabled={locked} placeholder="未设置" onChange={event=>setThreshold(event.target.value)}/></label><p className={styles.hint}>每个 SKU、每个仓库分别比较。已知库存 ≤ 阈值时预警；留空关闭，缺失库存显示未知。负责人只记录业务归属。</p></>:null}
