@@ -155,6 +155,24 @@ publication）；取有明确 CNY 的来源阶梯价格最低 amount，MOQ 取�
 UNKNOWN 保留原 reservation。计划无独立资源扣减/退款/钱包访问；未通过规则正常消费。
 额度不足停止发出新商品，可查看已成功/失败/待核实项；不签发整批成功。
 
+2026-10-11 最终差异复核发现当前默认采集批次按每个 operation 独立派生。
+原设计若把两个默认批次直接合成一个 TransferInput，将阻断批量自动转入。
+Finding: 核心 happy path 无法完成；Classification: BLOCKER，实施修正/试用/合并层。
+本段修正先于实施，限定复核这一处；其余冻结边界不重新设计。
+
+最小修正使用现有 Collection 聚合合同：仅首次存在规则通过商品时，以
+`StableID(plan.ID,"selected-batch")` 原幂等 key 调用 `create_batch`，名称为
+“1688采集筛选”；校验回执批次 ID 等于当前 scope/key 派生的既有 Collection operation ID。
+每个 matched 商品按原 child publication，调用原稳定 `add_acquisition` key，
+明确指定回执 BatchID。此操作只在现有 Collection owner 内新增来源引用，
+不调用 move_item，不移动/改写原默认成员，不复制 Product/Catalog 正文。
+多个规则通过商品因而属于同一个计划选中批次；规则未通过或未知仍在原我的数据。
+创建批次/加入来源响应丢失时只按原合同/key 重放回执，名称与 key 由计划确定；
+归档或变更导致不可加入时保留原计划失败/可读取，不自动找别的批次或恢复归档。
+最终仍冻结一个精确非空、受权成员/版本集合和原 TransferInput/key；
+Preparation 自有事务/receipt、状态机/权限/事实 owner 不变。没有匹配时不创建
+选中批次，也绝不 Transfer(empty)。不新增 schema、批次同步或第二事实 owner。
+
 AutoTransfer=false 到此结束。true 且规则通过时，在现有 Collection owner 核对
 原 publication/成员/当前权限，然后调用 Preparation 原受权选择与 Transfer。
 冻结转入意图与计划引用使用同 Product DB 事务；随后调用 Preparation 现有自有事务，
