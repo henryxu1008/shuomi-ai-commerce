@@ -63,6 +63,22 @@ it("restores unknown intent for explicit Verify without dispatching a new acquis
   expect(calls.acquire).toHaveBeenCalledOnce();
 });
 
+it("keeps the collector-capacity original across shell remount and explicitly continues it", async () => {
+  calls.acquire.mockRejectedValueOnce(new AcquisitionAPIError("ACQUISITION_CAPACITY", 429));
+  calls.acquire.mockResolvedValueOnce({ outcome: "published", operationId, productKey: "crawler:1688:123" });
+  const first = mount(); await submit(); await screen.findByRole("alert");
+  const original = calls.acquire.mock.calls[0][0] as AcquisitionOperation;
+  expect(JSON.parse(localStorage.getItem(storageKey)!)).toMatchObject(original);
+  expect(screen.getByRole("button", { name: "提交采集" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "继续原请求" })).toBeEnabled();
+  first.unmount(); mount();
+  await userEvent.click(await screen.findByRole("button", { name: "继续原请求" }));
+  await waitFor(() => expect(calls.acquire).toHaveBeenCalledTimes(2));
+  expect(calls.acquire.mock.calls[1][0]).toMatchObject(original);
+  expect(calls.verify).not.toHaveBeenCalled();
+  await waitFor(() => expect(localStorage.getItem(storageKey)).toBeNull());
+});
+
 it("retains the original slot across another identity and organization then returning", async () => {
   calls.acquire.mockRejectedValueOnce(new AcquisitionAPIError("DATA_QUOTA_INSUFFICIENT", 409));
   calls.acquire.mockResolvedValueOnce({ outcome: "acquiring", operationId });

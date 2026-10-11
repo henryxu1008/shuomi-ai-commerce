@@ -149,7 +149,6 @@ it.each(["prepared", "acquiring"] as const)("keeps the original key when creatio
 
 it.each([
   ["SOURCE_UNAVAILABLE", 502],
-  ["ACQUISITION_CAPACITY", 429],
   ["ACQUISITION_NOT_FOUND", 404],
 ] as const)("releases the intent after definitive %s so a new operation can be submitted", async (code, status) => {
   calls.acquire.mockRejectedValueOnce(new AcquisitionAPIError(code, status));

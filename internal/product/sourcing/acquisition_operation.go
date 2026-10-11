@@ -34,6 +34,7 @@ const (
 	AcquisitionPublishing          = "publishing"
 	AcquisitionPublished           = "published"
 	AcquisitionFailed              = "failed"
+	AcquisitionCapacityRejected    = "COLLECTOR_CAPACITY_REJECTED"
 )
 
 var (
@@ -72,6 +73,13 @@ type AcquisitionOperationStore interface {
 	Finish(context.Context, AcquisitionOperation, string, string) error
 }
 
+// AcquisitionCapacityRejectionStore records a provider's confirmed rejection
+// before external work. It fences the rejected attempt without terminating or
+// releasing the original reservation; only Start can grant another attempt.
+type AcquisitionCapacityRejectionStore interface {
+	RecordCapacityRejection(context.Context, AcquisitionOperation) error
+}
+
 // CapacityReadOperationStore optionally reports whether an organization still
 // has acquisition capacity, so a caller can reject before doing expensive
 // external work. It is an optimization, not a correctness gate: the atomic
@@ -91,6 +99,8 @@ type PreparedAcquisitionOperationStore interface {
 }
 
 type PublicAcquirer interface {
+	// ErrAcquisitionCapacity must mean rejection before any external work.
+	// Transport/response uncertainty must never be represented by this sentinel.
 	Acquire(context.Context, AcquisitionSource) (AcquisitionEvidence, error)
 }
 

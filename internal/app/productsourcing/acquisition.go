@@ -243,6 +243,13 @@ func (s *AcquisitionService) failFetch(ctx context.Context, op sourcing.Acquisit
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
+	if errors.Is(cause, sourcing.ErrAcquisitionCapacity) {
+		store, ok := s.operations.(sourcing.AcquisitionCapacityRejectionStore)
+		if !ok || store.RecordCapacityRejection(ctx, op) != nil {
+			return sourcing.ErrAcquisitionUnknown
+		}
+		return sourcing.ErrAcquisitionCapacity
+	}
 	code := "SOURCE_UNAVAILABLE"
 	if errors.Is(cause, sourcing.ErrInvalidAcquisition) {
 		code = "INVALID_SOURCE"

@@ -125,6 +125,9 @@ func (s *BrowserAcquisitionService) Acquire(ctx context.Context, key, source str
 	if err != nil {
 		cause := s.failFetch(ctx, providerCtx, err)
 		if ctx.Err() == nil && providerCtx.Err() == nil {
+			if errors.Is(err, sourcing.ErrAcquisitionCapacity) {
+				return sourcing.AcquisitionResult{}, s.core.failFetch(ctx, op, err)
+			}
 			_ = s.core.failFetch(ctx, op, err)
 		}
 		return sourcing.AcquisitionResult{}, cause
@@ -329,10 +332,10 @@ func (s *BrowserAcquisitionService) outerBudget() time.Duration {
 	return sourcing.AcquisitionTimeout
 }
 
-// failFetch maps a provider/mapping failure to the established sentinels. A
-// pre-admission browser failure must not leave a durable terminal row: the path
-// retries by re-acquiring under the same key (D1), and nothing is written yet,
-// so there is nothing to Finish.
+// failFetch maps provider/mapping failures to the established sentinels. The
+// paid server path has already bound a reservation before provider work. Its
+// confirmed capacity rejection is fenced by core.failFetch; it must not write
+// terminal failure or rely on the unbound-admission recovery rule.
 //
 // A deadline/cancellation is reported as such (the HTTP layer renders
 // context.DeadlineExceeded as 504 DEADLINE_EXCEEDED); any other provider or
