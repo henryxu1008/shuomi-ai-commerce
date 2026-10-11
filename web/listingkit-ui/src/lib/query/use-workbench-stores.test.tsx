@@ -135,6 +135,36 @@ describe("Organization-scoped workbench Store queries", () => {
     await act(async()=>{await restored.result.current.retryLast()});expect(mocks.create.mock.calls.at(-1)).toEqual(original);expect(sessionStorage.length).toBe(0);
   });
 
+  it("unlocks a persisted create after a definitive duplicate and permits a corrected request", async () => {
+    mocks.create.mockRejectedValueOnce(new WorkbenchAPIError(409, "STORE_ALREADY_EXISTS", "", "", []));
+    const input = { name: "Duplicate", platform: "shein" as const, region: "US" };
+    const { wrapper } = createHarness();
+    const first = renderHook(() => useCreateWorkbenchStore({ persist: true }), { wrapper });
+    await act(async () => { await first.result.current.mutateAsync(input).catch(() => undefined); });
+    expect(first.result.current.canRetryLast).toBe(false);
+    expect(sessionStorage.length).toBe(0);
+    first.unmount();
+    const restored = renderHook(() => useCreateWorkbenchStore({ persist: true }), { wrapper });
+    expect(restored.result.current.canRetryLast).toBe(false);
+    await act(async () => { await restored.result.current.mutateAsync({ ...input, name: "Corrected" }); });
+    expect(mocks.create.mock.calls.at(-1)).toEqual([{ ...input, name: "Corrected" }, CREATE_KEY_2, "org-a"]);
+  });
+
+  it.each([[0, "STORE_CREATE_OUTCOME_UNKNOWN"], [403, "PERMISSION_DENIED"]] as const)("retains persisted intent for %s %s after remount", async (status, code) => {
+    mocks.create.mockRejectedValue(new WorkbenchAPIError(status, code, "", "", []));
+    const input = { name: "Original", platform: "shein" as const, region: "US" };
+    const { wrapper } = createHarness();
+    const first = renderHook(() => useCreateWorkbenchStore({ persist: true }), { wrapper });
+    await act(async () => { await first.result.current.mutateAsync(input).catch(() => undefined); });
+    expect(first.result.current.canRetryLast).toBe(true);
+    const original = mocks.create.mock.calls[0];
+    first.unmount();
+    mocks.create.mockResolvedValue(store);
+    const restored = renderHook(() => useCreateWorkbenchStore({ persist: true }), { wrapper });
+    await act(async () => { await restored.result.current.retryLast(); });
+    expect(mocks.create.mock.calls.at(-1)).toEqual(original);
+  });
+
   it.each(["list", "item"])("drops cached %s facts when permissions change with the same native role", async (kind) => {
     mocks.context.effectiveOrganization!.roles = ["sumi_role_0123456789abcdef0123456789abcdef_01"];
     mocks.context.effectiveOrganization!.permissions = ["workbench.store.read"];

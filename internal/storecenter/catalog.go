@@ -235,11 +235,13 @@ func (c *Catalog) List(ctx context.Context, q CatalogRequest) (CatalogResult, er
 		if signal.ApplicationType.Valid() {
 			typeSet[signal.ApplicationType] = true
 		}
-		if q.ApplicationType != "" && string(signal.ApplicationType) != q.ApplicationType {
-			if !summaryAvailable {
+		if q.ApplicationType != "" {
+			if !summaryAvailable || !signal.ApplicationType.Valid() {
 				return result, ErrCatalogSummaryIncomplete
 			}
-			continue
+			if string(signal.ApplicationType) != q.ApplicationType {
+				continue
+			}
 		}
 		if q.Attention != "" && q.Attention != "unknown" && item.Attention == "unknown" {
 			return result, ErrCatalogSummaryIncomplete

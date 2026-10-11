@@ -117,7 +117,9 @@ export function useCreateWorkbenchStore({persist=false}:{persist?:boolean}={}) {
       },
     onError: (error, operation) => {
       if(operation.persistenceKey){
-        if(error.code==="INVALID_REQUEST" && error.status===400){sessionStorage.removeItem(operation.persistenceKey)}
+        if((error.code==="INVALID_REQUEST" && error.status===400) || (error.code==="STORE_ALREADY_EXISTS" && error.status===409)){
+          if(readSavedCreate(operation.persistenceKey)?.operationKey===operation.operationKey)sessionStorage.removeItem(operation.persistenceKey);
+        }
         else {let saved=operation;try{saved=readSavedCreate(operation.persistenceKey)??operation}catch{}if(lastOperationRef.current?.operation===operation){lastOperationRef.current={operation:saved,retryable:true};setRetryState({organizationId:saved.organizationId,available:true})}return}
       }
       updateLastKeyedOperation(
