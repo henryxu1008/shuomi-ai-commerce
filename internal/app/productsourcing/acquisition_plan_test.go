@@ -22,13 +22,13 @@ func (a planTestAuth) AuthorizePlan(context.Context, bool) (sourcing.Acquisition
 }
 
 type planCollections struct {
-	item              collection.ItemDetail
-	batch             collection.Batch
-	itemErr, batchErr error
+	item                         collection.ItemDetail
+	batch                        collection.Batch
+	itemErr, batchErr, mutateErr error
 }
 
 func (c *planCollections) Mutate(context.Context, string, collection.Mutation) (collection.Receipt, error) {
-	return collection.Receipt{}, nil
+	return collection.Receipt{}, c.mutateErr
 }
 func (c *planCollections) ReadItem(context.Context, string) (collection.ItemDetail, error) {
 	return c.item, c.itemErr
@@ -111,6 +111,45 @@ func TestPlanPersistsPreFreezeSourceConflictSiblings(t *testing.T) {
 			require.Empty(t, r.plan.TransferInputJSON)
 			require.Zero(t, preps.calls)
 			require.Zero(t, child.acquire)
+		})
+	}
+}
+
+func TestPlanPersistsCollectionMutationConflict(t *testing.T) {
+	for _, mutationError := range []error{collection.ErrNotFound, collection.ErrConflict, collection.ErrUnknown, collection.ErrForbidden} {
+		t.Run(mutationError.Error(), func(t *testing.T) {
+			scope := sourcing.AcquisitionPlanScope{OrganizationID: "org", ActorID: "actor", MemberID: "member"}
+			input, _ := sourcing.NewAcquisitionPlanInput("product", []string{"123"}, sourcing.AcquisitionRule{}, true)
+			r := &planMemory{plan: sourcing.AcquisitionPlan{ID: uuid.NewString(), Key: uuid.NewString(), Scope: scope, Input: input, DiscoveryIndex: 1, Revision: 1, State: "pending", Items: []sourcing.AcquisitionPlanItem{{Source: input.Inputs[0], State: "pending"}}}}
+			source, _ := sourcing.Canonical1688Source(input.Inputs[0])
+			op := acquisitionOperation(sourcing.PublicationScope{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID}, planChildKey(r.plan.ID, source.URL), source)
+			op.State = sourcing.AcquisitionPublished
+			op.Command = &sourcing.PublicationCommand{PublicationID: "source-run:acquisition:" + op.ID, ProductKey: "1688:123"}
+			raw, _ := json.Marshal(op.Command)
+			hash := sha256.Sum256(raw)
+			op.CommandHash = hex.EncodeToString(hash[:])
+			publication := &sourcing.PersistedPublication{}
+			publication.Receipt.OrganizationID, publication.Receipt.ActorID = scope.OrganizationID, scope.ActorID
+			publication.Receipt.PublicationID, publication.Receipt.ProductKey, publication.Receipt.CatalogVersion = op.Command.PublicationID, op.Command.ProductKey, 1
+			child := &planChild{result: sourcing.AcquisitionResult{Operation: op, Publication: publication}}
+			collections := &planCollections{mutateErr: mutationError}
+			preps := &planPreparation{}
+			service, err := NewAcquisitionPlanService(r, nil, child, collections, preps, planTestAuth{scope}, nil)
+			require.NoError(t, err)
+			p, err := service.Advance(t.Context(), r.plan.ID, 1)
+			if mutationError == collection.ErrUnknown || mutationError == collection.ErrForbidden {
+				require.ErrorIs(t, err, mutationError)
+				require.Empty(t, r.plan.FailureCode)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, "transfer_source_conflict", r.plan.FailureCode)
+				require.Equal(t, "published", p.Items[0].State)
+				_, err = service.Advance(t.Context(), r.plan.ID, p.Revision)
+				require.NoError(t, err)
+				require.Equal(t, 1, child.acquire)
+			}
+			require.Zero(t, preps.calls)
+			require.Empty(t, r.plan.TransferInputJSON)
 		})
 	}
 }
