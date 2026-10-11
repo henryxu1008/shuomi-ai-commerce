@@ -349,9 +349,9 @@ func (s *AcquisitionPlanService) recoverChild(ctx context.Context, scope sourcin
 	switch result.Operation.State {
 	case sourcing.AcquisitionAcquiring, sourcing.AcquisitionPrepared:
 		return s.child.Acquire(ctx, item.ChildKey, item.Source)
-	case sourcing.AcquisitionPublishing:
+	case sourcing.AcquisitionPublishing, sourcing.AcquisitionPublished:
 		return s.child.Verify(ctx, item.ChildKey, item.Source)
-	case sourcing.AcquisitionPublished, sourcing.AcquisitionFailed:
+	case sourcing.AcquisitionFailed:
 		return result, nil
 	default:
 		return sourcing.AcquisitionResult{}, sourcing.ErrAcquisitionUnavailable

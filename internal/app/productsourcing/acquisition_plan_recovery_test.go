@@ -2,6 +2,8 @@ package productsourcing
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"testing"
 
@@ -23,6 +25,7 @@ func TestPlanRecoveryUsesOriginalOwnerByDurableState(t *testing.T) {
 		{name: "acquiring", state: sourcing.AcquisitionAcquiring, acquire: 1},
 		{name: "prepared", state: sourcing.AcquisitionPrepared, acquire: 1},
 		{name: "publishing", state: sourcing.AcquisitionPublishing, verify: 1},
+		{name: "published charge recovery", state: sourcing.AcquisitionPublished, verify: 1},
 		{name: "not found", readErr: sourcing.ErrAcquisitionNotFound, acquire: 1},
 		{name: "read unavailable", readErr: sourcing.ErrAcquisitionUnavailable},
 		{name: "foreign operation", state: sourcing.AcquisitionPrepared, foreign: true},
@@ -53,6 +56,75 @@ func TestPlanRecoveryUsesOriginalOwnerByDurableState(t *testing.T) {
 			require.Equal(t, "needs_verification", p.Items[0].State)
 		})
 	}
+}
+
+type planChargeRecoveryPublisher struct {
+	receipt  sourcing.PublicationReceipt
+	verifies int
+}
+
+func (p *planChargeRecoveryPublisher) Publish(context.Context, sourcing.PublicationCommand) (sourcing.PublicationReceipt, error) {
+	panic("recovery cannot publish")
+}
+func (p *planChargeRecoveryPublisher) Verify(context.Context, sourcing.PublicationCommand) (sourcing.PublicationReceipt, error) {
+	p.verifies++
+	return p.receipt, nil
+}
+func (p *planChargeRecoveryPublisher) Read(context.Context, string) (sourcing.PersistedPublication, error) {
+	return sourcing.PersistedPublication{Receipt: p.receipt}, nil
+}
+
+type planChargeRecovery struct {
+	calls, consumed int
+	operationID     string
+}
+
+func (*planChargeRecovery) BeforeDispatch(context.Context, sourcing.AcquisitionOperation) error {
+	panic("recovery cannot acquire new admission")
+}
+func (c *planChargeRecovery) Reconcile(_ context.Context, op sourcing.AcquisitionOperation) error {
+	c.calls++
+	if c.calls == 1 {
+		return sourcing.ErrAcquisitionUnknown
+	}
+	if c.operationID == "" {
+		c.operationID = op.ID
+		c.consumed++
+	}
+	return nil
+}
+func TestPlanPublishedRecoveryReconcilesOriginalChargeBeforeCompleting(t *testing.T) {
+	scope := sourcing.AcquisitionPlanScope{OrganizationID: "org", ActorID: "actor", MemberID: "member"}
+	input, _ := sourcing.NewAcquisitionPlanInput("product", []string{"123"}, sourcing.AcquisitionRule{}, false)
+	id := uuid.NewString()
+	source, _ := sourcing.Canonical1688Source(input.Inputs[0])
+	op := acquisitionOperation(sourcing.PublicationScope{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID}, planChildKey(id, source.URL), source)
+	op.State = sourcing.AcquisitionPublished
+	op.Command = &sourcing.PublicationCommand{PublicationID: "source-run:acquisition:" + op.ID, ProductKey: "1688:123"}
+	raw, _ := json.Marshal(op.Command)
+	hash := sha256.Sum256(raw)
+	op.CommandHash = hex.EncodeToString(hash[:])
+	publisher := &planChargeRecoveryPublisher{receipt: sourcing.PublicationReceipt{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, PublicationID: op.Command.PublicationID, CatalogPublicationID: op.Command.PublicationID, ProductKey: op.Command.ProductKey, CatalogVersion: 1}}
+	charges := &planChargeRecovery{}
+	child, e := NewAcquisitionService(&acquisitionStoreSpy{op: op}, nil, publisher, nil, acquisitionAuthFunc(func(context.Context) (sourcing.PublicationScope, error) { return op.Scope, nil }), charges)
+	require.NoError(t, e)
+	r := &planMemory{plan: sourcing.AcquisitionPlan{ID: id, Key: uuid.NewString(), Scope: scope, Input: input, DiscoveryIndex: 1, Revision: 1, State: "pending", Items: []sourcing.AcquisitionPlanItem{{Source: source.URL, State: "pending"}}}}
+	service, e := NewAcquisitionPlanService(r, nil, child, nil, nil, planTestAuth{scope}, nil)
+	require.NoError(t, e)
+	p, e := service.Advance(context.Background(), id, 1)
+	require.NoError(t, e)
+	require.Equal(t, "needs_verification", p.Items[0].State)
+	require.Zero(t, charges.consumed)
+	p, e = service.Advance(context.Background(), id, p.Revision)
+	require.NoError(t, e)
+	require.Equal(t, "completed", p.State)
+	require.Equal(t, 2, charges.calls)
+	require.Equal(t, 1, charges.consumed)
+	require.Equal(t, op.ID, charges.operationID)
+	require.Equal(t, 2, publisher.verifies)
+	_, e = service.Advance(context.Background(), id, p.Revision)
+	require.NoError(t, e)
+	require.Equal(t, 1, charges.consumed)
 }
 
 type groupedPlanCollections struct {
