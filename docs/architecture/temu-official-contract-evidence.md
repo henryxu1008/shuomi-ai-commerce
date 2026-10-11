@@ -220,7 +220,7 @@ E24 的标题是站点币种/体积差异，没有“是否开站”或本 merch
 | --- | --- | --- |
 | 官方页面、迁移路由、三模式创建/读取/状态 API | PASS（文档读取） | 只证明本文件列出的合同事实，不是业务调用成功 |
 | 半托 96 行/70 true/26 false、本土 39 行规格摘录 | PASS（文档读取） | 文档版本绑定；不证明所有 merchant 可售 |
-| CN/PA 同授权身份/模式验证合同 | PASS（文档读取） | E03/E04/E11/E26；选 PA uniqueId，不要求 mallId 转换；实际调用 NOT_RUN，设计修正待独立复核 |
+| CN/PA 同授权身份/模式验证合同 | PASS（文档读取） | E03/E04/E11/E26；选 PA uniqueId，不要求 mallId 转换；设计增量复核已关闭 G1 BLOCKER，实际调用 NOT_RUN |
 | 本土 region/site 规格关联 | UNKNOWN（待访问 E30） | 已找到官方 Model Site and Region；GLOBAL 登录后读取，不断言文档缺失 |
 | externalGoodsId/outGoodsSn 关系与失响应 exact readback | UNKNOWN | 不做错误 adopt；原 UNKNOWN fence 保留 |
 | 真实官方应用/真实 merchant 授权、发布、撤权、消费者状态 | NOT_RUN | 本轮未授权业务 API/真实数据 |

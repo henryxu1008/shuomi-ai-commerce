@@ -4,7 +4,7 @@
 >
 > Design Basis：Independent Architecture
 >
-> Status：NOT_READY；第一轮 G1 已有补充官方依据、待增量复核；G2 文档正文待 GLOBAL 登录，不是 IMPLEMENTATION_READY
+> Status：NOT_READY；G1 增量复核已关闭 BLOCKER、转 IMPLEMENTATION_TEST；G2 文档正文待 GLOBAL 登录，不是 IMPLEMENTATION_READY
 >
 > 调查基线：main @ f1d77a84fa653813235ddbfeedac59ea6bb0a94c，2026-10-11
 >
@@ -200,13 +200,13 @@ Provider 页大小不得超过官方上限（本土 retrieve、product.search 10
 
 | ID | 缺少的具体依据 | 受影响 Must / 后果 | owner / 解锁条件 / 层级 |
 | --- | --- | --- | --- |
-| G1 | 第一轮缺口现由 E03/E04/E11/E26 补齐：PA uniqueId 明确为 mall 唯一标识，同一店铺 token 的 CN 类型/PA 身份接口均由当前清单指定；无须 CN mallId 转换 | M2/M4：固定一个 supplier 身份与同凭据模式验证，未核实/缺权限不连接，变更 token/app/siteSet 不能重置 fence | 官方依据和设计已修正，待独立相关增量复核；真实响应/权限验证转 IMPLEMENTATION_TEST，而非缺官方映射的永久 BLOCKER |
+| G1 | 第一轮缺口现由 E03/E04/E11/E26 补齐：PA uniqueId 明确为 mall 唯一标识，同一店铺 token 的 CN 类型/PA 身份接口均由当前清单指定；无须 CN mallId 转换 | M2/M4：固定一个 supplier 身份与同凭据模式验证，未核实/缺权限不连接，变更 token/app/siteSet 不能重置 fence | 独立相关增量复核已关闭 BLOCKER；真实响应/权限验证为 IMPLEMENTATION_TEST，不是缺官方映射的永久 BLOCKER |
 | G2 | 已找到官方 Model Site and Region（E30），GLOBAL 登录后才能读取正文；需确定 region→site 的规格选择和文档冲突处理；不再要求虚构全量 merchant-site API | M1/M3：本土价格/单位/规则必须对应官方规格，不能靠地理或用户选项猜；本土创建目标已明确为授权 mall | 本 Writer 读取 E30 并修正规格合同，独立相关增量复核；待用户 GLOBAL 登录，阻塞完整发布设计准入，不阻塞继续调查 |
 | G3 | externalGoodsId 与 outGoodsSn 明确映射、PA exact recovery 证据覆盖 | M4/M5：盲目 adopt 错误结果；当前可保留 UNKNOWN 避免错误副作用 | IMPLEMENTATION_TEST；已知成功 ID 可读回、无法 qualified 时保持 UNKNOWN；实施/真实验证层处理，不授权自动重发 |
 
-第一轮独立评审的原分类：G1/G2 为 BLOCKER；G3 为 IMPLEMENTATION_TEST。进一步官方查证发现 G1 不需要原草案要求的 CN mallId→PA uniqueId 映射表，G2 也应先读取已经找到的 E30，不能称为文档不存在。上述修正待独立增量复核，原历史评审保留；作者不自行签发 READY。店铺服务沿当前 ServiceLifecycleExecutor 与 orgresource store_service_v1 reservation/receipt，未发现平台专属新计费依赖。准确候选 SHA、Reviewer 证据与增量复核写主 PR #655。
+第一轮独立评审的原分类：G1/G2 为 BLOCKER；G3 为 IMPLEMENTATION_TEST。进一步官方查证与独立相关增量复核确认 G1 不需要原草案要求的 CN mallId→PA uniqueId 映射表，G1 已转 IMPLEMENTATION_TEST；本土 mall fence 修正无新增 BLOCKER。E27 辅助规格/尺码表 create 在实现层按批准与必要性收敛，准备/读取不能暗中 mutation，需要未批准创建时保持待补全。G2 应先读取已经找到的 E30，不能称为文档不存在。原历史评审保留，未签发整体 READY。店铺服务沿当前 ServiceLifecycleExecutor 与 orgresource store_service_v1 reservation/receipt，未发现平台专属新计费依赖。准确候选 SHA、Reviewer 证据与增量复核写主 PR #655。
 
-G1 增量复核和 G2 正文读取/设计闭环完成前，当前状态 NOT_READY / Backlog，不进入正式生产开发。CN 登录文档已可访问，不再要求 CN 登录；E30 需要独立 GLOBAL 区登录，已向用户指出具体官方页。本轮未读取应用管理密钥或商家数据，也未执行官方业务 API。可以继续只读查证与设计评审，不能用真实调用试错取代未授权商家验证。
+G2 正文读取/设计闭环和独立准入完成前，当前状态 NOT_READY / Backlog，不进入正式生产开发。CN 登录文档已可访问，不再要求 CN 登录；E30 需要独立 GLOBAL 区登录，已向用户指出具体官方页。本轮未读取应用管理密钥或商家数据，也未执行官方业务 API。可以继续只读查证与设计评审，不能用真实调用试错取代未授权商家验证。
 
 Architecture Review：第一轮由独立只读 Reviewer 核对原始范围/Threat Model、代码实际 owner 与全部设计 diff，结论 NOT_READY；后续只复核实际相关增量，最多两轮正常评审。finding 先分类为 BLOCKER / IMPLEMENTATION_TEST / BACKLOG / ACCEPTED_RISK / NOT_APPLICABLE，列明受影响 Must、具体后果与层级。只有 G1/G2 等实际核心路径/身份/不可重复副作用条件未满足时阻止开工；非 Blocker 不扩成新的通用机制。
 
