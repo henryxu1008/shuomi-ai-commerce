@@ -34,7 +34,7 @@ func (p *interruptedAcquisitionReserve) Reserve(ctx context.Context, id orgresou
 	return p.ConsumerChargePort.Reserve(ctx, id)
 }
 
-func acquisitionRecoveryResource(t *testing.T, db *gorm.DB) (orgresource.ConsumerChargePort, *resourceadapter.GormMemberAllocationRepository) {
+func acquisitionRecoveryResource(t *testing.T, db *gorm.DB) (orgresource.ConsumerChargePort, *resourceadapter.GormMemberAllocationRepository, *gorm.DB) {
 	t.Helper()
 	resourceDB, err := gorm.Open(sqlite.New(sqlite.Config{DriverName: "sqlite", DSN: filepath.Join(t.TempDir(), "resource.sqlite")}), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	require.NoError(t, err)
@@ -55,7 +55,7 @@ func acquisitionRecoveryResource(t *testing.T, db *gorm.DB) (orgresource.Consume
 	require.NoError(t, err)
 	charges, err := orgresource.NewConsumerChargeService(repo, map[orgresource.ResourceConsumer]orgresource.ConsumerChargeOwner{orgresource.ConsumerProductAcquisition: owner})
 	require.NoError(t, err)
-	return charges, positions
+	return charges, positions, resourceDB
 }
 
 func TestAcquisitionAdmissionRecoveryPreservesOriginalReservation(t *testing.T) {
@@ -73,7 +73,7 @@ func TestAcquisitionAdmissionRecoveryPreservesOriginalReservation(t *testing.T) 
 			t.Run(name, func(t *testing.T) {
 				db := acquisitionDatabase(t)
 				require.NoError(t, InstallAcquisitionSchema(db))
-				charges, positions := acquisitionRecoveryResource(t, db)
+				charges, positions, _ := acquisitionRecoveryResource(t, db)
 				interrupted := &interruptedAcquisitionReserve{ConsumerChargePort: charges, fail: true, receiptLost: lost}
 				provider, fetches, _ := acquisitionFixture(t)
 				permissions, live := acquisitionPermissionDependencies(t)
