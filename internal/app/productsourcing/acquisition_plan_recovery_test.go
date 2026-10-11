@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"testing"
 
 	"github.com/google/uuid"
@@ -13,6 +14,43 @@ import (
 	"task-processor/internal/product/collection"
 	"task-processor/internal/product/sourcing"
 )
+
+type conflictPlanPreparations struct {
+	err   error
+	calls int
+}
+
+func (p *conflictPlanPreparations) ReadByKey(context.Context, string) (preparation.TransferReceipt, error) {
+	return preparation.TransferReceipt{}, preparation.ErrNotFound
+}
+func (p *conflictPlanPreparations) Transfer(context.Context, string, preparation.TransferInput) (preparation.TransferReceipt, error) {
+	p.calls++
+	return preparation.TransferReceipt{}, p.err
+}
+
+func TestPlanStopsKnownFrozenTransferConflictWithoutUnknownRecovery(t *testing.T) {
+	for _, conflict := range []error{preparation.ErrConflict, collection.ErrConflict, collection.ErrNotFound} {
+		t.Run(conflict.Error(), func(t *testing.T) {
+			scope := sourcing.AcquisitionPlanScope{OrganizationID: "org", ActorID: "actor", MemberID: "member"}
+			input, _ := sourcing.NewAcquisitionPlanInput("product", []string{"123"}, sourcing.AcquisitionRule{}, true)
+			planID, batchID, itemID := uuid.NewString(), uuid.NewString(), uuid.NewString()
+			frozen, _ := json.Marshal([]planTransferIntent{{Key: collection.StableID(planID, batchID, "transfer"), Input: preparation.TransferInput{BatchID: batchID, ExpectedRevision: 3, ItemIDs: []string{itemID}}}})
+			r := &planMemory{plan: sourcing.AcquisitionPlan{ID: planID, Key: uuid.NewString(), Scope: scope, Input: input, DiscoveryIndex: 1, Revision: 1, State: "transfer_pending", TransferKey: collection.StableID(planID, "transfer"), TransferInputJSON: frozen, Items: []sourcing.AcquisitionPlanItem{{Source: input.Inputs[0], State: "published"}}}}
+			preps := &conflictPlanPreparations{err: errors.Join(errors.New("source changed"), conflict)}
+			service, err := NewAcquisitionPlanService(r, nil, &planChild{}, nil, preps, planTestAuth{scope}, nil)
+			require.NoError(t, err)
+			p, err := service.Advance(t.Context(), planID, 1)
+			require.NoError(t, err)
+			require.Equal(t, "transfer_source_conflict", p.FailureCode)
+			require.Equal(t, "transfer_pending", p.State)
+			require.Equal(t, frozen, p.TransferInputJSON)
+			require.Empty(t, p.PreparationIDs)
+			_, err = service.Advance(t.Context(), planID, p.Revision)
+			require.NoError(t, err)
+			require.Equal(t, 1, preps.calls, "a definite stale intent cannot acquire a future matching receipt")
+		})
+	}
+}
 
 func TestPlanRecoveryUsesOriginalOwnerByDurableState(t *testing.T) {
 	for _, tc := range []struct {

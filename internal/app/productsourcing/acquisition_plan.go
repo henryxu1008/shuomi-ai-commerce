@@ -169,6 +169,11 @@ func (s *AcquisitionPlanService) Advance(ctx context.Context, id string, expecte
 	if err = check(ctx); err != nil {
 		return p, err
 	}
+	// A definite source conflict cannot acquire a matching receipt for this
+	// immutable intent. Keep its prefix and surface the stored conflict.
+	if p.FailureCode == "transfer_source_conflict" {
+		return p, nil
+	}
 	p, err = s.repository.Claim(ctx, p.Scope, id, expected, check)
 	if err != nil {
 		return p, err
@@ -449,8 +454,14 @@ func (s *AcquisitionPlanService) finishOrSave(ctx context.Context, p sourcing.Ac
 		receipt, err = s.preparations.Transfer(ctx, group.Key, group.Input)
 	}
 	if err != nil {
+		if errors.Is(err, preparation.ErrForbidden) || errors.Is(err, collection.ErrForbidden) {
+			return p, sourcing.ErrPublicationForbidden
+		}
 		p.State = "transfer_pending"
 		p.FailureCode = "transfer_needs_verification"
+		if errors.Is(err, preparation.ErrConflict) || errors.Is(err, collection.ErrConflict) || errors.Is(err, collection.ErrNotFound) {
+			p.FailureCode = "transfer_source_conflict"
+		}
 		return s.repository.Save(ctx, p, check)
 	}
 	if receipt.Preparation.ID != preparation.OperationID(scope, group.Key) || receipt.Preparation.SourceBatchID != group.Input.BatchID || receipt.Preparation.SourceRevision != group.Input.ExpectedRevision || receipt.Preparation.Count != int64(len(group.Input.ItemIDs)) {

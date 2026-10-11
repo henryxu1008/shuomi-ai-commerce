@@ -9,6 +9,15 @@ beforeEach(()=>{sessionStorage.clear();vi.clearAllMocks();HTMLDialogElement.prot
 afterEach(cleanup);
 const scope={userId:"actor",organizationId:"org-A"};
 async function start(){await userEvent.click(await screen.findByRole("button",{name:"1688在线采集"}));await userEvent.type(screen.getByLabelText("1688 商品链接"),"123");await userEvent.click(screen.getByRole("button",{name:"开始采集"}));}
+it("shows a definite source conflict and stops offering to continue its frozen transfer",async()=>{
+ const plan={id:"11111111-1111-4111-8111-111111111111",createdAt:"2026-10-11T00:00:00Z",input:{mode:"product",inputs:["https://detail.1688.com/offer/123.html"]},discoveryIndex:1,state:"pending",revision:1,items:[],discoveryFailures:[],preparationIds:[],truncated:false};
+ calls.create.mockResolvedValue(plan);
+ calls.advance.mockResolvedValue({...plan,state:"transfer_pending",revision:2,failureCode:"transfer_source_conflict"});
+ render(<AcquisitionPlansPage scope={scope}/>);await start();
+ expect(await screen.findByText(/来源批次已移动、归档或版本变化/)).toBeInTheDocument();
+ expect(screen.getByRole("button",{name:"继续原计划"})).toBeDisabled();
+ expect(calls.advance).toHaveBeenCalledOnce();
+});
 it("retains a creation key after unknown outcome for explicit recovery",async()=>{
  calls.create.mockRejectedValue(new AcquisitionAPIError("OUTCOME_UNKNOWN",503));
  render(<AcquisitionPlansPage scope={scope}/>);await start();

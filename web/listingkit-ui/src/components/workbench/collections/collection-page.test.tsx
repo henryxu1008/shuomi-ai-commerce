@@ -5,19 +5,49 @@ import { CollectionAPIError, type CollectionIntent } from "@/lib/api/product-col
 import { CollectionPage } from "./collection-page";
 import { SupplyAPIError,type SupplyIntent } from "@/lib/api/supply-chain";
 
-const state = vi.hoisted(() => ({ context: {} as Record<string, unknown>, list: vi.fn(), items: vi.fn(), mutate: vi.fn(), read: vi.fn(),supplyWrite:vi.fn(),supplyRead:vi.fn() }));
+const state = vi.hoisted(() => ({ context: {} as Record<string, unknown>, list: vi.fn(), items: vi.fn(), mutate: vi.fn(), read: vi.fn(),readItem:vi.fn(),supplyWrite:vi.fn(),supplyRead:vi.fn() }));
 vi.mock("@/components/providers/workbench-context-provider", () => ({ useWorkbenchContext: () => state.context }));
-vi.mock("@/lib/api/product-collection", async original => ({ ...await original<object>(), listCollectionBatches: state.list, listCollectionItems:state.items, listOwnProducts:state.items, mutateCollection: state.mutate, readCollectionOperation: state.read }));
+vi.mock("@/lib/api/product-collection", async original => ({ ...await original<object>(), listCollectionBatches: state.list, listCollectionItems:state.items, listOwnProducts:state.items, mutateCollection: state.mutate, readCollectionOperation: state.read,readCollectionItem:state.readItem }));
 vi.mock("@/lib/api/supply-chain",async original=>({...await original<object>(),supplyCommand:state.supplyWrite,readSupplyCommand:state.supplyRead}));
 beforeEach(() => {
   state.context = { user: { id: "actor-a" }, effectiveOrganization: { id: "org-a" }, permissions: ["workbench.collection.manage"],
     pendingCollectionIntent: null, collectionIntentReady: true, setPendingCollectionIntent: (intent: CollectionIntent | null) => { state.context.pendingCollectionIntent = intent; return true; }, registerOrganizationSwitchGuard: () => () => {} };
   state.list.mockReset().mockResolvedValue({ items: [], total: 0 }); state.mutate.mockReset(); state.read.mockReset();
   state.items.mockReset().mockResolvedValue({ items: [], total: 0 });
+  state.readItem.mockReset();
   state.context.pendingSupplyIntent=null;state.context.supplyIntentReady=true;state.context.setPendingSupplyIntent=(intent:SupplyIntent|null)=>{state.context.pendingSupplyIntent=intent;return true};
   state.supplyWrite.mockReset();state.supplyRead.mockReset();
 });
 afterEach(cleanup);
+
+it("opens the exact saved source through the existing scoped item read",async()=>{
+ const item="550e8400-e29b-41d4-a716-446655440002",batch="550e8400-e29b-41d4-a716-446655440000";
+ state.readItem.mockResolvedValue({item:{id:item,batchId:batch,source:{productKey:"source",version:1}},product:{title:"Selected saved product"}});
+ render(<CollectionPage initialItemId={item}/>);
+ expect(await screen.findByText("Selected saved product")).toBeInTheDocument();
+ expect(state.readItem).toHaveBeenCalledWith({userId:"actor-a",organizationId:"org-a"},item,expect.any(AbortSignal));
+ expect(state.items).toHaveBeenCalledWith(expect.anything(),batch,expect.anything(),expect.any(AbortSignal));
+ expect(state.mutate).not.toHaveBeenCalled();
+});
+
+it("aborts a linked item read when its scope unmounts",async()=>{
+ const item="550e8400-e29b-41d4-a716-446655440002";
+ let resolve!:(value:unknown)=>void;state.readItem.mockReturnValue(new Promise(ok=>{resolve=ok}));
+ const view=render(<CollectionPage initialItemId={item}/>);
+ await waitFor(()=>expect(state.readItem).toHaveBeenCalledOnce());
+ const signal=state.readItem.mock.calls[0][2] as AbortSignal;
+ view.unmount();expect(signal.aborted).toBe(true);
+ await act(async()=>resolve({item:{id:item},product:{title:"late old scope"}}));
+ expect(screen.queryByText("late old scope")).not.toBeInTheDocument();
+});
+
+it("shows a scoped linked-item failure without permanent loading",async()=>{
+ state.readItem.mockRejectedValue(new CollectionAPIError("NOT_FOUND",404));
+ render(<CollectionPage initialItemId="550e8400-e29b-41d4-a716-446655440002"/>);
+ expect(await screen.findByRole("alert")).toHaveTextContent("未找到当前身份下的记录。");
+ expect(screen.queryByText("正在读取原始资料…")).not.toBeInTheDocument();
+ expect(state.mutate).not.toHaveBeenCalled();
+});
 
 it("keeps blank SDS template batches out of finished Supply Chain transfer",async()=>{
  state.context.permissions=["workbench.collection.read","workbench.supply.manage"];
