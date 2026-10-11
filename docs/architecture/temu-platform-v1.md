@@ -4,7 +4,7 @@
 >
 > Design Basis：Independent Architecture
 >
-> Status：IMPLEMENTATION_READY / FROZEN；第二轮独立相关增量评审绑定 4d4bc4feff7eff67fb9ea8a9c067cdc21f7db1ef。2026-10-12 新读 E41 形成 G4：本土图片7天有效期与永久复用冲突，§8.1 为待独立增量复核的最小修正，只有受影响的图片发送/续期正式实现暂停。G1/G2/G3 为 IMPLEMENTATION_TEST；GE/AM 规格仍阻塞受影响发布及全覆盖交付/合并，不构成产品验收。
+> Status：IMPLEMENTATION_READY / FROZEN；第二轮独立相关增量评审绑定 4d4bc4feff7eff67fb9ea8a9c067cdc21f7db1ef。2026-10-12 新读 E41 形成 G4，本土图片7天有效期的 §8.1 最小修正已由原独立 Reviewer 绑定 72696b1bbe02bc6cd7ce0417627e8e98dba4f129 复核为 IMPLEMENTATION_READY，无新增设计 BLOCKER。对应原子准入/多代回执要求为 IMPLEMENTATION_TEST。GE/AM 规格仍阻塞受影响发布及全覆盖交付/合并，不构成产品验收。
 >
 > 调查基线：main @ f1d77a84fa653813235ddbfeedac59ea6bb0a94c，2026-10-11
 >
@@ -172,7 +172,7 @@ PA list.get 支持 skcExtCode 并返回 productId/SKC/SKU 编号、外部编号�
 
 查不到、权限丢失、未进入在售列表、重复匹配均不是未发生操作的证据。恢复只做原只读核实/原 UoW resolution，不能创建新 intent、重上传图片或重新发送货品。原始 code/token/签名字符串不进入 receipt。
 
-### 8.1 本土图片临时链接（G4 增量，待独立复核）
+### 8.1 本土图片临时链接（G4 已独立准入增量）
 
 Finding：E41 已把 E40 的成功返回地址改成7天临时链接；现有成功永不再取 permit 的图片设计不能完成“保存资料超过7天后提交”。Product requirement affected：M3/M4。Classification：BLOCKER，命中“核心 happy path 按当前设计无法完成”，层级仅为本土图片发送/成功结果复用实现；不重开 Store 授权、站点字典或其他冻结边界。Action：在原 Submission owner / target fence / UoW 内增加以下明确的本土图片合同，无新状态、新队列或新事实 owner。
 
@@ -183,6 +183,8 @@ Finding：E41 已把 E40 的成功返回地址改成7天临时链接；现有成
 - 并发续期只有一条获得 permit；其余读取同一新 attempt 或被 current claimed fence 拦截。新 attempt 响应丢失、commit不确定、取消/重启均留 UNKNOWN；7天经过也不解除该 UNKNOWN。重放旧 intent 只返回旧结果，不延长有效期、不新发。新 intent key 由原成功 attempt + exact intent input 绑定，客户端不能指定续期代数或时间。
 - TEMU 商品 succeeded 无条件挡住同 effect 的新创建；只有上述本土图片允许已知成功后的到期续期。供应商图片及 SHEIN 沿各自已证实合同，不套用本土公告。更新原 fresh-install receipt/schema guard，使同一图片保留多代 attempt 回执（attempt主键唯一、按 current fence 精确读取），商品成功的单 effect 唯一约束保留；无迁移或第二ledger。
 - 新地址用于新 payload fingerprint；仍绑定当前 saved record/ApprovedAsset/用户明确提交批准并核查 exact image receipt 来源与有效期。不得把图片续期当成重新批准已变资料的捷径，也不得因 E41 建议 try again 就重发已发送的商品。必要验证：已知成功未到期复用、到期同 fence 原子续期、UNKNOWN/缺receipt拒绝、双并发单permit、续期commit/响应丢失不再发、旧intent重放不延长、不同商家/用途/资产不可串用、商品UNKNOWN前置拒绝、新地址改变payloadhash。使用已有 Go/原 PG tests，不新建验收平台。
+
+独立增量复核：原 Reviewer 实际检查 72696b1bbe02bc6cd7ce0417627e8e98dba4f129 的产品/权限范围、SUB-K1 Acquire/write/epoch、official intent/receipt/finalize 和 fresh schema，明确本增量 IMPLEMENTATION_READY。G4 设计 BLOCKER 已闭合；以下属于 IMPLEMENTATION_TEST，阻塞受影响图片切片的合并/试用而不阻止按设计编码：I1 原事务同时验证最新 fence/成功 attempt/typed intent/receipt/资产用途类别商家/服务器截止并原子推进 epoch（不能只放开 succeeded）；I2 fresh schema 多代图片回执与 current fence 精确读取同步调整，商品及 SHEIN 成功保护、旧 intent/回执/截止保留。未运行正式实现/真实 API 或用户验收。
 
 ## 9. 资源、协议与组件复用
 
@@ -222,7 +224,7 @@ Provider 页大小不得超过官方上限（本土 retrieve、product.search 10
 | G1 | 第一轮缺口现由 E03/E04/E11/E26 补齐：PA uniqueId 明确为 mall 唯一标识，同一店铺 token 的 CN 类型/PA 身份接口均由当前清单指定；无须 CN mallId 转换 | M2/M4：固定一个 supplier 身份与同凭据模式验证，未核实/缺权限不连接，变更 token/app/siteSet 不能重置 fence | 独立相关增量复核已关闭 BLOCKER；真实响应/权限验证为 IMPLEMENTATION_TEST，不是缺官方映射的永久 BLOCKER |
 | G2 | E30 已完整读取，region→site 和分字段冲突处理已独立复核闭合；GLOBAL 登录/映射 BLOCKER 关闭。真实剩余：GE/AM 的价格币种/精度等规格未在已读 E24/E17/E29 中找到；E18 V3 价格也引用 E24 | M1/M3：两站点仍在用户范围，缺依据不能正确构造完整发布资料；保留缺规则和拒绝发送，不能靠地理/用户输入自证平台格式 | IMPLEMENTATION_TEST：按既定官方规则合同补齐数据并验证缺规则/冲突/漂移不能取得批准或 SendPermit；阻塞 GE/AM 发布开放及本批全覆盖交付/合并，不阻塞已准入的整体生产实现 |
 | G3 | externalGoodsId 与 outGoodsSn 明确映射、PA exact recovery 证据覆盖 | M4/M5：盲目 adopt 错误结果；当前可保留 UNKNOWN 避免错误副作用 | IMPLEMENTATION_TEST；已知成功 ID 可读回、无法 qualified 时保持 UNKNOWN；实施/真实验证层处理，不授权自动重发 |
-| G4 | 2026-10-12 新读 E40/E41：本土图片 URL 仅7天有效，原成功永久复用会阻断超过窗口的正常提交 | M3/M4：过期链接不可用；通过变化fence盲重传则可能绕过UNKNOWN | BLOCKER，仅本土图片发送/复用实现；§8.1 为最小原owner增量，独立复核通过后冻结，不重复全局架构评审 |
+| G4 | 2026-10-12 新读 E40/E41：本土图片 URL 仅7天有效，原成功永久复用会阻断超过窗口的正常提交 | M3/M4：过期链接不可用；通过变化fence盲重传则可能绕过UNKNOWN | 原设计 BLOCKER 已由 §8.1 最小原owner修正和绑定72696b1的独立增量复核闭合；增量 IMPLEMENTATION_READY / FROZEN，I1/I2 为 IMPLEMENTATION_TEST（受影响切片合并/试用门槛），不重复全局架构评审 |
 
 第一轮独立评审的原分类：G1/G2 为 BLOCKER；G3 为 IMPLEMENTATION_TEST。进一步官方查证与独立相关增量复核确认 G1 不需要原草案要求的 CN mallId→PA uniqueId 映射表，G1 已转 IMPLEMENTATION_TEST；本土 mall fence 修正无新增 BLOCKER。E27 辅助规格/尺码表 create 在实现层按批准与必要性收敛，准备/读取不能暗中 mutation，需要未批准创建时保持待补全。第二轮相关增量复核确认 G2 映射/冲突处理闭合，剩余 GE/AM 规则数据按 IMPLEMENTATION_TEST 在实现层收敛，并明确整体 IMPLEMENTATION_READY；缺规格拒绝发送不是 M1 完成或范围豁免。原历史评审保留。店铺服务沿当前 ServiceLifecycleExecutor 与 orgresource store_service_v1 reservation/receipt，未发现平台专属新计费依赖。准确候选 SHA、Reviewer 证据与增量复核写主 PR #655。
 
