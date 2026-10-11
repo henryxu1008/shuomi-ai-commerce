@@ -30,7 +30,7 @@ func buildProductCollectionModuleWithSourceMedia(ctx context.Context, db *gorm.D
 		service.WithMedia(productsourcing.SourceMedia{Storage: media.Storage, Authorization: authority})
 	}
 	binder := productReviewCapabilityBinder{now: time.Now}
-	return productCollectionModule{routes: collectionhttp.Routes(service, binder.Bind)}, nil
+	return productCollectionModule{routes: collectionhttp.Routes(service, binder.Bind), service: service}, nil
 }
 
 // Runtime constructs the current storage adapter; HTTP only consumes its port.

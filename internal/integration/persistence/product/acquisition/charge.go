@@ -104,6 +104,9 @@ func (r *Repository) BindChargeReservation(ctx context.Context, op sourcing.Acqu
 		if current.Fence != op.Fence {
 			return sourcing.ErrAcquisitionFence
 		}
+		if current.State == sourcing.AcquisitionAcquiring && current.FailureCode != "" {
+			return sourcing.ErrAcquisitionFence
+		}
 		if row.ReservationID != nil {
 			if *row.ReservationID == reservation {
 				return nil

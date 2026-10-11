@@ -1,10 +1,7 @@
-import { redirect } from "next/navigation";
-import { ConsoleUnavailable } from "@/components/workbench/console/console-overview";
-import { firstConnectedConsoleEntry } from "@/lib/workbench/console-primary-entry";
+import { SupplyOverview } from "@/components/workbench/supply-market/supply-overview";
 import { consolePrimaryDeploymentCapabilities } from "@/lib/server/console-primary-availability";
 
 export default function Page() {
-  const destination = firstConnectedConsoleEntry("/workbench/supply", consolePrimaryDeploymentCapabilities());
-  if (destination) redirect(destination);
-  return <ConsoleUnavailable pathname="/workbench/supply" />;
+  const capabilities = consolePrimaryDeploymentCapabilities();
+  return <SupplyOverview marketAvailable={capabilities.supplyMarketAvailable} preparationAvailable={capabilities.supplyPreparationAvailable} />;
 }

@@ -22,6 +22,38 @@ type nativeDraftReadCore struct {
 	repository  *prepstore.Repository
 }
 
+// Current Preparation needs only Product source and Collection owners.
+// Reviews, official receipts, store credentials, Asset and Temporal belong to
+// the independently admitted execution composition.
+func composePreparationCore(ctx context.Context, db *gorm.DB, deps routeAuthDependencies, permissions *authz.ListingKitAuthorizer, collections *collection.Service) (nativeDraftReadCore, error) {
+	var empty nativeDraftReadCore
+	if db == nil || collections == nil || deps.organizationResolver == nil || permissions == nil {
+		return empty, preparation.ErrUnavailable
+	}
+	live := &productReviewLiveOrganizationAccess{resolver: deps.organizationResolver, now: time.Now}
+	auth, err := preparation.NewContextAuthorizer(live, permissions)
+	if err != nil {
+		return empty, err
+	}
+	repo, err := prepstore.NewRepository(ctx, db)
+	if err != nil {
+		return empty, err
+	}
+	preps, err := preparation.NewService(repo, collections, auth)
+	if err != nil {
+		return empty, err
+	}
+	snapshots, err := catalogstore.NewBoundedSnapshotReader(db, sourcing.MaxEncodedSnapshotBytes)
+	if err != nil {
+		return empty, err
+	}
+	sources, err := preparation.NewSourceSelector(preps, collections, repo, snapshots)
+	if err != nil {
+		return empty, err
+	}
+	return nativeDraftReadCore{app: &supplyapp.Application{Preparations: preps, Sources: sources, Authorization: auth}, collections: collections, repository: repo}, nil
+}
+
 // Both serving modes consume the same native, live-authorized read owners.
 func buildNativeDraftReadCore(ctx context.Context, db *gorm.DB, deps routeAuthDependencies, permissions *authz.ListingKitAuthorizer, constrain func(preparation.Authorizer) preparation.Authorizer, marketPOD ...bool) (nativeDraftReadCore, error) {
 	var empty nativeDraftReadCore

@@ -19,6 +19,7 @@ import (
 	recordstore "task-processor/internal/integration/persistence/listing/record"
 	submissionstore "task-processor/internal/integration/persistence/listing/submission"
 	acquisitionstore "task-processor/internal/integration/persistence/product/acquisition"
+	planstore "task-processor/internal/integration/persistence/product/acquisitionplan"
 	collectionstore "task-processor/internal/integration/persistence/product/collection"
 	jobstore "task-processor/internal/integration/persistence/product/dataacquisition"
 	podstore "task-processor/internal/integration/persistence/product/pod"
@@ -30,14 +31,15 @@ import (
 var acquisitionInitName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]{0,62}$`)
 
 type acquisitionInitManifest struct {
-	SchemaVersion int  `json:"schemaVersion"`
-	Collections   bool `json:"collections,omitempty"`
-	SupplyChain   bool `json:"supplyChain,omitempty"`
-	ImageSets     bool `json:"imageSets,omitempty"`
-	SupplyMarket  bool `json:"supplyMarket,omitempty"`
-	POD           bool `json:"pod,omitempty"`
-	DataServices  bool `json:"dataServices,omitempty"`
-	Database      struct {
+	SchemaVersion    int  `json:"schemaVersion"`
+	Collections      bool `json:"collections,omitempty"`
+	AcquisitionPlans bool `json:"acquisitionPlans,omitempty"`
+	SupplyChain      bool `json:"supplyChain,omitempty"`
+	ImageSets        bool `json:"imageSets,omitempty"`
+	SupplyMarket     bool `json:"supplyMarket,omitempty"`
+	POD              bool `json:"pod,omitempty"`
+	DataServices     bool `json:"dataServices,omitempty"`
+	Database         struct {
 		Host     string `json:"host"`
 		Port     int    `json:"port"`
 		User     string `json:"user"`
@@ -49,31 +51,14 @@ type acquisitionInitManifest struct {
 // InitializeAcquisitionDatabase is explicit maintenance, never ordinary startup.
 func InitializeAcquisitionDatabase(ctx context.Context, manifest, confirmedDatabase string) error {
 	unavailable := errors.New("acquisition initialization refused; require a private manifest, confirmed empty dedicated database and pre-provisioned runtime role")
-	if ctx == nil || !filepath.IsAbs(manifest) {
+	if ctx == nil {
 		return unavailable
 	}
-	info, err := os.Lstat(manifest)
-	if err != nil || !info.Mode().IsRegular() || (runtime.GOOS != "windows" && info.Mode().Perm()&0077 != 0) {
-		return unavailable
-	}
-	file, err := os.Open(manifest)
+	cfg, err := readAcquisitionInitManifest(manifest, confirmedDatabase, unavailable)
 	if err != nil {
-		return unavailable
+		return err
 	}
-	defer file.Close()
-	raw, err := io.ReadAll(io.LimitReader(file, 8193))
-	if err != nil || len(raw) > 8192 {
-		return unavailable
-	}
-	var cfg acquisitionInitManifest
-	strict, err := sigjson.UnmarshalStrict(raw, &cfg, sigjson.DisallowUnknownFields, sigjson.DisallowDuplicateFields)
 	d := cfg.Database
-	if (cfg.SupplyChain || cfg.SupplyMarket || cfg.POD || cfg.DataServices) && !cfg.Collections || cfg.POD && !cfg.SupplyMarket {
-		return unavailable
-	}
-	if err != nil || len(strict) > 0 || cfg.SchemaVersion != 1 || d.Host != "127.0.0.1" || d.Port < 1 || d.Port > 65535 || !acquisitionInitName.MatchString(d.User) || !acquisitionInitName.MatchString(d.Database) || confirmedDatabase != d.Database || d.User == acquisitionstore.RuntimeRole || d.Database == "postgres" || d.Database == "template0" || d.Database == "template1" || len(d.Password) < 1 || len(d.Password) > 1024 || strings.ContainsAny(d.Password, " ='\\\t\r\n\v\f\x00") {
-		return unavailable
-	}
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	db, err := platformdatabase.OpenExistingWritableContext(ctx, &platformdatabase.Config{Host: d.Host, Port: d.Port, User: d.User, Password: d.Password, Database: d.Database, MaxConnections: 2, MaxIdleConnections: 2, ConnectionMaxLifetime: time.Minute})
@@ -100,6 +85,16 @@ func InitializeAcquisitionDatabase(ctx context.Context, manifest, confirmedDatab
 		if cfg.SupplyChain {
 			if err := InstallSupplyChainSchema(tx); err != nil {
 				return err
+			}
+		}
+		if cfg.AcquisitionPlans {
+			if err := planstore.InstallSchema(tx); err != nil {
+				return err
+			}
+			if !cfg.SupplyChain {
+				if err := preparationstore.InstallSchema(tx); err != nil {
+					return err
+				}
 			}
 		}
 		if cfg.ImageSets && !cfg.SupplyChain {
@@ -133,7 +128,7 @@ func InitializeAcquisitionDatabase(ctx context.Context, manifest, confirmedDatab
 				return err
 			}
 		}
-		return acquisitionstore.GrantRuntimePermissions(ctx, tx, acquisitionstore.RuntimeCapabilities{Collections: cfg.Collections, SupplyChain: cfg.SupplyChain, SupplyMarket: cfg.SupplyMarket, POD: cfg.POD, ImageSets: cfg.ImageSets})
+		return acquisitionstore.GrantRuntimePermissions(ctx, tx, acquisitionstore.RuntimeCapabilities{Collections: cfg.Collections, AcquisitionPlans: cfg.AcquisitionPlans, SupplyChain: cfg.SupplyChain, SupplyMarket: cfg.SupplyMarket, POD: cfg.POD, ImageSets: cfg.ImageSets})
 	})
 	if err != nil {
 		return unavailable
@@ -153,4 +148,68 @@ func InstallSupplyChainSchema(db *gorm.DB) error {
 		}
 		return nil
 	})
+}
+
+func readAcquisitionInitManifest(manifest, confirmedDatabase string, unavailable error) (acquisitionInitManifest, error) {
+	if !filepath.IsAbs(manifest) {
+		return acquisitionInitManifest{}, unavailable
+	}
+	info, err := os.Lstat(manifest)
+	if err != nil || !info.Mode().IsRegular() || (runtime.GOOS != "windows" && info.Mode().Perm()&0077 != 0) {
+		return acquisitionInitManifest{}, unavailable
+	}
+	file, err := os.Open(manifest)
+	if err != nil {
+		return acquisitionInitManifest{}, unavailable
+	}
+	defer file.Close()
+	raw, err := io.ReadAll(io.LimitReader(file, 8193))
+	if err != nil || len(raw) > 8192 {
+		return acquisitionInitManifest{}, unavailable
+	}
+	var cfg acquisitionInitManifest
+	strict, err := sigjson.UnmarshalStrict(raw, &cfg, sigjson.DisallowUnknownFields, sigjson.DisallowDuplicateFields)
+	d := cfg.Database
+	if (cfg.SupplyChain || cfg.SupplyMarket || cfg.POD || cfg.DataServices || cfg.AcquisitionPlans) && !cfg.Collections || cfg.POD && !cfg.SupplyMarket {
+		return acquisitionInitManifest{}, unavailable
+	}
+	if err != nil || len(strict) > 0 || cfg.SchemaVersion != 1 || d.Host != "127.0.0.1" || d.Port < 1 || d.Port > 65535 || !acquisitionInitName.MatchString(d.User) || !acquisitionInitName.MatchString(d.Database) || confirmedDatabase != d.Database || d.User == acquisitionstore.RuntimeRole || d.Database == "postgres" || d.Database == "template0" || d.Database == "template1" || len(d.Password) < 1 || len(d.Password) > 1024 || strings.ContainsAny(d.Password, " ='\\\t\r\n\v\f\x00") {
+		return acquisitionInitManifest{}, unavailable
+	}
+	return cfg, nil
+}
+
+// EnableAcquisitionPlans adds only empty current feature tables and their narrow
+// grants. It neither migrates old facts nor reinitializes the Product database.
+func EnableAcquisitionPlans(ctx context.Context, manifest, confirmedDatabase string) error {
+	unavailable := errors.New("acquisition plans initialization refused; require private owner manifest and exact dedicated database confirmation")
+	if ctx == nil {
+		return unavailable
+	}
+	cfg, err := readAcquisitionInitManifest(manifest, confirmedDatabase, unavailable)
+	if err != nil || !cfg.Collections || !cfg.AcquisitionPlans {
+		return unavailable
+	}
+	d := cfg.Database
+	db, err := platformdatabase.OpenExistingWritableContext(ctx, &platformdatabase.Config{Host: d.Host, Port: d.Port, User: d.User, Password: d.Password, Database: d.Database, MaxConnections: 2, MaxIdleConnections: 2, ConnectionMaxLifetime: time.Minute})
+	if err != nil {
+		return unavailable
+	}
+	defer platformdatabase.Close(db)
+	err = db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(current_database()||':source-acquisition-init',0))").Error != nil {
+			return unavailable
+		}
+		if collectionstore.VerifySchema(ctx, tx) != nil {
+			return unavailable
+		}
+		if planstore.InstallSchema(tx) != nil || preparationstore.InstallSchema(tx) != nil {
+			return unavailable
+		}
+		return acquisitionstore.GrantAcquisitionPlanPermissions(ctx, tx)
+	})
+	if err != nil {
+		return unavailable
+	}
+	return nil
 }

@@ -149,10 +149,11 @@ func (r *Repository) Start(ctx context.Context, requested sourcing.AcquisitionOp
 				return sourcing.ErrAcquisitionConflict
 			}
 			// Dispatch requires a bound reservation. Under the same operation lock,
-			// only an expired, still-unbound original can receive a fresh fence.
+			// an expired unbound original or a fenced, confirmed capacity rejection
+			// can receive a fresh fence, retaining the same reservation.
 			// Old workers can no longer bind that fence and cannot dispatch late.
-			// A bound operation remains UNKNOWN regardless of lease expiry.
-			updated := tx.Exec("UPDATE "+table+" AS op SET fence=fence+1,lease_until=clock_timestamp()+interval '30 seconds' WHERE organization_id=? AND actor_id=? AND operation_id=? AND state='acquiring' AND fence=? AND fence<? AND lease_until<=clock_timestamp() AND NOT EXISTS (SELECT 1 FROM "+chargeTable+" AS charge WHERE charge.organization_id=op.organization_id AND charge.actor_id=op.actor_id AND charge.operation_id=op.operation_id AND charge.reservation_id IS NOT NULL)", op.Scope.OrganizationID, op.Scope.ActorID, op.ID, op.Fence, int64(math.MaxInt64))
+			// Any other bound operation remains UNKNOWN regardless of expiry.
+			updated := tx.Exec("UPDATE "+table+" AS op SET fence=fence+1,failure_code='',lease_until=clock_timestamp()+interval '30 seconds' WHERE organization_id=? AND actor_id=? AND operation_id=? AND state='acquiring' AND command IS NULL AND fence=? AND fence<? AND lease_until<=clock_timestamp() AND ((failure_code='' AND NOT EXISTS (SELECT 1 FROM "+chargeTable+" AS charge WHERE charge.organization_id=op.organization_id AND charge.actor_id=op.actor_id AND charge.operation_id=op.operation_id AND charge.reservation_id IS NOT NULL)) OR (failure_code=? AND capture_sha256='' AND EXISTS (SELECT 1 FROM "+chargeTable+" AS charge WHERE charge.organization_id=op.organization_id AND charge.actor_id=op.actor_id AND charge.operation_id=op.operation_id AND charge.reservation_id IS NOT NULL AND charge.terminal_kind='')))", op.Scope.OrganizationID, op.Scope.ActorID, op.ID, op.Fence, int64(math.MaxInt64), sourcing.AcquisitionCapacityRejected)
 			if updated.Error != nil {
 				return sourcing.ErrAcquisitionUnavailable
 			}
@@ -184,6 +185,36 @@ func (r *Repository) Start(ctx context.Context, requested sourcing.AcquisitionOp
 		claim = false
 	}
 	return
+}
+
+func (r *Repository) RecordCapacityRejection(ctx context.Context, requested sourcing.AcquisitionOperation) error {
+	if !validIdentity(requested) || requested.CaptureSHA256 != "" || requested.State != sourcing.AcquisitionAcquiring || requested.Command != nil || requested.CommandHash != "" || requested.FailureCode != "" {
+		return sourcing.ErrInvalidAcquisition
+	}
+	return r.transaction(ctx, func(tx *gorm.DB) error {
+		op, err := read(tx, requested.Scope, "idempotency_key", requested.Key, true)
+		if err != nil {
+			return err
+		}
+		if op.ID != requested.ID || op.Source != requested.Source || op.Fingerprint != requested.Fingerprint || op.Fence != requested.Fence || op.State != sourcing.AcquisitionAcquiring || op.Command != nil || op.FailureCode != "" || op.Fence == math.MaxInt64 {
+			return sourcing.ErrAcquisitionFence
+		}
+		charge, err := readCharge(tx, op.Scope.OrganizationID, op.ID, true)
+		if err != nil {
+			return err
+		}
+		if charge.ActorID != op.Scope.ActorID || charge.ReservationID == nil || charge.TerminalKind != "" {
+			return sourcing.ErrAcquisitionFence
+		}
+		result := tx.Exec("UPDATE "+table+" SET failure_code=?,fence=fence+1,lease_until=clock_timestamp() WHERE organization_id=? AND actor_id=? AND idempotency_key=? AND fence=?", sourcing.AcquisitionCapacityRejected, op.Scope.OrganizationID, op.Scope.ActorID, op.Key, op.Fence)
+		if result.Error != nil {
+			return sourcing.ErrAcquisitionUnavailable
+		}
+		if result.RowsAffected != 1 {
+			return sourcing.ErrAcquisitionFence
+		}
+		return nil
+	})
 }
 
 // StartPrepared performs admission and command persistence in one transaction.
@@ -267,7 +298,7 @@ func (r *Repository) Prepare(ctx context.Context, requested sourcing.Acquisition
 		if e != nil {
 			return e
 		}
-		if current.Fence != requested.Fence || current.State != sourcing.AcquisitionAcquiring || current.ID != requested.ID {
+		if current.Fence != requested.Fence || current.State != sourcing.AcquisitionAcquiring || current.ID != requested.ID || current.FailureCode != "" {
 			return sourcing.ErrAcquisitionFence
 		}
 		if current.Source != requested.Source || current.Fingerprint != requested.Fingerprint || current.CaptureSHA256 != requested.CaptureSHA256 || !validCommand(current, cmd) {
@@ -294,6 +325,9 @@ func (r *Repository) Claim(ctx context.Context, requested sourcing.AcquisitionOp
 			return e
 		}
 		if op.Fence != requested.Fence || op.ID != requested.ID {
+			return sourcing.ErrAcquisitionFence
+		}
+		if op.State == sourcing.AcquisitionAcquiring && op.FailureCode != "" {
 			return sourcing.ErrAcquisitionFence
 		}
 		if op.State != sourcing.AcquisitionPrepared {
@@ -328,6 +362,9 @@ func (r *Repository) Finish(ctx context.Context, requested sourcing.AcquisitionO
 			return e
 		}
 		if op.Fence != requested.Fence || op.ID != requested.ID {
+			return sourcing.ErrAcquisitionFence
+		}
+		if op.State == sourcing.AcquisitionAcquiring && op.FailureCode != "" {
 			return sourcing.ErrAcquisitionFence
 		}
 		if op.State == state && op.FailureCode == code {
@@ -384,7 +421,7 @@ func read(db *gorm.DB, scope sourcing.PublicationScope, field, key string, lock 
 	}
 	switch op.State {
 	case sourcing.AcquisitionAcquiring:
-		if op.Command != nil || op.FailureCode != "" {
+		if op.Command != nil || op.FailureCode != "" && (op.FailureCode != sourcing.AcquisitionCapacityRejected || op.CaptureSHA256 != "") {
 			return empty, sourcing.ErrAcquisitionUnavailable
 		}
 	case sourcing.AcquisitionPrepared, sourcing.AcquisitionPublishing, sourcing.AcquisitionPublished:

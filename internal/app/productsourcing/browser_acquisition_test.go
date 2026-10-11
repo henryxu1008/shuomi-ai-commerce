@@ -116,6 +116,20 @@ func (s *browserStore) ByKey(_ context.Context, scope sourcing.PublicationScope,
 	}
 	return op, nil
 }
+
+func (s *browserStore) RecordCapacityRejection(_ context.Context, requested sourcing.AcquisitionOperation) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	key := requested.Scope.OrganizationID + "|" + requested.Key
+	op := s.byKey[key]
+	if op.ID != requested.ID || op.Fence != requested.Fence || op.State != sourcing.AcquisitionAcquiring || op.Command != nil {
+		return sourcing.ErrAcquisitionFence
+	}
+	op.Fence++
+	op.FailureCode = sourcing.AcquisitionCapacityRejected
+	s.byKey[key] = op
+	return nil
+}
 func (s *browserStore) ByID(context.Context, sourcing.PublicationScope, string) (sourcing.AcquisitionOperation, error) {
 	return sourcing.AcquisitionOperation{}, sourcing.ErrAcquisitionNotFound
 }

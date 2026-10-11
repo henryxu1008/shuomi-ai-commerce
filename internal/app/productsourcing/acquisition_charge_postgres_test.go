@@ -15,6 +15,7 @@ import (
 	resourceadapter "task-processor/internal/integration/orgresource"
 	acquisitionstore "task-processor/internal/integration/persistence/product/acquisition"
 	"task-processor/internal/ledger/orgresource"
+	"task-processor/internal/product/sourcing"
 )
 
 func TestAcquisitionActualSeparateResourceOwnerChargesOnlySavedResults(t *testing.T) {
@@ -64,7 +65,7 @@ func TestAcquisitionActualSeparateResourceOwnerChargesOnlySavedResults(t *testin
 	_, err = service.Acquire(ctx, insufficientKey, "981645030344")
 	require.ErrorIs(t, err, orgresource.ErrInsufficientBalance)
 	_, err = service.Acquire(ctx, insufficientKey, "981645030344")
-	require.ErrorIs(t, err, orgresource.ErrInsufficientBalance, "replay must preserve the recorded quota rejection")
+	require.ErrorIs(t, err, sourcing.ErrAcquisitionUnknown, "an active original cannot obtain another dispatch claim before lease expiry")
 	require.EqualValues(t, 2, fetches.Load(), "insufficient allocation must fail before provider dispatch")
 	position, err = positions.ReadPosition(context.Background(), "org-charge", "membership:actor", orgresource.ResourceDataRow)
 	require.NoError(t, err)

@@ -19,14 +19,24 @@ beforeEach(() => {
     user: { id: "actor-A" },
     effectiveOrganization: { id: "organization-A" },
     pendingAcquisitionIntent: null,
+    acquisitionIntentReady: true,
     setPendingAcquisitionIntent: (intent: AcquisitionOperation | null) => {
       calls.context.pendingAcquisitionIntent = intent;
+      return true;
     },
     registerOrganizationSwitchGuard: vi.fn(() => vi.fn()),
   };
   calls.acquire.mockReset(); calls.verify.mockReset(); calls.read.mockReset(); calls.readProduct.mockReset(); calls.push.mockReset();
 });
 afterEach(cleanup);
+
+it("does not expose submission until the browser intent has hydrated", () => {
+  calls.context.acquisitionIntentReady = false;
+  render(tree());
+  expect(screen.getByText("正在确认企业上下文")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "提交采集" })).not.toBeInTheDocument();
+  expect(calls.acquire).not.toHaveBeenCalled();
+});
 
 it("aborts an A-scope submission and ignores its late published result after switching to B", async () => {
   const late = deferred<{ outcome: "published"; operationId: string; productKey: string }>();
@@ -139,7 +149,6 @@ it.each(["prepared", "acquiring"] as const)("keeps the original key when creatio
 
 it.each([
   ["SOURCE_UNAVAILABLE", 502],
-  ["ACQUISITION_CAPACITY", 429],
   ["ACQUISITION_NOT_FOUND", 404],
 ] as const)("releases the intent after definitive %s so a new operation can be submitted", async (code, status) => {
   calls.acquire.mockRejectedValueOnce(new AcquisitionAPIError(code, status));
@@ -153,6 +162,30 @@ it.each([
   await userEvent.click(screen.getByRole("button", { name: "提交采集" }));
   await waitFor(() => expect(calls.acquire).toHaveBeenCalledTimes(2));
   expect((calls.acquire.mock.calls[1][0] as AcquisitionOperation).key).not.toBe(original.key);
+});
+
+it("retains quota-paused intent through navigation and retries Acquire with its original key", async () => {
+  calls.acquire.mockRejectedValueOnce(new AcquisitionAPIError("DATA_QUOTA_INSUFFICIENT", 409));
+  calls.acquire.mockResolvedValueOnce({ outcome: "acquiring", operationId: operationID });
+  calls.acquire.mockResolvedValueOnce({ outcome: "published", operationId: operationID, productKey: "crawler:1688:123" });
+  const view = render(tree());
+  await userEvent.type(screen.getByLabelText("1688 商品页或 offer ID"), "123");
+  await userEvent.click(screen.getByRole("button", { name: "提交采集" }));
+  await screen.findByRole("alert");
+  const original = calls.acquire.mock.calls[0][0] as AcquisitionOperation;
+  expect(calls.context.pendingAcquisitionIntent).toMatchObject(original);
+  expect(screen.getByRole("button", { name: "提交采集" })).toBeDisabled();
+  expect(screen.getByLabelText("1688 商品页或 offer ID")).toBeDisabled();
+  view.unmount();
+  render(tree());
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await userEvent.click(screen.getByRole("button", { name: "补足额度后使用原 key 重试" }));
+    await waitFor(() => expect(calls.acquire).toHaveBeenCalledTimes(attempt + 2));
+    expect(calls.acquire.mock.calls[attempt + 1][0]).toMatchObject(original);
+  }
+  expect(calls.verify).not.toHaveBeenCalled();
+  expect(calls.context.pendingAcquisitionIntent).toBeNull();
+  expect(calls.push).toHaveBeenCalledWith(`/workbench/supply/acquisition/operation/${operationID}`);
 });
 
 it("renders source warnings preserved by the operation-bound Catalog product", async () => {

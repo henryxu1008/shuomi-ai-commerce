@@ -225,6 +225,9 @@ func execute() error {
 			if features.ProductCollections {
 				options = append(options, httpapi.WithProductCollections())
 			}
+			if features.AcquisitionPlans {
+				options = append(options, httpapi.WithAcquisitionPlans())
+			}
 			if features.SourceMediaStorage != nil {
 				options = append(options, httpapi.WithCollectionSourceMedia(features.SourceMediaStorage))
 			}

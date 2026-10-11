@@ -7,6 +7,13 @@ import { ConsoleNavigation } from "./console-navigation";
 import { findConsoleRoute } from "@/lib/workbench/console-navigation";
 
 const query=vi.hoisted(()=>({value:""}));
+it("connects Preparation-only parent and waiting without opening execution stages",()=>{
+ render(<ConsoleNavigation pathname="/workbench/supply/mine/waiting" ariaLabel="主导航" supplyPreparationAvailable/>);
+ expect(screen.getByRole("link",{name:"我的供应链"})).toHaveAttribute("title","我的供应链");
+ expect(screen.getByRole("link",{name:"待适配"})).toHaveAttribute("title","待适配");
+ expect(screen.queryByRole("link",{name:"已上传"})).not.toBeInTheDocument();
+ expect(screen.queryByRole("link",{name:"已适配"})).not.toBeInTheDocument();
+});
 it.each([
   ["/workbench/supply/catalogs/selection", "货盘选品"],
   ["/workbench/supply/catalogs/apply", "申请对接"],
@@ -24,7 +31,7 @@ it.each([
 });
 it.each(["productAcquisitionAvailable", "supplyMarketAvailable", "supplyChainAvailable"])("connects the Supply parent with %s", capability => {
   const view = render(<ConsoleNavigation pathname="/workbench/supply" ariaLabel="主导航" />);
-  expect(screen.getByRole("link", {name: "供应市场"})).toHaveAttribute("title", "供应市场：业务暂未启用");
+  expect(screen.getByRole("link", {name: "供应市场"})).toHaveAttribute("title", "供应市场");
   view.rerender(<ConsoleNavigation pathname="/workbench/supply" ariaLabel="主导航" {...{[capability]: true}} />);
   expect(screen.getByRole("link", {name: "供应市场"})).toHaveAttribute("title", "供应市场");
 });
