@@ -22,9 +22,10 @@ import (
 )
 
 type StoreObservationsDependencies struct {
-	Starter   o.Starter
-	NewWorker func(*o.Service) (observationruntime.Worker, error)
-	Lifecycle *observationruntime.Lifecycle
+	Starter         o.Starter
+	NewWorker       func(*o.Service) (observationruntime.Worker, error)
+	Lifecycle       *observationruntime.Lifecycle
+	PreparationOnly bool
 }
 
 func WithStoreObservations(d StoreObservationsDependencies) CurrentApplicationOption {
@@ -49,7 +50,7 @@ func (m storeObservationModule) Register(r *kernelmodule.Registry) error {
 func buildCurrentStoreObservations(ctx context.Context, db *gorm.DB, d StoreObservationsDependencies, deps routeAuthDependencies, permissions *authz.ListingKitAuthorizer, applications *storeapp.OfficialApplicationRegistry, cfg *config.Config, capabilities storecenter.RuntimeCapabilities) (storeObservationModule, error) {
 	var empty storeObservationModule
 	resolver, ok := deps.organizationResolver.(*workbenchcontext.Resolver)
-	if !ok || resolver == nil || permissions == nil || applications == nil || db == nil || d.Starter == nil || d.NewWorker == nil || d.Lifecycle == nil || cfg == nil || cfg.ListingKit.Zitadel.TenantDirectoryToken == "" {
+	if !ok || resolver == nil || permissions == nil || db == nil || d.Starter == nil || d.NewWorker == nil || d.Lifecycle == nil || cfg == nil || cfg.ListingKit.Zitadel.TenantDirectoryToken == "" || d.PreparationOnly && applications != nil || !d.PreparationOnly && applications == nil {
 		return empty, o.ErrUnavailable
 	}
 	if err := storecenter.VerifyCurrentSchema(ctx, db); err != nil {
@@ -65,14 +66,22 @@ func buildCurrentStoreObservations(ctx context.Context, db *gorm.DB, d StoreObse
 	if err != nil {
 		return empty, err
 	}
+	if d.PreparationOnly {
+		if err := repo.VerifyEmpty(ctx); err != nil {
+			return empty, err
+		}
+	}
 	stores, err := storecenter.NewMemberScopedStoreRepository(db, currentStoreMemberAuthorizer{authorizer: permissions})
 	if err != nil {
 		return empty, err
 	}
 	authorization := observationapp.Authorization{Client: zitadel.NewAuthorizationClient(cfg.ListingKit.Zitadel.AuthorizationAPIURL, &http.Client{Timeout: 5 * time.Second}), ServiceToken: func(context.Context) (string, error) { return cfg.ListingKit.Zitadel.TenantDirectoryToken, nil }, ProjectID: cfg.ListingKit.Zitadel.ProjectID, Permissions: permissions, OrganizationStatus: resolver.BusinessStatusChecker()}
-	official, err := storeapp.NewOfficialObservationAccess(stores, authorization, applications)
-	if err != nil {
-		return empty, err
+	var official *storeapp.OfficialObservationAccess
+	if !d.PreparationOnly {
+		official, err = storeapp.NewOfficialObservationAccess(stores, authorization, applications)
+		if err != nil {
+			return empty, err
+		}
 	}
 	service := &o.Service{Repository: repo, Access: observationapp.Access{Authorization: authorization, Official: official}, Directory: observationapp.Directory{Stores: stores}, Starter: d.Starter}
 	currentWorker, err := d.NewWorker(service)
@@ -80,7 +89,7 @@ func buildCurrentStoreObservations(ctx context.Context, db *gorm.DB, d StoreObse
 		return empty, o.ErrUnavailable
 	}
 	d.Lifecycle.Worker = currentWorker
-	application := &observationapp.Application{Service: service, Ready: d.Lifecycle.Ready}
+	application := &observationapp.Application{Service: service, Ready: d.Lifecycle.Ready, PreparationOnly: d.PreparationOnly}
 	binder := productReviewCapabilityBinder{now: time.Now}
 	return storeObservationModule{application: application, routes: observationhttp.Routes(application, binder.Bind)}, nil
 }

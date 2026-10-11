@@ -81,3 +81,18 @@ func NewRepository(ctx context.Context, db *gorm.DB) (*Repository, error) {
 	}
 	return &Repository{db: db}, nil
 }
+
+// Preparation must not attach a credential-free worker to retained work.
+func (r *Repository) VerifyEmpty(ctx context.Context) error {
+	if r == nil || r.db == nil || ctx == nil {
+		return o.ErrUnavailable
+	}
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	var exists bool
+	err := r.db.WithContext(ctx).Raw(`SELECT EXISTS(SELECT 1 FROM shein_observations.commands) OR EXISTS(SELECT 1 FROM shein_observations.syncs) OR EXISTS(SELECT 1 FROM shein_observations.records) OR EXISTS(SELECT 1 FROM shein_observations.heads)`).Scan(&exists).Error
+	if err != nil || exists {
+		return o.ErrUnavailable
+	}
+	return nil
+}

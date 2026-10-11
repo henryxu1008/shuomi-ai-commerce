@@ -45,8 +45,19 @@ func TestStoreObservationEnabledRuntimeHasExactSharedGrants(t *testing.T) {
 	require.Error(t, storecenter.VerifyRuntimePermissions(ctx, serving), "disabled remains strict")
 	require.NoError(t, storecenter.VerifyRuntimePermissionsForCapabilities(ctx, serving, enabled))
 	require.NoError(t, storecenter.VerifyCurrentSchema(ctx, serving))
-	_, err = NewRepository(ctx, serving)
+	repo, err := NewRepository(ctx, serving)
 	require.NoError(t, err)
+	require.NoError(t, repo.VerifyEmpty(ctx))
+	require.NoError(t, owner.Exec(`INSERT INTO shein_observations.heads(organization_id,store_id,kind,sequence) VALUES('org-a','d6f6ca0a-27e2-4c4a-b1aa-4505110ae635','products',1)`).Error)
+	require.Error(t, repo.VerifyEmpty(ctx), "preparation refuses retained observation facts")
+	// Non-destructive rollback keeps tables/facts but restores disabled role.
+	require.NoError(t, owner.Exec(`REVOKE ALL ON ALL TABLES IN SCHEMA shein_observations FROM store_center_runtime; REVOKE USAGE ON SCHEMA shein_observations FROM store_center_runtime`).Error)
+	require.NoError(t, storecenter.VerifyRuntimePermissions(ctx, serving))
+	var retained int64
+	require.NoError(t, owner.Raw(`SELECT count(*) FROM shein_observations.heads`).Scan(&retained).Error)
+	require.EqualValues(t, 1, retained)
+	require.NoError(t, GrantRuntime(ctx, owner, "store_center_runtime"))
+	require.NoError(t, storecenter.VerifyRuntimePermissionsForCapabilities(ctx, serving, enabled))
 	for _, q := range []string{
 		`GRANT DELETE ON shein_observations.records TO store_center_runtime`,
 		`GRANT UPDATE ON shein_observations.commands TO store_center_runtime`,
