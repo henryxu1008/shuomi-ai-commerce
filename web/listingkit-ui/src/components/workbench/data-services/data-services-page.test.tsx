@@ -76,7 +76,7 @@ describe("data service product paths", () => {
             return json([]);
         }));
         render(<DataServicesPage mode="market"/>);
-        const start = screen.getByRole("button", { name: "开始抓取" });
+        const start = screen.getByRole("button", { name: "配置实时抓取" });
         await waitFor(() => expect(start).toBeEnabled());
         expect(screen.getByRole("button", { name: "提交定制需求" })).toBeEnabled();
         const historyName = historyPath === "custom" ? "定制历史" : "抓取历史";
@@ -107,7 +107,7 @@ describe("data service product paths", () => {
         vi.stubGlobal("fetch", vi.fn(async (url: string) => url.endsWith("/options") ? json({ error: { code: "FORBIDDEN" } }, 403) : json([])));
         render(<DataServicesPage mode="market"/>);
         await screen.findByText("当前身份或权限已失效，请确认登录及企业。");
-        expect(screen.getByRole("button", { name: "开始抓取" })).toBeDisabled();
+        expect(screen.getByRole("button", { name: "配置实时抓取" })).toBeDisabled();
         expect(screen.getByRole("button", { name: "提交定制需求" })).toBeDisabled();
         expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
@@ -295,7 +295,7 @@ describe("data service product paths", () => {
             return json([]);
         }));
         render(<DataServicesPage mode="market"/>);
-        const start = await screen.findByRole("button", { name: /开始抓取/ });
+        const start = await screen.findByRole("button", { name: /配置实时抓取/ });
         await waitFor(() => expect(start).toBeEnabled());
         fireEvent.click(start);
         fireEvent.change(screen.getByLabelText(/ASIN 或当前站点/), { target: { value: "B000123456" } });
