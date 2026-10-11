@@ -62,7 +62,7 @@ func (a *OfficialProductAccess) Authorize(ctx context.Context, subject storecent
 	if err != nil {
 		return nil, ErrProductAccessChanged
 	}
-	entry, err := a.applications.resolve(material.Attempt.AppID, material.Attempt.AppVersion)
+	entry, err := a.applications.resolve(material.Attempt.AppID, material.Attempt.AppVersion, material.Platform, material.Attempt.IdentityPartition)
 	if err != nil {
 		return nil, ErrProductAccessChanged
 	}
@@ -100,7 +100,7 @@ func (h *MerchantHandle) credential(ctx context.Context) (storecenter.OfficialMe
 	if err != nil || material.Connection.AttemptID != h.connectionRef || privateCredentialHash(material) != h.credentialHash {
 		return storecenter.OfficialMerchantCredential{}, ErrProductAccessChanged
 	}
-	entry, err := h.owner.applications.resolve(material.Attempt.AppID, material.Attempt.AppVersion)
+	entry, err := h.owner.applications.resolve(material.Attempt.AppID, material.Attempt.AppVersion, material.Platform, material.Attempt.IdentityPartition)
 	if err != nil || entry.application != h.entry.application || entry.mode != h.entry.mode {
 		return storecenter.OfficialMerchantCredential{}, ErrProductAccessChanged
 	}

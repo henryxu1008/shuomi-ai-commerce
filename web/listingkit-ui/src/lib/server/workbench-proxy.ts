@@ -1,7 +1,7 @@
 import { catalogVersionSchema, SUPPLY_MAX_BYTES, supplyRouteMethods, supplyPath, supplyRequestSchema, supplyUsesKey, supplyMutates, parseSupplyResponse, type SupplyRoute } from "@/lib/contracts/supply-chain";
 import { hasValidStoreServiceFacts } from "@/lib/validation/workbench-store";
 import { planPath, planMethods, planRequestSchema, planResponseSchema, type PlanRoute } from "@/lib/contracts/acquisition-plan";
-import {officialConnectionViewSchema,officialConnectionBeginSchema,officialConnectionCompleteSchema,officialConnectionQuerySchema,officialApplicationListSchema,officialConnectionStartSchema} from "@/lib/contracts/store-connection";
+import {officialConnectionViewSchema,officialConnectionBeginSchema,officialConnectionCompleteSchema,officialConnectionQuerySchema,officialApplicationListSchema,officialConnectionStartSchema,officialConnectionInstallSchema} from "@/lib/contracts/store-connection";
 import { BROWSER_CAPTURE_MAX_BYTES, browserCaptureSchema } from "@/lib/contracts/browser-capture";
 import {agentEmptyRequestSchema,agentStartRequestSchema,agentResumeRequestSchema,agentResultSchema,agentReviewLinkSchema,agentPath} from "@/lib/contracts/product-agent";
 import { aiWorkbenchPath, aiCreateBody, aiMessageBody, aiMetadataBody, aiResumeBody, parseAIWorkbenchResponse, type AIWorkbenchRoute } from "@/lib/contracts/ai-workbench";
@@ -119,6 +119,7 @@ type WorkbenchRequestContract =
   | "store-connection-begin"
   | "store-connection-complete"
   | "store-connection-query"
+  | "store-connection-token"
   | "store-connection-disconnect"
   | "source-account-list"
   | "source-account-create"
@@ -393,7 +394,7 @@ const workbenchRouteAllowlist = [
   routeDefinition("POST","store-service-reactivate","store-service-lifecycle",path=>storeActionPath(path,"reactivate")),
   routeDefinition("GET","store-connection-applications","store-connection-applications",path=>path.length===4&&path[0]==="stores"&&isAcquisitionUUID(path[1]!)&&path[2]==="connection"&&path[3]==="applications" ? `stores/${path[1]}/connection/applications`:null),
   routeDefinition("GET","store-connection-read","store-connection-view",path=>path.length === 3&&path[0] === "stores"&&isAcquisitionUUID(path[1]!)&&path[2] === "connection" ? `stores/${path[1]}/connection`:null),
-  ...(["begin","complete","query","disconnect"] as const).map(action=>routeDefinition("POST",`store-connection-${action}`,action === "begin" ? "store-connection-begin":"store-connection-view",path=>path.length === 4&&path[0] === "stores"&&isAcquisitionUUID(path[1]!)&&path[2] === "connection"&&path[3] === action ? `stores/${path[1]}/connection/${action}`:null)),
+  ...(["begin","complete","query","disconnect","token"] as const).map(action=>routeDefinition("POST",`store-connection-${action}`,action === "begin" ? "store-connection-begin":"store-connection-view",path=>path.length === 4&&path[0] === "stores"&&isAcquisitionUUID(path[1]!)&&path[2] === "connection"&&path[3] === action ? `stores/${path[1]}/connection/${action}`:null)),
   routeDefinition("GET", "source-account-list", "source-account-list", (path) =>
     exactPath(path, "source-accounts") ? "source-accounts" : null,
   ),
@@ -654,6 +655,7 @@ export async function buildWorkbenchUpstreamRequest(
       case "store-connection-begin":
       case "store-connection-complete":
       case "store-connection-query":
+      case "store-connection-token":
       case "store-connection-disconnect": {
         if(!hasExactNoQuery(request) || request.headers.get(EXPECTED_USER_ID_HEADER) !== authenticatedActorSubject || !authenticatedActorSubject) return protocolError(409,"IDENTITY_CONTEXT_CHANGED","Identity context changed");
         if(route.requestContract === "store-connection-read" || route.requestContract === "store-connection-applications") {if(!(await requestHasNoBody(request)))return protocolError(400,"INVALID_REQUEST","Body is not allowed");break;}
@@ -674,7 +676,7 @@ export async function buildWorkbenchUpstreamRequest(
         }
         if(request.headers.has("Idempotency-Key")||request.headers.has("If-Match")||request.headers.get("content-type") !== "application/json"||request.headers.has("content-encoding"))return protocolError(400,"INVALID_REQUEST","Request is invalid");
         const raw=await readRequestBody(request,8192);if(raw instanceof Response)return raw;const parsed=parseJSONBody(raw);
-        const valid=(route.requestContract === "store-connection-query" ? officialConnectionQuerySchema:officialConnectionCompleteSchema).safeParse(parsed?.payload);
+        const valid=(route.requestContract === "store-connection-query" ? officialConnectionQuerySchema:route.requestContract === "store-connection-token" ? officialConnectionInstallSchema:officialConnectionCompleteSchema).safeParse(parsed?.payload);
         if(!parsed||!valid.success)return protocolError(400,"INVALID_REQUEST","Request is invalid");body=JSON.stringify(valid.data);headers.set("Content-Type","application/json");break;
       }
       case "product-agent-start":

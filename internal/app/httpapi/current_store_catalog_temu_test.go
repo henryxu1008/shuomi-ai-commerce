@@ -1,0 +1,36 @@
+package httpapi
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/require"
+	"task-processor/internal/storecenter"
+)
+
+func TestCatalogTemuModeUsesVerifiedMerchantAndCompoundApplication(t *testing.T) {
+	choices := []storecenter.OfficialApplicationChoice{
+		{Platform: storecenter.PlatformShein, AppID: "same-id", Revision: "same-revision", AuthorizationMethod: storecenter.AuthorizationCallback, Type: storecenter.ApplicationSelfOperated},
+		{Platform: storecenter.PlatformTemu, IdentityPartition: storecenter.PartitionCN, AppID: "same-id", Revision: "same-revision", AuthorizationMethod: storecenter.AuthorizationManualToken, SupportedModes: storecenter.ModesFullyManaged | storecenter.ModesSemiManaged},
+		{Platform: storecenter.PlatformTemu, IdentityPartition: storecenter.PartitionUS, AppID: "same-id", Revision: "same-revision", AuthorizationMethod: storecenter.AuthorizationManualToken, SupportedModes: storecenter.ModesLocal},
+	}
+	view := storecenter.OfficialConnectionView{Platform: storecenter.PlatformTemu, IdentityPartition: storecenter.PartitionCN, AppID: "same-id", AppRevision: "same-revision", MerchantIdentityHash: "verified-merchant", Mode: storecenter.MerchantFullyManaged}
+	require.Equal(t, storecenter.ApplicationFullyManaged, catalogApplicationType(view, choices))
+	view.Mode = storecenter.MerchantSemiManaged
+	require.Equal(t, storecenter.ApplicationSemiManaged, catalogApplicationType(view, choices))
+	view.Mode = ""
+	require.Empty(t, catalogApplicationType(view, choices), "dual-mode application does not prove merchant mode")
+	view.Mode = storecenter.MerchantFullyManaged
+	view.MerchantIdentityHash = ""
+	require.Empty(t, catalogApplicationType(view, choices), "a configured application is not a verified merchant")
+	view.MerchantIdentityHash = "verified-merchant"
+	view.IdentityPartition = storecenter.PartitionUS
+	require.Empty(t, catalogApplicationType(view, choices), "regional authorization cannot be projected as a supplier")
+	view.Mode = storecenter.MerchantLocal
+	require.Equal(t, storecenter.ApplicationSelfOperated, catalogApplicationType(view, choices))
+	view.IdentityPartition = storecenter.PartitionEU
+	require.Empty(t, catalogApplicationType(view, choices), "another partition's app with the same raw ID cannot match")
+	view.IdentityPartition = storecenter.PartitionUS
+	view.AppRevision = "stale-revision"
+	require.Empty(t, catalogApplicationType(view, choices))
+	require.Equal(t, storecenter.ApplicationSelfOperated, catalogApplicationType(storecenter.OfficialConnectionView{Platform: storecenter.PlatformShein, AppID: "same-id", AppRevision: "same-revision"}, choices))
+}

@@ -24,12 +24,13 @@ func (h *Handler) BeginOfficialConnection(c *gin.Context) {
 	if !ok {
 		return
 	}
-	values, field, err := parseStringObject(c.Request.Body, map[string]bool{"appId": true})
+	values, field, err := parseStringObject(c.Request.Body, map[string]bool{"appId": true, "identityPartition": false})
 	if err != nil || len(values["appId"]) < 1 || len(values["appId"]) > 128 {
 		writeInvalid(c, field, "invalid")
 		return
 	}
 	command.ApplicationID = values["appId"]
+	command.IdentityPartition = storecenter.OfficialIdentityPartition(values["identityPartition"])
 	result, err := h.officialConnections.Begin(c.Request.Context(), command)
 	if err != nil {
 		writeStoreError(c, err)
@@ -38,6 +39,39 @@ func (h *Handler) BeginOfficialConnection(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")
 	c.Header("Referrer-Policy", "no-referrer")
 	c.JSON(http.StatusOK, result)
+}
+
+func (h *Handler) InstallOfficialToken(c *gin.Context) {
+	identity, id, ok := h.itemIdentity(c)
+	if !ok {
+		return
+	}
+	c.Header("Cache-Control", "no-store")
+	c.Header("Referrer-Policy", "no-referrer")
+	if len(c.Request.Header.Values("If-Match")) != 0 || len(c.Request.Header.Values("Idempotency-Key")) != 0 {
+		writeInvalid(c, "headers", "not_allowed")
+		return
+	}
+	values, field, err := parseStringObject(c.Request.Body, map[string]bool{"attemptId": true, "accessToken": true})
+	if err != nil {
+		writeInvalid(c, field, "invalid")
+		return
+	}
+	attempt, err := canonicalUUID(values["attemptId"])
+	if err != nil {
+		writeInvalid(c, "attemptId", "invalid")
+		return
+	}
+	if len(values["accessToken"]) < 1 || len(values["accessToken"]) > 4096 {
+		writeInvalid(c, "accessToken", "invalid")
+		return
+	}
+	view, err := h.officialConnections.InstallToken(c.Request.Context(), storecenter.InstallOfficialToken{OrganizationID: identity.EffectiveOrganizationID, StoreID: id, AttemptID: attempt, AccessToken: values["accessToken"]})
+	if err != nil {
+		writeStoreError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, view)
 }
 func (h *Handler) DisconnectOfficialConnection(c *gin.Context) {
 	command, ok := h.connectionCommand(c, true)
@@ -86,7 +120,7 @@ func (h *Handler) OfficialApplications(c *gin.Context) {
 		return
 	}
 	c.Header("Cache-Control", "no-store")
-	c.JSON(http.StatusOK, gin.H{"applications":choices})
+	c.JSON(http.StatusOK, gin.H{"applications": choices})
 }
 func (h *Handler) CompleteOfficialConnection(c *gin.Context) {
 	identity, id, ok := h.itemIdentity(c)

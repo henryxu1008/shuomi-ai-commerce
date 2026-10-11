@@ -1,10 +1,12 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
 	getStoreConnection,
 	getStoreApplications,
+	installStoreToken,
   beginStoreConnection,
   queryStoreConnection,
   disconnectStoreConnection,
@@ -34,6 +36,8 @@ export function StoreOfficialConnection({
   administrator: boolean;
   onChanged: () => Promise<unknown>;
 }) {
+	const platformLabel=store.platform==="temu"?"TEMU":"SHEIN";
+	const scopeKey=JSON.stringify([scope.expectedUserId,scope.expectedOrganizationId,store.id,canWrite,administrator]);
   const view = useQuery({
     queryKey: [
       "workbench",
@@ -55,15 +59,22 @@ export function StoreOfficialConnection({
 	});
 	const [selectedApp,setSelectedApp]=useState("");
 	const choices=!applications.isFetching && !applications.isError ? applications.data??[]:[];
-	const chosen=choices.find(choice=>choice.appId===selectedApp)?.appId ?? (choices.length===1 ? choices[0]!.appId:"");
-  const [working, setWorking] = useState(false);
-  const busy = useRef(false);
-  const active = useRef<{ alive: boolean } | null>(null);
+	const choiceKey=(choice:typeof choices[number])=>choice.identityPartition?`${choice.identityPartition}:${choice.appId}`:choice.appId;
+	const chosen=choices.find(choice=>choiceKey(choice)===selectedApp) ?? (choices.length===1 ? choices[0]:undefined);
+  const [workingFor, setWorkingFor] = useState<string|null>(null);
+  const working=workingFor===scopeKey;
+  const tokenInput=useRef<HTMLInputElement>(null);
+  const captureTokenInput=useCallback((node:HTMLInputElement|null)=>{
+    if(tokenInput.current && tokenInput.current!==node)tokenInput.current.value="";
+    tokenInput.current=node;
+  },[]);
+  const active = useRef<{ alive: boolean; busy:boolean; controller:AbortController } | null>(null);
   useEffect(() => {
-    const current = { alive: true };
+    const current = { alive: true,busy:false,controller:new AbortController() };
     active.current = current;
     return () => {
       current.alive = false;
+      current.controller.abort();
     };
   }, [
     scope.expectedUserId,
@@ -73,11 +84,11 @@ export function StoreOfficialConnection({
     administrator,
   ]);
   const data = !view.isFetching && !view.isError ? view.data : undefined;
-  async function run(action: "begin" | "query" | "disconnect") {
+  async function run(action: "begin" | "query" | "disconnect" | "install") {
     const current = active.current;
-    if (busy.current || !current?.alive) return;
-    busy.current = true;
-    setWorking(true);
+    if (!current?.alive || current.busy) return;
+    current.busy = true;
+    setWorkingFor(scopeKey);
     setMessage("");
     try {
 			if (action === "begin") {
@@ -88,9 +99,15 @@ export function StoreOfficialConnection({
           store.id,
           store.version,
 					key,
-					chosen,
+					chosen.appId,
+					chosen.identityPartition,
         );
         if (!current.alive) return;
+        if(result.authorizationMethod==="manual_token") {
+          await Promise.all([view.refetch(),onChanged()]);
+          if(current.alive)setMessage("请粘贴该店铺在所选应用分区生成的授权 token。");
+          return;
+        }
         rememberStoreAuthorization({
           ...scope,
           storeId: store.id,
@@ -100,7 +117,13 @@ export function StoreOfficialConnection({
         window.location.assign(result.authorizationUrl);
         return;
       }
-      if (action === "query" && data?.attemptId) {
+      if(action === "install" && data?.attemptId && data.authorizationMethod==="manual_token" && data.state==="awaiting_consent") {
+        const accessToken=tokenInput.current?.value??"";
+        if(tokenInput.current)tokenInput.current.value="";
+        if(!accessToken){setMessage("请输入官方授权 token。");return;}
+        await installStoreToken(scope,store.id,{attemptId:data.attemptId,accessToken},current.controller.signal);
+        if(current.alive)setMessage("官方身份已核验。商品发布权限按实际授权另行判断。");
+      } else if (action === "query" && data?.attemptId) {
         await queryStoreConnection(scope, store.id, data.attemptId);
       } else if (action === "disconnect") {
         await disconnectStoreConnection(
@@ -110,7 +133,7 @@ export function StoreOfficialConnection({
           crypto.randomUUID(),
         );
         if (!current.alive) return;
-        setMessage("本地连接已断开。SHEIN 端授权请在‘我的授权’中自行撤销。");
+        setMessage(`本地连接已断开。${platformLabel} 端授权请在官方授权管理中自行撤销。`);
       }
       if (!current.alive) return;
       await Promise.all([view.refetch(), onChanged()]);
@@ -119,7 +142,7 @@ export function StoreOfficialConnection({
       setMessage(
         error instanceof StoreConnectionError &&
           error.code === "STORE_OFFICIAL_SETUP_UNAVAILABLE"
-          ? "尚未配置获批的 SHEIN 开发者应用，暂不能真实连接。"
+          ? `尚未配置获批的 ${platformLabel} 开发者应用，暂不能真实连接。`
           : error instanceof StoreConnectionError &&
               error.code === "STORE_AUTHORIZATION_OUTCOME_UNKNOWN"
             ? "授权交换结果未知，不能再次交换原临时凭据。请刷新后重新发起官方授权。"
@@ -129,13 +152,13 @@ export function StoreOfficialConnection({
       );
       await view.refetch();
     } finally {
-      busy.current = false;
-      if (current.alive) setWorking(false);
+      current.busy = false;
+      if (current.alive) setWorkingFor(null);
     }
   }
   return (
-    <section className="mt-4 space-y-3" aria-label="SHEIN 官方连接">
-      <h2 className="font-semibold">SHEIN 官方连接</h2>
+    <section className="mt-4 space-y-3" aria-label={`${platformLabel} 官方连接`}>
+      <h2 className="font-semibold">{platformLabel} 官方连接</h2>
       <p role={view.isError ? "alert" : "status"}>
         {view.isPending || view.isFetching
           ? "正在读取官方连接…"
@@ -149,21 +172,22 @@ export function StoreOfficialConnection({
         </p>
       ) : null}
       <p className="text-sm text-muted-foreground">
-        前往 SHEIN
-        官方授权页，由店铺主账号确认。连接只证明当前授权有效，发布权限另行判断。
+        {store.platform==="temu" ? "由店铺主账号在 TEMU 官方授权管理中生成 token，选择其原应用分区后连接。经营模式由官方核验。" : "前往 SHEIN 官方授权页，由店铺主账号确认。"}连接只证明当前授权有效，发布权限另行判断。
       </p>
+			{data?.mode?<p className="text-sm">最近核验模式：{data.mode==="local"?"本土":applicationLabels[data.mode]}{data.credentialExpiresAt?`；授权到期：${data.credentialExpiresAt}`:""}</p>:null}
 			{canWrite &&
 			store.recordStatus !== "deleting" ? (
 				<><label className="grid gap-1 text-sm">官方应用类型
-					<select aria-label="官方应用类型" value={chosen} disabled={working || applications.isFetching} onChange={event=>setSelectedApp(event.target.value)} className="rounded-lg border bg-background p-2">
+					<select aria-label="官方应用类型" value={chosen?choiceKey(chosen):""} disabled={working || applications.isFetching} onChange={event=>setSelectedApp(event.target.value)} className="rounded-lg border bg-background p-2">
 						<option value="">选择已配置的官方应用</option>
-						{choices.map(choice=><option key={choice.appId} value={choice.appId}>{applicationLabels[choice.type]} · {choice.appId}</option>)}
+						{choices.map(choice=><option key={choiceKey(choice)} value={choiceKey(choice)}>{choice.platform==="temu"?`${choice.identityPartition} · ${choice.identityPartition==="CN"?"全托管 / 半托管":"本土"}`:choice.type?applicationLabels[choice.type]:""} · {choice.appId}</option>)}
 					</select>
 				</label>
-				<p className="text-sm text-muted-foreground">{applications.isFetching ? "正在读取应用配置…": applications.isError ? "未取得应用配置，请刷新后再连接。": Object.entries(applicationLabels).filter(([type])=>!choices.some(choice=>choice.type===type)).map(([,label])=>`${label}未配置`).join("；")}</p>
+				<p className="text-sm text-muted-foreground">{applications.isFetching ? "正在读取应用配置…": applications.isError ? "未取得应用配置，请刷新后再连接。":store.platform==="temu"?(choices.length?"按原官方应用分区选择，不能按店铺所在国家猜测。":"尚未配置 TEMU 官方应用。"):Object.entries(applicationLabels).filter(([type])=>!choices.some(choice=>choice.type===type)).map(([,label])=>`${label}未配置`).join("；")}</p>
+				{data?.authorizationMethod==="manual_token" && data.state==="awaiting_consent" ? <div className="space-y-2"><label className="grid gap-1 text-sm">TEMU 授权 token<Input key={scopeKey} ref={captureTokenInput} type="password" autoComplete="off" spellCheck={false} maxLength={4096} disabled={working}/></label><Button disabled={working} onClick={()=>void run("install")}>验证并连接</Button></div>:null}
 				<div className="flex flex-wrap gap-2">
 					<Button disabled={working || !data || !chosen} onClick={() => void run("begin")}>
-            {data?.attemptId ? "重新官方授权" : "前往官方授权"}
+            {store.platform==="temu"?(data?.attemptId?"重新连接":"开始连接"):(data?.attemptId ? "重新官方授权" : "前往官方授权")}
           </Button>
           {data?.state === "credential_received" ||
           data?.state === "verified" ? (

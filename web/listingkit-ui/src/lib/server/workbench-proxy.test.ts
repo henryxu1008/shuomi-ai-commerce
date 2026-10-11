@@ -17,6 +17,24 @@ const contextPayload = {
 const storeId = "11111111-1111-4111-8111-11111111111a";
 const operationKey = "22222222-2222-4222-8222-22222222222b";
 
+it("routes a manual TEMU token only to the captured enterprise and original attempt",async()=>{
+ vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL","http://localhost");
+ const path=["stores",storeId,"connection","token"];
+ const request=(actor="user-1",organization="org-b",extra={})=>new Request(`http://localhost/api/workbench/${path.join("/")}`,{method:"POST",headers:{cookie:`${WORKBENCH_COOKIE_NAME}=org-b`,Origin:"http://localhost","X-Expected-User-ID":actor,"X-Expected-Organization-ID":organization,"Content-Type":"application/json"},body:JSON.stringify({attemptId:operationKey,accessToken:"synthetic-token",...extra})});
+ const valid=await buildWorkbenchUpstreamRequest(request(),path,"server-session-token","user-1");
+ expect(valid).not.toBeInstanceOf(Response);
+ if(!(valid instanceof Response)) {
+  expect(new URL(valid.url).pathname).toBe(`/api/v1/workbench/stores/${storeId}/connection/token`);
+  expect(JSON.parse(String(valid.init.body))).toEqual({attemptId:operationKey,accessToken:"synthetic-token"});
+ }
+ for(const invalid of [request("other"),request("user-1","other"),request("user-1","org-b",{mallId:123}),request("user-1","org-b",{appId:"other"})]) {
+  const result=await buildWorkbenchUpstreamRequest(invalid,path,"server-session-token","user-1");
+  expect(result).toBeInstanceOf(Response);
+  expect((result as Response).status).toBeGreaterThanOrEqual(400);
+ }
+ vi.unstubAllEnvs();
+});
+
 describe("acquisition plan scope and request boundary",()=>{
  afterEach(()=>vi.unstubAllEnvs());
  const headers={cookie:`${WORKBENCH_COOKIE_NAME}=org-cookie`,"X-Expected-Organization-ID":"org-cookie","X-Expected-User-ID":"actor","Sec-Fetch-Site":"same-origin",Origin:"http://localhost","Content-Type":"application/json","Idempotency-Key":operationKey};

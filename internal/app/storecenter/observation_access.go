@@ -57,7 +57,7 @@ func (a *OfficialObservationAccess) Authorize(ctx context.Context, s storecenter
 	if e != nil {
 		return nil, observationError(e)
 	}
-	entry, e := a.applications.resolve(m.Attempt.AppID, m.Attempt.AppVersion)
+	entry, e := a.applications.resolve(m.Attempt.AppID, m.Attempt.AppVersion, m.Platform, m.Attempt.IdentityPartition)
 	if e != nil {
 		return nil, o.ErrConflict
 	}
@@ -100,7 +100,7 @@ func (h *ObservationHandle) credential(ctx context.Context) (storecenter.Officia
 	if e != nil {
 		return storecenter.OfficialMerchantCredential{}, observationError(e)
 	}
-	entry, e := h.owner.applications.resolve(m.Attempt.AppID, m.Attempt.AppVersion)
+	entry, e := h.owner.applications.resolve(m.Attempt.AppID, m.Attempt.AppVersion, m.Platform, m.Attempt.IdentityPartition)
 	if e != nil || entry.application != h.entry.application || entry.mode != h.entry.mode || m.Connection.AttemptID != h.connectionRef || privateCredentialHash(m) != h.credentialHash {
 		return storecenter.OfficialMerchantCredential{}, o.ErrConflict
 	}

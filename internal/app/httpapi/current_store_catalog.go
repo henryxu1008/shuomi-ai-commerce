@@ -38,6 +38,29 @@ type storeCatalogSignals struct {
 func catalogMetric(metric o.Metric) storecenter.CatalogMetric {
 	return storecenter.CatalogMetric{Value: metric.Value, Unknown: metric.Unknown, Complete: metric.Complete, Reason: metric.Reason}
 }
+
+func catalogApplicationType(view storecenter.OfficialConnectionView, choices []storecenter.OfficialApplicationChoice) storecenter.OfficialApplicationType {
+	for _, choice := range choices {
+		if choice.Platform != view.Platform || choice.IdentityPartition != view.IdentityPartition || choice.AppID != view.AppID || choice.Revision != view.AppRevision {
+			continue
+		}
+		if view.Platform == storecenter.PlatformShein {
+			return choice.Type
+		}
+		if view.Platform != storecenter.PlatformTemu || view.MerchantIdentityHash == "" || !choice.SupportedModes.Supports(view.Mode) {
+			return ""
+		}
+		switch view.Mode {
+		case storecenter.MerchantLocal:
+			return storecenter.ApplicationSelfOperated
+		case storecenter.MerchantSemiManaged:
+			return storecenter.ApplicationSemiManaged
+		case storecenter.MerchantFullyManaged:
+			return storecenter.ApplicationFullyManaged
+		}
+	}
+	return ""
+}
 func (s storeCatalogSignals) ReadCatalogSignals(ctx context.Context, org string, ids []string, thresholds map[string]*int64) (map[string]storecenter.CatalogSignals, error) {
 	identity, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
 	if !ok || identity.EffectiveOrganizationID != org {
@@ -48,24 +71,19 @@ func (s storeCatalogSignals) ReadCatalogSignals(ctx context.Context, org string,
 	active := make([]bool, len(ids))
 	group, reads := errgroup.WithContext(ctx)
 	group.SetLimit(16)
-	choices := map[string]storecenter.OfficialApplicationChoice{}
-	for _, choice := range s.applications.Applications() {
-		choices[choice.AppID+":"+choice.Revision] = choice
-	}
+	choices := s.applications.Applications()
 	for i, id := range ids {
 		group.Go(func() error {
 			record, err := s.records.Get(reads, org, id)
 			if err != nil {
 				return err
 			}
-			active[i] = record.RecordStatus() == storecenter.RecordStatusActive
+			active[i] = record.RecordStatus() == storecenter.RecordStatusActive && record.Platform() == storecenter.PlatformShein
 			view, err := s.connections.Read(reads, org, id)
 			signal := storecenter.CatalogSignals{Connection: storecenter.ConnectionStatusUnavailable, Reason: "observations_unavailable", Products: storecenter.CatalogMetric{Reason: "observations_unavailable"}, Orders: storecenter.CatalogMetric{Reason: "observations_unavailable"}, Inventory: storecenter.CatalogMetric{Reason: "observations_unavailable"}}
 			if err == nil {
 				signal.Connection = view.Status
-				if choice, exists := choices[view.AppID+":"+view.AppRevision]; exists {
-					signal.ApplicationType = choice.Type
-				}
+				signal.ApplicationType = catalogApplicationType(view, choices)
 			}
 			values[i] = signal
 			return nil

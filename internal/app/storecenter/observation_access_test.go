@@ -36,7 +36,7 @@ type observationProvider struct {
 }
 
 func (p *observationProvider) Application() storecenter.OfficialApplication {
-	return storecenter.OfficialApplication{AppID: "app-a", Version: BoundOfficialRevision("v1", storecenter.ApplicationSelfOperated)}
+	return storecenter.OfficialApplication{Platform: storecenter.PlatformShein, AuthorizationMethod: storecenter.AuthorizationCallback, AppID: "app-a", Version: BoundOfficialRevision("v1", storecenter.ApplicationSelfOperated)}
 }
 func (p *observationProvider) QueryObservedProducts(context.Context, storecenter.OfficialMerchantCredential, int) (o.ProductPage, error) {
 	p.calls++

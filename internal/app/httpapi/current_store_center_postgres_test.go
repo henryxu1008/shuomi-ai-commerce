@@ -321,7 +321,7 @@ func (postgresConnectionAccess) AuthorizeStoreMember(_ context.Context, org stri
 type postgresConnectionProvider struct{}
 
 func (postgresConnectionProvider) Application() storecenter.OfficialApplication {
-	return storecenter.OfficialApplication{AppID: "synthetic-app", Version: storeapp.BoundOfficialRevision("config-v1", storecenter.ApplicationSelfOperated), CallbackURL: "https://localhost/callback"}
+	return storecenter.OfficialApplication{Platform: storecenter.PlatformShein, AuthorizationMethod: storecenter.AuthorizationCallback, AppID: "synthetic-app", Version: storeapp.BoundOfficialRevision("config-v1", storecenter.ApplicationSelfOperated), CallbackURL: "https://localhost/callback"}
 }
 func (postgresConnectionProvider) AuthorizationURL(state string) (string, error) {
 	return "https://openapi-sem.sheincorp.com/#/empower?state=" + state, nil
