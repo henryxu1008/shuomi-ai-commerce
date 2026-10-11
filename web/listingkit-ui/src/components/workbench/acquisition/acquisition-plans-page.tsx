@@ -26,7 +26,17 @@ type PendingPlan=z.infer<typeof pendingPlanSchema>;
 function loadPending(scope:AcquisitionContext):PendingPlan|null{
  try{const raw=sessionStorage.getItem(storage(scope,"create"));const parsed=pendingPlanSchema.safeParse(raw?JSON.parse(raw):null);return parsed.success?parsed.data:null;}catch{return null;}
 }
-function persist(scope:AcquisitionContext,kind:string,value:unknown){try{if(value===null)sessionStorage.removeItem(storage(scope,kind));else sessionStorage.setItem(storage(scope,kind),JSON.stringify(value));}catch{/* The server remains the durable recovery owner. */}}
+const storageFailure="无法保存原请求，未提交操作。请恢复浏览器存储后重试；已有原请求请先核实。";
+function persist(scope:AcquisitionContext,kind:string,value:unknown):boolean{
+ try{
+  const slot=storage(scope,kind),before=sessionStorage.getItem(slot);
+  if(value===null){sessionStorage.removeItem(slot);return sessionStorage.getItem(slot)===null;}
+  const raw=JSON.stringify(value);
+  // Preserve an unread or different original instead of replacing its key.
+  if(before!==null&&before!==raw)return false;
+  sessionStorage.setItem(slot,raw);return sessionStorage.getItem(slot)===raw;
+ }catch{return false;}
+}
 
 export function AcquisitionPlansPage({scope,initialOpen=false}:{scope:AcquisitionContext;initialOpen?:boolean}){
  const [cursor,setCursor]=useState<string>();
@@ -55,7 +65,7 @@ export function AcquisitionPlansPage({scope,initialOpen=false}:{scope:Acquisitio
  async function more(){if(busy||!cursor)return;const abort=new AbortController();controller.current=abort;setBusy(true);try{const page=await api.listAcquisitionPlans(scope,abort.signal,cursor);if(!alive.current||abort.signal.aborted)return;setPlans(values=>[...values,...page.plans.filter(p=>!values.some(v=>v.id===p.id))]);setCursor(page.nextCursor);}catch(e){if(alive.current&&!abort.signal.aborted)setError(failureText(e));}finally{if(alive.current)setBusy(false);}}
  async function submit(input:CreatePlan){
   if(busy||pending)return;const abort=new AbortController();controller.current=abort;
-  const intent={key:crypto.randomUUID(),input};setPending(intent);persist(scope,"create",intent);setBusy(true);setError(null);
+  const intent={key:crypto.randomUUID(),input};if(!persist(scope,"create",intent)){setError(storageFailure);return;}setPending(intent);setBusy(true);setError(null);
   try{
    const plan=await api.createAcquisitionPlan(scope,intent.key,intent.input,abort.signal);
    if(!alive.current||abort.signal.aborted)return;
@@ -64,7 +74,7 @@ export function AcquisitionPlansPage({scope,initialOpen=false}:{scope:Acquisitio
   finally{if(alive.current){setBusy(false);running.current=false;}}
  }
  async function recoverCreation(replay=false){
-  if(!pending||busy)return;const abort=new AbortController();controller.current=abort;setBusy(true);setError(null);
+  if(!pending||busy)return;if(replay&&!persist(scope,"create",pending)){setError(storageFailure);return;}const abort=new AbortController();controller.current=abort;setBusy(true);setError(null);
   try{
    const plan=replay?await api.createAcquisitionPlan(scope,pending.key,pending.input,abort.signal):await api.readAcquisitionPlanByKey(scope,pending.key,abort.signal);
    if(!alive.current||abort.signal.aborted)return;remember(plan);setPending(null);persist(scope,"create",null);setOpen(false);
@@ -136,7 +146,7 @@ function RuleDialog({scope,rules,onRules,onClose}:{scope:AcquisitionContext;rule
   if(!replay&&action!=="archive"&&(!parsed.success||moq!==""&&!/^[1-9][0-9]*$/.test(moq))){setError("采购价应为非负十进制，最低价不大于最高价；起批量应为正整数。");return;}
   const input:RuleMutation=action==="archive"?{action:"archive",id,expectedRevision:existing?.revision,rule:{}}:existing?{action:"update",id,expectedRevision:existing.revision,name,rule:action==="rename"?existing.rule:parsed.success?parsed.data:{}}:{action:"create",name,rule:parsed.success?parsed.data:{}};
   const validated=ruleMutationSchema.safeParse(input);if(!replay&&!validated.success){setError("请填写模板名称（最多100字）。");return;}
-  const intent=replay?pending!:{key:crypto.randomUUID(),input:validated.success?validated.data:input};setPending(intent);persist(scope,"rule",intent);setBusy(true);setError(null);const controller=new AbortController();abort.current=controller;
+  const intent=replay?pending!:{key:crypto.randomUUID(),input:validated.success?validated.data:input};if(!persist(scope,"rule",intent)){setError(storageFailure);return;}setPending(intent);setBusy(true);setError(null);const controller=new AbortController();abort.current=controller;
   try{const saved=await api.mutateAcquisitionRule(scope,intent.key,intent.input,controller.signal);if(!alive.current||controller.signal.aborted)return;
    const next=[...rules.filter(r=>r.id!==saved.id),...(saved.archived?[]:[saved])];onRules(next);setPending(null);persist(scope,"rule",null);if(saved.archived){setID(next[0]?.id??"");setName(next[0]?.name??"");setMin(next[0]?.rule.minPrice??"");setMax(next[0]?.rule.maxPrice??"");setMOQ(String(next[0]?.rule.maxMOQ||""));}else{setID(saved.id);setName(saved.name);setMin(saved.rule.minPrice??"");setMax(saved.rule.maxPrice??"");setMOQ(String(saved.rule.maxMOQ||""));}
   }catch(e){if(alive.current&&!controller.signal.aborted){setError(failureText(e));if(e instanceof AcquisitionAPIError&&["INVALID_ACQUISITION","IDEMPOTENCY_CONFLICT","ACQUISITION_NOT_FOUND"].includes(e.code)){setPending(null);persist(scope,"rule",null);}}}

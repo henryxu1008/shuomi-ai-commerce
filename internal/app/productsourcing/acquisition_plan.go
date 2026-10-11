@@ -333,7 +333,10 @@ func (s *AcquisitionPlanService) Advance(ctx context.Context, id string, expecte
 				}
 				return p, e
 			}
-			if detail.Item.Source.OperationID != item.OperationID || detail.Item.Source.PublicationID != result.Publication.Receipt.PublicationID || detail.Item.Source.Version != result.Publication.Receipt.CatalogVersion || detail.Item.ArchivedAt != nil {
+			// add_acquisition returns its original member identity and item revision,
+			// not the containing batch's current revision. Do not adopt a location
+			// changed between publication and this first read.
+			if !collection.ValidID(receipt.ItemID) || !collection.ValidID(receipt.BatchID) || receipt.Revision < 1 || detail.Item.ID != receipt.ItemID || detail.Item.BatchID != receipt.BatchID || detail.Item.Revision != receipt.Revision || detail.Item.Source.OperationID != item.OperationID || detail.Item.Source.PublicationID != result.Publication.Receipt.PublicationID || detail.Item.Source.Version != result.Publication.Receipt.CatalogVersion || detail.Item.ArchivedAt != nil {
 				return s.saveTransferSourceConflict(ctx, p, check)
 			}
 			item.CollectionItemID = detail.Item.ID
