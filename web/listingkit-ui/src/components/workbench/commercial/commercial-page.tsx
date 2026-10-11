@@ -147,7 +147,7 @@ function PageFrame({
       description={
         <>
           <p>{descriptions[page]}</p>
-          <p>当前有效企业：{organization}</p>
+          {page !== "overview" && <p>当前有效企业：{organization}</p>}
         </>
       }
       actions={actions}
@@ -204,13 +204,7 @@ function ScopedCommercial({
       organization={`${organizationName || "未提供名称"}（${organizationId}）`}
       actions={
         <>
-          {page === "overview" ? (
-            <Button asChild variant="outline">
-              <Link prefetch={false} href="/workbench/plans/entitlements">
-                查看我的权益
-              </Link>
-            </Button>
-          ) : (
+          {page === "overview" ? null : (
             <Button asChild variant="outline">
               <Link
                 prefetch={false}
