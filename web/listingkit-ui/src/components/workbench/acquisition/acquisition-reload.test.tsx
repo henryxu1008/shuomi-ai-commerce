@@ -101,8 +101,9 @@ it("does not overwrite another submitted key written after hydration", async () 
 });
 
 it("keeps the original slot and blocks a new submission when terminal cleanup fails", async () => {
+  let removal: ReturnType<typeof vi.spyOn>;
   calls.acquire.mockImplementationOnce(async () => {
-    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => { throw new Error("storage denied"); });
+    removal = vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => { throw new Error("storage denied"); });
     return { outcome: "failed", operationId };
   });
   mount(); await submit();
@@ -110,6 +111,13 @@ it("keeps the original slot and blocks a new submission when terminal cleanup fa
   const original = calls.acquire.mock.calls[0][0] as AcquisitionOperation;
   expect(JSON.parse(localStorage.getItem(storageKey)!)).toMatchObject(original);
   expect(screen.getByRole("button", { name: "提交采集" })).toBeDisabled();
+  expect(calls.acquire).toHaveBeenCalledOnce();
+  removal!.mockRestore();
+  calls.verify.mockResolvedValueOnce({ outcome: "failed", operationId });
+  await userEvent.click(screen.getByRole("button", { name: "使用原 key 核实" }));
+  await waitFor(() => expect(localStorage.getItem(storageKey)).toBeNull());
+  expect(calls.verify.mock.calls[0][0]).toMatchObject(original);
+  expect(screen.getByRole("button", { name: "提交采集" })).toBeEnabled();
   expect(calls.acquire).toHaveBeenCalledOnce();
 });
 
@@ -119,4 +127,24 @@ it.each(["not-json", JSON.stringify({ userId: "actor-A", organizationId: "organi
   expect(calls.acquire).not.toHaveBeenCalled();
   expect(localStorage.getItem(storageKey)).toBe(raw);
   expect(await screen.findByRole("alert")).toHaveTextContent("无法保留原采集请求");
+});
+
+it("resumes the original request after quota metadata storage fails and the shell reloads", async () => {
+  const originalSave = Storage.prototype.setItem;
+  let writes = 0;
+  const storage = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key: string, value: string) {
+    if (++writes === 2) throw new Error("quota metadata write failed");
+    originalSave.call(this, key, value);
+  });
+  calls.acquire.mockRejectedValueOnce(new AcquisitionAPIError("DATA_QUOTA_INSUFFICIENT", 409));
+  calls.acquire.mockResolvedValueOnce({ outcome: "published", operationId, productKey: "crawler:1688:123" });
+  const first = mount(); await submit();
+  expect(await screen.findByRole("alert")).toHaveTextContent("无法保留原采集请求");
+  const original = calls.acquire.mock.calls[0][0] as AcquisitionOperation;
+  expect(JSON.parse(localStorage.getItem(storageKey)!)).toEqual(original);
+  storage.mockRestore(); first.unmount(); mount();
+  await userEvent.click(await screen.findByRole("button", { name: "继续原请求" }));
+  await waitFor(() => expect(calls.acquire).toHaveBeenCalledTimes(2));
+  expect(calls.acquire.mock.calls[1][0]).toMatchObject(original);
+  expect(calls.verify).not.toHaveBeenCalled();
 });
