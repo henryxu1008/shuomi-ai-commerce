@@ -2,7 +2,7 @@ import { cleanup,fireEvent,render,screen,waitFor } from "@testing-library/react"
 import { afterEach,expect,it,vi } from "vitest";
 import { SupplyAPIError } from "@/lib/api/supply-chain";
 import { CompletionDraftsPage } from "./completion-drafts-page";
-const f=vi.hoisted(()=>({context:{user:{id:"actor"},effectiveOrganization:{id:"org"},permissions:["workbench.supply.read","workbench.supply.manage"],supplyIntentReady:true,pendingSupplyIntent:null as unknown,setPendingSupplyIntent:vi.fn((_intent:unknown)=>true),registerOrganizationSwitchGuard:()=>()=>{}},batches:vi.fn(),read:vi.fn(),source:vi.fn(),list:vi.fn(),save:vi.fn(),recover:vi.fn()}));
+const f=vi.hoisted(()=>({context:{user:{id:"actor"},effectiveOrganization:{id:"org"},permissions:["workbench.supply.read","workbench.supply.manage"],supplyIntentReady:true,pendingSupplyIntent:null as unknown,setPendingSupplyIntent:vi.fn<(intent:unknown)=>boolean>().mockReturnValue(true),registerOrganizationSwitchGuard:()=>()=>{}},batches:vi.fn(),read:vi.fn(),source:vi.fn(),list:vi.fn(),save:vi.fn(),recover:vi.fn()}));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>f.context}));
 vi.mock("@/lib/api/supply-chain",async importOriginal=>({...await importOriginal<object>(),listSupplyPreparations:f.batches,listSupplyCompletionDrafts:f.list,readSupplyCompletionDraft:f.read,readSupplySource:f.source,supplyCommand:f.save,readSupplyCommand:f.recover}));
 const id="11111111-1111-4111-8111-111111111111",other="22222222-2222-4222-8222-222222222222";
@@ -14,6 +14,11 @@ it("shows actual saved drafts with unknown official fields and no fabricated AI 
  ready();render(<CompletionDraftsPage initialPreparation={other}/>);
  expect(await screen.findByText("商品列表（共 1 个）")).toBeVisible();expect(screen.getByText("候选 R1")).toBeVisible();expect(screen.getByText("未绑定店铺，平台规则待配置")).toBeVisible();
  expect(screen.queryByRole("button",{name:/AI补全|批量确认/})).not.toBeInTheDocument();
+});
+it("keeps local source selection on the creation link when the full platform flow is enabled",async()=>{
+ ready();render(<CompletionDraftsPage initialPreparation={other} fullAvailable/>);
+ await screen.findByText("商品列表（共 1 个）");
+ expect(screen.getByRole("link",{name:"从待适配创建草稿"})).toHaveAttribute("href",`/workbench/supply/mine/waiting?preparation=${other}&mode=local`);
 });
 it("moves to the next real batch page after entering through an explicit preparation",async()=>{
  ready();const later="33333333-3333-4333-8333-333333333333";

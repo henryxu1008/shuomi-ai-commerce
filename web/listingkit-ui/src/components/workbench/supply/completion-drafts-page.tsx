@@ -41,7 +41,8 @@ function ScopedCompletionDrafts({scope,initialPreparation,initialSource,fullAvai
   if(selected)void listSupplyCompletionDrafts(scope,selected,{limit:20,after,keyword},c.signal).then(page=>{if(live){setItems(page.items);setTotal(page.total);setNext(page.nextCursor)}}).catch(()=>{if(live)setError(true)}).finally(()=>{if(live)setLoading(false)});
   return()=>{live=false;c.abort()};
  },[scope,selected,after,keyword,reload]);
- const waiting=`/workbench/supply/mine/waiting${selected?`?preparation=${selected}`:""}`;
+ const waitingQuery=new URLSearchParams({...selected?{preparation:selected}:{},...fullAvailable?{mode:"local"}:{}});
+ const waiting=`/workbench/supply/mine/waiting${waitingQuery.size?`?${waitingQuery}`:""}`;
  return <ConsolePage title="待补全" description="补充商品资料，保存后继续编辑；配置店铺后再按平台要求适配。" breadcrumbs={[{label:"供应市场",href:"/workbench/supply"},{label:"我的供应链",href:"/workbench/supply/mine"},{label:"待补全"}]} actions={<><Button asChild variant="outline"><Link href={waiting}>从待适配创建草稿</Link></Button><Button variant="outline" disabled={loading||!selected} onClick={()=>{setLoading(true);setError(false);setReload(v=>v+1)}}>刷新</Button></>}>
   <div className="mb-5 flex items-start gap-3 rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900"><Image src="/supply-completion-document.svg" width={24} height={24} alt=""/><div><p className="font-medium">未绑定店铺，平台规则待配置</p><p className="mt-1">{selected?`当前批次已保存 ${total} 份待补全草稿。`:"选择已转入的商品批次查看草稿。"} 标题和描述独立保存，原始商品资料继续保留。</p></div></div>
   {fullAvailable?<p className="mb-4 text-sm"><Link href={`/workbench/supply/mine/missing?${new URLSearchParams({...selected?{preparation:selected}:{},mode:"platform"})}`} className="text-primary underline">查看已绑定店铺的待补全商品</Link></p>:null}

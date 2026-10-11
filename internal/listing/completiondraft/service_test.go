@@ -42,6 +42,12 @@ func (r testSources) ReadRetainedSource(_ context.Context, _ collection.Scope, i
 	}
 	return r.source, nil
 }
+func (r testSources) Read(_ context.Context, _ collection.Scope, id string) (preparation.Preparation, error) {
+	if id != r.source.PreparationID {
+		return preparation.Preparation{}, preparation.ErrNotFound
+	}
+	return preparation.Preparation{ID: id}, nil
+}
 
 type testCatalog struct{ snapshot catalog.PublishedSnapshot }
 
@@ -53,6 +59,7 @@ type testRecords struct {
 	Repository
 	writes       int
 	beforeCommit func()
+	beforeList   func()
 	saved        Prepared
 	record       Record
 }
@@ -81,6 +88,12 @@ func (r *testRecords) Read(_ context.Context, _ collection.Scope, id string) (Re
 }
 func (r *testRecords) ReadCommand(context.Context, collection.Scope, string) (Receipt, error) {
 	return Receipt{Record: r.record, Replayed: true}, nil
+}
+func (r *testRecords) List(context.Context, collection.Scope, string, collection.Query) (collection.Page[Record], error) {
+	if r.beforeList != nil {
+		r.beforeList()
+	}
+	return collection.Page[Record]{Items: []Record{r.record}, Total: 1}, nil
 }
 
 func fixture(t *testing.T) (*Service, *testAuth, *testRecords, context.Context, preparation.SourceItem) {
@@ -132,6 +145,25 @@ func TestCommitRejectsSourceDriftEvenWithCurrentOwner(t *testing.T) {
 	require.NoError(t, err)
 	source.Source.Version++
 	require.ErrorIs(t, r.saved.ValidateCommit(ctx, source), preparation.ErrForbidden)
+}
+func TestListRejectsAuthorityChangesAfterTheBoundedPageRead(t *testing.T) {
+	for _, change := range []string{"revoked", "member-replaced"} {
+		t.Run(change, func(t *testing.T) {
+			s, a, r, ctx, source := fixture(t)
+			_, err := s.Save(ctx, uuid.NewString(), SaveInput{SourceID: source.ID})
+			require.NoError(t, err)
+			r.beforeList = func() {
+				if change == "revoked" {
+					a.denied = true
+				} else {
+					a.scope.MemberID = "new-member"
+				}
+			}
+			page, err := s.List(ctx, source.PreparationID, collection.Query{Limit: 20})
+			require.ErrorIs(t, err, preparation.ErrForbidden)
+			require.Empty(t, page.Items)
+		})
+	}
 }
 
 func TestPreparedSaveRejectsChangedMemberAndExpiredContext(t *testing.T) {

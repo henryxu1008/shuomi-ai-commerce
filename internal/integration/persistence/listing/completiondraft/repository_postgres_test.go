@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -30,9 +31,17 @@ import (
 	"task-processor/internal/product/sourcing"
 )
 
-type fixedAuth struct{ scope collection.Scope }
+type fixedAuth struct {
+	scope collection.Scope
+	calls *atomic.Int64
+}
 
-func (a fixedAuth) Authorize(context.Context, string) (collection.Scope, error) { return a.scope, nil }
+func (a fixedAuth) Authorize(context.Context, string) (collection.Scope, error) {
+	if a.calls != nil {
+		a.calls.Add(1)
+	}
+	return a.scope, nil
+}
 
 type unusedSources struct {
 	sourcing.PublishedAcquisitionReader
@@ -104,7 +113,7 @@ func TestPostgresUnboundDraftAtomicCASReplayAndUnknownRecovery(t *testing.T) {
 	repo, err = store.NewRepository(ctx, runtimeDB)
 	require.NoError(t, err)
 	scope := collection.Scope{OrganizationID: "org-a", ActorID: "actor-a", MemberID: "member-a"}
-	auth := fixedAuth{scope}
+	auth := fixedAuth{scope: scope, calls: &atomic.Int64{}}
 	cr, err := collectionstore.NewRepository(ctx, runtimeDB, func(*gorm.DB) (collectionstore.OwnPublisher, error) { return nil, collection.ErrUnavailable })
 	require.NoError(t, err)
 	cs, err := collection.NewService(cr, auth, unusedSources{})
@@ -233,8 +242,10 @@ func TestPostgresUnboundDraftAtomicCASReplayAndUnknownRecovery(t *testing.T) {
 		require.NoError(t, db.Exec(`INSERT INTO listing_completion_draft_records VALUES(?,?,?,?,?,?,1,?,?,?,now())`, scope.OrganizationID, scope.ActorID, scope.MemberID, recordID, newSource, draftID, sourceJSON, contentJSON, collection.Digest(content)).Error)
 		require.NoError(t, db.Exec(`INSERT INTO listing_completion_draft_heads VALUES(?,?,?,?,?,?,1)`, scope.OrganizationID, scope.ActorID, scope.MemberID, newSource, recordID, draftID).Error)
 	}
-	largePage, err := repo.List(ctx, scope, transfer.Preparation.ID, collection.Query{Limit: 100, Keyword: "large-page-fixture"})
+	auth.calls.Store(0)
+	largePage, err := service.List(actor, transfer.Preparation.ID, collection.Query{Limit: 100, Keyword: "large-page-fixture"})
 	require.NoError(t, err)
+	require.Less(t, auth.calls.Load(), int64(20), "live authorization work is bounded per page rather than repeated per row")
 	require.EqualValues(t, 70, largePage.Total)
 	require.NotEmpty(t, largePage.NextCursor)
 	require.Less(t, len(largePage.Items), 70)
@@ -250,4 +261,8 @@ func TestPostgresUnboundDraftAtomicCASReplayAndUnknownRecovery(t *testing.T) {
 		seen[v.Source.ID] = true
 	}
 	require.Len(t, seen, 70)
+	// A stale immutable JSON/source binding cannot be returned as a current row.
+	require.NoError(t, db.Exec("UPDATE listing_preparation_sources SET collection_revision=collection_revision+1 WHERE id=?", largePage.Items[0].Source.ID).Error)
+	_, err = repo.List(ctx, scope, transfer.Preparation.ID, collection.Query{Limit: 100, Keyword: "large-page-fixture"})
+	require.ErrorIs(t, err, preparation.ErrUnavailable)
 }

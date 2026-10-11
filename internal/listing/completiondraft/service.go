@@ -257,9 +257,19 @@ func (s *Service) List(ctx context.Context, preparationID string, q collection.Q
 		return collection.Page[Record]{}, err
 	}
 	for _, r := range page.Items {
-		if err = s.validateRead(ctx, scope, r); err != nil {
-			return collection.Page[Record]{}, err
+		if r.Source.PreparationID != preparationID || !collection.ValidID(r.Source.ID) || ctx.Err() != nil {
+			return collection.Page[Record]{}, preparation.ErrUnavailable
 		}
+	}
+	// The repository validates each immutable record against its exact qualified
+	// retained source on this page read. Recheck live page authority once before
+	// returning; do not multiply uncached IAM calls by the requested page size.
+	current, err := s.authorize(ctx, preparation.PermissionRead)
+	if err != nil {
+		return collection.Page[Record]{}, err
+	}
+	if current != scope {
+		return collection.Page[Record]{}, preparation.ErrForbidden
 	}
 	return page, nil
 }

@@ -33,6 +33,11 @@ type recordRow struct {
 
 func (recordRow) TableName() string { return Tables[0] }
 
+type pageRow struct {
+	Record         recordRow `gorm:"embedded"`
+	RetainedSource sourceRow `gorm:"embedded;embeddedPrefix:retained_"`
+}
+
 type headRow struct {
 	OrganizationID, ActorID, MemberID, SourceID, RecordID, DraftID string
 	Revision                                                       int64
@@ -230,19 +235,22 @@ func (r *Repository) List(ctx context.Context, scope collection.Scope, preparati
 	if q.After != "" {
 		base = base.Where("h.source_id>?", q.After)
 	}
-	var rows []recordRow
-	if base.Select("r.*").Order("h.source_id").Limit(q.Limit+1).Scan(&rows).Error != nil {
+	var rows []pageRow
+	if base.Select(`r.*,s.organization_id AS retained_organization_id,s.actor_id AS retained_actor_id,s.member_id AS retained_member_id,s.id AS retained_id,s.preparation_id AS retained_preparation_id,s.collection_item_id AS retained_collection_item_id,s.collection_revision AS retained_collection_revision,s.product_key AS retained_product_key,s.publication_id AS retained_publication_id,s.original_version AS retained_original_version,s.source_kind AS retained_source_kind,s.source_operation_id AS retained_source_operation_id`).Order("h.source_id").Limit(q.Limit+1).Scan(&rows).Error != nil {
 		return page, preparation.ErrUnavailable
 	}
 	if len(rows) > q.Limit {
 		rows = rows[:q.Limit]
-		page.NextCursor = rows[len(rows)-1].SourceID
+		page.NextCursor = rows[len(rows)-1].Record.SourceID
 	}
 	encodedBytes := 0
 	for _, row := range rows {
-		v, err := row.value()
+		v, err := row.Record.value()
 		if err != nil {
 			return page, err
+		}
+		if row.RetainedSource.OrganizationID != scope.OrganizationID || row.RetainedSource.ActorID != scope.ActorID || row.RetainedSource.MemberID != scope.MemberID || row.RetainedSource.PreparationID != preparationID || row.RetainedSource.value() != v.Source {
+			return page, preparation.ErrUnavailable
 		}
 		raw, err := json.Marshal(v)
 		if err != nil {
