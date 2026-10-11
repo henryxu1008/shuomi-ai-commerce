@@ -1,0 +1,76 @@
+/* Figma 431:323 / 431:525. Keep these tokens local to the service market. */
+.eco-market-page {
+  --background: #060c15;
+  --foreground: #f1f6fc;
+  --card: #0b1725;
+  --card-foreground: #f1f6fc;
+  --border: #203a55;
+  --input: #203a55;
+  --primary: #24d7c7;
+  --secondary: #101f31;
+  --muted-foreground: #839ab3;
+  --accent: #0d4c48;
+  --console-blue: #5b9dff;
+  --console-purple: #a77bff;
+  --eco-button: #0d1b2b;
+  --eco-enterprise-tag: #0d3737;
+  --eco-shop-tag: #122d52;
+  --eco-operation-tag: #2a1d4a;
+  padding-top: 24px;
+  background: var(--background);
+  color: var(--foreground);
+  container-type: inline-size;
+}
+.light .eco-market-page {
+  --background: #f3f7fb;
+  --foreground: #0d1b2e;
+  --card: #fff;
+  --card-foreground: #0d1b2e;
+  --border: #c9d8e8;
+  --input: #c9d8e8;
+  --primary: #0fbfaa;
+  --secondary: #f4f8fc;
+  --muted-foreground: #6b8098;
+  --accent: #ddf7f3;
+  --console-blue: #5b9dff;
+  --console-purple: #a77bff;
+  --eco-button: #f7fafc;
+  --eco-enterprise-tag: #e7f8f5;
+  --eco-shop-tag: #eaf2ff;
+  --eco-operation-tag: #f0e8ff;
+}
+.eco-market-page .console-breadcrumb { font-size: 11px; line-height: 20px; margin-bottom: 8px; }
+.eco-market-page .console-page-header { margin-bottom: 24px; }
+.eco-market-page .console-page-header h1 { line-height: 42px; margin: 0; letter-spacing: normal; }
+.eco-market-page .console-page-header .console-description { font-size: 12px; line-height: 22px; }
+.eco-market-page .eco-catalog-filter { margin-bottom: 20px; padding-right: 18px; align-items: center; flex-direction: row; box-shadow: none; }
+.eco-market-page .eco-catalog-filter h2 { font-size: 17px; line-height: 1.45; }
+.eco-market-page .eco-catalog-filter p { margin-top: 3px; }
+.eco-market-page .eco-category-tabs { gap: 10px; }
+.eco-market-page .eco-category-tabs button { border-radius: 10px; background: var(--eco-button); color: var(--muted-foreground); font-weight: 400; gap: 6px; }
+.eco-market-page .eco-category-tabs span { margin: 0; color: inherit; font-size: 12px; }
+.eco-market-page .eco-category-tabs button[aria-pressed=true] { border-color: transparent; background: var(--accent); color: var(--primary); font-weight: 700; }
+.eco-market-page .eco-market-grid { grid-template-columns: repeat(4,minmax(0,1fr)); }
+.eco-market-page .eco-service-card { box-shadow: none; min-height: 300px; }
+.eco-market-page .eco-tag { background: var(--eco-enterprise-tag); }
+.eco-market-page .eco-service-card[data-tone=STORE_OPENING] .eco-tag { background: var(--eco-shop-tag); }
+.eco-market-page .eco-service-card[data-tone=STORE_OPERATION] .eco-tag { background: var(--eco-operation-tag); }
+.eco-market-page .eco-service-card h2 { line-height: 1.45; overflow-wrap: anywhere; }
+.eco-market-page .eco-card-description { min-height: 20px; }
+.eco-market-page .eco-includes { min-height: 104px; }
+.eco-market-page .eco-includes ul { margin-top: 5px; }
+.eco-market-page .eco-includes li { min-height: 17px; line-height: 1.45; overflow-wrap: anywhere; }
+.eco-market-page .eco-service-card button { background: var(--eco-button); font-weight: 700; }
+.eco-market-page .eco-service-card button:disabled { opacity: 1; color: var(--muted-foreground); cursor: not-allowed; }
+.eco-market-page .eco-market-explainer { box-shadow: none; }
+.eco-market-page .eco-market-explainer > div:last-child small { color: var(--console-purple); }
+.eco-market-page .eco-market-explainer h2 { line-height: 1.45; }
+@container (max-width: 1050px) {
+  .eco-market-page .eco-market-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .eco-market-page .eco-catalog-filter { align-items: flex-start; flex-direction: column; }
+}
+@container (max-width: 650px) {
+  .eco-market-page .eco-market-grid, .eco-market-page .eco-market-explainer { grid-template-columns: 1fr; }
+  .eco-market-page .eco-category-tabs { width: 100%; }
+  .eco-market-page .eco-category-tabs button { min-width: 0; flex: 1 1 100px; }
+}
