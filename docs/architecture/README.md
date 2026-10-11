@@ -86,6 +86,10 @@ Use these as the main source of truth for structural work:
   - #621 frozen IMPLEMENTATION_READY Amazon data acquisition, creator-bound API credentials and specialist custom delivery; shared runtime wiring and real user acceptance remain separate gates
 - `data-services-native-authorization.md`
   - #619 narrow native IAM phase decision and optional deny-only suspension contract; independent admission precedes production authorization changes
+- [`platform-support-chatwoot.md`](platform-support-chatwoot.md)
+  - #650 current user-approved server-only Chatwoot API integration: authenticated
+    personal histories, native staff dashboard and isolated runtime wiring;
+    actual ZITADEL user acceptance and shared/production deployment remain separate.
 - `self-service-subscription-purchase-contract.md`
   - tenant self-service subscription offer/quote/order, source-bound subscription activation, settlement and recovery contract for #478/#479
 - `store-center-current-application-v1.md`
