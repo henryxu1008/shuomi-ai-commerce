@@ -47,6 +47,11 @@
 | E34 | [bg.local.goods.cats.get](https://partner.temu.com/documentation?menu_code=fb16b05f7a904765aac4af3a24b87d4a&sub_menu_code=b49f03d2b1744700ab762b9fe80d1af7) | 2026-09-23 15:55:07 | 2026-10-12 登录后核对：独立 result.goodsCatsList，父字段 parentId、末级 leaf、availableStatus=0 可售/1 不可售，另有 expandCatType/secondHandCategory。E28 根查询 parentCatId=0；读取针对当前 mall，不能增加任意 siteId。缺 availability 保留未知 |
 
 | E35 | [bg.goods.attrs.get](https://agentpartner.temu.com/document?cataId=875198836203&docId=877328004022) | 2025-03-13 15:57:46 | 2026-10-12 登录后读取：供应商当前末级模板仍走 CN；properties 包含 required/isSale、输入/选择上限、精度、范围、单位、父属性展示条件与属性值关联。缺 required/precision 不能默认为 false/0。supportedType 会覆盖当前 mall 渠道，本批读取不暴露该覆盖项或旧创建时间 |
+| E36 | [temu.local.product.attributes.get](https://partner.temu.com/documentation?menu_code=fb16b05f7a904765aac4af3a24b87d4a&sub_menu_code=06587aa615384310a1bac727aa82b64d) | 2026-01-30 17:57:30 | 2026-10-12 登录后读取完整属性模板：catId 必填，language/costTemplateId 可选；所选运费模板会影响跨境必填属性。required、transnationalAttribute、controlType、精度/范围/值规则和父值→子属性值组分别保留；缺失标志不能当 false，显式 precision=0 不能当未知 |
+
+E17 在 2026-10-12 登录后展开核对：业务参数直接位于外层 JSON（示例没有 `request` wrapper），本土创建没有客户端 `siteId`/`mallId` 选项。价格 `amount`/`currency`、包装四维数值均为 STRING，数量 LONG 的显式零与缺失不同；单位必须由 E24 原站点规格和明确资料一致确定。`LocalGoodsV2` 保留可选品牌/产地/二手/证书等事实，不默认填写无品牌声明、生产时间或库存；数值检查不签发整体 readiness。创建返回 goodsId、skuInfoList 及 warnings，不证明审核或在售。
+
+新增条件性冲突：E17 `goodsBasic.secondHand.businessScope` 描述 0=Regular/1=Collectibles/2=Luxury，E29 `secondHand.businessScope` 描述 1=Regular/2=Collectibles/3=Luxury。当前不建立加减一 alias，不凭字段同名转换或批准二手资料；在本批实际资料校验中保持未核实，须有对应当前接口的明确官方依据才消费。
 
 ### 文档限定的 router
 

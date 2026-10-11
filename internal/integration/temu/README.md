@@ -21,6 +21,13 @@ intentional; warnings and second-hand requirements are evidence for completion,
 not automatic approval. No channel override or historic template fallback is
 exposed.
 
+Local attribute reads additionally bind E36's exact category, language and
+selected costTemplateId; the original regional token and exact API scope remain
+required. Category/language mismatch or missing/duplicate attribute identity is
+rejected. Parent-value groups, explicit zero precision and transnational
+requirements are preserved for completion; field-rule permissions cannot grant
+this separate metadata API.
+
 Current Store access is `OfficialProductAccess.AuthorizeTemuRules`, a server-only
 five-second handle minted after current native Store/member/grant/service and
 official identity checks. Every read rechecks the exact private material and

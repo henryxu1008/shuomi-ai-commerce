@@ -13,7 +13,50 @@ import (
 const (
 	supplierAttributesAPI = "bg.goods.attrs.get"
 	localCategoryRulesAPI = "temu.local.goods.cats.rules.get"
+	localAttributesAPI    = "temu.local.product.attributes.get"
 )
+
+func (c *OfficialClient) QueryLocalAttributes(ctx context.Context, credential storecenter.OfficialMerchantCredential, query model.LocalAttributeQuery) (model.LocalAttributeTemplate, error) {
+	var result model.LocalAttributeTemplate
+	origin := localAPIOrigin(c.application.IdentityPartition)
+	if origin == "" || !c.validCredential(credential) || query.CatID < 1 || query.Language != "" && !boundedParameter(query.Language, 32) || query.CostTemplateID != "" && !boundedParameter(query.CostTemplateID, 256) {
+		return result, storecenter.ErrOfficialConnectionUnavailable
+	}
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	if err := c.requireLocalScope(ctx, credential.Temu.AccessToken, localAttributesAPI); err != nil {
+		return result, err
+	}
+	fields := map[string]json.RawMessage{"catId": json.RawMessage(strconv.FormatInt(query.CatID, 10))}
+	for _, parameter := range []struct{ name, value string }{{"language", query.Language}, {"costTemplateId", query.CostTemplateID}} {
+		if parameter.value != "" {
+			encoded, err := exactJSON(parameter.value)
+			if err != nil {
+				return result, storecenter.ErrOfficialConnectionUnavailable
+			}
+			fields[parameter.name] = encoded
+		}
+	}
+	if err := c.readOfficialResponse(ctx, origin, localAttributesAPI, credential.Temu.AccessToken, fields, &result); err != nil {
+		return model.LocalAttributeTemplate{}, err
+	}
+	if result.CatID == nil || *result.CatID != query.CatID || result.Attributes == nil || query.Language != "" && result.Language != query.Language {
+		return model.LocalAttributeTemplate{}, storecenter.ErrOfficialConnectionUnavailable
+	}
+	seen := make(map[int64]struct{}, len(result.Attributes))
+	for _, attribute := range result.Attributes {
+		if attribute.RefPID == nil || *attribute.RefPID < 1 || !boundedParameter(attribute.Name, 1000) {
+			return model.LocalAttributeTemplate{}, storecenter.ErrOfficialConnectionUnavailable
+		}
+		if _, duplicate := seen[*attribute.RefPID]; duplicate {
+			return model.LocalAttributeTemplate{}, storecenter.ErrOfficialConnectionUnavailable
+		}
+		seen[*attribute.RefPID] = struct{}{}
+	}
+	// Preserve transnational, parent-value groups and unknown constraints. Only
+	// the current marketplace completion check can interpret this rule evidence.
+	return result, nil
+}
 
 func (c *OfficialClient) QueryLocalCategoryRules(ctx context.Context, credential storecenter.OfficialMerchantCredential, query model.CategoryRuleQuery) (model.LocalCategoryRules, error) {
 	var result model.LocalCategoryRules

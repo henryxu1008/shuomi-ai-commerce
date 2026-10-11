@@ -31,6 +31,14 @@ including source inconsistencies. Missing or invalid quantities remain missing
 or invalid; there is no price inferred from cost, float rounding, clamping,
 default package size, exchange rate, or implicit unit conversion.
 
+`CheckLocalNumbers` applies E17/E24 to the exact original partition and region.
+It checks explicit package units, per-SKU currency/range/lexical precision,
+retail strictly above base price with exact arithmetic, and supplied inventory
+within the documented bounds. It never changes a fact. A zero inventory is
+distinct from missing inventory. The returned numerical report has no overall
+publish-ready verdict: current category, template, assets, consent and Store
+authority still require the shared preparation and Submission path.
+
 Current consumers are the remaining TargetRecord/rule preparation and typed
 TEMU integration work in this same delivery batch. These interfaces are not yet
 wired into the shared editor or a publishing path. The full #31 scope, current

@@ -5,6 +5,58 @@ type CategoryRuleQuery struct {
 	Language string
 }
 
+// E36 varies required attributes with the original mall's shipping template.
+// A snapshot without that exact selection cannot prove cross-border completion.
+type LocalAttributeQuery struct {
+	CatID          int64
+	Language       string
+	CostTemplateID string
+}
+type LocalAttributeTemplate struct {
+	CatID      *int64           `json:"catId"`
+	Language   string           `json:"language"`
+	Attributes []LocalAttribute `json:"attributeList"`
+}
+type LocalAttribute struct {
+	RefPID      *int64                     `json:"refPid"`
+	Name        string                     `json:"attributeName"`
+	Required    *bool                      `json:"required"`
+	Rules       *LocalAttributeRules       `json:"attributeRules"`
+	ValueGroups []LocalAttributeValueGroup `json:"attributeValueDetail"`
+	Units       []LocalAttributeUnit       `json:"attributeValueUnitList"`
+}
+type LocalAttributeRules struct {
+	ControlType   *int64                    `json:"controlType"`
+	ChooseMaxNum  *int64                    `json:"chooseMaxNum"`
+	Transnational *bool                     `json:"transnationalAttribute"`
+	Values        *LocalAttributeValueRules `json:"attributeValueRules"`
+}
+type LocalAttributeValueRules struct {
+	Minimum     *string `json:"minValue"`
+	Maximum     *string `json:"maxValue"`
+	Precision   *int64  `json:"valuePrecision"`
+	ValueRule   *int64  `json:"valueRule"`
+	ChooseTitle string  `json:"propertyChooseTitle"`
+	NumberTitle string  `json:"numberInputTitle"`
+}
+type LocalAttributeValueGroup struct {
+	ID     string                `json:"groupId"`
+	Values []LocalAttributeValue `json:"attributeValueList"`
+}
+type LocalAttributeValue struct {
+	VID             *int64                `json:"vid"`
+	Value           string                `json:"value"`
+	ChildAttributes []LocalChildAttribute `json:"childAttribute"`
+}
+type LocalChildAttribute struct {
+	RefPID       *int64 `json:"childAttributeId"`
+	ValueGroupID string `json:"childAttributeValueGroupId"`
+}
+type LocalAttributeUnit struct {
+	Name string `json:"valueUnitName"`
+	ID   *int64 `json:"valueUnitId"`
+}
+
 // RequirementType is optional in a decoded response: absent is not disabled
 // or optional. The official protocol spells the field key filedName.
 type LocalFieldRule struct {

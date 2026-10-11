@@ -21,6 +21,7 @@ type TemuRulesProvider interface {
 	QueryLocalCategories(context.Context, storecenter.OfficialMerchantCredential, model.LocalCategoryQuery) ([]model.LocalCategory, error)
 	QuerySupplierAttributes(context.Context, storecenter.OfficialMerchantCredential, int64) (model.SupplierAttributeTemplate, error)
 	QueryLocalCategoryRules(context.Context, storecenter.OfficialMerchantCredential, model.CategoryRuleQuery) (model.LocalCategoryRules, error)
+	QueryLocalAttributes(context.Context, storecenter.OfficialMerchantCredential, model.LocalAttributeQuery) (model.LocalAttributeTemplate, error)
 }
 
 // TemuRulesHandle shares the current Store execution owner. Only this process,
@@ -190,5 +191,11 @@ func (h *TemuRulesHandle) SupplierAttributes(ctx context.Context, catID int64) (
 func (h *TemuRulesHandle) LocalCategoryRules(ctx context.Context, query model.CategoryRuleQuery) (model.LocalCategoryRules, error) {
 	return callTemuRule(ctx, h, true, func(ctx context.Context, c storecenter.OfficialMerchantCredential) (model.LocalCategoryRules, error) {
 		return h.entry.provider.(TemuRulesProvider).QueryLocalCategoryRules(ctx, c, query)
+	})
+}
+
+func (h *TemuRulesHandle) LocalAttributes(ctx context.Context, query model.LocalAttributeQuery) (model.LocalAttributeTemplate, error) {
+	return callTemuRule(ctx, h, true, func(ctx context.Context, c storecenter.OfficialMerchantCredential) (model.LocalAttributeTemplate, error) {
+		return h.entry.provider.(TemuRulesProvider).QueryLocalAttributes(ctx, c, query)
 	})
 }
