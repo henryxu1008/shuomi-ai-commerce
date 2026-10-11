@@ -31,7 +31,7 @@ it.each([
 });
 it.each(["productAcquisitionAvailable", "supplyMarketAvailable", "supplyChainAvailable"])("connects the Supply parent with %s", capability => {
   const view = render(<ConsoleNavigation pathname="/workbench/supply" ariaLabel="主导航" />);
-  expect(screen.getByRole("link", {name: "供应市场"})).toHaveAttribute("title", "供应市场：业务暂未启用");
+  expect(screen.getByRole("link", {name: "供应市场"})).toHaveAttribute("title", "供应市场");
   view.rerender(<ConsoleNavigation pathname="/workbench/supply" ariaLabel="主导航" {...{[capability]: true}} />);
   expect(screen.getByRole("link", {name: "供应市场"})).toHaveAttribute("title", "供应市场");
 });
