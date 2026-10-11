@@ -1,6 +1,11 @@
 import { expect,it } from "vitest";
-import { initialSupplyDraft,applyApplicationMode,sampleForSKU } from "./draft-fields";
+import { initialSupplyDraft,applyApplicationMode,sampleForSKU,applyCompletionText } from "./draft-fields";
 import type { SupplySourceDetail } from "@/lib/contracts/supply-chain";
+it("explicitly brings in candidate text while preserving target category, images and other languages",()=>{
+ const draft=initialSupplyDraft({product:{title:"original"}} as SupplySourceDetail);draft.product.category_id=123;draft.product.multi_language_name_list.push({language:"zh",name:"中文"});draft.images=[{group:"spu",skc:0,sku:0,asset_id:"approved",sort:1,type:1}];
+ const brought=applyCompletionText(draft,{title:"saved candidate",description:"saved description"});
+ expect(brought.product.category_id).toBe(123);expect(brought.images).toEqual(draft.images);expect(brought.product.multi_language_name_list).toEqual([{language:"en",name:"saved candidate"},{language:"zh",name:"中文"}]);expect(draft.product.multi_language_name_list[0].name).toBe("original");
+});
 it("copies source names and SKU identities while leaving target price and stock unfilled",()=>{
  const value=initialSupplyDraft({product:{title:"来源标题",description:"来源说明",variants:[{sku:"source-sku",price:{amount:2},stock:99}]}} as SupplySourceDetail);
  expect(value.product.multi_language_name_list).toEqual([{language:"en",name:"来源标题"}]);
