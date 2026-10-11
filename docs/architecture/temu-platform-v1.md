@@ -4,11 +4,11 @@
 >
 > Design Basis：Independent Architecture
 >
-> Status：NOT_READY；G1 已转 IMPLEMENTATION_TEST；G2 官方映射已读取、冲突处理待增量复核，GE/AM 价格规格尚待官方依据；不是 IMPLEMENTATION_READY
+> Status：IMPLEMENTATION_READY / FROZEN；第二轮独立相关增量评审绑定 4d4bc4feff7eff67fb9ea8a9c067cdc21f7db1ef，无新增架构 BLOCKER。G1/G2/G3 为 IMPLEMENTATION_TEST；GE/AM 规格仍阻塞受影响发布及全覆盖交付/合并，不构成产品验收。
 >
 > 调查基线：main @ f1d77a84fa653813235ddbfeedac59ea6bb0a94c，2026-10-11
 >
-> 本文只定义待评审合同；本轮未修改生产代码、schema 或正式业务路径。
+> 本文是已独立准入的设计基线；准入时只有文档，正式实现必须遵守本合同和实际相关依赖。
 
 ## 1. 用户结果与产品依据
 
@@ -208,16 +208,16 @@ Provider 页大小不得超过官方上限（本土 retrieve、product.search 10
 | ID | 缺少的具体依据 | 受影响 Must / 后果 | owner / 解锁条件 / 层级 |
 | --- | --- | --- | --- |
 | G1 | 第一轮缺口现由 E03/E04/E11/E26 补齐：PA uniqueId 明确为 mall 唯一标识，同一店铺 token 的 CN 类型/PA 身份接口均由当前清单指定；无须 CN mallId 转换 | M2/M4：固定一个 supplier 身份与同凭据模式验证，未核实/缺权限不连接，变更 token/app/siteSet 不能重置 fence | 独立相关增量复核已关闭 BLOCKER；真实响应/权限验证为 IMPLEMENTATION_TEST，不是缺官方映射的永久 BLOCKER |
-| G2 | E30 已完整读取，region→site 和分字段冲突处理已写 §6；不再有 GLOBAL 登录/映射缺口。真实剩余：GE/AM 的价格币种/精度等规格未在已读 E24/E17/E29 中找到；E18 V3 价格也引用 E24 | M1/M3：两站点仍在用户范围，缺依据不能正确构造完整发布资料；保留缺规则和拒绝发送，不能靠地理/用户输入自证平台格式 | 本 Writer 继续读取可用官方依据；原 Reviewer 仅复核本次映射/冲突/规格增量并分类阻塞层级。未整体准入前不修改生产代码；未擅自移除站点或接受风险 |
+| G2 | E30 已完整读取，region→site 和分字段冲突处理已独立复核闭合；GLOBAL 登录/映射 BLOCKER 关闭。真实剩余：GE/AM 的价格币种/精度等规格未在已读 E24/E17/E29 中找到；E18 V3 价格也引用 E24 | M1/M3：两站点仍在用户范围，缺依据不能正确构造完整发布资料；保留缺规则和拒绝发送，不能靠地理/用户输入自证平台格式 | IMPLEMENTATION_TEST：按既定官方规则合同补齐数据并验证缺规则/冲突/漂移不能取得批准或 SendPermit；阻塞 GE/AM 发布开放及本批全覆盖交付/合并，不阻塞已准入的整体生产实现 |
 | G3 | externalGoodsId 与 outGoodsSn 明确映射、PA exact recovery 证据覆盖 | M4/M5：盲目 adopt 错误结果；当前可保留 UNKNOWN 避免错误副作用 | IMPLEMENTATION_TEST；已知成功 ID 可读回、无法 qualified 时保持 UNKNOWN；实施/真实验证层处理，不授权自动重发 |
 
-第一轮独立评审的原分类：G1/G2 为 BLOCKER；G3 为 IMPLEMENTATION_TEST。进一步官方查证与独立相关增量复核确认 G1 不需要原草案要求的 CN mallId→PA uniqueId 映射表，G1 已转 IMPLEMENTATION_TEST；本土 mall fence 修正无新增 BLOCKER。E27 辅助规格/尺码表 create 在实现层按批准与必要性收敛，准备/读取不能暗中 mutation，需要未批准创建时保持待补全。G2 的 E30 正文现已读取，当前只保留具体 GE/AM 价格规格缺口，不再称为登录或缺映射。原历史评审保留，未签发整体 READY。店铺服务沿当前 ServiceLifecycleExecutor 与 orgresource store_service_v1 reservation/receipt，未发现平台专属新计费依赖。准确候选 SHA、Reviewer 证据与增量复核写主 PR #655。
+第一轮独立评审的原分类：G1/G2 为 BLOCKER；G3 为 IMPLEMENTATION_TEST。进一步官方查证与独立相关增量复核确认 G1 不需要原草案要求的 CN mallId→PA uniqueId 映射表，G1 已转 IMPLEMENTATION_TEST；本土 mall fence 修正无新增 BLOCKER。E27 辅助规格/尺码表 create 在实现层按批准与必要性收敛，准备/读取不能暗中 mutation，需要未批准创建时保持待补全。第二轮相关增量复核确认 G2 映射/冲突处理闭合，剩余 GE/AM 规则数据按 IMPLEMENTATION_TEST 在实现层收敛，并明确整体 IMPLEMENTATION_READY；缺规格拒绝发送不是 M1 完成或范围豁免。原历史评审保留。店铺服务沿当前 ServiceLifecycleExecutor 与 orgresource store_service_v1 reservation/receipt，未发现平台专属新计费依赖。准确候选 SHA、Reviewer 证据与增量复核写主 PR #655。
 
-G2 实际设计闭环和独立准入完成前，当前状态 NOT_READY / Backlog，不进入正式生产开发。CN 与 GLOBAL 文档现均可访问，不再要求用户重复登录。已读页面、剩余字段与受影响操作都在官方证据中明确；本轮未读取应用管理密钥或商家数据，也未执行官方业务 API。可以继续只读查证与相关增量评审，不能用真实调用试错取代未授权商家验证。
+当前设计 IMPLEMENTATION_READY / FROZEN，生产开工前确认 Issue Ready 和实际相关依赖/owner。CN 与 GLOBAL 文档现均可访问，不再要求用户重复登录。已读页面、剩余字段与受影响操作都在官方证据中明确；本轮未读取应用管理密钥或商家数据，也未执行官方业务 API。GE/AM 数据补齐与其验收门槛保留，不能用真实 mutation 试错取代未授权商家验证。
 
 Architecture Review：第一轮由独立只读 Reviewer 核对原始范围/Threat Model、代码实际 owner 与全部设计 diff，结论 NOT_READY；后续只复核实际相关增量，最多两轮正常评审。finding 先分类为 BLOCKER / IMPLEMENTATION_TEST / BACKLOG / ACCEPTED_RISK / NOT_APPLICABLE，列明受影响 Must、具体后果与层级。只有 G1/G2 等实际核心路径/身份/不可重复副作用条件未满足时阻止开工；非 Blocker 不扩成新的通用机制。
 
-只有官方依据与实际设计闭环、独立评审明确 IMPLEMENTATION_READY、当前 Issue Design Basis/Ready 记录完成后，才冻结本文件并允许生产实现。评审与准入证据写 #31/主要 PR，不由作者自行改 READY，不以 CI/文档存在代替准入。
+独立评审已明确 IMPLEMENTATION_READY，当前 Issue Design Basis/Ready 记录与相关依赖核对完成后允许生产实现。冻结后只有新的实际 BLOCKER 才重开架构；不为未变 G1/G3 或规则数据补齐发起第三轮全面评审。评审与准入证据写 #31/主要 PR，不以 CI/文档存在代替准入。
 
 ## 12. Legacy decision
 

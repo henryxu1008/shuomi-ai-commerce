@@ -44,11 +44,10 @@ an approved contract. Follow the explicit responsibility/supersession above.
 TEMU 三模式与全部官方站点的设计候选见
 [`temu-platform-v1.md`](temu-platform-v1.md) / execution Issue #31；
 [`temu-official-contract-evidence.md`](temu-official-contract-evidence.md) 记录官方
-CN/PA/US/EU/GLOBAL 路由与各模式站点依据。第一轮独立评审结论 NOT_READY；
-G1 经补充官方清单与独立增量复核已转 IMPLEMENTATION_TEST；
-G2 已在 GLOBAL 登录后读全地区映射并定义冲突处理；
-GE/AM 价格规格仍缺已读官方依据，相关增量待原 Reviewer 复核。
-相关设计增量完成独立准入前不得修改正式生产业务路径。
+CN/PA/US/EU/GLOBAL 路由与各模式站点依据。第二轮相关增量已独立确认
+IMPLEMENTATION_READY / FROZEN；G1/G2/G3 在实现层验证收敛。
+GE/AM 价格规格仍缺已读官方依据，阻塞受影响发布和全覆盖交付/合并；
+缺规格拒绝发送不算全站点完成，不缩小 #31 产品范围。
 
 1688 acquisition plans, frozen rules, public discovery and Preparation-only
 composition are governed by [`1688-acquisition-figma-v1.md`](1688-acquisition-figma-v1.md),
