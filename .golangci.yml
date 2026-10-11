@@ -527,6 +527,8 @@ linters-settings:
           - "!**/internal/integration/persistence/listing/official/**/*.go"
           - "!**/internal/integration/shein/official_goods.go"
           - "!**/internal/integration/shein/official_goods_rules.go"
+          - "!**/internal/integration/temu/official_categories.go"
+          - "!**/internal/integration/temu/official_category_rules.go"
           - "!**/internal/integration/shein/official_readback.go"
           - "!**/internal/integration/shein/official_observations.go"
           - "!**/internal/integration/persistence/sheinobservations/repository.go"
@@ -1166,6 +1168,17 @@ linters-settings:
           - "task-processor/internal/integration/httpimage$"
           - "task-processor/internal/marketplace/shein/goods$"
           - "task-processor/internal/marketplace/shein/model$"
+          - "task-processor/internal/storecenter$"
+
+      temu_official_metadata_transport:
+        # #31 IMPLEMENTATION_READY: exact named metadata DTO transport, no rule implementations.
+        list-mode: strict
+        files:
+          - "**/internal/integration/temu/official_categories.go"
+          - "**/internal/integration/temu/official_category_rules.go"
+        allow:
+          - "$gostd"
+          - "task-processor/internal/marketplace/temu/model$"
           - "task-processor/internal/storecenter$"
 
       store_observation_persistence:

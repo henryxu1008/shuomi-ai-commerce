@@ -77,19 +77,16 @@ func (c *OfficialClient) QueryLocalCategories(ctx context.Context, credential st
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	token := credential.Temu.AccessToken
-	identity, err := c.queryLocal(ctx, token)
-	if err != nil {
+	if err := c.requireLocalScope(ctx, token, localCategoriesAPI); err != nil {
 		return nil, err
-	}
-	if !hasScope(identity.Verification.Scopes, localCategoriesAPI) {
-		return nil, storecenter.ErrOfficialAuthorizationRejected
 	}
 	fields := map[string]json.RawMessage{"parentCatId": json.RawMessage(strconv.FormatInt(query.ParentCatID, 10))}
 	if query.Language != "" {
-		fields["language"], err = exactJSON(query.Language)
+		language, err := exactJSON(query.Language)
 		if err != nil {
 			return nil, storecenter.ErrOfficialConnectionUnavailable
 		}
+		fields["language"] = language
 	}
 	var result struct {
 		Items []model.LocalCategory `json:"goodsCatsList"`
@@ -107,6 +104,17 @@ func (c *OfficialClient) QueryLocalCategories(ctx context.Context, credential st
 		}
 	}
 	return result.Items, nil
+}
+
+func (c *OfficialClient) requireLocalScope(ctx context.Context, token, api string) error {
+	identity, err := c.queryLocal(ctx, token)
+	if err != nil {
+		return err
+	}
+	if !hasScope(identity.Verification.Scopes, api) {
+		return storecenter.ErrOfficialAuthorizationRejected
+	}
+	return nil
 }
 
 func (c *OfficialClient) requireCNScope(ctx context.Context, token, api string) error {

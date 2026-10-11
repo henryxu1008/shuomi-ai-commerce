@@ -5856,8 +5856,8 @@ func currentOwnerLegacyListingKitRootViolations(sources []listingKitImageBoundar
 	return violations, nil
 }
 
-// #605 frozen design admits current persistence ports and three official DTO
-// transport files. Every admitted edge is separately checked below.
+// Frozen #605/#31 designs admit current persistence ports and exact official
+// DTO transport files. Every admitted edge is separately checked below.
 func supplyAdapterBusinessPorts() map[string][]string {
 	base := filepath.Join("..", "internal", "integration")
 	return map[string][]string{
@@ -5866,6 +5866,8 @@ func supplyAdapterBusinessPorts() map[string][]string {
 		filepath.Join(base, "persistence", "listing", "official") + string(os.PathSeparator):    {"task-processor/internal/listing/submission", "task-processor/internal/product/collection"},
 		filepath.Join(base, "shein", "official_goods.go"):                                       {"task-processor/internal/marketplace/shein/goods", "task-processor/internal/marketplace/shein/model"},
 		filepath.Join(base, "shein", "official_goods_rules.go"):                                 {"task-processor/internal/marketplace/shein/model"},
+		filepath.Join(base, "temu", "official_categories.go"):                                   {"task-processor/internal/marketplace/temu/model"},
+		filepath.Join(base, "temu", "official_category_rules.go"):                               {"task-processor/internal/marketplace/temu/model"},
 		filepath.Join(base, "shein", "official_readback.go"):                                    {"task-processor/internal/marketplace/shein/goods", "task-processor/internal/marketplace/shein/model"},
 		filepath.Join(base, "shein", "official_observations.go"):                                {"task-processor/internal/marketplace/shein/observations"},
 		filepath.Join(base, "persistence", "sheinobservations", "repository.go"):                {"task-processor/internal/marketplace/shein/observations"},
@@ -5913,6 +5915,12 @@ func TestSupplyPersistenceAndOfficialTransportOnlyImportAdmittedPorts(t *testing
 	bad := filepath.Join(root, "shein", "other.go")
 	if !supplyAdapterPortAllowed(good, "task-processor/internal/marketplace/shein/goods") || supplyAdapterPortAllowed(bad, "task-processor/internal/marketplace/shein/goods") || supplyAdapterPortAllowed(good, "task-processor/internal/marketplace/shein/goods/child") {
 		t.Fatal("official DTO admission must be exact")
+	}
+	for _, file := range []string{"official_categories.go", "official_category_rules.go"} {
+		admitted := filepath.Join(root, "temu", file)
+		if !supplyAdapterPortAllowed(admitted, "task-processor/internal/marketplace/temu/model") || supplyAdapterPortAllowed(admitted, "task-processor/internal/marketplace/temu/rules") || supplyAdapterPortAllowed(admitted, "task-processor/internal/marketplace/temu/model/child") || supplyAdapterPortAllowed(filepath.Join(root, "temu", "other.go"), "task-processor/internal/marketplace/temu/model") {
+			t.Fatal("TEMU official metadata admission must be the exact DTO leaf and files")
+		}
 	}
 }
 func TestSupplyAndCollectionHTTPRegistrationKeepsBusinessSiblingsFrameworkFree(t *testing.T) {

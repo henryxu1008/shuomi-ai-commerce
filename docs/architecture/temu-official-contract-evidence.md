@@ -46,6 +46,8 @@
 | E33 | [bg.goods.cats.get](https://agentpartner.temu.com/document?cataId=875198836203&docId=877327073796) | 2025-03-13 15:57:45 | 2026-10-12 登录后核对：全托/半托类目读取仍属 CN；根层省略 parentCatId，siteId 可选、showHidden 为布尔。result.categoryDTOList 保留父类目、末级、层级及隐藏类型；缺隐藏标志不是可选择。权限必须用 E09 的当前 CN scope，不能拿 PA 权限推断 |
 | E34 | [bg.local.goods.cats.get](https://partner.temu.com/documentation?menu_code=fb16b05f7a904765aac4af3a24b87d4a&sub_menu_code=b49f03d2b1744700ab762b9fe80d1af7) | 2026-09-23 15:55:07 | 2026-10-12 登录后核对：独立 result.goodsCatsList，父字段 parentId、末级 leaf、availableStatus=0 可售/1 不可售，另有 expandCatType/secondHandCategory。E28 根查询 parentCatId=0；读取针对当前 mall，不能增加任意 siteId。缺 availability 保留未知 |
 
+| E35 | [bg.goods.attrs.get](https://agentpartner.temu.com/document?cataId=875198836203&docId=877328004022) | 2025-03-13 15:57:46 | 2026-10-12 登录后读取：供应商当前末级模板仍走 CN；properties 包含 required/isSale、输入/选择上限、精度、范围、单位、父属性展示条件与属性值关联。缺 required/precision 不能默认为 false/0。supportedType 会覆盖当前 mall 渠道，本批读取不暴露该覆盖项或旧创建时间 |
+
 ### 文档限定的 router
 
 | 身份分区 | transport route | 完整 URL | 适用说明 |

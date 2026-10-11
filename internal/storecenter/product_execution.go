@@ -5,6 +5,7 @@ import (
 	"errors"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	"strconv"
 	"strings"
 	"task-processor/internal/authidentity"
 	"time"
@@ -42,20 +43,44 @@ type ProductExecutionMaterial struct {
 // ProductMerchantBinding is a public reference to current Store authority. It
 // contains no credential and never grants durable execution on its own.
 type ProductMerchantBinding struct {
-	OrganizationID       string                  `json:"organization_id"`
-	StoreID              string                  `json:"store_id"`
-	Site                 string                  `json:"site"`
-	StoreVersion         int64                   `json:"store_version"`
-	ConnectionRevision   int64                   `json:"connection_revision"`
-	ApplicationRevision  string                  `json:"application_revision"`
-	ApplicationID        string                  `json:"application_id"`
-	ApplicationType      OfficialApplicationType `json:"application_type"`
-	SupplierIdentityHash string                  `json:"supplier_identity_hash"`
-	ServiceExpiresAt     time.Time               `json:"service_expires_at"`
+	Platform             Platform                  `json:"platform,omitempty"`
+	IdentityPartition    OfficialIdentityPartition `json:"identity_partition,omitempty"`
+	MerchantMode         OfficialMerchantMode      `json:"merchant_mode,omitempty"`
+	RegionID             int64                     `json:"region_id,omitempty"`
+	CredentialExpiresAt  time.Time                 `json:"credential_expires_at,omitempty,omitzero"`
+	VerificationRevision string                    `json:"verification_revision,omitempty"`
+	ScopesHash           string                    `json:"scopes_hash,omitempty"`
+	OrganizationID       string                    `json:"organization_id"`
+	StoreID              string                    `json:"store_id"`
+	Site                 string                    `json:"site"`
+	StoreVersion         int64                     `json:"store_version"`
+	ConnectionRevision   int64                     `json:"connection_revision"`
+	ApplicationRevision  string                    `json:"application_revision"`
+	ApplicationID        string                    `json:"application_id"`
+	ApplicationType      OfficialApplicationType   `json:"application_type"`
+	SupplierIdentityHash string                    `json:"supplier_identity_hash"`
+	ServiceExpiresAt     time.Time                 `json:"service_expires_at"`
 }
 
 func (b ProductMerchantBinding) ValidApplication() bool {
+	if b.Platform == PlatformTemu {
+		return b.ValidTemuApplication()
+	}
 	return b.ApplicationType.Valid() && authidentity.IsBoundedIdentifier(b.ApplicationID) && authidentity.IsBoundedIdentifier(b.ApplicationRevision) && strings.HasSuffix(b.ApplicationRevision, ":"+string(b.ApplicationType))
+}
+
+func (b ProductMerchantBinding) ValidTemuApplication() bool {
+	modes := ModesLocal
+	if b.IdentityPartition == PartitionCN {
+		if b.MerchantMode != MerchantFullyManaged && b.MerchantMode != MerchantSemiManaged || b.RegionID != 0 || b.Site != "temu-supplier" {
+			return false
+		}
+		modes = ModesFullyManaged | ModesSemiManaged
+	} else if b.IdentityPartition != PartitionUS && b.IdentityPartition != PartitionEU && b.IdentityPartition != PartitionGlobal || b.MerchantMode != MerchantLocal || b.RegionID < 1 || b.Site != "temu-local" {
+		return false
+	}
+	suffix := ":temu:" + string(b.IdentityPartition) + ":manual_token:" + strconv.Itoa(int(modes)) + ":r1"
+	return b.Platform == PlatformTemu && b.ApplicationType == "" && authidentity.IsBoundedIdentifier(b.ApplicationID) && authidentity.IsBoundedIdentifier(b.ApplicationRevision) && strings.HasSuffix(b.ApplicationRevision, suffix) && authidentity.IsBoundedIdentifier(b.VerificationRevision) && len(b.ScopesHash) == 64 && len(b.SupplierIdentityHash) == 64 && !b.CredentialExpiresAt.IsZero()
 }
 
 type ProductExecutionReader interface {
@@ -66,9 +91,16 @@ func (r *MemberScopedStoreRepository) ReadProductExecution(ctx context.Context, 
 	if isNilDependency(authorization) || (subject.Purpose != ProductPurposeRules && subject.Purpose != ProductPurposePublish && subject.Purpose != ProductPurposeImage) {
 		return ProductExecutionMaterial{}, ErrNotFound
 	}
-	return r.readOfficialMaterial(ctx, StoreMemberAccess{OrganizationID: subject.OrganizationID, ActorID: subject.ActorID, MemberID: subject.MemberID}, storeID, now, func(ctx context.Context) (ProductExecutionAuthorization, error) {
+	material, err := r.readOfficialMaterial(ctx, StoreMemberAccess{OrganizationID: subject.OrganizationID, ActorID: subject.ActorID, MemberID: subject.MemberID}, storeID, now, func(ctx context.Context) (ProductExecutionAuthorization, error) {
 		return authorization.AuthorizeProductExecution(ctx, subject)
 	})
+	if err != nil {
+		return ProductExecutionMaterial{}, err
+	}
+	if material.Platform == PlatformTemu && (subject.Purpose != ProductPurposeRules || len(material.Connection.MerchantIdentityHash) != 64 || material.Connection.CredentialExpiresAt == nil || !now.Before(*material.Connection.CredentialExpiresAt)) {
+		return ProductExecutionMaterial{}, ErrNotFound
+	}
+	return material, nil
 }
 
 // Borrow the same current Store transaction and material checks for each
@@ -113,7 +145,7 @@ func (r *MemberScopedStoreRepository) readOfficialMaterial(ctx context.Context, 
 		if err := tx.Where("organization_id = ? AND id = ? AND deleted_at IS NULL", subject.OrganizationID, storeID).Take(&stored).Error; err != nil {
 			return err
 		}
-		if stored.Platform != "shein" || stored.RecordStatus != "active" || stored.ServiceStatus == nil || *stored.ServiceStatus != "active" || stored.ServiceStartedAt == nil || stored.ServiceExpiresAt == nil || now.Before(*stored.ServiceStartedAt) || !now.Before(*stored.ServiceExpiresAt) || stored.ConnectionRef == "" {
+		if stored.Platform != "shein" && stored.Platform != "temu" || stored.RecordStatus != "active" || stored.ServiceStatus == nil || *stored.ServiceStatus != "active" || stored.ServiceStartedAt == nil || stored.ServiceExpiresAt == nil || now.Before(*stored.ServiceStartedAt) || !now.Before(*stored.ServiceExpiresAt) || stored.ConnectionRef == "" {
 			return ErrNotFound
 		}
 		var connection officialConnectionRow

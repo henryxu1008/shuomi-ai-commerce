@@ -14,6 +14,16 @@ verified LOCAL mall. Both reads share one total deadline with their scope query.
 The two response types retain their different flags; a missing list is an error,
 an explicit empty list is an observation, and missing availability is unknown.
 
-These are internal server adapters. The current Store product handle and shared
-TargetRecord consumers still need their typed TEMU variants; there is no public
-arbitrary-API proxy, active merchant credential, publishing or acceptance claim.
+The named template reads implement the supplier CN attribute template and the
+local category field rules. Parent conditions, explicit zero precision and
+unknown enum values are retained. The local protocol's `filedName` spelling is
+intentional; warnings and second-hand requirements are evidence for completion,
+not automatic approval. No channel override or historic template fallback is
+exposed.
+
+Current Store access is `OfficialProductAccess.AuthorizeTemuRules`, a server-only
+five-second handle minted after current native Store/member/grant/service and
+official identity checks. Every read rechecks the exact private material and
+connection. This read-only capability has no submission or image mutation.
+The shared TargetRecord/editor and publishing consumers remain future work in
+the same #31 batch; there is no public arbitrary-API proxy or acceptance claim.

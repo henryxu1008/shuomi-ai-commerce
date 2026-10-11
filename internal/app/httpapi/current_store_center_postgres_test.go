@@ -28,6 +28,7 @@ import (
 	kernelmodule "task-processor/internal/kernel/module"
 	"task-processor/internal/ledger/orgresource"
 	"task-processor/internal/listingsubscription"
+	temumodel "task-processor/internal/marketplace/temu/model"
 	"task-processor/internal/storecenter"
 )
 
@@ -209,9 +210,11 @@ func TestCurrentStorePostgresDelivery(t *testing.T) {
 	t.Run("temu-create-replay-catalog-and-manual-connection", func(t *testing.T) {
 		protection, err := temu.NewCredentialProtection("synthetic-temu-key", make([]byte, 32))
 		require.NoError(t, err)
+		metadataCalls := 0
+		credentialExpiry := time.Now().UTC().Truncate(time.Second).Add(time.Hour)
 		registry, err := storeapp.NewOfficialApplicationRegistry([]storeapp.OfficialApplicationRegistration{
-			{Provider: postgresTemuConnectionProvider{storecenter.PartitionCN}, Protection: protection},
-			{Provider: postgresTemuConnectionProvider{storecenter.PartitionUS}, Protection: protection},
+			{Provider: postgresTemuConnectionProvider{partition: storecenter.PartitionCN, expiry: credentialExpiry, metadataCalls: &metadataCalls}, Protection: protection},
+			{Provider: postgresTemuConnectionProvider{partition: storecenter.PartitionUS, expiry: credentialExpiry, metadataCalls: &metadataCalls}, Protection: protection},
 		})
 		require.NoError(t, err)
 		configured, err := buildCurrentStoreCenterModule(ctx, records, authz.DefaultListingKitAuthorizer(), charges, registry, storecenter.RuntimeCapabilities{})
@@ -278,6 +281,39 @@ func TestCurrentStorePostgresDelivery(t *testing.T) {
 				status, current := request("GET", root+"/"+id, "B", "", "", 0)
 				require.Equal(t, 200, status, current)
 				require.Equal(t, "connected", current["connectionStatus"])
+				// Exercise the actual PostgreSQL serving role and original grant,
+				// with synthetic service facts in this disposable test only.
+				// The HTTP creator is an administrator, so it uses the existing
+				// administrator policy. A distinct synthetic member exercises the
+				// explicit durable Store grant and its revocation below.
+				grantMemberID := uuid.NewString()
+				require.NoError(t, recordsOwner.Table("workbench_store_member_grants").Create(map[string]any{"organization_id": "B", "store_id": id, "member_id": grantMemberID, "active": true, "version": 1, "updated_by": "u1", "updated_at": time.Now().UTC()}).Error)
+				repository, err := storecenter.NewMemberScopedStoreRepository(records, postgresConnectionAccess{})
+				require.NoError(t, err)
+				subject := storecenter.ProductExecutionSubject{OrganizationID: "B", ActorID: "u1", MemberID: grantMemberID, Purpose: storecenter.ProductPurposeRules}
+				ruleAccess, err := storeapp.NewOfficialProductAccess(repository, postgresProductRuleAccess{subject}, registry)
+				require.NoError(t, err)
+				_, err = ruleAccess.AuthorizeTemuRules(ctx, subject, id, nil)
+				require.ErrorIs(t, err, storeapp.ErrProductAccessChanged, "connection does not activate paid service")
+				require.NoError(t, recordsOwner.Table("workbench_stores").Where("organization_id = ? AND id = ?", "B", id).Updates(map[string]any{"service_status": "active", "service_started_at": time.Now().UTC().Add(-time.Minute), "service_expires_at": time.Now().UTC().Add(time.Hour)}).Error)
+				handle, err := ruleAccess.AuthorizeTemuRules(ctx, subject, id, nil)
+				require.NoError(t, err)
+				callsBefore := metadataCalls
+				if fixture.partition == storecenter.PartitionCN {
+					_, err = handle.SupplierCategories(ctx, temumodel.SupplierCategoryQuery{})
+				} else {
+					_, err = handle.LocalCategories(ctx, temumodel.LocalCategoryQuery{})
+				}
+				require.NoError(t, err)
+				require.Equal(t, callsBefore+1, metadataCalls)
+				require.NoError(t, recordsOwner.Table("workbench_store_member_grants").Where("organization_id = ? AND store_id = ? AND member_id = ?", "B", id, grantMemberID).Update("active", false).Error)
+				if fixture.partition == storecenter.PartitionCN {
+					_, err = handle.SupplierCategories(ctx, temumodel.SupplierCategoryQuery{})
+				} else {
+					_, err = handle.LocalCategories(ctx, temumodel.LocalCategoryQuery{})
+				}
+				require.ErrorIs(t, err, storeapp.ErrProductAccessChanged)
+				require.Equal(t, callsBefore+1, metadataCalls, "revoked grant cannot read metadata with a still-live handle")
 			})
 		}
 	})
@@ -410,7 +446,10 @@ func (postgresConnectionProvider) QueryStore(context.Context, storecenter.Offici
 }
 
 type postgresTemuConnectionProvider struct {
-	partition storecenter.OfficialIdentityPartition
+	storeapp.TemuRulesProvider
+	partition     storecenter.OfficialIdentityPartition
+	expiry        time.Time
+	metadataCalls *int
 }
 
 func (p postgresTemuConnectionProvider) Application() storecenter.OfficialApplication {
@@ -432,5 +471,26 @@ func (p postgresTemuConnectionProvider) QueryStore(_ context.Context, credential
 			mode = storecenter.MerchantSemiManaged
 		}
 	}
-	return storecenter.OfficialStoreInformation{Verification: &storecenter.OfficialVerificationFacts{Platform: storecenter.PlatformTemu, IdentityPartition: p.partition, Namespace: namespace, MerchantID: "synthetic-merchant-" + credential.Temu.AccessToken, Mode: mode, RegionID: region, ExpiresAt: time.Now().UTC().Add(time.Hour), Scopes: []string{scope}, ContractRevision: "synthetic-identity-v1", VerifiedAt: time.Now().UTC()}}, nil
+	scopes := []string{scope, "bg.local.goods.cats.get", "temu.local.goods.cats.rules.get"}
+	if p.partition == storecenter.PartitionCN {
+		scopes = []string{scope, "bg.goods.cats.get", "bg.goods.attrs.get"}
+	}
+	return storecenter.OfficialStoreInformation{Verification: &storecenter.OfficialVerificationFacts{Platform: storecenter.PlatformTemu, IdentityPartition: p.partition, Namespace: namespace, MerchantID: "synthetic-merchant-" + credential.Temu.AccessToken, Mode: mode, RegionID: region, ExpiresAt: p.expiry, Scopes: scopes, ContractRevision: "synthetic-identity-v1", VerifiedAt: time.Now().UTC()}}, nil
+}
+
+func (p postgresTemuConnectionProvider) QuerySupplierCategories(context.Context, storecenter.OfficialMerchantCredential, temumodel.SupplierCategoryQuery) ([]temumodel.SupplierCategory, error) {
+	*p.metadataCalls++
+	return []temumodel.SupplierCategory{{CatID: 34, Name: "Synthetic category"}}, nil
+}
+func (p postgresTemuConnectionProvider) QueryLocalCategories(context.Context, storecenter.OfficialMerchantCredential, temumodel.LocalCategoryQuery) ([]temumodel.LocalCategory, error) {
+	*p.metadataCalls++
+	return []temumodel.LocalCategory{{CatID: 34, Name: "Synthetic category"}}, nil
+}
+
+type postgresProductRuleAccess struct {
+	subject storecenter.ProductExecutionSubject
+}
+
+func (a postgresProductRuleAccess) AuthorizeProductExecution(_ context.Context, s storecenter.ProductExecutionSubject) (storecenter.ProductExecutionAuthorization, error) {
+	return storecenter.ProductExecutionAuthorization{Access: storecenter.StoreMemberAccess{OrganizationID: s.OrganizationID, ActorID: s.ActorID, MemberID: s.MemberID}, Allowed: s == a.subject}, nil
 }
