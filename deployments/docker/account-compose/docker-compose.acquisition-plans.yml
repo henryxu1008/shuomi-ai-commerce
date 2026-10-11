@@ -19,7 +19,7 @@ services:
   cap_drop: [ALL]
   security_opt: [no-new-privileges:true]
   shm_size: 256mb
-  tmpfs: [/tmp:size=512m,mode=1777]
+  tmpfs: ["/tmp:size=512m,mode=1777"]
   volumes: [acquisition-collector-private:/collector-private:ro]
   depends_on: {acquisition-plans-init: {condition: service_completed_successfully}}
  current-application:
