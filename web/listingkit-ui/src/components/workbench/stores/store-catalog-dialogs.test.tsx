@@ -7,7 +7,8 @@ vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchCo
 vi.mock("@tanstack/react-query",()=>({useQuery:()=>({data:{items:[]},refetch:state.refetch})}));
 vi.mock("@/lib/api/store-center",async(importOriginal)=>({...await importOriginal<typeof import("@/lib/api/store-center")>(),storeCenterRequest:state.request}));
 vi.mock("@/lib/api/workbench-stores",async(importOriginal)=>({...await importOriginal<typeof import("@/lib/api/workbench-stores")>(),getWorkbenchStore:state.getStore}));
-vi.mock("./store-form",()=>({StoreForm:({store,conflict,onConflict}:{store:CatalogItem;conflict?:{latest:CatalogItem;changedFields:string[]};onConflict?: (draft:unknown,base:CatalogItem)=>void})=><><button onClick={()=>onConflict?.({name:"保留草稿"},store)}>触发名称冲突</button>{conflict?<p>最新版本 {conflict.latest.version}：{conflict.changedFields.join(",")}</p>:null}</>}));
+vi.mock("./store-form",()=>({StoreForm:({mode,store,conflict,onConflict,onPendingChange,onCreated}:{mode:string;store:CatalogItem;conflict?:{latest:CatalogItem;changedFields:string[]};onConflict?: (draft:unknown,base:CatalogItem)=>void;onPendingChange?:(busy:boolean)=>void;onCreated?:(store:CatalogItem)=>void})=>mode==="create"?<><button onClick={()=>onPendingChange?.(true)}>开始记录创建</button><button onClick={()=>onCreated?.(item)}>返回已创建店铺</button></>:<><button onClick={()=>onConflict?.({name:"保留草稿"},store)}>触发名称冲突</button>{conflict?<p>最新版本 {conflict.latest.version}：{conflict.changedFields.join(",")}</p>:null}</>}));
+vi.mock("./store-official-connection",()=>({StoreOfficialConnection:()=> <p>官方授权入口</p>}));
 import {StoreCatalogDialogs} from "./store-catalog-dialogs";
 const scope={organizationId:"org-a",userId:"actor"};
 const item={id:"11111111-1111-4111-8111-111111111111",name:"A 店铺",region:"US",version:1,recordStatus:"active",profile:{storeId:"11111111-1111-4111-8111-111111111111",profileVersion:0,groupId:null,responsibleMemberId:null,lowStockThreshold:null,updatedAt:null}} as CatalogItem;
@@ -16,6 +17,10 @@ afterEach(()=>vi.clearAllMocks());
 it("rereads the Store after a rename conflict and passes the current CAS version to the retained form",async()=>{
  state.getStore.mockResolvedValue({...item,name:"他人名称",version:2});render(<StoreCatalogDialogs dialog={{kind:"rename",item}} scope={scope} groups={[]} canManageGroups={false} onClose={vi.fn()} onChanged={vi.fn()}/>);
  await userEvent.click(screen.getByRole("button",{name:"触发名称冲突"}));expect(await screen.findByText("最新版本 2：name")).toBeInTheDocument();expect(state.getStore).toHaveBeenCalledWith(item.id,"org-a");
+});
+it("unlocks the binding dialog after record creation completes and the form unmounts",async()=>{
+ render(<StoreCatalogDialogs dialog={{kind:"bind"}} scope={scope} groups={[]} canManageGroups={false} onClose={vi.fn()} onChanged={vi.fn().mockResolvedValue(null)}/>);
+ await userEvent.click(screen.getByRole("button",{name:"开始记录创建"}));expect(screen.getByRole("button",{name:"关闭"})).toBeDisabled();await userEvent.click(screen.getByRole("button",{name:"返回已创建店铺"}));expect(screen.getByText("官方授权入口")).toBeInTheDocument();expect(screen.getByRole("button",{name:"关闭"})).toBeEnabled();
 });
 it("refreshes and closes a rejected profile intent before another edit can capture current versions",async()=>{
  state.request.mockRejectedValue(new StoreCenterError(409,"STORE_VERSION_CONFLICT"));const close=vi.fn(),changed=vi.fn().mockResolvedValue(null);

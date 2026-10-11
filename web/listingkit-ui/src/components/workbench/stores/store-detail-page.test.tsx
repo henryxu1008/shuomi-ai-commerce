@@ -50,6 +50,10 @@ describe("StoreDetailPage", () => {
     query.value = { isPending: false, isError: true, error: { code: "STORE_NOT_FOUND" }, refetch: vi.fn() }; rerender(<StoreDetailPage storeId={STORE.id} />); expect(screen.getByRole("alert")).toHaveTextContent("店铺不存在或已不可访问");
     query.value = { isPending: false, isError: true, error: { code: "PERMISSION_DENIED" }, refetch: vi.fn() }; rerender(<StoreDetailPage storeId={STORE.id} />); expect(screen.getByRole("alert")).toHaveTextContent("没有查看当前企业店铺的权限");
   });
+  it.each(["STORE_NOT_FOUND","PERMISSION_DENIED","IDENTITY_CONTEXT_CHANGED","AUTHENTICATION_REQUIRED","ORGANIZATION_SUSPENDED"])("hides the cached native Store and editing after confirmed scope failure %s", code => {
+    query.value={isPending:false,isError:false,data:STORE,refetch:vi.fn()};const view=render(<StoreDetailPage storeId={STORE.id}/>);expect(screen.getByRole("heading",{name:"店铺"})).toBeInTheDocument();
+    query.value={isPending:false,isError:true,data:STORE,error:{code},refetch:vi.fn()};view.rerender(<StoreDetailPage storeId={STORE.id}/>);expect(screen.getByRole("alert")).toBeInTheDocument();expect(screen.queryByRole("heading",{name:"店铺"})).not.toBeInTheDocument();expect(screen.queryByRole("button",{name:"保存更改"})).not.toBeInTheDocument();
+  });
   it.each([
     "ORGANIZATION_CONTEXT_CHANGED",
     "ORGANIZATION_ACCESS_REVOKED",

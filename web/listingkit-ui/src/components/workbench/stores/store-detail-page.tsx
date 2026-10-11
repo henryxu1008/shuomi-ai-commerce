@@ -56,6 +56,12 @@ function StoreDetailContent({ canUpdate, storeId }: { canUpdate: boolean; storeI
   const storeQuery = useWorkbenchStore(storeId);
   const [displayedStore, setDisplayedStore] = useState<WorkbenchStore | null>(null);
   const [recovery, setRecovery] = useState<RecoveryState>({ state: "idle" });
+  const scopeCode=(storeQuery.error as Partial<WorkbenchAPIError>|undefined)?.code;
+  if(storeQuery.isError && ["STORE_NOT_FOUND","PERMISSION_DENIED","IDENTITY_CONTEXT_CHANGED","AUTHENTICATION_REQUIRED","ORGANIZATION_CONTEXT_CHANGED","ORGANIZATION_ACCESS_REVOKED","ORGANIZATION_ACCESS_DENIED","ORGANIZATION_SUSPENDED"].includes(scopeCode??"")){
+    if(displayedStore)setDisplayedStore(null);
+    if(recovery.state!=="idle")setRecovery({state:"idle"});
+    return <DetailError code={scopeCode} retry={()=>{if(scopeCode!=="STORE_NOT_FOUND"&&scopeCode!=="PERMISSION_DENIED"){void context.retry();return;}void storeQuery.refetch()}}/>;
+  }
   const displayStore = (next: WorkbenchStore) => {
     setDisplayedStore((current) => {
       if (!current || (next.version >= current.version && !(current.recordStatus === "deleting" && next.recordStatus !== "deleting"))) return next;

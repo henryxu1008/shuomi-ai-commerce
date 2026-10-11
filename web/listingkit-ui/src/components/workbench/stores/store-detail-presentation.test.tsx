@@ -10,6 +10,10 @@ import {StoreDetailPresentation} from "./store-detail-presentation";
 const metric={value:0,complete:true,unknown:0,reason:""};
 const item={id:"11111111-1111-4111-8111-111111111111",name:"A 店铺",region:"US",platform:"shein",version:1,recordStatus:"active",serviceStatus:"pending_activation",connectionStatus:"disconnected",profile:{storeId:"11111111-1111-4111-8111-111111111111",profileVersion:0,groupId:null,responsibleMemberId:null,lowStockThreshold:null,updatedAt:null},signals:{products:metric,orders:metric,inventory:metric,syncHealthy:false,observedAt:null},attention:"attention"} as CatalogItem;
 afterEach(()=>{state.summary={};window.history.replaceState(null,"",window.location.pathname)});
+it("distinguishes an unset threshold and incomplete inventory coverage in detail overviews",()=>{
+ const props={store:item,canUpdate:true,onRefresh:vi.fn(),actions:null,editForm:null};state.summary={data:{...item,signals:{...item.signals,inventory:{value:null,complete:false,unknown:0,reason:"threshold_not_set"}}},isPending:false,isError:false};const view=render(<StoreDetailPresentation {...props}/>);
+ expect(screen.getByText("未设置")).toBeInTheDocument();state.summary={data:{...item,signals:{...item.signals,inventory:{value:0,complete:false,unknown:2,reason:"inventory_unknown"}}},isPending:false,isError:false};view.rerender(<StoreDetailPresentation {...props}/>);expect(screen.getByText("另 2 项库存未知")).toBeInTheDocument();
+});
 it("hides stale profile facts and its open dialog after the Store summary access is revoked",async()=>{
  state.summary={data:item,isPending:false,isError:false};const props={store:item,canUpdate:true,onRefresh:vi.fn(),actions:null,editForm:null};const view=render(<StoreDetailPresentation {...props}/>);
  await userEvent.click(screen.getByRole("tab",{name:"店铺设置"}));await userEvent.click(screen.getByRole("button",{name:"修改归属与预警设置"}));expect(screen.getByRole("dialog")).toBeInTheDocument();

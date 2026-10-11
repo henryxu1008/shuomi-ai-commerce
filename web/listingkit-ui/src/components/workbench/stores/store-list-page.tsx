@@ -32,7 +32,7 @@ function ScopedStoreList({scope}:{scope:StoreCenterScope}){
  const query=useStoreCatalog(filters,parsed.success),data=parsed.success&&!query.isError&&!query.isPending?query.data:undefined,filterIdentity=catalogSearch(filters);
  const [draft,setDraft]=useState<CatalogFilters>(filters),[draftKey,setDraftKey]=useState(filterIdentity),[selected,setSelected]=useState<CatalogItem[]>([]),[dialog,setDialog]=useState<CatalogDialog|null>(null);
  if(draftKey!==filterIdentity){setDraft(filters);setDraftKey(filterIdentity);setSelected([])}
- const scopeFailed=query.isError && ["PERMISSION_DENIED","STORE_NOT_FOUND","ORGANIZATION_CONTEXT_CHANGED","ORGANIZATION_ACCESS_REVOKED","ORGANIZATION_ACCESS_DENIED"].includes((query.error as {code?:string}|null)?.code??"");
+ const scopeFailed=query.isError && ["PERMISSION_DENIED","STORE_NOT_FOUND","ORGANIZATION_CONTEXT_CHANGED","ORGANIZATION_ACCESS_REVOKED","ORGANIZATION_ACCESS_DENIED","IDENTITY_CONTEXT_CHANGED","AUTHENTICATION_REQUIRED","ORGANIZATION_SUSPENDED"].includes((query.error as {code?:string}|null)?.code??"");
  const missing=(id:string)=>Boolean(data&&!data.items.some(item=>item.id===id));
  if(selected.length&&(scopeFailed||selected.some(item=>missing(item.id))))setSelected([]);
  if(dialog && (scopeFailed || "item" in dialog && missing(dialog.item.id) || "items" in dialog && dialog.items.some(item=>missing(item.id))))setDialog(null);
