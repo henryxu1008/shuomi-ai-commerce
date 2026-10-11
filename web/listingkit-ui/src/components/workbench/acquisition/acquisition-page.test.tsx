@@ -19,14 +19,24 @@ beforeEach(() => {
     user: { id: "actor-A" },
     effectiveOrganization: { id: "organization-A" },
     pendingAcquisitionIntent: null,
+    acquisitionIntentReady: true,
     setPendingAcquisitionIntent: (intent: AcquisitionOperation | null) => {
       calls.context.pendingAcquisitionIntent = intent;
+      return true;
     },
     registerOrganizationSwitchGuard: vi.fn(() => vi.fn()),
   };
   calls.acquire.mockReset(); calls.verify.mockReset(); calls.read.mockReset(); calls.readProduct.mockReset(); calls.push.mockReset();
 });
 afterEach(cleanup);
+
+it("does not expose submission until the browser intent has hydrated", () => {
+  calls.context.acquisitionIntentReady = false;
+  render(tree());
+  expect(screen.getByText("正在确认企业上下文")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "提交采集" })).not.toBeInTheDocument();
+  expect(calls.acquire).not.toHaveBeenCalled();
+});
 
 it("aborts an A-scope submission and ignores its late published result after switching to B", async () => {
   const late = deferred<{ outcome: "published"; operationId: string; productKey: string }>();
