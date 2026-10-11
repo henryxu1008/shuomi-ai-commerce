@@ -216,6 +216,13 @@ E24 的标题是站点币种/体积差异，没有“是否开站”或本 merch
 
 原规格的关键差异：美国 lb/in，其余本表为 g/cm；重量/尺寸均有精度与范围。JPY/KRW/NOK 价格类型列为 Integer，其他为 2 decimal points；币种并不代表可以统一用相同整数单位。加拿大基础价下限为 2.00，多数站点为 0.02，日本/韩国/挪威为 2、捷克/匈牙利为 5。保留原文规则与不一致，不由旧 TEMU pricing policy 或汇率计算替换。
 
+2026-10-12 再次读取完整 15 列/39 行，机器可读摘录保存于
+[当前 TEMU 规则数据](../../internal/marketplace/temu/rules/data/local-specifications.tsv)：
+美国重量/尺寸均为 1 decimal point，范围分别 `[0.1,9999.9]` / `[0.1,999.9]`；
+AU/NL/RO/BE 的尺寸最大值原文为 `9999999.9`，不同于多数非美国站点的 `9999.9`。
+BG/FI 的重量原文为 `[0.1, 10000000)`，保留开区间。数据 hash 绑定完整列值，
+不把 snapshot 数据校验当 merchant 资格或完整发布 ready；GE/AM 缺口保持。
+
 ## 5. 官方地区映射与交叉核对
 
 E30 全部 235 行通过可见 DOM 表格读取，下列完整保留其中有 SiteID 的 87 行；另 148 行没有 SiteID，不补造可发布目标。地区名仅作标签，映射按原 RegionID/SiteID，允许多 region 对应同一 site。LOCAL 的 39 个 true 是该版本一般交易开放说明；SEMI 的开放值来自此地区/履约页，不能替代 E23 的 PA 半托发布字典。空白与 coming soon 均保留原义，不转换成 true。
