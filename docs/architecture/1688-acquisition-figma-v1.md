@@ -1,6 +1,6 @@
 # 1688 在线采集、规则与待适配接入
 
-Status: **FROZEN BASELINE / IMPLEMENTATION_READY**
+Status: **FROZEN BASELINE / TRANSFER CORRECTION PENDING REVIEW**
 
 2026-10-11 独立只读高风险 Architecture Review 复核设计 HEAD
 `8dff0bbc7925dcee49be68dc675d70d99234dbb8`，确认 IMPLEMENTATION_READY，无 BLOCKER。
@@ -160,18 +160,23 @@ UNKNOWN 保留原 reservation。计划无独立资源扣减/退款/钱包访问�
 Finding: 核心 happy path 无法完成；Classification: BLOCKER，实施修正/试用/合并层。
 本段修正先于实施，限定复核这一处；其余冻结边界不重新设计。
 
-最小修正使用现有 Collection 聚合合同：仅首次存在规则通过商品时，以
-`StableID(plan.ID,"selected-batch")` 原幂等 key 调用 `create_batch`，名称为
-“1688采集筛选”；校验回执批次 ID 等于当前 scope/key 派生的既有 Collection operation ID。
-每个 matched 商品按原 child publication，调用原稳定 `add_acquisition` key，
-明确指定回执 BatchID。此操作只在现有 Collection owner 内新增来源引用，
-不调用 move_item，不移动/改写原默认成员，不复制 Product/Catalog 正文。
-多个规则通过商品因而属于同一个计划选中批次；规则未通过或未知仍在原我的数据。
-创建批次/加入来源响应丢失时只按原合同/key 重放回执，名称与 key 由计划确定；
-归档或变更导致不可加入时保留原计划失败/可读取，不自动找别的批次或恢复归档。
-最终仍冻结一个精确非空、受权成员/版本集合和原 TransferInput/key；
-Preparation 自有事务/receipt、状态机/权限/事实 owner 不变。没有匹配时不创建
-选中批次，也绝不 Transfer(empty)。不新增 schema、批次同步或第二事实 owner。
+最小修正保持 Collection 成员 publication 唯一性与原 Preparation 单批次合同：
+按选中成员当前实际 BatchID 分组（按计划来源次序首次出现排序），逐组核对原
+operation/publication/version、成员 revision/未归档及当前 live 权限；对每组读取
+原 batch revision，生成明确非空 itemIDs 的原 TransferInput。每组 key 固定为
+`StableID(plan.ID,batch.ID,"transfer")`，冻结数组包含原 key 和完整 TransferInput，
+总计最多 200 组/200 itemIDs、最多 64 KiB，按原 plan Product transaction 保存。
+原 transfer_key 列保留这一冻结集合的稳定身份；transfer_input 存 immutable数组，
+不新增表/owner、不移动成员、不新增聚合批次、不给未匹配项传空数组。
+
+下一次显式推进只处理尚未记录回执的第一组：先 ReadByKey，确切不存在才 Transfer
+原 input/key；成功必须校验 Preparation ID 派生、SourceBatchID、SourceRevision
+与 Count。计划保存 PreparationIDs 成功前缀（与冻结组次序一一对应），下次从前缀
+长度继续。响应丢失/计划保存失败时同组原 key 读回执，不重转；已成功组保持可见，
+剩余组失败保留 transfer_pending，不伪造全部完成，不重建 intent。只有全部组
+有精确回执才 completed。多个待适配批次在计划结果逐一提供入口。
+Repository 持续拒绝已冻结 transfer集合变更；范围只补计划自身已批准的恢复 metadata，
+现有 Preparation 状态机、事务、授权、幂等、owner 与默认 Collection 不变。
 
 AutoTransfer=false 到此结束。true 且规则通过时，在现有 Collection owner 核对
 原 publication/成员/当前权限，然后调用 Preparation 原受权选择与 Transfer。
