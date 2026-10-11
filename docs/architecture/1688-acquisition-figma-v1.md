@@ -20,7 +20,7 @@ Must：成功商品进入我的数据；只成功 publication 消耗 1 DATA_ROW�
 原有匿名采集的挑战/频率/出口风险按原产品决定保持 Accepted Risk。
 
 不扩大到自动上架、AI 执行、支付、永久后台调度或通用任务引擎。不用测试 fixture
-宣称真实 1688 当前页面可采集。公开页面类型和价格事实取值须由产品决定补齐。
+宣称真实 1688 当前页面可采集。用户已确认来源公开起售价/最小起订量及公开搜索页/店铺列表页。
 
 ## 2. 当前能力与根因
 
@@ -113,7 +113,10 @@ HTTPS allowlist、资源/响应大小/deadline/collector throttle/cooldown。
 关键词最多 200 UTF-8 bytes；服务端构造固定 `s.1688.com` 搜索 URL，不接收任意 origin。
 按页由批准种类的结构校验器生成规范 URL：拒绝 IP、credentials、非 443 端口、
 fragment、未知查询参数、login/passport/account/write path 和站外跳转。
-店铺列表校验不得只检查 `.1688.com` 后缀；确认种类前不实现该分支。
+店铺列表校验不得只检查 `.1688.com` 后缀：只接受单层店铺 hostname 的
+`/page/offerlist.htm`，拒绝保留 host（s/detail/login/passport 等），不得接受其它店铺路径。
+搜索页只接受 `s.1688.com/selloffer/offer_search.htm`。查询参数采用分别列出的窄白名单
+并验证类型/长度/重复项，不透传未知参数；关键词规范编码。公开结构真实可用性未验证。
 
 在全新匿名 context 中读取当前页面可见 canonical detail 链接、去重、按 DOM 顺序
 截断；不点击商品、不登录、不无限滚动/翻页、不消费 DATA_ROW。响应是有界来源链接
@@ -128,7 +131,10 @@ fragment、未知查询参数、login/passport/account/write path 和站外跳�
 通过。边界包含等号；输入非负规范十进制、min<=max，MOQ 为正整数。价格以 CNY
 原始来源明确事实比较，用 exact decimal/rational，不能采用浮点近似或汇率推断。
 
-价格事实取值等待用户两选一；MOQ 取原来源明确最小起订量。只在已填写条件所需事实
+用户确认价格取来源公开起售价：沿已封存原 acquisition operation 的
+`Command.Envelope.SupplierOrCostFacts.Facts[price_fact.N]`（验证 command hash 与精确
+publication）；取有明确 CNY 的来源阶梯价格最低 amount，MOQ 取来源明确阶梯最小
+起订量，不使用优化后的 Catalog/规格报价，不能推断缺失币种。只在已填写条件所需事实
 缺失/币种不明/矛盾时返回 `unknown`，不猜 0、1、起售价或币种。`failed`/`unknown`
 都不自动转入；已保存商品和计费不受影响。采用 Product 当前 source evidence 的价格
 事实，不能把 AI 优化/当前 Catalog 漂移结果当原采购事实。
@@ -175,10 +181,10 @@ PG 测试使用任务隔离数据库；UI 仅核对本入口/模板/实际状态
 
 ## 10. 开工顺序与当前停止点
 
-1. 补齐两项产品细节；独立只读复核实际合同/权限/恢复/出网边界，达到 Ready。
+1. 两项产品细节已确认；独立只读复核实际合同/权限/恢复/出网边界，达到 Ready。
 2. 规则与计划 owner/PG + domain测试；发现 RPC/leaf + contract测试。
 3. 当前请求推进/计费复用/Preparation-only 接线及相关HTTP/PG验证。
 4. Figma UI与BFF；整体路径自检，最终独立交付检查，保留可运行本地程序。
 
-当前 **NOT_READY**：产品细节未答、Architecture Review 未完成。
+当前 **NOT_READY**：产品细节已明确，Architecture Review 未完成。
 不修改正式业务代码或建立生产 schema。该设计是当前待复核提案，不是Approved Authority。
