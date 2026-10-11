@@ -27,6 +27,10 @@ type repositorySpy struct {
 	gets       int
 }
 
+func (r *repositorySpy) Overview(_ context.Context, scope Scope, _ string, _, _ time.Time) (OverviewSnapshot, error) {
+	return OverviewSnapshot{Scope: scope}, nil
+}
+
 func (r *repositorySpy) Replay(context.Context, Scope, string, Command) (Receipt, bool, error) {
 	return Receipt{ID: r.p.ID, Revision: 1, Replayed: r.replay}, r.replay, nil
 }

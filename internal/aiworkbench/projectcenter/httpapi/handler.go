@@ -28,6 +28,7 @@ type route struct{ method, path, operation string }
 
 func specs() []route {
 	return []route{
+		{"GET", Base + "/overview", "overview"},
 		{"GET", Base, "list"}, {"POST", Base, "create"}, {"GET", Base + "/templates", "templates"}, {"POST", Base + "/templates", "template_save"},
 		{"POST", Base + "/templates/:id/archive", "template_archive"}, {"GET", Base + "/:id", "get"}, {"PATCH", Base + "/:id", "edit"},
 		{"POST", Base + "/:id/archive", "archive"}, {"POST", Base + "/:id/restore", "restore"}, {"POST", Base + "/:id/visit", "visit"},
@@ -117,6 +118,9 @@ func (h *Handler) serve(c *gin.Context, r route) {
 	query := c.Request.URL.Query()
 	if r.method == "GET" {
 		allowed := map[string]bool{"after": true}
+		if r.operation == "overview" {
+			allowed = map[string]bool{"mode": true, "timeZone": true}
+		}
 		if r.operation == "list" {
 			for _, k := range []string{"mode", "search", "kind", "workScope", "storeId"} {
 				allowed[k] = true
@@ -133,6 +137,17 @@ func (h *Handler) serve(c *gin.Context, r route) {
 			return
 		}
 		switch r.operation {
+		case "overview":
+			mode := c.Query("mode")
+			if mode == "" {
+				mode = "active"
+			}
+			v, e := h.Service.Overview(ctx, scope, mode, c.Query("timeZone"))
+			if e != nil {
+				failure(c, e)
+			} else {
+				reply(c, v)
+			}
 		case "list":
 			mode := c.Query("mode")
 			if mode == "" {
