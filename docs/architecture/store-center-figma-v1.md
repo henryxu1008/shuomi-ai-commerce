@@ -62,7 +62,7 @@ Authority：[最终 UI/IA](../product/final-ui-ia-authority.md)，文件 `tg48P4
 
 ## 4. 目录筛选与状态/指标
 
-扩展现有 `GET /api/v1/workbench/stores` 的严格允许参数：page/pageSize、q、platform、region、applicationType、groupId、attention；现有 record status 参数保留其合法当前语义，不作为复合正常状态的别名。q 是 trim 后的 Unicode literal substring，匹配自定义名称、当前 Store UUID、externalStoreId；不把 `%`/`_` 当 SQL 通配符。参数单值、未知键/非法编码拒绝，q ≤200 UTF-8 bytes，pageSize ≤100。
+`GET /api/v1/workbench/store-catalog` 提供当前页面的窄组合查询，严格允许参数：page/pageSize、q、platform、region、applicationType、groupId、attention；现有 `GET /stores` 保持基础目录合同供既有消费者使用，两者读取同一 Store owner，不增加事实源或兼容路径。现有 record status 参数保留其合法当前语义，不作为复合正常状态的别名。q 是 trim 后的 Unicode literal substring，匹配自定义名称、当前 Store UUID、externalStoreId；不把 `%`/`_` 当 SQL 通配符。参数单值、未知键/非法编码拒绝，q ≤200 UTF-8 bytes，pageSize ≤100。
 
 所有 predicate 先作用于当前成员可访问集合再 count/page；排序沿现有稳定 updatedAt+ID。不在前端一页筛选或用首100条代替完整集合。Facets/概览也在同一授权集合及筛选语义下计算，不能泄漏未授权分组店铺数量。组列表可供当前 Store reader 浏览名字，组计数只包含其可见店铺。企业级分组CRUD只允许当前enterprise administrator且具有`workbench.store.update`；单店profile和批量归组须已有update权限与每店现有访问授权，不能借共享组操作修改自己未授权的店铺。
 
