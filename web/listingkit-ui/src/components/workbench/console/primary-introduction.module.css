@@ -1,0 +1,2 @@
+.page.page { --intro-background:#f4f7fb; }
+:global(.dark) .page.page { --intro-background:#060b15; }

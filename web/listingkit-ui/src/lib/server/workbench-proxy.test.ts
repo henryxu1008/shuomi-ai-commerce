@@ -32,6 +32,7 @@ describe("acquisition plan scope and request boundary",()=>{
  it("allows only one canonical history cursor and no query on mutations",async()=>{
   const path=["sourcing","1688","plans"];
   const good=await buildWorkbenchUpstreamRequest(new Request(`http://localhost/api/workbench/${path.join("/")}?after=${operationKey}`,{headers}),path,"token","actor");expect(good).not.toBeInstanceOf(Response);
+  if (!(good instanceof Response)) expect(new URL(good.url).searchParams.get("after")).toBe(operationKey);
   for(const suffix of [`?after=${operationKey}&after=${operationKey}`,"?after=bad","?limit=1000"]){const bad=await buildWorkbenchUpstreamRequest(new Request(`http://localhost/api/workbench/${path.join("/")}${suffix}`,{headers}),path,"token","actor");expect((bad as Response).status).toBe(400);}
  });
 });

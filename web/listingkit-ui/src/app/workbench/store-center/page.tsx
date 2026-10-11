@@ -1,6 +1,5 @@
-import { redirect } from "next/navigation";
-import { firstConnectedConsoleEntry } from "@/lib/workbench/console-primary-entry";
+import { StoreCenterEntry } from "@/components/workbench/console/store-center-entry";
 
 export default function Page() {
-  redirect(firstConnectedConsoleEntry("/workbench/store-center", {})!);
+  return <StoreCenterEntry />;
 }

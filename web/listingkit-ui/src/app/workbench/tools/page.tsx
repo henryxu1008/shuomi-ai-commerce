@@ -1,9 +1,6 @@
-import { redirect } from "next/navigation";
-import { ConsoleUnavailable } from "@/components/workbench/console/console-overview";
-import { firstConnectedConsoleEntry } from "@/lib/workbench/console-primary-entry";
+import { PrimaryIntroduction } from "@/components/workbench/console/primary-introduction";
 
 export default function Page() {
-  const destination = firstConnectedConsoleEntry("/workbench/tools", { toolMarketAvailable: process.env.LISTINGKIT_TOOL_MARKET_ENABLED === "true" });
-  if (destination) redirect(destination);
-  return <ConsoleUnavailable pathname="/workbench/tools" />;
+  const enabled = process.env.LISTINGKIT_TOOL_MARKET_ENABLED === "true";
+  return <PrimaryIntroduction kind="tools" available={[enabled, enabled, enabled]} />;
 }

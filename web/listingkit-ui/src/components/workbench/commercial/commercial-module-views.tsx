@@ -1,5 +1,4 @@
 "use client";
-import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -10,6 +9,7 @@ import type {
 } from "@/lib/api/resource-events";
 import { resourceDefinitions } from "./resource-purchase-panel";
 import styles from "./commercial.module.css";
+import { PlansOverview } from "./plans-overview";
 function Panel({ title, children }: { title: string; children: ReactNode }) {
   return (
     <Card role="region" aria-label={title} className={styles.panel}>
@@ -18,112 +18,7 @@ function Panel({ title, children }: { title: string; children: ReactNode }) {
     </Card>
   );
 }
-function PageLink({ href, children }: { href: string; children: ReactNode }) {
-  return (
-    <Button asChild variant="outline" size="sm">
-      <Link href={href} prefetch={false}>
-        {children}
-      </Link>
-    </Button>
-  );
-}
-export function CommercialOverviewView({ data }: { data: CommercialOverview }) {
-  const stores =
-    data.store_services.state === "available"
-      ? data.store_services.value
-      : null;
-  return (
-    <div className={styles.stack}>
-      <Panel title="当前方案">
-        <p className={styles.eyebrow}>统一基础方案 · 按需付费</p>
-        <h3>{data.base_plan.name}</h3>
-        <p>基础方案无需订阅。店铺按期收费，AI 点数与数据资源预付使用。</p>
-        <div className={styles.summaryMetrics}>
-          <div className={`${styles.summaryMetric} ${styles.blue}`}>
-            <p>店铺服务</p>
-            <strong>{stores ? `${stores.active} 家生效中` : "暂不可用"}</strong>
-            <small>
-              {stores
-                ? `${stores.expired} 家已到期 · ${stores.expiring_soon} 家 7 天内到期`
-                : "未取得店铺服务统计"}
-            </small>
-          </div>
-          {resourceDefinitions
-            .filter((d) => d.type !== "store_renewal_period")
-            .map((def) => {
-              const balance =
-                data.resources.state === "available"
-                  ? data.resources.value.resources.find(
-                      (r) => r.resource_type === def.type,
-                    )
-                  : null;
-              return (
-                <div
-                  key={def.type}
-                  className={`${styles.summaryMetric} ${styles.teal}`}
-                >
-                  <p>{def.name}</p>
-                  <strong>
-                    {balance?.state === "recorded"
-                      ? `${BigInt(balance.available).toLocaleString("zh-CN")} ${def.unit}`
-                      : balance?.state === "not_recorded"
-                        ? "尚无余额记录"
-                        : "暂不可用"}
-                  </strong>
-                  <small>企业可用余额 · 不按月清零</small>
-                </div>
-              );
-            })}
-        </div>
-        <div className={styles.actions}>
-          <PageLink href="/workbench/plans/options">购买资源</PageLink>
-          <PageLink href="/workbench/plans/entitlements">查看我的权益</PageLink>
-        </div>
-      </Panel>
-      <div className={styles.sectionHeading}>
-        <h2>管理入口</h2>
-      </div>
-      <div className={styles.moduleEntries}>
-        {[
-          ["套餐方案", "基础方案与资源价格", "/workbench/plans/options"],
-          [
-            "我的权益",
-            "店铺服务与企业资源余额",
-            "/workbench/plans/entitlements",
-          ],
-          ["用量明细", "真实预留与消费流水", "/workbench/plans/usage"],
-          ["充值中心", "企业钱包与按需购买", "/workbench/plans/top-up"],
-          ["账单与订单", "充值及购买订单", "/workbench/plans/orders"],
-        ].map(([title, detail, href]) => (
-          <Card key={href} className={styles.moduleEntry}>
-            <h3>{title}</h3>
-            <p>{detail}</p>
-            <PageLink href={href}>进入</PageLink>
-          </Card>
-        ))}
-      </div>
-      <Panel title="计费规则">
-        <p>
-          店铺 1 期为 30
-          天，须先完成真实平台连接，再开通或续费服务。续费不会改变平台连接状态。
-        </p>
-        <p>
-          图片和模型调用统一扣 AI
-          点数；调用前预留，结果未知时保留预留。数据按采集成功入库的商品结果扣条数。
-        </p>
-        <p>
-          成员 AI 月度消费上限按 UTC 自然月计算；企业已购点数和数据余额不清零。
-        </p>
-        <PageLink href="/workbench/account/organization/resources">
-          管理成员资源与额度
-        </PageLink>
-      </Panel>
-      <p className={styles.observation}>
-        观察时间：{data.observed_at.replace("T", " ").replace("Z", " UTC")}
-      </p>
-    </div>
-  );
-}
+export function CommercialOverviewView({ data }: { data: CommercialOverview }) { return <PlansOverview data={data} />; }
 const reasons: Record<string, string> = {
   purchase: "购买到账",
   allocated: "分配",

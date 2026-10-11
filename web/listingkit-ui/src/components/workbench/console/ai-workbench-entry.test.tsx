@@ -22,37 +22,34 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-it("opens the current project owner without enabling Chat or business tasks", () => {
+it('keeps all four introduction cards and gates each business capability', () => {
   fixture.context.projectCenterAvailable = true;
-  fixture.knowledge = fixture.reports = true;
+  fixture.reports = true;
   render(<Page />);
-  expect(fixture.redirect).toHaveBeenCalledWith("/workbench/ai/projects");
-  expect(screen.queryByText("暂未启用")).not.toBeInTheDocument();
+  expect(fixture.redirect).not.toHaveBeenCalled();
+  expect(screen.getByRole('link', { name: /进入项目中心/ })).toHaveAttribute('href', '/workbench/ai/projects');
+  expect(screen.getByRole('link', { name: /进入我的报告/ })).toHaveAttribute('href', '/workbench/ai/reports');
+  expect(screen.queryByRole('link', { name: /进入硕米Chat/ })).not.toBeInTheDocument();
 });
-
-it.each([
-  ["knowledge", "/workbench/ai/knowledge"], ["reports", "/workbench/ai/reports"],
-  ["review", "/workbench/ai/tasks/pending/other"], ["history", "/workbench/ai/tasks/completed/history"],
-] as const)("opens the independent %s page", (capability, destination) => {
+it.each([['review', '/workbench/ai/tasks/pending/other'], ['history', '/workbench/ai/tasks/completed/history']] as const)('retains independent %s task access', (capability, destination) => {
   fixture[capability] = true;
   render(<Page />);
-  expect(fixture.redirect).toHaveBeenCalledWith(destination);
+  expect(fixture.redirect).not.toHaveBeenCalled();
+  expect(screen.getByRole('link', { name: /进入任务中心/ })).toHaveAttribute('href', destination);
 });
-
-it("keeps the original Chat entry when its actual runtime is available", () => {
-  fixture.context.aiWorkbenchAvailable = fixture.context.projectCenterAvailable = true;
+it('keeps the AI introduction without optional services', () => {
   render(<Page />);
-  expect(fixture.redirect).toHaveBeenCalledWith("/workbench/ai/chat");
+  expect(fixture.redirect).not.toHaveBeenCalled();
+  expect(screen.getByRole('heading', { name: 'AI工作台', level: 1 })).toBeVisible();
+  expect(screen.getByRole('heading', { name: '硕米Chat' })).toBeVisible();
+  expect(screen.getByRole('heading', { name: '任务中心' })).toBeVisible();
+  expect(screen.getByRole('heading', { name: '项目中心' })).toBeVisible();
+  expect(screen.getByRole('heading', { name: '我的报告' })).toBeVisible();
+  expect(screen.queryByRole('link')).not.toBeInTheDocument();
 });
-
-it("opens built-in official reading without optional AI or enterprise knowledge services", () => {
-  render(<Page />);
-  expect(fixture.redirect).toHaveBeenCalledWith("/workbench/ai/knowledge/official");
-});
-
-it.each(["isLoading", "isSwitching", "selectionRequired"] as const)("does not route before %s clears", (flag) => {
-  fixture.context.projectCenterAvailable = true;
+it.each(['isLoading', 'isSwitching', 'selectionRequired'] as const)('clears the AI homepage during %s', flag => {
   fixture.context[flag] = true;
   render(<Page />);
   expect(fixture.redirect).not.toHaveBeenCalled();
+  expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
 });

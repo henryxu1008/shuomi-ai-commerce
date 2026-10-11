@@ -151,12 +151,14 @@ function PeriodToolbar({ period, setPeriod, today, children }: { period: Period;
  </Card>;
 }
 function Matrix({ scope, capabilities, commands }: { scope: CockpitScope; capabilities: CockpitCapabilities; commands: Commands }) {
- const [period, setPeriod] = useState(()=>linkedPeriod(capabilities.today)), [page, setPage] = useState(1), [search, setSearch] = useState(""), [state, setState] = useState(""), [platform,setPlatform]=useState(""),[region,setRegion]=useState(""), [selected, setSelected] = useState<string[]>([]), [compare, setCompare] = useState(false), [storeId, setStoreId] = useState(() => typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("storeId") ?? "");
+ const [period, setPeriod] = useState(()=>linkedPeriod(capabilities.today)), [page, setPage] = useState(1), [search, setSearch] = useState(""), [state, setState] = useState(""), [platform,setPlatform]=useState(""),[region,setRegion]=useState(""), [selected, setSelected] = useState<string[]>([]), [compare, setCompare] = useState(false);
+ const [linkedStores,setLinkedStores]=useState(()=>typeof window==="undefined"?[]:new URLSearchParams(window.location.search).getAll("storeId"));
+ const [storeId,setStoreId]=useState(()=>linkedStores.length===1?linkedStores[0]:"");
  const query = new URLSearchParams({ ...period, page: String(page), search, state, platform, region, sort: "profit" });
- if (compare) selected.forEach(id => query.append("storeId", id));
+ (compare ? selected : linkedStores).forEach(id => query.append("storeId", id));
  const matrix = useQuery({ queryKey: ["operations-cockpit", scope.userId, scope.organizationId, "matrix", query.toString()], queryFn: ({ signal }) => cockpitRequest(scope, "stores?" + query, cockpitMatrix, { signal }), retry: false });
  function changePeriod(p: Period) { setPeriod(p); setPage(1); setCompare(false); setSelected([]); }
- function filter(action:()=>void) { action();setPage(1);setCompare(false);setSelected([]); }
+ function filter(action:()=>void) { action();setPage(1);setCompare(false);setSelected([]);setLinkedStores([]);setStoreId(""); }
  return <>
   <PeriodToolbar today={capabilities.today} period={period} setPeriod={changePeriod}><label>平台<select value={platform} onChange={e=>filter(()=>setPlatform(e.target.value))}><option value="">全部平台</option>{[...new Set(capabilities.stores.map(s=>s.platform))].sort().map(v=><option value={v} key={v}>{v.toUpperCase()}</option>)}</select></label><label>站点<select value={region} onChange={e=>filter(()=>setRegion(e.target.value))}><option value="">全部站点</option>{[...new Set(capabilities.stores.map(s=>s.region))].sort().map(v=><option value={v} key={v}>{v}</option>)}</select></label><label>经营数据状态<select value={state} onChange={e => filter(()=>setState(e.target.value))}>{["", "loss", "break_even", "recorded_complete", "data_incomplete"].map(v => <option key={v} value={v}>{stateNames[v] ?? "全部状态"}</option>)}</select></label><label className={styles.search}>搜索店铺<Input value={search} onChange={e => filter(()=>setSearch(e.target.value))} maxLength={100} placeholder="搜索店铺名称" /></label><Button variant="outline" onClick={()=>filter(()=>{setPlatform("");setRegion("");setState("");setSearch("");})}>重置</Button></PeriodToolbar>
   {matrix.isPending ? <ConsoleState kind="loading" title="正在读取同周期经营事实" /> : matrix.error ? <ConsoleState kind="error" title={cockpitErrorText(matrix.error)} /> : matrix.data ? <>

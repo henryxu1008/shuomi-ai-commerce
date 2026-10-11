@@ -26,7 +26,7 @@ it("opens the exact saved source through the existing scoped item read",async()=
  render(<CollectionPage initialItemId={item}/>);
  expect(await screen.findByText("Selected saved product")).toBeInTheDocument();
  expect(state.readItem).toHaveBeenCalledWith({userId:"actor-a",organizationId:"org-a"},item,expect.any(AbortSignal));
- expect(state.items).toHaveBeenCalledWith(expect.anything(),batch,expect.anything(),expect.any(AbortSignal));
+ await waitFor(()=>expect(state.items).toHaveBeenCalledWith(expect.anything(),batch,expect.anything(),expect.any(AbortSignal)));
  expect(state.mutate).not.toHaveBeenCalled();
 });
 
@@ -55,6 +55,14 @@ it("keeps blank SDS template batches out of finished Supply Chain transfer",asyn
  render(<CollectionPage supplyAvailable />);
  expect(await screen.findByRole("button",{name:"加入我的供应链"})).toBeDisabled();
  expect(screen.getByRole("button",{name:"加入我的供应链"})).toHaveAttribute("title","SDS 模板须先定制成品，再加入供应链");
+ expect(state.supplyWrite).not.toHaveBeenCalled();
+});
+
+it("keeps batch transfer disabled without the existing supply management permission",async()=>{
+ state.context.permissions=["workbench.collection.read"];
+ state.list.mockResolvedValue({items:[{id:"550e8400-e29b-41d4-a716-446655440000",name:"已保存的商品批次",kind:"manual",supplyTransferSupported:true,revision:1,count:1,createdAt:"2026-10-08T00:00:00Z"}],total:1});
+ render(<CollectionPage supplyAvailable />);
+ expect(await screen.findByRole("button",{name:"加入我的供应链"})).toBeDisabled();
  expect(state.supplyWrite).not.toHaveBeenCalled();
 });
 

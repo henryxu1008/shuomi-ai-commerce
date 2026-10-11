@@ -33,6 +33,7 @@ import {
   WalletView,
 } from "./commercial-billing-views";
 import styles from "./commercial.module.css";
+import overviewStyles from "../console/primary-overview.module.css";
 import { TopUpPaymentPanel } from "./wallet-topup";
 
 export type PageKind =
@@ -140,13 +141,13 @@ function PageFrame({
   };
   return (
     <ConsolePage
-      className={styles.page}
+      className={page === "overview" ? overviewStyles.page : styles.page}
       title={title}
       breadcrumbs={breadcrumbs}
       description={
         <>
           <p>{descriptions[page]}</p>
-          <p>当前有效企业：{organization}</p>
+          {page !== "overview" && <p>当前有效企业：{organization}</p>}
         </>
       }
       actions={actions}
@@ -203,13 +204,7 @@ function ScopedCommercial({
       organization={`${organizationName || "未提供名称"}（${organizationId}）`}
       actions={
         <>
-          {page === "overview" ? (
-            <Button asChild variant="outline">
-              <Link prefetch={false} href="/workbench/plans/entitlements">
-                查看我的权益
-              </Link>
-            </Button>
-          ) : (
+          {page === "overview" ? null : (
             <Button asChild variant="outline">
               <Link
                 prefetch={false}

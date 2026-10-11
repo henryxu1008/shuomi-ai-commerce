@@ -1,4 +1,4 @@
-import { firstConnectedAIEntry, type AIWorkbenchEntryCapabilities } from "./ai-workbench-entry";
+import type { AIWorkbenchEntryCapabilities } from "./ai-workbench-entry";
 
 export type ConsolePrimaryCapabilities = AIWorkbenchEntryCapabilities & {
   operationsCockpitAvailable?: boolean;
@@ -13,24 +13,20 @@ export type ConsolePrimaryCapabilities = AIWorkbenchEntryCapabilities & {
   ecoservicesAvailable?: boolean;
 };
 
-// Fixed current Console entries. Choosing an entry never authorizes its owner.
+// An independent homepage is available separately from its child business services.
+// Returning the homepage never authorizes its owner or enables a child capability.
 export function firstConnectedConsoleEntry(pathname: string, capabilities: ConsolePrimaryCapabilities): string | null {
   switch (pathname) {
     case "/workbench":
-      if (!capabilities.operationsCockpitAvailable) return null;
-      for (const mode of ["goals", "stores", "alerts", "advice"]) {
-        if (capabilities.cockpitPermissions?.includes(`workbench.cockpit.${mode}.read`)) return `/workbench/overview/${mode}`;
-      }
-      return null;
-    case "/workbench/ai": return firstConnectedAIEntry(capabilities);
+      return "/workbench";
+    case "/workbench/ai": return "/workbench/ai";
     case "/workbench/supply": return "/workbench/supply";
-    case "/workbench/agents": return "/workbench/agents/market";
-    case "/workbench/tools": return capabilities.toolMarketAvailable ? "/workbench/tools/official" : null;
+    case "/workbench/agents": return "/workbench/agents";
+    case "/workbench/tools": return "/workbench/tools";
     case "/workbench/services": return capabilities.ecoservicesAvailable ? "/workbench/services" : null;
     case "/workbench/data":
-      if (capabilities.dataServicesAvailable) return "/workbench/data/market";
-      return capabilities.productCollectionsAvailable ? "/workbench/data/mine" : null;
-    case "/workbench/store-center": return "/workbench/stores";
+      return "/workbench/data";
+    case "/workbench/store-center": return "/workbench/store-center";
     case "/workbench/plans": return "/workbench/plans";
     case "/workbench/account": return "/workbench/account";
     default: return null;

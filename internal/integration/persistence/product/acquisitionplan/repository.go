@@ -482,7 +482,7 @@ func (r *Repository) MutateRule(ctx context.Context, s sourcing.AcquisitionPlanS
 		}
 		if input.Action == "create" {
 			var count int64
-			if tx.Raw("SELECT count(*) FROM "+rules+" WHERE organization_id=? AND actor_id=? AND NOT archived", s.OrganizationID, s.ActorID).Scan(&count).Error != nil {
+			if tx.Raw("SELECT count(*) FROM "+rules+" WHERE organization_id=? AND actor_id=? AND member_id=? AND NOT archived", s.OrganizationID, s.ActorID, s.MemberID).Scan(&count).Error != nil {
 				return sourcing.ErrAcquisitionUnavailable
 			}
 			if count >= 100 {

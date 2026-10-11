@@ -702,8 +702,10 @@ export async function buildWorkbenchUpstreamRequest(
       case "product-acquisition-plan-rules":
       case "product-acquisition-plan-mutate-rule": {
         if(route.requestContract==="product-acquisition-plan-list"){
-          const query=new URL(request.url).searchParams;
-          if([...query.keys()].some(key=>key!=="after")||query.has("after")&&(query.getAll("after").length!==1||!isAcquisitionUUID(query.get("after")!)))return protocolError(400,"INVALID_REQUEST","Invalid cursor");
+          const requested=new URL(request.url);
+          const parameters=requested.searchParams;
+          if([...parameters.keys()].some(key=>key!=="after")||parameters.has("after")&&(parameters.getAll("after").length!==1||!isAcquisitionUUID(parameters.get("after")!)))return protocolError(400,"INVALID_REQUEST","Invalid cursor");
+          query=requested.search;
         }else if(!hasExactNoQuery(request))return protocolError(400,"INVALID_REQUEST","Query is not allowed");
         const actor=request.headers.get(EXPECTED_USER_ID_HEADER);
         if(!actor||actor!==authenticatedActorSubject)return protocolError(409,"IDENTITY_CONTEXT_CHANGED","Identity context changed");

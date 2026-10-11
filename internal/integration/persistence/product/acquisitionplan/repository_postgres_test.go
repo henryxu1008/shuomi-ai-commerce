@@ -132,3 +132,65 @@ func TestRuleMutationReplayAndRevision(t *testing.T) {
 	_, e = repo.MutateRule(ctx, scope, uuid.NewString(), update, check)
 	require.ErrorIs(t, e, sourcing.ErrAcquisitionConflict)
 }
+
+func TestRuleTemplateQuotaFollowsCurrentMembership(t *testing.T) {
+	db := testDB(t)
+	require.NoError(t, InstallSchema(db))
+	repo, err := NewRepository(context.Background(), db)
+	require.NoError(t, err)
+	ctx := context.Background()
+	check := func(context.Context) error { return nil }
+	oldScope := sourcing.AcquisitionPlanScope{OrganizationID: "org", ActorID: "actor", MemberID: "old-member"}
+	currentScope := oldScope
+	currentScope.MemberID = "re-added-member"
+	input := sourcing.RuleTemplateMutation{Action: "create", Name: "采购规则", Rule: sourcing.AcquisitionRule{MaxPrice: "10"}}
+	var oldRule sourcing.AcquisitionRuleTemplate
+	for range 100 {
+		oldRule, err = repo.MutateRule(ctx, oldScope, uuid.NewString(), input, check)
+		require.NoError(t, err)
+	}
+	visible, err := repo.ListRules(ctx, currentScope)
+	require.NoError(t, err)
+	require.Empty(t, visible)
+	_, err = repo.ReadRule(ctx, currentScope, oldRule.ID)
+	require.ErrorIs(t, err, sourcing.ErrAcquisitionNotFound)
+	_, err = repo.MutateRule(ctx, currentScope, uuid.NewString(), sourcing.RuleTemplateMutation{Action: "archive", ID: oldRule.ID, ExpectedRevision: 1}, check)
+	require.ErrorIs(t, err, sourcing.ErrAcquisitionNotFound)
+
+	firstKey := uuid.NewString()
+	first, err := repo.MutateRule(ctx, currentScope, firstKey, input, check)
+	require.NoError(t, err, "old membership templates must not consume the current scope quota")
+	for range 99 {
+		_, err = repo.MutateRule(ctx, currentScope, uuid.NewString(), input, check)
+		require.NoError(t, err)
+	}
+	visible, err = repo.ListRules(ctx, currentScope)
+	require.NoError(t, err)
+	require.Len(t, visible, 100)
+	_, err = repo.MutateRule(ctx, currentScope, uuid.NewString(), input, check)
+	require.ErrorIs(t, err, sourcing.ErrAcquisitionCapacity)
+	replay, err := repo.MutateRule(ctx, currentScope, firstKey, input, check)
+	require.NoError(t, err)
+	require.Equal(t, first.ID, replay.ID)
+	_, err = repo.MutateRule(ctx, currentScope, uuid.NewString(), sourcing.RuleTemplateMutation{Action: "archive", ID: first.ID, ExpectedRevision: 1}, check)
+	require.NoError(t, err)
+	results := make(chan error, 2)
+	for range 2 {
+		go func() {
+			_, err := repo.MutateRule(ctx, currentScope, uuid.NewString(), input, check)
+			results <- err
+		}()
+	}
+	created := 0
+	for range 2 {
+		if err := <-results; err == nil {
+			created++
+		} else {
+			require.ErrorIs(t, err, sourcing.ErrAcquisitionCapacity)
+		}
+	}
+	require.Equal(t, 1, created, "the existing transaction lock must admit only one final slot")
+	oldVisible, err := repo.ListRules(ctx, oldScope)
+	require.NoError(t, err)
+	require.Len(t, oldVisible, 100, "the prior membership facts remain untouched")
+}

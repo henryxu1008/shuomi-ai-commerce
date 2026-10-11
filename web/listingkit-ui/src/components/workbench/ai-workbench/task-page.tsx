@@ -14,6 +14,7 @@ import { KnowledgeCitations } from "../task-center/knowledge-citations";
 import styles from "./task-page.module.css";
 
 type TaskMode = "all" | "running" | "pending" | "completed" | "errors";
+const taskTitles: Record<TaskMode, string> = { all: "任务中心", running: "进行中任务", pending: "待确认任务", completed: "已完成任务", errors: "异常任务" };
 const filters: { mode: TaskMode; label: string; href: string }[] = [
   { mode: "all", label: "全部", href: "/workbench/ai/tasks" },
   { mode: "pending", label: "待确认", href: "/workbench/ai/tasks/pending" },
@@ -55,11 +56,11 @@ export function BusinessTaskPage({ mode = "all", taskId, productReviewAvailable 
   const authorizationKey = JSON.stringify([context.roles, context.permissions]);
   const canUseChat = context.effectiveOrganization?.capabilities?.["workbench.chat.use"] === true && context.aiWorkbenchPlanningReadiness === "AVAILABLE";
   const path = taskId ? "/workbench/ai/tasks" : filters.find(item => item.mode === mode)?.href ?? "/workbench/ai/tasks";
-  return <ConsolePage title={taskId ? "任务详情" : "任务中心"} breadcrumbs={findConsoleRoute(path)?.trail}
-    description={context.aiWorkbenchAvailable ? "查看已确认的业务任务及其当前执行和审核状态。状态来自 Product Agent 与 Review 的实时投影。" : productReviewAvailable || sheinRecordsAvailable ? "查看当前应用已接入的标题审核与历史工作记录。" : "当前应用未启用业务任务。"}>
+  return <ConsolePage title={taskId ? "任务详情" : taskTitles[mode]} breadcrumbs={findConsoleRoute(path)?.trail}
+    description={context.aiWorkbenchAvailable ? "查看已确认任务的执行、待确认和完成状态。" : productReviewAvailable || sheinRecordsAvailable ? "查看当前应用已接入的标题审核与历史工作记录。" : "当前应用未启用业务任务。"}>
     {!scope ? <ConsoleState kind={context.isLoading || context.isSwitching ? "loading" : "unavailable"} title="企业上下文不可用">请选择可访问的企业并登录。</ConsoleState> :
       !context.aiWorkbenchAvailable ? <IndependentTaskEntries mode={mode} taskId={taskId} productReviewAvailable={productReviewAvailable} sheinRecordsAvailable={sheinRecordsAvailable} /> :
-      <ScopedTasks key={`${scope.userId}:${scope.organizationId}:${authorizationKey}`} scope={scope} authorizationKey={authorizationKey} canUseChat={canUseChat} mode={mode} taskId={taskId} />}
+      <ScopedTasks key={`${scope.userId}:${scope.organizationId}:${authorizationKey}`} scope={scope} authorizationKey={authorizationKey} canUseChat={canUseChat} mode={mode} taskId={taskId} productReviewAvailable={productReviewAvailable} sheinRecordsAvailable={sheinRecordsAvailable} />}
   </ConsolePage>;
 }
 
@@ -73,12 +74,12 @@ function IndependentTaskEntries({ mode, taskId, productReviewAvailable, sheinRec
   </>;
 }
 
-function ScopedTasks({ scope, authorizationKey, canUseChat, mode, taskId }: { scope: AIScope; authorizationKey: string; canUseChat: boolean; mode: TaskMode; taskId?: string }) {
+function ScopedTasks({ scope, authorizationKey, canUseChat, mode, taskId, productReviewAvailable, sheinRecordsAvailable }: { scope: AIScope; authorizationKey: string; canUseChat: boolean; mode: TaskMode; taskId?: string; productReviewAvailable: boolean; sheinRecordsAvailable: boolean }) {
   if (taskId) return <TaskDetail scope={scope} authorizationKey={authorizationKey} taskId={taskId} />;
-  return <TaskList key={mode} scope={scope} authorizationKey={authorizationKey} canUseChat={canUseChat} mode={mode} />;
+  return <TaskList key={mode} scope={scope} authorizationKey={authorizationKey} canUseChat={canUseChat} mode={mode} productReviewAvailable={productReviewAvailable} sheinRecordsAvailable={sheinRecordsAvailable} />;
 }
 
-function TaskList({ scope, authorizationKey, canUseChat, mode }: { scope: AIScope; authorizationKey: string; canUseChat: boolean; mode: TaskMode }) {
+function TaskList({ scope, authorizationKey, canUseChat, mode, productReviewAvailable, sheinRecordsAvailable }: { scope: AIScope; authorizationKey: string; canUseChat: boolean; mode: TaskMode; productReviewAvailable: boolean; sheinRecordsAvailable: boolean }) {
   const [refreshGeneration, setRefreshGeneration] = useState(0);
   const tasks = useInfiniteQuery({ queryKey: ["ai-tasks", scope.userId, scope.organizationId, authorizationKey, mode, refreshGeneration], initialPageParam: "",
     queryFn: ({ signal, pageParam }) => requestAIWorkbench({ route: "task-list", method: "GET", path: `tasks?limit=50${pageParam ? `&after=${pageParam}` : ""}`, scope, signal }),
@@ -98,8 +99,7 @@ function TaskList({ scope, authorizationKey, canUseChat, mode }: { scope: AIScop
   return <>
     <div className={styles.metrics}>
       {[["待确认", "WAITING_CONFIRMATION"], ["执行中", "RUNNING"], ["已完成", "COMPLETED"]].map(([label, state]) => <Card key={state} className={styles.metric}>
-        <span>{label}</span><strong>{page.filter(item => item.state === state).length}</strong><small>已加载</small></Card>)}
-      <Card className={styles.scope}><span>工作范围</span><strong>{scope.organizationId}</strong><small>当前企业 · 当前账号</small></Card>
+        <span>{label}</span><strong>{tasks.isPending || tasks.isFetching || tasks.isError ? "—" : page.filter(item => item.state === state).length}</strong><small>已加载</small></Card>)}
     </div>
     <div className={styles.toolbar}><nav aria-label="任务状态" className={styles.filters}>{filters.map(item => <Link key={item.mode} href={item.href} aria-current={mode === item.mode ? "page" : undefined} prefetch={false}>{item.label}</Link>)}</nav>
       <Button variant="outline" onClick={refresh}>刷新状态</Button>{canUseChat ? <Button asChild><Link href="/workbench/ai/chat/new" prefetch={false}>向硕米发起任务</Link></Button> : null}</div>
@@ -110,11 +110,11 @@ function TaskList({ scope, authorizationKey, canUseChat, mode }: { scope: AIScop
         {tasks.isError ? <ConsoleState kind="error" title="部分任务读取失败">{errorText(tasks.error)} <Button variant="outline" onClick={() => void (tasks.isFetchNextPageError ? tasks.fetchNextPage() : tasks.refetch())}>重试</Button></ConsoleState> : null}
         {!visible.length && !tasks.isError ? searching || tasks.isFetchingNextPage ?
           <ConsoleState kind="loading" title="正在查找符合筛选的任务" /> :
-          <ConsoleState kind="empty" title="当前筛选无任务">只显示通过 Chat 提案确认创建的 BusinessTask。</ConsoleState> : null}
+          <ConsoleState kind="empty" title="当前筛选无任务">确认会话中的方案后，对应任务会显示在这里。</ConsoleState> : null}
         {tasks.hasNextPage && !searching ? <Button variant="outline" disabled={tasks.isFetchingNextPage} onClick={() => void tasks.fetchNextPage()}>加载更早任务</Button> : null}
       </div>}
-    {mode === "pending" ? <Card className={styles.secondary}><h2>标准商品标题审核</h2><p>查看 Product Review 持有的全部标题提案，包括从 BusinessTask 提交和直接从 Product Agent 提交的提案。接受后仍需单独应用。</p><Button asChild variant="outline"><Link href="/workbench/ai/tasks/pending/other" prefetch={false}>打开标题审核</Link></Button></Card> : null}
-    {mode === "completed" ? <Card className={styles.secondary}><h2>历史已完成工作记录</h2><p>原本地资料准备记录继续单独展示，不计入 BusinessTask。</p><Button asChild variant="outline"><Link href="/workbench/ai/tasks/completed/history" prefetch={false}>查看历史记录</Link></Button></Card> : null}
+    {mode === "pending" && productReviewAvailable ? <Card className={styles.secondary}><h2>标准商品标题审核</h2><p>查看已生成的标题提案。接受或编辑后仍需单独应用。</p><Button asChild variant="outline"><Link href="/workbench/ai/tasks/pending/other" prefetch={false}>打开标题审核</Link></Button></Card> : null}
+    {mode === "completed" && sheinRecordsAvailable ? <Card className={styles.secondary}><h2>历史已完成工作记录</h2><p>查看本地资料准备记录和离线诊断，不代表平台发布。</p><Button asChild variant="outline"><Link href="/workbench/ai/tasks/completed/history" prefetch={false}>查看历史记录</Link></Button></Card> : null}
   </>;
 }
 
