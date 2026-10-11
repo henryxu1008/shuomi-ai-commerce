@@ -83,7 +83,15 @@ func buildCurrentStoreCenterModule(ctx context.Context, records *gorm.DB, author
 	if err := handler.SetOfficialConnections(connections); err != nil {
 		return nil, err
 	}
-	return storehttp.NewModule(handler), nil
+	module := storehttp.NewModule(handler)
+	catalog, metadata, err := buildStoreCatalog(records, authorizer, applications, nil, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	module.(interface {
+		ConfigureCatalog(*storecenter.Catalog, *storecenter.MetadataRepository)
+	}).ConfigureCatalog(catalog, metadata)
+	return module, nil
 }
 
 type currentStorePeriodPolicy struct{}
@@ -115,6 +123,12 @@ func (a currentStoreMemberAuthorizer) AuthorizeStoreMember(ctx context.Context, 
 }
 
 var currentStoreCenterRoutes = []struct{ method, path, permission string }{
+	{http.MethodGet, "/api/v1/workbench/stores/:store_id/summary", authz.PermissionWorkbenchStoreRead},
+	{http.MethodGet, "/api/v1/workbench/store-catalog", authz.PermissionWorkbenchStoreRead},
+	{http.MethodGet, "/api/v1/workbench/store-groups", authz.PermissionWorkbenchStoreRead},
+	{http.MethodGet, "/api/v1/workbench/stores/:store_id/profile", authz.PermissionWorkbenchStoreRead},
+	{http.MethodPost, "/api/v1/workbench/store-metadata", authz.PermissionWorkbenchStoreUpdate},
+	{http.MethodGet, "/api/v1/workbench/store-metadata/:operation_id", authz.PermissionWorkbenchStoreUpdate},
 	{http.MethodGet, "/api/v1/workbench/stores", authz.PermissionWorkbenchStoreRead},
 	{http.MethodPost, "/api/v1/workbench/stores", authz.PermissionWorkbenchStoreCreate},
 	{http.MethodGet, "/api/v1/workbench/stores/:store_id", authz.PermissionWorkbenchStoreRead},

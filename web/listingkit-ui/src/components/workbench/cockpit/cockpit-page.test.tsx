@@ -9,7 +9,7 @@ vi.mock("next/link", () => ({ default: ({ href, children, ...props }: React.Anch
 const capabilities = { access: { goalsRead: true, goalsCreate: true, goalsManage: false, storesRead: false, factsWrite: false, alertsRead: false, adviceRead: false }, today: "2026-10-10", stores: [{ id, name: "真实店铺", platform: "shein", region: "US", status: "active" }] };
 const emptyGoal = { goal: null, evaluation: null, head: null, goalUnavailable: false, capturedAt: "2026-10-10T01:00:00Z", basis: [] };
 function mount() { return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><CockpitPage mode="settings" /></QueryClientProvider>); }
-beforeEach(() => { sessionStorage.clear(); context.effectiveOrganization = { id: "org-a" }; context.operationsCockpitAvailable = true;context.permissions=["workbench.cockpit.goals.read"]; });
+beforeEach(() => { sessionStorage.clear(); window.history.replaceState(null,"","/"); context.effectiveOrganization = { id: "org-a" }; context.operationsCockpitAvailable = true;context.permissions=["workbench.cockpit.goals.read"]; });
 afterEach(() => { cleanup(); vi.unstubAllGlobals();vi.restoreAllMocks(); });
 it.each([
  ["critical", "异常"],
@@ -18,7 +18,7 @@ it.each([
 ])("preserves %s severity when selecting advice", async (level, label) => {
  context.permissions = ["workbench.cockpit.advice.read"];
  const rule = { id: "goal:1", kind: "goal_assessment", level, title: "目标进度偏低", reason: "按已完成期间核查经营目标", advice: "核查本期收入与成本", actionPath: "/workbench/overview/goals", actionLabel: "核查经营目标", source: "manual", capturedAt: "2026-10-10T01:00:00Z", period: { startDate: "2026-10-03", endDate: "2026-10-09" } };
- const rules = { rules: [rule], total: 1, page: 1, capturedAt: rule.capturedAt, goalUnavailable: false, observations: { state: "unavailable", exceptional: 0, complete: false, sources: [], latest: [], actionPath: "/workbench/store-orders" } };
+ const rules = { rules: [rule], total: 1, summary: {total:1,critical:level==="critical"?1:0,attention:level==="attention"?1:0,data:level==="data"?1:0}, page: 1, capturedAt: rule.capturedAt, goalUnavailable: false, observations: { state: "unavailable", exceptional: 0, complete: false, sources: [], latest: [], actionPath: "/workbench/store-orders" } };
  vi.stubGlobal("fetch", vi.fn(async (url: string) => Response.json(url.endsWith("capabilities") ? { ...capabilities, access: { ...capabilities.access, adviceRead: true } } : rules)));
  render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><CockpitPage mode="advice" /></QueryClientProvider>);
  const queuedAdvice = await screen.findByRole("button", { name: /目标进度偏低/ });

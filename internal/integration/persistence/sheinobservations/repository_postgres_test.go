@@ -166,6 +166,39 @@ func TestObservationPostgresMissingOrderTimeDoesNotClaimKnownZero(t *testing.T) 
 	require.NoError(t, e)
 	require.Equal(t, 1, out.Summary.TodayUnknown)
 }
+
+func TestObservationStoreAggregateKeepsMissingStockAndSourceIsolation(t *testing.T) {
+	ctx, _, r := observationDatabase(t)
+	scope := o.Scope{"org-a", "actor-a", "member-a"}
+	store := uuid.NewString()
+	in, children := syncInput(scope, store)
+	command, err := r.Begin(ctx, scope, uuid.NewString(), "aggregate", in, children)
+	require.NoError(t, err)
+	active, off, quantity := 1, 0, int64(5)
+	product := o.Product{ID: "spu-a", SKCs: []o.SKC{
+		{ID: "online", SiteStatus: &active, SKUs: []o.SKU{{ID: "sku-a", Inventory: []o.Inventory{{WarehouseID: "us-a", Quantity: &quantity}}}, {ID: "sku-missing", Inventory: []o.Inventory{}}}},
+		{ID: "offline", SiteStatus: &off, SKUs: []o.SKU{}},
+	}}
+	s := command.Syncs[0]
+	_, err = r.CommitPage(ctx, s, s.Progress, []o.Record{{ID: product.ID, StoreID: store, SyncID: s.ID, Product: &product}}, "completed", time.Now().UTC())
+	require.NoError(t, err)
+	values, err := r.StoreAggregates(ctx, "org-a", o.Products, map[string]string{store: s.ID}, true)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, values[store].Active)
+	require.Zero(t, values[store].StatusUnknown)
+	metric := o.LowInventory(values[store].Inventory, &quantity)
+	require.EqualValues(t, 1, *metric.Value)
+	require.EqualValues(t, 2, metric.Unknown)
+	require.False(t, metric.Complete)
+	foreign, err := r.StoreAggregates(ctx, "org-b", o.Products, map[string]string{store: s.ID}, true)
+	require.NoError(t, err)
+	require.Empty(t, foreign[store].Inventory)
+	require.Zero(t, foreign[store].Active)
+	wrong, err := r.StoreAggregates(ctx, "org-a", o.Products, map[string]string{store: uuid.NewString()}, true)
+	require.NoError(t, err)
+	require.Empty(t, wrong[store].Inventory)
+	require.Zero(t, wrong[store].Active)
+}
 func TestObservationPostgresLargeRecordsPaginateWithinResponseBudget(t *testing.T) {
 	ctx, _, r := observationDatabase(t)
 	scope := o.Scope{"org-a", "actor-a", "member-a"}

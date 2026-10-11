@@ -10,6 +10,7 @@ import (
 	"task-processor/internal/core/config"
 	"task-processor/internal/httproute"
 	kernelmodule "task-processor/internal/kernel/module"
+	"task-processor/internal/storecenter"
 )
 
 const ModuleName = "store-center"
@@ -20,6 +21,12 @@ type routeModule struct{ handler *Handler }
 
 func NewModule(handler *Handler) kernelmodule.Module { return routeModule{handler: handler} }
 
+// Composition supplies current directory and saved observation ports once,
+// before registry registration. It never opens pools or installs schema.
+func (m routeModule) ConfigureCatalog(catalog *storecenter.Catalog, metadata *storecenter.MetadataRepository) {
+	m.handler.catalog, m.handler.metadata = catalog, metadata
+}
+
 func (routeModule) Name() string { return ModuleName }
 
 func (m routeModule) Enabled(cfg *config.Config) bool {
@@ -27,6 +34,16 @@ func (m routeModule) Enabled(cfg *config.Config) bool {
 }
 
 func (m routeModule) Register(registry *kernelmodule.Registry) error {
+	if m.handler.metadata != nil {
+		registry.AddRoutes(
+			route(http.MethodGet, "/api/v1/workbench/stores/:store_id/summary", authz.PermissionWorkbenchStoreRead, httproute.OrganizationAccessPolicyLiveWrite, m.handler.StoreSummary),
+			route(http.MethodGet, "/api/v1/workbench/store-catalog", authz.PermissionWorkbenchStoreRead, httproute.OrganizationAccessPolicyLiveWrite, m.handler.catalogList),
+			route(http.MethodGet, "/api/v1/workbench/store-groups", authz.PermissionWorkbenchStoreRead, httproute.OrganizationAccessPolicyLiveWrite, m.handler.Groups),
+			route(http.MethodGet, "/api/v1/workbench/stores/:store_id/profile", authz.PermissionWorkbenchStoreRead, httproute.OrganizationAccessPolicyLiveWrite, m.handler.Profile),
+			route(http.MethodPost, "/api/v1/workbench/store-metadata", authz.PermissionWorkbenchStoreUpdate, httproute.OrganizationAccessPolicyLiveWrite, m.handler.MetadataCommand),
+			route(http.MethodGet, "/api/v1/workbench/store-metadata/:operation_id", authz.PermissionWorkbenchStoreUpdate, httproute.OrganizationAccessPolicyLiveWrite, m.handler.MetadataReceipt),
+		)
+	}
 	registry.AddRoutes(
 		route(http.MethodGet, "/api/v1/workbench/stores", authz.PermissionWorkbenchStoreRead, httproute.OrganizationAccessPolicyLiveWrite, m.handler.List),
 		route(http.MethodPost, "/api/v1/workbench/stores", authz.PermissionWorkbenchStoreCreate, httproute.OrganizationAccessPolicyLiveWrite, m.handler.Create),

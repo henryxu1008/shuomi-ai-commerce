@@ -21,7 +21,8 @@ func Migrate(ctx context.Context, db *gorm.DB) error {
 		return err
 	}
 	runner, err := platformmigration.NewWithVersionTable(goose.DialectPostgres, sqlDB, "public.goose_store_center_version",
-		goose.NewGoMigration(2026092801, &goose.GoFunc{RunTx: func(ctx context.Context, tx *sql.Tx) error { return storecenter.InstallCurrentSchemaTx(ctx, tx) }}, nil))
+		goose.NewGoMigration(2026092801, &goose.GoFunc{RunTx: func(ctx context.Context, tx *sql.Tx) error { return storecenter.InstallCoreSchemaTx(ctx, tx) }}, nil),
+		goose.NewGoMigration(2026101101, &goose.GoFunc{RunTx: func(ctx context.Context, tx *sql.Tx) error { return storecenter.InstallMetadataSchemaTx(ctx, tx) }}, nil))
 	if err != nil {
 		return err
 	}

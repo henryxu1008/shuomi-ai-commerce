@@ -45,6 +45,8 @@ func TestPostgresCockpitSharedCapabilityAndBorrowedStoreLocks(t *testing.T) {
 		`GRANT USAGE ON SCHEMA public TO store_center_runtime`,
 		`GRANT SELECT,INSERT,UPDATE ON workbench_stores,workbench_store_member_grants,workbench_store_service_operations,workbench_store_connections,workbench_store_connection_attempts TO store_center_runtime`,
 		`GRANT SELECT,INSERT ON workbench_store_audit_logs,workbench_store_member_grant_operations,workbench_store_merchant_bindings TO store_center_runtime`,
+		`GRANT SELECT,INSERT,UPDATE ON workbench_store_groups,workbench_store_profiles TO store_center_runtime`,
+		`GRANT SELECT,INSERT ON workbench_store_metadata_operations TO store_center_runtime`,
 	} {
 		require.NoError(t, owner.Exec(sql).Error)
 	}

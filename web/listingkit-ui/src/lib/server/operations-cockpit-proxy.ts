@@ -21,6 +21,7 @@ export async function proxyCockpit(request: Request, token: string, userId: stri
  const timer = setTimeout(abort, 12000); let dispatched = false;
  try {
   const allowed = write || ["capabilities", "goals/head"].includes(path) || /^facts\/[0-9a-f-]{36}$/.test(path) ? [] : path.endsWith("history") ? ["beforeRevision"] : path === "facts" ? ["storeId", "page"] : ["startDate", "endDate", "storeId", "page", "state", "search", "sort", "level", "kind"];
+  if (path === "stores") allowed.push("platform", "region");
   for (const key of url.searchParams.keys()) if (!allowed.includes(key) || key !== "storeId" && url.searchParams.getAll(key).length !== 1) return cockpitFailure(400, "INVALID_REQUEST");
   const headers = new Headers({ Accept: "application/json", Authorization: "Bearer " + token, "X-Requested-Organization-ID": org });
   let body: string | undefined, intent: Record<string, unknown> | undefined;

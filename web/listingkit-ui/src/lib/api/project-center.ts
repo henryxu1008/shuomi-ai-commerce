@@ -1,9 +1,12 @@
 import type { z } from "zod";
-import { projectEndpoint } from "@/lib/contracts/project-center";
+import { projectEndpoint,overview,type Overview } from "@/lib/contracts/project-center";
 import { readBoundedStrictJSON } from "./strict-json-response";
 export type ProjectScope={userId:string;organizationId:string};
 export type Intent={path:string;method:"POST"|"PATCH";body:unknown;key:string;revision?:number};
 export class ProjectError extends Error{constructor(public code:string){super(code);}}
+export function projectOverviewRequest(scope:ProjectScope,mode:string,signal:AbortSignal):Promise<Overview>{
+ const query=new URLSearchParams({mode,timeZone:Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"});return projectRequest(scope,"/overview?"+query,overview,signal);
+}
 export async function projectRequest<T>(scope:ProjectScope,path:string,schema:z.ZodType<T>,signal:AbortSignal,intent?:Intent):Promise<T>{
  const url="/api/workbench/projects"+path;if(!projectEndpoint(new URL(url,window.location.origin),intent?.method??"GET"))throw new ProjectError("INVALID_REQUEST");
  const headers:Record<string,string>={Accept:"application/json","X-Expected-User-ID":scope.userId,"X-Expected-Organization-ID":scope.organizationId};
