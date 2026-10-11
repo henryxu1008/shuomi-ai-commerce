@@ -6,5 +6,5 @@ import { isProductAcquisitionAvailable } from "@/lib/server/product-acquisition-
 export default async function Page() {
   await connection();
   if (!isProductAcquisitionAvailable()) notFound();
-  return <AcquisitionPage />;
+  return <AcquisitionPage plansEnabled={process.env.LISTINGKIT_ACQUISITION_PLANS_ENABLED === "true"} />;
 }

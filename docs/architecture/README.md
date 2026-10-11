@@ -41,6 +41,10 @@ an approved contract. Follow the explicit responsibility/supersession above.
 
 ## Recommended Reading Order
 
+1688 acquisition plans, frozen rules, public discovery and Preparation-only
+composition are governed by [`1688-acquisition-figma-v1.md`](1688-acquisition-figma-v1.md),
+with current product scope and independent admission recorded in execution #637.
+
 Official Knowledge's approved reading scope and admission record are tracked in
 [`official-knowledge-v1.md`](official-knowledge-v1.md) / execution Issue #632. Its
 reviewed status must be checked before implementation; it is separate from the

@@ -24,6 +24,30 @@ import (
 const SupplyBasePath = "/api/v1/workbench/supply-preparations"
 const supplyMaxBytes = 2 << 20
 
+// Preparation-only composition exposes neither store targeting nor execution.
+func IsPreparationRoute(method, path string) bool {
+	if method == http.MethodPost {
+		return path == SupplyBasePath+"/transfer"
+	}
+	if method != http.MethodGet {
+		return false
+	}
+	switch path {
+	case SupplyBasePath, SupplyBasePath + "/:preparation_id", SupplyBasePath + "/:preparation_id/sources", SupplyBasePath + "/sources/:source_id", SupplyBasePath + "/transfers/by-key/:key":
+		return true
+	}
+	return false
+}
+func PreparationRoutes(app *supplyapp.Application, bind func(context.Context, string) (context.Context, error)) []httproute.Descriptor {
+	result := []httproute.Descriptor{}
+	for _, route := range SupplyRoutes(app, bind) {
+		if IsPreparationRoute(route.Method, route.Path) {
+			result = append(result, route)
+		}
+	}
+	return result
+}
+
 // Explicit read-only selection composition; execution descriptors are absent.
 func IsPrivateDraftReadRoute(method, path string) bool {
 	if method != http.MethodGet {

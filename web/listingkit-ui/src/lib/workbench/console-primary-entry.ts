@@ -6,6 +6,7 @@ export type ConsolePrimaryCapabilities = AIWorkbenchEntryCapabilities & {
   productAcquisitionAvailable?: boolean;
   supplyMarketAvailable?: boolean;
   supplyChainAvailable?: boolean;
+  supplyPreparationAvailable?: boolean;
   dataServicesAvailable?: boolean;
   productCollectionsAvailable?: boolean;
   toolMarketAvailable?: boolean;
@@ -19,10 +20,7 @@ export function firstConnectedConsoleEntry(pathname: string, capabilities: Conso
     case "/workbench":
       return "/workbench";
     case "/workbench/ai": return "/workbench/ai";
-    case "/workbench/supply":
-      if (capabilities.productAcquisitionAvailable) return "/workbench/supply/acquisition";
-      if (capabilities.supplyMarketAvailable) return "/workbench/supply/official";
-      return capabilities.supplyChainAvailable ? "/workbench/supply/mine" : null;
+    case "/workbench/supply": return "/workbench/supply";
     case "/workbench/agents": return "/workbench/agents";
     case "/workbench/tools": return "/workbench/tools";
     case "/workbench/services": return capabilities.ecoservicesAvailable ? "/workbench/services" : null;

@@ -23,7 +23,7 @@ func buildProductCollectionService(ctx context.Context, db *gorm.DB, dependencie
 	if dependencies.organizationResolver == nil || permissions == nil {
 		return nil, collection.ErrUnavailable
 	}
-	if len(supply) > 4 {
+	if len(supply) > 5 {
 		return nil, collection.ErrUnavailable
 	}
 	capability, _, err := collectionAcquisitionOptions(append([]bool{true}, supply...))
@@ -64,10 +64,13 @@ func buildProductCollectionModule(ctx context.Context, db *gorm.DB, dependencies
 		return nil, err
 	}
 	binder := productReviewCapabilityBinder{now: time.Now}
-	return productCollectionModule{routes: collectionhttp.Routes(service, binder.Bind)}, nil
+	return productCollectionModule{routes: collectionhttp.Routes(service, binder.Bind), service: service}, nil
 }
 
-type productCollectionModule struct{ routes []httproute.Descriptor }
+type productCollectionModule struct {
+	routes  []httproute.Descriptor
+	service *collection.Service
+}
 
 func (productCollectionModule) Name() string { return "product-collection" }
 func (productCollectionModule) Enabled(cfg *config.Config) bool {

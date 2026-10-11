@@ -16,6 +16,25 @@ const contextPayload = {
 
 const storeId = "11111111-1111-4111-8111-11111111111a";
 const operationKey = "22222222-2222-4222-8222-22222222222b";
+
+describe("acquisition plan scope and request boundary",()=>{
+ afterEach(()=>vi.unstubAllEnvs());
+ const headers={cookie:`${WORKBENCH_COOKIE_NAME}=org-cookie`,"X-Expected-Organization-ID":"org-cookie","X-Expected-User-ID":"actor","Sec-Fetch-Site":"same-origin",Origin:"http://localhost","Content-Type":"application/json","Idempotency-Key":operationKey};
+ it("admits bounded multiline creation but rejects foreign actor and unknown rule authority",async()=>{
+  vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL","http://localhost");
+  const path=["sourcing","1688","plans"];
+  const request=(user="actor",body:unknown={mode:"product",inputs:["123","456"],autoTransfer:false})=>new Request(`http://localhost/api/workbench/${path.join("/")}`,{method:"POST",headers:{...headers,"X-Expected-User-ID":user},body:JSON.stringify(body)});
+  const accepted=await buildWorkbenchUpstreamRequest(request(),path,"server-token","actor");expect(accepted).not.toBeInstanceOf(Response);
+  if(!(accepted instanceof Response)){expect(accepted.responseContract).toBe("product-acquisition-plan-create");expect(JSON.parse(String(accepted.init.body))).toEqual({mode:"product",inputs:["123","456"],autoTransfer:false});}
+  const foreign=await buildWorkbenchUpstreamRequest(request("other"),path,"server-token","actor");expect(foreign).toBeInstanceOf(Response);expect((foreign as Response).status).toBe(409);
+  const invented=await buildWorkbenchUpstreamRequest(request("actor",{mode:"product",inputs:["123"],autoTransfer:false,rule:{maxPrice:"5"}}),path,"server-token","actor");expect((invented as Response).status).toBe(400);
+ });
+ it("allows only one canonical history cursor and no query on mutations",async()=>{
+  const path=["sourcing","1688","plans"];
+  const good=await buildWorkbenchUpstreamRequest(new Request(`http://localhost/api/workbench/${path.join("/")}?after=${operationKey}`,{headers}),path,"token","actor");expect(good).not.toBeInstanceOf(Response);
+  for(const suffix of [`?after=${operationKey}&after=${operationKey}`,"?after=bad","?limit=1000"]){const bad=await buildWorkbenchUpstreamRequest(new Request(`http://localhost/api/workbench/${path.join("/")}${suffix}`,{headers}),path,"token","actor");expect((bad as Response).status).toBe(400);}
+ });
+});
 const storePayload = {
   id: storeId,
   name: "Store",

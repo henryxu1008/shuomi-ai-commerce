@@ -1,5 +1,6 @@
 import { catalogVersionSchema, SUPPLY_MAX_BYTES, supplyRouteMethods, supplyPath, supplyRequestSchema, supplyUsesKey, supplyMutates, parseSupplyResponse, type SupplyRoute } from "@/lib/contracts/supply-chain";
 import { hasValidStoreServiceFacts } from "@/lib/validation/workbench-store";
+import { planPath, planMethods, planRequestSchema, planResponseSchema, type PlanRoute } from "@/lib/contracts/acquisition-plan";
 import {officialConnectionViewSchema,officialConnectionBeginSchema,officialConnectionCompleteSchema,officialConnectionQuerySchema,officialApplicationListSchema,officialConnectionStartSchema} from "@/lib/contracts/store-connection";
 import { BROWSER_CAPTURE_MAX_BYTES, browserCaptureSchema } from "@/lib/contracts/browser-capture";
 import {agentEmptyRequestSchema,agentStartRequestSchema,agentResumeRequestSchema,agentResultSchema,agentReviewLinkSchema,agentPath} from "@/lib/contracts/product-agent";
@@ -52,6 +53,7 @@ const REQUEST_ID_MAX_BYTES = 128;
 const imageErrorStatuses: Readonly<Record<string, number>> = { INVALID_IMAGE_REQUEST: 400, FORBIDDEN: 403, IMAGE_NOT_FOUND: 404, IMAGE_CONFLICT: 409, IMAGE_BLOCKED: 409, IMAGE_UNAVAILABLE: 503 };
 
 export type WorkbenchResponseContract =
+  | `product-acquisition-plan-${PlanRoute}`
   | `image-set-${ImageSetRoute}`
   | `collection-${CollectionRoute}`
   | `supply-${SupplyRoute}`
@@ -79,6 +81,7 @@ export type WorkbenchResponseContract =
   | "source-account-mutation";
 
 type WorkbenchRequestContract =
+  | `product-acquisition-plan-${PlanRoute}`
   | `image-set-${ImageSetRoute}`
   | `collection-${CollectionRoute}`
   | `supply-${SupplyRoute}`
@@ -343,6 +346,7 @@ const workbenchRouteAllowlist = [
     path.length === 4 && exactPath(path.slice(0, 3), "sourcing", "1688", "browser-captures") && isAcquisitionUUID(path[3]!) ? `sourcing/1688/browser-captures/${path[3]}` : null),
   routeDefinition("POST", "product-acquisition-create", "product-acquisition", (path) =>
     exactPath(path, "sourcing", "1688", "acquisitions") ? "sourcing/1688/acquisitions" : null),
+  ...Object.entries(planMethods).map(([action,method])=>routeDefinition(method,`product-acquisition-plan-${action as PlanRoute}`,`product-acquisition-plan-${action as PlanRoute}`,path=>planPath(method,path)===action?path.join("/"):null)),
   routeDefinition("POST","product-agent-start","product-agent-result",path=>path.length===6?agentPath(path):null),
   routeDefinition("GET","product-agent-read","product-agent-result",path=>path.length===7?agentPath(path):null),
   routeDefinition("POST","product-agent-resume","product-agent-result",path=>path.length===8&&path[7]==="resume"?agentPath(path):null),
@@ -690,6 +694,35 @@ export async function buildWorkbenchUpstreamRequest(
         if(route.requestContract==="product-agent-start") {const key=request.headers.get("Idempotency-Key")??"";if(!isAcquisitionUUID(key))return protocolError(400,"INVALID_REQUEST","Invalid request key");headers.set("Idempotency-Key",key);}
         body=JSON.stringify(valid.data);headers.set("Content-Type","application/json");break;
       }
+      case "product-acquisition-plan-list":
+      case "product-acquisition-plan-create":
+      case "product-acquisition-plan-read":
+      case "product-acquisition-plan-by-key":
+      case "product-acquisition-plan-advance":
+      case "product-acquisition-plan-rules":
+      case "product-acquisition-plan-mutate-rule": {
+        if(route.requestContract==="product-acquisition-plan-list"){
+          const query=new URL(request.url).searchParams;
+          if([...query.keys()].some(key=>key!=="after")||query.has("after")&&(query.getAll("after").length!==1||!isAcquisitionUUID(query.get("after")!)))return protocolError(400,"INVALID_REQUEST","Invalid cursor");
+        }else if(!hasExactNoQuery(request))return protocolError(400,"INVALID_REQUEST","Query is not allowed");
+        const actor=request.headers.get(EXPECTED_USER_ID_HEADER);
+        if(!actor||actor!==authenticatedActorSubject)return protocolError(409,"IDENTITY_CONTEXT_CHANGED","Identity context changed");
+        const action=route.requestContract.slice(25) as PlanRoute;
+        if(request.method==="GET"){
+          if(!(await requestHasNoBody(request)))return protocolError(400,"INVALID_REQUEST","Request body is invalid");
+          break;
+        }
+        const boundary=validateSourceMutationBoundary(request,authenticatedActorSubject);if(boundary)return boundary;
+        if(request.headers.get("content-type")!=="application/json"||request.headers.has("content-encoding"))return protocolError(400,"INVALID_REQUEST","Content-Type is invalid");
+        const key=request.headers.get("Idempotency-Key")??"";
+        if(action!=="advance"&&!isAcquisitionUUID(key))return protocolError(400,"INVALID_REQUEST","Idempotency-Key is invalid");
+        const raw=await readRequestBody(request,65536,"SOURCE_TOO_LARGE");if(raw instanceof Response)return raw;
+        const parsed=parseJSONBody(raw),checked=planRequestSchema(action)?.safeParse(parsed?.payload);
+        if(!parsed||!checked?.success)return protocolError(400,"INVALID_REQUEST","Request body is invalid");
+        body=JSON.stringify(checked.data);headers.set("Content-Type","application/json");
+        if(action!=="advance")headers.set("Idempotency-Key",key);
+        break;
+      }
       case "browser-capture-create":
       case "browser-capture-verify":
       case "browser-capture-by-key":
@@ -965,6 +998,7 @@ export async function buildWorkbenchUpstreamRequest(
     },
     responseContract: route.responseContract,
     expectedStoreId: imageSetContract ? JSON.stringify(imageSetResponseBinding(path,route.requestContract.slice(10) as ImageSetRoute)) : expectedCollectionMedia ?? (
+      route.requestContract==="product-acquisition-plan-read"||route.requestContract==="product-acquisition-plan-advance"?path[3]:
       (route.requestContract==="supply-target"||route.requestContract==="supply-publication") ? `${path[2]}:${path[4]}` :
       ["supply-source","supply-preparation","supply-record","supply-operation","supply-ensure","supply-cancel"].includes(route.requestContract) ? (route.requestContract==="supply-preparation"?path[1]:path[2]) :
       route.requestContract === "collection-detail" ? path[2] :
@@ -981,6 +1015,7 @@ export async function buildWorkbenchUpstreamRequest(
         : undefined),
     requestId,
     sourceMutation:
+      (route.requestContract.startsWith("product-acquisition-plan-")&&request.method==="POST") ||
       (imageSetContract && request.method==="POST" && route.requestContract!=="image-set-preview" && route.requestContract!=="image-set-requirements") ||
       (supplyContract && supplyMutates(route.requestContract.slice(7) as SupplyRoute)) ||
       route.requestContract === "collection-command" || route.requestContract === "collection-media-upload" ||
@@ -1011,7 +1046,8 @@ export async function buildWorkbenchBrowserResponse(
     signal?: AbortSignal;
   } = {},
 ) {
-  const acquisitionContract = contract === "product-acquisition" || contract === "product-acquisition-product";
+  const planContract=contract.startsWith("product-acquisition-plan-");
+  const acquisitionContract = planContract || contract === "product-acquisition" || contract === "product-acquisition-product";
   const imageSetContract=contract.startsWith("image-set-");
   const imageContract = imageSetContract || contract.startsWith("acquisition-image-");
   const agentContract = contract.startsWith("product-agent-");
@@ -1128,8 +1164,8 @@ export async function buildWorkbenchBrowserResponse(
   if (acquisitionContract) {
     if (!parsedBody || !payload) return invalidSource();
     if (upstream.ok) {
-      const checked = (contract === "product-acquisition-product" ? acquisitionProductSchema : acquisitionResultSchema).safeParse(payload);
-      if (upstream.status !== 200 || !checked.success || (expectedStoreId !== undefined && checked.data.operationId !== expectedStoreId)) return invalidSource();
+      const checked = (planContract?planResponseSchema(contract.slice(25) as PlanRoute):contract === "product-acquisition-product" ? acquisitionProductSchema : acquisitionResultSchema).safeParse(payload);
+      if (upstream.status !== 200 || !checked.success || (expectedStoreId !== undefined && (planContract?("id" in checked.data?checked.data.id:undefined):("operationId" in checked.data?checked.data.operationId:undefined)) !== expectedStoreId)) return invalidSource();
       return new NextResponse(JSON.stringify(checked.data), {status: 200, headers: safeJSONHeaders()});
     }
     const nested = z.object({schemaVersion: z.literal(1), error: z.object({code: z.string()}).strict()}).strict().safeParse(payload);

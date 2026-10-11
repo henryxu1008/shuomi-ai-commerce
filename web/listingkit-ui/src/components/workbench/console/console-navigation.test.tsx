@@ -26,9 +26,9 @@ it.each([
   view.rerender(<ConsoleNavigation pathname={pathname} ariaLabel="主导航"/>);
   expect(screen.getByRole("link", {name:label})).toHaveAttribute("title", `${label}：业务暂未启用`);
 });
-it.each(["productAcquisitionAvailable", "supplyMarketAvailable", "supplyChainAvailable"])("connects the Supply parent with %s", capability => {
+it.each(["productAcquisitionAvailable", "supplyMarketAvailable", "supplyChainAvailable"])("keeps the Supply homepage with %s", capability => {
   const view = render(<ConsoleNavigation pathname="/workbench/supply" ariaLabel="主导航" />);
-  expect(screen.getByRole("link", {name: "供应市场"})).toHaveAttribute("title", "供应市场：业务暂未启用");
+  expect(screen.getByRole("link", {name: "供应市场"})).toHaveAttribute("title", "供应市场");
   view.rerender(<ConsoleNavigation pathname="/workbench/supply" ariaLabel="主导航" {...{[capability]: true}} />);
   expect(screen.getByRole("link", {name: "供应市场"})).toHaveAttribute("title", "供应市场");
 });

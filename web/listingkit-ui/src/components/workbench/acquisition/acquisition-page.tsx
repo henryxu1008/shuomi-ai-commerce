@@ -13,10 +13,11 @@ import { findConsoleRoute } from "@/lib/workbench/console-navigation";
 import { ConsolePage, ConsoleState } from "../console/console-page";
 import {ProductAgentPanel} from "./product-agent-panel";
 import {ProductImageSetPanel} from "./product-image-set-panel";
+import { AcquisitionPlansPage } from "./acquisition-plans-page";
 
 type PendingIntent = AcquisitionOperation;
 
-export function AcquisitionPage({ operationId,agentEnabled=false,knowledgeAvailable=false }: { operationId?: string;agentEnabled?:boolean;knowledgeAvailable?:boolean }) {
+export function AcquisitionPage({ operationId,agentEnabled=false,knowledgeAvailable=false,plansEnabled=false }: { operationId?: string;agentEnabled?:boolean;knowledgeAvailable?:boolean;plansEnabled?:boolean }) {
   const context = useWorkbenchContext();
   const scope = useMemo<AcquisitionContext | null>(() => {
     const userId = context.user?.id;
@@ -29,6 +30,7 @@ export function AcquisitionPage({ operationId,agentEnabled=false,knowledgeAvaila
 
   const submittedIntent = context.pendingAcquisitionIntent;
   const sameIntentScope = submittedIntent?.userId === scope.userId && submittedIntent.organizationId === scope.organizationId;
+  if (plansEnabled && !operationId && !sameIntentScope) return <AcquisitionPlansPage key={`${scope.userId}:${scope.organizationId}`} scope={scope} initialOpen />;
   // The shell preserves a submitted key through workbench navigation, but an
   // intent is rendered or replayed only after its verified scope is restored.
   return <ScopedAcquisitionPage key={`${scope.userId}:${scope.organizationId}:${operationId ?? ""}`} operationId={operationId} agentEnabled={agentEnabled} knowledgeAvailable={knowledgeAvailable} scope={scope} initialIntent={sameIntentScope ? submittedIntent : null} foreignIntent={!!submittedIntent && !sameIntentScope} onIntentChange={context.setPendingAcquisitionIntent} />;

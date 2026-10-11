@@ -1,7 +1,6 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import WorkbenchPage from "@/app/workbench/page";
-import SupplyPage from "@/app/workbench/supply/page";
 import DataPage from "@/app/workbench/data/page";
 import AgentsPage from "@/app/workbench/agents/page";
 import StorePage from "@/app/workbench/store-center/page";
@@ -22,35 +21,6 @@ beforeEach(() => {
   fixture.context.effectiveOrganization = { id: "org-a" };
 });
 afterEach(() => { cleanup(); vi.unstubAllEnvs(); });
-
-function expectDestination(page: () => unknown, destination: string) {
-  fixture.redirect.mockImplementation(() => { throw new Error("NEXT_REDIRECT"); });
-  expect(page).toThrow("NEXT_REDIRECT");
-  expect(fixture.redirect).toHaveBeenCalledWith(destination);
-}
-
-it.each([
-  ["LISTINGKIT_PRODUCT_ACQUISITION_ENABLED", "/workbench/supply/acquisition"],
-  ["LISTINGKIT_SUPPLY_MARKET_ENABLED", "/workbench/supply/official"],
-  ["LISTINGKIT_SUPPLY_CHAIN_ENABLED", "/workbench/supply/mine"],
-])("opens the supplied supply module (%s)", (enabled, destination) => {
-  vi.stubEnv("LISTINGKIT_PRODUCT_ACQUISITION_ENABLED", "false");
-  vi.stubEnv("LISTINGKIT_SUPPLY_MARKET_ENABLED", "false");
-  vi.stubEnv("LISTINGKIT_PRODUCT_COLLECTIONS_ENABLED", "true");
-  vi.stubEnv("LISTINGKIT_SUPPLY_CHAIN_ENABLED", "false");
-  vi.stubEnv(enabled, "true");
-  expectDestination(SupplyPage, destination);
-});
-
-it("does not open Supply Chain without its existing Collections dependency", () => {
-  vi.stubEnv("LISTINGKIT_PRODUCT_ACQUISITION_ENABLED", "false");
-  vi.stubEnv("LISTINGKIT_SUPPLY_MARKET_ENABLED", "false");
-  vi.stubEnv("LISTINGKIT_PRODUCT_COLLECTIONS_ENABLED", "false");
-  vi.stubEnv("LISTINGKIT_SUPPLY_CHAIN_ENABLED", "true");
-  render(<SupplyPage />);
-  expect(fixture.redirect).not.toHaveBeenCalled();
-  expect(screen.getByText("暂未启用")).toBeVisible();
-});
 
 it.each([
   ["true", "true"],
