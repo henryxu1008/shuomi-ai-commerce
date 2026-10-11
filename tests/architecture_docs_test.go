@@ -2070,6 +2070,14 @@ func TestStoreObservationDesignPreservesReadOnlyPlatformAndScopedFacts(t *testin
 	})
 }
 
+func TestStoreCenterFigmaDesignPreservesCurrentOwnersAndUserThresholds(t *testing.T) {
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "store-center-figma-v1.md"), []string{
+		"IMPLEMENTATION_READY", "tg48P46SSXl6TBy9lZwg63", "没有默认阈值", "负责人只保存 canonical active member ID",
+		"quantity <= threshold", "返回冻结结果", "runtime只读 schema/权限preflight", "不创建新 database",
+		"基础目录不受 observations 500 店上限裁剪", "平台观察 generation", "NOT_RUN",
+	})
+}
+
 func TestSupplyMarketDesignPreservesDisclosureAndOriginalExecutionOwners(t *testing.T) {
 	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "supply-market-v1.md"), []string{
 		"IMPLEMENTATION_READY", "Independent Architecture", "硕米平台账号",

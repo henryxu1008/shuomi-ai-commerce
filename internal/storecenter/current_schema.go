@@ -108,6 +108,14 @@ var currentSchemaStatements = []string{
 }
 
 func InstallCurrentSchemaTx(ctx context.Context, tx *sql.Tx) error {
+	if err := InstallCoreSchemaTx(ctx, tx); err != nil {
+		return err
+	}
+	return InstallMetadataSchemaTx(ctx, tx)
+}
+
+// InstallCoreSchemaTx is the first current-system schema owner step.
+func InstallCoreSchemaTx(ctx context.Context, tx *sql.Tx) error {
 	if tx == nil {
 		return errors.New("store schema transaction unavailable")
 	}
@@ -120,6 +128,9 @@ func InstallCurrentSchemaTx(ctx context.Context, tx *sql.Tx) error {
 }
 
 var currentColumnNames = map[string][]string{
+	"workbench_store_groups":                  strings.Fields("organization_id id name version updated_by updated_at deleted_at"),
+	"workbench_store_profiles":                strings.Fields("organization_id store_id group_id responsible_member_id low_stock_threshold version updated_by updated_at"),
+	"workbench_store_metadata_operations":     strings.Fields("organization_id operation_id actor_id member_id action fingerprint command_json result_json created_at"),
 	"workbench_stores":                        strings.Fields("id organization_id name platform region external_store_id record_status service_status service_started_at service_expires_at connection_ref version created_by updated_by created_at updated_at deleted_at create_idempotency_key delete_operation_key identity_key create_request_fingerprint"),
 	"workbench_store_audit_logs":              strings.Fields("event_id organization_id store_id request_key action outcome actor_subject safe_field_names payload_fingerprint previous_state new_state failure_code store_version created_at occurred_at"),
 	"workbench_store_member_grants":           strings.Fields("organization_id store_id member_id active version updated_by updated_at"),
@@ -158,7 +169,7 @@ func VerifyCurrentSchema(ctx context.Context, db *gorm.DB) error {
 				return fmt.Errorf("store schema type mismatch: %s.%s", table, name)
 			}
 			got = append(got, name)
-			optional := (table == "workbench_stores" && slices.Contains([]string{"service_status", "service_started_at", "service_expires_at", "deleted_at"}, name)) || (table == "workbench_store_connections" && name == "observed_at")
+			optional := (table == "workbench_stores" && slices.Contains([]string{"service_status", "service_started_at", "service_expires_at", "deleted_at"}, name)) || (table == "workbench_store_connections" && name == "observed_at") || (table == "workbench_store_groups" && name == "deleted_at") || (table == "workbench_store_profiles" && slices.Contains([]string{"group_id", "responsible_member_id", "low_stock_threshold"}, name))
 			if (nullable == "YES") != optional {
 				rows.Close()
 				return fmt.Errorf("store schema nullability mismatch: %s.%s", table, name)
@@ -190,6 +201,9 @@ func VerifyCurrentSchema(ctx context.Context, db *gorm.DB) error {
 		{"workbench_stores", "ux_workbench_stores_org_create_key", "organization_id,create_idempotency_key", false},
 		{"workbench_stores", "ux_workbench_stores_org_identity_key", "organization_id,identity_key", false},
 		{"workbench_store_audit_logs", "ux_workbench_store_audit_org_request_action", "organization_id,request_key,action", false},
+		{"workbench_store_groups", "workbench_store_groups_pkey", "organization_id,id", true},
+		{"workbench_store_profiles", "workbench_store_profiles_pkey", "organization_id,store_id", true},
+		{"workbench_store_metadata_operations", "workbench_store_metadata_operations_pkey", "organization_id,operation_id", true},
 		{"workbench_stores", "workbench_stores_pkey", "id", true},
 		{"workbench_store_audit_logs", "workbench_store_audit_logs_pkey", "event_id", true},
 		{"workbench_store_member_grants", "workbench_store_member_grants_pkey", "organization_id,store_id,member_id", true},
@@ -207,6 +221,15 @@ func VerifyCurrentSchema(ctx context.Context, db *gorm.DB) error {
 		}
 	}
 	for _, boundary := range []struct{ table, name, kind string }{
+		{"workbench_store_groups", "store_group_version", "c"},
+		{"workbench_store_groups", "store_group_name", "c"},
+		{"workbench_store_groups", "store_group_times", "c"},
+		{"workbench_store_profiles", "store_profile_store", "f"},
+		{"workbench_store_profiles", "store_profile_group", "f"},
+		{"workbench_store_profiles", "store_profile_version", "c"},
+		{"workbench_store_profiles", "store_profile_threshold", "c"},
+		{"workbench_store_metadata_operations", "store_metadata_action", "c"},
+		{"workbench_store_metadata_operations", "store_metadata_bound", "c"},
 		{"workbench_store_member_grants", "store_member_grant_store", "f"},
 		{"workbench_store_member_grants", "store_member_grant_version", "c"},
 		{"workbench_store_member_grant_operations", "store_member_operation_grant", "f"},
@@ -240,6 +263,9 @@ const storeRuntimePermissionQuery = `SELECT current_user,
  AND has_table_privilege(current_user,'public.workbench_store_connections','SELECT') AND has_table_privilege(current_user,'public.workbench_store_connections','INSERT') AND has_table_privilege(current_user,'public.workbench_store_connections','UPDATE')
  AND has_table_privilege(current_user,'public.workbench_store_connection_attempts','SELECT') AND has_table_privilege(current_user,'public.workbench_store_connection_attempts','INSERT') AND has_table_privilege(current_user,'public.workbench_store_connection_attempts','UPDATE')
  AND has_table_privilege(current_user,'public.workbench_store_merchant_bindings','SELECT') AND has_table_privilege(current_user,'public.workbench_store_merchant_bindings','INSERT')
+ AND has_table_privilege(current_user,'public.workbench_store_groups','SELECT') AND has_table_privilege(current_user,'public.workbench_store_groups','INSERT') AND has_table_privilege(current_user,'public.workbench_store_groups','UPDATE')
+ AND has_table_privilege(current_user,'public.workbench_store_profiles','SELECT') AND has_table_privilege(current_user,'public.workbench_store_profiles','INSERT') AND has_table_privilege(current_user,'public.workbench_store_profiles','UPDATE')
+ AND has_table_privilege(current_user,'public.workbench_store_metadata_operations','SELECT') AND has_table_privilege(current_user,'public.workbench_store_metadata_operations','INSERT')
  AND CASE WHEN $1 THEN
  coalesce(has_schema_privilege(current_user,(SELECT oid FROM pg_namespace WHERE nspname='shein_observations'),'USAGE'),false)
  AND coalesce(has_table_privilege(current_user,to_regclass('shein_observations.commands'),'SELECT') AND has_table_privilege(current_user,to_regclass('shein_observations.commands'),'INSERT'),false)
@@ -256,7 +282,7 @@ const storeRuntimePermissionQuery = `SELECT current_user,
  WHERE n.nspname NOT IN ('pg_catalog','information_schema') AND n.nspname !~ '^pg_' AND r.relkind IN ('r','p','v','m','f')
  AND CASE WHEN p.privilege_type IN ('SELECT','INSERT','UPDATE','REFERENCES') THEN pg_catalog.has_any_column_privilege(current_user,r.oid,p.privilege_type) ELSE pg_catalog.has_table_privilege(current_user,r.oid,p.privilege_type) END
  AND NOT (
- (n.nspname='public' AND (r.relname,p.privilege_type) IN (('workbench_stores','SELECT'),('workbench_stores','INSERT'),('workbench_stores','UPDATE'),('workbench_store_audit_logs','SELECT'),('workbench_store_audit_logs','INSERT'),('workbench_store_member_grants','SELECT'),('workbench_store_member_grants','INSERT'),('workbench_store_member_grants','UPDATE'),('workbench_store_member_grant_operations','SELECT'),('workbench_store_member_grant_operations','INSERT'),('workbench_store_service_operations','SELECT'),('workbench_store_service_operations','INSERT'),('workbench_store_service_operations','UPDATE'),('workbench_store_connections','SELECT'),('workbench_store_connections','INSERT'),('workbench_store_connections','UPDATE'),('workbench_store_connection_attempts','SELECT'),('workbench_store_connection_attempts','INSERT'),('workbench_store_connection_attempts','UPDATE'),('workbench_store_merchant_bindings','SELECT'),('workbench_store_merchant_bindings','INSERT')))
+ (n.nspname='public' AND (r.relname,p.privilege_type) IN (('workbench_store_groups','SELECT'),('workbench_store_groups','INSERT'),('workbench_store_groups','UPDATE'),('workbench_store_profiles','SELECT'),('workbench_store_profiles','INSERT'),('workbench_store_profiles','UPDATE'),('workbench_store_metadata_operations','SELECT'),('workbench_store_metadata_operations','INSERT'),('workbench_stores','SELECT'),('workbench_stores','INSERT'),('workbench_stores','UPDATE'),('workbench_store_audit_logs','SELECT'),('workbench_store_audit_logs','INSERT'),('workbench_store_member_grants','SELECT'),('workbench_store_member_grants','INSERT'),('workbench_store_member_grants','UPDATE'),('workbench_store_member_grant_operations','SELECT'),('workbench_store_member_grant_operations','INSERT'),('workbench_store_service_operations','SELECT'),('workbench_store_service_operations','INSERT'),('workbench_store_service_operations','UPDATE'),('workbench_store_connections','SELECT'),('workbench_store_connections','INSERT'),('workbench_store_connections','UPDATE'),('workbench_store_connection_attempts','SELECT'),('workbench_store_connection_attempts','INSERT'),('workbench_store_connection_attempts','UPDATE'),('workbench_store_merchant_bindings','SELECT'),('workbench_store_merchant_bindings','INSERT')))
  OR ($1 AND n.nspname='shein_observations' AND ((r.relname='commands' AND p.privilege_type IN ('SELECT','INSERT')) OR (r.relname IN ('syncs','records','heads') AND p.privilege_type IN ('SELECT','INSERT','UPDATE'))))
  OR ($2 AND n.nspname='operations_cockpit' AND ((r.relname IN ('facts','fact_versions','goal_heads','goal_versions','commands') AND p.privilege_type IN ('SELECT','INSERT')) OR (r.relname IN ('facts','goal_heads') AND p.privilege_type='UPDATE')))))`
 
@@ -305,13 +331,13 @@ func currentColumnType(table, name string) schemaColumnType {
 	switch name {
 	case "service_started_at", "service_expires_at", "created_at", "updated_at", "deleted_at", "occurred_at", "observed_at", "expires_at":
 		return schemaColumnType{kind: "timestamp with time zone"}
-	case "version", "store_version", "expected_version", "result_version", "connection_version":
+	case "low_stock_threshold", "version", "store_version", "expected_version", "result_version", "connection_version":
 		return schemaColumnType{kind: "bigint"}
 	case "active":
 		return schemaColumnType{kind: "boolean"}
-	case "id", "event_id", "store_id", "request_key", "create_idempotency_key", "operation_id", "attempt_id":
+	case "group_id", "id", "event_id", "store_id", "request_key", "create_idempotency_key", "operation_id", "attempt_id":
 		return schemaColumnType{kind: "character", length: 36}
-	case "organization_id", "created_by", "updated_by", "actor_subject", "member_id", "actor_id", "app_id", "app_version", "open_key_id":
+	case "responsible_member_id", "organization_id", "created_by", "updated_by", "actor_subject", "member_id", "actor_id", "app_id", "app_version", "open_key_id":
 		return schemaColumnType{kind: "character varying", length: 200}
 	case "record_status", "service_status", "outcome", "previous_state", "new_state", "state", "status":
 		return schemaColumnType{kind: "character varying", length: 32}

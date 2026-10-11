@@ -1,6 +1,8 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { ReactNode } from "react";
+import type { WorkbenchStore } from "@/lib/api/workbench-stores";
 
 const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
 const context = vi.hoisted(() => ({ effectiveOrganization: { id: "org-a", name: "企业 A", roles: [], permissions: [] as string[] }, roles: ["listingkit_operator"], permissions: ["product_sourcing.write","local_agent.write","listingkit.image_agent.read","listingkit.image_agent.write","workbench.agent.read","workbench.agent.use","workbench.chat.read","workbench.chat.use","workbench.task.read","workbench.knowledge.read","workbench.store.read","workbench.store.create","workbench.store.update","workbench.store.lifecycle","workbench.source_account.read","workbench.source_account.manage","workbench.organization_member.read","workbench.commercial.read"], retry: vi.fn(), registerOrganizationSwitchGuard: vi.fn(() => vi.fn()) }));
@@ -14,6 +16,7 @@ const remove = vi.hoisted(() => ({ mutate: vi.fn(), retryLast: vi.fn(), canRetry
 const queryClient = vi.hoisted(() => ({ removeQueries: vi.fn() }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
+vi.mock("./store-detail-presentation", () => ({ StoreDetailPresentation: ({store,actions,editForm}:{store:WorkbenchStore;actions:ReactNode;editForm:ReactNode}) => <><h1>{store.name}</h1><p>店铺状态：{store.recordStatus==="active"?"已启用":store.recordStatus==="deleting"?"删除中":"已停用"}</p>{actions}{editForm}</> }));
 vi.mock("@/components/providers/workbench-context-provider", () => ({ useWorkbenchContext: () => context }));
 vi.mock("@tanstack/react-query", async (importOriginal) => ({ ...(await importOriginal<typeof import("@tanstack/react-query")>()), useQueryClient: () => queryClient }));
 vi.mock("@/lib/query/use-workbench-stores", () => ({
@@ -46,6 +49,10 @@ describe("StoreDetailPage", () => {
     query.value = { isPending: true }; const { rerender } = render(<StoreDetailPage storeId={STORE.id} />); expect(screen.getByRole("status")).toHaveTextContent("正在加载店铺");
     query.value = { isPending: false, isError: true, error: { code: "STORE_NOT_FOUND" }, refetch: vi.fn() }; rerender(<StoreDetailPage storeId={STORE.id} />); expect(screen.getByRole("alert")).toHaveTextContent("店铺不存在或已不可访问");
     query.value = { isPending: false, isError: true, error: { code: "PERMISSION_DENIED" }, refetch: vi.fn() }; rerender(<StoreDetailPage storeId={STORE.id} />); expect(screen.getByRole("alert")).toHaveTextContent("没有查看当前企业店铺的权限");
+  });
+  it.each(["STORE_NOT_FOUND","PERMISSION_DENIED","IDENTITY_CONTEXT_CHANGED","AUTHENTICATION_REQUIRED","ORGANIZATION_SUSPENDED"])("hides the cached native Store and editing after confirmed scope failure %s", code => {
+    query.value={isPending:false,isError:false,data:STORE,refetch:vi.fn()};const view=render(<StoreDetailPage storeId={STORE.id}/>);expect(screen.getByRole("heading",{name:"店铺"})).toBeInTheDocument();
+    query.value={isPending:false,isError:true,data:STORE,error:{code},refetch:vi.fn()};view.rerender(<StoreDetailPage storeId={STORE.id}/>);expect(screen.getByRole("alert")).toBeInTheDocument();expect(screen.queryByRole("heading",{name:"店铺"})).not.toBeInTheDocument();expect(screen.queryByRole("button",{name:"保存更改"})).not.toBeInTheDocument();
   });
   it.each([
     "ORGANIZATION_CONTEXT_CHANGED",

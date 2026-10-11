@@ -1,270 +1,35 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import {render,screen} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
-
-const navigation = vi.hoisted(() => ({
-  pathname: "/workbench/stores",
-  search: "",
-  push: vi.fn(),
-}));
-const context = vi.hoisted(() => ({
-  roles: ["listingkit_operator"], permissions: ["product_sourcing.write","local_agent.write","listingkit.image_agent.read","listingkit.image_agent.write","workbench.agent.read","workbench.agent.use","workbench.chat.read","workbench.chat.use","workbench.task.read","workbench.knowledge.read","workbench.store.read","workbench.store.create","workbench.store.update","workbench.store.lifecycle","workbench.source_account.read","workbench.source_account.manage","workbench.organization_member.read","workbench.commercial.read"],
-  effectiveOrganization: { id: "org-a", name: "企业 A", roles: [], permissions: [] },
-  retry: vi.fn(),
-}));
-const storesQuery = vi.hoisted(() => ({ value: {} as Record<string, unknown> }));
-const useWorkbenchStores = vi.hoisted(() => vi.fn(() => storesQuery.value));
-const table = vi.hoisted(() => ({ props: [] as Array<Record<string, unknown>> }));
-
-vi.mock("next/navigation", () => ({
-  usePathname: () => navigation.pathname,
-  useRouter: () => ({ push: navigation.push }),
-  useSearchParams: () => new URLSearchParams(navigation.search),
-}));
-vi.mock("@/components/providers/workbench-context-provider", () => ({
-  useWorkbenchContext: () => context,
-}));
-vi.mock("@/lib/query/use-workbench-stores", () => ({
-  useWorkbenchStores,
-}));
-vi.mock("@/components/workbench/stores/store-table", () => ({ StoreTable: (props: { stores: typeof STORE[] }) => { table.props.push(props); return <div>{props.stores.map((store) => <span key={store.id}>{store.name}</span>)}</div>; } }));
-
-import { StoreListPage } from "@/components/workbench/stores/store-list-page";
-
-const STORE = {
-  id: "11111111-1111-4111-8111-111111111111",
-  name: "企业 A 店铺",
-  platform: "shein" as const,
-  region: "CN",
-  externalStoreId: "",
-  recordStatus: "active" as const, serviceStatus: "pending_activation" as const, serviceStartedAt: null, serviceExpiresAt: null,
-  connectionStatus: "disconnected" as const,
-  version: 1,
-  createdAt: "2026-08-31T00:00:00Z",
-  updatedAt: "2026-08-31T01:02:03Z",
-};
-
-function listData(overrides: Record<string, unknown> = {}) {
-  return {
-    data: {
-      items: [STORE],
-      quota: { used: 4, reserved: 0, limit: 5, allowed: true, reason: "" },
-      pagination: { page: 2, pageSize: 20, total: 45 },
-    },
-    isPending: false,
-    isError: false,
-    refetch: vi.fn(),
-    ...overrides,
-  };
-}
-
-describe("StoreListPage", () => {
-  afterEach(() => {
-    navigation.pathname = "/workbench/stores";
-    navigation.search = "";
-    navigation.push.mockReset();
-    useWorkbenchStores.mockClear();
-    context.roles = ["listingkit_operator"]; context.permissions = ["product_sourcing.write","local_agent.write","listingkit.image_agent.read","listingkit.image_agent.write","workbench.agent.read","workbench.agent.use","workbench.chat.read","workbench.chat.use","workbench.task.read","workbench.knowledge.read","workbench.store.read","workbench.store.create","workbench.store.update","workbench.store.lifecycle","workbench.source_account.read","workbench.source_account.manage","workbench.organization_member.read","workbench.commercial.read"];
-    context.effectiveOrganization = { id: "org-a", name: "企业 A", roles: [], permissions: [] };
-    context.retry.mockReset();
-    storesQuery.value = {};
-    table.props = [];
-  });
-
-  it("normalizes URL state, exposes the native records, and writes only allowlisted filters", async () => {
-    navigation.search = "page=02&page=3&pageSize=020&platform=shein&status=active&organizationId=org-a&random=keep";
-    storesQuery.value = listData();
-    const user = userEvent.setup();
-    render(<StoreListPage />);
-
-    expect(useWorkbenchStores).toHaveBeenCalledWith({
-      page: 1,
-      pageSize: 20,
-      platform: "shein",
-      status: "active",
-    });
-    expect(screen.getByText("第 2 页，共 45 家店铺")).toBeInTheDocument();
-    await user.selectOptions(screen.getByRole("combobox", { name: "店铺状态" }), "disabled");
-    expect(navigation.push).toHaveBeenCalledWith(
-      "/workbench/stores?page=1&pageSize=20&platform=shein&status=disabled",
-    );
-    await user.click(screen.getByRole("button", { name: "清除筛选" }));
-    expect(navigation.push).toHaveBeenLastCalledWith("/workbench/stores?page=1&pageSize=20");
-  });
-
-  it("renders bounded state/error variants and never retains old Organization rows", async () => {
-    storesQuery.value = { isPending: true, isError: false, data: undefined, refetch: vi.fn() };
-    const { rerender } = render(<StoreListPage />);
-    expect(screen.getByRole("status")).toHaveTextContent("正在加载店铺");
-
-    const retry = vi.fn();
-    storesQuery.value = { isPending: false, isError: true, error: { code: "PERMISSION_DENIED", message: "raw error", requestId: "req-secret" }, refetch: retry };
-    rerender(<StoreListPage />);
-    expect(screen.getByRole("alert")).toHaveTextContent("没有查看当前企业店铺的权限");
-    expect(screen.queryByText(/raw error|req-secret/)).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "重试" }));
-    expect(retry).toHaveBeenCalledTimes(1);
-
-    storesQuery.value = listData();
-    rerender(<StoreListPage />);
-    expect(screen.getByText("企业 A 店铺")).toBeInTheDocument();
-    context.effectiveOrganization = { id: "org-b", name: "企业 B", roles: [], permissions: [] };
-    storesQuery.value = { isPending: true, isError: false, data: undefined, refetch: vi.fn() };
-    rerender(<StoreListPage />);
-    await waitFor(() => expect(screen.queryByText("企业 A 店铺")).not.toBeInTheDocument());
-  });
-
-  it("honors create roles and native records decisions without payment links", () => {
-    storesQuery.value = listData({ data: { ...listData().data, quota: { used: 5, reserved: 0, limit: 5, allowed: false, reason: "store_limit_reached" } } });
-    const { rerender } = render(<StoreListPage />);
-    expect(screen.getByRole("link", { name: "新建店铺" })).toHaveAttribute("href", "/workbench/stores/new");
-    expect(screen.queryByRole("link", { name: /升级|支付/ })).not.toBeInTheDocument();
-
-    context.roles = ["listingkit_viewer"]; context.permissions = ["workbench.task.read","workbench.store.read","workbench.source_account.read","workbench.organization_member.read","workbench.commercial.read"];
-    storesQuery.value = listData();
-    rerender(<StoreListPage />);
-    expect(screen.queryByRole("link", { name: "新建店铺" })).not.toBeInTheDocument();
-  });
-
-  it("shows the create action only for a standard create role when the server allows it", () => {
-    storesQuery.value = listData();
-    render(<StoreListPage />);
-
-    expect(screen.getByRole("link", { name: "新建店铺" })).toHaveAttribute(
-      "href",
-      "/workbench/stores/new",
-    );
-  });
-
-  it("distinguishes true empty and filtered empty without a subscription", () => {
-    storesQuery.value = listData({
-      data: {
-        items: [],
-        quota: {
-          used: 2,
-          reserved: 0,
-          limit: null,
-          allowed: false,
-          reason: "subscription_required",
-        },
-        pagination: { page: 1, pageSize: 20, total: 0 },
-      },
-    });
-    const { rerender } = render(<StoreListPage />);
-    expect(screen.getByText("还没有店铺")).toBeInTheDocument();
-
-    navigation.search = "platform=shein";
-    rerender(<StoreListPage />);
-    expect(screen.getByText("没有符合筛选条件的店铺")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "清除筛选" })).toBeInTheDocument();
-  });
-
-  it("keeps disabled Stores in the directory without a quota projection", () => {
-    storesQuery.value = listData({ data: { ...listData().data, items: [{ ...STORE, recordStatus: "disabled" as const, serviceStatus: "pending_activation" as const, serviceStartedAt: null, serviceExpiresAt: null }] } });
-    render(<StoreListPage />);
-    expect(screen.getByText("企业 A 店铺")).toBeInTheDocument();
-  });
-
-  it("consumes only the exact static successful-delete notice and never preserves it on filter navigation", async () => {
-    navigation.search = "notice=store-deleted&page=2";
-    storesQuery.value = listData();
-    const user = userEvent.setup();
-    const { rerender } = render(<StoreListPage />);
-    expect(screen.getByRole("status")).toHaveTextContent("已购资源与历史消费记录保留");
-    await user.selectOptions(screen.getByRole("combobox", { name: "平台" }), "shein");
-    expect(navigation.push).toHaveBeenLastCalledWith("/workbench/stores?page=1&pageSize=20&platform=shein");
-    navigation.search = "notice=store-deleted&notice=store-deleted";
-    rerender(<StoreListPage />);
-    expect(screen.queryByRole("status", { name: /恢复/ })).not.toBeInTheDocument();
-    navigation.search = "notice=other";
-    rerender(<StoreListPage />);
-    expect(screen.queryByText(/已购资源与历史消费记录保留/)).not.toBeInTheDocument();
-  });
-
-  it("resets platform filters to page one and preserves filters across pagination boundaries", async () => {
-    navigation.search = "page=2&pageSize=50&platform=shein&status=active";
-    storesQuery.value = listData({
-      data: {
-        ...listData().data,
-        pagination: { page: 2, pageSize: 50, total: 101 },
-      },
-    });
-    const user = userEvent.setup();
-    render(<StoreListPage />);
-
-    await user.selectOptions(screen.getByRole("combobox", { name: "平台" }), "");
-    expect(navigation.push).toHaveBeenLastCalledWith(
-      "/workbench/stores?page=1&pageSize=50&status=active",
-    );
-    await user.click(screen.getByRole("button", { name: "下一页" }));
-    expect(navigation.push).toHaveBeenLastCalledWith(
-      "/workbench/stores?page=3&pageSize=50&platform=shein&status=active",
-    );
-    await user.click(screen.getByRole("button", { name: "上一页" }));
-    expect(navigation.push).toHaveBeenLastCalledWith(
-      "/workbench/stores?page=1&pageSize=50&platform=shein&status=active",
-    );
-  });
-
-  it("disables pagination at server boundaries", () => {
-    storesQuery.value = listData({
-      data: {
-        ...listData().data,
-        pagination: { page: 1, pageSize: 20, total: 20 },
-      },
-    });
-    render(<StoreListPage />);
-
-    expect(screen.getByRole("button", { name: "上一页" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "下一页" })).toBeDisabled();
-  });
-
-  it.each([
-    ["ORGANIZATION_ACCESS_REVOKED", "当前企业访问已不可用"],
-    ["DEPENDENCY_UNAVAILABLE", "店铺服务暂时不可用"],
-  ])("renders stable bounded copy for %s", (code, expectedCopy) => {
-    storesQuery.value = {
-      isPending: false,
-      isError: true,
-      error: { code, message: "raw service message", requestId: "request-id" },
-      refetch: vi.fn(),
-    };
-    render(<StoreListPage />);
-
-    expect(screen.getByRole("alert")).toHaveTextContent(expectedCopy);
-    expect(screen.queryByText(/raw service message|request-id/)).not.toBeInTheDocument();
-  });
-
-  it.each([
-    "ORGANIZATION_CONTEXT_CHANGED",
-    "ORGANIZATION_ACCESS_REVOKED",
-    "ORGANIZATION_ACCESS_DENIED",
-  ])("refreshes organization context before retrying after %s", async (code) => {
-    const refetch = vi.fn();
-    storesQuery.value = {
-      isPending: false,
-      isError: true,
-      error: { code, message: "raw", requestId: "req" },
-      refetch,
-    };
-    render(<StoreListPage />);
-
-    await userEvent.click(screen.getByRole("button", { name: "重试" }));
-
-    expect(context.retry).toHaveBeenCalledTimes(1);
-    expect(refetch).not.toHaveBeenCalled();
-  });
-
-  it("hides stale quota, table, and pagination whenever access has errored", () => {
-    storesQuery.value = listData({
-      isError: true,
-      error: { code: "ORGANIZATION_ACCESS_REVOKED", message: "raw", requestId: "req" },
-    });
-    render(<StoreListPage />);
-
-    expect(screen.getByRole("alert")).toHaveTextContent("当前企业访问已不可用");
-    expect(screen.queryByRole("table", { name: "我的店铺列表" })).not.toBeInTheDocument();
-    expect(screen.queryByText("已使用 4 / 5")).not.toBeInTheDocument();
-    expect(screen.queryByText("第 2 页，共 45 家店铺")).not.toBeInTheDocument();
-  });
+import {afterEach,expect,it,vi} from "vitest";
+const state=vi.hoisted(()=>({search:"",push:vi.fn(),retry:vi.fn(),switching:false,org:"org-a",permissions:["workbench.store.read"],query:{} as Record<string,unknown>,filters:vi.fn()}));
+vi.mock("next/navigation",()=>({usePathname:()=>"/workbench/stores",useRouter:()=>({push:state.push}),useSearchParams:()=>new URLSearchParams(state.search)}));
+vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>({user:{id:"actor"},effectiveOrganization:{id:state.org,name:"A"},permissions:state.permissions,isSwitching:state.switching,retry:state.retry})}));
+vi.mock("@/lib/query/use-store-catalog",()=>({useStoreCatalog:(filters:unknown,valid:boolean)=>{state.filters(filters,valid);return state.query}}));
+vi.mock("@tanstack/react-query",()=>({useQueryClient:()=>({invalidateQueries:vi.fn()}),useQuery:()=>({})}));
+vi.mock("./store-catalog-dialogs",()=>({StoreCatalogDialogs:()=> <div role="dialog">归属设置</div>}));
+vi.mock("./store-lifecycle-actions",()=>({StoreLifecycleActions:()=>null}));
+import {StoreListPage} from "./store-list-page";
+const metric={value:null,unknown:0,complete:false,reason:"unavailable"};
+const item={id:"11111111-1111-4111-8111-111111111111",name:"A 店铺",platform:"shein",region:"US",externalStoreId:"",recordStatus:"active",serviceStatus:"pending_activation",connectionStatus:"disconnected",version:1,profile:{storeId:"11111111-1111-4111-8111-111111111111",groupId:null,responsibleMemberId:null,lowStockThreshold:null,profileVersion:0,updatedAt:null},attention:"attention",signals:{applicationType:"",products:metric,orders:metric,inventory:{...metric,reason:"threshold_not_set"},syncHealthy:false,productSync:"",orderSync:"",observedAt:null}};
+const data={items:[item],pagination:{page:1,pageSize:20,total:1},metrics:{total:1,normal:null,attention:null,syncHealthy:null,unknown:1,complete:false},facets:{regions:["US"],groups:[],applicationTypes:[],canManageGroups:false}};
+afterEach(()=>{state.query={};state.search="";state.switching=false;state.org="org-a";state.permissions=["workbench.store.read"];state.push.mockReset();state.filters.mockReset();state.retry.mockReset()});
+it("uses server count and shows unknown facts without fake zero or write controls",()=>{
+ state.query={data,isPending:false,isError:false};render(<StoreListPage/>);
+ expect(screen.getByText("A 店铺")).toBeInTheDocument();expect(screen.getByText("第 1 页，共 1 家店铺")).toBeInTheDocument();expect(screen.getAllByText("未知").length).toBeGreaterThan(0);
+ expect(screen.queryByRole("button",{name:"绑定新店铺"})).not.toBeInTheDocument();expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+ expect(screen.getByRole("link",{name:/进入店铺/})).toHaveAttribute("href",`/workbench/store-products?storeId=${item.id}`);
+ expect(screen.getByRole("button",{name:"上一页"})).toBeDisabled();expect(screen.getByRole("button",{name:"下一页"})).toBeDisabled();
+});
+it.each(["ORGANIZATION_ACCESS_REVOKED","ORGANIZATION_CONTEXT_CHANGED","ORGANIZATION_ACCESS_DENIED"])("hides stale rows and metrics and refreshes context for %s",async(code)=>{
+ state.query={data,isPending:false,isError:true,error:{code},refetch:vi.fn()};render(<StoreListPage/>);
+ expect(screen.getByRole("alert")).toHaveTextContent("当前企业访问已不可用");expect(screen.queryByText("A 店铺")).not.toBeInTheDocument();expect(screen.queryByText(/共 1 家/)).not.toBeInTheDocument();
+ await userEvent.click(screen.getByRole("button",{name:"重试"}));expect(state.retry).toHaveBeenCalledOnce();
+});
+it("hides prior organization results while switching",()=>{state.query={data,isPending:false,isError:false};const view=render(<StoreListPage/>);expect(screen.getByText("A 店铺")).toBeInTheDocument();state.switching=true;view.rerender(<StoreListPage/>);expect(screen.queryByText("A 店铺")).not.toBeInTheDocument();expect(screen.getByRole("status")).toHaveTextContent("正在加载企业权限")});
+it("rejects duplicate URL predicates instead of showing results for a weaker query",()=>{state.search="attention=normal&attention=attention";state.query={data,isPending:false,isError:false};render(<StoreListPage/>);expect(state.filters).toHaveBeenCalledWith({page:1,pageSize:20},false);expect(screen.getByRole("alert")).toHaveTextContent("筛选参数无效");expect(screen.queryByText("A 店铺")).not.toBeInTheDocument()});
+it.each(["PERMISSION_DENIED","STORE_NOT_FOUND","ORGANIZATION_CONTEXT_CHANGED","ORGANIZATION_ACCESS_REVOKED","ORGANIZATION_ACCESS_DENIED","IDENTITY_CONTEXT_CHANGED","AUTHENTICATION_REQUIRED","ORGANIZATION_SUSPENDED"])("clears selected stores and their dialog when scope fails with %s",async(code)=>{
+ state.permissions=["workbench.store.read","workbench.store.update"];state.query={data,isPending:false,isError:false};const view=render(<StoreListPage/>);
+ await userEvent.click(screen.getByRole("checkbox",{name:"选择A 店铺"}));await userEvent.click(screen.getByRole("button",{name:"加入分组"}));expect(screen.getByRole("dialog")).toBeInTheDocument();
+ state.query={data,isPending:false,isError:true,error:{code}};view.rerender(<StoreListPage/>);expect(screen.queryByRole("dialog")).not.toBeInTheDocument();expect(screen.queryByText("A 店铺")).not.toBeInTheDocument();
+ state.query={data,isPending:false,isError:false};view.rerender(<StoreListPage/>);expect(screen.getByRole("checkbox",{name:"选择A 店铺"})).not.toBeChecked();
 });
