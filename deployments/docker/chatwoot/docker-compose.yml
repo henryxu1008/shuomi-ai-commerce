@@ -1,0 +1,71 @@
+# Adapted from Chatwoot v4.18.0 docker-compose.production.yaml (MIT).
+name: ${COMPOSE_PROJECT_NAME:?Use a separate project name for customer support}
+
+x-chatwoot: &chatwoot
+  image: chatwoot/chatwoot:v4.18.0-ce
+  env_file: ${CHATWOOT_ENV_FILE:?Absolute path to the private Chatwoot environment file}
+  environment:
+    RAILS_ENV: production
+    NODE_ENV: production
+    INSTALLATION_ENV: docker
+    POSTGRES_HOST: postgres
+    POSTGRES_DATABASE: chatwoot
+    POSTGRES_USERNAME: chatwoot
+    REDIS_URL: redis://redis:6379
+    ACTIVE_STORAGE_SERVICE: local
+    RAILS_LOG_TO_STDOUT: "true"
+    ENABLE_ACCOUNT_SIGNUP: "false"
+  volumes: [attachments:/app/storage]
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    env_file: ${CHATWOOT_ENV_FILE}
+    environment: { POSTGRES_DB: chatwoot, POSTGRES_USER: chatwoot }
+    volumes: [postgres:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U chatwoot -d chatwoot"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    env_file: ${CHATWOOT_ENV_FILE}
+    command: [/bin/sh, -ec, 'exec redis-server --appendonly yes --requirepass "$${REDIS_PASSWORD:?Set REDIS_PASSWORD}"']
+    volumes: [redis:/data]
+    healthcheck:
+      test: [CMD-SHELL, 'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping | grep -q PONG']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  prepare:
+    <<: *chatwoot
+    profiles: [init]
+    entrypoint: docker/entrypoints/rails.sh
+    command: [bundle, exec, rails, db:chatwoot_prepare]
+    depends_on: { postgres: { condition: service_healthy }, redis: { condition: service_healthy } }
+  rails:
+    <<: *chatwoot
+    restart: unless-stopped
+    entrypoint: docker/entrypoints/rails.sh
+    command: [bundle, exec, rails, s, -p, "3000", -b, "0.0.0.0"]
+    ports: ["127.0.0.1:${CHATWOOT_PORT:?Choose an unused loopback port}:3000"]
+    depends_on: { postgres: { condition: service_healthy }, redis: { condition: service_healthy } }
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:3000/api]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+  sidekiq:
+    <<: *chatwoot
+    restart: unless-stopped
+    command: [bundle, exec, sidekiq, -C, config/sidekiq.yml]
+    depends_on: { postgres: { condition: service_healthy }, redis: { condition: service_healthy } }
+
+volumes:
+  postgres:
+  redis:
+  attachments:
