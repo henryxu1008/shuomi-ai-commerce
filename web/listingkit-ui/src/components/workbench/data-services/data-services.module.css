@@ -98,5 +98,82 @@
 .recent { min-height: 204px; border-radius: 12px; }
 .recent .table { margin-top: 16px; }
 .page a:focus-visible, .page button:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+/* Figma 430:323 / 430:525. Keep market refinements out of API Management. */
+.market {
+  --background: #060c15; --foreground: #f3f7fc;
+  --card: #0a1725; --card-foreground: #f3f7fc;
+  --border: #213a52; --input: #213a52;
+  --muted: #0d1c2b; --muted-foreground: #7e93aa;
+  --primary: #2ddcc9; --primary-foreground: #050d18;
+  --accent: #0b3a38; --accent-foreground: #2ddcc9;
+  --data-purple: #a47bff; --data-purple-soft: #2b2250;
+  --data-purple-foreground: var(--data-purple);
+  --data-teal-soft: #0b3a38;
+  max-width: none;
+  min-height: calc(100svh - var(--console-header-height, 72px));
+}
+:global(.light) .market {
+  --background: #f3f7fb; --foreground: #10233d;
+  --card: #fff; --card-foreground: #10233d;
+  --border: #c8d7e7; --input: #c8d7e7;
+  --muted: #f6f9fc; --muted-foreground: #667d96;
+  --primary: #00bfae; --primary-foreground: #10233d;
+  --accent: #dff7f2; --accent-foreground: #08786f;
+  --data-purple: #7653e6; --data-purple-soft: #eee9ff;
+  --data-purple-foreground: #704bd8;
+  --data-teal-soft: #dff7f2;
+}
+.market .actions > :last-child { min-width: 100px; }
+.market .actions > * { background: var(--card); }
+.market .card { padding: 16px 20px 20px; }
+.market .badge { min-height: 24px; padding: 0 12px; border-radius: 12px; line-height: 24px; font-weight: 700; }
+.market .purpleBadge, .market .purple .serviceFooter p, .market .purpleSteps li:last-child .step { color: var(--data-purple-foreground); }
+.market .platform { grid-template-columns: minmax(0, 1fr) 368px; }
+.market .platform h2 { margin-top: 6px; line-height: 30px; }
+.market .platform p { line-height: 22px; }
+.market .platformTags { margin-top: 10px; gap: 10px; }
+.market .platformTags > :first-child { margin-right: 8px; font-weight: 700; }
+.market .platformFacts { align-content: start; gap: 16px 24px; }
+.market .platformFacts dt { line-height: 18px; margin-bottom: 5px; }
+.market .platformFacts dd { line-height: 24px; }
+.market .serviceArea { margin-top: 2px; }
+.market .sectionTitle { justify-content: flex-start; gap: 8px 32px; margin-bottom: 12px; }
+.market .sectionTitle h2 { min-width: 266px; }
+.market .services { grid-template-columns: minmax(0, 69fr) minmax(0, 71fr); }
+.market .serviceBadges { justify-content: space-between; flex-wrap: wrap; }
+.market .serviceBadges > :first-child { min-width: 96px; }
+.market .serviceBadges > :last-child { min-width: 144px; }
+.market .purple .serviceBadges > :last-child { min-width: 154px; }
+.market .service h3 { margin-top: 8px; line-height: 30px; }
+.market .service > p { margin-top: 1px; line-height: 22px; }
+.market .bullets { margin: 12px 0 18px; gap: 10px 16px; }
+.market .bullets li { min-width: 0; line-height: 20px; }
+.market .serviceFooter p { line-height: 20px; font-weight: 700; }
+.market .serviceFooter button { flex-shrink: 0; font-weight: 700; }
+.market .purple .serviceFooter button { width: 174px; }
+.market .process { padding-top: 14px; }
+.market .processRow { gap: 18px; }
+.market .processRow > .badge { width: 92px; }
+.market .steps { flex: none; width: min(748px, calc(100% - 110px)); gap: 4px; }
+.market .steps span[aria-hidden] { flex: 0 0 20px; text-align: center; }
+.market .step { min-width: 0; line-height: 18px; padding: 9px 8px; font-weight: 700; }
+.lightDot { display: none; }
+:global(.light) .lightDot { display: block; }
+:global(.light) .darkDot { display: none; }
 @media (max-width: 1000px) { .platform, .apiGrid { grid-template-columns: 1fr; } .bullets { grid-template-columns: 1fr; } .platformFacts { margin-top: 8px; } .serviceFooter { flex-wrap: wrap; } .serviceFooter button { width: 100%; } }
 @media (max-width: 700px) { .page { padding: 18px 16px 32px; } .header { flex-wrap: wrap; } .header h1 { font-size: 26px; } .header p { font-size: 12px; } .actions { flex-wrap: wrap; } .services { grid-template-columns: 1fr; } .stats { grid-template-columns: repeat(2,minmax(0,1fr)); } .tabs { flex-wrap: wrap; } .tabs button { flex: 1; min-width: 90px; } .tabs > span { width: 100%; margin: 0; } .processRow { align-items: flex-start; } .steps { flex-direction: column; align-items: stretch; } .steps span[aria-hidden] { display: block; text-align: center; transform: rotate(90deg); } .cardHeading { flex-wrap: wrap; } }
+@media (max-width: 1100px) {
+  .market .platform { grid-template-columns: 1fr; }
+  .market .platformFacts { margin-top: 8px; }
+  .market .bullets { grid-template-columns: 1fr; }
+  .market .serviceFooter { flex-wrap: wrap; }
+  .market .serviceFooter p { flex-basis: 100%; }
+  .market .serviceFooter button, .market .purple .serviceFooter button { width: 100%; }
+}
+@media (max-width: 700px) {
+  .market .services { grid-template-columns: 1fr; }
+  .market .steps { flex: 1; width: auto; }
+  .market .steps span[aria-hidden] { flex-basis: auto; }
+  .market .serviceBadges { gap: 8px; }
+  .market .sectionTitle h2 { min-width: 0; }
+}

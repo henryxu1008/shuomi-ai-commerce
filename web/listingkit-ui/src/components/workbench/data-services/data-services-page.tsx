@@ -43,12 +43,13 @@ export function DataServicesPage({ mode }: {
         return <p className="p-8" role="alert">请先确认登录身份与当前企业。</p>;
     return mode === "market" ? <Market key={`${userId}:${organizationId}`} scope={scope}/> : <APIManagement key={`${userId}:${organizationId}`} scope={scope}/>;
 }
-function Frame({ title, subtitle, actions, children }: {
+function Frame({ title, subtitle, actions, children, className = "" }: {
     title: string;
     subtitle: string;
     actions?: ReactNode;
     children: ReactNode;
-}) { return <main className={styles.page}><p className={styles.breadcrumb}>数据服务 <span className="mx-2">/</span> {title}</p><header className={styles.header}><div><h1>{title}</h1><p>{subtitle}</p></div><div className={styles.actions}>{actions}</div></header><div className={styles.content}>{children}</div></main>; }
+    className?: string;
+}) { return <main className={`${styles.page} ${className}`}><p className={styles.breadcrumb}>数据服务 <span className="mx-2">/</span> {title}</p><header className={styles.header}><div><h1>{title}</h1><p>{subtitle}</p></div><div className={styles.actions}>{actions}</div></header><div className={styles.content}>{children}</div></main>; }
 function Recovery({ command, onRecovered }: {
     command: ReturnType<typeof useDataCommand>;
     onRecovered: (value: unknown, path: string) => void;
@@ -123,17 +124,17 @@ function Market({ scope }: {
         reload();
     };
     const disabled = command.busy || !!command.pending;
-    return <Frame title="数据市场" subtitle="汇集电商平台产品数据，当前提供 Amazon 实时抓取与数据集定制。" actions={<><Button variant="outline" asChild><Link href="/workbench/data/api">API管理</Link></Button><Button variant="outline" asChild><Link href="/workbench/data/mine">我的数据</Link></Button></>}>
+    return <Frame className={styles.market} title="数据市场" subtitle="汇集主流电商平台产品数据，当前提供 Amazon 实时抓取与数据集定制。" actions={<><Button variant="outline" asChild><Link href="/workbench/data/api">API管理</Link></Button><Button variant="outline" asChild><Link href="/workbench/data/mine">我的数据</Link></Button></>}>
   <DataNotice error={error}/><Recovery command={command} onRecovered={received}/>
   <Card className={`${styles.card} ${styles.platform}`}>
-    <div><span className={`${styles.badge} ${!options?.acquisitionReady ? styles.neutralBadge : ""}`}>{options ? options.acquisitionReady ? "已配置 1 个来源" : "实时抓取待配置" : error ? "配置未读取" : "正在读取配置"}</span><h2>选择数据来源</h2><p>当前支持 Amazon 产品数据，按业务场景选择获取方式。</p><div className={styles.platformTags}><span>数据平台</span><span className={styles.badge}>Amazon · 当前选择</span><span className={`${styles.badge} ${styles.neutralBadge}`}>其他平台暂未开放</span></div></div>
+    <div><span className={`${styles.badge} ${!options?.acquisitionReady ? styles.neutralBadge : ""}`}>{options ? options.acquisitionReady ? "已配置 1 个来源" : "实时抓取待配置" : error ? "配置未读取" : "正在读取配置"}</span><h2>选择数据来源</h2><p>当前可使用 Amazon 产品数据，其他电商平台暂未开放。</p><div className={styles.platformTags}><span>数据平台</span><span className={styles.badge}>Amazon · 当前选择</span><span className={`${styles.badge} ${styles.neutralBadge}`}>1688 · 未开放</span><span className={`${styles.badge} ${styles.neutralBadge}`}>更多平台 · 未开放</span></div></div>
     <dl className={styles.platformFacts}>{[["当前选择", "Amazon"], ["数据类型", "产品数据"], ["获取方式", "实时抓取 / 数据集定制"], ["交付格式", "Excel / CSV / JSON"]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
   </Card>
-  <section className={styles.serviceArea}><div className={styles.sectionTitle}><h2>Amazon 产品数据获取方式</h2><p>按需求选择，获取结果统一保存到“我的数据”</p></div><div className={styles.services}>
-    <Card className={`${styles.card} ${styles.service}`}><div className={styles.serviceBadges}><span className={styles.badge}>获取方式 01 · 实时抓取</span><span className={styles.badge}>按成功数据计费</span></div><h3>实时数据抓取</h3><p>适合即时选品、竞品分析与商品信息补全。</p><ServiceBullets items={["选择站点、关键词、类目或 ASIN", "设置抓取数量和所需数据字段", "确认最大条数与资源消耗", "成功结果自动保存到“我的数据”"]}/><div className={styles.serviceFooter}><p>¥0.05 / 成功保存一条 · 使用预付 DATA_ROW</p><Button disabled={disabled || !options?.acquisitionReady} onClick={() => setDialog("realtime")}>开始抓取</Button></div>{options && !options.acquisitionReady ? <p role="status" className="mt-3 text-xs text-muted-foreground">{options.unavailableReason}</p> : null}</Card>
-    <Card className={`${styles.card} ${styles.service} ${styles.purple}`}><div className={styles.serviceBadges}><span className={`${styles.badge} ${styles.purpleBadge}`}>获取方式 02 · 数据集定制</span><span className={`${styles.badge} ${styles.purpleBadge}`}>根据需求单独报价</span></div><h3>数据集定制</h3><p>适合指定范围、指定字段与批量数据交付。</p><ServiceBullets purple items={["描述用途、数据范围与交付要求", "平台专员线下确认规格与报价", "在系统中查看制作与交付进度", "交付数据保存到申请者“我的数据”"]}/><div className={styles.serviceFooter}><p>报价与规格线下确认 · 系统记录进度与交付</p><Button disabled={disabled || !options} onClick={() => setDialog("custom")}>提交定制需求</Button></div></Card>
+  <section className={styles.serviceArea}><div className={styles.sectionTitle}><h2>Amazon 产品数据获取方式</h2><p>当前已选择 Amazon，根据时效和交付要求选择不同服务。</p></div><div className={styles.services}>
+    <Card className={`${styles.card} ${styles.service}`}><div className={styles.serviceBadges}><span className={styles.badge}>01 · 实时获取</span><span className={styles.badge}>按成功数据计费</span></div><h3>实时数据抓取</h3><p>客户自主设置抓取条件，适合获取当前最新的 Amazon 产品数据。</p><ServiceBullets items={["选择站点、关键词、类目或 ASIN", "设置抓取数量和所需数据字段", "确认最大条数与预估费用", "成功结果自动保存到“我的数据”"]}/><div className={styles.serviceFooter}><p>按成功保存的数据条数计费</p><Button disabled={disabled || !options?.acquisitionReady} onClick={() => setDialog("realtime")}>配置实时抓取 <span aria-hidden="true">→</span></Button></div>{options && !options.acquisitionReady ? <p role="status" className="mt-3 text-xs text-muted-foreground">{options.unavailableReason}</p> : null}</Card>
+    <Card className={`${styles.card} ${styles.service} ${styles.purple}`}><div className={styles.serviceBadges}><span className={`${styles.badge} ${styles.purpleBadge}`}>02 · 按需交付</span><span className={`${styles.badge} ${styles.purpleBadge}`}>根据需求单独报价</span></div><h3>数据集定制</h3><p>根据业务目标、字段范围和交付要求，制作专属 Amazon 产品数据集。</p><ServiceBullets purple items={["明确站点、类目、关键词与用途", "选择字段、数据规模和时间范围", "在系统中查看制作与交付进度", "专员评估需求、报价与交付周期"]}/><div className={styles.serviceFooter}><p>确认数据规格后提供报价</p><Button disabled={disabled || !options} onClick={() => setDialog("custom")}>提交定制需求 <span aria-hidden="true">→</span></Button></div></Card>
   </div></section>
-  <Card className={`${styles.card} ${styles.process}`}><div className={styles.cardHeading}><h2>购买与交付流程</h2><p>两种方式都交付到“我的数据”，方便后续查看与使用</p></div><ProcessRow label="实时抓取" steps={["配置抓取条件", "确认预估费用", "确认并开始抓取", "保存到我的数据"]}/><ProcessRow purple label="数据集定制" steps={["提交定制需求", "确认规格与报价", "数据制作与交付", "保存到我的数据"]}/></Card>
+  <Card className={`${styles.card} ${styles.process}`}><div className={styles.cardHeading}><h2>购买与交付流程</h2><p>所有成功交付的数据都会保存到“我的数据”。</p></div><ProcessRow label="实时抓取" steps={["配置抓取条件", "确认预估费用", "确认并开始抓取", "保存到我的数据"]}/><ProcessRow purple label="数据集定制" steps={["提交定制需求", "确认规格与报价", "数据制作与交付", "保存到我的数据"]}/></Card>
   <Card className="gap-4 p-6"><div className="flex justify-between"><h2 className="font-semibold">我的抓取与定制记录</h2><Button variant="ghost" size="sm" onClick={reload}>刷新</Button></div><p className="text-xs text-muted-foreground">展示最近 100 条抓取任务和定制申请。</p>
     {[["抓取历史", jobsError], ["定制历史", customsError]].map(([label, code]) => code ? <p key={label} role="alert" className="text-sm text-amber-700">{code === "FORBIDDEN" ? `当前身份没有${label}读取权限。` : `${label}暂不可用，请稍后刷新。`}</p> : null)}
     {(jobs === null && !jobsError) || (customs === null && !customsError) ? <p role="status" className="text-sm text-muted-foreground">正在读取历史记录…</p> : null}
@@ -172,7 +173,7 @@ function ServiceBullets({ items, purple = false }: {
     items: string[];
     purple?: boolean;
 }) {
-    return <ul className={styles.bullets}>{items.map(item => <li key={item}><Image src={`/data-services/${purple ? "custom" : "realtime"}-dot.svg`} width={6} height={6} alt=""/>{item}</li>)}</ul>;
+    return <ul className={styles.bullets}>{items.map(item => <li key={item}><Image className={styles.lightDot} src={`/data-services/${purple ? "custom" : "realtime"}-dot.svg`} width={6} height={6} alt=""/><Image className={styles.darkDot} src={`/data-services/${purple ? "custom" : "realtime"}-dot-dark.svg`} width={6} height={6} alt=""/>{item}</li>)}</ul>;
 }
 function ProcessRow({ label, steps, purple = false }: {
     label: string;
