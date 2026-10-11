@@ -1,7 +1,7 @@
 # Store Center：我的店铺完整 Figma 路径 v1
 
 日期：2026-10-11。Design Basis：**Independent Architecture**。
-Admission：**NOT_READY，待独立 Architecture Review**。本文件先于正式实现。
+Admission：**IMPLEMENTATION_READY**。独立评审基线 `5b54485c4a5e6cd20a46b1931570a2a9d15f0c75`，设计级 BLOCKER = 0；本文件先于正式实现。
 基线：main `c023edad14ad9255dee3e04a67b539bdaf2c83b8`。
 执行 Issue：[#641](https://github.com/qq550723504/task-processor/issues/641)。
 唯一 Writer：会话 `01a129ba-3227-78a2-a8d2-07d7fdac4423`；一个 Delivery Batch，一个主要 PR。
@@ -46,7 +46,7 @@ Authority：[最终 UI/IA](../product/final-ui-ia-authority.md)，文件 `tg48P4
 
 ## 3. owner 与调用链
 
-复用已批准设计：[Store core](store-center-current-application-v1.md)、[成员资源与官方连接](member-resource-allocation-v1.md)、[成员目录](member-directory-query-v1.md)、[平台观察](store-center-platform-observations-v1.md)、[认证/租户](auth-and-tenancy.md)、[全新系统基线](../product/greenfield-no-legacy-migration.md)。
+复用已批准设计：[Native Store 与预付资源](unified-base-prepaid-resources-v1.md)、[Store core](store-center-current-application-v1.md)、[成员资源与官方连接](member-resource-allocation-v1.md)、[成员目录](member-directory-query-v1.md)、[平台观察](store-center-platform-observations-v1.md)、[认证/租户](auth-and-tenancy.md)、[全新系统基线](../product/greenfield-no-legacy-migration.md)。Native Store 决定覆盖旧 core 的 quota/provisioning/resume 含义。
 
 | 事实 | 唯一 owner | 本轮动作 |
 | --- | --- | --- |
@@ -84,6 +84,8 @@ normal/attention 是只读展示分类，不保存第二业务状态机：connec
 
 所有写入固定 UUID Idempotency-Key + expected profile/group version。相同键相同规范载荷返回原 receipt；不同载荷 conflict；重试也重新授权。请求失联/刷新后按原操作键读取，不能把当前值误当原命令成功。profiles/group mutation 和本地 receipt/audit 在同一 Store 事务提交；事务 rollback 不留下部分成功。使用 GORM+现有锁/CAS模式，不造通用事务框架。
 
+重放先验证当前身份、动作与原目标 scope，再核对 receipt 的 actor/member/action/hash；返回冻结结果，不重新执行后来版本、已删除分组或已离职负责人的状态验证。同键不同身份冲突。所有 metadata 写统一按 group ID → Store ID → grant → profile 的锁序；无 profile 时由 Store 行锁及唯一键序列化首次创建，version=0 只创建一次。删除组先锁组，再按 Store ID 顺序锁受影响记录/grant/profile。
+
 单店调整 group/responsible/threshold 合并成固定窄 profile command。批量归组接受显式最多100 Store IDs+每项 profile version，同 scope 全部鉴权，按 Store ID 锁顺序，在一个 Store 本地事务里校验/更新/receipt；任一不可访问/删除/版本冲突则全部拒绝，UI保留选择、回读再确认。包含隐藏店铺返回当前不泄漏的404/deny，不返回其资料。
 
 删除分组在同一事务锁组及其归属 profile、清空 groupId 并递增受影响 profile version、写 receipt/audit，然后 soft delete group；不变店铺记录、负责人、grant、连接、服务/余额。组赋值/重命名/删除用同组锁顺序，不能在删除后复活引用。Store 解绑沿原删除协议；metadata不参与额度/服务恢复，不物理删除历史审计。
@@ -94,7 +96,7 @@ normal/attention 是只读展示分类，不保存第二业务状态机：connec
 
 ## 6. 授权、同步与异常动作
 
-绑定入口按原 create/resume 记录协议，再用原 official begin/exchange/status/recover；每步保留原 idempotency/CAS/version/UNKNOWN。记录创建成功不等于授权成功。选择应用保留实际 AppID/revision/type。私密 callback参数及时清理，敏感材料不进普通 DTO、日志、URL或localStorage。response lost/UNKNOWN不重取或重发credential exchange。
+绑定入口按 Native Store CreateOrReplay 创建记录，响应丢失用原 create key/指纹回读，再用原 official begin/exchange/status/recover；不恢复旧 quota/provisioning/resume 路由。每步保留原 idempotency/CAS/version/UNKNOWN。记录创建成功不等于授权成功。选择应用保留实际 AppID/revision/type。私密 callback参数及时清理，敏感材料不进普通 DTO、日志、URL或localStorage。response lost/UNKNOWN不重取或重发credential exchange。
 
 “立即同步”复用现有商品/订单同步对话框与权限/capability，当前店铺先选定；用户可显式扩到当前全部授权店铺。一个kind一个原命令身份，复用原固定集合/child keys/Temporal/restart；双击不重复命令。同步进度只显示owner当前checkpoint，不能用本地timer造百分比。需要处理进入具体店铺的authorization/sync/settings原因，不能把所有异常都跳新绑店页。
 
@@ -114,5 +116,6 @@ Legacy decision: **RETIRE**。复用合格 current Console、Store/official/obse
 
 ## 8. 独立评审与准入
 
-待一轮有界独立高风险检查；检查本轮新metadata持久化/事务、纯归属与现有grant隔离、跨owner摘要/未知语义。按AGENTS分类，第二轮仅复核必要增量；不扩大到未授权网络、IAM重建或理想安全平台。
-在明确 `IMPLEMENTATION_READY` 前，只允许文档/只读调查，不修改正式生产业务路径。
+2026-10-11，独立只读 reviewer `store_figma_architecture_review` 检查 #641、设计基线与当前代码，结论 `IMPLEMENTATION_READY`，BLOCKER = 0。以下均为 `IMPLEMENTATION_TEST`，合并前收敛，不重开全局架构：统一锁序/首次创建/原子批量与撤权；冻结 receipt 重放；摘要 predicate 不得在摘要不足时静默忽略；schema-owner、append-only grants 与所有当前消费者 capability 接线；Native Store 引用及原键恢复澄清。
+
+摘要端口逐店返回 nullable value、coverage/reason/取得时间并保留各模块读权限和前后 source 校验。基础目录不受 observations 500 店上限裁剪；摘要不足时，依赖摘要的筛选明确不可用/不完整，不能退成未筛选分页、假 0 或完整 total。schema 缺失明确 unavailable，receipt/audit 仅 SELECT/INSERT；同步实际 Store/Supply/resource 消费者的窄 capability 清单。完成本文件准入记录后唯一 Writer 可实施；运行及用户验收仍单列。
