@@ -5,6 +5,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -14,6 +16,7 @@ import (
 	"task-processor/internal/app/productsourcing"
 	"task-processor/internal/authidentity"
 	prepstore "task-processor/internal/integration/persistence/listing/preparation"
+	acqstore "task-processor/internal/integration/persistence/product/acquisition"
 	planstore "task-processor/internal/integration/persistence/product/acquisitionplan"
 	catalogstore "task-processor/internal/integration/persistence/product/catalog"
 	collectionstore "task-processor/internal/integration/persistence/product/collection"
@@ -56,17 +59,34 @@ func TestPlanTransfersActualOriginalBatchesWithDriftAndRevocation(t *testing.T) 
 	require.NoError(t, collectionstore.InstallSchema(db))
 	require.NoError(t, prepstore.InstallSchema(db))
 	require.NoError(t, planstore.InstallSchema(db))
-	repo, e := planstore.NewRepository(ctx, db)
+	require.NoError(t, productsourcing.InstallAcquisitionSchema(db))
+	require.NoError(t, db.Exec(`DO $$ BEGIN IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='source_acquisition_runtime') THEN CREATE ROLE source_acquisition_runtime LOGIN PASSWORD 'limited-plan-fixture' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS; END IF; END $$`).Error)
+	require.NoError(t, db.Exec(`ALTER ROLE source_acquisition_runtime PASSWORD 'limited-plan-fixture'`).Error)
+	capabilities := acqstore.RuntimeCapabilities{Collections: true, AcquisitionPlans: true}
+	require.NoError(t, acqstore.GrantRuntimePermissions(ctx, db, capabilities))
+	config, e := pgx.ParseConfig(os.Getenv("ISSUE398_TEST_DSN"))
 	require.NoError(t, e)
-	collectionRepo, e := collectionstore.NewRepository(ctx, db, func(*gorm.DB) (collectionstore.OwnPublisher, error) { return nil, collection.ErrUnavailable })
+	require.NoError(t, db.Raw("SELECT current_database()").Scan(&config.Database).Error)
+	config.User, config.Password = acqstore.RuntimeRole, "limited-plan-fixture"
+	runtimeDB, e := gorm.Open(postgres.New(postgres.Config{Conn: stdlib.OpenDB(*config)}), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	require.NoError(t, e)
+	pool, e := runtimeDB.DB()
+	require.NoError(t, e)
+	pool.SetMaxOpenConns(8)
+	pool.SetMaxIdleConns(2)
+	t.Cleanup(func() { require.NoError(t, pool.Close()) })
+	require.NoError(t, acqstore.VerifyRuntimePermissions(ctx, runtimeDB, capabilities))
+	repo, e := planstore.NewRepository(ctx, runtimeDB)
+	require.NoError(t, e)
+	collectionRepo, e := collectionstore.NewRepository(ctx, runtimeDB, func(*gorm.DB) (collectionstore.OwnPublisher, error) { return nil, collection.ErrUnavailable })
 	require.NoError(t, e)
 	authority := &transferAuth{scope: collection.Scope{OrganizationID: "org-a", ActorID: "actor-a", MemberID: "member-a"}}
 	collections, e := collection.NewService(collectionRepo, authority, unusedTransferSources{})
 	require.NoError(t, e)
-	snapshots, e := catalogstore.NewBoundedSnapshotReader(db, sourcing.MaxEncodedSnapshotBytes)
+	snapshots, e := catalogstore.NewBoundedSnapshotReader(runtimeDB, sourcing.MaxEncodedSnapshotBytes)
 	require.NoError(t, e)
 	collections.WithSnapshots(snapshots)
-	prepRepo, e := prepstore.NewRepository(ctx, db)
+	prepRepo, e := prepstore.NewRepository(ctx, runtimeDB)
 	require.NoError(t, e)
 	preps, e := preparation.NewService(prepRepo, collections, authority)
 	require.NoError(t, e)
@@ -106,6 +126,7 @@ func TestPlanTransfersActualOriginalBatchesWithDriftAndRevocation(t *testing.T) 
 	require.NoError(t, e)
 	require.Equal(t, "transfer_pending", p.State)
 	require.Len(t, p.PreparationIDs, 1)
+	require.Equal(t, "transfer_source_conflict", p.FailureCode)
 	authority.denied = true
 	_, e = service.Advance(ctx, p.ID, p.Revision)
 	require.ErrorIs(t, e, sourcing.ErrPublicationForbidden)
@@ -113,8 +134,9 @@ func TestPlanTransfersActualOriginalBatchesWithDriftAndRevocation(t *testing.T) 
 	require.NoError(t, db.Exec("UPDATE product_collection_batches SET revision=1 WHERE id=?", p.Items[1].CollectionBatchID).Error)
 	p, e = service.Advance(ctx, p.ID, p.Revision)
 	require.NoError(t, e)
-	require.Equal(t, "completed", p.State)
-	require.Len(t, p.PreparationIDs, 2)
+	require.Equal(t, "transfer_pending", p.State)
+	require.Equal(t, "transfer_source_conflict", p.FailureCode)
+	require.Len(t, p.PreparationIDs, 1, "a known stale frozen transfer cannot restart after an artificial source rollback")
 	require.Equal(t, frozen, p.TransferInputJSON)
 	for i, id := range p.PreparationIDs {
 		actual, e := preps.Read(ctx, id)
@@ -128,6 +150,16 @@ func TestPlanTransfersActualOriginalBatchesWithDriftAndRevocation(t *testing.T) 
 	var count int64
 	require.NoError(t, db.Raw("SELECT count(*) FROM product_collection_items WHERE organization_id='org-a'").Scan(&count).Error)
 	require.Equal(t, int64(4), count)
+	require.NoError(t, db.Exec("REVOKE UPDATE ON listing_preparations FROM source_acquisition_runtime").Error)
+	require.Error(t, acqstore.VerifyRuntimePermissions(ctx, runtimeDB, capabilities), "missing required UPDATE must fail startup")
+	require.NoError(t, db.Exec("GRANT UPDATE ON listing_preparations TO source_acquisition_runtime").Error)
+	require.NoError(t, acqstore.VerifyRuntimePermissions(ctx, runtimeDB, capabilities))
+	for _, grant := range []string{"UPDATE ON listing_preparation_sources", "DELETE ON listing_preparations"} {
+		require.NoError(t, db.Exec("GRANT "+grant+" TO source_acquisition_runtime").Error)
+		require.Error(t, acqstore.VerifyRuntimePermissions(ctx, runtimeDB, capabilities), "extra mutable source/DELETE privileges must fail startup")
+		require.NoError(t, db.Exec("REVOKE "+grant+" FROM source_acquisition_runtime").Error)
+		require.NoError(t, acqstore.VerifyRuntimePermissions(ctx, runtimeDB, capabilities))
+	}
 }
 
 func planTransferDB(t *testing.T) *gorm.DB {

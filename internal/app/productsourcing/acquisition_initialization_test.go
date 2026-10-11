@@ -43,6 +43,8 @@ func TestEnablePlansPreservesExistingFactsAndDoesNotOpenExecution(t *testing.T) 
 	require.True(t, granted)
 	require.NoError(t, db.Raw("SELECT has_table_privilege('source_acquisition_runtime','product_acquisition_plans','DELETE')").Scan(&granted).Error)
 	require.False(t, granted)
+	require.NoError(t, db.Raw("SELECT has_table_privilege('source_acquisition_runtime','listing_preparations','UPDATE') AND NOT has_table_privilege('source_acquisition_runtime','listing_preparations','DELETE') AND NOT has_table_privilege('source_acquisition_runtime','listing_preparation_sources','UPDATE,DELETE')").Scan(&granted).Error)
+	require.True(t, granted, "existing Transfer requires preparation UPDATE but source snapshots remain immutable")
 }
 
 func TestAcquisitionExplicitInitializerRequiresEmptyConfirmedDatabase(t *testing.T) {

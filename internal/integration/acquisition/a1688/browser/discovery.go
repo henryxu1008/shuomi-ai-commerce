@@ -76,8 +76,8 @@ const discoveryScript = `() => {
  const links=document.querySelectorAll('a[href]');
  for (let i=0;i<links.length;i++) {
    if(i>=5000){truncated=true;break;}
-   const a=links[i], rect=a.getBoundingClientRect(), style=getComputedStyle(a);
-   if(!a.getClientRects().length || rect.bottom<=0 || rect.top>=innerHeight || rect.right<=0 || rect.left>=innerWidth || style.visibility==='hidden' || style.display==='none')continue;
+   const a=links[i], style=getComputedStyle(a);
+   if(!a.getClientRects().length || style.visibility==='hidden' || style.display==='none')continue;
    let u;try{u=new URL(a.href,location.href);}catch{continue;}
    if(u.protocol!=='https:' || u.hostname!=='detail.1688.com' || u.username || u.password || u.port && u.port!=='443' || !/^\/offer\/[1-9][0-9]{0,19}\.html$/.test(u.pathname))continue;
    const url='https://detail.1688.com'+u.pathname;

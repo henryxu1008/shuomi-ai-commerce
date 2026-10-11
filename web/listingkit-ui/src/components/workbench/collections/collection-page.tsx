@@ -23,17 +23,17 @@ import { ConsolePage, ConsoleState } from "../console/console-page";
 const kindLabels = { acquisition: "在线采集", own: "自有商品", manual: "手动分组", market: "供应市场", sds_template: "SDS 模板（未定制）", sds_finished: "SDS 定制成品", amazon_data: "Amazon数据", custom_dataset: "定制数据集" };
 const failureText: Record<string, string> = { OUTCOME_UNKNOWN: "结果待核实", INTENT_STORAGE_UNAVAILABLE: "无法保存原请求，请恢复浏览器存储后重试。", REVISION_CONFLICT: "资料已发生变化，请刷新后重试。", PERMISSION_DENIED: "当前权限不足。", NOT_FOUND: "未找到当前身份下的记录。", ORGANIZATION_CONTEXT_CHANGED: "企业上下文已变化。", IDENTITY_CONTEXT_CHANGED: "登录身份已变化。", INVALID_REQUEST: "请检查填写内容。" };
 
-export function CollectionPage({supplyAvailable=false,initialBatchId}:{supplyAvailable?:boolean;initialBatchId?:string}) {
+export function CollectionPage({supplyAvailable=false,initialBatchId,initialItemId}:{supplyAvailable?:boolean;initialBatchId?:string;initialItemId?:string}) {
   const context = useWorkbenchContext();
   const userId = context.user?.id;
   const organizationId = context.effectiveOrganization?.id;
   const scope = useMemo(() => userId && organizationId ? { userId, organizationId } : null, [userId, organizationId]);
   if (context.isLoading || context.isSwitching) return <ConsoleState kind="loading" title="正在确认当前企业" />;
   if (!scope || context.selectionRequired || context.error || context.blockingError) return <ConsoleState kind="error" title="请先确认登录身份与当前企业" />;
-  return <ScopedCollectionPage key={`${scope.userId}:${scope.organizationId}`} scope={scope} supplyAvailable={supplyAvailable} initialBatchId={initialBatchId} />;
+  return <ScopedCollectionPage key={`${scope.userId}:${scope.organizationId}:${initialItemId??""}`} scope={scope} supplyAvailable={supplyAvailable} initialBatchId={initialBatchId} initialItemId={initialItemId} />;
 }
 
-function ScopedCollectionPage({ scope,supplyAvailable,initialBatchId }: { scope: CollectionScope;supplyAvailable:boolean;initialBatchId?:string }) {
+function ScopedCollectionPage({ scope,supplyAvailable,initialBatchId,initialItemId }: { scope: CollectionScope;supplyAvailable:boolean;initialBatchId?:string;initialItemId?:string }) {
   const context = useWorkbenchContext();
   const [tab, setTab] = useState<"batches" | "own">("batches");
   const [batches, setBatches] = useState<CollectionBatch[]>([]);
@@ -46,14 +46,15 @@ function ScopedCollectionPage({ scope,supplyAvailable,initialBatchId }: { scope:
   const [keyword, setKeyword] = useState("");
   const [reload, setReload] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState(!!initialItemId);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
   const [transferred,setTransferred]=useState<string|null>(null);
-  const [dialog, setDialog] = useState<"manage" | "own" | "import" | "rename" | "archive-batch" | "move" | "archive-item" | "detail" | "transfer" | null>(null);
+  const [dialog, setDialog] = useState<"manage" | "own" | "import" | "rename" | "archive-batch" | "move" | "archive-item" | "detail" | "transfer" | null>(initialItemId?"detail":null);
   const [selectedBatch, setSelectedBatch] = useState<CollectionBatch | null>(null);
   const [selectedItem, setSelectedItem] = useState<CollectionItem | null>(null);
   const [detail, setDetail] = useState<CollectionDetail | null>(null);
+  const [detailFailure,setDetailFailure]=useState<string|null>(null);
   const [name, setName] = useState("");
   const [targetBatch, setTargetBatch] = useState("");
   const [moveAfter,setMoveAfter]=useState<string>();
@@ -86,6 +87,15 @@ function ScopedCollectionPage({ scope,supplyAvailable,initialBatchId }: { scope:
     }).catch((failure: unknown) => { if (current) setError(codeOf(failure)); }).finally(() => { if (current) setLoading(false); });
     return () => { current = false; controller.abort(); };
   }, [scope, tab, batchId, keyword, after, reload]);
+  useEffect(()=>{
+    if(!initialItemId)return;
+    const controller=new AbortController();let current=true;
+    void readCollectionItem(scope,initialItemId,controller.signal).then(value=>{
+      if(!current)return;
+      setDetail(value);setSelectedItem(value.item);setBatchId(value.item.batchId);
+    }).catch(failure=>{if(current)setDetailFailure(codeOf(failure));}).finally(()=>{if(current)setBusy(false);});
+    return ()=>{current=false;controller.abort();};
+  },[scope,initialItemId]);
 
   function refresh() { setLoading(true); setReload(value => value + 1); }
   function changeView(nextTab: "batches" | "own", selected: string | null = null) { setTab(nextTab); setBatchId(selected); setAfter(undefined); setKeyword(""); setSearch(""); setLoading(true); setItems([]); setError(null); }
@@ -111,9 +121,9 @@ function ScopedCollectionPage({ scope,supplyAvailable,initialBatchId }: { scope:
   async function showDetail(item: CollectionItem) {
     if (inFlight.current) return;
     const controller = new AbortController(); commandAbort.current = controller;
-    setSelectedItem(item); setDetail(null); setDialog("detail"); setBusy(true); inFlight.current = true; setError(null);
+    setSelectedItem(item); setDetail(null); setDetailFailure(null); setDialog("detail"); setBusy(true); inFlight.current = true; setError(null);
     try { const value = await readCollectionItem(scope, item.id, controller.signal); if (alive.current) setDetail(value); }
-    catch (failure) { if (alive.current) setError(codeOf(failure)); }
+    catch (failure) { if (alive.current) setDetailFailure(codeOf(failure)); }
     finally { inFlight.current = false; if (alive.current) setBusy(false); }
   }
   async function showMove(item:CollectionItem,after?:string){
@@ -163,7 +173,7 @@ function ScopedCollectionPage({ scope,supplyAvailable,initialBatchId }: { scope:
       {dialog === "transfer" && selectedBatch ? <><p>将“{selectedBatch.name}”的全部 {selectedBatch.count} 件商品加入我的供应链。</p><p className="text-sm text-slate-500">确认后保存当前批次的原始资料，后续可选择店铺并完成适配。</p><Button disabled={transferBlocked} onClick={()=>supply.execute("transfer",{batchId:selectedBatch.id,expectedRevision:selectedBatch.revision})}>确认加入</Button></> : null}
       {dialog === "own" ? <OwnProductForm scope={scope} disabled={writeBlocked} onSubmit={product => void command({ action: "create_product", product })} /> : null}
       {dialog === "import" ? <ExcelImportForm scope={scope} disabled={writeBlocked} onSubmit={input=>void command(input)}/> : null}
-      {dialog === "detail" ? detail ? <ProductFacts detail={detail} /> : <p role="status">正在读取原始资料…</p> : null}
+      {dialog === "detail" ? detail ? <ProductFacts detail={detail} /> : detailFailure ? <p role="alert">{failureText[detailFailure]??"商品资料暂时无法读取，请关闭后重试。"}</p> : <p role="status">正在读取原始资料…</p> : null}
     </CollectionDialog> : null}
   </ConsolePage>;
 }

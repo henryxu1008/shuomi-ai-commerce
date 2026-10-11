@@ -17,7 +17,8 @@ import (
 
 const RuntimeRole = "source_acquisition_runtime"
 
-const preparationPrivileges = `,('listing_preparations','SELECT'),('listing_preparations','INSERT'),('listing_preparation_sources','SELECT'),('listing_preparation_sources','INSERT')`
+const preparationPrivileges = `,('listing_preparations','SELECT'),('listing_preparations','INSERT'),('listing_preparations','UPDATE'),('listing_preparation_sources','SELECT'),('listing_preparation_sources','INSERT')`
+const preparationRuntimeGrant = "GRANT SELECT,INSERT,UPDATE ON public.listing_preparations TO source_acquisition_runtime; GRANT SELECT,INSERT ON public.listing_preparation_sources TO source_acquisition_runtime"
 const planPrivileges = `,('product_acquisition_plans','SELECT'),('product_acquisition_plans','INSERT'),('product_acquisition_plans','UPDATE'),
  ('product_acquisition_plan_items','SELECT'),('product_acquisition_plan_items','INSERT'),('product_acquisition_plan_items','UPDATE'),
  ('product_acquisition_rule_templates','SELECT'),('product_acquisition_rule_templates','INSERT'),('product_acquisition_rule_templates','UPDATE'),
@@ -51,7 +52,8 @@ func GrantAcquisitionPlanPermissions(ctx context.Context, db *gorm.DB) error {
 	}
 	for _, sql := range []string{
 		"GRANT SELECT,INSERT,UPDATE ON public.product_acquisition_plans,public.product_acquisition_plan_items,public.product_acquisition_rule_templates TO source_acquisition_runtime",
-		"GRANT SELECT,INSERT ON public.product_acquisition_rule_commands,public.listing_preparations,public.listing_preparation_sources TO source_acquisition_runtime",
+		"GRANT SELECT,INSERT ON public.product_acquisition_rule_commands TO source_acquisition_runtime",
+		preparationRuntimeGrant,
 	} {
 		if db.WithContext(ctx).Exec(sql).Error != nil {
 			return sourcing.ErrAcquisitionUnavailable
@@ -108,7 +110,7 @@ const podPrivileges = `,('product_pod_operations','SELECT'),('product_pod_operat
 const submissionPrivileges = `,('listing_submission_execution_attempts','SELECT'),('listing_submission_execution_attempts','INSERT'),('listing_submission_execution_attempts','UPDATE'),
  ('listing_submission_target_fences','SELECT'),('listing_submission_target_fences','INSERT'),('listing_submission_target_fences','UPDATE')`
 
-const supplyPrivileges = `,('listing_preparations','SELECT'),('listing_preparations','INSERT'),
+const supplyPrivileges = `,('listing_preparations','SELECT'),('listing_preparations','INSERT'),('listing_preparations','UPDATE'),
  ('listing_preparation_sources','SELECT'),('listing_preparation_sources','INSERT'),
  ('listing_preparation_targets','SELECT'),('listing_preparation_targets','INSERT'),('listing_preparation_targets','UPDATE'),
  ('listing_target_records','SELECT'),('listing_target_records','INSERT'),
@@ -259,7 +261,7 @@ func GrantRuntimePermissions(ctx context.Context, db *gorm.DB, capabilities ...R
 				"GRANT SELECT,INSERT ON public.product_collection_operations TO source_acquisition_runtime")
 		}
 		if supply {
-			statements = append(statements, "GRANT SELECT,INSERT ON public.listing_preparations,public.listing_preparation_sources,public.listing_target_records,public.listing_target_record_commands,public.listing_submission_official_intents,public.listing_submission_official_receipts TO source_acquisition_runtime",
+			statements = append(statements, preparationRuntimeGrant, "GRANT SELECT,INSERT ON public.listing_target_records,public.listing_target_record_commands,public.listing_submission_official_intents,public.listing_submission_official_receipts TO source_acquisition_runtime",
 				"GRANT SELECT,INSERT,UPDATE ON public.listing_preparation_targets,public.listing_preparation_operations,public.listing_preparation_operation_items,public.listing_submission_execution_attempts,public.listing_submission_target_fences TO source_acquisition_runtime",
 				"GRANT SELECT ON public.product_title_proposals TO source_acquisition_runtime")
 		}
@@ -272,7 +274,7 @@ func GrantRuntimePermissions(ctx context.Context, db *gorm.DB, capabilities ...R
 			}
 			statements = append(statements, "GRANT SELECT,INSERT,UPDATE ON public.product_acquisition_plans,public.product_acquisition_plan_items,public.product_acquisition_rule_templates TO source_acquisition_runtime", "GRANT SELECT,INSERT ON public.product_acquisition_rule_commands TO source_acquisition_runtime")
 			if !supply {
-				statements = append(statements, "GRANT SELECT,INSERT ON public.listing_preparations,public.listing_preparation_sources TO source_acquisition_runtime")
+				statements = append(statements, preparationRuntimeGrant)
 			}
 		}
 		if market {
