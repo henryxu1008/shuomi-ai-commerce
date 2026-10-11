@@ -1,6 +1,8 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { ReactNode } from "react";
+import type { WorkbenchStore } from "@/lib/api/workbench-stores";
 
 const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
 const context = vi.hoisted(() => ({ effectiveOrganization: { id: "org-a", name: "企业 A", roles: [], permissions: [] as string[] }, roles: ["listingkit_operator"], permissions: ["product_sourcing.write","local_agent.write","listingkit.image_agent.read","listingkit.image_agent.write","workbench.agent.read","workbench.agent.use","workbench.chat.read","workbench.chat.use","workbench.task.read","workbench.knowledge.read","workbench.store.read","workbench.store.create","workbench.store.update","workbench.store.lifecycle","workbench.source_account.read","workbench.source_account.manage","workbench.organization_member.read","workbench.commercial.read"], retry: vi.fn(), registerOrganizationSwitchGuard: vi.fn(() => vi.fn()) }));
@@ -14,6 +16,7 @@ const remove = vi.hoisted(() => ({ mutate: vi.fn(), retryLast: vi.fn(), canRetry
 const queryClient = vi.hoisted(() => ({ removeQueries: vi.fn() }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
+vi.mock("./store-detail-presentation", () => ({ StoreDetailPresentation: ({store,actions,editForm}:{store:WorkbenchStore;actions:ReactNode;editForm:ReactNode}) => <><h1>{store.name}</h1><p>店铺状态：{store.recordStatus==="active"?"已启用":store.recordStatus==="deleting"?"删除中":"已停用"}</p>{actions}{editForm}</> }));
 vi.mock("@/components/providers/workbench-context-provider", () => ({ useWorkbenchContext: () => context }));
 vi.mock("@tanstack/react-query", async (importOriginal) => ({ ...(await importOriginal<typeof import("@tanstack/react-query")>()), useQueryClient: () => queryClient }));
 vi.mock("@/lib/query/use-workbench-stores", () => ({

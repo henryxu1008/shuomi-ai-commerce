@@ -53,6 +53,35 @@ user acceptance; normal login and user trial remain the delivery handoff.
 
 ## Current base plan and resources (#564)
 
+### Store Center Figma delivery (#641)
+
+`/workbench/stores` now provides scoped full-directory search, platform/site/type,
+status and group filters, four factual overviews, horizontal Store cards, group
+management and atomic batch assignment. **管理** opens overview, official API
+authorization, synchronization and settings tabs; **进入店铺** opens that Store's
+saved products. Existing orders, logistics and exceptions remain read-only.
+
+Open **店铺设置 → 修改归属与预警设置** (or the card's more menu) to choose a
+business responsible member and set a per-Store low-stock threshold. No default
+is installed: an empty value disables warnings. Each known SKU/warehouse stock
+quantity at or below the threshold contributes one warning; missing stock remains
+unknown. Business responsibility never grants Store access. Enterprise
+administrators manage shared groups; all Store actions retain current permissions.
+
+Use the **Start** commands below with a new isolated project and empty databases.
+The existing schema owner installs Store groups, profiles and append-only command
+receipts before serving; runtime roles perform no DDL. This delivery does not
+upgrade retained projects or change their data. Stop/restart preserves named
+volumes. Official application credentials and optional observations still require
+their existing configuration; absent/unsupported observations show unavailable
+or unknown facts. Creating a record does not complete official authorization.
+
+If a creation or settings response is lost, reopen in the same browser tab and
+confirm/retry the retained original request. Do not clear that tab's storage while
+the result is unconfirmed. A version conflict requires reading current facts and
+confirming the draft again. Real SHEIN operations and user acceptance are separate
+from local development checks. See the [admitted design](../../../docs/architecture/store-center-figma-v1.md).
+
 The current entries are `/workbench/account`, `/workbench/plans/options`,
 `/workbench/plans/entitlements`, `/workbench/plans/usage`, and `/workbench/stores`.
 All organizations use the base plan without buying a subscription. Store records

@@ -21,7 +21,7 @@ import { useRouter } from "next/navigation";
 type Conflict = { latest: WorkbenchStore; changedFields: EditableField[] };
 type EditableField = "name" | "region";
 type StoreFormProps =
-  | { mode: "create"; store?: never; conflict?: never; recoveryState?: never; onConflict?: never; onSaved?: never }
+  | { mode: "create"; store?: never; conflict?: never; recoveryState?: never; onConflict?: never; onSaved?: never; onCreated?: (store: WorkbenchStore) => void; onPendingChange?: (busy:boolean)=>void }
   | {
       mode: "edit";
       store: WorkbenchStore;
@@ -62,12 +62,14 @@ export function StoreForm(props: StoreFormProps) {
       ? { name: "", platform: "shein", region: "", externalStoreId: "" }
       : { name: props.store.name, region: props.store.region },
   });
-  const create = useCreateWorkbenchStore();
+  const create = useCreateWorkbenchStore({persist:props.mode==="create"});
   const update = useUpdateWorkbenchStore();
   const [formError, setFormError] = useState<string | null>(null);
   const isPending = submissionPending || create.isPending || update.isPending;
   const isSwitching = context.isSwitching;
   const createRetryAvailable = props.mode === "create" && create.canRetryLast;
+
+  useEffect(()=>{if(props.mode==="create")props.onPendingChange?.(isPending)},[props,isPending]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -130,7 +132,7 @@ export function StoreForm(props: StoreFormProps) {
       setSubmissionPending(true);
       setFormError(null);
       create.mutate(values as WorkbenchStoreCreateInput, {
-        onSuccess: (store) => { submissionPendingRef.current = false; setSubmissionPending(false); router.push(`/workbench/stores/${store.id}`); },
+        onSuccess: (store) => { submissionPendingRef.current = false; setSubmissionPending(false); if(props.onCreated) props.onCreated(store); else router.push(`/workbench/stores/${store.id}`); },
         onError: (error) => { submissionPendingRef.current = false; setSubmissionPending(false); setFormError(applyServerError(form, error, "create")); },
       });
       return;
@@ -168,7 +170,7 @@ export function StoreForm(props: StoreFormProps) {
     setSubmissionPending(true);
     setFormError(null);
     void create.retryLast().then(
-      (store) => { submissionPendingRef.current = false; setSubmissionPending(false); router.push(`/workbench/stores/${store.id}`); },
+      (store) => { submissionPendingRef.current = false; setSubmissionPending(false); if(props.mode === "create" && props.onCreated) props.onCreated(store); else router.push(`/workbench/stores/${store.id}`); },
       (error: unknown) => { submissionPendingRef.current = false; setSubmissionPending(false); setFormError(applyServerError(form, error, "create")); },
     );
   };
@@ -226,11 +228,11 @@ export function StoreForm(props: StoreFormProps) {
         <ReadOnlyField label="平台" value="SHEIN" />
         {props.mode === "create" ? <TextField control={form} name="externalStoreId" label="外部店铺 ID（可选）" disabled={isPending || isSwitching || createRetryAvailable} /> : <ReadOnlyField label="外部店铺 ID" value={props.store.externalStoreId || "未设置"} />}
         {props.mode === "edit" ? <ReadOnlyField label="连接状态" value={connectionLabel(props.store.connectionStatus)} /> : null}
-        <Button disabled={isPending || isSwitching || (props.mode === "create" && create.canRetryLast) || (props.mode === "edit" && (Boolean(props.conflict) || props.recoveryState === "loading" || props.recoveryState === "failed"))} type="submit">
+        {props.mode==="create"&&create.storageError?<p role="alert">无法安全读取或保存原创建键，请刷新页面并检查浏览器存储。</p>:null}
+        <Button disabled={isPending || isSwitching || (props.mode === "create" && (create.canRetryLast || create.storageError)) || (props.mode === "edit" && (Boolean(props.conflict) || props.recoveryState === "loading" || props.recoveryState === "failed"))} type="submit">
           {isPending ? "正在提交..." : props.mode === "create" ? "创建店铺" : "保存更改"}
         </Button>
         {props.mode === "create" && create.canRetryLast ? <Button disabled={isPending || isSwitching} onClick={retryCreate} type="button" variant="outline">重试创建</Button> : null}
-        <Button aria-label="连接能力尚未开放" disabled type="button" variant="outline">连接能力尚未开放</Button>
       </form>
     </section>
   );

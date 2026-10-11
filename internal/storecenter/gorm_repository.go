@@ -54,7 +54,7 @@ func AutoMigrateStoreRepository(db *gorm.DB) error {
 	if db == nil {
 		return errors.New("store repository database is required")
 	}
-	return db.AutoMigrate(&workbenchStoreAuditLogRecord{}, &workbenchStoreRecord{}, &storeMemberGrantRow{}, &storeMemberGrantOperation{}, &storeServiceChargeRow{}, &officialConnectionRow{}, &officialAttemptRow{}, &officialMerchantBinding{})
+	return db.AutoMigrate(&workbenchStoreAuditLogRecord{}, &workbenchStoreRecord{}, &storeMemberGrantRow{}, &storeMemberGrantOperation{}, &storeServiceChargeRow{}, &officialConnectionRow{}, &officialAttemptRow{}, &officialMerchantBinding{}, &StoreGroup{}, &StoreProfile{}, &metadataOperation{})
 }
 
 func NewGormStoreRepository(db *gorm.DB) (*GormStoreRepository, error) {

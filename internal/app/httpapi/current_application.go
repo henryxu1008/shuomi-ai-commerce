@@ -615,6 +615,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		}
 		modules = append(modules, knowledgehttp.NewModule(handler))
 	}
+	var storeCatalogModule kernelmodule.Module
 	if supplied.storeCenters > 0 {
 		stores, err := factories.buildStoreCenter(ctx, supplied.storeCenterDB, authorizer, consumerCharges, supplied.officialStoreApplications, storeCapabilities)
 		if err != nil {
@@ -624,6 +625,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			return nil, errors.New("current store center unavailable")
 		}
 		modules = append(modules, stores)
+		storeCatalogModule = stores
 	}
 	var savedObservations *o.Service
 	if supplied.storeObservations > 0 {
@@ -636,6 +638,15 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			workbench.handler.SetStoreObservationsReadiness(module.application.Available)
 		}
 		savedObservations = module.application.Service
+	}
+	if configurable, ok := storeCatalogModule.(interface {
+		ConfigureCatalog(*storecenter.Catalog, *storecenter.MetadataRepository)
+	}); ok {
+		catalog, metadata, err := buildStoreCatalog(supplied.storeCenterDB, authorizer, supplied.officialStoreApplications, savedObservations, supplied.membership, cfg)
+		if err != nil {
+			return nil, fmt.Errorf("build current Store catalog: %w", err)
+		}
+		configurable.ConfigureCatalog(catalog, metadata)
 	}
 	if supplied.localTrials > 0 {
 		// The local trial shares no Cockpit facts or schema ownership.
@@ -1518,7 +1529,7 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 				return err
 			}
 		}
-		if descriptor.Path == "/api/v1/workbench/stores" || strings.HasPrefix(descriptor.Path, "/api/v1/workbench/stores/") {
+		if descriptor.Path == "/api/v1/workbench/stores" || strings.HasPrefix(descriptor.Path, "/api/v1/workbench/stores/") || descriptor.Path == "/api/v1/workbench/store-catalog" || descriptor.Path == "/api/v1/workbench/store-groups" || descriptor.Path == "/api/v1/workbench/store-metadata" || strings.HasPrefix(descriptor.Path, "/api/v1/workbench/store-metadata/") {
 			if !optional.StoreCenter {
 				return errors.New("store center feature not admitted")
 			}

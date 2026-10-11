@@ -8,6 +8,8 @@ import {
   type UseMutationResult,
 } from "@tanstack/react-query";
 import { useRef, useState } from "react";
+import { z } from "zod";
+import { workbenchStoreCreateSchema } from "@/lib/validation/workbench-store";
 
 import { useWorkbenchContext } from "@/components/providers/workbench-context-provider";
 import {
@@ -44,6 +46,7 @@ type CapturedOperation<T> = {
 
 type CapturedKeyedOperation<T> = CapturedOperation<T> & {
   operationKey: string;
+  persistenceKey?: string;
 };
 
 type StoreVersionInput = { id: string; version: number };
@@ -73,14 +76,22 @@ export function useWorkbenchStore(storeId: string) {
   });
 }
 
-export function useCreateWorkbenchStore() {
+const savedCreateSchema=z.object({organizationId:z.string().min(1).max(128),operationKey:z.string().uuid(),input:workbenchStoreCreateSchema,persistenceKey:z.string().max(500)}).strict();
+function readSavedCreate(key:string){
+ const raw=sessionStorage.getItem(key);if(!raw)return null;if(raw.length>4096)throw Error("invalid saved intent");const operation=savedCreateSchema.parse(JSON.parse(raw));if(operation.persistenceKey!==key)throw Error("wrong saved scope");return operation;
+}
+export function useCreateWorkbenchStore({persist=false}:{persist?:boolean}={}) {
   const organizationId = useEffectiveOrganizationId();
+  const userId=useWorkbenchContext().user?.id??"";
+  const persistenceKey=persist?`store-create:${JSON.stringify([organizationId,userId])}`:"";
+  const [restored]=useState(()=>{if(!persist)return {operation:null,error:false,key:""};try{if(!organizationId||!userId)throw Error("missing scope");return {operation:readSavedCreate(persistenceKey),error:false,key:persistenceKey}}catch{return {operation:null,error:true,key:persistenceKey}}});
+  const storageError=persist&&(restored.error||restored.key!==persistenceKey);
   const queryClient = useQueryClient();
   const lastOperationRef = useRef<{
     operation: CapturedKeyedOperation<WorkbenchStoreCreateInput>;
     retryable: boolean;
-  } | null>(null);
-  const [retryState, setRetryState] = useState<RetryState | null>(null);
+  } | null>(restored.operation?{operation:restored.operation,retryable:true}:null);
+  const [retryState, setRetryState] = useState<RetryState | null>(restored.operation?{organizationId,available:true}:null);
   const mutation = useMutation<
     WorkbenchStore,
     WorkbenchAPIError,
@@ -89,15 +100,26 @@ export function useCreateWorkbenchStore() {
     mutationKey: workbenchStoreKeys.mutation(organizationId, "create"),
     mutationFn: (operation: CapturedKeyedOperation<WorkbenchStoreCreateInput>) => {
       requireEffectiveOrganization(operation.organizationId);
+      if(persist){
+        if(storageError||!operation.persistenceKey)throw new WorkbenchAPIError(0,"STORE_CREATE_OUTCOME_UNKNOWN","无法安全保存原创建键，请刷新后恢复", "",[]);
+        const saved=readSavedCreate(operation.persistenceKey);
+        if(saved && saved.operationKey!==operation.operationKey)throw new WorkbenchAPIError(0,"STORE_CREATE_OUTCOME_UNKNOWN","原创建结果仍待确认", "",[]);
+        sessionStorage.setItem(operation.persistenceKey,JSON.stringify(operation));
+      }
       return createWorkbenchStore(operation.input, operation.operationKey, operation.organizationId);
     },
     retry: retryWorkbenchRequest,
     onSuccess: (_store, operation) =>
       {
+        if(operation.persistenceKey && readSavedCreate(operation.persistenceKey)?.operationKey===operation.operationKey)sessionStorage.removeItem(operation.persistenceKey);
         updateLastKeyedOperation(lastOperationRef, setRetryState, operation, false);
         return invalidateCapturedOrganization(queryClient, operation.organizationId);
       },
     onError: (error, operation) => {
+      if(operation.persistenceKey){
+        if(error.code==="INVALID_REQUEST" && error.status===400){sessionStorage.removeItem(operation.persistenceKey)}
+        else {let saved=operation;try{saved=readSavedCreate(operation.persistenceKey)??operation}catch{}if(lastOperationRef.current?.operation===operation){lastOperationRef.current={operation:saved,retryable:true};setRetryState({organizationId:saved.organizationId,available:true})}return}
+      }
       updateLastKeyedOperation(
         lastOperationRef,
         setRetryState,
@@ -110,7 +132,7 @@ export function useCreateWorkbenchStore() {
     input: WorkbenchStoreCreateInput,
     options?: MutationOptions<WorkbenchStore, WorkbenchStoreCreateInput>,
   ) => {
-    const operation = captureKeyedOperation(organizationId, input);
+    const operation = {...captureKeyedOperation(organizationId, input),...(persist?{persistenceKey}: {})};
     lastOperationRef.current = { operation, retryable: false };
     setRetryState({ organizationId: operation.organizationId, available: false });
     return [operation, captureMutationOptions(options, input)] as const;
@@ -137,7 +159,8 @@ export function useCreateWorkbenchStore() {
         ? mutation.mutateAsync(...submit(input, options))
         : Promise.reject(missingOrganizationError()),
     retryLast,
-    canRetryLast: retryState?.available === true && retryState.organizationId === organizationId,
+    storageError,
+    canRetryLast: !storageError && retryState?.available === true && retryState.organizationId === organizationId,
   };
 }
 

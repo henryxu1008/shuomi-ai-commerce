@@ -68,6 +68,8 @@ Authority：[最终 UI/IA](../product/final-ui-ia-authority.md)，文件 `tg48P4
 
 normal/attention 是只读展示分类，不保存第二业务状态机：connected 且所需已开放商品/订单观察当前 binding 下成功完整，并且无已知阈值预警才可 normal；明确断连/过期、同步 failed/partial/suspended 或已知低库存归 attention。未配置能力、未同步、缺项/不完整库存不是 normal，也不是假 0；显示 unknown/incomplete 与原因。记录 disabled/deleting、服务 pending/expired 等继续分别展示，不能互相推导。
 
+成功遍历和状态字段覆盖是两个事实：`syncHealthy` 可说明商品/订单 generation 完整遍历；只有商品状态和订单状态 metric 均 complete，且库存判定覆盖完整或阈值未设置，才能计入 normal。详情通过窄 `GET /stores/:id/summary` 回读其精确 Store，不以列表第一页查找或覆盖替代；旧基础 `GET /stores` 不改变。
+
 概览返回 total、normal、attention、syncHealthy 和 unknown/coverage。同步正常只取当前 binding 下完整成功的 required kind；全托管消费者订单沿现有 unsupported，不伪装已同步。Metric 注明筛选范围及取得时间；unknown 不计入正常，用户可以进入具体原因。
 
 平台/站点/类型不得从 Figma 样例证明：platform 仍 SHEIN；类型来自实际官方应用 registry/type（未授权显示未确认，不接受前端自报半/全托管覆盖官方事实）；站点筛选沿实际 region 字段，但读取仅使用现有 observations capability（目前 shein-us）。加拿大样例不是扩站授权。

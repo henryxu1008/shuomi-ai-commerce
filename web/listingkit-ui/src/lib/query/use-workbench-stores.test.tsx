@@ -55,6 +55,7 @@ const mocks = vi.hoisted(() => ({
   disable: vi.fn(),
   remove: vi.fn(),
   context: {
+    user: {id:"actor-a"},
     effectiveOrganization: null as { id: string; name: string; permissions?: string[]; roles: string[] } | null,
   },
 }));
@@ -77,6 +78,7 @@ vi.mock("@/lib/api/workbench-stores", async (importOriginal) => {
 
 vi.mock("@/components/providers/workbench-context-provider", () => ({
   useWorkbenchContext: () => ({
+    user:mocks.context.user,
     effectiveOrganization: mocks.context.effectiveOrganization,
     permissions: mocks.context.effectiveOrganization?.permissions ?? [],
   }),
@@ -103,6 +105,7 @@ function selectOrganization(id: string | null) {
 
 describe("Organization-scoped workbench Store queries", () => {
   beforeEach(() => {
+    sessionStorage.clear();
     vi.clearAllMocks();
     selectOrganization("org-a");
     mocks.list.mockResolvedValue(list);
@@ -119,6 +122,17 @@ describe("Organization-scoped workbench Store queries", () => {
         .mockReturnValueOnce(CREATE_KEY_2)
         .mockReturnValueOnce(DELETE_KEY),
     });
+  });
+
+  it("restores the original create key and payload after a lost response and remount",async()=>{
+    mocks.create.mockRejectedValue(new WorkbenchAPIError(503,"DEPENDENCY_UNAVAILABLE","","",[]));
+    const input={name:"Original",platform:"shein" as const,region:"US"};
+    const {wrapper}=createHarness();const first=renderHook(()=>useCreateWorkbenchStore({persist:true}),{wrapper});
+    expect(first.result.current.storageError).toBe(false);
+    await act(async()=>{await first.result.current.mutateAsync(input).catch(()=>undefined)});
+    expect(mocks.create).toHaveBeenCalled();const original=mocks.create.mock.calls[0];expect(first.result.current.canRetryLast).toBe(true);first.unmount();
+    mocks.create.mockResolvedValue(store);const restored=renderHook(()=>useCreateWorkbenchStore({persist:true}),{wrapper});expect(restored.result.current.canRetryLast).toBe(true);
+    await act(async()=>{await restored.result.current.retryLast()});expect(mocks.create.mock.calls.at(-1)).toEqual(original);expect(sessionStorage.length).toBe(0);
   });
 
   it.each(["list", "item"])("drops cached %s facts when permissions change with the same native role", async (kind) => {
