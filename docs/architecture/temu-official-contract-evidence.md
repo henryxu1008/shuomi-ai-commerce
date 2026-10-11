@@ -41,6 +41,7 @@
 | E29 | [temu.local.goods.cats.rules.get](https://partner.temu.com/documentation?menu_code=fb16b05f7a904765aac4af3a24b87d4a&sub_menu_code=5853e21ac9b74fdc96497a52c848765f) | 2026-09-23 | catId 请求；fieldRules/expandCatType/secondHand/warnings；有 category unavailable / shop status abnormal 等拒绝；当前返回未见站点映射/币种字段，不能拿它冒充映射接口 |
 | E30 | [Model Site and Region](https://partner.temu.com/documentation?menu_code=38e79b35d2cb463d85619c1c786dd303&sub_menu_code=07938e60f95344a0a9444f524ea61e31) | 2026-07-16 00:11:23 | 2026-10-12 在用户已登录的 GLOBAL 会话读取完整正文及 235 行地区表。87 行有 siteId（83 个不同 siteId），39 行 LOCAL=true、57 行 SEMI=true、9 行 SEMI=coming soon；空白不是 false 或授权。regionId 与 siteId 是明确的不同字典，见 §5；该页面介绍订单履约地区，不取代当前 token/mall 的发布权限 |
 | E31 | [Product Basic Introduction](https://partner.temu.com/documentation?menu_code=38e79b35d2cb463d85619c1c786dd303&sub_menu_code=2bdd2c8933604967a613caa5f87e5963) | 2025-10-11 11:52:57 | 当前店铺类目/品牌/运费模板、创建后进入审核、创建/审核分离；基础价格/包装示例为 USD/lb/in，不能拿这些美国示例替缺失的非美国规格。站点特殊接口章节当前仅 Brazil，未找到 GE/AM 补充页 |
+| E32 | [Guide of price](https://partner.temu.com/documentation?menu_code=fb16b05f7a904765aac4af3a24b87d4a&sub_menu_code=e351264f0a1749cba4f112345a86813c) | 2026-01-30 14:04:02 | 2026-10-12 已登录后读取：支持商家明确手工设置基础价格，计算器结果仅供参考；指南的计算器流程引用 baseprice.recommend 和较早 bg.local.goods.add，不能当作 V2 的新强制合同。价格管理 API 仅面向获白名单的本土自研应用，需店铺层申请；不因此授权独立调价或自动申请。正文没有 GE/AM 的币种/精度/范围，未关闭规格缺口 |
 
 ### 文档限定的 router
 
@@ -332,4 +333,4 @@ E30 全部 235 行通过可见 DOM 表格读取，下列完整保留其中有 Si
 | 本土全站点价格/单位规格闭环 | UNKNOWN（GE/AM 2 项缺口） | 37 个 LOCAL=true 站点可关联 E24；GE/AM 无已读规格，SA/LU 的一般开放栏为空白；不冒充全覆盖 |
 | externalGoodsId/outGoodsSn 关系与失响应 exact readback | UNKNOWN | 不做错误 adopt；原 UNKNOWN fence 保留 |
 | 真实官方应用/真实 merchant 授权、发布、撤权、消费者状态 | NOT_RUN | 本轮未授权业务 API/真实数据 |
-| 用户可操作产品/生产验收 | NOT_RUN | 无正式实现；文档/CI/AI评审不构成验收 |
+| 用户可操作产品/生产验收 | NOT_RUN | 已准入并开始店铺连接实现；未部署/未完成全范围，文档/开发自检/CI/AI评审不构成验收 |

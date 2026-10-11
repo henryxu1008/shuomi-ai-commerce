@@ -39,10 +39,11 @@ func normalizeCreateStoreRequest(request CreateStoreRequest) (CreateStoreRequest
 	if request.Name, err = normalizeUserValue("name", request.Name, MaxStoreNameCodePoints, true); err != nil {
 		return CreateStoreRequest{}, err
 	}
-	if _, err = normalizePlatform(request.Platform); err != nil {
+	platform, err := normalizePlatform(request.Platform)
+	if err != nil {
 		return CreateStoreRequest{}, err
 	}
-	request.Platform = string(PlatformShein)
+	request.Platform = string(platform)
 	if request.Region, err = normalizeUserValue("region", request.Region, MaxStoreRegionCodePoints, true); err != nil {
 		return CreateStoreRequest{}, err
 	}

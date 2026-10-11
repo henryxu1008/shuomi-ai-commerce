@@ -24,6 +24,7 @@ import (
 	"task-processor/internal/authz"
 	"task-processor/internal/core/config"
 	"task-processor/internal/integration/shein"
+	"task-processor/internal/integration/temu"
 	kernelmodule "task-processor/internal/kernel/module"
 	"task-processor/internal/ledger/orgresource"
 	"task-processor/internal/listingsubscription"
@@ -205,6 +206,81 @@ func TestCurrentStorePostgresDelivery(t *testing.T) {
 	require.Equal(t, 200, status, out)
 	require.NotContains(t, out, "quota", "Native Store directory does not consume retired Store-count entitlement semantics")
 	require.EqualValues(t, 0, out["pagination"].(map[string]any)["total"])
+	t.Run("temu-create-replay-catalog-and-manual-connection", func(t *testing.T) {
+		protection, err := temu.NewCredentialProtection("synthetic-temu-key", make([]byte, 32))
+		require.NoError(t, err)
+		registry, err := storeapp.NewOfficialApplicationRegistry([]storeapp.OfficialApplicationRegistration{
+			{Provider: postgresTemuConnectionProvider{storecenter.PartitionCN}, Protection: protection},
+			{Provider: postgresTemuConnectionProvider{storecenter.PartitionUS}, Protection: protection},
+		})
+		require.NoError(t, err)
+		configured, err := buildCurrentStoreCenterModule(ctx, records, authz.DefaultListingKitAuthorizer(), charges, registry, storecenter.RuntimeCapabilities{})
+		require.NoError(t, err)
+		routes := kernelmodule.NewRegistry()
+		require.NoError(t, configured.Register(routes))
+		server = buildCurrentApplicationHTTPServer(routes.Routes(), *auth.authDependencies)
+		status, control := request("POST", root, "B", `{"name":"SHEIN filter control","platform":"shein","region":"US"}`, uuid.NewString(), 0)
+		require.Equal(t, 201, status, control)
+		for _, fixture := range []struct {
+			mode      storecenter.OfficialMerchantMode
+			partition storecenter.OfficialIdentityPartition
+		}{
+			{storecenter.MerchantFullyManaged, storecenter.PartitionCN},
+			{storecenter.MerchantSemiManaged, storecenter.PartitionCN},
+			{storecenter.MerchantLocal, storecenter.PartitionUS},
+		} {
+			t.Run(string(fixture.mode), func(t *testing.T) {
+				key := uuid.NewString()
+				body := fmt.Sprintf(`{"name":"TEMU %s","platform":"temu","region":"%s"}`, fixture.mode, fixture.partition)
+				status, created := request("POST", root, "B", body, key, 0)
+				require.Equal(t, 201, status, created)
+				require.Equal(t, "temu", created["platform"])
+				id := created["id"].(string)
+				status, replay := request("POST", root, "B", body, key, 0)
+				require.Equal(t, 201, status, replay)
+				require.Equal(t, created, replay)
+				status, conflict := request("POST", root, "B", strings.Replace(body, `"temu"`, `"shein"`, 1), key, 0)
+				require.Equal(t, 409, status, conflict)
+				status, read := request("GET", root+"/"+id, "B", "", "", 0)
+				require.Equal(t, 200, status, read)
+				require.Equal(t, "temu", read["platform"])
+				for _, path := range []string{root + "?platform=temu", "/api/v1/workbench/store-catalog?platform=temu"} {
+					status, filtered := request("GET", path, "B", "", "", 0)
+					require.Equal(t, 200, status, filtered)
+					if strings.Contains(path, "/store-catalog") {
+						filtered = filtered["data"].(map[string]any)
+					}
+					items := filtered["items"].([]any)
+					require.NotEmpty(t, items)
+					found := false
+					for _, raw := range items {
+						item := raw.(map[string]any)
+						require.Equal(t, "temu", item["platform"])
+						require.NotEqual(t, control["id"], item["id"])
+						found = found || item["id"] == id
+					}
+					require.True(t, found, "filtered consumer must include the newly created TEMU Store")
+				}
+				status, begin := request("POST", root+"/"+id+"/connection/begin", "B", fmt.Sprintf(`{"appId":"synthetic-temu-app","identityPartition":"%s"}`, fixture.partition), uuid.NewString(), int64(read["version"].(float64)))
+				require.Equal(t, 200, status, begin)
+				require.Equal(t, "manual_token", begin["authorizationMethod"])
+				require.Equal(t, "", begin["authorizationUrl"])
+				token := "synthetic-" + string(fixture.mode)
+				status, connected := request("POST", root+"/"+id+"/connection/token", "B", fmt.Sprintf(`{"attemptId":"%s","accessToken":"%s"}`, begin["attemptId"], token), "", 0)
+				require.Equal(t, 200, status, connected)
+				require.Equal(t, "connected", connected["connectionStatus"])
+				require.Equal(t, "temu", connected["platform"])
+				require.Equal(t, string(fixture.mode), connected["mode"])
+				require.NotEmpty(t, connected["merchantIdentityHash"])
+				public, err := json.Marshal(connected)
+				require.NoError(t, err)
+				require.NotContains(t, string(public), token)
+				status, current := request("GET", root+"/"+id, "B", "", "", 0)
+				require.Equal(t, 200, status, current)
+				require.Equal(t, "connected", current["connectionStatus"])
+			})
+		}
+	})
 	// Serving credentials cannot mutate entitlements, delete audit or install DDL.
 	require.Error(t, quota.Exec(`UPDATE saas_tenant_entitlements SET status='inactive'`).Error)
 	require.Error(t, records.Exec(`DELETE FROM workbench_store_audit_logs`).Error)
@@ -331,4 +407,30 @@ func (postgresConnectionProvider) Exchange(context.Context, string, string) (sto
 }
 func (postgresConnectionProvider) QueryStore(context.Context, storecenter.OfficialMerchantCredential) (storecenter.OfficialStoreInformation, error) {
 	return storecenter.OfficialStoreInformation{}, nil
+}
+
+type postgresTemuConnectionProvider struct {
+	partition storecenter.OfficialIdentityPartition
+}
+
+func (p postgresTemuConnectionProvider) Application() storecenter.OfficialApplication {
+	modes := storecenter.ModesLocal
+	if p.partition == storecenter.PartitionCN {
+		modes = storecenter.ModesFullyManaged | storecenter.ModesSemiManaged
+	}
+	return storecenter.OfficialApplication{AppID: "synthetic-temu-app", Version: storeapp.BoundTemuOfficialRevision("v1", p.partition), Platform: storecenter.PlatformTemu, IdentityPartition: p.partition, AuthorizationMethod: storecenter.AuthorizationManualToken, SupportedModes: modes}
+}
+func (postgresTemuConnectionProvider) AuthorizationURL(string) (string, error) { return "", nil }
+func (postgresTemuConnectionProvider) Exchange(context.Context, string, string) (storecenter.OfficialMerchantCredential, error) {
+	panic("manual token install must not exchange a code")
+}
+func (p postgresTemuConnectionProvider) QueryStore(_ context.Context, credential storecenter.OfficialMerchantCredential) (storecenter.OfficialStoreInformation, error) {
+	mode, namespace, region, scope := storecenter.MerchantLocal, storecenter.MerchantLocalNamespace, int64(211), "temu.local.goods.v2.add"
+	if p.partition == storecenter.PartitionCN {
+		mode, namespace, region, scope = storecenter.MerchantFullyManaged, storecenter.MerchantSupplierNamespace, 0, "bg.glo.goods.add"
+		if credential.Temu.AccessToken == "synthetic-semi_managed" {
+			mode = storecenter.MerchantSemiManaged
+		}
+	}
+	return storecenter.OfficialStoreInformation{Verification: &storecenter.OfficialVerificationFacts{Platform: storecenter.PlatformTemu, IdentityPartition: p.partition, Namespace: namespace, MerchantID: "synthetic-merchant-" + credential.Temu.AccessToken, Mode: mode, RegionID: region, ExpiresAt: time.Now().UTC().Add(time.Hour), Scopes: []string{scope}, ContractRevision: "synthetic-identity-v1", VerifiedAt: time.Now().UTC()}}, nil
 }

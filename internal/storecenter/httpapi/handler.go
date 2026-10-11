@@ -183,7 +183,7 @@ func (h *Handler) Create(c *gin.Context) {
 		writeInvalid(c, "name", "invalid")
 		return
 	}
-	if values["platform"] != string(storecenter.PlatformShein) {
+	if !isPublicStorePlatform(values["platform"]) {
 		writeInvalid(c, "platform", "invalid")
 		return
 	}
@@ -489,7 +489,7 @@ func parseListRequest(rawQuery string) (storecenter.ListStoresRequest, string, e
 		return storecenter.ListStoresRequest{}, "page", errors.New("page offset overflows")
 	}
 	if value, ok := query["platform"]; ok {
-		if value[0] != string(storecenter.PlatformShein) {
+		if !isPublicStorePlatform(value[0]) {
 			return storecenter.ListStoresRequest{}, "platform", errors.New("invalid platform")
 		}
 		request.Platform = value[0]
@@ -504,6 +504,10 @@ func parseListRequest(rawQuery string) (storecenter.ListStoresRequest, string, e
 		}
 	}
 	return request, "", nil
+}
+
+func isPublicStorePlatform(value string) bool {
+	return value == string(storecenter.PlatformShein) || value == string(storecenter.PlatformTemu)
 }
 
 func parseStringObject(body io.Reader, fields map[string]bool) (map[string]string, string, error) {
