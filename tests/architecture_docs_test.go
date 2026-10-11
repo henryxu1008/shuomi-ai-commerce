@@ -10,6 +10,16 @@ import (
 	"testing"
 )
 
+func TestSupplyCompletionDraftDocumentPreservesOriginalAuthorityAndExplicitRollout(t *testing.T) {
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "supply-unbound-completion-drafts.md"), []string{
+		"IMPLEMENTATION_READY", "PD-SUPPLY-UNBOUND-COMPLETION-2026-10-12", "2667:1948",
+		"internal/listing/completiondraft", "supplyCompletionDrafts", "RuntimeCapabilities union",
+		"listing_completion_draft_records", "listing_completion_draft_heads", "listing_completion_draft_commands",
+		"CAS", "COMMIT", "UNKNOWN", "org/actor/member", "live owner", "64 KiB",
+		"另行取得具体授权", "保留三表/所有记录", "不生成 Store merchant/rules",
+	})
+}
+
 func TestStoreObservationsPreparationDocumentKeepsExecutionClosed(t *testing.T) {
 	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "store-observations-preparation-runtime.md"), []string{
 		"IMPLEMENTATION_READY", "preparationOnly=true", "zero", "configured official applications",
