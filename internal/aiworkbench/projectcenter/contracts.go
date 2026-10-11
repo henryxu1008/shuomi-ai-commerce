@@ -95,12 +95,33 @@ type TemplatePage struct {
 	Templates []Template `json:"templates"`
 	Next      string     `json:"next"`
 }
+type OverviewSnapshot struct {
+	Scope                                                                Scope
+	ActiveProjects, TodayUpdatedProjects, StoreProjects, GeneralProjects int64
+	TaskIDs, StoreIDs                                                    []string
+}
+type StoreOption struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+type Overview struct {
+	ActiveProjects       int64         `json:"activeProjects"`
+	TodayUpdatedProjects int64         `json:"todayUpdatedProjects"`
+	StoreProjects        int64         `json:"storeProjects"`
+	GeneralProjects      int64         `json:"generalProjects"`
+	WaitingTasks         *int          `json:"waitingTasks"`
+	TimeZone             string        `json:"timeZone"`
+	Today                string        `json:"today"`
+	Stores               []StoreOption `json:"stores"`
+	StoresAvailable      bool          `json:"storesAvailable"`
+}
 type Repository interface {
 	Replay(context.Context, Scope, string, Command) (Receipt, bool, error)
 	Commit(context.Context, Scope, string, Command, error) (Receipt, error)
 	Get(context.Context, Scope, string) (Project, []Reference, error)
 	List(context.Context, Scope, Query) ([]Project, string, error)
 	Templates(context.Context, Scope, string) ([]Template, string, error)
+	Overview(context.Context, Scope, string, time.Time, time.Time) (OverviewSnapshot, error)
 }
 type ReferenceReader interface {
 	Resolve(context.Context, Scope, Reference) (ReferenceView, error)

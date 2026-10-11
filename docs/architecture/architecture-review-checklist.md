@@ -407,6 +407,7 @@ Supporting context documents must not be listed as review references unless prom
 - `docs/architecture/store-center-current-application-v1.md`
 - `docs/architecture/supply-market-v1.md`
 - `docs/architecture/selected-application-overview-v1.md`
+- `docs/architecture/project-center-overview-read-v1.md`
 - `docs/architecture/store-center-platform-observations-v1.md`
 - `docs/architecture/operations-cockpit-v1.md`
 - `docs/architecture/httpapi-assembly-boundaries.md`

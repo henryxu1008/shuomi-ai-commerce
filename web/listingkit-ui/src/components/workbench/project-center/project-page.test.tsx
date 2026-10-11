@@ -2,15 +2,29 @@ import {act,cleanup,fireEvent,render,screen,waitFor} from "@testing-library/reac
 import {beforeEach,afterEach,it,expect,vi} from "vitest";
 import {ProjectPage} from "./project-page";
 import {ProjectError} from "@/lib/api/project-center";
-const f=vi.hoisted(()=>({request:vi.fn(),push:vi.fn(),context:{user:{id:"user-a"},effectiveOrganization:{id:"org-a"},permissions:["workbench.project.read","workbench.project.manage"],projectCenterAvailable:true,isLoading:false,isSwitching:false,selectionRequired:false,error:null,blockingError:null}}));
+const f=vi.hoisted(()=>({request:vi.fn(),overview:vi.fn(),push:vi.fn(),context:{user:{id:"user-a"},effectiveOrganization:{id:"org-a"},permissions:["workbench.project.read","workbench.project.manage"],projectCenterAvailable:true,isLoading:false,isSwitching:false,selectionRequired:false,error:null,blockingError:null}}));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>f.context}));
-vi.mock("@/lib/api/project-center",async original=>({...await original<typeof import("@/lib/api/project-center")>(),projectRequest:f.request}));
+vi.mock("@/lib/api/project-center",async original=>({...await original<typeof import("@/lib/api/project-center")>(),projectRequest:f.request,projectOverviewRequest:f.overview}));
 vi.mock("next/navigation",()=>({useRouter:()=>({push:f.push})}));
 const id="550e8400-e29b-41d4-a716-446655440000";
 const storageKey='project-center:intent:["user-a","org-a"]';
 const p={id,title:"原企业项目",goal:"长期目标",kind:"OTHER",dueDate:"",revision:1,archived:false,createdAt:"2026-10-09T00:00:00Z",updatedAt:"2026-10-09T00:00:00Z",storeScope:false,references:[],taskTotal:0,taskCompleted:0,taskPending:0,taskSummaryAvailable:true};
-beforeEach(()=>{f.context.user={id:"user-a"};f.context.effectiveOrganization={id:"org-a"};f.context.isSwitching=false;f.context.projectCenterAvailable=true;f.context.permissions=["workbench.project.read","workbench.project.manage"];f.request.mockReset();f.push.mockReset();sessionStorage.clear();f.request.mockResolvedValue({projects:[],next:""});HTMLDialogElement.prototype.showModal=vi.fn();HTMLDialogElement.prototype.close=vi.fn();});
+const metrics={activeProjects:35,todayUpdatedProjects:4,storeProjects:20,generalProjects:15,waitingTasks:2,timeZone:"Asia/Singapore",today:"2026-10-11",stores:[{id:"store-a",name:"授权一号店"}],storesAvailable:true};
+beforeEach(()=>{f.context.user={id:"user-a"};f.context.effectiveOrganization={id:"org-a"};f.context.isSwitching=false;f.context.projectCenterAvailable=true;f.context.permissions=["workbench.project.read","workbench.project.manage"];f.overview.mockReset();f.overview.mockResolvedValue(metrics);f.request.mockReset();f.push.mockReset();sessionStorage.clear();f.request.mockResolvedValue({projects:[],next:""});HTMLDialogElement.prototype.showModal=vi.fn();HTMLDialogElement.prototype.close=vi.fn();});
 afterEach(()=>{cleanup();sessionStorage.clear();});
+it("shows full private metrics, scopes store filters and clears them on reset",async()=>{
+ render(<ProjectPage/>);await screen.findByText("35");expect(screen.getByText("店铺 20 · 非店铺 15")).toBeVisible();expect(screen.getByRole("heading",{name:"进行中项目",level:1})).toBeVisible();
+ const store=screen.getByRole("combobox",{name:"具体店铺"});expect(store).toBeDisabled();fireEvent.click(screen.getByRole("button",{name:/^关联店铺$/}));expect(store).toBeEnabled();fireEvent.change(store,{target:{value:"store-a"}});
+ await waitFor(()=>expect(f.request.mock.calls.some(c=>new URLSearchParams(c[1].slice(1)).get("storeId")==="store-a")).toBe(true));fireEvent.click(screen.getByRole("button",{name:"重置"}));expect(store).toBeDisabled();
+ await waitFor(()=>expect(new URLSearchParams(f.request.mock.lastCall![1].slice(1)).get("storeId")).toBe(""));expect(screen.getAllByRole("heading",{name:"进行中项目",level:1})).toHaveLength(1);
+});
+it("keeps unknown metrics honest and does not reinstall stale overview after organization changes",async()=>{
+ let finish!:(v:unknown)=>void;f.overview.mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve}));f.overview.mockResolvedValue({...metrics,activeProjects:1,storeProjects:0,generalProjects:1,waitingTasks:null,stores:[],storesAvailable:false});
+ const v=render(<ProjectPage/>);await waitFor(()=>expect(f.overview).toHaveBeenCalled());f.context.effectiveOrganization={id:"org-b"};v.rerender(<ProjectPage/>);await screen.findByText("关联任务状态暂不可用");f.context.effectiveOrganization={id:"org-a"};v.rerender(<ProjectPage/>);await act(async()=>finish(metrics));expect(screen.queryByText("35")).toBeNull();expect(screen.queryByRole("option",{name:"授权一号店"})).toBeNull();
+});
+it("clears old overview on failed refresh and offers an explicit retry",async()=>{
+ render(<ProjectPage/>);await screen.findByText("35");f.overview.mockRejectedValue(new ProjectError("DEPENDENCY_UNAVAILABLE"));fireEvent.click(screen.getByRole("button",{name:"刷新统计"}));await screen.findByText("项目统计暂不可用");expect(screen.queryByText("35")).toBeNull();expect(screen.getByRole("button",{name:"重试统计"})).toBeEnabled();
+});
 it("isolates pending private goals when colon-bearing identity and organization tuples would collide",async()=>{
  f.context.user={id:"a:b"};f.context.effectiveOrganization={id:"c"};
  f.request.mockImplementation(async(_scope,_path,_schema,_signal,command)=>command?Promise.reject(new ProjectError("OUTCOME_UNKNOWN")):{projects:[],next:""});

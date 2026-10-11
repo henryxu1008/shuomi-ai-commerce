@@ -128,4 +128,63 @@ func TestPrivateProjectTransactions(t *testing.T) {
 	require.Error(t, runtimeDB.Exec("DELETE FROM ai_workbench_projects.projects WHERE id=?", id).Error)
 	require.Error(t, runtimeDB.Exec("UPDATE ai_workbench_projects.projects SET actor_id='someone' WHERE id=?", id).Error)
 	require.NoError(t, runtimeDB.Exec("RESET ROLE").Error)
+	t.Run("overview reads full private facts beyond first page with runtime role", func(t *testing.T) {
+		today := time.Date(2026, 10, 11, 0, 0, 0, 0, time.UTC)
+		require.NoError(t, db.Exec("UPDATE ai_workbench_projects.projects SET updated_at=? WHERE id=?", today.Add(-time.Hour), id).Error)
+		var fixtures []projectRow
+		for i := 0; i < 25; i++ {
+			stamp := today.Add(time.Hour)
+			if i == 24 {
+				stamp = today.Add(-time.Hour)
+			}
+			storeID := "store-a"
+			if i%2 == 1 {
+				storeID = "store-b"
+			}
+			fixtures = append(fixtures, projectRow{ID: uuid.NewString(), OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, Title: "fixture", Goal: "goal", Kind: "OTHER", StoreID: storeID, Revision: 1, CreatedAt: stamp, UpdatedAt: stamp})
+		}
+		archived := projectRow{ID: uuid.NewString(), OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, Title: "archived", Goal: "goal", Kind: "OTHER", StoreID: "store-c", Archived: true, Revision: 1, CreatedAt: today, UpdatedAt: today}
+		foreign := archived
+		foreign.ID = uuid.NewString()
+		foreign.Archived = false
+		foreign.ActorID = "other-actor"
+		foreign.StoreID = "protected-store"
+		otherOrg := foreign
+		otherOrg.ID = uuid.NewString()
+		otherOrg.ActorID = scope.ActorID
+		otherOrg.OrganizationID = "org-b"
+		require.NoError(t, db.Create(append(fixtures, archived, foreign, otherOrg)).Error)
+		taskA, taskB, excluded := uuid.NewString(), uuid.NewString(), uuid.NewString()
+		refs := []referenceRow{{SlotID: uuid.NewString(), ProjectID: fixtures[0].ID, OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, Kind: "BUSINESS_TASK", TargetID: taskA, Active: true}, {SlotID: uuid.NewString(), ProjectID: fixtures[1].ID, OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, Kind: "BUSINESS_TASK", TargetID: taskA, Active: true}, {SlotID: uuid.NewString(), ProjectID: fixtures[2].ID, OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, Kind: "BUSINESS_TASK", TargetID: taskB, Active: true}, {SlotID: uuid.NewString(), ProjectID: archived.ID, OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, Kind: "BUSINESS_TASK", TargetID: excluded, Active: true}, {SlotID: uuid.NewString(), ProjectID: fixtures[3].ID, OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, Kind: "BUSINESS_TASK", TargetID: excluded, Active: false}, {SlotID: uuid.NewString(), ProjectID: foreign.ID, OrganizationID: scope.OrganizationID, ActorID: foreign.ActorID, Kind: "BUSINESS_TASK", TargetID: excluded, Active: true}}
+		require.NoError(t, db.Create(refs).Error)
+		snapshot, e := store.Overview(ctx, scope, "active", today, today.AddDate(0, 0, 1))
+		require.NoError(t, e)
+		require.EqualValues(t, 26, snapshot.ActiveProjects)
+		require.EqualValues(t, 24, snapshot.TodayUpdatedProjects)
+		require.EqualValues(t, 25, snapshot.StoreProjects)
+		require.EqualValues(t, 1, snapshot.GeneralProjects)
+		require.ElementsMatch(t, []string{taskA, taskB}, snapshot.TaskIDs)
+		require.Equal(t, []string{"store-a", "store-b"}, snapshot.StoreIDs)
+		page, next, e := store.List(ctx, scope, pc.Query{Mode: "active"})
+		require.NoError(t, e)
+		require.Len(t, page, 20)
+		require.NotEmpty(t, next)
+		_, e = store.Commit(ctx, scope, uuid.NewString(), pc.Command{Operation: "visit", ID: fixtures[0].ID}, nil)
+		require.NoError(t, e)
+		recent, e := store.Overview(ctx, scope, "recent", today, today.AddDate(0, 0, 1))
+		require.NoError(t, e)
+		require.Equal(t, []string{"store-a"}, recent.StoreIDs)
+		require.EqualValues(t, 26, recent.ActiveProjects)
+		archivedSnapshot, e := store.Overview(ctx, scope, "archived", today, today.AddDate(0, 0, 1))
+		require.NoError(t, e)
+		require.Equal(t, []string{"store-c"}, archivedSnapshot.StoreIDs)
+		empty, e := store.Overview(ctx, pc.Scope{OrganizationID: "org-c", ActorID: scope.ActorID}, "active", today, today.AddDate(0, 0, 1))
+		require.NoError(t, e)
+		require.Zero(t, empty.ActiveProjects)
+		require.Empty(t, empty.TaskIDs)
+		require.Empty(t, empty.StoreIDs)
+		filtered, _, e := store.List(ctx, scope, pc.Query{Mode: "active", WorkScope: "store", StoreID: "store-a"})
+		require.NoError(t, e)
+		require.Len(t, filtered, 13)
+	})
 }
