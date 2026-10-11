@@ -1,0 +1,21 @@
+# syntax=docker/dockerfile:1
+FROM golang:1.26-bookworm AS builder
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY cmd/1688-public-browser-collector ./cmd/1688-public-browser-collector
+COPY internal ./internal
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /out/collector ./cmd/1688-public-browser-collector && \
+    CGO_ENABLED=0 go build -o /out/playwright-driver github.com/mxschmitt/playwright-go/cmd/playwright
+
+FROM debian:bookworm-slim AS runtime
+ENV PLAYWRIGHT_DRIVER_PATH=/opt/playwright-driver PLAYWRIGHT_BROWSERS_PATH=/opt/playwright-browsers
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /out/playwright-driver /usr/local/bin/playwright-driver
+RUN playwright-driver install --with-deps chromium && \
+    ln -s "$(find /opt/playwright-browsers -path '*/chrome-linux64/chrome' -type f | head -n 1)" /usr/local/bin/collector-chromium && \
+    test -x /usr/local/bin/collector-chromium
+COPY --from=builder /out/collector /usr/local/bin/collector
+COPY --chmod=0755 deployments/docker/account-compose/browser-collector-start.sh /usr/local/bin/browser-collector-start
+USER 65534:65534
+ENTRYPOINT ["/usr/local/bin/browser-collector-start"]

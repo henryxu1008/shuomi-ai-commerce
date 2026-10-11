@@ -51,6 +51,7 @@ type Config struct {
 	WalletTopUp                topupconfig.Config                        `json:"walletTopUp,omitempty"`
 	ProductAcquisitionDatabase *DatabaseConfig                           `json:"productAcquisitionDatabase,omitempty"`
 	ProductCollections         bool                                      `json:"productCollections,omitempty"`
+	AcquisitionPlans           bool                                      `json:"acquisitionPlans,omitempty"`
 	SupplyChain                *SupplyChainConfig                        `json:"supplyChain,omitempty"`
 	SupplyMarket               *SupplyMarketConfig                       `json:"supplyMarket,omitempty"`
 	POD                        *PODConfig                                `json:"pod,omitempty"`
@@ -433,6 +434,9 @@ func (cfg *Config) validate() error {
 	}
 	if cfg.ProductCollections && cfg.ProductAcquisitionDatabase == nil {
 		return errors.New("product collections require the current Product database")
+	}
+	if cfg.AcquisitionPlans && (!cfg.ProductCollections || cfg.ProductAcquisitionDatabase == nil || cfg.BrowserCollector == nil || cfg.PrivateDraftTrial != nil) {
+		return errors.New("acquisition plans require Product Collections, the public collector and normal Preparation composition")
 	}
 	if err := cfg.validatePrivateDraftTrial(); err != nil {
 		return err

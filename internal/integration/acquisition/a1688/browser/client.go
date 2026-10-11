@@ -247,10 +247,18 @@ func (c *Client) Acquire(ctx context.Context, source sourcing.AcquisitionSource)
 
 // collect performs one paced acquisition. Its outcome is observed by Acquire.
 func (c *Client) collect(ctx context.Context, source sourcing.AcquisitionSource) (sourcing.AcquisitionEvidence, error) {
+	raw, err := c.collectPage(ctx, source.URL, true, nil, extractScript())
+	if err != nil {
+		return sourcing.AcquisitionEvidence{}, err
+	}
+	return decodeEvidence(source, raw)
+}
+
+func (c *Client) collectPage(ctx context.Context, target string, allowSolve bool, discovery *sourcing.DiscoveryInput, script string) (any, error) {
 	deadlineAt, _ := ctx.Deadline()
 	pw, err := playwright.Run()
 	if err != nil {
-		return sourcing.AcquisitionEvidence{}, fmt.Errorf("%w: start playwright: %v", ErrUnavailable, err)
+		return nil, fmt.Errorf("%w: start playwright: %v", ErrUnavailable, err)
 	}
 	defer func() { _ = pw.Stop() }()
 
@@ -259,7 +267,7 @@ func (c *Client) collect(ctx context.Context, source sourcing.AcquisitionSource)
 	// user-data-dir; it is removed on exit.
 	profile, err := os.MkdirTemp("", "a1688-anon-*")
 	if err != nil {
-		return sourcing.AcquisitionEvidence{}, fmt.Errorf("%w: temp profile: %v", ErrUnavailable, err)
+		return nil, fmt.Errorf("%w: temp profile: %v", ErrUnavailable, err)
 	}
 	defer func() { _ = os.RemoveAll(profile) }()
 
@@ -274,7 +282,7 @@ func (c *Client) collect(ctx context.Context, source sourcing.AcquisitionSource)
 	launchOpts := c.launchOptions()
 	budgetLeft := time.Until(deadlineAt)
 	if budgetLeft <= 0 {
-		return sourcing.AcquisitionEvidence{}, ctx.Err()
+		return nil, ctx.Err()
 	}
 	launchOpts.Timeout = playwright.Float(float64(budgetLeft.Milliseconds()))
 	launchDone := make(chan launchResult, 1)
@@ -291,14 +299,14 @@ func (c *Client) collect(ctx context.Context, source sourcing.AcquisitionSource)
 				_ = r.ctx.Close()
 			}
 		}()
-		return sourcing.AcquisitionEvidence{}, ctx.Err()
+		return nil, ctx.Err()
 	}
 	if launched.err != nil {
-		return sourcing.AcquisitionEvidence{}, fmt.Errorf("%w: launch: %v", ErrUnavailable, launched.err)
+		return nil, fmt.Errorf("%w: launch: %v", ErrUnavailable, launched.err)
 	}
 	context := launched.ctx
 	if context == nil {
-		return sourcing.AcquisitionEvidence{}, fmt.Errorf("%w: launch produced no context", ErrUnavailable)
+		return nil, fmt.Errorf("%w: launch produced no context", ErrUnavailable)
 	}
 	defer func() { _ = context.Close() }()
 
@@ -310,13 +318,13 @@ func (c *Client) collect(ctx context.Context, source sourcing.AcquisitionSource)
 	// shared between concurrent requests.
 	var policyAborts atomic.Bool
 	if len(c.opts.AllowedOrigins) > 0 {
-		guard := func(route playwright.Route) { c.routeGuard(route, &policyAborts) }
+		guard := func(route playwright.Route) { c.routeGuardFor(route, &policyAborts, discovery) }
 		if err := context.Route("**/*", guard); err != nil {
-			return sourcing.AcquisitionEvidence{}, fmt.Errorf("%w: install route guard: %v", ErrUnavailable, err)
+			return nil, fmt.Errorf("%w: install route guard: %v", ErrUnavailable, err)
 		}
 	}
 	if err := context.AddInitScript(playwright.Script{Content: playwright.String(stealthScript())}); err != nil {
-		return sourcing.AcquisitionEvidence{}, fmt.Errorf("%w: stealth script: %v", ErrUnavailable, err)
+		return nil, fmt.Errorf("%w: stealth script: %v", ErrUnavailable, err)
 	}
 
 	pages := context.Pages()
@@ -326,10 +334,10 @@ func (c *Client) collect(ctx context.Context, source sourcing.AcquisitionSource)
 	} else {
 		page, err = context.NewPage()
 		if err != nil {
-			return sourcing.AcquisitionEvidence{}, fmt.Errorf("%w: new page: %v", ErrUnavailable, err)
+			return nil, fmt.Errorf("%w: new page: %v", ErrUnavailable, err)
 		}
 	}
-	navigateURL := source.URL
+	navigateURL := target
 	if c.opts.navigateURLOverride != "" {
 		navigateURL = c.opts.navigateURLOverride
 	}
@@ -352,22 +360,22 @@ func (c *Client) collect(ctx context.Context, source sourcing.AcquisitionSource)
 	case navigated = <-navDone:
 	case <-ctx.Done():
 		_ = page.Close()
-		return sourcing.AcquisitionEvidence{}, ctx.Err()
+		return nil, ctx.Err()
 	}
 	if navigated.err != nil {
 		if ctx.Err() != nil {
-			return sourcing.AcquisitionEvidence{}, ctx.Err()
+			return nil, ctx.Err()
 		}
 		// A navigation rejected by the egress guard (oversized document, or a
 		// redirect to a disallowed origin) is a source/policy rejection, not a
 		// collector outage: Chromium started fine and the response was refused.
 		if policyAborts.Load() {
-			return sourcing.AcquisitionEvidence{}, fmt.Errorf("%w: navigation rejected by the egress allowlist: %v", ErrRejected, navigated.err)
+			return nil, fmt.Errorf("%w: navigation rejected by the egress allowlist: %v", ErrRejected, navigated.err)
 		}
-		return sourcing.AcquisitionEvidence{}, fmt.Errorf("%w: navigate: %v", ErrUnavailable, navigated.err)
+		return nil, fmt.Errorf("%w: navigate: %v", ErrUnavailable, navigated.err)
 	}
 	if err := ctx.Err(); err != nil {
-		return sourcing.AcquisitionEvidence{}, err
+		return nil, err
 	}
 
 	// The whole post-navigation phase (challenge inspection and any automatic
@@ -413,7 +421,7 @@ func (c *Client) collect(ctx context.Context, source sourcing.AcquisitionSource)
 			sawChallenge = true
 			challengeMu.Unlock()
 		}
-		if err == nil && challenged && !isAuthenticationWall(page) {
+		if allowSolve && err == nil && challenged && !isAuthenticationWall(page) {
 			if _, solveErr := c.trySolve(ctx, page); solveErr != nil && ctx.Err() != nil {
 				phaseDone <- phaseResult{false, ctx.Err()}
 				return
@@ -438,18 +446,18 @@ func (c *Client) collect(ctx context.Context, source sourcing.AcquisitionSource)
 	case <-ctx.Done():
 		_ = page.Close()
 		if sawChallengeSeen() {
-			return sourcing.AcquisitionEvidence{}, errors.Join(ErrChallenge, ctx.Err())
+			return nil, errors.Join(ErrChallenge, ctx.Err())
 		}
-		return sourcing.AcquisitionEvidence{}, ctx.Err()
+		return nil, ctx.Err()
 	}
 	challenged, err := inspected.challenged, inspected.err
 	if err != nil {
-		return sourcing.AcquisitionEvidence{}, err
+		return nil, err
 	}
 	if challenged {
 		// Design A4: at most ONE bounded automatic attempt, then an honest
 		// failure. No manual path, no retry-to-success, no fabricated product.
-		return sourcing.AcquisitionEvidence{}, ErrChallenge
+		return nil, ErrChallenge
 	}
 
 	// page.Evaluate neither accepts nor observes ctx, so a page that stalls the
@@ -462,7 +470,7 @@ func (c *Client) collect(ctx context.Context, source sourcing.AcquisitionSource)
 	}
 	evalDone := make(chan evalResult, 1)
 	go func() {
-		raw, err := page.Evaluate(extractScript())
+		raw, err := page.Evaluate(script)
 		evalDone <- evalResult{raw, err}
 	}()
 	var evaluated evalResult
@@ -472,20 +480,18 @@ func (c *Client) collect(ctx context.Context, source sourcing.AcquisitionSource)
 		// Closing the page tears down the renderer, which unblocks the pending
 		// evaluation; the deferred context close then reclaims the process.
 		_ = page.Close()
-		return sourcing.AcquisitionEvidence{}, ctx.Err()
+		return nil, ctx.Err()
 	}
 	if evaluated.err != nil {
 		if ctx.Err() != nil {
-			return sourcing.AcquisitionEvidence{}, ctx.Err()
+			return nil, ctx.Err()
 		}
-		return sourcing.AcquisitionEvidence{}, fmt.Errorf("%w: evaluate: %v", ErrUnavailable, evaluated.err)
+		return nil, fmt.Errorf("%w: evaluate: %v", ErrUnavailable, evaluated.err)
 	}
-	raw := evaluated.raw
-	evidence, err := decodeEvidence(source, raw)
-	if err != nil {
-		return sourcing.AcquisitionEvidence{}, err
+	if discovery != nil && !sourcing.AllowsDiscoveryNavigation(*discovery, page.URL()) {
+		return nil, ErrRejected
 	}
-	return evidence, nil
+	return evaluated.raw, nil
 }
 
 func (o Options) validate() error {
@@ -527,6 +533,10 @@ func (c *Client) launchOptions() playwright.BrowserTypeLaunchPersistentContextOp
 // and the RPC transport cap remain the backstop for subresources; the residual
 // subresource download limit is recorded rather than silently assumed.
 func (c *Client) routeGuard(route playwright.Route, policyAborts *atomic.Bool) {
+	c.routeGuardFor(route, policyAborts, nil)
+}
+
+func (c *Client) routeGuardFor(route playwright.Route, policyAborts *atomic.Bool, discovery *sourcing.DiscoveryInput) {
 	markAborted := func() {
 		if policyAborts != nil {
 			policyAborts.Store(true)
@@ -542,6 +552,12 @@ func (c *Client) routeGuard(route playwright.Route, policyAborts *atomic.Bool) {
 		_ = route.Continue()
 		return
 	}
+	// Every discovery document hop must retain the approved path and query.
+	// Route.Fetch redirects do not re-enter the browser callback.
+	if discovery != nil && !sourcing.AllowsDiscoveryNavigation(*discovery, req.URL()) {
+		markAborted()
+		return
+	}
 	// Do not follow redirects inside the route fetch: those internal hops never
 	// re-enter this guard, so an allowed origin could otherwise redirect the
 	// collector to an arbitrary public or private target. A redirect is returned
@@ -555,7 +571,7 @@ func (c *Client) routeGuard(route playwright.Route, policyAborts *atomic.Bool) {
 		// A redirect is only honoured when its resolved target is itself
 		// allowlisted; the browser then issues that request itself and it passes
 		// through this guard again.
-		if absolute, aerr := absoluteURL(req.URL(), resp.Headers()["location"]); aerr == nil && originAllowed(c.opts.AllowedOrigins, absolute) {
+		if absolute, aerr := absoluteURL(req.URL(), resp.Headers()["location"]); aerr == nil && originAllowed(c.opts.AllowedOrigins, absolute) && (discovery == nil || sourcing.AllowsDiscoveryNavigation(*discovery, absolute)) {
 			redirected := status
 			_ = route.Fulfill(playwright.RouteFulfillOptions{Status: &redirected, Headers: resp.Headers(), Body: ""})
 			return

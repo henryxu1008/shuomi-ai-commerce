@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"strings"
 	podhttp "task-processor/internal/app/pod/httpapi"
+	supplyapp "task-processor/internal/app/supplychain"
 	supplyhttp "task-processor/internal/app/supplychain/httpapi"
 	billinghttp "task-processor/internal/commercial/billing/httpapi"
 	"task-processor/internal/product/collection"
@@ -174,6 +175,7 @@ type currentApplicationOptions struct {
 	collectionSourceMedias       int
 	collectionSourceMedia        *collectionSourceMediaDependencies
 	productCollections           int
+	acquisitionPlans             int
 	supplyChains                 int
 	supplyChain                  *SupplyChainDependencies
 	supplyMarkets                int
@@ -395,6 +397,9 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	if supplied.productCollections > 0 && supplied.productAcquisitionDB == nil {
 		return nil, errors.New("collections require their current Product owner pool")
 	}
+	if supplied.acquisitionPlans > 1 || supplied.acquisitionPlans > 0 && (supplied.productCollections != 1 || supplied.productAcquisitions != 1 || supplied.productAcquisitionDB == nil || cfg.BrowserCollector.Endpoint == "" || cfg.BrowserCollector.Credential == "" || supplied.privateDraftTrials > 0) {
+		return nil, errors.New("acquisition plans require current Product Collections and public collector")
+	}
 	if supplied.privateDraftTrials > 1 || supplied.privateDraftTrials > 0 && (supplied.privateDraftTrial == nil || supplied.privateDraftTrial.Scope.Validate() != nil || !collection.ValidID(supplied.privateDraftTrial.StoreID) || supplied.supplyMarkets > 0 || supplied.pods > 0 || supplied.supplyChains > 0 || supplied.localTrials > 0 || supplied.officialStoreApplications != nil || supplied.productAgents > 0 || supplied.imageAgents > 0 || supplied.agentCustomizations != 1 || supplied.productCollections != 1 || supplied.storeCenters != 1 || supplied.productAcquisitionDB == nil) {
 		return nil, errors.New("private draft trial assembly not admitted")
 	}
@@ -524,7 +529,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			if err != nil {
 				return nil, err
 			}
-			return buildProductAcquisitionModule(ctx, productDB, dependencies, authorizer, provider, browserService, consumerCharges, supplied.productCollections > 0, supplied.supplyChains > 0 || supplied.privateDraftTrials > 0, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil)
+			return buildProductAcquisitionModule(ctx, productDB, dependencies, authorizer, provider, browserService, consumerCharges, supplied.productCollections > 0, supplied.supplyChains > 0 || supplied.privateDraftTrials > 0, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0)
 		}
 	}
 	if supplied.browserCaptures > 1 {
@@ -539,7 +544,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		}
 		browserDB := supplied.productAcquisitionDB
 		factories.buildBrowserCapture = func(authorizer *authz.ListingKitAuthorizer, dependencies routeAuthDependencies) (kernelmodule.Module, error) {
-			return buildBrowserCaptureModule(ctx, browserDB, dependencies, authorizer, supplied.productCollections > 0, supplied.supplyChains > 0 || supplied.privateDraftTrials > 0, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil)
+			return buildBrowserCaptureModule(ctx, browserDB, dependencies, authorizer, supplied.productCollections > 0, supplied.supplyChains > 0 || supplied.privateDraftTrials > 0, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0)
 		}
 	}
 	if supplied.imageAgents > 0 && supplied.fullImages == nil {
@@ -731,6 +736,8 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			modules = append(modules, accountIdentity)
 		}
 	}
+	acquisitionModuleIndex := -1
+	var planCollections *collection.Service
 	if factories.buildAcquisition != nil {
 		acquisition, err := factories.buildAcquisition(authorizer, *workbench.authDependencies)
 		if err != nil {
@@ -739,14 +746,18 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		if acquisition == nil {
 			return nil, errors.New("current product acquisition module unavailable")
 		}
+		acquisitionModuleIndex = len(modules)
 		modules = append(modules, acquisition)
 	}
 	if supplied.productCollections > 0 {
-		collections, err := buildProductCollectionModuleWithSourceMedia(ctx, supplied.productAcquisitionDB, *workbench.authDependencies, authorizer, cfg, supplied.supplyChains > 0 || supplied.privateDraftTrials > 0, supplied.collectionSourceMedia, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil)
+		collections, err := buildProductCollectionModuleWithSourceMedia(ctx, supplied.productAcquisitionDB, *workbench.authDependencies, authorizer, cfg, supplied.supplyChains > 0 || supplied.privateDraftTrials > 0, supplied.collectionSourceMedia, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0)
 		if err != nil {
 			return nil, fmt.Errorf("build current product collections: %w", err)
 		}
 		modules = append(modules, collections)
+		if actual, ok := collections.(productCollectionModule); ok {
+			planCollections = actual.service
+		}
 	}
 	if factories.buildAcquisitionImage != nil {
 		image, imageErr := factories.buildAcquisitionImage(authorizer, *workbench.authDependencies)
@@ -770,7 +781,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	var imageRuntime *fullImageApplication
 	var marketRuntime *supplyMarketModule
 	if supplied.supplyMarket != nil {
-		module, e := buildSupplyMarketModule(ctx, supplied.productAcquisitionDB, *supplied.supplyMarket, supplied.pod, *workbench.authDependencies, authorizer, cfg, supplied.supplyChains > 0)
+		module, e := buildSupplyMarketModule(ctx, supplied.productAcquisitionDB, *supplied.supplyMarket, supplied.pod, *workbench.authDependencies, authorizer, cfg, supplied.supplyChains > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0)
 		if e != nil {
 			return nil, fmt.Errorf("build current supply market: %w", e)
 		}
@@ -790,7 +801,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		productRuntime = agentModule.(productAgentModule).application
 	}
 	if supplied.supplyChain != nil {
-		module, e := buildSupplyChainModule(ctx, supplied.productAcquisitionDB, supplied.storeCenterDB, *supplied.supplyChain, *workbench.authDependencies, authorizer, supplied.officialStoreApplications, cfg, productRuntime, storeCapabilities, supplied.supplyMarkets > 0, supplied.pods > 0)
+		module, e := buildSupplyChainModule(ctx, supplied.productAcquisitionDB, supplied.storeCenterDB, *supplied.supplyChain, *workbench.authDependencies, authorizer, supplied.officialStoreApplications, cfg, productRuntime, storeCapabilities, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0)
 		if e != nil {
 			return nil, fmt.Errorf("build current supply chain: %w", e)
 		}
@@ -798,12 +809,31 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		supplyRuntime = &module
 	}
 	if supplied.privateDraftTrial != nil {
+		// Private draft trial is intentionally separate from normal plan composition.
 		module, e := buildPrivateDraftTrialModule(ctx, supplied.productAcquisitionDB, supplied.storeCenterDB, *supplied.privateDraftTrial, *workbench.authDependencies, authorizer, cfg)
 		if e != nil {
 			return nil, fmt.Errorf("build private draft trial: %w", e)
 		}
 		modules = append(modules, module)
 		supplyRuntime = &module
+	}
+	if supplied.acquisitionPlans > 0 {
+		if acquisitionModuleIndex < 0 {
+			return nil, sourcing.ErrAcquisitionUnavailable
+		}
+		module, ok := modules[acquisitionModuleIndex].(productAcquisitionModule)
+		if !ok {
+			return nil, sourcing.ErrAcquisitionUnavailable
+		}
+		var full *supplyapp.Application
+		if supplyRuntime != nil {
+			full = supplyRuntime.app
+		}
+		module, e := composeAcquisitionPlans(ctx, module, supplied.productAcquisitionDB, *workbench.authDependencies, authorizer, planCollections, full)
+		if e != nil {
+			return nil, fmt.Errorf("compose current acquisition plans: %w", e)
+		}
+		modules[acquisitionModuleIndex] = module
 	}
 	if supplied.reportCenterDB != nil {
 		module, err := buildReportCenter(ctx, supplied.reportCenterDB, *workbench.authDependencies, authorizer, productRuntime)
@@ -989,6 +1019,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		DataServices:        supplied.dataServices != nil,
 		Ecoservices:         supplied.ecoservices != nil,
 		SupplyChain:         fullSupply,
+		AcquisitionPlans:    supplied.acquisitionPlans > 0,
 		SupplyMarket:        supplied.supplyMarkets > 0,
 		POD:                 supplied.pods > 0,
 		Collections:         supplied.productCollections > 0,
@@ -1106,6 +1137,7 @@ type currentApplicationOptionalRoutes struct {
 	ToolMarket          bool
 	Ecoservices         bool
 	SupplyChain         bool
+	AcquisitionPlans    bool
 	Collections         bool
 	NotificationCenter  bool
 	AgentConfiguration  bool
@@ -1182,6 +1214,16 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 	if optional.SupplyChain {
 		for _, r := range supplyhttp.SupplyRoutes(nil, nil) {
 			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
+		}
+	}
+	if optional.AcquisitionPlans {
+		for _, r := range acquisitionPlanRoutes(nil, nil) {
+			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
+		}
+		if !optional.SupplyChain {
+			for _, r := range supplyhttp.PreparationRoutes(nil, nil) {
+				admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
+			}
 		}
 	}
 	if optional.Collections {
@@ -1407,10 +1449,18 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 			}
 		}
 		if (descriptor.Path == supplyhttp.SupplyBasePath || strings.HasPrefix(descriptor.Path, supplyhttp.SupplyBasePath+"/")) && !strings.HasPrefix(descriptor.Path, supplyImageSetBase) {
-			if !optional.SupplyChain && (!optional.PrivateDraftTrial || !supplyhttp.IsPrivateDraftReadRoute(descriptor.Method, descriptor.Path)) {
+			if !optional.SupplyChain && (!optional.AcquisitionPlans || !supplyhttp.IsPreparationRoute(descriptor.Method, descriptor.Path)) && (!optional.PrivateDraftTrial || !supplyhttp.IsPrivateDraftReadRoute(descriptor.Method, descriptor.Path)) {
 				return errors.New("supply chain feature not admitted")
 			}
 			if e := validateSupplyDescriptor(descriptor); e != nil {
+				return e
+			}
+		}
+		if descriptor.Path == acquisitionPlanBase || strings.HasPrefix(descriptor.Path, acquisitionPlanBase+"/") || descriptor.Path == acquisitionRuleBase {
+			if !optional.AcquisitionPlans {
+				return errors.New("acquisition plans not admitted")
+			}
+			if e := validateAcquisitionPlanDescriptor(descriptor); e != nil {
 				return e
 			}
 		}

@@ -2,6 +2,7 @@ import { isBrowserCapturePath, isBrowserCaptureRequestURL } from "@/lib/contract
 import {agentPath} from "@/lib/contracts/product-agent";
 import { aiWorkbenchPath } from "@/lib/contracts/ai-workbench";
 import { collectionPath } from "@/lib/contracts/product-collection";
+import {planPath} from "@/lib/contracts/acquisition-plan";
 import { imageSetMethods, imageSetPath, imageSetRoutes } from "@/lib/contracts/product-image-set";
 import { NextRequest } from "next/server";
 
@@ -67,6 +68,7 @@ async function proxyWorkbenchRequest(
   }
   dispatchState.requestId = upstreamRequest.requestId;
   dispatchState.acquisitionRequest =
+    upstreamRequest.responseContract.startsWith("product-acquisition-plan-") ||
     upstreamRequest.responseContract === "product-acquisition" ||
     upstreamRequest.responseContract === "product-acquisition-product" ||
     upstreamRequest.responseContract.startsWith("acquisition-image-");
@@ -138,7 +140,7 @@ async function handleWorkbenchRequest(
   const path = new URL(request.url).pathname.split("/").filter(Boolean).slice(2);
   const imageSetRequest = imageSetRoutes.some((action) => imageSetMethods[action] === request.method && imageSetPath(path, action) !== null);
   const agentRequest=agentPath(path)!==null || ["message", "confirm", "task-start", "task-resume", "task-review"].includes(aiWorkbenchPath(request.method, path) ?? "");
-  const timeout = setTimeout(abort, imageSetRequest ? IMAGE_SET_TIMEOUT_MS : agentRequest?125000:dispatchState.acquisitionRequest ? ACQUISITION_TIMEOUT_MS : UPSTREAM_TIMEOUT_MS);
+  const timeout = setTimeout(abort, planPath(request.method,path)?52000:imageSetRequest ? IMAGE_SET_TIMEOUT_MS : agentRequest?125000:dispatchState.acquisitionRequest ? ACQUISITION_TIMEOUT_MS : UPSTREAM_TIMEOUT_MS);
   try {
     const scopedRequest = new NextRequest(request, { signal: controller.signal });
     const result = await Promise.race([
@@ -177,6 +179,7 @@ export const PATCH = handleWorkbenchRequest;
 export const DELETE = handleWorkbenchRequest;
 
 function isSourceMutation(method: string, path: string[]) {
+  if(method==="POST"&&planPath(method,path))return true;
   if (collectionPath(method.toUpperCase(), path) === "command") return true;
   const workbench = aiWorkbenchPath(method, path);
   if (workbench && !["conversation-list", "conversation-read", "task-list", "task-read"].includes(workbench)) return true;
@@ -197,6 +200,7 @@ function isSourceMutation(method: string, path: string[]) {
 }
 
 function isAcquisitionRequestURL(method: string, rawURL: string) {
+  if(planPath(method,new URL(rawURL).pathname.split("/").filter(Boolean).slice(2)))return true;
   if (isBrowserCaptureRequestURL(method, rawURL)) return true;
 
   const path = new URL(rawURL).pathname;
@@ -211,6 +215,7 @@ function isAcquisitionRequestURL(method: string, rawURL: string) {
 }
 
 function isSourceRequestURL(rawURL: string) {
+  if(planPath("GET",new URL(rawURL).pathname.split("/").filter(Boolean).slice(2))||planPath("POST",new URL(rawURL).pathname.split("/").filter(Boolean).slice(2)))return true;
   if (isBrowserCaptureRequestURL("POST", rawURL) || isBrowserCaptureRequestURL("GET", rawURL)) return true;
 
   const path = new URL(rawURL).pathname.split("/").filter(Boolean);

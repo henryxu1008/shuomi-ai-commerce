@@ -56,6 +56,25 @@ func Handler(opts Options) (http.Handler, error) {
 		// reaches it. Reject anything other than the single versioned RPC path
 		// before any provider work, so a stale or misrouted admitted client
 		// cannot spend the shared browser/IP budget outside the contract.
+		if r.URL.Path == DiscoverPath {
+			provider, ok := opts.Provider.(sourcing.PublicProductDiscoverer)
+			if !ok {
+				WriteError(w, http.StatusServiceUnavailable, CodeUnavailable)
+				return
+			}
+			input, err := ReadDiscoveryRequest(r)
+			if err != nil {
+				WriteError(w, http.StatusBadRequest, CodeInvalidRequest)
+				return
+			}
+			evidence, err := provider.Discover(r.Context(), input)
+			if err != nil {
+				writeAcquireError(w, err)
+				return
+			}
+			writeBoundedEvidence(w, evidence)
+			return
+		}
 		if r.URL.Path != AcquirePath {
 			WriteError(w, http.StatusNotFound, CodeInvalidRequest)
 			return
@@ -119,6 +138,10 @@ func writeAcquireError(w http.ResponseWriter, err error) {
 }
 
 func writeEvidence(w http.ResponseWriter, evidence sourcing.AcquisitionEvidence) {
+	writeBoundedEvidence(w, evidence)
+}
+
+func writeBoundedEvidence(w http.ResponseWriter, evidence any) {
 	// Bound the response before writing it. The page-side caps still allow a
 	// large combination of variants and long strings, so an untrusted page could
 	// otherwise make the collector marshal and stream a huge body that no

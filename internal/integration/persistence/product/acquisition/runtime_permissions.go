@@ -8,6 +8,7 @@ import (
 	"gorm.io/gorm"
 	preparationstore "task-processor/internal/integration/persistence/listing/preparation"
 	recordstore "task-processor/internal/integration/persistence/listing/record"
+	planstore "task-processor/internal/integration/persistence/product/acquisitionplan"
 	collectionstore "task-processor/internal/integration/persistence/product/collection"
 	podstore "task-processor/internal/integration/persistence/product/pod"
 	marketstore "task-processor/internal/integration/persistence/product/supplymarket"
@@ -16,12 +17,47 @@ import (
 
 const RuntimeRole = "source_acquisition_runtime"
 
+const preparationPrivileges = `,('listing_preparations','SELECT'),('listing_preparations','INSERT'),('listing_preparation_sources','SELECT'),('listing_preparation_sources','INSERT')`
+const planPrivileges = `,('product_acquisition_plans','SELECT'),('product_acquisition_plans','INSERT'),('product_acquisition_plans','UPDATE'),
+ ('product_acquisition_plan_items','SELECT'),('product_acquisition_plan_items','INSERT'),('product_acquisition_plan_items','UPDATE'),
+ ('product_acquisition_rule_templates','SELECT'),('product_acquisition_rule_templates','INSERT'),('product_acquisition_rule_templates','UPDATE'),
+ ('product_acquisition_rule_commands','SELECT'),('product_acquisition_rule_commands','INSERT')`
+
 type RuntimeCapabilities struct {
-	Collections  bool
-	SupplyChain  bool
-	SupplyMarket bool
-	POD          bool
-	ImageSets    bool
+	AcquisitionPlans bool
+	Collections      bool
+	SupplyChain      bool
+	SupplyMarket     bool
+	POD              bool
+	ImageSets        bool
+}
+
+// GrantAcquisitionPlanPermissions is explicit owner maintenance. Existing
+// Product grants are preserved; this cannot open execution tables or DDL.
+func GrantAcquisitionPlanPermissions(ctx context.Context, db *gorm.DB) error {
+	if ctx == nil || db == nil || db.Dialector.Name() != "postgres" {
+		return sourcing.ErrAcquisitionUnavailable
+	}
+	var safe bool
+	if db.WithContext(ctx).Raw(`SELECT current_database() NOT IN ('postgres','template0','template1') AND current_user<>?
+ AND EXISTS(SELECT 1 FROM pg_roles r WHERE r.rolname=? AND r.rolcanlogin AND NOT r.rolsuper AND NOT r.rolcreatedb AND NOT r.rolcreaterole AND NOT r.rolreplication AND NOT r.rolbypassrls AND NOT EXISTS(SELECT 1 FROM pg_auth_members m WHERE m.member=r.oid))`, RuntimeRole, RuntimeRole).Scan(&safe).Error != nil || !safe {
+		return sourcing.ErrAcquisitionUnavailable
+	}
+	if _, err := planstore.NewRepository(ctx, db); err != nil {
+		return err
+	}
+	if err := preparationstore.VerifySchema(ctx, db); err != nil {
+		return err
+	}
+	for _, sql := range []string{
+		"GRANT SELECT,INSERT,UPDATE ON public.product_acquisition_plans,public.product_acquisition_plan_items,public.product_acquisition_rule_templates TO source_acquisition_runtime",
+		"GRANT SELECT,INSERT ON public.product_acquisition_rule_commands,public.listing_preparations,public.listing_preparation_sources TO source_acquisition_runtime",
+	} {
+		if db.WithContext(ctx).Exec(sql).Error != nil {
+			return sourcing.ErrAcquisitionUnavailable
+		}
+	}
+	return nil
 }
 
 const collectionPrivileges = `,('product_collection_batches','SELECT'),('product_collection_batches','INSERT'),('product_collection_batches','UPDATE'),
@@ -32,6 +68,12 @@ func runtimePermissionsFor(capability RuntimeCapabilities) string {
 	admitted := strings.TrimSuffix(admittedPrivileges, ")")
 	if capability.Collections {
 		admitted += collectionPrivileges
+	}
+	if capability.AcquisitionPlans {
+		admitted += planPrivileges
+		if !capability.SupplyChain {
+			admitted += preparationPrivileges
+		}
 	}
 	if capability.SupplyChain {
 		admitted += supplyPrivileges
@@ -182,7 +224,8 @@ func GrantRuntimePermissions(ctx context.Context, db *gorm.DB, capabilities ...R
 		images := len(capabilities) == 1 && capabilities[0].ImageSets
 		market := len(capabilities) == 1 && capabilities[0].SupplyMarket
 		pod := len(capabilities) == 1 && capabilities[0].POD
-		if (supply || market || pod) && !enabled || pod && !market {
+		plans := len(capabilities) == 1 && capabilities[0].AcquisitionPlans
+		if (supply || market || pod || plans) && !enabled || pod && !market {
 			return sourcing.ErrAcquisitionUnavailable
 		}
 		if enabled {
@@ -219,6 +262,18 @@ func GrantRuntimePermissions(ctx context.Context, db *gorm.DB, capabilities ...R
 			statements = append(statements, "GRANT SELECT,INSERT ON public.listing_preparations,public.listing_preparation_sources,public.listing_target_records,public.listing_target_record_commands,public.listing_submission_official_intents,public.listing_submission_official_receipts TO source_acquisition_runtime",
 				"GRANT SELECT,INSERT,UPDATE ON public.listing_preparation_targets,public.listing_preparation_operations,public.listing_preparation_operation_items,public.listing_submission_execution_attempts,public.listing_submission_target_fences TO source_acquisition_runtime",
 				"GRANT SELECT ON public.product_title_proposals TO source_acquisition_runtime")
+		}
+		if plans {
+			if _, err := planstore.NewRepository(ctx, tx); err != nil {
+				return err
+			}
+			if err := preparationstore.VerifySchema(ctx, tx); err != nil {
+				return err
+			}
+			statements = append(statements, "GRANT SELECT,INSERT,UPDATE ON public.product_acquisition_plans,public.product_acquisition_plan_items,public.product_acquisition_rule_templates TO source_acquisition_runtime", "GRANT SELECT,INSERT ON public.product_acquisition_rule_commands TO source_acquisition_runtime")
+			if !supply {
+				statements = append(statements, "GRANT SELECT,INSERT ON public.listing_preparations,public.listing_preparation_sources TO source_acquisition_runtime")
+			}
 		}
 		if market {
 			if err := marketstore.VerifySchema(ctx, tx); err != nil {
@@ -271,7 +326,7 @@ func VerifyRuntimePermissions(ctx context.Context, db *gorm.DB, capabilities ...
 	if len(capabilities) == 1 {
 		capability = capabilities[0]
 	}
-	if (capability.SupplyChain || capability.SupplyMarket || capability.POD) && !capability.Collections || capability.POD && !capability.SupplyMarket {
+	if (capability.SupplyChain || capability.SupplyMarket || capability.POD || capability.AcquisitionPlans) && !capability.Collections || capability.POD && !capability.SupplyMarket {
 		return sourcing.ErrAcquisitionUnavailable
 	}
 	var required, forbidden bool
@@ -287,6 +342,14 @@ func VerifyRuntimePermissions(ctx context.Context, db *gorm.DB, capabilities ...
 	}
 	if capability.Collections {
 		if err := collectionstore.VerifySchema(ctx, db); err != nil {
+			return err
+		}
+	}
+	if capability.AcquisitionPlans {
+		if _, err := planstore.NewRepository(ctx, db); err != nil {
+			return err
+		}
+		if err := preparationstore.VerifySchema(ctx, db); err != nil {
 			return err
 		}
 	}

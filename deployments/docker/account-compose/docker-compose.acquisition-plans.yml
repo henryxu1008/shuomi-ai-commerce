@@ -1,0 +1,36 @@
+# Final layer after base + knowledge + data-services + modules + ecoservices + chat.
+# The collector has no database credentials, host ports or runtime namespace.
+services:
+ acquisition-plans-init:
+  build: {context: ../../..,dockerfile: deployments/docker/Dockerfile.account-compose,target: schema-init}
+  network_mode: service:runtime-network
+  entrypoint: [/bin/sh,/init/acquisition-plans-init.sh]
+  volumes:
+   - ./acquisition-plans-init.sh:/init/acquisition-plans-init.sh:ro
+   - chat-runtime:/base:ro
+   - acquisition-db-owner-secret:/secrets/acquisition-owner:ro
+   - acquisition-plans-runtime:/runtime
+   - acquisition-collector-private:/collector-private
+  depends_on: {chat-init: {condition: service_completed_successfully}}
+ browser-collector:
+  build: {context: ../../..,dockerfile: deployments/docker/Dockerfile.browser-collector,target: runtime}
+  init: true
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  shm_size: 256mb
+  tmpfs: [/tmp:size=512m,mode=1777]
+  volumes: [acquisition-collector-private:/collector-private:ro]
+  depends_on: {acquisition-plans-init: {condition: service_completed_successfully}}
+ current-application:
+  command: [-config,/private/acquisition-plans/current-application.json]
+  volumes: [acquisition-plans-runtime:/private/acquisition-plans:ro]
+  depends_on:
+   acquisition-plans-init: {condition: service_completed_successfully}
+   browser-collector: {condition: service_started}
+ listingkit-ui:
+  environment:
+   LISTINGKIT_ACQUISITION_PLANS_ENABLED: "true"
+volumes:
+ acquisition-plans-runtime: {name: "${COMPOSE_PROJECT_NAME}-acquisition-plans-runtime"}
+ acquisition-collector-private: {name: "${COMPOSE_PROJECT_NAME}-acquisition-collector-private"}

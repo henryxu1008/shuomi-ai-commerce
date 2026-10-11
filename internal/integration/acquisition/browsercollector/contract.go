@@ -26,6 +26,28 @@ import (
 // rejected explicitly instead of silently misreading a changed shape.
 const AcquirePath = "/internal/v1/browser-collector/acquire"
 
+const DiscoverPath = "/internal/v1/browser-collector/discover"
+
+func ReadDiscoveryRequest(r *http.Request) (sourcing.DiscoveryInput, error) {
+	raw, err := io.ReadAll(http.MaxBytesReader(nil, r.Body, MaxRequestBytes))
+	var input sourcing.DiscoveryInput
+	if err != nil || decodeStrict(raw, &input) != nil {
+		return input, sourcing.ErrInvalidAcquisition
+	}
+	var canonical sourcing.DiscoveryInput
+	if input.Mode == sourcing.DiscoveryKeyword {
+		canonical, err = sourcing.Canonical1688Discovery(input.Mode, input.Keyword)
+	} else if input.Mode == sourcing.DiscoveryPage {
+		canonical, err = sourcing.Canonical1688Discovery(input.Mode, input.URL)
+	} else {
+		err = sourcing.ErrInvalidAcquisition
+	}
+	if err != nil || canonical != input {
+		return input, sourcing.ErrInvalidAcquisition
+	}
+	return input, nil
+}
+
 // MaxResponseBytes bounds the evidence body before it is decoded. The
 // collector already caps page-side collections (D8); this is the second,
 // independent bound on the transport so a hostile or broken peer cannot force

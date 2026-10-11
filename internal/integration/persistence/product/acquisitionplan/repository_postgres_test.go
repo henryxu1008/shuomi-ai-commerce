@@ -1,0 +1,125 @@
+package acquisitionplan
+
+import (
+	"context"
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
+	"os"
+	"strings"
+	"task-processor/internal/product/sourcing"
+	"testing"
+	"time"
+)
+
+func testDB(t *testing.T) *gorm.DB {
+	t.Helper()
+	dsn := os.Getenv("ISSUE398_TEST_DSN")
+	if dsn == "" {
+		t.Skip("SKIP: task-owned PostgreSQL is required")
+	}
+	require.Contains(t, dsn, "host=127.0.0.1")
+	require.Contains(t, dsn, "user=issue398_owner")
+	root, e := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	require.NoError(t, e)
+	name := "acqplan_" + strings.ReplaceAll(uuid.NewString(), "-", "")
+	require.NoError(t, root.Exec("CREATE DATABASE "+name).Error)
+	db, e := gorm.Open(postgres.Open(dsn+" dbname="+name), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	require.NoError(t, e)
+	t.Cleanup(func() {
+		pool, _ := db.DB()
+		_ = pool.Close()
+		require.NoError(t, root.Exec("DROP DATABASE "+name+" WITH (FORCE)").Error)
+		p, _ := root.DB()
+		_ = p.Close()
+	})
+	return db
+}
+
+func TestSchemaRejectsUnscopedForeignKey(t *testing.T) {
+	db := testDB(t)
+	require.NoError(t, InstallSchema(db))
+	require.NoError(t, db.Exec(`ALTER TABLE public.product_acquisition_plans ADD CONSTRAINT wrong_unique UNIQUE(id)`).Error)
+	var fk string
+	require.NoError(t, db.Raw(`SELECT conname FROM pg_constraint WHERE conrelid='public.product_acquisition_plan_items'::regclass AND contype='f'`).Scan(&fk).Error)
+	require.NoError(t, db.Exec(`ALTER TABLE public.product_acquisition_plan_items DROP CONSTRAINT "`+fk+`"`).Error)
+	require.NoError(t, db.Exec(`ALTER TABLE public.product_acquisition_plan_items ADD CONSTRAINT wrong_fk FOREIGN KEY(plan_id) REFERENCES public.product_acquisition_plans(id)`).Error)
+	// Keep the plan constraint count unchanged, so counting alone is insufficient.
+	var unique string
+	require.NoError(t, db.Raw(`SELECT conname FROM pg_constraint WHERE conrelid='public.product_acquisition_plans'::regclass AND contype='u' AND conname<>'wrong_unique'`).Scan(&unique).Error)
+	require.NoError(t, db.Exec(`ALTER TABLE public.product_acquisition_plans DROP CONSTRAINT "`+unique+`"`).Error)
+	_, e := NewRepository(context.Background(), db)
+	require.Error(t, e)
+}
+
+func TestPlanScopeFenceAndFrozenIntent(t *testing.T) {
+	db := testDB(t)
+	require.NoError(t, InstallSchema(db))
+	repo, e := NewRepository(context.Background(), db)
+	require.NoError(t, e)
+	ctx := context.Background()
+	check := func(context.Context) error { return nil }
+	scope := sourcing.AcquisitionPlanScope{OrganizationID: "org", ActorID: "actor", MemberID: "member"}
+	input, e := sourcing.NewAcquisitionPlanInput("product", []string{"123"}, sourcing.AcquisitionRule{MaxPrice: "10"}, true)
+	require.NoError(t, e)
+	p := sourcing.AcquisitionPlan{ID: uuid.NewString(), Key: uuid.NewString(), Scope: scope, Input: input, Revision: 1, State: "pending", DiscoveryIndex: 1, CreatedAt: time.Now().UTC(), Items: []sourcing.AcquisitionPlanItem{{Source: input.Inputs[0], ChildKey: uuid.NewString(), State: "pending"}}}
+	p, e = repo.Create(ctx, p, check)
+	require.NoError(t, e)
+	_, e = repo.Read(ctx, sourcing.AcquisitionPlanScope{OrganizationID: "org", ActorID: "actor", MemberID: "different"}, p.ID)
+	require.ErrorIs(t, e, sourcing.ErrAcquisitionNotFound)
+	first, e := repo.Claim(ctx, scope, p.ID, 1, check)
+	require.NoError(t, e)
+	_, e = repo.Claim(ctx, scope, p.ID, 1, check)
+	require.ErrorIs(t, e, sourcing.ErrAcquisitionConflict)
+	first.TransferKey = uuid.NewString()
+	first.TransferInputJSON = []byte(`{"batchId":"fixture"}`)
+	first.Items[0].CollectionBatchID = uuid.NewString()
+	first.Items[0].CollectionRevision = 4
+	saved, e := repo.Save(ctx, first, check)
+	require.NoError(t, e)
+	require.Equal(t, int64(2), saved.Revision)
+	replay, e := repo.ByKey(ctx, scope, p.Key)
+	require.NoError(t, e)
+	require.Equal(t, first.TransferKey, replay.TransferKey)
+	require.Equal(t, first.TransferInputJSON, replay.TransferInputJSON)
+	require.Equal(t, first.Items[0].ChildKey, replay.Items[0].ChildKey)
+	require.Equal(t, int64(4), replay.Items[0].CollectionRevision)
+	_, e = repo.Save(ctx, first, check)
+	require.ErrorIs(t, e, sourcing.ErrAcquisitionConflict)
+	saved, e = repo.Claim(ctx, scope, p.ID, 2, check)
+	require.NoError(t, e)
+	_, e = repo.Save(ctx, saved, func(context.Context) error { return sourcing.ErrPublicationForbidden })
+	require.ErrorIs(t, e, sourcing.ErrPublicationForbidden)
+	replay, e = repo.Read(ctx, scope, p.ID)
+	require.NoError(t, e)
+	require.Equal(t, int64(2), replay.Revision)
+}
+
+func TestRuleMutationReplayAndRevision(t *testing.T) {
+	db := testDB(t)
+	require.NoError(t, InstallSchema(db))
+	repo, e := NewRepository(context.Background(), db)
+	require.NoError(t, e)
+	ctx := context.Background()
+	scope := sourcing.AcquisitionPlanScope{OrganizationID: "org", ActorID: "actor", MemberID: "member"}
+	check := func(context.Context) error { return nil }
+	key := uuid.NewString()
+	input := sourcing.RuleTemplateMutation{Action: "create", Name: "采购规则", Rule: sourcing.AcquisitionRule{MaxPrice: "10"}}
+	rule, e := repo.MutateRule(ctx, scope, key, input, check)
+	require.NoError(t, e)
+	update := sourcing.RuleTemplateMutation{Action: "update", ID: rule.ID, ExpectedRevision: 1, Name: "调整后", Rule: sourcing.AcquisitionRule{MaxPrice: "20"}}
+	changed, e := repo.MutateRule(ctx, scope, uuid.NewString(), update, check)
+	require.NoError(t, e)
+	require.Equal(t, int64(2), changed.Revision)
+	replay, e := repo.MutateRule(ctx, scope, key, input, check)
+	require.NoError(t, e)
+	require.Equal(t, int64(1), replay.Revision)
+	require.Equal(t, "10", replay.Rule.MaxPrice)
+	input.Name = "不同输入"
+	_, e = repo.MutateRule(ctx, scope, key, input, check)
+	require.ErrorIs(t, e, sourcing.ErrAcquisitionConflict)
+	_, e = repo.MutateRule(ctx, scope, uuid.NewString(), update, check)
+	require.ErrorIs(t, e, sourcing.ErrAcquisitionConflict)
+}

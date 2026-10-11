@@ -23,6 +23,44 @@ type stubProvider struct {
 	lastSrc sourcing.AcquisitionSource
 }
 
+type discoveringProvider struct {
+	stubProvider
+	discovered int
+}
+
+func (p *discoveringProvider) Discover(_ context.Context, input sourcing.DiscoveryInput) (sourcing.DiscoveryEvidence, error) {
+	p.discovered++
+	return sourcing.DiscoveryEvidence{SourceURL: input.URL, Products: []string{"https://detail.1688.com/offer/123.html"}}, nil
+}
+
+func TestDiscoveryAdmissionAndStrictPublicPath(t *testing.T) {
+	p := &discoveringProvider{}
+	canonical, e := sourcing.Canonical1688Discovery("keyword", "cup")
+	require.NoError(t, e)
+	raw, e := json.Marshal(canonical)
+	require.NoError(t, e)
+	denied, e := browsercollector.Handler(browsercollector.Options{Provider: p, Admit: func(*http.Request) error { return errors.New("denied") }})
+	require.NoError(t, e)
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest("POST", browsercollector.DiscoverPath, strings.NewReader(string(raw)))
+	denied.ServeHTTP(response, request)
+	require.Equal(t, 403, response.Code)
+	require.Zero(t, p.discovered)
+	allowed, e := browsercollector.Handler(browsercollector.Options{Provider: p, Admit: func(*http.Request) error { return nil }})
+	require.NoError(t, e)
+	for _, body := range []string{`{"mode":"page","url":"https://shop.1688.com/login"}`, `{"mode":"keyword","keyword":"cup","url":"https://s.1688.com/selloffer/offer_search.htm?keywords=cup","actorId":"actor"}`, `{"mode":"keyword","mode":"page"}`} {
+		response = httptest.NewRecorder()
+		allowed.ServeHTTP(response, httptest.NewRequest("POST", browsercollector.DiscoverPath, strings.NewReader(body)))
+		require.Equal(t, 400, response.Code)
+		require.Zero(t, p.discovered)
+	}
+	response = httptest.NewRecorder()
+	allowed.ServeHTTP(response, httptest.NewRequest("POST", browsercollector.DiscoverPath, strings.NewReader(string(raw))))
+	require.Equal(t, 200, response.Code)
+	require.Equal(t, 1, p.discovered)
+	require.Zero(t, p.calls)
+}
+
 func (s *stubProvider) Acquire(_ context.Context, source sourcing.AcquisitionSource) (sourcing.AcquisitionEvidence, error) {
 	s.calls++
 	s.lastSrc = source
