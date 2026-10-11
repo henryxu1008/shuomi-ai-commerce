@@ -9,8 +9,8 @@ import { ConsolePage,ConsoleState } from "../console/console-page";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { kinds,page,project,templates,receipt,projectBody,projectEndpoint,referenceFromLink,type Project,type Template,type ProjectBody,type Reference } from "@/lib/contracts/project-center";
-import { projectRequest,ProjectError,type Intent,type ProjectScope } from "@/lib/api/project-center";
+import { kinds,page,project,templates,receipt,projectBody,projectEndpoint,referenceFromLink,type Project,type Template,type ProjectBody,type Reference,type Overview } from "@/lib/contracts/project-center";
+import { projectRequest,projectOverviewRequest,ProjectError,type Intent,type ProjectScope } from "@/lib/api/project-center";
 import styles from "./project-page.module.css";
 
 type Mode="active"|"recent"|"archived"|"templates";
@@ -24,14 +24,17 @@ export function ProjectPage({mode="active",projectId}:{mode?:Mode;projectId?:str
  const c=useWorkbenchContext();const ready=c.user && c.effectiveOrganization && !c.isLoading && !c.isSwitching && !c.selectionRequired && !c.error && !c.blockingError;
  const scope=ready?{userId:c.user!.id,organizationId:c.effectiveOrganization!.id}:null;
  const read=c.permissions.includes("workbench.project.read"),manage=c.permissions.includes("workbench.project.manage");
- return <ConsolePage title={projectId?"项目详情":titles[mode]} description={projectId?"目标和关联内容仅由你在当前企业内查看。":descriptions[mode]} breadcrumbs={[{label:"AI工作台"},{label:"项目中心",href:root},{label:projectId?"项目详情":titles[mode]}]} className={styles.page}>
- {!scope?<ConsoleState kind={c.isLoading || c.isSwitching?"loading":"unavailable"} title="请先确认当前企业"/>:!c.projectCenterAvailable?<ConsoleState kind="unavailable" title="当前应用暂未启用项目中心"/>:!read?<ConsoleState kind="unavailable" title="当前身份没有项目查看权限"/>:<ProjectContent key={JSON.stringify([scope,c.permissions,mode,projectId])} scope={scope} mode={mode} projectId={projectId} manage={manage}/>}
- </ConsolePage>;
+ const content=!scope?<ConsoleState kind={c.isLoading || c.isSwitching?"loading":"unavailable"} title="请先确认当前企业"/>:!c.projectCenterAvailable?<ConsoleState kind="unavailable" title="当前应用暂未启用项目中心"/>:!read?<ConsoleState kind="unavailable" title="当前身份没有项目查看权限"/>:null;
+ return content?<ProjectFrame mode={mode} projectId={projectId}>{content}</ProjectFrame>:<ProjectContent key={JSON.stringify([scope,c.permissions,mode,projectId])} scope={scope!} mode={mode} projectId={projectId} manage={manage}/>;
 }
+function ProjectFrame({mode,projectId,actions,children}:{mode:Mode;projectId?:string;actions?:React.ReactNode;children:React.ReactNode}){return <ConsolePage title={projectId?"项目详情":titles[mode]} description={projectId?"目标和关联内容仅由你在当前企业内查看。":descriptions[mode]} actions={actions} breadcrumbs={[{label:"AI工作台"},{label:"项目中心",href:root},{label:projectId?"项目详情":titles[mode]}]} className={styles.page}>{children}</ConsolePage>;}
 function summary(p:Project){return !p.taskSummaryAvailable?"任务状态暂不可用":p.taskTotal===0?"尚未关联任务":`${p.taskCompleted} / ${p.taskTotal} 项关联任务已完成`;}
 function referenceTitle(r:Reference){return r.available?r.title:"内容当前不可访问";}
 function ProjectContent({scope,mode,projectId,manage}:{scope:ProjectScope;mode:Mode;projectId?:string;manage:boolean}){
- const router=useRouter();const [items,setItems]=useState<Project[]>([]),[saved,setSaved]=useState<Template[]>([]),[detail,setDetail]=useState<Project|null>(null),[next,setNext]=useState(""),[after,setAfter]=useState(""),[search,setSearch]=useState(""),[kind,setKind]=useState(""),[workScope,setWorkScope]=useState(""),[loading,setLoading]=useState(true),[error,setError]=useState(""),[refresh,setRefresh]=useState(0),[busy,setBusy]=useState(false),[pending,setPending]=useState<Intent|null>(null),[hydrated,setHydrated]=useState(false),[storageError,setStorageError]=useState(""),[form,setForm]=useState<{body:ProjectBody;edit?:Project}|null>(null),[tab,setTab]=useState("项目概览"),[link,setLink]=useState(""),[templateName,setTemplateName]=useState(""),[sources,setSources]=useState<KnowledgeSource[]>([]);
+ const router=useRouter();const [items,setItems]=useState<Project[]>([]),[saved,setSaved]=useState<Template[]>([]),[detail,setDetail]=useState<Project|null>(null),[next,setNext]=useState(""),[after,setAfter]=useState(""),[search,setSearch]=useState(""),[kind,setKind]=useState(""),[workScope,setWorkScope]=useState(""),[storeId,setStoreId]=useState(""),[loading,setLoading]=useState(true),[error,setError]=useState(""),[refresh,setRefresh]=useState(0),[busy,setBusy]=useState(false),[pending,setPending]=useState<Intent|null>(null),[hydrated,setHydrated]=useState(false),[storageError,setStorageError]=useState(""),[form,setForm]=useState<{body:ProjectBody;edit?:Project}|null>(null),[tab,setTab]=useState("项目概览"),[link,setLink]=useState(""),[templateName,setTemplateName]=useState(""),[sources,setSources]=useState<KnowledgeSource[]>([]);
+ const [overviewData,setOverviewData]=useState<Overview|null>(null),[overviewError,setOverviewError]=useState(false),[overviewLoading,setOverviewLoading]=useState(true),[overviewRefresh,setOverviewRefresh]=useState(0);
+ const searchInput=useRef<HTMLInputElement>(null);
+ useEffect(()=>{if(projectId || mode==="templates")return;const controller=new AbortController();void Promise.resolve().then(async()=>{if(controller.signal.aborted)return;setOverviewData(null);setOverviewError(false);setOverviewLoading(true);try{const data=await projectOverviewRequest(scope,mode,controller.signal);if(!controller.signal.aborted)setOverviewData(data);}catch{if(!controller.signal.aborted)setOverviewError(true);}finally{if(!controller.signal.aborted)setOverviewLoading(false);}});return ()=>controller.abort();},[scope,mode,projectId,refresh,overviewRefresh]);
  const lifetime=useRef<AbortController|null>(null);const storageKey="project-center:intent:"+JSON.stringify([scope.userId,scope.organizationId]);
  useEffect(()=>{const controller=new AbortController();lifetime.current=controller;
   void Promise.resolve().then(()=>{if(controller.signal.aborted)return;try{const raw=sessionStorage.getItem(storageKey);if(raw){const intent=JSON.parse(raw) as Intent;const endpoint=projectEndpoint(new URL("/api/workbench/projects"+intent.path,location.origin),intent.method);if(endpoint?.input && endpoint.input.safeParse(intent.body).success && /^[0-9a-f-]{36}$/.test(intent.key) && (!endpoint.expected || Number.isSafeInteger(intent.revision) && intent.revision!>0))setPending(intent);else setStorageError("原操作记录无法读取，请保留此页面并重新确认。");}}catch{setStorageError("无法读取原操作记录，请允许浏览器会话存储后刷新。");}setHydrated(true);});
@@ -41,9 +44,9 @@ function ProjectContent({scope,mode,projectId,manage}:{scope:ProjectScope;mode:M
   const load=async()=>{await Promise.resolve();if(controller.signal.aborted)return;setLoading(true);setError("");try{
    if(projectId){const p=await projectRequest(scope,"/"+projectId,project,controller.signal);if(controller.signal.aborted)return;setDetail(p);setLoading(false);}
    else if(mode==="templates"){const p=await projectRequest(scope,"/templates"+(after?"?after="+encodeURIComponent(after):""),templates,controller.signal);if(controller.signal.aborted)return;setSaved(old=>after?[...old,...p.templates]:p.templates);setNext(p.next);setLoading(false);}
-   else{const query=new URLSearchParams({mode,search,kind,workScope,after});const p=await projectRequest(scope,"?"+query,page,controller.signal);if(controller.signal.aborted)return;setItems(old=>after?[...old,...p.projects]:p.projects);setNext(p.next);setLoading(false);}
+   else{const query=new URLSearchParams({mode,search,kind,workScope,storeId,after});const p=await projectRequest(scope,"?"+query,page,controller.signal);if(controller.signal.aborted)return;setItems(old=>after?[...old,...p.projects]:p.projects);setNext(p.next);setLoading(false);}
   }catch(e){if(!controller.signal.aborted){setError(errorText(e));setLoading(false);}}};void load();return ()=>controller.abort();
- },[scope,mode,projectId,after,search,kind,workScope,refresh]);
+ },[scope,mode,projectId,after,search,kind,workScope,storeId,refresh]);
  const reload=()=>{setAfter("");setRefresh(v=>v+1);};
  const mutate=async(intent:Intent,isVisit=false)=>{
   const controller=lifetime.current;if(!controller || controller.signal.aborted || busy || !hydrated)return;
@@ -62,16 +65,43 @@ function ProjectContent({scope,mode,projectId,manage}:{scope:ProjectScope;mode:M
  const disabled=busy || !!pending || !hydrated || !!storageError;
  const newProject=(template?:Template)=>setForm({body:{title:template?.title??"",goal:template?.goal??"",kind:template?.kind??"OTHER",dueDate:""}});
 
- return <>
- <nav className={styles.tabs} aria-label="项目分类">{(Object.keys(titles) as Mode[]).map(v=><Link href={root+"/"+v} key={v} aria-current={!projectId && v===mode?"page":undefined}>{titles[v]}</Link>)}</nav>
+ const resetFilters=()=>{setAfter("");setSearch("");setKind("");setWorkScope("");setStoreId("");};
+ return <ProjectFrame mode={mode} projectId={projectId} actions={!projectId?<>{mode!=="templates"?<Button variant="outline" className={styles.searchButton} onClick={()=>searchInput.current?.focus()}>搜索项目</Button>:null}{manage?<Button className={styles.newButton} disabled={disabled} onClick={()=>newProject()}>＋ 新建项目</Button>:null}</>:undefined}>
  {pending?<Card className={styles.notice} role="status"><p>有一项操作需要确认结果，重试会读取同一操作的收据。</p><Button disabled={busy || !hydrated} onClick={()=>void mutate(pending)}>重试原操作</Button></Card>:null}
  {storageError?<ConsoleState kind="error" title={storageError}/>:null}
  {error?<ConsoleState kind="error" title={error}><Button variant="outline" disabled={busy} onClick={reload}>刷新</Button></ConsoleState>:null}
- {!projectId?<div className={styles.toolbar}><div><h2>{titles[mode]}</h2><p>{mode==="templates"?"仅保存名称、目标和项目类型，创建时重新选择店铺与资料。":"个人项目仅你可见"}</p></div>{manage?<Button disabled={disabled} onClick={()=>newProject()}>＋ 新建项目</Button>:null}</div>:null}
- {!projectId && mode!=="templates"?<div className={styles.filters}><Input aria-label="搜索项目" placeholder="搜索项目名称" value={search} onChange={e=>{setAfter("");setSearch(e.target.value);}}/><select aria-label="项目类型" value={kind} onChange={e=>{setAfter("");setKind(e.target.value);}}><option value="">全部类型</option>{Object.entries(kinds).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select><select aria-label="项目范围" value={workScope} onChange={e=>{setAfter("");setWorkScope(e.target.value);}}><option value="">全部项目</option><option value="store">店铺项目</option><option value="general">非店铺项目</option></select></div>:null}
+ {!projectId && mode==="active"?<>
+ <div className={styles.summaryHeader}><span>当前企业内你的全部进行中项目</span><Button variant="ghost" size="sm" onClick={()=>setOverviewRefresh(v=>v+1)} aria-label="刷新统计">刷新统计</Button></div>
+ {overviewError?<ConsoleState kind="error" title="项目统计暂不可用"><Button variant="outline" onClick={()=>setOverviewRefresh(v=>v+1)}>重试统计</Button></ConsoleState>:<div className={styles.summaryGrid} aria-busy={overviewLoading}>
+ <Card className={styles.summaryCard}><h2>进行中项目</h2><strong>{overviewData?.activeProjects??"—"}</strong><small>持续推进</small></Card>
+ <Card className={styles.summaryCard}><h2>等待确认</h2><strong>{overviewData?overviewData.waitingTasks??"暂不可用":"—"}</strong><small>{overviewData?.waitingTasks===null?"关联任务状态暂不可用":"需要你处理的关联任务"}</small></Card>
+ <Card className={styles.summaryCard}><h2>今日有更新</h2><strong>{overviewData?.todayUpdatedProjects??"—"}</strong><small title={overviewData?`${overviewData.today} · ${overviewData.timeZone}`:undefined}>项目资料更新 · 本地今日</small></Card>
+ <Card className={styles.summaryCard}><h2>业务分布</h2><strong>{overviewData?`店铺 ${overviewData.storeProjects} · 非店铺 ${overviewData.generalProjects}`:"—"}</strong><small>按项目当前业务归属统计</small></Card>
+ </div>}
+ </>:null}
+ {!projectId && (mode==="recent" || mode==="archived") && overviewError?<ConsoleState kind="error" title="店铺筛选暂不可用"><Button variant="outline" onClick={()=>setOverviewRefresh(v=>v+1)}>重试统计</Button></ConsoleState>:null}
+ {!projectId && mode!=="templates"?<>
+ <div className={styles.filters} role="group" aria-label="项目筛选">
+ <div className={styles.scopeFilter}><span>业务范围</span><div className={styles.segment}>{[["","全部范围"],["store","关联店铺"],["general","未关联店铺"]].map(([value,label])=><button type="button" key={value} aria-pressed={workScope===value} onClick={()=>{setAfter("");setWorkScope(value);setStoreId("");}}>{label}</button>)}</div></div>
+ <label>具体店铺<select aria-label="具体店铺" disabled={workScope!=="store" || overviewLoading || !overviewData?.stores.length} value={storeId} onChange={e=>{setAfter("");setStoreId(e.target.value);}}><option value="">{workScope!=="store"?'选择“关联店铺”后可筛选':overviewLoading?"正在读取店铺":overviewError?"店铺暂不可用":"全部授权店铺"}</option>{overviewData?.stores.map(store=><option key={store.id} value={store.id}>{store.name}</option>)}</select></label>
+ <label>项目类型<select aria-label="项目类型" value={kind} onChange={e=>{setAfter("");setKind(e.target.value);}}><option value="">全部类型</option>{Object.entries(kinds).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>
+ <label>排序方式<select aria-label="排序方式" value={mode==="recent"?"visited":"updated"} onChange={()=>{}}><option value={mode==="recent"?"visited":"updated"}>{mode==="recent"?"最近访问":"最近更新"}</option></select></label>
+ <Button variant="ghost" size="sm" onClick={resetFilters}>重置</Button>
+ </div>
+ {overviewData && !overviewData.storesAvailable?<p className={styles.filterNotice} role="status">部分关联店铺当前无法读取，仅列出已授权店铺。</p>:null}
+ <div className={styles.searchRow}><Input ref={searchInput} aria-label="搜索项目" placeholder="搜索项目名称" value={search} onChange={e=>{setAfter("");setSearch(e.target.value);}}/><span>个人项目仅你可见</span></div>
+ </>:null}
  {loading?<ConsoleState kind="loading" title="正在读取项目"/>:null}
  {!loading && !error && !projectId && (mode==="templates"?saved.length===0:items.length===0)?<ConsoleState kind="empty" title={mode==="templates"?"还没有个人模板":"还没有项目"}>{mode==="templates"?"打开已有项目，选择保存为模板。":"保存一个长期目标，开始整理相关工作。"}</ConsoleState>:null}
- {!projectId && mode!=="templates"?<div className={styles.grid}>{items.map(p=><Card key={p.id} className={styles.card}><div className={styles.cardHead}><span className={styles.icon}><FolderKanban aria-hidden="true" size={22}/></span><span className={styles.badge}>{p.archived?"已归档":"进行中"}</span></div><h3>{p.title}</h3><p className={styles.meta}>{kinds[p.kind]} · {p.storeScope?p.store?.available?p.store.title:"店铺当前不可访问":"非店铺项目"}</p><p className={styles.goal}>{p.goal}</p><p>{summary(p)}</p>{p.taskSummaryAvailable && p.taskTotal>0?<progress value={p.taskCompleted} max={p.taskTotal} aria-label="关联任务完成情况"/>:null}<div className={styles.cardFoot}><span>{p.dueDate?"截止 "+p.dueDate:"未设截止日期"}</span><Button variant="outline" size="sm" asChild><Link href={root+"/"+p.id} prefetch={false}>查看项目</Link></Button></div></Card>)}</div>:null}
+ {!projectId && mode!=="templates" && !error && !loading?<div className={styles.grid}>{items.map(p=><Card key={p.id} className={styles.card}>
+ <div className={styles.cardHead}><h3>{p.title}</h3><span className={styles.badge} data-waiting={p.taskSummaryAvailable && p.taskPending>0}>{p.archived?"已归档":p.taskSummaryAvailable && p.taskPending>0?"等待确认":"进行中"}</span></div>
+ <p className={styles.meta}><span className={styles.kindBadge} data-kind={p.kind}>{kinds[p.kind]}</span><span>{p.storeScope?p.store?.available?p.store.title:"店铺当前不可访问":"通用业务"}</span></p>
+ <p className={styles.goal}>{p.goal}</p><div className={styles.progressSummary}><span>关联任务进展</span><span>{summary(p)}</span></div>
+ {p.taskSummaryAvailable && p.taskTotal>0?<progress value={p.taskCompleted} max={p.taskTotal} aria-label="关联任务完成情况"/>:<div className={styles.emptyProgress} aria-hidden="true"/>}
+ <div className={styles.progressFoot}><span>{p.taskSummaryAvailable && p.taskTotal>0?`${Math.round(p.taskCompleted/p.taskTotal*100)}% 关联任务已完成`:"暂无完整任务进度"}</span><span>{p.taskSummaryAvailable && p.taskPending>0?`${p.taskPending} 项任务待确认`:p.dueDate?"截止 "+p.dueDate:""}</span></div>
+ <div className={styles.cardFoot}><time dateTime={p.updatedAt}>{new Date(p.updatedAt).toLocaleDateString()} 更新</time><Link href={root+"/"+p.id} prefetch={false}>{mode==="recent"?"继续项目":mode==="archived"?"查看归档":"查看项目"} →</Link></div>
+ </Card>)}</div>:null}
+ {mode==="archived" && !projectId?<Card className={styles.archiveNotice}>归档不会删除项目目标和关联资料，需要时可在项目详情中恢复为进行中项目。</Card>:null}
  {!projectId && mode==="templates"?<div className={styles.grid}>{saved.map(t=><Card key={t.id} className={styles.card}><span className={styles.icon}><FolderKanban aria-hidden="true" size={22}/></span><h3>{t.name}</h3><p className={styles.meta}>{kinds[t.kind]}</p><p className={styles.goal}>{t.goal}</p>{manage?<div className={styles.cardFoot}><Button disabled={disabled} onClick={()=>newProject(t)}>使用模板</Button><Button variant="outline" disabled={disabled} onClick={()=>command("/templates/"+t.id+"/archive",{},t.revision)}>移除模板</Button></div>:null}</Card>)}</div>:null}
  {next && !projectId?<Button variant="outline" disabled={loading} onClick={()=>setAfter(next)}>加载更多</Button>:null}
  {detail && !loading?<Card className={styles.detail}><div className={styles.toolbar}><div><h2>{detail.title}</h2><p>{kinds[detail.kind]} · {detail.archived?"已归档":"进行中"}</p></div>{manage?<div className={styles.actions}><Button disabled={disabled || detail.archived} variant="outline" onClick={()=>setForm({body:{title:detail.title,goal:detail.goal,kind:detail.kind,dueDate:detail.dueDate},edit:detail})}>编辑项目</Button><Button disabled={disabled} variant="outline" onClick={()=>command("/"+detail.id+(detail.archived?"/restore":"/archive"),{},detail.revision)}>{detail.archived?"恢复项目":"归档项目"}</Button></div>:null}</div>
@@ -83,7 +113,7 @@ function ProjectContent({scope,mode,projectId,manage}:{scope:ProjectScope;mode:M
  {manage && !detail.archived?<form className={styles.linkForm} onSubmit={e=>{e.preventDefault();command("/templates",{projectId:detail.id,name:templateName},detail.revision);}}><label>保存为个人模板<Input aria-label="模板名称" value={templateName} onChange={e=>setTemplateName(e.target.value)} placeholder="模板名称" required/></label><Button type="submit" disabled={disabled}>保存为模板</Button></form>:null}
  </Card>:null}
  {form?<ProjectForm initial={form.body} edit={form.edit} disabled={disabled} close={()=>setForm(null)} save={body=>command(form.edit?"/"+form.edit.id:"",body,form.edit?.revision,form.edit?"PATCH":"POST")}/>:null}
- </>;
+ </ProjectFrame>;
 }
 function ProjectForm({initial,edit,disabled,close,save}:{initial:ProjectBody;edit?:Project;disabled:boolean;close:()=>void;save:(body:ProjectBody)=>void}){
  const [body,setBody]=useState(initial),[store,setStore]=useState(""),[changeStore,setChangeStore]=useState(false),[error,setError]=useState("");const dialog=useRef<HTMLDialogElement>(null);

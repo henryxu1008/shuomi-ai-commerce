@@ -18,6 +18,9 @@ const template=z.strictObject({id,name:text(256),...fields,revision,archived:z.b
 export const receipt=z.strictObject({id,revision,replayed:z.boolean()});
 export const page=z.strictObject({projects:z.array(project).max(20),next:z.string().max(256)});
 export const templates=z.strictObject({templates:z.array(template).max(20),next:z.string().max(256)});
+const count=z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
+export const overview=z.strictObject({activeProjects:count,todayUpdatedProjects:count,storeProjects:count,generalProjects:count,waitingTasks:z.number().int().min(0).max(200).nullable(),timeZone:z.string().min(1).max(128),today:due.refine(v=>v!==""),stores:z.array(z.strictObject({id:z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/),name:text(512)})).max(100),storesAvailable:z.boolean()}).refine(v=>v.storeProjects+v.generalProjects===v.activeProjects && v.todayUpdatedProjects<=v.activeProjects);
+export type Overview=z.infer<typeof overview>;
 export type Project=z.infer<typeof project>;
 export type Template=z.infer<typeof template>;
 export type Reference=z.infer<typeof reference>;
@@ -29,6 +32,7 @@ export function projectEndpoint(url:URL,method:string){
  const path=p.slice(prefix.length);let input:z.ZodType|undefined, output:z.ZodType;let expected=true;
  const uuid="[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
  if(path==="" && method==="GET")output=page;
+ else if(path==="/overview" && method==="GET")output=overview;
  else if(path==="" && method==="POST"){input=projectBody;output=receipt;expected=false;}
  else if(path==="/templates" && method==="GET")output=templates;
  else if(path==="/templates" && method==="POST"){input=z.strictObject({projectId:id,name:text(256)});output=receipt;}
@@ -37,8 +41,9 @@ export function projectEndpoint(url:URL,method:string){
  else if(new RegExp("^/"+uuid+"/references$").test(path) && method==="POST"){input=z.strictObject({kind:referenceKind,targetId:id});output=receipt;}
  else if(new RegExp("^(/"+uuid+"/(archive|restore|visit)|/"+uuid+"/references/"+uuid+"/remove|/templates/"+uuid+"/archive)$").test(path) && method==="POST"){input=empty;output=receipt;expected=!path.endsWith("/visit");}
  else return null;
- const allowed=path==="" && method==="GET"?["mode","search","kind","workScope","storeId","after"]:path==="/templates" && method==="GET"?["after"]:[];
+ const allowed=path==="" && method==="GET"?["mode","search","kind","workScope","storeId","after"]:path==="/overview" && method==="GET"?["mode","timeZone"]:path==="/templates" && method==="GET"?["after"]:[];
  for(const [key,v] of url.searchParams){if(!allowed.includes(key) || url.searchParams.getAll(key).length!==1 || v.length>256)return null;}
+ if(path==="/overview"){const mode=url.searchParams.get("mode"),zone=url.searchParams.get("timeZone");if(mode && !["active","recent","archived"].includes(mode) || zone && (zone.length>128 || zone==="Local"))return null;if(zone){try{new Intl.DateTimeFormat("en",{timeZone:zone});}catch{return null;}}}
  return {path,input,output,expected};
 }
 export function referenceFromLink(value:string){

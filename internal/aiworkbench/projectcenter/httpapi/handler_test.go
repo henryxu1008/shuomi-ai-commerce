@@ -8,9 +8,14 @@ import (
 	"strings"
 	pc "task-processor/internal/aiworkbench/projectcenter"
 	"testing"
+	"time"
 )
 
 type httpStore struct{ calls int }
+
+func (s *httpStore) Overview(_ context.Context, scope pc.Scope, _ string, _, _ time.Time) (pc.OverviewSnapshot, error) {
+	return pc.OverviewSnapshot{Scope: scope}, nil
+}
 
 func (s *httpStore) Replay(context.Context, pc.Scope, string, pc.Command) (pc.Receipt, bool, error) {
 	return pc.Receipt{}, false, nil
@@ -57,4 +62,17 @@ func TestProjectHTTPBoundsAndCanonicalCommands(t *testing.T) {
 	require.Equal(t, 200, rec.Code)
 	require.Equal(t, 1, store.calls)
 	require.Equal(t, "private, no-store", rec.Header().Get("Cache-Control"))
+	for _, query := range []string{"?mode=active&timeZone=Asia%2FSingapore", "?mode=archived", "?mode=recent"} {
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, httptest.NewRequest("GET", Base+"/overview"+query, nil))
+		require.Equal(t, 200, rec.Code, rec.Body.String())
+		require.Contains(t, rec.Body.String(), `"waitingTasks":0`)
+		require.Equal(t, "private, no-store", rec.Header().Get("Cache-Control"))
+	}
+	for _, query := range []string{"?mode=active&mode=archived", "?after=cursor", "?timeZone=Local", "?timeZone=NoSuchZone", "?organizationId=org-b"} {
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, httptest.NewRequest("GET", Base+"/overview"+query, nil))
+		require.Equal(t, 400, rec.Code, rec.Body.String())
+	}
+	require.Equal(t, 1, store.calls, "overview must not commit commands")
 }
