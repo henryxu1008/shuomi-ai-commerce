@@ -39,6 +39,20 @@ distinct from missing inventory. The returned numerical report has no overall
 publish-ready verdict: current category, template, assets, consent and Store
 authority still require the shared preparation and Submission path.
 
+`CheckLocalVariations` uses the exact current E39 template. Every SKU requires
+one or two parent specifications, including when all template parents are
+optional. Preset IDs must belong to that template; custom values are permitted
+only by its actual variation type. Required/unknown rules, inconsistent parents
+and duplicate SKU combinations remain visible. The function changes no fact,
+creates no remote specification and grants no overall readiness.
+
+`CheckSupplierPriceLayout` checks E13/E27's separate full/semi field layouts,
+complete per-SKU prices for the bound site set and explicitly supplied initial
+warehouse quantities. CNY/USD are the documented supplier wire currencies, not
+proof of the current merchant's supported currency. Bounds/eligibility still
+require official evidence; this check does not treat a representable integer
+amount as approved pricing, silently multiply it, or turn missing stock into zero.
+
 Current consumers are the remaining TargetRecord/rule preparation and typed
 TEMU integration work in this same delivery batch. These interfaces are not yet
 wired into the shared editor or a publishing path. The full #31 scope, current

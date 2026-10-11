@@ -14,3 +14,11 @@ second-hand scope enum disagreement between E17/E29 remains unresolved; these
 DTOs do not convert it or grant readiness. Creation IDs and warnings are separate
 from approval/on-sale status. The current shared TargetRecord/Submission owners
 will consume these explicit contracts; no new lifecycle owner is introduced.
+
+`SupplierGoods` follows E13's one-product body, with E27's separate full-managed
+supplier price and semi-managed per-site prices. Required numeric facts retain
+presence; prices stay integer fen/cents, stock zero remains explicit, and package
+weight/size stay integer mg/mm. It does not copy the local country currency or
+create a product per bound site. Optional origin/brand/IP/legal facts are never
+invented. The `len` documentation inconsistency is retained without reordering
+the supplied dimensions. Creation identifiers are separate from on-sale status.
