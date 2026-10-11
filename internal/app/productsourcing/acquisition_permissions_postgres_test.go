@@ -21,7 +21,22 @@ func acquisitionPermissionDependencies(t *testing.T) (*authz.ListingKitAuthorize
 	t.Helper()
 	permissions, err := authz.NewListingKitAuthorizer(nil, nil)
 	require.NoError(t, err)
-	return permissions, liveRolesFunc(func(context.Context, string, string) ([]string, error) { return []string{"listingkit_operator"}, nil })
+	permissions.SetRolePolicyReader(acquisitionTestRolePolicy{})
+	return permissions, liveRolesFunc(func(_ context.Context, organization, _ string) ([]string, error) {
+		return []string{authz.EnterpriseRoleKey(organization, 1)}, nil
+	})
+}
+
+type acquisitionTestRolePolicy struct{}
+
+func (acquisitionTestRolePolicy) RoleModules(_ context.Context, organization string, roles []string) (map[string][]string, error) {
+	result := map[string][]string{}
+	for _, role := range roles {
+		if authz.IsEnterpriseRoleKey(organization, role) {
+			result[role] = []string{"acquisition"}
+		}
+	}
+	return result, nil
 }
 
 func TestAcquisitionRuntimePermissionsRejectEscalationAndMissingPrivileges(t *testing.T) {

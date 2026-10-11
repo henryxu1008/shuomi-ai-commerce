@@ -258,13 +258,11 @@ func (s *AcquisitionService) failFetch(ctx context.Context, op sourcing.Acquisit
 }
 
 func (s *AcquisitionService) admitCharge(ctx context.Context, op sourcing.AcquisitionOperation) error {
-	err := s.charges.BeforeDispatch(ctx, op)
-	if errors.Is(err, orgresource.ErrInsufficientBalance) || errors.Is(err, orgresource.ErrResourceDebtOutstanding) {
-		if fenceErr := s.operations.Finish(ctx, op, sourcing.AcquisitionFailed, "DATA_QUOTA_INSUFFICIENT"); fenceErr != nil {
-			return sourcing.ErrAcquisitionUnknown
-		}
-	}
-	return err
+	// A rejected reservation has not authorized dispatch or a terminal effect.
+	// Keep the original acquiring lease/intent so Start can grant the existing
+	// expired, unbound recovery fence once quota is available. A bound or active
+	// original remains UNKNOWN; no Failed operation is reset here.
+	return s.charges.BeforeDispatch(ctx, op)
 }
 
 func (s *AcquisitionService) resolve(ctx context.Context, op sourcing.AcquisitionOperation, publish, replayed bool) (sourcing.AcquisitionResult, error) {

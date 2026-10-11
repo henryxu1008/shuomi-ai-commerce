@@ -107,6 +107,13 @@ Organization + Actor + command key 唯一，同 key 同输入重放；异输入 
 不将 lease 到期当成操作失败。child 已 published 仅按原精确版本继续后处理，不重采。
 pre-dispatch admission/recovery仍由原 Acquisition owner 判断，计划不得覆写它。
 
+额度或债务拒绝尚未产生 reservation/dispatch，不能签发 child `failed`：保留原
+`acquiring` 和 charge intent，待原 30 秒 lease 到期，由既有 `Start` 对 expired、
+无 bound reservation 的原 key 授予新 fence。活跃/已绑定的原操作仍为 UNKNOWN，
+不能重派；既有终态 Failed 不恢复、不迁移。prepared 沿既有 admission/claim。
+2026-10-11 独立增量复核确认此为 Reuse Existing Architecture / IMPLEMENTATION_READY；
+真实 Product PG 与 Resource owner 测试须证明补足后原计划继续、单次预留/消费。
+
 浏览器切换组织/actor、撤权、退出、取消或离开页面：取消当前请求并停止发出新步骤；
 已经发出的操作保留原 key，回到原 scope 后可继续/核实。客户端迟到响应不能写入另一
 scope UI。GET 只读取，不启动发现/采集/转入；继续操作用显式 POST。
