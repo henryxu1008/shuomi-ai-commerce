@@ -58,6 +58,14 @@ it("keeps blank SDS template batches out of finished Supply Chain transfer",asyn
  expect(state.supplyWrite).not.toHaveBeenCalled();
 });
 
+it("keeps batch transfer disabled without the existing supply management permission",async()=>{
+ state.context.permissions=["workbench.collection.read"];
+ state.list.mockResolvedValue({items:[{id:"550e8400-e29b-41d4-a716-446655440000",name:"已保存的商品批次",kind:"manual",supplyTransferSupported:true,revision:1,count:1,createdAt:"2026-10-08T00:00:00Z"}],total:1});
+ render(<CollectionPage supplyAvailable />);
+ expect(await screen.findByRole("button",{name:"加入我的供应链"})).toBeDisabled();
+ expect(state.supplyWrite).not.toHaveBeenCalled();
+});
+
 it("allows current eligible products moved into a former SDS template batch",async()=>{
  state.context.permissions=["workbench.collection.read","workbench.supply.manage"];
  state.list.mockResolvedValue({items:[{id:"550e8400-e29b-41d4-a716-446655440000",name:"现有成品",kind:"sds_template",supplyTransferSupported:true,revision:2,count:1,createdAt:"2026-10-08T00:00:00Z"}],total:1});
