@@ -33,6 +33,7 @@ import {
   WalletView,
 } from "./commercial-billing-views";
 import styles from "./commercial.module.css";
+import overviewStyles from "../console/primary-overview.module.css";
 import { TopUpPaymentPanel } from "./wallet-topup";
 
 export type PageKind =
@@ -140,7 +141,7 @@ function PageFrame({
   };
   return (
     <ConsolePage
-      className={styles.page}
+      className={page === "overview" ? overviewStyles.page : styles.page}
       title={title}
       breadcrumbs={breadcrumbs}
       description={

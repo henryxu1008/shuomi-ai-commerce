@@ -1,6 +1,5 @@
-import { redirect } from "next/navigation";
-import { firstConnectedConsoleEntry } from "@/lib/workbench/console-primary-entry";
+import { PrimaryIntroduction } from "@/components/workbench/console/primary-introduction";
 
 export default function Page() {
-  redirect(firstConnectedConsoleEntry("/workbench/agents", {})!);
+  return <PrimaryIntroduction kind="agents" />;
 }

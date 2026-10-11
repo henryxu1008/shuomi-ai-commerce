@@ -16,6 +16,7 @@ import {getInvitationSummary} from "@/lib/api/invitations";
 import {listWorkbenchStores} from "@/lib/api/workbench-stores";
 import {EnterpriseResources} from "../commercial/enterprise-resources";
 import styles from "./account.module.css";
+import { AccountOverview } from "./account-overview";
 import { ConsoleState } from "../console/console-page";
 import { SubjectVerification } from "./subject-verification";
 import {IdentityDates,RegionSettings,RegionValue} from "./account-facts";
@@ -32,10 +33,7 @@ function Provenance({ data }: { data: AccountProfile | AccountOrganization }) {
   return <details className={styles.provenance}><summary>资料来源与读取时间</summary><p>来源：{data.source === "zitadel_userinfo" ? "ZITADEL 账户资料" : "ZITADEL 项目授权"}</p><p>读取时间：<time dateTime={data.readAt}>{data.readAt}</time></p>{"authorizationMaxAgeSeconds" in data ? <p>授权缓存最长 60 秒；读取时间不代表授权刷新时间。</p> : null}</details>;
 }
 
-export function AccountOverviewView({ profile, organization }: { profile: AccountProfile; business: AccountBusinessProfile | null; organization: AccountOrganization }) {
-  const verified = profile.emailVerified === true || profile.phoneNumberVerified === true;
-  return <><Card className={styles.overview}><div><h2>账户概览</h2><p>查看当前账户、企业与收益状态</p></div><div className={styles.overviewMetric}><span>账号状态</span><strong>{verified ? "已验证" : "待完善"}</strong><small>{profile.emailVerified === true && profile.phoneNumberVerified === true ? "手机 / 邮箱已验证" : "验证状态以登录服务为准"}</small></div><div className={styles.overviewMetric}><span>企业状态</span><strong>当前授权有效</strong><small>{organization.roles.length ? organization.roles.join("、") : "未提供角色"}</small></div><div className={styles.overviewMetric}><span>推广收益</span><strong className={styles.unavailableValue}>进入推广与收益查看</strong><small>收益以不可变 ledger projection 为准</small></div></Card><div className={styles.overviewLinks}><Panel title="账户资料" description="身份、联系方式与经营画像"><Button asChild variant="outline"><Link href="/workbench/account/profile" prefetch={false}>查看账户资料</Link></Button></Panel><Panel title="企业空间" description={organization.name?.trim() || "当前有效企业"}><Button asChild variant="outline"><Link href="/workbench/account/organization" prefetch={false}>查看企业空间</Link></Button></Panel><Panel title="推广与收益" description="推广关系、收益账本与人工提现"><Button asChild variant="outline"><Link href="/workbench/account/referrals" prefetch={false}>查看推广信息</Link></Button></Panel></div><Provenance data={profile} /></>;
-}
+export function AccountOverviewView(props: { profile: AccountProfile; business: AccountBusinessProfile | null; organization: AccountOrganization }) { return <AccountOverview {...props} />; }
 
 type ProfileSection = "summary" | "settings" | "business" | "verification";
 

@@ -7,6 +7,10 @@ import { ConsoleNavigation } from "./console-navigation";
 import { findConsoleRoute } from "@/lib/workbench/console-navigation";
 
 const query=vi.hoisted(()=>({value:""}));
+it.each(["运营驾驶舱", "AI工作台", "智能市场", "工具市场", "数据服务", "店铺中心"])("keeps the %s primary homepage available independently of child services", label => {
+  render(<ConsoleNavigation pathname="/workbench" ariaLabel="主导航" />);
+  expect(screen.getByRole("link", { name: label })).toHaveAttribute("title", label);
+});
 it.each([
   ["/workbench/supply/catalogs/selection", "货盘选品"],
   ["/workbench/supply/catalogs/apply", "申请对接"],

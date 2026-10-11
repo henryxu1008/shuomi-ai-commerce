@@ -78,39 +78,32 @@ it.each([
   expect(screen.getByRole("heading", { name: "如何开始使用" })).toBeVisible();
 });
 
-it("opens the existing Agent configuration catalog without executing an Agent", () => {
-  expectDestination(AgentsPage, "/workbench/agents/market");
+it.each([[AgentsPage, '按岗位启用智能体，打造属于自己的AI电商团队'], [StorePage, '统一管理店铺、商品与订单，让经营链路更清晰']])('keeps a standalone introduction', (Page, title) => {
+  render(<Page />);
+  expect(fixture.redirect).not.toHaveBeenCalled();
+  expect(screen.getByRole('heading', { name: title, level: 1 })).toBeVisible();
 });
-it("opens the existing Store list", () => {
-  expectDestination(StorePage, "/workbench/stores");
-});
-
-it.each(["goals", "stores", "alerts", "advice"])("opens the granted %s Cockpit page", mode => {
+it.each(['goals', 'stores', 'alerts', 'advice'])('keeps the cockpit homepage with %s permission', mode => {
   fixture.context.operationsCockpitAvailable = true;
   fixture.context.permissions = [`workbench.cockpit.${mode}.read`];
-  expectDestination(() => render(<WorkbenchPage />), `/workbench/overview/${mode}`);
-});
-it("uses navigation order when several Cockpit pages are granted", () => {
-  fixture.context.operationsCockpitAvailable = true;
-  fixture.context.permissions = ["workbench.cockpit.stores.read", "workbench.cockpit.goals.read"];
-  expectDestination(() => render(<WorkbenchPage />), "/workbench/overview/goals");
-});
-it("distinguishes missing Cockpit permission from an unmounted module", () => {
-  fixture.context.operationsCockpitAvailable = true;
   render(<WorkbenchPage />);
   expect(fixture.redirect).not.toHaveBeenCalled();
-  expect(screen.getByText("没有运营驾驶舱查看权限")).toBeVisible();
-  expect(screen.queryByText("经营数据暂未接入")).not.toBeInTheDocument();
+  expect(screen.getByRole('heading', { level: 1, name: '经营全局，一屏掌握' })).toBeVisible();
 });
-it("keeps the honest overview when Cockpit is unmounted", () => {
+it('distinguishes missing permission from an unmounted module', () => {
+  fixture.context.operationsCockpitAvailable = true;
+  render(<WorkbenchPage />);
+  expect(screen.getAllByText('没有运营驾驶舱查看权限').length).toBeGreaterThan(0);
+  expect(screen.queryByText('经营数据暂未接入')).not.toBeInTheDocument();
+});
+it('keeps an honest overview when unmounted', () => {
   render(<WorkbenchPage />);
   expect(fixture.redirect).not.toHaveBeenCalled();
-  expect(screen.getByText("经营数据暂未接入")).toBeVisible();
+  expect(screen.getAllByText('经营数据暂未接入').length).toBeGreaterThan(0);
 });
-it.each(["isLoading", "isSwitching", "selectionRequired"] as const)("does not navigate before %s clears", flag => {
-  fixture.context.operationsCockpitAvailable = true;
-  fixture.context.permissions = ["workbench.cockpit.goals.read"];
+it.each(['isLoading', 'isSwitching', 'selectionRequired'] as const)('clears the cockpit during %s', flag => {
   fixture.context[flag] = true;
   render(<WorkbenchPage />);
   expect(fixture.redirect).not.toHaveBeenCalled();
+  expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
 });
