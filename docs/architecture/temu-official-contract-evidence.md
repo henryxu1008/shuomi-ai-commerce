@@ -12,15 +12,15 @@
 | --- | --- | --- | --- |
 | E01 | [Registration Overview](https://partner.temu.com/documentation?menu_code=52ef88bdef1d4527b15f6d303b173e48) | 2025-08-15 | US/EU/GLOBAL 面向 Local/Cross-border；Mainland China partner.kuajingmaihuo.com 面向 Cross-border/Fully Manage；Cross-border 标签不是全托/半托身份值 |
 | E02 | [分区说明](https://agentpartner.temu.com/document?cataId=875196199516&docId=909799935182) | 2026-01-05 | 官方称四个区域 CN/US/EU/GLOBAL；app_key/secret/token/接口必须同区域；PA 与 CN 共用应用/授权入口，但文档未给出身份字段等价映射 |
-| E03 | [PA 网关调用说明](https://agentpartner.temu.com/document?cataId=875198836203) | 2026-05-06 | 部分 CN API 迁移到 PA，需要新授权/新 type；未列举接口保留 CN；goods.add/list/detail/product.search、图片、类目属性/尺寸/模板/品牌等有具体映射 |
-| E04 | [鉴权信息](https://agentpartner.temu.com/document?cataId=875196199516&docId=896168820140) | 2026-06-25 | CN 手动授权 token；页面说明自研 365 天/第三方 90 天；新 token 会使旧 token 失效；本系统以实际 expiredTime 为准，不能把时间说明当有效授权 |
+| E03 | [PA 网关调用说明](https://agentpartner.temu.com/document?cataId=875198836203&docId=929750644349) | 2026-05-06 | 部分 CN API 迁移到 PA，需要新授权/新 type；未列举接口保留 CN；FAQ 明确分别以 CN info.get / PA info.get.global 查询当前 token 的 API 权限；基本信息中的旧链接 915047650924 当前无权限，实际清单引用此可读叶子页 |
+| E04 | [鉴权信息](https://agentpartner.temu.com/document?cataId=875196199516&docId=896168820140) | 2026-06-25 | app_key 为应用维度唯一值，token 为店铺维度唯一值；CN 手动授权，页面说明自研 365 天/第三方 90 天；新 token 会使旧 token 失效；本系统以实际 expiredTime 为准 |
 | E05 | [Seller Authorization Guide](https://partner.temu.com/documentation?menu_code=38e79b35d2cb463d85619c1c786dd303) | 2026-01-07 | Local/Cross-border 后台与 manual/callback 适用不同；scope/期限可由商家选择、授权可撤销；in-app 标记 Launch Soon，不能默认所有应用可用 |
 | E06 | [Endpoints and Request Method](https://partner.temu.com/documentation?menu_code=38e79b35d2cb463d85619c1c786dd303&sub_menu_code=8311de2b2d434e4d805e88413ab815d8) | 2025-01-26 | US/EU/GLOBAL HTTPS POST router；例举国家不是全部站点字典 |
 | E07 | [bg.open.accesstoken.create](https://partner-us.temu.com/documentation?menu_code=fb16b05f7a904765aac4af3a24b87d4a&sub_menu_code=82674d12ebe64af2820d62ebbc2ecc16) | 2025-07-10 | 一次性 code、10 分钟；结果含 mallId/scope/expiry；不能重发丢失结果的 exchange |
 | E08 | [区域 bg.open.accesstoken.info.get](https://partner.temu.com/documentation?menu_code=fb16b05f7a904765aac4af3a24b87d4a&sub_menu_code=93de550b56c8417caccb88824be3e614) | 2025-11-19 | mallId、expiredTime、apiScopeList、mallType 1-SEMI/100-LOCAL、semiUniqueId、regionId（示例 USA-211）；没有 full 枚举；regionId 不是 siteId |
 | E09 | [CN bg.open.accesstoken.info.get](https://agentpartner.temu.com/document?cataId=875198836203&docId=881490740978) | 2026-06-28 | result mallId/expiredTime/apiScopeList；没有 uniqueId 或 mode 字段 |
 | E10 | [CN bg.mall.info.get](https://agentpartner.temu.com/document?cataId=875198836203&docId=881490244071) | 2025-02-25 | result semiManagedMall、isThriftStore；不能与区域 token 的 LOCAL 混为一谈 |
-| E11 | [PA bg.open.accesstoken.info.get.global](https://agentpartner.temu.com/document?cataId=875198836203&docId=929722395417) | 2026-05-26 | mallName/uniqueId/expiredTime/apiScopeList；未见 mallId、mallType、semiManagedMall。基础 API 组-PA 当前展开仅该接口 |
+| E11 | [PA bg.open.accesstoken.info.get.global](https://agentpartner.temu.com/document?cataId=875198836203&docId=929722395417) | 2026-05-26 | uniqueId 明确为 Unique identifier of mall；mallName/expiredTime/apiScopeList；未见 mallId、mallType、semiManagedMall。商家身份可直接选 PA uniqueId，无须把它强行转换成 CN mallId |
 | E12 | [签名规则](https://agentpartner.temu.com/document?cataId=875196199516&docId=896167235113) | 2025-05-11 | 外层 key ASCII 排序，精确参数字符串，secret 前后拼接，MD5 大写；nested wire JSON 必须一致；签名前文本含 secret 不可记录 |
 | E13 | [bg.glo.goods.add](https://agentpartner.temu.com/document?cataId=875198836203&docId=925526695187) | 2026-08-25 | 上传供应商货品，返回 productId/productSkcId/productSkuId/extCode；半托 bindSiteIds、站点价格/仓库路由；价格 CNY 分/USD cent；没有证实全托消费者逐国创建参数 |
 | E14 | [bg.glo.goods.list.get](https://agentpartner.temu.com/document?cataId=875198836203&docId=924479235154) | 2026-06-29 | skcExtCode、bindSiteIds、page/pageSize 筛选；结果含 productId、SKU ID/外部码、SKC 外部码、bindSites；状态 0 未发布/100 在售/200 下架终止/300 删除 |
@@ -35,23 +35,28 @@
 | E23 | [半托管站点列表](https://agentpartner.temu.com/document?cataId=875196199516&docId=893022798763) | 2025-09-29 | 96 项、70 true/26 false、关联站点；完整摘录见 §3；不借用为 Local 或全托清单 |
 | E24 | [Product Differences in site currency, volume](https://partner.temu.com/documentation?menu_code=38e79b35d2cb463d85619c1c786dd303&sub_menu_code=2cc05ca389ca4eeb8e704e903ebcc6bd) | 2026-01-26 | 独立 39 项规格表，siteId/partition/语言/币种/重量尺寸与精度/价格边界；无是否开站/商家可售字段，见 §4 |
 | E25 | [Origin Region List](https://partner.temu.com/documentation?menu_code=38e79b35d2cb463d85619c1c786dd303&sub_menu_code=40f3cd9aa5fa409cb004f403c61c7261) | 2026-08-14 | originRegion1/2 是原产地字典，不是 mall regionId → siteId 或开站依据；不能用国家名称相同推导权限 |
+| E26 | [CN/PA 接口列表](https://agentpartner.temu.com/document?cataId=875196199516&docId=899312840459) | 2026-03-09；2026-10-11 当前内容 | 同一基础 API 组明确列 CN bg.mall.info.get：查询当前 token 对应全托/半托类型；PA info.get.global：查询当前 token 对应店铺 uniqueId 和接口权限。与 E03/E04/E11 组成同一店铺授权的固定验证流程，不能仅凭客户端模式选择 |
+| E27 | [货品发布流程](https://agentpartner.temu.com/document?cataId=875196199516&docId=896172443264) | 2026-04-09 | 适用全托/半托；全托跳过站点/仓库/运费模板步骤；一次请求一个 SPU；半托仅 siteSupplierPrices，全托仅 supplierPrice；图片需官方上传 URL，自定义规格/尺码表可能需要独立 create 操作 |
+| E28 | [Add Products Guide V2.0](https://partner.temu.com/documentation?menu_code=fb16b05f7a904765aac4af3a24b87d4a&sub_menu_code=ea85c857a38d42a7a22fb6779776b166) / [Product Listing Instructions](https://partner.temu.com/documentation?menu_code=38e79b35d2cb463d85619c1c786dd303&sub_menu_code=d7943785ff2e4185976170f07924256e) | 2026-02-08 / 2025-10-11 | 类目读取针对当前店铺；availableStatus=0 才可售；V2 流程按授权 mall 组装资料，无客户端选择任意目标店铺/站点的步骤。币种/包装规格引用 E24；不因此扩大到订单功能 |
+| E29 | [temu.local.goods.cats.rules.get](https://partner.temu.com/documentation?menu_code=fb16b05f7a904765aac4af3a24b87d4a&sub_menu_code=5853e21ac9b74fdc96497a52c848765f) | 2026-09-23 | catId 请求；fieldRules/expandCatType/secondHand/warnings；有 category unavailable / shop status abnormal 等拒绝；当前返回未见站点映射/币种字段，不能拿它冒充映射接口 |
+| E30 | [Model Site and Region](https://partner.temu.com/documentation?menu_code=38e79b35d2cb463d85619c1c786dd303&sub_menu_code=07938e60f95344a0a9444f524ea61e31) | 未读取正文 | 官方全站搜索 region 找到，归 Developer Guide → Order Management；点击跳到 GLOBAL 登录页。CN 登录不通用。已找到现成候选文档，正文待有权访问；不能写成官方没有此资料或已核实映射 |
 
 ### 文档限定的 router
 
 | 身份分区 | transport route | 完整 URL | 适用说明 |
 | --- | --- | --- | --- |
 | CN | CN | https://openapi.kuajingmaihuo.com/openapi/router | 未迁移 CN API，含本轮 CN 身份接口 |
-| CN（尚须核实新授权关联） | PA | https://openapi-b-partner.temu.com/openapi/router | E03 已列举 migrated type；不是任意 CN fallback |
+| CN | PA | https://openapi-b-partner.temu.com/openapi/router | E03/E26 已列举 migrated type 与当前 token 授权查询；不是任意 CN fallback |
 | US | US | https://openapi-b-us.temu.com/openapi/router | 原 US 应用/token 与该 API scope |
 | EU | EU | https://openapi-b-eu.temu.com/openapi/router | 原 EU 应用/token 与该 API scope；不是“地理欧洲全部” |
 | GLOBAL | GLOBAL | https://openapi-b-global.temu.com/openapi/router | E24 用 GLO 标签，不能由“非欧美国家”推导全部路由 |
 
 E02 的全/半托“发品 CN”与 E03 新迁移路由按具体 API/version 对齐，不能随意选择旧入口。E03 把 bg.goods.add 对应到 bg.glo.goods.add/temu.goods.add，新实现只固定已查证的一种 type；别名不形成第二发送机会。类别/属性/父规格/尺寸/图片/运费模板/品牌沿 E03 的 migrated API 选择，正式请求还须逐项验证 scope 与当前参数。
 
-## 2. 尚未形成证明的身份/站点/恢复关系
+## 2. 身份验证结论与待读取的站点/恢复依据
 
-- CN result.mallId 与 PA result.uniqueId：尚无明确官方映射、稳定性或同 token 两端可核实的完整证明。相同授权入口、相同 mallName 不足以绑定，不能尝试轮换网关猜身份。
-- 本土 regionId（USA-211）与 siteId（US-100）：值域不同；E25 是产地字典，不能解此关联。E24 也没有全量实时可售/授权站点字段。
+- CN result.mallId 与 PA result.uniqueId 没有已读取的等值关系；这不需要成为实现前置。E04 店铺粒度 token + E11 PA mall 唯一标识 + E26 同一当前 token 的固定 CN 类型/PA 身份查询，支持选 PA uniqueId 为唯一 supplier 身份，CN 类型为该凭据下的附属验证事实。不拿名字关联，也不跨 US/EU/GLOBAL 试探；真实成功响应与权限仍在实现/授权验证层收敛。
+- 本土 regionId（USA-211）与 siteId（US-100）值域不同。已找到 E30 Model Site and Region，但尚无 GLOBAL 登录，正文待读；不是断言官方没有映射。E24 规格字典没有实时商家资格。Local API 目标是当前 token 的 mall，不要求虚构一个“全部可售站点”授权 API；共享字典不能自证商家授权。
 - Local externalGoodsId 与 list.retrieve 的 outGoodsSn：两个名称分别已查证，映射关系未查证；不能将未知关系写进自动恢复实现。
 - PA detail.get 不完整回显 SKU/价格/body hash；list.get 的 correlation 与 bindSites 只能用于足够明确的正向证据。空查询不证明无副作用。
 - 没有真实 application 发布、merchant scope/eligibility、真实 token/创建/撤权证据；全部 NOT_RUN，不影响只读设计，但不能冒充三模式及所有国家产品验收。
@@ -215,7 +220,8 @@ E24 的标题是站点币种/体积差异，没有“是否开站”或本 merch
 | --- | --- | --- |
 | 官方页面、迁移路由、三模式创建/读取/状态 API | PASS（文档读取） | 只证明本文件列出的合同事实，不是业务调用成功 |
 | 半托 96 行/70 true/26 false、本土 39 行规格摘录 | PASS（文档读取） | 文档版本绑定；不证明所有 merchant 可售 |
-| CN/PA 稳定身份关联、本土 mall 的完整可售 site 关联 | UNKNOWN | Design §11 G1/G2；不能自行推定 |
+| CN/PA 同授权身份/模式验证合同 | PASS（文档读取） | E03/E04/E11/E26；选 PA uniqueId，不要求 mallId 转换；实际调用 NOT_RUN，设计修正待独立复核 |
+| 本土 region/site 规格关联 | UNKNOWN（待访问 E30） | 已找到官方 Model Site and Region；GLOBAL 登录后读取，不断言文档缺失 |
 | externalGoodsId/outGoodsSn 关系与失响应 exact readback | UNKNOWN | 不做错误 adopt；原 UNKNOWN fence 保留 |
 | 真实官方应用/真实 merchant 授权、发布、撤权、消费者状态 | NOT_RUN | 本轮未授权业务 API/真实数据 |
 | 用户可操作产品/生产验收 | NOT_RUN | 无正式实现；文档/CI/AI评审不构成验收 |
