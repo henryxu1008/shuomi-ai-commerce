@@ -43,7 +43,7 @@
 .eco-market-page .console-page-header { margin-bottom: 24px; }
 .eco-market-page .console-page-header h1 { line-height: 42px; margin: 0; letter-spacing: normal; }
 .eco-market-page .console-page-header .console-description { font-size: 12px; line-height: 22px; }
-.eco-market-page .eco-catalog-filter { margin-bottom: 20px; padding-right: 18px; align-items: center; flex-direction: row; }
+.eco-market-page .eco-catalog-filter { margin-bottom: 20px; padding-right: 18px; align-items: center; flex-direction: row; box-shadow: none; }
 .eco-market-page .eco-catalog-filter h2 { font-size: 17px; line-height: 1.45; }
 .eco-market-page .eco-catalog-filter p { margin-top: 3px; }
 .eco-market-page .eco-category-tabs { gap: 10px; }
