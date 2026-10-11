@@ -74,7 +74,7 @@ func (c *OfficialClient) Exchange(context.Context, string, string) (storecenter.
 	return storecenter.OfficialMerchantCredential{}, storecenter.ErrOfficialAuthorizationRejected
 }
 func (c *OfficialClient) QueryStore(ctx context.Context, credential storecenter.OfficialMerchantCredential) (storecenter.OfficialStoreInformation, error) {
-	if credential.AppID != c.application.AppID || credential.Temu == nil || credential.OpenKeyID != "" || credential.SecretKey != "" || credential.SupplierID != "" || !boundedParameter(credential.Temu.AccessToken, 4096) {
+	if !c.validCredential(credential) {
 		return storecenter.OfficialStoreInformation{}, storecenter.ErrOfficialConnectionUnavailable
 	}
 	// Both supplier reads share one total deadline and one exact token. The
@@ -94,6 +94,10 @@ var _ storecenter.OfficialConnectionProvider = (*OfficialClient)(nil)
 
 func boundedParameter(value string, maximum int) bool {
 	return value != "" && len(value) <= maximum && utf8.ValidString(value) && strings.TrimSpace(value) == value && !strings.ContainsAny(value, "\r\n\x00")
+}
+
+func (c *OfficialClient) validCredential(credential storecenter.OfficialMerchantCredential) bool {
+	return credential.AppID == c.application.AppID && credential.Temu != nil && credential.OpenKeyID == "" && credential.SecretKey == "" && credential.SupplierID == "" && boundedParameter(credential.Temu.AccessToken, 4096)
 }
 
 func (c *OfficialClient) querySupplier(ctx context.Context, token string) (storecenter.OfficialStoreInformation, error) {
@@ -140,15 +144,8 @@ func (c *OfficialClient) queryLocal(ctx context.Context, token string) (storecen
 		ExpiredTime *int64   `json:"expiredTime"`
 		Scopes      []string `json:"apiScopeList"`
 	}
-	var origin string
-	switch c.application.IdentityPartition {
-	case storecenter.PartitionUS:
-		origin = "https://openapi-b-us.temu.com"
-	case storecenter.PartitionEU:
-		origin = "https://openapi-b-eu.temu.com"
-	case storecenter.PartitionGlobal:
-		origin = "https://openapi-b-global.temu.com"
-	default:
+	origin := localAPIOrigin(c.application.IdentityPartition)
+	if origin == "" {
 		return storecenter.OfficialStoreInformation{}, storecenter.ErrOfficialConnectionUnavailable
 	}
 	if err := c.readIdentity(ctx, origin, localInfoAPI, token, &identity); err != nil {
@@ -169,27 +166,39 @@ func (c *OfficialClient) queryLocal(ctx context.Context, token string) (storecen
 }
 
 func (c *OfficialClient) verification(merchant string, namespace storecenter.OfficialMerchantNamespace, region int64, expiry *int64, scopes []string) (storecenter.OfficialVerificationFacts, error) {
-	if expiry == nil || *expiry <= 0 || *expiry > 253402300799 || scopes == nil || len(scopes) > 4096 {
-		return storecenter.OfficialVerificationFacts{}, storecenter.ErrOfficialConnectionUnavailable
-	}
-	now := c.now().UTC()
-	expires := time.Unix(*expiry, 0).UTC()
-	if !now.Before(expires) {
-		return storecenter.OfficialVerificationFacts{}, storecenter.ErrOfficialCredentialExpired
-	}
-	for _, scope := range scopes {
-		if !boundedParameter(scope, 256) {
-			return storecenter.OfficialVerificationFacts{}, storecenter.ErrOfficialConnectionUnavailable
-		}
+	expires, now, err := c.validScopeExpiry(expiry, scopes)
+	if err != nil {
+		return storecenter.OfficialVerificationFacts{}, err
 	}
 	return storecenter.OfficialVerificationFacts{Platform: storecenter.PlatformTemu, IdentityPartition: c.application.IdentityPartition, Namespace: namespace, MerchantID: merchant, RegionID: region, ExpiresAt: expires, Scopes: append([]string{}, scopes...), ContractRevision: verificationRevision, VerifiedAt: now}, nil
 }
 
+func (c *OfficialClient) validScopeExpiry(expiry *int64, scopes []string) (time.Time, time.Time, error) {
+	if expiry == nil || *expiry <= 0 || *expiry > 253402300799 || scopes == nil || len(scopes) > 4096 {
+		return time.Time{}, time.Time{}, storecenter.ErrOfficialConnectionUnavailable
+	}
+	now := c.now().UTC()
+	expires := time.Unix(*expiry, 0).UTC()
+	if !now.Before(expires) {
+		return time.Time{}, time.Time{}, storecenter.ErrOfficialCredentialExpired
+	}
+	for _, scope := range scopes {
+		if !boundedParameter(scope, 256) {
+			return time.Time{}, time.Time{}, storecenter.ErrOfficialConnectionUnavailable
+		}
+	}
+	return expires, now, nil
+}
+
 func (c *OfficialClient) readIdentity(ctx context.Context, origin, api, token string, result any) error {
+	return c.readOfficialResponse(ctx, origin, api, token, nil, result)
+}
+
+func (c *OfficialClient) readOfficialResponse(ctx context.Context, origin, api, token string, fields map[string]json.RawMessage, result any) error {
 	if ctx.Err() != nil {
 		return storecenter.ErrOfficialConnectionUnavailable
 	}
-	body, err := c.encodeRequest(api, token, nil)
+	body, err := c.encodeRequest(api, token, fields)
 	if err != nil {
 		return err
 	}

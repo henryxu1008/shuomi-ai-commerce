@@ -43,6 +43,9 @@
 | E31 | [Product Basic Introduction](https://partner.temu.com/documentation?menu_code=38e79b35d2cb463d85619c1c786dd303&sub_menu_code=2bdd2c8933604967a613caa5f87e5963) | 2025-10-11 11:52:57 | 当前店铺类目/品牌/运费模板、创建后进入审核、创建/审核分离；基础价格/包装示例为 USD/lb/in，不能拿这些美国示例替缺失的非美国规格。站点特殊接口章节当前仅 Brazil，未找到 GE/AM 补充页 |
 | E32 | [Guide of price](https://partner.temu.com/documentation?menu_code=fb16b05f7a904765aac4af3a24b87d4a&sub_menu_code=e351264f0a1749cba4f112345a86813c) | 2026-01-30 14:04:02 | 2026-10-12 已登录后读取：支持商家明确手工设置基础价格，计算器结果仅供参考；指南的计算器流程引用 baseprice.recommend 和较早 bg.local.goods.add，不能当作 V2 的新强制合同。价格管理 API 仅面向获白名单的本土自研应用，需店铺层申请；不因此授权独立调价或自动申请。正文没有 GE/AM 的币种/精度/范围，未关闭规格缺口 |
 
+| E33 | [bg.goods.cats.get](https://agentpartner.temu.com/document?cataId=875198836203&docId=877327073796) | 2025-03-13 15:57:45 | 2026-10-12 登录后核对：全托/半托类目读取仍属 CN；根层省略 parentCatId，siteId 可选、showHidden 为布尔。result.categoryDTOList 保留父类目、末级、层级及隐藏类型；缺隐藏标志不是可选择。权限必须用 E09 的当前 CN scope，不能拿 PA 权限推断 |
+| E34 | [bg.local.goods.cats.get](https://partner.temu.com/documentation?menu_code=fb16b05f7a904765aac4af3a24b87d4a&sub_menu_code=b49f03d2b1744700ab762b9fe80d1af7) | 2026-09-23 15:55:07 | 2026-10-12 登录后核对：独立 result.goodsCatsList，父字段 parentId、末级 leaf、availableStatus=0 可售/1 不可售，另有 expandCatType/secondHandCategory。E28 根查询 parentCatId=0；读取针对当前 mall，不能增加任意 siteId。缺 availability 保留未知 |
+
 ### 文档限定的 router
 
 | 身份分区 | transport route | 完整 URL | 适用说明 |
