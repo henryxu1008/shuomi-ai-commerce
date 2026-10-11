@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useWorkbenchContext } from "@/components/providers/workbench-context-provider";
+import { useWorkbenchContext, type PendingAcquisitionIntent } from "@/components/providers/workbench-context-provider";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { AcquisitionAPIError, acquire1688, readAcquisition, readAcquisitionProduct, verify1688, type AcquisitionContext, type AcquisitionOperation } from "@/lib/api/product-acquisition";
+import { AcquisitionAPIError, acquire1688, readAcquisition, readAcquisitionProduct, verify1688, type AcquisitionContext } from "@/lib/api/product-acquisition";
 import { canonical1688Source, isAcquisitionUUID, type AcquisitionProduct, type AcquisitionResult } from "@/lib/contracts/product-acquisition";
 import { findConsoleRoute } from "@/lib/workbench/console-navigation";
 import { ConsolePage, ConsoleState } from "../console/console-page";
@@ -15,7 +15,7 @@ import {ProductAgentPanel} from "./product-agent-panel";
 import {ProductImageSetPanel} from "./product-image-set-panel";
 import { AcquisitionPlansPage } from "./acquisition-plans-page";
 
-type PendingIntent = AcquisitionOperation;
+type PendingIntent = PendingAcquisitionIntent;
 
 export function AcquisitionPage({ operationId,agentEnabled=false,knowledgeAvailable=false,plansEnabled=false }: { operationId?: string;agentEnabled?:boolean;knowledgeAvailable?:boolean;plansEnabled?:boolean }) {
   const context = useWorkbenchContext();
@@ -44,7 +44,7 @@ function ScopedAcquisitionPage({ operationId,agentEnabled,knowledgeAvailable, sc
   const [pending, setPending] = useState<PendingIntent | null>(initialIntent);
   const [result, setResult] = useState<AcquisitionResult | null>(null);
   const [product, setProduct] = useState<AcquisitionProduct | null>(null);
-  const [error, setError] = useState<string | null>(() => operationId && !isAcquisitionUUID(operationId) ? "INVALID_ACQUISITION" : (initialIntent ? "OUTCOME_UNKNOWN" : null));
+  const [error, setError] = useState<string | null>(() => operationId && !isAcquisitionUUID(operationId) ? "INVALID_ACQUISITION" : (initialIntent?.quotaPaused ? "DATA_QUOTA_INSUFFICIENT" : initialIntent ? "OUTCOME_UNKNOWN" : null));
   const [busy, setBusy] = useState(() => Boolean(operationId && isAcquisitionUUID(operationId)));
   const active = useRef(true);
   const inFlight = useRef(false);
@@ -74,11 +74,11 @@ function ScopedAcquisitionPage({ operationId,agentEnabled,knowledgeAvailable, sc
     if (!active.current || inFlight.current || foreignIntent) return;
     const canonical = canonical1688Source(source);
     if (!canonical) { setError("INVALID_ACQUISITION"); return; }
-    const intent: AcquisitionOperation = pending ?? { userId: scope.userId, organizationId: scope.organizationId, key: crypto.randomUUID(), source: canonical };
+    const intent: PendingIntent = pending ?? { userId: scope.userId, organizationId: scope.organizationId, key: crypto.randomUUID(), source: canonical };
     const controller = new AbortController();
     abort.current = controller; inFlight.current = true; setPending(intent); onIntentChange(intent); setBusy(true); setError(null);
     try {
-      const next = await (verify ? verify1688(intent, controller.signal) : acquire1688(intent, controller.signal));
+      const next = await (verify && !intent.quotaPaused ? verify1688(intent, controller.signal) : acquire1688(intent, controller.signal));
       if (!active.current) return;
       setResult(next);
       if (isTerminalAcquisitionResult(next)) {
@@ -90,7 +90,10 @@ function ScopedAcquisitionPage({ operationId,agentEnabled,knowledgeAvailable, sc
     } catch (failure) {
       if (!active.current) return;
       const code = codeOf(failure);
-      if (isDefinitiveSubmissionFailure(code)) {
+      if (code === "DATA_QUOTA_INSUFFICIENT") {
+        const paused = { ...intent, quotaPaused: true };
+        setPending(paused); onIntentChange(paused); setError(code);
+      } else if (isDefinitiveSubmissionFailure(code)) {
         setPending(null); onIntentChange(null); setError(code);
       } else {
         setPending(intent); onIntentChange(intent); setError("OUTCOME_UNKNOWN");
@@ -121,7 +124,7 @@ function ScopedAcquisitionPage({ operationId,agentEnabled,knowledgeAvailable, sc
   }
 
   return <ConsolePage title="1688采集" breadcrumbs={findConsoleRoute("/workbench/supply/acquisition")?.trail} description="提交公开商品页或 offer ID。系统仍按当前登录身份和企业授权；不需要源账号或 1688 登录。">
-    <Card className="space-y-4 p-5"><h2 className="text-base font-semibold">采集公开商品</h2>{foreignIntent ? <p role="status">另一个企业或身份下有尚未确认的采集请求。请恢复原上下文后使用原 key 核实。</p> : null}<form className="space-y-3" onSubmit={(event) => { event.preventDefault(); void submit(); }}><label className="grid gap-2" htmlFor="acquisition-source"><span>1688 商品页或 offer ID</span><Input id="acquisition-source" value={source} onChange={(event) => setSource(event.target.value)} disabled={busy || !!pending || foreignIntent} placeholder="https://detail.1688.com/offer/123.html" /></label><div className="flex gap-2"><Button type="submit" disabled={busy || !!pending || foreignIntent}>提交采集</Button>{pending && error === "OUTCOME_UNKNOWN" ? <Button type="button" variant="outline" disabled={busy} onClick={() => void submit(true)}>使用原 key 核实</Button> : null}</div></form>{result ? <ResultState result={result} /> : null}{error ? <Failure code={error} /> : null}</Card>
+    <Card className="space-y-4 p-5"><h2 className="text-base font-semibold">采集公开商品</h2>{foreignIntent ? <p role="status">另一个企业或身份下有尚未确认的采集请求。请恢复原上下文后使用原 key 核实。</p> : null}<form className="space-y-3" onSubmit={(event) => { event.preventDefault(); void submit(); }}><label className="grid gap-2" htmlFor="acquisition-source"><span>1688 商品页或 offer ID</span><Input id="acquisition-source" value={source} onChange={(event) => setSource(event.target.value)} disabled={busy || !!pending || foreignIntent} placeholder="https://detail.1688.com/offer/123.html" /></label><div className="flex gap-2"><Button type="submit" disabled={busy || !!pending || foreignIntent}>提交采集</Button>{pending?.quotaPaused ? <Button type="button" variant="outline" disabled={busy || foreignIntent} onClick={() => void submit()}>补足额度后使用原 key 重试</Button> : pending && error === "OUTCOME_UNKNOWN" ? <Button type="button" variant="outline" disabled={busy} onClick={() => void submit(true)}>使用原 key 核实</Button> : null}</div></form>{result ? <ResultState result={result} /> : null}{error ? <Failure code={error} /> : null}</Card>
     <Card className="mt-5 space-y-3 p-5"><h2 className="text-base font-semibold">找回采集结果</h2><p className="text-sm text-muted-foreground">粘贴操作 ID 仅读取该 ID 在当前身份和企业下的结果；不会创建新操作。</p><form className="flex max-w-xl gap-2" onSubmit={(event) => { event.preventDefault(); void recover(); }}><Input aria-label="操作 ID" value={recoveryID} onChange={(event) => setRecoveryID(event.target.value)} disabled={busy} /><Button type="submit" variant="outline" disabled={busy}>读取</Button></form></Card>
   </ConsolePage>;
 }
@@ -143,9 +146,9 @@ function ResultState({ result }: { result: AcquisitionResult }) {
 function CatalogFacts({ product }: { product: AcquisitionProduct }) {
   return <div className="space-y-5"><Card className="p-5"><h2 className="text-xl font-semibold">{product.title || "未提供标题"}</h2><p className="mt-2 text-sm text-muted-foreground">操作 {product.operationId} · Catalog 版本 {product.catalogVersion}</p></Card><Card className="p-5"><h2 className="font-semibold">来源与采集图片</h2>{product.sources.length ? <ul className="mt-3 list-disc space-y-1 pl-5">{product.sources.map((source, index) => <li key={`${source.url}:${index}`}>{source.platform || "未标注平台"}{source.url ? <> · <a className="underline" href={source.url} rel="noreferrer" target="_blank">查看来源</a></> : null}</li>)}</ul> : <p className="mt-3 text-sm text-muted-foreground">未提供来源记录。</p>}{product.images.length ? <ul className="mt-3 list-disc space-y-1 pl-5">{product.images.map((image, index) => <li key={`${image.url}:${index}`}><a className="underline" href={image.url} rel="noreferrer" target="_blank">图片候选 {index + 1}</a>{image.role ? `（${image.role}）` : ""}</li>)}</ul> : <p className="mt-3 text-sm text-muted-foreground">未采集到图片候选。</p>}</Card><Card className="p-5"><h2 className="font-semibold">规格与缺失信息</h2>{product.specifications.length ? <dl className="mt-3 grid gap-2 sm:grid-cols-2">{product.specifications.map((item, index) => <div key={`${item.name}:${index}`}><dt className="text-sm text-muted-foreground">{item.name}</dt><dd>{item.value}</dd></div>)}</dl> : <p className="mt-3 text-sm text-muted-foreground">未提供规格。</p>}{product.missingFacts.length ? <ul className="mt-4 list-disc space-y-1 pl-5 text-sm">{product.missingFacts.map((fact, index) => <li key={`${fact.field}:${index}`}>{fact.field}：{fact.reason}{fact.count ? `（共 ${fact.count} 处）` : ""}</li>)}</ul> : null}</Card>{product.warnings.length ? <Card className="p-5"><h2 className="font-semibold">采集警告</h2><ul className="mt-3 list-disc space-y-1 pl-5 text-sm">{product.warnings.map((warning, index) => <li key={`${warning.field}:${warning.code}:${index}`}>{warning.field}：{warning.code}{warning.count ? `（共 ${warning.count} 处）` : ""}</li>)}</ul></Card> : null}</div>;
 }
-function Failure({ code }: { code: string }) { const labels: Record<string, string> = { DATA_QUOTA_INSUFFICIENT: "可用数据条数不足，请由管理员补充分配后重新采集。", OUTCOME_UNKNOWN: "原请求结果尚未确定；仅当仍持有原 key 和来源时可核实。", ACQUISITION_NOT_FOUND: "当前身份和企业下未找到该操作。", FORBIDDEN: "当前身份没有采集或读取权限。", INVALID_ACQUISITION: "请输入合法的 1688 商品页、offer ID 或操作 ID。", ACQUISITION_UNAVAILABLE: "采集结果暂不可用；未据此推断其已失败。" }; return <ConsoleState kind="error" title={labels[code] ?? "采集请求未完成"}>{code}</ConsoleState>; }
+function Failure({ code }: { code: string }) { const labels: Record<string, string> = { DATA_QUOTA_INSUFFICIENT: "可用数据条数不足，原请求已保留；请由管理员补充分配后使用原 key 重试。", OUTCOME_UNKNOWN: "原请求结果尚未确定；仅当仍持有原 key 和来源时可核实。", ACQUISITION_NOT_FOUND: "当前身份和企业下未找到该操作。", FORBIDDEN: "当前身份没有采集或读取权限。", INVALID_ACQUISITION: "请输入合法的 1688 商品页、offer ID 或操作 ID。", ACQUISITION_UNAVAILABLE: "采集结果暂不可用；未据此推断其已失败。" }; return <ConsoleState kind="error" title={labels[code] ?? "采集请求未完成"}>{code}</ConsoleState>; }
 function codeOf(failure: unknown) { return failure instanceof AcquisitionAPIError ? failure.code : "ACQUISITION_UNAVAILABLE"; }
 function isDefinitiveSubmissionFailure(code: string) {
-  return code === "DATA_QUOTA_INSUFFICIENT" || code === "INVALID_ACQUISITION" || code === "SOURCE_TOO_LARGE" || code === "ACQUISITION_CAPACITY" || code === "ACQUISITION_NOT_FOUND" || code === "SOURCE_UNAVAILABLE";
+  return code === "INVALID_ACQUISITION" || code === "SOURCE_TOO_LARGE" || code === "ACQUISITION_CAPACITY" || code === "ACQUISITION_NOT_FOUND" || code === "SOURCE_UNAVAILABLE";
 }
 function isTerminalAcquisitionResult(result: AcquisitionResult) { return result.outcome === "published" || result.outcome === "failed"; }
