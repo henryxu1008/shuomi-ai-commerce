@@ -22,18 +22,19 @@ func (a planTestAuth) AuthorizePlan(context.Context, bool) (sourcing.Acquisition
 }
 
 type planCollections struct {
-	item  collection.ItemDetail
-	batch collection.Batch
+	item              collection.ItemDetail
+	batch             collection.Batch
+	itemErr, batchErr error
 }
 
 func (c *planCollections) Mutate(context.Context, string, collection.Mutation) (collection.Receipt, error) {
 	return collection.Receipt{}, nil
 }
 func (c *planCollections) ReadItem(context.Context, string) (collection.ItemDetail, error) {
-	return c.item, nil
+	return c.item, c.itemErr
 }
 func (c *planCollections) ReadBatch(context.Context, string) (collection.Batch, error) {
-	return c.batch, nil
+	return c.batch, c.batchErr
 }
 
 type planPreparation struct{ calls int }
@@ -55,10 +56,63 @@ func TestPlanRefusesChangedSelectedCollectionBeforeFreezingTransfer(t *testing.T
 	preps := &planPreparation{}
 	service, e := NewAcquisitionPlanService(r, nil, &planChild{}, collections, preps, planTestAuth{scope}, nil)
 	require.NoError(t, e)
-	_, e = service.Advance(context.Background(), r.plan.ID, 1)
-	require.ErrorIs(t, e, sourcing.ErrAcquisitionConflict)
+	p, e := service.Advance(context.Background(), r.plan.ID, 1)
+	require.NoError(t, e)
+	require.Equal(t, "transfer_source_conflict", p.FailureCode)
+	require.Equal(t, "transfer_source_conflict", r.plan.FailureCode)
+	_, e = service.Advance(context.Background(), r.plan.ID, p.Revision)
+	require.NoError(t, e)
 	require.Empty(t, r.plan.TransferInputJSON)
 	require.Zero(t, preps.calls)
+}
+
+func TestPlanPersistsPreFreezeSourceConflictSiblings(t *testing.T) {
+	for _, kind := range []string{"moved", "archived", "missing-item", "missing-batch", "batch-revision", "invalid-item", "unknown-read", "forbidden-read"} {
+		t.Run(kind, func(t *testing.T) {
+			scope := sourcing.AcquisitionPlanScope{OrganizationID: "org", ActorID: "actor", MemberID: "member"}
+			input, _ := sourcing.NewAcquisitionPlanInput("product", []string{"123"}, sourcing.AcquisitionRule{}, true)
+			batchID, itemID, operationID := uuid.NewString(), uuid.NewString(), uuid.NewString()
+			item := sourcing.AcquisitionPlanItem{Source: input.Inputs[0], State: "published", OperationID: operationID, Evaluation: &sourcing.RuleEvaluation{State: sourcing.RuleMatched}, CollectionItemID: itemID, CollectionBatchID: batchID, CollectionRevision: 1}
+			r := &planMemory{plan: sourcing.AcquisitionPlan{ID: uuid.NewString(), Key: uuid.NewString(), Scope: scope, Input: input, DiscoveryIndex: 1, Revision: 1, State: "pending", Items: []sourcing.AcquisitionPlanItem{item}}}
+			collections := &planCollections{item: collection.ItemDetail{Item: collection.Item{ID: itemID, BatchID: batchID, Revision: 1, Source: collection.Source{OperationID: operationID}}}, batch: collection.Batch{ID: batchID, Revision: 1}}
+			switch kind {
+			case "moved":
+				collections.item.Item.BatchID = uuid.NewString()
+			case "archived":
+				now := time.Now()
+				collections.item.Item.ArchivedAt = &now
+			case "missing-item":
+				collections.itemErr = collection.ErrNotFound
+			case "missing-batch":
+				collections.batchErr = collection.ErrNotFound
+			case "batch-revision":
+				collections.batch.Revision = 0
+			case "invalid-item":
+				r.plan.Items[0].CollectionItemID = ""
+			case "unknown-read":
+				collections.itemErr = collection.ErrUnavailable
+			case "forbidden-read":
+				collections.itemErr = collection.ErrForbidden
+			}
+			preps, child := &planPreparation{}, &planChild{}
+			service, err := NewAcquisitionPlanService(r, nil, child, collections, preps, planTestAuth{scope}, nil)
+			require.NoError(t, err)
+			p, err := service.Advance(t.Context(), r.plan.ID, 1)
+			if kind == "unknown-read" || kind == "forbidden-read" {
+				require.ErrorIs(t, err, collections.itemErr)
+				require.Empty(t, r.plan.FailureCode)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, "transfer_source_conflict", p.FailureCode)
+				require.Equal(t, p.FailureCode, r.plan.FailureCode)
+				_, err = service.Advance(t.Context(), r.plan.ID, p.Revision)
+				require.NoError(t, err)
+			}
+			require.Empty(t, r.plan.TransferInputJSON)
+			require.Zero(t, preps.calls)
+			require.Zero(t, child.acquire)
+		})
+	}
 }
 
 type planMemory struct {

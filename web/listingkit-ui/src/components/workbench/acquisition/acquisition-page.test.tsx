@@ -155,6 +155,30 @@ it.each([
   expect((calls.acquire.mock.calls[1][0] as AcquisitionOperation).key).not.toBe(original.key);
 });
 
+it("retains quota-paused intent through navigation and retries Acquire with its original key", async () => {
+  calls.acquire.mockRejectedValueOnce(new AcquisitionAPIError("DATA_QUOTA_INSUFFICIENT", 409));
+  calls.acquire.mockResolvedValueOnce({ outcome: "acquiring", operationId: operationID });
+  calls.acquire.mockResolvedValueOnce({ outcome: "published", operationId: operationID, productKey: "crawler:1688:123" });
+  const view = render(tree());
+  await userEvent.type(screen.getByLabelText("1688 商品页或 offer ID"), "123");
+  await userEvent.click(screen.getByRole("button", { name: "提交采集" }));
+  await screen.findByRole("alert");
+  const original = calls.acquire.mock.calls[0][0] as AcquisitionOperation;
+  expect(calls.context.pendingAcquisitionIntent).toMatchObject(original);
+  expect(screen.getByRole("button", { name: "提交采集" })).toBeDisabled();
+  expect(screen.getByLabelText("1688 商品页或 offer ID")).toBeDisabled();
+  view.unmount();
+  render(tree());
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await userEvent.click(screen.getByRole("button", { name: "补足额度后使用原 key 重试" }));
+    await waitFor(() => expect(calls.acquire).toHaveBeenCalledTimes(attempt + 2));
+    expect(calls.acquire.mock.calls[attempt + 1][0]).toMatchObject(original);
+  }
+  expect(calls.verify).not.toHaveBeenCalled();
+  expect(calls.context.pendingAcquisitionIntent).toBeNull();
+  expect(calls.push).toHaveBeenCalledWith(`/workbench/supply/acquisition/operation/${operationID}`);
+});
+
 it("renders source warnings preserved by the operation-bound Catalog product", async () => {
   calls.readProduct.mockResolvedValueOnce({
     schemaVersion: 1,

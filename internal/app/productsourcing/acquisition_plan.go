@@ -325,10 +325,13 @@ func (s *AcquisitionPlanService) Advance(ctx context.Context, id string, expecte
 			}
 			detail, e := s.collections.ReadItem(ctx, receipt.ItemID)
 			if e != nil {
+				if errors.Is(e, collection.ErrConflict) || errors.Is(e, collection.ErrNotFound) {
+					return s.saveTransferSourceConflict(ctx, p, check)
+				}
 				return p, e
 			}
 			if detail.Item.Source.OperationID != item.OperationID || detail.Item.Source.PublicationID != result.Publication.Receipt.PublicationID || detail.Item.Source.Version != result.Publication.Receipt.CatalogVersion || detail.Item.ArchivedAt != nil {
-				return p, sourcing.ErrAcquisitionConflict
+				return s.saveTransferSourceConflict(ctx, p, check)
 			}
 			item.CollectionItemID = detail.Item.ID
 			item.CollectionBatchID = detail.Item.BatchID
@@ -374,6 +377,12 @@ type planTransferIntent struct {
 	Input preparation.TransferInput `json:"input"`
 }
 
+func (s *AcquisitionPlanService) saveTransferSourceConflict(ctx context.Context, p sourcing.AcquisitionPlan, check sourcing.PlanAuthorityCheck) (sourcing.AcquisitionPlan, error) {
+	p.State = "transfer_pending"
+	p.FailureCode = "transfer_source_conflict"
+	return s.repository.Save(ctx, p, check)
+}
+
 func (s *AcquisitionPlanService) finishOrSave(ctx context.Context, p sourcing.AcquisitionPlan, check sourcing.PlanAuthorityCheck) (sourcing.AcquisitionPlan, error) {
 	for _, item := range p.Items {
 		if item.State != "published" && item.State != "failed" {
@@ -388,23 +397,29 @@ func (s *AcquisitionPlanService) finishOrSave(ctx context.Context, p sourcing.Ac
 				continue
 			}
 			if !collection.ValidID(item.CollectionItemID) || !collection.ValidID(item.CollectionBatchID) {
-				return p, sourcing.ErrAcquisitionConflict
+				return s.saveTransferSourceConflict(ctx, p, check)
 			}
 			detail, err := s.collections.ReadItem(ctx, item.CollectionItemID)
 			if err != nil {
+				if errors.Is(err, collection.ErrConflict) || errors.Is(err, collection.ErrNotFound) {
+					return s.saveTransferSourceConflict(ctx, p, check)
+				}
 				return p, err
 			}
 			if detail.Item.ID != item.CollectionItemID || detail.Item.BatchID != item.CollectionBatchID || detail.Item.Revision != item.CollectionRevision || detail.Item.Source.OperationID != item.OperationID || detail.Item.ArchivedAt != nil {
-				return p, sourcing.ErrAcquisitionConflict
+				return s.saveTransferSourceConflict(ctx, p, check)
 			}
 			index, ok := indices[item.CollectionBatchID]
 			if !ok {
 				batch, err := s.collections.ReadBatch(ctx, item.CollectionBatchID)
 				if err != nil {
+					if errors.Is(err, collection.ErrConflict) || errors.Is(err, collection.ErrNotFound) {
+						return s.saveTransferSourceConflict(ctx, p, check)
+					}
 					return p, err
 				}
 				if batch.ID != item.CollectionBatchID || batch.Revision < 1 {
-					return p, sourcing.ErrAcquisitionConflict
+					return s.saveTransferSourceConflict(ctx, p, check)
 				}
 				index = len(groups)
 				indices[item.CollectionBatchID] = index

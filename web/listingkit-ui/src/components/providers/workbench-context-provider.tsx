@@ -21,6 +21,8 @@ import {
   type WorkbenchOrganization,
 } from "@/lib/api/workbench-context";
 import type { AcquisitionOperation } from "@/lib/api/product-acquisition";
+
+export type PendingAcquisitionIntent = AcquisitionOperation & { quotaPaused?: boolean };
 import type { CollectionIntent } from "@/lib/api/product-collection";
 import { loadCollectionIntent, saveCollectionIntent } from "@/lib/api/collection-intent";
 import type { SupplyIntent } from "@/lib/api/supply-chain";
@@ -46,8 +48,8 @@ type WorkbenchContextValue = {
   blockingError: WorkbenchContextError | null;
   retry: () => Promise<WorkbenchContext | null>;
   switchOrganization: (organizationId: string) => void;
-  pendingAcquisitionIntent: AcquisitionOperation | null;
-  setPendingAcquisitionIntent: (intent: AcquisitionOperation | null) => void;
+  pendingAcquisitionIntent: PendingAcquisitionIntent | null;
+  setPendingAcquisitionIntent: (intent: PendingAcquisitionIntent | null) => void;
   pendingCollectionIntent: CollectionIntent | null;
   collectionIntentReady: boolean;
   setPendingCollectionIntent: (intent: CollectionIntent | null) => boolean;
@@ -68,7 +70,7 @@ export function WorkbenchContextProvider({ children }: PropsWithChildren) {
   // A scoped idempotency intent remains in the workbench shell while a route
   // changes. It is never a cross-organization authorization grant.
   const [pendingAcquisitionIntent, setPendingAcquisitionIntent] =
-    useState<AcquisitionOperation | null>(null);
+    useState<PendingAcquisitionIntent | null>(null);
   const [pendingCollectionIntent, setCollectionIntent] = useState<CollectionIntent | null>(null);
   const collectionIntentRef = useRef<CollectionIntent | null>(null);
   const [collectionIntentReady, setCollectionIntentReady] = useState(false);
