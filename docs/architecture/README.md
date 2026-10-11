@@ -151,6 +151,10 @@ source of truth for long-lived rules.
 
 ## Supporting Context
 
+- [`operations-cockpit-figma-read-v1.md`](./operations-cockpit-figma-read-v1.md)
+  - #619 four-page Figma alignment and bounded readonly cockpit summary/query
+    supplement; admission is stated in the document, preserving #627 frozen owners.
+
 - [`ai-workbench-reports-v1.md`](./ai-workbench-reports-v1.md)
   - #628 frozen IMPLEMENTATION_READY personal report snapshots, favorites and
     exact source-version capture. Shared runtime wiring and actual user acceptance
@@ -177,6 +181,10 @@ source of truth for long-lived rules.
     long-term projects, manually authorized references and personal templates;
     independent persistence/runtime, receipt-first replay and slot removal.
     Does not own execution, source facts or shared project permissions.
+- [`project-center-overview-read-v1.md`](./project-center-overview-read-v1.md)
+  - IMPLEMENTATION_READY #619: private full active-project counts, IANA local-day
+    metadata updates and original authorized waiting-task/store projections;
+    bounded readonly snapshot, filters and Figma overview. No new facts or writes.
 - [`ai-workbench-chat-business-task-v1.md`](./ai-workbench-chat-business-task-v1.md)
   - APPROVED / IMPLEMENTATION_READY #576 Slice E: owner-scoped Conversation,
     no-tool Eino/eino-ext planning, immutable execution proposals and BusinessTask,
