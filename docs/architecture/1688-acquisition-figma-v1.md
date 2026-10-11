@@ -239,3 +239,22 @@ PG 测试使用任务隔离数据库；UI 仅核对本入口/模板/实际状态
 `EnableAcquisitionPlans` for explicit additive initialization. Existing exact
 file/API guards retain sibling/subpackage and unrelated API rejection; serving
 composition never invokes either initializer. No directory-wide exemption.
+
+## 10. Collector 确定未执行拒绝的有界修正
+
+Status: IMPLEMENTATION_READY / FROZEN AMENDMENT。2026-10-11 原独立只读 Reviewer 复核721d80a7及设计blob be862941846e07cb5432106fdddc03667b1b1f04，确认无新BLOCKER。下列事务未知/旧fence/原预留/HTTP与Browser/UI测试归IMPLEMENTATION_TEST，合并/试用前必须收敛。准入先于生产修改；不等于实现或用户验收PASS。
+Finding r4241497075 已由现有独立 Reviewer 分类 BLOCKER：核心原计划继续路径无法完成，阻塞实施准入及合并/试用。实际 provider capacity 在 Resource Reserve/Bind 后发生；原 failFetch 将 child Failed 并释放，计划下次无法恢复。跳过 Finish 同样留下 bound UNKNOWN，现有 §5 的 unbound 恢复不足。
+
+产品范围仍为 §1/§5 的原计划继续、原 child key、仅成功 publication 消耗一条。依据为本文件引用的当前产品/Figma、2026-10-03-acquisition-channel-pricing.md reserve-before-provider，及实际 browser Client.Acquire 在 slots/throttle 拒绝后未启动 Chromium；collector RPC 仅将 ErrCapacity/ErrThrottled 投影 CodeCapacity。其它来源失败、拒绝、超时、transport/响应不明不能据此声明未执行。
+
+唯一新增合同为原 Product Sourcing 的窄 AcquisitionCapacityRejectionStore.RecordCapacityRejection(ctx, originalOperation)。只由当前 provider 调用实际返回的 ErrAcquisitionCapacity 触发；HTTP/server browser sibling 共享 core helper。客户端的 pause flag/error/任意 API body 都不是这个证据。无新表、owner、状态枚举、Resource API、后台 worker、预算或价格；复用原 operation.failure_code 记录 COLLECTOR_CAPACITY_REJECTED，状态仍 acquiring，command 必须为空。
+
+Repository 同一 Product transaction 按既有 operation→charge 锁序读取：精确 org/actor/key/ID/fingerprint/source/fence、acquiring/no-command、server channel、已绑定原 reservation、无 terminal proof。仅满足全部条件才保存上述确定未执行标记，同时 fence+1 并使 lease 到期，令旧 worker 无法 Bind/Prepare/Finish。事务 COMMIT 不确定或任何记录失败对调用方返回 UNKNOWN，不能承诺容量暂停已持久化，不能写 Failed/Resource release。合法标记不会生成终态 charge proof，原 RESERVED 保留。
+
+既有 Start 的 expired acquiring 恢复仅增加这一窄例外：原 failure_code 是上述 owner 标记、command为空、原绑定存在且无 terminal proof时，可在原锁和容量语义内再 fence+1/clear marker/grant claim。普通 bound acquiring 即使过期仍 UNKNOWN；unbound recovery 原规则不变；Prepared/Publishing/Published/Failed 不增恢复。记录拒绝与重领都不增加 operation 或 charge key，不清 reservation，不 release 后 reserve。BeforeDispatch 仍先做 live身份/成员/funding核对，再沿原 Resource Reserve 的 same-identity RESERVED replay及原 Bind 同 reservation，随后才允许 provider。旧 fence 即使持同reservation也不能重新获得派发权限。
+
+失败/丢响应/并发：未收到可信 capacity 不标记；记录失败不重派，持原键核实。标记已提交但响应丢失，计划 needs_verification 读取原 acquiring，再调用原 Acquire；Start 仅按持久标记判断。重领提交丢失则无 claim，新的 bound无标记仍 UNKNOWN。两个并发 Continue 由既有计划 lease/revision及 operation fence保证一个新claim；旧 capacity worker的晚响应不覆盖新fence。后续真实来源失败沿原 Failed+release，publication成功沿原receipt单次consume。终态 Failed 不重置、不迁移。
+
+直接单商品 UI 的 ACQUISITION_CAPACITY 也保留预存的原scope/key/source，不再当确定终态清槽；显示明确繁忙和原键核实/显式继续。刷新后现有 immutable storage 恢复为 UNKNOWN，原 Verify/Continue可用；无需新存储flag或浏览器授权。组织容量在Start之前拒绝时原key同样可继续安全重试，不遗弃原键。计划现有paused分支不另建状态。
+
+验证采用现有测试：真实隔离 ProductPG + Resource repo，capacity→保存非终态标记→原计划继续成功；相同op/key/reservation、旧fence拒Bind/Prepare/Finish、普通bound UNKNOWN/Failed不复活、并发仅一个claim、marker记录/claimCOMMIT未知不取得派发权、plan响应丢失通过recoverChild沿原key。分别覆盖HTTP/browser sibling、UI storage remount的capacity原key，不新建故障平台或真实provider调用。Legacy decision:N/A；仅修改当前owner/合同，不包装旧设计。保留实例无schema/grant/数据迁移。
