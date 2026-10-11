@@ -321,6 +321,9 @@ func (s *AcquisitionPlanService) Advance(ctx context.Context, id string, expecte
 			}
 			receipt, e := s.collections.Mutate(ctx, collection.StableID(p.ID, item.Source, "collection"), collection.Mutation{Action: "add_acquisition", SourceOperationID: item.OperationID})
 			if e != nil {
+				if errors.Is(e, collection.ErrConflict) || errors.Is(e, collection.ErrNotFound) {
+					return s.saveTransferSourceConflict(ctx, p, check)
+				}
 				return p, e
 			}
 			detail, e := s.collections.ReadItem(ctx, receipt.ItemID)
