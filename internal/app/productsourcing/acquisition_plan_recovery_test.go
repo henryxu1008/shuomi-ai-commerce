@@ -10,10 +10,86 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"task-processor/internal/ledger/orgresource"
 	"task-processor/internal/listing/preparation"
 	"task-processor/internal/product/collection"
 	"task-processor/internal/product/sourcing"
 )
+
+func TestPlanQuotaPauseKeepsOriginalChildAndDoesNotProcessLaterProducts(t *testing.T) {
+	for _, quotaError := range []error{orgresource.ErrInsufficientBalance, orgresource.ErrResourceDebtOutstanding, errors.Join(errors.New("wrapped admission"), orgresource.ErrResourceDebtOutstanding)} {
+		t.Run(quotaError.Error(), func(t *testing.T) {
+			scope := sourcing.AcquisitionPlanScope{OrganizationID: "org", ActorID: "actor", MemberID: "member"}
+			input, _ := sourcing.NewAcquisitionPlanInput("product", []string{"123", "456"}, sourcing.AcquisitionRule{}, false)
+			id := uuid.NewString()
+			key := planChildKey(id, input.Inputs[0])
+			r := &planMemory{plan: sourcing.AcquisitionPlan{ID: id, Scope: scope, Input: input, DiscoveryIndex: 2, Revision: 1, State: "pending", Items: []sourcing.AcquisitionPlanItem{{Source: input.Inputs[0], State: "pending"}, {Source: input.Inputs[1], State: "pending"}}}}
+			child := &planChild{err: quotaError}
+			service, err := NewAcquisitionPlanService(r, nil, child, nil, nil, planTestAuth{scope}, nil)
+			require.NoError(t, err)
+			for attempt := 0; attempt < 3; attempt++ {
+				p, err := service.Advance(t.Context(), id, r.plan.Revision)
+				require.NoError(t, err)
+				require.Equal(t, "paused", p.State)
+				require.Equal(t, "capacity_or_quota_unavailable", p.Items[0].FailureCode)
+				require.Equal(t, "pending", p.Items[0].State)
+				require.Equal(t, key, p.Items[0].ChildKey)
+				require.Equal(t, "pending", p.Items[1].State)
+				require.Empty(t, p.Items[1].ChildKey)
+			}
+			require.Equal(t, []string{key, key, key}, child.acquireKeys)
+			require.Empty(t, child.verifyKeys)
+		})
+	}
+}
+
+func TestPlanRecoveredFailedQuotaChildRemainsPaused(t *testing.T) {
+	scope := sourcing.AcquisitionPlanScope{OrganizationID: "org", ActorID: "actor", MemberID: "member"}
+	input, _ := sourcing.NewAcquisitionPlanInput("product", []string{"123", "456"}, sourcing.AcquisitionRule{}, false)
+	id := uuid.NewString()
+	key := planChildKey(id, input.Inputs[0])
+	source, _ := sourcing.Canonical1688Source(input.Inputs[0])
+	op := acquisitionOperation(sourcing.PublicationScope{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID}, key, source)
+	op.State, op.FailureCode = sourcing.AcquisitionFailed, "DATA_QUOTA_INSUFFICIENT"
+	r := &planMemory{plan: sourcing.AcquisitionPlan{ID: id, Scope: scope, Input: input, DiscoveryIndex: 2, Revision: 1, State: "paused", Items: []sourcing.AcquisitionPlanItem{{Source: input.Inputs[0], ChildKey: key, State: "needs_verification"}, {Source: input.Inputs[1], State: "pending"}}}}
+	child := &planChild{readResult: sourcing.AcquisitionResult{Operation: op}, err: orgresource.ErrInsufficientBalance}
+	service, err := NewAcquisitionPlanService(r, nil, child, nil, nil, planTestAuth{scope}, nil)
+	require.NoError(t, err)
+	for attempt := 0; attempt < 3; attempt++ {
+		p, err := service.Advance(t.Context(), id, r.plan.Revision)
+		require.NoError(t, err)
+		require.Equal(t, "paused", p.State)
+		require.Equal(t, "capacity_or_quota_unavailable", p.Items[0].FailureCode)
+		require.Equal(t, "pending", p.Items[0].State)
+		require.Equal(t, op.ID, p.Items[0].OperationID)
+		require.Equal(t, key, p.Items[0].ChildKey)
+		require.Empty(t, p.Items[1].ChildKey)
+	}
+	require.Equal(t, []string{op.ID}, child.readIDs)
+	require.Equal(t, []string{key, key}, child.acquireKeys)
+	require.Empty(t, child.verifyKeys)
+}
+
+func TestPlanRecoveredSourceFailureStillAllowsNextProduct(t *testing.T) {
+	scope := sourcing.AcquisitionPlanScope{OrganizationID: "org", ActorID: "actor", MemberID: "member"}
+	input, _ := sourcing.NewAcquisitionPlanInput("product", []string{"123", "456"}, sourcing.AcquisitionRule{}, false)
+	id := uuid.NewString()
+	key := planChildKey(id, input.Inputs[0])
+	source, _ := sourcing.Canonical1688Source(input.Inputs[0])
+	op := acquisitionOperation(sourcing.PublicationScope{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID}, key, source)
+	op.State, op.FailureCode = sourcing.AcquisitionFailed, "SOURCE_UNAVAILABLE"
+	r := &planMemory{plan: sourcing.AcquisitionPlan{ID: id, Scope: scope, Input: input, DiscoveryIndex: 2, Revision: 1, State: "paused", Items: []sourcing.AcquisitionPlanItem{{Source: input.Inputs[0], ChildKey: key, State: "needs_verification"}, {Source: input.Inputs[1], State: "pending"}}}}
+	child := &planChild{readResult: sourcing.AcquisitionResult{Operation: op}, err: sourcing.ErrAcquisitionUnknown}
+	service, err := NewAcquisitionPlanService(r, nil, child, nil, nil, planTestAuth{scope}, nil)
+	require.NoError(t, err)
+	p, err := service.Advance(t.Context(), id, r.plan.Revision)
+	require.NoError(t, err)
+	require.Equal(t, "failed", p.Items[0].State)
+	require.Equal(t, "source_unavailable", p.Items[0].FailureCode)
+	_, err = service.Advance(t.Context(), id, p.Revision)
+	require.NoError(t, err)
+	require.Equal(t, []string{planChildKey(id, input.Inputs[1])}, child.acquireKeys)
+}
 
 type conflictPlanPreparations struct {
 	err   error

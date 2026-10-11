@@ -247,7 +247,7 @@ func (s *AcquisitionPlanService) Advance(ctx context.Context, id string, expecte
 		}
 		if err != nil {
 			switch {
-			case errors.Is(err, orgresource.ErrInsufficientBalance), errors.Is(err, sourcing.ErrAcquisitionCapacity):
+			case errors.Is(err, orgresource.ErrInsufficientBalance), errors.Is(err, orgresource.ErrResourceDebtOutstanding), errors.Is(err, sourcing.ErrAcquisitionCapacity):
 				p.State = "paused"
 				item.FailureCode = "capacity_or_quota_unavailable"
 			case errors.Is(err, sourcing.ErrAcquisitionFailed), errors.Is(err, sourcing.ErrInvalidAcquisition):
@@ -263,6 +263,12 @@ func (s *AcquisitionPlanService) Advance(ctx context.Context, id string, expecte
 		}
 		if result.Operation.State == sourcing.AcquisitionFailed {
 			item.OperationID = result.Operation.ID
+			if errors.Is(acquisitionFailure(result.Operation), orgresource.ErrInsufficientBalance) {
+				item.State = "pending"
+				item.FailureCode = "capacity_or_quota_unavailable"
+				p.State = "paused"
+				return s.repository.Save(ctx, p, check)
+			}
 			item.State = "failed"
 			item.FailureCode = "source_unavailable"
 			p.State = "pending"
