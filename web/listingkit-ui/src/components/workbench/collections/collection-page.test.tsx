@@ -26,7 +26,7 @@ it("opens the exact saved source through the existing scoped item read",async()=
  render(<CollectionPage initialItemId={item}/>);
  expect(await screen.findByText("Selected saved product")).toBeInTheDocument();
  expect(state.readItem).toHaveBeenCalledWith({userId:"actor-a",organizationId:"org-a"},item,expect.any(AbortSignal));
- expect(state.items).toHaveBeenCalledWith(expect.anything(),batch,expect.anything(),expect.any(AbortSignal));
+ await waitFor(()=>expect(state.items).toHaveBeenCalledWith(expect.anything(),batch,expect.anything(),expect.any(AbortSignal)));
  expect(state.mutate).not.toHaveBeenCalled();
 });
 
