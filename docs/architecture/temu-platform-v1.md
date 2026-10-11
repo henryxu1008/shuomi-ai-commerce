@@ -4,7 +4,7 @@
 >
 > Design Basis：Independent Architecture
 >
-> Status：DESIGN_REVIEW_PENDING / NOT_READY；不是 IMPLEMENTATION_READY
+> Status：NOT_READY；第一轮独立评审确认 G1/G2 阻止准入，不是 IMPLEMENTATION_READY
 >
 > 调查基线：main @ f1d77a84fa653813235ddbfeedac59ea6bb0a94c，2026-10-11
 >
@@ -157,7 +157,9 @@ StoreID 仍用真实 native StoreID，不能塞 merchant hash 冒充 StoreID。�
 
 PA list.get 支持 skcExtCode 并返回 productId/SKC/SKU 编号、外部编号、bindSites，detail.get 主要是基本信息/类目/详情素材，**未发现其完整回显 SKU/价格/body hash**。恢复只能在当前原商家、固定 correlation、单一 product 和全部预期 SKC/SKU/绑定站点均有可验证证据时采用；不足则 UNKNOWN。不能把标题相似、单个 SKU 匹配或 detail HTTP 200 当 exact payload 证明。
 
-本土 publish.status.get 要求已知 goodsIdList，不能解决创建响应丢失且无 goodsId。列表 outGoodsSnList 能检索外部编号，但 externalGoodsId → outGoodsSn 尚未有明确官方映射依据；未证实前不得以此自动 adopt。正常成功后的 goodsId 可用于状态回读；无法 qualified 自动核实时保留原 UNKNOWN，沿已有 authorized/manual evidence 合同核实，不新增人工流程平台。
+本土 publish.status.get 要求已知 goodsIdList，不能解决创建响应丢失且无 goodsId。列表 outGoodsSnList 能检索外部编号，但 externalGoodsId → outGoodsSn 尚未有明确官方映射依据；未证实前不得以此自动 adopt。正常成功后的 goodsId 可用于状态回读；无法 qualified 核实时保留原 UNKNOWN，不新增人工流程平台。
+
+当前用户输入 SHEIN SPU 的核实入口（internal/app/supplychain/upload_resolution.go）仍由服务器重新查询官方资料、核对原 intent/record/merchant/完整 correlation，再生成短期 OfficialResolution proof。不是用户声明成功即可裁定；通用内核的 EvidenceManualResolution 也不证明已有可直接开放的 TEMU 人工裁定路径。TEMU 仅在本批 typed variant 具有同等 qualified 官方证据时复用该核实流程；输入远端 ID 只是查询线索，截图、口头结论、相似标题与未证明的字段映射都不能解除 fence。现有证据不足时持续 UNKNOWN，不提供直接“标为成功/失败/重试”的 TEMU 入口。
 
 查不到、权限丢失、未进入在售列表、重复匹配均不是未发生操作的证据。恢复只做原只读核实/原 UoW resolution，不能创建新 intent、重上传图片或重新发送货品。原始 code/token/签名字符串不进入 receipt。
 
@@ -198,11 +200,13 @@ Provider 页大小不得超过官方上限（本土 retrieve、product.search 10
 | --- | --- | --- | --- |
 | G1 | 新授权 PA token 的 uniqueId 与 CN mallId/半托标记的权威关联；同一当前 token 是否能按 scope 对这两个网关核实 | M2/M4：误绑定店铺模式或不稳定商家 identity 将绕过原 fence；没有身份验证完整路径 | 本 Writer 收集 TEMU 官方依据；明确同凭据验证合同或官方映射接口后固定单一身份，独立评审；正式身份/提交实施前 |
 | G2 | 本土 token regionId（USA-211）与 siteId 的权威关联、全量当前可售/授权 site 来源；39 项规格表没有开站字段，局部路由不能靠地理补全 | M1/M2：无法证明当前 mall 对应选择站点；误路由/错站点声明或全部站点遗漏 | 本 Writer 核实官方 merchant-site/catalog 合同及分区冲突处理；不能由用户填写 siteId 自证授权；正式连接/全覆盖实施前 |
-| G3 | externalGoodsId 与 outGoodsSn 明确映射、PA exact recovery 证据覆盖 | M4/M5：盲目 adopt 错误结果；当前可保留 UNKNOWN 避免错误副作用 | 独立评审分类；已知成功 ID 可读回、无法 qualified 时保持 UNKNOWN；实施/真实验证层处理，不授权自动重发 |
+| G3 | externalGoodsId 与 outGoodsSn 明确映射、PA exact recovery 证据覆盖 | M4/M5：盲目 adopt 错误结果；当前可保留 UNKNOWN 避免错误副作用 | IMPLEMENTATION_TEST；已知成功 ID 可读回、无法 qualified 时保持 UNKNOWN；实施/真实验证层处理，不授权自动重发 |
+
+第一轮独立评审分类：G1/G2 为 BLOCKER（当前官方身份/站点缺口使核心连接路径无法完成，G1 同时影响身份所有权与稳定 fence）；G3 为 IMPLEMENTATION_TEST，证据不足不 adopt/不重发的设计可保留。店铺服务沿当前 ServiceLifecycleExecutor 与 orgresource store_service_v1 reservation/receipt，未发现平台专属新计费依赖。准确候选 SHA、Reviewer 证据与增量复核写主 PR #655；此分类没有签发 READY 或产品验收。
 
 未取得 G1/G2 官方依据前，当前状态 NOT_READY / Backlog，不进入正式生产开发。登录文档已可访问，不再以登录作为 blocker；本轮未读取应用密钥或商家数据，也未执行官方业务 API。可以继续只读查证与设计评审，不能用真实调用试错取代未授权商家验证。
 
-Architecture Review：本候选交一个独立只读 Reviewer，核对原始范围/Threat Model、代码实际 owner 与全部设计 diff；最多两轮正常评审。finding 先分类为 BLOCKER / IMPLEMENTATION_TEST / BACKLOG / ACCEPTED_RISK / NOT_APPLICABLE，列明受影响 Must、具体后果与层级。只有 G1/G2 等实际核心路径/身份/不可重复副作用条件未满足时阻止开工；非 Blocker 不扩成新的通用机制。
+Architecture Review：第一轮由独立只读 Reviewer 核对原始范围/Threat Model、代码实际 owner 与全部设计 diff，结论 NOT_READY；后续只复核实际相关增量，最多两轮正常评审。finding 先分类为 BLOCKER / IMPLEMENTATION_TEST / BACKLOG / ACCEPTED_RISK / NOT_APPLICABLE，列明受影响 Must、具体后果与层级。只有 G1/G2 等实际核心路径/身份/不可重复副作用条件未满足时阻止开工；非 Blocker 不扩成新的通用机制。
 
 只有官方依据与实际设计闭环、独立评审明确 IMPLEMENTATION_READY、当前 Issue Design Basis/Ready 记录完成后，才冻结本文件并允许生产实现。评审与准入证据写 #31/主要 PR，不由作者自行改 READY，不以 CI/文档存在代替准入。
 
