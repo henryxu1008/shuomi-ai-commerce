@@ -16,7 +16,7 @@ func TestStoreObservationsRetainedInitializerIdentityAndRepeat(t *testing.T) {
 	if _, e := exec.LookPath("jq"); e != nil {
 		t.Fatal("jq required")
 	}
-	for _, variant := range []string{"repeat", "changed-base", "changed-output", "revoked-grants", "interrupted", "configured-app"} {
+	for _, variant := range []string{"repeat", "changed-base", "changed-output", "revoked-grants", "interrupted", "configured-app", "wrong-store-host", "wrong-store-port"} {
 		t.Run(variant, func(t *testing.T) {
 			root := t.TempDir()
 			for _, dir := range []string{"base", "runtime", "secrets/store-owner", "bin"} {
@@ -24,7 +24,7 @@ func TestStoreObservationsRetainedInitializerIdentityAndRepeat(t *testing.T) {
 					t.Fatal(e)
 				}
 			}
-			base := `{"storeCenter":{"enabled":true,"database":{"user":"store_center_runtime","database":"store_center"},"officialApplications":[]},"identity":{"tenantDirectoryToken":"synthetic"},"dataServices":{"temporalAddress":"127.0.0.1:7233","temporalNamespace":"default"},"aiWorkbench":{"conversationOnly":true},"ecoservices":{"nonPaymentOnly":true}}`
+			base := `{"storeCenter":{"enabled":true,"database":{"host":"127.0.0.1","port":5433,"user":"store_center_runtime","database":"store_center"},"officialApplications":[]},"identity":{"tenantDirectoryToken":"synthetic"},"dataServices":{"temporalAddress":"127.0.0.1:7233","temporalNamespace":"default"},"aiWorkbench":{"conversationOnly":true},"ecoservices":{"nonPaymentOnly":true}}`
 			write := func(name, data string) {
 				t.Helper()
 				if e := os.WriteFile(filepath.Join(root, name), []byte(data), 0600); e != nil {
@@ -58,7 +58,13 @@ func TestStoreObservationsRetainedInitializerIdentityAndRepeat(t *testing.T) {
 			if variant == "configured-app" {
 				write("base/current-application.json", strings.Replace(base, `"officialApplications":[]`, `"officialApplications":[{}]`, 1))
 			}
-			if variant == "interrupted" || variant == "configured-app" {
+			if variant == "wrong-store-host" {
+				write("base/current-application.json", strings.Replace(base, `"host":"127.0.0.1"`, `"host":"127.0.0.2"`, 1))
+			}
+			if variant == "wrong-store-port" {
+				write("base/current-application.json", strings.Replace(base, `"port":5433`, `"port":5434`, 1))
+			}
+			if variant == "interrupted" || variant == "configured-app" || variant == "wrong-store-host" || variant == "wrong-store-port" {
 				if run() == nil {
 					t.Fatal("unsafe admission accepted")
 				}

@@ -5,7 +5,7 @@ umask 077
 fail() { echo "$1" >&2; exit 1; }
 test -s /base/current-application.json || fail 'Original serving manifest required'
 test -s /secrets/store-owner/store-owner-password || fail 'Private Store owner credential required'
-jq -e '.storeCenter.enabled == true and .storeCenter.database.user == "store_center_runtime" and .storeCenter.database.database == "store_center" and (.storeCenter.observations == null) and ((.storeCenter.officialApplications // []) | length == 0) and (.identity.tenantDirectoryToken | type == "string" and length > 0) and .dataServices.temporalAddress == "127.0.0.1:7233" and .dataServices.temporalNamespace == "default"' /base/current-application.json >/dev/null || fail 'Explicit current Store and internal Temporal configuration required; official apps must be absent'
+jq -e '.storeCenter.enabled == true and .storeCenter.database.host == "127.0.0.1" and .storeCenter.database.port == 5433 and .storeCenter.database.user == "store_center_runtime" and .storeCenter.database.database == "store_center" and (.storeCenter.observations == null) and ((.storeCenter.officialApplications // []) | length == 0) and (.identity.tenantDirectoryToken | type == "string" and length > 0) and .dataServices.temporalAddress == "127.0.0.1:7233" and .dataServices.temporalNamespace == "default"' /base/current-application.json >/dev/null || fail 'Explicit current Store at 127.0.0.1:5433 and internal Temporal configuration required; official apps must be absent'
 source_hash=$(sha256sum /base/current-application.json | cut -d ' ' -f 1)
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
