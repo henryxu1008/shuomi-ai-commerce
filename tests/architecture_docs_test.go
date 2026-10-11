@@ -2103,3 +2103,11 @@ func TestEcoservicesQualificationDesignKeepsFinancialAdmissionSeparate(t *testin
 		"ecoservices_runtime", "NOT_RUN",
 	})
 }
+
+func TestPlatformSupportDesignPreservesPersonalHistoryAndFactOwners(t *testing.T) {
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "platform-support-chatwoot.md"), []string{
+		"IMPLEMENTATION_READY", "ZITADEL/Auth.js", "Chatwoot owns", "No second support store",
+		"platform_support_subject", "Every list/read/send/download", "No automatic retry",
+		"No widget SDK", "No specialized reproduction, additional reviewer", "Actual app-ZITADEL-user acceptance",
+	})
+}
