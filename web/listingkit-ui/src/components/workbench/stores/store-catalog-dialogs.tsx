@@ -69,7 +69,7 @@ function MetadataDialog({dialog,scope,groups,canManageGroups,onClose,onChanged}:
  // Keep the original captured versions until an explicit re-read after a conflict.
  const title=dialog.kind==="groups"?"分组管理":dialog.kind==="assign"?"加入店铺分组":"负责人和库存预警";
  return <ResourceDialog title={title} className={styles.dialog} onClose={onClose} locked={operation.pending}>
-  <p>{dialog.kind==="groups"?"统一维护店铺分组，绑定店铺时可直接选择。":dialog.kind==="assign"?`将 ${dialog.items.length} 家选定店铺加入同一分组，全部成功后保存。`:item?.name}</p>
+  <p>{dialog.kind==="groups"?"统一维护店铺分组，绑定后可按店铺或批量加入分组。":dialog.kind==="assign"?`将 ${dialog.items.length} 家选定店铺加入同一分组，全部成功后保存。`:item?.name}</p>
   {operation.message?<p role="status" className={operation.rejected?styles.error:styles.hint}>{operation.message}</p>:null}
   {operation.intent?<div className={styles.hint}><p>原操作：{operation.intent.command.action} · {operation.intent.key}</p><Button size="sm" disabled={operation.pending} onClick={()=>void operation.verify()}>确认原操作结果</Button><Button size="sm" variant="outline" disabled={operation.pending} onClick={()=>void operation.retry()}>重试原请求</Button>{operation.rejected?<Button size="sm" variant="ghost" onClick={()=>void operation.discard()}>{dialog.kind==="groups"?"刷新后重新编辑":"刷新列表并关闭"}</Button>:null}</div>:null}
   {dialog.kind==="groups"?<>
