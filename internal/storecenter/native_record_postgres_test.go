@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"net/url"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -45,6 +46,8 @@ func TestNativeRecordPostgresConcurrencyRollbackAndDeleteReceipt(t *testing.T) {
 		`GRANT USAGE ON SCHEMA public TO store_center_runtime`,
 		`GRANT SELECT,INSERT,UPDATE ON workbench_stores,workbench_store_member_grants,workbench_store_service_operations,workbench_store_connections,workbench_store_connection_attempts TO store_center_runtime`,
 		`GRANT SELECT,INSERT ON workbench_store_audit_logs,workbench_store_member_grant_operations,workbench_store_merchant_bindings TO store_center_runtime`,
+		`GRANT SELECT,INSERT,UPDATE ON workbench_store_groups,workbench_store_profiles TO store_center_runtime`,
+		`GRANT SELECT,INSERT ON workbench_store_metadata_operations TO store_center_runtime`,
 	} {
 		require.NoError(t, owner.Exec(statement).Error)
 	}
@@ -94,6 +97,60 @@ func TestNativeRecordPostgresConcurrencyRollbackAndDeleteReceipt(t *testing.T) {
 		require.Equal(t, original.ID(), result.ID())
 	}
 	require.NotNil(t, original)
+	t.Run("metadata first write and immutable receipt serialize", func(t *testing.T) {
+		metadata, err := storecenter.NewMetadataRepository(db, &storeMemberAuthorizer{member: "membership-a", admin: true}, nil)
+		require.NoError(t, err)
+		threshold := int64(5)
+		command := storecenter.MetadataCommand{OperationID: uuid.NewString(), Action: "set_profile", Stores: []storecenter.ProfileTarget{{StoreID: original.ID()}}, LowStockThreshold: &threshold}
+		var workers sync.WaitGroup
+		outcomes := make(chan error, 8)
+		for range 8 {
+			workers.Go(func() {
+				result, err := metadata.Execute(ctx, "org-a", command)
+				if err == nil && (len(result.Profiles) != 1 || result.Profiles[0].Version != 1) {
+					err = errors.New("inconsistent frozen receipt")
+				}
+				outcomes <- err
+			})
+		}
+		workers.Wait()
+		close(outcomes)
+		for err := range outcomes {
+			require.NoError(t, err)
+		}
+		profile, err := metadata.Profile(ctx, "org-a", original.ID())
+		require.NoError(t, err)
+		require.EqualValues(t, 1, profile.Version)
+		require.Equal(t, &threshold, profile.LowStockThreshold)
+		var count int64
+		require.NoError(t, owner.Table("workbench_store_metadata_operations").Count(&count).Error)
+		require.EqualValues(t, 1, count)
+		// Distinct keys carrying the same expected version can commit only once.
+		outcomes = make(chan error, 2)
+		for range 2 {
+			workers.Go(func() {
+				_, err := metadata.Execute(ctx, "org-a", storecenter.MetadataCommand{OperationID: uuid.NewString(), Action: "set_profile", Stores: []storecenter.ProfileTarget{{StoreID: original.ID(), Version: 1}}})
+				outcomes <- err
+			})
+		}
+		workers.Wait()
+		close(outcomes)
+		success, conflict := 0, 0
+		for err := range outcomes {
+			if err == nil {
+				success++
+			} else {
+				require.ErrorIs(t, err, storecenter.ErrVersionConflict)
+				conflict++
+			}
+		}
+		require.Equal(t, 1, success)
+		require.Equal(t, 1, conflict)
+		replay, err := metadata.Execute(ctx, "org-a", command)
+		require.NoError(t, err)
+		require.True(t, replay.Replayed)
+		require.EqualValues(t, 1, replay.Profiles[0].Version)
+	})
 	for _, table := range []string{"workbench_stores", "workbench_store_member_grants", "workbench_store_member_grant_operations", "workbench_store_audit_logs"} {
 		var count int64
 		require.NoError(t, owner.Table(table).Count(&count).Error)
@@ -138,6 +195,78 @@ func TestNativeRecordPostgresConcurrencyRollbackAndDeleteReceipt(t *testing.T) {
 	var active int64
 	require.NoError(t, owner.Table("workbench_store_member_grants").Where("active=?", true).Count(&active).Error)
 	require.Zero(t, active)
+	t.Run("group deletion preserves a concurrent move and batch receipt failure rolls back all targets", func(t *testing.T) {
+		metadata, err := storecenter.NewMetadataRepository(db, &storeMemberAuthorizer{member: "membership-a", admin: true}, nil)
+		require.NoError(t, err)
+		create := func() *storecenter.Store {
+			candidate := nativeCandidate(t, uuid.NewString(), "subject-create")
+			snapshot := candidate.Snapshot()
+			snapshot.ExternalStoreID = uuid.NewString()
+			candidate, err := storecenter.RehydrateStore(snapshot)
+			require.NoError(t, err)
+			stored, _, err := repo.CreateOrReplay(ctx, "org-a", candidate)
+			require.NoError(t, err)
+			return stored
+		}
+		first, second := create(), create()
+		groupA, err := metadata.Execute(ctx, "org-a", storecenter.MetadataCommand{OperationID: uuid.NewString(), Action: "create_group", Name: "A"})
+		require.NoError(t, err)
+		groupB, err := metadata.Execute(ctx, "org-a", storecenter.MetadataCommand{OperationID: uuid.NewString(), Action: "create_group", Name: "B"})
+		require.NoError(t, err)
+		_, err = metadata.Execute(ctx, "org-a", storecenter.MetadataCommand{OperationID: uuid.NewString(), Action: "assign_group", GroupID: &groupA.Group.ID, Stores: []storecenter.ProfileTarget{{StoreID: first.ID()}}})
+		require.NoError(t, err)
+		// Pause deletion after it enumerates A's profiles. Moving out of A uses
+		// B's lock and may commit before deletion acquires the Store row.
+		type deletionMarker struct{}
+		enumerated, release := make(chan struct{}), make(chan struct{})
+		var once sync.Once
+		err = db.Callback().Query().After("gorm:query").Register("test_group_delete_snapshot", func(tx *gorm.DB) {
+			if tx.Statement.Context.Value(deletionMarker{}) == true && tx.Statement.Table == "workbench_store_profiles" && strings.Contains(tx.Statement.SQL.String(), "group_id=") {
+				once.Do(func() { close(enumerated); <-release })
+			}
+		})
+		require.NoError(t, err)
+		deletion := make(chan error, 1)
+		go func() {
+			_, err := metadata.Execute(context.WithValue(ctx, deletionMarker{}, true), "org-a", storecenter.MetadataCommand{OperationID: uuid.NewString(), Action: "delete_group", GroupID: &groupA.Group.ID, GroupVersion: 1})
+			deletion <- err
+		}()
+		select {
+		case <-enumerated:
+		case <-ctx.Done():
+			close(release)
+			t.Fatal("group deletion did not enumerate its snapshot")
+		}
+		_, moveErr := metadata.Execute(ctx, "org-a", storecenter.MetadataCommand{OperationID: uuid.NewString(), Action: "assign_group", GroupID: &groupB.Group.ID, Stores: []storecenter.ProfileTarget{{StoreID: first.ID(), Version: 1}}})
+		close(release)
+		require.NoError(t, moveErr)
+		require.NoError(t, <-deletion)
+		require.NoError(t, db.Callback().Query().Remove("test_group_delete_snapshot"))
+		profile, err := metadata.Profile(ctx, "org-a", first.ID())
+		require.NoError(t, err)
+		require.Equal(t, &groupB.Group.ID, profile.GroupID)
+		require.EqualValues(t, 2, profile.Version)
+		// The immutable receipt participates in the same transaction as every
+		// profile in the explicit batch, including first-time profile creation.
+		require.NoError(t, owner.Exec(`CREATE FUNCTION fail_metadata_receipt() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic receipt failure'; END $$`).Error)
+		require.NoError(t, owner.Exec(`CREATE TRIGGER fail_metadata BEFORE INSERT ON workbench_store_metadata_operations FOR EACH ROW EXECUTE FUNCTION fail_metadata_receipt()`).Error)
+		key := uuid.NewString()
+		_, err = metadata.Execute(ctx, "org-a", storecenter.MetadataCommand{OperationID: key, Action: "assign_group", Stores: []storecenter.ProfileTarget{{StoreID: first.ID(), Version: 2}, {StoreID: second.ID()}}})
+		require.Error(t, err)
+		profile, err = metadata.Profile(ctx, "org-a", first.ID())
+		require.NoError(t, err)
+		require.Equal(t, &groupB.Group.ID, profile.GroupID)
+		require.EqualValues(t, 2, profile.Version)
+		untouched, err := metadata.Profile(ctx, "org-a", second.ID())
+		require.NoError(t, err)
+		require.Zero(t, untouched.Version)
+		require.Nil(t, untouched.GroupID)
+		var receipts int64
+		require.NoError(t, owner.Table("workbench_store_metadata_operations").Where("operation_id=?", key).Count(&receipts).Error)
+		require.Zero(t, receipts)
+		require.NoError(t, owner.Exec(`DROP TRIGGER fail_metadata ON workbench_store_metadata_operations`).Error)
+		require.NoError(t, owner.Exec(`DROP FUNCTION fail_metadata_receipt()`).Error)
+	})
 	// Service application and deletion lock the same native Store. Whichever
 	// wins, the original paid operation remains readable and cannot be revived.
 	for attempt := 0; attempt < 4; attempt++ {

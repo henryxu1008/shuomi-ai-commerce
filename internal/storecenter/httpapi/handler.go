@@ -49,6 +49,8 @@ type ServiceLifecycleService interface {
 }
 
 type Handler struct {
+	catalog             *storecenter.Catalog
+	metadata            *storecenter.MetadataRepository
 	service             StoreService
 	serviceLifecycle    ServiceLifecycleService
 	officialConnections OfficialConnectionService

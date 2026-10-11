@@ -35,6 +35,10 @@ func mapStoreError(err error) protocolError {
 		response.Status, response.Code, response.Message = http.StatusUnprocessableEntity, "STORE_AUTHORIZATION_REJECTED", "Store authorization was rejected or expired"
 	case errors.Is(err, storecenter.ErrServiceChargeUnknown):
 		response.Code, response.Message = "STORE_SERVICE_OUTCOME_UNKNOWN", "Store service outcome is still being checked"
+	case errors.Is(err, storecenter.ErrMetadataInvalid):
+		response.Status, response.Code, response.Message = http.StatusBadRequest, "INVALID_REQUEST", "Invalid metadata command"
+	case errors.Is(err, storecenter.ErrMetadataKeyConflict):
+		response.Status, response.Code, response.Message = http.StatusConflict, "IDEMPOTENCY_KEY_CONFLICT", "Operation key conflicts with an earlier request"
 	case errors.Is(err, storecenter.ErrNotFound):
 		response.Status, response.Code, response.Message = http.StatusNotFound, "STORE_NOT_FOUND", "Store was not found"
 	case errors.Is(err, storecenter.ErrAlreadyExists):

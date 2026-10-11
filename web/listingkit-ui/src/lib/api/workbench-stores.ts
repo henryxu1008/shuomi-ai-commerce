@@ -49,7 +49,7 @@ const normalizedPublicString = (minimum: number, maximum: number) =>
 
 const utcRFC3339Schema = z.string().refine(isUTCRFC3339Timestamp);
 
-const workbenchStoreSchema = z
+export const workbenchStoreSchema = z
   .object({
     id: canonicalUUIDSchema,
     name: normalizedPublicString(1, 120),

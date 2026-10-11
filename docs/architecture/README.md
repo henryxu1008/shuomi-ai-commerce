@@ -94,6 +94,10 @@ Use these as the main source of truth for structural work:
   - #614 IMPLEMENTATION_READY readonly SHEIN products, consumer orders and logistics;
     scoped observations, original-member sync receipts and bounded recovery. Shared
     runtime readiness and real merchant/user acceptance remain separate evidence.
+- [`store-center-figma-v1.md`](./store-center-figma-v1.md)
+  - #641 IMPLEMENTATION_READY Store catalog, groups, business responsibility and
+    user-configured inventory thresholds; current native authorization, official
+    connection and read-only observation owners remain unchanged.
 - `operations-cockpit-v1.md`
   - #627 frozen IMPLEMENTATION_READY manual period financial facts, creator or
     current manager goal maintenance, and evidence-based operating projections;

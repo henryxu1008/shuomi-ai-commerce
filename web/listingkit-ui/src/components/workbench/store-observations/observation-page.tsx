@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
@@ -67,13 +68,17 @@ const inaccessibleReceipt = (error: unknown) =>
     (error.status === 403 && error.code === "PERMISSION_DENIED"));
 export function ObservationPage({ kind }: { kind: ObservationKind }) {
   const context = useWorkbenchContext();
+  const searchParams=useSearchParams();
+  const requestedStore=searchParams?.getAll("storeId").length===1?searchParams.get("storeId"):null;
+  const initialStore=observationID.safeParse(requestedStore).success?requestedStore!:"";
   const org = context.effectiveOrganization?.id ?? "",
     user = context.user?.id ?? "";
   if (!org || !user || context.isSwitching)
     return <ConsoleState kind="loading" title="正在切换企业数据…" />;
   return (
     <ScopedPage
-      key={`${org}:${user}:${kind}`}
+      key={`${org}:${user}:${kind}:${initialStore}`}
+      initialStore={initialStore}
       kind={kind}
       scope={{ organizationId: org, userId: user }}
       permissions={context.permissions}
@@ -81,10 +86,12 @@ export function ObservationPage({ kind }: { kind: ObservationKind }) {
   );
 }
 function ScopedPage({
+  initialStore,
   kind,
   scope,
   permissions,
 }: {
+  initialStore:string;
   kind: ObservationKind;
   scope: ObservationScope;
   permissions: string[];
@@ -95,7 +102,7 @@ function ScopedPage({
     [scope.organizationId, scope.userId, kind],
   );
   const lifetime = useRef(new AbortController());
-  const [store, setStore] = useState(""),
+  const [store, setStore] = useState(initialStore),
     [status, setStatus] = useState(""),
     [search, setSearch] = useState(""),
     [keyword, setKeyword] = useState(""),
