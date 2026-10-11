@@ -105,11 +105,11 @@ func TestPostgresUnboundDraftAtomicCASReplayAndUnknownRecovery(t *testing.T) {
 	require.NoError(t, err)
 	scope := collection.Scope{OrganizationID: "org-a", ActorID: "actor-a", MemberID: "member-a"}
 	auth := fixedAuth{scope}
-	cr, err := collectionstore.NewRepository(ctx, db, func(*gorm.DB) (collectionstore.OwnPublisher, error) { return nil, collection.ErrUnavailable })
+	cr, err := collectionstore.NewRepository(ctx, runtimeDB, func(*gorm.DB) (collectionstore.OwnPublisher, error) { return nil, collection.ErrUnavailable })
 	require.NoError(t, err)
 	cs, err := collection.NewService(cr, auth, unusedSources{})
 	require.NoError(t, err)
-	pr, err := prepstore.NewRepository(ctx, db)
+	pr, err := prepstore.NewRepository(ctx, runtimeDB)
 	require.NoError(t, err)
 	ps, err := preparation.NewService(pr, cs, auth)
 	require.NoError(t, err)
@@ -123,13 +123,14 @@ func TestPostgresUnboundDraftAtomicCASReplayAndUnknownRecovery(t *testing.T) {
 	require.NoError(t, err)
 	sources, err := ps.ListSources(actor, transfer.Preparation.ID, collection.Query{Limit: 100})
 	require.NoError(t, err)
-	snapshots, err := catalogstore.NewBoundedSnapshotReader(db, sourcing.MaxEncodedSnapshotBytes)
+	snapshots, err := catalogstore.NewBoundedSnapshotReader(runtimeDB, sourcing.MaxEncodedSnapshotBytes)
 	require.NoError(t, err)
 	selector, err := preparation.NewSourceSelector(ps, cs, pr, snapshots)
 	require.NoError(t, err)
 	service, err := completiondraft.NewService(selector, cs, ps, auth, repo)
 	require.NoError(t, err)
 	key := uuid.NewString()
+	runtimePool.SetMaxOpenConns(1) // All source reads share the same bounded serving pool.
 	input := completiondraft.SaveInput{SourceID: sources.Items[0].ID, Content: completiondraft.Content{Title: "Candidate R1"}}
 	first, err := service.Save(actor, key, input)
 	require.NoError(t, err)

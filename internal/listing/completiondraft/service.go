@@ -111,13 +111,15 @@ func (s *Service) source(ctx context.Context, scope collection.Scope, id string)
 }
 
 // Prepared is minted only after current owner and exact original source checks.
-// Every read remints a short-lived proof, including immediately before commit.
+// Read remints the exact source proof before entering persistence. Commit checks
+// current authority and the source reloaded on the repository's own transaction.
 type Prepared struct {
 	scope     collection.Scope
 	key, hash string
 	input     SaveInput
 	source    preparation.SourceItem
 	refresh   func(context.Context) error
+	authority func(context.Context) error
 }
 
 func (p Prepared) Read(ctx context.Context) (collection.Scope, string, string, SaveInput, preparation.SourceItem, error) {
@@ -128,6 +130,15 @@ func (p Prepared) Read(ctx context.Context) (collection.Scope, string, string, S
 		return collection.Scope{}, "", "", SaveInput{}, preparation.SourceItem{}, err
 	}
 	return p.scope, p.key, p.hash, p.input, p.source, nil
+}
+
+// ValidateCommit does not query Product through a second pool connection. The
+// adapter must supply its actor/member-qualified source read on the active tx.
+func (p Prepared) ValidateCommit(ctx context.Context, retained preparation.SourceItem) error {
+	if p.authority == nil || ctx == nil || ctx.Err() != nil || retained != p.source {
+		return preparation.ErrForbidden
+	}
+	return p.authority(ctx)
 }
 func (s *Service) Save(ctx context.Context, key string, in SaveInput) (Receipt, error) {
 	ctx, cancel := context.WithTimeout(ctx, preparation.Timeout)
@@ -143,13 +154,21 @@ func (s *Service) Save(ctx context.Context, key string, in SaveInput) (Receipt, 
 	if err != nil {
 		return Receipt{}, err
 	}
-	p := Prepared{scope: scope, key: key, hash: InputHash(in), input: in, source: source, refresh: func(ctx context.Context) error {
-		current, err := s.authorize(ctx, preparation.PermissionManage)
-		if err != nil {
-			return err
+	authority := func(ctx context.Context) error {
+		for _, purpose := range []string{preparation.PermissionManage, preparation.PermissionRead} {
+			current, err := s.authorize(ctx, purpose)
+			if err != nil {
+				return err
+			}
+			if current != scope {
+				return preparation.ErrForbidden
+			}
 		}
-		if current != scope {
-			return preparation.ErrForbidden
+		return nil
+	}
+	p := Prepared{scope: scope, key: key, hash: InputHash(in), input: in, source: source, authority: authority, refresh: func(ctx context.Context) error {
+		if err := authority(ctx); err != nil {
+			return err
 		}
 		selected, err := s.source(ctx, scope, in.SourceID)
 		if err != nil {

@@ -137,6 +137,13 @@ func (r *Repository) Save(ctx context.Context, proof completiondraft.Prepared) (
 		return completiondraft.Receipt{}, preparation.ErrUnavailable
 	}
 	defer tx.Rollback()
+	validateCommit := func() error {
+		var retained sourceRow
+		if err := dbError(filter(tx.Table("listing_preparation_sources"), scope).Where("id=?", source.ID).Take(&retained).Error); err != nil {
+			return err
+		}
+		return proof.ValidateCommit(ctx, retained.value())
+	}
 	for _, lock := range []string{collection.Digest([]string{scope.OrganizationID, scope.ActorID, "completion-command", key}), collection.Digest([]string{scope.OrganizationID, scope.ActorID, "completion-source", in.SourceID})} {
 		if tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?,0))", lock).Error != nil {
 			return completiondraft.Receipt{}, preparation.ErrUnavailable
@@ -147,7 +154,7 @@ func (r *Repository) Save(ctx context.Context, proof completiondraft.Prepared) (
 		if oldHash != hash {
 			return completiondraft.Receipt{}, preparation.ErrConflict
 		}
-		if _, _, _, _, _, err = proof.Read(ctx); err != nil {
+		if err = validateCommit(); err != nil {
 			return completiondraft.Receipt{}, err
 		}
 		return old, nil
@@ -198,7 +205,7 @@ func (r *Repository) Save(ctx context.Context, proof completiondraft.Prepared) (
 	if tx.Create(&cmd).Error != nil {
 		return completiondraft.Receipt{}, preparation.ErrUnavailable
 	}
-	if _, _, _, _, _, err = proof.Read(ctx); err != nil {
+	if err = validateCommit(); err != nil {
 		return completiondraft.Receipt{}, err
 	}
 	if tx.Commit().Error != nil {

@@ -59,11 +59,14 @@ type testRecords struct {
 
 func (r *testRecords) Save(ctx context.Context, p Prepared) (Receipt, error) {
 	r.saved = p
+	_, _, _, input, source, err := p.Read(ctx)
+	if err != nil {
+		return Receipt{}, err
+	}
 	if r.beforeCommit != nil {
 		r.beforeCommit()
 	}
-	_, _, _, input, source, err := p.Read(ctx)
-	if err != nil {
+	if err := p.ValidateCommit(ctx, source); err != nil {
 		return Receipt{}, err
 	}
 	r.writes++
@@ -120,6 +123,15 @@ func TestPreparedSaveRechecksLiveAuthorityBeforeRepositoryCommitAndReceiptRecove
 	require.ErrorIs(t, err, preparation.ErrForbidden)
 	_, _, _, _, _, err = (Prepared{}).Read(ctx)
 	require.ErrorIs(t, err, preparation.ErrForbidden)
+	require.ErrorIs(t, (Prepared{}).ValidateCommit(ctx, source), preparation.ErrForbidden)
+}
+
+func TestCommitRejectsSourceDriftEvenWithCurrentOwner(t *testing.T) {
+	s, _, r, ctx, source := fixture(t)
+	_, err := s.Save(ctx, uuid.NewString(), SaveInput{SourceID: source.ID})
+	require.NoError(t, err)
+	source.Source.Version++
+	require.ErrorIs(t, r.saved.ValidateCommit(ctx, source), preparation.ErrForbidden)
 }
 
 func TestPreparedSaveRejectsChangedMemberAndExpiredContext(t *testing.T) {
