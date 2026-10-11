@@ -261,3 +261,49 @@ func TestLocalFreightAndTrademarksCannotUseCNOrFieldRulesPermissions(t *testing.
 		require.Equal(t, 1, calls)
 	}
 }
+
+func TestLocalVariationsPreserveRequiredFlagsValueGroupsAndUnknownTypes(t *testing.T) {
+	calls := 0
+	c := identityClient(t, storecenter.PartitionEU, roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		calls++
+		require.Equal(t, "openapi-b-eu.temu.com", r.URL.Host)
+		if calls == 1 {
+			return jsonResponse(`{"success":true,"result":{"mallId":123,"mallType":100,"regionId":20,"expiredTime":1900000000,"apiScopeList":["temu.local.product.variation.get"]}}`), nil
+		}
+		var body map[string]json.RawMessage
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		require.JSONEq(t, `"temu.local.product.variation.get"`, string(body["type"]))
+		require.JSONEq(t, `34`, string(body["catId"]))
+		require.JSONEq(t, `"en"`, string(body["language"]))
+		return jsonResponse(`{"success":true,"result":{"catId":34,"language":"en","variations":[{"parentSpecId":11,"parentSpecName":"Size","required":false,"variationType":0,"specList":[{"specId":9007199254740993,"specName":"S","groupId":1,"groupName":"EU","subGroupId":0}]},{"parentSpecId":12,"parentSpecName":"Custom","variationType":1},{"parentSpecId":13,"parentSpecName":"Unknown type","variationType":9}]}}`), nil
+	}))
+	result, err := c.QueryLocalVariations(context.Background(), tokenCredential(), model.CategoryRuleQuery{CatID: 34, Language: "en"})
+	require.NoError(t, err)
+	require.Equal(t, 2, calls)
+	require.Equal(t, int64(0), *result.Variations[0].Type)
+	require.False(t, *result.Variations[0].Required)
+	require.Equal(t, int64(9007199254740993), *result.Variations[0].Values[0].SpecID)
+	require.Equal(t, int64(0), *result.Variations[0].Values[0].SubGroupID)
+	require.Nil(t, result.Variations[1].Required)
+	require.Equal(t, int64(9), *result.Variations[2].Type)
+}
+
+func TestLocalVariationResponseRequiresExactCategoryAndUniqueParentIdentity(t *testing.T) {
+	for _, result := range []string{
+		`{"catId":35,"language":"en","variations":[]}`,
+		`{"catId":34,"language":"fr","variations":[]}`,
+		`{"catId":34,"language":"en"}`,
+		`{"catId":34,"language":"en","variations":[{"parentSpecId":11,"parentSpecName":"A"},{"parentSpecId":11,"parentSpecName":"B"}]}`,
+	} {
+		calls := 0
+		c := identityClient(t, storecenter.PartitionGlobal, roundTripFunc(func(*http.Request) (*http.Response, error) {
+			calls++
+			if calls == 1 {
+				return jsonResponse(`{"success":true,"result":{"mallId":123,"mallType":100,"regionId":37,"expiredTime":1900000000,"apiScopeList":["temu.local.product.variation.get"]}}`), nil
+			}
+			return jsonResponse(`{"success":true,"result":` + result + `}`), nil
+		}))
+		_, err := c.QueryLocalVariations(context.Background(), tokenCredential(), model.CategoryRuleQuery{CatID: 34, Language: "en"})
+		require.ErrorIs(t, err, storecenter.ErrOfficialConnectionUnavailable)
+	}
+}

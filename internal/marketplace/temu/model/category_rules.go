@@ -80,6 +80,27 @@ type LocalTrademark struct {
 	TrademarkName string `json:"trademarkName"`
 }
 
+type LocalVariationTemplate struct {
+	CatID      *int64           `json:"catId"`
+	Language   string           `json:"language"`
+	Variations []LocalVariation `json:"variations"`
+}
+type LocalVariation struct {
+	ParentSpecID *int64                `json:"parentSpecId"`
+	Name         string                `json:"parentSpecName"`
+	Required     *bool                 `json:"required"`
+	Type         *int64                `json:"variationType"`
+	Values       []LocalVariationValue `json:"specList"`
+}
+type LocalVariationValue struct {
+	SpecID       *int64 `json:"specId"`
+	Name         string `json:"specName"`
+	GroupID      *int64 `json:"groupId"`
+	GroupName    string `json:"groupName"`
+	SubGroupID   *int64 `json:"subGroupId"`
+	SubGroupName string `json:"subGroupName"`
+}
+
 // RequirementType is optional in a decoded response: absent is not disabled
 // or optional. The official protocol spells the field key filedName.
 type LocalFieldRule struct {

@@ -16,7 +16,48 @@ const (
 	localAttributesAPI    = "temu.local.product.attributes.get"
 	localFreightAPI       = "bg.freight.template.list.query"
 	localTrademarksAPI    = "temu.local.goods.brand.trademark.V2.get"
+	localVariationsAPI    = "temu.local.product.variation.get"
 )
+
+func (c *OfficialClient) QueryLocalVariations(ctx context.Context, credential storecenter.OfficialMerchantCredential, query model.CategoryRuleQuery) (model.LocalVariationTemplate, error) {
+	var result model.LocalVariationTemplate
+	origin := localAPIOrigin(c.application.IdentityPartition)
+	if origin == "" || !c.validCredential(credential) || query.CatID < 1 || query.Language != "" && !boundedParameter(query.Language, 32) {
+		return result, storecenter.ErrOfficialConnectionUnavailable
+	}
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	if err := c.requireLocalScope(ctx, credential.Temu.AccessToken, localVariationsAPI); err != nil {
+		return result, err
+	}
+	fields := map[string]json.RawMessage{"catId": json.RawMessage(strconv.FormatInt(query.CatID, 10))}
+	if query.Language != "" {
+		language, err := exactJSON(query.Language)
+		if err != nil {
+			return result, storecenter.ErrOfficialConnectionUnavailable
+		}
+		fields["language"] = language
+	}
+	if err := c.readOfficialResponse(ctx, origin, localVariationsAPI, credential.Temu.AccessToken, fields, &result); err != nil {
+		return model.LocalVariationTemplate{}, err
+	}
+	if result.CatID == nil || *result.CatID != query.CatID || result.Variations == nil || query.Language != "" && result.Language != query.Language {
+		return model.LocalVariationTemplate{}, storecenter.ErrOfficialConnectionUnavailable
+	}
+	seen := make(map[int64]struct{}, len(result.Variations))
+	for _, variation := range result.Variations {
+		if variation.ParentSpecID == nil || *variation.ParentSpecID < 1 || !boundedParameter(variation.Name, 1000) {
+			return model.LocalVariationTemplate{}, storecenter.ErrOfficialConnectionUnavailable
+		}
+		if _, duplicate := seen[*variation.ParentSpecID]; duplicate {
+			return model.LocalVariationTemplate{}, storecenter.ErrOfficialConnectionUnavailable
+		}
+		seen[*variation.ParentSpecID] = struct{}{}
+	}
+	// Missing required/type flags are not defaults. A later official update
+	// must not silently override this exact current response's value constraints.
+	return result, nil
+}
 
 func (c *OfficialClient) QueryLocalFreightTemplates(ctx context.Context, credential storecenter.OfficialMerchantCredential) ([]model.LocalFreightTemplate, error) {
 	origin := localAPIOrigin(c.application.IdentityPartition)
