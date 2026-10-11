@@ -20,9 +20,8 @@ import {
   type WorkbenchContext,
   type WorkbenchOrganization,
 } from "@/lib/api/workbench-context";
-import type { AcquisitionOperation } from "@/lib/api/product-acquisition";
-
-export type PendingAcquisitionIntent = AcquisitionOperation & { quotaPaused?: boolean };
+import { loadAcquisitionIntent, saveAcquisitionIntent, type PendingAcquisitionIntent } from "@/lib/api/acquisition-intent";
+export type { PendingAcquisitionIntent } from "@/lib/api/acquisition-intent";
 import type { CollectionIntent } from "@/lib/api/product-collection";
 import { loadCollectionIntent, saveCollectionIntent } from "@/lib/api/collection-intent";
 import type { SupplyIntent } from "@/lib/api/supply-chain";
@@ -49,7 +48,8 @@ type WorkbenchContextValue = {
   retry: () => Promise<WorkbenchContext | null>;
   switchOrganization: (organizationId: string) => void;
   pendingAcquisitionIntent: PendingAcquisitionIntent | null;
-  setPendingAcquisitionIntent: (intent: PendingAcquisitionIntent | null) => void;
+  acquisitionIntentReady: boolean;
+  setPendingAcquisitionIntent: (intent: PendingAcquisitionIntent | null) => boolean;
   pendingCollectionIntent: CollectionIntent | null;
   collectionIntentReady: boolean;
   setPendingCollectionIntent: (intent: CollectionIntent | null) => boolean;
@@ -67,10 +67,18 @@ export function WorkbenchContextProvider({ children }: PropsWithChildren) {
   const queryClient = useQueryClient();
   const [blockingError, setBlockingError] =
     useState<WorkbenchContextError | null>(null);
-  // A scoped idempotency intent remains in the workbench shell while a route
-  // changes. It is never a cross-organization authorization grant.
-  const [pendingAcquisitionIntent, setPendingAcquisitionIntent] =
+  // A scoped browser intent survives shell remounts. It is a recovery clue,
+  // never a cross-organization authorization grant or automatic retry.
+  const [pendingAcquisitionIntent, setAcquisitionIntent] =
     useState<PendingAcquisitionIntent | null>(null);
+  const acquisitionIntentRef = useRef<PendingAcquisitionIntent | null>(null);
+  const [acquisitionIntentReady, setAcquisitionIntentReady] = useState(false);
+  const setPendingAcquisitionIntent = useCallback((intent: PendingAcquisitionIntent | null) => {
+    if (!saveAcquisitionIntent(intent, acquisitionIntentRef.current)) return false;
+    acquisitionIntentRef.current = intent;
+    setAcquisitionIntent(intent);
+    return true;
+  }, []);
   const [pendingCollectionIntent, setCollectionIntent] = useState<CollectionIntent | null>(null);
   const collectionIntentRef = useRef<CollectionIntent | null>(null);
   const [collectionIntentReady, setCollectionIntentReady] = useState(false);
@@ -87,6 +95,10 @@ export function WorkbenchContextProvider({ children }: PropsWithChildren) {
     // Hydrate browser storage after the initial server-compatible render.
     void Promise.resolve().then(() => {
       if (active) {
+        const acquisitionIntent = loadAcquisitionIntent();
+        acquisitionIntentRef.current = acquisitionIntent;
+        setAcquisitionIntent(acquisitionIntent);
+        setAcquisitionIntentReady(true);
         const collectionIntent = loadCollectionIntent();
         collectionIntentRef.current = collectionIntent;
         setCollectionIntent(collectionIntent);
@@ -231,6 +243,7 @@ export function WorkbenchContextProvider({ children }: PropsWithChildren) {
       },
       switchOrganization,
       pendingAcquisitionIntent,
+      acquisitionIntentReady,
       setPendingAcquisitionIntent,
       pendingCollectionIntent,
       collectionIntentReady,
@@ -251,6 +264,8 @@ export function WorkbenchContextProvider({ children }: PropsWithChildren) {
       switchPreparing,
       switchOrganization,
       pendingAcquisitionIntent,
+      acquisitionIntentReady,
+      setPendingAcquisitionIntent,
       pendingCollectionIntent,
       collectionIntentReady,
       setPendingCollectionIntent,

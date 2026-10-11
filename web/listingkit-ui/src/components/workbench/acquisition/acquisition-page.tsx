@@ -25,7 +25,7 @@ export function AcquisitionPage({ operationId,agentEnabled=false,knowledgeAvaila
     return userId && organizationId ? { userId, organizationId } : null;
   }, [context.effectiveOrganization?.id, context.user?.id]);
 
-  if (context.isLoading || context.isSwitching) return <ConsoleState kind="loading" title="正在确认企业上下文">采集只在服务端确认的当前企业中执行。</ConsoleState>;
+  if (context.isLoading || context.isSwitching || !context.acquisitionIntentReady) return <ConsoleState kind="loading" title="正在确认企业上下文">采集只在服务端确认的当前企业中执行。</ConsoleState>;
   if (!scope || context.selectionRequired || context.error || context.blockingError) return <ConsoleState kind="error" title="企业或登录上下文不可用">请先确认登录身份与当前企业，再提交或读取采集结果。</ConsoleState>;
 
   const submittedIntent = context.pendingAcquisitionIntent;
@@ -36,7 +36,7 @@ export function AcquisitionPage({ operationId,agentEnabled=false,knowledgeAvaila
   return <ScopedAcquisitionPage key={`${scope.userId}:${scope.organizationId}:${operationId ?? ""}`} operationId={operationId} agentEnabled={agentEnabled} knowledgeAvailable={knowledgeAvailable} scope={scope} initialIntent={sameIntentScope ? submittedIntent : null} foreignIntent={!!submittedIntent && !sameIntentScope} onIntentChange={context.setPendingAcquisitionIntent} />;
 }
 
-function ScopedAcquisitionPage({ operationId,agentEnabled,knowledgeAvailable, scope, initialIntent, foreignIntent, onIntentChange }: { operationId?: string;agentEnabled:boolean;knowledgeAvailable:boolean; scope: AcquisitionContext; initialIntent: PendingIntent | null; foreignIntent: boolean; onIntentChange: (intent: PendingIntent | null) => void }) {
+function ScopedAcquisitionPage({ operationId,agentEnabled,knowledgeAvailable, scope, initialIntent, foreignIntent, onIntentChange }: { operationId?: string;agentEnabled:boolean;knowledgeAvailable:boolean; scope: AcquisitionContext; initialIntent: PendingIntent | null; foreignIntent: boolean; onIntentChange: (intent: PendingIntent | null) => boolean }) {
   const router = useRouter();
   const context = useWorkbenchContext();
   const [source, setSource] = useState(initialIntent?.source ?? "");
@@ -75,16 +75,18 @@ function ScopedAcquisitionPage({ operationId,agentEnabled,knowledgeAvailable, sc
     const canonical = canonical1688Source(source);
     if (!canonical) { setError("INVALID_ACQUISITION"); return; }
     const intent: PendingIntent = pending ?? { userId: scope.userId, organizationId: scope.organizationId, key: crypto.randomUUID(), source: canonical };
+    if (!onIntentChange(intent)) { setError("ACQUISITION_INTENT_STORAGE_FAILED"); return; }
     const controller = new AbortController();
-    abort.current = controller; inFlight.current = true; setPending(intent); onIntentChange(intent); setBusy(true); setError(null);
+    abort.current = controller; inFlight.current = true; setPending(intent); setBusy(true); setError(null);
     try {
       const next = await (verify && !intent.quotaPaused ? verify1688(intent, controller.signal) : acquire1688(intent, controller.signal));
       if (!active.current) return;
       setResult(next);
       if (isTerminalAcquisitionResult(next)) {
-        setPending(null); onIntentChange(null);
+        if (onIntentChange(null)) setPending(null);
+        else setError("ACQUISITION_INTENT_STORAGE_FAILED");
       } else {
-        setPending(intent); onIntentChange(intent); setError("OUTCOME_UNKNOWN");
+        setPending(intent); setError("OUTCOME_UNKNOWN");
       }
       if (next.outcome === "published") router.push(`/workbench/supply/acquisition/operation/${next.operationId}`);
     } catch (failure) {
@@ -92,11 +94,12 @@ function ScopedAcquisitionPage({ operationId,agentEnabled,knowledgeAvailable, sc
       const code = codeOf(failure);
       if (code === "DATA_QUOTA_INSUFFICIENT") {
         const paused = { ...intent, quotaPaused: true };
-        setPending(paused); onIntentChange(paused); setError(code);
+        setPending(paused); setError(onIntentChange(paused) ? code : "ACQUISITION_INTENT_STORAGE_FAILED");
       } else if (isDefinitiveSubmissionFailure(code)) {
-        setPending(null); onIntentChange(null); setError(code);
+        if (onIntentChange(null)) { setPending(null); setError(code); }
+        else setError("ACQUISITION_INTENT_STORAGE_FAILED");
       } else {
-        setPending(intent); onIntentChange(intent); setError("OUTCOME_UNKNOWN");
+        setPending(intent); setError("OUTCOME_UNKNOWN");
       }
     } finally {
       if (abort.current === controller) abort.current = null;
@@ -146,7 +149,7 @@ function ResultState({ result }: { result: AcquisitionResult }) {
 function CatalogFacts({ product }: { product: AcquisitionProduct }) {
   return <div className="space-y-5"><Card className="p-5"><h2 className="text-xl font-semibold">{product.title || "未提供标题"}</h2><p className="mt-2 text-sm text-muted-foreground">操作 {product.operationId} · Catalog 版本 {product.catalogVersion}</p></Card><Card className="p-5"><h2 className="font-semibold">来源与采集图片</h2>{product.sources.length ? <ul className="mt-3 list-disc space-y-1 pl-5">{product.sources.map((source, index) => <li key={`${source.url}:${index}`}>{source.platform || "未标注平台"}{source.url ? <> · <a className="underline" href={source.url} rel="noreferrer" target="_blank">查看来源</a></> : null}</li>)}</ul> : <p className="mt-3 text-sm text-muted-foreground">未提供来源记录。</p>}{product.images.length ? <ul className="mt-3 list-disc space-y-1 pl-5">{product.images.map((image, index) => <li key={`${image.url}:${index}`}><a className="underline" href={image.url} rel="noreferrer" target="_blank">图片候选 {index + 1}</a>{image.role ? `（${image.role}）` : ""}</li>)}</ul> : <p className="mt-3 text-sm text-muted-foreground">未采集到图片候选。</p>}</Card><Card className="p-5"><h2 className="font-semibold">规格与缺失信息</h2>{product.specifications.length ? <dl className="mt-3 grid gap-2 sm:grid-cols-2">{product.specifications.map((item, index) => <div key={`${item.name}:${index}`}><dt className="text-sm text-muted-foreground">{item.name}</dt><dd>{item.value}</dd></div>)}</dl> : <p className="mt-3 text-sm text-muted-foreground">未提供规格。</p>}{product.missingFacts.length ? <ul className="mt-4 list-disc space-y-1 pl-5 text-sm">{product.missingFacts.map((fact, index) => <li key={`${fact.field}:${index}`}>{fact.field}：{fact.reason}{fact.count ? `（共 ${fact.count} 处）` : ""}</li>)}</ul> : null}</Card>{product.warnings.length ? <Card className="p-5"><h2 className="font-semibold">采集警告</h2><ul className="mt-3 list-disc space-y-1 pl-5 text-sm">{product.warnings.map((warning, index) => <li key={`${warning.field}:${warning.code}:${index}`}>{warning.field}：{warning.code}{warning.count ? `（共 ${warning.count} 处）` : ""}</li>)}</ul></Card> : null}</div>;
 }
-function Failure({ code }: { code: string }) { const labels: Record<string, string> = { DATA_QUOTA_INSUFFICIENT: "可用数据条数不足，原请求已保留；请由管理员补充分配后使用原 key 重试。", OUTCOME_UNKNOWN: "原请求结果尚未确定；仅当仍持有原 key 和来源时可核实。", ACQUISITION_NOT_FOUND: "当前身份和企业下未找到该操作。", FORBIDDEN: "当前身份没有采集或读取权限。", INVALID_ACQUISITION: "请输入合法的 1688 商品页、offer ID 或操作 ID。", ACQUISITION_UNAVAILABLE: "采集结果暂不可用；未据此推断其已失败。" }; return <ConsoleState kind="error" title={labels[code] ?? "采集请求未完成"}>{code}</ConsoleState>; }
+function Failure({ code }: { code: string }) { const labels: Record<string, string> = { ACQUISITION_INTENT_STORAGE_FAILED: "无法保留原采集请求，请恢复浏览器存储后重试。", DATA_QUOTA_INSUFFICIENT: "可用数据条数不足，原请求已保留；请由管理员补充分配后使用原 key 重试。", OUTCOME_UNKNOWN: "原请求结果尚未确定；仅当仍持有原 key 和来源时可核实。", ACQUISITION_NOT_FOUND: "当前身份和企业下未找到该操作。", FORBIDDEN: "当前身份没有采集或读取权限。", INVALID_ACQUISITION: "请输入合法的 1688 商品页、offer ID 或操作 ID。", ACQUISITION_UNAVAILABLE: "采集结果暂不可用；未据此推断其已失败。" }; return <ConsoleState kind="error" title={labels[code] ?? "采集请求未完成"}>{code}</ConsoleState>; }
 function codeOf(failure: unknown) { return failure instanceof AcquisitionAPIError ? failure.code : "ACQUISITION_UNAVAILABLE"; }
 function isDefinitiveSubmissionFailure(code: string) {
   return code === "INVALID_ACQUISITION" || code === "SOURCE_TOO_LARGE" || code === "ACQUISITION_CAPACITY" || code === "ACQUISITION_NOT_FOUND" || code === "SOURCE_UNAVAILABLE";
