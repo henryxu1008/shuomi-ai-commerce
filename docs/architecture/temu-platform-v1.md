@@ -4,7 +4,7 @@
 >
 > Design Basis：Independent Architecture
 >
-> Status：NOT_READY；G1 增量复核已关闭 BLOCKER、转 IMPLEMENTATION_TEST；G2 文档正文待 GLOBAL 登录，不是 IMPLEMENTATION_READY
+> Status：NOT_READY；G1 已转 IMPLEMENTATION_TEST；G2 官方映射已读取、冲突处理待增量复核，GE/AM 价格规格尚待官方依据；不是 IMPLEMENTATION_READY
 >
 > 调查基线：main @ f1d77a84fa653813235ddbfeedac59ea6bb0a94c，2026-10-11
 >
@@ -41,11 +41,11 @@ Accepted Risks：本任务没有新增用户批准的风险豁免。官方资料
 | --- | --- | --- | --- | --- |
 | 全托管 | bg.glo.goods.add / list.get / detail.get / bg.glo.product.search | PA；按当前迁移说明绑定 API | 一个供应商货品及其 SKC/SKU | 创建接口未见逐消费者国家选站参数；不得伪造逐国提交 |
 | 半托管 | 同一供应商货品 API，另有 productSemiManagedReq、bindSiteIds、站点价格与仓库路径 | PA；身份来自 CN 应用，不能混用区域凭据 | 一个供应商货品，可一次绑定多个站点 | 官方字典 96 项，70 true、26 false；泛欧与澳新关联约束 |
-| 本土 | temu.local.goods.v2.add；查询 temu.local.goods.list.retrieve；bg.local.goods.publish.status.get | US / EU / GLOBAL，匹配原应用分区 | 官方授权 mall 的一个商品 | 独立规格表 39 项；包含分区、siteId、语言、币种、单位；不是实时开站/商家可售清单 |
+| 本土 | temu.local.goods.v2.add；查询 temu.local.goods.list.retrieve；bg.local.goods.publish.status.get | US / EU / GLOBAL，匹配原应用分区 | 官方授权 mall 的一个商品 | E24 规格 39 项、E30 LOCAL=true 39 项；两集合不同，37 项交集、GE/AM 缺完整价格规格；不是实时商家可售清单 |
 
 全托/半托的 PA 路由来自 2026-05-06 迁移说明，优先于 2026-01-05 通用分区页“发品 CN”的旧描述；未迁移 API 仍用 CN。进一步读取当前官方接口清单 E26，基础组同时明确 CN bg.mall.info.get 查询当前 token 的店铺类型、PA info.get.global 查询当前 token 的店铺 uniqueId/权限；E04 定义 token 为店铺粒度，E11 定义 uniqueId 为 mall 唯一标识。因此选 **PA uniqueId 作为 supplier 的 canonical merchant identity**，在同一 exact app/token 的验证过程中读取 CN 类型，不要求 mallId 与 uniqueId 等值或一张转换表。具体验证是设计选择，依据为这些官方合同；真实 token 的 scope/成功响应仍须实现验证，失败不连接。
 
-区域 token 信息的 mallType=1 表示 SEMI、100 表示 LOCAL，没有全托管值；regionId 示例 USA-211，不等于 siteId=100。CN bg.mall.info.get 的 semiManagedMall 必须是该 exact token 的实际响应，不能仅凭客户端“全托/半托”选项绑定。区域接入本批只接受 LOCAL；不能把同一半托商家作为另一份区域身份重新接入。已找到官方 Model Site and Region（E30），正文需 GLOBAL 登录；按 §11 G2 读取后决定本土规格映射，不再另要求用户提供字段对照表。
+区域 token 信息的 mallType=1 表示 SEMI、100 表示 LOCAL，没有全托管值；regionId 示例 USA-211，不等于 siteId=100。CN bg.mall.info.get 的 semiManagedMall 必须是该 exact token 的实际响应，不能仅凭客户端“全托/半托”选项绑定。区域接入本批只接受 LOCAL；不能把同一半托商家作为另一份区域身份重新接入。2026-10-12 已在用户登录后的 GLOBAL 官方 Model Site and Region（E30）读取完整映射：US 211→100、CA 37→101、BE 20→142；不再要求用户提供已存在的字段对照表。实际文档冲突及 GE/AM 剩余价格规格见 §6/§11。
 
 全部站点的含义是完整承接官方开放的目标与限制，不是允许发布到所有国家。半托 false 项保留为未开放；关联站点按官方要求作为一次操作；本土表不能从半托表复制（如半托韩国/巴西 false，而本土规格表有韩国/巴西）。全托管由平台分配消费者市场，创建供应商货品不证明所有国家上架；界面显示原平台事实及“由平台分配”，不补造消费者国家清单或逐国成功。
 
@@ -98,7 +98,7 @@ Console 复用 /workbench/stores、/workbench/store-products 和当前“我的�
 
 全托/半托验证固定流程：在原 CN 应用/同一密封 token 下，PA info.get.global 读取非空 uniqueId、实际 expiredTime 与 scope；CN bg.mall.info.get 读取明确的 semiManagedMall（true=半托、false=全托，字段缺失不能默认为 false）。两个请求均须官方成功、同一原 attempt/credential digest，才能生成 supplier VerificationFacts；PA uniqueId 是身份，CN mode 是附属事实，不读取或合并另一 token。缺 CN 类型查询或 PA 身份查询权限拒绝完成连接；其他 publish/rules/read scope 各按实际能力核验。不存在失败后换 token/应用/网关的 fallback。
 
-本土连接只使用原 US/EU/GLOBAL 应用的 info.get，验证 mallId、mallType=LOCAL、regionId、实际 expiredTime 与 scope；官方 mall 身份的归属不依赖把 regionId 强转 siteId。规格字典未读取/不匹配时，连接身份与只读事实仍可独立成立，但本批发布准备不宣称 ready；G2 只影响正确规格/全部站点的发布路径。只申请本批需要的 API scope，不因文档“建议全选”扩大权限。缺 publish scope 可以明确展示只读可用/提交不可用，不冒充完整接入。
+本土连接只使用原 US/EU/GLOBAL 应用的 info.get，验证 mallId、mallType=LOCAL、regionId、实际 expiredTime 与 scope；官方 mall 身份的归属不依赖把 regionId 强转 siteId。规格字典缺失/不匹配时，连接身份与只读事实仍可独立成立，但该目标的发布准备不宣称 ready；G2 的剩余依据只影响价格/单位规格及全部站点的发布闭环。只申请本批需要的 API scope，不因文档“建议全选”扩大权限。缺 publish scope 可以明确展示只读可用/提交不可用，不冒充完整接入。
 
 沿现有全局商家归属约束在 Store DB 原事务中占用官方 identity → org/store；TEMU supplier 身份为 platform + supplier namespace + PA uniqueId，本土为 platform + 官方身份分区 + local namespace + mallId。mode/siteSet/regionId/spec profile、token、AppID、应用版本和客户端店铺名均不进入可变身份。不同应用、重授权、断开后新建 Store 不得绕过同一官方商家的持久占用；重验证 uniqueId/mallId 变化拒绝原绑定，不能把它当作正常 token 轮换。区域 SEMI 不走 Local 接入，防止同一半托身份出现第二 namespace。无凭据迁移、身份转移或跨企业自动接管流程；独立准入前不正式建立索引。
 
@@ -110,7 +110,14 @@ Console 复用 /workbench/stores、/workbench/store-products 和当前“我的�
 
 半托按完整字典保留站点/开站/关联组；泛欧规则与 103/104 澳新组按官方 mode/资质约束形成同一个 payload。列表 70 true 是文档快照，实际店铺/类目/仓库资格仍须官方验证。已绑定远端站点是观察事实，不因旧文档 false 就抹去；新增提交资格也不能仅由历史远端 bindSites 推定。
 
-本土操作的目标始终是 exact token 授权的 mall，当前 V2/列表/类目查询按该店铺执行，不能增加客户端 siteId/mallId 来切换目标。使用独立 39 项规格表，不由国家的洲、欧盟成员身份或币种推导网关；保留 Belgium=GLO、Türkiye/AE/SA=EU 等原文值，但原应用分区才决定 transport，字典不能把凭据送到其他区。mall regionId 不是 siteId；等待读取 E30 的官方映射后选择具体规格，不能用 211 当 100，也不能由用户选择站点自证。官方字典只确定格式，当前店铺可售类目、资质、运费模板和 API 权限须从同一授权 mall 查询；不发明通用“全部 merchant 可售站点”接口。US-to-CA 等 tag 不产生第二创建目标或自动授权后续经营操作。
+本土操作的目标始终是 exact token 授权的 mall，当前 V2/列表/类目查询按该店铺执行，不能增加客户端 siteId/mallId 来切换目标。按以下固定流程消费官方字典；官方字典只确定格式和一般地区说明，当前店铺可售类目、资质、运费模板和 API 权限须从同一授权 mall 查询，不发明通用“全部 merchant 可售站点”接口。US-to-CA 等 tag 不产生第二创建目标或自动授权后续经营操作。
+
+1. 使用当前验证的 regionId 查询 E30 的版本固定映射（87 行、有 83 个不同 siteId），再按得到的 siteId 查询 E24 的完整价格/语言/包装规格。不按地区名、洲、法币、邻国或客户端选项匹配；允许多个 region 映到 site 100，不以 site 反向制造唯一 mall region。235 行中的 148 行没有 siteId，保持未核实，不新增可发布目标。
+2. 身份分区/HTTP route 始终由原应用决定。E30 的部署区用于核对地区事实，不能改写 application binding；不一致时停止该目标发布核实，不携带 token 探测另一网关。E24 的 Site Region 不参与凭据路由。Belgium 规格表 GLO 与较新 E30 部署 EU 保留来源差异；采用原 EU 应用时可按 E30 核对地区，并按 E24 的同一 site 142 读取 EUR/g/cm 等规格，不能按旧 GLO 标签换 GLOBAL 网关。
+3. 分字段、用途和版本保留来源：E23/E13 是 PA 半托发布合同，E30 是区域 site/region 与一般交易/履约说明。两表 SEMI 标记和 North Macedonia 的 192/160 不一致时分别保存，不把不同接口值 alias，不由区域 SEMI 开放值建立第二商家 namespace，也不扩大半托 bindSiteIds。对当前操作缺唯一官方依据的字段保持未核实。
+4. 一般开放说明、规格覆盖、当次 merchant scope/资格是三个独立事实。E30 的 true 不能替代授权，空白不能转换为 false 或 true，coming soon 不变成已支持。E24 SA 120/LU 152 有规格、E30 LOCAL 为空白，不能仅凭规格宣称开放；当次官方 mall/类目/权限的验证与字典来源一起记录，不能据历史商品或名称猜资格。
+5. E30 LOCAL=true 39 项与 E24 39 项只有 37 项交集；GE region 75/site 165、AM region 10/site 166 尚缺已读取的完整价格规格，保留在本批范围，当前资料显示缺官方规格，不批准/不发送。两个集合的并集 41 项均可表达各自事实，不能只按“39 行”宣称全覆盖、不能自行删除 GE/AM。当前 E29 fieldRules 只有 required/optional/disabled，V2 currency/amount/packageInfo 为字符串，不能假装它返回缺失规则；V3 price 仍明确引用 E24，切 V3 不解决该币种/精度缺口。本批全覆盖发布验收仍须补齐这些目标的官方依据。
+6. 规格快照固定原文 precision/range/currency/units 与 hash；价格以规范化十进制字符串或精确整数表示，禁止浮点舍入或静默单位/汇率转换。用户明确资料的单位与绑定规格不一致时待补全；规则版本/region/profile 漂移使资料重新校验，但不会释放 §8 的同 mall + Product fence。
 
 全托 target 是供应商货品，不创建虚构的国家 target。提交后平台各市场状态仅在官方返回明确归属时投影，未知国家状态保持未知。全部三种模式的范围仍保留；未开站或本商家无资质的组合说明官方限制，不宣称普遍可用。
 
@@ -185,7 +192,7 @@ Provider 页大小不得超过官方上限（本土 retrieve、product.search 10
 
 | Must | 实现中必要证据 |
 | --- | --- |
-| M1 | 完整 96 项半托字典、39 项本土规格事实；true/false/关联组、按分区 API 映射、未证明组合拒绝；三模式实际 DTO fixtures |
+| M1 | 完整 96 项半托字典、39 项规格及 E30 全部 87 行映射/39 个 LOCAL=true；37 项匹配和 GE/AM/SA/LU 差异可见、不能冒充全部通过；true/false/空白/coming soon/关联组、按原分区 API、未证明组合拒绝；三模式实际 DTO fixtures |
 | M2/M6 | 跨企业/店铺、AppID 同名不同平台/分区、原 attempt/member 绑定、错误模式/site、缺 scope/过期/撤权、secret 无投影；断开/轮换不重新归属 |
 | M3 | 缺品牌/产地/证书/价格不补造；精度/单位/规则/Asset/approval 版本漂移拒绝；exact saved payload 匹配 |
 | M4 | 两并发 permit、不同 siteSet/operation/app/record 仍同 fence；响应丢失/commit unknown/取消/重启不重发；图片独立 effect；同 key 异载荷冲突 |
@@ -201,12 +208,12 @@ Provider 页大小不得超过官方上限（本土 retrieve、product.search 10
 | ID | 缺少的具体依据 | 受影响 Must / 后果 | owner / 解锁条件 / 层级 |
 | --- | --- | --- | --- |
 | G1 | 第一轮缺口现由 E03/E04/E11/E26 补齐：PA uniqueId 明确为 mall 唯一标识，同一店铺 token 的 CN 类型/PA 身份接口均由当前清单指定；无须 CN mallId 转换 | M2/M4：固定一个 supplier 身份与同凭据模式验证，未核实/缺权限不连接，变更 token/app/siteSet 不能重置 fence | 独立相关增量复核已关闭 BLOCKER；真实响应/权限验证为 IMPLEMENTATION_TEST，不是缺官方映射的永久 BLOCKER |
-| G2 | 已找到官方 Model Site and Region（E30），GLOBAL 登录后才能读取正文；需确定 region→site 的规格选择和文档冲突处理；不再要求虚构全量 merchant-site API | M1/M3：本土价格/单位/规则必须对应官方规格，不能靠地理或用户选项猜；本土创建目标已明确为授权 mall | 本 Writer 读取 E30 并修正规格合同，独立相关增量复核；待用户 GLOBAL 登录，阻塞完整发布设计准入，不阻塞继续调查 |
+| G2 | E30 已完整读取，region→site 和分字段冲突处理已写 §6；不再有 GLOBAL 登录/映射缺口。真实剩余：GE/AM 的价格币种/精度等规格未在已读 E24/E17/E29 中找到；E18 V3 价格也引用 E24 | M1/M3：两站点仍在用户范围，缺依据不能正确构造完整发布资料；保留缺规则和拒绝发送，不能靠地理/用户输入自证平台格式 | 本 Writer 继续读取可用官方依据；原 Reviewer 仅复核本次映射/冲突/规格增量并分类阻塞层级。未整体准入前不修改生产代码；未擅自移除站点或接受风险 |
 | G3 | externalGoodsId 与 outGoodsSn 明确映射、PA exact recovery 证据覆盖 | M4/M5：盲目 adopt 错误结果；当前可保留 UNKNOWN 避免错误副作用 | IMPLEMENTATION_TEST；已知成功 ID 可读回、无法 qualified 时保持 UNKNOWN；实施/真实验证层处理，不授权自动重发 |
 
-第一轮独立评审的原分类：G1/G2 为 BLOCKER；G3 为 IMPLEMENTATION_TEST。进一步官方查证与独立相关增量复核确认 G1 不需要原草案要求的 CN mallId→PA uniqueId 映射表，G1 已转 IMPLEMENTATION_TEST；本土 mall fence 修正无新增 BLOCKER。E27 辅助规格/尺码表 create 在实现层按批准与必要性收敛，准备/读取不能暗中 mutation，需要未批准创建时保持待补全。G2 应先读取已经找到的 E30，不能称为文档不存在。原历史评审保留，未签发整体 READY。店铺服务沿当前 ServiceLifecycleExecutor 与 orgresource store_service_v1 reservation/receipt，未发现平台专属新计费依赖。准确候选 SHA、Reviewer 证据与增量复核写主 PR #655。
+第一轮独立评审的原分类：G1/G2 为 BLOCKER；G3 为 IMPLEMENTATION_TEST。进一步官方查证与独立相关增量复核确认 G1 不需要原草案要求的 CN mallId→PA uniqueId 映射表，G1 已转 IMPLEMENTATION_TEST；本土 mall fence 修正无新增 BLOCKER。E27 辅助规格/尺码表 create 在实现层按批准与必要性收敛，准备/读取不能暗中 mutation，需要未批准创建时保持待补全。G2 的 E30 正文现已读取，当前只保留具体 GE/AM 价格规格缺口，不再称为登录或缺映射。原历史评审保留，未签发整体 READY。店铺服务沿当前 ServiceLifecycleExecutor 与 orgresource store_service_v1 reservation/receipt，未发现平台专属新计费依赖。准确候选 SHA、Reviewer 证据与增量复核写主 PR #655。
 
-G2 正文读取/设计闭环和独立准入完成前，当前状态 NOT_READY / Backlog，不进入正式生产开发。CN 登录文档已可访问，不再要求 CN 登录；E30 需要独立 GLOBAL 区登录，已向用户指出具体官方页。本轮未读取应用管理密钥或商家数据，也未执行官方业务 API。可以继续只读查证与设计评审，不能用真实调用试错取代未授权商家验证。
+G2 实际设计闭环和独立准入完成前，当前状态 NOT_READY / Backlog，不进入正式生产开发。CN 与 GLOBAL 文档现均可访问，不再要求用户重复登录。已读页面、剩余字段与受影响操作都在官方证据中明确；本轮未读取应用管理密钥或商家数据，也未执行官方业务 API。可以继续只读查证与相关增量评审，不能用真实调用试错取代未授权商家验证。
 
 Architecture Review：第一轮由独立只读 Reviewer 核对原始范围/Threat Model、代码实际 owner 与全部设计 diff，结论 NOT_READY；后续只复核实际相关增量，最多两轮正常评审。finding 先分类为 BLOCKER / IMPLEMENTATION_TEST / BACKLOG / ACCEPTED_RISK / NOT_APPLICABLE，列明受影响 Must、具体后果与层级。只有 G1/G2 等实际核心路径/身份/不可重复副作用条件未满足时阻止开工；非 Blocker 不扩成新的通用机制。
 

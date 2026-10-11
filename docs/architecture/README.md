@@ -46,7 +46,8 @@ TEMU 三模式与全部官方站点的设计候选见
 [`temu-official-contract-evidence.md`](temu-official-contract-evidence.md) 记录官方
 CN/PA/US/EU/GLOBAL 路由与各模式站点依据。第一轮独立评审结论 NOT_READY；
 G1 经补充官方清单与独立增量复核已转 IMPLEMENTATION_TEST；
-G2 已找到待 GLOBAL 登录读取的站点地区文档。
+G2 已在 GLOBAL 登录后读全地区映射并定义冲突处理；
+GE/AM 价格规格仍缺已读官方依据，相关增量待原 Reviewer 复核。
 相关设计增量完成独立准入前不得修改正式生产业务路径。
 
 1688 acquisition plans, frozen rules, public discovery and Preparation-only

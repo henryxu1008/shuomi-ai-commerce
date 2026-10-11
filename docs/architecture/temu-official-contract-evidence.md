@@ -1,8 +1,8 @@
 # TEMU 官方接口与站点证据
 
-> 对应 [#31 接入设计](temu-platform-v1.md)；收集日期 2026-10-11。
+> 对应 [#31 接入设计](temu-platform-v1.md)；收集日期 2026-10-11；E30 与规格交叉核对补充于 2026-10-12。
 >
-> 来源仅为 TEMU 官方页面，公开 partner 文档与用户登录后可读的 agentpartner 文档。
+> 来源仅为 TEMU 官方页面，公开 partner 文档与用户登录后可读的 GLOBAL / agentpartner 文档。
 >
 > 时间为页面显示的更新时间；没有调用商家业务 API、读取应用密钥或验证实际店铺权限。
 
@@ -27,7 +27,7 @@
 | E15 | [bg.glo.goods.detail.get](https://agentpartner.temu.com/document?cataId=875198836203&docId=925528074151) | 2025-08-27 | productId 必填；详情主要基本资料、类目与详情素材；本轮未见完整 SKU/价格回显，不可宣称 exact body readback |
 | E16 | [bg.glo.product.search](https://agentpartner.temu.com/document?cataId=875198836203&docId=931835549486) | 2026-10-11 读取；未摘录更新时间 | 货品生命周期查询，productSkuIdList、pageNum/pageSize；页大小上限 100；dataList 包含 product/SKC/SKU、selectStatus 等；不把创建等同在售 |
 | E17 | [temu.local.goods.v2.add](https://partner.temu.com/documentation?menu_code=fb16b05f7a904765aac4af3a24b87d4a&sub_menu_code=074e7513eea7489a87131b0e41ec83a8) | 2026-09-07 | Local、Product Management；goodsBasic.externalGoodsId 单店唯一，最大 40 字符；创建返回 goodsId/SKU；未证实与 outGoodsSn 的映射 |
-| E18 | [temu.local.goods.v3.add](https://partner.temu.com/documentation?menu_code=fb16b05f7a904765aac4af3a24b87d4a&sub_menu_code=419748d505a3483f8d210d978cb813f8) | 2026-09-16；更新记录含 09-28 | Local；官方自动类目/属性推断、图片 URL 抓取；result externalGoodsId/goodsId；不是全/半托合同，不能与 V2 约束互换 |
+| E18 | [temu.local.goods.v3.add](https://partner.temu.com/documentation?menu_code=fb16b05f7a904765aac4af3a24b87d4a&sub_menu_code=419748d505a3483f8d210d978cb813f8) | 2026-09-16；更新记录含 09-28 | Local；官方自动类目/属性推断、图片 URL 抓取；result externalGoodsId/goodsId；不是全/半托合同，不能与 V2 约束互换。2026-10-12 重读：price 明确按店铺国家的币种/精度并引用 E24；weight/length/width/height 为 STRING，美国 lb/in、其他国家 g/cm；V3 也不提供 GE/AM 缺失价格规则 |
 | E19 | [temu.local.goods.list.retrieve](https://partner.temu.com/documentation?menu_code=fb16b05f7a904765aac4af3a24b87d4a&sub_menu_code=ce4883149f784c208e1b9a52566ea2c8) | 2026-06-17 | Local，pageSize≤100/默认25、opaque pageToken；outGoodsSnList/goodsIdList 过滤；goodsSearchType 包含 ACTIVE/INACTIVE/INCOMPLETE/DRAFT/DELETED；DRAFT 不是保存草稿 API 证据 |
 | E20 | [bg.local.goods.publish.status.get](https://partner.temu.com/documentation?menu_code=fb16b05f7a904765aac4af3a24b87d4a&sub_menu_code=db14c29a74744247828e8ebc69443dfe) | 2025-07-03 | Local；goodsIdList 必填；返回 goodsId/status/subStatus；丢失创建标识时不能单凭该 API 解决 UNKNOWN |
 | E21 | [temu.local.mall.tags.get](https://partner.temu.com/documentation?menu_code=fb16b05f7a904765aac4af3a24b87d4a&sub_menu_code=ec4ff89b268441cd9400a64706c215b0) | 2025-12-02 | Local store tags：新品/官方翻新/MTO/二手/US-to-CA/书店等资质提示；不是全部站点枚举，不自动授权履约或扩大本批产品类型 |
@@ -39,7 +39,8 @@
 | E27 | [货品发布流程](https://agentpartner.temu.com/document?cataId=875196199516&docId=896172443264) | 2026-04-09 | 适用全托/半托；全托跳过站点/仓库/运费模板步骤；一次请求一个 SPU；半托仅 siteSupplierPrices，全托仅 supplierPrice；图片需官方上传 URL，自定义规格/尺码表可能需要独立 create 操作 |
 | E28 | [Add Products Guide V2.0](https://partner.temu.com/documentation?menu_code=fb16b05f7a904765aac4af3a24b87d4a&sub_menu_code=ea85c857a38d42a7a22fb6779776b166) / [Product Listing Instructions](https://partner.temu.com/documentation?menu_code=38e79b35d2cb463d85619c1c786dd303&sub_menu_code=d7943785ff2e4185976170f07924256e) | 2026-02-08 / 2025-10-11 | 类目读取针对当前店铺；availableStatus=0 才可售；V2 流程按授权 mall 组装资料，无客户端选择任意目标店铺/站点的步骤。币种/包装规格引用 E24；不因此扩大到订单功能 |
 | E29 | [temu.local.goods.cats.rules.get](https://partner.temu.com/documentation?menu_code=fb16b05f7a904765aac4af3a24b87d4a&sub_menu_code=5853e21ac9b74fdc96497a52c848765f) | 2026-09-23 | catId 请求；fieldRules/expandCatType/secondHand/warnings；有 category unavailable / shop status abnormal 等拒绝；当前返回未见站点映射/币种字段，不能拿它冒充映射接口 |
-| E30 | [Model Site and Region](https://partner.temu.com/documentation?menu_code=38e79b35d2cb463d85619c1c786dd303&sub_menu_code=07938e60f95344a0a9444f524ea61e31) | 未读取正文 | 官方全站搜索 region 找到，归 Developer Guide → Order Management；点击跳到 GLOBAL 登录页。CN 登录不通用。已找到现成候选文档，正文待有权访问；不能写成官方没有此资料或已核实映射 |
+| E30 | [Model Site and Region](https://partner.temu.com/documentation?menu_code=38e79b35d2cb463d85619c1c786dd303&sub_menu_code=07938e60f95344a0a9444f524ea61e31) | 2026-07-16 00:11:23 | 2026-10-12 在用户已登录的 GLOBAL 会话读取完整正文及 235 行地区表。87 行有 siteId（83 个不同 siteId），39 行 LOCAL=true、57 行 SEMI=true、9 行 SEMI=coming soon；空白不是 false 或授权。regionId 与 siteId 是明确的不同字典，见 §5；该页面介绍订单履约地区，不取代当前 token/mall 的发布权限 |
+| E31 | [Product Basic Introduction](https://partner.temu.com/documentation?menu_code=38e79b35d2cb463d85619c1c786dd303&sub_menu_code=2bdd2c8933604967a613caa5f87e5963) | 2025-10-11 11:52:57 | 当前店铺类目/品牌/运费模板、创建后进入审核、创建/审核分离；基础价格/包装示例为 USD/lb/in，不能拿这些美国示例替缺失的非美国规格。站点特殊接口章节当前仅 Brazil，未找到 GE/AM 补充页 |
 
 ### 文档限定的 router
 
@@ -53,10 +54,10 @@
 
 E02 的全/半托“发品 CN”与 E03 新迁移路由按具体 API/version 对齐，不能随意选择旧入口。E03 把 bg.goods.add 对应到 bg.glo.goods.add/temu.goods.add，新实现只固定已查证的一种 type；别名不形成第二发送机会。类别/属性/父规格/尺寸/图片/运费模板/品牌沿 E03 的 migrated API 选择，正式请求还须逐项验证 scope 与当前参数。
 
-## 2. 身份验证结论与待读取的站点/恢复依据
+## 2. 身份验证结论与站点/恢复依据
 
 - CN result.mallId 与 PA result.uniqueId 没有已读取的等值关系；这不需要成为实现前置。E04 店铺粒度 token + E11 PA mall 唯一标识 + E26 同一当前 token 的固定 CN 类型/PA 身份查询，支持选 PA uniqueId 为唯一 supplier 身份，CN 类型为该凭据下的附属验证事实。不拿名字关联，也不跨 US/EU/GLOBAL 试探；真实成功响应与权限仍在实现/授权验证层收敛。
-- 本土 regionId（USA-211）与 siteId（US-100）值域不同。已找到 E30 Model Site and Region，但尚无 GLOBAL 登录，正文待读；不是断言官方没有映射。E24 规格字典没有实时商家资格。Local API 目标是当前 token 的 mall，不要求虚构一个“全部可售站点”授权 API；共享字典不能自证商家授权。
+- 本土 regionId 与 siteId 值域不同，E30 正文已证实例如 US 211→100、Canada 37→101、Belgium 20→142。该表还把 Guam 83、Puerto Rico 164、Virgin Islands (U.S.) 219、Northern Mariana Islands 236 映到 site 100；不能反向把一个 site 当成唯一 mall region。E24 规格字典没有实时商家资格。Local API 目标是当前 token 的 mall，不要求虚构一个“全部可售站点”授权 API；共享字典不能自证商家授权。
 - Local externalGoodsId 与 list.retrieve 的 outGoodsSn：两个名称分别已查证，映射关系未查证；不能将未知关系写进自动恢复实现。
 - PA detail.get 不完整回显 SKU/价格/body hash；list.get 的 correlation 与 bindSites 只能用于足够明确的正向证据。空查询不证明无副作用。
 - 没有真实 application 发布、merchant scope/eligibility、真实 token/创建/撤权证据；全部 NOT_RUN，不影响只读设计，但不能冒充三模式及所有国家产品验收。
@@ -214,14 +215,121 @@ E24 的标题是站点币种/体积差异，没有“是否开站”或本 merch
 
 原规格的关键差异：美国 lb/in，其余本表为 g/cm；重量/尺寸均有精度与范围。JPY/KRW/NOK 价格类型列为 Integer，其他为 2 decimal points；币种并不代表可以统一用相同整数单位。加拿大基础价下限为 2.00，多数站点为 0.02，日本/韩国/挪威为 2、捷克/匈牙利为 5。保留原文规则与不一致，不由旧 TEMU pricing policy 或汇率计算替换。
 
-## 5. 验证状态
+## 5. 官方地区映射与交叉核对
+
+E30 全部 235 行通过可见 DOM 表格读取，下列完整保留其中有 SiteID 的 87 行；另 148 行没有 SiteID，不补造可发布目标。地区名仅作标签，映射按原 RegionID/SiteID，允许多 region 对应同一 site。LOCAL 的 39 个 true 是该版本一般交易开放说明；SEMI 的开放值来自此地区/履约页，不能替代 E23 的 PA 半托发布字典。空白与 coming soon 均保留原义，不转换成 true。
+
+| regionId | siteId | 官方地区 | 数据部署区 | SEMI 标记 | LOCAL 标记 |
+| --- | --- | --- | --- | --- | --- |
+| 83 | 100 | Guam (GU) | US | 空白 | 空白 |
+| 164 | 100 | Puerto Rico (PR) | US | 空白 | 空白 |
+| 211 | 100 | United States (US) | US | true | true |
+| 219 | 100 | Virgin Islands (U.S.) (VI) | US | 空白 | 空白 |
+| 236 | 100 | Northern Mariana Islands (MP) | US | 空白 | 空白 |
+| 37 | 101 | Canada (CA) | GLOBAL | true | true |
+| 210 | 102 | United Kingdom (UK) | EU | true | true |
+| 12 | 103 | Australia (AU) | GLOBAL | true | true |
+| 144 | 104 | New Zealand (NZ) | GLOBAL | true | 空白 |
+| 76 | 105 | Germany (DE) | EU | true | true |
+| 69 | 106 | France (FR) | EU | true | true |
+| 98 | 107 | Italy (IT) | EU | true | true |
+| 141 | 108 | Netherlands (NL) | EU | true | true |
+| 186 | 109 | Spain (ES) | EU | true | true |
+| 128 | 110 | Mexico (MX) | GLOBAL | true | true |
+| 163 | 111 | Portugal (PT) | EU | true | true |
+| 162 | 112 | Poland (PL) | EU | true | true |
+| 191 | 113 | Sweden (SE) | EU | true | true |
+| 192 | 114 | Switzerland (CH) | EU | true | true |
+| 79 | 115 | Greece (GR) | EU | true | true |
+| 96 | 116 | Ireland (IE) | EU | true | true |
+| 52 | 117 | Cyprus (CY) | EU | true | true |
+| 100 | 118 | Japan (JP) | GLOBAL | true | true |
+| 185 | 119 | Republic of Korea (KR) | GLOBAL | 空白 | true |
+| 174 | 120 | Saudi Arabia (SA) | EU | true | 空白 |
+| 179 | 121 | Singapore (SG) | GLOBAL | 空白 | 空白 |
+| 209 | 122 | United Arab Emirates (AE) | EU | true | true |
+| 105 | 123 | Kuwait (KW) | EU | true | 空白 |
+| 151 | 124 | Norway (NO) | EU | true | true |
+| 42 | 125 | Chile (CL) | GLOBAL | true | 空白 |
+| 119 | 126 | Malaysia (MY) | GLOBAL | true | 空白 |
+| 160 | 127 | Philippines (PH) | GLOBAL | true | 空白 |
+| 197 | 129 | Thailand (TH) | GLOBAL | true | 空白 |
+| 165 | 130 | Qatar (QA) | EU | true | 空白 |
+| 101 | 131 | Jordan (JO) | EU | coming soon | 空白 |
+| 29 | 132 | Brazil (BR) | GLOBAL | 空白 | true |
+| 152 | 133 | Oman (OM) | EU | true | 空白 |
+| 16 | 134 | Bahrain (BH) | EU | true | 空白 |
+| 97 | 135 | Israel (IL) | EU | true | 空白 |
+| 184 | 136 | South Africa (ZA) | EU | true | 空白 |
+| 53 | 137 | Czech Republic (CZ) | EU | true | true |
+| 90 | 138 | Hungary (HU) | EU | true | true |
+| 54 | 139 | Denmark (DK) | EU | true | true |
+| 167 | 140 | Romania (RO) | EU | true | true |
+| 32 | 141 | Bulgaria (BG) | EU | true | true |
+| 20 | 142 | Belgium (BE) | EU | true | true |
+| 13 | 143 | Austria (AT) | EU | true | true |
+| 68 | 144 | Finland (FI) | EU | true | true |
+| 180 | 145 | Slovakia (SK) | EU | true | true |
+| 50 | 146 | Croatia (HR) | EU | true | true |
+| 181 | 147 | Slovenia (SI) | EU | true | true |
+| 113 | 148 | Lithuania (LT) | EU | true | true |
+| 64 | 149 | Estonia (EE) | EU | true | true |
+| 108 | 150 | Latvia (LV) | EU | true | true |
+| 122 | 151 | Malta (MT) | EU | true | 空白 |
+| 114 | 152 | Luxembourg (LU) | EU | true | 空白 |
+| 175 | 153 | Serbia (RS) | EU | true | 空白 |
+| 130 | 154 | Moldova (MD) | EU | true | 空白 |
+| 134 | 155 | Montenegro (ME) | EU | coming soon | 空白 |
+| 91 | 156 | Iceland (IS) | EU | coming soon | 空白 |
+| 5 | 157 | Andorra (AD) | EU | 空白 | 空白 |
+| 26 | 158 | Bosnia and Herzegovina (BA) | EU | 空白 | 空白 |
+| 3 | 159 | Albania (AL) | EU | 空白 | 空白 |
+| 116 | 160 | North Macedonia (MK) | EU | coming soon | 空白 |
+| 102 | 162 | Kazakhstan (KZ) | EU | 空白 | 空白 |
+| 159 | 163 | Peru (PE) | GLOBAL | true | 空白 |
+| 45 | 164 | Colombia (CO) | GLOBAL | true | 空白 |
+| 75 | 165 | Georgia (GE) | EU | true | true |
+| 10 | 166 | Armenia (AM) | EU | true | true |
+| 14 | 167 | Azerbaijan (AZ) | EU | true | 空白 |
+| 208 | 168 | Ukraine (UA) | EU | 空白 | 空白 |
+| 212 | 169 | Uruguay (UY) | GLOBAL | 空白 | 空白 |
+| 126 | 170 | Mauritius (MU) | EU | coming soon | 空白 |
+| 135 | 171 | Morocco (MA) | EU | true | 空白 |
+| 57 | 172 | Dominican Republic (DO) | GLOBAL | 空白 | 空白 |
+| 203 | 174 | Türkiye (TR) | EU | 空白 | true |
+| 4 | 175 | Algeria (DZ) | EU | 空白 | 空白 |
+| 156 | 176 | Panama (PA) | GLOBAL | coming soon | 空白 |
+| 59 | 178 | Ecuador (EC) | GLOBAL | true | 空白 |
+| 201 | 179 | Trinidad and Tobago (TT) | GLOBAL | 空白 | 空白 |
+| 213 | 181 | Uzbekistan (UZ) | EU | 空白 | 空白 |
+| 61 | 183 | El Salvador (SV) | GLOBAL | 空白 | 空白 |
+| 187 | 185 | Sri Lanka (LK) | EU | coming soon | 空白 |
+| 217 | 187 | Vietnam (VN) | GLOBAL | 空白 | 空白 |
+| 31 | 188 | Brunei Darussalam (BN) | GLOBAL | coming soon | 空白 |
+| 9 | 189 | Argentina (AR) | GLOBAL | 空白 | 空白 |
+| 106 | 194 | Kyrgyzstan (KG) | EU | coming soon | 空白 |
+
+交叉核对结论（2026-10-12，E24/E29/E17 均重新读取）：
+
+| 差异 | 官方原文事实 | 本批处理 |
+| --- | --- | --- |
+| 地区编号 | US 211→100、CA 37→101、BE 20→142；83/164/219/236 也映到 100 | 用 exact regionId 查版本固定映射，再按 siteId 查规格；不把 regionId 强转 siteId，不反向猜唯一 region |
+| Belgium 分区 | E24（01-26）为 GLO；E30（07-16）部署区为 EU | 分区字段保留冲突证据，E30 是较新的地区部署说明；原应用身份分区始终决定 HTTP route，E24 仅供价格/单位规格，不触发跨网关 fallback |
+| 半托开放和 North Macedonia ID | E23（2025-09-29）与 E30（2026-07-16）的半托值不同；E23 North Macedonia=192，E30=160 | 两表属于不同接口/用途，PA 发布选择使用 E23/E13 的合同，不把区域订单页的 160 alias 为 PA 的 192，不用 E30 的 SEMI 行切换到区域商家身份 |
+| 两个本土 39 项集合不同 | E30 LOCAL=true 含 GE 75→165、AM 10→166，但 E24 没有 165/166；E24 有 SA 120/LU 152，而 E30 LOCAL 栏为空白 | 分别保存开放说明、规格与授权事实；不能以条数相同声称已全部匹配，空白不是 true/false。GE/AM 的币种/单位规则仍需官方依据 |
+| 发布规则不返回此规格 | E29 fieldRules 只有 filedName、requirementType（required/optional/disabled）；E17 V2 price.currency/amount 与 packageInfo 的四个数值均为 STRING，没有显式重量尺寸单位字段 | 不能由这个 API 的存在推定可动态查到 GE/AM 规格；不能默认 USD/lb/in、EUR/g/cm、法币或邻国规则 |
+
+本土一般开放说明覆盖 39 个 true，其中 37 项在 E24 找到价格/单位规格、2 项缺少规格；E24 与 E30 本土集合的并集是 41 项。缺口不能作为擅自把 GE/AM 移出用户范围的理由；也不能用真实商家 mutation 试错。只有官方合同或真实只读官方资格/规则证据可以补齐受影响发布目标，当前未调用商家 API。
+
+## 6. 验证状态
 
 | 项目 | 状态 | 意义 |
 | --- | --- | --- |
 | 官方页面、迁移路由、三模式创建/读取/状态 API | PASS（文档读取） | 只证明本文件列出的合同事实，不是业务调用成功 |
 | 半托 96 行/70 true/26 false、本土 39 行规格摘录 | PASS（文档读取） | 文档版本绑定；不证明所有 merchant 可售 |
 | CN/PA 同授权身份/模式验证合同 | PASS（文档读取） | E03/E04/E11/E26；选 PA uniqueId，不要求 mallId 转换；设计增量复核已关闭 G1 BLOCKER，实际调用 NOT_RUN |
-| 本土 region/site 规格关联 | UNKNOWN（待访问 E30） | 已找到官方 Model Site and Region；GLOBAL 登录后读取，不断言文档缺失 |
+| 本土 regionId → siteId 与部署区 | PASS（文档读取） | E30 完整正文与 87 个映射行；精确映射，不是 merchant 授权 |
+| 本土全站点价格/单位规格闭环 | UNKNOWN（GE/AM 2 项缺口） | 37 个 LOCAL=true 站点可关联 E24；GE/AM 无已读规格，SA/LU 的一般开放栏为空白；不冒充全覆盖 |
 | externalGoodsId/outGoodsSn 关系与失响应 exact readback | UNKNOWN | 不做错误 adopt；原 UNKNOWN fence 保留 |
 | 真实官方应用/真实 merchant 授权、发布、撤权、消费者状态 | NOT_RUN | 本轮未授权业务 API/真实数据 |
 | 用户可操作产品/生产验收 | NOT_RUN | 无正式实现；文档/CI/AI评审不构成验收 |
