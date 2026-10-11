@@ -49,10 +49,14 @@
 | E37 | [bg.freight.template.list.query](https://partner.temu.com/documentation?menu_code=fb16b05f7a904765aac4af3a24b87d4a&sub_menu_code=01a44ea6e787400fbd375947e4012ddb) | 2025-07-07 16:32:54 | 2026-10-12 登录后读取：本土原 mall 的 templateList（templateId/templateName），无业务入参；它没有目的站点、币种或资格字段，不能制造全可售站点清单 |
 | E38 | [temu.local.goods.brand.trademark.V2.get](https://partner.temu.com/documentation?menu_code=fb16b05f7a904765aac4af3a24b87d4a&sub_menu_code=42aaebb529414af78a1c5481e842f16b) | 2025-09-23 20:49:52 | 2026-10-12 登录后读取：page/size 必填，每页上限100，返回 pageNo/totalNum/trademarkList；商标与品牌ID/名称分别保存。文档没有授权状态字段，单页不证明全部品牌或普遍许可 |
 | E39 | [temu.local.product.variation.get](https://partner.temu.com/documentation?menu_code=fb16b05f7a904765aac4af3a24b87d4a&sub_menu_code=4d45e366dcd34dbf9b0fb8c4d27bd146) | 2026-01-30 17:57:30 | 2026-10-12 登录后读取：catId 必填、language 可选；商品使用1–2个父规格，即使所有 required=false 也须至少一个。variationType=0仅预设/1仅自定义/2两者，specList 保留 specId 与组/子组。缺 required/type 或未知值不能默认批准；更新公告不代替当次类目模板 |
+| E40 | [temu.local.goods.image.v2.upload](https://partner.temu.com/documentation?menu_code=fb16b05f7a904765aac4af3a24b87d4a&sub_menu_code=532a6038d66f4e3183ff96e41d1d5d24) | 页面 2026-04-09 21:44:23；更新记录含 2026-08-26 | 2026-10-12 登录后展开读取：外层 fileUrl/catId/usage 三项必填，示例没有 request wrapper；usage=1详情/2商品轮播/3SKU轮播/4尺码图/5产地/6制造商/7实拍。result.images[].url 可多项，缺失或不合格结果不能确认成功；分类和用途是图片转换事实，不能仅按原URL缓存 |
+| E41 | [Image upload APIs now return 7-day temporary signed URLs](https://partner.temu.com/announcement?menu_code=b96de0fd436b4678be94c80e8d60db88&sub_menu_code=78b92b37070541d3b23d4c61f0529f9c) | 2026-08-26 20:12:29 | 官方公告同时适用于旧图片接口与 V2：返回临时签名URL，有效7天，到期不可访问；商品创建须在窗口内使用，若尚未完成创建可重新转存获取新地址。公告的 try again 不是允许重发结果未知或已成功的商品创建；图片成功结果不能永久复用 |
 
 E17 在 2026-10-12 登录后展开核对：业务参数直接位于外层 JSON（示例没有 `request` wrapper），本土创建没有客户端 `siteId`/`mallId` 选项。价格 `amount`/`currency`、包装四维数值均为 STRING，数量 LONG 的显式零与缺失不同；单位必须由 E24 原站点规格和明确资料一致确定。`LocalGoodsV2` 保留可选品牌/产地/二手/证书等事实，不默认填写无品牌声明、生产时间或库存；数值检查不签发整体 readiness。创建返回 goodsId、skuInfoList 及 warnings，不证明审核或在售。
 
 新增条件性冲突：E17 `goodsBasic.secondHand.businessScope` 描述 0=Regular/1=Collectibles/2=Luxury，E29 `secondHand.businessScope` 描述 1=Regular/2=Collectibles/3=Luxury。当前不建立加减一 alias，不凭字段同名转换或批准二手资料；在本批实际资料校验中保持未核实，须有对应当前接口的明确官方依据才消费。
+
+E28 的本轮补读还确认规格必须服从 E39 的当前模板，图片先转存后用于创建；旧流程页引用 `bg.local.goods.image.upload`，本批采用已明确的 E40 V2，不能遇错切旧接口。E40 公告 E41 新增7天有效期，这是影响图片结果复用的真实合同变化，处理见接入设计 §8.1；不是额外产品范围或自动重发商品的授权。
 
 ### 文档限定的 router
 
