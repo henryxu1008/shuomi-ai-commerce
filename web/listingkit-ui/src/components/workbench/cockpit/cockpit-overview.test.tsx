@@ -1,6 +1,7 @@
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, expect, it, vi } from "vitest";
+import userEvent from "@testing-library/user-event";
 import { CockpitEntry } from "../console/cockpit-entry";
 import { cockpitRequest } from "@/lib/api/operations-cockpit";
 const state = vi.hoisted(() => ({ context: { user: { id: "user-a" }, effectiveOrganization: { id: "org-a" }, permissions: ["workbench.cockpit.stores.read"], operationsCockpitAvailable: true, isLoading: false, isSwitching: false, selectionRequired: false, error: null, blockingError: null } }));
@@ -13,6 +14,18 @@ const capabilities = { access, today: "2026-10-11", stores: [] };
 const matrix = { rows: [], total: 0, page: 1, summary: totals, summaryComplete: false, states: { loss: 0, break_even: 0, recorded_complete: 0, data_incomplete: 0 }, capturedAt: "2026-10-11T00:00:00Z" };
 function mount() { const client = new QueryClient({ defaultOptions: { queries: { retry: false } } }); clients.push(client); const tree = () => <QueryClientProvider client={client}><CockpitEntry /></QueryClientProvider>; const view = render(tree()); return { ...view, update: () => view.rerender(tree()) }; }
 afterEach(() => { cleanup(); clients.splice(0).forEach(c => c.clear()); vi.mocked(cockpitRequest).mockReset(); state.context.isSwitching = false; state.context.effectiveOrganization = { id: "org-a" }; });
+it("does not advertise or request oversized detail scopes and restores a valid single-store link", async () => {
+  const stores=Array.from({length:400},(_,i)=>({id:`${(i+1).toString(16).padStart(8,"0")}-1111-4111-8111-111111111111`,name:`Store ${i}`,platform:"shein",region:"US"}));
+  vi.mocked(cockpitRequest).mockImplementation(async (_scope,path)=>path==="capabilities"?{...capabilities,stores}:matrix);
+  mount();
+  await userEvent.selectOptions(await screen.findByRole("combobox",{name:"平台"}),"shein");
+  expect(screen.getAllByText("范围较大，请按店铺筛选").length).toBeGreaterThan(0);
+  expect(screen.queryByRole("link",{name:/查看真实经营明细/})).not.toBeInTheDocument();
+  expect(vi.mocked(cockpitRequest).mock.calls.filter(call=>call[1].startsWith("stores?")).every(call=>call[1].length<16000)).toBe(true);
+  await userEvent.selectOptions(screen.getByRole("combobox",{name:"店铺"}),stores[0].id);
+  const href=screen.getByRole("link",{name:/查看真实经营明细/}).getAttribute("href")!;
+  expect(new URL(href,"https://localhost").searchParams.getAll("storeId")).toEqual([stores[0].id]);
+});
 it("does not reinterpret partial manual totals as full profit, GMV or a health score", async () => {
   vi.mocked(cockpitRequest).mockImplementation(async (_scope, path) => path === "capabilities" ? capabilities : matrix);
   mount();

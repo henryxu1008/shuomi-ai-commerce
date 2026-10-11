@@ -70,6 +70,17 @@ it("navigates dedicated stage tabs with the current batch and store",async()=>{
  render(<SupplyPage initialPreparation={prep} initialStore={store} initialStage="review"/>);await screen.findByText("完整批次");await userEvent.click(screen.getByRole("tab",{name:/已适配/}));expect(state.push).toHaveBeenCalledWith(`/workbench/supply/mine/ready?preparation=${prep}&store=${store}`);
 });
 
+it("keeps the selected saved operation when changing a dedicated stage",async()=>{
+ const operation="44444444-4444-4444-8444-444444444444";
+ state.operation.mockReset().mockResolvedValue({id:operation,input:{preparationId:prep,expectedRevision:1,storeId:store,action:"adapt"},count:205,completed:0,status:"pending",execution:"started",createdAt:"2026-10-08T00:00:00Z"});
+ state.items.mockReset().mockResolvedValue({items:[],total:0});state.push.mockClear();
+ render(<SupplyPage initialPreparation={prep} initialStore={store} initialStage="review" initialOperation={operation}/>);
+ await waitFor(()=>expect(state.operation).toHaveBeenCalledWith({userId:"actor-a",organizationId:"org-a"},operation,expect.any(AbortSignal)));
+ await userEvent.click(screen.getByRole("tab",{name:/已适配/}));
+ expect(state.push).toHaveBeenCalledWith(`/workbench/supply/mine/ready?preparation=${prep}&store=${store}&operation=${operation}`);
+ expect(state.write).not.toHaveBeenCalled();
+});
+
 it("opens the batch review dialog with the selected actual review items",async()=>{
  state.context.permissions=[...(state.context.permissions as string[]),"listingkit.admin.write"];
  const review={sourceId:source,recordId:prep,recordRevision:1,status:"review",resultReference:store};

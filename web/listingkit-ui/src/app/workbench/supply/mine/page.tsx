@@ -10,8 +10,7 @@ export default async function Page({searchParams}:{searchParams:Promise<Record<s
  const params=await searchParams;
  const read=(name:string)=>{const value=params[name];if(value===undefined)return undefined;if(typeof value!=="string"||!isAcquisitionUUID(value))notFound();return value};
  const selected=new URLSearchParams();
- for(const name of ["preparation","store"]){const value=read(name);if(value)selected.set(name,value);}
- read("operation");
+ for(const name of ["preparation","store","operation"]){const value=read(name);if(value)selected.set(name,value);}
  const suffix=selected.size?`?${selected}`:"";
  return <PrimaryIntroduction kind="supply" available={[collections,collections&&(full||preparation),collections&&full]}
   entryHrefs={["/workbench/data/mine",`/workbench/supply/mine/waiting${suffix}`,`/workbench/supply/mine/ready${suffix}`]}

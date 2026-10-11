@@ -32,3 +32,22 @@ it.each(["ready","missing","review","uploaded"])("explains admission for recogni
 it("does not admit unknown stage names", async () => {
  await expect(Stage({params:Promise.resolve({stage:"unknown"}),searchParams:Promise.resolve({})})).rejects.toThrow("NOT_FOUND");
 });
+
+it("keeps the requested saved operation through the introduction and each full-chain stage", async () => {
+ vi.stubEnv("LISTINGKIT_PRODUCT_COLLECTIONS_ENABLED", "true");
+ vi.stubEnv("LISTINGKIT_SUPPLY_CHAIN_ENABLED", "true");
+ const preparation="550e8400-e29b-41d4-a716-446655440000",store="550e8400-e29b-41d4-a716-446655440001",operation="550e8400-e29b-41d4-a716-446655440002";
+ render(await Introduction({searchParams:Promise.resolve({preparation,store,operation})}));
+ for(const name of [/查看待适配商品/,/完成商品发布/]){
+  const query=new URL(screen.getByRole("link",{name}).getAttribute("href")!,"https://localhost").searchParams;
+  expect(query.get("preparation")).toBe(preparation);
+  expect(query.get("store")).toBe(store);
+  expect(query.get("operation")).toBe(operation);
+ }
+ cleanup();
+ for(const stage of ["waiting","ready"]){
+  render(await Stage({params:Promise.resolve({stage}),searchParams:Promise.resolve({preparation,store,operation})}));
+  expect(fixture.supply.mock.lastCall?.[0]).toMatchObject({initialStage:stage,initialPreparation:preparation,initialStore:store,initialOperation:operation});
+  cleanup();
+ }
+});
