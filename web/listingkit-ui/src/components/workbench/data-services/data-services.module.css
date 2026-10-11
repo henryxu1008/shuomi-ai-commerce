@@ -107,6 +107,7 @@
   --primary: #2ddcc9; --primary-foreground: #050d18;
   --accent: #0b3a38; --accent-foreground: #2ddcc9;
   --data-purple: #a47bff; --data-purple-soft: #2b2250;
+  --data-purple-foreground: var(--data-purple);
   --data-teal-soft: #0b3a38;
   max-width: none;
   min-height: calc(100svh - var(--console-header-height, 72px));
@@ -116,15 +117,17 @@
   --card: #fff; --card-foreground: #10233d;
   --border: #c8d7e7; --input: #c8d7e7;
   --muted: #f6f9fc; --muted-foreground: #667d96;
-  --primary: #00bfae; --primary-foreground: #fff;
-  --accent: #dff7f2; --accent-foreground: #00bfae;
+  --primary: #00bfae; --primary-foreground: #10233d;
+  --accent: #dff7f2; --accent-foreground: #08786f;
   --data-purple: #7653e6; --data-purple-soft: #eee9ff;
+  --data-purple-foreground: #704bd8;
   --data-teal-soft: #dff7f2;
 }
 .market .actions > :last-child { min-width: 100px; }
 .market .actions > * { background: var(--card); }
 .market .card { padding: 16px 20px 20px; }
 .market .badge { min-height: 24px; padding: 0 12px; border-radius: 12px; line-height: 24px; font-weight: 700; }
+.market .purpleBadge, .market .purple .serviceFooter p, .market .purpleSteps li:last-child .step { color: var(--data-purple-foreground); }
 .market .platform { grid-template-columns: minmax(0, 1fr) 368px; }
 .market .platform h2 { margin-top: 6px; line-height: 30px; }
 .market .platform p { line-height: 22px; }
