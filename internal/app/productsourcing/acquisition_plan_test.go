@@ -25,10 +25,11 @@ type planCollections struct {
 	item                         collection.ItemDetail
 	batch                        collection.Batch
 	itemErr, batchErr, mutateErr error
+	receipt                      collection.Receipt
 }
 
 func (c *planCollections) Mutate(context.Context, string, collection.Mutation) (collection.Receipt, error) {
-	return collection.Receipt{}, c.mutateErr
+	return c.receipt, c.mutateErr
 }
 func (c *planCollections) ReadItem(context.Context, string) (collection.ItemDetail, error) {
 	return c.item, c.itemErr
@@ -150,6 +151,55 @@ func TestPlanPersistsCollectionMutationConflict(t *testing.T) {
 			}
 			require.Zero(t, preps.calls)
 			require.Empty(t, r.plan.TransferInputJSON)
+		})
+	}
+}
+
+func TestPlanChecksOriginalCollectionReceiptBeforeFirstRead(t *testing.T) {
+	for _, change := range []string{"moved", "revised", "other-item", "unchanged-item-new-batch-revision"} {
+		t.Run(change, func(t *testing.T) {
+			scope := sourcing.AcquisitionPlanScope{OrganizationID: "org", ActorID: "actor", MemberID: "member"}
+			input, _ := sourcing.NewAcquisitionPlanInput("product", []string{"123"}, sourcing.AcquisitionRule{}, true)
+			r := &planMemory{plan: sourcing.AcquisitionPlan{ID: uuid.NewString(), Key: uuid.NewString(), Scope: scope, Input: input, DiscoveryIndex: 1, Revision: 1, State: "pending", Items: []sourcing.AcquisitionPlanItem{{Source: input.Inputs[0], State: "pending"}}}}
+			source, _ := sourcing.Canonical1688Source(input.Inputs[0])
+			op := acquisitionOperation(sourcing.PublicationScope{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID}, planChildKey(r.plan.ID, source.URL), source)
+			op.State = sourcing.AcquisitionPublished
+			op.Command = &sourcing.PublicationCommand{PublicationID: "source-run:acquisition:" + op.ID, ProductKey: "1688:123"}
+			raw, _ := json.Marshal(op.Command)
+			hash := sha256.Sum256(raw)
+			op.CommandHash = hex.EncodeToString(hash[:])
+			publication := &sourcing.PersistedPublication{}
+			publication.Receipt.OrganizationID, publication.Receipt.ActorID = scope.OrganizationID, scope.ActorID
+			publication.Receipt.PublicationID, publication.Receipt.ProductKey, publication.Receipt.CatalogVersion = op.Command.PublicationID, op.Command.ProductKey, 1
+			child := &planChild{result: sourcing.AcquisitionResult{Operation: op, Publication: publication}}
+			batchID, itemID := uuid.NewString(), uuid.NewString()
+			collections := &planCollections{receipt: collection.Receipt{BatchID: batchID, ItemID: itemID, Revision: 1}, batch: collection.Batch{ID: batchID, Revision: 2}, item: collection.ItemDetail{Item: collection.Item{ID: itemID, BatchID: batchID, Revision: 1, Source: collection.Source{OperationID: op.ID, PublicationID: op.Command.PublicationID, Version: 1}}}}
+			switch change {
+			case "moved":
+				collections.item.Item.BatchID = uuid.NewString()
+				collections.batch.ID = collections.item.Item.BatchID
+			case "revised":
+				collections.item.Item.Revision = 2
+			case "other-item":
+				collections.item.Item.ID = uuid.NewString()
+			case "unchanged-item-new-batch-revision":
+				collections.batch.Revision = 99
+			}
+			preps := &planPreparation{}
+			service, err := NewAcquisitionPlanService(r, nil, child, collections, preps, planTestAuth{scope}, nil)
+			require.NoError(t, err)
+			p, err := service.Advance(t.Context(), r.plan.ID, 1)
+			require.NoError(t, err)
+			if change == "unchanged-item-new-batch-revision" {
+				require.NotEqual(t, "transfer_source_conflict", p.FailureCode)
+				p, err = service.Advance(t.Context(), r.plan.ID, p.Revision)
+				require.NoError(t, err)
+				require.Equal(t, 1, preps.calls)
+			} else {
+				require.Equal(t, "transfer_source_conflict", p.FailureCode)
+				require.Empty(t, p.TransferInputJSON)
+				require.Zero(t, preps.calls)
+			}
 		})
 	}
 }
