@@ -7,6 +7,15 @@ import { ConsoleNavigation } from "./console-navigation";
 import { findConsoleRoute } from "@/lib/workbench/console-navigation";
 
 const query=vi.hoisted(()=>({value:""}));
+it("keeps all Figma supply stages visible but only opens the installed read path", () => {
+ const view=render(<ConsoleNavigation pathname="/workbench/supply/mine/waiting" ariaLabel="主导航" supplyPreparationAvailable />);
+ expect(screen.getByRole("link",{name:"待适配"})).toHaveAttribute("title","待适配");
+ for(const label of ["已适配","待补全","待审核","已上传"])
+   expect(screen.getByRole("link",{name:label})).toHaveAttribute("title",`${label}：业务暂未启用`);
+ view.rerender(<ConsoleNavigation pathname="/workbench/supply/mine/waiting" ariaLabel="主导航" supplyPreparationAvailable supplyChainAvailable />);
+ for(const label of ["待适配","已适配","待补全","待审核","已上传"])
+   expect(screen.getByRole("link",{name:label})).toHaveAttribute("title",label);
+});
 it.each(["运营驾驶舱", "AI工作台", "智能市场", "工具市场", "数据服务", "店铺中心"])("keeps the %s primary homepage available independently of child services", label => {
   render(<ConsoleNavigation pathname="/workbench" ariaLabel="主导航" />);
   expect(screen.getByRole("link", { name: label })).toHaveAttribute("title", label);
@@ -208,7 +217,7 @@ it("retains three-level route trails outside the plans module", () => {
 
 it("only opens supply stage navigation when the serving runtime enables it",async()=>{
  const view=render(<ConsoleNavigation pathname="/workbench/supply/mine/ready" ariaLabel="主导航" supplyChainAvailable={false}/>);
- expect(screen.queryByRole("link",{name:"已适配"})).not.toBeInTheDocument();
+ expect(screen.getByRole("link",{name:"已适配"})).toHaveAttribute("title","已适配：业务暂未启用");
  view.rerender(<ConsoleNavigation pathname="/workbench/supply/mine/ready" ariaLabel="主导航" supplyChainAvailable/>);
  expect(screen.getByRole("link",{name:"已适配"})).toHaveAttribute("href","/workbench/supply/mine/ready");expect(screen.getByRole("link",{name:"已适配"})).toHaveAttribute("aria-current","page");
  expect(screen.getByRole("link",{name:"待补全"})).toHaveAttribute("href","/workbench/supply/mine/missing");

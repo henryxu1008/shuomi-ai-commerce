@@ -47,6 +47,7 @@ import {
   type ObservationSync,
 } from "@/lib/api/store-observations";
 import styles from "./observation-page.module.css";
+import { findConsoleRoute } from "@/lib/workbench/console-navigation";
 const intentSchema = z
   .object({ key: observationID, input: observationBeginSchema })
   .strict();
@@ -73,8 +74,16 @@ export function ObservationPage({ kind }: { kind: ObservationKind }) {
   const initialStore=observationID.safeParse(requestedStore).success?requestedStore!:"";
   const org = context.effectiveOrganization?.id ?? "",
     user = context.user?.id ?? "";
-  if (!org || !user || context.isSwitching)
+  if (context.error || context.blockingError)
+    return <ConsoleState kind="error" title="企业上下文不可用"><Button onClick={() => void context.retry()}>重新确认</Button></ConsoleState>;
+  if (context.isLoading || context.isSwitching)
     return <ConsoleState kind="loading" title="正在切换企业数据…" />;
+  if (!org || !user || context.selectionRequired)
+    return <ConsoleState kind="unavailable" title="请先选择可访问的企业" />;
+  if (!context.storeObservationsAvailable) {
+    const route = findConsoleRoute(kind === "products" ? "/workbench/store-products" : "/workbench/store-orders")!;
+    return <ConsolePage title={route.node.label} breadcrumbs={route.trail} description="同步并查看店铺的平台商品、订单、物流和异常记录。"><ConsoleState kind="unavailable" title="店铺同步尚未配置">此功能需要正式官方应用、平台渠道及店铺同步运行配置。请先完成配置后再同步。</ConsoleState></ConsolePage>;
+  }
   return (
     <ScopedPage
       key={`${org}:${user}:${kind}:${initialStore}`}

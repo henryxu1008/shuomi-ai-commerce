@@ -10,6 +10,7 @@ const context = vi.hoisted(() => ({
     "workbench.store.products.sync",
   ],
   isSwitching: false,
+  storeObservationsAvailable: true,
   retry: vi.fn(),
 }));
 vi.mock("@/components/providers/workbench-context-provider", () => ({
@@ -49,6 +50,7 @@ afterEach(() => {
   sessionStorage.clear();
 });
 beforeEach(() => {
+  context.storeObservationsAvailable=true;
   context.permissions = [
     "workbench.store.products.read",
     "workbench.store.products.sync",
@@ -65,6 +67,14 @@ beforeEach(() => {
       this.open = false;
     },
   });
+});
+it("explains missing runtime admission without requesting observations", async()=>{
+ context.storeObservationsAvailable=false;
+ const request=vi.fn();vi.stubGlobal("fetch",request);
+ render(<QueryClientProvider client={new QueryClient()}><ObservationPage kind="products"/></QueryClientProvider>);
+ expect(screen.getByText("店铺同步尚未配置")).toBeVisible();
+ expect(request).not.toHaveBeenCalled();
+ expect(screen.queryByRole("button",{name:"同步商品"})).not.toBeInTheDocument();
 });
 function renderPage(kind: "products" | "orders" = "products") {
   const client = new QueryClient({

@@ -4,6 +4,21 @@ import styles from "../data-services/data-services-overview.module.css";
 import homeStyles from "./primary-introduction.module.css";
 
 const introductions = {
+  supply: {
+    label: "我的供应链", title: "统一管理商品，按目标平台完成发布",
+    subtitle: "所有来源商品先进入「我的数据」统一管理，再选择批次进入发布流程。",
+    entries: [
+      ["01 · 数据管理", "我的数据", "所有来源商品先进入「我的数据」，统一管理商品、来源与批次。", "下一步：选择批次 → 转入「待适配」", "商品批次管理", "/workbench/data/mine"],
+      ["02 · 平台处理", "适配与补全", "转入「待适配」后，按目标平台要求检查商品；缺少必填内容时进入「待补全」。", "流程：待适配 → 待补全（按需）→ 已适配", "查看待适配商品", "/workbench/supply/mine/waiting"],
+      ["03 · 发布与复用", "上传到平台", "进入「已适配」后，可直接上传；也可先用已准入智能体优化，审核后再上传。", "最终：已上传 → 可继续发布到其他平台", "完成商品发布", "/workbench/supply/mine/ready"],
+    ],
+    flowTitle: "完整流程", flowSubtitle: "我的数据 → 待适配 → 待补全（按需）→ 已适配",
+    steps: [["我的数据", "统一管理商品与批次，选择批次进入下一步"], ["待适配", "按目标平台要求检查商品，判断资料是否完整"], ["待补全（按需）", "只有缺少平台必填内容时进入，补全后继续"], ["已适配", "商品已满足发布要求，可以选择发布方式"]],
+    notes: [
+      ["路径 A 直接上传", "已适配 → 开始上传 → 已上传", "商品内容已经合适时，直接上传到目标平台，不经过待审核。", "上传和同步需要正式平台渠道配置"],
+      ["路径 B 智能体优化", "已适配 → 智能体优化 → 待审核 → 已上传", "需要优化标题或图片时，选择已准入的智能体，先优化并审核，再上传。", "模型执行与预算按当前企业配置开放"],
+    ],
+  },
   agents: {
     label: "智能市场", title: "按岗位启用智能体，打造属于自己的AI电商团队",
     subtitle: "根据选品、运营、设计、数据分析等业务岗位选择智能体，了解能力、配置要求与使用方式。",
@@ -51,13 +66,14 @@ const introductions = {
   },
 };
 
-export function PrimaryIntroduction({ kind, available = [true, true, true] }: { kind: keyof typeof introductions; available?: readonly boolean[] }) {
+export function PrimaryIntroduction({ kind, available = [true, true, true], entryHrefs, notice }: { kind: keyof typeof introductions; available?: readonly boolean[]; entryHrefs?: readonly string[]; notice?: string }) {
   const data = introductions[kind], id = `primary-${kind}`;
   return <section className={`${styles.page} ${homeStyles.page}`} aria-labelledby={id}>
     <header className={styles.header}><p className={styles.eyebrow}>{data.label}</p><h1 id={id}>{data.title}</h1><p className={styles.subtitle}>{data.subtitle}</p></header>
+    {notice ? <p role="status" className={styles.subtitle}>{notice}</p> : null}
     <div className={styles.entries}>{data.entries.map(([badge, title, description, audience, action, href], index) => {
       const content = <><span className={styles.badge}>{badge}</span><h2>{title}</h2><p className={styles.description}>{description}</p><p className={styles.audience}>{audience}</p><span className={styles.action}>{available[index] ? `${action} →` : "暂未启用"}</span></>;
-      return available[index] ? <Link key={href} href={href} prefetch={false} className={styles.entry} data-tone={["teal", "blue", "purple"][index]}>{content}</Link> : <Card key={href} className={styles.entry} data-tone={["teal", "blue", "purple"][index]} data-state="unavailable">{content}</Card>;
+      return available[index] ? <Link key={href} href={entryHrefs?.[index] ?? href} prefetch={false} className={styles.entry} data-tone={["teal", "blue", "purple"][index]}>{content}</Link> : <Card key={href} className={styles.entry} data-tone={["teal", "blue", "purple"][index]} data-state="unavailable">{content}</Card>;
     })}</div>
     <section className={styles.flow} aria-labelledby={`${id}-flow`}><div className={styles.flowHeading}><h2 id={`${id}-flow`}>{data.flowTitle}</h2><p>{data.flowSubtitle}</p></div>
       <ol className={styles.steps}>{data.steps.map(([title, description], index) => <li key={title}><Card className={styles.step} data-tone={["teal", "blue", "green", "purple"][index]}><span className={styles.number}>{String(index + 1).padStart(2, "0")}</span><h3>{title}</h3><p>{description}</p></Card></li>)}</ol>

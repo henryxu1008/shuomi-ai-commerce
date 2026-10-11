@@ -12,6 +12,20 @@ const totals={revenue:0,refunds:0,procurement:0,logistics:0,platform:0,advertisi
 const matrix={rows:[{store:caps.stores[0],complete:false,state:"data_incomplete",totals,growth:null,gapCount:1,excludedCount:0,recordCount:0}],total:60,page:1,summary:totals,summaryComplete:false,states:{loss:10,break_even:10,recorded_complete:10,data_incomplete:30},capturedAt:rules.capturedAt};
 const client=()=>new QueryClient({defaultOptions:{queries:{retry:false}}});
 beforeEach(()=>{window.history.replaceState(null,"","/");context.effectiveOrganization={id:"org-a"};});
+it("preserves every linked store in the matrix and never opens an arbitrary first-store detail",async()=>{
+ const other="123e4567-e89b-42d3-a456-426614174001";
+ window.history.replaceState(null,"",`/?storeId=${id}&storeId=${other}&startDate=2026-09-01&endDate=2026-09-30`);
+ context.permissions=["workbench.cockpit.stores.read"];
+ const requests:string[]=[];
+ vi.stubGlobal("fetch",vi.fn(async(url:string)=>{requests.push(url);return Response.json(url.endsWith("capabilities")?caps:matrix);}));
+ render(<QueryClientProvider client={client()}><CockpitPage mode="stores"/></QueryClientProvider>);
+ await screen.findByLabelText("选择真实店铺");
+ const matrixURL=requests.find(url=>url.includes("stores?"))!;
+ expect(new URL(matrixURL,"https://app.test").searchParams.getAll("storeId")).toEqual([id,other]);
+ expect(requests.some(url=>url.includes(`stores/${id}`))).toBe(false);
+ fireEvent.click(screen.getByRole("button",{name:"重置"}));
+ await waitFor(()=>expect(new URL(requests.at(-1)!,"https://app.test").searchParams.getAll("storeId")).toEqual([]));
+});
 afterEach(()=>{cleanup();vi.unstubAllGlobals();});
 
 it.each(["alerts","advice"] as const)("%s shows full summary and sends bounded search while resetting pagination",async mode=>{

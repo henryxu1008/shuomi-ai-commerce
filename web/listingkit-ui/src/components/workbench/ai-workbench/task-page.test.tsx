@@ -15,6 +15,24 @@ vi.mock("@/lib/api/ai-workbench", async original => ({ ...await original<typeof 
 vi.mock("@/components/providers/workbench-context-provider", () => ({ useWorkbenchContext: () => fixture.context }));
 
 afterEach(() => { cleanup(); sessionStorage.clear(); fixture.request.mockReset(); fixture.context.aiWorkbenchAvailable = true; fixture.context.aiWorkbenchPlanningReadiness = "AVAILABLE"; fixture.context.effectiveOrganization.capabilities["workbench.chat.use"] = true; });
+it("does not present unread task counts as zero when the read fails", async () => {
+ fixture.request.mockRejectedValue(new Error("unavailable"));
+ const client=new QueryClient({defaultOptions:{queries:{retry:false}}});
+ render(<QueryClientProvider client={client}><BusinessTaskPage mode="running"/></QueryClientProvider>);
+ await screen.findByText("任务读取失败");
+ expect(screen.queryAllByText("0")).toHaveLength(0);
+ expect(screen.getAllByText("—")).toHaveLength(3);
+ client.clear();
+});
+it.each(["pending","completed"] as const)("does not advertise an unmounted secondary owner in %s", async mode => {
+ fixture.request.mockResolvedValue({tasks:[],next:""});
+ const client=new QueryClient({defaultOptions:{queries:{retry:false}}});
+ render(<QueryClientProvider client={client}><BusinessTaskPage mode={mode}/></QueryClientProvider>);
+ await screen.findByText("当前筛选无任务");
+ expect(screen.queryByRole("link",{name:"打开标题审核"})).not.toBeInTheDocument();
+ expect(screen.queryByRole("link",{name:"查看历史记录"})).not.toBeInTheDocument();
+ client.clear();
+});
 
 it("shows freshly projected Knowledge and removes protected text after refresh", async () => {
   const taskId = "550e8400-e29b-41d4-a716-446655440000";
