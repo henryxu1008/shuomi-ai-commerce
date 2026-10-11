@@ -1,9 +1,14 @@
 # 1688 在线采集、规则与待适配接入
 
-Status: **DRAFT / NOT_READY**
+Status: **FROZEN BASELINE / IMPLEMENTATION_READY**
+
+2026-10-11 独立只读高风险 Architecture Review 复核设计 HEAD
+`8dff0bbc7925dcee49be68dc675d70d99234dbb8`，确认 IMPLEMENTATION_READY，无 BLOCKER。
+价格/成员精确绑定、Preparation-only 入口与执行隔离、collector 共享限制及导航路径
+检查归 IMPLEMENTATION_TEST，必须在实现中验证，未满足时阻止合并/试用。
 
 Design Basis: **Independent Architecture**。新增采集计划/规则持久化合同、公开列表发现
-RPC 与有界恢复状态；必须完成高风险独立复核并达到 IMPLEMENTATION_READY 后正式编码。
+RPC 与有界恢复状态；本轮已完成高风险独立复核并达到 IMPLEMENTATION_READY。
 Baseline: main `c023edad14ad9255dee3e04a67b539bdaf2c83b8`。
 Product Authority: [2026-10-11 用户决定](../product/pd-1688-acquisition-figma-2026-10-11.md)。
 
@@ -152,6 +157,8 @@ UNKNOWN 保留原 reservation。计划无独立资源扣减/退款/钱包访问�
 
 AutoTransfer=false 到此结束。true 且规则通过时，在现有 Collection owner 核对
 原 publication/成员/当前权限，然后调用 Preparation 原受权选择与 Transfer。
+冻结转入意图与计划引用使用同 Product DB 事务；随后调用 Preparation 现有自有事务，
+保存精确回执引用。零商品通过不调用 Transfer，绝不把空 ItemIDs 解释为全批成员。
 由 Product DB 冻结实际通过成员集合及源版本、expectedRevision、稳定 transfer key；
 创建转入命令与计划引用同事务；Preparation 仍是唯一来源/回执 owner。
 回执丢失/COMMIT unknown 按原 key读取，不换 key/重复创建待适配。
@@ -186,5 +193,5 @@ PG 测试使用任务隔离数据库；UI 仅核对本入口/模板/实际状态
 3. 当前请求推进/计费复用/Preparation-only 接线及相关HTTP/PG验证。
 4. Figma UI与BFF；整体路径自检，最终独立交付检查，保留可运行本地程序。
 
-当前 **NOT_READY**：产品细节已明确，Architecture Review 未完成。
-不修改正式业务代码或建立生产 schema。该设计是当前待复核提案，不是Approved Authority。
+当前 **IMPLEMENTATION_READY**：产品细节与适用独立 Architecture Review 均已完成。
+实现期按本冻结基线和 IMPLEMENTATION_TEST 推进；真实来源和用户验收仍为 NOT_RUN。
