@@ -22,6 +22,8 @@ type TemuRulesProvider interface {
 	QuerySupplierAttributes(context.Context, storecenter.OfficialMerchantCredential, int64) (model.SupplierAttributeTemplate, error)
 	QueryLocalCategoryRules(context.Context, storecenter.OfficialMerchantCredential, model.CategoryRuleQuery) (model.LocalCategoryRules, error)
 	QueryLocalAttributes(context.Context, storecenter.OfficialMerchantCredential, model.LocalAttributeQuery) (model.LocalAttributeTemplate, error)
+	QueryLocalFreightTemplates(context.Context, storecenter.OfficialMerchantCredential) ([]model.LocalFreightTemplate, error)
+	QueryLocalTrademarks(context.Context, storecenter.OfficialMerchantCredential, model.LocalTrademarkQuery) (model.LocalTrademarkPage, error)
 }
 
 // TemuRulesHandle shares the current Store execution owner. Only this process,
@@ -197,5 +199,16 @@ func (h *TemuRulesHandle) LocalCategoryRules(ctx context.Context, query model.Ca
 func (h *TemuRulesHandle) LocalAttributes(ctx context.Context, query model.LocalAttributeQuery) (model.LocalAttributeTemplate, error) {
 	return callTemuRule(ctx, h, true, func(ctx context.Context, c storecenter.OfficialMerchantCredential) (model.LocalAttributeTemplate, error) {
 		return h.entry.provider.(TemuRulesProvider).QueryLocalAttributes(ctx, c, query)
+	})
+}
+
+func (h *TemuRulesHandle) LocalFreightTemplates(ctx context.Context) ([]model.LocalFreightTemplate, error) {
+	return callTemuRule(ctx, h, true, func(ctx context.Context, c storecenter.OfficialMerchantCredential) ([]model.LocalFreightTemplate, error) {
+		return h.entry.provider.(TemuRulesProvider).QueryLocalFreightTemplates(ctx, c)
+	})
+}
+func (h *TemuRulesHandle) LocalTrademarks(ctx context.Context, query model.LocalTrademarkQuery) (model.LocalTrademarkPage, error) {
+	return callTemuRule(ctx, h, true, func(ctx context.Context, c storecenter.OfficialMerchantCredential) (model.LocalTrademarkPage, error) {
+		return h.entry.provider.(TemuRulesProvider).QueryLocalTrademarks(ctx, c, query)
 	})
 }

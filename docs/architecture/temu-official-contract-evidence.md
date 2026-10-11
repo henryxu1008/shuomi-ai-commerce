@@ -48,6 +48,8 @@
 
 | E35 | [bg.goods.attrs.get](https://agentpartner.temu.com/document?cataId=875198836203&docId=877328004022) | 2025-03-13 15:57:46 | 2026-10-12 登录后读取：供应商当前末级模板仍走 CN；properties 包含 required/isSale、输入/选择上限、精度、范围、单位、父属性展示条件与属性值关联。缺 required/precision 不能默认为 false/0。supportedType 会覆盖当前 mall 渠道，本批读取不暴露该覆盖项或旧创建时间 |
 | E36 | [temu.local.product.attributes.get](https://partner.temu.com/documentation?menu_code=fb16b05f7a904765aac4af3a24b87d4a&sub_menu_code=06587aa615384310a1bac727aa82b64d) | 2026-01-30 17:57:30 | 2026-10-12 登录后读取完整属性模板：catId 必填，language/costTemplateId 可选；所选运费模板会影响跨境必填属性。required、transnationalAttribute、controlType、精度/范围/值规则和父值→子属性值组分别保留；缺失标志不能当 false，显式 precision=0 不能当未知 |
+| E37 | [bg.freight.template.list.query](https://partner.temu.com/documentation?menu_code=fb16b05f7a904765aac4af3a24b87d4a&sub_menu_code=01a44ea6e787400fbd375947e4012ddb) | 2025-07-07 16:32:54 | 2026-10-12 登录后读取：本土原 mall 的 templateList（templateId/templateName），无业务入参；它没有目的站点、币种或资格字段，不能制造全可售站点清单 |
+| E38 | [temu.local.goods.brand.trademark.V2.get](https://partner.temu.com/documentation?menu_code=fb16b05f7a904765aac4af3a24b87d4a&sub_menu_code=42aaebb529414af78a1c5481e842f16b) | 2025-09-23 20:49:52 | 2026-10-12 登录后读取：page/size 必填，每页上限100，返回 pageNo/totalNum/trademarkList；商标与品牌ID/名称分别保存。文档没有授权状态字段，单页不证明全部品牌或普遍许可 |
 
 E17 在 2026-10-12 登录后展开核对：业务参数直接位于外层 JSON（示例没有 `request` wrapper），本土创建没有客户端 `siteId`/`mallId` 选项。价格 `amount`/`currency`、包装四维数值均为 STRING，数量 LONG 的显式零与缺失不同；单位必须由 E24 原站点规格和明确资料一致确定。`LocalGoodsV2` 保留可选品牌/产地/二手/证书等事实，不默认填写无品牌声明、生产时间或库存；数值检查不签发整体 readiness。创建返回 goodsId、skuInfoList 及 warnings，不证明审核或在售。
 

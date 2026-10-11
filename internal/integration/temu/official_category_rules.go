@@ -14,7 +14,72 @@ const (
 	supplierAttributesAPI = "bg.goods.attrs.get"
 	localCategoryRulesAPI = "temu.local.goods.cats.rules.get"
 	localAttributesAPI    = "temu.local.product.attributes.get"
+	localFreightAPI       = "bg.freight.template.list.query"
+	localTrademarksAPI    = "temu.local.goods.brand.trademark.V2.get"
 )
+
+func (c *OfficialClient) QueryLocalFreightTemplates(ctx context.Context, credential storecenter.OfficialMerchantCredential) ([]model.LocalFreightTemplate, error) {
+	origin := localAPIOrigin(c.application.IdentityPartition)
+	if origin == "" || !c.validCredential(credential) {
+		return nil, storecenter.ErrOfficialConnectionUnavailable
+	}
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	if err := c.requireLocalScope(ctx, credential.Temu.AccessToken, localFreightAPI); err != nil {
+		return nil, err
+	}
+	var result struct {
+		Templates []model.LocalFreightTemplate `json:"templateList"`
+	}
+	if err := c.readOfficialResponse(ctx, origin, localFreightAPI, credential.Temu.AccessToken, nil, &result); err != nil {
+		return nil, err
+	}
+	if result.Templates == nil {
+		return nil, storecenter.ErrOfficialConnectionUnavailable
+	}
+	seen := make(map[string]struct{}, len(result.Templates))
+	for _, template := range result.Templates {
+		if !boundedParameter(template.ID, 256) || !boundedParameter(template.Name, 1000) {
+			return nil, storecenter.ErrOfficialConnectionUnavailable
+		}
+		if _, duplicate := seen[template.ID]; duplicate {
+			return nil, storecenter.ErrOfficialConnectionUnavailable
+		}
+		seen[template.ID] = struct{}{}
+	}
+	return result.Templates, nil
+}
+
+func (c *OfficialClient) QueryLocalTrademarks(ctx context.Context, credential storecenter.OfficialMerchantCredential, query model.LocalTrademarkQuery) (model.LocalTrademarkPage, error) {
+	var result model.LocalTrademarkPage
+	origin := localAPIOrigin(c.application.IdentityPartition)
+	if origin == "" || !c.validCredential(credential) || query.Page < 1 || query.Size < 1 || query.Size > 100 {
+		return result, storecenter.ErrOfficialConnectionUnavailable
+	}
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	if err := c.requireLocalScope(ctx, credential.Temu.AccessToken, localTrademarksAPI); err != nil {
+		return result, err
+	}
+	fields := map[string]json.RawMessage{"page": json.RawMessage(strconv.FormatInt(query.Page, 10)), "size": json.RawMessage(strconv.FormatInt(query.Size, 10))}
+	if err := c.readOfficialResponse(ctx, origin, localTrademarksAPI, credential.Temu.AccessToken, fields, &result); err != nil {
+		return model.LocalTrademarkPage{}, err
+	}
+	if result.Page == nil || *result.Page != query.Page || result.Total == nil || *result.Total < 0 || result.Trademarks == nil || int64(len(result.Trademarks)) > query.Size || int64(len(result.Trademarks)) > *result.Total {
+		return model.LocalTrademarkPage{}, storecenter.ErrOfficialConnectionUnavailable
+	}
+	seen := make(map[int64]struct{}, len(result.Trademarks))
+	for _, trademark := range result.Trademarks {
+		if trademark.TrademarkID == nil || *trademark.TrademarkID < 1 || trademark.BrandID == nil || *trademark.BrandID < 1 || !boundedParameter(trademark.BrandName, 1000) || !boundedParameter(trademark.TrademarkName, 1000) {
+			return model.LocalTrademarkPage{}, storecenter.ErrOfficialConnectionUnavailable
+		}
+		if _, duplicate := seen[*trademark.TrademarkID]; duplicate {
+			return model.LocalTrademarkPage{}, storecenter.ErrOfficialConnectionUnavailable
+		}
+		seen[*trademark.TrademarkID] = struct{}{}
+	}
+	return result, nil
+}
 
 func (c *OfficialClient) QueryLocalAttributes(ctx context.Context, credential storecenter.OfficialMerchantCredential, query model.LocalAttributeQuery) (model.LocalAttributeTemplate, error) {
 	var result model.LocalAttributeTemplate

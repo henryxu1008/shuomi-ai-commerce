@@ -152,3 +152,112 @@ func TestLocalAttributesCannotUseOtherScopeOrInvalidInputs(t *testing.T) {
 	require.ErrorIs(t, err, storecenter.ErrOfficialAuthorizationRejected)
 	require.Equal(t, 1, calls, "field rules scope cannot grant attribute metadata")
 }
+
+func TestLocalFreightTemplatesStayOnOriginalMallAndNeedOwnScope(t *testing.T) {
+	for _, result := range []string{`{"templateList":[]}`, `{"templateList":[{"templateName":"Current template","templateId":"37"}]}`} {
+		calls := 0
+		c := identityClient(t, storecenter.PartitionGlobal, roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			calls++
+			require.Equal(t, "openapi-b-global.temu.com", r.URL.Host)
+			if calls == 1 {
+				return jsonResponse(`{"success":true,"result":{"mallId":123,"mallType":100,"regionId":37,"expiredTime":1900000000,"apiScopeList":["bg.freight.template.list.query"]}}`), nil
+			}
+			var body map[string]json.RawMessage
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+			require.JSONEq(t, `"bg.freight.template.list.query"`, string(body["type"]))
+			require.NotContains(t, body, "request")
+			require.NotContains(t, body, "mallId")
+			return jsonResponse(`{"success":true,"result":` + result + `}`), nil
+		}))
+		items, err := c.QueryLocalFreightTemplates(context.Background(), tokenCredential())
+		require.NoError(t, err)
+		require.NotNil(t, items)
+		require.Equal(t, 2, calls)
+	}
+	for _, result := range []string{`{}`, `{"templateList":null}`, `{"templateList":[{"templateName":"A","templateId":"37"},{"templateName":"B","templateId":"37"}]}`} {
+		calls := 0
+		c := identityClient(t, storecenter.PartitionEU, roundTripFunc(func(*http.Request) (*http.Response, error) {
+			calls++
+			if calls == 1 {
+				return jsonResponse(`{"success":true,"result":{"mallId":123,"mallType":100,"regionId":20,"expiredTime":1900000000,"apiScopeList":["bg.freight.template.list.query"]}}`), nil
+			}
+			return jsonResponse(`{"success":true,"result":` + result + `}`), nil
+		}))
+		_, err := c.QueryLocalFreightTemplates(context.Background(), tokenCredential())
+		require.ErrorIs(t, err, storecenter.ErrOfficialConnectionUnavailable)
+	}
+}
+
+func TestLocalTrademarkPageIsBoundedAndDoesNotInventAuthorizationStatus(t *testing.T) {
+	calls := 0
+	c := identityClient(t, storecenter.PartitionUS, roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		calls++
+		require.Equal(t, "openapi-b-us.temu.com", r.URL.Host)
+		if calls == 1 {
+			return jsonResponse(`{"success":true,"result":{"mallId":123,"mallType":100,"regionId":211,"expiredTime":1900000000,"apiScopeList":["temu.local.goods.brand.trademark.V2.get"]}}`), nil
+		}
+		var body map[string]json.RawMessage
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		require.JSONEq(t, `"temu.local.goods.brand.trademark.V2.get"`, string(body["type"]))
+		require.JSONEq(t, `2`, string(body["page"]))
+		require.JSONEq(t, `100`, string(body["size"]))
+		return jsonResponse(`{"success":true,"result":{"pageNo":2,"totalNum":101,"trademarkList":[{"brandId":11,"brandName":"B","trademarkId":9007199254740993,"trademarkName":"T"}]}}`), nil
+	}))
+	result, err := c.QueryLocalTrademarks(context.Background(), tokenCredential(), model.LocalTrademarkQuery{Page: 2, Size: 100})
+	require.NoError(t, err)
+	require.Equal(t, int64(9007199254740993), *result.Trademarks[0].TrademarkID)
+	require.Equal(t, int64(101), *result.Total)
+	require.Equal(t, 2, calls)
+	raw, err := json.Marshal(result)
+	require.NoError(t, err)
+	require.NotContains(t, string(raw), "authorized", "the official list has no license-status field")
+	for _, query := range []model.LocalTrademarkQuery{{Page: 0, Size: 100}, {Page: 1, Size: 101}, {Page: 1, Size: 0}} {
+		_, err := c.QueryLocalTrademarks(context.Background(), tokenCredential(), query)
+		require.ErrorIs(t, err, storecenter.ErrOfficialConnectionUnavailable)
+		require.Equal(t, 2, calls)
+	}
+}
+
+func TestLocalTrademarkResponseCannotHideMissingOrWrongPageFacts(t *testing.T) {
+	for _, result := range []string{
+		`{"pageNo":2,"totalNum":1,"trademarkList":[]}`,
+		`{"pageNo":1,"trademarkList":[]}`,
+		`{"pageNo":1,"totalNum":0,"trademarkList":null}`,
+		`{"pageNo":1,"totalNum":2,"trademarkList":[{"brandId":11,"brandName":"B","trademarkId":22,"trademarkName":"T"},{"brandId":11,"brandName":"B","trademarkId":22,"trademarkName":"T"}]}`,
+	} {
+		calls := 0
+		c := identityClient(t, storecenter.PartitionGlobal, roundTripFunc(func(*http.Request) (*http.Response, error) {
+			calls++
+			if calls == 1 {
+				return jsonResponse(`{"success":true,"result":{"mallId":123,"mallType":100,"regionId":37,"expiredTime":1900000000,"apiScopeList":["temu.local.goods.brand.trademark.V2.get"]}}`), nil
+			}
+			return jsonResponse(`{"success":true,"result":` + result + `}`), nil
+		}))
+		_, err := c.QueryLocalTrademarks(context.Background(), tokenCredential(), model.LocalTrademarkQuery{Page: 1, Size: 100})
+		require.ErrorIs(t, err, storecenter.ErrOfficialConnectionUnavailable)
+	}
+}
+
+func TestLocalFreightAndTrademarksCannotUseCNOrFieldRulesPermissions(t *testing.T) {
+	for _, read := range []func(*OfficialClient) error{
+		func(c *OfficialClient) error {
+			_, err := c.QueryLocalFreightTemplates(context.Background(), tokenCredential())
+			return err
+		},
+		func(c *OfficialClient) error {
+			_, err := c.QueryLocalTrademarks(context.Background(), tokenCredential(), model.LocalTrademarkQuery{Page: 1, Size: 100})
+			return err
+		},
+	} {
+		calls := 0
+		c := identityClient(t, storecenter.PartitionCN, roundTripFunc(func(*http.Request) (*http.Response, error) { calls++; return jsonResponse(`{}`), nil }))
+		require.ErrorIs(t, read(c), storecenter.ErrOfficialConnectionUnavailable)
+		require.Zero(t, calls)
+		c = identityClient(t, storecenter.PartitionGlobal, roundTripFunc(func(*http.Request) (*http.Response, error) {
+			calls++
+			return jsonResponse(`{"success":true,"result":{"mallId":123,"mallType":100,"regionId":37,"expiredTime":1900000000,"apiScopeList":["temu.local.goods.cats.rules.get"]}}`), nil
+		}))
+		require.ErrorIs(t, read(c), storecenter.ErrOfficialAuthorizationRejected)
+		require.Equal(t, 1, calls)
+	}
+}

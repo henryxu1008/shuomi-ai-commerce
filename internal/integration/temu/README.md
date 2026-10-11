@@ -28,6 +28,12 @@ rejected. Parent-value groups, explicit zero precision and transnational
 requirements are preserved for completion; field-rule permissions cannot grant
 this separate metadata API.
 
+E37 freight-template reads have no client-selected mall, site or region.
+E38 trademark reads expose one original mall page, capped at the official 100
+items. Missing totals/lists, wrong page and duplicate IDs are errors; explicit
+empty lists remain distinct. These methods require their own current scopes,
+do not paginate/retry automatically or invent license-status/eligibility fields.
+
 Current Store access is `OfficialProductAccess.AuthorizeTemuRules`, a server-only
 five-second handle minted after current native Store/member/grant/service and
 official identity checks. Every read rechecks the exact private material and

@@ -57,6 +57,29 @@ type LocalAttributeUnit struct {
 	ID   *int64 `json:"valueUnitId"`
 }
 
+type LocalFreightTemplate struct {
+	Name string `json:"templateName"`
+	ID   string `json:"templateId"`
+}
+type LocalTrademarkQuery struct {
+	Page int64
+	Size int64
+}
+
+// E38 is one bounded page of current mall metadata. It exposes no license
+// status, global eligibility or completeness assertion for unqueried pages.
+type LocalTrademarkPage struct {
+	Page       *int64           `json:"pageNo"`
+	Total      *int64           `json:"totalNum"`
+	Trademarks []LocalTrademark `json:"trademarkList"`
+}
+type LocalTrademark struct {
+	BrandID       *int64 `json:"brandId"`
+	BrandName     string `json:"brandName"`
+	TrademarkID   *int64 `json:"trademarkId"`
+	TrademarkName string `json:"trademarkName"`
+}
+
 // RequirementType is optional in a decoded response: absent is not disabled
 // or optional. The official protocol spells the field key filedName.
 type LocalFieldRule struct {
