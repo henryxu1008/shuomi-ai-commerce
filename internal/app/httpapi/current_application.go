@@ -378,7 +378,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	if supplied.collectionSourceMedias > 1 || cfg.ProductCollectionSourceMedia.Enabled != (supplied.collectionSourceMedias == 1) || supplied.collectionSourceMedias == 1 && (supplied.productCollections != 1 || supplied.collectionSourceMedia == nil || supplied.collectionSourceMedia.Storage == nil) {
 		return nil, errors.New("source media requires its explicit current storage port and collections")
 	}
-	if supplied.storeObservations > 0 && (supplied.storeCenters != 1 || supplied.storeObservationDependencies == nil || supplied.storeObservationDependencies.Starter == nil || supplied.storeObservationDependencies.NewWorker == nil || supplied.storeObservationDependencies.Lifecycle == nil || supplied.officialStoreApplications == nil || cfg.ListingKit.Zitadel.TenantDirectoryToken == "") {
+	if supplied.storeObservations > 0 && (supplied.storeCenters != 1 || supplied.storeObservationDependencies == nil || supplied.storeObservationDependencies.Starter == nil || supplied.storeObservationDependencies.NewWorker == nil || supplied.storeObservationDependencies.Lifecycle == nil || supplied.storeObservationDependencies.PreparationOnly && supplied.officialStoreApplications != nil || !supplied.storeObservationDependencies.PreparationOnly && supplied.officialStoreApplications == nil || cfg.ListingKit.Zitadel.TenantDirectoryToken == "") {
 		return nil, errors.New("Store observations require current Store, official registry, exact authorization and worker lifecycle")
 	}
 	if supplied.operationsCockpits > 0 && (supplied.storeCenters != 1 || supplied.storeCenterDB == nil) {
@@ -640,9 +640,11 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		}
 		modules = append(modules, module)
 		if workbench.handler != nil {
-			workbench.handler.SetStoreObservationsReadiness(module.application.Available)
+			workbench.handler.SetStoreObservationsReadiness(module.application.RuntimeReady)
 		}
-		savedObservations = module.application.Service
+		if !module.application.PreparationOnly {
+			savedObservations = module.application.Service
+		}
 	}
 	if configurable, ok := storeCatalogModule.(interface {
 		ConfigureCatalog(*storecenter.Catalog, *storecenter.MetadataRepository)

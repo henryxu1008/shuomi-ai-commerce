@@ -19,21 +19,30 @@ import (
 	storeschema "task-processor/internal/app/schema/storecenter"
 	coreconfig "task-processor/internal/core/config"
 	platformdatabase "task-processor/internal/platform/database"
+	"task-processor/internal/storecenter"
 )
 
 func main() {
 	path := flag.String("config", "", "absolute private Store schema-owner JSON config")
 	observations := flag.Bool("observations", false, "install readonly platform observations on an authorized fresh empty Store instance")
+	observationsOnly := flag.Bool("observations-only", false, "verify retained Store schema and install only observations; no base migrations or general grants")
 	cockpit := flag.Bool("operations-cockpit", false, "install manual financial facts and goals on an authorized fresh empty Store instance")
 	flag.Parse()
-	if err := run(*path, *observations, *cockpit); err != nil {
+	if err := run(*path, *observations, *cockpit, *observationsOnly); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	fmt.Println("current Store schema installed and narrow runtime roles granted")
+	if *observationsOnly {
+		fmt.Println("Store observations installed; base schema, facts and permissions retained")
+	} else {
+		fmt.Println("current Store schema installed and narrow runtime roles granted")
+	}
 }
 
-func run(storePath string, observations, cockpit bool) error {
+func run(storePath string, observations, cockpit, observationsOnly bool) error {
+	if observationsOnly && (observations || cockpit) {
+		return errors.New("observations-only cannot be combined with base or Cockpit installation")
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	storeCfg, err := loadOwnerConfig(storePath, "store_center_owner")
@@ -45,6 +54,12 @@ func run(storePath string, observations, cockpit bool) error {
 		return errors.New("open Store schema-owner database failed")
 	}
 	defer platformdatabase.Close(records)
+	if observationsOnly {
+		if err := storecenter.VerifyCurrentSchema(ctx, records); err != nil {
+			return fmt.Errorf("verify retained Store schema: %w", err)
+		}
+		return storeschema.InstallObservations(ctx, records)
+	}
 	if err := storeschema.Migrate(ctx, records); err != nil {
 		return fmt.Errorf("initialize current Store schema: %w", err)
 	}

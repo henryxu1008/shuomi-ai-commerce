@@ -3,8 +3,16 @@ import {
   observationListSchema,
   observationRecordSchema,
   observationTracksSchema,
+  observationCapabilitiesSchema,
 } from "./store-observations";
 export const fixtureID = "d6f6ca0a-27e2-4c4a-b1aa-4505110ae635";
+it("rejects executable capabilities without worker readiness or provider configuration",()=>{
+ const c={available:false,canSync:false,runtimeReady:true,providerConfigured:false,kind:"products",site:"shein-us",platformUrl:"https://sellerhub.shein.com/"};
+ expect(observationCapabilitiesSchema.safeParse(c).success).toBe(true);
+ expect(observationCapabilitiesSchema.safeParse({...c,available:true}).success).toBe(false);
+ expect(observationCapabilitiesSchema.safeParse({...c,canSync:true}).success).toBe(false);
+ expect(observationCapabilitiesSchema.safeParse({...c,available:true,providerConfigured:true,runtimeReady:false}).success).toBe(false);
+});
 export const fixtureRecord = {
   storeId: fixtureID,
   syncId: fixtureID,

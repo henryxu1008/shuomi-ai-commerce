@@ -1,0 +1,22 @@
+# Final opt-in layer after acquisition-plans; requires explicit owner installation
+# authority. On a retained project run only this initializer with --no-deps.
+services:
+ store-observations-init:
+  build: {context: ../../..,dockerfile: deployments/docker/Dockerfile.account-compose,target: schema-init}
+  network_mode: service:runtime-network
+  entrypoint: [/bin/sh,/init/store-observations-init.sh]
+  volumes:
+   - ./store-observations-init.sh:/init/store-observations-init.sh:ro
+   - acquisition-plans-runtime:/base:ro
+   - store-owner-secret:/secrets/store-owner:ro
+   - store-observations-runtime:/runtime
+  depends_on:
+   acquisition-plans-init: {condition: service_completed_successfully}
+   data-services-temporal: {condition: service_healthy}
+ current-application:
+  command: [-config,/private/store-observations/current-application.json]
+  volumes: [store-observations-runtime:/private/store-observations:ro]
+  depends_on:
+   store-observations-init: {condition: service_completed_successfully}
+volumes:
+ store-observations-runtime: {name: "${COMPOSE_PROJECT_NAME}-store-observations-runtime"}

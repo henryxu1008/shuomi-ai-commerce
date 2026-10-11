@@ -227,12 +227,14 @@ export const observationCapabilitiesSchema = z
   .object({
     available: z.boolean(),
     canSync: z.boolean(),
+    runtimeReady: z.boolean(),
+    providerConfigured: z.boolean(),
     kind: observationKindSchema,
     site: z.literal("shein-us"),
     platformUrl: z.literal("https://sellerhub.shein.com/"),
   })
   .strict()
-  .refine((v) => !v.canSync || v.available);
+  .refine((v) => (!v.canSync || v.available) && (!v.available || (v.runtimeReady && v.providerConfigured)));
 export type ObservationRecord = z.infer<typeof observationRecordSchema>;
 export type ObservationSync = z.infer<typeof observationSyncSchema>;
 export type ObservationPrice = z.infer<typeof observationPriceSchema>;

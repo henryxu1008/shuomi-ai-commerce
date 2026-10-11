@@ -36,3 +36,18 @@ func TestStoreObservationsConfigDoesNotRequireSupply(t *testing.T) {
 	require.NoError(t, json.Unmarshal(encoded, &decoded))
 	require.Equal(t, c.StoreCenter.Observations, decoded.Observations)
 }
+
+func TestStoreObservationsPreparationRequiresExplicitProviderFreeMode(t *testing.T) {
+	c := storeRuntimeConfig()
+	c.Identity.TenantDirectoryToken = "synthetic-service-token"
+	require.NoError(t, json.Unmarshal([]byte(`{"temporalAddress":"127.0.0.1:7233","temporalNamespace":"default","preparationOnly":true}`), &c.StoreCenter.Observations))
+	require.NoError(t, c.validateStoreObservations(), "explicit preparation admits no official application")
+	c.StoreCenter.OfficialApplications = []OfficialStoreConnectionConfig{{}}
+	require.Error(t, c.validateStoreObservations(), "configured apps cannot silently downgrade")
+	c.StoreCenter.OfficialApplications = nil
+	c.StoreCenter.Enabled = false
+	require.Error(t, c.validateStoreObservations())
+	c.StoreCenter.Enabled = true
+	c.Identity.TenantDirectoryToken = ""
+	require.Error(t, c.validateStoreObservations())
+}

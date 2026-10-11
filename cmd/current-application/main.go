@@ -201,7 +201,7 @@ func execute() error {
 				options = append(options, httpapi.WithOperationsCockpit())
 			}
 			if features.StoreObservationsWorkflow != nil {
-				options = append(options, httpapi.WithStoreObservations(httpapi.StoreObservationsDependencies{Starter: observationruntime.Starter{Client: features.StoreObservationsWorkflow}, Lifecycle: features.StoreObservationsLifecycle, NewWorker: observationruntime.WorkerFactory(features.StoreObservationsWorkflow, features.StoreObservationsLifecycle)}))
+				options = append(options, httpapi.WithStoreObservations(httpapi.StoreObservationsDependencies{PreparationOnly: features.StoreObservationsPreparationOnly, Starter: observationruntime.Starter{Client: features.StoreObservationsWorkflow}, Lifecycle: features.StoreObservationsLifecycle, NewWorker: observationruntime.WorkerFactory(features.StoreObservationsWorkflow, features.StoreObservationsLifecycle)}))
 			}
 			if features.LocalTrialDB != nil {
 				options = append(options, httpapi.WithIssue36Trial(features.LocalTrialDB))
