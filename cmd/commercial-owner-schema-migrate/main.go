@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"gorm.io/gorm"
+	"task-processor/internal/commercial/billing"
 
 	orgresourceadapter "task-processor/internal/integration/orgresource"
 	commercialstore "task-processor/internal/integration/persistence/commercialbilling"
@@ -19,7 +20,25 @@ import (
 func main() {
 	manifest := flag.String("config", "", "absolute path to the private commercial schema-owner database JSON config")
 	moneyManifest := flag.String("money-config", "", "absolute path to the private canonical money schema-owner database JSON config")
+	storageAdditive := flag.Bool("storage-disabled-additive-only", false, "add current storage schema and SELECT only to a retained commercial owner; metering stays disabled")
 	flag.Parse()
+	if *storageAdditive {
+		moneyProvided := false
+		flag.Visit(func(option *flag.Flag) {
+			if option.Name == "money-config" {
+				moneyProvided = true
+			}
+		})
+		if *manifest == "" || moneyProvided || flag.NArg() != 0 {
+			fmt.Fprintln(os.Stderr, "storage-disabled-additive-only requires only -config; -money-config and positional arguments are forbidden")
+			os.Exit(2)
+		}
+		if err := runStorageDisabledAdditive(*manifest); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
 	if *manifest == "" || *moneyManifest == "" {
 		fmt.Fprintln(os.Stderr, "-config and -money-config are required")
 		os.Exit(2)
@@ -90,6 +109,9 @@ func migrateOwnerSchemas(moneyDB, commercialDB *gorm.DB) error {
 	if err := store.InstallInitialRetailOffers(context.Background()); err != nil {
 		return fmt.Errorf("install approved retail offers: %w", err)
 	}
+	if err := store.CreateOfferIfAbsent(context.Background(), billing.InitialStorageOffer()); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -109,6 +131,7 @@ func commercialRuntimeGrants() []string {
 		`GRANT SELECT ON TABLE public.commercial_offers TO commercial_owner_runtime`,
 		`GRANT SELECT, INSERT ON TABLE public.commercial_quotes, public.commercial_order_items TO commercial_owner_runtime`,
 		`GRANT SELECT, INSERT, UPDATE ON TABLE public.commercial_orders TO commercial_owner_runtime`,
+		`GRANT SELECT, INSERT, UPDATE ON TABLE public.storage_capacity_accounts, public.storage_capacity_reservations, public.storage_capacity_objects, public.storage_capacity_bindings, public.storage_capacity_lots, public.storage_capacity_namespaces TO commercial_owner_runtime`,
 		`GRANT SELECT, INSERT, UPDATE ON TABLE public.commercial_topup_attempts, public.commercial_topup_refunds TO commercial_owner_runtime`,
 		`GRANT SELECT, INSERT ON TABLE public.commercial_topup_inbox TO commercial_owner_runtime`,
 		`GRANT SELECT, INSERT, UPDATE ON TABLE public.commercial_service_orders TO commercial_owner_runtime`,

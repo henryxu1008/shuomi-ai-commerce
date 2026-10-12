@@ -662,7 +662,7 @@ func validateSlotProjectionMutationIdentity(input imageagent.ProjectionCommit, c
 		return fmt.Errorf("%w: recovery slot mutation metadata does not match the projection commit", imageagent.ErrRevisionConflict)
 	}
 	if mutation.Result.Status == imageagent.SlotStatusBlocked {
-		knownSetClosure := input.Snapshot.Plan.Set != nil && mutation.Result.Closure != nil && mutation.Result.Closure.Valid(mutation.Result.Attempt) && (mutation.Result.ErrorCode == imageagent.InvalidGeneratedOutputCode || mutation.Result.ErrorCode == imageagent.SlotProviderNotDispatchedCode)
+		knownSetClosure := input.Snapshot.Plan.Set != nil && mutation.Result.Closure != nil && mutation.Result.Closure.Valid(mutation.Result.Attempt) && (mutation.Result.ErrorCode == imageagent.InvalidGeneratedOutputCode || mutation.Result.ErrorCode == imageagent.SlotProviderNotDispatchedCode || mutation.Result.ErrorCode == imageagent.StorageLimitExceededCode)
 		if !reflect.DeepEqual(mutation.Projection.Slot, currentSlot.Slot) || !reflect.DeepEqual(mutation.Projection.Candidates, currentSlot.Candidates) ||
 			(!imageagent.IsRecoverableEffectBlockCode(mutation.Result.ErrorCode) && !knownSetClosure) || mutation.Projection.ErrorCode != mutation.Result.ErrorCode ||
 			mutation.Attempt.Outcome != "blocked" || mutation.Attempt.ErrorCategory != mutation.Result.ErrorCode {

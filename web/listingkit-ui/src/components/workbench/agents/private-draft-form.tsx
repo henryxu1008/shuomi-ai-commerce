@@ -21,12 +21,12 @@ import {executionModeLabels} from "./execution-mode-settings";
 export function PrivateDraftForm({scope,id,canUse,saved,offlineTrial=false}:{scope:CustomScope;id:string;canUse:boolean;offlineTrial?:boolean;saved:(run:QualityRun)=>void}) {
   const context=useWorkbenchContext();
   const {userId,organizationId}=scope;
-  const mode=useConfigurationRead(scope,`execution-modes/private_delivery/${id}`,executionModeViewSchema);
   const canSelect=["workbench.collection.read","workbench.supply.read","workbench.store.read"].every(p=>context.permissions.includes(p));
   const pending=useResourcePending({expectedUserId:scope.userId,expectedOrganizationId:scope.organizationId},["private-draft-quality",id],qualityPending,{storage:"session",maxLength:4096});
   const [preparations,setPreparations]=useState<SupplyPreparation[]>([]),[prepAfter,setPrepAfter]=useState<string>(),[prepNext,setPrepNext]=useState<string>();
   const [stores,setStores]=useState<WorkbenchStore[]>([]),[storePage,setStorePage]=useState(1),[storeTotal,setStoreTotal]=useState(0);
   const [prep,setPrep]=useState(""),[store,setStore]=useState(""),[stage,setStage]=useState<"missing"|"ready">("missing"),[after,setAfter]=useState<string>(),[reload,setReload]=useState(0);
+  const mode=useConfigurationRead(scope,`execution-modes/private_delivery/${id}`,executionModeViewSchema,reload);
   const [choices,setChoices]=useState<{key:string;items:SupplyTarget[];next?:string;error?:string}>({key:"",items:[]}),[selected,setSelected]=useState<{key:string;record:SupplyTarget}>();
   const [busy,setBusy]=useState(false),[failure,setFailure]=useState(""),[message,setMessage]=useState("");
   const live=useRef(true),flight=useRef(false),abort=useRef<AbortController|null>(null);

@@ -44,6 +44,15 @@ it("requires a new explicit selection after known revision rejection without aut
   const fetch=vi.spyOn(globalThis,"fetch").mockImplementation(async(url,init)=>init?.method==="POST"?Response.json({code:"CUSTOMIZATION_REVISION_MISMATCH"},{status:412}):reads(url));
   render(<PrivateAgentPage id={id}/>);await choose();fireEvent.click(screen.getByRole("button",{name:"检查并保存报告"}));await screen.findByText("草稿版本或可用状态已变化，请重新选择当前草稿。");expect(fetch.mock.calls.filter(v=>v[1]?.method==="POST")).toHaveLength(1);expect(screen.getByRole("button",{name:"检查并保存报告"})).toBeDisabled();
 });
+it("refreshes the private mode on explicit draft refresh and uses it only for a new check",async()=>{
+ let revision="0";
+ const fetch=vi.spyOn(globalThis,"fetch").mockImplementation(async(url,init)=>init?.method==="POST"?Response.json({code:"CUSTOMIZATION_REVISION_MISMATCH"},{status:412}):String(url).includes("execution-modes/private_delivery/")?Response.json({...await reads(url).json(),mode:revision==="0"?"default":"read_only",revision}):reads(url));
+ render(<PrivateAgentPage id={id}/>);await choose();revision="1";
+ fireEvent.click(screen.getByRole("button",{name:"刷新草稿"}));await screen.findByText(/只读 · 模式版本 1/);
+ fireEvent.change(screen.getByRole("combobox",{name:"平台草稿"}),{target:{value:recordId}});
+ fireEvent.click(screen.getByRole("button",{name:"检查并保存报告"}));await screen.findByText("草稿版本或可用状态已变化，请重新选择当前草稿。");
+ const attempts=fetch.mock.calls.filter(v=>v[1]?.method==="POST");expect(attempts).toHaveLength(1);expect(JSON.parse(String(attempts[0][1]?.body)).expectedModeRevision).toBe("1");
+});
 it.each([400,404,412])("keeps the frozen UNKNOWN command after verification returns %i and restores it unchanged",async status=>{
   const fetch=vi.spyOn(globalThis,"fetch").mockImplementation(async(url,init)=>{if(init?.method==="POST")throw new Error("response lost");return reads(url)});
   const first=render(<PrivateAgentPage id={id}/>);await choose();fireEvent.click(screen.getByRole("button",{name:"检查并保存报告"}));await screen.findByText("结果尚未确认，请核实同一次检查。");

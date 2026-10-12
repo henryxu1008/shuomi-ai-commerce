@@ -244,7 +244,12 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	server := httptest.NewServer(app.Handler)
 	defer server.Close()
 	if strings.HasPrefix(mode, "permission ") {
-		testTitlePermissionMode(t, strings.TrimPrefix(mode, "permission "), f, op.OperationID, configuration, module.(productAgentModule).application, server, &calls)
+		selectedMode := strings.TrimPrefix(mode, "permission ")
+		if strings.HasPrefix(selectedMode, "recovery ") {
+			testWorkbenchTitlePolicyRecovery(t, strings.TrimPrefix(selectedMode, "recovery "), op.OperationID, configuration, module.(productAgentModule).application, server, &calls)
+		} else {
+			testTitlePermissionMode(t, selectedMode, f, op.OperationID, configuration, module.(productAgentModule).application, server, &calls)
+		}
 		return
 	}
 	key := uuid.NewString()

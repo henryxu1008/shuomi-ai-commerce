@@ -21,6 +21,10 @@ func safe(err error) error {
 	if err == nil {
 		return nil
 	}
+	var proof *k.UploadCommandRejection
+	if errors.As(err, &proof) && proof != nil {
+		return err
+	}
 	for _, known := range []error{k.ErrInvalid, k.ErrNotFound, k.ErrConflict, k.ErrInactive, k.ErrSourceLimit, k.ErrRevisionBusy, k.ErrNotReadable, k.ErrLeaseLost, k.ErrIntegrity, k.ErrContextTooLarge, k.ErrForbidden, k.ErrSelectionChanged} {
 		if errors.Is(err, known) {
 			return known
@@ -89,6 +93,14 @@ func (r *Repository) Apply(ctx context.Context, c k.Command) (result k.Result, r
 			}
 			return json.Unmarshal(existing.Result, &result)
 		}
+		// This helper is only used at explicit pre-write admission rejections,
+		// after the original command lock and successful absent-outcome read.
+		rejectUpload := func(cause error) error {
+			if c.Kind == "source_create" || c.Kind == "revision_create" {
+				return &k.UploadCommandRejection{OrganizationID: c.Scope.OrganizationID, Kind: c.Kind, Key: c.Key, Fingerprint: c.Fingerprint, Cause: cause}
+			}
+			return cause
+		}
 		org, actor := c.Scope.OrganizationID, c.Scope.ActorID
 		now, clockErr := databaseNow(tx)
 		if clockErr != nil {
@@ -106,11 +118,17 @@ func (r *Repository) Apply(ctx context.Context, c k.Command) (result k.Result, r
 				var err error
 				baseID, err = sourceBase(tx, org, c.SourceID)
 				if err != nil {
+					if errors.Is(err, k.ErrNotFound) {
+						return rejectUpload(err)
+					}
 					return err
 				}
 			}
 			base, err := lockBase(tx, org, baseID, "UPDATE")
 			if err != nil {
+				if errors.Is(err, k.ErrNotFound) {
+					return rejectUpload(err)
+				}
 				return err
 			}
 			if c.Kind == "base_update" || c.Kind == "base_disable" {
@@ -138,7 +156,7 @@ func (r *Repository) Apply(ctx context.Context, c k.Command) (result k.Result, r
 				result.Base = &base
 			} else {
 				if base.State != k.Active {
-					return k.ErrInactive
+					return rejectUpload(k.ErrInactive)
 				}
 				var source k.Source
 				if c.Kind == "source_create" {
@@ -147,7 +165,7 @@ func (r *Repository) Apply(ctx context.Context, c k.Command) (result k.Result, r
 						return err
 					}
 					if count >= k.MaxActiveSources {
-						return k.ErrSourceLimit
+						return rejectUpload(k.ErrSourceLimit)
 					}
 					source = k.Source{ID: uuid.NewString(), OrganizationID: org, BaseID: base.ID, Name: c.Name, State: k.Active, Version: 1, FenceVersion: 1, CreatedBy: actor, UpdatedBy: actor, CreatedAt: now, UpdatedAt: now}
 					if err := tx.Exec("INSERT INTO public.knowledge_sources(organization_id,id,base_id,name,state,version,fence_version,created_by,updated_by,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)", org, source.ID, base.ID, c.Name, k.Active, 1, 1, actor, actor, now, now).Error; err != nil {
@@ -156,21 +174,24 @@ func (r *Repository) Apply(ctx context.Context, c k.Command) (result k.Result, r
 				} else {
 					source, err = lockSource(tx, org, c.SourceID, "UPDATE")
 					if err != nil {
+						if errors.Is(err, k.ErrNotFound) {
+							return rejectUpload(err)
+						}
 						return err
 					}
 					if source.Version != c.Version {
-						return k.ErrConflict
+						return rejectUpload(k.ErrConflict)
 					}
 					if c.Kind == "revision_create" {
 						if source.State != k.Active {
-							return k.ErrInactive
+							return rejectUpload(k.ErrInactive)
 						}
 						var count int64
 						if err := tx.Table("public.knowledge_revisions").Where("organization_id=? AND source_id=? AND state IN ?", org, source.ID, []k.ProcessingState{k.Admitted, k.ObjectStored, k.Processing}).Count(&count).Error; err != nil {
 							return err
 						}
 						if count > 0 {
-							return k.ErrRevisionBusy
+							return rejectUpload(k.ErrRevisionBusy)
 						}
 					}
 					source.Version++

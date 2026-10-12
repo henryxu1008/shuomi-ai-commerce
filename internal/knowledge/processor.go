@@ -7,13 +7,15 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"task-processor/internal/ledger/storagecapacity"
 )
 
 type Processor struct {
-	repo    Repository
-	objects KnowledgeObjectStore
-	parser  DocumentParser
-	owner   string
+	capacity *storagecapacity.Meter
+	repo     Repository
+	objects  KnowledgeObjectStore
+	parser   DocumentParser
+	owner    string
 }
 
 func NewProcessor(repo Repository, objects KnowledgeObjectStore, parser DocumentParser) (*Processor, error) {
@@ -79,6 +81,9 @@ func (p *Processor) process(ctx context.Context, r Revision) {
 		}
 		if !matches(object, inspection) {
 			_ = p.repo.Finish(ctx, r, ParseResult{Failure: "OBJECT_INTEGRITY_FAILURE"})
+			return
+		}
+		if confirmCapacity(ctx, p.capacity, r) != nil {
 			return
 		}
 		if p.repo.ConfirmObject(ctx, r) != nil {

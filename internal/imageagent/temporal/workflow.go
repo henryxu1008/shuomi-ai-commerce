@@ -2458,7 +2458,7 @@ func cancellationResultTerminalized(result SlotWorkflowResult) bool {
 			return false
 		}
 		switch result.ErrorCode {
-		case imageagent.SlotProviderNotDispatchedCode, imageagent.BudgetExhaustedCode, imageagent.BudgetQuoteUnavailableCode, imageagent.BudgetElapsedCode:
+		case imageagent.SlotProviderNotDispatchedCode, imageagent.StorageLimitExceededCode, imageagent.BudgetExhaustedCode, imageagent.BudgetQuoteUnavailableCode, imageagent.BudgetElapsedCode:
 			return true
 		default:
 			return false

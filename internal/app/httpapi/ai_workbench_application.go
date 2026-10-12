@@ -418,6 +418,10 @@ func (x workbenchExecution) startTask(ctx context.Context, task aiworkbench.Busi
 			_, err = a.store.FinalizeExpiredRunning(ctx, scope, request.Binding, request.Key, current.State.Revision, time.Now())
 			return true, err
 		}
+		if agentRunReviewable(current.State) {
+			_, err = a.finishTitleCandidate(ctx, current)
+			return true, err
+		}
 		return false, nil
 	}
 	binding, err := a.binding(ctx, task.OperationID, task.TargetPlatform)

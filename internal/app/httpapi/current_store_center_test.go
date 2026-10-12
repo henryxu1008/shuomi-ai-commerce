@@ -66,7 +66,7 @@ func TestCurrentStoreOptionalAssembly(t *testing.T) {
 		t.Run(mode, func(t *testing.T) {
 			deps := newRouteAuthDependencies()
 			calls := 0
-			source, owner, records := &gorm.DB{}, &gorm.DB{}, &gorm.DB{}
+			source, owner, records := &gorm.DB{}, emptyStorageCommercialOwner(t), &gorm.DB{}
 			factories := currentApplicationFactories{
 				buildWorkbench: func(*config.Config, *logrus.Logger) (workbenchContextBuildResult, error) {
 					return workbenchContextBuildResult{module: currentApplicationTestModule{name: "base", routes: currentWorkbenchApplicationRoutes}, authDependencies: &deps}, nil

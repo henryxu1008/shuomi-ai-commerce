@@ -31,7 +31,7 @@ func publicPriceRoute(h *Handler) httproute.Descriptor {
 // ValidatePublicPriceDescriptor keeps the anonymous surface confined to this
 // price-only route; enterprise reads and all mutations retain their policies.
 func ValidatePublicPriceDescriptor(r httproute.Descriptor) bool {
-	return r.Method == http.MethodGet && r.Path == PublicResourceOfferPath && r.Module == "commercial-billing" && r.AuthPolicy == httproute.AuthPolicyPublic && r.OrganizationAccessPolicy == httproute.OrganizationAccessPolicyNone && r.Permission == "" && r.OrganizationTargetResolver == nil && r.RequestTimeout == 5*time.Second && r.RejectUnreadRequestBody && r.Handler != nil
+	return r.Method == http.MethodGet && (r.Path == PublicResourceOfferPath || r.Path == PublicStorageOffersPath) && r.Module == "commercial-billing" && r.AuthPolicy == httproute.AuthPolicyPublic && r.OrganizationAccessPolicy == httproute.OrganizationAccessPolicyNone && r.Permission == "" && r.OrganizationTargetResolver == nil && r.RequestTimeout == 5*time.Second && r.RejectUnreadRequestBody && r.Handler != nil
 }
 
 func (h *Handler) PublicResourceOffers(c *gin.Context) {

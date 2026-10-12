@@ -22,6 +22,7 @@ import {
 import { ConsolePage, ConsoleState } from "../console/console-page";
 import { EntitlementsOverview } from "./commercial-views";
 import { EnterpriseResources } from "./enterprise-resources";
+import { EnterpriseStorage } from "../resources/enterprise-storage";
 import { ResourcePurchasePanel } from "./resource-purchase-panel";
 import {
   CommercialOverviewView,
@@ -94,6 +95,7 @@ export function CommercialPage({
       organizationId={organization.id}
       organizationName={organization.name}
       permissions={context.permissions}
+      storageAvailable={context.storageCapacityAvailable===true}
       orderId={orderId}
     />
   );
@@ -164,6 +166,7 @@ function ScopedCommercial({
   organizationId,
   organizationName,
   permissions,
+  storageAvailable,
   orderId,
 }: {
   page: PageKind;
@@ -172,6 +175,7 @@ function ScopedCommercial({
   organizationId: string;
   organizationName: string;
   permissions: string[];
+  storageAvailable:boolean;
   orderId?: string;
 }) {
   const [sequence, setSequence] = useState(0);
@@ -225,13 +229,14 @@ function ScopedCommercial({
       }
     >
       {page === "entitlements" ? (
+        <>{storageAvailable&&<EnterpriseStorage userId={userId} organizationId={organizationId} scope={scope} sequence={sequence} canPurchase={false} readOnly />}
         <EnterpriseResources
           userId={userId}
           organizationId={organizationId}
           scope={scope}
           sequence={sequence}
           showSummary
-        />
+        /></>
       ) : null}
       <CommercialRequest
         key={sequence}
