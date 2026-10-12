@@ -39,6 +39,41 @@ type proofFileIntentRepo struct {
 	create func(context.Context, e.FileIntent) (e.File, error)
 }
 
+type failedRequestCapacityAbort struct {
+	storagecapacity.Writer
+	fail bool
+}
+
+func (w *failedRequestCapacityAbort) AbortUnstarted(ctx context.Context, org, id string) error {
+	if w.fail {
+		return storagecapacity.ErrUnavailable
+	}
+	return w.Writer.AbortUnstarted(ctx, org, id)
+}
+
+func TestRequestFileFailedAbortKeepsOriginalIntentAndReturnsUnknown(t *testing.T) {
+	r, _ := fixture(t)
+	service, capacity, objects := requestCapacityFixture(t, r)
+	writer := &failedRequestCapacityAbort{Writer: capacity, fail: true}
+	service.ConfigureStorageCapacity(&storagecapacity.Meter{Writer: writer, Namespace: "request-files"})
+	ctx := context.Background()
+	scope := e.Scope{OrganizationID: "buyer", ActorID: "actor"}
+	key, parent := uuid.NewString(), uuid.NewString()
+	_, err := service.Upload(ctx, scope, key, "REQUEST", parent, "brief.txt", []byte("test"))
+	require.ErrorIs(t, err, storagecapacity.ErrUnknown)
+	require.NotErrorIs(t, err, e.ErrNotFound)
+	summary, err := capacity.ReadSummary(ctx, "buyer")
+	require.NoError(t, err)
+	require.Equal(t, "4", summary.ReservedBytes)
+	writer.fail = false
+	_, err = service.Upload(ctx, scope, key, "REQUEST", parent, "brief.txt", []byte("test"))
+	require.ErrorIs(t, err, e.ErrNotFound)
+	summary, err = capacity.ReadSummary(ctx, "buyer")
+	require.NoError(t, err)
+	require.Equal(t, "0", summary.ReservedBytes)
+	require.Zero(t, objects.puts)
+}
+
 func (r *proofFileIntentRepo) CreateFileIntent(ctx context.Context, in e.FileIntent) (e.File, error) {
 	return r.create(ctx, in)
 }
@@ -147,7 +182,11 @@ func TestRequestFileNoCreateProofCannotCloseAnotherIdentityOrDispatchedWrite(t *
 			}
 			key := uuid.NewString()
 			_, err := service.Upload(ctx, e.Scope{OrganizationID: "buyer", ActorID: "actor"}, key, "REQUEST", uuid.NewString(), "brief.txt", []byte("test"))
-			require.ErrorIs(t, err, e.ErrNotFound)
+			if mode == "dispatched" {
+				require.ErrorIs(t, err, storagecapacity.ErrUnknown)
+			} else {
+				require.ErrorIs(t, err, e.ErrNotFound)
+			}
 			s, err := capacity.ReadSummary(ctx, "buyer")
 			require.NoError(t, err)
 			if mode == "abort_fence" {

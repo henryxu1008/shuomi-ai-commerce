@@ -105,7 +105,9 @@ func (s *FileService) Upload(ctx context.Context, scope Scope, key, parentKind, 
 		if parentKind == "REQUEST" && s.capacity != nil && errors.As(err, &proof) && proof != nil && proof.OrganizationID == scope.OrganizationID && proof.FileID == id && proof.Fingerprint == in.Fingerprint {
 			// The original capacity CAS keeps DISPATCHED/UNKNOWN reservations and
 			// prevents every late Claim/PUT after a successful unstarted abort.
-			_ = s.capacity.Writer.AbortUnstarted(ctx, scope.OrganizationID, reservation.ID)
+			if abortErr := s.capacity.Writer.AbortUnstarted(ctx, scope.OrganizationID, reservation.ID); abortErr != nil {
+				return File{}, storagecapacity.ErrUnknown
+			}
 		}
 		return File{}, err
 	}

@@ -19,6 +19,18 @@ type rejectedKnowledgeObjects struct {
 	calls int
 }
 
+type failedKnowledgeCapacityAbort struct {
+	storagecapacity.Writer
+	fail bool
+}
+
+func (w *failedKnowledgeCapacityAbort) AbortUnstarted(ctx context.Context, org, id string) error {
+	if w.fail {
+		return storagecapacity.ErrUnavailable
+	}
+	return w.Writer.AbortUnstarted(ctx, org, id)
+}
+
 func (o *rejectedKnowledgeObjects) Inspect(context.Context, k.Object) (k.Inspection, error) {
 	o.calls++
 	return k.Inspection{}, nil
@@ -38,6 +50,25 @@ func TestKnowledgeRejectedUploadDoesNotRetainCapacityPostgres(t *testing.T) {
 	objects := &rejectedKnowledgeObjects{}
 	service, err := k.NewService(f.repo, objects)
 	require.NoError(t, err)
+	service.ConfigureStorageCapacity(&storagecapacity.Meter{Writer: capacity, Namespace: "knowledge-test"})
+	t.Run("abort_failure_retains_original_command", func(t *testing.T) {
+		writer := &failedKnowledgeCapacityAbort{Writer: capacity, fail: true}
+		service.ConfigureStorageCapacity(&storagecapacity.Meter{Writer: writer, Namespace: "knowledge-test"})
+		command := k.Command{Scope: f.scope, Kind: "source_create", Key: uuid.NewString(), BaseID: uuid.NewString(), Name: "Guide"}
+		_, err := service.Upload(ctx, command, "guide.txt", []byte("test"))
+		require.ErrorIs(t, err, storagecapacity.ErrUnknown)
+		require.NotErrorIs(t, err, k.ErrNotFound)
+		summary, err := capacity.ReadSummary(ctx, f.scope.OrganizationID)
+		require.NoError(t, err)
+		require.Equal(t, "4", summary.ReservedBytes)
+		writer.fail = false
+		_, err = service.Upload(ctx, command, "guide.txt", []byte("test"))
+		require.ErrorIs(t, err, k.ErrNotFound)
+		summary, err = capacity.ReadSummary(ctx, f.scope.OrganizationID)
+		require.NoError(t, err)
+		require.Equal(t, "0", summary.ReservedBytes)
+		require.Zero(t, objects.calls)
+	})
 	service.ConfigureStorageCapacity(&storagecapacity.Meter{Writer: capacity, Namespace: "knowledge-test"})
 
 	for _, scenario := range []string{"missing_base", "missing_source", "inactive_base", "inactive_source", "stale_version", "source_limit", "busy_revision"} {

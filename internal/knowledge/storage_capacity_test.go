@@ -22,7 +22,8 @@ type capacityAdmissionRepo struct {
 
 type rejectionKnowledgeWriter struct {
 	storagecapacity.Writer
-	aborts int
+	aborts   int
+	abortErr error
 }
 
 func (w *rejectionKnowledgeWriter) ReserveWrite(_ context.Context, in storagecapacity.WriteIntent) (storagecapacity.Reservation, error) {
@@ -30,7 +31,16 @@ func (w *rejectionKnowledgeWriter) ReserveWrite(_ context.Context, in storagecap
 }
 func (w *rejectionKnowledgeWriter) AbortUnstarted(context.Context, string, string) error {
 	w.aborts++
-	return nil
+	return w.abortErr
+}
+
+func TestKnowledgeFailedAbortReturnsUnknownRatherThanNativeRejection(t *testing.T) {
+	writer := &rejectionKnowledgeWriter{abortErr: storagecapacity.ErrUnavailable}
+	s := &Service{repo: rejectionKnowledgeRepo{alter: func(*UploadCommandRejection) {}}, capacity: &storagecapacity.Meter{Writer: writer, Namespace: "namespace"}}
+	_, err := s.Upload(context.Background(), Command{Scope: Scope{OrganizationID: "org", ActorID: "actor"}, Kind: "source_create", Key: uuid.NewString(), BaseID: uuid.NewString(), Name: "Guide"}, "guide.txt", []byte("test"))
+	require.ErrorIs(t, err, storagecapacity.ErrUnknown)
+	require.NotErrorIs(t, err, ErrNotFound)
+	require.Equal(t, 1, writer.aborts)
 }
 
 type rejectionKnowledgeRepo struct {

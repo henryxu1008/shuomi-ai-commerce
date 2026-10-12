@@ -25,8 +25,8 @@ function ScopedStorage({userId,organizationId,scope,sequence,canPurchase,readOnl
   useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;active.current?.abort()}},[]);
   useEffect(()=>{if(dialogOpen&&!dialog.current?.open)dialog.current?.showModal();if(!dialogOpen&&dialog.current?.open)dialog.current.close()},[dialogOpen]);
   function persist(value:ReturnType<typeof pendingSchema.parse>|null){try{if(value)sessionStorage.setItem(key,JSON.stringify(value));else sessionStorage.removeItem(key);window.dispatchEvent(new Event("storage-purchase-pending"));return true}catch{setMessage("无法保存原订单恢复信息，已停止提交购买。");return false}}
-  async function run(work:(signal:AbortSignal)=>Promise<void>){
-    if(locked.current||readOnly||!canPurchase||!ready)return;
+  async function run(work:(signal:AbortSignal)=>Promise<void>,requiresPurchase=true){
+    if(locked.current||readOnly||(requiresPurchase&&!canPurchase)||!ready)return;
     locked.current=true;setBusy(true);setMessage("");
     const controller=new AbortController();active.current=controller;
     try{await work(controller.signal)}catch(error){
@@ -51,7 +51,7 @@ function ScopedStorage({userId,organizationId,scope,sequence,canPurchase,readOnl
     if(order.status==="FULFILLED"){persist(null);setMessage("扩容已生效。每个包从生效时起有效 30 天。");await summary.refetch();return}
     if(order.status==="CANCELLED"){persist(null);setMessage(order.failure_code==="INSUFFICIENT_FUNDS"?"企业钱包余额不足，订单已取消。":"原订单已取消。");return}
     persist({...intent,orderId:order.order_id});setMessage("正在核对原订单，请查看原订单结果；请勿重新购买。");
-  })}
+  },!intent.orderId)}
   const value=summary.data?.summary;
   return <Card className={styles.card} role="region" aria-label="企业存储容量">
     <div className={styles.heading}><div><h2>企业存储容量</h2><p>企业共享容量，商品图片、AI 图片和知识库原文件统一计量。</p></div>{!readOnly&&canPurchase&&<Button onClick={()=>prepare()} disabled={!ready||busy||!!pending.value||!value||!offer}>购买扩容包</Button>}</div>
@@ -69,7 +69,7 @@ function ScopedStorage({userId,organizationId,scope,sequence,canPurchase,readOnl
     {value&&<p className={styles.observed}>数据更新时间：{new Date(value.observed_at).toLocaleString("zh-CN")}</p>}
     {!readOnly&&!canPurchase&&<p>当前身份没有扩容购买权限。</p>}
     {!ready&&raw!=="__loading__"&&<p role="alert">原订单恢复信息暂不可读，购买已暂停，请联系支持核对。</p>}
-    {pending.value&&<div><p>有一笔待确认的原订单。恢复会使用原报价与原请求，不会创建第二笔购买。</p><Button variant="outline" disabled={busy||!canPurchase} onClick={()=>void submit(pending.value!)}>恢复原订单</Button>{pending.value.orderId&&<span> 订单：{pending.value.orderId}</span>}</div>}
+    {pending.value&&<div><p>有一笔待确认的原订单。恢复会使用原报价与原请求，不会创建第二笔购买。</p><Button variant="outline" disabled={busy||(!pending.value.orderId&&!canPurchase)} onClick={()=>void submit(pending.value!)}>恢复原订单</Button>{pending.value.orderId&&<span> 订单：{pending.value.orderId}</span>}</div>}
     {message&&<p role="status">{message}</p>}
     {!readOnly&&<dialog ref={dialog} className={styles.dialog} onCancel={e=>{if(busy)e.preventDefault();else setDialogOpen(false)}}><h2>确认购买存储扩容包</h2><label className={styles.quantity}>扩容包数量<select aria-label="扩容包数量" value={quantity} disabled={busy||!canPurchase||!!pending.value} onChange={e=>prepare(e.target.value)}>{Array.from({length:10},(_,i)=><option key={i+1} value={String(i+1)}>{i+1} 包</option>)}</select></label>{quote?<><p>{quote.resource_quantity} 个 × 50 GiB，共增加 {gib((BigInt(quote.resource_quantity)*BigInt(quote.storage_unit_bytes)).toString())}</p><p>应付 {money(quote.total_minor)} · 企业钱包余额 {wallet===null?"未取得":money(wallet)}</p><p>确认扣款后立即生效，有效 30 天。多次购买分别到期，不自动续费。</p><p>报价有效至 {new Date(quote.expires_at).toLocaleString("zh-CN")}</p>{insufficient&&<p role="alert">企业钱包余额不足，请充值后重新获取报价。</p>}</>:<p role="status">{busy?"正在获取冻结报价与钱包余额…":"本次未取得报价，请重试。"}</p>}<div className={styles.actions}><Button variant="outline" disabled={busy} onClick={()=>setDialogOpen(false)}>取消</Button>{quote?<Button disabled={busy||!canPurchase||wallet===null||insufficient||!!pending.value||quote.resource_quantity!==quantity||Date.parse(quote.expires_at)<=Date.now()} onClick={buy}>确认支付 {money(quote.total_minor)}</Button>:<Button disabled={busy||!canPurchase} onClick={()=>prepare()}>重新获取报价</Button>}</div><Link href="/workbench/plans/top-up" prefetch={false}>钱包充值</Link></dialog>}
   </Card>

@@ -30,7 +30,17 @@ it.each([["4294967296","1073741824","0","已达到当前容量"],["4026531840","
  const value=await api.getStorageSummary();value.summary.occupied_bytes=occupied;value.summary.reserved_bytes=reserved;value.summary.remaining_bytes=remaining;value.summary.categories={product_media:occupied};show();expect(await screen.findByText(new RegExp(label))).toBeVisible();
 });
 afterEach(()=>{cleanup();client.clear();sessionStorage.clear()});
-function show(){return render(<QueryClientProvider client={client}><EnterpriseStorage userId="actor" organizationId="org" scope="current" sequence={0} canPurchase={true}/></QueryClientProvider>)}
+function show(canPurchase=true){return render(<QueryClientProvider client={client}><EnterpriseStorage userId="actor" organizationId="org" scope="current" sequence={0} canPurchase={canPurchase}/></QueryClientProvider>)}
+it("reads an existing pending order after purchase permission is revoked",async()=>{
+ sessionStorage.setItem('storage-purchase.pending:["actor","org"]',JSON.stringify({offerId:"storage-offer",quoteId:"quote",key:crypto.randomUUID(),orderId:"order"}));
+ api.readStorageOrder.mockResolvedValue({order_id:"order",status:"FULFILLED"});show(false);
+ const recover=await screen.findByRole("button",{name:"恢复原订单"});expect(recover).toBeEnabled();fireEvent.click(recover);
+ await screen.findByText(/扩容已生效/);expect(api.readStorageOrder.mock.calls[0].slice(0,3)).toEqual(["actor","org","order"]);expect(api.createStorageOrder).not.toHaveBeenCalled();expect(api.createStorageQuote).not.toHaveBeenCalled();expect(sessionStorage.getItem('storage-purchase.pending:["actor","org"]')).toBeNull();
+});
+it("does not create a pending order without purchase permission",async()=>{
+ sessionStorage.setItem('storage-purchase.pending:["actor","org"]',JSON.stringify({offerId:"storage-offer",quoteId:"quote",key:crypto.randomUUID()}));show(false);
+ const recover=await screen.findByRole("button",{name:"恢复原订单"});expect(recover).toBeDisabled();fireEvent.click(recover);expect(api.createStorageOrder).not.toHaveBeenCalled();expect(api.readStorageOrder).not.toHaveBeenCalled();
+});
 it("shows unavailable facts without substituting zero occupancy",async()=>{
  api.getStorageSummary.mockRejectedValue(new Error("unavailable"));show();await screen.findByText(/本次未取得用量/);expect(screen.queryByText("0.00 GiB")).not.toBeInTheDocument();expect(screen.getByRole("button",{name:"购买扩容包"})).toBeDisabled();
 });

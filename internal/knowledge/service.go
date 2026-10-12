@@ -97,7 +97,9 @@ func (s *Service) Upload(ctx context.Context, c Command, filename string, data [
 		if s.capacity != nil && errors.As(err, &proof) && proof != nil && proof.OrganizationID == c.Scope.OrganizationID && proof.Kind == c.Kind && proof.Key == c.Key && proof.Fingerprint == c.Fingerprint {
 			// The original CAS preserves DISPATCHED and fences every late write
 			// after an unstarted abort. Ordinary/ACK-unknown errors retain bytes.
-			_ = s.capacity.Writer.AbortUnstarted(ctx, c.Scope.OrganizationID, capacityReservation.ID)
+			if abortErr := s.capacity.Writer.AbortUnstarted(ctx, c.Scope.OrganizationID, capacityReservation.ID); abortErr != nil {
+				return Result{}, storagecapacity.ErrUnknown
+			}
 		}
 		return Result{}, err
 	}
