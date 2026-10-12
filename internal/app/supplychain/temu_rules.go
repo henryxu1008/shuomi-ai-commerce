@@ -139,6 +139,12 @@ func (r TemuRuleReader) ReadTemuTargetRules(ctx context.Context, scope collectio
 			observe("E38", "temu.local.goods.brand.trademark.V2.get", query, brands)
 		}
 	} else {
+		nameSource, readErr := rules.SupplierNameSource()
+		if readErr != nil {
+			return binding, temugoods.RuleSnapshot{}, record.ErrUnavailable
+		}
+		snapshot.SpecificationSources = append(snapshot.SpecificationSources, nameSource)
+		snapshot.SpecificationRevision += ";supplier-name-" + nameSource.ContentHash
 		if selection.Language != "" || selection.CostTemplateID != "" || selection.TrademarkPage != 0 || binding.MerchantMode == storecenter.MerchantFullyManaged && selection.SupplierSiteID != 0 {
 			return binding, temugoods.RuleSnapshot{}, record.ErrInvalid
 		}

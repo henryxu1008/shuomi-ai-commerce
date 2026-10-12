@@ -154,6 +154,9 @@ func (s *UploadService) channel(ctx context.Context, scope collection.Scope, sav
 		return UploadResult{}, err
 	}
 	retained, err := s.dependencies.Receipts.FindOfficialTarget(ctx, scope.OrganizationID, submission.ExecutionTarget{Platform: "shein", StoreID: saved.Merchant.StoreID, SubjectID: subject})
+	if errors.Is(err, submission.ErrExecutionTargetClaimed) {
+		return unknownUpload(saved.ID, ""), nil
+	}
 	if err != nil {
 		return UploadResult{}, err
 	}

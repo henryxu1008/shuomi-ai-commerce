@@ -125,6 +125,8 @@ Console 复用 /workbench/stores、/workbench/store-products 和当前“我的�
 
 资料可固定用户明确提供的价格/币种、初始数量/仓库、产地、品牌授权、证书/合规等事实；不采纳旧成本乘 1.5，不默填价格/数量/法律陈述。半托 supplierPrice 单位按 CNY 分/USD cent，不能套用本土站点币种规则；本土 JPY/KRW/NOK 的文档整数约束与各站点精度独立验证。ApprovedAsset 绑定内容 hash/version 和安全 URL，图片 URL 不得临时指向其他资产。
 
+2026-10-12 原独立 Reviewer 绑定 a9224b1bbb576b55d94fa2b497178aa30cc806f6 澄清：M3不要求本地预测创建接口的全部动态币种、申报价上限及经营资格判定。当前身份/scope、当前可选类目/属性、已批准的明确事实及 E13/E27/E45 可核实字段合同必须成立；动态限制由对应官方响应作为 authority，沿原结果/UNKNOWN 合同处理。未证实存在的通用 prequalification API 不能成为所有供应商永久拒绝的新增前置（NOT_APPLICABLE）。现有两个无条件保护仍须被具体实现检查替代，完整 supplier 路径目前 NOT_READY，归 IMPLEMENTATION_TEST 而非新架构 BLOCKER。E44 supplierId 来源缺口只阻止受影响具名查询，不猜身份映射；E43不套本土7天期限、不声称永久有效。此澄清不开放未核实站点、缺失事实、自动合规签署或盲重发。
+
 productComplianceStatementReq 等协议字段只有已有明确合法的批准依据时消费，否则待补全并提示官方前置；不在系统中自动签署。官方图片上传/转换若有副作用，沿 §8 原内核记录，纯资料适配不得暗中调用它。平台直接抓取图片也属于 create 操作效果，不单独假造本地成功。
 
 TargetRecord 保存精确 source、Product/Asset revisions、mode、siteSet、merchant/application binding、rule hash、明确资料与校验结果；准备后任一漂移必须生成/检查新资料版本。Upload 精确绑定 saved record/hash、已有 approval、payload hash 和原 actor/member；不同版本不能复用旧批准或 SendPermit。

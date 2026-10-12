@@ -1,5 +1,6 @@
 "use client";
 import {TemuLocalAttributes} from "./temu-local-attributes";
+import {TemuSupplierFields} from "./temu-supplier-fields";
 import {useEffect,useRef,useState,type ReactNode} from "react";
 import Image from "next/image";
 import {z} from "zod";
@@ -11,7 +12,7 @@ import {temuSupplyRules,supplyInventory,readSupplyCompletionDraft,SupplyAPIError
 import {temuTargetInputSchema,inventorySchema,temuRulesSchema,type SupplySourceDetail,type TemuSupplyTarget,type SupplyCompletionDraft} from "@/lib/contracts/supply-chain";
 import type {TemuDraftInput} from "@/lib/contracts/temu-model";
 import type {SupplyCommandState} from "./use-supply-command";
-import {initialTemuDraft,emptyTemuLocalSKU,emptyTemuSupplierSKU} from "./temu-draft-fields";
+import {initialTemuDraft,emptyTemuLocalSKU} from "./temu-draft-fields";
 
 type Rules=z.infer<typeof temuRulesSchema>;
 type Inventory=z.infer<typeof inventorySchema>;
@@ -75,7 +76,7 @@ export function TemuTargetEditor({scope,source,storeId,existing,command,disabled
     <Field label="商品外部编号"><Input disabled={disabled} value={draft.local.goodsBasic.externalGoodsId??""} onChange={e=>local(v=>{v.goodsBasic.externalGoodsId=e.target.value})}/></Field></div>
     <TemuLocalAttributes rules={rules?.temu} values={draft.local.goodsProperty??[]} disabled={disabled} onChange={values=>local(v=>{v.goodsProperty=values})}/>
     <section className="space-y-4"><h3 className="font-semibold">SKU、价格与包装</h3>{draft.local.skuList?.map((sku,i)=><LocalSKUFields key={i} index={i} sku={sku} rules={rules} disabled={disabled} onChange={edit=>local(v=>{if(v.skuList?.[i])edit(v.skuList[i])})} onRemove={()=>local(v=>{v.skuList=v.skuList?.filter((_,j)=>j!==i)??[]})}/>)}<Button variant="outline" disabled={disabled} onClick={()=>local(v=>{v.skuList=[...v.skuList??[],emptyTemuLocalSKU()]})}>添加 SKU</Button></section>
-   </>:<SupplierFields draft={draft} rules={rules} disabled={disabled} onChange={supplier}/>}
+   </>:<TemuSupplierFields draft={draft} rules={rules?.temu} disabled={disabled} onChange={supplier}/>}
    <section className="space-y-3"><h3 className="font-semibold">来源图片与批准素材</h3><p className="text-sm text-muted-foreground">先确认本次完整来源图选择，再为商品或 SKU 选择已批准的素材。</p><div className="grid gap-3 sm:grid-cols-3">{source.images.map((image,i)=><label key={image.id} className="space-y-2 rounded-lg border p-3"><Image src={image.url} alt="" width={120} height={120} unoptimized/><span className="flex gap-2 text-sm"><input type="checkbox" aria-label={`使用来源图 ${i+1}`} checked={selectedImages.has(image.id)} disabled={disabled} onChange={e=>setSelectedImages(old=>{const n=new Set(old);if(e.target.checked)n.add(image.id);else n.delete(image.id);return n})}/>来源图 {i+1}</span></label>)}</div><Button variant="outline" disabled={disabled||!selectedImages.size} onClick={()=>command.execute("approve",{selection:provenance,images:Array.from(selectedImages).map(id=>({id,role:"gallery"})),approved:[]})}>确认完整图片选择</Button>
     <TemuImages draft={draft} inventory={inventory} disabled={disabled} onChange={images=>change(v=>{v.images=images})}/>
    </section>
@@ -101,14 +102,6 @@ function LocalSpecs({values,rules,disabled,onChange}:{values:NonNullable<LocalSK
  return <div className="space-y-2">{values.map((value,i)=>{const parent=parents.find(p=>p.parentSpecId===value.parentSpecId);return <div key={i} className="grid gap-2 sm:grid-cols-3"><Field label={`规格 ${i+1}`}><Select disabled={disabled} value={value.parentSpecId??""} onChange={e=>onChange(values.map((v,j)=>i===j?{parentSpecId:e.target.value||null}:v))}><option value="">选择官方规格</option>{parents.map(p=><option key={p.parentSpecId??""} value={p.parentSpecId??""}>{p.parentSpecName}</option>)}</Select></Field>
   {parent?.variationType!=="1"?<Field label={`规格 ${i+1} 值`}><Select disabled={disabled||!parent} value={value.specId??""} onChange={e=>{const chosen=parent?.specList?.find(s=>s.specId===e.target.value);onChange(values.map((v,j)=>i===j?{parentSpecId:v.parentSpecId,...chosen?{specId:chosen.specId,specName:chosen.specName}:{}}:v))}}><option value="">{parent?.variationType==="2"?"选择官方值或填写自定义值":"选择官方值"}</option>{parent?.specList?.map(s=><option key={s.specId??s.specName} value={s.specId??""}>{s.specName}</option>)}</Select></Field>:null}
   {parent&&parent.variationType!=="0"&&!value.specId?<Field label={`规格 ${i+1} 自定义值`}><Input disabled={disabled} value={value.specName??""} onChange={e=>onChange(values.map((v,j)=>i===j?{parentSpecId:v.parentSpecId,specName:e.target.value}:v))}/></Field>:null}<Button variant="ghost" size="sm" disabled={disabled} onClick={()=>onChange(values.filter((_,j)=>i!==j))}>移除规格</Button></div>})}<Button variant="outline" size="sm" disabled={disabled||values.length>=2} onClick={()=>onChange([...values,{}])}>添加规格</Button></div>;
-}
-
-function SupplierFields({draft,rules,disabled,onChange}:{draft:TemuDraftInput;rules?:Rules;disabled:boolean;onChange:(edit:(v:Supplier)=>void)=>void}){
- const supplier=draft.supplier;if(!supplier)return null;
- return <section className="space-y-4"><h3 className="font-semibold">供货资料</h3>{draft.mode==="semi_managed"?<Field label="半托管销售站点"><Select disabled={disabled} value={supplier.productSemiManagedReq?.bindSiteIds?.[0]??""} onChange={e=>onChange(v=>{v.productSemiManagedReq={...v.productSemiManagedReq,bindSiteIds:e.target.value?[e.target.value]:[]}})}><option value="">选择可售站点</option>{rules?.temu.semiSites?.filter(s=>s.opening==="open").map(s=><option key={s.siteId} value={s.siteId}>{s.label}</option>)}</Select></Field>:null}
-  {supplier.productSkcReqs?.map((skc,ci)=><div key={ci} className="space-y-3 rounded-xl border p-4"><h4 className="font-medium">SKC {ci+1}</h4><Field label={`SKC ${ci+1} 外部编号`}><Input disabled={disabled} value={skc.extCode} onChange={e=>onChange(v=>{v.productSkcReqs![ci].extCode=e.target.value})}/></Field>{skc.productSkuReqs?.map((sku,si)=>{const prefix=`SKC ${ci+1} SKU ${si+1}`;function edit(fn:(s:typeof sku)=>void){onChange(v=>{fn(v.productSkcReqs![ci].productSkuReqs![si])})}return <div key={si} className="grid gap-3 rounded-lg bg-muted/30 p-3 sm:grid-cols-2"><Field label={`${prefix} 外部编号`}><Input disabled={disabled} value={sku.extCode} onChange={e=>edit(v=>{v.extCode=e.target.value})}/></Field><Field label={`${prefix} 供货币种`}><Select disabled={disabled} value={sku.currencyType} onChange={e=>edit(v=>{v.currencyType=e.target.value})}><option value="">选择实际供货币种</option><option value="CNY">CNY（分）</option><option value="USD">USD（美分）</option></Select></Field>{draft.mode==="fully_managed"?<Field label={`${prefix} 供货价（整数分）`}><Input disabled={disabled} inputMode="numeric" value={sku.supplierPrice??""} onChange={e=>edit(v=>{v.supplierPrice=e.target.value||undefined})}/></Field>:<Field label={`${prefix} 站点供货价（整数分）`}><Input disabled={disabled||!supplier.productSemiManagedReq?.bindSiteIds?.[0]} inputMode="numeric" value={sku.siteSupplierPrices?.[0]?.supplierPrice??""} onChange={e=>edit(v=>{v.siteSupplierPrices=[{siteId:supplier.productSemiManagedReq?.bindSiteIds?.[0]??null,supplierPrice:e.target.value||null}]})}/></Field>}<Button size="sm" variant="ghost" disabled={disabled} onClick={()=>onChange(v=>{v.productSkcReqs![ci].productSkuReqs=v.productSkcReqs![ci].productSkuReqs?.filter((_,j)=>j!==si)??[]})}>移除 {prefix}</Button></div>})}<Button size="sm" variant="outline" disabled={disabled} onClick={()=>onChange(v=>{v.productSkcReqs![ci].productSkuReqs=[...v.productSkcReqs![ci].productSkuReqs??[],emptyTemuSupplierSKU()]})}>添加 SKC {ci+1} SKU</Button></div>)}
-  <Button variant="outline" disabled={disabled} onClick={()=>onChange(v=>{v.productSkcReqs=[...v.productSkcReqs??[],{extCode:"",productSkuReqs:[emptyTemuSupplierSKU()],mainProductSkuSpecReqs:[],previewImgUrls:[]}]})}>添加 SKC</Button>
- </section>;
 }
 
 function TemuImages({draft,inventory,disabled,onChange}:{draft:TemuDraftInput;inventory?:Inventory;disabled:boolean;onChange:(v:TemuDraftInput["images"])=>void}){

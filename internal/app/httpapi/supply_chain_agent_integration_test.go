@@ -59,6 +59,13 @@ type supplyAgentFixtureRules struct {
 	merchant storecenter.ProductMerchantBinding
 }
 
+func (r supplyAgentFixtureRules) ReadTargetMerchant(_ context.Context, scope collection.Scope, storeID string) (storecenter.ProductMerchantBinding, error) {
+	if r.merchant.OrganizationID != scope.OrganizationID || r.merchant.StoreID != storeID {
+		return storecenter.ProductMerchantBinding{}, record.ErrForbidden
+	}
+	return r.merchant, nil
+}
+
 // This controlled owner fixture supplies fixed Store rules above; production
 // OperationExecutionAuthorization checks the actual Store repository.
 type supplyFixtureOperationAuthority struct {
@@ -168,7 +175,7 @@ func testSupplyAgentOwners(t *testing.T, mode string, f *acquisitionHTTPFixture,
 		target, err = targets.Create(actor, uuid.NewString(), record.TargetInput{SourceID: page.Items[0].ID, StoreID: storeID, EffectiveVersion: 1})
 		require.NoError(t, err)
 	}
-	app := &supplyapp.Application{Preparations: preparations, Authorization: prepAuth, PublicationStores: rules, StageProjection: supplyapp.ReviewProjection{Facts: prepRepo, Reviews: core.store}, Sources: selector, Operations: operations, Records: records, Rules: rules, Products: effective, Execution: supplyapp.OperationApplication{}}
+	app := &supplyapp.Application{Preparations: preparations, Authorization: prepAuth, PublicationStores: rules, TargetMerchants: rules, StageProjection: supplyapp.ReviewProjection{Facts: prepRepo, Reviews: core.store}, Sources: selector, Operations: operations, Records: records, Rules: rules, Products: effective, Execution: supplyapp.OperationApplication{}}
 	app.Execution.Repository = operationsRepo
 	var draftBefore d.DraftSnapshot
 	if mode == "supply private draft quality" {
@@ -264,7 +271,7 @@ func testSupplyAgentOwners(t *testing.T, mode string, f *acquisitionHTTPFixture,
 		require.NoError(t, err)
 		_, err = operationsRepo.BindOperationTarget(ctx, proof, page.Items[0].ID, foreign.Record.ID, foreign.Record.Revision)
 		require.ErrorIs(t, err, preparation.ErrConflict)
-		activity := supplyapp.OperationActivities{Operations: operations, Repository: operationsRepo, Sources: selector, Products: effective, Targets: records, Creator: targets, Optimizer: bridge}
+		activity := supplyapp.OperationActivities{Operations: operations, Repository: operationsRepo, Sources: selector, Products: effective, TargetMerchants: rules, Targets: records, Creator: targets, Optimizer: bridge}
 		out, err := activity.Process(ctx, supplyapp.OperationExecution{OrganizationID: "B", OperationID: operation.Operation.ID}, page.Items[0].ID)
 		require.NoError(t, err)
 		require.Equal(t, preparation.ItemReview, out.Status)

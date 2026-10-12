@@ -1,6 +1,7 @@
 package goods
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -70,4 +71,26 @@ func issueCodes(value Draft) []string {
 		out = append(out, issue.Code)
 	}
 	return out
+}
+
+func TestSupplierTitleHasNoInvented250CharacterOfficialLimit(t *testing.T) {
+	name := strings.Repeat("A", 320)
+	input := DraftInput{Mode: "fully_managed", Supplier: &model.SupplierGoods{Name: name, Cat1ID: draftPointer(int64(999))}}
+	result := Build(input, RuleSnapshot{Mode: "fully_managed"}, asset.ApprovedAssetInventory{}, nil)
+	require.NotContains(t, issueCodes(result), "title_invalid")
+	require.Equal(t, name, result.Supplier.Name)
+	require.False(t, result.ReadyForUpload)
+}
+
+func TestSupplierDraftChecksOfficialAttributeIDsAndExplicitPackagingFacts(t *testing.T) {
+	input := DraftInput{Mode: "fully_managed", Supplier: &model.SupplierGoods{Name: "Explicit", Properties: []model.SupplierBasicProperty{{VID: draftPointer(int64(999)), PID: draftPointer(int64(1)), TemplatePID: draftPointer(int64(2)), RefPID: draftPointer(int64(3)), Name: "Material", Value: "Cotton"}}, SKCs: []model.SupplierSKC{{SKUs: []model.SupplierSKU{{Currency: "CNY", SupplierPrice: draftPointer(int64(10))}}}}}}
+	template := model.SupplierAttributeTemplate{Properties: []model.SupplierProperty{{PID: draftPointer(int64(1)), TemplatePID: draftPointer(int64(2)), RefPID: draftPointer(int64(3)), Name: "Material", Required: draftPointer(true), IsSale: draftPointer(false), ControlType: draftPointer(int64(1)), ChooseMaxNum: draftPointer(int64(1)), Values: []model.SupplierPropertyValue{{VID: draftPointer(int64(9007199254740993)), Value: "Cotton"}}}}}
+	result := Build(input, RuleSnapshot{Mode: "fully_managed", SupplierAttributes: &template}, asset.ApprovedAssetInventory{}, nil)
+	require.Contains(t, issueCodes(result), "supplier_attribute_value_unverified")
+	require.Contains(t, issueCodes(result), "supplier_packaging_missing")
+	input.Supplier.Properties[0].VID = draftPointer(int64(9007199254740993))
+	result = Build(input, RuleSnapshot{Mode: "fully_managed", SupplierAttributes: &template}, asset.ApprovedAssetInventory{}, nil)
+	require.NotContains(t, issueCodes(result), "supplier_attribute_value_unverified")
+	require.False(t, result.ReadyForUpload)
+	require.Empty(t, result.SubmissionPayload)
 }

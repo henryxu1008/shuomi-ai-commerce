@@ -152,8 +152,19 @@ func checkLocal(result *Draft, input DraftInput, snapshot RuleSnapshot, add func
 
 func checkSupplier(result *Draft, input DraftInput, snapshot RuleSnapshot, add func(string, string, string)) {
 	p := input.Supplier
-	if !boundedText(p.Name, 250) {
+	// E45 is a weighted first-level-category rule, not a universal 250-rune cap.
+	if !boundedText(p.Name, 16<<10) || p.Cat1ID != nil && !rules.SupplierNameAllowed(p.Name, *p.Cat1ID) {
 		add("productName", "title_invalid", "填写明确的商品名称")
+	}
+	nameSource, sourceErr := rules.SupplierNameSource()
+	nameVerified := false
+	for _, source := range snapshot.SpecificationSources {
+		if source == nameSource && sourceErr == nil {
+			nameVerified = true
+		}
+	}
+	if !nameVerified {
+		add("productName", "supplier_name_rules_unverified", "读取当前货品名称长度规则")
 	}
 	for _, issue := range rules.CheckSupplierPriceLayout(input.Mode, *p).Issues {
 		add(issue.Field, issue.Code, "按店铺模式补全价格和初始数量")
@@ -170,7 +181,10 @@ func checkSupplier(result *Draft, input DraftInput, snapshot RuleSnapshot, add f
 	}
 	if snapshot.SupplierAttributes == nil {
 		add("attributes", "attributes_unverified", "读取当前供应商属性模板")
+	} else {
+		result.Issues = append(result.Issues, CheckSupplierProperties(*p, *snapshot.SupplierAttributes)...)
 	}
+	result.Issues = append(result.Issues, checkSupplierPackaging(*p)...)
 	// The observed category/attribute APIs do not expose current merchant price
 	// limits or all warehouse/compliance eligibility. Keep that gap visible.
 	add("qualification", "supplier_qualification_unverified", "核实当前商家的币种、限价、仓库及类目资格")

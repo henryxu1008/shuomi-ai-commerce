@@ -32,6 +32,21 @@ for(const mode of ["fully_managed","semi_managed"] as const)it(`uses verified ${
  expect(screen.queryByLabelText("店铺模式")).not.toBeInTheDocument();expect(screen.queryByLabelText("SKU 1 基础价格")).not.toBeInTheDocument();expect(screen.getByText(/全托管与半托管/)).toBeInTheDocument();
  await userEvent.click(screen.getByRole("button",{name:"保存并校验平台资料"}));expect(state.execute.mock.lastCall?.[1].temu).toMatchObject({mode,supplier:{cat1Id:null,productSkcReqs:[{productSkuReqs:[{currencyType:""}]}]}});
 });
+
+it("keeps semi-managed site prices, explicit zero warehouse stock and packaging units separate",async()=>{
+ const current=rules("semi_managed");state.rules.mockResolvedValue({...current,temu:{...current.temu,semiSites:[{siteId:"100",label:"US",opening:"open"},{siteId:"101",label:"CA",opening:"open"}]}});
+ render(<TemuTargetEditor scope={{userId:"actor",organizationId:"org"}} source={source} storeId={id} command={command} disabled={false} saved={0}/>);await screen.findByLabelText("商品标题");
+ await userEvent.click(screen.getByLabelText("销售站点 US"));await userEvent.click(screen.getByLabelText("销售站点 CA"));
+ await userEvent.type(screen.getByLabelText("SKC 1 SKU 1 站点 US 供货价（整数分）"),"1234");await userEvent.type(screen.getByLabelText("SKC 1 SKU 1 站点 CA 供货价（整数分）"),"2345");
+ expect(screen.getByLabelText("SKC 1 SKU 1 包装重量（mg）")).toHaveValue("");
+ await userEvent.type(screen.getByLabelText("SKC 1 SKU 1 包装重量（mg）"),"150000");
+ await userEvent.click(screen.getByRole("button",{name:"SKC 1 SKU 1 添加仓库库存"}));await userEvent.type(screen.getByLabelText("SKC 1 SKU 1 仓库 1 编号"),"warehouse-a");await userEvent.type(screen.getByLabelText("SKC 1 SKU 1 仓库 1 初始数量"),"0");
+ await userEvent.click(screen.getByRole("button",{name:"保存并校验平台资料"}));
+ const supplier=state.execute.mock.lastCall?.[1].temu.supplier;
+ expect(supplier.productSemiManagedReq.bindSiteIds).toEqual(["100","101"]);
+ expect(supplier.productSkcReqs[0].productSkuReqs[0]).toMatchObject({siteSupplierPrices:[{siteId:"100",supplierPrice:"1234"},{siteId:"101",supplierPrice:"2345"}],productSkuWhExtAttrReq:{productSkuWeightReq:{value:"150000"}},productSkuStockQuantityReq:{warehouseStockQuantityReqs:[{warehouseId:"warehouse-a",targetStockAvailable:"0"}]}});
+ expect(supplier.productSkcReqs[0].productSkuReqs[0]).not.toHaveProperty("supplierPrice");expect(supplier).not.toHaveProperty("productComplianceStatementReq");
+});
 it("approves only explicitly selected source images under original TEMU provenance",async()=>{
  state.rules.mockResolvedValue(rules("local"));render(<TemuTargetEditor scope={{userId:"actor",organizationId:"org"}} source={source} storeId={id} command={command} disabled={false} saved={0}/>);await screen.findByLabelText("商品标题");
  await userEvent.click(screen.getByLabelText("使用来源图 1"));await userEvent.click(screen.getByRole("button",{name:"确认完整图片选择"}));expect(state.execute).toHaveBeenCalledWith("approve",{selection:{itemId:id,originalPublicationId:id,originalSnapshotVersion:"9007199254740993",effectiveCatalogVersion:"9007199254740993",targetPlatform:"temu"},images:[{id,role:"gallery"}],approved:[]});
