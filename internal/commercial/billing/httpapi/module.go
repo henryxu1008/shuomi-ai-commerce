@@ -331,7 +331,7 @@ func (h *Handler) Orders(c *gin.Context) {
 	if raw := c.Query("product_kind"); raw != "" {
 		product := billing.ProductKind(raw)
 		_, resourceProduct := billing.ResourceTypeForProduct(product)
-		if !resourceProduct && product != billing.ProductSubscriptionPlan {
+		if !resourceProduct && product != billing.ProductSubscriptionPlan && product != billing.ProductStorageCapacityPack {
 			writeError(c, http.StatusBadRequest, "INVALID_REQUEST")
 			return
 		}

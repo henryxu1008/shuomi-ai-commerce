@@ -497,7 +497,7 @@ func (r *Repository) ReadSummary(ctx context.Context, org string) (s storagecapa
 		if remaining < 0 {
 			remaining = 0
 		}
-		overage := a.Occupied - q
+		overage := a.Occupied + a.Reserved - q
 		if overage < 0 {
 			overage = 0
 		}

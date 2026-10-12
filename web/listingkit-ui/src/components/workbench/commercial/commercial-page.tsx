@@ -22,6 +22,7 @@ import {
 import { ConsolePage, ConsoleState } from "../console/console-page";
 import { EntitlementsOverview } from "./commercial-views";
 import { EnterpriseResources } from "./enterprise-resources";
+import { EnterpriseStorage } from "../resources/enterprise-storage";
 import { ResourcePurchasePanel } from "./resource-purchase-panel";
 import {
   CommercialOverviewView,
@@ -225,13 +226,14 @@ function ScopedCommercial({
       }
     >
       {page === "entitlements" ? (
+        <><EnterpriseStorage userId={userId} organizationId={organizationId} scope={scope} sequence={sequence} canPurchase={false} readOnly />
         <EnterpriseResources
           userId={userId}
           organizationId={organizationId}
           scope={scope}
           sequence={sequence}
           showSummary
-        />
+        /></>
       ) : null}
       <CommercialRequest
         key={sequence}

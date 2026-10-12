@@ -16,6 +16,9 @@ import (
 
 func TestStorageQuoteFreezesTermsAndActivationIsAtomicWithOrder(t *testing.T) {
 	r := commercialRepository(t)
+	// SQLite compares timestamp text; use the fixture's UTC clock for GORM's
+	// automatic updated_at too, matching PostgreSQL's timestamp semantics.
+	r.db.Config.NowFunc = r.now
 	ctx := context.Background()
 	require.NoError(t, storage.AutoMigrate(r.db))
 	capacity, err := storage.New(r.db)
@@ -52,6 +55,14 @@ func TestStorageQuoteFreezesTermsAndActivationIsAtomicWithOrder(t *testing.T) {
 	summary, err = capacity.ReadSummary(ctx, "org")
 	require.NoError(t, err)
 	require.Len(t, summary.ActiveLots, 1)
+	spend, err := r.ReadOrderSummary(ctx, "org", active.UpdatedAt.Add(-time.Minute), active.UpdatedAt.Add(time.Minute))
+	require.NoError(t, err)
+	require.Equal(t, int64(3980), spend.SpendMinor)
+	require.Equal(t, int64(3980), spend.OtherSpendMinor)
+	kind, product := billing.OrderStorageCapacityPurchase, billing.ProductStorageCapacityPack
+	page, err := r.ListOrders(ctx, "org", billing.OrderFilter{Kind: &kind, ProductKind: &product, Limit: 10})
+	require.NoError(t, err)
+	require.Len(t, page.Items, 1)
 	other := order
 	other.OrganizationID = "other"
 	_, err = r.ActivateStorageOrder(ctx, other)

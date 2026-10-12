@@ -13,6 +13,10 @@ describe("enterprise storage facts",()=>{
     const v=sample();v.summary.occupied_bytes="21474836480";v.summary.categories.product_media=v.summary.occupied_bytes;v.summary.reserved_bytes="0";v.summary.remaining_bytes="0";v.summary.overage_bytes="16106127360";
     expect(parseStorageSummary(v)?.summary.occupied_bytes).toBe("21474836480");
   });
+  it("includes original unfinished writes in overage after expansion expires",()=>{
+    const v=sample();v.summary.occupied_bytes="0";v.summary.categories.product_media="0";v.summary.reserved_bytes="21474836480";v.summary.remaining_bytes="0";v.summary.overage_bytes="16106127360";
+    expect(parseStorageSummary(v)?.summary.overage_bytes).toBe("16106127360");
+  });
   it("does not synthesize an offer from missing or malformed catalog data",()=>{
     expect(parseStorageOffers({schema_version:"storage-price-catalog-v1",organization_id:"org",items:[]})).not.toBeNull();
     expect(parseStorageOffers({organization_id:"org",items:[{unit_price_minor:"1990"}]})).toBeNull();

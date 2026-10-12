@@ -138,7 +138,7 @@ func TestSubscriptionOrderRequiresExactlyOneIdempotencyKey(t *testing.T) {
 
 func TestOrdersAcceptsSubscriptionKindAndProductFilters(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	for _, query := range []string{"kind=SUBSCRIPTION_PURCHASE", "product_kind=SUBSCRIPTION_PLAN"} {
+	for _, query := range []string{"kind=SUBSCRIPTION_PURCHASE", "product_kind=SUBSCRIPTION_PLAN", "kind=STORAGE_CAPACITY_PURCHASE", "product_kind=STORAGE_CAPACITY_PACK"} {
 		t.Run(query, func(t *testing.T) {
 			response := httptest.NewRecorder()
 			ctx, _ := gin.CreateTestContext(response)

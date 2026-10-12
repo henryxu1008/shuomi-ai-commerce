@@ -669,7 +669,7 @@ func (r *Repository) ReadOrderSummary(ctx context.Context, organizationID string
 	// Fulfilled orders receive their terminal timestamp in updated_at when the
 	// fulfillment/reconciliation path commits. Spend windows follow that event,
 	// not when the order was originally created.
-	if err := r.db.WithContext(ctx).Table("commercial_orders").Select("commercial_orders.product_kind AS product_kind, SUM(commercial_orders.amount_minor) AS spend_minor").Where("commercial_orders.organization_id = ? AND commercial_orders.kind IN ? AND commercial_orders.status = ? AND commercial_orders.updated_at >= ? AND commercial_orders.updated_at < ?", organizationID, []string{string(billing.OrderResourcePurchase), string(billing.OrderSubscriptionPurchase)}, string(billing.OrderFulfilled), from.UTC(), until.UTC()).Group("commercial_orders.product_kind").Scan(&rows).Error; err != nil {
+	if err := r.db.WithContext(ctx).Table("commercial_orders").Select("commercial_orders.product_kind AS product_kind, SUM(commercial_orders.amount_minor) AS spend_minor").Where("commercial_orders.organization_id = ? AND commercial_orders.kind IN ? AND commercial_orders.status = ? AND commercial_orders.updated_at >= ? AND commercial_orders.updated_at < ?", organizationID, []string{string(billing.OrderResourcePurchase), string(billing.OrderSubscriptionPurchase), string(billing.OrderStorageCapacityPurchase)}, string(billing.OrderFulfilled), from.UTC(), until.UTC()).Group("commercial_orders.product_kind").Scan(&rows).Error; err != nil {
 		return billing.OrderSummary{}, billing.ErrFeatureUnavailable
 	}
 	for _, row := range rows {

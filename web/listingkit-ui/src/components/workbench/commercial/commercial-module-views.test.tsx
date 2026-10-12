@@ -144,6 +144,9 @@ it("renders owner-backed orders and submits bounded search and date/type/status 
   );
   expect(screen.getAllByText("¥30.00")).toHaveLength(3);
   expect(screen.getByText("AI 点数 × 3")).toBeVisible();
+  await userEvent.selectOptions(screen.getByLabelText("订单类型"), "STORAGE_CAPACITY_PURCHASE");
+  await userEvent.click(screen.getByRole("button", { name: "筛选" }));
+  expect(onFilter).toHaveBeenLastCalledWith({ query: "", kind: "STORAGE_CAPACITY_PURCHASE", status: "", from: "", until: "" });
   expect(screen.getByRole("link", { name: "详情" })).toHaveAttribute(
     "href",
     "/workbench/plans/orders/order-1",

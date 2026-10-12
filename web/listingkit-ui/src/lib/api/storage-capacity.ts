@@ -8,7 +8,7 @@ const lot=z.object({order_id:id,bytes:number,activated_at:timestamp,expires_at:t
 const summary=z.object({more_lots:z.boolean(),base_bytes:z.literal("5368709120"),quota_bytes:number,occupied_bytes:number,reserved_bytes:number,remaining_bytes:number,overage_bytes:number,categories:z.object({product_media:number.optional(),ai_image:number.optional(),knowledge_document:number.optional(),business_attachment:number.optional()}).strict(),active_lots:z.array(lot).max(50),observed_at:timestamp}).strict().refine(v=>{
   if (![v.quota_bytes,v.occupied_bytes,v.reserved_bytes,v.remaining_bytes,v.overage_bytes,...Object.values(v.categories)].every(n=>n==="0"||positiveInt64(n))) return false;
   const q=BigInt(v.quota_bytes),o=BigInt(v.occupied_bytes),r=BigInt(v.reserved_bytes);
-  return q>=BigInt(v.base_bytes)&&BigInt(v.remaining_bytes)===(q>o+r?q-o-r:BigInt(0))&&BigInt(v.overage_bytes)===(o>q?o-q:BigInt(0))&&Object.values(v.categories).reduce((a,b)=>a+BigInt(b??"0"),BigInt(0))===o;
+  return q>=BigInt(v.base_bytes)&&BigInt(v.remaining_bytes)===(q>o+r?q-o-r:BigInt(0))&&BigInt(v.overage_bytes)===(o+r>q?o+r-q:BigInt(0))&&Object.values(v.categories).reduce((a,b)=>a+BigInt(b??"0"),BigInt(0))===o;
 });
 const response=z.object({organization_id:id,summary}).strict();
 const offer=z.object({offer_id:id,product_kind:z.literal("STORAGE_CAPACITY_PACK"),currency:z.literal("CNY"),unit_price_minor:z.string().refine(positiveInt64),min_quantity:z.literal("1"),max_quantity:z.literal("10"),storage_unit_bytes:z.literal("53687091200"),storage_duration_seconds:z.literal("2592000"),pricing_version:z.string().min(1).max(128)}).strict();
