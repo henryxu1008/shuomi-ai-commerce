@@ -5,6 +5,7 @@ import {ProductImageSetPanel} from "./product-image-set-panel";
 import {imageTemplateSchema} from "@/lib/contracts/image-set-configuration";
 const calls=vi.hoisted(()=>({context:{} as Record<string,unknown>}));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>calls.context}));
+vi.mock("../agents/agent-configuration-hooks",()=>({useConfigurationRead:()=>({data:{subject:{kind:"registered_agent",id:"product.image.agent"},definition:{id:"product.image.agent",version:"v1.0.0"},mode:"default",revision:"0",policyVersion:"agent-execution-policy-v1",canConfigure:false,updatedAt:"2026-10-12T00:00:00Z",updatedBy:""}})}));
 const operation="11111111-1111-4111-8111-111111111111",runId="22222222-2222-4222-8222-222222222222",templateId="33333333-3333-4333-8333-333333333333";
 const sha="a".repeat(64),digest="b".repeat(64),now="2026-10-09T00:00:00Z";
 const template={templateId,agentId:"product.image.agent",lifecycle:"ACTIVE",revision:"1",version:"1",schemaVersion:"image-config-v1",name:"Two groups",targetPlatform:"product",createdAt:now,image:{schema:"image-config-v1",mode:"standard",shareOriginals:true,background:"white",language:"en",carousel:[{id:"main",purpose:"product_identity"}],detail:[{id:"detail",purpose:"detail_closeup"}]}};
@@ -704,7 +705,7 @@ it("keeps an UNKNOWN parent's successful-looking candidates unavailable for reus
 
 for (const action of ["prepare","regenerate"]) {
 it(`can replay an unresolved ${action} with its original key and frozen body after not-found`,async()=>{
- const requestKey=templateId,body={target:{Platform:"product"},sharedOriginalIds:["original"],selectedTaskIds:["main","detail"],template:{templateId,revision:"1"}};
+ const requestKey=templateId,body={expectedModeRevision:"0",target:{Platform:"product"},sharedOriginalIds:["original"],selectedTaskIds:["main","detail"],template:{templateId,revision:"1"}};
  const intent={action,...action==="regenerate"?{runId:operation}:{},requestKey,body};
  localStorage.setItem(`product-image-set:actor:org:acquisition:${operation}:intent`,JSON.stringify(intent));
  const real=fetch.getMockImplementation()!;

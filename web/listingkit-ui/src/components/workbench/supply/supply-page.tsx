@@ -48,7 +48,7 @@ function ScopedSupplyPage({scope,initialPreparation,initialStore,initialOperatio
  const [selected,setSelected]=useState<Set<string>>(new Set()),[editor,setEditor]=useState<Row>(),[saved,setSaved]=useState(0),[confirm,setConfirm]=useState<{action:"adapt"|"upload"|"optimize";whole:boolean}>();
  const [configuration,setConfiguration]=useState(initialStage!=="missing"&&initialStage!=="review"&&initialStage!=="uploaded"),[rulesEnabled,setRulesEnabled]=useState(true),[ruleDetails,setRuleDetails]=useState(false);
  const [agentEnabled,setAgentEnabled]=useState(false),[agentOptions,setAgentOptions]=useState<SupplyOptimizationOptions>(),[titleChoice,setTitleChoice]=useState<SupplyOptimizationChoice>(),[agentAfter,setAgentAfter]=useState<string>();
- const validTitle=titleChoice&&agentOptions?.titles.some(t=>t.templateId===titleChoice.templateId&&t.revision===titleChoice.revision&&t.quoteHash===titleChoice.quoteHash)?titleChoice:undefined;
+ const validTitle=titleChoice&&agentOptions?.titles.some(t=>t.templateId===titleChoice.templateId&&t.revision===titleChoice.revision&&t.quoteHash===titleChoice.quoteHash&&t.modeRevision===titleChoice.modeRevision)?titleChoice:undefined;
  useEffect(()=>{if(!agentEnabled)return;const c=new AbortController();let live=true;void readSupplyOptimizationOptions(scope,{after:agentAfter,limit:100},c.signal).then(value=>{if(live)setAgentOptions(value)}).catch(e=>{if(live)setError(codeOf(e))});return()=>{live=false;c.abort()};},[scope,agentEnabled,agentAfter,reload]);
  const rowsKey=JSON.stringify([preparationId,storeId,after,reload,tab,keyword,sourceKind]);
  const loading=!!preparationId&&loadedKey!==rowsKey;
@@ -98,7 +98,7 @@ function ScopedSupplyPage({scope,initialPreparation,initialStore,initialOperatio
  function chooseStore(id:string){saveSelection(preparationId,id);setStoreId(id);setSelected(new Set());setOperations([]);setAfter(undefined);setOperationId("");setOperation(undefined);setHistoryAfter(undefined);setKeyword("");setSearch("");setSourceKind("");setStagePage(undefined);setEditor(undefined);setReview(undefined);setResolveItem(undefined)}
  function execute(){if(!confirm||!preparation||!storeId||blocked||confirm.action==="upload"&&!canSubmit)return;
   if(confirm.action==="optimize"&&!validTitle)return;
-  supply.execute("create-operation",{preparationId:preparation.id,expectedRevision:preparation.revision,storeId,action:confirm.action,...confirm.action==="optimize"&&validTitle?{titleTemplateId:validTitle.templateId,titleTemplateRevision:validTitle.revision,titleQuoteHash:validTitle.quoteHash}:{},...confirm.whole?{}:{sourceIds:Array.from(selected)}});
+  supply.execute("create-operation",{preparationId:preparation.id,expectedRevision:preparation.revision,storeId,action:confirm.action,...confirm.action==="optimize"&&validTitle?{titleTemplateId:validTitle.templateId,titleTemplateRevision:validTitle.revision,titleQuoteHash:validTitle.quoteHash,titleModeRevision:validTitle.modeRevision}:{},...confirm.whole?{}:{sourceIds:Array.from(selected)}});
  }
  async function control(action:"ensure"|"cancel"){if(!operation||blocked)return;setControlBusy(true);const c=new AbortController();controlRequest.current=c;try{const value=await controlSupplyOperation(scope,operation.id,action,c.signal);if(!c.signal.aborted){setOperation(value);setReload(n=>n+1)}}catch(e){if(!c.signal.aborted)setError(codeOf(e))}finally{if(!c.signal.aborted)setControlBusy(false)}}
  const visible=storeId?rows:rows.filter(r=>tab==="全部"||stage(r)===tab);

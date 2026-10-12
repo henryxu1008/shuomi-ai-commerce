@@ -15,6 +15,7 @@ import (
 	"go.temporal.io/sdk/workflow"
 
 	"task-processor/internal/imageagent"
+	productasset "task-processor/internal/product/asset"
 )
 
 const (
@@ -369,6 +370,28 @@ runPlan:
 			}
 		}
 		projection = result
+		if input.Plan.Set != nil && input.Plan.Set.ModeSnapshotRef.Valid() {
+			var command *productasset.ImageSetCommand
+			if err := workflow.ExecuteActivity(imageAgentActivityContext(ctx), activityPrepareImageSetPolicyAdoption, input.Identity).Get(ctx, &command); err != nil {
+				return WorkflowResult{}, err
+			}
+			if command != nil {
+				if command.PolicyAdoption == nil || !command.PolicyAdoption.Valid() {
+					return WorkflowResult{}, imageagent.ErrCommandBlocked
+				}
+				intent := resultAdoptionIntent{RunID: input.RunID, PlanRevision: input.Plan.Revision, ResultDigest: projection.ResultDigest, ActorID: input.Identity.UserID, ActionID: command.ActionID, Selection: command}
+				if _, err := updates.handleResultAdoption(ctx, intent); err != nil {
+					if updates.actions[command.ActionID] == nil {
+						return WorkflowResult{}, err
+					}
+					// Retain the original action and its UNKNOWN/publication phase.
+					// A mode change cannot create a replacement or resend this action.
+				}
+				if projection.Status == imageagent.RunStatusCompleted {
+					return projection, nil
+				}
+			}
+		}
 		for {
 			wait := workflow.NewSelector(ctx)
 			wait.AddReceive(updates.wake, func(channel workflow.ReceiveChannel, _ bool) { channel.Receive(ctx, nil) })
@@ -1369,7 +1392,13 @@ func (s *workflowUpdateState) validateApproveResults(signal ApproveResultsSignal
 	return nil
 }
 
+type resultAdoptionIntent ApproveResultsSignal
+
 func (s *workflowUpdateState) validateApproveResultsBusiness(signal ApproveResultsSignal) error {
+	return s.validateResultAdoptionBusiness(resultAdoptionIntent(signal))
+}
+
+func (s *workflowUpdateState) validateResultAdoptionBusiness(signal resultAdoptionIntent) error {
 	if err := validateCommandRevision(*s.input, signal.PlanRevision); err != nil {
 		return err
 	}
@@ -1390,6 +1419,12 @@ func (s *workflowUpdateState) validateApproveResultsBusiness(signal ApproveResul
 }
 
 func (s *workflowUpdateState) handleApproveResults(ctx workflow.Context, signal ApproveResultsSignal) (CommandAcknowledgement, error) {
+	return s.handleResultAdoption(ctx, resultAdoptionIntent(signal))
+}
+
+// Human ingress and native policy adoption share the existing action owner;
+// policy execution never sends or pretends to receive a human approve signal.
+func (s *workflowUpdateState) handleResultAdoption(ctx workflow.Context, signal resultAdoptionIntent) (CommandAcknowledgement, error) {
 	ctx = imageAgentActivityContext(ctx)
 	fingerprint, err := updateFingerprint(signalApproveResults, signal)
 	if err != nil {
@@ -1403,7 +1438,7 @@ func (s *workflowUpdateState) handleApproveResults(ctx workflow.Context, signal 
 		return CommandAcknowledgement{}, err
 	}
 	if created {
-		if err := s.validateApproveResultsBusiness(signal); err != nil {
+		if err := s.validateResultAdoptionBusiness(signal); err != nil {
 			s.rejectPreparedAction(signal.ActionID, record)
 			return CommandAcknowledgement{}, err
 		}
@@ -1417,7 +1452,7 @@ func (s *workflowUpdateState) handleApproveResults(ctx workflow.Context, signal 
 	})
 }
 
-func (s *workflowUpdateState) applyApproveResults(ctx workflow.Context, signal ApproveResultsSignal, record *workflowUpdateRecord) (CommandAcknowledgement, error) {
+func (s *workflowUpdateState) applyApproveResults(ctx workflow.Context, signal resultAdoptionIntent, record *workflowUpdateRecord) (CommandAcknowledgement, error) {
 	if record.phase == updatePhaseApprovalPublish && s.input.externalEffectFinalization {
 		// Persist the publication boundary before calling Asset. A failed call
 		// can still have committed; only this action's immutable receipt may
@@ -1860,7 +1895,7 @@ func (s *workflowUpdateState) handleResume(ctx workflow.Context, input ResumeCom
 		case RetrySlotSignal:
 			return s.applyRetrySlot(ctx, command, record)
 		case ApproveResultsSignal:
-			return s.applyApproveResults(ctx, command, record)
+			return s.applyApproveResults(ctx, resultAdoptionIntent(command), record)
 		case CancelSignal:
 			return s.applyCancel(ctx, command, record)
 		default:

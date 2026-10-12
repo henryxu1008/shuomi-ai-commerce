@@ -15,6 +15,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/imageagent"
@@ -28,6 +29,7 @@ type imageSetPrepareACKConfiguration struct {
 
 func (imageSetPrepareACKConfiguration) PrepareImageConfiguration(_ context.Context, in agentconfig.ImageStartCommand) (agentconfig.ImageConfigurationSnapshot, error) {
 	return agentconfig.ImageConfigurationSnapshot{
+		ExpectedModeRevision: in.ExpectedModeRevision, ModeSnapshotRef: agent.ModeSnapshotRef{Kind: agent.ExecutionModeSnapshotKind, ID: in.RequestKey, Digest: strings.Repeat("c", 64)},
 		ID: "91d39d8d-3819-4a7c-ae7f-04ce91951f9a", Digest: strings.Repeat("a", 64),
 		Scope: in.Scope, MemberID: in.MemberID, RequestKey: in.RequestKey, ContextID: in.ContextID, RunID: in.RunID,
 		TargetPlatform: in.TargetPlatform, SourceDigest: in.SourceDigest, InputDigest: in.InputDigest, Template: *in.Template,

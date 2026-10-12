@@ -32,6 +32,8 @@ func (c *setConfigurationFixture) PrepareImageConfiguration(_ context.Context, i
 		return agentconfig.ImageConfigurationSnapshot{}, agentconfig.ErrNotEnabled
 	}
 	c.snapshot = agentconfig.ImageConfigurationSnapshot{ID: "91d39d8d-3819-4a7c-ae7f-04ce91951f9a", Digest: strings.Repeat("a", 64), Scope: input.Scope, MemberID: input.MemberID, RequestKey: input.RequestKey, ContextID: input.ContextID, RunID: input.RunID, TargetPlatform: input.TargetPlatform, SourceDigest: input.SourceDigest, InputDigest: input.InputDigest, Parameters: c.template, ParametersDigest: strings.Repeat("b", 64), Epoch: "1", AgentVersion: agentconfig.ImageAgentVersion, HardLimits: input.HardLimits}
+	c.snapshot.ExpectedModeRevision = input.ExpectedModeRevision
+	c.snapshot.ModeSnapshotRef = agent.ModeSnapshotRef{Kind: agent.ExecutionModeSnapshotKind, ID: input.RequestKey, Digest: strings.Repeat("c", 64)}
 	return c.snapshot, nil
 }
 func (c *setConfigurationFixture) LoadImageConfiguration(context.Context, agent.Scope, agent.ConfigurationSnapshotRef) (agentconfig.ImageConfigurationSnapshot, error) {
@@ -164,7 +166,7 @@ func imageSetServiceFixtureWithRepository(t *testing.T, wrap func(imageagent.Rep
 	service, err := imageagent.NewService(repository, workflows, staticCatalogResolver{catalog: catalog}, imageagent.WithOrganizationScope(), imageagent.WithImageSetDependencies(imageagent.ImageSetDependencies{Configuration: config, Contexts: contexts, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{Images: 32, Points: 10000, ElapsedSeconds: 3600}}))
 	require.NoError(t, err)
 	ctx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{TenantID: "org", EffectiveOrganizationID: "org", UserID: "actor", EffectiveMemberID: "member"})
-	input := imageagent.PrepareImageSetInput{ContextKind: imageagent.ImageSourceAcquisition, RequestID: "c5fd7c43-138c-43dc-8dfb-6f9be74a5e9e", ContextID: "operation", Target: imageagent.ImageTargetSelection{Platform: "product"}, SharedOriginalIDs: []string{"source-1"}}
+	input := imageagent.PrepareImageSetInput{ExpectedModeRevision: "0", ContextKind: imageagent.ImageSourceAcquisition, RequestID: "c5fd7c43-138c-43dc-8dfb-6f9be74a5e9e", ContextID: "operation", Target: imageagent.ImageTargetSelection{Platform: "product"}, SharedOriginalIDs: []string{"source-1"}}
 	return service, repository, workflows, config, contexts, quotes, ctx, input
 }
 

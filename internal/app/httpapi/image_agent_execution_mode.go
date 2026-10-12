@@ -110,6 +110,17 @@ func completeImagePolicySelection(p imageagent.RunProjection, command asset.Imag
 			return false
 		}
 		choice := command.Choices[index]
+		if declared.Recipe.OfficialPlacement == nil {
+			if choice.OfficialPlacement != nil {
+				return false
+			}
+		} else {
+			position := declared.Recipe.OfficialPlacement
+			expected := asset.ImageOfficialPlacement{Group: position.Group, SKC: position.SKC, SKU: position.SKU, Type: position.Type, Sort: position.Sort, Site: position.Site}
+			if choice.OfficialPlacement == nil || *choice.OfficialPlacement != expected {
+				return false
+			}
+		}
 		if choice.Kind != "generated" || choice.RunID != p.Run.ID || choice.PlanRevision != p.Plan.Revision || choice.SlotID != declared.ID || choice.Attempt != slot.Attempt || choice.AssetID != slot.Candidates[0].AssetID || choice.ResultDigest != p.ResultDigest || choice.Presentation.Group != declared.Recipe.Placement.Group || choice.Presentation.Order != declared.Recipe.Placement.Order || choice.Presentation.VariantID != declared.Recipe.Placement.VariantID {
 			return false
 		}

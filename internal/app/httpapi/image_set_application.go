@@ -231,6 +231,7 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 	if err != nil {
 		return nil, empty, err
 	}
+	dependencies.ImageSetPolicyAdopter = imageSetPolicyAdopter{repository: workerRepository, configuration: configuration, selections: workerSelections, inventories: inventories}
 	return &fullImageApplication{service: service, readSources: readSources, contexts: contexts, quotes: quotes, selections: selections, inventories: inventories, approvals: approvals, publicURLs: publicURLs, trial: trial, configuration: configuration, recent: recent, gate: gate, rules: rules, manualAvailable: manual != nil}, dependencies, nil
 }
 

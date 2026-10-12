@@ -43,7 +43,8 @@ export function imageSetPath(path:string[],action:ImageSetRoute):string|null {
  return match?path.join("/"):null;
 }
 export function imageSetRequestSchema(action:ImageSetRoute):z.ZodType {
- if(action==="prepare"||action==="regenerate"||action==="requirements")return imageSetPrepareSchema;
+ if(action==="prepare"||action==="regenerate")return imageSetPrepareSchema;
+ if(action==="requirements")return imageSetPrepareSchema.omit({expectedModeRevision:true});
  if(action==="preview"||action==="approve")return imageSetSelectionSchema;
  if(action==="confirm")return z.strictObject({actionId:uuid,planRevision:positive,planDigest:hash,quoteDigest:hash});
  if(action==="restart")return z.strictObject({planRevision:positive,planDigest:hash,quoteDigest:hash});
