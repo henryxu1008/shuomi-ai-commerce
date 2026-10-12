@@ -25,14 +25,16 @@ const Base = "/api/v1/workbench/agents"
 const Module = "agent-configuration"
 
 type Handler struct {
-	Bind          func(context.Context, string) (context.Context, error)
-	Repository    agentconfig.Repository
-	Catalog       agentconfig.CatalogReader
-	Authorize     func(context.Context, ...string) (agent.Scope, error)
-	Knowledge     func(context.Context, agent.Scope, string) error
-	Capabilities  func(context.Context, agentconfig.CatalogEntry) []agentconfig.Capability
-	Recent        func(context.Context, agent.Scope, string, string, int) (any, string, error)
-	RunsAvailable func(context.Context, agentconfig.CatalogEntry) bool
+	ModeRepository     agentconfig.ModeRepository
+	ResolveModeSubject func(context.Context, agentconfig.ModeSubject, bool) (agent.ExecutionIdentity, agentconfig.ResolvedModeSubject, error)
+	Bind               func(context.Context, string) (context.Context, error)
+	Repository         agentconfig.Repository
+	Catalog            agentconfig.CatalogReader
+	Authorize          func(context.Context, ...string) (agent.Scope, error)
+	Knowledge          func(context.Context, agent.Scope, string) error
+	Capabilities       func(context.Context, agentconfig.CatalogEntry) []agentconfig.Capability
+	Recent             func(context.Context, agent.Scope, string, string, int) (any, string, error)
+	RunsAvailable      func(context.Context, agentconfig.CatalogEntry) bool
 }
 type routeModule struct{ h *Handler }
 
@@ -49,7 +51,7 @@ type spec struct{ method, path, operation string }
 var specs = []spec{{"GET", "/market", "market"}, {"GET", "/mine", "mine"}, {"GET", "/:agent_id", "detail"}, {"POST", "/:agent_id/enable", "enable"}, {"POST", "/:agent_id/disable", "disable"}, {"PUT", "/:agent_id/default-template", "default"}, {"GET", "/:agent_id/templates", "templates"}, {"POST", "/:agent_id/templates", "create-template"}, {"GET", "/:agent_id/templates/:template_id", "template"}, {"GET", "/:agent_id/templates/:template_id/revisions/:version", "template-version"}, {"PUT", "/:agent_id/templates/:template_id", "update-template"}, {"POST", "/:agent_id/templates/:template_id/archive", "archive-template"}, {"GET", "/:agent_id/recent-runs", "recent"}}
 
 func Routes(h *Handler) []httproute.Descriptor {
-	out := []httproute.Descriptor{}
+	out := modeRoutes(h)
 	for _, s := range specs {
 		policy := httproute.OrganizationAccessPolicyCachedRead
 		permission := ""

@@ -6,7 +6,7 @@
 >
 > Design Basis: Independent Architecture。当前会话为唯一设计/实现负责人；本轮先完成统一模式设计与独立高风险边界检查。正式生产实现遵守用户既定顺序，原会话先完成店铺同步/worker 与采集保存主流程。
 >
-> Execution Issue: [#656](https://github.com/qq550723504/task-processor/issues/656)。当前没有正式生产代码改动。
+> Execution Issue: [#656](https://github.com/qq550723504/task-processor/issues/656)。正式实现及其准确候选/运行交接状态以该 Issue 和主要 PR #657 为准；本设计的准入状态不代表功能已经完成。
 >
 > Inspected baseline: main f1d77a84fa653813235ddbfeedac59ea6bb0a94c，2026-10-11。
 > 本文描述拟实现合同，不表示四种模式已经存在或已经开放。

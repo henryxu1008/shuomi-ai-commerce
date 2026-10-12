@@ -51,7 +51,7 @@ func (productAgentCatalog) ReadCatalog(context.Context) ([]agentconfig.CatalogEn
 func WithAgentConfiguration(db *gorm.DB) CurrentApplicationOption {
 	return func(o *currentApplicationOptions) { o.agentConfigurationDB = db }
 }
-func buildAgentConfigurationModule(ctx context.Context, db *gorm.DB, resolver organizationIdentityResolver, auth *authz.ListingKitAuthorizer, k *knowledge.Service, runtime *productAgentApplication, images ...*fullImageApplication) (kernelmodule.Module, error) {
+func buildAgentConfigurationModule(ctx context.Context, db *gorm.DB, resolver organizationIdentityResolver, auth *authz.ListingKitAuthorizer, k *knowledge.Service, runtime *productAgentApplication, private privateModeDeliveryReader, images ...*fullImageApplication) (kernelmodule.Module, error) {
 	if len(images) > 1 {
 		return nil, agentconfig.ErrUnavailable
 	}
@@ -73,7 +73,7 @@ func buildAgentConfigurationModule(ctx context.Context, db *gorm.DB, resolver or
 	if e != nil {
 		return nil, e
 	}
-	h := &confighttp.Handler{Repository: repo, Catalog: productAgentCatalog{}, Bind: (productReviewCapabilityBinder{now: time.Now}).Bind}
+	h := &confighttp.Handler{Repository: repo, ModeRepository: repo, Catalog: productAgentCatalog{}, Bind: (productReviewCapabilityBinder{now: time.Now}).Bind}
 	h.Authorize = func(ctx context.Context, permissions ...string) (agent.Scope, error) {
 		id, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
 		if !ok || !agent.ValidID(id.EffectiveOrganizationID) || !agent.ValidID(id.UserID) || !agent.ValidID(id.EffectiveMemberID) || id.TenantID != id.EffectiveOrganizationID {
@@ -86,6 +86,7 @@ func buildAgentConfigurationModule(ctx context.Context, db *gorm.DB, resolver or
 		}
 		return agent.Scope{}, agentconfig.ErrForbidden
 	}
+	h.ResolveModeSubject = agentModeSubjectResolver(h, private)
 	h.Knowledge = func(ctx context.Context, scope agent.Scope, id string) error {
 		if k == nil {
 			return agentconfig.ErrUnavailable
