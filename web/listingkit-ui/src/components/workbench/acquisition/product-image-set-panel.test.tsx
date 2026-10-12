@@ -40,15 +40,21 @@ async function prepare(){
  fireEvent.click(await screen.findByRole("checkbox",{name:"共用原始素材 素材 1"}));
  const button=screen.getByRole("button",{name:"准备整套图片计划（2 项）"});await waitFor(()=>expect(button).toBeEnabled());fireEvent.click(button);
 }
-it("refreshes the mode after a definite prepare rejection before creating a new intent",async()=>{
+it.each(["prepare","regenerate"] as const)("refreshes the mode after a definite %s rejection before creating a new intent",async action=>{
  const initial=await calls.mode();calls.mode.mockClear();let complete!:(value:unknown)=>void;
  calls.mode.mockResolvedValueOnce(initial).mockImplementationOnce(()=>new Promise(resolve=>{complete=resolve}));
  const real=fetch.getMockImplementation()!;let rejected=false;
- fetch.mockImplementation((input,init)=>{if(String(input).endsWith("/prepare")&&!rejected){rejected=true;return Promise.resolve(Response.json({code:"IMAGE_CONFIGURATION_CHANGED"},{status:409}))}return real(input,init)});
- render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);await prepare();
+ fetch.mockImplementation((input,init)=>{if(String(input).endsWith(`/${action}`)){if(!rejected){rejected=true;return Promise.resolve(Response.json({code:"IMAGE_CONFIGURATION_CHANGED"},{status:409}))}throw new Error("new plan acknowledgement lost")}return real(input,init)});
+ if(action==="regenerate")state=projection("awaiting_final_approval",templateId);
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialRunId={action==="regenerate"?runId:undefined}/>);
+ const name=action==="prepare"?"准备整套图片计划（2 项）":"准备所选 1 项的新计划";
+ if(action==="prepare")await prepare();else{
+  const checks=await screen.findAllByRole("checkbox",{name:"重新生成此项，另行确认点数"});fireEvent.click(checks[0]);
+  const button=screen.getByRole("button",{name});await waitFor(()=>expect(button).toBeEnabled());fireEvent.click(button);
+ }
  await screen.findByRole("alert");await waitFor(()=>expect(calls.mode).toHaveBeenCalledTimes(2));
- const button=screen.getByRole("button",{name:"准备整套图片计划（2 项）"});expect(button).toBeDisabled();
- const attempts=()=>fetch.mock.calls.filter(v=>String(v[0]).endsWith("/prepare"));expect(attempts()).toHaveLength(1);
+ const button=screen.getByRole("button",{name});expect(button).toBeDisabled();
+ const attempts=()=>fetch.mock.calls.filter(v=>String(v[0]).endsWith(`/${action}`));expect(attempts()).toHaveLength(1);
  await act(async()=>complete({...initial,mode:"full_access",revision:"1"}));await waitFor(()=>expect(button).toBeEnabled());
  fireEvent.click(button);await waitFor(()=>expect(attempts()).toHaveLength(2));
  expect(JSON.parse(String(attempts()[0][1]?.body)).expectedModeRevision).toBe("0");expect(JSON.parse(String(attempts()[1][1]?.body)).expectedModeRevision).toBe("1");
