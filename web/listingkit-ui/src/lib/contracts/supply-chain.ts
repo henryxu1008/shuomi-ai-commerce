@@ -28,6 +28,13 @@ export const targetInputSchema=z.object({sourceId:collectionID,storeId:collectio
 const merchantSchema=z.object({organization_id:text(128),store_id:collectionID,site:z.literal("shein-us"),store_version:revision,connection_revision:revision,application_revision:text(128),application_id:text(128),application_type:applicationModeSchema,supplier_identity_hash:z.string().regex(/^[0-9a-f]{64}$/),service_expires_at:time});
 export const preparationSchema=z.object({id:collectionID,sourceBatchId:collectionID,sourceRevision:revision,name:text(200),count:integer,revision,createdAt:time});
 const sourceSchema=z.object({id:collectionID,preparationId:collectionID,collectionItemId:collectionID,collectionRevision:revision,source:collectionItemSchema.shape.source});
+export const COMPLETION_MAX_BYTES=64*1024;
+const completionContentSchema=z.object({title:text(1024),description:text(32768)}).strict();
+export const completionInputSchema=z.object({sourceId:collectionID,expectedRevision:integer,content:completionContentSchema}).strict();
+export const completionRecordSchema=z.object({id:collectionID,draftId:collectionID,revision,source:sourceSchema,content:completionContentSchema,status:z.literal("pending_completion"),createdAt:time}).strict();
+export const completionReceiptSchema=z.object({record:completionRecordSchema,replayed:z.boolean()}).strict();
+export const completionPageSchema=page(completionRecordSchema);
+export type SupplyCompletionDraft=z.infer<typeof completionRecordSchema>;
 export const sourceDetailSchema=z.object({source:sourceSchema,product:collectionDetailSchema.shape.product,images:list(z.object({id:collectionID,url:text(2048),width:integer,height:integer}),4096)});
 export const targetRecordSchema=z.object({id:collectionID,targetId:collectionID,revision,source:sourceSchema,effectiveVersion:version,applyReceiptId:collectionID.optional(),productHash:z.string().regex(/^[0-9a-f]{64}$/),inventoryHash:z.string().regex(/^[0-9a-f]{64}$/),rulesHash:z.string().regex(/^[0-9a-f]{64}$/),merchant:merchantSchema,input:targetInputSchema,result:z.object({product:officialProductSchema,images:list(imageSlot,10000),issues:list(z.object({field:text(8192),code:text(128),message:text(8192)}),4096),ready_for_upload:z.boolean()}),createdAt:time});
 export const targetReceiptSchema=z.object({record:targetRecordSchema,replayed:z.boolean()});
@@ -58,11 +65,14 @@ export const publicationSchema=z.object({sourceId:collectionID,storeId:collectio
 export const uploadAttemptSchema=z.object({recordId:collectionID,attemptId:collectionID,effectKind:z.enum(["publish","image"]),status:z.enum(["claimed","outcome_unknown","succeeded","failed_definitive","cancelled"]),message:text(8192)}).strict();
 export const resolveUploadSchema=z.object({recordId:collectionID,attemptId:collectionID,spu:text(128).min(1)}).strict();
 export const uploadResolutionSchema=z.object({recordId:collectionID,publishedRecordId:collectionID.optional(),attemptId:collectionID,status:z.enum(["succeeded","outcome_unknown"]),currentRecordUploaded:z.boolean().optional(),message:text(8192).optional(),product:z.object({spu_name:text(128),skc_list:z.array(z.object({skc_name:text(128).min(1),sku_list:z.array(z.object({sku_code:text(128).min(1),supplier_sku:text(800).min(1)})).min(1).max(400)})).max(40).nullable()}).optional()}).refine(v=>v.status!=="succeeded"||!!v.product?.spu_name&&!!v.product.skc_list?.length&&v.publishedRecordId===v.recordId&&v.currentRecordUploaded===true);
-export type SupplyRoute="upload-attempt"|"resolve-upload"|"stages"|"optimization-options"|"publication"|"preparation"|"operations"|"list"|"transfer"|"transfer-read"|"sources"|"source"|"target"|"save-target"|"rules"|"target-command"|"record"|"approve"|"inventory"|"create-operation"|"operation-key"|"operation"|"operation-items"|"ensure"|"cancel";
-export const supplyRouteMethods:ReadonlyArray<readonly["GET"|"POST",SupplyRoute]>=[["GET","upload-attempt"],["POST","resolve-upload"],["GET","stages"],["GET","optimization-options"],["GET","publication"],["GET","preparation"],["GET","operations"],["GET","list"],["POST","transfer"],["GET","transfer-read"],["GET","sources"],["GET","source"],["GET","target"],["POST","save-target"],["POST","rules"],["GET","target-command"],["GET","record"],["POST","approve"],["POST","inventory"],["POST","create-operation"],["GET","operation-key"],["GET","operation"],["GET","operation-items"],["POST","ensure"],["POST","cancel"]];
+export type SupplyRoute="completion-draft"|"completion-drafts"|"completion-command"|"save-completion-draft"|"upload-attempt"|"resolve-upload"|"stages"|"optimization-options"|"publication"|"preparation"|"operations"|"list"|"transfer"|"transfer-read"|"sources"|"source"|"target"|"save-target"|"rules"|"target-command"|"record"|"approve"|"inventory"|"create-operation"|"operation-key"|"operation"|"operation-items"|"ensure"|"cancel";
+export const supplyRouteMethods:ReadonlyArray<readonly["GET"|"POST",SupplyRoute]>=[["POST","save-completion-draft"],["GET","completion-draft"],["GET","completion-drafts"],["GET","completion-command"],["GET","upload-attempt"],["POST","resolve-upload"],["GET","stages"],["GET","optimization-options"],["GET","publication"],["GET","preparation"],["GET","operations"],["GET","list"],["POST","transfer"],["GET","transfer-read"],["GET","sources"],["GET","source"],["GET","target"],["POST","save-target"],["POST","rules"],["GET","target-command"],["GET","record"],["POST","approve"],["POST","inventory"],["POST","create-operation"],["GET","operation-key"],["GET","operation"],["GET","operation-items"],["POST","ensure"],["POST","cancel"]];
 export function supplyPath(method:string,p:string[]):SupplyRoute|null{
  if(p[0]!=="supply-preparations")return null;
  if(method==="GET"){
+  if(p.length===4&&p[1]==="completion-drafts"&&p[2]==="commands"&&isAcquisitionUUID(p[3]!))return "completion-command";
+  if(p.length===4&&p[1]==="sources"&&isAcquisitionUUID(p[2]!)&&p[3]==="completion-draft")return "completion-draft";
+  if(p.length===3&&isAcquisitionUUID(p[1]!)&&p[2]==="completion-drafts")return "completion-drafts";
   if(p.length===4&&p[1]==="uploads"&&isAcquisitionUUID(p[2]!)&&isAcquisitionUUID(p[3]!))return "upload-attempt";
   if(p.length===1)return "list";
   if(p.length===2 && p[1]==="optimization-options")return "optimization-options";
@@ -76,6 +86,7 @@ export function supplyPath(method:string,p:string[]):SupplyRoute|null{
   if(p.length===5 && p[1]==="sources" && isAcquisitionUUID(p[2]!) && isAcquisitionUUID(p[4]!))return p[3]==="targets"?"target":p[3]==="publications"?"publication":null;
  }
  if(method==="POST"){
+  if(p.length===2&&p[1]==="completion-drafts")return "save-completion-draft";
   if(p.length===3 && p[1]==="uploads"&&p[2]==="resolve")return "resolve-upload";
   if(p.length===2)return p[1]==="transfer"?"transfer":p[1]==="targets"?"save-target":p[1]==="target-rules"?"rules":p[1]==="operations"?"create-operation":null;
   if(p.length===3 && p[1]==="images")return p[2]==="approve"?"approve":p[2]==="inventory"?"inventory":null;
@@ -83,10 +94,13 @@ export function supplyPath(method:string,p:string[]):SupplyRoute|null{
  }
  return null;
 }
-export const supplyRequestSchema=(route:SupplyRoute)=>route==="resolve-upload"?resolveUploadSchema:route==="transfer"?transferInputSchema:route==="save-target"||route==="rules"?targetInputSchema:route==="approve"?imageApprovalSchema:route==="inventory"?sourceSelectionSchema:route==="create-operation"?operationInputSchema:null;
-export const supplyUsesKey=(route:SupplyRoute)=>["transfer","save-target","approve","create-operation"].includes(route);
+export const supplyRequestSchema=(route:SupplyRoute)=>route==="save-completion-draft"?completionInputSchema:route==="resolve-upload"?resolveUploadSchema:route==="transfer"?transferInputSchema:route==="save-target"||route==="rules"?targetInputSchema:route==="approve"?imageApprovalSchema:route==="inventory"?sourceSelectionSchema:route==="create-operation"?operationInputSchema:null;
+export const supplyUsesKey=(route:SupplyRoute)=>["transfer","save-target","save-completion-draft","approve","create-operation"].includes(route);
 export const supplyMutates=(route:SupplyRoute)=>supplyUsesKey(route)||route==="resolve-upload"||route==="ensure"||route==="cancel";
 export function supplyResponseSchema(route:SupplyRoute):z.ZodType {
+ if(route==="completion-draft")return completionRecordSchema;
+ if(route==="completion-command"||route==="save-completion-draft")return completionReceiptSchema;
+ if(route==="completion-drafts")return completionPageSchema;
  return route==="upload-attempt"?uploadAttemptSchema:route==="resolve-upload"?uploadResolutionSchema:route==="stages"?stagePageSchema:route==="optimization-options"?optimizationOptionsSchema:route==="publication"?publicationSchema:route==="preparation"?preparationSchema:route==="operations"?operationPageSchema:route==="list"?preparationPageSchema:route==="sources"?sourcePageSchema:route==="source"?sourceDetailSchema:route==="transfer"||route==="transfer-read"?transferReceiptSchema:route==="target"||route==="record"?targetRecordSchema:route==="save-target"||route==="target-command"?targetReceiptSchema:route==="rules"?rulesSchema:route==="approve"?imageApprovalReceiptSchema:route==="inventory"?inventorySchema:route==="create-operation"?operationReceiptSchema:route==="operation-items"?operationItemPageSchema:operationSchema;
 }
 export type SupplyPreparation=z.infer<typeof preparationSchema>;
@@ -101,6 +115,8 @@ export type OfficialProduct=z.infer<typeof officialProductSchema>;
 export function parseSupplyResponse(route:SupplyRoute,payload:unknown,expected?:string):unknown|null {
  const result=supplyResponseSchema(route).safeParse(payload);if(!result.success)return null;
  if(expected){
+  if(route==="completion-draft"&&completionRecordSchema.parse(result.data).source.id!==expected)return null;
+  if(route==="completion-drafts"&&completionPageSchema.parse(result.data).items.some(r=>r.source.preparationId!==expected))return null;
   if(route==="preparation" && preparationSchema.parse(result.data).id!==expected)return null;
   if(route==="source" && sourceDetailSchema.parse(result.data).source.id!==expected)return null;
   if(route==="record" && targetRecordSchema.parse(result.data).id!==expected)return null;

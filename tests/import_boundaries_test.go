@@ -5861,17 +5861,18 @@ func currentOwnerLegacyListingKitRootViolations(sources []listingKitImageBoundar
 func supplyAdapterBusinessPorts() map[string][]string {
 	base := filepath.Join("..", "internal", "integration")
 	return map[string][]string{
-		filepath.Join(base, "persistence", "listing", "preparation") + string(os.PathSeparator): {"task-processor/internal/listing/preparation", "task-processor/internal/product/collection"},
-		filepath.Join(base, "persistence", "listing", "record") + string(os.PathSeparator):      {"task-processor/internal/listing/record/target", "task-processor/internal/product/collection"},
-		filepath.Join(base, "persistence", "listing", "official") + string(os.PathSeparator):    {"task-processor/internal/listing/submission", "task-processor/internal/product/collection"},
-		filepath.Join(base, "shein", "official_goods.go"):                                       {"task-processor/internal/marketplace/shein/goods", "task-processor/internal/marketplace/shein/model"},
-		filepath.Join(base, "shein", "official_goods_rules.go"):                                 {"task-processor/internal/marketplace/shein/model"},
-		filepath.Join(base, "temu", "official_categories.go"):                                   {"task-processor/internal/marketplace/temu/model"},
-		filepath.Join(base, "temu", "official_category_rules.go"):                               {"task-processor/internal/marketplace/temu/model"},
-		filepath.Join(base, "shein", "official_readback.go"):                                    {"task-processor/internal/marketplace/shein/goods", "task-processor/internal/marketplace/shein/model"},
-		filepath.Join(base, "shein", "official_observations.go"):                                {"task-processor/internal/marketplace/shein/observations"},
-		filepath.Join(base, "persistence", "sheinobservations", "repository.go"):                {"task-processor/internal/marketplace/shein/observations"},
-		filepath.Join(base, "persistence", "sheinobservations", "schema.go"):                    {"task-processor/internal/marketplace/shein/observations"},
+		filepath.Join(base, "persistence", "listing", "preparation") + string(os.PathSeparator):     {"task-processor/internal/listing/preparation", "task-processor/internal/product/collection"},
+		filepath.Join(base, "persistence", "listing", "completiondraft") + string(os.PathSeparator): {"task-processor/internal/listing/completiondraft", "task-processor/internal/listing/preparation", "task-processor/internal/product/collection"},
+		filepath.Join(base, "persistence", "listing", "record") + string(os.PathSeparator):          {"task-processor/internal/listing/record/target", "task-processor/internal/product/collection"},
+		filepath.Join(base, "persistence", "listing", "official") + string(os.PathSeparator):        {"task-processor/internal/listing/submission", "task-processor/internal/product/collection"},
+		filepath.Join(base, "shein", "official_goods.go"):                                           {"task-processor/internal/marketplace/shein/goods", "task-processor/internal/marketplace/shein/model"},
+		filepath.Join(base, "shein", "official_goods_rules.go"):                                     {"task-processor/internal/marketplace/shein/model"},
+		filepath.Join(base, "temu", "official_categories.go"):                                       {"task-processor/internal/marketplace/temu/model"},
+		filepath.Join(base, "temu", "official_category_rules.go"):                                   {"task-processor/internal/marketplace/temu/model"},
+		filepath.Join(base, "shein", "official_readback.go"):                                        {"task-processor/internal/marketplace/shein/goods", "task-processor/internal/marketplace/shein/model"},
+		filepath.Join(base, "shein", "official_observations.go"):                                    {"task-processor/internal/marketplace/shein/observations"},
+		filepath.Join(base, "persistence", "sheinobservations", "repository.go"):                    {"task-processor/internal/marketplace/shein/observations"},
+		filepath.Join(base, "persistence", "sheinobservations", "schema.go"):                        {"task-processor/internal/marketplace/shein/observations"},
 	}
 }
 func supplyAdapterPortAllowed(path, imported string) bool {

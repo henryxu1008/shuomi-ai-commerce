@@ -87,6 +87,16 @@ function renderPage(kind: "products" | "orders" = "products") {
   );
   return { ...view, client };
 }
+it.each(["products", "orders"] as const)("shows provider pending for %s after worker preparation without data reads", async(kind)=>{
+ const request=vi.fn().mockResolvedValue(Response.json({organizationId:"org-a",userId:"actor-a",data:{available:false,canSync:false,runtimeReady:true,providerConfigured:false,kind,site:"shein-us",platformUrl:"https://sellerhub.shein.com/"}}));
+ vi.stubGlobal("fetch",request);
+ renderPage(kind);
+ expect(await screen.findByText("店铺同步内部已就绪，SHEIN 待配置")).toBeVisible();
+ expect(screen.queryByRole("table")).not.toBeInTheDocument();
+ expect(screen.queryByRole("button",{name:kind === "products"?"同步商品":"同步订单"})).not.toBeInTheDocument();
+ expect(request).toHaveBeenCalledTimes(1);
+ expect(request.mock.calls[0][0]).toContain("/capabilities");
+});
 function baseFetch() {
   return vi.fn().mockImplementation((path: string, init?: RequestInit) => {
     if (path.endsWith("/capabilities"))
@@ -95,7 +105,7 @@ function baseFetch() {
           organizationId: "org-a",
           userId: "actor-a",
           data: {
-            available: true,
+            available: true, runtimeReady: true, providerConfigured: true,
             canSync: true,
             kind: "products",
             site: "shein-us",
@@ -367,7 +377,7 @@ it.each([
     const fetch = vi.fn().mockImplementation((path: string) => {
       const data = path.endsWith("/capabilities")
         ? {
-            available: true,
+            available: true, runtimeReady: true, providerConfigured: true,
             canSync: true,
             kind: "orders",
             site: "shein-us",

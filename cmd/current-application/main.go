@@ -201,7 +201,7 @@ func execute() error {
 				options = append(options, httpapi.WithOperationsCockpit())
 			}
 			if features.StoreObservationsWorkflow != nil {
-				options = append(options, httpapi.WithStoreObservations(httpapi.StoreObservationsDependencies{Starter: observationruntime.Starter{Client: features.StoreObservationsWorkflow}, Lifecycle: features.StoreObservationsLifecycle, NewWorker: observationruntime.WorkerFactory(features.StoreObservationsWorkflow, features.StoreObservationsLifecycle)}))
+				options = append(options, httpapi.WithStoreObservations(httpapi.StoreObservationsDependencies{PreparationOnly: features.StoreObservationsPreparationOnly, Starter: observationruntime.Starter{Client: features.StoreObservationsWorkflow}, Lifecycle: features.StoreObservationsLifecycle, NewWorker: observationruntime.WorkerFactory(features.StoreObservationsWorkflow, features.StoreObservationsLifecycle)}))
 			}
 			if features.LocalTrialDB != nil {
 				options = append(options, httpapi.WithIssue36Trial(features.LocalTrialDB))
@@ -227,6 +227,9 @@ func execute() error {
 			}
 			if features.AcquisitionPlans {
 				options = append(options, httpapi.WithAcquisitionPlans())
+			}
+			if features.SupplyCompletionDrafts {
+				options = append(options, httpapi.WithSupplyCompletionDrafts())
 			}
 			if features.SourceMediaStorage != nil {
 				options = append(options, httpapi.WithCollectionSourceMedia(features.SourceMediaStorage))

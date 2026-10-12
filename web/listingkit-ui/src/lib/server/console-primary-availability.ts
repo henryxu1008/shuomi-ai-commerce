@@ -5,8 +5,9 @@ export function consolePrimaryDeploymentCapabilities() {
   return {
     productAcquisitionAvailable: isProductAcquisitionAvailable(),
     supplyMarketAvailable: process.env.LISTINGKIT_SUPPLY_MARKET_ENABLED === "true",
+    supplyCompletionDraftsAvailable: process.env.LISTINGKIT_PRODUCT_COLLECTIONS_ENABLED === "true" && process.env.LISTINGKIT_SUPPLY_COMPLETION_DRAFTS_ENABLED === "true",
     supplyChainAvailable: process.env.LISTINGKIT_PRODUCT_COLLECTIONS_ENABLED === "true" && process.env.LISTINGKIT_SUPPLY_CHAIN_ENABLED === "true",
-    supplyPreparationAvailable: process.env.LISTINGKIT_PRODUCT_COLLECTIONS_ENABLED === "true" && (process.env.LISTINGKIT_SUPPLY_CHAIN_ENABLED === "true" || process.env.LISTINGKIT_ACQUISITION_PLANS_ENABLED === "true"),
+    supplyPreparationAvailable: process.env.LISTINGKIT_PRODUCT_COLLECTIONS_ENABLED === "true" && (process.env.LISTINGKIT_SUPPLY_CHAIN_ENABLED === "true" || process.env.LISTINGKIT_ACQUISITION_PLANS_ENABLED === "true" || process.env.LISTINGKIT_SUPPLY_COMPLETION_DRAFTS_ENABLED === "true"),
     dataServicesAvailable: process.env.LISTINGKIT_DATA_SERVICES_ENABLED === "true",
     productCollectionsAvailable: process.env.LISTINGKIT_PRODUCT_COLLECTIONS_ENABLED === "true",
   };

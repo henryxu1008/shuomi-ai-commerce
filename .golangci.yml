@@ -521,6 +521,8 @@ linters-settings:
           - "!**/internal/integration/persistence/listing/submission/**/*.go"
           - "!**/internal/integration/persistence/listing/preparation/*.go"
           - "!**/internal/integration/persistence/listing/preparation/**/*.go"
+          - "!**/internal/integration/persistence/listing/completiondraft/*.go"
+          - "!**/internal/integration/persistence/listing/completiondraft/**/*.go"
           - "!**/internal/integration/persistence/listing/record/*.go"
           - "!**/internal/integration/persistence/listing/record/**/*.go"
           - "!**/internal/integration/persistence/listing/official/*.go"
@@ -1122,6 +1124,20 @@ linters-settings:
           - "gorm.io/gorm/clause$"
           - "task-processor/internal/authidentity$"
           - "task-processor/internal/integration/persistence/product/collection$"
+          - "task-processor/internal/listing/preparation$"
+          - "task-processor/internal/product/collection$"
+
+      supply_completion_draft_persistence:
+        # #605 frozen unbound draft: exact current ports; no broader domain admission.
+        list-mode: strict
+        files:
+          - "**/internal/integration/persistence/listing/completiondraft/*.go"
+          - "**/internal/integration/persistence/listing/completiondraft/**/*.go"
+          - "!**/*_test.go"
+        allow:
+          - "$gostd"
+          - "gorm.io/gorm$"
+          - "task-processor/internal/listing/completiondraft$"
           - "task-processor/internal/listing/preparation$"
           - "task-processor/internal/product/collection$"
 

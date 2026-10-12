@@ -7,6 +7,11 @@ import { ConsoleNavigation } from "./console-navigation";
 import { findConsoleRoute } from "@/lib/workbench/console-navigation";
 
 const query=vi.hoisted(()=>({value:""}));
+it("opens native completion navigation while official adaptation and upload remain closed",()=>{
+ render(<ConsoleNavigation pathname="/workbench/supply/mine/missing" ariaLabel="主导航" supplyPreparationAvailable supplyCompletionDraftsAvailable/>);
+ for(const name of ["待适配","待补全"])expect(screen.getByRole("link",{name})).toHaveAttribute("title",name);
+ for(const name of ["已适配","待审核","已上传"])expect(screen.getByRole("link",{name})).toHaveAttribute("title",`${name}：业务暂未启用`);
+});
 it("keeps all Figma supply stages visible but only opens the installed read path", () => {
  const view=render(<ConsoleNavigation pathname="/workbench/supply/mine/waiting" ariaLabel="主导航" supplyPreparationAvailable />);
  expect(screen.getByRole("link",{name:"待适配"})).toHaveAttribute("title","待适配");

@@ -4,6 +4,23 @@ const id="550e8400-e29b-41d4-a716-446655440000";
 const scope={cookie:"shuomi_effective_organization=org-a","X-Expected-Organization-ID":"org-a","X-Expected-User-ID":"actor-a"};
 describe("private supply chain proxy",()=>{
  beforeEach(()=>vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL","http://localhost"));
+ it("binds unbound text saves to the same verified actor and forbids Store or authority fields",async()=>{
+  const input={sourceId:id,expectedRevision:0,content:{title:"",description:"真实待补全内容"}};
+  const path=["supply-preparations","completion-drafts"];
+  const request=(body:string)=>new Request("http://localhost/api/workbench/supply-preparations/completion-drafts",{method:"POST",headers:{...scope,Origin:"http://localhost","Content-Type":"application/json","Idempotency-Key":id},body});
+  const accepted=await buildWorkbenchUpstreamRequest(request(JSON.stringify(input)),path,"server-token","actor-a");expect(accepted).not.toBeInstanceOf(Response);if(accepted instanceof Response)return;expect(accepted.sourceMutation).toBe(true);expect(accepted.url).toMatch(/completion-drafts$/);
+  for(const body of [JSON.stringify({...input,storeId:id}),JSON.stringify(input).replace('"title":""','"title":"","title":"other"'),JSON.stringify({...input,content:{title:"",description:"a".repeat(70*1024)}})]){
+   const rejected=await buildWorkbenchUpstreamRequest(request(body),path,"server-token","actor-a");expect(rejected).toBeInstanceOf(Response);if(rejected instanceof Response)expect(rejected.status).toBeGreaterThanOrEqual(400);
+  }
+  const wrongActor=await buildWorkbenchUpstreamRequest(request(JSON.stringify(input)),path,"server-token","other");expect(wrongActor).toBeInstanceOf(Response);if(wrongActor instanceof Response)expect(wrongActor.status).toBe(409);
+ });
+ it("allows bounded draft lists and rejects records from another preparation",async()=>{
+  const path=["supply-preparations",id,"completion-drafts"];
+  const read=await buildWorkbenchUpstreamRequest(new Request(`http://localhost/api/workbench/${path.join("/")}?limit=20&keyword=test`,{headers:scope}),path,"server-token","actor-a");expect(read).not.toBeInstanceOf(Response);
+  const other="550e8400-e29b-41d4-a716-446655440001";
+  const record={id,draftId:id,revision:1,source:{id,preparationId:other,collectionItemId:id,collectionRevision:1,source:{productKey:"product",publicationId:id,version:"1",kind:"own"}},content:{title:"saved",description:""},status:"pending_completion",createdAt:"2026-10-12T00:00:00Z"};
+  const rejected=await buildWorkbenchBrowserResponse(Response.json({items:[record],total:1}),"supply-completion-drafts",id);expect(rejected.status).toBe(502);
+ });
  it("binds a full batch transfer to the verified original actor",async()=>{
   const request=new Request("http://localhost/api/workbench/supply-preparations/transfer",{method:"POST",headers:{...scope,Origin:"http://localhost","Content-Type":"application/json","Idempotency-Key":id},body:JSON.stringify({batchId:id,expectedRevision:1})});
   const result=await buildWorkbenchUpstreamRequest(request,["supply-preparations","transfer"],"server-token","actor-a");

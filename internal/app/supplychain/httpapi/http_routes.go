@@ -305,6 +305,9 @@ func SupplyRoutes(app *supplyapp.Application, bind func(context.Context, string)
 	return result
 }
 func supplyBody(r *http.Request, in any, requiresKey bool) (string, error) {
+	return supplyBodyLimit(r, in, requiresKey, supplyMaxBytes)
+}
+func supplyBodyLimit(r *http.Request, in any, requiresKey bool, maximum int64) (string, error) {
 	keys := r.Header.Values("Idempotency-Key")
 	key := ""
 	if len(keys) == 1 {
@@ -317,8 +320,8 @@ func supplyBody(r *http.Request, in any, requiresKey bool) (string, error) {
 	if err != nil || media != "application/json" || params["charset"] != "" && !strings.EqualFold(params["charset"], "utf-8") || r.Header.Get("Content-Encoding") != "" && r.Header.Get("Content-Encoding") != "identity" {
 		return "", preparation.ErrInvalid
 	}
-	raw, err := io.ReadAll(io.LimitReader(r.Body, supplyMaxBytes+1))
-	if err != nil || len(raw) > supplyMaxBytes || !utf8.Valid(raw) {
+	raw, err := io.ReadAll(io.LimitReader(r.Body, maximum+1))
+	if err != nil || int64(len(raw)) > maximum || !utf8.Valid(raw) {
 		return "", preparation.ErrInvalid
 	}
 	strict, err := sigjson.UnmarshalStrict(raw, in, sigjson.DisallowDuplicateFields, sigjson.DisallowUnknownFields)

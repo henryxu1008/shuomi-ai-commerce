@@ -10,6 +10,26 @@ import (
 	"testing"
 )
 
+func TestSupplyCompletionDraftDocumentPreservesOriginalAuthorityAndExplicitRollout(t *testing.T) {
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "supply-unbound-completion-drafts.md"), []string{
+		"IMPLEMENTATION_READY", "PD-SUPPLY-UNBOUND-COMPLETION-2026-10-12", "2667:1948",
+		"internal/listing/completiondraft", "supplyCompletionDrafts", "RuntimeCapabilities union",
+		"listing_completion_draft_records", "listing_completion_draft_heads", "listing_completion_draft_commands",
+		"CAS", "COMMIT", "UNKNOWN", "org/actor/member", "live owner", "64 KiB",
+		"另行取得具体授权", "保留三表/所有记录", "不生成 Store merchant/rules",
+	})
+}
+
+func TestStoreObservationsPreparationDocumentKeepsExecutionClosed(t *testing.T) {
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "store-observations-preparation-runtime.md"), []string{
+		"IMPLEMENTATION_READY", "preparationOnly=true", "zero", "configured official applications",
+		"Available and CanSync remain false", "refuses any existing row", "No schema/role changes occur in serving",
+		"observations-only", "does not run Store base migrations", "No previous initializer is rerun",
+		"Rollback", "revoking only", "leave all four tables and their data intact",
+		"Real SHEIN/model/payment and final user business acceptance remain NOT_RUN",
+	})
+}
+
 func TestPhase2ClosureDocumentsRuntimeOwnershipAndDeferredDebt(t *testing.T) {
 	requireDocumentPhrases(t, filepath.Join("..", "docs", "development", "repository-structure.md"), []string{
 		"Phase 2 runtime foundation closure",

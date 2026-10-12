@@ -18,6 +18,7 @@ import { SupplyCommandFeedback } from "../supply/command-feedback";
 import { transferReceiptSchema } from "@/lib/contracts/supply-chain";
 import { ExcelImportForm } from "./excel-import-form";
 import { SourceImageUploader } from "./source-image-uploader";
+import { cn } from "@/lib/utils/cn";
 import { ConsolePage, ConsoleState } from "../console/console-page";
 
 const kindLabels = { acquisition: "在线采集", own: "自有商品", manual: "手动分组", market: "供应市场", sds_template: "SDS 模板（未定制）", sds_finished: "SDS 定制成品", amazon_data: "Amazon数据", custom_dataset: "定制数据集" };
@@ -178,10 +179,10 @@ function ScopedCollectionPage({ scope,supplyAvailable,initialBatchId,initialItem
   </ConsolePage>;
 }
 
-export function CollectionDialog({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {
+export function CollectionDialog({ title, children, onClose, className }: { title: string; children: ReactNode; onClose: () => void; className?: string }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => { const dialog = ref.current; if (dialog && !dialog.open) { if (typeof dialog.showModal === "function") dialog.showModal(); else dialog.setAttribute("open", ""); } }, []);
-  return <dialog ref={ref} aria-label={title} onCancel={event => { event.preventDefault(); onClose(); }} className="m-auto max-h-[85vh] w-[min(960px,calc(100vw-32px))] overflow-auto rounded-2xl border border-slate-200 bg-white p-6 text-slate-800 shadow-2xl backdrop:bg-slate-900/30"><div className="mb-5 flex items-center justify-between"><h2 className="text-xl font-bold">{title}</h2><Button variant="ghost" size="icon" aria-label="关闭弹窗" onClick={onClose}>×</Button></div><div className="space-y-4">{children}</div></dialog>;
+  return <dialog ref={ref} aria-label={title} onCancel={event => { event.preventDefault(); onClose(); }} className={cn("m-auto max-h-[85vh] w-[min(960px,calc(100vw-32px))] overflow-auto rounded-2xl border border-slate-200 bg-white p-6 text-slate-800 shadow-2xl backdrop:bg-slate-900/30",className)}><div className="mb-5 flex items-center justify-between"><h2 className="text-xl font-bold">{title}</h2><Button variant="ghost" size="icon" aria-label="关闭弹窗" onClick={onClose}>×</Button></div><div className="space-y-4">{children}</div></dialog>;
 }
 function OwnProductForm({ scope, disabled, onSubmit }: { scope:CollectionScope; disabled: boolean; onSubmit: (product: ReturnType<typeof ownProductSchema.parse>) => void }) {
   const [title, setTitle] = useState(""); const [description, setDescription] = useState(""); const [brand, setBrand] = useState(""); const [images, setImages] = useState(""); const [sku, setSKU] = useState(""); const [error, setError] = useState(false); const [currency,setCurrency]=useState(""),[price,setPrice]=useState(""),[stock,setStock]=useState(""),[mediaBlocked,setMediaBlocked]=useState(false);
