@@ -25,14 +25,15 @@ var (
 )
 
 type Config struct {
-	Referrals     ReferralsConfig     `yaml:"-"`
-	FeatureFlags  FeatureFlagsConfig  `yaml:"featureFlags"`
-	Observability ObservabilityConfig `yaml:"observability"`
-	Logging       LoggingConfig       `yaml:"logging"`
-	Processor     ProcessorConfig     `yaml:"processor"`
-	Worker        WorkerConfig        `yaml:"worker"`
-	OpenAI        OpenAIConfig        `yaml:"openai"`
-	Browser       BrowserConfig       `yaml:"browser"`
+	StorageCapacity bool                `yaml:"storageCapacity"`
+	Referrals       ReferralsConfig     `yaml:"-"`
+	FeatureFlags    FeatureFlagsConfig  `yaml:"featureFlags"`
+	Observability   ObservabilityConfig `yaml:"observability"`
+	Logging         LoggingConfig       `yaml:"logging"`
+	Processor       ProcessorConfig     `yaml:"processor"`
+	Worker          WorkerConfig        `yaml:"worker"`
+	OpenAI          OpenAIConfig        `yaml:"openai"`
+	Browser         BrowserConfig       `yaml:"browser"`
 	// BrowserCollector is the opt-in wiring to the standalone anonymous public
 	// 1688 browser collector process (design D13).
 	BrowserCollector             BrowserCollectorConfig        `yaml:"browserCollector"`

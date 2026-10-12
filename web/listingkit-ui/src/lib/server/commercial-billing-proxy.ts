@@ -1,5 +1,6 @@
 import {parseResourceEvents, RESOURCE_EVENTS_MAX_BYTES} from "@/lib/api/resource-events";
 import {parseResourceOffers} from "@/lib/api/resource-purchase";
+import {parseStorageSummary,parseStorageOffers} from "@/lib/api/storage-capacity";
 import { NextResponse } from "next/server";
 import { readBoundedStrictJSON } from "@/lib/api/strict-json-response";
 import { COMMERCIAL_RESOURCE_MAX_BYTES, parseCommercialResources, parseCommercialBillingFailure } from "@/lib/api/commercial-billing";
@@ -41,7 +42,9 @@ export async function proxyCommercialBilling(request: Request, accessToken: stri
   const eventRead = incomingURL.pathname === "/api/workbench/commercial/resources/events";
   const offerRead = incomingURL.pathname === "/api/workbench/commercial/resource-offers";
   const resourceRead = incomingURL.pathname === "/api/workbench/commercial/resources";
-  if ((resourceRead || offerRead) && (request.method !== "GET" || incomingURL.href.includes("?"))) return failure(400, "INVALID_REQUEST");
+  const storageRead = incomingURL.pathname === "/api/workbench/storage/summary";
+  const storageOfferRead = incomingURL.pathname === "/api/workbench/commercial/storage-offers";
+  if ((resourceRead || offerRead || storageRead || storageOfferRead) && (request.method !== "GET" || incomingURL.href.includes("?"))) return failure(400, "INVALID_REQUEST");
   const paymentWrite = request.method === "POST";
   const orderCreation = paymentWrite && incomingURL.pathname === "/api/workbench/commercial/orders";
   if (paymentWrite && !hasTrustedSameOriginWrite(request)) return failure(403, "PERMISSION_DENIED");
@@ -98,9 +101,9 @@ export async function proxyCommercialBilling(request: Request, accessToken: stri
       return controller.signal.aborted ? failure(504, "DEADLINE_EXCEEDED") : failure(502, "INVALID_UPSTREAM_RESPONSE");
     }
     controller.signal.throwIfAborted();
-    if (resourceRead || eventRead || offerRead) {
+    if (resourceRead || eventRead || offerRead || storageRead || storageOfferRead) {
       if (upstream.status === 200) {
-        const parsed = resourceRead ? parseCommercialResources(payload) : eventRead ? parseResourceEvents(payload) : parseResourceOffers(payload);
+        const parsed = storageRead ? parseStorageSummary(payload) : storageOfferRead ? parseStorageOffers(payload) : resourceRead ? parseCommercialResources(payload) : eventRead ? parseResourceEvents(payload) : parseResourceOffers(payload);
         return parsed && parsed.organization_id === organization ? safeJSON(parsed, 200) : failure(502, "INVALID_UPSTREAM_RESPONSE");
       }
       if (!parseCommercialBillingFailure(payload, upstream.status)) return failure(502, "INVALID_UPSTREAM_RESPONSE");

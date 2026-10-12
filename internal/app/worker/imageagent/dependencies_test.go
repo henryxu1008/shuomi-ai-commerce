@@ -18,6 +18,7 @@ import (
 	"task-processor/internal/imageagent/objectstore"
 	imageagenttemporal "task-processor/internal/imageagent/temporal"
 	openaiclient "task-processor/internal/integration/openai"
+	commercialstore "task-processor/internal/integration/persistence/commercialbilling"
 	s3integration "task-processor/internal/integration/s3"
 )
 
@@ -62,6 +63,7 @@ func TestResolveImageAgentTemporalDependenciesComposesRealRepositoryExecutorPubl
 func TestResolveOrganizationWorkerComposesGovernedSingleMainSlotAndLiveAuthorizer(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open("file:image-agent-worker-org?mode=memory&cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
+	require.NoError(t, commercialstore.AutoMigrate(db))
 	cfg := &config.Config{Database: &config.DatabaseConfig{}, CommercialDatabase: &config.DatabaseConfig{Host: "commercial", Port: 5434, Database: "commercial", User: "commercial_runtime"}}
 	cfg.ImageAgent.ArtifactStore = durableArtifactStoreConfig("aws", true)
 	governance := &testOrganizationInvocationRecorder{}

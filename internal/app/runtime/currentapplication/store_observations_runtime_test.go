@@ -45,7 +45,7 @@ func TestStoreObservationAndSupplyReuseOnlyExactTemporalTarget(t *testing.T) {
 			stop := errors.New("synthetic-construction-stop")
 			open := func(context.Context, DatabaseConfig) (*gorm.DB, error) { return &gorm.DB{}, nil }
 			err := Run(context.Background(), c, logrus.New(), Dependencies{
-				IdentityPreflight: func(context.Context, IdentityConfig) error { return nil }, OpenSourceAccount: open, OpenCommercialOwner: open, OpenProductAcquisition: open, OpenStoreCenter: open, OpenSupplyAssets: open, CloseDatabase: func(*gorm.DB) error { return nil },
+				IdentityPreflight: func(context.Context, IdentityConfig) error { return nil }, OpenSourceAccount: open, OpenCommercialOwner: func(context.Context, DatabaseConfig) (*gorm.DB, error) { return emptyStorageCommercialOwner(t), nil }, OpenProductAcquisition: open, OpenStoreCenter: open, OpenSupplyAssets: open, CloseDatabase: func(*gorm.DB) error { return nil },
 				DialSupplyWorkflow: func(context.Context, string, string) (client.Client, func() error, error) {
 					supplyDials++
 					return supply, func() error { closes++; return nil }, nil
@@ -92,7 +92,7 @@ func TestStoreObservationProcessServesOnlyAfterWorkerAndPreservesPools(t *testin
 			workflowClient := &mocks.Client{}
 			workflowClosed := 0
 			closed := []*gorm.DB{}
-			source, commercial, stores := &gorm.DB{}, &gorm.DB{}, &gorm.DB{}
+			source, commercial, stores := &gorm.DB{}, emptyStorageCommercialOwner(t), &gorm.DB{}
 			worker := &observationProcessWorker{}
 			listening := make(chan string, 1)
 			result := make(chan error, 1)

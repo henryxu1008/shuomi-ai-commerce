@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"image"
 	_ "image/jpeg"
 	_ "image/png"
@@ -13,6 +14,7 @@ import (
 
 	"task-processor/internal/integration/httpimage"
 	s3integration "task-processor/internal/integration/s3"
+	"task-processor/internal/ledger/storagecapacity"
 	"task-processor/internal/product/collection"
 )
 
@@ -22,6 +24,7 @@ type SourceMediaStorage interface {
 	PublicURL(string) string
 }
 type SourceMedia struct {
+	Capacity      *storagecapacity.Meter
 	Storage       SourceMediaStorage
 	Authorization collection.Authorizer
 }
@@ -111,9 +114,25 @@ func (m SourceMedia) Upload(ctx context.Context, id collection.MediaIdentity, ra
 	if _, err = httpimage.ValidatePublicHTTPSURL(m.Storage.PublicURL(mediaKey(scope, id))); err != nil {
 		return collection.MediaImage{}, collection.ErrUnavailable
 	}
+	var reservation storagecapacity.Reservation
+	object := storagecapacity.Object{Key: mediaKey(scope, id), SHA256: id.Hash, SizeBytes: id.Bytes, Category: "product_media"}
+	if m.Capacity != nil {
+		reservation, err = m.Capacity.Admit(ctx, scope.OrganizationID, "source_media", object.Key, collection.Digest([]string{scope.OrganizationID, scope.ActorID, id.Hash, object.Key}), object)
+		if err != nil {
+			if errors.Is(err, storagecapacity.ErrExceeded) {
+				return collection.MediaImage{}, collection.ErrStorageExceeded
+			}
+			return collection.MediaImage{}, err
+		}
+	}
 	err = m.Storage.PutImmutable(ctx, s3integration.ImmutableObjectPut{Key: mediaKey(scope, id), Data: raw, ContentType: result.MediaType, SHA256: id.Hash, SizeBytes: id.Bytes})
 	verified, readErr := m.read(ctx, scope, id)
 	if readErr == nil {
+		if m.Capacity != nil {
+			if e := m.Capacity.Confirm(ctx, scope.OrganizationID, reservation, object); e != nil {
+				return collection.MediaImage{}, collection.ErrUnknown
+			}
+		}
 		return verified, nil
 	} // including a verified identical immutable pre-existing object
 	if err != nil || readErr != nil {

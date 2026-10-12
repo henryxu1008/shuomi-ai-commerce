@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 import { useImageAgentRun } from "@/components/listingkit/image-agent/use-image-agent-run";
 import type {
@@ -238,6 +239,7 @@ function ImageAgentWorkbenchSession({ taskId, runId, initialRun }: { taskId: str
               {blockedGuidance ? (
                 <p className="mt-2 text-sm opacity-80">{blockedGuidance.description}</p>
               ) : null}
+              {projection.run.block?.code==="storage_limit_exceeded"&&<Link className="mt-2 inline-block underline" href="/workbench/account/organization/resources" prefetch={false}>查看存储容量与扩容</Link>}
               {projection.run.block?.message ? (
                 <p className="mt-2 text-sm opacity-80">
                   {projection.run.block.message}
@@ -250,7 +252,7 @@ function ImageAgentWorkbenchSession({ taskId, runId, initialRun }: { taskId: str
                   disabled={newCommandDisabled}
                   onClick={() => void agent.retrySlot(blockedSlotID)}
                 >
-                  {blockedGuidance ? "创建新尝试" : `仅重试 ${blockedSlotID}`}
+                  {projection.run.block?.code==="storage_limit_exceeded"?"扩容后创建新尝试":blockedGuidance ? "创建新尝试" : `仅重试 ${blockedSlotID}`}
                 </button>
               ) : null}
             </section>
@@ -325,6 +327,8 @@ function ImageAgentWorkbenchSession({ taskId, runId, initialRun }: { taskId: str
 
 function guidanceForBlockedCode(code: string | undefined) {
   switch (code) {
+    case "storage_limit_exceeded":
+      return {title:"企业存储空间不足",description:"本次生成尚未派发。请在资源与额度查看容量并扩容后，再按当前权限创建新尝试。"};
     case "slot_provider_outcome_unknown":
       return {
         title: "生成结果状态不确定",
@@ -535,7 +539,7 @@ function SlotCard({
         </div>
       ) : projection?.error_code ? (
         <p className="mt-3 rounded-xl bg-destructive/5 px-3 py-2 text-sm text-destructive">
-          {projection.error_code}
+          {projection.error_code==="storage_limit_exceeded"?"企业存储空间不足，请扩容后再生成。":projection.error_code}
         </p>
       ) : null}
     </article>

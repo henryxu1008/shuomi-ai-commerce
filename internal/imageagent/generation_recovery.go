@@ -3,6 +3,7 @@ package imageagent
 import (
 	"context"
 	"errors"
+	"task-processor/internal/ledger/storagecapacity"
 )
 
 // GenerationRecovery is an internal effect-owner seam, not an HTTP command.
@@ -21,6 +22,7 @@ type GenerationFinalizationResource interface {
 	FinalizeImageGeneration(context.Context, SlotExternalEffectIdentity) (GenerationSettlementReceipt, error)
 }
 type generationRecovery struct {
+	capacity  storagecapacity.Writer
 	facts     GenerationRecoveryFacts
 	resources GenerationFinalizationResource
 }
@@ -58,12 +60,16 @@ func (r *generationRecovery) ReconcileExistingGeneration(ctx context.Context, id
 		return fact.State, ErrRevisionConflict
 	}
 	if fact.Settlement != (GenerationSettlementReceipt{}) {
-		return fact.State, nil
+		return fact.State, closeGenerationCapacity(ctx, r.capacity, fact)
 	}
 	receipt, err := r.resources.FinalizeImageGeneration(ctx, id)
 	if err != nil {
 		return fact.State, err
 	}
-	_, err = r.facts.BindGenerationSettlement(ctx, fact.Intent, receipt)
+	settled, err := r.facts.BindGenerationSettlement(ctx, fact.Intent, receipt)
+	if err == nil {
+		fact = settled
+		err = closeGenerationCapacity(ctx, r.capacity, fact)
+	}
 	return fact.State, err
 }

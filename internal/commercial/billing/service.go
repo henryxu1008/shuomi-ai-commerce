@@ -21,6 +21,7 @@ type OrderStore interface {
 }
 
 type Service struct {
+	storage                StoragePurchaseStore
 	resourceRecoveryLock   sync.Mutex
 	resourceRecoveryAfter  *ResourceRecoveryPosition
 	topups                 *walletTopUps
@@ -53,7 +54,17 @@ func (s *Service) CreateQuote(ctx context.Context, request QuoteRequest) (Quote,
 	if s == nil || s.quotes == nil {
 		return Quote{}, ErrFeatureUnavailable
 	}
-	return s.quotes.CreateQuote(ctx, request)
+	if s.storage == nil && s.offers != nil {
+		offer, e := s.offers.ReadOffer(ctx, request.OfferID)
+		if e == nil && offer.ProductKind == ProductStorageCapacityPack {
+			return Quote{}, ErrFeatureUnavailable
+		}
+	}
+	quote, e := s.quotes.CreateQuote(ctx, request)
+	if e == nil && quote.ProductKind == ProductStorageCapacityPack && s.storage == nil {
+		return Quote{}, ErrFeatureUnavailable
+	}
+	return quote, e
 }
 
 func (s *Service) ReadWallet(ctx context.Context, organizationID string) (money.OrganizationWalletSnapshot, error) {
@@ -71,7 +82,7 @@ func (s *Service) ListWalletEntries(ctx context.Context, organizationID, cursor 
 }
 
 func (s *Service) CreateResourceOrder(ctx context.Context, request CreateResourceOrderRequest) (Order, error) {
-	if s == nil || s.orders == nil || s.quotes == nil || s.wallet == nil || s.grants == nil {
+	if s == nil || s.orders == nil || s.quotes == nil || s.wallet == nil {
 		return Order{}, ErrFeatureUnavailable
 	}
 	request.OrganizationID = strings.TrimSpace(request.OrganizationID)
@@ -85,6 +96,19 @@ func (s *Service) CreateResourceOrder(ctx context.Context, request CreateResourc
 		return Order{}, err
 	}
 	if found {
+		if order.Kind == OrderStorageCapacityPurchase {
+			if order.QuoteID != request.QuoteID || order.ActorID != request.ActorID {
+				return Order{}, ErrConflict
+			}
+			if order.Status != OrderPending {
+				return s.ReconcileStorageOrder(ctx, order.OrganizationID, order.OrderID)
+			}
+			if _, e := s.wallet.ReadCommercialPurchaseReserveDecision(ctx, order.OrganizationID, order.OrderID, order.OrderID); e == nil {
+				return s.ReconcileStorageOrder(ctx, order.OrganizationID, order.OrderID)
+			} else if !errors.Is(e, money.ErrWalletReserveDecisionNotFound) {
+				return order, ErrReconciliationRequired
+			}
+		}
 		if order.QuoteID != request.QuoteID || order.ActorID != request.ActorID {
 			return Order{}, ErrConflict
 		}
@@ -107,6 +131,12 @@ func (s *Service) CreateResourceOrder(ctx context.Context, request CreateResourc
 		quote, quoteErr := s.quotes.ReadQuote(ctx, request.OrganizationID, request.QuoteID)
 		if quoteErr != nil {
 			return Order{}, quoteErr
+		}
+		if quote.ProductKind == ProductStorageCapacityPack && s.storage == nil {
+			return Order{}, ErrFeatureUnavailable
+		}
+		if quote.ProductKind != ProductStorageCapacityPack && s.grants == nil {
+			return Order{}, ErrFeatureUnavailable
 		}
 		order, err = s.orders.CreatePendingResourceOrder(ctx, request, quote)
 		if err != nil {
@@ -138,6 +168,9 @@ func (s *Service) CreateResourceOrder(ctx context.Context, request CreateResourc
 	order.UpdatedAt = s.now().UTC()
 	if err := s.updateOrder(ctx, &order); err != nil {
 		return order, ErrReconciliationRequired
+	}
+	if order.Kind == OrderStorageCapacityPurchase {
+		return s.fulfillStorage(ctx, order)
 	}
 	item := order.Items[0]
 	grant, err := s.grants.GrantPurchasedResource(ctx, orgresource.PurchasedResourceGrantInput{OrganizationID: order.OrganizationID, OperationID: "grant:" + order.OrderID, CommercialOrderID: order.OrderID, CommercialOrderItemID: item.OrderItemID, ResourceType: item.ResourceType, Quantity: item.ResourceQuantity, Principal: orgresource.Principal{ID: "commercial-billing", Kind: orgresource.PrincipalTrustedCommercial}})

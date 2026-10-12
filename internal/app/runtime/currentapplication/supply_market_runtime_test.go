@@ -55,7 +55,7 @@ func TestPODRuntimeAssemblyFailureClosesCanonicalPools(t *testing.T) {
 			if phase == "report alias" {
 				c.ReportCenter = reportRuntimeConfig().ReportCenter
 			}
-			source, product, owner, assets := &gorm.DB{}, &gorm.DB{}, &gorm.DB{}, &gorm.DB{}
+			source, product, owner, assets := &gorm.DB{}, &gorm.DB{}, emptyStorageCommercialOwner(t), &gorm.DB{}
 			workflow := &mocks.Client{}
 			worker := &podStartFailureWorker{}
 			closed := 0

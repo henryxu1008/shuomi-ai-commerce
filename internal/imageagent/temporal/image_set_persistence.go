@@ -77,6 +77,9 @@ func (a *Activities) deriveImageSetSlotProjection(ctx context.Context, current i
 	closure, err := imageagent.ImageGenerationClosure(fact)
 	if err != nil {
 		if errors.Is(err, imageagent.ErrCommandBlocked) && result.Slot.Status != imageagent.SlotStatusAccepted {
+			if result.ErrorCode == imageagent.StorageLimitExceededCode {
+				result.ErrorCode = imageagent.SlotProviderOutcomeUnknownCode
+			}
 			return result, nil
 		}
 		return result, err
@@ -114,7 +117,7 @@ func (a *Activities) deriveImageSetSlotProjection(ctx context.Context, current i
 		}
 		if fact.State == imageagent.GenerationNoEffect || invalidOutput {
 			result.Closure = closure
-			if fact.State == imageagent.GenerationNoEffect {
+			if fact.State == imageagent.GenerationNoEffect && result.ErrorCode != imageagent.StorageLimitExceededCode {
 				result.ErrorCode = imageagent.SlotProviderNotDispatchedCode
 			}
 			if fact.State == imageagent.GenerationSucceeded {

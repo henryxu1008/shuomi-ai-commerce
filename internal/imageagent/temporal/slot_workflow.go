@@ -168,7 +168,7 @@ func effectPhaseForFinalizationWire(enabled bool, phase imageagent.SlotEffectV3P
 
 func terminalEffectPhaseForErrorCode(code string) imageagent.SlotEffectV3Phase {
 	switch code {
-	case imageagent.SlotProviderNotDispatchedCode, imageagent.BudgetExhaustedCode, imageagent.BudgetQuoteUnavailableCode, imageagent.BudgetElapsedCode, imageagent.WorkflowLifecycleElapsedCode:
+	case imageagent.SlotProviderNotDispatchedCode, imageagent.StorageLimitExceededCode, imageagent.BudgetExhaustedCode, imageagent.BudgetQuoteUnavailableCode, imageagent.BudgetElapsedCode, imageagent.WorkflowLifecycleElapsedCode:
 		return imageagent.SlotEffectV3ProviderNotDispatched
 	case imageagent.SlotProviderOutcomeUnknownCode:
 		return imageagent.SlotEffectV3ProviderUnknown
@@ -225,7 +225,7 @@ func slotExecutionV3ErrorCode(err error) string {
 	var applicationError *sdktemporal.ApplicationError
 	if errors.As(err, &applicationError) {
 		switch applicationError.Type() {
-		case imageagent.SlotProviderNotDispatchedCode, slotProviderOutcomeUnknownCode, slotStagingOutcomeUnknownCode, slotPublicationOutcomeUnknownCode, imageagent.SlotReviewRequiredCode, imageagent.SlotReviewTransportRequiredCode:
+		case imageagent.SlotProviderNotDispatchedCode, imageagent.StorageLimitExceededCode, slotProviderOutcomeUnknownCode, slotStagingOutcomeUnknownCode, slotPublicationOutcomeUnknownCode, imageagent.SlotReviewRequiredCode, imageagent.SlotReviewTransportRequiredCode:
 			return applicationError.Type()
 		case slotEffectPhaseInvalidCode:
 			return imageagent.SlotEffectPhaseInvalidCode

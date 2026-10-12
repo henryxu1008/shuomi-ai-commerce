@@ -16,51 +16,57 @@ import (
 	"gorm.io/gorm/clause"
 
 	"task-processor/internal/commercial/billing"
+	capacitystore "task-processor/internal/integration/persistence/storagecapacity"
 	"task-processor/internal/ledger/money"
 	"task-processor/internal/ledger/orgresource"
 )
 
 type offerRow struct {
-	OfferID        string     `gorm:"column:offer_id;primaryKey;size:128"`
-	ProductKind    string     `gorm:"column:product_kind;size:64;not null"`
-	ResourceType   string     `gorm:"column:resource_type;size:64;not null"`
-	Currency       string     `gorm:"column:currency;size:3;not null"`
-	UnitPriceMinor int64      `gorm:"column:unit_price_minor;not null;default:0"`
-	PricingVersion string     `gorm:"column:pricing_version;size:96;not null"`
-	MinQuantity    int64      `gorm:"column:min_quantity;not null"`
-	MaxQuantity    int64      `gorm:"column:max_quantity;not null"`
-	Status         string     `gorm:"column:status;size:16;not null"`
-	StartsAt       *time.Time `gorm:"column:starts_at"`
-	ExpiresAt      *time.Time `gorm:"column:expires_at"`
-	PlanCode       string     `gorm:"column:plan_code;size:64;not null;default:''"`
-	TermMonths     int        `gorm:"column:term_months;not null;default:0"`
-	SettlementMode string     `gorm:"column:settlement_mode;size:32;not null;default:''"`
+	StorageUnitBytes       int64      `gorm:"not null;default:0"`
+	StorageDurationSeconds int64      `gorm:"not null;default:0"`
+	OfferID                string     `gorm:"column:offer_id;primaryKey;size:128"`
+	ProductKind            string     `gorm:"column:product_kind;size:64;not null"`
+	ResourceType           string     `gorm:"column:resource_type;size:64;not null"`
+	Currency               string     `gorm:"column:currency;size:3;not null"`
+	UnitPriceMinor         int64      `gorm:"column:unit_price_minor;not null;default:0"`
+	PricingVersion         string     `gorm:"column:pricing_version;size:96;not null"`
+	MinQuantity            int64      `gorm:"column:min_quantity;not null"`
+	MaxQuantity            int64      `gorm:"column:max_quantity;not null"`
+	Status                 string     `gorm:"column:status;size:16;not null"`
+	StartsAt               *time.Time `gorm:"column:starts_at"`
+	ExpiresAt              *time.Time `gorm:"column:expires_at"`
+	PlanCode               string     `gorm:"column:plan_code;size:64;not null;default:''"`
+	TermMonths             int        `gorm:"column:term_months;not null;default:0"`
+	SettlementMode         string     `gorm:"column:settlement_mode;size:32;not null;default:''"`
 }
 
 func (offerRow) TableName() string { return "commercial_offers" }
 
 type quoteRow struct {
-	QuoteID          string    `gorm:"column:quote_id;primaryKey;size:128"`
-	OrganizationID   string    `gorm:"column:organization_id;size:128;not null;index"`
-	OfferID          string    `gorm:"column:offer_id;size:128;not null"`
-	ProductKind      string    `gorm:"column:product_kind;size:64;not null"`
-	ResourceType     string    `gorm:"column:resource_type;size:64;not null"`
-	ResourceQuantity int64     `gorm:"column:resource_quantity;not null"`
-	Currency         string    `gorm:"column:currency;size:3;not null"`
-	TotalMinor       int64     `gorm:"column:total_minor;not null"`
-	PricingVersion   string    `gorm:"column:pricing_version;size:96;not null"`
-	ExpiresAt        time.Time `gorm:"column:expires_at;not null;index"`
-	Fingerprint      string    `gorm:"column:fingerprint;size:64;not null"`
-	CreatedAt        time.Time `gorm:"column:created_at;not null"`
-	PlanCode         string    `gorm:"column:plan_code;size:64;not null;default:''"`
-	PlanFingerprint  string    `gorm:"column:plan_fingerprint;size:128;not null;default:''"`
-	TermMonths       int       `gorm:"column:term_months;not null;default:0"`
-	SettlementMode   string    `gorm:"column:settlement_mode;size:32;not null;default:''"`
+	StorageUnitBytes       int64     `gorm:"not null;default:0"`
+	StorageDurationSeconds int64     `gorm:"not null;default:0"`
+	QuoteID                string    `gorm:"column:quote_id;primaryKey;size:128"`
+	OrganizationID         string    `gorm:"column:organization_id;size:128;not null;index"`
+	OfferID                string    `gorm:"column:offer_id;size:128;not null"`
+	ProductKind            string    `gorm:"column:product_kind;size:64;not null"`
+	ResourceType           string    `gorm:"column:resource_type;size:64;not null"`
+	ResourceQuantity       int64     `gorm:"column:resource_quantity;not null"`
+	Currency               string    `gorm:"column:currency;size:3;not null"`
+	TotalMinor             int64     `gorm:"column:total_minor;not null"`
+	PricingVersion         string    `gorm:"column:pricing_version;size:96;not null"`
+	ExpiresAt              time.Time `gorm:"column:expires_at;not null;index"`
+	Fingerprint            string    `gorm:"column:fingerprint;size:64;not null"`
+	CreatedAt              time.Time `gorm:"column:created_at;not null"`
+	PlanCode               string    `gorm:"column:plan_code;size:64;not null;default:''"`
+	PlanFingerprint        string    `gorm:"column:plan_fingerprint;size:128;not null;default:''"`
+	TermMonths             int       `gorm:"column:term_months;not null;default:0"`
+	SettlementMode         string    `gorm:"column:settlement_mode;size:32;not null;default:''"`
 }
 
 func (quoteRow) TableName() string { return "commercial_quotes" }
 
 type orderRow struct {
+	StorageActivationReceipt            string     `gorm:"size:128;not null;default:''"`
 	OrderID                             string     `gorm:"column:order_id;primaryKey;size:128"`
 	OrganizationID                      string     `gorm:"column:organization_id;size:128;not null;index;uniqueIndex:uq_commercial_orders_org_idempotency,priority:1"`
 	Kind                                string     `gorm:"column:kind;size:32;not null"`
@@ -106,12 +112,14 @@ type orderRow struct {
 func (orderRow) TableName() string { return "commercial_orders" }
 
 type orderItemRow struct {
-	OrderItemID      string `gorm:"column:order_item_id;primaryKey;size:128"`
-	OrderID          string `gorm:"column:order_id;size:128;not null;index"`
-	ProductKind      string `gorm:"column:product_kind;size:64;not null"`
-	ResourceType     string `gorm:"column:resource_type;size:64;not null"`
-	ResourceQuantity int64  `gorm:"column:resource_quantity;not null"`
-	AmountMinor      int64  `gorm:"column:amount_minor;not null"`
+	StorageUnitBytes       int64  `gorm:"not null;default:0"`
+	StorageDurationSeconds int64  `gorm:"not null;default:0"`
+	OrderItemID            string `gorm:"column:order_item_id;primaryKey;size:128"`
+	OrderID                string `gorm:"column:order_id;size:128;not null;index"`
+	ProductKind            string `gorm:"column:product_kind;size:64;not null"`
+	ResourceType           string `gorm:"column:resource_type;size:64;not null"`
+	ResourceQuantity       int64  `gorm:"column:resource_quantity;not null"`
+	AmountMinor            int64  `gorm:"column:amount_minor;not null"`
 }
 
 func (orderItemRow) TableName() string { return "commercial_order_items" }
@@ -135,7 +143,12 @@ func AutoMigrate(db *gorm.DB) error {
 	if err := db.AutoMigrate(&offerRow{}, &quoteRow{}, &orderRow{}, &orderItemRow{}); err != nil {
 		return err
 	}
-	if err := migrateTopUp(db); err != nil { return err }
+	if err := capacitystore.AutoMigrate(db); err != nil {
+		return err
+	}
+	if err := migrateTopUp(db); err != nil {
+		return err
+	}
 	return migrateServicePurchases(db)
 }
 
@@ -267,7 +280,7 @@ func (r *Repository) CreateQuote(ctx context.Context, request billing.QuoteReque
 		return billing.Quote{}, billing.ErrInvalid
 	}
 	now := r.now().UTC()
-	quote := billing.Quote{QuoteID: uuid.NewString(), OrganizationID: strings.TrimSpace(request.OrganizationID), OfferID: offer.OfferID, ProductKind: offer.ProductKind, ResourceType: offer.ResourceType, ResourceQuantity: request.Quantity, Currency: offer.Currency, TotalMinor: offer.UnitPriceMinor * request.Quantity, PricingVersion: offer.PricingVersion, CreatedAt: now, ExpiresAt: now.Add(15 * time.Minute)}
+	quote := billing.Quote{QuoteID: uuid.NewString(), OrganizationID: strings.TrimSpace(request.OrganizationID), OfferID: offer.OfferID, ProductKind: offer.ProductKind, ResourceType: offer.ResourceType, ResourceQuantity: request.Quantity, Currency: offer.Currency, TotalMinor: offer.UnitPriceMinor * request.Quantity, PricingVersion: offer.PricingVersion, CreatedAt: now, ExpiresAt: now.Add(15 * time.Minute), StorageUnitBytes: offer.StorageUnitBytes, StorageDurationSeconds: offer.StorageDurationSeconds}
 	quote.Fingerprint = fingerprint(struct {
 		OrganizationID string                   `json:"organization_id"`
 		OfferID        string                   `json:"offer_id"`
@@ -278,6 +291,9 @@ func (r *Repository) CreateQuote(ctx context.Context, request billing.QuoteReque
 		TotalMinor     int64                    `json:"total_minor"`
 		PricingVersion string                   `json:"pricing_version"`
 	}{quote.OrganizationID, quote.OfferID, quote.ProductKind, quote.ResourceType, quote.ResourceQuantity, quote.Currency, quote.TotalMinor, quote.PricingVersion})
+	if quote.ProductKind == billing.ProductStorageCapacityPack {
+		quote.Fingerprint = fingerprint([]any{"storage-quote-v1", quote.Fingerprint, quote.StorageUnitBytes, quote.StorageDurationSeconds})
+	}
 	if err := quote.Validate(); err != nil {
 		return billing.Quote{}, err
 	}
@@ -338,8 +354,12 @@ func (r *Repository) CreatePendingResourceOrder(ctx context.Context, request bil
 			return billing.ErrFeatureUnavailable
 		}
 		now := r.now().UTC()
-		row := orderRow{OrderID: uuid.NewString(), OrganizationID: request.OrganizationID, ActorID: request.ActorID, Kind: string(billing.OrderResourcePurchase), QuoteID: quote.QuoteID, Description: billing.DescribeOrder(billing.OrderResourcePurchase, quote.ProductKind, quote.ResourceQuantity), Currency: quote.Currency, AmountMinor: quote.TotalMinor, Status: string(billing.OrderPending), ProductKind: string(quote.ProductKind), IdempotencyKey: request.IdempotencyKey, RequestFingerprint: fingerprint, Version: 1, CreatedAt: now, UpdatedAt: now}
-		item := orderItemRow{OrderItemID: uuid.NewString(), OrderID: row.OrderID, ProductKind: string(quote.ProductKind), ResourceType: string(quote.ResourceType), ResourceQuantity: quote.ResourceQuantity, AmountMinor: quote.TotalMinor}
+		kind := billing.OrderResourcePurchase
+		if quote.ProductKind == billing.ProductStorageCapacityPack {
+			kind = billing.OrderStorageCapacityPurchase
+		}
+		row := orderRow{OrderID: uuid.NewString(), OrganizationID: request.OrganizationID, ActorID: request.ActorID, Kind: string(kind), QuoteID: quote.QuoteID, Description: billing.DescribeOrder(kind, quote.ProductKind, quote.ResourceQuantity), Currency: quote.Currency, AmountMinor: quote.TotalMinor, Status: string(billing.OrderPending), ProductKind: string(quote.ProductKind), IdempotencyKey: request.IdempotencyKey, RequestFingerprint: fingerprint, Version: 1, CreatedAt: now, UpdatedAt: now}
+		item := orderItemRow{OrderItemID: uuid.NewString(), OrderID: row.OrderID, ProductKind: string(quote.ProductKind), ResourceType: string(quote.ResourceType), ResourceQuantity: quote.ResourceQuantity, AmountMinor: quote.TotalMinor, StorageUnitBytes: quote.StorageUnitBytes, StorageDurationSeconds: quote.StorageDurationSeconds}
 		result := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "organization_id"}, {Name: "idempotency_key"}}, DoNothing: true}).Create(&row)
 		if result.Error != nil {
 			return billing.ErrFeatureUnavailable
@@ -379,7 +399,7 @@ func (r *Repository) FindResourceOrderByIdempotency(ctx context.Context, organiz
 		}
 		return billing.Order{}, false, billing.ErrFeatureUnavailable
 	}
-	if row.Kind != string(billing.OrderResourcePurchase) {
+	if row.Kind != string(billing.OrderResourcePurchase) && row.Kind != string(billing.OrderStorageCapacityPurchase) {
 		return billing.Order{}, false, billing.ErrConflict
 	}
 	var item orderItemRow
@@ -536,6 +556,9 @@ func (r *Repository) UpdateOrder(ctx context.Context, order billing.Order) error
 	if r == nil || r.db == nil || order.Validate() != nil {
 		return billing.ErrInvalid
 	}
+	if order.Kind == billing.OrderStorageCapacityPurchase && order.Status == billing.OrderFulfilled {
+		return billing.ErrInvalid
+	}
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var row orderRow
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("organization_id = ? AND order_id = ?", order.OrganizationID, order.OrderID).Take(&row).Error; err != nil {
@@ -646,7 +669,7 @@ func (r *Repository) ReadOrderSummary(ctx context.Context, organizationID string
 	// Fulfilled orders receive their terminal timestamp in updated_at when the
 	// fulfillment/reconciliation path commits. Spend windows follow that event,
 	// not when the order was originally created.
-	if err := r.db.WithContext(ctx).Table("commercial_orders").Select("commercial_orders.product_kind AS product_kind, SUM(commercial_orders.amount_minor) AS spend_minor").Where("commercial_orders.organization_id = ? AND commercial_orders.kind IN ? AND commercial_orders.status = ? AND commercial_orders.updated_at >= ? AND commercial_orders.updated_at < ?", organizationID, []string{string(billing.OrderResourcePurchase), string(billing.OrderSubscriptionPurchase)}, string(billing.OrderFulfilled), from.UTC(), until.UTC()).Group("commercial_orders.product_kind").Scan(&rows).Error; err != nil {
+	if err := r.db.WithContext(ctx).Table("commercial_orders").Select("commercial_orders.product_kind AS product_kind, SUM(commercial_orders.amount_minor) AS spend_minor").Where("commercial_orders.organization_id = ? AND commercial_orders.kind IN ? AND commercial_orders.status = ? AND commercial_orders.updated_at >= ? AND commercial_orders.updated_at < ?", organizationID, []string{string(billing.OrderResourcePurchase), string(billing.OrderSubscriptionPurchase), string(billing.OrderStorageCapacityPurchase)}, string(billing.OrderFulfilled), from.UTC(), until.UTC()).Group("commercial_orders.product_kind").Scan(&rows).Error; err != nil {
 		return billing.OrderSummary{}, billing.ErrFeatureUnavailable
 	}
 	for _, row := range rows {
@@ -686,23 +709,23 @@ func decodeOrderCursor(cursor string) (time.Time, string, error) {
 }
 
 func offerToRow(value billing.Offer) offerRow {
-	return offerRow{OfferID: value.OfferID, ProductKind: string(value.ProductKind), ResourceType: string(value.ResourceType), Currency: value.Currency, UnitPriceMinor: value.UnitPriceMinor, PricingVersion: value.PricingVersion, MinQuantity: value.MinQuantity, MaxQuantity: value.MaxQuantity, Status: string(value.Status), StartsAt: value.StartsAt, ExpiresAt: value.ExpiresAt, PlanCode: value.PlanCode, TermMonths: value.TermMonths, SettlementMode: string(value.SettlementMode)}
+	return offerRow{StorageUnitBytes: value.StorageUnitBytes, StorageDurationSeconds: value.StorageDurationSeconds, OfferID: value.OfferID, ProductKind: string(value.ProductKind), ResourceType: string(value.ResourceType), Currency: value.Currency, UnitPriceMinor: value.UnitPriceMinor, PricingVersion: value.PricingVersion, MinQuantity: value.MinQuantity, MaxQuantity: value.MaxQuantity, Status: string(value.Status), StartsAt: value.StartsAt, ExpiresAt: value.ExpiresAt, PlanCode: value.PlanCode, TermMonths: value.TermMonths, SettlementMode: string(value.SettlementMode)}
 }
 func offerFromRow(row offerRow) billing.Offer {
-	return billing.Offer{OfferID: row.OfferID, ProductKind: billing.ProductKind(row.ProductKind), ResourceType: orgresource.ResourceType(row.ResourceType), Currency: row.Currency, UnitPriceMinor: row.UnitPriceMinor, PricingVersion: row.PricingVersion, MinQuantity: row.MinQuantity, MaxQuantity: row.MaxQuantity, Status: billing.OfferStatus(row.Status), StartsAt: row.StartsAt, ExpiresAt: row.ExpiresAt, PlanCode: row.PlanCode, TermMonths: row.TermMonths, SettlementMode: billing.SettlementMode(row.SettlementMode)}
+	return billing.Offer{StorageUnitBytes: row.StorageUnitBytes, StorageDurationSeconds: row.StorageDurationSeconds, OfferID: row.OfferID, ProductKind: billing.ProductKind(row.ProductKind), ResourceType: orgresource.ResourceType(row.ResourceType), Currency: row.Currency, UnitPriceMinor: row.UnitPriceMinor, PricingVersion: row.PricingVersion, MinQuantity: row.MinQuantity, MaxQuantity: row.MaxQuantity, Status: billing.OfferStatus(row.Status), StartsAt: row.StartsAt, ExpiresAt: row.ExpiresAt, PlanCode: row.PlanCode, TermMonths: row.TermMonths, SettlementMode: billing.SettlementMode(row.SettlementMode)}
 }
 func quoteToRow(value billing.Quote) quoteRow {
-	return quoteRow{QuoteID: value.QuoteID, OrganizationID: value.OrganizationID, OfferID: value.OfferID, ProductKind: string(value.ProductKind), ResourceType: string(value.ResourceType), ResourceQuantity: value.ResourceQuantity, Currency: value.Currency, TotalMinor: value.TotalMinor, PricingVersion: value.PricingVersion, ExpiresAt: value.ExpiresAt, Fingerprint: value.Fingerprint, CreatedAt: value.CreatedAt, PlanCode: value.PlanCode, PlanFingerprint: value.PlanFingerprint, TermMonths: value.TermMonths, SettlementMode: string(value.SettlementMode)}
+	return quoteRow{StorageUnitBytes: value.StorageUnitBytes, StorageDurationSeconds: value.StorageDurationSeconds, QuoteID: value.QuoteID, OrganizationID: value.OrganizationID, OfferID: value.OfferID, ProductKind: string(value.ProductKind), ResourceType: string(value.ResourceType), ResourceQuantity: value.ResourceQuantity, Currency: value.Currency, TotalMinor: value.TotalMinor, PricingVersion: value.PricingVersion, ExpiresAt: value.ExpiresAt, Fingerprint: value.Fingerprint, CreatedAt: value.CreatedAt, PlanCode: value.PlanCode, PlanFingerprint: value.PlanFingerprint, TermMonths: value.TermMonths, SettlementMode: string(value.SettlementMode)}
 }
 func quoteFromRow(row quoteRow) billing.Quote {
-	return billing.Quote{QuoteID: row.QuoteID, OrganizationID: row.OrganizationID, OfferID: row.OfferID, ProductKind: billing.ProductKind(row.ProductKind), ResourceType: orgresource.ResourceType(row.ResourceType), ResourceQuantity: row.ResourceQuantity, Currency: row.Currency, TotalMinor: row.TotalMinor, PricingVersion: row.PricingVersion, ExpiresAt: row.ExpiresAt, Fingerprint: row.Fingerprint, CreatedAt: row.CreatedAt, PlanCode: row.PlanCode, PlanFingerprint: row.PlanFingerprint, TermMonths: row.TermMonths, SettlementMode: billing.SettlementMode(row.SettlementMode)}
+	return billing.Quote{StorageUnitBytes: row.StorageUnitBytes, StorageDurationSeconds: row.StorageDurationSeconds, QuoteID: row.QuoteID, OrganizationID: row.OrganizationID, OfferID: row.OfferID, ProductKind: billing.ProductKind(row.ProductKind), ResourceType: orgresource.ResourceType(row.ResourceType), ResourceQuantity: row.ResourceQuantity, Currency: row.Currency, TotalMinor: row.TotalMinor, PricingVersion: row.PricingVersion, ExpiresAt: row.ExpiresAt, Fingerprint: row.Fingerprint, CreatedAt: row.CreatedAt, PlanCode: row.PlanCode, PlanFingerprint: row.PlanFingerprint, TermMonths: row.TermMonths, SettlementMode: billing.SettlementMode(row.SettlementMode)}
 }
 func orderFromRows(row orderRow, item orderItemRow) billing.Order {
 	items := []billing.OrderItem(nil)
 	if item.OrderItemID != "" {
-		items = []billing.OrderItem{{OrderItemID: item.OrderItemID, ProductKind: billing.ProductKind(item.ProductKind), ResourceType: orgresource.ResourceType(item.ResourceType), ResourceQuantity: item.ResourceQuantity, AmountMinor: item.AmountMinor}}
+		items = []billing.OrderItem{{OrderItemID: item.OrderItemID, ProductKind: billing.ProductKind(item.ProductKind), ResourceType: orgresource.ResourceType(item.ResourceType), ResourceQuantity: item.ResourceQuantity, AmountMinor: item.AmountMinor, StorageUnitBytes: item.StorageUnitBytes, StorageDurationSeconds: item.StorageDurationSeconds}}
 	}
-	return billing.Order{OrderID: row.OrderID, OrganizationID: row.OrganizationID, Kind: billing.OrderKind(row.Kind), Description: row.Description, QuoteID: row.QuoteID, Currency: row.Currency, AmountMinor: row.AmountMinor, Status: billing.OrderStatus(row.Status), FailureCode: billing.OrderFailureCode(row.FailureCode), WalletReservationID: row.WalletReservationID, WalletReservationState: money.WalletReservationState(row.WalletReservationState), PaymentID: row.PaymentID, ResourceGrantOperationID: row.ResourceGrantOperationID, ResourceGrantSourceType: row.ResourceGrantSourceType, ResourceGrantSourceIdentity: row.ResourceGrantSourceIdentity, Items: items, IdempotencyKey: row.IdempotencyKey, RequestFingerprint: row.RequestFingerprint, Version: row.Version, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt, ActorID: row.ActorID, ProductKind: billing.ProductKind(row.ProductKind), PlanCode: row.PlanCode, PlanFingerprint: row.PlanFingerprint, TermMonths: row.TermMonths, SettlementMode: billing.SettlementMode(row.SettlementMode), ActivationOperationID: row.ActivationOperationID, ActivationRequestFingerprint: row.ActivationRequestFingerprint, ActivationOutcome: billing.SubscriptionActivationOutcome(row.ActivationOutcome), ActivationFailureCode: billing.SubscriptionActivationFailureCode(row.ActivationFailureCode), ActivationSubscriptionID: row.ActivationSubscriptionID, ActivationStartsAt: row.ActivationStartsAt, ActivationExpiresAt: row.ActivationExpiresAt, ActivationEntitlementSetFingerprint: row.ActivationEntitlementSetFingerprint, ActivationDecidedAt: row.ActivationDecidedAt, PendingEffect: billing.PendingSubscriptionOrderEffect(row.PendingEffect), PendingEffectAdmittedAt: row.PendingEffectAdmittedAt, TerminalIntent: billing.SubscriptionOrderTerminalIntent(row.TerminalIntent), TerminalIntentReason: billing.OrderFailureCode(row.TerminalIntentReason), TerminalIntentAt: row.TerminalIntentAt}
+	return billing.Order{StorageActivationReceipt: row.StorageActivationReceipt, OrderID: row.OrderID, OrganizationID: row.OrganizationID, Kind: billing.OrderKind(row.Kind), Description: row.Description, QuoteID: row.QuoteID, Currency: row.Currency, AmountMinor: row.AmountMinor, Status: billing.OrderStatus(row.Status), FailureCode: billing.OrderFailureCode(row.FailureCode), WalletReservationID: row.WalletReservationID, WalletReservationState: money.WalletReservationState(row.WalletReservationState), PaymentID: row.PaymentID, ResourceGrantOperationID: row.ResourceGrantOperationID, ResourceGrantSourceType: row.ResourceGrantSourceType, ResourceGrantSourceIdentity: row.ResourceGrantSourceIdentity, Items: items, IdempotencyKey: row.IdempotencyKey, RequestFingerprint: row.RequestFingerprint, Version: row.Version, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt, ActorID: row.ActorID, ProductKind: billing.ProductKind(row.ProductKind), PlanCode: row.PlanCode, PlanFingerprint: row.PlanFingerprint, TermMonths: row.TermMonths, SettlementMode: billing.SettlementMode(row.SettlementMode), ActivationOperationID: row.ActivationOperationID, ActivationRequestFingerprint: row.ActivationRequestFingerprint, ActivationOutcome: billing.SubscriptionActivationOutcome(row.ActivationOutcome), ActivationFailureCode: billing.SubscriptionActivationFailureCode(row.ActivationFailureCode), ActivationSubscriptionID: row.ActivationSubscriptionID, ActivationStartsAt: row.ActivationStartsAt, ActivationExpiresAt: row.ActivationExpiresAt, ActivationEntitlementSetFingerprint: row.ActivationEntitlementSetFingerprint, ActivationDecidedAt: row.ActivationDecidedAt, PendingEffect: billing.PendingSubscriptionOrderEffect(row.PendingEffect), PendingEffectAdmittedAt: row.PendingEffectAdmittedAt, TerminalIntent: billing.SubscriptionOrderTerminalIntent(row.TerminalIntent), TerminalIntentReason: billing.OrderFailureCode(row.TerminalIntentReason), TerminalIntentAt: row.TerminalIntentAt}
 }
 
 func applySubscriptionOrderToRow(row *orderRow, order billing.Order) {

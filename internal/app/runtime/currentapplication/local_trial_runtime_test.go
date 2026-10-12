@@ -28,7 +28,7 @@ func issue36RuntimeConfig() *Config {
 
 func TestIssue36RuntimeOpensIndependentPoolAndClosesOnCompositionFailure(t *testing.T) {
 	cfg := issue36RuntimeConfig()
-	source, commercial, store, trial := &gorm.DB{}, &gorm.DB{}, &gorm.DB{}, &gorm.DB{}
+	source, commercial, store, trial := &gorm.DB{}, emptyStorageCommercialOwner(t), &gorm.DB{}, &gorm.DB{}
 	stop := errors.New("composition stopped")
 	var closed []*gorm.DB
 	err := Run(context.Background(), cfg, logrus.New(), Dependencies{
@@ -59,7 +59,7 @@ func TestIssue36RuntimeFailsClosedWithoutDedicatedOpenerOrPool(t *testing.T) {
 	for _, missing := range []string{"opener", "pool"} {
 		t.Run(missing, func(t *testing.T) {
 			cfg := issue36RuntimeConfig()
-			source, commercial, store := &gorm.DB{}, &gorm.DB{}, &gorm.DB{}
+			source, commercial, store := &gorm.DB{}, emptyStorageCommercialOwner(t), &gorm.DB{}
 			openedSource := false
 			deps := Dependencies{
 				IdentityPreflight: func(context.Context, IdentityConfig) error { return nil },

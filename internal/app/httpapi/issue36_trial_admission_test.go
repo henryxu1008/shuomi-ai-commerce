@@ -68,7 +68,7 @@ func TestIssue36TrialOptionalAssembly(t *testing.T) {
 	for _, mode := range []string{"enabled", "missing-store", "nil-trial", "shared-store", "shared-owner", "duplicate", "missing-builder"} {
 		t.Run(mode, func(t *testing.T) {
 			deps := newRouteAuthDependencies()
-			source, owner, stores, trial := &gorm.DB{}, &gorm.DB{}, &gorm.DB{}, &gorm.DB{}
+			source, owner, stores, trial := &gorm.DB{}, emptyStorageCommercialOwner(t), &gorm.DB{}, &gorm.DB{}
 			calls := 0
 			factories := currentApplicationFactories{
 				buildWorkbench: func(*config.Config, *logrus.Logger) (workbenchContextBuildResult, error) {

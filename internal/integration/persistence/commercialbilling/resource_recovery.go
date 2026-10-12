@@ -9,7 +9,7 @@ func (r *Repository) ListRecoverableResourceOrders(ctx context.Context, after *b
 	if r == nil || r.db == nil || limit < 1 || limit > 50 || after != nil && (after.CreatedAt.IsZero() || after.OrderID == "" || len(after.OrderID) > 128) {
 		return billing.ResourceRecoveryPage{}, billing.ErrInvalid
 	}
-	query := r.db.WithContext(ctx).Where("kind = ? AND status IN ?", string(billing.OrderResourcePurchase), []string{string(billing.OrderPending), string(billing.OrderFundsReserved), string(billing.OrderFulfilling), string(billing.OrderReconciliationRequired)})
+	query := r.db.WithContext(ctx).Where("kind IN ? AND status IN ?", []string{string(billing.OrderResourcePurchase), string(billing.OrderStorageCapacityPurchase)}, []string{string(billing.OrderPending), string(billing.OrderFundsReserved), string(billing.OrderFulfilling), string(billing.OrderReconciliationRequired)})
 	if after != nil {
 		query = query.Where("created_at > ? OR (created_at = ? AND order_id > ?)", after.CreatedAt.UTC(), after.CreatedAt.UTC(), after.OrderID)
 	}

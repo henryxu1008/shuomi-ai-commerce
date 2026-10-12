@@ -18,10 +18,12 @@ import (
 	moneystore "task-processor/internal/integration/persistence/money"
 	"task-processor/internal/integration/servicepayments"
 	kernelmodule "task-processor/internal/kernel/module"
+	"task-processor/internal/ledger/storagecapacity"
 	"time"
 )
 
 type EcoservicesDependencies struct {
+	Capacity           *storagecapacity.Meter
 	NonPaymentOnly     bool
 	DB                 *gorm.DB
 	Objects            e.PrivateObjectStore
@@ -138,6 +140,12 @@ func buildEcoservices(ctx context.Context, d EcoservicesDependencies, commercial
 	files, err := e.NewFileService(repo, d.Objects)
 	if err != nil {
 		return nil, nil, err
+	}
+	if cfg.StorageCapacity {
+		if d.Capacity == nil {
+			return nil, nil, e.ErrUnavailable
+		}
+		files.ConfigureStorageCapacity(d.Capacity)
 	}
 	handler, err := ehttp.NewHandler(service, files, purchases)
 	if err != nil {
