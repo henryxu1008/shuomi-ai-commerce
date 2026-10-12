@@ -49,6 +49,8 @@ Catalog.ProductSnapshot已经拥有四字段（internal/product/catalog/snapshot
 
 新内容model使用同一governed文本执行port与provider-neutral路由。prompt/action schema、Definition、policy version固定；选中字段/语言/原商品/来源/可选已授权企业Knowledge均是data，不是指令或授权。原工具调用仅允许当前code-owned的canonical/source-evidence等只读/纯计算工具。候选只含既有FieldChange；复用严格JSON、大小/deadline/步骤/最多两次repair、实际observed evidence校验。不是新LangGraph/Agents SDK/Temporal运行时。
 
+现部署TextPolicies和System固定title prompt/action，不能用原标题route的AVAILABLE冒充内容调用可用。复用现AICapability operation registry和OrganizationRouteResolver，以固定product.content.decision、product-content-agent-v1 / product-content-action-v1区分内容，原operation/prompt版本不变；部署新增可选ContentTextPolicies，受同org allowlist、token/cost/runtime ceiling与原credential owner约束。模型profile、operation、准确Agent定义及selection均绑定原配置快照和quote/input hash；受治理executor仍同一个ledger/Commercial预算/计量/UNKNOWN owner。缺内容route或凭据仅令该内容生成明确NEEDS_CONFIGURATION/UNAVAILABLE，不阻原标题，也不在browser/template接收provider/route/prompt。原标题mode gate按固定注册定义泛化为准确registered-text gate，各agent都重验自身模式，不能借原标题grant。
+
 原source-evidence工具完整来源事实仍由SRC/Catalog授权读取；针对内容需要的文本做有界、版本化模型视图，不能丢字段后假装完整证据。超界返回明确TooLarge/不可用，不默默截断后给采用许可。Knowledge可帮助表达，不能覆盖商品/source事实或官方规则。
 
 ## 5. 多字段Review合同
