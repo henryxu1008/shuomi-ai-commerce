@@ -26,15 +26,15 @@ export function ResourcesPage() {
   return <AccountShell pathname="/workbench/account/organization/resources" title="资源与额度" description="查看当前企业资源、已授予权益与可选资源管理。">
     {context.isLoading || context.isSwitching ? <ConsoleState kind="loading" title="正在确认当前企业">旧资源信息已清除。</ConsoleState>
       : !valid || !context.user ? <ConsoleState kind="error" title="企业或登录上下文不可用">请确认登录状态并重新选择企业。<Button variant="outline" onClick={() => void context.retry()}>重新确认上下文</Button></ConsoleState>
-      : <ScopedResources key={scope} scope={readScope} userId={context.user.id} organizationId={org.id} organizationName={org.name} canPurchase={context.permissions.includes("workbench.commercial.purchase")} canManage={context.roles.some(role => ["listingkit_admin", "platform_admin", "admin"].includes(role))} />}
+      : <ScopedResources key={scope} scope={readScope} userId={context.user.id} organizationId={org.id} organizationName={org.name} storageAvailable={context.storageCapacityAvailable===true} canPurchase={context.permissions.includes("workbench.commercial.purchase")} canManage={context.roles.some(role => ["listingkit_admin", "platform_admin", "admin"].includes(role))} />}
   </AccountShell>;
 }
 
-function ScopedResources({ scope, userId, organizationId, organizationName, canManage, canPurchase }: { scope: string; userId: string; organizationId: string; organizationName: string; canManage: boolean; canPurchase:boolean }) {
+function ScopedResources({ scope, userId, organizationId, organizationName, canManage, canPurchase,storageAvailable }: { scope: string; userId: string; organizationId: string; organizationName: string; canManage: boolean; canPurchase:boolean;storageAvailable:boolean }) {
   const [sequence, setSequence] = useState(0);
   return <div className={styles.stack}>
     <div className={styles.heading}><p>当前有效企业：{organizationName || "未提供名称"}（{organizationId}）</p><Button variant="outline" onClick={() => setSequence(v => v + 1)}>刷新资源</Button></div>
-    <EnterpriseStorage userId={userId} organizationId={organizationId} scope={scope} sequence={sequence} canPurchase={canPurchase}/>
+    {storageAvailable&&<EnterpriseStorage userId={userId} organizationId={organizationId} scope={scope} sequence={sequence} canPurchase={canPurchase}/>}
     <section aria-label="企业资源权益摘要"><EnterpriseResources userId={userId} organizationId={organizationId} scope={scope} sequence={sequence} /></section>
     <MemberResources userId={userId} organizationId={organizationId} sequence={sequence} canManage={canManage}/>
     <MemberPointLimits userId={userId} organizationId={organizationId} sequence={sequence} canManage={canManage} />

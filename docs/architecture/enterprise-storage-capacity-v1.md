@@ -244,6 +244,10 @@ Money 与 commercial 仍是两个数据库，第 4/5 步之间可能中断；原
 
 未知预留单列展示为“写入待核实”，不能并入成功文件数字，也不能由用户用“取消”按钮强行清零。清理按钮是否可用由原领域能力决定，不强制新增删除能力作为查看/扩容的前置。
 
+PR #660 页面与错误投影补齐沿上述冻结合同和现有 Workbench availability / 未派发终态投影，不新增业务状态或权限。`storageCapacityAvailable` 仅在 runtime 完成实际 storage routes 及 live read boundary 准入后，沿原 Workbench Context 的只读布尔能力声明返回；资源页和只读权益页仅在显式 true 时挂载容量组件，缺失/false 不展示入口、容量数字或价格，也不查询未挂载的 storage API。已启用后的依赖故障仍显示真实 unavailable。
+
+图片写入容量不足的原 `ErrExceeded` 经原 `ProviderDispatchError.Unwrap` 保留。Temporal 只有在确定未派发分支且原 `RecordSlotProviderNotDispatchedV3` 成功后，才返回细分 `storage_limit_exceeded`；沿原 not-dispatched phase / NoEffect / 结算 closure / projection owner 保存，不新增生成事实或第二恢复 owner。错误码映射、已知 closure、取消终态的现有 whitelist 一致消费该细分；原授权动作集合保持，自动 activity 重试不反复执行这次已关闭尝试。页面明确提示容量不足并链接原“资源与额度”，扩容后按原新尝试/整套重新准入流程继续；UNKNOWN 和已成功输出不被该提示覆盖，也不因提示释放预占或改变扣费。
+
 ## 9 实施与验证边界
 
 用户确认产品规则后，在同一 Delivery Batch、一个 Writer/分支/主要 PR 连续完成：容量账户与预留 → Billing typed 容量商品/同库激活 → 当前实际开启的 Knowledge/SourceMedia/Image 及业务附件写入 adapter → 原资源/权益/订单页面。未开启的业务无需提前实现，但不能漏掉当前组合实际开启的计量写入。切片是提交/验证边界，不机械拆 PR。

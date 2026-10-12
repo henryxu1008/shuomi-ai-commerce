@@ -44,6 +44,9 @@ func TestGenerationStorageCapacityPrecedesPaidDispatchAndPreservesUnknown(t *tes
 			require.NoError(t, e)
 			_, e = executor.GenerateQuotedSlot(ctx, input, quote)
 			require.Error(t, e)
+			if deny {
+				require.ErrorIs(t, e, storagecapacity.ErrExceeded, "native no-dispatch wrapper must preserve the quota cause")
+			}
 			fact, e := owner.ReadGenerationFact(ctx, intent.Identity)
 			require.NoError(t, e)
 			points, e := limits.ReadMonthlyLimit(ctx, intent.Identity.TenantID, intent.MemberID)

@@ -95,6 +95,7 @@ export function CommercialPage({
       organizationId={organization.id}
       organizationName={organization.name}
       permissions={context.permissions}
+      storageAvailable={context.storageCapacityAvailable===true}
       orderId={orderId}
     />
   );
@@ -165,6 +166,7 @@ function ScopedCommercial({
   organizationId,
   organizationName,
   permissions,
+  storageAvailable,
   orderId,
 }: {
   page: PageKind;
@@ -173,6 +175,7 @@ function ScopedCommercial({
   organizationId: string;
   organizationName: string;
   permissions: string[];
+  storageAvailable:boolean;
   orderId?: string;
 }) {
   const [sequence, setSequence] = useState(0);
@@ -226,7 +229,7 @@ function ScopedCommercial({
       }
     >
       {page === "entitlements" ? (
-        <><EnterpriseStorage userId={userId} organizationId={organizationId} scope={scope} sequence={sequence} canPurchase={false} readOnly />
+        <>{storageAvailable&&<EnterpriseStorage userId={userId} organizationId={organizationId} scope={scope} sequence={sequence} canPurchase={false} readOnly />}
         <EnterpriseResources
           userId={userId}
           organizationId={organizationId}

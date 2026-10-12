@@ -24,8 +24,13 @@ beforeEach(()=>{sessionStorage.clear();state.context={user:{id:"reader"},effecti
 beforeEach(()=>{storage.getStorageSummary.mockReset().mockImplementation(()=>new Promise(()=>{}));storage.getStorageOffers.mockReset();});
 afterEach(()=>{cleanup();client.clear();sessionStorage.clear();});
 it("reuses the enterprise storage projection as a read-only entitlement",async()=>{
+ state.context.storageCapacityAvailable=true;
  storage.getStorageSummary.mockResolvedValueOnce({organization_id:"org-B",summary:{more_lots:false,base_bytes:"5368709120",quota_bytes:"59055800320",occupied_bytes:"0",reserved_bytes:"0",remaining_bytes:"59055800320",overage_bytes:"0",categories:{},active_lots:[],observed_at:"2026-10-12T00:00:00Z"}});
  render(tree());const region=await screen.findByRole("region",{name:"企业存储容量"});expect(await within(region).findAllByText("55.00 GiB")).toHaveLength(2);expect(within(region).queryByRole("button",{name:"购买扩容包"})).not.toBeInTheDocument();expect(storage.getStorageSummary).toHaveBeenCalledWith("reader","org-B",expect.any(AbortSignal));expect(storage.getStorageOffers).not.toHaveBeenCalled();
+});
+it.each([false,undefined])("does not open storage entitlements when deployment availability is %s",async available=>{
+ state.context.storageCapacityAvailable=available;render(tree());await screen.findByText("基础方案");
+ expect(screen.queryByRole("region",{name:"企业存储容量"})).not.toBeInTheDocument();expect(screen.queryByText(/每企业默认 5 GiB/)).not.toBeInTheDocument();expect(storage.getStorageSummary).not.toHaveBeenCalled();
 });
 it("keeps resource reads independent of an unavailable store summary",async()=>{state.read.mockRejectedValueOnce({code:"DEPENDENCY_UNAVAILABLE"});render(tree());expect(await within(screen.getByRole("region",{name:"AI 点数余额"})).findByText("9007199254740993 点")).toBeVisible();expect(await screen.findByRole("alert")).toHaveTextContent("本次未取得基础方案");expect(screen.queryByText("AI Token 分配额度")).not.toBeInTheDocument();});
 it("reads the configured resource catalog and disables all unconfigured prices",async()=>{render(tree("options"));expect(await screen.findAllByText("价格未配置")).toHaveLength(3);expect(state.offers).toHaveBeenCalledWith("reader","org-B",expect.any(AbortSignal));expect(state.read).not.toHaveBeenCalled();});

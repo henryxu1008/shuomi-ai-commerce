@@ -1099,6 +1099,11 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	if err := validateCurrentApplicationRoutesInternal(bundle.routes, factories.buildAccountAudit != nil, factories.buildAcquisition != nil, cfg.Referrals.Enabled, factories.buildMembership != nil, includeAccountProfile, includeAccountAllocation, factories.buildBrowserCapture != nil, routeFeatures); err != nil {
 		return nil, err
 	}
+	// Availability is published only after admission verifies the storage
+	// routes and their live enterprise read boundary on the mounted bundle.
+	if workbench.handler != nil {
+		workbench.handler.SetStorageCapacityAvailable(cfg.StorageCapacity)
+	}
 	server := buildCurrentApplicationHTTPServer(bundle.routes, *workbench.authDependencies)
 	if ecoservicesRecovery != nil {
 		runtimeContext := supplied.runtimeContext

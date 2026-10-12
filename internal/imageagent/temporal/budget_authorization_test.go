@@ -17,7 +17,32 @@ import (
 
 	"task-processor/internal/imageagent"
 	"task-processor/internal/imageagent/store"
+	"task-processor/internal/ledger/storagecapacity"
 )
+
+func TestExecuteSlotV3PreservesStorageLimitReasonBeforeProviderDispatch(t *testing.T) {
+	repository, input, policy := initializedBudgetedV3Activity(t, "run-storage-exceeded", 1)
+	executor := &budgetedRecordingExecutor{recordingStagedExecutor: &recordingStagedExecutor{}, quote: budgetActivityQuote("quote-storage-exceeded"), generateErr: &imageagent.ProviderDispatchError{State: imageagent.ProviderRejectedBeforeEffect, Err: storagecapacity.ErrExceeded}}
+	activities := newBudgetV3Activities(t, repository, executor, &recordingArtifactStore{})
+	input.BudgetAuthorization, input.BudgetPolicy = true, policy
+	_, err := activities.ExecuteSlotV3(context.Background(), input)
+	var applicationError *sdktemporal.ApplicationError
+	require.ErrorAs(t, err, &applicationError)
+	require.Equal(t, "storage_limit_exceeded", applicationError.Type())
+	require.True(t, applicationError.NonRetryable(), "capacity changes require an explicit new authorized attempt")
+	require.Equal(t, "storage_limit_exceeded", slotExecutionV3ErrorCode(err))
+	require.Equal(t, imageagent.SlotEffectV3ProviderNotDispatched, terminalEffectPhaseForErrorCode("storage_limit_exceeded"))
+	effect, getErr := repository.(imageagent.SlotExternalEffectV3Repository).GetSlotExternalEffectV3(context.Background(), slotEffectReservationV3(slotExecutionInputV3(input)).Identity)
+	require.NoError(t, getErr)
+	require.Equal(t, imageagent.SlotEffectV3ProviderNotDispatched, effect.Phase)
+	require.Equal(t, imageagent.SlotBudgetReleased, effect.BudgetStatus)
+	require.True(t, cancellationResultTerminalized(SlotWorkflowResult{Status: imageagent.SlotStatusBlocked, ErrorCode: imageagent.StorageLimitExceededCode, EffectPhase: effect.Phase}))
+	policyForCode, ok := imageagent.SlotEffectV3BlockedPolicyForCode(imageagent.StorageLimitExceededCode)
+	require.True(t, ok)
+	originalPolicy, ok := imageagent.SlotEffectV3BlockedPolicyForCode(imageagent.SlotProviderNotDispatchedCode)
+	require.True(t, ok)
+	require.Equal(t, originalPolicy.PermittedActions, policyForCode.PermittedActions)
+}
 
 func TestExecuteSlotV3BudgetQuoteReserveGenerateAndSettle(t *testing.T) {
 	repository, input, policy := initializedBudgetedV3Activity(t, "run-budget-success", 1)

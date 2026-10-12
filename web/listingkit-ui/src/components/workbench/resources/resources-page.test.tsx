@@ -26,6 +26,15 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); client.clear(); vi.unstubAllGlobals(); });
 
+it.each([false,undefined])("hides storage when the deployment does not advertise availability (%s)",async available=>{
+ state.context.storageCapacityAvailable=available;render(tree());await screen.findByText("基础方案");
+ expect(screen.queryByRole("region",{name:"企业存储容量"})).not.toBeInTheDocument();
+ expect(screen.queryByText(/每企业默认 5 GiB/)).not.toBeInTheDocument();
+});
+it("shows storage only when deployment availability is explicitly true",async()=>{
+ state.context.storageCapacityAvailable=true;render(tree());await waitFor(()=>expect(screen.getByRole("region",{name:"企业存储容量"})).toBeVisible());
+});
+
 it("hides the previous store total on refresh failure rather than projecting a zero", async () => {
   render(tree());
   const panel = screen.getByRole("region", { name: "店铺资源" });
