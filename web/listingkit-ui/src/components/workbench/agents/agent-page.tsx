@@ -25,6 +25,7 @@ import {
 } from "@/lib/contracts/agent-configuration";
 import { basesSchema, knowledgeRequest } from "@/lib/api/knowledge";
 import styles from "./agents.module.css";
+import { ExecutionModeSettings } from "./execution-mode-settings";
 import { ImageAgentPage } from "./image-agent-page";
 import { configurationError, useConfigurationRead as useRead } from "./agent-configuration-hooks";
 import { PrivateAgentCards } from "./private-agent-page";
@@ -418,7 +419,7 @@ function ScopedPage({
                     </h3>
                     <p>{cap.reason}</p>
                   </div>
-                  <span>
+                  <span className={styles.capabilityStatus} data-readiness={cap.support === "NOT_SUPPORTED" ? cap.support : cap.readiness}>
                     {
                       labels[
                         cap.support === "NOT_SUPPORTED"
@@ -430,6 +431,8 @@ function ScopedPage({
                 </section>
               ))}
             </Card>
+            <div className={styles.detailSidebar}>
+            {detail.agent.activation !== "NOT_ENABLED" ? <ExecutionModeSettings scope={scope} subject={{kind:"registered_agent",id:detail.agent.agentId}}/> : null}
             <Card className={styles.panel}>
               <div className={styles.cardActions}>
                 <h2>默认模板</h2>
@@ -478,6 +481,7 @@ function ScopedPage({
                 <p role="status">正在读取默认版本…</p>
               )}
             </Card>
+            </div>
           </div>
           <Card className={styles.panel}>
             <div className={styles.cardActions}>

@@ -10,6 +10,7 @@ import (
 	"gorm.io/gorm"
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
+	"task-processor/internal/commercetool"
 )
 
 func validImageStart(c agentconfig.ImageStartCommand) bool {
@@ -56,6 +57,10 @@ func imageSnapshotView(tx *gorm.DB, row snapshotRow) (agentconfig.ImageConfigura
 }
 
 func (s *Store) PrepareImageConfiguration(ctx context.Context, c agentconfig.ImageStartCommand) (agentconfig.ImageConfigurationSnapshot, error) {
+	modeRevision, modeErr := agentconfig.ParseModeRevision(c.ExpectedModeRevision)
+	if modeErr != nil {
+		return agentconfig.ImageConfigurationSnapshot{}, agentconfig.ErrInvalid
+	}
 	if !validImageStart(c) {
 		return agentconfig.ImageConfigurationSnapshot{}, agentconfig.ErrInvalid
 	}
@@ -117,6 +122,11 @@ func (s *Store) PrepareImageConfiguration(ctx context.Context, c agentconfig.Ima
 			return err
 		}
 		result = agentconfig.ImageConfigurationSnapshot{ID: uuid.NewString(), Scope: c.Scope, MemberID: c.MemberID, RequestKey: c.RequestKey, ContextID: c.ContextID, RunID: c.RunID, TargetPlatform: c.TargetPlatform, AgentVersion: agentconfig.ImageAgentVersion, Epoch: decimal(a.ActivationEpoch), AgentRevision: decimal(a.Revision), SourceDigest: c.SourceDigest, InputDigest: c.InputDigest, ParametersDigest: digest(parameterBytes), Template: *ref, HardLimits: c.HardLimits}
+		mode, err := prepareModeInTransaction(tx, agentconfig.ModeStartCommand{Identity: agent.ExecutionIdentity{OrganizationID: c.Scope.OrganizationID, ActorID: c.Scope.ActorID, MemberID: c.MemberID}, Subject: agentconfig.ResolvedModeSubject{Subject: agentconfig.ModeSubject{Kind: agentconfig.RegisteredAgentSubject, ID: agentconfig.ImageAgentID}, Definition: commercetool.AgentRef{ID: agentconfig.ImageAgentID, Version: agentconfig.ImageAgentVersion}}, Binding: agentconfig.ModeBinding{ContextKind: agentconfig.ImageSnapshotContext, ContextID: c.ContextID, RequestKey: c.RequestKey, IntentDigest: fingerprint}, ExpectedRevision: modeRevision})
+		if err != nil {
+			return err
+		}
+		result.ExpectedModeRevision, result.ModeSnapshotRef = c.ExpectedModeRevision, mode.Ref()
 		raw, err := json.Marshal(result)
 		if err != nil || len(raw) > 8192 {
 			return agentconfig.ErrInvalid
@@ -186,6 +196,13 @@ func (s *Store) AdmitImageRun(ctx context.Context, c agentconfig.ImageRunAdmissi
 	if snapshot.MemberID != c.MemberID || snapshot.RunID != c.RunID || snapshot.SourceDigest != c.SourceDigest || snapshot.InputDigest != c.InputDigest {
 		return agentconfig.ImageRunAdmissionReceipt{}, agentconfig.ErrConflict
 	}
+	mode, err := s.LoadModeSnapshot(ctx, agent.ExecutionIdentity{OrganizationID: c.Scope.OrganizationID, ActorID: c.Scope.ActorID, MemberID: c.MemberID}, snapshot.ModeSnapshotRef)
+	if err != nil {
+		return agentconfig.ImageRunAdmissionReceipt{}, err
+	}
+	if mode.Subject.Subject.Kind != agentconfig.RegisteredAgentSubject || mode.Subject.Subject.ID != agentconfig.ImageAgentID || mode.Subject.Definition.Version != snapshot.AgentVersion || mode.Binding.ContextKind != agentconfig.ImageSnapshotContext || mode.Binding.ContextID != snapshot.ContextID || mode.Binding.RequestKey != snapshot.RequestKey {
+		return agentconfig.ImageRunAdmissionReceipt{}, agentconfig.ErrConflict
+	}
 	fingerprint, err := hash(c)
 	if err != nil {
 		return agentconfig.ImageRunAdmissionReceipt{}, err
@@ -215,6 +232,12 @@ func (s *Store) AdmitImageRun(ctx context.Context, c agentconfig.ImageRunAdmissi
 		}
 		if snapshot.Epoch != decimal(a.ActivationEpoch) || !c.Limits.Within(snapshot.HardLimits) || !c.Limits.Within(ceiling) {
 			return agentconfig.ErrChanged
+		}
+		if err := checkModeInTransaction(tx, mode); err != nil {
+			return err
+		}
+		if mode.Mode == agent.ModeReadOnly {
+			return agentconfig.ErrForbidden
 		}
 		now := time.Now().UTC().Truncate(time.Microsecond)
 		result = agentconfig.ImageRunAdmissionReceipt{ID: uuid.NewString(), Command: c, AdmittedAt: now, Deadline: now.Add(time.Duration(c.Limits.ElapsedSeconds) * time.Second)}

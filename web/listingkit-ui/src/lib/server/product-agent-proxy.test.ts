@@ -3,14 +3,14 @@ import { buildWorkbenchUpstreamRequest, buildWorkbenchBrowserResponse } from "./
 const op = "11111111-1111-4111-8111-111111111111", key = "22222222-2222-4222-8222-222222222222";
 const path = ["sourcing", "1688", "acquisitions", op, "product-agent", "runs"];
 afterEach(() => vi.unstubAllEnvs());
-function req(body = '{"targetPlatform":"shein"}',  extra: Record<string, string> = {}) { return new Request(`http://localhost:3000/api/workbench/${path.join("/")}`, { method: "POST", headers: { Origin: "http://localhost:3000", "Sec-Fetch-Site": "same-origin", Cookie: "shuomi_effective_organization=B", "X-Expected-Organization-ID": "B", "X-Expected-User-ID": "actor", "Content-Type": "application/json", "Idempotency-Key": key, ...extra }, body }); }
+function req(body = '{"targetPlatform":"shein","expectedModeRevision":"0"}',  extra: Record<string, string> = {}) { return new Request(`http://localhost:3000/api/workbench/${path.join("/")}`, { method: "POST", headers: { Origin: "http://localhost:3000", "Sec-Fetch-Site": "same-origin", Cookie: "shuomi_effective_organization=B", "X-Expected-Organization-ID": "B", "X-Expected-User-ID": "actor", "Content-Type": "application/json", "Idempotency-Key": key, ...extra }, body }); }
 it("admits an explicitly selected platform for Agent Start and rejects client authority and stale identity", async () => {
     vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL", "http://localhost:3000");
     const result = await buildWorkbenchUpstreamRequest(req(), path, "token", "actor");
     expect(result).not.toBeInstanceOf(Response);
     if (result instanceof Response)
         return;
-    expect(result.init.body).toBe('{"targetPlatform":"shein"}');
+    expect(JSON.parse(result.init.body as string)).toEqual({targetPlatform:"shein",expectedModeRevision:"0"});
     expect(new Headers(result.init.headers).get("Idempotency-Key")).toBe(key);
     expect(result.sourceMutation).toBe(true);
     for (const request of [req('{}'), req('{"targetPlatform":"product"}'), req('{"model":"other"}'), req('{"organizationId":"A"}'), req('{}', { "X-Expected-User-ID": "other" }), req('{}', { Origin: "http://evil.test" }), req('{}', { "Idempotency-Key": "" })]) {
@@ -28,12 +28,12 @@ it("does not turn a mismatched result or unmounted Agent into successful generat
 
 it("passes only normalized optional Knowledge selection and rejects context authority", async () => {
  vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL", "http://localhost:3000");
- const body=JSON.stringify({targetPlatform:"shein",knowledgeSelection:{knowledgeBaseId:key}});
+ const body=JSON.stringify({targetPlatform:"shein",expectedModeRevision:"0",knowledgeSelection:{knowledgeBaseId:key}});
  const result=await buildWorkbenchUpstreamRequest(req(body),path,"token","actor");
  expect(result).not.toBeInstanceOf(Response);
- if(!(result instanceof Response)) expect(result.init.body).toBe(body);
+ if(!(result instanceof Response)) expect(JSON.parse(result.init.body as string)).toEqual(JSON.parse(body));
  for(const knowledgeSelection of [null,{}, {knowledgeBaseId:key,revisionId:op},{knowledgeBaseId:key,text:"secret"},{bundleId:key}, {knowledgeBaseId:"bad"}]) {
-  const denied=await buildWorkbenchUpstreamRequest(req(JSON.stringify({targetPlatform:"shein",knowledgeSelection})),path,"token","actor");
+  const denied=await buildWorkbenchUpstreamRequest(req(JSON.stringify({targetPlatform:"shein",expectedModeRevision:"0",knowledgeSelection})),path,"token","actor");
   expect(denied).toBeInstanceOf(Response);
  }
  const unavailable=await buildWorkbenchBrowserResponse(Response.json({code:"KNOWLEDGE_CONTEXT_TOO_LARGE"},{status:409}),"product-agent-result",key,{sourceMutation:true});

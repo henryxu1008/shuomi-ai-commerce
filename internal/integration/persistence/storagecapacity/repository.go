@@ -87,7 +87,7 @@ func AutoMigrate(db *gorm.DB) error {
 	if db == nil {
 		return storagecapacity.ErrUnavailable
 	}
-	return db.AutoMigrate(&accountRow{}, &reservationRow{}, &objectRow{}, &bindingRow{}, &lotRow{}, &namespaceRow{})
+	return db.AutoMigrate(schemaModels()...)
 }
 func (r *Repository) clock(tx *gorm.DB) (time.Time, error) {
 	if tx.Dialector.Name() == "postgres" {

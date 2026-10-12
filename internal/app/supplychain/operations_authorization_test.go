@@ -103,6 +103,7 @@ func TestOperationActivitiesStopOnActualAgentOrStoreDenialAndRetryOutages(t *tes
 			if tc.action == preparation.OperationOptimize {
 				repo.op.Input.TitleTemplateID = uuid.NewString()
 				repo.op.Input.TitleTemplateRevision = "1"
+				repo.op.Input.TitleModeRevision = "0"
 				repo.op.Input.TitleQuoteHash = collection.Digest("confirmed quote")
 			}
 			service, err := preparation.NewOperationService(&preparation.Service{}, unusedOperationOwner{}, repo)

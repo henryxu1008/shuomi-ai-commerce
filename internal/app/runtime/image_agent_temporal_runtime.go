@@ -35,6 +35,7 @@ type FullImageSetDependencies struct {
 }
 
 type ImageAgentTemporalDependencies struct {
+	ImageSetPolicyAdopter    imageagent.ImageSetPolicyAdopter
 	ImageSetApprovals        productasset.ApprovalCommitReader
 	ImageSetPublisher        imageagent.ApprovedImageSetPublisher
 	GenerationRecovery       imageagent.GenerationRecovery
@@ -71,8 +72,9 @@ func NewOrganizationImageSetWorker(client sdkclient.Client, d ImageAgentTemporal
 		return nil, imageagent.ErrCommandBlocked
 	}
 	activities, err := imageagenttemporal.NewActivities(imageagenttemporal.ActivityDependencies{
-		ImageSetApprovals: d.ImageSetApprovals,
-		ImageSetPublisher: d.ImageSetPublisher, GenerationRecovery: d.GenerationRecovery, GenerationOutputRecovery: d.GenerationOutputRecovery,
+		ImageSetApprovals:     d.ImageSetApprovals,
+		ImageSetPolicyAdopter: d.ImageSetPolicyAdopter,
+		ImageSetPublisher:     d.ImageSetPublisher, GenerationRecovery: d.GenerationRecovery, GenerationOutputRecovery: d.GenerationOutputRecovery,
 		ExecutionAuthorizer: d.ExecutionAuthorizer, Repository: d.Repository, SlotExecutor: d.SlotExecutor, StagedSlotExecutor: d.StagedSlotExecutor, ArtifactStore: d.ArtifactStore, PublicationLeaseDuration: d.PublicationLeaseDuration,
 	})
 	if err != nil {
@@ -192,6 +194,7 @@ func startImageAgentTemporalWorkerWithOptionsAndDependenciesContext(ctx context.
 	}
 	activities, err := imageagenttemporal.NewActivities(imageagenttemporal.ActivityDependencies{
 		ImageSetApprovals:        dependencies.ImageSetApprovals,
+		ImageSetPolicyAdopter:    dependencies.ImageSetPolicyAdopter,
 		ImageSetPublisher:        dependencies.ImageSetPublisher,
 		GenerationRecovery:       dependencies.GenerationRecovery,
 		GenerationOutputRecovery: dependencies.GenerationOutputRecovery,

@@ -6,21 +6,28 @@ const fixture=vi.hoisted(()=>({request:vi.fn()}));
 vi.mock("@/lib/api/knowledge",async original=>({...await original<typeof import("@/lib/api/knowledge")>(),knowledgeRequest:fixture.request}));
 const base="11111111-1111-4111-8111-111111111111",revision="22222222-2222-4222-8222-222222222222";
 const props={scope:{userId:"actor",organizationId:"B"},organization:"企业 B",platform:"shein",knowledgeAvailable:true,onConfirm:vi.fn(),onCancel:vi.fn()};
+const executionMode={subject:{kind:"registered_agent" as const,id:"product.title.agent"},definition:{id:"product.title.agent",version:"v1.0.0"},mode:"default" as const,revision:"0",policyVersion:"agent-execution-policy-v1" as const,canConfigure:false,updatedAt:"2026-10-12T00:00:00Z",updatedBy:""};
 beforeEach(()=>{vi.clearAllMocks();fixture.request.mockReset();Object.defineProperty(HTMLDialogElement.prototype,"showModal",{configurable:true,value:function(this:HTMLDialogElement){this.open=true}});Object.defineProperty(HTMLDialogElement.prototype,"close",{configurable:true,value:function(this:HTMLDialogElement){this.open=false}})});
 afterEach(cleanup);
+it("requires a readable mode revision before confirming and exposes full policy semantics",()=>{
+ const view=render(<TitleAgentConfirmation {...props} executionMode={undefined}/>);
+ expect(screen.getByText("确认生成")).toBeDisabled();expect(props.onConfirm).not.toHaveBeenCalled();
+ view.rerender(<TitleAgentConfirmation {...props} executionMode={{...executionMode,mode:"full_access",revision:"2"}}/>);
+ expect(screen.getByText(/未经逐项人工审阅/)).toBeInTheDocument();expect(screen.getByText("确认生成")).toBeEnabled();
+});
 it("prefills exact-template Knowledge and keeps explicit opt-out cleared",async()=>{
  fixture.request.mockResolvedValueOnce({id:base,name:"默认知识",state:"ACTIVE"}).mockResolvedValueOnce({items:[{id:base,name:"默认来源",state:"ACTIVE",currentReadableRevision:{id:revision,number:3,state:"AVAILABLE"}}]});
  const template={templateId:base,agentId:"product.title.agent" as const,lifecycle:"ACTIVE" as const,revision:"2",version:"1",schemaVersion:"title-config-v1" as const,name:"原版本模板",targetPlatform:"amazon" as const,defaultKnowledgeBaseId:base,createdAt:"2026-09-29T00:00:00Z"};
- render(<TitleAgentConfirmation {...props} template={template}/>);await screen.findByText("默认来源 · v3 · 可读");expect(screen.getByLabelText("使用企业知识（可选）")).toBeChecked();expect(screen.getByText(/采用模板：原版本模板 · v1/)).toBeInTheDocument();
+ render(<TitleAgentConfirmation {...props} executionMode={executionMode} template={template}/>);await screen.findByText("默认来源 · v3 · 可读");expect(screen.getByLabelText("使用企业知识（可选）")).toBeChecked();expect(screen.getByText(/采用模板：原版本模板 · v1/)).toBeInTheDocument();
  fireEvent.click(screen.getByLabelText("使用企业知识（可选）"));fireEvent.click(screen.getByText("确认生成"));expect(props.onConfirm).toHaveBeenCalledExactlyOnceWith(undefined);expect(fixture.request).toHaveBeenCalledTimes(2);
 });
 it("requires explicit no-Knowledge choice when template default is protected",()=>{
  const template={templateId:base,agentId:"product.title.agent" as const,lifecycle:"ACTIVE" as const,revision:"1",version:"1",schemaVersion:"title-config-v1" as const,name:"模板",targetPlatform:"shein" as const,knowledgeAvailability:"UNAVAILABLE" as const,createdAt:"2026-09-29T00:00:00Z"};
- render(<TitleAgentConfirmation {...props} template={template} knowledgeAvailable={false}/>);expect(screen.getByText("确认生成")).toBeDisabled();fireEvent.click(screen.getByLabelText("使用企业知识（可选）"));fireEvent.click(screen.getByText("确认生成"));expect(props.onConfirm).toHaveBeenCalledExactlyOnceWith(undefined);expect(fixture.request).not.toHaveBeenCalled();
+ render(<TitleAgentConfirmation {...props} executionMode={executionMode} template={template} knowledgeAvailable={false}/>);expect(screen.getByText("确认生成")).toBeDisabled();fireEvent.click(screen.getByLabelText("使用企业知识（可选）"));fireEvent.click(screen.getByText("确认生成"));expect(props.onConfirm).toHaveBeenCalledExactlyOnceWith(undefined);expect(fixture.request).not.toHaveBeenCalled();
 });
 it("loads selected current readable versions and passes only a base ID after explicit confirmation",async()=>{
  fixture.request.mockResolvedValueOnce({items:[{id:base,name:"品牌规范",state:"ACTIVE"}],pagination:{page:1,pageSize:100,total:1}}).mockResolvedValueOnce({items:[{id:base,name:"表达规范",state:"ACTIVE",currentReadableRevision:{id:revision,number:3,state:"PARTIAL"}}]});
- render(<TitleAgentConfirmation {...props}/>);
+ render(<TitleAgentConfirmation {...props} executionMode={executionMode}/>);
  expect(fixture.request).not.toHaveBeenCalled();expect(props.onConfirm).not.toHaveBeenCalled();
  fireEvent.click(screen.getByLabelText("使用企业知识（可选）"));
  expect(screen.getByText("确认生成")).toBeDisabled();
@@ -30,17 +37,17 @@ it("loads selected current readable versions and passes only a base ID after exp
  fireEvent.click(screen.getByText("确认生成"));expect(props.onConfirm).toHaveBeenCalledExactlyOnceWith(base);
 });
 it("blocks unreadable/denied Knowledge and requires explicit opt-out before ordinary generation",async()=>{
- fixture.request.mockRejectedValueOnce(new KnowledgeError("KNOWLEDGE_FORBIDDEN",403));render(<TitleAgentConfirmation {...props}/>);
+ fixture.request.mockRejectedValueOnce(new KnowledgeError("KNOWLEDGE_FORBIDDEN",403));render(<TitleAgentConfirmation {...props} executionMode={executionMode}/>);
  fireEvent.click(screen.getByLabelText("使用企业知识（可选）"));await screen.findByRole("alert");expect(screen.getByText("确认生成")).toBeDisabled();
  fireEvent.click(screen.getByLabelText("使用企业知识（可选）"));fireEvent.click(screen.getByText("确认生成"));expect(props.onConfirm).toHaveBeenCalledExactlyOnceWith(undefined);
 });
 it("cancel aborts pending protected reads and never generates",async()=>{
- let resolve!:(v:unknown)=>void;fixture.request.mockImplementation(()=>new Promise(r=>{resolve=r}));const view=render(<TitleAgentConfirmation {...props}/>);
+ let resolve!:(v:unknown)=>void;fixture.request.mockImplementation(()=>new Promise(r=>{resolve=r}));const view=render(<TitleAgentConfirmation {...props} executionMode={executionMode}/>);
  fireEvent.click(screen.getByLabelText("使用企业知识（可选）"));const signal=fixture.request.mock.calls[0][3].signal as AbortSignal;fireEvent.click(screen.getByText("取消"));expect(props.onCancel).toHaveBeenCalledOnce();view.unmount();expect(signal.aborted).toBe(true);
  resolve({items:[{id:base,name:"旧企业资料",state:"ACTIVE"}],pagination:{page:1,pageSize:100,total:1}});await waitFor(()=>expect(props.onConfirm).not.toHaveBeenCalled());
 });
 it("removes earlier protected base names when the following source read loses permission",async()=>{
- fixture.request.mockResolvedValueOnce({items:[{id:base,name:"Private base name",state:"ACTIVE"}],pagination:{page:1,pageSize:100,total:1}}).mockRejectedValueOnce(new KnowledgeError("KNOWLEDGE_FORBIDDEN",403));render(<TitleAgentConfirmation {...props}/>);
+ fixture.request.mockResolvedValueOnce({items:[{id:base,name:"Private base name",state:"ACTIVE"}],pagination:{page:1,pageSize:100,total:1}}).mockRejectedValueOnce(new KnowledgeError("KNOWLEDGE_FORBIDDEN",403));render(<TitleAgentConfirmation {...props} executionMode={executionMode}/>);
  fireEvent.click(screen.getByLabelText("使用企业知识（可选）"));await screen.findByText("Private base name");fireEvent.change(screen.getByLabelText("企业知识库"),{target:{value:base}});await screen.findByRole("alert");expect(screen.queryByText("Private base name")).toBeNull();expect(screen.getByText("确认生成")).toBeDisabled();expect(props.onConfirm).not.toHaveBeenCalled();
 });
 it("reaches later Knowledge pages and clears the previous selection before generation",async()=>{
@@ -49,7 +56,7 @@ it("reaches later Knowledge pages and clears the previous selection before gener
  const sources={items:[{id:base,name:"表达规范",state:"ACTIVE",currentReadableRevision:{id:revision,number:3,state:"AVAILABLE"}}]};
  fixture.request.mockResolvedValueOnce({items:first,pagination:{page:1,pageSize:100,total:101}}).mockResolvedValueOnce(sources)
   .mockResolvedValueOnce({items:[{id:later,name:"第 101 个知识库",state:"ACTIVE"}],pagination:{page:2,pageSize:100,total:101}}).mockResolvedValueOnce(sources);
- render(<TitleAgentConfirmation {...props}/>);fireEvent.click(screen.getByLabelText("使用企业知识（可选）"));
+ render(<TitleAgentConfirmation {...props} executionMode={executionMode}/>);fireEvent.click(screen.getByLabelText("使用企业知识（可选）"));
  await screen.findByText("知识库 1");expect(fixture.request).toHaveBeenCalledTimes(1);
  fireEvent.change(screen.getByLabelText("企业知识库"),{target:{value:base}});await waitFor(()=>expect(screen.getByText("确认生成")).toBeEnabled());
  fireEvent.click(screen.getByText("下一页"));expect(screen.getByText("确认生成")).toBeDisabled();expect(screen.getByLabelText("企业知识库")).toHaveValue("");
@@ -61,7 +68,7 @@ it("reaches later Knowledge pages and clears the previous selection before gener
 it("clears protected names and selection when a later Knowledge page loses permission",async()=>{
  fixture.request.mockResolvedValueOnce({items:[{id:base,name:"Private page name",state:"ACTIVE"}],pagination:{page:1,pageSize:100,total:101}})
   .mockRejectedValueOnce(new KnowledgeError("KNOWLEDGE_FORBIDDEN",403));
- render(<TitleAgentConfirmation {...props}/>);fireEvent.click(screen.getByLabelText("使用企业知识（可选）"));await screen.findByText("Private page name");
+ render(<TitleAgentConfirmation {...props} executionMode={executionMode}/>);fireEvent.click(screen.getByLabelText("使用企业知识（可选）"));await screen.findByText("Private page name");
  fireEvent.click(screen.getByText("下一页"));await screen.findByRole("alert");expect(screen.queryByText("Private page name")).toBeNull();
  expect(screen.getByLabelText("企业知识库")).toHaveValue("");expect(screen.getByText("确认生成")).toBeDisabled();expect(props.onConfirm).not.toHaveBeenCalled();
 });

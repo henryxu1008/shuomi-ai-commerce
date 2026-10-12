@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { isAcquisitionUUID } from "./product-acquisition";
 import { productKnowledgeSchema } from "./product-knowledge";
+import {executionModeSchema,modeRevisionSchema,modeSnapshotRefSchema,titlePolicyAdoptionSchema} from "./execution-mode";
 
 const id = z.string().refine(isAcquisitionUUID);
 const timestamp = z.string().datetime({ offset: true });
@@ -15,6 +16,7 @@ const message = z.object({
   Author: z.enum(["USER", "ASSISTANT"]), Content: z.string(), CreatedAt: timestamp,
 });
 const proposal = z.object({
+  executionMode:executionModeSchema.optional(),modeRevision:modeRevisionSchema.optional(),modeUnavailableReason:z.string().optional(),
   id, digest: z.string().length(64), sourceSequence: z.number().int().positive(),
   goalSummary: z.string(), operationId: z.string().optional(), productKey: z.string().optional(),
   targetPlatform: z.enum(["shein", "temu", "amazon"]).optional(),
@@ -24,6 +26,7 @@ const proposal = z.object({
   humanReviewRequired: z.literal(true), detailsAvailable: z.boolean(), titleProfileReady: z.boolean(), executionAuthorized: z.boolean(),
 });
 const task = z.object({
+  executionMode:executionModeSchema.optional(),modeRevision:modeRevisionSchema.optional(),modeSnapshotRef:modeSnapshotRefSchema.optional(),policyAdoption:titlePolicyAdoptionSchema.optional(),
   id, conversationId: id, proposalId: id, title: z.string(), goalSummary: z.string(), createdAt: timestamp,
   projectionAvailable: z.boolean(), state: z.enum(["RUNNING", "WAITING_CONFIRMATION", "COMPLETED", "ERROR", "PAUSED"]).optional(),
   reason: z.string().optional(), canStart: z.boolean(), canReconcile: z.boolean(), canResume: z.boolean(), canReview: z.boolean(),

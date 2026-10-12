@@ -6,6 +6,7 @@ import type { ProductTitleProposal } from "@/lib/api/product-title-review";
 import { TitleApplyConfirmation, TitleComparison, TitleEditor } from "./title-review-presentation";
 import styles from "./title-review.module.css";
 import { KnowledgeCitations } from "./knowledge-citations";
+import {executionModeLabels} from "../agents/execution-mode-settings";
 
 export const titleReviewStateLabel = { pending: "待审核", accepted: "已接受，待应用", rejected: "已拒绝", applied: "已应用" };
 
@@ -23,6 +24,7 @@ export function TitleReviewDetail({ proposal: p }: { proposal: ProductTitlePropo
       <dl><dt>整体质量</dt><dd>{p.quality.overall}</dd><dt>证据覆盖</dt><dd>{p.quality.evidence_coverage}</dd><dt>必填项覆盖</dt><dd>{p.quality.required_field_coverage}</dd></dl>
       {p.unresolved.length ? <ul>{p.unresolved.map((item, index) => <li key={index}>{item}</li>)}</ul> : <p>未列出未解决问题。</p>}
     </section>
+    {p.policy_adoption?<section aria-label="策略采用出处"><h3>按策略采用</h3><p>{executionModeLabels[p.policy_adoption.mode]} · 模式版本 {p.policy_adoption.modeRevision} · {p.policy_adoption.actionVersion}</p><p>由原运行 {p.policy_adoption.execution.runId} 采用，未经逐项人工审阅。</p></section>:null}
     <section><h3>审核记录</h3>{p.decisions.length ? <ol>{p.decisions.map((item) => <li key={item.revision}>
       <p>{{ accept: "接受", edit: "编辑", reject: "拒绝" }[item.action]} · 修订 {item.revision} · {item.actor}</p>
       <time dateTime={item.at}>{item.at}</time><details><summary>查看本次标题变化</summary><p>修改前：{item.before}</p><p>修改后：{item.after}</p></details>

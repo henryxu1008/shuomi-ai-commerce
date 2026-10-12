@@ -17,6 +17,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"task-processor/internal/agentconfig"
 	"task-processor/internal/aiworkbench"
 )
 
@@ -97,24 +98,26 @@ type commandRow struct {
 func (commandRow) TableName() string { return "ai_workbench.commands" }
 
 type proposalRow struct {
-	ID                         string
-	Digest                     string
-	OrganizationID             string
-	OwnerUserID                string
-	ConversationID             string
-	SourceUserMessageID        string
-	AssistantMessageID         string
-	SourceSequence             uint64
-	Kind                       string
-	GoalSummary                string
-	OperationID                string
-	ProductKey                 string
-	CatalogVersion             string
-	PublicationID              string
-	TargetPlatform             string
-	AgentID                    string
-	AgentVersion               string
-	ObservedAgentRevision      string
+	ID                    string
+	Digest                string
+	OrganizationID        string
+	OwnerUserID           string
+	ConversationID        string
+	SourceUserMessageID   string
+	AssistantMessageID    string
+	SourceSequence        uint64
+	Kind                  string
+	GoalSummary           string
+	OperationID           string
+	ProductKey            string
+	CatalogVersion        string
+	PublicationID         string
+	TargetPlatform        string
+	AgentID               string
+	AgentVersion          string
+	ObservedAgentRevision string
+	// Absent historical metadata remains absent in its original digest.
+	ObservedModeRevision       string `json:",omitempty"`
 	ObservedActivationEpoch    string
 	TemplateID                 string
 	TemplateRevision           string
@@ -172,6 +175,9 @@ func VerifySchema(ctx context.Context, db *gorm.DB) error {
 		}
 	}
 	if err := validateBoundedWorkbenchPrivileges(db.WithContext(ctx), currentRole); err != nil {
+		return aiworkbench.ErrUnavailable
+	}
+	if err := db.WithContext(ctx).Table("ai_workbench.execution_proposals").Select("observed_mode_revision").Limit(0).Find(&[]proposalRow{}).Error; err != nil {
 		return aiworkbench.ErrUnavailable
 	}
 	return nil
@@ -284,7 +290,8 @@ func proposal(row proposalRow) aiworkbench.ExecutionProposal {
 		ProductKey: row.ProductKey, CatalogVersion: row.CatalogVersion, PublicationID: row.PublicationID,
 		TargetPlatform: row.TargetPlatform, AgentID: row.AgentID, AgentVersion: row.AgentVersion,
 		ObservedAgentRevision: row.ObservedAgentRevision, ObservedActivationEpoch: row.ObservedActivationEpoch,
-		TemplateID: row.TemplateID, TemplateRevision: row.TemplateRevision,
+		ObservedModeRevision: row.ObservedModeRevision,
+		TemplateID:           row.TemplateID, TemplateRevision: row.TemplateRevision,
 		KnowledgeBaseID: row.KnowledgeBaseID, KnowledgeRevisionSetDigest: row.KnowledgeRevisionSetDigest,
 		ExecutionModelProfile: append([]byte(nil), row.ExecutionModelProfile...), CreatedAt: row.CreatedAt.UTC()}
 }
@@ -305,6 +312,12 @@ func proposalDigest(row proposalRow) string {
 }
 
 func validProposal(p *aiworkbench.ExecutionProposal) bool {
+	if p == nil {
+		return false
+	}
+	if _, err := agentconfig.ParseModeRevision(p.ObservedModeRevision); err != nil {
+		return false
+	}
 	if p == nil || p.Kind != "product.title.optimize" || len(p.GoalSummary) == 0 || len(p.GoalSummary) > 512 ||
 		!utf8.ValidString(p.GoalSummary) || !validName(p.OperationID) || !validName(p.ProductKey) ||
 		!validName(p.CatalogVersion) || !validName(p.PublicationID) ||
@@ -799,7 +812,8 @@ func (s *Store) CompletePlan(ctx context.Context, scope aiworkbench.Scope, key s
 				ProductKey: p.ProductKey, CatalogVersion: p.CatalogVersion, PublicationID: p.PublicationID,
 				TargetPlatform: p.TargetPlatform, AgentID: p.AgentID, AgentVersion: p.AgentVersion,
 				ObservedAgentRevision: p.ObservedAgentRevision, ObservedActivationEpoch: p.ObservedActivationEpoch,
-				TemplateID: p.TemplateID, TemplateRevision: p.TemplateRevision, KnowledgeBaseID: p.KnowledgeBaseID,
+				ObservedModeRevision: p.ObservedModeRevision,
+				TemplateID:           p.TemplateID, TemplateRevision: p.TemplateRevision, KnowledgeBaseID: p.KnowledgeBaseID,
 				KnowledgeRevisionSetDigest: p.KnowledgeRevisionSetDigest,
 				ExecutionModelProfile:      append([]byte(nil), p.ExecutionModelProfile...), CreatedAt: now}
 			proposed.Digest = proposalDigest(proposed)

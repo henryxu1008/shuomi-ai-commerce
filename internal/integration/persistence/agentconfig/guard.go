@@ -14,13 +14,14 @@ type Guard struct {
 	config   *Store
 	runs     *runstore.Store
 	ceilings func(string, string) (agent.Limits, error)
+	identity func(context.Context) (agent.ExecutionIdentity, error)
 }
 
-func NewGuard(db *gorm.DB, s *Store, r *runstore.Store, c func(string, string) (agent.Limits, error)) (*Guard, error) {
-	if db == nil || s == nil || s.db != db || r == nil || !r.UsesPool(db) || c == nil {
+func NewGuard(db *gorm.DB, s *Store, r *runstore.Store, c func(string, string) (agent.Limits, error), identity func(context.Context) (agent.ExecutionIdentity, error)) (*Guard, error) {
+	if db == nil || s == nil || s.db != db || r == nil || !r.UsesPool(db) || c == nil || identity == nil {
 		return nil, agentconfig.ErrUnavailable
 	}
-	return &Guard{db, s, r, c}, nil
+	return &Guard{db, s, r, c, identity}, nil
 }
 func (g *Guard) Claim(ctx context.Context, initial agent.Record, expected uint64) (agent.Record, bool, error) {
 	snap, e := g.config.LoadSnapshot(ctx, initial.State.Scope, initial.State.Request.ConfigurationSnapshotRef)
@@ -31,6 +32,14 @@ func (g *Guard) Claim(ctx context.Context, initial agent.Record, expected uint64
 	command.ContextSnapshotRef = agent.ContextSnapshotRef{}
 	command.ConfigurationSnapshotRef = agent.ConfigurationSnapshotRef{}
 	if command != snap.Request || (snap.KnowledgeBaseID == "") != initial.State.Request.ContextSnapshotRef.Absent() {
+		return agent.Record{}, false, agentconfig.ErrConflict
+	}
+	identity, e := g.identity(ctx)
+	if e != nil || identity.OrganizationID != snap.Scope.OrganizationID || identity.ActorID != snap.Scope.ActorID || identity.MemberID != snap.MemberID {
+		return agent.Record{}, false, agentconfig.ErrForbidden
+	}
+	mode, e := g.config.LoadModeSnapshot(ctx, identity, command.ModeSnapshotRef)
+	if e != nil || mode.Subject.Subject.Kind != agentconfig.RegisteredAgentSubject || mode.Subject.Subject.ID != snap.AgentID || mode.Subject.Definition.Version != snap.AgentVersion || mode.Binding.RequestKey != command.Key || mode.Binding.ContextKind != command.Binding.ContextKind || mode.Binding.ContextID != command.Binding.ContextID {
 		return agent.Record{}, false, agentconfig.ErrConflict
 	}
 	var result agent.Record
@@ -55,6 +64,9 @@ func (g *Guard) Claim(ctx context.Context, initial agent.Record, expected uint64
 		}
 		if ae != nil {
 			return ae
+		}
+		if e := checkModeInTransaction(tx, mode); e != nil {
+			return e
 		}
 		if expected == 0 {
 			if decimal(a.ActivationEpoch) != snap.Epoch {

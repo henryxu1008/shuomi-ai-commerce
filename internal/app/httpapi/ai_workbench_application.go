@@ -273,12 +273,17 @@ func (p *workbenchPlanner) buildProposal(ctx context.Context, c aiworkbench.Plan
 	if err != nil {
 		return aiworkbench.ExecutionProposal{}, err
 	}
+	mode, err := p.agent.configuration.ReadExecutionMode(ctx, agent.ExecutionIdentity{OrganizationID: i.TenantID, ActorID: i.UserID, MemberID: i.EffectiveMemberID}, p.agent.modeSubject())
+	if err != nil {
+		return aiworkbench.ExecutionProposal{}, err
+	}
 	proposal := aiworkbench.ExecutionProposal{Kind: "product.title.optimize", Scope: c.Scope, GoalSummary: goal,
 		OperationID: c.WorkScope.OperationID, ProductKey: binding.ProductKey, CatalogVersion: binding.CatalogVersion,
 		PublicationID: binding.PublicationID, TargetPlatform: binding.TargetPlatform,
 		AgentID: p.agent.definition.ID, AgentVersion: p.agent.definition.Version,
 		ObservedAgentRevision: configuration.Revision, ObservedActivationEpoch: configuration.ActivationEpoch,
-		TemplateID: c.WorkScope.TemplateID, TemplateRevision: c.WorkScope.TemplateRevision,
+		ObservedModeRevision: mode.Revision,
+		TemplateID:           c.WorkScope.TemplateID, TemplateRevision: c.WorkScope.TemplateRevision,
 		KnowledgeBaseID: c.WorkScope.KnowledgeBaseID, ExecutionModelProfile: rawProfile}
 	if proposal.KnowledgeBaseID != "" {
 		knowledgeCtx, e := knowledgeRequestContext(authidentity.WithAuthenticatedIdentity(ctx, i))
@@ -333,6 +338,9 @@ func (p *workbenchPlanner) FailureState(ctx context.Context, c aiworkbench.Plann
 }
 
 func (x workbenchExecution) Prepare(ctx context.Context, p aiworkbench.ExecutionProposal, key string) (aiworkbench.PreparedTask, error) {
+	if _, err := agentconfig.ParseModeRevision(p.ObservedModeRevision); err != nil {
+		return aiworkbench.PreparedTask{}, aiworkbench.ErrProposalStale
+	}
 	a := x.agent
 	i, err := a.freshIdentity(ctx)
 	if err != nil || p.Scope != (aiworkbench.Scope{OrganizationID: i.TenantID, ActorID: i.UserID}) {
@@ -366,7 +374,7 @@ func (x workbenchExecution) Prepare(ctx context.Context, p aiworkbench.Execution
 		}
 	}
 	request, err := a.startRequestWithProfile(requestCtx, binding, key, p.KnowledgeBaseID,
-		p.KnowledgeRevisionSetDigest, template, profile, p.GoalSummary)
+		p.KnowledgeRevisionSetDigest, template, profile, p.GoalSummary, p.ObservedModeRevision)
 	if err != nil {
 		return aiworkbench.PreparedTask{}, err
 	}
@@ -410,6 +418,10 @@ func (x workbenchExecution) startTask(ctx context.Context, task aiworkbench.Busi
 			_, err = a.store.FinalizeExpiredRunning(ctx, scope, request.Binding, request.Key, current.State.Revision, time.Now())
 			return true, err
 		}
+		if agentRunReviewable(current.State) {
+			_, err = a.finishTitleCandidate(ctx, current)
+			return true, err
+		}
 		return false, nil
 	}
 	binding, err := a.binding(ctx, task.OperationID, task.TargetPlatform)
@@ -425,7 +437,10 @@ func (x workbenchExecution) startTask(ctx context.Context, task aiworkbench.Busi
 			return false, err
 		}
 	}
-	_, claimAttempted, err := a.runtime.StartWithClaimAttempt(ctx, request)
+	run, claimAttempted, err := a.runtime.StartWithClaimAttempt(ctx, request)
+	if err == nil {
+		_, err = a.finishTitleCandidate(ctx, run)
+	}
 	return claimAttempted, err
 }
 

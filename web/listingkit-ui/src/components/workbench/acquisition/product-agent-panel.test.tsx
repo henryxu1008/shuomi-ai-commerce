@@ -7,6 +7,7 @@ const fixture = vi.hoisted(() => ({ request: vi.fn(), knowledge:vi.fn(), params:
 vi.mock("@/lib/api/knowledge",async original=>({...await original<typeof import("@/lib/api/knowledge")>(),knowledgeRequest:fixture.knowledge}));
 vi.mock("@/lib/api/product-agent", async (importOriginal) => ({ ...await importOriginal<typeof import("@/lib/api/product-agent")>(), requestProductAgent: fixture.request }));
 vi.mock("next/navigation", () => ({ useSearchParams: () => fixture.params }));
+vi.mock("../agents/agent-configuration-hooks",()=>({useConfigurationRead:()=>({data:{subject:{kind:"registered_agent",id:"product.title.agent"},definition:{id:"product.title.agent",version:"v1.0.0"},mode:"default",revision:"0",policyVersion:"agent-execution-policy-v1",canConfigure:false,updatedAt:"2026-10-12T00:00:00Z",updatedBy:""}})}));
 vi.mock("@/components/providers/workbench-context-provider", () => ({ useWorkbenchContext: () => fixture.context }));
 vi.mock("./title-agent-templates",()=>({TitleAgentTemplates:({onReady}:{onReady:(v:boolean)=>void})=>{useEffect(()=>onReady(true),[onReady]);return null}}));
 beforeEach(() => { fixture.context.roles=["listingkit_operator"];fixture.request.mockReset();fixture.knowledge.mockReset(); fixture.params = new URLSearchParams(); window.history.replaceState(null, "", "/"); Object.defineProperty(HTMLDialogElement.prototype,"showModal",{configurable:true,value:function(this:HTMLDialogElement){this.open=true}});Object.defineProperty(HTMLDialogElement.prototype,"close",{configurable:true,value:function(this:HTMLDialogElement){this.open=false}}); });
@@ -77,7 +78,7 @@ it.each(["CONFIGURATION_CHANGED", "AGENT_DEFINITION_UNAVAILABLE"])("preserves an
 });
 
 it.each(["CONFIGURATION_CHANGED", "AGENT_DEFINITION_UNAVAILABLE"])("allows reconfirmation after an original restored Start receives a definite zero-Claim response: %s", async code => {
-    fixture.params = new URLSearchParams({agent_key:op,agent_platform:"shein",agent_actor:"actor",agent_org:"org"});
+    fixture.params = new URLSearchParams({agent_key:op,agent_mode_revision:"0",agent_platform:"shein",agent_actor:"actor",agent_org:"org"});
     window.history.replaceState(null,"",`/?${fixture.params}`);
     fixture.request.mockRejectedValueOnce(new ProductAgentError(code));
     render(<ProductAgentPanel {...props}/>);
@@ -130,7 +131,7 @@ it("restores the original normalized Start after refresh and explicitly retries 
  expect(fixture.request.mock.calls[1].slice(0,4)).toEqual(first.slice(0,4));expect(fixture.request.mock.calls[1][7]).toBe("shein");expect(fixture.request.mock.calls[1][8]).toBe(op);expect(new URL(window.location.href).searchParams.get("agent_key")).toBe(first[2]);expect(screen.queryByText("生成标题建议")).toBeNull();expect(screen.getByRole("alert")).not.toHaveTextContent("本次未启动");
 });
 it.each(["other actor","other org","invalid selection"])("does not restore Start intent from another scope or malformed URL: %s",variant=>{
- fixture.params=new URLSearchParams({agent_key:op,agent_platform:"shein",agent_actor:variant==="other actor"?"other":"actor",agent_org:variant==="other org"?"other":"org",agent_knowledge_base:variant==="invalid selection"?"invalid":op});render(<ProductAgentPanel {...props}/>);expect(screen.queryByText("使用原请求核实启动")).toBeNull();expect(screen.getByText("读取当前结果")).toBeInTheDocument();expect(fixture.request).not.toHaveBeenCalled();
+ fixture.params=new URLSearchParams({agent_key:op,agent_mode_revision:"0",agent_platform:"shein",agent_actor:variant==="other actor"?"other":"actor",agent_org:variant==="other org"?"other":"org",agent_knowledge_base:variant==="invalid selection"?"invalid":op});render(<ProductAgentPanel {...props}/>);expect(screen.queryByText("使用原请求核实启动")).toBeNull();expect(screen.getByText("读取当前结果")).toBeInTheDocument();expect(fixture.request).not.toHaveBeenCalled();
 });
 it.each([false,true])("hides protected results after same-role permission downgrade including late response=%s without losing key",async(late)=>{
  const original=fixture.context.permissions;

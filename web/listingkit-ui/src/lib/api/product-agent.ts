@@ -6,8 +6,8 @@ import { readBoundedStrictJSON } from "./strict-json-response";
 export class ProductAgentError extends Error {
     constructor(public code: string) { super(code); }
 }
-export async function requestProductAgent(action: "start" | "read" | "resume" | "review", operationId: string, key: string, scope: AcquisitionContext, signal: AbortSignal, revision?: string, feedback?: string, targetPlatform?: string, knowledgeBaseId?: string,templateSelection?:TemplateRef) {
-    const start={targetPlatform,...(templateSelection?{templateSelection}:{}),...(knowledgeBaseId?{knowledgeSelection:{knowledgeBaseId}}:{})};
+export async function requestProductAgent(action: "start" | "read" | "resume" | "review", operationId: string, key: string, scope: AcquisitionContext, signal: AbortSignal, revision?: string, feedback?: string, targetPlatform?: string, knowledgeBaseId?: string,templateSelection?:TemplateRef,expectedModeRevision?:string) {
+    const start={expectedModeRevision,targetPlatform,...(templateSelection?{templateSelection}:{}),...(knowledgeBaseId?{knowledgeSelection:{knowledgeBaseId}}:{})};
     if (!isAcquisitionUUID(operationId) || !isAcquisitionUUID(key) || action === "start" && !agentStartRequestSchema.safeParse(start).success)
         throw new ProductAgentError("INVALID_AGENT_REQUEST");
     const base = `/api/workbench/sourcing/1688/acquisitions/${operationId}/product-agent/runs`;

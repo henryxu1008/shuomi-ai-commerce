@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
+	"task-processor/internal/agentconfig"
 	podhttp "task-processor/internal/app/pod/httpapi"
 	supplyapp "task-processor/internal/app/supplychain"
 	supplyhttp "task-processor/internal/app/supplychain/httpapi"
@@ -901,6 +902,19 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		}
 		modules = append(modules, module)
 	}
+	var modePrivateDeliveries privateModeDeliveryReader
+	if supplied.agentCustomizations > 0 {
+		m, err := buildAgentCustomizationModule(ctx, supplied.agentCustomizationDB, privateDraftInspector(supplyRuntime))
+		if err != nil {
+			return nil, fmt.Errorf("build current agent customization: %w", err)
+		}
+		var ok bool
+		modePrivateDeliveries, ok = m.(agentCustomizationModule).handler.Service.(privateModeDeliveryReader)
+		if !ok {
+			return nil, agentconfig.ErrUnavailable
+		}
+		modules = append(modules, m)
+	}
 	if supplied.agentConfigurationDB != nil {
 		if supplied.fullImages != nil {
 			if supplied.fullImages.Worker == nil || supplied.fullImages.Client == nil {
@@ -926,16 +940,9 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			imageRuntime = full
 			modules = append(modules, fullImageModule{application: full, bind: (productReviewCapabilityBinder{now: time.Now}).Bind})
 		}
-		m, e := buildAgentConfigurationModule(ctx, supplied.agentConfigurationDB, workbench.authDependencies.organizationResolver, authorizer, supplied.knowledge, productRuntime, imageRuntime)
+		m, e := buildAgentConfigurationModule(ctx, supplied.agentConfigurationDB, workbench.authDependencies.organizationResolver, authorizer, supplied.knowledge, productRuntime, modePrivateDeliveries, imageRuntime)
 		if e != nil {
 			return nil, fmt.Errorf("build current agent configuration: %w", e)
-		}
-		modules = append(modules, m)
-	}
-	if supplied.agentCustomizations > 0 {
-		m, err := buildAgentCustomizationModule(ctx, supplied.agentCustomizationDB, privateDraftInspector(supplyRuntime))
-		if err != nil {
-			return nil, fmt.Errorf("build current agent customization: %w", err)
 		}
 		modules = append(modules, m)
 	}

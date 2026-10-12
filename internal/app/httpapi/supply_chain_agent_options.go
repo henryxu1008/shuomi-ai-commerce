@@ -68,6 +68,10 @@ func (s *supplyProductAgent) options(ctx context.Context, q collection.Query) (s
 		return out, nil
 	}
 	scope := agent.Scope{OrganizationID: identity.TenantID, ActorID: identity.UserID}
+	mode, err := s.agent.configuration.ReadExecutionMode(ctx, agent.ExecutionIdentity{OrganizationID: identity.TenantID, ActorID: identity.UserID, MemberID: identity.EffectiveMemberID}, s.agent.modeSubject())
+	if err != nil {
+		return out, err
+	}
 	config, err := s.agent.configuration.ReadAgent(ctx, scope, s.agent.definition.ID)
 	if err != nil || config.Activation != "ENABLED" {
 		out.Reason = "请先在我的智能体中启用商品标题智能体"
@@ -92,7 +96,7 @@ func (s *supplyProductAgent) options(ctx context.Context, q collection.Query) (s
 		if err != nil || calls < 1 || points > math.MaxInt64/calls {
 			continue
 		}
-		out.Titles = append(out.Titles, supplyapp.TitleOptimizationChoice{AgentID: s.agent.definition.ID, TemplateID: current.TemplateID, Revision: current.Version, Name: current.Name, QuoteHash: s.titleQuote(scope, profile, config, current), MaximumCostMicros: s.agent.config.Limits.CostMicros, Currency: s.agent.config.Limits.Currency, MaximumPoints: points * calls, PriceVersion: profile.PointTariff.PriceVersion})
+		out.Titles = append(out.Titles, supplyapp.TitleOptimizationChoice{AgentID: s.agent.definition.ID, ModeRevision: mode.Revision, ExecutionMode: string(mode.Mode), TemplateID: current.TemplateID, Revision: current.Version, Name: current.Name, QuoteHash: s.titleQuote(scope, profile, config, current), MaximumCostMicros: s.agent.config.Limits.CostMicros, Currency: s.agent.config.Limits.Currency, MaximumPoints: points * calls, PriceVersion: profile.PointTariff.PriceVersion})
 	}
 	if len(out.Titles) == 0 {
 		out.Reason = "没有可执行的 SHEIN 标题模板或模型报价；可直接补全并上传"
@@ -109,6 +113,10 @@ func (s *supplyProductAgent) authorizeRequest(ctx context.Context, in preparatio
 	identity, err := s.agent.freshIdentity(ctx)
 	if err != nil {
 		return preparation.ErrForbidden
+	}
+	mode, err := s.agent.configuration.ReadExecutionMode(ctx, agent.ExecutionIdentity{OrganizationID: identity.TenantID, ActorID: identity.UserID, MemberID: identity.EffectiveMemberID}, s.agent.modeSubject())
+	if err != nil || mode.Revision != in.TitleModeRevision {
+		return agentconfig.ErrChanged
 	}
 	_, err = s.validateTitleSelection(ctx, agent.Scope{OrganizationID: identity.TenantID, ActorID: identity.UserID}, agentconfig.TemplateRef{TemplateID: in.TitleTemplateID, Revision: in.TitleTemplateRevision}, in.TitleQuoteHash)
 	return err

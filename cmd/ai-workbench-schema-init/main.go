@@ -19,6 +19,7 @@ import (
 
 func main() {
 	role := flag.String("runtime-role", "", "existing restricted PostgreSQL runtime role")
+	modeOnly := flag.Bool("execution-mode-only", false, "add only nullable execution-mode metadata; retain historical proposals and grants")
 	flag.Parse()
 	if flag.NArg() != 0 || !regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`).MatchString(*role) {
 		fmt.Fprintln(os.Stderr, "requires --runtime-role with an existing role")
@@ -42,6 +43,9 @@ func main() {
 	}
 	defer raw.Close()
 	err = db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if *modeOnly {
+			return store.InstallObservedExecutionMode(tx, *role)
+		}
 		if err := store.InstallSchema(tx); err != nil {
 			return err
 		}

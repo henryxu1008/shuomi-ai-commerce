@@ -57,14 +57,15 @@ type ImageSetResultBinding struct {
 }
 
 type ImageSetSelection struct {
-	Schema            string                  `json:"schema"`
-	Source            SourceSelectionRequest  `json:"source"`
-	ExpectedHead      ImageInventoryHead      `json:"expected_head"`
-	RequirementDigest string                  `json:"requirement_digest,omitempty"`
-	Results           []ImageSetResultBinding `json:"results"`
-	Digest            string                  `json:"digest"`
-	RequestDigest     string                  `json:"request_digest"`
-	Target            *ImageSetTarget         `json:"target,omitempty"`
+	PolicyAdoption    *ImageSetPolicyProvenance `json:"policy_adoption,omitempty"`
+	Schema            string                    `json:"schema"`
+	Source            SourceSelectionRequest    `json:"source"`
+	ExpectedHead      ImageInventoryHead        `json:"expected_head"`
+	RequirementDigest string                    `json:"requirement_digest,omitempty"`
+	Results           []ImageSetResultBinding   `json:"results"`
+	Digest            string                    `json:"digest"`
+	RequestDigest     string                    `json:"request_digest"`
+	Target            *ImageSetTarget           `json:"target,omitempty"`
 }
 
 type ImageSetTarget struct {
@@ -101,6 +102,9 @@ func ImageSetSelectionDigest(commit ApprovalCommit) string {
 
 func ValidateImageSetCommit(commit ApprovalCommit) error {
 	s := commit.ImageSet
+	if s != nil && (!s.PolicyAdoption.Valid() || s.PolicyAdoption != nil && (s.PolicyAdoption.Identity.OrganizationID != commit.TenantID || s.PolicyAdoption.Identity.ActorID == "")) {
+		return ErrInvalidApproval
+	}
 	if s == nil || s.Schema != ImageSetSelectionSchema || !s.ExpectedHead.Valid() || len(commit.Assets) < 1 || len(commit.Assets) > 40 || s.Digest != ImageSetSelectionDigest(commit) || !imageSetDigest(s.RequestDigest) || s.Source.TargetPlatform != commit.TargetPlatform || s.Source.EffectiveCatalogVersion != commit.SourceSnapshotVersion || !validIdentityPart(s.Source.ItemID) || !validIdentityPart(s.Source.OriginalPublicationID) || s.Source.OriginalSnapshotVersion == 0 {
 		return ErrInvalidApproval
 	}
@@ -186,6 +190,10 @@ func CloneImageSetSelection(s *ImageSetSelection) *ImageSetSelection {
 		return nil
 	}
 	copy := *s
+	if s.PolicyAdoption != nil {
+		proof := *s.PolicyAdoption
+		copy.PolicyAdoption = &proof
+	}
 	copy.Results = append([]ImageSetResultBinding(nil), s.Results...)
 	if s.Target != nil {
 		target := *s.Target

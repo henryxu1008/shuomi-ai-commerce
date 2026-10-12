@@ -50,23 +50,24 @@ type productReviewReceiptDTO struct {
 }
 
 type productReviewViewDTO struct {
-	SchemaVersion int                        `json:"schema_version"`
-	Coverage      string                     `json:"coverage"`
-	ProposalID    string                     `json:"proposal_id"`
-	Owner         string                     `json:"owner"`
-	Input         productReviewInputDTO      `json:"input"`
-	Before        string                     `json:"before"`
-	After         string                     `json:"after"`
-	OriginalTitle string                     `json:"original_title"`
-	Policy        string                     `json:"policy"`
-	State         string                     `json:"state"`
-	Revision      string                     `json:"revision"`
-	Evidence      []review.Evidence          `json:"evidence"`
-	Quality       productReviewQualityDTO    `json:"quality"`
-	Unresolved    []string                   `json:"unresolved"`
-	Decisions     []productReviewDecisionDTO `json:"decisions"`
-	ApplyReceipt  *productReviewReceiptDTO   `json:"apply_receipt,omitempty"`
-	Knowledge     *productKnowledgeDTO       `json:"knowledge,omitempty"`
+	PolicyAdoption *review.PolicyProvenance   `json:"policy_adoption,omitempty"`
+	SchemaVersion  int                        `json:"schema_version"`
+	Coverage       string                     `json:"coverage"`
+	ProposalID     string                     `json:"proposal_id"`
+	Owner          string                     `json:"owner"`
+	Input          productReviewInputDTO      `json:"input"`
+	Before         string                     `json:"before"`
+	After          string                     `json:"after"`
+	OriginalTitle  string                     `json:"original_title"`
+	Policy         string                     `json:"policy"`
+	State          string                     `json:"state"`
+	Revision       string                     `json:"revision"`
+	Evidence       []review.Evidence          `json:"evidence"`
+	Quality        productReviewQualityDTO    `json:"quality"`
+	Unresolved     []string                   `json:"unresolved"`
+	Decisions      []productReviewDecisionDTO `json:"decisions"`
+	ApplyReceipt   *productReviewReceiptDTO   `json:"apply_receipt,omitempty"`
+	Knowledge      *productKnowledgeDTO       `json:"knowledge,omitempty"`
 }
 
 func marshalProductReviewView(view review.View, projections ...*productKnowledgeDTO) ([]byte, error) {
@@ -83,22 +84,23 @@ func marshalProductReviewView(view review.View, projections ...*productKnowledge
 	evidence := append([]review.Evidence{}, view.Evidence...)
 	unresolved := append([]string{}, view.Unresolved...)
 	dto := productReviewViewDTO{
-		Knowledge:     unavailableKnowledge(view.ContextProvenance),
-		SchemaVersion: productReviewSchemaVersion,
-		Coverage:      productReviewCoverage,
-		ProposalID:    view.ID,
-		Owner:         view.Owner,
-		Input:         productReviewInputDTO{ProductKey: view.Input.ProductKey, BaseVersion: strconv.FormatUint(view.Input.BaseVersion, 10)},
-		Before:        view.Before,
-		After:         view.Title,
-		OriginalTitle: view.OriginalTitle,
-		Policy:        view.Policy,
-		State:         view.State,
-		Revision:      strconv.FormatUint(view.Revision, 10),
-		Evidence:      evidence,
-		Quality:       productReviewQualityDTO{Overall: view.Quality.Overall, EvidenceCoverage: view.Quality.EvidenceCoverage, RequiredFieldCoverage: view.Quality.RequiredFieldCoverage},
-		Unresolved:    unresolved,
-		Decisions:     decisions,
+		PolicyAdoption: view.PolicyAdoption,
+		Knowledge:      unavailableKnowledge(view.ContextProvenance),
+		SchemaVersion:  productReviewSchemaVersion,
+		Coverage:       productReviewCoverage,
+		ProposalID:     view.ID,
+		Owner:          view.Owner,
+		Input:          productReviewInputDTO{ProductKey: view.Input.ProductKey, BaseVersion: strconv.FormatUint(view.Input.BaseVersion, 10)},
+		Before:         view.Before,
+		After:          view.Title,
+		OriginalTitle:  view.OriginalTitle,
+		Policy:         view.Policy,
+		State:          view.State,
+		Revision:       strconv.FormatUint(view.Revision, 10),
+		Evidence:       evidence,
+		Quality:        productReviewQualityDTO{Overall: view.Quality.Overall, EvidenceCoverage: view.Quality.EvidenceCoverage, RequiredFieldCoverage: view.Quality.RequiredFieldCoverage},
+		Unresolved:     unresolved,
+		Decisions:      decisions,
 	}
 	if view.ContextProvenance != nil && len(projections) == 1 && projections[0] != nil {
 		dto.Knowledge = projections[0]

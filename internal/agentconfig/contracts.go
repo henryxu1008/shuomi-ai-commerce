@@ -114,6 +114,7 @@ type Receipt struct {
 	CommittedAt    time.Time `json:"committedAt"`
 }
 type StartCommand struct {
+	MemberID, ExpectedModeRevision         string
 	Scope                                  agent.Scope
 	AgentID, AgentVersion, KnowledgeBaseID string
 	Template                               *TemplateRef
@@ -121,6 +122,7 @@ type StartCommand struct {
 	ExecutionModelProfile                  aicapability.ModelProfile
 }
 type Snapshot struct {
+	MemberID, ExpectedModeRevision                               string
 	ID, Digest                                                   string
 	Scope                                                        agent.Scope
 	AgentID, AgentVersion, KnowledgeBaseID, Epoch, AgentRevision string

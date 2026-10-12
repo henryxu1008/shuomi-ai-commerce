@@ -1,0 +1,156 @@
+.panel {
+  min-width: 0;
+  margin-top: 18px;
+  padding: 22px;
+  border-radius: 16px;
+}
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.header h2 {
+  font-size: 17px;
+  font-weight: 700;
+}
+.panel p,
+.intro,
+.description,
+.boundary p {
+  color: var(--muted-foreground);
+  font-size: 13px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.summary {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+}
+.panel .modeLabel {
+  color: var(--console-blue);
+  font-weight: 600;
+}
+.boundary {
+  margin-top: 18px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--secondary);
+}
+.boundary strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.refresh {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 12px;
+}
+.dialog {
+  width: min(560px, calc(100vw - 32px));
+  padding: 24px;
+  background: var(--card);
+}
+.dialog h2 {
+  font-size: 20px;
+}
+.options {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+}
+.options legend {
+  margin-bottom: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--secondary);
+  cursor: pointer;
+  transition: border-color 150ms, background-color 150ms;
+}
+.option:hover,
+.option[data-selected="true"] {
+  border-color: var(--console-blue);
+  background: color-mix(in srgb, var(--console-blue) 10%, var(--secondary));
+}
+.option:focus-within {
+  outline: 2px solid var(--console-blue);
+  outline-offset: 3px;
+}
+.option input {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin-top: 3px;
+  accent-color: var(--console-blue);
+}
+.optionContent {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+.optionHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--foreground);
+}
+.selected {
+  flex-shrink: 0;
+  color: var(--console-blue);
+  font-size: 11px;
+}
+.description {
+  white-space: normal;
+}
+.panel .error,
+.dialog .error {
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: var(--warning-foreground);
+  background: var(--warning);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.options:disabled .option {
+  cursor: default;
+  opacity: .65;
+}
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-top: 6px;
+}
+@media (max-width: 480px) {
+  .panel,
+  .dialog {
+    padding: 16px;
+  }
+  .option {
+    padding: 12px;
+  }
+  .actions > * {
+    flex: 1;
+  }
+}

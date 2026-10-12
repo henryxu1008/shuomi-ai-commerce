@@ -35,6 +35,8 @@ func GrantRuntime(db *gorm.DB, role string) error {
 		"GRANT SELECT, INSERT, UPDATE ON agent_configuration.organization_agents, agent_configuration.templates TO " + quoted,
 		"GRANT SELECT, INSERT ON agent_configuration.template_revisions, agent_configuration.start_snapshots, agent_configuration.commands, agent_configuration.image_run_admissions TO " + quoted,
 		"GRANT UPDATE (before_revision, after_revision, receipt, template_id) ON agent_configuration.commands TO " + quoted,
+		"GRANT SELECT, INSERT ON agent_configuration.execution_modes, agent_configuration.execution_mode_snapshots TO " + quoted,
+		"GRANT UPDATE (mode, revision, updated_by, updated_at) ON agent_configuration.execution_modes TO " + quoted,
 	} {
 		if e := db.Exec(sql).Error; e != nil {
 			return e
@@ -48,7 +50,7 @@ func GrantRuntime(db *gorm.DB, role string) error {
 	if unsafe {
 		return agentconfig.ErrInvalid
 	}
-	for _, table := range []string{"organization_agents", "templates", "template_revisions", "start_snapshots", "commands", "image_run_admissions"} {
+	for _, table := range []string{"organization_agents", "templates", "template_revisions", "start_snapshots", "commands", "image_run_admissions", "execution_modes", "execution_mode_snapshots"} {
 		if e := db.Raw("SELECT has_table_privilege(?,?,'DELETE,TRUNCATE')", role, "agent_configuration."+table).Scan(&unsafe).Error; e != nil {
 			return e
 		}
@@ -56,7 +58,7 @@ func GrantRuntime(db *gorm.DB, role string) error {
 			return agentconfig.ErrInvalid
 		}
 	}
-	for _, table := range []string{"template_revisions", "start_snapshots", "image_run_admissions"} {
+	for _, table := range []string{"template_revisions", "start_snapshots", "image_run_admissions", "execution_mode_snapshots"} {
 		if e := db.Raw("SELECT has_any_column_privilege(?,?,'UPDATE')", role, "agent_configuration."+table).Scan(&unsafe).Error; e != nil {
 			return e
 		}
@@ -65,6 +67,12 @@ func GrantRuntime(db *gorm.DB, role string) error {
 		}
 	}
 	if e := db.Raw(`SELECT EXISTS(SELECT 1 FROM pg_attribute WHERE attrelid='agent_configuration.commands'::regclass AND attnum>0 AND NOT attisdropped AND attname NOT IN ('before_revision','after_revision','receipt','template_id') AND has_column_privilege(?,attrelid,attname,'UPDATE'))`, role).Scan(&unsafe).Error; e != nil {
+		return e
+	}
+	if unsafe {
+		return agentconfig.ErrInvalid
+	}
+	if e := db.Raw(`SELECT EXISTS(SELECT 1 FROM pg_attribute WHERE attrelid='agent_configuration.execution_modes'::regclass AND attnum>0 AND NOT attisdropped AND attname NOT IN ('mode','revision','updated_by','updated_at') AND has_column_privilege(?,attrelid,attname,'UPDATE'))`, role).Scan(&unsafe).Error; e != nil {
 		return e
 	}
 	if unsafe {

@@ -349,6 +349,7 @@ func decodeTitleView(t *testing.T, raw []byte) review.View {
 	revision, err := strconv.ParseUint(dto.Revision, 10, 64)
 	require.NoError(t, err)
 	view := review.View{ID: dto.ProposalID, Owner: dto.Owner, Input: review.CreateInput{ProductKey: dto.Input.ProductKey, BaseVersion: baseVersion}, Before: dto.Before, Title: dto.After, OriginalTitle: dto.OriginalTitle, Policy: dto.Policy, State: dto.State, Revision: revision, Evidence: dto.Evidence, Quality: enrichment.QualityScore{Overall: dto.Quality.Overall, EvidenceCoverage: dto.Quality.EvidenceCoverage, RequiredFieldCoverage: dto.Quality.RequiredFieldCoverage}, Unresolved: dto.Unresolved}
+	view.PolicyAdoption = dto.PolicyAdoption
 	for _, decision := range dto.Decisions {
 		decisionRevision, parseErr := strconv.ParseUint(decision.Revision, 10, 64)
 		require.NoError(t, parseErr)

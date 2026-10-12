@@ -41,6 +41,7 @@ type OperationInput struct {
 	TitleTemplateID       string   `json:"titleTemplateId,omitempty"`
 	TitleTemplateRevision string   `json:"titleTemplateRevision,omitempty"`
 	TitleQuoteHash        string   `json:"titleQuoteHash,omitempty"`
+	TitleModeRevision     string   `json:"titleModeRevision,omitempty"`
 	ImageTemplateID       string   `json:"imageTemplateId,omitempty"`
 }
 
@@ -61,12 +62,16 @@ func (i OperationInput) Validate() error {
 		return ErrInvalid
 	}
 	if i.TitleTemplateID != "" {
+		modeRevision, modeErr := strconv.ParseUint(i.TitleModeRevision, 10, 63)
+		if modeErr != nil || strconv.FormatUint(modeRevision, 10) != i.TitleModeRevision {
+			return ErrInvalid
+		}
 		revision, err := strconv.ParseUint(i.TitleTemplateRevision, 10, 63)
 		hash, hashErr := hex.DecodeString(i.TitleQuoteHash)
 		if err != nil || revision == 0 || strconv.FormatUint(revision, 10) != i.TitleTemplateRevision || hashErr != nil || len(hash) != 32 || hex.EncodeToString(hash) != i.TitleQuoteHash {
 			return ErrInvalid
 		}
-	} else if i.TitleTemplateRevision != "" || i.TitleQuoteHash != "" {
+	} else if i.TitleTemplateRevision != "" || i.TitleQuoteHash != "" || i.TitleModeRevision != "" {
 		return ErrInvalid
 	}
 	for _, v := range []string{i.TitleTemplateID, i.ImageTemplateID} {

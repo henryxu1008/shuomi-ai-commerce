@@ -6,6 +6,7 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -48,6 +49,7 @@ func (m fullImageModule) Register(reg *kernelmodule.Registry) error {
 }
 
 type fullImagePrepareBody struct {
+	ExpectedModeRevision    string                                       `json:"expectedModeRevision"`
 	Template                *agentconfig.TemplateRef                     `json:"template,omitempty"`
 	Target                  imageagent.ImageTargetSelection              `json:"target"`
 	SharedOriginalIDs       []string                                     `json:"sharedOriginalIds,omitempty"`
@@ -309,6 +311,7 @@ func (m fullImageModule) handle(c *gin.Context, kind imageagent.ImageSourceConte
 			}
 			input.RegenerateFromRunID = p.Run.ID
 		}
+		input.ExpectedModeRevision = body.ExpectedModeRevision
 		prepared, e := a.service.PrepareImageSet(ctx, input)
 		if e != nil {
 			writeFullImageError(c, e, true)
@@ -619,6 +622,33 @@ func (a *fullImageApplication) response(ctx context.Context, p imageagent.RunPro
 	}
 	response["confirmationActionId"], response["generationAdmitted"] = "", p.Run.ImageAdmission != nil
 	response["template"] = template
+	response["executionModeAvailable"], response["generationAllowed"], response["modeUnavailableReason"] = false, false, "EXECUTION_MODE_NOT_FROZEN"
+	modeIdentity := agent.ExecutionIdentity{OrganizationID: p.Run.TenantID, ActorID: p.Run.UserID, MemberID: p.Run.MemberID}
+	if p.Plan.Set.ModeSnapshotRef.Valid() && snapshot.ModeSnapshotRef == p.Plan.Set.ModeSnapshotRef {
+		mode, modeErr := a.configuration.LoadModeSnapshot(ctx, modeIdentity, p.Plan.Set.ModeSnapshotRef)
+		if modeErr == nil {
+			response["executionModeAvailable"], response["executionMode"], response["modeRevision"], response["modeSnapshotRef"], response["modeUnavailableReason"] = true, mode.Mode, mode.Revision, mode.Ref(), ""
+			_, currentErr := a.configuration.CheckImageExecutionMode(ctx, modeIdentity, p.Plan.Set.Configuration, p.Plan.Set.ModeSnapshotRef)
+			response["generationAllowed"] = currentErr == nil && mode.Mode != agent.ModeReadOnly
+			if currentErr != nil {
+				response["modeUnavailableReason"] = "EXECUTION_MODE_CHANGED"
+			}
+			if mode.Mode == agent.ModeFullAccess && p.ResultDigest != "" && a.approvals != nil {
+				if commit, err := a.approvals.ReadApprovalCommit(ctx, p.Run.TenantID, imagePolicyActionID(p, mode.Ref())); err == nil && commit.ImageSet != nil && commit.ImageSet.PolicyAdoption != nil {
+					proof := imagePolicyProvenance(mode, p)
+					if asset.ValidateApprovalCommit(commit) != nil || !reflect.DeepEqual(commit.ImageSet.PolicyAdoption, &proof) {
+						return nil, imageagent.ErrRevisionConflict
+					}
+					response["policyAdoption"] = commit.ImageSet.PolicyAdoption
+				}
+			}
+		} else {
+			response["modeUnavailableReason"] = "EXECUTION_MODE_UNAVAILABLE"
+		}
+	}
+	if response["generationAllowed"] != true {
+		response["approvalAvailable"], response["regenerationAvailable"], response["candidateSelectionAvailable"] = false, false, false
+	}
 	if p.Run.ImageAdmission != nil {
 		response["confirmationActionId"] = p.Run.ImageAdmission.Command.ConfirmActionID
 	}

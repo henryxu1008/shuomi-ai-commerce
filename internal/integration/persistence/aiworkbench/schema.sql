@@ -111,6 +111,7 @@ CREATE TABLE IF NOT EXISTS ai_workbench.execution_proposals (
     agent_id text NOT NULL,
     agent_version text NOT NULL,
     observed_agent_revision text NOT NULL,
+    observed_mode_revision text NOT NULL CHECK(observed_mode_revision ~ '^(0|[1-9][0-9]{0,18})$' AND observed_mode_revision::numeric <= 9223372036854775807),
     observed_activation_epoch text NOT NULL,
     template_id text,
     template_revision text,

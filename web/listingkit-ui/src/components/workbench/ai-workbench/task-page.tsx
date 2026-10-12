@@ -11,6 +11,7 @@ import { requestAIWorkbench, AIWorkbenchError, type AIScope } from "@/lib/api/ai
 import type { AITask } from "@/lib/contracts/ai-workbench";
 import { findConsoleRoute } from "@/lib/workbench/console-navigation";
 import { KnowledgeCitations } from "../task-center/knowledge-citations";
+import {executionModeLabels} from "../agents/execution-mode-settings";
 import styles from "./task-page.module.css";
 
 type TaskMode = "all" | "running" | "pending" | "completed" | "errors";
@@ -23,7 +24,7 @@ const filters: { mode: TaskMode; label: string; href: string }[] = [
   { mode: "errors", label: "异常任务", href: "/workbench/ai/tasks/errors" },
 ];
 const taskState: Record<string, string> = { RUNNING: "执行中", WAITING_CONFIRMATION: "待确认", COMPLETED: "已完成", ERROR: "异常", PAUSED: "已暂停" };
-const reasonText: Record<string, string> = { START_NOT_CLAIMED: "执行尚未启动，可使用原任务启动", EXECUTION_OUTCOME_UNKNOWN: "执行结果无法确认，不会自动重发模型请求",
+const reasonText: Record<string, string> = { EXECUTION_MODE_CHANGED:"权限模式或准入已变化，保留原任务并重新确认新运行", START_NOT_CLAIMED: "执行尚未启动，可使用原任务启动", EXECUTION_OUTCOME_UNKNOWN: "执行结果无法确认，不会自动重发模型请求",
   TITLE_PROFILE_UNAVAILABLE: "原任务使用的标题模型配置已不可用，请检查企业配置",
   HUMAN_REVIEW_REQUIRED: "需要人工审核标题建议", AGENT_RESULT_NOT_REVIEWABLE: "标题建议未通过验证，无法提交审核",
   AGENT_INTERRUPTED_DEADLINE_EXPIRED: "原执行期限已过，不能继续此中断任务", invalid_model_output: "模型返回格式不符合要求，已记录实际用量",
@@ -178,7 +179,7 @@ function TaskDetail({ scope, authorizationKey, taskId }: { scope: AIScope; autho
         <dt>目标平台</dt><dd>{item.productDetailsAvailable ? item.targetPlatform : "不可用"}</dd>
         <dt>执行模型</dt><dd>{item.providerId && item.modelId ? `${item.providerId} / ${item.modelId}` : "尚无可用执行记录"}</dd>
         <dt>用量</dt><dd>{item.usageStatus === "unknown_reserved" ? "结果未知，额度仍保留" : item.usageStatus === "observed" ? `${item.tokens ?? 0} tokens · ${item.estimatedCostMicros ?? 0} μ${item.currency ?? ""}` : "尚无可用用量"}</dd>
-        <dt>审核</dt><dd>{item.reviewState || "尚未生成"}</dd>
+        <dt>执行权限</dt><dd>{item.executionMode?`${executionModeLabels[item.executionMode]} · 版本 ${item.modeRevision}`:"权限模式不可用"}</dd><dt>审核</dt><dd>{item.policyAdoption?"按策略采用，未经逐项人工审阅":item.reviewState || "尚未生成"}</dd>
         <dt>创建时间</dt><dd>{new Date(item.createdAt).toLocaleString("zh-CN")}</dd></dl>
       <KnowledgeCitations knowledge={item.knowledge} />
       {item.productDetailsAvailable && item.operationId ? <Button asChild variant="outline"><Link href={`/workbench/supply/acquisition/operation/${item.operationId}`} prefetch={false}>查看来源商品</Link></Button> : null}
