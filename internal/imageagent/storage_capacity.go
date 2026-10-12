@@ -25,9 +25,14 @@ func ConfigureGenerationRecoveryStorage(recovery GenerationRecovery, w storageca
 		r.capacity = w
 	}
 }
-func closeNoGenerationCapacity(ctx context.Context, w storagecapacity.Writer, f GenerationFact) error {
-	if w == nil || f.State != GenerationNoEffect {
+func closeGenerationCapacity(ctx context.Context, w storagecapacity.Writer, f GenerationFact) error {
+	noGeneration := f.State == GenerationNoEffect
+	invalidOutput := f.State == GenerationSucceeded && f.Success.ResultUnavailable == "invalid_result" && f.Settlement.State == "committed"
+	if w == nil || !noGeneration && !invalidOutput {
 		return nil
+	}
+	if f.Validate() != nil {
+		return ErrCorruptPersistedEffect
 	}
 	id := f.Intent.Identity
 	operation := StorageGenerationOperation(id)
@@ -38,8 +43,14 @@ func closeNoGenerationCapacity(ctx context.Context, w storagecapacity.Writer, f 
 	if e != nil {
 		return e
 	}
-	if reservation.State == "RESERVED" {
+	if noGeneration && reservation.State == "RESERVED" {
 		return w.AbortUnstarted(ctx, id.TenantID, reservation.ID)
 	}
-	return w.CloseWrite(ctx, id.TenantID, reservation.ID, storagecapacity.CloseProof{Owner: "image_agent", OperationID: operation, Fingerprint: f.Fingerprint, TerminalReceipt: "no-generation:" + f.Fingerprint})
+	receipt := "no-generation:" + f.Fingerprint
+	if invalidOutput {
+		// Native invalid_result is immutable and publication rejects it. Its
+		// settled point charge remains committed; only unused bytes can close.
+		receipt = "invalid-generation:" + f.TerminalProofDigest()
+	}
+	return w.CloseWrite(ctx, id.TenantID, reservation.ID, storagecapacity.CloseProof{Owner: "image_agent", OperationID: operation, Fingerprint: f.Fingerprint, TerminalReceipt: receipt})
 }

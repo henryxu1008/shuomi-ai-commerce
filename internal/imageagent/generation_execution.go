@@ -287,7 +287,7 @@ func (e *GenerationExecution) finalize(ctx context.Context, intent GenerationInt
 		if readErr != nil {
 			return readErr
 		}
-		return closeNoGenerationCapacity(ctx, e.dependencies.StorageCapacity, fact)
+		return closeGenerationCapacity(ctx, e.dependencies.StorageCapacity, fact)
 	}
 	return err
 }

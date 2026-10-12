@@ -158,6 +158,7 @@ AI 在派发前的容量预留与点数预留分别保持原 owner：容量失�
 | `PUT_DISPATCHED`，网络超时、响应丢失或崩溃 | 保留 reserved，显示待核实 | 原 owner 的有界恢复，核 exact key/hash/size |
 | Inspect 确认原对象匹配 | 转 `STORED`，reserved → occupied | 原 receipt 幂等确认；不需要重发 PUT |
 | Inspect 返回临时错误、权限错误或内容冲突 | 不释放，不声称空空间 | 原 owner 沿现有 failure/UNKNOWN 显示，不创建新对象或跳过校验 |
+| 原 generation fact 已验证 `GenerationSucceeded`、不可改写 `invalid_result`，且原 settlement 为匹配的 `committed` | 原终态证明禁止发布，仅 CloseWrite 未使用的容量上界；已结算 AI 点数保留，不 Abort/退款 | 原 finalize/recovery，receipt 绑定 TerminalProofDigest；关闭失败沿原入口重试；有效输出、UNKNOWN、未结算或无效证明不释放 |
 | 已 dispatch 后 Inspect 暂时返回不存在 | 不仅凭 404、超时、租约到期或“任务失败”释放 | 迟到 PUT 仍可能落地；沿原 immutable exact-key 恢复。只有明确供应商无创建终态或已批准删除 proof 才可释放 |
 | `STORED` 后业务失败、停用、撤权、版本替换 | occupied 保留 | 沿原业务状态处理；容量不得删除或冒充释放 |
 | 原 owner 有批准删除资格，并确认物理删除 | 以原 object/operation 唯一转 `RELEASED`、occupied 减少 | 只接受有界原终态与供应商删除证据；无公开释放接口 |

@@ -60,15 +60,16 @@ func (r *generationRecovery) ReconcileExistingGeneration(ctx context.Context, id
 		return fact.State, ErrRevisionConflict
 	}
 	if fact.Settlement != (GenerationSettlementReceipt{}) {
-		return fact.State, closeNoGenerationCapacity(ctx, r.capacity, fact)
+		return fact.State, closeGenerationCapacity(ctx, r.capacity, fact)
 	}
 	receipt, err := r.resources.FinalizeImageGeneration(ctx, id)
 	if err != nil {
 		return fact.State, err
 	}
-	_, err = r.facts.BindGenerationSettlement(ctx, fact.Intent, receipt)
+	settled, err := r.facts.BindGenerationSettlement(ctx, fact.Intent, receipt)
 	if err == nil {
-		err = closeNoGenerationCapacity(ctx, r.capacity, fact)
+		fact = settled
+		err = closeGenerationCapacity(ctx, r.capacity, fact)
 	}
 	return fact.State, err
 }
