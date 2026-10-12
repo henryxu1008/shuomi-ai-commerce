@@ -115,6 +115,7 @@ type proposalRow struct {
 	AgentID                    string
 	AgentVersion               string
 	ObservedAgentRevision      string
+	ObservedModeRevision       string
 	ObservedActivationEpoch    string
 	TemplateID                 string
 	TemplateRevision           string
@@ -284,7 +285,8 @@ func proposal(row proposalRow) aiworkbench.ExecutionProposal {
 		ProductKey: row.ProductKey, CatalogVersion: row.CatalogVersion, PublicationID: row.PublicationID,
 		TargetPlatform: row.TargetPlatform, AgentID: row.AgentID, AgentVersion: row.AgentVersion,
 		ObservedAgentRevision: row.ObservedAgentRevision, ObservedActivationEpoch: row.ObservedActivationEpoch,
-		TemplateID: row.TemplateID, TemplateRevision: row.TemplateRevision,
+		ObservedModeRevision: row.ObservedModeRevision,
+		TemplateID:           row.TemplateID, TemplateRevision: row.TemplateRevision,
 		KnowledgeBaseID: row.KnowledgeBaseID, KnowledgeRevisionSetDigest: row.KnowledgeRevisionSetDigest,
 		ExecutionModelProfile: append([]byte(nil), row.ExecutionModelProfile...), CreatedAt: row.CreatedAt.UTC()}
 }
@@ -799,7 +801,8 @@ func (s *Store) CompletePlan(ctx context.Context, scope aiworkbench.Scope, key s
 				ProductKey: p.ProductKey, CatalogVersion: p.CatalogVersion, PublicationID: p.PublicationID,
 				TargetPlatform: p.TargetPlatform, AgentID: p.AgentID, AgentVersion: p.AgentVersion,
 				ObservedAgentRevision: p.ObservedAgentRevision, ObservedActivationEpoch: p.ObservedActivationEpoch,
-				TemplateID: p.TemplateID, TemplateRevision: p.TemplateRevision, KnowledgeBaseID: p.KnowledgeBaseID,
+				ObservedModeRevision: p.ObservedModeRevision,
+				TemplateID:           p.TemplateID, TemplateRevision: p.TemplateRevision, KnowledgeBaseID: p.KnowledgeBaseID,
 				KnowledgeRevisionSetDigest: p.KnowledgeRevisionSetDigest,
 				ExecutionModelProfile:      append([]byte(nil), p.ExecutionModelProfile...), CreatedAt: now}
 			proposed.Digest = proposalDigest(proposed)

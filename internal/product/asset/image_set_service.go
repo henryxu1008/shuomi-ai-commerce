@@ -37,13 +37,14 @@ type ManualImageReader interface {
 }
 
 type ImageSetCommand struct {
-	ApprovingResult ImageSetResultBinding  `json:"approving_result"`
-	ActionID        string                 `json:"action_id"`
-	Source          SourceSelectionRequest `json:"source"`
-	Target          *ImageSetTarget        `json:"target,omitempty"`
-	ExpectedHead    ImageInventoryHead     `json:"expected_head"`
-	Choices         []ImageSetChoice       `json:"choices"`
-	SelectionDigest string                 `json:"selection_digest"`
+	PolicyAdoption  *ImageSetPolicyProvenance `json:"policy_adoption,omitempty"`
+	ApprovingResult ImageSetResultBinding     `json:"approving_result"`
+	ActionID        string                    `json:"action_id"`
+	Source          SourceSelectionRequest    `json:"source"`
+	Target          *ImageSetTarget           `json:"target,omitempty"`
+	ExpectedHead    ImageInventoryHead        `json:"expected_head"`
+	Choices         []ImageSetChoice          `json:"choices"`
+	SelectionDigest string                    `json:"selection_digest"`
 }
 
 type ImageSetCandidate struct {
@@ -70,13 +71,14 @@ type ImageSetPreview struct {
 }
 
 type ImageSetService struct {
-	manual      ManualImageReader
-	sources     SourceSelectionReader
-	repository  Repository
-	inventories ImageSetInventoryReader
-	approvals   ApprovalCommitReader
-	candidates  ImageCandidateSelectionReader
-	targets     ImageSetTargetResolver
+	executionPolicy ImageSetMutationAdmission
+	manual          ManualImageReader
+	sources         SourceSelectionReader
+	repository      Repository
+	inventories     ImageSetInventoryReader
+	approvals       ApprovalCommitReader
+	candidates      ImageCandidateSelectionReader
+	targets         ImageSetTargetResolver
 }
 
 func NewImageSetService(sources SourceSelectionReader, repository Repository, inventories ImageSetInventoryReader, approvals ApprovalCommitReader, candidates ImageCandidateSelectionReader, targets ImageSetTargetResolver) (*ImageSetService, error) {
@@ -92,7 +94,7 @@ func (s *ImageSetService) WithManualImages(reader ManualImageReader) *ImageSetSe
 }
 
 func (s *ImageSetService) Preview(ctx context.Context, input ImageSetCommand) (ImageSetPreview, error) {
-	commit, err := s.prepare(ctx, input)
+	commit, err := s.prepare(ctx, input, false)
 	if err != nil {
 		return ImageSetPreview{}, err
 	}
@@ -103,7 +105,7 @@ func (s *ImageSetService) Select(ctx context.Context, input ImageSetCommand) (Ap
 	if !imageSetDigest(input.SelectionDigest) {
 		return ApprovalReceipt{}, ErrInvalidApproval
 	}
-	commit, err := s.prepare(ctx, input)
+	commit, err := s.prepare(ctx, input, true)
 	if err != nil {
 		return ApprovalReceipt{}, err
 	}
@@ -120,7 +122,7 @@ func ImageSetRequestDigest(input ImageSetCommand) string {
 	return approvalDigest(input)
 }
 
-func (s *ImageSetService) prepare(ctx context.Context, input ImageSetCommand) (ApprovalCommit, error) {
+func (s *ImageSetService) prepare(ctx context.Context, input ImageSetCommand, mutate bool) (ApprovalCommit, error) {
 	if ctx == nil || !validIdentityPart(input.ActionID) || len(input.Choices) < 1 || len(input.Choices) > 40 || !input.ExpectedHead.Valid() {
 		return ApprovalCommit{}, ErrInvalidApproval
 	}
@@ -149,6 +151,14 @@ func (s *ImageSetService) prepare(ctx context.Context, input ImageSetCommand) (A
 	if !errors.Is(err, ErrApprovedAssetsNotReady) {
 		return ApprovalCommit{}, err
 	}
+	if !input.PolicyAdoption.Valid() {
+		return ApprovalCommit{}, ErrInvalidApproval
+	}
+	if mutate && s.executionPolicy != nil {
+		if err := s.executionPolicy(ctx, source, input); err != nil {
+			return ApprovalCommit{}, err
+		}
+	}
 	inventory, err := s.inventories.ReadImageSetInventory(ctx, InventoryScope{TenantID: source.TenantID, ProductKey: source.ProductKey, TargetPlatform: source.TargetPlatform, SourceSnapshotVersion: source.EffectiveCatalogVersion})
 	if err != nil {
 		return ApprovalCommit{}, err
@@ -157,6 +167,10 @@ func (s *ImageSetService) prepare(ctx context.Context, input ImageSetCommand) (A
 		return ApprovalCommit{}, ErrApprovalConflict
 	}
 	commit := ApprovalCommit{TenantID: source.TenantID, ProductKey: source.ProductKey, TargetPlatform: source.TargetPlatform, ActionID: input.ActionID, SourceSnapshotVersion: source.EffectiveCatalogVersion, ImageSet: &ImageSetSelection{Schema: ImageSetSelectionSchema, Source: input.Source, ExpectedHead: input.ExpectedHead, RequestDigest: requestDigest}}
+	if input.PolicyAdoption != nil {
+		proof := *input.PolicyAdoption
+		commit.ImageSet.PolicyAdoption = &proof
+	}
 	seenResults := map[string]string{}
 	for index, choice := range input.Choices {
 		asset, result, err := s.resolveChoice(ctx, source, inventory, input.ApprovingResult, choice)

@@ -9,6 +9,7 @@ import (
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/aicapability"
+	"task-processor/internal/commercetool"
 	"time"
 )
 
@@ -27,6 +28,11 @@ func snapshotView(row snapshotRow) (agentconfig.Snapshot, error) {
 	return v, nil
 }
 func (s *Store) Prepare(ctx context.Context, c agentconfig.StartCommand) (agentconfig.Snapshot, error) {
+	identity := agent.ExecutionIdentity{OrganizationID: c.Scope.OrganizationID, ActorID: c.Scope.ActorID, MemberID: c.MemberID}
+	modeRevision, modeErr := agentconfig.ParseModeRevision(c.ExpectedModeRevision)
+	if !identity.Valid() || modeErr != nil || !c.Request.ModeSnapshotRef.Absent() {
+		return agentconfig.Snapshot{}, agentconfig.ErrInvalid
+	}
 	if c.AgentID == agentconfig.ImageAgentID {
 		return agentconfig.Snapshot{}, agentconfig.ErrInvalid
 	}
@@ -43,13 +49,14 @@ func (s *Store) Prepare(ctx context.Context, c agentconfig.StartCommand) (agentc
 	}
 	// Deployment limits/prompt versions are frozen output, not public retry input.
 	fp, e := hash(struct {
-		AgentID               string
-		Binding               agent.Binding
-		GoalSummary           string
-		Template              *agentconfig.TemplateRef
-		KnowledgeBaseID       string
-		ExecutionModelProfile aicapability.ModelProfile
-	}{c.AgentID, c.Request.Binding, c.Request.GoalSummary, c.Template, c.KnowledgeBaseID, c.ExecutionModelProfile})
+		AgentID                        string
+		Binding                        agent.Binding
+		GoalSummary                    string
+		Template                       *agentconfig.TemplateRef
+		KnowledgeBaseID                string
+		ExecutionModelProfile          aicapability.ModelProfile
+		MemberID, ExpectedModeRevision string
+	}{c.AgentID, c.Request.Binding, c.Request.GoalSummary, c.Template, c.KnowledgeBaseID, c.ExecutionModelProfile, c.MemberID, c.ExpectedModeRevision})
 	if e != nil {
 		return agentconfig.Snapshot{}, e
 	}
@@ -90,7 +97,15 @@ func (s *Store) Prepare(ctx context.Context, c agentconfig.StartCommand) (agentc
 				return e
 			}
 		}
-		result = agentconfig.Snapshot{ID: uuid.NewString(), Scope: c.Scope, AgentID: c.AgentID, AgentVersion: c.AgentVersion, KnowledgeBaseID: c.KnowledgeBaseID, Epoch: decimal(a.ActivationEpoch), AgentRevision: decimal(a.Revision), Template: c.Template, Request: c.Request, ExecutionModelProfile: c.ExecutionModelProfile}
+		mode, err := prepareModeInTransaction(tx, agentconfig.ModeStartCommand{Identity: identity,
+			Subject: agentconfig.ResolvedModeSubject{Subject: agentconfig.ModeSubject{Kind: agentconfig.RegisteredAgentSubject, ID: c.AgentID}, Definition: commercetool.AgentRef{ID: c.AgentID, Version: c.AgentVersion}},
+			Binding: agentconfig.ModeBinding{ContextKind: c.Request.Binding.ContextKind, ContextID: c.Request.Binding.ContextID, RequestKey: c.Request.Key, IntentDigest: fp}, ExpectedRevision: modeRevision})
+		if err != nil {
+			return err
+		}
+		request := c.Request
+		request.ModeSnapshotRef = mode.Ref()
+		result = agentconfig.Snapshot{ID: uuid.NewString(), Scope: c.Scope, MemberID: c.MemberID, ExpectedModeRevision: c.ExpectedModeRevision, AgentID: c.AgentID, AgentVersion: c.AgentVersion, KnowledgeBaseID: c.KnowledgeBaseID, Epoch: decimal(a.ActivationEpoch), AgentRevision: decimal(a.Revision), Template: c.Template, Request: request, ExecutionModelProfile: c.ExecutionModelProfile}
 		raw, e := json.Marshal(result)
 		if e != nil || len(raw) > 8192 {
 			return agentconfig.ErrInvalid
@@ -145,7 +160,7 @@ func (s *Store) Match(ctx context.Context, c agentconfig.StartCommand, ref agent
 		Template    *agentconfig.TemplateRef
 		Base        string
 	}{c.Request.Binding, c.Request.GoalSummary, c.Template, c.KnowledgeBaseID})
-	if a != b || snap.AgentID != c.AgentID || snap.Request.Key != c.Request.Key {
+	if a != b || snap.AgentID != c.AgentID || snap.Request.Key != c.Request.Key || snap.MemberID != c.MemberID || snap.ExpectedModeRevision != c.ExpectedModeRevision || !snap.Request.ModeSnapshotRef.Valid() {
 		return snap, agentconfig.ErrConflict
 	}
 	return snap, nil

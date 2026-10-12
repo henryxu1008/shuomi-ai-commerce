@@ -2,6 +2,7 @@ import {z} from "zod";
 import {isAcquisitionUUID} from "./product-acquisition";
 import {templateRefSchema} from "./agent-configuration";
 import {catalogVersionSchema} from "./supply-chain";
+import {modeRevisionSchema} from "./execution-mode";
 
 const uuid=z.string().refine(isAcquisitionUUID), id=z.string().min(1).max(192), hash=z.string().regex(/^[a-f0-9]{64}$/);
 const integer=z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER), positive=integer.min(1);
@@ -11,7 +12,7 @@ const officialImagePositionSchema=z.strictObject({Group:z.enum(["spu","skc","sku
 const position=z.strictObject({group:z.enum(["spu","skc","sku","detail"]),skc:integer,sku:integer,type:positive,sort:positive.max(100),site:id});
 const imageSetChoiceSchema=z.strictObject({kind:z.enum(["source","approved","generated","manual"]),manual_media:z.strictObject({hash,bytes:positive.max(3*1024*1024)}).optional(),source_id:id.optional(),approval_action_id:id.optional(),asset_id:id.optional(),run_id:uuid.optional(),plan_revision:positive.optional(),slot_id:id.optional(),attempt:positive.optional(),result_digest:hash.optional(),generic_head:imageSetHeadSchema.optional(),presentation:z.strictObject({group:z.enum(["carousel","detail"]),order:positive.max(40),variant_id:id.optional()}),official_placement:position.optional()});
 export type ImageSetChoice=z.infer<typeof imageSetChoiceSchema>;
-const imageSetPrepareSchema=z.strictObject({template:templateRefSchema.optional(),target:z.strictObject({Platform:z.enum(["product","shein"]),StoreID:z.string().max(192).optional(),Site:z.string().max(192).optional(),CategoryID:positive.optional(),RecordID:z.string().max(192).optional()}),sharedOriginalIds:z.array(id).max(8).optional(),carouselOriginalIds:z.array(id).max(8).optional(),detailOriginalIds:z.array(id).max(8).optional(),selectedTaskIds:z.array(id).max(32).optional(),officialPlacements:z.record(id,officialImagePositionSchema).optional(),effectiveCatalogVersion:catalogVersionSchema.optional(),applyReceiptId:uuid.optional()});
+const imageSetPrepareSchema=z.strictObject({expectedModeRevision:modeRevisionSchema,template:templateRefSchema.optional(),target:z.strictObject({Platform:z.enum(["product","shein"]),StoreID:z.string().max(192).optional(),Site:z.string().max(192).optional(),CategoryID:positive.optional(),RecordID:z.string().max(192).optional()}),sharedOriginalIds:z.array(id).max(8).optional(),carouselOriginalIds:z.array(id).max(8).optional(),detailOriginalIds:z.array(id).max(8).optional(),selectedTaskIds:z.array(id).max(32).optional(),officialPlacements:z.record(id,officialImagePositionSchema).optional(),effectiveCatalogVersion:catalogVersionSchema.optional(),applyReceiptId:uuid.optional()});
 export type ImageSetPrepare=z.infer<typeof imageSetPrepareSchema>;
 const imageSetSelectionSchema=z.strictObject({actionId:uuid,planRevision:positive,resultDigest:hash,expectedHead:imageSetHeadSchema,choices:z.array(imageSetChoiceSchema).min(1).max(40),selectionDigest:hash.optional()});
 export type ImageSetSelection=z.infer<typeof imageSetSelectionSchema>;

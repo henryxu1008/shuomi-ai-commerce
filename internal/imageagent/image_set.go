@@ -41,6 +41,7 @@ type ImageTarget struct {
 }
 
 type ImageSetPlan struct {
+	ModeSnapshotRef                                                agent.ModeSnapshotRef
 	Schema                                                         string
 	Source                                                         ImageSourceBinding
 	Target                                                         ImageTarget

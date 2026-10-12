@@ -191,6 +191,16 @@ func modeSnapshotView(row modeSnapshotRow) (agentconfig.ModeSnapshot, error) {
 }
 
 func (s *Store) PrepareMode(ctx context.Context, c agentconfig.ModeStartCommand) (agentconfig.ModeSnapshot, error) {
+	var result agentconfig.ModeSnapshot
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var err error
+		result, err = prepareModeInTransaction(tx, c)
+		return err
+	})
+	return result, err
+}
+
+func prepareModeInTransaction(tx *gorm.DB, c agentconfig.ModeStartCommand) (agentconfig.ModeSnapshot, error) {
 	if c.Validate() != nil {
 		return agentconfig.ModeSnapshot{}, agentconfig.ErrInvalid
 	}
@@ -199,7 +209,7 @@ func (s *Store) PrepareMode(ctx context.Context, c agentconfig.ModeStartCommand)
 		return agentconfig.ModeSnapshot{}, err
 	}
 	var result agentconfig.ModeSnapshot
-	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err = func() error {
 		if err := lockModeSubject(tx, c.Identity.OrganizationID, c.Subject.Subject); err != nil {
 			return err
 		}
@@ -235,7 +245,7 @@ func (s *Store) PrepareMode(ctx context.Context, c agentconfig.ModeStartCommand)
 		result.Digest = digest(raw)
 		row = modeSnapshotRow{ID: result.ID, OrganizationID: c.Identity.OrganizationID, ActorID: c.Identity.ActorID, MemberID: c.Identity.MemberID, SubjectKind: string(c.Subject.Subject.Kind), SubjectID: c.Subject.Subject.ID, DefinitionID: c.Subject.Definition.ID, DefinitionVersion: c.Subject.Definition.Version, ContextKind: c.Binding.ContextKind, ContextID: c.Binding.ContextID, RequestKey: c.Binding.RequestKey, Mode: string(result.Mode), ModeRevision: int64(revision), PolicyVersion: result.PolicyVersion, Fingerprint: fp, Digest: result.Digest, Payload: raw, CreatedAt: now}
 		return tx.Create(&row).Error
-	})
+	}()
 	if err != nil {
 		return agentconfig.ModeSnapshot{}, err
 	}

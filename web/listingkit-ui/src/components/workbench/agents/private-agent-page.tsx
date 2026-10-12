@@ -9,6 +9,7 @@ import { ConsolePage, ConsoleState } from "../console/console-page";
 import { CustomizationError, type CustomScope } from "@/lib/api/agent-customization";
 import { privateAgentRequest, privateDelivery, privatePage, qualityPage, qualityRun, type QualityRun } from "@/lib/api/private-agent";
 import { PrivateDraftForm } from "./private-draft-form";
+import { ExecutionModeSettings } from "./execution-mode-settings";
 import styles from "./agents.module.css";
 import qualityStyles from "./private-agent.module.css";
 const limitation="基于所选平台草稿保存时的确定性规则，不调用模型。报告不代表最新平台规则、当前图片可访问性或上传批准；上传流程仍会重新核对。";
@@ -52,6 +53,7 @@ function ScopedPrivate({scope,id,organization,canUse,offlineTrial}:{scope:Custom
     {delivery.error?<ConsoleState kind="unavailable" title="此智能体在当前企业不可用"><p>{errorText(delivery.error)}</p><Button onClick={()=>setNonce(v=>v+1)}>重新读取</Button></ConsoleState>:!delivery.data?<ConsoleState kind="loading" title="正在读取私有交付"/>:<>
       {offlineTrial?<p role="status">这是隔离离线试用：测试店铺未连接 SHEIN，使用测试规则与已保存草稿，不调用模型、不收费、不上传。测试草稿由本机准备，编辑暂未开放。</p>:null}<Card className={styles.detailHead}><div><h2>{delivery.data.name}</h2><p>{delivery.data.version==="2.0.0"?limitation:"此版本为原手工输入试用的只读历史，不能执行新的检查。"}</p><p>交付版本 {delivery.data.version} · {new Date(delivery.data.createdAt).toLocaleString("zh-CN")}</p></div></Card>
       {delivery.data.version==="2.0.0"?<div className={qualityStyles.grid}><PrivateDraftForm scope={scope} id={id} offlineTrial={offlineTrial} canUse={canUse} saved={run=>{setSelectedID(run.id);setLocalRun(run);setCursor("");setNonce(v=>v+1)}}/><Card className={styles.panel}><h2>检查范围</h2><p>待补全或已适配的 SHEIN 美国站平台草稿。</p><p>复用草稿保存时的必填项、规格、图片及平台资料校验；问题逐项保留。</p><p>报告仅当前操作人可读，读取时仍需原商品资料权限。</p><p>修改并保存草稿后，请选择新版本检查。未发现问题不等于允许上传。</p></Card></div>:null}
+      {delivery.data.version==="2.0.0"?<ExecutionModeSettings scope={scope} subject={{kind:"private_delivery",id}}/>:null}
       {detail.error?<p role="alert">{errorText(detail.error)}</p>:selected?<Report run={selected}/>:selectedID?<p role="status">正在读取报告…</p>:null}
       <Card className={styles.panel}><h2>我的已保存报告</h2>{!readable?<p role="alert">需要当前商品资料和供应链读取权限，才能查看草稿报告。</p>:reports.error?<p role="alert">{errorText(reports.error)}</p>:!reports.data?<p>正在读取报告…</p>:!reports.data.items.length?<p>尚未保存质检报告。</p>:<ul className={qualityStyles.history}>{reports.data.items.map(v=><li key={v.id}><div><strong>{v.title||"未提供名称"}</strong><p>{new Date(v.createdAt).toLocaleString("zh-CN")} · {v.findingCount} 项提示{v.version==="2.0.0"?` · 草稿 v${v.draft.revision}${v.draft.offlineTrial?" · 离线测试规则":""}`:" · 手工输入历史"}</p></div><Button variant="outline" onClick={()=>{setLocalRun(undefined);setSelectedID(v.id)}}>查看报告</Button></li>)}</ul>}{readable?<div className={styles.actions}><Button variant="outline" onClick={()=>setNonce(v=>v+1)}>刷新报告</Button>{reports.data?.nextCursor?<Button variant="outline" onClick={()=>setCursor(reports.data!.nextCursor)}>更多报告</Button>:null}{cursor?<Button variant="outline" onClick={()=>setCursor("")}>报告首页</Button>:null}</div>:null}</Card>
     </>}

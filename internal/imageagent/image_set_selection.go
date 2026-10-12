@@ -36,6 +36,10 @@ func CloneImageSetCommand(command *productasset.ImageSetCommand) *productasset.I
 		return nil
 	}
 	copy := *command
+	if command.PolicyAdoption != nil {
+		proof := *command.PolicyAdoption
+		copy.PolicyAdoption = &proof
+	}
 	copy.Choices = append([]productasset.ImageSetChoice(nil), command.Choices...)
 	for index := range copy.Choices {
 		if command.Choices[index].ManualMedia != nil {

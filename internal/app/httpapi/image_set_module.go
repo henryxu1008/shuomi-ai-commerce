@@ -48,6 +48,7 @@ func (m fullImageModule) Register(reg *kernelmodule.Registry) error {
 }
 
 type fullImagePrepareBody struct {
+	ExpectedModeRevision    string                                       `json:"expectedModeRevision"`
 	Template                *agentconfig.TemplateRef                     `json:"template,omitempty"`
 	Target                  imageagent.ImageTargetSelection              `json:"target"`
 	SharedOriginalIDs       []string                                     `json:"sharedOriginalIds,omitempty"`
@@ -309,6 +310,7 @@ func (m fullImageModule) handle(c *gin.Context, kind imageagent.ImageSourceConte
 			}
 			input.RegenerateFromRunID = p.Run.ID
 		}
+		input.ExpectedModeRevision = body.ExpectedModeRevision
 		prepared, e := a.service.PrepareImageSet(ctx, input)
 		if e != nil {
 			writeFullImageError(c, e, true)

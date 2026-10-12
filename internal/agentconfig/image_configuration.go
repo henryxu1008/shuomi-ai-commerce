@@ -32,6 +32,7 @@ func ImageDigest(s string) bool {
 // Image configuration deliberately carries no title Request or Knowledge.
 // Parameters live in the exact immutable template revision; metadata is bounded.
 type ImageStartCommand struct {
+	ExpectedModeRevision                                   string
 	Scope                                                  agent.Scope
 	MemberID, RequestKey, ContextID, RunID, TargetPlatform string
 	SourceDigest, InputDigest                              string
@@ -40,6 +41,8 @@ type ImageStartCommand struct {
 }
 
 type ImageConfigurationSnapshot struct {
+	ExpectedModeRevision                                   string
+	ModeSnapshotRef                                        agent.ModeSnapshotRef
 	ID, Digest                                             string
 	Scope                                                  agent.Scope
 	MemberID, RequestKey, ContextID, RunID, TargetPlatform string

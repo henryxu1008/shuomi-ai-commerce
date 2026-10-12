@@ -13,6 +13,7 @@ import {
   templateRefSchema,
 } from "@/lib/contracts/agent-configuration";
 import { knowledgeId } from "@/lib/api/knowledge";
+import { executionModeInputSchema, executionModeViewSchema, modeSubjectSchema } from "@/lib/contracts/execution-mode";
 import { readBoundedStrictJSON } from "@/lib/api/strict-json-response";
 import { hasTrustedSameOriginWrite } from "./same-origin-write";
 import { WORKBENCH_COOKIE_NAME } from "./workbench-proxy";
@@ -27,7 +28,12 @@ function endpoint(url: URL, method: string) {
   const p = url.pathname.slice("/api/workbench/agents/".length).split("/");
   let output: z.ZodType;
   let input: z.ZodType | undefined;
-  if (p.length === 1 && ["market", "mine"].includes(p[0]) && method === "GET")
+  const mode = p[0] === "execution-modes";
+  if (mode && p.length === 3 && ["GET", "PUT"].includes(method) &&
+      modeSubjectSchema.safeParse({kind: p[1], id: p[2]}).success) {
+    output = executionModeViewSchema;
+    input = method === "PUT" ? executionModeInputSchema : undefined;
+  } else if (p.length === 1 && ["market", "mine"].includes(p[0]) && method === "GET")
     output = catalogPageSchema;
   else if (["product.title.agent","product.image.agent"].includes(p[0])) {
     const image=p[0]==="product.image.agent";
@@ -103,6 +109,7 @@ function endpoint(url: URL, method: string) {
     path: p.join("/"),
     output,
     input,
+    mode,
     firstEnable: p[1] === "enable",
     create: p[1] === "templates" && p.length === 2 && method === "POST",
   };
@@ -162,7 +169,9 @@ export async function proxyAgentConfiguration(
       headers.set("Idempotency-Key", key!);
       const match = request.headers.get("If-Match"),
         absent = request.headers.get("If-None-Match");
-      if (absent) {
+      if (route.mode) {
+        if (match || absent) return configFailure(400, "INVALID_REQUEST");
+      } else if (absent) {
         if (!route.firstEnable || absent !== "*" || match)
           return configFailure(400, "INVALID_REQUEST");
         headers.set("If-None-Match", "*");
@@ -245,6 +254,15 @@ export async function proxyAgentConfiguration(
     if (!parsed.success) throw new Error();
     const parts = route.path.split("/");
     const value = parsed.data as Record<string, unknown>;
+    if (route.mode) {
+      const view = executionModeViewSchema.parse(parsed.data);
+      if (view.subject.kind !== parts[1] || view.subject.id !== parts[2]) throw new Error();
+      if (write) {
+        const intent = executionModeInputSchema.parse(JSON.parse(body!));
+        if (!view.receipt || view.receipt.commandId !== headers.get("Idempotency-Key") ||
+            view.receipt.beforeRevision !== intent.expectedRevision || view.mode !== intent.mode) throw new Error();
+      } else if (view.receipt) throw new Error();
+    }
     if (
       (route.output === templateSchema || route.output === imageTemplateSchema) &&
       (value.templateId !== parts[2] ||

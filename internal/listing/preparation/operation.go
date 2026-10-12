@@ -41,6 +41,7 @@ type OperationInput struct {
 	TitleTemplateID       string   `json:"titleTemplateId,omitempty"`
 	TitleTemplateRevision string   `json:"titleTemplateRevision,omitempty"`
 	TitleQuoteHash        string   `json:"titleQuoteHash,omitempty"`
+	TitleModeRevision     string   `json:"titleModeRevision,omitempty"`
 	ImageTemplateID       string   `json:"imageTemplateId,omitempty"`
 }
 

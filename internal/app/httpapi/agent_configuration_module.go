@@ -6,6 +6,7 @@ import (
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	confighttp "task-processor/internal/agentconfig/httpapi"
+	"task-processor/internal/agentcustomization"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
 	"task-processor/internal/commercetool"
@@ -87,6 +88,9 @@ func buildAgentConfigurationModule(ctx context.Context, db *gorm.DB, resolver or
 		return agent.Scope{}, agentconfig.ErrForbidden
 	}
 	h.ResolveModeSubject = agentModeSubjectResolver(h, private)
+	if service, ok := private.(*agentcustomization.Service); ok {
+		service.WithExecutionModes(privateQualityMode{repository: repo, resolve: h.ResolveModeSubject})
+	}
 	h.Knowledge = func(ctx context.Context, scope agent.Scope, id string) error {
 		if k == nil {
 			return agentconfig.ErrUnavailable

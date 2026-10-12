@@ -20,11 +20,12 @@ import (
 )
 
 type productAgentRequestBody struct {
-	TemplateSelection  json.RawMessage `json:"templateSelection,omitempty"`
-	Revision           string          `json:"revision,omitempty"`
-	Feedback           string          `json:"feedback,omitempty"`
-	TargetPlatform     string          `json:"targetPlatform,omitempty"`
-	KnowledgeSelection json.RawMessage `json:"knowledgeSelection,omitempty"`
+	TemplateSelection    json.RawMessage `json:"templateSelection,omitempty"`
+	Revision             string          `json:"revision,omitempty"`
+	Feedback             string          `json:"feedback,omitempty"`
+	TargetPlatform       string          `json:"targetPlatform,omitempty"`
+	KnowledgeSelection   json.RawMessage `json:"knowledgeSelection,omitempty"`
+	ExpectedModeRevision string          `json:"expectedModeRevision,omitempty"`
 }
 
 func (b productAgentRequestBody) templateSelection(action string) (*agentconfig.TemplateRef, error) {
@@ -72,11 +73,11 @@ func knowledgeRequestContext(ctx context.Context) (context.Context, error) {
 	return commercetoolauth.WithOrganizationRequest(ctx, commercetoolauth.OrganizationRequest{Identity: identity, BearerToken: capability.bearerToken, RequestedOrganizationID: identity.TenantID}), nil
 }
 
-func (a *productAgentApplication) startRequest(ctx context.Context, binding agent.Binding, key, baseID string, template *agentconfig.TemplateRef) (agent.Request, error) {
-	return a.startRequestWithProfile(ctx, binding, key, baseID, "", template, aicapability.ModelProfile{}, "")
+func (a *productAgentApplication) startRequest(ctx context.Context, binding agent.Binding, key, baseID string, template *agentconfig.TemplateRef, expectedModeRevision string) (agent.Request, error) {
+	return a.startRequestWithProfile(ctx, binding, key, baseID, "", template, aicapability.ModelProfile{}, "", expectedModeRevision)
 }
 
-func (a *productAgentApplication) startRequestWithProfile(ctx context.Context, binding agent.Binding, key, baseID, expectedRevisionSet string, template *agentconfig.TemplateRef, expectedProfile aicapability.ModelProfile, goalSummary string) (agent.Request, error) {
+func (a *productAgentApplication) startRequestWithProfile(ctx context.Context, binding agent.Binding, key, baseID, expectedRevisionSet string, template *agentconfig.TemplateRef, expectedProfile aicapability.ModelProfile, goalSummary, expectedModeRevision string) (agent.Request, error) {
 	if !agent.ValidGoalSummary(goalSummary) {
 		return agent.Request{}, agent.ErrInvalid
 	}
@@ -88,10 +89,17 @@ func (a *productAgentApplication) startRequestWithProfile(ctx context.Context, b
 	if a.configuration == nil || a.store == nil {
 		return agent.Request{}, agentconfig.ErrUnavailable
 	}
+	identity, err := a.currentModeIdentity(ctx)
+	if err != nil {
+		return agent.Request{}, err
+	}
+	if _, err = agentconfig.ParseModeRevision(expectedModeRevision); err != nil {
+		return agent.Request{}, agentconfig.ErrPrecondition
+	}
 	if baseID != "" {
 		request.PromptVersion = "product-title-agent-knowledge-v1"
 	}
-	input := agentconfig.StartCommand{Scope: scope, AgentID: a.definition.ID, AgentVersion: a.definition.Version, KnowledgeBaseID: baseID, Template: template, Request: request}
+	input := agentconfig.StartCommand{Scope: scope, MemberID: identity.MemberID, ExpectedModeRevision: expectedModeRevision, AgentID: a.definition.ID, AgentVersion: a.definition.Version, KnowledgeBaseID: baseID, Template: template, Request: request}
 	existing, found, readErr := a.store.Lookup(ctx, input.Scope, binding, key)
 	if readErr != nil {
 		return agent.Request{}, readErr

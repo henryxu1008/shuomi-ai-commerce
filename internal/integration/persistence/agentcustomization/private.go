@@ -108,6 +108,7 @@ func (s *Store) RunQuality(ctx context.Context, c d.RunCommand, inspect d.DraftI
 		return out, e
 	}
 	out = d.QualityRun{ID: uuid.NewSHA1(uuid.NameSpaceOID, append([]byte("private-quality-run:"), identity...)).String(), DeliveryID: delivery.ID, OrganizationID: c.Scope.OrganizationID, ActorID: c.Scope.ActorID, Key: c.Key, Definition: delivery.Definition, Version: delivery.Version, Draft: &draft, CreatedAt: time.Now().UTC()}
+	out.ModeSnapshotRef = c.ModeSnapshotRef
 	raw, e = json.Marshal(out)
 	if e != nil {
 		return out, e

@@ -25,6 +25,7 @@ import {
 } from "@/lib/contracts/agent-configuration";
 import { basesSchema, knowledgeRequest } from "@/lib/api/knowledge";
 import styles from "./agents.module.css";
+import { ExecutionModeSettings } from "./execution-mode-settings";
 import { ImageAgentPage } from "./image-agent-page";
 import { configurationError, useConfigurationRead as useRead } from "./agent-configuration-hooks";
 import { PrivateAgentCards } from "./private-agent-page";
@@ -406,6 +407,7 @@ function ScopedPage({
                 ))}
             </div>
           </Card>
+          {detail.agent.activation !== "NOT_ENABLED" ? <ExecutionModeSettings scope={scope} subject={{kind:"registered_agent",id:detail.agent.agentId}}/> : null}
           <div className={styles.detailGrid}>
             <Card className={styles.panel}>
               <h2>当前能力</h2>

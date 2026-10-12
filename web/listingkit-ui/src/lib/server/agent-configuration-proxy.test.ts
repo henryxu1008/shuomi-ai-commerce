@@ -96,3 +96,28 @@ it("rejects title parameters in image templates and another agent's mutation rec
  const result=await proxyAgentConfiguration(request("product.image.agent/disable","POST",{}),"token","actor");
  expect(result.status).toBeGreaterThanOrEqual(500);expect((await result.json()).code).toBe("OUTCOME_UNKNOWN");
 });
+
+it("forwards an exact execution-mode intent without inventing activation or an If-Match header",async()=>{
+ const subject={kind:"private_delivery",id:key};
+ const receipt={commandId:key,operation:"set-execution-mode",subject,mode:"full_access",beforeRevision:"0",revision:"1",noop:false,committedAt:"2026-10-12T01:00:00Z"};
+ const view={subject,definition:{id:"product.quality.check",version:"2.0.0"},mode:"full_access",revision:"1",policyVersion:"agent-execution-policy-v1",canConfigure:true,updatedAt:receipt.committedAt,updatedBy:"actor",receipt};
+ const fetch=vi.fn().mockResolvedValue(Response.json(view));vi.stubGlobal("fetch",fetch);
+ const path="execution-modes/private_delivery/"+key;
+ const req=request(path,"PUT",{mode:"full_access",expectedRevision:"0"});req.headers.delete("If-Match");
+ const response=await proxyAgentConfiguration(req,"token","actor");
+ expect(response.status).toBe(200);
+ expect(fetch.mock.calls[0][0]).toBe("http://localhost:9000/api/v1/workbench/agents/"+path);
+ expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({mode:"full_access",expectedRevision:"0"});
+ expect(new Headers(fetch.mock.calls[0][1].headers).has("If-Match")).toBe(false);
+ expect(new Headers(fetch.mock.calls[0][1].headers).get("Idempotency-Key")).toBe(key);
+});
+
+it("keeps uncertain mode writes unknown and rejects a mismatched subject response",async()=>{
+ const path="execution-modes/registered_agent/product.title.agent";
+ const fetch=vi.fn().mockResolvedValue(Response.json({subject:{kind:"registered_agent",id:"product.image.agent"},definition:{id:"product.image.agent",version:"v1.0.0"},mode:"default",revision:"0",policyVersion:"agent-execution-policy-v1",canConfigure:true,updatedAt:"0001-01-01T00:00:00Z",updatedBy:""}));vi.stubGlobal("fetch",fetch);
+ expect((await proxyAgentConfiguration(request(path),"token","actor")).status).toBeGreaterThanOrEqual(500);
+ fetch.mockRejectedValue(new Error("response lost"));
+ const req=request(path,"PUT",{mode:"read_only",expectedRevision:"1"});req.headers.delete("If-Match");
+ const response=await proxyAgentConfiguration(req,"token","actor");
+ expect((await response.json()).code).toBe("OUTCOME_UNKNOWN");
+});

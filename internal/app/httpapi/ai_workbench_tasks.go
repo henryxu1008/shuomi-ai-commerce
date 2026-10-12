@@ -323,13 +323,17 @@ func (a *aiWorkbenchApplication) performTaskAction(ctx context.Context, scope ai
 		if !a.agent.frozenTitleProfileReady(ctx, run.State.Scope, request) {
 			return false, aiworkbench.ErrUnavailable
 		}
-		_, claimAttempted, err := a.agent.runtime.ResumeWithClaimAttempt(ctx, request, input.Revision, input.Feedback)
+		resumed, claimAttempted, err := a.agent.runtime.ResumeWithClaimAttempt(ctx, request, input.Revision, input.Feedback)
+		if err == nil {
+			_, err = a.agent.finishTitleCandidate(ctx, resumed)
+		}
 		return claimAttempted, err
 	}
 	if !agentRunReviewable(run.State) {
 		return false, aiworkbench.ErrRevisionMismatch
 	}
 	reviewInput := agentReviewInput(binding, run.State.Request.PolicyVersion, run.State.Candidate)
+	reviewInput.Execution = agentExecutionProvenance(run.State)
 	reviewInput.ContextProvenance, err = agentContextProvenance(run.State)
 	if err != nil {
 		return false, err

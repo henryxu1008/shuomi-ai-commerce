@@ -18,6 +18,7 @@ import (
 // The transport supplies identities only. URLs, dimensions, prompt, quote and
 // requirement claims are resolved by the existing source/config/rule owners.
 type PrepareImageSetInput struct {
+	ExpectedModeRevision                                      string
 	ContextKind                                               ImageSourceContextKind `json:"-"`
 	RequestID, ContextID                                      string
 	Template                                                  *agentconfig.TemplateRef
@@ -110,6 +111,9 @@ func (s *Service) GetPreparedImageSet(ctx context.Context, kind ImageSourceConte
 }
 
 func validPrepareImageSetInput(input PrepareImageSetInput) bool {
+	if _, err := agentconfig.ParseModeRevision(input.ExpectedModeRevision); err != nil {
+		return false
+	}
 	if !input.ContextKind.Valid() {
 		return false
 	}
@@ -238,7 +242,7 @@ func (s *Service) PrepareImageSet(ctx context.Context, input PrepareImageSetInpu
 		ordered = append(ordered, ref)
 	}
 	sourceDigest := ImageSourceObservationsDigest(resolved.Source, ordered)
-	snapshot, err := s.imageSets.Configuration.PrepareImageConfiguration(ctx, agentconfig.ImageStartCommand{Scope: agent.Scope{OrganizationID: identity.TenantID, ActorID: identity.UserID}, MemberID: identity.MemberID, RequestKey: input.RequestID, ContextID: input.ContextID, RunID: runID, TargetPlatform: input.Target.Platform, SourceDigest: sourceDigest, InputDigest: inputDigest, Template: input.Template, HardLimits: s.imageSets.HardLimits})
+	snapshot, err := s.imageSets.Configuration.PrepareImageConfiguration(ctx, agentconfig.ImageStartCommand{ExpectedModeRevision: input.ExpectedModeRevision, Scope: agent.Scope{OrganizationID: identity.TenantID, ActorID: identity.UserID}, MemberID: identity.MemberID, RequestKey: input.RequestID, ContextID: input.ContextID, RunID: runID, TargetPlatform: input.Target.Platform, SourceDigest: sourceDigest, InputDigest: inputDigest, Template: input.Template, HardLimits: s.imageSets.HardLimits})
 	if err != nil {
 		return PreparedImageSet{}, err
 	}
@@ -254,6 +258,10 @@ func (s *Service) PrepareImageSet(ctx context.Context, input PrepareImageSetInpu
 		return PreparedImageSet{}, err
 	}
 	plan.Set.Regeneration = regeneration
+	plan.Set.ModeSnapshotRef = snapshot.ModeSnapshotRef
+	if !plan.Set.ModeSnapshotRef.Valid() {
+		return PreparedImageSet{}, ErrCommandBlocked
+	}
 	plan.Set.QuoteDigest, err = ImageSetQuoteDigest(plan)
 	if err != nil {
 		return PreparedImageSet{}, err

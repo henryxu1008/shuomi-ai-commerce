@@ -1,4 +1,5 @@
 import { z } from "zod";
+import {titlePolicyAdoptionSchema} from "../contracts/execution-mode";
 import { productKnowledgeSchema } from "../contracts/product-knowledge";
 import { parseWorkbenchErrorEnvelopePayload, type WorkbenchErrorEnvelope } from "./workbench-context";
 
@@ -24,6 +25,7 @@ const collection = z.strictObject({ ...basis, items: z.array(item).max(100), nex
 const decision = z.strictObject({ action: z.enum(["accept", "edit", "reject"]), actor: text.min(1), revision: version, before: text, after: text, at: time });
 const receipt = z.strictObject({ proposal_id: productTitleIDSchema, revision: version, product_version: version, publication_id: text.min(1), actor: text.min(1), at: time });
 const proposal = z.strictObject({
+  policy_adoption:titlePolicyAdoptionSchema.optional(),
   knowledge:productKnowledgeSchema.optional(),
   ...basis, proposal_id: productTitleIDSchema, owner: text.min(1),
   input: z.strictObject({ product_key: productTitleKeySchema, base_version: version }),

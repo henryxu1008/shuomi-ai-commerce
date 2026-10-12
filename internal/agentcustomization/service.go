@@ -122,8 +122,9 @@ type Repository interface {
 	Download(context.Context, Scope, string, string) (Attachment, []byte, error)
 }
 type Service struct {
-	repo   Repository
-	drafts DraftInspector
+	executionMode QualityExecutionMode
+	repo          Repository
+	drafts        DraftInspector
 }
 
 func NewService(repo Repository) (*Service, error) {

@@ -12,6 +12,8 @@ import {Input} from "@/components/ui/input";
 import {SourceImageUploader} from "../collections/source-image-uploader";
 import {configurationRequest} from "@/lib/api/agent-configuration";
 import {catalogEntrySchema} from "@/lib/contracts/agent-configuration";
+import {executionModeViewSchema} from "@/lib/contracts/execution-mode";
+import {useConfigurationRead} from "../agents/agent-configuration-hooks";
 import {imageTemplatesPageSchema,imageTemplateSchema,carouselTasks,detailTasks,type ImageAgentTemplate} from "@/lib/contracts/image-set-configuration";
 import {ImageSetError,imageSetRequest,type ImageSetScope} from "@/lib/api/product-image-set";
 import {isAcquisitionUUID} from "@/lib/contracts/product-acquisition";
@@ -33,6 +35,7 @@ export function ProductImageSetPanel(props:Props){
 
 function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSaved,initialRunId}:Props&{scope:ImageSetScope}){
  const context=useWorkbenchContext();
+ const executionMode=useConfigurationRead(scope,"execution-modes/registered_agent/product.image.agent",executionModeViewSchema);
  const storageKey=`product-image-set:${scope.userId}:${scope.organizationId}:${scope.kind}:${scope.contextId}`;
  const active=useRef(true),flight=useRef(false),abort=useRef<AbortController|null>(null);
  const savedCallback=useRef(onSaved),notified=useRef("");
@@ -198,7 +201,8 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
   if(selectedTarget.Platform==="shein"&&!currentOfficialPositions(selectedTasks.map(id=>positions[id]),requirements))return;
   const selectedSource=parent?.plan.Source??preparationSources.source;
   const originals=(group?:"carousel"|"detail")=>[...new Set(parent!.slots.filter(slot=>selectedTasks.includes(slot.slotId)&&(!group||slot.recipe.Placement.Group===group)).flatMap(slot=>slot.recipe.References.map(ref=>ref.AssetID)))];
-  const body:ImageSetPrepare={template:{templateId:content.templateId,revision:content.version},target:selectedTarget,selectedTaskIds:selectedTasks,effectiveCatalogVersion:selectedSource.EffectiveVersion,...selectedSource.ApplyReceiptID?{applyReceiptId:selectedSource.ApplyReceiptID}:{},...content.image.shareOriginals?{sharedOriginalIds:parent?originals():shared}:{carouselOriginalIds:parent?originals("carousel"):groups&&!groups.carousel?[]:carousel,detailOriginalIds:parent?originals("detail"):groups&&!groups.detail?[]:detail},...selectedTarget.Platform==="shein"?{officialPlacements:Object.fromEntries(selectedTasks.flatMap(id=>{const position=positions[id];return position?[[id,position]]:[]}))}:{}};
+  if(!executionMode.data){setError("尚未读取当前权限模式，请刷新后确认。");return}
+  const body:ImageSetPrepare={expectedModeRevision:executionMode.data.revision,template:{templateId:content.templateId,revision:content.version},target:selectedTarget,selectedTaskIds:selectedTasks,effectiveCatalogVersion:selectedSource.EffectiveVersion,...selectedSource.ApplyReceiptID?{applyReceiptId:selectedSource.ApplyReceiptID}:{},...content.image.shareOriginals?{sharedOriginalIds:parent?originals():shared}:{carouselOriginalIds:parent?originals("carousel"):groups&&!groups.carousel?[]:carousel,detailOriginalIds:parent?originals("detail"):groups&&!groups.detail?[]:detail},...selectedTarget.Platform==="shein"?{officialPlacements:Object.fromEntries(selectedTasks.flatMap(id=>{const position=positions[id];return position?[[id,position]]:[]}))}:{}};
   void send({action:parent?"regenerate":"prepare",runId:parent?.runId,requestKey:crypto.randomUUID(),body});
  }
  function useCurrentTarget(){

@@ -86,6 +86,11 @@ type productAgentStepDTO struct {
 	AuditStatus  string `json:"auditStatus,omitempty"`
 }
 type productAgentResultDTO struct {
+	ExecutionMode       agent.ExecutionMode      `json:"executionMode"`
+	ModeRevision        string                   `json:"modeRevision"`
+	ModeSnapshotRef     agent.ModeSnapshotRef    `json:"modeSnapshotRef"`
+	PolicyAdoption      *review.PolicyProvenance `json:"policyAdoption,omitempty"`
+	ReviewID            string                   `json:"reviewId,omitempty"`
 	TemplateSelection   *agentconfig.TemplateRef `json:"templateSelection,omitempty"`
 	Knowledge           *productKnowledgeDTO     `json:"knowledge,omitempty"`
 	RunID               string                   `json:"runId"`
@@ -161,7 +166,7 @@ func productAgentRoutes(a *productAgentApplication) []httproute.Descriptor {
 					return
 				}
 			} else {
-				if err = readAcquisitionImageJSON(c.Request, &body); err != nil || (spec.action != "resume" && (body.Revision != "" || body.Feedback != "")) || (spec.action != "start" && body.TargetPlatform != "") {
+				if err = readAcquisitionImageJSON(c.Request, &body); err != nil || (spec.action != "resume" && (body.Revision != "" || body.Feedback != "")) || (spec.action != "start" && (body.TargetPlatform != "" || body.ExpectedModeRevision != "")) {
 					writeProductAgentError(c, agent.ErrInvalid)
 					return
 				}
@@ -182,7 +187,7 @@ func productAgentRoutes(a *productAgentApplication) []httproute.Descriptor {
 				binding, err = a.binding(ctx, operationID, body.TargetPlatform)
 				if err == nil {
 					var request agent.Request
-					request, err = a.startRequest(ctx, binding, key, selection, template)
+					request, err = a.startRequest(ctx, binding, key, selection, template, body.ExpectedModeRevision)
 					if err == nil {
 						record, err = a.runtime.Start(ctx, request)
 					}
@@ -214,6 +219,7 @@ func productAgentRoutes(a *productAgentApplication) []httproute.Descriptor {
 					return
 				}
 				input := agentReviewInput(binding, record.State.Request.PolicyVersion, record.State.Candidate)
+				input.Execution = agentExecutionProvenance(record.State)
 				input.ContextProvenance, err = agentContextProvenance(record.State)
 				if err != nil {
 					writeProductAgentError(c, err)
@@ -227,6 +233,12 @@ func productAgentRoutes(a *productAgentApplication) []httproute.Descriptor {
 				c.Header("Cache-Control", "no-store")
 				c.JSON(http.StatusOK, gin.H{"proposalId": view.ID, "requestKey": key, "operationId": operationID})
 				return
+			}
+			if spec.action == "start" || spec.action == "resume" {
+				if _, err := a.finishTitleCandidate(ctx, record); err != nil {
+					writeProductAgentError(c, err)
+					return
+				}
 			}
 			state := record.State
 			provenance, provenanceErr := agentContextProvenance(state)
@@ -249,6 +261,22 @@ func productAgentRoutes(a *productAgentApplication) []httproute.Descriptor {
 				return
 			}
 			result.TemplateSelection = frozen.Template
+			mode, modeErr := a.configuration.LoadModeSnapshot(ctx, agent.ExecutionIdentity{OrganizationID: state.Scope.OrganizationID, ActorID: state.Scope.ActorID, MemberID: frozen.MemberID}, state.Request.ModeSnapshotRef)
+			if modeErr != nil {
+				writeProductAgentError(c, modeErr)
+				return
+			}
+			result.ExecutionMode, result.ModeRevision, result.ModeSnapshotRef = mode.Mode, mode.Revision, mode.Ref()
+			if view, found, err := a.reviews.FindAgentReview(ctx, state.RunID); err != nil {
+				writeProductAgentError(c, err)
+				return
+			} else if found {
+				result.ReviewID = view.ID
+				result.PolicyAdoption = view.PolicyAdoption
+				if view.PolicyAdoption != nil && view.State == "applied" {
+					result.HumanReviewRequired = false
+				}
+			}
 			for _, step := range state.History {
 				result.Steps = append(result.Steps, productAgentStepDTO{Step: step.Step, Tool: step.Tool.ID, CallID: step.CallID, InvocationID: step.InvocationID, AuditStatus: string(step.AuditStatus)})
 			}
