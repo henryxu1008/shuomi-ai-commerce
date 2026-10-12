@@ -26,6 +26,12 @@ COS 沿既有严格 non-versioned immutable policy。成功登记后的重启使
 不把已保存文件当成新安装，也不扫描 bucket 重算用量。不得与旧的未计量 Writer
 同时启用；保留共享实例和现有数据，试用使用独立新 profile。
 
+该 owner 一旦保留容量 namespace、占用/预占、容量包或原容量购买订单，
+不能通过设置 `storageCapacity: false` 回退。API 和企业图片 worker 会在启动前
+复用原 owner 的只读检查拒绝该配置；缺表、权限、连接或检查失败也不视为空。
+恢复时保留原商业 owner 配置和数据，重新使用 `storageCapacity: true` 启动，
+原订单及 UNKNOWN 沿既有入口继续核实。不删除账本、换空库或清理对象来绕过。
+
 沿现有命令 `go run ./cmd/current-application -config <私有manifest绝对路径>`
 启动 backend，沿现有 UI 启动方式设置 Commercial API origin 并启动
 `web/listingkit-ui`。正常入口为 `/workbench/account/organization/resources`，

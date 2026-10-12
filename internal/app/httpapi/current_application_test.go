@@ -197,7 +197,7 @@ func TestCurrentApplicationAuditFactoryAdmission(t *testing.T) {
 		t.Run(mode, func(t *testing.T) {
 			cfg := currentApplicationTestConfig()
 			sourceDB := &gorm.DB{}
-			resourceDB := &gorm.DB{}
+			resourceDB := emptyStorageCommercialOwner(t)
 			imageDB, productDB := &gorm.DB{}, &gorm.DB{}
 			factories := currentApplicationFactories{
 				buildWorkbench: func(*config.Config, *logrus.Logger) (workbenchContextBuildResult, error) {
@@ -412,7 +412,7 @@ func TestCurrentApplicationRetiresPlatformSubscriptionOwnerRoutes(t *testing.T) 
 		},
 	}
 
-	server, err := buildCurrentApplication(context.Background(), &gorm.DB{}, currentApplicationTestConfig(), logrus.New(), factories, WithCommercialOwnerDatabase(&gorm.DB{}))
+	server, err := buildCurrentApplication(context.Background(), &gorm.DB{}, currentApplicationTestConfig(), logrus.New(), factories, WithCommercialOwnerDatabase(emptyStorageCommercialOwner(t)))
 	if err != nil {
 		t.Fatalf("buildCurrentApplication() error = %v", err)
 	}

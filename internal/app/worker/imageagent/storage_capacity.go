@@ -9,17 +9,21 @@ import (
 	"task-processor/internal/imageagent/objectstore"
 	"task-processor/internal/imageagent/temporal"
 	"task-processor/internal/integration/httpimage"
+	commercialstore "task-processor/internal/integration/persistence/commercialbilling"
 	store "task-processor/internal/integration/persistence/storagecapacity"
 	"task-processor/internal/integration/s3"
 	"time"
 )
 
 func configureStorageCapacity(cfg *config.Config, commercial *gorm.DB, repository imageagent.Repository, artifacts temporal.DurableArtifactStore, generation *imageagent.GenerationExecution, recovery imageagent.GenerationRecovery) error {
-	if !cfg.StorageCapacity {
-		return nil
-	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
+	if cfg == nil {
+		return errors.New("storage capacity configuration unavailable")
+	}
+	if !cfg.StorageCapacity {
+		return commercialstore.VerifyStorageCapacityDisabled(ctx, commercial)
+	}
 	if commercial == nil {
 		return errors.New("storage capacity requires its commercial owner")
 	}

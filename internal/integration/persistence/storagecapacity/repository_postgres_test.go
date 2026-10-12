@@ -35,6 +35,17 @@ func TestStorageCapacityPostgresConcurrentAdmissionAndAbortFence(t *testing.T) {
 	require.NoError(t, AutoMigrate(db))
 	repo, e := New(db)
 	require.NoError(t, e)
+	require.NoError(t, VerifyDisabled(ctx, db))
+	require.NoError(t, repo.EnsureNamespace(ctx, storagecapacity.Digest("original-metered-namespace"), "product-source/", func(context.Context) error { return nil }))
+	require.NoError(t, db.Exec("CREATE SCHEMA shadow").Error)
+	for _, table := range []string{"storage_capacity_namespaces", "storage_capacity_accounts", "storage_capacity_reservations", "storage_capacity_objects", "storage_capacity_bindings", "storage_capacity_lots"} {
+		require.NoError(t, db.Exec("CREATE TABLE shadow."+table+" (LIKE public."+table+" INCLUDING ALL)").Error)
+	}
+	require.NoError(t, db.Transaction(func(tx *gorm.DB) error {
+		require.NoError(t, tx.Exec("SET LOCAL search_path TO shadow, public").Error)
+		require.Error(t, VerifyDisabled(ctx, tx), "empty shadow tables must never bypass durable public capacity")
+		return nil
+	}))
 	var wg sync.WaitGroup
 	result := make(chan error, 12)
 	for i := range 12 {

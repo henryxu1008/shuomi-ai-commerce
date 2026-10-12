@@ -29,7 +29,7 @@ type combinationSupplyStarter struct{ supplyapp.OperationStarter }
 func TestCurrentApplicationEcoservicesAndSupplyAssetOwnersCannotAlias(t *testing.T) {
 	for _, alias := range []bool{false, true} {
 		t.Run(map[bool]string{false: "independent", true: "aliased"}[alias], func(t *testing.T) {
-			source, commercial, money, product, store, assets, eco := &gorm.DB{}, &gorm.DB{}, &gorm.DB{}, &gorm.DB{}, &gorm.DB{}, &gorm.DB{}, &gorm.DB{}
+			source, commercial, money, product, store, assets, eco := &gorm.DB{}, emptyStorageCommercialOwner(t), &gorm.DB{}, &gorm.DB{}, &gorm.DB{}, &gorm.DB{}, &gorm.DB{}
 			if alias {
 				eco = assets
 			}
@@ -71,7 +71,7 @@ func TestCurrentApplicationEcoservicesAndSupplyAssetOwnersCannotAlias(t *testing
 func TestCurrentApplicationEcoservicesAndNotificationOwnersCannotAlias(t *testing.T) {
 	for _, alias := range []bool{false, true} {
 		t.Run(map[bool]string{false: "independent", true: "aliased"}[alias], func(t *testing.T) {
-			source, commercial, money, eco, notice := &gorm.DB{}, &gorm.DB{}, &gorm.DB{}, &gorm.DB{}, &gorm.DB{}
+			source, commercial, money, eco, notice := &gorm.DB{}, emptyStorageCommercialOwner(t), &gorm.DB{}, &gorm.DB{}, &gorm.DB{}
 			if alias {
 				notice = eco
 			}

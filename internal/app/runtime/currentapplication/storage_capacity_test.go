@@ -10,8 +10,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
+	"task-processor/internal/commercial/billing"
 	coreconfig "task-processor/internal/core/config"
+	commercialstore "task-processor/internal/integration/persistence/commercialbilling"
 	store "task-processor/internal/integration/persistence/storagecapacity"
+	"task-processor/internal/ledger/storagecapacity"
 	"testing"
 )
 
@@ -24,6 +27,81 @@ func storageStartupFixture(t *testing.T) (*Config, *gorm.DB) {
 	require.NoError(t, store.AutoMigrate(db))
 	owner := DatabaseConfig{Host: "commercial", Port: 5432, Database: "commercial"}
 	return &Config{StorageCapacity: true, CommercialOwnerDatabase: &owner, MoneyOwnerDatabase: &DatabaseConfig{}}, db
+}
+
+func emptyStorageCommercialOwner(t *testing.T) *gorm.DB {
+	t.Helper()
+	_, db := storageStartupFixture(t)
+	require.NoError(t, commercialstore.AutoMigrate(db))
+	return db
+}
+
+func TestStorageRollbackRejectsDurableCapacityAndOrders(t *testing.T) {
+	for _, state := range []string{"namespace", "reserved", "stored", "prepared_lot", "paid_lot", "expired_lot", "pending_order", "cancelled_order"} {
+		t.Run(state, func(t *testing.T) {
+			c, db := storageStartupFixture(t)
+			require.NoError(t, commercialstore.AutoMigrate(db))
+			repo, err := store.New(db)
+			require.NoError(t, err)
+			ctx := context.Background()
+			ns := storagecapacity.Digest("original-capacity-bucket")
+			switch state {
+			case "namespace":
+				require.NoError(t, repo.EnsureNamespace(ctx, ns, "product-source/", func(context.Context) error { return nil }))
+			case "reserved", "stored":
+				meter := &storagecapacity.Meter{Writer: repo, Namespace: ns}
+				object := storagecapacity.Object{Key: "original-file", SHA256: storagecapacity.Digest("file"), SizeBytes: 4, Category: "product_media"}
+				reservation, err := meter.Admit(ctx, "org", "source_media", "original-write", storagecapacity.Digest("original-write"), object)
+				require.NoError(t, err)
+				if state == "stored" {
+					require.NoError(t, meter.Confirm(ctx, "org", reservation, object))
+				}
+			case "prepared_lot", "paid_lot", "expired_lot":
+				lot := storagecapacity.PurchaseLot{OrganizationID: "org", OrderID: "paid-order", ItemID: "paid-item", TermsFingerprint: storagecapacity.Digest("terms"), Bytes: storagecapacity.PackBytes, DurationSeconds: storagecapacity.PeriodSeconds}
+				require.NoError(t, repo.PrepareLot(ctx, lot))
+				if state != "prepared_lot" {
+					require.NoError(t, db.Transaction(func(tx *gorm.DB) error { return repo.ActivateLotInTransaction(ctx, tx, lot, "original-money-commit") }))
+				}
+				if state == "expired_lot" {
+					require.NoError(t, db.Exec("UPDATE storage_capacity_lots SET expires_at = ?", "2020-01-01T00:00:00Z").Error)
+				}
+			case "pending_order", "cancelled_order":
+				commercial, err := commercialstore.New(db)
+				require.NoError(t, err)
+				require.NoError(t, commercial.CreateOffer(ctx, billing.InitialStorageOffer()))
+				quote, err := commercial.CreateQuote(ctx, billing.QuoteRequest{OrganizationID: "org", OfferID: billing.InitialStorageOffer().OfferID, Quantity: 1})
+				require.NoError(t, err)
+				order, err := commercial.CreatePendingResourceOrder(ctx, billing.CreateResourceOrderRequest{OrganizationID: "org", ActorID: "admin", QuoteID: quote.QuoteID, IdempotencyKey: "original-purchase"}, quote)
+				require.NoError(t, err)
+				if state == "cancelled_order" {
+					order.Status = billing.OrderCancelled
+					order.FailureCode = billing.OrderFailureInsufficientFunds
+					require.NoError(t, commercial.UpdateOrder(ctx, order))
+				}
+			}
+			c.StorageCapacity = false
+			require.Error(t, prepareStorageCapacity(ctx, c, db, nil, nil, nil, nil), "existing capacity facts must never be bypassed by false configuration")
+		})
+	}
+}
+
+func TestStorageFalseRequiresAProvablyEmptyOwner(t *testing.T) {
+	c, db := storageStartupFixture(t)
+	require.NoError(t, commercialstore.AutoMigrate(db))
+	c.StorageCapacity = false
+	require.NoError(t, prepareStorageCapacity(context.Background(), c, db, nil, nil, nil, nil))
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel()
+	require.Error(t, prepareStorageCapacity(cancelled, c, db, nil, nil, nil, nil))
+	require.NoError(t, db.Exec("DROP TABLE storage_capacity_namespaces").Error)
+	require.Error(t, prepareStorageCapacity(context.Background(), c, db, nil, nil, nil, nil))
+}
+
+func TestStorageFalseWriterCannotDropItsCommercialOwner(t *testing.T) {
+	for _, c := range []*Config{{SourceMedia: &coreconfig.ImageAgentArtifactStoreConfig{}}, {Knowledge: &KnowledgeConfig{Enabled: true}}, {Ecoservices: &EcoservicesConfig{Enabled: true}}, {ImageAgent: &ImageAgentConfig{}}} {
+		require.Error(t, prepareStorageCapacity(context.Background(), c, nil, nil, nil, nil, nil))
+	}
+	require.NoError(t, prepareStorageCapacity(context.Background(), &Config{}, nil, nil, nil, nil, nil), "basic application without counted writers does not consume capacity")
 }
 
 func TestStorageStartupRejectsImageWorkerCapacityOwnerMismatch(t *testing.T) {

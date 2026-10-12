@@ -2,13 +2,40 @@ package commercialbilling
 
 import (
 	"context"
+	"errors"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"task-processor/internal/commercial/billing"
 	capacitystore "task-processor/internal/integration/persistence/storagecapacity"
 	"task-processor/internal/ledger/money"
 	"task-processor/internal/ledger/storagecapacity"
+	"time"
 )
+
+// VerifyStorageCapacityDisabled preserves both original capacity receipts and
+// storage orders that have not reached lot preparation yet.
+func VerifyStorageCapacityDisabled(ctx context.Context, db *gorm.DB) error {
+	if ctx == nil {
+		return billing.ErrFeatureUnavailable
+	}
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	if err := capacitystore.VerifyDisabled(ctx, db); err != nil {
+		return err
+	}
+	table := "commercial_orders"
+	if db.Dialector.Name() == "postgres" {
+		table = "public." + table
+	}
+	var exists bool
+	if db.WithContext(ctx).Raw("SELECT EXISTS (SELECT 1 FROM "+table+" WHERE kind = ? LIMIT 1)", billing.OrderStorageCapacityPurchase).Scan(&exists).Error != nil {
+		return billing.ErrFeatureUnavailable
+	}
+	if exists {
+		return errors.New("enterprise storage cannot be disabled after a capacity purchase")
+	}
+	return nil
+}
 
 func storageLot(o billing.Order) (storagecapacity.PurchaseLot, error) {
 	if o.Kind != billing.OrderStorageCapacityPurchase || o.Validate() != nil {

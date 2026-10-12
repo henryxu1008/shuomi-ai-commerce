@@ -32,6 +32,7 @@ import (
 	ehttp "task-processor/internal/ecoservices/httpapi"
 	"task-processor/internal/httproute"
 	"task-processor/internal/imageagent"
+	commercialstore "task-processor/internal/integration/persistence/commercialbilling"
 	moneystore "task-processor/internal/integration/persistence/money"
 	referralstore "task-processor/internal/integration/persistence/referral"
 	sourceaccountstore "task-processor/internal/integration/persistence/sourceaccountregistry"
@@ -375,6 +376,11 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			return nil, errors.New("current application option unavailable")
 		}
 		option(&supplied)
+	}
+	if !cfg.StorageCapacity && (supplied.commercialOwnerDB != nil || supplied.collectionSourceMedias > 0 || supplied.knowledgeServices > 0 || supplied.ecoservicesConfigs > 0 || supplied.imageAgents > 0 || supplied.fullImages != nil) {
+		if err := commercialstore.VerifyStorageCapacityDisabled(ctx, supplied.commercialOwnerDB); err != nil {
+			return nil, err
+		}
 	}
 	if supplied.operationsCockpits > 1 || supplied.storeObservations > 1 || supplied.storeCenters > 1 || supplied.localTrials > 1 || supplied.referrals > 1 || supplied.productAcquisitions > 1 || supplied.productCollections > 1 || supplied.imageAgents > 1 || supplied.memberships > 1 || supplied.productAgents > 1 || supplied.aiWorkbenches > 1 || supplied.projectCenters > 1 || supplied.projectCenters == 1 && supplied.projectCenterDB == nil || supplied.accountAuditSources > 1 {
 		return nil, errors.New("current application feature pool supplied more than once")

@@ -15,7 +15,7 @@ import (
 )
 
 func TestCurrentApplicationAdmitsProductExecutionWithImageAuditReader(t *testing.T) {
-	source, resource, acquisition, run, image := &gorm.DB{}, &gorm.DB{}, &gorm.DB{}, &gorm.DB{}, &gorm.DB{}
+	source, resource, acquisition, run, image := &gorm.DB{}, emptyStorageCommercialOwner(t), &gorm.DB{}, &gorm.DB{}, &gorm.DB{}
 	stop := errors.New("assembly reached the workbench after source admission")
 	factories := currentApplicationFactories{
 		buildWorkbench: func(*config.Config, *logrus.Logger) (workbenchContextBuildResult, error) {

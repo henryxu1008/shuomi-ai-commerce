@@ -79,7 +79,7 @@ func TestDataServicesLifecycleFailureClosesOnlyOwnedPoolsAndClient(t *testing.T)
 	for _, stage := range []string{"open", "dial", "construct", "listen", "start", "cancel"} {
 		t.Run(stage, func(t *testing.T) {
 			cfg := dataServicesRuntimeConfig(t)
-			source, product, resource, data := &gorm.DB{}, &gorm.DB{}, &gorm.DB{}, &gorm.DB{}
+			source, product, resource, data := &gorm.DB{}, &gorm.DB{}, emptyStorageCommercialOwner(t), &gorm.DB{}
 			var closed []*gorm.DB
 			clientCloses := 0
 			worker := &dataWorkerFixture{fail: stage == "start"}

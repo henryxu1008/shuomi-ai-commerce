@@ -5,6 +5,7 @@ import (
 	"errors"
 	"gorm.io/gorm"
 	coreconfig "task-processor/internal/core/config"
+	commercialstore "task-processor/internal/integration/persistence/commercialbilling"
 	store "task-processor/internal/integration/persistence/storagecapacity"
 	"task-processor/internal/integration/s3"
 	"task-processor/internal/knowledge"
@@ -13,7 +14,10 @@ import (
 
 func prepareStorageCapacity(ctx context.Context, c *Config, db *gorm.DB, service *knowledge.Service, processor *knowledge.Processor, imageWorker *coreconfig.Config, ecoservices *EcoservicesRuntime) error {
 	if !c.StorageCapacity {
-		return nil
+		if db == nil && c.CommercialOwnerDatabase == nil && c.SourceMedia == nil && (c.Knowledge == nil || !c.Knowledge.Enabled) && (c.Ecoservices == nil || !c.Ecoservices.Enabled) && c.ImageAgent == nil {
+			return nil
+		}
+		return commercialstore.VerifyStorageCapacityDisabled(ctx, db)
 	}
 	if db == nil || c.MoneyOwnerDatabase == nil || c.CommercialOwnerDatabase == nil {
 		return errors.New("enterprise storage requires commercial and money owners")
