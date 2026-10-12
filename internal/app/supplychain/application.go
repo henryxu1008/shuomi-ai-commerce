@@ -8,6 +8,7 @@ import (
 	record "task-processor/internal/listing/record/target"
 	"task-processor/internal/listing/submission"
 	"task-processor/internal/marketplace/shein/goods"
+	temugoods "task-processor/internal/marketplace/temu/goods"
 	"task-processor/internal/product/asset"
 	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/collection"
@@ -68,7 +69,7 @@ func (a *Application) Source(ctx context.Context, id string) (SourceDetail, erro
 type TargetRules struct {
 	Merchant storecenter.ProductMerchantBinding `json:"merchant"`
 	Rules    goods.OfficialRuleSnapshot         `json:"rules,omitzero"`
-	Temu     *TemuTargetRules                   `json:"temu,omitempty"`
+	Temu     *temugoods.RuleSnapshot            `json:"temu,omitempty"`
 }
 
 func (a *Application) QueryRules(ctx context.Context, in record.TargetInput) (TargetRules, error) {

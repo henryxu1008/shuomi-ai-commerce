@@ -173,7 +173,14 @@ func callTemuRule[T any](ctx context.Context, h *TemuRulesHandle, local bool, re
 	if err != nil {
 		return zero, err
 	}
-	return read(ctx, credential)
+	value, err := read(ctx, credential)
+	if err != nil {
+		return zero, err
+	}
+	if _, err = h.credential(ctx); err != nil {
+		return zero, err
+	}
+	return value, nil
 }
 
 func (h *TemuRulesHandle) SupplierCategories(ctx context.Context, query model.SupplierCategoryQuery) ([]model.SupplierCategory, error) {

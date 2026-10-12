@@ -54,7 +54,7 @@ func validateRecord(scope collection.Scope, value record.TargetRecord) bool {
 	return scope.Validate() == nil && collection.ValidID(value.ID) && collection.ValidID(value.Source.ID) && collection.ValidID(value.Input.StoreID) &&
 		value.TargetID == record.TargetIdentity(scope, value.Source.ID, value.Input.StoreID) && value.Revision > 0 && value.Revision == value.Input.ExpectedRevision+1 &&
 		value.Input.SourceID == value.Source.ID && value.EffectiveVersion == value.Input.EffectiveVersion && value.ApplyReceiptID == value.Input.ApplyReceiptID &&
-		value.Merchant.OrganizationID == scope.OrganizationID && value.Merchant.StoreID == value.Input.StoreID && value.Merchant.Site == "shein-us" &&
+		value.Merchant.OrganizationID == scope.OrganizationID && value.Merchant.StoreID == value.Input.StoreID && record.ValidPlatformRecord(value) &&
 		validHash(value.ProductHash) && validHash(value.InventoryHash) && validHash(value.RulesHash) && !value.CreatedAt.IsZero()
 }
 func decodeRecord(scope collection.Scope, row recordRow) (record.TargetRecord, error) {

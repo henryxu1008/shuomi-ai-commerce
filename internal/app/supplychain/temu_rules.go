@@ -9,6 +9,7 @@ import (
 
 	storeapp "task-processor/internal/app/storecenter"
 	record "task-processor/internal/listing/record/target"
+	temugoods "task-processor/internal/marketplace/temu/goods"
 	"task-processor/internal/marketplace/temu/model"
 	"task-processor/internal/marketplace/temu/rules"
 	"task-processor/internal/product/collection"
@@ -42,38 +43,8 @@ func (s OfficialTemuRuleStore) TemuMerchant(ctx context.Context, scope collectio
 	return s.Access.AuthorizeTemuRules(ctx, storecenter.ProductExecutionSubject{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, MemberID: scope.MemberID, Purpose: storecenter.ProductPurposeRules}, storeID, expected)
 }
 
-// This is an observation of named rule metadata, never a publishing decision.
-// A nil template means it was not obtained; an observed empty list stays [].
-type TemuTargetRules struct {
-	Selection             model.RuleSelection              `json:"selection"`
-	Mode                  storecenter.OfficialMerchantMode `json:"mode"`
-	LocalTarget           *rules.LocalTarget               `json:"localTarget,omitempty"`
-	SemiSites             []rules.SemiSite                 `json:"semiSites,omitempty"`
-	SpecificationRevision string                           `json:"specificationRevision"`
-	SpecificationSources  []rules.Source                   `json:"specificationSources"`
-	LocalCategories       []model.LocalCategory            `json:"localCategories"`
-	SupplierCategories    []model.SupplierCategory         `json:"supplierCategories"`
-	SelectableLeaf        bool                             `json:"selectableLeaf"`
-	SupplierAttributes    *model.SupplierAttributeTemplate `json:"supplierAttributes,omitempty"`
-	LocalFieldRules       *model.LocalCategoryRules        `json:"localFieldRules,omitempty"`
-	LocalAttributes       *model.LocalAttributeTemplate    `json:"localAttributes,omitempty"`
-	LocalVariations       *model.LocalVariationTemplate    `json:"localVariations,omitempty"`
-	FreightTemplates      []model.LocalFreightTemplate     `json:"freightTemplates"`
-	Trademarks            *model.LocalTrademarkPage        `json:"trademarks,omitempty"`
-	Observations          []TemuRuleObservation            `json:"observations"`
-	Issues                []string                         `json:"issues"`
-	ObservedAt            time.Time                        `json:"observedAt"`
-}
-
-type TemuRuleObservation struct {
-	EvidenceID  string `json:"evidenceId"`
-	API         string `json:"api"`
-	InputHash   string `json:"inputHash"`
-	DecodedHash string `json:"decodedHash"`
-}
-
 type TemuTargetRuleReader interface {
-	ReadTemuTargetRules(context.Context, collection.Scope, string, model.RuleSelection) (storecenter.ProductMerchantBinding, TemuTargetRules, error)
+	ReadTemuTargetRules(context.Context, collection.Scope, string, model.RuleSelection) (storecenter.ProductMerchantBinding, temugoods.RuleSnapshot, error)
 }
 
 type TemuRuleReader struct {
@@ -81,9 +52,9 @@ type TemuRuleReader struct {
 	Catalog *rules.Catalog
 }
 
-func (r TemuRuleReader) ReadTemuTargetRules(ctx context.Context, scope collection.Scope, storeID string, selection model.RuleSelection) (storecenter.ProductMerchantBinding, TemuTargetRules, error) {
+func (r TemuRuleReader) ReadTemuTargetRules(ctx context.Context, scope collection.Scope, storeID string, selection model.RuleSelection) (storecenter.ProductMerchantBinding, temugoods.RuleSnapshot, error) {
 	var binding storecenter.ProductMerchantBinding
-	var snapshot TemuTargetRules
+	var snapshot temugoods.RuleSnapshot
 	if ctx == nil || scope.Validate() != nil || !collection.ValidID(storeID) || !validTemuRuleSelection(selection) {
 		return binding, snapshot, record.ErrInvalid
 	}
@@ -100,20 +71,20 @@ func (r TemuRuleReader) ReadTemuTargetRules(ctx context.Context, scope collectio
 	if !binding.ValidTemuApplication() || binding.OrganizationID != scope.OrganizationID || binding.StoreID != storeID || binding.StoreVersion < 1 || binding.ConnectionRevision < 1 || !time.Now().Before(binding.CredentialExpiresAt) || !time.Now().Before(binding.ServiceExpiresAt) {
 		return binding, snapshot, record.ErrNotReady
 	}
-	snapshot = TemuTargetRules{Selection: selection, Mode: binding.MerchantMode, SpecificationRevision: r.Catalog.Revision(), SpecificationSources: r.Catalog.Sources(), Observations: []TemuRuleObservation{}, Issues: []string{}}
+	snapshot = temugoods.RuleSnapshot{Selection: selection, Mode: string(binding.MerchantMode), SpecificationRevision: r.Catalog.Revision(), SpecificationSources: r.Catalog.Sources(), Observations: []temugoods.RuleObservation{}, Issues: []string{}}
 	observe := func(id, api string, input, output any) {
-		snapshot.Observations = append(snapshot.Observations, TemuRuleObservation{id, api, collection.Digest(input), collection.Digest(output)})
+		snapshot.Observations = append(snapshot.Observations, temugoods.RuleObservation{EvidenceID: id, API: api, InputHash: collection.Digest(input), DecodedHash: collection.Digest(output)})
 	}
 	if binding.MerchantMode == storecenter.MerchantLocal {
 		if selection.SupplierSiteID != 0 {
-			return binding, TemuTargetRules{}, record.ErrInvalid
+			return binding, temugoods.RuleSnapshot{}, record.ErrInvalid
 		}
 		target := r.Catalog.LocalTarget(string(binding.IdentityPartition), binding.RegionID)
 		snapshot.LocalTarget = &target
 		query := model.LocalCategoryQuery{ParentCatID: selection.ParentCatID, Language: selection.Language}
 		snapshot.LocalCategories, err = merchant.LocalCategories(ctx, query)
 		if err != nil {
-			return binding, TemuTargetRules{}, record.ErrUnavailable
+			return binding, temugoods.RuleSnapshot{}, record.ErrUnavailable
 		}
 		observe("E34", "bg.local.goods.cats.get", query, snapshot.LocalCategories)
 		for _, category := range snapshot.LocalCategories {
@@ -123,14 +94,14 @@ func (r TemuRuleReader) ReadTemuTargetRules(ctx context.Context, scope collectio
 		}
 		snapshot.FreightTemplates, err = merchant.LocalFreightTemplates(ctx)
 		if err != nil {
-			return binding, TemuTargetRules{}, record.ErrUnavailable
+			return binding, temugoods.RuleSnapshot{}, record.ErrUnavailable
 		}
 		observe("E37", "bg.freight.template.list.query", struct{}{}, snapshot.FreightTemplates)
 		if snapshot.SelectableLeaf {
 			query := model.CategoryRuleQuery{CatID: selection.CatID, Language: selection.Language}
 			fields, readErr := merchant.LocalCategoryRules(ctx, query)
 			if readErr != nil {
-				return binding, TemuTargetRules{}, record.ErrUnavailable
+				return binding, temugoods.RuleSnapshot{}, record.ErrUnavailable
 			}
 			snapshot.LocalFieldRules = &fields
 			observe("E29", "temu.local.goods.cats.rules.get", query, fields)
@@ -144,7 +115,7 @@ func (r TemuRuleReader) ReadTemuTargetRules(ctx context.Context, scope collectio
 				attributesQuery := model.LocalAttributeQuery{CatID: selection.CatID, Language: selection.Language, CostTemplateID: selection.CostTemplateID}
 				attributes, readErr := merchant.LocalAttributes(ctx, attributesQuery)
 				if readErr != nil {
-					return binding, TemuTargetRules{}, record.ErrUnavailable
+					return binding, temugoods.RuleSnapshot{}, record.ErrUnavailable
 				}
 				snapshot.LocalAttributes = &attributes
 				observe("E36", "temu.local.product.attributes.get", attributesQuery, attributes)
@@ -153,7 +124,7 @@ func (r TemuRuleReader) ReadTemuTargetRules(ctx context.Context, scope collectio
 			}
 			variations, readErr := merchant.LocalVariations(ctx, query)
 			if readErr != nil {
-				return binding, TemuTargetRules{}, record.ErrUnavailable
+				return binding, temugoods.RuleSnapshot{}, record.ErrUnavailable
 			}
 			snapshot.LocalVariations = &variations
 			observe("E39", "temu.local.product.variation.get", query, variations)
@@ -162,26 +133,26 @@ func (r TemuRuleReader) ReadTemuTargetRules(ctx context.Context, scope collectio
 			query := model.LocalTrademarkQuery{Page: selection.TrademarkPage, Size: selection.TrademarkSize}
 			brands, readErr := merchant.LocalTrademarks(ctx, query)
 			if readErr != nil {
-				return binding, TemuTargetRules{}, record.ErrUnavailable
+				return binding, temugoods.RuleSnapshot{}, record.ErrUnavailable
 			}
 			snapshot.Trademarks = &brands
 			observe("E38", "temu.local.goods.brand.trademark.V2.get", query, brands)
 		}
 	} else {
 		if selection.Language != "" || selection.CostTemplateID != "" || selection.TrademarkPage != 0 || binding.MerchantMode == storecenter.MerchantFullyManaged && selection.SupplierSiteID != 0 {
-			return binding, TemuTargetRules{}, record.ErrInvalid
+			return binding, temugoods.RuleSnapshot{}, record.ErrInvalid
 		}
 		snapshot.SemiSites = r.Catalog.SemiSites()
 		if selection.SupplierSiteID > 0 {
 			site, known := r.Catalog.SemiSite(selection.SupplierSiteID)
 			if !known || site.Opening != rules.Open {
-				return binding, TemuTargetRules{}, record.ErrNotReady
+				return binding, temugoods.RuleSnapshot{}, record.ErrNotReady
 			}
 		}
 		query := model.SupplierCategoryQuery{ParentCatID: selection.ParentCatID, SiteID: selection.SupplierSiteID}
 		snapshot.SupplierCategories, err = merchant.SupplierCategories(ctx, query)
 		if err != nil {
-			return binding, TemuTargetRules{}, record.ErrUnavailable
+			return binding, temugoods.RuleSnapshot{}, record.ErrUnavailable
 		}
 		observe("E33", "bg.goods.cats.get", query, snapshot.SupplierCategories)
 		for _, category := range snapshot.SupplierCategories {
@@ -192,7 +163,7 @@ func (r TemuRuleReader) ReadTemuTargetRules(ctx context.Context, scope collectio
 		if snapshot.SelectableLeaf {
 			attributes, readErr := merchant.SupplierAttributes(ctx, selection.CatID)
 			if readErr != nil {
-				return binding, TemuTargetRules{}, record.ErrUnavailable
+				return binding, temugoods.RuleSnapshot{}, record.ErrUnavailable
 			}
 			snapshot.SupplierAttributes = &attributes
 			observe("E35", "bg.goods.attrs.get", selection.CatID, attributes)
@@ -202,12 +173,12 @@ func (r TemuRuleReader) ReadTemuTargetRules(ctx context.Context, scope collectio
 	// Revalidate the original exact binding; do not combine a rotated connection.
 	current, err := r.Stores.TemuMerchant(ctx, scope, storeID, &binding)
 	if err != nil || current == nil || current.Binding() != binding || ctx.Err() != nil {
-		return binding, TemuTargetRules{}, record.ErrNotReady
+		return binding, temugoods.RuleSnapshot{}, record.ErrNotReady
 	}
 	snapshot.ObservedAt = time.Now().UTC()
 	raw, err := json.Marshal(snapshot)
 	if err != nil || len(raw) > record.MaxPayloadBytes {
-		return binding, TemuTargetRules{}, record.ErrTooLarge
+		return binding, temugoods.RuleSnapshot{}, record.ErrTooLarge
 	}
 	return binding, snapshot, nil
 }

@@ -10,6 +10,7 @@ import (
 	record "task-processor/internal/listing/record/target"
 	"task-processor/internal/marketplace/shein/goods"
 	sheinmodel "task-processor/internal/marketplace/shein/model"
+	temugoods "task-processor/internal/marketplace/temu/goods"
 	temumodel "task-processor/internal/marketplace/temu/model"
 	temurules "task-processor/internal/marketplace/temu/rules"
 	"task-processor/internal/product/collection"
@@ -114,7 +115,7 @@ type temuQueryRevokingReader struct {
 	authority *temuQueryRevocableAuth
 }
 
-func (r temuQueryRevokingReader) ReadTemuTargetRules(ctx context.Context, scope collection.Scope, storeID string, input temumodel.RuleSelection) (storecenter.ProductMerchantBinding, TemuTargetRules, error) {
+func (r temuQueryRevokingReader) ReadTemuTargetRules(ctx context.Context, scope collection.Scope, storeID string, input temumodel.RuleSelection) (storecenter.ProductMerchantBinding, temugoods.RuleSnapshot, error) {
 	merchant, rules, err := r.TemuTargetRuleReader.ReadTemuTargetRules(ctx, scope, storeID, input)
 	r.authority.revoked = true
 	return merchant, rules, err

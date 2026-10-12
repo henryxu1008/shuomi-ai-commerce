@@ -21,6 +21,7 @@ type temuRulesProvider struct {
 	identityReads, metadataReads int
 	deadline                     time.Time
 	afterIdentity                func()
+	afterMetadata                func()
 }
 
 func (p *temuRulesProvider) Application() storecenter.OfficialApplication { return p.application }
@@ -34,12 +35,62 @@ func (p *temuRulesProvider) QueryStore(context.Context, storecenter.OfficialMerc
 func (p *temuRulesProvider) QuerySupplierCategories(ctx context.Context, c storecenter.OfficialMerchantCredential, q temumodel.SupplierCategoryQuery) ([]temumodel.SupplierCategory, error) {
 	p.metadataReads++
 	p.deadline, _ = ctx.Deadline()
+	if p.afterMetadata != nil {
+		p.afterMetadata()
+	}
 	return []temumodel.SupplierCategory{{CatID: 34, Name: "Category"}}, nil
 }
 func (p *temuRulesProvider) QueryLocalCategories(ctx context.Context, c storecenter.OfficialMerchantCredential, q temumodel.LocalCategoryQuery) ([]temumodel.LocalCategory, error) {
 	p.metadataReads++
 	p.deadline, _ = ctx.Deadline()
+	if p.afterMetadata != nil {
+		p.afterMetadata()
+	}
 	return []temumodel.LocalCategory{{CatID: 34, Name: "Category"}}, nil
+}
+
+func TestTemuMetadataReadCannotReleaseFactsAfterAuthorityChangesDuringHTTP(t *testing.T) {
+	for _, partition := range []storecenter.OfficialIdentityPartition{storecenter.PartitionCN, storecenter.PartitionGlobal} {
+		for _, change := range []string{"grant", "connection", "credential", "service", "proof", "cancel"} {
+			t.Run(string(partition)+"/"+change, func(t *testing.T) {
+				mode := storecenter.MerchantLocal
+				if partition == storecenter.PartitionCN {
+					mode = storecenter.MerchantSemiManaged
+				}
+				a, reader, p, subject := newTemuRulesAccess(t, partition, mode)
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+				h, err := a.AuthorizeTemuRules(ctx, subject, "store-a", nil)
+				require.NoError(t, err)
+				p.afterMetadata = func() {
+					switch change {
+					case "grant":
+						reader.err = storecenter.ErrNotFound
+					case "connection":
+						reader.material.Connection.Version++
+					case "credential":
+						reader.material.Attempt.Ciphertext = "changed"
+					case "service":
+						reader.material.ServiceExpiresAt = a.now()
+					case "proof":
+						expired := a.now().Add(6 * time.Second)
+						a.now = func() time.Time { return expired }
+					case "cancel":
+						cancel()
+					}
+				}
+				if partition == storecenter.PartitionCN {
+					value, err := h.SupplierCategories(ctx, temumodel.SupplierCategoryQuery{})
+					require.ErrorIs(t, err, ErrProductAccessChanged)
+					require.Empty(t, value)
+				} else {
+					value, err := h.LocalCategories(ctx, temumodel.LocalCategoryQuery{})
+					require.ErrorIs(t, err, ErrProductAccessChanged)
+					require.Empty(t, value)
+				}
+			})
+		}
+	}
 }
 
 func newTemuRulesAccess(t *testing.T, partition storecenter.OfficialIdentityPartition, mode storecenter.OfficialMerchantMode) (*OfficialProductAccess, *productMaterialReader, *temuRulesProvider, storecenter.ProductExecutionSubject) {

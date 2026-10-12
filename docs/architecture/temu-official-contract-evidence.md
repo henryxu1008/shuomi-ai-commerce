@@ -57,6 +57,8 @@ E17 在 2026-10-12 登录后展开核对：业务参数直接位于外层 JSON�
 
 新增条件性冲突：E17 `goodsBasic.secondHand.businessScope` 描述 0=Regular/1=Collectibles/2=Luxury，E29 `secondHand.businessScope` 描述 1=Regular/2=Collectibles/3=Luxury。当前不建立加减一 alias，不凭字段同名转换或批准二手资料；在本批实际资料校验中保持未核实，须有对应当前接口的明确官方依据才消费。
 
+2026-10-12 保存切片补读 E29/E36：`requirementType` 为1必填、2可选、3禁用；`expandCatType` 为0服装、1其他、2书籍、3DVD、4CD。属性 `controlType` 为0输入、1预设、5日期、6日期区间、7月份、8月份区间、16同时输入和选择、19输入或选择；16使用 `numberInputValue`。`valuePrecision=0` 不允许小数；`valueRule=1` 要求全部输入值之和等于100，采用精确数值；2虽描述字符类别，却未给明确特殊字符范围，仍保持未核实。子属性可选值组由实际所选父值决定，不能合并为全局自由选项。
+
 E28 的本轮补读还确认规格必须服从 E39 的当前模板，图片先转存后用于创建；旧流程页引用 `bg.local.goods.image.upload`，本批采用已明确的 E40 V2，不能遇错切旧接口。E40 公告 E41 新增7天有效期，这是影响图片结果复用的真实合同变化，处理见接入设计 §8.1；不是额外产品范围或自动重发商品的授权。
 
 E42 的平台补填包括运费/备货/运输/制造商/负责人/原产地/识别码、类目/价格与包装精度、文本/图片处理、属性/规格/净含量/币种。它不是本系统默认这些事实或跳过官方格式校验的依据，也不补齐 GE/AM 价格规格。完整保留受界限约束的 warnings 与原 payload hash；创建回执不证明远端逐字段等于批准 payload，也不证明审核通过或在售。未看到关闭补填的官方参数，不发明 opt-out 字段，不用这种成功回执解除另一 UNKNOWN 或做 exact adopt。M3/M5 原设计已区分创建/审核/在售，分类 IMPLEMENTATION_TEST，影响后续结果投影/提交切片合并；不新增产品流程或重开冻结架构。
@@ -348,6 +350,8 @@ E30 全部 235 行通过可见 DOM 表格读取，下列完整保留其中有 Si
 | 发布规则不返回此规格 | E29 fieldRules 只有 filedName、requirementType（required/optional/disabled）；E17 V2 price.currency/amount 与 packageInfo 的四个数值均为 STRING，没有显式重量尺寸单位字段 | 不能由这个 API 的存在推定可动态查到 GE/AM 规格；不能默认 USD/lb/in、EUR/g/cm、法币或邻国规则 |
 
 本土一般开放说明覆盖 39 个 true，其中 37 项在 E24 找到价格/单位规格、2 项缺少规格；E24 与 E30 本土集合的并集是 41 项。缺口不能作为擅自把 GE/AM 移出用户范围的理由；也不能用真实商家 mutation 试错。只有官方合同或真实只读官方资格/规则证据可以补齐受影响发布目标，当前未调用商家 API。
+
+2026-10-12 本轮再次在已登录 GLOBAL 门户读取 E24（页面仍为2026-01-26 15:47:43），表中未出现Georgia/Armenia或site165/166。官方标题搜索Armenia显示无相关内容；此前Georgia检索也未发现规格。这仅证明当前已读页面和检索未补齐规格，不证明官方完全没有其他资料。继续保留两目标与缺规则原因，禁止发布。
 
 ## 6. 验证状态
 
