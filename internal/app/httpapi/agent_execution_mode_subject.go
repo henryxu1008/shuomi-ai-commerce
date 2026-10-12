@@ -17,6 +17,25 @@ type privateModeDeliveryReader interface {
 	Delivery(context.Context, agentcustomization.Scope, string) (agentcustomization.Delivery, error)
 }
 
+func agentModeIdentity(ctx context.Context, h *confighttp.Handler, write bool) (agent.ExecutionIdentity, error) {
+	if h == nil || h.Authorize == nil {
+		return agent.ExecutionIdentity{}, agentconfig.ErrUnavailable
+	}
+	permissions := []string{authz.PermissionWorkbenchAgentRead, authz.PermissionWorkbenchAgentConfigure}
+	if write {
+		permissions = []string{authz.PermissionWorkbenchAgentConfigure}
+	}
+	scope, err := h.Authorize(ctx, permissions...)
+	if err != nil {
+		return agent.ExecutionIdentity{}, err
+	}
+	current, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
+	if !ok || current.UserID != scope.ActorID || current.EffectiveOrganizationID != scope.OrganizationID || current.TenantID != scope.OrganizationID || !agent.ValidID(current.EffectiveMemberID) {
+		return agent.ExecutionIdentity{}, agentconfig.ErrForbidden
+	}
+	return agent.ExecutionIdentity{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, MemberID: current.EffectiveMemberID}, nil
+}
+
 func agentModeSubjectResolver(h *confighttp.Handler, private privateModeDeliveryReader) func(context.Context, agentconfig.ModeSubject, bool) (agent.ExecutionIdentity, agentconfig.ResolvedModeSubject, error) {
 	return func(ctx context.Context, subject agentconfig.ModeSubject, write bool) (agent.ExecutionIdentity, agentconfig.ResolvedModeSubject, error) {
 		var identity agent.ExecutionIdentity
@@ -24,19 +43,11 @@ func agentModeSubjectResolver(h *confighttp.Handler, private privateModeDelivery
 		if h == nil || h.Authorize == nil || h.Catalog == nil || h.Repository == nil || !subject.Valid() {
 			return identity, resolved, agentconfig.ErrUnavailable
 		}
-		permissions := []string{authz.PermissionWorkbenchAgentRead, authz.PermissionWorkbenchAgentConfigure}
-		if write {
-			permissions = []string{authz.PermissionWorkbenchAgentConfigure}
-		}
-		scope, err := h.Authorize(ctx, permissions...)
+		identity, err := agentModeIdentity(ctx, h, write)
 		if err != nil {
 			return identity, resolved, err
 		}
-		current, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
-		if !ok || current.UserID != scope.ActorID || current.EffectiveOrganizationID != scope.OrganizationID || current.TenantID != scope.OrganizationID || !agent.ValidID(current.EffectiveMemberID) {
-			return identity, resolved, agentconfig.ErrForbidden
-		}
-		identity = agent.ExecutionIdentity{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, MemberID: current.EffectiveMemberID}
+		scope := agent.Scope{OrganizationID: identity.OrganizationID, ActorID: identity.ActorID}
 		resolved.Subject = subject
 		if subject.Kind == agentconfig.RegisteredAgentSubject {
 			entries, err := h.Catalog.ReadCatalog(ctx)

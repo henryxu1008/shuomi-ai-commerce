@@ -85,6 +85,9 @@ type RecordedReport struct {
 	} `json:"findings"`
 }
 type QualityRun struct {
+	// Read-only metadata resolved from the immutable mode owner, never authority.
+	ExecutionMode   agent.ExecutionMode   `json:"executionMode,omitempty"`
+	ModeRevision    string                `json:"modeRevision,omitempty"`
 	ModeSnapshotRef agent.ModeSnapshotRef `json:"modeSnapshotRef,omitzero"`
 	ID              string                `json:"id"`
 	DeliveryID      string                `json:"deliveryId"`
@@ -128,6 +131,20 @@ type RunCommand struct {
 type QualityExecutionMode interface {
 	PrepareQualityMode(context.Context, Scope, string, Delivery, DraftSelection, string) (agent.ModeSnapshotRef, error)
 	CheckQualityMode(context.Context, Scope, Delivery, agent.ModeSnapshotRef) error
+}
+
+type QualityExecutionModeReader interface {
+	ReadQualityMode(context.Context, Scope, QualityRun) (agent.ExecutionMode, string, error)
+}
+
+func (s *Service) projectQualityMode(ctx context.Context, scope Scope, run QualityRun) QualityRun {
+	run.ExecutionMode, run.ModeRevision = "", ""
+	if reader, ok := s.executionMode.(QualityExecutionModeReader); ok && run.ModeSnapshotRef.Valid() {
+		if mode, revision, err := reader.ReadQualityMode(ctx, scope, run); err == nil {
+			run.ExecutionMode, run.ModeRevision = mode, revision
+		}
+	}
+	return run
 }
 
 func (s *Service) WithExecutionModes(mode QualityExecutionMode) *Service {
@@ -216,7 +233,7 @@ func (s *Service) RunQuality(ctx context.Context, c RunCommand) (QualityRun, err
 	if e != nil {
 		return QualityRun{}, e
 	}
-	return r.RunQuality(ctx, c, func(ctx context.Context, head bool) (DraftSnapshot, error) {
+	run, err := r.RunQuality(ctx, c, func(ctx context.Context, head bool) (DraftSnapshot, error) {
 		if e := s.executionMode.CheckQualityMode(ctx, c.Scope, delivery, c.ModeSnapshotRef); e != nil {
 			return DraftSnapshot{}, e
 		}
@@ -229,6 +246,10 @@ func (s *Service) RunQuality(ctx context.Context, c RunCommand) (QualityRun, err
 		}
 		return v, e
 	})
+	if err != nil {
+		return QualityRun{}, err
+	}
+	return s.projectQualityMode(ctx, c.Scope, run), nil
 }
 func ValidDraft(v DraftSnapshot) bool {
 	if !UUID(v.RecordID) || !UUID(v.SourceID) || !UUID(v.PreparationID) || !UUID(v.StoreID) || v.Revision < 1 || v.Revision > 9007199254740991 || v.Platform != "shein" || v.Site != "shein-us" || v.ProductKey == "" || len(v.ProductKey) > 128 || !version(v.ProductVersion) || len([]rune(v.Title)) > 200 || v.SavedAt.IsZero() || len(v.Issues) > 4096 || v.Issues == nil || v.ReadyForUpload && len(v.Issues) != 0 {
@@ -298,7 +319,7 @@ func (s *Service) QualityRun(ctx context.Context, scope Scope, delivery, id stri
 	if e = s.authorizeRun(ctx, scope, v); e != nil {
 		return QualityRun{}, e
 	}
-	return v, nil
+	return s.projectQualityMode(ctx, scope, v), nil
 }
 func (s *Service) QualityRuns(ctx context.Context, scope Scope, id, cursor string) (QualityRunPage, error) {
 	out := QualityRunPage{Items: []QualitySummary{}}

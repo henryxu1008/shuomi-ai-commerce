@@ -388,6 +388,9 @@ runPlan:
 					// A mode change cannot create a replacement or resend this action.
 				}
 				if projection.Status == imageagent.RunStatusCompleted {
+					if err := workflow.Await(ctx, func() bool { return workflow.AllHandlersFinished(ctx) }); err != nil {
+						return WorkflowResult{}, err
+					}
 					return projection, nil
 				}
 			}
@@ -1896,6 +1899,8 @@ func (s *workflowUpdateState) handleResume(ctx workflow.Context, input ResumeCom
 			return s.applyRetrySlot(ctx, command, record)
 		case ApproveResultsSignal:
 			return s.applyApproveResults(ctx, resultAdoptionIntent(command), record)
+		case resultAdoptionIntent:
+			return s.applyApproveResults(ctx, command, record)
 		case CancelSignal:
 			return s.applyCancel(ctx, command, record)
 		default:
@@ -1961,7 +1966,7 @@ func (s *workflowUpdateState) pendingReceipt(actionID string, record *workflowUp
 		FailureCode: record.failureCode, FailureCategory: record.failureCategory, FailureMessage: record.failureMessage,
 		LastFailedAt: record.lastFailedAt, Attempt: record.attempt,
 	}
-	if command, ok := record.command.(ApproveResultsSignal); ok && command.Selection != nil {
+	if command, ok := resultAdoptionCommand(record.command); ok && command.Selection != nil {
 		receipt.SelectionDigest = command.Selection.SelectionDigest
 		receipt.ResultDigest = command.ResultDigest
 	}
@@ -1973,6 +1978,17 @@ func (s *workflowUpdateState) pendingReceipt(actionID string, record *workflowUp
 		receipt.PlanRevision = command.ExpectedRevision
 	}
 	return receipt
+}
+
+func resultAdoptionCommand(command any) (resultAdoptionIntent, bool) {
+	switch value := command.(type) {
+	case resultAdoptionIntent:
+		return value, true
+	case ApproveResultsSignal:
+		return resultAdoptionIntent(value), true
+	default:
+		return resultAdoptionIntent{}, false
+	}
 }
 
 func (s *workflowUpdateState) setSafeCommandFailure(ctx workflow.Context, record *workflowUpdateRecord, err error) {

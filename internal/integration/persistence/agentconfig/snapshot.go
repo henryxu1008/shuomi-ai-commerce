@@ -49,14 +49,14 @@ func (s *Store) Prepare(ctx context.Context, c agentconfig.StartCommand) (agentc
 	}
 	// Deployment limits/prompt versions are frozen output, not public retry input.
 	fp, e := hash(struct {
-		AgentID                        string
+		AgentID, AgentVersion          string
 		Binding                        agent.Binding
 		GoalSummary                    string
 		Template                       *agentconfig.TemplateRef
 		KnowledgeBaseID                string
 		ExecutionModelProfile          aicapability.ModelProfile
 		MemberID, ExpectedModeRevision string
-	}{c.AgentID, c.Request.Binding, c.Request.GoalSummary, c.Template, c.KnowledgeBaseID, c.ExecutionModelProfile, c.MemberID, c.ExpectedModeRevision})
+	}{c.AgentID, c.AgentVersion, c.Request.Binding, c.Request.GoalSummary, c.Template, c.KnowledgeBaseID, c.ExecutionModelProfile, c.MemberID, c.ExpectedModeRevision})
 	if e != nil {
 		return agentconfig.Snapshot{}, e
 	}
@@ -160,7 +160,7 @@ func (s *Store) Match(ctx context.Context, c agentconfig.StartCommand, ref agent
 		Template    *agentconfig.TemplateRef
 		Base        string
 	}{c.Request.Binding, c.Request.GoalSummary, c.Template, c.KnowledgeBaseID})
-	if a != b || snap.AgentID != c.AgentID || snap.Request.Key != c.Request.Key || snap.MemberID != c.MemberID || snap.ExpectedModeRevision != c.ExpectedModeRevision || !snap.Request.ModeSnapshotRef.Valid() {
+	if a != b || snap.AgentID != c.AgentID || snap.AgentVersion != c.AgentVersion || snap.Request.Key != c.Request.Key || snap.MemberID != c.MemberID || snap.ExpectedModeRevision != c.ExpectedModeRevision || !snap.Request.ModeSnapshotRef.Valid() {
 		return snap, agentconfig.ErrConflict
 	}
 	return snap, nil

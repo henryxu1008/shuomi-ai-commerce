@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { customId, customizationRequest, type CustomScope } from "./agent-customization";
-import {modeRevisionSchema,modeSnapshotRefSchema} from "../contracts/execution-mode";
+import {modeRevisionSchema,modeSnapshotRefSchema,executionModeSchema} from "../contracts/execution-mode";
 const bytes = (max: number) => z.string().refine(v => new TextEncoder().encode(v).length <= max && !v.includes("\0"));
 const timestamp = z.iso.datetime({ offset: true });
 const revision = z.number().int().min(1).max(Number.MAX_SAFE_INTEGER);
@@ -14,7 +14,7 @@ const snapshot = binding.extend({ issues: z.array(z.strictObject({ code: bytes(1
 const field = (max: number) => z.string().refine(v => Array.from(v).length <= max && v.trim() === v && !/[^\P{Cc}\n\r\t]/u.test(v));
 const recordedInput = z.strictObject({ name: field(120), material: field(240), dimensions: field(240), description: field(4000), specifications: z.array(z.strictObject({ name: field(80), value: field(240) })).max(20) });
 const recordedReport = z.strictObject({ ruleVersion: z.literal("product-quality-rules-v1"), summary: z.string().min(1).max(240), findings: z.array(z.strictObject({ code: z.string().min(1).max(80), field: z.string().min(1).max(80), message: z.string().min(1).max(240), suggestion: z.string().min(1).max(500) })).max(50) });
-const run = z.strictObject({ id: customId, deliveryId: customId, organizationId, actorId: actor, key: customId, definition, createdAt: timestamp,modeSnapshotRef:modeSnapshotRefSchema.optional() });
+const run = z.strictObject({ id: customId, deliveryId: customId, organizationId, actorId: actor, key: customId, definition, createdAt: timestamp,executionMode:executionModeSchema.optional(),modeRevision:modeRevisionSchema.optional(),modeSnapshotRef:modeSnapshotRefSchema.optional() });
 export const qualityRun = z.discriminatedUnion("version", [run.extend({ version: z.literal("2.0.0"), draft: snapshot }), run.extend({ version: z.literal("1.0.0"), input: recordedInput, report: recordedReport })]);
 const summary = z.strictObject({ id: customId, deliveryId: customId, organizationId, actorId: actor, title: z.string().refine(v => Array.from(v).length <= 200), findingCount: z.number().int().min(0).max(4096), createdAt: timestamp });
 export const qualityPage = z.strictObject({ items: z.array(z.discriminatedUnion("version", [summary.extend({ version: z.literal("2.0.0"), draft: binding }), summary.extend({ version: z.literal("1.0.0") })])).max(20), nextCursor: cursor });

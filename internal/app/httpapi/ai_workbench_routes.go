@@ -221,25 +221,28 @@ func (b workbenchMessageBody) input() aiworkbench.MessageInput {
 }
 
 type workbenchProposalCard struct {
-	ID                  string `json:"id"`
-	Digest              string `json:"digest"`
-	SourceSequence      uint64 `json:"sourceSequence"`
-	GoalSummary         string `json:"goalSummary"`
-	OperationID         string `json:"operationId,omitempty"`
-	ProductKey          string `json:"productKey,omitempty"`
-	TargetPlatform      string `json:"targetPlatform,omitempty"`
-	TemplateID          string `json:"templateId,omitempty"`
-	TemplateRevision    string `json:"templateRevision,omitempty"`
-	KnowledgeBaseID     string `json:"knowledgeBaseId,omitempty"`
-	ProviderID          string `json:"providerId,omitempty"`
-	ModelID             string `json:"modelId,omitempty"`
-	MaximumTokens       int64  `json:"maximumTokens,omitempty"`
-	MaximumCostMicros   int64  `json:"maximumCostMicros,omitempty"`
-	Currency            string `json:"currency,omitempty"`
-	HumanReviewRequired bool   `json:"humanReviewRequired"`
-	DetailsAvailable    bool   `json:"detailsAvailable"`
-	TitleProfileReady   bool   `json:"titleProfileReady"`
-	ExecutionAuthorized bool   `json:"executionAuthorized"`
+	ExecutionMode         agent.ExecutionMode `json:"executionMode,omitempty"`
+	ModeRevision          string              `json:"modeRevision,omitempty"`
+	ModeUnavailableReason string              `json:"modeUnavailableReason,omitempty"`
+	ID                    string              `json:"id"`
+	Digest                string              `json:"digest"`
+	SourceSequence        uint64              `json:"sourceSequence"`
+	GoalSummary           string              `json:"goalSummary"`
+	OperationID           string              `json:"operationId,omitempty"`
+	ProductKey            string              `json:"productKey,omitempty"`
+	TargetPlatform        string              `json:"targetPlatform,omitempty"`
+	TemplateID            string              `json:"templateId,omitempty"`
+	TemplateRevision      string              `json:"templateRevision,omitempty"`
+	KnowledgeBaseID       string              `json:"knowledgeBaseId,omitempty"`
+	ProviderID            string              `json:"providerId,omitempty"`
+	ModelID               string              `json:"modelId,omitempty"`
+	MaximumTokens         int64               `json:"maximumTokens,omitempty"`
+	MaximumCostMicros     int64               `json:"maximumCostMicros,omitempty"`
+	Currency              string              `json:"currency,omitempty"`
+	HumanReviewRequired   bool                `json:"humanReviewRequired"`
+	DetailsAvailable      bool                `json:"detailsAvailable"`
+	TitleProfileReady     bool                `json:"titleProfileReady"`
+	ExecutionAuthorized   bool                `json:"executionAuthorized"`
 }
 
 func (a *aiWorkbenchApplication) proposalCard(ctx context.Context, p aiworkbench.ExecutionProposal) workbenchProposalCard {
@@ -256,6 +259,20 @@ func (a *aiWorkbenchApplication) proposalCard(ctx context.Context, p aiworkbench
 	card.DetailsAvailable = true
 	_, executionErr := a.agent.freshIdentity(ctx)
 	card.ExecutionAuthorized = executionErr == nil
+	card.ModeUnavailableReason = "EXECUTION_MODE_NOT_FROZEN"
+	if _, err := agentconfig.ParseModeRevision(p.ObservedModeRevision); err == nil {
+		card.ModeRevision = p.ObservedModeRevision
+		mode, err := a.agent.configuration.ReadExecutionMode(ctx, agent.ExecutionIdentity{OrganizationID: i.TenantID, ActorID: i.UserID, MemberID: i.EffectiveMemberID}, a.agent.modeSubject())
+		if err == nil && mode.Revision == p.ObservedModeRevision {
+			card.ExecutionMode = mode.Mode
+			card.ModeUnavailableReason = ""
+		} else {
+			card.ModeUnavailableReason = "EXECUTION_MODE_CHANGED"
+		}
+	}
+	if card.ModeUnavailableReason != "" {
+		card.ExecutionAuthorized = false
+	}
 	card.OperationID, card.ProductKey, card.TargetPlatform = p.OperationID, p.ProductKey, p.TargetPlatform
 	card.TemplateID, card.TemplateRevision, card.KnowledgeBaseID = p.TemplateID, p.TemplateRevision, p.KnowledgeBaseID
 	var profile aicapability.ModelProfile

@@ -49,7 +49,7 @@ func (a imageSetPolicyAdopter) PreparePolicyAdoption(ctx context.Context, identi
 	if err != nil {
 		return nil, err
 	}
-	actionID := uuid.NewSHA1(uuid.NameSpaceOID, []byte(fmt.Sprintf("image-policy:%s:%d:%s:%s", p.Run.ID, p.Plan.Revision, p.ResultDigest, mode.Ref().Digest))).String()
+	actionID := imagePolicyActionID(p, mode.Ref())
 	command, err := fullImageSelection(p, fullImageSelectionBody{ActionID: actionID, PlanRevision: p.Plan.Revision, ResultDigest: p.ResultDigest, ExpectedHead: inventory.Head, Choices: choices})
 	if err != nil {
 		return nil, err
@@ -65,4 +65,8 @@ func (a imageSetPolicyAdopter) PreparePolicyAdoption(ctx context.Context, identi
 	}
 	command.SelectionDigest = preview.Digest
 	return &command, nil
+}
+
+func imagePolicyActionID(p imageagent.RunProjection, ref agent.ModeSnapshotRef) string {
+	return uuid.NewSHA1(uuid.NameSpaceOID, []byte(fmt.Sprintf("image-policy:%s:%d:%s:%s", p.Run.ID, p.Plan.Revision, p.ResultDigest, ref.Digest))).String()
 }

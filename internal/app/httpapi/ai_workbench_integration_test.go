@@ -92,7 +92,7 @@ type taskViewerGrants struct {
 
 func (g *taskViewerGrants) Load(ctx context.Context, source workbenchcontext.GrantSource, request workbenchcontext.GrantRequest) (workbenchcontext.GrantResult, error) {
 	result, err := (agentFixtureGrants{base: g.base}).Load(ctx, source, request)
-	if request.Subject == "operator" && g.viewer.Load() {
+	if request.Subject == "admin" && g.viewer.Load() {
 		for i := range result.Grants {
 			if result.Grants[i].OrganizationID == "B" {
 				result.Grants[i].Roles = []string{"listingkit_viewer"}
@@ -116,7 +116,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	if withKnowledge {
 		kf = newConsumerKnowledgeFixture(t, f.owner)
 	}
-	op := acquisitionHTTPCall(t, f.server(t), "POST", productAcquisitionBase, "operator", "B", uuid.NewString(),
+	op := acquisitionHTTPCall(t, f.server(t), "POST", productAcquisitionBase, "admin", "B", uuid.NewString(),
 		`{"source":"https://detail.1688.com/offer/981645030344.html"}`, 200)
 	require.NoError(t, reviewstore.InstallSchema(f.owner))
 	require.NoError(t, agentstore.InstallSchema(f.owner))
@@ -154,7 +154,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	require.NoError(t, resourceadapter.AutoMigrate(f.owner))
 	limit, err := resourceadapter.NewGormMemberLimitRepository(f.owner, resourceadapter.TransactionConfig{})
 	require.NoError(t, err)
-	_, err = limit.SetMonthlyLimit(context.Background(), orgresource.SetMemberLimitExecution{OrganizationID: "B", MemberID: "member-B-operator", ActorID: "admin", OperationID: "point-limit", Target: 10000000})
+	_, err = limit.SetMonthlyLimit(context.Background(), orgresource.SetMemberLimitExecution{OrganizationID: "B", MemberID: "member-B-admin", ActorID: "admin", OperationID: "point-limit", Target: 10000000})
 	require.NoError(t, err)
 	now := time.Now().UTC()
 	require.NoError(t, f.owner.Exec("INSERT INTO saas_organization_resource_buckets (organization_id,resource_type,available,allocated,reserved,consumed,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)",
@@ -257,7 +257,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	deps.workbenchVerifier = titleVerifier{}
 	taskGrants := &taskViewerGrants{base: f.grants}
 	deps.organizationResolver = workbenchcontext.NewResolver(taskGrants, "project", "v1", nil)
-	auth, err := authz.NewListingKitAuthorizer([]string{"operator"}, nil)
+	auth, err := authz.NewListingKitAuthorizer([]string{"admin"}, nil)
 	require.NoError(t, err)
 	deps.authorizer = auth
 	settings := ProductAgentDependencies{Enabled: true, AllowedOrganizationIDs: []string{"B"}, RunDB: f.owner, PointAccountingDB: f.owner, AssetDB: f.owner,
@@ -276,7 +276,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	}
 	agentModule, err := buildProductAgentModule(context.Background(), f.db, deps, auth, settings, nil)
 	require.NoError(t, err)
-	readinessIdentity := authidentity.AuthenticatedIdentity{TenantID: "B", EffectiveOrganizationID: "B", UserID: "operator", TokenExpiresAt: time.Now().Add(time.Hour)}
+	readinessIdentity := authidentity.AuthenticatedIdentity{TenantID: "B", EffectiveOrganizationID: "B", UserID: "admin", TokenExpiresAt: time.Now().Add(time.Hour)}
 	readinessCtx := authidentity.WithAuthenticatedIdentity(context.Background(), readinessIdentity)
 	require.EqualValues(t, "AVAILABLE", agentModule.(productAgentModule).application.model.RouteReadinessForVerifiedOrganization(readinessCtx, "B"))
 	readinessIdentity.TenantID, readinessIdentity.EffectiveOrganizationID = "A", "A"
@@ -297,7 +297,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	server := httptest.NewServer(buildIsolatedApplicationHTTPServer(routes, deps, 2*time.Minute).Handler)
 	defer server.Close()
 
-	code, raw, err := acquisitionHTTPRequest(server, "POST", workbenchChatBase, "operator", "B", uuid.NewString(), `{}`)
+	code, raw, err := acquisitionHTTPRequest(server, "POST", workbenchChatBase, "admin", "B", uuid.NewString(), `{}`)
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))
 	var created struct {
@@ -307,7 +307,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	}
 	require.NoError(t, json.Unmarshal(raw, &created))
 	require.NotEmpty(t, created.Conversation.ID)
-	code, raw, err = acquisitionHTTPRequest(server, "POST", workbenchChatBase, "operator", "B", uuid.NewString(), `{"favorite":true}`)
+	code, raw, err = acquisitionHTTPRequest(server, "POST", workbenchChatBase, "admin", "B", uuid.NewString(), `{"favorite":true}`)
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))
 	var saved struct {
@@ -317,11 +317,11 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	}
 	require.NoError(t, json.Unmarshal(raw, &saved))
 	for range 2 {
-		code, raw, err = acquisitionHTTPRequest(server, "POST", workbenchChatBase, "operator", "B", uuid.NewString(), `{}`)
+		code, raw, err = acquisitionHTTPRequest(server, "POST", workbenchChatBase, "admin", "B", uuid.NewString(), `{}`)
 		require.NoError(t, err)
 		require.Equal(t, 200, code, string(raw))
 	}
-	code, raw, err = acquisitionHTTPRequest(server, "GET", workbenchChatBase+"?limit=1&saved=true", "operator", "B", "", "")
+	code, raw, err = acquisitionHTTPRequest(server, "GET", workbenchChatBase+"?limit=1&saved=true", "admin", "B", "", "")
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))
 	var savedPage struct {
@@ -341,17 +341,17 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	}
 	messagePath := workbenchChatBase + "/" + created.Conversation.ID + "/messages"
 	claimLedger.rollback.Store(true)
-	code, raw, err = acquisitionHTTPRequest(server, "POST", messagePath, "operator", "B", messageKey, messageBody)
+	code, raw, err = acquisitionHTTPRequest(server, "POST", messagePath, "admin", "B", messageKey, messageBody)
 	require.NoError(t, err)
 	require.Equal(t, 202, code, string(raw))
 	require.Contains(t, string(raw), `"state":"READY_TO_DISPATCH"`)
 	require.Zero(t, plannerCalls.Load(), "a rolled-back claim cannot dispatch")
 	frozenCommand, err := workbenchModule.(aiWorkbenchModule).application.store.GetCommand(context.Background(),
-		aiworkbench.Scope{OrganizationID: "B", ActorID: "operator"}, messageKey)
+		aiworkbench.Scope{OrganizationID: "B", ActorID: "admin"}, messageKey)
 	require.NoError(t, err)
 	_, err = ledger.ReadModelInvocation(context.Background(), "B", frozenCommand.PlannerInvocationID)
 	require.ErrorIs(t, err, gorm.ErrRecordNotFound)
-	code, raw, err = acquisitionHTTPRequest(server, "POST", messagePath, "operator", "B", messageKey, messageBody)
+	code, raw, err = acquisitionHTTPRequest(server, "POST", messagePath, "admin", "B", messageKey, messageBody)
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))
 	var planned struct {
@@ -361,7 +361,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	require.NoError(t, json.Unmarshal(raw, &planned))
 	require.Equal(t, "COMPLETE", planned.State)
 	completedCommand, err := workbenchModule.(aiWorkbenchModule).application.store.GetCommand(context.Background(),
-		aiworkbench.Scope{OrganizationID: "B", ActorID: "operator"}, messageKey)
+		aiworkbench.Scope{OrganizationID: "B", ActorID: "admin"}, messageKey)
 	require.NoError(t, err)
 	require.Equal(t, frozenCommand.PlannerInvocationID, completedCommand.PlannerInvocationID)
 	require.Equal(t, frozenCommand.InputHash, completedCommand.InputHash)
@@ -377,7 +377,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 			ExecutionAuthorized bool   `json:"executionAuthorized"`
 		} `json:"proposals"`
 	}
-	code, raw, err = acquisitionHTTPRequest(server, "GET", workbenchChatBase+"/"+created.Conversation.ID, "operator", "B", "", "")
+	code, raw, err = acquisitionHTTPRequest(server, "GET", workbenchChatBase+"/"+created.Conversation.ID, "admin", "B", "", "")
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))
 	require.NoError(t, json.Unmarshal(raw, &proposalView))
@@ -385,19 +385,19 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	require.True(t, proposalView.Proposals[0].TitleProfileReady, "the frozen title profile is currently admitted")
 	require.True(t, proposalView.Proposals[0].ExecutionAuthorized)
 	taskGrants.viewer.Store(true)
-	code, raw, err = acquisitionHTTPRequest(server, "GET", workbenchChatBase+"/"+created.Conversation.ID, "operator", "B", "", "")
+	code, raw, err = acquisitionHTTPRequest(server, "GET", workbenchChatBase+"/"+created.Conversation.ID, "admin", "B", "", "")
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))
 	require.NoError(t, json.Unmarshal(raw, &proposalView))
 	require.True(t, proposalView.Proposals[0].TitleProfileReady)
 	require.False(t, proposalView.Proposals[0].ExecutionAuthorized, "a configured global user grant cannot replace the effective organization's execution role")
 	code, raw, err = acquisitionHTTPRequest(server, "POST", workbenchChatBase+"/"+created.Conversation.ID+"/proposals/"+planned.ProposalID+"/confirm",
-		"operator", "B", uuid.NewString(), "")
+		"admin", "B", uuid.NewString(), "")
 	require.NoError(t, err)
 	require.Equal(t, 403, code, string(raw))
 	require.Zero(t, titleCalls.Load(), "the global user grant does not authorize title dispatch")
 	taskGrants.viewer.Store(false)
-	code, raw, err = acquisitionHTTPRequest(server, "GET", workbenchChatBase+"?limit=1", "operator", "B", "", "")
+	code, raw, err = acquisitionHTTPRequest(server, "GET", workbenchChatBase+"?limit=1", "admin", "B", "", "")
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))
 	var recentPage struct {
@@ -418,7 +418,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	// invented assistant or a second model send on the same command key.
 	taskGrants.viewer.Store(false)
 	invalidPlanner.Store(true)
-	code, raw, err = acquisitionHTTPRequest(server, "POST", workbenchChatBase, "operator", "B", uuid.NewString(), `{}`)
+	code, raw, err = acquisitionHTTPRequest(server, "POST", workbenchChatBase, "admin", "B", uuid.NewString(), `{}`)
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))
 	var invalidConversation struct {
@@ -429,7 +429,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	require.NoError(t, json.Unmarshal(raw, &invalidConversation))
 	invalidKey := uuid.NewString()
 	invalidPath := workbenchChatBase + "/" + invalidConversation.Conversation.ID + "/messages"
-	code, raw, err = acquisitionHTTPRequest(server, "POST", invalidPath, "operator", "B", invalidKey, messageBody)
+	code, raw, err = acquisitionHTTPRequest(server, "POST", invalidPath, "admin", "B", invalidKey, messageBody)
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))
 	var invalidReceipt struct {
@@ -438,7 +438,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	require.NoError(t, json.Unmarshal(raw, &invalidReceipt))
 	require.Equal(t, "PLANNER_INVALID_OUTPUT", invalidReceipt.State)
 	command, err := workbenchModule.(aiWorkbenchModule).application.store.GetCommand(context.Background(),
-		aiworkbench.Scope{OrganizationID: "B", ActorID: "operator"}, invalidKey)
+		aiworkbench.Scope{OrganizationID: "B", ActorID: "admin"}, invalidKey)
 	require.NoError(t, err)
 	fact, err := ledger.ReadModelInvocation(context.Background(), "B", command.PlannerInvocationID)
 	require.NoError(t, err)
@@ -450,14 +450,14 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 		Pluck("consumed", &consumedAfterInvalid).Error)
 	require.Greater(t, consumedAfterInvalid, consumedBefore, "invalid observed output must settle its AI points")
 	require.EqualValues(t, 2, plannerCalls.Load())
-	code, raw, err = acquisitionHTTPRequest(server, "POST", invalidPath, "operator", "B", invalidKey, messageBody)
+	code, raw, err = acquisitionHTTPRequest(server, "POST", invalidPath, "admin", "B", invalidKey, messageBody)
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))
 	require.NoError(t, json.Unmarshal(raw, &invalidReceipt))
 	require.Equal(t, "PLANNER_INVALID_OUTPUT", invalidReceipt.State)
 	require.EqualValues(t, 2, plannerCalls.Load(), "terminal invalid planning must not redispatch")
 	messages, err := workbenchModule.(aiWorkbenchModule).application.store.ListMessages(context.Background(),
-		aiworkbench.Scope{OrganizationID: "B", ActorID: "operator"}, invalidConversation.Conversation.ID, 50)
+		aiworkbench.Scope{OrganizationID: "B", ActorID: "admin"}, invalidConversation.Conversation.ID, 50)
 	require.NoError(t, err)
 	require.Len(t, messages, 1)
 	require.Equal(t, aiworkbench.AuthorUser, messages[0].Author)
@@ -466,19 +466,19 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	// A failed settlement must never be projected as the settled terminal state.
 	pointOwner := agentModule.(productAgentModule).application.points
 	ledger.SetUsageSettler(failedWorkbenchSettlement{InvocationUsageSettler: pointOwner, InvocationUsageReservation: pointOwner})
-	code, raw, err = acquisitionHTTPRequest(server, "POST", workbenchChatBase, "operator", "B", uuid.NewString(), `{}`)
+	code, raw, err = acquisitionHTTPRequest(server, "POST", workbenchChatBase, "admin", "B", uuid.NewString(), `{}`)
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))
 	require.NoError(t, json.Unmarshal(raw, &invalidConversation))
 	unsettledKey := uuid.NewString()
 	unsettledPath := workbenchChatBase + "/" + invalidConversation.Conversation.ID + "/messages"
-	code, raw, err = acquisitionHTTPRequest(server, "POST", unsettledPath, "operator", "B", unsettledKey, messageBody)
+	code, raw, err = acquisitionHTTPRequest(server, "POST", unsettledPath, "admin", "B", unsettledKey, messageBody)
 	require.NoError(t, err)
 	require.Equal(t, 202, code, string(raw))
 	require.NoError(t, json.Unmarshal(raw, &invalidReceipt))
 	require.Equal(t, "READY_TO_DISPATCH", invalidReceipt.State)
 	unsettled, err := workbenchModule.(aiWorkbenchModule).application.store.GetCommand(context.Background(),
-		aiworkbench.Scope{OrganizationID: "B", ActorID: "operator"}, unsettledKey)
+		aiworkbench.Scope{OrganizationID: "B", ActorID: "admin"}, unsettledKey)
 	require.NoError(t, err)
 	fact, err = ledger.ReadModelInvocation(context.Background(), "B", unsettled.PlannerInvocationID)
 	require.NoError(t, err)
@@ -487,7 +487,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	require.NoError(t, f.owner.Table("saas_organization_resource_buckets").Where("organization_id = ? AND resource_type = ?", "B", "ai_point").
 		Pluck("consumed", &consumedAfterFailure).Error)
 	require.Equal(t, consumedAfterInvalid, consumedAfterFailure, "failed settlement must not claim consumed AI points")
-	code, raw, err = acquisitionHTTPRequest(server, "POST", unsettledPath, "operator", "B", unsettledKey, messageBody)
+	code, raw, err = acquisitionHTTPRequest(server, "POST", unsettledPath, "admin", "B", unsettledKey, messageBody)
 	require.NoError(t, err)
 	require.Equal(t, 202, code, string(raw))
 	require.EqualValues(t, 3, plannerCalls.Load(), "unsettled replay cannot resend or claim settlement")
@@ -505,21 +505,21 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 		}
 		return originalAuthorize(ctx, input)
 	}
-	code, raw, err = acquisitionHTTPRequest(server, "POST", workbenchChatBase, "operator", "B", uuid.NewString(), `{}`)
+	code, raw, err = acquisitionHTTPRequest(server, "POST", workbenchChatBase, "admin", "B", uuid.NewString(), `{}`)
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))
 	require.NoError(t, json.Unmarshal(raw, &invalidConversation))
 	unreleasedKey := uuid.NewString()
 	unreleasedPath := workbenchChatBase + "/" + invalidConversation.Conversation.ID + "/messages"
 	noSendBefore := plannerCalls.Load()
-	code, raw, err = acquisitionHTTPRequest(server, "POST", unreleasedPath, "operator", "B", unreleasedKey, messageBody)
+	code, raw, err = acquisitionHTTPRequest(server, "POST", unreleasedPath, "admin", "B", unreleasedKey, messageBody)
 	require.NoError(t, err)
 	require.Equal(t, 202, code, string(raw))
 	require.NoError(t, json.Unmarshal(raw, &invalidReceipt))
 	require.Equal(t, "READY_TO_DISPATCH", invalidReceipt.State)
 	require.Equal(t, noSendBefore, plannerCalls.Load(), "the provider must not receive a request")
 	unreleased, err := workbenchModule.(aiWorkbenchModule).application.store.GetCommand(context.Background(),
-		aiworkbench.Scope{OrganizationID: "B", ActorID: "operator"}, unreleasedKey)
+		aiworkbench.Scope{OrganizationID: "B", ActorID: "admin"}, unreleasedKey)
 	require.NoError(t, err)
 	unreleasedFact, err := ledger.ReadModelInvocation(context.Background(), "B", unreleased.PlannerInvocationID)
 	require.NoError(t, err)
@@ -531,7 +531,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 		Pluck("state", &reservationState).Error)
 	require.Equal(t, "reserved", reservationState, "failed ResourceAIPoint release must remain visible to its owner")
 	plannerText.executor.Authorize = originalAuthorize
-	code, raw, err = acquisitionHTTPRequest(server, "POST", unreleasedPath, "operator", "B", unreleasedKey, messageBody)
+	code, raw, err = acquisitionHTTPRequest(server, "POST", unreleasedPath, "admin", "B", unreleasedKey, messageBody)
 	require.NoError(t, err)
 	require.Equal(t, 202, code, string(raw))
 	require.Equal(t, noSendBefore, plannerCalls.Load(), "same-key replay cannot trigger another provider request")
@@ -544,7 +544,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 		Update("enabled", false)
 	require.NoError(t, changedRoute.Error)
 	require.EqualValues(t, 1, changedRoute.RowsAffected)
-	code, raw, err = acquisitionHTTPRequest(server, "POST", messagePath, "operator", "B", messageKey, messageBody)
+	code, raw, err = acquisitionHTTPRequest(server, "POST", messagePath, "admin", "B", messageKey, messageBody)
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))
 	require.EqualValues(t, 3, plannerCalls.Load())
@@ -553,7 +553,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 		Update("enabled", true).Error)
 	confirmKey := uuid.NewString()
 	confirmPath := workbenchChatBase + "/" + created.Conversation.ID + "/proposals/" + planned.ProposalID + "/confirm"
-	code, raw, err = acquisitionHTTPRequest(server, "POST", confirmPath, "operator", "B", confirmKey, "")
+	code, raw, err = acquisitionHTTPRequest(server, "POST", confirmPath, "admin", "B", confirmKey, "")
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))
 	var confirmed struct {
@@ -573,7 +573,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	if kf != nil {
 		readKnowledge := func(status string, productReadable bool) {
 			t.Helper()
-			code, raw, err := acquisitionHTTPRequest(server, "GET", workbenchTaskBase+"/"+confirmed.Task.ID, "operator", "B", "", "")
+			code, raw, err := acquisitionHTTPRequest(server, "GET", workbenchTaskBase+"/"+confirmed.Task.ID, "admin", "B", "", "")
 			require.NoError(t, err)
 			require.Equal(t, 200, code, string(raw))
 			var response struct {
@@ -603,7 +603,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 		publishedReader := agentApplication.receipts
 		agentApplication.receipts = unavailablePublishedReceipt{}
 		readKnowledge("available", false)
-		_, err := kf.service.Mutate(context.Background(), knowledge.Command{Scope: knowledge.Scope{OrganizationID: "B", ActorID: "operator"},
+		_, err := kf.service.Mutate(context.Background(), knowledge.Command{Scope: knowledge.Scope{OrganizationID: "B", ActorID: "admin"},
 			Kind: "source_disable", SourceID: kf.source.ID, Version: kf.source.Version, Key: uuid.NewString()})
 		require.NoError(t, err)
 		readKnowledge("unavailable", false)
@@ -617,11 +617,11 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	publishedReader := agentApplication.receipts
 	agentApplication.receipts = unavailablePublishedReceipt{}
 	startKey := uuid.NewString()
-	code, raw, err = acquisitionHTTPRequest(server, "POST", workbenchTaskBase+"/"+confirmed.Task.ID+"/start", "operator", "B", startKey, "")
+	code, raw, err = acquisitionHTTPRequest(server, "POST", workbenchTaskBase+"/"+confirmed.Task.ID+"/start", "admin", "B", startKey, "")
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))
 	require.EqualValues(t, 4, titleCalls.Load(), "reconciliation never resends the model")
-	code, raw, err = acquisitionHTTPRequest(server, "POST", workbenchTaskBase+"/"+confirmed.Task.ID+"/start", "operator", "B", startKey, "")
+	code, raw, err = acquisitionHTTPRequest(server, "POST", workbenchTaskBase+"/"+confirmed.Task.ID+"/start", "admin", "B", startKey, "")
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))
 	require.Contains(t, string(raw), `"replay":true`)
@@ -643,7 +643,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	taskGrants.viewer.Store(true)
 	readAsViewer := func(wantState string) {
 		t.Helper()
-		status, body, readErr := acquisitionHTTPRequest(server, "GET", workbenchTaskBase+"/"+confirmed.Task.ID, "operator", "B", "", "")
+		status, body, readErr := acquisitionHTTPRequest(server, "GET", workbenchTaskBase+"/"+confirmed.Task.ID, "admin", "B", "", "")
 		require.NoError(t, readErr)
 		require.Equal(t, 200, status, string(body))
 		var viewer struct {
@@ -669,7 +669,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	require.NoError(t, f.owner.Table("ai_workbench.business_tasks").Count(&count).Error)
 	require.EqualValues(t, 1, count)
 	titleBefore := titleCalls.Load()
-	code, raw, err = acquisitionHTTPRequest(server, "POST", confirmPath, "operator", "B", confirmKey, "")
+	code, raw, err = acquisitionHTTPRequest(server, "POST", confirmPath, "admin", "B", confirmKey, "")
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))
 	var replayed struct {
@@ -685,7 +685,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	staleResumeKey := uuid.NewString()
 	for attempt := 0; attempt < 2; attempt++ {
 		code, raw, err = acquisitionHTTPRequest(server, "POST", workbenchTaskBase+"/"+confirmed.Task.ID+"/resume",
-			"operator", "B", staleResumeKey, `{"revision":"999999","feedback":"stale feedback"}`)
+			"admin", "B", staleResumeKey, `{"revision":"999999","feedback":"stale feedback"}`)
 		require.NoError(t, err)
 		require.Equal(t, 409, code, string(raw))
 		require.JSONEq(t, `{"code":"REVISION_MISMATCH"}`, string(raw))
@@ -710,7 +710,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	require.NoError(t, f.owner.Table("product_title_proposals").Count(&reviewsBefore).Error)
 	for attempt := 0; attempt < 2; attempt++ {
 		code, raw, err = acquisitionHTTPRequest(server, "POST", workbenchTaskBase+"/"+confirmed.Task.ID+"/review",
-			"operator", "B", deniedReviewKey, "")
+			"admin", "B", deniedReviewKey, "")
 		require.NoError(t, err)
 		require.Equal(t, 503, code, string(raw))
 		require.JSONEq(t, `{"code":"DEPENDENCY_UNAVAILABLE"}`, string(raw))
@@ -721,7 +721,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	require.Equal(t, reviewsBefore, reviewsAfter, "pre-transaction rejection and replay do not create a Review")
 	require.Equal(t, titleBefore, titleCalls.Load())
 	reviewKey := uuid.NewString()
-	code, raw, err = acquisitionHTTPRequest(server, "POST", workbenchTaskBase+"/"+confirmed.Task.ID+"/review", "operator", "B", reviewKey, "")
+	code, raw, err = acquisitionHTTPRequest(server, "POST", workbenchTaskBase+"/"+confirmed.Task.ID+"/review", "admin", "B", reviewKey, "")
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))
 	var reviewed struct {
@@ -733,7 +733,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	require.NoError(t, json.Unmarshal(raw, &reviewed))
 	require.NotEmpty(t, reviewed.Task.ReviewID)
 	require.Equal(t, "WAITING_CONFIRMATION", reviewed.Task.State)
-	code, raw, err = acquisitionHTTPRequest(server, "POST", workbenchTaskBase+"/"+confirmed.Task.ID+"/review", "operator", "B", reviewKey, "")
+	code, raw, err = acquisitionHTTPRequest(server, "POST", workbenchTaskBase+"/"+confirmed.Task.ID+"/review", "admin", "B", reviewKey, "")
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))
 	require.Contains(t, string(raw), `"replay":true`)
@@ -743,7 +743,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 		if suffix == "resume" {
 			body = `{"revision":"2","feedback":"same task"}`
 		}
-		status, response, callErr := acquisitionHTTPRequest(server, "POST", workbenchTaskBase+"/"+confirmed.Task.ID+"/"+suffix, "operator", "B", "", body)
+		status, response, callErr := acquisitionHTTPRequest(server, "POST", workbenchTaskBase+"/"+confirmed.Task.ID+"/"+suffix, "admin", "B", "", body)
 		require.NoError(t, callErr)
 		require.Equal(t, 400, status, string(response))
 	}
@@ -752,7 +752,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	accepted := titleDecision(t, server, proposal, "accept", "admin", "", 200)
 	applied := titleApply(t, server, accepted, uuid.NewString(), 200)
 	require.Equal(t, "applied", applied.State)
-	code, raw, err = acquisitionHTTPRequest(server, "GET", workbenchTaskBase+"/"+confirmed.Task.ID, "operator", "B", "", "")
+	code, raw, err = acquisitionHTTPRequest(server, "GET", workbenchTaskBase+"/"+confirmed.Task.ID, "admin", "B", "", "")
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))
 	var finished struct {
@@ -779,7 +779,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	// the explicit Task start. The action and its affordance must agree.
 	taskGrants.viewer.Store(false)
 	invalidPlanner.Store(false)
-	code, raw, err = acquisitionHTTPRequest(readyServer, "POST", workbenchChatBase, "operator", "B", uuid.NewString(), `{}`)
+	code, raw, err = acquisitionHTTPRequest(readyServer, "POST", workbenchChatBase, "admin", "B", uuid.NewString(), `{}`)
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))
 	var secondConversation struct {
@@ -788,7 +788,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 		} `json:"conversation"`
 	}
 	require.NoError(t, json.Unmarshal(raw, &secondConversation))
-	code, raw, err = acquisitionHTTPRequest(readyServer, "POST", workbenchChatBase+"/"+secondConversation.Conversation.ID+"/messages", "operator", "B", uuid.NewString(), messageBody)
+	code, raw, err = acquisitionHTTPRequest(readyServer, "POST", workbenchChatBase+"/"+secondConversation.Conversation.ID+"/messages", "admin", "B", uuid.NewString(), messageBody)
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))
 	var secondPlan struct {
@@ -797,21 +797,21 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	require.NoError(t, json.Unmarshal(raw, &secondPlan))
 	require.NotEmpty(t, secondPlan.ProposalID, string(raw))
 	pendingProposal, err := readyModule.(aiWorkbenchModule).application.store.GetProposal(context.Background(),
-		aiworkbench.Scope{OrganizationID: "B", ActorID: "operator"}, secondPlan.ProposalID)
+		aiworkbench.Scope{OrganizationID: "B", ActorID: "admin"}, secondPlan.ProposalID)
 	require.NoError(t, err)
 	identity := authidentity.AuthenticatedIdentity{TenantID: "B", EffectiveOrganizationID: "B", HomeOrganizationID: "B",
-		UserID: "operator", Roles: []string{"listingkit_admin"}, TokenExpiresAt: time.Now().Add(time.Hour)}
+		UserID: "admin", Roles: []string{"listingkit_admin"}, TokenExpiresAt: time.Now().Add(time.Hour)}
 	preparedCtx, err := (productReviewCapabilityBinder{}).Bind(authidentity.WithAuthenticatedIdentity(context.Background(), identity), "Bearer isolated-test-token")
 	require.NoError(t, err)
 	pendingKey := uuid.NewString()
 	prepared, err := (workbenchExecution{agent: agentModule.(productAgentModule).application}).Prepare(preparedCtx, pendingProposal, pendingKey)
 	require.NoError(t, err)
 	pendingTask, replay, err := readyModule.(aiWorkbenchModule).application.store.Confirm(preparedCtx,
-		aiworkbench.Scope{OrganizationID: "B", ActorID: "operator"}, secondConversation.Conversation.ID, secondPlan.ProposalID, pendingKey, prepared)
+		aiworkbench.Scope{OrganizationID: "B", ActorID: "admin"}, secondConversation.Conversation.ID, secondPlan.ProposalID, pendingKey, prepared)
 	require.NoError(t, err)
 	require.False(t, replay)
 	pendingPath := workbenchTaskBase + "/" + pendingTask.ID
-	code, raw, err = acquisitionHTTPRequest(readyServer, "GET", pendingPath, "operator", "B", "", "")
+	code, raw, err = acquisitionHTTPRequest(readyServer, "GET", pendingPath, "admin", "B", "", "")
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))
 	require.Contains(t, string(raw), `"canStart":true`)
@@ -822,13 +822,13 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	disabledTitle := *titleRow
 	disabledTitle.Enabled = false
 	require.NoError(t, credentials.SaveCredential(context.Background(), disabledTitle))
-	code, raw, err = acquisitionHTTPRequest(readyServer, "GET", pendingPath, "operator", "B", "", "")
+	code, raw, err = acquisitionHTTPRequest(readyServer, "GET", pendingPath, "admin", "B", "", "")
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))
 	require.Contains(t, string(raw), `"canStart":false`)
 	disabledStartKey := uuid.NewString()
 	for attempt := 0; attempt < 2; attempt++ {
-		code, raw, err = acquisitionHTTPRequest(readyServer, "POST", pendingPath+"/start", "operator", "B", disabledStartKey, "")
+		code, raw, err = acquisitionHTTPRequest(readyServer, "POST", pendingPath+"/start", "admin", "B", disabledStartKey, "")
 		require.NoError(t, err)
 		require.Equal(t, 503, code, string(raw))
 		require.JSONEq(t, `{"code":"DEPENDENCY_UNAVAILABLE"}`, string(raw), "known pre-owner failure must not become unknown")
@@ -836,17 +836,17 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	var pendingRequest agent.Request
 	require.NoError(t, json.Unmarshal(pendingTask.ExecutionRequest, &pendingRequest))
 	_, foundPendingRun, err := agentModule.(productAgentModule).application.store.Lookup(context.Background(),
-		agent.Scope{OrganizationID: "B", ActorID: "operator"}, pendingRequest.Binding, pendingTask.ExecutionRequestKey)
+		agent.Scope{OrganizationID: "B", ActorID: "admin"}, pendingRequest.Binding, pendingTask.ExecutionRequestKey)
 	require.NoError(t, err)
 	require.False(t, foundPendingRun, "disabled title route must not claim the frozen run")
 	require.Equal(t, "NEEDS_CONFIGURATION", readyModule.(aiWorkbenchModule).PlanningReadiness(context.Background(), "B"))
-	code, raw, err = acquisitionHTTPRequest(readyServer, "GET", workbenchChatBase+"/"+created.Conversation.ID, "operator", "B", "", "")
+	code, raw, err = acquisitionHTTPRequest(readyServer, "GET", workbenchChatBase+"/"+created.Conversation.ID, "admin", "B", "", "")
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))
 	require.NoError(t, json.Unmarshal(raw, &proposalView))
 	require.False(t, proposalView.Proposals[0].TitleProfileReady, "a disabled title route cannot confirm an old proposal")
 	plannerBefore := plannerCalls.Load()
-	code, raw, err = acquisitionHTTPRequest(readyServer, "POST", workbenchChatBase, "operator", "B", uuid.NewString(), `{}`)
+	code, raw, err = acquisitionHTTPRequest(readyServer, "POST", workbenchChatBase, "admin", "B", uuid.NewString(), `{}`)
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))
 	var unavailableConversation struct {
@@ -859,7 +859,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	path := workbenchChatBase + "/" + unavailableConversation.Conversation.ID + "/messages"
 	body := `{"content":"请优化标题","operationId":"` + op.OperationID + `","targetPlatform":"shein"}`
 	for range 2 {
-		code, raw, err = acquisitionHTTPRequest(readyServer, "POST", path, "operator", "B", key, body)
+		code, raw, err = acquisitionHTTPRequest(readyServer, "POST", path, "admin", "B", key, body)
 		require.NoError(t, err)
 		require.Equal(t, 200, code, string(raw))
 		require.Contains(t, string(raw), `"state":"FAILED_BEFORE_DISPATCH"`)
@@ -871,7 +871,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	invalidPlanner.Store(false)
 	disabledTitle.Enabled = true
 	require.NoError(t, credentials.SaveCredential(context.Background(), disabledTitle))
-	code, raw, err = acquisitionHTTPRequest(readyServer, "GET", pendingPath, "operator", "B", "", "")
+	code, raw, err = acquisitionHTTPRequest(readyServer, "GET", pendingPath, "admin", "B", "", "")
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))
 	require.Contains(t, string(raw), `"canStart":false`, "credential rotation cannot revive a frozen Task")
@@ -897,7 +897,7 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	rotatingServer := httptest.NewServer(buildIsolatedApplicationHTTPServer(rotatingRoutes, deps, 2*time.Minute).Handler)
 	defer rotatingServer.Close()
 	require.Equal(t, "AVAILABLE", rotatingWorkbench.(aiWorkbenchModule).PlanningReadiness(context.Background(), "B"))
-	code, raw, err = acquisitionHTTPRequest(rotatingServer, "GET", workbenchChatBase+"/"+created.Conversation.ID, "operator", "B", "", "")
+	code, raw, err = acquisitionHTTPRequest(rotatingServer, "GET", workbenchChatBase+"/"+created.Conversation.ID, "admin", "B", "", "")
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))
 	require.NoError(t, json.Unmarshal(raw, &proposalView))
@@ -905,19 +905,19 @@ func testAIWorkbenchOwners(t *testing.T, withKnowledge, googleTitle bool) {
 	var consumedBeforeRotation int64
 	require.NoError(t, f.owner.Table("saas_organization_resource_buckets").Where("organization_id = ? AND resource_type = ?", "B", "ai_point").
 		Pluck("consumed", &consumedBeforeRotation).Error)
-	code, raw, err = acquisitionHTTPRequest(rotatingServer, "POST", workbenchChatBase, "operator", "B", uuid.NewString(), `{}`)
+	code, raw, err = acquisitionHTTPRequest(rotatingServer, "POST", workbenchChatBase, "admin", "B", uuid.NewString(), `{}`)
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))
 	require.NoError(t, json.Unmarshal(raw, &unavailableConversation))
 	rotationKey := uuid.NewString()
-	code, raw, err = acquisitionHTTPRequest(rotatingServer, "POST", workbenchChatBase+"/"+unavailableConversation.Conversation.ID+"/messages", "operator", "B", rotationKey, body)
+	code, raw, err = acquisitionHTTPRequest(rotatingServer, "POST", workbenchChatBase+"/"+unavailableConversation.Conversation.ID+"/messages", "admin", "B", rotationKey, body)
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))
 	require.True(t, rotated.Load(), "title route must change after reservation and before transport handoff")
 	require.Contains(t, string(raw), `"state":"FAILED_BEFORE_DISPATCH"`)
 	require.Equal(t, plannerBefore, plannerCalls.Load(), "rotation at final handoff cannot issue a paid planner request")
 	rotationReceipt, err := rotatingWorkbench.(aiWorkbenchModule).application.store.GetCommand(context.Background(),
-		aiworkbench.Scope{OrganizationID: "B", ActorID: "operator"}, rotationKey)
+		aiworkbench.Scope{OrganizationID: "B", ActorID: "admin"}, rotationKey)
 	require.NoError(t, err)
 	rotationFact, err := ledger.ReadModelInvocation(context.Background(), "B", rotationReceipt.PlannerInvocationID)
 	require.NoError(t, err)

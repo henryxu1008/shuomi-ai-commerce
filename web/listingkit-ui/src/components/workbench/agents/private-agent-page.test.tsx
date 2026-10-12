@@ -15,7 +15,7 @@ vi.mock("@/lib/api/supply-chain",()=>({listSupplyPreparations:vi.fn(async()=>({i
 vi.mock("@/lib/api/workbench-stores",()=>({listWorkbenchStores:vi.fn(async()=>({items:[{id,name:"测试店铺"}],pagination:{total:1}}))}));
 beforeEach(()=>{sessionStorage.clear();vi.restoreAllMocks();state.permissions=[...permissions]});
 afterEach(()=>{cleanup();vi.restoreAllMocks()});
-function reads(url:unknown){return Response.json(String(url).endsWith("/reports")?{items:[],nextCursor:""}:String(url).includes("/reports/")?run:delivery)}
+function reads(url:unknown){return Response.json(String(url).includes("execution-modes/private_delivery/")?{subject:{kind:"private_delivery",id},definition:{id:"product.quality.check",version:"2.0.0"},mode:"default",revision:"0",policyVersion:"agent-execution-policy-v1",canConfigure:false,updatedAt:at,updatedBy:""}:String(url).endsWith("/reports")?{items:[],nextCursor:""}:String(url).includes("/reports/")?run:delivery)}
 
 it("labels offline trial reports after a server read and hides unavailable editing links",async()=>{
   vi.stubGlobal("fetch",vi.fn(async(url:unknown)=>Response.json(String(url).endsWith("/reports")?{items:[{...summary,draft:{...summary.draft,offlineTrial:true}}],nextCursor:""}:String(url).includes("/reports/")?{...run,draft:{...draft,offlineTrial:true}}:delivery)));
@@ -34,7 +34,7 @@ it("keeps private draft delivery visible when title configuration is unavailable
 it("selects a saved draft and restores only its frozen original reference and key after UNKNOWN",async()=>{
   const fetch=vi.spyOn(globalThis,"fetch").mockImplementation(async(url,init)=>{if(init?.method==="POST")throw new Error("response lost");return reads(url)});
   const first=render(<PrivateAgentPage id={id}/>);await choose();expect(screen.queryByRole("textbox",{name:"商品名称"})).not.toBeInTheDocument();fireEvent.click(screen.getByRole("button",{name:"检查并保存报告"}));await screen.findByText("结果尚未确认，请核实同一次检查。");
-  const original=fetch.mock.calls.find(v=>v[1]?.method==="POST")!;expect(JSON.parse(String(original[1]?.body))).toEqual({recordId,expectedRevision:3});first.unmount();
+  const original=fetch.mock.calls.find(v=>v[1]?.method==="POST")!;expect(JSON.parse(String(original[1]?.body))).toEqual({recordId,expectedRevision:3,expectedModeRevision:"0"});first.unmount();
   fetch.mockImplementation(async(url,init)=>init?.method==="POST"?Response.json({...run,key:new Headers(init.headers).get("Idempotency-Key")}):reads(url));
   render(<PrivateAgentPage id={id}/>);fireEvent.click(await screen.findByRole("button",{name:"核实同一次检查"}));await screen.findByRole("heading",{name:"草稿质检报告 · 盒子"});
   const calls=fetch.mock.calls.filter(v=>v[1]?.method==="POST");expect(calls).toHaveLength(2);expect(calls[1][1]?.body).toBe(original[1]?.body);expect(new Headers(calls[1][1]?.headers).get("Idempotency-Key")).toBe(new Headers(original[1]?.headers).get("Idempotency-Key"));

@@ -88,7 +88,7 @@ func TestFullImageCommittedPreparationRetainsOriginalKeyWhenResponseReadFails(t 
 			for _, route := range module.routes() {
 				router.Handle(route.Method, route.Path, route.Handler)
 			}
-			body, err := json.Marshal(fullImagePrepareBody{Template: &agentconfig.TemplateRef{TemplateID: requestID, Revision: "1"}, Target: imageagent.ImageTargetSelection{Platform: "product"}, SharedOriginalIDs: []string{"source-1"}})
+			body, err := json.Marshal(fullImagePrepareBody{ExpectedModeRevision: "0", Template: &agentconfig.TemplateRef{TemplateID: requestID, Revision: "1"}, Target: imageagent.ImageTargetSelection{Platform: "product"}, SharedOriginalIDs: []string{"source-1"}})
 			require.NoError(t, err)
 			identity := authidentity.AuthenticatedIdentity{TenantID: "org", EffectiveOrganizationID: "org", UserID: "actor", EffectiveMemberID: "member"}
 			ctx := authidentity.WithAuthenticatedIdentity(context.Background(), identity)

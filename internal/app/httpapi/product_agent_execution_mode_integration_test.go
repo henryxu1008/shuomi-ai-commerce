@@ -35,7 +35,10 @@ func testTitlePermissionMode(t *testing.T, value string, f *acquisitionHTTPFixtu
 	require.Equal(t, 200, code, string(raw))
 	var result productAgentResultDTO
 	require.NoError(t, json.Unmarshal(raw, &result))
-	require.True(t, result.CanSubmitReview)
+	require.Equal(t, value != "auto_approve" && value != "full_access", result.CanSubmitReview)
+	require.Equal(t, value != "auto_approve" && value != "full_access", result.HumanReviewRequired)
+	require.Equal(t, agent.ExecutionMode(value), result.ExecutionMode)
+	require.NotNil(t, result.ModeSnapshotRef)
 	code, raw, err = acquisitionHTTPRequest(server, "POST", path+"/"+key+"/review", "admin", "B", "", `{}`)
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))

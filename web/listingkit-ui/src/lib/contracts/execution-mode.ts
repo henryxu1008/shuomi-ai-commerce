@@ -58,6 +58,14 @@ export const titleExecutionProvenanceSchema = z.strictObject({
 export const titlePolicyAdoptionSchema = z.strictObject({
  execution:titleExecutionProvenanceSchema,
  identity:z.strictObject({OrganizationID:identifier,ActorID:identifier,MemberID:identifier}),
- mode:z.enum(["auto_approve","full_access"]),modeRevision:modeRevisionSchema,
+ mode:z.enum(["auto_approve","full_access"]),modeRevision:configVersion,
  policyVersion:z.literal("agent-execution-policy-v1"),actionVersion:z.literal("product.title.policy-adopt-v1"),proposalDigest:digest,requiresHuman:z.boolean(),
 }).refine(v=>v.identity.OrganizationID===v.execution.scope.OrganizationID&&v.identity.ActorID===v.execution.scope.ActorID&&!(v.mode==="auto_approve"&&v.requiresHuman));
+
+export const imagePolicyAdoptionSchema=z.strictObject({
+ identity:z.strictObject({OrganizationID:identifier,ActorID:identifier,MemberID:identifier}),
+ mode:z.literal("full_access"),modeRevision:configVersion,modeSnapshotRef:modeSnapshotRefSchema,
+ configurationSnapshotRef:z.strictObject({Kind:z.literal("agent-configuration-v1"),ID:knowledgeId,Digest:digest}),
+ runId:knowledgeId,planRevision:z.number().int().positive(),resultDigest:digest,
+ policyVersion:z.literal("agent-execution-policy-v1"),actionVersion:z.literal("product.image.policy-adopt-v1"),
+});

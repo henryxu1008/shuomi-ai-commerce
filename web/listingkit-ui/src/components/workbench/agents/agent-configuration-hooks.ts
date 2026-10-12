@@ -23,14 +23,15 @@ export function configurationError(error: unknown) {
 
 export function useConfigurationRead<T>(scope: ConfigurationScope, path: string, schema: z.ZodType<T>, nonce = 0, enabled = true) {
   const { userId, organizationId } = scope;
+  const binding=JSON.stringify([userId,organizationId,path,nonce]);
   const [result, setResult] = useState<{ path: string; data?: T; error?: unknown }>({ path: "" });
   useEffect(() => {
     if (!enabled) return;
     const controller = new AbortController();
     configurationRequest({ userId, organizationId }, path, schema, { signal: controller.signal })
-      .then(data => { if (!controller.signal.aborted) setResult({ path: `${path}:${nonce}`, data }); })
-      .catch(error => { if (!controller.signal.aborted) setResult({ path: `${path}:${nonce}`, error }); });
+      .then(data => { if (!controller.signal.aborted) setResult({ path: binding, data }); })
+      .catch(error => { if (!controller.signal.aborted) setResult({ path: binding, error }); });
     return () => controller.abort();
-  }, [userId, organizationId, path, schema, nonce, enabled]);
-  return result.path === `${path}:${nonce}` && enabled ? result : { path };
+  }, [userId, organizationId, path, schema, nonce, enabled,binding]);
+  return result.path === binding && enabled ? result : { path };
 }

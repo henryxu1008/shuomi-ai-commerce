@@ -17,10 +17,15 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"task-processor/internal/agent"
+	"task-processor/internal/agentconfig"
+	confighttp "task-processor/internal/agentconfig/httpapi"
 	d "task-processor/internal/agentcustomization"
 	customhttp "task-processor/internal/agentcustomization/httpapi"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
+	"task-processor/internal/commercetool"
+	configstore "task-processor/internal/integration/persistence/agentconfig"
 	store "task-processor/internal/integration/persistence/agentcustomization"
 	kernelmodule "task-processor/internal/kernel/module"
 )
@@ -84,6 +89,14 @@ func TestAgentCustomizationModulePostgresNormalMiddlewareFlow(t *testing.T) {
 		root.Close()
 	})
 	require.NoError(t, store.InstallSchema(ctx, db))
+	modeORM, err := gorm.Open(postgres.Open(u.String()), &gorm.Config{})
+	require.NoError(t, err)
+	modePool, err := modeORM.DB()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = modePool.Close() })
+	require.NoError(t, configstore.InstallSchema(modeORM))
+	modeRepo, err := configstore.New(modeORM)
+	require.NoError(t, err)
 	orm, err := gorm.Open(postgres.New(postgres.Config{Conn: db}), &gorm.Config{})
 	require.NoError(t, err)
 	_, err = buildAgentCustomizationModule(ctx, orm)
@@ -96,12 +109,23 @@ func TestAgentCustomizationModulePostgresNormalMiddlewareFlow(t *testing.T) {
 	draftProbe := &customizationDraftProbe{record: uuid.NewString()}
 	m, err := buildAgentCustomizationModule(ctx, orm, draftProbe)
 	require.NoError(t, err)
+	privateService := m.(agentCustomizationModule).handler.Service.(*d.Service)
+	modeHandler := &confighttp.Handler{Repository: modeRepo, Catalog: productAgentCatalog{}, Authorize: func(ctx context.Context, _ ...string) (agent.Scope, error) {
+		i, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
+		if !ok || i.EffectiveOrganizationID != i.TenantID || i.EffectiveMemberID == "" {
+			return agent.Scope{}, agentconfig.ErrForbidden
+		}
+		return agent.Scope{OrganizationID: i.TenantID, ActorID: i.UserID}, nil
+	}}
+	privateService.WithExecutionModes(privateQualityMode{repository: modeRepo, resolve: agentModeSubjectResolver(modeHandler, privateService), identity: func(ctx context.Context) (agent.ExecutionIdentity, error) {
+		return privateQualityExecutionIdentity(ctx, modeHandler)
+	}})
 	registry := kernelmodule.NewRegistry()
 	require.NoError(t, m.Register(registry))
 	require.Len(t, registry.Routes(), 13)
 	authorizer, err := authz.NewListingKitAuthorizer(nil, nil)
 	require.NoError(t, err)
-	identity := authidentity.AuthenticatedIdentity{UserID: "verified-user", Roles: []string{"platform_admin"}, TokenExpiresAt: time.Now().Add(time.Minute)}
+	identity := authidentity.AuthenticatedIdentity{UserID: "verified-user", EffectiveMemberID: "private-mode-member", Roles: []string{"platform_admin"}, TokenExpiresAt: time.Now().Add(time.Minute)}
 	events := []string{}
 	router := gin.New()
 	mountRoutesWithAuthDependencies(router, registry.Routes(), routeAuthDependencies{
@@ -164,10 +188,12 @@ func TestAgentCustomizationModulePostgresNormalMiddlewareFlow(t *testing.T) {
 	reportPath := customhttp.PrivateBase + "/" + deliveries.Items[0].ID + "/reports"
 	w = request("POST", reportPath, `{"name":"收纳盒","material":"","dimensions":"20x10","description":"","specifications":[]}`, reportKey, "")
 	require.Equal(t, 400, w.Code, "manual execution is retired")
-	w = request("POST", reportPath, `{"recordId":"`+draftProbe.record+`","expectedRevision":1}`, reportKey, "")
+	w = request("POST", reportPath, `{"recordId":"`+draftProbe.record+`","expectedRevision":1,"expectedModeRevision":"0"}`, reportKey, "")
 	require.Equal(t, 200, w.Code, w.Body.String())
 	var report d.QualityRun
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &report))
+	require.Equal(t, agent.ModeDefault, report.ExecutionMode)
+	require.True(t, report.ModeSnapshotRef.Valid())
 	require.NotEmpty(t, report.Draft.Issues)
 	w = request("GET", reportPath, "", "", "")
 	require.Equal(t, 200, w.Code, w.Body.String())
@@ -180,6 +206,23 @@ func TestAgentCustomizationModulePostgresNormalMiddlewareFlow(t *testing.T) {
 	var readBack d.QualityRun
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &readBack))
 	require.Equal(t, report, readBack)
+	modeIdentity := agent.ExecutionIdentity{OrganizationID: report.OrganizationID, ActorID: report.ActorID, MemberID: identity.EffectiveMemberID}
+	modeSubject := agentconfig.ResolvedModeSubject{Subject: agentconfig.ModeSubject{Kind: agentconfig.PrivateDeliverySubject, ID: report.DeliveryID}, Definition: commercetool.AgentRef{ID: report.Definition, Version: report.Version}}
+	for index, mode := range []agent.ExecutionMode{agent.ModeAutoApprove, agent.ModeReadOnly, agent.ModeFullAccess} {
+		receipt, err := modeRepo.ExecuteMode(ctx, agentconfig.ModeCommand{Identity: modeIdentity, Subject: modeSubject, Key: uuid.NewString(), Mode: mode, ExpectedRevision: uint64(index)})
+		require.NoError(t, err)
+		w = request("POST", reportPath, `{"recordId":"`+draftProbe.record+`","expectedRevision":1,"expectedModeRevision":"`+receipt.Revision+`"}`, uuid.NewString(), "")
+		require.Equal(t, 200, w.Code, w.Body.String())
+		var current d.QualityRun
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &current))
+		require.Equal(t, mode, current.ExecutionMode)
+		require.Equal(t, receipt.Revision, current.ModeRevision)
+		require.Equal(t, report.Draft, current.Draft, "all modes remain diagnostic")
+	}
+	w = request("GET", reportPath+"/"+report.ID, "", "", "")
+	require.Equal(t, 200, w.Code, w.Body.String())
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &readBack))
+	require.Equal(t, agent.ModeDefault, readBack.ExecutionMode, "history retains its frozen mode after widening")
 	var count int
 	require.NoError(t, db.QueryRow("SELECT count(*) FROM agent_customization.requests").Scan(&count))
 	require.Equal(t, 1, count, "replay did not create another request")

@@ -48,7 +48,7 @@ func (p *PolicyProvenance) Valid() bool {
 	}
 	rev, err := strconv.ParseUint(p.ModeRevision, 10, 63)
 	hash, hashErr := hex.DecodeString(p.ProposalDigest)
-	return p.Execution.Valid() && p.Identity.Valid() && p.Identity.OrganizationID == p.Execution.Scope.OrganizationID && p.Identity.ActorID == p.Execution.Scope.ActorID && (p.Mode == agent.ModeAutoApprove && !p.RequiresHuman || p.Mode == agent.ModeFullAccess) && err == nil && strconv.FormatUint(rev, 10) == p.ModeRevision && p.PolicyVersion == agent.ExecutionModePolicyVersion && p.ActionVersion == TitlePolicyAdoptionVersion && hashErr == nil && len(hash) == 32 && hex.EncodeToString(hash) == p.ProposalDigest
+	return p.Execution.Valid() && p.Identity.Valid() && p.Identity.OrganizationID == p.Execution.Scope.OrganizationID && p.Identity.ActorID == p.Execution.Scope.ActorID && (p.Mode == agent.ModeAutoApprove && !p.RequiresHuman || p.Mode == agent.ModeFullAccess) && err == nil && rev > 0 && strconv.FormatUint(rev, 10) == p.ModeRevision && p.PolicyVersion == agent.ExecutionModePolicyVersion && p.ActionVersion == TitlePolicyAdoptionVersion && hashErr == nil && len(hash) == 32 && hex.EncodeToString(hash) == p.ProposalDigest
 }
 
 type ExecutionPolicyResolver func(context.Context, ExecutionProvenance, enrichment.Candidate, bool) (PolicyProvenance, error)

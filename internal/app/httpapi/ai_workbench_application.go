@@ -338,6 +338,9 @@ func (p *workbenchPlanner) FailureState(ctx context.Context, c aiworkbench.Plann
 }
 
 func (x workbenchExecution) Prepare(ctx context.Context, p aiworkbench.ExecutionProposal, key string) (aiworkbench.PreparedTask, error) {
+	if _, err := agentconfig.ParseModeRevision(p.ObservedModeRevision); err != nil {
+		return aiworkbench.PreparedTask{}, aiworkbench.ErrProposalStale
+	}
 	a := x.agent
 	i, err := a.freshIdentity(ctx)
 	if err != nil || p.Scope != (aiworkbench.Scope{OrganizationID: i.TenantID, ActorID: i.UserID}) {

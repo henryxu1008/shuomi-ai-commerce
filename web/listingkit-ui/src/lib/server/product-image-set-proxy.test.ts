@@ -14,7 +14,7 @@ it("preserves signed-64-bit catalog versions through image source reads and prep
  expect(response.status).toBe(200);expect(await response.json()).toEqual(payload);
  for(const suffix of ["/prepare",`/runs/${run}/regenerate`,"/requirements"]){
   const tail=suffix.slice(1).split("/");
-  const body={target:{Platform:"product"},effectiveCatalogVersion:version};
+  const body={target:{Platform:"product"},effectiveCatalogVersion:version,...suffix==="/requirements"?{}:{expectedModeRevision:"0"}};
   const prepared=await buildWorkbenchUpstreamRequest(request("POST",suffix,JSON.stringify(body),suffix==="/requirements"?{}:{"Idempotency-Key":action}),[...path,...tail],"token","actor");
   expect(prepared).not.toBeInstanceOf(Response);if(prepared instanceof Response)return;
   expect(JSON.parse(String(prepared.init.body)).effectiveCatalogVersion).toBe(version);
@@ -32,7 +32,7 @@ it("binds the full image endpoints to the source owner, original run and same pr
  const read=await buildWorkbenchUpstreamRequest(request("GET",`/runs/${run}`),[...path,"runs",run],"token","actor");
  expect(read).not.toBeInstanceOf(Response);if(read instanceof Response)return;
  expect(read.expectedStoreId).toBe(expected);
- const body=JSON.stringify({target:{Platform:"product"},sharedOriginalIds:["original-1"],selectedTaskIds:["main-identity","detail-closeup"]});
+ const body=JSON.stringify({expectedModeRevision:"0",target:{Platform:"product"},sharedOriginalIds:["original-1"],selectedTaskIds:["main-identity","detail-closeup"]});
  const prepared=await buildWorkbenchUpstreamRequest(request("POST","/prepare",body,{"Idempotency-Key":action}),[...path,"prepare"],"token","actor");
  expect(prepared).not.toBeInstanceOf(Response);if(prepared instanceof Response)return;
  expect(prepared.sourceMutation).toBe(true);expect(new Headers(prepared.init.headers).get("Idempotency-Key")).toBe(action);

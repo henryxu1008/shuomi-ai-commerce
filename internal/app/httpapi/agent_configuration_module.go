@@ -89,7 +89,9 @@ func buildAgentConfigurationModule(ctx context.Context, db *gorm.DB, resolver or
 	}
 	h.ResolveModeSubject = agentModeSubjectResolver(h, private)
 	if service, ok := private.(*agentcustomization.Service); ok {
-		service.WithExecutionModes(privateQualityMode{repository: repo, resolve: h.ResolveModeSubject})
+		service.WithExecutionModes(privateQualityMode{repository: repo, resolve: h.ResolveModeSubject, identity: func(ctx context.Context) (agent.ExecutionIdentity, error) {
+			return privateQualityExecutionIdentity(ctx, h)
+		}})
 	}
 	h.Knowledge = func(ctx context.Context, scope agent.Scope, id string) error {
 		if k == nil {

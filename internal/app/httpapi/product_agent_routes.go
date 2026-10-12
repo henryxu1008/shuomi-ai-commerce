@@ -86,33 +86,34 @@ type productAgentStepDTO struct {
 	AuditStatus  string `json:"auditStatus,omitempty"`
 }
 type productAgentResultDTO struct {
-	ExecutionMode       agent.ExecutionMode      `json:"executionMode"`
-	ModeRevision        string                   `json:"modeRevision"`
-	ModeSnapshotRef     agent.ModeSnapshotRef    `json:"modeSnapshotRef"`
-	PolicyAdoption      *review.PolicyProvenance `json:"policyAdoption,omitempty"`
-	ReviewID            string                   `json:"reviewId,omitempty"`
-	TemplateSelection   *agentconfig.TemplateRef `json:"templateSelection,omitempty"`
-	Knowledge           *productKnowledgeDTO     `json:"knowledge,omitempty"`
-	RunID               string                   `json:"runId"`
-	RequestKey          string                   `json:"requestKey"`
-	OperationID         string                   `json:"operationId"`
-	ProductKey          string                   `json:"productKey"`
-	CatalogVersion      string                   `json:"catalogVersion"`
-	PublicationID       string                   `json:"publicationId"`
-	TargetPlatform      string                   `json:"targetPlatform"`
-	Phase               agent.Phase              `json:"phase"`
-	Revision            string                   `json:"revision"`
-	StopReason          agent.StopReason         `json:"stopReason,omitempty"`
-	HumanReviewRequired bool                     `json:"humanReviewRequired"`
-	Candidate           enrichment.Candidate     `json:"candidate"`
-	Confidence          []agent.FieldConfidence  `json:"confidence"`
-	Unresolved          []string                 `json:"unresolved"`
-	Steps               []productAgentStepDTO    `json:"steps"`
-	Tokens              int64                    `json:"tokens"`
-	EstimatedCostMicros int64                    `json:"estimatedCostMicros"`
-	Currency            string                   `json:"currency"`
-	UsageStatus         string                   `json:"usageStatus"`
-	CanSubmitReview     bool                     `json:"canSubmitReview"`
+	ExecutionMode         agent.ExecutionMode      `json:"executionMode,omitempty"`
+	ModeRevision          string                   `json:"modeRevision,omitempty"`
+	ModeSnapshotRef       *agent.ModeSnapshotRef   `json:"modeSnapshotRef,omitempty"`
+	ModeUnavailableReason string                   `json:"modeUnavailableReason,omitempty"`
+	PolicyAdoption        *review.PolicyProvenance `json:"policyAdoption,omitempty"`
+	ReviewID              string                   `json:"reviewId,omitempty"`
+	TemplateSelection     *agentconfig.TemplateRef `json:"templateSelection,omitempty"`
+	Knowledge             *productKnowledgeDTO     `json:"knowledge,omitempty"`
+	RunID                 string                   `json:"runId"`
+	RequestKey            string                   `json:"requestKey"`
+	OperationID           string                   `json:"operationId"`
+	ProductKey            string                   `json:"productKey"`
+	CatalogVersion        string                   `json:"catalogVersion"`
+	PublicationID         string                   `json:"publicationId"`
+	TargetPlatform        string                   `json:"targetPlatform"`
+	Phase                 agent.Phase              `json:"phase"`
+	Revision              string                   `json:"revision"`
+	StopReason            agent.StopReason         `json:"stopReason,omitempty"`
+	HumanReviewRequired   bool                     `json:"humanReviewRequired"`
+	Candidate             enrichment.Candidate     `json:"candidate"`
+	Confidence            []agent.FieldConfidence  `json:"confidence"`
+	Unresolved            []string                 `json:"unresolved"`
+	Steps                 []productAgentStepDTO    `json:"steps"`
+	Tokens                int64                    `json:"tokens"`
+	EstimatedCostMicros   int64                    `json:"estimatedCostMicros"`
+	Currency              string                   `json:"currency"`
+	UsageStatus           string                   `json:"usageStatus"`
+	CanSubmitReview       bool                     `json:"canSubmitReview"`
 }
 
 func productAgentRoutes(a *productAgentApplication) []httproute.Descriptor {
@@ -261,12 +262,18 @@ func productAgentRoutes(a *productAgentApplication) []httproute.Descriptor {
 				return
 			}
 			result.TemplateSelection = frozen.Template
-			mode, modeErr := a.configuration.LoadModeSnapshot(ctx, agent.ExecutionIdentity{OrganizationID: state.Scope.OrganizationID, ActorID: state.Scope.ActorID, MemberID: frozen.MemberID}, state.Request.ModeSnapshotRef)
-			if modeErr != nil {
-				writeProductAgentError(c, modeErr)
-				return
+			if state.Request.ModeSnapshotRef.Absent() {
+				result.ModeUnavailableReason = "EXECUTION_MODE_NOT_FROZEN"
+				result.CanSubmitReview = false
+			} else {
+				mode, modeErr := a.configuration.LoadModeSnapshot(ctx, agent.ExecutionIdentity{OrganizationID: state.Scope.OrganizationID, ActorID: state.Scope.ActorID, MemberID: frozen.MemberID}, state.Request.ModeSnapshotRef)
+				if modeErr != nil {
+					writeProductAgentError(c, modeErr)
+					return
+				}
+				ref := mode.Ref()
+				result.ExecutionMode, result.ModeRevision, result.ModeSnapshotRef = mode.Mode, mode.Revision, &ref
 			}
-			result.ExecutionMode, result.ModeRevision, result.ModeSnapshotRef = mode.Mode, mode.Revision, mode.Ref()
 			if view, found, err := a.reviews.FindAgentReview(ctx, state.RunID); err != nil {
 				writeProductAgentError(c, err)
 				return
@@ -275,6 +282,7 @@ func productAgentRoutes(a *productAgentApplication) []httproute.Descriptor {
 				result.PolicyAdoption = view.PolicyAdoption
 				if view.PolicyAdoption != nil && view.State == "applied" {
 					result.HumanReviewRequired = false
+					result.CanSubmitReview = false
 				}
 			}
 			for _, step := range state.History {

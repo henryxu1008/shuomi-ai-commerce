@@ -12,6 +12,7 @@ import { requestAIWorkbench, type AIScope, AIWorkbenchError } from "@/lib/api/ai
 import { isAcquisitionUUID } from "@/lib/contracts/product-acquisition";
 import { aiMessageBody, type AIConversation, type AIProposal } from "@/lib/contracts/ai-workbench";
 import { findConsoleRoute } from "@/lib/workbench/console-navigation";
+import {executionModeLabels,executionModeAdoptionText} from "../agents/execution-mode-settings";
 import styles from "./chat-page.module.css";
 
 type ChatMode = "home" | "new" | "recent" | "saved" | "archived";
@@ -43,7 +44,7 @@ export function ChatPage({ mode, conversationId }: { mode: ChatMode | "detail"; 
   const authorizationKey = `${JSON.stringify([context.roles, context.permissions])}:${canUse}:${planningReadiness}:${titleReadiness}`;
   const title = mode === "home" ? "硕米Chat" : mode === "new" ? "新建会话" : mode === "recent" ? "最近会话" : mode === "saved" ? "收藏会话" : mode === "archived" ? "归档会话" : "业务会话";
   return <ConsolePage className="console-chat" title={title} breadcrumbs={route?.trail}
-    description="围绕已保存商品讨论标题建议；方案需要确认后才会执行，结果仍须人工审核应用。">
+    description="围绕已保存商品讨论标题建议；确认方案和预算后执行，按本次权限模式处理本地采用。">
     {!scope ? <ConsoleState kind={context.isSwitching || context.isLoading ? "loading" : "unavailable"} title="企业上下文不可用">请先选择可访问的企业并登录。</ConsoleState> :
       !context.aiWorkbenchAvailable ? <ConsoleState kind="unavailable" title="暂未启用">当前应用未启用硕米 Chat 与业务任务。</ConsoleState> :
       <ScopedChat key={`${scope.userId}:${scope.organizationId}:${authorizationKey}`} scope={scope} authorizationKey={authorizationKey} canUse={canUse} canPlan={canPlan} planningReadiness={planningReadiness} titleReadiness={titleReadiness} mode={mode} conversationId={conversationId} />}
@@ -282,7 +283,7 @@ function ProposalCard({ proposal, scope, canUse, titleReadiness, disabled, confi
       <dt>目标平台</dt><dd>{proposal.targetPlatform ?? "不可用"}</dd><dt>模板</dt><dd>{proposal.templateId ? `${proposal.templateId} · 修订 ${proposal.templateRevision}` : "未选择"}</dd>
       <dt>知识库</dt><dd>{proposal.knowledgeBaseId || "未选择"}</dd><dt>执行模型</dt><dd>{proposal.providerId && proposal.modelId ? `${proposal.providerId} / ${proposal.modelId}` : "不可用"}</dd>
       <dt>最大额度</dt><dd>{proposal.maximumTokens !== undefined ? `${proposal.maximumTokens} tokens` : "不可用"}{proposal.maximumCostMicros !== undefined ? ` · ${proposal.maximumCostMicros} μ${proposal.currency ?? ""}` : ""}</dd>
-      <dt>结果处理</dt><dd>必须人工审核，再由授权人员应用</dd></dl>
+      <dt>执行权限</dt><dd>{proposal.executionMode?`${executionModeLabels[proposal.executionMode]} · 版本 ${proposal.modeRevision}`:"权限模式不可用，请重新提出方案"}</dd><dt>结果处理</dt><dd>{proposal.executionMode?executionModeAdoptionText[proposal.executionMode]:"原提案仍可查看，暂不能执行"}</dd></dl>
     {!confirmedTaskId && canUse && proposal.detailsAvailable && titleReadiness !== "AVAILABLE" ? <p>标题执行模型需要配置；当前方案暂不能确认。</p> : null}
     {!confirmedTaskId && canUse && proposal.detailsAvailable && titleReadiness === "AVAILABLE" && !proposal.titleProfileReady ? <p>提案的标题模型配置已变化，请重新提出方案。</p> : null}
     {!confirmedTaskId && canUse && proposal.detailsAvailable && !proposal.executionAuthorized ? <p>需要当前企业的标题执行权限；已有方案仍可查看。</p> : null}
