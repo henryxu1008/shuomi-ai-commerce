@@ -117,7 +117,7 @@ func (h *Handler) serveMode(c *gin.Context) {
 		Failure(c, err)
 		return
 	}
-	projection := modeProjection(resolved, agentconfig.ExecutionModeRecord{Subject: subject, Mode: receipt.Mode, Revision: receipt.Revision, UpdatedBy: identity.ActorID, UpdatedAt: receipt.CommittedAt}, true)
+	projection := modeProjection(resolved, agentconfig.ExecutionModeRecord{Subject: subject, Mode: receipt.Mode, Revision: receipt.Revision, UpdatedBy: receipt.UpdatedBy, UpdatedAt: receipt.UpdatedAt}, true)
 	projection["receipt"] = receipt
 	reply(c, projection, receipt.Revision)
 }

@@ -2,6 +2,7 @@ package agentconfigpersistence
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"sync"
 	"testing"
@@ -65,6 +66,39 @@ func TestExecutionModeCASReceiptsAndPrivateSubject(t *testing.T) {
 	var ledgerCount int64
 	require.NoError(t, db.Table("agent_configuration.commands").Where("operation=?", "set-execution-mode").Count(&ledgerCount).Error)
 	require.EqualValues(t, 2, ledgerCount)
+}
+
+func TestNoopModeReceiptFreezesActualModeAuditThroughReplay(t *testing.T) {
+	_, store, _ := fixture(t)
+	ctx := context.Background()
+	creator := agent.ExecutionIdentity{OrganizationID: "noop-org", ActorID: "original-configurator", MemberID: "original-member"}
+	subject := modeSubject(false)
+	_, err := store.ExecuteMode(ctx, agentconfig.ModeCommand{Identity: creator, Subject: subject, Key: uuid.NewString(), Mode: agent.ModeFullAccess})
+	require.NoError(t, err)
+	original, err := store.ReadExecutionMode(ctx, creator, subject)
+	require.NoError(t, err)
+	other := agent.ExecutionIdentity{OrganizationID: creator.OrganizationID, ActorID: "other-configurator", MemberID: "other-member"}
+	noop := agentconfig.ModeCommand{Identity: other, Subject: subject, Key: uuid.NewString(), ExpectedRevision: 1, Mode: agent.ModeFullAccess}
+	receipt, err := store.ExecuteMode(ctx, noop)
+	require.NoError(t, err)
+	require.True(t, receipt.Noop)
+	raw, err := json.Marshal(receipt)
+	require.NoError(t, err)
+	var result agentconfig.ExecutionModeRecord
+	require.NoError(t, json.Unmarshal(raw, &result))
+	require.Equal(t, original.Subject, result.Subject)
+	require.Equal(t, original.Mode, result.Mode)
+	require.Equal(t, original.Revision, result.Revision)
+	require.Equal(t, original.UpdatedBy, result.UpdatedBy)
+	require.True(t, original.UpdatedAt.Equal(result.UpdatedAt), "the saved command must retain actual mode-row metadata")
+	current, err := store.ReadExecutionMode(ctx, creator, subject)
+	require.NoError(t, err)
+	require.Equal(t, original, current, "no-op must not rewrite the mode row")
+	_, err = store.ExecuteMode(ctx, agentconfig.ModeCommand{Identity: other, Subject: subject, Key: uuid.NewString(), ExpectedRevision: 1, Mode: agent.ModeReadOnly})
+	require.NoError(t, err)
+	replayed, err := store.ExecuteMode(ctx, noop)
+	require.NoError(t, err)
+	require.Equal(t, receipt, replayed, "old key may not adopt current head audit metadata")
 }
 
 func TestExecutionModeSnapshotFreezeRevocationAndIdentity(t *testing.T) {

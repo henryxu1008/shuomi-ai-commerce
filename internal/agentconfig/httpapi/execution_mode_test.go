@@ -2,8 +2,10 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -17,10 +19,15 @@ type modeRepoFixture struct {
 	agentconfig.ModeRepository
 	reads, writes int
 	command       agentconfig.ModeCommand
+	receipt       *agentconfig.ModeReceipt
+	current       *agentconfig.ExecutionModeRecord
 }
 
 func (r *modeRepoFixture) ReadExecutionMode(_ context.Context, identity agent.ExecutionIdentity, subject agentconfig.ResolvedModeSubject) (agentconfig.ExecutionModeRecord, error) {
 	r.reads++
+	if r.current != nil {
+		return *r.current, nil
+	}
 	return agentconfig.ExecutionModeRecord{Subject: subject.Subject, Mode: agent.ModeDefault, Revision: "0"}, nil
 }
 
@@ -31,6 +38,9 @@ func (r *modeRepoFixture) ExecuteMode(ctx context.Context, c agentconfig.ModeCom
 		if err := guard(ctx); err != nil {
 			return agentconfig.ModeReceipt{}, err
 		}
+	}
+	if r.receipt != nil {
+		return *r.receipt, nil
 	}
 	return agentconfig.ModeReceipt{CommandID: uuid.NewString(), RequestKey: c.Key, Operation: "set-execution-mode", Subject: c.Subject.Subject, Mode: c.Mode, BeforeRevision: "0", Revision: "1"}, nil
 }
@@ -103,4 +113,34 @@ func TestExecutionModeAPIRejectsAuthorityFieldsAndUnboundCommands(t *testing.T) 
 	require.Equal(t, 400, call(r, http.MethodPut, path, `{"mode":"full_access","expectedRevision":"0"}`, nil).Code)
 	require.Equal(t, 400, call(r, http.MethodGet, path+"?organizationId=foreign", "", nil).Code)
 	require.Zero(t, repo.writes)
+}
+
+func TestNoopModePUTKeepsPersistedAuditAndOriginalReplay(t *testing.T) {
+	subject := agentconfig.ModeSubject{Kind: agentconfig.RegisteredAgentSubject, ID: "product.title.agent"}
+	storedAt := time.Date(2026, 10, 12, 1, 2, 3, 0, time.UTC)
+	repo := &modeRepoFixture{current: &agentconfig.ExecutionModeRecord{Subject: subject, Mode: agent.ModeFullAccess, Revision: "1", UpdatedBy: "original-configurator", UpdatedAt: storedAt}}
+	var receipt agentconfig.ModeReceipt
+	// Unknown metadata is deliberately ignored by the pre-fix receipt decoder;
+	// the regression must fail at the observable HTTP projection.
+	raw := `{"commandId":"00000000-0000-0000-0000-000000000001","requestKey":"00000000-0000-0000-0000-000000000002","operation":"set-execution-mode","subject":{"kind":"registered_agent","id":"product.title.agent"},"mode":"full_access","beforeRevision":"1","revision":"1","noop":true,"committedAt":"2026-10-12T02:03:04Z","updatedBy":"original-configurator","updatedAt":"2026-10-12T01:02:03Z"}`
+	require.NoError(t, json.Unmarshal([]byte(raw), &receipt))
+	repo.receipt = &receipt
+	r := modeHarness(t, repo, true, nil)
+	path := "/execution-modes/registered_agent/product.title.agent"
+	get := call(r, http.MethodGet, path, "", nil)
+	put := call(r, http.MethodPut, path, `{"mode":"full_access","expectedRevision":"1"}`, map[string]string{"Idempotency-Key": receipt.RequestKey})
+	require.Equal(t, http.StatusOK, put.Code)
+	var read, saved map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(get.Body.Bytes(), &read))
+	require.NoError(t, json.Unmarshal(put.Body.Bytes(), &saved))
+	require.Equal(t, read["updatedBy"], saved["updatedBy"])
+	require.Equal(t, read["updatedAt"], saved["updatedAt"])
+	// Original receipt restoration must retain its own revision and audit,
+	// even after a subsequent configuration head has changed.
+	repo.current.Mode, repo.current.Revision = agent.ModeReadOnly, "2"
+	repo.current.UpdatedBy, repo.current.UpdatedAt = "later-configurator", storedAt.Add(time.Hour)
+	replay := call(r, http.MethodPut, path, `{"mode":"full_access","expectedRevision":"1"}`, map[string]string{"Idempotency-Key": receipt.RequestKey})
+	require.Equal(t, http.StatusOK, replay.Code)
+	require.JSONEq(t, put.Body.String(), replay.Body.String())
+	require.Equal(t, 1, repo.reads, "PUT must consume original receipt metadata, not the current head")
 }

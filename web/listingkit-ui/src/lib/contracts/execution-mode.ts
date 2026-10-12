@@ -21,6 +21,8 @@ const executionModeReceiptSchema = z.strictObject({
   revision: configVersion,
   noop: z.boolean(),
   committedAt: timestamp,
+  updatedAt: timestamp.optional(),
+  updatedBy: z.string().max(128).optional(),
 });
 export const executionModeViewSchema = z.strictObject({
   subject: modeSubjectSchema,
@@ -39,6 +41,10 @@ export const executionModeViewSchema = z.strictObject({
   const receipt = value.receipt;
   if (receipt && (receipt.subject.kind !== value.subject.kind || receipt.subject.id !== value.subject.id || receipt.mode !== value.mode || receipt.revision !== value.revision)) {
     context.addIssue({ code: "custom", message: "Receipt must match exact mode and subject" });
+  }
+  if (receipt && ((receipt.updatedAt === undefined) !== (receipt.updatedBy === undefined) ||
+    (receipt.updatedAt !== undefined && (receipt.updatedAt !== value.updatedAt || receipt.updatedBy !== value.updatedBy)))) {
+    context.addIssue({ code: "custom", message: "Receipt audit must match the saved mode revision" });
   }
 });
 
