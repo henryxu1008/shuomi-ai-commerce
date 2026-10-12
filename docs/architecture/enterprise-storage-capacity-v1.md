@@ -134,7 +134,9 @@ Accepted Risk：用户批准到期超限保留已有数据的成本政策，沿�
 
 ### 5.1 预留与确认
 
-1. 沿原 HTTP/worker live 身份及领域权限读取 exact 原操作。已有持久化操作的 Knowledge/Image 绑定原 Revision 或 Run/revision/slot/attempt；SourceMedia 的同步上传按结构化 `(org, actor, source_media_upload, content_hash)` 派生稳定操作身份，其容量 intent 在 PUT 前持久化，不假设已有上传业务表。不能建立持久化容量 intent 的路径不得发生 PUT。
+1. 沿原 HTTP/worker live 身份及领域权限读取 exact 原操作。Image 绑定原 Run/revision/slot/attempt；Knowledge 先按原生 Command 的 `(org, kind, command-key)` 与既有命令 fingerprint 预占单文件上界，再调用原 Apply 取得原 Revision，绑定同一预占的精确 key/hash/size，最后 ClaimDispatch。容量拒绝不创建 Source 或推进 Revision。SourceMedia 的同步上传按结构化 `(org, actor, source_media_upload, content_hash)` 派生稳定操作身份，其容量 intent 在 PUT 前持久化，不假设已有上传业务表。不能建立持久化容量 intent 的路径不得发生 PUT。
+
+Knowledge 准入修正（2026-10-12，独立增量复核 IMPLEMENTATION_READY，review 绑定 blob `12ae1f6b8538fa8916b1702ff926f42c94e41432`，附必要身份/关闭约束）：`TestKnowledgeQuotaDenialDoesNotConsumeSourceAdmission` 已 RED，证明在原 Apply 后预占会消耗原领域名额/版本，影响拒绝后的重试，分类为 BLOCKER（核心 happy path）。修正只改变 Knowledge 的跨库先后次序：原 `(org, kind, command-key)` / fingerprint 先持久化容量 intent；原 Apply 的错误名不构成关闭证明，保留原 intent 并由原 Command replay 取得既有 Revision，不生成第二份资料。没有原生不可变关闭证明时不 Abort，因此并发同命令的成功 Apply 不失去原预占。Processor 从 `(org, physical namespace, Revision.ObjectKey)` 的已绑定预占读取原身份并核对 owner/hash/size 后 ConfirmStored；不得代替用户创建预占。Apply/ClaimUpload/绑定失败均不能发生 PUT。此变化不增加领域状态、原表字段、外部副作用、调度器或双事实源；仅此真实测试触发的有界增量已准入。
 2. 读取有界 bytes、验证原文件/hash/MIME。已知大小使用精确 bytes；未来图片结果在 paid dispatch 前使用已批准配置的输出数量 × 每张上界，包含所有会保留的正式对象，不放宽已有文件/运行限制。
 3. `ReserveWrite(org, owner_operation, input_fingerprint, output_bounds, known_objects?)` 在容量数据库事务锁企业 account，重查相同键/已知对象，按锁后当前 quota 预留新增上界，原子保存 reservation 和 receipt。AI 在 paid dispatch 前只提供原已持久化 Run/revision/slot/attempt、已冻结输入指纹、输出数量/字节上界；此时不存在结果 hash/key。已知文件可同时绑定精确对象；同键异载荷 conflict。
 4. 生成后，可信原 owner 用原 reservation 调用 `BindObjects`，冻结结果 manifest、namespace/key/hash/size 与输出索引。绑定是原预留内的 materialization，不重新做新容量准入、不扩大数量/字节上界、不改变业务执行状态；各对象按固定身份顺序锁，namespace/key 唯一。相同已确认对象复用、不重复占用；错误 org 或同 key 异载荷拒绝。结果未绑定、provider UNKNOWN、部分结果 UNKNOWN 都继续占 reserved。业务 owner 以原操作身份/指纹找回绑定，不换键。

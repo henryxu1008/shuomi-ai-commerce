@@ -207,6 +207,8 @@ func readMutation(request *http.Request) (string, collection.Mutation, error) {
 func writeError(c *gin.Context, err error) {
 	status, code := http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE"
 	switch {
+	case errors.Is(err, collection.ErrStorageExceeded):
+		status, code = http.StatusConflict, "STORAGE_LIMIT_EXCEEDED"
 	case errors.Is(err, collection.ErrInvalid):
 		status, code = http.StatusBadRequest, "INVALID_REQUEST"
 	case errors.Is(err, collection.ErrForbidden):

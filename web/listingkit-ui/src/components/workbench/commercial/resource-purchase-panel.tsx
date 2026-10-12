@@ -46,7 +46,7 @@ function resourceMoney(v: string) {
   const n = BigInt(v);
   return `¥${(n / BigInt(100)).toLocaleString("zh-CN")}.${(n % BigInt(100)).toString().padStart(2, "0")}`;
 }
-const pendingSchema = z
+export const pendingSchema = z
   .object({
     offerId: z.string().min(1).max(128),
     quoteId: z.string().min(1).max(128),
@@ -65,7 +65,7 @@ function subscribe(callback: () => void) {
     window.removeEventListener("storage", callback);
   };
 }
-function readPending(raw: string) {
+export function readPending(raw: string) {
   try {
     if (!raw) return { value: null, invalid: false };
     const v = pendingSchema.safeParse(JSON.parse(raw));

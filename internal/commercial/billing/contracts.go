@@ -9,6 +9,7 @@ import (
 
 	"task-processor/internal/ledger/money"
 	"task-processor/internal/ledger/orgresource"
+	"task-processor/internal/ledger/storagecapacity"
 )
 
 const CurrencyCNY = money.WalletCurrencyCNY
@@ -34,10 +35,11 @@ var (
 type ProductKind string
 
 const (
-	ProductStoreRenewalPeriod ProductKind = "STORE_RENEWAL_PERIOD"
-	ProductAIPoint            ProductKind = "AI_POINT"
-	ProductDataRow            ProductKind = "DATA_ROW"
-	ProductSubscriptionPlan   ProductKind = "SUBSCRIPTION_PLAN"
+	ProductStoreRenewalPeriod  ProductKind = "STORE_RENEWAL_PERIOD"
+	ProductAIPoint             ProductKind = "AI_POINT"
+	ProductDataRow             ProductKind = "DATA_ROW"
+	ProductSubscriptionPlan    ProductKind = "SUBSCRIPTION_PLAN"
+	ProductStorageCapacityPack ProductKind = "STORAGE_CAPACITY_PACK"
 )
 
 type SettlementMode string
@@ -69,11 +71,13 @@ const (
 )
 
 type Offer struct {
-	OfferID        string
-	ProductKind    ProductKind
-	ResourceType   orgresource.ResourceType
-	Currency       string
-	PricingVersion string
+	StorageUnitBytes       int64
+	StorageDurationSeconds int64
+	OfferID                string
+	ProductKind            ProductKind
+	ResourceType           orgresource.ResourceType
+	Currency               string
+	PricingVersion         string
 	// UnitPriceMinor is server-owned pricing data. It is intentionally absent
 	// from browser requests and remains unset until an approved offer exists.
 	UnitPriceMinor int64
@@ -88,6 +92,15 @@ type Offer struct {
 }
 
 func (offer Offer) Validate() error {
+	if offer.ProductKind == ProductStorageCapacityPack {
+		if !isCanonicalIdentifier(offer.OfferID) || offer.ResourceType != "" || offer.Currency != CurrencyCNY || !isCanonicalIdentifier(offer.PricingVersion) || offer.UnitPriceMinor <= 0 || offer.MinQuantity < 1 || offer.MaxQuantity > 10 || offer.MaxQuantity < offer.MinQuantity || offer.StorageUnitBytes != storagecapacity.PackBytes || offer.StorageDurationSeconds != storagecapacity.PeriodSeconds || offer.PlanCode != "" || offer.TermMonths != 0 || offer.SettlementMode != "" || (offer.Status != OfferActive && offer.Status != OfferDisabled) || (offer.StartsAt != nil && offer.ExpiresAt != nil && !offer.StartsAt.Before(*offer.ExpiresAt)) {
+			return ErrInvalid
+		}
+		return nil
+	}
+	if offer.StorageUnitBytes != 0 || offer.StorageDurationSeconds != 0 {
+		return ErrInvalid
+	}
 	if offer.ProductKind == ProductSubscriptionPlan {
 		if strings.TrimSpace(offer.OfferID) == "" || offer.ResourceType != "" || offer.Currency != CurrencyCNY || strings.TrimSpace(offer.PricingVersion) == "" || strings.TrimSpace(offer.PlanCode) == "" || len(offer.PlanCode) > 64 || offer.TermMonths < 1 || offer.TermMonths > 120 || offer.MinQuantity != 0 || offer.MaxQuantity != 0 || (offer.Status != OfferActive && offer.Status != OfferDisabled) {
 			return ErrInvalid
@@ -130,25 +143,36 @@ func (offer Offer) Validate() error {
 }
 
 type Quote struct {
-	QuoteID          string
-	OrganizationID   string
-	OfferID          string
-	ProductKind      ProductKind
-	ResourceType     orgresource.ResourceType
-	ResourceQuantity int64
-	Currency         string
-	TotalMinor       int64
-	PricingVersion   string
-	ExpiresAt        time.Time
-	Fingerprint      string
-	CreatedAt        time.Time
-	PlanCode         string
-	PlanFingerprint  string
-	TermMonths       int
-	SettlementMode   SettlementMode
+	StorageUnitBytes       int64
+	StorageDurationSeconds int64
+	QuoteID                string
+	OrganizationID         string
+	OfferID                string
+	ProductKind            ProductKind
+	ResourceType           orgresource.ResourceType
+	ResourceQuantity       int64
+	Currency               string
+	TotalMinor             int64
+	PricingVersion         string
+	ExpiresAt              time.Time
+	Fingerprint            string
+	CreatedAt              time.Time
+	PlanCode               string
+	PlanFingerprint        string
+	TermMonths             int
+	SettlementMode         SettlementMode
 }
 
 func (quote Quote) Validate() error {
+	if quote.ProductKind == ProductStorageCapacityPack {
+		if !isCanonicalIdentifier(quote.QuoteID) || !isCanonicalIdentifier(quote.OrganizationID) || !isCanonicalIdentifier(quote.OfferID) || quote.ResourceType != "" || quote.ResourceQuantity < 1 || quote.ResourceQuantity > 10 || quote.Currency != CurrencyCNY || quote.TotalMinor <= 0 || !isCanonicalIdentifier(quote.PricingVersion) || !storagecapacity.ValidDigest(quote.Fingerprint) || quote.StorageUnitBytes != storagecapacity.PackBytes || quote.StorageDurationSeconds != storagecapacity.PeriodSeconds || quote.PlanCode != "" || quote.PlanFingerprint != "" || quote.TermMonths != 0 || quote.SettlementMode != "" || quote.CreatedAt.IsZero() || !quote.CreatedAt.Before(quote.ExpiresAt) {
+			return ErrInvalid
+		}
+		return nil
+	}
+	if quote.StorageUnitBytes != 0 || quote.StorageDurationSeconds != 0 {
+		return ErrInvalid
+	}
 	if quote.ProductKind == ProductSubscriptionPlan {
 		if strings.TrimSpace(quote.QuoteID) == "" || strings.TrimSpace(quote.OrganizationID) == "" || strings.TrimSpace(quote.OfferID) == "" || quote.ResourceType != "" || quote.ResourceQuantity != 0 || quote.Currency != CurrencyCNY || quote.TotalMinor < 0 || strings.TrimSpace(quote.PricingVersion) == "" || strings.TrimSpace(quote.PlanCode) == "" || strings.TrimSpace(quote.PlanFingerprint) == "" || quote.TermMonths < 1 || quote.TermMonths > 120 || quote.ExpiresAt.IsZero() || quote.CreatedAt.IsZero() || !quote.CreatedAt.Before(quote.ExpiresAt) || strings.TrimSpace(quote.Fingerprint) == "" {
 			return ErrInvalid
@@ -186,9 +210,10 @@ func (quote Quote) Validate() error {
 type OrderKind string
 
 const (
-	OrderWalletTopUp          OrderKind = "WALLET_TOP_UP"
-	OrderResourcePurchase     OrderKind = "RESOURCE_PURCHASE"
-	OrderSubscriptionPurchase OrderKind = "SUBSCRIPTION_PURCHASE"
+	OrderWalletTopUp             OrderKind = "WALLET_TOP_UP"
+	OrderResourcePurchase        OrderKind = "RESOURCE_PURCHASE"
+	OrderSubscriptionPurchase    OrderKind = "SUBSCRIPTION_PURCHASE"
+	OrderStorageCapacityPurchase OrderKind = "STORAGE_CAPACITY_PURCHASE"
 )
 
 type OrderStatus string
@@ -228,14 +253,25 @@ const (
 )
 
 type OrderItem struct {
-	OrderItemID      string
-	ProductKind      ProductKind
-	ResourceType     orgresource.ResourceType
-	ResourceQuantity int64
-	AmountMinor      int64
+	StorageUnitBytes       int64
+	StorageDurationSeconds int64
+	OrderItemID            string
+	ProductKind            ProductKind
+	ResourceType           orgresource.ResourceType
+	ResourceQuantity       int64
+	AmountMinor            int64
 }
 
 func (item OrderItem) Validate() error {
+	if item.ProductKind == ProductStorageCapacityPack {
+		if !isCanonicalIdentifier(item.OrderItemID) || item.ResourceType != "" || item.ResourceQuantity < 1 || item.ResourceQuantity > 10 || item.AmountMinor <= 0 || item.StorageUnitBytes != storagecapacity.PackBytes || item.StorageDurationSeconds != storagecapacity.PeriodSeconds {
+			return ErrInvalid
+		}
+		return nil
+	}
+	if item.StorageUnitBytes != 0 || item.StorageDurationSeconds != 0 {
+		return ErrInvalid
+	}
 	resourceType, ok := ResourceTypeForProduct(item.ProductKind)
 	if !isCanonicalIdentifier(item.OrderItemID) ||
 		!ok ||
@@ -248,6 +284,7 @@ func (item OrderItem) Validate() error {
 }
 
 type Order struct {
+	StorageActivationReceipt            string
 	OrderID                             string
 	OrganizationID                      string
 	Kind                                OrderKind
@@ -294,6 +331,9 @@ type Order struct {
 // DescribeOrder returns the immutable, server-derived display and search text
 // for an order from its canonical kind and item facts.
 func DescribeOrder(kind OrderKind, productKind ProductKind, quantity int64) string {
+	if kind == OrderStorageCapacityPurchase && productKind == ProductStorageCapacityPack && quantity > 0 {
+		return fmt.Sprintf("存储扩容包（50 GiB / 30天） × %d", quantity)
+	}
 	if kind == OrderWalletTopUp {
 		return "钱包充值"
 	}
@@ -315,9 +355,12 @@ func DescribeOrder(kind OrderKind, productKind ProductKind, quantity int64) stri
 }
 
 func (order Order) Validate() error {
+	if order.Kind != OrderStorageCapacityPurchase && order.StorageActivationReceipt != "" {
+		return ErrInvalid
+	}
 	if !isCanonicalIdentifier(order.OrderID) ||
 		!isCanonicalIdentifier(order.OrganizationID) ||
-		(order.Kind != OrderWalletTopUp && order.Kind != OrderResourcePurchase && order.Kind != OrderSubscriptionPurchase) ||
+		(order.Kind != OrderWalletTopUp && order.Kind != OrderResourcePurchase && order.Kind != OrderSubscriptionPurchase && order.Kind != OrderStorageCapacityPurchase) ||
 		order.Currency != CurrencyCNY ||
 		(order.Kind != OrderSubscriptionPurchase && order.AmountMinor <= 0) ||
 		order.AmountMinor < 0 ||
@@ -332,7 +375,14 @@ func (order Order) Validate() error {
 		return ErrInvalid
 	}
 	switch order.Kind {
+	case OrderStorageCapacityPurchase:
+		if !isCanonicalIdentifier(order.ActorID) || order.ProductKind != ProductStorageCapacityPack || !isCanonicalIdentifier(order.QuoteID) || order.PaymentID != "" || len(order.Items) != 1 || order.Items[0].Validate() != nil || order.Items[0].ProductKind != ProductStorageCapacityPack || order.Items[0].AmountMinor != order.AmountMinor || hasResourceGrantEvidence(order) || !(validWalletReservationStateForOrder(order) || (order.Status == OrderFulfilling && order.WalletReservationState == money.WalletReservationCommitted)) || (requiresWalletReservation(order.Status) && !isCanonicalIdentifier(order.WalletReservationID)) || (order.Status == OrderFulfilled && order.StorageActivationReceipt != order.OrderID) || (order.Status != OrderFulfilled && order.StorageActivationReceipt != "") {
+			return ErrInvalid
+		}
 	case OrderResourcePurchase:
+		if len(order.Items) == 1 && order.Items[0].ProductKind == ProductStorageCapacityPack {
+			return ErrInvalid
+		}
 		grantMustBeProven := order.Status == OrderFulfilled || (order.Status == OrderReconciliationRequired && order.WalletReservationState == money.WalletReservationCommitted)
 		if strings.TrimSpace(order.QuoteID) == "" || order.PaymentID != "" || len(order.Items) != 1 || order.Items[0].Validate() != nil || order.Items[0].AmountMinor != order.AmountMinor || (requiresWalletReservation(order.Status) && strings.TrimSpace(order.WalletReservationID) == "") || !validWalletReservationStateForOrder(order) || (grantMustBeProven && !hasResourceGrantProof(order)) || ((order.Status == OrderPending || order.Status == OrderFundsReserved || order.Status == OrderCancelled) && hasResourceGrantEvidence(order)) {
 			return ErrInvalid
@@ -434,6 +484,8 @@ func validOrderFailureCode(order Order) bool {
 	switch order.Kind {
 	case OrderResourcePurchase, OrderWalletTopUp:
 		return order.FailureCode == OrderFailureInsufficientFunds || order.FailureCode == OrderFailureGrantRejected
+	case OrderStorageCapacityPurchase:
+		return order.FailureCode == OrderFailureInsufficientFunds
 	case OrderSubscriptionPurchase:
 		return order.FailureCode == OrderFailureInsufficientFunds ||
 			order.FailureCode == OrderFailureActiveSubscriptionExists ||

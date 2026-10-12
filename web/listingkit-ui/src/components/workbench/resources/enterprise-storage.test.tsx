@@ -1,0 +1,25 @@
+import {afterEach,beforeEach,expect,it,vi} from "vitest";
+import {render,screen,fireEvent,waitFor,cleanup} from "@testing-library/react";
+import {QueryClient,QueryClientProvider} from "@tanstack/react-query";
+import {EnterpriseStorage} from "./enterprise-storage";
+const api=vi.hoisted(()=>({getStorageSummary:vi.fn(),getStorageOffers:vi.fn(),createStorageQuote:vi.fn(),createStorageOrder:vi.fn(),readStorageOrder:vi.fn()}));
+vi.mock("@/lib/api/storage-capacity",()=>api);
+vi.mock("@/lib/api/commercial-billing",async importOriginal=>({...await importOriginal<object>(),getCommercialWallet:vi.fn().mockResolvedValue({available_minor:"10000"})}));
+let client:QueryClient;
+beforeEach(()=>{
+ sessionStorage.clear();client=new QueryClient({defaultOptions:{queries:{retry:false}}});
+ Object.defineProperty(HTMLDialogElement.prototype,"showModal",{configurable:true,value:function(this:HTMLDialogElement){this.setAttribute("open","")}});Object.defineProperty(HTMLDialogElement.prototype,"close",{configurable:true,value:function(this:HTMLDialogElement){this.removeAttribute("open")}});
+ Object.values(api).forEach(f=>f.mockReset());api.getStorageSummary.mockResolvedValue({organization_id:"org",summary:{more_lots:false,base_bytes:"5368709120",quota_bytes:"5368709120",occupied_bytes:"0",reserved_bytes:"0",remaining_bytes:"5368709120",overage_bytes:"0",categories:{},active_lots:[],observed_at:"2026-10-12T00:00:00Z"}});
+ api.getStorageOffers.mockResolvedValue({organization_id:"org",items:[{offer_id:"storage-offer",storage_unit_bytes:"53687091200",unit_price_minor:"1990"}]});
+ api.createStorageQuote.mockResolvedValue({quote_id:"quote",offer_id:"storage-offer",resource_quantity:"1",total_minor:"1990",storage_unit_bytes:"53687091200",expires_at:"2027-01-01T00:00:00Z"});
+});
+afterEach(()=>{cleanup();client.clear();sessionStorage.clear()});
+function show(){return render(<QueryClientProvider client={client}><EnterpriseStorage userId="actor" organizationId="org" scope="current" sequence={0} canPurchase={true}/></QueryClientProvider>)}
+it("shows unavailable facts without substituting zero occupancy",async()=>{
+ api.getStorageSummary.mockRejectedValue(new Error("unavailable"));show();await screen.findByText(/本次未取得用量/);expect(screen.queryByText("0.00 GiB")).not.toBeInTheDocument();expect(screen.getByRole("button",{name:"购买扩容包"})).toBeDisabled();
+});
+it("keeps the original request after acknowledgement loss and guards double clicks",async()=>{
+ api.createStorageOrder.mockRejectedValue({code:"DEADLINE_EXCEEDED"});const first=show();await waitFor(()=>expect(screen.getByRole("button",{name:"购买扩容包"})).toBeEnabled());fireEvent.click(screen.getByRole("button",{name:"购买扩容包"}));const confirm=await screen.findByRole("button",{name:"确认支付 ¥19.90"});fireEvent.click(confirm);fireEvent.click(confirm);
+ await screen.findByText(/本次结果未确认/);expect(api.createStorageOrder).toHaveBeenCalledTimes(1);const raw=sessionStorage.getItem('storage-purchase.pending:["actor","org"]');expect(raw).not.toBeNull();const original=JSON.parse(raw!);
+ first.unmount();show();await screen.findByRole("button",{name:"恢复原订单"});api.createStorageOrder.mockResolvedValue({kind:"STORAGE_CAPACITY_PURCHASE",order_id:"order",status:"FULFILLED"});fireEvent.click(screen.getByRole("button",{name:"恢复原订单"}));await screen.findByText(/扩容已生效/);expect(api.createStorageOrder.mock.calls[1].slice(0,4)).toEqual(["actor","org",original.quoteId,original.key]);expect(sessionStorage.getItem('storage-purchase.pending:["actor","org"]')).toBeNull();
+});

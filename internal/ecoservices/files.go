@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"net/http"
 	"strings"
+	"task-processor/internal/ledger/storagecapacity"
 )
 
 const MaxFileBytes = 10 << 20
@@ -45,8 +46,9 @@ type PrivateObjectStore interface {
 	ReadBounded(context.Context, File) ([]byte, error)
 }
 type FileService struct {
-	repo    FileRepository
-	objects PrivateObjectStore
+	capacity *storagecapacity.Meter
+	repo     FileRepository
+	objects  PrivateObjectStore
 }
 
 func NewFileService(repo FileRepository, objects PrivateObjectStore) (*FileService, error) {
@@ -56,6 +58,8 @@ func NewFileService(repo FileRepository, objects PrivateObjectStore) (*FileServi
 	return &FileService{repo: repo, objects: objects}, nil
 }
 func FileDigest(data []byte) string { v := sha256.Sum256(data); return hex.EncodeToString(v[:]) }
+
+func (s *FileService) ConfigureStorageCapacity(m *storagecapacity.Meter) { s.capacity = m }
 func (s *FileService) Upload(ctx context.Context, scope Scope, key, parentKind, parentID, filename string, data []byte) (File, error) {
 	if scope.Platform || !validText(scope.OrganizationID, 128) || !validText(scope.ActorID, 256) || !ValidID(key) || parentID != "" && !ValidID(parentID) || (parentKind != "APPLICATION" && parentKind != "REQUEST") || !validText(filename, 256) || strings.ContainsAny(filename, "/\\\r\n") || len(data) == 0 || len(data) > MaxFileBytes {
 		return File{}, ErrInvalid
@@ -69,12 +73,30 @@ func (s *FileService) Upload(ctx context.Context, scope Scope, key, parentKind, 
 	id := uuid.NewSHA1(uuid.NameSpaceOID, []byte("ecoservices-file:"+scope.OrganizationID+":"+key)).String()
 	in := FileIntent{Scope: scope, Key: key, File: File{ID: id, OrganizationID: scope.OrganizationID, ParentKind: parentKind, ParentID: parentID, Filename: filename, ContentType: contentType, SizeBytes: int64(len(data)), SHA256: FileDigest(data), ObjectKey: "ecoservices/files/" + id, State: "PENDING"}}
 	in.Fingerprint = Fingerprint([]any{scope, key, parentKind, parentID, filename, contentType, in.File.SizeBytes, in.File.SHA256})
+	var reservation storagecapacity.Reservation
+	var capacityObject storagecapacity.Object
+	var capacityErr error
+	if parentKind == "REQUEST" && s.capacity != nil {
+		capacityObject = storagecapacity.Object{Namespace: s.capacity.Namespace, Key: in.File.ObjectKey, SHA256: in.File.SHA256, SizeBytes: in.File.SizeBytes, Category: "business_attachment"}
+		reservation, capacityErr = s.capacity.Writer.ReserveWrite(ctx, storagecapacity.WriteIntent{OrganizationID: scope.OrganizationID, Owner: "ecoservices_request", OperationID: id, Fingerprint: in.Fingerprint, MaxBytes: in.File.SizeBytes, MaxObjects: 1})
+		if capacityErr != nil {
+			return File{}, capacityErr
+		}
+		if capacityErr = s.capacity.Writer.BindObjects(ctx, scope.OrganizationID, reservation.ID, []storagecapacity.Object{capacityObject}); capacityErr != nil {
+			return File{}, capacityErr
+		}
+	}
 	file, err := s.repo.CreateFileIntent(ctx, in)
 	if err != nil {
 		return File{}, err
 	}
 	if file.State == "CONFIRMED" {
 		return file, nil
+	}
+	if parentKind == "REQUEST" && s.capacity != nil {
+		if err = s.capacity.Writer.ClaimDispatch(ctx, scope.OrganizationID, reservation.ID); err != nil {
+			return file, err
+		}
 	}
 	inspection, err := s.objects.Inspect(ctx, in.File)
 	if err != nil {
@@ -91,6 +113,11 @@ func (s *FileService) Upload(ctx context.Context, scope Scope, key, parentKind, 
 	}
 	if !inspection.Exists || inspection.SHA256 != in.File.SHA256 || inspection.SizeBytes != in.File.SizeBytes || inspection.ContentType != in.File.ContentType {
 		return file, ErrConflict
+	}
+	if parentKind == "REQUEST" && s.capacity != nil {
+		if err = s.capacity.Confirm(ctx, scope.OrganizationID, reservation, capacityObject); err != nil {
+			return file, ErrUnavailable
+		}
 	}
 	return s.repo.ConfirmFile(ctx, in)
 }

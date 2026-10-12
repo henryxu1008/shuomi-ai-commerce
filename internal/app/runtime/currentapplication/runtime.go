@@ -617,6 +617,9 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 		}
 	}
 	var customizationDB *gorm.DB
+	if err = prepareStorageCapacity(startupContext, cfg, commercialOwnerDB, knowledgeService, knowledgeProcessor, imageWorkerConfig, ecoservicesRuntime); err != nil {
+		return err
+	}
 	if cfg.AgentCustomizationDatabase != nil {
 		customizationDB, err = dependencies.OpenAgentCustomization(startupContext, *cfg.AgentCustomizationDatabase)
 		if err != nil || customizationDB == nil {

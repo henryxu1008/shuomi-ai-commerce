@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"task-processor/internal/imageagent"
+	"task-processor/internal/ledger/storagecapacity"
 	"task-processor/internal/pkg/imagex"
 )
 
@@ -85,6 +86,9 @@ type ImmutableObjectStore interface {
 // DurableArtifactStore owns deterministic image-agent artifact behavior while
 // depending only on the domain-local immutable object-storage port.
 type DurableArtifactStore struct {
+	capacity          storagecapacity.Writer
+	capacityNamespace string
+	capacityFacts     imageagent.StorageGenerationFactReader
 	objectStore       ImmutableObjectStore
 	maxArtifactBytes  int64
 	maxArtifactCount  int
@@ -395,6 +399,32 @@ func (s *DurableArtifactStore) FinalizeWithProgress(ctx context.Context, manifes
 		return imageagent.FinalManifest{}, err
 	}
 	finalAssets := make([]imageagent.PublishedAssetRef, len(validated))
+	var capacityReservation storagecapacity.Reservation
+	var capacityOrg string
+	if s.capacity != nil {
+		if len(validated) != 1 || s.capacityFacts == nil {
+			return imageagent.FinalManifest{}, storagecapacity.ErrUnavailable
+		}
+		i := validated[0].identity
+		capacityOrg = i.tenantID
+		operation := imageagent.StorageGenerationOperationKey(i.tenantID, i.ownerKey, i.runID, i.planRevision, i.slotID, i.attempt)
+		capacityReservation, err = s.capacity.FindWrite(ctx, capacityOrg, "image_agent", operation)
+		if err != nil {
+			return imageagent.FinalManifest{}, err
+		}
+		fact, factErr := s.capacityFacts.ReadGenerationFactForStorage(ctx, i.tenantID, i.ownerKey, i.runID, i.planRevision, i.slotID, i.attempt)
+		if factErr != nil {
+			return imageagent.FinalManifest{}, factErr
+		}
+		if fact.Validate() != nil || fact.State != imageagent.GenerationSucceeded || fact.Success.ResultUnavailable != "" || fact.Fingerprint != capacityReservation.Intent.Fingerprint || fact.Settlement == (imageagent.GenerationSettlementReceipt{}) || imageagent.StorageGenerationOperation(fact.Intent.Identity) != operation {
+			return imageagent.FinalManifest{}, storagecapacity.ErrUnknown
+		}
+		// The immutable generation fact exists before output publication. Its
+		// frozen fingerprint is the reservation's admission authority.
+		if capacityReservation.State != "DISPATCHED" && capacityReservation.State != "CLOSED" {
+			return imageagent.FinalManifest{}, storagecapacity.ErrConflict
+		}
+	}
 	for index, staged := range validated {
 		if progress != nil {
 			if err := progress(ctx, index); err != nil {
@@ -407,6 +437,12 @@ func (s *DurableArtifactStore) FinalizeWithProgress(ctx context.Context, manifes
 		finalKey := staged.identity.publicKey()
 		finalAsset := staged.ref
 		finalAsset.ObjectKey = finalKey
+		if s.capacity != nil {
+			err = s.capacity.BindObjects(ctx, capacityOrg, capacityReservation.ID, []storagecapacity.Object{{Namespace: s.capacityNamespace, Key: finalKey, SHA256: finalAsset.SHA256, SizeBytes: finalAsset.SizeBytes, Category: "ai_image"}})
+			if err != nil {
+				return imageagent.FinalManifest{}, err
+			}
+		}
 		inspection, err := s.inspectObject(ctx, finalKey)
 		if err != nil {
 			return imageagent.FinalManifest{}, err
@@ -435,9 +471,29 @@ func (s *DurableArtifactStore) FinalizeWithProgress(ctx context.Context, manifes
 			ContentType: finalAsset.ContentType, Width: finalAsset.Width, Height: finalAsset.Height,
 			SourceAssetID: finalAsset.SourceAssetID, Operations: cloneOperationsPreservingNil(finalAsset.Operations), ProviderReceiptID: finalAsset.ProviderReceiptID,
 		}
+		if s.capacity != nil {
+			if err = s.capacity.ConfirmStored(ctx, capacityOrg, capacityReservation.ID, s.capacityNamespace, finalKey, finalAsset.SHA256, finalAsset.SizeBytes); err != nil {
+				return imageagent.FinalManifest{}, err
+			}
+		}
+	}
+	if s.capacity != nil {
+		// The single-output manifest is frozen by the original durable bundle;
+		// replay can inspect/copy this identity but cannot bind another output.
+		proof := storagecapacity.CloseProof{Owner: "image_agent", OperationID: capacityReservation.Intent.OperationID, Fingerprint: capacityReservation.Intent.Fingerprint, TerminalReceipt: "manifest:" + storagecapacity.Digest(string(mustManifestJSON(manifest)))}
+		if err = s.capacity.CloseWrite(ctx, capacityOrg, capacityReservation.ID, proof); err != nil {
+			return imageagent.FinalManifest{}, err
+		}
 	}
 	return imageagent.NormalizeFinalManifest(imageagent.FinalManifest{Assets: finalAssets})
 }
+
+func (s *DurableArtifactStore) ConfigureStorageCapacity(w storagecapacity.Writer, namespace string, facts imageagent.StorageGenerationFactReader) {
+	s.capacity = w
+	s.capacityNamespace = namespace
+	s.capacityFacts = facts
+}
+func mustManifestJSON(m imageagent.StagingManifest) []byte { raw, _ := json.Marshal(m); return raw }
 
 func cloneOperationsPreservingNil(operations []string) []string {
 	if operations == nil {

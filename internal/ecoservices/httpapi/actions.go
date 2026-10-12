@@ -14,12 +14,15 @@ import (
 	b "task-processor/internal/commercial/billing"
 	e "task-processor/internal/ecoservices"
 	"task-processor/internal/httproute"
+	"task-processor/internal/ledger/storagecapacity"
 	"time"
 )
 
 func failure(c *gin.Context, err error) {
 	status, code := 503, "ECOSERVICES_UNAVAILABLE"
 	switch {
+	case errors.Is(err, storagecapacity.ErrExceeded):
+		status, code = 409, "STORAGE_LIMIT_EXCEEDED"
 	case errors.Is(err, e.ErrInvalid), errors.Is(err, b.ErrInvalid):
 		status, code = 400, "ECOSERVICES_INVALID"
 	case errors.Is(err, e.ErrNotFound), errors.Is(err, b.ErrNotFound):

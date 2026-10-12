@@ -37,7 +37,7 @@ export function SourceImageUploader({scope,disabled,onImage,onBlocked,onMedia}:{
   }catch(e){
    if(controller.signal.aborted)return;
    if(e instanceof CollectionAPIError){setMissing(verify&&e.code==="NOT_FOUND");if(!verify&&e.status>=400&&e.status<500&&e.code!=="OUTCOME_UNKNOWN"){localStorage.removeItem(key);setPending(null);}
-    setError(verify&&e.code==="NOT_FOUND"?"未发现原图片，可重新选择同一文件后重试。":e.code==="INVALID_REQUEST"?"请选择有效 JPEG 或 PNG 图片，每张最多 3 MB。":"上传结果尚未确认，请核实原图片。");
+    setError(e.code==="STORAGE_LIMIT_EXCEEDED"?"企业存储空间不足，请在资源与额度购买扩容后重新上传。已有图片不会被删除。":verify&&e.code==="NOT_FOUND"?"未发现原图片，可重新选择同一文件后重试。":e.code==="INVALID_REQUEST"?"请选择有效 JPEG 或 PNG 图片，每张最多 3 MB。":"上传结果尚未确认，请核实原图片。");
    }else{setError("无法保存上传意图，请检查浏览器存储是否可用。");}
   }finally{flight.current=false;if(!controller.signal.aborted)setBusy(false);}
  }

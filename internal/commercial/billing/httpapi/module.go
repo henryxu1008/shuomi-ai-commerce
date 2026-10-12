@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"task-processor/internal/ledger/storagecapacity"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -37,11 +38,14 @@ const (
 )
 
 type Handler struct {
+	storage                    storagecapacity.Reader
 	service                    *billing.Service
 	alipayNotify, wechatNotify NotificationVerifier
 }
 
 func NewHandler(service *billing.Service) *Handler { return &Handler{service: service} }
+
+func (h *Handler) ConfigureStorage(reader storagecapacity.Reader) { h.storage = reader }
 
 func (h *Handler) Wallet(c *gin.Context) {
 	if !validReadRequest(c) || c.Request.URL.RawQuery != "" || h == nil || h.service == nil {
@@ -141,7 +145,12 @@ func (h *Handler) CreateQuote(c *gin.Context) {
 }
 
 func quoteResponseFromDomain(quote billing.Quote) quoteResponse {
-	return quoteResponse{QuoteID: quote.QuoteID, OrganizationID: quote.OrganizationID, OfferID: quote.OfferID, ProductKind: string(quote.ProductKind), ResourceType: string(quote.ResourceType), ResourceQuantity: strconv.FormatInt(quote.ResourceQuantity, 10), Currency: quote.Currency, TotalMinor: strconv.FormatInt(quote.TotalMinor, 10), PricingVersion: quote.PricingVersion, ExpiresAt: quote.ExpiresAt.UTC().Format(time.RFC3339Nano), Fingerprint: quote.Fingerprint, CreatedAt: quote.CreatedAt.UTC().Format(time.RFC3339Nano)}
+	result := quoteResponse{QuoteID: quote.QuoteID, OrganizationID: quote.OrganizationID, OfferID: quote.OfferID, ProductKind: string(quote.ProductKind), ResourceType: string(quote.ResourceType), ResourceQuantity: strconv.FormatInt(quote.ResourceQuantity, 10), Currency: quote.Currency, TotalMinor: strconv.FormatInt(quote.TotalMinor, 10), PricingVersion: quote.PricingVersion, ExpiresAt: quote.ExpiresAt.UTC().Format(time.RFC3339Nano), Fingerprint: quote.Fingerprint, CreatedAt: quote.CreatedAt.UTC().Format(time.RFC3339Nano)}
+	if quote.ProductKind == billing.ProductStorageCapacityPack {
+		result.StorageUnitBytes = strconv.FormatInt(quote.StorageUnitBytes, 10)
+		result.StorageDurationSeconds = strconv.FormatInt(quote.StorageDurationSeconds, 10)
+	}
+	return result
 }
 
 func (h *Handler) ResourceOffers(c *gin.Context) {
@@ -313,7 +322,7 @@ func (h *Handler) Orders(c *gin.Context) {
 	}
 	if raw := c.Query("kind"); raw != "" {
 		kind := billing.OrderKind(raw)
-		if kind != billing.OrderWalletTopUp && kind != billing.OrderResourcePurchase && kind != billing.OrderSubscriptionPurchase {
+		if kind != billing.OrderWalletTopUp && kind != billing.OrderResourcePurchase && kind != billing.OrderSubscriptionPurchase && kind != billing.OrderStorageCapacityPurchase {
 			writeError(c, http.StatusBadRequest, "INVALID_REQUEST")
 			return
 		}
@@ -431,6 +440,9 @@ func Routes(handler *Handler) ([]httproute.Descriptor, error) {
 	const topup = authz.PermissionWorkbenchCommercialWalletTopUp
 	routes := make([]httproute.Descriptor, 0, 12)
 	routes = append(routes, publicPriceRoute(handler))
+	if handler.storage != nil {
+		routes = append(routes, storageRoutes(handler)...)
+	}
 	for _, route := range []struct {
 		method, path, permission string
 		handler                  gin.HandlerFunc
@@ -486,21 +498,23 @@ type walletEntryResponse struct {
 	OccurredAt        string  `json:"occurred_at"`
 }
 type quoteResponse struct {
-	QuoteID          string `json:"quote_id"`
-	OrganizationID   string `json:"organization_id"`
-	OfferID          string `json:"offer_id"`
-	ProductKind      string `json:"product_kind"`
-	ResourceType     string `json:"resource_type"`
-	ResourceQuantity string `json:"resource_quantity"`
-	Currency         string `json:"currency"`
-	TotalMinor       string `json:"total_minor"`
-	PricingVersion   string `json:"pricing_version"`
-	ExpiresAt        string `json:"expires_at"`
-	Fingerprint      string `json:"fingerprint"`
-	CreatedAt        string `json:"created_at"`
-	AmountMinor      string `json:"amount_minor,omitempty"`
-	UnitPriceMinor   string `json:"unit_price_minor,omitempty"`
-	RemainderMinor   string `json:"remainder_minor,omitempty"`
+	StorageUnitBytes       string `json:"storage_unit_bytes,omitempty"`
+	StorageDurationSeconds string `json:"storage_duration_seconds,omitempty"`
+	QuoteID                string `json:"quote_id"`
+	OrganizationID         string `json:"organization_id"`
+	OfferID                string `json:"offer_id"`
+	ProductKind            string `json:"product_kind"`
+	ResourceType           string `json:"resource_type"`
+	ResourceQuantity       string `json:"resource_quantity"`
+	Currency               string `json:"currency"`
+	TotalMinor             string `json:"total_minor"`
+	PricingVersion         string `json:"pricing_version"`
+	ExpiresAt              string `json:"expires_at"`
+	Fingerprint            string `json:"fingerprint"`
+	CreatedAt              string `json:"created_at"`
+	AmountMinor            string `json:"amount_minor,omitempty"`
+	UnitPriceMinor         string `json:"unit_price_minor,omitempty"`
+	RemainderMinor         string `json:"remainder_minor,omitempty"`
 }
 type subscriptionOfferResponse struct {
 	OfferID        string `json:"offer_id"`
@@ -563,17 +577,23 @@ type subscriptionActivationProofResponse struct {
 	DecidedAt                 string  `json:"decided_at"`
 }
 type orderItemResponse struct {
-	OrderItemID      string `json:"order_item_id"`
-	ProductKind      string `json:"product_kind"`
-	ResourceType     string `json:"resource_type"`
-	ResourceQuantity string `json:"resource_quantity"`
-	AmountMinor      string `json:"amount_minor"`
+	StorageUnitBytes       string `json:"storage_unit_bytes,omitempty"`
+	StorageDurationSeconds string `json:"storage_duration_seconds,omitempty"`
+	OrderItemID            string `json:"order_item_id"`
+	ProductKind            string `json:"product_kind"`
+	ResourceType           string `json:"resource_type"`
+	ResourceQuantity       string `json:"resource_quantity"`
+	AmountMinor            string `json:"amount_minor"`
 }
 
 func orderResponseFromDomain(order billing.Order) orderResponse {
 	items := make([]orderItemResponse, 0, len(order.Items))
 	for _, item := range order.Items {
 		items = append(items, orderItemResponse{OrderItemID: item.OrderItemID, ProductKind: string(item.ProductKind), ResourceType: string(item.ResourceType), ResourceQuantity: strconv.FormatInt(item.ResourceQuantity, 10), AmountMinor: strconv.FormatInt(item.AmountMinor, 10)})
+		if item.ProductKind == billing.ProductStorageCapacityPack {
+			items[len(items)-1].StorageUnitBytes = strconv.FormatInt(item.StorageUnitBytes, 10)
+			items[len(items)-1].StorageDurationSeconds = strconv.FormatInt(item.StorageDurationSeconds, 10)
+		}
 	}
 	response := orderResponse{OrderID: order.OrderID, OrganizationID: order.OrganizationID, Kind: string(order.Kind), Description: order.Description, QuoteID: nullable(order.QuoteID), Currency: order.Currency, AmountMinor: strconv.FormatInt(order.AmountMinor, 10), Status: string(order.Status), FailureCode: string(order.FailureCode), WalletReservationID: nullable(order.WalletReservationID), Items: items, CreatedAt: order.CreatedAt.UTC().Format(time.RFC3339Nano), UpdatedAt: order.UpdatedAt.UTC().Format(time.RFC3339Nano), ProductKind: string(order.ProductKind), PlanCode: order.PlanCode, PlanFingerprint: order.PlanFingerprint, SettlementMode: string(order.SettlementMode)}
 	if order.TermMonths > 0 {

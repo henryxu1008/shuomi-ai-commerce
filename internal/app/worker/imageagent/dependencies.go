@@ -180,6 +180,9 @@ func resolveImageAgentTemporalDependenciesForMode(configPath string, logger *log
 	if cfg == nil || cfg.Database == nil {
 		return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("image agent worker database configuration is required")
 	}
+	if cfg.StorageCapacity && mode != imageagenttemporal.WorkerWireModeOrganization {
+		return appruntime.ImageAgentTemporalDependencies{}, nil, errors.New("storage capacity requires the current organization generation owner")
+	}
 	if cfg.ImageAgent.ArtifactStore.IsolatedTrialGeneratedURLs && mode != imageagenttemporal.WorkerWireModeOrganization {
 		return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("isolated trial generated URLs require the organization worker")
 	}
@@ -387,6 +390,10 @@ func resolveImageAgentTemporalDependenciesForMode(configPath string, logger *log
 		if generationErr != nil {
 			_ = closeDB()
 			return appruntime.ImageAgentTemporalDependencies{}, nil, fmt.Errorf("build organization generation admission: %w", generationErr)
+		}
+		if err = configureStorageCapacity(cfg, resourceDB, repository, artifactStore, generation, recovery); err != nil {
+			_ = closeDB()
+			return appruntime.ImageAgentTemporalDependencies{}, nil, err
 		}
 		dependencies.GenerationRecovery = recovery
 		dependencies.GenerationOutputRecovery = generationOutputRecovery(nil)

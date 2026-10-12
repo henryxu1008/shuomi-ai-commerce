@@ -10,7 +10,7 @@ import styles from "./commercial.module.css";
 import { WalletTopUpEntry } from "./wallet-topup";
 
 const entryLabels: Record<string, string> = { TOP_UP_CREDIT: "钱包充值", PURCHASE_RESERVE: "资源购买预留", PURCHASE_COMMIT: "资源购买", PURCHASE_RELEASE: "购买释放", REFUND_RESERVE: "退款冻结", REFUND_CONFIRM: "退款确认", REFUND_RELEASE: "退款冻结释放", REFUND_REVERSAL: "退款冲正", CHARGEBACK_REVERSAL: "拒付冲正", DEBT_REPAYMENT: "欠款偿还" };
-const orderKindLabels: Record<CommercialOrder["kind"], string> = { WALLET_TOP_UP: "钱包充值", RESOURCE_PURCHASE: "资源购买" };
+const orderKindLabels: Record<CommercialOrder["kind"], string> = { WALLET_TOP_UP: "钱包充值", RESOURCE_PURCHASE: "资源购买", STORAGE_CAPACITY_PURCHASE:"存储扩容" };
 const orderStatusLabels: Record<CommercialOrder["status"], string> = { PENDING: "待处理", FUNDS_RESERVED: "资金已预留", FULFILLING: "履约中", FULFILLED: "已完成", CANCELLED: "已取消", RECONCILIATION_REQUIRED: "待核对" };
 
 function minorAmount(minor: string, currency = "CNY") {
