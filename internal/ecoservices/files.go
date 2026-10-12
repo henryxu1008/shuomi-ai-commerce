@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"github.com/google/uuid"
 	"net/http"
 	"strings"
@@ -30,6 +31,18 @@ type FileIntent struct {
 	File        File
 	Fingerprint string
 }
+
+// FileIntentRejection is an internal native-owner proof: no original outcome
+// exists and this call rejected admission before inserting a file intent.
+// HTTP clients cannot supply this proof or call capacity release.
+type FileIntentRejection struct {
+	OrganizationID, FileID, Fingerprint string
+	Cause                               error
+}
+
+func (e *FileIntentRejection) Error() string { return "file intent admission rejected" }
+func (e *FileIntentRejection) Unwrap() error { return e.Cause }
+
 type FileRepository interface {
 	CreateFileIntent(context.Context, FileIntent) (File, error)
 	ConfirmFile(context.Context, FileIntent) (File, error)
@@ -88,6 +101,12 @@ func (s *FileService) Upload(ctx context.Context, scope Scope, key, parentKind, 
 	}
 	file, err := s.repo.CreateFileIntent(ctx, in)
 	if err != nil {
+		var proof *FileIntentRejection
+		if parentKind == "REQUEST" && s.capacity != nil && errors.As(err, &proof) && proof != nil && proof.OrganizationID == scope.OrganizationID && proof.FileID == id && proof.Fingerprint == in.Fingerprint {
+			// The original capacity CAS keeps DISPATCHED/UNKNOWN reservations and
+			// prevents every late Claim/PUT after a successful unstarted abort.
+			_ = s.capacity.Writer.AbortUnstarted(ctx, scope.OrganizationID, reservation.ID)
+		}
 		return File{}, err
 	}
 	if file.State == "CONFIRMED" {

@@ -18,6 +18,10 @@
 APPLICATION 入驻认证材料和供货市场资格材料按原证据合同排除。
 AWS 曾启用 versioning 的 bucket 还会检查非当前版本和 delete markers。
 相应只读 `ListBucket`、`GetBucketVersioning`、版本列表权限须覆盖这些 prefix；
+启用还需只读 `GetBucketAcl`：每次启动用供应商返回的 `Owner.ID` 绑定物理账号。
+账号变更重新验证新 namespace 为空；凭据轮换保持同一 owner 的原登记。
+owner 缺失或 IAM 失败时启动拒绝，不退回旧四元组身份，也不修改 bucket ACL。
+应用与图片 worker 的 commercial owner host/port/database 必须一致。
 COS 沿既有严格 non-versioned immutable policy。成功登记后的重启使用原登记，
 不把已保存文件当成新安装，也不扫描 bucket 重算用量。不得与旧的未计量 Writer
 同时启用；保留共享实例和现有数据，试用使用独立新 profile。

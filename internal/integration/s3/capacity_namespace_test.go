@@ -40,3 +40,17 @@ func TestEmptyLiveListingCannotHideHistoricalObjectVersions(t *testing.T) {
 		})
 	}
 }
+
+func TestCapacityNamespaceRequiresProviderOwnerProof(t *testing.T) {
+	for _, body := range []string{`<AccessControlPolicy/>`, `<AccessControlPolicy><Owner><ID></ID></Owner></AccessControlPolicy>`, `<AccessControlPolicy><Owner><ID> invalid </ID></Owner></AccessControlPolicy>`} {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			require.True(t, r.URL.Query().Has("acl"))
+			w.Header().Set("Content-Type", "application/xml")
+			_, _ = w.Write([]byte(body))
+		}))
+		ns, err := ResolveCapacityNamespace(context.Background(), ClientConfig{Region: "us-east-1", Endpoint: server.URL, UsePathStyle: true, AccessKeyID: "synthetic", SecretAccessKey: "synthetic"}, "bucket", "aws")
+		server.Close()
+		require.ErrorIs(t, err, storagecapacity.ErrUnavailable)
+		require.Empty(t, ns)
+	}
+}

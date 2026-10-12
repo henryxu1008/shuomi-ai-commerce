@@ -77,6 +77,9 @@ Accepted Risk：用户批准到期超限保留已有数据的成本政策，沿�
 
 **按企业实际保留的计量对象字节计一次，不按累计上传量、文件引用数量、商品条数、浏览次数或云账单金额计容量。** 稳定对象身份为 trusted namespace + immutable object key；namespace 配置绑定 provider/account/region/bucket 及允许的前缀，内部保存不可逆身份，不向浏览器暴露 bucket/key/凭据。
 
+2026-10-12 PR #660 account-proof 修正（有界设计增量，IMPLEMENTATION_READY；独立Reviewer准入绑定blob 0f21d00178d73ed23ccf7113f2ef0299bff5edc8，先于该增量生产代码；此前冻结合同仍有效）：不能用 mode/endpoint/region/bucket 四元组代替 provider/account 身份。沿原 AWS SDK 的只读 `GetBucketAcl` 读取 `Owner.ID`，在 SQL 事务之外解析物理 namespace，并把稳定 bucket-owner ID 加入上述身份的 hash；所有启用的 SourceMedia、Knowledge、REQUEST 附件和 Image 调用相同 resolver。每次启动先解析 owner；只有该完整 identity 的原注册可省略空 prefix 扫描，切换账号产生新的注册并重新做原空目录准入。nil/空/无效 owner 或 provider/IAM 失败拒绝受控启动；不使用 access key/secret/临时 role 作为身份，凭据轮换不改变相同 owner 的 namespace。增加的云权限仅为只读 `GetBucketAcl`；不修改 ACL，不访问真实云环境，不兼容/回填旧四元组注册。API 与 worker 在启用前验证 commercial owner 的 host/port/database 完全一致；不同凭据/pool 不构成第二个容量事实源。
+官方合同：[AWS GetBucketAcl](https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetBucketAcl.html)、[AWS canonical owner ID](https://docs.aws.amazon.com/AmazonS3/latest/userguide/acl-overview.html)、[COS Bucket ACL owner ID](https://cloud.tencent.com/document/product/436/57426)。该增量仅补齐已批准的 provider/account 绑定，不改变产品价格、计量规则或 namespace 事实 owner。
+
 | 内容 | 企业容量 | 归属与释放规则 |
 | --- | --- | --- |
 | 手动商品素材、采集后真正保存的图片 | 计入 | 当前操作企业；外链尚未下载不占用 |
@@ -166,6 +169,8 @@ AI 在派发前的容量预留与点数预留分别保持原 owner：容量失�
 - **Image** 沿原 Run/slot/attempt、manifest 和 worker 恢复，在发布终态前确认对应对象；保留原生成/点数终态事实，不通过容量恢复新增 provider POST。先读取并验证原不可变无生成终态，再在容量事务锁原 reservation 原子关闭并释放未绑定输出的余量；不持容量事务跨业务数据库或 provider 调用。
 
 没有原操作数据/可靠终态时保留 UNKNOWN，不伪造恢复成功，不建立通用 object reconciler。
+
+2026-10-12 PR #660 REQUEST 附件拒绝修正（有界设计增量，IMPLEMENTATION_READY，独立准入绑定同blob 0f21d00178d73ed23ccf7113f2ef0299bff5edc8）：原 `CreateFileIntent` 在原事务首先读取 exact file identity/outcome；已有 outcome 或任何读取失败均不能给出未创建证明。只有确认原 outcome 不存在，且后续原 parent/权限准入明确得到真实 `gorm.ErrRecordNotFound` / forbidden，并且尚未执行 insert 时，才返回绑定 `(organization_id, file_id, fingerprint)` 的内部 typed no-create rejection。SQL/权限依赖错误不能伪装为 NotFound。FileService 验证 exact proof 后仅调用既有 `AbortUnstarted`：同 reservation CAS 已 dispatched 时不释放；成功 ABORTED 永久拒绝迟到 Claim/PUT。结果不明、原 outcome 已存在、原 commit ACK 丢失后重放或不匹配 proof 均保留预占。该 proof 是原方法的内部返回合同，不能从 HTTP 输入，不新增表、业务状态、后台恢复 owner 或释放接口。验证包括：missing/stale parent 多次拒绝后 reserved=0；SQL fault 保留 UNKNOWN；原意图 ACK 丢失后权限撤销不释放，原身份恢复计量一次；迟到 dispatch 不绕过 ABORTED fence。
 
 仅释放未 dispatch 的过期意图也必须由原 owner 在持久化 fence 下关闭；TTL 本身不是安全证明。并发读、批准、引用、删除的合法性仍由原文件 owner 决定。当前未批准 destructive delete 的领域不因本表存在而获得删除权限，S3 versioned bucket 的 delete marker 也不能当作物理 byte 释放。
 

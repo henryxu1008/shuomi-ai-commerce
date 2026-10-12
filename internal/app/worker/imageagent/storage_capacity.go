@@ -39,7 +39,10 @@ func configureStorageCapacity(cfg *config.Config, commercial *gorm.DB, repositor
 		return errors.New("storage capacity requires immutable durable artifacts")
 	}
 	s := cfg.ImageAgent.ArtifactStore.S3
-	ns := s3.CapacityNamespace(s.ArtifactMode, s.Endpoint, s.Region, s.Bucket)
+	ns, e := s3.ResolveCapacityNamespace(ctx, s3.ClientConfig{Region: s.Region, Endpoint: s.Endpoint, AccessKeyID: s.AccessKeyID, SecretAccessKey: s.SecretAccessKey, UsePathStyle: s.UsePathStyle}, s.Bucket, s.ArtifactMode)
+	if e != nil {
+		return errors.New("image storage account admission failed")
+	}
 	prefix := imageagent.PublishedArtifactPrefix + "/"
 	if e = capacity.EnsureNamespace(ctx, ns, prefix, func(check context.Context) error {
 		return s3.VerifyEmptyCapacityPrefix(check, s3.ClientConfig{Region: s.Region, Endpoint: s.Endpoint, AccessKeyID: s.AccessKeyID, SecretAccessKey: s.SecretAccessKey, UsePathStyle: s.UsePathStyle}, s.Bucket, prefix, s.ArtifactMode)

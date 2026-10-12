@@ -5,12 +5,33 @@ import (
 	"encoding/json"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	sdk "github.com/aws/aws-sdk-go-v2/service/s3"
+	"strings"
 	"task-processor/internal/ledger/storagecapacity"
 )
 
-func CapacityNamespace(mode, endpoint, region, bucket string) string {
-	raw, _ := json.Marshal([]string{mode, endpoint, region, bucket})
-	return storagecapacity.Digest(string(raw))
+// ResolveCapacityNamespace binds the physical bucket owner, not the caller's
+// rotating credentials. Resolve before consulting a prior namespace admission.
+func ResolveCapacityNamespace(ctx context.Context, c ClientConfig, bucket, mode string) (string, error) {
+	if (mode != "aws" && mode != "cos") || strings.TrimSpace(bucket) == "" {
+		return "", storagecapacity.ErrInvalid
+	}
+	client, err := NewKnowledgeClient(c)
+	if err != nil {
+		return "", err
+	}
+	acl, err := client.GetBucketAcl(ctx, &sdk.GetBucketAclInput{Bucket: aws.String(bucket)})
+	if err != nil {
+		return "", storagecapacity.ErrUnavailable
+	}
+	if acl == nil || acl.Owner == nil {
+		return "", storagecapacity.ErrUnavailable
+	}
+	owner := aws.ToString(acl.Owner.ID)
+	if !storagecapacity.ValidID(owner, 256) || strings.ContainsAny(owner, "\r\n\x00") {
+		return "", storagecapacity.ErrUnavailable
+	}
+	raw, _ := json.Marshal([]string{mode, strings.TrimRight(strings.TrimSpace(c.Endpoint), "/"), strings.TrimSpace(c.Region), strings.TrimSpace(bucket), owner})
+	return storagecapacity.Digest(string(raw)), nil
 }
 
 // VerifyEmptyCapacityPrefix uses one bounded listing only at first admission.

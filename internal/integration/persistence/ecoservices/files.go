@@ -28,7 +28,10 @@ func authorizeFileParent(tx *gorm.DB, scope e.Scope, parentKind, parentID string
 			q = q.Where("organization_id=?", scope.OrganizationID)
 		}
 		if err := q.Take(&row).Error; err != nil {
-			return e.ErrNotFound
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return e.ErrNotFound
+			}
+			return err
 		}
 	case "REQUEST":
 		var row requestRow
@@ -37,7 +40,10 @@ func authorizeFileParent(tx *gorm.DB, scope e.Scope, parentKind, parentID string
 			q = q.Where("buyer_organization_id=? OR provider_organization_id=?", scope.OrganizationID, scope.OrganizationID)
 		}
 		if err := q.Take(&row).Error; err != nil {
-			return e.ErrNotFound
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return e.ErrNotFound
+			}
+			return err
 		}
 	default:
 		return e.ErrInvalid
@@ -50,18 +56,23 @@ func (r *Repository) CreateFileIntent(ctx context.Context, in e.FileIntent) (e.F
 		if in.Scope.Platform || in.File.OrganizationID != in.Scope.OrganizationID || in.Fingerprint == "" {
 			return e.ErrForbidden
 		}
+		var existing fileRow
+		lookup := tx.Where("id=?", in.File.ID).Take(&existing).Error
+		if lookup != nil && !errors.Is(lookup, gorm.ErrRecordNotFound) {
+			return lookup
+		}
 		if err := authorizeFileParent(tx, in.Scope, in.File.ParentKind, in.File.ParentID); err != nil {
+			if errors.Is(lookup, gorm.ErrRecordNotFound) && (errors.Is(err, e.ErrNotFound) || errors.Is(err, e.ErrForbidden)) {
+				return &e.FileIntentRejection{OrganizationID: in.Scope.OrganizationID, FileID: in.File.ID, Fingerprint: in.Fingerprint, Cause: err}
+			}
 			return err
 		}
-		var existing fileRow
-		if err := tx.Where("id=?", in.File.ID).Take(&existing).Error; err == nil {
+		if lookup == nil {
 			if existing.Fingerprint != in.Fingerprint || existing.OrganizationID != in.Scope.OrganizationID {
 				return e.ErrConflict
 			}
 			out = fileFact(existing)
 			return nil
-		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return err
 		}
 		file := in.File
 		row := fileRow{ID: file.ID, OrganizationID: in.Scope.OrganizationID, ParentID: file.ParentID, ParentKind: file.ParentKind, ActorID: in.Scope.ActorID, Fingerprint: in.Fingerprint, Filename: file.Filename, ContentType: file.ContentType, SizeBytes: file.SizeBytes, SHA256: file.SHA256, ObjectKey: file.ObjectKey, State: "PENDING", CreatedAt: time.Now().UTC()}
