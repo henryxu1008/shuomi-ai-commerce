@@ -32,7 +32,7 @@ func (r *modeRepoFixture) ExecuteMode(ctx context.Context, c agentconfig.ModeCom
 			return agentconfig.ModeReceipt{}, err
 		}
 	}
-	return agentconfig.ModeReceipt{CommandID: uuid.NewString(), Operation: "set-execution-mode", Subject: c.Subject.Subject, Mode: c.Mode, BeforeRevision: "0", Revision: "1"}, nil
+	return agentconfig.ModeReceipt{CommandID: uuid.NewString(), RequestKey: c.Key, Operation: "set-execution-mode", Subject: c.Subject.Subject, Mode: c.Mode, BeforeRevision: "0", Revision: "1"}, nil
 }
 
 func modeHarness(t *testing.T, repo *modeRepoFixture, configure bool, subjectErr error) *gin.Engine {

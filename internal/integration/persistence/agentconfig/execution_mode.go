@@ -84,7 +84,7 @@ func modeReceipt(db *gorm.DB, c agentconfig.ModeCommand, fp string) (agentconfig
 		return agentconfig.ModeReceipt{}, true, agentconfig.ErrConflict
 	}
 	var result agentconfig.ModeReceipt
-	if json.Unmarshal(row.Receipt, &result) != nil || result.CommandID != row.CommandID || result.Subject != c.Subject.Subject || result.Operation != modeOperation || result.Mode != c.Mode || result.BeforeRevision != decimal(row.BeforeRevision) || result.Revision != decimal(row.AfterRevision) {
+	if json.Unmarshal(row.Receipt, &result) != nil || result.CommandID != row.CommandID || result.RequestKey != row.IdempotencyKey || result.Subject != c.Subject.Subject || result.Operation != modeOperation || result.Mode != c.Mode || result.BeforeRevision != decimal(row.BeforeRevision) || result.Revision != decimal(row.AfterRevision) {
 		return result, true, agentconfig.ErrUnavailable
 	}
 	return result, true, nil
@@ -165,7 +165,7 @@ func (s *Store) ExecuteMode(ctx context.Context, c agentconfig.ModeCommand, elig
 				return agentconfig.ErrRevision
 			}
 		}
-		result = agentconfig.ModeReceipt{CommandID: claim.CommandID, Operation: modeOperation, Subject: c.Subject.Subject, Mode: c.Mode, BeforeRevision: decimal(int64(revision)), Revision: decimal(int64(after)), Noop: noop, CommittedAt: now}
+		result = agentconfig.ModeReceipt{CommandID: claim.CommandID, RequestKey: claim.IdempotencyKey, Operation: modeOperation, Subject: c.Subject.Subject, Mode: c.Mode, BeforeRevision: decimal(int64(revision)), Revision: decimal(int64(after)), Noop: noop, CommittedAt: now}
 		raw, err := json.Marshal(result)
 		if err != nil || len(raw) > 4096 {
 			return agentconfig.ErrInvalid

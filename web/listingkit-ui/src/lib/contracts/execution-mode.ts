@@ -13,6 +13,7 @@ export const executionModeInputSchema = z.strictObject({ mode: executionModeSche
 const timestamp = z.string().datetime({ offset: true });
 export const executionModeReceiptSchema = z.strictObject({
   commandId: knowledgeId,
+  requestKey: knowledgeId,
   operation: z.literal("set-execution-mode"),
   subject: modeSubjectSchema,
   mode: executionModeSchema,

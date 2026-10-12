@@ -16,7 +16,7 @@ beforeEach(()=>{
 afterEach(()=>{cleanup();localStorage.clear()});
 function saveReceipt(_scope:unknown,_path:unknown,_schema:unknown,options:{body:string;headers:Record<string,string>}){
  const payload=JSON.parse(options.body),key=options.headers["Idempotency-Key"];
- const value={...state.view,mode:payload.mode,revision:"1",updatedBy:"actor",receipt:{subject:state.view.subject,commandId:key,operation:"set-execution-mode",mode:payload.mode,beforeRevision:payload.expectedRevision,revision:"1",noop:false,committedAt:"2026-10-12T00:00:00Z"}};
+ const value={...state.view,mode:payload.mode,revision:"1",updatedBy:"actor",receipt:{subject:state.view.subject,commandId:"2b9ac69f-bf25-4d28-a85a-8036ea005013",requestKey:key,operation:"set-execution-mode",mode:payload.mode,beforeRevision:payload.expectedRevision,revision:"1",noop:false,committedAt:"2026-10-12T00:00:00Z"}};
  state.view={...value,receipt:undefined};return Promise.resolve(value);
 }
 it.each(["default","auto_approve","read_only","full_access"] as const)("saves %s with the observed revision and reads its returned mode",async mode=>{

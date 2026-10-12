@@ -79,6 +79,7 @@ func (c ModeCommand) Validate() error {
 
 type ModeReceipt struct {
 	CommandID      string              `json:"commandId"`
+	RequestKey     string              `json:"requestKey"`
 	Operation      string              `json:"operation"`
 	Subject        ModeSubject         `json:"subject"`
 	Mode           agent.ExecutionMode `json:"mode"`

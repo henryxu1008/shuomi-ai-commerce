@@ -1,7 +1,11 @@
 package temporal
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -15,6 +19,34 @@ import (
 	assetstore "task-processor/internal/integration/persistence/product/asset"
 	productasset "task-processor/internal/product/asset"
 )
+
+func TestExistingImageSetAdmissionAndCommittedReceiptKeepOriginalDigest(t *testing.T) {
+	f := newApprovalRecoveryFixture(t)
+	scope := imageagent.RunScope{TenantID: f.publish.Identity.TenantID, OwnerUserID: f.publish.Identity.UserID, RunID: f.publish.RunID}
+	current, err := f.activities.repository.GetProjection(context.Background(), scope)
+	require.NoError(t, err)
+	require.False(t, current.Plan.Set.ModeSnapshotRef.Valid())
+	admitted := current.Plan
+	admitted.Slots = append([]imageagent.Slot(nil), admitted.Slots...)
+	for i := range admitted.Slots {
+		admitted.Slots[i].Status = imageagent.SlotStatusPending
+	}
+	raw, err := json.Marshal(admitted)
+	require.NoError(t, err)
+	original := bytes.ReplaceAll(raw, []byte(`"ModeSnapshotRef":{"Kind":"","ID":"","Digest":""},`), nil)
+	sum := sha256.Sum256(original)
+	require.Equal(t, hex.EncodeToString(sum[:]), current.Run.ImageAdmission.Command.PlanDigest)
+	require.NoError(t, imageagent.ValidateImageSetAdmission(current.Run, current.Plan))
+	originalCommit := f.loseCommittedACK(t)
+	current, err = f.activities.repository.GetProjection(context.Background(), scope)
+	require.NoError(t, err)
+	commit, found, err := f.activities.readCommittedImageSetApproval(context.Background(), current)
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Equal(t, originalCommit, commit)
+	require.NoError(t, f.activities.PersistRunState(context.Background(), f.complete))
+	require.Equal(t, 1, f.selector.calls, "original ACK recovery must not repeat the side effect")
+}
 
 type approvalRecoveryAuthorization struct {
 	revoked     bool

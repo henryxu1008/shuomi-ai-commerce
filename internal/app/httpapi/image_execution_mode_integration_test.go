@@ -37,6 +37,12 @@ func TestImageGenerationAndAdoptionUseActualFrozenModeOwner(t *testing.T) {
 			require.NoError(t, err)
 			p := imageagent.RunProjection{Run: imageagent.Run{ID: start.RunID, TenantID: scope.OrganizationID, UserID: scope.ActorID, MemberID: identity.MemberID, BusinessTaskID: start.ContextID}, Plan: imageagent.Plan{Revision: 1, Set: &imageagent.ImageSetPlan{Configuration: snapshot.Ref(), ModeSnapshotRef: snapshot.ModeSnapshotRef, InputDigest: snapshot.InputDigest}, Slots: []imageagent.Slot{{ID: "main", Recipe: &imageagent.ImageSlotRecipe{Placement: imageagent.ImagePlacement{Group: "carousel", Order: 1}}}}}, ResultDigest: strings.Repeat("c", 64), Slots: []imageagent.SlotProjection{{Slot: imageagent.Slot{ID: "main", Status: imageagent.SlotStatusAccepted}, Attempt: 1, Candidates: []imageagent.AssetCandidate{{AssetID: "generated"}}}}}
 			execution := imageagent.ExecutionIdentity{RunID: p.Run.ID, TenantID: p.Run.TenantID, UserID: p.Run.UserID, MemberID: p.Run.MemberID}
+			old := p
+			oldSet := *p.Plan.Set
+			oldSet.ModeSnapshotRef = agent.ModeSnapshotRef{}
+			old.Plan.Set = &oldSet
+			_, err = checkImageGenerationMode(ctx, configuration, execution, old, false)
+			require.ErrorIs(t, err, imageagent.ErrCommandBlocked, "readable history is never authority for a new generation")
 			mode, err := checkImageGenerationMode(ctx, configuration, execution, p, false)
 			if value == agent.ModeReadOnly {
 				require.Error(t, err)
@@ -46,6 +52,7 @@ func TestImageGenerationAndAdoptionUseActualFrozenModeOwner(t *testing.T) {
 			}
 			command := asset.ImageSetCommand{ApprovingResult: asset.ImageSetResultBinding{RunID: p.Run.ID, PlanRevision: 1, ResultDigest: p.ResultDigest}, Choices: []asset.ImageSetChoice{{Kind: "generated", RunID: p.Run.ID, PlanRevision: 1, ResultDigest: p.ResultDigest, SlotID: "main", Attempt: 1, AssetID: "generated", Presentation: asset.ImagePresentation{Group: "carousel", Order: 1}}}}
 			source := asset.SourceSelection{TenantID: p.Run.TenantID, ActorID: p.Run.UserID, MemberID: p.Run.MemberID}
+			require.ErrorIs(t, imageSelectionModeAdmission(imageSetHTTPRepository{projection: old}, configuration)(ctx, source, command), imageagent.ErrCommandBlocked, "missing mode ref cannot authorize a new adoption")
 			admit := imageSelectionModeAdmission(imageSetHTTPRepository{projection: p}, configuration)
 			err = admit(ctx, source, command)
 			if value == agent.ModeReadOnly {

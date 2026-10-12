@@ -19,7 +19,7 @@ describe("execution mode contracts", () => {
     expect(executionModeViewSchema.safeParse({ ...view, mode: "unrestricted" }).success).toBe(false);
   });
   it("binds a mode command receipt to the returned subject, mode and revision", () => {
-    const receipt = { commandId: "e1b16b08-46e7-4a6d-9059-2588e2822e69", operation: "set-execution-mode", subject, mode: "full_access", beforeRevision: "0", revision: "1", noop: false, committedAt: "2026-10-12T01:00:00Z" };
+    const receipt = { commandId: "e1b16b08-46e7-4a6d-9059-2588e2822e69", requestKey: "2b9ac69f-bf25-4d28-a85a-8036ea005013", operation: "set-execution-mode", subject, mode: "full_access", beforeRevision: "0", revision: "1", noop: false, committedAt: "2026-10-12T01:00:00Z" };
     const saved = { ...view, mode: "full_access", revision: "1", receipt };
     expect(executionModeViewSchema.safeParse(saved).success).toBe(true);
     expect(executionModeViewSchema.safeParse({ ...saved, mode: "read_only" }).success).toBe(false);

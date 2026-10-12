@@ -45,7 +45,7 @@ export function ExecutionModeSettings({scope,subject}:{scope:ConfigurationScope;
   try {
    pending.persist(intent);
    const saved=await configurationRequest(scope,path,executionModeViewSchema,{method:"PUT",headers:{"Content-Type":"application/json","Idempotency-Key":intent.key},body:JSON.stringify(intent.payload),signal:controller.signal});
-   if(saved.subject.kind!==subject.kind||saved.subject.id!==subject.id||saved.receipt?.commandId!==intent.key||saved.mode!==intent.payload.mode||saved.receipt.beforeRevision!==intent.payload.expectedRevision)throw new ConfigurationError("OUTCOME_UNKNOWN");
+   if(saved.subject.kind!==subject.kind||saved.subject.id!==subject.id||saved.receipt?.requestKey!==intent.key||saved.mode!==intent.payload.mode||saved.receipt.beforeRevision!==intent.payload.expectedRevision)throw new ConfigurationError("OUTCOME_UNKNOWN");
    if(!active.current||currentBinding.current!==binding)return;
    pending.clear(intent);setOpen(false);setNonce(n=>n+1);setMessage("权限模式已保存，下一次新运行将使用当前模式。已存在的运行不会升级权限。");
   } catch(error) {

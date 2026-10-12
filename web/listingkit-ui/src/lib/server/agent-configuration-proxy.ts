@@ -259,7 +259,7 @@ export async function proxyAgentConfiguration(
       if (view.subject.kind !== parts[1] || view.subject.id !== parts[2]) throw new Error();
       if (write) {
         const intent = executionModeInputSchema.parse(JSON.parse(body!));
-        if (!view.receipt || view.receipt.commandId !== headers.get("Idempotency-Key") ||
+        if (!view.receipt || view.receipt.requestKey !== headers.get("Idempotency-Key") ||
             view.receipt.beforeRevision !== intent.expectedRevision || view.mode !== intent.mode) throw new Error();
       } else if (view.receipt) throw new Error();
     }
