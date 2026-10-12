@@ -106,6 +106,8 @@ Admission Status: **NOT_READY**
 
 优先复用 PostgreSQL/GORM、已有 transaction runner 的合格行为和唯一约束模式；不是重写数据库或支付客户端。Money 继续独立 pool。当前 commercial owner 角色只补本模块所需表权限，业务 adapter 通过注入端口调用，不直接读 Money 或其它业务表；沿已有运行权限检查，不扩大为全权 schema owner。
 
+仓库已有 [OpenMeter 技术评估](openmeter-shadow-metering-poc-report.md)，其中明确普通 metering/entitlement 可复用，但访问判断不是原子并发 quota reservation。首版沿已有 PostgreSQL 原子预留模式控制写入，不为容量购买上线新的计量平台；未来若有实测分析需求，可消费本容量 owner 的投影，不能反过来把异步计量变成第二占用/扣款事实。
+
 `quota(t) = base_policy.bytes + SUM(ACTIVE lot.bytes WHERE starts_at <= t < expires_at)`
 
 `remaining(t) = MAX(0, quota(t) - occupied_bytes - reserved_bytes)`
@@ -148,7 +150,7 @@ AI 在派发前的容量预留与点数预留分别保持原 owner：容量失�
 
 - **SourceMedia** 当前是同步 exact-key PUT/readback，没有原业务 upload operation 或后台扫描。容量 intent 绑定原 org/actor/content identity；用户通过原相同内容上传重放，在受控 readback 中核实/确认原占用，不新增对象身份。原 GET 读取不发起容量 mutation。首版不承诺该路径自动后台恢复；未重放的未知预留如实保留并展示，不建采集恢复平台。
 - **Knowledge** 当前 Processor 只扫描 ADMITTED/OBJECT_STORED/PROCESSING，AVAILABLE/FAILED 不能假设会再次被扫描。Upload 与 Processor 必须先核实/确认容量，再沿原 ConfirmObject 进入 OBJECT_STORED/解析；容量确认失败时保留原可核实 ADMITTED 阶段和原 lease 续行，不能先完成业务终态。原 Inspect 404 的 UPLOAD_INCOMPLETE 或完整性失败仍不能授权释放已 dispatch 预留；按原同 Revision 的显式上传重放核实，不把 parser 重试当作 PUT 重试。
-- **Image** 沿原 Run/slot/attempt、manifest 和 worker 恢复，在发布终态前确认对应对象；保留原生成/点数终态事实，不通过容量恢复新增 provider POST。无生成可信终态与容量关闭同事务 fence 后，才能释放未绑定输出的余量。
+- **Image** 沿原 Run/slot/attempt、manifest 和 worker 恢复，在发布终态前确认对应对象；保留原生成/点数终态事实，不通过容量恢复新增 provider POST。先读取并验证原不可变无生成终态，再在容量事务锁原 reservation 原子关闭并释放未绑定输出的余量；不持容量事务跨业务数据库或 provider 调用。
 
 没有原操作数据/可靠终态时保留 UNKNOWN，不伪造恢复成功，不建立通用 object reconciler。
 
