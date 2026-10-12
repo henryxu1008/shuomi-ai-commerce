@@ -451,7 +451,13 @@ func agentReviewInput(b agent.Binding, policy string, candidate enrichment.Candi
 	return review.CandidateInput{Base: review.CreateInput{ProductKey: b.ProductKey, BaseVersion: version}, PublicationID: b.PublicationID, PolicyVersion: policy, Candidate: candidate}
 }
 
-func (a *productAgentApplication) Validate(ctx context.Context, b agent.Binding, policy string, candidate enrichment.Candidate, history []agent.Observation) (agent.Validation, error) {
+func (a *productAgentApplication) Validate(ctx context.Context, request agent.Request, candidate enrichment.Candidate, history []agent.Observation) (agent.Validation, error) {
+	// This consumer remains the current title definition. Content is admitted
+	// by its own fixed policy/consumer, never through this title validator.
+	if !request.ContentSelection.Absent() {
+		return agent.Validation{}, agent.ErrInvalid
+	}
+	b, policy := request.Binding, request.PolicyVersion
 	if _, err := a.Authorize(ctx, b); err != nil {
 		return agent.Validation{}, err
 	}

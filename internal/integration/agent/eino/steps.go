@@ -173,7 +173,7 @@ func (e *execution) validate(ctx context.Context, s *flowState) {
 		s.stop(agent.StopInvalidOutput)
 		return
 	}
-	result, err := e.runtime.config.Validator.Validate(ctx, s.State.Request.Binding, s.State.Request.PolicyVersion, clone(s.State.Candidate), clone(s.State.History))
+	result, err := e.runtime.config.Validator.Validate(ctx, s.State.Request, clone(s.State.Candidate), clone(s.State.History))
 	if err != nil {
 		s.stop(agent.StopDependency)
 		return
