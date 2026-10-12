@@ -27,6 +27,10 @@ func NewExecutionCandidateService(reader catalog.VersionedSnapshotReader, source
 func (s *ExecutionCandidateService) ValidateCandidate(ctx context.Context, in CandidateInput) (enrichment.Proposal, error) {
 	return s.service.ValidateCandidate(ctx, in)
 }
+
+func (s *ExecutionCandidateService) ValidateContentCandidate(ctx context.Context, in ContentValidationInput) (enrichment.Proposal, error) {
+	return s.service.ValidateContentCandidate(ctx, in)
+}
 func (s *ExecutionCandidateService) CreateFromCandidate(ctx context.Context, key string, in CandidateInput) (View, error) {
 	return s.service.CreateFromCandidate(ctx, key, in)
 }

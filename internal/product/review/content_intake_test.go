@@ -33,6 +33,15 @@ func TestContentIntakeRevalidatesFullSelectionAndExactSource(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, proposal.Validation.Valid)
 	require.Len(t, proposal.Changes, 2)
+	pure := ContentValidationInput{Selection: input.ContentSelection, Base: input.Base, PublicationID: input.PublicationID, Candidate: input.Candidate}
+	validated, err := service.ValidateContentCandidate(ctx, pure)
+	require.NoError(t, err, "pure runtime validation must not fabricate an execution RunID")
+	require.Equal(t, proposal, validated)
+	wrong := pure
+	wrong.Candidate.Changes = append([]enrichment.FieldChange(nil), pure.Candidate.Changes...)
+	wrong.Candidate.Changes[1].Field = "price"
+	_, err = service.ValidateContentCandidate(ctx, wrong)
+	require.Error(t, err)
 	_, attempted, err := service.CreateFromCandidateWithTransactionAttempt(ctx, "agent:content-run", input)
 	require.ErrorIs(t, err, ErrUnavailable)
 	require.True(t, attempted, "valid content must reach the existing Review transaction")

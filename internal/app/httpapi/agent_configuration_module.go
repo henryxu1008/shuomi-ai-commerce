@@ -20,6 +20,7 @@ import (
 	"task-processor/internal/listing/readiness/tools/readinessinspect"
 	"task-processor/internal/product/asset/tools/assetinspect"
 	"task-processor/internal/product/catalog/tools/canonicalinspect"
+	"task-processor/internal/product/contentagent"
 	"task-processor/internal/product/sourcing/tools/sourceevidenceinspect"
 	"task-processor/internal/workbenchcontext"
 	"time"
@@ -44,7 +45,9 @@ func productImageRegistration() commercetool.AgentDefinition {
 
 func (productAgentCatalog) ReadCatalog(context.Context) ([]agentconfig.CatalogEntry, error) {
 	d, _ := productTitleRegistration()
+	content, _ := contentagent.Registration()
 	return []agentconfig.CatalogEntry{
+		{Definition: content, Name: "商品内容完善与本地化智能体", Description: "按明确目标语言和字段生成标题、描述、卖点与SEO关键词建议，按当前权限核对并采用到本地商品。", ParameterSchema: agentconfig.ContentParameterSchema},
 		{Definition: productImageRegistration(), Name: "商品图片智能体", Description: "基于真实商品素材规划整套主图和详情图，确认点数后分别生成，人工选择并批准商品图片。", ParameterSchema: agentconfig.ImageParameterSchema},
 		{Definition: d, Name: "商品标题优化智能体", Description: "读取商品证据生成标题建议，经过人工审核后显式应用。", ParameterSchema: agentconfig.ParameterSchema},
 	}, nil
@@ -115,6 +118,24 @@ func buildAgentConfigurationModule(ctx context.Context, db *gorm.DB, resolver or
 		return nil
 	}
 	h.Capabilities = func(ctx context.Context, entry agentconfig.CatalogEntry) []agentconfig.Capability {
+		if entry.Definition.ID == agentconfig.ContentAgentID {
+			var content *productAgentApplication
+			if runtime != nil {
+				content = runtime.content
+			}
+			capabilities := productAgentCapabilities(ctx, resolver, h.Authorize, k, content)
+			if capabilities[0].Readiness != "AVAILABLE" {
+				capabilities[0].Reason = "内容执行需要独立的内容模型路由与凭据配置"
+			}
+			if content == nil {
+				capabilities[0].Readiness = "NEEDS_CONFIGURATION"
+			}
+			if err := configstore.VerifyContentConfigurationSchema(ctx, db); err != nil {
+				capabilities[0].Readiness, capabilities[0].Reason = "NEEDS_CONFIGURATION", "当前环境尚未安装内容参数载体"
+			}
+			capabilities[1].Reason = "读取当前企业保存商品的真实来源，执行时重新核实权限与版本"
+			return capabilities
+		}
 		if entry.Definition.ID == agentconfig.ImageAgentID {
 			capabilities := productImageAgentCapabilities(ctx, h.Authorize)
 			if imageRuntime != nil {
@@ -142,6 +163,9 @@ func buildAgentConfigurationModule(ctx context.Context, db *gorm.DB, resolver or
 		return productAgentCapabilities(ctx, resolver, h.Authorize, k, runtime)
 	}
 	h.RunsAvailable = func(_ context.Context, entry agentconfig.CatalogEntry) bool {
+		if entry.Definition.ID == agentconfig.ContentAgentID {
+			return runtime != nil && runtime.content != nil
+		}
 		if entry.Definition.ID == agentconfig.ImageAgentID {
 			return imageRuntime != nil && imageRuntime.recent != nil
 		}
@@ -154,18 +178,22 @@ func buildAgentConfigurationModule(ctx context.Context, db *gorm.DB, resolver or
 			}
 			return imageRuntime.readRecent(ctx, "", cursor, size)
 		}
-		if runtime == nil {
+		selected := runtime
+		if id == agentconfig.ContentAgentID && selected != nil {
+			selected = runtime.content
+		}
+		if selected == nil {
 			return nil, "", agentconfig.ErrUnavailable
 		}
 		ctx, e := knowledgeRequestContext(ctx)
 		if e != nil {
 			return nil, "", agentconfig.ErrForbidden
 		}
-		fresh, e := runtime.freshIdentity(ctx)
+		fresh, e := selected.freshIdentity(ctx)
 		if e != nil || fresh.UserID != scope.ActorID || fresh.TenantID != scope.OrganizationID {
 			return nil, "", agentconfig.ErrForbidden
 		}
-		return repo.Recent(ctx, scope, id, cursor, size, runtime.store, func(b agent.Binding) error { _, e := runtime.Authorize(ctx, b); return e })
+		return repo.Recent(ctx, scope, id, cursor, size, selected.store, func(b agent.Binding) error { _, e := selected.Authorize(ctx, b); return e })
 	}
 	return confighttp.NewModule(h), nil
 }

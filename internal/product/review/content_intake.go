@@ -36,12 +36,11 @@ func validateIntakeProposal(ctx context.Context, base catalog.ProductSnapshot, s
 	if err != nil {
 		return enrichment.Proposal{}, err
 	}
+	if in.PolicyVersion == enrichment.ContentPolicyVersion {
+		return validateContentProposal(ctx, base, source, in.ContentSelection, in.Candidate)
+	}
 	proposal, err := enrichment.ValidateCandidate(ctx, enrichment.Request{Snapshot: base, Source: source, Policy: policy}, in.Candidate)
 	if err != nil {
-		return proposal, err
-	}
-	if in.PolicyVersion == enrichment.ContentPolicyVersion {
-		_, err = applyContentPatch(base, in.ContentSelection, proposal.Changes)
 		return proposal, err
 	}
 	if len(proposal.Changes) != 1 || proposal.Changes[0].Field != "title" || !proposal.Validation.Valid {

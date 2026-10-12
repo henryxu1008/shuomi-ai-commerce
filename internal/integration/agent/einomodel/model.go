@@ -26,7 +26,7 @@ import (
 
 type SnapshotReader interface {
 	LoadSnapshot(context.Context, agent.Scope, agent.ConfigurationSnapshotRef) (agentconfig.Snapshot, error)
-	CheckTitleExecutionMode(context.Context, agent.ExecutionIdentity, agent.ConfigurationSnapshotRef, agent.ModeSnapshotRef) (agentconfig.ModeSnapshot, error)
+	CheckRegisteredTextExecutionMode(context.Context, agent.ExecutionIdentity, agent.ConfigurationSnapshotRef, agent.ModeSnapshotRef) (agentconfig.ModeSnapshot, error)
 }
 
 type TextExecutor interface {
@@ -241,7 +241,7 @@ func (m *AgentTextModel) Decide(ctx context.Context, in agent.ModelInput) (agent
 		if err != nil {
 			return nil, err
 		}
-		if _, err = m.snapshots.CheckTitleExecutionMode(gateCtx, identity, in.ConfigurationSnapshotRef, in.ModeSnapshotRef); err != nil {
+		if _, err = m.snapshots.CheckRegisteredTextExecutionMode(gateCtx, identity, in.ConfigurationSnapshotRef, in.ModeSnapshotRef); err != nil {
 			return nil, err
 		}
 		if p.knowledge == nil {

@@ -25,7 +25,7 @@ type testSnapshotReader struct{ snapshot agentconfig.Snapshot }
 func (r testSnapshotReader) LoadSnapshot(context.Context, agent.Scope, agent.ConfigurationSnapshotRef) (agentconfig.Snapshot, error) {
 	return r.snapshot, nil
 }
-func (r testSnapshotReader) CheckTitleExecutionMode(context.Context, agent.ExecutionIdentity, agent.ConfigurationSnapshotRef, agent.ModeSnapshotRef) (agentconfig.ModeSnapshot, error) {
+func (r testSnapshotReader) CheckRegisteredTextExecutionMode(context.Context, agent.ExecutionIdentity, agent.ConfigurationSnapshotRef, agent.ModeSnapshotRef) (agentconfig.ModeSnapshot, error) {
 	return agentconfig.ModeSnapshot{}, nil
 }
 

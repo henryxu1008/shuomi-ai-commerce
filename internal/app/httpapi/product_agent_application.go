@@ -67,6 +67,7 @@ type ProductAgentInvocationLedger interface {
 }
 
 type productAgentApplication struct {
+	content                 *productAgentApplication
 	configuration           *configstore.Store
 	model                   *texteino.AgentTextModel
 	selectTitleProfile      func(context.Context, string) (aicapability.ModelProfile, error)
