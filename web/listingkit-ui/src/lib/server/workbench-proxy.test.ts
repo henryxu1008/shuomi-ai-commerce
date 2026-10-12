@@ -66,6 +66,58 @@ const storePayload = {
   createdAt: "2026-08-30T01:02:03Z",
   updatedAt: "2026-08-30T02:03:04Z",
 };
+
+describe("TEMU Store request and response wiring", () => {
+  const headers = {
+    cookie: `${WORKBENCH_COOKIE_NAME}=org-b`,
+    "X-Expected-Organization-ID": "org-b",
+    "X-Expected-User-ID": "user-1",
+    Origin: "http://localhost",
+    "Content-Type": "application/json",
+    "Idempotency-Key": operationKey,
+  };
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("forwards TEMU creation with its original platform and operation key", async () => {
+    vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL", "http://localhost");
+    const input = { name: "TEMU trial", platform: "temu", region: "Unverified" };
+    const result = await buildWorkbenchUpstreamRequest(new Request("http://localhost/api/workbench/stores", {
+      method: "POST", headers, body: JSON.stringify(input),
+    }), ["stores"], "server-token", "user-1");
+    expect(result).not.toBeInstanceOf(Response);
+    if (result instanceof Response) return;
+    expect(JSON.parse(String(result.init.body))).toEqual(input);
+    expect(new Headers(result.init.headers).get("Idempotency-Key")).toBe(operationKey);
+    expect(new Headers(result.init.headers).get("X-Requested-Organization-ID")).toBe("org-b");
+  });
+
+  it("forwards the TEMU list filter", async () => {
+    const result = await buildWorkbenchUpstreamRequest(new Request("http://localhost/api/workbench/stores?page=1&pageSize=20&platform=temu", {
+      headers: { cookie: headers.cookie, "X-Expected-Organization-ID": "org-b", "X-Expected-User-ID": "user-1" },
+    }), ["stores"], "server-token", "user-1");
+    expect(result).not.toBeInstanceOf(Response);
+    if (!(result instanceof Response)) expect(new URL(result.url).searchParams.get("platform")).toBe("temu");
+  });
+
+  it.each(["store-create", "store-item", "store-list"] as const)("accepts the current TEMU %s response", async (contract) => {
+    const item = { ...storePayload, platform: "temu", connectionStatus: "disconnected" };
+    const payload = contract === "store-list" ? { items: [item], pagination: { page: 1, pageSize: 20, total: 1 } } : item;
+    const status = contract === "store-create" ? 201 : 200;
+    const response = await buildWorkbenchBrowserResponse(Response.json(payload, { status }), contract);
+    expect(response.status).toBe(status);
+    expect(await response.json()).toEqual(payload);
+  });
+
+  it("keeps unsupported platforms outside the Store contract", async () => {
+    vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL", "http://localhost");
+    const creation = await buildWorkbenchUpstreamRequest(new Request("http://localhost/api/workbench/stores", {
+      method: "POST", headers, body: JSON.stringify({ name: "Invalid", platform: "other", region: "SG" }),
+    }), ["stores"], "server-token", "user-1");
+    expect((creation as Response).status).toBe(400);
+    const response = await buildWorkbenchBrowserResponse(Response.json({ ...storePayload, platform: "other" }), "store-item");
+    expect(response.status).toBe(502);
+  });
+});
 const serviceLifecyclePayload = {
   storeId,
   recordStatus: "active",

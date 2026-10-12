@@ -1,5 +1,5 @@
 import { catalogVersionSchema, COMPLETION_MAX_BYTES, SUPPLY_MAX_BYTES, supplyRouteMethods, supplyPath, supplyRequestSchema, supplyUsesKey, supplyMutates, parseSupplyResponse, type SupplyRoute } from "@/lib/contracts/supply-chain";
-import { hasValidStoreServiceFacts } from "@/lib/validation/workbench-store";
+import { hasValidStoreServiceFacts, workbenchStorePlatformSchema } from "@/lib/validation/workbench-store";
 import { planPath, planMethods, planRequestSchema, planResponseSchema, type PlanRoute } from "@/lib/contracts/acquisition-plan";
 import {officialConnectionViewSchema,officialConnectionBeginSchema,officialConnectionCompleteSchema,officialConnectionQuerySchema,officialApplicationListSchema,officialConnectionStartSchema,officialConnectionInstallSchema} from "@/lib/contracts/store-connection";
 import { BROWSER_CAPTURE_MAX_BYTES, browserCaptureSchema } from "@/lib/contracts/browser-capture";
@@ -182,7 +182,7 @@ const storeResponseSchema = z
   .object({
     id: canonicalUUIDSchema,
     name: normalizedPublicString(1, 120),
-    platform: z.literal("shein"),
+    platform: workbenchStorePlatformSchema,
     region: normalizedPublicString(1, 64),
     externalStoreId: normalizedPublicString(0, 128),
     recordStatus: z.enum([
@@ -1603,7 +1603,7 @@ function parseStoreListQuery(search: URLSearchParams) {
   }
   if (!validCanonicalInteger(values.get("pageSize"), 1, 100)) return null;
   const platform = values.get("platform");
-  if (platform !== undefined && platform !== "shein") return null;
+  if (platform !== undefined && !workbenchStorePlatformSchema.safeParse(platform).success) return null;
   const status = values.get("status");
   if (
     status !== undefined &&
@@ -1676,7 +1676,8 @@ function parseStoreBody(body: Uint8Array, kind: "create" | "update") {
   const region = normalizeStoreValue(values.get("region") ?? "", 64, true);
   if (name === null || region === null) return null;
   if (kind === "update") return { name, region };
-  if (values.get("platform") !== "shein") return null;
+  const platform = workbenchStorePlatformSchema.safeParse(values.get("platform"));
+  if (!platform.success) return null;
   const externalStoreId = normalizeStoreValue(
     values.get("externalStoreId") ?? "",
     128,
@@ -1684,8 +1685,8 @@ function parseStoreBody(body: Uint8Array, kind: "create" | "update") {
   );
   if (externalStoreId === null) return null;
   return values.has("externalStoreId")
-    ? { name, platform: "shein", region, externalStoreId }
-    : { name, platform: "shein", region };
+    ? { name, platform: platform.data, region, externalStoreId }
+    : { name, platform: platform.data, region };
 }
 
 function parseServiceLifecycleBody(
