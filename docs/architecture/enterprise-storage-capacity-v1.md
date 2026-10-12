@@ -229,6 +229,20 @@ Money 与 commercial 仍是两个数据库，第 4/5 步之间可能中断；原
 
 在 current application 开关中有界启用本模块。商业池、合法 schema、namespace 注册、所有已开启计量写入 adapter 必须就绪；声明“容量受控”而有直写绕过时启动/受影响写入 fail closed。模式尚未配置则容量产品 unavailable，不把旧路径存在当作容量可用。API 与图片 worker 必须注入相同容量 owner，不能只限制浏览器上传。
 
+### 8.1 已准入容量的配置回退守卫
+
+2026-10-12 PR #660 `storageCapacity:false` 回退 finding：**BLOCKER**，影响已购权益及并发容量限制。此有界增量 **DESIGN_REVIEW_PENDING**；原冻结核心与当前 Figma authority 保持有效，增量准入前不修改生产路径。
+
+`storageCapacity` 是全新 owner 的受控启用选项，不能作为已有容量账本的关闭按钮。选择最小的拒绝启动方案：挂载原 canonical commercial owner 后，false 配置必须先以只读、有界查询证明该 owner 没有任何容量 namespace 注册、account/reservation/object/binding/lot，也没有任何原 `STORAGE_CAPACITY_PURCHASE` 订单（包括在途、已完成或已取消）。任一事实存在，即拒绝 API 和企业图片 worker 启动；不隐藏或覆盖 paid lot，不取消订单、不停止其原恢复事实、不退回未计量写入。空且按当前 schema 初始化的商业 owner 允许 false，页面继续不开放容量入口；初始 offer/未成交报价本身不表示已产生付费或文件权益。true 启动继续原验证、namespace 注册及 meter 接线。
+
+Owner 与调用路径：容量六表仍由 `integration/persistence/storagecapacity` 窄仓储只读检查；原商业订单由 `integration/persistence/commercialbilling` 检查并组合容量结果。该 owner 的 `VerifyStorageCapacityDisabled` 由 current-application `prepareStorageCapacity`、HTTP 实际装配入口和 organization image worker 的原 `configureStorageCapacity` 消费，在监听请求或启动 worker 前拒绝错误配置。不得只保护一个 CLI 而留下直接装配绕过。查询错误、缺表、权限失败、deadline 或连接不可用均不能视为“空”；正常 runtime 不 DDL、不写关闭标记、不清理事实。检查绑定挂载的同一 owner，启用过的实例重启必须保留原 owner 配置和数据，不可换空库或移除 owner 伪装新安装。
+
+PostgreSQL 的存在性查询显式使用 `public` schema，不能由 search_path 的同名空表替代当前事实。守卫本身对 nil owner 返回 unavailable。没有 commercial owner、计量文件 writer 或容量产品的最小基础应用仍不消费本合同；只要实际装配任一 SourceMedia、Knowledge、REQUEST 附件或企业图片 writer，就必须保留可验证的原 commercial owner，缺失拒绝启动。此限制只保证当前写入不会把未知是否已有的容量账本当作空，不引入第二 owner 或配置自动发现。
+
+没有新增 schema、业务状态机、计量或恢复 owner、外部副作用、配置自动改写及 legacy fallback。false 守卫只阻止启动，不改任一 durable 事实；恢复方法是按原 owner 恢复 true 配置并重启，沿原幂等与 UNKNOWN 协议继续。保留原首次启用前停止未计量 writer、验证空 namespace 的要求；不授权混用未计量实例或新建部署协调平台。
+
+验证：先用已有 namespace、已确认对象/占用、paid lot、在途 storage order 和只有原账户的事实分别复现 false 启动被放行的 RED，再验证 API/实际装配及企业 worker 同样拒绝、原事实不变；空新 owner 的 false 仍可启动；错误/缺表/取消上下文 fail closed，true 重启的既有 namespace/owner 测试保持。使用现有 SQLite/隔离 PostgreSQL fixtures 和启动装配目标，不增加验收工具或操作真实云/数据。Legacy decision：EXTRACT，复用原 schema、owner 与 startup admission；没有旧模型依赖或迁移。
+
 ## 8 超限与操作结果
 
 | 操作 | 满额或到期超限行为 |
