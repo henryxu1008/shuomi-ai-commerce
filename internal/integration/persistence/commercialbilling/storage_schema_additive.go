@@ -61,14 +61,21 @@ func AddDisabledStorageSchema(ctx context.Context, tx *gorm.DB) error {
 			fieldNames = append(fieldNames, statement.Schema.FieldsByName[name].DBName)
 		}
 		// The additive fields define NOT NULL/defaults only. Leave unrelated
-		// retained Commercial constraints intact; refuse constraints on these
-		// fields, including expression exclusion constraints via their index.
+		// retained Commercial constraints/indexes intact; refuse dependencies
+		// on these fields, including standalone and expression indexes.
 		var constrained bool
 		if err := tx.Raw(`SELECT EXISTS (SELECT 1 FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid JOIN pg_namespace n ON n.oid=t.relnamespace JOIN pg_attribute a ON a.attrelid=t.oid AND a.attnum>0 AND NOT a.attisdropped WHERE n.nspname='public' AND t.relname=? AND a.attname IN ? AND (a.attnum=ANY(c.conkey) OR EXISTS (SELECT 1 FROM pg_depend d WHERE d.refclassid='pg_class'::regclass AND d.refobjid=t.oid AND d.refobjsubid=a.attnum AND ((d.classid='pg_constraint'::regclass AND d.objid=c.oid) OR (d.classid='pg_class'::regclass AND d.objid=c.conindid)))))`, statement.Table, fieldNames).Scan(&constrained).Error; err != nil {
 			return err
 		}
 		if constrained {
 			return fmt.Errorf("retained additive fields on public.%s have an unexpected constraint", statement.Table)
+		}
+		var indexed bool
+		if err := tx.Raw(`SELECT EXISTS (SELECT 1 FROM pg_index i JOIN pg_class t ON t.oid=i.indrelid JOIN pg_namespace n ON n.oid=t.relnamespace JOIN pg_depend d ON d.classid='pg_class'::regclass AND d.objid=i.indexrelid AND d.refclassid='pg_class'::regclass AND d.refobjid=t.oid JOIN pg_attribute a ON a.attrelid=t.oid AND a.attnum=d.refobjsubid AND NOT a.attisdropped WHERE n.nspname='public' AND t.relname=? AND a.attname IN ?)`, statement.Table, fieldNames).Scan(&indexed).Error; err != nil {
+			return err
+		}
+		if indexed {
+			return fmt.Errorf("retained additive fields on public.%s have an unexpected index", statement.Table)
 		}
 		columns, err := tx.Migrator().ColumnTypes(plan.model)
 		if err != nil {

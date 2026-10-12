@@ -85,7 +85,15 @@ func EnsureDisabledSchema(ctx context.Context, tx *gorm.DB) error {
 				return fmt.Errorf("capacity column public.%s.%s differs from its owner definition", statement.Table, column.Name())
 			}
 		}
-		for _, index := range statement.Schema.ParseIndexes() {
+		indexes := statement.Schema.ParseIndexes()
+		var indexCount int64
+		if err := tx.Raw(`SELECT count(*) FROM pg_index i JOIN pg_class t ON t.oid=i.indrelid JOIN pg_namespace n ON n.oid=t.relnamespace WHERE n.nspname='public' AND t.relname=? AND NOT i.indisprimary`, statement.Table).Scan(&indexCount).Error; err != nil {
+			return err
+		}
+		if indexCount != int64(len(indexes)) {
+			return fmt.Errorf("capacity table public.%s has a different index set", statement.Table)
+		}
+		for _, index := range indexes {
 			var observed struct {
 				Unique  bool
 				Columns string
