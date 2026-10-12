@@ -3,6 +3,8 @@ package temu
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -195,30 +197,35 @@ func (c *OfficialClient) readIdentity(ctx context.Context, origin, api, token st
 }
 
 func (c *OfficialClient) readOfficialResponse(ctx context.Context, origin, api, token string, fields map[string]json.RawMessage, result any) error {
+	_, err := c.callOfficialResponse(ctx, origin, api, token, fields, result)
+	return err
+}
+
+func (c *OfficialClient) callOfficialResponse(ctx context.Context, origin, api, token string, fields map[string]json.RawMessage, result any) (string, error) {
 	if ctx.Err() != nil {
-		return storecenter.ErrOfficialConnectionUnavailable
+		return "", storecenter.ErrOfficialConnectionUnavailable
 	}
 	body, err := c.encodeRequest(api, token, fields)
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer clear(body)
 	r, err := http.NewRequestWithContext(ctx, http.MethodPost, origin+"/openapi/router", bytes.NewReader(body))
 	if err != nil {
-		return storecenter.ErrOfficialConnectionUnavailable
+		return "", storecenter.ErrOfficialConnectionUnavailable
 	}
 	r.Header.Set("Content-Type", "application/json;charset=UTF-8")
 	response, err := c.http.Do(r)
 	if err != nil {
-		return storecenter.ErrOfficialConnectionUnavailable
+		return "", storecenter.ErrOfficialConnectionUnavailable
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		return storecenter.ErrOfficialConnectionUnavailable
+		return "", storecenter.ErrOfficialConnectionUnavailable
 	}
 	data, err := io.ReadAll(io.LimitReader(response.Body, maxOfficialBody+1))
 	if err != nil || len(data) > maxOfficialBody {
-		return storecenter.ErrOfficialConnectionUnavailable
+		return "", storecenter.ErrOfficialConnectionUnavailable
 	}
 	defer clear(data)
 	var envelope struct {
@@ -227,10 +234,11 @@ func (c *OfficialClient) readOfficialResponse(ctx context.Context, origin, api, 
 	}
 	if json.Unmarshal(data, &envelope) != nil || envelope.Success == nil || !*envelope.Success || len(envelope.Result) == 0 || bytes.Equal(envelope.Result, []byte("null")) || json.Unmarshal(envelope.Result, result) != nil {
 		// No provider message/raw body is included: either can echo secrets.
-		return storecenter.ErrOfficialConnectionUnavailable
+		return "", storecenter.ErrOfficialConnectionUnavailable
 	}
 	if ctx.Err() != nil {
-		return storecenter.ErrOfficialConnectionUnavailable
+		return "", storecenter.ErrOfficialConnectionUnavailable
 	}
-	return nil
+	hash := sha256.Sum256(data)
+	return hex.EncodeToString(hash[:]), nil
 }

@@ -31,6 +31,7 @@ type Application struct {
 	Authorization         preparation.Authorizer
 	PublicationReceipts   submission.OfficialReceiptRepository
 	PublicationStores     RuleStore
+	TargetMerchants       TargetMerchantReader
 	AuthorizeOptimization func(context.Context, preparation.OperationInput) error
 	OptimizationOptions   func(context.Context, collection.Query) (OptimizationOptions, error)
 	StageProjection       ReviewProjection
@@ -76,7 +77,7 @@ func (a *Application) QueryRules(ctx context.Context, in record.TargetInput) (Ta
 	if ctx == nil || a == nil || a.Authorization == nil || a.Sources == nil || a.Products == nil {
 		return TargetRules{}, preparation.ErrUnavailable
 	}
-	if in.TemuRules != nil && !reflect.DeepEqual(in.Draft, goods.OfficialDraftInput{}) {
+	if in.Temu != nil || in.TemuRules != nil && !reflect.DeepEqual(in.Draft, goods.OfficialDraftInput{}) {
 		return TargetRules{}, record.ErrInvalid
 	}
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)

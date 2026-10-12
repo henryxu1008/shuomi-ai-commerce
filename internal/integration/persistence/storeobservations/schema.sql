@@ -1,5 +1,5 @@
-CREATE SCHEMA shein_observations;
-CREATE TABLE shein_observations.commands(
+CREATE SCHEMA store_observations;
+CREATE TABLE store_observations.commands(
  organization_id varchar(200) NOT NULL,
  id uuid NOT NULL,
  actor_id varchar(200) NOT NULL,
@@ -11,7 +11,7 @@ CREATE TABLE shein_observations.commands(
  PRIMARY KEY(organization_id,id),
  UNIQUE(organization_id,actor_id,command_key)
 );
-CREATE TABLE shein_observations.syncs(
+CREATE TABLE store_observations.syncs(
  organization_id varchar(200) NOT NULL,
  store_id uuid NOT NULL,
  id uuid NOT NULL,
@@ -34,18 +34,18 @@ CREATE TABLE shein_observations.syncs(
  UNIQUE(organization_id,store_id,kind,id),
  UNIQUE(organization_id,actor_id,command_key),
  UNIQUE(organization_id,store_id,kind,generation),
- FOREIGN KEY(organization_id,command_id) REFERENCES shein_observations.commands(organization_id,id)
+ FOREIGN KEY(organization_id,command_id) REFERENCES store_observations.commands(organization_id,id)
 );
-CREATE TABLE shein_observations.heads(
+CREATE TABLE store_observations.heads(
  organization_id varchar(200) NOT NULL,
  store_id uuid NOT NULL,
  kind varchar(16) NOT NULL CHECK(kind IN('products','orders')),
  sequence bigint NOT NULL CHECK(sequence>0),
  current_id uuid,
  PRIMARY KEY(organization_id,store_id,kind),
- FOREIGN KEY(organization_id,store_id,kind,current_id) REFERENCES shein_observations.syncs(organization_id,store_id,kind,id)
+ FOREIGN KEY(organization_id,store_id,kind,current_id) REFERENCES store_observations.syncs(organization_id,store_id,kind,id)
 );
-CREATE TABLE shein_observations.records(
+CREATE TABLE store_observations.records(
  organization_id varchar(200) NOT NULL,
  store_id uuid NOT NULL,
  sync_id uuid NOT NULL,
@@ -56,7 +56,13 @@ CREATE TABLE shein_observations.records(
  window_key varchar(100) NOT NULL DEFAULT '',
  page_index integer NOT NULL CHECK(page_index>0),
  PRIMARY KEY(organization_id,store_id,sync_id,platform_id),
- FOREIGN KEY(organization_id,store_id,kind,sync_id) REFERENCES shein_observations.syncs(organization_id,store_id,kind,id),
- CHECK((kind='products' AND payload->'product'->>'id'=platform_id AND NOT payload ? 'order') OR (kind='orders' AND payload->'order'->>'id'=platform_id AND payload->'order'->>'site'='shein-us' AND NOT payload ? 'product'))
+ FOREIGN KEY(organization_id,store_id,kind,sync_id) REFERENCES store_observations.syncs(organization_id,store_id,kind,id),
+ CONSTRAINT store_observation_record_variant CHECK(
+  (kind='products' AND NOT payload ? 'order' AND (
+    (payload ? 'product' AND NOT payload ? 'temuProduct' AND payload->'product'->>'id'=platform_id)
+    OR (payload ? 'temuProduct' AND NOT payload ? 'product' AND payload->'temuProduct'->>'id'=platform_id AND payload->'temuProduct'->>'entity' IN('local_goods','supplier_skc'))
+  ))
+  OR (kind='orders' AND payload ? 'order' AND payload->'order'->>'id'=platform_id AND payload->'order'->>'site'='shein-us' AND NOT payload ? 'product' AND NOT payload ? 'temuProduct')
+ )
 );
-CREATE INDEX observations_sync_generation ON shein_observations.syncs(organization_id,store_id,kind,generation DESC);
+CREATE INDEX observations_sync_generation ON store_observations.syncs(organization_id,store_id,kind,generation DESC);

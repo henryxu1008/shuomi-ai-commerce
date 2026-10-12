@@ -365,3 +365,9 @@ E30 全部 235 行通过可见 DOM 表格读取，下列完整保留其中有 Si
 | externalGoodsId/outGoodsSn 关系与失响应 exact readback | UNKNOWN | 不做错误 adopt；原 UNKNOWN fence 保留 |
 | 真实官方应用/真实 merchant 授权、发布、撤权、消费者状态 | NOT_RUN | 本轮未授权业务 API/真实数据 |
 | 用户可操作产品/生产验收 | NOT_RUN | 已准入并开始店铺连接实现；未部署/未完成全范围，文档/开发自检/CI/AI评审不构成验收 |
+
+2026-10-12 本轮同步合同补读（仅官方文档，未调用商家 API）：E14 的 data 每项是一个 productSkcId，同一 productId 可有多项，totalCount 计列表项；productSkuSummaries.extCode 与 virtualStock 分别保留，虚拟库存不等同仓库可售库存。E16 以 productSkuIdList、pageNum/pageSize 查询 dataList.productId/skcList.skcId/selectStatus/skuList；未给 selectStatus 或 skcSiteStatus 的完整在售枚举，不把数值100或选品/JIT代码推断为在售。E19 使用外层 pageToken/pageSize，pagination.nextToken 缺失才表示末页；短页或 total 已达到不能取代游标结束。goodsStatus 的原值为 Active/InActive/Deleted/Draft/Incomplete，ALL 只覆盖 Active 与 InActive。skuSn 为平台编码，未证明等于创建请求的 externalSkuId。E20 的 status/subStatus 仅给数值字段，原代码保留，不推断审核通过。
+
+E43：[bg.goods.image.upload.global](https://agentpartner.temu.com/document?cataId=875198836203&docId=929743122710)，更新时间2025-06-22 20:00:52。PA 图片接口输入 image 为 jpg/jpeg/png 等的 base64，imageBizType 为0/1（1用于外包装）；options 可选择 cateId、doIntelligenceCrop、boost、sizeMode，响应包含 urls、imageUrl、url。该事实不能将它当作本土 V2 的 fileUrl/catId/usage 合同，不能静默智能裁剪、清晰度增强或任意选择多个返回结果，也未从此页证明永久有效。
+
+本轮再次核对 E24：页面仍为2026-01-26 15:47:43，完整可见表没有 Georgia/Armenia 或165/166；地区专用接口菜单当前可见补充为 Brazil，未找到两目标规格。只对已读页面作此结论，继续保留 GE/AM 缺规则及拒绝发布。

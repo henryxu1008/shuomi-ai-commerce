@@ -10,7 +10,7 @@ import (
 	"task-processor/internal/authz"
 	"task-processor/internal/core/config"
 	memberprovider "task-processor/internal/integration/zitadel/membership"
-	o "task-processor/internal/marketplace/shein/observations"
+	o "task-processor/internal/storecenter/observations"
 	"task-processor/internal/organization/membership"
 	"task-processor/internal/storecenter"
 )

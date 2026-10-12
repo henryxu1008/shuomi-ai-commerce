@@ -41,7 +41,7 @@ import (
 	knowledgehttp "task-processor/internal/knowledge/httpapi"
 	officialhttp "task-processor/internal/knowledge/httpapi/official"
 	"task-processor/internal/ledger/orgresource"
-	o "task-processor/internal/marketplace/shein/observations"
+	o "task-processor/internal/storecenter/observations"
 	notificationhttp "task-processor/internal/notificationcenter/httpapi"
 	cockpithttp "task-processor/internal/operationscockpit/httpapi"
 	"task-processor/internal/product/asset"

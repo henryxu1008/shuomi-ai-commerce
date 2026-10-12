@@ -11,6 +11,8 @@ import (
 	"sort"
 	"strconv"
 	"task-processor/internal/authidentity"
+	temuo "task-processor/internal/marketplace/temu/observations"
+	"task-processor/internal/storecenter"
 	"time"
 )
 
@@ -367,14 +369,45 @@ func (s *Service) Step(ctx context.Context, org, id string) (Sync, error) {
 	count := 0
 	var total *int
 	window := ""
+	var nativePage *ProductPage
 	if sync.Kind == Products {
-		page, e := merchant.Products(ctx, c.Page)
+		var page ProductPage
+		if sync.Binding.Platform == storecenter.PlatformTemu {
+			reader, ok := merchant.(TemuProductReader)
+			if !ok {
+				return stop(ErrUnavailable)
+			}
+			page, e = reader.TemuProducts(ctx, ProductQuery{Page: c.Page, PageToken: c.TemuPageToken})
+			if e == nil && (len(page.Items) > 0 || page.TokenPagination != (sync.Binding.MerchantMode == storecenter.MerchantLocal)) {
+				e = ErrConflict
+			}
+			nativePage = &page
+		} else {
+			page, e = merchant.Products(ctx, c.Page)
+			if e == nil && len(page.TemuItems) > 0 {
+				e = ErrConflict
+			}
+		}
 		if e != nil {
 			return stop(e)
 		}
 		count = len(page.Items)
 		total = &page.Total
 		seen := map[string]bool{}
+		if nativePage != nil {
+			count = len(page.TemuItems)
+			for _, note := range page.Notes {
+				c.Note(note)
+			}
+			for _, p := range page.TemuItems {
+				if !temuo.ValidProduct(p) || p.Mode != string(sync.Binding.MerchantMode) || seen[p.ID] {
+					return stop(ErrConflict)
+				}
+				seen[p.ID] = true
+				product := p
+				records = append(records, Record{StoreID: sync.StoreID, SyncID: sync.ID, ID: p.ID, TemuProduct: &product})
+			}
+		}
 		for _, p := range page.Items {
 			if !Identity(p.ID) || seen[p.ID] {
 				return Sync{}, ErrUnavailable
@@ -461,7 +494,13 @@ func (s *Service) Step(ctx context.Context, org, id string) (Sync, error) {
 		return stop(e)
 	}
 	sync.Progress = c
-	next, status, e := Advance(sync, count, total)
+	var next Checkpoint
+	var status string
+	if nativePage != nil && nativePage.TokenPagination {
+		next, status, e = advanceTemuCursor(sync, count, nativePage.Total, nativePage.NextToken)
+	} else {
+		next, status, e = Advance(sync, count, total)
+	}
 	if e != nil {
 		return Sync{}, e
 	}

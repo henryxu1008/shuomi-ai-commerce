@@ -24,6 +24,7 @@ type UploadAttemptView struct {
 	RecordID   string                     `json:"recordId"`
 	AttemptID  string                     `json:"attemptId"`
 	EffectKind string                     `json:"effectKind"`
+	Platform   string                     `json:"platform,omitempty"`
 	Status     submission.ExecutionStatus `json:"status"`
 	Message    string                     `json:"message"`
 }
@@ -62,10 +63,22 @@ func (a *Application) ReadUploadAttempt(ctx context.Context, recordID, attemptID
 		return UploadAttemptView{}, record.ErrConflict
 	}
 	message := "可填写原商品 SPU，从官方查询审核通过的商品核实。"
+	platform := ""
+	if saved.Merchant.Platform == storecenter.PlatformTemu {
+		if a.TargetMerchants == nil {
+			return UploadAttemptView{}, record.ErrUnavailable
+		}
+		binding, err := a.TargetMerchants.ReadTargetMerchant(ctx, scope, saved.Merchant.StoreID)
+		if err != nil || !validTargetMerchant(scope, saved.Merchant.StoreID, binding) || binding.SupplierIdentityHash != saved.Merchant.SupplierIdentityHash {
+			return UploadAttemptView{}, record.ErrForbidden
+		}
+		platform = "temu"
+		message = "原 TEMU 创建结果保留待核实。当前官方查询不足以证明该次批准资料的完整结果，不自动重发或解除占用。可在店铺商品查看独立同步的官方事实。"
+	}
 	if intent.Kind == "image" {
 		message = "图片处理结果待核实；官方未提供可安全确认该图片操作的查询，原操作保留，不自动重发。"
 	}
-	return UploadAttemptView{RecordID: recordID, AttemptID: attemptID, EffectKind: intent.Kind, Status: attempt.Status, Message: message}, nil
+	return UploadAttemptView{RecordID: recordID, AttemptID: attemptID, EffectKind: intent.Kind, Platform: platform, Status: attempt.Status, Message: message}, nil
 }
 
 func (a *Application) ResolveUpload(ctx context.Context, input ResolveUploadInput) (UploadResult, error) {

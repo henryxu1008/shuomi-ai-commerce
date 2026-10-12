@@ -12,7 +12,7 @@ import (
 	"strings"
 	app "task-processor/internal/app/storeobservations"
 	"task-processor/internal/authidentity"
-	o "task-processor/internal/marketplace/shein/observations"
+	o "task-processor/internal/storecenter/observations"
 	"testing"
 	"time"
 )

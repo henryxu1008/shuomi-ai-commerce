@@ -4,10 +4,12 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"github.com/google/uuid"
 	"strings"
 	"task-processor/internal/authidentity"
+	temuo "task-processor/internal/marketplace/temu/observations"
 	"task-processor/internal/storecenter"
 	"time"
 	"unicode"
@@ -91,8 +93,20 @@ type Product struct {
 	SKCs []SKC  `json:"skcs"`
 }
 type ProductPage struct {
-	Total int
-	Items []Product
+	Total           int
+	Items           []Product
+	TemuItems       []temuo.Product
+	TokenPagination bool
+	NextToken       *string
+	Notes           []string
+}
+
+type ProductQuery struct {
+	Page      int
+	PageToken string
+}
+type TemuProductReader interface {
+	TemuProducts(context.Context, ProductQuery) (ProductPage, error)
 }
 type OrderRef struct {
 	ID        string
@@ -172,13 +186,15 @@ func (w Window) Key() string {
 }
 
 type Checkpoint struct {
-	Page          int      `json:"page"`
-	Windows       []Window `json:"windows"`
-	ExpectedTotal *int     `json:"expectedTotal"`
-	Seen          int      `json:"seen"`
-	Pages         int      `json:"pages"`
-	Incomplete    bool     `json:"incomplete"`
-	Notes         []string `json:"notes"`
+	Page            int      `json:"page"`
+	Windows         []Window `json:"windows"`
+	ExpectedTotal   *int     `json:"expectedTotal"`
+	Seen            int      `json:"seen"`
+	Pages           int      `json:"pages"`
+	Incomplete      bool     `json:"incomplete"`
+	Notes           []string `json:"notes"`
+	TemuPageToken   string   `json:"temuPageToken,omitempty"`
+	TemuTokenHashes []string `json:"temuTokenHashes,omitempty"`
 }
 
 func (c *Checkpoint) Note(s string) {
@@ -211,6 +227,13 @@ type Sync struct {
 	ErrorCode  string     `json:"errorCode"`
 }
 
+func (s Sync) MarshalJSON() ([]byte, error) {
+	type publicSync Sync
+	s.Progress.TemuPageToken = ""
+	s.Progress.TemuTokenHashes = nil
+	return json.Marshal(publicSync(s))
+}
+
 func (s Sync) Terminal() bool {
 	return s.Status == "completed" || s.Status == "partial" || s.Status == "failed" || s.Status == "suspended"
 }
@@ -237,14 +260,15 @@ func ChildKey(parent, store string, kind Kind) string {
 }
 
 type Record struct {
-	StoreID    string    `json:"storeId"`
-	SyncID     string    `json:"syncId"`
-	ID         string    `json:"id"`
-	ObservedAt time.Time `json:"observedAt"`
-	Stale      bool      `json:"stale,omitempty"`
-	Product    *Product  `json:"product,omitempty"`
-	Order      *Order    `json:"order,omitempty"`
-	WindowKey  string    `json:"-"`
+	StoreID     string         `json:"storeId"`
+	SyncID      string         `json:"syncId"`
+	ID          string         `json:"id"`
+	ObservedAt  time.Time      `json:"observedAt"`
+	Stale       bool           `json:"stale,omitempty"`
+	Product     *Product       `json:"product,omitempty"`
+	TemuProduct *temuo.Product `json:"temuProduct,omitempty"`
+	Order       *Order         `json:"order,omitempty"`
+	WindowKey   string         `json:"-"`
 }
 type Query struct {
 	Kind       Kind

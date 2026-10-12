@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
+import {TemuProductFacts} from "./temu-product";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { RefreshCw, ExternalLink, Copy, X, ShoppingBag } from "lucide-react";
@@ -166,7 +167,7 @@ function ScopedPage({
       const out: WorkbenchStore[] = [];
       for (let page = 1; page <= 5; page++) {
         const result = await listWorkbenchStores(
-          { page, pageSize: 100, platform: "shein", status: "active" },
+          { page, pageSize: 100, ...(kind==="orders"?{platform:"shein" as const}:{}), status: "active" },
           scope.organizationId,
           signal,
         );
@@ -308,7 +309,7 @@ function ScopedPage({
   const metrics =
     kind === "products"
       ? [
-          ["平台商品（SKC）", metric(data?.summary.total)],
+          ["平台商品 / SKC", metric(data?.summary.total)],
           ["在售", metric(data?.summary.active)],
           ["审核中", "平台未提供"],
           ["已下架", metric(data?.summary.offShelf)],
@@ -358,14 +359,14 @@ function ScopedPage({
       <ConsoleToolbar>
         <label>
           平台
-          <Select aria-label="平台" disabled value="shein">
-            <option value="shein">SHEIN</option>
+          <Select aria-label="平台" disabled value={kind==="products"?"connected":"shein"}>
+            {kind==="products"?<option value="connected">SHEIN / TEMU</option>:<option value="shein">SHEIN</option>}
           </Select>
         </label>
         <label>
           站点
-          <Select aria-label="站点" disabled value="us">
-            <option value="us">美国站</option>
+          <Select aria-label="站点" disabled value={kind==="products"?"store":"us"}>
+            {kind==="products"?<option value="store">店铺官方目标</option>:<option value="us">美国站</option>}
           </Select>
         </label>
         <label>
@@ -698,6 +699,14 @@ function ProductTable({
         </TableHeader>
         <TableBody>
           {rows.map((r) => {
+			if(r.temuProduct){const p=r.temuProduct;return <TableRow key={`${r.storeId}:${r.id}`}>
+			 <TableCell><div className={styles.identity}><Thumbnail src={p.imageUrl}/><div><strong>{p.title||"平台未提供标题"}</strong><small>商品 {p.productId}{p.entity==="supplier_skc"?<><br/>SKC {p.id}</>:null}</small></div></div></TableCell>
+			 <TableCell>{p.skus.slice(0,3).map(s=><small key={s.id}>{s.externalCode||s.serialNumber||s.id}</small>)}{p.skus.length>3?"更多见详情":null}</TableCell>
+			 <TableCell>TEMU<br/>{p.mode==="local"?"本土":p.mode==="fully_managed"?"全托管":"半托管"}</TableCell>
+			 <TableCell>{names.get(r.storeId)??r.storeId}</TableCell><TableCell>该接口未提供</TableCell><TableCell>按 SKU 查看官方数量</TableCell>
+			 <TableCell><span className={styles.pill}>{p.saleState==="active"?"在售":p.saleState==="off"?"已下架":`状态待核实${p.rawStatus?` (${p.rawStatus})`:""}`}</span></TableCell>
+			 <TableCell>{timestamp(r.observedAt)}</TableCell><TableCell><Button size="sm" variant="ghost" onClick={()=>open(r)}>查看详情</Button></TableCell>
+			</TableRow>}
             const skc = r.product!.skcs[0];
             return (
               <TableRow key={`${r.storeId}:${r.id}:${skc.id}`}>
@@ -981,6 +990,7 @@ function Detail({
               ))}
             </section>
           ))}
+          {detail.data.temuProduct?<TemuProductFacts product={detail.data.temuProduct}/>:null}
           {order ? (
             <>
               <div className={styles.actions}>

@@ -87,6 +87,18 @@ function renderPage(kind: "products" | "orders" = "products") {
   );
   return { ...view, client };
 }
+
+it("opens native product facts with large IDs and separates raw review codes from sales",async()=>{
+ const native={storeId:id,syncId:id,id:"9007199254740993",observedAt:"2026-10-12T01:00:00Z",temuProduct:{id:"9007199254740993",productId:"9007199254740993",entity:"local_goods",mode:"local",title:"Native Shoe",externalCode:"",imageUrl:"",saleState:"active",rawStatus:"Active",skus:[{id:"9007199254740994",externalCode:"",serialNumber:"platform-code",stock:"0",stockKind:"stock",specifications:[]}],sites:[],publishStatus:{status:"1",subStatus:"2"}}};
+ const fetch=vi.fn(async(input:RequestInfo|URL)=>{const path=String(input);let data:unknown;
+  if(path.includes("capabilities"))data={available:true,canSync:true,runtimeReady:true,providerConfigured:true,kind:"products",site:"store-native",platformUrl:""};
+  else if(path.includes("/records/"))data=native;
+  else data={items:[native],next:"",summary:{total:1,active:1,offShelf:0,today:0,todayUnknown:0,pending:0,transit:0,exceptional:0,unknown:0},syncs:[],latest:[],complete:true};
+  return Response.json({organizationId:"org-a",userId:"actor-a",data});
+ });vi.stubGlobal("fetch",fetch);renderPage();
+ expect(await screen.findByText("Native Shoe")).toBeVisible();expect(screen.getByText(/商品 9007199254740993/)).toBeVisible();
+ await userEvent.click(screen.getByRole("button",{name:"查看详情"}));expect(await screen.findByText(/SKU 9007199254740994/)).toBeVisible();expect(screen.getByText("库存：0")).toBeVisible();expect(screen.getByText(/审核代码：1/)).toBeVisible();expect(screen.queryByText("审核通过")).not.toBeInTheDocument();
+});
 it.each(["products", "orders"] as const)("shows provider pending for %s after worker preparation without data reads", async(kind)=>{
  const request=vi.fn().mockResolvedValue(Response.json({organizationId:"org-a",userId:"actor-a",data:{available:false,canSync:false,runtimeReady:true,providerConfigured:false,kind,site:"shein-us",platformUrl:"https://sellerhub.shein.com/"}}));
  vi.stubGlobal("fetch",request);

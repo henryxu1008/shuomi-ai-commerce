@@ -16,6 +16,14 @@ function configure() {
   vi.stubEnv("LISTINGKIT_SERVICE_API_BASE", "http://127.0.0.1:9000/api/v1");
   vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL", "http://localhost:3000");
 }
+
+it("forwards qualified native product snapshots while keeping native orders closed",async()=>{
+ configure();const product={storeId:id,syncId:id,id:"9007199254740993",observedAt:"2026-10-12T01:00:00Z",temuProduct:{id:"9007199254740993",productId:"9007199254740993",entity:"local_goods",mode:"local",title:"Actual title",externalCode:"",imageUrl:"",saleState:"unknown",rawStatus:"",skus:[],sites:[]}};
+ const fetch=vi.fn().mockResolvedValue(Response.json({organizationId:"org-a",userId:"actor-a",data:product}));vi.stubGlobal("fetch",fetch);
+ const native=await proxyStoreObservations(new Request(`http://localhost:3000/api/workbench/store-observations/products/stores/${id}/syncs/${id}/records/9007199254740993`,{headers}),"private","actor-a");expect(native.status).toBe(200);expect((await native.json()).data.temuProduct.id).toBe("9007199254740993");
+ fetch.mockResolvedValueOnce(Response.json({organizationId:"org-a",userId:"actor-a",data:product}));
+ const order=await proxyStoreObservations(new Request(`http://localhost:3000/api/workbench/store-observations/orders/stores/${id}/syncs/${id}/records/9007199254740993`,{headers}),"private","actor-a");expect(order.status).not.toBe(200);
+});
 it("keeps original scopes and only forwards readonly endpoints", async () => {
   configure();
   const fetch = vi

@@ -156,6 +156,30 @@ func TestTemuRuleHandleVerifiesOriginalMerchantAndHasNoSerializableCredential(t 
 	}
 }
 
+func TestTargetMerchantBindingSelectsVerifiedPlatformAndCannotFallback(t *testing.T) {
+	for _, mode := range []storecenter.OfficialMerchantMode{storecenter.MerchantFullyManaged, storecenter.MerchantSemiManaged, storecenter.MerchantLocal} {
+		partition := storecenter.PartitionCN
+		if mode == storecenter.MerchantLocal {
+			partition = storecenter.PartitionGlobal
+		}
+		a, reader, p, subject := newTemuRulesAccess(t, partition, mode)
+		binding, err := a.ReadTargetMerchantBinding(context.Background(), subject, "store-a")
+		require.NoError(t, err)
+		require.Equal(t, mode, binding.MerchantMode)
+		require.True(t, binding.ValidTemuApplication())
+		require.Equal(t, 1, p.identityReads)
+		reader.material.Platform = "unsupported"
+		_, err = a.ReadTargetMerchantBinding(context.Background(), subject, "store-a")
+		require.ErrorIs(t, err, ErrProductAccessChanged)
+		require.Equal(t, 1, p.identityReads)
+		reader.material.Platform = storecenter.PlatformTemu
+		subject.Purpose = storecenter.ProductPurposePublish
+		_, err = a.ReadTargetMerchantBinding(context.Background(), subject, "store-a")
+		require.ErrorIs(t, err, ErrProductAccessChanged)
+		require.Equal(t, 1, p.identityReads)
+	}
+}
+
 func TestTemuRuleHandleRejectsChangedMembershipConnectionMerchantAndPurpose(t *testing.T) {
 	a, reader, p, subject := newTemuRulesAccess(t, storecenter.PartitionCN, storecenter.MerchantSemiManaged)
 	subject.Purpose = storecenter.ProductPurposePublish

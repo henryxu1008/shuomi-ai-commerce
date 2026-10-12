@@ -14,7 +14,7 @@ import (
 	"strings"
 	app "task-processor/internal/app/storeobservations"
 	"task-processor/internal/httproute"
-	o "task-processor/internal/marketplace/shein/observations"
+	o "task-processor/internal/storecenter/observations"
 	"time"
 	"unicode/utf8"
 )

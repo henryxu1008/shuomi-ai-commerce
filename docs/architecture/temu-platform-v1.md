@@ -135,6 +135,8 @@ Store DB：现有 Store record、connection、attempt、credential protection �
 
 Product DB：TargetRecord、official intent、执行 reservation/fence、official receipt 与 qualified resolution 继续用原同库 UoW。新增 TEMU tagged body 没有第二表系或不同队列 owner。不可变 intent 仅引用/摘要 canonical facts；不复制可更新 Product。原 finalize 必须同时保存必要远端标识与 outcome，否则不投影已上传。
 
+Asset DB：ApprovedAsset、批准 receipt/current inventory head 仍由原 Asset owner 的独立 `SupplyChainDependencies.AssetDB` 保存；不复制到 Product DB、不增加 Product serving 角色的 Asset 表权限。当前分库接线依据为 `internal/app/httpapi/supply_chain_application.go` 的独立 AssetDB reader/approval 构造与 productDB official/kernel 构造。
+
 只读远端商品观察保留 org/store/official merchant/connection revision、sync owner、observedAt、原文状态/远端标识/必要详情。沿现有观察 owner 的事务和 bounded pagination；增加明确 TEMU product variant，不能写入 shein_observations 模式专用 JSON 伪装 SHEIN，不重构无关订单/物流。sync 状态与 Submission 状态不是同一事实。
 
 跨 Store DB、Product DB、HTTP 不持有分布式事务；先实时 Store authorize，再 Product UoW claim，发送前重新检查原短期 binding。任何 Product DB commit 不确定都不能取得第二 permit。HTTP 之后授权变化不修改已发生的平台事实，原 owner 保留证据，新的读取仍按当前访问控制。复用既有 Temporal 执行/恢复入口，不能新建 TEMU reconciler、outbox 平台或业务队列。
@@ -181,12 +183,22 @@ Finding：E41 已把 E40 的成功返回地址改成7天临时链接；现有成
 - `temu-local-image-v2` 是明确图片副作用类型；stable subject 保留 exact approved Asset content hash、原官方 mall identity、API版本及 verified category + usage（这两项控制转换规则），排除 record、app、token、过期时间、operation 和临时URL。换record/批次/应用不能绕过同一图片的 UNKNOWN。
 - 首次图片发送仍用原 kernel 唯一 committed permit；receipt 保存完整校验后的 images[].url、原请求 category/usage/source Asset hash、响应hash、原 attempt/fence epoch、提交时间和使用截止。E40 没有 expiry 字段，截止保守取原 durable attempt.CreatedAt + 7天，不能从查询串、当前读取时间或用户输入延长；单次请求沿已有10秒/更短 caller deadline。
 - 每次使用须当前授权且严格早于截止；到期或使用窗口不足使本次商品 payload 无法取得发送许可。先核查原商品 fence：商品已成功只投影原结果；claimed/UNKNOWN 不执行新图片操作或商品 mutation。仅在商品从未发送或已有经过证明的 definitive-no-effect 时进入图片准备。保存资料/纯规则检查不能暗中上传。
-- 图片续期仅接受当前同一 stable fence 的最新 attempt 为明确 succeeded、原同库 typed receipt 和 exact intent 均完整有效、结果已到期，且当前 approved Asset/content/category/usage/merchant 不变。此时沿既有 fence.Epoch + 1 和新的不可变 intent 获得一次 permit；旧成功/回执不改写、不删除。所有检查、最新 fence 锁定、intent/receipt核对和新 claim 在原 Product DB 事务内完成；不能在app先检查后调用无约束 Acquire。其他状态或缺少证据均拒绝。
+- 图片续期仅接受当前同一 stable fence 的最新 attempt 为明确 succeeded、原同库 typed receipt 和 exact intent 均完整有效、结果已到期，且当前 saved record 引用的 approved Asset/content/category/usage/merchant 不变。此时沿既有 fence.Epoch + 1 和新的不可变 intent 获得一次 permit；旧成功/回执不改写、不删除。最新 fence 锁定、current immutable TargetRecord、原 intent/receipt、内容/用途/类别/商家引用与服务器截止核对和新 claim 必须在原 Product DB 事务内完成，不能在 app 先检查后调用无约束 Acquire。
+- 当前批准集合由原 AssetDB owner 核对：claim 前以及实际 send 前再次读取 `org + canonical ProductKey + temu + effectiveVersion` 的 current inventory，要求其摘要与 saved.InventoryHash 完全一致，并重新核实所选实际图片内容；成员/Store/凭据/来源/当前 Record 同时走既有实时检查。任何漂移阻止 provider 调用，不释放原 fence、不新取 permit。已经开始的 HTTP 或不确定提交继续由原 UNKNOWN 保存，不把后续撤权/批准变化解释为未发送。此处沿既有分库执行事实检查，不宣称跨库锁定 current Asset head 或其在远端 HTTP 期间不变，也不建立分布式事务、第二 Asset 快照 owner 或通用证明协议。
+- 商品 permit 的 Product 事务必须按 `TemuImages` 的 exact receipt ID/hash、当前成功 image fence/epoch、原图片 attempt 和服务器 UseBefore 核对全部引用；所有地址应覆盖该次最多10秒的发送窗口。实际 send 前再次核实这些引用及窗口，durable intent 不能绕过准备后发生的图片到期或新 UNKNOWN generation。
 - 并发续期只有一条获得 permit；其余读取同一新 attempt 或被 current claimed fence 拦截。新 attempt 响应丢失、commit不确定、取消/重启均留 UNKNOWN；7天经过也不解除该 UNKNOWN。重放旧 intent 只返回旧结果，不延长有效期、不新发。新 intent key 由原成功 attempt + exact intent input 绑定，客户端不能指定续期代数或时间。
 - TEMU 商品 succeeded 无条件挡住同 effect 的新创建；只有上述本土图片允许已知成功后的到期续期。供应商图片及 SHEIN 沿各自已证实合同，不套用本土公告。更新原 fresh-install receipt/schema guard，使同一图片保留多代 attempt 回执（attempt主键唯一、按 current fence 精确读取），商品成功的单 effect 唯一约束保留；无迁移或第二ledger。
 - 新地址用于新 payload fingerprint；仍绑定当前 saved record/ApprovedAsset/用户明确提交批准并核查 exact image receipt 来源与有效期。不得把图片续期当成重新批准已变资料的捷径，也不得因 E41 建议 try again 就重发已发送的商品。必要验证：已知成功未到期复用、到期同 fence 原子续期、UNKNOWN/缺receipt拒绝、双并发单permit、续期commit/响应丢失不再发、旧intent重放不延长、不同商家/用途/资产不可串用、商品UNKNOWN前置拒绝、新地址改变payloadhash。使用已有 Go/原 PG tests，不新建验收平台。
 
 独立增量复核：原 Reviewer 实际检查 72696b1bbe02bc6cd7ce0417627e8e98dba4f129 的产品/权限范围、SUB-K1 Acquire/write/epoch、official intent/receipt/finalize 和 fresh schema，明确本增量 IMPLEMENTATION_READY。G4 设计 BLOCKER 已闭合；以下属于 IMPLEMENTATION_TEST，阻塞受影响图片切片的合并/试用而不阻止按设计编码：I1 原事务同时验证最新 fence/成功 attempt/typed intent/receipt/资产用途类别商家/服务器截止并原子推进 epoch（不能只放开 succeeded）；I2 fresh schema 多代图片回执与 current fence 精确读取同步调整，商品及 SHEIN 成功保护、旧 intent/回执/截止保留。未运行正式实现/真实 API 或用户验收。
+
+2026-10-12 真实实现增量检查发现上述历史“所有检查在 Product DB”错误覆盖了独立 AssetDB owner。Finding：Product tx 查询 Asset 表使正式分库部署的首次图片/续期/商品 Acquire 无法完成。Product requirement affected：M3/M4。Classification：BLOCKER，命中“核心 happy path 按当前设计无法完成”，仅阻塞 G4 增量实施/合并/试用。本节按真实 owner 修正：Product 内核的 fence/intent/receipt/已批准内容引用仍原子验证；当前 Asset owner 在 claim 前和实际 send 前实时核对。其余冻结设计不重开。该相关设计增量待原独立 Reviewer 绑定本文修订复核；真实分库及最小权限组合、准备后 TTL 到期和多代回执属于对应 IMPLEMENTATION_TEST。原同库测试只证明内核状态/并发行为，不能作为真实分库组合或产品验收。
+
+该最小修订已由原 Reviewer 逐行复核并绑定文档内容 SHA256 `eb792b08f0e2b823867b26ccdb2e0cfe5fd0d6d660ab7f5d87f38013bd0c5a27`，明确 **IMPLEMENTATION_READY**：保留原 AssetDB owner、claim前/send前实时事实检查、原 Product tx 的 record/intent/receipt/fence/TTL 不变量；无新增 owner、分布式事务或 Accepted Risk。允许仅修复该已证实 BLOCKER，完成后只复核分库/最小权限及商品图片 TTL 对应增量。历史“待复核”描述和同库测试限制保留为原审计时点，不替代本次准入。
+
+对应代码增量已由同一 Reviewer 绑定 `bb858aa` 加未提交修复、policy 文件 SHA256 `8ce10cab89cd2c6b8cda2f4a333acd2aac688d67de3d166777cceff91db2f60d` 复核：Product tx 跨库读取 BLOCKER 关闭；双数据库、无 Asset 表的受限 Product serving role、原 fence/多代回执行为及 product→image 锁顺序/未来10秒 TTL gate 已检查。当前 `temuFacts` 的真实 Native consumer 在 claim前/每次send前调用仍为 M2/M3/M4/M6 的 IMPLEMENTATION_TEST；相关独立单测 PASS 和作者分库 PG3.675s PASS 不是实际消费完成、完整交付或产品验收。
+
+2026-10-12 对应 Native consumer 已由同一独立 Reviewer 绑定 `bb858aa3439d7a2db0fa103aea4c919bf8dc6b81` 加实际增量、内容摘要 `8fa69cd294d3b8bf59e91a761021c6d060c2f33b8778fae7530f923bdd4844ba` 检查通过，无未关闭 BLOCKER，前述 G4 consumer 项关闭。实际 claim/send 前消费当前资料、Asset 与图片回执；发送 context 受原 permit lease deadline 限定；观察结束重查 Record/Asset 当前 heads 并重选同一不可变 source。新发现的许可到期、观察期间资料/批准变化、五秒 source proof 生命周期均归入 IMPLEMENTATION_TEST 并经 RED/GREEN 与独立相关执行收敛，过期/漂移不调用 provider，保留原 UNKNOWN/fence。本结论只覆盖 G4/私密 mutation 对应增量，不替代供应商创建、同步、最终用户路径或真实平台验收。
 
 ## 9. 资源、协议与组件复用
 

@@ -12,6 +12,7 @@ import (
 	"task-processor/internal/listing/submission"
 	"task-processor/internal/marketplace/shein/goods"
 	model "task-processor/internal/marketplace/shein/model"
+	temugoods "task-processor/internal/marketplace/temu/goods"
 	"task-processor/internal/product/asset"
 	"task-processor/internal/product/collection"
 	"task-processor/internal/storecenter"
@@ -48,9 +49,12 @@ type UploadDependencies struct {
 	Products      record.EffectiveTargetProductReader
 	Assets        record.ApprovedAssetReader
 	Rules         record.TargetRuleReader
+	TemuRules     record.TargetTemuRuleReader
+	TemuImages    record.TargetTemuImageReader
 	Records       record.TargetRepository
 	Authorization collection.ExecutionAuthorizer
 	Stores        ExecutionStore
+	TemuStores    TemuExecutionStore
 	Images        ImageProbe
 	Kernel        UploadKernel
 	Intents       submission.OfficialIntentRepository
@@ -65,6 +69,7 @@ type UploadResult struct {
 	Status                submission.ExecutionStatus `json:"status"`
 	CurrentRecordUploaded bool                       `json:"currentRecordUploaded"`
 	Product               model.PublishResult        `json:"product,omitempty"`
+	TemuProduct           *temugoods.CreatedGoods    `json:"temuProduct,omitempty"`
 	Message               string                     `json:"message,omitempty"`
 }
 
@@ -179,6 +184,9 @@ func (s *UploadService) Upload(ctx context.Context, scope collection.Scope, key,
 	}
 	if _, err = s.source(ctx, scope, saved); err != nil {
 		return UploadResult{}, err
+	}
+	if saved.Merchant.Platform == storecenter.PlatformTemu {
+		return s.uploadTemu(ctx, scope, key, saved)
 	}
 	if _, err = s.dependencies.Stores.ExecutionMerchant(ctx, scope, saved.Merchant.StoreID, storecenter.ProductPurposePublish, &saved.Merchant); err != nil {
 		return UploadResult{}, err
@@ -333,7 +341,7 @@ func (s *UploadService) replay(ctx context.Context, scope collection.Scope, reco
 		if err != nil {
 			return UploadResult{}, err
 		}
-		return UploadResult{RecordID: recordID, PublishedRecordID: receipt.RecordID, AttemptID: attempt.AttemptID, Status: attempt.Status, CurrentRecordUploaded: receipt.Kind == "publish" && receipt.RecordID == recordID, Product: receipt.Product, Message: "保留原操作结果"}, nil
+		return UploadResult{RecordID: recordID, PublishedRecordID: receipt.RecordID, AttemptID: attempt.AttemptID, Status: attempt.Status, CurrentRecordUploaded: receipt.Kind == "publish" && receipt.RecordID == recordID, Product: receipt.Product, TemuProduct: receipt.TemuProduct, Message: "保留原操作结果"}, nil
 	}
 	if attempt.Status == submission.ExecutionFailedDefinitive || attempt.Status == submission.ExecutionCancelled {
 		return UploadResult{RecordID: recordID, AttemptID: attempt.AttemptID, Status: attempt.Status, Message: "保留已核实的原操作结果"}, nil

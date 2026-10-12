@@ -17,7 +17,7 @@ type productExecutionAccess struct {
 	err   error
 }
 
-func TestTemuNativeProductMaterialUsesCurrentStoreAuthorityAndOnlyRulePurpose(t *testing.T) {
+func TestTemuNativeProductMaterialUsesCurrentStoreAuthorityAndExplicitPurpose(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open("file:"+uuid.NewString()+"?mode=memory&cache=shared"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	require.NoError(t, err)
 	pool, err := db.DB()
@@ -48,8 +48,11 @@ func TestTemuNativeProductMaterialUsesCurrentStoreAuthorityAndOnlyRulePurpose(t 
 	for _, purpose := range []string{ProductPurposePublish, ProductPurposeImage} {
 		subject.Purpose = purpose
 		_, err = repo.ReadProductExecution(ctx, subject, storeID, authorization, now)
-		require.ErrorIs(t, err, ErrNotFound, "a metadata capability cannot grant an unimplemented mutation")
+		require.NoError(t, err)
 	}
+	subject.Purpose = "arbitrary_mutation"
+	_, err = repo.ReadProductExecution(ctx, subject, storeID, authorization, now)
+	require.ErrorIs(t, err, ErrNotFound)
 	subject.Purpose = ProductPurposeRules
 	_, err = repo.ReadProductExecution(ctx, subject, storeID, authorization, now.Add(time.Minute))
 	require.ErrorIs(t, err, ErrNotFound)

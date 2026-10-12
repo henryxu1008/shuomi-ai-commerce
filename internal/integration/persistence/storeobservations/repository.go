@@ -1,4 +1,4 @@
-package sheinobservations
+package storeobservations
 
 import (
 	"context"
@@ -12,11 +12,19 @@ import (
 	"gorm.io/gorm"
 	"strings"
 	"task-processor/internal/authidentity"
-	o "task-processor/internal/marketplace/shein/observations"
+	temuo "task-processor/internal/marketplace/temu/observations"
+	"task-processor/internal/storecenter"
+	o "task-processor/internal/storecenter/observations"
 	"time"
 )
 
 type Repository struct{ db *gorm.DB }
+
+const productRowsLateral = ` CROSS JOIN LATERAL (
+ SELECT k->>'id' AS row_id,jsonb_build_object('product',jsonb_build_object('id',r.platform_id,'skcs',jsonb_build_array(k))) AS payload,k AS item,CASE WHEN k->>'siteStatus'='1' THEN 'active' WHEN k->>'siteStatus'='0' THEN 'off' ELSE 'unknown' END AS sale_state FROM jsonb_array_elements(r.payload->'product'->'skcs') k WHERE jsonb_exists(r.payload,'product')
+ UNION ALL SELECT r.platform_id,r.payload,r.payload->'temuProduct',coalesce(r.payload->'temuProduct'->>'saleState','unknown') WHERE jsonb_exists(r.payload,'temuProduct')
+ ) entry`
+
 type syncRow struct {
 	OrganizationID, StoreID, ID, CommandID, ActorID, MemberID, CommandKey, Kind, Status, ErrorCode string
 	Generation, Revision                                                                           int64
@@ -36,7 +44,7 @@ func (x syncRow) value() (o.Sync, error) {
 	return s, nil
 }
 func readSync(db *gorm.DB, org, id string, lock bool) (o.Sync, error) {
-	sql := `SELECT * FROM shein_observations.syncs WHERE organization_id=? AND id=?`
+	sql := `SELECT * FROM store_observations.syncs WHERE organization_id=? AND id=?`
 	if lock {
 		sql += " FOR UPDATE"
 	}
@@ -65,7 +73,7 @@ type commandRow struct {
 
 func command(db *gorm.DB, scope o.Scope, key string) (o.Command, error) {
 	var x commandRow
-	result := db.Raw(`SELECT * FROM shein_observations.commands WHERE organization_id=? AND actor_id=? AND member_id=? AND command_key=?`, scope.OrganizationID, scope.ActorID, scope.MemberID, key).Scan(&x)
+	result := db.Raw(`SELECT * FROM store_observations.commands WHERE organization_id=? AND actor_id=? AND member_id=? AND command_key=?`, scope.OrganizationID, scope.ActorID, scope.MemberID, key).Scan(&x)
 	if result.Error != nil {
 		return o.Command{}, o.ErrUnavailable
 	}
@@ -77,7 +85,7 @@ func command(db *gorm.DB, scope o.Scope, key string) (o.Command, error) {
 		return c, o.ErrUnavailable
 	}
 	var rows []syncRow
-	if db.Raw(`SELECT * FROM shein_observations.syncs WHERE organization_id=? AND command_id=? ORDER BY store_id`, scope.OrganizationID, c.ID).Scan(&rows).Error != nil {
+	if db.Raw(`SELECT * FROM store_observations.syncs WHERE organization_id=? AND command_id=? ORDER BY store_id`, scope.OrganizationID, c.ID).Scan(&rows).Error != nil {
 		return c, o.ErrUnavailable
 	}
 	for _, row := range rows {
@@ -120,7 +128,7 @@ func (r *Repository) Begin(ctx context.Context, scope o.Scope, key, hash string,
 			return e
 		}
 		var used int64
-		if tx.Raw(`SELECT count(*) FROM shein_observations.commands WHERE organization_id=? AND actor_id=? AND command_key=?`, scope.OrganizationID, scope.ActorID, key).Scan(&used).Error != nil {
+		if tx.Raw(`SELECT count(*) FROM store_observations.commands WHERE organization_id=? AND actor_id=? AND command_key=?`, scope.OrganizationID, scope.ActorID, key).Scan(&used).Error != nil {
 			return o.ErrUnavailable
 		}
 		if used != 0 {
@@ -132,7 +140,7 @@ func (r *Repository) Begin(ctx context.Context, scope o.Scope, key, hash string,
 		}
 		id := uuid.NewString()
 		at := children[0].CreatedAt
-		if tx.Exec(`INSERT INTO shein_observations.commands(organization_id,id,actor_id,member_id,command_key,payload_hash,input,created_at) VALUES(?,?,?,?,?,?,?::jsonb,?)`, scope.OrganizationID, id, scope.ActorID, scope.MemberID, key, hash, string(raw), at).Error != nil {
+		if tx.Exec(`INSERT INTO store_observations.commands(organization_id,id,actor_id,member_id,command_key,payload_hash,input,created_at) VALUES(?,?,?,?,?,?,?::jsonb,?)`, scope.OrganizationID, id, scope.ActorID, scope.MemberID, key, hash, string(raw), at).Error != nil {
 			return o.ErrUnavailable
 		}
 		seen := map[string]bool{}
@@ -142,13 +150,13 @@ func (r *Repository) Begin(ctx context.Context, scope o.Scope, key, hash string,
 			}
 			seen[s.StoreID] = true
 			var generation int64
-			if tx.Raw(`INSERT INTO shein_observations.heads(organization_id,store_id,kind,sequence) VALUES(?,?,?,1) ON CONFLICT(organization_id,store_id,kind) DO UPDATE SET sequence=shein_observations.heads.sequence+1 RETURNING sequence`, scope.OrganizationID, s.StoreID, s.Kind).Scan(&generation).Error != nil {
+			if tx.Raw(`INSERT INTO store_observations.heads(organization_id,store_id,kind,sequence) VALUES(?,?,?,1) ON CONFLICT(organization_id,store_id,kind) DO UPDATE SET sequence=store_observations.heads.sequence+1 RETURNING sequence`, scope.OrganizationID, s.StoreID, s.Kind).Scan(&generation).Error != nil {
 				return o.ErrUnavailable
 			}
 			binding, _ := json.Marshal(s.Binding)
 			progress, _ := json.Marshal(s.Progress)
 			queryRange, _ := json.Marshal(s.Range)
-			if tx.Exec(`INSERT INTO shein_observations.syncs(organization_id,store_id,id,command_id,actor_id,member_id,command_key,kind,generation,revision,status,binding,progress,query_range,created_at,error_code) VALUES(?,?,?,?,?,?,?,?,?,1,?,?::jsonb,?::jsonb,?::jsonb,?,?)`, scope.OrganizationID, s.StoreID, s.ID, id, scope.ActorID, scope.MemberID, s.Key, s.Kind, generation, s.Status, string(binding), string(progress), string(queryRange), s.CreatedAt, s.ErrorCode).Error != nil {
+			if tx.Exec(`INSERT INTO store_observations.syncs(organization_id,store_id,id,command_id,actor_id,member_id,command_key,kind,generation,revision,status,binding,progress,query_range,created_at,error_code) VALUES(?,?,?,?,?,?,?,?,?,1,?,?::jsonb,?::jsonb,?::jsonb,?,?)`, scope.OrganizationID, s.StoreID, s.ID, id, scope.ActorID, scope.MemberID, s.Key, s.Kind, generation, s.Status, string(binding), string(progress), string(queryRange), s.CreatedAt, s.ErrorCode).Error != nil {
 				return o.ErrUnavailable
 			}
 		}
@@ -172,7 +180,7 @@ func (r *Repository) Heads(ctx context.Context, org string, kind o.Kind, stores 
 	}
 	db := r.db.WithContext(ctx)
 	var rows []syncRow
-	if db.Raw(`SELECT DISTINCT ON(store_id) * FROM shein_observations.syncs WHERE organization_id=? AND kind=? AND store_id IN ? ORDER BY store_id,generation DESC`, org, kind, stores).Scan(&rows).Error != nil {
+	if db.Raw(`SELECT DISTINCT ON(store_id) * FROM store_observations.syncs WHERE organization_id=? AND kind=? AND store_id IN ? ORDER BY store_id,generation DESC`, org, kind, stores).Scan(&rows).Error != nil {
 		return nil, nil, o.ErrUnavailable
 	}
 	byStore := map[string]o.Sync{}
@@ -185,7 +193,7 @@ func (r *Repository) Heads(ctx context.Context, org string, kind o.Kind, stores 
 		byStore[s.StoreID] = s
 	}
 	rows = nil
-	if db.Raw(`SELECT s.* FROM shein_observations.heads h JOIN shein_observations.syncs s ON s.organization_id=h.organization_id AND s.store_id=h.store_id AND s.id=h.current_id AND s.kind=h.kind WHERE h.organization_id=? AND h.kind=? AND h.store_id IN ?`, org, kind, stores).Scan(&rows).Error != nil {
+	if db.Raw(`SELECT s.* FROM store_observations.heads h JOIN store_observations.syncs s ON s.organization_id=h.organization_id AND s.store_id=h.store_id AND s.id=h.current_id AND s.kind=h.kind WHERE h.organization_id=? AND h.kind=? AND h.store_id IN ?`, org, kind, stores).Scan(&rows).Error != nil {
 		return nil, nil, o.ErrUnavailable
 	}
 	for _, row := range rows {
@@ -229,14 +237,18 @@ func (r *Repository) CommitPage(ctx context.Context, expected o.Sync, next o.Che
 				return o.ErrInvalid
 			}
 			seen[v.ID] = true
-			if current.Kind == o.Products && (v.Product == nil || v.Order != nil || v.Product.ID != v.ID) || current.Kind == o.Orders && (v.Order == nil || v.Product != nil || v.Order.ID != v.ID || v.Order.Site != "shein-us") {
+			validProduct := v.Order == nil && v.Product != nil && v.TemuProduct == nil && v.Product.ID == v.ID && current.Binding.Platform != storecenter.PlatformTemu
+			if current.Binding.Platform == storecenter.PlatformTemu {
+				validProduct = v.Order == nil && v.Product == nil && v.TemuProduct != nil && v.TemuProduct.ID == v.ID && temuo.ValidProduct(*v.TemuProduct) && v.TemuProduct.Mode == string(current.Binding.MerchantMode)
+			}
+			if current.Kind == o.Products && !validProduct || current.Kind == o.Orders && (v.Order == nil || v.Product != nil || v.TemuProduct != nil || v.Order.ID != v.ID || v.Order.Site != "shein-us" || current.Binding.Platform == storecenter.PlatformTemu) {
 				return o.ErrInvalid
 			}
 			var prior struct {
 				WindowKey string
 				PageIndex int
 			}
-			result := tx.Raw(`SELECT window_key,page_index FROM shein_observations.records WHERE organization_id=? AND store_id=? AND sync_id=? AND platform_id=?`, current.Owner.OrganizationID, current.StoreID, current.ID, v.ID).Scan(&prior)
+			result := tx.Raw(`SELECT window_key,page_index FROM store_observations.records WHERE organization_id=? AND store_id=? AND sync_id=? AND platform_id=?`, current.Owner.OrganizationID, current.StoreID, current.ID, v.ID).Scan(&prior)
 			if result.Error != nil {
 				return o.ErrUnavailable
 			}
@@ -244,13 +256,14 @@ func (r *Repository) CommitPage(ctx context.Context, expected o.Sync, next o.Che
 				next.Note("duplicate_platform_identity")
 			}
 			payload, _ := json.Marshal(struct {
-				Product *o.Product `json:"product,omitempty"`
-				Order   *o.Order   `json:"order,omitempty"`
-			}{v.Product, v.Order})
+				Product     *o.Product     `json:"product,omitempty"`
+				TemuProduct *temuo.Product `json:"temuProduct,omitempty"`
+				Order       *o.Order       `json:"order,omitempty"`
+			}{v.Product, v.TemuProduct, v.Order})
 			if len(payload) > 262144 {
 				return o.ErrInvalid
 			}
-			if tx.Exec(`INSERT INTO shein_observations.records(organization_id,store_id,sync_id,kind,platform_id,payload,observed_at,window_key,page_index) VALUES(?,?,?,?,?,?::jsonb,?,?,?) ON CONFLICT(organization_id,store_id,sync_id,platform_id) DO UPDATE SET payload=EXCLUDED.payload,observed_at=EXCLUDED.observed_at,window_key=EXCLUDED.window_key,page_index=EXCLUDED.page_index`, current.Owner.OrganizationID, current.StoreID, current.ID, current.Kind, v.ID, string(payload), at, v.WindowKey, current.Progress.Page).Error != nil {
+			if tx.Exec(`INSERT INTO store_observations.records(organization_id,store_id,sync_id,kind,platform_id,payload,observed_at,window_key,page_index) VALUES(?,?,?,?,?,?::jsonb,?,?,?) ON CONFLICT(organization_id,store_id,sync_id,platform_id) DO UPDATE SET payload=EXCLUDED.payload,observed_at=EXCLUDED.observed_at,window_key=EXCLUDED.window_key,page_index=EXCLUDED.page_index`, current.Owner.OrganizationID, current.StoreID, current.ID, current.Kind, v.ID, string(payload), at, v.WindowKey, current.Progress.Page).Error != nil {
 				return o.ErrUnavailable
 			}
 		}
@@ -261,13 +274,13 @@ func (r *Repository) CommitPage(ctx context.Context, expected o.Sync, next o.Che
 		if len(raw) > 65536 {
 			return o.ErrInvalid
 		}
-		if tx.Exec(`UPDATE shein_observations.syncs SET progress=?::jsonb,status=?,revision=revision+1,observed_at=? WHERE organization_id=? AND id=?`, string(raw), status, at, current.Owner.OrganizationID, current.ID).Error != nil {
+		if tx.Exec(`UPDATE store_observations.syncs SET progress=?::jsonb,status=?,revision=revision+1,observed_at=? WHERE organization_id=? AND id=?`, string(raw), status, at, current.Owner.OrganizationID, current.ID).Error != nil {
 			return o.ErrUnavailable
 		}
 		if status == "completed" {
 			// Allocation and promotion share this scoped head lock. An older completion
 			// can retain its own results but cannot undo the newer published generation.
-			if tx.Exec(`UPDATE shein_observations.heads h SET current_id=? WHERE h.organization_id=? AND h.store_id=? AND h.kind=? AND (h.current_id IS NULL OR EXISTS(SELECT 1 FROM shein_observations.syncs s WHERE s.organization_id=h.organization_id AND s.store_id=h.store_id AND s.kind=h.kind AND s.id=h.current_id AND s.generation<?))`, current.ID, current.Owner.OrganizationID, current.StoreID, current.Kind, current.Generation).Error != nil {
+			if tx.Exec(`UPDATE store_observations.heads h SET current_id=? WHERE h.organization_id=? AND h.store_id=? AND h.kind=? AND (h.current_id IS NULL OR EXISTS(SELECT 1 FROM store_observations.syncs s WHERE s.organization_id=h.organization_id AND s.store_id=h.store_id AND s.kind=h.kind AND s.id=h.current_id AND s.generation<?))`, current.ID, current.Owner.OrganizationID, current.StoreID, current.Kind, current.Generation).Error != nil {
 				return o.ErrUnavailable
 			}
 		}
@@ -293,7 +306,7 @@ func (r *Repository) Stop(ctx context.Context, expected o.Sync, status, code str
 		if !sameSync(current, expected) {
 			return o.ErrConflict
 		}
-		if tx.Exec(`UPDATE shein_observations.syncs SET status=?,error_code=?,revision=revision+1 WHERE organization_id=? AND id=?`, status, code, current.Owner.OrganizationID, current.ID).Error != nil {
+		if tx.Exec(`UPDATE store_observations.syncs SET status=?,error_code=?,revision=revision+1 WHERE organization_id=? AND id=?`, status, code, current.Owner.OrganizationID, current.ID).Error != nil {
 			return o.ErrUnavailable
 		}
 		out, e = readSync(tx, current.Owner.OrganizationID, current.ID, false)
@@ -320,7 +333,7 @@ func (r *Repository) Record(ctx context.Context, org, store string, kind o.Kind,
 		return o.Record{}, o.ErrInvalid
 	}
 	var row recordRow
-	q := r.db.WithContext(ctx).Raw(`SELECT store_id,sync_id,platform_id,payload,observed_at FROM shein_observations.records WHERE organization_id=? AND store_id=? AND kind=? AND sync_id=? AND platform_id=?`, org, store, kind, sync, id).Scan(&row)
+	q := r.db.WithContext(ctx).Raw(`SELECT store_id,sync_id,platform_id,payload,observed_at FROM store_observations.records WHERE organization_id=? AND store_id=? AND kind=? AND sync_id=? AND platform_id=?`, org, store, kind, sync, id).Scan(&row)
 	if q.Error != nil {
 		return o.Record{}, o.ErrUnavailable
 	}
@@ -379,17 +392,17 @@ func (r *Repository) list(ctx context.Context, org string, q o.Query) (o.Result,
 	}
 	base := `SELECT r.store_id,r.sync_id,r.platform_id,r.observed_at,`
 	if q.Kind == o.Products {
-		base += `k->>'id' AS row_id,jsonb_build_object('product',jsonb_build_object('id',r.platform_id,'skcs',jsonb_build_array(k))) AS payload,k AS item FROM shein_observations.records r CROSS JOIN LATERAL jsonb_array_elements(r.payload->'product'->'skcs') k`
+		base += `entry.row_id,entry.payload,entry.item,entry.sale_state FROM store_observations.records r` + productRowsLateral
 	} else {
-		base += `r.platform_id AS row_id,r.payload,r.payload->'order' AS item FROM shein_observations.records r`
+		base += `r.platform_id AS row_id,r.payload,r.payload->'order' AS item FROM store_observations.records r`
 	}
 	base += ` WHERE r.organization_id=? AND r.kind=? AND (` + strings.Join(conditions, " OR ") + `)`
 	filter := " WHERE true"
 	if q.Keyword != "" {
 		pattern := "%" + strings.NewReplacer("\\", "\\\\", "%", "\\%", "_", "\\_").Replace(q.Keyword) + "%"
 		if q.Kind == o.Products {
-			filter += ` AND (platform_id ILIKE ? OR row_id ILIKE ? OR item->>'title' ILIKE ? OR item->>'sellerCode' ILIKE ? OR EXISTS(SELECT 1 FROM jsonb_array_elements(item->'skus') sku WHERE sku->>'id' ILIKE ? OR sku->>'sellerSku' ILIKE ?))`
-			for i := 0; i < 6; i++ {
+			filter += ` AND (platform_id ILIKE ? OR row_id ILIKE ? OR item->>'title' ILIKE ? OR item->>'sellerCode' ILIKE ? OR item->>'externalCode' ILIKE ? OR item->>'productId' ILIKE ? OR EXISTS(SELECT 1 FROM jsonb_array_elements(item->'skus') sku WHERE sku->>'id' ILIKE ? OR sku->>'sellerSku' ILIKE ? OR sku->>'externalCode' ILIKE ? OR sku->>'serialNumber' ILIKE ?))`
+			for i := 0; i < 10; i++ {
 				args = append(args, pattern)
 			}
 		} else {
@@ -404,11 +417,11 @@ func (r *Repository) list(ctx context.Context, org string, q o.Query) (o.Result,
 		if q.Kind == o.Products {
 			switch q.Status {
 			case "active":
-				filter += ` AND item->>'siteStatus'='1'`
+				filter += ` AND sale_state='active'`
 			case "off":
-				filter += ` AND item->>'siteStatus'='0'`
+				filter += ` AND sale_state='off'`
 			case "unknown":
-				filter += ` AND (item->>'siteStatus' IS NULL OR item->>'siteStatus' NOT IN('0','1'))`
+				filter += ` AND sale_state NOT IN('active','off')`
 			default:
 				return out, o.ErrInvalid
 			}
@@ -433,7 +446,7 @@ func (r *Repository) list(ctx context.Context, org string, q o.Query) (o.Result,
 	summary := `SELECT count(*) AS total`
 	summaryArgs := append([]any{}, args...)
 	if q.Kind == o.Products {
-		summary += `,count(*) FILTER(WHERE item->>'siteStatus'='1') AS active,count(*) FILTER(WHERE item->>'siteStatus'='0') AS off_shelf,count(*) FILTER(WHERE item->>'siteStatus' IS NULL OR item->>'siteStatus' NOT IN('0','1')) AS unknown`
+		summary += `,count(*) FILTER(WHERE sale_state='active') AS active,count(*) FILTER(WHERE sale_state='off') AS off_shelf,count(*) FILTER(WHERE sale_state NOT IN('active','off')) AS unknown`
 	} else {
 		summary += `,count(*) FILTER(WHERE NULLIF(item->>'createdAt','')::timestamptz>=? AND NULLIF(item->>'createdAt','')::timestamptz<?) AS today,count(*) FILTER(WHERE NULLIF(item->>'createdAt','') IS NULL) AS today_unknown,count(*) FILTER(WHERE item->>'status' IN('1','2','3')) AS pending,count(*) FILTER(WHERE item->>'status' IN('4','7')) AS transit,count(*) FILTER(WHERE ` + exceptional + `) AS exceptional,count(*) FILTER(WHERE item->>'status' IS NULL OR item->>'status' NOT IN('1','2','3','4','5','6','7','8','9')) AS unknown`
 		summaryArgs = append(summaryArgs, q.TodayStart, q.TodayStart.Add(24*time.Hour))
@@ -514,15 +527,15 @@ func (r *Repository) StoreAggregates(ctx context.Context, org string, kind o.Kin
 		args = append(args, store, sync)
 		out[store] = o.StoreAggregate{}
 	}
-	base := ` FROM shein_observations.records r`
+	base := ` FROM store_observations.records r`
 	if kind == o.Products {
-		base += ` CROSS JOIN LATERAL jsonb_array_elements(r.payload->'product'->'skcs') k`
+		base += productRowsLateral + ` CROSS JOIN LATERAL (SELECT entry.item) projection(k)`
 	}
 	where := ` WHERE r.organization_id=? AND r.kind=? AND (` + strings.Join(conditions, " OR ") + `)`
 	err = r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		query := `SELECT r.store_id, count(*) FILTER(WHERE r.payload->'order'->>'status' IN('1','2','3')) AS pending,count(*) FILTER(WHERE r.payload->'order'->>'status' IS NULL OR r.payload->'order'->>'status' NOT IN('1','2','3','4','5','6','7','8','9')) AS status_unknown`
 		if kind == o.Products {
-			query = `SELECT r.store_id,count(*) FILTER(WHERE k->>'siteStatus'='1') AS active,count(*) FILTER(WHERE k->>'siteStatus' IS NULL OR k->>'siteStatus' NOT IN('0','1')) AS status_unknown`
+			query = `SELECT r.store_id,count(*) FILTER(WHERE entry.sale_state='active') AS active,count(*) FILTER(WHERE entry.sale_state NOT IN('active','off')) AS status_unknown`
 		}
 		var totals []struct {
 			StoreID                        string
@@ -538,7 +551,7 @@ func (r *Repository) StoreAggregates(ctx context.Context, org string, kind o.Kin
 			return nil
 		}
 		// Transfer only inventory identities and quantities, never full Product detail.
-		rows, err := tx.Raw(`SELECT r.store_id,coalesce(sku->>'id','missing:'||r.platform_id||':'||(k->>'id')),coalesce(stock->>'warehouseId',''),CASE WHEN jsonb_typeof(stock->'quantity')='number' THEN (stock->>'quantity')::bigint ELSE NULL END`+base+` LEFT JOIN LATERAL jsonb_array_elements(k->'skus') sku ON true LEFT JOIN LATERAL jsonb_array_elements(sku->'inventory') stock ON true`+where, args...).Rows()
+		rows, err := tx.Raw(`SELECT r.store_id,coalesce(sku->>'id','missing:'||r.platform_id||':'||(k->>'id')),coalesce(stock->>'warehouseId',''),CASE WHEN jsonb_typeof(stock->'quantity')='number' THEN (stock->>'quantity')::bigint WHEN k->>'entity'='local_goods' AND sku->>'stock' ~ '^[0-9]{1,19}$' THEN (sku->>'stock')::bigint ELSE NULL END`+base+` LEFT JOIN LATERAL jsonb_array_elements(k->'skus') sku ON true LEFT JOIN LATERAL jsonb_array_elements(sku->'inventory') stock ON true`+where, args...).Rows()
 		if err != nil {
 			return err
 		}

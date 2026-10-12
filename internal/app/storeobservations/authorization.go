@@ -6,7 +6,7 @@ import (
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authruntime/zitadel"
 	"task-processor/internal/authz"
-	o "task-processor/internal/marketplace/shein/observations"
+	o "task-processor/internal/storecenter/observations"
 	"task-processor/internal/storecenter"
 	"task-processor/internal/workbenchcontext"
 	"time"

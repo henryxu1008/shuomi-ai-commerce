@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"gorm.io/gorm"
-	observationschema "task-processor/internal/integration/persistence/sheinobservations"
+	observationschema "task-processor/internal/integration/persistence/storeobservations"
 )
 
 // InstallObservations is explicit fresh-instance setup, never runtime startup.
@@ -33,8 +33,8 @@ func RestoreObservationsGrants(ctx context.Context, records *gorm.DB) error {
 	}
 	return records.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var owned bool
-		err := tx.Raw(`SELECT EXISTS(SELECT 1 FROM pg_namespace WHERE nspname='shein_observations' AND nspowner=(SELECT oid FROM pg_roles WHERE rolname=current_user))
-		 AND (SELECT count(*)=4 AND bool_and(c.relname IN('commands','syncs','records','heads') AND c.relowner=(SELECT oid FROM pg_roles WHERE rolname=current_user)) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='shein_observations' AND c.relkind IN('r','p'))`).Scan(&owned).Error
+		err := tx.Raw(`SELECT EXISTS(SELECT 1 FROM pg_namespace WHERE nspname='store_observations' AND nspowner=(SELECT oid FROM pg_roles WHERE rolname=current_user))
+		 AND (SELECT count(*)=4 AND bool_and(c.relname IN('commands','syncs','records','heads') AND c.relowner=(SELECT oid FROM pg_roles WHERE rolname=current_user)) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='store_observations' AND c.relkind IN('r','p'))`).Scan(&owned).Error
 		if err != nil || !owned {
 			return errors.New("original owner-controlled observation schema required; no installation or migration")
 		}

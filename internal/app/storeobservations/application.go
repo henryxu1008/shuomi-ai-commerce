@@ -5,8 +5,8 @@ import (
 	"errors"
 	storeapp "task-processor/internal/app/storecenter"
 	"task-processor/internal/authidentity"
-	o "task-processor/internal/marketplace/shein/observations"
 	"task-processor/internal/storecenter"
+	o "task-processor/internal/storecenter/observations"
 	"time"
 )
 
@@ -39,7 +39,7 @@ func (d Directory) ListStores(ctx context.Context, s o.Scope) ([]string, error) 
 	out := []string{}
 	seen := map[string]bool{}
 	for page := 1; page <= 5; page++ {
-		result, e := d.Stores.List(ctx, s.OrganizationID, storecenter.StoreListQuery{Page: page, PageSize: 100, Platform: storecenter.PlatformShein, Status: storecenter.RecordStatusActive})
+		result, e := d.Stores.List(ctx, s.OrganizationID, storecenter.StoreListQuery{Page: page, PageSize: 100, Status: storecenter.RecordStatusActive})
 		if errors.Is(e, storecenter.ErrNotFound) {
 			return nil, o.ErrForbidden
 		}
@@ -91,6 +91,10 @@ func (a *Application) Available() bool {
 }
 func (a *Application) Capabilities(ctx context.Context, s o.Scope, k o.Kind) (Capabilities, error) {
 	c := Capabilities{Kind: k, Site: "shein-us", PlatformURL: "https://sellerhub.shein.com/"}
+	if k == o.Products {
+		c.Site = "store-native"
+		c.PlatformURL = ""
+	}
 	if a == nil || a.Service == nil || a.Service.Access == nil {
 		return c, o.ErrUnavailable
 	}

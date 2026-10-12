@@ -1,6 +1,6 @@
 //go:build integration
 
-package sheinobservations
+package storeobservations
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 	"gorm.io/gorm/logger"
 	"net/url"
 	"strings"
-	o "task-processor/internal/marketplace/shein/observations"
+	o "task-processor/internal/storecenter/observations"
 	"testing"
 	"time"
 )

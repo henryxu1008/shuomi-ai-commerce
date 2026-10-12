@@ -97,7 +97,7 @@ func (r *MemberScopedStoreRepository) ReadProductExecution(ctx context.Context, 
 	if err != nil {
 		return ProductExecutionMaterial{}, err
 	}
-	if material.Platform == PlatformTemu && (subject.Purpose != ProductPurposeRules || len(material.Connection.MerchantIdentityHash) != 64 || material.Connection.CredentialExpiresAt == nil || !now.Before(*material.Connection.CredentialExpiresAt)) {
+	if material.Platform == PlatformTemu && (len(material.Connection.MerchantIdentityHash) != 64 || material.Connection.CredentialExpiresAt == nil || !now.Before(*material.Connection.CredentialExpiresAt)) {
 		return ProductExecutionMaterial{}, ErrNotFound
 	}
 	return material, nil

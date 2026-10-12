@@ -52,6 +52,36 @@ func NewOfficialProductAccess(reader storecenter.ProductExecutionReader, authori
 	}
 	return &OfficialProductAccess{reader, authorization, applications, time.Now}, nil
 }
+
+// ReadTargetMerchantBinding selects the native contract using current Store
+// material. Provider failures never select another platform or merchant mode.
+func (a *OfficialProductAccess) ReadTargetMerchantBinding(ctx context.Context, subject storecenter.ProductExecutionSubject, storeID string) (MerchantBinding, error) {
+	if a == nil || ctx == nil || ctx.Err() != nil || subject.Purpose != storecenter.ProductPurposeRules {
+		return MerchantBinding{}, ErrProductAccessChanged
+	}
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	material, err := a.reader.ReadProductExecution(ctx, subject, storeID, a.authorization, a.now())
+	if err != nil {
+		return MerchantBinding{}, ErrProductAccessChanged
+	}
+	switch material.Platform {
+	case storecenter.PlatformShein:
+		h, err := a.Authorize(ctx, subject, storeID, nil)
+		if err != nil {
+			return MerchantBinding{}, err
+		}
+		return h.Binding(), nil
+	case storecenter.PlatformTemu:
+		h, err := a.AuthorizeTemuRules(ctx, subject, storeID, nil)
+		if err != nil {
+			return MerchantBinding{}, err
+		}
+		return h.Binding(), nil
+	default:
+		return MerchantBinding{}, ErrProductAccessChanged
+	}
+}
 func (a *OfficialProductAccess) Authorize(ctx context.Context, subject storecenter.ProductExecutionSubject, storeID string, expected *MerchantBinding) (*MerchantHandle, error) {
 	if a == nil || ctx == nil || ctx.Err() != nil {
 		return nil, ErrProductAccessChanged

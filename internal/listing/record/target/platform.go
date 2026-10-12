@@ -25,6 +25,16 @@ func ValidPlatformRecord(value TargetRecord) bool {
 		len(value.ImageObservations) == 0 && len(value.ProofObservations) == 0
 }
 
+func PublicationReady(value TargetRecord) bool {
+	if !ValidPlatformRecord(value) {
+		return false
+	}
+	if value.Merchant.Platform == storecenter.PlatformTemu {
+		return value.Temu.ReadyForUpload && len(value.Temu.SubmissionPayload) > 0
+	}
+	return value.Result.ReadyForUpload
+}
+
 type preparedPlatform struct {
 	merchant   storecenter.ProductMerchantBinding
 	rulesHash  string

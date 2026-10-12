@@ -29,7 +29,7 @@ type TemuRulesProvider interface {
 
 // TemuRulesHandle shares the current Store execution owner. Only this process,
 // original caller and exact private material can use its five-second proof.
-type TemuRulesHandle struct {
+type temuMerchantAuthority struct {
 	owner                         *OfficialProductAccess
 	entry                         officialApplicationEntry
 	subject                       storecenter.ProductExecutionSubject
@@ -38,8 +38,21 @@ type TemuRulesHandle struct {
 	expiresAt                     time.Time
 }
 
+type TemuRulesHandle struct{ *temuMerchantAuthority }
+
 func (a *OfficialProductAccess) AuthorizeTemuRules(ctx context.Context, subject storecenter.ProductExecutionSubject, storeID string, expected *MerchantBinding) (*TemuRulesHandle, error) {
 	if a == nil || ctx == nil || ctx.Err() != nil || subject.Purpose != storecenter.ProductPurposeRules {
+		return nil, ErrProductAccessChanged
+	}
+	proof, err := a.authorizeTemu(ctx, subject, storeID, expected)
+	if err != nil {
+		return nil, err
+	}
+	return &TemuRulesHandle{proof}, nil
+}
+
+func (a *OfficialProductAccess) authorizeTemu(ctx context.Context, subject storecenter.ProductExecutionSubject, storeID string, expected *MerchantBinding) (*temuMerchantAuthority, error) {
+	if a == nil || ctx == nil || ctx.Err() != nil || !validTemuProductPurpose(subject.Purpose) {
 		return nil, ErrProductAccessChanged
 	}
 	ctx, cancel := context.WithDeadline(ctx, a.now().Add(5*time.Second))
@@ -52,7 +65,11 @@ func (a *OfficialProductAccess) AuthorizeTemuRules(ctx context.Context, subject 
 	if err != nil {
 		return nil, ErrProductAccessChanged
 	}
-	if _, ok := entry.provider.(TemuRulesProvider); !ok {
+	if subject.Purpose == storecenter.ProductPurposeRules {
+		if _, ok := entry.provider.(TemuRulesProvider); !ok {
+			return nil, ErrProductAccessChanged
+		}
+	} else if _, ok := entry.provider.(TemuMutationProvider); !ok {
 		return nil, ErrProductAccessChanged
 	}
 	credential, err := entry.protection.Open(material.Attempt, material.Attempt.KeyID, material.Attempt.Ciphertext)
@@ -91,18 +108,18 @@ func (a *OfficialProductAccess) AuthorizeTemuRules(ctx context.Context, subject 
 	if ctx.Err() != nil || !a.now().Before(expiresAt) {
 		return nil, ErrProductAccessChanged
 	}
-	return &TemuRulesHandle{owner: a, entry: entry, subject: subject, binding: binding, connectionRef: material.Connection.AttemptID, credentialHash: privateCredentialHash(material), expiresAt: expiresAt}, nil
+	return &temuMerchantAuthority{owner: a, entry: entry, subject: subject, binding: binding, connectionRef: material.Connection.AttemptID, credentialHash: privateCredentialHash(material), expiresAt: expiresAt}, nil
 }
 
 func (h *TemuRulesHandle) Binding() MerchantBinding {
-	if h == nil {
+	if h == nil || h.temuMerchantAuthority == nil {
 		return MerchantBinding{}
 	}
 	return h.binding
 }
 
-func (h *TemuRulesHandle) credential(ctx context.Context) (storecenter.OfficialMerchantCredential, error) {
-	if h == nil || h.owner == nil || ctx == nil || ctx.Err() != nil || !h.owner.now().Before(h.expiresAt) || h.subject.Purpose != storecenter.ProductPurposeRules {
+func (h *temuMerchantAuthority) credential(ctx context.Context) (storecenter.OfficialMerchantCredential, error) {
+	if h == nil || h.owner == nil || ctx == nil || ctx.Err() != nil || !h.owner.now().Before(h.expiresAt) || !validTemuProductPurpose(h.subject.Purpose) {
 		return storecenter.OfficialMerchantCredential{}, ErrProductAccessChanged
 	}
 	material, err := h.owner.reader.ReadProductExecution(ctx, h.subject, h.binding.StoreID, h.owner.authorization, h.owner.now())
@@ -125,8 +142,14 @@ func (h *TemuRulesHandle) credential(ctx context.Context) (storecenter.OfficialM
 }
 
 func temuMerchantBinding(subject storecenter.ProductExecutionSubject, storeID string, m storecenter.ProductExecutionMaterial, credential storecenter.OfficialMerchantCredential, entry officialApplicationEntry, now time.Time) (MerchantBinding, bool) {
+	if !validTemuProductPurpose(subject.Purpose) {
+		return MerchantBinding{}, false
+	}
+	return verifiedTemuMerchantBinding(subject.OrganizationID, storeID, m, credential, entry, now)
+}
+func verifiedTemuMerchantBinding(organizationID string, storeID string, m storecenter.ProductExecutionMaterial, credential storecenter.OfficialMerchantCredential, entry officialApplicationEntry, now time.Time) (MerchantBinding, bool) {
 	app, attempt, connection := entry.application, m.Attempt, m.Connection
-	if subject.Purpose != storecenter.ProductPurposeRules || m.Platform != storecenter.PlatformTemu || app.Platform != m.Platform || attempt.Platform != m.Platform || connection.Platform != m.Platform || app.AuthorizationMethod != storecenter.AuthorizationManualToken || attempt.AuthorizationMethod != app.AuthorizationMethod || connection.AuthorizationMethod != app.AuthorizationMethod || attempt.IdentityPartition != app.IdentityPartition || connection.IdentityPartition != app.IdentityPartition || attempt.OrganizationID != subject.OrganizationID || attempt.StoreID != storeID || attempt.AttemptID != connection.AttemptID || attempt.ConnectionVersion != connection.Version || connection.Status != storecenter.ConnectionStatusConnected || attempt.State != "verified" || connection.State != "verified" || attempt.AppID != app.AppID || attempt.AppVersion != app.Version || connection.AppID != app.AppID || connection.AppRevision != app.Version || m.StoreVersion < 1 || connection.Version < 1 || !now.Before(m.ServiceExpiresAt) || credential.AppID != app.AppID || !validTemuPrivateCredential(credential) {
+	if m.Platform != storecenter.PlatformTemu || app.Platform != m.Platform || attempt.Platform != m.Platform || connection.Platform != m.Platform || app.AuthorizationMethod != storecenter.AuthorizationManualToken || attempt.AuthorizationMethod != app.AuthorizationMethod || connection.AuthorizationMethod != app.AuthorizationMethod || attempt.IdentityPartition != app.IdentityPartition || connection.IdentityPartition != app.IdentityPartition || attempt.OrganizationID != organizationID || attempt.StoreID != storeID || attempt.AttemptID != connection.AttemptID || attempt.ConnectionVersion != connection.Version || connection.Status != storecenter.ConnectionStatusConnected || attempt.State != "verified" || connection.State != "verified" || attempt.AppID != app.AppID || attempt.AppVersion != app.Version || connection.AppID != app.AppID || connection.AppRevision != app.Version || m.StoreVersion < 1 || connection.Version < 1 || !now.Before(m.ServiceExpiresAt) || credential.AppID != app.AppID || !validTemuPrivateCredential(credential) {
 		return MerchantBinding{}, false
 	}
 	var facts storecenter.OfficialVerificationFacts
@@ -150,7 +173,7 @@ func temuMerchantBinding(subject storecenter.ProductExecutionSubject, storeID st
 	if facts.Mode == storecenter.MerchantLocal {
 		site = "temu-local"
 	}
-	binding := MerchantBinding{Platform: app.Platform, IdentityPartition: app.IdentityPartition, MerchantMode: facts.Mode, RegionID: facts.RegionID, CredentialExpiresAt: facts.ExpiresAt.UTC(), VerificationRevision: facts.ContractRevision, ScopesHash: hex.EncodeToString(scopesHash[:]), OrganizationID: subject.OrganizationID, StoreID: storeID, Site: site, StoreVersion: m.StoreVersion, ConnectionRevision: connection.Version, ApplicationID: app.AppID, ApplicationRevision: app.Version, SupplierIdentityHash: identity, ServiceExpiresAt: m.ServiceExpiresAt.UTC()}
+	binding := MerchantBinding{Platform: app.Platform, IdentityPartition: app.IdentityPartition, MerchantMode: facts.Mode, RegionID: facts.RegionID, CredentialExpiresAt: facts.ExpiresAt.UTC(), VerificationRevision: facts.ContractRevision, ScopesHash: hex.EncodeToString(scopesHash[:]), OrganizationID: organizationID, StoreID: storeID, Site: site, StoreVersion: m.StoreVersion, ConnectionRevision: connection.Version, ApplicationID: app.AppID, ApplicationRevision: app.Version, SupplierIdentityHash: identity, ServiceExpiresAt: m.ServiceExpiresAt.UTC()}
 	return binding, binding.ValidTemuApplication()
 }
 
@@ -164,7 +187,7 @@ func validTemuPrivateCredential(c storecenter.OfficialMerchantCredential) bool {
 
 func callTemuRule[T any](ctx context.Context, h *TemuRulesHandle, local bool, read func(context.Context, storecenter.OfficialMerchantCredential) (T, error)) (T, error) {
 	var zero T
-	if ctx == nil || h == nil || h.owner == nil || (h.binding.MerchantMode == storecenter.MerchantLocal) != local {
+	if ctx == nil || h == nil || h.temuMerchantAuthority == nil || h.owner == nil || h.subject.Purpose != storecenter.ProductPurposeRules || (h.binding.MerchantMode == storecenter.MerchantLocal) != local {
 		return zero, ErrProductAccessChanged
 	}
 	ctx, cancel := context.WithDeadline(ctx, h.expiresAt)
