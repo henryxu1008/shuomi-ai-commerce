@@ -34,7 +34,7 @@ func CorrelatesLocalCreation(input model.LocalGoodsV2, result model.LocalGoodsCr
 		seenIDs[*remote.SKUID] = true
 		found := -1
 		for i, local := range input.SKUs {
-			if matched[i] || local.ExternalSKUID != remote.ExternalSKUSN || !matchesLocalSpecs(local.Specifications, remote.Specifications) {
+			if matched[i] || local.ExternalSKUID != "" && local.ExternalSKUID != remote.ExternalSKUSN || !matchesLocalSpecs(local.Specifications, remote.Specifications) {
 				continue
 			}
 			if found != -1 {
@@ -55,24 +55,31 @@ func matchesLocalSpecs(input, result []model.LocalSpecificationValue) bool {
 		return false
 	}
 	seen := map[int64]bool{}
-	for _, local := range input {
-		if !positiveID(local.ParentSpecID) || seen[*local.ParentSpecID] {
+	for _, remote := range result {
+		if !positiveID(remote.ParentSpecID) || !positiveID(remote.SpecID) || seen[*remote.ParentSpecID] {
 			return false
 		}
-		seen[*local.ParentSpecID] = true
-		found := false
-		for _, remote := range result {
-			if !positiveID(remote.ParentSpecID) || *remote.ParentSpecID != *local.ParentSpecID {
+		seen[*remote.ParentSpecID] = true
+	}
+	matched := make([]bool, len(result))
+	for _, local := range input {
+		if local.ParentSpecID != nil && !positiveID(local.ParentSpecID) || local.ParentSpecID == nil && !positiveID(local.SpecID) || local.SpecID != nil && !positiveID(local.SpecID) || local.SpecID == nil && local.Name == "" {
+			return false
+		}
+		found := -1
+		for index, remote := range result {
+			if matched[index] || local.ParentSpecID != nil && *remote.ParentSpecID != *local.ParentSpecID || local.SpecID != nil && *local.SpecID != *remote.SpecID || local.Name != "" && local.Name != remote.Name {
 				continue
 			}
-			if found || !positiveID(remote.SpecID) || local.SpecID != nil && *local.SpecID != *remote.SpecID || local.Name != "" && local.Name != remote.Name {
+			if found != -1 {
 				return false
 			}
-			found = true
+			found = index
 		}
-		if !found {
+		if found < 0 {
 			return false
 		}
+		matched[found] = true
 	}
 	return true
 }

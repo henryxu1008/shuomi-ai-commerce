@@ -83,7 +83,7 @@ func (r TemuRuleReader) ReadTemuTargetRules(ctx context.Context, scope collectio
 		snapshot.Observations = append(snapshot.Observations, temugoods.RuleObservation{EvidenceID: id, API: api, InputHash: collection.Digest(input), DecodedHash: collection.Digest(output)})
 	}
 	if binding.MerchantMode == storecenter.MerchantLocal {
-		if selection.SupplierSiteID != 0 || selection.SupplierCategoryPath != ([10]int64{}) || selection.SupplierSizeOffset != 0 {
+		if selection.SupplierSiteID != 0 || selection.SupplierCategoryPath != ([10]int64{}) || selection.SupplierSizeOffset != 0 || selection.SupplierSizeOffsets != ([16]int64{}) {
 			return binding, temugoods.RuleSnapshot{}, record.ErrInvalid
 		}
 		target := r.Catalog.LocalTarget(string(binding.IdentityPartition), binding.RegionID)
@@ -227,14 +227,18 @@ func (r TemuRuleReader) ReadTemuTargetRules(ctx context.Context, scope collectio
 					snapshot.SupplierSizeRequirement = &sizes
 					observe("E46", "bg.glo.goods.sizecharts.class.get", selection.CatID, sizes)
 					if sizes.Class != nil {
-						charts, readErr := sizeMerchant.SupplierSizeCharts(ctx, selection.CatID, selection.SupplierSizeOffset)
+						charts, pages, readErr := readTemuSupplierSizePages(ctx, sizeMerchant, selection, observe)
 						if readErr != nil {
 							snapshot.Issues = append(snapshot.Issues, "supplier_size_charts_unverified")
 						} else {
 							snapshot.SupplierSizeCharts = &charts
-							observe("E47", "bg.glo.goods.sizecharts.get", struct{ CatID, Offset int64 }{selection.CatID, selection.SupplierSizeOffset}, charts)
+							snapshot.SupplierSizeChartPages = pages
 							classes := map[int64]bool{}
-							for _, chart := range charts.Charts {
+							allCharts := append([]model.SupplierSizeChart{}, charts.Charts...)
+							for _, page := range pages {
+								allCharts = append(allCharts, page.Charts...)
+							}
+							for _, chart := range allCharts {
 								if chart.ClassID != nil && chart.Reusable != nil && !*chart.Reusable {
 									allowed := sizes.Class.ClassType != nil && *sizes.Class.ClassType == 0 && sizes.Class.ClassID != nil && *sizes.Class.ClassID == *chart.ClassID
 									if sizes.Class.ClassType != nil && *sizes.Class.ClassType == 1 {
@@ -294,6 +298,15 @@ func (r TemuRuleReader) ReadTemuTargetRules(ctx context.Context, scope collectio
 func validTemuRuleSelection(input model.RuleSelection) bool {
 	if input.ParentCatID < 0 || input.CatID < 0 || input.CatID > 0 && input.CatID == input.ParentCatID || input.SupplierSiteID < 0 || input.SupplierSizeOffset < 0 || input.SupplierSizeOffset > 1000000 || input.TrademarkPage < 0 || input.TrademarkSize < 0 || input.TrademarkSize > 100 || (input.TrademarkPage == 0) != (input.TrademarkSize == 0) {
 		return false
+	}
+	pages := map[int64]bool{}
+	for _, offset := range input.SupplierSizeOffsets {
+		if offset < 0 || offset > 1000000 || offset > 0 && pages[offset] {
+			return false
+		}
+		if offset > 0 {
+			pages[offset] = true
+		}
 	}
 	seen, ended := map[int64]bool{}, false
 	for _, id := range input.SupplierCategoryPath {

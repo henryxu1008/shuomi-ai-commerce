@@ -20,6 +20,12 @@ func TestSupplierSizeUnknownIsNotOptionalAndReusableNeedsApprovedCreation(t *tes
 	snapshot.SupplierSizeCharts = &model.SupplierSizePage{Charts: []model.SupplierSizeChart{{ID: draftPointer(int64(100)), ClassID: draftPointer(int64(7)), Reusable: draftPointer(false), Content: &model.SupplierSizeContent{Records: []model.SupplierSizeRecord{{Values: map[string]string{"1": "S", "22": "10"}}}}}}}
 	snapshot.SupplierSizeSettings = []model.SupplierSizeSettingsObservation{{ClassID: 7, Settings: model.SupplierSizeSettings{Sizes: []string{"S", "M"}, Mapping: &model.SupplierSizeMapping{Meta: &model.SupplierSizeMeta{Groups: []model.SupplierSizeGroup{{ID: draftPointer(int64(1)), Name: "Current size group"}}}, Records: []model.SupplierSizeRecord{{Values: map[string]string{"1": "S"}}, {Values: map[string]string{"1": "M"}}}}}}}
 	require.Empty(t, checkSupplierSize(in, snapshot))
+	firstPage := *snapshot.SupplierSizeCharts
+	snapshot.SupplierSizeChartPages = []model.SupplierSizePage{firstPage}
+	snapshot.SupplierSizeCharts = &model.SupplierSizePage{Charts: []model.SupplierSizeChart{}}
+	require.Empty(t, checkSupplierSize(in, snapshot), "a current reread referenced page proves the selected table after navigation")
+	snapshot.SupplierSizeCharts = &firstPage
+	snapshot.SupplierSizeChartPages = nil
 	snapshot.SupplierSizeCharts.Charts[0].Reusable = draftPointer(true)
 	require.NotEmpty(t, checkSupplierSize(in, snapshot), "a reusable table ID is not a silently created publish business ID")
 	snapshot.SupplierSizeCharts.Charts[0].Reusable = draftPointer(false)

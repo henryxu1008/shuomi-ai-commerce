@@ -41,14 +41,18 @@ func checkSupplierSize(input model.SupplierGoods, snapshot RuleSnapshot) []Issue
 		return invalid("supplier_size_specification_unverified")
 	}
 	selected := map[int64]bool{}
+	charts := append([]model.SupplierSizeChart{}, snapshot.SupplierSizeCharts.Charts...)
+	for _, page := range snapshot.SupplierSizeChartPages {
+		charts = append(charts, page.Charts...)
+	}
 	for _, id := range input.SizeTemplateIDs {
 		if id < 1 || selected[id] {
 			return invalid("supplier_size_chart_unverified")
 		}
 		selected[id] = true
 		var chart *model.SupplierSizeChart
-		for index := range snapshot.SupplierSizeCharts.Charts {
-			v := &snapshot.SupplierSizeCharts.Charts[index]
+		for index := range charts {
+			v := &charts[index]
 			if v.ID != nil && *v.ID == id {
 				if chart != nil {
 					return invalid("supplier_size_chart_unverified")

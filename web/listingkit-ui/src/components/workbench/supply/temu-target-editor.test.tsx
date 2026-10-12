@@ -81,3 +81,29 @@ it("saves the full supplier category path and explicit zero unused levels",async
  expect(saved.selection.supplierCategoryPath).toEqual(["12","34","0","0","0","0","0","0","0","0"]);
  expect(saved.supplier).toMatchObject({cat1Id:"12",cat2Id:"34",cat3Id:"0",cat10Id:"0"});
 });
+
+it("selects existing size charts across pages and saves bounded reread hints",async()=>{
+ const chart=(businessId:string,name:string)=>({businessId,name,reusable:false});
+ state.rules.mockImplementation((_scope,request)=>{const current=rules("fully_managed"),offset=request.temuRules.supplierSizeOffset??"0";return Promise.resolve({...current,temu:{...current.temu,supplierSizeRequirement:{catId:"34",observed:true,class:{classId:"7"}},supplierSizeCharts:{offset,pageSize:"50",totalCount:"100",sizeSpecDataList:offset==="0"?[chart("100","表A")]:[chart("200","表B")]},supplierSizeChartPages:offset==="0"&&request.temuRules.supplierSizeOffsets?.includes("50")?[{offset:"50",pageSize:"50",totalCount:"100",sizeSpecDataList:[chart("200","表B")]}]:offset==="50"?[{offset:"0",pageSize:"50",totalCount:"100",sizeSpecDataList:[chart("100","表A")]}]:[]}})});
+ render(<TemuTargetEditor scope={{organizationId:"org",userId:"actor"}} source={source} storeId={id} command={command} disabled={false} saved={0}/>);
+ await userEvent.click(await screen.findByRole("checkbox",{name:"表A"}));
+ await waitFor(()=>expect(screen.getByRole("button",{name:"尺码表下一页"})).not.toBeDisabled());
+ await userEvent.click(screen.getByRole("button",{name:"尺码表下一页"}));
+ await userEvent.click(await screen.findByRole("checkbox",{name:"表B"}));
+ await waitFor(()=>expect(state.rules.mock.lastCall?.[1].temuRules.supplierSizeOffsets).toContain("50"));
+ await waitFor(()=>expect(screen.getByRole("button",{name:"尺码表上一页"})).not.toBeDisabled());
+ await userEvent.click(screen.getByRole("button",{name:"尺码表上一页"}));
+ expect(await screen.findByRole("checkbox",{name:"表A"})).toBeChecked();
+ await userEvent.click(screen.getByRole("button",{name:"保存并校验平台资料"}));
+ expect(state.execute.mock.lastCall?.[1].temu.supplier.sizeTemplateIds).toEqual(["100","200"]);
+ expect(state.execute.mock.lastCall?.[1].temu.selection.supplierSizeOffsets).toEqual(["50",...Array(15).fill("0")]);
+ state.rules.mockResolvedValue(rules("fully_managed"));
+ await userEvent.click(screen.getByRole("button",{name:"刷新官方规则"}));
+ await screen.findByText("尺码表要求尚未核实，商品可保存。");
+ await userEvent.click(screen.getByRole("button",{name:"移除尺码表 100"}));
+ await waitFor(()=>expect(screen.getByRole("button",{name:"移除尺码表 200"})).not.toBeDisabled());
+ await userEvent.click(screen.getByRole("button",{name:"移除尺码表 200"}));
+ await userEvent.click(screen.getByRole("button",{name:"保存并校验平台资料"}));
+ expect(state.execute.mock.lastCall?.[1].temu.supplier.sizeTemplateIds).toEqual([]);
+ expect(state.execute.mock.lastCall?.[1].temu.selection.supplierSizeOffsets).toEqual(Array(16).fill("0"));
+});

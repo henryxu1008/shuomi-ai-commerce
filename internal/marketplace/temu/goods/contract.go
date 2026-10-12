@@ -22,6 +22,7 @@ type RuleSnapshot struct {
 	SupplierCategoryPath    []model.SupplierCategory                `json:"supplierCategoryPath,omitempty"`
 	SupplierSizeRequirement *model.SupplierSizeRequirement          `json:"supplierSizeRequirement,omitempty"`
 	SupplierSizeCharts      *model.SupplierSizePage                 `json:"supplierSizeCharts,omitempty"`
+	SupplierSizeChartPages  []model.SupplierSizePage                `json:"supplierSizeChartPages,omitempty"`
 	SupplierSizeSettings    []model.SupplierSizeSettingsObservation `json:"supplierSizeSettings,omitempty"`
 	SelectableLeaf          bool                                    `json:"selectableLeaf"`
 	SupplierAttributes      *model.SupplierAttributeTemplate        `json:"supplierAttributes,omitempty"`

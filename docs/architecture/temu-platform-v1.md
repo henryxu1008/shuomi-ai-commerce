@@ -131,6 +131,8 @@ productComplianceStatementReq 等协议字段只有已有明确合法的批准�
 
 TargetRecord 保存精确 source、Product/Asset revisions、mode、siteSet、merchant/application binding、rule hash、明确资料与校验结果；准备后任一漂移必须生成/检查新资料版本。Upload 精确绑定 saved record/hash、已有 approval、payload hash 和原 actor/member；不同版本不能复用旧批准或 SendPermit。
 
+2026-10-12 最终交付检查继续使用冻结设计。供应商具名 consumer 已用当前类目/预设规格/尺码表、E43 原图片回执与当次 artifact 证明替代历史的无条件待核实保护。独立 Reviewer 对本土预设规格缺省 parent 的成功关联、半托 E13 固定备货时长和尺码表跨页编辑三项均分类 IMPLEMENTATION_TEST，修复后相关增量复核 PASS，无新增 BLOCKER；不重开原 owner/事务/UNKNOWN 边界。已有尺码表使用 E47 有界页与当前 settings，`supplierSizeOffsets` 只作读取提示；保存与实际发送前仍通过原 RuleReader 重读全部所选页和完整 rule hash，缺页/重复/漂移/撤权拒绝，不把客户端提示或缓存当证明。E17 可选外部 SKU 编号未提供时只使用唯一原规格关联，明确编号仍精确匹配；不推定平台的缺省编号生成行为，不改写批准 wire。E13 的259200秒仅限定制商品，其资格由当次官方响应决定。
+
 ## 7. 持久化与事务
 
 Store DB：现有 Store record、connection、attempt、credential protection 和 merchant-binding owner；新增平台验证事实及必要唯一约束仍由该 owner 保存。记录密文与完成验证、归属占用原子提交；失败回滚不能出现 connected 但无已验证凭据。

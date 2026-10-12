@@ -33,11 +33,13 @@ func TestTemuBrowserBoundaryPreservesLongIdentifiersAndExplicitZero(t *testing.T
 	require.Equal(t, long, decoded.Temu.Local.Basic.CatID)
 	require.NotNil(t, decoded.Temu.Local.SKUs[0].Quantity)
 	require.Zero(t, *decoded.Temu.Local.SKUs[0].Quantity)
-	body.Temu = json.RawMessage(`{"mode":"fully_managed","supplier":{"productSpecPropertyReqs":[{"refPid":"9007199254740993","specId":"9007199254740993"}]}}`)
+	body.Temu = json.RawMessage(`{"mode":"fully_managed","selection":{"supplierSizeOffset":"50","supplierSizeOffsets":["50","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0"]},"supplier":{"productSpecPropertyReqs":[{"refPid":"9007199254740993","specId":"9007199254740993"}]}}`)
 	supplier, err := body.domain()
 	require.NoError(t, err)
 	require.Equal(t, long, *supplier.Temu.Supplier.SpecProperties[0].RefPID)
-	for _, invalid := range []string{`{"mode":"local","selection":{"catId":"9223372036854775808"}}`, `{"mode":"local","selection":{"catId":"01"}}`, `{"mode":"local","selection":{"catId":"1","catId":"2"}}`, `{"mode":"local","local":{"mallId":"123"}}`} {
+	require.EqualValues(t, 50, supplier.Temu.Selection.SupplierSizeOffset)
+	require.Equal(t, [16]int64{50}, supplier.Temu.Selection.SupplierSizeOffsets)
+	for _, invalid := range []string{`{"mode":"local","selection":{"catId":"9223372036854775808"}}`, `{"mode":"local","selection":{"catId":"01"}}`, `{"mode":"local","selection":{"catId":"1","catId":"2"}}`, `{"mode":"local","local":{"mallId":"123"}}`, `{"mode":"fully_managed","selection":{"supplierSizeOffsets":["50"]}}`} {
 		body.Temu = json.RawMessage(invalid)
 		_, err = body.domain()
 		require.Error(t, err)

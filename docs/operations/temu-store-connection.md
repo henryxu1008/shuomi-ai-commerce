@@ -62,8 +62,8 @@ GE/AM 缺官方规格的发布开放和全覆盖交付门槛仍保留。
   "storeId": "目标 Store 的 UUID",
   "effectiveVersion": "1",
   "temuRules": {
-    "parentCatId": 12,
-    "catId": 34,
+    "parentCatId": "12",
+    "catId": "34",
     "language": "en",
     "costTemplateId": "从本店当前运费模板列表选择的 ID"
   }
@@ -84,12 +84,12 @@ GE/AM 缺官方规格的发布开放和全覆盖交付门槛仍保留。
 TEMU 精确价格/单位或已明确库存。后续资料合同必须保留明确输入/来源与批准，不能以数值默填补齐；
 本切片没有改动 Product canonical schema。
 
-当前 Console/BFF 已接 typed TEMU variant，官方 LONG 在浏览器 DTO 使用十进制字符串，Go/官方请求保留原整数。`temuRules` 仅用于读取；保存入口使用单一 `temu` 资料，拒绝混入 SHEIN draft 或查询参数。供应商完整类目路径通过 `supplierCategoryPath`（10项，未使用层级为0）逐级读取核对；当前尺码表有界页可用 `supplierSizeOffset` 指定，未读取的表不声称有效。
+当前 Console/BFF 已接 typed TEMU variant，官方 LONG 在浏览器 DTO 使用十进制字符串，Go/官方请求保留原整数。`temuRules` 仅用于读取；保存入口使用单一 `temu` 资料，拒绝混入 SHEIN draft 或查询参数。供应商完整类目路径通过 `supplierCategoryPath`（10项，未使用层级为0）逐级读取核对；当前尺码表每页50项，`supplierSizeOffset` 选择显示页，`supplierSizeOffsets`（固定16项，未用位置0）保留跨页所选表的读取提示，0页隐含。服务器在保存/提交前重新读取这些页，按当前类目/表/官方尺码映射核对全部所选表；超原时间/大小/观察预算、缺页、重复或漂移保持待补全，不以浏览器缓存或提示本身自证有效。
 
 ## 商品保存、提交与观察入口
 
 1. 在 `/workbench/supply/mine` 打开当前源商品，选择已核实的 TEMU 店铺，再打开平台资料编辑器。保存沿原命令 key/CAS/不可变修订；缺价格、数量、类目或图可保存，但不获得提交许可。
-2. 从本店当前类目/属性和已有批准图片选择明确资料。半托一次选择站点集合、分别输入整数供货价和各仓库初始数量；0与未填不同。包装使用明确mg/mm，源 Product 的浮点价格/尺寸/库存不自动变成这些事实。已有 CompletionDraft 文本只在显式带入后保存。
+2. 从本店当前类目/属性和已有批准图片选择明确资料。半托一次选择站点集合、分别输入整数供货价和各仓库初始数量；0与未填不同。备货时长按E13选择1/2/3天，3天仅限定制商品，资格由平台确认。要求尺码表时可翻页选择本店已有可发布表，套装可跨页选择；可复用模板需要独立创建，本页不自动创建。包装使用明确mg/mm，源 Product 的浮点价格/尺寸/库存不自动变成这些事实。已有 CompletionDraft 文本只在显式带入后保存。
 3. 当前记录通过检查后，使用原提交入口。所有图片/商品发送沿原 intent/permit/receipt 和 live Store/成员权限；本土图片按原attempt+7天和10秒窗口核查，供应商图片仅按原成功回执与当次同一远端 artifact 内容证明复用，不推导永久有效或自动续传。
 4. 结果创建成功展示原 goodsId 或 productId/SKC/SKU 标识，审核/销售结论来自后续只读同步。UNKNOWN 只查看或恢复原 attempt；不输入 SHEIN SPU、不手工标成功、不解锁后重发。尚无完整 qualified readback 的未知结果保持未知。
 5. 在 `/workbench/store-products` 选择 TEMU 或具体店铺，启动所选店铺的只读同步。Local 使用 opaque pageToken；全托/半托以 SKC 为观察单位。保留原始审核/JIT/销售码，virtualStock 不标注为仓库可用库存；订单查询仍限现有 SHEIN 路径。

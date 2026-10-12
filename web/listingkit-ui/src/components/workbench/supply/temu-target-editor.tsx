@@ -49,6 +49,18 @@ export function TemuTargetEditor({scope,source,storeId,existing,command,disabled
  function change(edit:(value:TemuDraftInput)=>void){setDraft(old=>{if(!old)return old;const copy=structuredClone(old);edit(copy);return copy})}
  function local(edit:(value:Local)=>void){change(v=>{if(v.local)edit(v.local)})}
  function supplier(edit:(value:Supplier)=>void){change(v=>{if(v.supplier)edit(v.supplier)})}
+ function sizePage(offset:string){const next={...selection,supplierSizeOffset:offset};setSelection(next);change(v=>{v.selection=next})}
+ function sizeSelection(id:string,checked:boolean){
+  if(!draft?.supplier||!rules)return;
+  const ids=checked?[...draft.supplier.sizeTemplateIds??[],id]:draft.supplier.sizeTemplateIds?.filter(value=>value!==id)??[];
+  const pages=[rules.temu.supplierSizeCharts,...rules.temu.supplierSizeChartPages??[]].filter(p=>!!p);
+  const offsets=new Set<string>();
+  for(const page of pages)if(page.offset&&page.offset!=="0"&&page.sizeSpecDataList?.some(c=>!!c.businessId&&ids.includes(c.businessId)))offsets.add(page.offset);
+  if(ids.some(id=>!pages.some(p=>p.sizeSpecDataList?.some(c=>c.businessId===id))))for(const offset of selection.supplierSizeOffsets??[])if(offset!=="0")offsets.add(offset);
+  if(offsets.size>16){setError("所选尺码表超出当前有界读取页数，请移除不需要的表。");return}
+  const ordered=Array.from(offsets).sort((a,b)=>BigInt(a)<BigInt(b)?-1:1);
+  const next={...selection,supplierSizeOffsets:Array.from({length:16},(_,i)=>ordered[i]??"0")};setSelection(next);change(v=>{v.selection=next;if(v.supplier)v.supplier.sizeTemplateIds=ids});
+ }
  function pickCategory(id:string){if(!rules||!draft)return;const categories=draft.mode==="local"?rules.temu.localCategories:rules.temu.supplierCategories;
   const item=categories?.find(c=>c.catId===id);if(!item)return;
   const leaf="leaf" in item?item.leaf:item.isLeaf;
@@ -76,7 +88,7 @@ export function TemuTargetEditor({scope,source,storeId,existing,command,disabled
     <Field label="商品外部编号"><Input disabled={disabled} value={draft.local.goodsBasic.externalGoodsId??""} onChange={e=>local(v=>{v.goodsBasic.externalGoodsId=e.target.value})}/></Field></div>
     <TemuLocalAttributes rules={rules?.temu} values={draft.local.goodsProperty??[]} disabled={disabled} onChange={values=>local(v=>{v.goodsProperty=values})}/>
     <section className="space-y-4"><h3 className="font-semibold">SKU、价格与包装</h3>{draft.local.skuList?.map((sku,i)=><LocalSKUFields key={i} index={i} sku={sku} rules={rules} disabled={disabled} onChange={edit=>local(v=>{if(v.skuList?.[i])edit(v.skuList[i])})} onRemove={()=>local(v=>{v.skuList=v.skuList?.filter((_,j)=>j!==i)??[]})}/>)}<Button variant="outline" disabled={disabled} onClick={()=>local(v=>{v.skuList=[...v.skuList??[],emptyTemuLocalSKU()]})}>添加 SKU</Button></section>
-   </>:<TemuSupplierFields draft={draft} rules={rules?.temu} disabled={disabled} onChange={supplier}/>}
+   </>:<TemuSupplierFields draft={draft} rules={rules?.temu} disabled={disabled||loading} onChange={supplier} onSizePage={sizePage} onSizeSelection={sizeSelection}/>}
    <section className="space-y-3"><h3 className="font-semibold">来源图片与批准素材</h3><p className="text-sm text-muted-foreground">先确认本次完整来源图选择，再为商品或 SKU 选择已批准的素材。</p><div className="grid gap-3 sm:grid-cols-3">{source.images.map((image,i)=><label key={image.id} className="space-y-2 rounded-lg border p-3"><Image src={image.url} alt="" width={120} height={120} unoptimized/><span className="flex gap-2 text-sm"><input type="checkbox" aria-label={`使用来源图 ${i+1}`} checked={selectedImages.has(image.id)} disabled={disabled} onChange={e=>setSelectedImages(old=>{const n=new Set(old);if(e.target.checked)n.add(image.id);else n.delete(image.id);return n})}/>来源图 {i+1}</span></label>)}</div><Button variant="outline" disabled={disabled||!selectedImages.size} onClick={()=>command.execute("approve",{selection:provenance,images:Array.from(selectedImages).map(id=>({id,role:"gallery"})),approved:[]})}>确认完整图片选择</Button>
     <TemuImages draft={draft} inventory={inventory} disabled={disabled} onChange={images=>change(v=>{v.images=images})}/>
    </section>

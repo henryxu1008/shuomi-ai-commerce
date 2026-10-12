@@ -193,6 +193,8 @@ func checkSupplier(result *Draft, input DraftInput, snapshot RuleSnapshot, add f
 	}
 	if input.Mode == "semi_managed" && (p.Shipment == nil || !boundedText(p.Shipment.FreightTemplateID, 256) || p.Shipment.LimitSecond == nil || *p.Shipment.LimitSecond < 1) {
 		add("shipment", "supplier_shipment_missing", "填写本店明确的运费模板与备货时长")
+	} else if input.Mode == "semi_managed" && *p.Shipment.LimitSecond != 86400 && *p.Shipment.LimitSecond != 172800 && *p.Shipment.LimitSecond != 259200 {
+		add("shipment", "supplier_shipment_invalid", "选择官方基本备货时长；3天仅限平台认可的定制商品")
 	}
 	_ = result
 }

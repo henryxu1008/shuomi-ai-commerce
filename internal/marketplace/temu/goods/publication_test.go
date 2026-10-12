@@ -42,3 +42,31 @@ func TestSupplierCreationCorrelatesAllSKCGroupsByOriginalSKUCode(t *testing.T) {
 	out.SKUs = out.SKUs[:2]
 	require.False(t, CorrelatesSupplierCreation(in, out))
 }
+
+func TestLocalCreationCorrelatesPresetWithoutInventingMissingParent(t *testing.T) {
+	p := func(v int64) *int64 { return &v }
+	in := model.LocalGoodsV2{SKUs: []model.LocalSKU{{ExternalSKUID: "sku-a", Specifications: []model.LocalSpecificationValue{{SpecID: p(101)}}}}}
+	out := model.LocalGoodsCreated{GoodsID: p(100), ProductType: p(1), SKUs: []model.LocalCreatedSKU{{SKUID: p(201), ExternalSKUSN: "sku-a", Specifications: []model.LocalSpecificationValue{{ParentSpecID: p(10), SpecID: p(101), Name: "Blue"}}}}}
+	require.True(t, CorrelatesLocalCreation(in, out))
+	require.Nil(t, in.SKUs[0].Specifications[0].ParentSpecID, "correlation must not rewrite approved input")
+	out.SKUs[0].Specifications[0].SpecID = p(102)
+	require.False(t, CorrelatesLocalCreation(in, out))
+	out.SKUs[0].Specifications[0].SpecID = p(101)
+	in.SKUs[0].Specifications[0].ParentSpecID = p(11)
+	require.False(t, CorrelatesLocalCreation(in, out), "explicit parent remains exact")
+	in.SKUs[0].Specifications[0].ParentSpecID = nil
+	in.SKUs[0].Specifications = append(in.SKUs[0].Specifications, in.SKUs[0].Specifications[0])
+	out.SKUs[0].Specifications = append(out.SKUs[0].Specifications, out.SKUs[0].Specifications[0])
+	require.False(t, CorrelatesLocalCreation(in, out), "repeated preset cannot be correlated twice")
+}
+
+func TestLocalCreationCorrelatesUnspecifiedExternalCodeByUniqueOriginalSpecs(t *testing.T) {
+	p := func(v int64) *int64 { return &v }
+	in := model.LocalGoodsV2{SKUs: []model.LocalSKU{{Specifications: []model.LocalSpecificationValue{{SpecID: p(101)}}}}}
+	out := model.LocalGoodsCreated{GoodsID: p(100), ProductType: p(1), SKUs: []model.LocalCreatedSKU{{SKUID: p(201), ExternalSKUSN: "returned-code", Specifications: []model.LocalSpecificationValue{{ParentSpecID: p(10), SpecID: p(101)}}}}}
+	require.True(t, CorrelatesLocalCreation(in, out), "unspecified optional code is not an approved empty remote value")
+	require.Empty(t, in.SKUs[0].ExternalSKUID)
+	in.SKUs = append(in.SKUs, in.SKUs[0])
+	out.SKUs = append(out.SKUs, model.LocalCreatedSKU{SKUID: p(202), ExternalSKUSN: "second-code", Specifications: out.SKUs[0].Specifications})
+	require.False(t, CorrelatesLocalCreation(in, out), "ambiguous original specs cannot be assigned by remote row order")
+}

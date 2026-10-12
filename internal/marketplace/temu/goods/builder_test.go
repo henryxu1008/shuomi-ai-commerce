@@ -94,3 +94,15 @@ func TestSupplierDraftChecksOfficialAttributeIDsAndExplicitPackagingFacts(t *tes
 	require.False(t, result.ReadyForUpload)
 	require.Empty(t, result.SubmissionPayload)
 }
+
+func TestSemiShipmentUsesOnlyOfficialBasicDurations(t *testing.T) {
+	for _, seconds := range []int64{1, 3600, 86400, 172800, 259200, 345600} {
+		in := DraftInput{Mode: "semi_managed", Supplier: &model.SupplierGoods{Shipment: &model.SupplierShipment{FreightTemplateID: "existing-template", LimitSecond: draftPointer(seconds)}}}
+		out := Build(in, RuleSnapshot{Mode: "semi_managed"}, asset.ApprovedAssetInventory{}, nil)
+		if seconds == 86400 || seconds == 172800 || seconds == 259200 {
+			require.NotContains(t, issueCodes(out), "supplier_shipment_invalid")
+		} else {
+			require.Contains(t, issueCodes(out), "supplier_shipment_invalid", "seconds=%d", seconds)
+		}
+	}
+}
