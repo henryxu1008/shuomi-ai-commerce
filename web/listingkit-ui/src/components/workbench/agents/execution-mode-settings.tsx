@@ -24,17 +24,18 @@ const intentSchema = z.strictObject({key:knowledgeId,payload:executionModeInputS
 type Intent = z.infer<typeof intentSchema>;
 
 export function ExecutionModeSettings({scope,subject}:{scope:ConfigurationScope;subject:ModeSubject}) {
+ return <BoundExecutionModeSettings key={JSON.stringify([scope.userId,scope.organizationId,subject.kind,subject.id])} scope={scope} subject={subject}/>;
+}
+
+function BoundExecutionModeSettings({scope,subject}:{scope:ConfigurationScope;subject:ModeSubject}) {
  const path=`execution-modes/${subject.kind}/${subject.id}`;
  const pending=useResourcePending({expectedUserId:scope.userId,expectedOrganizationId:scope.organizationId},["agent-execution-mode",subject.kind,subject.id],intentSchema,{storage:"local",maxLength:2048});
  const context=useWorkbenchContext();
  const [nonce,setNonce]=useState(0),[open,setOpen]=useState(false),[selected,setSelected]=useState<ExecutionMode>("default"),[busy,setBusy]=useState(false),[failure,setFailure]=useState<unknown>(),[message,setMessage]=useState("");
  const active=useRef(true),flight=useRef(false),abort=useRef<AbortController|null>(null);
- const binding=JSON.stringify([scope.userId,scope.organizationId,subject.kind,subject.id]);
- const currentBinding=useRef(binding);currentBinding.current=binding;
  const read=useConfigurationRead(scope,path,executionModeViewSchema,nonce),view=read.data;
  const locked=busy||!!pending.command||!pending.ready||!!pending.error;
  useEffect(()=>{active.current=true;return()=>{active.current=false;abort.current?.abort()}},[]);
- useEffect(()=>{abort.current?.abort();abort.current=null;flight.current=false;setBusy(false);setOpen(false);setFailure(undefined);setMessage("")},[binding]);
  const register=context.registerOrganizationSwitchGuard;
  useEffect(()=>register(()=>!open&&!flight.current&&!pending.command&&!pending.error),[register,pending.command,pending.error,open]);
  async function send(intent:Intent) {
@@ -46,14 +47,14 @@ export function ExecutionModeSettings({scope,subject}:{scope:ConfigurationScope;
    pending.persist(intent);
    const saved=await configurationRequest(scope,path,executionModeViewSchema,{method:"PUT",headers:{"Content-Type":"application/json","Idempotency-Key":intent.key},body:JSON.stringify(intent.payload),signal:controller.signal});
    if(saved.subject.kind!==subject.kind||saved.subject.id!==subject.id||saved.receipt?.requestKey!==intent.key||saved.mode!==intent.payload.mode||saved.receipt.beforeRevision!==intent.payload.expectedRevision)throw new ConfigurationError("OUTCOME_UNKNOWN");
-   if(!active.current||currentBinding.current!==binding)return;
+   if(!active.current)return;
    pending.clear(intent);setOpen(false);setNonce(n=>n+1);setMessage("权限模式已保存，下一次新运行将使用当前模式。已存在的运行不会升级权限。");
   } catch(error) {
-   if(!active.current||currentBinding.current!==binding)return;
+   if(!active.current)return;
    setFailure(error);
    if(error instanceof ConfigurationError&&error.code!=="OUTCOME_UNKNOWN"&&error.status<500&&!verifying)pending.clear(intent);
    if(verifying)setMessage("暂时无法核实原保存结果，请保留原请求编号，恢复授权后核实。");
-  } finally { if(currentBinding.current===binding){flight.current=false;if(active.current)setBusy(false)} }
+  } finally { flight.current=false;if(active.current)setBusy(false) }
  }
  return <Card className={styles.panel}>
   <div className={styles.cardActions}><h2>执行权限</h2>{view?.canConfigure?<Button variant="outline" disabled={locked} onClick={()=>{setSelected(view.mode);setOpen(true)}}>配置权限</Button>:null}</div>

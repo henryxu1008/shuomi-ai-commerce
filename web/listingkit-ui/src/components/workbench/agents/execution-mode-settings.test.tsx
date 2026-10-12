@@ -1,4 +1,4 @@
-import {cleanup,fireEvent,render,screen,waitFor} from "@testing-library/react";
+import {act,cleanup,fireEvent,render,screen,waitFor} from "@testing-library/react";
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
 import {ExecutionModeSettings,executionModeLabels} from "./execution-mode-settings";
 import {ConfigurationError} from "@/lib/api/agent-configuration";
@@ -45,4 +45,20 @@ it.each([400,403,404,409])("retains the original uncertain command when verifica
 });
 it("does not replace the current revision after a known conflict",async()=>{
  state.send.mockRejectedValue(new ConfigurationError("REVISION_MISMATCH",409));render(<ExecutionModeSettings scope={scope} subject={subject}/>);fireEvent.click(await screen.findByRole("button",{name:"配置权限"}));fireEvent.click(screen.getByRole("button",{name:"保存配置"}));await screen.findByText(/配置已被更新/);await waitFor(()=>expect(localStorage.length).toBe(0));expect(screen.getByText("默认权限 · 配置版本 0")).toBeInTheDocument();
+});
+
+it("remounts the scoped form and retains the original intent when enterprise changes during a save",async()=>{
+ let finish!:(value:unknown)=>void;
+ state.send.mockImplementation(()=>new Promise(resolve=>{finish=resolve}));
+ const component=render(<ExecutionModeSettings scope={scope} subject={subject}/>);
+ fireEvent.click(await screen.findByRole("button",{name:"配置权限"}));fireEvent.click(screen.getByRole("radio",{name:/^完全访问/}));fireEvent.click(screen.getByRole("button",{name:"保存配置"}));
+ await waitFor(()=>expect(state.send).toHaveBeenCalledOnce());
+ const original=state.send.mock.calls[0][3];expect(localStorage.length).toBe(1);
+ component.rerender(<ExecutionModeSettings scope={{...scope,organizationId:"other"}} subject={subject}/>);
+ expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+ expect(screen.getByRole("button",{name:"配置权限"})).toBeEnabled();
+ expect(original.signal.aborted).toBe(true);
+ await act(async()=>{finish(await saveReceipt(scope,"",{},original))});
+ expect(screen.queryByText(/权限模式已保存/)).not.toBeInTheDocument();
+ expect(localStorage.length).toBe(1);
 });
