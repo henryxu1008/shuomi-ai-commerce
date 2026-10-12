@@ -5874,6 +5874,7 @@ func supplyAdapterBusinessPorts() map[string][]string {
 		filepath.Join(base, "shein", "official_goods_rules.go"):                                     {"task-processor/internal/marketplace/shein/model"},
 		filepath.Join(base, "temu", "official_categories.go"):                                       {"task-processor/internal/marketplace/temu/model"},
 		filepath.Join(base, "temu", "official_category_rules.go"):                                   {"task-processor/internal/marketplace/temu/model"},
+		filepath.Join(base, "temu", "official_supplier_size.go"):                                    {"task-processor/internal/marketplace/temu/model"},
 		filepath.Join(base, "temu", "official_goods.go"):                                            {"task-processor/internal/marketplace/temu/model", "task-processor/internal/marketplace/temu/goods"},
 		filepath.Join(base, "temu", "official_observations.go"):                                     {"task-processor/internal/marketplace/temu/model", "task-processor/internal/marketplace/temu/observations", "task-processor/internal/storecenter/observations"},
 		filepath.Join(base, "shein", "official_readback.go"):                                        {"task-processor/internal/marketplace/shein/goods", "task-processor/internal/marketplace/shein/model"},
@@ -5924,7 +5925,7 @@ func TestSupplyPersistenceAndOfficialTransportOnlyImportAdmittedPorts(t *testing
 	if !supplyAdapterPortAllowed(good, "task-processor/internal/marketplace/shein/goods") || supplyAdapterPortAllowed(bad, "task-processor/internal/marketplace/shein/goods") || supplyAdapterPortAllowed(good, "task-processor/internal/marketplace/shein/goods/child") {
 		t.Fatal("official DTO admission must be exact")
 	}
-	for _, file := range []string{"official_categories.go", "official_category_rules.go"} {
+	for _, file := range []string{"official_categories.go", "official_category_rules.go", "official_supplier_size.go"} {
 		admitted := filepath.Join(root, "temu", file)
 		if !supplyAdapterPortAllowed(admitted, "task-processor/internal/marketplace/temu/model") || supplyAdapterPortAllowed(admitted, "task-processor/internal/marketplace/temu/rules") || supplyAdapterPortAllowed(admitted, "task-processor/internal/marketplace/temu/model/child") || supplyAdapterPortAllowed(filepath.Join(root, "temu", "other.go"), "task-processor/internal/marketplace/temu/model") {
 			t.Fatal("TEMU official metadata admission must be the exact DTO leaf and files")
