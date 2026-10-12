@@ -1,6 +1,6 @@
 # 商品内容完善与本地化智能体 v1
 
-Status: DESIGNING / NOT_READY。执行 Issue [#661](https://github.com/qq550723504/task-processor/issues/661)，父 Roadmap #137。正式生产代码须在必要独立架构检查明确 IMPLEMENTATION_READY 后修改。
+Status: APPROVED / IMPLEMENTATION_READY。执行 Issue [#661](https://github.com/qq550723504/task-processor/issues/661)，父 Roadmap #137；主要PR #662。2026-10-12第2轮独立增量检查绑定d46e7860af26353c925b0976e2b721a44e5c0abf及设计SHA256 C3BED0D716545B71D844037763FCB728568BFFA84AE6A8834B051C32CE094461，确认两项BLOCKER关闭、无新增BLOCKER。本文冻结；只有实际新BLOCKER重开设计。
 
 ## 1. 产品结果与依据
 
@@ -110,5 +110,5 @@ Legacy decision: N/A（当前owner扩展；发现已登记旧代码只EXTRACT/RE
 - Finding：现title-only lineage及wire消费者须适配。Classification：IMPLEMENTATION_TEST（合并层）。Action：§7/§8验证真实混合title/content多跳、每字段证据、完整snapshot和额外字段改动拒绝，不另建owner。
 - Finding：64KiB生命周期预算。Classification：IMPLEMENTATION_TEST（合并层）。Action：§5/§8覆盖before/after、原候选、历史/proof及未来Apply空间，临界/超界整事务验证，不扩大上限。
 
-两项BLOCKER修正后仅做第2轮对应设计增量复核；正式代码仍等明确IMPLEMENTATION_READY。
+第2轮对应增量检查已明确IMPLEMENTATION_READY，原两项BLOCKER关闭。混合lineage、64KiB生命周期预算、DDL重复执行及content route/mode负例继续IMPLEMENTATION_TEST，在本批实现和合并前收敛。真实模型/保留实例接入/用户与生产验收仍NOT_RUN；设计准入不替代功能完成。
 
