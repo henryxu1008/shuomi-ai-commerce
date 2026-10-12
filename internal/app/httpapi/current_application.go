@@ -1609,7 +1609,7 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 			}
 		}
 	}
-	if includeCommercialBilling {
+	if includeCommercialBilling || optional.StorageCapacity {
 		if optional.StorageCapacity {
 			for _, path := range []string{billinghttp.StorageSummaryPath, billinghttp.StorageOffersPath, billinghttp.PublicStorageOffersPath} {
 				expected[currentApplicationRoute{Method: http.MethodGet, Path: path}] = struct{}{}
