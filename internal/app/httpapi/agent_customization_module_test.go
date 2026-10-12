@@ -223,14 +223,33 @@ func TestAgentCustomizationModulePostgresNormalMiddlewareFlow(t *testing.T) {
 	require.Equal(t, 200, w.Code, w.Body.String())
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &readBack))
 	require.Equal(t, agent.ModeDefault, readBack.ExecutionMode, "history retains its frozen mode after widening")
+	w = request("POST", reportPath, `{"recordId":"`+draftProbe.record+`","expectedRevision":1,"expectedModeRevision":"0"}`, reportKey, "")
+	require.Equal(t, 200, w.Code, w.Body.String(), "lost response must recover the original report after a mode change")
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &readBack))
+	require.Equal(t, report, readBack)
+	draftProbe.denied = true
+	w = request("POST", reportPath, `{"recordId":"`+draftProbe.record+`","expectedRevision":1,"expectedModeRevision":"0"}`, reportKey, "")
+	require.Equal(t, 403, w.Code, "original receipt still requires current source authorization")
+	draftProbe.denied = false
+	w = request("POST", reportPath, `{"recordId":"`+draftProbe.record+`","expectedRevision":1,"expectedModeRevision":"0"}`, uuid.NewString(), "")
+	require.Equal(t, 412, w.Code, "new operation cannot use an old mode revision")
+	var reportsCount int
+	require.NoError(t, db.QueryRow("SELECT count(*) FROM agent_customization.quality_runs").Scan(&reportsCount))
+	require.Equal(t, 4, reportsCount, "replay and rejected new operation create no additional report")
 	var count int
 	require.NoError(t, db.QueryRow("SELECT count(*) FROM agent_customization.requests").Scan(&count))
 	require.Equal(t, 1, count, "replay did not create another request")
 }
 
-type customizationDraftProbe struct{ record string }
+type customizationDraftProbe struct {
+	record string
+	denied bool
+}
 
 func (p *customizationDraftProbe) Inspect(ctx context.Context, scope d.Scope, in d.DraftSelection, _ bool) (d.DraftSnapshot, error) {
+	if p.denied {
+		return d.DraftSnapshot{}, d.ErrForbidden
+	}
 	if _, ok := ctx.Value(productReviewCapabilityContextKey{}).(productReviewRequestCapability); !ok {
 		return d.DraftSnapshot{}, d.ErrForbidden
 	}

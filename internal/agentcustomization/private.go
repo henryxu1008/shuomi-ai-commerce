@@ -234,8 +234,12 @@ func (s *Service) RunQuality(ctx context.Context, c RunCommand) (QualityRun, err
 		return QualityRun{}, e
 	}
 	run, err := r.RunQuality(ctx, c, func(ctx context.Context, head bool) (DraftSnapshot, error) {
-		if e := s.executionMode.CheckQualityMode(ctx, c.Scope, delivery, c.ModeSnapshotRef); e != nil {
-			return DraftSnapshot{}, e
+		// Only a new report consumes current execution authority. A committed
+		// report replays its original mode while rechecking the source below.
+		if head {
+			if e := s.executionMode.CheckQualityMode(ctx, c.Scope, delivery, c.ModeSnapshotRef); e != nil {
+				return DraftSnapshot{}, e
+			}
 		}
 		if s.drafts == nil {
 			return DraftSnapshot{}, ErrUnavailable

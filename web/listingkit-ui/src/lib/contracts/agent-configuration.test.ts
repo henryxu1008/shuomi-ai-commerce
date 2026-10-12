@@ -7,10 +7,12 @@ const template = {
 };
 it("retains the exact template revision and explicit no-Knowledge choice", () => {
   const parsed = agentStartRequestSchema.parse({
+    expectedModeRevision: "0",
     targetPlatform: "shein",
     templateSelection: template,
   });
   expect(parsed).toEqual({
+    expectedModeRevision: "0",
     targetPlatform: "shein",
     templateSelection: template,
   });
@@ -34,6 +36,7 @@ it("rejects null, partial and rounded template references", () => {
   ])
     expect(
       agentStartRequestSchema.safeParse({
+        expectedModeRevision: "0",
         targetPlatform: "shein",
         templateSelection: value,
       }).success,
