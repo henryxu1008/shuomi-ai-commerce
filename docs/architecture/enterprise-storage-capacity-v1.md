@@ -4,7 +4,7 @@ Issue: [#659](https://github.com/qq550723504/task-processor/issues/659)
 
 Design Basis: **Independent Architecture**
 
-Admission Status: **NOT_READY**
+Admission Status: **IMPLEMENTATION_READY** — 2026-10-12 独立 Reviewer storage_design_review 核对 design-only af49426cdb82acd984f74a4a0c56b8d6351fb927 / blob 65f44a2f0d1f2f784a553a171904519a1f7c64e4、当前 Figma 与用户批准增量，无新 BLOCKER；此前核心合同检查有效，3 项 IMPLEMENTATION_TEST 留本批验证。
 2026-10-12 用户批准每企业默认 5 GiB、50 GiB 扩容包 19.90 元/30 天及超限不自动删除已有数据，并要求先补齐页面设计和正式设计准入，再开发。本批允许准入后实现、自检与维护同一 PR；不授权合并、部署、真实支付/provider/业务数据或 Issue 关闭。
 
 企业管理员在现有“资源与额度”查看企业共享存储的上限、已占用、写入预留和剩余空间，成员沿原商品素材、图片和知识库路径保存内容。空间不足时，在支付或写入前得到明确提示；管理员可以从企业钱包购买有期限的扩容包。现有文件访问权限、资产批准、AI 点数、知识生命周期和资金 owner 保持各自职责。
@@ -265,6 +265,6 @@ Current owner: Commercial/Billing、Money、ledger/storagecapacity、原业务�
 Cutover/deletion condition: 新安装受控写入直接使用容量端口；旧 oss_storage 套餐/usage 不作为依赖，无 fallback/双写/迁移。
 ```
 
-产品规则已由用户确认，当前 Figma 页面设计已补齐；需独立 Reviewer 对这部分准入增量核对并确认 IMPLEMENTATION_READY 后才能开工。正式销售还须确定实际云成本及适用的容量销售退款/纠纷受理边界；这些不把只读设计或隔离开发写成生产可售。
+产品规则与当前 Figma 页面均已确认；独立 Reviewer 已明确 IMPLEMENTATION_READY，当前设计冻结并允许本批正式开发。正式销售还须确定实际云成本及适用的容量销售退款/纠纷受理边界；这些不把只读设计或隔离开发写成生产可售。
 
 用户批准决定已记录在本 Issue 与本稿；独立准入完成后冻结并进入开发。已批准的容量/价格可进入新安装初始化，不能直接修改真实环境事实；独立 Reviewer 不能授权数据清理或扩大产品范围。
