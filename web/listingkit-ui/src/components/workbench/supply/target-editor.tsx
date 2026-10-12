@@ -6,9 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { supplyRules,supplyInventory,SupplyAPIError,type SupplyScope } from "@/lib/api/supply-chain";
-import { sourceSelectionSchema,targetInputSchema,inventorySchema,type SupplySourceDetail,type SupplyTarget,type SupplyRules,type OfficialProduct } from "@/lib/contracts/supply-chain";
-import { initialSupplyDraft,applyApplicationMode,categoryLeaves,emptySKC,emptySKU,sampleForSKU,type SupplyDraft,type AttributeValue,type SKU } from "./draft-fields";
+import { supplyRules,supplyInventory,readSupplyCompletionDraft,SupplyAPIError,type SupplyScope } from "@/lib/api/supply-chain";
+import { sourceSelectionSchema,targetInputSchema,inventorySchema,type SupplyCompletionDraft,type SupplySourceDetail,type SupplyTarget,type SupplyRules,type OfficialProduct } from "@/lib/contracts/supply-chain";
+import { initialSupplyDraft,applyCompletionText,applyApplicationMode,categoryLeaves,emptySKC,emptySKU,sampleForSKU,type SupplyDraft,type AttributeValue,type SKU } from "./draft-fields";
 import type { SupplyCommandState } from "./use-supply-command";
 import type {ProductTitleProposal} from "@/lib/api/product-title-review";
 import {reviewedSupplyDraft} from "./title-review-binding";
@@ -18,7 +18,12 @@ type RuleAttribute=SupplyRules["rules"]["attributes"]["attribute_infos"][number]
 const modeLabel={self_operated:"自营",semi_managed:"半托管",fully_managed:"全托管"};
 const roleLabel={main:"主图",white_background:"白底图",gallery:"展示图",design:"设计图"};
 type Role=keyof typeof roleLabel;
-export function SupplyTargetEditor({scope,source,storeId,existing,appliedProposal,command,disabled,saved}:{scope:SupplyScope;source:SupplySourceDetail;storeId:string;existing?:SupplyTarget;appliedProposal?:ProductTitleProposal;command:SupplyCommandState;disabled:boolean;saved:number}){
+export function SupplyTargetEditor({scope,source,storeId,existing,appliedProposal,command,disabled,saved,completionAvailable=false}:{scope:SupplyScope;source:SupplySourceDetail;storeId:string;existing?:SupplyTarget;appliedProposal?:ProductTitleProposal;command:SupplyCommandState;disabled:boolean;saved:number;completionAvailable?:boolean}){
+ const [completion,setCompletion]=useState<SupplyCompletionDraft>(),[completionError,setCompletionError]=useState(false);
+ useEffect(()=>{if(!completionAvailable)return;const c=new AbortController();let live=true;
+  void readSupplyCompletionDraft(scope,source.source.id,c.signal).then(value=>{if(live)setCompletion(value)}).catch(e=>{if(live&&(!(e instanceof SupplyAPIError)||e.code!=="NOT_FOUND"))setCompletionError(true)});
+  return()=>{live=false;c.abort()};
+ },[completionAvailable,scope,source.source.id]);
  const [draft,setDraft]=useState<SupplyDraft>(()=>existing&&appliedProposal?reviewedSupplyDraft(existing,appliedProposal):structuredClone(existing?.input.draft??initialSupplyDraft(source)));
  const [rules,setRules]=useState<SupplyRules>();const [inventory,setInventory]=useState<Inventory>();
  const [selectedImages,setSelectedImages]=useState<Record<string,Role>>({});const [error,setError]=useState<string>();const [resolvedRuleEpoch,setResolvedRuleEpoch]=useState(-1),[ruleEpoch,setRuleEpoch]=useState(0),[inventoryEpoch,setInventoryEpoch]=useState(0);
@@ -51,6 +56,7 @@ export function SupplyTargetEditor({scope,source,storeId,existing,appliedProposa
   <details className="rounded-xl bg-slate-50 p-4"><summary className="cursor-pointer text-sm font-medium">查看原始资料 · 版本 {source.source.source.version}</summary><p className="mt-3 font-medium">{source.product.title}</p><p className="mt-2 whitespace-pre-wrap text-sm">{source.product.description}</p><dl className="mt-3 grid gap-2 sm:grid-cols-2">{source.product.attributes?.map((a,i)=><div key={i} className="text-sm"><dt className="text-slate-500">{a.name}</dt><dd>{a.value}</dd></div>)}</dl></details>
   <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm font-semibold">SHEIN · {priceMode?modeLabel[priceMode]:"正在读取应用类型"} · {priceMode==="fully_managed"?"平台分配市场":"美国站"}</p><Button variant="outline" size="sm" disabled={loading} onClick={()=>setRuleEpoch(n=>n+1)}>刷新店铺规则</Button></div>
   {error?<p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>:null}{loading?<p role="status" className="text-sm text-slate-500">正在读取店铺类目与规则</p>:null}
+  {completionAvailable?<section className="space-y-2 rounded-lg border bg-muted/30 p-3"><h3 className="text-sm font-semibold">已保存的待补全草稿</h3>{completion?<><p className="text-xs text-muted-foreground">候选版本 R{completion.revision}。带入后仍须按当前店铺规则校验。</p><Button type="button" variant="outline" disabled={disabled||command.busy||!!command.pending} onClick={()=>setDraft(value=>applyCompletionText(value,completion.content))}>带入待补全草稿 R{completion.revision}</Button></>:<p className="text-xs text-muted-foreground">{completionError?"当前草稿读取失败；可继续编辑平台资料。":"此商品还没有保存未绑定草稿。"}</p>}</section>:null}
   <fieldset disabled={disabled} className="space-y-5 disabled:opacity-70">
    <div className="grid gap-4 sm:grid-cols-2"><Field label="平台类目"><Select value={product.category_id||""} onChange={e=>{const leaf=categoryLeaves(rules?.rules.categories??[]).find(c=>c.id===Number(e.target.value));if(!leaf)return;change(d=>{d.product.category_id=leaf.id;d.product.product_type_id=leaf.type;d.product.product_attribute_list=[];d.product.size_attribute_list=[];for(const skc of d.product.skc_list){skc.sale_attribute={attribute_id:0};for(const sku of skc.sku_list){sku.sale_attribute_list=[];sku.sku_scope_attribute_list=[]}}});setRuleEpoch(n=>n+1)}}><option value="">选择可发布的末级类目</option>{categoryLeaves(rules?.rules.categories??[]).map(c=><option value={c.id} key={c.id}>{c.name}</option>)}</Select></Field><Field label="品牌"><Select value={product.brand_code??""} onChange={e=>change(d=>{d.product.brand_code=e.target.value})}><option value="">选择当前店铺品牌</option>{rules?.rules.brands.map(b=><option key={b.brand_code} value={b.brand_code}>{b.brand_name}</option>)}</Select></Field></div>
    <LanguageFields label="商品标题" values={product.multi_language_name_list} onChange={v=>change(d=>{d.product.multi_language_name_list=v})}/>

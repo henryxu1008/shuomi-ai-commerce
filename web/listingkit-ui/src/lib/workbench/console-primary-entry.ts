@@ -7,6 +7,7 @@ export type ConsolePrimaryCapabilities = AIWorkbenchEntryCapabilities & {
   supplyMarketAvailable?: boolean;
   supplyChainAvailable?: boolean;
   supplyPreparationAvailable?: boolean;
+  supplyCompletionDraftsAvailable?: boolean;
   dataServicesAvailable?: boolean;
   productCollectionsAvailable?: boolean;
   toolMarketAvailable?: boolean;

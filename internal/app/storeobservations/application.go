@@ -61,15 +61,18 @@ func (d Directory) ListStores(ctx context.Context, s o.Scope) ([]string, error) 
 }
 
 type Application struct {
-	Service *o.Service
-	Ready   func() bool
+	Service         *o.Service
+	Ready           func() bool
+	PreparationOnly bool
 }
 type Capabilities struct {
-	Available   bool   `json:"available"`
-	CanSync     bool   `json:"canSync"`
-	Kind        o.Kind `json:"kind"`
-	Site        string `json:"site"`
-	PlatformURL string `json:"platformUrl"`
+	Available          bool   `json:"available"`
+	CanSync            bool   `json:"canSync"`
+	RuntimeReady       bool   `json:"runtimeReady"`
+	ProviderConfigured bool   `json:"providerConfigured"`
+	Kind               o.Kind `json:"kind"`
+	Site               string `json:"site"`
+	PlatformURL        string `json:"platformUrl"`
 }
 
 func Scope(ctx context.Context) (o.Scope, error) {
@@ -80,8 +83,11 @@ func Scope(ctx context.Context) (o.Scope, error) {
 	}
 	return s, nil
 }
-func (a *Application) Available() bool {
+func (a *Application) RuntimeReady() bool {
 	return a != nil && a.Service != nil && a.Service.Repository != nil && a.Service.Access != nil && a.Service.Directory != nil && a.Service.Starter != nil && a.Ready != nil && a.Ready()
+}
+func (a *Application) Available() bool {
+	return a.RuntimeReady() && !a.PreparationOnly
 }
 func (a *Application) Capabilities(ctx context.Context, s o.Scope, k o.Kind) (Capabilities, error) {
 	c := Capabilities{Kind: k, Site: "shein-us", PlatformURL: "https://sellerhub.shein.com/"}
@@ -91,7 +97,9 @@ func (a *Application) Capabilities(ctx context.Context, s o.Scope, k o.Kind) (Ca
 	if e := a.Service.Access.Authorize(ctx, s, k, false); e != nil {
 		return c, e
 	}
-	c.Available = a.Available()
+	c.RuntimeReady = a.RuntimeReady()
+	c.ProviderConfigured = !a.PreparationOnly
+	c.Available = c.RuntimeReady && c.ProviderConfigured
 	e := a.Service.Access.Authorize(ctx, s, k, true)
 	if errors.Is(e, o.ErrForbidden) {
 		return c, nil

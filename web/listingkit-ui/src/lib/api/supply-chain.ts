@@ -7,7 +7,7 @@ import { supplyReviewCommand,supplyReviewApplyCommandSchema,supplyReviewDecision
 import { SupplyAPIError } from "./supply-error";
 
 export type SupplyScope=CollectionScope;
-export type SupplyIntent=Readonly<SupplyScope & { key:string; route:"transfer"|"save-target"|"approve"|"create-operation"|"resolve-upload"|"review-decision"|"review-apply"; command:unknown }>;
+export type SupplyIntent=Readonly<SupplyScope & { key:string; route:"save-completion-draft"|"transfer"|"save-target"|"approve"|"create-operation"|"resolve-upload"|"review-decision"|"review-apply"; command:unknown }>;
 export function supplyIntentRequestSchema(route:SupplyIntent["route"]){
  if(route==="review-decision")return supplyReviewDecisionCommandSchema;
  if(route==="review-apply")return supplyReviewApplyCommandSchema;
@@ -33,6 +33,12 @@ export const listSupplySources=(scope:SupplyScope,id:string,q:Query={},signal?:A
 export const readSupplySource=async(scope:SupplyScope,id:string,signal?:AbortSignal)=>{
  const value=await send(`${base}/sources/${collectionID.parse(id)}`,scope,c.sourceDetailSchema,signal);if(value.source.id!==id)throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
 };
+export const readSupplyCompletionDraft=async(scope:SupplyScope,id:string,signal?:AbortSignal)=>{
+ const value=await send(`${base}/sources/${collectionID.parse(id)}/completion-draft`,scope,c.completionRecordSchema,signal);if(value.source.id!==id)throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
+};
+export const listSupplyCompletionDrafts=async(scope:SupplyScope,id:string,q:Query={},signal?:AbortSignal)=>{
+ const value=await send(`${base}/${collectionID.parse(id)}/completion-drafts${query(q)}`,scope,c.completionPageSchema,signal);if(value.items.some(r=>r.source.preparationId!==id))throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
+};
 export const readSupplyTarget=async(scope:SupplyScope,source:string,store:string,signal?:AbortSignal)=>{
  const value=await send(`${base}/sources/${collectionID.parse(source)}/targets/${collectionID.parse(store)}`,scope,c.targetRecordSchema,signal);if(value.source.id!==source||value.merchant.store_id!==store)throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
 };
@@ -52,7 +58,7 @@ export async function supplyCommand(intent:SupplyIntent,signal?:AbortSignal){
  }
 	if(intent.route==="review-decision"||intent.route==="review-apply")return supplyReviewCommand(intent,signal);
  const schema=c.supplyRequestSchema(intent.route);if(!schema)throw new SupplyAPIError("INVALID_REQUEST",400);
- const suffix=intent.route==="transfer"?"transfer":intent.route==="save-target"?"targets":intent.route==="approve"?"images/approve":"operations";
+ const suffix=intent.route==="save-completion-draft"?"completion-drafts":intent.route==="transfer"?"transfer":intent.route==="save-target"?"targets":intent.route==="approve"?"images/approve":"operations";
  const value=await send(`${base}/${suffix}`,intent,c.supplyResponseSchema(intent.route),signal,{method:"POST",command:schema.parse(intent.command),key:collectionID.parse(intent.key),mutates:true});
  return commandResult(value,intent,true);
 }
@@ -61,8 +67,8 @@ export async function readSupplyCommand(intent:SupplyIntent,signal?:AbortSignal)
  // Approval is a safely repeatable local fact commit. Replaying the exact full
  // set with the same key reads its immutable receipt without a platform send.
  if(intent.route==="approve"||intent.route==="resolve-upload"||intent.route==="review-decision"||intent.route==="review-apply")return supplyCommand(intent,signal);
- const suffix=intent.route==="transfer"?`transfers/by-key/${key}`:intent.route==="save-target"?`target-commands/${key}`:`operations/by-key/${key}`;
- const route=intent.route==="transfer"?"transfer-read":intent.route==="save-target"?"target-command":"operation-key";
+ const suffix=intent.route==="save-completion-draft"?`completion-drafts/commands/${key}`:intent.route==="transfer"?`transfers/by-key/${key}`:intent.route==="save-target"?`target-commands/${key}`:`operations/by-key/${key}`;
+ const route=intent.route==="save-completion-draft"?"completion-command":intent.route==="transfer"?"transfer-read":intent.route==="save-target"?"target-command":"operation-key";
  const value=await send(`${base}/${suffix}`,intent,c.supplyResponseSchema(route),signal);
  return commandResult(value,intent,false);
 }
@@ -90,6 +96,10 @@ async function send<T extends z.ZodType>(path:string,scope:SupplyScope,schema:T,
 
 function commandResult(value:unknown,intent:SupplyIntent,mutates:boolean){
  let valid=false;
+ if(intent.route==="save-completion-draft"){
+  const input=c.completionInputSchema.parse(intent.command),record=c.completionReceiptSchema.parse(value).record;
+  valid=record.source.id===input.sourceId&&record.revision===input.expectedRevision+1&&record.content.title===input.content.title&&record.content.description===input.content.description;
+ }
  if(intent.route==="approve")valid=c.imageApprovalReceiptSchema.parse(value).action_id===intent.key;
  if(intent.route==="transfer"){
   const input=c.transferInputSchema.parse(intent.command),result=c.transferReceiptSchema.parse(value);

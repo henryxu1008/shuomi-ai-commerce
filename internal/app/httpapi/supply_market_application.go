@@ -63,10 +63,10 @@ func buildSupplyMarketModule(ctx context.Context, db *gorm.DB, d SupplyMarketDep
 	if !ok || resolver == nil || db == nil || d.Storage == nil || a == nil || cfg == nil || cfg.ListingKit.Zitadel.TenantDirectoryToken == "" {
 		return empty, supplymarket.ErrUnavailable
 	}
-	if len(supplyChain) > 3 {
+	if len(supplyChain) > 4 {
 		return empty, supplymarket.ErrUnavailable
 	}
-	collections, e := buildProductCollectionService(ctx, db, deps, a, len(supplyChain) >= 1 && supplyChain[0], true, p != nil, len(supplyChain) >= 2 && supplyChain[1], len(supplyChain) >= 3 && supplyChain[2])
+	collections, e := buildProductCollectionService(ctx, db, deps, a, len(supplyChain) >= 1 && supplyChain[0], true, p != nil, len(supplyChain) >= 2 && supplyChain[1], len(supplyChain) >= 3 && supplyChain[2], len(supplyChain) >= 4 && supplyChain[3])
 	if e != nil {
 		return empty, e
 	}

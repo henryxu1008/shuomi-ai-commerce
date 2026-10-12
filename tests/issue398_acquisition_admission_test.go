@@ -45,7 +45,7 @@ func issue398AcquisitionAPIViolations(sources []listingKitImageBoundarySource) (
 	}{
 		{"internal/app/productsourcing", issue398Database, map[string][]string{"internal/app/productsourcing/acquisition_initialization.go": {"OpenExistingWritableContext", "Close", "Config"}}},
 		{"internal/integration/acquisition/a1688", issue398HTTP, map[string][]string{"internal/integration/acquisition/a1688/public.go": {"NewPublicImageHTTPClient"}}},
-		{"cmd/product-acquisition-init", "task-processor/internal/app/productsourcing", map[string][]string{"cmd/product-acquisition-init/main.go": {"InitializeAcquisitionDatabase", "EnableAcquisitionPlans"}}},
+		{"cmd/product-acquisition-init", "task-processor/internal/app/productsourcing", map[string][]string{"cmd/product-acquisition-init/main.go": {"InitializeAcquisitionDatabase", "EnableAcquisitionPlans", "EnableCompletionDrafts"}}},
 		// #637: precise composition and additive explicit initializer; no sibling admission.
 		{"internal/app/httpapi/acquisition_plan_application.go", "task-processor/internal/app/productsourcing", map[string][]string{"internal/app/httpapi/acquisition_plan_application.go": {"PlanAuthority", "NewAcquisitionPlanService", "AcquisitionPlanService", "CreatePlanInput"}}},
 		// #399/#561 constructor edges; #605 adds only current Collection publication.
@@ -210,6 +210,8 @@ func TestIssue398CurrentLeafAndInitializerAPIGuard(t *testing.T) {
 		{"initializer sibling", "cmd/product-acquisition-init/other.go", "task-processor/internal/app/productsourcing", "InitializeAcquisitionDatabase", false},
 		{"plan feature initializer", "cmd/product-acquisition-init/main.go", "task-processor/internal/app/productsourcing", "EnableAcquisitionPlans", true},
 		{"plan initializer sibling", "cmd/product-acquisition-init/other.go", "task-processor/internal/app/productsourcing", "EnableAcquisitionPlans", false},
+		{"completion feature initializer", "cmd/product-acquisition-init/main.go", "task-processor/internal/app/productsourcing", "EnableCompletionDrafts", true},
+		{"completion initializer sibling", "cmd/product-acquisition-init/other.go", "task-processor/internal/app/productsourcing", "EnableCompletionDrafts", false},
 		{"plan exact constructor", "internal/app/httpapi/acquisition_plan_application.go", "task-processor/internal/app/productsourcing", "NewAcquisitionPlanService", true},
 		{"plan cannot open database", "internal/app/httpapi/acquisition_plan_application.go", "task-processor/internal/app/productsourcing", "InitializeAcquisitionDatabase", false},
 		{"initializer target subpackage", "cmd/product-acquisition-init/main.go", "task-processor/internal/app/productsourcing/httpapi", "InitializeAcquisitionDatabase", false},

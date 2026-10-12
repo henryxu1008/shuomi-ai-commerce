@@ -85,12 +85,8 @@ func TestStoreObservationProcessServesOnlyAfterWorkerAndPreservesPools(t *testin
 			c.ProductAcquisitionDatabase = nil
 			c.ProductCollections = false
 			c.SupplyChain = nil
-			c.StoreCenter.Observations = &StoreObservationsConfig{TemporalAddress: "127.0.0.1:7233", TemporalNamespace: "default"}
-			app := c.StoreCenter.OfficialApplications[0]
-			require.NoError(t, os.WriteFile(app.AppSecretFile, []byte(strings.Repeat("synthetic", 4)), 0600))
-			require.NoError(t, os.WriteFile(app.CredentialKeyFile, []byte(base64.StdEncoding.EncodeToString(make([]byte, 32))), 0600))
-			privatizeSyntheticTestFile(t, app.AppSecretFile)
-			privatizeSyntheticTestFile(t, app.CredentialKeyFile)
+			c.StoreCenter.Observations = &StoreObservationsConfig{TemporalAddress: "127.0.0.1:7233", TemporalNamespace: "default", PreparationOnly: true}
+			c.StoreCenter.OfficialApplications = nil
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 			workflowClient := &mocks.Client{}
@@ -115,6 +111,8 @@ func TestStoreObservationProcessServesOnlyAfterWorkerAndPreservesPools(t *testin
 					NewApplicationWithFeatures: func(_ context.Context, _ *gorm.DB, f ApplicationFeatures, _ *coreconfig.Config, _ *logrus.Logger) (*http.Server, error) {
 						require.Same(t, stores, f.StoreCenterDB)
 						require.Same(t, workflowClient, f.StoreObservationsWorkflow)
+						require.True(t, f.StoreObservationsPreparationOnly)
+						require.Nil(t, f.OfficialStoreApplications)
 						require.Nil(t, f.SupplyAssetDB)
 						require.Nil(t, f.SupplyWorkflow)
 						require.False(t, f.StoreObservationsLifecycle.Ready())

@@ -52,6 +52,7 @@ type Config struct {
 	ProductAcquisitionDatabase *DatabaseConfig                           `json:"productAcquisitionDatabase,omitempty"`
 	ProductCollections         bool                                      `json:"productCollections,omitempty"`
 	AcquisitionPlans           bool                                      `json:"acquisitionPlans,omitempty"`
+	SupplyCompletionDrafts     bool                                      `json:"supplyCompletionDrafts,omitempty"`
 	SupplyChain                *SupplyChainConfig                        `json:"supplyChain,omitempty"`
 	SupplyMarket               *SupplyMarketConfig                       `json:"supplyMarket,omitempty"`
 	POD                        *PODConfig                                `json:"pod,omitempty"`
@@ -434,6 +435,9 @@ func (cfg *Config) validate() error {
 	}
 	if cfg.ProductCollections && cfg.ProductAcquisitionDatabase == nil {
 		return errors.New("product collections require the current Product database")
+	}
+	if cfg.SupplyCompletionDrafts && (!cfg.ProductCollections || cfg.ProductAcquisitionDatabase == nil || cfg.PrivateDraftTrial != nil || cfg.Identity.TenantDirectoryToken == "") {
+		return errors.New("completion drafts require current Product Collections and live membership")
 	}
 	if cfg.AcquisitionPlans && (!cfg.ProductCollections || cfg.ProductAcquisitionDatabase == nil || cfg.BrowserCollector == nil || cfg.PrivateDraftTrial != nil) {
 		return errors.New("acquisition plans require Product Collections, the public collector and normal Preparation composition")

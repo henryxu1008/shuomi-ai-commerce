@@ -324,6 +324,10 @@ function ScopedPage({
           ["已发货 / 待揽收", metric(data?.summary.transit)],
           ["平台异常", metric(data?.summary.exceptional)],
         ];
+  if (!caps.isError && caps.data?.runtimeReady && !caps.data.providerConfigured) {
+    const route = findConsoleRoute(kind === "products" ? "/workbench/store-products" : "/workbench/store-orders")!;
+    return <ConsolePage title={route.node.label} breadcrumbs={route.trail} description="同步并查看店铺的平台商品、订单、物流和异常记录。"><ConsoleState kind="unavailable" title="店铺同步内部已就绪，SHEIN 待配置">商品与订单同步模块及后台 worker 已准备好。配置正式官方应用和店铺连接后才开放平台读取与同步；当前没有发起同步。</ConsoleState></ConsolePage>;
+  }
   return (
     <ConsolePage
       title={kind === "products" ? "店铺商品" : "订单履约"}
