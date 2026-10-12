@@ -52,6 +52,7 @@ type ProductAgentDependencies struct {
 	PointAccountingDB        *gorm.DB
 	Ledger                   ProductAgentInvocationLedger
 	TextPolicies             map[string]governed.RoutePolicy
+	ContentTextPolicies      map[string]governed.RoutePolicy
 	Enabled                  bool
 	AllowedOrganizationIDs   []string
 	Limits                   agent.Limits
@@ -113,6 +114,13 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 			return nil, agent.ErrUnavailable
 		}
 	}
+	for organizationID, policy := range cfg.ContentTextPolicies {
+		profile := policy.ShapeProfile()
+		cost, err := profile.MaximumCost()
+		if !allowedOrganizations[organizationID] || profile.PromptVersion != agentconfig.ContentPromptVersion || profile.OutputSchemaVersion != agentconfig.ContentActionVersion || !governed.ValidRouteProfile(profile, aicapability.OperationProductContentDecision) || profile.Currency != cfg.Limits.Currency || err != nil || profile.MaximumPromptTokens+profile.MaximumCompletionTokens > cfg.Limits.Tokens || cost > cfg.Limits.CostMicros {
+			return nil, agent.ErrUnavailable
+		}
+	}
 	if cfg.PointAccountingDB == nil || cfg.Ledger == nil {
 		return nil, agent.ErrUnavailable
 	}
@@ -132,6 +140,10 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 	a.config.TextPolicies = make(map[string]governed.RoutePolicy, len(cfg.TextPolicies))
 	for organizationID, policy := range cfg.TextPolicies {
 		a.config.TextPolicies[organizationID] = policy
+	}
+	a.config.ContentTextPolicies = make(map[string]governed.RoutePolicy, len(cfg.ContentTextPolicies))
+	for organizationID, policy := range cfg.ContentTextPolicies {
+		a.config.ContentTextPolicies[organizationID] = policy
 	}
 	var err error
 	var contexts []texteino.KnowledgeContext
@@ -265,6 +277,10 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 		return nil, err
 	}
 	a.runtime, err = einoruntime.New(einoruntime.Config{Definition: definition, Tools: definitions, Model: model, Gateway: a, Validator: a, Authorizer: a, Store: guard})
+	if err != nil {
+		return nil, err
+	}
+	a.content, err = buildContentProductApplication(ctx, a, reader, sources, deps, contexts)
 	if err != nil {
 		return nil, err
 	}

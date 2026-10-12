@@ -14,9 +14,28 @@ import (
 	"gorm.io/gorm"
 	coreconfig "task-processor/internal/core/config"
 
+	"task-processor/internal/agentconfig"
 	"task-processor/internal/aicapability"
 	governed "task-processor/internal/integration/aicapability/einomodel"
 )
+
+func TestContentTextPolicyIsOptionalAndCannotBorrowTheTitleRoute(t *testing.T) {
+	cfg := agentRuntimeConfig()
+	require.NoError(t, cfg.validate())
+	content := cfg.ProductAgent.TextPolicies["org"]
+	cfg.ProductAgent.ContentTextPolicies = map[string]governed.RoutePolicy{"org": content}
+	require.Error(t, cfg.validate(), "a title route cannot claim content readiness")
+	content.Profile.PromptVersion = agentconfig.ContentPromptVersion
+	content.Profile.OutputSchemaVersion = agentconfig.ContentActionVersion
+	cfg.ProductAgent.ContentTextPolicies["org"] = content
+	require.NoError(t, cfg.validate())
+	cfg.ProductAgent.ContentTextPolicies["outside-org"] = content
+	require.Error(t, cfg.validate())
+	delete(cfg.ProductAgent.ContentTextPolicies, "outside-org")
+	content.Profile.MaximumCompletionTokens = cfg.ProductAgent.Tokens
+	cfg.ProductAgent.ContentTextPolicies["org"] = content
+	require.Error(t, cfg.validate(), "content cannot increase the current token/cost ceiling")
+}
 
 func agentRuntimeConfig() *Config {
 	cfg := runtimeTestConfig()

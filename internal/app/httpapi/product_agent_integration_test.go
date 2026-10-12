@@ -82,6 +82,10 @@ func TestProductAgentAcquisitionToReviewUsesRealOwners(t *testing.T) {
 	}
 }
 
+func TestContentRuntimeSharesCurrentOwnersWithItsOwnDefinitionAndRoute(t *testing.T) {
+	testProductAgentOwners(t, "content assembly")
+}
+
 func testProductAgentOwners(t *testing.T, mode string) {
 	f := newAcquisitionHTTPFixture(t)
 	fixtureActor := "admin"
@@ -217,6 +221,11 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	// Keep the synthetic input bound below escapedBase's encoded prompt so the
 	// pre-Claim envelope rejection remains observable under the frozen profile.
 	settings := ProductAgentDependencies{Enabled: true, AllowedOrganizationIDs: []string{"B"}, RunDB: f.owner, PointAccountingDB: f.owner, AssetDB: f.owner, ReviewDB: f.owner, Ledger: ledger, TextPolicies: map[string]governed.RoutePolicy{"B": {AdmittedCredentialVersion: governed.CredentialVersion(*row), AdmittedEndpointIdentityDigest: governed.EndpointIdentityDigest(provider.URL + "/v1"), Profile: aicapability.ModelProfile{ClientName: "default", ProviderID: "grsai", AdapterKind: "openai-compatible", ModelID: "gemini-2.5-flash", RoutingPolicyVersion: "route-v1", AdapterPolicyVersion: "adapter-v1", PromptVersion: "product-title-agent-v1", OutputSchemaVersion: "product-title-action-v1", UsageMappingVersion: "usage-v1", CostPricingVersion: "fixture-v1", PointTariff: aicapability.ModelPointTariff{PriceVersion: "synthetic-points-v1", InputPointsPerMillionTokens: 1000000, OutputPointsPerMillionTokens: 2000000}, Currency: "CNY", InputMicrosPerMillion: 300000, OutputMicrosPerMillion: 2000000, MaximumPromptTokens: 1048576, MaximumCompletionTokens: 8192, MaximumInputBytes: 64 << 10, MaximumOutputBytes: 16 << 10, DeadlineBound: 3 * time.Second}}}, Limits: agent.Limits{Steps: 12, ModelCalls: 6, Tokens: 5000000, CostMicros: 5000000, Currency: "CNY", Runtime: time.Minute}}
+	if mode == "content assembly" {
+		policy := settings.TextPolicies["B"]
+		policy.Profile.PromptVersion, policy.Profile.OutputSchemaVersion = agentconfig.ContentPromptVersion, agentconfig.ContentActionVersion
+		settings.ContentTextPolicies = map[string]governed.RoutePolicy{"B": policy}
+	}
 	if kf != nil {
 		settings.Knowledge = kf.service
 	}
@@ -236,6 +245,17 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	}
 	module, err := buildProductAgentModule(context.Background(), f.db, deps, auth, settings, nil)
 	require.NoError(t, err)
+	if mode == "content assembly" {
+		parent := module.(productAgentModule).application
+		require.NotNil(t, parent.content)
+		require.Equal(t, agentconfig.ContentAgentID, parent.content.definition.ID)
+		require.Len(t, parent.content.definition.AllowedTools, 2)
+		require.Equal(t, parent.store, parent.content.store)
+		require.Equal(t, parent.configuration, parent.content.configuration)
+		require.Equal(t, parent.reviews, parent.content.reviews)
+		require.EqualValues(t, 0, calls.Load(), "runtime construction must not dispatch a model")
+		return
+	}
 	if strings.HasPrefix(mode, "supply ") {
 		testSupplyAgentOwners(t, mode, f, op, module.(productAgentModule).application, deps, auth, &calls)
 		return
