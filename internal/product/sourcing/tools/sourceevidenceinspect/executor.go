@@ -15,6 +15,7 @@ import (
 	"task-processor/internal/authidentity"
 	"task-processor/internal/commercetool"
 	"task-processor/internal/product/catalog"
+	"task-processor/internal/product/enrichment"
 	"task-processor/internal/product/sourcing"
 )
 
@@ -43,10 +44,19 @@ type AppliedTitleReference struct {
 	Version           string `json:"catalog_version"`
 	PublicationID     string `json:"publication_id"`
 }
+type AppliedPublicationReference struct {
+	AppliedTitleReference
+	Policy           string                      `json:"policy"`
+	ContentSelection enrichment.ContentSelection `json:"content_selection,omitzero"`
+}
+type PublicationLineage struct {
+	Schema     string                        `json:"schema"`
+	References []AppliedPublicationReference `json:"references"`
+}
 type EffectiveSourceObservation struct {
 	Requested CatalogReference
 	Original  sourcing.PersistedPublication
-	Applied   []AppliedTitleReference
+	Applied   []AppliedPublicationReference
 }
 type EffectiveSourceReader interface {
 	ReadEffectiveSource(context.Context, commercetool.Principal, catalog.PublishedSnapshot) (EffectiveSourceObservation, error)
@@ -172,7 +182,29 @@ func (e *Executor) projectEffective(ctx context.Context, principal commercetool.
 		return nil, sourcing.ErrSourcePublicationStateInvalid
 	}
 	output.Requested = observed.Requested
-	output.Applied = observed.Applied
+	content := false
+	for _, reference := range observed.Applied {
+		switch reference.Policy {
+		case "title-review-v1":
+			if !reference.ContentSelection.Absent() {
+				return nil, sourcing.ErrSourcePublicationStateInvalid
+			}
+		case enrichment.ContentPolicyVersion:
+			if !reference.ContentSelection.Valid() {
+				return nil, sourcing.ErrSourcePublicationStateInvalid
+			}
+			content = true
+		default:
+			return nil, sourcing.ErrSourcePublicationStateInvalid
+		}
+	}
+	if content {
+		output.PublicationLineage = &PublicationLineage{Schema: "product-review-publication-lineage-v1", References: observed.Applied}
+	} else {
+		for _, reference := range observed.Applied {
+			output.Applied = append(output.Applied, reference.AppliedTitleReference)
+		}
+	}
 	raw, err = json.Marshal(output)
 	if err != nil || len(raw) > MaxOutputBytes {
 		return nil, ErrProjectionTooLarge

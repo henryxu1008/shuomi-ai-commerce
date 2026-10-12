@@ -301,6 +301,24 @@ var outputSchema = func() json.RawMessage {
 	version := map[string]any{"type": "string", "pattern": "^[1-9][0-9]{0,18}$"}
 	props["requested_reference"] = map[string]any{"type": "object", "additionalProperties": false, "required": []string{"product_key", "catalog_version", "publication_id"}, "properties": map[string]any{"product_key": id, "catalog_version": version, "publication_id": id}}
 	props["applied_title_lineage"] = map[string]any{"type": "array", "maxItems": 64, "items": map[string]any{"type": "object", "additionalProperties": false, "required": []string{"proposal_id", "base_version", "base_publication_id", "catalog_version", "publication_id"}, "properties": map[string]any{"proposal_id": map[string]any{"type": "string", "format": "uuid"}, "base_version": version, "base_publication_id": id, "catalog_version": version, "publication_id": id}}}
+	// Pure title results retain the current v2 wire. Mixed publications use an
+	// explicitly versioned optional section and never masquerade as title-only.
+	selectionProps := map[string]any{"targetLanguage": map[string]any{"type": "string", "minLength": 2, "maxLength": 128}}
+	for _, field := range []string{"title", "description", "sellingPoints", "seoKeywords"} {
+		selectionProps[field] = map[string]any{"type": "boolean", "enum": []bool{true}}
+	}
+	referenceSchema := func(content bool) map[string]any {
+		required := []string{"policy", "proposal_id", "base_version", "base_publication_id", "catalog_version", "publication_id"}
+		properties := map[string]any{"policy": map[string]any{"const": "title-review-v1"}, "proposal_id": map[string]any{"type": "string", "format": "uuid"}, "base_version": version, "base_publication_id": id, "catalog_version": version, "publication_id": id}
+		if content {
+			properties["policy"] = map[string]any{"const": "product-content-review-v1"}
+			properties["content_selection"] = map[string]any{"type": "object", "additionalProperties": false, "required": []string{"targetLanguage"}, "minProperties": 2, "properties": selectionProps}
+			required = append(required, "content_selection")
+		}
+		return map[string]any{"type": "object", "additionalProperties": false, "required": required, "properties": properties}
+	}
+	reference := map[string]any{"oneOf": []any{referenceSchema(false), referenceSchema(true)}}
+	props["applied_publication_lineage"] = map[string]any{"type": "object", "additionalProperties": false, "required": []string{"schema", "references"}, "properties": map[string]any{"schema": map[string]any{"const": "product-review-publication-lineage-v1"}, "references": map[string]any{"type": "array", "minItems": 1, "maxItems": 64, "items": reference}}}
 	schema["required"] = append(schema["required"].([]any), "requested_reference", "applied_title_lineage")
 	result, err := json.Marshal(schema)
 	if err != nil {
