@@ -36,7 +36,8 @@ export function ProductImageSetPanel(props:Props){
 
 function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSaved,initialRunId}:Props&{scope:ImageSetScope}){
  const context=useWorkbenchContext();
- const executionMode=useConfigurationRead(scope,"execution-modes/registered_agent/product.image.agent",executionModeViewSchema);
+ const [modeNonce,setModeNonce]=useState(0);
+ const executionMode=useConfigurationRead(scope,"execution-modes/registered_agent/product.image.agent",executionModeViewSchema,modeNonce);
  const storageKey=`product-image-set:${scope.userId}:${scope.organizationId}:${scope.kind}:${scope.contextId}`;
  const active=useRef(true),flight=useRef(false),abort=useRef<AbortController|null>(null);
  const savedCallback=useRef(onSaved),notified=useRef("");
@@ -165,7 +166,7 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
    }else{
     await imageSetRequest(stableScope,command.action,imageSetAcceptedSchema,{...command,signal:controller.signal});if(controller.signal.aborted)return;clearIntent();setPreview(null);await readRun(command.runId!,controller.signal);
    }
-  }catch(e){if(!controller.signal.aborted){fail(e);if(!replay&&e instanceof ImageSetError&&e.code!=="OUTCOME_UNKNOWN")clearIntent()}}
+  }catch(e){if(!controller.signal.aborted){fail(e);if(!replay&&e instanceof ImageSetError&&e.code!=="OUTCOME_UNKNOWN"){clearIntent();if(command.action==="prepare"&&e.code==="IMAGE_CONFIGURATION_CHANGED")setModeNonce(v=>v+1)}}}
   finally{flight.current=false;if(!controller.signal.aborted)setBusy(false)}
  }
  async function verify(){
@@ -208,6 +209,7 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
  }
  function useCurrentTarget(){
   if(locked||!target)return;
+  setModeNonce(v=>v+1);
   ++readVersion.current;restoredRun.current="";rulesBinding.current="";runSourceBinding.current="";setRunSources(undefined);
   setRun(undefined);localStorage.removeItem(storageKey+":run");setRestoredTarget(undefined);setPlatform(target.Platform);
   setRequirements(undefined);setPositions({});setInventory(undefined);setPriorRuns([]);setPreview(null);setSelected([]);setRegenerate([]);setError("");setMessage("");
@@ -252,7 +254,7 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
  const allTasks=template?[...template.image.carousel.map(t=>({...t,group:"carousel" as const})),...template.image.detail.map(t=>({...t,group:"detail" as const}))]:[];
  const preparePositionsReady=currentOfficialPositions(tasks.map(id=>positions[id]),requirements),regeneratePositionsReady=currentOfficialPositions(regenerate.map(id=>positions[id]),requirements);
  const positionHint="请选择当前规则允许的位置和类型，并为同一图片组设置不重复的排序。";
- const canPrepare=available&&!!template&&compatibleImageTemplate(template,platform)&&tasks.length>0&&(template.image.shareOriginals?shared.length>0:(!template.image.carousel.some(t=>tasks.includes(t.id))||carousel.length>0)&&(!template.image.detail.some(t=>tasks.includes(t.id))||detail.length>0))&&(platform==="product"||preparePositionsReady);
+ const canPrepare=available&&!!executionMode.data&&!!template&&compatibleImageTemplate(template,platform)&&tasks.length>0&&(template.image.shareOriginals?shared.length>0:(!template.image.carousel.some(t=>tasks.includes(t.id))||carousel.length>0)&&(!template.image.detail.some(t=>tasks.includes(t.id))||detail.length>0))&&(platform==="product"||preparePositionsReady);
  const canRegenerate=available&&!!runTemplate&&compatibleImageTemplate(runTemplate,run?.plan.Target.Platform)&&!!runSources&&regenerate.length>0&&regenerate.every(id=>[...runTemplate.image.carousel,...runTemplate.image.detail].some(task=>task.id===id))&&(run?.plan.Target.Platform!=="shein"||regeneratePositionsReady);
  function originalChoices(group:string,values:string[],change:(next:string[])=>void){return <section className="space-y-3"><h4 className="text-sm font-medium">{group} · {values.length}/8</h4><div className="grid grid-cols-3 gap-2 sm:grid-cols-4">{sources?.originals.map((image,i)=><label key={image.id} className={`rounded-lg border p-2 ${values.includes(image.id)?"border-emerald-500 bg-emerald-50":"border-slate-200"}`}><Image src={image.displayUrl} width={100} height={100} unoptimized alt={`原始素材 ${i+1}`} className="h-20 w-full object-contain"/><span className="mt-2 flex items-center gap-1 text-xs"><input type="checkbox" aria-label={`${group} 素材 ${i+1}`} disabled={locked||!values.includes(image.id)&&values.length>=8} checked={values.includes(image.id)} onChange={e=>change(e.target.checked?[...values,image.id]:values.filter(id=>id!==image.id))}/>素材 {i+1}</span></label>)}</div></section>}
  const official=run?.plan.Target.Platform==="shein";

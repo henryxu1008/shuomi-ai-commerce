@@ -1,0 +1,52 @@
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { useEffect } from "react";
+import { ProductAgentPanel } from "./product-agent-panel";
+import { ProductAgentError } from "@/lib/api/product-agent";
+const fixture = vi.hoisted(() => ({ read: vi.fn(), start: vi.fn(), context: { user: { id: "actor" }, effectiveOrganization: { id: "org" }, roles: [], permissions: [], registerOrganizationSwitchGuard: () => () => {} } }));
+vi.mock("@/lib/api/agent-configuration", async original => ({ ...await original<typeof import("@/lib/api/agent-configuration")>(), configurationRequest: fixture.read }));
+vi.mock("@/lib/api/product-agent", async original => ({ ...await original<typeof import("@/lib/api/product-agent")>(), requestProductAgent: fixture.start }));
+vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams() }));
+vi.mock("@/components/providers/workbench-context-provider", () => ({ useWorkbenchContext: () => fixture.context }));
+vi.mock("./title-agent-templates", () => ({ TitleAgentTemplates: ({ onReady }: { onReady: (ready: boolean) => void }) => { useEffect(() => onReady(true), [onReady]); return null; } }));
+const mode = { subject: { kind: "registered_agent", id: "product.title.agent" }, definition: { id: "product.title.agent", version: "v1.0.0" }, mode: "default", revision: "0", policyVersion: "agent-execution-policy-v1", canConfigure: false, updatedAt: "0001-01-01T00:00:00Z", updatedBy: "" };
+beforeEach(() => {
+  fixture.read.mockReset(); fixture.start.mockReset(); window.history.replaceState(null, "", "/");
+  fixture.read.mockResolvedValueOnce(mode);
+  fixture.start.mockRejectedValueOnce(new ProductAgentError("CONFIGURATION_CHANGED")).mockRejectedValueOnce(new ProductAgentError("OUTCOME_UNKNOWN"));
+  Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value: function(this: HTMLDialogElement) { this.open = true; } });
+  Object.defineProperty(HTMLDialogElement.prototype, "close", { configurable: true, value: function(this: HTMLDialogElement) { this.open = false; } });
+});
+afterEach(cleanup);
+it.each(["updated", "unavailable"])("reconfirms only after a fresh mode read is %s", async outcome => {
+  let complete!: (value: typeof mode) => void;
+  let fail!: (reason: Error) => void;
+  fixture.read.mockImplementationOnce(() => new Promise((resolve, reject) => { complete = resolve; fail = reject; }));
+  render(<ProductAgentPanel enabled operationId="11111111-1111-4111-8111-111111111111" productKey="product" catalogVersion="1" />);
+  fireEvent.change(screen.getByLabelText("素材查询平台"), { target: { value: "shein" } });
+  fireEvent.click(screen.getByRole("button", { name: "生成标题建议" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "确认生成" })).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", { name: "确认生成" }));
+  fireEvent.click(await screen.findByRole("button", { name: "重新确认配置" }));
+  await waitFor(() => expect(fixture.read).toHaveBeenCalledTimes(2));
+  expect(fixture.start).toHaveBeenCalledOnce();
+  fireEvent.change(screen.getByLabelText("素材查询平台"), { target: { value: "shein" } });
+  fireEvent.click(screen.getByRole("button", { name: "生成标题建议" }));
+  expect(screen.getByRole("button", { name: "确认生成" })).toBeDisabled();
+  if (outcome === "unavailable") {
+    await act(async () => fail(new Error("mode unavailable")));
+    expect(screen.getByRole("button", { name: "确认生成" })).toBeDisabled();
+    expect(fixture.start).toHaveBeenCalledOnce();
+    return;
+  }
+  await act(async () => complete({ ...mode, mode: "full_access", revision: "1" }));
+  expect(screen.getByText(/完全访问 · 配置版本 1/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "确认生成" }));
+  await screen.findByRole("alert");
+  expect(fixture.start).toHaveBeenCalledTimes(2);
+  expect(fixture.start.mock.calls[0][10]).toBe("0");
+  expect(fixture.start.mock.calls[1][10]).toBe("1");
+  expect(fixture.start.mock.calls[1][2]).not.toBe(fixture.start.mock.calls[0][2]);
+  expect(new URL(window.location.href).searchParams.get("agent_mode_revision")).toBe("1");
+  expect(screen.queryByRole("button", { name: "重新确认配置" })).not.toBeInTheDocument();
+});

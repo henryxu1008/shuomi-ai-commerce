@@ -57,7 +57,8 @@ function ScopedAgentPanel({ userId, organizationId, operationId, productKey, cat
     initialStart:StartIntent|null;
 }) {
     const context = useWorkbenchContext();
-    const executionMode=useConfigurationRead({userId,organizationId},"execution-modes/registered_agent/product.title.agent",executionModeViewSchema);
+    const [modeNonce,setModeNonce]=useState(0);
+    const executionMode=useConfigurationRead({userId,organizationId},"execution-modes/registered_agent/product.title.agent",executionModeViewSchema,modeNonce);
     const [key, setKey] = useState(isAcquisitionUUID(initialKey) ? initialKey : "");
     // Public normalized command only; protected Knowledge payload and authority
     // stay with the server. Explicit replay never replaces an uncertain key.
@@ -151,7 +152,7 @@ function ScopedAgentPanel({ userId, organizationId, operationId, productKey, cat
   {result?<p>本次权限：{result.executionMode?`${executionModeLabels[result.executionMode]} · 模式版本 ${result.modeRevision}`:"历史记录未冻结权限模式，新采用不可用"}{result.policyAdoption?" · 已按策略采用，未逐项人工审阅":""}</p>:null}
   {busy && <p role="status">正在处理，请保持页面打开。离开页面可能使已发送的调用结果未知；返回后请用本次编号读取，勿重新生成。</p>}
   {failure && <p role="alert">{reconfirmable?`${errors[failure]} 本次未领取执行。请明确重新确认配置，再使用新编号生成。`:key&&knowledgeStartErrors[failure]?"知识当前不可用，已保留原编号；已有运行结果尚需核实，请勿换编号重新生成。":knowledgeStartErrors[failure] ?? errors[failure] ?? "请求未完成，请核对当前身份和企业。"}</p>}
-  {reconfirmable&&<Button variant="outline" disabled={busy} onClick={()=>{if(inFlight.current)return;setKey("");setIntent(null);setTemplate(null);setTemplateReady(false);setPlatform("");setFailure("");setReconfirmable(false);const url=new URL(window.location.href);for(const name of intentParams)url.searchParams.delete(name);window.history.replaceState(null,"",url)}}>重新确认配置</Button>}
+  {reconfirmable&&<Button variant="outline" disabled={busy} onClick={()=>{if(inFlight.current)return;setModeNonce(v=>v+1);setKey("");setIntent(null);setTemplate(null);setTemplateReady(false);setPlatform("");setFailure("");setReconfirmable(false);const url=new URL(window.location.href);for(const name of intentParams)url.searchParams.delete(name);window.history.replaceState(null,"",url)}}>重新确认配置</Button>}
   {result && <div className="space-y-2">{result.templateSelection&&<p>采用模板版本：{result.templateSelection.revision} · {result.templateSelection.templateId}</p>}<p>素材查询平台：{{ shein: "SHEIN", temu: "Temu", amazon: "Amazon" }[result.targetPlatform]}</p><p>状态：{result.policyAdoption?"已按策略采用，未经逐项人工审阅":result.phase === "human_review_required" ? (result.canSubmitReview ? "候选已通过校验，等待人工审核" : "候选未通过校验，不能提交人工审核") : result.phase === "interrupted" ? "需要补充说明" : result.phase === "running" ? "运行记录尚未完成，不能重复发送" : "已停止"}</p>
    {result.stopReason && <p>{reasons[result.stopReason] ?? "本次运行已停止"}</p>}
    {result.candidate.Changes?.map((change, index) => <div key={index}><p>{change.Field}：{change.Value}</p><p className="text-sm">证据：{change.EvidenceIDs?.join("、") || "未提供"}</p></div>)}

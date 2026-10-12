@@ -3,9 +3,9 @@ import {act,cleanup,fireEvent,render,screen,waitFor,within} from "@testing-libra
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
 import {ProductImageSetPanel} from "./product-image-set-panel";
 import {imageTemplateSchema} from "@/lib/contracts/image-set-configuration";
-const calls=vi.hoisted(()=>({context:{} as Record<string,unknown>}));
+const calls=vi.hoisted(()=>({context:{} as Record<string,unknown>,mode:vi.fn()}));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>calls.context}));
-vi.mock("../agents/agent-configuration-hooks",()=>({useConfigurationRead:()=>({data:{subject:{kind:"registered_agent",id:"product.image.agent"},definition:{id:"product.image.agent",version:"v1.0.0"},mode:"default",revision:"0",policyVersion:"agent-execution-policy-v1",canConfigure:false,updatedAt:"2026-10-12T00:00:00Z",updatedBy:""}})}));
+vi.mock("@/lib/api/agent-configuration",async original=>{const actual=await original<typeof import("@/lib/api/agent-configuration")>();return {...actual,configurationRequest:(...args:Parameters<typeof actual.configurationRequest>)=>args[1].startsWith("execution-modes/")?calls.mode(...args):actual.configurationRequest(...args)}});
 const operation="11111111-1111-4111-8111-111111111111",runId="22222222-2222-4222-8222-222222222222",templateId="33333333-3333-4333-8333-333333333333";
 const sha="a".repeat(64),digest="b".repeat(64),now="2026-10-09T00:00:00Z";
 const template={templateId,agentId:"product.image.agent",lifecycle:"ACTIVE",revision:"1",version:"1",schemaVersion:"image-config-v1",name:"Two groups",targetPlatform:"product",createdAt:now,image:{schema:"image-config-v1",mode:"standard",shareOriginals:true,background:"white",language:"en",carousel:[{id:"main",purpose:"product_identity"}],detail:[{id:"detail",purpose:"detail_closeup"}]}};
@@ -16,6 +16,7 @@ function projection(status="awaiting_plan_approval",confirmationActionId=""){
 }
 let state:ReturnType<typeof projection>,approved:boolean,fetch:ReturnType<typeof vi.fn<(input:unknown,init?:RequestInit)=>Promise<Response>>>;
 beforeEach(()=>{
+ calls.mode.mockReset();calls.mode.mockResolvedValue({subject:{kind:"registered_agent",id:"product.image.agent"},definition:{id:"product.image.agent",version:"v1.0.0"},mode:"default",revision:"0",policyVersion:"agent-execution-policy-v1",canConfigure:false,updatedAt:"2026-10-12T00:00:00Z",updatedBy:""});
  localStorage.clear();approved=false;state=projection();
  calls.context={user:{id:"actor"},effectiveOrganization:{id:"org"},permissions:["imageagent.read","imageagent.write"],registerOrganizationSwitchGuard:vi.fn(()=>vi.fn())};
  fetch=vi.fn(async(input:unknown,init?:RequestInit)=>{
@@ -39,6 +40,20 @@ async function prepare(){
  fireEvent.click(await screen.findByRole("checkbox",{name:"共用原始素材 素材 1"}));
  const button=screen.getByRole("button",{name:"准备整套图片计划（2 项）"});await waitFor(()=>expect(button).toBeEnabled());fireEvent.click(button);
 }
+it("refreshes the mode after a definite prepare rejection before creating a new intent",async()=>{
+ const initial=await calls.mode();calls.mode.mockClear();let complete!:(value:unknown)=>void;
+ calls.mode.mockResolvedValueOnce(initial).mockImplementationOnce(()=>new Promise(resolve=>{complete=resolve}));
+ const real=fetch.getMockImplementation()!;let rejected=false;
+ fetch.mockImplementation((input,init)=>{if(String(input).endsWith("/prepare")&&!rejected){rejected=true;return Promise.resolve(Response.json({code:"IMAGE_CONFIGURATION_CHANGED"},{status:409}))}return real(input,init)});
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);await prepare();
+ await screen.findByRole("alert");await waitFor(()=>expect(calls.mode).toHaveBeenCalledTimes(2));
+ const button=screen.getByRole("button",{name:"准备整套图片计划（2 项）"});expect(button).toBeDisabled();
+ const attempts=()=>fetch.mock.calls.filter(v=>String(v[0]).endsWith("/prepare"));expect(attempts()).toHaveLength(1);
+ await act(async()=>complete({...initial,mode:"full_access",revision:"1"}));await waitFor(()=>expect(button).toBeEnabled());
+ fireEvent.click(button);await waitFor(()=>expect(attempts()).toHaveLength(2));
+ expect(JSON.parse(String(attempts()[0][1]?.body)).expectedModeRevision).toBe("0");expect(JSON.parse(String(attempts()[1][1]?.body)).expectedModeRevision).toBe("1");
+ expect(new Headers(attempts()[1][1]?.headers).get("Idempotency-Key")).not.toBe(new Headers(attempts()[0][1]?.headers).get("Idempotency-Key"));
+});
 it.each(["acquisition","supply"] as const)("binds historical %s originals to the run while fresh plans keep current sources",async(kind)=>{
  const historical={...source,ContextKind:kind,EffectiveVersion:"2",...kind==="supply"?{ApplyReceiptID:operation}:{}};
  const current={...historical,EffectiveVersion:"3",...kind==="supply"?{ApplyReceiptID:templateId}:{}};
