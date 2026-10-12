@@ -100,6 +100,7 @@ Admission Status: **NOT_READY**
 
 - `storage_capacity_accounts`：org、已占用/预留 bytes、version。汇总与对象/操作在同一容量事务更新，可通过本模块回执核对，不是第二套异步统计。
 - `storage_capacity_lots`：原 order/item、bytes、原产品合同指纹、PREPARED/ACTIVE、激活时间/到期时间、原 Money commit proof。唯一 `(org, order_item)`，到期按时间读取，不靠第二 scheduler 改状态。
+- `storage_capacity_reservations`：org、原 owner 操作身份、输入/输出上界指纹、预留上界与剩余、dispatch/关闭 fence、version。已知文件身份可直接绑定；AI 预留以原 Run/revision/slot/attempt 为身份，生成前不要求最终对象 key。未绑定结果仍占预留。
 - `storage_capacity_objects`：org、namespace/key 身份、hash、大小、分类、原 owner/operation、写入状态/预留和唯一 dispatch 标记。全局 namespace/key 唯一，跨 org 认领拒绝。
 - `storage_capacity_receipts`：按原 scoped operation identity 保存不可变决策及 payload fingerprint，承载预留、确认、未写释放或已批准删除释放；不逐次读写日志建新审计平台。
 
@@ -110,7 +111,7 @@ Admission Status: **NOT_READY**
 `remaining(t) = MAX(0, quota(t) - occupied_bytes - reserved_bytes)`
 `overage(t) = MAX(0, occupied_bytes + reserved_bytes - quota(t))`
 
-购买和预留使用同一企业容量 account 行锁；读 summary 在同一数据库 snapshot 使用一个可信 UTC 时间。lot 的到期和查询时间均使用数据库/服务端时间，不信客户端。报价不增加容量；PREPARED lot 不计入 quota。普通 GET 不结算或补写资源，缺少合法状态返回 unavailable，真正新安装空空间才返回真实 0。
+购买和预留使用同一企业容量 account 行锁；新预留必须在取得锁之后读取可信当前时间（PostgreSQL clock_timestamp 或同等服务端时钟），不能沿用事务开始时间跨过排队期间的到期点。读 summary 在同一数据库 snapshot 使用一个可信 UTC 时间。lot 的到期和查询时间均使用数据库/服务端时间，不信客户端。报价不增加容量；PREPARED lot 不计入 quota。普通 GET 不结算或补写资源，缺少合法状态返回 unavailable，真正新安装空空间才返回真实 0。
 
 到期可以合法导致占用加预留高于当前 quota；因此不把 `occupied + reserved <= quota` 设成永远成立的约束。必须在**每次新预留的原子准入点**满足上限。已成功获得的有限预留可完成原对象/作业，即使期间包到期；不能换键/扩大数量。到期不收回原预留、不清除占用。
 
@@ -120,13 +121,14 @@ Admission Status: **NOT_READY**
 
 ### 5.1 预留与确认
 
-1. 沿原 HTTP/worker live 身份及领域权限读取 exact 原操作。原 owner 建立/采用持久化操作及确定性对象身份；操作持久化失败不得发生 PUT。
+1. 沿原 HTTP/worker live 身份及领域权限读取 exact 原操作。已有持久化操作的 Knowledge/Image 绑定原 Revision 或 Run/revision/slot/attempt；SourceMedia 的同步上传按结构化 `(org, actor, source_media_upload, content_hash)` 派生稳定操作身份，其容量 intent 在 PUT 前持久化，不假设已有上传业务表。不能建立持久化容量 intent 的路径不得发生 PUT。
 2. 读取有界 bytes、验证原文件/hash/MIME。已知大小使用精确 bytes；未来图片结果在 paid dispatch 前使用已批准配置的输出数量 × 每张上界，包含所有会保留的正式对象，不放宽已有文件/运行限制。
-3. `ReserveWrite(org, owner_operation, object identities, fingerprint, max_bytes)` 在容量数据库事务锁企业 account，重查相同键/对象，按当前 quota 预留新增上界，原子保存对象 intent、预留和 receipt。确定性相同已确认对象直接复用，不重复占用；同键异载荷 conflict。多对象按固定身份顺序锁定，避免重复预留与死锁。
-4. 业务 owner 持久化绑定；绑定失败/响应丢失以原 owner operation 和指纹找回原预留，不产生新身份。在实际 PUT/COPY 前，先持久化 dispatch 认领。worker/HTTP retry 只有原 owner 认领者能发送；容量侧不能自行新增上传重试。
-5. 沿原不可覆盖 S3 PUT/COPY。成功后由受限 trusted adapter 对原 identity 做 Inspect/hash/size 核实；不是只信上传响应或 caller 的成功布尔值。
-6. `ConfirmStored` 在容量事务按唯一对象把 reserved 转 occupied，余量释放；真实大小不得超过原对象上界。重复确认返原 receipt。对象即使暂时未进入业务可读/批准状态也占用；解析失败/业务库后续写失败不能退已存在 bytes。
-7. 原 owner 完成其既有业务终态。容量确认失败保留原预留，由原恢复路径再核实/确认，不能把已保存对象当作免费空间。多对象部分成功逐个确认，未确定部分继续预留。
+3. `ReserveWrite(org, owner_operation, input_fingerprint, output_bounds, known_objects?)` 在容量数据库事务锁企业 account，重查相同键/已知对象，按锁后当前 quota 预留新增上界，原子保存 reservation 和 receipt。AI 在 paid dispatch 前只提供原已持久化 Run/revision/slot/attempt、已冻结输入指纹、输出数量/字节上界；此时不存在结果 hash/key。已知文件可同时绑定精确对象；同键异载荷 conflict。
+4. 生成后，可信原 owner 用原 reservation 调用 `BindObjects`，冻结结果 manifest、namespace/key/hash/size 与输出索引。绑定是原预留内的 materialization，不重新做新容量准入、不扩大数量/字节上界、不改变业务执行状态；各对象按固定身份顺序锁，namespace/key 唯一。相同已确认对象复用、不重复占用；错误 org 或同 key 异载荷拒绝。结果未绑定、provider UNKNOWN、部分结果 UNKNOWN 都继续占 reserved。业务 owner 以原操作身份/指纹找回绑定，不换键。
+5. 在实际 PUT/COPY 前，`ClaimDispatch` 与 `AbortUnstarted` 在同一容量 reservation/object 锁和 CAS 下决定唯一赢家：关闭未写意图后拒绝旧 permit；认领发生后记录 dispatched，任何 TTL/404/普通业务失败都不得自动释放。外部 PUT 必须先取得原 dispatch 认领；容量侧不自行新增上传重试。
+6. 沿原不可覆盖 S3 PUT/COPY。成功后由受限 trusted adapter 对原 identity 做 Inspect/hash/size 核实；不是只信上传响应或 caller 的成功布尔值。
+7. `ConfirmStored` 在容量事务按唯一对象把实际 reserved 转 occupied；真实大小不得超过原绑定/输出上界。重复确认返原 receipt。只有原 owner 已关闭所有未生成/未写输出、排除迟到物化后，才能释放作业未使用的上界余量；不能首次绑定少量结果就释放整个上界。对象即使暂时未进入业务可读/批准状态也占用；解析失败/业务库后续写失败不能退已存在 bytes。
+8. 原 owner 完成其既有业务终态。容量确认失败保留原预留，不能把已保存对象当作免费空间。多对象部分成功逐个确认，未确定部分继续预留。
 
 AI 在派发前的容量预留与点数预留分别保持原 owner：容量失败不新增 provider POST 或点数扣款；点数准入失败以可信“未生成/未写入”终态释放空间。生成成功已有原扣点语义不变，不能因用户未采用或容量核实失败退成功模型费。容量预留成功不是 dispatch 授权，原 IAM、预算、价格与 paid effect fence 仍需满足。
 
@@ -142,7 +144,13 @@ AI 在派发前的容量预留与点数预留分别保持原 owner：容量失�
 | `STORED` 后业务失败、停用、撤权、版本替换 | occupied 保留 | 沿原业务状态处理；容量不得删除或冒充释放 |
 | 原 owner 有批准删除资格，并确认物理删除 | 以原 object/operation 唯一转 `RELEASED`、occupied 减少 | 只接受有界原终态与供应商删除证据；无公开释放接口 |
 
-不持数据库事务跨 S3、provider 或 Money 网络调用；不使用跨数据库事务。已有 Knowledge/图片/采集原恢复入口继续做 I/O 和业务决策，本模块仅补其容量核实。没有原操作数据/可靠终态时保留 UNKNOWN，不伪造恢复成功，不建立通用 object reconciler。
+不持数据库事务跨 S3、provider 或 Money 网络调用；不使用跨数据库事务。接入遵循实际原恢复能力，不把同步方法描述成已有自动扫描：
+
+- **SourceMedia** 当前是同步 exact-key PUT/readback，没有原业务 upload operation 或后台扫描。容量 intent 绑定原 org/actor/content identity；用户通过原相同内容上传重放，在受控 readback 中核实/确认原占用，不新增对象身份。原 GET 读取不发起容量 mutation。首版不承诺该路径自动后台恢复；未重放的未知预留如实保留并展示，不建采集恢复平台。
+- **Knowledge** 当前 Processor 只扫描 ADMITTED/OBJECT_STORED/PROCESSING，AVAILABLE/FAILED 不能假设会再次被扫描。Upload 与 Processor 必须先核实/确认容量，再沿原 ConfirmObject 进入 OBJECT_STORED/解析；容量确认失败时保留原可核实 ADMITTED 阶段和原 lease 续行，不能先完成业务终态。原 Inspect 404 的 UPLOAD_INCOMPLETE 或完整性失败仍不能授权释放已 dispatch 预留；按原同 Revision 的显式上传重放核实，不把 parser 重试当作 PUT 重试。
+- **Image** 沿原 Run/slot/attempt、manifest 和 worker 恢复，在发布终态前确认对应对象；保留原生成/点数终态事实，不通过容量恢复新增 provider POST。无生成可信终态与容量关闭同事务 fence 后，才能释放未绑定输出的余量。
+
+没有原操作数据/可靠终态时保留 UNKNOWN，不伪造恢复成功，不建立通用 object reconciler。
 
 仅释放未 dispatch 的过期意图也必须由原 owner 在持久化 fence 下关闭；TTL 本身不是安全证明。并发读、批准、引用、删除的合法性仍由原文件 owner 决定。当前未批准 destructive delete 的领域不因本表存在而获得删除权限，S3 versioned bucket 的 delete marker 也不能当作物理 byte 释放。
 
@@ -167,7 +175,11 @@ AI 在派发前的容量预留与点数预留分别保持原 owner：容量失�
 5. Billing 与 storagecapacity repository 在**同一 commercial 数据库 Unit of Work**锁原订单和企业容量行，核原 Money commit receipt及 prepared lot，原子写 ACTIVE lot、唯一激活时间/到期和 FULFILLED 订单。激活时刻即有效期起点，重复执行不重设 30 天；订单/lot 任一步失败一同回滚。
 6. UI 只有 Money commit proof 与 ACTIVE lot/原订单合同同时有效时展示成功；钱已扣而权益待核实显示原订单待核实，允许查询/恢复该原订单，不能提示再次购买来补救。
 
-Money 与 commercial 仍是两个数据库，第 4/5 步之间可能中断；原 Billing 恢复 loop 加入本 typed order，以原 commit proof 重试同库激活。这一组合复用已存在的每批有界扫描/恢复生命周期，不建第二 scheduler。并发管理员重复提交、原响应丢失、撤权后后台收束和重启都只能产生一次金额 effect 和一个原 lot；后台只收束已准入原订单，不通过撤权恢复新购买能力。
+新 typed order 的验证必须明确允许 `Money COMMITTED + lot PREPARED + FULFILLING/RECONCILIATION_REQUIRED` 的合法待激活形状，并核原 org/order/reservation/currency/amount/terms proof。它不要求 orgresource grant、不进入现有 `service.go` 的 grant-before-commit 分支、不调用 `ResourceTypeForProduct` 的三类资源映射。旧三类资源的 Validate、grant proof 和处理顺序保持不变。
+
+当前 `commercialbilling.UpdateOrder` 自开事务，不是现成跨 repository UoW。本批需要原 Billing 内的窄 storage fulfillment transaction：向 storagecapacity 与 Billing repository 传递同一个 commercial tx，事务内共同锁原订单/account、核 prepared lot 与原 Money commit proof、写 ACTIVE lot/激活 receipt/FULFILLED。不能分别调用两个自开事务方法后声称原子成功。
+
+Money 与 commercial 仍是两个数据库，第 4/5 步之间可能中断；原 Billing bounded scan 加入 STORAGE_CAPACITY_PURCHASE 并按 kind 分派到窄 `ReconcileStorageOrder`，以原 commit proof 重试同库激活，不能把它交给当前只调用 ReconcileResourceOrder 的实现。这一组合复用已存在的每批有界扫描/恢复生命周期，不建第二 scheduler。并发管理员重复提交、原响应丢失、撤权后后台收束和重启都只能产生一次金额 effect 和一个原 lot；后台只收束已准入原订单，不通过撤权恢复新购买能力。
 
 ### 6.2 到期与再次购买
 
@@ -182,7 +194,7 @@ Money 与 commercial 仍是两个数据库，第 4/5 步之间可能中断；原
 | Contract | Implementation | Injection | Consumer |
 | --- | --- | --- | --- |
 | SummaryReader | storagecapacity + 窄 GORM repository | current application commercial composition | 原资源页、我的权益，同源 BFF |
-| ReserveWrite/ClaimDispatch/ConfirmStored | storagecapacity 事务；trusted exact-object inspector | app 内原 Knowledge、SourceMedia、Image/Supply 的 scoped adapters | 原业务 HTTP/worker；无浏览器写容量 API |
+| ReserveWrite/BindObjects/ClaimDispatch/AbortUnstarted/ConfirmStored | storagecapacity 事务；trusted exact-object inspector | app 内原 Knowledge、SourceMedia、Image/Supply 的 scoped adapters | 原业务 HTTP/worker；无浏览器写容量 API |
 | PrepareLot/ActivateLot | storagecapacity + Billing 的同库 UoW | 原 commercial billing builder | typed storage order + 原恢复 loop |
 | Immutable put/inspect/copy/read | 现 `integration/s3` | 原 bucket 配置、restricted namespace registration | 原领域对象存储端口；不绕过私有读/原 PublicBase 政策 |
 
@@ -218,10 +230,11 @@ Money 与 commercial 仍是两个数据库，第 4/5 步之间可能中断；原
 | 不变量 | 必需开发证据 |
 | --- | --- |
 | 企业隔离、原权限、没有直接 mint/release | 当前 live middleware/BFF 负例、trusted owner adapter、跨 org/key 认领拒绝 |
-| 新预留时占用加预留不超过当前 quota | 真实 PG 两连接并发抢最后空间；行锁与唯一对象重放；包到期/激活竞争 |
+| 新预留时占用加预留不超过当前 quota | 真实 PG 两连接并发抢最后空间；行锁与唯一对象重放；锁等待跨到期、包激活竞争、ClaimDispatch 与 Abort 同锁竞争 |
 | 相同 key 不重复占用，不同 payload 不覆盖 | 原 immutable S3 与容量 receipt 重放/冲突测试 |
 | 已写不释放、UNKNOWN 不清零 | PUT 成功回执丢失、容量确认失败、迟到写入/404、原恢复和重启 |
-| paid dispatch 前容量就绪，原点数合同不变 | 容量不足 0 POST；预留后点数失败；部分生成成功与剩余 UNKNOWN |
+| paid dispatch 前容量就绪，原点数合同不变 | 生成前仅原 slot 身份可预留；结果 BindObjects 不超上界且重放唯一；容量不足 0 POST；预留后点数失败；部分生成成功与未绑定 UNKNOWN |
+| 容量确认接线符合实际恢复入口 | SourceMedia 同内容 Upload 重放，无假后台扫描；Knowledge 容量确认失败保留可扫描阶段，不从 UPLOAD_INCOMPLETE/解析终态释放 |
 | 只在 Money 确认后激活，有效期只定一次 | 原钱包响应丢失、PREPARED 不可用、Money commit 后同库事务失败、重启/并发激活 |
 | 到期与业务生命周期不丢数据 | UTC 边界、已用高于到期 quota、既有预留可收束；disable/未采用不减占用 |
 | 页面与报价读同一真实 owner | 无 offer/unavailable/0/UNKNOWN 区分；切 org 迟到响应；bytes/价格精度与原订单 |
