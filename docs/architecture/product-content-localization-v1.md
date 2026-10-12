@@ -24,10 +24,10 @@ Catalog.ProductSnapshot已经拥有四字段（internal/product/catalog/snapshot
 
 | 合同/实现 | 注入和消费者 | 唯一职责 |
 | --- | --- | --- |
-| agent的已有Request/ModelInput与agentconfig配置快照 | 原Eino及当前Agent PostgreSQL Store | 一个运行/checkpoint/CAS，固定Definition，bounded repair；不是第二任务/重试owner |
+| agent的已有Request/ModelInput与agentconfig配置快照 | 原Eino及RunDB内当前Agent PostgreSQL Store | 一个运行/checkpoint/CAS，固定Definition，bounded repair；不是第二任务/重试owner |
 | 新registered product.content.agent/v1.0.0与固定content-config-v1参数 | 现企业市场/启用/模板/模式；新内容配置/确认组件 | code-owned注册及受限字段/语言默认值，不授权限，不开放用户Tool清单 |
 | internal/product/contentagent的窄消费者ports | app仅注入当前acquisition/collection source、配置、runtime、Review与model ports | 当前保存商品context和真实权限→冻结调用→原run/Review输出；不引入GORM/provider SDK/平台client |
-| Product Enrichment / Review content policy、typed补丁 | 现Review Store/UoW / Catalog.Publisher | 证据/字段重验、人工决定/策略采用、唯一原子版本和回执 |
+| Product Enrichment / Review content policy、typed补丁 | ProductDB内现Review Store/UoW / Catalog.Publisher及事务内source reader | 证据/字段重验、人工决定/策略采用、唯一原子版本和回执；不与RunDB跨池共用事务 |
 | Review真实applied publication lineage | 当前source/Asset/草稿消费者 | 从原SRC版本逐项证明真实补丁，不制造新来源或把content当title-only |
 | 现AI Capability governed文本port / Commercial | 现provider-neutral integration与原route/dispatch/settlement ledger | 可信路由、token/cost上界、审计、计量、UNKNOWN原owner |
 
@@ -39,7 +39,13 @@ Catalog.ProductSnapshot已经拥有四字段（internal/product/catalog/snapshot
 
 目标语言是用户明确数据选择，不从平台/Store/模型猜测。使用现golang.org/x/text/language解析规范BCP47 tag，拒绝und/无效/非规范或超过既有ID边界的值；不自建语言解析器。字段以固定枚举/规范位集合表达，仅四字段、非空、无重复。两者为可比较的typed ContentSelection（零值omitzero），进入Request、ModelInput、configuration/context digest、run fingerprint及Review语义；原title请求不因新增空字段改变历史序列化/摘要。
 
+现agent.Validator.Validate只收到Binding/PolicyVersion，无法区分同商品并发运行的不同语言/字段。将当前port改为传入完整冻结Request及原candidate/history，Eino从当前State直接提供；所有现title消费者按同一port机械适配，title请求只允许ContentSelection零值，content请求必须准确非零选择。不得通过全局变量、当前模板head或binding猜测原运行选择。模型准备、配置快照核实和Review intake也逐项比较冻结selection。
+
 模板Content参数独立于原title/image类型，默认目标语言/字段只作本次可见默认值；执行确认重新冻结实际选择。未识别agent/schema/参数组合fail closed。现ModeSubjectRegisteredAgent、当前definition version、activation/epoch/模板权限、ExpectedModeRevision、ModeSnapshotRef复用，不创建另一份模式事实。
+
+当前agent_configuration.template_revisions只接受title-config-v1/image-config-v1，只有image_parameters载体。因此在同一RunDB配置owner明确添加nullable content_parameters bytea（新内容参数JSON，最大4096字节），以及content-config-v1的精确agent/schema/参数CHECK。旧title/image行必须保持content_parameters IS NULL，新增content行必须agent_id='product.content.agent'、image_parameters IS NULL、目标platform='product'或现有合法platform；不把内容参数塞入image列或知识库ID。新内容执行可以使用product目标，不要求绑定店铺或先配置平台。
+
+新安装schema与显式有界UpdateContentConfigurationSchema分开；更新在installer凭据、原非登录配置owner下的一次DDL事务内核对已知约束/列形状，添加无default nullable列并原子替换已知约束。已有全部行仍按原合同合法，不做数据UPDATE、回填、ID映射或删除；外来/不匹配schema拒绝。重复安装核对已达目标后no-op。正常构造/serving只verify，未更新时内容能力明确unavailable，原标题/图片路径可继续按其原合同运行。运行role无DDL权限；原SELECT/INSERT载体列所需权限按现GrantRuntime精确授予，不改变fact owner。保留实例更新由另获授权的安装owner执行，本Writer仅检查隔离数据库。
 
 新内容model使用同一governed文本执行port与provider-neutral路由。prompt/action schema、Definition、policy version固定；选中字段/语言/原商品/来源/可选已授权企业Knowledge均是data，不是指令或授权。原工具调用仅允许当前code-owned的canonical/source-evidence等只读/纯计算工具。候选只含既有FieldChange；复用严格JSON、大小/deadline/步骤/最多两次repair、实际observed evidence校验。不是新LangGraph/Agents SDK/Temporal运行时。
 
@@ -75,13 +81,13 @@ content策略proof使用新action version product.content.policy-adopt-v1，绑�
 
 ## 7. 事务、lineage、失败与恢复
 
-沿同RunDB内Review原UoW：先原operation replay→精确record锁/状态/版本→重新当前授权与原SRC/完整base绑定→纯patch验证→Catalog CAS publication→record及operation receipt同事务提交。操作身份仍org+actor+原Idempotency-Key；同键不同内容/语言/字段/version conflict。主键、published identity及当前CAS保留，不用客户端key替代服务端CommandID。
+沿ProductDB内Review原UoW（当前buildProductAgentApplication在其productDB/ReviewDB池上组装reviewstore、catalogstore及source reader）：先原operation replay→精确record锁/状态/版本→重新当前授权与原SRC/完整base绑定→纯patch验证→Catalog CAS publication→record及operation receipt同事务提交。RunDB只保存既有Agent运行/配置与模式；不移动Product事实、不跨池伪称原子事务，不新增跨库Saga。操作身份仍org+actor+原Idempotency-Key；同键不同内容/语言/字段/version conflict。主键、published identity及当前CAS保留，不用客户端key替代服务端CommandID。
 
 response丢失/重复/重启读准确原回执；已提交回执只做核实，不再因当前mode head变化生成新效果。仍保留该操作需要的当前读取/source授权和准确归属；新效果需要当前mode/config。未提交故障回滚，不返回成功；UNKNOWN模型/账本/工具跟原owner恢复，不换provider或request。每一步沿原deadline、记录/响应大小及幂等界限，不新增跨库恢复承诺。
 
 ResolveAppliedSource在原Review owner扩展为证明两种合法policy的真实patch lineage：每跳核对同org/actor、record/state/receipt/source evidence/版本，按该policy在完整base上重演准确补丁，并要求完整snapshot等同该published版本。继续有限depth、权限与原SRC原publication核验；假“仅标题变更”、额外数值/属性/图片改动或无真实receipt均拒绝。现title/image/草稿读取新content版本时消费此真实generic publication lineage，不能复制Catalog/SRC事实或伪造title批准。
 
-本批无schema初始化/运行构造器隐式迁移、DDL扩大或旧数据回填。共享实例/命名volumes/原配置只由另获授权的运行owner操作，本Writer不访问或改真实业务资料。
+本批仅§4现配置owner的nullable列和精确CHECK显式DDL；Review/Catalog存储及64KiB预算不改变。不在schema初始化/运行构造器中隐式更新，也不做旧数据回填。共享实例/命名volumes/原配置只由另获授权的运行owner操作，本Writer不访问或改真实业务资料。
 
 ## 8. Threat Model / 验证 / 交付
 
@@ -92,4 +98,15 @@ TDD针对实际变化：四字段/数组及禁用字段、locale/字段指纹，
 检查真实完整路径的独立最终差异及必要增量一次；最终准确HEAD CI，不冒充未变代码在新SHA直接重跑。UI复用现Card/Dialog/表单/tokens；正常配置→已保存商品→确认→建议→人工或策略采用→刷新版本和回执。首次交接给运行入口/正常启动命令、数据保存方式、可用/不可用原因；未配置的真实模型、保留实例接入、用户/生产验收分别NOT_RUN，待相应用户/独立验证确认。
 
 Legacy decision: N/A（当前owner扩展；发现已登记旧代码只EXTRACT/RETIRE）。不导入root ListingKit/tenantbridge/compatibility、旧ProductEnrich task/worker或第二标准商品。
+
+## 9. 第一次独立检查处置
+
+2026-10-12，第1轮只读检查绑定17f2adbd0及设计SHA256 2C381DBF2A01D72A5575412BD7E7C02EF70FAF8F486FDB6BF8EE64ED163B5760，结论NOT_READY。
+
+- Finding：content-config-v1缺合法参数载体且设计排除DDL。Product requirement affected：可保存并冻结内容模板。Classification：BLOCKER（核心happy path无法完成，实施层）。Action：§4现配置owner有界nullable参数列/精确组合CHECK及独立显式更新，不新增表或迁移平台；§7同步更正。
+- Finding：Review UoW写成RunDB。Product requirement affected：商品版本、Review与原操作回执原子提交。Classification：BLOCKER（核心happy path无法完成，实施层）。Action：§3/§7明确维持ProductDB和事务内Catalog/source，RunDB运行/配置独立。
+- Finding：现title-only lineage及wire消费者须适配。Classification：IMPLEMENTATION_TEST（合并层）。Action：§7/§8验证真实混合title/content多跳、每字段证据、完整snapshot和额外字段改动拒绝，不另建owner。
+- Finding：64KiB生命周期预算。Classification：IMPLEMENTATION_TEST（合并层）。Action：§5/§8覆盖before/after、原候选、历史/proof及未来Apply空间，临界/超界整事务验证，不扩大上限。
+
+两项BLOCKER修正后仅做第2轮对应设计增量复核；正式代码仍等明确IMPLEMENTATION_READY。
 
