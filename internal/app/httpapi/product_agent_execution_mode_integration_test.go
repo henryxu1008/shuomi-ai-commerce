@@ -9,9 +9,69 @@ import (
 	"sync/atomic"
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
+	"task-processor/internal/aiworkbench"
+	"task-processor/internal/authidentity"
 	configstore "task-processor/internal/integration/persistence/agentconfig"
 	"testing"
+	"time"
 )
+
+func TestWorkbenchExistingTitleRunFinishesPolicyAdoption(t *testing.T) {
+	for _, mode := range []string{"auto_approve", "full_access"} {
+		t.Run(mode, func(t *testing.T) { testProductAgentOwners(t, "permission recovery "+mode) })
+	}
+}
+
+func testWorkbenchTitlePolicyRecovery(t *testing.T, value, operationID string, configuration *configstore.Store, a *productAgentApplication, server *httptest.Server, calls *atomic.Int32) {
+	t.Helper()
+	identity := agent.ExecutionIdentity{OrganizationID: "B", ActorID: "admin", MemberID: "member-B-admin"}
+	receipt, err := configuration.ExecuteMode(context.Background(), agentconfig.ModeCommand{Identity: identity, Subject: a.modeSubject(), Key: uuid.NewString(), Mode: agent.ExecutionMode(value)})
+	require.NoError(t, err)
+	ctx, err := (productReviewCapabilityBinder{}).Bind(authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{TenantID: "B", EffectiveOrganizationID: "B", HomeOrganizationID: "B", UserID: "admin", EffectiveMemberID: identity.MemberID, Roles: []string{"listingkit_admin"}, TokenExpiresAt: time.Now().Add(time.Hour)}), "Bearer isolated-test-token")
+	require.NoError(t, err)
+	binding, err := a.binding(ctx, operationID, "shein")
+	require.NoError(t, err)
+	request, err := a.startRequest(ctx, binding, uuid.NewString(), "", nil, receipt.Revision)
+	require.NoError(t, err)
+	run, err := a.runtime.Start(ctx, request)
+	require.NoError(t, err)
+	require.True(t, agentRunReviewable(run.State))
+	beforeCalls := calls.Load()
+	require.Positive(t, beforeCalls)
+	// The run and pending Review are durable before policy adoption fails.
+	policy := a.policyAdoption
+	defer func() { a.policyAdoption = policy }()
+	a.policyAdoption = nil
+	_, err = a.finishTitleCandidate(ctx, run)
+	require.ErrorIs(t, err, agentconfig.ErrUnavailable)
+	input := agentReviewInput(binding, request.PolicyVersion, run.State.Candidate)
+	input.Execution = agentExecutionProvenance(run.State)
+	view, err := a.reviews.CreateFromCandidate(ctx, "agent:"+run.State.RunID, input)
+	require.NoError(t, err)
+	require.Equal(t, "pending", view.State)
+	wire, err := json.Marshal(request)
+	require.NoError(t, err)
+	task := aiworkbench.BusinessTask{Scope: aiworkbench.Scope{OrganizationID: "B", ActorID: "admin"}, OperationID: operationID, TargetPlatform: "shein", ExecutionRequestKey: request.Key, ConfigurationSnapshotRef: request.ConfigurationSnapshotRef, ContextSnapshotRef: request.ContextSnapshotRef, ExecutionRequest: wire}
+	crossedOwner, err := (workbenchExecution{agent: a}).startTask(ctx, task)
+	require.ErrorIs(t, err, agentconfig.ErrUnavailable, "existing run must retry unfinished adoption rather than report success")
+	require.True(t, crossedOwner, "post-processing failure cannot be reported as a pre-owner rejection")
+	a.policyAdoption = policy
+	_, err = (workbenchExecution{agent: a}).startTask(ctx, task)
+	require.NoError(t, err)
+	applied := titleCall(t, server, "GET", titleBasePath+"/"+view.ID, "admin", "B", "", "", 200)
+	require.Equal(t, "applied", applied.State)
+	require.NotNil(t, applied.PolicyAdoption)
+	require.Empty(t, applied.History)
+	_, err = (workbenchExecution{agent: a}).startTask(ctx, task)
+	require.NoError(t, err)
+	replayed := titleCall(t, server, "GET", titleBasePath+"/"+view.ID, "admin", "B", "", "", 200)
+	require.Equal(t, applied, replayed, "recovery must reuse the original policy adoption and publication")
+	recovered, found, err := a.store.Lookup(ctx, run.State.Scope, binding, request.Key)
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Equal(t, run, recovered)
+	require.Equal(t, beforeCalls, calls.Load(), "recovering adoption cannot resend a model request")
+}
 
 func TestTitlePermissionModesUseExistingOwners(t *testing.T) {
 	for _, mode := range []string{"default", "auto_approve", "read_only", "full_access"} {

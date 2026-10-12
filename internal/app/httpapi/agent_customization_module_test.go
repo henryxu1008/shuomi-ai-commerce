@@ -31,7 +31,7 @@ import (
 )
 
 func TestAgentCustomizationModuleRejectsMissingDuplicateAndAliasedPool(t *testing.T) {
-	source, custom, tool := &gorm.DB{}, &gorm.DB{}, &gorm.DB{}
+	source, custom, tool, configuration := &gorm.DB{}, &gorm.DB{}, &gorm.DB{}, &gorm.DB{}
 	for _, candidate := range []struct {
 		name    string
 		options []CurrentApplicationOption
@@ -39,6 +39,9 @@ func TestAgentCustomizationModuleRejectsMissingDuplicateAndAliasedPool(t *testin
 	}{
 		{"disabled", nil, true},
 		{"independent", []CurrentApplicationOption{WithAgentCustomization(custom)}, true},
+		{"quality execution missing mode owner", []CurrentApplicationOption{WithAgentCustomization(custom), WithSupplyChain(SupplyChainDependencies{AssetDB: tool})}, false},
+		{"quality execution mode owner", []CurrentApplicationOption{WithAgentCustomization(custom), WithSupplyChain(SupplyChainDependencies{AssetDB: tool}), WithAgentConfiguration(configuration)}, true},
+		{"quality execution aliased mode owner", []CurrentApplicationOption{WithAgentCustomization(custom), WithSupplyChain(SupplyChainDependencies{AssetDB: tool}), WithAgentConfiguration(custom)}, false},
 		{"missing", []CurrentApplicationOption{WithAgentCustomization(nil)}, false},
 		{"duplicate", []CurrentApplicationOption{WithAgentCustomization(custom), WithAgentCustomization(custom)}, false},
 		{"source alias", []CurrentApplicationOption{WithAgentCustomization(source)}, false},
