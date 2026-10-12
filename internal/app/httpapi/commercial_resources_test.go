@@ -100,7 +100,7 @@ func TestCommercialResourcesAdmissionAndIndependentInjection(t *testing.T) {
 	}
 	for _, mode := range []string{"enabled", "error", "nil"} {
 		t.Run(mode, func(t *testing.T) {
-			resourceDB := &gorm.DB{}
+			resourceDB := emptyStorageCommercialOwner(t)
 			calls := 0
 			factories := currentApplicationFactories{
 				buildWorkbench: func(*config.Config, *logrus.Logger) (workbenchContextBuildResult, error) {

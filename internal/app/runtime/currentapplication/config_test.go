@@ -179,7 +179,7 @@ func TestCurrentApplicationStartsFromConfiguredPrivateManifest(t *testing.T) {
 		IdentityPreflight: func(context.Context, IdentityConfig) error { return nil },
 		OpenSourceAccount: func(context.Context, DatabaseConfig) (*gorm.DB, error) { return source, nil },
 
-		OpenCommercialOwner: func(context.Context, DatabaseConfig) (*gorm.DB, error) { return &gorm.DB{}, nil },
+		OpenCommercialOwner: func(context.Context, DatabaseConfig) (*gorm.DB, error) { return emptyStorageCommercialOwner(t), nil },
 		NewApplicationWithFeatures: func(startup context.Context, gotSource *gorm.DB, features ApplicationFeatures, core *coreconfig.Config, _ *logrus.Logger) (*http.Server, error) {
 			if gotSource != source {
 				t.Fatal("application received unexpected database pools")

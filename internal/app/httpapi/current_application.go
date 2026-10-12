@@ -33,15 +33,19 @@ import (
 	ehttp "task-processor/internal/ecoservices/httpapi"
 	"task-processor/internal/httproute"
 	"task-processor/internal/imageagent"
+	commercialstore "task-processor/internal/integration/persistence/commercialbilling"
 	moneystore "task-processor/internal/integration/persistence/money"
 	referralstore "task-processor/internal/integration/persistence/referral"
 	sourceaccountstore "task-processor/internal/integration/persistence/sourceaccountregistry"
+	capacitystore "task-processor/internal/integration/persistence/storagecapacity"
+	s3integration "task-processor/internal/integration/s3"
 	"task-processor/internal/integration/zitadelregistration"
 	kernelmodule "task-processor/internal/kernel/module"
 	"task-processor/internal/knowledge"
 	knowledgehttp "task-processor/internal/knowledge/httpapi"
 	officialhttp "task-processor/internal/knowledge/httpapi/official"
 	"task-processor/internal/ledger/orgresource"
+	"task-processor/internal/ledger/storagecapacity"
 	o "task-processor/internal/marketplace/shein/observations"
 	notificationhttp "task-processor/internal/notificationcenter/httpapi"
 	cockpithttp "task-processor/internal/operationscockpit/httpapi"
@@ -374,6 +378,11 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		}
 		option(&supplied)
 	}
+	if !cfg.StorageCapacity && (supplied.commercialOwnerDB != nil || supplied.collectionSourceMedias > 0 || supplied.knowledgeServices > 0 || supplied.ecoservicesConfigs > 0 || supplied.imageAgents > 0 || supplied.fullImages != nil) {
+		if err := commercialstore.VerifyStorageCapacityDisabled(ctx, supplied.commercialOwnerDB); err != nil {
+			return nil, err
+		}
+	}
 	if supplied.operationsCockpits > 1 || supplied.storeObservations > 1 || supplied.storeCenters > 1 || supplied.localTrials > 1 || supplied.referrals > 1 || supplied.productAcquisitions > 1 || supplied.productCollections > 1 || supplied.imageAgents > 1 || supplied.memberships > 1 || supplied.productAgents > 1 || supplied.aiWorkbenches > 1 || supplied.projectCenters > 1 || supplied.projectCenters == 1 && supplied.projectCenterDB == nil || supplied.accountAuditSources > 1 {
 		return nil, errors.New("current application feature pool supplied more than once")
 	}
@@ -433,6 +442,9 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	}
 	if supplied.knowledgeServices > 1 || supplied.knowledgeServices > 0 && supplied.knowledge == nil {
 		return nil, errors.New("knowledge service unavailable or supplied more than once")
+	}
+	if cfg.StorageCapacity && supplied.knowledgeServices > 0 && !supplied.knowledge.StorageCapacityConfigured() {
+		return nil, errors.New("knowledge storage capacity consumer is not wired")
 	}
 	if supplied.ecoservicesConfigs > 1 || supplied.ecoservicesConfigs > 0 && !supplied.ecoservices.available(supplied.commercialOwnerDB, supplied.moneyOwnerDB) {
 		return nil, errors.New("ecoservices dependencies unavailable or supplied more than once")
@@ -768,6 +780,21 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		modules = append(modules, acquisition)
 	}
 	if supplied.productCollections > 0 {
+		if cfg.StorageCapacity && supplied.collectionSourceMedia != nil {
+			s := cfg.ProductCollectionSourceMedia.S3
+			ns, e := s3integration.ResolveCapacityNamespace(ctx, s3integration.ClientConfig{Region: s.Region, Endpoint: s.Endpoint, AccessKeyID: s.AccessKeyID, SecretAccessKey: s.SecretAccessKey, UsePathStyle: s.UsePathStyle}, s.Bucket, s.ArtifactMode)
+			if e != nil {
+				return nil, e
+			}
+			capacity, e := capacitystore.New(supplied.commercialOwnerDB)
+			if e != nil {
+				return nil, e
+			}
+			if e = capacity.RequireNamespace(ctx, ns, "product-source/"); e != nil {
+				return nil, e
+			}
+			supplied.collectionSourceMedia.Capacity = &storagecapacity.Meter{Writer: capacity, Namespace: ns}
+		}
 		collections, err := buildProductCollectionModuleWithSourceMedia(ctx, supplied.productAcquisitionDB, *workbench.authDependencies, authorizer, cfg, supplied.supplyChains > 0 || supplied.privateDraftTrials > 0, supplied.collectionSourceMedia, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.supplyCompletionDrafts > 0)
 		if err != nil {
 			return nil, fmt.Errorf("build current product collections: %w", err)
@@ -1050,6 +1077,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	}
 	fullSupply, privateDraftTrial := supplied.supplyRouteFeatures()
 	routeFeatures := currentApplicationOptionalRoutes{
+		StorageCapacity:     cfg.StorageCapacity,
 		ReportCenter:        supplied.reportCenterDB != nil,
 		OperationsCockpit:   supplied.operationsCockpits > 0,
 		AgentCustomization:  supplied.agentCustomizations > 0,
@@ -1083,6 +1111,11 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	}
 	if err := validateCurrentApplicationRoutesInternal(bundle.routes, factories.buildAccountAudit != nil, factories.buildAcquisition != nil, cfg.Referrals.Enabled, factories.buildMembership != nil, includeAccountProfile, includeAccountAllocation, factories.buildBrowserCapture != nil, routeFeatures); err != nil {
 		return nil, err
+	}
+	// Availability is published only after admission verifies the storage
+	// routes and their live enterprise read boundary on the mounted bundle.
+	if workbench.handler != nil {
+		workbench.handler.SetStorageCapacityAvailable(cfg.StorageCapacity)
 	}
 	server := buildCurrentApplicationHTTPServer(bundle.routes, *workbench.authDependencies)
 	if ecoservicesRecovery != nil {
@@ -1167,6 +1200,7 @@ func validateCurrentApplicationRoutesWithBrowserFeatures(routes []httproute.Desc
 }
 
 type currentApplicationOptionalRoutes struct {
+	StorageCapacity     bool
 	DataServices        bool
 	ReportCenter        bool
 	SupplyMarket        bool
@@ -1445,6 +1479,11 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 	}
 	includeCommercialBilling := false
 	for _, descriptor := range routes {
+		if descriptor.Path == billinghttp.StorageSummaryPath || descriptor.Path == billinghttp.StorageOffersPath || descriptor.Path == billinghttp.PublicStorageOffersPath {
+			if !optional.StorageCapacity || !billinghttp.ValidateStorageDescriptor(descriptor) {
+				return errors.New("storage capacity route loses its current enterprise read boundary")
+			}
+		}
 		if descriptor.Module == "data-services" || descriptor.Path == datahttp.ConsoleBase || strings.HasPrefix(descriptor.Path, datahttp.ConsoleBase+"/") || descriptor.Path == datahttp.SpecialistBase || strings.HasPrefix(descriptor.Path, datahttp.SpecialistBase+"/") || descriptor.Path == datahttp.APIBase || strings.HasPrefix(descriptor.Path, datahttp.APIBase+"/") {
 			if !optional.DataServices {
 				return errors.New("data services not admitted")
@@ -1583,12 +1622,17 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 			}
 		}
 	}
-	if includeCommercialBilling {
+	if includeCommercialBilling || optional.StorageCapacity {
+		if optional.StorageCapacity {
+			for _, path := range []string{billinghttp.StorageSummaryPath, billinghttp.StorageOffersPath, billinghttp.PublicStorageOffersPath} {
+				expected[currentApplicationRoute{Method: http.MethodGet, Path: path}] = struct{}{}
+			}
+		}
 		for _, route := range currentCommercialBillingApplicationRoutes {
 			expected[route] = struct{}{}
 		}
 		for _, descriptor := range routes {
-			if descriptor.Path == billinghttp.PublicResourceOfferPath && !billinghttp.ValidatePublicPriceDescriptor(descriptor) {
+			if (descriptor.Path == billinghttp.PublicResourceOfferPath || descriptor.Path == billinghttp.PublicStorageOffersPath) && !billinghttp.ValidatePublicPriceDescriptor(descriptor) {
 				return errors.New("public retail catalog loses its price-only read boundary")
 			}
 		}

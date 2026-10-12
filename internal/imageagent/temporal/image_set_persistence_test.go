@@ -126,6 +126,73 @@ func TestPersistImageSetAcceptedOutputKeepsOriginalGenerationProof(t *testing.T)
 	require.NoError(t, err)
 	_, err = imageagent.ImageSetResultDigest(current.Plan, current.Slots, nil)
 	require.NoError(t, err, "the retained set must bind the materialized output and original settlement")
+	quota, err := a.PersistImageSetSlotResult(context.Background(), PersistSlotResultV3ActivityInput{RunID: input.RunID, Identity: input.Identity, PlanRevision: 1, AttemptKey: input.IdempotencyKey, Result: SlotWorkflowV3Result{Published: imageagent.SlotEffectV3PublishedResult{SlotID: input.Slot.ID, Attempt: 1}, Status: imageagent.SlotStatusBlocked, ErrorCode: imageagent.StorageLimitExceededCode, EffectPhase: imageagent.SlotEffectV3ProviderNotDispatched}})
+	require.NoError(t, err)
+	require.Equal(t, accepted, quota, "a later quota denial cannot overwrite the original settled success")
+}
+
+func TestPersistImageSetStorageLimitKeepsNativeClosureAndPreservesUnknown(t *testing.T) {
+	for _, mode := range []string{"known_no_generation", "original_unknown", "native_unknown"} {
+		t.Run(mode, func(t *testing.T) {
+			unknown := mode != "known_no_generation"
+			a, repo, input := imageSetPersistenceFixture(t)
+			ctx := context.Background()
+			execution := slotExecutionInputV3(input)
+			reservation := slotEffectReservationV3(execution)
+			effects := repo.(imageagent.SlotExternalEffectV3Repository)
+			_, won, err := effects.ReserveSlotProviderV3(ctx, reservation)
+			require.NoError(t, err)
+			require.True(t, won)
+			digest, err := imageagent.ImageSlotGenerationInputDigest(execution)
+			require.NoError(t, err)
+			quote := input.Slot.Recipe.Quote
+			intent := imageagent.GenerationIntent{Identity: reservation.Identity, MemberID: input.Identity.MemberID, CatalogHash: input.AssetCatalog.Manifest.Hash, SourceDigest: imageagent.ImageSourceBundleDigest(input.Slot.Recipe.References), PromptVersion: input.Slot.Recipe.PromptVersion, InputProtocol: imageagent.ImageSetSchema, InputDigest: digest, RouteReference: quote.RouteReference, CredentialReference: quote.CredentialReference, ConfigurationVersion: quote.ConfigurationVersion, Provider: quote.Provider, Model: quote.Model, Protocol: quote.Protocol, Resolution: quote.Resolution, Quality: quote.Quality, PriceVersion: quote.PriceVersion, Points: quote.Points, LimitVersion: 1, MonthStart: time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)}
+			facts := repo.(imageagent.GenerationFactRepository)
+			fact, err := facts.PrepareGenerationIntent(ctx, intent)
+			require.NoError(t, err)
+			if unknown {
+				fact, err = facts.BindGenerationReservation(ctx, intent, imageagent.GenerationReservationReceipt{IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, OrganizationID: input.Identity.TenantID, MemberID: input.Identity.MemberID, OperationID: "image-reserve:" + fact.IntentID, ReservationID: "reservation", ResourceType: "ai_point", Points: intent.Points, PriceVersion: intent.PriceVersion, LimitVersion: intent.LimitVersion, MonthStart: intent.MonthStart})
+				require.NoError(t, err)
+				_, won, err = facts.BeginGenerationDispatch(ctx, intent)
+				require.NoError(t, err)
+				require.True(t, won)
+				fact, err = facts.MarkGenerationUnknown(ctx, intent)
+				require.NoError(t, err)
+				if mode == "native_unknown" {
+					_, err = effects.RecordSlotProviderNotDispatchedV3(ctx, reservation)
+				} else {
+					_, err = effects.BlockSlotEffectV3(ctx, imageagent.SlotEffectV3BlockTransition{Reservation: reservation, Phase: imageagent.SlotEffectV3ProviderUnknown, Code: imageagent.SlotProviderOutcomeUnknownCode})
+				}
+				require.NoError(t, err)
+			} else {
+				fact, err = facts.RecordGenerationNoEffect(ctx, intent)
+				require.NoError(t, err)
+				fact, err = facts.BindGenerationSettlement(ctx, intent, imageagent.GenerationSettlementReceipt{IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, OperationID: "image-finalize:" + fact.IntentID, State: "no_reservation", Points: intent.Points, ProofDigest: fact.TerminalProofDigest()})
+				require.NoError(t, err)
+				_, err = effects.RecordSlotProviderNotDispatchedV3(ctx, reservation)
+				require.NoError(t, err)
+			}
+			in := PersistSlotResultV3ActivityInput{RunID: input.RunID, Identity: input.Identity, PlanRevision: 1, AttemptKey: input.IdempotencyKey, Result: SlotWorkflowV3Result{Published: imageagent.SlotEffectV3PublishedResult{SlotID: input.Slot.ID, Attempt: 1}, Status: imageagent.SlotStatusBlocked, ErrorCode: imageagent.StorageLimitExceededCode, EffectPhase: imageagent.SlotEffectV3ProviderNotDispatched}}
+			result, err := a.PersistImageSetSlotResult(ctx, in)
+			require.NoError(t, err)
+			if unknown {
+				require.Equal(t, imageagent.SlotProviderOutcomeUnknownCode, result.ErrorCode)
+				require.Nil(t, result.Closure)
+			} else {
+				require.Equal(t, imageagent.StorageLimitExceededCode, result.ErrorCode)
+				closure, err := imageagent.ImageGenerationClosure(fact)
+				require.NoError(t, err)
+				require.Equal(t, closure, result.Closure)
+				replay, err := a.PersistImageSetSlotResult(ctx, in)
+				require.NoError(t, err)
+				require.Equal(t, result, replay)
+			}
+			retained, err := facts.ReadGenerationFact(ctx, reservation.Identity)
+			require.NoError(t, err)
+			require.Equal(t, fact, retained)
+			require.Zero(t, a.stagedSlotExecutor.(*recordingStagedExecutor).GenerateCalls())
+		})
+	}
 }
 
 func TestPersistImageSetSlotResultDistinguishesKnownUnstartedFromUnknown(t *testing.T) {

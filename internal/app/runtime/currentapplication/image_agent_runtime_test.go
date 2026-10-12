@@ -87,7 +87,7 @@ func TestFullImageGenericRuntimeOpensOnlyItsNarrowAssetPool(t *testing.T) {
 				privatizeSyntheticTestFile(t, app.AppSecretFile)
 				privatizeSyntheticTestFile(t, app.CredentialKeyFile)
 			}
-			source, product, configuration, points, imageDB, workerDB, assets, store := &gorm.DB{}, &gorm.DB{}, &gorm.DB{}, &gorm.DB{}, &gorm.DB{}, &gorm.DB{}, &gorm.DB{}, &gorm.DB{}
+			source, product, configuration, points, imageDB, workerDB, assets, store := &gorm.DB{}, &gorm.DB{}, &gorm.DB{}, emptyStorageCommercialOwner(t), &gorm.DB{}, &gorm.DB{}, &gorm.DB{}, &gorm.DB{}
 			if mode == "reject HTTP pool" {
 				assets = imageDB
 			}
@@ -232,7 +232,7 @@ func TestCurrentImageAgentRequiresExplicitOwnedRuntimeAndNeverFallsBack(t *testi
 	// Acquisition always uses the canonical resource owner, even without AI.
 	cfg.ImageAgent.Generation = coreconfig.ImageAgentGenerationConfig{}
 
-	source, product, imageDB, owner := &gorm.DB{}, &gorm.DB{}, &gorm.DB{}, &gorm.DB{}
+	source, product, imageDB, owner := &gorm.DB{}, &gorm.DB{}, &gorm.DB{}, emptyStorageCommercialOwner(t)
 	var closed []*gorm.DB
 	var workflowClosed bool
 	stop := errors.New("stop before listener")

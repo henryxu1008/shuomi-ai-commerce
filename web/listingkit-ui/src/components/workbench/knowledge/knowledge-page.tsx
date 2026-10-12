@@ -31,6 +31,7 @@ export function KnowledgePage({baseId}:{baseId?:string}) {
 function errorMessage(error:unknown) {
  const code=error instanceof KnowledgeError?error.code:"KNOWLEDGE_UNAVAILABLE";
  const messages:Record<string,string>={
+	STORAGE_LIMIT_EXCEEDED:"企业存储空间不足，请在资源与额度扩容后重试。已有文档不会被删除。",
   KNOWLEDGE_SOURCE_LIMIT_REACHED:"已达到 4 份有效资料上限，请先停用一份资料。",
   KNOWLEDGE_REVISION_IN_PROGRESS:"这份资料已有版本正在处理，请稍后再替换。",
   KNOWLEDGE_CONFLICT:"资料已更新，或相同请求使用了不同内容。请刷新后重试。",

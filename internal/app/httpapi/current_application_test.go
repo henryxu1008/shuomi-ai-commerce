@@ -105,6 +105,33 @@ func TestCommercialBillingAdmittedRoutesIncludeSummary(t *testing.T) {
 	t.Fatalf("commercial billing admitted routes omit registered route %s %s", want.Method, want.Path)
 }
 
+func TestStorageCapacityCannotAdmitAnAbsentCommercialBundle(t *testing.T) {
+	routes := make([]httproute.Descriptor, 0, len(currentWorkbenchApplicationRoutes))
+	for _, route := range currentWorkbenchApplicationRoutes {
+		routes = append(routes, httproute.Descriptor{Method: route.Method, Path: route.Path})
+	}
+	if err := validateCurrentApplicationRoutesInternal(routes, false, false, false, false, false, false, false, currentApplicationOptionalRoutes{StorageCapacity: true}); err == nil {
+		t.Fatal("enabled storage admitted without its storage and original commercial routes")
+	}
+	cfg := currentApplicationTestConfig()
+	cfg.StorageCapacity = true
+	factories := currentApplicationFactories{
+		buildWorkbench: func(*config.Config, *logrus.Logger) (workbenchContextBuildResult, error) {
+			deps := newRouteAuthDependencies()
+			return workbenchContextBuildResult{module: currentApplicationTestModule{name: "workbench", routes: currentWorkbenchApplicationRoutes[:4]}, authDependencies: &deps}, nil
+		},
+		buildSourceAccount: func(*gorm.DB, *authz.ListingKitAuthorizer) (kernelmodule.Module, error) {
+			return currentApplicationTestModule{name: "source", routes: currentWorkbenchApplicationRoutes[5:]}, nil
+		},
+		buildCommercial: func(*gorm.DB, *gorm.DB, *authz.ListingKitAuthorizer) (kernelmodule.Module, error) {
+			return currentApplicationTestModule{name: "commercial", routes: currentWorkbenchApplicationRoutes[4:5]}, nil
+		},
+	}
+	if server, err := buildCurrentApplication(context.Background(), &gorm.DB{}, cfg, logrus.New(), factories); err == nil || server != nil {
+		t.Fatal("enabled storage served a configuration lacking the actual commercial bundle")
+	}
+}
+
 func TestCurrentApplicationReferralRouteAdmission(t *testing.T) {
 	routes := make([]httproute.Descriptor, 0)
 	for _, r := range currentWorkbenchApplicationRoutes {
@@ -170,7 +197,7 @@ func TestCurrentApplicationAuditFactoryAdmission(t *testing.T) {
 		t.Run(mode, func(t *testing.T) {
 			cfg := currentApplicationTestConfig()
 			sourceDB := &gorm.DB{}
-			resourceDB := &gorm.DB{}
+			resourceDB := emptyStorageCommercialOwner(t)
 			imageDB, productDB := &gorm.DB{}, &gorm.DB{}
 			factories := currentApplicationFactories{
 				buildWorkbench: func(*config.Config, *logrus.Logger) (workbenchContextBuildResult, error) {
@@ -385,7 +412,7 @@ func TestCurrentApplicationRetiresPlatformSubscriptionOwnerRoutes(t *testing.T) 
 		},
 	}
 
-	server, err := buildCurrentApplication(context.Background(), &gorm.DB{}, currentApplicationTestConfig(), logrus.New(), factories, WithCommercialOwnerDatabase(&gorm.DB{}))
+	server, err := buildCurrentApplication(context.Background(), &gorm.DB{}, currentApplicationTestConfig(), logrus.New(), factories, WithCommercialOwnerDatabase(emptyStorageCommercialOwner(t)))
 	if err != nil {
 		t.Fatalf("buildCurrentApplication() error = %v", err)
 	}

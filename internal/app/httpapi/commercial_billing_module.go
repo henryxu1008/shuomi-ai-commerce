@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	capacitystore "task-processor/internal/integration/persistence/storagecapacity"
 
 	zitadelruntime "task-processor/internal/authruntime/zitadel"
 	"task-processor/internal/authz"
@@ -51,6 +52,17 @@ func buildCommercialBillingModule(ctx context.Context, commercialDB, moneyDB *go
 		return nil, err
 	}
 	module := commercialBillingModule{handler: billinghttp.NewHandler(service)}
+	if cfg.StorageCapacity {
+		capacity, e := capacitystore.New(commercialDB)
+		if e != nil {
+			return nil, e
+		}
+		if e = capacitystore.VerifyRuntime(ctx, commercialDB); e != nil {
+			return nil, errors.New("storage capacity runtime tables or privileges unavailable")
+		}
+		service.ConfigureStorage(commercial)
+		module.handler.ConfigureStorage(capacity)
+	}
 	zitadel := cfg.ListingKit.Zitadel
 	if (cfg.WalletTopUp.Alipay.Enabled || cfg.WalletTopUp.WeChat.Enabled) && (strings.TrimSpace(zitadel.TenantDirectoryToken) == "" || strings.TrimSpace(zitadel.AuthorizationAPIURL) == "" || strings.TrimSpace(zitadel.ProjectID) == "") {
 		return nil, errors.New("financial recovery directory authorization configuration unavailable")

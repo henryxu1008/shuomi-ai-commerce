@@ -12,6 +12,7 @@ import (
 
 	"task-processor/internal/imageagent"
 	"task-processor/internal/imageagent/objectstore"
+	"task-processor/internal/ledger/storagecapacity"
 )
 
 const slotProviderOutcomeUnknownErrorType = "imageagent_slot_provider_outcome_unknown"
@@ -246,6 +247,9 @@ func (a *Activities) ExecuteSlotV3(ctx context.Context, input ExecuteSlotV3Activ
 					defer cancelFinalization()
 					if _, recordErr := a.slotEffectsV3.RecordSlotProviderNotDispatchedV3(finalizationCtx, reservation); recordErr != nil {
 						return v3Result, fmt.Errorf("record provider rejection before dispatch: %w", persistedSlotEffectV3RepositoryError(recordErr))
+					}
+					if errors.Is(generateErr, storagecapacity.ErrExceeded) {
+						return v3Result, sdktemporal.NewNonRetryableApplicationError("enterprise storage capacity is exhausted", imageagent.StorageLimitExceededCode, generateErr)
 					}
 					return v3Result, sdktemporal.NewApplicationError("image agent provider did not dispatch", imageagent.SlotProviderNotDispatchedCode, generateErr)
 				default:

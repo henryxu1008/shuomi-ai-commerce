@@ -212,6 +212,15 @@ describe("ImageAgentWorkbench", () => {
     ).toBeEnabled();
   });
 
+  it("explains storage exhaustion and links to enterprise capacity before another attempt",()=>{
+    const projection=projectionWithSlots(3,"scene-2");
+    projection.run.block={code:"storage_limit_exceeded",message:"",slot_id:"scene-2"};
+    render(<ImageAgentWorkbench taskId="task-1" runId="run-1" initialRun={projection}/>);
+    expect(screen.getByText("企业存储空间不足")).toBeVisible();
+    expect(screen.getByRole("link",{name:"查看存储容量与扩容"})).toHaveAttribute("href","/workbench/account/organization/resources");
+    expect(screen.getByRole("button",{name:"扩容后创建新尝试"})).toBeEnabled();
+  });
+
   it.each(blockedUnknownCases)("renders $name guidance from server actions on initial render and SSE refresh", async ({ code, guidance, initialActions, refreshedActions, initialCanCreate, refreshedCanCreate }) => {
     const initial = projectionWithSlots(7, "scene-2");
     initial.run.max_concurrent_slots = 3;

@@ -26,3 +26,24 @@ func TestCockpitAvailabilityRequiresMountedModuleAndSelectedOrganization(t *test
 	id.OrganizationGrants = nil
 	require.NotContains(t, read(), "operationsCockpitAvailable")
 }
+
+func TestStorageAvailabilityRequiresAdmittedModuleAndSelectedOrganization(t *testing.T) {
+	h := NewHandlerWithWorkbenchAuthorizer(authz.DefaultListingKitAuthorizer())
+	id := authidentity.AuthenticatedIdentity{UserID: "actor", HomeOrganizationID: "org-a", EffectiveOrganizationID: "org-a", OrganizationGrants: []authidentity.OrganizationGrant{{OrganizationID: "org-a", OrganizationName: "A", Roles: []string{"listingkit_admin"}}}}
+	read := func() map[string]any {
+		w := serveHandler(t, http.MethodGet, "/api/v1/workbench/context", "", id, h.GetContext)
+		require.Equal(t, 200, w.Code)
+		var body map[string]any
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+		return body
+	}
+	require.NotContains(t, read(), "storageCapacityAvailable")
+	h.SetStorageCapacityAvailable(true)
+	require.Equal(t, true, read()["storageCapacityAvailable"])
+	h.SetStorageCapacityAvailable(false)
+	require.NotContains(t, read(), "storageCapacityAvailable")
+	h.SetStorageCapacityAvailable(true)
+	id.EffectiveOrganizationID = ""
+	id.OrganizationGrants = nil
+	require.NotContains(t, read(), "storageCapacityAvailable")
+}

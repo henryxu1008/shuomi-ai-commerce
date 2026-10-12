@@ -35,6 +35,7 @@ type WorkbenchContextValue = {
   roles: string[];
   permissions: string[];
   aiWorkbenchAvailable: boolean;
+  storageCapacityAvailable: boolean;
  projectCenterAvailable:boolean;
   storeObservationsAvailable: boolean;
   operationsCockpitAvailable: boolean;
@@ -226,6 +227,7 @@ export function WorkbenchContextProvider({ children }: PropsWithChildren) {
       roles: effectiveOrganization?.roles ?? [],
       permissions: effectiveOrganization?.permissions ?? [],
       aiWorkbenchAvailable: currentContext?.aiWorkbenchAvailable === true,
+      storageCapacityAvailable:currentContext?.storageCapacityAvailable===true,
  projectCenterAvailable:currentContext?.projectCenterAvailable===true,
       storeObservationsAvailable: currentContext?.storeObservationsAvailable === true,
       operationsCockpitAvailable: currentContext?.operationsCockpitAvailable === true,

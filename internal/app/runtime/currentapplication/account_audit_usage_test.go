@@ -57,7 +57,7 @@ func TestAccountAuditUsageMixedRuntimeOpensOnlyTheDeclaredReader(t *testing.T) {
 		t.Fatal(err)
 	}
 	imageMock.ExpectQuery(`SELECT "invocation_id","member_id","prompt_tokens","completion_tokens","total_tokens","finished_at" FROM "ai_invocations" WHERE tenant_id`).WillReturnRows(sqlmock.NewRows([]string{"invocation_id", "member_id", "prompt_tokens", "completion_tokens", "total_tokens", "finished_at"}))
-	source, commercial, acquisition, runDB := &gorm.DB{}, &gorm.DB{}, &gorm.DB{}, &gorm.DB{}
+	source, commercial, acquisition, runDB := &gorm.DB{}, emptyStorageCommercialOwner(t), &gorm.DB{}, &gorm.DB{}
 	stop := errors.New("mixed sources reached application assembly")
 	readerOpens := 0
 	err = Run(context.Background(), cfg, logrus.New(), Dependencies{

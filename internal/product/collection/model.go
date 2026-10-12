@@ -26,12 +26,13 @@ const (
 )
 
 var (
-	ErrInvalid     = errors.New("invalid collection request")
-	ErrForbidden   = errors.New("collection permission denied")
-	ErrNotFound    = errors.New("collection resource not found")
-	ErrConflict    = errors.New("collection revision or operation conflict")
-	ErrUnknown     = errors.New("collection commit outcome unknown")
-	ErrUnavailable = errors.New("collection dependency unavailable")
+	ErrInvalid         = errors.New("invalid collection request")
+	ErrForbidden       = errors.New("collection permission denied")
+	ErrNotFound        = errors.New("collection resource not found")
+	ErrConflict        = errors.New("collection revision or operation conflict")
+	ErrUnknown         = errors.New("collection commit outcome unknown")
+	ErrUnavailable     = errors.New("collection dependency unavailable")
+	ErrStorageExceeded = errors.New("enterprise storage capacity exceeded")
 )
 
 type Scope struct{ OrganizationID, ActorID, MemberID string }

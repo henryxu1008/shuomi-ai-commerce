@@ -45,7 +45,12 @@ func (s *Service) ReconcileRecoverableResourceOrders(ctx context.Context, limit 
 		if ctx.Err() != nil {
 			return errors.Join(append(failures, ctx.Err())...)
 		}
-		_, err := s.ReconcileResourceOrder(ctx, order.OrganizationID, order.OrderID)
+		var err error
+		if order.Kind == OrderStorageCapacityPurchase {
+			_, err = s.ReconcileStorageOrder(ctx, order.OrganizationID, order.OrderID)
+		} else {
+			_, err = s.ReconcileResourceOrder(ctx, order.OrganizationID, order.OrderID)
+		}
 		if err != nil && !errors.Is(err, ErrReconciliationRequired) && !errors.Is(err, ErrInsufficientFunds) && !errors.Is(err, ErrResourceGrantRejected) {
 			failures = append(failures, err)
 		}

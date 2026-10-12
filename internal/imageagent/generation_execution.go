@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"reflect"
+	"task-processor/internal/ledger/storagecapacity"
 	"time"
 )
 
@@ -25,6 +26,8 @@ type PreparedGenerationProvider struct {
 	Executor BudgetedStagedSlotExecutor
 }
 type GenerationExecutionDependencies struct {
+	StorageCapacity    storagecapacity.Writer
+	MaxStorageBytes    int64
 	Facts              GenerationFactRepository
 	Resources          GenerationResources
 	Authorizer         ExecutionAuthorizer
@@ -156,6 +159,17 @@ func (e *GenerationExecution) GenerateQuotedSlot(ctx context.Context, input Slot
 		}
 		return reject(cause)
 	}
+	var capacityReservation storagecapacity.Reservation
+	if e.dependencies.StorageCapacity != nil {
+		fact, factErr := NewGenerationFact(intent)
+		if factErr != nil {
+			return closeBeforeDispatch(factErr)
+		}
+		capacityReservation, err = e.dependencies.StorageCapacity.ReserveWrite(ctx, storagecapacity.WriteIntent{OrganizationID: id.TenantID, Owner: "image_agent", OperationID: StorageGenerationOperation(id), Fingerprint: fact.Fingerprint, MaxBytes: e.dependencies.MaxStorageBytes, MaxObjects: 1})
+		if err != nil {
+			return closeBeforeDispatch(err)
+		}
+	}
 	receipt, err := e.dependencies.Resources.ReserveImageGeneration(ctx, id)
 	if err != nil {
 		return closeBeforeDispatch(err)
@@ -171,6 +185,11 @@ func (e *GenerationExecution) GenerateQuotedSlot(ctx context.Context, input Slot
 	}
 	if err = ctx.Err(); err != nil {
 		return closeBeforeDispatch(err)
+	}
+	if e.dependencies.StorageCapacity != nil {
+		if err = e.dependencies.StorageCapacity.ClaimDispatch(ctx, id.TenantID, capacityReservation.ID); err != nil {
+			return closeBeforeDispatch(err)
+		}
 	}
 	_, won, err := e.dependencies.Facts.BeginGenerationDispatch(ctx, intent)
 	if err != nil {
@@ -263,6 +282,13 @@ func (e *GenerationExecution) finalize(ctx context.Context, intent GenerationInt
 		return err
 	}
 	_, err = e.dependencies.Facts.BindGenerationSettlement(ctx, intent, receipt)
+	if err == nil && e.dependencies.StorageCapacity != nil {
+		fact, readErr := e.dependencies.Facts.ReadGenerationFact(ctx, intent.Identity)
+		if readErr != nil {
+			return readErr
+		}
+		return closeGenerationCapacity(ctx, e.dependencies.StorageCapacity, fact)
+	}
 	return err
 }
 func generationUnknown(err error) (SlotGeneratedOutput, error) {
