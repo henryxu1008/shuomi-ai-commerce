@@ -26,6 +26,26 @@ it("requotes the selected package count and blocks payment while the new quote i
 it("does not submit a quote that exceeds the known wallet balance",async()=>{
  wallet.mockResolvedValue({available_minor:"1989"});show();await waitFor(()=>expect(screen.getByRole("button",{name:"购买扩容包"})).toBeEnabled());fireEvent.click(screen.getByRole("button",{name:"购买扩容包"}));const confirm=await screen.findByRole("button",{name:"确认支付 ¥19.90"});expect(confirm).toBeDisabled();fireEvent.click(confirm);expect(api.createStorageOrder).not.toHaveBeenCalled();
 });
+it.each([false,true])("allows a new purchase after terminal insufficient funds, recovering=%s",async recovering=>{
+ const pendingKey='storage-purchase.pending:["actor","org"]';
+ let originalKey=crypto.randomUUID();
+ if(recovering)sessionStorage.setItem(pendingKey,JSON.stringify({offerId:"storage-offer",quoteId:"quote",key:originalKey}));
+ api.createStorageOrder.mockRejectedValueOnce({code:"INSUFFICIENT_FUNDS"});show();
+ if(recovering){fireEvent.click(await screen.findByRole("button",{name:"恢复原订单"}))}
+ else{
+  await waitFor(()=>expect(screen.getByRole("button",{name:"购买扩容包"})).toBeEnabled());fireEvent.click(screen.getByRole("button",{name:"购买扩容包"}));
+  fireEvent.click(await screen.findByRole("button",{name:"确认支付 ¥19.90"}));originalKey=api.createStorageOrder.mock.calls[0][3];
+ }
+ await screen.findByText(/企业钱包余额不足，请充值后重新确认/);
+ expect(sessionStorage.getItem(pendingKey)).toBeNull();expect(screen.queryByRole("button",{name:"恢复原订单"})).not.toBeInTheDocument();
+ const purchase=screen.getByRole("button",{name:"购买扩容包"});expect(purchase).toBeEnabled();
+ wallet.mockResolvedValue({available_minor:"20000"});api.createStorageQuote.mockResolvedValue({quote_id:"quote-after-topup",offer_id:"storage-offer",resource_quantity:"1",total_minor:"1990",storage_unit_bytes:"53687091200",expires_at:"2027-01-01T00:00:00Z"});
+ api.createStorageOrder.mockResolvedValue({order_id:"order-after-topup",status:"FULFILLED"});fireEvent.click(purchase);fireEvent.click(await screen.findByRole("button",{name:"确认支付 ¥19.90"}));
+ await screen.findByText(/扩容已生效/);expect(api.createStorageOrder).toHaveBeenCalledTimes(2);
+ expect(api.createStorageOrder.mock.calls[0].slice(0,4)).toEqual(["actor","org","quote",originalKey]);
+ expect(api.createStorageOrder.mock.calls[1][2]).toBe("quote-after-topup");expect(api.createStorageOrder.mock.calls[1][3]).not.toBe(originalKey);
+ expect(api.readStorageOrder).not.toHaveBeenCalled();expect(sessionStorage.getItem(pendingKey)).toBeNull();
+});
 it.each([["4294967296","1073741824","0","已达到当前容量"],["4026531840","268435456","1073741824","已达到 80%"]])("warns using both occupied and reserved bytes",async(occupied,reserved,remaining,label)=>{
  const value=await api.getStorageSummary();value.summary.occupied_bytes=occupied;value.summary.reserved_bytes=reserved;value.summary.remaining_bytes=remaining;value.summary.categories={product_media:occupied};show();expect(await screen.findByText(new RegExp(label))).toBeVisible();
 });
@@ -44,8 +64,8 @@ it("does not create a pending order without purchase permission",async()=>{
 it("shows unavailable facts without substituting zero occupancy",async()=>{
  api.getStorageSummary.mockRejectedValue(new Error("unavailable"));show();await screen.findByText(/本次未取得用量/);expect(screen.queryByText("0.00 GiB")).not.toBeInTheDocument();expect(screen.getByRole("button",{name:"购买扩容包"})).toBeDisabled();
 });
-it("keeps the original request after acknowledgement loss and guards double clicks",async()=>{
- api.createStorageOrder.mockRejectedValue({code:"DEADLINE_EXCEEDED"});const first=show();await waitFor(()=>expect(screen.getByRole("button",{name:"购买扩容包"})).toBeEnabled());fireEvent.click(screen.getByRole("button",{name:"购买扩容包"}));const confirm=await screen.findByRole("button",{name:"确认支付 ¥19.90"});fireEvent.click(confirm);fireEvent.click(confirm);
+it.each(["DEADLINE_EXCEEDED","DEPENDENCY_UNAVAILABLE","RECONCILIATION_REQUIRED"])("keeps the original request after %s and guards double clicks",async code=>{
+ api.createStorageOrder.mockRejectedValue({code});const first=show();await waitFor(()=>expect(screen.getByRole("button",{name:"购买扩容包"})).toBeEnabled());fireEvent.click(screen.getByRole("button",{name:"购买扩容包"}));const confirm=await screen.findByRole("button",{name:"确认支付 ¥19.90"});fireEvent.click(confirm);fireEvent.click(confirm);
  await screen.findByText(/本次结果未确认/);expect(api.createStorageOrder).toHaveBeenCalledTimes(1);const raw=sessionStorage.getItem('storage-purchase.pending:["actor","org"]');expect(raw).not.toBeNull();const original=JSON.parse(raw!);
  first.unmount();show();await screen.findByRole("button",{name:"恢复原订单"});api.createStorageOrder.mockResolvedValue({kind:"STORAGE_CAPACITY_PURCHASE",order_id:"order",status:"FULFILLED"});fireEvent.click(screen.getByRole("button",{name:"恢复原订单"}));await screen.findByText(/扩容已生效/);expect(api.createStorageOrder.mock.calls[1].slice(0,4)).toEqual(["actor","org",original.quoteId,original.key]);expect(sessionStorage.getItem('storage-purchase.pending:["actor","org"]')).toBeNull();
 });

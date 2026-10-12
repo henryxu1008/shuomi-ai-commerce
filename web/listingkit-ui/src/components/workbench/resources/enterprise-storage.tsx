@@ -34,9 +34,9 @@ function ScopedStorage({userId,organizationId,scope,sequence,canPurchase,readOnl
         const code=error&&typeof error==="object"&&"code"in error?String(error.code):"DEPENDENCY_UNAVAILABLE";
         let current:ReturnType<typeof readPending>={value:null,invalid:true};
         try{current=readPending(sessionStorage.getItem(key)??"")}catch{}
-        // The original order lookup runs before quote expiry on the server.
-        // This response is a confirmed rejection before creating an order.
-        if(code==="QUOTE_EXPIRED"&&current.value&&!current.value.orderId)persist(null);
+        // Quote expiry is checked after the original order lookup; insufficient
+        // funds is returned only after the order cancellation is persisted.
+        if((code==="QUOTE_EXPIRED"||code==="INSUFFICIENT_FUNDS")&&current.value&&!current.value.orderId)persist(null);
         setMessage(code==="INSUFFICIENT_FUNDS"?"企业钱包余额不足，请充值后重新确认。":code==="QUOTE_EXPIRED"?"报价已过期，请重新获取报价。":current.value||current.invalid?"本次结果未确认，请恢复原订单；不要重复购买。":"报价暂不可用，请刷新后重试。")
       }
     }finally{locked.current=false;if(mounted.current)setBusy(false)}
