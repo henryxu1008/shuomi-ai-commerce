@@ -99,7 +99,7 @@ it("rejects title parameters in image templates and another agent's mutation rec
 
 it("forwards an exact execution-mode intent without inventing activation or an If-Match header",async()=>{
  const subject={kind:"private_delivery",id:key};
- const receipt={commandId:"2b9ac69f-bf25-4d28-a85a-8036ea005013",requestKey:key,operation:"set-execution-mode",subject,mode:"full_access",beforeRevision:"0",revision:"1",noop:false,committedAt:"2026-10-12T01:00:00Z"};
+ const receipt={commandId:"2b9ac69f-bf25-4d28-a85a-8036ea005013",requestKey:key,operation:"set-execution-mode",subject,mode:"full_access",beforeRevision:"0",revision:"1",noop:false,committedAt:"2026-10-12T01:00:00Z",updatedAt:"2026-10-12T01:00:00Z",updatedBy:"actor"};
  const view={subject,definition:{id:"product.quality.check",version:"2.0.0"},mode:"full_access",revision:"1",policyVersion:"agent-execution-policy-v1",canConfigure:true,updatedAt:receipt.committedAt,updatedBy:"actor",receipt};
  const fetch=vi.fn().mockResolvedValue(Response.json(view));vi.stubGlobal("fetch",fetch);
  const path="execution-modes/private_delivery/"+key;
@@ -114,6 +114,12 @@ it("forwards an exact execution-mode intent without inventing activation or an I
  const mismatch=request(path,"PUT",{mode:"full_access",expectedRevision:"0"});mismatch.headers.delete("If-Match");
  const rejected=await proxyAgentConfiguration(mismatch,"token","actor");
  expect(rejected.status).toBe(502);expect((await rejected.json()).code).toBe("OUTCOME_UNKNOWN");
+ for(const audit of [{updatedAt:undefined,updatedBy:undefined},{updatedAt:undefined,updatedBy:"actor"},{updatedAt:receipt.updatedAt,updatedBy:"other-actor"}]){
+  fetch.mockResolvedValueOnce(Response.json({...view,receipt:{...receipt,...audit}}));
+  const uncertain=request(path,"PUT",{mode:"full_access",expectedRevision:"0"});uncertain.headers.delete("If-Match");
+  const invalid=await proxyAgentConfiguration(uncertain,"token","actor");
+  expect(invalid.status).toBe(502);expect((await invalid.json()).code).toBe("OUTCOME_UNKNOWN");
+ }
 });
 
 it("keeps uncertain mode writes unknown and rejects a mismatched subject response",async()=>{

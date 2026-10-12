@@ -78,8 +78,8 @@ func (c ModeCommand) Validate() error {
 }
 
 type ModeReceipt struct {
-	UpdatedBy      string              `json:"updatedBy,omitempty"`
-	UpdatedAt      time.Time           `json:"updatedAt,omitzero"`
+	UpdatedBy      string              `json:"updatedBy"`
+	UpdatedAt      time.Time           `json:"updatedAt"`
 	CommandID      string              `json:"commandId"`
 	RequestKey     string              `json:"requestKey"`
 	Operation      string              `json:"operation"`

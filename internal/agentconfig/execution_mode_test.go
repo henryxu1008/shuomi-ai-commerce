@@ -1,12 +1,39 @@
 package agentconfig
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
 	"task-processor/internal/agent"
 	"task-processor/internal/commercetool"
 )
+
+func TestModeReceiptAlwaysCarriesAuditFields(t *testing.T) {
+	for _, receipt := range []ModeReceipt{{}, {UpdatedBy: "original-configurator", UpdatedAt: time.Date(2026, 10, 12, 1, 2, 3, 0, time.UTC)}} {
+		wire, err := json.Marshal(receipt)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var fields map[string]json.RawMessage
+		if err := json.Unmarshal(wire, &fields); err != nil {
+			t.Fatal(err)
+		}
+		for _, key := range []string{"updatedBy", "updatedAt"} {
+			if _, ok := fields[key]; !ok {
+				t.Fatalf("receipt omitted required %s: %s", key, wire)
+			}
+		}
+		var replay ModeReceipt
+		if err := json.Unmarshal(wire, &replay); err != nil {
+			t.Fatal(err)
+		}
+		if replay.UpdatedBy != receipt.UpdatedBy || !replay.UpdatedAt.Equal(receipt.UpdatedAt) {
+			t.Fatal("receipt changed audit metadata")
+		}
+	}
+}
 
 func TestExecutionModeCommandsRejectUnboundIdentity(t *testing.T) {
 	public := ModeSubject{Kind: RegisteredAgentSubject, ID: "product.title.agent"}
@@ -64,5 +91,7 @@ func TestExecutionModeRevisionIsExactDecimal(t *testing.T) {
 
 func TestExecutionModePrivateSubjectPreservesDeliveryVersion(t *testing.T) {
 	resolved := ResolvedModeSubject{Subject: ModeSubject{Kind: PrivateDeliverySubject, ID: "1dc92db7-6e38-4d89-9b71-9b12432f3678"}, Definition: commercetool.AgentRef{ID: "product.quality.check", Version: "2.0.0"}}
-	if !resolved.Valid() { t.Fatal("actual private delivery version must not be normalized into a public catalog version") }
+	if !resolved.Valid() {
+		t.Fatal("actual private delivery version must not be normalized into a public catalog version")
+	}
 }
