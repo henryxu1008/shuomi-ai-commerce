@@ -26,6 +26,28 @@ func TestModelPointSchemaAndScopedCanonicalFact(t *testing.T) {
 	require.False(t, db.Migrator().HasColumn(&invocationRow{}, "point_price_version"))
 }
 
+func TestContentPricedInvocationKeepsCanonicalIdentityAndReplay(t *testing.T) {
+	db := newInvocationLedgerDB(t)
+	ledger := NewGormInvocationRecorder(db)
+	fact := aicapability.InvocationRecord{InvocationID: "content-invocation", TenantID: "org", UserID: "actor", MemberID: "member", AgentRunID: "content-run", InputHash: "frozen-content-selection", Operation: aicapability.OperationProductContentDecision, Outcome: aicapability.InvocationDispatched, StartedAt: time.Now().UTC(), MaximumPromptTokens: 100, MaximumCompletionTokens: 50, PointTariff: aicapability.ModelPointTariff{PriceVersion: "synthetic", InputPointsPerMillionTokens: 1, OutputPointsPerMillionTokens: 1}}
+	acquired, err := ledger.ClaimInvocation(context.Background(), fact)
+	require.NoError(t, err)
+	require.True(t, acquired)
+	acquired, err = ledger.ClaimInvocation(context.Background(), fact)
+	require.NoError(t, err)
+	require.False(t, acquired)
+	read, err := ledger.ReadModelInvocation(context.Background(), fact.TenantID, fact.InvocationID)
+	require.NoError(t, err)
+	require.Equal(t, fact.Operation, read.Operation)
+	require.Equal(t, fact.AgentRunID, read.AgentRunID)
+	foreign := fact
+	foreign.Operation = aicapability.OperationProductAgentDecision
+	_, err = ledger.ClaimInvocation(context.Background(), foreign)
+	require.Error(t, err, "a title dispatch cannot reuse the content ledger identity")
+	_, err = ledger.ReadModelInvocation(context.Background(), "foreign", fact.InvocationID)
+	require.Error(t, err)
+}
+
 func TestPlannerPricedInvocationUsesSameScopedOwnerWithoutFakeAgentRun(t *testing.T) {
 	db := newInvocationLedgerDB(t)
 	r := NewGormInvocationRecorder(db)
