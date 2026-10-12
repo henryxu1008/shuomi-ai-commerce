@@ -23,7 +23,7 @@ import (
 
 // Only application objects are distinct. Durable runs, configuration, Review,
 // Catalog and the invocation/point owners are the current injected instances.
-func buildContentProductApplication(ctx context.Context, parent *productAgentApplication, reader catalog.VersionedSnapshotReader, source review.SourcePublicationGateway, deps commercetool.InvocationDependencies, contexts []texteino.KnowledgeContext) (*productAgentApplication, error) {
+func buildContentProductApplication(ctx context.Context, parent *productAgentApplication, reader catalog.VersionedSnapshotReader, source review.SourcePublicationGateway, repository review.Store, deps commercetool.InvocationDependencies, contexts []texteino.KnowledgeContext) (*productAgentApplication, error) {
 	if len(parent.config.ContentTextPolicies) == 0 || configstore.VerifyContentConfigurationSchema(ctx, parent.config.RunDB) != nil {
 		return nil, nil
 	}
@@ -81,6 +81,10 @@ func buildContentProductApplication(ctx context.Context, parent *productAgentApp
 		return nil, err
 	}
 	a.model = model
+	a.policyAdoption, err = review.NewPolicyAdoptionService(reader, source, repository, a.authorizer, a.titlePolicyScope, a.resolveTitlePolicy)
+	if err != nil {
+		return nil, err
+	}
 	guard, err := configstore.NewGuard(a.config.RunDB, a.configuration, a.store, func(id, version string) (agent.Limits, error) {
 		if id != definition.ID || version != definition.Version {
 			return agent.Limits{}, agentconfig.ErrDefinition

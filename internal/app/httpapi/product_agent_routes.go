@@ -12,6 +12,7 @@ import (
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	confighttp "task-processor/internal/agentconfig/httpapi"
+	"task-processor/internal/aicapability"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
 	"task-processor/internal/core/config"
@@ -26,13 +27,14 @@ import (
 )
 
 const productAgentBase = productAcquisitionBase + "/:operation_id/product-agent/runs"
+const productContentAgentBase = productAcquisitionBase + "/:operation_id/content-agent/runs"
 
 func isProductAgentHTTPPath(path string) bool {
 	if !strings.HasPrefix(path, productAcquisitionBase+"/") {
 		return false
 	}
 	parts := strings.Split(strings.TrimPrefix(path, productAcquisitionBase+"/"), "/")
-	if len(parts) < 3 || !acquisitionHTTPUUID(parts[0]) || parts[1] != "product-agent" || parts[2] != "runs" {
+	if len(parts) < 3 || !acquisitionHTTPUUID(parts[0]) || parts[1] != "product-agent" && parts[1] != "content-agent" || parts[2] != "runs" {
 		return false
 	}
 	return len(parts) == 3 || len(parts) == 4 && acquisitionHTTPUUID(parts[3]) || len(parts) == 5 && acquisitionHTTPUUID(parts[3]) && (parts[4] == "resume" || parts[4] == "review")
@@ -69,6 +71,7 @@ func buildProductAgentModule(ctx context.Context, productDB *gorm.DB, deps route
 		return nil, err
 	}
 	routes := productAgentRoutes(a)
+	routes = append(routes, registeredProductAgentRoutes(a.content, true)...)
 	// Candidate intake returns an ID understood by the existing review UI.
 	// Its original decision/Apply handlers retain their current permission checks.
 	binder := productReviewCapabilityBinder{now: time.Now}
@@ -86,38 +89,47 @@ type productAgentStepDTO struct {
 	AuditStatus  string `json:"auditStatus,omitempty"`
 }
 type productAgentResultDTO struct {
-	ExecutionMode         agent.ExecutionMode      `json:"executionMode,omitempty"`
-	ModeRevision          string                   `json:"modeRevision,omitempty"`
-	ModeSnapshotRef       *agent.ModeSnapshotRef   `json:"modeSnapshotRef,omitempty"`
-	ModeUnavailableReason string                   `json:"modeUnavailableReason,omitempty"`
-	PolicyAdoption        *review.PolicyProvenance `json:"policyAdoption,omitempty"`
-	ReviewID              string                   `json:"reviewId,omitempty"`
-	TemplateSelection     *agentconfig.TemplateRef `json:"templateSelection,omitempty"`
-	Knowledge             *productKnowledgeDTO     `json:"knowledge,omitempty"`
-	RunID                 string                   `json:"runId"`
-	RequestKey            string                   `json:"requestKey"`
-	OperationID           string                   `json:"operationId"`
-	ProductKey            string                   `json:"productKey"`
-	CatalogVersion        string                   `json:"catalogVersion"`
-	PublicationID         string                   `json:"publicationId"`
-	TargetPlatform        string                   `json:"targetPlatform"`
-	Phase                 agent.Phase              `json:"phase"`
-	Revision              string                   `json:"revision"`
-	StopReason            agent.StopReason         `json:"stopReason,omitempty"`
-	HumanReviewRequired   bool                     `json:"humanReviewRequired"`
-	Candidate             enrichment.Candidate     `json:"candidate"`
-	Confidence            []agent.FieldConfidence  `json:"confidence"`
-	Unresolved            []string                 `json:"unresolved"`
-	Steps                 []productAgentStepDTO    `json:"steps"`
-	Tokens                int64                    `json:"tokens"`
-	EstimatedCostMicros   int64                    `json:"estimatedCostMicros"`
-	Currency              string                   `json:"currency"`
-	UsageStatus           string                   `json:"usageStatus"`
-	CanSubmitReview       bool                     `json:"canSubmitReview"`
+	ContentSelection      enrichment.ContentSelection `json:"contentSelection,omitzero"`
+	ExecutionMode         agent.ExecutionMode         `json:"executionMode,omitempty"`
+	ModeRevision          string                      `json:"modeRevision,omitempty"`
+	ModeSnapshotRef       *agent.ModeSnapshotRef      `json:"modeSnapshotRef,omitempty"`
+	ModeUnavailableReason string                      `json:"modeUnavailableReason,omitempty"`
+	PolicyAdoption        *review.PolicyProvenance    `json:"policyAdoption,omitempty"`
+	ReviewID              string                      `json:"reviewId,omitempty"`
+	TemplateSelection     *agentconfig.TemplateRef    `json:"templateSelection,omitempty"`
+	Knowledge             *productKnowledgeDTO        `json:"knowledge,omitempty"`
+	RunID                 string                      `json:"runId"`
+	RequestKey            string                      `json:"requestKey"`
+	OperationID           string                      `json:"operationId"`
+	ProductKey            string                      `json:"productKey"`
+	CatalogVersion        string                      `json:"catalogVersion"`
+	PublicationID         string                      `json:"publicationId"`
+	TargetPlatform        string                      `json:"targetPlatform"`
+	Phase                 agent.Phase                 `json:"phase"`
+	Revision              string                      `json:"revision"`
+	StopReason            agent.StopReason            `json:"stopReason,omitempty"`
+	HumanReviewRequired   bool                        `json:"humanReviewRequired"`
+	Candidate             enrichment.Candidate        `json:"candidate"`
+	Confidence            []agent.FieldConfidence     `json:"confidence"`
+	Unresolved            []string                    `json:"unresolved"`
+	Steps                 []productAgentStepDTO       `json:"steps"`
+	Tokens                int64                       `json:"tokens"`
+	EstimatedCostMicros   int64                       `json:"estimatedCostMicros"`
+	Currency              string                      `json:"currency"`
+	UsageStatus           string                      `json:"usageStatus"`
+	CanSubmitReview       bool                        `json:"canSubmitReview"`
 }
 
 func productAgentRoutes(a *productAgentApplication) []httproute.Descriptor {
-	specs := []struct{ method, path, action string }{{"POST", productAgentBase, "start"}, {"GET", productAgentBase + "/:request_key", "read"}, {"POST", productAgentBase + "/:request_key/resume", "resume"}, {"POST", productAgentBase + "/:request_key/review", "review"}}
+	return registeredProductAgentRoutes(a, false)
+}
+
+func registeredProductAgentRoutes(a *productAgentApplication, content bool) []httproute.Descriptor {
+	base := productAgentBase
+	if content {
+		base = productContentAgentBase
+	}
+	specs := []struct{ method, path, action string }{{"POST", base, "start"}, {"GET", base + "/:request_key", "read"}, {"POST", base + "/:request_key/resume", "resume"}, {"POST", base + "/:request_key/review", "review"}}
 	var routes []httproute.Descriptor
 	for _, spec := range specs {
 		spec := spec
@@ -172,6 +184,10 @@ func productAgentRoutes(a *productAgentApplication) []httproute.Descriptor {
 					return
 				}
 			}
+			if content && spec.action == "start" && (body.ContentSelection == nil || !body.ContentSelection.Valid()) || (!content || spec.action != "start") && body.ContentSelection != nil {
+				writeProductAgentError(c, agent.ErrInvalid)
+				return
+			}
 			selection, selectionErr := body.knowledgeSelection(spec.action)
 			if selectionErr != nil {
 				writeProductAgentError(c, selectionErr)
@@ -188,7 +204,11 @@ func productAgentRoutes(a *productAgentApplication) []httproute.Descriptor {
 				binding, err = a.binding(ctx, operationID, body.TargetPlatform)
 				if err == nil {
 					var request agent.Request
-					request, err = a.startRequest(ctx, binding, key, selection, template, body.ExpectedModeRevision)
+					if content {
+						request, err = a.startTextRequest(ctx, binding, key, selection, "", template, aicapability.ModelProfile{}, "", body.ExpectedModeRevision, *body.ContentSelection)
+					} else {
+						request, err = a.startRequest(ctx, binding, key, selection, template, body.ExpectedModeRevision)
+					}
 					if err == nil {
 						record, err = a.runtime.Start(ctx, request)
 					}
@@ -199,6 +219,9 @@ func productAgentRoutes(a *productAgentApplication) []httproute.Descriptor {
 					binding, err = a.binding(ctx, operationID, record.State.Request.Binding.TargetPlatform)
 				}
 				if err == nil && record.State.Request.Binding != binding {
+					err = agent.ErrConflict
+				}
+				if err == nil && content != (record.State.Request.PolicyVersion == enrichment.ContentPolicyVersion) {
 					err = agent.ErrConflict
 				}
 				if err == nil && spec.action == "resume" {
@@ -221,6 +244,7 @@ func productAgentRoutes(a *productAgentApplication) []httproute.Descriptor {
 				}
 				input := agentReviewInput(binding, record.State.Request.PolicyVersion, record.State.Candidate)
 				input.Execution = agentExecutionProvenance(record.State)
+				input.ContentSelection = record.State.Request.ContentSelection
 				input.ContextProvenance, err = agentContextProvenance(record.State)
 				if err != nil {
 					writeProductAgentError(c, err)
@@ -248,6 +272,7 @@ func productAgentRoutes(a *productAgentApplication) []httproute.Descriptor {
 				return
 			}
 			result := productAgentResultDTO{RunID: state.RunID, RequestKey: key, OperationID: operationID, ProductKey: binding.ProductKey, CatalogVersion: binding.CatalogVersion, PublicationID: binding.PublicationID, TargetPlatform: binding.TargetPlatform, Phase: state.Phase, Revision: strconv.FormatUint(state.Revision, 10), StopReason: state.StopReason, HumanReviewRequired: true, Candidate: state.Candidate, Confidence: state.Confidence, Unresolved: state.Unresolved, Steps: []productAgentStepDTO{}, Tokens: state.Usage.Tokens, EstimatedCostMicros: state.Usage.CostMicros, Currency: state.Request.Limits.Currency, UsageStatus: "observed", CanSubmitReview: agentRunReviewable(state)}
+			result.ContentSelection = state.Request.ContentSelection
 			if state.PendingInvocationID != "" || state.StopReason == agent.StopUsageUnknown || state.StopReason == agent.StopModelUnknown || state.Phase == agent.Running {
 				result.UsageStatus = "unknown_reserved"
 			}
@@ -301,7 +326,13 @@ func productAgentRoutes(a *productAgentApplication) []httproute.Descriptor {
 }
 
 func agentRunReviewable(s agent.State) bool {
-	return agent.ValidContextCitations(s.Request.ContextSnapshotRef, s.ContextCitationRefs) && s.Phase == agent.HumanReviewRequired && s.Validation != nil && s.Validation.Valid && len(s.Candidate.Changes) == 1 && s.StopReason == "" && agentCandidateEvidenceObserved(s.Request.Binding, s.Candidate, s.History)
+	if !agent.ValidContextCitations(s.Request.ContextSnapshotRef, s.ContextCitationRefs) || s.Phase != agent.HumanReviewRequired || s.Validation == nil || !s.Validation.Valid || s.StopReason != "" {
+		return false
+	}
+	if s.Request.PolicyVersion == enrichment.ContentPolicyVersion {
+		return s.Request.ContentSelection.Valid() && len(s.Candidate.Changes) == len(s.Request.ContentSelection.Fields()) && contentCandidateEvidenceObserved(s.Request, s.Candidate, s.History)
+	}
+	return s.Request.ContentSelection.Absent() && len(s.Candidate.Changes) == 1 && agentCandidateEvidenceObserved(s.Request.Binding, s.Candidate, s.History)
 }
 
 func writeProductAgentError(c *gin.Context, err error) {

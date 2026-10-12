@@ -15,6 +15,8 @@ import (
 
 const productReviewSchemaVersion = 1
 const productReviewCoverage = "product-title-proposals-only"
+const productContentReviewSchemaVersion = 2
+const productContentReviewCoverage = "product-content-proposals-only"
 const maxProductReviewQueryBytes = 1024
 const maxProductReviewResponseBytes = 128 << 10
 
@@ -50,24 +52,26 @@ type productReviewReceiptDTO struct {
 }
 
 type productReviewViewDTO struct {
-	PolicyAdoption *review.PolicyProvenance   `json:"policy_adoption,omitempty"`
-	SchemaVersion  int                        `json:"schema_version"`
-	Coverage       string                     `json:"coverage"`
-	ProposalID     string                     `json:"proposal_id"`
-	Owner          string                     `json:"owner"`
-	Input          productReviewInputDTO      `json:"input"`
-	Before         string                     `json:"before"`
-	After          string                     `json:"after"`
-	OriginalTitle  string                     `json:"original_title"`
-	Policy         string                     `json:"policy"`
-	State          string                     `json:"state"`
-	Revision       string                     `json:"revision"`
-	Evidence       []review.Evidence          `json:"evidence"`
-	Quality        productReviewQualityDTO    `json:"quality"`
-	Unresolved     []string                   `json:"unresolved"`
-	Decisions      []productReviewDecisionDTO `json:"decisions"`
-	ApplyReceipt   *productReviewReceiptDTO   `json:"apply_receipt,omitempty"`
-	Knowledge      *productKnowledgeDTO       `json:"knowledge,omitempty"`
+	Content        *review.ContentPayload      `json:"content,omitempty"`
+	Execution      *review.ExecutionProvenance `json:"execution,omitempty"`
+	PolicyAdoption *review.PolicyProvenance    `json:"policy_adoption,omitempty"`
+	SchemaVersion  int                         `json:"schema_version"`
+	Coverage       string                      `json:"coverage"`
+	ProposalID     string                      `json:"proposal_id"`
+	Owner          string                      `json:"owner"`
+	Input          productReviewInputDTO       `json:"input"`
+	Before         string                      `json:"before"`
+	After          string                      `json:"after"`
+	OriginalTitle  string                      `json:"original_title"`
+	Policy         string                      `json:"policy"`
+	State          string                      `json:"state"`
+	Revision       string                      `json:"revision"`
+	Evidence       []review.Evidence           `json:"evidence"`
+	Quality        productReviewQualityDTO     `json:"quality"`
+	Unresolved     []string                    `json:"unresolved"`
+	Decisions      []productReviewDecisionDTO  `json:"decisions"`
+	ApplyReceipt   *productReviewReceiptDTO    `json:"apply_receipt,omitempty"`
+	Knowledge      *productKnowledgeDTO        `json:"knowledge,omitempty"`
 }
 
 func marshalProductReviewView(view review.View, projections ...*productKnowledgeDTO) ([]byte, error) {
@@ -101,6 +105,10 @@ func marshalProductReviewView(view review.View, projections ...*productKnowledge
 		Quality:        productReviewQualityDTO{Overall: view.Quality.Overall, EvidenceCoverage: view.Quality.EvidenceCoverage, RequiredFieldCoverage: view.Quality.RequiredFieldCoverage},
 		Unresolved:     unresolved,
 		Decisions:      decisions,
+	}
+	if view.Content != nil {
+		dto.SchemaVersion, dto.Coverage = productContentReviewSchemaVersion, productContentReviewCoverage
+		dto.Content, dto.Execution = view.Content, view.Execution
 	}
 	if view.ContextProvenance != nil && len(projections) == 1 && projections[0] != nil {
 		dto.Knowledge = projections[0]

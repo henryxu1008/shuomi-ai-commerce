@@ -17,7 +17,7 @@ func (a *productAgentApplication) modeSubject() agentconfig.ResolvedModeSubject 
 }
 
 func agentExecutionProvenance(state agent.State) *review.ExecutionProvenance {
-	return &review.ExecutionProvenance{Scope: state.Scope, RunID: state.RunID, RequestKey: state.Request.Key, Binding: state.Request.Binding, Configuration: state.Request.ConfigurationSnapshotRef, Mode: state.Request.ModeSnapshotRef}
+	return &review.ExecutionProvenance{ContentSelection: state.Request.ContentSelection, Scope: state.Scope, RunID: state.RunID, RequestKey: state.Request.Key, Binding: state.Request.Binding, Configuration: state.Request.ConfigurationSnapshotRef, Mode: state.Request.ModeSnapshotRef}
 }
 func (a *productAgentApplication) titlePolicyScope(ctx context.Context) (review.CandidateExecutionScope, error) {
 	identity, err := a.currentModeIdentity(ctx)
@@ -59,6 +59,23 @@ func (a *productAgentApplication) resolveTitlePolicy(ctx context.Context, proven
 	if err != nil {
 		return proof, err
 	}
+	consumer := a
+	actionVersion := review.TitlePolicyAdoptionVersion
+	content := config.AgentID == agentconfig.ContentAgentID
+	if content {
+		if config.AgentVersion != agentconfig.ContentAgentVersion || config.Request.PolicyVersion != enrichment.ContentPolicyVersion || config.Request.ContentSelection != provenance.ContentSelection || !provenance.ContentSelection.Valid() {
+			return proof, review.ErrConflict
+		}
+		actionVersion = review.ContentPolicyAdoptionVersion
+		if a.definition.ID != agentconfig.ContentAgentID {
+			consumer = a.content
+		}
+		if consumer == nil {
+			return proof, agentconfig.ErrUnavailable
+		}
+	} else if config.AgentID != "product.title.agent" || !provenance.ContentSelection.Absent() {
+		return proof, review.ErrForbidden
+	}
 	origin := agent.ExecutionIdentity{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, MemberID: config.MemberID}
 	if !human && identity != origin {
 		return proof, review.ErrForbidden
@@ -67,11 +84,11 @@ func (a *productAgentApplication) resolveTitlePolicy(ctx context.Context, proven
 	if err != nil {
 		return proof, err
 	}
-	if !found || !agentRunReviewable(run.State) || run.State.RunID != provenance.RunID || *agentExecutionProvenance(run.State) != provenance || !reflect.DeepEqual(candidate.Changes, run.State.Candidate.Changes) || !agentCandidateEvidenceObserved(provenance.Binding, candidate, run.State.History) {
+	if !found || !agentRunReviewable(run.State) || run.State.RunID != provenance.RunID || *agentExecutionProvenance(run.State) != provenance || !reflect.DeepEqual(candidate.Changes, run.State.Candidate.Changes) {
 		return proof, review.ErrConflict
 	}
 	if !human {
-		if _, err = a.Authorize(ctx, provenance.Binding); err != nil {
+		if _, err = consumer.Authorize(ctx, provenance.Binding); err != nil {
 			return proof, err
 		}
 	}
@@ -82,7 +99,7 @@ func (a *productAgentApplication) resolveTitlePolicy(ctx context.Context, proven
 		}
 		return proof, err
 	}
-	proof = review.PolicyProvenance{Execution: provenance, Identity: origin, Mode: mode.Mode, ModeRevision: mode.Revision, PolicyVersion: mode.PolicyVersion, ActionVersion: review.TitlePolicyAdoptionVersion, RequiresHuman: len(run.State.Unresolved) > 0}
+	proof = review.PolicyProvenance{Execution: provenance, Identity: origin, Mode: mode.Mode, ModeRevision: mode.Revision, PolicyVersion: mode.PolicyVersion, ActionVersion: actionVersion, RequiresHuman: len(run.State.Unresolved) > 0 || content && !provenance.ContentSelection.TitleOnly()}
 	return proof, nil
 }
 
@@ -102,6 +119,7 @@ func (a *productAgentApplication) finishTitleCandidate(ctx context.Context, run 
 		return nil, nil
 	}
 	input := agentReviewInput(run.State.Request.Binding, run.State.Request.PolicyVersion, run.State.Candidate)
+	input.ContentSelection = run.State.Request.ContentSelection
 	input.Execution = agentExecutionProvenance(run.State)
 	input.ContextProvenance, err = agentContextProvenance(run.State)
 	if err != nil {
@@ -122,7 +140,7 @@ func (a *productAgentApplication) finishTitleCandidate(ctx context.Context, run 
 		return &view, nil
 	}
 	// Human edits or decisions retain the existing human lifecycle.
-	if view.State != "pending" || len(view.History) > 0 {
+	if view.State != "pending" || len(view.History) > 0 || view.Content != nil && len(view.Content.Decisions) > 0 {
 		return &view, nil
 	}
 	if policy == nil {

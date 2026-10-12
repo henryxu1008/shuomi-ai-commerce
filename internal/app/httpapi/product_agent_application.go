@@ -280,7 +280,7 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 	if err != nil {
 		return nil, err
 	}
-	a.content, err = buildContentProductApplication(ctx, a, reader, sources, deps, contexts)
+	a.content, err = buildContentProductApplication(ctx, a, reader, sources, repo, deps, contexts)
 	if err != nil {
 		return nil, err
 	}
@@ -388,8 +388,12 @@ func validAgentTargetPlatform(platform string) bool {
 	return platform == "shein" || platform == "temu" || platform == "amazon"
 }
 
+func (a *productAgentApplication) validTargetPlatform(platform string) bool {
+	return validAgentTargetPlatform(platform) || a.definition.ID == agentconfig.ContentAgentID && platform == "product"
+}
+
 func (a *productAgentApplication) binding(ctx context.Context, operationID, targetPlatform string) (agent.Binding, error) {
-	if !validAgentTargetPlatform(targetPlatform) {
+	if !a.validTargetPlatform(targetPlatform) {
 		return agent.Binding{}, agent.ErrInvalid
 	}
 	i, err := a.freshIdentity(ctx)
@@ -400,7 +404,7 @@ func (a *productAgentApplication) binding(ctx context.Context, operationID, targ
 }
 
 func (a *productAgentApplication) bindingForIdentity(ctx context.Context, i authidentity.AuthenticatedIdentity, operationID, targetPlatform string) (agent.Binding, error) {
-	if !validAgentTargetPlatform(targetPlatform) {
+	if !a.validTargetPlatform(targetPlatform) {
 		return agent.Binding{}, agent.ErrInvalid
 	}
 	p, err := a.receipts.ReadPublished(authidentity.WithAuthenticatedIdentity(ctx, i), operationID)

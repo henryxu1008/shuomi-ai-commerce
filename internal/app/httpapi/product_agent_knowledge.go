@@ -16,16 +16,18 @@ import (
 	"task-processor/internal/authidentity"
 	"task-processor/internal/integration/commercetoolauth"
 	"task-processor/internal/knowledge"
+	"task-processor/internal/product/enrichment"
 	"task-processor/internal/product/review"
 )
 
 type productAgentRequestBody struct {
-	TemplateSelection    json.RawMessage `json:"templateSelection,omitempty"`
-	Revision             string          `json:"revision,omitempty"`
-	Feedback             string          `json:"feedback,omitempty"`
-	TargetPlatform       string          `json:"targetPlatform,omitempty"`
-	KnowledgeSelection   json.RawMessage `json:"knowledgeSelection,omitempty"`
-	ExpectedModeRevision string          `json:"expectedModeRevision,omitempty"`
+	ContentSelection     *enrichment.ContentSelection `json:"contentSelection,omitempty"`
+	TemplateSelection    json.RawMessage              `json:"templateSelection,omitempty"`
+	Revision             string                       `json:"revision,omitempty"`
+	Feedback             string                       `json:"feedback,omitempty"`
+	TargetPlatform       string                       `json:"targetPlatform,omitempty"`
+	KnowledgeSelection   json.RawMessage              `json:"knowledgeSelection,omitempty"`
+	ExpectedModeRevision string                       `json:"expectedModeRevision,omitempty"`
 }
 
 func (b productAgentRequestBody) templateSelection(action string) (*agentconfig.TemplateRef, error) {
@@ -78,10 +80,23 @@ func (a *productAgentApplication) startRequest(ctx context.Context, binding agen
 }
 
 func (a *productAgentApplication) startRequestWithProfile(ctx context.Context, binding agent.Binding, key, baseID, expectedRevisionSet string, template *agentconfig.TemplateRef, expectedProfile aicapability.ModelProfile, goalSummary, expectedModeRevision string) (agent.Request, error) {
+	return a.startTextRequest(ctx, binding, key, baseID, expectedRevisionSet, template, expectedProfile, goalSummary, expectedModeRevision, enrichment.ContentSelection{})
+}
+
+func (a *productAgentApplication) startTextRequest(ctx context.Context, binding agent.Binding, key, baseID, expectedRevisionSet string, template *agentconfig.TemplateRef, expectedProfile aicapability.ModelProfile, goalSummary, expectedModeRevision string, selection enrichment.ContentSelection) (agent.Request, error) {
 	if !agent.ValidGoalSummary(goalSummary) {
 		return agent.Request{}, agent.ErrInvalid
 	}
 	request := agent.Request{Key: key, Binding: binding, GoalSummary: goalSummary, PolicyVersion: "title-review-v1", PromptVersion: "product-title-agent-v1", Limits: a.config.Limits}
+	content := a.definition.ID == agentconfig.ContentAgentID
+	if content {
+		if !selection.Valid() {
+			return agent.Request{}, agent.ErrInvalid
+		}
+		request.ContentSelection, request.PolicyVersion, request.PromptVersion = selection, enrichment.ContentPolicyVersion, agentconfig.ContentPromptVersion
+	} else if !selection.Absent() {
+		return agent.Request{}, agent.ErrInvalid
+	}
 	scope, err := a.requestOrExecutionScope(ctx)
 	if err != nil {
 		return agent.Request{}, err
@@ -96,7 +111,7 @@ func (a *productAgentApplication) startRequestWithProfile(ctx context.Context, b
 	if _, err = agentconfig.ParseModeRevision(expectedModeRevision); err != nil {
 		return agent.Request{}, agentconfig.ErrPrecondition
 	}
-	if baseID != "" {
+	if baseID != "" && !content {
 		request.PromptVersion = "product-title-agent-knowledge-v1"
 	}
 	input := agentconfig.StartCommand{Scope: scope, MemberID: identity.MemberID, ExpectedModeRevision: expectedModeRevision, AgentID: a.definition.ID, AgentVersion: a.definition.Version, KnowledgeBaseID: baseID, Template: template, Request: request}
@@ -151,7 +166,9 @@ func (a *productAgentApplication) startRequestWithProfile(ctx context.Context, b
 			return agent.Request{}, err
 		}
 		request.ContextSnapshotRef = agent.ContextSnapshotRef{Kind: ref.Kind, ID: ref.ID, Digest: ref.Digest}
-		request.PromptVersion = "product-title-agent-knowledge-v1"
+		if !content {
+			request.PromptVersion = "product-title-agent-knowledge-v1"
+		}
 	}
 	if a.model == nil {
 		return agent.Request{}, agent.ErrUnavailable

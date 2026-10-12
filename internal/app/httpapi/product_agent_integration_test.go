@@ -30,6 +30,7 @@ import (
 	"task-processor/internal/knowledge"
 	"task-processor/internal/ledger/orgresource"
 	productasset "task-processor/internal/product/asset"
+	"task-processor/internal/product/review"
 	"task-processor/internal/workbenchcontext"
 
 	"github.com/google/uuid"
@@ -84,6 +85,16 @@ func TestProductAgentAcquisitionToReviewUsesRealOwners(t *testing.T) {
 
 func TestContentRuntimeSharesCurrentOwnersWithItsOwnDefinitionAndRoute(t *testing.T) {
 	testProductAgentOwners(t, "content assembly")
+}
+
+func TestContentHTTPRunSavesFullProposalThroughRealOwners(t *testing.T) {
+	testProductAgentOwners(t, "content flow")
+}
+
+func TestContentHTTPNativeAdoptionAndReadOnlyUseCurrentModes(t *testing.T) {
+	for _, mode := range []string{"full_access", "auto_approve", "read_only"} {
+		t.Run(mode, func(t *testing.T) { testProductAgentOwners(t, "content flow "+mode) })
+	}
 }
 
 func testProductAgentOwners(t *testing.T, mode string) {
@@ -161,6 +172,10 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		}
 		var content string
 		switch {
+		case strings.HasPrefix(mode, "content flow") && step == 1:
+			content = `{"Kind":"tool","Tool":{"ID":"product.canonical.inspect","Version":"v2.0.0"}}`
+		case strings.HasPrefix(mode, "content flow"):
+			content = `{"Kind":"propose","Candidate":{"Changes":[{"Field":"title","Value":"Localized bottle title","EvidenceIDs":["981645030344"]},{"Field":"description","Value":"Localized bottle description","EvidenceIDs":["981645030344"]},{"Field":"selling_points","Value":"[\"Reusable bottle\"]","EvidenceIDs":["981645030344"]},{"Field":"seo_keywords","Value":"[\"bottle\"]","EvidenceIDs":["981645030344"]}]}}`
 		case strings.HasPrefix(mode, "supply ") && step > 4 && cycle == 1:
 			content = `{"Kind":"tool","Tool":{"ID":"product.canonical.inspect","Version":"v2.0.0"}}`
 		case strings.HasPrefix(mode, "supply ") && step > 4 && cycle == 2:
@@ -221,7 +236,7 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	// Keep the synthetic input bound below escapedBase's encoded prompt so the
 	// pre-Claim envelope rejection remains observable under the frozen profile.
 	settings := ProductAgentDependencies{Enabled: true, AllowedOrganizationIDs: []string{"B"}, RunDB: f.owner, PointAccountingDB: f.owner, AssetDB: f.owner, ReviewDB: f.owner, Ledger: ledger, TextPolicies: map[string]governed.RoutePolicy{"B": {AdmittedCredentialVersion: governed.CredentialVersion(*row), AdmittedEndpointIdentityDigest: governed.EndpointIdentityDigest(provider.URL + "/v1"), Profile: aicapability.ModelProfile{ClientName: "default", ProviderID: "grsai", AdapterKind: "openai-compatible", ModelID: "gemini-2.5-flash", RoutingPolicyVersion: "route-v1", AdapterPolicyVersion: "adapter-v1", PromptVersion: "product-title-agent-v1", OutputSchemaVersion: "product-title-action-v1", UsageMappingVersion: "usage-v1", CostPricingVersion: "fixture-v1", PointTariff: aicapability.ModelPointTariff{PriceVersion: "synthetic-points-v1", InputPointsPerMillionTokens: 1000000, OutputPointsPerMillionTokens: 2000000}, Currency: "CNY", InputMicrosPerMillion: 300000, OutputMicrosPerMillion: 2000000, MaximumPromptTokens: 1048576, MaximumCompletionTokens: 8192, MaximumInputBytes: 64 << 10, MaximumOutputBytes: 16 << 10, DeadlineBound: 3 * time.Second}}}, Limits: agent.Limits{Steps: 12, ModelCalls: 6, Tokens: 5000000, CostMicros: 5000000, Currency: "CNY", Runtime: time.Minute}}
-	if mode == "content assembly" {
+	if mode == "content assembly" || strings.HasPrefix(mode, "content flow") {
 		policy := settings.TextPolicies["B"]
 		policy.Profile.PromptVersion, policy.Profile.OutputSchemaVersion = agentconfig.ContentPromptVersion, agentconfig.ContentActionVersion
 		settings.ContentTextPolicies = map[string]governed.RoutePolicy{"B": policy}
@@ -245,6 +260,57 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	}
 	module, err := buildProductAgentModule(context.Background(), f.db, deps, auth, settings, nil)
 	require.NoError(t, err)
+	if strings.HasPrefix(mode, "content flow") {
+		contentApp := module.(productAgentModule).application.content
+		require.NotNil(t, contentApp)
+		_, err := configuration.Execute(context.Background(), agentconfig.Command{Scope: agent.Scope{OrganizationID: "B", ActorID: "admin"}, Key: uuid.NewString(), AgentID: agentconfig.ContentAgentID, Operation: "enable", Absent: true})
+		require.NoError(t, err)
+		modeRevision := "0"
+		selectedMode := strings.TrimPrefix(mode, "content flow ")
+		if mode != "content flow" {
+			receipt, err := configuration.ExecuteMode(context.Background(), agentconfig.ModeCommand{Identity: agent.ExecutionIdentity{OrganizationID: "B", ActorID: "admin", MemberID: "member-B-admin"}, Subject: contentApp.modeSubject(), Key: uuid.NewString(), Mode: agent.ExecutionMode(selectedMode)})
+			require.NoError(t, err)
+			modeRevision = receipt.Revision
+		}
+		app := buildIsolatedApplicationHTTPServer(module.(productAgentModule).routes, deps, 2*time.Minute)
+		server := httptest.NewServer(app.Handler)
+		defer server.Close()
+		key := uuid.NewString()
+		path := productAcquisitionBase + "/" + op.OperationID + "/content-agent/runs"
+		code, raw, err := acquisitionHTTPRequest(server, "POST", path, "admin", "B", key, `{"expectedModeRevision":"`+modeRevision+`","targetPlatform":"product","contentSelection":{"targetLanguage":"en-US","title":true,"description":true,"sellingPoints":true,"seoKeywords":true}}`)
+		require.NoError(t, err)
+		require.Equal(t, 200, code, string(raw))
+		var result productAgentResultDTO
+		require.NoError(t, json.Unmarshal(raw, &result))
+		require.Equal(t, agent.HumanReviewRequired, result.Phase)
+		require.Len(t, result.Candidate.Changes, 4)
+		code, raw, err = acquisitionHTTPRequest(server, "POST", path+"/"+key+"/review", "admin", "B", "", `{}`)
+		require.NoError(t, err)
+		require.Equal(t, 200, code, string(raw))
+		var response struct {
+			ProposalID string `json:"proposalId"`
+		}
+		require.NoError(t, json.Unmarshal(raw, &response))
+		view := titleCall(t, server, "GET", titleBasePath+"/"+response.ProposalID, "admin", "B", "", "", 200)
+		require.NotNil(t, view.Content)
+		require.Len(t, view.Content.After, 4)
+		require.Equal(t, "en-US", view.Content.Selection.TargetLanguage)
+		if selectedMode == "full_access" {
+			require.Equal(t, "applied", view.State)
+			require.NotNil(t, view.PolicyAdoption)
+			require.Equal(t, review.ContentPolicyAdoptionVersion, view.PolicyAdoption.ActionVersion)
+			require.Empty(t, view.Content.Decisions)
+		} else if selectedMode == "read_only" {
+			titleDecision(t, server, view, "accept", "admin", "", 403)
+		} else {
+			require.Equal(t, "pending", view.State)
+			accepted := titleDecision(t, server, view, "accept", "admin", "", 200)
+			applied := titleApply(t, server, accepted, uuid.NewString(), 200)
+			require.Equal(t, "applied", applied.State)
+			require.Len(t, applied.Content.After, 4)
+		}
+		return
+	}
 	if mode == "content assembly" {
 		parent := module.(productAgentModule).application
 		require.NotNil(t, parent.content)
