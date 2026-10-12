@@ -2,11 +2,12 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import Introduction from "./page";
 import Stage from "./[stage]/page";
-const fixture = vi.hoisted(() => ({ preparations: vi.fn(), supply: vi.fn() }));
+const fixture = vi.hoisted(() => ({ preparations: vi.fn(), supply: vi.fn(),completion:vi.fn() }));
 vi.mock("next/server", () => ({ connection: async () => {} }));
 vi.mock("next/navigation", () => ({ notFound: () => { throw new Error("NOT_FOUND"); } }));
 vi.mock("@/components/workbench/supply/preparations-page", () => ({ PreparationsPage: fixture.preparations }));
 vi.mock("@/components/workbench/supply/supply-page", () => ({ SupplyPage: fixture.supply }));
+vi.mock("@/components/workbench/supply/completion-drafts-page",()=>({CompletionDraftsPage:fixture.completion}));
 afterEach(() => { cleanup(); vi.unstubAllEnvs(); vi.clearAllMocks(); });
 it("keeps the introduction and selected batch without mounting a processing consumer", async () => {
  vi.stubEnv("LISTINGKIT_PRODUCT_COLLECTIONS_ENABLED", "true");
@@ -31,6 +32,15 @@ it.each(["ready","missing","review","uploaded"])("explains admission for recogni
 });
 it("does not admit unknown stage names", async () => {
  await expect(Stage({params:Promise.resolve({stage:"unknown"}),searchParams:Promise.resolve({})})).rejects.toThrow("NOT_FOUND");
+});
+it("opens native waiting and missing entries with drafts alone, keeping platform execution closed",async()=>{
+ vi.stubEnv("LISTINGKIT_PRODUCT_COLLECTIONS_ENABLED","true");vi.stubEnv("LISTINGKIT_SUPPLY_COMPLETION_DRAFTS_ENABLED","true");vi.stubEnv("LISTINGKIT_SUPPLY_CHAIN_ENABLED","false");vi.stubEnv("LISTINGKIT_ACQUISITION_PLANS_ENABLED","false");
+ const preparation="550e8400-e29b-41d4-a716-446655440000",source="550e8400-e29b-41d4-a716-446655440001";
+ render(await Stage({params:Promise.resolve({stage:"missing"}),searchParams:Promise.resolve({preparation,source})}));
+ expect(fixture.completion.mock.lastCall?.[0]).toMatchObject({initialPreparation:preparation,initialSource:source});expect(fixture.supply).not.toHaveBeenCalled();cleanup();
+ render(await Stage({params:Promise.resolve({stage:"waiting"}),searchParams:Promise.resolve({preparation})}));expect(fixture.preparations.mock.lastCall?.[0]).toMatchObject({completionAvailable:true});cleanup();
+ render(await Stage({params:Promise.resolve({stage:"ready"}),searchParams:Promise.resolve({})}));expect(screen.getByText("平台处理尚未配置")).toBeVisible();cleanup();
+ render(await Introduction({searchParams:Promise.resolve({preparation})}));expect(screen.getByRole("link",{name:/查看待适配商品/})).toBeVisible();expect(screen.getByRole("link",{name:"查看待补全草稿"})).toHaveAttribute("href",`/workbench/supply/mine/missing?preparation=${preparation}`);
 });
 
 it("keeps the requested saved operation through the introduction and each full-chain stage", async () => {

@@ -423,11 +423,11 @@ func buildProductAcquisitionModule(ctx context.Context, db *gorm.DB, dependencie
 	return productAcquisitionModule{routes: productAcquisitionRoutes(service, binder.Bind), noticeReader: reader, service: service, provider: provider}, nil
 }
 func collectionAcquisitionOptions(enabled []bool) (acquisitionstore.RuntimeCapabilities, []productsourcing.AcquisitionPublicationOption, error) {
-	if len(enabled) > 6 {
+	if len(enabled) > 7 {
 		return acquisitionstore.RuntimeCapabilities{}, nil, sourcing.ErrAcquisitionUnavailable
 	}
-	capability := acquisitionstore.RuntimeCapabilities{Collections: len(enabled) >= 1 && enabled[0], SupplyChain: len(enabled) >= 2 && enabled[1], SupplyMarket: len(enabled) >= 3 && enabled[2], POD: len(enabled) >= 4 && enabled[3], ImageSets: len(enabled) >= 5 && enabled[4], AcquisitionPlans: len(enabled) >= 6 && enabled[5]}
-	if (capability.SupplyChain || capability.SupplyMarket || capability.POD || capability.AcquisitionPlans) && !capability.Collections || capability.POD && !capability.SupplyMarket {
+	capability := acquisitionstore.RuntimeCapabilities{Collections: len(enabled) >= 1 && enabled[0], SupplyChain: len(enabled) >= 2 && enabled[1], SupplyMarket: len(enabled) >= 3 && enabled[2], POD: len(enabled) >= 4 && enabled[3], ImageSets: len(enabled) >= 5 && enabled[4], AcquisitionPlans: len(enabled) >= 6 && enabled[5], CompletionDrafts: len(enabled) >= 7 && enabled[6]}
+	if (capability.SupplyChain || capability.SupplyMarket || capability.POD || capability.AcquisitionPlans || capability.CompletionDrafts) && !capability.Collections || capability.POD && !capability.SupplyMarket {
 		return acquisitionstore.RuntimeCapabilities{}, nil, sourcing.ErrAcquisitionUnavailable
 	}
 	var options []productsourcing.AcquisitionPublicationOption

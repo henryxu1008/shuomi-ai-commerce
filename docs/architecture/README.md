@@ -105,6 +105,10 @@ Use these as the main source of truth for structural work:
 - `store-observations-preparation-runtime.md`
   - #653 IMPLEMENTATION_READY opt-in provider-free module/worker preparation,
     strict execution closure, owner-only installation and data-preserving rollback.
+- `supply-unbound-completion-drafts.md`
+  - #605 frozen IMPLEMENTATION_READY actor-private candidate text on original
+    Preparation sources; explicit additive schema owner, immutable receipts and
+    later Store/category/rules admission remain separate from platform readiness.
 - [`store-center-figma-v1.md`](./store-center-figma-v1.md)
   - #641 IMPLEMENTATION_READY Store catalog, groups, business responsibility and
     user-configured inventory thresholds; current native authorization, official

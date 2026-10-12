@@ -15,6 +15,7 @@ import (
 	"gorm.io/gorm"
 	sigjson "sigs.k8s.io/json"
 	keystore "task-processor/internal/integration/persistence/dataservice"
+	completionstore "task-processor/internal/integration/persistence/listing/completiondraft"
 	preparationstore "task-processor/internal/integration/persistence/listing/preparation"
 	recordstore "task-processor/internal/integration/persistence/listing/record"
 	submissionstore "task-processor/internal/integration/persistence/listing/submission"
@@ -34,6 +35,7 @@ type acquisitionInitManifest struct {
 	SchemaVersion    int  `json:"schemaVersion"`
 	Collections      bool `json:"collections,omitempty"`
 	AcquisitionPlans bool `json:"acquisitionPlans,omitempty"`
+	CompletionDrafts bool `json:"supplyCompletionDrafts,omitempty"`
 	SupplyChain      bool `json:"supplyChain,omitempty"`
 	ImageSets        bool `json:"imageSets,omitempty"`
 	SupplyMarket     bool `json:"supplyMarket,omitempty"`
@@ -97,6 +99,16 @@ func InitializeAcquisitionDatabase(ctx context.Context, manifest, confirmedDatab
 				}
 			}
 		}
+		if cfg.CompletionDrafts {
+			if !cfg.SupplyChain && !cfg.AcquisitionPlans {
+				if err := preparationstore.InstallSchema(tx); err != nil {
+					return err
+				}
+			}
+			if err := completionstore.InstallSchema(tx); err != nil {
+				return err
+			}
+		}
 		if cfg.ImageSets && !cfg.SupplyChain {
 			if err := reviewstore.InstallSchema(tx); err != nil {
 				return err
@@ -128,7 +140,7 @@ func InitializeAcquisitionDatabase(ctx context.Context, manifest, confirmedDatab
 				return err
 			}
 		}
-		return acquisitionstore.GrantRuntimePermissions(ctx, tx, acquisitionstore.RuntimeCapabilities{Collections: cfg.Collections, AcquisitionPlans: cfg.AcquisitionPlans, SupplyChain: cfg.SupplyChain, SupplyMarket: cfg.SupplyMarket, POD: cfg.POD, ImageSets: cfg.ImageSets})
+		return acquisitionstore.GrantRuntimePermissions(ctx, tx, acquisitionstore.RuntimeCapabilities{Collections: cfg.Collections, AcquisitionPlans: cfg.AcquisitionPlans, CompletionDrafts: cfg.CompletionDrafts, SupplyChain: cfg.SupplyChain, SupplyMarket: cfg.SupplyMarket, POD: cfg.POD, ImageSets: cfg.ImageSets})
 	})
 	if err != nil {
 		return unavailable
@@ -170,7 +182,7 @@ func readAcquisitionInitManifest(manifest, confirmedDatabase string, unavailable
 	var cfg acquisitionInitManifest
 	strict, err := sigjson.UnmarshalStrict(raw, &cfg, sigjson.DisallowUnknownFields, sigjson.DisallowDuplicateFields)
 	d := cfg.Database
-	if (cfg.SupplyChain || cfg.SupplyMarket || cfg.POD || cfg.DataServices || cfg.AcquisitionPlans) && !cfg.Collections || cfg.POD && !cfg.SupplyMarket {
+	if (cfg.SupplyChain || cfg.SupplyMarket || cfg.POD || cfg.DataServices || cfg.AcquisitionPlans || cfg.CompletionDrafts) && !cfg.Collections || cfg.POD && !cfg.SupplyMarket {
 		return acquisitionInitManifest{}, unavailable
 	}
 	if err != nil || len(strict) > 0 || cfg.SchemaVersion != 1 || d.Host != "127.0.0.1" || d.Port < 1 || d.Port > 65535 || !acquisitionInitName.MatchString(d.User) || !acquisitionInitName.MatchString(d.Database) || confirmedDatabase != d.Database || d.User == acquisitionstore.RuntimeRole || d.Database == "postgres" || d.Database == "template0" || d.Database == "template1" || len(d.Password) < 1 || len(d.Password) > 1024 || strings.ContainsAny(d.Password, " ='\\\t\r\n\v\f\x00") {
@@ -207,6 +219,43 @@ func EnableAcquisitionPlans(ctx context.Context, manifest, confirmedDatabase str
 			return unavailable
 		}
 		return acquisitionstore.GrantAcquisitionPlanPermissions(ctx, tx)
+	})
+	if err != nil {
+		return unavailable
+	}
+	return nil
+}
+
+// EnableCompletionDrafts adds only current preparation/candidate tables and
+// minimum grants. The private owner manifest and exact retained DB are required.
+func EnableCompletionDrafts(ctx context.Context, manifest, confirmedDatabase string) error {
+	unavailable := errors.New("completion draft initialization refused; require private owner manifest and exact dedicated Product database confirmation")
+	if ctx == nil {
+		return unavailable
+	}
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	cfg, err := readAcquisitionInitManifest(manifest, confirmedDatabase, unavailable)
+	if err != nil || !cfg.Collections || !cfg.CompletionDrafts {
+		return unavailable
+	}
+	d := cfg.Database
+	db, err := platformdatabase.OpenExistingWritableContext(ctx, &platformdatabase.Config{Host: d.Host, Port: d.Port, User: d.User, Password: d.Password, Database: d.Database, MaxConnections: 2, MaxIdleConnections: 2, ConnectionMaxLifetime: time.Minute})
+	if err != nil {
+		return unavailable
+	}
+	defer platformdatabase.Close(db)
+	err = db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(current_database()||':source-acquisition-init',0))").Error != nil {
+			return unavailable
+		}
+		if collectionstore.VerifySchema(ctx, tx) != nil {
+			return unavailable
+		}
+		if preparationstore.InstallSchema(tx) != nil || completionstore.InstallSchema(tx) != nil {
+			return unavailable
+		}
+		return acquisitionstore.GrantCompletionDraftPermissions(ctx, tx)
 	})
 	if err != nil {
 		return unavailable

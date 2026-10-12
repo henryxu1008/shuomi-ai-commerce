@@ -6,6 +6,7 @@ import (
 	officialstore "task-processor/internal/integration/persistence/listing/official"
 
 	"gorm.io/gorm"
+	completionstore "task-processor/internal/integration/persistence/listing/completiondraft"
 	preparationstore "task-processor/internal/integration/persistence/listing/preparation"
 	recordstore "task-processor/internal/integration/persistence/listing/record"
 	planstore "task-processor/internal/integration/persistence/product/acquisitionplan"
@@ -25,6 +26,7 @@ const planPrivileges = `,('product_acquisition_plans','SELECT'),('product_acquis
  ('product_acquisition_rule_commands','SELECT'),('product_acquisition_rule_commands','INSERT')`
 
 type RuntimeCapabilities struct {
+	CompletionDrafts bool
 	AcquisitionPlans bool
 	Collections      bool
 	SupplyChain      bool
@@ -70,6 +72,12 @@ func runtimePermissionsFor(capability RuntimeCapabilities) string {
 	admitted := strings.TrimSuffix(admittedPrivileges, ")")
 	if capability.Collections {
 		admitted += collectionPrivileges
+	}
+	if capability.CompletionDrafts {
+		admitted += completionPrivileges
+		if !capability.SupplyChain && !capability.AcquisitionPlans {
+			admitted += preparationPrivileges
+		}
 	}
 	if capability.AcquisitionPlans {
 		admitted += planPrivileges
@@ -227,7 +235,8 @@ func GrantRuntimePermissions(ctx context.Context, db *gorm.DB, capabilities ...R
 		market := len(capabilities) == 1 && capabilities[0].SupplyMarket
 		pod := len(capabilities) == 1 && capabilities[0].POD
 		plans := len(capabilities) == 1 && capabilities[0].AcquisitionPlans
-		if (supply || market || pod || plans) && !enabled || pod && !market {
+		completion := len(capabilities) == 1 && capabilities[0].CompletionDrafts
+		if (supply || market || pod || plans || completion) && !enabled || pod && !market {
 			return sourcing.ErrAcquisitionUnavailable
 		}
 		if enabled {
@@ -274,6 +283,18 @@ func GrantRuntimePermissions(ctx context.Context, db *gorm.DB, capabilities ...R
 			}
 			statements = append(statements, "GRANT SELECT,INSERT,UPDATE ON public.product_acquisition_plans,public.product_acquisition_plan_items,public.product_acquisition_rule_templates TO source_acquisition_runtime", "GRANT SELECT,INSERT ON public.product_acquisition_rule_commands TO source_acquisition_runtime")
 			if !supply {
+				statements = append(statements, preparationRuntimeGrant)
+			}
+		}
+		if completion {
+			if err := completionstore.VerifySchema(ctx, tx); err != nil {
+				return err
+			}
+			if err := preparationstore.VerifySchema(ctx, tx); err != nil {
+				return err
+			}
+			statements = append(statements, completionRuntimeGrant)
+			if !supply && !plans {
 				statements = append(statements, preparationRuntimeGrant)
 			}
 		}
@@ -328,7 +349,7 @@ func VerifyRuntimePermissions(ctx context.Context, db *gorm.DB, capabilities ...
 	if len(capabilities) == 1 {
 		capability = capabilities[0]
 	}
-	if (capability.SupplyChain || capability.SupplyMarket || capability.POD || capability.AcquisitionPlans) && !capability.Collections || capability.POD && !capability.SupplyMarket {
+	if (capability.SupplyChain || capability.SupplyMarket || capability.POD || capability.AcquisitionPlans || capability.CompletionDrafts) && !capability.Collections || capability.POD && !capability.SupplyMarket {
 		return sourcing.ErrAcquisitionUnavailable
 	}
 	var required, forbidden bool
@@ -349,6 +370,14 @@ func VerifyRuntimePermissions(ctx context.Context, db *gorm.DB, capabilities ...
 	}
 	if capability.AcquisitionPlans {
 		if _, err := planstore.NewRepository(ctx, db); err != nil {
+			return err
+		}
+		if err := preparationstore.VerifySchema(ctx, db); err != nil {
+			return err
+		}
+	}
+	if capability.CompletionDrafts {
+		if err := completionstore.VerifySchema(ctx, db); err != nil {
 			return err
 		}
 		if err := preparationstore.VerifySchema(ctx, db); err != nil {
