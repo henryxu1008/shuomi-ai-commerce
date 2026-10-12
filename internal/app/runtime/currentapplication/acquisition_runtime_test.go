@@ -53,7 +53,7 @@ func TestProductCollectionsRequireCurrentProductPool(t *testing.T) {
 func TestAcquisitionRuntimeOwnsThirdPoolWithoutLegacyFallback(t *testing.T) {
 	cfg := acquisitionRuntimeConfig()
 	cfg.ProductCollections = true
-	source, product, owner := &gorm.DB{}, &gorm.DB{}, &gorm.DB{}
+	source, product, owner := &gorm.DB{}, &gorm.DB{}, emptyStorageCommercialOwner(t)
 	var closed []*gorm.DB
 	newCalled, oldCalled := false, false
 	dependencies := Dependencies{
@@ -94,7 +94,7 @@ func TestRuntimeComposesMembershipAndAcquisitionThroughOneFeatureBoundary(t *tes
 	cfg := acquisitionRuntimeConfig()
 	cfg.Membership = &MembershipConfig{ProviderOrigin: cfg.Identity.IssuerURL, ReadToken: "directory-read", WriteToken: "membership-write", Database: DatabaseConfig{Host: "127.0.0.1", Port: 5432, User: "organization_membership_runtime", Password: "fixture-password", Database: "membership", MaxConnections: 2}}
 	require.NoError(t, cfg.validate())
-	source, product, member, owner := &gorm.DB{}, &gorm.DB{}, &gorm.DB{}, &gorm.DB{}
+	source, product, member, owner := &gorm.DB{}, &gorm.DB{}, &gorm.DB{}, emptyStorageCommercialOwner(t)
 	var closed []*gorm.DB
 	stop := errors.New("stop after feature composition")
 	err := Run(context.Background(), cfg, logrus.New(), Dependencies{

@@ -32,6 +32,7 @@ const (
 var databaseNamePattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_-]{0,62}$`)
 
 type Config struct {
+	StorageCapacity            bool                                      `json:"storageCapacity,omitempty"`
 	ReportCenter               *ReportCenterConfig                       `json:"reportCenter,omitempty"`
 	AgentCustomizationDatabase *DatabaseConfig                           `json:"agentCustomizationDatabase,omitempty"`
 	ProjectCenter              *ProjectCenterConfig                      `json:"projectCenter,omitempty"`
@@ -389,6 +390,9 @@ func (cfg *Config) validate() error {
 	if cfg.CommercialOwnerDatabase != nil && cfg.Referrals.Enabled && cfg.Identity.TenantDirectoryToken == "" {
 		return errors.New("identity.tenantDirectoryToken is required for financial recovery")
 	}
+	if cfg.StorageCapacity && (cfg.CommercialOwnerDatabase == nil || cfg.MoneyOwnerDatabase == nil) {
+		return errors.New("storage capacity requires commercial and money owner databases")
+	}
 	if err := cfg.SourceAccountDatabase.validate("sourceAccountDatabase"); err != nil {
 		return err
 	}
@@ -699,5 +703,6 @@ func (cfg *Config) CoreConfig() *coreconfig.Config {
 	if cfg.SourceMedia != nil {
 		core.ProductCollectionSourceMedia = *cfg.SourceMedia
 	}
+	core.StorageCapacity = cfg.StorageCapacity
 	return core
 }

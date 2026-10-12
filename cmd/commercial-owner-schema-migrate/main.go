@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"gorm.io/gorm"
+	"task-processor/internal/commercial/billing"
 
 	orgresourceadapter "task-processor/internal/integration/orgresource"
 	commercialstore "task-processor/internal/integration/persistence/commercialbilling"
@@ -90,6 +91,9 @@ func migrateOwnerSchemas(moneyDB, commercialDB *gorm.DB) error {
 	if err := store.InstallInitialRetailOffers(context.Background()); err != nil {
 		return fmt.Errorf("install approved retail offers: %w", err)
 	}
+	if err := store.CreateOfferIfAbsent(context.Background(), billing.InitialStorageOffer()); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -109,6 +113,7 @@ func commercialRuntimeGrants() []string {
 		`GRANT SELECT ON TABLE public.commercial_offers TO commercial_owner_runtime`,
 		`GRANT SELECT, INSERT ON TABLE public.commercial_quotes, public.commercial_order_items TO commercial_owner_runtime`,
 		`GRANT SELECT, INSERT, UPDATE ON TABLE public.commercial_orders TO commercial_owner_runtime`,
+		`GRANT SELECT, INSERT, UPDATE ON TABLE public.storage_capacity_accounts, public.storage_capacity_reservations, public.storage_capacity_objects, public.storage_capacity_bindings, public.storage_capacity_lots, public.storage_capacity_namespaces TO commercial_owner_runtime`,
 		`GRANT SELECT, INSERT, UPDATE ON TABLE public.commercial_topup_attempts, public.commercial_topup_refunds TO commercial_owner_runtime`,
 		`GRANT SELECT, INSERT ON TABLE public.commercial_topup_inbox TO commercial_owner_runtime`,
 		`GRANT SELECT, INSERT, UPDATE ON TABLE public.commercial_service_orders TO commercial_owner_runtime`,

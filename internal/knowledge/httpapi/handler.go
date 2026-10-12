@@ -16,6 +16,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/knowledge"
+	"task-processor/internal/ledger/storagecapacity"
 )
 
 type Handler struct{ service *knowledge.Service }
@@ -27,6 +28,10 @@ func NewHandler(service *knowledge.Service) (*Handler, error) {
 	return &Handler{service: service}, nil
 }
 func failure(c *gin.Context, err error) {
+	if errors.Is(err, storagecapacity.ErrExceeded) {
+		c.AbortWithStatusJSON(409, gin.H{"code": "STORAGE_LIMIT_EXCEEDED", "message": "企业存储空间不足", "requestId": c.GetHeader("X-Request-ID"), "fieldErrors": []any{}})
+		return
+	}
 	status := http.StatusServiceUnavailable
 	code := knowledge.ErrUnavailable.Error()
 	for _, known := range []error{knowledge.ErrInvalid, knowledge.ErrNotFound, knowledge.ErrConflict, knowledge.ErrInactive, knowledge.ErrSourceLimit, knowledge.ErrRevisionBusy, knowledge.ErrNotReadable, knowledge.ErrIntegrity} {

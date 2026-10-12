@@ -155,7 +155,7 @@ class ResourcePurchaseError extends Error {
     super("Resource purchase request could not be completed");
   }
 }
-async function request<T>(
+export async function request<T>(
   path: string,
   user: string,
   org: string,

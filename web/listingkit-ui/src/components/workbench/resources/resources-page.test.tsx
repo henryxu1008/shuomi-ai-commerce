@@ -12,6 +12,7 @@ vi.mock("@/lib/api/commercial", async original => ({ ...await original<typeof im
 vi.mock("@/lib/api/commercial-billing", async original => ({ ...await original<typeof import("@/lib/api/commercial-billing")>(), getCommercialResources: state.resources }));
 vi.mock("@/lib/api/member-ai-point-limits", async original => ({ ...await original<typeof import("@/lib/api/member-ai-point-limits")>(), getMemberAIPointLimits: state.pointLimits }));
 vi.mock("@/lib/api/workbench-stores", async original => ({ ...await original<typeof import("@/lib/api/workbench-stores")>(), listWorkbenchStores: state.stores }));
+vi.mock("@/lib/api/storage-capacity", async original => ({ ...await original<typeof import("@/lib/api/storage-capacity")>(), getStorageSummary: vi.fn().mockImplementation((_user,org)=>Promise.resolve({organization_id:org,summary:{more_lots:false,base_bytes:"5368709120",quota_bytes:"5368709120",occupied_bytes:"0",reserved_bytes:"0",remaining_bytes:"5368709120",overage_bytes:"0",categories:{},active_lots:[],observed_at:"2026-10-12T00:00:00Z"}})),getStorageOffers:vi.fn().mockImplementation((_user,org)=>Promise.resolve({organization_id:org,items:[]})) }));
 vi.mock("@/lib/api/member-resources",async original=>({...await original<typeof import("@/lib/api/member-resources")>(),getMemberResources:vi.fn().mockImplementation((scope:{expectedOrganizationId:string})=>Promise.resolve({schemaVersion:"member-resource-directory-v1",organizationId:scope.expectedOrganizationId,observedAt:"2026-09-29T00:00:00Z",members:[]}))}));
 let client: QueryClient;
 const tree = () => <QueryClientProvider client={client}><ResourcesPage /></QueryClientProvider>;
@@ -24,6 +25,15 @@ beforeEach(() => {
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 });
 afterEach(() => { cleanup(); client.clear(); vi.unstubAllGlobals(); });
+
+it.each([false,undefined])("hides storage when the deployment does not advertise availability (%s)",async available=>{
+ state.context.storageCapacityAvailable=available;render(tree());await screen.findByText("基础方案");
+ expect(screen.queryByRole("region",{name:"企业存储容量"})).not.toBeInTheDocument();
+ expect(screen.queryByText(/每企业默认 5 GiB/)).not.toBeInTheDocument();
+});
+it("shows storage only when deployment availability is explicitly true",async()=>{
+ state.context.storageCapacityAvailable=true;render(tree());await waitFor(()=>expect(screen.getByRole("region",{name:"企业存储容量"})).toBeVisible());
+});
 
 it("hides the previous store total on refresh failure rather than projecting a zero", async () => {
   render(tree());

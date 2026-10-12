@@ -8,6 +8,7 @@ import (
 	"task-processor/internal/authz"
 	"task-processor/internal/core/config"
 	kernelmodule "task-processor/internal/kernel/module"
+	"task-processor/internal/ledger/storagecapacity"
 	"task-processor/internal/product/asset"
 	"task-processor/internal/product/collection"
 	collectionhttp "task-processor/internal/product/collection/httpapi"
@@ -27,7 +28,10 @@ func buildProductCollectionModuleWithSourceMedia(ctx context.Context, db *gorm.D
 		if err != nil {
 			return nil, err
 		}
-		service.WithMedia(productsourcing.SourceMedia{Storage: media.Storage, Authorization: authority})
+		if cfg.StorageCapacity && media.Capacity == nil {
+			return nil, collection.ErrUnavailable
+		}
+		service.WithMedia(productsourcing.SourceMedia{Storage: media.Storage, Authorization: authority, Capacity: media.Capacity})
 	}
 	binder := productReviewCapabilityBinder{now: time.Now}
 	return productCollectionModule{routes: collectionhttp.Routes(service, binder.Bind), service: service}, nil
@@ -35,7 +39,8 @@ func buildProductCollectionModuleWithSourceMedia(ctx context.Context, db *gorm.D
 
 // Runtime constructs the current storage adapter; HTTP only consumes its port.
 type collectionSourceMediaDependencies struct {
-	Storage productsourcing.SourceMediaStorage
+	Capacity *storagecapacity.Meter
+	Storage  productsourcing.SourceMediaStorage
 }
 
 func WithCollectionSourceMedia(storage productsourcing.SourceMediaStorage) CurrentApplicationOption {
@@ -46,5 +51,5 @@ func WithCollectionSourceMedia(storage productsourcing.SourceMediaStorage) Curre
 }
 
 func newImageSetManualMedia(media *collectionSourceMediaDependencies, authority imageMediaScopeAuthority) asset.ManualImageReader {
-	return imageapp.ImageSetManualMedia{Media: productsourcing.SourceMedia{Storage: media.Storage, Authorization: authority}}
+	return imageapp.ImageSetManualMedia{Media: productsourcing.SourceMedia{Storage: media.Storage, Authorization: authority, Capacity: media.Capacity}}
 }

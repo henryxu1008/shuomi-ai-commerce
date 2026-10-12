@@ -10,11 +10,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"task-processor/internal/ledger/storagecapacity"
 )
 
 type Service struct {
-	repo    Repository
-	objects KnowledgeObjectStore
+	capacity *storagecapacity.Meter
+	repo     Repository
+	objects  KnowledgeObjectStore
 }
 
 func NewService(repo Repository, objects KnowledgeObjectStore) (*Service, error) {
@@ -82,9 +84,34 @@ func (s *Service) Upload(ctx context.Context, c Command, filename string, data [
 	}
 	c.Upload = &Revision{Filename: filename, ContentType: contentType, SizeBytes: int64(len(data)), SHA256: Digest(data)}
 	c.Fingerprint = fingerprint(c.Scope.ActorID, c.Kind, c.BaseID, c.SourceID, c.Name, c.Version, filename, contentType, c.Upload.SizeBytes, c.Upload.SHA256)
+	var capacityReservation storagecapacity.Reservation
+	if s.capacity != nil {
+		capacityReservation, err = s.capacity.Writer.ReserveWrite(ctx, storagecapacity.WriteIntent{OrganizationID: c.Scope.OrganizationID, Owner: "knowledge", OperationID: c.Kind + ":" + c.Key, Fingerprint: c.Fingerprint, MaxBytes: c.Upload.SizeBytes, MaxObjects: 1})
+		if err != nil {
+			return Result{}, err
+		}
+	}
 	result, err := s.repo.Apply(ctx, c)
 	if err != nil {
+		var proof *UploadCommandRejection
+		if s.capacity != nil && errors.As(err, &proof) && proof != nil && proof.OrganizationID == c.Scope.OrganizationID && proof.Kind == c.Kind && proof.Key == c.Key && proof.Fingerprint == c.Fingerprint {
+			// The original CAS preserves DISPATCHED and fences every late write
+			// after an unstarted abort. Ordinary/ACK-unknown errors retain bytes.
+			if abortErr := s.capacity.Writer.AbortUnstarted(ctx, c.Scope.OrganizationID, capacityReservation.ID); abortErr != nil {
+				return Result{}, storagecapacity.ErrUnknown
+			}
+		}
 		return Result{}, err
+	}
+	if s.capacity != nil {
+		if result.Revision == nil {
+			return Result{}, ErrUnavailable
+		}
+		o := capacityObject(*result.Revision)
+		o.Namespace = s.capacity.Namespace
+		if err = s.capacity.Writer.BindObjects(ctx, c.Scope.OrganizationID, capacityReservation.ID, []storagecapacity.Object{o}); err != nil {
+			return result, err
+		}
 	}
 	revision, claimed, err := s.repo.ClaimUpload(ctx, c.Scope.OrganizationID, result.Revision.ID, uuid.NewString())
 	if err != nil {
@@ -95,6 +122,12 @@ func (s *Service) Upload(ctx context.Context, c Command, filename string, data [
 	}
 	object := revisionObject(revision)
 	object.Data = data
+	if s.capacity != nil {
+		err = s.capacity.Writer.ClaimDispatch(ctx, revision.OrganizationID, capacityReservation.ID)
+		if err != nil {
+			return result, err
+		}
+	}
 	// Leave five seconds of the 30s lease for the final database transition.
 	ioContext, cancelIO := context.WithTimeout(ctx, 25*time.Second)
 	defer cancelIO()
@@ -112,6 +145,9 @@ func (s *Service) Upload(ctx context.Context, c Command, filename string, data [
 				return Result{}, finishErr
 			}
 			return Result{}, ErrIntegrity
+		}
+		if err := confirmCapacity(ctx, s.capacity, revision); err != nil {
+			return result, err
 		}
 		if err := s.repo.ConfirmObject(ctx, revision); err != nil {
 			return Result{}, err
@@ -134,6 +170,9 @@ func (s *Service) Upload(ctx context.Context, c Command, filename string, data [
 			}
 			return Result{}, ErrIntegrity
 		}
+	}
+	if err := confirmCapacity(ctx, s.capacity, revision); err != nil {
+		return result, err
 	}
 	if err := s.repo.ConfirmObject(ctx, revision); err != nil && !errors.Is(err, ErrLeaseLost) {
 		return Result{}, err

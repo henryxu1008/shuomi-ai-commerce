@@ -45,7 +45,7 @@ func TestSupplyRuntimePassesCanonicalPoolsAndClosesWorkflowOnConstructionFailure
 	require.NoError(t, os.WriteFile(app.CredentialKeyFile, []byte(base64.StdEncoding.EncodeToString(make([]byte, 32))), 0600))
 	privatizeSyntheticTestFile(t, app.AppSecretFile)
 	privatizeSyntheticTestFile(t, app.CredentialKeyFile)
-	source, product, owner, store, assets := &gorm.DB{}, &gorm.DB{}, &gorm.DB{}, &gorm.DB{}, &gorm.DB{}
+	source, product, owner, store, assets := &gorm.DB{}, &gorm.DB{}, emptyStorageCommercialOwner(t), &gorm.DB{}, &gorm.DB{}
 	workflow := &mocks.Client{}
 	closed := false
 	var pools []*gorm.DB
@@ -113,7 +113,7 @@ func TestSupplyAndEcoservicesRuntimePoolsStayIndependent(t *testing.T) {
 			require.NoError(t, os.WriteFile(app.CredentialKeyFile, []byte(base64.StdEncoding.EncodeToString(make([]byte, 32))), 0600))
 			privatizeSyntheticTestFile(t, app.AppSecretFile)
 			privatizeSyntheticTestFile(t, app.CredentialKeyFile)
-			source, product, commercial, money, store, assets, eco := &gorm.DB{}, &gorm.DB{}, &gorm.DB{}, &gorm.DB{}, &gorm.DB{}, &gorm.DB{}, &gorm.DB{}
+			source, product, commercial, money, store, assets, eco := &gorm.DB{}, &gorm.DB{}, emptyStorageCommercialOwner(t), &gorm.DB{}, &gorm.DB{}, &gorm.DB{}, &gorm.DB{}
 			if alias {
 				eco = assets
 			}

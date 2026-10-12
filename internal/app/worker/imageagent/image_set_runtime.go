@@ -29,6 +29,9 @@ func NewImageSetTemporalDependencies(cfg *config.Config, imageDB, resourceDB *go
 	if err != nil {
 		return empty, err
 	}
+	if err = configureStorageCapacity(cfg, resourceDB, repository, artifacts, executor, recovery); err != nil {
+		return empty, err
+	}
 	slots := imageSetSlotExecutor{generation: executor, builder: imagetools.NewImageSetResultBuilder()}
 	return appruntime.ImageAgentTemporalDependencies{Repository: repository, ExecutionAuthorizer: authorizer, SlotExecutor: slots, StagedSlotExecutor: slots, ArtifactStore: artifacts, ImageSetPublisher: publisher, ImageSetApprovals: approvals, GenerationRecovery: recovery, GenerationOutputRecovery: generationOutputRecovery(nil), PublicationLeaseDuration: defaultImageAgentArtifactTiming.PublicationLeaseDuration}, nil
 }

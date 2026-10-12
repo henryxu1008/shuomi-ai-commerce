@@ -10,6 +10,7 @@ import (
 	b "task-processor/internal/commercial/billing"
 	e "task-processor/internal/ecoservices"
 	"task-processor/internal/integration/servicepayments"
+	"task-processor/internal/ledger/storagecapacity"
 )
 
 type EcoservicesPaymentsConfig struct {
@@ -39,6 +40,7 @@ type EcoservicesConfig struct {
 	PayloadKey     string                    `json:"payloadKey"`
 }
 type EcoservicesRuntime struct {
+	Capacity           *storagecapacity.Meter
 	NonPaymentOnly     bool
 	DB                 *gorm.DB
 	Objects            e.PrivateObjectStore

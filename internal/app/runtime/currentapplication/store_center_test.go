@@ -49,7 +49,7 @@ func TestStoreCenterRuntimeClosesCurrentPoolsOnPartialStartup(t *testing.T) {
 			cfg := storeRuntimeConfig()
 			cfg.StoreCenter.Enabled = failAt != 0
 			cfg.StoreCenter.OperationsCockpit = failAt == 2
-			source, resource, records := &gorm.DB{}, &gorm.DB{}, &gorm.DB{}
+			source, resource, records := &gorm.DB{}, emptyStorageCommercialOwner(t), &gorm.DB{}
 			var closed []*gorm.DB
 			opened := 0
 			stop := errors.New("isolated startup stop")

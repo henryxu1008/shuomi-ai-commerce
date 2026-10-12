@@ -71,7 +71,7 @@ func TestEcoservicesAndNotificationRuntimePoolsStayIndependent(t *testing.T) {
 			noticeConfig.Database = "notification_center"
 			noticeConfig.User = "notification_center_runtime"
 			cfg.NotificationCenterDatabase = &noticeConfig
-			source, commercial, money, eco, notice := &gorm.DB{}, &gorm.DB{}, &gorm.DB{}, &gorm.DB{}, &gorm.DB{}
+			source, commercial, money, eco, notice := &gorm.DB{}, emptyStorageCommercialOwner(t), &gorm.DB{}, &gorm.DB{}, &gorm.DB{}
 			if alias {
 				eco = notice
 			}
@@ -147,7 +147,7 @@ func TestEcoservicesRuntimeReleasesEachOwnerOnceBeforeConstructingAliasedFeature
 		t.Run(stage, func(t *testing.T) {
 			c := ecoservicesTestConfig()
 			c.Ecoservices.Enabled = stage != "disabled"
-			source, commercial, money, eco := &gorm.DB{}, &gorm.DB{}, &gorm.DB{}, &gorm.DB{}
+			source, commercial, money, eco := &gorm.DB{}, emptyStorageCommercialOwner(t), &gorm.DB{}, &gorm.DB{}
 			if stage == "alias" {
 				eco = source
 			}

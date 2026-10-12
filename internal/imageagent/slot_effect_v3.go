@@ -31,6 +31,7 @@ const (
 const (
 	SlotProviderOutcomeUnknownCode    = "slot_provider_outcome_unknown"
 	SlotProviderNotDispatchedCode     = "slot_provider_not_dispatched"
+	StorageLimitExceededCode          = "storage_limit_exceeded"
 	SlotStagingOutcomeUnknownCode     = "slot_staging_outcome_unknown"
 	SlotPublicationOutcomeUnknownCode = "slot_publication_outcome_unknown"
 	SlotRecoveryBlockedCode           = "recovery_blocked"
@@ -78,7 +79,7 @@ func SlotEffectV3BlockedPolicyFor(phase SlotEffectV3Phase, code string) (SlotEff
 func SlotEffectV3BlockedPolicyForCode(code string) (SlotEffectV3BlockedPolicy, bool) {
 	var phase SlotEffectV3Phase
 	switch code {
-	case SlotProviderNotDispatchedCode:
+	case SlotProviderNotDispatchedCode, StorageLimitExceededCode:
 		return SlotEffectV3BlockedPolicy{Code: code, PermittedActions: []Action{ActionEditPlan, ActionRetrySlot, ActionCancel}}, true
 	case "recovery_requested", "recovery_start_failed":
 		return SlotEffectV3BlockedPolicy{Code: code, PermittedActions: []Action{ActionCancel}}, true
