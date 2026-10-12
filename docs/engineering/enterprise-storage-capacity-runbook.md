@@ -1,7 +1,25 @@
 # 企业存储容量 V1 试用入口与启动条件
 
 设计依据：[企业存储容量 V1](../architecture/enterprise-storage-capacity-v1.md)。
-本批适用于新安装和空的计量 namespace；不迁移、回填或清理旧文件。
+容量启用适用于新安装和空的计量 namespace；不迁移、回填或清理旧文件。
+
+## 保留实例、容量关闭时的必要 schema 补齐
+
+最新程序的 `storageCapacity: false` 守卫仍要求原 Commercial owner 可读取六张容量表且没有容量事实或购买订单。保留实例缺少这些表或现四张商业表的新字段时，先按当前用户授权执行下面的有界入口；容量功能继续关闭，原文件不登记为计量 namespace。
+
+```sh
+go run ./cmd/commercial-owner-schema-migrate -config <原commercial-schema-owner私密JSON绝对路径> -storage-disabled-additive-only
+```
+
+入口只消费这个原 Commercial schema-owner config；`-money-config`（包括空值）和位置参数会被拒绝。它在一个有界 PostgreSQL 事务内使用原模型安装六张 `storage_capacity_*` 表、给现有 `commercial_offers` / `commercial_quotes` / `commercial_order_items` 各增加 `storage_unit_bytes` / `storage_duration_seconds`，给 `commercial_orders` 增加 `storage_activation_receipt`，并只给原 `commercial_owner_runtime` 六表 SELECT。六个整数列的 NOT NULL DEFAULT 0、回执列的 varchar(128) NOT NULL DEFAULT '' 来自当前正式 owner 定义。它不初始化 Money、OrgResource 或其它商业表，不安装或改写 offer/价格、原业务事实、角色、既有授权或凭据，也不修改 runtime manifest/worker 配置。
+
+六表须全部缺失，或已是完整、匹配当前模型且为空的安装；部分/不同形状、已有任何容量事实/购买订单均拒绝。已有七列只检查，不改写其定义。若原 role 已有容量表级、列级或经默认授权/继承得到的写权限，入口拒绝并整批回滚，不自行撤销原权限。`public` 是固定 schema，不使用同名 shadow 表证明为空。重复执行核实原完整安装，不追加订单、offer 或 namespace。锁等待最多5秒、单语句30秒、整次执行1分钟；失败保留原程序和库，按原配置核实，不扩大初始化范围。
+
+由原安装 owner 在已获准安装窗口使用私密备份和原事实/ACL/卷/worker基线执行；新 DDL/授权与程序合并仍需各自明确人类授权。正常启动沿既有 runtime identity 的 `VerifyStorageCapacityDisabled` 核实六表和订单；确认候选程序操作入口、原事实与 worker 后交接。本入口不执行新程序部署，也不签发用户验收。
+
+事务失败回滚本次 DDL/新增 SELECT。事务提交应答不明时先核实原 schema/ACL，可用同一入口对完整匹配安装重读；不换空库或执行全量初始化。已提交而候选程序失败时，在确认仍无容量事实/购买订单后，仅恢复原 backend7058/UI9c 镜像和私密配置，保留新增空 schema、原数据、命名 volumes 与 worker。出现容量事实后不得切回未计量程序，不删除表/列、恢复旧备份覆盖新数据或用 false 绕过；交原 owner 沿当前恢复合同处理。
+
+## 容量功能的新安装启用
 
 沿项目现有 `commercial-owner-schema-migrate` 命令初始化私有 schema-owner
 配置；该命令同时安装容量表、runtime grants 和初始扩容 offer，重复运行不覆盖
