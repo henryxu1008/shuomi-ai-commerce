@@ -3,8 +3,8 @@ package operationscockpitobservations
 import (
 	"context"
 	"task-processor/internal/authidentity"
-	o "task-processor/internal/storecenter/observations"
 	c "task-processor/internal/operationscockpit"
+	o "task-processor/internal/storecenter/observations"
 	"testing"
 	"time"
 )
@@ -27,7 +27,7 @@ func (r *savedRepo) List(_ context.Context, _ string, q o.Query) (o.Result, erro
 
 type savedDirectory struct{}
 
-func (savedDirectory) ListStores(context.Context, o.Scope) ([]string, error) {
+func (savedDirectory) ListStores(context.Context, o.Scope, o.Kind, string) ([]string, error) {
 	return []string{storeID}, nil
 }
 

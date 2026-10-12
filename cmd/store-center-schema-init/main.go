@@ -18,7 +18,7 @@ import (
 
 	storeschema "task-processor/internal/app/schema/storecenter"
 	coreconfig "task-processor/internal/core/config"
-	observationschema "task-processor/internal/integration/persistence/sheinobservations"
+	observationschema "task-processor/internal/integration/persistence/storeobservations"
 	platformdatabase "task-processor/internal/platform/database"
 	"task-processor/internal/storecenter"
 )

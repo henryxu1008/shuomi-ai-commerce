@@ -158,7 +158,7 @@ func TestLogisticsCannotLookupForeignPackageOrOrder(t *testing.T) {
 
 type serviceDirectory struct{ store string }
 
-func (d serviceDirectory) ListStores(context.Context, Scope) ([]string, error) {
+func (d serviceDirectory) ListStores(context.Context, Scope, Kind, string) ([]string, error) {
 	return []string{d.store}, nil
 }
 func TestEnsureExpiredExecutionEndsAsPartialWithoutRestart(t *testing.T) {

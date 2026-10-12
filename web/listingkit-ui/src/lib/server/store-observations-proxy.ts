@@ -60,12 +60,14 @@ function observationEndpoint(url: URL, method: string): Endpoint | null {
     if (url.search.length > 8192) return null;
     for (const k of url.searchParams.keys())
       if (
-        !["storeId", "syncId", "keyword", "status", "after", "limit"].includes(
+        !["storeId", "syncId", "keyword", "status", "after", "limit", "platform"].includes(
           k,
         ) ||
         url.searchParams.getAll(k).length !== 1
       )
         return null;
+    const platform=url.searchParams.get("platform");
+    if(platform!==null && platform!=="shein" && (kind!=="products"||platform!=="temu")) return null;
     for (const k of ["storeId", "syncId"])
       if (
         url.searchParams.has(k) &&

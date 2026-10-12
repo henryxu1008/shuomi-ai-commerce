@@ -17,6 +17,19 @@ function configure() {
   vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL", "http://localhost:3000");
 }
 
+it("forwards a native product platform filter and rejects unsupported order filters",async()=>{
+ configure();
+ const fetch=vi.fn().mockResolvedValue(Response.json({organizationId:"org-a",userId:"actor-a",data:{items:[],next:"",summary:{total:0,active:0,offShelf:0,today:0,todayUnknown:0,pending:0,transit:0,exceptional:0,unknown:0},syncs:[],latest:[],complete:false}}));
+ vi.stubGlobal("fetch",fetch);
+ const native=await proxyStoreObservations(new Request("http://localhost:3000/api/workbench/store-observations/products?platform=temu",{headers}),"private","actor-a");
+ expect(native.status).toBe(200);
+ expect(fetch).toHaveBeenCalledTimes(1);
+ expect(fetch.mock.calls[0][0].searchParams.get("platform")).toBe("temu");
+ fetch.mockClear();
+ const rejected=await proxyStoreObservations(new Request("http://localhost:3000/api/workbench/store-observations/orders?platform=temu",{headers}),"private","actor-a");
+ expect(rejected.status).not.toBe(200);expect(fetch).not.toHaveBeenCalled();
+});
+
 it("forwards qualified native product snapshots while keeping native orders closed",async()=>{
  configure();const product={storeId:id,syncId:id,id:"9007199254740993",observedAt:"2026-10-12T01:00:00Z",temuProduct:{id:"9007199254740993",productId:"9007199254740993",entity:"local_goods",mode:"local",title:"Actual title",externalCode:"",imageUrl:"",saleState:"unknown",rawStatus:"",skus:[],sites:[]}};
  const fetch=vi.fn().mockResolvedValue(Response.json({organizationId:"org-a",userId:"actor-a",data:product}));vi.stubGlobal("fetch",fetch);

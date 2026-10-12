@@ -103,7 +103,7 @@ it.each(["products", "orders"] as const)("shows provider pending for %s after wo
  const request=vi.fn().mockResolvedValue(Response.json({organizationId:"org-a",userId:"actor-a",data:{available:false,canSync:false,runtimeReady:true,providerConfigured:false,kind,site:"shein-us",platformUrl:"https://sellerhub.shein.com/"}}));
  vi.stubGlobal("fetch",request);
  renderPage(kind);
- expect(await screen.findByText("店铺同步内部已就绪，SHEIN 待配置")).toBeVisible();
+ expect(await screen.findByText(kind==="products"?"店铺同步内部已就绪，平台待配置":"店铺同步内部已就绪，SHEIN 待配置")).toBeVisible();
  expect(screen.queryByRole("table")).not.toBeInTheDocument();
  expect(screen.queryByRole("button",{name:kind === "products"?"同步商品":"同步订单"})).not.toBeInTheDocument();
  expect(request).toHaveBeenCalledTimes(1);

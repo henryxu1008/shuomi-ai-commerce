@@ -31,7 +31,7 @@ func (r *commandRepository) Begin(_ context.Context, scope Scope, key, hash stri
 
 type commandDirectory struct{ stores []string }
 
-func (d *commandDirectory) ListStores(context.Context, Scope) ([]string, error) {
+func (d *commandDirectory) ListStores(context.Context, Scope, Kind, string) ([]string, error) {
 	return append([]string{}, d.stores...), nil
 }
 

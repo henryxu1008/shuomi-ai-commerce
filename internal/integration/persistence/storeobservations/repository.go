@@ -352,11 +352,11 @@ type pageCursor struct {
 
 func queryHash(org string, q o.Query) string {
 	raw, _ := json.Marshal(struct {
-		Org             string
-		Kind            o.Kind
-		Keyword, Status string
-		Sources         map[string]string
-	}{org, q.Kind, q.Keyword, q.Status, q.Sources})
+		Org                       string
+		Kind                      o.Kind
+		Keyword, Status, Platform string
+		Sources                   map[string]string
+	}{org, q.Kind, q.Keyword, q.Status, q.Platform, q.Sources})
 	h := sha256.Sum256(raw)
 	return hex.EncodeToString(h[:])
 }

@@ -32,14 +32,21 @@ func (a Access) Open(ctx context.Context, s o.Scope, store string, k o.Kind, syn
 // Inject the current member-scoped Store repository; no second Store fact source.
 type Directory struct{ Stores storecenter.Repository }
 
-func (d Directory) ListStores(ctx context.Context, s o.Scope) ([]string, error) {
-	if d.Stores == nil || !s.Valid() {
+func (d Directory) ListStores(ctx context.Context, s o.Scope, kind o.Kind, selectedPlatform string) ([]string, error) {
+	if d.Stores == nil || !s.Valid() || !kind.Valid() {
 		return nil, o.ErrUnavailable
+	}
+	platform := storecenter.Platform(selectedPlatform)
+	if selectedPlatform != "" && platform != storecenter.PlatformShein && platform != storecenter.PlatformTemu || kind == o.Orders && platform == storecenter.PlatformTemu {
+		return nil, o.ErrInvalid
+	}
+	if kind == o.Orders {
+		platform = storecenter.PlatformShein
 	}
 	out := []string{}
 	seen := map[string]bool{}
 	for page := 1; page <= 5; page++ {
-		result, e := d.Stores.List(ctx, s.OrganizationID, storecenter.StoreListQuery{Page: page, PageSize: 100, Status: storecenter.RecordStatusActive})
+		result, e := d.Stores.List(ctx, s.OrganizationID, storecenter.StoreListQuery{Page: page, PageSize: 100, Platform: platform, Status: storecenter.RecordStatusActive})
 		if errors.Is(e, storecenter.ErrNotFound) {
 			return nil, o.ErrForbidden
 		}

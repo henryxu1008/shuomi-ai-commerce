@@ -77,7 +77,7 @@ func (s *Service) StoreSummaries(ctx context.Context, scope Scope, kind Kind, st
 	if !s.available() || !ok {
 		return nil, ErrUnavailable
 	}
-	stores, err := s.allowedStores(ctx, scope, kind, false, stores)
+	stores, err := s.allowedStores(ctx, scope, kind, false, stores, "")
 	if err != nil {
 		return nil, err
 	}
@@ -185,7 +185,7 @@ func (s *Service) StoreSummaries(ctx context.Context, scope Scope, kind Kind, st
 	if err = forStores(ctx, len(handles), func(ctx context.Context, i int) error { return handles[i].Check(ctx) }); err != nil {
 		return nil, err
 	}
-	if _, err = s.allowedStores(ctx, scope, kind, false, stores); err != nil {
+	if _, err = s.allowedStores(ctx, scope, kind, false, stores, ""); err != nil {
 		return nil, err
 	}
 	return out, nil

@@ -62,7 +62,7 @@ func forStores(ctx context.Context, count int, visit func(context.Context, int) 
 	}
 	return ctx.Err()
 }
-func (s *Service) allowedStores(ctx context.Context, scope Scope, kind Kind, sync bool, selected []string) ([]string, error) {
+func (s *Service) allowedStores(ctx context.Context, scope Scope, kind Kind, sync bool, selected []string, platform string) ([]string, error) {
 	if !s.available() || s.Directory == nil {
 		return nil, ErrUnavailable
 	}
@@ -72,7 +72,7 @@ func (s *Service) allowedStores(ctx context.Context, scope Scope, kind Kind, syn
 	if e := s.Access.Authorize(ctx, scope, kind, sync); e != nil {
 		return nil, e
 	}
-	all, e := s.Directory.ListStores(ctx, scope)
+	all, e := s.Directory.ListStores(ctx, scope, kind, platform)
 	if e != nil {
 		return nil, e
 	}
@@ -142,7 +142,7 @@ func (s *Service) Begin(ctx context.Context, scope Scope, key string, in BeginIn
 	if !errors.Is(e, ErrNotFound) {
 		return Command{}, e
 	}
-	stores, e := s.allowedStores(ctx, scope, in.Kind, true, in.Stores)
+	stores, e := s.allowedStores(ctx, scope, in.Kind, true, in.Stores, "")
 	if e != nil {
 		return Command{}, e
 	}
@@ -222,7 +222,7 @@ func (s *Service) command(ctx context.Context, scope Scope, cmd Command) (Comman
 	if e := s.Access.Authorize(ctx, scope, cmd.Input.Kind, false); e != nil {
 		return Command{}, e
 	}
-	allowed, e := s.allowedStores(ctx, scope, cmd.Input.Kind, false, nil)
+	allowed, e := s.allowedStores(ctx, scope, cmd.Input.Kind, false, nil, "")
 	if e != nil {
 		return Command{}, e
 	}
@@ -286,7 +286,7 @@ func (s *Service) Status(ctx context.Context, scope Scope, id string) (Sync, err
 	if e != nil {
 		return sync, e
 	}
-	_, e = s.allowedStores(ctx, scope, sync.Kind, false, []string{sync.StoreID})
+	_, e = s.allowedStores(ctx, scope, sync.Kind, false, []string{sync.StoreID}, "")
 	if e != nil {
 		return Sync{}, e
 	}
@@ -536,7 +536,10 @@ func (s *Service) List(ctx context.Context, scope Scope, q Query) (Result, error
 			return Result{}, ErrInvalid
 		}
 	}
-	stores, e := s.allowedStores(ctx, scope, q.Kind, false, q.Stores)
+	if q.Platform != "" && q.Platform != "shein" && q.Platform != "temu" || q.Kind == Orders && q.Platform == "temu" {
+		return Result{}, ErrInvalid
+	}
+	stores, e := s.allowedStores(ctx, scope, q.Kind, false, q.Stores, q.Platform)
 	if e != nil {
 		return Result{}, e
 	}
@@ -657,7 +660,7 @@ func (s *Service) List(ctx context.Context, scope Scope, q Query) (Result, error
 	}
 	// Recheck the currently authorized directory too; aggregates must never retain
 	// records from a store revoked while the DB query was running.
-	if _, e = s.allowedStores(ctx, scope, q.Kind, false, stores); e != nil {
+	if _, e = s.allowedStores(ctx, scope, q.Kind, false, stores, q.Platform); e != nil {
 		return Result{}, e
 	}
 	result.Syncs = selected

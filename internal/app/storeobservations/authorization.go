@@ -6,8 +6,8 @@ import (
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authruntime/zitadel"
 	"task-processor/internal/authz"
-	o "task-processor/internal/storecenter/observations"
 	"task-processor/internal/storecenter"
+	o "task-processor/internal/storecenter/observations"
 	"task-processor/internal/workbenchcontext"
 	"time"
 )

@@ -30,6 +30,8 @@ type UploadAttemptView struct {
 }
 
 func (a *Application) ReadUploadAttempt(ctx context.Context, recordID, attemptID string) (UploadAttemptView, error) {
+	ctx, cancel := context.WithTimeout(ctx, 18*time.Second)
+	defer cancel()
 	if a.Uploader == nil || !collection.ValidID(recordID) || !collection.ValidID(attemptID) {
 		return UploadAttemptView{}, record.ErrInvalid
 	}
@@ -155,7 +157,7 @@ func matchingImageReceipt(receipt submission.OfficialReceipt, binding storecente
 func (s *UploadService) ResolveUpload(ctx context.Context, scope collection.Scope, input ResolveUploadInput) (UploadResult, error) {
 	ctx, cancel := context.WithTimeout(ctx, 18*time.Second)
 	defer cancel()
-	if !collection.ValidID(input.RecordID) || !collection.ValidID(input.AttemptID) || len(input.SPU) < 1 || len(input.SPU) > 128 {
+	if !collection.ValidID(input.RecordID) || !collection.ValidID(input.AttemptID) || len(input.SPU) > 128 {
 		return UploadResult{}, record.ErrInvalid
 	}
 	if err := s.authorize(ctx, scope); err != nil {
@@ -181,6 +183,23 @@ func (s *UploadService) ResolveUpload(ctx context.Context, scope collection.Scop
 	intent, err := s.dependencies.Intents.ReadOfficialIntent(ctx, scope, attempt.IntentKey)
 	if err != nil || intent.Kind != "publish" || intent.RecordID != saved.ID || intent.RecordHash != collection.Digest(saved) || intent.Target != attempt.Target || intent.Binding != saved.Merchant {
 		return UploadResult{}, record.ErrConflict
+	}
+	if saved.Merchant.Platform == storecenter.PlatformTemu {
+		// G3: no qualified native readback proves the complete original body.
+		// Preserve the original attempt or receipt; an SPU cannot identify it.
+		if input.SPU != "" {
+			return UploadResult{}, record.ErrInvalid
+		}
+		if s.dependencies.TemuStores == nil {
+			return UploadResult{}, record.ErrUnavailable
+		}
+		if _, err = s.dependencies.TemuStores.TemuExecutionMerchant(ctx, scope, saved.Merchant.StoreID, storecenter.ProductPurposePublish, &intent.Binding); err != nil {
+			return UploadResult{}, err
+		}
+		return s.replay(ctx, scope, saved.ID, attempt)
+	}
+	if input.SPU == "" {
+		return UploadResult{}, record.ErrInvalid
 	}
 	result := func(v submission.OfficialReceipt) (UploadResult, error) {
 		if v.RecordID != saved.ID || v.Product.SPUName != input.SPU {

@@ -272,6 +272,7 @@ type Record struct {
 }
 type Query struct {
 	Kind       Kind
+	Platform   string
 	Stores     []string
 	SyncID     string
 	Keyword    string
@@ -316,7 +317,7 @@ type Access interface {
 	Authorize(context.Context, Scope, Kind, bool) error
 }
 type Directory interface {
-	ListStores(context.Context, Scope) ([]string, error)
+	ListStores(context.Context, Scope, Kind, string) ([]string, error)
 }
 type Repository interface {
 	Begin(context.Context, Scope, string, string, BeginInput, []Sync) (Command, error)

@@ -3770,6 +3770,9 @@ func TestInfrastructurePackagesDoNotImportBusinessDomains(t *testing.T) {
 
 func TestListingSubmissionPersistenceAdapterImplementsOnlySubmissionPort(t *testing.T) {
 	adapterRoot := filepath.Join("..", "internal", "integration", "persistence", "listing", "submission")
+	// #31 G4: only this atomic same-ProductDB effect policy consumes the current
+	// immutable target and digest ports. It remains in the original claim UoW.
+	policy := filepath.Join(adapterRoot, "temu_effects_policy.go")
 	assertNoBannedImportPrefixes(t, adapterRoot, []string{
 		"task-processor/internal/amazon",
 		"task-processor/internal/amazonlisting",
@@ -3785,7 +3788,7 @@ func TestListingSubmissionPersistenceAdapterImplementsOnlySubmissionPort(t *test
 		"task-processor/internal/shein",
 		"task-processor/internal/temu",
 		"task-processor/internal/workspace",
-	}, nil)
+	}, map[string]struct{}{policy: {}})
 
 	index, err := loadGoFileIndex(adapterRoot, "")
 	if err != nil {
@@ -3801,7 +3804,7 @@ func TestListingSubmissionPersistenceAdapterImplementsOnlySubmissionPort(t *test
 			if !importMatchesPrefix(importPath, "task-processor/internal/listing") {
 				continue
 			}
-			if importPath != "task-processor/internal/listing/submission" {
+			if importPath != "task-processor/internal/listing/submission" && !(path == policy && importPath == "task-processor/internal/listing/record/target") {
 				t.Errorf("%s imports Listing sibling %s; the adapter may implement only Listing Submission-owned ports", path, importPath)
 			}
 			foundSubmissionPort = true
@@ -5866,6 +5869,7 @@ func supplyAdapterBusinessPorts() map[string][]string {
 		filepath.Join(base, "persistence", "listing", "record") + string(os.PathSeparator):          {"task-processor/internal/listing/record/target", "task-processor/internal/product/collection"},
 		filepath.Join(base, "persistence", "listing", "official") + string(os.PathSeparator):        {"task-processor/internal/listing/submission", "task-processor/internal/product/collection"},
 		filepath.Join(base, "persistence", "listing", "official", "official_repository.go"):         {"task-processor/internal/listing/record/target"},
+		filepath.Join(base, "persistence", "listing", "submission", "temu_effects_policy.go"):       {"task-processor/internal/listing/submission", "task-processor/internal/listing/record/target", "task-processor/internal/product/collection"},
 		filepath.Join(base, "shein", "official_goods.go"):                                           {"task-processor/internal/marketplace/shein/goods", "task-processor/internal/marketplace/shein/model"},
 		filepath.Join(base, "shein", "official_goods_rules.go"):                                     {"task-processor/internal/marketplace/shein/model"},
 		filepath.Join(base, "temu", "official_categories.go"):                                       {"task-processor/internal/marketplace/temu/model"},
