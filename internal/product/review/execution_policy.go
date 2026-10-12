@@ -15,20 +15,22 @@ import (
 )
 
 const TitlePolicyAdoptionVersion = "product.title.policy-adopt-v1"
+const ContentPolicyAdoptionVersion = "product.content.policy-adopt-v1"
 
 // Metadata explains the exact original Agent. Only the injected live resolver
 // can turn it into authority; no HTTP route accepts a policy approval field.
 type ExecutionProvenance struct {
-	Scope         agent.Scope                    `json:"scope"`
-	RunID         string                         `json:"runId"`
-	RequestKey    string                         `json:"requestKey"`
-	Binding       agent.Binding                  `json:"binding"`
-	Configuration agent.ConfigurationSnapshotRef `json:"configuration"`
-	Mode          agent.ModeSnapshotRef          `json:"mode"`
+	ContentSelection enrichment.ContentSelection    `json:",omitzero"`
+	Scope            agent.Scope                    `json:"scope"`
+	RunID            string                         `json:"runId"`
+	RequestKey       string                         `json:"requestKey"`
+	Binding          agent.Binding                  `json:"binding"`
+	Configuration    agent.ConfigurationSnapshotRef `json:"configuration"`
+	Mode             agent.ModeSnapshotRef          `json:"mode"`
 }
 
 func (p *ExecutionProvenance) Valid() bool {
-	return p == nil || agent.ValidID(p.Scope.OrganizationID) && agent.ValidID(p.Scope.ActorID) && validID(p.RunID) && validID(p.RequestKey) && p.Binding.Valid() && !p.Configuration.Absent() && p.Configuration.ValidOrAbsent() && p.Mode.Valid()
+	return p == nil || (p.ContentSelection.Absent() || p.ContentSelection.Valid()) && agent.ValidID(p.Scope.OrganizationID) && agent.ValidID(p.Scope.ActorID) && validID(p.RunID) && validID(p.RequestKey) && p.Binding.Valid() && !p.Configuration.Absent() && p.Configuration.ValidOrAbsent() && p.Mode.Valid()
 }
 
 type PolicyProvenance struct {
@@ -48,7 +50,9 @@ func (p *PolicyProvenance) Valid() bool {
 	}
 	rev, err := strconv.ParseUint(p.ModeRevision, 10, 63)
 	hash, hashErr := hex.DecodeString(p.ProposalDigest)
-	return p.Execution.Valid() && p.Identity.Valid() && p.Identity.OrganizationID == p.Execution.Scope.OrganizationID && p.Identity.ActorID == p.Execution.Scope.ActorID && (p.Mode == agent.ModeAutoApprove && !p.RequiresHuman || p.Mode == agent.ModeFullAccess) && err == nil && rev > 0 && strconv.FormatUint(rev, 10) == p.ModeRevision && p.PolicyVersion == agent.ExecutionModePolicyVersion && p.ActionVersion == TitlePolicyAdoptionVersion && hashErr == nil && len(hash) == 32 && hex.EncodeToString(hash) == p.ProposalDigest
+	actionValid := p.ActionVersion == TitlePolicyAdoptionVersion && p.Execution.ContentSelection.Absent() || p.ActionVersion == ContentPolicyAdoptionVersion && p.Execution.ContentSelection.Valid()
+	automaticValid := p.Mode != agent.ModeAutoApprove || p.Execution.ContentSelection.Absent() || p.Execution.ContentSelection.TitleOnly()
+	return p.Execution.Valid() && actionValid && automaticValid && p.Identity.Valid() && p.Identity.OrganizationID == p.Execution.Scope.OrganizationID && p.Identity.ActorID == p.Execution.Scope.ActorID && (p.Mode == agent.ModeAutoApprove && !p.RequiresHuman || p.Mode == agent.ModeFullAccess) && err == nil && rev > 0 && strconv.FormatUint(rev, 10) == p.ModeRevision && p.PolicyVersion == agent.ExecutionModePolicyVersion && hashErr == nil && len(hash) == 32 && hex.EncodeToString(hash) == p.ProposalDigest
 }
 
 type ExecutionPolicyResolver func(context.Context, ExecutionProvenance, enrichment.Candidate, bool) (PolicyProvenance, error)
@@ -79,8 +83,30 @@ func NewPolicyAdoptionService(reader catalog.VersionedSnapshotReader, source Sou
 	}
 	return &PolicyAdoptionService{service: service, scope: scope, resolve: resolve}, nil
 }
-func titleAdoptionAction() agent.ExecutionAction {
-	return agent.ExecutionAction{Ref: commercetool.ToolRef{ID: "product.title.policy.adopt", Version: "v1.0.0"}, Class: agent.ActionLocalWrite, Risk: commercetool.RiskWrite, SideEffect: commercetool.SideEffectBusinessMutation, AutomaticApproval: true}
+func adoptionAction(r Record) (agent.ExecutionAction, string) {
+	id, version := "product.title.policy.adopt", TitlePolicyAdoptionVersion
+	if r.Policy == enrichment.ContentPolicyVersion {
+		id, version = "product.content.policy.adopt", ContentPolicyAdoptionVersion
+	}
+	return agent.ExecutionAction{Ref: commercetool.ToolRef{ID: id, Version: "v1.0.0"}, Class: agent.ActionLocalWrite, Risk: commercetool.RiskWrite, SideEffect: commercetool.SideEffectBusinessMutation, AutomaticApproval: true}, version
+}
+
+func originalNativeCandidate(r Record) bool {
+	if r.State != "pending" || len(r.History) != 0 {
+		return false
+	}
+	if r.Policy != enrichment.ContentPolicyVersion {
+		return r.Policy == "title-review-v1" && r.Content == nil && len(r.Original.Changes) == 1 && r.Original.Changes[0].Field == "title" && r.Title == r.Original.Changes[0].Value
+	}
+	if !r.validContentRecord() || len(r.Content.Decisions) != 0 {
+		return false
+	}
+	ordered, err := originalContentValues(r)
+	return err == nil && reflect.DeepEqual(ordered, r.Content.After)
+}
+
+func contentNeedsHuman(r Record) bool {
+	return r.Content != nil && !r.Content.Selection.TitleOnly()
 }
 func proposalDigest(r Record) string {
 	raw, _ := json.Marshal(struct {
@@ -88,7 +114,8 @@ func proposalDigest(r Record) string {
 		Base, Before, Title, Policy string
 		Original                    enrichment.Proposal
 		Revision                    uint64
-	}{r.Input, r.BasePublicationID, r.Before, r.Title, r.Policy, r.Original, r.Revision})
+		Content                     *ContentPayload `json:",omitempty"`
+	}{r.Input, r.BasePublicationID, r.Before, r.Title, r.Policy, r.Original, r.Revision, r.Content})
 	sum := sha256.Sum256(raw)
 	return hex.EncodeToString(sum[:])
 }
@@ -111,6 +138,10 @@ func (p *PolicyAdoptionService) Adopt(ctx context.Context, key string, in Policy
 	if err != nil {
 		return View{}, denied, err
 	}
+	ctx, err = p.service.sourceReader.AuthorizeRead(ctx)
+	if err != nil {
+		return View{}, denied, mapSourceReadError(err)
+	}
 	if v, found, e := p.service.store.Preflight(ctx, op); e != nil || found {
 		return v, agent.ExecutionPolicyDecision{Outcome: agent.PolicyAllow, Reason: "committed_receipt"}, e
 	}
@@ -118,21 +149,23 @@ func (p *PolicyAdoptionService) Adopt(ctx context.Context, key string, in Policy
 	if err != nil {
 		return View{}, denied, err
 	}
-	if record.Execution == nil || *record.Execution != in.Execution || record.Revision != in.ExpectedRevision || record.State != "pending" || len(record.History) != 0 || len(record.Original.Changes) != 1 || record.Title != record.Original.Changes[0].Value {
+	if record.Execution == nil || *record.Execution != in.Execution || record.Revision != in.ExpectedRevision || !originalNativeCandidate(record) {
 		return View{}, denied, ErrConflict
 	}
 	proof, err := p.resolve(ctx, in.Execution, enrichment.Candidate{Changes: record.Original.Changes}, false)
 	if err != nil {
 		return record.View(), denied, err
 	}
-	if proof.Identity != (agent.ExecutionIdentity{OrganizationID: identity.OrganizationID, ActorID: identity.ActorID, MemberID: identity.MemberID}) || proof.Execution != in.Execution || proof.PolicyVersion != agent.ExecutionModePolicyVersion || proof.ActionVersion != TitlePolicyAdoptionVersion {
+	action, actionVersion := adoptionAction(record)
+	if proof.Identity != (agent.ExecutionIdentity{OrganizationID: identity.OrganizationID, ActorID: identity.ActorID, MemberID: identity.MemberID}) || proof.Execution != in.Execution || proof.PolicyVersion != agent.ExecutionModePolicyVersion || proof.ActionVersion != actionVersion {
 		return View{}, denied, ErrForbidden
 	}
+	proof.RequiresHuman = proof.RequiresHuman || contentNeedsHuman(record)
 	rule := agent.RulePassed
 	if proof.RequiresHuman || len(record.Original.Warnings) > 0 || len(record.Original.Rejections) > 0 {
 		rule = agent.RuleNeedsHuman
 	}
-	decision := agent.EvaluateExecutionPolicy(proof.Mode, titleAdoptionAction(), agent.ExecutionPolicyChecks{OwnerAuthorized: true, ContentValid: record.Original.Validation.Valid, Automatic: rule})
+	decision := agent.EvaluateExecutionPolicy(proof.Mode, action, agent.ExecutionPolicyChecks{OwnerAuthorized: true, ContentValid: record.Original.Validation.Valid, Automatic: rule})
 	if decision.Outcome != agent.PolicyAllow {
 		return record.View(), decision, nil
 	}
@@ -152,7 +185,7 @@ func (p *PolicyAdoptionService) Adopt(ctx context.Context, key string, in Policy
 		if e != nil {
 			return View{}, e
 		}
-		if r.State != "pending" || r.Revision != in.ExpectedRevision || r.Execution == nil || *r.Execution != in.Execution || proposalDigest(r) != proof.ProposalDigest {
+		if !originalNativeCandidate(r) || r.Revision != in.ExpectedRevision || r.Execution == nil || *r.Execution != in.Execution || proposalDigest(r) != proof.ProposalDigest {
 			return View{}, ErrConflict
 		}
 		fresh, e := p.resolve(ctx, in.Execution, enrichment.Candidate{Changes: r.Original.Changes}, false)
@@ -160,6 +193,7 @@ func (p *PolicyAdoptionService) Adopt(ctx context.Context, key string, in Policy
 			return View{}, e
 		}
 		fresh.ProposalDigest = proof.ProposalDigest
+		fresh.RequiresHuman = fresh.RequiresHuman || contentNeedsHuman(r)
 		if !reflect.DeepEqual(fresh, proof) {
 			return View{}, ErrConflict
 		}
@@ -168,7 +202,7 @@ func (p *PolicyAdoptionService) Adopt(ctx context.Context, key string, in Policy
 			return View{}, e
 		}
 		r.PolicyAdoption = &proof
-		if e = publishTitle(ctx, tx, &r, scope, base); e != nil {
+		if e = publishReview(ctx, tx, &r, scope, base); e != nil {
 			return View{}, e
 		}
 		if e = tx.Save(r); e != nil {
@@ -180,12 +214,19 @@ func (p *PolicyAdoptionService) Adopt(ctx context.Context, key string, in Policy
 	return view, decision, err
 }
 
-func publishTitle(ctx context.Context, tx Tx, r *Record, scope Scope, base catalog.PublishedSnapshot) error {
+func publishReview(ctx context.Context, tx Tx, r *Record, scope Scope, base catalog.PublishedSnapshot) error {
 	snapshot, err := catalog.CloneProductSnapshot(base.Snapshot)
 	if err != nil {
 		return err
 	}
-	snapshot.Title = r.Title
+	if r.Policy == enrichment.ContentPolicyVersion {
+		snapshot, err = applyContentPatch(base.Snapshot, r.Content.Selection, contentChanges(r.Content.After))
+		if err != nil {
+			return err
+		}
+	} else {
+		snapshot.Title = r.Title
+	}
 	raw, _ := json.Marshal([]any{r.Org, r.ID, r.Revision})
 	sum := sha256.Sum256(raw)
 	published, err := tx.Publisher().Publish(ctx, catalog.PublishRequest{Identity: base.Identity, ExpectedBaseVersion: &base.Version, PublicationID: "review:" + hex.EncodeToString(sum[:]), Snapshot: snapshot})
