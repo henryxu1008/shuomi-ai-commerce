@@ -22,6 +22,35 @@ func (p *temuRulesProvider) UploadLocalImage(context.Context, storecenter.Offici
 	return model.LocalImageUploaded{}, "", nil
 }
 
+func (p *temuRulesProvider) CreateSupplierGoods(context.Context, storecenter.OfficialMerchantCredential, model.SupplierGoods) (temugoods.CreatedGoods, error) {
+	p.metadataReads++
+	return temugoods.CreatedGoods{}, nil
+}
+func (p *temuRulesProvider) UploadSupplierImage(context.Context, storecenter.OfficialMerchantCredential, model.SupplierImageUpload) (model.SupplierImageUploaded, string, error) {
+	p.metadataReads++
+	return model.SupplierImageUploaded{}, "", nil
+}
+
+func TestSupplierMutationCannotBorrowLocalOrRulesPurposeAndDispatchesOnce(t *testing.T) {
+	for _, mode := range []storecenter.OfficialMerchantMode{storecenter.MerchantFullyManaged, storecenter.MerchantSemiManaged} {
+		a, _, provider, subject := newTemuRulesAccess(t, storecenter.PartitionCN, mode)
+		_, err := a.AuthorizeTemuMutation(context.Background(), subject, "store-a", nil)
+		require.ErrorIs(t, err, ErrProductAccessChanged)
+		subject.Purpose = storecenter.ProductPurposePublish
+		h, err := a.AuthorizeTemuMutation(context.Background(), subject, "store-a", nil)
+		require.NoError(t, err)
+		_, err = h.CreateLocalGoods(context.Background(), model.LocalGoodsV2{})
+		require.ErrorIs(t, err, ErrProductAccessChanged)
+		_, _, err = h.UploadSupplierImage(context.Background(), model.SupplierImageUpload{})
+		require.ErrorIs(t, err, ErrProductAccessChanged)
+		_, err = h.CreateSupplierGoods(context.Background(), model.SupplierGoods{})
+		require.NoError(t, err)
+		_, err = h.CreateSupplierGoods(context.Background(), model.SupplierGoods{})
+		require.ErrorIs(t, err, ErrProductAccessChanged)
+		require.Equal(t, 1, provider.metadataReads)
+	}
+}
+
 func TestTemuMutationUsesOriginalPurposeAndOnlyOneDispatch(t *testing.T) {
 	for _, purpose := range []string{storecenter.ProductPurposePublish, storecenter.ProductPurposeImage} {
 		t.Run(purpose, func(t *testing.T) {

@@ -32,7 +32,7 @@ func (r *Repository) requireTemuEffect(ctx context.Context, tx *gorm.DB, a submi
 	if err != nil || i.Target != a.Target || i.PayloadFingerprint != a.PayloadFingerprint {
 		return i, submission.ErrExecutionEvidenceRequired
 	}
-	if i.Kind == "publish" && a.Action != submission.TemuPublishAction || i.Kind == "image" && a.Action != submission.TemuLocalImageAction {
+	if i.Kind == "publish" && a.Action != submission.TemuPublishAction || i.Kind == "image" && a.Action != submission.TemuImageAction(i.Binding) {
 		return i, submission.ErrExecutionEvidenceRequired
 	}
 	product, err := submission.TemuProductSubjectID(i.Source.Source.ProductKey, i.Binding)
@@ -105,7 +105,7 @@ func (r *Repository) requireTemuPublicationImages(ctx context.Context, tx *gorm.
 				return submission.ErrExecutionEvidenceRequired
 			}
 			found = true
-			subject, err := submission.TemuLocalImageSubjectID(image.ContentHash, image.CatID, image.Usage, intent.Binding)
+			subject, err := submission.TemuImageSubjectID(image, intent.Binding)
 			if err != nil {
 				return err
 			}
@@ -135,17 +135,17 @@ func (r *Repository) requireTemuPublicationImages(ctx context.Context, tx *gorm.
 		if err != nil {
 			return err
 		}
-		if !found || a.Status != submission.ExecutionSucceeded || a.FenceEpoch != fence.Epoch || a.Target != target || a.Action != submission.TemuLocalImageAction {
+		if !found || a.Status != submission.ExecutionSucceeded || a.FenceEpoch != fence.Epoch || a.Target != target || a.Action != submission.TemuImageAction(intent.Binding) {
 			return submission.ErrExecutionEvidenceRequired
 		}
 		receipt, err := readTemuPolicyReceipt(ctx, tx, a)
 		if err != nil {
 			return err
 		}
-		if collection.Digest(receipt) != entry.ref.ReceiptHash || receipt.TemuImage == nil || receipt.Binding.SupplierIdentityHash != intent.Binding.SupplierIdentityHash || receipt.TemuImage.FenceEpoch != fence.Epoch || !receipt.TemuImage.AttemptCreatedAt.Equal(a.CreatedAt) || receipt.TemuImage.Image.ContentHash != entry.contentHash || receipt.TemuImage.Image.CatID != entry.catID || receipt.TemuImage.Image.Usage != entry.ref.Usage {
+		if collection.Digest(receipt) != entry.ref.ReceiptHash || receipt.TemuImage == nil || receipt.Binding.SupplierIdentityHash != intent.Binding.SupplierIdentityHash || receipt.TemuImage.FenceEpoch != fence.Epoch || !receipt.TemuImage.AttemptCreatedAt.Equal(a.CreatedAt) || receipt.TemuImage.Image.ContentHash != entry.contentHash || receipt.TemuImage.Image.CatID != entry.catID || intent.Binding.Site == "temu-local" && receipt.TemuImage.Image.Usage != entry.ref.Usage {
 			return submission.ErrExecutionEvidenceRequired
 		}
-		if !r.now().UTC().Add(submission.TemuImageSendWindow).Before(receipt.TemuImage.UseBefore) {
+		if intent.Binding.Site == "temu-local" && !r.now().UTC().Add(submission.TemuImageSendWindow).Before(receipt.TemuImage.UseBefore) {
 			return submission.ErrExecutionEvidenceRequired
 		}
 	}
@@ -168,6 +168,9 @@ func readTemuPolicyReceipt(ctx context.Context, tx *gorm.DB, a submission.Execut
 }
 
 func (r *Repository) requireTemuImageRenewal(ctx context.Context, tx *gorm.DB, next submission.OfficialIntent, current submission.ExecutionAttempt) error {
+	if current.Action != submission.TemuLocalImageAction {
+		return submission.ErrExecutionTargetSucceeded
+	}
 	if next.Kind != "image" || next.TemuImage == nil || next.TemuRenewalFrom != current.AttemptID || current.Status != submission.ExecutionSucceeded || current.Action != submission.TemuLocalImageAction {
 		return submission.ErrExecutionEvidenceRequired
 	}

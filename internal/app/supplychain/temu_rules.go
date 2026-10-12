@@ -3,6 +3,7 @@ package supplychainapp
 import (
 	"context"
 	"encoding/json"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -30,6 +31,12 @@ type TemuRulesMerchant interface {
 
 type TemuRuleStore interface {
 	TemuMerchant(context.Context, collection.Scope, string, *storecenter.ProductMerchantBinding) (TemuRulesMerchant, error)
+}
+
+type TemuSupplierSizeMerchant interface {
+	SupplierSizeClass(context.Context, int64) (model.SupplierSizeRequirement, error)
+	SupplierSizeCharts(context.Context, int64, int64) (model.SupplierSizePage, error)
+	SupplierSizeSettings(context.Context, int64, int64) (model.SupplierSizeSettings, error)
 }
 
 type OfficialTemuRuleStore struct {
@@ -76,7 +83,7 @@ func (r TemuRuleReader) ReadTemuTargetRules(ctx context.Context, scope collectio
 		snapshot.Observations = append(snapshot.Observations, temugoods.RuleObservation{EvidenceID: id, API: api, InputHash: collection.Digest(input), DecodedHash: collection.Digest(output)})
 	}
 	if binding.MerchantMode == storecenter.MerchantLocal {
-		if selection.SupplierSiteID != 0 {
+		if selection.SupplierSiteID != 0 || selection.SupplierCategoryPath != ([10]int64{}) || selection.SupplierSizeOffset != 0 {
 			return binding, temugoods.RuleSnapshot{}, record.ErrInvalid
 		}
 		target := r.Catalog.LocalTarget(string(binding.IdentityPartition), binding.RegionID)
@@ -161,6 +168,42 @@ func (r TemuRuleReader) ReadTemuTargetRules(ctx context.Context, scope collectio
 			return binding, temugoods.RuleSnapshot{}, record.ErrUnavailable
 		}
 		observe("E33", "bg.goods.cats.get", query, snapshot.SupplierCategories)
+		if selection.SupplierCategoryPath != ([10]int64{}) {
+			parent := int64(0)
+			for index, id := range selection.SupplierCategoryPath {
+				if id == 0 {
+					break
+				}
+				pathQuery := model.SupplierCategoryQuery{ParentCatID: parent, SiteID: selection.SupplierSiteID}
+				categories := snapshot.SupplierCategories
+				if pathQuery != query {
+					categories, err = merchant.SupplierCategories(ctx, pathQuery)
+					if err != nil {
+						return binding, temugoods.RuleSnapshot{}, record.ErrUnavailable
+					}
+					observe("E33", "bg.goods.cats.get", pathQuery, categories)
+				}
+				var matched *model.SupplierCategory
+				for j := range categories {
+					c := &categories[j]
+					if c.CatID != id {
+						continue
+					}
+					if matched != nil || c.ParentCatID == nil || *c.ParentCatID != parent || c.Level == nil || *c.Level != int64(index+1) || c.Leaf == nil || c.Hidden == nil || *c.Hidden || c.HiddenType == nil || *c.HiddenType != 0 {
+						return binding, temugoods.RuleSnapshot{}, record.ErrNotReady
+					}
+					matched = c
+				}
+				if matched == nil || *matched.Leaf && id != selection.CatID {
+					return binding, temugoods.RuleSnapshot{}, record.ErrNotReady
+				}
+				snapshot.SupplierCategoryPath = append(snapshot.SupplierCategoryPath, *matched)
+				parent = id
+			}
+			if selection.CatID > 0 && (parent != selection.CatID || !snapshot.SupplierCategoryPath[len(snapshot.SupplierCategoryPath)-1].SelectableLeaf()) || selection.CatID == 0 && parent != selection.ParentCatID {
+				return binding, temugoods.RuleSnapshot{}, record.ErrNotReady
+			}
+		}
 		for _, category := range snapshot.SupplierCategories {
 			if category.CatID == selection.CatID && category.ParentCatID != nil && *category.ParentCatID == selection.ParentCatID {
 				snapshot.SelectableLeaf = category.SelectableLeaf()
@@ -173,6 +216,65 @@ func (r TemuRuleReader) ReadTemuTargetRules(ctx context.Context, scope collectio
 			}
 			snapshot.SupplierAttributes = &attributes
 			observe("E35", "bg.goods.attrs.get", selection.CatID, attributes)
+			sizeMerchant, ok := merchant.(TemuSupplierSizeMerchant)
+			if !ok {
+				snapshot.Issues = append(snapshot.Issues, "supplier_size_rules_unverified")
+			} else {
+				sizes, sizeErr := sizeMerchant.SupplierSizeClass(ctx, selection.CatID)
+				if sizeErr != nil || !sizes.Observed || sizes.CatID != selection.CatID {
+					snapshot.Issues = append(snapshot.Issues, "supplier_size_rules_unverified")
+				} else {
+					snapshot.SupplierSizeRequirement = &sizes
+					observe("E46", "bg.glo.goods.sizecharts.class.get", selection.CatID, sizes)
+					if sizes.Class != nil {
+						charts, readErr := sizeMerchant.SupplierSizeCharts(ctx, selection.CatID, selection.SupplierSizeOffset)
+						if readErr != nil {
+							snapshot.Issues = append(snapshot.Issues, "supplier_size_charts_unverified")
+						} else {
+							snapshot.SupplierSizeCharts = &charts
+							observe("E47", "bg.glo.goods.sizecharts.get", struct{ CatID, Offset int64 }{selection.CatID, selection.SupplierSizeOffset}, charts)
+							classes := map[int64]bool{}
+							for _, chart := range charts.Charts {
+								if chart.ClassID != nil && chart.Reusable != nil && !*chart.Reusable {
+									allowed := sizes.Class.ClassType != nil && *sizes.Class.ClassType == 0 && sizes.Class.ClassID != nil && *sizes.Class.ClassID == *chart.ClassID
+									if sizes.Class.ClassType != nil && *sizes.Class.ClassType == 1 {
+										for _, id := range sizes.Class.RelatedClassIDs {
+											if id == *chart.ClassID {
+												allowed = true
+											}
+										}
+									}
+									if allowed {
+										classes[*chart.ClassID] = true
+									}
+								}
+							}
+							classIDs := make([]int64, 0, len(classes))
+							for id := range classes {
+								classIDs = append(classIDs, id)
+							}
+							sort.Slice(classIDs, func(i, j int) bool { return classIDs[i] < classIDs[j] })
+							for _, class := range classIDs {
+								if len(snapshot.Observations) >= 31 {
+									snapshot.Issues = append(snapshot.Issues, "supplier_size_metadata_budget")
+									break
+								}
+								cat := selection.CatID
+								if sizes.Class.ClassType != nil && *sizes.Class.ClassType == 1 {
+									cat = 0
+								}
+								settings, readErr := sizeMerchant.SupplierSizeSettings(ctx, cat, class)
+								if readErr != nil {
+									snapshot.Issues = append(snapshot.Issues, "supplier_size_settings_unverified")
+									continue
+								}
+								snapshot.SupplierSizeSettings = append(snapshot.SupplierSizeSettings, model.SupplierSizeSettingsObservation{ClassID: class, Settings: settings})
+								observe("E49", "bg.glo.goods.sizecharts.settings.get", struct{ CatID, ClassID int64 }{cat, class}, settings)
+							}
+						}
+					}
+				}
+			}
 		}
 	}
 	// Both provider reads and metadata preparation can outlast the first handle.
@@ -190,8 +292,19 @@ func (r TemuRuleReader) ReadTemuTargetRules(ctx context.Context, scope collectio
 }
 
 func validTemuRuleSelection(input model.RuleSelection) bool {
-	if input.ParentCatID < 0 || input.CatID < 0 || input.CatID > 0 && input.CatID == input.ParentCatID || input.SupplierSiteID < 0 || input.TrademarkPage < 0 || input.TrademarkSize < 0 || input.TrademarkSize > 100 || (input.TrademarkPage == 0) != (input.TrademarkSize == 0) {
+	if input.ParentCatID < 0 || input.CatID < 0 || input.CatID > 0 && input.CatID == input.ParentCatID || input.SupplierSiteID < 0 || input.SupplierSizeOffset < 0 || input.SupplierSizeOffset > 1000000 || input.TrademarkPage < 0 || input.TrademarkSize < 0 || input.TrademarkSize > 100 || (input.TrademarkPage == 0) != (input.TrademarkSize == 0) {
 		return false
+	}
+	seen, ended := map[int64]bool{}, false
+	for _, id := range input.SupplierCategoryPath {
+		if id == 0 {
+			ended = true
+			continue
+		}
+		if id < 0 || ended || seen[id] {
+			return false
+		}
+		seen[id] = true
 	}
 	for _, value := range []struct {
 		text    string

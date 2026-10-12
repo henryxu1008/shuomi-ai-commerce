@@ -2,8 +2,7 @@
 
 执行 [#31](https://github.com/qq550723504/task-processor/issues/31)，依据已冻结的
 [TEMU 架构](../architecture/temu-platform-v1.md) 与
-[官方接口证据](../architecture/temu-official-contract-evidence.md)。本页说明当前实现的店铺连接与共享规则读取切片。
-完整交付范围仍包括规则、资料、提交、恢复与商品观察；当前切片不代表这些能力已经完成。
+[官方接口证据](../architecture/temu-official-contract-evidence.md)。本页说明候选代码中的店铺连接、商品资料、提交恢复和只读同步。主 Draft PR #655 尚未合并，未更新保留实例；真实商家接口及用户验收 NOT_RUN。
 
 ## 配置
 
@@ -47,7 +46,7 @@ CN 一个应用支持核验全托管与半托管，经营模式由官方 `semiMa
    永久商家占用仍属于原企业/Store，不能通过断开、更换应用/token/模式或新建店铺转移。
 
 浏览器仅显示核验的经营模式、区域、到期时间和身份摘要，不显示官方商家 ID、token、app secret 或密文。
-商品/订单数字在未取得观察时显示未知，TEMU 同步按钮尚未开放。
+商品数字在未取得观察时显示未知；商品页可选择 TEMU 或明确店铺后启动只读同步。TEMU 订单不在本批开放范围。
 连接与服务开通不等于获得发布许可，也不等于全部站点已可发布。
 GE/AM 缺官方规格的发布开放和全覆盖交付门槛仍保留。
 
@@ -79,16 +78,23 @@ GE/AM 缺官方规格的发布开放和全覆盖交付门槛仍保留。
 返回的 `temu` 是当前类别、属性/规格、所选模板、站点格式、来源/解码内容 hash 与观测时间。
 不可选择或未观察到的末级类别不会查询依赖属性；本土属性只在本店当前列表含所选运费模板时读取，
 否则保留 `selected_freight_unverified`。原连接改变、读取失败、源权限撤销或整个快照超过2 MiB 时拒绝结果；
-整体最多10秒，Store 私密句柄仍只存活5秒。GE/AM 缺规格保留在 `localTarget.issues`。
+整体最多10秒，Store 私密句柄仍受其短期授权截止约束。GE/AM 缺规格保留在 `localTarget.issues`。
 这些元数据不签发整体 readiness；供应商实际币种、限价、资质等也不由字典推定。
 当前 ProductSnapshot 的 Price/Dimensions 使用浮点数、VariantStock 没有缺失标志，不能直接把它们转换成
 TEMU 精确价格/单位或已明确库存。后续资料合同必须保留明确输入/来源与批准，不能以数值默填补齐；
 本切片没有改动 Product canonical schema。
 
-当前 Console 编辑器/BFF 和受控 Tools 尚未接入这个 TEMU variant；不要把 backend 接线写成浏览器端可发布。
-官方 LONG 在 Go/原 JSON 中保留精确整数，后续浏览器 DTO 必须采用字符串 ID/无损读取，不能经过 JavaScript
-浮点数再批准。`temuRules` 仅用于读取，不能与 SHEIN draft 混传；原保存目标入口会拒绝该查询参数，
-避免落入 SHEIN builder。TEMU typed TargetRecord、图片/商品提交和恢复仍待完成。
+当前 Console/BFF 已接 typed TEMU variant，官方 LONG 在浏览器 DTO 使用十进制字符串，Go/官方请求保留原整数。`temuRules` 仅用于读取；保存入口使用单一 `temu` 资料，拒绝混入 SHEIN draft 或查询参数。供应商完整类目路径通过 `supplierCategoryPath`（10项，未使用层级为0）逐级读取核对；当前尺码表有界页可用 `supplierSizeOffset` 指定，未读取的表不声称有效。
+
+## 商品保存、提交与观察入口
+
+1. 在 `/workbench/supply/mine` 打开当前源商品，选择已核实的 TEMU 店铺，再打开平台资料编辑器。保存沿原命令 key/CAS/不可变修订；缺价格、数量、类目或图可保存，但不获得提交许可。
+2. 从本店当前类目/属性和已有批准图片选择明确资料。半托一次选择站点集合、分别输入整数供货价和各仓库初始数量；0与未填不同。包装使用明确mg/mm，源 Product 的浮点价格/尺寸/库存不自动变成这些事实。已有 CompletionDraft 文本只在显式带入后保存。
+3. 当前记录通过检查后，使用原提交入口。所有图片/商品发送沿原 intent/permit/receipt 和 live Store/成员权限；本土图片按原attempt+7天和10秒窗口核查，供应商图片仅按原成功回执与当次同一远端 artifact 内容证明复用，不推导永久有效或自动续传。
+4. 结果创建成功展示原 goodsId 或 productId/SKC/SKU 标识，审核/销售结论来自后续只读同步。UNKNOWN 只查看或恢复原 attempt；不输入 SHEIN SPU、不手工标成功、不解锁后重发。尚无完整 qualified readback 的未知结果保持未知。
+5. 在 `/workbench/store-products` 选择 TEMU 或具体店铺，启动所选店铺的只读同步。Local 使用 opaque pageToken；全托/半托以 SKC 为观察单位。保留原始审核/JIT/销售码，virtualStock 不标注为仓库可用库存；订单查询仍限现有 SHEIN 路径。
+
+GE/AM缺官方币种/精度规则，服务端与编辑器继续关闭受影响发布；仅有站点开放说明或类别可售不覆盖这一缺口。需要新规格、尺码表、素材变体或法律协议事实时保留具体待补全原因，本页不暗中创建或签署。E44缺真实supplierId不猜uniqueId/mallId，不标注手填仓库为官方核实。
 
 ## 当前验证边界
 

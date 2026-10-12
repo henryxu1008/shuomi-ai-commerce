@@ -25,7 +25,7 @@ type TemuImageReference struct {
 // immutable, correlated, unexpired image receipts. The saved native body stays
 // the only owner of all product fields.
 func ResolveTemuPublicationPayload(saved record.TargetRecord, receipts []OfficialReceipt, now time.Time) ([]byte, []TemuImageReference, error) {
-	if !record.PublicationReady(saved) || saved.Input.Temu == nil || saved.Merchant.MerchantMode != storecenter.MerchantLocal || now.IsZero() {
+	if !record.PublicationReady(saved) || saved.Input.Temu == nil || now.IsZero() {
 		return nil, nil, ErrExecutionEvidenceRequired
 	}
 	images := []temugoods.ImageObservation{}
@@ -35,11 +35,12 @@ func ResolveTemuPublicationPayload(saved record.TargetRecord, receipts []Officia
 		var found *OfficialReceipt
 		for i := range receipts {
 			r := &receipts[i]
-			if ValidateOfficialReceipt(*r) != nil || r.Kind != "image" || r.TemuImage == nil || r.Target.Platform != "temu" || r.Binding.OrganizationID != saved.Merchant.OrganizationID || r.Binding.StoreID != saved.Merchant.StoreID || r.Binding.SupplierIdentityHash != saved.Merchant.SupplierIdentityHash || !now.Before(r.TemuImage.UseBefore) {
+			if ValidateOfficialReceipt(*r) != nil || r.Kind != "image" || r.TemuImage == nil || r.Target.Platform != "temu" || r.Binding.OrganizationID != saved.Merchant.OrganizationID || r.Binding.StoreID != saved.Merchant.StoreID || r.Binding.SupplierIdentityHash != saved.Merchant.SupplierIdentityHash || saved.Merchant.MerchantMode == storecenter.MerchantLocal && !now.Before(r.TemuImage.UseBefore) || saved.Merchant.MerchantMode == storecenter.MerchantLocal != (r.Binding.MerchantMode == storecenter.MerchantLocal) {
 				continue
 			}
 			remote := r.TemuImage.Image
-			if remote.ContentHash != selected.ContentHash || remote.CatID != selected.CatID || remote.Usage != selected.Usage || remote.Width != selected.Width || remote.Height != selected.Height || remote.Bytes != selected.Bytes || remote.MediaType != selected.MediaType {
+			expectedSubject, subjectErr := TemuImageSubjectID(selected, saved.Merchant)
+			if subjectErr != nil || r.Target.SubjectID != expectedSubject || remote.ContentHash != selected.ContentHash || remote.CatID != selected.CatID || saved.Merchant.MerchantMode == storecenter.MerchantLocal && remote.Usage != selected.Usage || remote.Width != selected.Width || remote.Height != selected.Height || remote.Bytes != selected.Bytes || remote.MediaType != selected.MediaType {
 				continue
 			}
 			if found != nil {
@@ -167,10 +168,10 @@ func validateTemuIntent(v OfficialIntent) error {
 		}
 		return nil
 	}
-	if v.Kind != "image" || v.Binding.MerchantMode != storecenter.MerchantLocal || v.TemuImage == nil || len(v.TemuImages) > 0 || !temugoods.ValidImageObservation(*v.TemuImage) || len(v.TemuImage.RemoteURLs) > 0 || v.TemuImage.ResponseHash != "" || v.TemuRenewalFrom != "" && !validExecutionAttemptID(v.TemuRenewalFrom) {
+	if v.Kind != "image" || v.TemuImage == nil || len(v.TemuImages) > 0 || !temugoods.ValidImageObservation(*v.TemuImage) || len(v.TemuImage.RemoteURLs) > 0 || v.TemuImage.ResponseHash != "" || v.TemuRenewalFrom != "" && (!validExecutionAttemptID(v.TemuRenewalFrom) || v.Binding.MerchantMode != storecenter.MerchantLocal) {
 		return ErrExecutionEvidenceRequired
 	}
-	subject, err := TemuLocalImageSubjectID(v.TemuImage.ContentHash, v.TemuImage.CatID, v.TemuImage.Usage, v.Binding)
+	subject, err := TemuImageSubjectID(*v.TemuImage, v.Binding)
 	if err != nil || subject != v.Target.SubjectID {
 		return ErrExecutionEvidenceRequired
 	}

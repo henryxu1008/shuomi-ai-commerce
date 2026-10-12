@@ -28,7 +28,7 @@ export function TemuTargetEditor({scope,source,storeId,existing,command,disabled
  const [rules,setRules]=useState<Rules>(),[inventory,setInventory]=useState<Inventory>(),[error,setError]=useState<string>();
  const [loadedRequest,setLoadedRequest]=useState<string>(),[refresh,setRefresh]=useState(0),[completion,setCompletion]=useState<SupplyCompletionDraft>();
  const [selectedImages,setSelectedImages]=useState<Set<string>>(new Set());
- const [parents,setParents]=useState<Array<{id:string;name:string}>>([]);
+ const [parents,setParents]=useState<Array<{id:string;name:string}>>(()=>existing?.input.temu.mode!=="local"?existing?.temuRuleSnapshot?.supplierCategoryPath?.slice(0,-1).map(c=>({id:c.catId,name:c.catName}))??[]:[]);
  const current=useRef(draft);useEffect(()=>{current.current=draft},[draft]);
  const version=existing?.effectiveVersion??source.source.source.version,applied=existing?.applyReceiptId;
  const requestKey=JSON.stringify([scope,source.source.id,storeId,existing?.revision??0,version,applied,selection,refresh]);
@@ -52,11 +52,11 @@ export function TemuTargetEditor({scope,source,storeId,existing,command,disabled
  function pickCategory(id:string){if(!rules||!draft)return;const categories=draft.mode==="local"?rules.temu.localCategories:rules.temu.supplierCategories;
   const item=categories?.find(c=>c.catId===id);if(!item)return;
   const leaf="leaf" in item?item.leaf:item.isLeaf;
-  const next={...selection,parentCatId:leaf?selection.parentCatId:id,catId:leaf?id:"0"};setSelection(next);
+  const path=[...parents.map(p=>p.id),id];const next={...selection,supplierSizeOffset:"0",parentCatId:leaf?selection.parentCatId:id,catId:leaf?id:"0",...(draft.mode!=="local"?{supplierCategoryPath:Array.from({length:10},(_,i)=>path[i]??"0")}: {})};setSelection(next);
   change(v=>{v.selection=next;if(v.local)v.local.goodsBasic.catId=next.catId;if(v.supplier){const path=[...parents.map(p=>p.id),id];catKeys.forEach((k,i)=>{v.supplier![k]=path[i]??"0"})}});
   if(!leaf)setParents(old=>[...old,{id,name:item.catName}]);
  }
- function backCategory(){const nextParents=parents.slice(0,-1),next={...selection,parentCatId:nextParents.at(-1)?.id??"0",catId:"0"};setParents(nextParents);setSelection(next);change(v=>{v.selection=next;if(v.local)v.local.goodsBasic.catId="0";if(v.supplier)catKeys.forEach((k,i)=>{v.supplier![k]=nextParents[i]?.id??null})});}
+ function backCategory(){const nextParents=parents.slice(0,-1),next={...selection,parentCatId:nextParents.at(-1)?.id??"0",catId:"0",...(draft?.mode!=="local"?{supplierCategoryPath:Array.from({length:10},(_,i)=>nextParents[i]?.id??"0")}: {})};setParents(nextParents);setSelection(next);change(v=>{v.selection=next;if(v.local)v.local.goodsBasic.catId="0";if(v.supplier)catKeys.forEach((k,i)=>{v.supplier![k]=nextParents[i]?.id??"0"})});}
  function freight(id:string){const next={...selection,costTemplateId:id};setSelection(next);change(v=>{v.selection=next;if(v.local)v.local.goodsServicePromise.costTemplateId=id});}
  function save(){const parsed=temuTargetInputSchema.safeParse({sourceId:source.source.id,storeId,expectedRevision:existing?.revision??0,effectiveVersion:version,...applied?{applyReceiptId:applied}:{},temu:draft});if(!parsed.success){setError("请检查编号、数字格式与资料数量；未填数值请留空。");return}command.execute("save-target",parsed.data)}
  const target=rules?.temu.localTarget,spec=target?.specification,categories=draft?.mode==="local"?rules?.temu.localCategories:rules?.temu.supplierCategories;
@@ -65,7 +65,7 @@ export function TemuTargetEditor({scope,source,storeId,existing,command,disabled
   {error?<p role="alert" className="text-sm text-red-700">{error}</p>:null}
   <div className="flex flex-wrap items-center gap-3"><p className="font-semibold">TEMU · {draft?modes[draft.mode]:"正在核实店铺"}{target?.region?.label?` · ${target.region.label}`:""}</p><Button size="sm" variant="outline" disabled={loading} onClick={()=>setRefresh(n=>n+1)}>刷新官方规则</Button></div>
   {unavailable?<p className="rounded-lg bg-amber-50 p-3 text-sm">站点规格尚未核实。可以保存商品资料，发布入口保持关闭。</p>:null}
-  {draft?.mode!=="local"&&draft?<p className="text-sm text-amber-700">全托管与半托管使用各自的供货价和站点规则。尚未核实的供货币种、仓库或图片接口会阻止发布。</p>:null}
+  {draft?.mode!=="local"&&draft?<p className="text-sm text-amber-700">全托管与半托管使用各自的供货价和站点规则。资料或规则缺失时会显示原因，并保持待补全。</p>:null}
   {completion&&draft?<Button variant="outline" disabled={disabled} onClick={()=>change(v=>{if(v.local){v.local.goodsBasic.goodsName=completion.content.title;v.local.goodsBasic.goodsDesc=completion.content.description??""}if(v.supplier)v.supplier.productName=completion.content.title})}>带入待补全草稿 R{completion.revision}</Button>:null}
   {draft?<><Field label="商品标题"><Input disabled={disabled} value={draft.local?.goodsBasic.goodsName??draft.supplier?.productName??""} onChange={e=>change(v=>{if(v.local)v.local.goodsBasic.goodsName=e.target.value;if(v.supplier)v.supplier.productName=e.target.value})}/></Field>
    {draft.local?<Field label="商品描述"><Textarea disabled={disabled} value={draft.local.goodsBasic.goodsDesc??""} onChange={e=>local(v=>{v.goodsBasic.goodsDesc=e.target.value})}/></Field>:null}

@@ -89,6 +89,7 @@ func CorrelatesSupplierCreation(input model.SupplierGoods, result model.Supplier
 		remoteGroups[*g.ID] = true
 	}
 	expected := map[string]int{}
+	expectedSpecs := map[string][]model.SupplierSpecification{}
 	count := 0
 	for i, g := range input.SKCs {
 		if len(g.SKUs) < 1 {
@@ -102,6 +103,7 @@ func CorrelatesSupplierCreation(input model.SupplierGoods, result model.Supplier
 				return false
 			}
 			expected[s.ExternalCode] = i
+			expectedSpecs[s.ExternalCode] = s.Specs
 			count++
 		}
 	}
@@ -116,6 +118,25 @@ func CorrelatesSupplierCreation(input model.SupplierGoods, result model.Supplier
 		group, ok := expected[s.ExternalCode]
 		if !ok || codes[s.ExternalCode] || !positiveID(s.ID) || ids[*s.ID] || !positiveID(s.SKCID) || !remoteGroups[*s.SKCID] {
 			return false
+		}
+		if len(s.Specs) != len(expectedSpecs[s.ExternalCode]) {
+			return false
+		}
+		seenSpecs := map[int64]bool{}
+		for _, sent := range expectedSpecs[s.ExternalCode] {
+			if !positiveID(sent.ID) || !positiveID(sent.ParentID) || seenSpecs[*sent.ParentID] {
+				return false
+			}
+			seenSpecs[*sent.ParentID] = true
+			matches := 0
+			for _, returned := range s.Specs {
+				if returned.ID != nil && returned.ParentID != nil && *returned.ID == *sent.ID && *returned.ParentID == *sent.ParentID {
+					matches++
+				}
+			}
+			if matches != 1 {
+				return false
+			}
 		}
 		if prior, ok := assigned[group]; ok && prior != *s.SKCID {
 			return false
@@ -151,7 +172,7 @@ func ValidCreatedGoods(value CreatedGoods) bool {
 			g := model.SupplierSKC{}
 			for _, sku := range value.Supplier.SKUs {
 				if positiveID(sku.SKCID) && *sku.SKCID == *group.ID {
-					g.SKUs = append(g.SKUs, model.SupplierSKU{ExternalCode: sku.ExternalCode})
+					g.SKUs = append(g.SKUs, model.SupplierSKU{ExternalCode: sku.ExternalCode, Specs: append([]model.SupplierSpecification(nil), sku.Specs...)})
 				}
 			}
 			local.SKCs = append(local.SKCs, g)

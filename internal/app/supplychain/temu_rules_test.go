@@ -27,6 +27,7 @@ type temuRulesFixture struct {
 	changed, hidden bool
 	changeAfterRead bool
 	reads           []string
+	categoryPath    []temumodel.SupplierCategory
 }
 
 func (f *temuRulesFixture) TemuMerchant(_ context.Context, scope collection.Scope, storeID string, expected *storecenter.ProductMerchantBinding) (TemuRulesMerchant, error) {
@@ -50,6 +51,15 @@ func (f *temuRulesFixture) LocalCategories(_ context.Context, query temumodel.Lo
 }
 func (f *temuRulesFixture) SupplierCategories(_ context.Context, query temumodel.SupplierCategoryQuery) ([]temumodel.SupplierCategory, error) {
 	f.reads = append(f.reads, "supplier-categories")
+	if f.categoryPath != nil {
+		out := []temumodel.SupplierCategory{}
+		for _, c := range f.categoryPath {
+			if c.ParentCatID != nil && *c.ParentCatID == query.ParentCatID {
+				out = append(out, c)
+			}
+		}
+		return out, nil
+	}
 	if query.ParentCatID != f.selection.ParentCatID || query.SiteID != f.selection.SupplierSiteID {
 		return nil, record.ErrInvalid
 	}

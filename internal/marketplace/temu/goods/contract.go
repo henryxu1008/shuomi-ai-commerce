@@ -11,24 +11,28 @@ import (
 // RuleSnapshot contains observed public platform facts. Authorization belongs
 // to Store and source selection, never to this snapshot or its category flag.
 type RuleSnapshot struct {
-	Selection             model.RuleSelection              `json:"selection"`
-	Mode                  string                           `json:"mode"`
-	LocalTarget           *rules.LocalTarget               `json:"localTarget,omitempty"`
-	SemiSites             []rules.SemiSite                 `json:"semiSites,omitempty"`
-	SpecificationRevision string                           `json:"specificationRevision"`
-	SpecificationSources  []rules.Source                   `json:"specificationSources"`
-	LocalCategories       []model.LocalCategory            `json:"localCategories"`
-	SupplierCategories    []model.SupplierCategory         `json:"supplierCategories"`
-	SelectableLeaf        bool                             `json:"selectableLeaf"`
-	SupplierAttributes    *model.SupplierAttributeTemplate `json:"supplierAttributes,omitempty"`
-	LocalFieldRules       *model.LocalCategoryRules        `json:"localFieldRules,omitempty"`
-	LocalAttributes       *model.LocalAttributeTemplate    `json:"localAttributes,omitempty"`
-	LocalVariations       *model.LocalVariationTemplate    `json:"localVariations,omitempty"`
-	FreightTemplates      []model.LocalFreightTemplate     `json:"freightTemplates"`
-	Trademarks            *model.LocalTrademarkPage        `json:"trademarks,omitempty"`
-	Observations          []RuleObservation                `json:"observations"`
-	Issues                []string                         `json:"issues"`
-	ObservedAt            time.Time                        `json:"observedAt"`
+	Selection               model.RuleSelection                     `json:"selection"`
+	Mode                    string                                  `json:"mode"`
+	LocalTarget             *rules.LocalTarget                      `json:"localTarget,omitempty"`
+	SemiSites               []rules.SemiSite                        `json:"semiSites,omitempty"`
+	SpecificationRevision   string                                  `json:"specificationRevision"`
+	SpecificationSources    []rules.Source                          `json:"specificationSources"`
+	LocalCategories         []model.LocalCategory                   `json:"localCategories"`
+	SupplierCategories      []model.SupplierCategory                `json:"supplierCategories"`
+	SupplierCategoryPath    []model.SupplierCategory                `json:"supplierCategoryPath,omitempty"`
+	SupplierSizeRequirement *model.SupplierSizeRequirement          `json:"supplierSizeRequirement,omitempty"`
+	SupplierSizeCharts      *model.SupplierSizePage                 `json:"supplierSizeCharts,omitempty"`
+	SupplierSizeSettings    []model.SupplierSizeSettingsObservation `json:"supplierSizeSettings,omitempty"`
+	SelectableLeaf          bool                                    `json:"selectableLeaf"`
+	SupplierAttributes      *model.SupplierAttributeTemplate        `json:"supplierAttributes,omitempty"`
+	LocalFieldRules         *model.LocalCategoryRules               `json:"localFieldRules,omitempty"`
+	LocalAttributes         *model.LocalAttributeTemplate           `json:"localAttributes,omitempty"`
+	LocalVariations         *model.LocalVariationTemplate           `json:"localVariations,omitempty"`
+	FreightTemplates        []model.LocalFreightTemplate            `json:"freightTemplates"`
+	Trademarks              *model.LocalTrademarkPage               `json:"trademarks,omitempty"`
+	Observations            []RuleObservation                       `json:"observations"`
+	Issues                  []string                                `json:"issues"`
+	ObservedAt              time.Time                               `json:"observedAt"`
 }
 
 type RuleObservation struct {

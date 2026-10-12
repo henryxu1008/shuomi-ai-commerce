@@ -58,3 +58,26 @@ it("uses exact predefined variation IDs when the current template disallows cust
  const current={...rules("local"),temu:{...rules("local").temu,localVariations:{catId:"34",language:"en",variations:[{parentSpecId:"9007199254740994",parentSpecName:"Color",required:true,variationType:"0",specList:[{specId:"9007199254740993",specName:"Blue",parentSpecId:"9007199254740994",parentSpecName:"Color",subGroupId:null,subGroupName:""}]}]}}};state.rules.mockResolvedValue(current);
  render(<TemuTargetEditor scope={{userId:"actor",organizationId:"org"}} source={source} storeId={id} command={command} disabled={false} saved={0}/>);await screen.findByLabelText("商品标题");await userEvent.click(screen.getByRole("button",{name:"添加规格"}));await userEvent.selectOptions(screen.getByLabelText("规格 1"),"9007199254740994");await userEvent.selectOptions(screen.getByLabelText("规格 1 值"),"9007199254740993");await userEvent.click(screen.getByRole("button",{name:"保存并校验平台资料"}));expect(state.execute.mock.lastCall?.[1].temu.local.skuList[0].specDetails).toEqual([{parentSpecId:"9007199254740994",specId:"9007199254740993",specName:"Blue"}]);
 });
+
+it("derives exact supplier property IDs only from explicitly chosen preset specs",async()=>{
+ const current=rules("fully_managed");state.rules.mockResolvedValue({...current,temu:{...current.temu,supplierAttributes:{properties:[{refPid:"9007199254740993",pid:"11",templatePid:"21",parentSpecId:"9007199254740994",name:"颜色",required:true,isSale:true,mainSale:true,controlType:"9",values:[{vid:"41",specId:"9007199254740995",value:"蓝色"}],group:{id:"9007199254740996",name:"官方组"}}]}}});
+ render(<TemuTargetEditor scope={{organizationId:"org",userId:"actor"}} source={source} storeId={id} command={command} disabled={false} saved={0}/>);
+ await screen.findByText("TEMU · 全托管");
+ await userEvent.selectOptions(screen.getByRole("combobox",{name:"SKC 1 主规格 颜色"}),"9007199254740995");
+ await userEvent.selectOptions(screen.getByRole("combobox",{name:"SKC 1 SKU 1 规格 颜色"}),"9007199254740995");
+ await userEvent.click(screen.getByRole("button",{name:"保存并校验平台资料"}));
+ expect(state.execute.mock.lastCall?.[1].temu.supplier.productSpecPropertyReqs).toEqual([{pid:"11",templatePid:"21",refPid:"9007199254740993",propName:"颜色",vid:"41",propValue:"蓝色",valueUnit:"",specId:"9007199254740995",parentSpecId:"9007199254740994",valueGroupId:"9007199254740996",valueGroupName:"官方组"}]);
+});
+it("saves the full supplier category path and explicit zero unused levels",async()=>{
+ state.rules.mockImplementation((_scope,request)=>{const current=rules("fully_managed");return Promise.resolve({...current,temu:{...current.temu,supplierCategories:request.temuRules.parentCatId==="0"?[{catId:"12",catName:"一级",isLeaf:false}]:[{catId:"34",catName:"末级",isLeaf:true}]}})});
+ render(<TemuTargetEditor scope={{organizationId:"org",userId:"actor"}} source={source} storeId={id} command={command} disabled={false} saved={0}/>);
+ await screen.findByText("TEMU · 全托管");
+ await userEvent.selectOptions(screen.getByRole("combobox",{name:"官方类目"}),"12");
+ await screen.findByRole("option",{name:"末级"});
+ await waitFor(()=>expect(screen.getByRole("combobox",{name:"官方类目"})).not.toBeDisabled());
+ await userEvent.selectOptions(screen.getByRole("combobox",{name:"官方类目"}),"34");
+ await userEvent.click(screen.getByRole("button",{name:"保存并校验平台资料"}));
+ const saved=state.execute.mock.lastCall?.[1].temu;
+ expect(saved.selection.supplierCategoryPath).toEqual(["12","34","0","0","0","0","0","0","0","0"]);
+ expect(saved.supplier).toMatchObject({cat1Id:"12",cat2Id:"34",cat3Id:"0",cat10Id:"0"});
+});

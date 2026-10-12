@@ -44,8 +44,7 @@ func resolveImages(input DraftInput, inventory asset.ApprovedAssetInventory, obs
 		issues = append(issues, Issue{"images", code, "核实已批准图片的内容、用途及目标位置"})
 	}
 	if input.Mode != "local" {
-		add("supplier_image_contract_unverified")
-		return input, issues
+		return resolveSupplierImages(input, inventory, observations)
 	}
 	if input.Local == nil {
 		add("image_input_invalid")

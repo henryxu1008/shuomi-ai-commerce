@@ -373,3 +373,15 @@ E30 全部 235 行通过可见 DOM 表格读取，下列完整保留其中有 Si
 E43：[bg.goods.image.upload.global](https://agentpartner.temu.com/document?cataId=875198836203&docId=929743122710)，更新时间2025-06-22 20:00:52。PA 图片接口输入 image 为 jpg/jpeg/png 等的 base64，imageBizType 为0/1（1用于外包装）；options 可选择 cateId、doIntelligenceCrop、boost、sizeMode，响应包含 urls、imageUrl、url。该事实不能将它当作本土 V2 的 fileUrl/catId/usage 合同，不能静默智能裁剪、清晰度增强或任意选择多个返回结果，也未从此页证明永久有效。
 
 本轮再次核对 E24：页面仍为2026-01-26 15:47:43，完整可见表没有 Georgia/Armenia 或165/166；地区专用接口菜单当前可见补充为 Brazil，未找到两目标规格。只对已读页面作此结论，继续保留 GE/AM 缺规则及拒绝发布。
+
+
+E43 请求层级补核（2026-10-12）：官方展开参数表的 options 子行缩进明确 cateId/doIntelligenceCrop/boost/sizeMode 位于 options 对象内，image/imageBizType 位于外层。实现仅选择原图 sizeMode=0、crop=false、boost=false；不静默生成或选择 AI 变体。源与返回产物分别留内容证明；没有从此页推导供应商 URL TTL。
+
+| Evidence | 官方来源 | 更新 | 读取事实与限制 |
+|---|---|---|---|
+| E46 | [bg.glo.goods.sizecharts.class.get](https://agentpartner.temu.com/document?cataId=875198836203&docId=934975863040) | 2026-04-29 22:27:23 | PA；catId/classId；result.sizeSpecClassCat 含 catId/classId/parentClassId/relatedClassIds/classType(0普通、1套装)。按 E27 非空映射要求尺码表；仅明确 null 视为无映射，失败/缺字段保持未知 |
+| E47 | [bg.glo.goods.sizecharts.get](https://agentpartner.temu.com/document?cataId=875198836203&docId=934978194903) | 2026-04-29 22:27:23 | PA；catId/offset/pageSize；result offset/pageSize/totalCount/sizeSpecDataList。表项 classId/contentDTO.records.values/businessId/reusable/updatedAt，supplierId 不被借作 E44 身份转换。reusable=true 需 E27 另行 template.create；不暗中创建 |
+| E48 | [bg.glo.goods.sizecharts.meta.get](https://agentpartner.temu.com/document?cataId=875198836203&docId=933921709056) | 2026-04-29 22:27:23 | PA；catId/classId；sizeSpecMeta 的 groupList/elementList/sizeTypeElementsList 与必要标志；不按名称猜主尺码字段，不把 deprecated elements/groups 作为 fallback |
+| E49 | [bg.glo.goods.sizecharts.settings.get](https://agentpartner.temu.com/document?cataId=875198836203&docId=934976723937) | 2026-04-29 22:27:23 | PA；catId/classId，可选 shoeSizeType（null/0 regular、1 wide fit）；result sizeList、code、mappingContent.records.values 及 meta.groupList/elementList。当前读原默认设置，依据官方 group IDs 和 mapping tuples 比对现有表；未知/歧义不消费，测量数值碰巧等于尺码不构成关联 |
+
+以上为登录后文档调查和隔离实现证据，未调用真实 merchant API。GE/AM 仍没有已读价格币种/精度依据，2026-10-12 GLOBAL 标题搜索 Georgia/Armenia 未返回相关条目，站点差异菜单只显示 Brazil；不能据此断言官方不存在其他资料，继续关闭受影响发布。

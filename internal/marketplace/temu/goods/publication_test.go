@@ -2,6 +2,7 @@ package goods
 
 import (
 	"github.com/stretchr/testify/require"
+	"strings"
 	"task-processor/internal/marketplace/temu/model"
 	"testing"
 )
@@ -29,6 +30,12 @@ func TestSupplierCreationCorrelatesAllSKCGroupsByOriginalSKUCode(t *testing.T) {
 	in := model.SupplierGoods{SKCs: []model.SupplierSKC{{SKUs: []model.SupplierSKU{{ExternalCode: "a"}, {ExternalCode: "b"}}}, {SKUs: []model.SupplierSKU{{ExternalCode: "c"}}}}}
 	out := model.SupplierGoodsCreated{ProductID: p(1), SKCs: []model.SupplierCreatedSKC{{ID: p(10)}, {ID: p(11)}}, SKUs: []model.SupplierCreatedSKU{{ID: p(100), SKCID: p(10), ExternalCode: "b"}, {ID: p(101), SKCID: p(11), ExternalCode: "c"}, {ID: p(102), SKCID: p(10), ExternalCode: "a"}}}
 	require.True(t, CorrelatesSupplierCreation(in, out))
+	in.SKCs[0].SKUs[1].Specs = []model.SupplierSpecification{{ID: p(51), ParentID: p(31)}}
+	out.SKUs[0].Specs = []model.SupplierSpecification{{ID: p(52), ParentID: p(31)}}
+	require.False(t, CorrelatesSupplierCreation(in, out), "a returned SKU cannot correlate a different preset specification")
+	out.SKUs[0].Specs = []model.SupplierSpecification{{ID: p(51), ParentID: p(31)}}
+	require.True(t, CorrelatesSupplierCreation(in, out))
+	require.True(t, ValidCreatedGoods(CreatedGoods{Supplier: &out, ResponseHash: strings.Repeat("a", 64)}))
 	out.SKUs[0].SKCID = p(11)
 	require.False(t, CorrelatesSupplierCreation(in, out), "a partial group match cannot seal a product success")
 	out.SKUs[0].SKCID = p(10)

@@ -189,6 +189,25 @@ func TestPostgresTemuImageRenewalRequiresLatestKnownExpiredSuccess(t *testing.T)
 		_, err = kernel.Acquire(ctx, productCommand)
 		require.ErrorIs(t, err, submission.ErrExecutionEvidenceRequired, "a durable intent cannot acquire a product permit after image expiry or without its complete sending window")
 	}
+	t.Run("supplier image has no invented renewal and shares all selected positions", func(t *testing.T) {
+		resetTemuEffectRows(t, db)
+		supplier := seedTemuSupplierRecord(t, db, saved)
+		retained := seedTemuImageSuccess(t, db, supplier, time.Now().UTC().Add(-365*24*time.Hour).Truncate(time.Microsecond))
+		require.True(t, retained.TemuImage.UseBefore.IsZero())
+		imageCommand := seedTemuImageIntent(t, db, supplier, "supplier-image-new-key", "")
+		_, err := kernel.Acquire(ctx, imageCommand)
+		require.ErrorIs(t, err, submission.ErrExecutionTargetSucceeded)
+		productCommand := seedTemuProductIntent(t, db, supplier, retained, time.Now().UTC())
+		acquired, err := kernel.Acquire(ctx, productCommand)
+		require.NoError(t, err)
+		require.NotNil(t, acquired.Permit)
+		claim := submission.ExecutionClaim{Scope: submission.ExecutionScope{OrganizationID: "org-a"}, AttemptID: acquired.Attempt.AttemptID, FenceEpoch: acquired.Permit.FenceEpoch, OwnerID: acquired.Permit.ClaimOwnerID, Token: acquired.Permit.ClaimToken}
+		_, err = kernel.MarkUnknown(ctx, claim, submission.UnknownResponseLost)
+		require.NoError(t, err)
+		another := seedTemuImageIntent(t, db, supplier, "supplier-image-product-unknown", "")
+		_, err = kernel.Acquire(ctx, another)
+		require.ErrorIs(t, err, submission.ErrExecutionTargetClaimed)
+	})
 	require.NoError(t, db.Exec("DROP INDEX listing_submission_official_permanent_effect").Error)
 	_, err = officialstore.NewOfficialRepository(ctx, db)
 	require.ErrorIs(t, err, submission.ErrExecutionUnavailable, "serving must reject a missing permanent-effect constraint")
@@ -261,11 +280,17 @@ func boolPtr(v bool) *bool { return &v }
 func seedTemuImageIntent(t *testing.T, db *gorm.DB, saved record.TargetRecord, key, prior string) submission.AcquireExecutionCommand {
 	t.Helper()
 	image := saved.TemuImageObservations[0]
-	raw, err := json.Marshal(model.LocalImageUpload{FileURL: image.SourceURL, CatID: image.CatID, Usage: image.Usage})
+	var input any = model.LocalImageUpload{FileURL: image.SourceURL, CatID: image.CatID, Usage: image.Usage}
+	if saved.Merchant.MerchantMode != storecenter.MerchantLocal {
+		biz, e := submission.TemuSupplierImageBusinessType(image.Usage)
+		require.NoError(t, e)
+		input = submission.TemuSupplierImageManifest{Image: image, BusinessType: biz, Options: model.SupplierImageOptions{CategoryID: image.CatID}}
+	}
+	raw, err := json.Marshal(input)
 	require.NoError(t, err)
-	subject, err := submission.TemuLocalImageSubjectID(image.ContentHash, image.CatID, image.Usage, saved.Merchant)
+	subject, err := submission.TemuImageSubjectID(image, saved.Merchant)
 	require.NoError(t, err)
-	command := submission.AcquireExecutionCommand{Scope: submission.ExecutionScope{OrganizationID: saved.Merchant.OrganizationID}, IntentKey: key, Target: submission.ExecutionTarget{Platform: "temu", StoreID: saved.Merchant.StoreID, SubjectID: subject}, Action: submission.TemuLocalImageAction, Payload: raw, ClaimOwnerID: "worker-a", Lease: time.Minute}
+	command := submission.AcquireExecutionCommand{Scope: submission.ExecutionScope{OrganizationID: saved.Merchant.OrganizationID}, IntentKey: key, Target: submission.ExecutionTarget{Platform: "temu", StoreID: saved.Merchant.StoreID, SubjectID: subject}, Action: submission.TemuImageAction(saved.Merchant), Payload: raw, ClaimOwnerID: "worker-a", Lease: time.Minute}
 	id, _ := uuid.NewV7()
 	reserved, err := submission.NewExecutionReservation(command, id.String(), "test-claim", time.Now().UTC())
 	require.NoError(t, err)
@@ -292,6 +317,10 @@ func seedTemuImageSuccess(t *testing.T, db *gorm.DB, saved record.TargetRecord, 
 	image.RemoteURLs = []string{"https://temu-image.example.org/a.png"}
 	image.ResponseHash = responseHash
 	r := submission.OfficialReceipt{ID: a.AttemptID, Owner: collection.Scope{OrganizationID: saved.Merchant.OrganizationID, ActorID: "actor-a", MemberID: "member-a"}, Kind: "image", Target: a.Target, IntentKey: a.IntentKey, PayloadFingerprint: a.PayloadFingerprint, ResponseHash: responseHash, Binding: saved.Merchant, TemuImage: &submission.TemuImageReceipt{Image: image, AttemptCreatedAt: created, FenceEpoch: 1, UseBefore: created.Add(submission.TemuLocalImageLifetime)}, ObservedAt: observedAt}
+	if saved.Merchant.MerchantMode != storecenter.MerchantLocal {
+		r.TemuImage.UseBefore = time.Time{}
+		r.TemuImage.SupplierArtifact = &temugoods.ImageArtifact{URL: image.RemoteURLs[0], ContentHash: collection.Digest("platform reencoded image"), Width: image.Width, Height: image.Height, Bytes: image.Bytes, MediaType: image.MediaType}
+	}
 	require.NoError(t, submission.ValidateOfficialReceipt(r))
 	a, err = submission.CompleteClaimedExecution(a, submission.ExecutionEvidence{Kind: submission.EvidenceProviderResponse, Outcome: submission.ExecutionSucceeded, Reference: r.ID, Fingerprint: responseHash, ObservedAt: observedAt}, created.Add(2*time.Second))
 	require.NoError(t, err)

@@ -2,7 +2,9 @@ package temu
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"github.com/stretchr/testify/require"
 	"net/http"
 	"task-processor/internal/marketplace/temu/model"
@@ -46,6 +48,64 @@ func TestLocalCreationAndImageUseFixedRegionalOuterProtocolWithoutRetry(t *testi
 			require.Len(t, image.Images, 2)
 			require.Len(t, hash, 64)
 			require.Equal(t, []string{localInfoAPI, localGoodsAddAPI, localInfoAPI, localImageUploadAPI}, calls)
+		})
+	}
+}
+
+func TestSupplierCreationAndImagesUsePAOuterProtocolAndNeverLocalImageFields(t *testing.T) {
+	for _, semi := range []bool{false, true} {
+		t.Run(fmt.Sprint(semi), func(t *testing.T) {
+			mutations := 0
+			c := identityClient(t, storecenter.PartitionCN, roundTripFunc(func(r *http.Request) (*http.Response, error) {
+				fields := map[string]json.RawMessage{}
+				require.NoError(t, json.NewDecoder(r.Body).Decode(&fields))
+				var api string
+				require.NoError(t, json.Unmarshal(fields["type"], &api))
+				switch api {
+				case supplierInfoAPI:
+					return jsonResponse(`{"success":true,"result":{"uniqueId":"pa-mall-1","expiredTime":1900000000,"apiScopeList":["bg.glo.goods.add","bg.goods.image.upload.global"]}}`), nil
+				case supplierModeAPI:
+					return jsonResponse(fmt.Sprintf(`{"success":true,"result":{"semiManagedMall":%t}}`, semi)), nil
+				case supplierGoodsAddAPI:
+					mutations++
+					require.Equal(t, supplierAPIOrigin+"/openapi/router", r.URL.String())
+					require.NotContains(t, fields, "request")
+					require.NotContains(t, fields, "siteId")
+					require.NotContains(t, fields, "mallId")
+					require.Contains(t, fields, "productName")
+					return jsonResponse(`{"success":true,"result":{"productId":9007199254740993,"productSkcList":[{"productSkcId":21}],"productSkuList":[{"productSkuId":31,"productSkcId":21,"extCode":"sku-a","skuSpecList":[]}]}}`), nil
+				case supplierImageUploadAPI:
+					mutations++
+					require.Equal(t, supplierAPIOrigin+"/openapi/router", r.URL.String())
+					require.Contains(t, fields, "image")
+					require.NotContains(t, fields, "fileUrl")
+					require.NotContains(t, fields, "usage")
+					require.NotContains(t, fields, "cateId")
+					require.NotContains(t, fields, "doIntelligenceCrop")
+					require.NotContains(t, fields, "boost")
+					require.NotContains(t, fields, "sizeMode")
+					require.JSONEq(t, `{"cateId":34,"doIntelligenceCrop":false,"boost":false,"sizeMode":0}`, string(fields["options"]))
+					return jsonResponse(`{"success":true,"result":{"urls":["https://temu-image.example.org/a.png"],"imageUrl":"https://temu-image.example.org/a.png","url":"https://temu-image.example.org/a.png"}}`), nil
+				}
+				t.Fatalf("unadmitted %s", api)
+				return nil, nil
+			}))
+			input := model.SupplierGoods{Name: "Explicit", SKCs: []model.SupplierSKC{{SKUs: []model.SupplierSKU{{ExternalCode: "sku-a"}}}}}
+			if semi {
+				input.SemiManaged = &model.SupplierSemiManaged{SiteIDs: []int64{100}}
+			}
+			created, err := c.CreateSupplierGoods(context.Background(), tokenCredential(), input)
+			require.NoError(t, err)
+			require.EqualValues(t, 9007199254740993, *created.Supplier.ProductID)
+			// A real PNG, used only by this synthetic transport fixture.
+			encoded := "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg=="
+			_, err = base64.StdEncoding.DecodeString(encoded)
+			require.NoError(t, err)
+			image, hash, err := c.UploadSupplierImage(context.Background(), tokenCredential(), model.SupplierImageUpload{Image: encoded, Options: model.SupplierImageOptions{CategoryID: 34}, BusinessType: 0})
+			require.NoError(t, err)
+			require.Len(t, image.URLs, 1)
+			require.Len(t, hash, 64)
+			require.Equal(t, 2, mutations)
 		})
 	}
 }

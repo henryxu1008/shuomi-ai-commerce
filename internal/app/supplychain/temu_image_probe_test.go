@@ -29,11 +29,18 @@ func TestTemuImageEvidenceUsesActualBytesAndCannotProbePrivateSource(t *testing.
 	require.Equal(t, 900, observed.Width)
 	require.EqualValues(t, len(raw), observed.Bytes)
 	require.Empty(t, observed.RemoteURLs)
+	actual, err := probe.ReadTemuImage(context.Background(), observed, "fully_managed")
+	require.NoError(t, err)
+	require.Equal(t, raw, actual)
+	clear(actual)
+	artifact, err := probe.ProbeTemuArtifact(context.Background(), approved.URL)
+	require.NoError(t, err)
+	require.Equal(t, observed.ContentHash, artifact.ContentHash)
 	raw = raw[:40]
 	_, err = probe.ProbeTemu(context.Background(), approved, 34, 3, "local")
 	require.Error(t, err)
 	approved.URL = "https://127.0.0.1/private.png"
 	_, err = probe.ProbeTemu(context.Background(), approved, 34, 3, "local")
 	require.Error(t, err)
-	require.Equal(t, 2, calls)
+	require.Equal(t, 4, calls)
 }

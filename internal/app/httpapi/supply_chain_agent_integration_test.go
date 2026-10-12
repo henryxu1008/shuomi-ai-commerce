@@ -34,6 +34,8 @@ import (
 	"task-processor/internal/listing/submission"
 	"task-processor/internal/marketplace/shein/goods"
 	sheinmodel "task-processor/internal/marketplace/shein/model"
+	temugoods "task-processor/internal/marketplace/temu/goods"
+	temumodel "task-processor/internal/marketplace/temu/model"
 	"task-processor/internal/product/asset"
 	"task-processor/internal/product/collection"
 	"task-processor/internal/product/review"
@@ -57,6 +59,18 @@ func TestSupplyProductAgentDurableExecutionUsesRealOwners(t *testing.T) {
 
 type supplyAgentFixtureRules struct {
 	merchant storecenter.ProductMerchantBinding
+}
+
+type supplyNativeDraftRules struct{ supplyAgentFixtureRules }
+
+func (r supplyNativeDraftRules) ReadTemuTargetRules(_ context.Context, scope collection.Scope, storeID string, selection temumodel.RuleSelection) (storecenter.ProductMerchantBinding, temugoods.RuleSnapshot, error) {
+	if scope.OrganizationID != r.merchant.OrganizationID || storeID != r.merchant.StoreID {
+		return storecenter.ProductMerchantBinding{}, temugoods.RuleSnapshot{}, record.ErrForbidden
+	}
+	return r.merchant, temugoods.RuleSnapshot{Mode: string(r.merchant.MerchantMode), Selection: selection, SpecificationRevision: "current-fixture-rules", ObservedAt: time.Now().UTC()}, nil
+}
+func (supplyAgentUnusedProbe) ProbeTemu(context.Context, asset.ApprovedAsset, int64, int64, string) (temugoods.ImageObservation, error) {
+	return temugoods.ImageObservation{}, record.ErrNotReady
 }
 
 func (r supplyAgentFixtureRules) ReadTargetMerchant(_ context.Context, scope collection.Scope, storeID string) (storecenter.ProductMerchantBinding, error) {
@@ -179,6 +193,49 @@ func testSupplyAgentOwners(t *testing.T, mode string, f *acquisitionHTTPFixture,
 	app.Execution.Repository = operationsRepo
 	var draftBefore d.DraftSnapshot
 	if mode == "supply private draft quality" {
+		t.Run("TEMU qualified private draft inspection through original owners", func(t *testing.T) {
+			for _, merchantMode := range []storecenter.OfficialMerchantMode{storecenter.MerchantLocal, storecenter.MerchantFullyManaged, storecenter.MerchantSemiManaged} {
+				binding := rules.merchant
+				binding.Platform, binding.MerchantMode, binding.Site, binding.IdentityPartition, binding.RegionID = storecenter.PlatformTemu, merchantMode, "temu-supplier", storecenter.PartitionCN, 0
+				binding.StoreID = uuid.NewString()
+				binding.ApplicationType = ""
+				binding.ApplicationRevision = "v1:temu:CN:manual_token:6:r1"
+				binding.CredentialExpiresAt = time.Now().Add(time.Hour)
+				binding.VerificationRevision = "official-fixture-v1"
+				binding.ScopesHash = collection.Digest("native fixture scopes")
+				input := temugoods.DraftInput{Mode: string(merchantMode), Supplier: &temumodel.SupplierGoods{Name: "Native saved title"}}
+				if merchantMode == storecenter.MerchantLocal {
+					binding.IdentityPartition, binding.Site, binding.RegionID, binding.ApplicationRevision = storecenter.PartitionUS, "temu-local", 211, "v1:temu:US:manual_token:1:r1"
+					input.Supplier = nil
+					input.Local = &temumodel.LocalGoodsV2{Basic: temumodel.LocalGoodsBasic{Name: "Native saved title"}}
+				}
+				nativeRules := supplyNativeDraftRules{supplyAgentFixtureRules{binding}}
+				nativeTargets, e := record.NewTargetService(record.TargetDependencies{Sources: selector, ExecutionSources: selector, ExecutionAuthorization: authority, Products: effective, Assets: assets, Rules: rules, TemuRules: nativeRules, TemuImages: supplyAgentUnusedProbe{}, Records: records, Images: supplyAgentUnusedProbe{}, Authorizer: prepAuth})
+				require.NoError(t, e)
+				nativeTarget, e := nativeTargets.Create(actor, uuid.NewString(), record.TargetInput{SourceID: page.Items[0].ID, StoreID: binding.StoreID, EffectiveVersion: 1, Temu: &input})
+				require.NoError(t, e)
+				nativeApp := *app
+				nativeApp.Targets = nativeTargets
+				nativeApp.TargetMerchants = nativeRules
+				nativeApp.PublicationReceipts, e = officialstore.NewOfficialRepository(ctx, f.owner)
+				require.NoError(t, e)
+				snapshot, e := (supplyDraftInspector{&nativeApp}).Inspect(actor, d.Scope{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID}, d.DraftSelection{RecordID: nativeTarget.Record.ID, ExpectedRevision: 1}, false)
+				require.NoError(t, e)
+				require.Equal(t, "temu", snapshot.Platform)
+				require.Equal(t, binding.Site, snapshot.Site)
+				require.Equal(t, "Native saved title", snapshot.Title)
+				require.False(t, snapshot.ReadyForUpload)
+				require.False(t, snapshot.OfflineTrial)
+				require.Len(t, snapshot.Issues, len(nativeTarget.Record.Temu.Issues))
+				require.Equal(t, collection.Digest(nativeTarget.Record), snapshot.RecordHash)
+				current, e := (supplyDraftInspector{&nativeApp}).Inspect(actor, d.Scope{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID}, d.DraftSelection{RecordID: nativeTarget.Record.ID, ExpectedRevision: 1}, true)
+				require.NoError(t, e)
+				require.Equal(t, snapshot, current)
+				_, e = (supplyDraftInspector{&nativeApp}).Inspect(ctx, d.Scope{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID}, d.DraftSelection{RecordID: nativeTarget.Record.ID, ExpectedRevision: 1}, true)
+				require.ErrorIs(t, e, d.ErrForbidden)
+
+			}
+		})
 		t.Run("native read assembly without title execution", func(t *testing.T) {
 			require.NoError(t, f.owner.Exec("ALTER TABLE product_title_operations RENAME TO private_draft_test_title_operations").Error)
 			require.NoError(t, acquisitionstore.GrantRuntimePermissions(ctx, f.owner, acquisitionstore.RuntimeCapabilities{Collections: true, SupplyChain: true}))

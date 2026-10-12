@@ -232,7 +232,7 @@ func (c *OfficialClient) callOfficialResponse(ctx context.Context, origin, api, 
 		Success *bool           `json:"success"`
 		Result  json.RawMessage `json:"result"`
 	}
-	if json.Unmarshal(data, &envelope) != nil || envelope.Success == nil || !*envelope.Success || len(envelope.Result) == 0 || bytes.Equal(envelope.Result, []byte("null")) || json.Unmarshal(envelope.Result, result) != nil {
+	if json.Unmarshal(data, &envelope) != nil || envelope.Success == nil || !*envelope.Success || len(envelope.Result) == 0 || bytes.Equal(envelope.Result, []byte("null")) && api != supplierSizeClassAPI || json.Unmarshal(envelope.Result, result) != nil {
 		// No provider message/raw body is included: either can echo secrets.
 		return "", storecenter.ErrOfficialConnectionUnavailable
 	}

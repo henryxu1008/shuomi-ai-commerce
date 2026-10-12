@@ -72,3 +72,32 @@ func (s *UploadService) temuFacts(ctx context.Context, scope collection.Scope, s
 	}
 	return observed, nil
 }
+
+// Artifact observations are external I/O too. Recheck current owned facts
+// after they complete, before either claim or the final provider dispatch.
+func (s *UploadService) temuCurrentHeads(ctx context.Context, scope collection.Scope, saved record.TargetRecord) error {
+	if err := s.authorize(ctx, scope); err != nil {
+		return err
+	}
+	head, err := s.dependencies.Records.ReadTargetHead(ctx, scope, saved.TargetID)
+	if err != nil || head.ID != saved.ID || collection.Digest(head) != collection.Digest(saved) {
+		return record.ErrConflict
+	}
+	proof, err := s.source(ctx, scope, saved)
+	if err != nil {
+		return err
+	}
+	product, err := s.dependencies.Products.ReadEffectiveTargetProduct(ctx, proof, saved.EffectiveVersion, saved.ApplyReceiptID)
+	if err != nil || product.Identity.TenantID != scope.OrganizationID || product.Identity.ProductKey != saved.Source.Source.ProductKey || product.Version != saved.EffectiveVersion || collection.Digest(product.Snapshot) != saved.ProductHash {
+		return record.ErrConflict
+	}
+	assetScope := asset.InventoryScope{TenantID: scope.OrganizationID, ProductKey: product.Identity.ProductKey, TargetPlatform: "temu", SourceSnapshotVersion: product.Version}
+	inventory, err := s.dependencies.Assets.GetApprovedInventory(ctx, assetScope)
+	if err != nil || inventory.Scope != assetScope || collection.Digest(inventory) != saved.InventoryHash {
+		return record.ErrNotReady
+	}
+	if _, err = s.source(ctx, scope, saved); err != nil {
+		return err
+	}
+	return s.authorize(ctx, scope)
+}

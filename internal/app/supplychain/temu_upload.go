@@ -89,13 +89,16 @@ func (s *UploadService) uploadTemu(ctx context.Context, scope collection.Scope, 
 	if err != nil {
 		return UploadResult{}, err
 	}
-	if saved.Merchant.MerchantMode != storecenter.MerchantLocal {
-		return UploadResult{}, record.ErrNotReady
-	}
 	receipts := make([]submission.OfficialReceipt, 0, len(observed))
 	seen := map[string]bool{}
 	for _, image := range observed {
-		receipt, pending, err := s.temuImage(ctx, scope, saved, image)
+		var receipt submission.OfficialReceipt
+		var pending *UploadResult
+		if saved.Merchant.MerchantMode == storecenter.MerchantLocal {
+			receipt, pending, err = s.temuImage(ctx, scope, saved, image)
+		} else {
+			receipt, pending, err = s.temuSupplierImage(ctx, scope, saved, image)
+		}
 		if err != nil {
 			return UploadResult{}, err
 		}
@@ -163,14 +166,24 @@ func (s *UploadService) uploadTemu(ctx context.Context, scope collection.Scope, 
 	if err != nil {
 		return s.unknown(ctx, saved.ID, claim), nil
 	}
-	var input model.LocalGoodsV2
-	if json.Unmarshal(payload, &input) != nil {
-		return s.unknown(ctx, saved.ID, claim), nil
-	}
 	if !time.Now().Before(acquired.Permit.LeaseExpiresAt) {
 		return s.unknown(ctx, saved.ID, claim), nil
 	}
-	result, err := merchant.CreateLocalGoods(ctx, input)
+	var result temugoods.CreatedGoods
+	if intent.Binding.MerchantMode == storecenter.MerchantLocal {
+		var input model.LocalGoodsV2
+		if json.Unmarshal(payload, &input) != nil {
+			return s.unknown(ctx, saved.ID, claim), nil
+		}
+		result, err = merchant.CreateLocalGoods(ctx, input)
+	} else {
+		var input model.SupplierGoods
+		supplier, ok := merchant.(TemuSupplierExecutionMerchant)
+		if !ok || json.Unmarshal(payload, &input) != nil {
+			return s.unknown(ctx, saved.ID, claim), nil
+		}
+		result, err = supplier.CreateSupplierGoods(ctx, input)
+	}
 	if err != nil {
 		return s.unknown(ctx, saved.ID, claim), nil
 	}
@@ -189,14 +202,27 @@ func (s *UploadService) temuPublicationImages(ctx context.Context, scope collect
 	current := make([]submission.OfficialReceipt, 0, len(retained))
 	for _, receipt := range retained {
 		actual, err := s.dependencies.Receipts.FindOfficialTarget(ctx, scope.OrganizationID, receipt.Target)
-		if err != nil || actual.TemuImage == nil || collection.Digest(actual) != collection.Digest(receipt) || !time.Now().UTC().Add(submission.TemuImageSendWindow).Before(actual.TemuImage.UseBefore) {
+		if err != nil || actual.TemuImage == nil || collection.Digest(actual) != collection.Digest(receipt) || saved.Merchant.MerchantMode == storecenter.MerchantLocal && !time.Now().UTC().Add(submission.TemuImageSendWindow).Before(actual.TemuImage.UseBefore) {
 			return record.ErrNotReady
+		}
+		if saved.Merchant.MerchantMode != storecenter.MerchantLocal {
+			reader, ok := s.dependencies.TemuImages.(TemuImageContentReader)
+			if !ok || actual.TemuImage.SupplierArtifact == nil {
+				return record.ErrNotReady
+			}
+			artifact, readErr := reader.ProbeTemuArtifact(ctx, actual.TemuImage.SupplierArtifact.URL)
+			if readErr != nil || collection.Digest(artifact) != collection.Digest(*actual.TemuImage.SupplierArtifact) {
+				return record.ErrNotReady
+			}
 		}
 		current = append(current, actual)
 	}
 	resolved, _, err := submission.ResolveTemuPublicationPayload(saved, current, time.Now().UTC())
 	if err != nil || !bytes.Equal(resolved, payload) {
 		return record.ErrConflict
+	}
+	if saved.Merchant.MerchantMode != storecenter.MerchantLocal {
+		return s.temuCurrentHeads(ctx, scope, saved)
 	}
 	return nil
 }

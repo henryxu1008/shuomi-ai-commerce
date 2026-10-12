@@ -531,6 +531,7 @@ linters-settings:
           - "!**/internal/integration/shein/official_goods_rules.go"
           - "!**/internal/integration/temu/official_categories.go"
           - "!**/internal/integration/temu/official_category_rules.go"
+          - "!**/internal/integration/temu/official_supplier_size.go"
           - "!**/internal/integration/temu/official_goods.go"
           - "!**/internal/integration/temu/official_observations.go"
           - "!**/internal/integration/shein/official_readback.go"
@@ -1196,6 +1197,7 @@ linters-settings:
         files:
           - "**/internal/integration/temu/official_categories.go"
           - "**/internal/integration/temu/official_category_rules.go"
+          - "**/internal/integration/temu/official_supplier_size.go"
         allow:
           - "$gostd"
           - "task-processor/internal/marketplace/temu/model$"

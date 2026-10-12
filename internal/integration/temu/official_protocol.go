@@ -12,6 +12,7 @@ import (
 )
 
 func (c *OfficialClient) encodeRequest(api, token string, fields map[string]json.RawMessage) ([]byte, error) {
+	limit := officialRequestLimit(api)
 	if !boundedParameter(api, 128) || !boundedParameter(token, 4096) {
 		return nil, storecenter.ErrOfficialConnectionUnavailable
 	}
@@ -25,7 +26,7 @@ func (c *OfficialClient) encodeRequest(api, token string, fields map[string]json
 		case "type", "app_key", "access_token", "timestamp", "data_type", "sign", "version":
 			return nil, storecenter.ErrOfficialConnectionUnavailable
 		}
-		if !boundedParameter(key, 128) || len(value) > maxOfficialBody || !json.Valid(value) {
+		if !boundedParameter(key, 128) || len(value) > limit || !json.Valid(value) {
 			return nil, storecenter.ErrOfficialConnectionUnavailable
 		}
 		for _, r := range key {
@@ -50,7 +51,7 @@ func (c *OfficialClient) encodeRequest(api, token string, fields map[string]json
 	// adding sign. Strings sign as their exact decoded value; other values sign
 	// as the same compact JSON bytes included in the HTTP body.
 	unsigned, err := exactJSON(values)
-	if err != nil || len(unsigned) > maxOfficialBody {
+	if err != nil || len(unsigned) > limit {
 		return nil, storecenter.ErrOfficialConnectionUnavailable
 	}
 	clear(unsigned)
@@ -77,11 +78,20 @@ func (c *OfficialClient) encodeRequest(api, token string, fields map[string]json
 	_, _ = hash.Write([]byte(c.appSecret))
 	values["sign"], _ = exactJSON(strings.ToUpper(hex.EncodeToString(hash.Sum(nil))))
 	body, err := exactJSON(values)
-	if err != nil || len(body) > maxOfficialBody {
+	if err != nil || len(body) > limit {
 		clear(body)
 		return nil, storecenter.ErrOfficialConnectionUnavailable
 	}
 	return body, nil
+}
+
+// Only E43's fixed transient base64 request needs expansion beyond the 2 MiB
+// source limit. Durable intents and all responses retain their original budget.
+func officialRequestLimit(api string) int {
+	if api == supplierImageUploadAPI {
+		return 3 << 20
+	}
+	return maxOfficialBody
 }
 
 func exactJSON(value any) ([]byte, error) {

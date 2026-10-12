@@ -120,9 +120,12 @@ func temuBrowserIntegerInput(value any, typ reflect.Type) (any, error) {
 				object[name] = converted
 			}
 		}
-	case reflect.Slice:
+	case reflect.Slice, reflect.Array:
 		values, ok := value.([]any)
 		if !ok {
+			return nil, preparation.ErrInvalid
+		}
+		if typ.Kind() == reflect.Array && len(values) != typ.Len() {
 			return nil, preparation.ErrInvalid
 		}
 		for i, v := range values {

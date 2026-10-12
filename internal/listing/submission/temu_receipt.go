@@ -19,6 +19,7 @@ type TemuImageReceipt struct {
 	AttemptCreatedAt time.Time                  `json:"attemptCreatedAt"`
 	FenceEpoch       int64                      `json:"fenceEpoch"`
 	UseBefore        time.Time                  `json:"useBefore"`
+	SupplierArtifact *temugoods.ImageArtifact   `json:"supplierArtifact,omitempty"`
 }
 
 func validOfficialBindingForTarget(b storecenter.ProductMerchantBinding, t ExecutionTarget) bool {
@@ -106,14 +107,21 @@ func validateTemuReceipt(v OfficialReceipt) error {
 		}
 		return nil
 	}
-	if v.Kind != "image" || v.Binding.MerchantMode != storecenter.MerchantLocal || v.TemuImage == nil || v.TemuProduct != nil || v.RecordID != "" || v.ProductKey != "" {
+	if v.Kind != "image" || v.TemuImage == nil || v.TemuProduct != nil || v.RecordID != "" || v.ProductKey != "" {
 		return ErrExecutionEvidenceRequired
 	}
 	fact := v.TemuImage
-	if !temugoods.ValidImageObservation(fact.Image) || len(fact.Image.RemoteURLs) < 1 || fact.Image.ResponseHash != v.ResponseHash || fact.AttemptCreatedAt.IsZero() || fact.FenceEpoch < 1 || !fact.UseBefore.Equal(fact.AttemptCreatedAt.Add(TemuLocalImageLifetime)) || v.ObservedAt.Before(fact.AttemptCreatedAt) {
+	if !temugoods.ValidImageObservation(fact.Image) || len(fact.Image.RemoteURLs) < 1 || fact.Image.ResponseHash != v.ResponseHash || fact.AttemptCreatedAt.IsZero() || fact.FenceEpoch < 1 || v.ObservedAt.Before(fact.AttemptCreatedAt) {
 		return ErrExecutionEvidenceRequired
 	}
-	subject, err := TemuLocalImageSubjectID(fact.Image.ContentHash, fact.Image.CatID, fact.Image.Usage, v.Binding)
+	if v.Binding.MerchantMode == storecenter.MerchantLocal {
+		if fact.SupplierArtifact != nil || !fact.UseBefore.Equal(fact.AttemptCreatedAt.Add(TemuLocalImageLifetime)) {
+			return ErrExecutionEvidenceRequired
+		}
+	} else if !fact.UseBefore.IsZero() || fact.SupplierArtifact == nil || !temugoods.ValidImageArtifact(*fact.SupplierArtifact) || len(fact.Image.RemoteURLs) != 1 || fact.Image.RemoteURLs[0] != fact.SupplierArtifact.URL || fact.SupplierArtifact.Width != fact.Image.Width || fact.SupplierArtifact.Height != fact.Image.Height {
+		return ErrExecutionEvidenceRequired
+	}
+	subject, err := TemuImageSubjectID(fact.Image, v.Binding)
 	if err != nil || subject != v.Target.SubjectID {
 		return ErrExecutionEvidenceRequired
 	}
