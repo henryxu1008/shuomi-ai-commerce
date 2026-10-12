@@ -101,6 +101,18 @@ type Command struct {
 	Version                                        int64
 	Upload                                         *Revision
 }
+
+// UploadCommandRejection is a trusted native-owner proof that the exact command
+// had no outcome and was rejected before any source, revision or operation write.
+// It cannot be supplied by an HTTP caller or inferred from an ordinary error.
+type UploadCommandRejection struct {
+	OrganizationID, Kind, Key, Fingerprint string
+	Cause                                  error
+}
+
+func (e *UploadCommandRejection) Error() string { return "knowledge upload admission rejected" }
+func (e *UploadCommandRejection) Unwrap() error { return e.Cause }
+
 type Result struct {
 	Base     *Base     `json:"knowledgeBase,omitempty"`
 	Source   *Source   `json:"source,omitempty"`

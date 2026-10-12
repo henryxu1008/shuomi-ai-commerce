@@ -93,8 +93,12 @@ func (s *Service) Upload(ctx context.Context, c Command, filename string, data [
 	}
 	result, err := s.repo.Apply(ctx, c)
 	if err != nil {
-		// An error name cannot prove that a concurrent original Apply has closed.
-		// Preserve the original unstarted intent until that command is reconciled.
+		var proof *UploadCommandRejection
+		if s.capacity != nil && errors.As(err, &proof) && proof != nil && proof.OrganizationID == c.Scope.OrganizationID && proof.Kind == c.Kind && proof.Key == c.Key && proof.Fingerprint == c.Fingerprint {
+			// The original CAS preserves DISPATCHED and fences every late write
+			// after an unstarted abort. Ordinary/ACK-unknown errors retain bytes.
+			_ = s.capacity.Writer.AbortUnstarted(ctx, c.Scope.OrganizationID, capacityReservation.ID)
+		}
 		return Result{}, err
 	}
 	if s.capacity != nil {
