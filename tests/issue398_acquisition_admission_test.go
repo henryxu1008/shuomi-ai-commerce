@@ -55,7 +55,12 @@ func issue398AcquisitionAPIViolations(sources []listingKitImageBoundarySource) (
 		{"internal/app/productsourcing", issue398HTTP, map[string][]string{
 			"internal/app/productsourcing/source_media.go": {"InspectGeneratedArtifact", "ValidatePublicHTTPSURL"},
 		}},
-		{"internal/app/runtime/currentapplication", issue605SourceStorage, map[string][]string{"internal/app/runtime/currentapplication/source_media_storage.go": {"NewClient", "ClientConfig", "NewUploaderWithOptions", "UploaderOptions", "AdaptLogrus", "ArtifactStorageCapabilities", "ArtifactStorageMode"}}},
+		{"internal/app/runtime/currentapplication", issue605SourceStorage, map[string][]string{
+			"internal/app/runtime/currentapplication/source_media_storage.go": {"NewClient", "ClientConfig", "NewUploaderWithOptions", "UploaderOptions", "AdaptLogrus", "ArtifactStorageCapabilities", "ArtifactStorageMode"},
+			// #659 frozen capacity design: exact startup identity/empty-prefix proof,
+			// without admission for upload/delete APIs or sibling files.
+			"internal/app/runtime/currentapplication/storage_capacity.go": {"CapacityNamespace", "VerifyEmptyCapacityPrefix", "ClientConfig"},
+		}},
 		{"internal/app/runtime/currentapplication", issue398HTTP, map[string][]string{"internal/app/runtime/currentapplication/source_media_storage.go": {"ValidatePublicHTTPSURL"}}},
 		{"internal/app/supplychain", issue398HTTP, map[string][]string{"internal/app/supplychain/image_probe.go": {"NewPublicImageHTTPClient", "ValidatePublicHTTPSURL", "Download", "InspectGeneratedArtifact"}}},
 		{"internal/integration/shein", issue398HTTP, map[string][]string{"internal/integration/shein/official_goods.go": {"ValidatePublicHTTPSURL"}}},
@@ -197,6 +202,12 @@ func TestIssue398CurrentLeafAndInitializerAPIGuard(t *testing.T) {
 		{"storage current constructor", "internal/app/runtime/currentapplication/source_media_storage.go", issue605SourceStorage, "NewUploaderWithOptions", true},
 		{"storage sibling", "internal/app/runtime/currentapplication/other.go", issue605SourceStorage, "NewUploaderWithOptions", false},
 		{"storage unadmitted API", "internal/app/runtime/currentapplication/source_media_storage.go", issue605SourceStorage, "Upload", false},
+		{"capacity exact namespace identity", "internal/app/runtime/currentapplication/storage_capacity.go", issue605SourceStorage, "CapacityNamespace", true},
+		{"capacity exact empty admission", "internal/app/runtime/currentapplication/storage_capacity.go", issue605SourceStorage, "VerifyEmptyCapacityPrefix", true},
+		{"capacity SDK config", "internal/app/runtime/currentapplication/storage_capacity.go", issue605SourceStorage, "ClientConfig", true},
+		{"capacity cannot upload", "internal/app/runtime/currentapplication/storage_capacity.go", issue605SourceStorage, "Upload", false},
+		{"capacity sibling denied", "internal/app/runtime/currentapplication/other.go", issue605SourceStorage, "VerifyEmptyCapacityPrefix", false},
+		{"source media cannot consume capacity admission", "internal/app/runtime/currentapplication/source_media_storage.go", issue605SourceStorage, "VerifyEmptyCapacityPrefix", false},
 		{"runtime storage port", "internal/app/runtime/currentapplication/source_media_storage.go", "task-processor/internal/app/productsourcing", "SourceMediaStorage", true},
 		{"runtime producer forbidden", "internal/app/runtime/currentapplication/config.go", "task-processor/internal/app/productsourcing", "NewPublicAcquisition", false},
 		{"HTTP leaf", "internal/integration/acquisition/a1688/public.go", issue398HTTP, "NewPublicImageHTTPClient", true},

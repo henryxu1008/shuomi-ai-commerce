@@ -14,7 +14,6 @@ const response=z.object({organization_id:id,summary}).strict();
 const offer=z.object({offer_id:id,product_kind:z.literal("STORAGE_CAPACITY_PACK"),currency:z.literal("CNY"),unit_price_minor:z.string().refine(positiveInt64),min_quantity:z.literal("1"),max_quantity:z.literal("10"),storage_unit_bytes:z.literal("53687091200"),storage_duration_seconds:z.literal("2592000"),pricing_version:z.string().min(1).max(128)}).strict();
 const offers=z.object({schema_version:z.literal("storage-price-catalog-v1"),organization_id:id,items:z.array(offer).max(16)}).strict();
 const quote=z.object({quote_id:id,organization_id:id,offer_id:id,product_kind:z.literal("STORAGE_CAPACITY_PACK"),resource_type:z.literal(""),resource_quantity:z.string().refine(v=>/^[1-9]$|^10$/.test(v)),currency:z.literal("CNY"),total_minor:z.string().refine(positiveInt64),pricing_version:z.string().min(1).max(128),expires_at:timestamp,fingerprint:z.string().regex(/^[a-f0-9]{64}$/),created_at:timestamp,storage_unit_bytes:z.literal("53687091200"),storage_duration_seconds:z.literal("2592000")}).strict();
-export type StorageSummary=z.infer<typeof summary>;
 export type StorageQuote=z.infer<typeof quote>;
 export const parseStorageSummary=(v:unknown)=>{const p=response.safeParse(v);return p.success?p.data:null};
 export const parseStorageOffers=(v:unknown)=>{const p=offers.safeParse(v);return p.success?p.data:null};
