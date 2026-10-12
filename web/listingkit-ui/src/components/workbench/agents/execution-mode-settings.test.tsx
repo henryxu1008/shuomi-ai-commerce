@@ -1,4 +1,4 @@
-import {act,cleanup,fireEvent,render,screen,waitFor} from "@testing-library/react";
+import {act,cleanup,fireEvent,render,screen,waitFor,within} from "@testing-library/react";
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
 import {ExecutionModeSettings,executionModeLabels} from "./execution-mode-settings";
 import {ConfigurationError} from "@/lib/api/agent-configuration";
@@ -32,6 +32,15 @@ it("retains an uncertain original key and body across refresh and verifies only 
  const original=state.send.mock.calls[0][3];expect(localStorage.length).toBe(1);first.unmount();state.send.mockImplementation(saveReceipt);
  render(<ExecutionModeSettings scope={scope} subject={subject}/>);fireEvent.click(await screen.findByRole("button",{name:"核实原保存操作"}));await screen.findByText(/权限模式已保存/);
  const next=state.send.mock.calls[1][3];expect(next.body).toBe(original.body);expect(next.headers["Idempotency-Key"]).toBe(original.headers["Idempotency-Key"]);expect(localStorage.length).toBe(0);
+});
+it("keeps the original-request recovery available inside the active configuration dialog",async()=>{
+ state.send.mockRejectedValueOnce(new ConfigurationError("OUTCOME_UNKNOWN"));render(<ExecutionModeSettings scope={scope} subject={subject}/>);
+ fireEvent.click(await screen.findByRole("button",{name:"配置权限"}));fireEvent.click(screen.getByRole("button",{name:"保存配置"}));
+ const dialog=screen.getByRole("dialog",{name:"智能体能力配置"});
+ const recovery=await within(dialog).findByRole("button",{name:"核实原保存操作"});
+ expect(within(dialog).getByRole("alert")).toHaveTextContent("操作结果尚未确认");expect(recovery).toBeEnabled();expect(within(dialog).getByRole("button",{name:"保存配置"})).toBeDisabled();
+ const original=state.send.mock.calls[0][3];state.send.mockImplementation(saveReceipt);fireEvent.click(recovery);await screen.findByText(/权限模式已保存/);
+ const verified=state.send.mock.calls[1][3];expect(verified.body).toBe(original.body);expect(verified.headers["Idempotency-Key"]).toBe(original.headers["Idempotency-Key"]);expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });
 it("removes configuration controls when the current grant is absent",async()=>{
  state.view={...state.view,canConfigure:false};render(<ExecutionModeSettings scope={scope} subject={subject}/>);await screen.findByText("默认权限 · 配置版本 0");expect(screen.queryByRole("button",{name:"配置权限"})).not.toBeInTheDocument();expect(state.send).not.toHaveBeenCalled();

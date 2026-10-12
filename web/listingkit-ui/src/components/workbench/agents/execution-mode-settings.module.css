@@ -121,6 +121,15 @@
 .description {
   white-space: normal;
 }
+.panel .error,
+.dialog .error {
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: var(--warning-foreground);
+  background: var(--warning);
+  font-size: 13px;
+  line-height: 1.7;
+}
 .options:disabled .option {
   cursor: default;
   opacity: .65;
