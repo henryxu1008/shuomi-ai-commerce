@@ -231,7 +231,7 @@ Money 与 commercial 仍是两个数据库，第 4/5 步之间可能中断；原
 
 ### 8.1 已准入容量的配置回退守卫
 
-2026-10-12 PR #660 `storageCapacity:false` 回退 finding：**BLOCKER**，影响已购权益及并发容量限制。此有界增量 **DESIGN_REVIEW_PENDING**；原冻结核心与当前 Figma authority 保持有效，增量准入前不修改生产路径。
+2026-10-12 PR #660 `storageCapacity:false` 回退 finding：**BLOCKER**，影响已购权益及并发容量限制。此有界增量 **IMPLEMENTATION_READY**，独立 Reviewer 准入绑定 design-only HEAD `2aa169ecd4af12066961732a0c9039e13522b990` / blob `6eca3d47a00125b827cb52e9f0bbe0f60d8ceee6`，先于生产修改；原冻结核心与当前 Figma authority 保持有效。
 
 `storageCapacity` 是全新 owner 的受控启用选项，不能作为已有容量账本的关闭按钮。选择最小的拒绝启动方案：挂载原 canonical commercial owner 后，false 配置必须先以只读、有界查询证明该 owner 没有任何容量 namespace 注册、account/reservation/object/binding/lot，也没有任何原 `STORAGE_CAPACITY_PURCHASE` 订单（包括在途、已完成或已取消）。任一事实存在，即拒绝 API 和企业图片 worker 启动；不隐藏或覆盖 paid lot，不取消订单、不停止其原恢复事实、不退回未计量写入。空且按当前 schema 初始化的商业 owner 允许 false，页面继续不开放容量入口；初始 offer/未成交报价本身不表示已产生付费或文件权益。true 启动继续原验证、namespace 注册及 meter 接线。
 
