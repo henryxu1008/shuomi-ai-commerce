@@ -110,12 +110,13 @@ func storageOriginalState(t *testing.T, db *gorm.DB) []string {
 		require.NoError(t, db.Raw("SELECT coalesce(jsonb_agg(to_jsonb(t) - ARRAY['storage_unit_bytes','storage_duration_seconds','storage_activation_receipt'] ORDER BY to_jsonb(t)::text), '[]')::text FROM public."+table+" t").Scan(&value).Error)
 		out = append(out, value)
 	}
-	var relations, roles, databaseACL, originalColumns string
+	var relations, roles, databaseACL, originalColumns, constraints string
 	require.NoError(t, db.Raw("SELECT coalesce(jsonb_agg(jsonb_build_array(c.relname,c.relkind,c.relacl) ORDER BY c.relname), '[]')::text FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname NOT LIKE 'storage_capacity_%' AND c.relname NOT LIKE 'idx_storage_capacity_%' AND c.relname <> 'storage_write_identity'").Scan(&relations).Error)
 	require.NoError(t, db.Raw("SELECT to_jsonb(r)::text FROM pg_roles r WHERE rolname='commercial_owner_runtime'").Scan(&roles).Error)
 	require.NoError(t, db.Raw("SELECT coalesce(datacl::text,'') FROM pg_database WHERE datname=current_database()").Scan(&databaseACL).Error)
 	require.NoError(t, db.Raw("SELECT coalesce(jsonb_agg(jsonb_build_array(table_name,column_name,ordinal_position,data_type,character_maximum_length,is_nullable,column_default) ORDER BY table_name,ordinal_position),'[]')::text FROM information_schema.columns WHERE table_schema='public' AND table_name NOT LIKE 'storage_capacity_%' AND column_name NOT IN ('storage_unit_bytes','storage_duration_seconds','storage_activation_receipt')").Scan(&originalColumns).Error)
-	return append(out, relations, roles, databaseACL, originalColumns)
+	require.NoError(t, db.Raw("SELECT coalesce(jsonb_agg(jsonb_build_array(t.relname,c.conname,c.contype,pg_get_constraintdef(c.oid),c.convalidated,c.condeferrable,c.condeferred) ORDER BY t.relname,c.conname),'[]')::text FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid JOIN pg_namespace n ON n.oid=t.relnamespace WHERE n.nspname='public' AND t.relname NOT LIKE 'storage_capacity_%'").Scan(&constraints).Error)
+	return append(out, relations, roles, databaseACL, originalColumns, constraints)
 }
 
 func runStorageAdditiveCLI(t *testing.T, f storageAdditiveFixture, extra ...string) (string, error) {
@@ -130,6 +131,7 @@ func runStorageAdditiveCLI(t *testing.T, f storageAdditiveFixture, extra ...stri
 
 func TestDisabledStorageAdditiveCLIKeepsOriginalFactsAndACL(t *testing.T) {
 	f := newStorageAdditiveFixture(t)
+	require.NoError(t, f.db.Exec("ALTER TABLE public.commercial_offers ADD CONSTRAINT kept_price_check CHECK (unit_price_minor >= 0); ALTER TABLE public.commercial_quotes ADD CONSTRAINT kept_quantity_check CHECK (resource_quantity > 0)").Error)
 	before := storageOriginalState(t, f.db)
 	wire, err := runStorageAdditiveCLI(t, f)
 	require.NoError(t, err, wire)
@@ -190,12 +192,13 @@ func storageSchemaState(t *testing.T, db *gorm.DB) []string {
 			out = append(out, "absent:"+table)
 			continue
 		}
-		var rows, columns, acl, columnACL string
+		var rows, columns, acl, columnACL, constraints string
 		require.NoError(t, db.Raw("SELECT coalesce(jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)::text),'[]')::text FROM public."+table+" t").Scan(&rows).Error)
 		require.NoError(t, db.Raw("SELECT jsonb_agg(jsonb_build_array(column_name,data_type,character_maximum_length,is_nullable,column_default) ORDER BY ordinal_position)::text FROM information_schema.columns WHERE table_schema='public' AND table_name=?", table).Scan(&columns).Error)
 		require.NoError(t, db.Raw("SELECT coalesce(relacl::text,'') FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND relname=?", table).Scan(&acl).Error)
 		require.NoError(t, db.Raw("SELECT coalesce(jsonb_agg(jsonb_build_array(a.attname,a.attacl) ORDER BY a.attnum),'[]')::text FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname=? AND a.attnum>0 AND NOT a.attisdropped", table).Scan(&columnACL).Error)
-		out = append(out, table, rows, columns, acl, columnACL)
+		require.NoError(t, db.Raw("SELECT coalesce(jsonb_agg(jsonb_build_array(c.conname,c.contype,pg_get_constraintdef(c.oid),c.convalidated,c.condeferrable,c.condeferred) ORDER BY c.conname),'[]')::text FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid JOIN pg_namespace n ON n.oid=t.relnamespace WHERE n.nspname='public' AND t.relname=?", table).Scan(&constraints).Error)
+		out = append(out, table, rows, columns, acl, columnACL, constraints)
 	}
 	for table, columns := range additiveColumns {
 		for _, column := range columns {
@@ -247,6 +250,53 @@ func TestDisabledStorageAdditiveCLIRejectsUnsafeExistingStateWithoutChanges(t *t
 			require.Equal(t, schemaBefore, storageSchemaState(t, f.db), "DDL and SELECT must roll back together")
 			require.NoError(t, f.db.Raw("SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.oid),'[]')::text FROM pg_default_acl d").Scan(&defaultsAfter).Error)
 			require.Equal(t, defaultsBefore, defaultsAfter)
+		})
+	}
+}
+
+func TestDisabledStorageAdditiveCLIRejectsUnexpectedConstraints(t *testing.T) {
+	assertRejected := func(t *testing.T, f storageAdditiveFixture) {
+		t.Helper()
+		before, schemaBefore := storageOriginalState(t, f.db), storageSchemaState(t, f.db)
+		wire, err := runStorageAdditiveCLI(t, f)
+		require.Error(t, err, wire)
+		require.Equal(t, before, storageOriginalState(t, f.db))
+		require.Equal(t, schemaBefore, storageSchemaState(t, f.db), "constraints, DDL and SELECT must remain unchanged on refusal")
+	}
+	for _, table := range capacityTables {
+		t.Run(table, func(t *testing.T) {
+			f := newStorageAdditiveFixture(t)
+			require.NoError(t, capacitystore.AutoMigrate(f.db))
+			require.NoError(t, f.db.Exec("ALTER TABLE public."+table+" ADD CONSTRAINT changed_capacity_check CHECK (false)").Error)
+			assertRejected(t, f)
+		})
+	}
+	for table, columns := range additiveColumns {
+		for _, column := range columns {
+			t.Run(table+"."+column, func(t *testing.T) {
+				f := newStorageAdditiveFixture(t)
+				if column == "storage_activation_receipt" {
+					require.NoError(t, f.db.Exec("ALTER TABLE public."+table+" ADD COLUMN "+column+" varchar(128) NOT NULL DEFAULT ''; ALTER TABLE public."+table+" ADD CONSTRAINT changed_storage_field_check CHECK (storage_activation_receipt <> '') NOT VALID").Error)
+				} else {
+					require.NoError(t, f.db.Exec("ALTER TABLE public."+table+" ADD COLUMN "+column+" bigint NOT NULL DEFAULT 0; ALTER TABLE public."+table+" ADD CONSTRAINT changed_storage_field_check CHECK ("+column+" <> 0) NOT VALID").Error)
+				}
+				assertRejected(t, f)
+			})
+		}
+	}
+	for _, kind := range []string{"unique", "foreign key", "expression exclusion"} {
+		t.Run(kind, func(t *testing.T) {
+			f := newStorageAdditiveFixture(t)
+			require.NoError(t, f.db.Exec("ALTER TABLE public.commercial_quotes ADD COLUMN storage_unit_bytes bigint NOT NULL DEFAULT 0").Error)
+			switch kind {
+			case "unique":
+				require.NoError(t, f.db.Exec("ALTER TABLE public.commercial_quotes ADD CONSTRAINT changed_storage_unique UNIQUE (storage_unit_bytes)").Error)
+			case "foreign key":
+				require.NoError(t, f.db.Exec("CREATE TABLE public.retained_field_reference (bytes bigint PRIMARY KEY); INSERT INTO public.retained_field_reference VALUES (0); ALTER TABLE public.commercial_quotes ADD CONSTRAINT changed_storage_fk FOREIGN KEY (storage_unit_bytes) REFERENCES public.retained_field_reference(bytes)").Error)
+			case "expression exclusion":
+				require.NoError(t, f.db.Exec("ALTER TABLE public.commercial_quotes ADD CONSTRAINT changed_storage_exclusion EXCLUDE USING btree ((storage_unit_bytes + 0) WITH =)").Error)
+			}
+			assertRejected(t, f)
 		})
 	}
 }

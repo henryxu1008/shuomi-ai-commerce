@@ -54,6 +54,15 @@ func EnsureDisabledSchema(ctx context.Context, tx *gorm.DB) error {
 		if err := statement.Parse(model); err != nil {
 			return err
 		}
+		// These current models define primary keys and named indexes, but no
+		// CHECK, foreign-key, exclusion or other additional table constraints.
+		var constrained bool
+		if err := tx.Raw(`SELECT EXISTS (SELECT 1 FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid JOIN pg_namespace n ON n.oid=t.relnamespace WHERE n.nspname='public' AND t.relname=? AND c.contype<>'p')`, statement.Table).Scan(&constrained).Error; err != nil {
+			return err
+		}
+		if constrained {
+			return fmt.Errorf("capacity table public.%s has an unexpected constraint", statement.Table)
+		}
 		columns, err := tx.Migrator().ColumnTypes(model)
 		if err != nil {
 			return err
