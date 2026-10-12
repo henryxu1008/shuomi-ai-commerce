@@ -25,4 +25,13 @@ describe("execution mode contracts", () => {
     expect(executionModeViewSchema.safeParse({ ...saved, mode: "read_only" }).success).toBe(false);
     expect(executionModeViewSchema.safeParse({ ...saved, receipt: { ...receipt, subject: { ...subject, id: "d545b0de-10f5-43d4-b2a2-885a77d93463" } } }).success).toBe(false);
   });
+  it("retains the unchanged mode audit separately from a no-op command time", () => {
+    const receipt = { commandId: "e1b16b08-46e7-4a6d-9059-2588e2822e69", requestKey: "2b9ac69f-bf25-4d28-a85a-8036ea005013", operation: "set-execution-mode", subject, mode: "full_access", beforeRevision: "1", revision: "1", noop: true, committedAt: "2026-10-12T02:00:00Z", updatedBy: "original-configurator", updatedAt: "2026-10-12T01:00:00Z" };
+    const saved = { ...view, mode: "full_access", revision: "1", updatedBy: receipt.updatedBy, updatedAt: receipt.updatedAt, receipt };
+    expect(executionModeViewSchema.safeParse(saved).success).toBe(true);
+    expect(executionModeViewSchema.safeParse({ ...saved, updatedAt: receipt.committedAt }).success).toBe(false);
+    expect(executionModeViewSchema.safeParse({ ...saved, updatedBy: "current-caller" }).success).toBe(false);
+    const partial = { ...receipt, updatedAt: undefined };
+    expect(executionModeViewSchema.safeParse({ ...saved, receipt: partial }).success).toBe(false);
+  });
 });

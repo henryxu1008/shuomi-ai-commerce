@@ -166,6 +166,12 @@ func (s *Store) ExecuteMode(ctx context.Context, c agentconfig.ModeCommand, elig
 			}
 		}
 		result = agentconfig.ModeReceipt{CommandID: claim.CommandID, RequestKey: claim.IdempotencyKey, Operation: modeOperation, Subject: c.Subject.Subject, Mode: c.Mode, BeforeRevision: decimal(int64(revision)), Revision: decimal(int64(after)), Noop: noop, CommittedAt: now}
+		result.UpdatedBy, result.UpdatedAt = c.Identity.ActorID, now
+		if noop {
+			// Command commit time describes this save attempt. The configuration
+			// row did not change, so its audit belongs to the original updater.
+			result.UpdatedBy, result.UpdatedAt = current.UpdatedBy, current.UpdatedAt.UTC()
+		}
 		raw, err := json.Marshal(result)
 		if err != nil || len(raw) > 4096 {
 			return agentconfig.ErrInvalid
