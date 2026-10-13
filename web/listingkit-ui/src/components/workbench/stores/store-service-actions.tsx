@@ -209,7 +209,7 @@ export function StoreServiceActions({
             ? "可用续费期数不足。"
             : error instanceof WorkbenchAPIError &&
                 error.code === "STORE_CONNECTION_NOT_CONNECTED"
-              ? "开通前必须完成真实 SHEIN 官方连接。"
+              ? "开通前必须完成平台官方连接。"
               : "服务操作未完成，请刷新店铺并确认权限后重试。",
         );
       }

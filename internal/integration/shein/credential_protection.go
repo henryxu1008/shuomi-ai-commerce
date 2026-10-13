@@ -1,36 +1,22 @@
 package shein
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/rand"
-	"encoding/base64"
 	"encoding/json"
-	"errors"
-	"io"
-	"strings"
+	"task-processor/internal/integration/credentialprotection"
 
 	"task-processor/internal/storecenter"
 )
 
 type CredentialProtection struct {
-	keyID string
-	aead  cipher.AEAD
+	cipher *credentialprotection.AESGCM
 }
 
 func NewCredentialProtection(keyID string, key []byte) (*CredentialProtection, error) {
-	if len(key) != 32 || len(keyID) < 1 || len(keyID) > 128 || strings.TrimSpace(keyID) != keyID {
-		return nil, errors.New("official credential protection configuration unavailable")
-	}
-	block, err := aes.NewCipher(key)
+	cipher, err := credentialprotection.NewAESGCM(keyID, key)
 	if err != nil {
 		return nil, err
 	}
-	aead, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, err
-	}
-	return &CredentialProtection{keyID: keyID, aead: aead}, nil
+	return &CredentialProtection{cipher: cipher}, nil
 }
 
 type sealedCredential struct{ AppID, OpenKeyID, SecretKey, SupplierID string }
@@ -40,7 +26,7 @@ func associatedData(a storecenter.OfficialConnectionAttempt, keyID string) []byt
 	return data
 }
 func (p *CredentialProtection) Seal(a storecenter.OfficialConnectionAttempt, c storecenter.OfficialMerchantCredential) (string, string, error) {
-	if c.AppID != a.AppID || c.OpenKeyID == "" || c.SecretKey == "" || c.SupplierID == "" {
+	if c.Temu != nil || c.AppID != a.AppID || c.OpenKeyID == "" || c.SecretKey == "" || c.SupplierID == "" {
 		return "", "", storecenter.ErrOfficialExchangeUnknown
 	}
 	plain, err := json.Marshal(sealedCredential{c.AppID, c.OpenKeyID, c.SecretKey, c.SupplierID})
@@ -48,22 +34,15 @@ func (p *CredentialProtection) Seal(a storecenter.OfficialConnectionAttempt, c s
 		return "", "", err
 	}
 	defer clear(plain)
-	nonce := make([]byte, p.aead.NonceSize())
-	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+	key := p.cipher.KeyID()
+	encrypted, err := p.cipher.Seal(plain, associatedData(a, key))
+	if err != nil {
 		return "", "", storecenter.ErrOfficialConnectionUnavailable
 	}
-	encrypted := p.aead.Seal(nonce, nonce, plain, associatedData(a, p.keyID))
-	return p.keyID, base64.StdEncoding.EncodeToString(encrypted), nil
+	return key, encrypted, nil
 }
 func (p *CredentialProtection) Open(a storecenter.OfficialConnectionAttempt, keyID, encrypted string) (storecenter.OfficialMerchantCredential, error) {
-	if keyID != p.keyID || len(encrypted) > 16384 {
-		return storecenter.OfficialMerchantCredential{}, storecenter.ErrOfficialConnectionUnavailable
-	}
-	data, err := base64.StdEncoding.DecodeString(encrypted)
-	if err != nil || len(data) < p.aead.NonceSize()+p.aead.Overhead() {
-		return storecenter.OfficialMerchantCredential{}, storecenter.ErrOfficialConnectionUnavailable
-	}
-	plain, err := p.aead.Open(nil, data[:p.aead.NonceSize()], data[p.aead.NonceSize():], associatedData(a, keyID))
+	plain, err := p.cipher.Open(keyID, encrypted, associatedData(a, keyID))
 	if err != nil {
 		return storecenter.OfficialMerchantCredential{}, storecenter.ErrOfficialConnectionUnavailable
 	}

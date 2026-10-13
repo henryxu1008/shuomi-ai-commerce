@@ -14,35 +14,67 @@ import (
 	"task-processor/internal/authidentity"
 	coreconfig "task-processor/internal/core/config"
 	"task-processor/internal/integration/shein"
+	"task-processor/internal/integration/temu"
 	"task-processor/internal/storecenter"
 )
 
 type OfficialStoreConnectionConfig struct {
-	Type              storecenter.OfficialApplicationType `json:"type"`
-	AppID             string                              `json:"appId"`
-	Version           string                              `json:"version"`
-	APIOrigin         string                              `json:"apiOrigin"`
-	CallbackURL       string                              `json:"callbackURL"`
-	AppSecretFile     string                              `json:"appSecretFile"`
-	CredentialKeyFile string                              `json:"credentialKeyFile"`
-	CredentialKeyID   string                              `json:"credentialKeyId"`
+	Platform          storecenter.Platform                  `json:"platform,omitempty"`
+	IdentityPartition storecenter.OfficialIdentityPartition `json:"identityPartition,omitempty"`
+	Type              storecenter.OfficialApplicationType   `json:"type"`
+	AppID             string                                `json:"appId"`
+	Version           string                                `json:"version"`
+	APIOrigin         string                                `json:"apiOrigin"`
+	CallbackURL       string                                `json:"callbackURL"`
+	AppSecretFile     string                                `json:"appSecretFile"`
+	CredentialKeyFile string                                `json:"credentialKeyFile"`
+	CredentialKeyID   string                                `json:"credentialKeyId"`
+}
+
+func (c *OfficialStoreConnectionConfig) application() (storecenter.OfficialApplication, error) {
+	if !authidentity.IsBoundedIdentifier(c.Version) || strings.Contains(c.Version, "~") {
+		return storecenter.OfficialApplication{}, errors.New("official Store application revision invalid")
+	}
+	// Type is the existing SHEIN configuration discriminator. TEMU requires an
+	// explicit platform/partition and never reuses that application's one mode.
+	if (c.Platform == "" || c.Platform == storecenter.PlatformShein) && c.Type.Valid() && c.IdentityPartition == "" {
+		return storecenter.OfficialApplication{Platform: storecenter.PlatformShein, AuthorizationMethod: storecenter.AuthorizationCallback, AppID: c.AppID, Version: storeapp.BoundOfficialRevision(c.Version, c.Type), CallbackURL: c.CallbackURL}, nil
+	}
+	if c.Platform != storecenter.PlatformTemu || c.Type != "" || c.APIOrigin != "" || c.CallbackURL != "" {
+		return storecenter.OfficialApplication{}, errors.New("official Store application platform contract invalid")
+	}
+	modes := storecenter.ModesLocal
+	switch c.IdentityPartition {
+	case storecenter.PartitionCN:
+		modes = storecenter.ModesFullyManaged | storecenter.ModesSemiManaged
+	case storecenter.PartitionUS, storecenter.PartitionEU, storecenter.PartitionGlobal:
+	default:
+		return storecenter.OfficialApplication{}, errors.New("official Store application identity partition invalid")
+	}
+	return storecenter.OfficialApplication{Platform: storecenter.PlatformTemu, IdentityPartition: c.IdentityPartition, AuthorizationMethod: storecenter.AuthorizationManualToken, SupportedModes: modes, AppID: c.AppID, Version: storeapp.BoundTemuOfficialRevision(c.Version, c.IdentityPartition)}, nil
 }
 
 func (c *OfficialStoreConnectionConfig) validate() error {
 	if c == nil {
 		return nil
 	}
-	if !c.Type.Valid() || !authidentity.IsBoundedIdentifier(c.Version) || strings.Contains(c.Version, "~") {
-		return errors.New("official Store application type or revision invalid")
+	app, err := c.application()
+	if err != nil {
+		return err
 	}
-	if !authidentity.IsBoundedIdentifier(storeapp.BoundOfficialRevision(c.Version, c.Type)) {
+	if !authidentity.IsBoundedIdentifier(app.Version) {
 		return errors.New("official Store bound application revision invalid")
 	}
 	if !filepath.IsAbs(c.AppSecretFile) || !filepath.IsAbs(c.CredentialKeyFile) || c.AppSecretFile == c.CredentialKeyFile || c.CredentialKeyID == "" || len(c.CredentialKeyID) > 128 {
 		return errors.New("official Store connection requires separate private credential files and key identity")
 	}
 	// Validate protocol/configuration without network calls or secret-file reads.
-	if _, err := shein.NewOfficialClient(shein.OfficialClientOptions{Application: storecenter.OfficialApplication{AppID: c.AppID, Version: storeapp.BoundOfficialRevision(c.Version, c.Type), CallbackURL: c.CallbackURL}, AppSecret: strings.Repeat("0", 32), APIOrigin: c.APIOrigin}); err != nil {
+	if app.Platform == storecenter.PlatformShein {
+		_, err = shein.NewOfficialClient(shein.OfficialClientOptions{Application: app, AppSecret: strings.Repeat("0", 32), APIOrigin: c.APIOrigin})
+	} else {
+		_, err = temu.NewOfficialClient(temu.OfficialClientOptions{Application: app, AppSecret: strings.Repeat("0", 32)})
+	}
+	if err != nil {
 		return errors.New("official Store application configuration invalid")
 	}
 	return nil
@@ -50,6 +82,9 @@ func (c *OfficialStoreConnectionConfig) validate() error {
 func (c *OfficialStoreConnectionConfig) prepare(ctx context.Context) (storecenter.OfficialConnectionProvider, storecenter.OfficialCredentialProtection, error) {
 	if c == nil {
 		return nil, nil, nil
+	}
+	if err := c.validate(); err != nil {
+		return nil, nil, err
 	}
 	secret, err := readOfficialPrivateFile(ctx, c.AppSecretFile)
 	if err != nil {
@@ -66,11 +101,20 @@ func (c *OfficialStoreConnectionConfig) prepare(ctx context.Context) (storecente
 		return nil, nil, errors.New("official Store credential key must be Base64 encoded")
 	}
 	defer clear(key)
-	protection, err := shein.NewCredentialProtection(c.CredentialKeyID, key)
-	if err != nil {
-		return nil, nil, err
+	app, _ := c.application()
+	var provider storecenter.OfficialConnectionProvider
+	var protection storecenter.OfficialCredentialProtection
+	if app.Platform == storecenter.PlatformShein {
+		protection, err = shein.NewCredentialProtection(c.CredentialKeyID, key)
+		if err == nil {
+			provider, err = shein.NewOfficialClient(shein.OfficialClientOptions{Application: app, AppSecret: strings.TrimSpace(string(secret)), APIOrigin: c.APIOrigin})
+		}
+	} else {
+		protection, err = temu.NewCredentialProtection(c.CredentialKeyID, key)
+		if err == nil {
+			provider, err = temu.NewOfficialClient(temu.OfficialClientOptions{Application: app, AppSecret: strings.TrimSpace(string(secret))})
+		}
 	}
-	provider, err := shein.NewOfficialClient(shein.OfficialClientOptions{Application: storecenter.OfficialApplication{AppID: c.AppID, Version: storeapp.BoundOfficialRevision(c.Version, c.Type), CallbackURL: c.CallbackURL}, AppSecret: strings.TrimSpace(string(secret)), APIOrigin: c.APIOrigin})
 	if err != nil {
 		return nil, nil, errors.New("official Store application configuration unavailable")
 	}
@@ -85,10 +129,12 @@ func validateOfficialApplications(configs []OfficialStoreConnectionConfig) error
 		if err := config.validate(); err != nil {
 			return err
 		}
-		if apps[config.AppID] || keys[config.CredentialKeyID] {
+		app, _ := config.application()
+		identity := string(app.Platform) + ":" + string(app.IdentityPartition) + ":" + app.AppID
+		if apps[identity] || keys[config.CredentialKeyID] {
 			return errors.New("official Store application and credential key identities must be unique")
 		}
-		apps[config.AppID], keys[config.CredentialKeyID] = true, true
+		apps[identity], keys[config.CredentialKeyID] = true, true
 		for _, path := range []string{config.AppSecretFile, config.CredentialKeyFile} {
 			path = filepath.Clean(path)
 			if runtime.GOOS == "windows" {

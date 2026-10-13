@@ -198,12 +198,15 @@ func (a OperationExecutionAuthorization) AuthorizeOperationExecution(ctx context
 	if op.Input.Action == preparation.OperationUpload {
 		purpose = storecenter.ProductPurposePublish
 	}
-	_, err = a.Stores.ReadProductExecution(ctx, storecenter.ProductExecutionSubject{OrganizationID: op.Owner.OrganizationID, ActorID: op.Owner.ActorID, MemberID: op.Owner.MemberID, Purpose: purpose}, op.Input.StoreID, a.OrganizationExecutionAuthorizer, time.Now())
+	material, err := a.Stores.ReadProductExecution(ctx, storecenter.ProductExecutionSubject{OrganizationID: op.Owner.OrganizationID, ActorID: op.Owner.ActorID, MemberID: op.Owner.MemberID, Purpose: purpose}, op.Input.StoreID, a.OrganizationExecutionAuthorizer, time.Now())
 	if errors.Is(err, storecenter.ErrNotFound) {
 		return collection.ErrForbidden
 	}
 	if err != nil {
 		return collection.ErrUnavailable
+	}
+	if op.Input.Action == preparation.OperationOptimize && material.Platform != storecenter.PlatformShein {
+		return collection.ErrForbidden
 	}
 	return nil
 }

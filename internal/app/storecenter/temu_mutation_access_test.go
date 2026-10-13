@@ -1,0 +1,144 @@
+package storecenterapp
+
+import (
+	"context"
+	"encoding/json"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/require"
+	temugoods "task-processor/internal/marketplace/temu/goods"
+	"task-processor/internal/marketplace/temu/model"
+	"task-processor/internal/storecenter"
+)
+
+func (p *temuRulesProvider) CreateLocalGoods(ctx context.Context, _ storecenter.OfficialMerchantCredential, _ model.LocalGoodsV2) (temugoods.CreatedGoods, error) {
+	p.deadline, _ = ctx.Deadline()
+	p.metadataReads++
+	id := int64(9007199254740993)
+	return temugoods.CreatedGoods{Local: &model.LocalGoodsCreated{GoodsID: &id}}, nil
+}
+func (p *temuRulesProvider) UploadLocalImage(context.Context, storecenter.OfficialMerchantCredential, model.LocalImageUpload) (model.LocalImageUploaded, string, error) {
+	p.metadataReads++
+	return model.LocalImageUploaded{}, "", nil
+}
+
+func (p *temuRulesProvider) CreateSupplierGoods(ctx context.Context, _ storecenter.OfficialMerchantCredential, _ model.SupplierGoods) (temugoods.CreatedGoods, error) {
+	p.deadline, _ = ctx.Deadline()
+	p.metadataReads++
+	return temugoods.CreatedGoods{}, nil
+}
+
+func TestTemuMutationProofBoundsDispatchWithoutTruncatingPermittedIO(t *testing.T) {
+	for _, partition := range []storecenter.OfficialIdentityPartition{storecenter.PartitionCN, storecenter.PartitionGlobal} {
+		t.Run(string(partition), func(t *testing.T) {
+			mode := storecenter.MerchantLocal
+			if partition == storecenter.PartitionCN {
+				mode = storecenter.MerchantSemiManaged
+			}
+			a, _, provider, subject := newTemuRulesAccess(t, partition, mode)
+			subject.Purpose = storecenter.ProductPurposePublish
+			started := a.now()
+			now := started
+			a.now = func() time.Time { return now }
+			provider.afterIdentity = func() { now = now.Add(3 * time.Second) }
+			deadline := started.Add(10 * time.Second)
+			ctx, cancel := context.WithDeadline(context.Background(), deadline)
+			defer cancel()
+			h, err := a.AuthorizeTemuMutation(ctx, subject, "store-a", nil)
+			require.NoError(t, err)
+			require.Equal(t, started.Add(5*time.Second), h.authority.expiresAt, "mutation proof is not extended")
+			now = started.Add(4 * time.Second)
+			if partition == storecenter.PartitionCN {
+				_, err = h.CreateSupplierGoods(ctx, model.SupplierGoods{})
+			} else {
+				_, err = h.CreateLocalGoods(ctx, model.LocalGoodsV2{})
+			}
+			require.NoError(t, err)
+			require.Equal(t, deadline, provider.deadline, "single permitted IO retains its caller/SendPermit deadline")
+		})
+	}
+}
+func (p *temuRulesProvider) UploadSupplierImage(context.Context, storecenter.OfficialMerchantCredential, model.SupplierImageUpload) (model.SupplierImageUploaded, string, error) {
+	p.metadataReads++
+	return model.SupplierImageUploaded{}, "", nil
+}
+
+func TestSupplierMutationCannotBorrowLocalOrRulesPurposeAndDispatchesOnce(t *testing.T) {
+	for _, mode := range []storecenter.OfficialMerchantMode{storecenter.MerchantFullyManaged, storecenter.MerchantSemiManaged} {
+		a, _, provider, subject := newTemuRulesAccess(t, storecenter.PartitionCN, mode)
+		_, err := a.AuthorizeTemuMutation(context.Background(), subject, "store-a", nil)
+		require.ErrorIs(t, err, ErrProductAccessChanged)
+		subject.Purpose = storecenter.ProductPurposePublish
+		h, err := a.AuthorizeTemuMutation(context.Background(), subject, "store-a", nil)
+		require.NoError(t, err)
+		_, err = h.CreateLocalGoods(context.Background(), model.LocalGoodsV2{})
+		require.ErrorIs(t, err, ErrProductAccessChanged)
+		_, _, err = h.UploadSupplierImage(context.Background(), model.SupplierImageUpload{})
+		require.ErrorIs(t, err, ErrProductAccessChanged)
+		_, err = h.CreateSupplierGoods(context.Background(), model.SupplierGoods{})
+		require.NoError(t, err)
+		_, err = h.CreateSupplierGoods(context.Background(), model.SupplierGoods{})
+		require.ErrorIs(t, err, ErrProductAccessChanged)
+		require.Equal(t, 1, provider.metadataReads)
+	}
+}
+
+func TestTemuMutationUsesOriginalPurposeAndOnlyOneDispatch(t *testing.T) {
+	for _, purpose := range []string{storecenter.ProductPurposePublish, storecenter.ProductPurposeImage} {
+		t.Run(purpose, func(t *testing.T) {
+			a, _, p, subject := newTemuRulesAccess(t, storecenter.PartitionGlobal, storecenter.MerchantLocal)
+			_, err := a.AuthorizeTemuMutation(context.Background(), subject, "store-a", nil)
+			require.ErrorIs(t, err, ErrProductAccessChanged)
+			subject.Purpose = purpose
+			h, err := a.AuthorizeTemuMutation(context.Background(), subject, "store-a", nil)
+			require.NoError(t, err)
+			raw, err := json.Marshal(h)
+			require.NoError(t, err)
+			require.JSONEq(t, `{}`, string(raw))
+			if purpose == storecenter.ProductPurposePublish {
+				_, _, err = h.UploadLocalImage(context.Background(), model.LocalImageUpload{})
+				require.ErrorIs(t, err, ErrProductAccessChanged)
+				_, err = h.CreateLocalGoods(context.Background(), model.LocalGoodsV2{})
+				require.NoError(t, err)
+				_, err = h.CreateLocalGoods(context.Background(), model.LocalGoodsV2{})
+			} else {
+				_, err = h.CreateLocalGoods(context.Background(), model.LocalGoodsV2{})
+				require.ErrorIs(t, err, ErrProductAccessChanged)
+				_, _, err = h.UploadLocalImage(context.Background(), model.LocalImageUpload{})
+				require.NoError(t, err)
+				_, _, err = h.UploadLocalImage(context.Background(), model.LocalImageUpload{})
+			}
+			require.ErrorIs(t, err, ErrProductAccessChanged)
+			require.Equal(t, 1, p.metadataReads)
+		})
+	}
+}
+
+func TestTemuMutationRechecksAuthorityBeforeProvider(t *testing.T) {
+	for _, change := range []string{"grant", "connection", "credential", "service", "mode", "expired"} {
+		t.Run(change, func(t *testing.T) {
+			a, reader, p, subject := newTemuRulesAccess(t, storecenter.PartitionGlobal, storecenter.MerchantLocal)
+			subject.Purpose = storecenter.ProductPurposePublish
+			h, err := a.AuthorizeTemuMutation(context.Background(), subject, "store-a", nil)
+			require.NoError(t, err)
+			switch change {
+			case "grant":
+				reader.err = storecenter.ErrNotFound
+			case "connection":
+				reader.material.Connection.Version++
+			case "credential":
+				reader.material.Attempt.Ciphertext = "changed"
+			case "service":
+				reader.material.ServiceExpiresAt = a.now()
+			case "mode":
+				reader.material.Connection.Mode = storecenter.MerchantSemiManaged
+			case "expired":
+				a.now = func() time.Time { return h.authority.expiresAt }
+			}
+			_, err = h.CreateLocalGoods(context.Background(), model.LocalGoodsV2{})
+			require.ErrorIs(t, err, ErrProductAccessChanged)
+			require.Zero(t, p.metadataReads)
+		})
+	}
+}

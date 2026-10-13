@@ -256,7 +256,8 @@ func (s *Service) RunQuality(ctx context.Context, c RunCommand) (QualityRun, err
 	return s.projectQualityMode(ctx, c.Scope, run), nil
 }
 func ValidDraft(v DraftSnapshot) bool {
-	if !UUID(v.RecordID) || !UUID(v.SourceID) || !UUID(v.PreparationID) || !UUID(v.StoreID) || v.Revision < 1 || v.Revision > 9007199254740991 || v.Platform != "shein" || v.Site != "shein-us" || v.ProductKey == "" || len(v.ProductKey) > 128 || !version(v.ProductVersion) || len([]rune(v.Title)) > 200 || v.SavedAt.IsZero() || len(v.Issues) > 4096 || v.Issues == nil || v.ReadyForUpload && len(v.Issues) != 0 {
+	qualified := v.Platform == "shein" && v.Site == "shein-us" || v.Platform == "temu" && (v.Site == "temu-local" || v.Site == "temu-supplier") && !v.OfflineTrial
+	if !UUID(v.RecordID) || !UUID(v.SourceID) || !UUID(v.PreparationID) || !UUID(v.StoreID) || v.Revision < 1 || v.Revision > 9007199254740991 || !qualified || v.ProductKey == "" || len(v.ProductKey) > 128 || !version(v.ProductVersion) || len([]rune(v.Title)) > 200 || v.SavedAt.IsZero() || len(v.Issues) > 4096 || v.Issues == nil || v.ReadyForUpload && len(v.Issues) != 0 {
 		return false
 	}
 	for _, h := range []string{v.RecordHash, v.ProductHash, v.RulesHash, v.InventoryHash} {

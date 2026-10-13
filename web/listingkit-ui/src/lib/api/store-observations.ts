@@ -1,4 +1,5 @@
 import { z } from "zod";
+import {temuObservedProductSchema} from "../contracts/temu-observations";
 import { readBoundedStrictJSON } from "./strict-json-response";
 export const observationID = z
   .string()
@@ -116,13 +117,14 @@ export const observationRecordSchema = z
     observedAt: date,
     stale: z.boolean().optional(),
     product: product.optional(),
+    temuProduct:temuObservedProductSchema.optional(),
     order: order.optional(),
   })
   .strict()
   .refine(
     (v) =>
-      Boolean(v.product) !== Boolean(v.order) &&
-      (v.product?.id ?? v.order?.id) === v.id,
+      [v.product,v.temuProduct,v.order].filter(Boolean).length===1 &&
+      (v.product?.id ?? v.temuProduct?.id ?? v.order?.id) === v.id,
   );
 export const observationKindSchema = z.enum(["products", "orders"]);
 export type ObservationKind = z.infer<typeof observationKindSchema>;
@@ -230,8 +232,8 @@ export const observationCapabilitiesSchema = z
     runtimeReady: z.boolean(),
     providerConfigured: z.boolean(),
     kind: observationKindSchema,
-    site: z.literal("shein-us"),
-    platformUrl: z.literal("https://sellerhub.shein.com/"),
+    site: z.enum(["shein-us","store-native"]),
+    platformUrl: z.enum(["https://sellerhub.shein.com/",""]),
   })
   .strict()
   .refine((v) => (!v.canSync || v.available) && (!v.available || (v.runtimeReady && v.providerConfigured)));

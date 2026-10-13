@@ -10,6 +10,7 @@ import (
 	"gorm.io/gorm/clause"
 	recordstore "task-processor/internal/integration/persistence/listing/record"
 	submissionstore "task-processor/internal/integration/persistence/listing/submission"
+	record "task-processor/internal/listing/record/target"
 	"task-processor/internal/listing/submission"
 	"task-processor/internal/product/collection"
 )
@@ -101,7 +102,7 @@ func (r *OfficialRepository) PrepareOfficial(ctx context.Context, proof submissi
 		return submission.OfficialIntent{}, submission.ErrExecutionUnavailable
 	}
 	actual, err := records.ReadTargetHead(ctx, body.Owner, reference.TargetID)
-	if err != nil || actual.ID != body.RecordID || collection.Digest(actual) != body.RecordHash || actual.Source != body.Source || actual.Merchant != body.Binding || !actual.Result.ReadyForUpload {
+	if err != nil || actual.ID != body.RecordID || collection.Digest(actual) != body.RecordHash || actual.Source != body.Source || actual.Merchant != body.Binding || !record.PublicationReady(actual) {
 		return submission.OfficialIntent{}, submission.ErrExecutionIntentConflict
 	}
 	raw, err := json.Marshal(body)
@@ -156,6 +157,14 @@ func receiptMatchesIntent(body submission.OfficialReceipt, intent submission.Off
 	if body.Kind == "publish" {
 		return body.RecordID == intent.RecordID && body.ProductKey == intent.Source.Source.ProductKey
 	}
+	if body.Target.Platform == "temu" {
+		if body.TemuImage == nil || intent.TemuImage == nil {
+			return false
+		}
+		image := body.TemuImage.Image
+		image.RemoteURLs, image.ResponseHash = nil, ""
+		return collection.Digest(image) == collection.Digest(intent.TemuImage)
+	}
 	if body.Image == nil || intent.Image == nil {
 		return false
 	}
@@ -197,6 +206,9 @@ func (r *OfficialRepository) CompleteOfficial(ctx context.Context, proof submiss
 	}
 	attempt, err := kernel.Get(ctx, claim.Scope, claim.AttemptID)
 	if err != nil || attempt.Target != body.Target || attempt.IntentKey != body.IntentKey || attempt.PayloadFingerprint != body.PayloadFingerprint {
+		return submission.OfficialReceipt{}, submission.ErrExecutionEvidenceRequired
+	}
+	if body.TemuImage != nil && (!body.TemuImage.AttemptCreatedAt.Equal(attempt.CreatedAt) || body.TemuImage.FenceEpoch != attempt.FenceEpoch) {
 		return submission.OfficialReceipt{}, submission.ErrExecutionEvidenceRequired
 	}
 	_, err = kernel.Complete(ctx, claim, submission.ExecutionEvidence{Kind: submission.EvidenceProviderResponse, Outcome: submission.ExecutionSucceeded, Reference: body.ID, Fingerprint: body.ResponseHash, ObservedAt: body.ObservedAt})
@@ -246,16 +258,25 @@ func (r *OfficialRepository) ReadOfficial(ctx context.Context, scope collection.
 // This canonical Store result read is internal only. App requires the exact
 // current source owner and merchant access before projecting provider facts.
 func (r *OfficialRepository) FindOfficialTarget(ctx context.Context, org string, target submission.ExecutionTarget) (submission.OfficialReceipt, error) {
-	if ctx == nil || target.Platform != "shein" || !collection.ValidID(target.StoreID) {
+	if ctx == nil || target.Platform != "shein" && target.Platform != "temu" || !collection.ValidID(target.StoreID) {
 		return submission.OfficialReceipt{}, submission.ErrExecutionInvalid
 	}
 	ctx, cancel := context.WithTimeout(ctx, submission.ExecutionTimeout)
 	defer cancel()
-	var reference struct{ AttemptID string }
-	if r.db.WithContext(ctx).Table("listing_submission_official_receipts").Select("attempt_id").Where("organization_id=? AND store_id=? AND subject_id=?", org, target.StoreID, target.SubjectID).Scan(&reference).Error != nil {
+	var reference struct {
+		AttemptID, Status string
+		Epoch             int64
+	}
+	if r.db.WithContext(ctx).Table(submissionstore.TargetFenceTable).Select("current_attempt_id AS attempt_id,current_status AS status,epoch").Where("organization_id=? AND platform=? AND store_id=? AND subject_id=?", org, target.Platform, target.StoreID, target.SubjectID).Scan(&reference).Error != nil {
 		return submission.OfficialReceipt{}, submission.ErrExecutionUnavailable
 	}
 	if reference.AttemptID == "" {
+		return submission.OfficialReceipt{}, submission.ErrExecutionNotFound
+	}
+	if reference.Status == string(submission.ExecutionClaimed) || reference.Status == string(submission.ExecutionOutcomeUnknown) {
+		return submission.OfficialReceipt{}, submission.ErrExecutionTargetClaimed
+	}
+	if reference.Status != string(submission.ExecutionSucceeded) {
 		return submission.OfficialReceipt{}, submission.ErrExecutionNotFound
 	}
 	body, err := readOfficialReceipt(r.db.WithContext(ctx), org, reference.AttemptID)
@@ -263,6 +284,9 @@ func (r *OfficialRepository) FindOfficialTarget(ctx context.Context, org string,
 		return submission.OfficialReceipt{}, err
 	}
 	if body.Target != target || r.validateCompleted(ctx, body) != nil {
+		return submission.OfficialReceipt{}, submission.ErrExecutionUnavailable
+	}
+	if body.TemuImage != nil && body.TemuImage.FenceEpoch != reference.Epoch {
 		return submission.OfficialReceipt{}, submission.ErrExecutionUnavailable
 	}
 	return body, nil

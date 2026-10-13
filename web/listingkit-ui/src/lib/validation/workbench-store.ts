@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const workbenchStorePlatformSchema = z.literal("shein");
+export const workbenchStorePlatformSchema = z.enum(["shein", "temu"]);
 const workbenchStoreRecordStatusSchema = z.enum([
   "active",
   "disabled",

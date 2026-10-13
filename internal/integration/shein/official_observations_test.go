@@ -7,7 +7,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	o "task-processor/internal/marketplace/shein/observations"
+	o "task-processor/internal/storecenter/observations"
 	"testing"
 	"time"
 )

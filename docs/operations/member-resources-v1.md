@@ -76,8 +76,11 @@ array inside the private manifest. Each entry is:
 The approved regional host may instead be `https://openapi.sheincorp.cn`.
 The type must match the official developer application's actual type:
 `self_operated`, `semi_managed`, or `fully_managed`. Site `store_type` does not
-identify it. Up to 16 entries may be configured; AppID, encryption-key identity
-and private files must be unique across entries. The browser selects an admitted
+identify it. Up to 16 entries may be configured; application identity,
+encryption-key identity and private files must be unique across entries. Application identity is
+`platform + identityPartition + appId`; SHEIN has no identity partition. See
+[TEMU connection configuration](temu-store-connection.md) for the separately
+tagged TEMU application entries. The browser selects an admitted
 application when connecting; callbacks and execution resolve the saved original
 AppID and revision. The persisted revision includes the type. Removing or changing
 the configuration makes that connection unavailable; it never falls back to

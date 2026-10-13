@@ -8,6 +8,7 @@ import { useWorkbenchContext } from "@/components/providers/workbench-context-pr
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import type { WorkbenchAPIError, WorkbenchStore } from "@/lib/api/workbench-stores";
 import { useCreateWorkbenchStore, useUpdateWorkbenchStore } from "@/lib/query/use-workbench-stores";
 import {
@@ -216,7 +217,7 @@ export function StoreForm(props: StoreFormProps) {
         {props.mode === "create" ? `在${organizationName} 新建店铺` : `编辑${props.store.name}`}
       </h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        {props.mode === "create" ? `将为${organizationName}创建 SHEIN 店铺。` : `当前企业：${organizationName}`}
+        {props.mode === "create" ? `将为${organizationName}创建店铺记录，再连接平台官方应用。` : `当前企业：${organizationName}`}
       </p>
 
       {props.mode === "edit" && props.conflict ? <ConflictNotice conflict={props.conflict} onRetry={retryConflict} pending={isPending} /> : null}
@@ -225,7 +226,7 @@ export function StoreForm(props: StoreFormProps) {
       <form className="mt-6 space-y-5 rounded-xl border bg-card p-5" noValidate onSubmit={(event) => { void form.handleSubmit(submit)(event); }}>
         <TextField control={form} name="name" label="店铺名称" disabled={isPending || isSwitching || createRetryAvailable} />
         <TextField control={form} name="region" label="区域" disabled={isPending || isSwitching || createRetryAvailable} />
-        <ReadOnlyField label="平台" value="SHEIN" />
+        {props.mode === "create" ? <PlatformField control={form} disabled={isPending || isSwitching || createRetryAvailable}/> : <ReadOnlyField label="平台" value={props.store.platform.toUpperCase()} />}
         {props.mode === "create" ? <TextField control={form} name="externalStoreId" label="外部店铺 ID（可选）" disabled={isPending || isSwitching || createRetryAvailable} /> : <ReadOnlyField label="外部店铺 ID" value={props.store.externalStoreId || "未设置"} />}
         {props.mode === "edit" ? <ReadOnlyField label="连接状态" value={connectionLabel(props.store.connectionStatus)} /> : null}
         {props.mode==="create"&&create.storageError?<p role="alert">无法安全读取或保存原创建键，请刷新页面并检查浏览器存储。</p>:null}
@@ -248,6 +249,11 @@ function TextField({ control, name, label, disabled }: { control: ReturnType<typ
 function ReadOnlyField({ label, value }: { label: string; value: string }) {
   const id = useId();
   return <div className="grid gap-2"><Label htmlFor={id}>{label}</Label><Input disabled id={id} value={value} /></div>;
+}
+
+function PlatformField({control,disabled}:{control:ReturnType<typeof useForm<WorkbenchStoreCreateInput | WorkbenchStoreUpdateInput>>;disabled:boolean}) {
+  const id=useId();
+  return <div className="grid gap-2"><Label htmlFor={id}>平台</Label><Select id={id} disabled={disabled} {...control.register("platform")}><option value="shein">SHEIN</option><option value="temu">TEMU</option></Select></div>;
 }
 
 function ConflictNotice({ conflict, onRetry, pending }: { conflict: Conflict; onRetry: () => void; pending: boolean }) {
