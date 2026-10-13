@@ -257,7 +257,7 @@ func (r productAgentSourceGateway) ReadEffectiveSource(ctx context.Context, prin
 	out.Requested = sourceevidenceinspect.CatalogReference{ProductKey: published.Identity.ProductKey, Version: strconv.FormatUint(published.Version, 10), PublicationID: published.PublicationID}
 	out.Original = lineage.Source
 	for _, applied := range lineage.Applied {
-		out.Applied = append(out.Applied, sourceevidenceinspect.AppliedPublicationReference{AppliedTitleReference: sourceevidenceinspect.AppliedTitleReference{ProposalID: applied.ProposalID, BaseVersion: strconv.FormatUint(applied.BaseVersion, 10), BasePublicationID: applied.BasePublicationID, Version: strconv.FormatUint(applied.Version, 10), PublicationID: applied.PublicationID}, Policy: applied.Policy, ContentSelection: applied.ContentSelection})
+		out.Applied = append(out.Applied, sourceevidenceinspect.AppliedPublicationReference{AppliedTitleReference: sourceevidenceinspect.AppliedTitleReference{ProposalID: applied.ProposalID, BaseVersion: strconv.FormatUint(applied.BaseVersion, 10), BasePublicationID: applied.BasePublicationID, Version: strconv.FormatUint(applied.Version, 10), PublicationID: applied.PublicationID}, Policy: applied.Policy, ContentSelection: sourceevidenceinspect.ContentSelection(applied.ContentSelection)})
 	}
 	return out, nil
 }

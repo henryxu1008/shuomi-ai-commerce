@@ -15,7 +15,6 @@ import (
 	"task-processor/internal/authidentity"
 	"task-processor/internal/commercetool"
 	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/enrichment"
 	"task-processor/internal/product/sourcing"
 )
 
@@ -46,8 +45,8 @@ type AppliedTitleReference struct {
 }
 type AppliedPublicationReference struct {
 	AppliedTitleReference
-	Policy           string                      `json:"policy"`
-	ContentSelection enrichment.ContentSelection `json:"content_selection,omitzero"`
+	Policy           string           `json:"policy"`
+	ContentSelection ContentSelection `json:"content_selection,omitzero"`
 }
 type PublicationLineage struct {
 	Schema     string                        `json:"schema"`
@@ -189,7 +188,7 @@ func (e *Executor) projectEffective(ctx context.Context, principal commercetool.
 			if !reference.ContentSelection.Absent() {
 				return nil, sourcing.ErrSourcePublicationStateInvalid
 			}
-		case enrichment.ContentPolicyVersion:
+		case "product-content-review-v1":
 			if !reference.ContentSelection.Valid() {
 				return nil, sourcing.ErrSourcePublicationStateInvalid
 			}
