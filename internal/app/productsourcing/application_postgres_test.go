@@ -36,7 +36,8 @@ func TestInternalProducerCreatesProductFromBusinessCallOnEmptyPostgres(t *testin
 	permissions, err := authz.NewListingKitAuthorizer(nil, nil)
 	require.NoError(t, err)
 	liveCalls := 0
-	roles := []string{"listingkit_operator"}
+	permissions.SetRolePolicyReader(acquisitionTestRolePolicy{})
+	roles := []string{authz.EnterpriseRoleKey("org-a", 1)}
 	producer, err := NewInternalProducer(db, liveRolesFunc(func(_ context.Context, org, actor string) ([]string, error) {
 		liveCalls++
 		require.Equal(t, "org-a", org)
@@ -78,7 +79,7 @@ func TestInternalProducerCreatesProductFromBusinessCallOnEmptyPostgres(t *testin
 	require.Len(t, persisted.Snapshot.Images, 1, "source image remains a Catalog candidate")
 	require.Equal(t, 2, liveCalls, "publish and read must independently refresh authorization")
 
-	roles = []string{"listingkit_viewer"}
+	roles = nil
 	_, err = producer.Publish(ctx, command)
 	require.ErrorIs(t, err, sourcing.ErrPublicationForbidden)
 	_, err = producer.Read(ctx, "pub-app-1")

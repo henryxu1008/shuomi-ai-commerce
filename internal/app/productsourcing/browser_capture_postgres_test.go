@@ -43,12 +43,13 @@ func TestBrowserCaptureBusinessChainExactVersionsReplayAndAuth(t *testing.T) {
 	db := acquisitionDatabase(t)
 	permissions, err := authz.NewListingKitAuthorizer(nil, nil)
 	require.NoError(t, err)
+	permissions.SetRolePolicyReader(acquisitionTestRolePolicy{})
 	var revoked atomic.Bool
-	live := liveRolesFunc(func(context.Context, string, string) ([]string, error) {
+	live := liveRolesFunc(func(_ context.Context, organization, _ string) ([]string, error) {
 		if revoked.Load() {
-			return []string{"listingkit_viewer"}, nil
+			return nil, nil
 		}
-		return []string{"listingkit_operator"}, nil
+		return []string{authz.EnterpriseRoleKey(organization, 1)}, nil
 	})
 	_, err = NewBrowserAcquisition(context.Background(), db, live, permissions)
 	require.Error(t, err)
@@ -119,7 +120,10 @@ func TestBrowserCaptureCannotPublishAnOperationWithExistingChargeIntent(t *testi
 	require.NoError(t, InstallAcquisitionSchema(db))
 	permissions, err := authz.NewListingKitAuthorizer(nil, nil)
 	require.NoError(t, err)
-	live := liveRolesFunc(func(context.Context, string, string) ([]string, error) { return []string{"listingkit_operator"}, nil })
+	permissions.SetRolePolicyReader(acquisitionTestRolePolicy{})
+	live := liveRolesFunc(func(_ context.Context, organization, _ string) ([]string, error) {
+		return []string{authz.EnterpriseRoleKey(organization, 1)}, nil
+	})
 	service, err := NewBrowserAcquisition(context.Background(), db, live, permissions)
 	require.NoError(t, err)
 	_, request, _ := browserApplicationFixture(t)
@@ -145,7 +149,10 @@ func TestBrowserCaptureBusinessChainLostResponseReadOnlyRecovery(t *testing.T) {
 	require.NoError(t, InstallAcquisitionSchema(db))
 	permissions, err := authz.NewListingKitAuthorizer(nil, nil)
 	require.NoError(t, err)
-	live := liveRolesFunc(func(context.Context, string, string) ([]string, error) { return []string{"listingkit_operator"}, nil })
+	permissions.SetRolePolicyReader(acquisitionTestRolePolicy{})
+	live := liveRolesFunc(func(_ context.Context, organization, _ string) ([]string, error) {
+		return []string{authz.EnterpriseRoleKey(organization, 1)}, nil
+	})
 	service, err := NewBrowserAcquisition(context.Background(), db, live, permissions)
 	require.NoError(t, err)
 	lost := &acquisitionLostPublicationResponse{AcquisitionPublisher: service.core.publisher}
@@ -191,7 +198,10 @@ func TestBrowserCaptureBusinessChainReadOnlyUnknownStates(t *testing.T) {
 			require.NoError(t, InstallAcquisitionSchema(db))
 			permissions, err := authz.NewListingKitAuthorizer(nil, nil)
 			require.NoError(t, err)
-			live := liveRolesFunc(func(context.Context, string, string) ([]string, error) { return []string{"listingkit_operator"}, nil })
+			permissions.SetRolePolicyReader(acquisitionTestRolePolicy{})
+			live := liveRolesFunc(func(_ context.Context, organization, _ string) ([]string, error) {
+				return []string{authz.EnterpriseRoleKey(organization, 1)}, nil
+			})
 			service, err := NewBrowserAcquisition(context.Background(), db, live, permissions)
 			require.NoError(t, err)
 			body, request, _ := browserApplicationFixture(t)
@@ -241,7 +251,10 @@ func TestBrowserCaptureBusinessChainConcurrentSinglePublication(t *testing.T) {
 	require.NoError(t, InstallAcquisitionSchema(db))
 	permissions, err := authz.NewListingKitAuthorizer(nil, nil)
 	require.NoError(t, err)
-	live := liveRolesFunc(func(context.Context, string, string) ([]string, error) { return []string{"listingkit_operator"}, nil })
+	permissions.SetRolePolicyReader(acquisitionTestRolePolicy{})
+	live := liveRolesFunc(func(_ context.Context, organization, _ string) ([]string, error) {
+		return []string{authz.EnterpriseRoleKey(organization, 1)}, nil
+	})
 	service, err := NewBrowserAcquisition(context.Background(), db, live, permissions)
 	require.NoError(t, err)
 	counter := &browserPublicationCounter{AcquisitionPublisher: service.core.publisher}
@@ -282,7 +295,10 @@ func TestBrowserCaptureBusinessChainCanceledAndInvalidInputsDoNotAdmit(t *testin
 	require.NoError(t, InstallAcquisitionSchema(db))
 	permissions, err := authz.NewListingKitAuthorizer(nil, nil)
 	require.NoError(t, err)
-	live := liveRolesFunc(func(context.Context, string, string) ([]string, error) { return []string{"listingkit_operator"}, nil })
+	permissions.SetRolePolicyReader(acquisitionTestRolePolicy{})
+	live := liveRolesFunc(func(_ context.Context, organization, _ string) ([]string, error) {
+		return []string{authz.EnterpriseRoleKey(organization, 1)}, nil
+	})
 	service, err := NewBrowserAcquisition(context.Background(), db, live, permissions)
 	require.NoError(t, err)
 	body, _, _ := browserApplicationFixture(t)

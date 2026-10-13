@@ -3,6 +3,8 @@ package httpapi
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"runtime"
 	"testing"
@@ -140,6 +142,13 @@ func TestHTTPFeatureCompositionBuilderBuildsFeaturesInDependencyOrder(t *testing
 	require.NotNil(t, composition.promptModule)
 	require.NotNil(t, composition.taskRPCResult)
 	require.NotNil(t, composition.sdsModule)
+	server, routes, err := composition.buildServerBundle(0, deps.shared.cfg)
+	require.NoError(t, err)
+	const retiredRoute = "/api/v1/product-sourcing/1688/listingkit/tasks"
+	require.NotContains(t, routeKeys(routes), "POST "+retiredRoute)
+	response := httptest.NewRecorder()
+	server.Handler.ServeHTTP(response, httptest.NewRequest(http.MethodPost, retiredRoute, nil))
+	require.Equal(t, http.StatusNotFound, response.Code, "retired Task route must not be mounted")
 	require.Equal(t, []string{
 		"amazon",
 		"shein-login",
