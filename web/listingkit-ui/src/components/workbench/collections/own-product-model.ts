@@ -4,7 +4,7 @@ export type Specification={id:string;name:string;values:string};
 export type VariantRow={id:string;attributes:Record<string,string>;sku:string;currency:string;price:string;stock:string;image:string};
 export function newVariantRow(attributes:Record<string,string>={}):VariantRow{return {id:crypto.randomUUID(),attributes,sku:"",currency:"",price:"",stock:"",image:""}}
 const comboKey=(attributes:Record<string,string>)=>JSON.stringify(Object.entries(attributes).sort(([a],[b])=>a.localeCompare(b)));
-export function parseSpecifications(specs:Specification[]){
+function parseSpecifications(specs:Specification[]){
  const active=specs.filter(s=>s.name.trim()||s.values.trim());
  if(!active.length)throw new Error("请填写规格名称和值，例如颜色：红色、蓝色。");
  const names=new Set<string>();
