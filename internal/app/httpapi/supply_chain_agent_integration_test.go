@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"sync/atomic"
 	officialstore "task-processor/internal/integration/persistence/listing/official"
 	"testing"
@@ -166,15 +167,24 @@ func testSupplyAgentOwners(t *testing.T, mode string, f *acquisitionHTTPFixture,
 	require.NoError(t, err)
 	storeID := uuid.NewString()
 	rules := supplyAgentFixtureRules{storecenter.ProductMerchantBinding{OrganizationID: scope.OrganizationID, StoreID: storeID, Site: "shein-us", StoreVersion: 1, ConnectionRevision: 1, ApplicationID: "app-a", ApplicationType: storecenter.ApplicationSelfOperated, ApplicationRevision: "v1:self_operated", SupplierIdentityHash: collection.Digest("fixture-merchant"), ServiceExpiresAt: time.Now().UTC().Add(time.Hour)}}
-	targets, err := record.NewTargetService(record.TargetDependencies{Sources: selector, ExecutionSources: selector, ExecutionAuthorization: authority, Products: effective, Assets: assets, Rules: rules, Records: records, Images: supplyAgentUnusedProbe{}, Authorizer: prepAuth})
+	var targetRules record.TargetRuleReader = rules
+	if strings.HasPrefix(mode, "supply materials") {
+		targetRules = materialsOwnerFixtureRules{rules}
+	}
+	targets, err := record.NewTargetService(record.TargetDependencies{Sources: selector, ExecutionSources: selector, ExecutionAuthorization: authority, Products: effective, Assets: assets, Rules: targetRules, Records: records, Images: supplyAgentUnusedProbe{}, Authorizer: prepAuth})
 	require.NoError(t, err)
 	var target record.TargetReceipt
 	if mode != "supply first reconstruction" {
 		target, err = targets.Create(actor, uuid.NewString(), record.TargetInput{SourceID: page.Items[0].ID, StoreID: storeID, EffectiveVersion: 1})
 		require.NoError(t, err)
 	}
-	app := &supplyapp.Application{Preparations: preparations, Authorization: prepAuth, PublicationStores: rules, StageProjection: supplyapp.ReviewProjection{Facts: prepRepo, Reviews: core.store}, Sources: selector, Operations: operations, Records: records, Rules: rules, Products: effective, Execution: supplyapp.OperationApplication{}}
+	app := &supplyapp.Application{Preparations: preparations, Authorization: prepAuth, PublicationStores: rules, StageProjection: supplyapp.ReviewProjection{Facts: prepRepo, Reviews: core.store}, Sources: selector, Operations: operations, Records: records, Rules: targetRules, Products: effective, Execution: supplyapp.OperationApplication{}}
 	app.Execution.Repository = operationsRepo
+	if strings.HasPrefix(mode, "supply materials") {
+		app.Targets, app.Assets = targets, assets
+		testMaterialsNativeOwners(t, strings.TrimPrefix(mode, "supply materials "), a, app, target, actor, deps, calls)
+		return
+	}
 	var draftBefore d.DraftSnapshot
 	if mode == "supply private draft quality" {
 		t.Run("native read assembly without title execution", func(t *testing.T) {

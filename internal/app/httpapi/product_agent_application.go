@@ -70,6 +70,7 @@ type ProductAgentInvocationLedger interface {
 }
 
 type productAgentApplication struct {
+	materials               *listingMaterialsApplication
 	content                 *productAgentApplication
 	configuration           *configstore.Store
 	snapshots               catalog.CompleteSnapshotReader

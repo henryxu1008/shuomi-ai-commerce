@@ -46,6 +46,7 @@ type AgentTextModel struct {
 	content            bool
 	materials          bool
 	materialsAdmission MaterialsModelAdmission
+	materialsDispatch  func(context.Context, agent.ModelInput) error
 	knowledge          KnowledgeContext
 	executor           TextExecutor
 	snapshots          SnapshotReader
@@ -266,6 +267,11 @@ func (m *AgentTextModel) Decide(ctx context.Context, in agent.ModelInput) (agent
 		}
 		if _, err = m.snapshots.CheckRegisteredTextExecutionMode(gateCtx, identity, in.ConfigurationSnapshotRef, in.ModeSnapshotRef); err != nil {
 			return nil, err
+		}
+		if m.materials {
+			if err = m.materialsDispatch(gateCtx, in); err != nil {
+				return nil, err
+			}
 		}
 		if p.knowledge == nil {
 			return nil, nil

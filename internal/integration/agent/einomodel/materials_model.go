@@ -24,8 +24,8 @@ type MaterialsModelAdmission interface {
 func NewMaterialsAgentTextModel(executor TextExecutor, snapshots SnapshotReader,
 	selectProfile func(context.Context, string) (aicapability.ModelProfile, error),
 	readiness func(context.Context, string) TextRouteReadiness,
-	tools []commercetool.ToolRef, identity func(context.Context) (authidentity.AuthenticatedIdentity, error), admission MaterialsModelAdmission) (*AgentTextModel, error) {
-	if len(tools) != 1 || tools[0] != agentconfig.MaterialsInspectToolRef() || admission == nil || reflect.ValueOf(admission).Kind() == reflect.Pointer && reflect.ValueOf(admission).IsNil() {
+	tools []commercetool.ToolRef, identity func(context.Context) (authidentity.AuthenticatedIdentity, error), admission MaterialsModelAdmission, dispatch func(context.Context, agent.ModelInput) error) (*AgentTextModel, error) {
+	if len(tools) != 1 || tools[0] != agentconfig.MaterialsInspectToolRef() || dispatch == nil || admission == nil || reflect.ValueOf(admission).Kind() == reflect.Pointer && reflect.ValueOf(admission).IsNil() {
 		return nil, agent.ErrInvalid
 	}
 	m, err := NewAgentTextModel(executor, snapshots, selectProfile, readiness, tools, identity)
@@ -34,6 +34,7 @@ func NewMaterialsAgentTextModel(executor TextExecutor, snapshots SnapshotReader,
 	}
 	m.materials = true
 	m.materialsAdmission = admission
+	m.materialsDispatch = dispatch
 	return m, nil
 }
 

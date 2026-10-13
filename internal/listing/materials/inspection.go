@@ -13,6 +13,7 @@ import (
 	"task-processor/internal/marketplace/shein/goods"
 	"task-processor/internal/product/asset"
 	"task-processor/internal/product/catalog"
+	"task-processor/internal/product/catalog/tools/canonicalinspect"
 	"task-processor/internal/product/collection"
 )
 
@@ -60,7 +61,17 @@ func (i Inspection) Disclose() (Disclosure, error) {
 	if err := i.verify(); err != nil {
 		return Disclosure{}, err
 	}
-	d := Disclosure{EvidenceID: i.EvidenceID, Binding: i.Binding, Revision: i.Base.Revision, StoreID: i.Base.Input.StoreID, Draft: i.Base.Input.Draft, Product: i.Product.Snapshot, Rules: i.Rules, Assets: []DisclosedAsset{}, Issues: i.Base.Result.Issues}
+	// Reuse Catalog's approved disclosure, which removes internal source
+	// metadata while retaining supported product facts and trace evidence.
+	projected, err := canonicalinspect.Project(i.Product)
+	if err != nil {
+		return Disclosure{}, ErrInspectionTooLarge
+	}
+	var canonical canonicalinspect.Output
+	if json.Unmarshal(projected, &canonical) != nil {
+		return Disclosure{}, ErrInspectionChanged
+	}
+	d := Disclosure{EvidenceID: i.EvidenceID, Binding: i.Binding, Revision: i.Base.Revision, StoreID: i.Base.Input.StoreID, Draft: i.Base.Input.Draft, Product: canonical.Snapshot, Rules: i.Rules, Assets: []DisclosedAsset{}, Issues: i.Base.Result.Issues}
 	for _, a := range i.Inventory.Assets {
 		d.Assets = append(d.Assets, DisclosedAsset{a.ID, a.Role, a.URL, a.Width, a.Height})
 	}

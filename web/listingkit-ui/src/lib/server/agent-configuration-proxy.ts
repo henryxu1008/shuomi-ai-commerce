@@ -5,6 +5,7 @@ import {
   catalogEntrySchema,
   catalogPageSchema,
   contentTemplateInputSchema, contentTemplateSchema, contentTemplatesPageSchema,
+  materialsTemplateInputSchema,materialsTemplateSchema,materialsTemplatesPageSchema,
   configReceiptSchema,
   configVersion,
   recentRunsSchema,
@@ -35,12 +36,13 @@ function endpoint(url: URL, method: string) {
     input = method === "PUT" ? executionModeInputSchema : undefined;
   } else if (p.length === 1 && ["market", "mine"].includes(p[0]) && method === "GET")
     output = catalogPageSchema;
-  else if (["product.title.agent","product.image.agent","product.content.agent"].includes(p[0])) {
+  else if (["product.title.agent","product.image.agent","product.content.agent","listing.materials.agent"].includes(p[0])) {
     const image=p[0]==="product.image.agent";
     const content=p[0]==="product.content.agent";
-    const typedTemplates=image?imageTemplatesPageSchema:content?contentTemplatesPageSchema:titleTemplatesPageSchema;
-    const typedTemplate=image?imageTemplateSchema:content?contentTemplateSchema:titleTemplateSchema;
-    const typedInput=image?imageTemplateInputSchema:content?contentTemplateInputSchema:templateInputSchema;
+    const materials=p[0]==="listing.materials.agent";
+    const typedTemplates=image?imageTemplatesPageSchema:content?contentTemplatesPageSchema:materials?materialsTemplatesPageSchema:titleTemplatesPageSchema;
+    const typedTemplate=image?imageTemplateSchema:content?contentTemplateSchema:materials?materialsTemplateSchema:titleTemplateSchema;
+    const typedInput=image?imageTemplateInputSchema:content?contentTemplateInputSchema:materials?materialsTemplateInputSchema:templateInputSchema;
     if (p.length === 1 && method === "GET") output = catalogEntrySchema;
     else if (
       p.length === 2 &&
@@ -87,7 +89,7 @@ function endpoint(url: URL, method: string) {
   } else return null;
   const list =
     output === catalogPageSchema ||
-    output === titleTemplatesPageSchema || output === contentTemplatesPageSchema ||
+    output === titleTemplatesPageSchema || output === contentTemplatesPageSchema || output===materialsTemplatesPageSchema ||
     output === recentRunsSchema || output === imageSetRecentSchema || output === imageTemplatesPageSchema;
   if (url.search.length > 512 || (url.search && !list)) return null;
   for (const [k, v] of url.searchParams) {
@@ -102,7 +104,7 @@ function endpoint(url: URL, method: string) {
       if (!/^[A-Za-z0-9_-]{1,180}$/.test(v)) return null;
     } else if (k === "activation" && p[0] === "mine") {
       if (!["ENABLED", "DISABLED"].includes(v)) return null;
-    } else if (k === "lifecycle" && (output === titleTemplatesPageSchema || output === contentTemplatesPageSchema || output === imageTemplatesPageSchema)) {
+    } else if (k === "lifecycle" && (output === titleTemplatesPageSchema || output === contentTemplatesPageSchema || output === materialsTemplatesPageSchema || output === imageTemplatesPageSchema)) {
       if (!["ACTIVE", "ARCHIVED"].includes(v)) return null;
     } else return null;
   }

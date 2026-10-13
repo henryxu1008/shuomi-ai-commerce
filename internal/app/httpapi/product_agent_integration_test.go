@@ -200,6 +200,36 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		}
 		var content string
 		switch {
+		case strings.HasPrefix(mode, "supply materials") && step%2 == 1:
+			content = `{"Kind":"tool","Tool":{"ID":"listing.materials.inspect","Version":"v1.0.0"}}`
+		case strings.HasPrefix(mode, "supply materials"):
+			var wire struct {
+				Messages []struct {
+					Content string `json:"content"`
+				} `json:"messages"`
+			}
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&wire))
+			var evidence string
+			for _, message := range wire.Messages {
+				var prompt struct {
+					Input struct {
+						History []struct {
+							Output struct {
+								EvidenceID string `json:"evidenceId"`
+							}
+						}
+					}
+				}
+				if json.Unmarshal([]byte(message.Content), &prompt) == nil {
+					for _, step := range prompt.Input.History {
+						if step.Output.EvidenceID != "" {
+							evidence = step.Output.EvidenceID
+						}
+					}
+				}
+			}
+			require.NotEmpty(t, evidence, "proposal cites the actual bounded disclosure")
+			content = `{"Kind":"propose","DomainProposal":{"Kind":"listing-materials-v1","Payload":{"brandCode":"fixture-brand","evidenceIds":["` + evidence + `"]}}}`
 		case (strings.HasPrefix(mode, "content flow") || mode == "supply content") && (step-1)%3 == 0:
 			content = `{"Kind":"tool","Tool":{"ID":"product.canonical.inspect","Version":"v2.0.0"}}`
 		case (strings.HasPrefix(mode, "content flow") || mode == "supply content") && (step-1)%3 == 1:
@@ -281,6 +311,11 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		policy := settings.TextPolicies["B"]
 		policy.Profile.PromptVersion, policy.Profile.OutputSchemaVersion = agentconfig.ContentPromptVersion, agentconfig.ContentActionVersion
 		settings.ContentTextPolicies = map[string]governed.RoutePolicy{"B": policy}
+	}
+	if strings.HasPrefix(mode, "supply materials") {
+		policy := settings.TextPolicies["B"]
+		policy.Profile.PromptVersion, policy.Profile.OutputSchemaVersion = agentconfig.MaterialsPromptVersion, agentconfig.MaterialsActionVersion
+		settings.MaterialsTextPolicies = map[string]governed.RoutePolicy{"B": policy}
 	}
 	if kf != nil {
 		settings.Knowledge = kf.service

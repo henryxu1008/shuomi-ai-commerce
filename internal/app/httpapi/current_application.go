@@ -853,6 +853,14 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		modules = append(modules, module)
 		supplyRuntime = &module
 	}
+	if supplied.supplyChain != nil && productRuntime != nil {
+		materials, e := buildListingMaterialsApplication(ctx, productRuntime, supplyRuntime.app)
+		if e != nil {
+			return nil, fmt.Errorf("build current listing materials agent: %w", e)
+		}
+		productRuntime.materials = materials
+		modules = append(modules, listingMaterialsModule{app: materials})
+	}
 	if supplied.privateDraftTrial != nil {
 		// Private draft trial is intentionally separate from normal plan composition.
 		module, e := buildPrivateDraftTrialModule(ctx, supplied.productAcquisitionDB, supplied.storeCenterDB, *supplied.privateDraftTrial, *workbench.authDependencies, authorizer, cfg)
@@ -1291,6 +1299,11 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
 		}
 	}
+	if optional.SupplyChain && optional.ProductAgent {
+		for _, r := range listingMaterialsRoutes(nil, nil) {
+			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
+		}
+	}
 	if optional.CompletionDrafts {
 		if !optional.Collections || optional.PrivateDraftTrial {
 			return errors.New("completion drafts require current collections and exclude synthetic trial")
@@ -1542,6 +1555,15 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 			}
 		}
 		if (descriptor.Path == supplyhttp.SupplyBasePath || strings.HasPrefix(descriptor.Path, supplyhttp.SupplyBasePath+"/")) && !strings.HasPrefix(descriptor.Path, supplyImageSetBase) {
+			if strings.HasPrefix(descriptor.Path, listingMaterialsBase+"/") {
+				if !optional.SupplyChain || !optional.ProductAgent || optional.PrivateDraftTrial {
+					return errors.New("listing materials requires normal supply and product agent owners")
+				}
+				if e := validateListingMaterialsDescriptor(descriptor); e != nil {
+					return e
+				}
+				continue
+			}
 			if supplyhttp.IsCompletionDraftRoute(descriptor.Method, descriptor.Path) {
 				if !optional.CompletionDrafts {
 					return errors.New("completion drafts not admitted")

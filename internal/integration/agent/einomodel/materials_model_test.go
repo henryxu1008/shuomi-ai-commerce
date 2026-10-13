@@ -42,7 +42,7 @@ func materialsModelFixture(t *testing.T) (*AgentTextModel, *materialsTextFixture
 	binding := agent.Binding{ContextKind: "listing-target-record", ContextID: "record", ProductKey: "product", CatalogVersion: "1", PublicationID: "publication", TargetPlatform: "shein"}
 	snapshot := agentconfig.Snapshot{AgentID: materials.AgentID, AgentVersion: materials.AgentVersion, MemberID: id.EffectiveMemberID, ExecutionModelProfile: profile, Request: agent.Request{Binding: binding, ModeSnapshotRef: mode, PolicyVersion: materials.PolicyVersion, PromptVersion: materials.PromptVersion, Limits: agent.Limits{Steps: 6, ModelCalls: 3, Tokens: 17000, CostMicros: 17000, Currency: "CNY", Runtime: time.Minute}}}
 	executor := &materialsTextFixture{response: `{"Kind":"interrupt","Unresolved":["controlled missing evidence"]}`}
-	model, err := NewMaterialsAgentTextModel(executor, testSnapshotReader{snapshot}, func(context.Context, string) (aicapability.ModelProfile, error) { return profile, nil }, func(context.Context, string) TextRouteReadiness { return TextRouteAvailable }, []commercetool.ToolRef{materials.InspectToolRef()}, func(context.Context) (authidentity.AuthenticatedIdentity, error) { return id, nil }, materials.ModelAdmission{})
+	model, err := NewMaterialsAgentTextModel(executor, testSnapshotReader{snapshot}, func(context.Context, string) (aicapability.ModelProfile, error) { return profile, nil }, func(context.Context, string) TextRouteReadiness { return TextRouteAvailable }, []commercetool.ToolRef{materials.InspectToolRef()}, func(context.Context) (authidentity.AuthenticatedIdentity, error) { return id, nil }, materials.ModelAdmission{}, func(context.Context, agent.ModelInput) error { return nil })
 	require.NoError(t, err)
 	in := agent.ModelInput{Binding: binding, ModeSnapshotRef: mode, ConfigurationSnapshotRef: agent.ConfigurationSnapshotRef{Kind: agentconfig.SnapshotKind, ID: uuid.NewString(), Digest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, PolicyVersion: materials.PolicyVersion, PromptVersion: materials.PromptVersion, AgentID: materials.AgentID, AgentVersion: materials.AgentVersion, AgentRunID: uuid.NewString()}
 	return model, executor, ctx, in
@@ -83,4 +83,18 @@ func TestMaterialsModelRejectsWrongConsumerAndRetainsWholeEvidence(t *testing.T)
 	require.JSONEq(t, string(raw), string(projected))
 	_, err = (materials.ModelAdmission{}).ProjectEvidence(json.RawMessage(string(make([]byte, materials.MaxInspectionBytes+1))))
 	require.Error(t, err, "oversized facts must not silently become partial evidence")
+}
+
+func TestMaterialsModelRechecksNativeOwnerImmediatelyBeforeDispatch(t *testing.T) {
+	m, executor, ctx, in := materialsModelFixture(t)
+	quote, err := m.Quote(ctx, in)
+	require.NoError(t, err)
+	in.UpperBound, in.InvocationID = quote, "dispatch-owner-check"
+	m.materialsDispatch = func(_ context.Context, actual agent.ModelInput) error {
+		require.Equal(t, in.Binding, actual.Binding)
+		return agent.ErrConflict
+	}
+	_, err = m.Decide(ctx, in)
+	require.ErrorIs(t, err, agent.ErrConflict)
+	require.Zero(t, executor.dispatched, "changed original Target/owner cannot be sent despite a prior valid quote")
 }

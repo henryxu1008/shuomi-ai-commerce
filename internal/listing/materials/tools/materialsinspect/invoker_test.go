@@ -62,7 +62,7 @@ func (a *audit) RecordToolCall(context.Context, commercetool.AuditRecord) error 
 
 func inspector(t *testing.T) (*Invoker, *reader, *fresh, *audit) {
 	t.Helper()
-	product := catalog.PublishedSnapshot{Identity: catalog.SnapshotIdentity{TenantID: "org", ProductKey: "product"}, Version: 1, PublicationID: "publication", Snapshot: catalog.ProductSnapshot{Title: "Original"}}
+	product := catalog.PublishedSnapshot{Identity: catalog.SnapshotIdentity{TenantID: "org", ProductKey: "product"}, Version: 1, PublicationID: "publication", Snapshot: catalog.ProductSnapshot{Title: "Original", Sources: []catalog.SourceRecord{{Type: "crawler", Metadata: map[string]string{"tenant_id": "private-source-metadata"}, Notes: []string{"disclosed source note"}}}}}
 	rules := goods.OfficialRuleSnapshot{}
 	inventory := asset.ApprovedAssetInventory{Scope: asset.InventoryScope{TenantID: "org", ProductKey: "product", TargetPlatform: "shein", SourceSnapshotVersion: 1}, Assets: []asset.ApprovedAsset{}}
 	base := record.TargetRecord{ID: "record", TargetID: "target", Revision: 1, EffectiveVersion: 1, ProductHash: collection.Digest(product.Snapshot), RulesHash: collection.Digest(rules), InventoryHash: collection.Digest(inventory), Merchant: storecenter.ProductMerchantBinding{OrganizationID: "org", StoreID: "store", Site: "shein-us"}, Input: record.TargetInput{SourceID: "source", StoreID: "store", EffectiveVersion: 1}}
@@ -90,6 +90,9 @@ func TestInspectToolUsesFreshAuthorizationAndDisclosesNoTenantAuthority(t *testi
 	require.NoError(t, json.Unmarshal(result.Output, &disclosed))
 	require.Equal(t, r.value.EvidenceID, disclosed.EvidenceID)
 	require.NotContains(t, string(result.Output), "tenant_id")
+	require.NotContains(t, string(result.Output), "private-source-metadata")
+	require.Contains(t, string(result.Output), "disclosed source note")
+	require.Equal(t, "private-source-metadata", r.value.Product.Snapshot.Sources[0].Metadata["tenant_id"], "projection must not mutate/hash-remap canonical facts")
 	require.Equal(t, 1, a.records)
 	f.revoked = true
 	_, err = invoke(i, r.value.Binding)

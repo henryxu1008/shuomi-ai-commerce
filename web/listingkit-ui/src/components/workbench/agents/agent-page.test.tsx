@@ -45,6 +45,7 @@ const scope = vi.hoisted(() => ({
   error: null,
   blockingError: null,
   selectionRequired: false,
+  registerOrganizationSwitchGuard:()=>()=>{},
 }));
 vi.mock("@/components/providers/workbench-context-provider", () => ({
   useWorkbenchContext: () => scope,
@@ -137,6 +138,32 @@ it("presents title and localization as operations of one content responsibility 
   expect(screen.getByRole("link", { name: "标题优化配置与历史" })).toHaveAttribute("href", "/workbench/agents/mine/product.title.agent");
   expect(screen.getByRole("link", { name: "内容本地化配置与历史" })).toHaveAttribute("href", "/workbench/agents/mine/product.content.agent");
   expect(fetch.mock.calls.every(call => !call[1]?.method || call[1]?.method === "GET")).toBe(true);
+});
+
+it("configures platform materials with SHEIN only and never requests title knowledge",async()=>{
+ Object.defineProperty(HTMLDialogElement.prototype,"showModal",{configurable:true,value:function(this:HTMLDialogElement){this.open=true}});
+ Object.defineProperty(HTMLDialogElement.prototype,"close",{configurable:true,value:function(this:HTMLDialogElement){this.open=false}});
+ const materials={...item,name:"平台上架资料智能体",parameterSchema:"listing-materials-config-v1",agent:{...item.agent,agentId:"listing.materials.agent",activation:"ENABLED",revision:"1",activationEpoch:"1"}};
+ const fetch=vi.fn(async(url:unknown,init?:RequestInit)=>{
+  const path=String(url);
+  if(init?.method==="POST")return Response.json({commandId:"8fc227bb-b572-4138-8e2a-5f1a0be98617",operation:"create-template",agentId:"listing.materials.agent",templateId:"85cf7a89-4979-411a-a58f-90fd61b7415a",revision:"1",version:"1",noop:false,committedAt:"2026-10-13T00:00:00Z"});
+  if(path.includes("/execution-modes/"))return Response.json({subject:{kind:"registered_agent",id:"listing.materials.agent"},definition:{id:"listing.materials.agent",version:"v1.0.0"},mode:"default",revision:"0",policyVersion:"agent-execution-policy-v1",canConfigure:true,updatedAt:"2026-10-13T00:00:00Z",updatedBy:""});
+  if(path.includes("/templates?"))return Response.json({items:[],nextCursor:""});
+  return Response.json(materials);
+ });
+ vi.stubGlobal("fetch",fetch);
+ render(<AgentPage mode="mine" id="listing.materials.agent"/>);
+ fireEvent.click(await screen.findByRole("button",{name:"新建模板"}));
+ await screen.findByRole("heading",{name:"保存平台资料模板"});
+ expect(screen.queryByLabelText("默认企业知识")).toBeNull();
+ expect(screen.queryByRole("option",{name:"TEMU"})).toBeNull();
+ expect(screen.getByRole("option",{name:"SHEIN"})).toBeInTheDocument();
+ fireEvent.change(screen.getByLabelText("模板名称"),{target:{value:"SHEIN 资料"}});
+ fireEvent.click(screen.getByRole("button",{name:"保存模板"}));
+ await waitFor(()=>expect(fetch.mock.calls.some(([,init])=>init?.method==="POST")).toBe(true));
+ const call=fetch.mock.calls.find(([,init])=>init?.method==="POST")!;
+ expect(JSON.parse(String(call[1]?.body))).toEqual({name:"SHEIN 资料",targetPlatform:"shein"});
+ expect(fetch.mock.calls.some(([url])=>String(url).includes("knowledge-bases"))).toBe(false);
 });
 it("drops a late protected response after switching A to B to A", async () => {
   let resolve!: (r: Response) => void;
