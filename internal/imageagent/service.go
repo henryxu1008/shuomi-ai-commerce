@@ -16,6 +16,7 @@ import (
 
 type Service struct {
 	imageSets         *ImageSetDependencies
+	artworks          *ArtworkDependencies
 	organizationScope bool
 	repository        Repository
 	workflows         WorkflowClient

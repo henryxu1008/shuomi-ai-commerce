@@ -159,6 +159,20 @@ func ValidatePublishedAssetRefForSlot(input SlotExecutionInput, asset PublishedA
 	} else if normalized.Artwork != nil {
 		return ErrRevisionConflict
 	}
+	return ValidatePublishedAssetRefForEffect(SlotExternalEffectIdentity{RunScope: RunScope{TenantID: input.TenantID, OwnerUserID: input.UserID, RunID: input.RunID}, PlanRevision: input.PlanRevision, SlotID: input.Slot.ID, Attempt: input.Attempt}, normalized, expectedIndex)
+}
+
+// This validates only the immutable artifact identity. The fixed recovery
+// owner must additionally bind its original successful GenerationFact and plan.
+func ValidatePublishedAssetRefForEffect(id SlotExternalEffectIdentity, asset PublishedAssetRef, expectedIndex int) error {
+	normalized, err := normalizePublishedAssetRef(asset)
+	if err != nil {
+		return err
+	}
+	if normalized.Artwork != nil && normalized.Artwork.ValidateForIdentity(id) != nil {
+		return ErrRevisionConflict
+	}
+	input := SlotExecutionInput{TenantID: id.TenantID, UserID: id.OwnerUserID, RunID: id.RunID, PlanRevision: id.PlanRevision, Slot: Slot{ID: id.SlotID}, Attempt: id.Attempt}
 	_, extension, err := validatePublishedAssetIdentityForSlot(input, DurableAssetIdentity{ObjectKey: normalized.ObjectKey, SHA256: normalized.SHA256}, expectedIndex)
 	if err != nil {
 		return err

@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -114,6 +115,25 @@ func TestArtworkGenerationUsesOriginalEconomicsWithoutReadingAnOriginal(t *testi
 					require.NoError(t, output.Assets[0].Artwork.ValidateForInput(input))
 				} else {
 					require.Error(t, generatedErr)
+				}
+			}
+			if outcome == "download_failure" {
+				effect, err := owner.GetSlotExternalEffectV3(ctx, id)
+				require.NoError(t, err)
+				provenance, err := imageagent.NewArtworkProvenance(input, fact)
+				require.NoError(t, err)
+				manifest := v3StagingManifest()
+				ownerKey, err := imageagent.ArtifactOwnerKey(id.OwnerUserID)
+				require.NoError(t, err)
+				ref := &manifest.Assets[0]
+				ref.ObjectKey = fmt.Sprintf("image-agent/staging/%s/%s/%s/%d/%s/%d/0-%s.png", id.TenantID, ownerKey, id.RunID, id.PlanRevision, id.SlotID, id.Attempt, ref.SHA256)
+				ref.SourceAssetID, ref.Artwork, ref.Operations = "", &provenance, []string{"generate_artwork"}
+				ref.Width, ref.Height = 1024, 1024
+				reservation := imageagent.SlotEffectV3Reservation{Identity: id, IdempotencyKey: effect.IdempotencyKey, InputFingerprint: effect.InputFingerprint, Policy: effect.Policy, Quote: effect.Quote}
+				for replay := 0; replay < 2; replay++ {
+					restored, err := owner.RecoverGenerationStaging(ctx, reservation, fact.Intent, fact.TerminalProofDigest(), manifest)
+					require.NoError(t, err)
+					require.Equal(t, imageagent.SlotEffectV3StagingPrepared, restored.Phase)
 				}
 			}
 			_, err = executor.GenerateQuotedSlot(ctx, input, quote)

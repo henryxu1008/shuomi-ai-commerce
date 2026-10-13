@@ -18,7 +18,7 @@ func (a *Activities) PersistImageSetSlotResult(ctx context.Context, input Persis
 	if err != nil {
 		return imageagent.SlotProjection{}, err
 	}
-	if projection.Plan.Set == nil || projection.Plan.Revision != input.PlanRevision {
+	if projection.Plan.Set == nil && projection.Plan.Artwork == nil || projection.Plan.Revision != input.PlanRevision {
 		return imageagent.SlotProjection{}, imageagent.ErrRevisionConflict
 	}
 	for _, slot := range projection.Slots {
@@ -30,14 +30,14 @@ func (a *Activities) PersistImageSetSlotResult(ctx context.Context, input Persis
 }
 
 func (a *Activities) deriveImageSetSlotProjection(ctx context.Context, current imageagent.RunProjection, input PersistSlotResultV3ActivityInput, result imageagent.SlotProjection) (imageagent.SlotProjection, error) {
-	if current.Run.ScopeProtocol != imageagent.OrganizationScopeProtocol || current.Plan.Set == nil || current.Plan.Revision != input.PlanRevision || current.Run.ActivePlanRevision != input.PlanRevision {
+	if current.Run.ScopeProtocol != imageagent.OrganizationScopeProtocol || current.Plan.Set == nil && current.Plan.Artwork == nil || current.Plan.Revision != input.PlanRevision || current.Run.ActivePlanRevision != input.PlanRevision {
 		return result, imageagent.ErrRevisionConflict
 	}
 	declared := findSlot(current.Plan, result.Slot.ID)
 	if declared.ID == "" || input.AttemptKey != slotAttemptKey(input.PlanRevision, declared, input.Result.Published.Attempt) {
 		return result, imageagent.ErrRevisionConflict
 	}
-	execution := slotExecutionInputV3(ExecuteSlotV3ActivityInput{RunID: input.RunID, Identity: input.Identity, PlanRevision: input.PlanRevision, Slot: declared, Attempt: input.Result.Published.Attempt, IdempotencyKey: input.AttemptKey, TargetPlatform: current.Run.TargetPlatform, ImageSet: current.Plan.Set, AssetCatalog: current.AssetCatalog})
+	execution := slotExecutionInputV3(ExecuteSlotV3ActivityInput{RunID: input.RunID, Identity: input.Identity, PlanRevision: input.PlanRevision, Slot: declared, Attempt: input.Result.Published.Attempt, IdempotencyKey: input.AttemptKey, TargetPlatform: current.Run.TargetPlatform, ImageSet: current.Plan.Set, Artwork: imageagent.CloneArtworkPlan(current.Plan.Artwork), AssetCatalog: current.AssetCatalog})
 	reservation := slotEffectReservationV3(execution)
 	effect, effectErr := a.slotEffectsV3.GetSlotExternalEffectV3(ctx, reservation.Identity)
 	if effectErr != nil && !errors.Is(effectErr, imageagent.ErrRunNotFound) {
@@ -70,9 +70,15 @@ func (a *Activities) deriveImageSetSlotProjection(ctx context.Context, current i
 	if err != nil {
 		return result, err
 	}
-	digest, err := imageagent.ImageSlotGenerationInputDigest(execution)
-	if err != nil || fact.Validate() != nil || fact.Intent.Identity != reservation.Identity || fact.Intent.MemberID != input.Identity.MemberID || fact.Intent.CatalogHash != current.AssetCatalog.Manifest.Hash || fact.Intent.InputProtocol != imageagent.ImageSetSchema || fact.Intent.InputDigest != digest || fact.Intent.SourceDigest != imageagent.ImageSourceBundleDigest(declared.Recipe.References) || fact.Intent.PromptVersion != declared.Recipe.PromptVersion || !declared.Recipe.Quote.MatchesGenerationIntent(fact.Intent) {
-		return result, imageagent.ErrRevisionConflict
+	if current.Plan.Artwork != nil {
+		if _, err := imageagent.NewArtworkProvenance(execution, fact); err != nil || fact.Intent.MemberID != input.Identity.MemberID {
+			return result, imageagent.ErrRevisionConflict
+		}
+	} else {
+		digest, err := imageagent.ImageSlotGenerationInputDigest(execution)
+		if err != nil || fact.Validate() != nil || fact.Intent.Identity != reservation.Identity || fact.Intent.MemberID != input.Identity.MemberID || fact.Intent.CatalogHash != current.AssetCatalog.Manifest.Hash || fact.Intent.InputProtocol != imageagent.ImageSetSchema || fact.Intent.InputDigest != digest || fact.Intent.SourceDigest != imageagent.ImageSourceBundleDigest(declared.Recipe.References) || fact.Intent.PromptVersion != declared.Recipe.PromptVersion || !declared.Recipe.Quote.MatchesGenerationIntent(fact.Intent) {
+			return result, imageagent.ErrRevisionConflict
+		}
 	}
 	closure, err := imageagent.ImageGenerationClosure(fact)
 	if err != nil {
@@ -130,7 +136,12 @@ func (a *Activities) deriveImageSetSlotProjection(ctx context.Context, current i
 		return result, imageagent.ErrRevisionConflict
 	}
 	candidate := &result.Candidates[0]
-	if candidate.SourceAssetID != declared.SourceAssetIDs[0] || candidate.Width != 1024 || candidate.Height != 1024 || !reflect.DeepEqual(candidate.Operations, []string{"render_source_edit"}) {
+	if current.Plan.Artwork != nil {
+		provenance, err := imageagent.NewArtworkProvenance(execution, fact)
+		if err != nil || candidate.SourceAssetID != "" || !reflect.DeepEqual(candidate.Artwork, &provenance) || !reflect.DeepEqual(candidate.Operations, []string{"generate_artwork"}) || candidate.Width != 1024 || candidate.Height != 1024 {
+			return result, imageagent.ErrRevisionConflict
+		}
+	} else if candidate.SourceAssetID != declared.SourceAssetIDs[0] || candidate.Width != 1024 || candidate.Height != 1024 || !reflect.DeepEqual(candidate.Operations, []string{"render_source_edit"}) {
 		return result, imageagent.ErrRevisionConflict
 	}
 	result.Closure = closure
@@ -157,7 +168,7 @@ func imageSetExistingEffectBlockCode(effect imageagent.SlotEffectV3Attempt) stri
 // The already-committed closure is the output decision. Its economic identity
 // is always re-derived from the original settled generation fact.
 func hasClosedInvalidImageSetOutput(current imageagent.RunProjection, input imageagent.SlotExecutionInput, closure *imageagent.ImageSlotClosure) bool {
-	if current.Plan.Set == nil || current.Plan.Revision != input.PlanRevision || current.Run.ActivePlanRevision != input.PlanRevision {
+	if current.Plan.Set == nil && current.Plan.Artwork == nil || current.Plan.Revision != input.PlanRevision || current.Run.ActivePlanRevision != input.PlanRevision {
 		return false
 	}
 	for _, slot := range current.Slots {

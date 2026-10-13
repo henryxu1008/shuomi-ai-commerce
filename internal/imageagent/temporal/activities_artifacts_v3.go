@@ -65,7 +65,7 @@ func slotExecutionInputV3(input ExecuteSlotV3ActivityInput) imageagent.SlotExecu
 		}
 	}
 	return imageagent.SlotExecutionInput{
-		ImageSet:             imageagent.CloneImageSetPlan(input.ImageSet),
+		ImageSet: imageagent.CloneImageSetPlan(input.ImageSet), Artwork: imageagent.CloneArtworkPlan(input.Artwork),
 		OrganizationIdentity: input.Identity,
 		RunID:                input.RunID, TenantID: input.Identity.TenantID, UserID: input.Identity.UserID,
 		TargetPlatform: input.TargetPlatform, ImagePolicyContext: clonePolicyContext(input.ImagePolicyContext),

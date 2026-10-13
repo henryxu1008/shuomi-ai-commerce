@@ -8,7 +8,7 @@ import (
 )
 
 func recoverySlotExecutionInput(input EffectRecoveryWorkflowInput) imageagent.SlotExecutionInput {
-	return slotExecutionInputV3(ExecuteSlotV3ActivityInput{RunID: input.RunID, Identity: input.Identity, ImageSet: imageagent.CloneImageSetPlan(input.ImageSet), TargetPlatform: input.TargetPlatform, ImagePolicyContext: clonePolicyContext(input.ImagePolicyContext), PlanRevision: input.PlanRevision, Slot: input.Slot, Attempt: input.Attempt, IdempotencyKey: slotAttemptKey(input.PlanRevision, input.Slot, input.Attempt), AssetCatalog: input.AssetCatalog})
+	return slotExecutionInputV3(ExecuteSlotV3ActivityInput{RunID: input.RunID, Identity: input.Identity, ImageSet: imageagent.CloneImageSetPlan(input.ImageSet), Artwork: imageagent.CloneArtworkPlan(input.Artwork), TargetPlatform: input.TargetPlatform, ImagePolicyContext: clonePolicyContext(input.ImagePolicyContext), PlanRevision: input.PlanRevision, Slot: input.Slot, Attempt: input.Attempt, IdempotencyKey: slotAttemptKey(input.PlanRevision, input.Slot, input.Attempt), AssetCatalog: input.AssetCatalog})
 }
 
 // Deserialized activity inputs consume the immutable plan held by ImageDB.
@@ -18,6 +18,18 @@ func (a *Activities) validatePersistedImageSetExecution(ctx context.Context, inp
 	projection, err := a.repository.GetProjection(ctx, imageagent.RunScope{TenantID: input.TenantID, OwnerUserID: input.UserID, RunID: input.RunID})
 	if err != nil {
 		return err
+	}
+	if projection.Plan.Artwork != nil || input.Artwork != nil {
+		if projection.Plan.Artwork == nil || input.Artwork == nil || projection.Plan.Set != nil || input.ImageSet != nil || !reflect.DeepEqual(projection.Plan.Artwork, input.Artwork) || projection.Plan.Revision != input.PlanRevision || projection.Run.ActivePlanRevision != input.PlanRevision || projection.Run.TargetPlatform != input.TargetPlatform || input.ImagePolicyContext != nil || imageagent.ValidateArtworkExecution(input) != nil || imageagent.ValidateArtworkAdmission(projection.Run, projection.Plan) != nil {
+			return imageagent.ErrRevisionConflict
+		}
+		for _, declared := range projection.Plan.Slots {
+			declared.Status = input.Slot.Status
+			if reflect.DeepEqual(declared, input.Slot) {
+				return nil
+			}
+		}
+		return imageagent.ErrRevisionConflict
 	}
 	if projection.Plan.Set == nil && input.ImageSet == nil && input.Slot.Recipe == nil {
 		return nil
