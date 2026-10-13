@@ -209,6 +209,7 @@ func registeredProductAgentRoutes(a *productAgentApplication, content bool) []ht
 			}
 			var record agent.Record
 			var binding agent.Binding
+			runMayExist := false
 			if spec.action == "start" {
 				binding, err = a.binding(ctx, operationID, body.TargetPlatform)
 				if err == nil {
@@ -216,6 +217,7 @@ func registeredProductAgentRoutes(a *productAgentApplication, content bool) []ht
 					var found bool
 					existing, found, err = a.store.Lookup(ctx, agent.Scope{OrganizationID: i.TenantID, ActorID: i.UserID}, binding, key)
 					if err == nil && found {
+						runMayExist = true
 						binding = existing.State.Request.Binding
 						if binding.TargetPlatform != body.TargetPlatform {
 							err = agent.ErrConflict
@@ -232,12 +234,15 @@ func registeredProductAgentRoutes(a *productAgentApplication, content bool) []ht
 						request, err = a.startRequest(ctx, binding, key, selection, template, body.ExpectedModeRevision)
 					}
 					if err == nil {
-						record, err = a.runtime.Start(ctx, request)
+						var attempted bool
+						record, attempted, err = a.runtime.StartWithClaimAttempt(ctx, request)
+						runMayExist = runMayExist || attempted
 					}
 				}
 			} else {
 				record, err = a.store.Read(ctx, agent.Scope{OrganizationID: i.TenantID, ActorID: i.UserID}, operationID, key)
 				if err == nil {
+					runMayExist = true
 					binding = record.State.Request.Binding
 					_, err = a.Authorize(ctx, binding)
 				}
@@ -254,7 +259,7 @@ func registeredProductAgentRoutes(a *productAgentApplication, content bool) []ht
 				}
 			}
 			if err != nil {
-				writeProductAgentError(c, err)
+				writeProductAgentRunError(c, err, runMayExist)
 				return
 			}
 			if spec.action == "review" {
@@ -281,7 +286,7 @@ func registeredProductAgentRoutes(a *productAgentApplication, content bool) []ht
 			}
 			if spec.action == "start" || spec.action == "resume" {
 				if _, err := a.finishTitleCandidate(ctx, record); err != nil {
-					writeProductAgentError(c, err)
+					writeProductAgentRunError(c, err, true)
 					return
 				}
 			}
@@ -367,6 +372,14 @@ func contentRunDiagnostics(s agent.State) []string {
 		items = append(items, rejection.Code+": "+rejection.Message)
 	}
 	return items
+}
+
+func writeProductAgentRunError(c *gin.Context, err error, runMayExist bool) {
+	// Preserve the original request key once an execution may have been claimed.
+	if runMayExist && (errors.Is(err, agentconfig.ErrChanged) || errors.Is(err, agentconfig.ErrNotEnabled) || errors.Is(err, agentconfig.ErrArchived) || errors.Is(err, agentconfig.ErrDefinition)) {
+		err = agent.ErrConflict
+	}
+	writeProductAgentError(c, err)
 }
 
 func writeProductAgentError(c *gin.Context, err error) {
