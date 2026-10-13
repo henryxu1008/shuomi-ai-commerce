@@ -1,11 +1,18 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
+	"net"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"testing"
+
+	miniredis "github.com/alicebob/miniredis/v2"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 
 	"task-processor/internal/core/config"
 	"task-processor/internal/listingadmin"
@@ -15,6 +22,46 @@ import (
 
 type fakeSheinLoginWorkerStoreAPI struct {
 	listingadmin.StoreAPI
+}
+
+func TestSheinLoginWorkerDefaultServiceBuilderRetainsAccountRepository(t *testing.T) {
+	redis := miniredis.RunT(t)
+	host, portText, err := net.SplitHostPort(redis.Addr())
+	if err != nil {
+		t.Fatal(err)
+	}
+	port, err := strconv.Atoi(portText)
+	if err != nil {
+		t.Fatal(err)
+	}
+	db, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "stores.db")), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = sqlDB.Close() })
+	repository := listingadmin.NewGormStoreRepository(db)
+	cfg := &config.Config{Platforms: config.PlatformsConfig{Shein: config.PlatformConfig{
+		CookieRedis: config.RedisConfig{Host: host, Port: port},
+	}}}
+	runtime, err := buildSheinLoginWorkerRuntimeWithDependencies("worker.yaml", sheinLoginWorkerRuntimeDependencies{
+		LoadConfig: func(string) (*config.Config, error) { return cfg, nil },
+		BuildDatabaseStoreAPI: func(*config.Config) (listingadmin.StoreAPI, listingadmin.StoreRepository, func() error, error) {
+			return listingadmin.NewGormStoreAPI(repository), repository, sqlDB.Close, nil
+		},
+		BuildLoginService: buildSheinLoginWorkerService,
+	})
+	if err != nil {
+		t.Fatalf("real default login builder failed with isolated database and Redis: %v", err)
+	}
+	t.Cleanup(func() { _ = runtime.Close() })
+	health := runtime.result.Service.Health(context.Background())
+	if !health.Initialized || !health.RedisReady || !health.ManagementReady {
+		t.Fatalf("real service dependencies are incomplete: %+v", health)
+	}
 }
 
 func TestLoadSheinLoginWorkerConfigAcceptsDatabaseAndRedisOnly(t *testing.T) {
@@ -69,6 +116,7 @@ platforms:
 func TestBuildSheinLoginWorkerRuntimeWithDependenciesUsesOnlyScopedFactories(t *testing.T) {
 	cfg := &config.Config{Database: &config.DatabaseConfig{Host: "database.internal"}}
 	storeAPI := &fakeSheinLoginWorkerStoreAPI{}
+	repository := listingadmin.NewGormStoreRepository(nil)
 	service := &sheinlogin.Service{}
 	var calls []string
 
@@ -77,19 +125,19 @@ func TestBuildSheinLoginWorkerRuntimeWithDependenciesUsesOnlyScopedFactories(t *
 			calls = append(calls, "load-config:"+path)
 			return cfg, nil
 		},
-		BuildDatabaseStoreAPI: func(got *config.Config) (listingadmin.StoreAPI, func() error, error) {
+		BuildDatabaseStoreAPI: func(got *config.Config) (listingadmin.StoreAPI, listingadmin.StoreRepository, func() error, error) {
 			calls = append(calls, "build-database-store")
 			if got != cfg || got.Database.Host != "database.internal" {
 				t.Fatalf("store factory config = %#v", got)
 			}
-			return storeAPI, func() error {
+			return storeAPI, repository, func() error {
 				calls = append(calls, "close-database-store")
 				return nil
 			}, nil
 		},
-		BuildLoginService: func(gotConfig *config.Config, gotStoreAPI listingadmin.StoreAPI) (*sheinloginbootstrap.BuildResult, func() error, error) {
+		BuildLoginService: func(gotConfig *config.Config, gotStoreAPI listingadmin.StoreAPI, gotRepository listingadmin.StoreRepository) (*sheinloginbootstrap.BuildResult, func() error, error) {
 			calls = append(calls, "build-login-service")
-			if gotConfig != cfg || gotStoreAPI != storeAPI {
+			if gotConfig != cfg || gotStoreAPI != storeAPI || gotRepository != repository {
 				t.Fatalf("login dependencies = %#v / %#v", gotConfig, gotStoreAPI)
 			}
 			return &sheinloginbootstrap.BuildResult{Service: service}, func() error {
@@ -126,14 +174,14 @@ func TestBuildSheinLoginWorkerRuntimeWithDependenciesClosesStoreWhenLoginUnavail
 			calls = append(calls, "load-config")
 			return &config.Config{}, nil
 		},
-		BuildDatabaseStoreAPI: func(*config.Config) (listingadmin.StoreAPI, func() error, error) {
+		BuildDatabaseStoreAPI: func(*config.Config) (listingadmin.StoreAPI, listingadmin.StoreRepository, func() error, error) {
 			calls = append(calls, "build-database-store")
-			return &fakeSheinLoginWorkerStoreAPI{}, func() error {
+			return &fakeSheinLoginWorkerStoreAPI{}, nil, func() error {
 				calls = append(calls, "close-database-store")
 				return nil
 			}, nil
 		},
-		BuildLoginService: func(*config.Config, listingadmin.StoreAPI) (*sheinloginbootstrap.BuildResult, func() error, error) {
+		BuildLoginService: func(*config.Config, listingadmin.StoreAPI, listingadmin.StoreRepository) (*sheinloginbootstrap.BuildResult, func() error, error) {
 			calls = append(calls, "build-login-service")
 			return &sheinloginbootstrap.BuildResult{}, func() error {
 				calls = append(calls, "close-login-service")
