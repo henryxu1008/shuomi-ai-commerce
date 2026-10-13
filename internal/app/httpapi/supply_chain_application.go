@@ -155,7 +155,7 @@ func buildSupplyChainModule(ctx context.Context, productDB, storeDB *gorm.DB, d 
 	if err != nil {
 		return empty, err
 	}
-	app := &supplyapp.Application{Preparations: preparations, Sources: sources, Operations: operations, Execution: supplyapp.OperationApplication{Service: operations, Repository: operationsRepo, Starter: d.Starter}, Targets: targets, Records: records, Products: effective, Rules: rules, TemuRules: temuRules, TikTokRules: tiktokRules, TikTokCatalog: tiktokRules, Assets: assets, Approvals: approvals, Authorization: auth, PublicationReceipts: official, PublicationStores: supplyapp.OfficialRuleStore{Access: access}, TargetMerchants: supplyapp.OfficialTargetMerchantStore{Access: access}}
+	app := &supplyapp.Application{Preparations: preparations, Sources: sources, Operations: operations, Execution: supplyapp.OperationApplication{Service: operations, Repository: operationsRepo, Starter: d.Starter}, Targets: targets, Records: records, Products: effective, Rules: rules, TemuRules: temuRules, TikTokRules: tiktokRules, TikTokCatalog: tiktokRules, TikTokStatusStores: supplyapp.OfficialTikTokRuleStore{Access: access}, Assets: assets, Approvals: approvals, Authorization: auth, PublicationReceipts: official, PublicationStores: supplyapp.OfficialRuleStore{Access: access}, TargetMerchants: supplyapp.OfficialTargetMerchantStore{Access: access}}
 	var optimizer supplyapp.OperationOptimizer
 	app.StageProjection = stageProjection
 	app.Uploader = uploader

@@ -31,3 +31,29 @@ func TestCategoryQueryUsesAdmittedMethodUSVersionAndProtectedShop(t *testing.T) 
 		}
 	}
 }
+
+func TestProductStatusQueryUsesProtectedShopAndOriginalProduct(t *testing.T) {
+	calls := 0
+	client := newFixtureClient(t, func(request *http.Request) (*http.Response, error) {
+		calls++
+		if request.Method != "GET" || request.URL.Path != "/product/202309/products/local-1" || request.URL.Query().Get("shop_cipher") != "protected-shop" || request.URL.Query().Get("locale") != "en-US" || request.Header.Get("x-tts-access-token") != "private-token" || request.URL.Query().Has("return_draft_version") || request.URL.Query().Has("return_under_review_version") {
+			t.Fatal("wrong product status request")
+		}
+		query := request.URL.Query()
+		sign := query.Get("sign")
+		query.Del("sign")
+		want, err := signature(request.URL.Path, query, nil, "application/json", "fixture-secret-never-log")
+		if err != nil || sign != want {
+			t.Fatal("request signature does not bind product/shop")
+		}
+		return &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": []string{"application/json"}}, Body: io.NopCloser(strings.NewReader(`{"code":0,"data":{"id":"local-1","status":"ACTIVATE","audit":{"status":"APPROVED"},"skus":[{"id":"sku-1"}]}}`))}, nil
+	})
+	value, err := client.QueryProductStatus(context.Background(), "private-token", "protected-shop", marketplace.ProductStatusExpectation{ProductID: "local-1", LocalSKUIDs: []string{"sku-1"}})
+	if err != nil || value.Status != "ACTIVATE" || calls != 1 {
+		t.Fatalf("status query: %v", err)
+	}
+	_, err = client.QueryProductStatus(context.Background(), "private-token", "protected-shop", marketplace.ProductStatusExpectation{ProductID: "../other"})
+	if err == nil || calls != 1 {
+		t.Fatal("unsafe path dispatched")
+	}
+}

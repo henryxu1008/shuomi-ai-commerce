@@ -22,6 +22,29 @@ type TikTokRulesProvider interface {
 	QueryGlobalWarehouses(context.Context, string) ([]marketplace.GlobalWarehouse, error)
 }
 
+type TikTokProductStatusProvider interface {
+	QueryProductStatus(context.Context, string, string, marketplace.ProductStatusExpectation) (marketplace.ProductStatus, error)
+}
+
+func (h *TikTokRulesHandle) ProductStatus(ctx context.Context, expected marketplace.ProductStatusExpectation) (marketplace.ProductStatus, error) {
+	tokens, err := h.credential(ctx, "seller.product.basic")
+	if err != nil {
+		return marketplace.ProductStatus{}, err
+	}
+	provider, ok := h.owner.applications.tiktokProvider.(TikTokProductStatusProvider)
+	if !ok {
+		return marketplace.ProductStatus{}, ErrProductAccessChanged
+	}
+	value, err := provider.QueryProductStatus(ctx, tokens.AccessToken, h.material.Binding.Shop.Cipher, expected)
+	if err != nil {
+		return marketplace.ProductStatus{}, err
+	}
+	if _, err = h.credential(ctx, "seller.product.basic"); err != nil {
+		return marketplace.ProductStatus{}, err
+	}
+	return value, nil
+}
+
 type TikTokRulesHandle struct {
 	owner         *OfficialProductAccess
 	subject       storecenter.ProductExecutionSubject

@@ -29,6 +29,7 @@ type Application struct {
 	TemuRules             TemuTargetRuleReader
 	TikTokRules           record.TargetTikTokRuleReader
 	TikTokCatalog         TikTokRuleReader
+	TikTokStatusStores    TikTokRuleStore
 	Assets                record.ApprovedAssetReader
 	Approvals             *asset.SourceApprovalService
 	Authorization         preparation.Authorizer

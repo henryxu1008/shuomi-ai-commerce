@@ -65,6 +65,19 @@ func (c *OfficialClient) QueryListingRules(ctx context.Context, token, cipher st
 	return marketplace.DecodeListingRules(raw)
 }
 
+func (c *OfficialClient) QueryProductStatus(ctx context.Context, token, cipher string, expected marketplace.ProductStatusExpectation) (marketplace.ProductStatus, error) {
+	if !bounded(cipher, 4096) || !bounded(expected.ProductID, 128) || expected.ProductID == "." || expected.ProductID == ".." || strings.ContainsAny(expected.ProductID, "/\\?#%") {
+		return marketplace.ProductStatus{}, marketplace.ErrPublicationInvalid
+	}
+	// Default version is the latest product information. Never combine the
+	// mutually exclusive draft/under-review version selectors.
+	raw, err := c.resourceRead(ctx, "/product/202309/products/"+url.PathEscape(expected.ProductID), url.Values{"shop_cipher": {cipher}, "locale": {"en-US"}}, token)
+	if err != nil {
+		return marketplace.ProductStatus{}, err
+	}
+	return marketplace.DecodeProductStatus(raw, expected)
+}
+
 func categoryQuery(method marketplace.ListingMethod, cipher string) (url.Values, bool) {
 	query := url.Values{"category_version": {"v2"}, "locale": {"en-US"}}
 	if !bounded(cipher, 4096) || method != marketplace.LocalReplication && method != marketplace.GlobalPublishing {

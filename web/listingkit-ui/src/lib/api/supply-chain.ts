@@ -48,6 +48,9 @@ export const readSupplySavedTarget=async(scope:SupplyScope,source:string,store:s
 export const readSupplyPublication=async(scope:SupplyScope,source:string,store:string,signal?:AbortSignal)=>{
  const value=await send(`${base}/sources/${collectionID.parse(source)}/publications/${collectionID.parse(store)}`,scope,c.publicationSchema,signal);if(value.sourceId!==source||value.storeId!==store)throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
 };
+export const readSupplyPublicationStatus=async(scope:SupplyScope,source:string,store:string,signal?:AbortSignal)=>{
+ const value=await send(`${base}/sources/${collectionID.parse(source)}/publications/${collectionID.parse(store)}/status`,scope,c.publicationSchema,signal);if(value.sourceId!==source||value.storeId!==store||!value.tiktokStatus)throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
+};
 export const readSupplyRecord=async(scope:SupplyScope,id:string,signal?:AbortSignal)=>{
 	const value=await send(`${base}/records/${collectionID.parse(id)}`,scope,c.sheinTargetRecordSchema,signal);if(value.id!==id)throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
 };

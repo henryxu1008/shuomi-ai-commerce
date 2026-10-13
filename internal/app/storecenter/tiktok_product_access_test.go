@@ -17,9 +17,22 @@ import (
 type tiktokProductProvider struct {
 	tiktok.SellerAuthorization
 	TikTokRulesProvider
-	app    tiktok.Application
-	shopID string
-	calls  int
+	app         tiktok.Application
+	shopID      string
+	calls       int
+	statusCalls int
+	afterStatus func()
+}
+
+func (p *tiktokProductProvider) QueryProductStatus(_ context.Context, token, cipher string, expected marketplace.ProductStatusExpectation) (marketplace.ProductStatus, error) {
+	p.statusCalls++
+	if token != "private-access" || cipher != "fresh-cipher" {
+		return marketplace.ProductStatus{}, ErrProductAccessChanged
+	}
+	if p.afterStatus != nil {
+		p.afterStatus()
+	}
+	return marketplace.ProductStatus{ProductID: expected.ProductID, Status: "ACTIVATE", AuditStatus: "APPROVED", Reasons: []string{}}, nil
 }
 
 func (p *tiktokProductProvider) Application() tiktok.Application { return p.app }
@@ -59,11 +72,21 @@ func TestTikTokProductAccessRequiresFreshShopScopesAndCanonicalGeneration(t *tes
 	_, err = handle.Categories(context.Background(), marketplace.GlobalPublishing)
 	require.Error(t, err, "ungranted global-category scope must block resource I/O")
 	require.Equal(t, 1, provider.calls)
+	_, err = handle.ProductStatus(context.Background(), marketplace.ProductStatusExpectation{ProductID: "local", LocalSKUIDs: []string{"sku"}})
+	require.NoError(t, err)
+	require.Equal(t, 1, provider.statusCalls)
+	provider.afterStatus = func() { reader.material.TikTok.Grant.Revision++ }
+	_, err = handle.ProductStatus(context.Background(), marketplace.ProductStatusExpectation{ProductID: "local", LocalSKUIDs: []string{"sku"}})
+	require.ErrorIs(t, err, ErrProductAccessChanged, "canonical authorization change during response blocks observation")
+	provider.afterStatus = nil
 	reader.material.TikTok.Grant.Revision++
 	reader.material.TikTok.Grant.Status = tiktok.GrantRevoked
 	_, err = handle.ListingRules(context.Background())
 	require.Error(t, err)
 	require.Equal(t, 1, provider.calls)
+	_, err = handle.ProductStatus(context.Background(), marketplace.ProductStatusExpectation{ProductID: "local", LocalSKUIDs: []string{"sku"}})
+	require.Error(t, err)
+	require.Equal(t, 2, provider.statusCalls, "revoked credentials cannot issue status I/O")
 	reader.material.TikTok.Grant = grant
 	provider.shopID = "another-shop"
 	_, err = access.AuthorizeTikTokRules(context.Background(), subject, storeID, nil)

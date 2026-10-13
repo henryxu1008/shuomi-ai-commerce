@@ -1,6 +1,6 @@
 # TikTok Shop 美国跨境店铺接入
 
-本候选交付一条路径：店铺授权 → 保存美国跨境商品资料 → 显式确认平台草稿或刊登 → 查看实际创建回执。设计依据为 [#669](https://github.com/qq550723504/task-processor/issues/669)、[冻结架构](../architecture/tiktok-shop-us-v1.md)及[官方接口证据](../architecture/tiktok-shop-us-contract-evidence.md)。开发者应用尚未创建；真实店铺、权限审批和用户试用保持 **NOT_RUN**。代码与 CI 不代表商品已审核通过或可生产上线。
+本候选交付一条路径：店铺授权 → 保存美国跨境商品资料 → 显式确认平台草稿或刊登 → 查看实际创建回执及手动查询平台当前状态。设计依据为 [#669](https://github.com/qq550723504/task-processor/issues/669)、[冻结架构](../architecture/tiktok-shop-us-v1.md)及[官方接口证据](../architecture/tiktok-shop-us-contract-evidence.md)。开发者应用尚未创建；真实店铺、权限审批和用户试用保持 **NOT_RUN**。代码与 CI 不代表商品已审核通过或可生产上线。
 
 ## 当前入口
 
@@ -10,7 +10,7 @@
 4. 打开 `/workbench/supply/mine`，选择批次和 TikTok 店铺，逐件点击“查看 / 补全”。选择官方允许的发布方式及 AVAILABLE 末级类目，填写英文资料、商家 SKU、价格、仓库和数量。可显式带入待补全草稿 Rn；所选 record/revision 随 Target 保存，手改文字后按手填内容保存。
 5. 确认来源图片，选择批准素材，补齐当前类目属性、证明与尺码表。点击“保存并校验 TikTok 资料”。未满足规则的记录仍是本地待补全资料，不能刊登。
 6. 在列表单独确认上传。LOCAL_REPLICATION 可明确选择 **AS_DRAFT** 或 **LISTING**；GLOBAL_PUBLISHING 保存全球商品后只刊登 **US**。美国全球刊登每个 SKU 明确选择一个实际发货仓；美国数量不得超过批准的全球库存预算。美国最终售价 sale_price 与全球税前基准 amount 分别填写，币种均为 USD。
-7. 查看商品编号、SKU 关联及原操作结果。GLOBAL 的 SUCCESS 表示提交审核；DRAFT 保留实际美国草稿及关联；FAILED 保留全球商品和原失败结果。本地 LISTING 创建响应仅确认资产已创建，审核及在售状态仍待平台确认。
+7. 查看商品编号、SKU 关联及原操作结果。GLOBAL 的 SUCCESS 表示提交审核；DRAFT 保留实际美国草稿及关联；FAILED 保留全球商品和原失败结果。本地 LISTING 创建响应仅确认资产已创建，审核及在售状态仍待平台确认。点击“查询平台当前状态”，按原创建的商品 ID 在当前授权 Shop 查询最新商品和审核状态，显示查询时间及可公开的刊登前置原因。该查询不会改变原回执或解除 UNKNOWN 占用。
 
 首版读取当前 Product/Asset owner 已批准的 PNG/JPEG，受既有图片解析限制及 TikTok 图片尺寸要求约束。仅提供图片证明；要求未支持文件格式的类目不属于已验证可刊登范围。批量自动适配、自动审核、自动重试未知结果、店铺商品同步、其他市场、美国本土店铺、订单、退款、财务和库存自动同步尚未开放。
 
