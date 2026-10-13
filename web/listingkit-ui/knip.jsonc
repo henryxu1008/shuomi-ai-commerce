@@ -13,7 +13,6 @@
     "src/proxy.ts"
   ],
   "project": ["src/**/*.{ts,tsx}"],
-  // The generator is invoked by ../../scripts/generate-api-contract.mjs via its bin path.
   // Tailwind v4 is consumed by globals.css and postcss.config.mjs, not via a TS import.
-  "ignoreDependencies": ["@hey-api/openapi-ts", "tailwindcss"]
+  "ignoreDependencies": ["tailwindcss"]
 }

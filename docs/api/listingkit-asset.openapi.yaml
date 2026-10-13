@@ -1,5 +1,6 @@
-# Generated TypeScript output: node web/listingkit-ui/node_modules/@hey-api/openapi-ts/bin/run.js -i docs/api/listingkit-asset.openapi.yaml -o web/listingkit-ui/src/lib/api/generated -p @hey-api/typescript
-# Deterministic regeneration and drift verification: make api-contract-check
+# Backend read contract retained with its existing route/guard owner (#29).
+# The old frontend TypeScript SDK, generator and make target are retired by #664.
+# This file does not authorize regenerating a legacy frontend consumer.
 openapi: 3.1.0
 info:
   title: ListingKit Read API

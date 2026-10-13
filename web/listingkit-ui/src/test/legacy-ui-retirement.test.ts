@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const sourceRoot = path.resolve(process.cwd(), "src");
+const repoRoot = path.resolve(process.cwd(), "../..");
 
 function productionSources(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -21,12 +22,19 @@ describe("retired Task-first frontend", () => {
     "app/api/shein-login", "app/api/sds-login", "lib/types/listingkit.ts",
     "lib/types/listingkit", "lib/api/create-task.ts", "lib/api/task-recovery.ts",
     "lib/query/use-child-task-retry.ts", "lib/api/submit.ts", "lib/listingkit",
+    "lib/api/generated",
   ])("keeps source files under %s physically absent", (relative) => {
     const target = path.join(sourceRoot, relative);
     // Git does not track empty directories; local deletion may leave them behind.
     const remaining = !existsSync(target) ? [] : statSync(target).isDirectory()
       ? productionSources(target) : [target];
     expect(remaining, relative).toEqual([]);
+  });
+
+  it("keeps the old frontend SDK generator and make target retired", () => {
+    expect(existsSync(path.join(repoRoot, "scripts/generate-api-contract.mjs"))).toBe(false);
+    expect(readFileSync(path.join(repoRoot, "Makefile"), "utf8"))
+      .not.toMatch(/(?:^api-contract-check:|generate-api-contract\.mjs)/m);
   });
 
   it("keeps current routes free of retired imports and request/link targets", () => {
