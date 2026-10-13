@@ -51,7 +51,7 @@ export function ProductAgentPanel({ enabled, knowledgeAvailable=false, operation
         return null;
     return <ScopedAgentPanel key={`${userId}:${organizationId}:${operationId}:${kind}`} kind={kind} onKindChange={setKind} knowledgeAvailable={knowledgeAvailable} userId={userId} organizationId={organizationId} operationId={operationId} productKey={productKey} catalogVersion={catalogVersion} initialKey={params.get("agent_key") ?? ""} initialStart={restoredStart(params,userId,organizationId,kind==="content")}/>;
 }
-function ScopedAgentPanel({ userId, organizationId, operationId, productKey, catalogVersion, initialKey,initialStart,knowledgeAvailable,kind,onKindChange }: {
+function ScopedAgentPanel({ userId, organizationId, operationId, productKey, initialKey,initialStart,knowledgeAvailable,kind,onKindChange }: {
     kind:"title"|"content";onKindChange:(kind:"title"|"content")=>void;
     knowledgeAvailable:boolean;
     userId: string;
@@ -130,7 +130,11 @@ function ScopedAgentPanel({ userId, organizationId, operationId, productKey, cat
                 setProposal(next.proposalId);
                 return;
             }
-            if (next.productKey !== productKey || next.catalogVersion !== catalogVersion || platform && next.targetPlatform !== platform)
+            // The immutable acquisition receipt may precede an adopted Catalog
+            // head. The API verifies operation/request identity; retain a known
+            // run's exact base as well as the page's product and selected platform.
+            if (next.productKey !== productKey || platform && next.targetPlatform !== platform ||
+                result && (next.runId !== result.runId || next.catalogVersion !== result.catalogVersion || next.publicationId !== result.publicationId))
                 throw new ProductAgentError("AGENT_CONFLICT");
             setPlatform(next.targetPlatform);
             if(next.reviewId)setProposal(next.reviewId);
@@ -155,8 +159,8 @@ function ScopedAgentPanel({ userId, organizationId, operationId, productKey, cat
                 setBusy(false);
         }
     }
-    return <Card className="space-y-3 p-5"><h2 className="text-lg font-semibold">{content?"商品内容完善与本地化":"标题诊断与补全"}</h2>
-  <label className="block">商品智能体<select className="block rounded-lg border p-2" value={kind} disabled={!!key||busy||confirming} onChange={event=>onKindChange(event.target.value as "title"|"content")}><option value="title">标题优化</option><option value="content">商品内容完善与本地化</option></select></label>
+    return <Card className="space-y-3 p-5"><h2 className="text-lg font-semibold">商品内容与本地化</h2>
+  <label className="block">处理内容<select className="block rounded-lg border p-2" value={kind} disabled={!!key||busy||confirming} onChange={event=>onKindChange(event.target.value as "title"|"content")}><option value="title">标题优化</option><option value="content">内容完善与本地化</option></select></label>
   <p>从当前已保存版本读取证据，生成{content?"选中内容":"标题"}建议。最多修复两次；按本次确认的权限模式处理本地采用。</p>
   {!key ? <><TitleAgentTemplates key={authorizationKey} agentId={agentId} scope={{userId,organizationId}} onReady={setTemplateReady} onChoose={value=>{setTemplate(value);if(value){setPlatform(value.targetPlatform);if(value.agentId==="product.content.agent")setSelection(value.content.selection)}}}/><label htmlFor="agent-platform">素材查询平台</label><select id="agent-platform" className="block rounded-lg border p-2" value={platform} onChange={event => setPlatform(event.target.value)} disabled={busy||confirming}><option value="">请选择平台</option>{content&&<option value="product">标准商品（不指定平台）</option>}<option value="shein">SHEIN</option><option value="temu">Temu</option><option value="amazon">Amazon</option></select>{content&&<ContentSelectionFields value={selection} onChange={setSelection} disabled={busy||confirming}/>}<p className="text-sm">用于读取已批准的素材；本次不评估平台发布规则。</p><Button disabled={busy || !platform || !templateReady || content&&!contentSelectionSchema.safeParse(selection).success} onClick={() => setConfirming(true)}>{content?"生成内容建议":"生成标题建议"}</Button></> : <><p className="break-all text-sm">本次编号：{key}</p><Button variant="outline" disabled={busy} onClick={() => void execute("read")}>读取当前结果</Button>{intent&&!result&&<><p className="text-sm">原请求平台：{intent.targetPlatform}；{intent.knowledgeSelection?`知识库编号：${intent.knowledgeSelection.knowledgeBaseId}`:"未选择企业知识"}。恢复将沿用同一编号和选择；服务端已有运行时只返回该运行，不会重新生成。</p>{"contentSelection" in intent&&<p>{contentSelectionLabel(intent.contentSelection)}</p>}<Button variant="outline" disabled={busy} onClick={()=>void execute("start")}>使用原请求核实启动</Button></>}</>}
   {confirming&&!key&&<TitleAgentConfirmation key={authorizationKey} executionMode={executionMode.data?.subject.id===agentId?executionMode.data:undefined} contentSelection={content?selection:undefined} scope={{userId,organizationId}} organization={context.effectiveOrganization?.name||organizationId} platform={platform} template={template??undefined} knowledgeAvailable={knowledgeAvailable} knowledgeReadable={knowledgeReadable} onCancel={()=>setConfirming(false)} onConfirm={baseId=>{setConfirming(false);void execute("start",baseId)}}/>}

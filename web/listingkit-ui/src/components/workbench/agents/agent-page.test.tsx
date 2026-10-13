@@ -120,6 +120,24 @@ it("waits for a committed enable receipt and refetches the shared fact", async (
   const call = fetch.mock.calls.find(([, init]) => init?.method === "POST")!;
   expect(new Headers(call[1]?.headers).get("If-None-Match")).toBe("*");
 });
+
+it("presents title and localization as operations of one content responsibility without merging their permissions", async () => {
+  const content = { ...item, name: "商品内容完善与本地化智能体", parameterSchema: "content-config-v1",
+    agent: { ...item.agent, agentId: "product.content.agent", activation: "ENABLED", revision: "1", activationEpoch: "1" },
+    canConfigure: false, canUse: true,
+  };
+  const fetch = vi.fn(async (_url: unknown, init?: RequestInit) => { void init; return Response.json({ items: [item, content], nextCursor: "" }); });
+  vi.stubGlobal("fetch", fetch);
+  render(<AgentPage mode="mine" />);
+  await screen.findByRole("heading", { name: "商品内容与本地化" });
+  expect(screen.getAllByRole("heading", { name: "商品内容与本地化" })).toHaveLength(1);
+  expect(screen.queryByRole("heading", { name: "商品标题优化智能体" })).toBeNull();
+  expect(screen.getByRole("heading", { name: "标题优化" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "内容完善与本地化" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "标题优化配置与历史" })).toHaveAttribute("href", "/workbench/agents/mine/product.title.agent");
+  expect(screen.getByRole("link", { name: "内容本地化配置与历史" })).toHaveAttribute("href", "/workbench/agents/mine/product.content.agent");
+  expect(fetch.mock.calls.every(call => !call[1]?.method || call[1]?.method === "GET")).toBe(true);
+});
 it("drops a late protected response after switching A to B to A", async () => {
   let resolve!: (r: Response) => void;
   const old = new Promise<Response>((r) => {

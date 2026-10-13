@@ -47,8 +47,8 @@ export const contentAgentResultSchema = baseAgentResultSchema.extend({targetPlat
 })())
 .refine(v=>!v.policyAdoption || sameContentSelection(v.policyAdoption.execution.ContentSelection,v.contentSelection));
 export type ProductAgentResult = z.infer<typeof agentResultSchema> | z.infer<typeof contentAgentResultSchema>;
-export function agentPath(path: string[], namespace="product-agent"): string | null {
-    if (path[0] !== "sourcing" || path[1] !== "1688" || path[2] !== "acquisitions" || !isAcquisitionUUID(path[3] ?? "") || path[4] !== namespace || path[5] !== "runs")
+export function agentPath(path: string[], namespace?: "product-agent" | "content-agent"): string | null {
+    if (path[0] !== "sourcing" || path[1] !== "1688" || path[2] !== "acquisitions" || !isAcquisitionUUID(path[3] ?? "") || (namespace ? path[4] !== namespace : !["product-agent", "content-agent"].includes(path[4] ?? "")) || path[5] !== "runs")
         return null;
     if (path.length === 6 || path.length === 7 && isAcquisitionUUID(path[6] ?? "") || path.length === 8 && isAcquisitionUUID(path[6] ?? "") && ["resume", "review"].includes(path[7] ?? ""))
         return path.join("/");

@@ -116,6 +116,11 @@ describe("/api/workbench BFF", () => {
   });
 
   it.each([
+    ...["product-agent", "content-agent"].flatMap((namespace) => [
+      { method: "POST", path: `sourcing/1688/acquisitions/${operationKey}/${namespace}/runs`, budget: 125_000 },
+      { method: "GET", path: `sourcing/1688/acquisitions/${operationKey}/${namespace}/runs/${storeId}`, budget: 125_000 },
+      { method: "POST", path: `sourcing/1688/acquisitions/${operationKey}/${namespace}/runs/${storeId}/resume`, budget: 125_000 },
+    ]),
     ...["sourcing/1688/acquisitions", "supply-preparations/sources"].flatMap((base) => [
       { method: "GET", path: `${base}/${operationKey}/images/sources`, budget: 32_000 },
       { method: "GET", path: `${base}/${operationKey}/images/runs/${storeId}`, budget: 32_000 },
@@ -324,6 +329,39 @@ describe("/api/workbench BFF", () => {
       body: JSON.stringify(action === "approve" ? { planRevision: 1, resultDigest: "digest", actionId: operationKey } : { sourceImageId: "catalog-image-1" }),
     }), path);
     await vi.advanceTimersByTimeAsync(22_000);
+    const response = await pending;
+    expect(response.status).toBe(503);
+    expect((await response.json()).code).toBe("OUTCOME_UNKNOWN");
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock.mock.calls[0][1]?.signal?.aborted).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it.each(["start", "resume"])("keeps a dispatched content %s deadline UNKNOWN after the full agent window", async (action) => {
+    vi.useFakeTimers();
+    authState.session = { accessToken: "private-token" };
+    authState.token = "private-token";
+    authState.identity = { userId: "user-a" };
+    vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL", "http://localhost");
+    const fetchMock = vi.fn<typeof fetch>((_input, init) => new Promise((_resolve, reject) => {
+      init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")), { once: true });
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    const path = ["sourcing", "1688", "acquisitions", operationKey, "content-agent", "runs", ...(action === "resume" ? [storeId, "resume"] : [])];
+    let settled = false;
+    const pending = call(POST, new NextRequest(`http://localhost/api/workbench/${path.join("/")}`, {
+      method: "POST", headers: {
+        cookie: "shuomi_effective_organization=org-b", Origin: "http://localhost",
+        "Content-Type": "application/json", "Idempotency-Key": storeId,
+        "X-Expected-Organization-ID": "org-b", "X-Expected-User-ID": "user-a",
+      },
+      body: JSON.stringify(action === "resume" ? { revision: "1", feedback: "check evidence" } : {
+        expectedModeRevision: "0", targetPlatform: "product", contentSelection: { targetLanguage: "en-US", title: true },
+      }),
+    }), path).then(response => { settled = true; return response; });
+    await vi.advanceTimersByTimeAsync(124_999);
+    expect(settled).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
     const response = await pending;
     expect(response.status).toBe(503);
     expect((await response.json()).code).toBe("OUTCOME_UNKNOWN");

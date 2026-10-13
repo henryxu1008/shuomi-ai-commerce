@@ -85,6 +85,7 @@ type productAgentApplication struct {
 	executionPolicyAdoption *review.PolicyAdoptionService
 	receipts                sourcing.PublishedAcquisitionReader
 	resolver                organizationIdentityResolver
+	originExecution         func(context.Context, agent.ExecutionIdentity) error
 	authorizer              *authz.ListingKitAuthorizer
 	config                  ProductAgentDependencies
 	canonical               *canonicalinspect.Invoker

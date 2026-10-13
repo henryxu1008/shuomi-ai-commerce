@@ -47,6 +47,9 @@ type agentFixtureGrants struct {
 func (g agentFixtureGrants) Load(ctx context.Context, source workbenchcontext.GrantSource, r workbenchcontext.GrantRequest) (workbenchcontext.GrantResult, error) {
 	result, err := g.base.Load(ctx, source, r)
 	for n := range result.Grants {
+		if r.Subject == "reviewer" && result.Grants[n].OrganizationID == "B" {
+			result.Grants[n].Roles = []string{"listingkit_admin"}
+		}
 		result.Grants[n].AuthorizationID = "member-" + result.Grants[n].OrganizationID + "-" + r.Subject
 		if g.replacement != nil && g.replacement.Load() {
 			result.Grants[n].AuthorizationID += "-replacement"
@@ -292,7 +295,11 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		}
 		settings.Ledger = agentReserveHook{ProductAgentInvocationLedger: settings.Ledger, afterReserve: func() { f.grants.revoked.Store(true) }}
 	}
-	module, err := buildProductAgentModule(context.Background(), f.db, deps, auth, settings, nil)
+	var reviewIAM *contentReviewIAM
+	if strings.HasPrefix(mode, "content flow cross-admin ") {
+		reviewIAM = newContentReviewIAM(t, &memberReplaced)
+	}
+	module, err := buildProductAgentModule(context.Background(), f.db, deps, auth, settings, reviewIAM.config())
 	require.NoError(t, err)
 	if strings.HasPrefix(mode, "content flow") {
 		contentApp := module.(productAgentModule).application.content
@@ -301,6 +308,9 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		require.NoError(t, err)
 		modeRevision := "0"
 		selectedMode := strings.TrimPrefix(mode, "content flow ")
+		if strings.HasPrefix(mode, "content flow cross-admin ") {
+			selectedMode = "default"
+		}
 		if strings.HasPrefix(mode, "content flow unresolved ") {
 			selectedMode = strings.TrimPrefix(mode, "content flow unresolved ")
 		}
@@ -402,6 +412,10 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		require.Equal(t, expectedMode, savedMode.Mode)
 		require.Equal(t, modeRevision, savedMode.Revision)
 		require.Equal(t, *result.ModeSnapshotRef, savedMode.Snapshot)
+		if strings.HasPrefix(mode, "content flow cross-admin ") {
+			testContentCrossAdministratorReview(t, strings.TrimPrefix(mode, "content flow cross-admin "), reviewIAM, &memberReplaced, view, server, &calls, f)
+			return
+		}
 		if selectedMode != "full_access" {
 			code, raw, err = acquisitionHTTPRequest(server, "GET", titleBasePath+"?view=actionable", "admin", "B", "", "")
 			require.NoError(t, err)

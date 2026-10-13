@@ -70,6 +70,10 @@ func buildProductAgentModule(ctx context.Context, productDB *gorm.DB, deps route
 	if err != nil {
 		return nil, err
 	}
+	a.originExecution = productAgentOriginAuthorization(appCfg, auth)
+	if a.content != nil {
+		a.content.originExecution = a.originExecution
+	}
 	routes := productAgentRoutes(a)
 	routes = append(routes, registeredProductAgentRoutes(a.content, true)...)
 	// Candidate intake returns an ID understood by the existing review UI.

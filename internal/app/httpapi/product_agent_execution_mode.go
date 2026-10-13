@@ -82,6 +82,16 @@ func (a *productAgentApplication) resolveTitlePolicy(ctx context.Context, proven
 	if (!human || identity.ActorID == origin.ActorID) && identity != origin {
 		return proof, review.ErrForbidden
 	}
+	if human && identity.ActorID != origin.ActorID {
+		// The reviewer's bearer token proves the reviewer, never the origin.
+		// Reuse the server's exact live IAM lookup for the durable origin subject.
+		if a.originExecution == nil {
+			return proof, review.ErrUnavailable
+		}
+		if err = a.originExecution(ctx, origin); err != nil {
+			return proof, err
+		}
+	}
 	run, found, err := a.store.Lookup(ctx, scope, provenance.Binding, provenance.RequestKey)
 	if err != nil {
 		return proof, err

@@ -241,6 +241,30 @@ function ScopedPage({
     });
   }
   const mutationDisabled = busy || !!intent;
+  const contentOperations = entries.filter(entry => ["product.title.agent", "product.content.agent"].includes(entry.agent.agentId));
+  function contentCard() {
+    return <Card key="product-content" className={styles.agentCard}>
+      <h2>商品内容与本地化</h2>
+      <p>完善标准商品的标题、描述、卖点与关键词，按明确目标语言处理内容。</p>
+      {contentOperations.map(entry => {
+        const title = entry.agent.agentId === "product.title.agent";
+        const operation = title ? "标题优化" : "内容完善与本地化";
+        const configuration = title ? "标题优化配置与历史" : "内容本地化配置与历史";
+        return <section key={entry.agent.agentId} aria-label={operation} className="space-y-2 pt-3">
+          <h3>{operation}</h3>
+          <div className={styles.cardActions}>
+            <span className={styles.status} data-active={entry.agent.activation === "ENABLED"}>{labels[entry.agent.activation]}</span>
+            <Link href={`/workbench/agents/mine/${entry.agent.agentId}`}>{configuration}</Link>
+            {entry.canConfigure && entry.agent.activation !== "ENABLED" ? <Button disabled={mutationDisabled} onClick={() => mutate(`${entry.agent.agentId}/enable`, {}, entry.agent.revision || undefined, entry.agent.activation === "NOT_ENABLED")}>启用到当前企业</Button> : null}
+            {mode === "mine" && entry.canUse ? <Link href={`/workbench/supply/acquisition?agent_kind=${title ? "title" : "content"}`}>进入{operation} →</Link> : null}
+            {mode === "mine" && entry.canConfigure && entry.agent.activation === "ENABLED" ? <Button variant="outline" disabled={mutationDisabled} onClick={() => setDisable(entry)}>停用{operation}</Button> : null}
+          </div>
+          {!entry.canUse ? <p className="text-muted-foreground">当前不能执行{operation}</p> : null}
+          {!entry.canUse && entry.capabilities.filter(cap => cap.support === "REQUIRED" && cap.readiness !== "AVAILABLE").map(cap => <p key={cap.id} className="text-muted-foreground"><strong>{capabilityNames[cap.id]}</strong>：<span>{cap.reason}</span></p>)}
+        </section>;
+      })}
+    </Card>;
+  }
   function card(entry: CatalogEntry) {
     return (
       <Card key={entry.agent.agentId} className={styles.agentCard}>
@@ -371,11 +395,15 @@ function ScopedPage({
         <>
           <Card className={styles.detailHead}>
             <div>
-              <h2>{detail.name}</h2>
+              <h2>{agentId === "product.title.agent" ? "商品内容与本地化 · 标题优化配置" : detail.name}</h2>
               <p>{detail.description}</p>
               <p>
                 {labels[detail.agent.activation]} · {detail.definitionVersion}
               </p>
+              {["product.title.agent", "product.content.agent"].includes(agentId) ? <nav aria-label="商品内容操作配置" className={styles.actions}>
+                <Link href="/workbench/agents/mine/product.title.agent">标题优化配置与历史</Link>
+                <Link href="/workbench/agents/mine/product.content.agent">内容本地化配置与历史</Link>
+              </nav> : null}
             </div>
             <div className={styles.actions}>
               {detail.canUse && (
@@ -743,7 +771,8 @@ function ScopedPage({
               className={mode === "market" ? styles.cards : styles.mineCards}
             >
               {entries.length ? (
-                entries.map(card)
+                entries.map(entry => ["product.title.agent", "product.content.agent"].includes(entry.agent.agentId)
+                  ? entry.agent.agentId === contentOperations[0]?.agent.agentId ? contentCard() : null : card(entry))
               ) : (
                 <ConsoleState kind="empty" title="当前企业尚无符合条件的智能体">
                   <Link href="/workbench/agents/market">前往市场启用</Link>
