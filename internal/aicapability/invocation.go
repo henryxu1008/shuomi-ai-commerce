@@ -103,7 +103,7 @@ type InvocationDispatchClaimer interface {
 // SupportsObservedUsageFailure deliberately allows only current consumers that
 // preserve trustworthy provider usage when their structured output is rejected.
 func SupportsObservedUsageFailure(operation Operation) bool {
-	return operation == OperationProductImageReview || operation == OperationProductAgentDecision || operation == OperationProductContentDecision || operation == OperationAIWorkbenchChatPlan
+	return operation == OperationProductImageReview || operation == OperationProductAgentDecision || operation == OperationProductContentDecision || operation == OperationListingMaterialsDecision || operation == OperationAIWorkbenchChatPlan
 }
 
 // InvocationReplayReader is optional for non-durable test recorders. The

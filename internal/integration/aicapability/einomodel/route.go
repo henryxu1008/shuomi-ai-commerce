@@ -73,7 +73,7 @@ func NewOrganizationRouteResolver(credentials OrganizationCredentialReader, poli
 	frozen := make(map[RouteKey]RoutePolicy, len(policies))
 	for key, policy := range policies {
 		if key.OrganizationID == "" || len(key.OrganizationID) > 128 ||
-			(key.Operation != aicapability.OperationAIWorkbenchChatPlan && key.Operation != aicapability.OperationProductAgentDecision && key.Operation != aicapability.OperationProductContentDecision) ||
+			(key.Operation != aicapability.OperationAIWorkbenchChatPlan && key.Operation != aicapability.OperationProductAgentDecision && key.Operation != aicapability.OperationProductContentDecision && key.Operation != aicapability.OperationListingMaterialsDecision) ||
 			policy.AdmittedEndpointIdentityDigest == "" {
 			return nil, ErrInvalid
 		}

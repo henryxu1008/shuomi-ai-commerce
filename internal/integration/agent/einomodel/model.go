@@ -19,6 +19,7 @@ import (
 	"task-processor/internal/commercetool"
 	governed "task-processor/internal/integration/aicapability/einomodel"
 	k "task-processor/internal/knowledge"
+	"task-processor/internal/listing/materials"
 	"task-processor/internal/product/enrichment"
 
 	sigjson "sigs.k8s.io/json"
@@ -44,6 +45,7 @@ const (
 
 type AgentTextModel struct {
 	content           bool
+	materials         bool
 	knowledge         KnowledgeContext
 	executor          TextExecutor
 	snapshots         SnapshotReader
@@ -120,11 +122,15 @@ func (m *AgentTextModel) prepare(ctx context.Context, in agent.ModelInput) (prep
 		!in.Binding.Valid() || !agent.ValidID(in.AgentRunID) || !agent.ValidID(in.PromptVersion) {
 		return p, agent.ErrInvalid
 	}
-	if m.content {
+	if m.materials {
+		if in.AgentID != materials.AgentID || in.AgentVersion != materials.AgentVersion || !in.ContentSelection.Absent() || in.PolicyVersion != materials.PolicyVersion || in.PromptVersion != materials.PromptVersion || in.Binding.ContextKind != "listing-target-record" || in.Binding.TargetPlatform != "shein" || !in.ContextSnapshotRef.Absent() {
+			return p, agent.ErrInvalid
+		}
+	} else if m.content {
 		if in.AgentID != agentconfig.ContentAgentID || in.AgentVersion != agentconfig.ContentAgentVersion || !in.ContentSelection.Valid() || in.PolicyVersion != enrichment.ContentPolicyVersion || in.PromptVersion != agentconfig.ContentPromptVersion {
 			return p, agent.ErrInvalid
 		}
-	} else if !in.ContentSelection.Absent() || in.AgentID == agentconfig.ContentAgentID {
+	} else if !in.ContentSelection.Absent() || in.AgentID == agentconfig.ContentAgentID || in.AgentID == materials.AgentID {
 		return p, agent.ErrInvalid
 	}
 	identity, resolvedCtx, err := m.resolveIdentity(ctx)
@@ -146,8 +152,11 @@ func (m *AgentTextModel) prepare(ctx context.Context, in agent.ModelInput) (prep
 	if snapshot.KnowledgeBaseID == "" && !in.ContextSnapshotRef.Absent() {
 		return p, agent.ErrUnavailable
 	}
+	if m.materials && snapshot.KnowledgeBaseID != "" {
+		return p, agent.ErrUnavailable
+	}
 	p.profile = snapshot.ExecutionModelProfile
-	if p.profile.Validate() != nil || m.content && (p.profile.PromptVersion != agentconfig.ContentPromptVersion || p.profile.OutputSchemaVersion != agentconfig.ContentActionVersion) {
+	if p.profile.Validate() != nil || m.content && (p.profile.PromptVersion != agentconfig.ContentPromptVersion || p.profile.OutputSchemaVersion != agentconfig.ContentActionVersion) || m.materials && (p.profile.PromptVersion != materials.PromptVersion || p.profile.OutputSchemaVersion != materials.ActionVersion) {
 		return p, agent.ErrUnavailable
 	}
 	current, err := m.selectProfile(p.ctx, identity.OrganizationID)
@@ -160,7 +169,15 @@ func (m *AgentTextModel) prepare(ctx context.Context, in agent.ModelInput) (prep
 	in.UpperBound = agent.Quote{}
 	in.History = append([]agent.Observation(nil), in.History...)
 	for i := range in.History {
-		if m.content {
+		if m.materials {
+			if in.History[i].Tool == materials.InspectToolRef() {
+				in.History[i].Output, err = MaterialsEvidenceForPrompt(in.History[i].Output)
+			} else if in.History[i].Tool != (commercetool.ToolRef{}) || len(in.History[i].Output) > agent.MaxModelOutputBytes || len(in.History[i].Output) != 0 && !json.Valid(in.History[i].Output) {
+				err = agent.ErrInvalid
+			} else {
+				in.History[i].Output = append(json.RawMessage(nil), in.History[i].Output...)
+			}
+		} else if m.content {
 			in.History[i].Output, err = ContentEvidenceForPrompt(in.History[i].Output, in.ContentSelection)
 		} else {
 			in.History[i].Output, err = EvidenceForPrompt(in.History[i].Output)
@@ -185,6 +202,9 @@ func (m *AgentTextModel) prepare(ctx context.Context, in agent.ModelInput) (prep
 	operation := aicapability.OperationProductAgentDecision
 	if m.content {
 		system, operation = contentTextSystem, aicapability.OperationProductContentDecision
+	}
+	if m.materials {
+		system, operation = materialsTextSystem, aicapability.OperationListingMaterialsDecision
 	}
 	if p.knowledge != nil {
 		system += "\n" + knowledgeTextSystem
@@ -226,6 +246,9 @@ func (m *AgentTextModel) Decide(ctx context.Context, in agent.ModelInput) (agent
 		strict, decodeErr := sigjson.UnmarshalStrict([]byte(raw), &action)
 		if decodeErr != nil || len(strict) != 0 ||
 			(action.Kind != "tool" && action.Kind != "propose" && action.Kind != "interrupt") {
+			return governed.ErrInvalid
+		}
+		if m.materials && !validMaterialsAction(action) {
 			return governed.ErrInvalid
 		}
 		var valid bool

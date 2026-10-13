@@ -150,7 +150,7 @@ func QuoteText(input TextInputIdentity) (TextQuote, error) {
 	}
 	if !validTextFact(input.OrganizationID, 128) ||
 		!validTextFact(input.ActorID, 128) || !validTextFact(input.MemberID, 128) ||
-		(input.Operation != OperationAIWorkbenchChatPlan && input.Operation != OperationProductAgentDecision && input.Operation != OperationProductContentDecision) ||
+		(input.Operation != OperationAIWorkbenchChatPlan && input.Operation != OperationProductAgentDecision && input.Operation != OperationProductContentDecision && input.Operation != OperationListingMaterialsDecision) ||
 		input.System == "" || input.Prompt == "" ||
 		!utf8.ValidString(input.System) || !utf8.ValidString(input.Prompt) {
 		return TextQuote{}, ErrTextEnvelope
