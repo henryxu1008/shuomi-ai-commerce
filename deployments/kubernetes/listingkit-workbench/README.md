@@ -5,9 +5,14 @@ This deploys the customer SHEIN Studio workbench as two services:
 - `product-listing-api`: Go API on port `8085`.
 - `listingkit-ui`: Next.js UI on port `3000`.
 
-The browser talks to the Next.js UI. The UI proxies normal
-`/api/listing-kits/*` and `/api/sds/*` requests to `product-listing-api`
-through the cluster Service. The sole backend Ingress exception is the signed
+The browser talks to the current Next.js Console. Its existing current BFFs
+use their configured domain origins; the readonly `/api/sds/*` provider BFF
+still uses the API Service. The old `/listing-kits/**` pages and
+`/api/listing-kits/**` Task proxy are retired by #664, together with the old
+login-page-only SHEIN/SDS BFFs. This deployment directory does not prove that
+every current Console capability is mounted or enabled: use the
+[current entrypoint map](../../../docs/development/repository-structure.md#current-entrypoint-map)
+and the relevant current domain runbook. The sole backend Ingress exception is the signed
 ZITADEL SMS webhook at
 `/api/v1/listing-kits/integrations/zitadel/sms`; it is routed directly to the
 API before the UI catch-all.
@@ -999,24 +1004,20 @@ Recommended production rollout order is owned by **ListingKit API Deploy**:
    gate finish or supply the same `release_gate_run_id` and
    `release_gate_run_attempt`; do not perform either production mutation from a
    workstation or standalone helper.
-4. Create one new ListingKit task and confirm logs contain:
-   - `WorkflowType StandardProductWorkflow`
-   - `WorkflowType PlatformAdaptWorkflow`
+Current UI verification after an authorized rollout:
 
-Manual verification after rollout:
-
-1. Create a new task from `/listing-kits/new`.
-2. Open the task status or workspace page.
-3. Use:
-   - `运行标准商品层`
-   - `运行平台适配层`
-4. Confirm both actions return `200` and produce Temporal workflow log lines.
-
-Important current behavior:
-
-- New tasks automatically run `StandardProductWorkflow`, then auto-chain into `PlatformAdaptWorkflow(platform=all)`.
-- Older tasks without `standard_product_snapshot` are still manually compatible; platform adaptation can rebuild a fallback snapshot from the persisted legacy result.
-- Successful manual reruns are allowed; standard/platform workflows now permit duplicate workflow IDs after a successful prior run.
+- Verify the existing `/api/version` endpoint on the exact released UI artifact.
+  This proves UI serving/version only, not authentication or business acceptance.
+- Use the existing `/workbench` Console and the current domain's documented
+  flow only when its backend, schema, authentication and deployment flags are
+  configured. Missing configuration must remain unavailable/denied; do not
+  use an old Task page as a fallback or a substitute acceptance path.
+- The former create-Task/status/workspace/manual-rerun verification is
+  **SUPERSEDED** by #664 and must not be a rollout prerequisite. The old
+  Task-to-Temporal/fallback behavior is historical backend evidence owned by
+  #29, not a current Console contract. This change does not claim that these
+  backend owners, queues or workers have been retired or that a rollout has
+  been executed.
 
 ## Non-production workstation build/deploy
 

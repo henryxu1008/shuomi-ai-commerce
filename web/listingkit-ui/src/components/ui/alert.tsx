@@ -55,13 +55,4 @@ function AlertDescription({
   );
 }
 
-function AlertAction({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <div
-      className={cn("mt-2 flex justify-end sm:absolute sm:right-3 sm:top-3 sm:mt-0", className)}
-      {...props}
-    />
-  );
-}
-
-export { Alert, AlertAction, AlertDescription, AlertTitle };
+export { Alert, AlertDescription, AlertTitle };
