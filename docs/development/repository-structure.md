@@ -28,7 +28,7 @@
 | 要做什么 | 从哪里进入 | 当前边界 |
 | --- | --- | --- |
 | 当前账户、组织、来源账号及按配置开放的业务模块 | [`cmd/current-application/main.go`](../../cmd/current-application/main.go) → [`internal/app/runtime/currentapplication`](../../internal/app/runtime/currentapplication) → [`current_application.go`](../../internal/app/httpapi/current_application.go) | 独立应用装配；`NewCurrentApplicationWithOptions` 不调用旧默认 feature composition。采集、Browser capture、成员、推广和商业模块的启用取决于配置、显式 options 和依赖，不能把路由声明当作全部默认开放。 |
-| 排查保留的 ListingKit API / 旧来源 handoff | [`cmd/product-listing-api/main.go`](../../cmd/product-listing-api/main.go)、[`internal/pkg/httpapicmd`](../../internal/pkg/httpapicmd)、[`composition_builder.go`](../../internal/app/httpapi/composition_builder.go) | 旧装配仍建立 ListingKit，并在对应条件下接入 `sourceaccount` 和 `compatibility/listingkit/sourcehandoff/a1688`；这条路径尚未退休，不是新业务的默认落点。 |
+| 排查旧 ListingKit 后端退休 | [Legacy Register](../refactoring/legacy-register.md)、[当前应用入口](../../cmd/current-application/main.go) | #29 已移除 root Task/API/默认装配及 #663 的旧 handoff；当前应用只沿原私密 manifest 与当前 owner 启动。残留数字库存/身份历史 leaf 另列退休 debt，不能作为新功能落点。 |
 | 平台执行、control-plane 或图片 worker | 本文件下方的受维护命令及其运行装配归属 | 保留已有单一执行/重试 owner；不是多个独立新产品，也不代表平台成熟度相同。 |
 | 修改当前 Console / BFF | [`web/listingkit-ui`](../../web/listingkit-ui) | 复用当前页面、Shell 与身份边界；目录仍叫 ListingKit 不等于其中所有页面都应退休。最终导航服从 UI Authority，不由后端目录名决定。 |
 | 初始化、预检或恢复 | 本文件下方的运维入口和明确维护脚本 | 命令存在不是执行许可。当前空库初始化与历史 migration/preflight 必须区分；不得为新系统引入历史迁移前置。 |
@@ -71,12 +71,12 @@ CURRENT STATE：命令清单核对于上述 `main @ eb9e019686564b976c1a1a9828ee
 
 - `cmd/`
   - 只放受维护的产品运行入口或有明确所有者的运维入口。
-  - 当前七个产品运行入口为：
+  - 当前六个产品运行入口为：
     - `1688-public-browser-collector`
     - `current-application`
     - `image-agent-temporal-worker`
     - `listing-control-plane`
-    - `product-listing-api`
+
     - `shein-listing`
     - `temu-listing`
   - 当前受维护的运维入口为：
@@ -192,7 +192,7 @@ CURRENT STATE：命令清单核对于上述 `main @ eb9e019686564b976c1a1a9828ee
   - `TestInternalPackagesContainNoLocalArtifacts` 检查实际文件系统，包括 Git 忽略路径；`.gitignore` 不能作为在源码包下保留运行态文件的依据。
 - `internal/listingkit`
   - CURRENT STATE：仍承接旧任务、工作台、审核、提交与 HTTP 能力；按 Legacy Register 执行 EXTRACT → RETIRE，不是长期产品 facade。
-  - `internal/listingkit/httpapi` 保留 ListingKit 专属 HTTP／角色适配 helper；当前 Organization 路由鉴权由 `internal/app/httpapi/server_auth.go` 装配，身份与组织解析归既有 authidentity/authruntime/workbenchcontext owner。
+  - `internal/authz/httpapi` owns the extracted unchanged route-role transport; current Organization authorization is composed in `internal/app/httpapi/server_auth.go`, with identity/grants owned by authidentity/authruntime/workbenchcontext. The old ListingKit HTTP assembly stays absent.
   - 新增平台规则、商品事实规则、可复用资产规则不应继续放入 root `internal/listingkit`。
 - `internal/commercetool`
   - 拥有框架中立的 Tool Definition、Schema、Registry、Agent Allowlist、Invocation Policy 和 Tool Audit Port。

@@ -1,5 +1,7 @@
 # ListingKit 本地复验（复用线上数据库）
 
+> 历史方案，#29 退休旧 API 后不可执行。专属 replay 入口已删除，旧本地 API/dev launcher 在任何进程或连接操作前拒绝执行。当前应用只使用已批准的私密 manifest；这里的共库/端口覆盖不是当前启动依据。
+
 这个方案适合验证 `ListingKit Workbench` / `product-listing-api` 的页面与业务逻辑，
 避免每次都先发版再看结果。
 

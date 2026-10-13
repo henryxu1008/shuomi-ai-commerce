@@ -9,17 +9,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 
-	amazonlistinghttpapi "task-processor/internal/amazonlisting/httpapi"
 	"task-processor/internal/core/config"
 	"task-processor/internal/httproute"
 	kernelmodule "task-processor/internal/kernel/module"
-	listingkithttpapi "task-processor/internal/listingkit/httpapi"
-	worker "task-processor/internal/platform/workerpool"
-	promptmgmtapi "task-processor/internal/promptmgmt/api"
-	sdshttpapi "task-processor/internal/sds/httpapi"
-	"task-processor/internal/sdslogin"
-	"task-processor/internal/sheinlogin"
-	"task-processor/internal/taskrpcapi"
 )
 
 func TestCoreHTTPModuleRegistersHealthRoute(t *testing.T) {
@@ -35,125 +27,6 @@ func TestCoreHTTPModuleRegistersHealthRoute(t *testing.T) {
 	require.Equal(t, http.MethodGet, routes[0].Method)
 	require.Equal(t, "/health", routes[0].Path)
 	require.Equal(t, "system", routes[0].Module)
-}
-
-func TestSDSCatalogHTTPModuleRegistersOnlyConfiguredHandlers(t *testing.T) {
-	t.Parallel()
-
-	reg := kernelmodule.NewRegistry()
-
-	err := sdshttpapi.NewHTTPModule(&stubSDSCatalogRouteHandler{}).Register(reg)
-	require.NoError(t, err)
-
-	require.Equal(t, []string{
-		"GET /api/v1/sds/products",
-		"GET /api/v1/sds/products/:product_id",
-		"GET /api/v1/sds/categories",
-		"GET /api/v1/sds/shipment-areas",
-	}, routeKeys(reg.Routes()))
-}
-
-func TestTaskRPCHTTPModuleRegistersOnlyConfiguredHandlers(t *testing.T) {
-	t.Parallel()
-
-	reg := kernelmodule.NewRegistry()
-
-	err := taskrpcapi.NewHTTPModule(&stubTaskRPCHandler{}).Register(reg)
-	require.NoError(t, err)
-
-	require.Equal(t, []string{
-		"GET /api/v1/management/tasks/health",
-		"GET /api/v1/management/tasks/:task_id/status",
-		"GET /api/v1/management/tasks/queue-stats",
-	}, routeKeys(reg.Routes()))
-}
-
-func TestSheinLoginHTTPModuleRegistersOnlyConfiguredHandlers(t *testing.T) {
-	t.Parallel()
-
-	reg := kernelmodule.NewRegistry()
-
-	err := sheinlogin.NewHTTPModule(&stubSheinLoginHandler{}).Register(reg)
-	require.NoError(t, err)
-
-	require.Equal(t, []string{
-		"GET /api/v1/shein-login/health",
-		"GET /api/v1/shein-login/accounts",
-		"POST /api/v1/shein-login/accounts/:store_id/login",
-		"GET /api/v1/shein-login/accounts/:store_id/status",
-		"GET /api/v1/shein-login/accounts/:store_id/warehouses",
-		"POST /api/v1/shein-login/accounts/:store_id/verify-code",
-		"DELETE /api/v1/shein-login/accounts/:store_id/verify-code-wait",
-		"DELETE /api/v1/shein-login/accounts/:store_id/cookie",
-		"GET /api/v1/shein-login/accounts/:store_id/last-failure",
-		"DELETE /api/v1/shein-login/accounts/:store_id/last-failure",
-	}, routeKeys(reg.Routes()))
-}
-
-func TestSDSLoginHTTPModuleRegistersOnlyConfiguredHandlers(t *testing.T) {
-	t.Parallel()
-
-	reg := kernelmodule.NewRegistry()
-
-	err := sdslogin.NewHTTPModule(&stubSDSLoginHandler{}).Register(reg)
-	require.NoError(t, err)
-
-	require.Equal(t, []string{
-		"GET /api/v1/sds-login/health",
-		"GET /api/v1/sds-login/status",
-		"POST /api/v1/sds-login/login",
-		"POST /api/v1/sds-login/manual-login",
-		"GET /api/v1/sds-login/auth-state",
-		"DELETE /api/v1/sds-login/state",
-	}, routeKeys(reg.Routes()))
-}
-
-func TestAmazonListingHTTPModuleRegistersRoutes(t *testing.T) {
-	t.Parallel()
-
-	reg := kernelmodule.NewRegistry()
-
-	err := amazonlistinghttpapi.NewHTTPModule(&stubAmazonListingHandler{}).Register(reg)
-	require.NoError(t, err)
-
-	require.Equal(t, []string{
-		"POST /api/v1/amazon/listings/generate",
-		"GET /api/v1/amazon/listings/tasks",
-		"GET /api/v1/amazon/listings/tasks/:task_id",
-		"GET /api/v1/amazon/listings/tasks/:task_id/workbench",
-		"POST /api/v1/amazon/listings/tasks/:task_id/review",
-		"POST /api/v1/amazon/listings/tasks/:task_id/submit",
-	}, routeKeys(reg.Routes()))
-}
-
-func TestListingKitHTTPModuleRegistersRoutes(t *testing.T) {
-	t.Parallel()
-
-	reg := kernelmodule.NewRegistry()
-
-	err := listingkithttpapi.NewHTTPModule(&stubListingKitHandler{}).Register(reg)
-	require.NoError(t, err)
-
-	keys := routeKeys(reg.Routes())
-	require.Contains(t, keys, "POST /api/v1/listing-kits/generate")
-	require.NotContains(t, keys, "GET /api/v1/listing-kits/studio/sessions/gallery")
-}
-
-func TestPromptTemplateHTTPModuleRegistersRoutes(t *testing.T) {
-	t.Parallel()
-
-	reg := kernelmodule.NewRegistry()
-
-	err := promptmgmtapi.NewHTTPModule(&stubPromptTemplateHandler{}).Register(reg)
-	require.NoError(t, err)
-
-	require.Equal(t, []string{
-		"GET /api/v1/listing-kits/prompts/catalog",
-		"GET /api/v1/listing-kits/prompts/schema/:key",
-		"GET /api/v1/listing-kits/prompts",
-		"PUT /api/v1/listing-kits/prompts",
-		"PATCH /api/v1/listing-kits/prompts/:key/status",
-	}, routeKeys(reg.Routes()))
 }
 
 func TestHTTPModuleRegisterRejectsNilRegistrar(t *testing.T) {
@@ -268,67 +141,6 @@ func TestBuildRuntimeBundleFromModulesCollectsRoutesAndWorkerPools(t *testing.T)
 	require.Equal(t, "custom_pool", bundle.workerPools[0].Name)
 }
 
-func TestRuntimeBundleBuildsLocalTaskHealthProviderFromRegisteredPools(t *testing.T) {
-	t.Parallel()
-
-	metrics := worker.NewMetrics()
-	metrics.RecordSubmit()
-	metrics.RecordProcessSuccess(1)
-
-	bundle, err := buildRuntimeBundleFromModules(&config.Config{}, []kernelmodule.Module{
-		httpModule{
-			name: "custom-runtime",
-			register: func(reg *kernelmodule.Registry) error {
-				return reg.AddWorkerPool("custom_pool", stubWorkerPool{
-					stats: worker.QueueStats{
-						QueueSize:      1,
-						BufferSize:     4,
-						AvailableSlots: 3,
-					},
-					metrics: metrics,
-				})
-			},
-		},
-		httpModule{
-			name: "secondary-runtime",
-			register: func(reg *kernelmodule.Registry) error {
-				return reg.AddWorkerPool("secondary_pool", stubWorkerPool{
-					stats: worker.QueueStats{
-						QueueSize:      2,
-						BufferSize:     5,
-						AvailableSlots: 3,
-					},
-				})
-			},
-		},
-		httpModule{
-			name: "disabled-runtime",
-			enabled: func(*config.Config) bool {
-				return false
-			},
-			register: func(reg *kernelmodule.Registry) error {
-				return reg.AddWorkerPool("disabled_pool", stubWorkerPool{
-					stats: worker.QueueStats{
-						QueueSize:      99,
-						BufferSize:     99,
-						AvailableSlots: 0,
-					},
-				})
-			},
-		},
-	})
-	require.NoError(t, err)
-
-	status := bundle.localTaskHealthProvider()()
-	summary := status["summary"].(map[string]any)
-	require.Equal(t, 2, summary["poolCount"])
-
-	pools := status["pools"].(map[string]any)
-	require.Contains(t, pools, "custom_pool")
-	require.Contains(t, pools, "secondary_pool")
-	require.NotContains(t, pools, "disabled_pool")
-}
-
 func routeKeys(routes []httproute.Descriptor) []string {
 	keys := make([]string, 0, len(routes))
 	for _, route := range routes {
@@ -336,4 +148,3 @@ func routeKeys(routes []httproute.Descriptor) []string {
 	}
 	return keys
 }
-

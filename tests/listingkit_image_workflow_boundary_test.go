@@ -241,7 +241,7 @@ func TestPhase3ProductHardCutProductionSelectionCoversRuntimeContractsOnly(t *te
 	for _, source := range trackedPhase3ProductHardCutSources(t) {
 		scanned[source.path] = struct{}{}
 	}
-	for _, path := range []string{"docs/api/listingkit-asset.openapi.yaml"} {
+	for _, path := range []string{"cmd/current-application/main.go"} {
 		if _, ok := scanned[path]; !ok {
 			t.Errorf("production scan set does not contain tracked contract %s", path)
 		}

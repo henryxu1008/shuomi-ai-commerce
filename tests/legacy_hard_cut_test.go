@@ -118,33 +118,15 @@ func TestLegacyDrainDepguardRules(t *testing.T) {
 // Drain-only baseline at main 2fd42cc06. Remove entries as callers drain; never regenerate upward.
 // Includes test callers and intra-legacy edges so neither can hide new consumers.
 var legacyConsumerBaseline = map[string]struct{}{
-	"internal/app/httpapi/current_product_http_e2e_test.go -> task-processor/internal/tenantbridge":                   {},
-	"internal/app/httpapi/server_test.go -> task-processor/internal/tenantbridge":                                     {},
-	"internal/app/runtime/listingkitidentitypreflight/runtime.go -> task-processor/internal/tenantbridge":             {},
-	"internal/app/runtime/listingkitidentitypreflight/runtime_test.go -> task-processor/internal/tenantbridge":        {},
-	"internal/crawler/alibaba1688/api_service.go -> task-processor/internal/tenantbridge":                             {},
-	"internal/crawler/alibaba1688/api_service.go -> task-processor/internal/tenantbridge/bootstrap":                   {},
-	"internal/crawler/alibaba1688/api_service_test.go -> task-processor/internal/tenantbridge":                        {},
-	"internal/listingadmin/handler_helpers.go -> task-processor/internal/tenantbridge":                                {},
-	"internal/listingadmin/store_handler_test.go -> task-processor/internal/tenantbridge":                             {},
-	"internal/listingkit/api/admin_dispatch_event_handler.go -> task-processor/internal/tenantbridge":                 {},
-	"internal/listingkit/api/shein_sync_handler_support.go -> task-processor/internal/tenantbridge":                   {},
-	"internal/listingkit/api/shein_sync_handler_test.go -> task-processor/internal/tenantbridge":                      {},
-	"internal/listingkit/api/subscription_guard.go -> task-processor/internal/tenantbridge":                           {},
-	"internal/listingkit/httpapi/builders_legacy_tenant.go -> task-processor/internal/tenantbridge/bootstrap":         {},
-	"internal/listingkit/httpapi/runtime_support_shein_adapter_helpers.go -> task-processor/internal/tenantbridge":    {},
-	"internal/listingkit/httpapi/shein_sync_runtime_bridge_helpers.go -> task-processor/internal/tenantbridge":        {},
-	"internal/listingkit/httpapi/shein_sync_runtime_strategy_helpers.go -> task-processor/internal/tenantbridge":      {},
-	"internal/listingkit/httpapi/shein_sync_runtime_strategy_helpers_test.go -> task-processor/internal/tenantbridge": {},
-	"internal/listingkit/service_upload_logic.go -> task-processor/internal/tenantbridge":                             {},
-	"internal/listingkit/shein_settings.go -> task-processor/internal/tenantbridge":                                   {},
-	"internal/listingkit/store_access_test.go -> task-processor/internal/tenantbridge":                                {},
-	"internal/listingkit/store_profile_service_test.go -> task-processor/internal/tenantbridge":                       {},
-	"internal/listingkit/task_lifecycle_service_support.go -> task-processor/internal/tenantbridge":                   {},
-	"internal/sheinlogin/tenant_context.go -> task-processor/internal/tenantbridge":                                   {},
-	"internal/sheinlogin/tenant_context_test.go -> task-processor/internal/tenantbridge":                              {},
-	"internal/tenantbridge/bootstrap/configure.go -> task-processor/internal/tenantbridge":                            {},
-	"internal/tenantbridge/bootstrap/configure_test.go -> task-processor/internal/tenantbridge":                       {},
+	"internal/app/httpapi/server_test.go -> task-processor/internal/tenantbridge":                              {},
+	"internal/app/runtime/listingkitidentitypreflight/runtime.go -> task-processor/internal/tenantbridge":      {},
+	"internal/app/runtime/listingkitidentitypreflight/runtime_test.go -> task-processor/internal/tenantbridge": {},
+	"internal/listingadmin/handler_helpers.go -> task-processor/internal/tenantbridge":                         {},
+	"internal/listingadmin/store_handler_test.go -> task-processor/internal/tenantbridge":                      {},
+	"internal/sheinlogin/tenant_context.go -> task-processor/internal/tenantbridge":                            {},
+	"internal/sheinlogin/tenant_context_test.go -> task-processor/internal/tenantbridge":                       {},
+	"internal/tenantbridge/bootstrap/configure.go -> task-processor/internal/tenantbridge":                     {},
+	"internal/tenantbridge/bootstrap/configure_test.go -> task-processor/internal/tenantbridge":                {},
 }
 
 func legacyConsumerViolations(sources []listingKitImageBoundarySource, baseline map[string]struct{}) ([]string, error) {
@@ -202,16 +184,9 @@ func TestLegacy1688TaskHandoffAndRouteStayRetired(t *testing.T) {
 	_, err = os.Stat(filepath.Join("..", "scripts", "lib", "listingkit-device-auth.ps1"))
 	require.True(t, os.IsNotExist(err), "runner-only device-auth helper must remain absent: %v", err)
 
-	for _, name := range []string{
-		"composition_builder.go",
-		"composition_modules.go",
-		"types.go",
-	} {
+	for _, name := range []string{"composition_builder.go", "composition_modules.go", "types.go"} {
 		path := filepath.Join("..", "internal", "app", "httpapi", name)
-		content, err := os.ReadFile(path)
-		require.NoError(t, err)
-		require.NotContains(t, string(content), "sourcehandoff/a1688", "%s must not compose the retired Task handoff", name)
-		require.NotContains(t, string(content), "productSourcingModule", "%s must not compose the retired Task module", name)
-		require.NotContains(t, string(content), "productSnapshotPublisher", "%s must not retain the retired handoff publisher slot", name)
+		_, err := os.Stat(path)
+		require.True(t, os.IsNotExist(err), "retired Task assembly must remain absent: %s (%v)", name, err)
 	}
 }

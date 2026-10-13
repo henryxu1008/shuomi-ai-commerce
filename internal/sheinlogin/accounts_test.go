@@ -6,7 +6,7 @@ import (
 
 	"task-processor/internal/authidentity"
 	"task-processor/internal/listingadmin"
-	"task-processor/internal/listingkit"
+	"task-processor/internal/shared/aiidentity"
 )
 
 type stubListingAdminAccountStore struct {
@@ -72,8 +72,8 @@ func TestListingAdminAccountProviderDoesNotShareOwnerScopedCacheAcrossUsers(t *t
 		ID: 12, TenantID: 7, Platform: "SHEIN", Username: "demo-user", Password: "secret",
 	}}}
 	provider := NewListingAdminAccountProvider(repo)
-	ctxA := listingkit.WithRequestIdentity(context.Background(), listingkit.RequestIdentity{TenantID: "7", UserID: "user-a"})
-	ctxB := listingkit.WithRequestIdentity(context.Background(), listingkit.RequestIdentity{TenantID: "7", UserID: "user-b"})
+	ctxA := aiidentity.WithIdentity(context.Background(), aiidentity.Identity{TenantID: "7", UserID: "user-a"})
+	ctxB := aiidentity.WithIdentity(context.Background(), aiidentity.Identity{TenantID: "7", UserID: "user-b"})
 
 	if _, err := provider.ListAccounts(ctxA, 7); err != nil {
 		t.Fatalf("ListAccounts(user-a): %v", err)

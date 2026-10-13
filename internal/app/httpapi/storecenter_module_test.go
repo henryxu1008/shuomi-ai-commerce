@@ -13,7 +13,6 @@ import (
 	kernelmodule "task-processor/internal/kernel/module"
 	"task-processor/internal/storecenter"
 	storecenterhttpapi "task-processor/internal/storecenter/httpapi"
-	workbenchcontexthttpapi "task-processor/internal/workbenchcontext/httpapi"
 )
 
 func TestStoreCenterBuildIsInertWhenWorkbenchIsDisabled(t *testing.T) {
@@ -164,74 +163,6 @@ func TestStoreCenterRuntimeConnectionProviderReportsUnavailable(t *testing.T) {
 	}
 	if status != storecenter.ConnectionStatusUnavailable {
 		t.Fatalf("Status() = %q, want unavailable", status)
-	}
-}
-
-func TestStoreCenterCompositionBuildsAfterContextAndRegistersOneCloser(t *testing.T) {
-	order := make([]string, 0, 2)
-	contextModule := workbenchcontexthttpapi.NewModule(workbenchcontexthttpapi.NewHandler())
-	storeModule := storeCenterHTTPModuleForTest(t)
-	authDependencies := newRouteAuthDependencies()
-	closed := 0
-	builder := httpFeatureCompositionBuilder{
-		buildWorkbenchContext: func(*config.Config, *logrus.Logger) (workbenchContextBuildResult, error) {
-			order = append(order, "context")
-			return workbenchContextBuildResult{module: contextModule, authDependencies: &authDependencies}, nil
-		},
-		buildStoreCenter: func(*config.Config, *logrus.Logger) (storeCenterBuildResult, error) {
-			order = append(order, "store-center")
-			return storeCenterBuildResult{module: storeModule, closer: func() error { closed++; return nil }}, nil
-		},
-	}
-	deps := &runtimeDeps{shared: &sharedRuntimeDeps{cfg: enabledStoreCenterConfig()}}
-	var composition httpFeatureComposition
-	if err := builder.buildWorkbenchModules(logrus.New(), deps, &composition); err != nil {
-		t.Fatalf("buildWorkbenchModules() error = %v", err)
-	}
-	if strings.Join(order, ",") != "context,store-center" {
-		t.Fatalf("Workbench build order = %v", order)
-	}
-	if composition.workbenchContextModule == nil || composition.storeCenterModule == nil || composition.workbenchAuthDependencies == nil {
-		t.Fatalf("incomplete Workbench composition: %+v", composition)
-	}
-	if len(deps.shared.closers) != 1 {
-		t.Fatalf("registered closers = %d, want 1", len(deps.shared.closers))
-	}
-	if err := deps.shared.closers[0](); err != nil {
-		t.Fatal(err)
-	}
-	if closed != 1 {
-		t.Fatalf("Store Center closer calls = %d, want 1", closed)
-	}
-}
-
-func TestStoreCenterRoutesRegisterOnceAfterWorkbenchContextRoutes(t *testing.T) {
-	cfg := enabledStoreCenterConfig()
-	composition := httpFeatureComposition{
-		workbenchContextModule: workbenchcontexthttpapi.NewModule(workbenchcontexthttpapi.NewHandler()),
-		storeCenterModule:      storeCenterHTTPModuleForTest(t),
-	}
-	bundle, err := buildRuntimeBundleFromModules(cfg, composition.runtimeModules())
-	if err != nil {
-		t.Fatalf("buildRuntimeBundleFromModules() error = %v", err)
-	}
-	lastContextIndex, firstStoreIndex, storeRoutes := -1, -1, 0
-	for index, route := range bundle.routes {
-		switch route.Module {
-		case workbenchcontexthttpapi.ModuleName:
-			lastContextIndex = index
-		case storecenterhttpapi.ModuleName:
-			if firstStoreIndex == -1 {
-				firstStoreIndex = index
-			}
-			storeRoutes++
-		}
-	}
-	if lastContextIndex < 0 || firstStoreIndex <= lastContextIndex {
-		t.Fatalf("route order context=%d store=%d", lastContextIndex, firstStoreIndex)
-	}
-	if storeRoutes != 7 {
-		t.Fatalf("Store Center route count = %d, want 7", storeRoutes)
 	}
 }
 

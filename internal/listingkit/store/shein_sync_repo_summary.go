@@ -3,7 +3,7 @@ package store
 import (
 	"context"
 
-	"task-processor/internal/listingkit"
+	"task-processor/internal/listingkit/sheinsync"
 )
 
 func (r *GormSheinSyncRepository) CountSheinEnrollmentSummary(ctx context.Context, tenantID, storeID int64, activityType string) (syncedProductCount, missingCostCount, pendingReviewCount, readyToEnrollCount int, err error) {
@@ -12,7 +12,7 @@ func (r *GormSheinSyncRepository) CountSheinEnrollmentSummary(ctx context.Contex
 		MissingCostCount   int
 	}
 	if err := r.db.WithContext(ctx).
-		Model(&listingkit.SheinSyncedProductRecord{}).
+		Model(&sheinsync.SheinSyncedProductRecord{}).
 		Select(`
 			COUNT(*) AS synced_product_count,
 			COALESCE(SUM(CASE WHEN effective_cost_price IS NULL THEN 1 ELSE 0 END), 0) AS missing_cost_count
@@ -23,7 +23,7 @@ func (r *GormSheinSyncRepository) CountSheinEnrollmentSummary(ctx context.Contex
 	}
 
 	latestCandidates := r.db.WithContext(ctx).
-		Model(&listingkit.SheinActivityCandidateRecord{}).
+		Model(&sheinsync.SheinActivityCandidateRecord{}).
 		Select(`
 			skc_name,
 			eligibility_status,
@@ -45,11 +45,11 @@ func (r *GormSheinSyncRepository) CountSheinEnrollmentSummary(ctx context.Contex
 			COALESCE(SUM(CASE WHEN rn = 1 AND review_status = ? THEN 1 ELSE 0 END), 0) AS pending_review_count,
 			COALESCE(SUM(CASE WHEN rn = 1 AND eligibility_status = ? AND review_status IN ? THEN 1 ELSE 0 END), 0) AS ready_to_enroll_count
 		`,
-			listingkit.SheinCandidateReviewStatusPendingReview,
-			listingkit.SheinCandidateEligibilityStatusEligible,
-			[]listingkit.SheinCandidateReviewStatus{
-				listingkit.SheinCandidateReviewStatusApproved,
-				listingkit.SheinCandidateReviewStatusAutoQueued,
+			sheinsync.SheinCandidateReviewStatusPendingReview,
+			sheinsync.SheinCandidateEligibilityStatusEligible,
+			[]sheinsync.SheinCandidateReviewStatus{
+				sheinsync.SheinCandidateReviewStatusApproved,
+				sheinsync.SheinCandidateReviewStatusAutoQueued,
 			},
 		).
 		Scan(&candidateCounts).Error; err != nil {
@@ -68,7 +68,7 @@ func (r *MemSheinSyncRepository) CountSheinEnrollmentSummary(_ context.Context, 
 	defer r.mu.RUnlock()
 
 	active := true
-	productQuery := &listingkit.SheinSyncedProductQuery{
+	productQuery := &sheinsync.SheinSyncedProductQuery{
 		TenantID: tenantID,
 		StoreID:  storeID,
 		IsActive: &active,
@@ -83,12 +83,12 @@ func (r *MemSheinSyncRepository) CountSheinEnrollmentSummary(_ context.Context, 
 		}
 	}
 
-	candidateQuery := &listingkit.SheinActivityCandidateQuery{
+	candidateQuery := &sheinsync.SheinActivityCandidateQuery{
 		TenantID:     tenantID,
 		StoreID:      storeID,
 		ActivityType: activityType,
 	}
-	latestBySKC := make(map[string]listingkit.SheinActivityCandidateRecord)
+	latestBySKC := make(map[string]sheinsync.SheinActivityCandidateRecord)
 	for _, candidate := range r.candidates {
 		if !matchesSheinActivityCandidateQuery(candidate, candidateQuery) {
 			continue
@@ -99,18 +99,18 @@ func (r *MemSheinSyncRepository) CountSheinEnrollmentSummary(_ context.Context, 
 		}
 	}
 	for _, candidate := range latestBySKC {
-		if candidate.ReviewStatus == listingkit.SheinCandidateReviewStatusPendingReview {
+		if candidate.ReviewStatus == sheinsync.SheinCandidateReviewStatusPendingReview {
 			pendingReviewCount++
 		}
-		if candidate.EligibilityStatus == listingkit.SheinCandidateEligibilityStatusEligible &&
-			(candidate.ReviewStatus == listingkit.SheinCandidateReviewStatusApproved || candidate.ReviewStatus == listingkit.SheinCandidateReviewStatusAutoQueued) {
+		if candidate.EligibilityStatus == sheinsync.SheinCandidateEligibilityStatusEligible &&
+			(candidate.ReviewStatus == sheinsync.SheinCandidateReviewStatusApproved || candidate.ReviewStatus == sheinsync.SheinCandidateReviewStatusAutoQueued) {
 			readyToEnrollCount++
 		}
 	}
 	return syncedProductCount, missingCostCount, pendingReviewCount, readyToEnrollCount, nil
 }
 
-func isNewerSheinSummaryCandidate(left, right listingkit.SheinActivityCandidateRecord) bool {
+func isNewerSheinSummaryCandidate(left, right sheinsync.SheinActivityCandidateRecord) bool {
 	switch {
 	case left.UpdatedAt.After(right.UpdatedAt):
 		return true

@@ -13,9 +13,9 @@ import (
 	"task-processor/internal/authidentity"
 	zitadelruntime "task-processor/internal/authruntime/zitadel"
 	"task-processor/internal/authz"
+	authzhttpapi "task-processor/internal/authz/httpapi"
 	"task-processor/internal/core/config"
 	"task-processor/internal/httproute"
-	listingkithttpapi "task-processor/internal/listingkit/httpapi"
 	"task-processor/internal/workbenchcontext"
 )
 
@@ -102,7 +102,7 @@ func routeAuthHandlersWithDependencies(route httproute.Descriptor, dependencies 
 	}
 	requiresOrganization := routeRequiresOrganizationResolution(route.OrganizationAccessPolicy)
 	currentIdentity := route.AuthPolicy == httproute.AuthPolicyCurrentIdentity || route.AuthPolicy == httproute.AuthPolicyCurrentIdentityWithVerifiedRoles
-	if !requiresOrganization && !currentIdentity && !listingkithttpapi.RouteRequiresZitadelAuth(route) {
+	if !requiresOrganization && !currentIdentity && !authzhttpapi.RouteRequiresZitadelAuth(route) {
 		return nil
 	}
 	handlers := make([]gin.HandlerFunc, 0, 5)
@@ -139,9 +139,9 @@ func routeAuthHandlersWithDependencies(route httproute.Descriptor, dependencies 
 	if dependencies.roleMiddleware != nil {
 		roleAuth = dependencies.roleMiddleware(route)
 	} else if requiresOrganization {
-		roleAuth = listingkithttpapi.NewRouteRoleMiddlewareWithAuthorizerAndResponder(route, dependencies.authorizer, workbenchRoleAuthorizationResponder(route, dependencies))
+		roleAuth = authzhttpapi.NewRouteRoleMiddlewareWithAuthorizerAndResponder(route, dependencies.authorizer, workbenchRoleAuthorizationResponder(route, dependencies))
 	} else {
-		roleAuth = listingkithttpapi.NewRouteRoleMiddlewareWithAuthorizer(route, dependencies.authorizer)
+		roleAuth = authzhttpapi.NewRouteRoleMiddlewareWithAuthorizer(route, dependencies.authorizer)
 	}
 	if roleAuth != nil {
 		handlers = append(handlers, roleAuth)
@@ -208,9 +208,9 @@ func workbenchAuthenticationMiddleware(verifier zitadelruntime.Verifier) gin.Han
 	}
 }
 
-func workbenchRoleAuthorizationResponder(route httproute.Descriptor, dependencies routeAuthDependencies) listingkithttpapi.RoleAuthorizationResponder {
-	return func(c *gin.Context, failure listingkithttpapi.RoleAuthorizationFailure, _ string) {
-		if failure == listingkithttpapi.RoleAuthorizationDependencyUnavailable {
+func workbenchRoleAuthorizationResponder(route httproute.Descriptor, dependencies routeAuthDependencies) authzhttpapi.RoleAuthorizationResponder {
+	return func(c *gin.Context, failure authzhttpapi.RoleAuthorizationFailure, _ string) {
+		if failure == authzhttpapi.RoleAuthorizationDependencyUnavailable {
 			writeWorkbenchContextError(c, workbenchcontext.ErrAuthorizationDependencyUnavailable)
 			return
 		}

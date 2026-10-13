@@ -20,7 +20,7 @@ func TestSheinSyncRepositoryFilesOwnSeparatedFamilies(t *testing.T) {
 
 	assertSheinSyncRepoContainsAll(t, rootFile,
 		"type GormSheinSyncRepository struct {",
-		"func NewSheinSyncRepository(db *gorm.DB) listingkit.SheinSyncRepository {",
+		"func NewSheinSyncRepository(db *gorm.DB) sheinsync.SheinSyncRepository {",
 		"func AutoMigrateSheinSyncRepository(db *gorm.DB) error {",
 	)
 	assertSheinSyncRepoNotContainsAny(t, rootFile,
