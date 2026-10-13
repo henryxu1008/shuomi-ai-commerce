@@ -96,7 +96,6 @@ func (b httpFeatureCompositionBuilder) build(logger *logrus.Logger, deps *runtim
 	}
 	composition.listingKitModule = listingKitModule
 	var sourceRepository sourceaccount.Repository
-	var sourceValidator sourceaccount.AccessValidator
 	if composition.listingKitModule != nil {
 		var sourceErr error
 		var sourceClosers []func() error
@@ -107,9 +106,6 @@ func (b httpFeatureCompositionBuilder) build(logger *logrus.Logger, deps *runtim
 			logger.Warn("1688 source-account repository unavailable; public crawling remains enabled")
 		}
 		deps.addClosers(sourceClosers...)
-		if validator, ok := sourceRepository.(sourceaccount.AccessValidator); ok {
-			sourceValidator = validator
-		}
 	}
 	if composition.listingKitModule != nil && deps.shared.cfg != nil && deps.shared.cfg.Platforms.Alibaba1688.Enabled {
 		crawlerModule := newCrawler1688HTTPModule(deps.shared.cfg, logger, sourceRepository)
