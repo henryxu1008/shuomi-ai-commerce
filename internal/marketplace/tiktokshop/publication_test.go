@@ -36,6 +36,27 @@ func TestListingMethodComesFromExactOfficialRules(t *testing.T) {
 	}
 }
 
+func TestListingRuleHashIgnoresRequestTraceAndTracksInventorySemantics(t *testing.T) {
+	first, err := DecodeListingRules([]byte(`{"code":0,"request_id":"trace-a","data":{"listing_methods":["LOCAL_REPLICATION"],"inventory_rules":[{"local_warehouse_id":"wh","allocation_mode":"MANUAL","associated_warehouses":[]}]}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := DecodeListingRules([]byte(`{"code":0,"request_id":"trace-b","data":{"listing_methods":["LOCAL_REPLICATION"],"inventory_rules":[{"local_warehouse_id":"wh","allocation_mode":"MANUAL","associated_warehouses":[]}]}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.Fingerprint != second.Fingerprint {
+		t.Fatal("request trace changes invalidate unchanged listing rules")
+	}
+	changed, err := DecodeListingRules([]byte(`{"code":0,"data":{"listing_methods":["LOCAL_REPLICATION"],"inventory_rules":[{"local_warehouse_id":"wh","allocation_mode":"SHARED","associated_warehouses":[{"warehouse_id":"linked","region":"US"}]}]}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.Fingerprint == changed.Fingerprint {
+		t.Fatal("inventory semantics changed without invalidating rules")
+	}
+}
+
 func publishFixture(status, product string) []byte {
 	reasons := `[{"message":"untrusted provider text"}]`
 	if status == "SUCCESS" {

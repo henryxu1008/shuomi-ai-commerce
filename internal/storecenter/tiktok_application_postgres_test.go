@@ -36,6 +36,12 @@ func (p *tiktokApplicationProvider) AuthorizedShops(context.Context, string) ([]
 	return []tiktok.Shop{{ID: "actual-shop", Code: "USCODE", Cipher: "actual-cipher", Region: "US", SellerType: "CROSS_BORDER"}}, nil
 }
 
+type tiktokProductLiveAccess struct{}
+
+func (tiktokProductLiveAccess) AuthorizeProductExecution(_ context.Context, subject storecenter.ProductExecutionSubject) (storecenter.ProductExecutionAuthorization, error) {
+	return storecenter.ProductExecutionAuthorization{Allowed: true, Access: storecenter.StoreMemberAccess{OrganizationID: subject.OrganizationID, ActorID: subject.ActorID, MemberID: subject.MemberID, CanWrite: true}}, nil
+}
+
 func TestTikTokApplicationBindsProtectedCanonicalGrantAndReplaysCallback(t *testing.T) {
 	db := newTikTokStoreDatabase(t)
 	repo, err := storecenter.NewMemberScopedStoreRepository(db, &storeMemberAuthorizer{member: "original-member"})
@@ -78,6 +84,20 @@ func TestTikTokApplicationBindsProtectedCanonicalGrantAndReplaysCallback(t *test
 	attempt, err := repo.ReadTikTokAttempt(context.Background(), "org-a", store.ID(), begin.AttemptID)
 	require.NoError(t, err)
 	require.Empty(t, attempt.Ciphertext)
+	executionCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	subject := storecenter.ProductExecutionSubject{OrganizationID: "org-a", ActorID: "subject-create", MemberID: "original-member", Purpose: storecenter.ProductPurposeRules}
+	_, err = repo.ReadProductExecution(executionCtx, subject, store.ID(), tiktokProductLiveAccess{}, time.Now().UTC())
+	require.Error(t, err, "pending service cannot acquire product access")
+	require.NoError(t, db.Exec(`UPDATE workbench_stores SET service_status='active',service_started_at=?,service_expires_at=? WHERE organization_id='org-a' AND id=?`, time.Now().Add(-time.Minute), time.Now().Add(time.Hour), store.ID()).Error)
+	material, err := repo.ReadProductExecution(executionCtx, subject, store.ID(), tiktokProductLiveAccess{}, time.Now().UTC())
+	require.NoError(t, err)
+	require.NotNil(t, material.TikTok)
+	require.Equal(t, grant, material.TikTok.Grant)
+	require.Empty(t, material.Attempt.Ciphertext)
+	subject.MemberID = "replacement-member"
+	_, err = repo.ReadProductExecution(executionCtx, subject, store.ID(), tiktokProductLiveAccess{}, time.Now().UTC())
+	require.Error(t, err)
 }
 
 func TestTikTokStoreRuntimePrivilegesRequireExplicitCapability(t *testing.T) {

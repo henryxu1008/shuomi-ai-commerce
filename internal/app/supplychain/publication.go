@@ -16,13 +16,14 @@ import (
 // PublicationView only contains confirmed platform facts. It is not a fresh
 // official query, an approval status, or an authority to send again.
 type PublicationView struct {
-	SourceID    string                  `json:"sourceId"`
-	StoreID     string                  `json:"storeId"`
-	RecordID    string                  `json:"recordId,omitempty"`
-	ReceiptID   string                  `json:"receiptId,omitempty"`
-	Product     *model.PublishResult    `json:"product,omitempty"`
-	TemuProduct *temugoods.CreatedGoods `json:"temuProduct,omitempty"`
-	ObservedAt  *time.Time              `json:"observedAt,omitempty"`
+	SourceID    string                          `json:"sourceId"`
+	StoreID     string                          `json:"storeId"`
+	RecordID    string                          `json:"recordId,omitempty"`
+	ReceiptID   string                          `json:"receiptId,omitempty"`
+	Product     *model.PublishResult            `json:"product,omitempty"`
+	TemuProduct *temugoods.CreatedGoods         `json:"temuProduct,omitempty"`
+	TikTok      *submission.TikTokEffectReceipt `json:"tiktok,omitempty"`
+	ObservedAt  *time.Time                      `json:"observedAt,omitempty"`
 }
 
 func (a *Application) Publication(ctx context.Context, sourceID, storeID string) (PublicationView, error) {
@@ -58,6 +59,10 @@ func (a *Application) Publication(ctx context.Context, sourceID, storeID string)
 		platform = "temu"
 		subject, err = submission.TemuProductSubjectID(source.Source.ProductKey, binding)
 	}
+	if binding.Platform == storecenter.PlatformTikTokShop {
+		platform = "tiktokshop"
+		subject, err = submission.TikTokProductSubjectID(source.Source.ProductKey, submission.TikTokPublishStage)
+	}
 	if err != nil {
 		return value, err
 	}
@@ -78,7 +83,12 @@ func (a *Application) Publication(ctx context.Context, sourceID, storeID string)
 	if err != nil || current != binding {
 		return value, record.ErrForbidden
 	}
-	if receipt.Target.Platform == "temu" {
+	if receipt.Target.Platform == "tiktokshop" {
+		if !submission.TikTokCompatibleBinding(receipt.Binding, binding) {
+			return value, record.ErrConflict
+		}
+		value.TikTok = receipt.TikTok
+	} else if receipt.Target.Platform == "temu" {
 		value.TemuProduct = receipt.TemuProduct
 	} else {
 		value.Product = &receipt.Product

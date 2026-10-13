@@ -11,6 +11,7 @@ import (
 	"task-processor/internal/authz"
 	"task-processor/internal/core/config"
 	"task-processor/internal/httproute"
+	completionstore "task-processor/internal/integration/persistence/listing/completiondraft"
 	officialstore "task-processor/internal/integration/persistence/listing/official"
 	prepstore "task-processor/internal/integration/persistence/listing/preparation"
 	submissionstore "task-processor/internal/integration/persistence/listing/submission"
@@ -106,6 +107,7 @@ func buildSupplyChainModule(ctx context.Context, productDB, storeDB *gorm.DB, d 
 		return empty, err
 	}
 	temuRules := supplyapp.TemuRuleReader{Stores: supplyapp.OfficialTemuRuleStore{Access: access}, Catalog: temuCatalog}
+	tiktokRules := supplyapp.TikTokRuleReader{Stores: supplyapp.OfficialTikTokRuleStore{Access: access}}
 	assets, err := assetstore.NewBoundedApprovedInventoryReader(d.AssetDB, record.MaxPayloadBytes)
 	if err != nil {
 		return empty, err
@@ -124,7 +126,15 @@ func buildSupplyChainModule(ctx context.Context, productDB, storeDB *gorm.DB, d 
 		return empty, err
 	}
 	imageProbe := supplyapp.NewPublicImageProbe()
-	targets, err := record.NewTargetService(record.TargetDependencies{Sources: sources, Products: effective, Assets: assets, Rules: rules, TemuRules: temuRules, TemuImages: imageProbe, Records: records, Images: imageProbe, Authorizer: auth, ExecutionSources: sources, ExecutionAuthorization: executionAuth})
+	var completionVersions record.TargetCompletionVersionReader
+	if len(marketPOD) > 4 && marketPOD[4] {
+		versions, e := completionstore.NewRepository(ctx, productDB)
+		if e != nil {
+			return empty, e
+		}
+		completionVersions = versions
+	}
+	targets, err := record.NewTargetService(record.TargetDependencies{Sources: sources, Products: effective, Assets: assets, Rules: rules, TemuRules: temuRules, TemuImages: imageProbe, TikTokRules: tiktokRules, TikTokImages: imageProbe, CompletionVersions: completionVersions, Records: records, Images: imageProbe, Authorizer: auth, ExecutionSources: sources, ExecutionAuthorization: executionAuth})
 	if err != nil {
 		return empty, err
 	}
@@ -141,11 +151,11 @@ func buildSupplyChainModule(ctx context.Context, productDB, storeDB *gorm.DB, d 
 		return empty, err
 	}
 	stageProjection := core.app.StageProjection
-	uploader, err := supplyapp.NewUploadService(supplyapp.UploadDependencies{Sources: sources, Products: effective, Assets: assets, Rules: rules, TemuRules: temuRules, TemuImages: imageProbe, Records: records, Authorization: executionAuth, Stores: supplyapp.OfficialExecutionStore{Access: access}, TemuStores: supplyapp.OfficialTemuExecutionStore{Access: access}, Images: imageProbe, Kernel: kernel, Intents: official, Receipts: official, ReviewGate: stageProjection.RequireUploadReady})
+	uploader, err := supplyapp.NewUploadService(supplyapp.UploadDependencies{Sources: sources, Products: effective, Assets: assets, Rules: rules, TemuRules: temuRules, TemuImages: imageProbe, TikTokRules: tiktokRules, TikTokImages: imageProbe, TikTokStores: supplyapp.OfficialTikTokExecutionStore{Access: access}, Records: records, Authorization: executionAuth, Stores: supplyapp.OfficialExecutionStore{Access: access}, TemuStores: supplyapp.OfficialTemuExecutionStore{Access: access}, Images: imageProbe, Kernel: kernel, Intents: official, Receipts: official, ReviewGate: stageProjection.RequireUploadReady})
 	if err != nil {
 		return empty, err
 	}
-	app := &supplyapp.Application{Preparations: preparations, Sources: sources, Operations: operations, Execution: supplyapp.OperationApplication{Service: operations, Repository: operationsRepo, Starter: d.Starter}, Targets: targets, Records: records, Products: effective, Rules: rules, TemuRules: temuRules, Assets: assets, Approvals: approvals, Authorization: auth, PublicationReceipts: official, PublicationStores: supplyapp.OfficialRuleStore{Access: access}, TargetMerchants: supplyapp.OfficialTargetMerchantStore{Access: access}}
+	app := &supplyapp.Application{Preparations: preparations, Sources: sources, Operations: operations, Execution: supplyapp.OperationApplication{Service: operations, Repository: operationsRepo, Starter: d.Starter}, Targets: targets, Records: records, Products: effective, Rules: rules, TemuRules: temuRules, TikTokRules: tiktokRules, TikTokCatalog: tiktokRules, Assets: assets, Approvals: approvals, Authorization: auth, PublicationReceipts: official, PublicationStores: supplyapp.OfficialRuleStore{Access: access}, TargetMerchants: supplyapp.OfficialTargetMerchantStore{Access: access}}
 	var optimizer supplyapp.OperationOptimizer
 	app.StageProjection = stageProjection
 	app.Uploader = uploader

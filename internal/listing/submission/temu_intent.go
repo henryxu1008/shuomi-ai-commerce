@@ -144,7 +144,7 @@ func sealTemuIntent(source preparation.AuthorizedSource, body OfficialIntent) (O
 }
 
 func validateTemuIntent(v OfficialIntent) error {
-	if v.Image != nil {
+	if v.Image != nil || v.TikTok != nil {
 		return ErrExecutionEvidenceRequired
 	}
 	if v.Kind == "publish" {

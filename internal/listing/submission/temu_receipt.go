@@ -29,6 +29,9 @@ func validOfficialBindingForTarget(b storecenter.ProductMerchantBinding, t Execu
 	if t.Platform == "temu" {
 		return b.ValidTemuApplication()
 	}
+	if t.Platform == "tiktokshop" {
+		return b.ValidTikTokApplication()
+	}
 	return t.Platform == "shein" && b.Platform != storecenter.PlatformTemu && b.Site == "shein-us" && b.ValidApplication()
 }
 
@@ -97,7 +100,7 @@ func NewTemuPublishCompletion(owner collection.Scope, recordID, productKey strin
 }
 
 func validateTemuReceipt(v OfficialReceipt) error {
-	if v.Image != nil || v.Product.SPUName != "" || len(v.Product.SKCs) > 0 || v.Product.ResponseHash != "" {
+	if v.TikTok != nil || v.Image != nil || v.Product.SPUName != "" || len(v.Product.SKCs) > 0 || v.Product.ResponseHash != "" {
 		return ErrExecutionEvidenceRequired
 	}
 	if v.Kind == "publish" {

@@ -6,7 +6,9 @@ package tiktokshop
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"sort"
 	"strings"
 	"unicode/utf8"
 
@@ -30,8 +32,19 @@ const (
 )
 
 type ListingRules struct {
-	Methods     []ListingMethod
-	Fingerprint string
+	Methods        []ListingMethod `json:"methods"`
+	InventoryRules []InventoryRule `json:"inventoryRules"`
+	Fingerprint    string          `json:"fingerprint"`
+}
+
+type AssociatedWarehouse struct {
+	ID     string `json:"warehouse_id"`
+	Region string `json:"region"`
+}
+type InventoryRule struct {
+	LocalWarehouseID     string                `json:"local_warehouse_id"`
+	AllocationMode       string                `json:"allocation_mode"`
+	AssociatedWarehouses []AssociatedWarehouse `json:"associated_warehouses"`
 }
 
 // DecodeListingRules verifies the official method list. Warehouse/category
@@ -40,7 +53,8 @@ func DecodeListingRules(raw []byte) (ListingRules, error) {
 	var response struct {
 		Code *int `json:"code"`
 		Data *struct {
-			Methods []ListingMethod `json:"listing_methods"`
+			Methods        []ListingMethod `json:"listing_methods"`
+			InventoryRules []InventoryRule `json:"inventory_rules"`
 		} `json:"data"`
 	}
 	if !decode(raw, &response) || response.Code == nil || *response.Code != 0 || response.Data == nil || len(response.Data.Methods) == 0 || len(response.Data.Methods) > 2 {
@@ -53,7 +67,36 @@ func DecodeListingRules(raw []byte) (ListingRules, error) {
 		}
 		seen[method] = true
 	}
-	return ListingRules{Methods: append([]ListingMethod(nil), response.Data.Methods...), Fingerprint: fingerprint(raw)}, nil
+	warehouses := map[string]bool{}
+	if len(response.Data.InventoryRules) > 1000 {
+		return ListingRules{}, ErrListingRules
+	}
+	for _, rule := range response.Data.InventoryRules {
+		if !identifier(rule.LocalWarehouseID) || warehouses[rule.LocalWarehouseID] || len(rule.AssociatedWarehouses) > 100 {
+			return ListingRules{}, ErrListingRules
+		}
+		warehouses[rule.LocalWarehouseID] = true
+		if rule.AllocationMode != "MANUAL" && rule.AllocationMode != "DYNAMIC" && rule.AllocationMode != "SHARED" {
+			return ListingRules{}, ErrListingRules
+		}
+		if rule.AllocationMode == "MANUAL" && len(rule.AssociatedWarehouses) != 0 || rule.AllocationMode != "MANUAL" && len(rule.AssociatedWarehouses) == 0 {
+			return ListingRules{}, ErrListingRules
+		}
+		associated := map[string]bool{}
+		for _, warehouse := range rule.AssociatedWarehouses {
+			if !identifier(warehouse.ID) || len(warehouse.Region) != 2 || associated[warehouse.ID] {
+				return ListingRules{}, ErrListingRules
+			}
+			associated[warehouse.ID] = true
+		}
+		sort.Slice(rule.AssociatedWarehouses, func(i, j int) bool { return rule.AssociatedWarehouses[i].ID < rule.AssociatedWarehouses[j].ID })
+	}
+	sort.Slice(response.Data.InventoryRules, func(i, j int) bool {
+		return response.Data.InventoryRules[i].LocalWarehouseID < response.Data.InventoryRules[j].LocalWarehouseID
+	})
+	sort.Slice(response.Data.Methods, func(i, j int) bool { return response.Data.Methods[i] < response.Data.Methods[j] })
+	semantic, _ := json.Marshal(response.Data)
+	return ListingRules{Methods: append([]ListingMethod(nil), response.Data.Methods...), InventoryRules: response.Data.InventoryRules, Fingerprint: fingerprint(semantic)}, nil
 }
 
 func (r ListingRules) RequireMethod(method ListingMethod) error {
@@ -83,15 +126,19 @@ type GlobalPublishExpectation struct {
 	GlobalSKUIDs []string
 }
 
-type PublishedSKU struct{ LocalSKUID, GlobalSKUID string }
+type PublishedSKU struct {
+	LocalSKUID  string `json:"localSkuId"`
+	GlobalSKUID string `json:"globalSkuId"`
+}
 
 type GlobalPublishResult struct {
-	State             ChannelState
-	ShopID, ProductID string
-	SKUs              []PublishedSKU
-	FailureReason     string
-	FailureCount      int
-	Fingerprint       string
+	State         ChannelState   `json:"state"`
+	ShopID        string         `json:"shopId"`
+	ProductID     string         `json:"productId"`
+	SKUs          []PublishedSKU `json:"skus"`
+	FailureReason string         `json:"failureReason"`
+	FailureCount  int            `json:"failureCount"`
+	Fingerprint   string         `json:"fingerprint"`
 }
 
 // DecodeGlobalPublishResult correlates the sole approved US target with the

@@ -85,3 +85,23 @@ Refs [#669](https://github.com/qq550723504/task-processor/issues/669)。
 | 官方 Go SDK 的实际 API集合 | SDK选择/真实验证 | 实际应用可下载SDK；SDK暂不可取不阻止基于官方协议与现有设施的窄adapter开发，不建设完整自有SDK |
 
 以上保持 UNKNOWN/NOT_RUN，未签发产品验收或 IMPLEMENTATION_READY。
+
+## 7. 实施期补充核对（2026-10-13）
+
+已在公开官方文档中展开正式字段；未调用商家 API。
+
+- [Get Categories](https://partner.tiktokshop.com/docv2/page/get-categories-202309) 使用 /product/202309/categories、shop_cipher、category_version=v2、locale=en-US，scope seller.product.basic。只有 leaf 和准确许可状态可用于创建；INVITE_ONLY 不当作已获批。
+- [Get Global Categories](https://partner.tiktokshop.com/docv2/page/get-global-categories-202309)、[Global Category Rules](https://partner.tiktokshop.com/docv2/page/get-global-category-rules-202309)、[Global Attributes](https://partner.tiktokshop.com/docv2/page/get-global-attributes-202309) 的 scope 为 seller.global_product.category.info；路径分别为 /product/202309/global_categories、/product/202309/categories/{category_id}/global_rules 与 global_attributes。同样明确 v2/en-US，不推导其他市场权限。
+- [Category Rules](https://partner.tiktokshop.com/docv2/page/get-category-rules-202309) 路径 /product/202309/categories/{category_id}/rules。证明规则 product_certifications 包含 is_required、requirement_conditions、expiration_date.is_required；条件类型 VALUE_ID_MATCH，按 attribute_id/attribute_value_id 判断。全球规则另有 required_regions/optional_regions 及条件 region。size_chart、package_dimension 的必需性来自对应正式规则，不从空响应推定 false。
+- [Category Attributes](https://partner.tiktokshop.com/docv2/page/get-category-attributes-202309) 及全球版本将属性必填字段正式拼写为 is_requried，不能自行改写协议字段。属性类型 SALES_PROPERTY / PRODUCT_PROPERTY；values.id/name、is_customizable、is_multiple_selection、value_data_format 及条件要求均影响校验。未知条件或必需性保持未就绪。
+- [Create Product](https://partner.tiktokshop.com/docv2/page/create-product-202309) 的 SKU inventory 使用 warehouse_id/quantity，数量 1–99999。跨境 sale_price 是最终展示价格，US 中国仓必需；本土 amount 不代替它。price.currency=USD。主图仅使用 MAIN_IMAGE 上传所得 uri，最大 9 张。包装单位必须匹配；全球创建仅 KILOGRAM / CENTIMETER。
+- [Create Global Product](https://partner.tiktokshop.com/docv2/page/create-global-product-202309) 的 SKU price.amount 是明确全球税前基准、currency=USD，上限 99999999.99；与 US sale_price 分别批准。global_quantity 与 inventory[].global_warehouse_id/quantity 是不同字段，有逐仓库存时前者不生效。返回 global_product_id 和 global_skus[].id/seller_sku/sales_attributes/external_global_sku_id；必须准确关联原请求 SKU，不能依赖数组顺序。创建全球商品不等于已刊登美国商品。
+- [Upload Product Image](https://partner.tiktokshop.com/docv2/page/upload-product-image-202309) 为 /product/202309/images/upload，scope seller.product.basic，multipart 字段 data 和显式 use_case。文件上限 10MB；主图 300–4000 px。响应 uri/url/width/height/use_case 是平台变换后的事实，不能仅保存客户端原图尺寸。图片上传仍须原 Submission stage gate。
+- [Get Warehouse List](https://partner.tiktokshop.com/docv2/page/get-warehouse-list-202309) 为 /logistics/202309/warehouses，scope seller.logistics，精确 shop_cipher。只消费仓库 ID、ENABLED/DISABLED/RESTRICTED、SALES_WAREHOUSE/RETURN_WAREHOUSE、sub_type 及地址 region_code；不把同地址的退货仓当发货仓，不保存联系电话等无关字段。
+
+以上完善接口依据，不替代实际获批 scope、token role/resource API 组合、Development Shop 或用户刊登验收；这些保持 NOT_RUN。冻结设计准入仍引用 #669 和独立评审记录。
+[Get Global Seller Warehouses](https://partner.tiktokshop.com/docv2/page/get-global-seller-warehouses-202309) 使用 /logistics/202309/global_warehouses、scope seller.shop.info，返回 global_warehouses[].id/name/ownership（SELLER / PLATFORM_COOPERATION），不提供本地仓可售状态。
+
+[Product pricing](https://partner.tiktokshop.com/docv2/page/product-pricing) 的 US/USD 精度为两位：全球卖家当地仓允许 0.01–7600，跨境仓允许 0.01–800。不能统一套用 7600。按实际 SALES_WAREHOUSE 的 CB_OVERSEA_WAREHOUSE / CB_DIRECT_SHIPPING_WAREHOUSE 子类型判断，未知类型不猜价限。每个 SKU 的美国最终 sale_price 与全球 price.amount 分开检查。
+
+2026-10-14 再次展开 [Publish Global Product](https://partner.tiktokshop.com/docv2/page/publish-global-product-202309) 的完整请求字段：`publish_target[].skus[].inventory` 为 **object**，包含单个 `warehouse_id` 和 `quantity [1,99999]`；不能发送创建商品使用的 inventory 数组。首版美国全球刊登为每个 SKU 明确选择一个实际美国发货仓，保持批准数量不超过全球预算；不依赖默认平均分配，也不允许平台通过超额本地库存自动扩大全球库存。全球商品创建和本地 Create Product 的逐仓库存仍使用各自正式契约。

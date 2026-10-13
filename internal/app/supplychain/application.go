@@ -9,6 +9,7 @@ import (
 	"task-processor/internal/listing/submission"
 	"task-processor/internal/marketplace/shein/goods"
 	temugoods "task-processor/internal/marketplace/temu/goods"
+	tiktok "task-processor/internal/marketplace/tiktokshop"
 	"task-processor/internal/product/asset"
 	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/collection"
@@ -26,6 +27,8 @@ type Application struct {
 	Products              record.EffectiveTargetProductReader
 	Rules                 record.TargetRuleReader
 	TemuRules             TemuTargetRuleReader
+	TikTokRules           record.TargetTikTokRuleReader
+	TikTokCatalog         TikTokRuleReader
 	Assets                record.ApprovedAssetReader
 	Approvals             *asset.SourceApprovalService
 	Authorization         preparation.Authorizer
@@ -68,16 +71,18 @@ func (a *Application) Source(ctx context.Context, id string) (SourceDetail, erro
 }
 
 type TargetRules struct {
-	Merchant storecenter.ProductMerchantBinding `json:"merchant"`
-	Rules    goods.OfficialRuleSnapshot         `json:"rules,omitzero"`
-	Temu     *temugoods.RuleSnapshot            `json:"temu,omitempty"`
+	Merchant      storecenter.ProductMerchantBinding `json:"merchant"`
+	Rules         goods.OfficialRuleSnapshot         `json:"rules,omitzero"`
+	Temu          *temugoods.RuleSnapshot            `json:"temu,omitempty"`
+	TikTok        *tiktok.RuleSnapshot               `json:"tiktok,omitempty"`
+	TikTokCatalog *TikTokCatalog                     `json:"tiktokCatalog,omitempty"`
 }
 
 func (a *Application) QueryRules(ctx context.Context, in record.TargetInput) (TargetRules, error) {
 	if ctx == nil || a == nil || a.Authorization == nil || a.Sources == nil || a.Products == nil {
 		return TargetRules{}, preparation.ErrUnavailable
 	}
-	if in.Temu != nil || in.TemuRules != nil && !reflect.DeepEqual(in.Draft, goods.OfficialDraftInput{}) {
+	if in.Temu != nil || in.TikTok != nil || in.TemuRules != nil && in.TikTokRules != nil || (in.TemuRules != nil || in.TikTokRules != nil) && !reflect.DeepEqual(in.Draft, goods.OfficialDraftInput{}) {
 		return TargetRules{}, record.ErrInvalid
 	}
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
@@ -96,6 +101,34 @@ func (a *Application) QueryRules(ctx context.Context, in record.TargetInput) (Ta
 	}
 	if _, err = a.Products.ReadEffectiveTargetProduct(ctx, selected, in.EffectiveVersion, in.ApplyReceiptID); err != nil {
 		return TargetRules{}, err
+	}
+	if in.TikTokRules != nil {
+		if a.TikTokRules == nil {
+			return TargetRules{}, record.ErrUnavailable
+		}
+		var result TargetRules
+		if in.TikTokRules.CategoryID == "" {
+			merchant, catalog, e := a.TikTokCatalog.ReadCatalog(ctx, scope, in.StoreID, in.TikTokRules.Method)
+			if e != nil {
+				return TargetRules{}, e
+			}
+			result = TargetRules{Merchant: merchant, TikTokCatalog: &catalog}
+		} else {
+			merchant, rules, e := a.TikTokRules.ReadTikTokTargetRules(ctx, scope, in.StoreID, *in.TikTokRules)
+			if e != nil {
+				return TargetRules{}, e
+			}
+			result = TargetRules{Merchant: merchant, TikTok: &rules}
+		}
+		current, _, _, err := selected.Read(ctx)
+		if err != nil || current != scope {
+			return TargetRules{}, preparation.ErrForbidden
+		}
+		current, e := a.Authorization.Authorize(ctx, preparation.PermissionRead)
+		if e != nil || current != scope || ctx.Err() != nil {
+			return TargetRules{}, preparation.ErrForbidden
+		}
+		return result, nil
 	}
 	if in.TemuRules != nil {
 		if a.TemuRules == nil {
