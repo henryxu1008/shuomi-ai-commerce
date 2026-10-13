@@ -1,4 +1,5 @@
 import { catalogVersionSchema, COMPLETION_MAX_BYTES, SUPPLY_MAX_BYTES, supplyRouteMethods, supplyPath, supplyRequestSchema, supplyUsesKey, supplyMutates, parseSupplyResponse, type SupplyRoute } from "@/lib/contracts/supply-chain";
+import {materialsErrorStatuses} from "@/lib/contracts/listing-materials";
 import { hasValidStoreServiceFacts } from "@/lib/validation/workbench-store";
 import { planPath, planMethods, planRequestSchema, planResponseSchema, type PlanRoute } from "@/lib/contracts/acquisition-plan";
 import {officialConnectionViewSchema,officialConnectionBeginSchema,officialConnectionCompleteSchema,officialConnectionQuerySchema,officialApplicationListSchema,officialConnectionStartSchema} from "@/lib/contracts/store-connection";
@@ -536,7 +537,7 @@ export async function buildWorkbenchUpstreamRequest(
       if(schema){
         const key=readCanonicalUUIDHeader(request.headers,"Idempotency-Key");
         if(url.search || request.headers.get("content-type")!=="application/json" || request.headers.has("content-encoding") || (supplyUsesKey(action)?!key:request.headers.has("Idempotency-Key")))return protocolError(400,"INVALID_REQUEST","Supply command invalid");
-        const raw=await readRequestBody(request,action==="save-completion-draft"?COMPLETION_MAX_BYTES:SUPPLY_MAX_BYTES,"INPUT_TOO_LARGE");if(raw instanceof Response)return raw;
+        const raw=await readRequestBody(request,action.startsWith("materials-")?8192:action==="save-completion-draft"?COMPLETION_MAX_BYTES:SUPPLY_MAX_BYTES,"INPUT_TOO_LARGE");if(raw instanceof Response)return raw;
         const parsed=parseJSONBody(raw);const checked=schema.safeParse(parsed?.payload);
         if(!parsed || !checked.success)return protocolError(400,"INVALID_REQUEST","Supply command invalid");
         if(action==="approve" && "actionId" in checked.data && checked.data.actionId && checked.data.actionId!==key)return protocolError(400,"INVALID_REQUEST","Approval action differs from its original key");
@@ -1005,6 +1006,7 @@ export async function buildWorkbenchUpstreamRequest(
     },
     responseContract: route.responseContract,
     expectedStoreId: imageSetContract ? JSON.stringify(imageSetResponseBinding(path,route.requestContract.slice(10) as ImageSetRoute)) : expectedCollectionMedia ?? (
+      route.requestContract.startsWith("supply-materials-")?`${path[2]}:${path[5]??request.headers.get("Idempotency-Key")??(typeof body==="string"?JSON.parse(body).requestKey:"")}`:
       route.requestContract==="product-acquisition-plan-read"||route.requestContract==="product-acquisition-plan-advance"?path[3]:
       (route.requestContract==="supply-target"||route.requestContract==="supply-publication") ? `${path[2]}:${path[4]}` :
       ["supply-completion-draft","supply-completion-drafts","supply-source","supply-preparation","supply-record","supply-operation","supply-ensure","supply-cancel"].includes(route.requestContract) ? (["supply-preparation","supply-completion-drafts"].includes(route.requestContract)?path[1]:path[2]) :
@@ -1112,7 +1114,7 @@ export async function buildWorkbenchBrowserResponse(
     if(!parsedBody||!payload)return invalid();
     if(upstream.ok){const checked=parseSupplyResponse(contract.slice(7) as SupplyRoute,payload,expectedStoreId);return upstream.status===200 && checked?new NextResponse(JSON.stringify(checked),{status:200,headers:safeJSONHeaders()}):invalid();}
     const standard=parseWorkbenchErrorEnvelopePayload(payload);const code=typeof payload.code==="string"?payload.code:standard.success?standard.data.code:"";
-    const statuses:Record<string,number>={...acquisitionErrorStatuses,INVALID_REQUEST:400,PERMISSION_DENIED:403,NOT_FOUND:404,REVISION_CONFLICT:409,NOT_READY:409,OUTCOME_UNKNOWN:409};
+    const statuses:Record<string,number>={...acquisitionErrorStatuses,INVALID_REQUEST:400,PERMISSION_DENIED:403,NOT_FOUND:404,REVISION_CONFLICT:409,NOT_READY:409,OUTCOME_UNKNOWN:409,...(contract.startsWith("supply-materials-")?materialsErrorStatuses:{})};
     if(statuses[code]!==upstream.status)return invalid();
     const response=protocolError(upstream.status,code,"Supply request could not be completed",options.requestId??"");
     if(code==="ORGANIZATION_ACCESS_REVOKED"||code==="ORGANIZATION_ACCESS_DENIED")clearSelectionCookie(response);return response;

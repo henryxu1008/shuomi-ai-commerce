@@ -27,3 +27,8 @@ func TestListingMaterialAdoptionRequiresExactReviewableDomainResult(t *testing.T
 		require.False(t, materialsRunReviewable(copied))
 	}
 }
+
+func TestMaterialsProjectionRetainsOwnerDiagnosticsAlongsideModelNotes(t *testing.T) {
+	s := agent.State{Unresolved: []string{"model note"}, Validation: &agent.Validation{Valid: true, Unresolved: []string{"owner missing rule", "PLATFORM_MATERIAL_CONFIRMATION_REQUIRED"}}}
+	require.Equal(t, []string{"model note", "owner missing rule", "PLATFORM_MATERIAL_CONFIRMATION_REQUIRED"}, materialsRunDiagnostics(s))
+}

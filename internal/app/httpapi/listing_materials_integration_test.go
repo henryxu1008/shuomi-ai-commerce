@@ -15,9 +15,11 @@ import (
 	"task-processor/internal/agentconfig"
 	supplyapp "task-processor/internal/app/supplychain"
 	"task-processor/internal/commercetool"
+	assetstore "task-processor/internal/integration/persistence/product/asset"
 	record "task-processor/internal/listing/record/target"
 	"task-processor/internal/marketplace/shein/goods"
 	sheinmodel "task-processor/internal/marketplace/shein/model"
+	"task-processor/internal/product/asset"
 	"task-processor/internal/product/collection"
 	"task-processor/internal/storecenter"
 )
@@ -35,6 +37,40 @@ func TestMaterialsNewAdoptionRechecksOriginalModeConfigurationAndTemplate(t *tes
 	for _, change := range []string{"mode changed", "disabled", "archived"} {
 		t.Run(change, func(t *testing.T) { testProductAgentOwners(t, "supply materials default "+change) })
 	}
+}
+
+func TestMaterialsQualifiedAutomaticSaveUsesNativeReceipt(t *testing.T) {
+	for _, mode := range []string{"auto_approve", "full_access"} {
+		t.Run(mode, func(t *testing.T) { testProductAgentOwners(t, "supply materials "+mode+" qualified") })
+	}
+}
+
+func materialsFixturePointer[T any](v T) *T { return &v }
+
+type materialsQualifiedFixtureRules struct{ supplyAgentFixtureRules }
+
+func (r materialsQualifiedFixtureRules) ReadTargetRules(context.Context, collection.Scope, string, goods.OfficialDraftInput) (storecenter.ProductMerchantBinding, goods.OfficialRuleSnapshot, error) {
+	return r.merchant, goods.OfficialRuleSnapshot{ApplicationMode: sheinmodel.ModeSelfOperated, Warehouses: []sheinmodel.Warehouse{}, Categories: []sheinmodel.Category{{ID: 123, ProductTypeID: 456, Leaf: materialsFixturePointer(true)}}, Sites: []sheinmodel.MainSite{{ID: "shein", Sites: []sheinmodel.Site{{Abbreviation: "shein-us", Status: materialsFixturePointer(1), StoreType: materialsFixturePointer(2), Currency: "USD"}}}}, Fill: sheinmodel.FillStandards{DefaultLanguage: "en", DefaultTitleMaximum: materialsFixturePointer(150), SupplierCodeInSPU: materialsFixturePointer(false), Fields: []sheinmodel.FillRule{}, Pictures: []sheinmodel.PictureRule{{Field: "switch_spu_picture", Enabled: materialsFixturePointer(false)}, {Field: "sku_image_required", Enabled: materialsFixturePointer(false)}}}, Attributes: sheinmodel.AttributeTemplate{ProductTypeID: 456, MainAttributeStatus: materialsFixturePointer(1), Attributes: []sheinmodel.Attribute{{ID: 12, Name: "Default", Type: materialsFixturePointer(1), Show: materialsFixturePointer(1), MainLabel: materialsFixturePointer(1), Mode: materialsFixturePointer(2), Status: materialsFixturePointer(3), MaximumSelections: materialsFixturePointer(1), Options: []sheinmodel.AttributeOption{{ID: 34, Show: materialsFixturePointer(1), Name: "Default"}}}}}, Linked: []sheinmodel.LinkedRules{{GroupID: "product", Attributes: []sheinmodel.LinkedAttributeRule{}}, {GroupID: "sku-0-0", Attributes: []sheinmodel.LinkedAttributeRule{}}}, Brands: []sheinmodel.Brand{{Code: "fixture-brand", Name: "Fixture"}}}, nil
+}
+func materialsQualifiedDraft() goods.OfficialDraftInput {
+	return goods.OfficialDraftInput{Product: sheinmodel.PublishProduct{CategoryID: 123, BrandCode: "fixture-brand", Descriptions: []sheinmodel.LanguageContent{{Language: "en", Name: "Human fixture description"}}, SupplierCode: "source-product", Names: []sheinmodel.LanguageContent{{Language: "en", Name: "Human fixture product"}}, Attributes: []sheinmodel.AttributeValue{}, SKCs: []sheinmodel.ProductSKC{{SupplierCode: "merchant-code", SaleAttribute: sheinmodel.AttributeValue{AttributeID: 12, AttributeValueID: materialsFixturePointer(int64(34))}, SKUs: []sheinmodel.ProductSKU{{SupplierSKU: "merchant-sku", Length: "10", Width: "10", Height: "10", Weight: materialsFixturePointer(10.0), MallState: 1, Prices: []sheinmodel.ProductPrice{{BasePrice: 12.5, Currency: "USD", SubSite: "shein-us"}}, Stock: []sheinmodel.ProductStock{{Quantity: 5}}, SaleAttributes: []sheinmodel.AttributeValue{}}}}}}, Images: []goods.OfficialImageSlot{{Group: "skc", AssetID: "qualified-main", Sort: 1, Type: 1}, {Group: "skc", AssetID: "qualified-detail", Sort: 2, Type: 2}, {Group: "skc", AssetID: "qualified-square", Sort: 3, Type: 5}}}
+}
+
+type materialsQualifiedImageProbe struct{}
+
+func (materialsQualifiedImageProbe) Probe(_ context.Context, a asset.ApprovedAsset, typ int) (goods.OfficialImageObservation, error) {
+	return goods.OfficialImageObservation{AssetID: a.ID, SourceURL: a.URL, Width: 900, Height: 900, Type: typ, Bytes: 1000, MediaType: "image/png", ContentHash: strings.Repeat("a", 64)}, nil
+}
+func installMaterialsQualifiedAssets(t *testing.T, f *acquisitionHTTPFixture, productKey string) {
+	t.Helper()
+	repo, err := assetstore.NewRepository(f.owner)
+	require.NoError(t, err)
+	var images []asset.ApprovedAsset
+	for _, name := range []string{"main", "detail", "square"} {
+		images = append(images, asset.ApprovedAsset{ID: "qualified-" + name, RunID: "fixture-images", PlanRevision: 1, SlotID: name, Attempt: 1, Role: asset.RoleGallery, URL: "https://fixture.example/" + name + ".png", Width: 900, Height: 900})
+	}
+	_, err = repo.CommitApproval(context.Background(), asset.ApprovalCommit{TenantID: "B", ProductKey: productKey, TargetPlatform: "shein", SourceSnapshotVersion: 1, ActionID: "qualified-materials-assets", Assets: images})
+	require.NoError(t, err)
 }
 
 type materialsOwnerFixtureRules struct{ supplyAgentFixtureRules }
@@ -87,6 +123,18 @@ func testMaterialsNativeOwners(t *testing.T, value string, parent *productAgentA
 	require.Equal(t, agent.ExecutionMode(strings.Fields(value)[0]), result.ExecutionMode)
 	require.NotNil(t, result.Proposal)
 	require.NotNil(t, result.After)
+	if strings.Contains(value, " qualified") {
+		require.True(t, base.Record.Result.ReadyForUpload, "fixture must satisfy actual official builder, not a mocked readiness flag")
+		require.NotNil(t, result.Adoption, "qualified automatic mode must save through original Target; unresolved=%v", result.Unresolved)
+		require.Equal(t, int64(2), result.Adoption.Record.Revision)
+		require.True(t, result.Adoption.Record.Result.ReadyForUpload)
+		saved := result.Adoption.Record.ID
+		call("POST", path+"/runs", key, start, 200)
+		read := call("GET", path+"/runs/"+key+"/adoption", "", nil, 200)
+		require.Contains(t, string(read), saved)
+		require.Equal(t, int32(2), calls.Load(), "no model resend when saved head advances")
+		return
+	}
 	require.Equal(t, "fixture-brand", *result.Proposal.BrandCode)
 	require.Equal(t, base.Record.Input, result.Before)
 	require.Equal(t, int32(2), calls.Load(), "one governed inspect/propose sequence")

@@ -106,7 +106,11 @@ func (a *listingMaterialsApplication) start(ctx context.Context, recordID, key s
 	}
 	request := snapshot.Request
 	request.ConfigurationSnapshotRef = ref
-	return a.runtime.StartWithClaimAttempt(ctx, request)
+	run, attempted, err := a.runtime.StartWithClaimAttempt(ctx, request)
+	if err == nil {
+		err = a.finishAutomaticAdoption(ctx, recordID, run)
+	}
+	return run, attempted, err
 }
 
 func (a *listingMaterialsApplication) resume(ctx context.Context, recordID, key string, ref agent.ConfigurationSnapshotRef, revision uint64, feedback string) (agent.Record, bool, error) {
@@ -120,7 +124,36 @@ func (a *listingMaterialsApplication) resume(ctx context.Context, recordID, key 
 	if a.runtime == nil {
 		return run, true, agentconfig.ErrUnavailable
 	}
-	return a.runtime.ResumeWithClaimAttempt(ctx, run.State.Request, revision, feedback)
+	next, attempted, err := a.runtime.ResumeWithClaimAttempt(ctx, run.State.Request, revision, feedback)
+	if err == nil {
+		err = a.finishAutomaticAdoption(ctx, recordID, next)
+	}
+	return next, attempted, err
+}
+
+// Only the admitted Start/resume path may initiate an automatic local save.
+// Reads and original run replay have no new side effects; Target remains the
+// sole durable adoption receipt and enforces current authority at commit.
+func (a *listingMaterialsApplication) finishAutomaticAdoption(ctx context.Context, recordID string, run agent.Record) error {
+	if !materialsRunReviewable(run.State) {
+		return nil
+	}
+	id, err := a.currentIdentity(ctx)
+	if err != nil {
+		return err
+	}
+	mode, err := a.parent.configuration.LoadModeSnapshot(ctx, id, run.State.Request.ModeSnapshotRef)
+	if err != nil {
+		return err
+	}
+	if mode.Mode != agent.ModeAutoApprove && mode.Mode != agent.ModeFullAccess {
+		return nil
+	}
+	_, err = a.adopt(ctx, recordID, run.State.Request.Key, run.State.Request.ConfigurationSnapshotRef, run.State.Validation.CandidateHash, false)
+	if errors.Is(err, errMaterialsHumanRequired) {
+		return nil
+	}
+	return err
 }
 
 func (a *listingMaterialsApplication) adoption(ctx context.Context, recordID, key string) (record.TargetReceipt, error) {

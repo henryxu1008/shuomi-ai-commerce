@@ -168,14 +168,24 @@ func testSupplyAgentOwners(t *testing.T, mode string, f *acquisitionHTTPFixture,
 	storeID := uuid.NewString()
 	rules := supplyAgentFixtureRules{storecenter.ProductMerchantBinding{OrganizationID: scope.OrganizationID, StoreID: storeID, Site: "shein-us", StoreVersion: 1, ConnectionRevision: 1, ApplicationID: "app-a", ApplicationType: storecenter.ApplicationSelfOperated, ApplicationRevision: "v1:self_operated", SupplierIdentityHash: collection.Digest("fixture-merchant"), ServiceExpiresAt: time.Now().UTC().Add(time.Hour)}}
 	var targetRules record.TargetRuleReader = rules
+	var imageReader record.TargetImageReader = supplyAgentUnusedProbe{}
 	if strings.HasPrefix(mode, "supply materials") {
 		targetRules = materialsOwnerFixtureRules{rules}
 	}
-	targets, err := record.NewTargetService(record.TargetDependencies{Sources: selector, ExecutionSources: selector, ExecutionAuthorization: authority, Products: effective, Assets: assets, Rules: targetRules, Records: records, Images: supplyAgentUnusedProbe{}, Authorizer: prepAuth})
+	if strings.Contains(mode, " qualified") {
+		targetRules = materialsQualifiedFixtureRules{rules}
+		imageReader = materialsQualifiedImageProbe{}
+		installMaterialsQualifiedAssets(t, f, acquisition.ProductKey)
+	}
+	targets, err := record.NewTargetService(record.TargetDependencies{Sources: selector, ExecutionSources: selector, ExecutionAuthorization: authority, Products: effective, Assets: assets, Rules: targetRules, Records: records, Images: imageReader, Authorizer: prepAuth})
 	require.NoError(t, err)
 	var target record.TargetReceipt
 	if mode != "supply first reconstruction" {
-		target, err = targets.Create(actor, uuid.NewString(), record.TargetInput{SourceID: page.Items[0].ID, StoreID: storeID, EffectiveVersion: 1})
+		input := record.TargetInput{SourceID: page.Items[0].ID, StoreID: storeID, EffectiveVersion: 1}
+		if strings.Contains(mode, " qualified") {
+			input.Draft = materialsQualifiedDraft()
+		}
+		target, err = targets.Create(actor, uuid.NewString(), input)
 		require.NoError(t, err)
 	}
 	app := &supplyapp.Application{Preparations: preparations, Authorization: prepAuth, PublicationStores: rules, StageProjection: supplyapp.ReviewProjection{Facts: prepRepo, Reviews: core.store}, Sources: selector, Operations: operations, Records: records, Rules: targetRules, Products: effective, Execution: supplyapp.OperationApplication{}}

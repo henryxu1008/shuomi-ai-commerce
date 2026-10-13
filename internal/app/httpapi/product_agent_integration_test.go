@@ -230,6 +230,9 @@ func testProductAgentOwners(t *testing.T, mode string) {
 			}
 			require.NotEmpty(t, evidence, "proposal cites the actual bounded disclosure")
 			content = `{"Kind":"propose","DomainProposal":{"Kind":"listing-materials-v1","Payload":{"brandCode":"fixture-brand","evidenceIds":["` + evidence + `"]}}}`
+			if strings.Contains(mode, " qualified") {
+				content = `{"Kind":"propose","DomainProposal":{"Kind":"listing-materials-v1","Payload":{"images":[{"group":"skc","skc":0,"sku":0,"asset_id":"qualified-main","sort":1,"type":1},{"group":"skc","skc":0,"sku":0,"asset_id":"qualified-detail","sort":3,"type":2},{"group":"skc","skc":0,"sku":0,"asset_id":"qualified-square","sort":2,"type":5}],"evidenceIds":["` + evidence + `"]}}}`
+			}
 		case (strings.HasPrefix(mode, "content flow") || mode == "supply content") && (step-1)%3 == 0:
 			content = `{"Kind":"tool","Tool":{"ID":"product.canonical.inspect","Version":"v2.0.0"}}`
 		case (strings.HasPrefix(mode, "content flow") || mode == "supply content") && (step-1)%3 == 1:

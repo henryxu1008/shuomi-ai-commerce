@@ -1,5 +1,6 @@
 import { isBrowserCapturePath, isBrowserCaptureRequestURL } from "@/lib/contracts/browser-capture";
 import {agentPath} from "@/lib/contracts/product-agent";
+import {materialsPath} from "@/lib/contracts/listing-materials";
 import { aiWorkbenchPath } from "@/lib/contracts/ai-workbench";
 import { collectionPath } from "@/lib/contracts/product-collection";
 import {planPath} from "@/lib/contracts/acquisition-plan";
@@ -139,7 +140,7 @@ async function handleWorkbenchRequest(
   if (request.signal.aborted) abort();
   const path = new URL(request.url).pathname.split("/").filter(Boolean).slice(2);
   const imageSetRequest = imageSetRoutes.some((action) => imageSetMethods[action] === request.method && imageSetPath(path, action) !== null);
-  const agentRequest=agentPath(path)!==null || ["message", "confirm", "task-start", "task-resume", "task-review"].includes(aiWorkbenchPath(request.method, path) ?? "");
+  const agentRequest=agentPath(path)!==null || ["materials-start","materials-resume"].includes(materialsPath(request.method,path)??"") || ["message", "confirm", "task-start", "task-resume", "task-review"].includes(aiWorkbenchPath(request.method, path) ?? "");
   const timeout = setTimeout(abort, planPath(request.method,path)?52000:imageSetRequest ? IMAGE_SET_TIMEOUT_MS : agentRequest?125000:dispatchState.acquisitionRequest ? ACQUISITION_TIMEOUT_MS : UPSTREAM_TIMEOUT_MS);
   try {
     const scopedRequest = new NextRequest(request, { signal: controller.signal });
@@ -179,6 +180,7 @@ export const PATCH = handleWorkbenchRequest;
 export const DELETE = handleWorkbenchRequest;
 
 function isSourceMutation(method: string, path: string[]) {
+  if(method==="POST"&&materialsPath(method,path))return true;
   if(method==="POST"&&planPath(method,path))return true;
   if (collectionPath(method.toUpperCase(), path) === "command") return true;
   const workbench = aiWorkbenchPath(method, path);

@@ -62,6 +62,7 @@ func (a *listingMaterialsApplication) projectRun(ctx context.Context, recordID s
 		return materialsRunDTO{}, err
 	}
 	out := materialsRunDTO{RunID: s.RunID, RequestKey: s.Request.Key, RecordID: recordID, Phase: s.Phase, Revision: strconv.FormatUint(s.Revision, 10), StopReason: s.StopReason, ConfigurationSnapshotRef: s.Request.ConfigurationSnapshotRef, ModeSnapshotRef: mode.Ref(), ExecutionMode: mode.Mode, ModeRevision: mode.Revision, TemplateSelection: snapshot.Template, Before: base.Input, Unresolved: append([]string{}, s.Unresolved...), Steps: []productAgentStepDTO{}, Tokens: s.Usage.Tokens, EstimatedCostMicros: s.Usage.CostMicros, Currency: s.Request.Limits.Currency, UsageStatus: "observed"}
+	out.Unresolved = materialsRunDiagnostics(s)
 	if s.PendingInvocationID != "" || s.Phase == agent.Running || s.StopReason == agent.StopUsageUnknown || s.StopReason == agent.StopModelUnknown {
 		out.UsageStatus = "unknown_reserved"
 	}
@@ -88,4 +89,12 @@ func (a *listingMaterialsApplication) projectRun(ctx context.Context, recordID s
 		}
 	}
 	return out, nil
+}
+
+func materialsRunDiagnostics(s agent.State) []string {
+	out := append([]string{}, s.Unresolved...)
+	if s.Validation != nil {
+		out = append(out, s.Validation.Unresolved...)
+	}
+	return out
 }

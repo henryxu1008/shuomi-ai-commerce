@@ -126,3 +126,18 @@ Legacy decision: **EXTRACT**。复用当前合法来源/规则/资产、Target�
 3. 现content schema verifier精确匹配CHECK；新增listing约束同步识别准确合同，保留原content readiness及错误schema拒绝，不松成泛化校验。
 
 本准入不是实现/真实模型/安装/浏览器或用户验收。所有实际执行结果以主要PR当前准确候选证据为准，未变#662证据只明确复用。
+
+## 源码运行与使用交接
+
+正常后端入口为 `go run ./cmd/current-application -config <绝对路径私有 manifest>`。沿现 `productAgent` 与 `supplyChain` 装配；平台模型使用独立 `productAgent.materialsTextPolicies` 和固定 `listing.materials.decision`，不从标题或内容配置推定可用。企业须有当前成员授权、原配置 owner 的明确启用、模板（可选）、模式和预算。缺少配置时历史仍可读取，新生成显示实际依赖缺失。
+
+已有合格配置库增加平台注册约束的显式命令为 `go run ./cmd/agent-configuration-schema-init --runtime-role <现运行角色> --materials-configuration-only`，DSN 由私密 `AGENT_CONFIGURATION_SCHEMA_DSN` 提供。这是安装者另行获准后使用的有界 schema 命令，不由应用启动调用，不启用企业、不搬迁业务事实。本交付没有执行真实环境安装。
+
+前端使用原 `web/listingkit-ui` 正常启动流程；服务端启用 `LISTINGKIT_PRODUCT_COLLECTIONS_ENABLED=true`、`LISTINGKIT_SUPPLY_CHAIN_ENABLED=true`、`LISTINGKIT_PRODUCT_AGENT_ENABLED=true`，BFF/身份使用现有私有配置。已有运行实例、worker、命名 volumes 不因准备源码而重建。
+
+1. 从“我的智能体”查看独立“平台上架资料”配置与历史；在“我的供应链”原平台资料编辑器先保存当前草稿，再点“准备平台资料”。直接页为 `/workbench/supply/materials/<原 TargetRecord UUID>`，不能用未保存编辑值作为依据。
+2. 核对当前企业、原草稿与标准商品版本、SHEIN 美国站、模板及四种权限，再确认生成。结果展示允许字段的原值/建议值和真实缺项。
+3. `read_only` 只读建议；`default` 明确人工确认后调用原 Target 保存。`auto_approve/full_access` 仅自动采用领域规则完整的本地建议；不确定、换类目或有缺项仍需人工核对。实际保存结果显示原 Target 记录和版本，不写成发布成功。
+4. 响应丢失后页面保留原编号、配置引用，以及继续/保存的精确请求内容；通过“核对原运行 / 原保存结果”恢复。未确认结果前阻止企业切换，不换键重做；刷新后可重试原继续/保存请求，不能修改原候选和反馈。
+
+正常真实模型、IAM、SHEIN/SDS、安装后浏览器与用户实际试用均须由对应配置/授权完成；源码自检和 CI 不签发产品验收。当前限制及准确 HEAD、CI、独立最终检查记录在 #135 / PR #666。
