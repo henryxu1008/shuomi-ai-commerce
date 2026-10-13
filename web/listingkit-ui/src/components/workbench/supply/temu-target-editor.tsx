@@ -21,9 +21,11 @@ type Supplier=NonNullable<TemuDraftInput["supplier"]>;
 type LocalSKU=NonNullable<Local["skuList"]>[number];
 const modes={local:"本土",fully_managed:"全托管",semi_managed:"半托管"};
 const catKeys=["cat1Id","cat2Id","cat3Id","cat4Id","cat5Id","cat6Id","cat7Id","cat8Id","cat9Id","cat10Id"] as const;
+const rootSelection={parentCatId:"0",catId:"0"};
 
 export function TemuTargetEditor({scope,source,storeId,existing,command,disabled,saved,completionAvailable=false}:{scope:SupplyScope;source:SupplySourceDetail;storeId:string;existing?:TemuSupplyTarget;command:SupplyCommandState;disabled:boolean;saved:number;completionAvailable?:boolean}){
  const [draft,setDraft]=useState<TemuDraftInput|undefined>(()=>existing?structuredClone(existing.input.temu):undefined);
+ const [modeChecked,setModeChecked]=useState(!existing);
  const [selection,setSelection]=useState(existing?.input.temu.selection??{parentCatId:"0",catId:"0"});
  const [rules,setRules]=useState<Rules>(),[inventory,setInventory]=useState<Inventory>(),[error,setError]=useState<string>();
  const [loadedRequest,setLoadedRequest]=useState<string>(),[refresh,setRefresh]=useState(0),[completion,setCompletion]=useState<SupplyCompletionDraft>();
@@ -31,22 +33,36 @@ export function TemuTargetEditor({scope,source,storeId,existing,command,disabled
  const [parents,setParents]=useState<Array<{id:string;name:string}>>(()=>existing?.input.temu.mode!=="local"?existing?.temuRuleSnapshot?.supplierCategoryPath?.slice(0,-1).map(c=>({id:c.catId,name:c.catName}))??[]:[]);
  const current=useRef(draft);useEffect(()=>{current.current=draft},[draft]);
  const version=existing?.effectiveVersion??source.source.source.version,applied=existing?.applyReceiptId;
- const requestKey=JSON.stringify([scope,source.source.id,storeId,existing?.revision??0,version,applied,selection,refresh]);
+ const requestedSelection=modeChecked?selection:rootSelection;
+ const requestKey=JSON.stringify([scope,source.source.id,storeId,existing?.revision??0,version,applied,requestedSelection,refresh]);
  const loading=loadedRequest!==requestKey;
  const provenance={itemId:source.source.id,originalPublicationId:source.source.source.publicationId,originalSnapshotVersion:source.source.source.version,effectiveCatalogVersion:version,...applied?{applyReceiptId:applied}:{},targetPlatform:"temu" as const};
  useEffect(()=>{const c=new AbortController();let live=true;
-  void temuSupplyRules(scope,{sourceId:source.source.id,storeId,expectedRevision:existing?.revision??0,effectiveVersion:version,...applied?{applyReceiptId:applied}:{},temuRules:selection},c.signal).then(value=>{if(!live)return;setRules(value);const mode=value.temu.mode;
-   if(current.current&&current.current.mode!==mode){setError("店铺模式已变化，请关闭后重新读取资料。");return}
+  void temuSupplyRules(scope,{sourceId:source.source.id,storeId,expectedRevision:existing?.revision??0,effectiveVersion:version,...applied?{applyReceiptId:applied}:{},temuRules:requestedSelection},c.signal).then(value=>{if(!live)return;setRules(value);const mode=value.temu.mode;
+   if(current.current&&current.current.mode!==mode){setError("店铺模式已变化。请按当前模式重新准备，共同资料将保留为待校验草稿，价格、币种、站点、库存和半托承诺需重新填写。");return}
+   setModeChecked(true);
    setDraft(old=>old??initialTemuDraft({title:source.product.title,description:source.product.description},mode));setError(undefined);
   }).catch(e=>{if(live)setError(code(e))}).finally(()=>{if(live)setLoadedRequest(requestKey)});
   return()=>{live=false;c.abort()};
- },[scope,source,storeId,existing,version,applied,selection,refresh,requestKey]);
+ },[scope,source,storeId,existing,version,applied,requestedSelection,refresh,requestKey]);
  useEffect(()=>{const c=new AbortController();let live=true;void supplyInventory(scope,provenance,c.signal).then(v=>{if(live)setInventory(v)}).catch(e=>{if(live)setError(code(e))});return()=>{live=false;c.abort()};
  // Immutable source provenance remains exact throughout this editor session.
  // eslint-disable-next-line react-hooks/exhaustive-deps
  },[scope,source,version,applied,saved]);
  useEffect(()=>{if(!completionAvailable)return;const c=new AbortController();let live=true;void readSupplyCompletionDraft(scope,source.source.id,c.signal).then(v=>{if(live)setCompletion(v)}).catch(e=>{if(live&&(!(e instanceof SupplyAPIError)||e.code!=="NOT_FOUND"))setError(code(e))});return()=>{live=false;c.abort()};},[completionAvailable,scope,source.source.id]);
  function change(edit:(value:TemuDraftInput)=>void){setDraft(old=>{if(!old)return old;const copy=structuredClone(old);edit(copy);return copy})}
+ function resetCurrentMode(){
+  if(!rules||!draft||disabled||loading)return;
+  const mode=rules.temu.mode;
+  const next=initialTemuDraft({title:draft.supplier?.productName??draft.local?.goodsBasic.goodsName,description:draft.local?.goodsBasic.goodsDesc},mode);
+  if(draft.supplier&&next.supplier){
+   next.supplier=structuredClone(draft.supplier);next.images=structuredClone(draft.images);next.packageUnits=structuredClone(draft.packageUnits);
+   next.selection={...draft.selection,supplierSiteId:"0"};
+   delete next.supplier.productSemiManagedReq;delete next.supplier.productShipmentReq;
+   for(const skc of next.supplier.productSkcReqs??[])for(const sku of skc.productSkuReqs??[]){sku.currencyType="";delete sku.supplierPrice;delete sku.siteSupplierPrices;delete sku.productSkuStockQuantityReq}
+  }
+  current.current=next;setDraft(next);setSelection(next.selection);setParents(next.supplier?parents:[]);setRules(undefined);setError(undefined);setModeChecked(true);setRefresh(n=>n+1);
+ }
  function local(edit:(value:Local)=>void){change(v=>{if(v.local)edit(v.local)})}
  function supplier(edit:(value:Supplier)=>void){change(v=>{if(v.supplier)edit(v.supplier)})}
  function sizePage(offset:string){const next={...selection,supplierSizeOffset:offset};setSelection(next);change(v=>{v.selection=next})}
@@ -75,13 +91,14 @@ export function TemuTargetEditor({scope,source,storeId,existing,command,disabled
  const unavailable=!!target?.issues?.length||rules?.temu.issues.includes("site_specification_unverified");
  return <div className="space-y-6">
   {error?<p role="alert" className="text-sm text-red-700">{error}</p>:null}
-  <div className="flex flex-wrap items-center gap-3"><p className="font-semibold">TEMU · {draft?modes[draft.mode]:"正在核实店铺"}{target?.region?.label?` · ${target.region.label}`:""}</p><Button size="sm" variant="outline" disabled={loading} onClick={()=>setRefresh(n=>n+1)}>刷新官方规则</Button></div>
+  {rules&&draft&&rules.temu.mode!==draft.mode?<Button variant="outline" disabled={disabled||loading} onClick={resetCurrentMode}>按当前模式重新准备</Button>:null}
+  <div className="flex flex-wrap items-center gap-3"><p className="font-semibold">TEMU · {draft?modes[draft.mode]:"正在核实店铺"}{target?.region?.label?` · ${target.region.label}`:""}</p><Button size="sm" variant="outline" disabled={loading} onClick={()=>{setModeChecked(false);setRefresh(n=>n+1)}}>刷新官方规则</Button></div>
   {unavailable?<p className="rounded-lg bg-amber-50 p-3 text-sm">站点规格尚未核实。可以保存商品资料，发布入口保持关闭。</p>:null}
   {draft?.mode!=="local"&&draft?<p className="text-sm text-amber-700">全托管与半托管使用各自的供货价和站点规则。资料或规则缺失时会显示原因，并保持待补全。</p>:null}
   {completion&&draft?<Button variant="outline" disabled={disabled} onClick={()=>change(v=>{if(v.local){v.local.goodsBasic.goodsName=completion.content.title;v.local.goodsBasic.goodsDesc=completion.content.description??""}if(v.supplier)v.supplier.productName=completion.content.title})}>带入待补全草稿 R{completion.revision}</Button>:null}
   {draft?<><Field label="商品标题"><Input disabled={disabled} value={draft.local?.goodsBasic.goodsName??draft.supplier?.productName??""} onChange={e=>change(v=>{if(v.local)v.local.goodsBasic.goodsName=e.target.value;if(v.supplier)v.supplier.productName=e.target.value})}/></Field>
    {draft.local?<Field label="商品描述"><Textarea disabled={disabled} value={draft.local.goodsBasic.goodsDesc??""} onChange={e=>local(v=>{v.goodsBasic.goodsDesc=e.target.value})}/></Field>:null}
-   <section className="space-y-3"><h3 className="font-semibold">官方类目</h3><p className="text-xs text-muted-foreground">{parents.map(p=>p.name).join(" / ")||"顶级类目"}{selection.catId!=="0"?` · 已选 ${categories?.find(c=>c.catId===selection.catId)?.catName??selection.catId}`:""}</p><Select aria-label="官方类目" value={selection.catId==="0"?"":selection.catId} disabled={disabled||loading} onChange={e=>pickCategory(e.target.value)}><option value="">选择类目</option>{categories?.map(c=><option key={c.catId} value={c.catId}>{c.catName}{("leaf" in c?c.leaf:c.isLeaf)?"":" /"}</option>)}</Select>{parents.length?<Button size="sm" variant="outline" disabled={disabled||loading} onClick={backCategory}>返回上一级</Button>:null}</section>
+   <section className="space-y-3"><h3 className="font-semibold">官方类目</h3><p className="text-xs text-muted-foreground">{parents.map(p=>p.name).join(" / ")||"顶级类目"}{selection.catId!=="0"?` · 已选 ${categories?.find(c=>c.catId===selection.catId)?.catName??selection.catId}`:""}</p><Select aria-label="官方类目" value={selection.catId==="0"?"":selection.catId} disabled={disabled||loading} onChange={e=>pickCategory(e.target.value)}><option value="">选择类目</option>{categories?.map(c=><option key={c.catId} value={c.catId}>{c.catName}{("leaf" in c?c.leaf:c.isLeaf)?"":" /"}</option>)}</Select>{parents.length?<Button size="sm" variant="outline" disabled={disabled||loading} onClick={backCategory}>返回上一级</Button>:selection.parentCatId!=="0"?<Button size="sm" variant="outline" disabled={disabled||loading} onClick={backCategory}>返回顶级类目</Button>:null}</section>
    {draft.local?<>
     <div className="grid gap-3 sm:grid-cols-2"><Field label="发货时限"><Select disabled={disabled} value={draft.local.goodsServicePromise.shipmentLimitDay??""} onChange={e=>local(v=>{v.goodsServicePromise.shipmentLimitDay=e.target.value||null})}><option value="">选择实际承诺</option><option value="1">1 个工作日</option><option value="2">2 个工作日</option></Select></Field><Field label="运费模板"><Select disabled={disabled||loading} value={selection.costTemplateId??""} onChange={e=>freight(e.target.value)}><option value="">选择当前店铺模板</option>{rules?.temu.freightTemplates?.map(t=><option key={t.templateId} value={t.templateId}>{t.templateName}</option>)}</Select></Field>
     <Field label="包装重量单位"><Select disabled={disabled} value={draft.packageUnits.weight} onChange={e=>change(v=>{v.packageUnits.weight=e.target.value})}><option value="">选择单位</option>{spec?.weight?.unit?<option value={spec.weight.unit}>{spec.weight.unit}</option>:null}</Select></Field><Field label="包装尺寸单位"><Select disabled={disabled} value={draft.packageUnits.dimension} onChange={e=>change(v=>{v.packageUnits.dimension=e.target.value})}><option value="">选择单位</option>{spec?.dimension?.unit?<option value={spec.dimension.unit}>{spec.dimension.unit}</option>:null}</Select></Field>

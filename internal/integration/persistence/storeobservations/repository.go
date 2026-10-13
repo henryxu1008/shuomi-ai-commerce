@@ -551,7 +551,9 @@ func (r *Repository) StoreAggregates(ctx context.Context, org string, kind o.Kin
 			return nil
 		}
 		// Transfer only inventory identities and quantities, never full Product detail.
-		rows, err := tx.Raw(`SELECT r.store_id,coalesce(sku->>'id','missing:'||r.platform_id||':'||(k->>'id')),coalesce(stock->>'warehouseId',''),CASE WHEN jsonb_typeof(stock->'quantity')='number' THEN (stock->>'quantity')::bigint WHEN k->>'entity'='local_goods' AND sku->>'stock' ~ '^[0-9]{1,19}$' THEN (sku->>'stock')::bigint ELSE NULL END`+base+` LEFT JOIN LATERAL jsonb_array_elements(k->'skus') sku ON true LEFT JOIN LATERAL jsonb_array_elements(sku->'inventory') stock ON true`+where, args...).Rows()
+		// Local TEMU stock is SKU aggregate stock. Its internal counting bucket is
+		// not an official physical warehouse and is never persisted or exposed as one.
+		rows, err := tx.Raw(`SELECT r.store_id,coalesce(sku->>'id','missing:'||r.platform_id||':'||(k->>'id')),CASE WHEN k->>'entity'='local_goods' THEN 'temu:local:aggregate-stock' ELSE coalesce(stock->>'warehouseId','') END,CASE WHEN jsonb_typeof(stock->'quantity')='number' THEN (stock->>'quantity')::bigint WHEN k->>'entity'='local_goods' AND sku->>'stock' ~ '^[0-9]{1,19}$' THEN (sku->>'stock')::bigint ELSE NULL END`+base+` LEFT JOIN LATERAL jsonb_array_elements(k->'skus') sku ON true LEFT JOIN LATERAL jsonb_array_elements(sku->'inventory') stock ON true`+where, args...).Rows()
 		if err != nil {
 			return err
 		}

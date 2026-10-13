@@ -55,6 +55,24 @@ func TestTemuObservationOriginalOwnerPersistsAndQueriesAllModesWithoutSHEINFacts
 			require.EqualValues(t, 1, aggregates[store].Active)
 			require.NotNil(t, aggregates[store].Inventory[0].Quantity)
 			require.Zero(t, *aggregates[store].Inventory[0].Quantity)
+			threshold := int64(5)
+			metric := o.LowInventory(aggregates[store].Inventory, &threshold)
+			require.True(t, metric.Complete, "known native SKU stock is not a missing physical warehouse")
+			require.Zero(t, metric.Unknown)
+			require.EqualValues(t, 1, *metric.Value, "explicit zero stock is below the configured threshold")
+			child := children[0]
+			child.ID, child.Key = uuid.NewString(), uuid.NewString()
+			missing, e := r.Begin(ctx, scope, uuid.NewString(), "local-missing", in, []o.Sync{child})
+			require.NoError(t, e)
+			p.SKUs[0].Stock = nil
+			missingSync := missing.Syncs[0]
+			_, e = r.CommitPage(ctx, missingSync, missingSync.Progress, []o.Record{{ID: p.ID, StoreID: store, SyncID: missingSync.ID, TemuProduct: &p}}, "completed", time.Now().UTC())
+			require.NoError(t, e)
+			unknown, e := r.StoreAggregates(ctx, scope.OrganizationID, o.Products, map[string]string{store: missingSync.ID}, true)
+			require.NoError(t, e)
+			metric = o.LowInventory(unknown[store].Inventory, &threshold)
+			require.False(t, metric.Complete)
+			require.EqualValues(t, 1, metric.Unknown, "missing stock cannot become zero")
 		} else {
 			require.EqualValues(t, 1, aggregates[store].StatusUnknown)
 			require.Nil(t, aggregates[store].Inventory[0].Quantity, "virtual stock does not prove available warehouse inventory")

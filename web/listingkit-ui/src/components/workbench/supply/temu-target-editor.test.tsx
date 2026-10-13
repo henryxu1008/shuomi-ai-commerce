@@ -2,7 +2,8 @@ import {cleanup,render,screen,waitFor} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
 import {TemuTargetEditor} from "./temu-target-editor";
-import type {SupplySourceDetail} from "@/lib/contracts/supply-chain";
+import type {SupplySourceDetail,TemuSupplyTarget} from "@/lib/contracts/supply-chain";
+import {initialTemuDraft} from "./temu-draft-fields";
 import type {SupplyCommandState} from "./use-supply-command";
 const state=vi.hoisted(()=>({rules:vi.fn(),inventory:vi.fn(),execute:vi.fn(),completion:vi.fn()}));
 vi.mock("@/lib/api/supply-chain",async original=>({...await original<object>(),temuSupplyRules:state.rules,supplyInventory:state.inventory,readSupplyCompletionDraft:state.completion}));
@@ -20,6 +21,34 @@ it("edits each composition value separately with exact selected IDs",async()=>{
  await userEvent.click(screen.getByRole("button",{name:"保存并校验平台资料"}));expect(state.execute.mock.lastCall?.[1].temu.local.goodsProperty).toEqual([{refPid:"9007199254740993",vid:"9007199254740994",numberInputValue:"60"},{refPid:"9007199254740993",vid:"9007199254740995",numberInputValue:"40"}]);
 });
 function rules(mode:string){return {merchant:{merchant_mode:mode},temu:{mode,selection:{parentCatId:"0",catId:"0"},localCategories:[],supplierCategories:[],freightTemplates:[],issues:[],...(mode==="local"?{localTarget:{region:{regionId:"75",siteId:"165",label:"Georgia"},issues:["site_specification_unverified"]}}:{semiSites:[]})}}}
+for(const mode of ["fully_managed","semi_managed"] as const)it(`explicitly prepares the currently verified ${mode} draft after a supplier mode change`,async()=>{
+ const prior=mode==="fully_managed"?"semi_managed":"fully_managed",draft=initialTemuDraft({title:"手填标题"},prior);
+ draft.selection={parentCatId:"0",catId:"0",supplierSiteId:"100"};
+ draft.supplier!.productSemiManagedReq={bindSiteIds:["100"]};
+ draft.supplier!.productShipmentReq={freightTemplateId:"freight-a",shipmentLimitSecond:"86400"};
+ const sku=draft.supplier!.productSkcReqs![0]!.productSkuReqs![0]!;
+ sku.extCode="manual-sku";sku.currencyType="CNY";sku.supplierPrice="1234";sku.siteSupplierPrices=[{siteId:"100",supplierPrice:"1234"}];sku.productSkuStockQuantityReq={warehouseStockQuantityReqs:[{warehouseId:"manual-warehouse",targetStockAvailable:"3"}]};
+ const existing={input:{temu:draft},temu:{mode:prior,issues:[]},revision:1,effectiveVersion:source.source.source.version} as unknown as TemuSupplyTarget;
+ state.rules.mockImplementation(async(_scope,_input)=>{if(_input.temuRules.supplierSiteId==="100")throw new Error("old site selection is not valid for current mode");return rules(mode)});
+ render(<TemuTargetEditor scope={{userId:"actor",organizationId:"org"}} source={source} storeId={id} existing={existing} command={command} disabled={false} saved={0}/>);
+ const reset=await screen.findByRole("button",{name:"按当前模式重新准备"});expect(state.execute).not.toHaveBeenCalled();
+ await userEvent.click(reset);await screen.findByText(`TEMU · ${mode==="fully_managed"?"全托管":"半托管"}`);
+ await waitFor(()=>expect(screen.getByRole("button",{name:"保存并校验平台资料"})).toBeEnabled());
+ await userEvent.click(screen.getByRole("button",{name:"保存并校验平台资料"}));
+ const saved=state.execute.mock.lastCall?.[1];expect(saved).toMatchObject({expectedRevision:1,effectiveVersion:source.source.source.version,temu:{mode,supplier:{productName:"手填标题",productSkcReqs:[{productSkuReqs:[{extCode:"manual-sku",currencyType:""}]}]}}});
+ const supplier=saved.temu.supplier,clean=supplier.productSkcReqs[0].productSkuReqs[0];
+ expect(supplier).not.toHaveProperty("productSemiManagedReq");expect(supplier).not.toHaveProperty("productShipmentReq");
+ expect(clean).not.toHaveProperty("supplierPrice");expect(clean).not.toHaveProperty("siteSupplierPrices");expect(clean).not.toHaveProperty("productSkuStockQuantityReq");
+});
+it("returns a saved local category to the root without guessing its ancestor chain",async()=>{
+ const draft=initialTemuDraft({title:"手填本土标题"},"local");draft.selection={parentCatId:"12",catId:"34"};draft.local!.goodsBasic.catId="34";
+ const existing={input:{temu:draft},temu:{mode:"local",issues:[]},revision:2,effectiveVersion:source.source.source.version} as unknown as TemuSupplyTarget;
+ state.rules.mockResolvedValue(rules("local"));render(<TemuTargetEditor scope={{userId:"actor",organizationId:"org"}} source={source} storeId={id} existing={existing} command={command} disabled={false} saved={0}/>);
+ await screen.findByLabelText("商品标题");await waitFor(()=>expect(screen.getByRole("button",{name:"返回顶级类目"})).toBeEnabled());
+ await userEvent.click(screen.getByRole("button",{name:"返回顶级类目"}));
+ await waitFor(()=>expect(state.rules.mock.lastCall?.[1].temuRules).toMatchObject({parentCatId:"0",catId:"0"}));
+ expect(screen.getByLabelText("商品标题")).toHaveValue("手填本土标题");expect(state.execute).not.toHaveBeenCalled();
+});
 it("saves incomplete native facts without inventing price, inventory or site specs",async()=>{
  state.rules.mockResolvedValue(rules("local"));render(<TemuTargetEditor scope={{userId:"actor",organizationId:"org"}} source={source} storeId={id} command={command} disabled={false} saved={0}/>);
  await screen.findByLabelText("商品标题");expect(screen.getByLabelText("SKU 1 库存数量")).toHaveValue("");expect(screen.getByLabelText("SKU 1 基础价格")).toHaveValue("");expect(screen.getByText(/站点规格尚未核实/)).toBeInTheDocument();
