@@ -79,7 +79,8 @@ historical; #663 retires only the old Task handoff in this checkout:
   DTOs and `scripts/1688-runtime-acceptance.ps1` are removed. Requests to the old
   route are not forwarded to another command.
 - [Catalog composition](../../internal/app/httpapi/product_catalog_composition.go)
-  already constructs the sourcing/Catalog Publisher and durable reader.
+  retains the Catalog repository and durable snapshot reader. The publisher
+  assembly used only by the retired Task handoff is removed.
 - [Current source application](../../internal/app/productsourcing/application.go)
   composes the admitted `InternalProducer`; browser/acquisition consumers retain
   their own authorized entrypoints and exact receipt recovery. Its prepared

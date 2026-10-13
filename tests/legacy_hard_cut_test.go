@@ -210,5 +210,6 @@ func TestLegacy1688TaskHandoffAndRouteStayRetired(t *testing.T) {
 		require.NoError(t, err)
 		require.NotContains(t, string(content), "sourcehandoff/a1688", "%s must not compose the retired Task handoff", name)
 		require.NotContains(t, string(content), "productSourcingModule", "%s must not compose the retired Task module", name)
+		require.NotContains(t, string(content), "productSnapshotPublisher", "%s must not retain the retired handoff publisher slot", name)
 	}
 }
