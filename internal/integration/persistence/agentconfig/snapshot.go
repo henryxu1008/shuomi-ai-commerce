@@ -15,6 +15,9 @@ import (
 )
 
 func validTextConfigurationRequest(id string, request agent.Request) bool {
+	if id == agentconfig.MaterialsAgentID {
+		return request.ContentSelection.Absent() && request.Binding.ContextKind == "listing-target-record" && request.Binding.TargetPlatform == "shein" && request.PolicyVersion == agentconfig.MaterialsPolicyVersion && request.PromptVersion == agentconfig.MaterialsPromptVersion
+	}
 	if id == agentconfig.ContentAgentID {
 		return request.ContentSelection.Valid() && request.PolicyVersion == enrichment.ContentPolicyVersion && request.PromptVersion == agentconfig.ContentPromptVersion && (request.Binding.TargetPlatform == "product" || agentconfig.Platform(request.Binding.TargetPlatform))
 	}
@@ -29,7 +32,7 @@ func snapshotView(row snapshotRow) (agentconfig.Snapshot, error) {
 	if len(row.Payload) > 8192 || digest(row.Payload) != row.Digest || json.Unmarshal(row.Payload, &v) != nil {
 		return v, agentconfig.ErrUnavailable
 	}
-	if v.ID != row.ID || v.Scope.OrganizationID != row.OrganizationID || v.Scope.ActorID != row.ActorID || v.AgentID != row.AgentID || v.AgentVersion != row.AgentVersion || v.Epoch != decimal(row.ActivationEpoch) || v.AgentRevision != decimal(row.AgentRevision) || v.Request.Binding.ContextKind != row.ContextKind || v.Request.Binding.ContextID != row.ContextID || v.Request.Key != row.RequestKey || !validTextConfigurationRequest(v.AgentID, v.Request) || !v.Request.Limits.Valid() || !agent.ValidGoalSummary(v.Request.GoalSummary) || v.ExecutionModelProfile.Validate() != nil {
+	if v.ID != row.ID || v.Scope.OrganizationID != row.OrganizationID || v.Scope.ActorID != row.ActorID || v.AgentID != row.AgentID || v.AgentVersion != row.AgentVersion || v.Epoch != decimal(row.ActivationEpoch) || v.AgentRevision != decimal(row.AgentRevision) || v.Request.Binding.ContextKind != row.ContextKind || v.Request.Binding.ContextID != row.ContextID || v.Request.Key != row.RequestKey || !validTextConfigurationRequest(v.AgentID, v.Request) || !v.Request.Limits.Valid() || !agent.ValidGoalSummary(v.Request.GoalSummary) || v.ExecutionModelProfile.Validate() != nil || !validMaterialsTextConfiguration(v.AgentID, v.AgentVersion, v.KnowledgeBaseID, v.ExecutionModelProfile) {
 		return v, agentconfig.ErrUnavailable
 	}
 	v.Digest = row.Digest
@@ -49,6 +52,14 @@ func (s *Store) Prepare(ctx context.Context, c agentconfig.StartCommand) (agentc
 	}
 	if c.AgentID == agentconfig.ContentAgentID {
 		if err := VerifyContentConfigurationSchema(ctx, s.db); err != nil {
+			return agentconfig.Snapshot{}, err
+		}
+	}
+	if c.AgentID == agentconfig.MaterialsAgentID {
+		if !validMaterialsTextConfiguration(c.AgentID, c.AgentVersion, c.KnowledgeBaseID, c.ExecutionModelProfile) {
+			return agentconfig.Snapshot{}, agentconfig.ErrInvalid
+		}
+		if err := VerifyMaterialsConfigurationSchema(ctx, s.db); err != nil {
 			return agentconfig.Snapshot{}, err
 		}
 	}
@@ -137,6 +148,10 @@ func (s *Store) Prepare(ctx context.Context, c agentconfig.StartCommand) (agentc
 		return nil
 	})
 	return result, e
+}
+
+func validMaterialsTextConfiguration(id, version, knowledge string, profile aicapability.ModelProfile) bool {
+	return id != agentconfig.MaterialsAgentID || version == agentconfig.MaterialsAgentVersion && knowledge == "" && profile.PromptVersion == agentconfig.MaterialsPromptVersion && profile.OutputSchemaVersion == agentconfig.MaterialsActionVersion
 }
 func (s *Store) LoadSnapshot(ctx context.Context, scope agent.Scope, ref agent.ConfigurationSnapshotRef) (agentconfig.Snapshot, error) {
 	if !scopeOK(scope) || ref.Absent() || !ref.ValidOrAbsent() {

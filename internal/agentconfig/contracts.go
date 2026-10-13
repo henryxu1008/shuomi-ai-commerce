@@ -66,6 +66,9 @@ func (p TemplateInput) Valid() bool {
 }
 
 func ParameterSchemaForAgent(id string) string {
+	if id == MaterialsAgentID {
+		return MaterialsParameterSchema
+	}
 	if id == ContentAgentID {
 		return ContentParameterSchema
 	}
@@ -76,6 +79,9 @@ func ParameterSchemaForAgent(id string) string {
 }
 
 func (p TemplateInput) ValidForAgent(id string) bool {
+	if id == MaterialsAgentID {
+		return p.Valid() && p.TargetPlatform == "shein" && p.DefaultKnowledgeBaseID == "" && p.Image == nil && p.Content == nil
+	}
 	return p.Valid() && (id == ImageAgentID) == (p.Image != nil) && (id == ContentAgentID) == (p.Content != nil)
 }
 

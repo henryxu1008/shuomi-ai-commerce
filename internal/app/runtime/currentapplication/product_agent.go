@@ -20,6 +20,7 @@ type ProductAgentConfig struct {
 	AllowedOrganizationIDs []string                        `json:"allowedOrganizationIds"`
 	TextPolicies           map[string]governed.RoutePolicy `json:"textPolicies"`
 	ContentTextPolicies    map[string]governed.RoutePolicy `json:"contentTextPolicies,omitempty"`
+	MaterialsTextPolicies  map[string]governed.RoutePolicy `json:"materialsTextPolicies,omitempty"`
 	Currency               string                          `json:"currency"`
 	Steps                  int                             `json:"steps"`
 	ModelCalls             int                             `json:"modelCalls"`
@@ -84,6 +85,16 @@ func (p *ProductAgentConfig) validate(cfg *Config) error {
 		cost, err := profile.MaximumCost()
 		if !seen[organizationID] || profile.PromptVersion != agentconfig.ContentPromptVersion || profile.OutputSchemaVersion != agentconfig.ContentActionVersion || profile.Currency != p.Currency || !governed.ValidRouteProfile(profile, aicapability.OperationProductContentDecision) || err != nil || profile.MaximumPromptTokens+profile.MaximumCompletionTokens > p.Tokens || cost > p.CostMicros {
 			return errors.New("product content policy invalid")
+		}
+	}
+	if len(p.MaterialsTextPolicies) > len(seen) {
+		return errors.New("platform material policy outside current organization admission")
+	}
+	for org, policy := range p.MaterialsTextPolicies {
+		profile := policy.ShapeProfile()
+		cost, err := profile.MaximumCost()
+		if !seen[org] || profile.PromptVersion != agentconfig.MaterialsPromptVersion || profile.OutputSchemaVersion != agentconfig.MaterialsActionVersion || profile.Currency != p.Currency || !governed.ValidRouteProfile(profile, aicapability.OperationListingMaterialsDecision) || err != nil || profile.MaximumPromptTokens+profile.MaximumCompletionTokens > p.Tokens || cost > p.CostMicros {
+			return errors.New("platform materials text policy invalid")
 		}
 	}
 	return nil
