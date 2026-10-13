@@ -116,7 +116,7 @@ func matchingTikTokReceipt(receipt submission.OfficialReceipt, saved record.Targ
 		return false
 	}
 	if stage == submission.TikTokImageStage {
-		return image != nil && receipt.TikTok.Image != nil && *receipt.TikTok.Image == *image
+		return image != nil && receipt.TikTok.Image != nil && submission.TikTokSameImageContent(*receipt.TikTok.Image, *image)
 	}
 	return receipt.ProductKey == saved.Source.Source.ProductKey && receipt.TikTok.DraftHash == submission.TikTokDraftHash(saved)
 }

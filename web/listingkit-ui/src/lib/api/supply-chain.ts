@@ -53,6 +53,7 @@ export const readSupplyRecord=async(scope:SupplyScope,id:string,signal?:AbortSig
 };
 export const supplyRules=(scope:SupplyScope,input:c.SupplyTargetInput,signal?:AbortSignal)=>send(`${base}/target-rules`,scope,c.rulesSchema,signal,{method:"POST",command:c.targetInputSchema.parse(input)});
 export const temuSupplyRules=(scope:SupplyScope,input:z.infer<typeof c.temuRulesQuerySchema>,signal?:AbortSignal)=>send(`${base}/target-rules`,scope,c.temuRulesSchema,signal,{method:"POST",command:c.temuRulesQuerySchema.parse(input)});
+export const tiktokSupplyRules=(scope:SupplyScope,input:z.infer<typeof c.tiktokRulesQuerySchema>,signal?:AbortSignal)=>send(`${base}/target-rules`,scope,c.tiktokRulesSchema,signal,{method:"POST",command:c.tiktokRulesQuerySchema.parse(input)});
 export const supplyInventory=(scope:SupplyScope,input:z.infer<typeof c.sourceSelectionSchema>,signal?:AbortSignal)=>send(`${base}/images/inventory`,scope,c.inventorySchema,signal,{method:"POST",command:c.sourceSelectionSchema.parse(input)});
 export async function supplyCommand(intent:SupplyIntent,signal?:AbortSignal){
  if(intent.route==="resolve-upload"){

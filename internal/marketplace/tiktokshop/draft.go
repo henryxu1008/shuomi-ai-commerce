@@ -2,6 +2,7 @@ package tiktokshop
 
 import (
 	"encoding/json"
+	"html"
 	"math/big"
 	"regexp"
 	"sort"
@@ -90,6 +91,7 @@ type Draft struct {
 
 var positiveDecimal = regexp.MustCompile(`^[0-9]+(?:\.[0-9]{1,3})?$`)
 var positiveWhole = regexp.MustCompile(`^[0-9]+$`)
+var numericAttribute = regexp.MustCompile(`^[0-9]+(?:\.[0-9]+)?$`)
 
 func text(value string, maximum int) bool {
 	if !utf8.ValidString(value) || strings.TrimSpace(value) == "" || utf8.RuneCountInString(value) > maximum {
@@ -108,6 +110,13 @@ func positive(value string, whole bool) bool {
 		pattern = positiveWhole
 	}
 	if len(value) > 14 || !pattern.MatchString(value) {
+		return false
+	}
+	number, ok := new(big.Rat).SetString(value)
+	return ok && number.Sign() > 0
+}
+func positiveAttribute(value string) bool {
+	if len(value) > 2000 || !numericAttribute.MatchString(value) {
 		return false
 	}
 	number, ok := new(big.Rat).SetString(value)
@@ -219,7 +228,7 @@ func BuildDraft(input DraftInput, rules RuleSnapshot, inventory asset.ApprovedAs
 	if !text(input.Title, 255) {
 		issue("title", "english_title_required")
 	}
-	if !text(input.Description, 10000) {
+	if !text(input.Description, 10000) || utf8.RuneCountInString("<p>"+html.EscapeString(input.Description)+"</p>") > 10000 {
 		issue("description", "english_description_required")
 	}
 	if input.SaveMode != "LISTING" && input.SaveMode != "AS_DRAFT" || input.Selection.Method == GlobalPublishing && input.SaveMode != "LISTING" {
@@ -337,7 +346,7 @@ func validateAttributes(input DraftInput, rules RuleSnapshot, issue func(string,
 				if !found || value.Name != "" {
 					issue("attributes", "unknown_value")
 				}
-			} else if rule.Customizable == nil || !*rule.Customizable || !text(value.Name, 2000) || rule.ValueDataFormat != "" && (rule.ValueDataFormat != "POSITIVE_INT_OR_DECIMAL" || !positive(value.Name, false)) {
+			} else if rule.Customizable == nil || !*rule.Customizable || !text(value.Name, 2000) || rule.ValueDataFormat != "" && (rule.ValueDataFormat != "POSITIVE_INT_OR_DECIMAL" || !positiveAttribute(value.Name)) {
 				issue("attributes", "invalid_custom_value")
 			}
 		}

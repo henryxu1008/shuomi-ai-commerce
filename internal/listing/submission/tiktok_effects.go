@@ -70,6 +70,9 @@ func TikTokImageSubjectID(image marketplace.ImageObservation, b storecenter.Prod
 func TikTokCompatibleBinding(a, b storecenter.ProductMerchantBinding) bool {
 	return a.ValidTikTokApplication() && b.ValidTikTokApplication() && a.OrganizationID == b.OrganizationID && a.StoreID == b.StoreID && a.ApplicationID == b.ApplicationID && a.SupplierIdentityHash == b.SupplierIdentityHash && a.TikTok.ShopID == b.TikTok.ShopID
 }
+func TikTokSameImageContent(a, b marketplace.ImageObservation) bool {
+	return a.ContentHash == b.ContentHash && a.UseCase == b.UseCase && a.Width == b.Width && a.Height == b.Height && a.Bytes == b.Bytes && a.MediaType == b.MediaType
+}
 func TikTokDraftHash(saved record.TargetRecord) string {
 	return collection.Digest([]any{saved.Input.TikTok, saved.Source.Source.ProductKey, saved.EffectiveVersion, saved.ProductHash, saved.InventoryHash, saved.RulesHash, saved.TikTokImageObservations})
 }
@@ -126,7 +129,6 @@ func ResolveTikTokPayload(saved record.TargetRecord, stage, key string, image *m
 			return nil, nil, ErrExecutionEvidenceRequired
 		}
 		refs := []marketplace.ImageReference{}
-		used := map[string]bool{}
 		for _, selected := range saved.TikTokImageObservations {
 			subject, err := TikTokImageSubjectID(selected, saved.Merchant)
 			if err != nil {
@@ -135,17 +137,16 @@ func ResolveTikTokPayload(saved record.TargetRecord, stage, key string, image *m
 			var found *OfficialReceipt
 			for i := range receipts {
 				r := &receipts[i]
-				if ValidateOfficialReceipt(*r) == nil && r.Kind == TikTokImageStage && r.Target.SubjectID == subject && TikTokCompatibleBinding(r.Binding, saved.Merchant) && r.TikTok != nil && r.TikTok.Image != nil && *r.TikTok.Image == selected {
-					if found != nil {
+				if ValidateOfficialReceipt(*r) == nil && r.Kind == TikTokImageStage && r.Target.SubjectID == subject && TikTokCompatibleBinding(r.Binding, saved.Merchant) && r.TikTok != nil && r.TikTok.Image != nil && TikTokSameImageContent(*r.TikTok.Image, selected) {
+					if found != nil && (found.ID != r.ID || collection.Digest(*found) != collection.Digest(*r)) {
 						return nil, nil, ErrExecutionEvidenceRequired
 					}
 					found = r
 				}
 			}
-			if found == nil || used[found.ID] {
+			if found == nil {
 				return nil, nil, ErrExecutionEvidenceRequired
 			}
-			used[found.ID] = true
 			effect.Images = append(effect.Images, TikTokReceiptRef(*found))
 			refs = append(refs, marketplace.ImageReference{AssetID: selected.AssetID, Image: *found.TikTok.Uploaded})
 		}
@@ -214,12 +215,10 @@ func validateTikTokIntent(i OfficialIntent) error {
 		if i.TikTok.Image != nil || len(i.TikTok.Images) > 1000 || len(i.TikTok.Images) == 0 && i.TikTok.Global == nil || len(i.TikTok.Images) > 0 && i.TikTok.Global != nil || i.Kind == TikTokGlobalCreateStage && i.TikTok.Global != nil {
 			return ErrExecutionEvidenceRequired
 		}
-		seen := map[string]bool{}
 		for _, ref := range i.TikTok.Images {
-			if !validTikTokRef(ref) || seen[ref.ID] {
+			if !validTikTokRef(ref) {
 				return ErrExecutionEvidenceRequired
 			}
-			seen[ref.ID] = true
 		}
 		if i.TikTok.Global != nil && !validTikTokRef(*i.TikTok.Global) {
 			return ErrExecutionEvidenceRequired

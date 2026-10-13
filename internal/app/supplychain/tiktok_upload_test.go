@@ -72,19 +72,44 @@ type tiktokUploadProbe struct {
 	drift       bool
 }
 
-func (p *tiktokUploadProbe) ProbeTikTok(context.Context, asset.ApprovedAsset, string) (marketplace.ImageObservation, error) {
+func (p *tiktokUploadProbe) ProbeTikTok(_ context.Context, approved asset.ApprovedAsset, _ string) (marketplace.ImageObservation, error) {
 	v := p.observation
+	v.AssetID, v.SourceURL = approved.ID, approved.URL
 	if p.drift {
 		v.ContentHash = collection.Digest("changed image")
 	}
 	return v, nil
 }
-func (p *tiktokUploadProbe) ReadTikTokContent(context.Context, asset.ApprovedAsset, string) (marketplace.ImageObservation, []byte, error) {
+func (p *tiktokUploadProbe) ReadTikTokContent(_ context.Context, approved asset.ApprovedAsset, _ string) (marketplace.ImageObservation, []byte, error) {
 	v := p.observation
+	v.AssetID, v.SourceURL = approved.ID, approved.URL
 	if p.drift {
 		v.ContentHash = collection.Digest("changed image")
 	}
 	return v, []byte("approved content"), nil
+}
+
+func TestTikTokReusesOneCanonicalImageForEquivalentApprovedAssets(t *testing.T) {
+	s, scope, records, merchant, _, _ := tiktokUploadFixture(t, marketplace.GlobalPublishing)
+	inventory := s.dependencies.Assets.(uploadAssets).inventory
+	second := inventory.Assets[0]
+	second.ID = "approved-second"
+	second.URL = "https://images.example.org/second.jpg"
+	inventory.Assets = append(inventory.Assets, second)
+	s.dependencies.Assets = uploadAssets{inventory}
+	records.saved.InventoryHash = collection.Digest(inventory)
+	observed := records.saved.TikTokImageObservations[0]
+	observed.AssetID = second.ID
+	observed.SourceURL = second.URL
+	records.saved.TikTokImageObservations = append(records.saved.TikTokImageObservations, observed)
+	records.saved.Input.TikTok.MainImages = append(records.saved.Input.TikTok.MainImages, second.ID)
+	draft := marketplace.BuildDraft(*records.saved.Input.TikTok, *records.saved.TikTokRuleSnapshot, inventory, records.saved.TikTokImageObservations)
+	require.True(t, draft.ReadyForUpload, "%v", draft.Issues)
+	records.saved.TikTok = &draft
+	result, err := s.Upload(context.Background(), scope, uuid.NewString(), records.saved.ID)
+	require.NoError(t, err)
+	require.Equal(t, submission.ExecutionSucceeded, result.Status)
+	require.Equal(t, []string{"image", "global", "publish"}, merchant.calls)
 }
 func tiktokUploadFixture(t *testing.T, method marketplace.ListingMethod) (*UploadService, collection.Scope, *uploadRecords, *tiktokUploadMerchant, *uploadKernel, *tiktokUploadProbe) {
 	s, scope, records, _, kernel, _, _ := uploadFixture(t)

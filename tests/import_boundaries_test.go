@@ -3683,9 +3683,10 @@ func TestInfrastructurePackagesDoNotImportBusinessDomains(t *testing.T) {
 
 func TestListingSubmissionPersistenceAdapterImplementsOnlySubmissionPort(t *testing.T) {
 	adapterRoot := filepath.Join("..", "internal", "integration", "persistence", "listing", "submission")
-	// #31 G4: only this atomic same-ProductDB effect policy consumes the current
+	// #31 G4 and frozen #669: exact atomic same-ProductDB effect policies consume the current
 	// immutable target and digest ports. It remains in the original claim UoW.
 	policy := filepath.Join(adapterRoot, "temu_effects_policy.go")
+	tiktokPolicy := filepath.Join(adapterRoot, "tiktok_effects_policy.go")
 	assertNoBannedImportPrefixes(t, adapterRoot, []string{
 		"task-processor/internal/amazon",
 		"task-processor/internal/amazonlisting",
@@ -3701,7 +3702,7 @@ func TestListingSubmissionPersistenceAdapterImplementsOnlySubmissionPort(t *test
 		"task-processor/internal/shein",
 		"task-processor/internal/temu",
 		"task-processor/internal/workspace",
-	}, map[string]struct{}{policy: {}})
+	}, map[string]struct{}{policy: {}, tiktokPolicy: {}})
 
 	index, err := loadGoFileIndex(adapterRoot, "")
 	if err != nil {
@@ -3717,7 +3718,7 @@ func TestListingSubmissionPersistenceAdapterImplementsOnlySubmissionPort(t *test
 			if !importMatchesPrefix(importPath, "task-processor/internal/listing") {
 				continue
 			}
-			if importPath != "task-processor/internal/listing/submission" && !(path == policy && importPath == "task-processor/internal/listing/record/target") {
+			if importPath != "task-processor/internal/listing/submission" && !((path == policy || path == tiktokPolicy) && importPath == "task-processor/internal/listing/record/target") {
 				t.Errorf("%s imports Listing sibling %s; the adapter may implement only Listing Submission-owned ports", path, importPath)
 			}
 			foundSubmissionPort = true

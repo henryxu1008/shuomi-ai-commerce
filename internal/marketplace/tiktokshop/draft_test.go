@@ -1,6 +1,7 @@
 package tiktokshop
 
 import (
+	"strings"
 	"task-processor/internal/product/asset"
 	"testing"
 )
@@ -20,6 +21,11 @@ func TestDraftRequiresConditionalUSAttributesApprovedImagesAndExplicitStockBudge
 	if !result.ReadyForUpload {
 		t.Fatalf("ordinary validated draft not ready: %v", result.Issues)
 	}
+	input.Description = strings.Repeat("&", 2000)
+	if BuildDraft(input, rules, inventory, images).ReadyForUpload {
+		t.Fatal("escaped HTML exceeds the official description length")
+	}
+	input.Description = "A rechargeable battery pack"
 	input.SKUs[0].Inventory[0].Quantity = 6
 	if BuildDraft(input, rules, inventory, images).ReadyForUpload {
 		t.Fatal("US inventory exceeds approved global stock")
@@ -27,5 +33,16 @@ func TestDraftRequiresConditionalUSAttributesApprovedImagesAndExplicitStockBudge
 	input.SKUs[0].Inventory[0].Quantity = 5
 	if BuildDraft(input, rules, asset.ApprovedAssetInventory{}, images).ReadyForUpload {
 		t.Fatal("unapproved image accepted")
+	}
+}
+
+func TestCustomNumericAttributePreservesOfficialPrecision(t *testing.T) {
+	no, yes := false, true
+	input := DraftInput{Attributes: []ProductAttributeInput{{ID: "capacity", Values: []AttributeValue{{Name: "0.00001"}}}}}
+	rules := RuleSnapshot{Attributes: []AttributeRule{{ID: "capacity", Type: "PRODUCT_PROPERTY", Required: &no, Multiple: &no, Customizable: &yes, ValueDataFormat: "POSITIVE_INT_OR_DECIMAL"}}}
+	var issues []string
+	validateAttributes(input, rules, func(_, code string) { issues = append(issues, code) })
+	if len(issues) > 0 {
+		t.Fatalf("weight precision must not restrict numeric product attributes: %v", issues)
 	}
 }
