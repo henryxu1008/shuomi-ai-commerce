@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import type { Session } from "next-auth";
 
 import {
-  buildListingKitUpstreamHeaders,
-  verifyListingKitRequestIdentity,
-} from "@/app/api/listing-kits/proxy-auth";
+  buildVerifiedUpstreamHeaders,
+  verifyUpstreamRequestIdentity,
+} from "@/lib/server/upstream-identity";
 
 const DEFAULT_SERVICE_API_BASE = "http://localhost:8085/api/v1";
 
@@ -67,7 +67,7 @@ export async function fetchSDSJSON<T>(
   pathname: string,
   query?: URLSearchParams,
 ): Promise<SDSJSONResult<T>> {
-  const auth = await verifyListingKitRequestIdentity(request, session);
+  const auth = await verifyUpstreamRequestIdentity(request, session);
   if (auth.response) {
     throw new SDSAPIError({
       code: "zitadel_proxy_auth_failed",
@@ -76,7 +76,7 @@ export async function fetchSDSJSON<T>(
     });
   }
 
-  const headers = buildListingKitUpstreamHeaders(request.headers, auth.identity);
+  const headers = buildVerifiedUpstreamHeaders(request.headers, auth.identity);
   if (auth.token && !headers.has("Authorization")) {
     headers.set("Authorization", `Bearer ${auth.token}`);
   }
