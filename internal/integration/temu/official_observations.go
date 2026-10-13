@@ -22,7 +22,10 @@ func (c *OfficialClient) QueryObservedTemuProducts(ctx context.Context, credenti
 	if ctx == nil || !c.validCredential(credential) || query.Page < 1 || len(query.PageToken) > 8192 {
 		return zero, o.ErrInvalid
 	}
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	// Identity, list and optional status are a single bounded page. The
+	// caller/handle may end it earlier; identity and each HTTP request retain
+	// their own five- and ten-second limits respectively.
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	information, err := c.QueryStore(ctx, credential)
 	if err != nil || information.Verification == nil {
