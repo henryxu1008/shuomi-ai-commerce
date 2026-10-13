@@ -252,6 +252,14 @@ source of truth for long-lived rules.
     #656 execution modes and governed text/point owners; real models and user
     acceptance remain separate gates. Main delivery PR #662 depends on #657.
 
+- [`platform-listing-materials-agent-v1.md`](./platform-listing-materials-agent-v1.md)
+  - #135 APPROVED / IMPLEMENTATION_READY: bounded platform-material proposals
+    reuse Eino/configuration/four execution modes, while the existing Listing
+    Target owns local draft facts and command recovery. Agent adoption checks
+    current mode at the Target commit; canonical content remains with the
+    content/localization owner. Main delivery PR #666 depends on #662;
+    implementation, provider use, installation and user acceptance are separate.
+
 - [`agent-customization-v1.md`](./agent-customization-v1.md)
   - APPROVED / IMPLEMENTATION_READY #611: enterprise customization requests,
     contact consent, private files and verified-platform manual progress.
