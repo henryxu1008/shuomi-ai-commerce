@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"sync/atomic"
 	officialstore "task-processor/internal/integration/persistence/listing/official"
 	"testing"
@@ -17,6 +18,7 @@ import (
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	d "task-processor/internal/agentcustomization"
+	"task-processor/internal/aicapability"
 	"task-processor/internal/app/productsourcing"
 	supplyapp "task-processor/internal/app/supplychain"
 	"task-processor/internal/authidentity"
@@ -36,6 +38,7 @@ import (
 	sheinmodel "task-processor/internal/marketplace/shein/model"
 	"task-processor/internal/product/asset"
 	"task-processor/internal/product/collection"
+	"task-processor/internal/product/enrichment"
 	"task-processor/internal/product/review"
 	"task-processor/internal/storecenter"
 	"task-processor/internal/workbenchcontext"
@@ -44,13 +47,15 @@ import (
 func TestSupplyProductAgentDurableExecutionUsesRealOwners(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
-	container, err := tcpostgres.Run(ctx, "postgres:16-alpine", tcpostgres.WithDatabase("issue398_owner"), tcpostgres.WithUsername("issue398_owner"), tcpostgres.WithPassword("isolated-supply-agent"), tcpostgres.BasicWaitStrategies())
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, container.Terminate(context.Background())) })
-	port, err := container.MappedPort(ctx, "5432/tcp")
-	require.NoError(t, err)
-	t.Setenv("ISSUE398_TEST_DSN", fmt.Sprintf("host=127.0.0.1 port=%s user=issue398_owner password=isolated-supply-agent sslmode=disable", port.Port()))
-	for _, mode := range []string{"supply canonical", "supply member replaced", "supply first reconstruction", "supply private draft quality"} {
+	if os.Getenv("ISSUE398_TEST_DSN") == "" {
+		container, err := tcpostgres.Run(ctx, "postgres:16-alpine", tcpostgres.WithDatabase("issue398_owner"), tcpostgres.WithUsername("issue398_owner"), tcpostgres.WithPassword("isolated-supply-agent"), tcpostgres.BasicWaitStrategies())
+		require.NoError(t, err)
+		t.Cleanup(func() { require.NoError(t, container.Terminate(context.Background())) })
+		port, err := container.MappedPort(ctx, "5432/tcp")
+		require.NoError(t, err)
+		t.Setenv("ISSUE398_TEST_DSN", fmt.Sprintf("host=127.0.0.1 port=%s user=issue398_owner password=isolated-supply-agent sslmode=disable", port.Port()))
+	}
+	for _, mode := range []string{"supply canonical", "supply member replaced", "supply first reconstruction", "supply private draft quality", "supply content"} {
 		t.Run(mode, func(t *testing.T) { testProductAgentOwners(t, mode) })
 	}
 }
@@ -290,6 +295,37 @@ func testSupplyAgentOwners(t *testing.T, mode string, f *acquisitionHTTPFixture,
 	}
 	require.Equal(t, target.Record.ID, items.Items[0].RecordID, "optimization must pin the original immutable target before execution")
 	key := preparation.ItemCommandID(operation.Operation.ID, page.Items[0].ID, preparation.OperationOptimize)
+	if mode == "supply content" {
+		content := a.content
+		require.NotNil(t, content)
+		require.Equal(t, bridge, content.supplyExecution)
+		_, err = content.configuration.Execute(actor, agentconfig.Command{Scope: agent.Scope{OrganizationID: "B", ActorID: "admin"}, Key: uuid.NewString(), AgentID: agentconfig.ContentAgentID, Operation: "enable", Absent: true})
+		require.NoError(t, err)
+		executionCtx := context.WithValue(ctx, supplyAgentExecutionKey{}, supplyAgentCommand{owner: scope, record: target.Record, input: operation.Operation.Input})
+		current, err := bridge.current(executionCtx)
+		require.NoError(t, err)
+		selection, err := enrichment.NewContentSelection("en-US", []string{"title", "description", "selling_points", "seo_keywords"})
+		require.NoError(t, err)
+		request, err := content.startTextRequest(executionCtx, current.binding, uuid.NewString(), "", "", nil, aicapability.ModelProfile{}, "", "0", selection)
+		require.NoError(t, err)
+		run, err := content.runtime.Start(executionCtx, request)
+		require.NoError(t, err)
+		require.True(t, agentRunReviewable(run.State))
+		input := agentReviewInput(current.binding, request.PolicyVersion, run.State.Candidate)
+		input.ContentSelection, input.Execution = selection, agentExecutionProvenance(run.State)
+		v, err := content.executionReviews.CreateFromCandidate(executionCtx, "agent:"+run.State.RunID, input)
+		require.NoError(t, err)
+		require.Equal(t, "pending", v.State)
+		require.Len(t, v.Content.After, 4)
+		require.EqualValues(t, 3, calls.Load())
+		replaced.Store(true)
+		_, err = content.executionReviews.CreateFromCandidate(executionCtx, "new-after-replacement", input)
+		require.Error(t, err)
+		require.EqualValues(t, 3, calls.Load(), "background source/mode checks never fabricate a JWT or resend the model")
+		_, authenticated := authidentity.AuthenticatedIdentityFromContext(executionCtx)
+		require.False(t, authenticated)
+		return
+	}
 	if mode == "supply member replaced" {
 		replaced.Store(true)
 		_, err = bridge.Optimize(ctx, operation.Operation, items.Items[0], key)
@@ -312,6 +348,7 @@ func testSupplyAgentOwners(t *testing.T, mode string, f *acquisitionHTTPFixture,
 	require.EqualValues(t, 4, calls.Load(), "same durable command must reuse Agent and Review receipts")
 	human, err := review.NewCandidateService(core.reader, core.sourceReader, core.store, permissions)
 	require.NoError(t, err)
+	human.WithExecutionPolicy(a.resolveTitlePolicy)
 	accepted, err := human.Decide(actor, uuid.NewString(), id, review.DecisionInput{Action: "accept", ExpectedRevision: proposal.Revision})
 	require.NoError(t, err)
 	applied, err := human.Apply(actor, uuid.NewString(), id, review.ApplyInput{ExpectedRevision: accepted.Revision})

@@ -203,25 +203,55 @@ func (r productAgentSourceGateway) AuthorizePublicationExecution(ctx context.Con
 }
 func (r productAgentSourceGateway) ReadEffectiveSource(ctx context.Context, principal commercetool.Principal, published catalog.PublishedSnapshot) (sourceevidenceinspect.EffectiveSourceObservation, error) {
 	var out sourceevidenceinspect.EffectiveSourceObservation
-	if !supplyAgentContext(ctx) || r.application == nil || r.application.supplyExecution == nil || r.application.executionReviewLookup == nil {
+	if r.application == nil || r.application.snapshots == nil || r.application.reviewLookup == nil {
 		return out, sourcing.ErrPublicationForbidden
 	}
-	current, err := r.application.supplyExecution.current(ctx)
-	if err != nil {
-		return out, err
+	var binding agent.Binding
+	var original sourcing.PublicationExecutionScope
+	var source review.SourcePublicationGateway = r.request
+	if supplyAgentContext(ctx) {
+		if r.application.supplyExecution == nil || r.application.executionSource == nil {
+			return out, sourcing.ErrPublicationForbidden
+		}
+		current, err := r.application.supplyExecution.current(ctx)
+		if err != nil {
+			return out, err
+		}
+		if current.identity.OrganizationID != principal.TenantID || current.identity.ActorID != principal.UserID {
+			return out, sourcing.ErrPublicationForbidden
+		}
+		binding, original, source = current.binding, current.original, r.application.executionSource
+	} else {
+		var ok bool
+		binding, ok = ctx.Value(productAgentSourceBindingKey{}).(agent.Binding)
+		if !ok || binding.ContextKind != "acquisition" {
+			return out, sourcing.ErrPublicationForbidden
+		}
+		identity, err := r.application.freshIdentity(ctx)
+		if err != nil || identity.TenantID != principal.TenantID || identity.UserID != principal.UserID {
+			return out, sourcing.ErrPublicationForbidden
+		}
+		if err = r.application.authorizeAcquisitionBinding(ctx, identity, binding); err != nil {
+			return out, err
+		}
+		base, err := r.application.acquisitionSnapshot(ctx, identity, binding.ContextID)
+		if err != nil {
+			return out, err
+		}
+		original = sourcing.PublicationExecutionScope{OrganizationID: identity.TenantID, ActorID: identity.UserID, MemberID: identity.EffectiveMemberID, PublicationID: base.PublicationID, ProductKey: base.Identity.ProductKey, CatalogVersion: base.Version}
 	}
-	if current.identity.OrganizationID != principal.TenantID || current.identity.ActorID != principal.UserID || current.binding.ProductKey != published.Identity.ProductKey || current.binding.PublicationID != published.PublicationID || current.binding.CatalogVersion != strconv.FormatUint(published.Version, 10) {
+	if binding.ProductKey != published.Identity.ProductKey || binding.PublicationID != published.PublicationID || binding.CatalogVersion != strconv.FormatUint(published.Version, 10) || source == nil {
 		return out, sourcing.ErrPublicationForbidden
 	}
-	reader, err := catalogstore.NewBoundedSnapshotReader(r.application.config.ReviewDB, 1<<20)
+	ctx, err := source.AuthorizeRead(ctx)
 	if err != nil {
 		return out, err
 	}
-	lineage, err := review.ResolveAppliedSource(ctx, review.Scope{Org: current.identity.OrganizationID, Actor: current.identity.ActorID}, published, reader, r.application.executionSource, r.application.executionReviewLookup)
+	lineage, err := review.ResolveAppliedSource(ctx, review.Scope{Org: principal.TenantID, Actor: principal.UserID}, published, r.application.snapshots, source, r.application.reviewLookup)
 	if err != nil {
 		return out, err
 	}
-	if lineage.Original.PublicationID != current.original.PublicationID || lineage.Original.Version != current.original.CatalogVersion {
+	if lineage.Original.PublicationID != original.PublicationID || lineage.Original.Version != original.CatalogVersion {
 		return out, sourcing.ErrSourcePublicationConflict
 	}
 	out.Requested = sourceevidenceinspect.CatalogReference{ProductKey: published.Identity.ProductKey, Version: strconv.FormatUint(published.Version, 10), PublicationID: published.PublicationID}
@@ -277,10 +307,19 @@ func connectSupplyProductAgent(ctx context.Context, db *gorm.DB, application *su
 		return nil, err
 	}
 	a.supplyExecution, a.executionSource, a.executionReviews = bridge, gateway, candidate
+	candidate.WithExecutionPolicy(a.resolveTitlePolicy)
 	a.executionReviewLookup = repo
 	a.executionPolicyAdoption, err = review.NewPolicyAdoptionService(reader, gateway, repo, a.authorizer, a.titlePolicyScope, a.resolveTitlePolicy)
 	if err != nil {
 		return nil, err
+	}
+	if a.content != nil {
+		a.content.supplyExecution, a.content.executionSource, a.content.executionReviews = bridge, gateway, candidate
+		a.content.executionReviewLookup = repo
+		a.content.executionPolicyAdoption, err = review.NewPolicyAdoptionService(reader, gateway, repo, a.authorizer, a.content.titlePolicyScope, a.content.resolveTitlePolicy)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return bridge, nil
 }

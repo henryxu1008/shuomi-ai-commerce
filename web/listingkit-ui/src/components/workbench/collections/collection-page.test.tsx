@@ -20,6 +20,24 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+it("opens content processing from the exact saved acquisition without mutating the original data", async () => {
+ const item="550e8400-e29b-41d4-a716-446655440002", batch="550e8400-e29b-41d4-a716-446655440000", operation="550e8400-e29b-41d4-a716-446655440003";
+ state.context.permissions=["workbench.collection.read","workbench.agent.use","local_agent.write"];
+ state.readItem.mockResolvedValue({item:{id:item,batchId:batch,source:{kind:"acquisition",operationId:operation,productKey:"source",version:"1"}},product:{title:"Saved acquisition"}});
+ render(<CollectionPage initialItemId={item} agentAvailable />);
+ expect(await screen.findByRole("link",{name:"商品内容完善与本地化"})).toHaveAttribute("href",`/workbench/supply/acquisition/operation/${operation}?agent_kind=content`);
+ expect(state.mutate).not.toHaveBeenCalled();
+});
+
+it.each(["disabled", "missing use permission", "unbound source"])("does not invent a content processing entry for %s", async variant => {
+ const item="550e8400-e29b-41d4-a716-446655440002", batch="550e8400-e29b-41d4-a716-446655440000";
+ state.context.permissions=variant==="missing use permission"?["workbench.collection.read"]:["workbench.collection.read","workbench.agent.use","local_agent.write"];
+ state.readItem.mockResolvedValue({item:{id:item,batchId:batch,source:{kind:variant==="unbound source"?"own":"acquisition",operationId:variant==="unbound source"?undefined:batch,productKey:"source",version:"1"}},product:{title:"Saved product"}});
+ render(<CollectionPage initialItemId={item} agentAvailable={variant!=="disabled"} />);
+ await screen.findByText("Saved product");
+ expect(screen.queryByRole("link",{name:"商品内容完善与本地化"})).toBeNull();
+});
+
 it("opens the exact saved source through the existing scoped item read",async()=>{
  const item="550e8400-e29b-41d4-a716-446655440002",batch="550e8400-e29b-41d4-a716-446655440000";
  state.readItem.mockResolvedValue({item:{id:item,batchId:batch,source:{productKey:"source",version:1}},product:{title:"Selected saved product"}});

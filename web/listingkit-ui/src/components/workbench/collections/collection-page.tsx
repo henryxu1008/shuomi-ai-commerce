@@ -11,7 +11,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from "@/components/ui/table";
 import { CollectionAPIError, listCollectionBatches, listCollectionItems, listOwnProducts, readCollectionItem, mutateCollection, readCollectionOperation, type CollectionScope, type CollectionIntent } from "@/lib/api/product-collection";
-import { ownProductSchema, type CollectionBatch, type CollectionItem, type CollectionDetail, type CollectionCommand } from "@/lib/contracts/product-collection";
+import { collectionID, ownProductSchema, type CollectionBatch, type CollectionItem, type CollectionDetail, type CollectionCommand } from "@/lib/contracts/product-collection";
 import { findConsoleRoute } from "@/lib/workbench/console-navigation";
 import { useSupplyCommand } from "../supply/use-supply-command";
 import { SupplyCommandFeedback } from "../supply/command-feedback";
@@ -24,17 +24,17 @@ import { ConsolePage, ConsoleState } from "../console/console-page";
 const kindLabels = { acquisition: "在线采集", own: "自有商品", manual: "手动分组", market: "供应市场", sds_template: "SDS 模板（未定制）", sds_finished: "SDS 定制成品", amazon_data: "Amazon数据", custom_dataset: "定制数据集" };
 const failureText: Record<string, string> = { OUTCOME_UNKNOWN: "结果待核实", INTENT_STORAGE_UNAVAILABLE: "无法保存原请求，请恢复浏览器存储后重试。", REVISION_CONFLICT: "资料已发生变化，请刷新后重试。", PERMISSION_DENIED: "当前权限不足。", NOT_FOUND: "未找到当前身份下的记录。", ORGANIZATION_CONTEXT_CHANGED: "企业上下文已变化。", IDENTITY_CONTEXT_CHANGED: "登录身份已变化。", INVALID_REQUEST: "请检查填写内容。" };
 
-export function CollectionPage({supplyAvailable=false,initialBatchId,initialItemId}:{supplyAvailable?:boolean;initialBatchId?:string;initialItemId?:string}) {
+export function CollectionPage({supplyAvailable=false,agentAvailable=false,initialBatchId,initialItemId}:{supplyAvailable?:boolean;agentAvailable?:boolean;initialBatchId?:string;initialItemId?:string}) {
   const context = useWorkbenchContext();
   const userId = context.user?.id;
   const organizationId = context.effectiveOrganization?.id;
   const scope = useMemo(() => userId && organizationId ? { userId, organizationId } : null, [userId, organizationId]);
   if (context.isLoading || context.isSwitching) return <ConsoleState kind="loading" title="正在确认当前企业" />;
   if (!scope || context.selectionRequired || context.error || context.blockingError) return <ConsoleState kind="error" title="请先确认登录身份与当前企业" />;
-  return <ScopedCollectionPage key={`${scope.userId}:${scope.organizationId}:${initialItemId??""}`} scope={scope} supplyAvailable={supplyAvailable} initialBatchId={initialBatchId} initialItemId={initialItemId} />;
+  return <ScopedCollectionPage key={`${scope.userId}:${scope.organizationId}:${initialItemId??""}`} scope={scope} supplyAvailable={supplyAvailable} agentAvailable={agentAvailable} initialBatchId={initialBatchId} initialItemId={initialItemId} />;
 }
 
-function ScopedCollectionPage({ scope,supplyAvailable,initialBatchId,initialItemId }: { scope: CollectionScope;supplyAvailable:boolean;initialBatchId?:string;initialItemId?:string }) {
+function ScopedCollectionPage({ scope,supplyAvailable,agentAvailable,initialBatchId,initialItemId }: { scope: CollectionScope;supplyAvailable:boolean;agentAvailable:boolean;initialBatchId?:string;initialItemId?:string }) {
   const context = useWorkbenchContext();
   const [tab, setTab] = useState<"batches" | "own">("batches");
   const [batches, setBatches] = useState<CollectionBatch[]>([]);
@@ -174,7 +174,7 @@ function ScopedCollectionPage({ scope,supplyAvailable,initialBatchId,initialItem
       {dialog === "transfer" && selectedBatch ? <><p>将“{selectedBatch.name}”的全部 {selectedBatch.count} 件商品加入我的供应链。</p><p className="text-sm text-slate-500">确认后保存当前批次的原始资料，后续可选择店铺并完成适配。</p><Button disabled={transferBlocked} onClick={()=>supply.execute("transfer",{batchId:selectedBatch.id,expectedRevision:selectedBatch.revision})}>确认加入</Button></> : null}
       {dialog === "own" ? <OwnProductForm scope={scope} disabled={writeBlocked} onSubmit={product => void command({ action: "create_product", product })} /> : null}
       {dialog === "import" ? <ExcelImportForm scope={scope} disabled={writeBlocked} onSubmit={input=>void command(input)}/> : null}
-      {dialog === "detail" ? detail ? <ProductFacts detail={detail} /> : detailFailure ? <p role="alert">{failureText[detailFailure]??"商品资料暂时无法读取，请关闭后重试。"}</p> : <p role="status">正在读取原始资料…</p> : null}
+      {dialog === "detail" ? detail ? <><ProductFacts detail={detail} /><ContentAgentEntry source={detail.item.source} enabled={agentAvailable && context.permissions.includes("workbench.agent.use") && context.permissions.includes("local_agent.write")} /></> : detailFailure ? <p role="alert">{failureText[detailFailure]??"商品资料暂时无法读取，请关闭后重试。"}</p> : <p role="status">正在读取原始资料…</p> : null}
     </CollectionDialog> : null}
   </ConsolePage>;
 }
@@ -196,6 +196,11 @@ function OwnProductForm({ scope, disabled, onSubmit }: { scope:CollectionScope; 
     <p className="text-xs text-slate-500">保存用户提供的原始资料；图片在适配时由你确认，保存不会自动上传到平台。</p>
     {error ? <p role="alert" className="text-sm text-red-700">请填写商品名称并检查图片链接。</p> : null}<Button type="submit" disabled={disabled||mediaBlocked}>保存商品</Button>
   </form>;
+}
+function ContentAgentEntry({ source, enabled }: { source: CollectionItem["source"]; enabled: boolean }) {
+  const operation = collectionID.safeParse(source.operationId);
+  if (!enabled || source.kind !== "acquisition" || !operation.success) return null;
+  return <Button asChild><Link href={`/workbench/supply/acquisition/operation/${operation.data}?agent_kind=content`}>商品内容完善与本地化</Link></Button>;
 }
 function ProductFacts({ detail }: { detail: CollectionDetail }) {
   const product = detail.product;

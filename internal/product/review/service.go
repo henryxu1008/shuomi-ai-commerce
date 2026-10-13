@@ -248,6 +248,14 @@ func (s *Service) create(ctx context.Context, key string, in CreateInput, suppli
 				return View{}, e
 			}
 		}
+		// A committed replay above remains a read. Creating a new Agent
+		// suggestion needs the original execution's current member/config/mode
+		// authority, including in read_only (which may save suggestions).
+		if r.Execution != nil {
+			if _, e = s.resolveRecordExecutionPolicy(ctx, r); e != nil {
+				return View{}, e
+			}
+		}
 		if e := tx.Save(r); e != nil {
 			return View{}, e
 		}
@@ -431,11 +439,8 @@ func (s *Service) change(ctx context.Context, key, id, kind string, input any, a
 		if e != nil {
 			return View{}, e
 		}
-		if s.executionPolicy != nil {
-			if r.Execution == nil {
-				return View{}, ErrForbidden
-			}
-			proof, e := s.executionPolicy(ctx, *r.Execution, enrichment.Candidate{Changes: r.Original.Changes}, true)
+		if r.Execution != nil || s.executionPolicy != nil {
+			proof, e := s.resolveRecordExecutionPolicy(ctx, r)
 			if e != nil {
 				return View{}, e
 			}

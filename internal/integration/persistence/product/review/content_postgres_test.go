@@ -63,6 +63,11 @@ func contentPostgresFixture(t *testing.T) (*review.Service, *Repository, catalog
 	require.NoError(t, err)
 	service, err := review.NewCandidateService(snapshots, source, repository, auth)
 	require.NoError(t, err)
+	// Explicit controlled execution authority; this fixture invokes no Agent
+	// model/config provider and must not silently bypass the production gate.
+	mode := agent.ModeDefault
+	_, resolve := contentPolicyFixture(t, repository, snapshots, &mode)
+	service.WithExecutionPolicy(resolve)
 	selection, err := enrichment.NewContentSelection("en-US", []string{"title", "description", "selling_points", "seo_keywords"})
 	require.NoError(t, err)
 	input := review.CandidateInput{ContentSelection: selection, Base: review.CreateInput{ProductKey: "product", BaseVersion: base.Version}, PublicationID: base.PublicationID, PolicyVersion: enrichment.ContentPolicyVersion,
@@ -243,11 +248,20 @@ func TestPostgresContentAndTitleLineagePreservesSourceAndRejectsOtherChanges(t *
 	require.NoError(t, err)
 	applied, err := service.Apply(ctx, "content-apply", proposal.ID, review.ApplyInput{ExpectedRevision: accepted.Revision})
 	require.NoError(t, err)
-	title, err := service.CreateFromCandidate(ctx, "next-title", review.CandidateInput{Base: review.CreateInput{ProductKey: "product", BaseVersion: applied.Receipt.ProductVersion}, PublicationID: applied.Receipt.PublicationID, PolicyVersion: "title-review-v1", Candidate: enrichment.Candidate{Changes: []enrichment.FieldChange{{Field: "title", Value: "next reviewed title", EvidenceIDs: []string{"source"}}}}})
-	require.NoError(t, err, "a title consumer must read genuine content lineage")
-	accepted, err = service.Decide(ctx, "title-accept", title.ID, review.DecisionInput{Action: "accept", ExpectedRevision: 1})
+	// This controlled pure title candidate has no Agent run. Reuse the same
+	// Review owner with its original title authorization, without claiming an
+	// Agent execution proof for this part of the mixed lineage fixture.
+	source, err := repository.sourceReaderFactory(repository.db)
 	require.NoError(t, err)
-	applied, err = service.Apply(ctx, "title-apply", title.ID, review.ApplyInput{ExpectedRevision: accepted.Revision})
+	auth, err := authz.NewListingKitAuthorizer(nil, nil)
+	require.NoError(t, err)
+	titleService, err := review.NewCandidateService(snapshots, source.(review.SourcePublicationGateway), repository, auth)
+	require.NoError(t, err)
+	title, err := titleService.CreateFromCandidate(ctx, "next-title", review.CandidateInput{Base: review.CreateInput{ProductKey: "product", BaseVersion: applied.Receipt.ProductVersion}, PublicationID: applied.Receipt.PublicationID, PolicyVersion: "title-review-v1", Candidate: enrichment.Candidate{Changes: []enrichment.FieldChange{{Field: "title", Value: "next reviewed title", EvidenceIDs: []string{"source"}}}}})
+	require.NoError(t, err, "a title consumer must read genuine content lineage")
+	accepted, err = titleService.Decide(ctx, "title-accept", title.ID, review.DecisionInput{Action: "accept", ExpectedRevision: 1})
+	require.NoError(t, err)
+	applied, err = titleService.Apply(ctx, "title-apply", title.ID, review.ApplyInput{ExpectedRevision: accepted.Revision})
 	require.NoError(t, err)
 	input.Base.BaseVersion, input.PublicationID = applied.Receipt.ProductVersion, applied.Receipt.PublicationID
 	input.Execution.Binding.CatalogVersion = strconv.FormatUint(input.Base.BaseVersion, 10)
@@ -260,8 +274,6 @@ func TestPostgresContentAndTitleLineagePreservesSourceAndRejectsOtherChanges(t *
 	_, err = service.Apply(ctx, "third-apply", proposal.ID, review.ApplyInput{ExpectedRevision: accepted.Revision})
 	require.NoError(t, err)
 	current, err := snapshots.GetCurrentSnapshot(ctx, base.Identity)
-	require.NoError(t, err)
-	source, err := repository.sourceReaderFactory(repository.db)
 	require.NoError(t, err)
 	lineage, err := review.ResolveAppliedSource(ctx, review.Scope{Org: "org", Actor: "owner"}, current, snapshots, source, repository)
 	require.NoError(t, err)

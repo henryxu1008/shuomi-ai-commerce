@@ -39,12 +39,18 @@ import (
 	"gorm.io/gorm"
 )
 
-type agentFixtureGrants struct{ base *titleGrants }
+type agentFixtureGrants struct {
+	base        *titleGrants
+	replacement *atomic.Bool
+}
 
 func (g agentFixtureGrants) Load(ctx context.Context, source workbenchcontext.GrantSource, r workbenchcontext.GrantRequest) (workbenchcontext.GrantResult, error) {
 	result, err := g.base.Load(ctx, source, r)
 	for n := range result.Grants {
 		result.Grants[n].AuthorizationID = "member-" + result.Grants[n].OrganizationID + "-" + r.Subject
+		if g.replacement != nil && g.replacement.Load() {
+			result.Grants[n].AuthorizationID += "-replacement"
+		}
 	}
 	return result, err
 }
@@ -95,6 +101,12 @@ func TestContentHTTPRunSavesFullProposalThroughRealOwners(t *testing.T) {
 func TestContentHTTPNativeAdoptionAndReadOnlyUseCurrentModes(t *testing.T) {
 	for _, mode := range []string{"full_access", "auto_approve", "read_only"} {
 		t.Run(mode, func(t *testing.T) { testProductAgentOwners(t, "content flow "+mode) })
+	}
+}
+
+func TestContentHTTPNewWritesRecheckModeConfigurationAndMember(t *testing.T) {
+	for _, change := range []string{"mode changed", "disabled", "member replaced"} {
+		t.Run(change, func(t *testing.T) { testProductAgentOwners(t, "content flow authority "+change) })
 	}
 }
 
@@ -173,9 +185,11 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		}
 		var content string
 		switch {
-		case strings.HasPrefix(mode, "content flow") && step == 1:
+		case (strings.HasPrefix(mode, "content flow") || mode == "supply content") && (step-1)%3 == 0:
 			content = `{"Kind":"tool","Tool":{"ID":"product.canonical.inspect","Version":"v2.0.0"}}`
-		case strings.HasPrefix(mode, "content flow"):
+		case (strings.HasPrefix(mode, "content flow") || mode == "supply content") && (step-1)%3 == 1:
+			content = `{"Kind":"tool","Tool":{"ID":"product.source-evidence.inspect","Version":"v2.0.0"}}`
+		case strings.HasPrefix(mode, "content flow") || mode == "supply content":
 			content = `{"Kind":"propose","Candidate":{"Changes":[{"Field":"title","Value":"Localized bottle title","EvidenceIDs":["981645030344"]},{"Field":"description","Value":"Localized bottle description","EvidenceIDs":["981645030344"]},{"Field":"selling_points","Value":"[\"Reusable bottle\"]","EvidenceIDs":["981645030344"]},{"Field":"seo_keywords","Value":"[\"bottle\"]","EvidenceIDs":["981645030344"]}]}}`
 		case strings.HasPrefix(mode, "supply ") && step > 4 && cycle == 1:
 			content = `{"Kind":"tool","Tool":{"ID":"product.canonical.inspect","Version":"v2.0.0"}}`
@@ -230,14 +244,15 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	ledger := aistore.NewGormInvocationRecorder(f.owner)
 	deps := newRouteAuthDependencies()
 	deps.workbenchVerifier = titleVerifier{}
-	deps.organizationResolver = workbenchcontext.NewResolver(agentFixtureGrants{f.grants}, "project", "v1", nil)
+	var memberReplaced atomic.Bool
+	deps.organizationResolver = workbenchcontext.NewResolver(agentFixtureGrants{base: f.grants, replacement: &memberReplaced}, "project", "v1", nil)
 	auth, err := authz.NewListingKitAuthorizer(nil, nil)
 	require.NoError(t, err)
 	deps.authorizer = auth
 	// Keep the synthetic input bound below escapedBase's encoded prompt so the
 	// pre-Claim envelope rejection remains observable under the frozen profile.
 	settings := ProductAgentDependencies{Enabled: true, AllowedOrganizationIDs: []string{"B"}, RunDB: f.owner, PointAccountingDB: f.owner, AssetDB: f.owner, ReviewDB: f.owner, Ledger: ledger, TextPolicies: map[string]governed.RoutePolicy{"B": {AdmittedCredentialVersion: governed.CredentialVersion(*row), AdmittedEndpointIdentityDigest: governed.EndpointIdentityDigest(provider.URL + "/v1"), Profile: aicapability.ModelProfile{ClientName: "default", ProviderID: "grsai", AdapterKind: "openai-compatible", ModelID: "gemini-2.5-flash", RoutingPolicyVersion: "route-v1", AdapterPolicyVersion: "adapter-v1", PromptVersion: "product-title-agent-v1", OutputSchemaVersion: "product-title-action-v1", UsageMappingVersion: "usage-v1", CostPricingVersion: "fixture-v1", PointTariff: aicapability.ModelPointTariff{PriceVersion: "synthetic-points-v1", InputPointsPerMillionTokens: 1000000, OutputPointsPerMillionTokens: 2000000}, Currency: "CNY", InputMicrosPerMillion: 300000, OutputMicrosPerMillion: 2000000, MaximumPromptTokens: 1048576, MaximumCompletionTokens: 8192, MaximumInputBytes: 64 << 10, MaximumOutputBytes: 16 << 10, DeadlineBound: 3 * time.Second}}}, Limits: agent.Limits{Steps: 12, ModelCalls: 6, Tokens: 5000000, CostMicros: 5000000, Currency: "CNY", Runtime: time.Minute}}
-	if mode == "content assembly" || strings.HasPrefix(mode, "content flow") {
+	if mode == "content assembly" || strings.HasPrefix(mode, "content flow") || mode == "supply content" {
 		policy := settings.TextPolicies["B"]
 		policy.Profile.PromptVersion, policy.Profile.OutputSchemaVersion = agentconfig.ContentPromptVersion, agentconfig.ContentActionVersion
 		settings.ContentTextPolicies = map[string]governed.RoutePolicy{"B": policy}
@@ -268,7 +283,7 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		require.NoError(t, err)
 		modeRevision := "0"
 		selectedMode := strings.TrimPrefix(mode, "content flow ")
-		if mode != "content flow" {
+		if mode != "content flow" && !strings.HasPrefix(mode, "content flow authority ") {
 			receipt, err := configuration.ExecuteMode(context.Background(), agentconfig.ModeCommand{Identity: agent.ExecutionIdentity{OrganizationID: "B", ActorID: "admin", MemberID: "member-B-admin"}, Subject: contentApp.modeSubject(), Key: uuid.NewString(), Mode: agent.ExecutionMode(selectedMode)})
 			require.NoError(t, err)
 			modeRevision = receipt.Revision
@@ -285,6 +300,29 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		require.NoError(t, json.Unmarshal(raw, &result))
 		require.Equal(t, agent.HumanReviewRequired, result.Phase)
 		require.Len(t, result.Candidate.Changes, 4)
+		if strings.HasPrefix(mode, "content flow authority ") {
+			before := calls.Load()
+			expectedStatus := http.StatusConflict
+			switch strings.TrimPrefix(mode, "content flow authority ") {
+			case "mode changed":
+				_, err = configuration.ExecuteMode(context.Background(), agentconfig.ModeCommand{Identity: agent.ExecutionIdentity{OrganizationID: "B", ActorID: "admin", MemberID: "member-B-admin"}, Subject: contentApp.modeSubject(), Key: uuid.NewString(), Mode: agent.ModeReadOnly})
+				require.NoError(t, err)
+			case "disabled":
+				_, err = configuration.Execute(context.Background(), agentconfig.Command{Scope: agent.Scope{OrganizationID: "B", ActorID: "admin"}, Key: uuid.NewString(), AgentID: agentconfig.ContentAgentID, Operation: "disable", Expected: 1})
+				require.NoError(t, err)
+			case "member replaced":
+				memberReplaced.Store(true)
+				expectedStatus = http.StatusForbidden
+			}
+			code, raw, err = acquisitionHTTPRequest(server, "POST", path+"/"+key+"/review", "admin", "B", "", `{}`)
+			require.NoError(t, err)
+			require.Equal(t, expectedStatus, code, string(raw))
+			var saved int64
+			require.NoError(t, f.owner.Table("product_title_proposals").Count(&saved).Error)
+			require.Zero(t, saved, "a stale run cannot save a new suggestion")
+			require.Equal(t, before, calls.Load(), "authority failure cannot resend the model")
+			return
+		}
 		code, raw, err = acquisitionHTTPRequest(server, "POST", path+"/"+key+"/review", "admin", "B", "", `{}`)
 		require.NoError(t, err)
 		require.Equal(t, 200, code, string(raw))
@@ -346,6 +384,32 @@ func testProductAgentOwners(t *testing.T, mode string) {
 			applied := titleApply(t, server, accepted, uuid.NewString(), 200)
 			require.Equal(t, "applied", applied.State)
 			require.Len(t, applied.Content.After, 4)
+			if mode == "content flow" {
+				before := calls.Load()
+				code, raw, err = acquisitionHTTPRequest(server, "GET", path+"/"+key, "admin", "B", "", "")
+				require.NoError(t, err)
+				require.Equal(t, 200, code, string(raw))
+				var original productAgentResultDTO
+				require.NoError(t, json.Unmarshal(raw, &original))
+				require.Equal(t, "1", original.CatalogVersion, "history retains the original frozen base")
+				require.Equal(t, before, calls.Load())
+				code, raw, err = acquisitionHTTPRequest(server, "POST", path, "admin", "B", uuid.NewString(), `{"expectedModeRevision":"0","targetPlatform":"product","contentSelection":{"targetLanguage":"en-US","title":true,"description":true,"sellingPoints":true,"seoKeywords":true}}`)
+				require.NoError(t, err)
+				require.Equal(t, 200, code, string(raw))
+				var subsequent productAgentResultDTO
+				require.NoError(t, json.Unmarshal(raw, &subsequent))
+				require.Equal(t, "2", subsequent.CatalogVersion, "a new operation uses the actual adopted Product version")
+				require.Equal(t, applied.Receipt.PublicationID, subsequent.PublicationID)
+				require.Equal(t, agent.HumanReviewRequired, subsequent.Phase)
+				require.True(t, subsequent.CanSubmitReview, "real adopted source lineage remains reviewable")
+				var observedTools []string
+				for _, step := range subsequent.Steps {
+					if step.Tool != "" {
+						observedTools = append(observedTools, step.Tool)
+					}
+				}
+				require.Equal(t, []string{"product.canonical.inspect", "product.source-evidence.inspect"}, observedTools)
+			}
 		}
 		return
 	}

@@ -41,7 +41,7 @@ const proposalBase = z.strictObject({
 });
 const proposal = proposalBase.refine((v) => v.state === "applied" ? !!v.apply_receipt && v.apply_receipt.proposal_id === v.proposal_id : !v.apply_receipt);
 const contentFields = ["title", "description", "selling_points", "seo_keywords"] as const;
-export const contentValueSchema = z.strictObject({field:z.enum(contentFields),value:text});
+const contentValueSchema = z.strictObject({field:z.enum(contentFields),value:text});
 export type ContentValue = z.infer<typeof contentValueSchema>;
 const contentValues = z.array(contentValueSchema).min(1).max(4).refine(values=>new Set(values.map(v=>v.field)).size===values.length);
 function validContentValue(v: ContentValue) {

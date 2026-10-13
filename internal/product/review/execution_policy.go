@@ -62,6 +62,26 @@ func (s *Service) WithExecutionPolicy(resolve ExecutionPolicyResolver) *Service 
 	return s
 }
 
+// This is a current execution check, not a native adoption proof: default and
+// read_only may persist a pending suggestion without publishing a Product.
+func (s *Service) resolveRecordExecutionPolicy(ctx context.Context, r Record) (PolicyProvenance, error) {
+	if r.Execution == nil || s.executionPolicy == nil {
+		return PolicyProvenance{}, ErrForbidden
+	}
+	proof, err := s.executionPolicy(ctx, *r.Execution, enrichment.Candidate{Changes: r.Original.Changes}, true)
+	if err != nil {
+		return PolicyProvenance{}, err
+	}
+	action := TitlePolicyAdoptionVersion
+	if r.Policy == enrichment.ContentPolicyVersion {
+		action = ContentPolicyAdoptionVersion
+	}
+	if proof.Execution != *r.Execution || !proof.Identity.Valid() || proof.Identity.OrganizationID != r.Org || proof.Identity.ActorID != r.Owner || !proof.Mode.Valid() || proof.PolicyVersion != agent.ExecutionModePolicyVersion || proof.ActionVersion != action {
+		return PolicyProvenance{}, ErrForbidden
+	}
+	return proof, nil
+}
+
 type PolicyAdoptionCommand struct {
 	ProposalID       string
 	ExpectedRevision uint64

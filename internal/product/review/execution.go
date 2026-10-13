@@ -11,6 +11,11 @@ import (
 type CandidateExecutionScope struct{ OrganizationID, ActorID, MemberID string }
 type ExecutionCandidateService struct{ service *Service }
 
+func (s *ExecutionCandidateService) WithExecutionPolicy(resolve ExecutionPolicyResolver) *ExecutionCandidateService {
+	s.service.WithExecutionPolicy(resolve)
+	return s
+}
+
 // The tokenless surface can only validate/intake candidates. Human decisions
 // and Apply remain on the original request-authorized Service.
 func NewExecutionCandidateService(reader catalog.VersionedSnapshotReader, source SourcePublicationGateway, store Store, auth Authorizer, resolve func(context.Context) (CandidateExecutionScope, error)) (*ExecutionCandidateService, error) {

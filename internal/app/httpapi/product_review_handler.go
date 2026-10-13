@@ -29,28 +29,23 @@ func productReviewRoutes(s *review.Service, bind func(context.Context, string) (
 			permission = authz.PermissionLocalAgentWrite
 		}
 		routes = append(routes, httproute.Descriptor{Method: spec.method, Path: spec.path, Module: "product-review", Permission: permission, AuthPolicy: httproute.AuthPolicyVerifiedIdentity, OrganizationAccessPolicy: policy, Handler: func(c *gin.Context) {
-			if spec.kind != "get" && spec.kind != "list" {
-				if bind == nil {
-					writeProductReviewError(c, review.ErrUnavailable)
-					return
-				}
-				ctx, err := bind(c.Request.Context(), c.GetHeader("Authorization"))
-				if err != nil {
-					writeProductReviewError(c, err)
-					return
-				}
-				c.Request = c.Request.WithContext(ctx)
+			// Read routes also need the current source authorization capability.
+			// Projection availability cannot determine whether access is checked.
+			if bind == nil {
+				writeProductReviewError(c, review.ErrUnavailable)
+				return
 			}
+			ctx, err := bind(c.Request.Context(), c.GetHeader("Authorization"))
+			if err != nil {
+				writeProductReviewError(c, err)
+				return
+			}
+			c.Request = c.Request.WithContext(ctx)
 			if spec.kind == "list" {
 				listProductReviews(c, s)
 				return
 			}
 			if len(projections) == 1 && projections[0] != nil {
-				if spec.kind == "get" && bind != nil {
-					if ctx, err := bind(c.Request.Context(), c.GetHeader("Authorization")); err == nil {
-						c.Request = c.Request.WithContext(ctx)
-					}
-				}
 				c.Set(productReviewContextProjectorKey, projections[0])
 			}
 			productReviewRequest(c, s, spec.kind)

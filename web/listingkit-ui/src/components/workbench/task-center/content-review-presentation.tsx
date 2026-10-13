@@ -6,12 +6,17 @@ import { editedContentValuesSchema, type ContentValue, type ProductContentPropos
 import { contentSelectionLabel } from "@/lib/contracts/content-selection";
 import styles from "./title-review.module.css";
 
-export const contentValueLabels = { title: "标题", description: "描述", selling_points: "卖点", seo_keywords: "SEO关键词" } as const;
+const contentValueLabels = { title: "标题", description: "描述", selling_points: "卖点", seo_keywords: "SEO关键词" } as const;
 function listField(field: ContentValue["field"]) { return field === "selling_points" || field === "seo_keywords"; }
 function ValueDisplay({ field, value }: ContentValue) {
+  let list: string[] | undefined;
   if (listField(field)) {
-    try { const values: unknown = JSON.parse(value); if (Array.isArray(values) && values.every(v => typeof v === "string")) return values.length ? <ul>{values.map((v, i) => <li key={i}>{v}</li>)}</ul> : <p>暂无内容</p>; } catch {}
+    try {
+      const values: unknown = JSON.parse(value);
+      if (Array.isArray(values) && values.every(v => typeof v === "string")) list = values;
+    } catch {}
   }
+  if (list) return list.length ? <ul>{list.map((v, i) => <li key={i}>{v}</li>)}</ul> : <p>暂无内容</p>;
   return <p className="whitespace-pre-wrap break-words">{value || "暂无内容"}</p>;
 }
 export function ContentComparison({ proposal: p }: { proposal: ProductContentProposal }) {

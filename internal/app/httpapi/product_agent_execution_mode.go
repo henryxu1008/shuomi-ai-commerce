@@ -77,7 +77,9 @@ func (a *productAgentApplication) resolveTitlePolicy(ctx context.Context, proven
 		return proof, review.ErrForbidden
 	}
 	origin := agent.ExecutionIdentity{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, MemberID: config.MemberID}
-	if !human && identity != origin {
+	// Human review by another authorized administrator is allowed. The original
+	// actor must still have the exact membership frozen by this execution.
+	if (!human || identity.ActorID == origin.ActorID) && identity != origin {
 		return proof, review.ErrForbidden
 	}
 	run, found, err := a.store.Lookup(ctx, scope, provenance.Binding, provenance.RequestKey)

@@ -208,6 +208,19 @@ func registeredProductAgentRoutes(a *productAgentApplication, content bool) []ht
 			if spec.action == "start" {
 				binding, err = a.binding(ctx, operationID, body.TargetPlatform)
 				if err == nil {
+					var existing agent.Record
+					var found bool
+					existing, found, err = a.store.Lookup(ctx, agent.Scope{OrganizationID: i.TenantID, ActorID: i.UserID}, binding, key)
+					if err == nil && found {
+						binding = existing.State.Request.Binding
+						if binding.TargetPlatform != body.TargetPlatform {
+							err = agent.ErrConflict
+						}
+					} else if err == nil {
+						binding, err = a.currentAcquisitionBinding(ctx, i, operationID, body.TargetPlatform)
+					}
+				}
+				if err == nil {
 					var request agent.Request
 					if content {
 						request, err = a.startTextRequest(ctx, binding, key, selection, "", template, aicapability.ModelProfile{}, "", body.ExpectedModeRevision, *body.ContentSelection)
@@ -221,10 +234,8 @@ func registeredProductAgentRoutes(a *productAgentApplication, content bool) []ht
 			} else {
 				record, err = a.store.Read(ctx, agent.Scope{OrganizationID: i.TenantID, ActorID: i.UserID}, operationID, key)
 				if err == nil {
-					binding, err = a.binding(ctx, operationID, record.State.Request.Binding.TargetPlatform)
-				}
-				if err == nil && record.State.Request.Binding != binding {
-					err = agent.ErrConflict
+					binding = record.State.Request.Binding
+					_, err = a.Authorize(ctx, binding)
 				}
 				if err == nil && content != (record.State.Request.PolicyVersion == enrichment.ContentPolicyVersion) {
 					err = agent.ErrConflict
@@ -357,11 +368,11 @@ func writeProductAgentError(c *gin.Context, err error) {
 		status, code = 409, err.Error()
 	case errors.Is(err, knowledge.ErrConflict), errors.Is(err, knowledge.ErrIntegrity):
 		status, code = 409, "AGENT_CONFLICT"
-	case errors.Is(err, agent.ErrInvalid):
+	case errors.Is(err, agent.ErrInvalid), errors.Is(err, review.ErrInvalid):
 		status, code = 400, "INVALID_AGENT_REQUEST"
 	case errors.Is(err, review.ErrForbidden):
 		status, code = 403, "FORBIDDEN"
-	case errors.Is(err, agent.ErrConflict):
+	case errors.Is(err, agent.ErrConflict), errors.Is(err, review.ErrConflict):
 		status, code = 409, "AGENT_CONFLICT"
 	}
 	c.Header("Cache-Control", "no-store")
