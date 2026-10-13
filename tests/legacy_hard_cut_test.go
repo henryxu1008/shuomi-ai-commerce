@@ -199,6 +199,8 @@ func TestLegacy1688TaskHandoffAndRouteStayRetired(t *testing.T) {
 		_, err := os.Stat(filepath.Join("..", "scripts", name))
 		require.True(t, os.IsNotExist(err), "retired Task creation runner %s must remain absent: %v", name, err)
 	}
+	_, err = os.Stat(filepath.Join("..", "scripts", "lib", "listingkit-device-auth.ps1"))
+	require.True(t, os.IsNotExist(err), "runner-only device-auth helper must remain absent: %v", err)
 
 	for _, name := range []string{
 		"composition_builder.go",
