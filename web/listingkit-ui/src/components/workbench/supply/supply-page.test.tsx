@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { SupplyPage } from "./supply-page";
@@ -18,6 +18,19 @@ beforeEach(()=>{
  state.sources.mockReset().mockResolvedValue({items:[],total:205,nextCursor:source});state.history.mockReset().mockResolvedValue({items:[],total:0});state.write.mockReset().mockResolvedValue({operation:{id:source,input:{preparationId:prep,expectedRevision:1,storeId:store,action:"adapt"},count:205,completed:0,status:"pending",execution:"started",createdAt:"2026-10-08T00:00:00Z"},replayed:false});
  state.stores.mockReset().mockResolvedValue({items:[{id:store,name:"美国试用店铺",platform:"shein",recordStatus:"active",connectionStatus:"connected",serviceStatus:"active"}],pagination:{page:1,pageSize:100,total:1}});
 });afterEach(cleanup);
+it.each(["waiting","review"] as const)("identifies same-named marketplace targets in the %s selector and confirmation",async(initialStage)=>{
+ const temu="44444444-4444-4444-8444-444444444444";
+ state.stores.mockResolvedValue({items:[{id:store,name:"同名店铺",platform:"shein",region:"US",recordStatus:"active",connectionStatus:"connected",serviceStatus:"active"},{id:temu,name:"同名店铺",platform:"temu",region:"GE",recordStatus:"active",connectionStatus:"connected",serviceStatus:"active"}],pagination:{page:1,pageSize:100,total:2}});
+ render(<SupplyPage initialPreparation={prep} initialStage={initialStage}/>);await screen.findByRole("option",{name:/同名店铺 · TEMU · GE/});
+ expect(screen.getByRole("option",{name:/同名店铺 · SHEIN · US/})).toBeInTheDocument();
+ await userEvent.selectOptions(screen.getByLabelText("目标店铺"),temu);
+ if(initialStage==="waiting"){
+  expect(screen.getByLabelText("当前目标平台")).toHaveTextContent("TEMU · GE");expect(screen.queryByText("美国站")).not.toBeInTheDocument();
+ }else await userEvent.click(screen.getByRole("button",{name:"发布配置"}));
+ const start=screen.getByRole("button",{name:initialStage==="waiting"?"开始适配":"适配整批"});await waitFor(()=>expect(start).toBeEnabled());await userEvent.click(start);
+ expect(within(screen.getByRole("dialog",{name:"确认适配"})).getByText(/→ 同名店铺 · TEMU · GE/)).toBeInTheDocument();
+ expect(state.write).not.toHaveBeenCalled();
+});
 it("reopens a saved native TEMU record in its editor through the shared supply page",async()=>{
  state.stores.mockResolvedValue({items:[{id:store,name:"本土试用店铺",platform:"temu",recordStatus:"active",connectionStatus:"connected",serviceStatus:"active"}],pagination:{page:1,pageSize:100,total:1}});
  state.stages.mockResolvedValue({items:[{sourceId:source,stage:"missing"}],total:1,batchTotal:1,counts:{all:1,waiting:0,missing:1,ready:0,review:0,uploaded:0}});
