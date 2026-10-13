@@ -625,6 +625,16 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	}
 	code, raw, err := acquisitionHTTPRequest(server, "POST", path, "admin", "B", key, startBody)
 	require.NoError(t, err)
+	if mode == "revoked before dispatch" || mode == "release failed" {
+		// Projection uses current membership even when the invocation has already
+		// recorded a stopped/UNKNOWN run. Restore the grant only to inspect that
+		// original immutable result; do not dispatch another invocation.
+		require.Equal(t, 403, code, string(raw))
+		require.Zero(t, calls.Load())
+		f.grants.revoked.Store(false)
+		code, raw, err = acquisitionHTTPRequest(server, "GET", path+"/"+key, "admin", "B", "", "")
+		require.NoError(t, err)
+	}
 	require.Equal(t, 200, code, string(raw))
 	var result productAgentResultDTO
 	require.NoError(t, json.Unmarshal(raw, &result))
@@ -775,6 +785,13 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	require.EqualValues(t, 4, calls.Load())
 	code, raw, err = acquisitionHTTPRequest(server, "POST", path+"/"+key+"/review", "admin", "B", "", `{}`)
 	require.NoError(t, err)
+	if mode == "configuration" {
+		// A readable frozen result is not authority for a new Review write after
+		// its registered configuration was disabled/template archived above.
+		require.Equal(t, 409, code, string(raw))
+		require.EqualValues(t, 4, calls.Load())
+		return
+	}
 	require.Equal(t, 200, code, string(raw))
 	var link struct {
 		ProposalID string `json:"proposalId"`
@@ -876,10 +893,6 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		require.EqualValues(t, 160, usage.Quantity)
 	}
 	// The human, using the original Review endpoint, decides and applies.
-	if mode == "configuration" {
-		titleCall(t, server, "POST", titleBasePath+"/"+view.ID+"/decisions", "admin", "B", uuid.NewString(), `{"action":"accept","expected_revision":1}`, 409)
-		return
-	}
 	accepted := titleCall(t, server, "POST", titleBasePath+"/"+view.ID+"/decisions", "admin", "B", uuid.NewString(), `{"action":"accept","expected_revision":1}`, 200)
 	_ = accepted
 	code, raw, err = acquisitionHTTPRequest(server, "POST", titleBasePath+"/"+view.ID+"/apply", "admin", "B", uuid.NewString(), `{"expected_revision":2}`)
