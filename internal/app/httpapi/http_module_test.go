@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
