@@ -159,3 +159,17 @@ func TestContentNativeProofBindsFullCandidateAndSelection(t *testing.T) {
 	r.Content.After[1].Value = "modified after policy confirmation"
 	require.ErrorIs(t, ValidateStoredRecord(r), ErrUnavailable)
 }
+
+func TestContentNativeAdoptionRejectsDiagnosticsEvenWhenFieldValidationPassed(t *testing.T) {
+	for _, rejection := range []bool{false, true} {
+		r := contentRecordFixture(t)
+		warning := enrichment.Warning{Code: "missing_material", Message: "material specification is not confirmed"}
+		if rejection {
+			r.Original.Rejections = []enrichment.Rejection{{Code: warning.Code, Message: warning.Message}}
+		} else {
+			r.Original.Warnings = []enrichment.Warning{warning}
+		}
+		require.True(t, r.Original.Validation.Valid, "a structurally valid fieldset is not permission to ignore diagnostic facts")
+		require.False(t, originalNativeCandidate(r))
+	}
+}

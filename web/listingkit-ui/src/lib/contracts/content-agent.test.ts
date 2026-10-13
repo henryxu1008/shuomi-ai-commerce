@@ -20,4 +20,8 @@ it("freezes explicit content selection and accepts only a complete selected cand
 it("shows invalid or unresolved stopped suggestions without approving them", () => {
   expect(contentAgentResultSchema.safeParse({ ...contentResult, phase: "stopped", stopReason: "repair_limit", canSubmitReview: false, candidate: { ...contentResult.candidate, Changes: [{ Field: "invalid", Value: "unknown", EvidenceIDs: [] }] } }).success).toBe(true);
   expect(contentAgentResultSchema.safeParse({ ...contentResult, unresolved: ["missing source"] }).success).toBe(false);
+  expect(contentAgentResultSchema.safeParse({ ...contentResult, canSubmitReview: false, unresolved: ["missing source"] }).success).toBe(true);
+  const candidate = {...contentResult.candidate, Warnings:[{Code:"missing_material",Field:"description",Message:"Missing material",Metadata:null}]};
+  expect(contentAgentResultSchema.safeParse({...contentResult,candidate}).success).toBe(false);
+  expect(contentAgentResultSchema.safeParse({...contentResult,candidate,canSubmitReview:false}).success).toBe(true);
 });

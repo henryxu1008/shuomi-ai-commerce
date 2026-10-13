@@ -110,6 +110,18 @@ func TestContentHTTPNewWritesRecheckModeConfigurationAndMember(t *testing.T) {
 	}
 }
 
+func TestContentHTTPUnresolvedDiagnosticsRemainReadableWithoutAdoption(t *testing.T) {
+	for _, mode := range []string{"default", "read_only", "auto_approve", "full_access"} {
+		t.Run(mode, func(t *testing.T) { testProductAgentOwners(t, "content flow unresolved "+mode) })
+	}
+}
+
+func TestContentHTTPWarningsRemainReadableWithoutAdoption(t *testing.T) {
+	for _, mode := range []string{"default", "full_access"} {
+		t.Run(mode, func(t *testing.T) { testProductAgentOwners(t, "content flow warnings "+mode) })
+	}
+}
+
 func testProductAgentOwners(t *testing.T, mode string) {
 	f := newAcquisitionHTTPFixture(t)
 	fixtureActor := "admin"
@@ -220,6 +232,12 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		if strings.HasPrefix(mode, "supply ") && step > 4 {
 			content = strings.ReplaceAll(content, "Reviewed bottle title", "Reconstructed bottle title")
 		}
+		if strings.HasPrefix(mode, "content flow unresolved ") && strings.Contains(content, `"Kind":"propose"`) {
+			content = strings.TrimSuffix(content, "}") + `,"Unresolved":["missing material specification"]}`
+		}
+		if strings.HasPrefix(mode, "content flow warnings ") && strings.Contains(content, `"Kind":"propose"`) {
+			content = strings.Replace(content, `"Candidate":{"Changes":`, `"Candidate":{"Warnings":[{"Code":"missing_material","Field":"description","Message":"missing material specification","Metadata":null}],"Changes":`, 1)
+		}
 		if kf != nil && step >= 3 {
 			content = strings.TrimSuffix(content, "}") + `,"ContextCitationIDs":["` + citationID + `"]}`
 		}
@@ -283,6 +301,12 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		require.NoError(t, err)
 		modeRevision := "0"
 		selectedMode := strings.TrimPrefix(mode, "content flow ")
+		if strings.HasPrefix(mode, "content flow unresolved ") {
+			selectedMode = strings.TrimPrefix(mode, "content flow unresolved ")
+		}
+		if strings.HasPrefix(mode, "content flow warnings ") {
+			selectedMode = strings.TrimPrefix(mode, "content flow warnings ")
+		}
 		if mode != "content flow" && !strings.HasPrefix(mode, "content flow authority ") {
 			receipt, err := configuration.ExecuteMode(context.Background(), agentconfig.ModeCommand{Identity: agent.ExecutionIdentity{OrganizationID: "B", ActorID: "admin", MemberID: "member-B-admin"}, Subject: contentApp.modeSubject(), Key: uuid.NewString(), Mode: agent.ExecutionMode(selectedMode)})
 			require.NoError(t, err)
@@ -300,6 +324,32 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		require.NoError(t, json.Unmarshal(raw, &result))
 		require.Equal(t, agent.HumanReviewRequired, result.Phase)
 		require.Len(t, result.Candidate.Changes, 4)
+		if strings.HasPrefix(mode, "content flow unresolved ") || strings.HasPrefix(mode, "content flow warnings ") {
+			expected := []string{"missing material specification"}
+			if strings.HasPrefix(mode, "content flow warnings ") {
+				expected = []string{"missing_material: missing material specification"}
+				require.Len(t, result.Candidate.Warnings, 1)
+			}
+			require.Equal(t, expected, result.Unresolved)
+			require.False(t, result.CanSubmitReview, "content diagnostics with unresolved facts cannot be saved for adoption")
+			require.Nil(t, result.PolicyAdoption)
+			before := calls.Load()
+			code, raw, err = acquisitionHTTPRequest(server, "GET", path+"/"+key, "admin", "B", "", "")
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, code, string(raw))
+			var read productAgentResultDTO
+			require.NoError(t, json.Unmarshal(raw, &read))
+			require.Equal(t, result.Unresolved, read.Unresolved)
+			require.False(t, read.CanSubmitReview)
+			code, raw, err = acquisitionHTTPRequest(server, "POST", path+"/"+key+"/review", "admin", "B", "", `{}`)
+			require.NoError(t, err)
+			require.Equal(t, http.StatusConflict, code, string(raw))
+			var saved int64
+			require.NoError(t, f.owner.Table("product_title_proposals").Count(&saved).Error)
+			require.Zero(t, saved)
+			require.Equal(t, before, calls.Load())
+			return
+		}
 		if strings.HasPrefix(mode, "content flow authority ") {
 			before := calls.Load()
 			expectedStatus := http.StatusConflict

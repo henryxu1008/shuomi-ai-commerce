@@ -289,6 +289,9 @@ func registeredProductAgentRoutes(a *productAgentApplication, content bool) []ht
 			}
 			result := productAgentResultDTO{RunID: state.RunID, RequestKey: key, OperationID: operationID, ProductKey: binding.ProductKey, CatalogVersion: binding.CatalogVersion, PublicationID: binding.PublicationID, TargetPlatform: binding.TargetPlatform, Phase: state.Phase, Revision: strconv.FormatUint(state.Revision, 10), StopReason: state.StopReason, HumanReviewRequired: true, Candidate: state.Candidate, Confidence: state.Confidence, Unresolved: state.Unresolved, Steps: []productAgentStepDTO{}, Tokens: state.Usage.Tokens, EstimatedCostMicros: state.Usage.CostMicros, Currency: state.Request.Limits.Currency, UsageStatus: "observed", CanSubmitReview: agentRunReviewable(state)}
 			result.ContentSelection = state.Request.ContentSelection
+			if content {
+				result.Unresolved = contentRunDiagnostics(state)
+			}
 			if state.PendingInvocationID != "" || state.StopReason == agent.StopUsageUnknown || state.StopReason == agent.StopModelUnknown || state.Phase == agent.Running {
 				result.UsageStatus = "unknown_reserved"
 			}
@@ -346,9 +349,20 @@ func agentRunReviewable(s agent.State) bool {
 		return false
 	}
 	if s.Request.PolicyVersion == enrichment.ContentPolicyVersion {
-		return s.Request.ContentSelection.Valid() && len(s.Candidate.Changes) == len(s.Request.ContentSelection.Fields()) && contentCandidateEvidenceObserved(s.Request, s.Candidate, s.History)
+		return len(s.Unresolved) == 0 && len(s.Candidate.Warnings) == 0 && len(s.Candidate.Rejections) == 0 && s.Request.ContentSelection.Valid() && len(s.Candidate.Changes) == len(s.Request.ContentSelection.Fields()) && contentCandidateEvidenceObserved(s.Request, s.Candidate, s.History)
 	}
 	return s.Request.ContentSelection.Absent() && len(s.Candidate.Changes) == 1 && agentCandidateEvidenceObserved(s.Request.Binding, s.Candidate, s.History)
+}
+
+func contentRunDiagnostics(s agent.State) []string {
+	items := append([]string(nil), s.Unresolved...)
+	for _, warning := range s.Candidate.Warnings {
+		items = append(items, warning.Code+": "+warning.Message)
+	}
+	for _, rejection := range s.Candidate.Rejections {
+		items = append(items, rejection.Code+": "+rejection.Message)
+	}
+	return items
 }
 
 func writeProductAgentError(c *gin.Context, err error) {

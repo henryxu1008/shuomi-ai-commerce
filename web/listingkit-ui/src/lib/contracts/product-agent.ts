@@ -41,7 +41,7 @@ export const agentResultSchema = baseAgentResultSchema.extend({targetPlatform:ag
 .refine(authorityMatches);
 export const contentAgentResultSchema = baseAgentResultSchema.extend({targetPlatform:z.enum(["product","shein","temu","amazon"]),contentSelection:contentSelectionSchema,policyAdoption:contentPolicyAdoptionSchema.optional()})
 .refine(authorityMatches)
-.refine(v=>!v.canSubmitReview || v.phase==="human_review_required" && !v.stopReason && !v.unresolved?.length && !v.candidate.Rejections?.length && !!v.candidate.Changes && (()=>{
+.refine(v=>!v.canSubmitReview || v.phase==="human_review_required" && !v.stopReason && !v.unresolved?.length && !v.candidate.Warnings?.length && !v.candidate.Rejections?.length && !!v.candidate.Changes && (()=>{
  const fields=[v.contentSelection.title&&"title",v.contentSelection.description&&"description",v.contentSelection.sellingPoints&&"selling_points",v.contentSelection.seoKeywords&&"seo_keywords"].filter(Boolean);
  return v.candidate.Changes.length===fields.length && new Set(v.candidate.Changes.map(c=>c.Field)).size===fields.length && v.candidate.Changes.every(c=>fields.includes(c.Field));
 })())

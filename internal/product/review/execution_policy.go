@@ -118,7 +118,7 @@ func originalNativeCandidate(r Record) bool {
 	if r.Policy != enrichment.ContentPolicyVersion {
 		return r.Policy == "title-review-v1" && r.Content == nil && len(r.Original.Changes) == 1 && r.Original.Changes[0].Field == "title" && r.Title == r.Original.Changes[0].Value
 	}
-	if !r.validContentRecord() || len(r.Content.Decisions) != 0 {
+	if !r.validContentRecord() || len(r.Content.Decisions) != 0 || len(r.Original.Warnings) != 0 || len(r.Original.Rejections) != 0 {
 		return false
 	}
 	ordered, err := originalContentValues(r)
