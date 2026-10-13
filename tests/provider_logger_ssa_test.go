@@ -3,6 +3,7 @@ package tests
 import (
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
@@ -339,7 +340,7 @@ func loadRepositoryModulePackages(t *testing.T, repositoryRoot, goModPath string
 	t.Helper()
 	moduleDir := filepath.Dir(goModPath)
 	configuration := &packages.Config{
-		Mode: packages.LoadAllSyntax,
+		Mode: packages.NeedName | packages.NeedImports | packages.NeedDeps | packages.NeedModule,
 		Dir:  moduleDir,
 		Env:  append(os.Environ(), "GOWORK=off"),
 	}
@@ -354,7 +355,40 @@ func loadRepositoryModulePackages(t *testing.T, repositoryRoot, goModPath string
 		}
 		configuration.BuildFlags = []string{"-mod=mod", "-modfile=" + temporaryModPath}
 	}
-	loaded, err := packages.Load(configuration, "./...")
+	metadata, err := packages.Load(configuration, "./...")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Inspect every repository module and its repository-owned dependencies, but
+	// use export data for standard-library and third-party implementation bodies.
+	// Cross-module source helpers must remain SSA roots so their return/binding
+	// flows are checked just like helpers in the calling module.
+	ownedPaths := make(map[string]bool)
+	for _, pkg := range providerPackageGraph(metadata) {
+		if len(pkg.Errors) > 0 {
+			t.Fatalf("module %s package %s failed to list: %s", relativeModulePath(repositoryRoot, moduleDir), pkg.PkgPath, packageErrors(pkg.Errors))
+		}
+		if pkg.Module == nil {
+			continue
+		}
+		relative, err := filepath.Rel(repositoryRoot, pkg.Module.Dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+			ownedPaths[pkg.PkgPath] = true
+		}
+	}
+	if len(ownedPaths) == 0 {
+		return nil
+	}
+	patterns := make([]string, 0, len(ownedPaths))
+	for path := range ownedPaths {
+		patterns = append(patterns, path)
+	}
+	sort.Strings(patterns)
+	configuration.Mode = packages.LoadSyntax
+	loaded, err := packages.Load(configuration, patterns...)
 	if err != nil {
 		t.Fatal(err)
 	}
