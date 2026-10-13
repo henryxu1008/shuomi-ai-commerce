@@ -9,6 +9,7 @@ import (
 	"errors"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"task-processor/internal/ai"
 )
@@ -48,6 +49,20 @@ type synchronousProductImageClient struct {
 
 func (c *synchronousProductImageClient) EditImage(ctx context.Context, request *ai.ImageEditRequest) (*ai.ImageResponse, error) {
 	return c.client.EditImageOnce(ctx, request, c.observe)
+}
+
+// GenerateImageOnce consumes the same bounded effect observation protocol as
+// EditImageOnce. It generates actual new artwork without a source-image input.
+func (c *Client) GenerateImageOnce(ctx context.Context, req *ai.ImageGenerateRequest, observe GenerationObserver) (*ai.ImageResponse, error) {
+	if c == nil || ctx == nil || req == nil || observe == nil || req.Model != "gpt-image-2.5" || c.cfg.Model != req.Model || strings.TrimSpace(req.Prompt) == "" || !utf8.ValidString(req.Prompt) || len(req.Prompt) > 16<<10 || (req.N != 0 && req.N != 1) || (req.Size != "" && req.Size != "auto" && req.Size != "1024x1024") || (req.Quality != "" && req.Quality != "auto") {
+		return nil, errors.New("synchronous artwork input is unavailable")
+	}
+	if c.cfg.Timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, c.cfg.Timeout)
+		defer cancel()
+	}
+	return c.submitSynchronousImageOnce(ctx, req.Model, req.Prompt, nil, observe)
 }
 
 // EditImageOnce is the explicit synchronous GPT-image protocol. Its observer
@@ -95,14 +110,20 @@ func (c *Client) EditImageOnce(ctx context.Context, req *ai.ImageEditRequest, ob
 	for _, reference := range req.ReferenceImages {
 		images = append(images, "data:"+reference.MediaType+";base64,"+base64.StdEncoding.EncodeToString(reference.Bytes))
 	}
-	submitURL, err := buildSubmitURL(c.cfg.SubmitURL, req.Model)
+	return c.submitSynchronousImageOnce(ctx, req.Model, req.Prompt, images, observe)
+}
+
+// The existing transport, unknown handling and durable observer are shared;
+// neither caller may fall back to the retrying/polling generic SDK methods.
+func (c *Client) submitSynchronousImageOnce(ctx context.Context, model, prompt string, images []string, observe GenerationObserver) (*ai.ImageResponse, error) {
+	submitURL, err := buildSubmitURL(c.cfg.SubmitURL, model)
 	if err != nil {
 		return nil, errors.New("synchronous image route unavailable")
 	}
 	local := *c
 	local.disableSubmitReplay = true
 	payload, err := local.submitGenerationRequestNoPoll(ctx, submitURL, submitRequest{
-		Model: req.Model, Prompt: req.Prompt, Images: images, AspectRatio: "1024x1024",
+		Model: model, Prompt: prompt, Images: images, AspectRatio: "1024x1024",
 		Quality: "auto", ReplyType: "json", UnifiedSync: true,
 	})
 	if err != nil {
