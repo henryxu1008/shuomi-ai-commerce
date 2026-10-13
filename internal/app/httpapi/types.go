@@ -2,13 +2,11 @@ package httpapi
 
 import (
 	amazonlistinghttpapi "task-processor/internal/amazonlisting/httpapi"
-	a1688httpapi "task-processor/internal/compatibility/listingkit/sourcehandoff/a1688/httpapi"
 	imageagenthttpapi "task-processor/internal/imageagent/httpapi"
 	kernelmodule "task-processor/internal/kernel/module"
 	"task-processor/internal/listingkit"
 	listingkithttpapi "task-processor/internal/listingkit/httpapi"
 	localagenthttpapi "task-processor/internal/localagent/httpapi"
-	"task-processor/internal/product/sourcing"
 	promptmgmtapi "task-processor/internal/promptmgmt/api"
 	sdsadapter "task-processor/internal/sds/adapter"
 	sdshttpapi "task-processor/internal/sds/httpapi"
@@ -27,10 +25,9 @@ type runtimeDeps struct {
 }
 
 type featureRuntimeState struct {
-	productSnapshotReader    listingkit.ProductSnapshotReader
-	productSnapshotPublisher *sourcing.Publisher
-	sdsLoginStatusProvider   listingkit.SDSLoginStatusProvider
-	listingKitSupport        *listingKitSupport
+	productSnapshotReader  listingkit.ProductSnapshotReader
+	sdsLoginStatusProvider listingkit.SDSLoginStatusProvider
+	listingKitSupport      *listingKitSupport
 }
 
 type listingKitSupport struct {
@@ -43,7 +40,6 @@ type listingKitSupport struct {
 type httpFeatureComposition struct {
 	amazonListingModule       *amazonlistinghttpapi.Module
 	listingKitModule          *listingkithttpapi.Module
-	productSourcingModule     *a1688httpapi.BuildResult
 	promptModule              *promptmgmtapi.BuildResult
 	sdsModule                 *sdshttpapi.BuildResult
 	taskRPCResult             *taskrpcapi.BuildResult

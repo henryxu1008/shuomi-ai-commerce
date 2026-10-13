@@ -70,18 +70,23 @@ explicit new import with verified effective Organization / actor / access
   -> deterministic marketplace/listing readiness
 ```
 
-This is target acceptance, not completed wiring. On the baseline above:
+This is target acceptance, not completed deployment. The baseline above is
+historical; #663 retires only the old Task handoff in this checkout:
 
-- [App composition](../../internal/app/httpapi/composition_builder.go) still wires
-  `internal/compatibility/listingkit/sourcehandoff/a1688` to
-  `/api/v1/product-sourcing/1688/listingkit/tasks`. The old command publishes
-  through the current Publisher before legacy task creation. This is CURRENT
-  STATE / drain-only debt under #30, not the new source contract.
+- [App composition](../../internal/app/httpapi/composition_builder.go) no longer
+  wires `internal/compatibility/listingkit/sourcehandoff/a1688` or registers
+  `/api/v1/product-sourcing/1688/listingkit/tasks`. The handoff package, dedicated
+  DTOs and `scripts/1688-runtime-acceptance.ps1` are removed. Requests to the old
+  route are not forwarded to another command.
 - [Catalog composition](../../internal/app/httpapi/product_catalog_composition.go)
-  already constructs the sourcing/Catalog Publisher and durable reader.
-- [Prepared HTTP contract](../../internal/app/productsourcing/httpapi/handler.go)
-  is merged but unregistered. Its Importer port must revalidate access; the
-  handler alone is not a complete application import service or rollout.
+  retains the Catalog repository and durable snapshot reader. The publisher
+  assembly used only by the retired Task handoff is removed.
+- [Current source application](../../internal/app/productsourcing/application.go)
+  composes the admitted `InternalProducer`; browser/acquisition consumers retain
+  their own authorized entrypoints and exact receipt recovery. Its prepared
+  [HTTP handler](../../internal/app/productsourcing/httpapi/handler.go) alone
+  does not establish a deployed provider import path. Existing startup commands
+  and configuration remain with those current applications.
 - Source-account preflight from #303 is historical evidence only; it is not a
   prerequisite for a fresh-install source path.
 

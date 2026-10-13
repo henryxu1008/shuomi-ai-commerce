@@ -4,16 +4,15 @@
 
 Repository policy is `EXTRACT | RETIRE`; there is no long-term Compatibility class.
 
-## Current active debt
+## Retired source handoff and remaining debt
 
-The 1688 handoff under `sourcehandoff/a1688` is still wired into production and currently bridges source input into legacy ListingKit task/request objects. GitHub #30 owns its `EXTRACT -> RETIRE` cutover:
+The legacy 1688 source-to-ListingKit Task handoff, its route and dedicated runtime runner are absent from this checkout under #663. Current Product Sourcing/Catalog own source evidence and publication. This source retirement does not claim deployment or provider acceptance. GitHub #30 remains responsible for current sourcing delivery:
 
 - preserve valid SourceEnvelope / source identity behavior;
 - preserve verified request identity and source/store access semantics;
 - preserve required publication/idempotency behavior;
-- move those behaviors to their current Product / Store / Organization / Application owners;
-- switch the production path;
-- remove the old ListingKit handoff route, wiring, and legacy-only tests.
+- consume the existing Product / Store / Organization / Application owners;
+- use their authorized source entrypoints and read-only receipt recovery.
 
 Other code in this tree is handled by #29/#300. For example, an adapter with no production caller should be deleted rather than retained as a precautionary compatibility surface.
 
