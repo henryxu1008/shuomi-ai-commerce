@@ -25,7 +25,7 @@
   prototypeResultGroups?: SDSPrototypeResultGroup[];
 };
 
-export type SDSProductVariant = {
+type SDSProductVariant = {
   id: number;
   parent_id?: number;
   sku?: string;
@@ -89,7 +89,7 @@ export type SDSProductVariantSelection = {
   sizeReferenceImageUrls?: string[];
 };
 
-export type SDSSelectedProductVariant = {
+type SDSSelectedProductVariant = {
   variantId: number;
   variantSku?: string;
   size?: string;
