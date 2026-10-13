@@ -54,3 +54,9 @@ export function agentPath(path: string[], namespace?: "product-agent" | "content
         return path.join("/");
     return null;
 }
+
+// Navigation selects an existing operation; it never supplies execution intent
+// or authority. Unknown kinds are discarded before constructing a detail link.
+export function productAgentOperationHref(operationId: string, kind?: string | null): string {
+    return `/workbench/supply/acquisition/operation/${operationId}${kind === "title" || kind === "content" ? `?agent_kind=${kind}` : ""}`;
+}

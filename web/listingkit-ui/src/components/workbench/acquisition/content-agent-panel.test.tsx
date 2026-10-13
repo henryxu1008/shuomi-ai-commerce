@@ -18,11 +18,14 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-it.each(["title", "content"])("reads the frozen %s run at catalog head 2 without comparing to acquisition receipt 1", async (kind) => {
+it.each([
+  { kind: "title", platform: "shein" },
+  ...["product", "shein", "temu", "amazon"].map(platform => ({ kind: "content", platform })),
+])("reads the frozen $kind/$platform history at catalog head 2 without a complete start intent", async ({ kind, platform }) => {
   const key = "22222222-2222-4222-8222-222222222222";
-  f.params = new URLSearchParams({ agent_kind: kind, agent_key: key });
+  f.params = new URLSearchParams({ agent_kind: kind, agent_key: key, agent_platform: platform });
   const payload = { runId: "33333333-3333-4333-8333-333333333333", requestKey: key, operationId: props.operationId,
-    productKey: props.productKey, catalogVersion: "2", publicationId: "new-head", targetPlatform: kind === "content" ? "product" : "shein",
+    productKey: props.productKey, catalogVersion: "2", publicationId: "new-head", targetPlatform: platform,
     revision: "1", phase: "human_review_required", humanReviewRequired: true, canSubmitReview: false,
     executionMode: "default", modeRevision: "0", candidate: { Changes: [{ Field: "title", Value: "Current version suggestion", EvidenceIDs: ["source"] }], Warnings: [], Rejections: [] },
     confidence: [], unresolved: [], steps: [], tokens: 10, estimatedCostMicros: 0, currency: "USD", usageStatus: "observed",

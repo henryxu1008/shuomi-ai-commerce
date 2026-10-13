@@ -83,7 +83,9 @@ function ScopedAgentPanel({ userId, organizationId, operationId, productKey, ini
     }
     const [proposal, setProposal] = useState("");
     const [feedback, setFeedback] = useState("");
-    const [platform, setPlatform] = useState<string>(initialStart?.targetPlatform??(content?"product":""));
+    // A history key has no complete Start intent. Let its first verified result
+    // establish the platform, then retain the known run's exact binding.
+    const [platform, setPlatform] = useState<string>(initialStart?.targetPlatform??(isAcquisitionUUID(initialKey)?"":content?"product":""));
     const [selection,setSelection]=useState<ContentSelection>(initialStart&&"contentSelection" in initialStart?initialStart.contentSelection:{targetLanguage:"",title:true,description:true,sellingPoints:true,seoKeywords:true});
     const [busy, setBusy] = useState(false);
     const [failure, setFailure] = useState("");
