@@ -194,6 +194,9 @@ func (r *Repository) SaveTarget(ctx context.Context, proof record.TargetPrepared
 	if existing && (head.MemberID != scope.MemberID || head.Revision != value.Input.ExpectedRevision) || !existing && value.Input.ExpectedRevision != 0 {
 		return record.TargetReceipt{}, record.ErrConflict
 	}
+	if err = proof.CheckAgentCommit(ctx); err != nil {
+		return record.TargetReceipt{}, err
+	}
 	raw, err := json.Marshal(value)
 	if err != nil || len(raw) > record.MaxPayloadBytes {
 		return record.TargetReceipt{}, record.ErrTooLarge
@@ -221,6 +224,9 @@ func (r *Repository) SaveTarget(ctx context.Context, proof record.TargetPrepared
 		return record.TargetReceipt{}, record.ErrUnavailable
 	}
 	if _, _, _, _, err = proof.Read(ctx); err != nil {
+		return record.TargetReceipt{}, err
+	}
+	if err = proof.CheckAgentCommit(ctx); err != nil {
 		return record.TargetReceipt{}, err
 	}
 	if tx.Commit().Error != nil {

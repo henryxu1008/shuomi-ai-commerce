@@ -47,11 +47,27 @@ type TargetReceipt struct {
 	Record   TargetRecord `json:"record"`
 	Replayed bool         `json:"replayed"`
 }
+
+// TargetCommitFacts are transient owner reads for a local Agent adoption.
+// They are not accepted from HTTP/model output or persisted as another fact.
+type TargetCommitFacts struct {
+	Record    TargetRecord
+	Rules     goods.OfficialRuleSnapshot
+	Inventory asset.ApprovedAssetInventory
+}
+
+// TargetAgentGuard rechecks the exact run/configuration/current execution mode
+// at the existing Target transaction's new-write checkpoints.
+type TargetAgentGuard func(context.Context, TargetCommitFacts) error
+
 type TargetPrepared struct {
 	scope          collection.Scope
 	key, inputHash string
 	source         preparation.AuthorizedSource
 	record         TargetRecord
+	agentGuard     TargetAgentGuard
+	rules          goods.OfficialRuleSnapshot
+	inventory      asset.ApprovedAssetInventory
 }
 
 func (p TargetPrepared) Read(ctx context.Context) (collection.Scope, string, string, TargetRecord, error) {
@@ -64,6 +80,27 @@ func (p TargetPrepared) Read(ctx context.Context) (collection.Scope, string, str
 		return collection.Scope{}, "", "", TargetRecord{}, ErrUnavailable
 	}
 	return scope, p.key, p.inputHash, cloned, nil
+}
+
+// CheckAgentCommit is separate from Read so a committed command can be replayed
+// under current read authority without applying a gate for a new mutation.
+func (p TargetPrepared) CheckAgentCommit(ctx context.Context) error {
+	if p.agentGuard == nil {
+		return nil
+	}
+	_, _, _, value, err := p.Read(ctx)
+	if err != nil {
+		return err
+	}
+	raw, err := json.Marshal(TargetCommitFacts{Record: value, Rules: p.rules, Inventory: p.inventory})
+	if err != nil {
+		return ErrUnavailable
+	}
+	var copied TargetCommitFacts
+	if json.Unmarshal(raw, &copied) != nil {
+		return ErrUnavailable
+	}
+	return p.agentGuard(ctx, copied)
 }
 func cloneTarget(input TargetRecord) (TargetRecord, error) {
 	raw, err := json.Marshal(input)
@@ -94,6 +131,9 @@ type TargetRuleReader interface {
 }
 type TargetRepository interface {
 	FindTargetCommand(context.Context, collection.Scope, string, string) (TargetReceipt, error)
+	// SaveTarget replays an exact committed command before applying any new
+	// Agent write gate. New writes check CheckAgentCommit after CAS and again
+	// before commit, rolling back all record/head/command effects on denial.
 	SaveTarget(context.Context, TargetPrepared) (TargetReceipt, error)
 	ReadTargetHead(context.Context, collection.Scope, string) (TargetRecord, error)
 	ReadTargetRecord(context.Context, collection.Scope, string) (TargetRecord, error)
@@ -122,6 +162,19 @@ func TargetIdentity(scope collection.Scope, sourceID, storeID string) string {
 	return collection.StableID(scope.OrganizationID, scope.ActorID, "supply-target", sourceID, storeID, "shein-us")
 }
 func (s *TargetService) Create(ctx context.Context, key string, input TargetInput) (TargetReceipt, error) {
+	return s.createForRequest(ctx, key, input, nil)
+}
+
+// CreateForAgent only exposes the existing local Target owner. A nonnil guard
+// is mandatory and cannot be selected or supplied by an untrusted caller.
+func (s *TargetService) CreateForAgent(ctx context.Context, key string, input TargetInput, guard TargetAgentGuard) (TargetReceipt, error) {
+	if guard == nil {
+		return TargetReceipt{}, ErrForbidden
+	}
+	return s.createForRequest(ctx, key, input, guard)
+}
+
+func (s *TargetService) createForRequest(ctx context.Context, key string, input TargetInput, guard TargetAgentGuard) (TargetReceipt, error) {
 	if ctx == nil || s == nil {
 		return TargetReceipt{}, ErrForbidden
 	}
@@ -140,10 +193,21 @@ func (s *TargetService) Create(ctx context.Context, key string, input TargetInpu
 			return ErrForbidden
 		}
 		return nil
-	})
+	}, guard)
 }
 
 func (s *TargetService) CreateForExecution(ctx context.Context, scope collection.Scope, key string, input TargetInput) (TargetReceipt, error) {
+	return s.createForExecution(ctx, scope, key, input, nil)
+}
+
+func (s *TargetService) CreateForExecutionForAgent(ctx context.Context, scope collection.Scope, key string, input TargetInput, guard TargetAgentGuard) (TargetReceipt, error) {
+	if guard == nil {
+		return TargetReceipt{}, ErrForbidden
+	}
+	return s.createForExecution(ctx, scope, key, input, guard)
+}
+
+func (s *TargetService) createForExecution(ctx context.Context, scope collection.Scope, key string, input TargetInput, guard TargetAgentGuard) (TargetReceipt, error) {
 	if ctx == nil || s == nil || scope.Validate() != nil || s.dependencies.ExecutionSources == nil || s.dependencies.ExecutionAuthorization == nil {
 		return TargetReceipt{}, ErrForbidden
 	}
@@ -160,10 +224,10 @@ func (s *TargetService) CreateForExecution(ctx context.Context, scope collection
 	}
 	return s.create(ctx, scope, key, input, func(ctx context.Context, id string) (preparation.AuthorizedSource, error) {
 		return s.dependencies.ExecutionSources.SelectForExecution(ctx, scope, id)
-	}, reauthorize)
+	}, reauthorize, guard)
 }
 
-func (s *TargetService) create(ctx context.Context, scope collection.Scope, key string, input TargetInput, selectSource func(context.Context, string) (preparation.AuthorizedSource, error), reauthorize func(context.Context) error) (TargetReceipt, error) {
+func (s *TargetService) create(ctx context.Context, scope collection.Scope, key string, input TargetInput, selectSource func(context.Context, string) (preparation.AuthorizedSource, error), reauthorize func(context.Context) error, guard TargetAgentGuard) (TargetReceipt, error) {
 	if !collection.ValidID(key) || !collection.ValidID(input.SourceID) || !collection.ValidID(input.StoreID) || input.ExpectedRevision < 0 || input.ExpectedRevision >= 1<<63-1 || input.EffectiveVersion == 0 || input.EffectiveVersion > 1<<63-1 || input.ApplyReceiptID != "" && !authidentity.IsBoundedIdentifier(input.ApplyReceiptID) {
 		return TargetReceipt{}, ErrInvalid
 	}
@@ -241,7 +305,7 @@ func (s *TargetService) create(ctx context.Context, scope collection.Scope, key 
 	if err = reauthorize(ctx); err != nil {
 		return TargetReceipt{}, err
 	}
-	return s.dependencies.Records.SaveTarget(ctx, TargetPrepared{scope: scope, key: key, inputHash: inputHash, source: selected, record: value})
+	return s.dependencies.Records.SaveTarget(ctx, TargetPrepared{scope: scope, key: key, inputHash: inputHash, source: selected, record: value, agentGuard: guard, rules: rules, inventory: inventory})
 }
 func (s *TargetService) authorizeTarget(ctx context.Context, purpose string) (collection.Scope, error) {
 	scope, err := s.dependencies.Authorizer.Authorize(ctx, purpose)
