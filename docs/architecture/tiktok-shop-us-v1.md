@@ -4,7 +4,7 @@ Refs [#669](https://github.com/qq550723504/task-processor/issues/669)。
 
 - Product Decision: PD-TIKTOKSHOP-US-CROSSBORDER-2026-10-13，来自本 Issue 中用户确认的当前范围。
 - Design Basis: Independent Architecture。
-- Admission Status: **NOT_READY / DESIGN_CANDIDATE**。此文件先于正式实现；未完成下述合同收敛和适用独立架构检查，不修改生产业务路径。
+- Admission Status: **IMPLEMENTATION_READY / FROZEN**。2026-10-13 独立检查已确认候选 `72730db1b41d8573fd5f642a99d2ac800786a399` 无设计级 BLOCKER；准入先于正式实现，实施 findings 见 §12。
 - 基线：origin/main `4043651d074eaed1bd0b26e823e67680bfc4ae92`。
 - 单 Writer、主分支 `codex/tiktok-shop-us`；一个主要 PR 承载本 Delivery Batch。
 
@@ -24,6 +24,7 @@ Out of Scope：美国本土、其他市场、订单/履约/售后/退款/财务�
 
 - [最终 UI/IA](../product/final-ui-ia-authority.md)与 Figma `tg48P46SSXl6TBy9lZwg63` / `31:463`。2026-10-13 已只读核实节点 `1560:359`「我的店铺/优化版」、`429:5323`「店铺商品」存在。
 - 商品准备复用[我的供应链设计](my-supply-chain-shein-v1.md)中已批准的商品批次、待适配、补全、已适配和渠道结果投影，不恢复 Task-first 页面。其 SHEIN 业务合同不能被本文件直接扩成 TikTok 合同。
+- 未绑定本地文本复用[CompletionDraft 已批准架构](supply-unbound-completion-drafts.md)和 `internal/listing/completiondraft`；正式 TikTok Target 仍须真实 Store 与官方规则。
 - [Project target](project-target-architecture.md)、[package boundaries](project-boundaries.md)、[greenfield baseline](../product/greenfield-no-legacy-migration.md)、[Legacy Register](../refactoring/legacy-register.md)。
 - 当前 Store CRUD、成员 grant、服务权益和 official connection 的有效不变量，以及唯一 `internal/listing/submission.ExecutionKernel`。
 - [官方合同证据及缺口](tiktok-shop-us-contract-evidence.md)。没有应用时不引用假店铺/假 API响应作为真实平台证据。
@@ -98,6 +99,8 @@ attempt暂存只为code交换后可恢复查询Shop；形成canonical grant与Sh
 
 ## 6. 本地草稿与官方规则
 
+未配置应用或未绑定店铺时，继续由现有 CompletionDraft 保存/读取候选 title、description 和不可变版本；其能力不要求 Store/provider。用户显式选择已保存版本，才将内容作为输入带入 TikTok Target.Create。CompletionDraft 不增加平台资料、官方 rule、资产批准或 Ready 字段，也不自动覆盖正式 Target；创建 Target 失败不删除已保存草稿。
+
 草稿继续引用原受权source、Product版本、批准资产、Store/connection/grant generation、market、listing_method和对应官方rule hash；immutable record CAS/同键fingerprint/operation receipt复用当前Listing owner事务。前端只能提交补充项，不能签发ready或provider approval。
 
 先读global_listing_rules，再按GLOBAL_PUBLISHING或LOCAL_REPLICATION使用配套category/rules/attributes；未知或不适用方法明确阻止发布。两种方法都是当前美国跨境范围，不伪装其中一种已实现另一种。
@@ -140,14 +143,14 @@ global publish必须同时核对US的publish_result与products：SUCCESS也只�
 
 最终独立检查仅覆盖真实diff、这条用户路径及高风险增量；CI和fixture不等于产品验收。交付提供实际正常启动命令/入口、私密配置步骤、缺口；用户或指定验证者使用获批应用和店铺确认效果。
 
-## 10. 正式开工准入待办
+## 10. 实施条件与待办
 
-1. 独立Architecture Review读取当前产品范围及§5/§7高风险合同，按AGENTS finding分类；只有明确IMPLEMENTATION_READY后才正式编码。
+1. 独立Architecture Review已完成，见§12；正式实现保持冻结设计，不以非Blocker建议重新扩建设计。
 2. 规则、SKU/仓库/金额/图片/证明各子字段的严格parser与对应公开API配套测试作为实施验证收敛；缺少qualified readback的具体stage保持UNKNOWN/关闭再发送，不使作者自行发明恢复机制。若真实合同证据证明happy path或副作用无法安全完成，按具体BLOCKER退回设计。
 3. 共享owner修改前按#655最终组合确认constraints、原UoW与source owner；不修改其活跃Writer范围。新TikTok叶子代码与共享接线的写入范围需明确；设计准入不代表已获得他人scope接管或main合并权限。
 4. 真实运行须有匹配的获批应用/Development Shop、配置和明确操作授权；公开字段、fixture、CI或此设计不能替代真实执行/用户验收。
 
-应用未创建继续阻塞真实验证；独立准入和实际写入范围协调才是当前正式编码条件。不得把应用缺失或SDK暂不可下载当作所有代码均无法开发，也不得把本设计候选当作完成集成。
+应用未创建继续阻塞真实验证；实际共享写入范围协调仍是接线条件。TikTok独立叶子合同与adapter可按冻结设计实施。不得把应用缺失或SDK暂不可下载当作所有代码均无法开发，也不得把设计准入当作完成集成。
 
 ## 11. Legacy decision
 
@@ -158,4 +161,12 @@ Cutover/deletion condition: 只有触碰并证实仍有效的历史行为才按�
 
 ## 12. 独立准入记录
 
-NOT_RUN。作者只完成只读调查、官方证据和此设计候选；尚未签发IMPLEMENTATION_READY。独立Reviewer需读取#669当前范围、本文件和官方证据，按BLOCKER/IMPLEMENTATION_TEST/BACKLOG/ACCEPTED_RISK/NOT_APPLICABLE分类，指出具体Must和阻塞层级。公开文档矛盾/具体合同缺口按其真实影响处理，不以理论全平台要求扩大本批。
+2026-10-13，用户明确授权的一次只读独立检查 `/root/tiktok_architecture_review` 实查 #669/#670、准确候选 `72730db1b41d8573fd5f642a99d2ac800786a399`、基线 `4043651d074eaed1bd0b26e823e67680bfc4ae92`、当前 owner/persistence 与公开官方合同，结论 **IMPLEMENTATION_READY，无设计级 BLOCKER**。以下不阻塞编码，相关 Must 未通过时阻塞合并/试用；不建立额外工具或第二状态机。
+
+Finding R1: 再授权与 refresh 共用 canonical grant CAS/fence。Product requirement affected: 单一 token generation、准确 Consent、撤权后停止发送。Classification: IMPLEMENTATION_TEST。Action: 在已设计 Store 事实/窄Port 内验证多 Store、并发/逆序再授权与refresh、claim过期、commit未知及撤权；旧结果不得覆盖新generation或恢复已fence凭据。
+
+Finding R2: TikTok stage成功保护与真实资产回执。Product requirement affected: 不重复外部副作用、准确阶段回执与UNKNOWN。Classification: IMPLEMENTATION_TEST。Action: 原Submission owner内落实TikTok变体、稳定stage subject/effect kind和原成功回执复用；新key/资料不得重新创建已有资产，GLOBAL DRAFT仍保留实际资产关联，逐市场业务状态与execution completion分开；复用原transaction finalizer。
+
+Finding R3: 无配置本地文本草稿复用CompletionDraft。Product requirement affected: 真实持久保存、未校验与Ready区分。Classification: IMPLEMENTATION_TEST。Action: §2/§6明确现有owner与显式带入；实施核对composition和正式Store binding不放松。
+
+公开子字段严格parser通过必要TDD收敛；无qualified readback的stage保持UNKNOWN/禁止盲重发。真实应用/scopes、Development Shop授权、真实mutation和用户验收仍为NOT_RUN。共享路径须协调 #655，独立准入不授予接管其scope、合并或真实环境操作权限。
