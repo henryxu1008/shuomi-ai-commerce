@@ -71,7 +71,11 @@ func ArtworkGenerationInputDigest(input SlotExecutionInput) (string, error) {
 	if err := ValidateArtworkExecution(input); err != nil {
 		return "", err
 	}
-	return generationHash(struct{ Schema, Fingerprint string }{ArtworkSchema, SlotExecutionFingerprint(input)}), nil
+	return ArtworkGenerationInputDigestFromFingerprint(SlotExecutionFingerprint(input)), nil
+}
+
+func ArtworkGenerationInputDigestFromFingerprint(fingerprint string) string {
+	return generationHash(struct{ Schema, Fingerprint string }{ArtworkSchema, fingerprint})
 }
 
 // ArtworkProvenance binds a real creative attempt, without inventing an original.
@@ -97,6 +101,13 @@ func (p ArtworkProvenance) ValidateForInput(input SlotExecutionInput) error {
 	}
 	identity := SlotExternalEffectIdentity{RunScope: RunScope{TenantID: input.TenantID, OwnerUserID: input.UserID, RunID: input.RunID}, PlanRevision: input.PlanRevision, SlotID: input.Slot.ID, Attempt: input.Attempt}
 	if p.IntentID != generationHash(identity) {
+		return ErrRevisionConflict
+	}
+	return nil
+}
+
+func (p ArtworkProvenance) ValidateForIdentity(id SlotExternalEffectIdentity) error {
+	if p.Validate() != nil || p.TenantID != id.TenantID || p.OwnerUserID != id.OwnerUserID || p.RunID != id.RunID || p.PlanRevision != id.PlanRevision || p.SlotID != id.SlotID || p.Attempt != id.Attempt {
 		return ErrRevisionConflict
 	}
 	return nil

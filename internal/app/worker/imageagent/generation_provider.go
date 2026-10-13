@@ -42,15 +42,16 @@ func (f generationProviderFactory) prepare(ctx context.Context, observe func(con
 		return imageagent.PreparedGenerationProvider{}, err
 	}
 	client := grsai.NewClient(grsai.Config{APIKey: cfg.APIKey, Model: cfg.Model, SubmitURL: cfg.BaseURL, Timeout: cfg.Timeout, HTTPClient: f.providerHTTPClient, MaxAttempts: 1, Logger: grsai.AdaptLogrus(f.logger)})
+	observer := func(ctx context.Context, observation grsai.GenerationObservation) error {
+		proof := imageagent.GenerationSuccess{ResponseID: observation.ResponseID, RequestID: observation.RequestID, ResultDigest: observation.ResultDigest, UsageKnown: observation.UsageKnown, InputTokens: int64(observation.Usage.PromptTokens), OutputTokens: int64(observation.Usage.CompletionTokens), TotalTokens: int64(observation.Usage.TotalTokens)}
+		return observe(ctx, proof.WithResultLocator(observation.ResultURL, observation.ResultUnavailable))
+	}
 	provider, err := grsai.NewSynchronousProductImageAdapter(grsai.ProductImageAdapterConfig{
 		Client: client, ImageModel: cfg.Model, RouteReference: metadata.RouteReference, CredentialReference: metadata.CredentialReference, ConfigurationVersion: metadata.ConfigurationVersion,
 		Build: func(bound ai.RouteBoundImageGenerator) (grsai.ProductImageProvider, error) {
 			return openai.NewProductImageAdapter(openai.ProductImageAdapterConfig{ImageClient: bound, Provider: "grsai", ImageModel: cfg.Model, RouteReference: metadata.RouteReference, CredentialReference: metadata.CredentialReference, ConfigurationVersion: metadata.ConfigurationVersion, Prompts: openai.DefaultProductImagePrompts(), PricingVersion: metadata.PriceVersion, MaximumSceneOutputs: 1, GeneratedImageFetcher: f.generatedFetcher})
 		},
-	}, func(ctx context.Context, observation grsai.GenerationObservation) error {
-		proof := imageagent.GenerationSuccess{ResponseID: observation.ResponseID, RequestID: observation.RequestID, ResultDigest: observation.ResultDigest, UsageKnown: observation.UsageKnown, InputTokens: int64(observation.Usage.PromptTokens), OutputTokens: int64(observation.Usage.CompletionTokens), TotalTokens: int64(observation.Usage.TotalTokens)}
-		return observe(ctx, proof.WithResultLocator(observation.ResultURL, observation.ResultUnavailable))
-	})
+	}, observer)
 	if err != nil {
 		return imageagent.PreparedGenerationProvider{}, imageagent.ErrBudgetQuoteUnavailable
 	}
@@ -67,7 +68,7 @@ func (f generationProviderFactory) prepare(ctx context.Context, observe func(con
 		return imageagent.PreparedGenerationProvider{}, err
 	}
 	executor := tools.NewProductImageSlotExecutor(tools.Dependencies{SourceEditor: editor, WhiteBackgroundRenderer: white, UsageQuoter: provider, ProfileResolver: f.profile})
-	return imageagent.PreparedGenerationProvider{Metadata: metadata, Executor: executor}, nil
+	return imageagent.PreparedGenerationProvider{Metadata: metadata, Executor: scopedGenerationExecutor{product: executor, artwork: tools.NewArtworkSlotExecutor(artworkCreator{client: client, observe: observer, fetch: f.generatedFetcher})}}, nil
 }
 
 func (f generationProviderFactory) revalidate(ctx context.Context, expected imageagent.GenerationProviderMetadata) error {
