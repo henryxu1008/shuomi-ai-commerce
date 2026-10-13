@@ -45,9 +45,6 @@ linters-settings:
         # Exact drain caller exclusions; import-boundary tests freeze each edge.
         files:
           - "**/*.go"
-          - "!**/internal/app/httpapi/composition_builder.go"
-          - "!**/internal/app/httpapi/http_module_test.go"
-          - "!**/internal/app/httpapi/types.go"
         deny:
           - pkg: "task-processor/internal/compatibility$"
           - pkg: "task-processor/internal/compatibility/"
