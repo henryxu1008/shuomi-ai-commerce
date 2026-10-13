@@ -4,7 +4,7 @@
 >
 > Design Basis：Independent Architecture
 >
-> Status：IMPLEMENTATION_READY / FROZEN；第二轮独立相关增量评审绑定 4d4bc4feff7eff67fb9ea8a9c067cdc21f7db1ef。2026-10-12 新读 E41 形成 G4，本土图片7天有效期的 §8.1 最小修正已由原独立 Reviewer 绑定 72696b1bbe02bc6cd7ce0417627e8e98dba4f129 复核为 IMPLEMENTATION_READY，无新增设计 BLOCKER。对应原子准入/多代回执要求为 IMPLEMENTATION_TEST。GE/AM 规格仍阻塞受影响发布及全覆盖交付/合并，不构成产品验收。
+> Status：IMPLEMENTATION_READY / FROZEN；第二轮独立相关增量评审绑定 4d4bc4feff7eff67fb9ea8a9c067cdc21f7db1ef。2026-10-12 新读 E41 形成 G4，本土图片7天有效期的 §8.1 最小修正已由原独立 Reviewer 绑定 72696b1bbe02bc6cd7ce0417627e8e98dba4f129 复核为 IMPLEMENTATION_READY，无新增设计 BLOCKER。对应原子准入/多代回执要求为 IMPLEMENTATION_TEST。GE/AM 规格仍阻塞受影响发布及全覆盖发布验收；2026-10-13 用户批准准备代码先合并，见下方阶段决定，不构成产品验收。
 >
 > 调查基线：main @ f1d77a84fa653813235ddbfeedac59ea6bb0a94c，2026-10-11
 >
@@ -244,7 +244,7 @@ Provider 页大小不得超过官方上限（本土 retrieve、product.search 10
 | ID | 缺少的具体依据 | 受影响 Must / 后果 | owner / 解锁条件 / 层级 |
 | --- | --- | --- | --- |
 | G1 | 第一轮缺口现由 E03/E04/E11/E26 补齐：PA uniqueId 明确为 mall 唯一标识，同一店铺 token 的 CN 类型/PA 身份接口均由当前清单指定；无须 CN mallId 转换 | M2/M4：固定一个 supplier 身份与同凭据模式验证，未核实/缺权限不连接，变更 token/app/siteSet 不能重置 fence | 独立相关增量复核已关闭 BLOCKER；真实响应/权限验证为 IMPLEMENTATION_TEST，不是缺官方映射的永久 BLOCKER |
-| G2 | E30 已完整读取，region→site 和分字段冲突处理已独立复核闭合；GLOBAL 登录/映射 BLOCKER 关闭。真实剩余：GE/AM 的价格币种/精度等规格未在已读 E24/E17/E29 中找到；E18 V3 价格也引用 E24 | M1/M3：两站点仍在用户范围，缺依据不能正确构造完整发布资料；保留缺规则和拒绝发送，不能靠地理/用户输入自证平台格式 | IMPLEMENTATION_TEST：按既定官方规则合同补齐数据并验证缺规则/冲突/漂移不能取得批准或 SendPermit；阻塞 GE/AM 发布开放及本批全覆盖交付/合并，不阻塞已准入的整体生产实现 |
+| G2 | E30 已完整读取，region→site 和分字段冲突处理已独立复核闭合；GLOBAL 登录/映射 BLOCKER 关闭。真实剩余：GE/AM 的价格币种/精度等规格未在已读 E24/E17/E29 中找到；E18 V3 价格也引用 E24 | M1/M3：两站点仍在用户范围，缺依据不能正确构造完整发布资料；保留缺规则和拒绝发送，不能靠地理/用户输入自证平台格式 | IMPLEMENTATION_TEST：按既定官方规则合同补齐数据并验证缺规则/冲突/漂移不能取得批准或 SendPermit；阻塞 GE/AM 发布开放及全覆盖发布验收；按2026-10-13阶段决定不再阻塞本批准备代码合并，不阻塞已准入的整体生产实现 |
 | G3 | externalGoodsId 与 outGoodsSn 明确映射、PA exact recovery 证据覆盖 | M4/M5：盲目 adopt 错误结果；当前可保留 UNKNOWN 避免错误副作用 | IMPLEMENTATION_TEST；已知成功 ID 可读回、无法 qualified 时保持 UNKNOWN；实施/真实验证层处理，不授权自动重发 |
 | G4 | 2026-10-12 新读 E40/E41：本土图片 URL 仅7天有效，原成功永久复用会阻断超过窗口的正常提交 | M3/M4：过期链接不可用；通过变化fence盲重传则可能绕过UNKNOWN | 原设计 BLOCKER 已由 §8.1 最小原owner修正和绑定72696b1的独立增量复核闭合；增量 IMPLEMENTATION_READY / FROZEN，I1/I2 为 IMPLEMENTATION_TEST（受影响切片合并/试用门槛），不重复全局架构评审 |
 
@@ -265,3 +265,11 @@ Reusable behavior：已符合当前事实/授权/事务合同的 Store、Product
 Current owner：本文件 §3 对应 owner。旧 Cookie client/task-first/management/service DTO 与无产品依据定价不参与新调用链。
 
 Cutover/deletion condition：本批新正式路径不得依赖 internal/temu Cookie/旧 listingadmin；相关当前调用切到正确 owner 后移除旧消费者。无 fallback/双读/双写/同步或 compatibility 例外；无关历史遗留不以本任务扩大清理范围。
+
+## 2026-10-13 用户阶段决定：准备代码先合并
+
+用户在 [#31](https://github.com/qq550723504/task-processor/issues/31) 明确要求先合并代码并记录当前缺口。此决定替代此前“GE/AM 官方规格补齐作为本批代码合并前置”的阶段要求，不改变冻结的 owner、权限、状态机、事务或副作用合同。
+
+GE75/site165、AM10/site166 仍缺官方币种、金额精度/边界及完整包装规格，状态为 UNKNOWN；服务器与编辑器继续拒绝受影响发布批准和 SendPermit。官方询问信已获批准发送，EU 规格表仍未列出两站。两站发布开放及三模式/全站点最终验收继续由 #31 跟踪，不以本次合并写成 PASS。
+
+本次合并不授权真实商家 API、具体商品发送、部署、保留试用库升级/迁移/删除或 Issue 关闭。真实 provider、完整 native 浏览器与用户/生产验收仍 NOT_RUN。保留实例的新 main 商业库结构升级限制、E44 supplierId 来源和缺 qualified readback 的 native UNKNOWN 亦记录在 #31；不猜身份、采用手工裁定或盲重发。

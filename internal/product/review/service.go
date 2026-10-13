@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"reflect"
+	"task-processor/internal/agent"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
 	"task-processor/internal/product/catalog"
@@ -22,6 +23,7 @@ type Service struct {
 	proposer          enrichment.Proposer
 	auth              Authorizer
 	executionResolver func(context.Context) (CandidateExecutionScope, error)
+	executionPolicy   ExecutionPolicyResolver
 }
 
 func NewService(reader catalog.VersionedSnapshotReader, sourceReader SourcePublicationGateway, store Store, proposer enrichment.Proposer, auth Authorizer) (*Service, error) {
@@ -199,6 +201,13 @@ func (s *Service) create(ctx context.Context, key string, in CreateInput, suppli
 	r := Record{ID: uuid.NewString(), Org: a.Org, Owner: a.Actor, Input: in, BasePublicationID: base.PublicationID, Policy: policy.Version, Before: base.Snapshot.Title, Title: proposal.Changes[0].Value, State: "pending", Revision: 1, Original: proposal}
 	if supplied != nil {
 		r.ContextProvenance = supplied.ContextProvenance.clone()
+		if !supplied.Execution.Valid() {
+			return View{}, false, ErrInvalid
+		}
+		if supplied.Execution != nil {
+			value := *supplied.Execution
+			r.Execution = &value
+		}
 	}
 	view, err := s.store.Run(ctx, op, func(tx Tx) (View, error) {
 		if v, found, e := tx.Replay(); e != nil || found {
@@ -337,20 +346,7 @@ func (s *Service) Apply(ctx context.Context, key, id string, in ApplyInput) (Vie
 		if err != nil {
 			return err
 		}
-		snapshot, err := catalog.CloneProductSnapshot(base.Snapshot)
-		if err != nil {
-			return err
-		}
-		snapshot.Title = r.Title
-		raw, _ := json.Marshal([]any{r.Org, r.ID, r.Revision})
-		sum := sha256.Sum256(raw)
-		published, err := tx.Publisher().Publish(ctx, catalog.PublishRequest{Identity: base.Identity, ExpectedBaseVersion: &base.Version, PublicationID: "review:" + hex.EncodeToString(sum[:]), Snapshot: snapshot})
-		if err != nil {
-			return err
-		}
-		r.State = "applied"
-		r.Receipt = &Receipt{r.ID, r.Revision, published.Version, published.PublicationID, a.Actor, time.Now().UTC()}
-		return nil
+		return publishTitle(ctx, tx, r, a, base)
 	})
 }
 func (s *Service) change(ctx context.Context, key, id, kind string, input any, admin, sourceRead bool, mutate func(context.Context, Tx, *Record, Scope) error) (View, error) {
@@ -386,6 +382,18 @@ func (s *Service) change(ctx context.Context, key, id, kind string, input any, a
 		r, e := tx.Load(id)
 		if e != nil {
 			return View{}, e
+		}
+		if s.executionPolicy != nil {
+			if r.Execution == nil {
+				return View{}, ErrForbidden
+			}
+			proof, e := s.executionPolicy(ctx, *r.Execution, enrichment.Candidate{Changes: r.Original.Changes}, true)
+			if e != nil {
+				return View{}, e
+			}
+			if proof.Mode == agent.ModeReadOnly {
+				return View{}, ErrForbidden
+			}
 		}
 		if e = mutate(ctx, tx, &r, a); e != nil {
 			return View{}, e

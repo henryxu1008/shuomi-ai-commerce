@@ -131,7 +131,7 @@ func TestWorkbenchRuntimeRoleCanUseReceiptsWithoutDDLOrDeletes(t *testing.T) {
 		}
 		proposal := &aiworkbench.ExecutionProposal{Kind: "product.title.optimize", GoalSummary: "Improve title", OperationID: "op-1",
 			ProductKey: "product-1", CatalogVersion: "1", PublicationID: "publication-1", TargetPlatform: "shein",
-			AgentID: "product.title.agent", AgentVersion: "v1.0.0", ObservedAgentRevision: "revision-1",
+			AgentID: "product.title.agent", AgentVersion: "v1.0.0", ObservedAgentRevision: "revision-1", ObservedModeRevision: "0",
 			ObservedActivationEpoch: "epoch-1", ExecutionModelProfile: []byte(`{"profile_id":"execution-v1"}`)}
 		planned, _, err := store.CompletePlan(context.Background(), scope, key,
 			aiworkbench.PlanTerminal{AssistantText: "Ready for review", Mode: aiworkbench.PlanReady, GoalSummary: proposal.GoalSummary, Proposal: proposal})
@@ -329,7 +329,7 @@ func readyTaskFixture(t *testing.T, store *Store, scope aiworkbench.Scope) (aiwo
 	proposal := &aiworkbench.ExecutionProposal{Kind: "product.title.optimize", GoalSummary: "Improve title",
 		OperationID: "op-1", ProductKey: "product-1", CatalogVersion: "1", PublicationID: "publication-1",
 		TargetPlatform: "shein", AgentID: "product.title.agent", AgentVersion: "v1.0.0",
-		ObservedAgentRevision: "revision-1", ObservedActivationEpoch: "epoch-1",
+		ObservedAgentRevision: "revision-1", ObservedModeRevision: "0", ObservedActivationEpoch: "epoch-1",
 		ExecutionModelProfile: []byte(`{"profile_id":"execution-v1"}`)}
 	completed, _, err := store.CompletePlan(ctx, scope, key, aiworkbench.PlanTerminal{
 		AssistantText: "Review the proposed work", Mode: aiworkbench.PlanReady, GoalSummary: proposal.GoalSummary, Proposal: proposal})
@@ -833,7 +833,7 @@ func TestReadyPlannerCommitsAssistantAndImmutableProposalTogether(t *testing.T) 
 	proposal := &aiworkbench.ExecutionProposal{Kind: "product.title.optimize", GoalSummary: "Improve product title",
 		OperationID: "op-1", ProductKey: "product-1", CatalogVersion: "1", PublicationID: "publication-1",
 		TargetPlatform: "shein", AgentID: "product.title.agent", AgentVersion: "v1.0.0",
-		ObservedAgentRevision: "revision-1", ObservedActivationEpoch: "epoch-1",
+		ObservedAgentRevision: "revision-1", ObservedModeRevision: "0", ObservedActivationEpoch: "epoch-1",
 		ExecutionModelProfile: []byte(`{"profile_id":"execution-v1"}`)}
 	terminal := aiworkbench.PlanTerminal{AssistantText: "Review this title goal", Mode: aiworkbench.PlanReady,
 		GoalSummary: proposal.GoalSummary, Proposal: proposal}

@@ -17,6 +17,7 @@ import (
 
 func main() {
 	role := flag.String("runtime-role", "", "existing runtime PostgreSQL role to grant bounded privileges")
+	modesOnly := flag.Bool("execution-modes-only", false, "add only execution mode tables and their bounded grants; retain existing facts and grants")
 	flag.Parse()
 	if flag.NArg() != 0 || !regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`).MatchString(*role) {
 		fmt.Fprintln(os.Stderr, "requires --runtime-role with an existing role")
@@ -40,6 +41,9 @@ func main() {
 	}
 	defer raw.Close()
 	e = db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if *modesOnly {
+			return store.InstallExecutionModes(tx, *role)
+		}
 		if e := store.InstallSchema(tx); e != nil {
 			return e
 		}

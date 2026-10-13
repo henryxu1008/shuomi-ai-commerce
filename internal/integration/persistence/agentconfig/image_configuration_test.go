@@ -25,7 +25,7 @@ func imageStartFixture(t *testing.T, store *Store) agentconfig.ImageStartCommand
 	create.Input = agentconfig.TemplateInput{Name: "图片模板", TargetPlatform: "product", Image: &parameters}
 	receipt, err := store.Execute(context.Background(), create)
 	require.NoError(t, err)
-	return agentconfig.ImageStartCommand{Scope: scope, MemberID: "image-member", RequestKey: uuid.NewString(), ContextID: "source-operation", RunID: uuid.NewString(), TargetPlatform: "product", SourceDigest: digest([]byte("source-v1")), InputDigest: digest([]byte("input-v1")), Template: &agentconfig.TemplateRef{TemplateID: receipt.TemplateID, Revision: "1"}, HardLimits: agentconfig.ImageRunLimits{Images: 32, Points: 1000, ElapsedSeconds: 300}}
+	return agentconfig.ImageStartCommand{ExpectedModeRevision: "0", Scope: scope, MemberID: "image-member", RequestKey: uuid.NewString(), ContextID: "source-operation", RunID: uuid.NewString(), TargetPlatform: "product", SourceDigest: digest([]byte("source-v1")), InputDigest: digest([]byte("input-v1")), Template: &agentconfig.TemplateRef{TemplateID: receipt.TemplateID, Revision: "1"}, HardLimits: agentconfig.ImageRunLimits{Images: 32, Points: 1000, ElapsedSeconds: 300}}
 }
 
 func TestImageAdmissionIsWriteOnceAndOrdersDisable(t *testing.T) {

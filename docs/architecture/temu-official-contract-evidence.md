@@ -387,3 +387,11 @@ E43 请求层级补核（2026-10-12）：官方展开参数表的 options 子行
 | E49 | [bg.glo.goods.sizecharts.settings.get](https://agentpartner.temu.com/document?cataId=875198836203&docId=934976723937) | 2026-04-29 22:27:23 | PA；catId/classId，可选 shoeSizeType（null/0 regular、1 wide fit）；result sizeList、code、mappingContent.records.values 及 meta.groupList/elementList。当前读原默认设置，依据官方 group IDs 和 mapping tuples 比对现有表；未知/歧义不消费，测量数值碰巧等于尺码不构成关联 |
 
 以上为登录后文档调查和隔离实现证据，未调用真实 merchant API。GE/AM 仍没有已读价格币种/精度依据，2026-10-12 GLOBAL 标题搜索 Georgia/Armenia 未返回相关条目，站点差异菜单只显示 Brazil；不能据此断言官方不存在其他资料，继续关闭受影响发布。
+
+## 2026-10-13 用户阶段决定：准备代码先合并
+
+用户在 [#31](https://github.com/qq550723504/task-processor/issues/31) 明确要求先合并代码并记录当前缺口。此决定替代此前“GE/AM 官方规格补齐作为本批代码合并前置”的阶段要求，不改变冻结的 owner、权限、状态机、事务或副作用合同。
+
+GE75/site165、AM10/site166 仍缺官方币种、金额精度/边界及完整包装规格，状态为 UNKNOWN；服务器与编辑器继续拒绝受影响发布批准和 SendPermit。官方询问信已获批准发送，EU 规格表仍未列出两站。两站发布开放及三模式/全站点最终验收继续由 #31 跟踪，不以本次合并写成 PASS。
+
+本次合并不授权真实商家 API、具体商品发送、部署、保留试用库升级/迁移/删除或 Issue 关闭。真实 provider、完整 native 浏览器与用户/生产验收仍 NOT_RUN。保留实例的新 main 商业库结构升级限制、E44 supplierId 来源和缺 qualified readback 的 native UNKNOWN 亦记录在 #31；不猜身份、采用手工裁定或盲重发。

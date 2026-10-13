@@ -16,6 +16,7 @@ import { ResourceDialog } from "../resources/resource-dialog";
 import { useResourcePending } from "../resources/resource-pending";
 import { configurationError, useConfigurationRead } from "./agent-configuration-hooks";
 import { ImageConfigurationDialog } from "./image-configuration-dialog";
+import { ExecutionModeSettings } from "./execution-mode-settings";
 import styles from "./agents.module.css";
 import {RecentImageSets} from "./recent-image-sets";
 
@@ -110,6 +111,7 @@ export function ImageAgentPage({ scope, organization }: { scope: ConfigurationSc
         <div><h2>{entry.name}</h2><p>{entry.description}</p><p>{activationNames[entry.agent.activation]} · 配置版本 {entry.agent.revision || "尚未建立"}</p></div>
         {entry.canConfigure && (entry.agent.activation === "ENABLED" ? <Button variant="outline" disabled={locked} onClick={() => setDisable(true)}>停用智能体</Button> : <Button disabled={locked} onClick={() => mutate({ path: `${agentId}/enable`, payload: {}, method: "POST", operation: "enable", revision: entry.agent.revision || undefined, absent: entry.agent.activation === "NOT_ENABLED" })}>启用到当前企业</Button>)}
       </Card>
+      {entry.agent.activation !== "NOT_ENABLED" ? <ExecutionModeSettings scope={scope} subject={{kind:"registered_agent",id:agentId}}/> : null}
       <Card className={styles.panel}><h2>当前能力</h2>{entry.capabilities.filter(cap => cap.support === "REQUIRED").map(cap => <div className={styles.capability} key={cap.id}><div><h3>{capabilityNames[cap.id] ?? cap.id}</h3><p>{cap.reason}</p></div><span>{cap.readiness === "AVAILABLE" ? "可用" : cap.readiness === "NEEDS_CONFIGURATION" ? "需要配置" : cap.readiness === "REQUIRES_AUTHORIZATION" ? "需要授权" : "当前不可用"}</span></div>)}<p>使用时先选择真实原图与平台类目，再核对整套计划和点数。主图与详情图分别生成，共用素材时仅共用原图。</p>{entry.canUse && <Link href="/workbench/supply/acquisition">进入采集商品选择素材 →</Link>}</Card>
       <Card className={styles.panel}><h2>企业默认模板</h2>{defaultRef ? <><p>{defaultTemplate.data ? `${defaultTemplate.data.name} · v${defaultTemplate.data.version}` : defaultTemplate.error ? configurationError(defaultTemplate.error) : "正在读取默认模板"}</p>{entry.canConfigure && <Button variant="outline" disabled={locked} onClick={() => mutate({ path: `${agentId}/default-template`, payload: { templateId: null, revision: null }, method: "PUT", operation: "default", revision: entry.agent.revision })}>清除默认模板</Button>}</> : <p>尚未设置默认模板，生成时需要显式选择模板。</p>}</Card>
       <Card className={styles.panel}><div className={styles.cardActions}><h2>图片模板</h2>{entry.canConfigure && entry.agent.activation !== "NOT_ENABLED" && <Button disabled={locked || !!draft} onClick={() => { setDraft(initialDraft()); setFormError(""); }}>新建图片模板</Button>}</div>

@@ -1,11 +1,12 @@
 import { z } from "zod";
 import { customId, customizationRequest, type CustomScope } from "./agent-customization";
+import {modeRevisionSchema,modeSnapshotRefSchema,executionModeSchema} from "../contracts/execution-mode";
 const bytes = (max: number) => z.string().refine(v => new TextEncoder().encode(v).length <= max && !v.includes("\0"));
 const timestamp = z.iso.datetime({ offset: true });
 const revision = z.number().int().min(1).max(Number.MAX_SAFE_INTEGER);
 const hash = z.string().regex(/^[a-f0-9]{64}$/);
 const definition = z.literal("product.quality.check"), organizationId = z.string().min(1).max(128), actor = z.string().min(1).max(256), cursor = z.union([customId, z.literal("")]);
-export const qualityInput = z.strictObject({ recordId: customId, expectedRevision: revision });
+export const qualityInput = z.strictObject({ recordId: customId, expectedRevision: revision,expectedModeRevision:modeRevisionSchema });
 export const privateDelivery = z.strictObject({ id: customId, requestId: customId, organizationId, definition, version: z.enum(["1.0.0", "2.0.0"]), name: z.string().min(1).max(120), createdBy: actor, createdAt: timestamp });
 export const privatePage = z.strictObject({ items: z.array(privateDelivery).max(20), nextCursor: cursor });
 const binding = z.strictObject({ offlineTrial: z.boolean().optional(), recordId: customId, revision, sourceId: customId, preparationId: customId, storeId: customId, platform: z.enum(["shein","temu"]), site: z.enum(["shein-us","temu-local","temu-supplier"]), productKey: bytes(128).min(1), productVersion: z.string().regex(/^[1-9][0-9]{0,18}$/).refine(v => BigInt(v) <= BigInt("9223372036854775807")), title: z.string().refine(v => Array.from(v).length <= 200), recordHash: hash, productHash: hash, rulesHash: hash, inventoryHash: hash, savedAt: timestamp }).refine(v=>v.platform==="shein"?v.site==="shein-us":!v.offlineTrial&&(v.site==="temu-local"||v.site==="temu-supplier"));
@@ -13,7 +14,7 @@ const snapshot = binding.safeExtend({ issues: z.array(z.strictObject({ code: byt
 const field = (max: number) => z.string().refine(v => Array.from(v).length <= max && v.trim() === v && !/[^\P{Cc}\n\r\t]/u.test(v));
 const recordedInput = z.strictObject({ name: field(120), material: field(240), dimensions: field(240), description: field(4000), specifications: z.array(z.strictObject({ name: field(80), value: field(240) })).max(20) });
 const recordedReport = z.strictObject({ ruleVersion: z.literal("product-quality-rules-v1"), summary: z.string().min(1).max(240), findings: z.array(z.strictObject({ code: z.string().min(1).max(80), field: z.string().min(1).max(80), message: z.string().min(1).max(240), suggestion: z.string().min(1).max(500) })).max(50) });
-const run = z.strictObject({ id: customId, deliveryId: customId, organizationId, actorId: actor, key: customId, definition, createdAt: timestamp });
+const run = z.strictObject({ id: customId, deliveryId: customId, organizationId, actorId: actor, key: customId, definition, createdAt: timestamp,executionMode:executionModeSchema.optional(),modeRevision:modeRevisionSchema.optional(),modeSnapshotRef:modeSnapshotRefSchema.optional() });
 export const qualityRun = z.discriminatedUnion("version", [run.extend({ version: z.literal("2.0.0"), draft: snapshot }), run.extend({ version: z.literal("1.0.0"), input: recordedInput, report: recordedReport })]);
 const summary = z.strictObject({ id: customId, deliveryId: customId, organizationId, actorId: actor, title: z.string().refine(v => Array.from(v).length <= 200), findingCount: z.number().int().min(0).max(4096), createdAt: timestamp });
 export const qualityPage = z.strictObject({ items: z.array(z.discriminatedUnion("version", [summary.extend({ version: z.literal("2.0.0"), draft: binding }), summary.extend({ version: z.literal("1.0.0") })])).max(20), nextCursor: cursor });

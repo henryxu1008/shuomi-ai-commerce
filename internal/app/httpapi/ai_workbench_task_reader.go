@@ -32,6 +32,6 @@ func (a *aiWorkbenchApplication) taskProjectionReader() aiworkbench.AuthorizedTa
 			return aiworkbench.TaskReviewState{State: m.State, Revision: m.Revision, OccurredAt: m.OccurredAt}, f, e
 		}
 		m := review.Record{State: r.State, Revision: r.Revision, History: r.History, Receipt: r.Receipt}.TaskStateMetadata()
-		return aiworkbench.TaskReviewState{State: m.State, ID: r.ID, Revision: m.Revision, OccurredAt: m.OccurredAt}, found, e
+		return aiworkbench.TaskReviewState{State: m.State, ID: r.ID, Revision: m.Revision, OccurredAt: m.OccurredAt, PolicyAdoption: r.PolicyAdoption}, found, e
 	}}
 }

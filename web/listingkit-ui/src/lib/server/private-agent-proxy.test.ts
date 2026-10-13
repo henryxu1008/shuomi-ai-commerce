@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { proxyAgentCustomization } from "./agent-customization-proxy";
 const id = "b510c346-54e7-4cbd-91b2-05f7c0149b42";
-const input = { recordId:id,expectedRevision:3 };
+const input = { recordId:id,expectedRevision:3,expectedModeRevision:"0" };
 const delivery = { id, requestId: id, organizationId: "org-a", definition: "product.quality.check", version: "1.0.0", name: "商品资料质检", createdBy: "staff", createdAt: "2026-10-09T00:00:00Z" };
 function request(path = "", body?: unknown) { return new Request("https://console.test/api/workbench/agent-customization/agents" + path, { method: body ? "POST" : "GET", headers: { "Content-Type": "application/json", Origin: "https://console.test", "X-Expected-User-ID": "user-a", "X-Expected-Organization-ID": "org-a", Cookie: "shuomi_effective_organization=org-a", "Idempotency-Key": id }, ...(body ? { body: JSON.stringify(body) } : {}) }); }
 beforeEach(() => { vi.restoreAllMocks(); vi.stubEnv("LISTINGKIT_SERVICE_API_BASE", "https://service.test/api/v1"); vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL", "https://console.test"); });

@@ -306,7 +306,7 @@ func TestSnapshotAdmissionAndDisableABA(t *testing.T) {
 	scope := agent.Scope{OrganizationID: "org-a", ActorID: "actor-a"}
 	limits := agent.Limits{Steps: 8, ModelCalls: 3, Tokens: 100, CostMicros: 100, Currency: "CNY", Runtime: time.Minute}
 	profile := aicapability.ModelProfile{ClientName: "title", ProviderID: "synthetic", AdapterKind: "openai-compatible", ModelID: "model", EndpointIdentityDigest: "endpoint", CredentialVersion: "credential", RoutingPolicyVersion: "routing", AdapterPolicyVersion: "adapter", PromptVersion: "prompt", OutputSchemaVersion: "schema", UsageMappingVersion: "usage", CostPricingVersion: "cost", PointTariff: aicapability.ModelPointTariff{PriceVersion: "points", InputPointsPerMillionTokens: 1000000, OutputPointsPerMillionTokens: 1000000}, Currency: "CNY", InputMicrosPerMillion: 1000000, OutputMicrosPerMillion: 1000000, MaximumPromptTokens: 1000, MaximumCompletionTokens: 100, MaximumInputBytes: 4096, MaximumOutputBytes: 4096, DeadlineBound: time.Minute}
-	start := agentconfig.StartCommand{Scope: scope, AgentID: "product.title.agent", AgentVersion: "v1.0.0", ExecutionModelProfile: profile, Request: agent.Request{Key: uuid.NewString(), Binding: agent.Binding{ContextKind: "acquisition", ContextID: uuid.NewString(), ProductKey: "p", CatalogVersion: "1", PublicationID: "pub", TargetPlatform: "shein"}, PolicyVersion: "title-review-v1", PromptVersion: "product-title-agent-v1", Limits: limits}}
+	start := agentconfig.StartCommand{Scope: scope, MemberID: "member-a", ExpectedModeRevision: "0", AgentID: "product.title.agent", AgentVersion: "v1.0.0", ExecutionModelProfile: profile, Request: agent.Request{Key: uuid.NewString(), Binding: agent.Binding{ContextKind: "acquisition", ContextID: uuid.NewString(), ProductKey: "p", CatalogVersion: "1", PublicationID: "pub", TargetPlatform: "shein"}, PolicyVersion: "title-review-v1", PromptVersion: "product-title-agent-v1", Limits: limits}}
 	_, e := s.Prepare(ctx, start)
 	require.ErrorIs(t, e, agentconfig.ErrNotEnabled)
 	enable := command(scope, "enable", 0)
@@ -331,11 +331,14 @@ func TestSnapshotAdmissionAndDisableABA(t *testing.T) {
 	request.ConfigurationSnapshotRef = agent.ConfigurationSnapshotRef{Kind: agentconfig.SnapshotKind, ID: snap.ID, Digest: snap.Digest}
 	now := time.Now().UTC().Truncate(time.Microsecond)
 	initial := agent.Record{State: agent.State{RunID: uuid.NewString(), Scope: scope, Request: request, Fingerprint: strings.Repeat("a", 64), Phase: agent.Running, StartedAt: now, Deadline: now.Add(time.Minute), HumanReviewRequired: true}}
-	guard, e := NewGuard(db, s, runs, func(string, string) (agent.Limits, error) { return limits, nil })
+	modeIdentity := func(context.Context) (agent.ExecutionIdentity, error) {
+		return agent.ExecutionIdentity{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, MemberID: start.MemberID}, nil
+	}
+	guard, e := NewGuard(db, s, runs, func(string, string) (agent.Limits, error) { return limits, nil }, modeIdentity)
 	require.NoError(t, e)
 	tight := limits
 	tight.Tokens--
-	tightGuard, e := NewGuard(db, s, runs, func(string, string) (agent.Limits, error) { return tight, nil })
+	tightGuard, e := NewGuard(db, s, runs, func(string, string) (agent.Limits, error) { return tight, nil }, modeIdentity)
 	require.NoError(t, e)
 	_, acquired, e := tightGuard.Claim(ctx, initial, 0)
 	require.ErrorIs(t, e, agentconfig.ErrChanged)

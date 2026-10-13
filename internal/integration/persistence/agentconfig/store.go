@@ -22,6 +22,9 @@ import (
 //go:embed schema.sql
 var schemaSQL string
 
+//go:embed execution_modes.sql
+var executionModesSQL string
+
 type Store struct{ db *gorm.DB }
 
 func New(db *gorm.DB) (*Store, error) {
@@ -62,7 +65,7 @@ func InstallSchema(db *gorm.DB) error {
 		if e := tx.Exec("SET LOCAL ROLE agent_configuration_owner").Error; e != nil {
 			return e
 		}
-		if e := tx.Exec(schemaSQL).Error; e != nil {
+		if e := tx.Exec(schemaSQL + executionModesSQL).Error; e != nil {
 			return e
 		}
 		return tx.Exec("RESET ROLE").Error
@@ -72,7 +75,7 @@ func VerifySchema(ctx context.Context, db *gorm.DB) error {
 	if db == nil {
 		return agentconfig.ErrUnavailable
 	}
-	for _, name := range []string{"organization_agents", "templates", "template_revisions", "start_snapshots", "commands", "image_run_admissions"} {
+	for _, name := range []string{"organization_agents", "templates", "template_revisions", "start_snapshots", "commands", "image_run_admissions", "execution_modes", "execution_mode_snapshots"} {
 		if err := db.WithContext(ctx).Table("agent_configuration." + name).Select("1").Limit(0).Find(&[]int{}).Error; err != nil {
 			return agentconfig.ErrUnavailable
 		}

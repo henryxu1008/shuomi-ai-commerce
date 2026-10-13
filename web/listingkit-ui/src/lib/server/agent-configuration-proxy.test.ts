@@ -96,3 +96,38 @@ it("rejects title parameters in image templates and another agent's mutation rec
  const result=await proxyAgentConfiguration(request("product.image.agent/disable","POST",{}),"token","actor");
  expect(result.status).toBeGreaterThanOrEqual(500);expect((await result.json()).code).toBe("OUTCOME_UNKNOWN");
 });
+
+it("forwards an exact execution-mode intent without inventing activation or an If-Match header",async()=>{
+ const subject={kind:"private_delivery",id:key};
+ const receipt={commandId:"2b9ac69f-bf25-4d28-a85a-8036ea005013",requestKey:key,operation:"set-execution-mode",subject,mode:"full_access",beforeRevision:"0",revision:"1",noop:false,committedAt:"2026-10-12T01:00:00Z",updatedAt:"2026-10-12T01:00:00Z",updatedBy:"actor"};
+ const view={subject,definition:{id:"product.quality.check",version:"2.0.0"},mode:"full_access",revision:"1",policyVersion:"agent-execution-policy-v1",canConfigure:true,updatedAt:receipt.committedAt,updatedBy:"actor",receipt};
+ const fetch=vi.fn().mockResolvedValue(Response.json(view));vi.stubGlobal("fetch",fetch);
+ const path="execution-modes/private_delivery/"+key;
+ const req=request(path,"PUT",{mode:"full_access",expectedRevision:"0"});req.headers.delete("If-Match");
+ const response=await proxyAgentConfiguration(req,"token","actor");
+ expect(response.status).toBe(200);
+ expect(fetch.mock.calls[0][0]).toBe("http://localhost:9000/api/v1/workbench/agents/"+path);
+ expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({mode:"full_access",expectedRevision:"0"});
+ expect(new Headers(fetch.mock.calls[0][1].headers).has("If-Match")).toBe(false);
+ expect(new Headers(fetch.mock.calls[0][1].headers).get("Idempotency-Key")).toBe(key);
+ fetch.mockResolvedValueOnce(Response.json({...view,receipt:{...receipt,requestKey:receipt.commandId}}));
+ const mismatch=request(path,"PUT",{mode:"full_access",expectedRevision:"0"});mismatch.headers.delete("If-Match");
+ const rejected=await proxyAgentConfiguration(mismatch,"token","actor");
+ expect(rejected.status).toBe(502);expect((await rejected.json()).code).toBe("OUTCOME_UNKNOWN");
+ for(const audit of [{updatedAt:undefined,updatedBy:undefined},{updatedAt:undefined,updatedBy:"actor"},{updatedAt:receipt.updatedAt,updatedBy:"other-actor"}]){
+  fetch.mockResolvedValueOnce(Response.json({...view,receipt:{...receipt,...audit}}));
+  const uncertain=request(path,"PUT",{mode:"full_access",expectedRevision:"0"});uncertain.headers.delete("If-Match");
+  const invalid=await proxyAgentConfiguration(uncertain,"token","actor");
+  expect(invalid.status).toBe(502);expect((await invalid.json()).code).toBe("OUTCOME_UNKNOWN");
+ }
+});
+
+it("keeps uncertain mode writes unknown and rejects a mismatched subject response",async()=>{
+ const path="execution-modes/registered_agent/product.title.agent";
+ const fetch=vi.fn().mockResolvedValue(Response.json({subject:{kind:"registered_agent",id:"product.image.agent"},definition:{id:"product.image.agent",version:"v1.0.0"},mode:"default",revision:"0",policyVersion:"agent-execution-policy-v1",canConfigure:true,updatedAt:"0001-01-01T00:00:00Z",updatedBy:""}));vi.stubGlobal("fetch",fetch);
+ expect((await proxyAgentConfiguration(request(path),"token","actor")).status).toBeGreaterThanOrEqual(500);
+ fetch.mockRejectedValue(new Error("response lost"));
+ const req=request(path,"PUT",{mode:"read_only",expectedRevision:"1"});req.headers.delete("If-Match");
+ const response=await proxyAgentConfiguration(req,"token","actor");
+ expect((await response.json()).code).toBe("OUTCOME_UNKNOWN");
+});

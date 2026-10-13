@@ -73,11 +73,18 @@ func (h *Handler) servePrivate(c *gin.Context, scope d.Scope, operation string) 
 			return
 		}
 		command := d.RunCommand{Scope: scope, Key: keys[0], DeliveryID: c.Param("id")}
+		var input struct {
+			RecordID             string `json:"recordId"`
+			ExpectedRevision     int64  `json:"expectedRevision"`
+			ExpectedModeRevision string `json:"expectedModeRevision"`
+		}
 		raw, err := io.ReadAll(http.MaxBytesReader(c.Writer, c.Request.Body, 1<<10))
-		if err != nil || !strings.HasPrefix(strings.TrimSpace(string(raw)), "{") || httproute.DecodeJSON(raw, &command.Input, 1<<10, true) != nil {
+		if err != nil || !strings.HasPrefix(strings.TrimSpace(string(raw)), "{") || httproute.DecodeJSON(raw, &input, 1<<10, true) != nil {
 			failure(c, d.ErrInvalid)
 			return
 		}
+		command.Input = d.DraftSelection{RecordID: input.RecordID, ExpectedRevision: input.ExpectedRevision}
+		command.ExpectedModeRevision = input.ExpectedModeRevision
 		out, e = service.RunQuality(c.Request.Context(), command)
 	default:
 		failure(c, d.ErrInvalid)

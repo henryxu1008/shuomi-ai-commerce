@@ -1,6 +1,9 @@
 package imageagent
 
 import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"math"
 	"strings"
@@ -8,6 +11,25 @@ import (
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestExistingImageSetPlanRetainsItsExactDigestWithoutModeRef(t *testing.T) {
+	plan := setPlanFixture(t)
+	raw, err := json.Marshal(plan)
+	require.NoError(t, err)
+	// The persisted pre-mode plan has no ModeSnapshotRef member. Preserve its
+	// field order as well as values so this is the original hash, not a new one.
+	original := bytes.ReplaceAll(raw, []byte(`"ModeSnapshotRef":{"Kind":"","ID":"","Digest":""},`), nil)
+	var restored Plan
+	require.NoError(t, json.Unmarshal(original, &restored))
+	encoded, err := json.Marshal(restored)
+	require.NoError(t, err)
+	require.JSONEq(t, string(original), string(encoded))
+	require.Equal(t, string(original), string(encoded), "reading old facts cannot change their digest input")
+	expected := sha256.Sum256(original)
+	digest, err := ImageSetPlanDigest(restored)
+	require.NoError(t, err)
+	require.Equal(t, hex.EncodeToString(expected[:]), digest)
+}
 
 func setPlanFixture(t *testing.T) Plan {
 	t.Helper()

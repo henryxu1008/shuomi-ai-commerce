@@ -9,10 +9,25 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"task-processor/internal/agent"
 	d "task-processor/internal/agentcustomization"
 	"testing"
 	"time"
 )
+
+// Protocol fixture only: real mode CAS/member/delivery checks live in the
+// configuration and application integration tests, not this SQL owner test.
+type privateModeFixture struct{}
+
+func (privateModeFixture) PrepareQualityMode(_ context.Context, _ d.Scope, key string, _ d.Delivery, _ d.DraftSelection, expected string) (agent.ModeSnapshotRef, error) {
+	if expected != "0" {
+		return agent.ModeSnapshotRef{}, d.ErrInvalid
+	}
+	return agent.ModeSnapshotRef{Kind: agent.ExecutionModeSnapshotKind, ID: key, Digest: strings.Repeat("a", 64)}, nil
+}
+func (privateModeFixture) CheckQualityMode(context.Context, d.Scope, d.Delivery, agent.ModeSnapshotRef) error {
+	return nil
+}
 
 func TestPrivatePublishAndRunAreAtomicScopedAndIdempotent(t *testing.T) {
 	db, repo := fixture(t)
@@ -76,7 +91,7 @@ func TestPrivatePublishAndRunAreAtomicScopedAndIdempotent(t *testing.T) {
 	require.ErrorIs(t, e, d.ErrForbidden)
 	inspector := &privateDraftFixture{owner: c.Scope, snapshot: testDraft()}
 	s.WithDrafts(inspector)
-	command := d.RunCommand{Scope: c.Scope, Key: uuid.NewString(), DeliveryID: delivery.ID, Input: d.DraftSelection{RecordID: inspector.snapshot.RecordID, ExpectedRevision: 1}}
+	command := d.RunCommand{Scope: c.Scope, Key: uuid.NewString(), DeliveryID: delivery.ID, ExpectedModeRevision: "0", Input: d.DraftSelection{RecordID: inspector.snapshot.RecordID, ExpectedRevision: 1}}
 	copies := make([]d.QualityRun, 8)
 	errs := make([]error, 8)
 	var wg sync.WaitGroup

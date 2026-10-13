@@ -278,6 +278,10 @@ func connectSupplyProductAgent(ctx context.Context, db *gorm.DB, application *su
 	}
 	a.supplyExecution, a.executionSource, a.executionReviews = bridge, gateway, candidate
 	a.executionReviewLookup = repo
+	a.executionPolicyAdoption, err = review.NewPolicyAdoptionService(reader, gateway, repo, a.authorizer, a.titlePolicyScope, a.resolveTitlePolicy)
+	if err != nil {
+		return nil, err
+	}
 	return bridge, nil
 }
 func (s *supplyProductAgent) Optimize(ctx context.Context, op preparation.Operation, item preparation.OperationItem, key string) (string, error) {
@@ -322,7 +326,7 @@ func (s *supplyProductAgent) Optimize(ctx context.Context, op preparation.Operat
 	if err != nil {
 		return "", err
 	}
-	request, err := s.agent.startRequestWithProfile(executionCtx, current.binding, key, "", "", &selected, profile, "")
+	request, err := s.agent.startRequestWithProfile(executionCtx, current.binding, key, "", "", &selected, profile, "", op.Input.TitleModeRevision)
 	if err != nil {
 		return "", err
 	}
@@ -337,11 +341,19 @@ func (s *supplyProductAgent) Optimize(ctx context.Context, op preparation.Operat
 		return "", record.ErrNotReady
 	}
 	input := agentReviewInput(current.binding, run.State.Request.PolicyVersion, run.State.Candidate)
+	input.Execution = agentExecutionProvenance(run.State)
 	input.ContextProvenance, err = agentContextProvenance(run.State)
 	if err != nil {
 		return "", err
 	}
 	view, err := s.agent.executionReviews.CreateFromCandidate(executionCtx, "agent:"+run.State.RunID, input)
+	if err == nil {
+		if adopted, e := s.agent.finishTitleCandidate(executionCtx, run); e != nil {
+			return view.ID, e
+		} else if adopted != nil {
+			view = *adopted
+		}
+	}
 	return view.ID, err
 }
 

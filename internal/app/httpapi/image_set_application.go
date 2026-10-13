@@ -206,6 +206,7 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 		if manual != nil {
 			service.WithManualImages(manual)
 		}
+		service.WithExecutionPolicy(imageSelectionModeAdmission(repository, configuration))
 		return service, nil
 	}
 	selections, err := newSelections(apiRepository)
@@ -221,14 +222,16 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 		return nil, empty, err
 	}
 	gate := imageagent.TenantAllowlistStartGate{Enabled: current.ImageAgent.Admission.Enabled, AllowedTenantIDs: append([]string(nil), current.ImageAgent.Admission.AllowedTenantIDs...)}
-	service, err := imageagent.NewService(apiRepository, workflows, closedImageSetCatalog{}, imageagent.WithOrganizationScope(), imageagent.WithTenantStartGate(gate), imageagent.WithImageSetDependencies(imageagent.ImageSetDependencies{Configuration: configuration, Contexts: contexts, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{Images: 32, Points: 32 * current.ImageAgent.Generation.PointsPerImage, ElapsedSeconds: 3600}}))
+	modeContexts := modeBoundImageContexts{ImageSetContextReader: contexts, source: contexts, configuration: configuration}
+	service, err := imageagent.NewService(apiRepository, workflows, closedImageSetCatalog{}, imageagent.WithOrganizationScope(), imageagent.WithTenantStartGate(gate), imageagent.WithImageSetDependencies(imageagent.ImageSetDependencies{Configuration: configuration, Contexts: modeContexts, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{Images: 32, Points: 32 * current.ImageAgent.Generation.PointsPerImage, ElapsedSeconds: 3600}}))
 	if err != nil {
 		return nil, empty, err
 	}
-	dependencies, err := imageworker.NewImageSetTemporalDependencies(workerConfig, workerDB, resourceDB, imageAuth, contexts, publisher, approvals, logger)
+	dependencies, err := imageworker.NewImageSetTemporalDependencies(workerConfig, workerDB, resourceDB, imageAuth, modeContexts, publisher, approvals, logger)
 	if err != nil {
 		return nil, empty, err
 	}
+	dependencies.ImageSetPolicyAdopter = imageSetPolicyAdopter{repository: workerRepository, configuration: configuration, selections: workerSelections, inventories: inventories}
 	return &fullImageApplication{service: service, readSources: readSources, contexts: contexts, quotes: quotes, selections: selections, inventories: inventories, approvals: approvals, publicURLs: publicURLs, trial: trial, configuration: configuration, recent: recent, gate: gate, rules: rules, manualAvailable: manual != nil}, dependencies, nil
 }
 

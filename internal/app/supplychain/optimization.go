@@ -2,6 +2,8 @@ package supplychainapp
 
 type TitleOptimizationChoice struct {
 	AgentID           string `json:"agentId"`
+	ModeRevision      string `json:"modeRevision"`
+	ExecutionMode     string `json:"executionMode"`
 	TemplateID        string `json:"templateId"`
 	Revision          string `json:"revision"`
 	Name              string `json:"name"`

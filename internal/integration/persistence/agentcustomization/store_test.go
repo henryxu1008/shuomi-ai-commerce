@@ -73,7 +73,7 @@ func TestVerifySchemaRejectsPrivilegedServingAndMissingTables(t *testing.T) {
 func service(t *testing.T, s *Store) *d.Service {
 	v, e := d.NewService(s)
 	require.NoError(t, e)
-	return v
+	return v.WithExecutionModes(privateModeFixture{})
 }
 func TestFirstConcurrentIntentAndScopeIsolation(t *testing.T) {
 	db, store := fixture(t)

@@ -4,15 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"task-processor/internal/agent"
+	"task-processor/internal/product/review"
 	"time"
 )
 
 // TaskReviewState contains only metadata the original Review owner authorizes
 // for this task reader. ID is empty when only task-state access is granted.
 type TaskReviewState struct {
-	State, ID  string
-	Revision   uint64
-	OccurredAt *time.Time
+	PolicyAdoption *review.PolicyProvenance
+	State, ID      string
+	Revision       uint64
+	OccurredAt     *time.Time
 }
 type AuthorizedTaskProjectionReader struct {
 	Authorize  func(context.Context, Scope) error

@@ -13,38 +13,43 @@ import (
 	"task-processor/internal/agent"
 	"task-processor/internal/aiworkbench"
 	"task-processor/internal/authidentity"
+	"task-processor/internal/product/review"
 )
 
 type workbenchTaskView struct {
-	ID                      string                `json:"id"`
-	ConversationID          string                `json:"conversationId"`
-	ProposalID              string                `json:"proposalId"`
-	Title                   string                `json:"title"`
-	GoalSummary             string                `json:"goalSummary"`
-	CreatedAt               time.Time             `json:"createdAt"`
-	ProjectionAvailable     bool                  `json:"projectionAvailable"`
-	State                   aiworkbench.TaskState `json:"state,omitempty"`
-	Reason                  string                `json:"reason,omitempty"`
-	CanStart                bool                  `json:"canStart"`
-	CanReconcile            bool                  `json:"canReconcile"`
-	CanResume               bool                  `json:"canResume"`
-	CanReview               bool                  `json:"canReview"`
-	ProductDetailsAvailable bool                  `json:"productDetailsAvailable"`
-	OperationID             string                `json:"operationId,omitempty"`
-	ProductKey              string                `json:"productKey,omitempty"`
-	TargetPlatform          string                `json:"targetPlatform,omitempty"`
-	AgentRunID              string                `json:"agentRunId,omitempty"`
-	AgentPhase              agent.Phase           `json:"agentPhase,omitempty"`
-	AgentRevision           string                `json:"agentRevision,omitempty"`
-	ProviderID              string                `json:"providerId,omitempty"`
-	ModelID                 string                `json:"modelId,omitempty"`
-	Tokens                  int64                 `json:"tokens,omitempty"`
-	EstimatedCostMicros     int64                 `json:"estimatedCostMicros,omitempty"`
-	Currency                string                `json:"currency,omitempty"`
-	UsageStatus             string                `json:"usageStatus,omitempty"`
-	ReviewID                string                `json:"reviewId,omitempty"`
-	ReviewState             string                `json:"reviewState,omitempty"`
-	Knowledge               *productKnowledgeDTO  `json:"knowledge,omitempty"`
+	ExecutionMode           agent.ExecutionMode      `json:"executionMode,omitempty"`
+	ModeRevision            string                   `json:"modeRevision,omitempty"`
+	ModeSnapshotRef         *agent.ModeSnapshotRef   `json:"modeSnapshotRef,omitempty"`
+	PolicyAdoption          *review.PolicyProvenance `json:"policyAdoption,omitempty"`
+	ID                      string                   `json:"id"`
+	ConversationID          string                   `json:"conversationId"`
+	ProposalID              string                   `json:"proposalId"`
+	Title                   string                   `json:"title"`
+	GoalSummary             string                   `json:"goalSummary"`
+	CreatedAt               time.Time                `json:"createdAt"`
+	ProjectionAvailable     bool                     `json:"projectionAvailable"`
+	State                   aiworkbench.TaskState    `json:"state,omitempty"`
+	Reason                  string                   `json:"reason,omitempty"`
+	CanStart                bool                     `json:"canStart"`
+	CanReconcile            bool                     `json:"canReconcile"`
+	CanResume               bool                     `json:"canResume"`
+	CanReview               bool                     `json:"canReview"`
+	ProductDetailsAvailable bool                     `json:"productDetailsAvailable"`
+	OperationID             string                   `json:"operationId,omitempty"`
+	ProductKey              string                   `json:"productKey,omitempty"`
+	TargetPlatform          string                   `json:"targetPlatform,omitempty"`
+	AgentRunID              string                   `json:"agentRunId,omitempty"`
+	AgentPhase              agent.Phase              `json:"agentPhase,omitempty"`
+	AgentRevision           string                   `json:"agentRevision,omitempty"`
+	ProviderID              string                   `json:"providerId,omitempty"`
+	ModelID                 string                   `json:"modelId,omitempty"`
+	Tokens                  int64                    `json:"tokens,omitempty"`
+	EstimatedCostMicros     int64                    `json:"estimatedCostMicros,omitempty"`
+	Currency                string                   `json:"currency,omitempty"`
+	UsageStatus             string                   `json:"usageStatus,omitempty"`
+	ReviewID                string                   `json:"reviewId,omitempty"`
+	ReviewState             string                   `json:"reviewState,omitempty"`
+	Knowledge               *productKnowledgeDTO     `json:"knowledge,omitempty"`
 }
 
 // A Task may execute only with the title route frozen at T1. Route resolution
@@ -92,8 +97,18 @@ func (a *aiWorkbenchApplication) taskView(ctx context.Context, scope aiworkbench
 	}
 	if projection.Review.ID != "" {
 		view.ReviewID, view.ReviewState = projection.Review.ID, projection.Review.State
+		view.PolicyAdoption = projection.Review.PolicyAdoption
 	}
 	view.ProjectionAvailable, view.State, view.Reason = true, projection.State, projection.Reason
+	frozen, freezeErr := a.agent.configuration.LoadSnapshot(ctx, agent.Scope{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID}, request.ConfigurationSnapshotRef)
+	modeIdentity := agent.ExecutionIdentity{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, MemberID: frozen.MemberID}
+	if freezeErr == nil && request.ModeSnapshotRef.Valid() {
+		mode, modeErr := a.agent.configuration.LoadModeSnapshot(ctx, modeIdentity, request.ModeSnapshotRef)
+		if modeErr == nil {
+			ref := mode.Ref()
+			view.ExecutionMode, view.ModeRevision, view.ModeSnapshotRef = mode.Mode, mode.Revision, &ref
+		}
+	}
 	if _, err := a.agent.freshIdentity(ctx); err == nil {
 		titleReady := true
 		if projection.CanStart || projection.CanResume {
@@ -106,6 +121,15 @@ func (a *aiWorkbenchApplication) taskView(ctx context.Context, scope aiworkbench
 		view.CanReconcile = projection.CanReconcile
 		view.CanResume = projection.CanResume && view.ProductDetailsAvailable && titleReady
 		view.CanReview = projection.CanReview && view.ProductDetailsAvailable && found && agentRunReviewable(run.State)
+		_, modeErr := a.agent.configuration.CheckTitleExecutionMode(ctx, agent.ExecutionIdentity{OrganizationID: identity.TenantID, ActorID: identity.UserID, MemberID: identity.EffectiveMemberID}, request.ConfigurationSnapshotRef, request.ModeSnapshotRef)
+		if freezeErr != nil || modeErr != nil {
+			view.CanStart = false
+			view.CanResume = false
+			view.CanReview = false
+			if view.CanReconcile == false && projection.State != aiworkbench.TaskCompleted {
+				view.Reason = "EXECUTION_MODE_CHANGED"
+			}
+		}
 	}
 	// Knowledge is an independently protected owner projection. Loss of a
 	// Product binding must neither hide readable citations nor authorize them.
@@ -323,13 +347,17 @@ func (a *aiWorkbenchApplication) performTaskAction(ctx context.Context, scope ai
 		if !a.agent.frozenTitleProfileReady(ctx, run.State.Scope, request) {
 			return false, aiworkbench.ErrUnavailable
 		}
-		_, claimAttempted, err := a.agent.runtime.ResumeWithClaimAttempt(ctx, request, input.Revision, input.Feedback)
+		resumed, claimAttempted, err := a.agent.runtime.ResumeWithClaimAttempt(ctx, request, input.Revision, input.Feedback)
+		if err == nil {
+			_, err = a.agent.finishTitleCandidate(ctx, resumed)
+		}
 		return claimAttempted, err
 	}
 	if !agentRunReviewable(run.State) {
 		return false, aiworkbench.ErrRevisionMismatch
 	}
 	reviewInput := agentReviewInput(binding, run.State.Request.PolicyVersion, run.State.Candidate)
+	reviewInput.Execution = agentExecutionProvenance(run.State)
 	reviewInput.ContextProvenance, err = agentContextProvenance(run.State)
 	if err != nil {
 		return false, err

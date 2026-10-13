@@ -66,7 +66,7 @@ it("does not dispatch configuration when the original command cannot be stored",
   fireEvent.change(screen.getByLabelText("模板名称"),{target:{value:"存储失败时不能发送"}});
   vi.spyOn(Storage.prototype,"setItem").mockImplementation(()=>{throw new DOMException("Full","QuotaExceededError");});
   fireEvent.click(screen.getByRole("button",{name:"保存图片模板"}));
-  await screen.findByText("当前能力或依赖不可用，请稍后重试。");
+  await screen.findByRole("heading",{name:"当前能力或依赖不可用，请稍后重试。"});
   expect(fetch.mock.calls.some(([,init])=>init?.method==="POST")).toBe(false);
 });
 

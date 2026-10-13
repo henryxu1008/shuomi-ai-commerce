@@ -14,6 +14,9 @@ import type { z } from "zod";
 import {TitleAgentTemplates} from "./title-agent-templates";
 import type {AgentTemplate} from "@/lib/contracts/agent-configuration";
 import { TitleAgentConfirmation } from "./title-agent-confirmation";
+import { executionModeViewSchema } from "@/lib/contracts/execution-mode";
+import { useConfigurationRead } from "../agents/agent-configuration-hooks";
+import { executionModeLabels } from "../agents/execution-mode-settings";
 import { KnowledgeCitations } from "../task-center/knowledge-citations";
 const reasons: Record<string, string> = { budget_steps: "已达到步骤上限", budget_model_calls: "已达到模型调用上限", budget_tokens: "剩余 token 预算不足", budget_cost: "剩余费用预算不足", budget_runtime: "已达到运行时限", usage_unknown: "用量尚未确认，预留额度仍保留", model_outcome_unknown: "模型结果尚未确认，请勿重新生成", unauthorized: "当前权限不可用", dependency_unavailable: "模型配置、计费策略或依赖尚未就绪", invalid_model_output: "模型输出格式无效", repair_limit: "两次修复后仍未通过校验", audit_unavailable: "调用记录保存失败", tool_error: "证据工具读取失败" };
 const errors: Record<string, string> = { PRODUCT_AGENT_UNAVAILABLE: "当前企业尚未开放标题诊断，或文本模型配置尚未就绪。", OUTCOME_UNKNOWN: "请求结果尚未确认。请保留本次编号，读取当前结果，不要重新生成。", AGENT_CONFLICT: "运行状态已经变化，请读取当前结果。", CONFIGURATION_CHANGED:"配置准入已变化，请核实当前配置与原运行状态。",AGENT_DEFINITION_UNAVAILABLE:"当前执行引用的智能体版本不可用，请核实当前版本与原运行状态。",AGENT_NOT_ENABLED:"当前企业智能体已停用，请由管理员重新启用。",TEMPLATE_ARCHIVED:"所选模板已归档，请核实当前结果和模板。",IDEMPOTENCY_CONFLICT:"本次编号已绑定其他配置，请保留编号并读取当前结果。", FORBIDDEN: "当前身份没有操作权限。", ORGANIZATION_ACCESS_REVOKED: "当前企业权限已撤销。", DEPENDENCY_UNAVAILABLE: "暂时无法读取结果，请稍后用同一编号查询。" };
@@ -23,10 +26,10 @@ function restoredStart(params:{get:(name:string)=>string|null},userId:string,org
     if(!isAcquisitionUUID(params.get("agent_key")??"")||params.get("agent_actor")!==userId||params.get("agent_org")!==organizationId)return null;
     const baseId=params.get("agent_knowledge_base");
     const templateId=params.get("agent_template"),revision=params.get("agent_template_version");
-    const parsed=agentStartRequestSchema.safeParse({...(templateId!==null||revision!==null?{templateSelection:{templateId,revision}}:{}),targetPlatform:params.get("agent_platform"),...(baseId!==null?{knowledgeSelection:{knowledgeBaseId:baseId}}:{})});
+    const parsed=agentStartRequestSchema.safeParse({expectedModeRevision:params.get("agent_mode_revision"),...(templateId!==null||revision!==null?{templateSelection:{templateId,revision}}:{}),targetPlatform:params.get("agent_platform"),...(baseId!==null?{knowledgeSelection:{knowledgeBaseId:baseId}}:{})});
     return parsed.success?parsed.data:null;
 }
-const intentParams=["agent_key","agent_platform","agent_knowledge_base","agent_actor","agent_org","agent_template","agent_template_version"];
+const intentParams=["agent_key","agent_platform","agent_knowledge_base","agent_actor","agent_org","agent_template","agent_template_version","agent_mode_revision"];
 export function ProductAgentPanel({ enabled, knowledgeAvailable=false, operationId, productKey, catalogVersion }: {
     enabled: boolean;
     knowledgeAvailable?:boolean;
@@ -54,6 +57,8 @@ function ScopedAgentPanel({ userId, organizationId, operationId, productKey, cat
     initialStart:StartIntent|null;
 }) {
     const context = useWorkbenchContext();
+    const [modeNonce,setModeNonce]=useState(0);
+    const executionMode=useConfigurationRead({userId,organizationId},"execution-modes/registered_agent/product.title.agent",executionModeViewSchema,modeNonce);
     const [key, setKey] = useState(isAcquisitionUUID(initialKey) ? initialKey : "");
     // Public normalized command only; protected Knowledge payload and authority
     // stay with the server. Explicit replay never replaces an uncertain key.
@@ -81,7 +86,7 @@ function ScopedAgentPanel({ userId, organizationId, operationId, productKey, cat
     useEffect(() => { active.current = true; return () => { active.current = false; abort.current?.abort(); }; }, []);
     useEffect(() => context.registerOrganizationSwitchGuard(() => !inFlight.current), [context]);
     async function execute(action: "start" | "read" | "resume" | "review",knowledgeBaseId?:string) {
-        const start=action==="start"?intent??agentStartRequestSchema.safeParse({targetPlatform:platform,...(template?{templateSelection:{templateId:template.templateId,revision:template.version}}:{}),...(knowledgeBaseId?{knowledgeSelection:{knowledgeBaseId}}:{})}).data:null;
+        const start=action==="start"?intent??agentStartRequestSchema.safeParse({expectedModeRevision:executionMode.data?.revision,targetPlatform:platform,...(template?{templateSelection:{templateId:template.templateId,revision:template.version}}:{}),...(knowledgeBaseId?{knowledgeSelection:{knowledgeBaseId}}:{})}).data:null;
         if (inFlight.current || !active.current || action === "start" && !start)
             return;
         const freshStart=action==="start"&&!key;
@@ -92,6 +97,7 @@ function ScopedAgentPanel({ userId, organizationId, operationId, productKey, cat
             url.searchParams.set("agent_key", requestKey);
             if(start){
                 setIntent(start);url.searchParams.set("agent_platform",start.targetPlatform);
+                url.searchParams.set("agent_mode_revision",start.expectedModeRevision);
                 url.searchParams.set("agent_actor",userId);url.searchParams.set("agent_org",organizationId);
                 url.searchParams.delete("agent_template");url.searchParams.delete("agent_template_version");
                 if(start.templateSelection){url.searchParams.set("agent_template",start.templateSelection.templateId);url.searchParams.set("agent_template_version",start.templateSelection.revision)}
@@ -107,7 +113,7 @@ function ScopedAgentPanel({ userId, organizationId, operationId, productKey, cat
         setFailure("");
         setReconfirmable(false);
         try {
-            const next = await requestProductAgent(action, operationId, requestKey, { userId, organizationId }, controller.signal, result?.revision, feedback, start?.targetPlatform??platform,start?.knowledgeSelection?.knowledgeBaseId,start?.templateSelection);
+            const next = await requestProductAgent(action, operationId, requestKey, { userId, organizationId }, controller.signal, result?.revision, feedback, start?.targetPlatform??platform,start?.knowledgeSelection?.knowledgeBaseId,start?.templateSelection,start?.expectedModeRevision);
             if (!active.current)
                 return;
             if ("proposalId" in next) {
@@ -117,6 +123,7 @@ function ScopedAgentPanel({ userId, organizationId, operationId, productKey, cat
             if (next.productKey !== productKey || next.catalogVersion !== catalogVersion || platform && next.targetPlatform !== platform)
                 throw new ProductAgentError("AGENT_CONFLICT");
             setPlatform(next.targetPlatform);
+            if(next.reviewId)setProposal(next.reviewId);
             setResult({...next,knowledgeGeneration:generation});
         }
         catch (error) {
@@ -139,13 +146,14 @@ function ScopedAgentPanel({ userId, organizationId, operationId, productKey, cat
         }
     }
     return <Card className="space-y-3 p-5"><h2 className="text-lg font-semibold">标题诊断与补全</h2>
-  <p>从当前已保存版本读取证据，生成标题建议。最多修复两次；提交后仍需人工审核，不会自动修改商品。</p>
+  <p>从当前已保存版本读取证据，生成标题建议。最多修复两次；按本次确认的权限模式处理本地采用。</p>
   {!key ? <><TitleAgentTemplates key={authorizationKey} scope={{userId,organizationId}} onReady={setTemplateReady} onChoose={value=>{setTemplate(value);if(value)setPlatform(value.targetPlatform)}}/><label htmlFor="agent-platform">素材查询平台</label><select id="agent-platform" className="block rounded-lg border p-2" value={platform} onChange={event => setPlatform(event.target.value)} disabled={busy}><option value="">请选择平台</option><option value="shein">SHEIN</option><option value="temu">Temu</option><option value="amazon">Amazon</option></select><p className="text-sm">用于读取该平台已批准的素材；本次诊断不评估平台发布规则。</p><Button disabled={busy || !platform || !templateReady} onClick={() => setConfirming(true)}>生成标题建议</Button></> : <><p className="break-all text-sm">本次编号：{key}</p><Button variant="outline" disabled={busy} onClick={() => void execute("read")}>读取当前结果</Button>{intent&&!result&&<><p className="text-sm">原请求平台：{intent.targetPlatform}；{intent.knowledgeSelection?`知识库编号：${intent.knowledgeSelection.knowledgeBaseId}`:"未选择企业知识"}。恢复将沿用同一编号和选择；服务端已有运行时只返回该运行，不会重新生成。</p><Button variant="outline" disabled={busy} onClick={()=>void execute("start")}>使用原请求核实启动</Button></>}</>}
-  {confirming&&!key&&<TitleAgentConfirmation key={authorizationKey} scope={{userId,organizationId}} organization={context.effectiveOrganization?.name||organizationId} platform={platform} template={template??undefined} knowledgeAvailable={knowledgeAvailable} knowledgeReadable={knowledgeReadable} onCancel={()=>setConfirming(false)} onConfirm={baseId=>{setConfirming(false);void execute("start",baseId)}}/>}
+  {confirming&&!key&&<TitleAgentConfirmation key={authorizationKey} executionMode={executionMode.data} scope={{userId,organizationId}} organization={context.effectiveOrganization?.name||organizationId} platform={platform} template={template??undefined} knowledgeAvailable={knowledgeAvailable} knowledgeReadable={knowledgeReadable} onCancel={()=>setConfirming(false)} onConfirm={baseId=>{setConfirming(false);void execute("start",baseId)}}/>}
+  {result?<p>本次权限：{result.executionMode?`${executionModeLabels[result.executionMode]} · 模式版本 ${result.modeRevision}`:"历史记录未冻结权限模式，新采用不可用"}{result.policyAdoption?" · 已按策略采用，未逐项人工审阅":""}</p>:null}
   {busy && <p role="status">正在处理，请保持页面打开。离开页面可能使已发送的调用结果未知；返回后请用本次编号读取，勿重新生成。</p>}
   {failure && <p role="alert">{reconfirmable?`${errors[failure]} 本次未领取执行。请明确重新确认配置，再使用新编号生成。`:key&&knowledgeStartErrors[failure]?"知识当前不可用，已保留原编号；已有运行结果尚需核实，请勿换编号重新生成。":knowledgeStartErrors[failure] ?? errors[failure] ?? "请求未完成，请核对当前身份和企业。"}</p>}
-  {reconfirmable&&<Button variant="outline" disabled={busy} onClick={()=>{if(inFlight.current)return;setKey("");setIntent(null);setTemplate(null);setTemplateReady(false);setPlatform("");setFailure("");setReconfirmable(false);const url=new URL(window.location.href);for(const name of intentParams)url.searchParams.delete(name);window.history.replaceState(null,"",url)}}>重新确认配置</Button>}
-  {result && <div className="space-y-2">{result.templateSelection&&<p>采用模板版本：{result.templateSelection.revision} · {result.templateSelection.templateId}</p>}<p>素材查询平台：{{ shein: "SHEIN", temu: "Temu", amazon: "Amazon" }[result.targetPlatform]}</p><p>状态：{result.phase === "human_review_required" ? (result.canSubmitReview ? "候选已通过校验，等待人工审核" : "候选未通过校验，不能提交人工审核") : result.phase === "interrupted" ? "需要补充说明" : result.phase === "running" ? "运行记录尚未完成，不能重复发送" : "已停止"}</p>
+  {reconfirmable&&<Button variant="outline" disabled={busy} onClick={()=>{if(inFlight.current)return;setModeNonce(v=>v+1);setKey("");setIntent(null);setTemplate(null);setTemplateReady(false);setPlatform("");setFailure("");setReconfirmable(false);const url=new URL(window.location.href);for(const name of intentParams)url.searchParams.delete(name);window.history.replaceState(null,"",url)}}>重新确认配置</Button>}
+  {result && <div className="space-y-2">{result.templateSelection&&<p>采用模板版本：{result.templateSelection.revision} · {result.templateSelection.templateId}</p>}<p>素材查询平台：{{ shein: "SHEIN", temu: "Temu", amazon: "Amazon" }[result.targetPlatform]}</p><p>状态：{result.policyAdoption?"已按策略采用，未经逐项人工审阅":result.phase === "human_review_required" ? (result.canSubmitReview ? "候选已通过校验，等待人工审核" : "候选未通过校验，不能提交人工审核") : result.phase === "interrupted" ? "需要补充说明" : result.phase === "running" ? "运行记录尚未完成，不能重复发送" : "已停止"}</p>
    {result.stopReason && <p>{reasons[result.stopReason] ?? "本次运行已停止"}</p>}
    {result.candidate.Changes?.map((change, index) => <div key={index}><p>{change.Field}：{change.Value}</p><p className="text-sm">证据：{change.EvidenceIDs?.join("、") || "未提供"}</p></div>)}
    <KnowledgeCitations knowledge={result.knowledge&&(!knowledgeReadable||result.knowledgeGeneration!==generation)?{status:"unavailable",originAgentRunId:result.knowledge.originAgentRunId,citations:[]}:result.knowledge}/>

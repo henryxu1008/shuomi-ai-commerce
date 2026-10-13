@@ -71,6 +71,12 @@ type ApprovedImageSetPublisher interface {
 	PublishApprovedImageSet(context.Context, PublishImageSetInput) (PublicationAcknowledgement, error)
 }
 
+// Policy preparation is read-only and returns the exact owner-validated
+// command. Nil means this result remains on the original human path.
+type ImageSetPolicyAdopter interface {
+	PreparePolicyAdoption(context.Context, ExecutionIdentity) (*productasset.ImageSetCommand, error)
+}
+
 type PublishImageSetInput struct {
 	RunID, TenantID, UserID string
 	PlanRevision            int64

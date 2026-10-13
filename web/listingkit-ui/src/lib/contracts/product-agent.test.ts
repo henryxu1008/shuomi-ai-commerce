@@ -4,6 +4,7 @@ import { agentResultSchema } from "./product-agent";
 it("accepts backend-admitted candidate collections within the aggregate response limit", () => {
   const id = "11111111-1111-4111-8111-111111111111";
   const response = {
+    executionMode:"default",modeRevision:"0",modeSnapshotRef:{Kind:"agent-execution-mode-v1",ID:id,Digest:"a".repeat(64)},
     runId:id, requestKey:id, operationId:id, productKey:"product", catalogVersion:"1", publicationId:"publication", targetPlatform:"shein",
     phase:"human_review_required", revision:"2", humanReviewRequired:true, canSubmitReview:true,
     candidate:{Changes:[{Field:"title",Value:"Valid title",EvidenceIDs:Array.from({length:40},()=>"source")}],Warnings:Array.from({length:40},()=>({Code:"warn",Field:"title",Message:"Preserved model warning",Metadata:null})),Rejections:[]},

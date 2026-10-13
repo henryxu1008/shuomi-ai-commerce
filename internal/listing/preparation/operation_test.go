@@ -17,6 +17,8 @@ func TestOptimizationPinsTemplateRevisionAndConfirmedQuote(t *testing.T) {
 	require.ErrorIs(t, input.Validate(), ErrInvalid)
 	input.TitleTemplateRevision = "1"
 	input.TitleQuoteHash = collection.Digest("quote")
+	require.ErrorIs(t, input.Validate(), ErrInvalid, "mode revision must be confirmed with the quote")
+	input.TitleModeRevision = "0"
 	require.NoError(t, input.Validate())
 	input.TitleTemplateRevision = "01"
 	require.ErrorIs(t, input.Validate(), ErrInvalid)

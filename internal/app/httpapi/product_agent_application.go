@@ -67,29 +67,31 @@ type ProductAgentInvocationLedger interface {
 }
 
 type productAgentApplication struct {
-	configuration         *configstore.Store
-	model                 *texteino.AgentTextModel
-	selectTitleProfile    func(context.Context, string) (aicapability.ModelProfile, error)
-	titleRoutes           *governed.OrganizationRouteResolver
-	definition            commercetool.AgentDefinition
-	context               *knowledge.ContextService
-	runtime               *einoruntime.Runtime
-	store                 *agentstore.Store
-	reviews               *review.Service
-	receipts              sourcing.PublishedAcquisitionReader
-	resolver              organizationIdentityResolver
-	authorizer            *authz.ListingKitAuthorizer
-	config                ProductAgentDependencies
-	canonical             *canonicalinspect.Invoker
-	sources               *sourceevidenceinspect.Invoker
-	assets                *assetinspect.Invoker
-	readiness             *readinessinspect.Invoker
-	points                *orgresourceadapter.GormModelInvocationRepository
-	textAdmission         *governed.BoundedAdmission
-	supplyExecution       *supplyProductAgent
-	executionSource       *sourcing.ExecutionPublicationGateway
-	executionReviews      *review.ExecutionCandidateService
-	executionReviewLookup review.AppliedPublicationLookup
+	configuration           *configstore.Store
+	model                   *texteino.AgentTextModel
+	selectTitleProfile      func(context.Context, string) (aicapability.ModelProfile, error)
+	titleRoutes             *governed.OrganizationRouteResolver
+	definition              commercetool.AgentDefinition
+	context                 *knowledge.ContextService
+	runtime                 *einoruntime.Runtime
+	store                   *agentstore.Store
+	reviews                 *review.Service
+	policyAdoption          *review.PolicyAdoptionService
+	executionPolicyAdoption *review.PolicyAdoptionService
+	receipts                sourcing.PublishedAcquisitionReader
+	resolver                organizationIdentityResolver
+	authorizer              *authz.ListingKitAuthorizer
+	config                  ProductAgentDependencies
+	canonical               *canonicalinspect.Invoker
+	sources                 *sourceevidenceinspect.Invoker
+	assets                  *assetinspect.Invoker
+	readiness               *readinessinspect.Invoker
+	points                  *orgresourceadapter.GormModelInvocationRepository
+	textAdmission           *governed.BoundedAdmission
+	supplyExecution         *supplyProductAgent
+	executionSource         *sourcing.ExecutionPublicationGateway
+	executionReviews        *review.ExecutionCandidateService
+	executionReviewLookup   review.AppliedPublicationLookup
 }
 
 func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, receipts sourcing.PublishedAcquisitionReader, resolver organizationIdentityResolver, auth *authz.ListingKitAuthorizer, cfg ProductAgentDependencies) (*productAgentApplication, error) {
@@ -181,6 +183,11 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 	if err != nil {
 		return nil, err
 	}
+	a.reviews.WithExecutionPolicy(a.resolveTitlePolicy)
+	a.policyAdoption, err = review.NewPolicyAdoptionService(reader, sources, repo, auth, a.titlePolicyScope, a.resolveTitlePolicy)
+	if err != nil {
+		return nil, err
+	}
 	definition, definitions := productTitleRegistration()
 	fresh, err := commercetoolauth.NewFreshWorkbenchPrincipalResolver(commercetoolauth.FreshOrganizationResolverFunc(func(ctx context.Context, _ commercetoolauth.OrganizationRequest) (authidentity.AuthenticatedIdentity, error) {
 		return a.freshIdentity(ctx)
@@ -252,7 +259,7 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 			return agent.Limits{}, agentconfig.ErrDefinition
 		}
 		return a.config.Limits, nil
-	})
+	}, a.currentModeIdentity)
 	if err != nil {
 		return nil, err
 	}

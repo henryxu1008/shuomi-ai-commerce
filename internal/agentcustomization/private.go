@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"task-processor/internal/agent"
 	"time"
 )
 
@@ -84,17 +85,21 @@ type RecordedReport struct {
 	} `json:"findings"`
 }
 type QualityRun struct {
-	ID             string          `json:"id"`
-	DeliveryID     string          `json:"deliveryId"`
-	OrganizationID string          `json:"organizationId"`
-	ActorID        string          `json:"actorId"`
-	Key            string          `json:"key"`
-	Definition     string          `json:"definition"`
-	Version        string          `json:"version"`
-	Input          *RecordedInput  `json:"input,omitempty"`
-	Report         *RecordedReport `json:"report,omitempty"`
-	Draft          *DraftSnapshot  `json:"draft,omitempty"`
-	CreatedAt      time.Time       `json:"createdAt"`
+	// Read-only metadata resolved from the immutable mode owner, never authority.
+	ExecutionMode   agent.ExecutionMode   `json:"executionMode,omitempty"`
+	ModeRevision    string                `json:"modeRevision,omitempty"`
+	ModeSnapshotRef agent.ModeSnapshotRef `json:"modeSnapshotRef,omitzero"`
+	ID              string                `json:"id"`
+	DeliveryID      string                `json:"deliveryId"`
+	OrganizationID  string                `json:"organizationId"`
+	ActorID         string                `json:"actorId"`
+	Key             string                `json:"key"`
+	Definition      string                `json:"definition"`
+	Version         string                `json:"version"`
+	Input           *RecordedInput        `json:"input,omitempty"`
+	Report          *RecordedReport       `json:"report,omitempty"`
+	Draft           *DraftSnapshot        `json:"draft,omitempty"`
+	CreatedAt       time.Time             `json:"createdAt"`
 }
 type QualitySummary struct {
 	ID             string        `json:"id"`
@@ -116,10 +121,37 @@ type SavedQualityPage struct {
 	NextCursor string
 }
 type RunCommand struct {
+	ExpectedModeRevision         string
+	ModeSnapshotRef              agent.ModeSnapshotRef
 	Scope                        Scope
 	Key, DeliveryID, Fingerprint string
 	Input                        DraftSelection
 }
+
+type QualityExecutionMode interface {
+	PrepareQualityMode(context.Context, Scope, string, Delivery, DraftSelection, string) (agent.ModeSnapshotRef, error)
+	CheckQualityMode(context.Context, Scope, Delivery, agent.ModeSnapshotRef) error
+}
+
+type QualityExecutionModeReader interface {
+	ReadQualityMode(context.Context, Scope, QualityRun) (agent.ExecutionMode, string, error)
+}
+
+func (s *Service) projectQualityMode(ctx context.Context, scope Scope, run QualityRun) QualityRun {
+	run.ExecutionMode, run.ModeRevision = "", ""
+	if reader, ok := s.executionMode.(QualityExecutionModeReader); ok && run.ModeSnapshotRef.Valid() {
+		if mode, revision, err := reader.ReadQualityMode(ctx, scope, run); err == nil {
+			run.ExecutionMode, run.ModeRevision = mode, revision
+		}
+	}
+	return run
+}
+
+func (s *Service) WithExecutionModes(mode QualityExecutionMode) *Service {
+	s.executionMode = mode
+	return s
+}
+
 type PrivateRepository interface {
 	Deliveries(context.Context, Scope, string) (DeliveryPage, error)
 	Delivery(context.Context, Scope, string) (Delivery, error)
@@ -170,6 +202,23 @@ func (s *Service) RunQuality(ctx context.Context, c RunCommand) (QualityRun, err
 	if !UUID(c.Key) || !UUID(c.DeliveryID) || !UUID(c.Input.RecordID) || c.Input.ExpectedRevision < 1 || c.Input.ExpectedRevision > 9007199254740991 {
 		return QualityRun{}, ErrInvalid
 	}
+	if s.executionMode == nil {
+		return QualityRun{}, ErrUnavailable
+	}
+	delivery, e := s.Delivery(ctx, c.Scope, c.DeliveryID)
+	if e != nil {
+		return QualityRun{}, e
+	}
+	if delivery.Definition != QualityDefinition || delivery.Version != QualityVersion {
+		return QualityRun{}, ErrConflict
+	}
+	c.ModeSnapshotRef, e = s.executionMode.PrepareQualityMode(ctx, c.Scope, c.Key, delivery, c.Input, c.ExpectedModeRevision)
+	if e != nil {
+		return QualityRun{}, e
+	}
+	if !c.ModeSnapshotRef.Valid() {
+		return QualityRun{}, ErrUnavailable
+	}
 	c.Fingerprint = ""
 	raw, e := json.Marshal(struct {
 		Command             RunCommand
@@ -184,7 +233,14 @@ func (s *Service) RunQuality(ctx context.Context, c RunCommand) (QualityRun, err
 	if e != nil {
 		return QualityRun{}, e
 	}
-	return r.RunQuality(ctx, c, func(ctx context.Context, head bool) (DraftSnapshot, error) {
+	run, err := r.RunQuality(ctx, c, func(ctx context.Context, head bool) (DraftSnapshot, error) {
+		// Only a new report consumes current execution authority. A committed
+		// report replays its original mode while rechecking the source below.
+		if head {
+			if e := s.executionMode.CheckQualityMode(ctx, c.Scope, delivery, c.ModeSnapshotRef); e != nil {
+				return DraftSnapshot{}, e
+			}
+		}
 		if s.drafts == nil {
 			return DraftSnapshot{}, ErrUnavailable
 		}
@@ -194,6 +250,10 @@ func (s *Service) RunQuality(ctx context.Context, c RunCommand) (QualityRun, err
 		}
 		return v, e
 	})
+	if err != nil {
+		return QualityRun{}, err
+	}
+	return s.projectQualityMode(ctx, c.Scope, run), nil
 }
 func ValidDraft(v DraftSnapshot) bool {
 	qualified := v.Platform == "shein" && v.Site == "shein-us" || v.Platform == "temu" && (v.Site == "temu-local" || v.Site == "temu-supplier") && !v.OfflineTrial
@@ -264,7 +324,7 @@ func (s *Service) QualityRun(ctx context.Context, scope Scope, delivery, id stri
 	if e = s.authorizeRun(ctx, scope, v); e != nil {
 		return QualityRun{}, e
 	}
-	return v, nil
+	return s.projectQualityMode(ctx, scope, v), nil
 }
 func (s *Service) QualityRuns(ctx context.Context, scope Scope, id, cursor string) (QualityRunPage, error) {
 	out := QualityRunPage{Items: []QualitySummary{}}

@@ -283,7 +283,7 @@ func testSupplyAgentOwners(t *testing.T, mode string, f *acquisitionHTTPFixture,
 	require.NoError(t, err)
 	profile, config, choice, err := bridge.titleSelection(ctx, agent.Scope{OrganizationID: "B", ActorID: "admin"}, agentconfig.TemplateRef{TemplateID: template.TemplateID, Revision: "1"})
 	require.NoError(t, err)
-	operation, err := operations.Create(actor, uuid.NewString(), preparation.OperationInput{PreparationID: transferred.Preparation.ID, ExpectedRevision: 1, StoreID: storeID, Action: preparation.OperationOptimize, TitleTemplateID: template.TemplateID, TitleTemplateRevision: "1", TitleQuoteHash: bridge.titleQuote(agent.Scope{OrganizationID: "B", ActorID: "admin"}, profile, config, choice)})
+	operation, err := operations.Create(actor, uuid.NewString(), preparation.OperationInput{PreparationID: transferred.Preparation.ID, ExpectedRevision: 1, StoreID: storeID, Action: preparation.OperationOptimize, TitleTemplateID: template.TemplateID, TitleTemplateRevision: "1", TitleModeRevision: "0", TitleQuoteHash: bridge.titleQuote(agent.Scope{OrganizationID: "B", ActorID: "admin"}, profile, config, choice)})
 	require.NoError(t, err)
 	items, err := operations.ListItems(actor, operation.Operation.ID, collection.Query{Limit: 100})
 	require.NoError(t, err)

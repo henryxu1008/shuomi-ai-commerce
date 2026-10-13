@@ -51,7 +51,7 @@ it("keeps supply writes unavailable without the management grant",async()=>{
 });
 
 it("confirms full-batch retail points and pins the exact selected title template quote",async()=>{
- state.options.mockResolvedValue({titles:[{agentId:"product.title.agent",templateId:source,revision:"3",name:"美国站标题",quoteHash:"a".repeat(64),maximumPoints:10,priceVersion:"price-1",maximumCostMicros:1000,currency:"USD"}]});
+ state.options.mockResolvedValue({titles:[{agentId:"product.title.agent",modeRevision:"0",executionMode:"default",templateId:source,revision:"3",name:"美国站标题",quoteHash:"a".repeat(64),maximumPoints:10,priceVersion:"price-1",maximumCostMicros:1000,currency:"USD"}]});
  render(<SupplyPage initialPreparation={prep}/>);await screen.findByText("完整批次");
  await userEvent.selectOptions(await screen.findByLabelText("目标店铺"),store);
  await userEvent.click(screen.getByLabelText("开启智能体优化"));
@@ -60,7 +60,7 @@ it("confirms full-batch retail points and pins the exact selected title template
  expect(screen.getByText(/本次预算上限 2050 积分/)).toBeInTheDocument();
  await userEvent.click(screen.getByRole("button",{name:"确认智能体优化"}));
  await waitFor(()=>expect(state.write).toHaveBeenCalledOnce());
- expect(state.write.mock.calls[0][0].command).toEqual({preparationId:prep,expectedRevision:1,storeId:store,action:"optimize",titleTemplateId:source,titleTemplateRevision:"3",titleQuoteHash:"a".repeat(64)});
+ expect(state.write.mock.calls[0][0].command).toEqual({preparationId:prep,expectedRevision:1,storeId:store,action:"optimize",titleTemplateId:source,titleTemplateRevision:"3",titleQuoteHash:"a".repeat(64),titleModeRevision:"0"});
 });
 
 it("opens the requested Figma waiting stage and disables automatic adaptation when its rule is off",async()=>{

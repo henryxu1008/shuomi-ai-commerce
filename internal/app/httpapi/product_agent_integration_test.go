@@ -84,12 +84,12 @@ func TestProductAgentAcquisitionToReviewUsesRealOwners(t *testing.T) {
 
 func testProductAgentOwners(t *testing.T, mode string) {
 	f := newAcquisitionHTTPFixture(t)
-	fixtureActor := "operator"
-	if strings.HasPrefix(mode, "supply ") {
+	fixtureActor := "admin"
+	if strings.HasPrefix(mode, "supply ") || strings.HasPrefix(mode, "permission ") {
 		fixtureActor = "admin"
 	}
 	googleTitle := mode == "google knowledge"
-	canonicalMode := mode == "observed canonical" || mode == "configuration" || mode == "knowledge" || googleTitle || strings.HasPrefix(mode, "supply ")
+	canonicalMode := mode == "observed canonical" || mode == "configuration" || mode == "knowledge" || googleTitle || strings.HasPrefix(mode, "supply ") || strings.HasPrefix(mode, "permission ")
 	var kf *consumerKnowledgeFixture
 	if mode == "knowledge" || googleTitle {
 		kf = newConsumerKnowledgeFixture(t, f.owner)
@@ -243,29 +243,38 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	app := buildIsolatedApplicationHTTPServer(module.(productAgentModule).routes, deps, 2*time.Minute)
 	server := httptest.NewServer(app.Handler)
 	defer server.Close()
+	if strings.HasPrefix(mode, "permission ") {
+		selectedMode := strings.TrimPrefix(mode, "permission ")
+		if strings.HasPrefix(selectedMode, "recovery ") {
+			testWorkbenchTitlePolicyRecovery(t, strings.TrimPrefix(selectedMode, "recovery "), op.OperationID, configuration, module.(productAgentModule).application, server, &calls)
+		} else {
+			testTitlePermissionMode(t, selectedMode, f, op.OperationID, configuration, module.(productAgentModule).application, server, &calls)
+		}
+		return
+	}
 	key := uuid.NewString()
 	path := productAcquisitionBase + "/" + op.OperationID + "/product-agent/runs"
-	startBody := `{"targetPlatform":"shein"}`
+	startBody := `{"expectedModeRevision":"0","targetPlatform":"shein"}`
 	var selectedTemplate agentconfig.Receipt
 	if mode == "configuration" {
 		selectedTemplate, err = configuration.Execute(context.Background(), agentconfig.Command{Scope: agent.Scope{OrganizationID: "B", ActorID: "admin"}, Key: uuid.NewString(), AgentID: "product.title.agent", Operation: "create-template", Input: agentconfig.TemplateInput{Name: "Exact v1", TargetPlatform: "amazon", DefaultKnowledgeBaseID: uuid.NewString()}})
 		require.NoError(t, err)
-		startBody = `{"targetPlatform":"shein","templateSelection":{"templateId":"` + selectedTemplate.TemplateID + `","revision":"1"}}`
+		startBody = `{"expectedModeRevision":"0","targetPlatform":"shein","templateSelection":{"templateId":"` + selectedTemplate.TemplateID + `","revision":"1"}}`
 	}
 	var originalBundle struct{ ID, Digest string }
 	if kf != nil {
-		startBody = `{"targetPlatform":"shein","knowledgeSelection":{"knowledgeBaseId":"` + kf.base.ID + `"}}`
-		for _, body := range []string{`{"targetPlatform":"shein","knowledgeSelection":null}`, `{"targetPlatform":"shein","knowledgeSelection":{"knowledgeBaseId":"` + kf.base.ID + `","revisionId":"` + kf.source.CurrentReadableRevision.ID + `"}}`} {
-			code, raw, e := acquisitionHTTPRequest(server, "POST", path, "operator", "B", uuid.NewString(), body)
+		startBody = `{"expectedModeRevision":"0","targetPlatform":"shein","knowledgeSelection":{"knowledgeBaseId":"` + kf.base.ID + `"}}`
+		for _, body := range []string{`{"expectedModeRevision":"0","targetPlatform":"shein","knowledgeSelection":null}`, `{"expectedModeRevision":"0","targetPlatform":"shein","knowledgeSelection":{"knowledgeBaseId":"` + kf.base.ID + `","revisionId":"` + kf.source.CurrentReadableRevision.ID + `"}}`} {
+			code, raw, e := acquisitionHTTPRequest(server, "POST", path, "admin", "B", uuid.NewString(), body)
 			require.NoError(t, e)
 			require.Equal(t, 400, code, string(raw))
 		}
 		oversizedKey := uuid.NewString()
-		code, raw, e := acquisitionHTTPRequest(server, "POST", path, "operator", "B", oversizedKey, `{"targetPlatform":"shein","knowledgeSelection":{"knowledgeBaseId":"`+kf.oversizedBase()+`"}}`)
+		code, raw, e := acquisitionHTTPRequest(server, "POST", path, "admin", "B", oversizedKey, `{"expectedModeRevision":"0","targetPlatform":"shein","knowledgeSelection":{"knowledgeBaseId":"`+kf.oversizedBase()+`"}}`)
 		require.NoError(t, e)
 		require.Equal(t, 409, code, string(raw))
 		require.Contains(t, string(raw), knowledge.ErrContextTooLarge.Error())
-		code, raw, e = acquisitionHTTPRequest(server, "POST", path, "operator", "B", uuid.NewString(), `{"targetPlatform":"shein","knowledgeSelection":{"knowledgeBaseId":"`+kf.escapedBase()+`"}}`)
+		code, raw, e = acquisitionHTTPRequest(server, "POST", path, "admin", "B", uuid.NewString(), `{"expectedModeRevision":"0","targetPlatform":"shein","knowledgeSelection":{"knowledgeBaseId":"`+kf.escapedBase()+`"}}`)
 		require.NoError(t, e)
 		require.Equal(t, 409, code, string(raw))
 		require.Contains(t, string(raw), knowledge.ErrContextTooLarge.Error(), "JSON re-escaping must reject before Agent Claim")
@@ -285,7 +294,7 @@ func testProductAgentOwners(t *testing.T, mode string) {
 				tx.AddError(errors.New("isolated claim failure"))
 			}
 		}))
-		code, raw, e = acquisitionHTTPRequest(server, "POST", path, "operator", "B", key, startBody)
+		code, raw, e = acquisitionHTTPRequest(server, "POST", path, "admin", "B", key, startBody)
 		require.NoError(t, e)
 		require.Equal(t, 503, code, string(raw))
 		require.Zero(t, calls.Load())
@@ -294,8 +303,8 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		require.Zero(t, runs)
 		kf.replaceSource()
 	}
-	for _, body := range []string{`{}`, `{"targetPlatform":"product"}`, `{"targetPlatform":""}`} {
-		code, raw, err := acquisitionHTTPRequest(server, "POST", path, "operator", "B", uuid.NewString(), body)
+	for _, body := range []string{`{}`, `{"expectedModeRevision":"0","targetPlatform":"product"}`, `{"expectedModeRevision":"0","targetPlatform":""}`} {
+		code, raw, err := acquisitionHTTPRequest(server, "POST", path, "admin", "B", uuid.NewString(), body)
 		require.NoError(t, err)
 		require.Equal(t, 400, code, string(raw))
 		require.Zero(t, calls.Load())
@@ -309,7 +318,7 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		responses := make(chan startResponse, 2)
 		for range 2 {
 			go func() {
-				code, raw, err := acquisitionHTTPRequest(server, "POST", path, "operator", "B", key, startBody)
+				code, raw, err := acquisitionHTTPRequest(server, "POST", path, "admin", "B", key, startBody)
 				responses <- startResponse{code, raw, err}
 			}()
 		}
@@ -320,7 +329,7 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		}
 		require.EqualValues(t, 4, calls.Load(), "concurrent retry acquires one Agent run/model sequence")
 	}
-	code, raw, err := acquisitionHTTPRequest(server, "POST", path, "operator", "B", key, startBody)
+	code, raw, err := acquisitionHTTPRequest(server, "POST", path, "admin", "B", key, startBody)
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))
 	var result productAgentResultDTO
@@ -348,8 +357,10 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		require.NoError(t, wrongProfile.Validate())
 		bound := agent.Binding{ContextKind: "acquisition", ContextID: op.OperationID, ProductKey: op.ProductKey,
 			CatalogVersion: op.CatalogVersion, PublicationID: op.PublicationID, TargetPlatform: "shein"}
-		requestCtx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{TenantID: "B", UserID: "operator"})
-		_, err = module.(productAgentModule).application.startRequestWithProfile(requestCtx, bound, key, "", "", &agentconfig.TemplateRef{TemplateID: selectedTemplate.TemplateID, Revision: "1"}, wrongProfile, "")
+		requestCtx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{TenantID: "B", EffectiveOrganizationID: "B", HomeOrganizationID: "A", UserID: "admin", EffectiveMemberID: "member-B-admin", TokenExpiresAt: time.Now().Add(time.Hour), Roles: []string{"listingkit_admin"}})
+		requestCtx, err = (productReviewCapabilityBinder{now: time.Now}).Bind(requestCtx, "Bearer admin")
+		require.NoError(t, err)
+		_, err = module.(productAgentModule).application.startRequestWithProfile(requestCtx, bound, key, "", "", &agentconfig.TemplateRef{TemplateID: selectedTemplate.TemplateID, Revision: "1"}, wrongProfile, "", "0")
 		require.ErrorIs(t, err, agentconfig.ErrConflict, "a Chat proposal cannot adopt a different frozen Agent model under a reused key")
 		configurationScope := agent.Scope{OrganizationID: "B", ActorID: "admin"}
 		_, err = configuration.Execute(context.Background(), agentconfig.Command{Scope: configurationScope, Key: uuid.NewString(), AgentID: "product.title.agent", Operation: "update-template", TemplateID: selectedTemplate.TemplateID, Expected: 1, Input: agentconfig.TemplateInput{Name: "new v2", TargetPlatform: "temu"}})
@@ -363,17 +374,17 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		require.NoError(t, f.owner.Model(&openai.AIClientCredential{}).
 			Where("tenant_id = ? AND user_id = ? AND client_name = ?", "B", "", "default").
 			Update("enabled", false).Error)
-		code, raw, err = acquisitionHTTPRequest(server, "POST", path, "operator", "B", key, startBody)
+		code, raw, err = acquisitionHTTPRequest(server, "POST", path, "admin", "B", key, startBody)
 		require.NoError(t, err)
 		require.Equal(t, 200, code, string(raw))
 		require.Contains(t, string(raw), result.RunID)
 		require.EqualValues(t, 4, calls.Load())
-		code, raw, err = acquisitionHTTPRequest(server, "POST", path, "operator", "B", uuid.NewString(), startBody)
+		code, raw, err = acquisitionHTTPRequest(server, "POST", path, "admin", "B", uuid.NewString(), startBody)
 		require.NoError(t, err)
 		require.Equal(t, 503, code, string(raw), "new work cannot select the disabled model route")
 		require.EqualValues(t, 4, calls.Load())
 		application := module.(productAgentModule).application
-		recent, _, recentErr := configuration.Recent(context.Background(), agent.Scope{OrganizationID: "B", ActorID: "operator"}, "product.title.agent", "", 20, application.store, func(b agent.Binding) error { require.Equal(t, op.ProductKey, b.ProductKey); return nil })
+		recent, _, recentErr := configuration.Recent(context.Background(), agent.Scope{OrganizationID: "B", ActorID: "admin"}, "product.title.agent", "", 20, application.store, func(b agent.Binding) error { require.Equal(t, op.ProductKey, b.ProductKey); return nil })
 		require.NoError(t, recentErr)
 		require.Len(t, recent, 1)
 		require.Equal(t, result.RunID, recent[0].RunID)
@@ -393,7 +404,7 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		require.NoError(t, f.owner.Table("ai_invocations").Select("outcome").Take(&terminal).Error)
 		require.Equal(t, string(aicapability.InvocationFailed), terminal.Outcome, "terminal fact alone does not confirm release")
 		f.grants.revoked.Store(false)
-		code, raw, err = acquisitionHTTPRequest(server, "POST", path, "operator", "B", key, `{"targetPlatform":"shein"}`)
+		code, raw, err = acquisitionHTTPRequest(server, "POST", path, "admin", "B", key, `{"expectedModeRevision":"0","targetPlatform":"shein"}`)
 		require.NoError(t, err)
 		require.Equal(t, 200, code, string(raw))
 		require.Zero(t, calls.Load())
@@ -423,7 +434,7 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		require.Equal(t, agent.StopRepairLimit, result.StopReason)
 		require.Equal(t, agent.HumanReviewRequired, result.Phase)
 		before := calls.Load()
-		code, raw, err = acquisitionHTTPRequest(server, "POST", path+"/"+key+"/review", "operator", "B", "", `{}`)
+		code, raw, err = acquisitionHTTPRequest(server, "POST", path+"/"+key+"/review", "admin", "B", "", `{}`)
 		require.NoError(t, err)
 		require.Equal(t, 409, code, string(raw))
 		require.Equal(t, before, calls.Load())
@@ -439,47 +450,47 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	require.EqualValues(t, 4, calls.Load())
 	// Replaying Start and reading after reconstructing its HTTP handler never
 	// cause an extra model call. The same candidate enters existing Review.
-	code, raw, err = acquisitionHTTPRequest(server, "POST", path, "operator", "B", key, startBody)
+	code, raw, err = acquisitionHTTPRequest(server, "POST", path, "admin", "B", key, startBody)
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))
 	require.EqualValues(t, 4, calls.Load())
 	if kf != nil {
-		code, raw, err = acquisitionHTTPRequest(server, "POST", path, "operator", "B", key, `{"targetPlatform":"shein"}`)
+		code, raw, err = acquisitionHTTPRequest(server, "POST", path, "admin", "B", key, `{"expectedModeRevision":"0","targetPlatform":"shein"}`)
 		require.NoError(t, err)
 		require.Equal(t, 409, code, string(raw))
 		require.EqualValues(t, 4, calls.Load())
-		code, raw, err = acquisitionHTTPRequest(server, "POST", path, "operator", "B", key, `{"targetPlatform":"shein","knowledgeSelection":{"knowledgeBaseId":"`+uuid.NewString()+`"}}`)
+		code, raw, err = acquisitionHTTPRequest(server, "POST", path, "admin", "B", key, `{"expectedModeRevision":"0","targetPlatform":"shein","knowledgeSelection":{"knowledgeBaseId":"`+uuid.NewString()+`"}}`)
 		require.NoError(t, err)
 		require.Equal(t, 409, code, string(raw))
 		require.EqualValues(t, 4, calls.Load())
 	}
-	code, raw, err = acquisitionHTTPRequest(server, "POST", path, "operator", "B", key, `{"targetPlatform":"temu"}`)
+	code, raw, err = acquisitionHTTPRequest(server, "POST", path, "admin", "B", key, `{"expectedModeRevision":"0","targetPlatform":"temu"}`)
 	require.NoError(t, err)
 	require.Equal(t, 409, code, string(raw))
 	require.EqualValues(t, 4, calls.Load())
-	code, raw, err = acquisitionHTTPRequest(server, "GET", path+"/"+key, "operator", "B", "", "")
+	code, raw, err = acquisitionHTTPRequest(server, "GET", path+"/"+key, "admin", "B", "", "")
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))
 	require.Contains(t, string(raw), `"targetPlatform":"shein"`)
-	code, raw, err = acquisitionHTTPRequest(server, "POST", path+"/"+key+"/resume", "operator", "B", "", `{"revision":"2","feedback":"continue","targetPlatform":"temu"}`)
+	code, raw, err = acquisitionHTTPRequest(server, "POST", path+"/"+key+"/resume", "admin", "B", "", `{"revision":"2","feedback":"continue","targetPlatform":"temu"}`)
 	require.NoError(t, err)
 	require.Equal(t, 400, code, string(raw))
-	code, raw, err = acquisitionHTTPRequest(server, "GET", path+"/"+key, "operator", "A", "", "")
+	code, raw, err = acquisitionHTTPRequest(server, "GET", path+"/"+key, "admin", "A", "", "")
 	require.NoError(t, err)
 	require.NotEqual(t, 200, code, string(raw))
 	require.EqualValues(t, 4, calls.Load())
-	code, raw, err = acquisitionHTTPRequest(server, "POST", path+"/"+key+"/review", "operator", "B", "", `{}`)
+	code, raw, err = acquisitionHTTPRequest(server, "POST", path+"/"+key+"/review", "admin", "B", "", `{}`)
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))
 	var link struct {
 		ProposalID string `json:"proposalId"`
 	}
 	require.NoError(t, json.Unmarshal(raw, &link))
-	view := titleCall(t, server, "GET", titleBasePath+"/"+link.ProposalID, "operator", "B", "", "", 200)
+	view := titleCall(t, server, "GET", titleBasePath+"/"+link.ProposalID, "admin", "B", "", "", 200)
 	require.Equal(t, "pending", view.State)
 	require.Equal(t, "Reviewed bottle title", view.Title)
 	if kf != nil {
-		code, raw, err = acquisitionHTTPRequest(server, "GET", titleBasePath+"/"+view.ID, "operator", "B", "", "")
+		code, raw, err = acquisitionHTTPRequest(server, "GET", titleBasePath+"/"+view.ID, "admin", "B", "", "")
 		require.NoError(t, err)
 		require.Equal(t, 200, code, string(raw))
 		require.Contains(t, string(raw), "Frozen brand text")
@@ -489,23 +500,23 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		app = buildIsolatedApplicationHTTPServer(reloaded.(productAgentModule).routes, deps, 2*time.Minute)
 		reopened := httptest.NewServer(app.Handler)
 		defer reopened.Close()
-		code, raw, err = acquisitionHTTPRequest(reopened, "GET", titleBasePath+"/"+view.ID, "operator", "B", "", "")
+		code, raw, err = acquisitionHTTPRequest(reopened, "GET", titleBasePath+"/"+view.ID, "admin", "B", "", "")
 		require.NoError(t, err)
 		require.Equal(t, 200, code, string(raw))
 		require.Contains(t, string(raw), kf.source.CurrentReadableRevision.ID)
 		require.EqualValues(t, 4, calls.Load())
 		f.grants.revoked.Store(true)
-		code, raw, err = acquisitionHTTPRequest(reopened, "GET", titleBasePath+"/"+view.ID, "operator", "B", "", "")
+		code, raw, err = acquisitionHTTPRequest(reopened, "GET", titleBasePath+"/"+view.ID, "admin", "B", "", "")
 		require.NoError(t, err)
 		require.Equal(t, 403, code, string(raw))
 		require.NotContains(t, string(raw), "Frozen brand text")
 		require.NotContains(t, string(raw), "Brand wording")
 		f.grants.revoked.Store(false)
-		_, disableErr := kf.service.Mutate(context.Background(), knowledge.Command{Scope: knowledge.Scope{OrganizationID: "B", ActorID: "operator"}, Kind: "base_disable", Key: uuid.NewString(), BaseID: kf.base.ID, Version: kf.base.Version})
+		_, disableErr := kf.service.Mutate(context.Background(), knowledge.Command{Scope: knowledge.Scope{OrganizationID: "B", ActorID: "admin"}, Kind: "base_disable", Key: uuid.NewString(), BaseID: kf.base.ID, Version: kf.base.Version})
 		require.NoError(t, disableErr)
 		// An already claimed Start replays only its original opaque request. It
 		// needs no disabled content and must not send another model request.
-		code, raw, err = acquisitionHTTPRequest(reopened, "POST", path, "operator", "B", key, startBody)
+		code, raw, err = acquisitionHTTPRequest(reopened, "POST", path, "admin", "B", key, startBody)
 		require.NoError(t, err)
 		require.Equal(t, 200, code, string(raw))
 		require.Contains(t, string(raw), result.RunID)
@@ -513,22 +524,22 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		require.NotContains(t, string(raw), "Frozen brand text")
 		require.NotContains(t, string(raw), "Brand wording")
 		require.EqualValues(t, 4, calls.Load())
-		for _, changed := range []string{`{"targetPlatform":"shein"}`, `{"targetPlatform":"shein","knowledgeSelection":{"knowledgeBaseId":"` + uuid.NewString() + `"}}`} {
-			code, raw, err = acquisitionHTTPRequest(reopened, "POST", path, "operator", "B", key, changed)
+		for _, changed := range []string{`{"expectedModeRevision":"0","targetPlatform":"shein"}`, `{"expectedModeRevision":"0","targetPlatform":"shein","knowledgeSelection":{"knowledgeBaseId":"` + uuid.NewString() + `"}}`} {
+			code, raw, err = acquisitionHTTPRequest(reopened, "POST", path, "admin", "B", key, changed)
 			require.NoError(t, err)
 			require.Equal(t, 409, code, string(raw))
 		}
-		code, raw, err = acquisitionHTTPRequest(reopened, "POST", path, "operator", "B", uuid.NewString(), startBody)
+		code, raw, err = acquisitionHTTPRequest(reopened, "POST", path, "admin", "B", uuid.NewString(), startBody)
 		require.NoError(t, err)
 		require.Equal(t, 409, code, string(raw))
 		require.EqualValues(t, 4, calls.Load(), "disabled context cannot authorize a new claim or dispatch")
 		// A bundle without a claimed run cannot use the metadata-only replay
 		// seam to pass disablement, even under its original command identity.
-		unclaimedBase, createErr := kf.service.Mutate(context.Background(), knowledge.Command{Scope: knowledge.Scope{OrganizationID: "B", ActorID: "operator"}, Kind: "base_create", Key: uuid.NewString(), Name: "Unclaimed guide"})
+		unclaimedBase, createErr := kf.service.Mutate(context.Background(), knowledge.Command{Scope: knowledge.Scope{OrganizationID: "B", ActorID: "admin"}, Kind: "base_create", Key: uuid.NewString(), Name: "Unclaimed guide"})
 		require.NoError(t, createErr)
 		kf.addSource(unclaimedBase.Base.ID, "Never dispatched", "")
 		unclaimedKey := uuid.NewString()
-		unclaimedBody := `{"targetPlatform":"shein","knowledgeSelection":{"knowledgeBaseId":"` + unclaimedBase.Base.ID + `"}}`
+		unclaimedBody := `{"expectedModeRevision":"0","targetPlatform":"shein","knowledgeSelection":{"knowledgeBaseId":"` + unclaimedBase.Base.ID + `"}}`
 		var failUnclaimed atomic.Bool
 		failUnclaimed.Store(true)
 		require.NoError(t, f.owner.Callback().Create().Before("gorm:create").Register("test-disable-unclaimed", func(tx *gorm.DB) {
@@ -536,12 +547,12 @@ func testProductAgentOwners(t *testing.T, mode string) {
 				tx.AddError(errors.New("isolated unclaimed failure"))
 			}
 		}))
-		code, raw, err = acquisitionHTTPRequest(reopened, "POST", path, "operator", "B", unclaimedKey, unclaimedBody)
+		code, raw, err = acquisitionHTTPRequest(reopened, "POST", path, "admin", "B", unclaimedKey, unclaimedBody)
 		require.NoError(t, err)
 		require.Equal(t, 503, code, string(raw))
-		_, disableErr = kf.service.Mutate(context.Background(), knowledge.Command{Scope: knowledge.Scope{OrganizationID: "B", ActorID: "operator"}, Kind: "base_disable", Key: uuid.NewString(), BaseID: unclaimedBase.Base.ID, Version: unclaimedBase.Base.Version})
+		_, disableErr = kf.service.Mutate(context.Background(), knowledge.Command{Scope: knowledge.Scope{OrganizationID: "B", ActorID: "admin"}, Kind: "base_disable", Key: uuid.NewString(), BaseID: unclaimedBase.Base.ID, Version: unclaimedBase.Base.Version})
 		require.NoError(t, disableErr)
-		code, raw, err = acquisitionHTTPRequest(reopened, "POST", path, "operator", "B", unclaimedKey, unclaimedBody)
+		code, raw, err = acquisitionHTTPRequest(reopened, "POST", path, "admin", "B", unclaimedKey, unclaimedBody)
 		require.NoError(t, err)
 		require.Equal(t, 409, code, string(raw))
 		require.Contains(t, string(raw), knowledge.ErrInactive.Error())
@@ -549,7 +560,7 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		require.NoError(t, f.owner.Table("product_agent_runs").Where("request_key = ?", unclaimedKey).Count(&unclaimedRuns).Error)
 		require.Zero(t, unclaimedRuns)
 		require.EqualValues(t, 4, calls.Load())
-		code, raw, err = acquisitionHTTPRequest(reopened, "GET", titleBasePath+"/"+view.ID, "operator", "B", "", "")
+		code, raw, err = acquisitionHTTPRequest(reopened, "GET", titleBasePath+"/"+view.ID, "admin", "B", "", "")
 		require.NoError(t, err)
 		require.Equal(t, 200, code, string(raw))
 		require.Contains(t, string(raw), `"status":"unavailable"`)
@@ -571,6 +582,10 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		require.EqualValues(t, 160, usage.Quantity)
 	}
 	// The human, using the original Review endpoint, decides and applies.
+	if mode == "configuration" {
+		titleCall(t, server, "POST", titleBasePath+"/"+view.ID+"/decisions", "admin", "B", uuid.NewString(), `{"action":"accept","expected_revision":1}`, 409)
+		return
+	}
 	accepted := titleCall(t, server, "POST", titleBasePath+"/"+view.ID+"/decisions", "admin", "B", uuid.NewString(), `{"action":"accept","expected_revision":1}`, 200)
 	_ = accepted
 	code, raw, err = acquisitionHTTPRequest(server, "POST", titleBasePath+"/"+view.ID+"/apply", "admin", "B", uuid.NewString(), `{"expected_revision":2}`)
@@ -578,7 +593,7 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	require.Equal(t, 200, code, string(raw))
 	require.Equal(t, "applied", decodeTitleView(t, raw).State)
 	f.grants.revoked.Store(true)
-	code, raw, err = acquisitionHTTPRequest(server, "GET", path+"/"+key, "operator", "B", "", "")
+	code, raw, err = acquisitionHTTPRequest(server, "GET", path+"/"+key, "admin", "B", "", "")
 	require.NoError(t, err)
 	require.NotEqual(t, 200, code, string(raw))
 }

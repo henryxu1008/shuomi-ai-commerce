@@ -3,18 +3,20 @@ import {act,cleanup,fireEvent,render,screen,waitFor,within} from "@testing-libra
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
 import {ProductImageSetPanel} from "./product-image-set-panel";
 import {imageTemplateSchema} from "@/lib/contracts/image-set-configuration";
-const calls=vi.hoisted(()=>({context:{} as Record<string,unknown>}));
+const calls=vi.hoisted(()=>({context:{} as Record<string,unknown>,mode:vi.fn()}));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>calls.context}));
+vi.mock("@/lib/api/agent-configuration",async original=>{const actual=await original<typeof import("@/lib/api/agent-configuration")>();return {...actual,configurationRequest:(...args:Parameters<typeof actual.configurationRequest>)=>args[1].startsWith("execution-modes/")?calls.mode(...args):actual.configurationRequest(...args)}});
 const operation="11111111-1111-4111-8111-111111111111",runId="22222222-2222-4222-8222-222222222222",templateId="33333333-3333-4333-8333-333333333333";
 const sha="a".repeat(64),digest="b".repeat(64),now="2026-10-09T00:00:00Z";
 const template={templateId,agentId:"product.image.agent",lifecycle:"ACTIVE",revision:"1",version:"1",schemaVersion:"image-config-v1",name:"Two groups",targetPlatform:"product",createdAt:now,image:{schema:"image-config-v1",mode:"standard",shareOriginals:true,background:"white",language:"en",carousel:[{id:"main",purpose:"product_identity"}],detail:[{id:"detail",purpose:"detail_closeup"}]}};
 const entry={agent:{agentId:"product.image.agent",activation:"ENABLED",revision:"1",activationEpoch:"1",defaultTemplate:{templateId,revision:"1"},updatedAt:now},name:"Images",description:"Full images",definitionVersion:"v1.0.0",parameterSchema:"image-config-v1",canConfigure:true,canUse:true,canReadRuns:true,capabilities:[{id:"image.generate",support:"REQUIRED",readiness:"AVAILABLE",reason:"",observedAt:now}]};
 const source={ContextKind:"acquisition",ProductID:"p",OperationID:operation,OriginalPublicationID:"publication",OriginalVersion:"1",EffectiveVersion:"1"};
 function projection(status="awaiting_plan_approval",confirmationActionId=""){
- return {runId,status,template:{templateId,revision:"1"},confirmationActionId,generationAdmitted:!!confirmationActionId,planRevision:1,planDigest:sha,quoteDigest:digest,images:2,points:20,settledPoints:status==="awaiting_plan_approval"?0:20,resultDigest:status==="awaiting_plan_approval"?"":sha,approvalAvailable:status==="awaiting_final_approval",candidateSelectionAvailable:["awaiting_final_approval","completed","failed","blocked","cancelled"].includes(status),regenerationAvailable:status==="awaiting_final_approval",plan:{Source:source,Target:{Platform:"product",StoreID:"",Site:"",CategoryID:0}},slots:["main","detail"].map((slotId,i)=>({slotId,status:status==="awaiting_plan_approval"?"pending":"accepted",attempt:status==="awaiting_plan_approval"?0:1,errorCode:"",recipe:{Purpose:i?"detail_closeup":"product_identity",Background:"white",Language:"en",Placement:{Group:i?"detail":"carousel",Order:1},References:[{AssetID:"original"}],Quote:{Points:10}},candidates:status==="awaiting_plan_approval"?[]:[{assetId:`generated-${i}`,url:`https://images.test/generated-${i}.png`,width:1024,height:1024}],closure:status==="awaiting_plan_approval"?null:{Kind:"generated",Points:10}})),originals:[{ID:"original",DisplayURL:"https://images.test/original.png",Width:1024,Height:1024}],recoverableEffects:null,pendingCommand:null,block:null};
+ return {executionModeAvailable:true,generationAllowed:true,executionMode:"default",modeRevision:"0",modeSnapshotRef:{Kind:"agent-execution-mode-v1",ID:runId,Digest:sha},runId,status,template:{templateId,revision:"1"},confirmationActionId,generationAdmitted:!!confirmationActionId,planRevision:1,planDigest:sha,quoteDigest:digest,images:2,points:20,settledPoints:status==="awaiting_plan_approval"?0:20,resultDigest:status==="awaiting_plan_approval"?"":sha,approvalAvailable:status==="awaiting_final_approval",candidateSelectionAvailable:["awaiting_final_approval","completed","failed","blocked","cancelled"].includes(status),regenerationAvailable:status==="awaiting_final_approval",plan:{Source:source,Target:{Platform:"product",StoreID:"",Site:"",CategoryID:0}},slots:["main","detail"].map((slotId,i)=>({slotId,status:status==="awaiting_plan_approval"?"pending":"accepted",attempt:status==="awaiting_plan_approval"?0:1,errorCode:"",recipe:{Purpose:i?"detail_closeup":"product_identity",Background:"white",Language:"en",Placement:{Group:i?"detail":"carousel",Order:1},References:[{AssetID:"original"}],Quote:{Points:10}},candidates:status==="awaiting_plan_approval"?[]:[{assetId:`generated-${i}`,url:`https://images.test/generated-${i}.png`,width:1024,height:1024}],closure:status==="awaiting_plan_approval"?null:{Kind:"generated",Points:10}})),originals:[{ID:"original",DisplayURL:"https://images.test/original.png",Width:1024,Height:1024}],recoverableEffects:null,pendingCommand:null,block:null};
 }
 let state:ReturnType<typeof projection>,approved:boolean,fetch:ReturnType<typeof vi.fn<(input:unknown,init?:RequestInit)=>Promise<Response>>>;
 beforeEach(()=>{
+ calls.mode.mockReset();calls.mode.mockResolvedValue({subject:{kind:"registered_agent",id:"product.image.agent"},definition:{id:"product.image.agent",version:"v1.0.0"},mode:"default",revision:"0",policyVersion:"agent-execution-policy-v1",canConfigure:false,updatedAt:"2026-10-12T00:00:00Z",updatedBy:""});
  localStorage.clear();approved=false;state=projection();
  calls.context={user:{id:"actor"},effectiveOrganization:{id:"org"},permissions:["imageagent.read","imageagent.write"],registerOrganizationSwitchGuard:vi.fn(()=>vi.fn())};
  fetch=vi.fn(async(input:unknown,init?:RequestInit)=>{
@@ -38,6 +40,26 @@ async function prepare(){
  fireEvent.click(await screen.findByRole("checkbox",{name:"共用原始素材 素材 1"}));
  const button=screen.getByRole("button",{name:"准备整套图片计划（2 项）"});await waitFor(()=>expect(button).toBeEnabled());fireEvent.click(button);
 }
+it.each(["prepare","regenerate"] as const)("refreshes the mode after a definite %s rejection before creating a new intent",async action=>{
+ const initial=await calls.mode();calls.mode.mockClear();let complete!:(value:unknown)=>void;
+ calls.mode.mockResolvedValueOnce(initial).mockImplementationOnce(()=>new Promise(resolve=>{complete=resolve}));
+ const real=fetch.getMockImplementation()!;let rejected=false;
+ fetch.mockImplementation((input,init)=>{if(String(input).endsWith(`/${action}`)){if(!rejected){rejected=true;return Promise.resolve(Response.json({code:"IMAGE_CONFIGURATION_CHANGED"},{status:409}))}throw new Error("new plan acknowledgement lost")}return real(input,init)});
+ if(action==="regenerate")state=projection("awaiting_final_approval",templateId);
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialRunId={action==="regenerate"?runId:undefined}/>);
+ const name=action==="prepare"?"准备整套图片计划（2 项）":"准备所选 1 项的新计划";
+ if(action==="prepare")await prepare();else{
+  const checks=await screen.findAllByRole("checkbox",{name:"重新生成此项，另行确认点数"});fireEvent.click(checks[0]);
+  const button=screen.getByRole("button",{name});await waitFor(()=>expect(button).toBeEnabled());fireEvent.click(button);
+ }
+ await screen.findByRole("alert");await waitFor(()=>expect(calls.mode).toHaveBeenCalledTimes(2));
+ const button=screen.getByRole("button",{name});expect(button).toBeDisabled();
+ const attempts=()=>fetch.mock.calls.filter(v=>String(v[0]).endsWith(`/${action}`));expect(attempts()).toHaveLength(1);
+ await act(async()=>complete({...initial,mode:"full_access",revision:"1"}));await waitFor(()=>expect(button).toBeEnabled());
+ fireEvent.click(button);await waitFor(()=>expect(attempts()).toHaveLength(2));
+ expect(JSON.parse(String(attempts()[0][1]?.body)).expectedModeRevision).toBe("0");expect(JSON.parse(String(attempts()[1][1]?.body)).expectedModeRevision).toBe("1");
+ expect(new Headers(attempts()[1][1]?.headers).get("Idempotency-Key")).not.toBe(new Headers(attempts()[0][1]?.headers).get("Idempotency-Key"));
+});
 it.each(["acquisition","supply"] as const)("binds historical %s originals to the run while fresh plans keep current sources",async(kind)=>{
  const historical={...source,ContextKind:kind,EffectiveVersion:"2",...kind==="supply"?{ApplyReceiptID:operation}:{}};
  const current={...historical,EffectiveVersion:"3",...kind==="supply"?{ApplyReceiptID:templateId}:{}};
@@ -704,7 +726,7 @@ it("keeps an UNKNOWN parent's successful-looking candidates unavailable for reus
 
 for (const action of ["prepare","regenerate"]) {
 it(`can replay an unresolved ${action} with its original key and frozen body after not-found`,async()=>{
- const requestKey=templateId,body={target:{Platform:"product"},sharedOriginalIds:["original"],selectedTaskIds:["main","detail"],template:{templateId,revision:"1"}};
+ const requestKey=templateId,body={expectedModeRevision:"0",target:{Platform:"product"},sharedOriginalIds:["original"],selectedTaskIds:["main","detail"],template:{templateId,revision:"1"}};
  const intent={action,...action==="regenerate"?{runId:operation}:{},requestKey,body};
  localStorage.setItem(`product-image-set:actor:org:acquisition:${operation}:intent`,JSON.stringify(intent));
  const real=fetch.getMockImplementation()!;

@@ -10,6 +10,7 @@ import (
 	sdkactivity "go.temporal.io/sdk/activity"
 	sdktemporal "go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
+	"task-processor/internal/agent"
 	"task-processor/internal/imageagent"
 	productasset "task-processor/internal/product/asset"
 )
@@ -56,7 +57,12 @@ func selectedSetApprovalWorkflow(ctx workflow.Context, input WorkflowInput, comm
 	projection := WorkflowResult{Status: imageagent.RunStatusAwaitingFinalApproval, Plan: input.Plan, ResultDigest: command.ResultDigest}
 	results := []SlotWorkflowResult{}
 	state := newWorkflowUpdateState(ctx, &input, &projection, &results, newWorkflowEffectOwner(ctx))
-	_, first := state.handleApproveResults(ctx, command)
+	var first error
+	if command.Selection.PolicyAdoption != nil {
+		_, first = state.handleResultAdoption(ctx, resultAdoptionIntent(command))
+	} else {
+		_, first = state.handleApproveResults(ctx, command)
+	}
 	_, cancelled := state.handleCancel(ctx, CancelSignal{RunID: input.RunID, PlanRevision: input.Plan.Revision, ActorID: input.Identity.UserID, ActionID: "ca1aa25c-3661-4c80-8c85-e3fe93220f8f"})
 	competing := command
 	competing.ActionID = "69d61795-814c-4832-a17c-65ac6b3740b2"
@@ -72,6 +78,12 @@ func selectedSetApprovalWorkflow(ctx workflow.Context, input WorkflowInput, comm
 }
 
 func TestImageSetLostApprovalACKResumesExactOrderedSelection(t *testing.T) {
+	testImageSetLostApprovalACK(t, false)
+}
+func TestNativeImagePolicyLostACKResumesOriginalProvenance(t *testing.T) {
+	testImageSetLostApprovalACK(t, true)
+}
+func testImageSetLostApprovalACK(t *testing.T, native bool) {
 	_, repo, slotInput := imageSetPersistenceFixture(t)
 	current, err := repo.GetProjection(context.Background(), imageagent.RunScope{TenantID: slotInput.Identity.TenantID, OwnerUserID: slotInput.Identity.UserID, RunID: slotInput.RunID})
 	require.NoError(t, err)
@@ -79,6 +91,10 @@ func TestImageSetLostApprovalACKResumesExactOrderedSelection(t *testing.T) {
 	source := current.Plan.Set.Source
 	command := ApproveResultsSignal{RunID: input.RunID, PlanRevision: 1, ResultDigest: strings.Repeat("a", 64), ActorID: input.Identity.UserID, ActionID: "1b912e40-d50a-48f5-a12b-62c73a42e4b8"}
 	command.Selection = &productasset.ImageSetCommand{ApprovingResult: productasset.ImageSetResultBinding{RunID: input.RunID, PlanRevision: input.Plan.Revision, ResultDigest: command.ResultDigest}, ActionID: command.ActionID, Source: productasset.SourceSelectionRequest{ContextKind: "acquisition", ItemID: source.OperationID, OriginalPublicationID: source.OriginalPublicationID, OriginalSnapshotVersion: source.OriginalVersion, EffectiveCatalogVersion: source.EffectiveVersion, TargetPlatform: "product"}, SelectionDigest: strings.Repeat("b", 64), Choices: []productasset.ImageSetChoice{{Kind: "source", SourceID: "source-1", Presentation: productasset.ImagePresentation{Group: "detail", Order: 1}}}}
+	if native {
+		command.Selection.PolicyAdoption = &productasset.ImageSetPolicyProvenance{Identity: agent.ExecutionIdentity{OrganizationID: input.Identity.TenantID, ActorID: input.Identity.UserID, MemberID: input.Identity.MemberID}, Mode: agent.ModeFullAccess, ModeRevision: "1", ModeSnapshotRef: agent.ModeSnapshotRef{Kind: agent.ExecutionModeSnapshotKind, ID: command.ActionID, Digest: strings.Repeat("c", 64)}, ConfigurationSnapshotRef: input.Plan.Set.Configuration, RunID: input.RunID, PlanRevision: input.Plan.Revision, ResultDigest: command.ResultDigest, PolicyVersion: agent.ExecutionModePolicyVersion, ActionVersion: productasset.ImageSetPolicyAdoptionVersion}
+		command.Selection.Choices = []productasset.ImageSetChoice{{Kind: "generated", RunID: input.RunID, PlanRevision: input.Plan.Revision, SlotID: input.Plan.Slots[0].ID, Attempt: 1, AssetID: "generated-asset", ResultDigest: command.ResultDigest, Presentation: productasset.ImagePresentation{Group: "detail", Order: 1}}}
+	}
 	env := newWorkflowEnv(t)
 	env.RegisterWorkflow(selectedSetApprovalWorkflow)
 	env.RegisterActivityWithOptions(func(context.Context, PublishImageSetActivityInput) error { return nil }, sdkactivity.RegisterOptions{Name: activityPublishApprovedImageSet})

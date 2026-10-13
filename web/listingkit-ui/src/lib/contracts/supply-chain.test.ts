@@ -9,7 +9,7 @@ it("allows one approved image to be assigned to every real SKU in a large batch"
 });
 it("requires the confirmed template version and quote for title optimization",()=>{
  const id="11111111-1111-4111-8111-111111111111";
- const input={preparationId:id,expectedRevision:1,storeId:id,action:"optimize",titleTemplateId:id};
+ const input={preparationId:id,expectedRevision:1,titleModeRevision:"0",storeId:id,action:"optimize",titleTemplateId:id};
  expect(operationInputSchema.safeParse(input).success).toBe(false);
  expect(operationInputSchema.safeParse({...input,titleTemplateRevision:"1",titleQuoteHash:"a".repeat(64)}).success).toBe(true);
  expect(supplyPath("GET",["supply-preparations","optimization-options"])).toBe("optimization-options");

@@ -25,6 +25,7 @@ import (
 
 type SnapshotReader interface {
 	LoadSnapshot(context.Context, agent.Scope, agent.ConfigurationSnapshotRef) (agentconfig.Snapshot, error)
+	CheckTitleExecutionMode(context.Context, agent.ExecutionIdentity, agent.ConfigurationSnapshotRef, agent.ModeSnapshotRef) (agentconfig.ModeSnapshot, error)
 }
 
 type TextExecutor interface {
@@ -125,6 +126,7 @@ func (m *AgentTextModel) prepare(ctx context.Context, in agent.ModelInput) (prep
 	snapshot, err := m.snapshots.LoadSnapshot(p.ctx,
 		agent.Scope{OrganizationID: identity.OrganizationID, ActorID: identity.ActorID}, in.ConfigurationSnapshotRef)
 	if err != nil || snapshot.AgentID != in.AgentID || snapshot.AgentVersion != in.AgentVersion ||
+		snapshot.MemberID != identity.MemberID || !in.ModeSnapshotRef.Valid() || snapshot.Request.ModeSnapshotRef != in.ModeSnapshotRef ||
 		snapshot.Request.Binding != in.Binding || snapshot.Request.ContextSnapshotRef != (agent.ContextSnapshotRef{}) ||
 		snapshot.Request.PolicyVersion != in.PolicyVersion || snapshot.Request.PromptVersion != in.PromptVersion ||
 		snapshot.Request.GoalSummary != in.GoalSummary || !agent.ValidGoalSummary(in.GoalSummary) {
@@ -218,6 +220,13 @@ func (m *AgentTextModel) Decide(ctx context.Context, in agent.ModelInput) (agent
 		return nil
 	}
 	beforeSend := func(gateCtx context.Context) (func(), error) {
+		identity, _, err := m.resolveIdentity(gateCtx)
+		if err != nil {
+			return nil, err
+		}
+		if _, err = m.snapshots.CheckTitleExecutionMode(gateCtx, identity, in.ConfigurationSnapshotRef, in.ModeSnapshotRef); err != nil {
+			return nil, err
+		}
 		if p.knowledge == nil {
 			return nil, nil
 		}

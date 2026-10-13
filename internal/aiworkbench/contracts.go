@@ -167,6 +167,7 @@ type ExecutionProposal struct {
 	AgentID                    string
 	AgentVersion               string
 	ObservedAgentRevision      string
+	ObservedModeRevision       string
 	ObservedActivationEpoch    string
 	TemplateID                 string
 	TemplateRevision           string

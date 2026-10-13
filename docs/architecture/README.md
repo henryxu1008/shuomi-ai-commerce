@@ -245,6 +245,14 @@ source of truth for long-lived rules.
     including Required CI Gate. Production Writer starts only after PR #571 merges
     to main; rollout/provider use remain separately gated.
 
+- [`enterprise-agent-permission-modes-v1.md`](./enterprise-agent-permission-modes-v1.md)
+  - #656 APPROVED / IMPLEMENTATION_READY architecture for four enterprise
+    execution modes: default, automatic approval, read-only and full access.
+    Registered and privately delivered agents retain their original admission
+    owners; external publishing, deletion and budget increases require separate
+    authorization. This is design admission, not implemented runtime behavior;
+    production work follows the currently prioritized acquisition/save flow.
+
 - [`agent-customization-v1.md`](./agent-customization-v1.md)
   - APPROVED / IMPLEMENTATION_READY #611: enterprise customization requests,
     contact consent, private files and verified-platform manual progress.
