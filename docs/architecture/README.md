@@ -94,6 +94,13 @@ Use these as the main source of truth for structural work:
   - tenant self-service subscription offer/quote/order, source-bound subscription activation, settlement and recovery contract for #478/#479
 - `store-center-current-application-v1.md`
   - #552 current Console Store record management, owner pools, quota, authorization and single-state hard-cut; service activation remains a separate unopened capability
+- [`tiktok-shop-us-v1.md`](tiktok-shop-us-v1.md)
+  - #669 frozen IMPLEMENTATION_READY US cross-border authorization, local drafts
+    and controlled publication; shared-owner wiring, real application credentials
+    and user acceptance remain separate delivery conditions.
+- [`tiktok-shop-us-contract-evidence.md`](tiktok-shop-us-contract-evidence.md)
+  - Official OAuth, Shop identity, signing, listing-method and per-market result
+    evidence for #669; public protocol evidence does not imply provider acceptance.
 - `supply-market-v1.md`
   - #622 frozen IMPLEMENTATION_READY market disclosure, manual qualification and shared-account SDS design contract; current implementation and protocol evidence do not imply runtime or user acceptance
 - `selected-application-overview-v1.md`
