@@ -20,7 +20,7 @@ const (
 )
 
 func loggerContractSSAViolations(loaded []*packages.Package, providerRules []providerLoggerRule, nilRules []typedNilCallRule) []string {
-	program, _ := ssautil.AllPackages(loaded, ssa.InstantiateGenerics)
+	program, _ := ssautil.Packages(loaded, ssa.InstantiateGenerics)
 	program.Build()
 	rulesByConstructor := make(map[string]providerLoggerRule, len(providerRules))
 	for _, rule := range providerRules {
