@@ -51,6 +51,7 @@ func (a *OfficialObservationAccess) Authorize(ctx context.Context, s storecenter
 	if s.Purpose != storecenter.ObservationPurposeProducts && s.Purpose != storecenter.ObservationPurposeOrders {
 		return nil, o.ErrForbidden
 	}
+	callerCtx, startedAt := ctx, a.now()
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	m, e := a.reader.ReadObservation(ctx, s, store, a.authorization, a.now())
@@ -62,7 +63,7 @@ func (a *OfficialObservationAccess) Authorize(ctx context.Context, s storecenter
 		return nil, o.ErrConflict
 	}
 	if m.Platform == storecenter.PlatformTemu {
-		return a.authorizeTemuObservation(ctx, s, store, expected, m, entry)
+		return a.authorizeTemuObservation(callerCtx, startedAt, s, store, expected, m, entry)
 	}
 	if _, ok := entry.provider.(OfficialObservationProvider); !ok {
 		return nil, o.ErrUnavailable

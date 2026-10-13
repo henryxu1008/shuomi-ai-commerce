@@ -22,16 +22,16 @@ export async function generateMetadata(): Promise<Metadata> {
 
   return {
     metadataBase,
-    title: "ListingKit | 一份资料，多平台增长",
+    title: "硕米智能引擎 | AI 电商智能操作系统",
     description: "AI 自动完成商品资料生产与渠道适配，团队只需审核并决策。",
     openGraph: {
-      title: "ListingKit | 一份资料，多平台增长",
+      title: "硕米智能引擎 | AI 电商智能操作系统",
       description: "AI 做繁琐工作，你只需审核。",
       images: [image],
     },
     twitter: {
       card: "summary_large_image",
-      title: "ListingKit | 一份资料，多平台增长",
+      title: "硕米智能引擎 | AI 电商智能操作系统",
       description: "AI 做繁琐工作，你只需审核。",
       images: [image],
     },

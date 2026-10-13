@@ -11,7 +11,6 @@ import {
 describe("normalizeReturnTo", () => {
   it.each([
     ["/", "/"],
-    ["/listing-kits/sds?step=generate", "/listing-kits/sds?step=generate"],
     ["/workbench", "/workbench"],
     ["/workbench/stores", "/workbench/stores"],
     [
@@ -29,6 +28,9 @@ describe("normalizeReturnTo", () => {
     "/\t/evil.example/workbench",
     "/workbench/%",
     "/admin/workbench",
+    "/listing-kits",
+    "/listing-kits/sds?step=generate",
+    "/listing-kits/old-task/workspace",
   ])("rejects the unsafe or unrelated return target %s", (value) => {
     expect(normalizeReturnTo(value)).toBe("/");
   });

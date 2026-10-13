@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 
 import { serverAuth } from "@/auth";
-import type { AuthenticatedListingKitRequest } from "@/app/api/listing-kits/proxy-auth";
+import type { AuthenticatedUpstreamRequest } from "@/lib/server/upstream-identity";
 import { fetchSDSJSON, sdsAPIErrorPayload } from "@/app/api/sds/shared";
 import type { SDSProductListResponse } from "@/lib/types/sds";
 
 export const dynamic = "force-dynamic";
 
-const authenticatedGET = serverAuth(async (request: AuthenticatedListingKitRequest) => {
+const authenticatedGET = serverAuth(async (request: AuthenticatedUpstreamRequest) => {
   const page = Number(request.nextUrl.searchParams.get("page") ?? "1") || 1;
   const size = Number(request.nextUrl.searchParams.get("size") ?? "12") || 12;
   const weightBand = request.nextUrl.searchParams.get("weightBand")?.trim() ?? "";
