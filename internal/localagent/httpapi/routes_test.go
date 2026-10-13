@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"task-processor/internal/authz"
+	authzhttpapi "task-processor/internal/authz/httpapi"
 	"task-processor/internal/httproute"
-	listingkithttpapi "task-processor/internal/listingkit/httpapi"
 	"task-processor/internal/localagent"
 )
 
@@ -18,8 +18,8 @@ func TestLocalAgentRoutesRequireZitadelAndPermission(t *testing.T) {
 	for _, route := range routes {
 		require.Equal(t, ModuleName, route.Module)
 		require.Equal(t, authz.PermissionLocalAgentWrite, route.Permission)
-		require.True(t, listingkithttpapi.RouteRequiresZitadelAuth(route))
-		require.NotNil(t, listingkithttpapi.NewRouteRoleMiddleware(route))
+		require.True(t, authzhttpapi.RouteRequiresZitadelAuth(route))
+		require.NotNil(t, authzhttpapi.NewRouteRoleMiddlewareWithAuthorizer(route, nil))
 	}
 	require.Equal(t, []string{
 		http.MethodPost + " /api/v1/local-agent/1688-jobs",

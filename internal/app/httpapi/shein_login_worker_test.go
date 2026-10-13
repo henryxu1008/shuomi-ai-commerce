@@ -87,10 +87,10 @@ func TestBuildSheinLoginWorkerRuntimeWithDependenciesUsesOnlyScopedFactories(t *
 				return nil
 			}, nil
 		},
-		BuildLoginService: func(deps *runtimeDeps) (*sheinloginbootstrap.BuildResult, func() error, error) {
+		BuildLoginService: func(gotConfig *config.Config, gotStoreAPI listingadmin.StoreAPI) (*sheinloginbootstrap.BuildResult, func() error, error) {
 			calls = append(calls, "build-login-service")
-			if deps == nil || deps.shared == nil || deps.shared.cfg != cfg || deps.shared.storeAPI != storeAPI {
-				t.Fatalf("login dependencies = %#v", deps)
+			if gotConfig != cfg || gotStoreAPI != storeAPI {
+				t.Fatalf("login dependencies = %#v / %#v", gotConfig, gotStoreAPI)
 			}
 			return &sheinloginbootstrap.BuildResult{Service: service}, func() error {
 				calls = append(calls, "close-login-service")
@@ -133,7 +133,7 @@ func TestBuildSheinLoginWorkerRuntimeWithDependenciesClosesStoreWhenLoginUnavail
 				return nil
 			}, nil
 		},
-		BuildLoginService: func(*runtimeDeps) (*sheinloginbootstrap.BuildResult, func() error, error) {
+		BuildLoginService: func(*config.Config, listingadmin.StoreAPI) (*sheinloginbootstrap.BuildResult, func() error, error) {
 			calls = append(calls, "build-login-service")
 			return &sheinloginbootstrap.BuildResult{}, func() error {
 				calls = append(calls, "close-login-service")

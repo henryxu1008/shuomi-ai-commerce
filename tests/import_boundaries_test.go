@@ -218,12 +218,8 @@ func TestSheinLoginReadsIdentityFromNeutralContext(t *testing.T) {
 
 func TestListingKitIdentityReadersUseNeutralContext(t *testing.T) {
 	paths := []string{
-		filepath.Join("..", "internal", "listingkit", "api", "tenant_context.go"),
-		filepath.Join("..", "internal", "listingkit", "api", "authenticated_actor.go"),
-		filepath.Join("..", "internal", "listingkit", "api", "subscription_guard.go"),
-		filepath.Join("..", "internal", "listingkit", "httpapi", "zitadel_auth_route_authorization.go"),
-		filepath.Join("..", "internal", "listingkit", "request_context.go"),
-		filepath.Join("..", "internal", "listingkit", "task_lifecycle_service_support.go"),
+		filepath.Join("..", "internal", "authz", "httpapi", "route_authorization.go"),
+		filepath.Join("..", "internal", "app", "httpapi", "server_auth.go"),
 	}
 	for _, path := range paths {
 		source, err := os.ReadFile(path)
@@ -718,22 +714,6 @@ func TestListingKitSheinSyncAsyncIdentityContextDoesNotImportOpenAI(t *testing.T
 		}
 		if _, ok := facts.imports[`"task-processor/internal/integration/openai"`]; ok {
 			t.Errorf("%s imports the concrete OpenAI client; use shared aiidentity for SHEIN sync request context", path)
-		}
-	}
-}
-
-func TestListingKitSheinAdapterReviewContentOptimizerDoesNotImportOpenAI(t *testing.T) {
-	root := filepath.Join("..", "internal", "listingkit", "sheinadapter")
-	index, err := loadGoFileIndex(root, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for path, facts := range index.files {
-		if strings.HasSuffix(filepath.Base(path), "_test.go") {
-			continue
-		}
-		if _, ok := facts.imports[`"task-processor/internal/integration/openai"`]; ok {
-			t.Errorf("%s imports the concrete OpenAI client; use the neutral internal/ai contract for SHEIN review content", path)
 		}
 	}
 }
@@ -3860,6 +3840,7 @@ func TestBusinessDomainsDoNotImportAppRuntimeAssembly(t *testing.T) {
 
 func businessHTTPPackages(root string) map[string]struct{} {
 	allowedHTTPPackages := map[string]struct{}{
+		filepath.Clean(filepath.Join(root, "authz", "httpapi")) + string(os.PathSeparator):                 {},
 		filepath.Clean(filepath.Join(root, "authruntime", "zitadel")) + string(os.PathSeparator):           {},
 		filepath.Clean(filepath.Join(root, "app", "httpapi")) + string(os.PathSeparator):                   {},
 		filepath.Clean(filepath.Join(root, "amazonlisting", "api")) + string(os.PathSeparator):             {},
@@ -5404,57 +5385,6 @@ func TestHTTPAPIRouteHandlerTypesFileStaysRetired(t *testing.T) {
 	}
 }
 
-func TestHTTPAPIFeatureModuleResultAliasesStayRetired(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "httpapi", "feature_module_builders.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	for _, phrase := range []string{
-		"type productModuleResult =",
-		"type imageModuleResult =",
-		"type amazonListingModuleResult =",
-		"type listingKitModuleResult =",
-	} {
-		if strings.Contains(string(content), phrase) {
-			t.Fatalf("%s exposes %q; use owning httpapi Module types directly in app HTTP assembly", path, phrase)
-		}
-	}
-}
-
-func TestHTTPAPISupportModuleResultAliasesStayRetired(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "httpapi", "runtime_module_results.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	for _, phrase := range []string{
-		"type promptModuleResult =",
-		"type sdsModuleResult =",
-		"type taskRPCModuleResult =",
-	} {
-		if strings.Contains(string(content), phrase) {
-			t.Fatalf("%s exposes %q; use owning support BuildResult types directly in app HTTP assembly", path, phrase)
-		}
-	}
-}
-
-func TestHTTPAPILoginModuleResultAliasesStayRetired(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "httpapi", "runtime_login_modules.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	for _, phrase := range []string{
-		"type sheinLoginModuleResult =",
-		"type sdsLoginModuleResult =",
-	} {
-		if strings.Contains(string(content), phrase) {
-			t.Fatalf("%s exposes %q; use owning login BuildResult types directly in app HTTP assembly", path, phrase)
-		}
-	}
-}
-
 func TestAppHTTPAPIListingKitSupportImportsStayAllowlisted(t *testing.T) {
 	filePath := filepath.Join("..", "internal", "app", "httpapi", "listingkit_support.go")
 	fset := token.NewFileSet()
@@ -5851,7 +5781,7 @@ func TestSupplyAndCollectionHTTPRegistrationKeepsBusinessSiblingsFrameworkFree(t
 	for _, tc := range []struct {
 		path string
 		want bool
-	}{{"app/supplychain/httpapi/http_routes.go", true}, {"app/supplychain/operations.go", false}, {"app/supplychain/httpapi_extra/other.go", false}, {"product/collection/httpapi/handler.go", true}, {"product/collection/service.go", false}, {"product/collection/httpapi_extra/other.go", false}} {
+	}{{"authz/httpapi/route_authorization.go", true}, {"authz/authorization.go", false}, {"authz/httpapi_extra/other.go", false}, {"app/supplychain/httpapi/http_routes.go", true}, {"app/supplychain/operations.go", false}, {"app/supplychain/httpapi_extra/other.go", false}, {"product/collection/httpapi/handler.go", true}, {"product/collection/service.go", false}, {"product/collection/httpapi_extra/other.go", false}} {
 		if pathAllowed(filepath.Join(root, filepath.FromSlash(tc.path)), allowed) != tc.want {
 			t.Errorf("registration %s", tc.path)
 		}

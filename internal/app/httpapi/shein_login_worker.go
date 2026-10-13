@@ -24,7 +24,7 @@ var errSheinLoginWorkerUnavailable = errors.New("SHEIN login worker is unavailab
 type sheinLoginWorkerRuntimeDependencies struct {
 	LoadConfig            func(string) (*config.Config, error)
 	BuildDatabaseStoreAPI func(*config.Config) (listingadmin.StoreAPI, func() error, error)
-	BuildLoginService     func(*runtimeDeps) (*sheinloginbootstrap.BuildResult, func() error, error)
+	BuildLoginService     func(*config.Config, listingadmin.StoreAPI) (*sheinloginbootstrap.BuildResult, func() error, error)
 }
 
 type sheinLoginWorkerRuntime struct {
@@ -121,7 +121,7 @@ func buildSheinLoginWorkerRuntime(configPath string) (*sheinLoginWorkerRuntime, 
 	return buildSheinLoginWorkerRuntimeWithDependencies(configPath, sheinLoginWorkerRuntimeDependencies{
 		LoadConfig:            loadSheinLoginWorkerConfig,
 		BuildDatabaseStoreAPI: buildSheinLoginWorkerDatabaseStoreAPI,
-		BuildLoginService:     buildSheinLoginModuleResult,
+		BuildLoginService:     buildSheinLoginWorkerService,
 	})
 }
 
@@ -140,14 +140,7 @@ func buildSheinLoginWorkerRuntimeWithDependencies(configPath string, dependencie
 		return nil, fmt.Errorf("build SHEIN login worker database StoreAPI: %w", err)
 	}
 
-	deps := &runtimeDeps{
-		shared: &sharedRuntimeDeps{
-			cfg:      cfg,
-			storeAPI: storeAPI,
-		},
-		features: &featureRuntimeState{},
-	}
-	result, loginCloser, err := dependencies.BuildLoginService(deps)
+	result, loginCloser, err := dependencies.BuildLoginService(cfg, storeAPI)
 	if err != nil {
 		return nil, errors.Join(fmt.Errorf("build SHEIN login worker service: %w", err), closeWorkerRuntimeClosers(loginCloser, storeCloser))
 	}
@@ -177,4 +170,15 @@ func buildSheinLoginWorkerDatabaseStoreAPI(cfg *config.Config) (listingadmin.Sto
 func closeWorkerRuntimeClosers(closers ...func() error) error {
 	runtime := &sheinLoginWorkerRuntime{closers: closers}
 	return runtime.Close()
+}
+
+func buildSheinLoginWorkerService(cfg *config.Config, storeAPI listingadmin.StoreAPI) (*sheinloginbootstrap.BuildResult, func() error, error) {
+	result, err := sheinloginbootstrap.BuildHandler(sheinloginbootstrap.BuildInput{Config: cfg, StoreAPI: storeAPI})
+	if err != nil {
+		return nil, nil, err
+	}
+	if result == nil {
+		return nil, nil, nil
+	}
+	return result, result.Close, nil
 }

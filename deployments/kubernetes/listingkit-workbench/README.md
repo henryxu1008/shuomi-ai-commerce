@@ -1,4 +1,15 @@
-# ListingKit Workbench K3S Deployment
+# Legacy ListingKit K3S Deployment Reference
+
+> #29 retires the old Task/API source and default composition. This directory
+> retains the existing deployment/worker/OIDC/RBAC evidence; it is **not an
+> executable deployment guide for the new current-application artifact**.
+> The legacy image-compatibility gate rejects that artifact before rollout.
+> Current startup uses the existing absolute private current-application manifest
+> and [RUN-1](../../../docs/operations/current-application-run1.md). Current
+> worker, schema and canary protection remain; no live installation is performed.
+> The current native SMS callback is `/api/v1/identity/notifications/sms`; the
+> old API callback below is historical and must not be mounted for new callers.
+
 
 This deploys the customer SHEIN Studio workbench as two services:
 

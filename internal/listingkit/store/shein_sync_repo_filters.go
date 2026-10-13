@@ -6,7 +6,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"task-processor/internal/listingkit"
+	"task-processor/internal/listingkit/sheinsync"
 )
 
 func normalizeSheinSyncPage(page, pageSize int) (int, int) {
@@ -22,21 +22,21 @@ func normalizeSheinSyncPage(page, pageSize int) (int, int) {
 	return page, pageSize
 }
 
-func sheinSyncQueryPage(query *listingkit.SheinSyncedProductQuery) (int, int) {
+func sheinSyncQueryPage(query *sheinsync.SheinSyncedProductQuery) (int, int) {
 	if query == nil {
 		return normalizeSheinSyncPage(0, 0)
 	}
 	return normalizeSheinSyncPage(query.Page, query.PageSize)
 }
 
-func sheinSyncJobQueryPage(query *listingkit.SheinSyncJobQuery) (int, int) {
+func sheinSyncJobQueryPage(query *sheinsync.SheinSyncJobQuery) (int, int) {
 	if query == nil {
 		return normalizeSheinSyncPage(0, 0)
 	}
 	return normalizeSheinSyncPage(query.Page, query.PageSize)
 }
 
-func sheinActivityCandidateQueryPage(query *listingkit.SheinActivityCandidateQuery) (int, int) {
+func sheinActivityCandidateQueryPage(query *sheinsync.SheinActivityCandidateQuery) (int, int) {
 	if query == nil {
 		return normalizeSheinSyncPage(0, 0)
 	}
@@ -57,21 +57,21 @@ func sheinActivityCandidateQueryPage(query *listingkit.SheinActivityCandidateQue
 	return normalizeSheinSyncPage(query.Page, query.PageSize)
 }
 
-func sheinEnrollmentRunQueryPage(query *listingkit.SheinEnrollmentRunQuery) (int, int) {
+func sheinEnrollmentRunQueryPage(query *sheinsync.SheinEnrollmentRunQuery) (int, int) {
 	if query == nil {
 		return normalizeSheinSyncPage(0, 0)
 	}
 	return normalizeSheinSyncPage(query.Page, query.PageSize)
 }
 
-func sheinEnrollmentItemQueryPage(query *listingkit.SheinEnrollmentItemQuery) (int, int) {
+func sheinEnrollmentItemQueryPage(query *sheinsync.SheinEnrollmentItemQuery) (int, int) {
 	if query == nil {
 		return normalizeSheinSyncPage(0, 0)
 	}
 	return normalizeSheinSyncPage(query.Page, query.PageSize)
 }
 
-func applySheinSyncedProductFilters(db *gorm.DB, query *listingkit.SheinSyncedProductQuery) *gorm.DB {
+func applySheinSyncedProductFilters(db *gorm.DB, query *sheinsync.SheinSyncedProductQuery) *gorm.DB {
 	if query == nil {
 		return db
 	}
@@ -93,7 +93,7 @@ func applySheinSyncedProductFilters(db *gorm.DB, query *listingkit.SheinSyncedPr
 	return db
 }
 
-func applySheinSyncJobFilters(db *gorm.DB, query *listingkit.SheinSyncJobQuery) *gorm.DB {
+func applySheinSyncJobFilters(db *gorm.DB, query *sheinsync.SheinSyncJobQuery) *gorm.DB {
 	if query == nil {
 		return db
 	}
@@ -118,7 +118,7 @@ func applySheinSyncJobFilters(db *gorm.DB, query *listingkit.SheinSyncJobQuery) 
 	return db
 }
 
-func applySheinActivityCandidateFilters(db *gorm.DB, query *listingkit.SheinActivityCandidateQuery) *gorm.DB {
+func applySheinActivityCandidateFilters(db *gorm.DB, query *sheinsync.SheinActivityCandidateQuery) *gorm.DB {
 	if query == nil {
 		return db
 	}
@@ -144,17 +144,17 @@ func applySheinActivityCandidateFilters(db *gorm.DB, query *listingkit.SheinActi
 		db = db.Where("id IN ?", query.CandidateIDs)
 	}
 	if query.ExecutableOnly {
-		db = db.Where("eligibility_status = ?", listingkit.SheinCandidateEligibilityStatusEligible)
-		db = db.Where("review_status IN ?", []listingkit.SheinCandidateReviewStatus{
-			listingkit.SheinCandidateReviewStatusPendingReview,
-			listingkit.SheinCandidateReviewStatusApproved,
-			listingkit.SheinCandidateReviewStatusAutoQueued,
+		db = db.Where("eligibility_status = ?", sheinsync.SheinCandidateEligibilityStatusEligible)
+		db = db.Where("review_status IN ?", []sheinsync.SheinCandidateReviewStatus{
+			sheinsync.SheinCandidateReviewStatusPendingReview,
+			sheinsync.SheinCandidateReviewStatusApproved,
+			sheinsync.SheinCandidateReviewStatusAutoQueued,
 		})
 	}
 	return db
 }
 
-func applySheinEnrollmentRunFilters(db *gorm.DB, query *listingkit.SheinEnrollmentRunQuery) *gorm.DB {
+func applySheinEnrollmentRunFilters(db *gorm.DB, query *sheinsync.SheinEnrollmentRunQuery) *gorm.DB {
 	if query == nil {
 		return db
 	}
@@ -176,7 +176,7 @@ func applySheinEnrollmentRunFilters(db *gorm.DB, query *listingkit.SheinEnrollme
 	return db
 }
 
-func applySheinEnrollmentItemFilters(db *gorm.DB, query *listingkit.SheinEnrollmentItemQuery) *gorm.DB {
+func applySheinEnrollmentItemFilters(db *gorm.DB, query *sheinsync.SheinEnrollmentItemQuery) *gorm.DB {
 	if query == nil {
 		return db
 	}
@@ -227,6 +227,6 @@ func sheinSyncedProductKey(tenantID, storeID int64, skcName string) string {
 	return fmt.Sprintf("%d:%d:%s", tenantID, storeID, skcName)
 }
 
-func sheinCandidateKey(record listingkit.SheinActivityCandidateRecord) string {
+func sheinCandidateKey(record sheinsync.SheinActivityCandidateRecord) string {
 	return fmt.Sprintf("%d:%d:%s:%s:%s:%s", record.TenantID, record.StoreID, record.ActivityType, record.ActivityKey, record.SKCName, record.CandidateVersion)
 }

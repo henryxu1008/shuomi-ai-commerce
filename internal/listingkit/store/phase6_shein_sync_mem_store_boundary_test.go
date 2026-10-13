@@ -20,7 +20,7 @@ func TestSheinSyncMemRepositoryFilesOwnSeparatedFamilies(t *testing.T) {
 
 	assertSheinSyncMemStoreContainsAll(t, rootFile,
 		"type MemSheinSyncRepository struct {",
-		"func NewMemSheinSyncRepository() listingkit.SheinSyncRepository {",
+		"func NewMemSheinSyncRepository() sheinsync.SheinSyncRepository {",
 	)
 	assertSheinSyncMemStoreNotContainsAny(t, rootFile,
 		"func (r *MemSheinSyncRepository) UpsertSyncedProducts(",

@@ -1,6 +1,6 @@
 package store
 
-import "task-processor/internal/listingkit"
+import "task-processor/internal/listingkit/sheinsync"
 
 func containsInt64(values []int64, target int64) bool {
 	for _, value := range values {
@@ -20,7 +20,7 @@ func containsString(values []string, target string) bool {
 	return false
 }
 
-func matchesSheinSyncedProductQuery(row listingkit.SheinSyncedProductRecord, query *listingkit.SheinSyncedProductQuery) bool {
+func matchesSheinSyncedProductQuery(row sheinsync.SheinSyncedProductRecord, query *sheinsync.SheinSyncedProductQuery) bool {
 	if query == nil {
 		return true
 	}
@@ -42,7 +42,7 @@ func matchesSheinSyncedProductQuery(row listingkit.SheinSyncedProductRecord, que
 	return true
 }
 
-func matchesSheinSyncJobQuery(row listingkit.SheinSyncJobRecord, query *listingkit.SheinSyncJobQuery) bool {
+func matchesSheinSyncJobQuery(row sheinsync.SheinSyncJobRecord, query *sheinsync.SheinSyncJobQuery) bool {
 	if query == nil {
 		return true
 	}
@@ -67,7 +67,7 @@ func matchesSheinSyncJobQuery(row listingkit.SheinSyncJobRecord, query *listingk
 	return true
 }
 
-func matchesSheinActivityCandidateQuery(row listingkit.SheinActivityCandidateRecord, query *listingkit.SheinActivityCandidateQuery) bool {
+func matchesSheinActivityCandidateQuery(row sheinsync.SheinActivityCandidateRecord, query *sheinsync.SheinActivityCandidateQuery) bool {
 	if query == nil {
 		return true
 	}
@@ -107,21 +107,21 @@ func matchesSheinActivityCandidateQuery(row listingkit.SheinActivityCandidateRec
 	return true
 }
 
-func isExecutableSheinActivityCandidate(row listingkit.SheinActivityCandidateRecord) bool {
-	if row.EligibilityStatus != listingkit.SheinCandidateEligibilityStatusEligible {
+func isExecutableSheinActivityCandidate(row sheinsync.SheinActivityCandidateRecord) bool {
+	if row.EligibilityStatus != sheinsync.SheinCandidateEligibilityStatusEligible {
 		return false
 	}
 	switch row.ReviewStatus {
-	case listingkit.SheinCandidateReviewStatusPendingReview,
-		listingkit.SheinCandidateReviewStatusApproved,
-		listingkit.SheinCandidateReviewStatusAutoQueued:
+	case sheinsync.SheinCandidateReviewStatusPendingReview,
+		sheinsync.SheinCandidateReviewStatusApproved,
+		sheinsync.SheinCandidateReviewStatusAutoQueued:
 		return true
 	default:
 		return false
 	}
 }
 
-func matchesSheinEnrollmentRunQuery(row listingkit.SheinActivityEnrollmentRunRecord, query *listingkit.SheinEnrollmentRunQuery) bool {
+func matchesSheinEnrollmentRunQuery(row sheinsync.SheinActivityEnrollmentRunRecord, query *sheinsync.SheinEnrollmentRunQuery) bool {
 	if query == nil {
 		return true
 	}
@@ -143,7 +143,7 @@ func matchesSheinEnrollmentRunQuery(row listingkit.SheinActivityEnrollmentRunRec
 	return true
 }
 
-func matchesSheinEnrollmentItemQuery(row listingkit.SheinActivityEnrollmentItemRecord, run listingkit.SheinActivityEnrollmentRunRecord, query *listingkit.SheinEnrollmentItemQuery) bool {
+func matchesSheinEnrollmentItemQuery(row sheinsync.SheinActivityEnrollmentItemRecord, run sheinsync.SheinActivityEnrollmentRunRecord, query *sheinsync.SheinEnrollmentItemQuery) bool {
 	if query == nil {
 		return true
 	}
@@ -174,7 +174,7 @@ func matchesSheinEnrollmentItemQuery(row listingkit.SheinActivityEnrollmentItemR
 	return true
 }
 
-func cloneSheinSyncedProductRecord(row listingkit.SheinSyncedProductRecord) listingkit.SheinSyncedProductRecord {
+func cloneSheinSyncedProductRecord(row sheinsync.SheinSyncedProductRecord) sheinsync.SheinSyncedProductRecord {
 	row.PublishTime = cloneTimePtr(row.PublishTime)
 	row.FirstShelfTime = cloneTimePtr(row.FirstShelfTime)
 	row.LastSyncAt = cloneTimePtr(row.LastSyncAt)
@@ -182,29 +182,29 @@ func cloneSheinSyncedProductRecord(row listingkit.SheinSyncedProductRecord) list
 	row.AutoCostPrice = cloneFloat64Ptr(row.AutoCostPrice)
 	row.ManualCostPrice = cloneFloat64Ptr(row.ManualCostPrice)
 	row.EffectiveCostPrice = cloneFloat64Ptr(row.EffectiveCostPrice)
-	row.SKUCostPriceInfoList = append([]listingkit.SheinSKUCostPrice(nil), row.SKUCostPriceInfoList...)
+	row.SKUCostPriceInfoList = append([]sheinsync.SheinSKUCostPrice(nil), row.SKUCostPriceInfoList...)
 	return row
 }
 
-func cloneSheinSyncJobRecord(row listingkit.SheinSyncJobRecord) listingkit.SheinSyncJobRecord {
+func cloneSheinSyncJobRecord(row sheinsync.SheinSyncJobRecord) sheinsync.SheinSyncJobRecord {
 	row.StartedAt = cloneTimePtr(row.StartedAt)
 	row.FinishedAt = cloneTimePtr(row.FinishedAt)
 	return row
 }
 
-func cloneSheinCandidateRecord(row listingkit.SheinActivityCandidateRecord) listingkit.SheinActivityCandidateRecord {
+func cloneSheinCandidateRecord(row sheinsync.SheinActivityCandidateRecord) sheinsync.SheinActivityCandidateRecord {
 	row.EffectiveCostPrice = cloneFloat64Ptr(row.EffectiveCostPrice)
 	row.CalculatedProfitRate = cloneFloat64Ptr(row.CalculatedProfitRate)
-	row.SKUCostPriceInfoList = append([]listingkit.SheinSKUCostPrice(nil), row.SKUCostPriceInfoList...)
+	row.SKUCostPriceInfoList = append([]sheinsync.SheinSKUCostPrice(nil), row.SKUCostPriceInfoList...)
 	return row
 }
 
-func cloneSheinEnrollmentRunRecord(row listingkit.SheinActivityEnrollmentRunRecord) listingkit.SheinActivityEnrollmentRunRecord {
+func cloneSheinEnrollmentRunRecord(row sheinsync.SheinActivityEnrollmentRunRecord) sheinsync.SheinActivityEnrollmentRunRecord {
 	row.StartedAt = cloneTimePtr(row.StartedAt)
 	row.FinishedAt = cloneTimePtr(row.FinishedAt)
 	return row
 }
 
-func cloneSheinEnrollmentItemRecord(row listingkit.SheinActivityEnrollmentItemRecord) listingkit.SheinActivityEnrollmentItemRecord {
+func cloneSheinEnrollmentItemRecord(row sheinsync.SheinActivityEnrollmentItemRecord) sheinsync.SheinActivityEnrollmentItemRecord {
 	return row
 }
