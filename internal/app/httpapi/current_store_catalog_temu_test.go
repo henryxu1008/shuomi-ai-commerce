@@ -28,6 +28,18 @@ func TestCatalogObservationEligibilityKeepsTemuProductsAndOrdersSeparate(t *test
 	}
 }
 
+func TestCatalogSyncHealthUsesOnlySupportedKinds(t *testing.T) {
+	complete := o.StoreSummary{Complete: true, SyncStatus: "completed"}
+	require.True(t, catalogSyncHealthy(complete, o.StoreSummary{}, false), "TEMU complete products must not require an unsupported order summary")
+	require.False(t, catalogSyncHealthy(complete, o.StoreSummary{}, true), "SHEIN still requires orders")
+	require.True(t, catalogSyncHealthy(complete, complete, true))
+	for _, status := range []string{"pending", "running", "failed", "partial", "suspended"} {
+		require.False(t, catalogSyncHealthy(o.StoreSummary{Complete: true, SyncStatus: status}, o.StoreSummary{}, false))
+	}
+	require.False(t, catalogSyncHealthy(o.StoreSummary{SyncStatus: "completed"}, o.StoreSummary{}, false))
+	require.False(t, catalogSyncHealthy(o.StoreSummary{}, o.StoreSummary{}, false))
+}
+
 func TestCatalogTemuModeUsesVerifiedMerchantAndCompoundApplication(t *testing.T) {
 	choices := []storecenter.OfficialApplicationChoice{
 		{Platform: storecenter.PlatformShein, AppID: "same-id", Revision: "same-revision", AuthorizationMethod: storecenter.AuthorizationCallback, Type: storecenter.ApplicationSelfOperated},

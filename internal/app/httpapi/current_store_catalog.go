@@ -43,6 +43,10 @@ func catalogObservationsEligible(platform storecenter.Platform, status storecent
 	return status == storecenter.RecordStatusActive && kind.Valid() && (platform == storecenter.PlatformShein || platform == storecenter.PlatformTemu && kind == o.Products)
 }
 
+func catalogSyncHealthy(product, order o.StoreSummary, requiresOrders bool) bool {
+	return product.Complete && product.SyncStatus == "completed" && (!requiresOrders || order.Complete && order.SyncStatus == "completed")
+}
+
 func catalogApplicationType(view storecenter.OfficialConnectionView, choices []storecenter.OfficialApplicationChoice) storecenter.OfficialApplicationType {
 	for _, choice := range choices {
 		if choice.Platform != view.Platform || choice.IdentityPartition != view.IdentityPartition || choice.AppID != view.AppID || choice.Revision != view.AppRevision {
@@ -134,9 +138,7 @@ func (s storeCatalogSignals) ReadCatalogSignals(ctx context.Context, org string,
 				signal.ObservedAt = order.ObservedAt
 			}
 		}
-		product, pok := products[id]
-		order, ook := orders[id]
-		signal.SyncHealthy = pok && ook && product.Complete && order.Complete && product.SyncStatus == "completed" && order.SyncStatus == "completed"
+		signal.SyncHealthy = catalogSyncHealthy(products[id], orders[id], orderEligible[i])
 		if thresholds[id] == nil {
 			signal.Inventory = storecenter.CatalogMetric{Reason: "threshold_not_set"}
 		}
