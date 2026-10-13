@@ -3,7 +3,8 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1", "localhost"],
   output: "standalone",
-  async headers(){return [{source:"/workbench/stores/shein/callback",headers:[{key:"Referrer-Policy",value:"no-referrer"},{key:"Cache-Control",value:"private, no-store"},{key:"X-Content-Type-Options",value:"nosniff"}]}];},
+  logging:{incomingRequests:{ignore:[/^\/workbench\/stores\/(?:shein|tiktokshop)\/callback(?:\?|$)/]}},
+  async headers(){return ["shein","tiktokshop"].map(platform=>({source:`/workbench/stores/${platform}/callback`,headers:[{key:"Referrer-Policy",value:"no-referrer"},{key:"Cache-Control",value:"private, no-store"},{key:"X-Content-Type-Options",value:"nosniff"}]}));},
   images: {
     remotePatterns: [
       {

@@ -162,20 +162,24 @@ const pendingSchema = z
     storeId: z.uuid(),
     attemptId: z.uuid(),
     expiresAt: z.string().datetime({ precision: null }),
+    appId:z.string().min(1).max(128).optional(),
   })
   .strict();
-const pendingKey = "listingkit.shein.pending";
+const authorizationPendingKey=(platform:"shein"|"tiktokshop")=>`listingkit.${platform}.pending`;
 // Contains local routing metadata only. Consent state, tempToken, merchant
 // credentials and authorization URL never enter browser persistence.
 export function rememberStoreAuthorization(
   value: z.infer<typeof pendingSchema>,
+  platform:"shein"|"tiktokshop"="shein",
 ) {
+  const pendingKey=authorizationPendingKey(platform);
   const encoded = JSON.stringify(pendingSchema.parse(value));
   sessionStorage.setItem(pendingKey, encoded);
   if (sessionStorage.getItem(pendingKey) !== encoded)
     throw new Error("Authorization routing metadata could not be saved");
 }
-export function readStoreAuthorization() {
+export function readStoreAuthorization(platform:"shein"|"tiktokshop"="shein") {
+  const pendingKey=authorizationPendingKey(platform);
   try {
     return pendingSchema.parse(
       JSON.parse(sessionStorage.getItem(pendingKey) ?? "null"),
@@ -186,8 +190,10 @@ export function readStoreAuthorization() {
 }
 export function clearStoreAuthorization(
   original: z.infer<typeof pendingSchema>,
+  platform:"shein"|"tiktokshop"="shein",
 ) {
-  const current = readStoreAuthorization();
+  const pendingKey=authorizationPendingKey(platform);
+  const current = readStoreAuthorization(platform);
   if (
     !current ||
     JSON.stringify(current) !== JSON.stringify(pendingSchema.parse(original))

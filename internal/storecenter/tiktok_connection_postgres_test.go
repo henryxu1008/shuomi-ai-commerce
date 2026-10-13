@@ -110,6 +110,7 @@ func TestTikTokCallbackClaimIsSingleDispatchAndRetainsOriginalMember(t *testing.
 	require.Equal(t, closed.TikTok.BindingRevision, closedAgain.TikTok.BindingRevision)
 	// Only an explicit new authorization can rebind the revoked Shop.
 	require.NoError(t, db.Exec(`UPDATE workbench_store_tiktok_shop_bindings SET status='active' WHERE organization_id='org-a' AND store_id=?`, store.ID()).Error)
+	require.NoError(t, db.Exec(`UPDATE workbench_store_connections SET status='connected' WHERE organization_id='org-a' AND store_id=?`, store.ID()).Error)
 	refreshID := uuid.NewString()
 	inputHash := sha256.Sum256([]byte("fixture-refresh-input"))
 	claim, err := repo.ClaimTikTokRefresh(context.Background(), "org-a", store.ID(), refreshID, 1, hex.EncodeToString(inputHash[:]), time.Now().UTC())

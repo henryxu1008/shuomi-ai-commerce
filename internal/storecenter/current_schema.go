@@ -300,11 +300,12 @@ const storeRuntimePermissionQuery = `SELECT current_user,
  AND NOT (
  (n.nspname='public' AND (r.relname,p.privilege_type) IN (('workbench_store_groups','SELECT'),('workbench_store_groups','INSERT'),('workbench_store_groups','UPDATE'),('workbench_store_profiles','SELECT'),('workbench_store_profiles','INSERT'),('workbench_store_profiles','UPDATE'),('workbench_store_metadata_operations','SELECT'),('workbench_store_metadata_operations','INSERT'),('workbench_stores','SELECT'),('workbench_stores','INSERT'),('workbench_stores','UPDATE'),('workbench_store_audit_logs','SELECT'),('workbench_store_audit_logs','INSERT'),('workbench_store_member_grants','SELECT'),('workbench_store_member_grants','INSERT'),('workbench_store_member_grants','UPDATE'),('workbench_store_member_grant_operations','SELECT'),('workbench_store_member_grant_operations','INSERT'),('workbench_store_service_operations','SELECT'),('workbench_store_service_operations','INSERT'),('workbench_store_service_operations','UPDATE'),('workbench_store_connections','SELECT'),('workbench_store_connections','INSERT'),('workbench_store_connections','UPDATE'),('workbench_store_connection_attempts','SELECT'),('workbench_store_connection_attempts','INSERT'),('workbench_store_connection_attempts','UPDATE'),('workbench_store_merchant_bindings','SELECT'),('workbench_store_merchant_bindings','INSERT')))
  OR ($1 AND n.nspname='store_observations' AND ((r.relname='commands' AND p.privilege_type IN ('SELECT','INSERT')) OR (r.relname IN ('syncs','records','heads') AND p.privilege_type IN ('SELECT','INSERT','UPDATE'))))
- OR ($2 AND n.nspname='operations_cockpit' AND ((r.relname IN ('facts','fact_versions','goal_heads','goal_versions','commands') AND p.privilege_type IN ('SELECT','INSERT')) OR (r.relname IN ('facts','goal_heads') AND p.privilege_type='UPDATE')))))`
+ OR ($2 AND n.nspname='operations_cockpit' AND ((r.relname IN ('facts','fact_versions','goal_heads','goal_versions','commands') AND p.privilege_type IN ('SELECT','INSERT')) OR (r.relname IN ('facts','goal_heads') AND p.privilege_type='UPDATE')))
+ OR ($3 AND n.nspname='public' AND ((r.relname IN ('workbench_store_tiktok_oauth_grants','workbench_store_tiktok_oauth_attempts','workbench_store_tiktok_shop_bindings','workbench_store_tiktok_oauth_refresh_operations') AND p.privilege_type IN ('SELECT','INSERT','UPDATE')) OR (r.relname='workbench_store_tiktok_authorization_events' AND p.privilege_type IN ('SELECT','INSERT'))))))`
 
 // RuntimeCapabilities admits only explicitly enabled feature tables.
 // The default Store boundary continues to reject every additional privilege.
-type RuntimeCapabilities struct{ Observations, OperationsCockpit bool }
+type RuntimeCapabilities struct{ Observations, OperationsCockpit, TikTokShop bool }
 
 func VerifyRuntimePermissions(ctx context.Context, db *gorm.DB) error {
 	return VerifyRuntimePermissionsForCapabilities(ctx, db, RuntimeCapabilities{})
@@ -320,11 +321,18 @@ func VerifyRuntimePermissionsForCapabilities(ctx context.Context, db *gorm.DB, c
 	}
 	var role string
 	var required, forbidden bool
-	if err := sqlDB.QueryRowContext(ctx, storeRuntimePermissionQuery, capabilities.Observations, capabilities.OperationsCockpit).Scan(&role, &required, &forbidden); err != nil {
+	if err := sqlDB.QueryRowContext(ctx, storeRuntimePermissionQuery, capabilities.Observations, capabilities.OperationsCockpit, capabilities.TikTokShop).Scan(&role, &required, &forbidden); err != nil {
 		return err
 	}
 	if role != "store_center_runtime" || !required || forbidden {
 		return errors.New("store runtime permissions do not match the admitted boundary")
+	}
+	if capabilities.TikTokShop {
+		var complete bool
+		err := sqlDB.QueryRowContext(ctx, `SELECT NOT EXISTS(SELECT 1 FROM (VALUES ('workbench_store_tiktok_oauth_grants',true),('workbench_store_tiktok_oauth_attempts',true),('workbench_store_tiktok_shop_bindings',true),('workbench_store_tiktok_oauth_refresh_operations',true),('workbench_store_tiktok_authorization_events',false)) t(name,mutable) WHERE NOT coalesce(has_table_privilege(current_user,to_regclass('public.'||name),'SELECT') AND has_table_privilege(current_user,to_regclass('public.'||name),'INSERT') AND (NOT mutable OR has_table_privilege(current_user,to_regclass('public.'||name),'UPDATE')),false))`).Scan(&complete)
+		if err != nil || !complete {
+			return errors.New("TikTok Shop required Store grants unavailable")
+		}
 	}
 	if capabilities.OperationsCockpit {
 		var complete bool

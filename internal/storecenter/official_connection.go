@@ -94,7 +94,7 @@ type OfficialConnectionBegin struct {
 	ExpiresAt           time.Time                   `json:"expiresAt"`
 	AuthorizationMethod OfficialAuthorizationMethod `json:"authorizationMethod"`
 }
-type CompleteOfficialConnection struct{ OrganizationID, StoreID, AttemptID, AppID, State, TempToken string }
+type CompleteOfficialConnection struct{ OrganizationID, StoreID, AttemptID, AppID, State, TempToken, AuthCode string }
 type OfficialConnectionView struct {
 	Platform             Platform                    `json:"platform"`
 	IdentityPartition    OfficialIdentityPartition   `json:"identityPartition,omitempty"`

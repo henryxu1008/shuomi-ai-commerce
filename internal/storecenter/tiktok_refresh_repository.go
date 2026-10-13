@@ -35,6 +35,10 @@ func (r *MemberScopedStoreRepository) ClaimTikTokRefresh(ctx context.Context, or
 		if store.Platform != string(PlatformTikTokShop) || store.ConnectionRef == "" {
 			return ErrNotFound
 		}
+		var connection officialConnectionRow
+		if e = tx.Where("organization_id=? AND store_id=? AND attempt_id=? AND status=?", org, storeID, store.ConnectionRef, string(ConnectionStatusConnected)).Take(&connection).Error; e != nil {
+			return ErrOfficialConnectionUnavailable
+		}
 		var binding tiktokBindingRow
 		if e = tx.Where("organization_id=? AND store_id=? AND status='active'", org, storeID).Take(&binding).Error; e != nil {
 			return ErrOfficialConnectionUnavailable

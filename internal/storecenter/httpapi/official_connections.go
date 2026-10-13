@@ -131,7 +131,7 @@ func (h *Handler) CompleteOfficialConnection(c *gin.Context) {
 		writeInvalid(c, "headers", "not_allowed")
 		return
 	}
-	values, field, err := parseStringObject(c.Request.Body, map[string]bool{"attemptId": true, "appId": true, "state": true, "tempToken": true})
+	values, field, err := parseStringObject(c.Request.Body, map[string]bool{"attemptId": true, "appId": true, "state": true, "tempToken": false, "authCode": false})
 	if err != nil {
 		writeInvalid(c, field, "invalid")
 		return
@@ -141,11 +141,15 @@ func (h *Handler) CompleteOfficialConnection(c *gin.Context) {
 		writeInvalid(c, "attemptId", "invalid")
 		return
 	}
-	if len(values["appId"]) > 200 || len(values["state"]) > 128 || len(values["tempToken"]) > 4096 {
+	_, tokenPresent := values["tempToken"]
+	_, codePresent := values["authCode"]
+	if tokenPresent == codePresent || len(values["appId"]) > 200 || len(values["state"]) > 128 || len(values["tempToken"]) > 4096 || len(values["authCode"]) > 2048 {
 		writeInvalid(c, "body", "invalid")
 		return
 	}
-	result, err := h.officialConnections.Complete(c.Request.Context(), storecenter.CompleteOfficialConnection{OrganizationID: identity.EffectiveOrganizationID, StoreID: id, AttemptID: attempt, AppID: values["appId"], State: values["state"], TempToken: values["tempToken"]})
+	c.Header("Cache-Control", "no-store")
+	c.Header("Referrer-Policy", "no-referrer")
+	result, err := h.officialConnections.Complete(c.Request.Context(), storecenter.CompleteOfficialConnection{OrganizationID: identity.EffectiveOrganizationID, StoreID: id, AttemptID: attempt, AppID: values["appId"], State: values["state"], TempToken: values["tempToken"], AuthCode: values["authCode"]})
 	if err != nil {
 		writeStoreError(c, err)
 		return

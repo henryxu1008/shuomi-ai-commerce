@@ -71,6 +71,10 @@ type SellerAuthorization interface {
 	AuthorizedShops(context.Context, string) ([]Shop, error)
 }
 
+type DeauthorizationVerifier interface {
+	VerifyDeauthorization([]byte, string) (Deauthorization, error)
+}
+
 // Deauthorization is evidence for the owning Store transaction, never authority
 // to bind a Shop. No provider message, raw body or caller-supplied org is kept.
 type Deauthorization struct {
