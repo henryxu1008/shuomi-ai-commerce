@@ -17,9 +17,9 @@ import (
 )
 
 type contentReviewIAM struct {
-	server                        *httptest.Server
-	revoked, failed, rolesRevoked atomic.Bool
-	calls                         atomic.Int32
+	server                                                   *httptest.Server
+	revoked, failed, rolesRevoked, inactive, userUnavailable atomic.Bool
+	calls                                                    atomic.Int32
 }
 
 func newContentReviewIAM(t *testing.T, replaced *atomic.Bool) *contentReviewIAM {
@@ -28,6 +28,19 @@ func newContentReviewIAM(t *testing.T, replaced *atomic.Bool) *contentReviewIAM 
 	iam.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		iam.calls.Add(1)
 		require.Equal(t, "Bearer controlled-service-token", r.Header.Get("Authorization"))
+		if r.URL.Path == "/v2/users/admin" {
+			if iam.userUnavailable.Load() {
+				w.WriteHeader(http.StatusServiceUnavailable)
+				return
+			}
+			state := "USER_STATE_ACTIVE"
+			if iam.inactive.Load() {
+				state = "USER_STATE_INACTIVE"
+			}
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprintf(w, `{"user":{"userId":"admin","state":%q}}`, state)
+			return
+		}
 		if iam.failed.Load() {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
@@ -62,7 +75,7 @@ func (iam *contentReviewIAM) config() *config.Config {
 }
 
 func TestContentCrossAdministratorReviewRevalidatesOriginalExecution(t *testing.T) {
-	for _, change := range []string{"healthy", "member replaced", "revoked before apply", "roles revoked", "IAM unavailable"} {
+	for _, change := range []string{"healthy", "member replaced", "revoked before apply", "roles revoked", "configured-user roles revoked", "IAM unavailable", "actor inactive", "user lookup unavailable"} {
 		t.Run(change, func(t *testing.T) { testProductAgentOwners(t, "content flow cross-admin "+change) })
 	}
 }
@@ -73,17 +86,23 @@ func testContentCrossAdministratorReview(t *testing.T, change string, iam *conte
 	if change == "member replaced" {
 		replaced.Store(true)
 	}
-	if change == "roles revoked" {
+	if change == "roles revoked" || change == "configured-user roles revoked" {
 		iam.rolesRevoked.Store(true)
 	}
 	if change == "IAM unavailable" {
 		iam.failed.Store(true)
 	}
+	if change == "actor inactive" {
+		iam.inactive.Store(true)
+	}
+	if change == "user lookup unavailable" {
+		iam.userUnavailable.Store(true)
+	}
 	status := http.StatusOK
-	if change == "member replaced" || change == "roles revoked" {
+	if change == "member replaced" || change == "roles revoked" || change == "configured-user roles revoked" || change == "actor inactive" {
 		status = http.StatusForbidden
 	}
-	if change == "IAM unavailable" {
+	if change == "IAM unavailable" || change == "user lookup unavailable" {
 		status = http.StatusServiceUnavailable
 	}
 	accepted := titleCall(t, server, "POST", titleBasePath+"/"+view.ID+"/decisions", "reviewer", "B", uuid.NewString(), `{"action":"accept","expected_revision":1}`, status)

@@ -267,7 +267,11 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	deps.workbenchVerifier = titleVerifier{}
 	var memberReplaced atomic.Bool
 	deps.organizationResolver = workbenchcontext.NewResolver(agentFixtureGrants{base: f.grants, replacement: &memberReplaced}, "project", "v1", nil)
-	auth, err := authz.NewListingKitAuthorizer(nil, nil)
+	var platformUsers []string
+	if mode == "content flow cross-admin configured-user roles revoked" {
+		platformUsers = []string{"admin"}
+	}
+	auth, err := authz.NewListingKitAuthorizer(platformUsers, nil)
 	require.NoError(t, err)
 	deps.authorizer = auth
 	// Keep the synthetic input bound below escapedBase's encoded prompt so the

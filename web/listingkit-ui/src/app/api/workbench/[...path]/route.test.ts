@@ -370,6 +370,36 @@ describe("/api/workbench BFF", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it.each(["start", "read", "resume"])("routes content %s through its actual allowlist and response contract", async (action) => {
+    authState.session = { accessToken: "private-token" };
+    authState.token = "private-token";
+    authState.identity = { userId: "user-a" };
+    vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL", "http://localhost");
+    const contentSelection = { targetLanguage: "en-US", description: true };
+    const payload = {
+      executionMode: "default", modeRevision: "0", modeSnapshotRef: { Kind: "agent-execution-mode-v1", ID: storeId, Digest: "a".repeat(64) },
+      runId: operationKey, requestKey: storeId, operationId: operationKey, productKey: "product", catalogVersion: "2", publicationId: "adopted-head", targetPlatform: "product",
+      contentSelection, phase: "human_review_required", revision: "2", humanReviewRequired: true, canSubmitReview: true,
+      candidate: { Changes: [{ Field: "description", Value: "Content suggestion", EvidenceIDs: ["source"] }], Warnings: [], Rejections: [] },
+      confidence: [], unresolved: [], steps: [], tokens: 50, estimatedCostMicros: 30, currency: "CNY", usageStatus: "observed",
+    };
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json(payload));
+    vi.stubGlobal("fetch", fetchMock);
+    const path = ["sourcing", "1688", "acquisitions", operationKey, "content-agent", "runs", ...(action === "start" ? [] : action === "read" ? [storeId] : [storeId, "resume"])];
+    const method = action === "read" ? "GET" : "POST";
+    const response = await call(action === "read" ? GET : POST, new NextRequest(`http://localhost/api/workbench/${path.join("/")}`, {
+      method, headers: {
+        cookie: "shuomi_effective_organization=org-b", Origin: "http://localhost",
+        "Content-Type": "application/json", "Idempotency-Key": storeId,
+        "X-Expected-Organization-ID": "org-b", "X-Expected-User-ID": "user-a",
+      },
+      body: method === "GET" ? undefined : JSON.stringify(action === "resume" ? { revision: "1", feedback: "check evidence" } : { expectedModeRevision: "0", targetPlatform: "product", contentSelection }),
+    }), path);
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual(payload);
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
   it("uses the merged serverAuth wrapper and reads the token from request.auth", async () => {
     authMocks.wrapper.mockClear();
     vi.resetModules();
