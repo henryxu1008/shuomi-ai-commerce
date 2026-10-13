@@ -245,11 +245,14 @@ third-party orders and payment facts retain their existing owners. See also
 
 ### 3.7 `internal/compatibility/listingkit`
 
-CURRENT STATE: `internal/compatibility/listingkit/sourcehandoff` is a drain-only
-legacy 1688-to-ListingKit task path still wired by app HTTP composition on the
-baseline above. #30 owns extraction of identity, authorization, errors and source
-publication into current Product Sourcing/Catalog and application boundaries,
-then retirement of the old route/handoff. No new consumer is allowed.
+CURRENT STATE: `internal/compatibility/listingkit/sourcehandoff`, its legacy
+1688-to-ListingKit Task route and app HTTP composition were retired by #663.
+The earlier baseline's drain-only handoff is historical evidence. Current
+Product Sourcing/Catalog and application boundaries retain source identity,
+authorization, evidence and publication; no replacement Task facade or new
+consumer is allowed. Other ListingKit/source-account/tenantbridge consumers
+remain with their existing retirement owners. This source change does not
+establish deployment or real-provider acceptance.
 
 **PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08** governs this path: future work
 starts from a fresh installation and empty business data. The current Product

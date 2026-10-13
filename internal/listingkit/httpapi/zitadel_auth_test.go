@@ -446,11 +446,11 @@ func TestListingKitZitadelAuthRoleMiddlewareIgnoresForgedHeaders(t *testing.T) {
 
 	router := gin.New()
 	mountRoutes(router, []routeDescriptor{{
-		Method: http.MethodPost, Path: "/api/v1/product-sourcing/1688/listingkit/tasks", Module: "product-sourcing", Permission: authz.PermissionProductSourcingWrite,
+		Method: http.MethodPost, Path: "/__test/source-command", Module: "product-sourcing", Permission: authz.PermissionProductSourcingWrite,
 		Handler: func(c *gin.Context) { c.Status(http.StatusNoContent) },
 	}})
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/product-sourcing/1688/listingkit/tasks", nil)
+	req := httptest.NewRequest(http.MethodPost, "/__test/source-command", nil)
 	req.Header.Set("Authorization", "Bearer access-token-1")
 	req.Header.Set("X-User-Roles", "viewer")
 	resp := httptest.NewRecorder()
@@ -471,11 +471,11 @@ func TestListingKitZitadelAuthRoleMiddlewareRejectsForgedPermittedHeader(t *test
 
 	router := gin.New()
 	mountRoutes(router, []routeDescriptor{{
-		Method: http.MethodPost, Path: "/api/v1/product-sourcing/1688/listingkit/tasks", Module: "product-sourcing", Permission: authz.PermissionProductSourcingWrite,
+		Method: http.MethodPost, Path: "/__test/source-command", Module: "product-sourcing", Permission: authz.PermissionProductSourcingWrite,
 		Handler: func(c *gin.Context) { c.Status(http.StatusNoContent) },
 	}})
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/product-sourcing/1688/listingkit/tasks", nil)
+	req := httptest.NewRequest(http.MethodPost, "/__test/source-command", nil)
 	req.Header.Set("Authorization", "Bearer access-token-1")
 	req.Header.Set("X-User-Roles", "listingkit_operator")
 	resp := httptest.NewRecorder()
