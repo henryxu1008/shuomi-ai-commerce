@@ -8,7 +8,7 @@ const hash=z.string().regex(/^[0-9a-f]{64}$/);
 const text=(limit:number)=>z.string().refine(v=>new TextEncoder().encode(v).length<=limit);
 const summary=text(512).refine(v=>v.trim()===v);
 const bounded=z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
-export const materialsConfigurationRefSchema=z.strictObject({Kind:z.literal("agent-configuration-v1"),ID:collectionID,Digest:hash});
+const materialsConfigurationRefSchema=z.strictObject({Kind:z.literal("agent-configuration-v1"),ID:collectionID,Digest:hash});
 export const materialsPrepareSchema=z.strictObject({requestKey:collectionID,expectedModeRevision:modeRevisionSchema,template:templateRefSchema.optional(),goalSummary:summary.optional()});
 export const materialsStartSchema=z.strictObject({configurationSnapshotRef:materialsConfigurationRefSchema});
 export const materialsResumeSchema=materialsStartSchema.extend({revision:configVersion,feedback:summary});

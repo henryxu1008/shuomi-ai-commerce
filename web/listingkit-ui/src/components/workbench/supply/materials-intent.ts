@@ -2,7 +2,7 @@ import {z} from "zod";
 import {collectionID} from "@/lib/contracts/product-collection";
 import {materialsPrepareSchema,materialsPreparedSchema,materialsResumeSchema,materialsAdoptSchema} from "@/lib/contracts/listing-materials";
 const identity=z.string().min(1).max(128);
-export const materialsIntentSchema=z.strictObject({recordId:collectionID,userId:identity,organizationId:identity,key:collectionID,prepare:materialsPrepareSchema,prepared:materialsPreparedSchema.optional()}).superRefine((v,ctx)=>{
+const materialsIntentSchema=z.strictObject({recordId:collectionID,userId:identity,organizationId:identity,key:collectionID,prepare:materialsPrepareSchema,prepared:materialsPreparedSchema.optional()}).superRefine((v,ctx)=>{
  if(v.key!==v.prepare.requestKey||v.prepared&&(v.prepared.recordId!==v.recordId||v.prepared.requestKey!==v.key))ctx.addIssue({code:"custom",message:"Original materials intent binding differs"});
 });
 export type MaterialsIntent=z.infer<typeof materialsIntentSchema>;
@@ -17,7 +17,7 @@ export function storeMaterialsIntent(intent:MaterialsIntent){
  window.history.replaceState(null,"",url);
 }
 const mutationBinding={recordId:collectionID,userId:identity,organizationId:identity,key:collectionID};
-export const materialsMutationSchema=z.discriminatedUnion("action",[
+const materialsMutationSchema=z.discriminatedUnion("action",[
  z.strictObject({...mutationBinding,action:z.literal("resume"),input:materialsResumeSchema}),
  z.strictObject({...mutationBinding,action:z.literal("adopt"),input:materialsAdoptSchema}),
 ]);
