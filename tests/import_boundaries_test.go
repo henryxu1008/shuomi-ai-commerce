@@ -1370,73 +1370,6 @@ func TestListingKitSheinWorkspaceBridgeDoesNotImportLegacyWorkspaceDomain(t *tes
 	}, nil)
 }
 
-func TestListingKitHTTPAPIExternalClientImportsStayAllowlisted(t *testing.T) {
-	root := filepath.Join("..", "internal", "listingkit", "httpapi")
-	allowedFiles := map[string]struct{}{
-		filepath.Clean(filepath.Join(root, "ai_credential_store_adapter.go")):           {},
-		filepath.Clean(filepath.Join(root, "ai_image_generator_adapter.go")):            {},
-		filepath.Clean(filepath.Join(root, "ai_client_builders.go")):                    {},
-		filepath.Clean(filepath.Join(root, "ai_client_fallback_helpers.go")):            {},
-		filepath.Clean(filepath.Join(root, "ai_client_image_routing.go")):               {},
-		filepath.Clean(filepath.Join(root, "ai_client_strict_chat.go")):                 {},
-		filepath.Clean(filepath.Join(root, "ai_client_strict_image.go")):                {},
-		filepath.Clean(filepath.Join(root, "ai_clients.go")):                            {},
-		filepath.Clean(filepath.Join(root, "ai_clients_test.go")):                       {},
-		filepath.Clean(filepath.Join(root, "ai_capability_studio_catalog.go")):          {},
-		filepath.Clean(filepath.Join(root, "ai_capability_studio_catalog_test.go")):     {},
-		filepath.Clean(filepath.Join(root, "bootstrap_contracts.go")):                   {},
-		filepath.Clean(filepath.Join(root, "bootstrap_submit_module.go")):               {},
-		filepath.Clean(filepath.Join(root, "bootstrap_test.go")):                        {},
-		filepath.Clean(filepath.Join(root, "runtime_support_hooks.go")):                 {},
-		filepath.Clean(filepath.Join(root, "shein_category_selector_adapter.go")):       {},
-		filepath.Clean(filepath.Join(root, "runtime_support_shein.go")):                 {},
-		filepath.Clean(filepath.Join(root, "runtime_support_shein_adapter_helpers.go")): {},
-	}
-
-	index, err := loadGoFileIndex(root, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for path, facts := range index.files {
-		if pathAllowed(path, allowedFiles) {
-			continue
-		}
-		for _, bannedImport := range []string{
-			`"task-processor/internal/integration/grsai"`,
-			`"task-processor/internal/integration/openai"`,
-		} {
-			if _, ok := facts.imports[bannedImport]; ok {
-				t.Errorf("%s imports %s; keep listingkit/httpapi concrete external clients limited to current AI runtime and bootstrap seams", path, bannedImport)
-			}
-		}
-	}
-}
-
-func TestListingKitHTTPAPIRetiredManagementImportsStayBlocked(t *testing.T) {
-	root := filepath.Join("..", "internal", "listingkit", "httpapi")
-	allowedFiles := map[string]struct{}{
-		filepath.Clean(filepath.Join(root, "shein_sync_runtime_strategy_helpers.go")): {},
-	}
-
-	index, err := loadGoFileIndex(root, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for path, facts := range index.files {
-		if pathAllowed(path, allowedFiles) {
-			continue
-		}
-		for quotedImport := range facts.imports {
-			importPath := strings.Trim(quotedImport, `"`)
-			if importMatchesPrefix(importPath, "task-processor/internal/infra/clients/management") {
-				t.Errorf("%s imports %s; keep listingkit/httpapi management dependencies limited to current retirement seams and prefer in-repository database/repository access for new business data", path, importPath)
-			}
-		}
-	}
-}
-
 func TestAppTaskRetiredManagementImportsStayBlocked(t *testing.T) {
 	root := filepath.Join("..", "internal", "app", "task")
 	allowedFiles := map[string]struct{}{}
@@ -3530,7 +3463,7 @@ func TestCmdPackagesDoNotImportAppCompatibilityLayers(t *testing.T) {
 func TestDomainHTTPPackagesDoNotImportAppHTTPAPI(t *testing.T) {
 	for _, domainRoot := range []string{
 		filepath.Join("..", "internal", "amazonlisting", "httpapi"),
-		filepath.Join("..", "internal", "listingkit", "httpapi"),
+		filepath.Join("..", "internal", "authz", "httpapi"),
 		filepath.Join("..", "internal", "sourceaccountregistry", "httpapi"),
 	} {
 		t.Run(filepath.Base(domainRoot), func(t *testing.T) {
@@ -3809,9 +3742,7 @@ func findNonCatalogProductDomainImports(t *testing.T, root string) []bannedImpor
 }
 
 func TestBusinessDomainsDoNotImportAppRuntimeAssembly(t *testing.T) {
-	allowedFiles := map[string]struct{}{
-		filepath.Clean(filepath.Join("..", "internal", "listingkit", "httpapi")) + string(os.PathSeparator): {},
-	}
+	allowedFiles := map[string]struct{}{}
 
 	for _, domainRoot := range []string{
 		filepath.Join("..", "internal", "amazon"),
@@ -3848,8 +3779,6 @@ func businessHTTPPackages(root string) map[string]struct{} {
 		filepath.Clean(filepath.Join(root, "httproute")) + string(os.PathSeparator):                        {},
 		filepath.Clean(filepath.Join(root, "imageagent", "httpapi")) + string(os.PathSeparator):            {},
 		filepath.Clean(filepath.Join(root, "kernel", "module")) + string(os.PathSeparator):                 {},
-		filepath.Clean(filepath.Join(root, "listingkit", "api")) + string(os.PathSeparator):                {},
-		filepath.Clean(filepath.Join(root, "listingkit", "httpapi")) + string(os.PathSeparator):            {},
 		filepath.Clean(filepath.Join(root, "promptmgmt", "api")) + string(os.PathSeparator):                {},
 		filepath.Clean(filepath.Join(root, "sds", "httpapi")) + string(os.PathSeparator):                   {},
 		filepath.Clean(filepath.Join(root, "sourceaccountregistry", "httpapi")) + string(os.PathSeparator): {},
@@ -5036,10 +4965,8 @@ func commandEntrypointBannedPrefixes() []string {
 
 func TestTemporalSDKImportsStayInRuntimeAndOrchestrationAdapters(t *testing.T) {
 	orchestrationAllowedFiles := map[string]struct{}{
-		filepath.Clean(filepath.Join("..", "internal", "app", "runtime")) + string(os.PathSeparator):                  {},
-		filepath.Clean(filepath.Join("..", "internal", "imageagent", "temporal")) + string(os.PathSeparator):          {},
-		filepath.Clean(filepath.Join("..", "internal", "listingkit", "temporal")) + string(os.PathSeparator):          {},
-		filepath.Clean(filepath.Join("..", "internal", "listingkit", "task_temporal_submission_activity_support.go")): {},
+		filepath.Clean(filepath.Join("..", "internal", "app", "runtime")) + string(os.PathSeparator):         {},
+		filepath.Clean(filepath.Join("..", "internal", "imageagent", "temporal")) + string(os.PathSeparator): {},
 	}
 	assertNoBannedImports(t, filepath.Join("..", "internal"), []string{
 		`"go.temporal.io/api/enums/v1"`,
@@ -5075,8 +5002,6 @@ func temporalPlatformSDKClientAllowedFiles() map[string]struct{} {
 func TestTemporalRuntimePackagesDoNotImportHTTPAPI(t *testing.T) {
 	for _, root := range []string{
 		filepath.Join("..", "internal", "app", "runtime"),
-		filepath.Join("..", "internal", "listingkit", "temporal"),
-		filepath.Join("..", "internal", "listingkit", "workflow"),
 	} {
 		t.Run(filepath.ToSlash(root), func(t *testing.T) {
 			assertNoBannedImportPrefixes(t, root, []string{

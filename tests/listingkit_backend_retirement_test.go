@@ -63,15 +63,33 @@ func TestCurrentCommandsDoNotCompileListingKitBackend(t *testing.T) {
 }
 
 func TestCurrentBuildDoesNotPackageRetiredTaskEntrypoints(t *testing.T) {
-	for _, relative := range []string{"Makefile", "deployments/docker/Dockerfile.product-listing-api"} {
+	for _, relative := range []string{"Makefile", "deployments/docker/Dockerfile.product-listing-api", "scripts/test-fast.ps1"} {
 		contents, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, retired := range []string{"./cmd/product-listing-api ", "cmd/product-listing-api/", "./internal/listingkit ", "listingkit-shein-pod-image-index-backfill"} {
+		for _, retired := range []string{"./cmd/product-listing-api ", "./cmd/product-listing-api\"", "cmd/product-listing-api/", "./internal/listingkit ", "./internal/listingkit\"", "listingkit-shein-pod-image-index-backfill"} {
 			if strings.Contains(string(contents), retired) {
 				t.Errorf("%s still builds or packages retired entrypoint %q", relative, retired)
 			}
 		}
+	}
+}
+
+func TestRetiredLocalLaunchersRejectBeforeOperations(t *testing.T) {
+	for _, name := range []string{"start-listingkit-local-api.ps1", "start-listingkit-local-dev.ps1"} {
+		content, err := os.ReadFile(filepath.Join("..", "scripts", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		source := string(content)
+		retired := strings.Index(source, "throw \"Legacy ListingKit")
+		firstFunction := strings.Index(source, "function ")
+		if retired < 0 || firstFunction < 0 || retired > firstFunction {
+			t.Errorf("%s must reject the retired entry before process, config or connection operations", name)
+		}
+	}
+	if _, err := os.Stat(filepath.Join("..", "scripts", "start-listingkit-api-local-replay.ps1")); !os.IsNotExist(err) {
+		t.Fatal("dedicated retired API replay entry must be absent")
 	}
 }
