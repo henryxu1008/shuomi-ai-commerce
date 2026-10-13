@@ -25,7 +25,7 @@ Out of Scope：新图片SDK/模型路由平台/计费账本/队列/审核或POD�
 
 | 边界 | owner与合同 |
 | --- | --- |
-| 注册/模板/四模式 | 原agentconfig；独立POD参数schema与明确启用，不借标题/图片模板、模式或默认模型授权 |
+| 注册/模板/四模式 | 原agentconfig；独立POD参数schema与明确启用，不借标题/图片模板、模式或默认模型授权；原configuration_snapshots及image_run_admissions承载精确POD typed payload |
 | 创作Run/plan/slot及恢复 | 原ImageAgent与Temporal；新增创作输入变体，不增加第二个Agent工作队列或状态机 |
 | 报价/预留/生成与用量 | 原GenerationExecution、GenerationFact、GenerationResources、orgresource点数/月限及存储；一次外部effect，原price/route/credential refs冻结 |
 | 实际生成图片 | 原生成输出materialization与owned artifact store；实际bytes/hash/尺寸/类型，模型URL不直接成为批准资产 |
@@ -41,17 +41,28 @@ contract → implementation → injection → consumer：创作输入/输出变�
 | --- | --- | --- |
 | `ArtworkPlan`、`PrepareArtworkInput`、`WithArtworkDependencies`、`Service.PrepareArtwork/GetPreparedArtwork/ConfirmArtwork` | 原`internal/imageagent` Service/Repository，原app组织scope组装注入配置reader和quote reader | `Plan.Artwork`和`SlotExecutionInput.Artwork`为互斥的精确JSON变体；一Run一slot；原Temporal及projection保存，不走通用Start/SubmitPlan自由输入 |
 | `ValidateArtworkPlan/ValidateArtworkExecution` | 原Plan ingress与原slot executor | 明确空Sources、空References、空ProductContext；仅此协议可无原图。`AssetCatalog`是空资产清单的真实manifest，原`NormalizeAssetCatalog`已允许空ProductContext；不得放虚构ProductID或source asset。创作意图的完整digest另存`ArtworkPlan.InputDigest` |
+| `ArtworkProvenance`精确输出变体 | 原`GeneratedAsset`、`StagedAssetRef`、`PublishedAssetRef`及`AssetCandidate`可选typed字段，原manifest/slot-effect持久化 | `SourceAssetID`为空且provenance为创作协议、真实scope/run/revision/slot/attempt、inputDigest、intentID/fingerprint；字段由执行owner从当前输入/GenerationFact铸造，provider不得自报。原商品结果仍要求真实SourceAssetID且不得附创作provenance |
 | 受控`ArtworkCreator`与`ArtworkSlotExecutor` | 原tools及worker generation provider，现integration GRSAI同步客户端`GenerateImage`，同一`GenerationExecution` | quote、reserve、BeginDispatch和success/finalize仍原owner；creator固定一次POST，纯创作分支跳过ReadSourceBytes；商品分支不改变原必需source校验 |
-| `GeneratedArtworkReader` / `ReceiveGeneratedArtwork` | app读原ImageAgent projection、GenerationFact与finalized artifact；`app/productsourcing`在现Product transaction中用`InternalProducer`和`collection.AppendReceived`接收真实作品 | 输入只有原Run/slot/resultHash/配置引用；不收URL或任意商品正文；stable operation派生自原scope/run/slot/hash；原publication/collection receipt重放，不复制生成费用 |
+| `GeneratedArtworkReader` / `ReceiveGeneratedArtwork` / `ArtworkPublisher` | app读原ImageAgent projection、GenerationFact与finalized artifact；原Temporal最终采用publication活动调用当前Collection窄采用合同进入原`Repository.Execute`、`product_collection_operations`及`OwnPublisher/Source InternalProducer`的Product UoW | 输入只有原Run/slot/resultHash/配置引用；不收URL或任意商品正文；stable command/operation派生自原scope/run/slot/hash；原publication/collection receipt重放，不复制生成费用。不能调用没有command receipt且只接受market/SDS的`AppendReceived`冒充恢复 |
 | `ArtworkOriginReader` / POD创作执行guard | app在原Source reader上读取不可变`RawReference/Trace`，注入原POD `OriginalInputs`/`DesignExecutionAuthorizer` | 生成origin由receiver铸造；原Source及原Run/GenerationFact交叉核验配置/模式/actor；前端删标记不能关闭guard。原POD Processor/Kernel消费同一fresh gate，不增加工作队列 |
 
 原ImageSet专用worker构造与原组织运行授权扩展显式支持这一个创作协议，沿原serving root注入；不能注册后留worker拒绝新协议。原商品ImageSet publisher不采用创作作品，作品确认调用上述窄receiver；原RoleDesign批准和POD Create仍是各自领域动作。参数、模板与配置快照精确属于`pod.design.agent/v1.0.0`，原ImageRunAdmission仅复用准入行为，不冒用`product.image.agent`身份。
+
+配置owner新增typed `ArtworkStartCommand/ArtworkConfigurationSnapshot`、`PrepareArtworkConfiguration/LoadArtworkConfiguration/AdmitArtworkRun/CheckArtworkExecutionMode`，复用原snapshot row、模式snapshot/check与image_run_admissions row的锁/幂等准入写法；不增加表。`ContextKind=pod-artwork-v1`、subject/definition必须是精确POD注册项，payload含原mode snapshot、真实member/run/request/inputDigest/参数digest/quote及硬上限。原`PrepareImageConfiguration/AdmitImageRun/CheckImageExecutionMode`仍只接受product.image.agent，不能替POD放行。服务确认前及worker reserve/dispatch前从原persisted ArtworkPlan定位精确configuration/admission，fresh检查启用epoch、模式revision、成员及到期/额度；去掉或替换Artwork字段不能退回商品或通用运行分支。
+
+### 无原图产物的原staging/final合同
+
+当前`prepareGeneratedSlotArtifacts`、`NormalizeStagingManifest/NormalizeFinalManifest`及slot-effect候选验证要求非空`SourceAssetID`。因此仅补输入不够；本批同步补上述`ArtworkProvenance`判别，不能填占位source来通过校验。两个合法且互斥的形状为：商品结果有真实SourceAssetID且无ArtworkProvenance；纯创作结果无SourceAssetID且有完整ArtworkProvenance。缺两者、两者同时有、伪协议、scope或digest不符均拒绝。
+
+`Normalize*Manifest`验证创作provenance的结构、规范ID/hash和唯一操作`generate_artwork`，保留同样的object key、真实hash/bytes/type/尺寸界限。`prepareGeneratedSlotArtifacts`和`ValidatePublishedAssetRefForSlot`从当前原persisted ArtworkPlan/GenerationFact核scope/run/revision/slot/attempt/inputDigest/intentID/fingerprint；空SourceAssetID仅在这个已验证计划中合法。原artifact store staging→final复制该精确字段，manifest摘要/slot-effect candidate fingerprint纳入它；`ValidateSlotEffectV3Candidates`与专用Artwork result builder核同一绑定。原恢复输入及结果也携带该变体，重新从原projection校验，不能因omit字段降级。
+
+正式Source接收只消费`finalized`的单一候选：真实GenerationSucceeded、确定settlement、final manifest、candidate digest与provenance全匹配。UNKNOWN、仅staging、未结算或另一个attempt的图片不可采用。原commodity ImageSet publication明确拒绝Artwork变体；`ReceiveGeneratedArtwork`接收后，Source资产才获得真实新SourceID和RoleDesign批准来源，POD消费的是该真实Source与原作品origin，不把生成意图摘要当已有source asset。生成origin继续通过原Source RawReference/Trace追溯原fact，不新增产物事实owner。
 
 ## 输入、生成与持久化
 
 主题/要求有界UTF-8，输出规格只取当前已配置模型实际支持的值。服务器铸造固定prompt版本，完整规范化意图及输出规格参与input digest、quote和plan；前端不能指定actor/member/month/provider URL、价格、credential、任意工具或模型参数。图案图片生成本身承担创作，不为形式再增加一条文本Agent运行。
 
-纯创作manifest明确未绑定不存在的Product/原图。`CatalogHash`仍是原规范化空资产清单hash，而不是不存在的商品版本；完整创作意图另由GenerationFact的`InputProtocol=pod-artwork-v1`、`InputDigest`绑定。`SourceDigest`在此精确协议表示真实创作输入摘要，必须等于该InputDigest；原商品协议仍表示真实source bytes摘要。持久化Fact的Validate、恢复与staging fingerprint都执行该判别，禁止跨协议混用；旧原图合同不能松成“没有源图就随便生成”。
+纯创作manifest明确未绑定不存在的Product/原图。`CatalogHash`仍是原规范化空资产清单hash，而不是不存在的商品版本；完整创作意图另由GenerationFact的`InputProtocol=pod-artwork-v1`、`InputDigest`绑定。`ArtworkPlan.InputDigest`绑定原规范化Prepare输入；生成时`ArtworkGenerationInputDigest`基于完整`SlotExecutionFingerprint`（含准确plan/配置/意图/quote/slot等）生成最终输入digest，不把这两种摘要混用。`SourceDigest`在此精确协议表示该真实创作执行输入摘要，必须等于GenerationFact.InputDigest；原商品协议仍表示真实source bytes摘要。ArtworkProvenance中的inputDigest取原GenerationFact的最终digest，按原persisted Plan计算并重验。持久化Fact的Validate、恢复与staging fingerprint都执行该判别，禁止跨协议混用；旧原图合同不能松成“没有源图就随便生成”。
 
 SDK creator使用当前明确provider/configuration/price准入。prepare和发送前校验原route/credential/model/price版本、模式、成员、当前额度及存储。缺少配置拒绝对应新生成，禁止fallback到标题模型或其它provider；无预算/价格时不显示免费或可用。实际调用与计量仍在同一GenerationExecution中完成。
 
@@ -61,15 +72,21 @@ Provider POST只能由原fact的单次dispatch permit发出，adapter固定一�
 
 候选公开读取地址由原`DurableAssetPublicURLResolver`从finalized immutable public object key生成，不能用瞬时provider URL。真实bytes/hash/尺寸/type必须与该原finalized artifact和GenerationFact一致。原Source/Asset安全URL检查与原POD下载/完整decode仍适用；无可读且安全的持久图片地址时，作品采用失败并保留原生成结果，不伪造地址、不重新付费生成。
 
-作品采用key为当前scope、原Run/slot和准确结果hash派生的稳定键。Product UoW中创建Source、Catalog及Collection，原command先重放再做新写模式检查；实际事务提交前复查当前身份/权限/启用/模式/结果绑定。Asset批准沿其原命令另一步完成，跨库不伪称原子事务。中断后读原生成/作品command/批准receipt继续；已完成生成不会因作品保存失败再次调用模型。
+作品采用key为当前scope、原Run/slot和准确结果hash派生的稳定UUID键。复用`product_collection_operations`和原`Repository.Execute`锁/原key+inputHash冲突/receipt原子提交；新增窄内部adoption command，普通Collection Mutation不接受该action或生成envelope。`Source.Kind=own`表示自有作品，已被当前Collection schema接纳；精确AI来源在不可变SourceEnvelope，不能改为`user_input`。原`OwnPublisher`只复用其Source/Catalog事务发布行为，作品标题/要求/图片来自原受控reader，无虚构商业字段。
+
+同一Product UoW创建Source、Catalog、Collection及command receipt，所有写入同提交/同回滚。原command受准确org/actor/member和原输入hash约束，已存在receipt先重放；仅新写由窄guard在事务内复查当前身份/权限/启用/模式/原结果绑定，不能把守卫放在publisher之外或只在UI。original-key读取/恢复走现只读scope权限，不因mode改变暗中重建作品。并发相同command读同receipt；同key不同意图拒绝。Asset批准沿其原命令另一步完成，跨库不伪称原子事务。中断后读原生成/作品command/批准receipt继续；已完成生成不会因作品保存失败再次调用模型。
+
+生成Run沿原状态：确认plan→Executing→原slot/materialization/evaluation→AwaitingFinalApproval。确认“保存作品”的`Service.AdoptArtwork`只允许当前准确result digest/单一候选，通过原最终采用command/publication活动消费`ArtworkPublisher`，不会进入商品Source修改或ImageSet批准publisher。默认需人确认；自动模式只在原内部采用policy允许时提交同一准确command。`ArtworkAdoptionReceipt`包含真实Collection command/批次/条目、Source publication/version及原Run/slot/hash；原publication ACK/读回机制将该receipt绑定Run并完成。它表示已保存作品候选，不表示RoleDesign已批准或SDS成品已生成。Product事务成功而Run ACK丢失时，原publication recovery用同一command读取原receipt再补ACK，不重复接收作品或调用模型；没有新跨库补偿/恢复owner。
 
 没有新表、迁移或第二账本。需要新增精确配置约束与现有JSON输入/结果变体时由显式initializer实施，serving仅Verify、不DDL/种子/启用。当前facts/模板/请求/模式/volumes保持；发现既有owner无法保存本批必需事实时先报告具体缺口，不临时新建事实源。
 
 ## 权限与POD执行
 
-所有入口和worker复用verified Effective Organization、原actor/member及当前业务权限。`read_only`可以在已授权有界计算范围内产生/查看运行候选，拒绝正式作品采用、RoleDesign批准及POD外部写入。`default`明确确认；`auto_approve/full_access`只处理原policy允许的已授权内部动作。模型调用仍受原报价/预算/用量/存储约束，full不提供新增额度或假用量成功。
+所有入口和worker复用verified Effective Organization、原actor/member及当前业务权限。原付费图片准入`AdmitImageRun`拒绝`read_only`；本POD复用该策略，不扩大它。`read_only`可查看原生成结果/历史并准备意图/报价，拒绝确认模型发送、正式作品采用、RoleDesign批准及POD外部写入。`default`明确确认；`auto_approve/full_access`只处理原policy允许的已授权内部动作。模型调用仍受原报价/预算/用量/存储约束，full不提供新增额度或假用量成功。
 
 图案作为印花用途的选择/批准沿原RoleDesign合同，不由模型自批；当前领域需要确认时，full不能覆盖。未授权外部发布/改价/下架/删除/增加额度均拒绝。SDS“生成效果图并保存成品”明确产生远端素材/设计，仍有单独的当前业务授权与用户确认，不能被智能布局或图案生成成功暗中触发。
+
+fresh模式检查也接在**实际SourceApproval新批准写入口**。当前`SourceApprovalService.Approve`经`ReadSourceSelection`直接`CommitApproval`，不能仅补POD Create/worker来阻read_only批准。Source读取仍保持原只读语义；新批准通过窄`SourceApprovalCommitGuard`/原Repository的guarded commit入口，在原Asset事务的新receipt/asset写入前由app从不可变Source重读真实ArtworkOrigin并校验当前POD配置/模式/成员。普通人工来源沿原批准合同；真实AI作品缺该guard则拒绝新批准。原准确action/payload已提交receipt优先原重放/只读读回，不运行新写gate，不给新action或另一payload放行。guard只消费原mode owner及原来源证据，不新增权限体系或批准事实owner。直接批准API、普通POD批准按钮及随后Create/worker同用这条边界；相同key并发/变更模式/撤销的必要测试在实现层收敛。
 
 由POD智能体产生的作品保留实际生成执行origin。进入原POD创建/worker前从权威作品/生成事实取得origin并重新核对模式，不能相信前端可删的agent标记；普通人工来源不被误认为Agent来源。新写/尚未发送的步骤执行当前gate，原已提交receipt及UNKNOWN只读核实不转成新写许可。此guard消费原POD Inputs/ExecutionAuthorization与原mode owner，原fence/SendPermit/状态及唯一recovery不变。
 
