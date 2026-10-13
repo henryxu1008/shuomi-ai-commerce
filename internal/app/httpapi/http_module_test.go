@@ -11,8 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	amazonlistinghttpapi "task-processor/internal/amazonlisting/httpapi"
-	a1688 "task-processor/internal/compatibility/listingkit/sourcehandoff/a1688"
-	productsourcea1688httpapi "task-processor/internal/compatibility/listingkit/sourcehandoff/a1688/httpapi"
 	"task-processor/internal/core/config"
 	"task-processor/internal/httproute"
 	kernelmodule "task-processor/internal/kernel/module"
@@ -126,19 +124,6 @@ func TestAmazonListingHTTPModuleRegistersRoutes(t *testing.T) {
 		"GET /api/v1/amazon/listings/tasks/:task_id/workbench",
 		"POST /api/v1/amazon/listings/tasks/:task_id/review",
 		"POST /api/v1/amazon/listings/tasks/:task_id/submit",
-	}, routeKeys(reg.Routes()))
-}
-
-func TestProductSourcingHTTPModuleRegistersRoutes(t *testing.T) {
-	t.Parallel()
-
-	reg := kernelmodule.NewRegistry()
-
-	err := productsourcea1688httpapi.NewHTTPModule(productsourcea1688httpapi.NewHandler(&stubProductSourcingTaskCommandService{})).Register(reg)
-	require.NoError(t, err)
-
-	require.Equal(t, []string{
-		"POST /api/v1/product-sourcing/1688/listingkit/tasks",
 	}, routeKeys(reg.Routes()))
 }
 
@@ -353,8 +338,3 @@ func routeKeys(routes []httproute.Descriptor) []string {
 	return keys
 }
 
-type stubProductSourcingTaskCommandService struct{}
-
-func (stubProductSourcingTaskCommandService) CreateTask(context.Context, a1688.CreateTaskCommand) (*a1688.CreateTaskResult, error) {
-	return &a1688.CreateTaskResult{}, nil
-}

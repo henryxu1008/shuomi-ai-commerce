@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	amazonlistinghttpapi "task-processor/internal/amazonlisting/httpapi"
-	a1688httpapi "task-processor/internal/compatibility/listingkit/sourcehandoff/a1688/httpapi"
 	imageagenthttpapi "task-processor/internal/imageagent/httpapi"
 	kernelmodule "task-processor/internal/kernel/module"
 	"task-processor/internal/listingkit"
@@ -43,7 +42,6 @@ type listingKitSupport struct {
 type httpFeatureComposition struct {
 	amazonListingModule       *amazonlistinghttpapi.Module
 	listingKitModule          *listingkithttpapi.Module
-	productSourcingModule     *a1688httpapi.BuildResult
 	promptModule              *promptmgmtapi.BuildResult
 	sdsModule                 *sdshttpapi.BuildResult
 	taskRPCResult             *taskrpcapi.BuildResult
