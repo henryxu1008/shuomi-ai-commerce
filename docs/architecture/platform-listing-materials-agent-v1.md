@@ -1,7 +1,7 @@
 # 平台上架资料智能体 v1
 
 Refs #135 / #129 / Roadmap #137。Design Basis: **Independent Architecture**。
-Admission: **DESIGN_IN_PROGRESS / NOT_READY**。本文先于正式实现；独立准入达到 IMPLEMENTATION_READY 后再编码。
+Admission: **IMPLEMENTATION_READY / FROZEN (2026-10-13)**。本文先于正式实现；原独立只读Reviewer已对35b6b5eb6完整设计及实际owner合同完成第1轮准入，未发现开工BLOCKER。准确证据及后续运行结果写#135 / 主要PR #666。
 
 ## 用户结果与依据
 
@@ -119,4 +119,10 @@ Legacy decision: **EXTRACT**。复用当前合法来源/规则/资产、Target�
 
 ## 准入检查点
 
-此版合同已明确，尚未实施，仍待独立准入。检查当前新领域结果port、Target Agent提交guard及唯一command恢复责任；原商品候选/四权限/计费和已批准领域owner不做重复全局评审。具体happy path无法完成、错误授权或数据损坏分类BLOCKER；其余具体实现验证转IMPLEMENTATION_TEST，不追加通用平台。达到IMPLEMENTATION_READY后在同一主要分支连续TDD实现并维护一个主要PR，最终实际用户路径集中复核。
+独立准入已完成，未发现开工BLOCKER。按当前新领域结果port、Target Agent提交guard及唯一command恢复责任检查；原商品候选/四权限/计费和已批准领域owner不做重复全局评审。同一主要分支连续TDD实现并维护一个主要PR，最终实际用户路径集中复核。以下均为IMPLEMENTATION_TEST（合并层），不是新增设计前置：
+
+1. 提交guard只控制新写入，在原提交点复查；当前SaveTarget首次proof.Read位于replay前，不能把新写gate混入已保存receipt读取。配置停用、模式变化、head前进后，原回执仍按当前read授权返回。
+2. 通用EvaluateExecutionPolicy在full下会放行RuleNeedsHuman；Listing必须先落实领域的人为确认约束，换类目/规则或证据不足不能被full自动采用。
+3. 现content schema verifier精确匹配CHECK；新增listing约束同步识别准确合同，保留原content readiness及错误schema拒绝，不松成泛化校验。
+
+本准入不是实现/真实模型/安装/浏览器或用户验收。所有实际执行结果以主要PR当前准确候选证据为准，未变#662证据只明确复用。
