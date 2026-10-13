@@ -28,7 +28,7 @@ type TemuRulesProvider interface {
 }
 
 // TemuRulesHandle shares the current Store execution owner. Only this process,
-// original caller and exact private material can use its five-second proof.
+// original caller and exact private material can use its bounded rules proof.
 type temuMerchantAuthority struct {
 	owner                         *OfficialProductAccess
 	entry                         officialApplicationEntry
@@ -55,7 +55,15 @@ func (a *OfficialProductAccess) authorizeTemu(ctx context.Context, subject store
 	if a == nil || ctx == nil || ctx.Err() != nil || !validTemuProductPurpose(subject.Purpose) {
 		return nil, ErrProductAccessChanged
 	}
-	ctx, cancel := context.WithDeadline(ctx, a.now().Add(5*time.Second))
+	started := a.now()
+	proofExpiresAt := started.Add(5 * time.Second)
+	if subject.Purpose == storecenter.ProductPurposeRules {
+		proofExpiresAt = started.Add(10 * time.Second)
+	}
+	if deadline, ok := ctx.Deadline(); ok && deadline.Before(proofExpiresAt) {
+		proofExpiresAt = deadline
+	}
+	ctx, cancel := context.WithDeadline(ctx, started.Add(5*time.Second))
 	defer cancel()
 	material, err := a.reader.ReadProductExecution(ctx, subject, storeID, a.authorization, a.now())
 	if err != nil || material.Platform != storecenter.PlatformTemu {
@@ -108,7 +116,7 @@ func (a *OfficialProductAccess) authorizeTemu(ctx context.Context, subject store
 	if ctx.Err() != nil || !a.now().Before(expiresAt) {
 		return nil, ErrProductAccessChanged
 	}
-	return &temuMerchantAuthority{owner: a, entry: entry, subject: subject, binding: binding, connectionRef: material.Connection.AttemptID, credentialHash: privateCredentialHash(material), expiresAt: expiresAt}, nil
+	return &temuMerchantAuthority{owner: a, entry: entry, subject: subject, binding: binding, connectionRef: material.Connection.AttemptID, credentialHash: privateCredentialHash(material), expiresAt: proofExpiresAt}, nil
 }
 
 func (h *TemuRulesHandle) Binding() MerchantBinding {
@@ -190,9 +198,18 @@ func callTemuRule[T any](ctx context.Context, h *TemuRulesHandle, local bool, re
 	if ctx == nil || h == nil || h.temuMerchantAuthority == nil || h.owner == nil || h.subject.Purpose != storecenter.ProductPurposeRules || (h.binding.MerchantMode == storecenter.MerchantLocal) != local {
 		return zero, ErrProductAccessChanged
 	}
-	ctx, cancel := context.WithDeadline(ctx, h.expiresAt)
+	// Each read has its own shorter deadline, without renewing the original
+	// aggregate proof or mutating a handle shared by other reads.
+	proof := *h.temuMerchantAuthority
+	if deadline := h.owner.now().Add(5 * time.Second); deadline.Before(proof.expiresAt) {
+		proof.expiresAt = deadline
+	}
+	if deadline, ok := ctx.Deadline(); ok && deadline.Before(proof.expiresAt) {
+		proof.expiresAt = deadline
+	}
+	ctx, cancel := context.WithDeadline(ctx, proof.expiresAt)
 	defer cancel()
-	credential, err := h.credential(ctx)
+	credential, err := proof.credential(ctx)
 	if err != nil {
 		return zero, err
 	}
@@ -200,7 +217,7 @@ func callTemuRule[T any](ctx context.Context, h *TemuRulesHandle, local bool, re
 	if err != nil {
 		return zero, err
 	}
-	if _, err = h.credential(ctx); err != nil {
+	if _, err = proof.credential(ctx); err != nil {
 		return zero, err
 	}
 	return value, nil

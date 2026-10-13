@@ -212,7 +212,7 @@ Finding：E41 已把 E40 的成功返回地址改成7天临时链接；现有成
 
 复用 Go net/http、crypto/md5、标准 JSON 与仓库现有 bounded transport/credential protection/UoW/Temporal。官方提供签名规则与 Python 示例，未在本轮找到经验证适用于当前全部分区/模式的官方 Go SDK；不下载未知 SDK、不建设自有 HTTP 框架。签名按官方 outer ASCII key 排序、精确 wire value、secret 前后拼接、MD5 大写；测试使用固定公开 fixture，日志不保存签名前字符串。
 
-HTTPS 固定官方 origins；禁止任意 type/host、跨 host redirect、无限分页/自动重试。单个请求/response 最大 2 MiB（与当前 execution payload 上限一致），读取采用 max+1 检测超限，超限不部分采纳。身份验证沿现有 5 秒总 deadline；其他单次官方请求最多 10 秒，提交/核实沿原 caller deadline 取更短值。
+HTTPS 固定官方 origins；禁止任意 type/host、跨 host redirect、无限分页/自动重试。单个请求/response 最大 2 MiB（与当前 execution payload 上限一致），读取采用 max+1 检测超限，超限不部分采纳。身份验证沿现有 5 秒总 deadline；只读规则编排及其私密句柄使用从首次授权开始固定的 10 秒总期限，每次规则读取最多 5 秒，均取原 caller 更早期限；读取前后仍验证同一成员/grant、attempt、凭据 hash 和 merchant binding，不能续期。其他单次官方请求最多 10 秒，提交/核实沿原 caller deadline 取更短值；mutation proof 的 5 秒期限保持不变。
 
 Provider 页大小不得超过官方上限（本土 retrieve、product.search 100）；分页串行、原 bounded sync/recovery budgets 内检查 ctx、重复 token/页、数量和总数据量。达到预算保留“未完成/未核实”而不是完整成功。按官方当前 quota 对各 app/API 限速，不猜全平台 QPS；只读重试在原 deadline/budget 内，mutation 无自动重试。
 

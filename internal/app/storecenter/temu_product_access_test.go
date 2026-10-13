@@ -223,7 +223,7 @@ func TestTemuRuleHandleRejectsPlatformMethodAndExpiredProofWithoutProviderCall(t
 	binding.RegionID++
 	_, err = a.AuthorizeTemuRules(context.Background(), subject, "store-a", &binding)
 	require.ErrorIs(t, err, ErrProductAccessChanged)
-	now := a.now().Add(5 * time.Second)
+	now := a.now().Add(10 * time.Second)
 	a.now = func() time.Time { return now }
 	_, err = h.SupplierCategories(context.Background(), temumodel.SupplierCategoryQuery{})
 	require.ErrorIs(t, err, ErrProductAccessChanged)
@@ -236,4 +236,69 @@ func TestTemuRuleHandleCannotUseGrantRevokedDuringOfficialVerification(t *testin
 	_, err := a.AuthorizeTemuRules(context.Background(), subject, "store-a", nil)
 	require.ErrorIs(t, err, ErrProductAccessChanged)
 	require.Zero(t, p.metadataReads)
+}
+
+func TestTemuRuleReadsUseBoundedAggregateWindow(t *testing.T) {
+	for _, partition := range []storecenter.OfficialIdentityPartition{storecenter.PartitionCN, storecenter.PartitionGlobal} {
+		t.Run(string(partition), func(t *testing.T) {
+			mode := storecenter.MerchantLocal
+			if partition == storecenter.PartitionCN {
+				mode = storecenter.MerchantSemiManaged
+			}
+			a, _, p, subject := newTemuRulesAccess(t, partition, mode)
+			started := a.now()
+			now := started
+			a.now = func() time.Time { return now }
+			p.afterIdentity = func() { now = now.Add(3 * time.Second) }
+			ctx, cancel := context.WithDeadline(context.Background(), started.Add(10*time.Second))
+			defer cancel()
+			h, err := a.AuthorizeTemuRules(ctx, subject, "store-a", nil)
+			require.NoError(t, err)
+			p.afterMetadata = func() { now = now.Add(time.Second) }
+			read := func() error {
+				if partition == storecenter.PartitionCN {
+					_, err := h.SupplierCategories(ctx, temumodel.SupplierCategoryQuery{})
+					return err
+				}
+				_, err := h.LocalCategories(ctx, temumodel.LocalCategoryQuery{})
+				return err
+			}
+			for i := 0; i < 5; i++ {
+				before := now
+				require.NoError(t, read(), "valid sequential reads must survive cumulative latency >5s")
+				require.LessOrEqual(t, p.deadline.Sub(before), 5*time.Second)
+			}
+			require.Equal(t, 1, p.identityReads, "the original proof must not be renewed")
+			now = started.Add(10 * time.Second)
+			require.ErrorIs(t, read(), ErrProductAccessChanged)
+			require.Equal(t, 5, p.metadataReads, "expired aggregate window must not call the provider")
+		})
+	}
+}
+
+func TestTemuRuleReadRejectsSingleCallAndEarlierCallerDeadlines(t *testing.T) {
+	for _, tc := range []struct {
+		name                       string
+		callerWindow, readDuration time.Duration
+	}{
+		{"single-call", 10 * time.Second, 5 * time.Second},
+		{"caller", 4 * time.Second, 4 * time.Second},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			a, _, p, subject := newTemuRulesAccess(t, storecenter.PartitionGlobal, storecenter.MerchantLocal)
+			started := a.now()
+			now := started
+			a.now = func() time.Time { return now }
+			ctx, cancel := context.WithDeadline(context.Background(), started.Add(tc.callerWindow))
+			defer cancel()
+			h, err := a.AuthorizeTemuRules(ctx, subject, "store-a", nil)
+			require.NoError(t, err)
+			require.Equal(t, started.Add(tc.callerWindow), h.expiresAt)
+			p.afterMetadata = func() { now = now.Add(tc.readDuration) }
+			value, err := h.LocalCategories(ctx, temumodel.LocalCategoryQuery{})
+			require.ErrorIs(t, err, ErrProductAccessChanged)
+			require.Empty(t, value)
+			require.Equal(t, 1, p.metadataReads)
+		})
+	}
 }

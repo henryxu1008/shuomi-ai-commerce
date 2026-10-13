@@ -10,9 +10,9 @@ import (
 	"task-processor/internal/authz"
 	"task-processor/internal/core/config"
 	memberprovider "task-processor/internal/integration/zitadel/membership"
-	o "task-processor/internal/storecenter/observations"
 	"task-processor/internal/organization/membership"
 	"task-processor/internal/storecenter"
+	o "task-processor/internal/storecenter/observations"
 )
 
 type storeResponsibleReader struct{ directory membership.Directory }
@@ -37,6 +37,10 @@ type storeCatalogSignals struct {
 
 func catalogMetric(metric o.Metric) storecenter.CatalogMetric {
 	return storecenter.CatalogMetric{Value: metric.Value, Unknown: metric.Unknown, Complete: metric.Complete, Reason: metric.Reason}
+}
+
+func catalogObservationsEligible(platform storecenter.Platform, status storecenter.RecordStatus, kind o.Kind) bool {
+	return status == storecenter.RecordStatusActive && kind.Valid() && (platform == storecenter.PlatformShein || platform == storecenter.PlatformTemu && kind == o.Products)
 }
 
 func catalogApplicationType(view storecenter.OfficialConnectionView, choices []storecenter.OfficialApplicationChoice) storecenter.OfficialApplicationType {
@@ -68,7 +72,7 @@ func (s storeCatalogSignals) ReadCatalogSignals(ctx context.Context, org string,
 	}
 	scope := o.Scope{OrganizationID: org, ActorID: identity.UserID, MemberID: identity.EffectiveMemberID}
 	values := make([]storecenter.CatalogSignals, len(ids))
-	active := make([]bool, len(ids))
+	productEligible, orderEligible := make([]bool, len(ids)), make([]bool, len(ids))
 	group, reads := errgroup.WithContext(ctx)
 	group.SetLimit(16)
 	choices := s.applications.Applications()
@@ -78,7 +82,8 @@ func (s storeCatalogSignals) ReadCatalogSignals(ctx context.Context, org string,
 			if err != nil {
 				return err
 			}
-			active[i] = record.RecordStatus() == storecenter.RecordStatusActive && record.Platform() == storecenter.PlatformShein
+			productEligible[i] = catalogObservationsEligible(record.Platform(), record.RecordStatus(), o.Products)
+			orderEligible[i] = catalogObservationsEligible(record.Platform(), record.RecordStatus(), o.Orders)
 			view, err := s.connections.Read(reads, org, id)
 			signal := storecenter.CatalogSignals{Connection: storecenter.ConnectionStatusUnavailable, Reason: "observations_unavailable", Products: storecenter.CatalogMetric{Reason: "observations_unavailable"}, Orders: storecenter.CatalogMetric{Reason: "observations_unavailable"}, Inventory: storecenter.CatalogMetric{Reason: "observations_unavailable"}}
 			if err == nil {
@@ -92,18 +97,25 @@ func (s storeCatalogSignals) ReadCatalogSignals(ctx context.Context, org string,
 	if err := group.Wait(); err != nil {
 		return nil, err
 	}
-	eligible := []string{}
+	productStores, orderStores := []string{}, []string{}
 	for i, id := range ids {
-		if active[i] {
-			eligible = append(eligible, id)
+		if productEligible[i] {
+			productStores = append(productStores, id)
+		}
+		if orderEligible[i] {
+			orderStores = append(orderStores, id)
 		}
 	}
 	products, orders := map[string]o.StoreSummary{}, map[string]o.StoreSummary{}
-	if s.observations != nil && len(eligible) > 0 {
+	if s.observations != nil {
 		// Each owner keeps its own permission/source validation. Failure stays local
 		// to the corresponding metric; Store readers never gain product/order read.
-		products, _ = s.observations.StoreSummaries(ctx, scope, o.Products, eligible, thresholds)
-		orders, _ = s.observations.StoreSummaries(ctx, scope, o.Orders, eligible, thresholds)
+		if len(productStores) > 0 {
+			products, _ = s.observations.StoreSummaries(ctx, scope, o.Products, productStores, thresholds)
+		}
+		if len(orderStores) > 0 {
+			orders, _ = s.observations.StoreSummaries(ctx, scope, o.Orders, orderStores, thresholds)
+		}
 	}
 	out := map[string]storecenter.CatalogSignals{}
 	for i, id := range ids {

@@ -5,7 +5,28 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"task-processor/internal/storecenter"
+	o "task-processor/internal/storecenter/observations"
 )
+
+func TestCatalogObservationEligibilityKeepsTemuProductsAndOrdersSeparate(t *testing.T) {
+	for _, tc := range []struct {
+		platform storecenter.Platform
+		status   storecenter.RecordStatus
+		kind     o.Kind
+		want     bool
+	}{
+		{storecenter.PlatformTemu, storecenter.RecordStatusActive, o.Products, true},
+		{storecenter.PlatformTemu, storecenter.RecordStatusActive, o.Orders, false},
+		{storecenter.PlatformTemu, storecenter.RecordStatusDisabled, o.Products, false},
+		{storecenter.PlatformTemu, storecenter.RecordStatusDeleting, o.Products, false},
+		{storecenter.PlatformShein, storecenter.RecordStatusActive, o.Products, true},
+		{storecenter.PlatformShein, storecenter.RecordStatusActive, o.Orders, true},
+		{"unsupported", storecenter.RecordStatusActive, o.Products, false},
+		{storecenter.PlatformTemu, storecenter.RecordStatusActive, "unsupported", false},
+	} {
+		require.Equal(t, tc.want, catalogObservationsEligible(tc.platform, tc.status, tc.kind), "%s/%s/%s", tc.platform, tc.status, tc.kind)
+	}
+}
 
 func TestCatalogTemuModeUsesVerifiedMerchantAndCompoundApplication(t *testing.T) {
 	choices := []storecenter.OfficialApplicationChoice{
