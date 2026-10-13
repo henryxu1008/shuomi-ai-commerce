@@ -40,6 +40,14 @@ it("keeps a lost start's exact UUID/configuration and blocks enterprise switch u
  expect(stored.key).toBe(original);expect(stored.prepared.configurationSnapshotRef).toEqual(ref);expect(f.guards.some(g=>!g())).toBe(true);
  f.read.mockResolvedValue(run(original));fireEvent.click(screen.getByRole("button",{name:"核对原运行"}));await screen.findByText("建议差异 · 尚未保存");expect(f.start).toHaveBeenCalledTimes(1);expect(f.read.mock.calls[0][2]).toBe(original);expect(f.guards.every(g=>g())).toBe(true);
 });
+it("replays a lost unclaimed Start with its original prepared reference after NOT_FOUND",async()=>{
+ f.start.mockRejectedValueOnce(new SupplyAPIError("OUTCOME_UNKNOWN",503));f.read.mockRejectedValueOnce(new SupplyAPIError("NOT_FOUND",404));
+ render(<MaterialsPage recordId={id}/>);await generate();await screen.findByRole("alert");
+ const first=f.start.mock.calls[0];fireEvent.click(screen.getByRole("button",{name:"核对原运行"}));
+ await screen.findByText("原结果尚未找到；这不表示可以更换编号重试。");
+ fireEvent.click(screen.getByRole("button",{name:"重试原确认与请求"}));await screen.findByText("建议差异 · 尚未保存");
+ expect(f.prepare).toHaveBeenCalledTimes(1);expect(f.start).toHaveBeenCalledTimes(2);expect(f.start.mock.calls[1].slice(0,4)).toEqual(first.slice(0,4));
+});
 it("restores read-only history without generating a model call or offering adoption",async()=>{
  f.mode="read_only";f.params=new URLSearchParams({agent_key:key,agent_actor:"actor",agent_org:"org"});f.read.mockResolvedValue(run());
  render(<MaterialsPage recordId={id}/>);await screen.findByText("建议差异 · 尚未保存");expect(screen.queryByRole("button",{name:"确认保存本地草稿"})).toBeNull();expect(f.start).not.toHaveBeenCalled();expect(f.prepare).not.toHaveBeenCalled();
