@@ -71,3 +71,9 @@ Implementation complete enters In Review; 不签发产品验收/上线，不合�
 2026-10-13 独立只读 `/root/own_entry_review` 核对实际 Source/Catalog/Collection、媒体和pending合同后给出 **IMPLEMENTATION_READY**，无设计BLOCKER。准入前只新增设计与捕获当前缺口的测试；正式生产代码尚未修改。
 
 三个 IMPLEMENTATION_TEST（合并前）：显式0价/库存的准确PG+JSON读回；HTTP缺少/null数字与合法0、重复身份/SKU、图片/预算拒绝；提取hook后UNKNOWN原键/原载荷、NOT_FOUND重试、存储清理失败不导航、foreign pending/身份切换/供给命令阻塞。均在当前owner局部实现和既有测试收敛，不重开设计。
+
+## 7. 用户反馈后的有界增量
+
+用户后续明确指出详情预览过于简略，并询问商品属性填写入口。当前Issue #675的增量 `Design Basis: Reuse Existing Architecture` 在正式修改前补齐：新增页消费既有 `OwnProduct.attributes`，属性名称/值成对填写，整行空白忽略，trim后重名或未完成行拒绝；共用原256属性、1024 aggregate和2MiB预算。通用属性与每个SKU的销售规格分别保存。
+
+独立详情页消费原ReadItem完整资料，增加真实图片的大图/缩略图浏览、选中SKU的对应图片与来源价格/库存、全部变体、通用属性、描述及保存信息；只改变录入和读取展示。没有商品图片或属性时如实显示未填写，不添加虚构素材、发布状态或可修改已保存原始资料的入口。原授权/租户、Source/Catalog/Collection UoW、状态机、媒体批准、UNKNOWN owner和schema均不变，不重开已冻结的独立架构准入。

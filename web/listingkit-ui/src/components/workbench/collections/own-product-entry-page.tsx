@@ -15,7 +15,7 @@ import {ConsolePage,ConsoleState} from "../console/console-page";
 import {SourceImageUploader} from "./source-image-uploader";
 import {useCollectionCommand} from "./use-collection-command";
 import {CollectionCommandFeedback} from "./collection-command-feedback";
-import {buildVariantRows,newVariantRow,prepareOwnProduct,specificationSignature,type Specification,type VariantRow} from "./own-product-model";
+import {buildVariantRows,newVariantRow,prepareOwnProduct,prepareProductAttributes,specificationSignature,type ProductAttributeRow,type Specification,type VariantRow} from "./own-product-model";
 import type {CollectionScope} from "@/lib/api/product-collection";
 
 const library="/workbench/data/mine?view=own";
@@ -31,6 +31,7 @@ export function OwnProductEntryPage(){
 function ScopedOwnProductEntry({scope}:{scope:CollectionScope}){
  const context=useWorkbenchContext(),router=useRouter();
  const [title,setTitle]=useState(""),[brand,setBrand]=useState(""),[description,setDescription]=useState("");
+ const [attributes,setAttributes]=useState<ProductAttributeRow[]>([{id:"initial",name:"",value:""}]);
  const [images,setImages]=useState<string[]>([]),[imageURL,setImageURL]=useState(""),[mediaBlocked,setMediaBlocked]=useState(false);
  const imagesRef=useRef<string[]>([]);
  const [mode,setMode]=useState<"single"|"multiple">("single");
@@ -49,14 +50,14 @@ function ScopedOwnProductEntry({scope}:{scope:CollectionScope}){
   imagesRef.current=next;setImages(next);setImageURL("");setError("");
  },[]);
  function removeImage(url:string){const next=imagesRef.current.filter(v=>v!==url);imagesRef.current=next;setImages(next);setRows(prior=>prior.map(v=>v.image===url?{...v,image:""}:v));setSingle(v=>v.image===url?{...v,image:""}:v)}
- function generate(){try{setRows(buildVariantRows(specs,rows,images.length));setGenerated(specificationSignature(specs));setError("")}catch(failure){setError((failure as Error).message)}}
+ function generate(){try{const attributeCount=Object.keys(prepareProductAttributes(attributes)).length;setRows(buildVariantRows(specs,rows,images.length,attributeCount));setGenerated(specificationSignature(specs));setError("")}catch(failure){setError((failure as Error).message)}}
  function applyBulk(){
   if(!bulk.prefix&&!bulk.currency&&!bulk.price.trim()&&!bulk.stock.trim()){setError("请先填写需要批量设置的值。");return}
   setRows(prior=>prior.map((row,index)=>({...row,...(bulk.prefix?{sku:`${bulk.prefix.trim()}-${index+1}`}:{}) ,...(bulk.currency?{currency:bulk.currency}:{}) ,...(bulk.price.trim()?{price:bulk.price}:{}) ,...(bulk.stock.trim()?{stock:bulk.stock}:{})})));setError("");
  }
  const activeRows=mode==="single"?[single]:rows;
  return <ConsolePage title="添加自有商品" description="录入商品资料和销售规格，保存到当前企业下的自有商品库。" breadcrumbs={[{label:"数据服务",href:"/workbench/data"},{label:"我的数据",href:library},{label:"添加自有商品"}]} actions={<Button variant="outline" disabled={commands.busy||mediaBlocked} onClick={()=>router.push(library)}><ArrowLeft size={16}/>返回自有商品库</Button>}>
-  <form className="space-y-6" onSubmit={event=>{event.preventDefault();if(disabled||mediaBlocked)return;if(stale){setError("规格已修改，请先更新变体组合。");return}try{const product=prepareOwnProduct({title,brand,description,images,mode,rows:activeRows});setError("");void commands.run({action:"create_product",product})}catch(failure){setError((failure as Error).message)}}}>
+  <form className="space-y-6" onSubmit={event=>{event.preventDefault();if(disabled||mediaBlocked)return;if(stale){setError("规格已修改，请先更新变体组合。");return}try{const product=prepareOwnProduct({title,brand,description,images,mode,rows:activeRows,attributes});setError("");void commands.run({action:"create_product",product})}catch(failure){setError((failure as Error).message)}}}>
    <CollectionCommandFeedback state={commands}/>
    {context.pendingSupplyIntent?<p className="text-sm text-muted-foreground">有待核实的供应链操作，请先返回“我的供应链”处理后再保存商品。</p>:null}
    {!context.permissions.includes("workbench.collection.manage")?<p role="alert" className="text-sm text-destructive">当前没有添加自有商品的权限。</p>:null}
@@ -74,6 +75,9 @@ function ScopedOwnProductEntry({scope}:{scope:CollectionScope}){
       <SourceImageUploader scope={scope} allowNewUpload={images.length<40} disabled={commands.busy||!!commands.pending||!context.permissions.includes("workbench.collection.manage")} onBlocked={setMediaBlocked} onImage={url=>addImages([url])}/>
      </Card>
     </div>
+    <Card className="space-y-5 p-6"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-lg font-semibold">商品属性</h2><p className="mt-1 text-sm text-muted-foreground">填写材质、产地、适用季节等同款通用信息。颜色、尺码等SKU差异请放在销售规格中。</p></div><Button type="button" variant="outline" disabled={attributes.length>=256} onClick={()=>setAttributes(prior=>[...prior,{id:crypto.randomUUID(),name:"",value:""}])}><Plus size={16}/>添加商品属性</Button></div>
+     {attributes.length?<div className="space-y-3">{attributes.map((attribute,index)=><div key={attribute.id} className="grid items-end gap-3 sm:grid-cols-[minmax(120px,1fr)_minmax(0,3fr)_auto]"><label className="grid gap-2 text-sm">属性名称 {index+1}<Input maxLength={200} value={attribute.name} placeholder="例如：材质" onChange={e=>setAttributes(prior=>prior.map(a=>a.id===attribute.id?{...a,name:e.target.value}:a))}/></label><label className="grid gap-2 text-sm">属性值 {index+1}<Input maxLength={8192} value={attribute.value} placeholder="例如：100%棉" onChange={e=>setAttributes(prior=>prior.map(a=>a.id===attribute.id?{...a,value:e.target.value}:a))}/></label><Button type="button" size="icon" variant="ghost" aria-label={`删除商品属性 ${index+1}`} onClick={()=>setAttributes(prior=>prior.filter(a=>a.id!==attribute.id))}><Trash2 size={16}/></Button></div>)}</div>:<p className="text-sm text-muted-foreground">尚未填写商品属性，可按商品资料添加。</p>}
+    </Card>
     <Card className="space-y-5 p-6"><div><h2 className="text-lg font-semibold">销售规格</h2><p className="mt-1 text-sm text-muted-foreground">选择单规格，或按颜色、尺码等规格生成多个SKU。</p></div>
      <div className="flex flex-wrap gap-4">{(["single","multiple"] as const).map(value=><label key={value} className="flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-background px-4 py-3 text-sm"><input type="radio" name="variant-mode" checked={mode===value} onChange={()=>{setMode(value);setError("")}}/>{value==="single"?"单规格商品":"多规格商品"}</label>)}</div>
      {mode==="multiple"?<><div className="space-y-3">{specs.map((spec,index)=><div key={spec.id} className="grid items-end gap-3 sm:grid-cols-[minmax(120px,1fr)_minmax(0,3fr)_auto]"><label className="grid gap-2 text-sm">规格名称 {index+1}<Input value={spec.name} placeholder="例如：颜色" onChange={e=>setSpecs(prior=>prior.map(s=>s.id===spec.id?{...s,name:e.target.value}:s))}/></label><label className="grid gap-2 text-sm">规格值 {index+1}<Input value={spec.values} placeholder="例如：红色,蓝色（用逗号分隔）" onChange={e=>setSpecs(prior=>prior.map(s=>s.id===spec.id?{...s,values:e.target.value}:s))}/></label><Button type="button" variant="ghost" size="icon" aria-label={`删除规格 ${index+1}`} disabled={specs.length===1} onClick={()=>setSpecs(prior=>prior.filter(s=>s.id!==spec.id))}><Trash2 size={16}/></Button></div>)}</div>

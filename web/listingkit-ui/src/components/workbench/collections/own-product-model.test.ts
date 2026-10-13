@@ -26,3 +26,15 @@ it("keeps explicit zero and rejects empty numbers or duplicate SKU before submis
  expect(()=>prepareOwnProduct({...base,rows:[row,{...row,id:"other"}]})).toThrow();
  expect(prepareOwnProduct({...base,mode:"single",rows:[{...row,sku:""}]}).variants).toBeUndefined();
 });
+it("preserves common attributes separately from SKU specifications and rejects incomplete or repeated names",()=>{
+ const base={title:"衣服",brand:"",description:"",images:[],mode:"single" as const,rows:[newVariantRow()]};
+ const attributes=[{id:"a",name:" 材质 ",value:" 棉 "},{id:"b",name:"适用季节",value:"夏季"},{id:"empty",name:"",value:""}];
+ expect(prepareOwnProduct({...base,attributes}).attributes).toEqual({材质:"棉",适用季节:"夏季"});
+ expect(()=>prepareOwnProduct({...base,attributes:[{id:"a",name:"材质",value:""}]})).toThrow("名称和属性值");
+ expect(()=>prepareOwnProduct({...base,attributes:[{id:"a",name:"材质",value:"棉"},{id:"b",name:" 材质 ",value:"麻"}]})).toThrow("属性名称不能重复");
+ expect(()=>prepareOwnProduct({...base,attributes:Array.from({length:257},(_,i)=>({id:String(i),name:`属性${i}`,value:"值"}))})).toThrow();
+});
+it("counts common attributes before allocating specification combinations",()=>{
+ const specs=[{id:"a",name:"a",values:"1,2,3"},{id:"b",name:"b",values:"1,2,3,4,5"},{id:"c",name:"c",values:Array.from({length:17},(_,i)=>String(i)).join(",")}];
+ expect(()=>buildVariantRows(specs,[],1,4)).toThrow("保存限制");
+});

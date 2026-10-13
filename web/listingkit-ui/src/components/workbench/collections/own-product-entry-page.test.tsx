@@ -1,4 +1,4 @@
-import {act,cleanup,render,screen,waitFor} from "@testing-library/react";
+import {act,cleanup,render,screen,waitFor,within} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
 import {OwnProductEntryPage} from "./own-product-entry-page";
@@ -90,5 +90,13 @@ it("discards unsubmitted old identity input and prevents a foreign pending opera
 });
 it("reads every own variant on the separate detail page, including zero values",async()=>{
  state.item.mockResolvedValue({item:{source:{kind:"own",version:"1",productKey:"own-fixture"}},product:{title:"商品",variants:[{source_id:"red",sku:"RED",attributes:[{name:"颜色",value:"红"}],price:{currency:"CNY",amount:0}},{source_id:"blue",sku:"BLUE",attributes:[{name:"颜色",value:"蓝"}],price:{currency:"CNY",amount:12},stock:9}]}});
- render(<OwnProductDetailPage itemId={itemId}/>);expect(await screen.findByText("RED")).toBeVisible();expect(screen.getByText("BLUE")).toBeVisible();expect(screen.getByText("颜色：红")).toBeVisible();expect(screen.getAllByText("0")).toHaveLength(2);expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+ render(<OwnProductDetailPage itemId={itemId}/>);const table=await screen.findByRole("table");expect(within(table).getByText("RED")).toBeVisible();expect(within(table).getByText("BLUE")).toBeVisible();expect(within(table).getByText("颜色：红")).toBeVisible();expect(within(table).getAllByText("0")).toHaveLength(2);expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});
+it("submits common attributes through the original product request and blocks duplicate names",async()=>{
+ state.mutate.mockResolvedValue({operationId:itemId,itemId,revision:1,replayed:false});render(<OwnProductEntryPage/>);
+ await userEvent.type(screen.getByLabelText("商品名称"),"上衣");await userEvent.type(screen.getByLabelText("属性名称 1"),"材质");await userEvent.type(screen.getByLabelText("属性值 1"),"棉");
+ await userEvent.click(screen.getByRole("button",{name:"添加商品属性"}));await userEvent.type(screen.getByLabelText("属性名称 2"),"材质");await userEvent.type(screen.getByLabelText("属性值 2"),"麻");
+ await userEvent.click(screen.getByRole("button",{name:"保存商品"}));expect(await screen.findByRole("alert")).toHaveTextContent("属性名称不能重复");expect(state.mutate).not.toHaveBeenCalled();
+ await userEvent.click(screen.getByRole("button",{name:"删除商品属性 2"}));await userEvent.click(screen.getByRole("button",{name:"保存商品"}));
+ await waitFor(()=>expect(state.mutate).toHaveBeenCalledOnce());expect(state.mutate.mock.calls[0][0].command.product.attributes).toEqual({材质:"棉"});
 });
