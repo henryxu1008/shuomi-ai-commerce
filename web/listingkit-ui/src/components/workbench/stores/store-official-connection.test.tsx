@@ -9,6 +9,7 @@ const state = vi.hoisted(() => ({
   begin: vi.fn(),
 	remember: vi.fn(),
 	applications:vi.fn(),
+	install:vi.fn(),
 }));
 vi.mock("@/lib/api/store-connection", async (original) => ({
   ...(await original<typeof import("@/lib/api/store-connection")>()),
@@ -16,6 +17,7 @@ vi.mock("@/lib/api/store-connection", async (original) => ({
   beginStoreConnection: state.begin,
 	rememberStoreAuthorization: state.remember,
 	getStoreApplications:state.applications,
+	installStoreToken:state.install,
 }));
 vi.mock("./store-service-actions", () => ({ StoreServiceActions: () => null }));
 const store = {
@@ -26,11 +28,11 @@ const store = {
 const client = new QueryClient({
   defaultOptions: { queries: { retry: false } },
 });
-function tree(org = "org-1") {
+function tree(org = "org-1",platform:"shein"|"temu"="shein") {
   return (
     <QueryClientProvider client={client}>
       <StoreOfficialConnection
-        store={store}
+        store={{...store,platform}}
         scope={{ expectedUserId: "actor", expectedOrganizationId: org }}
         canWrite
         administrator
@@ -43,13 +45,42 @@ beforeEach(() => {
   client.clear();
   state.remember.mockReset();
 	state.begin.mockReset();
+	state.install.mockReset();
 	state.applications.mockResolvedValue([{appId:"self-app",revision:"v1~self_operated",type:"self_operated"}]);
   state.read.mockResolvedValue({
     connectionStatus: "disconnected",
     attemptId: null,
   });
 });
+it("installs a TEMU token only for the original attempt and clears the private input",async()=>{
+ const attemptId="22222222-2222-4222-8222-22222222222b";
+ state.applications.mockResolvedValue([{platform:"temu",identityPartition:"CN",appId:"temu-app",revision:"v1",authorizationMethod:"manual_token",supportedModes:6}]);
+ state.begin.mockResolvedValue({attemptId,expiresAt:"2026-10-12T03:00:00Z",authorizationMethod:"manual_token",authorizationUrl:""});
+ state.read.mockResolvedValue({platform:"temu",connectionStatus:"disconnected",attemptId:"",state:"disconnected"});
+ state.install.mockResolvedValue({platform:"temu",connectionStatus:"connected",attemptId,state:"verified"});
+ render(tree("org-1","temu"));
+ await screen.findByText("未连接");
+ state.read.mockResolvedValue({platform:"temu",identityPartition:"CN",authorizationMethod:"manual_token",connectionStatus:"disconnected",attemptId,state:"awaiting_consent"});
+ await userEvent.click(await screen.findByRole("button",{name:"开始连接"}));
+ const token=await screen.findByLabelText("TEMU 授权 token");
+ await userEvent.type(token,"synthetic-token");
+ await userEvent.click(screen.getByRole("button",{name:"验证并连接"}));
+ expect(state.install).toHaveBeenCalledWith({expectedUserId:"actor",expectedOrganizationId:"org-1"},store.id,{attemptId,accessToken:"synthetic-token"},expect.any(AbortSignal));
+ expect(token).toHaveValue("");
+ expect(state.remember).not.toHaveBeenCalled();
+ expect(sessionStorage.getItem("listingkit.shein.pending")).toBeNull();
+});
 afterEach(cleanup);
+it.each(["switch","unmount"])("clears an unsubmitted TEMU private input after %s",async(mode)=>{
+ state.applications.mockResolvedValue([{platform:"temu",identityPartition:"CN",appId:"temu-app",revision:"v1",authorizationMethod:"manual_token",supportedModes:6}]);
+ state.read.mockResolvedValue({platform:"temu",identityPartition:"CN",authorizationMethod:"manual_token",connectionStatus:"disconnected",attemptId:"22222222-2222-4222-8222-22222222222b",state:"awaiting_consent"});
+ const view=render(tree("org-1","temu"));
+ const input=await screen.findByLabelText("TEMU 授权 token");
+ await userEvent.type(input,"unsubmitted-private-token");
+ if(mode==="switch")view.rerender(tree("org-2","temu")); else view.unmount();
+ expect(input).toHaveValue("");
+ expect(state.install).not.toHaveBeenCalled();
+});
 it.each(["switch", "unmount"])(
   "does not persist or navigate a late begin result after %s",
   async (mode) => {
@@ -88,5 +119,5 @@ it("requires a configured application choice and sends the chosen managed applic
 	expect(screen.getByRole("button",{name:"前往官方授权"})).toBeDisabled();
 	await userEvent.selectOptions(choices,"full-app");
 	await userEvent.click(screen.getByRole("button",{name:"前往官方授权"}));
-	expect(state.begin).toHaveBeenCalledWith({expectedUserId:"actor",expectedOrganizationId:"org-1"},store.id,store.version,expect.any(String),"full-app");
+	expect(state.begin).toHaveBeenCalledWith({expectedUserId:"actor",expectedOrganizationId:"org-1"},store.id,store.version,expect.any(String),"full-app",undefined);
 });

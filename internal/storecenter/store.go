@@ -35,7 +35,10 @@ var (
 
 type Platform string
 
-const PlatformShein Platform = "shein"
+const (
+	PlatformShein Platform = "shein"
+	PlatformTemu  Platform = "temu"
+)
 
 // Store is the Organization-scoped Store Center aggregate. Its state is kept
 // private so identity and lifecycle changes can only occur through its rules.
@@ -496,10 +499,10 @@ func normalizePlatform(value string) (Platform, error) {
 		return "", errors.New("platform is invalid")
 	}
 	normalized := strings.ToLower(strings.TrimSpace(value))
-	if Platform(normalized) != PlatformShein {
+	if Platform(normalized) != PlatformShein && Platform(normalized) != PlatformTemu {
 		return "", errors.New("platform is unsupported")
 	}
-	return PlatformShein, nil
+	return Platform(normalized), nil
 }
 
 func containsControlCharacter(value string) bool {

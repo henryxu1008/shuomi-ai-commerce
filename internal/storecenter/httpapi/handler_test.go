@@ -259,7 +259,7 @@ func TestHandlerStrictlyRejectsMalformedCollectionQueriesAndPaths(t *testing.T) 
 	tests := []string{
 		"?page=01", "?page=0", "?page=-1", "?page=1&page=2", "?pageSize=0", "?pageSize=101", "?pageSize=20&pageSize=20",
 		fmt.Sprintf("?page=%d&pageSize=100", int64(^uint(0)>>1)),
-		"?platform=amazon", "?status=deleted", "?unknown=x",
+		"?platform=amazon", "?platform=TEMU", "?platform=%20temu%20", "?status=deleted", "?unknown=x",
 	}
 	for _, query := range tests {
 		t.Run(query, func(t *testing.T) {
@@ -433,6 +433,31 @@ func TestHandlerDefaultsListPaginationAndReturnsNonNullItems(t *testing.T) {
 	require.JSONEq(t, `{"items":[],"pagination":{"page":1,"pageSize":20,"total":1}}`, response.Body.String())
 	require.Equal(t, 1, service.listRequest.Page)
 	require.Equal(t, 20, service.listRequest.PageSize)
+}
+
+func TestHandlerAcceptsExactTemuPlatformForCreateAndList(t *testing.T) {
+	service := newStoreServiceStub(t)
+	snapshot := service.createResult.Store.Snapshot()
+	snapshot.Platform = storecenter.PlatformTemu
+	store, err := storecenter.RehydrateStore(snapshot)
+	require.NoError(t, err)
+	service.createResult.Store = store
+	service.listResult.Items[0].Store = *store
+	router := mountedRouter(t, mustHandler(t, service))
+	created := serve(t, router, validIdentity(), http.MethodPost, "/api/v1/workbench/stores", `{"name":"Store","platform":"temu","region":"CN"}`, map[string][]string{"Idempotency-Key": {testCreateKey}})
+	require.Equal(t, http.StatusCreated, created.Code, created.Body.String())
+	require.Equal(t, "temu", service.createRequest.Platform)
+	listed := serve(t, router, validIdentity(), http.MethodGet, "/api/v1/workbench/stores?platform=temu", "", nil)
+	require.Equal(t, http.StatusOK, listed.Code, listed.Body.String())
+	require.Equal(t, "temu", service.listRequest.Platform)
+	for _, platform := range []string{"TEMU", " temu ", "amazon"} {
+		before := len(service.calls)
+		body, err := json.Marshal(map[string]string{"name": "Store", "platform": platform, "region": "CN"})
+		require.NoError(t, err)
+		response := serve(t, router, validIdentity(), http.MethodPost, "/api/v1/workbench/stores", string(body), map[string][]string{"Idempotency-Key": {testCreateKey}})
+		require.Equal(t, http.StatusBadRequest, response.Code)
+		require.Len(t, service.calls, before)
+	}
 }
 
 func TestHandlerRejectsCorruptListProducerContractWithoutLeakingReason(t *testing.T) {

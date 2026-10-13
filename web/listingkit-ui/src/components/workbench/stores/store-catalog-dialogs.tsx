@@ -93,8 +93,8 @@ function ResponsiblePicker({scope,value,onChange,disabled}:{scope:StoreCenterSco
 function BindDialog({scope,onClose,onChanged}:Props){
  const context=useWorkbenchContext(),[store,setStore]=useState<WorkbenchStore|null>(null),[busy,setBusy]=useState(false);
  const refresh=async()=>{if(!store)return;const latest=await getWorkbenchStore(store.id,scope.organizationId);setStore(latest);await onChanged()};
- return <ResourceDialog title="绑定 SHEIN 店铺" locked={busy} onClose={onClose} className={styles.dialog}>
-  <p>选择官方应用并在 SHEIN 完成授权。店铺记录创建后，仍需完成官方授权。</p>
+ return <ResourceDialog title="绑定店铺" locked={busy} onClose={onClose} className={styles.dialog}>
+  <p>选择店铺平台并创建记录，再连接该平台的官方应用。</p>
   {!store?<StoreForm mode="create" onPendingChange={setBusy} onCreated={saved=>{setBusy(false);setStore(saved);void onChanged()}}/>:<><p className={styles.hint}>店铺记录：{store.name}。继续完成官方 API 授权。</p><StoreOfficialConnection store={store} scope={{expectedUserId:scope.userId,expectedOrganizationId:scope.organizationId}} canWrite={context.permissions.includes("workbench.store.update")} administrator={context.roles.some(role=>["listingkit_admin","platform_admin","admin"].includes(role))} onChanged={refresh}/><footer><Button onClick={onClose}>返回店铺列表</Button></footer></>}
  </ResourceDialog>;
 }

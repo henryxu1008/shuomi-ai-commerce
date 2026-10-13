@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
+import {TemuProductFacts} from "./temu-product";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { RefreshCw, ExternalLink, Copy, X, ShoppingBag } from "lucide-react";
@@ -112,6 +113,7 @@ function ScopedPage({
   );
   const lifetime = useRef(new AbortController());
   const [store, setStore] = useState(initialStore),
+    [platform,setPlatform]=useState(""),
     [status, setStatus] = useState(""),
     [search, setSearch] = useState(""),
     [keyword, setKeyword] = useState(""),
@@ -166,7 +168,7 @@ function ScopedPage({
       const out: WorkbenchStore[] = [];
       for (let page = 1; page <= 5; page++) {
         const result = await listWorkbenchStores(
-          { page, pageSize: 100, platform: "shein", status: "active" },
+          { page, pageSize: 100, ...(kind==="orders"?{platform:"shein" as const}:{}), status: "active" },
           scope.organizationId,
           signal,
         );
@@ -180,6 +182,7 @@ function ScopedPage({
     retry: false,
   });
   const params = new URLSearchParams({ limit: "20" });
+  if(platform) params.set("platform",platform);
   if (store) params.set("storeId", store);
   if (status) params.set("status", status);
   if (keyword) params.set("keyword", keyword);
@@ -275,9 +278,10 @@ function ScopedPage({
   const begin = () => {
     if (intent && !receipt) return;
     if (isActive) return;
+    if(platform&&!stores.data?.some(s=>s.platform===platform)) return;
     const captured: Intent = {
       key: crypto.randomUUID(),
-      input: { kind, stores: store ? [store] : [] },
+      input: { kind, stores: store ? [store] : platform ? stores.data!.filter(s=>s.platform===platform).map(s=>s.id) : [] },
     };
     try {
       sessionStorage.setItem(storageKey, JSON.stringify(captured));
@@ -302,13 +306,14 @@ function ScopedPage({
     !sync.isPending &&
     !isActive &&
     (!intent || Boolean(receipt));
+  const hasSelectedStores=!platform||Boolean(stores.data?.some(s=>s.platform===platform));
   const known = Boolean(data?.syncs.length);
   const metric = (n: number | undefined) =>
     known ? `${n ?? 0}${data?.complete ? "" : " 已取得"}` : "—";
   const metrics =
     kind === "products"
       ? [
-          ["平台商品（SKC）", metric(data?.summary.total)],
+          ["平台商品 / SKC", metric(data?.summary.total)],
           ["在售", metric(data?.summary.active)],
           ["审核中", "平台未提供"],
           ["已下架", metric(data?.summary.offShelf)],
@@ -326,7 +331,7 @@ function ScopedPage({
         ];
   if (!caps.isError && caps.data?.runtimeReady && !caps.data.providerConfigured) {
     const route = findConsoleRoute(kind === "products" ? "/workbench/store-products" : "/workbench/store-orders")!;
-    return <ConsolePage title={route.node.label} breadcrumbs={route.trail} description="同步并查看店铺的平台商品、订单、物流和异常记录。"><ConsoleState kind="unavailable" title="店铺同步内部已就绪，SHEIN 待配置">商品与订单同步模块及后台 worker 已准备好。配置正式官方应用和店铺连接后才开放平台读取与同步；当前没有发起同步。</ConsoleState></ConsolePage>;
+    return <ConsolePage title={route.node.label} breadcrumbs={route.trail} description="同步并查看店铺的平台商品、订单、物流和异常记录。"><ConsoleState kind="unavailable" title={kind==="products"?"店铺同步内部已就绪，平台待配置":"店铺同步内部已就绪，SHEIN 待配置"}>商品与订单同步模块及后台 worker 已准备好。配置正式官方应用和店铺连接后才开放平台读取与同步；当前没有发起同步。</ConsoleState></ConsolePage>;
   }
   return (
     <ConsolePage
@@ -337,11 +342,11 @@ function ScopedPage({
       ]}
       description={
         kind === "products"
-          ? "查看 SHEIN 美国站的已保存平台商品、售价和逐仓库存。"
+          ? "查看店铺已同步的 SHEIN / TEMU 商品、平台状态和库存事实。"
           : "同步最近 30 天的消费者订单，查看详情、物流和平台异常。发货与售后到 SHEIN 处理。"
       }
       actions={
-        <Button disabled={!canStart} onClick={begin}>
+        <Button disabled={!canStart||!hasSelectedStores} onClick={begin}>
           <RefreshCw aria-hidden="true" />
           {kind === "products" ? "同步商品" : "同步订单"}
         </Button>
@@ -358,14 +363,14 @@ function ScopedPage({
       <ConsoleToolbar>
         <label>
           平台
-          <Select aria-label="平台" disabled value="shein">
-            <option value="shein">SHEIN</option>
+          <Select aria-label="平台" disabled={kind==="orders"} value={kind==="products"?platform:"shein"} onChange={e=>{setPlatform(e.target.value);setStore("");resetPage()}}>
+            {kind==="products"?<><option value="">全部平台</option><option value="shein">SHEIN</option><option value="temu">TEMU</option></>:<option value="shein">SHEIN</option>}
           </Select>
         </label>
         <label>
           站点
-          <Select aria-label="站点" disabled value="us">
-            <option value="us">美国站</option>
+          <Select aria-label="站点" disabled value={kind==="products"?"store":"us"}>
+            {kind==="products"?<option value="store">店铺官方目标</option>:<option value="us">美国站</option>}
           </Select>
         </label>
         <label>
@@ -379,7 +384,7 @@ function ScopedPage({
             }}
           >
             <option value="">全部授权店铺</option>
-            {stores.data?.map((s) => (
+            {stores.data?.filter(s=>!platform||s.platform===platform).map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
               </option>
@@ -698,6 +703,14 @@ function ProductTable({
         </TableHeader>
         <TableBody>
           {rows.map((r) => {
+			if(r.temuProduct){const p=r.temuProduct;return <TableRow key={`${r.storeId}:${r.id}`}>
+			 <TableCell><div className={styles.identity}><Thumbnail src={p.imageUrl}/><div><strong>{p.title||"平台未提供标题"}</strong><small>商品 {p.productId}{p.entity==="supplier_skc"?<><br/>SKC {p.id}</>:null}</small></div></div></TableCell>
+			 <TableCell>{p.skus.slice(0,3).map(s=><small key={s.id}>{s.externalCode||s.serialNumber||s.id}</small>)}{p.skus.length>3?"更多见详情":null}</TableCell>
+			 <TableCell>TEMU<br/>{p.mode==="local"?"本土":p.mode==="fully_managed"?"全托管":"半托管"}</TableCell>
+			 <TableCell>{names.get(r.storeId)??r.storeId}</TableCell><TableCell>该接口未提供</TableCell><TableCell>按 SKU 查看官方数量</TableCell>
+			 <TableCell><span className={styles.pill}>{p.saleState==="active"?"在售":p.saleState==="off"?"已下架":`状态待核实${p.rawStatus?` (${p.rawStatus})`:""}`}</span></TableCell>
+			 <TableCell>{timestamp(r.observedAt)}</TableCell><TableCell><Button size="sm" variant="ghost" onClick={()=>open(r)}>查看详情</Button></TableCell>
+			</TableRow>}
             const skc = r.product!.skcs[0];
             return (
               <TableRow key={`${r.storeId}:${r.id}:${skc.id}`}>
@@ -981,6 +994,7 @@ function Detail({
               ))}
             </section>
           ))}
+          {detail.data.temuProduct?<TemuProductFacts product={detail.data.temuProduct}/>:null}
           {order ? (
             <>
               <div className={styles.actions}>

@@ -127,6 +127,15 @@ describe("workbench Store API", () => {
     vi.stubGlobal("fetch", fetchMock);
   });
 
+  it("reads a TEMU record and preserves the exact TEMU list filter", async () => {
+    const temu={...store,platform:"temu"};
+    fetchMock.mockResolvedValueOnce(jsonResponse(temu));
+    await expect(getWorkbenchStore(STORE_ID)).resolves.toEqual(temu);
+    fetchMock.mockResolvedValueOnce(jsonResponse({...list,items:[temu]}));
+    await expect(listWorkbenchStores({page:2,pageSize:20,platform:"temu"})).resolves.toMatchObject({items:[temu]});
+    expect(requestAt(1).input).toBe("/api/workbench/stores?page=2&pageSize=20&platform=temu");
+  });
+
   it.each(["active", "expired", "suspended"])("keeps paid service facts on a disabled record (%s)", async (serviceStatus) => {
     const paid = { ...store, recordStatus: "disabled", serviceStatus, serviceStartedAt: "2026-09-01T00:00:00Z", serviceExpiresAt: "2026-10-01T00:00:00Z" };
     fetchMock.mockResolvedValue(jsonResponse(paid));

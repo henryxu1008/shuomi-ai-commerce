@@ -11,7 +11,7 @@ import (
 	"task-processor/internal/integration/operationscockpitauth"
 	persistence "task-processor/internal/integration/persistence/operationscockpit"
 	kernelmodule "task-processor/internal/kernel/module"
-	o "task-processor/internal/marketplace/shein/observations"
+	o "task-processor/internal/storecenter/observations"
 	c "task-processor/internal/operationscockpit"
 	cockpithttp "task-processor/internal/operationscockpit/httpapi"
 	"task-processor/internal/storecenter"
