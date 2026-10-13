@@ -23,13 +23,15 @@ import (
 )
 
 type Config struct {
-	Definition commercetool.AgentDefinition
-	Tools      []commercetool.Definition
-	Model      agent.GovernedModel
-	Gateway    agent.ToolGateway
-	Validator  agent.Validator
-	Authorizer agent.Authorizer
-	Store      agent.Store
+	Definition         commercetool.AgentDefinition
+	Tools              []commercetool.Definition
+	Model              agent.GovernedModel
+	Gateway            agent.ToolGateway
+	Validator          agent.Validator
+	DomainProposalKind string
+	DomainValidator    agent.DomainValidator
+	Authorizer         agent.Authorizer
+	Store              agent.Store
 }
 type Runtime struct {
 	config Config
@@ -37,7 +39,18 @@ type Runtime struct {
 }
 
 func New(config Config) (*Runtime, error) {
-	for _, port := range []any{config.Model, config.Gateway, config.Validator, config.Authorizer, config.Store} {
+	var validator any = config.Validator
+	if config.DomainProposalKind == "" {
+		if !nilPort(config.DomainValidator) {
+			return nil, agent.ErrInvalid
+		}
+	} else {
+		if !agent.ValidID(config.DomainProposalKind) || !nilPort(config.Validator) {
+			return nil, agent.ErrInvalid
+		}
+		validator = config.DomainValidator
+	}
+	for _, port := range []any{config.Model, config.Gateway, validator, config.Authorizer, config.Store} {
 		if nilPort(port) {
 			return nil, agent.ErrUnavailable
 		}
