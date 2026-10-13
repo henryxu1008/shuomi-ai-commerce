@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"task-processor/internal/agent"
+	"task-processor/internal/agentconfig"
 	"task-processor/internal/commercetool"
 	record "task-processor/internal/listing/record/target"
 	"task-processor/internal/marketplace/shein/goods"
@@ -81,7 +82,7 @@ type InspectionReader interface {
 }
 
 func InspectToolRef() commercetool.ToolRef {
-	return commercetool.ToolRef{ID: "listing.materials.inspect", Version: "v1.0.0"}
+	return agentconfig.MaterialsInspectToolRef()
 }
 
 func NewInspection(base record.TargetRecord, product catalog.PublishedSnapshot, rules goods.OfficialRuleSnapshot, inventory asset.ApprovedAssetInventory) (Inspection, error) {

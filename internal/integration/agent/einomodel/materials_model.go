@@ -3,24 +3,29 @@ package einomodel
 import (
 	"context"
 	"encoding/json"
-	"strings"
+	"reflect"
 
 	"task-processor/internal/agent"
+	"task-processor/internal/agentconfig"
 	"task-processor/internal/aicapability"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/commercetool"
-	"task-processor/internal/listing/materials"
-
-	sigjson "sigs.k8s.io/json"
 )
+
+// This port keeps platform data/DTO parsing in its admitted domain owner.
+// Only trusted application composition supplies it; it is not configuration.
+type MaterialsModelAdmission interface {
+	ProjectEvidence(json.RawMessage) (json.RawMessage, error)
+	ValidateAction(agent.Action) error
+}
 
 // Fixed platform consumer of the existing governed executor and usage ledger.
 // It cannot borrow the title/content profile or caller-selected prompt/tools.
 func NewMaterialsAgentTextModel(executor TextExecutor, snapshots SnapshotReader,
 	selectProfile func(context.Context, string) (aicapability.ModelProfile, error),
 	readiness func(context.Context, string) TextRouteReadiness,
-	tools []commercetool.ToolRef, identity func(context.Context) (authidentity.AuthenticatedIdentity, error)) (*AgentTextModel, error) {
-	if len(tools) != 1 || tools[0] != materials.InspectToolRef() {
+	tools []commercetool.ToolRef, identity func(context.Context) (authidentity.AuthenticatedIdentity, error), admission MaterialsModelAdmission) (*AgentTextModel, error) {
+	if len(tools) != 1 || tools[0] != agentconfig.MaterialsInspectToolRef() || admission == nil || reflect.ValueOf(admission).Kind() == reflect.Pointer && reflect.ValueOf(admission).IsNil() {
 		return nil, agent.ErrInvalid
 	}
 	m, err := NewAgentTextModel(executor, snapshots, selectProfile, readiness, tools, identity)
@@ -28,41 +33,8 @@ func NewMaterialsAgentTextModel(executor TextExecutor, snapshots SnapshotReader,
 		return nil, err
 	}
 	m.materials = true
+	m.materialsAdmission = admission
 	return m, nil
-}
-
-// Entire actual disclosure is retained. If the configured model cannot fit
-// it, the governed quote refuses it instead of pretending omitted facts exist.
-func MaterialsEvidenceForPrompt(raw json.RawMessage) (json.RawMessage, error) {
-	if len(raw) == 0 || len(raw) > materials.MaxInspectionBytes {
-		return nil, agent.ErrInvalid
-	}
-	var d materials.Disclosure
-	strict, err := sigjson.UnmarshalStrict(raw, &d)
-	if err != nil || len(strict) != 0 || !d.Binding.Valid() || d.Binding.ContextKind != "listing-target-record" || d.Binding.TargetPlatform != "shein" || d.Revision < 1 || !agent.ValidID(d.StoreID) || !strings.HasPrefix(d.EvidenceID, "listing-evidence:") || len(d.EvidenceID) != len("listing-evidence:")+64 {
-		return nil, agent.ErrInvalid
-	}
-	return append(json.RawMessage(nil), raw...), nil
-}
-
-func validMaterialsAction(a agent.Action) bool {
-	if len(a.Candidate.Changes) != 0 || len(a.Candidate.Warnings) != 0 || len(a.Candidate.Rejections) != 0 || len(a.Confidence) != 0 || len(a.ContextCitationIDs) != 0 {
-		return false
-	}
-	switch a.Kind {
-	case "tool":
-		return a.Tool == materials.InspectToolRef() && a.DomainProposal == nil
-	case "interrupt":
-		return a.Tool == (commercetool.ToolRef{}) && a.DomainProposal == nil
-	case "propose":
-		if a.Tool != (commercetool.ToolRef{}) || a.DomainProposal == nil || a.DomainProposal.Kind != materials.ProposalKind {
-			return false
-		}
-		_, err := materials.ParseProposal(a.DomainProposal.Payload)
-		return err == nil
-	default:
-		return false
-	}
 }
 
 const materialsTextSystem = `Prepare ONLY local platform listing materials for the exact saved SHEIN draft, using listing.materials.inspect before any proposal.

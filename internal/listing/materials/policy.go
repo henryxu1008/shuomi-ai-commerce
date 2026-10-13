@@ -5,17 +5,18 @@ package materials
 
 import (
 	"task-processor/internal/agent"
+	"task-processor/internal/agentconfig"
 	"task-processor/internal/commercetool"
 )
 
 const (
-	AgentID         = "listing.materials.agent"
-	AgentVersion    = "v1.0.0"
-	ProposalKind    = "listing-materials-v1"
-	PolicyVersion   = "listing-materials-policy-v1"
-	PromptVersion   = "listing-materials-prompt-v1"
-	ActionVersion   = "listing-materials-action-v1"
-	ParameterSchema = "listing-materials-config-v1"
+	AgentID         = agentconfig.MaterialsAgentID
+	AgentVersion    = agentconfig.MaterialsAgentVersion
+	ProposalKind    = agentconfig.MaterialsProposalKind
+	PolicyVersion   = agentconfig.MaterialsPolicyVersion
+	PromptVersion   = agentconfig.MaterialsPromptVersion
+	ActionVersion   = agentconfig.MaterialsActionVersion
+	ParameterSchema = agentconfig.MaterialsParameterSchema
 )
 
 // EvaluateAdoption receives only checks resolved by the local domain owner.

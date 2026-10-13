@@ -42,7 +42,7 @@ func materialsModelFixture(t *testing.T) (*AgentTextModel, *materialsTextFixture
 	binding := agent.Binding{ContextKind: "listing-target-record", ContextID: "record", ProductKey: "product", CatalogVersion: "1", PublicationID: "publication", TargetPlatform: "shein"}
 	snapshot := agentconfig.Snapshot{AgentID: materials.AgentID, AgentVersion: materials.AgentVersion, MemberID: id.EffectiveMemberID, ExecutionModelProfile: profile, Request: agent.Request{Binding: binding, ModeSnapshotRef: mode, PolicyVersion: materials.PolicyVersion, PromptVersion: materials.PromptVersion, Limits: agent.Limits{Steps: 6, ModelCalls: 3, Tokens: 17000, CostMicros: 17000, Currency: "CNY", Runtime: time.Minute}}}
 	executor := &materialsTextFixture{response: `{"Kind":"interrupt","Unresolved":["controlled missing evidence"]}`}
-	model, err := NewMaterialsAgentTextModel(executor, testSnapshotReader{snapshot}, func(context.Context, string) (aicapability.ModelProfile, error) { return profile, nil }, func(context.Context, string) TextRouteReadiness { return TextRouteAvailable }, []commercetool.ToolRef{materials.InspectToolRef()}, func(context.Context) (authidentity.AuthenticatedIdentity, error) { return id, nil })
+	model, err := NewMaterialsAgentTextModel(executor, testSnapshotReader{snapshot}, func(context.Context, string) (aicapability.ModelProfile, error) { return profile, nil }, func(context.Context, string) TextRouteReadiness { return TextRouteAvailable }, []commercetool.ToolRef{materials.InspectToolRef()}, func(context.Context) (authidentity.AuthenticatedIdentity, error) { return id, nil }, materials.ModelAdmission{})
 	require.NoError(t, err)
 	in := agent.ModelInput{Binding: binding, ModeSnapshotRef: mode, ConfigurationSnapshotRef: agent.ConfigurationSnapshotRef{Kind: agentconfig.SnapshotKind, ID: uuid.NewString(), Digest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, PolicyVersion: materials.PolicyVersion, PromptVersion: materials.PromptVersion, AgentID: materials.AgentID, AgentVersion: materials.AgentVersion, AgentRunID: uuid.NewString()}
 	return model, executor, ctx, in
@@ -78,9 +78,9 @@ func TestMaterialsModelRejectsWrongConsumerAndRetainsWholeEvidence(t *testing.T)
 	require.Error(t, err)
 	raw, err := json.Marshal(materials.Disclosure{EvidenceID: "listing-evidence:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", Binding: in.Binding, Revision: 1, StoreID: "store"})
 	require.NoError(t, err)
-	projected, err := MaterialsEvidenceForPrompt(raw)
+	projected, err := (materials.ModelAdmission{}).ProjectEvidence(raw)
 	require.NoError(t, err)
 	require.JSONEq(t, string(raw), string(projected))
-	_, err = MaterialsEvidenceForPrompt(json.RawMessage(string(make([]byte, materials.MaxInspectionBytes+1))))
+	_, err = (materials.ModelAdmission{}).ProjectEvidence(json.RawMessage(string(make([]byte, materials.MaxInspectionBytes+1))))
 	require.Error(t, err, "oversized facts must not silently become partial evidence")
 }
