@@ -50,6 +50,14 @@ Official Knowledge's approved reading scope and admission record are tracked in
 reviewed status must be checked before implementation; it is separate from the
 enterprise Knowledge owner and has no AI-consumption or online-publisher scope.
 
+TikTok Shop's US cross-border feature Design Basis is frozen IMPLEMENTATION_READY
+in [`tiktok-shop-us-v1.md`](tiktok-shop-us-v1.md) / execution Issue #669;
+[`tiktok-shop-us-contract-evidence.md`](tiktok-shop-us-contract-evidence.md)
+records the official OAuth, Shop, signing and publication protocols. These
+feature contracts reuse the current Store/Listing/Submission owners rather than
+changing repository-wide structural rules. Shared wiring, real application
+credentials and user acceptance remain separate delivery conditions.
+
 After identifying the applicable approved authorities above, review structural rules in this order:
 
 1. Start with `project-boundaries.md` for default package ownership,
@@ -94,13 +102,6 @@ Use these as the main source of truth for structural work:
   - tenant self-service subscription offer/quote/order, source-bound subscription activation, settlement and recovery contract for #478/#479
 - `store-center-current-application-v1.md`
   - #552 current Console Store record management, owner pools, quota, authorization and single-state hard-cut; service activation remains a separate unopened capability
-- [`tiktok-shop-us-v1.md`](tiktok-shop-us-v1.md)
-  - #669 frozen IMPLEMENTATION_READY US cross-border authorization, local drafts
-    and controlled publication; shared-owner wiring, real application credentials
-    and user acceptance remain separate delivery conditions.
-- [`tiktok-shop-us-contract-evidence.md`](tiktok-shop-us-contract-evidence.md)
-  - Official OAuth, Shop identity, signing, listing-method and per-market result
-    evidence for #669; public protocol evidence does not imply provider acceptance.
 - `supply-market-v1.md`
   - #622 frozen IMPLEMENTATION_READY market disclosure, manual qualification and shared-account SDS design contract; current implementation and protocol evidence do not imply runtime or user acceptance
 - `selected-application-overview-v1.md`
