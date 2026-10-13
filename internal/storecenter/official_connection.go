@@ -110,6 +110,7 @@ type OfficialConnectionView struct {
 	Status               ConnectionStatus            `json:"connectionStatus"`
 	Version              int64                       `json:"version"`
 	ObservedAt           *time.Time                  `json:"observedAt"`
+	TikTok               *TikTokConnectionDetails    `json:"tiktok,omitempty"`
 }
 type OfficialConnectionStore interface {
 	ReadOfficialInstallAttempt(context.Context, string, string, string) (OfficialConnectionAttempt, error)
