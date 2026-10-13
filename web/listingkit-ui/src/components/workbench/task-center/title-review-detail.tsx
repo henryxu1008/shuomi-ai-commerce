@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import type { ProductTitleProposal } from "@/lib/api/product-title-review";
+import type { ProductTitleProposal, ProductContentProposal, ContentValue } from "@/lib/api/product-title-review";
+import { ContentComparison, ContentEditor } from "./content-review-presentation";
 import { TitleApplyConfirmation, TitleComparison, TitleEditor } from "./title-review-presentation";
 import styles from "./title-review.module.css";
 import { KnowledgeCitations } from "./knowledge-citations";
@@ -12,10 +13,10 @@ export const titleReviewStateLabel = { pending: "待审核", accepted: "已接�
 
 export function TitleReviewDetail({ proposal: p }: { proposal: ProductTitleProposal }) {
   return <div className={styles.detailContent}>
-    <h3>调整标准商品标题</h3><p className={p.state === "pending" ? styles.pending : styles.accepted}>{titleReviewStateLabel[p.state]}</p>
+    <h3>{p.policy === "product-content-review-v1" ? "完善与本地化标准商品内容" : "调整标准商品标题"}</h3><p className={p.state === "pending" ? styles.pending : styles.accepted}>{titleReviewStateLabel[p.state]}</p>
     <dl><dt>目标商品</dt><dd>{p.input.product_key}</dd><dt>基线版本</dt><dd>{p.input.base_version}</dd><dt>提案修订</dt><dd>{p.revision}</dd><dt>审核策略</dt><dd>{p.policy}</dd></dl>
-    <TitleComparison before={p.before} after={p.after} originalTitle={p.original_title} />
-    <KnowledgeCitations knowledge={p.knowledge} humanEdited={p.after!==p.original_title || p.decisions.some(decision=>decision.action==="edit")}/>
+    {p.policy === "product-content-review-v1" ? <><ContentComparison proposal={p} /><p>本次权限：{p.execution_mode ? `${executionModeLabels[p.execution_mode.mode]} · 模式版本 ${p.execution_mode.revision}` : "无法读取本次冻结权限，新采用不可用"}</p></> : <TitleComparison before={p.before} after={p.after} originalTitle={p.original_title} />}
+    <KnowledgeCitations knowledge={p.knowledge} humanEdited={p.policy === "product-content-review-v1" ? (p.content.decisions??[]).some(d=>d.action==="edit") : p.after!==p.original_title || p.decisions.some(decision=>decision.action==="edit")}/>
     <section><h3>依据与来源</h3>{p.evidence.length ? p.evidence.map((item, index) => <details key={`${item.id}-${index}`} open={p.evidence.length === 1}>
       <summary>依据 {index + 1} · {item.reference_type}</summary>
       <dl><dt>证据标识</dt><dd>{item.id}</dd><dt>引用标识</dt><dd>{item.reference_id}</dd><dt>来源快照</dt><dd>{item.snapshot_id}</dd><dt>校验和</dt><dd>{item.checksum}</dd></dl>
@@ -25,7 +26,7 @@ export function TitleReviewDetail({ proposal: p }: { proposal: ProductTitlePropo
       {p.unresolved.length ? <ul>{p.unresolved.map((item, index) => <li key={index}>{item}</li>)}</ul> : <p>未列出未解决问题。</p>}
     </section>
     {p.policy_adoption?<section aria-label="策略采用出处"><h3>按策略采用</h3><p>{executionModeLabels[p.policy_adoption.mode]} · 模式版本 {p.policy_adoption.modeRevision} · {p.policy_adoption.actionVersion}</p><p>由原运行 {p.policy_adoption.execution.runId} 采用，未经逐项人工审阅。</p></section>:null}
-    <section><h3>审核记录</h3>{p.decisions.length ? <ol>{p.decisions.map((item) => <li key={item.revision}>
+    <section><h3>审核记录</h3>{p.policy === "product-content-review-v1" ? p.content.decisions?.length ? <ol>{p.content.decisions.map(item=><li key={item.revision}><p>{{accept:"接受",edit:"编辑",reject:"拒绝"}[item.action]} · 修订 {item.revision} · {item.actor}</p><time dateTime={item.at}>{item.at}</time></li>)}</ol> : <p>暂无人工审核记录。</p> : p.decisions.length ? <ol>{p.decisions.map((item) => <li key={item.revision}>
       <p>{{ accept: "接受", edit: "编辑", reject: "拒绝" }[item.action]} · 修订 {item.revision} · {item.actor}</p>
       <time dateTime={item.at}>{item.at}</time><details><summary>查看本次标题变化</summary><p>修改前：{item.before}</p><p>修改后：{item.after}</p></details>
     </li>)}</ol> : <p>暂无人工审核记录。</p>}</section>
@@ -36,10 +37,14 @@ export function TitleReviewDetail({ proposal: p }: { proposal: ProductTitlePropo
   </div>;
 }
 
-export function TitleReviewControls({ proposal, permissions, userId, pending, decide, apply }: {
+type ReviewControlProps = {
   proposal: ProductTitleProposal; roles: readonly string[]; permissions:readonly string[]; userId: string; pending: boolean;
-  decide: (action: "accept" | "edit" | "reject", title?: string) => void; apply: () => void;
-}) {
+  decide: (action: "accept" | "edit" | "reject", title?: string, content?: ContentValue[]) => void; apply: () => void;
+};
+export function TitleReviewControls(props: ReviewControlProps) {
+  return props.proposal.policy === "product-content-review-v1" ? <ContentReviewControls {...props} proposal={props.proposal} /> : <TitleOnlyReviewControls {...props} />;
+}
+function TitleOnlyReviewControls({ proposal, permissions, userId, pending, decide, apply }: ReviewControlProps) {
   const [mode, setMode] = useState<"view" | "edit" | "confirm">("view");
   // Current effective-org role hints only; every write is authorized again by Go.
   const admin = permissions.includes("listingkit.admin.write");
@@ -54,5 +59,21 @@ export function TitleReviewControls({ proposal, permissions, userId, pending, de
       {admin && proposal.state === "accepted" ? <Button disabled={pending} onClick={() => setMode("confirm")}>应用到标准商品</Button> : null}
     </div>}
     {mode === "confirm" && admin && proposal.state === "accepted" ? <TitleApplyConfirmation productKey={proposal.input.product_key} baseVersion={proposal.input.base_version} revision={proposal.revision} pending={pending} onCancel={() => setMode("view")} onConfirm={() => { setMode("view"); apply(); }} /> : null}
+  </section>;
+}
+function ContentReviewControls({ proposal: p, permissions, userId, pending, decide, apply }: ReviewControlProps & { proposal: ProductContentProposal }) {
+  const [mode, setMode] = useState<"view"|"edit"|"confirm">("view");
+  if (p.state === "applied" || p.state === "rejected") return null;
+  if (!p.execution_mode) return <p role="status">无法读取本次冻结权限，采用不可用；请重新读取。</p>;
+  if (p.execution_mode.mode === "read_only") return <p role="status">本次为只读权限，已保存建议，不能编辑、接受或采用。</p>;
+  const admin = permissions.includes("listingkit.admin.write"), editor = admin || permissions.includes("local_agent.write") && p.owner === userId;
+  return <section className={styles.controls} aria-label="内容审核操作"><h3>等待你确认</h3><p>接受完整内容后，再确认采用到标准商品；操作时会重新检查当前权限与版本。</p>
+    {mode === "edit" ? <ContentEditor values={p.content.after} pending={pending} onCancel={()=>setMode("view")} onSave={values=>decide("edit",undefined,values)} /> : <div className={styles.actions}>
+      {admin && p.state === "pending" && <Button disabled={pending} onClick={()=>decide("accept")}>接受提案</Button>}
+      {editor && <Button variant="outline" disabled={pending} onClick={()=>setMode("edit")}>编辑内容</Button>}
+      {admin && <Button variant="outline" disabled={pending} onClick={()=>decide("reject")}>拒绝提案</Button>}
+      {admin && p.state === "accepted" && <Button disabled={pending} onClick={()=>setMode("confirm")}>应用到标准商品</Button>}
+    </div>}
+    {mode === "confirm" && admin && p.state === "accepted" && <TitleApplyConfirmation productKey={p.input.product_key} baseVersion={p.input.base_version} revision={p.revision} contentSelection={p.content.selection} pending={pending} onCancel={()=>setMode("view")} onConfirm={()=>{setMode("view");apply()}} />}
   </section>;
 }

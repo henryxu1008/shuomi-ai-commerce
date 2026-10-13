@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"task-processor/internal/product/enrichment"
 	"testing"
 	"time"
 
@@ -295,6 +296,43 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		require.NotNil(t, view.Content)
 		require.Len(t, view.Content.After, 4)
 		require.Equal(t, "en-US", view.Content.Selection.TargetLanguage)
+		code, raw, err = acquisitionHTTPRequest(server, "GET", titleBasePath+"/"+response.ProposalID, "admin", "B", "", "")
+		require.NoError(t, err)
+		require.Equal(t, 200, code, string(raw))
+		var wireView map[string]json.RawMessage
+		require.NoError(t, json.Unmarshal(raw, &wireView))
+		var savedMode struct {
+			Mode     string                `json:"mode"`
+			Revision string                `json:"revision"`
+			Snapshot agent.ModeSnapshotRef `json:"snapshot"`
+		}
+		require.NoError(t, json.Unmarshal(wireView["execution_mode"], &savedMode))
+		expectedMode := selectedMode
+		if mode == "content flow" {
+			expectedMode = "default"
+		}
+		require.Equal(t, expectedMode, savedMode.Mode)
+		require.Equal(t, modeRevision, savedMode.Revision)
+		require.Equal(t, *result.ModeSnapshotRef, savedMode.Snapshot)
+		if selectedMode != "full_access" {
+			code, raw, err = acquisitionHTTPRequest(server, "GET", titleBasePath+"?view=actionable", "admin", "B", "", "")
+			require.NoError(t, err)
+			require.Equal(t, 200, code, string(raw))
+			var list struct {
+				SchemaVersion int    `json:"schema_version"`
+				Coverage      string `json:"coverage"`
+				Items         []struct {
+					Policy    string                      `json:"policy"`
+					Selection enrichment.ContentSelection `json:"content_selection"`
+				} `json:"items"`
+			}
+			require.NoError(t, json.Unmarshal(raw, &list))
+			require.Equal(t, 2, list.SchemaVersion)
+			require.Equal(t, "product-text-proposals", list.Coverage)
+			require.Len(t, list.Items, 1)
+			require.Equal(t, enrichment.ContentPolicyVersion, list.Items[0].Policy)
+			require.Equal(t, result.ContentSelection, list.Items[0].Selection)
+		}
 		if selectedMode == "full_access" {
 			require.Equal(t, "applied", view.State)
 			require.NotNil(t, view.PolicyAdoption)

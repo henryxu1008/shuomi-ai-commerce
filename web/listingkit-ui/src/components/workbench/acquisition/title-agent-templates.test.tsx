@@ -15,6 +15,7 @@ vi.mock("@/lib/api/agent-configuration", async (original) => ({
 const id = "11111111-1111-4111-8111-111111111111",
   scope = { userId: "actor", organizationId: "B" };
 const template = {
+  agentId: "product.title.agent",
   templateId: id,
   version: "1",
   targetPlatform: "amazon",
@@ -27,7 +28,7 @@ it("loads exact default instead of moving to template head, and preserves explic
   f.read
     .mockResolvedValueOnce({
       canUse: true,
-      agent: { defaultTemplate: { templateId: id, revision: "1" } },
+      agent: { agentId: "product.title.agent", defaultTemplate: { templateId: id, revision: "1" } },
     })
     .mockResolvedValueOnce({
       items: [{ ...template, version: "2", name: "新版本" }],
@@ -55,7 +56,7 @@ it("requires explicit choice when the default version is unavailable", async () 
   f.read
     .mockResolvedValueOnce({
       canUse: true,
-      agent: { defaultTemplate: { templateId: id, revision: "1" } },
+      agent: { agentId: "product.title.agent", defaultTemplate: { templateId: id, revision: "1" } },
     })
     .mockResolvedValueOnce({ items: [], nextCursor: "" })
     .mockRejectedValueOnce(Error());

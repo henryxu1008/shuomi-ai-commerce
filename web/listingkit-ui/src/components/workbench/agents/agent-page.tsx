@@ -29,8 +29,9 @@ import { ExecutionModeSettings } from "./execution-mode-settings";
 import { ImageAgentPage } from "./image-agent-page";
 import { configurationError, useConfigurationRead as useRead } from "./agent-configuration-hooks";
 import { PrivateAgentCards } from "./private-agent-page";
+import { ContentSelectionFields } from "./content-selection-fields";
+import { contentSelectionSchema, contentSelectionLabel, type ContentSelection } from "@/lib/contracts/content-selection";
 
-const agentId = "product.title.agent";
 const labels: Record<string, string> = {
   NOT_ENABLED: "尚未启用",
   ENABLED: "已启用",
@@ -109,6 +110,7 @@ function ScopedPage({
   mode: "market" | "mine";
   id?: string;
 }) {
+  const agentId = id ?? "product.title.agent";
   const [filter, setFilter] = useState(""),
     [after, setAfter] = useState(""),
     [nonce, setNonce] = useState(0),
@@ -244,7 +246,7 @@ function ScopedPage({
       <Card key={entry.agent.agentId} className={styles.agentCard}>
         <h2>{entry.name}</h2>
         <p>{entry.description}</p>
-        <p className={styles.support}>{entry.agent.agentId === "product.image.agent" ? "主图与详情图 · 人工选择批准" : "标题优化 · 人工审核"}</p>
+        <p className={styles.support}>{entry.agent.agentId === "product.image.agent" ? "主图与详情图 · 人工选择批准" : entry.agent.agentId === "product.content.agent" ? "标题、描述、卖点、SEO关键词 · 内容本地化" : "标题优化 · 人工审核"}</p>
         <div className={styles.cardActions}>
           <span
             className={styles.status}
@@ -467,6 +469,7 @@ function ScopedPage({
                     {defaultTemplate.data.version}
                   </h3>
                   <p>素材平台：{defaultTemplate.data.targetPlatform}</p>
+                  {defaultTemplate.data.agentId === "product.content.agent" && <p>{contentSelectionLabel(defaultTemplate.data.content.selection)}</p>}
                   <p>
                     {defaultTemplate.data.knowledgeAvailability ===
                     "UNAVAILABLE"
@@ -512,6 +515,7 @@ function ScopedPage({
                         {t.targetPlatform} ·{" "}
                         {t.lifecycle === "ACTIVE" ? "可选用" : "已归档"}
                       </p>
+                      {t.agentId === "product.content.agent" && <p>{contentSelectionLabel(t.content.selection)}</p>}
                       <p>
                         {t.knowledgeAvailability === "UNAVAILABLE"
                           ? "默认知识不可用"
@@ -619,6 +623,7 @@ function ScopedPage({
                     <h3>
                       {old.data.name} · v{old.data.version}
                     </h3>
+                    {old.data.agentId === "product.content.agent" && <p>{contentSelectionLabel(old.data.content.selection)}</p>}
                     <p>
                       素材平台 {old.data.targetPlatform} ·{" "}
                       {old.data.knowledgeAvailability === "UNAVAILABLE"
@@ -663,7 +668,7 @@ function ScopedPage({
           <Card className={styles.panel}>
             <h2>本人最近发起的任务</h2>
             <p>
-              仅展示当前企业中你有商品访问权限的任务；生成建议仍需人工审核。
+              仅展示当前企业中你有商品访问权限的任务；采用方式以本次冻结权限为准。
             </p>
             {!detail.canReadRuns ? (
               <p>当前身份无权读取商品智能体任务。</p>
@@ -677,7 +682,7 @@ function ScopedPage({
                       {run.productKey} · {labels[run.phase]}
                     </span>
                     <Link
-                      href={`/workbench/supply/acquisition/operation/${run.operationId}?agent_key=${run.requestKey}&agent_actor=${encodeURIComponent(scope.userId)}&agent_org=${encodeURIComponent(scope.organizationId)}&agent_platform=${run.targetPlatform}`}
+                      href={`/workbench/supply/acquisition/operation/${run.operationId}?agent_key=${run.requestKey}&agent_actor=${encodeURIComponent(scope.userId)}&agent_org=${encodeURIComponent(scope.organizationId)}&agent_platform=${run.targetPlatform}${agentId === "product.content.agent" ? "&agent_kind=content" : ""}`}
                     >
                       查看任务 →
                     </Link>
@@ -752,7 +757,7 @@ function ScopedPage({
                   <li>选择企业已启用的智能体</li>
                   <li>从 1688 采集已保存商品中选择商品</li>
                   <li>确认精确模板版本、平台和企业知识选择</li>
-                  <li>查看生成建议，经过 Human Review 后显式应用</li>
+                  <li>查看生成建议，按本次权限确认或查看策略采用回执</li>
                 </ol>
                 <p>启用智能体不会创建执行任务，也不会自动使用知识。</p>
               </Card>
@@ -777,6 +782,7 @@ function ScopedPage({
       {editor && (
         <TemplateEditor
           scope={scope}
+          agentId={agentId}
           template={editor === "new" ? undefined : editor}
           busy={mutationDisabled}
           onCancel={() => setEditor(null)}
@@ -838,20 +844,23 @@ function ConfirmDisable({
 }
 function TemplateEditor({
   scope,
+  agentId,
   template,
   busy,
   onSave,
   onCancel,
 }: {
   scope: ConfigurationScope;
+  agentId: string;
   template?: AgentTemplate;
   busy: boolean;
   onSave: (v: unknown) => void;
   onCancel: () => void;
 }) {
+  const content = agentId === "product.content.agent";
   const dialog = useRef<HTMLDialogElement>(null);
   const [name, setName] = useState(template?.name ?? ""),
-    [platform, setPlatform] = useState(template?.targetPlatform ?? "shein"),
+    [platform, setPlatform] = useState(template?.targetPlatform ?? (content ? "product" : "shein")),
     [base, setBase] = useState(
       template?.knowledgeAvailability === "UNAVAILABLE"
         ? "unresolved"
@@ -861,6 +870,8 @@ function TemplateEditor({
     [knowledgeError, setKnowledgeError] = useState(""),
     [basePage, setBasePage] = useState(1),
     [baseTotal, setBaseTotal] = useState(0);
+  const [selection, setSelection] = useState<ContentSelection>(template?.agentId === "product.content.agent" ? template.content.selection : { targetLanguage: "", title: true, description: true, sellingPoints: true, seoKeywords: true });
+  const validSelection = !content || contentSelectionSchema.safeParse(selection).success;
   useEffect(() => {
     const e = dialog.current;
     e?.showModal();
@@ -897,17 +908,18 @@ function TemplateEditor({
       }}
     >
       <h2 id="template-editor-title">
-        {template ? "保存模板新版本" : "保存标题模板"}
+        {template ? "保存模板新版本" : content ? "保存内容模板" : "保存标题模板"}
       </h2>
       <p>模板保存默认配置，执行前仍需确认当前企业权限、预算和知识版本。</p>
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          if (base !== "unresolved")
+          if (base !== "unresolved" && validSelection)
             onSave({
               name,
               targetPlatform: platform,
               defaultKnowledgeBaseId: base || null,
+              ...(content ? { content: { schema: "content-config-v1", selection } } : {}),
             });
         }}
       >
@@ -918,7 +930,7 @@ function TemplateEditor({
             maxLength={120}
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="例如：品牌标题优化"
+            placeholder={content ? "例如：英文商品内容" : "例如：品牌标题优化"}
           />
         </label>
         <label>
@@ -927,11 +939,13 @@ function TemplateEditor({
             value={platform}
             onChange={(e) => setPlatform(e.target.value as typeof platform)}
           >
+            {content && <option value="product">标准商品（不指定平台）</option>}
             <option value="shein">SHEIN</option>
             <option value="temu">TEMU</option>
             <option value="amazon">Amazon</option>
           </select>
         </label>
+        {content && <ContentSelectionFields value={selection} onChange={setSelection} disabled={busy} />}
         <label>
           默认企业知识
           <select value={base} onChange={(e) => setBase(e.target.value)}>
@@ -998,7 +1012,7 @@ function TemplateEditor({
           </Button>
           <Button
             type="submit"
-            disabled={busy || base === "unresolved" || !name.trim()}
+            disabled={busy || base === "unresolved" || !name.trim() || !validSelection}
           >
             保存模板
           </Button>

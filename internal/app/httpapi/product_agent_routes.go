@@ -76,6 +76,11 @@ func buildProductAgentModule(ctx context.Context, productDB *gorm.DB, deps route
 	// Its original decision/Apply handlers retain their current permission checks.
 	binder := productReviewCapabilityBinder{now: time.Now}
 	for _, route := range productReviewOnlyRoutes(a.reviews, binder.Bind, a.projectKnowledge) {
+		previous := route.Handler
+		route.Handler = func(c *gin.Context) {
+			c.Set(productReviewModeProjectorKey, productReviewModeProjector(a.projectContentReviewMode))
+			previous(c)
+		}
 		routes = append(routes, route)
 	}
 	return productAgentModule{application: a, routes: routes, recoverPoints: a.points.RecoverDue}, nil

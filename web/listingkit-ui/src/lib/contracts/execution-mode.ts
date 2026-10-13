@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { knowledgeId } from "../api/knowledge";
 import { configVersion } from "./agent-configuration";
+import { contentSelectionSchema } from "./content-selection";
 
 export const executionModeSchema = z.enum(["default", "auto_approve", "read_only", "full_access"]);
 export const modeRevisionSchema = z.union([z.literal("0"), configVersion]);
@@ -60,12 +61,22 @@ const titleExecutionProvenanceSchema = z.strictObject({
  binding:z.strictObject({ContextKind:identifier,ContextID:identifier,ProductKey:identifier,CatalogVersion:configVersion,PublicationID:identifier,TargetPlatform:z.enum(["shein","temu","amazon"])}),
  configuration:z.strictObject({Kind:z.literal("agent-configuration-v1"),ID:knowledgeId,Digest:digest}),mode:modeSnapshotRefSchema,
 });
-export const titlePolicyAdoptionSchema = z.strictObject({
+const policyAdoptionBaseSchema = z.strictObject({
  execution:titleExecutionProvenanceSchema,
  identity:z.strictObject({OrganizationID:identifier,ActorID:identifier,MemberID:identifier}),
  mode:z.enum(["auto_approve","full_access"]),modeRevision:configVersion,
  policyVersion:z.literal("agent-execution-policy-v1"),actionVersion:z.literal("product.title.policy-adopt-v1"),proposalDigest:digest,requiresHuman:z.boolean(),
-}).refine(v=>v.identity.OrganizationID===v.execution.scope.OrganizationID&&v.identity.ActorID===v.execution.scope.ActorID&&!(v.mode==="auto_approve"&&v.requiresHuman));
+});
+export const titlePolicyAdoptionSchema = policyAdoptionBaseSchema.refine(v=>v.identity.OrganizationID===v.execution.scope.OrganizationID&&v.identity.ActorID===v.execution.scope.ActorID&&!(v.mode==="auto_approve"&&v.requiresHuman));
+export const contentExecutionProvenanceSchema = titleExecutionProvenanceSchema.extend({
+ ContentSelection: contentSelectionSchema,
+ binding: titleExecutionProvenanceSchema.shape.binding.extend({TargetPlatform:z.enum(["product","shein","temu","amazon"])}),
+});
+export const contentPolicyAdoptionSchema = policyAdoptionBaseSchema.extend({
+ execution: contentExecutionProvenanceSchema,
+ actionVersion: z.literal("product.content.policy-adopt-v1"),
+}).refine(v=>v.identity.OrganizationID===v.execution.scope.OrganizationID&&v.identity.ActorID===v.execution.scope.ActorID&&!(v.mode==="auto_approve"&&v.requiresHuman))
+.refine(v=>v.mode!=="auto_approve" || !!v.execution.ContentSelection.title && !v.execution.ContentSelection.description && !v.execution.ContentSelection.sellingPoints && !v.execution.ContentSelection.seoKeywords);
 
 export const imagePolicyAdoptionSchema=z.strictObject({
  identity:z.strictObject({OrganizationID:identifier,ActorID:identifier,MemberID:identifier}),

@@ -270,6 +270,13 @@ func (s *Service) Get(ctx context.Context, id string) (View, error) {
 	if !validID(id) {
 		return View{}, ErrInvalid
 	}
+	if s.sourceReader == nil {
+		return View{}, ErrUnavailable
+	}
+	ctx, err = s.sourceReader.AuthorizeRead(ctx)
+	if err != nil {
+		return View{}, mapSourceReadError(err)
+	}
 	r, err := s.store.Read(ctx, a, id)
 	if err != nil {
 		return View{}, err
@@ -289,6 +296,13 @@ func (s *Service) FindAgentReview(ctx context.Context, runID string) (View, bool
 	scope, err := s.authorize(ctx, false, false)
 	if err != nil {
 		return View{}, false, err
+	}
+	if s.sourceReader == nil {
+		return View{}, false, ErrUnavailable
+	}
+	ctx, err = s.sourceReader.AuthorizeRead(ctx)
+	if err != nil {
+		return View{}, false, mapSourceReadError(err)
 	}
 	record, found, err := s.findAgentReview(ctx, scope, runID)
 	if err != nil || !found {

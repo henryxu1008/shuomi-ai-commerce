@@ -225,7 +225,11 @@ func reviewResponse(c *gin.Context, v review.View, err error) {
 		if projector, ok := c.Get(productReviewContextProjectorKey); ok {
 			projection = projector.(productReviewContextProjector)(c.Request.Context(), v.ContextProvenance)
 		}
-		wire, marshalErr := marshalProductReviewView(v, projection)
+		var mode *productReviewModeDTO
+		if projector, ok := c.Get(productReviewModeProjectorKey); ok {
+			mode = projector.(productReviewModeProjector)(c.Request.Context(), v.Execution)
+		}
+		wire, marshalErr := marshalProductReviewProjection(v, projection, mode)
 		if marshalErr != nil || len(wire) > maxProductReviewResponseBytes {
 			writeProductReviewError(c, review.ErrUnavailable)
 			return

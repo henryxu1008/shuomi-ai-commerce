@@ -16,10 +16,12 @@ import { Input } from "@/components/ui/input";
 
 export function TitleAgentTemplates({
   scope,
+  agentId = "product.title.agent",
   onChoose,
   onReady,
 }: {
   scope: ConfigurationScope;
+  agentId?: "product.title.agent" | "product.content.agent";
   onChoose: (template: AgentTemplate | null) => void;
   onReady: (ready: boolean) => void;
 }) {
@@ -46,12 +48,12 @@ export function TitleAgentTemplates({
       try {
         const entry = await configurationRequest(
           { userId, organizationId },
-          "product.title.agent",
+          agentId,
           catalogEntrySchema,
           { signal: controller.signal },
         );
         if (controller.signal.aborted || generation.current !== token) return;
-        if (!entry.canUse) {
+        if (entry.agent.agentId !== agentId || !entry.canUse) {
           setFailure(
             "当前企业智能体未启用，或当前身份、文本能力不满足执行条件。",
           );
@@ -60,11 +62,12 @@ export function TitleAgentTemplates({
         permitted.current = true;
         const page = await configurationRequest(
           { userId, organizationId },
-          "product.title.agent/templates?lifecycle=ACTIVE&pageSize=100",
+          `${agentId}/templates?lifecycle=ACTIVE&pageSize=100`,
           templatesPageSchema,
           { signal: controller.signal },
         );
         if (controller.signal.aborted || generation.current !== token) return;
+        if (page.items.some(t=>t.agentId!==agentId)) throw Error("wrong agent");
         setItems(page.items);
         setNext(page.nextCursor);
         if (entry.agent.defaultTemplate) {
@@ -74,13 +77,13 @@ export function TitleAgentTemplates({
           try {
             const template = await configurationRequest(
               { userId, organizationId },
-              `product.title.agent/templates/${ref.templateId}/revisions/${ref.revision}`,
+              `${agentId}/templates/${ref.templateId}/revisions/${ref.revision}`,
               templateSchema,
               { signal: controller.signal },
             );
             if (controller.signal.aborted || generation.current !== token)
               return;
-            if (template.lifecycle !== "ACTIVE") throw Error("archived");
+            if (template.agentId !== agentId || template.lifecycle !== "ACTIVE") throw Error("archived");
             setItems((old) =>
               old.some((t) => t.templateId === template.templateId)
                 ? old
@@ -113,7 +116,7 @@ export function TitleAgentTemplates({
     return () => {
       controller.abort();
     };
-  }, [userId, organizationId]);
+  }, [userId, organizationId, agentId]);
   async function choose(id: string, v?: string) {
     if (!permitted.current) return;
     current.current?.abort();
@@ -140,12 +143,12 @@ export function TitleAgentTemplates({
     try {
       const template = await configurationRequest(
         { userId, organizationId },
-        `product.title.agent/templates/${id}/revisions/${revision}`,
+        `${agentId}/templates/${id}/revisions/${revision}`,
         templateSchema,
         { signal: controller.signal },
       );
       if (controller.signal.aborted || generation.current !== token) return;
-      if (template.lifecycle !== "ACTIVE") throw Error("archived");
+      if (template.agentId !== agentId || template.lifecycle !== "ACTIVE") throw Error("archived");
       callbacks.current.onChoose(template);
       callbacks.current.onReady(true);
     } catch {
@@ -163,11 +166,12 @@ export function TitleAgentTemplates({
     try {
       const page = await configurationRequest(
         { userId, organizationId },
-        `product.title.agent/templates?lifecycle=ACTIVE&pageSize=100&cursor=${next}`,
+        `${agentId}/templates?lifecycle=ACTIVE&pageSize=100&cursor=${next}`,
         templatesPageSchema,
         { signal: controller.signal },
       );
       if (!controller.signal.aborted) {
+        if (page.items.some(t=>t.agentId!==agentId)) throw Error("wrong agent");
         setItems((old) => [
           ...old,
           ...page.items.filter(
@@ -184,7 +188,7 @@ export function TitleAgentTemplates({
   }
   return (
     <section className="space-y-2">
-      <label htmlFor="title-template">标题模板</label>
+      <label htmlFor="title-template">{agentId === "product.content.agent" ? "内容模板" : "标题模板"}</label>
       <select
         id="title-template"
         className="block w-full rounded-lg border p-2"
@@ -226,7 +230,7 @@ export function TitleAgentTemplates({
       {busy && <p role="status">正在读取企业模板…</p>}
       {failure && <p role="alert">{failure}</p>}
       <p className="text-sm">
-        模板仅预填平台与知识选择；发送前仍需明确确认，模板新版本不会自动替换本次选择。
+        模板仅预填本次选择；发送前仍需明确确认，模板新版本不会自动替换本次选择。
       </p>
     </section>
   );
