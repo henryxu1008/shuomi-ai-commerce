@@ -14,7 +14,8 @@ export const templateRefSchema = z.strictObject({
   templateId: knowledgeId,
   revision: configVersion,
 });
-const agentId = z.enum(["product.title.agent","product.image.agent","product.content.agent"]),
+export const registeredAgentIdSchema = z.enum(["product.title.agent","product.image.agent","product.content.agent"]);
+const agentId = registeredAgentIdSchema,
   timestamp = z.string().datetime({ offset: true }),
   platform = z.enum(["shein", "temu", "amazon"]);
 export const templateInputSchema = z.strictObject({
