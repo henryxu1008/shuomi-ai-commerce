@@ -119,6 +119,14 @@ func (r *Repository) Acquire(ctx context.Context, reservation submission.Executi
 			return mutation{attempt: existing}, nil
 		}
 		attempt := reservation.Attempt
+		var temuIntent submission.OfficialIntent
+		if r.immutableOfficialEffects && attempt.Target.Platform == "temu" {
+			verified, policyErr := r.requireTemuEffect(ctx, tx, attempt)
+			if policyErr != nil {
+				return mutation{}, policyErr
+			}
+			temuIntent = verified
+		}
 		if err := advisoryLock(tx, "target", attempt.OrganizationID, attempt.Target.Platform, attempt.Target.StoreID, attempt.Target.SubjectID); err != nil {
 			return mutation{}, err
 		}
@@ -137,6 +145,20 @@ func (r *Repository) Acquire(ctx context.Context, reservation submission.Executi
 		}
 		if found && (fence.CurrentStatus == string(submission.ExecutionClaimed) || fence.CurrentStatus == string(submission.ExecutionOutcomeUnknown)) {
 			return mutation{}, submission.ErrExecutionTargetClaimed
+		}
+		if found && fence.CurrentStatus == string(submission.ExecutionSucceeded) && r.immutableOfficialEffects && attempt.Target.Platform == "temu" {
+			if attempt.Action == submission.TemuPublishAction {
+				return mutation{}, submission.ErrExecutionTargetSucceeded
+			}
+			current, found, err := r.findByID(ctx, tx, attempt.OrganizationID, fence.CurrentAttemptID, false)
+			if err != nil || !found {
+				return mutation{}, submission.ErrExecutionUnavailable
+			}
+			if err := r.requireTemuImageRenewal(ctx, tx, temuIntent, current); err != nil {
+				return mutation{}, err
+			}
+		} else if r.immutableOfficialEffects && attempt.Target.Platform == "temu" && temuIntent.TemuRenewalFrom != "" {
+			return mutation{}, submission.ErrExecutionEvidenceRequired
 		}
 		if found && fence.CurrentStatus == string(submission.ExecutionSucceeded) && r.immutableOfficialEffects && attempt.Target.Platform == "shein" &&
 			(attempt.Action == submission.OfficialPublishAction && strings.HasPrefix(attempt.Target.SubjectID, "product-us-") || attempt.Action == submission.OfficialImageAction && strings.HasPrefix(attempt.Target.SubjectID, "image-us-")) {

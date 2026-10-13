@@ -111,7 +111,9 @@ describe("workbench Store input validation", () => {
     ).toEqual({ name: "Renamed", region: "MY" });
   });
 
-  it("accepts only SHEIN and the lifecycle list statuses", () => {
+  it("accepts SHEIN and TEMU without accepting an arbitrary platform", () => {
+    expect(workbenchStoreCreateSchema.parse({name:"TEMU Shop", platform:"temu", region:"CN"})).toEqual({name:"TEMU Shop", platform:"temu", region:"CN"});
+    expect(workbenchStoreListFiltersSchema.parse({page:1, pageSize:20, platform:"temu"}).platform).toBe("temu");
     expect(
       workbenchStoreCreateSchema.safeParse({
         name: "Shop",

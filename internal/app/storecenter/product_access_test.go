@@ -51,7 +51,7 @@ func (p *productProvider) Application() storecenter.OfficialApplication {
 	if id == "" {
 		id = "app-a"
 	}
-	return storecenter.OfficialApplication{AppID: id, Version: p.appVersion}
+	return storecenter.OfficialApplication{Platform: storecenter.PlatformShein, AuthorizationMethod: storecenter.AuthorizationCallback, AppID: id, Version: p.appVersion}
 }
 func TestProductExecutionUsesOnlyOriginalApplicationProtectionAndMode(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)

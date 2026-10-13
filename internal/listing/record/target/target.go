@@ -4,9 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"reflect"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/listing/preparation"
 	"task-processor/internal/marketplace/shein/goods"
+	temugoods "task-processor/internal/marketplace/temu/goods"
+	temumodel "task-processor/internal/marketplace/temu/model"
 	"task-processor/internal/product/asset"
 	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/collection"
@@ -25,23 +28,28 @@ type TargetInput struct {
 	EffectiveVersion uint64                   `json:"effectiveVersion,string"`
 	ApplyReceiptID   string                   `json:"applyReceiptId,omitempty"`
 	Draft            goods.OfficialDraftInput `json:"draft"`
+	TemuRules        *temumodel.RuleSelection `json:"temuRules,omitempty"`
+	Temu             *temugoods.DraftInput    `json:"temu,omitempty"`
 }
 type TargetRecord struct {
-	ID                string                                `json:"id"`
-	TargetID          string                                `json:"targetId"`
-	Revision          int64                                 `json:"revision"`
-	Source            preparation.SourceItem                `json:"source"`
-	EffectiveVersion  uint64                                `json:"effectiveVersion,string"`
-	ApplyReceiptID    string                                `json:"applyReceiptId,omitempty"`
-	ProductHash       string                                `json:"productHash"`
-	InventoryHash     string                                `json:"inventoryHash"`
-	RulesHash         string                                `json:"rulesHash"`
-	Merchant          storecenter.ProductMerchantBinding    `json:"merchant"`
-	Input             TargetInput                           `json:"input"`
-	Result            goods.OfficialDraft                   `json:"result"`
-	ImageObservations []goods.OfficialImageObservation      `json:"imageObservations,omitempty"`
-	ProofObservations []goods.OfficialStockProofObservation `json:"proofObservations,omitempty"`
-	CreatedAt         time.Time                             `json:"createdAt"`
+	ID                    string                                `json:"id"`
+	TargetID              string                                `json:"targetId"`
+	Revision              int64                                 `json:"revision"`
+	Source                preparation.SourceItem                `json:"source"`
+	EffectiveVersion      uint64                                `json:"effectiveVersion,string"`
+	ApplyReceiptID        string                                `json:"applyReceiptId,omitempty"`
+	ProductHash           string                                `json:"productHash"`
+	InventoryHash         string                                `json:"inventoryHash"`
+	RulesHash             string                                `json:"rulesHash"`
+	Merchant              storecenter.ProductMerchantBinding    `json:"merchant"`
+	Input                 TargetInput                           `json:"input"`
+	Result                goods.OfficialDraft                   `json:"result"`
+	ImageObservations     []goods.OfficialImageObservation      `json:"imageObservations,omitempty"`
+	ProofObservations     []goods.OfficialStockProofObservation `json:"proofObservations,omitempty"`
+	Temu                  *temugoods.Draft                      `json:"temu,omitempty"`
+	TemuRuleSnapshot      *temugoods.RuleSnapshot               `json:"temuRuleSnapshot,omitempty"`
+	TemuImageObservations []temugoods.ImageObservation          `json:"temuImageObservations,omitempty"`
+	CreatedAt             time.Time                             `json:"createdAt"`
 }
 type TargetReceipt struct {
 	Record   TargetRecord `json:"record"`
@@ -129,6 +137,14 @@ type ApprovedAssetReader interface {
 type TargetRuleReader interface {
 	ReadTargetRules(context.Context, collection.Scope, string, goods.OfficialDraftInput) (storecenter.ProductMerchantBinding, goods.OfficialRuleSnapshot, error)
 }
+type TargetTemuRuleReader interface {
+	ReadTemuTargetRules(context.Context, collection.Scope, string, temumodel.RuleSelection) (storecenter.ProductMerchantBinding, temugoods.RuleSnapshot, error)
+}
+
+type TargetTemuImageReader interface {
+	ProbeTemu(context.Context, asset.ApprovedAsset, int64, int64, string) (temugoods.ImageObservation, error)
+}
+
 type TargetRepository interface {
 	FindTargetCommand(context.Context, collection.Scope, string, string) (TargetReceipt, error)
 	// SaveTarget replays an exact committed command before applying any new
@@ -144,6 +160,8 @@ type TargetDependencies struct {
 	Products               EffectiveTargetProductReader
 	Assets                 ApprovedAssetReader
 	Rules                  TargetRuleReader
+	TemuRules              TargetTemuRuleReader
+	TemuImages             TargetTemuImageReader
 	Records                TargetRepository
 	Images                 TargetImageReader
 	Authorizer             preparation.Authorizer
@@ -159,7 +177,7 @@ func NewTargetService(d TargetDependencies) (*TargetService, error) {
 	return &TargetService{d}, nil
 }
 func TargetIdentity(scope collection.Scope, sourceID, storeID string) string {
-	return collection.StableID(scope.OrganizationID, scope.ActorID, "supply-target", sourceID, storeID, "shein-us")
+	return collection.StableID(scope.OrganizationID, scope.ActorID, "supply-target", sourceID, storeID)
 }
 func (s *TargetService) Create(ctx context.Context, key string, input TargetInput) (TargetReceipt, error) {
 	return s.createForRequest(ctx, key, input, nil)
@@ -228,6 +246,14 @@ func (s *TargetService) createForExecution(ctx context.Context, scope collection
 }
 
 func (s *TargetService) create(ctx context.Context, scope collection.Scope, key string, input TargetInput, selectSource func(context.Context, string) (preparation.AuthorizedSource, error), reauthorize func(context.Context) error, guard TargetAgentGuard) (TargetReceipt, error) {
+	// Named TEMU metadata is query-only until the admitted TEMU record/payload
+	// variant is complete. Never save it through the qualified SHEIN builder.
+	if input.TemuRules != nil {
+		return TargetReceipt{}, ErrNotReady
+	}
+	if input.Temu != nil && !reflect.DeepEqual(input.Draft, goods.OfficialDraftInput{}) {
+		return TargetReceipt{}, ErrInvalid
+	}
 	if !collection.ValidID(key) || !collection.ValidID(input.SourceID) || !collection.ValidID(input.StoreID) || input.ExpectedRevision < 0 || input.ExpectedRevision >= 1<<63-1 || input.EffectiveVersion == 0 || input.EffectiveVersion > 1<<63-1 || input.ApplyReceiptID != "" && !authidentity.IsBoundedIdentifier(input.ApplyReceiptID) {
 		return TargetReceipt{}, ErrInvalid
 	}
@@ -263,7 +289,11 @@ func (s *TargetService) create(ctx context.Context, scope collection.Scope, key 
 	if product.Identity.TenantID != scope.OrganizationID || product.Identity.ProductKey != source.Source.ProductKey || product.Version != input.EffectiveVersion || product.PublicationID == "" {
 		return TargetReceipt{}, ErrNotReady
 	}
-	inventoryScope := asset.InventoryScope{TenantID: scope.OrganizationID, ProductKey: source.Source.ProductKey, TargetPlatform: "shein", SourceSnapshotVersion: product.Version}
+	platform := "shein"
+	if input.Temu != nil {
+		platform = "temu"
+	}
+	inventoryScope := asset.InventoryScope{TenantID: scope.OrganizationID, ProductKey: source.Source.ProductKey, TargetPlatform: platform, SourceSnapshotVersion: product.Version}
 	inventory, err := s.dependencies.Assets.GetApprovedInventory(ctx, inventoryScope)
 	if errors.Is(err, asset.ErrApprovedAssetsNotReady) {
 		inventory = asset.ApprovedAssetInventory{Scope: inventoryScope, Assets: []asset.ApprovedAsset{}}
@@ -273,25 +303,15 @@ func (s *TargetService) create(ctx context.Context, scope collection.Scope, key 
 	if inventory.Scope != inventoryScope {
 		return TargetReceipt{}, ErrNotReady
 	}
-	merchant, rules, err := s.dependencies.Rules.ReadTargetRules(ctx, scope, input.StoreID, input.Draft)
+	prepared, err := s.preparePlatform(ctx, scope, input, inventory)
 	if err != nil {
 		return TargetReceipt{}, err
 	}
-	if merchant.OrganizationID != scope.OrganizationID || merchant.StoreID != input.StoreID || merchant.Site != "shein-us" || merchant.StoreVersion < 1 || merchant.ConnectionRevision < 1 || !merchant.ValidApplication() || string(rules.ApplicationMode) != string(merchant.ApplicationType) || len(merchant.SupplierIdentityHash) != 64 || !time.Now().Before(merchant.ServiceExpiresAt) {
-		return TargetReceipt{}, ErrNotReady
-	}
-	observations, err := ProbeTargetImages(ctx, s.dependencies.Images, input.Draft, inventory)
-	if err != nil {
-		return TargetReceipt{}, err
-	}
-	proofs, err := ProbeTargetStockProofs(ctx, s.dependencies.Images, input.Draft)
-	if err != nil {
-		return TargetReceipt{}, err
-	}
-	result := goods.BuildOfficial(input.Draft, rules, inventory, observations, proofs)
-	value := TargetRecord{ID: collection.StableID(scope.OrganizationID, scope.ActorID, "supply-record", key), TargetID: TargetIdentity(scope, source.ID, input.StoreID), Revision: input.ExpectedRevision + 1, Source: source, EffectiveVersion: product.Version, ApplyReceiptID: input.ApplyReceiptID, ProductHash: collection.Digest(product.Snapshot), InventoryHash: collection.Digest(inventory), RulesHash: collection.Digest(rules), Merchant: merchant, Input: input, Result: result, CreatedAt: time.Now().UTC()}
-	value.ImageObservations = observations
-	value.ProofObservations = proofs
+	value := TargetRecord{ID: collection.StableID(scope.OrganizationID, scope.ActorID, "supply-record", key), TargetID: TargetIdentity(scope, source.ID, input.StoreID), Revision: input.ExpectedRevision + 1, Source: source, EffectiveVersion: product.Version, ApplyReceiptID: input.ApplyReceiptID, ProductHash: collection.Digest(product.Snapshot), InventoryHash: collection.Digest(inventory), RulesHash: prepared.rulesHash, Merchant: prepared.merchant, Input: input, Result: prepared.shein, CreatedAt: time.Now().UTC()}
+	value.ImageObservations = prepared.images
+	value.ProofObservations = prepared.proofs
+	value.Temu, value.TemuRuleSnapshot = prepared.temu, prepared.temuRules
+	value.TemuImageObservations = prepared.temuImages
 	// Merchant reads can outlast the five-second source proof. Obtain fresh
 	// current source authority before committing the same immutable reference.
 	selected, err = selectSource(ctx, input.SourceID)
@@ -305,7 +325,7 @@ func (s *TargetService) create(ctx context.Context, scope collection.Scope, key 
 	if err = reauthorize(ctx); err != nil {
 		return TargetReceipt{}, err
 	}
-	return s.dependencies.Records.SaveTarget(ctx, TargetPrepared{scope: scope, key: key, inputHash: inputHash, source: selected, record: value, agentGuard: guard, rules: rules, inventory: inventory})
+	return s.dependencies.Records.SaveTarget(ctx, TargetPrepared{scope: scope, key: key, inputHash: inputHash, source: selected, record: value, agentGuard: guard, rules: prepared.sheinRules, inventory: inventory})
 }
 func (s *TargetService) authorizeTarget(ctx context.Context, purpose string) (collection.Scope, error) {
 	scope, err := s.dependencies.Authorizer.Authorize(ctx, purpose)

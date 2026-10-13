@@ -1,12 +1,12 @@
 import {render,screen} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {afterEach,expect,it,vi} from "vitest";
-const state=vi.hoisted(()=>({search:"",push:vi.fn(),retry:vi.fn(),switching:false,org:"org-a",permissions:["workbench.store.read"],query:{} as Record<string,unknown>,filters:vi.fn()}));
+const state=vi.hoisted(()=>({search:"",push:vi.fn(),retry:vi.fn(),switching:false,org:"org-a",permissions:["workbench.store.read"],query:{} as Record<string,unknown>,filters:vi.fn(),dialog:vi.fn()}));
 vi.mock("next/navigation",()=>({usePathname:()=>"/workbench/stores",useRouter:()=>({push:state.push}),useSearchParams:()=>new URLSearchParams(state.search)}));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>({user:{id:"actor"},effectiveOrganization:{id:state.org,name:"A"},permissions:state.permissions,isSwitching:state.switching,retry:state.retry})}));
 vi.mock("@/lib/query/use-store-catalog",()=>({useStoreCatalog:(filters:unknown,valid:boolean)=>{state.filters(filters,valid);return state.query}}));
 vi.mock("@tanstack/react-query",()=>({useQueryClient:()=>({invalidateQueries:vi.fn()}),useQuery:()=>({})}));
-vi.mock("./store-catalog-dialogs",()=>({StoreCatalogDialogs:()=> <div role="dialog">归属设置</div>}));
+vi.mock("./store-catalog-dialogs",()=>({StoreCatalogDialogs:({dialog}:{dialog:unknown})=>{state.dialog(dialog);return <div role="dialog">归属设置</div>}}));
 vi.mock("./store-lifecycle-actions",()=>({StoreLifecycleActions:()=>null}));
 import {StoreListPage} from "./store-list-page";
 const metric={value:null,unknown:0,complete:false,reason:"unavailable"};
@@ -19,6 +19,12 @@ it("uses server count and shows unknown facts without fake zero or write control
  expect(screen.queryByRole("button",{name:"绑定新店铺"})).not.toBeInTheDocument();expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
  expect(screen.getByRole("link",{name:/进入店铺/})).toHaveAttribute("href",`/workbench/store-products?storeId=${item.id}`);
  expect(screen.getByRole("button",{name:"上一页"})).toBeDisabled();expect(screen.getByRole("button",{name:"下一页"})).toBeDisabled();
+});
+it("opens the supported TEMU product sync from the catalog list",async()=>{
+ const temu={...item,platform:"temu"};state.query={data:{...data,items:[temu]},isPending:false,isError:false};render(<StoreListPage/>);
+ const sync=screen.getByRole("button",{name:"立即同步"});expect(sync).toBeEnabled();
+ expect(sync).not.toHaveAttribute("title","TEMU 商品和订单同步尚未开放。");
+ await userEvent.click(sync);expect(state.dialog).toHaveBeenLastCalledWith({kind:"sync",item:temu,initialKind:"products"});
 });
 it.each(["ORGANIZATION_ACCESS_REVOKED","ORGANIZATION_CONTEXT_CHANGED","ORGANIZATION_ACCESS_DENIED"])("hides stale rows and metrics and refreshes context for %s",async(code)=>{
  state.query={data,isPending:false,isError:true,error:{code},refetch:vi.fn()};render(<StoreListPage/>);

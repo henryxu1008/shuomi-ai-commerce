@@ -1,0 +1,88 @@
+regionId	siteId	label	partition	semi	local
+83	100	Guam (GU)	US	空白	空白
+164	100	Puerto Rico (PR)	US	空白	空白
+211	100	United States (US)	US	true	true
+219	100	Virgin Islands (U.S.) (VI)	US	空白	空白
+236	100	Northern Mariana Islands (MP)	US	空白	空白
+37	101	Canada (CA)	GLOBAL	true	true
+210	102	United Kingdom (UK)	EU	true	true
+12	103	Australia (AU)	GLOBAL	true	true
+144	104	New Zealand (NZ)	GLOBAL	true	空白
+76	105	Germany (DE)	EU	true	true
+69	106	France (FR)	EU	true	true
+98	107	Italy (IT)	EU	true	true
+141	108	Netherlands (NL)	EU	true	true
+186	109	Spain (ES)	EU	true	true
+128	110	Mexico (MX)	GLOBAL	true	true
+163	111	Portugal (PT)	EU	true	true
+162	112	Poland (PL)	EU	true	true
+191	113	Sweden (SE)	EU	true	true
+192	114	Switzerland (CH)	EU	true	true
+79	115	Greece (GR)	EU	true	true
+96	116	Ireland (IE)	EU	true	true
+52	117	Cyprus (CY)	EU	true	true
+100	118	Japan (JP)	GLOBAL	true	true
+185	119	Republic of Korea (KR)	GLOBAL	空白	true
+174	120	Saudi Arabia (SA)	EU	true	空白
+179	121	Singapore (SG)	GLOBAL	空白	空白
+209	122	United Arab Emirates (AE)	EU	true	true
+105	123	Kuwait (KW)	EU	true	空白
+151	124	Norway (NO)	EU	true	true
+42	125	Chile (CL)	GLOBAL	true	空白
+119	126	Malaysia (MY)	GLOBAL	true	空白
+160	127	Philippines (PH)	GLOBAL	true	空白
+197	129	Thailand (TH)	GLOBAL	true	空白
+165	130	Qatar (QA)	EU	true	空白
+101	131	Jordan (JO)	EU	coming soon	空白
+29	132	Brazil (BR)	GLOBAL	空白	true
+152	133	Oman (OM)	EU	true	空白
+16	134	Bahrain (BH)	EU	true	空白
+97	135	Israel (IL)	EU	true	空白
+184	136	South Africa (ZA)	EU	true	空白
+53	137	Czech Republic (CZ)	EU	true	true
+90	138	Hungary (HU)	EU	true	true
+54	139	Denmark (DK)	EU	true	true
+167	140	Romania (RO)	EU	true	true
+32	141	Bulgaria (BG)	EU	true	true
+20	142	Belgium (BE)	EU	true	true
+13	143	Austria (AT)	EU	true	true
+68	144	Finland (FI)	EU	true	true
+180	145	Slovakia (SK)	EU	true	true
+50	146	Croatia (HR)	EU	true	true
+181	147	Slovenia (SI)	EU	true	true
+113	148	Lithuania (LT)	EU	true	true
+64	149	Estonia (EE)	EU	true	true
+108	150	Latvia (LV)	EU	true	true
+122	151	Malta (MT)	EU	true	空白
+114	152	Luxembourg (LU)	EU	true	空白
+175	153	Serbia (RS)	EU	true	空白
+130	154	Moldova (MD)	EU	true	空白
+134	155	Montenegro (ME)	EU	coming soon	空白
+91	156	Iceland (IS)	EU	coming soon	空白
+5	157	Andorra (AD)	EU	空白	空白
+26	158	Bosnia and Herzegovina (BA)	EU	空白	空白
+3	159	Albania (AL)	EU	空白	空白
+116	160	North Macedonia (MK)	EU	coming soon	空白
+102	162	Kazakhstan (KZ)	EU	空白	空白
+159	163	Peru (PE)	GLOBAL	true	空白
+45	164	Colombia (CO)	GLOBAL	true	空白
+75	165	Georgia (GE)	EU	true	true
+10	166	Armenia (AM)	EU	true	true
+14	167	Azerbaijan (AZ)	EU	true	空白
+208	168	Ukraine (UA)	EU	空白	空白
+212	169	Uruguay (UY)	GLOBAL	空白	空白
+126	170	Mauritius (MU)	EU	coming soon	空白
+135	171	Morocco (MA)	EU	true	空白
+57	172	Dominican Republic (DO)	GLOBAL	空白	空白
+203	174	Türkiye (TR)	EU	空白	true
+4	175	Algeria (DZ)	EU	空白	空白
+156	176	Panama (PA)	GLOBAL	coming soon	空白
+59	178	Ecuador (EC)	GLOBAL	true	空白
+201	179	Trinidad and Tobago (TT)	GLOBAL	空白	空白
+213	181	Uzbekistan (UZ)	EU	空白	空白
+61	183	El Salvador (SV)	GLOBAL	空白	空白
+187	185	Sri Lanka (LK)	EU	coming soon	空白
+217	187	Vietnam (VN)	GLOBAL	空白	空白
+31	188	Brunei Darussalam (BN)	GLOBAL	coming soon	空白
+9	189	Argentina (AR)	GLOBAL	空白	空白
+106	194	Kyrgyzstan (KG)	EU	coming soon	空白

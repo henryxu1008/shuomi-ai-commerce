@@ -40,6 +40,28 @@ func TestServiceRequiresConnectionStatusProviderIncludingTypedNil(t *testing.T) 
 	}
 }
 
+func TestServiceCreatePreservesTemuPlatform(t *testing.T) {
+	repository := newStoreRepositoryFake()
+	service, err := storecenter.NewService(repository, newAuditRepositoryFake(), &serviceConnectionProvider{}, time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := service.Create(context.Background(), storecenter.CreateStoreRequest{
+		OrganizationID: "org-a", ActorSubject: "operator", IdempotencyKey: uuid.NewString(),
+		Name: "TEMU store", Platform: "temu", Region: "CN",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Store.Platform() != storecenter.PlatformTemu {
+		t.Fatalf("created platform = %s, want temu", result.Store.Platform())
+	}
+	stored := repository.stores["org-a/"+result.Store.ID()]
+	if stored == nil || stored.Platform() != storecenter.PlatformTemu {
+		t.Fatal("repository did not receive the requested TEMU platform")
+	}
+}
+
 func TestServiceUpdateAuditFailureRepairsWithoutSecondSave(t *testing.T) {
 	repository := newStoreRepositoryFake()
 	store := activeServiceStore(t, "org-a", "00000000-0000-4000-8000-000000000504", "00000000-0000-4000-8000-000000000604", "00000000-0000-4000-8000-000000000704", "Before")

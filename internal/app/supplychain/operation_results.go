@@ -7,6 +7,7 @@ import (
 	record "task-processor/internal/listing/record/target"
 	"task-processor/internal/listing/submission"
 	model "task-processor/internal/marketplace/shein/model"
+	temugoods "task-processor/internal/marketplace/temu/goods"
 	"task-processor/internal/product/collection"
 )
 
@@ -14,7 +15,8 @@ import (
 // projects confirmed provider facts retained by the Submission owner.
 type OperationItemView struct {
 	preparation.OperationItem
-	ConfirmedProduct *model.PublishResult `json:"confirmedProduct,omitempty"`
+	ConfirmedProduct     *model.PublishResult    `json:"confirmedProduct,omitempty"`
+	ConfirmedTemuProduct *temugoods.CreatedGoods `json:"confirmedTemuProduct,omitempty"`
 }
 
 func (a *Application) operationItemView(ctx context.Context, operation preparation.Operation, item preparation.OperationItem) (OperationItemView, error) {
@@ -42,7 +44,11 @@ func (a *Application) operationItemView(ctx context.Context, operation preparati
 	if saved.ID != item.RecordID || saved.Revision != item.RecordRevision || saved.Source.ID != item.SourceID || saved.Source.Source.ProductKey != receipt.ProductKey || saved.Merchant != receipt.Binding {
 		return view, record.ErrConflict
 	}
-	view.ConfirmedProduct = &receipt.Product
+	if receipt.TemuProduct != nil {
+		view.ConfirmedTemuProduct = receipt.TemuProduct
+	} else {
+		view.ConfirmedProduct = &receipt.Product
+	}
 	return view, nil
 }
 
@@ -65,18 +71,17 @@ func (a *Application) OperationItems(ctx context.Context, id string, q collectio
 			return result, err
 		}
 		result.Items = append(result.Items, value)
-		confirmed = confirmed || value.ConfirmedProduct != nil
+		confirmed = confirmed || value.ConfirmedProduct != nil || value.ConfirmedTemuProduct != nil
 	}
 	if confirmed {
-		if a.PublicationStores == nil {
+		if a.TargetMerchants == nil {
 			return result, record.ErrUnavailable
 		}
-		merchant, err := a.PublicationStores.RulesMerchant(ctx, operation.Owner, operation.Input.StoreID, nil)
+		binding, err := a.TargetMerchants.ReadTargetMerchant(ctx, operation.Owner, operation.Input.StoreID)
 		if err != nil {
 			return result, record.ErrForbidden
 		}
-		binding := merchant.Binding()
-		if binding.OrganizationID != operation.Owner.OrganizationID || binding.StoreID != operation.Input.StoreID || binding.Site != "shein-us" {
+		if !validTargetMerchant(operation.Owner, operation.Input.StoreID, binding) {
 			return result, record.ErrConflict
 		}
 	}

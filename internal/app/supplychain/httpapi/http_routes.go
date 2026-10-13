@@ -196,8 +196,13 @@ func SupplyRoutes(app *supplyapp.Application, bind func(context.Context, string)
 			case "target-command":
 				output, err = app.Targets.ReadCommand(ctx, c.Param("key"))
 			case "save-target", "rules":
-				var in record.TargetInput
-				key, e := supplyBody(c.Request, &in, spec.action == "save-target")
+				var body supplyTargetBody
+				key, e := supplyBody(c.Request, &body, spec.action == "save-target")
+				if e != nil {
+					supplyError(c, e)
+					return
+				}
+				in, e := body.domain()
 				if e != nil {
 					supplyError(c, e)
 					return
@@ -294,7 +299,7 @@ func SupplyRoutes(app *supplyapp.Application, bind func(context.Context, string)
 				supplyError(c, err)
 				return
 			}
-			raw, e := json.Marshal(output)
+			raw, e := json.Marshal(supplyPublicResponse(output))
 			if e != nil || len(raw) > supplyMaxBytes {
 				supplyError(c, preparation.ErrUnavailable)
 				return

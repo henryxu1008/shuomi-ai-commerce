@@ -3,14 +3,17 @@ package supplychainapp
 import (
 	"context"
 	"errors"
+	"reflect"
 	"task-processor/internal/listing/preparation"
 	record "task-processor/internal/listing/record/target"
 	"task-processor/internal/listing/submission"
 	"task-processor/internal/marketplace/shein/goods"
+	temugoods "task-processor/internal/marketplace/temu/goods"
 	"task-processor/internal/product/asset"
 	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/collection"
 	"task-processor/internal/storecenter"
+	"time"
 )
 
 type Application struct {
@@ -22,11 +25,13 @@ type Application struct {
 	Records               record.TargetRepository
 	Products              record.EffectiveTargetProductReader
 	Rules                 record.TargetRuleReader
+	TemuRules             TemuTargetRuleReader
 	Assets                record.ApprovedAssetReader
 	Approvals             *asset.SourceApprovalService
 	Authorization         preparation.Authorizer
 	PublicationReceipts   submission.OfficialReceiptRepository
 	PublicationStores     RuleStore
+	TargetMerchants       TargetMerchantReader
 	AuthorizeOptimization func(context.Context, preparation.OperationInput) error
 	OptimizationOptions   func(context.Context, collection.Query) (OptimizationOptions, error)
 	StageProjection       ReviewProjection
@@ -64,10 +69,19 @@ func (a *Application) Source(ctx context.Context, id string) (SourceDetail, erro
 
 type TargetRules struct {
 	Merchant storecenter.ProductMerchantBinding `json:"merchant"`
-	Rules    goods.OfficialRuleSnapshot         `json:"rules"`
+	Rules    goods.OfficialRuleSnapshot         `json:"rules,omitzero"`
+	Temu     *temugoods.RuleSnapshot            `json:"temu,omitempty"`
 }
 
 func (a *Application) QueryRules(ctx context.Context, in record.TargetInput) (TargetRules, error) {
+	if ctx == nil || a == nil || a.Authorization == nil || a.Sources == nil || a.Products == nil {
+		return TargetRules{}, preparation.ErrUnavailable
+	}
+	if in.Temu != nil || in.TemuRules != nil && !reflect.DeepEqual(in.Draft, goods.OfficialDraftInput{}) {
+		return TargetRules{}, record.ErrInvalid
+	}
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
 	scope, err := a.Authorization.Authorize(ctx, preparation.PermissionRead)
 	if err != nil {
 		return TargetRules{}, err
@@ -76,15 +90,42 @@ func (a *Application) QueryRules(ctx context.Context, in record.TargetInput) (Ta
 	if err != nil {
 		return TargetRules{}, err
 	}
-	owner, _, _, err := selected.Read(ctx)
+	owner, source, _, err := selected.Read(ctx)
 	if err != nil || owner != scope {
 		return TargetRules{}, preparation.ErrForbidden
 	}
 	if _, err = a.Products.ReadEffectiveTargetProduct(ctx, selected, in.EffectiveVersion, in.ApplyReceiptID); err != nil {
 		return TargetRules{}, err
 	}
+	if in.TemuRules != nil {
+		if a.TemuRules == nil {
+			return TargetRules{}, record.ErrUnavailable
+		}
+		merchant, rules, err := a.TemuRules.ReadTemuTargetRules(ctx, scope, in.StoreID, *in.TemuRules)
+		if err != nil {
+			return TargetRules{}, err
+		}
+		// Renew source authority after bounded official reads. Store metadata
+		// alone cannot authorize reading this private retained source.
+		fresh, err := a.Sources.Select(ctx, in.SourceID)
+		if err != nil {
+			return TargetRules{}, err
+		}
+		currentScope, currentSource, _, err := fresh.Read(ctx)
+		if err != nil || currentScope != scope || currentSource != source {
+			return TargetRules{}, preparation.ErrForbidden
+		}
+		current, err := a.Authorization.Authorize(ctx, preparation.PermissionRead)
+		if err != nil || current != scope || ctx.Err() != nil {
+			return TargetRules{}, preparation.ErrForbidden
+		}
+		return TargetRules{Merchant: merchant, Temu: &rules}, nil
+	}
+	if a.Rules == nil {
+		return TargetRules{}, record.ErrUnavailable
+	}
 	merchant, rules, err := a.Rules.ReadTargetRules(ctx, scope, in.StoreID, in.Draft)
-	return TargetRules{merchant, rules}, err
+	return TargetRules{Merchant: merchant, Rules: rules}, err
 }
 func (a *Application) ReadTarget(ctx context.Context, sourceID, storeID string) (record.TargetRecord, error) {
 	scope, err := a.Authorization.Authorize(ctx, preparation.PermissionRead)

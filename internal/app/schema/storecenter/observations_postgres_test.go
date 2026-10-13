@@ -40,7 +40,7 @@ func TestObservationExplicitInstallRejectsBusinessFactsAndExistingSchema(t *test
 			if !nonempty {
 				require.Error(t, InstallObservations(ctx, db), "missing serving role must fail provisioning")
 				var absent bool
-				require.NoError(t, db.Raw(`SELECT to_regnamespace('shein_observations') IS NULL`).Scan(&absent).Error)
+				require.NoError(t, db.Raw(`SELECT to_regnamespace('store_observations') IS NULL`).Scan(&absent).Error)
 				require.True(t, absent, "failed grants must roll back the schema so a fresh setup can retry")
 			}
 			require.NoError(t, db.Exec(`CREATE ROLE store_center_runtime`).Error)
@@ -53,14 +53,14 @@ func TestObservationExplicitInstallRejectsBusinessFactsAndExistingSchema(t *test
 				require.NoError(t, err)
 				require.Error(t, InstallObservations(ctx, db))
 				var absent bool
-				require.NoError(t, db.Raw(`SELECT to_regnamespace('shein_observations') IS NULL`).Scan(&absent).Error)
+				require.NoError(t, db.Raw(`SELECT to_regnamespace('store_observations') IS NULL`).Scan(&absent).Error)
 				require.True(t, absent, "existing business facts must not cause new schema or grants")
 				return
 			}
 			require.NoError(t, InstallObservations(ctx, db))
 			require.Error(t, InstallObservations(ctx, db), "existing schema is not migrated or overwritten")
 			var exact bool
-			require.NoError(t, db.Raw(`SELECT has_schema_privilege('store_center_runtime','shein_observations','USAGE') AND has_table_privilege('store_center_runtime','shein_observations.commands','INSERT') AND NOT has_table_privilege('store_center_runtime','shein_observations.commands','UPDATE')`).Scan(&exact).Error)
+			require.NoError(t, db.Raw(`SELECT has_schema_privilege('store_center_runtime','store_observations','USAGE') AND has_table_privilege('store_center_runtime','store_observations.commands','INSERT') AND NOT has_table_privilege('store_center_runtime','store_observations.commands','UPDATE')`).Scan(&exact).Error)
 			require.True(t, exact)
 		})
 	}

@@ -22,6 +22,13 @@ type rulesFixture struct {
 	changed bool
 }
 
+func (s *rulesFixture) ReadTargetMerchant(_ context.Context, scope collection.Scope, storeID string) (storecenter.ProductMerchantBinding, error) {
+	if scope.OrganizationID != s.binding.OrganizationID || storeID != s.binding.StoreID {
+		return storecenter.ProductMerchantBinding{}, record.ErrForbidden
+	}
+	return s.binding, nil
+}
+
 func (s *rulesFixture) RulesMerchant(_ context.Context, scope collection.Scope, storeID string, expected *storecenter.ProductMerchantBinding) (RulesMerchant, error) {
 	if scope.OrganizationID != s.binding.OrganizationID || storeID != s.binding.StoreID || expected != nil && (*expected != s.binding || s.changed) {
 		return nil, record.ErrForbidden

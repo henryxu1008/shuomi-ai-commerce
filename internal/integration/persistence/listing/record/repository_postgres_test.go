@@ -26,6 +26,8 @@ import (
 	"task-processor/internal/listing/submission"
 	"task-processor/internal/marketplace/shein/goods"
 	model "task-processor/internal/marketplace/shein/model"
+	temugoods "task-processor/internal/marketplace/temu/goods"
+	temumodel "task-processor/internal/marketplace/temu/model"
 	"task-processor/internal/product/asset"
 	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/collection"
@@ -267,6 +269,47 @@ func TestPostgresTargetImmutableRevisionsCommandReplayAndConcurrentCAS(t *testin
 		require.ErrorIs(t, err, record.ErrNotFound)
 		_, err = repository.ReadTargetCommand(actor, scope, command)
 		require.ErrorIs(t, err, record.ErrNotFound)
+
+	})
+	t.Run("three TEMU modes share immutable source command and revision storage", func(t *testing.T) {
+		for _, mode := range []storecenter.OfficialMerchantMode{storecenter.MerchantLocal, storecenter.MerchantFullyManaged, storecenter.MerchantSemiManaged} {
+			targetService, err := record.NewTargetService(record.TargetDependencies{Sources: selector, Products: record.OriginalTargetProduct{}, Assets: missingAssets{}, Rules: currentRules{}, TemuRules: currentTemuSaveRules{mode}, Records: repository, Images: recordTestImages{}, Authorizer: authority})
+			require.NoError(t, err)
+			command := uuid.NewString()
+			in := record.TargetInput{SourceID: page.Items[0].ID, StoreID: uuid.NewString(), EffectiveVersion: 1, Temu: &temugoods.DraftInput{Mode: string(mode), Selection: temumodel.RuleSelection{CatID: 34}}}
+			if mode == storecenter.MerchantLocal {
+				in.Temu.Local = &temumodel.LocalGoodsV2{Basic: temumodel.LocalGoodsBasic{Name: "Explicit local title", CatID: 34}}
+			} else {
+				in.Temu.Supplier = &temumodel.SupplierGoods{Name: "Explicit supplier title"}
+			}
+			saved, err := targetService.Create(actor, command, in)
+			require.NoError(t, err)
+			require.NotNil(t, saved.Record.Temu)
+			require.False(t, saved.Record.Temu.ReadyForUpload)
+			replay, err := targetService.Create(actor, command, in)
+			require.NoError(t, err)
+			require.True(t, replay.Replayed)
+			require.Equal(t, saved.Record, replay.Record)
+			read, err := repository.ReadTargetRecord(actor, scope, saved.Record.ID)
+			require.NoError(t, err)
+			require.Equal(t, saved.Record, read)
+			foreign := scope
+			foreign.OrganizationID = "org-other"
+			_, err = repository.ReadTargetRecord(actor, foreign, saved.Record.ID)
+			require.ErrorIs(t, err, record.ErrNotFound)
+			in.ExpectedRevision = 1
+			if in.Temu.Local != nil {
+				in.Temu.Local.Basic.Name = "Revised local"
+			} else {
+				in.Temu.Supplier.Name = "Revised supplier"
+			}
+			second, err := targetService.Create(actor, uuid.NewString(), in)
+			require.NoError(t, err)
+			require.EqualValues(t, 2, second.Record.Revision)
+			original, err := repository.ReadTargetRecord(actor, scope, saved.Record.ID)
+			require.NoError(t, err)
+			require.Equal(t, saved.Record, original)
+		}
 	})
 	t.Run("official intent and full result share the existing execution transaction", func(t *testing.T) {
 		ready, err := record.NewTargetService(record.TargetDependencies{Sources: selector, ExecutionSources: selector, ExecutionAuthorization: execution, Products: record.OriginalTargetProduct{}, Assets: readyAssets{}, Rules: readyRules{}, Records: repository, Images: recordTestImages{}, Authorizer: authority})
