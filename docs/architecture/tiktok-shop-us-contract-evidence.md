@@ -12,7 +12,8 @@ Refs [#669](https://github.com/qq550723504/task-processor/issues/669)。
 - code 在 30 分钟内一次性使用。令牌交换是 GET `https://auth.tiktok-shops.com/api/v2/token/get`，参数 `app_key`、`app_secret`、`auth_code`、`grant_type=authorized_code`；不能改成标准 OAuth 拼写 `authorization_code`。
 - 刷新是 GET `https://auth.tiktok-shops.com/api/v2/token/refresh`，参数为应用标识/secret、`refresh_token` 和 `grant_type=refresh_token`。这些 GET 会改变凭据事实，不能按只读 GET 自动重试或记录完整 URL。
 - `access_token_expire_in`、`refresh_token_expire_in` 是绝对 Unix 到期时间；access token 默认约 7 日，不是将返回数值再加到当前时间。返回还包括 `open_id`、`seller_base_region`、`user_type`、`granted_scopes`。
-- 当前 overview 列出卖家类型 0，以及 Global Selling 类型 4/5。商品 API header 的说明仍写 `user_type=0`。不能仅凭此笼统描述把 4/5 当作 creator 或 local seller；实际应用类型、seller guide、授权结果与店铺规则须在生产接入前一致核实。
+- 当前 overview 列出卖家类型 0，以及 Global Selling 类型 4/5。商品 API header 的说明仍写 `user_type=0`。本批允许的卖家型token为0/4/5，但必须同时通过准确Shop的US/CROSS_BORDER与listing_method校验；1/2/3不是本批凭据。真实API的支持组合仍为NOT_RUN，不以header中的泛型描述重分类Global Selling。
+- [Seller authorization guide](https://partner.tiktokshop.com/docv2/page/seller-authorization-guide)：开发中的应用不能由online seller授权，开发测试应使用Development Shop的Seller Center test account；custom/public可用授权链接，App Store安装只针对public app。取消授权会产生SELLER_DEAUTHORIZATION。
 
 ## 2. 真实店铺身份
 
@@ -42,7 +43,14 @@ Refs [#669](https://github.com/qq550723504/task-processor/issues/669)。
 
 [Create Global Product 202309](https://partner.tiktokshop.com/docv2/page/create-global-product-202309)：POST `/product/202309/global_products`，scope `seller.global_product.write`。先创建全球商品，不自动在 US 上架；其 Body 支持 `external_global_product_id`，不是已经核实的 idempotency key。已读字段没有本地创建的 `save_mode` 或 `idempotency_key`，不得自造。
 
-[Publish Global Product 202309](https://partner.tiktokshop.com/docv2/page/publish-global-product-202309)：POST `/product/202309/global_products/{global_product_id}/publish`，同一 Global Product Modify scope；`publish_target` 指定目标市场。文档说明每个市场只发布一次，但这不能代替请求结果关联或被扩大成可靠的任意重试承诺。本批必须只指定原已授权的 US shop。
+[Publish Global Product 202309](https://partner.tiktokshop.com/docv2/page/publish-global-product-202309)：POST `/product/202309/global_products/{global_product_id}/publish`，同一 Global Product Modify scope；`publish_target[].region`指定目标市场，不传虚构shop_id。展开返回的`products[].shop_id`说明每个市场仅一个本地店铺；本批输入仅US，并核对返回shop_id与原已授权US Shop。文档说明每个市场只发布一次，但这不能代替请求结果关联或被扩大成可靠的任意重试承诺。
+
+展开字段另已核实：
+
+- `publish_target[].skus[].related_global_sku_id`必须引用实际创建返回的global SKU；US最多300 SKU。
+- price.currency为USD。amount是税前价；US使用中国仓时必须给sale_price，不能给amount冒充展示价。sale_price是显示在商品页的价格。范围参考官方Product Pricing；不凭示例定价。
+- inventory.warehouse_id来自Get Warehouse List；quantity范围1–99999。省略inventory会隐式在市场间分配；local数量超过global数量会增加global库存。本批使用用户批准确切仓库/数量并核对global预算，不以缺省值改变其他市场。
+- `products[]`与`publish_result[]`按region关联；失败市场可能没有product。status SUCCESS代表已同步并提交审核，DRAFT代表校验问题后保存为本地草稿，FAILED代表同步未成功。总code0不能覆盖逐市场失败/草稿。
 
 ## 4. 商品规则与结果
 
@@ -50,7 +58,15 @@ Refs [#669](https://github.com/qq550723504/task-processor/issues/669)。
 - 创建接口要求来自官方的可用叶子类目、类目属性、SKU、商品图片 URI 和相应证明。US 标题 1–255 字符，description 上限 10000 字符，main images 上限 9；这些通用限制不能代替类目实时必填规则。
 - 规则入口：Get Categories / Get Global Categories、Get Category Rules / Get Global Category Rules、Get Category Attributes / Get Global Attributes；按官方 listing_method 选择同一套规则，不能混用 local category ID 与 global payload。
 - 商品图片和证明文件必须使用 Upload Product Image / Upload Product File 返回的对应 URI/ID，不直接把来源图片 URL 当作 TikTok 已接受资产。
-- 确切 SKU/价格/仓库/证明/图片字段、Publish Global Product 的嵌套关联返回、Global Product 查询关联和未知结果 readback 尚需逐字段收敛。未完成前该外部路径保持未准入，不用示例或假数据补合同。
+- 创建与发布的SKU/仓库/图片/证明子字段按对应官方API做严格类型验证；缺失真实规则时禁止ready。Global Product查询关联和未知结果readback须有qualified证据，不能用示例或假数据补合同。
+
+## 4.1 授权生命周期通知
+
+[Webhook overview](https://partner.tiktokshop.com/docv2/page/tts-webhooks-overview)已核实签名为Authorization header中的小写hex HMAC-SHA256，输入为app_key与原始HTTP body；不是Bearer token。必须在JSON解析前验证原字节并constant-time比较。
+
+[Seller deauthorization](https://partner.tiktokshop.com/docv2/page/65095746defece02be4d749d)：numeric type=6，带实际shop_id、通知时间及message；例子包含tts_notification_id。签名通过也必须核对本应用的真实Shop绑定；event只能降低访问，不签发新授权。通知重放按实际通知ID去重，通知正文不进入通用日志。
+
+只接入本批授权生命周期通知。普通订单/商品事件、定时同步、通用polling/reconciler不是本批新增范围；外部执行前仍查询实际授权Shop/到期状态，不将webhook视为唯一事实来源。
 
 ## 5. 签名与 SDK
 
@@ -63,9 +79,9 @@ Refs [#669](https://github.com/qq550723504/task-processor/issues/669)。
 | 缺口 | 影响 | 解除条件 |
 | --- | --- | --- |
 | 实际应用、service_id/app_key、审核与 scopes | 真实授权/API验证 | 用户创建并获批匹配 US 跨境的应用，私密配置；本 Issue 不创建账号/接受协议 |
-| Global Selling 4/5 与 resource header 0 的具体适用组合 | 实际凭据准入 | seller guide/应用类型与实际合法测试授权结果一致；不以泛型枚举推定 |
-| 发布嵌套字段、SKU关联、仓库/金额/证明规则 | 该生产路径的编码准入 | 官方对应字段和有限规则读证据，设计与测试绑定准确合同 |
+| 实际token类型、scope与资源API支持组合 | 真实验证 | 合法测试授权结果与准确US/CROSS_BORDER店铺/对应listing_method一致 |
+| 具体SKU/仓库/金额/证明规则的实施 | 相关实现/ready判定 | 消费对应官方字段和rule snapshot；不猜默认值，必要TDD收敛 |
 | 创建全球商品结果丢失的 qualified readback | 自动恢复/再发送 | 官方可用的确切关联；没有证据时持久 UNKNOWN，禁止盲重发 |
-| 官方 Go SDK 的实际 API集合 | transport 具体实现 | 实际应用可下载 SDK；或经独立准入确认最小官方协议 adapter 的复用方式 |
+| 官方 Go SDK 的实际 API集合 | SDK选择/真实验证 | 实际应用可下载SDK；SDK暂不可取不阻止基于官方协议与现有设施的窄adapter开发，不建设完整自有SDK |
 
 以上保持 UNKNOWN/NOT_RUN，未签发产品验收或 IMPLEMENTATION_READY。

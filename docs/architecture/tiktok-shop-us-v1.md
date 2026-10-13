@@ -66,9 +66,35 @@ Get Authorized Shops：根据授权返回的正式shop信息，让用户确认�
 
 一个seller token可能授权多店铺。**TikTok OAuth grant以provider+app_key+open_id为身份，由Store owner持有单一加密token generation；Store绑定只引用grant、实际shop ID/cipher/US market。** 不为每个Store复制refresh token并各自轮换。新grant/绑定和原attempt completion在Store库事务内提交；同一provider+shop ID不能跨org误绑定。本批不开放grant跨企业共享。
 
-schema候选：由Store初始化新增有界OAuth grant/generation与Shop绑定事实；原connection projection仅引用本事实，不能独立签发connected。精确列/constraint/grants及共享attempt接线需在独立准入前定稿；不会在serving启动时AutoMigrate，不迁移保留库或读取旧profile/session。
+TikTok协议使用以下Store-owned事实，保留已有SHEIN/TEMU协议合同；不把TikTok令牌塞入其credential DTO。原connection projection仅引用本事实，不能独立签发connected。现有current Store库/authorizer/审计/显式schema-init继续唯一装配，不迁移保留库或读取旧profile/session。
 
 Token refresh：Store owner使用CAS和有期限的原refresh operation claim；只有一个dispatch者。成功结果验证app/seller/scopes身份与绝对到期时间后原子更新generation；所有引用Store消费同一revision。丢失结果/进程中断保留refresh UNKNOWN，禁止盲重试或回退旧token；用户重新授权是恢复入口。到期/撤权/应用revision不匹配阻止规则与mutation，不显示连接正常。
+
+### 5.1 有界schema、状态及事务合同
+
+以下名称是本轮新增事实在Store owner内的明确职责，不是通用OAuth框架，也不是另建数据库。DB细节由现有Store schema-init与repository接线，fresh installation显式创建；serving只读preflight核对列、PK/FK/unique/CHECK与窄grant。
+
+| Store事实 | 主键/唯一性与最小字段 | 写入规则 |
+| --- | --- | --- |
+| `workbench_store_tiktok_oauth_attempts` | org+attempt UUID；原actor/member、Store UUID/version、app_key/revision、state_hash、expiry、state、暂存key_id/ciphertext、grant引用、version、创建/更新时间 | 原state一次claim；created→exchange_dispatched→credential_received→bound，或rejected/unknown；原键查询，不再交换code |
+| `workbench_store_tiktok_oauth_grants` | org+grant UUID；全局unique(app_key,open_id_hash)；app_revision、generation>0、active/refresh_dispatched/refresh_unknown/revoked/expired、absolute expiry、key_id/ciphertext、refresh_operation引用、version | canonical token envelope唯一位置；AAD绑定provider/org/app/grant/generation；CAS/锁下原子替换，refresh未知不得取旧值 |
+| `workbench_store_tiktok_shop_bindings` | 全局unique(shop_id)、unique(org,Store ID)；org+Store FK，org+grant FK，US/CROSS_BORDER、官方shop code、受保护cipher、binding revision | 只由已验证Shop列表创建；不得跨org共享；code/ID/cipher不能由客户端签发 |
+| `workbench_store_tiktok_oauth_refresh_operations` | org+grant+operation UUID；expected_generation、input hash、claimed/dispatch/unknown/succeeded/rejected、claim expiry、provider request_id、version/timestamps | 不保存第二份token；同键不同generation/hash冲突；一个generation一个dispatch者，成功与grant替换同事务 |
+| `workbench_store_tiktok_authorization_events` | app_key+notification_id唯一；绑定org/Shop/grant引用、topic、body hash、处理时间 | 验证signature及对应Shop后，事件receipt与授权失效同事务；不保存provider message正文或令牌 |
+
+attempt暂存只为code交换后可恢复查询Shop；形成canonical grant与Shop binding时同一事务清除暂存ciphertext，不形成第二个current token owner。重新授权更新原grant generation而非按每个Store新建token；provider未知结果不伪装本地失败或恢复已fence的旧generation。
+
+解绑仅关闭本Store binding并推进版本；若grant仍被其他Store引用不删除其凭据。明确seller deauthorization则关闭对应Shop引用；如果其他Shop不能证明仍授权，grant暂停发送，执行前只读重新核实，不把单个Shop消息当作全seller所有Shop已永久撤权。失去全部引用后的保留/清理遵守现有数据规则，本批无后台purge或真实数据删除。
+
+最小Port→implementation→injection→consumer：Store-owned `TikTokOAuthRepository`/`TikTokSellerAuthorization` → Store repository与`integration/tiktokshop` → `currentapplication`的可选`tiktokShop`应用配置 → owning Store HTTP handler的显式TikTok connection分支与Supply的server-only merchant access。通用connection GET根据持久Store platform选准入projection；未配置只关闭TikTok连接/外部操作，不使SHEIN、Store CRUD或本地草稿整体不可用。
+
+### 5.2 授权撤销通知
+
+美国应用配置本批专用HTTPS lifecycle webhook URL。Integration先以原始body、配置app_key/secret校验官方HMAC签名，再把allowlisted type=6、shop_id、notification_id/body hash交Store；handler不接受actor/org请求字段，不挂成任意JWT用户可发事件的入口。Body上限64KiB，provider签名本身不授权新增绑定。
+
+成功verify后Store事务核对当前app与实际Shop绑定、原notification幂等，推进binding/grant可用性版本，失效原发送proof。重复事件回原receipt；未知Shop不改变任何Store。迟到事件不能扩大授权或恢复token；新的实际Shop查询可以核实当前generation的权限，查证失败仍关闭。配置生命周期通知与expiry投影即可，不新增订单/库存事件消费者或定时同步系统。
+
+已核实token的seller型user_type=0/4/5；还必须匹配正式Shop US/CROSS_BORDER和当前应用scopes。creator/partner型1/2/3拒绝。本批不因resource header的泛型文字伪造其他角色，实际应用支持组合在Development Shop验证。
 
 ## 6. 本地草稿与官方规则
 
@@ -87,6 +113,10 @@ Token refresh：Store owner使用CAS和有期限的原refresh operation claim；
 LOCAL_REPLICATION：只为原US Shop调用Create Product，不复制到其他市场；save_mode必须显式为本次批准的AS_DRAFT或LISTING。idempotency_key绑定原持久execution key，不能每次HTTP重试重生成。没有获准新SendPermit时不发送，即使provider提供幂等参数。
 
 GLOBAL_PUBLISHING：图片/文件、创建global product、发布US分别使用现有kernel的独立stage action和确切target subject。只有上一stage准确receipt持久完成，下一stage才可Acquire。global product ID及每个SKU关联属于Submission/Marketplace回执，不能由客户端手填冒充。
+
+global publish输入只含`publish_target.region=US`。官方返回已明确每个market仅一个local Shop；其`products[].shop_id`仍须精确等于本次批准的授权Shop。每个related_global_sku_id必须由原创建receipt取得，数量/属性集合必须完整匹配。SKU价格绑定USD；中国仓US按官方sale_price语义，不以amount替代。库存显式选择官方仓库与用户批准数量，不能用省略inventory触发隐式跨市场分配或超过该global SKU库存预算。
+
+global publish必须同时核对US的publish_result与products：SUCCESS也只是提交审核；DRAFT不签发刊登成功，FAILED保留具体allowlisted原因；缺项/重复region/错误Shop/SKU、总code0与子结果不一致均不构造success receipt。最终可售状态来自正确Shop的Get Product。
 
 外部调用成功与stage completion receipt/后续stage引用在Product库现有UoW中提交。平台已成功但本地commit不确定时读取原intent/attempt/receipt，不另发；跨Store库与Product库不声称分布式原子事务，发送前重新消费bounded Store grant/connection proof。
 
@@ -112,12 +142,12 @@ GLOBAL_PUBLISHING：图片/文件、创建global product、发布US分别使用�
 
 ## 10. 正式开工准入待办
 
-1. 按官方字段补齐两种流程的规则、SKU、仓库、金额、图片/文件、global publish响应和qualified readback合同；记录未能取得的具体字段，不用假资料替代。
-2. 固定Store内OAuth grant/generation/Shop binding的schema、唯一约束、refresh transition，以及current assembly/原connection projection调用路径。只增加此范围所需事实，不泛化为全平台认证框架。
-3. 按#655最终组合确认共享Listing record/intent/receipt扩展方式、constraints、准确UoW和源码owner；不修改其活跃Writer范围。
-4. 必要独立Architecture Review按AGENTS finding分类完成，明确IMPLEMENTATION_READY后才正式编码；非Blocker实现测试留在同一批，不无限设计修订。
+1. 独立Architecture Review读取当前产品范围及§5/§7高风险合同，按AGENTS finding分类；只有明确IMPLEMENTATION_READY后才正式编码。
+2. 规则、SKU/仓库/金额/图片/证明各子字段的严格parser与对应公开API配套测试作为实施验证收敛；缺少qualified readback的具体stage保持UNKNOWN/关闭再发送，不使作者自行发明恢复机制。若真实合同证据证明happy path或副作用无法安全完成，按具体BLOCKER退回设计。
+3. 共享owner修改前按#655最终组合确认constraints、原UoW与source owner；不修改其活跃Writer范围。新TikTok叶子代码与共享接线的写入范围需明确；设计准入不代表已获得他人scope接管或main合并权限。
+4. 真实运行须有匹配的获批应用/Development Shop、配置和明确操作授权；公开字段、fixture、CI或此设计不能替代真实执行/用户验收。
 
-应用未创建继续阻塞真实验证；上述设计待办才是当前正式编码准入缺口。不得把应用缺失当作所有代码均无法开发，也不得把本设计候选当作完成集成。
+应用未创建继续阻塞真实验证；独立准入和实际写入范围协调才是当前正式编码条件。不得把应用缺失或SDK暂不可下载当作所有代码均无法开发，也不得把本设计候选当作完成集成。
 
 ## 11. Legacy decision
 
