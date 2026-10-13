@@ -5,8 +5,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	a1688handoff "task-processor/internal/compatibility/listingkit/sourcehandoff/a1688"
-	a1688httpapi "task-processor/internal/compatibility/listingkit/sourcehandoff/a1688/httpapi"
 	localagent "task-processor/internal/localagent"
 	localagenthttpapi "task-processor/internal/localagent/httpapi"
 	"task-processor/internal/sourceaccount"
@@ -98,7 +96,6 @@ func (b httpFeatureCompositionBuilder) build(logger *logrus.Logger, deps *runtim
 	}
 	composition.listingKitModule = listingKitModule
 	var sourceRepository sourceaccount.Repository
-	var sourceValidator sourceaccount.AccessValidator
 	if composition.listingKitModule != nil {
 		var sourceErr error
 		var sourceClosers []func() error
@@ -109,19 +106,11 @@ func (b httpFeatureCompositionBuilder) build(logger *logrus.Logger, deps *runtim
 			logger.Warn("1688 source-account repository unavailable; public crawling remains enabled")
 		}
 		deps.addClosers(sourceClosers...)
-		if validator, ok := sourceRepository.(sourceaccount.AccessValidator); ok {
-			sourceValidator = validator
-		}
 	}
 	if composition.listingKitModule != nil && deps.shared.cfg != nil && deps.shared.cfg.Platforms.Alibaba1688.Enabled {
 		crawlerModule := newCrawler1688HTTPModule(deps.shared.cfg, logger, sourceRepository)
 		composition.crawler1688Module = crawlerModule
 		deps.addClosers(crawlerModule.Close)
-	}
-	if composition.listingKitModule != nil && composition.listingKitModule.TaskLifecycleService != nil && composition.listingKitModule.StoreAccessValidator != nil {
-		composition.productSourcingModule = a1688httpapi.BuildModule(
-			a1688handoff.NewTaskCommandService(composition.listingKitModule.TaskLifecycleService, composition.listingKitModule.StoreAccessValidator, sourceValidator, deps.features.productSnapshotPublisher),
-		)
 	}
 	if composition.listingKitModule != nil {
 		composition.localAgentModule = localagenthttpapi.BuildModule(localagent.NewService(nil))

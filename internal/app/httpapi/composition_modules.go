@@ -14,7 +14,6 @@ func (c httpFeatureComposition) runtimeModules() []kernelmodule.Module {
 		c.amazonListingHTTPModule(),
 		c.listingKitHTTPModule(),
 		c.imageAgentHTTPModule(),
-		c.productSourcingHTTPModule(),
 		c.promptHTTPModule(),
 		c.sdsHTTPModule(),
 		c.sheinLoginHTTPModule(),
@@ -74,13 +73,6 @@ func (c httpFeatureComposition) promptHTTPModule() kernelmodule.Module {
 		return nil
 	}
 	return c.promptModule.Module
-}
-
-func (c httpFeatureComposition) productSourcingHTTPModule() kernelmodule.Module {
-	if c.productSourcingModule == nil {
-		return nil
-	}
-	return c.productSourcingModule.Module
 }
 
 func (c httpFeatureComposition) sdsHTTPModule() kernelmodule.Module {
