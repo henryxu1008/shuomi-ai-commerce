@@ -12,7 +12,8 @@ import (
 	"task-processor/internal/storecenter"
 )
 
-func (p *temuRulesProvider) CreateLocalGoods(context.Context, storecenter.OfficialMerchantCredential, model.LocalGoodsV2) (temugoods.CreatedGoods, error) {
+func (p *temuRulesProvider) CreateLocalGoods(ctx context.Context, _ storecenter.OfficialMerchantCredential, _ model.LocalGoodsV2) (temugoods.CreatedGoods, error) {
+	p.deadline, _ = ctx.Deadline()
 	p.metadataReads++
 	id := int64(9007199254740993)
 	return temugoods.CreatedGoods{Local: &model.LocalGoodsCreated{GoodsID: &id}}, nil
@@ -22,9 +23,41 @@ func (p *temuRulesProvider) UploadLocalImage(context.Context, storecenter.Offici
 	return model.LocalImageUploaded{}, "", nil
 }
 
-func (p *temuRulesProvider) CreateSupplierGoods(context.Context, storecenter.OfficialMerchantCredential, model.SupplierGoods) (temugoods.CreatedGoods, error) {
+func (p *temuRulesProvider) CreateSupplierGoods(ctx context.Context, _ storecenter.OfficialMerchantCredential, _ model.SupplierGoods) (temugoods.CreatedGoods, error) {
+	p.deadline, _ = ctx.Deadline()
 	p.metadataReads++
 	return temugoods.CreatedGoods{}, nil
+}
+
+func TestTemuMutationProofBoundsDispatchWithoutTruncatingPermittedIO(t *testing.T) {
+	for _, partition := range []storecenter.OfficialIdentityPartition{storecenter.PartitionCN, storecenter.PartitionGlobal} {
+		t.Run(string(partition), func(t *testing.T) {
+			mode := storecenter.MerchantLocal
+			if partition == storecenter.PartitionCN {
+				mode = storecenter.MerchantSemiManaged
+			}
+			a, _, provider, subject := newTemuRulesAccess(t, partition, mode)
+			subject.Purpose = storecenter.ProductPurposePublish
+			started := a.now()
+			now := started
+			a.now = func() time.Time { return now }
+			provider.afterIdentity = func() { now = now.Add(3 * time.Second) }
+			deadline := started.Add(10 * time.Second)
+			ctx, cancel := context.WithDeadline(context.Background(), deadline)
+			defer cancel()
+			h, err := a.AuthorizeTemuMutation(ctx, subject, "store-a", nil)
+			require.NoError(t, err)
+			require.Equal(t, started.Add(5*time.Second), h.authority.expiresAt, "mutation proof is not extended")
+			now = started.Add(4 * time.Second)
+			if partition == storecenter.PartitionCN {
+				_, err = h.CreateSupplierGoods(ctx, model.SupplierGoods{})
+			} else {
+				_, err = h.CreateLocalGoods(ctx, model.LocalGoodsV2{})
+			}
+			require.NoError(t, err)
+			require.Equal(t, deadline, provider.deadline, "single permitted IO retains its caller/SendPermit deadline")
+		})
+	}
 }
 func (p *temuRulesProvider) UploadSupplierImage(context.Context, storecenter.OfficialMerchantCredential, model.SupplierImageUpload) (model.SupplierImageUploaded, string, error) {
 	p.metadataReads++

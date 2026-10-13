@@ -51,15 +51,17 @@ func callTemuMutation[T any](ctx context.Context, h *TemuMutationHandle, purpose
 	if h == nil || h.authority == nil || ctx == nil || h.authority.subject.Purpose != purpose || (h.authority.binding.MerchantMode == storecenter.MerchantLocal) != local {
 		return zero, ErrProductAccessChanged
 	}
-	ctx, cancel := context.WithDeadline(ctx, h.authority.expiresAt)
+	authorizationCtx, cancel := context.WithDeadline(ctx, h.authority.expiresAt)
 	defer cancel()
-	credential, err := h.authority.credential(ctx)
+	credential, err := h.authority.credential(authorizationCtx)
 	if err != nil {
 		return zero, err
 	}
-	if !h.mutationSent.CompareAndSwap(false, true) {
+	if authorizationCtx.Err() != nil || !h.authority.owner.now().Before(h.authority.expiresAt) || !h.mutationSent.CompareAndSwap(false, true) {
 		return zero, ErrProductAccessChanged
 	}
+	// The five-second proof bounds dispatch. The single admitted provider call
+	// retains its caller/committed SendPermit deadline and the adapter's timeout.
 	// Once dispatched, confirmation is retained by the original completion UoW
 	// even if membership changes afterwards. No second provider call is allowed.
 	return call(ctx, credential)

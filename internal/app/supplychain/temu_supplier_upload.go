@@ -68,6 +68,17 @@ func (s *UploadService) temuSupplierImage(ctx context.Context, scope collection.
 	if err != nil {
 		return zero, nil, record.ErrInvalid
 	}
+	// Content reads have no external mutation. Finish them before claiming the
+	// immutable effect, so a source timeout cannot manufacture an UNKNOWN fence.
+	content, err := reader.ReadTemuImage(ctx, manifest.Image, string(intent.Binding.MerchantMode))
+	if err != nil {
+		return zero, nil, err
+	}
+	defer clear(content)
+	digest := sha256.Sum256(content)
+	if int64(len(content)) != manifest.Image.Bytes || len(content) > 2<<20 || hex.EncodeToString(digest[:]) != manifest.Image.ContentHash {
+		return zero, nil, record.ErrNotReady
+	}
 	if _, err = s.temuFacts(ctx, scope, saved); err != nil {
 		return zero, nil, err
 	}
@@ -98,15 +109,6 @@ func (s *UploadService) temuSupplierImage(ctx context.Context, scope collection.
 		return zero, &r, nil
 	}
 	if _, err = s.temuFacts(ctx, scope, saved); err != nil {
-		return uncertain()
-	}
-	content, err := reader.ReadTemuImage(ctx, manifest.Image, string(intent.Binding.MerchantMode))
-	if err != nil {
-		return uncertain()
-	}
-	defer clear(content)
-	digest := sha256.Sum256(content)
-	if int64(len(content)) != manifest.Image.Bytes || len(content) > 2<<20 || hex.EncodeToString(digest[:]) != manifest.Image.ContentHash {
 		return uncertain()
 	}
 	input := model.SupplierImageUpload{Image: base64.StdEncoding.EncodeToString(content), BusinessType: manifest.BusinessType, Options: manifest.Options}

@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"image"
@@ -24,6 +25,7 @@ type supplierUploadProbe struct {
 	raw           []byte
 	artifactDrift bool
 	afterArtifact func()
+	readError     error
 }
 
 func (p *supplierUploadProbe) ProbeTemu(_ context.Context, a asset.ApprovedAsset, cat, usage int64, _ string) (temugoods.ImageObservation, error) {
@@ -31,7 +33,29 @@ func (p *supplierUploadProbe) ProbeTemu(_ context.Context, a asset.ApprovedAsset
 	return temugoods.ImageObservation{AssetID: a.ID, SourceURL: a.URL, CatID: cat, Usage: usage, ContentHash: hex.EncodeToString(hash[:]), Width: 900, Height: 900, Bytes: int64(len(p.raw)), MediaType: "image/png"}, nil
 }
 func (p *supplierUploadProbe) ReadTemuImage(context.Context, temugoods.ImageObservation, string) ([]byte, error) {
+	if p.readError != nil {
+		return nil, p.readError
+	}
 	return append([]byte(nil), p.raw...), nil
+}
+
+func TestSupplierSourceDownloadFailureDoesNotClaimExternalImageEffect(t *testing.T) {
+	s, scope, records, kernel, _, auth, probe := supplierUploadFixture(t, storecenter.MerchantSemiManaged)
+	merchant := &nativeUploadMerchant{binding: records.saved.Merchant}
+	s.dependencies.TemuStores = nativeUploadStore{merchant, auth}
+	key := uuid.NewString()
+	probe.readError = errors.New("source timeout before provider dispatch")
+	_, err := s.Upload(context.Background(), scope, key, records.saved.ID)
+	require.Error(t, err)
+	require.Empty(t, kernel.attempts, "source reads cannot claim an external-effect fence")
+	require.Zero(t, merchant.imageCalls)
+	require.Zero(t, merchant.productCalls)
+	probe.readError = nil
+	result, err := s.Upload(context.Background(), scope, key, records.saved.ID)
+	require.NoError(t, err)
+	require.Equal(t, submission.ExecutionSucceeded, result.Status)
+	require.Equal(t, 1, merchant.imageCalls)
+	require.Equal(t, 1, merchant.productCalls)
 }
 func (p *supplierUploadProbe) ProbeTemuArtifact(_ context.Context, url string) (temugoods.ImageArtifact, error) {
 	hash := collection.Digest("reencoded PNG")
