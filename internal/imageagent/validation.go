@@ -65,6 +65,9 @@ func ValidateSlotRole(role SlotRole) error {
 }
 
 func ValidatePlan(plan Plan) error {
+	if plan.Artwork != nil {
+		return ValidateArtworkPlan(plan)
+	}
 	if plan.Revision <= 0 {
 		return fmt.Errorf("revision must be positive")
 	}
