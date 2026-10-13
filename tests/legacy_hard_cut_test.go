@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"os"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -186,4 +187,24 @@ func TestCurrentOwnerLegacyRootGuardRejectsStoreCenterFixture(t *testing.T) {
 func TestLegacyImportParserRejectsMalformedSources(t *testing.T) {
 	_, err := legacyConsumerViolations([]listingKitImageBoundarySource{{path: "broken.go", text: "package broken\nimport ("}}, nil)
 	require.Error(t, err)
+}
+
+// The old source-to-ListingKit task route and handoff are retired, not hidden.
+// Protect the production composition without banning current Product Sourcing.
+func TestLegacy1688TaskHandoffAndRouteStayRetired(t *testing.T) {
+	legacyRoot := filepath.Join("..", "internal", "compatibility", "listingkit", "sourcehandoff")
+	_, err := os.Stat(legacyRoot)
+	require.True(t, os.IsNotExist(err), "retired 1688 Task handoff package must remain absent: %v", err)
+
+	for _, name := range []string{
+		"composition_builder.go",
+		"composition_modules.go",
+		"types.go",
+	} {
+		path := filepath.Join("..", "internal", "app", "httpapi", name)
+		content, err := os.ReadFile(path)
+		require.NoError(t, err)
+		require.NotContains(t, string(content), "sourcehandoff/a1688", "%s must not compose the retired Task handoff", name)
+		require.NotContains(t, string(content), "productSourcingModule", "%s must not compose the retired Task module", name)
+	}
 }
