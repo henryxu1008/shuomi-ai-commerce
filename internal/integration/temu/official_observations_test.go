@@ -8,7 +8,77 @@ import (
 	"task-processor/internal/storecenter"
 	o "task-processor/internal/storecenter/observations"
 	"testing"
+	"time"
 )
+
+func TestObservationPageAllowsSequentialReadsBeyondTenSeconds(t *testing.T) {
+	for _, partition := range []storecenter.OfficialIdentityPartition{storecenter.PartitionCN, storecenter.PartitionGlobal} {
+		t.Run(string(partition), func(t *testing.T) {
+			t.Parallel()
+			calls := 0
+			var identityDeadline time.Time
+			c := identityClient(t, partition, roundTripFunc(func(r *http.Request) (*http.Response, error) {
+				fields := map[string]json.RawMessage{}
+				require.NoError(t, json.NewDecoder(r.Body).Decode(&fields))
+				var api string
+				require.NoError(t, json.Unmarshal(fields["type"], &api))
+				calls++
+				deadline, ok := r.Context().Deadline()
+				require.True(t, ok)
+				require.LessOrEqual(t, time.Until(deadline), 10*time.Second, "each HTTP request remains bounded")
+				delay := 4 * time.Second
+				var response string
+				switch api {
+				case supplierInfoAPI:
+					identityDeadline = deadline
+					require.LessOrEqual(t, time.Until(deadline), 5*time.Second)
+					delay = 2 * time.Second
+					response = `{"success":true,"result":{"uniqueId":"pa-mall-1","expiredTime":1900000000,"apiScopeList":["bg.glo.goods.list.get","bg.glo.product.search"]}}`
+				case supplierModeAPI:
+					require.Equal(t, identityDeadline, deadline, "supplier identity cannot renew its five-second total budget")
+					delay = 2 * time.Second
+					response = `{"success":true,"result":{"semiManagedMall":true}}`
+				case supplierGoodsListAPI:
+					response = `{"success":true,"result":{"totalCount":1,"data":[{"productId":123,"productSkcId":21,"productName":"Saved supplier item","productSkuSummaries":[{"productSkuId":31,"virtualStock":0}]}]}}`
+				case supplierLifecycleAPI:
+					response = `{"success":true,"result":{"total":1,"dataList":[{"productId":123,"skcList":[{"skcId":21,"skuList":[{"skuId":31,"applyJitStatus":3}]}]}]}}`
+				case localInfoAPI:
+					require.LessOrEqual(t, time.Until(deadline), 5*time.Second)
+					delay = 2 * time.Second
+					response = `{"success":true,"result":{"mallId":123,"mallType":100,"regionId":211,"expiredTime":1900000000,"apiScopeList":["temu.local.goods.list.retrieve","bg.local.goods.publish.status.get"]}}`
+				case localGoodsListAPI:
+					delay = 5 * time.Second
+					response = `{"success":true,"result":{"total":1,"pagination":{},"goodsList":[{"goodsId":"123","goodsName":"Saved local item","goodsStatus":"Active","skuInfoList":[{"skuId":31,"stock":0,"specList":[]}]}]}}`
+				case localPublishStatusAPI:
+					delay = 5 * time.Second
+					response = `{"success":true,"result":{"goodsPublishStatusList":[{"goodsId":123,"status":1}]}}`
+				default:
+					t.Fatalf("unexpected API %s", api)
+				}
+				timer := time.NewTimer(delay)
+				defer timer.Stop()
+				select {
+				case <-timer.C:
+					return jsonResponse(response), nil
+				case <-r.Context().Done():
+					return nil, r.Context().Err()
+				}
+			}))
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			page, err := c.QueryObservedTemuProducts(ctx, tokenCredential(), o.ProductQuery{Page: 1})
+			require.NoError(t, err, "identity, list and status may cumulatively exceed ten seconds within the worker deadline")
+			require.Len(t, page.TemuItems, 1)
+			if partition == storecenter.PartitionCN {
+				require.Equal(t, 4, calls)
+				require.NotNil(t, page.TemuItems[0].SKUs[0].ApplyJITStatus)
+			} else {
+				require.Equal(t, 3, calls)
+				require.NotNil(t, page.TemuItems[0].PublishStatus)
+			}
+		})
+	}
+}
 
 func TestLocalObservationUsesOpaqueTokenAndKeepsCreationReviewSalesSeparate(t *testing.T) {
 	calls := []string{}
