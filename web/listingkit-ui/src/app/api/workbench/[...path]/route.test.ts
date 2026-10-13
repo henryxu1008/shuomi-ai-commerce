@@ -370,6 +370,31 @@ describe("/api/workbench BFF", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it.each(["product-agent", "content-agent"].flatMap(namespace => [
+    ["CONFIGURATION_CHANGED", 409], ["AGENT_NOT_ENABLED", 409], ["TEMPLATE_ARCHIVED", 409], ["AGENT_DEFINITION_UNAVAILABLE", 409],
+    ["INVALID_REQUEST", 400], ["NOT_FOUND", 404], ["TEMPLATE_IS_DEFAULT", 409], ["REVISION_MISMATCH", 412], ["PRECONDITION_REQUIRED", 428],
+  ].map(([code, status]) => ({ namespace, code: String(code), status: Number(status) }))))("preserves $namespace configuration rejection $code/$status", async ({ namespace, code, status }) => {
+    authState.session = { accessToken: "private-token" };
+    authState.token = "private-token";
+    authState.identity = { userId: "user-a" };
+    vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL", "http://localhost");
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ code }, { status }));
+    vi.stubGlobal("fetch", fetchMock);
+    const path = ["sourcing", "1688", "acquisitions", operationKey, namespace, "runs"];
+    const response = await call(POST, new NextRequest(`http://localhost/api/workbench/${path.join("/")}`, {
+      method: "POST", headers: {
+        cookie: "shuomi_effective_organization=org-b", Origin: "http://localhost",
+        "Content-Type": "application/json", "Idempotency-Key": storeId,
+        "X-Expected-Organization-ID": "org-b", "X-Expected-User-ID": "user-a",
+      },
+      body: JSON.stringify({ expectedModeRevision: "0", targetPlatform: namespace === "content-agent" ? "product" : "shein",
+        ...(namespace === "content-agent" ? { contentSelection: { targetLanguage: "en-US", description: true } } : {}) }),
+    }), path);
+    expect(response.status).toBe(status);
+    expect((await response.json()).code).toBe(code);
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
   it.each(["start", "read", "resume"])("routes content %s through its actual allowlist and response contract", async (action) => {
     authState.session = { accessToken: "private-token" };
     authState.token = "private-token";
