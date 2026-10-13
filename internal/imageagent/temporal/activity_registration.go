@@ -29,6 +29,22 @@ func (a *Activities) PublishApproved(ctx context.Context, input PublishApprovedA
 // PublishApprovedV3 is additive and intentionally not registered here. Task 6
 // owns selecting and registering imageagent.publish_approved.v3.
 func (a *Activities) PublishApprovedV3(ctx context.Context, input PublishApprovedV3ActivityInput) error {
+	current, readErr := a.repository.GetProjection(ctx, imageagent.RunScope{TenantID: input.Identity.TenantID, OwnerUserID: input.Identity.UserID, RunID: input.RunID})
+	if readErr != nil {
+		return readErr
+	}
+	if current.Plan.Artwork != nil {
+		if a.artworkPublisher == nil || a.executionAuthorizer == nil || current.PendingCommand == nil || current.PendingCommand.PlanRevision != input.PlanRevision || current.PendingCommand.ResultDigest != current.ResultDigest {
+			return imageagent.ErrCommandBlocked
+		}
+		loaded, err := a.loadOrganizationExecution(ctx, input.RunID, input.Identity)
+		if err != nil {
+			return err
+		}
+		ctx = withOrganizationActivityIdentity(ctx, loaded.Run, input.Identity.TraceID)
+		_, err = a.artworkPublisher.PublishArtwork(ctx, imageagent.PublishArtworkInput{Identity: input.Identity, PlanRevision: input.PlanRevision, ResultDigest: current.ResultDigest, ActionID: current.PendingCommand.ActionID})
+		return err
+	}
 	if a.publisherV3 == nil {
 		return fmt.Errorf("image agent v3 approved asset publisher is required")
 	}

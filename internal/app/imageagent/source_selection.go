@@ -27,6 +27,7 @@ func (r ImageSetSourceSelectionReader) ReadSourceSelection(ctx context.Context, 
 		return asset.SourceSelection{}, asset.ErrApprovalConflict
 	}
 	result := asset.SourceSelection{ContextKind: string(kind), TenantID: id.TenantID, ActorID: id.UserID, MemberID: id.EffectiveMemberID, ItemID: s.OperationID, ProductKey: s.ProductID, OriginalPublicationID: s.OriginalPublicationID, OriginalSnapshotVersion: s.OriginalVersion, EffectiveCatalogVersion: s.EffectiveVersion, ApplyReceiptID: s.ApplyReceiptID, TargetPlatform: input.TargetPlatform}
+	result.GeneratedArtwork = prepared.GeneratedArtwork
 	for _, original := range prepared.Catalog.Assets {
 		if original.Type == imageagent.AuthorizedAssetSource {
 			result.Images = append(result.Images, asset.SourceImage{ID: original.ID, URL: original.URL, ReferenceHash: asset.ReferenceHash(original.ID, original.URL), Width: original.Width, Height: original.Height})

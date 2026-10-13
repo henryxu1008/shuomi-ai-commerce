@@ -1976,6 +1976,9 @@ func (s *workflowUpdateState) pendingReceipt(actionID string, record *workflowUp
 		receipt.SelectionDigest = command.Selection.SelectionDigest
 		receipt.ResultDigest = command.ResultDigest
 	}
+	if command, ok := resultAdoptionCommand(record.command); ok && s.input.Plan.Artwork != nil {
+		receipt.ResultDigest = command.ResultDigest
+	}
 	if command, ok := record.command.(RetrySlotSignal); ok {
 		receipt.SlotID = command.SlotID
 		receipt.PlanRevision = command.PlanRevision

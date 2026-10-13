@@ -88,6 +88,34 @@ func TestPostgresCollectionAtomicReplayOwnershipMoveAndCommitUnknown(t *testing.
 	require.NoError(t, err)
 	require.True(t, replay.Replayed)
 	require.Equal(t, receipt.ItemID, replay.ItemID)
+	t.Run("artwork adoption gates only new writes and replays the original receipt", func(t *testing.T) {
+		art := testCommand(scope, uuid.NewString(), collection.Mutation{Action: "adopt_artwork", Product: &collection.OwnProduct{Title: "原创图案", Images: []string{"https://cdn.example/artwork.png"}}})
+		art.Envelope.Identity.SourceType, art.Envelope.Identity.SourcePlatform = "agent_generated", "pod_artwork"
+		art.Envelope.RawReference.ReferenceType = "pod-artwork-v1"
+		calls := 0
+		allowed := false
+		art.ArtworkWriteGuard = func(context.Context) error {
+			calls++
+			if !allowed {
+				return collection.ErrForbidden
+			}
+			return nil
+		}
+		_, err := repository.Execute(ctx, art)
+		require.ErrorIs(t, err, collection.ErrForbidden)
+		allowed = true
+		first, err := repository.Execute(ctx, art)
+		require.NoError(t, err)
+		allowed = false
+		second, err := repository.Execute(ctx, art)
+		require.NoError(t, err)
+		require.True(t, second.Replayed)
+		require.Equal(t, first.ItemID, second.ItemID)
+		require.Equal(t, 2, calls, "a committed replay does not acquire new write permission")
+		art.InputHash = collection.Digest("changed")
+		_, err = repository.Execute(ctx, art)
+		require.ErrorIs(t, err, collection.ErrConflict)
+	})
 	changed := command
 	changed.InputHash = collection.Digest("different payload")
 	_, err = repository.Execute(ctx, changed)

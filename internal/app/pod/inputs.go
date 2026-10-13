@@ -28,6 +28,7 @@ type DesignExecutionAuthorizer interface {
 	AuthorizePODDesign(context.Context, collection.Scope) error
 }
 type OriginalInputs struct {
+	ArtworkOriginGuard   ArtworkOriginAuthorizer
 	RequestAuthorization collection.Authorizer
 	Collections          *collection.Service
 	Authorization        collection.ExecutionAuthorizer
@@ -36,6 +37,10 @@ type OriginalInputs struct {
 	Snapshots            catalog.VersionedSnapshotReader
 	Applied              review.AppliedPublicationLookup
 	ImageHTTP            *http.Client
+}
+
+type ArtworkOriginAuthorizer interface {
+	AuthorizeArtworkSource(context.Context, collection.Scope, string, string, uint64) error
 }
 
 func (r OriginalInputs) effective(ctx context.Context, scope collection.Scope, input pod.InputReference, version uint64, apply string) (catalog.PublishedSnapshot, error) {
@@ -112,7 +117,13 @@ func (r OriginalInputs) ReadSourceSelection(ctx context.Context, in asset.Source
 	if _, e = r.effective(ctx, scope, input, in.EffectiveCatalogVersion, in.ApplyReceiptID); e != nil {
 		return asset.SourceSelection{}, e
 	}
-	return asset.SourceSelection{TenantID: scope.OrganizationID, ActorID: scope.ActorID, MemberID: scope.MemberID, ItemID: d.Item.ID, ProductKey: d.Item.Source.ProductKey, OriginalPublicationID: in.OriginalPublicationID, OriginalSnapshotVersion: in.OriginalSnapshotVersion, EffectiveCatalogVersion: in.EffectiveCatalogVersion, TargetPlatform: "sds", Images: supplyapp.SourceImages(original)}, nil
+	generated := false
+	for _, source := range original.Snapshot.Sources {
+		if source.Type == "agent_generated" || source.Platform == "pod_artwork" || source.ReferenceType == "pod-artwork-v1" {
+			generated = true
+		}
+	}
+	return asset.SourceSelection{GeneratedArtwork: generated, TenantID: scope.OrganizationID, ActorID: scope.ActorID, MemberID: scope.MemberID, ItemID: d.Item.ID, ProductKey: d.Item.Source.ProductKey, OriginalPublicationID: in.OriginalPublicationID, OriginalSnapshotVersion: in.OriginalSnapshotVersion, EffectiveCatalogVersion: in.EffectiveCatalogVersion, TargetPlatform: "sds", Images: supplyapp.SourceImages(original)}, nil
 }
 func (r OriginalInputs) approved(ctx context.Context, scope collection.Scope, ref pod.ArtworkReference) (asset.ApprovedAsset, error) {
 	commit, e := r.Approvals.ReadApprovalCommit(ctx, scope.OrganizationID, ref.ActionID)
@@ -166,6 +177,21 @@ func (r OriginalInputs) bytes(ctx context.Context, scope collection.Scope, ref p
 func (r OriginalInputs) Guard(ctx context.Context, tx *gorm.DB, p pod.Plan) error {
 	if r.Authorization == nil || r.DesignAuthorization == nil || r.DesignAuthorization.AuthorizePODDesign(ctx, p.Scope) != nil || r.Authorization.AuthorizeExecution(ctx, p.Scope, collection.PermissionManage) != nil {
 		return pod.ErrForbidden
+	}
+	if r.ArtworkOriginGuard != nil {
+		if err := r.ArtworkOriginGuard.AuthorizeArtworkSource(ctx, p.Scope, p.Artwork.Input.Source.ProductKey, p.Artwork.Input.Source.PublicationID, p.Artwork.Input.Source.Version); err != nil {
+			return err
+		}
+	} else {
+		snapshot, err := r.effective(ctx, p.Scope, p.Artwork.Input, p.Artwork.Input.Source.Version, "")
+		if err != nil {
+			return err
+		}
+		for _, source := range snapshot.Snapshot.Sources {
+			if source.Type == "agent_generated" || source.Platform == "pod_artwork" || source.ReferenceType == "pod-artwork-v1" {
+				return pod.ErrForbidden
+			}
+		}
 	}
 	snapshots, e := catalogstore.NewBoundedSnapshotReader(tx, 2<<20)
 	if e != nil {

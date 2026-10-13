@@ -151,11 +151,22 @@ func (r *Repository) Execute(ctx context.Context, command collection.Command) (c
 				}
 			}
 			receipt.ItemID, receipt.Revision = input.ItemID, input.ExpectedRevision+1
-		case "create_product", "add_acquisition":
+		case "create_product", "add_acquisition", "adopt_artwork":
 			var source collection.Source
-			if input.Action == "create_product" {
+			if input.Action == "create_product" || input.Action == "adopt_artwork" {
 				if command.Envelope == nil {
 					return collection.ErrInvalid
+				}
+				generated := command.Envelope.Identity.SourceType == "agent_generated" || command.Envelope.Identity.SourcePlatform == "pod_artwork" || command.Envelope.RawReference.ReferenceType == "pod-artwork-v1"
+				if input.Action == "adopt_artwork" {
+					if command.Envelope.Identity.SourceType != "agent_generated" || command.Envelope.Identity.SourcePlatform != "pod_artwork" || command.Envelope.RawReference.ReferenceType != "pod-artwork-v1" || command.ArtworkWriteGuard == nil {
+						return collection.ErrForbidden
+					}
+					if err := command.ArtworkWriteGuard(ctx); err != nil {
+						return err
+					}
+				} else if generated {
+					return collection.ErrForbidden
 				}
 				publisher, err := r.own(tx)
 				if err != nil {

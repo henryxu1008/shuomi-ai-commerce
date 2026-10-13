@@ -825,6 +825,14 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	var supplyRuntime *supplyChainModule
 	var imageRuntime *fullImageApplication
 	var marketRuntime *supplyMarketModule
+	if supplied.pod != nil && supplied.fullImages != nil {
+		guard, err := buildArtworkOriginGuard(supplied.productAcquisitionDB, supplied.imageAgentDB, supplied.agentConfigurationDB)
+		if err != nil {
+			return nil, err
+		}
+		supplied.pod.ArtworkOriginGuard = guard
+		supplied.pod.SourceApprovalGuard = guard.AuthorizeSourceApproval
+	}
 	if supplied.supplyMarket != nil {
 		module, e := buildSupplyMarketModule(ctx, supplied.productAcquisitionDB, *supplied.supplyMarket, supplied.pod, *workbench.authDependencies, authorizer, cfg, supplied.supplyChains > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.supplyCompletionDrafts > 0)
 		if e != nil {

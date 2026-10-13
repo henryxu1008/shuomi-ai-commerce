@@ -20,6 +20,8 @@ import (
 )
 
 type Dependencies struct {
+	ArtworkOriginGuard    ArtworkOriginAuthorizer
+	SourceApprovalGuard   asset.SourceApprovalCommitGuard
 	ProductDB, AssetDB    *gorm.DB
 	Authorization         collection.Authorizer
 	OriginalAuthorization collection.ExecutionAuthorizer
@@ -76,10 +78,12 @@ func NewApplication(ctx context.Context, d Dependencies) (*Application, error) {
 		return nil, e
 	}
 	inputs := OriginalInputs{RequestAuthorization: d.Authorization, Collections: d.Collections, Authorization: d.OriginalAuthorization, DesignAuthorization: d.DesignAuthorization, Approvals: approvals, Snapshots: snapshots, Applied: applied, ImageHTTP: httpimage.NewPublicImageHTTPClient()}
+	inputs.ArtworkOriginGuard = d.ArtworkOriginGuard
 	approvalService, e := asset.NewSourceApprovalService(inputs, assets, approvals)
 	if e != nil {
 		return nil, e
 	}
+	approvalService.WithSourceApprovalCommitGuard(d.SourceApprovalGuard)
 	templates, e := sds.NewTemplateClient(d.HTTP, d.Credentials)
 	if e != nil {
 		return nil, e
