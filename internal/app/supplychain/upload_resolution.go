@@ -66,6 +66,17 @@ func (a *Application) ReadUploadAttempt(ctx context.Context, recordID, attemptID
 	}
 	message := "可填写原商品 SPU，从官方查询审核通过的商品核实。"
 	platform := ""
+	if saved.Merchant.Platform == storecenter.PlatformTikTokShop {
+		if a.TargetMerchants == nil {
+			return UploadAttemptView{}, record.ErrUnavailable
+		}
+		binding, e := a.TargetMerchants.ReadTargetMerchant(ctx, scope, saved.Merchant.StoreID)
+		if e != nil || !submission.TikTokCompatibleBinding(binding, saved.Merchant) {
+			return UploadAttemptView{}, record.ErrForbidden
+		}
+		platform = "tiktokshop"
+		message = "原 TikTok Shop 步骤结果待核实。保留原操作和已创建资产，不自动重发；商品编号不能代替对本次完整资料的确认。"
+	}
 	if saved.Merchant.Platform == storecenter.PlatformTemu {
 		if a.TargetMerchants == nil {
 			return UploadAttemptView{}, record.ErrUnavailable
@@ -181,7 +192,13 @@ func (s *UploadService) ResolveUpload(ctx context.Context, scope collection.Scop
 		return UploadResult{}, err
 	}
 	intent, err := s.dependencies.Intents.ReadOfficialIntent(ctx, scope, attempt.IntentKey)
-	if err != nil || intent.Kind != "publish" || intent.RecordID != saved.ID || intent.RecordHash != collection.Digest(saved) || intent.Target != attempt.Target || intent.Binding != saved.Merchant {
+	if err != nil || intent.RecordID != saved.ID || intent.RecordHash != collection.Digest(saved) || intent.Target != attempt.Target || intent.Binding != saved.Merchant {
+		return UploadResult{}, record.ErrConflict
+	}
+	if saved.Merchant.Platform == storecenter.PlatformTikTokShop {
+		return UploadResult{}, record.ErrNotReady
+	}
+	if intent.Kind != "publish" {
 		return UploadResult{}, record.ErrConflict
 	}
 	if saved.Merchant.Platform == storecenter.PlatformTemu {

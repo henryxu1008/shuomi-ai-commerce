@@ -60,6 +60,14 @@ Official Knowledge's approved reading scope and admission record are tracked in
 reviewed status must be checked before implementation; it is separate from the
 enterprise Knowledge owner and has no AI-consumption or online-publisher scope.
 
+TikTok Shop's US cross-border feature Design Basis is frozen IMPLEMENTATION_READY
+in [`tiktok-shop-us-v1.md`](tiktok-shop-us-v1.md) / execution Issue #669;
+[`tiktok-shop-us-contract-evidence.md`](tiktok-shop-us-contract-evidence.md)
+records the official OAuth, Shop, signing and publication protocols. These
+feature contracts reuse the current Store/Listing/Submission owners rather than
+changing repository-wide structural rules. Shared wiring, real application
+credentials and user acceptance remain separate delivery conditions.
+
 After identifying the applicable approved authorities above, review structural rules in this order:
 
 1. Start with `project-boundaries.md` for default package ownership,

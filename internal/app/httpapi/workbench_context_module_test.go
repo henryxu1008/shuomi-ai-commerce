@@ -16,7 +16,6 @@ import (
 	"task-processor/internal/core/config"
 	"task-processor/internal/httproute"
 	kernelmodule "task-processor/internal/kernel/module"
-	listingkithttpapi "task-processor/internal/listingkit/httpapi"
 	"task-processor/internal/workbenchcontext"
 	workbenchcontexthttpapi "task-processor/internal/workbenchcontext/httpapi"
 )
@@ -162,34 +161,13 @@ func TestWorkbenchRuntimeBundleConsumesInjectedAuthenticationDependencies(t *tes
 
 func TestWorkbenchCompositionRegistersRoutesExactlyOnceWhenEnabled(t *testing.T) {
 	workbenchModule := workbenchcontexthttpapi.NewModule(workbenchcontexthttpapi.NewHandler())
-	composition := httpFeatureComposition{workbenchContextModule: workbenchModule}
+	modules := []kernelmodule.Module{workbenchModule}
 
-	bundle, err := composition.buildRuntimeBundle(&config.Config{Workbench: config.WorkbenchConfig{Enabled: true}})
+	bundle, err := buildRuntimeBundleFromModules(&config.Config{Workbench: config.WorkbenchConfig{Enabled: true}}, modules)
 
 	require.NoError(t, err)
 	require.Equal(t, 1, routeCount(bundle.routes, http.MethodGet, "/api/v1/workbench/context"))
 	require.Equal(t, 1, routeCount(bundle.routes, http.MethodPut, "/api/v1/workbench/context/effective-organization"))
-}
-
-func TestBuildBootstrapFailsClosedWhenWorkbenchIsEnabledWithoutDatabase(t *testing.T) {
-	restoreAuth := listingkithttpapi.SetListingKitZitadelAuthConfigForTesting(nil)
-	t.Cleanup(restoreAuth)
-	logger := logrus.New()
-	logger.SetLevel(logrus.FatalLevel)
-	t.Setenv("TASK_PROCESSOR_OPENAI_API_KEY", "sk-test")
-	t.Setenv("TASK_PROCESSOR_WORKBENCH_ENABLED", "true")
-	t.Setenv("ZITADEL_ISSUER_URL", "http://127.0.0.1:1")
-	t.Setenv("ZITADEL_CLIENT_ID", "client-1")
-	t.Setenv("ZITADEL_CLIENT_SECRET", "secret-1")
-	t.Setenv("TASK_PROCESSOR_LISTINGKIT_ZITADEL_PROJECT_ID", "project-1")
-	t.Setenv("TASK_PROCESSOR_LISTINGKIT_ZITADEL_AUTHORIZATION_API_URL", "http://127.0.0.1:1")
-
-	bootstrap, err := buildBootstrap(logger, Options{ConfigPath: "../../../config/config-test.yaml", Port: 18080})
-
-	require.Error(t, err)
-	require.Nil(t, bootstrap)
-	require.Contains(t, err.Error(), "listingkit database config is required")
-	require.NotContains(t, err.Error(), "sk-test")
 }
 
 func routeCount(routes []httproute.Descriptor, method string, path string) int {

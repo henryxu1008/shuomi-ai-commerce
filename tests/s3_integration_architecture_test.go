@@ -35,7 +35,6 @@ func TestProductionS3UploaderConstructorInventoryIsComplete(t *testing.T) {
 		"cmd/current-application/knowledge.go":                            1,
 		"cmd/current-application/supply_market.go":                        1,
 		"internal/app/worker/imageagent/dependencies.go":                  1,
-		"internal/listingkit/httpapi/builders_image_store.go":             1,
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("NewUploaderWithOptions production callers = %v, want %v", got, want)
@@ -44,9 +43,7 @@ func TestProductionS3UploaderConstructorInventoryIsComplete(t *testing.T) {
 
 func TestLegacyS3IntegrationConsumersRemainFrozen(t *testing.T) {
 	got := scanProductionS3Uses(t, false)
-	want := map[string]int{
-		"internal/listingkit/httpapi/builders_image_store.go": 1,
-	}
+	want := map[string]int{}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("legacy direct S3 integration consumers = %v, want frozen debt %v", got, want)
 	}

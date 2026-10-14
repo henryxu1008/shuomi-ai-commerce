@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 
 import { serverAuth } from "@/auth";
-import type { AuthenticatedListingKitRequest } from "@/app/api/listing-kits/proxy-auth";
+import type { AuthenticatedUpstreamRequest } from "@/lib/server/upstream-identity";
 import { fetchSDSJSON, sdsAPIErrorPayload } from "@/app/api/sds/shared";
 import type { SDSShipmentArea } from "@/lib/types/sds";
 
 export const dynamic = "force-dynamic";
 
-const authenticatedGET = serverAuth(async (request: AuthenticatedListingKitRequest) => {
+const authenticatedGET = serverAuth(async (request: AuthenticatedUpstreamRequest) => {
   try {
     const { payload } = await fetchSDSJSON<SDSShipmentArea[]>(
       request,

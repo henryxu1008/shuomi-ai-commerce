@@ -23,8 +23,8 @@ var errSheinLoginWorkerUnavailable = errors.New("SHEIN login worker is unavailab
 
 type sheinLoginWorkerRuntimeDependencies struct {
 	LoadConfig            func(string) (*config.Config, error)
-	BuildDatabaseStoreAPI func(*config.Config) (listingadmin.StoreAPI, func() error, error)
-	BuildLoginService     func(*runtimeDeps) (*sheinloginbootstrap.BuildResult, func() error, error)
+	BuildDatabaseStoreAPI func(*config.Config) (listingadmin.StoreAPI, listingadmin.StoreRepository, func() error, error)
+	BuildLoginService     func(*config.Config, listingadmin.StoreAPI, listingadmin.StoreRepository) (*sheinloginbootstrap.BuildResult, func() error, error)
 }
 
 type sheinLoginWorkerRuntime struct {
@@ -121,7 +121,7 @@ func buildSheinLoginWorkerRuntime(configPath string) (*sheinLoginWorkerRuntime, 
 	return buildSheinLoginWorkerRuntimeWithDependencies(configPath, sheinLoginWorkerRuntimeDependencies{
 		LoadConfig:            loadSheinLoginWorkerConfig,
 		BuildDatabaseStoreAPI: buildSheinLoginWorkerDatabaseStoreAPI,
-		BuildLoginService:     buildSheinLoginModuleResult,
+		BuildLoginService:     buildSheinLoginWorkerService,
 	})
 }
 
@@ -135,19 +135,12 @@ func buildSheinLoginWorkerRuntimeWithDependencies(configPath string, dependencie
 		return nil, err
 	}
 
-	storeAPI, storeCloser, err := dependencies.BuildDatabaseStoreAPI(cfg)
+	storeAPI, accountRepository, storeCloser, err := dependencies.BuildDatabaseStoreAPI(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("build SHEIN login worker database StoreAPI: %w", err)
 	}
 
-	deps := &runtimeDeps{
-		shared: &sharedRuntimeDeps{
-			cfg:      cfg,
-			storeAPI: storeAPI,
-		},
-		features: &featureRuntimeState{},
-	}
-	result, loginCloser, err := dependencies.BuildLoginService(deps)
+	result, loginCloser, err := dependencies.BuildLoginService(cfg, storeAPI, accountRepository)
 	if err != nil {
 		return nil, errors.Join(fmt.Errorf("build SHEIN login worker service: %w", err), closeWorkerRuntimeClosers(loginCloser, storeCloser))
 	}
@@ -161,15 +154,16 @@ func buildSheinLoginWorkerRuntimeWithDependencies(configPath string, dependencie
 	}, nil
 }
 
-func buildSheinLoginWorkerDatabaseStoreAPI(cfg *config.Config) (listingadmin.StoreAPI, func() error, error) {
+func buildSheinLoginWorkerDatabaseStoreAPI(cfg *config.Config) (listingadmin.StoreAPI, listingadmin.StoreRepository, func() error, error) {
 	if cfg == nil || cfg.Database == nil || strings.TrimSpace(cfg.Database.Host) == "" {
-		return nil, nil, nil
+		return nil, nil, nil, nil
 	}
 	db, err := platformdatabase.Open(configadapter.Database(cfg.Database))
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return listingadmin.NewGormStoreAPI(listingadmin.NewGormStoreRepository(db)), func() error {
+	repository := listingadmin.NewGormStoreRepository(db)
+	return listingadmin.NewGormStoreAPI(repository), repository, func() error {
 		return platformdatabase.Close(db)
 	}, nil
 }
@@ -177,4 +171,15 @@ func buildSheinLoginWorkerDatabaseStoreAPI(cfg *config.Config) (listingadmin.Sto
 func closeWorkerRuntimeClosers(closers ...func() error) error {
 	runtime := &sheinLoginWorkerRuntime{closers: closers}
 	return runtime.Close()
+}
+
+func buildSheinLoginWorkerService(cfg *config.Config, storeAPI listingadmin.StoreAPI, accountRepository listingadmin.StoreRepository) (*sheinloginbootstrap.BuildResult, func() error, error) {
+	result, err := sheinloginbootstrap.BuildHandler(sheinloginbootstrap.BuildInput{Config: cfg, StoreAPI: storeAPI, AccountRepository: accountRepository})
+	if err != nil {
+		return nil, nil, err
+	}
+	if result == nil {
+		return nil, nil, nil
+	}
+	return result, result.Close, nil
 }

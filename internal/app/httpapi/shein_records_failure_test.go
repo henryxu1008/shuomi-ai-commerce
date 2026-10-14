@@ -100,10 +100,7 @@ func TestSheinRecordCommitFailureAndUnknownOutcomeHTTP(t *testing.T) {
 }
 
 func TestSheinRecordDefaultProductionHasNoRoute(t *testing.T) {
-	composition, cfg := buildPersistentProductionCompositionFixture(t)
-	bundle, err := composition.buildRuntimeBundle(cfg)
-	require.NoError(t, err)
-	server, routes := bundle.buildServerBundle(8080, appHTTPTestRouteAuthorization)
+	server, routes := currentRetirementTestApplication(t)
 	for _, route := range routes {
 		require.NotEqual(t, "/api/listing/shein-records", route.Path)
 		require.NotEqual(t, sheinDiagnosticPath, route.Path)

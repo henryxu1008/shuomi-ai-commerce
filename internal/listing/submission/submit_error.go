@@ -1,12 +1,13 @@
 package submission
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
-
-	"task-processor/internal/listingkit/core"
 )
+
+var ErrSubmitInProgress = errors.New("submit already in progress")
 
 type SubmitInProgressError struct {
 	Platform       string
@@ -28,14 +29,14 @@ func NewSubmitInProgressError(platform, action, phase, requestID string, leaseEx
 
 func (e *SubmitInProgressError) Error() string {
 	if e == nil {
-		return core.ErrSubmitInProgress.Error()
+		return ErrSubmitInProgress.Error()
 	}
 	if e.LeaseExpiresAt != nil {
-		return fmt.Sprintf("%s: %s %s is in %s until %s", core.ErrSubmitInProgress, e.Platform, e.Action, e.Phase, e.LeaseExpiresAt.Format(time.RFC3339))
+		return fmt.Sprintf("%s: %s %s is in %s until %s", ErrSubmitInProgress, e.Platform, e.Action, e.Phase, e.LeaseExpiresAt.Format(time.RFC3339))
 	}
-	return fmt.Sprintf("%s: %s %s is in %s", core.ErrSubmitInProgress, e.Platform, e.Action, e.Phase)
+	return fmt.Sprintf("%s: %s %s is in %s", ErrSubmitInProgress, e.Platform, e.Action, e.Phase)
 }
 
 func (e *SubmitInProgressError) Unwrap() error {
-	return core.ErrSubmitInProgress
+	return ErrSubmitInProgress
 }

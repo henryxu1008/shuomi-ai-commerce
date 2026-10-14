@@ -5,6 +5,18 @@
 > Calibrated against: `main` at `cae67730c5c0e645d708cb2f6814f14781962bb1`.
 > Scope: current product/repository reality, production-validation gates, Product/Marketplace/Console boundaries, Commerce Tool readiness, and the active Now / Next / Later direction for Task Processor / ListingKit / AI Commerce Agent Platform.
 
+## #29 bounded source retirement
+
+The root ListingKit Task/API/default composition is absent in the #29 candidate.
+Current application and image worker transitive dependencies no longer include
+ListingKit packages. Existing current role/context/image/Temporal transport and
+Submission error semantics were extracted directly, without state/schema or
+identity policy changes. Current build targets use the admitted private manifest
+entrypoint; the old API rollout contract is incompatible and stays NOT_READY.
+The existing release checks, OIDC/RBAC and image canary order remain enforced.
+Remaining numeric sync and identity/history leaves are explicit retirement debt.
+Source checks and construction do not mean deployment or user acceptance.
+
 ## Reading this baseline
 
 The implementation observations, maturity table and Now / Next / Later below retain the stated historical baseline; this document has not been fully revalidated at a newer commit. Current assignment and user-approved scope remain with #137, the execution Issue and AGENTS.md, not an older phase label.

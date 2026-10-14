@@ -7,13 +7,13 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"task-processor/internal/listingkit"
+	"task-processor/internal/listingkit/sheinsync"
 )
 
 const sheinCandidateSaveBatchSize = 500
 
-func (r *GormSheinSyncRepository) SaveCandidates(ctx context.Context, records []*listingkit.SheinActivityCandidateRecord) error {
-	rows := make([]listingkit.SheinActivityCandidateRecord, 0, len(records))
+func (r *GormSheinSyncRepository) SaveCandidates(ctx context.Context, records []*sheinsync.SheinActivityCandidateRecord) error {
+	rows := make([]sheinsync.SheinActivityCandidateRecord, 0, len(records))
 	for _, record := range records {
 		if record == nil {
 			continue
@@ -58,9 +58,9 @@ func (r *GormSheinSyncRepository) SaveCandidates(ctx context.Context, records []
 	})
 }
 
-func (r *GormSheinSyncRepository) ListCandidates(ctx context.Context, query *listingkit.SheinActivityCandidateQuery) ([]listingkit.SheinActivityCandidateRecord, int64, error) {
+func (r *GormSheinSyncRepository) ListCandidates(ctx context.Context, query *sheinsync.SheinActivityCandidateQuery) ([]sheinsync.SheinActivityCandidateRecord, int64, error) {
 	page, pageSize := sheinActivityCandidateQueryPage(query)
-	db := r.db.WithContext(ctx).Model(&listingkit.SheinActivityCandidateRecord{})
+	db := r.db.WithContext(ctx).Model(&sheinsync.SheinActivityCandidateRecord{})
 	db = applySheinActivityCandidateFilters(db, query)
 
 	var total int64
@@ -68,7 +68,7 @@ func (r *GormSheinSyncRepository) ListCandidates(ctx context.Context, query *lis
 		return nil, 0, err
 	}
 
-	var rows []listingkit.SheinActivityCandidateRecord
+	var rows []sheinsync.SheinActivityCandidateRecord
 	if err := db.
 		Order("created_at DESC, id DESC").
 		Offset((page - 1) * pageSize).
@@ -85,7 +85,7 @@ func (r *GormSheinSyncRepository) ListCandidates(ctx context.Context, query *lis
 	return rows, total, nil
 }
 
-func (r *GormSheinSyncRepository) attachCandidateMainImages(ctx context.Context, rows []listingkit.SheinActivityCandidateRecord) error {
+func (r *GormSheinSyncRepository) attachCandidateMainImages(ctx context.Context, rows []sheinsync.SheinActivityCandidateRecord) error {
 	productIDs := make([]int64, 0, len(rows))
 	seen := make(map[int64]struct{}, len(rows))
 	for _, row := range rows {
@@ -102,7 +102,7 @@ func (r *GormSheinSyncRepository) attachCandidateMainImages(ctx context.Context,
 		return nil
 	}
 
-	var products []listingkit.SheinSyncedProductRecord
+	var products []sheinsync.SheinSyncedProductRecord
 	if err := r.db.WithContext(ctx).
 		Select("id", "main_image_url").
 		Where("id IN ?", productIDs).
@@ -119,10 +119,10 @@ func (r *GormSheinSyncRepository) attachCandidateMainImages(ctx context.Context,
 	return nil
 }
 
-func (r *GormSheinSyncRepository) attachLatestFailedEnrollmentErrors(ctx context.Context, rows []listingkit.SheinActivityCandidateRecord) error {
+func (r *GormSheinSyncRepository) attachLatestFailedEnrollmentErrors(ctx context.Context, rows []sheinsync.SheinActivityCandidateRecord) error {
 	candidateIDs := make([]int64, 0, len(rows))
 	for _, row := range rows {
-		if row.ID <= 0 || row.ReviewStatus != listingkit.SheinCandidateReviewStatusFailed {
+		if row.ID <= 0 || row.ReviewStatus != sheinsync.SheinCandidateReviewStatusFailed {
 			continue
 		}
 		candidateIDs = append(candidateIDs, row.ID)
@@ -131,9 +131,9 @@ func (r *GormSheinSyncRepository) attachLatestFailedEnrollmentErrors(ctx context
 		return nil
 	}
 
-	var items []listingkit.SheinActivityEnrollmentItemRecord
+	var items []sheinsync.SheinActivityEnrollmentItemRecord
 	if err := r.db.WithContext(ctx).
-		Where("candidate_id IN ? AND status = ? AND error_message <> ''", candidateIDs, listingkit.SheinEnrollmentItemStatusFailed).
+		Where("candidate_id IN ? AND status = ? AND error_message <> ''", candidateIDs, sheinsync.SheinEnrollmentItemStatusFailed).
 		Order("candidate_id ASC, updated_at DESC, id DESC").
 		Find(&items).Error; err != nil {
 		return err
@@ -151,7 +151,7 @@ func (r *GormSheinSyncRepository) attachLatestFailedEnrollmentErrors(ctx context
 	return nil
 }
 
-func (r *GormSheinSyncRepository) CreateEnrollmentRun(ctx context.Context, run *listingkit.SheinActivityEnrollmentRunRecord) error {
+func (r *GormSheinSyncRepository) CreateEnrollmentRun(ctx context.Context, run *sheinsync.SheinActivityEnrollmentRunRecord) error {
 	if run == nil {
 		return nil
 	}
@@ -169,7 +169,7 @@ func (r *GormSheinSyncRepository) CreateEnrollmentRun(ctx context.Context, run *
 	return nil
 }
 
-func (r *GormSheinSyncRepository) UpdateEnrollmentRun(ctx context.Context, run *listingkit.SheinActivityEnrollmentRunRecord) error {
+func (r *GormSheinSyncRepository) UpdateEnrollmentRun(ctx context.Context, run *sheinsync.SheinActivityEnrollmentRunRecord) error {
 	if run == nil {
 		return nil
 	}
@@ -177,7 +177,7 @@ func (r *GormSheinSyncRepository) UpdateEnrollmentRun(ctx context.Context, run *
 	row := *run
 	row.UpdatedAt = time.Now().UTC()
 	result := r.db.WithContext(ctx).
-		Model(&listingkit.SheinActivityEnrollmentRunRecord{}).
+		Model(&sheinsync.SheinActivityEnrollmentRunRecord{}).
 		Where("id = ?", row.ID).
 		Updates(map[string]any{
 			"tenant_id":       row.TenantID,
@@ -205,9 +205,9 @@ func (r *GormSheinSyncRepository) UpdateEnrollmentRun(ctx context.Context, run *
 	return nil
 }
 
-func (r *GormSheinSyncRepository) ListEnrollmentRuns(ctx context.Context, query *listingkit.SheinEnrollmentRunQuery) ([]listingkit.SheinActivityEnrollmentRunRecord, int64, error) {
+func (r *GormSheinSyncRepository) ListEnrollmentRuns(ctx context.Context, query *sheinsync.SheinEnrollmentRunQuery) ([]sheinsync.SheinActivityEnrollmentRunRecord, int64, error) {
 	page, pageSize := sheinEnrollmentRunQueryPage(query)
-	db := r.db.WithContext(ctx).Model(&listingkit.SheinActivityEnrollmentRunRecord{})
+	db := r.db.WithContext(ctx).Model(&sheinsync.SheinActivityEnrollmentRunRecord{})
 	db = applySheinEnrollmentRunFilters(db, query)
 
 	var total int64
@@ -215,7 +215,7 @@ func (r *GormSheinSyncRepository) ListEnrollmentRuns(ctx context.Context, query 
 		return nil, 0, err
 	}
 
-	var rows []listingkit.SheinActivityEnrollmentRunRecord
+	var rows []sheinsync.SheinActivityEnrollmentRunRecord
 	if err := db.
 		Order("started_at DESC, id DESC").
 		Offset((page - 1) * pageSize).
@@ -226,10 +226,10 @@ func (r *GormSheinSyncRepository) ListEnrollmentRuns(ctx context.Context, query 
 	return rows, total, nil
 }
 
-func (r *GormSheinSyncRepository) ListEnrollmentItems(ctx context.Context, query *listingkit.SheinEnrollmentItemQuery) ([]listingkit.SheinActivityEnrollmentItemRecord, int64, error) {
+func (r *GormSheinSyncRepository) ListEnrollmentItems(ctx context.Context, query *sheinsync.SheinEnrollmentItemQuery) ([]sheinsync.SheinActivityEnrollmentItemRecord, int64, error) {
 	page, pageSize := sheinEnrollmentItemQueryPage(query)
 	db := r.db.WithContext(ctx).
-		Model(&listingkit.SheinActivityEnrollmentItemRecord{}).
+		Model(&sheinsync.SheinActivityEnrollmentItemRecord{}).
 		Joins("JOIN listingkit_shein_activity_enrollment_runs AS runs ON runs.id = listingkit_shein_activity_enrollment_items.run_id")
 	db = applySheinEnrollmentItemFilters(db, query)
 
@@ -238,7 +238,7 @@ func (r *GormSheinSyncRepository) ListEnrollmentItems(ctx context.Context, query
 		return nil, 0, err
 	}
 
-	var rows []listingkit.SheinActivityEnrollmentItemRecord
+	var rows []sheinsync.SheinActivityEnrollmentItemRecord
 	selectColumns := "listingkit_shein_activity_enrollment_items.*"
 	if query == nil || !query.IncludePayload {
 		selectColumns = "listingkit_shein_activity_enrollment_items.id, listingkit_shein_activity_enrollment_items.run_id, listingkit_shein_activity_enrollment_items.candidate_id, listingkit_shein_activity_enrollment_items.store_id, listingkit_shein_activity_enrollment_items.activity_key, listingkit_shein_activity_enrollment_items.candidate_version, listingkit_shein_activity_enrollment_items.synced_product_id, listingkit_shein_activity_enrollment_items.skc_name, listingkit_shein_activity_enrollment_items.status, listingkit_shein_activity_enrollment_items.error_message, listingkit_shein_activity_enrollment_items.created_at, listingkit_shein_activity_enrollment_items.updated_at"
@@ -254,7 +254,7 @@ func (r *GormSheinSyncRepository) ListEnrollmentItems(ctx context.Context, query
 	return rows, total, nil
 }
 
-func (r *GormSheinSyncRepository) SaveEnrollmentItems(ctx context.Context, items []*listingkit.SheinActivityEnrollmentItemRecord) error {
+func (r *GormSheinSyncRepository) SaveEnrollmentItems(ctx context.Context, items []*sheinsync.SheinActivityEnrollmentItemRecord) error {
 	for _, item := range items {
 		if item == nil {
 			continue

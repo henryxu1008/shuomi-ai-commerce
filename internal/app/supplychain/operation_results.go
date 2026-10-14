@@ -15,8 +15,9 @@ import (
 // projects confirmed provider facts retained by the Submission owner.
 type OperationItemView struct {
 	preparation.OperationItem
-	ConfirmedProduct     *model.PublishResult    `json:"confirmedProduct,omitempty"`
-	ConfirmedTemuProduct *temugoods.CreatedGoods `json:"confirmedTemuProduct,omitempty"`
+	ConfirmedProduct     *model.PublishResult            `json:"confirmedProduct,omitempty"`
+	ConfirmedTemuProduct *temugoods.CreatedGoods         `json:"confirmedTemuProduct,omitempty"`
+	ConfirmedTikTok      *submission.TikTokEffectReceipt `json:"confirmedTikTok,omitempty"`
 }
 
 func (a *Application) operationItemView(ctx context.Context, operation preparation.Operation, item preparation.OperationItem) (OperationItemView, error) {
@@ -34,7 +35,7 @@ func (a *Application) operationItemView(ctx context.Context, operation preparati
 	if err != nil {
 		return view, err
 	}
-	if submission.ValidateOfficialReceipt(receipt) != nil || receipt.Owner != operation.Owner || receipt.ID != item.ResultReference || receipt.Kind != "publish" || receipt.RecordID != item.RecordID || receipt.Target.StoreID != operation.Input.StoreID {
+	if submission.ValidateOfficialReceipt(receipt) != nil || receipt.Owner != operation.Owner || receipt.ID != item.ResultReference || receipt.Kind != "publish" && receipt.Target.Platform != "tiktokshop" || receipt.RecordID != item.RecordID || receipt.Target.StoreID != operation.Input.StoreID {
 		return view, record.ErrConflict
 	}
 	saved, err := a.Records.ReadTargetRecord(ctx, operation.Owner, item.RecordID)
@@ -44,7 +45,9 @@ func (a *Application) operationItemView(ctx context.Context, operation preparati
 	if saved.ID != item.RecordID || saved.Revision != item.RecordRevision || saved.Source.ID != item.SourceID || saved.Source.Source.ProductKey != receipt.ProductKey || saved.Merchant != receipt.Binding {
 		return view, record.ErrConflict
 	}
-	if receipt.TemuProduct != nil {
+	if receipt.TikTok != nil {
+		view.ConfirmedTikTok = receipt.TikTok
+	} else if receipt.TemuProduct != nil {
 		view.ConfirmedTemuProduct = receipt.TemuProduct
 	} else {
 		view.ConfirmedProduct = &receipt.Product
@@ -71,7 +74,7 @@ func (a *Application) OperationItems(ctx context.Context, id string, q collectio
 			return result, err
 		}
 		result.Items = append(result.Items, value)
-		confirmed = confirmed || value.ConfirmedProduct != nil || value.ConfirmedTemuProduct != nil
+		confirmed = confirmed || value.ConfirmedProduct != nil || value.ConfirmedTemuProduct != nil || value.ConfirmedTikTok != nil
 	}
 	if confirmed {
 		if a.TargetMerchants == nil {

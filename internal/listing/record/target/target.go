@@ -10,6 +10,7 @@ import (
 	"task-processor/internal/marketplace/shein/goods"
 	temugoods "task-processor/internal/marketplace/temu/goods"
 	temumodel "task-processor/internal/marketplace/temu/model"
+	tiktok "task-processor/internal/marketplace/tiktokshop"
 	"task-processor/internal/product/asset"
 	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/collection"
@@ -22,34 +23,40 @@ var ErrTargetUnknown = errors.New("listing target command outcome is unknown; re
 // Target records use the current private source selection. They neither wrap
 // the older local draft service nor accept ProductKey as read authority.
 type TargetInput struct {
-	SourceID         string                   `json:"sourceId"`
-	StoreID          string                   `json:"storeId"`
-	ExpectedRevision int64                    `json:"expectedRevision"`
-	EffectiveVersion uint64                   `json:"effectiveVersion,string"`
-	ApplyReceiptID   string                   `json:"applyReceiptId,omitempty"`
-	Draft            goods.OfficialDraftInput `json:"draft"`
-	TemuRules        *temumodel.RuleSelection `json:"temuRules,omitempty"`
-	Temu             *temugoods.DraftInput    `json:"temu,omitempty"`
+	SourceID         string                    `json:"sourceId"`
+	StoreID          string                    `json:"storeId"`
+	ExpectedRevision int64                     `json:"expectedRevision"`
+	EffectiveVersion uint64                    `json:"effectiveVersion,string"`
+	ApplyReceiptID   string                    `json:"applyReceiptId,omitempty"`
+	Draft            goods.OfficialDraftInput  `json:"draft"`
+	TemuRules        *temumodel.RuleSelection  `json:"temuRules,omitempty"`
+	Temu             *temugoods.DraftInput     `json:"temu,omitempty"`
+	TikTok           *tiktok.DraftInput        `json:"tiktok,omitempty"`
+	TikTokRules      *tiktok.RuleSelection     `json:"tiktokRules,omitempty"`
+	CompletionDraft  *CompletionDraftSelection `json:"completionDraft,omitempty"`
 }
 type TargetRecord struct {
-	ID                    string                                `json:"id"`
-	TargetID              string                                `json:"targetId"`
-	Revision              int64                                 `json:"revision"`
-	Source                preparation.SourceItem                `json:"source"`
-	EffectiveVersion      uint64                                `json:"effectiveVersion,string"`
-	ApplyReceiptID        string                                `json:"applyReceiptId,omitempty"`
-	ProductHash           string                                `json:"productHash"`
-	InventoryHash         string                                `json:"inventoryHash"`
-	RulesHash             string                                `json:"rulesHash"`
-	Merchant              storecenter.ProductMerchantBinding    `json:"merchant"`
-	Input                 TargetInput                           `json:"input"`
-	Result                goods.OfficialDraft                   `json:"result"`
-	ImageObservations     []goods.OfficialImageObservation      `json:"imageObservations,omitempty"`
-	ProofObservations     []goods.OfficialStockProofObservation `json:"proofObservations,omitempty"`
-	Temu                  *temugoods.Draft                      `json:"temu,omitempty"`
-	TemuRuleSnapshot      *temugoods.RuleSnapshot               `json:"temuRuleSnapshot,omitempty"`
-	TemuImageObservations []temugoods.ImageObservation          `json:"temuImageObservations,omitempty"`
-	CreatedAt             time.Time                             `json:"createdAt"`
+	ID                      string                                `json:"id"`
+	TargetID                string                                `json:"targetId"`
+	Revision                int64                                 `json:"revision"`
+	Source                  preparation.SourceItem                `json:"source"`
+	EffectiveVersion        uint64                                `json:"effectiveVersion,string"`
+	ApplyReceiptID          string                                `json:"applyReceiptId,omitempty"`
+	ProductHash             string                                `json:"productHash"`
+	InventoryHash           string                                `json:"inventoryHash"`
+	RulesHash               string                                `json:"rulesHash"`
+	Merchant                storecenter.ProductMerchantBinding    `json:"merchant"`
+	Input                   TargetInput                           `json:"input"`
+	Result                  goods.OfficialDraft                   `json:"result"`
+	ImageObservations       []goods.OfficialImageObservation      `json:"imageObservations,omitempty"`
+	ProofObservations       []goods.OfficialStockProofObservation `json:"proofObservations,omitempty"`
+	Temu                    *temugoods.Draft                      `json:"temu,omitempty"`
+	TemuRuleSnapshot        *temugoods.RuleSnapshot               `json:"temuRuleSnapshot,omitempty"`
+	TemuImageObservations   []temugoods.ImageObservation          `json:"temuImageObservations,omitempty"`
+	TikTok                  *tiktok.Draft                         `json:"tiktok,omitempty"`
+	TikTokRuleSnapshot      *tiktok.RuleSnapshot                  `json:"tiktokRuleSnapshot,omitempty"`
+	TikTokImageObservations []tiktok.ImageObservation             `json:"tiktokImageObservations,omitempty"`
+	CreatedAt               time.Time                             `json:"createdAt"`
 }
 type TargetReceipt struct {
 	Record   TargetRecord `json:"record"`
@@ -69,19 +76,25 @@ type TargetCommitFacts struct {
 type TargetAgentGuard func(context.Context, TargetCommitFacts) error
 
 type TargetPrepared struct {
-	scope          collection.Scope
-	key, inputHash string
-	source         preparation.AuthorizedSource
-	record         TargetRecord
-	agentGuard     TargetAgentGuard
-	rules          goods.OfficialRuleSnapshot
-	inventory      asset.ApprovedAssetInventory
+	scope             collection.Scope
+	key, inputHash    string
+	source            preparation.AuthorizedSource
+	record            TargetRecord
+	agentGuard        TargetAgentGuard
+	rules             goods.OfficialRuleSnapshot
+	inventory         asset.ApprovedAssetInventory
+	completionVersion func(context.Context) error
 }
 
 func (p TargetPrepared) Read(ctx context.Context) (collection.Scope, string, string, TargetRecord, error) {
 	scope, source, _, err := p.source.Read(ctx)
 	if err != nil || scope != p.scope || source != p.record.Source || !collection.ValidID(p.key) || collection.Digest(p.record.Input) != p.inputHash {
 		return collection.Scope{}, "", "", TargetRecord{}, ErrForbidden
+	}
+	if p.completionVersion != nil {
+		if err = p.completionVersion(ctx); err != nil {
+			return collection.Scope{}, "", "", TargetRecord{}, err
+		}
 	}
 	cloned, err := cloneTarget(p.record)
 	if err != nil {
@@ -145,6 +158,13 @@ type TargetTemuImageReader interface {
 	ProbeTemu(context.Context, asset.ApprovedAsset, int64, int64, string) (temugoods.ImageObservation, error)
 }
 
+type TargetTikTokRuleReader interface {
+	ReadTikTokTargetRules(context.Context, collection.Scope, string, tiktok.RuleSelection) (storecenter.ProductMerchantBinding, tiktok.RuleSnapshot, error)
+}
+type TargetTikTokImageReader interface {
+	ProbeTikTok(context.Context, asset.ApprovedAsset, string) (tiktok.ImageObservation, error)
+}
+
 type TargetRepository interface {
 	FindTargetCommand(context.Context, collection.Scope, string, string) (TargetReceipt, error)
 	// SaveTarget replays an exact committed command before applying any new
@@ -162,6 +182,9 @@ type TargetDependencies struct {
 	Rules                  TargetRuleReader
 	TemuRules              TargetTemuRuleReader
 	TemuImages             TargetTemuImageReader
+	TikTokRules            TargetTikTokRuleReader
+	TikTokImages           TargetTikTokImageReader
+	CompletionVersions     TargetCompletionVersionReader
 	Records                TargetRepository
 	Images                 TargetImageReader
 	Authorizer             preparation.Authorizer
@@ -248,10 +271,13 @@ func (s *TargetService) createForExecution(ctx context.Context, scope collection
 func (s *TargetService) create(ctx context.Context, scope collection.Scope, key string, input TargetInput, selectSource func(context.Context, string) (preparation.AuthorizedSource, error), reauthorize func(context.Context) error, guard TargetAgentGuard) (TargetReceipt, error) {
 	// Named TEMU metadata is query-only until the admitted TEMU record/payload
 	// variant is complete. Never save it through the qualified SHEIN builder.
-	if input.TemuRules != nil {
+	if input.TemuRules != nil || input.TikTokRules != nil {
 		return TargetReceipt{}, ErrNotReady
 	}
-	if input.Temu != nil && !reflect.DeepEqual(input.Draft, goods.OfficialDraftInput{}) {
+	if input.Temu != nil && input.TikTok != nil || (input.Temu != nil || input.TikTok != nil) && !reflect.DeepEqual(input.Draft, goods.OfficialDraftInput{}) {
+		return TargetReceipt{}, ErrInvalid
+	}
+	if input.CompletionDraft != nil && (input.TikTok == nil || !collection.ValidID(input.CompletionDraft.RecordID) || input.CompletionDraft.Revision < 1) {
 		return TargetReceipt{}, ErrInvalid
 	}
 	if !collection.ValidID(key) || !collection.ValidID(input.SourceID) || !collection.ValidID(input.StoreID) || input.ExpectedRevision < 0 || input.ExpectedRevision >= 1<<63-1 || input.EffectiveVersion == 0 || input.EffectiveVersion > 1<<63-1 || input.ApplyReceiptID != "" && !authidentity.IsBoundedIdentifier(input.ApplyReceiptID) {
@@ -282,6 +308,22 @@ func (s *TargetService) create(ctx context.Context, scope collection.Scope, key 
 	if err != nil || selectedScope != scope {
 		return TargetReceipt{}, ErrForbidden
 	}
+	var completionVersion func(context.Context) error
+	if input.CompletionDraft != nil {
+		if s.dependencies.CompletionVersions == nil {
+			return TargetReceipt{}, ErrUnavailable
+		}
+		completionVersion = func(ctx context.Context) error {
+			saved, e := s.dependencies.CompletionVersions.ReadVersion(ctx, scope, input.CompletionDraft.RecordID)
+			if e != nil {
+				return e
+			}
+			return validateCompletionVersion(input, source, saved)
+		}
+		if err = completionVersion(ctx); err != nil {
+			return TargetReceipt{}, err
+		}
+	}
 	product, err := s.dependencies.Products.ReadEffectiveTargetProduct(ctx, selected, input.EffectiveVersion, input.ApplyReceiptID)
 	if err != nil {
 		return TargetReceipt{}, err
@@ -292,6 +334,9 @@ func (s *TargetService) create(ctx context.Context, scope collection.Scope, key 
 	platform := "shein"
 	if input.Temu != nil {
 		platform = "temu"
+	}
+	if input.TikTok != nil {
+		platform = "tiktokshop"
 	}
 	inventoryScope := asset.InventoryScope{TenantID: scope.OrganizationID, ProductKey: source.Source.ProductKey, TargetPlatform: platform, SourceSnapshotVersion: product.Version}
 	inventory, err := s.dependencies.Assets.GetApprovedInventory(ctx, inventoryScope)
@@ -312,6 +357,7 @@ func (s *TargetService) create(ctx context.Context, scope collection.Scope, key 
 	value.ProofObservations = prepared.proofs
 	value.Temu, value.TemuRuleSnapshot = prepared.temu, prepared.temuRules
 	value.TemuImageObservations = prepared.temuImages
+	value.TikTok, value.TikTokRuleSnapshot, value.TikTokImageObservations = prepared.tiktok, prepared.tiktokRules, prepared.tiktokImages
 	// Merchant reads can outlast the five-second source proof. Obtain fresh
 	// current source authority before committing the same immutable reference.
 	selected, err = selectSource(ctx, input.SourceID)
@@ -325,7 +371,7 @@ func (s *TargetService) create(ctx context.Context, scope collection.Scope, key 
 	if err = reauthorize(ctx); err != nil {
 		return TargetReceipt{}, err
 	}
-	return s.dependencies.Records.SaveTarget(ctx, TargetPrepared{scope: scope, key: key, inputHash: inputHash, source: selected, record: value, agentGuard: guard, rules: prepared.sheinRules, inventory: inventory})
+	return s.dependencies.Records.SaveTarget(ctx, TargetPrepared{scope: scope, key: key, inputHash: inputHash, source: selected, record: value, agentGuard: guard, rules: prepared.sheinRules, inventory: inventory, completionVersion: completionVersion})
 }
 func (s *TargetService) authorizeTarget(ctx context.Context, purpose string) (collection.Scope, error) {
 	scope, err := s.dependencies.Authorizer.Authorize(ctx, purpose)

@@ -1,7 +1,7 @@
 import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { SheinAuthorizationCallback } from "./shein-authorization-callback";
+import { OfficialAuthorizationCallback,SheinAuthorizationCallback } from "./shein-authorization-callback";
 import { StoreConnectionError } from "@/lib/api/store-connection";
 const state = vi.hoisted(() => ({
   context: { user: { id: "actor" }, effectiveOrganization: { id: "org-1" } },
@@ -43,6 +43,26 @@ beforeEach(() => {
   );
 });
 afterEach(cleanup);
+it("captures a TikTok code only in memory, scrubs URL and binds the original local app",async()=>{
+ state.pending.mockReturnValue({...pending,appId:"us-app"});
+ window.history.replaceState(null,"","/workbench/stores/tiktokshop/callback?code=private-code&state=private-state");
+ state.complete.mockResolvedValue({connectionStatus:"connected"});
+ render(<OfficialAuthorizationCallback platform="tiktokshop"/>);
+ await userEvent.click(await screen.findByRole("button",{name:"完成官方连接"}));
+ expect(window.location.search).toBe("");
+ expect(state.pending).toHaveBeenCalledWith("tiktokshop");
+ expect(state.complete).toHaveBeenCalledWith({...pending,appId:"us-app"},pending.storeId,{attemptId:pending.attemptId,appId:"us-app",state:"private-state",authCode:"private-code"});
+ expect(document.body.textContent).not.toContain("private-code");
+ expect(sessionStorage.length).toBe(0);
+});
+it("rejects duplicated TikTok state and a callback that supplies another app",async()=>{
+ state.pending.mockReturnValue({...pending,appId:"us-app"});
+ window.history.replaceState(null,"","/workbench/stores/tiktokshop/callback?code=code&state=a&state=b&appid=other");
+ render(<OfficialAuthorizationCallback platform="tiktokshop"/>);
+ await screen.findByText(/本次授权返回无法确认或已过期/);
+ expect(state.complete).not.toHaveBeenCalled();
+ expect(window.location.search).toBe("");
+});
 it.each(["switch", "unmount"])(
   "ignores a late callback result after %s",
   async (mode) => {

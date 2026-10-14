@@ -8,7 +8,6 @@ import (
 	"task-processor/internal/httproute"
 	kernelmodule "task-processor/internal/kernel/module"
 	worker "task-processor/internal/platform/workerpool"
-	"task-processor/internal/taskrpcapi"
 )
 
 type runtimeBundle struct {
@@ -54,15 +53,4 @@ func (b runtimeBundle) pools() []worker.WorkerPool {
 		pools = append(pools, item.Pool)
 	}
 	return pools
-}
-
-func (b runtimeBundle) localTaskHealthProvider() taskrpcapi.LocalStatusProvider {
-	pools := make(map[string]worker.WorkerPool, len(b.workerPools))
-	for _, item := range b.workerPools {
-		if item.Pool == nil {
-			continue
-		}
-		pools[item.Name] = item.Pool
-	}
-	return buildLocalTaskHealthProvider(pools)
 }
