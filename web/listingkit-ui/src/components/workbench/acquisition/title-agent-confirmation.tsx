@@ -53,6 +53,6 @@ export function TitleAgentConfirmation({scope,organization,platform,template,kno
    <p>确认后服务端冻结实际采用的版本；若完整内容超限，将明确拒绝，不会截断或切换知识。</p>
   </div>}
   {titleOnly?<SkillPicker scope={scope} onChange={(v,ready)=>{setMethod(v);setMethodReady(ready)}}/>:contentSelection?<p>技能首版用于仅标题操作；包含其他字段时本次不使用技能。</p>:null}
-  <div className={styles.actions}><Button ref={cancelButton} variant="outline" onClick={onCancel}>取消</Button><Button disabled={!executionMode||useKnowledge&&!ready||!methodReady} onClick={()=>onConfirm(useKnowledge?baseId:undefined,method)}>确认生成</Button></div>
+  <div className={styles.actions}><Button ref={cancelButton} variant="outline" onClick={onCancel}>取消</Button><Button disabled={!executionMode||useKnowledge&&!ready||!methodReady} onClick={()=>method?onConfirm(useKnowledge?baseId:undefined,method):onConfirm(useKnowledge?baseId:undefined)}>确认生成</Button></div>
  </dialog>;
 }

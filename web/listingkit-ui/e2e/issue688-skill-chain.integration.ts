@@ -44,4 +44,10 @@ it("uses actual typed clients and authenticated Next routes through governed con
  const linked=await requestProductAgent("review",operation!,key,scope,new AbortController().signal,undefined,undefined,undefined,undefined,undefined,undefined,undefined,"content");if(!("proposalId" in linked))throw Error();
  const reviewScope={...scope,proposalId:linked.proposalId};let proposal=await fetchProductTitleProposal(reviewScope);expect(proposal.policy).toBe("product-content-review-v1");if(proposal.policy!=="product-content-review-v1")throw Error();expect(proposal.execution.skillVersionRef?.id).toBe(selection.skillId);
  proposal=await decideProductTitleProposal({...reviewScope,idempotencyKey:crypto.randomUUID(),input:{action:"accept",expected_revision:proposal.revision}});proposal=await applyProductTitleProposal({...reviewScope,idempotencyKey:crypto.randomUUID(),input:{expected_revision:proposal.revision}});expect(proposal.state).toBe("applied");expect(proposal.apply_receipt?.product_version).toBe("2");
+ const path="references/"+"x".repeat(242)+".md",description="😀".repeat(1024);
+ const boundary=await mutate("personal",{files:[{path:"SKILL.md",text:`---\nname: boundary-method\ndescription: ${JSON.stringify(description)}\n---\nUse [reference](${path}).\n`},{path,text:"Reference."}],allowCopy:false,allowExport:true},s.skillReceiptSchema);
+ const saved=await skillRequest(personal,`personal/${boundary.skillId}/versions/1`,s.skillProjectionSchema);expect(saved.version.package.description).toBe(description);
+ const exported=await skillRequest(personal,`personal/${boundary.skillId}/versions/1/export`,s.skillPackageSchema);expect(exported.files?.[1].path).toBe(path);
+ const imported=await mutate("personal",{files:exported.files,allowCopy:false,allowExport:true},s.skillReceiptSchema);
+ const reread=await skillRequest(personal,`personal/${imported.skillId}/versions/1`,s.skillProjectionSchema);expect(reread.version.package.digest).toBe(exported.digest);
 });

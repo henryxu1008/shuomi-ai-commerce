@@ -10,6 +10,19 @@ func titlePackage() []File {
 	return []File{{Path: "SKILL.md", Text: "---\nname: product-title-normalization\ndescription: Normalize the saved product title without inventing facts.\n---\nUse only saved facts. Missing facts require confirmation.\n"}}
 }
 
+func TestPackageSupportedUnicodeAndPathBoundary(t *testing.T) {
+	path := "references/" + strings.Repeat("x", 242) + ".md"
+	description := strings.Repeat("😀", 1024)
+	files := []File{{Path: "SKILL.md", Text: "---\nname: boundary-method\ndescription: " + description + "\n---\nUse [reference](" + path + ").\n"}, {Path: path, Text: "Reference."}}
+	p, e := ValidatePackage(files)
+	require.NoError(t, e)
+	require.Equal(t, description, p.Description)
+	require.Len(t, path, 256)
+	files[1].Path = path + "x"
+	_, e = ValidatePackage(files)
+	require.Error(t, e)
+}
+
 func TestValidatePackageFreezesAllSupportedMaterials(t *testing.T) {
 	files := append(titlePackage(), File{Path: "references/rules.md", Text: "Do not claim unverified certification."})
 	files[0].Text += "See [rules](references/rules.md).\n"
