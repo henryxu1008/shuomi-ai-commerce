@@ -187,6 +187,18 @@ async function viewFacts() {
   await screen.findByRole("heading", {name: "已保存经营事实"});
 }
 it("requires an explicit diagnosis goal before preparing a paid analysis",async()=>{show();await choose();await viewFacts();await waitFor(()=>expect(screen.getByRole("button",{name:"准备分析"})).toBeEnabled());fireEvent.change(screen.getByLabelText("本次诊断目标"),{target:{value:""}});expect(screen.getByRole("button",{name:"准备分析"})).toBeDisabled();expect(writes).toHaveLength(1);expect(writes[0].path).toMatch(/inspect$/)});
+it("checks the original UTF-8 goal limit and sends a trimmed diagnosis goal", async () => {
+  show(); await choose(); await viewFacts();
+  await waitFor(()=>expect(screen.getByRole("button",{name:"准备分析"})).toBeEnabled());
+  for (const value of ["x".repeat(513),"中".repeat(171)]) {
+    fireEvent.change(screen.getByLabelText("本次诊断目标"),{target:{value}});
+    expect(screen.getByRole("button",{name:"准备分析"})).toBeDisabled();
+  }
+  fireEvent.change(screen.getByLabelText("本次诊断目标"),{target:{value:"  核对已录入经营事实  "}});
+  fireEvent.click(screen.getByRole("button",{name:"准备分析"}));
+  await screen.findByRole("heading",{name:"确认本次分析"});
+  expect((writes[1].body as {goalSummary:string}).goalSummary).toBe("核对已录入经营事实");
+});
 it("does not offer fact inspection without Agent-use authorization", async () => {
   show({...entry,capabilities:entry.capabilities.map(c => c.id === "shop.operations-diagnosis.inspect" ? {...c,readiness:"REQUIRES_AUTHORIZATION"} : c)});
   await choose(); await act(async()=>{await new Promise(resolve=>setTimeout(resolve,50))});

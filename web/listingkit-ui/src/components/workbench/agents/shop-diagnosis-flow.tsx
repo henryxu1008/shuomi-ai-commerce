@@ -28,6 +28,7 @@ import {
 import {
   diagnosisIntentSchema,
   diagnosisInputSchema,
+  diagnosisPrepareSchema,
   diagnosisSavedPreparationSchema,
   diagnosisRecentSchema,
   type DiagnosisIntent,
@@ -194,6 +195,7 @@ export function ShopDiagnosisFlow({
     (c) => c.id === "text.generate" && c.readiness === "AVAILABLE",
   );
   const factsReady = entry.capabilities.some(c => c.id === "shop.operations-diagnosis.inspect" && c.readiness === "AVAILABLE");
+  const goalCheck = diagnosisPrepareSchema.shape.goalSummary.safeParse(goal.trim());
   const input = () =>
     diagnosisInputSchema.parse({
       contextId: crypto.randomUUID(),
@@ -352,7 +354,7 @@ export function ShopDiagnosisFlow({
     !saved &&
     run.data?.phase !== "running" &&
     run.data?.usageStatus !== "unknown_reserved" &&
-    validInput && goal.trim().length > 0 &&
+    validInput && goalCheck.success &&
     facts?.ref.StoreID === selected &&
     facts?.ref.StartDate === startDate &&
     facts?.ref.EndDate === endDate;
@@ -454,6 +456,7 @@ export function ShopDiagnosisFlow({
               onChange={(e) => setGoal(e.target.value)}
             />
           </label>
+          {!goalCheck.success ? <p>请填写简短、明确的诊断目标；内容过长时请精简。</p> : null}
           <Button
             disabled={!prepareAllowed}
             onClick={() => {
@@ -465,7 +468,7 @@ export function ShopDiagnosisFlow({
                   ...input(),
                   requestKey: key,
                   expectedModeRevision: mode.data!.revision,
-                  goalSummary: goal,
+                  goalSummary: goalCheck.success ? goalCheck.data : "",
                 },
               });
             }}

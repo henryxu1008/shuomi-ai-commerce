@@ -237,6 +237,14 @@ func testDiagnosisHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixtur
 	recentPath := confighttp.Base + "/" + agentconfig.DiagnosisAgentID + "/recent-runs?pageSize=20"
 	currentRecent := call("GET", recentPath, "", nil, http.StatusOK)
 	require.Contains(t, string(currentRecent), result.RunID)
+	gate.failure = cockpit.ErrUnavailable
+	call("GET", recentPath, "", nil, http.StatusServiceUnavailable)
+	gate.failure = nil
+	gate.advice = false
+	deniedRecent := call("GET", recentPath, "", nil, http.StatusOK)
+	require.NotContains(t, string(deniedRecent), result.RunID)
+	gate.advice = true
+	require.JSONEq(t, string(currentRecent), string(call("GET", recentPath, "", nil, http.StatusOK)))
 	require.NoError(t, memberStores.SetMemberGrant(ctx, storecenter.MemberStoreGrantCommand{OrganizationID: "B", StoreID: shopID, MemberID: "member-B-admin-replacement", OperationID: uuid.NewString(), Active: true}))
 	memberReplaced.Store(true)
 	call("POST", shopDiagnosisBase+"/inspect", uuid.NewString(), in, http.StatusOK)
@@ -282,9 +290,13 @@ func (s *diagnosisObservationSpy) List(context.Context, observations.Scope, obse
 type diagnosisModuleGate struct {
 	*operationscockpitauth.Authorizer
 	stores, advice bool
+	failure        error
 }
 
 func (g *diagnosisModuleGate) Current(ctx context.Context, scope cockpit.Scope) (cockpit.Access, error) {
+	if g.failure != nil {
+		return cockpit.Access{}, g.failure
+	}
 	a, e := g.Authorizer.Current(ctx, scope)
 	a.StoresRead = a.StoresRead && g.stores
 	a.AdviceRead = a.AdviceRead && g.advice

@@ -153,7 +153,7 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 		}
 		profile := policy.ShapeProfile()
 		cost, err := profile.MaximumCost()
-		if !allowedOrganizations[org] || profile.PromptVersion != agentconfig.DiagnosisPromptVersion || profile.OutputSchemaVersion != agentconfig.DiagnosisActionVersion || !governed.ValidRouteProfile(profile, aicapability.OperationShopDiagnosisDecision) || profile.Currency != cfg.Limits.Currency || err != nil || profile.MaximumPromptTokens+profile.MaximumCompletionTokens > cfg.Limits.Tokens || cost > cfg.Limits.CostMicros {
+		if !allowedOrganizations[org] || profile.PromptVersion != agentconfig.DiagnosisPromptVersion || profile.OutputSchemaVersion != agentconfig.DiagnosisActionVersion || !governed.ValidRouteProfile(profile, aicapability.OperationShopDiagnosisDecision) || profile.Currency != cfg.Limits.Currency || err != nil || profile.MaximumCompletionTokens > cfg.Limits.Tokens/2 || profile.MaximumPromptTokens > cfg.Limits.Tokens/2-profile.MaximumCompletionTokens || cost > cfg.Limits.CostMicros/2 {
 			return nil, agent.ErrUnavailable
 		}
 	}

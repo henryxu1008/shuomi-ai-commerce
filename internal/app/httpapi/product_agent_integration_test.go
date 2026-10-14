@@ -440,6 +440,9 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		}
 		settings.Limits.Steps, settings.Limits.ModelCalls = 4, 2
 		profile := settings.SelectionTextPolicies["B"].ShapeProfile()
+		if mode == "diagnosis" {
+			profile = settings.DiagnosisTextPolicies["B"].ShapeProfile()
+		}
 		cost, quoteErr := profile.MaximumCost()
 		require.NoError(t, quoteErr)
 		for _, short := range []string{"tokens", "cost"} {

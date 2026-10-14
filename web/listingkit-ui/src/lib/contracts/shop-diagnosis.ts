@@ -51,7 +51,7 @@ export const diagnosisInputSchema = z
     endDate: z.string(),
   })
   .refine((v) => validPeriod(v.startDate, v.endDate));
-const diagnosisPrepareSchema = diagnosisInputSchema.safeExtend({
+export const diagnosisPrepareSchema = diagnosisInputSchema.safeExtend({
   requestKey: collectionID,
   expectedModeRevision: modeRevisionSchema,
   goalSummary: text(512).min(1).refine((v) => v.trim() === v),
