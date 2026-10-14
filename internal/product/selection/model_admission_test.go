@@ -1,6 +1,7 @@
 package selection
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -15,7 +16,8 @@ func TestSelectionUnresolvedFitsReadableResponseContract(t *testing.T) {
 		valid      bool
 	}{
 		{"empty list", nil, true},
-		{"maximum count", strings.Fields(strings.Repeat("missing ", 4096)), true},
+		{"maximum model count", strings.Fields(strings.Repeat("missing ", 4095)), true},
+		{"must reserve server diagnostic", strings.Fields(strings.Repeat("missing ", 4096)), false},
 		{"excess count", strings.Fields(strings.Repeat("missing ", 4097)), false},
 		{"maximum entry", []string{strings.Repeat("x", 8192)}, true},
 		{"oversized entry", []string{strings.Repeat("x", 8193)}, false},
@@ -30,4 +32,14 @@ func TestSelectionUnresolvedFitsReadableResponseContract(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSelectionModelCapacityLeavesRoomForNativeValidationDiagnostic(t *testing.T) {
+	action := agent.Action{Kind: "interrupt", Unresolved: strings.Fields(strings.Repeat("missing ", 4095))}
+	require.NoError(t, (ModelAdmission{}).ValidateAction(action))
+	validation, err := (Validator{}).ValidateDomain(context.Background(), agent.Request{}, agent.DomainProposal{}, nil)
+	require.NoError(t, err)
+	require.Equal(t, []string{"SELECTION_EVIDENCE_INVALID"}, validation.Unresolved)
+	combined := append(append([]string{}, action.Unresolved...), validation.Unresolved...)
+	require.Len(t, combined, 4096, "native rejection must still fit the unchanged response contract")
 }
