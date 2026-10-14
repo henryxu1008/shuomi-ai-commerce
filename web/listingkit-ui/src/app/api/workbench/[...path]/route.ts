@@ -140,7 +140,7 @@ async function handleWorkbenchRequest(
   if (request.signal.aborted) abort();
   const path = new URL(request.url).pathname.split("/").filter(Boolean).slice(2);
   const imageSetRequest = imageSetRoutes.some((action) => imageSetMethods[action] === request.method && imageSetPath(path, action) !== null);
-  const agentRequest=agentPath(path)!==null || ["materials-start","materials-resume"].includes(materialsPath(request.method,path)??"") || ["message", "confirm", "task-start", "task-resume", "task-review"].includes(aiWorkbenchPath(request.method, path) ?? "");
+  const agentRequest=agentPath(path)!==null || ["materials-start","materials-resume","materials-adopt"].includes(materialsPath(request.method,path)??"") || ["message", "confirm", "task-start", "task-resume", "task-review"].includes(aiWorkbenchPath(request.method, path) ?? "");
   const timeout = setTimeout(abort, planPath(request.method,path)?52000:imageSetRequest ? IMAGE_SET_TIMEOUT_MS : agentRequest?125000:dispatchState.acquisitionRequest ? ACQUISITION_TIMEOUT_MS : UPSTREAM_TIMEOUT_MS);
   try {
     const scopedRequest = new NextRequest(request, { signal: controller.signal });
