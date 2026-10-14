@@ -4,6 +4,7 @@ import { contentSelectionSchema, sameContentSelection } from "./content-selectio
 import { isAcquisitionUUID } from "./product-acquisition";
 import { knowledgeSelectionSchema, productKnowledgeSchema } from "./product-knowledge";
 import {templateRefSchema} from "./agent-configuration";
+import {skillSelectionSchema,skillRefSchema,sameSkill} from "./skill";
 const id = z.string().refine(isAcquisitionUUID);
 const version = z.string().max(19).regex(/^[1-9][0-9]*$/).refine(v => BigInt(v) <= BigInt("9223372036854775807"));
 // Candidate Action is bounded to 64 KiB by the runtime. HTTP and both BFF/client
@@ -15,7 +16,7 @@ const change = z.strictObject({ Field: text, Value: text, EvidenceIDs: z.array(t
 export const agentEmptyRequestSchema = z.strictObject({});
 const agentTargetPlatformSchema = z.enum(["shein", "temu", "amazon"]);
 export const agentStartRequestSchema = z.strictObject({ expectedModeRevision:modeRevisionSchema,targetPlatform: agentTargetPlatformSchema, knowledgeSelection:knowledgeSelectionSchema.optional(),templateSelection:templateRefSchema.optional() });
-export const contentAgentStartRequestSchema = agentStartRequestSchema.extend({targetPlatform:z.enum(["product","shein","temu","amazon"]),contentSelection:contentSelectionSchema});
+export const contentAgentStartRequestSchema = agentStartRequestSchema.extend({targetPlatform:z.enum(["product","shein","temu","amazon"]),contentSelection:contentSelectionSchema,skillSelection:skillSelectionSchema.optional()}).refine(v=>!v.skillSelection||v.contentSelection.title&&!v.contentSelection.description&&!v.contentSelection.sellingPoints&&!v.contentSelection.seoKeywords);
 export const agentResumeRequestSchema = z.strictObject({ revision: version, feedback: z.string().refine(v => new TextEncoder().encode(v).length <= 8192) });
 export const agentReviewLinkSchema = z.strictObject({ proposalId: id, requestKey: id, operationId: id });
 const baseAgentResultSchema = z.strictObject({
@@ -39,7 +40,9 @@ function authorityMatches(v:z.infer<typeof baseAgentResultSchema>) {
 export const agentResultSchema = baseAgentResultSchema.extend({targetPlatform:agentTargetPlatformSchema,policyAdoption:titlePolicyAdoptionSchema.optional()})
 .refine(v => !v.canSubmitReview || (v.phase === "human_review_required" && !v.stopReason && v.candidate.Changes?.length === 1 && v.candidate.Changes[0]?.Field === "title"))
 .refine(authorityMatches);
-export const contentAgentResultSchema = baseAgentResultSchema.extend({targetPlatform:z.enum(["product","shein","temu","amazon"]),contentSelection:contentSelectionSchema,policyAdoption:contentPolicyAdoptionSchema.optional()})
+export const contentAgentResultSchema = baseAgentResultSchema.extend({targetPlatform:z.enum(["product","shein","temu","amazon"]),contentSelection:contentSelectionSchema,policyAdoption:contentPolicyAdoptionSchema.optional(),skillVersionRef:skillRefSchema.optional()})
+.refine(v=>!v.skillVersionRef||v.contentSelection.title&&!v.contentSelection.description&&!v.contentSelection.sellingPoints&&!v.contentSelection.seoKeywords)
+.refine(v=>!v.policyAdoption||sameSkill(v.skillVersionRef?{skillId:v.skillVersionRef.id,version:v.skillVersionRef.version,digest:v.skillVersionRef.digest}:undefined,v.policyAdoption.execution.skillVersionRef?{skillId:v.policyAdoption.execution.skillVersionRef.id,version:v.policyAdoption.execution.skillVersionRef.version,digest:v.policyAdoption.execution.skillVersionRef.digest}:undefined))
 .refine(authorityMatches)
 .refine(v=>!v.canSubmitReview || v.phase==="human_review_required" && !v.stopReason && !v.unresolved?.length && !v.candidate.Warnings?.length && !v.candidate.Rejections?.length && !!v.candidate.Changes && (()=>{
  const fields=[v.contentSelection.title&&"title",v.contentSelection.description&&"description",v.contentSelection.sellingPoints&&"selling_points",v.contentSelection.seoKeywords&&"seo_keywords"].filter(Boolean);

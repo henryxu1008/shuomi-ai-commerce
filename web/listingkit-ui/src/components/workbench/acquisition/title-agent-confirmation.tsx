@@ -8,10 +8,14 @@ import styles from "../task-center/title-review.module.css";
 import type {ExecutionModeView} from "@/lib/contracts/execution-mode";
 import {executionModeLabels} from "../agents/execution-mode-settings";
 import { contentSelectionLabel, type ContentSelection } from "@/lib/contracts/content-selection";
+import {SkillPicker} from "../skills/skill-picker";
+import type {SkillSelection} from "@/lib/contracts/skill";
 
-export function TitleAgentConfirmation({scope,organization,platform,template,knowledgeAvailable,knowledgeReadable=true,executionMode,contentSelection,onConfirm,onCancel}:{scope:KnowledgeScope;organization:string;platform:string;template?:AgentTemplate;knowledgeAvailable:boolean;knowledgeReadable?:boolean;executionMode?:ExecutionModeView;contentSelection?:ContentSelection;onConfirm:(baseId?:string)=>void;onCancel:()=>void}) {
+export function TitleAgentConfirmation({scope,organization,platform,template,knowledgeAvailable,knowledgeReadable=true,executionMode,contentSelection,onConfirm,onCancel}:{scope:KnowledgeScope;organization:string;platform:string;template?:AgentTemplate;knowledgeAvailable:boolean;knowledgeReadable?:boolean;executionMode?:ExecutionModeView;contentSelection?:ContentSelection;onConfirm:(baseId?:string,method?:SkillSelection)=>void;onCancel:()=>void}) {
  const dialog=useRef<HTMLDialogElement>(null),cancelButton=useRef<HTMLButtonElement>(null),request=useRef<AbortController|null>(null);
  const id=useId();
+ const [method,setMethod]=useState<SkillSelection|undefined>(),[methodReady,setMethodReady]=useState(true);
+ const titleOnly=!!contentSelection?.title&&!contentSelection.description&&!contentSelection.sellingPoints&&!contentSelection.seoKeywords;
  const defaultKnowledge=!!template?.defaultKnowledgeBaseId||template?.knowledgeAvailability==="UNAVAILABLE";
  const canLoadDefault=defaultKnowledge&&knowledgeAvailable&&knowledgeReadable&&template?.knowledgeAvailability!=="UNAVAILABLE"&&!!template?.defaultKnowledgeBaseId;
  const {userId,organizationId}=scope;
@@ -48,6 +52,7 @@ export function TitleAgentConfirmation({scope,organization,platform,template,kno
    {pagination&&pagination.total>pagination.pageSize&&<nav aria-label="知识库分页" className="mt-3 flex flex-wrap items-center gap-3"><Button variant="outline" disabled={loading||pagination.page===1} onClick={()=>void load(undefined,pagination.page-1)}>上一页</Button><span>第 {pagination.page} 页 · 共 {pagination.total} 个</span><Button variant="outline" disabled={loading||pagination.page*pagination.pageSize>=pagination.total} onClick={()=>void load(undefined,pagination.page+1)}>下一页</Button></nav>}
    <p>确认后服务端冻结实际采用的版本；若完整内容超限，将明确拒绝，不会截断或切换知识。</p>
   </div>}
-  <div className={styles.actions}><Button ref={cancelButton} variant="outline" onClick={onCancel}>取消</Button><Button disabled={!executionMode||useKnowledge&&!ready} onClick={()=>onConfirm(useKnowledge?baseId:undefined)}>确认生成</Button></div>
+  {titleOnly?<SkillPicker scope={scope} onChange={(v,ready)=>{setMethod(v);setMethodReady(ready)}}/>:contentSelection?<p>技能首版用于仅标题操作；包含其他字段时本次不使用技能。</p>:null}
+  <div className={styles.actions}><Button ref={cancelButton} variant="outline" onClick={onCancel}>取消</Button><Button disabled={!executionMode||useKnowledge&&!ready||!methodReady} onClick={()=>onConfirm(useKnowledge?baseId:undefined,method)}>确认生成</Button></div>
  </dialog>;
 }

@@ -41,6 +41,11 @@ an approved contract. Follow the explicit responsibility/supersession above.
 
 ## Recommended Reading Order
 
+Skill V1's three-scope ownership, immutable method versions and existing content
+execution gates are frozen in [`skill-capability-v1.md`](skill-capability-v1.md)
+for #688. User-approved local UI placement augments the current Figma authority;
+implementation evidence, installation and user acceptance remain separate.
+
 TEMU 三模式与全部官方站点的设计候选见
 [`temu-platform-v1.md`](temu-platform-v1.md) / execution Issue #31；
 [`temu-official-contract-evidence.md`](temu-official-contract-evidence.md) 记录官方

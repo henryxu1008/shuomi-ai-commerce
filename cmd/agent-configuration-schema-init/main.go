@@ -12,6 +12,7 @@ import (
 	"os"
 	"regexp"
 	store "task-processor/internal/integration/persistence/agentconfig"
+	skillstore "task-processor/internal/integration/persistence/skill"
 	"time"
 )
 
@@ -20,8 +21,15 @@ func main() {
 	modesOnly := flag.Bool("execution-modes-only", false, "add only execution mode tables and their bounded grants; retain existing facts and grants")
 	contentOnly := flag.Bool("content-configuration-only", false, "add only the content parameter carrier and exact checks; retain existing facts, activations and grants")
 	materialsOnly := flag.Bool("materials-configuration-only", false, "add only exact registered platform materials checks; retain existing facts, activations and grants")
+	skillsOnly := flag.Bool("skills-only", false, "add bounded Skill storage and content personal-Skill admission; do not enable agents or import templates")
 	flag.Parse()
-	if flag.NArg() != 0 || *modesOnly && (*contentOnly || *materialsOnly) || *contentOnly && *materialsOnly || !regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`).MatchString(*role) {
+	selected := 0
+	for _, v := range []bool{*modesOnly, *contentOnly, *materialsOnly, *skillsOnly} {
+		if v {
+			selected++
+		}
+	}
+	if flag.NArg() != 0 || selected > 1 || !regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`).MatchString(*role) {
 		fmt.Fprintln(os.Stderr, "requires --runtime-role with an existing role")
 		os.Exit(2)
 	}
@@ -43,6 +51,12 @@ func main() {
 	}
 	defer raw.Close()
 	e = db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if *skillsOnly {
+			if e := skillstore.InstallSchema(ctx, tx); e != nil {
+				return e
+			}
+			return skillstore.GrantRuntime(ctx, tx, *role)
+		}
 		if *materialsOnly {
 			return store.UpdateMaterialsConfigurationSchema(ctx, tx, *role)
 		}
@@ -55,7 +69,13 @@ func main() {
 		if e := store.InstallSchema(tx); e != nil {
 			return e
 		}
-		return store.GrantRuntime(tx, *role)
+		if e := store.GrantRuntime(tx, *role); e != nil {
+			return e
+		}
+		if e := skillstore.InstallSchema(ctx, tx); e != nil {
+			return e
+		}
+		return skillstore.GrantRuntime(ctx, tx, *role)
 	})
 	if e != nil {
 		fmt.Fprintln(os.Stderr, "agent configuration schema initialization failed")

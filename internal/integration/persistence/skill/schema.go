@@ -7,7 +7,7 @@ import (
 	"encoding/hex"
 	"gorm.io/gorm"
 	"regexp"
-	"strings"
+	configstore "task-processor/internal/integration/persistence/agentconfig"
 	d "task-processor/internal/skill"
 )
 
@@ -33,14 +33,8 @@ func InstallSchema(ctx context.Context, db *gorm.DB) error {
 				return e
 			}
 		}
-		var configOwner string
-		if e := tx.Raw("SELECT pg_get_userbyid(nspowner) FROM pg_namespace WHERE nspname='agent_configuration'").Scan(&configOwner).Error; e != nil || configOwner != "agent_configuration_owner" {
-			return d.ErrUnavailable
-		}
-		for _, sql := range []string{"SET LOCAL ROLE agent_configuration_owner", `CREATE TABLE IF NOT EXISTS agent_configuration.skill_admissions(organization_id varchar(128) NOT NULL,agent_id varchar(128) NOT NULL CHECK(agent_id='product.content.agent'),allow_personal boolean NOT NULL,revision bigint NOT NULL CHECK(revision>0),updated_by varchar(128) NOT NULL,updated_at timestamptz NOT NULL,PRIMARY KEY(organization_id,agent_id),FOREIGN KEY(organization_id,agent_id) REFERENCES agent_configuration.organization_agents(organization_id,agent_id))`, "REVOKE ALL ON agent_configuration.skill_admissions FROM PUBLIC", "RESET ROLE"} {
-			if e := tx.Exec(sql).Error; e != nil {
-				return e
-			}
+		if e := configstore.InstallSkillAdmissionSchema(ctx, tx); e != nil {
+			return e
 		}
 		return VerifySchema(ctx, tx)
 	})
@@ -52,21 +46,19 @@ func VerifySchema(ctx context.Context, db *gorm.DB) error {
 		return d.ErrUnavailable
 	}
 	expected := map[string]string{
-		"skill_capability.skills":              "created_at:timestamp with time zone:false|creator:character varying(128):false|head_version:bigint:false|id:uuid:false|owner_id:character varying(128):false|owner_kind:character varying(16):false|revision:bigint:false|updated_at:timestamp with time zone:false",
-		"skill_capability.versions":            "allow_copy:boolean:false|allow_export:boolean:false|created_at:timestamp with time zone:false|digest:character varying(64):false|files:bytea:false|skill_id:uuid:false|source_ref:bytea:true|state:character varying(8):false|version:bigint:false|visibility:character varying(8):false",
-		"skill_capability.commands":            "actor_id:character varying(128):false|fingerprint:character varying(64):false|key:uuid:false|owner_id:character varying(128):false|owner_kind:character varying(16):false|receipt:bytea:false",
-		"skill_capability.share_requests":      "consent:boolean:false|created_at:timestamp with time zone:false|id:uuid:false|organization_id:character varying(128):false|result_skill_id:uuid:true|source_digest:character varying(64):false|source_skill_id:uuid:false|source_version:bigint:false|state:character varying(16):false|submitted_by:character varying(128):false|updated_at:timestamp with time zone:false",
-		"agent_configuration.skill_admissions": "agent_id:character varying(128):false|allow_personal:boolean:false|organization_id:character varying(128):false|revision:bigint:false|updated_at:timestamp with time zone:false|updated_by:character varying(128):false",
+		"skill_capability.skills":         "created_at:timestamp with time zone:false|creator:character varying(128):false|head_version:bigint:false|id:uuid:false|owner_id:character varying(128):false|owner_kind:character varying(16):false|revision:bigint:false|updated_at:timestamp with time zone:false",
+		"skill_capability.versions":       "allow_copy:boolean:false|allow_export:boolean:false|created_at:timestamp with time zone:false|digest:character varying(64):false|files:bytea:false|skill_id:uuid:false|source_ref:bytea:true|state:character varying(8):false|version:bigint:false|visibility:character varying(8):false",
+		"skill_capability.commands":       "actor_id:character varying(128):false|fingerprint:character varying(64):false|key:uuid:false|owner_id:character varying(128):false|owner_kind:character varying(16):false|receipt:bytea:false",
+		"skill_capability.share_requests": "consent:boolean:false|created_at:timestamp with time zone:false|id:uuid:false|organization_id:character varying(128):false|result_skill_id:uuid:true|source_digest:character varying(64):false|source_skill_id:uuid:false|source_version:bigint:false|state:character varying(16):false|submitted_by:character varying(128):false|updated_at:timestamp with time zone:false",
 	}
 	// Frozen PostgreSQL constraint contracts from this explicit installer DDL.
 	// Names, qualified foreign targets, expressions and validation all participate;
 	// merely finding a CHECK or primary key cannot admit a weakened schema.
 	constraints := map[string]string{
-		"agent_configuration.skill_admissions": "b207bf1e2bce9ebd9ae9cc868d5c0b4f4f60c8ef9cb78cf37e300c23e71611a4",
-		"skill_capability.commands":            "0dba9a05550b5bf83164e603ebd3edbb82c5fb954d94bfb52e0fdc49eb578b5c",
-		"skill_capability.share_requests":      "a136a9aa05483ac138119194bd6c5689a566537d6f5c6c4f40107193ea48afbc",
-		"skill_capability.skills":              "bc12f6b39f71ad181445f691ad41a6ab0eb879138b55b6b4398e2e4938768f94",
-		"skill_capability.versions":            "019e8629374d2a71f80b1f211c5c7e48a18c708c9a7f77f884d3197445b6b1cc",
+		"skill_capability.commands":       "0dba9a05550b5bf83164e603ebd3edbb82c5fb954d94bfb52e0fdc49eb578b5c",
+		"skill_capability.share_requests": "a136a9aa05483ac138119194bd6c5689a566537d6f5c6c4f40107193ea48afbc",
+		"skill_capability.skills":         "bc12f6b39f71ad181445f691ad41a6ab0eb879138b55b6b4398e2e4938768f94",
+		"skill_capability.versions":       "019e8629374d2a71f80b1f211c5c7e48a18c708c9a7f77f884d3197445b6b1cc",
 	}
 	for table, shape := range expected {
 		var row struct {
@@ -77,9 +69,6 @@ func VerifySchema(ctx context.Context, db *gorm.DB) error {
 			return d.ErrUnavailable
 		}
 		owner := "skill_capability_owner"
-		if strings.HasPrefix(table, "agent_configuration.") {
-			owner = "agent_configuration_owner"
-		}
 		if row.Shape != shape || row.Owner != owner || !row.Valid {
 			return d.ErrUnavailable
 		}
@@ -91,6 +80,9 @@ func VerifySchema(ctx context.Context, db *gorm.DB) error {
 		if hex.EncodeToString(sum[:]) != constraints[table] {
 			return d.ErrUnavailable
 		}
+	}
+	if e := configstore.VerifySkillAdmissionSchema(ctx, db); e != nil {
+		return d.ErrUnavailable
 	}
 	return nil
 }
@@ -117,6 +109,18 @@ func GrantRuntime(ctx context.Context, db *gorm.DB, role string) error {
 		if e := tx.Raw(`SELECT has_schema_privilege(?,'skill_capability','CREATE') OR has_table_privilege(?,'skill_capability.versions','DELETE,TRUNCATE,UPDATE') OR has_any_column_privilege(?,'skill_capability.commands','UPDATE') OR has_column_privilege(?,'skill_capability.versions','files','UPDATE') OR has_column_privilege(?,'skill_capability.versions','digest','UPDATE') OR has_column_privilege(?,'skill_capability.skills','owner_id','UPDATE')`, role, role, role, role, role, role).Scan(&unsafe).Error; e != nil || unsafe {
 			return d.ErrForbidden
 		}
-		return nil
+		for table, columns := range map[string]string{
+			"skills":         "'head_version','revision','updated_at'",
+			"versions":       "'state','visibility'",
+			"share_requests": "'state','result_skill_id','updated_at'",
+			"commands":       "''",
+		} {
+			qualified := "skill_capability." + table
+			query := `SELECT has_table_privilege(?,?,'DELETE,TRUNCATE') OR EXISTS(SELECT 1 FROM pg_attribute WHERE attrelid=to_regclass(?) AND attnum>0 AND NOT attisdropped AND attname NOT IN (` + columns + `) AND has_column_privilege(?,attrelid,attname,'UPDATE'))`
+			if e := tx.Raw(query, role, qualified, qualified, role).Scan(&unsafe).Error; e != nil || unsafe {
+				return d.ErrForbidden
+			}
+		}
+		return configstore.GrantSkillAdmissionRuntime(ctx, tx, role)
 	})
 }

@@ -1,0 +1,8 @@
+.dialog{width:min(850px,calc(100vw - 32px));max-height:90dvh;overflow:auto;padding:24px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground)}
+.dialog::backdrop{background:rgb(0 0 0 / .5)}
+.dialog h2,.dialog h3{font-weight:600;margin:12px 0}.dialog p{margin:10px 0;color:var(--muted-foreground)}
+.actions{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin:12px 0}
+.list{display:grid;gap:10px;margin:16px 0;list-style:none;padding:0}.list li{border:1px solid var(--border);border-radius:var(--radius);padding:12px}.list button{cursor:pointer;text-align:start;display:grid;gap:6px;width:100%}.list button:disabled{opacity:.6;cursor:default}.list small{color:var(--muted-foreground)}
+.form{display:grid;gap:16px}.form label,.detail label{display:grid;gap:6px}.form input:not([type=checkbox]),.form textarea,.detail select{border:1px solid var(--border);border-radius:8px;background:var(--background);color:var(--foreground);padding:10px;width:100%}.form textarea{font-family:var(--font-mono),monospace;font-size:13px}
+.notice,.detail{border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-top:16px}.digest{overflow-wrap:anywhere}.detail pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:300px;overflow:auto;padding:12px;background:var(--secondary);font-size:13px}.detail details{margin:10px 0}.detail summary{cursor:pointer}
+@media(max-width:600px){.dialog{padding:16px}.actions{gap:8px}.dialog button{min-height:40px}}
