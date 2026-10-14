@@ -28,7 +28,13 @@ func PrepareImageProduct(contextID string, original, effective catalog.Published
 	if err != nil {
 		return imageagent.ImageSetPreparation{}, err
 	}
-	return imageagent.ImageSetPreparation{Source: imageagent.ImageSourceBinding{ProductID: original.Identity.ProductKey, OperationID: contextID, OriginalPublicationID: original.PublicationID, OriginalVersion: original.Version, EffectiveVersion: effective.Version, ApplyReceiptID: applyID, CatalogHash: resolved.Manifest.Hash}, Catalog: resolved, Evidence: facts}, nil
+	generated := false
+	for _, source := range original.Snapshot.Sources {
+		if source.Type == "agent_generated" || source.Platform == "pod_artwork" || source.ReferenceType == imageagent.ArtworkSchema {
+			generated = true
+		}
+	}
+	return imageagent.ImageSetPreparation{GeneratedArtwork: generated, Source: imageagent.ImageSourceBinding{ProductID: original.Identity.ProductKey, OperationID: contextID, OriginalPublicationID: original.PublicationID, OriginalVersion: original.Version, EffectiveVersion: effective.Version, ApplyReceiptID: applyID, CatalogHash: resolved.Manifest.Hash}, Catalog: resolved, Evidence: facts}, nil
 }
 
 func ImageProductEvidence(product catalog.ProductSnapshot) (map[string]string, error) {

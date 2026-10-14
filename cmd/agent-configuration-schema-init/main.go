@@ -22,9 +22,10 @@ func main() {
 	contentOnly := flag.Bool("content-configuration-only", false, "add only the content parameter carrier and exact checks; retain existing facts, activations and grants")
 	materialsOnly := flag.Bool("materials-configuration-only", false, "add only exact registered platform materials checks; retain existing facts, activations and grants")
 	skillsOnly := flag.Bool("skills-only", false, "add bounded Skill storage and content personal-Skill admission; do not enable agents or import templates")
+	artworkOnly := flag.Bool("artwork-configuration-only", false, "add only exact POD creative configuration checks; retain existing facts, activations and grants")
 	flag.Parse()
 	selected := 0
-	for _, v := range []bool{*modesOnly, *contentOnly, *materialsOnly, *skillsOnly} {
+	for _, v := range []bool{*modesOnly, *contentOnly, *materialsOnly, *skillsOnly, *artworkOnly} {
 		if v {
 			selected++
 		}
@@ -56,6 +57,9 @@ func main() {
 				return e
 			}
 			return skillstore.GrantRuntime(ctx, tx, *role)
+		}
+		if *artworkOnly {
+			return store.UpdateArtworkConfigurationSchema(ctx, tx, *role)
 		}
 		if *materialsOnly {
 			return store.UpdateMaterialsConfigurationSchema(ctx, tx, *role)

@@ -65,7 +65,7 @@ func slotExecutionInputV3(input ExecuteSlotV3ActivityInput) imageagent.SlotExecu
 		}
 	}
 	return imageagent.SlotExecutionInput{
-		ImageSet:             imageagent.CloneImageSetPlan(input.ImageSet),
+		ImageSet: imageagent.CloneImageSetPlan(input.ImageSet), Artwork: imageagent.CloneArtworkPlan(input.Artwork),
 		OrganizationIdentity: input.Identity,
 		RunID:                input.RunID, TenantID: input.Identity.TenantID, UserID: input.Identity.UserID,
 		TargetPlatform: input.TargetPlatform, ImagePolicyContext: clonePolicyContext(input.ImagePolicyContext),
@@ -85,11 +85,25 @@ func slotEffectReservationV3(input imageagent.SlotExecutionInput) imageagent.Slo
 }
 
 func prepareGeneratedSlotArtifacts(input imageagent.SlotExecutionInput, generated imageagent.SlotGeneratedOutput, store DurableArtifactStore) (objectstore.PreparedSlotArtifacts, error) {
-	if generated.SlotID != input.Slot.ID || generated.Attempt != input.Attempt || strings.TrimSpace(generated.SourceAssetID) == "" || len(generated.Assets) == 0 {
+	if generated.SlotID != input.Slot.ID || generated.Attempt != input.Attempt || len(generated.Assets) == 0 {
+		return objectstore.PreparedSlotArtifacts{}, imageagent.ErrValidation
+	}
+	if input.Artwork != nil {
+		if imageagent.ValidateArtworkExecution(input) != nil || generated.SourceAssetID != "" || len(generated.Assets) != 1 {
+			return objectstore.PreparedSlotArtifacts{}, imageagent.ErrValidation
+		}
+	} else if strings.TrimSpace(generated.SourceAssetID) == "" {
 		return objectstore.PreparedSlotArtifacts{}, imageagent.ErrValidation
 	}
 	assets := make([]objectstore.ArtifactInput, len(generated.Assets))
 	for index, generatedAsset := range generated.Assets {
+		if input.Artwork != nil {
+			if generatedAsset.Artwork == nil || generatedAsset.Artwork.ValidateForInput(input) != nil {
+				return objectstore.PreparedSlotArtifacts{}, imageagent.ErrRevisionConflict
+			}
+		} else if generatedAsset.Artwork != nil {
+			return objectstore.PreparedSlotArtifacts{}, imageagent.ErrRevisionConflict
+		}
 		data := append([]byte(nil), generatedAsset.Bytes...)
 		if data == nil {
 			localPath := strings.TrimSpace(generatedAsset.Metadata["local_path"])
@@ -118,7 +132,8 @@ func prepareGeneratedSlotArtifacts(input imageagent.SlotExecutionInput, generate
 			return objectstore.PreparedSlotArtifacts{}, imageagent.ErrValidation
 		}
 		assets[index] = objectstore.ArtifactInput{
-			Bytes: data, ContentType: contentType, Width: info.Width, Height: info.Height,
+			Artwork: generatedAsset.Artwork,
+			Bytes:   data, ContentType: contentType, Width: info.Width, Height: info.Height,
 			SourceAssetID: generated.SourceAssetID, Operations: generatedAsset.Operations,
 			ProviderReceiptID: generatedAsset.ProviderReceiptID,
 		}
@@ -171,6 +186,7 @@ func expectedFinalManifestV3(input imageagent.SlotExecutionInput, staging imagea
 			return imageagent.FinalManifest{}, imageagent.ErrValidation
 		}
 		asset := imageagent.PublishedAssetRef{
+			Artwork:   staged.Artwork,
 			ObjectKey: strings.Replace(staged.ObjectKey, "image-agent/staging/", imageagent.PublishedArtifactPrefix+"/", 1),
 			SHA256:    staged.SHA256, SizeBytes: staged.SizeBytes, ContentType: staged.ContentType,
 			Width: staged.Width, Height: staged.Height, SourceAssetID: staged.SourceAssetID,

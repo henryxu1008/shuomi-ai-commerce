@@ -51,6 +51,9 @@ func verifyContentSchemaShape(tx *gorm.DB) (bool, error) {
 		if exactSchemaChecks(checks, map[string]string{"template_revisions_check": materialsParametersCheck, "template_revisions_schema_version_check": materialsSchemaVersionCheck}) {
 			expected["template_revisions_check"], expected["template_revisions_schema_version_check"] = materialsParametersCheck, materialsSchemaVersionCheck
 		}
+		if exactSchemaChecks(checks, map[string]string{"template_revisions_check": artworkParametersCheck, "template_revisions_schema_version_check": artworkSchemaVersionCheck}) {
+			expected["template_revisions_check"], expected["template_revisions_schema_version_check"] = artworkParametersCheck, artworkSchemaVersionCheck
+		}
 	}
 	if len(checks) != len(expected) {
 		return false, agentconfig.ErrInvalid
@@ -86,12 +89,12 @@ func exactSchemaChecks(checks []contentSchemaCheck, expected map[string]string) 
 // UpdateContentConfigurationSchema is initializer-only: one bounded DDL
 // transaction under the existing non-login owner, without any business DML.
 func UpdateContentConfigurationSchema(ctx context.Context, db *gorm.DB, runtimeRole string) error {
-	return updateConfigurationSchema(ctx, db, runtimeRole, false)
+	return updateConfigurationSchema(ctx, db, runtimeRole, false, false)
 }
 
 // Both explicit consumers reuse the existing owner/role/transaction checks.
 // The materials addition changes only two exact CHECKs, without a new carrier.
-func updateConfigurationSchema(ctx context.Context, db *gorm.DB, runtimeRole string, materials bool) error {
+func updateConfigurationSchema(ctx context.Context, db *gorm.DB, runtimeRole string, materials, artwork bool) error {
 	if ctx == nil || db == nil || db.Dialector.Name() != "postgres" || !regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`).MatchString(runtimeRole) {
 		return agentconfig.ErrInvalid
 	}
@@ -157,6 +160,28 @@ func updateConfigurationSchema(ctx context.Context, db *gorm.DB, runtimeRole str
 			}
 		}
 		// Preserve existing grants, roles, and all original facts. The new carrier
+		if artwork {
+			installed, err := artworkChecksInstalled(tx)
+			if err != nil {
+				return err
+			}
+			target, err := artworkTargetInstalled(tx)
+			if err != nil || installed != target {
+				return agentconfig.ErrInvalid
+			}
+			if !installed {
+				if err := tx.Exec(`ALTER TABLE agent_configuration.template_revisions
+ DROP CONSTRAINT template_revisions_schema_version_check, DROP CONSTRAINT template_revisions_check, DROP CONSTRAINT template_revisions_target_platform_check,
+ ADD CONSTRAINT template_revisions_schema_version_check ` + artworkSchemaVersionDDL + `,
+ ADD CONSTRAINT template_revisions_check ` + artworkParametersDDL + `,
+ ADD CONSTRAINT template_revisions_target_platform_check ` + artworkTargetDDL).Error; err != nil {
+					return err
+				}
+			}
+			if err := VerifyArtworkConfigurationSchema(ctx, tx); err != nil {
+				return err
+			}
+		}
 		// inherits no mutation authority over immutable revisions.
 		if err := tx.Exec(`GRANT SELECT (content_parameters), INSERT (content_parameters) ON agent_configuration.template_revisions TO "` + runtimeRole + `"`).Error; err != nil {
 			return err

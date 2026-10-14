@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"gorm.io/gorm"
+	"sort"
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	confighttp "task-processor/internal/agentconfig/httpapi"
@@ -48,12 +49,15 @@ func productImageRegistration() commercetool.AgentDefinition {
 func (productAgentCatalog) ReadCatalog(context.Context) ([]agentconfig.CatalogEntry, error) {
 	d, _ := productTitleRegistration()
 	content, _ := contentagent.Registration()
-	return []agentconfig.CatalogEntry{
+	entries := []agentconfig.CatalogEntry{
+		{Definition: commercetool.AgentDefinition{ID: agentconfig.ArtworkAgentID, Version: agentconfig.ArtworkAgentVersion}, Name: "POD设计智能体", Description: "从主题生成全新图案，确认保存后进入模板布局与效果图流程。", ParameterSchema: agentconfig.ArtworkParameterSchema},
 		{Definition: materialsinspect.AgentDefinition(), Name: "平台上架资料智能体", Description: "使用标准商品和当前店铺规则完善类目、属性、SKU与已批准图片资料，保存可核对的本地平台草稿。", ParameterSchema: agentconfig.MaterialsParameterSchema},
 		{Definition: content, Name: "商品内容完善与本地化智能体", Description: "按明确目标语言和字段生成标题、描述、卖点与SEO关键词建议，按当前权限核对并采用到本地商品。", ParameterSchema: agentconfig.ContentParameterSchema},
 		{Definition: productImageRegistration(), Name: "商品图片智能体", Description: "基于真实商品素材规划整套主图和详情图，确认点数后分别生成，人工选择并批准商品图片。", ParameterSchema: agentconfig.ImageParameterSchema},
 		{Definition: d, Name: "商品标题优化智能体", Description: "读取商品证据生成标题建议，经过人工审核后显式应用。", ParameterSchema: agentconfig.ParameterSchema},
-	}, nil
+	}
+	sort.Slice(entries, func(i, j int) bool { return entries[i].Definition.ID < entries[j].Definition.ID })
+	return entries, nil
 }
 func WithAgentConfiguration(db *gorm.DB) CurrentApplicationOption {
 	return func(o *currentApplicationOptions) { o.agentConfigurationDB = db }
@@ -146,9 +150,14 @@ func buildAgentConfigurationModule(ctx context.Context, db *gorm.DB, resolver or
 			capabilities[1].Reason = "读取当前企业保存商品的真实来源，执行时重新核实权限与版本"
 			return capabilities
 		}
-		if entry.Definition.ID == agentconfig.ImageAgentID {
+		if entry.Definition.ID == agentconfig.ImageAgentID || entry.Definition.ID == agentconfig.ArtworkAgentID {
 			capabilities := productImageAgentCapabilities(ctx, h.Authorize)
-			if imageRuntime != nil {
+			if entry.Definition.ID == agentconfig.ArtworkAgentID {
+				capabilities[1].Support = "NOT_SUPPORTED"
+				capabilities[1].Readiness = "UNAVAILABLE"
+				capabilities[1].Reason = "从主题创作全新图案，无需商品原图"
+			}
+			if imageRuntime != nil && (entry.Definition.ID != agentconfig.ArtworkAgentID || imageRuntime.artwork != nil) {
 				capability := &capabilities[0]
 				id, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
 				_, authorization := h.Authorize(ctx, authz.PermissionImageAgentWrite)
@@ -162,6 +171,9 @@ func buildAgentConfigurationModule(ctx context.Context, db *gorm.DB, resolver or
 					if err == nil {
 						capability.Readiness = "AVAILABLE"
 						capability.Reason = "可准备整套计划，确认点数后生成"
+						if entry.Definition.ID == agentconfig.ArtworkAgentID {
+							capability.Reason = "可输入主题准备原创图案报价，确认后生成"
+						}
 					} else {
 						capability.Readiness = "NEEDS_CONFIGURATION"
 						capability.Reason = "需要有效的企业图片模型配置与凭据"
@@ -178,6 +190,9 @@ func buildAgentConfigurationModule(ctx context.Context, db *gorm.DB, resolver or
 		}
 		if entry.Definition.ID == agentconfig.ContentAgentID {
 			return runtime != nil && runtime.content != nil
+		}
+		if entry.Definition.ID == agentconfig.ArtworkAgentID {
+			return imageRuntime != nil && imageRuntime.artwork != nil
 		}
 		if entry.Definition.ID == agentconfig.ImageAgentID {
 			return imageRuntime != nil && imageRuntime.recent != nil
@@ -204,6 +219,17 @@ func buildAgentConfigurationModule(ctx context.Context, db *gorm.DB, resolver or
 				}
 				return nil
 			})
+		}
+		if id == agentconfig.ArtworkAgentID {
+			if imageRuntime == nil {
+				return nil, "", agentconfig.ErrUnavailable
+			}
+			reader, ok := imageRuntime.recent.(imageagent.ArtworkRunReader)
+			identity, valid := authidentity.AuthenticatedIdentityFromContext(ctx)
+			if !ok || !valid || identity.UserID != scope.ActorID || identity.TenantID != scope.OrganizationID {
+				return nil, "", agentconfig.ErrForbidden
+			}
+			return reader.ListArtworkRuns(ctx, imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, TenantID: identity.TenantID, UserID: identity.UserID, MemberID: identity.EffectiveMemberID}, cursor, size)
 		}
 		if id == agentconfig.ImageAgentID {
 			if imageRuntime == nil {

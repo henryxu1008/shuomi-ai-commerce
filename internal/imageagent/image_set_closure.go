@@ -16,7 +16,7 @@ func (q ImageGenerationQuote) MatchesGenerationIntent(intent GenerationIntent) b
 // This is a view of original generation/settlement facts, never a new resource
 // decision. Callers must resolve the original fact through its effect owner.
 func ImageGenerationClosure(fact GenerationFact) (*ImageSlotClosure, error) {
-	if fact.Validate() != nil || fact.Intent.InputProtocol != ImageSetSchema {
+	if fact.Validate() != nil || (fact.Intent.InputProtocol != ImageSetSchema && fact.Intent.InputProtocol != ArtworkSchema) {
 		return nil, ErrRevisionConflict
 	}
 	if fact.Settlement == (GenerationSettlementReceipt{}) || fact.State != GenerationSucceeded && fact.State != GenerationNoEffect {

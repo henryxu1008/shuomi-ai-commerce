@@ -57,6 +57,16 @@ export function findConsoleRoute(pathname: string): ConsoleRoute | undefined {
     const node:ConsoleNavNode={label:pathname.endsWith("/new")?"添加自有商品":"自有商品资料",href:pathname,availability:parent.node.availability};
     return {node,trail:[...parent.trail,node]};
   }
+  if (/^\/workbench\/data\/mine\/own\/[0-9a-f-]{36}\/prepare$/.test(pathname)) {
+    const parent=findConsoleRoute(pathname.slice(0,-8))!;
+    const node:ConsoleNavNode={label:"转入待补全",href:pathname,availability:parent.node.availability};
+    return {node,trail:[...parent.trail,node]};
+  }
+  if (/^\/workbench\/supply\/mine\/missing\/[0-9a-f-]{36}$/.test(pathname)) {
+    const parent=findConsoleRoute("/workbench/supply/mine/missing")!;
+    const node:ConsoleNavNode={label:"待补全草稿",href:pathname,availability:parent.node.availability};
+    return {node,trail:[...parent.trail,node]};
+  }
   if (/^\/workbench\/ai\/knowledge\/official\/[a-z][a-z0-9-]{0,63}\/revisions\/[1-9][0-9]{0,8}$/.test(pathname)) {
     const parent = findConsoleRoute("/workbench/ai/knowledge/official")!;
     const node: ConsoleNavNode = {label: "资料版本", href: pathname, availability: "connected"};

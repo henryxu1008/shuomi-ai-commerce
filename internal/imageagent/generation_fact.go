@@ -117,10 +117,26 @@ func NewGenerationFact(intent GenerationIntent) (GenerationFact, error) {
 	}
 	version := 1
 	if intent.InputProtocol != "" || intent.InputDigest != "" {
-		if intent.InputProtocol != ImageSetSchema || !generationDigest(intent.InputDigest) {
+		if !generationDigest(intent.InputDigest) {
 			return GenerationFact{}, ErrValidation
 		}
-		version = 2
+		switch intent.InputProtocol {
+		case ImageSetSchema:
+			if intent.PromptVersion == ArtworkSchema {
+				return GenerationFact{}, ErrValidation
+			}
+			version = 2
+		case ArtworkSchema:
+			catalog, err := NormalizeAssetCatalog(AssetCatalog{})
+			if err != nil || intent.CatalogHash != catalog.Manifest.Hash || intent.SourceDigest != intent.InputDigest || intent.PromptVersion != ArtworkSchema {
+				return GenerationFact{}, ErrValidation
+			}
+			version = 3
+		default:
+			return GenerationFact{}, ErrValidation
+		}
+	} else if intent.PromptVersion == ArtworkSchema {
+		return GenerationFact{}, ErrValidation
 	}
 	return GenerationFact{Version: version, Intent: intent, IntentID: generationHash(intent.Identity), Fingerprint: generationHash(intent), State: GenerationPrepared}, nil
 }

@@ -6,6 +6,7 @@ import (
 	"gorm.io/gorm"
 	"net/http"
 	"strings"
+	"task-processor/internal/agentconfig"
 	podapp "task-processor/internal/app/pod"
 	podhttp "task-processor/internal/app/pod/httpapi"
 	"task-processor/internal/app/productsourcing"
@@ -15,10 +16,18 @@ import (
 	"task-processor/internal/authz"
 	"task-processor/internal/core/config"
 	"task-processor/internal/httproute"
+	"task-processor/internal/imageagent"
+	imagestore "task-processor/internal/imageagent/store"
+	configstore "task-processor/internal/integration/persistence/agentconfig"
 	assetstore "task-processor/internal/integration/persistence/product/asset"
+	catalogstore "task-processor/internal/integration/persistence/product/catalog"
+	collectionstore "task-processor/internal/integration/persistence/product/collection"
 	marketstore "task-processor/internal/integration/persistence/product/supplymarket"
 	"task-processor/internal/integration/sds"
 	kernelmodule "task-processor/internal/kernel/module"
+	"task-processor/internal/product/asset"
+	"task-processor/internal/product/collection"
+	"task-processor/internal/product/pod"
 	"task-processor/internal/product/supplymarket"
 	markethttp "task-processor/internal/product/supplymarket/httpapi"
 	"task-processor/internal/workbenchcontext"
@@ -29,13 +38,16 @@ type SupplyMarketDependencies struct {
 	Storage supplymarket.PrivateFileStorage
 }
 type PODDependencies struct {
-	AssetDB     *gorm.DB
-	Credentials sds.CredentialSource
-	HTTP        *http.Client
-	OSSHosts    []string
-	Starter     podapp.Starter
-	NewWorker   podapp.WorkerFactory
-	Worker      *podapp.Worker
+	GeneratedArtworkBytes func(context.Context, collection.Scope, pod.ArtworkReference, asset.ApprovedAsset, int64) ([]byte, bool, error)
+	ArtworkOriginGuard    podapp.ArtworkOriginAuthorizer
+	SourceApprovalGuard   asset.SourceApprovalCommitGuard
+	AssetDB               *gorm.DB
+	Credentials           sds.CredentialSource
+	HTTP                  *http.Client
+	OSSHosts              []string
+	Starter               podapp.Starter
+	NewWorker             podapp.WorkerFactory
+	Worker                *podapp.Worker
 }
 
 func WithSupplyMarket(d SupplyMarketDependencies) CurrentApplicationOption {
@@ -85,7 +97,7 @@ func buildSupplyMarketModule(ctx context.Context, db *gorm.DB, d SupplyMarketDep
 		if e = assetstore.VerifySourceRuntimePermissions(ctx, p.AssetDB); e != nil {
 			return empty, e
 		}
-		pod, e := podapp.NewApplication(ctx, podapp.Dependencies{ProductDB: db, AssetDB: p.AssetDB, Authorization: auth, OriginalAuthorization: original, DesignAuthorization: original, Collections: collections, Credentials: p.Credentials, HTTP: p.HTTP, OSSHosts: p.OSSHosts, Starter: p.Starter, ReceiveProduct: productsourcing.ReceivePOD})
+		pod, e := podapp.NewApplication(ctx, podapp.Dependencies{GeneratedArtworkBytes: p.GeneratedArtworkBytes, ArtworkOriginGuard: p.ArtworkOriginGuard, SourceApprovalGuard: p.SourceApprovalGuard, ProductDB: db, AssetDB: p.AssetDB, Authorization: auth, OriginalAuthorization: original, DesignAuthorization: original, Collections: collections, Credentials: p.Credentials, HTTP: p.HTTP, OSSHosts: p.OSSHosts, Starter: p.Starter, ReceiveProduct: productsourcing.ReceivePOD})
 		if e != nil {
 			return empty, e
 		}
@@ -112,4 +124,40 @@ func validateMarketPODDescriptor(r httproute.Descriptor) error {
 		}
 	}
 	return errors.New("market/POD route not admitted")
+}
+
+// Generated artwork enters Source only through the admitted Supply Market/POD composition.
+func buildArtworkOriginGuard(productDB, imageDB, configurationDB *gorm.DB) (*productsourcing.ArtworkOriginGuard, error) {
+	snapshots, err := catalogstore.NewBoundedSnapshotReader(productDB, 2<<20)
+	if err != nil {
+		return nil, err
+	}
+	configuration, err := configstore.New(configurationDB)
+	if err != nil {
+		return nil, err
+	}
+	images := imagestore.NewOrganizationRepository(imageDB)
+	facts, ok := images.(imageagent.GenerationFactRepository)
+	if !ok {
+		return nil, imageagent.ErrCommandBlocked
+	}
+	return &productsourcing.ArtworkOriginGuard{Snapshots: snapshots, Images: images, Facts: facts, Configuration: configuration}, nil
+}
+
+func buildPODArtworkPublisher(ctx context.Context, productDB *gorm.DB, images imageagent.Repository, urls imageagent.DurableAssetPublicURLResolver, configuration agentconfig.ArtworkConfigurationRepository, authorization collection.Authorizer, trial *imageagent.IsolatedTrialGeneratedURLPolicy) (imageagent.ArtworkPublisher, error) {
+	repository, err := collectionstore.NewRepository(ctx, productDB, func(tx *gorm.DB) (collectionstore.OwnPublisher, error) {
+		return productsourcing.NewOwnProductWriter(tx, authorization)
+	})
+	if err != nil {
+		return nil, err
+	}
+	facts, ok := images.(imageagent.GenerationFactRepository)
+	if !ok {
+		return nil, imageagent.ErrCommandBlocked
+	}
+	artifacts, ok := images.(imageagent.SlotExternalEffectV3Repository)
+	if !ok {
+		return nil, imageagent.ErrCommandBlocked
+	}
+	return &productsourcing.ArtworkReceiver{Images: images, Facts: facts, Artifacts: artifacts, URLs: urls, TrialURLs: trial, Configuration: configuration, Collections: repository, Authorize: authorization}, nil
 }

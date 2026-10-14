@@ -110,7 +110,7 @@ func validateGenerationSourceCatalog(persisted, supplied imageagent.AssetCatalog
 }
 
 func revalidateGenerationImageSet(ctx context.Context, repository imageagent.Repository, contexts imageagent.ImageSetSourceGuard, input imageagent.SlotExecutionInput) error {
-	if input.ImageSet == nil {
+	if input.ImageSet == nil && input.Artwork == nil {
 		return nil
 	}
 	if contexts == nil {
@@ -122,6 +122,13 @@ func revalidateGenerationImageSet(ctx context.Context, repository imageagent.Rep
 	}
 	if !reflect.DeepEqual(projection.Plan.Set, input.ImageSet) {
 		return imageagent.ErrRevisionConflict
+	}
+	if projection.Plan.Artwork != nil || input.Artwork != nil {
+		guard, ok := contexts.(imageagent.ArtworkSourceGuard)
+		if !ok || !reflect.DeepEqual(projection.Plan.Artwork, input.Artwork) || imageagent.ValidateArtworkAdmission(projection.Run, projection.Plan) != nil {
+			return imageagent.ErrCommandBlocked
+		}
+		return guard.AuthorizeArtworkExecution(ctx, input.OrganizationIdentity, projection)
 	}
 	return contexts.AuthorizeImageSetSource(ctx, input.OrganizationIdentity, projection)
 }
@@ -140,10 +147,10 @@ func (a imageSetGenerationAuthorizer) AuthorizeExecution(ctx context.Context, id
 	if err != nil {
 		return err
 	}
-	if projection.Plan.Set == nil {
+	if projection.Plan.Set == nil && projection.Plan.Artwork == nil {
 		return nil
 	}
-	return revalidateGenerationImageSet(ctx, a.repository, a.sources, imageagent.SlotExecutionInput{RunID: id.RunID, TenantID: id.TenantID, UserID: id.UserID, OrganizationIdentity: id, ImageSet: projection.Plan.Set})
+	return revalidateGenerationImageSet(ctx, a.repository, a.sources, imageagent.SlotExecutionInput{RunID: id.RunID, TenantID: id.TenantID, UserID: id.UserID, OrganizationIdentity: id, ImageSet: projection.Plan.Set, Artwork: projection.Plan.Artwork})
 }
 
 func readGenerationSource(ctx context.Context, input imageagent.SlotExecutionInput) ([]byte, error) {

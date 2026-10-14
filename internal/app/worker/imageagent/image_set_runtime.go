@@ -49,17 +49,24 @@ func (e imageSetSlotExecutor) GenerateSlot(context.Context, imageagent.SlotExecu
 }
 func (e imageSetSlotExecutor) QuoteSlot(ctx context.Context, input imageagent.SlotExecutionInput, policy imageagent.BudgetPolicy) (imageagent.SlotUsageQuote, error) {
 	if input.ImageSet == nil || e.generation == nil {
-		return imageagent.SlotUsageQuote{}, imageagent.ErrCommandBlocked
+		if input.Artwork == nil || imageagent.ValidateArtworkExecution(input) != nil || e.generation == nil {
+			return imageagent.SlotUsageQuote{}, imageagent.ErrCommandBlocked
+		}
 	}
 	return e.generation.QuoteSlot(ctx, input, policy)
 }
 func (e imageSetSlotExecutor) GenerateQuotedSlot(ctx context.Context, input imageagent.SlotExecutionInput, quote imageagent.SlotUsageQuote) (imageagent.SlotGeneratedOutput, error) {
 	if input.ImageSet == nil || e.generation == nil {
-		return imageagent.SlotGeneratedOutput{}, imageagent.ErrCommandBlocked
+		if input.Artwork == nil || imageagent.ValidateArtworkExecution(input) != nil || e.generation == nil {
+			return imageagent.SlotGeneratedOutput{}, imageagent.ErrCommandBlocked
+		}
 	}
 	return e.generation.GenerateQuotedSlot(ctx, input, quote)
 }
 func (e imageSetSlotExecutor) BuildSlotResult(ctx context.Context, input imageagent.SlotExecutionInput, output imageagent.PublishedSlotOutput) (imageagent.SlotExecutionResult, error) {
+	if input.Artwork != nil {
+		return imagetools.NewArtworkSlotExecutor(nil).BuildSlotResult(ctx, input, output)
+	}
 	if input.ImageSet == nil || e.builder == nil {
 		return imageagent.SlotExecutionResult{}, imageagent.ErrCommandBlocked
 	}

@@ -17,10 +17,10 @@ import {usePODCommands} from "./commands";
 import type {LayoutTransform} from "./canvas";
 const DesignCanvas=dynamic(()=>import("./canvas").then(m=>m.DesignCanvas),{ssr:false});
 
-export function PODDesignPage({templateID="",variantID=""}:{templateID?:string;variantID?:string}){return <MarketBoundary>{scope=><Design scope={scope} initialTemplate={templateID} initialVariant={variantID}/>}</MarketBoundary>}
-function Design({scope,initialTemplate,initialVariant}:{scope:MarketScope;initialTemplate:string;initialVariant:string}){
+export function PODDesignPage({templateID="",variantID="",artworkID=""}:{templateID?:string;variantID?:string;artworkID?:string}){return <MarketBoundary>{scope=><Design scope={scope} initialTemplate={templateID} initialVariant={variantID} initialArtwork={artworkID}/>}</MarketBoundary>}
+function Design({scope,initialTemplate,initialVariant,initialArtwork}:{scope:MarketScope;initialTemplate:string;initialVariant:string;initialArtwork:string}){
  const commands=usePODCommands(scope),key=["pod",scope.userId,scope.organizationId];
- const [templateID,setTemplate]=useState(initialTemplate),[variantID,setVariant]=useState(initialVariant),[artworkID,setArtwork]=useState(""),[imageID,setImage]=useState("");
+ const [templateID,setTemplate]=useState(initialTemplate),[variantID,setVariant]=useState(initialVariant),[artworkID,setArtwork]=useState(initialArtwork),[imageID,setImage]=useState("");
  const [name,setName]=useState(""),[transforms,setTransforms]=useState<Record<string,LayoutTransform>>({}),[layerID,setLayer]=useState(""),[ready,setReady]=useState(false);
  const template=useQuery({queryKey:[...key,"template-item",templateID],queryFn:({signal})=>readCollectionItem(scope,templateID,signal),enabled:!!templateID});
  const isTemplate=template.data?.item.source.kind==="sds_template"&&!template.data.item.archivedAt;

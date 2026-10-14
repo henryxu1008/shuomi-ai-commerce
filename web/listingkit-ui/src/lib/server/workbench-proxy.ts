@@ -327,7 +327,7 @@ const sourceAccountErrorStatuses: Readonly<Record<string, number>> = {
 const workbenchRouteAllowlist = [
   ...imageSetRoutes.map(action=>routeDefinition(imageSetMethods[action],`image-set-${action}`,`image-set-${action}`,path=>imageSetPath(path,action))),
   ...supplyRouteMethods.map(([method,name])=>routeDefinition(method,`supply-${name}`,`supply-${name}`,path=>supplyPath(method,path)===name?path.join("/"):null)),
-  ...(["batches", "items", "own", "detail", "history", "history-detail", "operation", "command", "import-preview", "import-template", "media-upload", "media-read"] as const).map(name => {
+  ...(["batches", "batch", "items", "own", "detail", "history", "history-detail", "operation", "command", "import-preview", "import-template", "media-upload", "media-read"] as const).map(name => {
     const method = name === "command" || name === "import-preview" || name === "media-upload" ? "POST" : "GET";
     return routeDefinition(method, `collection-${name}`, `collection-${name}`, path => collectionPath(method, path) === name ? path.join("/") : null);
   }),
@@ -589,7 +589,7 @@ export async function buildWorkbenchUpstreamRequest(
         headers.set("Idempotency-Key", key);
       } else {
         if (!(await requestHasNoBody(request))) return protocolError(400, "INVALID_REQUEST", "Body is not allowed");
-        if((action==="history"||action==="history-detail")&&(request.headers.has("Idempotency-Key")||request.headers.has("content-encoding")))return protocolError(400,"INVALID_REQUEST","History read invalid");
+        if((action==="batch"||action==="history"||action==="history-detail")&&(request.headers.has("Idempotency-Key")||request.headers.has("content-encoding")))return protocolError(400,"INVALID_REQUEST","Collection read invalid");
         const allowed = action==="history"?new Set(["limit","before"]):action === "batches" || action === "items" || action === "own" ? new Set(["limit", "after", "keyword"]) : new Set<string>();
         for (const key of url.searchParams.keys()) {
           const values = url.searchParams.getAll(key);
@@ -1013,7 +1013,7 @@ export async function buildWorkbenchUpstreamRequest(
       route.requestContract==="product-acquisition-plan-read"||route.requestContract==="product-acquisition-plan-advance"?path[3]:
       (route.requestContract==="supply-target"||route.requestContract==="supply-publication"||route.requestContract==="supply-publication-status") ? `${path[2]}:${path[4]}` :
       ["supply-completion-draft","supply-completion-drafts","supply-source","supply-preparation","supply-record","supply-operation","supply-ensure","supply-cancel"].includes(route.requestContract) ? (["supply-preparation","supply-completion-drafts"].includes(route.requestContract)?path[1]:path[2]) :
-      route.requestContract === "collection-detail" ? path[2] :
+      route.requestContract === "collection-detail" || route.requestContract === "collection-batch" ? path[2] :
       route.requestContract === "collection-history" ? path[2] :
       route.requestContract === "collection-history-detail" ? `${path[2]}:${path[4]}` :
       route.requestContract.startsWith("product-agent-") ? (path[6]??request.headers.get("Idempotency-Key")??undefined) :

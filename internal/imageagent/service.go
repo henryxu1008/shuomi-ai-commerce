@@ -16,6 +16,7 @@ import (
 
 type Service struct {
 	imageSets         *ImageSetDependencies
+	artworks          *ArtworkDependencies
 	organizationScope bool
 	repository        Repository
 	workflows         WorkflowClient
@@ -104,7 +105,7 @@ func (s *Service) Start(ctx context.Context, input StartRunInput) error {
 	if err != nil {
 		return err
 	}
-	if input.Plan.Set != nil {
+	if input.Plan.Set != nil || input.Plan.Artwork != nil {
 		return fmt.Errorf("%w: image sets require PrepareImageSet and ConfirmImagePlan", ErrCommandBlocked)
 	}
 	if input.Mode != RunModeManual {
@@ -478,6 +479,9 @@ func (s *Service) Get(ctx context.Context, runID string) (RunProjection, error) 
 }
 
 func (s *Service) ReplacePlan(ctx context.Context, runID string, expectedRevision int64, plan Plan, actionID string) error {
+	if plan.Artwork != nil {
+		return ErrCommandBlocked
+	}
 	identity, err := s.commandIdentity(ctx, runID, expectedRevision, actionID)
 	if err != nil {
 		return err
@@ -574,7 +578,7 @@ func (s *Service) Cancel(ctx context.Context, runID string, planRevision int64, 
 	if err != nil {
 		return err
 	}
-	if current.Plan.Set != nil && current.Run.ImageAdmission == nil {
+	if (current.Plan.Set != nil || current.Plan.Artwork != nil) && current.Run.ImageAdmission == nil {
 		if _, err = s.identityForRun(identity, current.Run); err != nil {
 			return err
 		}

@@ -11,6 +11,7 @@ import (
 	podhttp "task-processor/internal/app/pod/httpapi"
 	supplyapp "task-processor/internal/app/supplychain"
 	supplyhttp "task-processor/internal/app/supplychain/httpapi"
+	imageworker "task-processor/internal/app/worker/imageagent"
 	billinghttp "task-processor/internal/commercial/billing/httpapi"
 	"task-processor/internal/product/collection"
 	markethttp "task-processor/internal/product/supplymarket/httpapi"
@@ -831,6 +832,21 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	var supplyRuntime *supplyChainModule
 	var imageRuntime *fullImageApplication
 	var marketRuntime *supplyMarketModule
+	if supplied.pod != nil && supplied.fullImages != nil {
+		guard, err := buildArtworkOriginGuard(supplied.productAcquisitionDB, supplied.imageAgentDB, supplied.agentConfigurationDB)
+		if err != nil {
+			return nil, err
+		}
+		materials, err := imageworker.NewImageSetMaterialReader(supplied.fullImages.WorkerConfig, logger)
+		if err != nil {
+			return nil, err
+		}
+		guard.URLs = imageAgentDurableAssetPublicURLResolver(supplied.fullImages.WorkerConfig)
+		guard.ReadGeneratedBytes = materials.Read
+		supplied.pod.GeneratedArtworkBytes = guard.ReadArtworkSourceBytes
+		supplied.pod.ArtworkOriginGuard = guard
+		supplied.pod.SourceApprovalGuard = guard.AuthorizeSourceApproval
+	}
 	if supplied.supplyMarket != nil {
 		module, e := buildSupplyMarketModule(ctx, supplied.productAcquisitionDB, *supplied.supplyMarket, supplied.pod, *workbench.authDependencies, authorizer, cfg, supplied.supplyChains > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.supplyCompletionDrafts > 0)
 		if e != nil {
@@ -942,7 +958,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			if supplied.collectionSourceMedia != nil && cfg.ProductCollectionSourceMedia.Enabled {
 				sourceMedia = newImageSetManualMedia(supplied.collectionSourceMedia, imageMediaScopeAuthority{current: live})
 			}
-			full, dependencies, e := buildFullImageApplication(ctx, supplied.productAcquisitionDB, supplied.imageAgentDB, supplied.fullImages.WorkerDB, supplied.agentConfigurationDB, supplied.commercialOwnerDB, supplied.fullImages.AssetDB, supplied.imageAgentWorkflows, products, live, supplyRuntime, cfg, supplied.fullImages.WorkerConfig, logger, sourceMedia)
+			full, dependencies, e := buildFullImageApplication(ctx, supplied.productAcquisitionDB, supplied.imageAgentDB, supplied.fullImages.WorkerDB, supplied.agentConfigurationDB, supplied.commercialOwnerDB, supplied.fullImages.AssetDB, supplied.imageAgentWorkflows, products, live, supplyRuntime, cfg, supplied.fullImages.WorkerConfig, supplied.productCollections == 1, logger, sourceMedia)
 			if e != nil {
 				return nil, fmt.Errorf("build full image application: %w", e)
 			}
@@ -1681,6 +1697,20 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 		}
 		if strings.HasPrefix(descriptor.Path, acquisitionImageBase) && (descriptor.Module != "acquisition-main-image" || descriptor.AuthPolicy != httproute.AuthPolicyVerifiedIdentity || descriptor.OrganizationAccessPolicy != httproute.OrganizationAccessPolicyLiveWrite || descriptor.RequestTimeout != 30*time.Second || descriptor.Permission != map[bool]string{true: authz.PermissionImageAgentRead, false: authz.PermissionImageAgentWrite}[descriptor.Method == http.MethodGet]) {
 			return errors.New("current acquisition image route loses live permission boundary")
+		}
+		if strings.HasPrefix(descriptor.Path, artworkAgentBase) {
+			if !optional.FullImageSet {
+				return errors.New("POD artwork application not admitted")
+			}
+			admitted := false
+			for _, route := range (fullImageModule{}).artworkRoutes() {
+				if descriptor.Method == route.Method && descriptor.Path == route.Path {
+					admitted = descriptor.Module == route.Module && descriptor.AuthPolicy == route.AuthPolicy && descriptor.OrganizationAccessPolicy == route.OrganizationAccessPolicy && descriptor.Permission == route.Permission && descriptor.RequestTimeout == route.RequestTimeout && descriptor.OrganizationTargetResolver == nil
+				}
+			}
+			if !admitted {
+				return errors.New("POD artwork route loses exact live permission boundary")
+			}
 		}
 		if strings.HasPrefix(descriptor.Path, acquisitionImageSetBase) || strings.HasPrefix(descriptor.Path, supplyImageSetBase) {
 			if !optional.FullImageSet {
