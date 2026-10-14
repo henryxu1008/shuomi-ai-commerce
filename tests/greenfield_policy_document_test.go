@@ -223,6 +223,34 @@ func TestGreenfieldNoLegacyMigrationPolicyIsConsistent(t *testing.T) {
 	}
 }
 
+func TestSourceAccountOwnershipMigrationToolsStayRetired(t *testing.T) {
+	for _, relative := range []string{
+		"cmd/source-account-ownership-preflight",
+		"internal/integration/persistence/sourceaccount/ownershipmigration",
+	} {
+		t.Run(relative, func(t *testing.T) {
+			err := filepath.WalkDir(filepath.Join("..", filepath.FromSlash(relative)), func(path string, entry os.DirEntry, err error) error {
+				if os.IsNotExist(err) {
+					return nil
+				}
+				if err != nil {
+					return err
+				}
+				if !entry.IsDir() {
+					t.Errorf("retired source-account migration artifact remains: %s", path)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+	if _, err := os.Stat(filepath.Join("..", "scripts", "source-account-ownership-preflight.ps1")); !os.IsNotExist(err) {
+		t.Fatal("retired source-account migration CLI wrapper must be absent")
+	}
+}
+
 func readGreenfieldPolicyDocument(t *testing.T, path string) string {
 	t.Helper()
 	contents, err := os.ReadFile(path)

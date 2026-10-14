@@ -41,7 +41,6 @@ func maintainedOperationalCommands() map[string]struct{} {
 		"product-acquisition-init":            {},
 		"shein-import-platform-recovery":      {},
 		"shein-login-worker":                  {},
-		"source-account-ownership-preflight":  {},
 		"store-center-schema-init":            {},
 		"source-account-registry-schema-init": {},
 		"organization-membership-schema-init": {},
