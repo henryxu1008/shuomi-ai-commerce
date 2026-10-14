@@ -59,6 +59,7 @@ const diagnosisPrepareSchema = diagnosisInputSchema.safeExtend({
 export const diagnosisPreparedSchema = z.strictObject({
   contextId: collectionID,
   requestKey: collectionID,
+  inspectionRef: diagnosisInspectionSchema.shape.ref,
   configurationSnapshotRef: materialsConfigurationRefSchema,
   modeSnapshotRef: modeSnapshotRefSchema,
   modeRevision: modeRevisionSchema,
@@ -191,7 +192,10 @@ export const diagnosisSavedPreparationSchema = z
   .refine(
     (v) =>
       v.input.contextId === v.prepared.contextId &&
-      v.input.requestKey === v.prepared.requestKey,
+      v.input.requestKey === v.prepared.requestKey &&
+      v.input.storeId === v.prepared.inspectionRef.StoreID &&
+      v.input.startDate === v.prepared.inspectionRef.StartDate &&
+      v.input.endDate === v.prepared.inspectionRef.EndDate,
   );
 export type DiagnosisIntent = z.infer<typeof diagnosisIntentSchema>;
 export type DiagnosisInspection = z.infer<typeof diagnosisInspectionSchema>;

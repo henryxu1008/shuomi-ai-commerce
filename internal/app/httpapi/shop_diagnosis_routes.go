@@ -142,7 +142,7 @@ func shopDiagnosisRoutes(app diagnosisHTTPService, bind func(context.Context, st
 					if err != nil {
 						e = err
 					} else {
-						out = gin.H{"contextId": contextID, "requestKey": key, "configurationSnapshotRef": agent.ConfigurationSnapshotRef{Kind: agentconfig.SnapshotKind, ID: snapshot.ID, Digest: snapshot.Digest}, "modeSnapshotRef": snapshot.Request.ModeSnapshotRef, "modeRevision": snapshot.ExpectedModeRevision, "maximumTokens": snapshot.Request.Limits.Tokens, "maximumCostMicros": snapshot.Request.Limits.CostMicros, "currency": snapshot.Request.Limits.Currency, "maximumCallCostMicros": cost}
+						out = gin.H{"contextId": contextID, "requestKey": key, "inspectionRef": snapshot.Request.Binding.StoreDiagnosis, "configurationSnapshotRef": agent.ConfigurationSnapshotRef{Kind: agentconfig.SnapshotKind, ID: snapshot.ID, Digest: snapshot.Digest}, "modeSnapshotRef": snapshot.Request.ModeSnapshotRef, "modeRevision": snapshot.ExpectedModeRevision, "maximumTokens": snapshot.Request.Limits.Tokens, "maximumCostMicros": snapshot.Request.Limits.CostMicros, "currency": snapshot.Request.Limits.Currency, "maximumCallCostMicros": cost}
 					}
 				}
 			case "start":

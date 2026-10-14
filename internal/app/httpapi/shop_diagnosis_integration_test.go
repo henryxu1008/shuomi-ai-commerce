@@ -109,8 +109,10 @@ func testDiagnosisHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixtur
 	raw = call("POST", shopDiagnosisBase+"/prepare", key, preparation, http.StatusOK)
 	var prepared struct {
 		ConfigurationSnapshotRef agent.ConfigurationSnapshotRef `json:"configurationSnapshotRef"`
+		InspectionRef            agent.StoreDiagnosisRef        `json:"inspectionRef"`
 	}
 	require.NoError(t, json.Unmarshal(raw, &prepared))
+	require.Equal(t, facts.Ref, prepared.InspectionRef, "confirmation must identify the exact facts frozen by preparation")
 	path := shopDiagnosisBase + "/contexts/" + in.ContextID + "/runs/" + key
 	body := struct {
 		ConfigurationSnapshotRef agent.ConfigurationSnapshotRef `json:"configurationSnapshotRef"`

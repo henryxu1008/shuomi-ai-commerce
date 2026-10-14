@@ -43,9 +43,11 @@ const entry: CatalogEntry = {
   ],
 };
 let writes: Array<{ path: string; key: string; body: unknown }>;
+let preparedDigest: string, inspectedDigest: string;
 beforeEach(() => {
   localStorage.clear();
   writes = [];
+  preparedDigest = inspectedDigest = "c".repeat(64);
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url, init) => {
@@ -97,6 +99,7 @@ beforeEach(() => {
           return Response.json({
             contextId: body.contextId,
             requestKey: key,
+            inspectionRef: {StoreID: body.storeId, StartDate: body.startDate, EndDate: body.endDate, EvidenceDigest: preparedDigest},
             configurationSnapshotRef: {
               Kind: "agent-configuration-v1",
               ID: id,
@@ -119,7 +122,7 @@ beforeEach(() => {
               StoreID: id,
               StartDate: "2026-10-01",
               EndDate: "2026-10-07",
-              EvidenceDigest: "c".repeat(64),
+              EvidenceDigest: inspectedDigest,
             },
             facts: [
               {
@@ -170,6 +173,10 @@ async function choose() {
     target: { value: "2026-10-07" },
   });
 }
+async function viewFacts() {
+  fireEvent.click(screen.getByRole("button", {name: "读取经营事实"}));
+  await screen.findByRole("heading", {name: "已保存经营事实"});
+}
 it("allows factual comparison without model configuration and never starts analysis automatically", async () => {
   show({
     ...entry,
@@ -190,27 +197,82 @@ it("allows factual comparison without model configuration and never starts analy
 it("prepares an exact original key and retains it through uncertain paid start", async () => {
   show();
   await choose();
+  await viewFacts();
   await waitFor(() =>
     expect(screen.getByRole("button", { name: "准备分析" })).toBeEnabled(),
   );
   fireEvent.click(screen.getByRole("button", { name: "准备分析" }));
   await screen.findByRole("heading", { name: "确认本次分析" });
-  expect(writes).toHaveLength(1);
-  expect((writes[0].body as { requestKey: string }).requestKey).toBe(
-    writes[0].key,
+  expect(writes).toHaveLength(2);
+  expect((writes[1].body as { requestKey: string }).requestKey).toBe(
+    writes[1].key,
   );
   fireEvent.click(screen.getByRole("button", { name: "确认生成建议" }));
   await screen.findByRole("button", { name: "核实原请求" });
-  expect(writes).toHaveLength(2);
-  expect(writes[1].key).toBe(writes[0].key);
+  expect(writes).toHaveLength(3);
+  expect(writes[2].key).toBe(writes[1].key);
+  cleanup();
+  show();
+  await screen.findByRole("button", {name: "核实原请求"});
   fireEvent.click(screen.getByRole("button", { name: "核实原请求" }));
   await waitFor(() =>
     expect(screen.getByRole("button", { name: "重试原请求" })).toBeEnabled(),
   );
-  expect(writes).toHaveLength(2);
+  expect(writes).toHaveLength(3);
   fireEvent.click(screen.getByRole("button", { name: "重试原请求" }));
-  await waitFor(() => expect(writes).toHaveLength(3));
-  expect(writes[2].key).toBe(writes[0].key);
+  await waitFor(() => expect(writes).toHaveLength(4));
+  expect(writes[3].key).toBe(writes[1].key);
+});
+
+it("requires viewed facts before preparing an analysis", async () => {
+  show();
+  await choose();
+  expect(screen.getByRole("button", {name: "准备分析"})).toBeDisabled();
+  expect(writes).toHaveLength(0);
+});
+
+it("resumes historical analysis with its stored goal after reload", async () => {
+  const baseFetch = fetch;
+  vi.stubGlobal("fetch", vi.fn((url, init) => {
+    const path = String(url);
+    if(path.includes("/recent-runs")) return Promise.resolve(Response.json({items:[{runId:id,operationId:id,requestKey:other,productKey:"",targetPlatform:"business",phase:"interrupted",revision:"1",startedAt:"2026-10-14T00:00:00Z"}],nextCursor:""}));
+    if(init?.method === "GET" && path.endsWith(`/contexts/${id}/runs/${other}`)) return Promise.resolve(Response.json({runId:id,contextId:id,requestKey:other,phase:"interrupted",revision:"1",configurationSnapshotRef:{Kind:"agent-configuration-v1",ID:id,Digest:"a".repeat(64)},modeSnapshotRef:{Kind:"agent-execution-mode-v1",ID:other,Digest:"b".repeat(64)},executionMode:"read_only",modeRevision:"0",goalSummary:"保留的自定义诊断目标",validated:false,unresolved:[],tokens:0,costMicros:0,currency:"CNY",usageStatus:"observed"}));
+    return baseFetch(url,init);
+  }));
+  show({...entry,canReadRuns:true});
+  fireEvent.click(await screen.findByRole("button",{name:/interrupted/}));
+  fireEvent.click(await screen.findByRole("button",{name:"按原请求继续分析"}));
+  await waitFor(()=>expect(writes).toHaveLength(1));
+  expect((writes[0].body as {feedback:string}).feedback).toBe("保留的自定义诊断目标");
+  expect(writes[0].key).toBe(other);
+});
+
+it("blocks a new paid start when prepared facts changed after viewing", async () => {
+  show(); await choose(); await viewFacts();
+  preparedDigest = "d".repeat(64);
+  fireEvent.click(screen.getByRole("button", {name: "准备分析"}));
+  await screen.findByRole("heading", {name: "确认本次分析"});
+  expect(screen.getByRole("button", {name: "确认生成建议"})).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", {name: "确认生成建议"}));
+  expect(writes).toHaveLength(2);
+  inspectedDigest = preparedDigest;
+  fireEvent.click(screen.getByRole("button", {name: "核对确认依据"}));
+  await waitFor(() => expect(screen.getByRole("button", {name: "确认生成建议"})).toBeEnabled());
+  expect((writes[2].body as {contextId: string}).contextId).toBe((writes[1].body as {contextId: string}).contextId);
+  expect(writes.every(w => !w.path.endsWith("/runs"))).toBe(true);
+});
+
+it("reloads preparation without inventing facts and rereads the original context", async () => {
+  show(); await choose(); await viewFacts();
+  fireEvent.click(screen.getByRole("button", {name: "准备分析"}));
+  await screen.findByRole("heading", {name: "确认本次分析"});
+  cleanup(); show();
+  await screen.findByRole("heading", {name: "确认本次分析"});
+  expect(screen.getByRole("button", {name: "确认生成建议"})).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", {name: "核对确认依据"}));
+  await waitFor(() => expect(screen.getByRole("button", {name: "确认生成建议"})).toBeEnabled());
+  expect(writes).toHaveLength(3);
+  expect((writes[2].body as {contextId: string}).contextId).toBe((writes[1].body as {contextId: string}).contextId);
 });
 
 it("switches from viewed history to the newly prepared exact comparison", async () => {
@@ -274,14 +336,15 @@ it("switches from viewed history to the newly prepared exact comparison", async 
   fireEvent.click(await screen.findByRole("button", { name: /stopped/ }));
   await screen.findByText(/旧比较目标/);
   await choose();
+  await viewFacts();
   fireEvent.click(screen.getByRole("button", { name: "准备分析" }));
   await screen.findByRole("heading", { name: "确认本次分析" });
   await waitFor(() =>
     expect(screen.getByRole("button", { name: "确认生成建议" })).toBeEnabled(),
   );
   expect(screen.queryByText(/旧比较目标/)).toBeNull();
-  expect(writes).toHaveLength(1);
-  expect(writes[0].path).toMatch(/prepare$/);
+  expect(writes).toHaveLength(2);
+  expect(writes[1].path).toMatch(/prepare$/);
 });
 
 it("keeps an outstanding historical run from starting a new paid diagnosis", async () => {

@@ -200,6 +200,11 @@ export function ShopDiagnosisFlow({
       startDate,
       endDate,
     });
+  const preparedFactsMatch = !!saved && !!facts &&
+    facts.ref.StoreID === saved.prepared.inspectionRef.StoreID &&
+    facts.ref.StartDate === saved.prepared.inspectionRef.StartDate &&
+    facts.ref.EndDate === saved.prepared.inspectionRef.EndDate &&
+    facts.ref.EvidenceDigest === saved.prepared.inspectionRef.EvidenceDigest;
   function savePreparation(value: DiagnosisPreparation) {
     const raw = JSON.stringify(diagnosisSavedPreparationSchema.parse(value));
     localStorage.setItem(cacheKey, raw);
@@ -215,7 +220,11 @@ export function ShopDiagnosisFlow({
     const abort = new AbortController();
     controller.current = abort;
     try {
-      const result = await inspectDiagnosis(scope, input(), abort.signal);
+      const original = saved?.input;
+      const result = await inspectDiagnosis(scope, original ? {
+        contextId: original.contextId, storeId: original.storeId,
+        startDate: original.startDate, endDate: original.endDate,
+      } : input(), abort.signal);
       if (active.current) {
         setFacts(result);
         setChosenRun(null);
@@ -229,6 +238,10 @@ export function ShopDiagnosisFlow({
   }
   async function send(intent: DiagnosisIntent) {
     if (flight.current || !active.current || !pending.ready) return;
+    if (intent.kind === "start" && !pending.command && !preparedFactsMatch) {
+      setFailure(new Error("请先核对本次准备结果对应的经营事实。"));
+      return;
+    }
     flight.current = true;
     setBusy(true);
     setFailure(undefined);
@@ -336,7 +349,10 @@ export function ShopDiagnosisFlow({
     !saved &&
     run.data?.phase !== "running" &&
     run.data?.usageStatus !== "unknown_reserved" &&
-    validInput;
+    validInput &&
+    facts?.ref.StoreID === selected &&
+    facts?.ref.StartDate === startDate &&
+    facts?.ref.EndDate === endDate;
   return (
     <Card className={styles.panel}>
       <h2>店铺经营诊断</h2>
@@ -473,13 +489,20 @@ export function ShopDiagnosisFlow({
           <p>
             建议保存在原运行历史，所有模式均只提供建议，不修改店铺、财务或商品。
           </p>
+          {!run.data && !preparedFactsMatch ? <>
+            <p>请核对本次准备结果对应的经营事实；事实已变化时，重新准备分析。</p>
+            <Button variant="outline" disabled={locked} onClick={() => void inspect()}>
+              核对确认依据
+            </Button>
+          </> : null}
           <Button
             disabled={
               locked ||
               !!run.data ||
               entry.agent.activation !== "ENABLED" ||
               !entry.canUse ||
-              !textReady
+              !textReady ||
+              !preparedFactsMatch
             }
             onClick={() =>
               void send({
@@ -589,7 +612,7 @@ export function ShopDiagnosisFlow({
                     configurationSnapshotRef:
                       run.data!.configurationSnapshotRef,
                     revision: run.data!.revision,
-                    feedback: goal,
+                    feedback: run.data!.goalSummary,
                   },
                 })
               }

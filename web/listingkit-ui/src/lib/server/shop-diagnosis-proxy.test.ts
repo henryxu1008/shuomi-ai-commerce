@@ -152,7 +152,7 @@ it.each(["GET", "start", "resume"])(
     });
   },
 );
-it.each(["context", "key"])(
+it.each(["context", "key", "shop", "period"])(
   "rejects a shape-valid preparation with wrong %s",
   async (field) => {
     vi.stubGlobal(
@@ -161,6 +161,7 @@ it.each(["context", "key"])(
         Response.json({
           contextId: field === "context" ? other : id,
           requestKey: field === "key" ? other : id,
+          inspectionRef: {StoreID: field === "shop" ? id : other, StartDate: field === "period" ? "2026-09-01" : "2026-10-01", EndDate: "2026-10-07", EvidenceDigest: "a".repeat(64)},
           configurationSnapshotRef: configurationRef,
           modeSnapshotRef: modeRef,
           modeRevision: "0",

@@ -4,11 +4,26 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/stretchr/testify/require"
+	"strings"
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/commercetool"
 	"testing"
 )
+
+func TestDiagnosisModelNotesFitTheExistingPublicResponse(t *testing.T) {
+	for _, notes := range [][]string{make([]string, 4096), {strings.Repeat("x", 8193)}} {
+		require.Error(t, (ModelAdmission{}).ValidateAction(agent.Action{Kind: "interrupt", Unresolved: notes}))
+	}
+	notes := make([]string, 4095)
+	for n := range notes {
+		notes[n] = "missing fact"
+	}
+	require.NoError(t, (ModelAdmission{}).ValidateAction(agent.Action{Kind: "interrupt", Unresolved: notes}))
+	validation, err := (Validator{}).ValidateDomain(context.Background(), agent.Request{}, agent.DomainProposal{}, nil)
+	require.NoError(t, err)
+	require.LessOrEqual(t, len(notes)+len(validation.Unresolved), 4096)
+}
 
 func TestDiagnosisOnlyAcceptsActualCitedAdvisoryResults(t *testing.T) {
 	_, i := fixture()
