@@ -16,7 +16,9 @@ Design Basis: **Independent Architecture**。Admission Status: **DESIGNING**；�
 
 继续使用原SourceMedia（实时身份/企业授权、内容hash、确定性object key、不可变PUT和内容读回）；S3 SDK/MinIO拥有对象；原storagecapacity ledger拥有容量namespace/预占/占用；原Source/Catalog/Collection UoW拥有商品证据/版本/引用。无第二事实源。
 
-`Config.sourceMediaIsolatedTrial`（默认false、服务端私有配置）→ `ValidateSourceMediaStorage`与CoreConfig → 当前HTTP Collection SourceMedia装配（含原人工图片reader）→ `SourceMedia`的具体、仅来源图片试用URL政策。S3构造、容量装配及原scope权限继续通过原路径注入。政策不进入浏览器请求，不提供通用allow-private callback，不被HTTP下载器、ImageAgent生成图或平台适配消费。
+`Config.sourceMediaIsolatedTrial`（默认false、服务端私有配置）→ `ValidateSourceMediaStorage`与CoreConfig → 当前HTTP Collection SourceMedia装配（含原人工图片reader）→ `SourceMedia`的具体、仅来源图片试用URL政策。S3构造、容量装配及原scope权限继续通过原路径注入。政策不进入浏览器请求，不提供通用allow-private callback，不被通用HTTP下载器、ImageAgent生成图或平台适配消费。
+
+现录入/详情图片沿原`/api/image-proxy`展示；生产UI拒绝localhost，dev或通用private开关不能作为本轮方案。单独默认关闭的服务器`IMAGE_PROXY_SOURCE_MEDIA_TRIAL_BASE`仅准入相同固定origin/bucket/key语法的原图片展示GET；保持原TLS校验/受信任CA、无Cookie/Authorization，地址解析只允许loopback，试用对象不接受redirect，仍只输出限长JPEG/PNG。其它URL仍走原allowlist与公网地址检查，不扩到生成图、任意私网或API请求。
 
 ## 新增边界与不变量
 
@@ -34,12 +36,14 @@ Design Basis: **Independent Architecture**。Admission Status: **DESIGNING**；�
 
 容量/对象与商品UoW保持既有分离：上传成功而未保存商品，图片仍是已计量候选；重复上传同内容不产生新身份/双占用。不自行清理未引用文件。
 
+原GET `SourceMedia.Read`只核实文件可读，不Confirm容量；核实成功不等于原Upload完成。原UI当前会在GET成功后清pending，这处消费与已批准恢复合同不一致，分类IMPLEMENTATION_TEST：核实成功仍保留原scope/hash/bytes意图，允许重新选择同一文件，沿原Upload重放确认后才清意图并将图片加入表单。不让GET写容量，不新建恢复协议、平台或后台扫描；正常一次Upload成功路径不增加操作。
+
 记录启用前私有manifest，保留原镜像/数据库/命名卷。开始写容量namespace后不恢复`storageCapacity:false`、换空owner或删除账本。修复/重启保留同owner、true和对象卷；必要回退只可关闭新上传、仍保留容量true和全部事实，不回未计量writer。普通start不重复初始化，不删除数据。凭据不入Git/日志。
 
 ## Legacy与验证
 
 Legacy decision: N/A；只消费当前SourceMedia/S3/容量/UoW，不包裹ImageAgent来源禁令、不引入RETIRE消费者或兼容路径。
 
-TDD先捕获：默认模式拒绝localhost；仅正确显式试用配置准入；精确已读回对象URL成功，错origin/key/编码/query/flag/容量配置拒绝；正式公网模式不受影响。复用原签名不可变S3读回与容量/权限测试，验证实际Core→HTTP消费，不建新runner。
+TDD先捕获：默认模式拒绝localhost；仅正确显式试用配置准入；精确已读回对象URL成功，错origin/key/编码/query/flag/容量配置拒绝；生产图片代理只接纳固定来源对象、拒redirect/任意private目标；GET核实不丢Upload pending，同文件重放后容量恰好占一次；正式公网模式不受影响。复用原签名不可变S3读回与容量/权限测试，验证实际Core→HTTP消费，不建新runner。
 
 正常浏览器完成两张不同图片上传、分配不同SKU、保存、刷新、切换准确图片，并保留此前六SKU/两属性商品。复用相关Go/frontend检查与稳定候选PR CI，最终独立复核仅覆盖本轮增量；实现者验证不代签用户/生产验收。
