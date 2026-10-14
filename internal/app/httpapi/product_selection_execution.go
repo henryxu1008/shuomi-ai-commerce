@@ -6,6 +6,7 @@ import (
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/authidentity"
+	"task-processor/internal/commercetool"
 	"task-processor/internal/product/collection"
 	"task-processor/internal/product/selection"
 	"time"
@@ -228,7 +229,7 @@ func (a *productSelectionApplication) projectRun(ctx context.Context, run agent.
 		out.Inspection, out.Proposal, out.Validated = &inspection, &proposal, true
 	} else {
 		for _, o := range s.History {
-			if o.Tool == agentconfig.SelectionInspectToolRef() {
+			if o.Tool == agentconfig.SelectionInspectToolRef() && o.AuditStatus == commercetool.AuditStatusRecorded && agent.ValidID(o.CallID) && o.InvocationID == "" {
 				inspection, e := selection.ParseInspection(o.Output)
 				if e == nil && selection.InspectionMatchesBinding(inspection, s.Request.Binding) {
 					out.Inspection = &inspection
