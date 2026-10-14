@@ -21,6 +21,14 @@ import (
 )
 
 func TestStandaloneSourceMediaUsesActualSignedImmutableS3PutAndReadback(t *testing.T) {
+	testStandaloneSourceMediaStorage(t, false)
+}
+
+func TestStandaloneSourceMediaTrialUsesActualSignedImmutableS3PutAndReadback(t *testing.T) {
+	testStandaloneSourceMediaStorage(t, true)
+}
+
+func testStandaloneSourceMediaStorage(t *testing.T, trial bool) {
 	var mu sync.Mutex
 	objects := map[string][]byte{}
 	puts := 0
@@ -65,7 +73,11 @@ func TestStandaloneSourceMediaUsesActualSignedImmutableS3PutAndReadback(t *testi
 		}
 	}))
 	defer server.Close()
-	storage, e := NewSourceMediaStorage(config.ImageAgentArtifactStoreConfig{Enabled: true, Provider: "s3", PublicBase: "https://files.example.org/images", S3: config.ImageAgentArtifactStoreS3Config{Region: "us-east-1", Bucket: "source-products", Endpoint: server.URL, AccessKeyID: "synthetic", SecretAccessKey: "synthetic", UsePathStyle: true, ArtifactMode: "aws"}}, logrus.New())
+	base := "https://files.example.org/images"
+	if trial {
+		base = "https://localhost:39744/source-media-assets/source-products"
+	}
+	storage, e := NewSourceMediaStorage(config.ImageAgentArtifactStoreConfig{Enabled: true, Provider: "s3", PublicBase: base, S3: config.ImageAgentArtifactStoreS3Config{Region: "us-east-1", Bucket: "source-products", Endpoint: server.URL, AccessKeyID: "synthetic", SecretAccessKey: "synthetic", UsePathStyle: true, ArtifactMode: "aws"}}, logrus.New(), trial)
 	require.NoError(t, e)
 	var b bytes.Buffer
 	require.NoError(t, png.Encode(&b, image.NewRGBA(image.Rect(0, 0, 2, 2))))
@@ -74,6 +86,10 @@ func TestStandaloneSourceMediaUsesActualSignedImmutableS3PutAndReadback(t *testi
 	id := collection.MediaIdentity{Hash: hex.EncodeToString(hash[:]), Bytes: int64(len(raw))}
 	auth := &storageMediaAuth{scope: collection.Scope{OrganizationID: "org", ActorID: "actor", MemberID: "member"}}
 	s := productsourcing.SourceMedia{Storage: storage, Authorization: auth}
+	if trial {
+		s.TrialURLs, e = productsourcing.NewIsolatedTrialSourceMediaURLPolicy(base, "source-products", server.URL)
+		require.NoError(t, e)
+	}
 	v, e := s.Upload(context.Background(), id, raw)
 	require.NoError(t, e)
 	require.Equal(t, "image/png", v.MediaType)

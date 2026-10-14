@@ -3,7 +3,9 @@ package httpapi
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
+	"unicode/utf8"
 
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
@@ -82,8 +84,12 @@ func (a *listingMaterialsApplication) projectRun(ctx context.Context, recordID s
 		out.CanRequestAdoption = mode.Mode != agent.ModeReadOnly
 		receipt, e := a.supply.Targets.ReadCommand(ctx, materialsAdoptionKey(s))
 		if e == nil {
-			out.Adoption = &receipt
 			out.CanRequestAdoption = false
+			if verifyMaterialsAdoptionReceipt(base, s, receipt) == nil {
+				out.Adoption = &receipt
+			} else {
+				out.Unresolved = materialsRunDiagnostics(s, "原保存编号对应的草稿与本次建议不一致，请核对原记录。")
+			}
 		} else if !errors.Is(e, record.ErrNotFound) {
 			return out, e
 		}
@@ -91,10 +97,44 @@ func (a *listingMaterialsApplication) projectRun(ctx context.Context, recordID s
 	return out, nil
 }
 
-func materialsRunDiagnostics(s agent.State) []string {
-	out := append([]string{}, s.Unresolved...)
-	if s.Validation != nil {
-		out = append(out, s.Validation.Unresolved...)
+func materialsRunDiagnostics(s agent.State, extra ...string) []string {
+	const displayLimit = 4096
+	model := make([]string, len(s.Unresolved))
+	for n, note := range s.Unresolved {
+		model[n] = materialsDiagnosticDisplay(note)
 	}
+	owner := []string{}
+	if s.Validation != nil {
+		owner = append(owner, s.Validation.Unresolved...)
+	}
+	owner = append(owner, extra...)
+	for n, note := range owner {
+		owner[n] = materialsDiagnosticDisplay(note)
+	}
+	total := len(s.Unresolved) + len(owner)
+	if total <= displayLimit {
+		return append(model, owner...)
+	}
+	// Preserve owner/receipt diagnostics first. This bounds only the public
+	// display; the paid run and its original model notes are never rewritten.
+	if len(owner) >= displayLimit {
+		owner = owner[len(owner)-(displayLimit-1):]
+	}
+	modelCount := min(len(s.Unresolved), displayLimit-1-len(owner))
+	out := append(model[:modelCount:modelCount], owner...)
+	out = append(out, fmt.Sprintf("诊断展示已省略 %d 条说明；完整历史记录仍然保留。", total-len(out)))
 	return out
+}
+
+func materialsDiagnosticDisplay(note string) string {
+	const limit = 8192
+	const suffix = "…（展示已截断；完整历史记录仍然保留）"
+	if len(note) <= limit {
+		return note
+	}
+	prefix := note[:limit-len(suffix)]
+	for !utf8.ValidString(prefix) {
+		prefix = prefix[:len(prefix)-1]
+	}
+	return prefix + suffix
 }

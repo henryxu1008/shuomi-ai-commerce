@@ -2,7 +2,9 @@ package httpapi
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/stretchr/testify/require"
 	"task-processor/internal/agent"
@@ -31,4 +33,28 @@ func TestListingMaterialAdoptionRequiresExactReviewableDomainResult(t *testing.T
 func TestMaterialsProjectionRetainsOwnerDiagnosticsAlongsideModelNotes(t *testing.T) {
 	s := agent.State{Unresolved: []string{"model note"}, Validation: &agent.Validation{Valid: true, Unresolved: []string{"owner missing rule", "PLATFORM_MATERIAL_CONFIRMATION_REQUIRED"}}}
 	require.Equal(t, []string{"model note", "owner missing rule", "PLATFORM_MATERIAL_CONFIRMATION_REQUIRED"}, materialsRunDiagnostics(s))
+}
+
+func TestMaterialsProjectionBoundsNotesWithoutLosingOwnerDiagnostics(t *testing.T) {
+	notes := make([]string, 4096)
+	for i := range notes {
+		notes[i] = "model note"
+	}
+	s := agent.State{Unresolved: notes, Validation: &agent.Validation{Unresolved: []string{"owner missing rule", "PLATFORM_MATERIAL_CONFIRMATION_REQUIRED"}}}
+	out := materialsRunDiagnostics(s)
+	require.LessOrEqual(t, len(out), 4096)
+	require.Contains(t, out, "owner missing rule")
+	require.Contains(t, out, "PLATFORM_MATERIAL_CONFIRMATION_REQUIRED")
+	require.Contains(t, out[len(out)-1], "省略")
+	require.Len(t, s.Unresolved, 4096, "public display bounds must not rewrite the paid history")
+}
+
+func TestMaterialsProjectionBoundsIndividualNotesWithoutRewritingHistory(t *testing.T) {
+	note := strings.Repeat("中文", 2000)
+	s := agent.State{Unresolved: []string{note}}
+	out := materialsRunDiagnostics(s)
+	require.LessOrEqual(t, len(out[0]), 8192)
+	require.True(t, utf8.ValidString(out[0]))
+	require.Contains(t, out[0], "截断")
+	require.Equal(t, note, s.Unresolved[0])
 }

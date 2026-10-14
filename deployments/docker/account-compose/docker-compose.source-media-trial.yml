@@ -1,0 +1,50 @@
+# Explicit loopback-only source-media trial; combine with the retained base files.
+services:
+  source-media-secret-init:
+    image: alpine:3.22
+    entrypoint: [/bin/sh, -ec]
+    command: ['umask 077; if [ -e /private/root-password ]; then test -s /private/root-password; else head -c 32 /dev/urandom | base64 | tr -d "\n" > /private/root-password; fi']
+    volumes: [source-media-storage-secret:/private]
+  source-media-objects:
+    build: {context: ., dockerfile: Dockerfile.knowledge-storage, target: server}
+    network_mode: service:runtime-network
+    entrypoint: [/bin/sh, -ec]
+    command: ['export MINIO_ROOT_USER=source_media_local_root; export MINIO_ROOT_PASSWORD="$$(cat /private/root-password)"; exec minio server /data --address 127.0.0.1:9103 --console-address 127.0.0.1:9104']
+    volumes: [source-media-storage-secret:/private:ro, source-media-objects:/data]
+    depends_on: {source-media-secret-init: {condition: service_completed_successfully}}
+    healthcheck: {test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:9103/minio/health/live], interval: 3s, timeout: 3s, retries: 40}
+  source-media-init:
+    build: {context: ., dockerfile: Dockerfile.knowledge-storage, target: client}
+    profiles: [setup]
+    network_mode: service:runtime-network
+    entrypoint: [/bin/sh, /init/source-media-storage-init.sh]
+    environment: {ACCOUNT_SOURCE_MEDIA_TRIAL: ISOLATED_TRIAL_ONLY}
+    volumes:
+      - source-media-storage-secret:/private:ro
+      - ./source-media-storage-init.sh:/init/source-media-storage-init.sh:ro
+      - ./source-media-public-policy.json:/init/public-policy.json:ro
+    depends_on: {source-media-objects: {condition: service_healthy}}
+  source-media-configure:
+    build: {context: ../../.., dockerfile: deployments/docker/Dockerfile.account-compose, target: schema-init}
+    profiles: [setup]
+    entrypoint: [/bin/sh, /init/source-media-configure.sh]
+    environment:
+      ACCOUNT_SOURCE_MEDIA_TRIAL: ISOLATED_TRIAL_ONLY
+      ACCOUNT_APPLICATION_PORT: "${ACCOUNT_APPLICATION_PORT}"
+    volumes:
+      - runtime-secrets:/runtime
+      - source-media-storage-secret:/private:ro
+      - ./source-media-configure.sh:/init/source-media-configure.sh:ro
+      - source-media-objects:/provider:ro
+  current-application:
+    depends_on:
+      source-media-objects: {condition: service_healthy}
+  listingkit-ui:
+    environment:
+      IMAGE_PROXY_SOURCE_MEDIA_TRIAL_BASE: "https://localhost:${ACCOUNT_APPLICATION_PORT}/source-media-assets/source-media-trial"
+      IMAGE_PROXY_ALLOW_PRIVATE: ""
+  traefik:
+    volumes: [./traefik-source-media-trial.yml:/etc/traefik/dynamic.yml:ro]
+volumes:
+  source-media-storage-secret: {name: "${COMPOSE_PROJECT_NAME}-source-media-storage-secret"}
+  source-media-objects: {name: "${COMPOSE_PROJECT_NAME}-source-media-objects"}

@@ -109,7 +109,12 @@ func referencesDisclosed(p Proposal, i Inspection) bool {
 		for _, slot := range *p.Images {
 			found := false
 			for _, a := range i.Inventory.Assets {
-				found = found || a.ID == slot.AssetID
+				if a.ID != slot.AssetID {
+					continue
+				}
+				position := a.OfficialPlacement
+				found = position == nil || position.Site == i.Base.Merchant.Site && position.Group == slot.Group && position.SKC == slot.SKC && position.SKU == slot.SKU && position.Type == slot.Type && position.Sort == slot.Sort
+				break
 			}
 			if !found {
 				return false
