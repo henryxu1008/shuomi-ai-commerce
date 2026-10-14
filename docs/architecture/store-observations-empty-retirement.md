@@ -107,6 +107,14 @@ the worker, UI, real models or user acceptance passed. Compare unrelated facts,
 roles and ACL baselines after execution. Missing external configuration stays
 NOT_RUN; no automatic enabling or authorization occurs.
 
+After a committed retirement, the former SHEIN-namespace runtime cannot be
+restored merely by switching back to its old image. If the new application
+combination fails, stop affected serving/worker processes, retain the current
+schema and all data, and repair the admitted current combination forward. Do
+not automatically drop the new schema, recreate the old one, restore an entire
+database, or add a fallback. Reverse-schema or disaster-recovery operations
+require a separate concrete decision and are outside this authorization.
+
 ## Legacy and necessary verification
 
 Legacy decision: RETIRE. Retire only the specifically authorized zero-fact old
