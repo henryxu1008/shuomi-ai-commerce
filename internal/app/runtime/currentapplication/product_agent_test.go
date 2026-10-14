@@ -96,6 +96,24 @@ func TestSelectionOnlyPolicyDoesNotRequireASecondTitleModel(t *testing.T) {
 	cfg.ProductAgent.SelectionTextPolicies = map[string]governed.RoutePolicy{"org": policy}
 	cfg.ProductAgent.TextPolicies = nil
 	require.NoError(t, cfg.validate())
+	profile := policy.ShapeProfile()
+	cost, err := profile.MaximumCost()
+	require.NoError(t, err)
+	for _, short := range []string{"tokens", "cost"} {
+		limited := *cfg.ProductAgent
+		limited.Tokens = 2 * (profile.MaximumPromptTokens + profile.MaximumCompletionTokens)
+		limited.CostMicros = 2 * cost
+		if short == "tokens" {
+			limited.Tokens--
+		} else {
+			limited.CostMicros--
+		}
+		cfg.ProductAgent = &limited
+		require.Error(t, cfg.validate(), "the two mandatory calls must fit before serving")
+	}
+	cfg.ProductAgent.Tokens = 2 * (profile.MaximumPromptTokens + profile.MaximumCompletionTokens)
+	cfg.ProductAgent.CostMicros = 2 * cost
+	require.NoError(t, cfg.validate())
 	require.Empty(t, cfg.ProductAgent.TextPolicies, "selection policy is never copied to title")
 	cfg.ProductAgent.SelectionTextPolicies = nil
 	require.Error(t, cfg.validate(), "enabled execution still needs an explicitly admitted consumer")

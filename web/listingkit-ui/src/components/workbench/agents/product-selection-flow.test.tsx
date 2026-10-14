@@ -203,6 +203,26 @@ function choose() {
 async function viewFacts(){fireEvent.click(screen.getByRole("button",{name:"读取事实对比"}));await screen.findByRole("heading",{name:"已保存原始事实"})}
 it("requires a current candidate fact read before preparing analysis",async()=>{show();choose();await act(async()=>{await new Promise(resolve=>setTimeout(resolve,50))});expect(screen.getByRole("button",{name:"准备分析"})).toBeDisabled();expect(writes).toHaveLength(0);await viewFacts();expect(screen.getByRole("button",{name:"准备分析"})).toBeEnabled()});
 it("requires an explicit comparison goal before preparing a paid analysis",async()=>{show();choose();await viewFacts();await waitFor(()=>expect(screen.getByRole("button",{name:"准备分析"})).toBeEnabled());fireEvent.change(screen.getByLabelText("本次比较目标"),{target:{value:""}});expect(screen.getByRole("button",{name:"准备分析"})).toBeDisabled();expect(writes).toHaveLength(1)});
+it("checks the original UTF-8 goal limit and sends a trimmed goal", async () => {
+  show(); choose(); await viewFacts();
+  await waitFor(()=>expect(screen.getByRole("button",{name:"准备分析"})).toBeEnabled());
+  for (const value of ["x".repeat(513), "中".repeat(171)]) {
+    fireEvent.change(screen.getByLabelText("本次比较目标"),{target:{value}});
+    expect(screen.getByRole("button",{name:"准备分析"})).toBeDisabled();
+  }
+  fireEvent.change(screen.getByLabelText("本次比较目标"),{target:{value:"  核对真实商品  "}});
+  fireEvent.click(screen.getByRole("button",{name:"准备分析"}));
+  await screen.findByRole("heading",{name:"确认本次分析"});
+  expect((writes[1].body as {goalSummary:string}).goalSummary).toBe("核对真实商品");
+});
+it("shows an unavailable history as an error instead of an empty result", async () => {
+  const baseFetch = fetch;
+  vi.stubGlobal("fetch", vi.fn((url, init) => String(url).includes("/recent-runs") ? Promise.resolve(Response.json({code:"DEPENDENCY_UNAVAILABLE"},{status:503})) : baseFetch(url, init)));
+  show({...entry,canReadRuns:true});
+  await screen.findByRole("alert");
+  expect(screen.queryByText("暂无对比历史。")).toBeNull();
+  expect(writes).toHaveLength(0);
+});
 it("allows factual comparison without model configuration and never starts analysis automatically", async () => {
   show({
     ...entry,

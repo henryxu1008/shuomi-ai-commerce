@@ -28,6 +28,7 @@ import {
 import {
   selectionIntentSchema,
   selectionInputSchema,
+  selectionPrepareSchema,
   selectionSavedPreparationSchema,
   selectionRecentSchema,
   type SelectionIntent,
@@ -174,6 +175,7 @@ export function ProductSelectionFlow({
     (c) => c.id === "text.generate" && c.readiness === "AVAILABLE",
   );
   const factsReady = entry.capabilities.some(c => c.id === "product.selection.inspect" && c.readiness === "AVAILABLE");
+  const goalCheck = selectionPrepareSchema.shape.goalSummary.safeParse(goal.trim());
   const input = () =>
     selectionInputSchema.parse({
       contextId: crypto.randomUUID(),
@@ -328,7 +330,7 @@ export function ProductSelectionFlow({
     !!mode.data &&
     !locked &&
     !saved &&
-    selectedFactsMatch && goal.trim().length > 0;
+    selectedFactsMatch && goalCheck.success;
   return (
     <Card className={styles.panel}>
       <h2>选品对比</h2>
@@ -391,6 +393,7 @@ export function ProductSelectionFlow({
               onChange={(e) => setGoal(e.target.value)}
             />
           </label>
+          {!goalCheck.success ? <p>请填写简短、明确的比较目标；内容过长时请精简。</p> : null}
           <Button
             disabled={!prepareAllowed}
             onClick={() => {
@@ -402,7 +405,7 @@ export function ProductSelectionFlow({
                   ...input(),
                   requestKey: key,
                   expectedModeRevision: mode.data!.revision,
-                  goalSummary: goal,
+                  goalSummary: goalCheck.success ? goalCheck.data : "",
                 },
               });
             }}
