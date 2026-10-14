@@ -18,6 +18,7 @@ type Service struct {
 	acquisitions sourcing.PublishedAcquisitionReader
 	snapshots    catalog.VersionedSnapshotReader
 	media        SourceMedia
+	history      sourcing.OwnHistoryReadStore
 }
 
 func NewService(store Repository, auth Authorizer, acquisitions sourcing.PublishedAcquisitionReader) (*Service, error) {

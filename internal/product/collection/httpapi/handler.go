@@ -25,6 +25,8 @@ type Service interface {
 	ListBatches(context.Context, collection.Query) (collection.Page[collection.Batch], error)
 	ListItems(context.Context, string, collection.Query) (collection.Page[collection.Item], error)
 	ReadItem(context.Context, string) (collection.ItemDetail, error)
+	ListOwnHistory(context.Context, string, uint64, int) (collection.OwnHistoryPage, error)
+	ReadOwnVersion(context.Context, string, uint64) (collection.OwnVersionDetail, error)
 	ReadOperation(context.Context, string) (collection.Receipt, error)
 }
 
@@ -34,6 +36,8 @@ func Routes(service Service, bind func(context.Context, string) (context.Context
 		{http.MethodGet, BasePath + "/own-products", "own"},
 		{http.MethodGet, BasePath + "/batches/:batch_id/items", "items"},
 		{http.MethodGet, BasePath + "/items/:item_id", "detail"},
+		{http.MethodGet, BasePath + "/items/:item_id/history", "history"},
+		{http.MethodGet, BasePath + "/items/:item_id/history/:version", "history-detail"},
 		{http.MethodGet, BasePath + "/by-key/:key", "operation"},
 		{http.MethodPost, BasePath + "/commands", "mutate"},
 		{http.MethodPost, BasePath + "/imports/preview", "import-preview"},
@@ -60,6 +64,27 @@ func Routes(service Service, bind func(context.Context, string) (context.Context
 			}
 			var value any
 			switch spec.action {
+			case "history", "history-detail":
+				if c.Request.ContentLength != 0 || len(c.Request.TransferEncoding) != 0 || len(c.Request.Header.Values("Idempotency-Key")) != 0 || c.GetHeader("Content-Encoding") != "" {
+					httproute.RejectUnreadRequestBody(c)
+					writeError(c, collection.ErrInvalid)
+					return
+				}
+				if spec.action == "history" {
+					before, limit, e := parseHistoryQuery(c.Request)
+					if e != nil {
+						writeError(c, e)
+						return
+					}
+					value, err = service.ListOwnHistory(ctx, c.Param("item_id"), before, limit)
+				} else {
+					version, e := collection.ParseHistoryVersion(c.Param("version"))
+					if e != nil || c.Request.URL.RawQuery != "" {
+						writeError(c, collection.ErrInvalid)
+						return
+					}
+					value, err = service.ReadOwnVersion(ctx, c.Param("item_id"), version)
+				}
 			case "media-upload", "media-read":
 				media, ok := service.(interface {
 					UploadMedia(context.Context, collection.MediaIdentity, []byte) (collection.MediaImage, error)

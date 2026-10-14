@@ -79,7 +79,7 @@ func issue398AcquisitionAPIViolations(sources []listingKitImageBoundarySource) (
 		{"internal/integration/sds", issue398HTTP, map[string][]string{"internal/integration/sds/mutations.go": {"InspectGeneratedArtifact"}}},
 		// #675 frozen source-only local URL policy; no sibling or download admission.
 		{"internal/app/httpapi/collection_source_media.go", "task-processor/internal/app/productsourcing", map[string][]string{"internal/app/httpapi/collection_source_media.go": {"SourceMedia", "SourceMediaStorage", "IsolatedTrialSourceMediaURLPolicy", "NewIsolatedTrialSourceMediaURLPolicy"}}},
-		{"internal/app/httpapi/product_collection_application.go", "task-processor/internal/app/productsourcing", map[string][]string{"internal/app/httpapi/product_collection_application.go": {"NewOwnProductWriter", "NewPublishedAcquisitionReader"}}},
+		{"internal/app/httpapi/product_collection_application.go", "task-processor/internal/app/productsourcing", map[string][]string{"internal/app/httpapi/product_collection_application.go": {"NewOwnProductWriter", "NewPublishedAcquisitionReader", "NewOwnHistoryReader"}}},
 		{"internal/app/httpapi/supply_chain_agents.go", "task-processor/internal/app/productsourcing", map[string][]string{"internal/app/httpapi/supply_chain_agents.go": {"NewExecutionPublicationGateway", "NewTransactionReader"}}},
 		{"internal/app/runtime/currentapplication", "task-processor/internal/app/productsourcing", map[string][]string{"internal/app/runtime/currentapplication/source_media_storage.go": {"SourceMediaStorage", "NewIsolatedTrialSourceMediaURLPolicy"}, "internal/app/runtime/currentapplication/runtime.go": {"SourceMediaStorage"}}},
 	}
