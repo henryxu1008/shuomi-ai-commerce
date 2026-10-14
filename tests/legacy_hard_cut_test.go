@@ -121,8 +121,6 @@ var legacyConsumerBaseline = map[string]struct{}{
 	"internal/app/httpapi/server_test.go -> task-processor/internal/tenantbridge":                              {},
 	"internal/app/runtime/listingkitidentitypreflight/runtime.go -> task-processor/internal/tenantbridge":      {},
 	"internal/app/runtime/listingkitidentitypreflight/runtime_test.go -> task-processor/internal/tenantbridge": {},
-	"internal/listingadmin/handler_helpers.go -> task-processor/internal/tenantbridge":                         {},
-	"internal/listingadmin/store_handler_test.go -> task-processor/internal/tenantbridge":                      {},
 	"internal/sheinlogin/tenant_context.go -> task-processor/internal/tenantbridge":                            {},
 	"internal/sheinlogin/tenant_context_test.go -> task-processor/internal/tenantbridge":                       {},
 	"internal/tenantbridge/bootstrap/configure.go -> task-processor/internal/tenantbridge":                     {},

@@ -109,6 +109,28 @@ data, provider or user acceptance is claimed.
 
 ## 2. Active register
 
+### #678 current-application tenantbridge dependency exit
+
+The dedicated SHEIN worker's valid process assembly is extracted directly to
+`app/runtime/sheinloginworker`; its cmd is the sole consumer. The original shared
+HTTP entrypoint is deleted without a wrapper. This isolates the existing worker,
+not a new domain/legacy facade. Its database/account repository, Redis, health,
+signal and cleanup semantics remain unchanged.
+
+The old ListingAdmin HTTP projection has no production constructor/registration
+caller after the retired default API. Its handlers and raw-header/list-scope
+helpers are RETIRE; repository/API/DTO and valid ownership tests remain. This
+also removes the bridge dependency that the current local SHEIN draft inherited
+through the broad historical publishing package, without changing draft bytes,
+fact ownership, authorization or Submission/recovery contracts.
+
+Current-application and ImageAgent worker production graphs have no tenantbridge,
+compatibility or ListingKit. The two deleted exact bridge edges/exclusions are
+removed; the other seven (including tests/self-use) remain registered debt.
+Standalone SHEIN numeric HTTP and historical preflight consumers are not current
+Organization owners and remain with #301/#529. No migration/data/provider action
+or deployment is part of this source delivery.
+
 | Legacy area / abstraction | Decision | Observed state | Reusable behavior | Current owner / destination | Exit condition / related work |
 | --- | --- | --- | --- | --- | --- |
 | `internal/productenrich` task / queue / worker / API architecture | RETIRE | Production package root is absent on scan baseline | enrichment analysis, normalization, scoring, proposal logic that remains independently valid | `internal/product/enrichment` + AI Capability where applicable | Keep old package absent. Do not recreate workflow/task ownership. |

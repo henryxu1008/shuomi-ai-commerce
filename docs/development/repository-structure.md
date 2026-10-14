@@ -1,5 +1,17 @@
 # Repository Structure
 
+## #678：当前入口的命令装配隔离
+
+`cmd/shein-login-worker` 直接消费 `internal/app/runtime/sheinloginworker`，其配置、
+同库 StoreAPI/AccountRepository、Redis/service、health-port、退出信号和清理行为保持。
+通用 `app/httpapi` 不再承载该专用启动器，也没有旧入口的 forwarding wrapper。
+当前应用和图片 worker 的生产 `go list -deps` 均不包含 tenantbridge/compatibility/ListingKit。
+
+已无真实调用方的 ListingAdmin 旧 HTTP handlers/header/list-query helpers 已退休；其原
+repository/API/DTO 与有效 owner/幂等/权限测试保留。当前 Organization/StoreCenter
+路由和本地 SHEIN 草稿合同不变。独立 SHEIN worker 的 numeric/transport 债务以及 #529
+历史工具仍未退休；本批不表示全仓 legacy 清零、部署或用户验收。
+
 ## 目标
 
 这份文档说明仓库当前推荐的目录职责，以及后续结构收口的方向。当前重点是让正式入口、调试入口、长期工具和本地产物位置保持清晰，避免旧入口和临时产物继续污染仓库结构。
