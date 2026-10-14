@@ -144,7 +144,11 @@ func (m fullImageModule) handleArtwork(c *gin.Context, action string) {
 					case "recover":
 						err = a.service.RecoverEffect(ctx, runID, body.SlotID, body.Attempt, body.PlanRevision, key)
 					case "resume":
-						_, err = a.service.Resume(ctx, runID, key)
+						if p.PendingCommand == nil || p.PendingCommand.Kind != "approve_results" || p.PendingCommand.PlanRevision != p.Plan.Revision || imageagent.ValidateActionID(p.PendingCommand.ActionID) != nil {
+							err = imageagent.ErrCommandBlocked
+							break
+						}
+						_, err = a.service.Resume(ctx, runID, p.PendingCommand.ActionID)
 					case "cancel":
 						err = a.service.Cancel(ctx, runID, body.PlanRevision, key)
 					default:
