@@ -25,5 +25,5 @@ func (s OfficialTargetMerchantStore) ReadTargetMerchant(ctx context.Context, sco
 
 func validTargetMerchant(scope collection.Scope, storeID string, b storecenter.ProductMerchantBinding) bool {
 	return b.OrganizationID == scope.OrganizationID && b.StoreID == storeID && b.ValidApplication() &&
-		((b.Platform != storecenter.PlatformTemu && b.Site == "shein-us") || b.ValidTemuApplication())
+		((b.Platform != storecenter.PlatformTemu && b.Platform != storecenter.PlatformTikTokShop && b.Site == "shein-us") || b.ValidTemuApplication() || b.ValidTikTokApplication())
 }

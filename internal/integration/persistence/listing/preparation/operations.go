@@ -182,7 +182,14 @@ func (r *OperationRepository) PrepareOperation(ctx context.Context, proof prepar
 					CurrentRecordID string
 					Revision        int64
 				}
-				result := tx.Table("listing_preparation_targets").Clauses(clause.Locking{Strength: "SHARE"}).Where("organization_id=? AND actor_id=? AND member_id=? AND source_id=? AND store_id=? AND site='shein-us'", scope.OrganizationID, scope.ActorID, scope.MemberID, source.ID, input.StoreID).Take(&target)
+				query := tx.Table("listing_preparation_targets").Clauses(clause.Locking{Strength: "SHARE"}).Where("organization_id=? AND actor_id=? AND member_id=? AND source_id=? AND store_id=?", scope.OrganizationID, scope.ActorID, scope.MemberID, source.ID, input.StoreID)
+				if input.Action == preparation.OperationUpload {
+					query = query.Where("site IN ?", []string{"shein-us", "temu-supplier", "temu-local", "tiktokshop-us"})
+				} else {
+					// Optimization and BindOperationTarget remain SHEIN-only.
+					query = query.Where("site=?", "shein-us")
+				}
+				result := query.Take(&target)
 				if result.Error != nil && !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 					return preparation.OperationReceipt{}, preparation.ErrUnavailable
 				}

@@ -18,9 +18,19 @@ import (
 type OfficialConnections struct {
 	store        storecenter.OfficialConnectionStore
 	applications *OfficialApplicationRegistry
+	tiktok       *TikTokConnections
 }
 
 func (a *OfficialConnections) InstallToken(ctx context.Context, input storecenter.InstallOfficialToken) (storecenter.OfficialConnectionView, error) {
+	if a.tiktok != nil {
+		owns, err := a.tiktok.Owns(ctx, input.OrganizationID, input.StoreID)
+		if err != nil {
+			return storecenter.OfficialConnectionView{}, err
+		}
+		if owns {
+			return storecenter.OfficialConnectionView{}, storecenter.ErrOfficialConnectionUnavailable
+		}
+	}
 	if input.AccessToken == "" || len(input.AccessToken) > 4096 || strings.TrimSpace(input.AccessToken) != input.AccessToken || strings.ContainsAny(input.AccessToken, "\r\n\x00") {
 		return storecenter.OfficialConnectionView{}, storecenter.ErrNotFound
 	}
@@ -51,7 +61,11 @@ func NewOfficialConnections(store storecenter.OfficialConnectionStore, applicati
 	if store == nil || applications == nil {
 		return nil, storecenter.ErrOfficialConnectionUnavailable
 	}
-	return &OfficialConnections{store: store, applications: applications}, nil
+	tiktok, err := newTikTokConnections(store, applications)
+	if err != nil {
+		return nil, err
+	}
+	return &OfficialConnections{store: store, applications: applications, tiktok: tiktok}, nil
 }
 
 // Missing developer setup affects this capability, while Store CRUD and local
@@ -60,10 +74,23 @@ func NewUnconfiguredOfficialConnections(store storecenter.OfficialConnectionStor
 	if store == nil {
 		return nil, storecenter.ErrOfficialConnectionUnavailable
 	}
-	return &OfficialConnections{store: store}, nil
+	tiktok, err := newTikTokConnections(store, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &OfficialConnections{store: store, tiktok: tiktok}, nil
 }
 
 func (a *OfficialConnections) Begin(ctx context.Context, c storecenter.OfficialConnectionCommand) (storecenter.OfficialConnectionBegin, error) {
+	if a.tiktok != nil {
+		owns, err := a.tiktok.Owns(ctx, c.OrganizationID, c.StoreID)
+		if err != nil {
+			return storecenter.OfficialConnectionBegin{}, err
+		}
+		if owns {
+			return a.tiktok.Begin(ctx, c)
+		}
+	}
 	view, err := a.store.ReadOfficialConnection(ctx, c.OrganizationID, c.StoreID)
 	if err != nil {
 		return storecenter.OfficialConnectionBegin{}, err
@@ -89,6 +116,21 @@ func (a *OfficialConnections) Begin(ctx context.Context, c storecenter.OfficialC
 	return storecenter.OfficialConnectionBegin{AttemptID: attempt.AttemptID, AuthorizationURL: url, ExpiresAt: attempt.ExpiresAt, AuthorizationMethod: entry.application.AuthorizationMethod}, nil
 }
 func (a *OfficialConnections) Complete(ctx context.Context, c storecenter.CompleteOfficialConnection) (storecenter.OfficialConnectionView, error) {
+	if a.tiktok != nil {
+		owns, err := a.tiktok.Owns(ctx, c.OrganizationID, c.StoreID)
+		if err != nil {
+			return storecenter.OfficialConnectionView{}, err
+		}
+		if owns {
+			if c.TempToken != "" {
+				return storecenter.OfficialConnectionView{}, storecenter.ErrNotFound
+			}
+			return a.tiktok.Complete(ctx, storecenter.CompleteTikTokConnection{OrganizationID: c.OrganizationID, StoreID: c.StoreID, AttemptID: c.AttemptID, AppKey: c.AppID, State: c.State, AuthCode: c.AuthCode})
+		}
+	}
+	if c.AuthCode != "" {
+		return storecenter.OfficialConnectionView{}, storecenter.ErrNotFound
+	}
 	if len(c.State) < 1 || len(c.State) > 128 || len(c.TempToken) > 4096 || strings.TrimSpace(c.State) != c.State {
 		return storecenter.OfficialConnectionView{}, storecenter.ErrNotFound
 	}
@@ -156,6 +198,15 @@ func (a *OfficialConnections) Complete(ctx context.Context, c storecenter.Comple
 }
 
 func (a *OfficialConnections) ResumeQuery(ctx context.Context, org, storeID, attemptID string) (storecenter.OfficialConnectionView, error) {
+	if a.tiktok != nil {
+		owns, err := a.tiktok.Owns(ctx, org, storeID)
+		if err != nil {
+			return storecenter.OfficialConnectionView{}, err
+		}
+		if owns {
+			return a.tiktok.Resume(ctx, org, storeID, attemptID)
+		}
+	}
 	attempt, err := a.store.ReadOfficialQueryAttempt(ctx, org, storeID, attemptID)
 	if err != nil {
 		return storecenter.OfficialConnectionView{}, err
@@ -198,9 +249,27 @@ func (a *OfficialConnections) queryAttempt(ctx context.Context, attempt storecen
 	return view, nil
 }
 func (a *OfficialConnections) Disconnect(ctx context.Context, c storecenter.OfficialConnectionCommand) (storecenter.OfficialConnectionView, error) {
+	if a.tiktok != nil {
+		owns, err := a.tiktok.Owns(ctx, c.OrganizationID, c.StoreID)
+		if err != nil {
+			return storecenter.OfficialConnectionView{}, err
+		}
+		if owns {
+			return a.tiktok.Disconnect(ctx, c)
+		}
+	}
 	return a.store.DisconnectOfficialConnection(ctx, c, time.Now().UTC())
 }
 func (a *OfficialConnections) Read(ctx context.Context, org, store string) (storecenter.OfficialConnectionView, error) {
+	if a.tiktok != nil {
+		owns, err := a.tiktok.Owns(ctx, org, store)
+		if err != nil {
+			return storecenter.OfficialConnectionView{}, err
+		}
+		if owns {
+			return a.tiktok.Read(ctx, org, store)
+		}
+	}
 	view, err := a.store.ReadOfficialConnection(ctx, org, store)
 	if err != nil {
 		return view, err
@@ -215,6 +284,15 @@ func (a *OfficialConnections) Read(ctx context.Context, org, store string) (stor
 	return view, nil
 }
 func (a *OfficialConnections) Applications(ctx context.Context, org, store string) ([]storecenter.OfficialApplicationChoice, error) {
+	if a.tiktok != nil {
+		owns, err := a.tiktok.Owns(ctx, org, store)
+		if err != nil {
+			return nil, err
+		}
+		if owns {
+			return a.tiktok.Applications(ctx, org, store)
+		}
+	}
 	view, err := a.store.ReadOfficialConnection(ctx, org, store)
 	if err != nil {
 		return nil, err
@@ -228,6 +306,9 @@ func (a *OfficialConnections) Applications(ctx context.Context, org, store strin
 	return choices, nil
 }
 func (a *OfficialConnections) Status(ctx context.Context, input storecenter.ConnectionStatusInput) (storecenter.ConnectionStatus, error) {
+	if input.Platform == storecenter.PlatformTikTokShop && a.tiktok != nil {
+		return a.tiktok.Status(ctx, input)
+	}
 	if a.applications == nil {
 		return storecenter.ConnectionStatusUnavailable, storecenter.ErrOfficialConnectionUnavailable
 	}

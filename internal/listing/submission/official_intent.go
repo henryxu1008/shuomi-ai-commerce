@@ -31,6 +31,7 @@ type OfficialIntent struct {
 	TemuImage          *temugoods.ImageObservation        `json:"temuImage,omitempty"`
 	TemuImages         []TemuImageReference               `json:"temuImages,omitempty"`
 	TemuRenewalFrom    string                             `json:"temuRenewalFrom,omitempty"`
+	TikTok             *TikTokStageIntent                 `json:"tiktok,omitempty"`
 	CreatedAt          time.Time                          `json:"created_at"`
 }
 type OfficialIntentCommit struct {
@@ -99,6 +100,9 @@ func PrepareOfficialIntent(ctx context.Context, sourceProof preparation.Authoriz
 	return OfficialIntentCommit{source: sourceProof, intent: body, hash: collection.Digest(body)}, nil
 }
 func OfficialIntentInputHash(value OfficialIntent) string {
+	if value.Target.Platform == "tiktokshop" {
+		return collection.Digest([]any{value.Kind, value.Owner, value.RecordID, value.RecordHash, value.Source, value.Target, value.Binding, value.PayloadFingerprint, value.TikTok})
+	}
 	if value.Target.Platform == "temu" {
 		return collection.Digest([]any{value.Kind, value.Owner, value.RecordID, value.RecordHash, value.Source, value.Target, value.Binding, value.PayloadFingerprint, value.TemuImage, value.TemuImages, value.TemuRenewalFrom})
 	}
@@ -119,7 +123,10 @@ func ValidateOfficialIntent(value OfficialIntent) error {
 	if value.Target.Platform == "temu" {
 		return validateTemuIntent(value)
 	}
-	if value.TemuImage != nil || len(value.TemuImages) > 0 || value.TemuRenewalFrom != "" {
+	if value.Target.Platform == "tiktokshop" {
+		return validateTikTokIntent(value)
+	}
+	if value.TikTok != nil || value.TemuImage != nil || len(value.TemuImages) > 0 || value.TemuRenewalFrom != "" {
 		return ErrExecutionEvidenceRequired
 	}
 	var subject string

@@ -164,6 +164,14 @@ func (r *Repository) Acquire(ctx context.Context, reservation submission.Executi
 			(attempt.Action == submission.OfficialPublishAction && strings.HasPrefix(attempt.Target.SubjectID, "product-us-") || attempt.Action == submission.OfficialImageAction && strings.HasPrefix(attempt.Target.SubjectID, "image-us-")) {
 			return mutation{}, submission.ErrExecutionTargetSucceeded
 		}
+		if r.immutableOfficialEffects && attempt.Target.Platform == "tiktokshop" {
+			if found && fence.CurrentStatus == string(submission.ExecutionSucceeded) {
+				return mutation{}, submission.ErrExecutionTargetSucceeded
+			}
+			if err := r.requireTikTokEffect(ctx, tx, attempt); err != nil {
+				return mutation{}, err
+			}
+		}
 		if found {
 			if fence.Epoch <= 0 || fence.CurrentAttemptID == "" {
 				return mutation{}, submission.ErrExecutionUnavailable

@@ -1,6 +1,10 @@
 package currentapplication
 
-import "errors"
+import (
+	"errors"
+	"path/filepath"
+	"strings"
+)
 
 // StoreCenterConfig uses the independently owned native record database.
 type StoreCenterConfig struct {
@@ -9,6 +13,7 @@ type StoreCenterConfig struct {
 	Enabled              bool                            `json:"enabled"`
 	Database             DatabaseConfig                  `json:"database"`
 	OfficialApplications []OfficialStoreConnectionConfig `json:"officialApplications,omitempty"`
+	TikTokShop           *TikTokShopConfig               `json:"tiktokShop,omitempty"`
 }
 
 func (c *Config) validateStoreCenter() error {
@@ -19,6 +24,23 @@ func (c *Config) validateStoreCenter() error {
 		return nil
 	}
 	s := c.StoreCenter
+	if err := s.TikTokShop.validate(); err != nil {
+		return err
+	}
+	if s.TikTokShop != nil {
+		for _, app := range s.OfficialApplications {
+			if app.CredentialKeyID == s.TikTokShop.CredentialKeyID {
+				return errors.New("Store application credential key identities must be unique")
+			}
+			for _, existing := range []string{app.AppSecretFile, app.CredentialKeyFile} {
+				for _, proposed := range []string{s.TikTokShop.AppSecretFile, s.TikTokShop.CredentialKeyFile} {
+					if strings.EqualFold(filepath.Clean(existing), filepath.Clean(proposed)) {
+						return errors.New("Store applications require separate private files")
+					}
+				}
+			}
+		}
+	}
 	if err := validateOfficialApplications(s.OfficialApplications); err != nil {
 		return err
 	}

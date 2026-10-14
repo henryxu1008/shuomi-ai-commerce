@@ -3,12 +3,16 @@ package storecenter
 import (
 	"context"
 	"errors"
-	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 	"strconv"
 	"strings"
-	"task-processor/internal/authidentity"
 	"time"
+
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+
+	"task-processor/internal/authidentity"
+	tiktok "task-processor/internal/storecenter/tiktokshop"
 )
 
 type ProductExecutionSubject struct {
@@ -37,12 +41,27 @@ type ProductExecutionMaterial struct {
 	Platform         Platform
 	ServiceExpiresAt time.Time
 	Connection       OfficialConnectionView
-	Attempt          OfficialConnectionAttempt `json:"-"`
+	Attempt          OfficialConnectionAttempt       `json:"-"`
+	TikTok           *TikTokProductExecutionMaterial `json:"-"`
+}
+
+type TikTokProductExecutionMaterial struct {
+	Grant   tiktok.GrantSnapshot
+	Binding TikTokShopBinding
+}
+
+type TikTokMerchantBinding struct {
+	GrantID         string `json:"grant_id"`
+	ShopID          string `json:"shop_id"`
+	GrantGeneration int64  `json:"grant_generation"`
+	GrantRevision   int64  `json:"grant_revision"`
+	BindingRevision int64  `json:"binding_revision"`
 }
 
 // ProductMerchantBinding is a public reference to current Store authority. It
 // contains no credential and never grants durable execution on its own.
 type ProductMerchantBinding struct {
+	TikTok               TikTokMerchantBinding     `json:"tiktok,omitempty,omitzero"`
 	Platform             Platform                  `json:"platform,omitempty"`
 	IdentityPartition    OfficialIdentityPartition `json:"identity_partition,omitempty"`
 	MerchantMode         OfficialMerchantMode      `json:"merchant_mode,omitempty"`
@@ -63,13 +82,26 @@ type ProductMerchantBinding struct {
 }
 
 func (b ProductMerchantBinding) ValidApplication() bool {
+	if b.Platform == PlatformTikTokShop {
+		return b.ValidTikTokApplication()
+	}
+	if b.TikTok != (TikTokMerchantBinding{}) {
+		return false
+	}
 	if b.Platform == PlatformTemu {
 		return b.ValidTemuApplication()
 	}
 	return b.ApplicationType.Valid() && authidentity.IsBoundedIdentifier(b.ApplicationID) && authidentity.IsBoundedIdentifier(b.ApplicationRevision) && strings.HasSuffix(b.ApplicationRevision, ":"+string(b.ApplicationType))
 }
 
+func (b ProductMerchantBinding) ValidTikTokApplication() bool {
+	return b.Platform == PlatformTikTokShop && b.Site == "tiktokshop-us" && b.IdentityPartition == "" && b.ApplicationType == "" && b.MerchantMode == "" && b.RegionID == 0 && authidentity.IsBoundedIdentifier(b.ApplicationID) && authidentity.IsBoundedIdentifier(b.ApplicationRevision) && len(b.SupplierIdentityHash) == 64 && len(b.ScopesHash) == 64 && !b.CredentialExpiresAt.IsZero() && uuid.Validate(b.TikTok.GrantID) == nil && authidentity.IsBoundedIdentifier(b.TikTok.ShopID) && b.TikTok.GrantGeneration > 0 && b.TikTok.GrantRevision >= b.TikTok.GrantGeneration && b.TikTok.BindingRevision > 0
+}
+
 func (b ProductMerchantBinding) ValidTemuApplication() bool {
+	if b.TikTok != (TikTokMerchantBinding{}) {
+		return false
+	}
 	modes := ModesLocal
 	if b.IdentityPartition == PartitionCN {
 		if b.MerchantMode != MerchantFullyManaged && b.MerchantMode != MerchantSemiManaged || b.RegionID != 0 || b.Site != "temu-supplier" {
@@ -145,7 +177,7 @@ func (r *MemberScopedStoreRepository) readOfficialMaterial(ctx context.Context, 
 		if err := tx.Where("organization_id = ? AND id = ? AND deleted_at IS NULL", subject.OrganizationID, storeID).Take(&stored).Error; err != nil {
 			return err
 		}
-		if stored.Platform != "shein" && stored.Platform != "temu" || stored.RecordStatus != "active" || stored.ServiceStatus == nil || *stored.ServiceStatus != "active" || stored.ServiceStartedAt == nil || stored.ServiceExpiresAt == nil || now.Before(*stored.ServiceStartedAt) || !now.Before(*stored.ServiceExpiresAt) || stored.ConnectionRef == "" {
+		if stored.Platform != "shein" && stored.Platform != "temu" && stored.Platform != "tiktokshop" || stored.RecordStatus != "active" || stored.ServiceStatus == nil || *stored.ServiceStatus != "active" || stored.ServiceStartedAt == nil || stored.ServiceExpiresAt == nil || now.Before(*stored.ServiceStartedAt) || !now.Before(*stored.ServiceExpiresAt) || stored.ConnectionRef == "" {
 			return ErrNotFound
 		}
 		var connection officialConnectionRow
@@ -154,6 +186,29 @@ func (r *MemberScopedStoreRepository) readOfficialMaterial(ctx context.Context, 
 		}
 		if connection.Status != "connected" {
 			return ErrNotFound
+		}
+		if stored.Platform == "tiktokshop" {
+			var attempt tiktokAttemptRow
+			if err := tx.Where("organization_id=? AND store_id=? AND attempt_id=? AND connection_version=? AND state='bound'", subject.OrganizationID, storeID, connection.AttemptID, connection.Version).Take(&attempt).Error; err != nil {
+				return ErrNotFound
+			}
+			var binding tiktokBindingRow
+			if err := tx.Where("organization_id=? AND store_id=? AND status='active'", subject.OrganizationID, storeID).Take(&binding).Error; err != nil {
+				return ErrNotFound
+			}
+			if stored.Region != "US" || binding.ShopCode != stored.ExternalStoreID || binding.AppKey != attempt.AppKey {
+				return ErrNotFound
+			}
+			var row tiktokGrantRow
+			if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("organization_id=? AND id=? AND app_key=?", subject.OrganizationID, binding.GrantID, binding.AppKey).Take(&row).Error; err != nil {
+				return ErrNotFound
+			}
+			grant, err := tiktok.RestoreGrant(tiktokGrantValue(row))
+			if err != nil || !grant.CanSend(now) {
+				return ErrNotFound
+			}
+			material = ProductExecutionMaterial{StoreVersion: stored.Version, Platform: PlatformTikTokShop, ServiceExpiresAt: stored.ServiceExpiresAt.UTC(), Connection: tiktokConnectionView(connection, attempt, grant.Snapshot(), binding, now), TikTok: &TikTokProductExecutionMaterial{Grant: grant.Snapshot(), Binding: tiktokBindingValue(binding)}}
+			return ctx.Err()
 		}
 		var attempt officialAttemptRow
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("organization_id = ? AND store_id = ? AND attempt_id = ? AND connection_version = ?", subject.OrganizationID, storeID, connection.AttemptID, connection.Version).Take(&attempt).Error; err != nil {

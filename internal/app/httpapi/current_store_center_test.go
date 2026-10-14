@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
@@ -18,6 +19,29 @@ import (
 	"task-processor/internal/storecenter"
 	storehttp "task-processor/internal/storecenter/httpapi"
 )
+
+func TestTikTokLifecycleAdmissionRequiresExplicitSignedBoundary(t *testing.T) {
+	var base []httproute.Descriptor
+	for _, route := range currentWorkbenchApplicationRoutes {
+		base = append(base, httproute.Descriptor{Method: route.Method, Path: route.Path})
+	}
+	base = append(base, currentStoreTestRoutes(t)...)
+	callback := httproute.Descriptor{Method: http.MethodPost, Path: storehttp.TikTokLifecyclePath, Module: storehttp.ModuleName, AuthPolicy: httproute.AuthPolicyPublic, OrganizationAccessPolicy: httproute.OrganizationAccessPolicyNone, RequestTimeout: 5 * time.Second, Handler: func(*gin.Context) {}}
+	validate := func(routes []httproute.Descriptor, enabled bool) error {
+		return validateCurrentApplicationRoutesInternal(routes, false, false, false, false, false, false, false, currentApplicationOptionalRoutes{StoreCenter: true, TikTokShop: enabled})
+	}
+	all := append(base, callback)
+	require.NoError(t, validate(all, true))
+	require.Error(t, validate(all, false))
+	require.Error(t, validate(base, true))
+	for _, mutate := range []func(*httproute.Descriptor){func(d *httproute.Descriptor) { d.AuthPolicy = httproute.AuthPolicyCurrentIdentity }, func(d *httproute.Descriptor) {
+		d.OrganizationAccessPolicy = httproute.OrganizationAccessPolicyLiveWrite
+	}, func(d *httproute.Descriptor) { d.RequestTimeout = 0 }, func(d *httproute.Descriptor) { d.Permission = "store.update" }, func(d *httproute.Descriptor) { d.Handler = nil }} {
+		changed := append([]httproute.Descriptor(nil), all...)
+		mutate(&changed[len(changed)-1])
+		require.Error(t, validate(changed, true))
+	}
+}
 
 func currentStoreTestRoutes(t *testing.T) []httproute.Descriptor {
 	t.Helper()

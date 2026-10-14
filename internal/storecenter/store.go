@@ -36,8 +36,9 @@ var (
 type Platform string
 
 const (
-	PlatformShein Platform = "shein"
-	PlatformTemu  Platform = "temu"
+	PlatformShein      Platform = "shein"
+	PlatformTemu       Platform = "temu"
+	PlatformTikTokShop Platform = "tiktokshop"
 )
 
 // Store is the Organization-scoped Store Center aggregate. Its state is kept
@@ -220,6 +221,9 @@ func (s *Store) EditBasic(name, region, actorSubject string, occurredAt time.Tim
 	if err != nil {
 		return false, err
 	}
+	if s.platform == PlatformTikTokShop && normalizedRegion != "US" {
+		return false, errors.New("TikTok Shop region must be US")
+	}
 	actorSubject, err = validateOpaqueIdentity("actor subject", actorSubject, MaxSubjectBytes)
 	if err != nil {
 		return false, err
@@ -314,6 +318,9 @@ func newStoreFromSnapshot(snapshot StoreSnapshot) (*Store, error) {
 	externalStoreID, err := validateNormalizedUserValue("external store ID", snapshot.ExternalStoreID, MaxExternalStoreIDCodePoints, false)
 	if err != nil {
 		return nil, err
+	}
+	if platform == PlatformTikTokShop && (region != "US" || externalStoreID == "") {
+		return nil, errors.New("TikTok Shop requires US region and explicit Seller Center code")
 	}
 	connectionRef, err := validateOpaqueOptionalValue("connection reference", snapshot.ConnectionRef)
 	if err != nil {
@@ -499,7 +506,7 @@ func normalizePlatform(value string) (Platform, error) {
 		return "", errors.New("platform is invalid")
 	}
 	normalized := strings.ToLower(strings.TrimSpace(value))
-	if Platform(normalized) != PlatformShein && Platform(normalized) != PlatformTemu {
+	if Platform(normalized) != PlatformShein && Platform(normalized) != PlatformTemu && Platform(normalized) != PlatformTikTokShop {
 		return "", errors.New("platform is unsupported")
 	}
 	return Platform(normalized), nil
