@@ -114,7 +114,7 @@ beforeEach(() => {
               ID: other,
               Digest: "b".repeat(64),
             },
-            modeRevision: "0",
+            modeRevision: currentModeRevision,
             maximumTokens: 100,
             maximumCostMicros: 10000,
             maximumCallCostMicros: 10000,
@@ -186,6 +186,28 @@ async function viewFacts() {
   fireEvent.click(screen.getByRole("button", {name: "读取经营事实"}));
   await screen.findByRole("heading", {name: "已保存经营事实"});
 }
+it.each(["REVISION_MISMATCH", "CONFIGURATION_CHANGED"])("refetches the current diagnosis mode after known %s without automatically retrying analysis", async code => {
+  const baseFetch = fetch;
+  let reject = true;
+  vi.stubGlobal("fetch", vi.fn((url, init) => {
+    if (init?.method === "POST" && String(url).endsWith("/prepare") && reject) {
+      reject = false;
+      currentModeRevision = "1";
+      return Promise.resolve(Response.json({code}, {status: 409}));
+    }
+    return baseFetch(url, init);
+  }));
+  show(); await choose(); await viewFacts();
+  await waitFor(() => expect(screen.getByRole("button", {name: "准备分析"})).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", {name: "准备分析"}));
+  await screen.findByRole("alert");
+  await waitFor(() => expect(vi.mocked(fetch).mock.calls.filter(([url]) => String(url).includes("execution-modes"))).toHaveLength(2));
+  expect(writes).toHaveLength(1);
+  fireEvent.click(screen.getByRole("button", {name: "准备分析"}));
+  await screen.findByRole("heading", {name: "确认本次分析"});
+  expect((writes[1].body as {expectedModeRevision:string}).expectedModeRevision).toBe("1");
+  expect(writes.every(write => !write.path.endsWith("/runs"))).toBe(true);
+});
 it("requires an explicit diagnosis goal before preparing a paid analysis",async()=>{show();await choose();await viewFacts();await waitFor(()=>expect(screen.getByRole("button",{name:"准备分析"})).toBeEnabled());fireEvent.change(screen.getByLabelText("本次诊断目标"),{target:{value:""}});expect(screen.getByRole("button",{name:"准备分析"})).toBeDisabled();expect(writes).toHaveLength(1);expect(writes[0].path).toMatch(/inspect$/)});
 it("checks the original UTF-8 goal limit and sends a trimmed diagnosis goal", async () => {
   show(); await choose(); await viewFacts();

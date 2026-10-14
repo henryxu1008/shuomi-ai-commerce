@@ -288,6 +288,7 @@ export function ShopDiagnosisFlow({
     } catch (e) {
       if (active.current) {
         setFailure(e);
+        if (e instanceof MarketAPIError && e.status === 409 && ["REVISION_MISMATCH", "CONFIGURATION_CHANGED"].includes(e.code)) void mode.refetch();
         if (
           e instanceof MarketAPIError &&
           e.code !== "OUTCOME_UNKNOWN" &&
