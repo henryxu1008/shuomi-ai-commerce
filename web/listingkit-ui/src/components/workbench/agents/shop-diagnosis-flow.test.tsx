@@ -186,6 +186,11 @@ async function viewFacts() {
   fireEvent.click(screen.getByRole("button", {name: "读取经营事实"}));
   await screen.findByRole("heading", {name: "已保存经营事实"});
 }
+it("keeps original saved observation links scoped to the inspected store", async () => {
+  show(); await choose(); await viewFacts();
+  expect(screen.getByRole("link", {name:"查看保存商品"})).toHaveAttribute("href", `/workbench/store-products?storeId=${id}`);
+  expect(screen.getByRole("link", {name:"查看保存订单"})).toHaveAttribute("href", `/workbench/store-orders?storeId=${id}`);
+});
 it("recovers an uncertain diagnosis prepare through its original receipt owner and retains its key while forbidden", async () => {
   const baseFetch = fetch;
   const attempts: Array<{key:string;body:string}> = [];

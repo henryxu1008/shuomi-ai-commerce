@@ -858,8 +858,8 @@ function FactTable({ inspection }: { inspection: DiagnosisInspection }) {
         >
           查看原经营明细
         </Link>
-        <Link href="/workbench/store-products">查看保存商品</Link>
-        <Link href="/workbench/store-orders">查看保存订单</Link>
+        <Link href={`/workbench/store-products?storeId=${ref.StoreID}`}>查看保存商品</Link>
+        <Link href={`/workbench/store-orders?storeId=${ref.StoreID}`}>查看保存订单</Link>
       </div>
       <div className="overflow-x-auto">
         <Table>
