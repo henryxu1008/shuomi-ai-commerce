@@ -2,6 +2,7 @@ package agentconfigpersistence
 
 import (
 	"context"
+	"errors"
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	runstore "task-processor/internal/integration/persistence/agent"
@@ -52,8 +53,11 @@ func (s *Store) Recent(ctx context.Context, scope agent.Scope, memberID, id, aft
 		if snap.MemberID != memberID {
 			return nil, "", agentconfig.ErrForbidden
 		}
-		if authorize(snap.Request.Binding) != nil {
-			continue
+		if e := authorize(snap.Request.Binding); e != nil {
+			if errors.Is(e, agentconfig.ErrForbidden) || errors.Is(e, agentconfig.ErrNotFound) {
+				continue
+			}
+			return nil, "", e
 		}
 		r, found, e := runs.Lookup(ctx, scope, snap.Request.Binding, snap.Request.Key)
 		if e != nil {

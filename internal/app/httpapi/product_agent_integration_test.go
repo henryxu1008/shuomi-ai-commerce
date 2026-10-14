@@ -439,6 +439,24 @@ func testProductAgentOwners(t *testing.T, mode string) {
 			require.Zero(t, calls.Load())
 		}
 		settings.Limits.Steps, settings.Limits.ModelCalls = 4, 2
+		profile := settings.SelectionTextPolicies["B"].ShapeProfile()
+		cost, quoteErr := profile.MaximumCost()
+		require.NoError(t, quoteErr)
+		for _, short := range []string{"tokens", "cost"} {
+			invalid := settings
+			invalid.Limits.Tokens = 2 * (profile.MaximumPromptTokens + profile.MaximumCompletionTokens)
+			invalid.Limits.CostMicros = 2 * cost
+			if short == "tokens" {
+				invalid.Limits.Tokens--
+			} else {
+				invalid.Limits.CostMicros--
+			}
+			_, admissionErr := buildProductAgentModule(context.Background(), f.db, deps, auth, invalid, reviewIAM.config())
+			require.ErrorIs(t, admissionErr, agent.ErrUnavailable)
+			require.Zero(t, calls.Load())
+		}
+		settings.Limits.Tokens = 2 * (profile.MaximumPromptTokens + profile.MaximumCompletionTokens)
+		settings.Limits.CostMicros = 2 * cost
 	}
 	module, err := buildProductAgentModule(context.Background(), f.db, deps, auth, settings, reviewIAM.config())
 	require.NoError(t, err)
@@ -799,6 +817,12 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		require.NoError(t, recentErr)
 		require.Len(t, recent, 1)
 		require.Equal(t, result.RunID, recent[0].RunID)
+		for _, failure := range []error{agentconfig.ErrUnavailable, context.DeadlineExceeded, errors.New("fixture dependency outage")} {
+			items, next, err := configuration.Recent(context.Background(), agent.Scope{OrganizationID: "B", ActorID: "admin"}, "member-B-admin", "product.title.agent", "", 20, application.store, func(agent.Binding) error { return failure })
+			require.ErrorIs(t, err, failure, "an outage is not an empty authorized history")
+			require.Empty(t, items)
+			require.Empty(t, next)
+		}
 		denied, _, recentErr := configuration.Recent(context.Background(), agent.Scope{OrganizationID: "B", ActorID: "other"}, "member-B-other", "product.title.agent", "", 20, application.store, func(agent.Binding) error { return nil })
 		require.NoError(t, recentErr)
 		require.Empty(t, denied)

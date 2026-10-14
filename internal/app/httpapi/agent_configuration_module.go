@@ -260,7 +260,7 @@ func buildAgentConfigurationModule(ctx context.Context, db *gorm.DB, resolver or
 			return repo.Recent(ctx, scope, fresh.MemberID, id, cursor, size, selection.store, func(b agent.Binding) error {
 				current, e := selection.inspector.AuthorizeHistory(ctx, b)
 				if e != nil {
-					return e
+					return recentRunAccessError(e)
 				}
 				if current.OrganizationID != fresh.OrganizationID || current.ActorID != fresh.ActorID || current.MemberID != fresh.MemberID {
 					return agentconfig.ErrForbidden
@@ -280,7 +280,7 @@ func buildAgentConfigurationModule(ctx context.Context, db *gorm.DB, resolver or
 			return repo.Recent(ctx, scope, fresh.MemberID, id, cursor, size, runtime.store, func(b agent.Binding) error {
 				_, _, exact, e := listing.readBase(ctx, b.ContextID)
 				if e != nil {
-					return e
+					return recentRunAccessError(e)
 				}
 				if b != exact {
 					return agentconfig.ErrConflict
@@ -320,7 +320,7 @@ func buildAgentConfigurationModule(ctx context.Context, db *gorm.DB, resolver or
 		if e != nil || fresh.UserID != scope.ActorID || fresh.TenantID != scope.OrganizationID {
 			return nil, "", agentconfig.ErrForbidden
 		}
-		return repo.Recent(ctx, scope, fresh.EffectiveMemberID, id, cursor, size, selected.store, func(b agent.Binding) error { _, e := selected.Authorize(ctx, b); return e })
+		return repo.Recent(ctx, scope, fresh.EffectiveMemberID, id, cursor, size, selected.store, func(b agent.Binding) error { _, e := selected.Authorize(ctx, b); return recentRunAccessError(e) })
 	}
 	return confighttp.NewModule(h), nil
 }

@@ -108,7 +108,7 @@ func (p *ProductAgentConfig) validate(cfg *Config) error {
 		}
 		profile := policy.ShapeProfile()
 		cost, err := profile.MaximumCost()
-		if !seen[org] || profile.PromptVersion != agentconfig.SelectionPromptVersion || profile.OutputSchemaVersion != agentconfig.SelectionActionVersion || profile.Currency != p.Currency || !governed.ValidRouteProfile(profile, aicapability.OperationProductSelectionDecision) || err != nil || profile.MaximumPromptTokens+profile.MaximumCompletionTokens > p.Tokens || cost > p.CostMicros {
+		if !seen[org] || profile.PromptVersion != agentconfig.SelectionPromptVersion || profile.OutputSchemaVersion != agentconfig.SelectionActionVersion || profile.Currency != p.Currency || !governed.ValidRouteProfile(profile, aicapability.OperationProductSelectionDecision) || err != nil || profile.MaximumCompletionTokens > p.Tokens/2 || profile.MaximumPromptTokens > p.Tokens/2-profile.MaximumCompletionTokens || cost > p.CostMicros/2 {
 			return errors.New("product selection text policy invalid")
 		}
 	}
