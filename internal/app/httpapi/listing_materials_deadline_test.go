@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -8,6 +9,23 @@ import (
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestMaterialsModelContextRetainsTheLocalSaveReserve(t *testing.T) {
+	parentDeadline := time.Now().Add(45 * time.Second)
+	parent, stop := context.WithDeadline(context.Background(), parentDeadline)
+	defer stop()
+	model, cancel := materialsModelContext(parent)
+	deadline, ok := model.Deadline()
+	require.True(t, ok)
+	require.Equal(t, parentDeadline.Add(-30*time.Second), deadline)
+	cancel()
+	require.NoError(t, parent.Err(), "automatic save keeps its enclosing context")
+	short, stopShort := context.WithTimeout(context.Background(), time.Second)
+	defer stopShort()
+	model, cancel = materialsModelContext(short)
+	defer cancel()
+	require.ErrorIs(t, model.Err(), context.DeadlineExceeded, "too little route time cannot dispatch model work")
+}
 
 type materialsDeadlineRecorder struct {
 	*httptest.ResponseRecorder

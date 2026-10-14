@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"errors"
+	"time"
 
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
@@ -43,7 +44,9 @@ func (a *listingMaterialsApplication) prepare(ctx context.Context, recordID stri
 	if err != nil {
 		return agentconfig.Snapshot{}, err
 	}
-	request := agent.Request{Key: in.RequestKey, Binding: inspection.Binding, GoalSummary: in.GoalSummary, PolicyVersion: materials.PolicyVersion, PromptVersion: materials.PromptVersion, Limits: a.parent.config.Limits}
+	limits := a.parent.config.Limits
+	limits.Runtime = min(limits.Runtime, 90*time.Second)
+	request := agent.Request{Key: in.RequestKey, Binding: inspection.Binding, GoalSummary: in.GoalSummary, PolicyVersion: materials.PolicyVersion, PromptVersion: materials.PromptVersion, Limits: limits}
 	return a.parent.configuration.Prepare(ctx, agentconfig.StartCommand{Scope: agent.Scope{OrganizationID: id.OrganizationID, ActorID: id.ActorID}, MemberID: id.MemberID, ExpectedModeRevision: in.ExpectedModeRevision, AgentID: materials.AgentID, AgentVersion: materials.AgentVersion, Template: in.Template, Request: request, ExecutionModelProfile: profile})
 }
 
@@ -107,7 +110,9 @@ func (a *listingMaterialsApplication) start(ctx context.Context, recordID, key s
 	}
 	request := snapshot.Request
 	request.ConfigurationSnapshotRef = ref
-	run, attempted, err := a.runtime.StartWithClaimAttempt(ctx, request)
+	modelCtx, cancel := materialsModelContext(ctx)
+	run, attempted, err := a.runtime.StartWithClaimAttempt(modelCtx, request)
+	cancel()
 	if err == nil {
 		err = a.finishAutomaticAdoption(ctx, recordID, run)
 	}
@@ -125,11 +130,23 @@ func (a *listingMaterialsApplication) resume(ctx context.Context, recordID, key 
 	if a.runtime == nil {
 		return run, true, agentconfig.ErrUnavailable
 	}
-	next, attempted, err := a.runtime.ResumeWithClaimAttempt(ctx, run.State.Request, revision, feedback)
+	modelCtx, cancel := materialsModelContext(ctx)
+	next, attempted, err := a.runtime.ResumeWithClaimAttempt(modelCtx, run.State.Request, revision, feedback)
+	cancel()
 	if err == nil {
 		err = a.finishAutomaticAdoption(ctx, recordID, next)
 	}
 	return next, attempted, err
+}
+
+// The enclosing two-minute route also owns local Target reads and commit.
+// Model work cannot consume the time reserved for that existing owner.
+func materialsModelContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	deadline := time.Now().Add(90 * time.Second)
+	if enclosing, ok := ctx.Deadline(); ok && enclosing.Add(-30*time.Second).Before(deadline) {
+		deadline = enclosing.Add(-30 * time.Second)
+	}
+	return context.WithDeadline(ctx, deadline)
 }
 
 // Only the admitted Start/resume path may initiate an automatic local save.

@@ -97,6 +97,7 @@ func testMaterialsNativeOwners(t *testing.T, value string, parent *productAgentA
 	a, err := buildListingMaterialsApplication(ctx, parent, supply)
 	require.NoError(t, err)
 	require.NotNil(t, a.runtime)
+	parent.config.Limits.Runtime = 2 * time.Minute
 	parent.materials = a
 	server := httptest.NewServer(buildIsolatedApplicationHTTPServer(listingMaterialsRoutes(a, a.bindRequest), deps, 2*time.Minute).Handler)
 	defer server.Close()
@@ -118,6 +119,9 @@ func testMaterialsNativeOwners(t *testing.T, value string, parent *productAgentA
 		ConfigurationSnapshotRef agent.ConfigurationSnapshotRef `json:"configurationSnapshotRef"`
 	}
 	require.NoError(t, json.Unmarshal(raw, &prepared))
+	frozen, err := parent.configuration.LoadSnapshot(ctx, scope, prepared.ConfigurationSnapshotRef)
+	require.NoError(t, err)
+	require.LessOrEqual(t, frozen.Request.Limits.Runtime, 90*time.Second, "the model run must reserve route time for Target saving")
 	require.True(t, materialsRefValid(prepared.ConfigurationSnapshotRef))
 	start := materialsStartBody{ConfigurationSnapshotRef: prepared.ConfigurationSnapshotRef}
 	raw = call("POST", path+"/runs", key, start, 200)

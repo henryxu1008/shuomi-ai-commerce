@@ -2,7 +2,9 @@ package httpapi
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/stretchr/testify/require"
 	"task-processor/internal/agent"
@@ -45,4 +47,14 @@ func TestMaterialsProjectionBoundsNotesWithoutLosingOwnerDiagnostics(t *testing.
 	require.Contains(t, out, "PLATFORM_MATERIAL_CONFIRMATION_REQUIRED")
 	require.Contains(t, out[len(out)-1], "省略")
 	require.Len(t, s.Unresolved, 4096, "public display bounds must not rewrite the paid history")
+}
+
+func TestMaterialsProjectionBoundsIndividualNotesWithoutRewritingHistory(t *testing.T) {
+	note := strings.Repeat("中文", 2000)
+	s := agent.State{Unresolved: []string{note}}
+	out := materialsRunDiagnostics(s)
+	require.LessOrEqual(t, len(out[0]), 8192)
+	require.True(t, utf8.ValidString(out[0]))
+	require.Contains(t, out[0], "截断")
+	require.Equal(t, note, s.Unresolved[0])
 }
