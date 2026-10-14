@@ -393,6 +393,16 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	if strings.HasPrefix(mode, "content flow cross-admin ") {
 		reviewIAM = newContentReviewIAM(t, &memberReplaced)
 	}
+	if mode == "selection" {
+		for _, limits := range [][2]int{{3, 2}, {4, 1}} {
+			invalid := settings
+			invalid.Limits.Steps, invalid.Limits.ModelCalls = limits[0], limits[1]
+			_, admissionErr := buildProductAgentModule(context.Background(), f.db, deps, auth, invalid, reviewIAM.config())
+			require.ErrorIs(t, admissionErr, agent.ErrUnavailable, "application admission must reject a deterministically incomplete flow")
+			require.Zero(t, calls.Load())
+		}
+		settings.Limits.Steps, settings.Limits.ModelCalls = 4, 2
+	}
 	module, err := buildProductAgentModule(context.Background(), f.db, deps, auth, settings, reviewIAM.config())
 	require.NoError(t, err)
 	if mode == "selection" {
