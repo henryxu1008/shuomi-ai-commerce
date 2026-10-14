@@ -80,3 +80,25 @@ func TestArtworkPreparationHasNoOriginalAndConfirmationRestoresOneAdmission(t *t
 	require.Len(t, workflows.starts, 2)
 	require.Equal(t, workflows.starts[0], workflows.starts[1])
 }
+
+func TestCancelPreparedArtworkUsesOnlyTheOriginalRepository(t *testing.T) {
+	_, _, _, _, _, quotes, ctx, _ := imageSetServiceFixture(t)
+	configuration := &artworkConfigurationFixture{setConfigurationFixture: setConfigurationFixture{enabled: true}}
+	workflows := &recordingWorkflowClient{}
+	repository := store.NewMemoryRepository()
+	service, err := imageagent.NewService(repository, workflows, staticCatalogResolver{}, imageagent.WithOrganizationScope(), imageagent.WithArtworkDependencies(imageagent.ArtworkDependencies{Configuration: configuration, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{Images: 1, Points: 100, ElapsedSeconds: 300}}))
+	require.NoError(t, err)
+	prepared, err := service.PrepareArtwork(ctx, imageagent.PrepareArtworkInput{RequestID: uuid.NewString(), ContextID: "cancel-original", ExpectedModeRevision: "0", Theme: "待取消图案"})
+	require.NoError(t, err)
+	action := uuid.NewString()
+	require.NoError(t, service.Cancel(ctx, prepared.Projection.Run.ID, 1, action))
+	stored, err := repository.GetProjection(ctx, imageagent.ScopeForRun(prepared.Projection.Run))
+	require.NoError(t, err)
+	require.Equal(t, imageagent.RunStatusCancelled, stored.Run.Status)
+	require.Empty(t, workflows.cancellations)
+	require.Empty(t, workflows.starts)
+	require.Zero(t, configuration.admissions)
+	require.NoError(t, service.Cancel(ctx, prepared.Projection.Run.ID, 1, action))
+	_, err = service.ConfirmArtwork(ctx, imageagent.ConfirmArtworkInput{RunID: prepared.Projection.Run.ID, ActionID: uuid.NewString(), ExpectedRevision: 1, PlanDigest: prepared.PlanDigest, QuoteDigest: prepared.QuoteDigest})
+	require.ErrorIs(t, err, imageagent.ErrCommandBlocked)
+}

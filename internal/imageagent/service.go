@@ -578,7 +578,7 @@ func (s *Service) Cancel(ctx context.Context, runID string, planRevision int64, 
 	if err != nil {
 		return err
 	}
-	if current.Plan.Set != nil && current.Run.ImageAdmission == nil {
+	if (current.Plan.Set != nil || current.Plan.Artwork != nil) && current.Run.ImageAdmission == nil {
 		if _, err = s.identityForRun(identity, current.Run); err != nil {
 			return err
 		}
