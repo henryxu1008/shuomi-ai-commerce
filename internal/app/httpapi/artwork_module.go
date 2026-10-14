@@ -26,7 +26,7 @@ func (m fullImageModule) artworkRoutes() []httproute.Descriptor {
 	} {
 		a := a
 		permission := authz.PermissionImageAgentWrite
-		if a.method == http.MethodGet || a.action == "prepare" {
+		if a.method == http.MethodGet {
 			permission = authz.PermissionImageAgentRead
 		}
 		result = append(result, httproute.Descriptor{Method: a.method, Path: artworkAgentBase + a.path, Module: m.Name(), Permission: permission, AuthPolicy: httproute.AuthPolicyVerifiedIdentity, OrganizationAccessPolicy: httproute.OrganizationAccessPolicyLiveWrite, RequestTimeout: 30 * time.Second, Handler: func(c *gin.Context) { m.handleArtwork(c, a.action) }})

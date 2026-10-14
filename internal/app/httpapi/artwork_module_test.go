@@ -28,7 +28,7 @@ func TestPODArtworkRegistrationHasExactCreativeSchema(t *testing.T) {
 func TestPODArtworkRoutesAndCommandsKeepExactBoundaries(t *testing.T) {
 	for _, route := range (fullImageModule{}).artworkRoutes() {
 		want := authz.PermissionImageAgentWrite
-		if route.Method == http.MethodGet || route.Path == artworkAgentBase+"/prepare" {
+		if route.Method == http.MethodGet {
 			want = authz.PermissionImageAgentRead
 		}
 		require.Equal(t, want, route.Permission)

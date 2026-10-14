@@ -68,9 +68,11 @@ type Intent = {
 export function AgentPage({
   mode,
   id,
+  podAvailable = false,
 }: {
   mode: "market" | "mine";
   id?: string;
+  podAvailable?: boolean;
 }) {
   const ctx = useWorkbenchContext();
   if (ctx.error || ctx.blockingError)
@@ -98,6 +100,7 @@ export function AgentPage({
       organization={ctx.effectiveOrganization.name}
       mode={mode}
       id={id}
+      podAvailable={podAvailable}
     />
   );
 }
@@ -106,11 +109,13 @@ function ScopedPage({
   organization,
   mode,
   id,
+  podAvailable = false,
 }: {
   scope: ConfigurationScope;
   organization: string;
   mode: "market" | "mine";
   id?: string;
+  podAvailable?: boolean;
 }) {
   const agentId = id ?? "product.title.agent";
   const [filter, setFilter] = useState(""),
@@ -517,7 +522,7 @@ function ScopedPage({
             </Card>
             </div>
           </div>
-            {agentId==="pod.design.agent"&&<PODArtworkFlow scope={scope} entry={detail} templates={templates.data?.items.filter(t=>t.agentId==="pod.design.agent")??[]} nonce={nonce}/>}
+            {agentId==="pod.design.agent"&&<PODArtworkFlow scope={scope} entry={detail} templates={templates.data?.items.filter(t=>t.agentId==="pod.design.agent")??[]} nonce={nonce} podAvailable={podAvailable}/>}
           <Card className={styles.panel}>
             <div className={styles.cardActions}>
               <h2>版本化模板</h2>
