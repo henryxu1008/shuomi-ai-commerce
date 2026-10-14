@@ -122,7 +122,7 @@ it("refreshes the adjacent business flow after the mode sidebar saves its exact 
   if(path.endsWith("/agents/product.selection.agent"))return Response.json({...item,agent:{...item.agent,agentId:subject.id,activation:"ENABLED",revision:"1",activationEpoch:"1"},name:"选品对比",parameterSchema:"product-selection-config-v1",canUse:true});
   return Response.json({items:[],nextCursor:""});
  }));
- render(<AgentPage mode="mine" id="product.selection.agent"/>);await screen.findByText("业务流程刷新：0");fireEvent.click(await screen.findByRole("button",{name:"配置权限"}));fireEvent.click(screen.getByRole("button",{name:"保存配置"}));await screen.findByText("业务流程刷新：1");localStorage.clear();
+ render(<AgentPage mode="mine" id="product.selection.agent"/>);await screen.findByText("业务流程刷新：0");fireEvent.click(await screen.findByRole("button",{name:"刷新权限状态"}));await screen.findByText("业务流程刷新：1");fireEvent.click(await screen.findByRole("button",{name:"配置权限"}));fireEvent.click(screen.getByRole("button",{name:"保存配置"}));await screen.findByText("业务流程刷新：2");localStorage.clear();
 });
 it("waits for a committed enable receipt and refetches the shared fact", async () => {
   let enabled = false;
