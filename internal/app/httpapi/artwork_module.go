@@ -198,7 +198,7 @@ func (a *fullImageApplication) artworkResponse(ctx context.Context, p imageagent
 			if candidate.Artwork == nil {
 				return nil, imageagent.ErrRevisionConflict
 			}
-			url, e := acquisitionImagePublishedURL(p, slot.Slot, slot.Attempt, candidate, i, a.publicURLs)
+			url, e := acquisitionImagePublishedURL(p, slot.Slot, slot.Attempt, candidate, i, a.publicURLs, a.trial)
 			if e != nil {
 				return nil, e
 			}

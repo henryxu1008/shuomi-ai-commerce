@@ -227,7 +227,7 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 	options := []imageagent.ServiceOption{imageagent.WithOrganizationScope(), imageagent.WithTenantStartGate(gate), imageagent.WithImageSetDependencies(imageagent.ImageSetDependencies{Configuration: configuration, Contexts: modeContexts, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{Images: 32, Points: 32 * current.ImageAgent.Generation.PointsPerImage, ElapsedSeconds: 3600}})}
 	var artwork imageagent.ArtworkPublisher
 	if configstore.VerifyArtworkConfigurationSchema(startup, configurationDB) == nil {
-		artwork, err = buildPODArtworkPublisher(startup, productDB, workerRepository, publicURLs, configuration, imageMediaScopeAuthority{current: live})
+		artwork, err = buildPODArtworkPublisher(startup, productDB, workerRepository, publicURLs, configuration, imageMediaScopeAuthority{current: live}, trial)
 		if err != nil {
 			return nil, empty, err
 		}
