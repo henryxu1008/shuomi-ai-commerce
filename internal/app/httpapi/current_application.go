@@ -1636,6 +1636,20 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 		if strings.HasPrefix(descriptor.Path, acquisitionImageBase) && (descriptor.Module != "acquisition-main-image" || descriptor.AuthPolicy != httproute.AuthPolicyVerifiedIdentity || descriptor.OrganizationAccessPolicy != httproute.OrganizationAccessPolicyLiveWrite || descriptor.RequestTimeout != 30*time.Second || descriptor.Permission != map[bool]string{true: authz.PermissionImageAgentRead, false: authz.PermissionImageAgentWrite}[descriptor.Method == http.MethodGet]) {
 			return errors.New("current acquisition image route loses live permission boundary")
 		}
+		if strings.HasPrefix(descriptor.Path, artworkAgentBase) {
+			if !optional.FullImageSet {
+				return errors.New("POD artwork application not admitted")
+			}
+			admitted := false
+			for _, route := range (fullImageModule{}).artworkRoutes() {
+				if descriptor.Method == route.Method && descriptor.Path == route.Path {
+					admitted = descriptor.Module == route.Module && descriptor.AuthPolicy == route.AuthPolicy && descriptor.OrganizationAccessPolicy == route.OrganizationAccessPolicy && descriptor.Permission == route.Permission && descriptor.RequestTimeout == route.RequestTimeout && descriptor.OrganizationTargetResolver == nil
+				}
+			}
+			if !admitted {
+				return errors.New("POD artwork route loses exact live permission boundary")
+			}
+		}
 		if strings.HasPrefix(descriptor.Path, acquisitionImageSetBase) || strings.HasPrefix(descriptor.Path, supplyImageSetBase) {
 			if !optional.FullImageSet {
 				return errors.New("full image application not admitted")

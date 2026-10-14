@@ -18,6 +18,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	"task-processor/internal/authz"
+	"task-processor/internal/imageagent"
 	acquisitionstore "task-processor/internal/integration/persistence/product/acquisition"
 	catalogstore "task-processor/internal/integration/persistence/product/catalog"
 	collectionstore "task-processor/internal/integration/persistence/product/collection"
@@ -94,6 +95,7 @@ func TestCollectionPublicationUsesOneActualSourceCatalogTransaction(t *testing.T
 	require.NoError(t, err)
 	service.WithSnapshots(snapshots)
 	actor := acquisitionIdentity("supply-org", "supply-actor")
+
 	ownKey := uuid.NewString()
 	own, err := service.Mutate(actor, ownKey, collection.Mutation{Action: "create_product", Product: &collection.OwnProduct{Title: "原始自有商品", Images: []string{"https://images.example.org/original.png"}}})
 	require.NoError(t, err)
@@ -144,9 +146,50 @@ func TestCollectionPublicationUsesOneActualSourceCatalogTransaction(t *testing.T
 	require.EqualValues(t, 1, references)
 	_, err = service.ReadItem(acquisitionIdentity(scope.OrganizationID, "other-actor"), own.ItemID)
 	require.ErrorIs(t, err, collection.ErrNotFound)
+	t.Run("generated artwork uses the actual Source Collection UoW and original receipt", func(t *testing.T) {
+		actor := acquisitionIdentity("artwork-org", "artwork-actor")
+		scope, err := authority.Authorize(actor, collection.PermissionManage)
+		require.NoError(t, err)
+		fixture := completedArtworkFixture(t, scope)
+		modes := &artworkModeFixture{}
+		receiver := &ArtworkReceiver{Images: fixture, Facts: fixture, Artifacts: fixture, URLs: artworkURLFixture{}, Configuration: modes, Collections: repository, Authorize: authority}
+		original := fixture.p
+		identity := imageagent.ExecutionIdentity{ScopeProtocol: original.Run.ScopeProtocol, TenantID: scope.OrganizationID, UserID: scope.ActorID, MemberID: scope.MemberID, RunID: original.Run.ID, BusinessTaskID: original.Run.BusinessTaskID}
+		input := imageagent.PublishArtworkInput{Identity: identity, PlanRevision: 1, ResultDigest: original.ResultDigest, ActionID: original.PendingCommand.ActionID}
+		adopted, err := receiver.PublishArtwork(actor, input)
+		require.NoError(t, err)
+		source, err := service.ReadItem(actor, adopted.ItemID)
+		require.NoError(t, err)
+		require.Equal(t, "own", source.Item.Source.Kind)
+		require.Equal(t, original.Plan.Artwork.Theme, source.Product.Title)
+		require.Len(t, source.Product.Images, 1)
+		originGuard := ArtworkOriginGuard{Snapshots: snapshots, Images: fixture, Facts: fixture, Configuration: modes}
+		require.NoError(t, originGuard.AuthorizeArtworkSource(actor, scope, adopted.ProductKey, adopted.PublicationID, adopted.SourceVersion))
+		foreign := scope
+		foreign.MemberID = "foreign-member"
+		require.Error(t, originGuard.AuthorizeArtworkSource(actor, foreign, adopted.ProductKey, adopted.PublicationID, adopted.SourceVersion))
+		calls := modes.calls
+		modes.denied = true
+		replay, err := receiver.PublishArtwork(actor, input)
+		require.NoError(t, err)
+		require.Equal(t, adopted, replay)
+		require.Equal(t, calls, modes.calls, "committed receipt precedes fresh new-write gate")
+		require.Error(t, originGuard.AuthorizeArtworkSource(actor, scope, adopted.ProductKey, adopted.PublicationID, adopted.SourceVersion))
+		calls = modes.calls
+		fixture.p.PendingCommand = nil
+		fixture.p.Run.Status = imageagent.RunStatusCompleted
+		recovered, err := receiver.ReadArtworkReceipt(actor, identity)
+		require.NoError(t, err)
+		require.Equal(t, adopted, recovered)
+		require.Equal(t, calls, modes.calls, "readback has no new write gate")
+		identity.TenantID = "another-org"
+		_, err = receiver.ReadArtworkReceipt(actor, identity)
+		require.Error(t, err)
+	})
 	// Source writer never installs a schema or repairs omitted collection tables.
 	require.NoError(t, db.Exec("DROP TABLE product_collection_operations,product_collection_items,product_collection_batches").Error)
 	_, err = captures.Capture(actor, uuid.NewString(), body)
 	require.Error(t, err)
 	require.False(t, errors.Is(err, catalog.ErrSnapshotNotReady))
+
 }

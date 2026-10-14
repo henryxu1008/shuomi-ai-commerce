@@ -130,3 +130,39 @@ func artworkEnvelope(id string, plan *imageagent.ArtworkPlan, origin ArtworkOrig
 	e := sourcing.SourceEnvelope{Identity: sourcing.SourceIdentity{SourceType: "agent_generated", SourcePlatform: "pod_artwork", SourceID: id}, RawReference: sourcing.RawSourceReference{ReferenceType: imageagent.ArtworkSchema, ReferenceID: id, Checksum: sourcing.RawSnapshotChecksum(string(raw)), Metadata: map[string]string{artworkOriginKey: string(raw)}}, ProductCandidate: sourcing.ProductCandidate{Title: plan.Theme, Description: plan.Requirements}, AssetCandidates: []sourcing.AssetCandidate{{SourceID: collection.StableID(id, ref.SHA256), URL: url, MediaType: "image", Role: "main", Checksum: "sha256:" + ref.SHA256, Width: ref.Width, Height: ref.Height}}, Trace: sourcing.SourceTrace{SourceRunID: origin.Identity.RunID}}
 	return sourcing.NormalizePublicationEnvelope(e)
 }
+
+// Read the original Collection receipt only; never execute adoption on a read.
+func (r *ArtworkReceiver) ReadArtworkReceipt(ctx context.Context, identity imageagent.ExecutionIdentity) (imageagent.ArtworkAdoptionReceipt, error) {
+	var empty imageagent.ArtworkAdoptionReceipt
+	if r == nil || r.Images == nil || r.Collections == nil || imageagent.ValidateOrganizationExecution(identity, identity.RunID) != nil {
+		return empty, collection.ErrForbidden
+	}
+	scope := collection.Scope{OrganizationID: identity.TenantID, ActorID: identity.UserID, MemberID: identity.MemberID}
+	p, err := r.Images.GetProjection(ctx, imageagent.RunScope{TenantID: scope.OrganizationID, OwnerUserID: scope.ActorID, RunID: identity.RunID})
+	if err != nil {
+		return empty, err
+	}
+	if imageagent.ValidateArtworkAdmission(p.Run, p.Plan) != nil || p.Run.MemberID != scope.MemberID || p.Run.BusinessTaskID != identity.BusinessTaskID {
+		return empty, collection.ErrForbidden
+	}
+	digest, err := imageagent.ArtworkResultDigest(p.Plan, p.Slots, p.RecoverableEffects)
+	if err != nil || digest != p.ResultDigest {
+		return empty, imageagent.ErrRevisionConflict
+	}
+	slot := p.Slots[0]
+	hash := slot.Candidates[0].DurableAsset.SHA256
+	key := collection.StableID(scope.OrganizationID, scope.ActorID, p.Run.ID, slot.Slot.ID, hash)
+	op := collection.StableID(scope.OrganizationID, scope.ActorID, key)
+	receipt, err := r.Collections.ReadOperation(ctx, scope, op)
+	if err != nil {
+		return empty, err
+	}
+	item, err := r.Collections.ReadItem(ctx, scope, receipt.ItemID)
+	if err != nil {
+		return empty, err
+	}
+	if receipt.OperationID != op || item.Source.Kind != "own" || item.Source.PublicationID != op || item.Source.Version == 0 {
+		return empty, collection.ErrUnavailable
+	}
+	return imageagent.ArtworkAdoptionReceipt{RunID: p.Run.ID, PlanRevision: p.Plan.Revision, SlotID: slot.Slot.ID, ArtifactHash: hash, OperationID: op, BatchID: receipt.BatchID, ItemID: receipt.ItemID, ProductKey: item.Source.ProductKey, PublicationID: item.Source.PublicationID, SourceVersion: item.Source.Version}, nil
+}

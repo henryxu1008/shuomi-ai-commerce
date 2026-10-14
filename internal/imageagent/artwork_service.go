@@ -245,3 +245,19 @@ func ValidateVisualAdmission(run Run, plan Plan) error {
 	}
 	return ValidateImageSetAdmission(run, plan)
 }
+
+func (s *Service) GetPreparedArtworkByKey(ctx context.Context, contextID, requestID string) (PreparedArtwork, error) {
+	id, err := s.executionIdentity(ctx)
+	if err != nil {
+		return PreparedArtwork{}, err
+	}
+	if !agentconfig.UUID(contextID) || !agentconfig.UUID(requestID) {
+		return PreparedArtwork{}, ErrValidation
+	}
+	runID := uuid.NewSHA1(uuid.NameSpaceOID, []byte(ArtworkSchema+":"+id.TenantID+":"+id.UserID+":"+contextID+":"+requestID)).String()
+	prepared, err := s.GetPreparedArtwork(ctx, runID)
+	if err == nil && (prepared.Projection.Run.BusinessTaskID != contextID || prepared.Projection.Run.IdempotencyKey != requestID) {
+		return PreparedArtwork{}, ErrRevisionConflict
+	}
+	return prepared, err
+}

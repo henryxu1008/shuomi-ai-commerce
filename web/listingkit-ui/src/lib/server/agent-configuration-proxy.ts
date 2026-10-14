@@ -1,3 +1,5 @@
+import {artworkTemplateSchema,artworkTemplateInputSchema,artworkTemplatesPageSchema} from "../contracts/agent-configuration";
+import {artworkRecentSchema} from "../contracts/pod-artwork";
 import { z } from "zod";
 import {imageTemplateInputSchema,imageTemplateSchema,imageTemplatesPageSchema} from "@/lib/contracts/image-set-configuration";
 import {imageSetRecentSchema} from "@/lib/contracts/product-image-set";
@@ -36,13 +38,14 @@ function endpoint(url: URL, method: string) {
     input = method === "PUT" ? executionModeInputSchema : undefined;
   } else if (p.length === 1 && ["market", "mine"].includes(p[0]) && method === "GET")
     output = catalogPageSchema;
-  else if (["product.title.agent","product.image.agent","product.content.agent","listing.materials.agent"].includes(p[0])) {
+  else if (["product.title.agent","product.image.agent","product.content.agent","listing.materials.agent","pod.design.agent"].includes(p[0])) {
+    const artwork=p[0]==="pod.design.agent";
     const image=p[0]==="product.image.agent";
     const content=p[0]==="product.content.agent";
     const materials=p[0]==="listing.materials.agent";
-    const typedTemplates=image?imageTemplatesPageSchema:content?contentTemplatesPageSchema:materials?materialsTemplatesPageSchema:titleTemplatesPageSchema;
-    const typedTemplate=image?imageTemplateSchema:content?contentTemplateSchema:materials?materialsTemplateSchema:titleTemplateSchema;
-    const typedInput=image?imageTemplateInputSchema:content?contentTemplateInputSchema:materials?materialsTemplateInputSchema:templateInputSchema;
+    const typedTemplates=artwork?artworkTemplatesPageSchema:image?imageTemplatesPageSchema:content?contentTemplatesPageSchema:materials?materialsTemplatesPageSchema:titleTemplatesPageSchema;
+    const typedTemplate=artwork?artworkTemplateSchema:image?imageTemplateSchema:content?contentTemplateSchema:materials?materialsTemplateSchema:titleTemplateSchema;
+    const typedInput=artwork?artworkTemplateInputSchema:image?imageTemplateInputSchema:content?contentTemplateInputSchema:materials?materialsTemplateInputSchema:templateInputSchema;
     if (p.length === 1 && method === "GET") output = catalogEntrySchema;
     else if (
       p.length === 2 &&
@@ -84,27 +87,27 @@ function endpoint(url: URL, method: string) {
         output = typedTemplate;
       else return null;
     } else if (p.length === 2 && p[1] === "recent-runs" && method === "GET")
-      output = image?imageSetRecentSchema:recentRunsSchema;
+      output = artwork?artworkRecentSchema:image?imageSetRecentSchema:recentRunsSchema;
     else return null;
   } else return null;
   const list =
     output === catalogPageSchema ||
     output === titleTemplatesPageSchema || output === contentTemplatesPageSchema || output===materialsTemplatesPageSchema ||
-    output === recentRunsSchema || output === imageSetRecentSchema || output === imageTemplatesPageSchema;
+    output === recentRunsSchema || output === imageSetRecentSchema || output === imageTemplatesPageSchema || output === artworkRecentSchema || output === artworkTemplatesPageSchema;
   if (url.search.length > 512 || (url.search && !list)) return null;
   for (const [k, v] of url.searchParams) {
     if (url.searchParams.getAll(k).length !== 1) return null;
     if (k === "pageSize") {
       if (
         !/^[1-9][0-9]*$/.test(v) ||
-        Number(v) > ((output === recentRunsSchema || output === imageSetRecentSchema) ? 20 : 100)
+        Number(v) > ((output === recentRunsSchema || output === imageSetRecentSchema || output === artworkRecentSchema) ? 20 : 100)
       )
         return null;
     } else if (k === "cursor") {
       if (!/^[A-Za-z0-9_-]{1,180}$/.test(v)) return null;
     } else if (k === "activation" && p[0] === "mine") {
       if (!["ENABLED", "DISABLED"].includes(v)) return null;
-    } else if (k === "lifecycle" && (output === titleTemplatesPageSchema || output === contentTemplatesPageSchema || output === materialsTemplatesPageSchema || output === imageTemplatesPageSchema)) {
+    } else if (k === "lifecycle" && (output === titleTemplatesPageSchema || output === contentTemplatesPageSchema || output === materialsTemplatesPageSchema || output === imageTemplatesPageSchema || output === artworkTemplatesPageSchema)) {
       if (!["ACTIVE", "ARCHIVED"].includes(v)) return null;
     } else return null;
   }
@@ -267,7 +270,7 @@ export async function proxyAgentConfiguration(
       } else if (view.receipt) throw new Error();
     }
     if (
-      (route.output === titleTemplateSchema || route.output === contentTemplateSchema || route.output === imageTemplateSchema) &&
+      (route.output === titleTemplateSchema || route.output === contentTemplateSchema || route.output === imageTemplateSchema || route.output === artworkTemplateSchema) &&
       (value.agentId !== parts[0] || value.templateId !== parts[2] ||
         (parts[3] === "revisions" && value.version !== parts[4]))
     )

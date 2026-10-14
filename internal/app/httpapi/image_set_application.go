@@ -9,7 +9,6 @@ import (
 	"reflect"
 	"task-processor/internal/agentconfig"
 	imageapp "task-processor/internal/app/imageagent"
-	"task-processor/internal/app/productsourcing"
 	appruntime "task-processor/internal/app/runtime"
 	supplyapp "task-processor/internal/app/supplychain"
 	imageworker "task-processor/internal/app/worker/imageagent"
@@ -23,7 +22,6 @@ import (
 	configstore "task-processor/internal/integration/persistence/agentconfig"
 	assetstore "task-processor/internal/integration/persistence/product/asset"
 	catalogstore "task-processor/internal/integration/persistence/product/catalog"
-	collectionstore "task-processor/internal/integration/persistence/product/collection"
 	"task-processor/internal/listing/preparation"
 	"task-processor/internal/product/asset"
 	"task-processor/internal/product/collection"
@@ -33,8 +31,7 @@ import (
 )
 
 type fullImageApplication struct {
-	artwork         *productsourcing.ArtworkReceiver
-	artworkOrigin   *productsourcing.ArtworkOriginGuard
+	artwork         imageagent.ArtworkPublisher
 	service         *imageagent.Service
 	readSources     imageapp.ImageSetSourceReader
 	contexts        *imageapp.ImageSetContextReader
@@ -228,26 +225,12 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 	gate := imageagent.TenantAllowlistStartGate{Enabled: current.ImageAgent.Admission.Enabled, AllowedTenantIDs: append([]string(nil), current.ImageAgent.Admission.AllowedTenantIDs...)}
 	modeContexts := modeBoundImageContexts{ImageSetContextReader: contexts, source: contexts, configuration: configuration}
 	options := []imageagent.ServiceOption{imageagent.WithOrganizationScope(), imageagent.WithTenantStartGate(gate), imageagent.WithImageSetDependencies(imageagent.ImageSetDependencies{Configuration: configuration, Contexts: modeContexts, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{Images: 32, Points: 32 * current.ImageAgent.Generation.PointsPerImage, ElapsedSeconds: 3600}})}
-	var artwork *productsourcing.ArtworkReceiver
-	var artworkOrigin *productsourcing.ArtworkOriginGuard
+	var artwork imageagent.ArtworkPublisher
 	if configstore.VerifyArtworkConfigurationSchema(startup, configurationDB) == nil {
-		ownAuth := imageMediaScopeAuthority{current: live}
-		collectionRepo, e := collectionstore.NewRepository(startup, productDB, func(tx *gorm.DB) (collectionstore.OwnPublisher, error) {
-			return productsourcing.NewOwnProductWriter(tx, ownAuth)
-		})
-		if e != nil {
-			return nil, empty, e
+		artwork, err = buildPODArtworkPublisher(startup, productDB, workerRepository, publicURLs, configuration, imageMediaScopeAuthority{current: live})
+		if err != nil {
+			return nil, empty, err
 		}
-		facts, ok := workerRepository.(imageagent.GenerationFactRepository)
-		if !ok {
-			return nil, empty, imageagent.ErrCommandBlocked
-		}
-		artifacts, ok := workerRepository.(imageagent.SlotExternalEffectV3Repository)
-		if !ok {
-			return nil, empty, imageagent.ErrCommandBlocked
-		}
-		artwork = &productsourcing.ArtworkReceiver{Images: workerRepository, Facts: facts, Artifacts: artifacts, URLs: publicURLs, Configuration: configuration, Collections: collectionRepo, Authorize: ownAuth}
-		artworkOrigin = &productsourcing.ArtworkOriginGuard{Snapshots: products.Snapshots, Images: workerRepository, Facts: facts, Configuration: configuration}
 		options = append(options, imageagent.WithArtworkDependencies(imageagent.ArtworkDependencies{Configuration: configuration, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{Images: 1, Points: current.ImageAgent.Generation.PointsPerImage, ElapsedSeconds: 3600}}))
 	}
 	service, err := imageagent.NewService(apiRepository, workflows, closedImageSetCatalog{}, options...)
@@ -262,7 +245,7 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 	if artwork != nil {
 		dependencies.ArtworkPublisher = artwork
 	}
-	return &fullImageApplication{artwork: artwork, artworkOrigin: artworkOrigin, service: service, readSources: readSources, contexts: contexts, quotes: quotes, selections: selections, inventories: inventories, approvals: approvals, publicURLs: publicURLs, trial: trial, configuration: configuration, recent: recent, gate: gate, rules: rules, manualAvailable: manual != nil}, dependencies, nil
+	return &fullImageApplication{artwork: artwork, service: service, readSources: readSources, contexts: contexts, quotes: quotes, selections: selections, inventories: inventories, approvals: approvals, publicURLs: publicURLs, trial: trial, configuration: configuration, recent: recent, gate: gate, rules: rules, manualAvailable: manual != nil}, dependencies, nil
 }
 
 // Generic Acquisition consumes the existing Product/Review and live IAM ports

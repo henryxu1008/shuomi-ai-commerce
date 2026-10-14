@@ -14,6 +14,10 @@ type ArtworkAdoptionReceipt struct {
 	PlanRevision                                                                         int64
 	SourceVersion                                                                        uint64
 }
+type ArtworkReceiptReader interface {
+	ReadArtworkReceipt(context.Context, ExecutionIdentity) (ArtworkAdoptionReceipt, error)
+}
+
 type ArtworkPublisher interface {
 	PublishArtwork(context.Context, PublishArtworkInput) (ArtworkAdoptionReceipt, error)
 }

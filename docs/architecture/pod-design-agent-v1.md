@@ -107,3 +107,22 @@ Legacy decision: **EXTRACT**。复用仍正确的文生图传输/图案提示语
 TDD与现有隔离PG/loopback/存储/组件检查覆盖当前完整用户路径：无原图合法从零生成且没有伪造引用；预算/模式/成员/配置撤销；实际bytes与源作品/批准绑定；原key不同意图拒绝、单次POST与UNKNOWN费用/存储保留；生成成功后作品保存失败重读不重生成；read_only直接入口/worker；原POD实际布局/模板/hash与原效果图关联。沿现测试收敛，不新建验收runner/故障平台。
 
 单Writer/主要PR；原content_final_review做新创作/资产采用/worker授权高风险检查及最终完整路径检查，修复仅增量。准入未完成不写POD正式生产代码。真实IAM/付费模型/SDS/SHEIN、安装/业务数据/用户试用均NOT_RUN，不借SDK测试、CI或另一AI审核宣称可上线。
+
+## #674 源码操作入口与边界
+
+入口为 `/workbench/agents/mine/pod.design.agent`（我的智能体 → POD设计智能体）。正常 current-application、原 ImageAgent Temporal worker 与原 Collection/Asset/POD consumer 共用本批接线。生成 API/BFF 为 `/api/v1/workbench/pod-artwork/*` / `/api/workbench/pod-artwork/*`；该路径不以 SDS 凭据或 SDS 前端开关作为原创生成的前置。
+
+使用步骤：
+1. 显式启用当前企业 POD设计智能体；创建 `pod-artwork-config-v1` 原创图案模板（风格、约束），选择精确模板版本或企业默认版本；在同页配置四种权限。
+2. 填写主题和设计要求，准备原报价。准备不会发送模型请求；确认原计划/报价/点数后才准入原生成 Run。
+3. 页面读取原 Run 及实际 owned 图片，检查图案后“确认并保存作品”。原 Collection receipt 保存 Source、Catalog 与“我的数据”条目；生成成功不冒充保存/印花批准。
+4. 从已保存作品进入 `/workbench/supply/catalogs/sds/design?artwork=<原条目ID>`。选择原 SDS 模板、款式与图案，明确批准 RoleDesign；沿原 `fitGeometry`/Konva 调整、居中适配并核对布局。
+5. 明确点击“生成效果图并保存 SDS 成品”后，原 POD worker 执行；结果页读取同一设计操作的真实成品效果图与 UNKNOWN 核实，不用画布预览冒称成品。
+
+正常原配置仍要求当前企业图片模型路由、凭据、有效价格/预算、原 Image/worker 独立数据库角色与 durable object store。缺失时 capability/API 如实拒绝相关执行；SDS 未配置只阻模板/远端效果图步骤。企业启用、模板和权限不会自动创建、映射或升级。
+
+原配置数据库仅由授权安装方使用现 `agent-configuration-schema-init --runtime-role <现角色> --artwork-configuration-only`，以私密 `AGENT_CONFIGURATION_SCHEMA_DSN` 安装本批精确约束；该 initializer 保留原配置/快照/模式/模板/请求，不重新初始化非空数据库。Serving 只 Verify。完整运行使用项目正常 `start.ps1`/current-application 的原启动方式与原 worker；本源码工作未执行共享实例安装或重启。
+
+浏览器保留 user/org scoped 原请求和原 Run 编号。关闭/刷新后核实原准备键、原确认 admission 或原 Collection receipt；不自动重发 POST。作品采用、SourceApproval 与 POD 新写从不可变 origin 核原 config/mode，原已提交 receipt 读回不授权另一次新写。
+
+本批检查为合成事实、隔离数据库、loopback/owned storage、组件与原 CI；真实 IAM、付费模型、SDS/SHEIN、部署安装与用户试用均 **NOT_RUN**。源码交接、CI 或独立 AI 复核不等于生产或用户验收。

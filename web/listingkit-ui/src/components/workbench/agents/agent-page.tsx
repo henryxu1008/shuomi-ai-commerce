@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import {PODArtworkFlow} from "./pod-artwork-flow";
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { useWorkbenchContext } from "@/components/providers/workbench-context-provider";
@@ -160,7 +161,7 @@ function ScopedPage({
     `${agentId}/recent-runs?pageSize=20${recentAfter ? "&cursor=" + recentAfter : ""}`,
     recentRunsSchema,
     nonce,
-    !!detail?.canReadRuns,
+    !!detail?.canReadRuns && agentId!=="pod.design.agent",
   );
   const defaultRef = detail?.agent.defaultTemplate;
   const defaultTemplate = useRead(
@@ -271,7 +272,7 @@ function ScopedPage({
       <Card key={entry.agent.agentId} className={styles.agentCard}>
         <h2>{entry.name}</h2>
         <p>{entry.description}</p>
-        <p className={styles.support}>{entry.agent.agentId === "product.image.agent" ? "主图与详情图 · 人工选择批准" : entry.agent.agentId === "product.content.agent" ? "标题、描述、卖点、SEO关键词 · 内容本地化" : "标题优化 · 人工审核"}</p>
+        <p className={styles.support}>{entry.agent.agentId === "pod.design.agent" ? "原创图案 · 保存后布局与效果图" : entry.agent.agentId === "product.image.agent" ? "主图与详情图 · 人工选择批准" : entry.agent.agentId === "product.content.agent" ? "标题、描述、卖点、SEO关键词 · 内容本地化" : "标题优化 · 人工审核"}</p>
         <div className={styles.cardActions}>
           <span
             className={styles.status}
@@ -407,7 +408,7 @@ function ScopedPage({
               </nav> : null}
             </div>
             <div className={styles.actions}>
-              {detail.canUse && (
+              {detail.canUse && agentId!=="pod.design.agent" && (
                 <Link href="/workbench/supply/acquisition">
                   选择商品并进入使用 →
                 </Link>
@@ -464,7 +465,7 @@ function ScopedPage({
             </Card>
             <div className={styles.detailSidebar}>
             {detail.agent.activation !== "NOT_ENABLED" ? <ExecutionModeSettings scope={scope} subject={{kind:"registered_agent",id:detail.agent.agentId}}/> : null}
-            <Card className={styles.panel}>
+          <Card className={styles.panel}>
               <div className={styles.cardActions}>
                 <h2>默认模板</h2>
                 {detail.canConfigure && defaultRef && (
@@ -515,6 +516,7 @@ function ScopedPage({
             </Card>
             </div>
           </div>
+            {agentId==="pod.design.agent"&&<PODArtworkFlow scope={scope} entry={detail} templates={templates.data?.items.filter(t=>t.agentId==="pod.design.agent")??[]} nonce={nonce}/>}
           <Card className={styles.panel}>
             <div className={styles.cardActions}>
               <h2>版本化模板</h2>
@@ -889,9 +891,10 @@ function TemplateEditor({
 }) {
   const content = agentId === "product.content.agent";
   const materials=agentId==="listing.materials.agent";
+  const artwork=agentId==="pod.design.agent";
   const dialog = useRef<HTMLDialogElement>(null);
   const [name, setName] = useState(template?.name ?? ""),
-    [platform, setPlatform] = useState(template?.targetPlatform ?? (content ? "product" : "shein")),
+    [platform, setPlatform] = useState(template?.targetPlatform ?? (artwork ? "sds" : content ? "product" : "shein")),
     [base, setBase] = useState(
       template?.knowledgeAvailability === "UNAVAILABLE"
         ? "unresolved"
@@ -902,12 +905,13 @@ function TemplateEditor({
     [basePage, setBasePage] = useState(1),
     [baseTotal, setBaseTotal] = useState(0);
   const [selection, setSelection] = useState<ContentSelection>(template?.agentId === "product.content.agent" ? template.content.selection : { targetLanguage: "", title: true, description: true, sellingPoints: true, seoKeywords: true });
+  const [artStyle,setArtStyle]=useState(template?.agentId==="pod.design.agent"?template.artwork.style:""),[artConstraints,setArtConstraints]=useState(template?.agentId==="pod.design.agent"?template.artwork.constraints:"");
   const validSelection = !content || contentSelectionSchema.safeParse(selection).success;
   useEffect(() => {
     const e = dialog.current;
     e?.showModal();
     const controller = new AbortController();
-    if(materials) return ()=>{e?.close();controller.abort()};
+    if(materials||artwork) return ()=>{e?.close();controller.abort()};
     knowledgeRequest(
       scope,
       `knowledge-bases?pageSize=100&page=${basePage}`,
@@ -928,7 +932,7 @@ function TemplateEditor({
       e?.close();
       controller.abort();
     };
-  }, [scope, basePage,materials]);
+  }, [scope, basePage,materials,artwork]);
   return (
     <dialog
       ref={dialog}
@@ -940,7 +944,7 @@ function TemplateEditor({
       }}
     >
       <h2 id="template-editor-title">
-        {template ? "保存模板新版本" : materials ? "保存平台资料模板" : content ? "保存内容模板" : "保存标题模板"}
+        {template ? "保存模板新版本" : artwork ? "保存原创图案模板" : materials ? "保存平台资料模板" : content ? "保存内容模板" : "保存标题模板"}
       </h2>
       <p>{materials?"模板保存目标平台；执行前仍核对当前企业权限、预算、标准商品和店铺规则。":"模板保存默认配置，执行前仍需确认当前企业权限、预算和知识版本。"}</p>
       <form
@@ -950,7 +954,8 @@ function TemplateEditor({
             onSave({
               name,
               targetPlatform: platform,
-              ...(!materials?{defaultKnowledgeBaseId:base||null}:{}),
+              ...(!materials&&!artwork?{defaultKnowledgeBaseId:base||null}:{}),
+              ...(artwork?{artwork:{schema:"pod-artwork-config-v1",style:artStyle,constraints:artConstraints}}:{}),
               ...(content ? { content: { schema: "content-config-v1", selection } } : {}),
             });
         }}
@@ -972,13 +977,14 @@ function TemplateEditor({
             onChange={(e) => setPlatform(e.target.value as typeof platform)}
           >
             {content && <option value="product">标准商品（不指定平台）</option>}
-            <option value="shein">SHEIN</option>
-            {!materials&&<option value="temu">TEMU</option>}
-            {!materials&&<option value="amazon">Amazon</option>}
+            {artwork?<option value="sds">POD 原创图案</option>:<option value="shein">SHEIN</option>}
+            {!materials&&!artwork&&<option value="temu">TEMU</option>}
+            {!materials&&!artwork&&<option value="amazon">Amazon</option>}
           </select>
         </label>
+        {artwork&&<><label>默认创作风格<Input maxLength={512} value={artStyle} disabled={busy} onChange={e=>setArtStyle(e.target.value)}/></label><label>创作约束<textarea className={styles.prompt} maxLength={4096} value={artConstraints} disabled={busy} onChange={e=>setArtConstraints(e.target.value)}/></label></>}
         {content && <ContentSelectionFields value={selection} onChange={setSelection} disabled={busy} />}
-        {!materials&&<label>
+        {!materials&&!artwork&&<label>
           默认企业知识
           <select value={base} onChange={(e) => setBase(e.target.value)}>
             {base === "unresolved" && (
