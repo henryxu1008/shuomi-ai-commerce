@@ -5,6 +5,7 @@ import {
   fireEvent,
   waitFor,
   cleanup,
+  act,
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ProductSelectionFlow } from "./product-selection-flow";
@@ -81,9 +82,11 @@ const entry: CatalogEntry = {
   ],
 };
 let writes: Array<{ path: string; key: string; body: unknown }>;
+let currentModeRevision="0";
 beforeEach(() => {
   localStorage.clear();
   writes = [];
+  currentModeRevision="0";
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url, init) => {
@@ -93,7 +96,7 @@ beforeEach(() => {
           subject: { kind: "registered_agent", id: "product.selection.agent" },
           definition: { id: "product.selection.agent", version: "v1.0.0" },
           mode: "read_only",
-          revision: "0",
+          revision: currentModeRevision,
           policyVersion: "agent-execution-policy-v1",
           canConfigure: true,
           updatedAt: "2026-10-14T00:00:00Z",
@@ -178,17 +181,20 @@ function show(value = entry) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  return render(
+  const mounted=render(
     <QueryClientProvider client={client}>
       <ProductSelectionFlow scope={scope} entry={value} nonce={0} />
     </QueryClientProvider>,
   );
+  return {...mounted,refresh:(nonce:number)=>mounted.rerender(<QueryClientProvider client={client}><ProductSelectionFlow scope={scope} entry={value} nonce={nonce}/></QueryClientProvider>)};
 }
 function choose() {
   fireEvent.click(screen.getByText("选择商品A"));
   fireEvent.click(screen.getByText("选择商品B"));
 }
-it("requires an explicit comparison goal before preparing a paid analysis",async()=>{show();choose();await waitFor(()=>expect(screen.getByRole("button",{name:"准备分析"})).toBeEnabled());fireEvent.change(screen.getByLabelText("本次比较目标"),{target:{value:""}});expect(screen.getByRole("button",{name:"准备分析"})).toBeDisabled();expect(writes).toHaveLength(0)});
+async function viewFacts(){fireEvent.click(screen.getByRole("button",{name:"读取事实对比"}));await screen.findByRole("heading",{name:"已保存原始事实"})}
+it("requires a current candidate fact read before preparing analysis",async()=>{show();choose();await act(async()=>{await new Promise(resolve=>setTimeout(resolve,50))});expect(screen.getByRole("button",{name:"准备分析"})).toBeDisabled();expect(writes).toHaveLength(0);await viewFacts();expect(screen.getByRole("button",{name:"准备分析"})).toBeEnabled()});
+it("requires an explicit comparison goal before preparing a paid analysis",async()=>{show();choose();await viewFacts();await waitFor(()=>expect(screen.getByRole("button",{name:"准备分析"})).toBeEnabled());fireEvent.change(screen.getByLabelText("本次比较目标"),{target:{value:""}});expect(screen.getByRole("button",{name:"准备分析"})).toBeDisabled();expect(writes).toHaveLength(1)});
 it("allows factual comparison without model configuration and never starts analysis automatically", async () => {
   show({
     ...entry,
@@ -207,27 +213,38 @@ it("allows factual comparison without model configuration and never starts analy
 it("prepares an exact original key and retains it through uncertain paid start", async () => {
   show();
   choose();
+  await viewFacts();
   await waitFor(() =>
     expect(screen.getByRole("button", { name: "准备分析" })).toBeEnabled(),
   );
   fireEvent.click(screen.getByRole("button", { name: "准备分析" }));
   await screen.findByRole("heading", { name: "确认本次分析" });
-  expect(writes).toHaveLength(1);
-  expect((writes[0].body as { requestKey: string }).requestKey).toBe(
-    writes[0].key,
+  expect(writes).toHaveLength(2);
+  expect((writes[1].body as { requestKey: string }).requestKey).toBe(
+    writes[1].key,
   );
   fireEvent.click(screen.getByRole("button", { name: "确认生成建议" }));
   await screen.findByRole("button", { name: "核实原请求" });
-  expect(writes).toHaveLength(2);
-  expect(writes[1].key).toBe(writes[0].key);
+  expect(writes).toHaveLength(3);
+  expect(writes[2].key).toBe(writes[1].key);
   fireEvent.click(screen.getByRole("button", { name: "核实原请求" }));
   await waitFor(() =>
     expect(screen.getByRole("button", { name: "重试原请求" })).toBeEnabled(),
   );
-  expect(writes).toHaveLength(2);
+  expect(writes).toHaveLength(3);
   fireEvent.click(screen.getByRole("button", { name: "重试原请求" }));
-  await waitFor(() => expect(writes).toHaveLength(3));
-  expect(writes[2].key).toBe(writes[0].key);
+  await waitFor(() => expect(writes).toHaveLength(4));
+  expect(writes[3].key).toBe(writes[1].key);
+});
+
+it("keeps a changed mode out of the frozen preparation and requires a new intent",async()=>{const mounted=show();choose();await viewFacts();fireEvent.click(screen.getByRole("button",{name:"准备分析"}));await waitFor(()=>expect(screen.getByRole("button",{name:"确认生成建议"})).toBeEnabled());const original=writes[1].key;currentModeRevision="1";mounted.refresh(1);await screen.findByText(/权限模式已变化或待核对/);expect(screen.getByRole("button",{name:"确认生成建议"})).toBeDisabled();expect(writes).toHaveLength(2);expect(localStorage.getItem("product.selection.prepared:"+JSON.stringify([scope.userId,scope.organizationId]))).toContain(original)});
+
+it("rechecks the same prepared candidates after reload without creating a new preparation",async()=>{show();choose();await viewFacts();fireEvent.click(screen.getByRole("button",{name:"准备分析"}));await screen.findByRole("heading",{name:"确认本次分析"});const original=writes[1];cleanup();show();await screen.findByRole("button",{name:"核对确认依据"});expect(screen.getByRole("button",{name:"确认生成建议"})).toBeDisabled();fireEvent.click(screen.getByRole("button",{name:"核对确认依据"}));await waitFor(()=>expect(screen.getByRole("button",{name:"确认生成建议"})).toBeEnabled());expect(writes).toHaveLength(3);expect(writes[2].path).toMatch(/inspect$/);expect(writes[2].body).toMatchObject({contextId:(original.body as {contextId:string}).contextId,candidates:(original.body as {candidates:unknown}).candidates})});
+
+it("never shows standalone facts under a historical run that has no inspection",async()=>{
+ const contextId="33333333-3333-4333-8333-333333333333",baseFetch=fetch;
+ vi.stubGlobal("fetch",vi.fn((url,init)=>{const path=String(url);if(path.includes("/recent-runs"))return Promise.resolve(Response.json({items:[{runId:id,operationId:contextId,requestKey:other,productKey:"",targetPlatform:"product",phase:"stopped",revision:"1",startedAt:"2026-10-14T00:00:00Z"}],nextCursor:""}));if(path.endsWith(`/contexts/${contextId}/runs/${other}`))return Promise.resolve(Response.json({runId:id,contextId,requestKey:other,phase:"stopped",revision:"1",configurationSnapshotRef:{Kind:"agent-configuration-v1",ID:id,Digest:"a".repeat(64)},modeSnapshotRef:{Kind:"agent-execution-mode-v1",ID:other,Digest:"b".repeat(64)},executionMode:"read_only",modeRevision:"0",goalSummary:"未读取事实的历史目标",validated:false,unresolved:[],tokens:0,costMicros:0,currency:"CNY",usageStatus:"observed"}));return baseFetch(url,init)}));
+ show({...entry,canReadRuns:true});choose();await viewFacts();fireEvent.click(await screen.findByRole("button",{name:/stopped/}));await screen.findByText(/未读取事实的历史目标/);expect(screen.queryByRole("heading",{name:"已保存原始事实"})).toBeNull();expect(writes).toHaveLength(1);
 });
 
 it("switches from viewed history to the newly prepared exact comparison", async () => {

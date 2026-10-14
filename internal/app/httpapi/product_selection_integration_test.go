@@ -20,14 +20,32 @@ import (
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
 	"task-processor/internal/commercetool"
+	einoruntime "task-processor/internal/integration/agent/eino"
+	configstore "task-processor/internal/integration/persistence/agentconfig"
 	catalogstore "task-processor/internal/integration/persistence/product/catalog"
 	collectionstore "task-processor/internal/integration/persistence/product/collection"
 	kernelmodule "task-processor/internal/kernel/module"
 	"task-processor/internal/product/collection"
 	"task-processor/internal/product/selection"
+	"task-processor/internal/product/selection/tools/selectioninspect"
 	"task-processor/internal/product/sourcing"
 	"task-processor/internal/workbenchcontext"
 )
+
+type mutationAfterProposalModel struct {
+	agent.GovernedModel
+	mutate  func(context.Context) error
+	mutated bool
+}
+
+func (m *mutationAfterProposalModel) Decide(ctx context.Context, in agent.ModelInput) (agent.ModelResult, error) {
+	out, err := m.GovernedModel.Decide(ctx, in)
+	if err == nil && out.Action.DomainProposal != nil && !m.mutated {
+		m.mutated = true
+		err = m.mutate(ctx)
+	}
+	return out, err
+}
 
 type selectionHistoryGrants struct {
 	agentFixtureGrants
@@ -99,6 +117,19 @@ func testSelectionHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixtur
 	}
 	a, err := buildProductSelectionApplication(ctx, parent, collections, f.owner, deps.organizationResolver, permissions)
 	require.NoError(t, err)
+	changingModel := &mutationAfterProposalModel{GovernedModel: a.model, mutate: func(ctx context.Context) error {
+		_, e := collections.Mutate(ctx, uuid.NewString(), collection.Mutation{Action: "revise_product", ItemID: in.Candidates[0].ItemID, ExpectedRevision: 1, ExpectedSourceVersion: 1, ExpectedPublicationID: in.Candidates[0].OriginalPublicationID, Product: &collection.OwnProduct{Title: "调用返回时已修订的商品"}})
+		return e
+	}}
+	guard, err := configstore.NewGuard(parent.config.RunDB, a.configuration, a.store, func(id, version string) (agent.Limits, error) {
+		if id != agentconfig.SelectionAgentID || version != agentconfig.SelectionAgentVersion {
+			return agent.Limits{}, agentconfig.ErrDefinition
+		}
+		return parent.config.Limits, nil
+	}, a.currentExecutionIdentity)
+	require.NoError(t, err)
+	a.runtime, err = einoruntime.New(einoruntime.Config{Definition: selectioninspect.AgentDefinition(), Tools: []commercetool.Definition{selectioninspect.Definition()}, Model: changingModel, Gateway: a, DomainProposalKind: agentconfig.SelectionProposalKind, DomainValidator: selection.Validator{Reader: a.inspector, Configuration: a.configuration}, Authorizer: a, Store: guard})
+	require.NoError(t, err)
 	routes := productSelectionRoutes(a, a.bindRequest)
 	configurationModule, err := buildAgentConfigurationModule(ctx, f.owner, deps.organizationResolver, permissions, nil, parent, nil, a, nil)
 	require.NoError(t, err)
@@ -160,6 +191,7 @@ func testSelectionHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixtur
 	var result selectionRunDTO
 	require.NoError(t, json.Unmarshal(raw, &result))
 	require.True(t, result.Validated, string(raw))
+	require.True(t, changingModel.mutated, "the product revision changes after the last governed dispatch and before graph validation")
 	require.Equal(t, agent.ModeReadOnly, result.ExecutionMode)
 	require.EqualValues(t, 2, calls.Load(), "one inspect decision and one proposal decision")
 	require.NotNil(t, result.Proposal)
