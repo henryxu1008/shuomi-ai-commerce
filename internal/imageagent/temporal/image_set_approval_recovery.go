@@ -7,6 +7,7 @@ import (
 
 	"task-processor/internal/imageagent"
 	productasset "task-processor/internal/product/asset"
+	"task-processor/internal/product/collection"
 )
 
 // This is internal recovery of a durable action, not authority for a new
@@ -57,20 +58,64 @@ func imageSetPublicationPhase(phase string) bool {
 	return phase == imageagent.ImageSetApprovalPublicationStarted || phase == string(updatePhaseApprovalPersistComplete)
 }
 
+func (a *Activities) readCommittedVisualApproval(ctx context.Context, current imageagent.RunProjection) (bool, error) {
+	if current.Plan.Artwork == nil {
+		if a.imageSetApprovals == nil {
+			return false, nil
+		}
+		_, committed, err := a.readCommittedImageSetApproval(ctx, current)
+		return committed, err
+	}
+	reader, ok := a.artworkPublisher.(imageagent.ArtworkReceiptReader)
+	pending := current.PendingCommand
+	if !ok || pending == nil || pending.Kind != "approve_results" {
+		return false, nil
+	}
+	if current.Run.Status != imageagent.RunStatusAwaitingFinalApproval && current.Run.Status != imageagent.RunStatusCompleted ||
+		current.Run.ActivePlanRevision != current.Plan.Revision || pending.PlanRevision != current.Plan.Revision ||
+		!imageSetPublicationPhase(pending.Phase) || imageagent.ValidateActionID(pending.ActionID) != nil ||
+		imageagent.ValidateArtworkAdmission(current.Run, current.Plan) != nil {
+		return false, imageagent.ErrCommandBlocked
+	}
+	digest, err := imageagent.ArtworkResultDigest(current.Plan, current.Slots, current.RecoverableEffects)
+	if err != nil || digest != current.ResultDigest || digest != pending.ResultDigest {
+		return false, imageagent.ErrRevisionConflict
+	}
+	run := current.Run
+	identity := imageagent.ExecutionIdentity{ScopeProtocol: run.ScopeProtocol, RunID: run.ID, TenantID: run.TenantID, UserID: run.UserID, MemberID: run.MemberID, BusinessTaskID: run.BusinessTaskID}
+	receipt, err := reader.ReadArtworkReceipt(withOrganizationActivityIdentity(ctx, run, ""), identity)
+	if errors.Is(err, collection.ErrNotFound) {
+		return false, nil // An absent receipt never authorizes a new save.
+	}
+	if err != nil {
+		return false, err
+	}
+	if err := ctx.Err(); err != nil {
+		return false, err
+	}
+	slot := current.Slots[0]
+	if receipt.RunID != run.ID || receipt.PlanRevision != current.Plan.Revision || receipt.SlotID != slot.Slot.ID ||
+		receipt.ArtifactHash != slot.Candidates[0].DurableAsset.SHA256 || receipt.OperationID == "" ||
+		receipt.PublicationID != receipt.OperationID || receipt.BatchID == "" || receipt.ItemID == "" || receipt.ProductKey == "" || receipt.SourceVersion == 0 {
+		return false, imageagent.ErrRevisionConflict
+	}
+	return true, nil
+}
+
 func (a *Activities) liveRunProjectionIdentity(ctx context.Context, runID string, identity imageagent.ExecutionIdentity) (context.Context, *imageagent.RunProjection, error) {
 	ctx, err := a.restoreExecutionIdentity(ctx, runID, identity)
 	return ctx, nil, err
 }
 
 func (a *Activities) restoreImageSetCompletionIdentity(ctx context.Context, input *PersistRunStateActivityInput) (context.Context, *imageagent.RunProjection, error) {
-	if a.imageSetApprovals == nil || a.executionAuthorizer == nil || input.Projection.Status != imageagent.RunStatusCompleted || input.CurrentNode != "complete" {
+	if a.imageSetApprovals == nil && a.artworkPublisher == nil || a.executionAuthorizer == nil || input.Projection.Status != imageagent.RunStatusCompleted || input.CurrentNode != "complete" {
 		return a.liveRunProjectionIdentity(ctx, input.RunID, input.Identity)
 	}
 	current, err := a.loadOrganizationExecution(ctx, input.RunID, input.Identity)
 	if err != nil {
 		return nil, nil, err
 	}
-	if current.Plan.Set == nil {
+	if current.Plan.Set == nil && current.Plan.Artwork == nil {
 		return a.liveRunProjectionIdentity(ctx, input.RunID, input.Identity)
 	}
 	if current.Run.ActivePlanRevision != input.PlanRevision || input.Projection.Block != nil || input.Projection.PendingCommand != nil ||
@@ -84,7 +129,7 @@ func (a *Activities) restoreImageSetCompletionIdentity(ctx context.Context, inpu
 		input.Projection.CommandIngress = current.CommandIngress
 		return withOrganizationActivityIdentity(ctx, current.Run, input.Identity.TraceID), &current, nil
 	}
-	_, committed, err := a.readCommittedImageSetApproval(ctx, current)
+	committed, err := a.readCommittedVisualApproval(ctx, current)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -98,7 +143,7 @@ func (a *Activities) restoreImageSetCompletionIdentity(ctx context.Context, inpu
 }
 
 func (a *Activities) restoreImageSetPendingRecoveryIdentity(ctx context.Context, input PersistPendingCommandActivityInput) (context.Context, *imageagent.RunProjection, error) {
-	if a.imageSetApprovals == nil || a.executionAuthorizer == nil || input.Receipt == nil || input.Receipt.Kind != "approve_results" || !imageSetPublicationPhase(input.Receipt.Phase) {
+	if a.imageSetApprovals == nil && a.artworkPublisher == nil || a.executionAuthorizer == nil || input.Receipt == nil || input.Receipt.Kind != "approve_results" || !imageSetPublicationPhase(input.Receipt.Phase) {
 		return a.liveRunProjectionIdentity(ctx, input.RunID, input.Identity)
 	}
 	current, err := a.loadOrganizationExecution(ctx, input.RunID, input.Identity)
@@ -121,7 +166,7 @@ func (a *Activities) restoreImageSetPendingRecoveryIdentity(ctx context.Context,
 		// A change during authorization must not be replaced by this marker.
 		return ctx, &current, nil
 	}
-	_, committed, err := a.readCommittedImageSetApproval(ctx, current)
+	committed, err := a.readCommittedVisualApproval(ctx, current)
 	if err != nil {
 		return nil, nil, err
 	}
