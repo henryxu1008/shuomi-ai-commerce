@@ -13,6 +13,8 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+throw "Legacy ListingKit local startup is retired (#29). Use current-application with its approved private manifest; no processes or port-forwards have been changed."
+
 function Get-RepoRoot {
     $scriptDir = $PSScriptRoot
     return (Resolve-Path (Join-Path $scriptDir "..")).Path

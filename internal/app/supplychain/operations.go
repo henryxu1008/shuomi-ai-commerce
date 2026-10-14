@@ -136,6 +136,9 @@ func (a *OperationActivities) process(ctx context.Context, in OperationExecution
 		switch uploaded.Status {
 		case submission.ExecutionSucceeded:
 			result.Status = preparation.ItemSucceeded
+			if uploaded.TikTok != nil && uploaded.TikTok.Publication != nil && uploaded.TikTok.Publication.State == "publication_failed" {
+				result.Status = preparation.ItemFailed
+			}
 		case submission.ExecutionOutcomeUnknown:
 			result.Status = preparation.ItemUnknown
 		default:
@@ -235,6 +238,9 @@ func (a *OperationActivities) adapt(ctx context.Context, op preparation.Operatio
 		if merchant.Platform == storecenter.PlatformTemu {
 			input.Temu = initialTemuInput(original, merchant)
 			return a.Creator.CreateForExecution(ctx, op.Owner, key, input)
+		}
+		if merchant.Platform == storecenter.PlatformTikTokShop {
+			return record.TargetReceipt{}, record.ErrNotReady
 		}
 		input.Draft.Product.Names = []model.LanguageContent{{Language: "en", Name: original.Snapshot.Title}}
 		input.Draft.Product.Descriptions = []model.LanguageContent{{Language: "en", Name: original.Snapshot.Description}}

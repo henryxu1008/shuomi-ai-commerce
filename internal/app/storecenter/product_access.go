@@ -66,6 +66,12 @@ func (a *OfficialProductAccess) ReadTargetMerchantBinding(ctx context.Context, s
 		return MerchantBinding{}, ErrProductAccessChanged
 	}
 	switch material.Platform {
+	case storecenter.PlatformTikTokShop:
+		h, err := a.AuthorizeTikTokRules(ctx, subject, storeID, nil)
+		if err != nil {
+			return MerchantBinding{}, err
+		}
+		return h.Binding(), nil
 	case storecenter.PlatformShein:
 		h, err := a.Authorize(ctx, subject, storeID, nil)
 		if err != nil {

@@ -7,10 +7,10 @@ import (
 
 	"gorm.io/gorm"
 
-	"task-processor/internal/listingkit"
+	"task-processor/internal/listingkit/sheinsync"
 )
 
-func (r *MemSheinSyncRepository) SaveSyncJob(_ context.Context, job *listingkit.SheinSyncJobRecord) error {
+func (r *MemSheinSyncRepository) SaveSyncJob(_ context.Context, job *sheinsync.SheinSyncJobRecord) error {
 	if job == nil {
 		return nil
 	}
@@ -41,11 +41,11 @@ func (r *MemSheinSyncRepository) SaveSyncJob(_ context.Context, job *listingkit.
 	return nil
 }
 
-func (r *MemSheinSyncRepository) ListSyncJobs(_ context.Context, query *listingkit.SheinSyncJobQuery) ([]listingkit.SheinSyncJobRecord, int64, error) {
+func (r *MemSheinSyncRepository) ListSyncJobs(_ context.Context, query *sheinsync.SheinSyncJobQuery) ([]sheinsync.SheinSyncJobRecord, int64, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	items := make([]listingkit.SheinSyncJobRecord, 0, len(r.syncJobs))
+	items := make([]sheinsync.SheinSyncJobRecord, 0, len(r.syncJobs))
 	for _, row := range r.syncJobs {
 		if !matchesSheinSyncJobQuery(row, query) {
 			continue
@@ -71,7 +71,7 @@ func (r *MemSheinSyncRepository) ListSyncJobs(_ context.Context, query *listingk
 	page, pageSize := sheinSyncJobQueryPage(query)
 	start := (page - 1) * pageSize
 	if start >= len(items) {
-		return []listingkit.SheinSyncJobRecord{}, total, nil
+		return []sheinsync.SheinSyncJobRecord{}, total, nil
 	}
 	end := start + pageSize
 	if end > len(items) {

@@ -66,6 +66,8 @@ func issue398AcquisitionAPIViolations(sources []listingKitImageBoundarySource) (
 		{"internal/app/supplychain", issue398HTTP, map[string][]string{
 			"internal/app/supplychain/image_probe.go":      {"NewPublicImageHTTPClient", "ValidatePublicHTTPSURL", "Download", "InspectGeneratedArtifact"},
 			"internal/app/supplychain/temu_image_probe.go": {"ValidatePublicHTTPSURL", "Download", "InspectGeneratedArtifact"},
+			// #669 reuses the same SSRF-safe leaves for an approved native image.
+			"internal/app/supplychain/tiktok_image_probe.go": {"ValidatePublicHTTPSURL", "Download", "InspectGeneratedArtifact"},
 		}},
 		{"internal/integration/shein", issue398HTTP, map[string][]string{"internal/integration/shein/official_goods.go": {"ValidatePublicHTTPSURL"}}},
 		// #622 frozen design reuses these current SSRF-safe and pure image leaves.
@@ -197,6 +199,8 @@ func TestIssue398CurrentLeafAndInitializerAPIGuard(t *testing.T) {
 		{"probe current reader", "internal/app/supplychain/image_probe.go", issue398HTTP, "Download", true},
 		{"TEMU approved image reader", "internal/app/supplychain/temu_image_probe.go", issue398HTTP, "Download", true},
 		{"TEMU legacy downloader denied", "internal/app/supplychain/temu_image_probe.go", issue398HTTP, "NewProductImageDownloader", false},
+		{"TikTok approved image reader", "internal/app/supplychain/tiktok_image_probe.go", issue398HTTP, "Download", true},
+		{"TikTok legacy downloader denied", "internal/app/supplychain/tiktok_image_probe.go", issue398HTTP, "NewProductImageDownloader", false},
 		{"probe sibling", "internal/app/supplychain/other.go", issue398HTTP, "Download", false},
 		{"POD exact image reader", "internal/app/pod/inputs.go", issue398HTTP, "Download", true},
 		{"POD legacy API denied", "internal/app/pod/inputs.go", issue398HTTP, "NewProductImageDownloader", false},

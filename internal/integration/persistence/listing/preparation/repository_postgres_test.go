@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	"sync"
+	supplyapp "task-processor/internal/app/supplychain"
 	"task-processor/internal/authidentity"
 	officialstore "task-processor/internal/integration/persistence/listing/official"
 	recordstore "task-processor/internal/integration/persistence/listing/record"
@@ -19,6 +20,7 @@ import (
 	catalogstore "task-processor/internal/integration/persistence/product/catalog"
 	collectionstore "task-processor/internal/integration/persistence/product/collection"
 	"task-processor/internal/listing/preparation"
+	"task-processor/internal/listing/submission"
 	temugoods "task-processor/internal/marketplace/temu/goods"
 	"task-processor/internal/product/collection"
 	"task-processor/internal/product/sourcing"
@@ -35,6 +37,18 @@ type unusedSources struct {
 }
 
 type operationExecutionAuth struct{ denied bool }
+
+type operationUploadConsumer struct {
+	scope         collection.Scope
+	key, recordID string
+	calls         int
+}
+
+func (u *operationUploadConsumer) Upload(_ context.Context, scope collection.Scope, key, recordID string) (supplyapp.UploadResult, error) {
+	u.scope, u.key, u.recordID = scope, key, recordID
+	u.calls++
+	return supplyapp.UploadResult{RecordID: recordID, AttemptID: uuid.NewString(), Status: submission.ExecutionSucceeded}, nil
+}
 
 func (a *operationExecutionAuth) AuthorizeOperationExecution(ctx context.Context, op preparation.Operation) error {
 	return a.AuthorizeExecution(ctx, op.Owner, preparation.PermissionManage)
@@ -141,6 +155,35 @@ func TestPostgresTransferCapturesAllPagesAndReplaysOriginalMembership(t *testing
 	}
 	opService, err := preparation.NewOperationService(service, collections, operations)
 	require.NoError(t, err)
+	_, err = opService.WithExecution(&operationExecutionAuth{})
+	require.NoError(t, err)
+	// The formal upload producer must retain every admitted platform's exact
+	// Target record, so the worker can dispatch to the native uploader.
+	for _, site := range []string{"shein-us", "temu-supplier", "temu-local", "tiktokshop-us"} {
+		storeID, targetID, recordID := uuid.NewString(), uuid.NewString(), uuid.NewString()
+		require.NoError(t, db.Exec("INSERT INTO listing_target_records(organization_id,actor_id,member_id,id,target_id,source_id,store_id,site,revision,input_hash,body_hash,body_json,created_at) VALUES(?,?,?,?,?,?,?,?,3,?,?,?::jsonb,now())", scope.OrganizationID, scope.ActorID, scope.MemberID, recordID, targetID, projected[0].SourceID, storeID, site, collection.Digest("input"), collection.Digest("body"), "{}").Error)
+		require.NoError(t, db.Exec("INSERT INTO listing_preparation_targets(organization_id,actor_id,member_id,id,source_id,store_id,site,current_record_id,revision) VALUES(?,?,?,?,?,?,?,?,3)", scope.OrganizationID, scope.ActorID, scope.MemberID, targetID, projected[0].SourceID, storeID, site, recordID).Error)
+		upload, err := opService.Create(actor, uuid.NewString(), preparation.OperationInput{PreparationID: receipt.Preparation.ID, ExpectedRevision: 1, StoreID: storeID, Action: preparation.OperationUpload, SourceIDs: []string{projected[0].SourceID}})
+		require.NoError(t, err)
+		access, err := opService.RequestAccess(actor, upload.Operation.ID)
+		require.NoError(t, err)
+		item, err := operations.BeginOperationItem(actor, access, projected[0].SourceID)
+		require.NoError(t, err)
+		require.Equal(t, preparation.ItemRunning, item.Status, site)
+		require.Equal(t, recordID, item.RecordID, site)
+		require.EqualValues(t, 3, item.RecordRevision, site)
+		consumer := &operationUploadConsumer{}
+		activities := supplyapp.OperationActivities{Operations: opService, Repository: operations, Uploader: consumer}
+		finished, err := activities.Process(actor, supplyapp.OperationExecution{OrganizationID: scope.OrganizationID, OperationID: upload.Operation.ID}, item.SourceID)
+		require.NoError(t, err)
+		require.Equal(t, preparation.ItemSucceeded, finished.Status, site)
+		require.Equal(t, scope, consumer.scope)
+		require.Equal(t, recordID, consumer.recordID, site)
+		require.Equal(t, preparation.ItemCommandID(upload.Operation.ID, item.SourceID, preparation.OperationUpload), consumer.key)
+		_, err = activities.Process(actor, supplyapp.OperationExecution{OrganizationID: scope.OrganizationID, OperationID: upload.Operation.ID}, item.SourceID)
+		require.NoError(t, err)
+		require.Equal(t, 1, consumer.calls, "worker redelivery must consume durable terminal item")
+	}
 	opInput := preparation.OperationInput{PreparationID: receipt.Preparation.ID, ExpectedRevision: 1, StoreID: uuid.NewString(), Action: preparation.OperationAdapt}
 	opKey := uuid.NewString()
 	op, err := opService.Create(actor, opKey, opInput)

@@ -8,10 +8,10 @@ import (
 
 	"gorm.io/gorm"
 
-	"task-processor/internal/listingkit"
+	"task-processor/internal/listingkit/sheinsync"
 )
 
-func (r *MemSheinSyncRepository) SaveCandidates(_ context.Context, records []*listingkit.SheinActivityCandidateRecord) error {
+func (r *MemSheinSyncRepository) SaveCandidates(_ context.Context, records []*sheinsync.SheinActivityCandidateRecord) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -42,11 +42,11 @@ func (r *MemSheinSyncRepository) SaveCandidates(_ context.Context, records []*li
 	return nil
 }
 
-func (r *MemSheinSyncRepository) ListCandidates(_ context.Context, query *listingkit.SheinActivityCandidateQuery) ([]listingkit.SheinActivityCandidateRecord, int64, error) {
+func (r *MemSheinSyncRepository) ListCandidates(_ context.Context, query *sheinsync.SheinActivityCandidateQuery) ([]sheinsync.SheinActivityCandidateRecord, int64, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	items := make([]listingkit.SheinActivityCandidateRecord, 0, len(r.candidates))
+	items := make([]sheinsync.SheinActivityCandidateRecord, 0, len(r.candidates))
 	for _, row := range r.candidates {
 		if !matchesSheinActivityCandidateQuery(row, query) {
 			continue
@@ -64,7 +64,7 @@ func (r *MemSheinSyncRepository) ListCandidates(_ context.Context, query *listin
 	page, pageSize := sheinActivityCandidateQueryPage(query)
 	start := (page - 1) * pageSize
 	if start >= len(items) {
-		return []listingkit.SheinActivityCandidateRecord{}, total, nil
+		return []sheinsync.SheinActivityCandidateRecord{}, total, nil
 	}
 	end := start + pageSize
 	if end > len(items) {
@@ -76,7 +76,7 @@ func (r *MemSheinSyncRepository) ListCandidates(_ context.Context, query *listin
 	return pageItems, total, nil
 }
 
-func (r *MemSheinSyncRepository) attachCandidateMainImagesLocked(rows []listingkit.SheinActivityCandidateRecord) {
+func (r *MemSheinSyncRepository) attachCandidateMainImagesLocked(rows []sheinsync.SheinActivityCandidateRecord) {
 	for i := range rows {
 		for _, product := range r.products {
 			if product.ID == rows[i].SyncedProductID {
@@ -87,15 +87,15 @@ func (r *MemSheinSyncRepository) attachCandidateMainImagesLocked(rows []listingk
 	}
 }
 
-func (r *MemSheinSyncRepository) attachLatestFailedEnrollmentErrorsLocked(rows []listingkit.SheinActivityCandidateRecord) {
+func (r *MemSheinSyncRepository) attachLatestFailedEnrollmentErrorsLocked(rows []sheinsync.SheinActivityCandidateRecord) {
 	for i := range rows {
-		if rows[i].ID <= 0 || rows[i].ReviewStatus != listingkit.SheinCandidateReviewStatusFailed {
+		if rows[i].ID <= 0 || rows[i].ReviewStatus != sheinsync.SheinCandidateReviewStatusFailed {
 			continue
 		}
-		var latest *listingkit.SheinActivityEnrollmentItemRecord
+		var latest *sheinsync.SheinActivityEnrollmentItemRecord
 		for _, item := range r.enrollmentItems {
 			if item.CandidateID != rows[i].ID ||
-				item.Status != listingkit.SheinEnrollmentItemStatusFailed ||
+				item.Status != sheinsync.SheinEnrollmentItemStatusFailed ||
 				item.ErrorMessage == "" {
 				continue
 			}
@@ -110,14 +110,14 @@ func (r *MemSheinSyncRepository) attachLatestFailedEnrollmentErrorsLocked(rows [
 	}
 }
 
-func isNewerSheinEnrollmentItem(left, right listingkit.SheinActivityEnrollmentItemRecord) bool {
+func isNewerSheinEnrollmentItem(left, right sheinsync.SheinActivityEnrollmentItemRecord) bool {
 	if !left.UpdatedAt.Equal(right.UpdatedAt) {
 		return left.UpdatedAt.After(right.UpdatedAt)
 	}
 	return left.ID > right.ID
 }
 
-func (r *MemSheinSyncRepository) CreateEnrollmentRun(_ context.Context, run *listingkit.SheinActivityEnrollmentRunRecord) error {
+func (r *MemSheinSyncRepository) CreateEnrollmentRun(_ context.Context, run *sheinsync.SheinActivityEnrollmentRunRecord) error {
 	if run == nil {
 		return nil
 	}
@@ -138,7 +138,7 @@ func (r *MemSheinSyncRepository) CreateEnrollmentRun(_ context.Context, run *lis
 	return nil
 }
 
-func (r *MemSheinSyncRepository) UpdateEnrollmentRun(_ context.Context, run *listingkit.SheinActivityEnrollmentRunRecord) error {
+func (r *MemSheinSyncRepository) UpdateEnrollmentRun(_ context.Context, run *sheinsync.SheinActivityEnrollmentRunRecord) error {
 	if run == nil {
 		return nil
 	}
@@ -160,11 +160,11 @@ func (r *MemSheinSyncRepository) UpdateEnrollmentRun(_ context.Context, run *lis
 	return nil
 }
 
-func (r *MemSheinSyncRepository) ListEnrollmentRuns(_ context.Context, query *listingkit.SheinEnrollmentRunQuery) ([]listingkit.SheinActivityEnrollmentRunRecord, int64, error) {
+func (r *MemSheinSyncRepository) ListEnrollmentRuns(_ context.Context, query *sheinsync.SheinEnrollmentRunQuery) ([]sheinsync.SheinActivityEnrollmentRunRecord, int64, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	items := make([]listingkit.SheinActivityEnrollmentRunRecord, 0, len(r.enrollmentRuns))
+	items := make([]sheinsync.SheinActivityEnrollmentRunRecord, 0, len(r.enrollmentRuns))
 	for _, row := range r.enrollmentRuns {
 		if !matchesSheinEnrollmentRunQuery(row, query) {
 			continue
@@ -190,7 +190,7 @@ func (r *MemSheinSyncRepository) ListEnrollmentRuns(_ context.Context, query *li
 	page, pageSize := sheinEnrollmentRunQueryPage(query)
 	start := (page - 1) * pageSize
 	if start >= len(items) {
-		return []listingkit.SheinActivityEnrollmentRunRecord{}, total, nil
+		return []sheinsync.SheinActivityEnrollmentRunRecord{}, total, nil
 	}
 	end := start + pageSize
 	if end > len(items) {
@@ -199,11 +199,11 @@ func (r *MemSheinSyncRepository) ListEnrollmentRuns(_ context.Context, query *li
 	return items[start:end], total, nil
 }
 
-func (r *MemSheinSyncRepository) ListEnrollmentItems(_ context.Context, query *listingkit.SheinEnrollmentItemQuery) ([]listingkit.SheinActivityEnrollmentItemRecord, int64, error) {
+func (r *MemSheinSyncRepository) ListEnrollmentItems(_ context.Context, query *sheinsync.SheinEnrollmentItemQuery) ([]sheinsync.SheinActivityEnrollmentItemRecord, int64, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	items := make([]listingkit.SheinActivityEnrollmentItemRecord, 0, len(r.enrollmentItems))
+	items := make([]sheinsync.SheinActivityEnrollmentItemRecord, 0, len(r.enrollmentItems))
 	for _, row := range r.enrollmentItems {
 		run, ok := r.enrollmentRuns[row.RunID]
 		if !ok {
@@ -227,7 +227,7 @@ func (r *MemSheinSyncRepository) ListEnrollmentItems(_ context.Context, query *l
 	page, pageSize := sheinEnrollmentItemQueryPage(query)
 	start := (page - 1) * pageSize
 	if start >= len(items) {
-		return []listingkit.SheinActivityEnrollmentItemRecord{}, total, nil
+		return []sheinsync.SheinActivityEnrollmentItemRecord{}, total, nil
 	}
 	end := start + pageSize
 	if end > len(items) {
@@ -236,7 +236,7 @@ func (r *MemSheinSyncRepository) ListEnrollmentItems(_ context.Context, query *l
 	return items[start:end], total, nil
 }
 
-func (r *MemSheinSyncRepository) SaveEnrollmentItems(_ context.Context, items []*listingkit.SheinActivityEnrollmentItemRecord) error {
+func (r *MemSheinSyncRepository) SaveEnrollmentItems(_ context.Context, items []*sheinsync.SheinActivityEnrollmentItemRecord) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 

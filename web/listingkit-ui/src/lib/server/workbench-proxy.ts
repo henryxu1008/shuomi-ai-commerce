@@ -1003,7 +1003,7 @@ export async function buildWorkbenchUpstreamRequest(
     responseContract: route.responseContract,
     expectedStoreId: imageSetContract ? JSON.stringify(imageSetResponseBinding(path,route.requestContract.slice(10) as ImageSetRoute)) : expectedCollectionMedia ?? (
       route.requestContract==="product-acquisition-plan-read"||route.requestContract==="product-acquisition-plan-advance"?path[3]:
-      (route.requestContract==="supply-target"||route.requestContract==="supply-publication") ? `${path[2]}:${path[4]}` :
+      (route.requestContract==="supply-target"||route.requestContract==="supply-publication"||route.requestContract==="supply-publication-status") ? `${path[2]}:${path[4]}` :
       ["supply-completion-draft","supply-completion-drafts","supply-source","supply-preparation","supply-record","supply-operation","supply-ensure","supply-cancel"].includes(route.requestContract) ? (["supply-preparation","supply-completion-drafts"].includes(route.requestContract)?path[1]:path[2]) :
       route.requestContract === "collection-detail" ? path[2] :
       route.requestContract.startsWith("product-agent-") ? (path[6]??request.headers.get("Idempotency-Key")??undefined) :

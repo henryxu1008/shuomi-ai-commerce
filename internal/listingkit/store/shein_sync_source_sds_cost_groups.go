@@ -4,12 +4,12 @@ import (
 	"context"
 	"sort"
 
-	"task-processor/internal/listingkit"
+	"task-processor/internal/listingkit/sheinsync"
 )
 
-func (r *GormSheinSyncRepository) ListSourceSDSCostGroups(ctx context.Context, query *listingkit.SheinSourceSDSCostGroupQuery) ([]listingkit.SheinSourceSDSCostGroupRecord, int64, error) {
+func (r *GormSheinSyncRepository) ListSourceSDSCostGroups(ctx context.Context, query *sheinsync.SheinSourceSDSCostGroupQuery) ([]sheinsync.SheinSourceSDSCostGroupRecord, int64, error) {
 	db := r.db.WithContext(ctx).
-		Model(&listingkit.SheinSyncedProductRecord{}).
+		Model(&sheinsync.SheinSyncedProductRecord{}).
 		Where("is_active = ?", true).
 		Where("shelf_status = '' OR shelf_status IS NULL OR shelf_status = ?", "ON_SHELF")
 	if query != nil {
@@ -21,7 +21,7 @@ func (r *GormSheinSyncRepository) ListSourceSDSCostGroups(ctx context.Context, q
 		}
 	}
 
-	var products []listingkit.SheinSyncedProductRecord
+	var products []sheinsync.SheinSyncedProductRecord
 	if err := db.Order("supplier_code ASC, skc_name ASC, id ASC").Find(&products).Error; err != nil {
 		return nil, 0, err
 	}
@@ -33,9 +33,9 @@ func (r *GormSheinSyncRepository) ListSourceSDSCostGroups(ctx context.Context, q
 	return paginateSheinSourceSDSCostGroupRows(groups, query), int64(len(groups)), nil
 }
 
-func (r *MemSheinSyncRepository) ListSourceSDSCostGroups(ctx context.Context, query *listingkit.SheinSourceSDSCostGroupQuery) ([]listingkit.SheinSourceSDSCostGroupRecord, int64, error) {
+func (r *MemSheinSyncRepository) ListSourceSDSCostGroups(ctx context.Context, query *sheinsync.SheinSourceSDSCostGroupQuery) ([]sheinsync.SheinSourceSDSCostGroupRecord, int64, error) {
 	r.mu.RLock()
-	products := make([]listingkit.SheinSyncedProductRecord, 0, len(r.products))
+	products := make([]sheinsync.SheinSyncedProductRecord, 0, len(r.products))
 	for _, row := range r.products {
 		if !sheinSyncedProductVisibleForSDSCostMaintenance(row) {
 			continue
@@ -79,7 +79,7 @@ func (r *MemSheinSyncRepository) ListSourceSDSCostGroups(ctx context.Context, qu
 	return paginateSheinSourceSDSCostGroupRows(groups, query), int64(len(groups)), nil
 }
 
-func sheinSyncedProductVisibleForSDSCostMaintenance(row listingkit.SheinSyncedProductRecord) bool {
+func sheinSyncedProductVisibleForSDSCostMaintenance(row sheinsync.SheinSyncedProductRecord) bool {
 	if !row.IsActive {
 		return false
 	}
@@ -88,15 +88,15 @@ func sheinSyncedProductVisibleForSDSCostMaintenance(row listingkit.SheinSyncedPr
 
 func (r *GormSheinSyncRepository) applySheinSDSCostGroupCosts(
 	ctx context.Context,
-	groups []listingkit.SheinSourceSDSCostGroupRecord,
+	groups []sheinsync.SheinSourceSDSCostGroupRecord,
 	allKeys []string,
-	query *listingkit.SheinSourceSDSCostGroupQuery,
+	query *sheinsync.SheinSourceSDSCostGroupQuery,
 ) error {
 	if len(groups) == 0 || len(allKeys) == 0 {
 		return nil
 	}
 
-	db := r.db.WithContext(ctx).Model(&listingkit.SheinSDSCostGroupRecord{}).Where("group_key IN ?", normalizedSheinSDSGroupKeys(allKeys))
+	db := r.db.WithContext(ctx).Model(&sheinsync.SheinSDSCostGroupRecord{}).Where("group_key IN ?", normalizedSheinSDSGroupKeys(allKeys))
 	if query != nil {
 		if query.TenantID > 0 {
 			db = db.Where("tenant_id = ?", query.TenantID)
@@ -105,7 +105,7 @@ func (r *GormSheinSyncRepository) applySheinSDSCostGroupCosts(
 			db = db.Where("store_id = ?", query.StoreID)
 		}
 	}
-	var rows []listingkit.SheinSDSCostGroupRecord
+	var rows []sheinsync.SheinSDSCostGroupRecord
 	if err := db.Find(&rows).Error; err != nil {
 		return err
 	}
@@ -118,19 +118,19 @@ func (r *GormSheinSyncRepository) applySheinSDSCostGroupCosts(
 	return nil
 }
 
-func buildSheinSourceSDSCostGroupRows(products []listingkit.SheinSyncedProductRecord) ([]listingkit.SheinSourceSDSCostGroupRecord, []string) {
-	rowsByKey := make(map[string]*listingkit.SheinSourceSDSCostGroupRecord)
+func buildSheinSourceSDSCostGroupRows(products []sheinsync.SheinSyncedProductRecord) ([]sheinsync.SheinSourceSDSCostGroupRecord, []string) {
+	rowsByKey := make(map[string]*sheinsync.SheinSourceSDSCostGroupRecord)
 	keySeen := make(map[string]struct{})
 	allKeys := make([]string, 0)
 
 	for _, product := range products {
-		identity := listingkit.ResolveSheinSDSCostGroupIdentity(product)
+		identity := sheinsync.ResolveSheinSDSCostGroupIdentity(product)
 		if identity.GroupKey == "" || identity.SourceCode == "" {
 			continue
 		}
 		row := rowsByKey[identity.GroupKey]
 		if row == nil {
-			rowsByKey[identity.GroupKey] = &listingkit.SheinSourceSDSCostGroupRecord{
+			rowsByKey[identity.GroupKey] = &sheinsync.SheinSourceSDSCostGroupRecord{
 				GroupKey:        identity.GroupKey,
 				GroupLabel:      identity.GroupLabel,
 				SourceCode:      identity.SourceCode,
@@ -141,8 +141,8 @@ func buildSheinSourceSDSCostGroupRows(products []listingkit.SheinSyncedProductRe
 			row.LegacyGroupKeys = appendMissingSheinSourceSDSGroupKeys(row.LegacyGroupKeys, identity.LegacyGroupKeys)
 		}
 		row.ProductCount++
-		row.SKUCodes = appendMissingSheinSourceSDSGroupKeys(row.SKUCodes, listingkit.SheinSyncedProductSKUCodes(product))
-		variantIdentities := listingkit.ResolveSheinSDSVariantCostGroupIdentities(product)
+		row.SKUCodes = appendMissingSheinSourceSDSGroupKeys(row.SKUCodes, sheinsync.SheinSyncedProductSKUCodes(product))
+		variantIdentities := sheinsync.ResolveSheinSDSVariantCostGroupIdentities(product)
 		for _, variantIdentity := range variantIdentities {
 			row.SKUGroups = appendSheinSourceSDSVariantGroupProduct(row.SKUGroups, variantIdentity, product)
 		}
@@ -173,7 +173,7 @@ func buildSheinSourceSDSCostGroupRows(products []listingkit.SheinSyncedProductRe
 		}
 	}
 
-	rows := make([]listingkit.SheinSourceSDSCostGroupRecord, 0, len(rowsByKey))
+	rows := make([]sheinsync.SheinSourceSDSCostGroupRecord, 0, len(rowsByKey))
 	for _, row := range rowsByKey {
 		sort.Strings(row.SKUCodes)
 		for i := range row.SKUGroups {
@@ -215,10 +215,10 @@ func appendMissingSheinSourceSDSGroupKeys(existing []string, next []string) []st
 }
 
 func appendSheinSourceSDSVariantGroupProduct(
-	existing []listingkit.SheinSourceSDSSKUCostGroupRecord,
-	identity listingkit.SheinSDSCostGroupIdentity,
-	product listingkit.SheinSyncedProductRecord,
-) []listingkit.SheinSourceSDSSKUCostGroupRecord {
+	existing []sheinsync.SheinSourceSDSSKUCostGroupRecord,
+	identity sheinsync.SheinSDSCostGroupIdentity,
+	product sheinsync.SheinSyncedProductRecord,
+) []sheinsync.SheinSourceSDSSKUCostGroupRecord {
 	if identity.GroupKey == "" || identity.VariantLabel == "" {
 		return existing
 	}
@@ -232,7 +232,7 @@ func appendSheinSourceSDSVariantGroupProduct(
 			return existing
 		}
 	}
-	return append(existing, listingkit.SheinSourceSDSSKUCostGroupRecord{
+	return append(existing, sheinsync.SheinSourceSDSSKUCostGroupRecord{
 		GroupKey:        identity.GroupKey,
 		GroupLabel:      identity.GroupLabel,
 		SourceCode:      identity.SourceCode,
@@ -240,19 +240,19 @@ func appendSheinSourceSDSVariantGroupProduct(
 		VariantLabel:    identity.VariantLabel,
 		SKUCodes:        sheinSourceSDSVariantSKUCodes(identity, product),
 		ProductCount:    1,
-		Products:        []listingkit.SheinSyncedProductRecord{product},
+		Products:        []sheinsync.SheinSyncedProductRecord{product},
 		LegacyGroupKeys: append([]string(nil), identity.LegacyGroupKeys...),
 	})
 }
 
-func sheinSourceSDSVariantSKUCodes(identity listingkit.SheinSDSCostGroupIdentity, product listingkit.SheinSyncedProductRecord) []string {
+func sheinSourceSDSVariantSKUCodes(identity sheinsync.SheinSDSCostGroupIdentity, product sheinsync.SheinSyncedProductRecord) []string {
 	if len(identity.SKUCodes) > 0 {
 		return append([]string(nil), identity.SKUCodes...)
 	}
-	return listingkit.SheinSyncedProductSKUCodes(product)
+	return sheinsync.SheinSyncedProductSKUCodes(product)
 }
 
-func applySheinSourceSDSManualCosts(rows []listingkit.SheinSourceSDSCostGroupRecord, costs map[string]*float64) {
+func applySheinSourceSDSManualCosts(rows []sheinsync.SheinSourceSDSCostGroupRecord, costs map[string]*float64) {
 	for i := range rows {
 		if cost, ok := costs[rows[i].GroupKey]; ok {
 			rows[i].ManualCostPrice = cloneFloat64Ptr(cost)
@@ -280,16 +280,16 @@ func applySheinSourceSDSManualCosts(rows []listingkit.SheinSourceSDSCostGroupRec
 }
 
 func paginateSheinSourceSDSCostGroupRows(
-	rows []listingkit.SheinSourceSDSCostGroupRecord,
-	query *listingkit.SheinSourceSDSCostGroupQuery,
-) []listingkit.SheinSourceSDSCostGroupRecord {
+	rows []sheinsync.SheinSourceSDSCostGroupRecord,
+	query *sheinsync.SheinSourceSDSCostGroupQuery,
+) []sheinsync.SheinSourceSDSCostGroupRecord {
 	page, pageSize := normalizeSheinSyncPage(0, 0)
 	if query != nil {
 		page, pageSize = normalizeSheinSyncPage(query.Page, query.PageSize)
 	}
 	start := (page - 1) * pageSize
 	if start >= len(rows) {
-		return []listingkit.SheinSourceSDSCostGroupRecord{}
+		return []sheinsync.SheinSourceSDSCostGroupRecord{}
 	}
 	end := start + pageSize
 	if end > len(rows) {

@@ -55,7 +55,6 @@ func TestCmdContainsOnlyOfficialEntrypoints(t *testing.T) {
 		"current-application":           {},
 		"image-agent-temporal-worker":   {},
 		"listing-control-plane":         {},
-		"product-listing-api":           {},
 		"shein-listing":                 {},
 		"temu-listing":                  {},
 	}
@@ -168,8 +167,8 @@ func TestTrackedFilesResolvesFromPackageDirectory(t *testing.T) {
 	if len(files) == 0 {
 		t.Fatal("expected tracked cmd files when the test process runs from the tests package directory")
 	}
-	if !slices.Contains(files, "cmd/product-listing-api/main.go") {
-		t.Fatalf("tracked cmd files do not contain product-listing-api: %v", files)
+	if !slices.Contains(files, "cmd/current-application/main.go") {
+		t.Fatalf("tracked cmd files do not contain current-application: %v", files)
 	}
 }
 

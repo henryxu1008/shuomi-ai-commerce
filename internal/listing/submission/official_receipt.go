@@ -48,6 +48,7 @@ type OfficialReceipt struct {
 	Image              *goods.OfficialImageObservation    `json:"image,omitempty"`
 	TemuProduct        *temugoods.CreatedGoods            `json:"temuProduct,omitempty"`
 	TemuImage          *TemuImageReceipt                  `json:"temuImage,omitempty"`
+	TikTok             *TikTokEffectReceipt               `json:"tiktok,omitempty"`
 	ObservedAt         time.Time                          `json:"observed_at"`
 }
 type OfficialCompletion struct {
@@ -138,7 +139,10 @@ func ValidateOfficialReceipt(value OfficialReceipt) error {
 	if value.Target.Platform == "temu" {
 		return validateTemuReceipt(value)
 	}
-	if value.TemuImage != nil || value.TemuProduct != nil {
+	if value.Target.Platform == "tiktokshop" {
+		return validateTikTokReceipt(value)
+	}
+	if value.TikTok != nil || value.TemuImage != nil || value.TemuProduct != nil {
 		return ErrExecutionEvidenceRequired
 	}
 	switch value.Kind {

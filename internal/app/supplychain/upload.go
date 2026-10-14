@@ -55,6 +55,9 @@ type UploadDependencies struct {
 	Authorization collection.ExecutionAuthorizer
 	Stores        ExecutionStore
 	TemuStores    TemuExecutionStore
+	TikTokStores  TikTokExecutionStore
+	TikTokRules   record.TargetTikTokRuleReader
+	TikTokImages  TikTokImageContentReader
 	Images        ImageProbe
 	Kernel        UploadKernel
 	Intents       submission.OfficialIntentRepository
@@ -63,14 +66,15 @@ type UploadDependencies struct {
 }
 type UploadService struct{ dependencies UploadDependencies }
 type UploadResult struct {
-	RecordID              string                     `json:"recordId"`
-	PublishedRecordID     string                     `json:"publishedRecordId,omitempty"`
-	AttemptID             string                     `json:"attemptId,omitempty"`
-	Status                submission.ExecutionStatus `json:"status"`
-	CurrentRecordUploaded bool                       `json:"currentRecordUploaded"`
-	Product               model.PublishResult        `json:"product,omitempty"`
-	TemuProduct           *temugoods.CreatedGoods    `json:"temuProduct,omitempty"`
-	Message               string                     `json:"message,omitempty"`
+	RecordID              string                          `json:"recordId"`
+	PublishedRecordID     string                          `json:"publishedRecordId,omitempty"`
+	AttemptID             string                          `json:"attemptId,omitempty"`
+	Status                submission.ExecutionStatus      `json:"status"`
+	CurrentRecordUploaded bool                            `json:"currentRecordUploaded"`
+	Product               model.PublishResult             `json:"product,omitempty"`
+	TemuProduct           *temugoods.CreatedGoods         `json:"temuProduct,omitempty"`
+	TikTok                *submission.TikTokEffectReceipt `json:"tiktok,omitempty"`
+	Message               string                          `json:"message,omitempty"`
 }
 
 func NewUploadService(d UploadDependencies) (*UploadService, error) {
@@ -190,6 +194,9 @@ func (s *UploadService) Upload(ctx context.Context, scope collection.Scope, key,
 	}
 	if saved.Merchant.Platform == storecenter.PlatformTemu {
 		return s.uploadTemu(ctx, scope, key, saved)
+	}
+	if saved.Merchant.Platform == storecenter.PlatformTikTokShop {
+		return s.uploadTikTok(ctx, scope, key, saved)
 	}
 	if _, err = s.dependencies.Stores.ExecutionMerchant(ctx, scope, saved.Merchant.StoreID, storecenter.ProductPurposePublish, &saved.Merchant); err != nil {
 		return UploadResult{}, err

@@ -54,6 +54,23 @@ func TestOwnerTableInventoryMatchesOwnerScopedModels(t *testing.T) {
 		t.Fatalf("duplicate inventory tables: %v", duplicates)
 	}
 
+	// #29 retired these model sources. The read-only historical preflight still
+	// keeps its original table inventory until its separate #529 retirement;
+	// historical tables must not be mistaken for current GORM model owners.
+	for _, historical := range []OwnerTable{
+		{Table: "listing_kit_tasks", TenantColumn: "tenant_id", UserColumn: "user_id", TenantDomain: TenantDomainZITADELOrganization, BlankUserPolicy: BlankUserPolicyIgnore},
+		{Table: "listingkit_image_agent_publication_receipts", TenantColumn: "tenant_id", UserColumn: "owner_user_id", TenantDomain: TenantDomainZITADELOrganization, BlankUserPolicy: BlankUserPolicyBlock},
+		{Table: "listingkit_shein_pod_image_indexes", TenantColumn: "tenant_id", UserColumn: "user_id", TenantDomain: TenantDomainZITADELOrganization, BlankUserPolicy: BlankUserPolicyIgnore},
+	} {
+		if inventory[historical.Table] != historical {
+			t.Fatalf("historical preflight inventory changed: %s", historical.Table)
+		}
+		if _, current := discovered[historical.Table]; current {
+			t.Fatalf("retired table %s has a current model again", historical.Table)
+		}
+		delete(inventory, historical.Table)
+	}
+
 	var missing, stale []string
 	for name, model := range discovered {
 		entry, ok := inventory[name]
@@ -173,8 +190,6 @@ func productionNonPersistentOwnerModelExclusions(repositoryRoot string) map[owne
 	listingKitDirectory := filepath.Join(repositoryRoot, "internal", "listingkit")
 	listingAdminDirectory := filepath.Join(repositoryRoot, "internal", "listingadmin")
 	identityPreflightDirectory := filepath.Join(listingKitDirectory, "identitypreflight")
-	memberInviteDirectory := filepath.Join(listingKitDirectory, "memberinvite")
-	storeDirectory := filepath.Join(listingKitDirectory, "store")
 	openAIDirectory := filepath.Join(repositoryRoot, "internal", "integration", "openai")
 
 	return map[ownerModelKey]string{
@@ -207,15 +222,7 @@ func productionNonPersistentOwnerModelExclusions(repositoryRoot string) map[owne
 		{Directory: listingAdminDirectory, Package: "listingadmin", TypeName: "TryConsumeDailyQuotaReqDTO"}:       "management API transport DTO, never passed to GORM as a model",
 		{Directory: listingAdminDirectory, Package: "listingadmin", TypeName: "ProductImportMappingCreateReqDTO"}: "management API transport DTO, never passed to GORM as a model",
 
-		{Directory: listingKitDirectory, Package: "listingkit", TypeName: "AIClientCredential"}:              "service contract mapped to the infrastructure credential store",
-		{Directory: listingKitDirectory, Package: "listingkit", TypeName: "GenerateRequest"}:                 "orchestration request input, never passed to GORM as a model",
-		{Directory: listingKitDirectory, Package: "listingkit", TypeName: "ImageAgentPublicationCommit"}:     "atomic publication command mapped to the private image-agent publication receipt row before persistence",
-		{Directory: listingKitDirectory, Package: "listingkit", TypeName: "RequestIdentity"}:                 "request context value, never passed to GORM as a model",
-		{Directory: listingKitDirectory, Package: "listingkit", TypeName: "SourceFactsGenerateRequestInput"}: "source-facts bridge input, never passed to GORM as a model",
-		{Directory: memberInviteDirectory, Package: "memberinvite", TypeName: "AuditRecord"}:                 "repository command mapped to memberInvitationAuditRow before persistence",
-		{Directory: memberInviteDirectory, Package: "memberinvite", TypeName: "Invitation"}:                  "identity-provider response value, never passed to GORM as a model",
-		{Directory: storeDirectory, Package: "store", TypeName: "sheinPODImageLookupBackfillTaskRow"}:        "read projection selected through the explicit listingkit.Task GORM model",
-		{Directory: openAIDirectory, Package: "openai", TypeName: "Identity"}:                                "request identity context, never persisted as a GORM model",
+		{Directory: openAIDirectory, Package: "openai", TypeName: "Identity"}: "request identity context, never persisted as a GORM model",
 	}
 }
 

@@ -197,11 +197,11 @@ func publicTarget(value record.TargetRecord) supplyTargetResponse {
 func supplyPublicResponse(value any) any {
 	switch v := value.(type) {
 	case record.TargetRecord:
-		if v.Input.Temu != nil {
+		if v.Input.Temu != nil || v.Input.TikTok != nil {
 			return publicTarget(v)
 		}
 	case record.TargetReceipt:
-		if v.Record.Input.Temu != nil {
+		if v.Record.Input.Temu != nil || v.Record.Input.TikTok != nil {
 			return struct {
 				Record   supplyTargetResponse `json:"record"`
 				Replayed bool                 `json:"replayed"`

@@ -2,7 +2,7 @@ package local
 
 import (
 	"task-processor/internal/listingadmin"
-	"task-processor/internal/listingkit"
+	"task-processor/internal/listingkit/sheinsync"
 )
 
 func (r *LocalRuntime) scheduledTaskConfigRepository() *listingadmin.GormScheduledTaskConfigRepository {
@@ -44,7 +44,7 @@ func (r *LocalRuntime) GetLocalProductDataRepository() listingadmin.ProductDataR
 	return nil
 }
 
-func (r *LocalRuntime) GetLocalSheinSyncRepository() listingkit.SheinSyncRepository {
+func (r *LocalRuntime) GetLocalSheinSyncRepository() sheinsync.SheinSyncRepository {
 	if r == nil {
 		return nil
 	}
