@@ -36,7 +36,7 @@ func (m shopDiagnosisModule) Register(reg *kernelmodule.Registry) error {
 	reg.AddRoutes(shopDiagnosisRoutes(m.app, m.app.bindRequest)...)
 	return nil
 }
-func (a *shopDiagnosisApplication) bindRequest(ctx context.Context, bearer string) (context.Context, error) {
+func (a *shopDiagnosisApplication) bindRequest(ctx context.Context, bearer, action string) (context.Context, error) {
 	ctx, e := (productReviewCapabilityBinder{now: time.Now}).Bind(ctx, bearer)
 	if e != nil {
 		return ctx, e
@@ -49,12 +49,12 @@ func (a *shopDiagnosisApplication) bindRequest(ctx context.Context, bearer strin
 	if e != nil {
 		return ctx, e
 	}
-	if !authz.AllowedOrganization(ctx, a.authorizer, id.UserID, id.EffectiveOrganizationID, id.Roles, authz.PermissionWorkbenchAgentUse) {
+	if action != "inspect" && !authz.AllowedOrganization(ctx, a.authorizer, id.UserID, id.EffectiveOrganizationID, id.Roles, authz.PermissionWorkbenchAgentUse) {
 		return ctx, agentconfig.ErrForbidden
 	}
 	return ctx, nil
 }
-func shopDiagnosisRoutes(app diagnosisHTTPService, bind func(context.Context, string) (context.Context, error)) []httproute.Descriptor {
+func shopDiagnosisRoutes(app diagnosisHTTPService, bind func(context.Context, string, string) (context.Context, error)) []httproute.Descriptor {
 	specs := []struct{ method, path, action string }{{"POST", "/inspect", "inspect"}, {"POST", "/prepare", "prepare"}, {"POST", "/contexts/:context_id/runs", "start"}, {"GET", "/contexts/:context_id/runs/:request_key", "read"}, {"POST", "/contexts/:context_id/runs/:request_key/resume", "resume"}}
 	var routes []httproute.Descriptor
 	for _, spec := range specs {
@@ -94,7 +94,7 @@ func shopDiagnosisRoutes(app diagnosisHTTPService, bind func(context.Context, st
 				if _, err := prepare.diagnosisInput.inputs(); err != nil {
 					e = err
 				}
-				if !agentconfig.UUID(prepare.RequestKey) || !agent.ValidGoalSummary(prepare.GoalSummary) {
+				if !agentconfig.UUID(prepare.RequestKey) || prepare.GoalSummary == "" || !agent.ValidGoalSummary(prepare.GoalSummary) {
 					e = agent.ErrInvalid
 				}
 				contextID, key = prepare.ContextID, prepare.RequestKey
@@ -123,7 +123,7 @@ func shopDiagnosisRoutes(app diagnosisHTTPService, bind func(context.Context, st
 				writeDiagnosisError(c, agent.ErrUnavailable, contextID, key, false)
 				return
 			}
-			ctx, e := bind(c.Request.Context(), c.GetHeader("Authorization"))
+			ctx, e := bind(c.Request.Context(), c.GetHeader("Authorization"), spec.action)
 			if e != nil {
 				writeDiagnosisError(c, e, contextID, key, false)
 				return

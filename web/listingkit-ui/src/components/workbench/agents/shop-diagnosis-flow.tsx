@@ -349,7 +349,7 @@ export function ShopDiagnosisFlow({
     !saved &&
     run.data?.phase !== "running" &&
     run.data?.usageStatus !== "unknown_reserved" &&
-    validInput &&
+    validInput && goal.trim().length > 0 &&
     facts?.ref.StoreID === selected &&
     facts?.ref.StartDate === startDate &&
     facts?.ref.EndDate === endDate;

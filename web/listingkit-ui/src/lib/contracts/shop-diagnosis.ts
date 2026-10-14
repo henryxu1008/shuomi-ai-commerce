@@ -54,7 +54,7 @@ export const diagnosisInputSchema = z
 const diagnosisPrepareSchema = diagnosisInputSchema.safeExtend({
   requestKey: collectionID,
   expectedModeRevision: modeRevisionSchema,
-  goalSummary: text(512).refine((v) => v.trim() === v),
+  goalSummary: text(512).min(1).refine((v) => v.trim() === v),
 });
 export const diagnosisPreparedSchema = z.strictObject({
   contextId: collectionID,

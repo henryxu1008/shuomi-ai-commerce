@@ -30,9 +30,18 @@ import (
 	"task-processor/internal/shopdiagnosis"
 )
 
-type diagnosisHistoryModules struct{}
+type diagnosisHistoryModules struct{ factsOnly *atomic.Bool }
 
-func (diagnosisHistoryModules) RoleModules(context.Context, string, []string) (map[string][]string, error) {
+type diagnosisStoreGrantFixture struct{}
+
+func (diagnosisStoreGrantFixture) AuthorizeStoreMember(context.Context, string) (storecenter.StoreMemberAccess, error) {
+	return storecenter.StoreMemberAccess{OrganizationID: "B", ActorID: "admin", MemberID: "member-B-admin", Administrator: true, CanWrite: true}, nil
+}
+
+func (m diagnosisHistoryModules) RoleModules(context.Context, string, []string) (map[string][]string, error) {
+	if m.factsOnly != nil && m.factsOnly.Load() {
+		return map[string][]string{authz.EnterpriseRoleKey("B", 1): {"overview-stores", "advice", "stores"}}, nil
+	}
 	return map[string][]string{authz.EnterpriseRoleKey("B", 1): {"agent-custom", "overview-stores", "advice", "stores"}}, nil
 }
 
@@ -49,8 +58,9 @@ func testDiagnosisHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixtur
 	t.Helper()
 	ctx := context.Background()
 	limited := &atomic.Bool{}
+	factsOnly := &atomic.Bool{}
 	deps.organizationResolver = workbenchcontext.NewResolver(selectionHistoryGrants{agentFixtureGrants: agentFixtureGrants{base: f.grants}, limited: limited}, "project", "v1", nil)
-	permissions.SetRolePolicyReader(diagnosisHistoryModules{})
+	permissions.SetRolePolicyReader(diagnosisHistoryModules{factsOnly: factsOnly})
 	require.NoError(t, storecenter.AutoMigrateStoreRepository(f.owner))
 	records, err := storecenter.NewGormStoreRepository(f.owner)
 	require.NoError(t, err)
@@ -59,6 +69,9 @@ func testDiagnosisHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixtur
 	require.NoError(t, err)
 	_, _, err = records.CreateOrReplay(ctx, "B", shop)
 	require.NoError(t, err)
+	memberStores, err := storecenter.NewMemberScopedStoreRepository(f.owner, diagnosisStoreGrantFixture{})
+	require.NoError(t, err)
+	require.NoError(t, memberStores.SetMemberGrant(ctx, storecenter.MemberStoreGrantCommand{OrganizationID: "B", StoreID: shopID, MemberID: "member-B-admin", OperationID: uuid.NewString(), Active: true}))
 	require.NoError(t, cockpitstore.Install(ctx, f.owner))
 	require.NoError(t, cockpitstore.GrantRuntime(ctx, f.owner, "source_acquisition_runtime"))
 	require.NoError(t, f.owner.Exec("GRANT SELECT,UPDATE ON workbench_stores,workbench_store_member_grants TO source_acquisition_runtime").Error)
@@ -102,7 +115,11 @@ func testDiagnosisHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixtur
 		require.Equal(t, status, code, string(data))
 		return data
 	}
+	limited.Store(true)
+	factsOnly.Store(true)
 	raw := call("POST", shopDiagnosisBase+"/inspect", uuid.NewString(), in, http.StatusOK)
+	limited.Store(false)
+	factsOnly.Store(false)
 	var facts shopdiagnosis.Inspection
 	require.NoError(t, json.Unmarshal(raw, &facts))
 	require.NotEmpty(t, facts.Facts)
@@ -123,6 +140,11 @@ func testDiagnosisHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixtur
 	require.NoError(t, err)
 	key := uuid.NewString()
 	preparation := diagnosisPrepareInput{diagnosisInput: in, RequestKey: key, ExpectedModeRevision: mode.Revision, GoalSummary: "根据真实资料比较并指出缺项"}
+	for _, goal := range []string{"", " "} {
+		invalid := preparation
+		invalid.GoalSummary = goal
+		call("POST", shopDiagnosisBase+"/prepare", key, invalid, http.StatusBadRequest)
+	}
 	raw = call("POST", shopDiagnosisBase+"/prepare", key, preparation, http.StatusOK)
 	var prepared struct {
 		ConfigurationSnapshotRef agent.ConfigurationSnapshotRef `json:"configurationSnapshotRef"`
