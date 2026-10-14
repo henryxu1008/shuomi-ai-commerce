@@ -785,13 +785,24 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		require.Equal(t, 503, code, string(raw), "new work cannot select the disabled model route")
 		require.EqualValues(t, 4, calls.Load())
 		application := module.(productAgentModule).application
-		recent, _, recentErr := configuration.Recent(context.Background(), agent.Scope{OrganizationID: "B", ActorID: "admin"}, "product.title.agent", "", 20, application.store, func(b agent.Binding) error { require.Equal(t, op.ProductKey, b.ProductKey); return nil })
+		recent, _, recentErr := configuration.Recent(context.Background(), agent.Scope{OrganizationID: "B", ActorID: "admin"}, "member-B-admin", "product.title.agent", "", 20, application.store, func(b agent.Binding) error { require.Equal(t, op.ProductKey, b.ProductKey); return nil })
 		require.NoError(t, recentErr)
 		require.Len(t, recent, 1)
 		require.Equal(t, result.RunID, recent[0].RunID)
-		denied, _, recentErr := configuration.Recent(context.Background(), agent.Scope{OrganizationID: "B", ActorID: "other"}, "product.title.agent", "", 20, application.store, func(agent.Binding) error { return nil })
+		denied, _, recentErr := configuration.Recent(context.Background(), agent.Scope{OrganizationID: "B", ActorID: "other"}, "member-B-other", "product.title.agent", "", 20, application.store, func(agent.Binding) error { return nil })
 		require.NoError(t, recentErr)
 		require.Empty(t, denied)
+		denied, next, recentErr := configuration.Recent(context.Background(), agent.Scope{OrganizationID: "B", ActorID: "admin"}, "member-B-admin-replacement", "product.title.agent", "", 20, application.store, func(agent.Binding) error {
+			t.Fatal("foreign member must be filtered before resource authorization")
+			return nil
+		})
+		require.NoError(t, recentErr)
+		require.Empty(t, denied)
+		require.Empty(t, next)
+		var originalSnapshot struct{ ID string }
+		require.NoError(t, f.owner.Table("agent_configuration.start_snapshots").Select("id").Where("organization_id=? AND actor_id=? AND request_key=?", "B", "admin", key).Take(&originalSnapshot).Error)
+		_, _, recentErr = configuration.Recent(context.Background(), agent.Scope{OrganizationID: "B", ActorID: "admin"}, "member-B-admin-replacement", "product.title.agent", originalSnapshot.ID, 20, application.store, func(agent.Binding) error { return nil })
+		require.ErrorIs(t, recentErr, agentconfig.ErrInvalid, "another member's snapshot cannot act as a cursor")
 	}
 	if mode == "release failed" {
 		require.Equal(t, agent.StopModelUnknown, result.StopReason)

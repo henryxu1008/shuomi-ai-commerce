@@ -87,7 +87,8 @@ func testSelectionHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixtur
 	ctx := context.Background()
 	limited := &atomic.Bool{}
 	factsOnly := &atomic.Bool{}
-	deps.organizationResolver = workbenchcontext.NewResolver(selectionHistoryGrants{agentFixtureGrants: agentFixtureGrants{base: f.grants}, limited: limited}, "project", "v1", nil)
+	memberReplaced := &atomic.Bool{}
+	deps.organizationResolver = workbenchcontext.NewResolver(selectionHistoryGrants{agentFixtureGrants: agentFixtureGrants{base: f.grants, replacement: memberReplaced}, limited: limited}, "project", "v1", nil)
 	permissions.SetRolePolicyReader(selectionHistoryModules{factsOnly: factsOnly})
 	live := &productReviewLiveOrganizationAccess{resolver: deps.organizationResolver, now: time.Now}
 	authority, err := collection.NewContextAuthorizer(live, permissions)
@@ -233,7 +234,15 @@ func testSelectionHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixtur
 	require.JSONEq(t, string(raw), string(replay))
 	require.EqualValues(t, 2, calls.Load())
 	recentPath := confighttp.Base + "/" + agentconfig.SelectionAgentID + "/recent-runs?pageSize=20"
-	call("GET", recentPath, "", nil, http.StatusOK)
+	currentRecent := call("GET", recentPath, "", nil, http.StatusOK)
+	require.Contains(t, string(currentRecent), result.RunID)
+	memberReplaced.Store(true)
+	rejoinedRecent := call("GET", recentPath, "", nil, http.StatusOK)
+	require.NotContains(t, string(rejoinedRecent), result.RunID, "replacement membership must not see the original member's run IDs")
+	require.NotContains(t, string(rejoinedRecent), key)
+	call("GET", path, "", nil, http.StatusConflict)
+	memberReplaced.Store(false)
+	require.JSONEq(t, string(currentRecent), string(call("GET", recentPath, "", nil, http.StatusOK)))
 	limited.Store(true)
 	limitedCatalog := call("GET", confighttp.Base+"/"+agentconfig.SelectionAgentID, "", nil, http.StatusOK)
 	require.Contains(t, string(limitedCatalog), `"canReadRuns":false`)

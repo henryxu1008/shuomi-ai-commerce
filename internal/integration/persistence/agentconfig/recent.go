@@ -19,14 +19,17 @@ type RecentRun struct {
 	StartedAt      time.Time   `json:"startedAt"`
 }
 
-func (s *Store) Recent(ctx context.Context, scope agent.Scope, id, after string, size int, runs *runstore.Store, authorize func(agent.Binding) error) ([]RecentRun, string, error) {
-	if !scopeOK(scope) || size < 1 || size > 20 || (after != "" && !agentconfig.UUID(after)) || runs == nil || authorize == nil {
+func (s *Store) Recent(ctx context.Context, scope agent.Scope, memberID, id, after string, size int, runs *runstore.Store, authorize func(agent.Binding) error) ([]RecentRun, string, error) {
+	if !scopeOK(scope) || !agent.ValidID(memberID) || size < 1 || size > 20 || (after != "" && !agentconfig.UUID(after)) || runs == nil || authorize == nil {
 		return nil, "", agentconfig.ErrInvalid
 	}
 	q := s.db.WithContext(ctx).Table("agent_configuration.start_snapshots AS s").Select("s.*").Joins("JOIN product_agent_runs r ON r.org=s.organization_id AND r.actor=s.actor_id AND r.context_kind=s.context_kind AND r.context_id=s.context_id AND r.request_key=s.request_key").Where("s.organization_id=? AND s.actor_id=? AND s.agent_id=?", scope.OrganizationID, scope.ActorID, id)
+	// The original snapshot already owns the member. Filter before pagination so
+	// a new membership cannot receive old run metadata or old-member cursors.
+	q = q.Where("convert_from(s.payload,'UTF8')::jsonb ->> 'MemberID' = ?", memberID)
 	if after != "" {
 		var anchor snapshotRow
-		if e := s.db.WithContext(ctx).Where("id=? AND organization_id=? AND actor_id=? AND agent_id=?", after, scope.OrganizationID, scope.ActorID, id).Take(&anchor).Error; e != nil {
+		if e := s.db.WithContext(ctx).Where("id=? AND organization_id=? AND actor_id=? AND agent_id=?", after, scope.OrganizationID, scope.ActorID, id).Where("convert_from(payload,'UTF8')::jsonb ->> 'MemberID' = ?", memberID).Take(&anchor).Error; e != nil {
 			return nil, "", agentconfig.ErrInvalid
 		}
 		q = q.Where("(s.created_at,s.id) < (?,?)", anchor.CreatedAt, anchor.ID)
@@ -45,6 +48,9 @@ func (s *Store) Recent(ctx context.Context, scope agent.Scope, id, after string,
 		snap, e := snapshotView(row)
 		if e != nil {
 			return nil, "", e
+		}
+		if snap.MemberID != memberID {
+			return nil, "", agentconfig.ErrForbidden
 		}
 		if authorize(snap.Request.Binding) != nil {
 			continue
