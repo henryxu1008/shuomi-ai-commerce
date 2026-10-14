@@ -56,7 +56,7 @@ func (a *productSelectionApplication) bindRequest(ctx context.Context, bearer, a
 	if e != nil {
 		return ctx, e
 	}
-	if action != "inspect" && !authz.AllowedOrganization(ctx, a.authorizer, id.UserID, id.EffectiveOrganizationID, id.Roles, authz.PermissionWorkbenchAgentUse) {
+	if !authz.AllowedOrganization(ctx, a.authorizer, id.UserID, id.EffectiveOrganizationID, id.Roles, authz.PermissionWorkbenchAgentUse) {
 		return ctx, agentconfig.ErrForbidden
 	}
 	return ctx, nil

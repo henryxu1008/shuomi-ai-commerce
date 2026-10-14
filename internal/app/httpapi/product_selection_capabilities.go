@@ -15,7 +15,7 @@ func productSelectionCapabilities(ctx context.Context, a *productSelectionApplic
 		if _, e := a.currentIdentity(ctx); e == nil {
 			facts.Readiness, facts.Reason = "AVAILABLE", "按当前成员权限读取所有候选的真实原始版本事实"
 		} else {
-			facts.Readiness, facts.Reason = "REQUIRES_AUTHORIZATION", "需要当前企业的我的数据读取权限"
+			facts.Readiness, facts.Reason = "REQUIRES_AUTHORIZATION", "需要当前企业的智能体使用和我的数据读取权限"
 		}
 		if a.model != nil {
 			if id, e := a.executionIdentity(ctx); e == nil {

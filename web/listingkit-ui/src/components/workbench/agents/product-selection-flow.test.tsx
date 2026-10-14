@@ -79,6 +79,7 @@ const entry: CatalogEntry = {
       reason: "",
       observedAt: "2026-10-14T00:00:00Z",
     },
+    {id: "product.selection.inspect", support: "REQUIRED", readiness: "AVAILABLE", reason: "", observedAt: "2026-10-14T00:00:00Z"},
   ],
 };
 let writes: Array<{ path: string; key: string; body: unknown }>;
@@ -188,6 +189,13 @@ function show(value = entry) {
   );
   return {...mounted,refresh:(nonce:number)=>mounted.rerender(<QueryClientProvider client={client}><ProductSelectionFlow scope={scope} entry={value} nonce={nonce}/></QueryClientProvider>)};
 }
+it("does not offer fact inspection when Agent-use authorization is missing", async () => {
+  show({...entry, capabilities: entry.capabilities.map(c => c.id === "product.selection.inspect" ? {...c,readiness:"REQUIRES_AUTHORIZATION"} : c)});
+  choose(); await act(async()=>{await new Promise(resolve=>setTimeout(resolve,50))});
+  expect(screen.getByRole("button",{name:"读取事实对比"})).toBeDisabled();
+  fireEvent.click(screen.getByRole("button",{name:"读取事实对比"}));
+  expect(writes).toHaveLength(0);
+});
 function choose() {
   fireEvent.click(screen.getByText("选择商品A"));
   fireEvent.click(screen.getByText("选择商品B"));
@@ -198,9 +206,7 @@ it("requires an explicit comparison goal before preparing a paid analysis",async
 it("allows factual comparison without model configuration and never starts analysis automatically", async () => {
   show({
     ...entry,
-    capabilities: [
-      { ...entry.capabilities[0], readiness: "NEEDS_CONFIGURATION" },
-    ],
+    capabilities: entry.capabilities.map(c => c.id === "text.generate" ? {...c, readiness: "NEEDS_CONFIGURATION"} : c),
   });
   choose();
   fireEvent.click(screen.getByRole("button", { name: "读取事实对比" }));
