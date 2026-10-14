@@ -246,6 +246,7 @@ export function ShopDiagnosisFlow({
       setFailure(new Error("请先核对本次准备结果对应的经营事实。"));
       return;
     }
+    const verifying = !!pending.command;
     flight.current = true;
     setBusy(true);
     setFailure(undefined);
@@ -292,6 +293,7 @@ export function ShopDiagnosisFlow({
         if (
           e instanceof MarketAPIError &&
           e.code !== "OUTCOME_UNKNOWN" &&
+          !verifying &&
           [400, 403, 404, 409, 412, 422].includes(e.status)
         )
           pending.clear(intent);
@@ -304,17 +306,19 @@ export function ShopDiagnosisFlow({
   async function verify() {
     const intent = pending.command;
     if (!intent || flight.current) return;
+    if (intent.kind === "prepare") {
+      await send(intent);
+      return;
+    }
     flight.current = true;
     setBusy(true);
     setFailure(undefined);
     try {
-      const contextId =
-        intent.kind === "prepare" ? intent.body.contextId : intent.contextId;
+      const contextId = intent.contextId;
       const result = await readDiagnosisRun(scope, contextId, intent.key);
       if (!active.current) return;
       setChosenRun({ contextId, key: intent.key });
       if (
-        intent.kind === "prepare" ||
         intent.kind === "start" ||
         (intent.kind === "resume" &&
           BigInt(result.revision) > BigInt(intent.body.revision))
