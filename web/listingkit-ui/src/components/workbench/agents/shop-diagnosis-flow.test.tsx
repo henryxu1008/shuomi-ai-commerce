@@ -186,6 +186,27 @@ async function viewFacts() {
   fireEvent.click(screen.getByRole("button", {name: "读取经营事实"}));
   await screen.findByRole("heading", {name: "已保存经营事实"});
 }
+it("can explicitly abandon an uncertain free diagnosis preparation without starting a run", async () => {
+  const baseFetch = fetch;
+  let original = "";
+  vi.stubGlobal("fetch", vi.fn((url, init) => {
+    if (init?.method === "POST" && String(url).endsWith("/prepare")) {
+      original = new Headers(init.headers).get("Idempotency-Key")!;
+      return Promise.resolve(Response.json({code:"OUTCOME_UNKNOWN"}, {status:502}));
+    }
+    return baseFetch(url, init);
+  }));
+  show(); await choose(); await viewFacts();
+  await waitFor(() => expect(screen.getByRole("button", {name:"准备分析"})).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", {name:"准备分析"}));
+  fireEvent.click(await screen.findByRole("button", {name:"放弃本页准备"}));
+  expect(await screen.findByRole("status")).toHaveTextContent(original);
+  expect(screen.queryByRole("button", {name:"核实原请求"})).toBeNull();
+  expect(screen.queryByRole("heading", {name:"已保存经营事实"})).toBeNull();
+  await choose();
+  expect(screen.getByRole("button", {name:"准备分析"})).toBeDisabled();
+  expect(writes).toHaveLength(1);
+});
 it("keeps original saved observation links scoped to the inspected store", async () => {
   show(); await choose(); await viewFacts();
   expect(screen.getByRole("link", {name:"查看保存商品"})).toHaveAttribute("href", `/workbench/store-products?storeId=${id}`);

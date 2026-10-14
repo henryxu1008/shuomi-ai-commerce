@@ -77,6 +77,7 @@ export function ShopDiagnosisFlow({
     [facts, setFacts] = useState<DiagnosisInspection>(),
     [busy, setBusy] = useState(false),
     [failure, setFailure] = useState<unknown>(),
+    [abandonedPreparation, setAbandonedPreparation] = useState(""),
     [after, setAfter] = useState(""),
     [chosenRun, setChosenRun] = useState<{
       contextId: string;
@@ -380,6 +381,7 @@ export function ShopDiagnosisFlow({
       {cacheFailed || pending.error ? (
         <p role="alert">原请求记录无法读取，请恢复浏览器存储后再继续。</p>
       ) : null}
+      {abandonedPreparation ? <p role="status">已放弃本页准备 {abandonedPreparation}。不会启动分析，也不会删除已形成的原回执。</p> : null}
       {!saved && !pending.command ? (
         <>
           {shops.error ? (
@@ -566,6 +568,18 @@ export function ShopDiagnosisFlow({
           >
             {pending.command.kind === "prepare" ? "重试原准备" : "重试原请求"}
           </Button>
+          {pending.command.kind === "prepare" ? <Button variant="outline" disabled={busy || !pending.ready} onClick={() => {
+            const intent = pending.command;
+            if (!intent || intent.kind !== "prepare" || flight.current) return;
+            try {
+              pending.clear(intent);
+              setAbandonedPreparation(intent.key);
+              setSelected("");
+              setFacts(undefined);
+              setChosenRun(null);
+              setFailure(undefined);
+            } catch (error) { setFailure(error); }
+          }}>放弃本页准备</Button> : null}
         </section>
       ) : null}
       {busy ? <p role="status">正在处理原请求…</p> : null}
