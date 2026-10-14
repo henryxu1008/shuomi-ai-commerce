@@ -46,7 +46,7 @@ export function PODArtworkFlow({scope,entry,templates,nonce}:{scope:Configuratio
  }
  async function verify(){const i=pending.command;if(!i||flight.current)return;flight.current=true;setBusy(true);setFailure(undefined);try{
   const result=i.kind==="prepare"?await resolveArtworkPrepare(scope,i.body.contextId,i.key):await readArtworkRun(scope,i.runId);if(!active.current)return;remember(result);
-  const accepted=i.kind==="prepare"||i.kind==="confirm"&&result.confirmationActionId===i.key||i.kind==="save"&&(result.saved||result.pendingCommand?.ActionID===i.key)||i.kind==="cancel"&&result.status==="cancelled";
+  const accepted=i.kind==="prepare"||i.kind==="confirm"&&result.confirmationActionId===i.key&&!["planning","awaiting_plan_approval","executing"].includes(result.status)||i.kind==="save"&&(result.saved||result.pendingCommand?.ActionID===i.key)||i.kind==="cancel"&&result.status==="cancelled";
   if(accepted)pending.clear(i);else setFailure(new Error("原请求尚未核实，可再次读取或明确重试同一请求。"));if(result.runId===runId)await run.refetch();
  }catch(error){if(active.current)setFailure(error)}finally{flight.current=false;if(active.current)setBusy(false)}}
  const options=templates.filter(t=>t.agentId==="pod.design.agent"&&t.lifecycle==="ACTIVE");

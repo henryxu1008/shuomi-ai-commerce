@@ -147,7 +147,7 @@ func (a imageSetGenerationAuthorizer) AuthorizeExecution(ctx context.Context, id
 	if err != nil {
 		return err
 	}
-	if projection.Plan.Set == nil {
+	if projection.Plan.Set == nil && projection.Plan.Artwork == nil {
 		return nil
 	}
 	return revalidateGenerationImageSet(ctx, a.repository, a.sources, imageagent.SlotExecutionInput{RunID: id.RunID, TenantID: id.TenantID, UserID: id.UserID, OrganizationIdentity: id, ImageSet: projection.Plan.Set, Artwork: projection.Plan.Artwork})

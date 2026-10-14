@@ -49,6 +49,9 @@ func TestArtworkPreparationHasNoOriginalAndConfirmationRestoresOneAdmission(t *t
 	input := imageagent.PrepareArtworkInput{RequestID: uuid.NewString(), ContextID: "creative", ExpectedModeRevision: "0", Theme: "原创森林动物", Requirements: "不含商品照片和文字"}
 	prepared, err := service.PrepareArtwork(ctx, input)
 	require.NoError(t, err)
+	byOriginalKey, readErr := service.GetPreparedArtworkByKey(ctx, input.ContextID, input.RequestID)
+	require.NoError(t, readErr, "every accepted canonical preparation context supports exact original-key readback")
+	require.Equal(t, prepared.Projection.Run.ID, byOriginalKey.Projection.Run.ID)
 	require.Empty(t, prepared.Projection.Plan.SourceAssetIDs)
 	require.Empty(t, prepared.Projection.AssetCatalog.Assets)
 	require.Nil(t, prepared.Projection.Plan.Set)

@@ -251,7 +251,7 @@ func (s *Service) GetPreparedArtworkByKey(ctx context.Context, contextID, reques
 	if err != nil {
 		return PreparedArtwork{}, err
 	}
-	if !agentconfig.UUID(contextID) || !agentconfig.UUID(requestID) {
+	if !canonicalImageValue(contextID) || len(contextID) > 64 || !agentconfig.UUID(requestID) {
 		return PreparedArtwork{}, ErrValidation
 	}
 	runID := uuid.NewSHA1(uuid.NameSpaceOID, []byte(ArtworkSchema+":"+id.TenantID+":"+id.UserID+":"+contextID+":"+requestID)).String()

@@ -93,6 +93,9 @@ func (m fullImageModule) handleArtwork(c *gin.Context, action string) {
 	} else if action == "prepare" {
 		var body artworkPrepareBody
 		err = readFullImageJSON(c.Request, &body)
+		if err == nil && !acquisitionHTTPUUID(body.ContextID) {
+			err = imageagent.ErrValidation
+		}
 		if err == nil {
 			var prepared imageagent.PreparedArtwork
 			prepared, err = a.service.PrepareArtwork(ctx, imageagent.PrepareArtworkInput{RequestID: key, ContextID: body.ContextID, Theme: body.Theme, Requirements: body.Requirements, ExpectedModeRevision: body.ExpectedModeRevision, Template: body.Template})
