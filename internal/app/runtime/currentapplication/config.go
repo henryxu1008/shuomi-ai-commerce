@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/google/uuid"
 	"io"
 	"net"
 	"net/url"
@@ -32,40 +33,42 @@ const (
 var databaseNamePattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_-]{0,62}$`)
 
 type Config struct {
-	StorageCapacity            bool                                      `json:"storageCapacity,omitempty"`
-	ReportCenter               *ReportCenterConfig                       `json:"reportCenter,omitempty"`
-	AgentCustomizationDatabase *DatabaseConfig                           `json:"agentCustomizationDatabase,omitempty"`
-	ProjectCenter              *ProjectCenterConfig                      `json:"projectCenter,omitempty"`
-	ToolMarket                 *ToolMarketConfig                         `json:"toolMarket,omitempty"`
-	DataServices               *DataServicesConfig                       `json:"dataServices,omitempty"`
-	Ecoservices                *EcoservicesConfig                        `json:"ecoservices,omitempty"`
-	NotificationCenterDatabase *DatabaseConfig                           `json:"notificationCenterDatabase,omitempty"`
-	Knowledge                  *KnowledgeConfig                          `json:"knowledge,omitempty"`
-	StoreCenter                *StoreCenterConfig                        `json:"storeCenter,omitempty"`
-	LocalTrial                 *LocalTrialConfig                         `json:"localTrial,omitempty"`
-	SchemaVersion              int                                       `json:"schemaVersion"`
-	Listen                     ListenConfig                              `json:"listen"`
-	Identity                   IdentityConfig                            `json:"identity"`
-	SourceAccountDatabase      DatabaseConfig                            `json:"sourceAccountDatabase"`
-	CommercialOwnerDatabase    *DatabaseConfig                           `json:"commercialOwnerDatabase,omitempty"`
-	MoneyOwnerDatabase         *DatabaseConfig                           `json:"moneyOwnerDatabase,omitempty"`
-	WalletTopUp                topupconfig.Config                        `json:"walletTopUp,omitempty"`
-	ProductAcquisitionDatabase *DatabaseConfig                           `json:"productAcquisitionDatabase,omitempty"`
-	ProductCollections         bool                                      `json:"productCollections,omitempty"`
-	AcquisitionPlans           bool                                      `json:"acquisitionPlans,omitempty"`
-	SupplyCompletionDrafts     bool                                      `json:"supplyCompletionDrafts,omitempty"`
-	SupplyChain                *SupplyChainConfig                        `json:"supplyChain,omitempty"`
-	SupplyMarket               *SupplyMarketConfig                       `json:"supplyMarket,omitempty"`
-	POD                        *PODConfig                                `json:"pod,omitempty"`
-	PrivateDraftTrial          *PrivateDraftTrialConfig                  `json:"privateDraftTrial,omitempty"`
-	SourceMedia                *coreconfig.ImageAgentArtifactStoreConfig `json:"sourceMedia,omitempty"`
-	ImageAgent                 *ImageAgentConfig                         `json:"imageAgent,omitempty"`
-	ProductAgent               *ProductAgentConfig                       `json:"productAgent,omitempty"`
-	AIWorkbench                *AIWorkbenchConfig                        `json:"aiWorkbench,omitempty"`
-	AccountAuditUsage          *AccountAuditUsageConfig                  `json:"accountAuditUsage,omitempty"`
-	Membership                 *MembershipConfig                         `json:"membership,omitempty"`
-	ListingKitAuthorization    ListingKitAuthorizationConfig             `json:"listingKitAuthorization,omitempty"`
-	Referrals                  ReferralsConfig                           `json:"referrals"`
+	SourceMediaIsolatedTrialDeploymentID string                                    `json:"sourceMediaIsolatedTrialDeploymentID,omitempty"`
+	StorageCapacity                      bool                                      `json:"storageCapacity,omitempty"`
+	ReportCenter                         *ReportCenterConfig                       `json:"reportCenter,omitempty"`
+	AgentCustomizationDatabase           *DatabaseConfig                           `json:"agentCustomizationDatabase,omitempty"`
+	ProjectCenter                        *ProjectCenterConfig                      `json:"projectCenter,omitempty"`
+	ToolMarket                           *ToolMarketConfig                         `json:"toolMarket,omitempty"`
+	DataServices                         *DataServicesConfig                       `json:"dataServices,omitempty"`
+	Ecoservices                          *EcoservicesConfig                        `json:"ecoservices,omitempty"`
+	NotificationCenterDatabase           *DatabaseConfig                           `json:"notificationCenterDatabase,omitempty"`
+	Knowledge                            *KnowledgeConfig                          `json:"knowledge,omitempty"`
+	StoreCenter                          *StoreCenterConfig                        `json:"storeCenter,omitempty"`
+	LocalTrial                           *LocalTrialConfig                         `json:"localTrial,omitempty"`
+	SchemaVersion                        int                                       `json:"schemaVersion"`
+	Listen                               ListenConfig                              `json:"listen"`
+	Identity                             IdentityConfig                            `json:"identity"`
+	SourceAccountDatabase                DatabaseConfig                            `json:"sourceAccountDatabase"`
+	CommercialOwnerDatabase              *DatabaseConfig                           `json:"commercialOwnerDatabase,omitempty"`
+	MoneyOwnerDatabase                   *DatabaseConfig                           `json:"moneyOwnerDatabase,omitempty"`
+	WalletTopUp                          topupconfig.Config                        `json:"walletTopUp,omitempty"`
+	ProductAcquisitionDatabase           *DatabaseConfig                           `json:"productAcquisitionDatabase,omitempty"`
+	ProductCollections                   bool                                      `json:"productCollections,omitempty"`
+	AcquisitionPlans                     bool                                      `json:"acquisitionPlans,omitempty"`
+	SupplyCompletionDrafts               bool                                      `json:"supplyCompletionDrafts,omitempty"`
+	SupplyChain                          *SupplyChainConfig                        `json:"supplyChain,omitempty"`
+	SupplyMarket                         *SupplyMarketConfig                       `json:"supplyMarket,omitempty"`
+	POD                                  *PODConfig                                `json:"pod,omitempty"`
+	PrivateDraftTrial                    *PrivateDraftTrialConfig                  `json:"privateDraftTrial,omitempty"`
+	SourceMedia                          *coreconfig.ImageAgentArtifactStoreConfig `json:"sourceMedia,omitempty"`
+	SourceMediaIsolatedTrial             bool                                      `json:"sourceMediaIsolatedTrial,omitempty"`
+	ImageAgent                           *ImageAgentConfig                         `json:"imageAgent,omitempty"`
+	ProductAgent                         *ProductAgentConfig                       `json:"productAgent,omitempty"`
+	AIWorkbench                          *AIWorkbenchConfig                        `json:"aiWorkbench,omitempty"`
+	AccountAuditUsage                    *AccountAuditUsageConfig                  `json:"accountAuditUsage,omitempty"`
+	Membership                           *MembershipConfig                         `json:"membership,omitempty"`
+	ListingKitAuthorization              ListingKitAuthorizationConfig             `json:"listingKitAuthorization,omitempty"`
+	Referrals                            ReferralsConfig                           `json:"referrals"`
 	// BrowserCollector enables the standalone anonymous public 1688 browser
 	// collector (design D13). Omitted means the application keeps the existing
 	// anonymous public HTTP provider unchanged.
@@ -452,11 +455,22 @@ func (cfg *Config) validate() error {
 	if err := cfg.validateSupplyChain(); err != nil {
 		return err
 	}
+	if cfg.SourceMediaIsolatedTrial && (cfg.SourceMedia == nil || !cfg.StorageCapacity) {
+		return errors.New("source media isolated trial requires explicit metered source storage")
+	}
+	if cfg.SourceMediaIsolatedTrial {
+		id, err := uuid.Parse(cfg.SourceMediaIsolatedTrialDeploymentID)
+		if err != nil || id == uuid.Nil || id.String() != cfg.SourceMediaIsolatedTrialDeploymentID {
+			return errors.New("source media isolated trial requires its pinned provider deployment ID")
+		}
+	} else if cfg.SourceMediaIsolatedTrialDeploymentID != "" {
+		return errors.New("source media deployment pin requires explicit isolated trial")
+	}
 	if cfg.SourceMedia != nil {
 		if !cfg.ProductCollections || cfg.ProductAcquisitionDatabase == nil {
 			return errors.New("source media requires current Product collections")
 		}
-		if err := ValidateSourceMediaStorage(*cfg.SourceMedia); err != nil {
+		if err := ValidateSourceMediaStorage(*cfg.SourceMedia, cfg.SourceMediaIsolatedTrial); err != nil {
 			return errors.New("source media storage configuration unavailable")
 		}
 	}
@@ -702,6 +716,8 @@ func (cfg *Config) CoreConfig() *coreconfig.Config {
 	}
 	if cfg.SourceMedia != nil {
 		core.ProductCollectionSourceMedia = *cfg.SourceMedia
+		core.ProductCollectionSourceMediaIsolatedTrial = cfg.SourceMediaIsolatedTrial
+		core.ProductCollectionSourceMediaIsolatedTrialDeploymentID = cfg.SourceMediaIsolatedTrialDeploymentID
 	}
 	core.StorageCapacity = cfg.StorageCapacity
 	return core

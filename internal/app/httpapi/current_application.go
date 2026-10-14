@@ -783,7 +783,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	if supplied.productCollections > 0 {
 		if cfg.StorageCapacity && supplied.collectionSourceMedia != nil {
 			s := cfg.ProductCollectionSourceMedia.S3
-			ns, e := s3integration.ResolveCapacityNamespace(ctx, s3integration.ClientConfig{Region: s.Region, Endpoint: s.Endpoint, AccessKeyID: s.AccessKeyID, SecretAccessKey: s.SecretAccessKey, UsePathStyle: s.UsePathStyle}, s.Bucket, s.ArtifactMode)
+			ns, e := s3integration.ResolveSourceMediaCapacityNamespace(ctx, s3integration.ClientConfig{Region: s.Region, Endpoint: s.Endpoint, AccessKeyID: s.AccessKeyID, SecretAccessKey: s.SecretAccessKey, UsePathStyle: s.UsePathStyle}, s.Bucket, s.ArtifactMode, cfg.ProductCollectionSourceMediaIsolatedTrial, cfg.ProductCollectionSourceMediaIsolatedTrialDeploymentID)
 			if e != nil {
 				return nil, e
 			}

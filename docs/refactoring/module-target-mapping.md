@@ -32,6 +32,14 @@ for their old facts or claim deployment/user acceptance.
 
 ### #529 owner-scope tooling calibration
 
+The later identity-preparation batch retires the Yudao-to-ZITADEL migration
+dry-run script and unconsumed `tenantbridge/bootstrap`, without moving or
+wrapping them. Current Organization identity remains with its existing owner;
+no historical account/tenant mapping preparation is admitted. Only bootstrap's
+two real import edges and depguard exclusions disappear (seven to five).
+The release identity-preflight, remaining resolver readers and standalone SHEIN
+worker keep their existing contracts and remain explicit retirement debt.
+
 The old owner-scope dry-run/exception cmd and their exclusive process/write
 paths are also RETIRE under #529. The shared ownerreconcile package remains
 consumed by the unchanged identity-preflight read path; only cancelled backfill
