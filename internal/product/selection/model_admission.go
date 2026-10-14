@@ -49,7 +49,9 @@ func (ModelAdmission) ProjectEvidence(raw json.RawMessage) (json.RawMessage, err
 	return append(json.RawMessage(nil), raw...), nil
 }
 func (ModelAdmission) ValidateAction(a agent.Action) error {
-	if len(a.Candidate.Changes) > 0 || len(a.Candidate.Warnings) > 0 || len(a.Candidate.Rejections) > 0 || len(a.Confidence) > 0 || len(a.ContextCitationIDs) > 0 || len(a.Unresolved) > 4096 {
+	// The native validator can append one diagnostic; reserve its place in
+	// the unchanged 4096-entry response rather than truncating paid history.
+	if len(a.Candidate.Changes) > 0 || len(a.Candidate.Warnings) > 0 || len(a.Candidate.Rejections) > 0 || len(a.Confidence) > 0 || len(a.ContextCitationIDs) > 0 || len(a.Unresolved) > 4095 {
 		return agent.ErrInvalid
 	}
 	for _, unresolved := range a.Unresolved {
