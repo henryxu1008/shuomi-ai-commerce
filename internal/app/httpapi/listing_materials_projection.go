@@ -82,8 +82,12 @@ func (a *listingMaterialsApplication) projectRun(ctx context.Context, recordID s
 		out.CanRequestAdoption = mode.Mode != agent.ModeReadOnly
 		receipt, e := a.supply.Targets.ReadCommand(ctx, materialsAdoptionKey(s))
 		if e == nil {
-			out.Adoption = &receipt
 			out.CanRequestAdoption = false
+			if verifyMaterialsAdoptionReceipt(base, s, receipt) == nil {
+				out.Adoption = &receipt
+			} else {
+				out.Unresolved = append(out.Unresolved, "原保存编号对应的草稿与本次建议不一致，请核对原记录。")
+			}
 		} else if !errors.Is(e, record.ErrNotFound) {
 			return out, e
 		}
