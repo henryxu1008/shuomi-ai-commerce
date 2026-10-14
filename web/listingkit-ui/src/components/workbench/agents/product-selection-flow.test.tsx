@@ -200,6 +200,27 @@ function choose() {
   fireEvent.click(screen.getByText("选择商品A"));
   fireEvent.click(screen.getByText("选择商品B"));
 }
+it("can explicitly abandon only an uncertain free preparation and choose new facts", async () => {
+  const baseFetch = fetch;
+  let original = "";
+  vi.stubGlobal("fetch", vi.fn((url, init) => {
+    if (init?.method === "POST" && String(url).endsWith("/prepare")) {
+      original = new Headers(init.headers).get("Idempotency-Key")!;
+      return Promise.resolve(Response.json({code:"OUTCOME_UNKNOWN"}, {status:502}));
+    }
+    return baseFetch(url, init);
+  }));
+  show(); choose(); await viewFacts();
+  await waitFor(() => expect(screen.getByRole("button", {name:"准备分析"})).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", {name:"准备分析"}));
+  fireEvent.click(await screen.findByRole("button", {name:"放弃本页准备"}));
+  expect(await screen.findByRole("status")).toHaveTextContent(original);
+  expect(screen.queryByRole("button", {name:"核实原请求"})).toBeNull();
+  expect(screen.queryByRole("heading", {name:"已保存原始事实"})).toBeNull();
+  choose();
+  expect(screen.getByRole("button", {name:"准备分析"})).toBeDisabled();
+  expect(writes).toHaveLength(1);
+});
 it("recovers an uncertain prepare through its original receipt owner and retains its key while forbidden", async () => {
   const baseFetch = fetch;
   const attempts: Array<{key:string;body:string}> = [];
