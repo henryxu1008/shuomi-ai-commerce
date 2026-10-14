@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import {ProductSelectionFlow} from "./product-selection-flow";
 import {PODArtworkFlow} from "./pod-artwork-flow";
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
@@ -53,6 +54,7 @@ const capabilityNames: Record<string, string> = {
   "text.generate": "文本生成",
   "product.source-evidence": "采集证据读取",
   "listing.materials.inspect": "草稿、店铺规则与已批准资产读取",
+  "product.selection.inspect": "候选商品事实读取与对比",
   "knowledge.context": "企业知识引用",
   "image.generate": "图片生成",
   "platform.write": "平台写入",
@@ -154,14 +156,14 @@ function ScopedPage({
     `${agentId}/templates?pageSize=100${templateAfter ? "&cursor=" + templateAfter : ""}`,
     templatesPageSchema,
     nonce,
-    !!detail && detail.agent.activation !== "NOT_ENABLED",
+    !!detail && detail.agent.activation !== "NOT_ENABLED" && agentId!=="product.selection.agent",
   );
   const recent = useRead(
     scope,
     `${agentId}/recent-runs?pageSize=20${recentAfter ? "&cursor=" + recentAfter : ""}`,
     recentRunsSchema,
     nonce,
-    !!detail?.canReadRuns && agentId!=="pod.design.agent",
+    !!detail?.canReadRuns && agentId!=="pod.design.agent" && agentId!=="product.selection.agent",
   );
   const defaultRef = detail?.agent.defaultTemplate;
   const defaultTemplate = useRead(
@@ -306,7 +308,7 @@ function ScopedPage({
               能力与模板
             </Link>
             {entry.canUse ? (
-              <Link href={entry.agent.agentId==="pod.design.agent"?"/workbench/agents/mine/pod.design.agent":"/workbench/supply/acquisition"}>进入使用 →</Link>
+              <Link href={["pod.design.agent","product.selection.agent"].includes(entry.agent.agentId)?"/workbench/agents/mine/"+entry.agent.agentId:"/workbench/supply/acquisition"}>进入使用 →</Link>
             ) : (
               <span className="text-muted-foreground">当前不能执行</span>
             )}
@@ -408,7 +410,7 @@ function ScopedPage({
               </nav> : null}
             </div>
             <div className={styles.actions}>
-              {detail.canUse && agentId!=="pod.design.agent" && (
+              {detail.canUse && !["pod.design.agent","product.selection.agent"].includes(agentId) && (
                 <Link href="/workbench/supply/acquisition">
                   选择商品并进入使用 →
                 </Link>
@@ -487,7 +489,7 @@ function ScopedPage({
                 )}
               </div>
               {!defaultRef ? (
-                <p>暂无默认模板；执行时仍可显式选择平台和是否引用知识。</p>
+                <p>{agentId==="product.selection.agent"?"选品对比使用本次明确目标，不使用内容、刊登或图片模板。":"暂无默认模板；执行时仍可显式选择平台和是否引用知识。"}</p>
               ) : defaultTemplate.error ? (
                 <p role="alert">
                   默认模板当前不可用。执行前须明确选择其他模板或不使用模板。
@@ -517,11 +519,12 @@ function ScopedPage({
             </Card>
             </div>
           </div>
+            {agentId==="product.selection.agent"&&<ProductSelectionFlow scope={scope} entry={detail} nonce={nonce}/>}
             {agentId==="pod.design.agent"&&<PODArtworkFlow scope={scope} entry={detail} templates={templates.data?.items.filter(t=>t.agentId==="pod.design.agent")??[]} nonce={nonce}/>}
           <Card className={styles.panel}>
             <div className={styles.cardActions}>
-              <h2>版本化模板</h2>
-              {detail.canConfigure && (
+              <h2>{agentId==="product.selection.agent"?"本次分析参数":"版本化模板"}</h2>
+              {detail.canConfigure && agentId!=="product.selection.agent" && (
                 <Button
                   disabled={
                     mutationDisabled ||
@@ -533,7 +536,7 @@ function ScopedPage({
                 </Button>
               )}
             </div>
-            {templates.error ? (
+            {agentId==="product.selection.agent"?<p>候选商品与比较目标在下方选择，第一版不开放命名模板。</p>:templates.error ? (
               <p role="alert">{configurationError(templates.error)}</p>
             ) : templates.data?.items.length ? (
               <div className={styles.templateList}>
@@ -698,7 +701,7 @@ function ScopedPage({
               </section>
             )}
           </Card>
-          <Card className={styles.panel}>
+          {agentId!=="product.selection.agent"&&<Card className={styles.panel}>
             <h2>本人最近发起的任务</h2>
             <p>
               仅展示当前企业中你有商品访问权限的任务；采用方式以本次冻结权限为准。
@@ -744,7 +747,7 @@ function ScopedPage({
                 )}
               </nav>
             )}
-          </Card>
+          </Card>}
         </>
       ) : (
         <>

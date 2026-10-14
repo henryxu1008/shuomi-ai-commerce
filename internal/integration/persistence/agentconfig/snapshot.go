@@ -15,6 +15,12 @@ import (
 )
 
 func validTextConfigurationRequest(id string, request agent.Request) bool {
+	if id == agentconfig.SelectionAgentID {
+		return request.Binding.ContextKind == agent.SelectionContextKind && request.Binding.Valid() && request.ContentSelection.Absent() && request.PolicyVersion == agentconfig.SelectionPolicyVersion && request.PromptVersion == agentconfig.SelectionPromptVersion
+	}
+	if request.Binding.ContextKind == agent.SelectionContextKind || request.Binding.Selection != ([agent.MaxSelectionProducts]agent.SelectionProductRef{}) {
+		return false
+	}
 	if id == agentconfig.MaterialsAgentID {
 		return request.ContentSelection.Absent() && request.Binding.ContextKind == "listing-target-record" && request.Binding.TargetPlatform == "shein" && request.PolicyVersion == agentconfig.MaterialsPolicyVersion && request.PromptVersion == agentconfig.MaterialsPromptVersion
 	}
@@ -45,6 +51,9 @@ func (s *Store) Prepare(ctx context.Context, c agentconfig.StartCommand) (agentc
 		return agentconfig.Snapshot{}, agentconfig.ErrInvalid
 	}
 	if c.AgentID == agentconfig.ImageAgentID {
+		return agentconfig.Snapshot{}, agentconfig.ErrInvalid
+	}
+	if c.AgentID == agentconfig.SelectionAgentID && (c.AgentVersion != agentconfig.SelectionAgentVersion || c.Template != nil || c.KnowledgeBaseID != "" || !validSelectionTextProfile(c.ExecutionModelProfile)) {
 		return agentconfig.Snapshot{}, agentconfig.ErrInvalid
 	}
 	if !scopeOK(c.Scope) || !agentconfig.UUID(c.Request.Key) || !c.Request.Binding.Valid() || !validTextConfigurationRequest(c.AgentID, c.Request) || !agent.ValidID(c.AgentID) || !agent.ValidID(c.AgentVersion) || !c.Request.Limits.Valid() || !agent.ValidGoalSummary(c.Request.GoalSummary) || !agent.ValidID(c.Request.PolicyVersion) || !agent.ValidID(c.Request.PromptVersion) || !c.Request.ContextSnapshotRef.Absent() || !c.Request.ConfigurationSnapshotRef.Absent() || c.ExecutionModelProfile.Validate() != nil || (c.KnowledgeBaseID != "" && !agentconfig.UUID(c.KnowledgeBaseID)) {
@@ -151,7 +160,14 @@ func (s *Store) Prepare(ctx context.Context, c agentconfig.StartCommand) (agentc
 }
 
 func validMaterialsTextConfiguration(id, version, knowledge string, profile aicapability.ModelProfile) bool {
+	if id == agentconfig.SelectionAgentID {
+		return version == agentconfig.SelectionAgentVersion && knowledge == "" && validSelectionTextProfile(profile)
+	}
 	return id != agentconfig.MaterialsAgentID || version == agentconfig.MaterialsAgentVersion && knowledge == "" && profile.PromptVersion == agentconfig.MaterialsPromptVersion && profile.OutputSchemaVersion == agentconfig.MaterialsActionVersion
+}
+
+func validSelectionTextProfile(p aicapability.ModelProfile) bool {
+	return p.PromptVersion == agentconfig.SelectionPromptVersion && p.OutputSchemaVersion == agentconfig.SelectionActionVersion
 }
 func (s *Store) LoadSnapshot(ctx context.Context, scope agent.Scope, ref agent.ConfigurationSnapshotRef) (agentconfig.Snapshot, error) {
 	if !scopeOK(scope) || ref.Absent() || !ref.ValidOrAbsent() {

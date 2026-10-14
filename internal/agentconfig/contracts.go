@@ -70,6 +70,9 @@ func (p TemplateInput) Valid() bool {
 }
 
 func ParameterSchemaForAgent(id string) string {
+	if id == SelectionAgentID {
+		return SelectionParameterSchema
+	}
 	if id == ArtworkAgentID {
 		return ArtworkParameterSchema
 	}
@@ -86,6 +89,11 @@ func ParameterSchemaForAgent(id string) string {
 }
 
 func (p TemplateInput) ValidForAgent(id string) bool {
+	// Selection v1 uses its explicit per-run objective; no other Agent's
+	// template schema or default may become its execution configuration.
+	if id == SelectionAgentID {
+		return false
+	}
 	if id == MaterialsAgentID {
 		return p.Valid() && p.TargetPlatform == "shein" && p.DefaultKnowledgeBaseID == "" && p.Image == nil && p.Content == nil && p.Artwork == nil
 	}

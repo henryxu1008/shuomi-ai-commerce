@@ -1,3 +1,4 @@
+import {selectionRecentSchema} from "../contracts/product-selection";
 import {artworkTemplateSchema,artworkTemplateInputSchema,artworkTemplatesPageSchema} from "../contracts/agent-configuration";
 import {artworkRecentSchema} from "../contracts/pod-artwork";
 import { z } from "zod";
@@ -38,7 +39,9 @@ function endpoint(url: URL, method: string) {
     input = method === "PUT" ? executionModeInputSchema : undefined;
   } else if (p.length === 1 && ["market", "mine"].includes(p[0]) && method === "GET")
     output = catalogPageSchema;
-  else if (["product.title.agent","product.image.agent","product.content.agent","listing.materials.agent","pod.design.agent"].includes(p[0])) {
+  else if (["product.title.agent","product.image.agent","product.content.agent","listing.materials.agent","pod.design.agent","product.selection.agent"].includes(p[0])) {
+    const selection=p[0]==="product.selection.agent";
+    if(selection&&p.length>1&&!["enable","disable","recent-runs"].includes(p[1]))return null;
     const artwork=p[0]==="pod.design.agent";
     const image=p[0]==="product.image.agent";
     const content=p[0]==="product.content.agent";
@@ -87,20 +90,20 @@ function endpoint(url: URL, method: string) {
         output = typedTemplate;
       else return null;
     } else if (p.length === 2 && p[1] === "recent-runs" && method === "GET")
-      output = artwork?artworkRecentSchema:image?imageSetRecentSchema:recentRunsSchema;
+      output = selection?selectionRecentSchema:artwork?artworkRecentSchema:image?imageSetRecentSchema:recentRunsSchema;
     else return null;
   } else return null;
   const list =
     output === catalogPageSchema ||
     output === titleTemplatesPageSchema || output === contentTemplatesPageSchema || output===materialsTemplatesPageSchema ||
-    output === recentRunsSchema || output === imageSetRecentSchema || output === imageTemplatesPageSchema || output === artworkRecentSchema || output === artworkTemplatesPageSchema;
+    output === recentRunsSchema || output === selectionRecentSchema || output === imageSetRecentSchema || output === imageTemplatesPageSchema || output === artworkRecentSchema || output === artworkTemplatesPageSchema;
   if (url.search.length > 512 || (url.search && !list)) return null;
   for (const [k, v] of url.searchParams) {
     if (url.searchParams.getAll(k).length !== 1) return null;
     if (k === "pageSize") {
       if (
         !/^[1-9][0-9]*$/.test(v) ||
-        Number(v) > ((output === recentRunsSchema || output === imageSetRecentSchema || output === artworkRecentSchema) ? 20 : 100)
+        Number(v) > ((output === recentRunsSchema || output === selectionRecentSchema || output === imageSetRecentSchema || output === artworkRecentSchema) ? 20 : 100)
       )
         return null;
     } else if (k === "cursor") {

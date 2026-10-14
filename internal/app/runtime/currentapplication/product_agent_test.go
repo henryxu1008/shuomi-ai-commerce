@@ -55,6 +55,23 @@ func TestMaterialsTextPolicyIsIndependentOptionalAndBounded(t *testing.T) {
 	require.Error(t, cfg.validate())
 }
 
+func TestSelectionPolicyCannotBorrowAnotherAgentOrExpandCurrentBudget(t *testing.T) {
+	cfg := agentRuntimeConfig()
+	policy := cfg.ProductAgent.TextPolicies["org"]
+	cfg.ProductAgent.SelectionTextPolicies = map[string]governed.RoutePolicy{"org": policy}
+	require.Error(t, cfg.validate())
+	policy.Profile.PromptVersion = agentconfig.SelectionPromptVersion
+	policy.Profile.OutputSchemaVersion = agentconfig.SelectionActionVersion
+	cfg.ProductAgent.SelectionTextPolicies["org"] = policy
+	require.NoError(t, cfg.validate())
+	cfg.ProductAgent.SelectionTextPolicies["foreign"] = policy
+	require.Error(t, cfg.validate())
+	delete(cfg.ProductAgent.SelectionTextPolicies, "foreign")
+	policy.Profile.MaximumCompletionTokens = cfg.ProductAgent.Tokens
+	cfg.ProductAgent.SelectionTextPolicies["org"] = policy
+	require.Error(t, cfg.validate())
+}
+
 func agentRuntimeConfig() *Config {
 	cfg := runtimeTestConfig()
 	owner := cfg.SourceAccountDatabase

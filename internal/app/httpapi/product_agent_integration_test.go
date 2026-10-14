@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"task-processor/internal/product/enrichment"
+	"task-processor/internal/product/selection"
 	"testing"
 	"time"
 
@@ -200,6 +201,35 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		}
 		var content string
 		switch {
+		case mode == "selection" && step == 1:
+			content = `{"Kind":"tool","Tool":{"ID":"product.selection.inspect","Version":"v1.0.0"}}`
+		case mode == "selection":
+			var wire struct {
+				Messages []struct {
+					Content string `json:"content"`
+				} `json:"messages"`
+			}
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&wire))
+			var disclosure selection.Inspection
+			for _, message := range wire.Messages {
+				var prompt struct {
+					Input struct {
+						History []struct{ Output json.RawMessage }
+					}
+				}
+				if json.Unmarshal([]byte(message.Content), &prompt) == nil {
+					for _, observed := range prompt.Input.History {
+						if got, err := selection.ParseInspection(observed.Output); err == nil {
+							disclosure = got
+						}
+					}
+				}
+			}
+			require.Len(t, disclosure.Products, 2, "proposal must cite the actual tool disclosure")
+			proposal := selection.Proposal{Overview: "根据已保存资料，先核实完整成本", RecommendedItemID: disclosure.Products[0].Ref.ItemID, Assessments: []selection.Assessment{{ItemID: disclosure.Products[0].Ref.ItemID, Advice: "先核实今日供货条件", EvidenceIDs: []string{disclosure.Products[0].Facts[0].ID}}}}
+			action, err := json.Marshal(agent.Action{Kind: "propose", DomainProposal: &agent.DomainProposal{Kind: agentconfig.SelectionProposalKind, Payload: mustSelectionJSON(t, proposal)}})
+			require.NoError(t, err)
+			content = string(action)
 		case strings.HasPrefix(mode, "supply materials") && step%2 == 1:
 			content = `{"Kind":"tool","Tool":{"ID":"listing.materials.inspect","Version":"v1.0.0"}}`
 		case strings.HasPrefix(mode, "supply materials"):
@@ -320,6 +350,11 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		policy.Profile.PromptVersion, policy.Profile.OutputSchemaVersion = agentconfig.MaterialsPromptVersion, agentconfig.MaterialsActionVersion
 		settings.MaterialsTextPolicies = map[string]governed.RoutePolicy{"B": policy}
 	}
+	if mode == "selection" {
+		policy := settings.TextPolicies["B"]
+		policy.Profile.PromptVersion, policy.Profile.OutputSchemaVersion = agentconfig.SelectionPromptVersion, agentconfig.SelectionActionVersion
+		settings.SelectionTextPolicies = map[string]governed.RoutePolicy{"B": policy}
+	}
 	if kf != nil {
 		settings.Knowledge = kf.service
 	}
@@ -343,6 +378,10 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	}
 	module, err := buildProductAgentModule(context.Background(), f.db, deps, auth, settings, reviewIAM.config())
 	require.NoError(t, err)
+	if mode == "selection" {
+		testSelectionHTTPThroughNativeOwners(t, f, module.(productAgentModule).application, deps, auth, &calls)
+		return
+	}
 	if strings.HasPrefix(mode, "content flow") {
 		contentApp := module.(productAgentModule).application.content
 		require.NotNil(t, contentApp)

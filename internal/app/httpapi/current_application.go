@@ -854,6 +854,15 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		modelPointRecovery = agentModule.(productAgentModule).recoverPoints
 		productRuntime = agentModule.(productAgentModule).application
 	}
+	var selectionRuntime *productSelectionApplication
+	if planCollections != nil {
+		var e error
+		selectionRuntime, e = buildProductSelectionApplication(ctx, productRuntime, planCollections, supplied.agentConfigurationDB, workbench.authDependencies.organizationResolver, authorizer)
+		if e != nil {
+			return nil, fmt.Errorf("build current product selection: %w", e)
+		}
+		modules = append(modules, productSelectionModule{app: selectionRuntime})
+	}
 	if supplied.supplyChain != nil {
 		module, e := buildSupplyChainModule(ctx, supplied.productAcquisitionDB, supplied.storeCenterDB, *supplied.supplyChain, *workbench.authDependencies, authorizer, supplied.officialStoreApplications, cfg, productRuntime, storeCapabilities, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.supplyCompletionDrafts > 0)
 		if e != nil {
@@ -957,7 +966,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			imageRuntime = full
 			modules = append(modules, fullImageModule{application: full, bind: (productReviewCapabilityBinder{now: time.Now}).Bind})
 		}
-		m, e := buildAgentConfigurationModule(ctx, supplied.agentConfigurationDB, workbench.authDependencies.organizationResolver, authorizer, supplied.knowledge, productRuntime, modePrivateDeliveries, imageRuntime)
+		m, e := buildAgentConfigurationModule(ctx, supplied.agentConfigurationDB, workbench.authDependencies.organizationResolver, authorizer, supplied.knowledge, productRuntime, modePrivateDeliveries, selectionRuntime, imageRuntime)
 		if e != nil {
 			return nil, fmt.Errorf("build current agent configuration: %w", e)
 		}
@@ -1108,6 +1117,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		SupplyMarket:        supplied.supplyMarkets > 0,
 		POD:                 supplied.pods > 0,
 		Collections:         supplied.productCollections > 0,
+		ProductSelection:    selectionRuntime != nil,
 		NotificationCenter:  supplied.notifications > 0,
 		ZitadelSMS:          true,
 		StoreCenter:         supplied.storeCenters > 0,
@@ -1232,6 +1242,7 @@ type currentApplicationOptionalRoutes struct {
 	AcquisitionPlans    bool
 	CompletionDrafts    bool
 	Collections         bool
+	ProductSelection    bool
 	NotificationCenter  bool
 	AgentConfiguration  bool
 	Knowledge           bool
@@ -1348,6 +1359,14 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 					return err
 				}
 			}
+		}
+	}
+	if optional.ProductSelection {
+		if !optional.Collections {
+			return errors.New("product selection requires current private collections")
+		}
+		for _, r := range productSelectionRoutes(nil, nil) {
+			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
 		}
 	}
 	if optional.NotificationCenter {
@@ -1514,6 +1533,14 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 	}
 	includeCommercialBilling := false
 	for _, descriptor := range routes {
+		if strings.HasPrefix(descriptor.Path, productSelectionBase+"/") {
+			if !optional.Collections || !optional.ProductSelection {
+				return errors.New("product selection requires current private collections")
+			}
+			if e := validateProductSelectionDescriptor(descriptor); e != nil {
+				return e
+			}
+		}
 		if descriptor.Path == billinghttp.StorageSummaryPath || descriptor.Path == billinghttp.StorageOffersPath || descriptor.Path == billinghttp.PublicStorageOffersPath {
 			if !optional.StorageCapacity || !billinghttp.ValidateStorageDescriptor(descriptor) {
 				return errors.New("storage capacity route loses its current enterprise read boundary")

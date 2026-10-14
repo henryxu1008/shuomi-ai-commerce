@@ -51,24 +51,29 @@ func modelPointFixture(t *testing.T, operations ...aicapability.Operation) (*gor
 	return resource, recorder, repo, auth, fact
 }
 
-func TestListingMaterialsModelPointsUseOriginalRunAndSettleOnce(t *testing.T) {
-	db, recorder, _, _, fact := modelPointFixture(t, aicapability.OperationListingMaterialsDecision)
-	ctx := context.Background()
-	require.NoError(t, recorder.ReserveAIInvocationUsage(ctx, fact.TenantID, fact.MemberID, fact.InvocationID, 20, fact.StartedAt))
-	require.NoError(t, recorder.ReserveAIInvocationUsage(ctx, fact.TenantID, fact.MemberID, fact.InvocationID, 20, fact.StartedAt))
-	var reservation organizationResourceReservationRow
-	require.NoError(t, db.Where("owner_attempt_id=?", fact.InvocationID).Take(&reservation).Error)
-	require.Equal(t, fact.AgentRunID, reservation.BusinessScope)
-	fact.Outcome, fact.UsageKnown = aicapability.InvocationUsageObservedFailed, true
-	fact.PromptTokens, fact.CompletionTokens, fact.TotalTokens = 3, 2, 5
-	fact.FinishedAt = fact.StartedAt.Add(time.Second)
-	require.NoError(t, recorder.RecordInvocation(ctx, fact))
-	require.NoError(t, recorder.RecordInvocation(ctx, fact))
-	var bucket organizationResourceBucketRow
-	require.NoError(t, db.Take(&bucket).Error)
-	require.Zero(t, bucket.Reserved)
-	require.EqualValues(t, 7, bucket.Consumed)
-	require.EqualValues(t, 93, bucket.Available)
+func TestAdvisoryAgentsModelPointsUseOriginalRunAndSettleOnce(t *testing.T) {
+	for _, op := range []aicapability.Operation{aicapability.OperationListingMaterialsDecision, aicapability.OperationProductSelectionDecision} {
+		t.Run(string(op), func(t *testing.T) {
+			db, recorder, _, _, fact := modelPointFixture(t, op)
+			ctx := context.Background()
+			require.NoError(t, recorder.ReserveAIInvocationUsage(ctx, fact.TenantID, fact.MemberID, fact.InvocationID, 20, fact.StartedAt))
+			require.NoError(t, recorder.ReserveAIInvocationUsage(ctx, fact.TenantID, fact.MemberID, fact.InvocationID, 20, fact.StartedAt))
+			var reservation organizationResourceReservationRow
+			require.NoError(t, db.Where("owner_attempt_id=?", fact.InvocationID).Take(&reservation).Error)
+			require.Equal(t, fact.AgentRunID, reservation.BusinessScope)
+			fact.Outcome, fact.UsageKnown = aicapability.InvocationUsageObservedFailed, true
+			fact.PromptTokens, fact.CompletionTokens, fact.TotalTokens = 3, 2, 5
+			fact.FinishedAt = fact.StartedAt.Add(time.Second)
+			require.NoError(t, recorder.RecordInvocation(ctx, fact))
+			require.NoError(t, recorder.RecordInvocation(ctx, fact))
+			var bucket organizationResourceBucketRow
+			require.NoError(t, db.Take(&bucket).Error)
+			require.Zero(t, bucket.Reserved)
+			require.EqualValues(t, 7, bucket.Consumed)
+			require.EqualValues(t, 93, bucket.Available)
+
+		})
+	}
 }
 
 func TestPlannerModelPointsBindChatPlanScopeWithoutAgentRun(t *testing.T) {

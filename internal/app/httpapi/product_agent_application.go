@@ -55,6 +55,7 @@ type ProductAgentDependencies struct {
 	TextPolicies             map[string]governed.RoutePolicy
 	ContentTextPolicies      map[string]governed.RoutePolicy
 	MaterialsTextPolicies    map[string]governed.RoutePolicy
+	SelectionTextPolicies    map[string]governed.RoutePolicy
 	Enabled                  bool
 	AllowedOrganizationIDs   []string
 	Limits                   agent.Limits
@@ -134,6 +135,13 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 			return nil, agent.ErrUnavailable
 		}
 	}
+	for org, policy := range cfg.SelectionTextPolicies {
+		profile := policy.ShapeProfile()
+		cost, err := profile.MaximumCost()
+		if !allowedOrganizations[org] || profile.PromptVersion != agentconfig.SelectionPromptVersion || profile.OutputSchemaVersion != agentconfig.SelectionActionVersion || !governed.ValidRouteProfile(profile, aicapability.OperationProductSelectionDecision) || profile.Currency != cfg.Limits.Currency || err != nil || profile.MaximumPromptTokens+profile.MaximumCompletionTokens > cfg.Limits.Tokens || cost > cfg.Limits.CostMicros {
+			return nil, agent.ErrUnavailable
+		}
+	}
 	if cfg.PointAccountingDB == nil || cfg.Ledger == nil {
 		return nil, agent.ErrUnavailable
 	}
@@ -161,6 +169,10 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 	a.config.MaterialsTextPolicies = make(map[string]governed.RoutePolicy, len(cfg.MaterialsTextPolicies))
 	for org, policy := range cfg.MaterialsTextPolicies {
 		a.config.MaterialsTextPolicies[org] = policy
+	}
+	a.config.SelectionTextPolicies = make(map[string]governed.RoutePolicy, len(cfg.SelectionTextPolicies))
+	for org, policy := range cfg.SelectionTextPolicies {
+		a.config.SelectionTextPolicies[org] = policy
 	}
 	var err error
 	var contexts []texteino.KnowledgeContext
