@@ -36,7 +36,7 @@ export function StoreOfficialConnection({
   administrator: boolean;
   onChanged: () => Promise<unknown>;
 }) {
-	const platformLabel=store.platform==="temu"?"TEMU":"SHEIN";
+	const platformLabel=store.platform==="tiktokshop"?"TikTok Shop":store.platform==="temu"?"TEMU":"SHEIN";
 	const scopeKey=JSON.stringify([scope.expectedUserId,scope.expectedOrganizationId,store.id,canWrite,administrator]);
   const view = useQuery({
     queryKey: [
@@ -113,7 +113,8 @@ export function StoreOfficialConnection({
           storeId: store.id,
           attemptId: result.attemptId,
           expiresAt: result.expiresAt,
-        });
+          ...(store.platform==="tiktokshop"?{appId:chosen.appId}:{}),
+        },store.platform==="tiktokshop"?"tiktokshop":"shein");
         window.location.assign(result.authorizationUrl);
         return;
       }
@@ -172,7 +173,7 @@ export function StoreOfficialConnection({
         </p>
       ) : null}
       <p className="text-sm text-muted-foreground">
-        {store.platform==="temu" ? "由店铺主账号在 TEMU 官方授权管理中生成 token，选择其原应用分区后连接。经营模式由官方核验。" : "前往 SHEIN 官方授权页，由店铺主账号确认。"}连接只证明当前授权有效，发布权限另行判断。
+        {store.platform==="tiktokshop" ? "前往 TikTok Shop 美国官方授权页，由店铺主账号确认。请使用美国跨境店铺；绑定时核验 Seller Center 编号。" : store.platform==="temu" ? "由店铺主账号在 TEMU 官方授权管理中生成 token，选择其原应用分区后连接。经营模式由官方核验。" : "前往 SHEIN 官方授权页，由店铺主账号确认。"}连接只证明当前授权有效，发布权限另行判断。
       </p>
 			{data?.mode?<p className="text-sm">最近核验模式：{data.mode==="local"?"本土":applicationLabels[data.mode]}{data.credentialExpiresAt?`；授权到期：${data.credentialExpiresAt}`:""}</p>:null}
 			{canWrite &&
@@ -180,10 +181,10 @@ export function StoreOfficialConnection({
 				<><label className="grid gap-1 text-sm">官方应用类型
 					<select aria-label="官方应用类型" value={chosen?choiceKey(chosen):""} disabled={working || applications.isFetching} onChange={event=>setSelectedApp(event.target.value)} className="rounded-lg border bg-background p-2">
 						<option value="">选择已配置的官方应用</option>
-						{choices.map(choice=><option key={choiceKey(choice)} value={choiceKey(choice)}>{choice.platform==="temu"?`${choice.identityPartition} · ${choice.identityPartition==="CN"?"全托管 / 半托管":"本土"}`:choice.type?applicationLabels[choice.type]:""} · {choice.appId}</option>)}
+						{choices.map(choice=><option key={choiceKey(choice)} value={choiceKey(choice)}>{choice.platform==="tiktokshop"?"美国跨境":choice.platform==="temu"?`${choice.identityPartition} · ${choice.identityPartition==="CN"?"全托管 / 半托管":"本土"}`:choice.type?applicationLabels[choice.type]:""} · {choice.appId}</option>)}
 					</select>
 				</label>
-				<p className="text-sm text-muted-foreground">{applications.isFetching ? "正在读取应用配置…": applications.isError ? "未取得应用配置，请刷新后再连接。":store.platform==="temu"?(choices.length?"按原官方应用分区选择，不能按店铺所在国家猜测。":"尚未配置 TEMU 官方应用。"):Object.entries(applicationLabels).filter(([type])=>!choices.some(choice=>choice.type===type)).map(([,label])=>`${label}未配置`).join("；")}</p>
+				<p className="text-sm text-muted-foreground">{applications.isFetching ? "正在读取应用配置…": applications.isError ? "未取得应用配置，请刷新后再连接。":store.platform==="tiktokshop" ? (choices.length?"美国跨境店铺授权，商品发布按实际获批权限检查。":"尚未配置获批的 TikTok Shop 开发者应用。") : store.platform==="temu"?(choices.length?"按原官方应用分区选择，不能按店铺所在国家猜测。":"尚未配置 TEMU 官方应用。"):Object.entries(applicationLabels).filter(([type])=>!choices.some(choice=>choice.type===type)).map(([,label])=>`${label}未配置`).join("；")}</p>
 				{data?.authorizationMethod==="manual_token" && data.state==="awaiting_consent" ? <div className="space-y-2"><label className="grid gap-1 text-sm">TEMU 授权 token<Input key={scopeKey} ref={captureTokenInput} type="password" autoComplete="off" spellCheck={false} maxLength={4096} disabled={working}/></label><Button disabled={working} onClick={()=>void run("install")}>验证并连接</Button></div>:null}
 				<div className="flex flex-wrap gap-2">
 					<Button disabled={working || !data || !chosen} onClick={() => void run("begin")}>

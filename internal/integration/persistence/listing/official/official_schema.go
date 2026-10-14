@@ -16,14 +16,14 @@ func InstallOfficialSchema(db *gorm.DB) error {
 	}
 	return db.Exec(`CREATE TABLE IF NOT EXISTS listing_submission_official_intents (
  organization_id varchar(128) NOT NULL, actor_id varchar(128) NOT NULL, member_id varchar(128) NOT NULL,
- intent_key varchar(128) NOT NULL, record_id uuid NOT NULL, kind varchar(16) NOT NULL CHECK(kind IN ('publish','image')),
+ intent_key varchar(128) NOT NULL, record_id uuid NOT NULL, kind varchar(16) NOT NULL CHECK(kind IN ('publish','image','global_create')),
  input_hash varchar(64) NOT NULL CHECK(input_hash ~ '^[0-9a-f]{64}$'), body_hash varchar(64) NOT NULL CHECK(body_hash ~ '^[0-9a-f]{64}$'), body_json jsonb NOT NULL,
  PRIMARY KEY(organization_id,intent_key),
  FOREIGN KEY(organization_id,actor_id,record_id) REFERENCES listing_target_records(organization_id,actor_id,id));
 CREATE TABLE IF NOT EXISTS listing_submission_official_receipts (
  organization_id varchar(128) NOT NULL, actor_id varchar(128) NOT NULL, member_id varchar(128) NOT NULL,
  attempt_id uuid NOT NULL, intent_key varchar(128) NOT NULL, store_id uuid NOT NULL, subject_id varchar(128) NOT NULL,
- kind varchar(16) NOT NULL CHECK(kind IN ('publish','image')), body_hash varchar(64) NOT NULL CHECK(body_hash ~ '^[0-9a-f]{64}$'), body_json jsonb NOT NULL,
+ kind varchar(16) NOT NULL CHECK(kind IN ('publish','image','global_create')), body_hash varchar(64) NOT NULL CHECK(body_hash ~ '^[0-9a-f]{64}$'), body_json jsonb NOT NULL,
  PRIMARY KEY(organization_id,attempt_id),
  FOREIGN KEY(organization_id,intent_key) REFERENCES listing_submission_official_intents(organization_id,intent_key),
  FOREIGN KEY(organization_id,attempt_id) REFERENCES listing_submission_execution_attempts(organization_id,attempt_id));
@@ -40,6 +40,13 @@ func VerifyOfficialSchema(ctx context.Context, db *gorm.DB) error {
 		if db.WithContext(ctx).Exec(query).Error != nil {
 			return submission.ErrExecutionUnavailable
 		}
+	}
+	var kindsReady bool
+	if db.WithContext(ctx).Raw(`SELECT count(DISTINCT c.conrelid)=2 FROM pg_constraint c
+ WHERE c.conrelid IN (to_regclass('listing_submission_official_intents'),to_regclass('listing_submission_official_receipts'))
+ AND c.contype='c' AND c.convalidated AND NOT c.condeferrable AND pg_get_expr(c.conbin,c.conrelid)=?`,
+		`((kind)::text = ANY ((ARRAY['publish'::character varying, 'image'::character varying, 'global_create'::character varying])::text[]))`).Scan(&kindsReady).Error != nil || !kindsReady {
+		return submission.ErrExecutionUnavailable
 	}
 	var ready bool
 	err := db.WithContext(ctx).Raw(`WITH expected(relation,kind,columns,reference,reference_columns) AS (VALUES

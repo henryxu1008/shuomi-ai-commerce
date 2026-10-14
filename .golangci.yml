@@ -505,6 +505,8 @@ linters-settings:
           - "!**/internal/integration/temu/official_category_rules.go"
           - "!**/internal/integration/temu/official_supplier_size.go"
           - "!**/internal/integration/temu/official_goods.go"
+          - "!**/internal/integration/tiktokshop/goods_read.go"
+          - "!**/internal/integration/tiktokshop/goods_write.go"
           - "!**/internal/integration/temu/official_observations.go"
           - "!**/internal/integration/shein/official_readback.go"
           - "!**/internal/integration/shein/official_observations.go"
@@ -635,6 +637,7 @@ linters-settings:
           - "**/internal/integration/persistence/listing/submission/*.go"
           - "**/internal/integration/persistence/listing/submission/**/*.go"
           - "!**/internal/integration/persistence/listing/submission/temu_effects_policy.go"
+          - "!**/internal/integration/persistence/listing/submission/tiktok_effects_policy.go"
         deny:
           - pkg: "task-processor/internal/amazon$"
           - pkg: "task-processor/internal/amazon/"

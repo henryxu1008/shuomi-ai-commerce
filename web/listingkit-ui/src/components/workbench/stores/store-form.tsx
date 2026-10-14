@@ -253,7 +253,7 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
 
 function PlatformField({control,disabled}:{control:ReturnType<typeof useForm<WorkbenchStoreCreateInput | WorkbenchStoreUpdateInput>>;disabled:boolean}) {
   const id=useId();
-  return <div className="grid gap-2"><Label htmlFor={id}>平台</Label><Select id={id} disabled={disabled} {...control.register("platform")}><option value="shein">SHEIN</option><option value="temu">TEMU</option></Select></div>;
+  return <div className="grid gap-2"><Label htmlFor={id}>平台</Label><Select id={id} disabled={disabled} {...control.register("platform")}><option value="shein">SHEIN</option><option value="temu">TEMU</option><option value="tiktokshop">TikTok Shop（美国跨境）</option></Select>{control.watch("platform")==="tiktokshop"?<p className="text-sm">区域填写 US，外部店铺 ID 填写 Seller Center 的店铺编号（code）。</p>:null}</div>;
 }
 
 function ConflictNotice({ conflict, onRetry, pending }: { conflict: Conflict; onRetry: () => void; pending: boolean }) {

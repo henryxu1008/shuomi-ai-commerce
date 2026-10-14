@@ -154,6 +154,9 @@ func receiptMatchesIntent(body submission.OfficialReceipt, intent submission.Off
 	if body.Owner != intent.Owner || body.Kind != intent.Kind || body.Target != intent.Target || body.IntentKey != intent.Key || body.PayloadFingerprint != intent.PayloadFingerprint || body.Binding != intent.Binding {
 		return false
 	}
+	if body.Target.Platform == "tiktokshop" {
+		return submission.TikTokReceiptMatchesIntent(body, intent)
+	}
 	if body.Kind == "publish" {
 		return body.RecordID == intent.RecordID && body.ProductKey == intent.Source.Source.ProductKey
 	}
@@ -258,7 +261,7 @@ func (r *OfficialRepository) ReadOfficial(ctx context.Context, scope collection.
 // This canonical Store result read is internal only. App requires the exact
 // current source owner and merchant access before projecting provider facts.
 func (r *OfficialRepository) FindOfficialTarget(ctx context.Context, org string, target submission.ExecutionTarget) (submission.OfficialReceipt, error) {
-	if ctx == nil || target.Platform != "shein" && target.Platform != "temu" || !collection.ValidID(target.StoreID) {
+	if ctx == nil || target.Platform != "shein" && target.Platform != "temu" && target.Platform != "tiktokshop" || !collection.ValidID(target.StoreID) {
 		return submission.OfficialReceipt{}, submission.ErrExecutionInvalid
 	}
 	ctx, cancel := context.WithTimeout(ctx, submission.ExecutionTimeout)

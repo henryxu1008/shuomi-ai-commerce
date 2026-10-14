@@ -4,6 +4,15 @@ const id="550e8400-e29b-41d4-a716-446655440000";
 const scope={cookie:"shuomi_effective_organization=org-a","X-Expected-Organization-ID":"org-a","X-Expected-User-ID":"actor-a"};
 describe("private supply chain proxy",()=>{
  beforeEach(()=>vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL","http://localhost"));
+ it("keeps official status reads bound to source/store and accepts no browser product selector",async()=>{
+  const path=["supply-preparations","sources",id,"publications",id,"status"],url=`http://localhost/api/workbench/${path.join("/")}`;
+  const read=await buildWorkbenchUpstreamRequest(new Request(url,{headers:scope}),path,"server-token","actor-a");
+  expect(read).not.toBeInstanceOf(Response);if(read instanceof Response)return;
+  expect(read.sourceMutation).toBe(false);expect(read.expectedStoreId).toBe(`${id}:${id}`);
+  expect(new Headers(read.init.headers).get("X-Requested-Organization-ID")).toBe("org-a");
+  const selector=await buildWorkbenchUpstreamRequest(new Request(url+"?productId=other",{headers:scope}),path,"server-token","actor-a");expect(selector).toBeInstanceOf(Response);if(selector instanceof Response)expect(selector.status).toBe(400);
+  const wrongActor=await buildWorkbenchUpstreamRequest(new Request(url,{headers:scope}),path,"server-token","other");expect(wrongActor).toBeInstanceOf(Response);if(wrongActor instanceof Response)expect(wrongActor.status).toBe(409);
+ });
  it("binds unbound text saves to the same verified actor and forbids Store or authority fields",async()=>{
   const input={sourceId:id,expectedRevision:0,content:{title:"",description:"真实待补全内容"}};
   const path=["supply-preparations","completion-drafts"];
