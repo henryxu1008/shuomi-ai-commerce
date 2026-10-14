@@ -5,7 +5,8 @@ import { CollectionAPIError, type CollectionIntent } from "@/lib/api/product-col
 import { CollectionPage } from "./collection-page";
 import { SupplyAPIError,type SupplyIntent } from "@/lib/api/supply-chain";
 
-const state = vi.hoisted(() => ({ context: {} as Record<string, unknown>, list: vi.fn(), items: vi.fn(), mutate: vi.fn(), read: vi.fn(),readItem:vi.fn(),supplyWrite:vi.fn(),supplyRead:vi.fn() }));
+const state = vi.hoisted(() => ({ context: {} as Record<string, unknown>, list: vi.fn(), items: vi.fn(), mutate: vi.fn(), read: vi.fn(),readItem:vi.fn(),supplyWrite:vi.fn(),supplyRead:vi.fn(),replace:vi.fn() }));
+vi.mock("next/navigation",()=>({useRouter:()=>({replace:state.replace})}));
 vi.mock("@/components/providers/workbench-context-provider", () => ({ useWorkbenchContext: () => state.context }));
 vi.mock("@/lib/api/product-collection", async original => ({ ...await original<object>(), listCollectionBatches: state.list, listCollectionItems:state.items, listOwnProducts:state.items, mutateCollection: state.mutate, readCollectionOperation: state.read,readCollectionItem:state.readItem }));
 vi.mock("@/lib/api/supply-chain",async original=>({...await original<object>(),supplyCommand:state.supplyWrite,readSupplyCommand:state.supplyRead}));
@@ -15,10 +16,21 @@ beforeEach(() => {
   state.list.mockReset().mockResolvedValue({ items: [], total: 0 }); state.mutate.mockReset(); state.read.mockReset();
   state.items.mockReset().mockResolvedValue({ items: [], total: 0 });
   state.readItem.mockReset();
+  state.replace.mockReset();
   state.context.pendingSupplyIntent=null;state.context.supplyIntentReady=true;state.context.setPendingSupplyIntent=(intent:SupplyIntent|null)=>{state.context.pendingSupplyIntent=intent;return true};
   state.supplyWrite.mockReset();state.supplyRead.mockReset();
 });
 afterEach(cleanup);
+
+it("routes authorized own-product deep links to the standalone detail without showing a modal",async()=>{
+ const item="550e8400-e29b-41d4-a716-446655440002";
+ state.readItem.mockResolvedValue({item:{id:item,source:{kind:"own"}},product:{title:"own product"}});
+ render(<CollectionPage initialItemId={item}/>);
+ expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+ await waitFor(()=>expect(state.replace).toHaveBeenCalledWith(`/workbench/data/mine/own/${item}`));
+ expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+ expect(state.readItem).toHaveBeenCalledWith({userId:"actor-a",organizationId:"org-a"},item,expect.any(AbortSignal));
+});
 
 it("opens the exact saved source through the existing scoped item read",async()=>{
  const item="550e8400-e29b-41d4-a716-446655440002",batch="550e8400-e29b-41d4-a716-446655440000";

@@ -108,6 +108,7 @@ type OwnVariant struct {
 	Currency   string            `json:"currency"`
 	Price      float64           `json:"price"`
 	Stock      int               `json:"stock"`
+	Images     []string          `json:"images,omitempty"`
 }
 type Mutation struct {
 	Action            string       `json:"action"`
@@ -166,7 +167,7 @@ func Digest(value any) string {
 
 // OwnEnvelope records user-declared evidence. Images are candidates, never approvals.
 func OwnEnvelope(id string, input OwnProduct) (sourcing.SourceEnvelope, error) {
-	if !ValidID(id) || strings.TrimSpace(input.Title) == "" || len(input.Title) > 2000 || len(input.Description) > 1<<20 || len(input.Images) > 40 || len(input.Variants) > 1000 || len(input.Attributes) > 256 {
+	if !ValidID(id) || validateOwnProduct(input) != nil {
 		return sourcing.SourceEnvelope{}, ErrInvalid
 	}
 	raw, err := json.Marshal(input)
@@ -175,7 +176,11 @@ func OwnEnvelope(id string, input OwnProduct) (sourcing.SourceEnvelope, error) {
 	}
 	envelope := sourcing.SourceEnvelope{Identity: sourcing.SourceIdentity{SourceType: "user_input", SourcePlatform: "own_product", SourceID: id}, RawReference: sourcing.RawSourceReference{ReferenceType: "user_input", ReferenceID: id, Checksum: sourcing.RawSnapshotChecksum(string(raw))}, ProductCandidate: sourcing.ProductCandidate{Title: input.Title, Description: input.Description, Brand: input.Brand, Attributes: input.Attributes}}
 	for _, variant := range input.Variants {
-		envelope.ProductCandidate.Variants = append(envelope.ProductCandidate.Variants, sourcing.ProductVariantCandidate{SourceID: variant.SourceID, Title: variant.Title, SKU: variant.SKU, Attributes: variant.Attributes, Currency: variant.Currency, Price: variant.Price, Stock: variant.Stock})
+		candidate := sourcing.ProductVariantCandidate{SourceID: variant.SourceID, Title: variant.Title, SKU: variant.SKU, Attributes: variant.Attributes, Currency: variant.Currency, Price: variant.Price, Stock: variant.Stock}
+		for index, value := range variant.Images {
+			candidate.Images = append(candidate.Images, sourcing.AssetCandidate{SourceID: StableID(id, variant.SourceID, value), URL: value, MediaType: "image", Role: map[bool]string{true: "main", false: "detail"}[index == 0]})
+		}
+		envelope.ProductCandidate.Variants = append(envelope.ProductCandidate.Variants, candidate)
 	}
 	for index, value := range input.Images {
 		parsed, err := url.Parse(value)
@@ -184,5 +189,13 @@ func OwnEnvelope(id string, input OwnProduct) (sourcing.SourceEnvelope, error) {
 		}
 		envelope.AssetCandidates = append(envelope.AssetCandidates, sourcing.AssetCandidate{SourceID: StableID(id, value), URL: value, MediaType: "image", Role: map[bool]string{true: "main", false: "detail"}[index == 0]})
 	}
-	return sourcing.NormalizePublicationEnvelope(envelope)
+	normalized, err := sourcing.NormalizePublicationEnvelope(envelope)
+	if err != nil {
+		return sourcing.SourceEnvelope{}, err
+	}
+	encoded, err := json.Marshal(normalized)
+	if err != nil || len(encoded) > sourcing.MaxEncodedEnvelopeBytes {
+		return sourcing.SourceEnvelope{}, ErrInvalid
+	}
+	return normalized, nil
 }
