@@ -85,3 +85,20 @@ func TestModelProfileCostRoundsInputAndOutputSeparately(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(2), cost)
 }
+
+func TestContentDecisionQuoteUsesTheSameBoundedTextLedgerContract(t *testing.T) {
+	input := TextInputIdentity{OrganizationID: "org", ActorID: "actor", MemberID: "member", AgentRunID: "run", Operation: Operation("product.content.decision"), System: "fixed content rules", Prompt: "frozen locale and fields", Profile: testTextProfile()}
+	quote, err := QuoteText(input)
+	require.NoError(t, err)
+	require.Greater(t, quote.MaximumTokens, int64(0))
+	require.Greater(t, quote.MaximumCostMicros, int64(0))
+	require.True(t, SupportsObservedUsageFailure(input.Operation))
+	changed := input
+	changed.Operation = OperationProductAgentDecision
+	other, err := QuoteText(changed)
+	require.NoError(t, err)
+	require.NotEqual(t, quote.InputHash, other.InputHash, "content cannot reuse a title invocation")
+	input.AgentRunID = ""
+	_, err = QuoteText(input)
+	require.Error(t, err)
+}

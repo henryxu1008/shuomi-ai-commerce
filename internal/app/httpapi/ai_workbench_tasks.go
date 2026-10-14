@@ -121,7 +121,7 @@ func (a *aiWorkbenchApplication) taskView(ctx context.Context, scope aiworkbench
 		view.CanReconcile = projection.CanReconcile
 		view.CanResume = projection.CanResume && view.ProductDetailsAvailable && titleReady
 		view.CanReview = projection.CanReview && view.ProductDetailsAvailable && found && agentRunReviewable(run.State)
-		_, modeErr := a.agent.configuration.CheckTitleExecutionMode(ctx, agent.ExecutionIdentity{OrganizationID: identity.TenantID, ActorID: identity.UserID, MemberID: identity.EffectiveMemberID}, request.ConfigurationSnapshotRef, request.ModeSnapshotRef)
+		_, modeErr := a.agent.configuration.CheckRegisteredTextExecutionMode(ctx, agent.ExecutionIdentity{OrganizationID: identity.TenantID, ActorID: identity.UserID, MemberID: identity.EffectiveMemberID}, request.ConfigurationSnapshotRef, request.ModeSnapshotRef)
 		if freezeErr != nil || modeErr != nil {
 			view.CanStart = false
 			view.CanResume = false

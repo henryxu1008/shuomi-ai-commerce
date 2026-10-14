@@ -2,6 +2,7 @@
 package agentconfigpersistence
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	_ "embed"
@@ -86,6 +87,19 @@ func VerifySchema(ctx context.Context, db *gorm.DB) error {
 	return nil
 }
 
+// Content readiness is checked independently: an uninstalled content carrier
+// must not disable the current title or image consumers. This never runs DDL.
+func VerifyContentConfigurationSchema(ctx context.Context, db *gorm.DB) error {
+	if db == nil || db.WithContext(ctx).Table("agent_configuration.template_revisions").Select("content_parameters").Limit(0).Find(&[]revisionRow{}).Error != nil {
+		return agentconfig.ErrUnavailable
+	}
+	updated, err := verifyContentSchemaShape(db.WithContext(ctx))
+	if err != nil || !updated {
+		return agentconfig.ErrUnavailable
+	}
+	return nil
+}
+
 type agentRow struct {
 	OrganizationID, AgentID, Activation string
 	ActivationEpoch, Revision           int64
@@ -112,6 +126,7 @@ type revisionRow struct {
 	Name, SchemaVersion, TargetPlatform string
 	DefaultKnowledgeBaseID              *string
 	ImageParameters                     []byte
+	ContentParameters                   []byte
 	CreatedBy                           string
 	CreatedAt                           time.Time
 }
@@ -204,7 +219,13 @@ func templateView(db *gorm.DB, r templateRow, v int64) (agentconfig.Template, er
 		v = r.HeadRevision
 	}
 	var p revisionRow
-	e := db.Where("organization_id=? AND agent_id=? AND template_id=? AND version=?", r.OrganizationID, r.AgentID, r.TemplateID, v).Take(&p).Error
+	// Select the current agent's carrier explicitly. Title/image reads keep
+	// their original result shape while an installer adds the content column.
+	columns := []string{"organization_id", "agent_id", "template_id", "version", "name", "schema_version", "target_platform", "default_knowledge_base_id", "image_parameters", "created_by", "created_at"}
+	if r.AgentID == agentconfig.ContentAgentID {
+		columns = append(columns, "content_parameters")
+	}
+	e := db.Select(columns).Where("organization_id=? AND agent_id=? AND template_id=? AND version=?", r.OrganizationID, r.AgentID, r.TemplateID, v).Take(&p).Error
 	if errors.Is(e, gorm.ErrRecordNotFound) {
 		e = agentconfig.ErrNotFound
 	}
@@ -214,11 +235,21 @@ func templateView(db *gorm.DB, r templateRow, v int64) (agentconfig.Template, er
 	input := agentconfig.TemplateInput{Name: p.Name, TargetPlatform: p.TargetPlatform, DefaultKnowledgeBaseID: text(p.DefaultKnowledgeBaseID)}
 	if p.SchemaVersion == agentconfig.ImageParameterSchema {
 		var parameters agentconfig.SetTemplate
-		if len(p.ImageParameters) > agentconfig.MaxSetTemplateBytes || json.Unmarshal(p.ImageParameters, &parameters) != nil {
+		if len(p.ImageParameters) > agentconfig.MaxSetTemplateBytes || len(p.ContentParameters) != 0 || json.Unmarshal(p.ImageParameters, &parameters) != nil {
 			return agentconfig.Template{}, agentconfig.ErrUnavailable
 		}
 		input.Image = &parameters
-	} else if p.SchemaVersion != agentconfig.ParameterSchema || len(p.ImageParameters) != 0 {
+	} else if p.SchemaVersion == agentconfig.ContentParameterSchema {
+		var parameters agentconfig.ContentTemplate
+		if len(p.ContentParameters) > agentconfig.MaxContentTemplateBytes || len(p.ImageParameters) != 0 || json.Unmarshal(p.ContentParameters, &parameters) != nil {
+			return agentconfig.Template{}, agentconfig.ErrUnavailable
+		}
+		canonical, err := json.Marshal(parameters)
+		if err != nil || !bytes.Equal(canonical, p.ContentParameters) {
+			return agentconfig.Template{}, agentconfig.ErrUnavailable
+		}
+		input.Content = &parameters
+	} else if p.SchemaVersion != agentconfig.ParameterSchema || len(p.ImageParameters) != 0 || len(p.ContentParameters) != 0 {
 		return agentconfig.Template{}, agentconfig.ErrUnavailable
 	}
 	if !input.ValidForAgent(r.AgentID) {
@@ -494,7 +525,20 @@ func (s *Store) Execute(ctx context.Context, c agentconfig.Command, eligibility 
 							return agentconfig.ErrInvalid
 						}
 					}
-					if e := tx.Create(&r).Error; e != nil {
+					write := tx
+					if c.Input.Content != nil {
+						if err := VerifyContentConfigurationSchema(ctx, tx); err != nil {
+							return err
+						}
+						var err error
+						r.ContentParameters, err = json.Marshal(c.Input.Content)
+						if err != nil || len(r.ContentParameters) > agentconfig.MaxContentTemplateBytes {
+							return agentconfig.ErrInvalid
+						}
+					} else {
+						write = write.Omit("ContentParameters")
+					}
+					if e := write.Create(&r).Error; e != nil {
 						return e
 					}
 				}

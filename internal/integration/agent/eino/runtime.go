@@ -107,7 +107,7 @@ func (r *Runtime) runWithClaimAttempt(ctx context.Context, request agent.Request
 	if !request.ContextSnapshotRef.ValidOrAbsent() || !request.ConfigurationSnapshotRef.ValidOrAbsent() {
 		return agent.Record{}, false, agent.ErrInvalid
 	}
-	if ctx == nil || r == nil || !request.Binding.Valid() || !agent.ValidID(request.Key) || !agent.ValidID(request.PolicyVersion) || !agent.ValidID(request.PromptVersion) || !agent.ValidGoalSummary(request.GoalSummary) || !request.Limits.Valid() || request.Limits.Steps > (1<<29) {
+	if ctx == nil || r == nil || !request.Binding.Valid() || !request.ValidContentSelection() || !agent.ValidID(request.Key) || !agent.ValidID(request.PolicyVersion) || !agent.ValidID(request.PromptVersion) || !agent.ValidGoalSummary(request.GoalSummary) || !request.Limits.Valid() || request.Limits.Steps > (1<<29) {
 		return agent.Record{}, false, agent.ErrInvalid
 	}
 	scope, err := r.config.Authorizer.Authorize(ctx, request.Binding)

@@ -19,13 +19,14 @@ import (
 	"task-processor/internal/commercetool"
 	governed "task-processor/internal/integration/aicapability/einomodel"
 	k "task-processor/internal/knowledge"
+	"task-processor/internal/product/enrichment"
 
 	sigjson "sigs.k8s.io/json"
 )
 
 type SnapshotReader interface {
 	LoadSnapshot(context.Context, agent.Scope, agent.ConfigurationSnapshotRef) (agentconfig.Snapshot, error)
-	CheckTitleExecutionMode(context.Context, agent.ExecutionIdentity, agent.ConfigurationSnapshotRef, agent.ModeSnapshotRef) (agentconfig.ModeSnapshot, error)
+	CheckRegisteredTextExecutionMode(context.Context, agent.ExecutionIdentity, agent.ConfigurationSnapshotRef, agent.ModeSnapshotRef) (agentconfig.ModeSnapshot, error)
 }
 
 type TextExecutor interface {
@@ -42,6 +43,7 @@ const (
 )
 
 type AgentTextModel struct {
+	content           bool
 	knowledge         KnowledgeContext
 	executor          TextExecutor
 	snapshots         SnapshotReader
@@ -118,6 +120,13 @@ func (m *AgentTextModel) prepare(ctx context.Context, in agent.ModelInput) (prep
 		!in.Binding.Valid() || !agent.ValidID(in.AgentRunID) || !agent.ValidID(in.PromptVersion) {
 		return p, agent.ErrInvalid
 	}
+	if m.content {
+		if in.AgentID != agentconfig.ContentAgentID || in.AgentVersion != agentconfig.ContentAgentVersion || !in.ContentSelection.Valid() || in.PolicyVersion != enrichment.ContentPolicyVersion || in.PromptVersion != agentconfig.ContentPromptVersion {
+			return p, agent.ErrInvalid
+		}
+	} else if !in.ContentSelection.Absent() || in.AgentID == agentconfig.ContentAgentID {
+		return p, agent.ErrInvalid
+	}
 	identity, resolvedCtx, err := m.resolveIdentity(ctx)
 	if err != nil {
 		return p, err
@@ -129,7 +138,7 @@ func (m *AgentTextModel) prepare(ctx context.Context, in agent.ModelInput) (prep
 		snapshot.MemberID != identity.MemberID || !in.ModeSnapshotRef.Valid() || snapshot.Request.ModeSnapshotRef != in.ModeSnapshotRef ||
 		snapshot.Request.Binding != in.Binding || snapshot.Request.ContextSnapshotRef != (agent.ContextSnapshotRef{}) ||
 		snapshot.Request.PolicyVersion != in.PolicyVersion || snapshot.Request.PromptVersion != in.PromptVersion ||
-		snapshot.Request.GoalSummary != in.GoalSummary || !agent.ValidGoalSummary(in.GoalSummary) {
+		snapshot.Request.ContentSelection != in.ContentSelection || snapshot.Request.GoalSummary != in.GoalSummary || !agent.ValidGoalSummary(in.GoalSummary) {
 		return p, agent.ErrUnavailable
 	}
 	// ContextSnapshotRef is materialized after AgentConfig.Prepare; the exact
@@ -138,7 +147,7 @@ func (m *AgentTextModel) prepare(ctx context.Context, in agent.ModelInput) (prep
 		return p, agent.ErrUnavailable
 	}
 	p.profile = snapshot.ExecutionModelProfile
-	if p.profile.Validate() != nil {
+	if p.profile.Validate() != nil || m.content && (p.profile.PromptVersion != agentconfig.ContentPromptVersion || p.profile.OutputSchemaVersion != agentconfig.ContentActionVersion) {
 		return p, agent.ErrUnavailable
 	}
 	current, err := m.selectProfile(p.ctx, identity.OrganizationID)
@@ -151,7 +160,11 @@ func (m *AgentTextModel) prepare(ctx context.Context, in agent.ModelInput) (prep
 	in.UpperBound = agent.Quote{}
 	in.History = append([]agent.Observation(nil), in.History...)
 	for i := range in.History {
-		in.History[i].Output, err = EvidenceForPrompt(in.History[i].Output)
+		if m.content {
+			in.History[i].Output, err = ContentEvidenceForPrompt(in.History[i].Output, in.ContentSelection)
+		} else {
+			in.History[i].Output, err = EvidenceForPrompt(in.History[i].Output)
+		}
 		if err != nil {
 			return p, err
 		}
@@ -169,11 +182,15 @@ func (m *AgentTextModel) prepare(ctx context.Context, in agent.ModelInput) (prep
 		return p, agent.ErrInvalid
 	}
 	system := agentTextSystem
+	operation := aicapability.OperationProductAgentDecision
+	if m.content {
+		system, operation = contentTextSystem, aicapability.OperationProductContentDecision
+	}
 	if p.knowledge != nil {
 		system += "\n" + knowledgeTextSystem
 	}
 	p.text = aicapability.TextInputIdentity{OrganizationID: identity.OrganizationID, ActorID: identity.ActorID,
-		MemberID: identity.MemberID, Operation: aicapability.OperationProductAgentDecision,
+		MemberID: identity.MemberID, Operation: operation,
 		AgentRunID: in.AgentRunID,
 		System:     system, Prompt: string(prompt), Profile: p.profile}
 	p.quote, err = aicapability.QuoteText(p.text)
@@ -224,7 +241,7 @@ func (m *AgentTextModel) Decide(ctx context.Context, in agent.ModelInput) (agent
 		if err != nil {
 			return nil, err
 		}
-		if _, err = m.snapshots.CheckTitleExecutionMode(gateCtx, identity, in.ConfigurationSnapshotRef, in.ModeSnapshotRef); err != nil {
+		if _, err = m.snapshots.CheckRegisteredTextExecutionMode(gateCtx, identity, in.ConfigurationSnapshotRef, in.ModeSnapshotRef); err != nil {
 			return nil, err
 		}
 		if p.knowledge == nil {

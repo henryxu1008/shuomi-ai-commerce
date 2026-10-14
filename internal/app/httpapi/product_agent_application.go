@@ -32,6 +32,7 @@ import (
 	"task-processor/internal/knowledge"
 	"task-processor/internal/listing/readiness/tools/readinessinspect"
 	"task-processor/internal/product/asset/tools/assetinspect"
+	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/catalog/tools/canonicalinspect"
 	"task-processor/internal/product/enrichment"
 	"task-processor/internal/product/review"
@@ -52,6 +53,7 @@ type ProductAgentDependencies struct {
 	PointAccountingDB        *gorm.DB
 	Ledger                   ProductAgentInvocationLedger
 	TextPolicies             map[string]governed.RoutePolicy
+	ContentTextPolicies      map[string]governed.RoutePolicy
 	Enabled                  bool
 	AllowedOrganizationIDs   []string
 	Limits                   agent.Limits
@@ -67,7 +69,10 @@ type ProductAgentInvocationLedger interface {
 }
 
 type productAgentApplication struct {
+	content                 *productAgentApplication
 	configuration           *configstore.Store
+	snapshots               catalog.CompleteSnapshotReader
+	reviewLookup            review.AppliedPublicationLookup
 	model                   *texteino.AgentTextModel
 	selectTitleProfile      func(context.Context, string) (aicapability.ModelProfile, error)
 	titleRoutes             *governed.OrganizationRouteResolver
@@ -80,6 +85,7 @@ type productAgentApplication struct {
 	executionPolicyAdoption *review.PolicyAdoptionService
 	receipts                sourcing.PublishedAcquisitionReader
 	resolver                organizationIdentityResolver
+	originExecution         func(context.Context, agent.ExecutionIdentity) error
 	authorizer              *authz.ListingKitAuthorizer
 	config                  ProductAgentDependencies
 	canonical               *canonicalinspect.Invoker
@@ -112,6 +118,13 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 			return nil, agent.ErrUnavailable
 		}
 	}
+	for organizationID, policy := range cfg.ContentTextPolicies {
+		profile := policy.ShapeProfile()
+		cost, err := profile.MaximumCost()
+		if !allowedOrganizations[organizationID] || profile.PromptVersion != agentconfig.ContentPromptVersion || profile.OutputSchemaVersion != agentconfig.ContentActionVersion || !governed.ValidRouteProfile(profile, aicapability.OperationProductContentDecision) || profile.Currency != cfg.Limits.Currency || err != nil || profile.MaximumPromptTokens+profile.MaximumCompletionTokens > cfg.Limits.Tokens || cost > cfg.Limits.CostMicros {
+			return nil, agent.ErrUnavailable
+		}
+	}
 	if cfg.PointAccountingDB == nil || cfg.Ledger == nil {
 		return nil, agent.ErrUnavailable
 	}
@@ -131,6 +144,10 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 	a.config.TextPolicies = make(map[string]governed.RoutePolicy, len(cfg.TextPolicies))
 	for organizationID, policy := range cfg.TextPolicies {
 		a.config.TextPolicies[organizationID] = policy
+	}
+	a.config.ContentTextPolicies = make(map[string]governed.RoutePolicy, len(cfg.ContentTextPolicies))
+	for organizationID, policy := range cfg.ContentTextPolicies {
+		a.config.ContentTextPolicies[organizationID] = policy
 	}
 	var err error
 	var contexts []texteino.KnowledgeContext
@@ -184,6 +201,7 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 		return nil, err
 	}
 	a.reviews.WithExecutionPolicy(a.resolveTitlePolicy)
+	a.snapshots, a.reviewLookup = reader, repo
 	a.policyAdoption, err = review.NewPolicyAdoptionService(reader, sources, repo, auth, a.titlePolicyScope, a.resolveTitlePolicy)
 	if err != nil {
 		return nil, err
@@ -264,6 +282,10 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 		return nil, err
 	}
 	a.runtime, err = einoruntime.New(einoruntime.Config{Definition: definition, Tools: definitions, Model: model, Gateway: a, Validator: a, Authorizer: a, Store: guard})
+	if err != nil {
+		return nil, err
+	}
+	a.content, err = buildContentProductApplication(ctx, a, reader, sources, repo, deps, contexts)
 	if err != nil {
 		return nil, err
 	}
@@ -371,8 +393,12 @@ func validAgentTargetPlatform(platform string) bool {
 	return platform == "shein" || platform == "temu" || platform == "amazon"
 }
 
+func (a *productAgentApplication) validTargetPlatform(platform string) bool {
+	return validAgentTargetPlatform(platform) || a.definition.ID == agentconfig.ContentAgentID && platform == "product"
+}
+
 func (a *productAgentApplication) binding(ctx context.Context, operationID, targetPlatform string) (agent.Binding, error) {
-	if !validAgentTargetPlatform(targetPlatform) {
+	if !a.validTargetPlatform(targetPlatform) {
 		return agent.Binding{}, agent.ErrInvalid
 	}
 	i, err := a.freshIdentity(ctx)
@@ -383,22 +409,30 @@ func (a *productAgentApplication) binding(ctx context.Context, operationID, targ
 }
 
 func (a *productAgentApplication) bindingForIdentity(ctx context.Context, i authidentity.AuthenticatedIdentity, operationID, targetPlatform string) (agent.Binding, error) {
-	if !validAgentTargetPlatform(targetPlatform) {
+	if !a.validTargetPlatform(targetPlatform) {
 		return agent.Binding{}, agent.ErrInvalid
 	}
-	p, err := a.receipts.ReadPublished(authidentity.WithAuthenticatedIdentity(ctx, i), operationID)
+	p, err := a.acquisitionSnapshot(ctx, i, operationID)
 	if err != nil {
 		return agent.Binding{}, err
 	}
+	return acquisitionBinding(operationID, targetPlatform, p), nil
+}
+
+func (a *productAgentApplication) acquisitionSnapshot(ctx context.Context, i authidentity.AuthenticatedIdentity, operationID string) (catalog.PublishedSnapshot, error) {
+	p, err := a.receipts.ReadPublished(authidentity.WithAuthenticatedIdentity(ctx, i), operationID)
+	if err != nil {
+		return catalog.PublishedSnapshot{}, err
+	}
 	op := p.Result.Operation
 	if op.ID != operationID || op.State != sourcing.AcquisitionPublished || op.Scope.OrganizationID != i.TenantID || op.Scope.ActorID != i.UserID || p.Result.Publication == nil {
-		return agent.Binding{}, agent.ErrConflict
+		return catalog.PublishedSnapshot{}, agent.ErrConflict
 	}
 	r := p.Result.Publication.Receipt
 	if r.OrganizationID != i.TenantID || r.ActorID != i.UserID || r.ProductKey != p.Snapshot.Identity.ProductKey || p.Snapshot.Identity.TenantID != i.TenantID || r.CatalogVersion != p.Snapshot.Version || r.CatalogPublicationID != p.Snapshot.PublicationID || !reflect.DeepEqual(p.Result.Publication.Snapshot, p.Snapshot.Snapshot) {
-		return agent.Binding{}, agent.ErrConflict
+		return catalog.PublishedSnapshot{}, agent.ErrConflict
 	}
-	return agent.Binding{ContextKind: "acquisition", ContextID: operationID, ProductKey: r.ProductKey, CatalogVersion: strconv.FormatUint(r.CatalogVersion, 10), PublicationID: r.CatalogPublicationID, TargetPlatform: targetPlatform}, nil
+	return p.Snapshot, nil
 }
 
 func (a *productAgentApplication) Authorize(ctx context.Context, binding agent.Binding) (agent.Scope, error) {
@@ -408,14 +442,13 @@ func (a *productAgentApplication) Authorize(ctx context.Context, binding agent.B
 	if binding.ContextKind != "acquisition" {
 		return agent.Scope{}, agent.ErrInvalid
 	}
-	exact, err := a.binding(ctx, binding.ContextID, binding.TargetPlatform)
+	i, err := a.freshIdentity(ctx)
 	if err != nil {
 		return agent.Scope{}, err
 	}
-	if exact != binding {
-		return agent.Scope{}, agent.ErrConflict
+	if err = a.authorizeAcquisitionBinding(ctx, i, binding); err != nil {
+		return agent.Scope{}, err
 	}
-	i, _ := authidentity.AuthenticatedIdentityFromContext(ctx)
 	return agent.Scope{OrganizationID: i.TenantID, ActorID: i.UserID}, nil
 }
 
@@ -432,6 +465,7 @@ func (a *productAgentApplication) Invoke(ctx context.Context, ref commercetool.T
 		capability := ctx.Value(productReviewCapabilityContextKey{}).(productReviewRequestCapability)
 		ctx = commercetoolauth.WithOrganizationRequest(ctx, commercetoolauth.OrganizationRequest{Identity: i, BearerToken: capability.bearerToken, RequestedOrganizationID: i.TenantID})
 	}
+	ctx = context.WithValue(ctx, productAgentSourceBindingKey{}, b)
 	switch ref {
 	case canonicalinspect.Definition().Ref:
 		return a.canonical.Invoke(ctx, meta, canonicalinspect.Input{ProductKey: b.ProductKey, CatalogVersion: b.CatalogVersion})
@@ -451,7 +485,13 @@ func agentReviewInput(b agent.Binding, policy string, candidate enrichment.Candi
 	return review.CandidateInput{Base: review.CreateInput{ProductKey: b.ProductKey, BaseVersion: version}, PublicationID: b.PublicationID, PolicyVersion: policy, Candidate: candidate}
 }
 
-func (a *productAgentApplication) Validate(ctx context.Context, b agent.Binding, policy string, candidate enrichment.Candidate, history []agent.Observation) (agent.Validation, error) {
+func (a *productAgentApplication) Validate(ctx context.Context, request agent.Request, candidate enrichment.Candidate, history []agent.Observation) (agent.Validation, error) {
+	// This consumer remains the current title definition. Content is admitted
+	// by its own fixed policy/consumer, never through this title validator.
+	if !request.ContentSelection.Absent() {
+		return agent.Validation{}, agent.ErrInvalid
+	}
+	b, policy := request.Binding, request.PolicyVersion
 	if _, err := a.Authorize(ctx, b); err != nil {
 		return agent.Validation{}, err
 	}

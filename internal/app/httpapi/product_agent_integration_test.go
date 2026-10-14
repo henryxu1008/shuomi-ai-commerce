@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"task-processor/internal/product/enrichment"
 	"testing"
 	"time"
 
@@ -30,6 +31,7 @@ import (
 	"task-processor/internal/knowledge"
 	"task-processor/internal/ledger/orgresource"
 	productasset "task-processor/internal/product/asset"
+	"task-processor/internal/product/review"
 	"task-processor/internal/workbenchcontext"
 
 	"github.com/google/uuid"
@@ -37,12 +39,21 @@ import (
 	"gorm.io/gorm"
 )
 
-type agentFixtureGrants struct{ base *titleGrants }
+type agentFixtureGrants struct {
+	base        *titleGrants
+	replacement *atomic.Bool
+}
 
 func (g agentFixtureGrants) Load(ctx context.Context, source workbenchcontext.GrantSource, r workbenchcontext.GrantRequest) (workbenchcontext.GrantResult, error) {
 	result, err := g.base.Load(ctx, source, r)
 	for n := range result.Grants {
+		if r.Subject == "reviewer" && result.Grants[n].OrganizationID == "B" {
+			result.Grants[n].Roles = []string{"listingkit_admin"}
+		}
 		result.Grants[n].AuthorizationID = "member-" + result.Grants[n].OrganizationID + "-" + r.Subject
+		if g.replacement != nil && g.replacement.Load() {
+			result.Grants[n].AuthorizationID += "-replacement"
+		}
 	}
 	return result, err
 }
@@ -79,6 +90,38 @@ func (agentReleaseFailure) ReleaseAIInvocationUsage(context.Context, string, str
 func TestProductAgentAcquisitionToReviewUsesRealOwners(t *testing.T) {
 	for _, mode := range []string{"observed canonical", "configuration", "guessed without tool", "asset only", "no quota", "revoked before dispatch", "release failed"} {
 		t.Run(mode, func(t *testing.T) { testProductAgentOwners(t, mode) })
+	}
+}
+
+func TestContentRuntimeSharesCurrentOwnersWithItsOwnDefinitionAndRoute(t *testing.T) {
+	testProductAgentOwners(t, "content assembly")
+}
+
+func TestContentHTTPRunSavesFullProposalThroughRealOwners(t *testing.T) {
+	testProductAgentOwners(t, "content flow")
+}
+
+func TestContentHTTPNativeAdoptionAndReadOnlyUseCurrentModes(t *testing.T) {
+	for _, mode := range []string{"full_access", "auto_approve", "read_only"} {
+		t.Run(mode, func(t *testing.T) { testProductAgentOwners(t, "content flow "+mode) })
+	}
+}
+
+func TestContentHTTPNewWritesRecheckModeConfigurationAndMember(t *testing.T) {
+	for _, change := range []string{"mode changed", "disabled", "member replaced"} {
+		t.Run(change, func(t *testing.T) { testProductAgentOwners(t, "content flow authority "+change) })
+	}
+}
+
+func TestContentHTTPUnresolvedDiagnosticsRemainReadableWithoutAdoption(t *testing.T) {
+	for _, mode := range []string{"default", "read_only", "auto_approve", "full_access"} {
+		t.Run(mode, func(t *testing.T) { testProductAgentOwners(t, "content flow unresolved "+mode) })
+	}
+}
+
+func TestContentHTTPWarningsRemainReadableWithoutAdoption(t *testing.T) {
+	for _, mode := range []string{"default", "full_access"} {
+		t.Run(mode, func(t *testing.T) { testProductAgentOwners(t, "content flow warnings "+mode) })
 	}
 }
 
@@ -157,6 +200,12 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		}
 		var content string
 		switch {
+		case (strings.HasPrefix(mode, "content flow") || mode == "supply content") && (step-1)%3 == 0:
+			content = `{"Kind":"tool","Tool":{"ID":"product.canonical.inspect","Version":"v2.0.0"}}`
+		case (strings.HasPrefix(mode, "content flow") || mode == "supply content") && (step-1)%3 == 1:
+			content = `{"Kind":"tool","Tool":{"ID":"product.source-evidence.inspect","Version":"v2.0.0"}}`
+		case strings.HasPrefix(mode, "content flow") || mode == "supply content":
+			content = `{"Kind":"propose","Candidate":{"Changes":[{"Field":"title","Value":"Localized bottle title","EvidenceIDs":["981645030344"]},{"Field":"description","Value":"Localized bottle description","EvidenceIDs":["981645030344"]},{"Field":"selling_points","Value":"[\"Reusable bottle\"]","EvidenceIDs":["981645030344"]},{"Field":"seo_keywords","Value":"[\"bottle\"]","EvidenceIDs":["981645030344"]}]}}`
 		case strings.HasPrefix(mode, "supply ") && step > 4 && cycle == 1:
 			content = `{"Kind":"tool","Tool":{"ID":"product.canonical.inspect","Version":"v2.0.0"}}`
 		case strings.HasPrefix(mode, "supply ") && step > 4 && cycle == 2:
@@ -186,6 +235,12 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		if strings.HasPrefix(mode, "supply ") && step > 4 {
 			content = strings.ReplaceAll(content, "Reviewed bottle title", "Reconstructed bottle title")
 		}
+		if strings.HasPrefix(mode, "content flow unresolved ") && strings.Contains(content, `"Kind":"propose"`) {
+			content = strings.TrimSuffix(content, "}") + `,"Unresolved":["missing material specification"]}`
+		}
+		if strings.HasPrefix(mode, "content flow warnings ") && strings.Contains(content, `"Kind":"propose"`) {
+			content = strings.Replace(content, `"Candidate":{"Changes":`, `"Candidate":{"Warnings":[{"Code":"missing_material","Field":"description","Message":"missing material specification","Metadata":null}],"Changes":`, 1)
+		}
 		if kf != nil && step >= 3 {
 			content = strings.TrimSuffix(content, "}") + `,"ContextCitationIDs":["` + citationID + `"]}`
 		}
@@ -210,13 +265,23 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	ledger := aistore.NewGormInvocationRecorder(f.owner)
 	deps := newRouteAuthDependencies()
 	deps.workbenchVerifier = titleVerifier{}
-	deps.organizationResolver = workbenchcontext.NewResolver(agentFixtureGrants{f.grants}, "project", "v1", nil)
-	auth, err := authz.NewListingKitAuthorizer(nil, nil)
+	var memberReplaced atomic.Bool
+	deps.organizationResolver = workbenchcontext.NewResolver(agentFixtureGrants{base: f.grants, replacement: &memberReplaced}, "project", "v1", nil)
+	var platformUsers []string
+	if mode == "content flow cross-admin configured-user roles revoked" {
+		platformUsers = []string{"admin"}
+	}
+	auth, err := authz.NewListingKitAuthorizer(platformUsers, nil)
 	require.NoError(t, err)
 	deps.authorizer = auth
 	// Keep the synthetic input bound below escapedBase's encoded prompt so the
 	// pre-Claim envelope rejection remains observable under the frozen profile.
 	settings := ProductAgentDependencies{Enabled: true, AllowedOrganizationIDs: []string{"B"}, RunDB: f.owner, PointAccountingDB: f.owner, AssetDB: f.owner, ReviewDB: f.owner, Ledger: ledger, TextPolicies: map[string]governed.RoutePolicy{"B": {AdmittedCredentialVersion: governed.CredentialVersion(*row), AdmittedEndpointIdentityDigest: governed.EndpointIdentityDigest(provider.URL + "/v1"), Profile: aicapability.ModelProfile{ClientName: "default", ProviderID: "grsai", AdapterKind: "openai-compatible", ModelID: "gemini-2.5-flash", RoutingPolicyVersion: "route-v1", AdapterPolicyVersion: "adapter-v1", PromptVersion: "product-title-agent-v1", OutputSchemaVersion: "product-title-action-v1", UsageMappingVersion: "usage-v1", CostPricingVersion: "fixture-v1", PointTariff: aicapability.ModelPointTariff{PriceVersion: "synthetic-points-v1", InputPointsPerMillionTokens: 1000000, OutputPointsPerMillionTokens: 2000000}, Currency: "CNY", InputMicrosPerMillion: 300000, OutputMicrosPerMillion: 2000000, MaximumPromptTokens: 1048576, MaximumCompletionTokens: 8192, MaximumInputBytes: 64 << 10, MaximumOutputBytes: 16 << 10, DeadlineBound: 3 * time.Second}}}, Limits: agent.Limits{Steps: 12, ModelCalls: 6, Tokens: 5000000, CostMicros: 5000000, Currency: "CNY", Runtime: time.Minute}}
+	if mode == "content assembly" || strings.HasPrefix(mode, "content flow") || mode == "supply content" {
+		policy := settings.TextPolicies["B"]
+		policy.Profile.PromptVersion, policy.Profile.OutputSchemaVersion = agentconfig.ContentPromptVersion, agentconfig.ContentActionVersion
+		settings.ContentTextPolicies = map[string]governed.RoutePolicy{"B": policy}
+	}
 	if kf != nil {
 		settings.Knowledge = kf.service
 	}
@@ -234,8 +299,199 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		}
 		settings.Ledger = agentReserveHook{ProductAgentInvocationLedger: settings.Ledger, afterReserve: func() { f.grants.revoked.Store(true) }}
 	}
-	module, err := buildProductAgentModule(context.Background(), f.db, deps, auth, settings, nil)
+	var reviewIAM *contentReviewIAM
+	if strings.HasPrefix(mode, "content flow cross-admin ") {
+		reviewIAM = newContentReviewIAM(t, &memberReplaced)
+	}
+	module, err := buildProductAgentModule(context.Background(), f.db, deps, auth, settings, reviewIAM.config())
 	require.NoError(t, err)
+	if strings.HasPrefix(mode, "content flow") {
+		contentApp := module.(productAgentModule).application.content
+		require.NotNil(t, contentApp)
+		_, err := configuration.Execute(context.Background(), agentconfig.Command{Scope: agent.Scope{OrganizationID: "B", ActorID: "admin"}, Key: uuid.NewString(), AgentID: agentconfig.ContentAgentID, Operation: "enable", Absent: true})
+		require.NoError(t, err)
+		modeRevision := "0"
+		selectedMode := strings.TrimPrefix(mode, "content flow ")
+		if strings.HasPrefix(mode, "content flow cross-admin ") {
+			selectedMode = "default"
+		}
+		if strings.HasPrefix(mode, "content flow unresolved ") {
+			selectedMode = strings.TrimPrefix(mode, "content flow unresolved ")
+		}
+		if strings.HasPrefix(mode, "content flow warnings ") {
+			selectedMode = strings.TrimPrefix(mode, "content flow warnings ")
+		}
+		if mode != "content flow" && !strings.HasPrefix(mode, "content flow authority ") {
+			receipt, err := configuration.ExecuteMode(context.Background(), agentconfig.ModeCommand{Identity: agent.ExecutionIdentity{OrganizationID: "B", ActorID: "admin", MemberID: "member-B-admin"}, Subject: contentApp.modeSubject(), Key: uuid.NewString(), Mode: agent.ExecutionMode(selectedMode)})
+			require.NoError(t, err)
+			modeRevision = receipt.Revision
+		}
+		app := buildIsolatedApplicationHTTPServer(module.(productAgentModule).routes, deps, 2*time.Minute)
+		server := httptest.NewServer(app.Handler)
+		defer server.Close()
+		key := uuid.NewString()
+		path := productAcquisitionBase + "/" + op.OperationID + "/content-agent/runs"
+		code, raw, err := acquisitionHTTPRequest(server, "POST", path, "admin", "B", key, `{"expectedModeRevision":"`+modeRevision+`","targetPlatform":"product","contentSelection":{"targetLanguage":"en-US","title":true,"description":true,"sellingPoints":true,"seoKeywords":true}}`)
+		require.NoError(t, err)
+		require.Equal(t, 200, code, string(raw))
+		var result productAgentResultDTO
+		require.NoError(t, json.Unmarshal(raw, &result))
+		require.Equal(t, agent.HumanReviewRequired, result.Phase)
+		require.Len(t, result.Candidate.Changes, 4)
+		if strings.HasPrefix(mode, "content flow unresolved ") || strings.HasPrefix(mode, "content flow warnings ") {
+			expected := []string{"missing material specification"}
+			if strings.HasPrefix(mode, "content flow warnings ") {
+				expected = []string{"missing_material: missing material specification"}
+				require.Len(t, result.Candidate.Warnings, 1)
+			}
+			require.Equal(t, expected, result.Unresolved)
+			require.False(t, result.CanSubmitReview, "content diagnostics with unresolved facts cannot be saved for adoption")
+			require.Nil(t, result.PolicyAdoption)
+			before := calls.Load()
+			code, raw, err = acquisitionHTTPRequest(server, "GET", path+"/"+key, "admin", "B", "", "")
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, code, string(raw))
+			var read productAgentResultDTO
+			require.NoError(t, json.Unmarshal(raw, &read))
+			require.Equal(t, result.Unresolved, read.Unresolved)
+			require.False(t, read.CanSubmitReview)
+			code, raw, err = acquisitionHTTPRequest(server, "POST", path+"/"+key+"/review", "admin", "B", "", `{}`)
+			require.NoError(t, err)
+			require.Equal(t, http.StatusConflict, code, string(raw))
+			var saved int64
+			require.NoError(t, f.owner.Table("product_title_proposals").Count(&saved).Error)
+			require.Zero(t, saved)
+			require.Equal(t, before, calls.Load())
+			return
+		}
+		if strings.HasPrefix(mode, "content flow authority ") {
+			before := calls.Load()
+			expectedStatus := http.StatusConflict
+			switch strings.TrimPrefix(mode, "content flow authority ") {
+			case "mode changed":
+				_, err = configuration.ExecuteMode(context.Background(), agentconfig.ModeCommand{Identity: agent.ExecutionIdentity{OrganizationID: "B", ActorID: "admin", MemberID: "member-B-admin"}, Subject: contentApp.modeSubject(), Key: uuid.NewString(), Mode: agent.ModeReadOnly})
+				require.NoError(t, err)
+			case "disabled":
+				_, err = configuration.Execute(context.Background(), agentconfig.Command{Scope: agent.Scope{OrganizationID: "B", ActorID: "admin"}, Key: uuid.NewString(), AgentID: agentconfig.ContentAgentID, Operation: "disable", Expected: 1})
+				require.NoError(t, err)
+			case "member replaced":
+				memberReplaced.Store(true)
+				expectedStatus = http.StatusForbidden
+			}
+			code, raw, err = acquisitionHTTPRequest(server, "POST", path+"/"+key+"/review", "admin", "B", "", `{}`)
+			require.NoError(t, err)
+			require.Equal(t, expectedStatus, code, string(raw))
+			var saved int64
+			require.NoError(t, f.owner.Table("product_title_proposals").Count(&saved).Error)
+			require.Zero(t, saved, "a stale run cannot save a new suggestion")
+			require.Equal(t, before, calls.Load(), "authority failure cannot resend the model")
+			return
+		}
+		code, raw, err = acquisitionHTTPRequest(server, "POST", path+"/"+key+"/review", "admin", "B", "", `{}`)
+		require.NoError(t, err)
+		require.Equal(t, 200, code, string(raw))
+		var response struct {
+			ProposalID string `json:"proposalId"`
+		}
+		require.NoError(t, json.Unmarshal(raw, &response))
+		view := titleCall(t, server, "GET", titleBasePath+"/"+response.ProposalID, "admin", "B", "", "", 200)
+		require.NotNil(t, view.Content)
+		require.Len(t, view.Content.After, 4)
+		require.Equal(t, "en-US", view.Content.Selection.TargetLanguage)
+		code, raw, err = acquisitionHTTPRequest(server, "GET", titleBasePath+"/"+response.ProposalID, "admin", "B", "", "")
+		require.NoError(t, err)
+		require.Equal(t, 200, code, string(raw))
+		var wireView map[string]json.RawMessage
+		require.NoError(t, json.Unmarshal(raw, &wireView))
+		var savedMode struct {
+			Mode     string                `json:"mode"`
+			Revision string                `json:"revision"`
+			Snapshot agent.ModeSnapshotRef `json:"snapshot"`
+		}
+		require.NoError(t, json.Unmarshal(wireView["execution_mode"], &savedMode))
+		expectedMode := selectedMode
+		if mode == "content flow" {
+			expectedMode = "default"
+		}
+		require.Equal(t, expectedMode, savedMode.Mode)
+		require.Equal(t, modeRevision, savedMode.Revision)
+		require.Equal(t, *result.ModeSnapshotRef, savedMode.Snapshot)
+		if strings.HasPrefix(mode, "content flow cross-admin ") {
+			testContentCrossAdministratorReview(t, strings.TrimPrefix(mode, "content flow cross-admin "), reviewIAM, &memberReplaced, view, server, &calls, f)
+			return
+		}
+		if selectedMode != "full_access" {
+			code, raw, err = acquisitionHTTPRequest(server, "GET", titleBasePath+"?view=actionable", "admin", "B", "", "")
+			require.NoError(t, err)
+			require.Equal(t, 200, code, string(raw))
+			var list struct {
+				SchemaVersion int    `json:"schema_version"`
+				Coverage      string `json:"coverage"`
+				Items         []struct {
+					Policy    string                      `json:"policy"`
+					Selection enrichment.ContentSelection `json:"content_selection"`
+				} `json:"items"`
+			}
+			require.NoError(t, json.Unmarshal(raw, &list))
+			require.Equal(t, 2, list.SchemaVersion)
+			require.Equal(t, "product-text-proposals", list.Coverage)
+			require.Len(t, list.Items, 1)
+			require.Equal(t, enrichment.ContentPolicyVersion, list.Items[0].Policy)
+			require.Equal(t, result.ContentSelection, list.Items[0].Selection)
+		}
+		if selectedMode == "full_access" {
+			require.Equal(t, "applied", view.State)
+			require.NotNil(t, view.PolicyAdoption)
+			require.Equal(t, review.ContentPolicyAdoptionVersion, view.PolicyAdoption.ActionVersion)
+			require.Empty(t, view.Content.Decisions)
+		} else if selectedMode == "read_only" {
+			titleDecision(t, server, view, "accept", "admin", "", 403)
+		} else {
+			require.Equal(t, "pending", view.State)
+			accepted := titleDecision(t, server, view, "accept", "admin", "", 200)
+			applied := titleApply(t, server, accepted, uuid.NewString(), 200)
+			require.Equal(t, "applied", applied.State)
+			require.Len(t, applied.Content.After, 4)
+			if mode == "content flow" {
+				before := calls.Load()
+				code, raw, err = acquisitionHTTPRequest(server, "GET", path+"/"+key, "admin", "B", "", "")
+				require.NoError(t, err)
+				require.Equal(t, 200, code, string(raw))
+				var original productAgentResultDTO
+				require.NoError(t, json.Unmarshal(raw, &original))
+				require.Equal(t, "1", original.CatalogVersion, "history retains the original frozen base")
+				require.Equal(t, before, calls.Load())
+				code, raw, err = acquisitionHTTPRequest(server, "POST", path, "admin", "B", uuid.NewString(), `{"expectedModeRevision":"0","targetPlatform":"product","contentSelection":{"targetLanguage":"en-US","title":true,"description":true,"sellingPoints":true,"seoKeywords":true}}`)
+				require.NoError(t, err)
+				require.Equal(t, 200, code, string(raw))
+				var subsequent productAgentResultDTO
+				require.NoError(t, json.Unmarshal(raw, &subsequent))
+				require.Equal(t, "2", subsequent.CatalogVersion, "a new operation uses the actual adopted Product version")
+				require.Equal(t, applied.Receipt.PublicationID, subsequent.PublicationID)
+				require.Equal(t, agent.HumanReviewRequired, subsequent.Phase)
+				require.True(t, subsequent.CanSubmitReview, "real adopted source lineage remains reviewable")
+				var observedTools []string
+				for _, step := range subsequent.Steps {
+					if step.Tool != "" {
+						observedTools = append(observedTools, step.Tool)
+					}
+				}
+				require.Equal(t, []string{"product.canonical.inspect", "product.source-evidence.inspect"}, observedTools)
+			}
+		}
+		return
+	}
+	if mode == "content assembly" {
+		parent := module.(productAgentModule).application
+		require.NotNil(t, parent.content)
+		require.Equal(t, agentconfig.ContentAgentID, parent.content.definition.ID)
+		require.Len(t, parent.content.definition.AllowedTools, 2)
+		require.Equal(t, parent.store, parent.content.store)
+		require.Equal(t, parent.configuration, parent.content.configuration)
+		require.Equal(t, parent.reviews, parent.content.reviews)
+		require.EqualValues(t, 0, calls.Load(), "runtime construction must not dispatch a model")
+		return
+	}
 	if strings.HasPrefix(mode, "supply ") {
 		testSupplyAgentOwners(t, mode, f, op, module.(productAgentModule).application, deps, auth, &calls)
 		return

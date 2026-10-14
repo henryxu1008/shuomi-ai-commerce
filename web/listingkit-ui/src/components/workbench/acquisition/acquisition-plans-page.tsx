@@ -15,6 +15,7 @@ import {AcquisitionAPIError,type AcquisitionContext} from "@/lib/api/product-acq
 import * as api from "@/lib/api/acquisition-plan";
 import {createPlanSchema,ruleMutationSchema,acquisitionRuleSchema,type AcquisitionPlan,type CreatePlan,type RuleTemplate,type RuleMutation} from "@/lib/contracts/acquisition-plan";
 import {isAcquisitionUUID} from "@/lib/contracts/product-acquisition";
+import {productAgentOperationHref} from "@/lib/contracts/product-agent";
 import styles from "./acquisition-plans.module.css";
 
 const modes=[{id:"product",label:"指定商品",field:"1688 商品链接",placeholder:"粘贴 1688 商品链接，支持批量输入，每行一条"},{id:"page",label:"按页采集",field:"1688 页面链接",placeholder:"粘贴公开搜索结果页或店铺商品列表页链接，每行一条"},{id:"keyword",label:"按关键词",field:"采集关键词",placeholder:"输入关键词，支持批量输入，每行一个关键词"}] as const;
@@ -38,7 +39,7 @@ function persist(scope:AcquisitionContext,kind:string,value:unknown):boolean{
  }catch{return false;}
 }
 
-export function AcquisitionPlansPage({scope,initialOpen=false}:{scope:AcquisitionContext;initialOpen?:boolean}){
+export function AcquisitionPlansPage({scope,initialOpen=false,agentKind}:{scope:AcquisitionContext;initialOpen?:boolean;agentKind?:string|null}){
  const [cursor,setCursor]=useState<string>();
  const [plans,setPlans]=useState<AcquisitionPlan[]>([]),[rules,setRules]=useState<RuleTemplate[]>([]);
  const [open,setOpen]=useState(initialOpen),[ruleOpen,setRuleOpen]=useState(false),[loading,setLoading]=useState(true),[canTransfer,setCanTransfer]=useState(false);
@@ -101,9 +102,9 @@ export function AcquisitionPlansPage({scope,initialOpen=false}:{scope:Acquisitio
    {activePlan.failureCode?<p role="status">{messages[activePlan.failureCode]??activePlan.failureCode}</p>:null}
    {activePlan.discoveryFailures.map(f=><p key={f.inputIndex}>第 {f.inputIndex+1} 行：公开来源不可用，未开始商品采集。</p>)}
    {activePlan.preparationIds.map((id,index)=><Button key={id} asChild variant="outline"><Link href={`/workbench/supply/mine/waiting?preparation=${id}`}>查看待适配 {index+1}</Link></Button>)}
-   <div className={styles.itemList}>{activePlan.items.map(i=><div key={i.source}><span className="break-all">{i.source}</span><span>{i.state==="published"?"已保存":i.state==="failed"?"来源失败":i.state==="needs_verification"?"结果待核实":"待采集"}{i.evaluation?` · ${i.evaluation.state==="matched"?"规则通过":i.evaluation.state==="not_matched"?"未通过规则，保留在我的数据":"规则事实不足，保留在我的数据"}`:""}</span>{i.failureCode?<span>{messages[i.failureCode]??i.failureCode}</span>:null}{i.operationId&&i.state==="published"?<Link href={`/workbench/supply/acquisition/operation/${i.operationId}`}>查看商品</Link>:null}</div>)}</div>
+   <div className={styles.itemList}>{activePlan.items.map(i=><div key={i.source}><span className="break-all">{i.source}</span><span>{i.state==="published"?"已保存":i.state==="failed"?"来源失败":i.state==="needs_verification"?"结果待核实":"待采集"}{i.evaluation?` · ${i.evaluation.state==="matched"?"规则通过":i.evaluation.state==="not_matched"?"未通过规则，保留在我的数据":"规则事实不足，保留在我的数据"}`:""}</span>{i.failureCode?<span>{messages[i.failureCode]??i.failureCode}</span>:null}{i.operationId&&i.state==="published"?<Link href={productAgentOperationHref(i.operationId,agentKind)}>查看商品</Link>:null}</div>)}</div>
   </Card>:null}
-  <Card className="mt-4 space-y-3 p-5"><h2 className="font-semibold">找回单商品采集结果</h2><p className="text-sm text-muted-foreground">已有操作 ID 可直接读取原结果。</p><div className="flex max-w-xl gap-2"><Input aria-label="操作 ID" value={operationID} onChange={e=>setOperationID(e.target.value)}/><Button asChild variant="outline" disabled={!isAcquisitionUUID(operationID)}><Link aria-disabled={!isAcquisitionUUID(operationID)} href={isAcquisitionUUID(operationID)?`/workbench/supply/acquisition/operation/${operationID}`:"#"}>读取</Link></Button></div></Card>
+  <Card className="mt-4 space-y-3 p-5"><h2 className="font-semibold">找回单商品采集结果</h2><p className="text-sm text-muted-foreground">已有操作 ID 可直接读取原结果。</p><div className="flex max-w-xl gap-2"><Input aria-label="操作 ID" value={operationID} onChange={e=>setOperationID(e.target.value)}/><Button asChild variant="outline" disabled={!isAcquisitionUUID(operationID)}><Link aria-disabled={!isAcquisitionUUID(operationID)} href={isAcquisitionUUID(operationID)?productAgentOperationHref(operationID,agentKind):"#"}>读取</Link></Button></div></Card>
   {open?<CaptureDialog closeLocked={busy} rules={rules} canTransfer={canTransfer} disabled={busy||loading||!!pending} error={error} onClose={()=>{if(!busy)setOpen(false);}} onRules={()=>setRuleOpen(true)} onSubmit={input=>void submit(input)}/>:null}
   {ruleOpen?<RuleDialog scope={scope} rules={rules} onRules={setRules} onClose={()=>setRuleOpen(false)}/>:null}
  </ConsolePage>;

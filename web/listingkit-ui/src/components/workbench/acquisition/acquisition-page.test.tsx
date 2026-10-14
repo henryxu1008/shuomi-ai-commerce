@@ -4,9 +4,9 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { AcquisitionAPIError, type AcquisitionOperation } from "@/lib/api/product-acquisition";
 import { AcquisitionPage } from "./acquisition-page";
 
-const calls = vi.hoisted(() => ({ acquire: vi.fn(), verify: vi.fn(), read: vi.fn(), readProduct: vi.fn(), context: {} as Record<string, unknown>, push: vi.fn() }));
+const calls = vi.hoisted(() => ({ acquire: vi.fn(), verify: vi.fn(), read: vi.fn(), readProduct: vi.fn(), context: {} as Record<string, unknown>, push: vi.fn(), params: new URLSearchParams() }));
 vi.mock("@/components/providers/workbench-context-provider", () => ({ useWorkbenchContext: () => calls.context }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: calls.push }), useSearchParams: () => new URLSearchParams() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: calls.push }), useSearchParams: () => calls.params }));
 vi.mock("@/lib/api/product-acquisition", async original => ({ ...await original<object>(), acquire1688: calls.acquire, verify1688: calls.verify, readAcquisition: calls.read, readAcquisitionProduct: calls.readProduct }));
 vi.mock("./product-agent-panel", () => ({ ProductAgentPanel: () => null }));
 
@@ -15,6 +15,7 @@ function deferred<T>() { let resolve!: (value: T) => void, reject!: (reason?: un
 function tree() { return <AcquisitionPage />; }
 
 beforeEach(() => {
+  calls.params = new URLSearchParams();
   calls.context = {
     user: { id: "actor-A" },
     effectiveOrganization: { id: "organization-A" },
@@ -29,6 +30,39 @@ beforeEach(() => {
   calls.acquire.mockReset(); calls.verify.mockReset(); calls.read.mockReset(); calls.readProduct.mockReset(); calls.push.mockReset();
 });
 afterEach(cleanup);
+
+it.each(["submit", "verify", "read"])("preserves the selected content operation after published %s", async (action) => {
+  calls.params = new URLSearchParams({ agent_kind: "content" });
+  const published = { outcome: "published", operationId: operationID, productKey: "crawler:1688:123" };
+  calls.acquire.mockResolvedValue(published);
+  calls.verify.mockResolvedValue(published);
+  calls.read.mockResolvedValue(published);
+  if (action === "verify") calls.acquire.mockRejectedValueOnce(new AcquisitionAPIError("OUTCOME_UNKNOWN", 503));
+  render(tree());
+  if (action === "read") {
+    await userEvent.type(screen.getByLabelText("操作 ID"), operationID);
+    await userEvent.click(screen.getByRole("button", { name: "读取" }));
+  } else {
+    await userEvent.type(screen.getByLabelText("1688 商品页或 offer ID"), "123");
+    await userEvent.click(screen.getByRole("button", { name: "提交采集" }));
+    if (action === "verify") {
+      await screen.findByRole("alert");
+      await userEvent.click(screen.getByRole("button", { name: "使用原 key 核实" }));
+      expect(calls.verify.mock.calls[0][0]).toEqual(calls.acquire.mock.calls[0][0]);
+    }
+  }
+  await waitFor(() => expect(calls.push).toHaveBeenCalledWith(`/workbench/supply/acquisition/operation/${operationID}?agent_kind=content`));
+  expect(calls.push).toHaveBeenCalledOnce();
+});
+
+it("drops an unregistered operation kind instead of forwarding arbitrary navigation metadata", async () => {
+  calls.params = new URLSearchParams({ agent_kind: "unregistered" });
+  calls.acquire.mockResolvedValue({ outcome: "published", operationId: operationID, productKey: "crawler:1688:123" });
+  render(tree());
+  await userEvent.type(screen.getByLabelText("1688 商品页或 offer ID"), "123");
+  await userEvent.click(screen.getByRole("button", { name: "提交采集" }));
+  await waitFor(() => expect(calls.push).toHaveBeenCalledWith(`/workbench/supply/acquisition/operation/${operationID}`));
+});
 
 it("does not expose submission until the browser intent has hydrated", () => {
   calls.context.acquisitionIntentReady = false;

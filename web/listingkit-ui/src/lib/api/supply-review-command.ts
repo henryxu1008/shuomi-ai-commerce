@@ -18,7 +18,7 @@ export async function supplyReviewCommand(intent:SupplyIntent,signal?:AbortSigna
   let valid=p.proposal_id===input.proposalId&&p.owner===intent.userId&&p.input.product_key===input.productKey&&p.input.base_version===input.baseVersion;
   if(intent.route==="review-decision"){
    const decision=productTitleDecisionSchema.parse(input.input);
-   valid=valid&&BigInt(p.revision)===BigInt(decision.expected_revision)+BigInt(1)&&p.state===(decision.action==="accept"?"accepted":decision.action==="reject"?"rejected":"pending")&&(decision.action!=="edit"||p.after===decision.title);
+   valid=valid&&BigInt(p.revision)===BigInt(decision.expected_revision)+BigInt(1)&&p.state===(decision.action==="accept"?"accepted":decision.action==="reject"?"rejected":"pending")&&(decision.action!=="edit"||("content" in decision? p.policy==="product-content-review-v1"&&JSON.stringify(p.content.after)===JSON.stringify(decision.content):p.policy==="title-review-v1"&&p.after===decision.title));
   }else valid=valid&&p.state==="applied"&&p.revision===input.input.expected_revision&&p.apply_receipt?.revision===input.input.expected_revision&&BigInt(p.apply_receipt.product_version)===BigInt(input.baseVersion)+BigInt(1);
   if(!valid)throw new SupplyAPIError("OUTCOME_UNKNOWN",503);
   return p;

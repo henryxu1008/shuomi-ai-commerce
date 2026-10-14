@@ -9,6 +9,8 @@ import { ConsoleState } from "../console/console-page";
 import { TaskCenterLayout } from "./task-center-layout";
 import { TitleReviewPanels } from "./title-review-panels";
 import { TitleReviewControls, TitleReviewDetail, titleReviewStateLabel } from "./title-review-detail";
+import type { ContentValue } from "@/lib/api/product-title-review";
+import { contentSelectionLabel } from "@/lib/contracts/content-selection";
 
 const queryPolicy = { gcTime: 0, staleTime: 0, retry: false, refetchOnWindowFocus: false, refetchOnReconnect: false, refetchInterval: false } as const;
 const errorCode = (error: unknown) => error instanceof ProductTitleReviewError ? error.code : "DEPENDENCY_UNAVAILABLE";
@@ -50,7 +52,8 @@ function ScopedReviews({ scope, organizationId, userId, roles, permissions, init
   }
   return <TaskCenterLayout pendingReview onRefresh={refresh} refreshDisabled={locked}>
     {accessError ? <ReviewError error={accessError} recover={() => { setAccessError(undefined); refresh(); }} /> : <TitleReviewPanels
-      entries={(response.data?.items ?? []).map((item) => ({ key: item.proposal_id, heading: "调整标准商品标题", caption: item.product_key, statusLabel: titleReviewStateLabel[item.state], accepted: item.state === "accepted", metadata: <span>基线 {item.base_version} · 提案修订 {item.proposal_revision}</span> }))}
+      textContent={response.data?.schema_version === 2}
+      entries={(response.data?.items ?? []).map((item) => ({ key: item.proposal_id, heading: "policy" in item && item.policy === "product-content-review-v1" ? "完善与本地化标准商品内容" : "调整标准商品标题", caption: item.product_key, statusLabel: titleReviewStateLabel[item.state], accepted: item.state === "accepted", metadata: <span>基线 {item.base_version} · 提案修订 {item.proposal_revision}{"content_selection" in item && ` · ${contentSelectionLabel(item.content_selection)}`}</span> }))}
       selectedKey={selected} onSelect={select} onClose={() => select()} busy={locked}
       listState={response.isPending || response.isFetching ? <ConsoleState kind="loading" title="正在读取标题提案">正在校验当前授权范围。</ConsoleState> : response.error ? <ReviewError error={response.error} /> : undefined}
       pagination={<div className="mb-4 flex flex-wrap items-center gap-3 text-xs text-muted-foreground"><span role="status">第 {position.page} 页</span>
@@ -101,9 +104,9 @@ function ProposalSession({ proposalId, organizationId, scope, userId, roles, per
       if (!unknown) operation.current = undefined;
     } finally { if (mounted.current) { writing.current = false; setPending(false); } }
   }
-  function decide(action: "accept" | "edit" | "reject", title?: string) {
+  function decide(action: "accept" | "edit" | "reject", title?: string, content?: ContentValue[]) {
     if (!data || uncertain || writing.current || query.isFetching) return;
-    void submit({ kind: "decision", request: { organizationId, proposalId, idempotencyKey: crypto.randomUUID(), input: action === "edit" ? { action, expected_revision: data.revision, title: title ?? "" } : { action, expected_revision: data.revision } } });
+    void submit({ kind: "decision", request: { organizationId, proposalId, idempotencyKey: crypto.randomUUID(), input: action === "edit" ? data.policy === "product-content-review-v1" ? {action,expected_revision:data.revision,content:content??[]} : { action, expected_revision: data.revision, title: title ?? "" } : { action, expected_revision: data.revision } } });
   }
   function apply() {
     if (!data || data.state !== "accepted" || uncertain || writing.current || query.isFetching) return;
