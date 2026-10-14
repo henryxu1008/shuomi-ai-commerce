@@ -72,6 +72,22 @@ func TestSelectionPolicyCannotBorrowAnotherAgentOrExpandCurrentBudget(t *testing
 	require.Error(t, cfg.validate())
 }
 
+func TestSelectionPolicyRequiresTheMandatoryFlowBudget(t *testing.T) {
+	for _, limits := range [][2]int{{1, 2}, {2, 2}, {3, 2}, {4, 1}, {4, 2}} {
+		cfg := agentRuntimeConfig()
+		policy := cfg.ProductAgent.TextPolicies["org"]
+		policy.Profile.PromptVersion, policy.Profile.OutputSchemaVersion = agentconfig.SelectionPromptVersion, agentconfig.SelectionActionVersion
+		cfg.ProductAgent.SelectionTextPolicies = map[string]governed.RoutePolicy{"org": policy}
+		cfg.ProductAgent.TextPolicies = nil
+		cfg.ProductAgent.Steps, cfg.ProductAgent.ModelCalls = limits[0], limits[1]
+		if limits == [2]int{4, 2} {
+			require.NoError(t, cfg.validate())
+		} else {
+			require.Error(t, cfg.validate(), "insufficient mandatory flow budget must fail before serving")
+		}
+	}
+}
+
 func TestSelectionOnlyPolicyDoesNotRequireASecondTitleModel(t *testing.T) {
 	cfg := agentRuntimeConfig()
 	policy := cfg.ProductAgent.TextPolicies["org"]
