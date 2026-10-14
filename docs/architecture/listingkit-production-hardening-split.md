@@ -1,5 +1,7 @@
 # ListingKit production hardening split plan
 
+> **HISTORICAL / SUPERSEDED split-plan evidence (#664).** The old Task-first UI/proxy/test paths below are retired and are not current validation commands or delivery prerequisites. Valid ZITADEL/session/header and runtime behavior remains with its current owner; see the [Legacy Register](../refactoring/legacy-register.md) and [current product authority](../product/final-ui-ia-authority.md). Do not restore the old projection or its fallback/state ownership from this historical plan.
+
 This document records the recommended split for the current ListingKit hardening
 work. It is intended for follow-up PRs or for rewriting the local branch into
 smaller commits before sharing.

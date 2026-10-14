@@ -282,6 +282,13 @@ jobs:
               exit 1
               ;;
           esac
+          # The legacy rollout requires its legacy serving and schema entrypoints.
+          # Current-application artifacts use a private manifest and must not be
+          # installed through the old YAML/shared-database rollout contract.
+          if ! docker run --rm --entrypoint sh "$API_CANDIDATE_IMAGE" -c 'test -x /app/product-listing-api && test -x /app/listingkit-schema-migrate'; then
+            echo "::error::candidate does not implement the legacy API rollout contract; current-application deployment requires its own approved runtime handoff"
+            exit 1
+          fi
           routing_contract="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.listingkit.image-agent-routing" }}' "$API_CANDIDATE_IMAGE")"
           if [[ "$routing_contract" != "image-agent-v3-new-starts-v1" ]]; then
             echo "::error::API candidate is not eligible for production v3 new-run routing; use an image built with the reviewed routing contract"

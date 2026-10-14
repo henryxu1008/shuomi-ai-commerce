@@ -95,12 +95,14 @@ func (a *Application) Stages(ctx context.Context, id, storeID, stage string, q c
 		return out, err
 	}
 	out.BatchTotal = prep.Count
-	merchant, err := a.PublicationStores.RulesMerchant(ctx, scope, storeID, nil)
+	if a.TargetMerchants == nil {
+		return out, record.ErrUnavailable
+	}
+	binding, err := a.TargetMerchants.ReadTargetMerchant(ctx, scope, storeID)
 	if err != nil {
 		return out, err
 	}
-	binding := merchant.Binding()
-	if binding.OrganizationID != scope.OrganizationID || binding.StoreID != storeID || binding.Site != "shein-us" {
+	if !validTargetMerchant(scope, storeID, binding) {
 		return out, record.ErrForbidden
 	}
 	limit := q.Limit

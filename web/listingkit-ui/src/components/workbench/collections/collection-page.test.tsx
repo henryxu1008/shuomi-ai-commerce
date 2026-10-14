@@ -5,7 +5,8 @@ import { CollectionAPIError, type CollectionIntent } from "@/lib/api/product-col
 import { CollectionPage } from "./collection-page";
 import { SupplyAPIError,type SupplyIntent } from "@/lib/api/supply-chain";
 
-const state = vi.hoisted(() => ({ context: {} as Record<string, unknown>, list: vi.fn(), items: vi.fn(), mutate: vi.fn(), read: vi.fn(),readItem:vi.fn(),supplyWrite:vi.fn(),supplyRead:vi.fn() }));
+const state = vi.hoisted(() => ({ context: {} as Record<string, unknown>, list: vi.fn(), items: vi.fn(), mutate: vi.fn(), read: vi.fn(),readItem:vi.fn(),supplyWrite:vi.fn(),supplyRead:vi.fn(),replace:vi.fn() }));
+vi.mock("next/navigation",()=>({useRouter:()=>({replace:state.replace})}));
 vi.mock("@/components/providers/workbench-context-provider", () => ({ useWorkbenchContext: () => state.context }));
 vi.mock("@/lib/api/product-collection", async original => ({ ...await original<object>(), listCollectionBatches: state.list, listCollectionItems:state.items, listOwnProducts:state.items, mutateCollection: state.mutate, readCollectionOperation: state.read,readCollectionItem:state.readItem }));
 vi.mock("@/lib/api/supply-chain",async original=>({...await original<object>(),supplyCommand:state.supplyWrite,readSupplyCommand:state.supplyRead}));
@@ -15,6 +16,7 @@ beforeEach(() => {
   state.list.mockReset().mockResolvedValue({ items: [], total: 0 }); state.mutate.mockReset(); state.read.mockReset();
   state.items.mockReset().mockResolvedValue({ items: [], total: 0 });
   state.readItem.mockReset();
+  state.replace.mockReset();
   state.context.pendingSupplyIntent=null;state.context.supplyIntentReady=true;state.context.setPendingSupplyIntent=(intent:SupplyIntent|null)=>{state.context.pendingSupplyIntent=intent;return true};
   state.supplyWrite.mockReset();state.supplyRead.mockReset();
 });
@@ -32,10 +34,20 @@ it("opens content processing from the exact saved acquisition without mutating t
 it.each(["disabled", "missing use permission", "unbound source"])("does not invent a content processing entry for %s", async variant => {
  const item="550e8400-e29b-41d4-a716-446655440002", batch="550e8400-e29b-41d4-a716-446655440000";
  state.context.permissions=variant==="missing use permission"?["workbench.collection.read"]:["workbench.collection.read","workbench.agent.use","local_agent.write"];
- state.readItem.mockResolvedValue({item:{id:item,batchId:batch,source:{kind:variant==="unbound source"?"own":"acquisition",operationId:variant==="unbound source"?undefined:batch,productKey:"source",version:"1"}},product:{title:"Saved product"}});
+ state.readItem.mockResolvedValue({item:{id:item,batchId:batch,source:{kind:variant==="unbound source"?"manual":"acquisition",operationId:variant==="unbound source"?undefined:batch,productKey:"source",version:"1"}},product:{title:"Saved product"}});
  render(<CollectionPage initialItemId={item} agentAvailable={variant!=="disabled"} />);
  await screen.findByText("Saved product");
  expect(screen.queryByRole("link",{name:"商品内容完善与本地化"})).toBeNull();
+});
+
+it("routes authorized own-product deep links to the standalone detail without showing a modal",async()=>{
+ const item="550e8400-e29b-41d4-a716-446655440002";
+ state.readItem.mockResolvedValue({item:{id:item,source:{kind:"own"}},product:{title:"own product"}});
+ render(<CollectionPage initialItemId={item}/>);
+ expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+ await waitFor(()=>expect(state.replace).toHaveBeenCalledWith(`/workbench/data/mine/own/${item}`));
+ expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+ expect(state.readItem).toHaveBeenCalledWith({userId:"actor-a",organizationId:"org-a"},item,expect.any(AbortSignal));
 });
 
 it("opens the exact saved source through the existing scoped item read",async()=>{

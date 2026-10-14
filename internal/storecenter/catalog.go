@@ -110,14 +110,14 @@ func (c *Catalog) Get(ctx context.Context, org, id string) (CatalogItem, error) 
 	if _, err = c.scoped.Get(ctx, org, id); err != nil {
 		return CatalogItem{}, err
 	}
-	return CatalogItem{Store: *store, Profile: profile, Signals: signal, Attention: classifySignals(signal)}, nil
+	return CatalogItem{Store: *store, Profile: profile, Signals: signal, Attention: classifySignals(store.Platform(), signal)}, nil
 }
 
-func classifySignals(s CatalogSignals) string {
-	if s.Connection == ConnectionStatusDisconnected || s.Connection == ConnectionStatusExpired || s.ProductSync == "failed" || s.ProductSync == "partial" || s.ProductSync == "suspended" || s.OrderSync == "failed" || s.OrderSync == "partial" || s.OrderSync == "suspended" || s.Inventory.Value != nil && *s.Inventory.Value > 0 {
+func classifySignals(platform Platform, s CatalogSignals) string {
+	if s.Connection == ConnectionStatusDisconnected || s.Connection == ConnectionStatusExpired || s.ProductSync == "failed" || s.ProductSync == "partial" || s.ProductSync == "suspended" || platform == PlatformShein && (s.OrderSync == "failed" || s.OrderSync == "partial" || s.OrderSync == "suspended") || s.Inventory.Value != nil && *s.Inventory.Value > 0 {
 		return "attention"
 	}
-	if s.Connection == ConnectionStatusConnected && s.SyncHealthy && s.Products.Complete && s.Orders.Complete && (s.Inventory.Reason == "threshold_not_set" || s.Inventory.Complete) {
+	if s.Connection == ConnectionStatusConnected && s.SyncHealthy && s.Products.Complete && (platform == PlatformTemu || platform == PlatformShein && s.Orders.Complete) && (s.Inventory.Reason == "threshold_not_set" || s.Inventory.Complete) {
 		return "normal"
 	}
 	return "unknown"
@@ -231,7 +231,7 @@ func (c *Catalog) List(ctx context.Context, q CatalogRequest) (CatalogResult, er
 			signal = CatalogSignals{Connection: ConnectionStatusUnavailable, Reason: "summary_unavailable", Products: CatalogMetric{Reason: "summary_unavailable"}, Orders: CatalogMetric{Reason: "summary_unavailable"}, Inventory: CatalogMetric{Reason: "summary_unavailable"}}
 		}
 		item.Signals = signal
-		item.Attention = classifySignals(signal)
+		item.Attention = classifySignals(item.Store.Platform(), signal)
 		if signal.ApplicationType.Valid() {
 			typeSet[signal.ApplicationType] = true
 		}

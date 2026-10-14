@@ -305,7 +305,7 @@ consider the applicable guards, including:
 - `TestListingAdminCompatibilityDoesNotExposeImportTaskUpdateDTO`
 - `TestListingAdminCompatibilityDoesNotExposeImportTaskResponseDTO`
 - `TestListingAdminDispatchEventCompatibilityAliasesStayRetired`
-- `TestListingAdminStorePageResponseAliasStaysRetired`
+- `TestListingAdminLegacyHTTPProjectionIsRetired`
 - `TestListingRuntimeDebugTaskLoaderUsesLocalTaskModel`
 - `TestAppTaskStatusDTOAdapterIsRetired`
 - `TestAmazonTaskStatusUpdatesUseTaskStatusRuntime`

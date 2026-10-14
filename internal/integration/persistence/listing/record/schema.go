@@ -17,14 +17,14 @@ func InstallSchema(db *gorm.DB) error {
 	return db.Exec(`CREATE TABLE IF NOT EXISTS listing_target_records (
  organization_id varchar(128) NOT NULL, actor_id varchar(128) NOT NULL, member_id varchar(128) NOT NULL,
  id uuid NOT NULL, target_id uuid NOT NULL, source_id uuid NOT NULL, store_id uuid NOT NULL,
- site varchar(32) NOT NULL CHECK(site='shein-us'), revision bigint NOT NULL CHECK(revision>0),
+ site varchar(32) NOT NULL CONSTRAINT listing_target_records_sites_v2 CHECK(site IN ('shein-us','temu-supplier','temu-local','tiktokshop-us')), revision bigint NOT NULL CHECK(revision>0),
  input_hash varchar(64) NOT NULL CHECK(length(input_hash)=64), body_hash varchar(64) NOT NULL CHECK(length(body_hash)=64),
  body_json jsonb NOT NULL, created_at timestamptz NOT NULL,
  PRIMARY KEY(organization_id,actor_id,id), UNIQUE(organization_id,actor_id,target_id,id,revision),
  FOREIGN KEY(organization_id,actor_id,source_id) REFERENCES listing_preparation_sources(organization_id,actor_id,id));
 CREATE TABLE IF NOT EXISTS listing_preparation_targets (
  organization_id varchar(128) NOT NULL, actor_id varchar(128) NOT NULL, member_id varchar(128) NOT NULL,
- id uuid NOT NULL, source_id uuid NOT NULL, store_id uuid NOT NULL, site varchar(32) NOT NULL CHECK(site='shein-us'),
+ id uuid NOT NULL, source_id uuid NOT NULL, store_id uuid NOT NULL, site varchar(32) NOT NULL CONSTRAINT listing_preparation_targets_sites_v2 CHECK(site IN ('shein-us','temu-supplier','temu-local','tiktokshop-us')),
  current_record_id uuid NOT NULL, revision bigint NOT NULL CHECK(revision>0),
  PRIMARY KEY(organization_id,actor_id,id), UNIQUE(organization_id,actor_id,source_id,store_id,site),
  FOREIGN KEY(organization_id,actor_id,source_id) REFERENCES listing_preparation_sources(organization_id,actor_id,id),
@@ -68,6 +68,17 @@ func VerifySchema(ctx context.Context, db *gorm.DB) error {
  AND ARRAY(SELECT a.attname::text FROM unnest(c.confkey) WITH ORDINALITY AS k(id,position)
  JOIN pg_attribute a ON a.attrelid=c.confrelid AND a.attnum=k.id ORDER BY k.position)=e.reference_columns))))`).Scan(&ready).Error
 	if err != nil || !ready {
+		return record.ErrUnavailable
+	}
+	var sitesReady bool
+	err = db.WithContext(ctx).Raw(`SELECT count(*)=2 FROM pg_constraint c
+ WHERE ((c.conrelid=to_regclass('listing_target_records') AND c.conname='listing_target_records_sites_v2')
+ OR (c.conrelid=to_regclass('listing_preparation_targets') AND c.conname='listing_preparation_targets_sites_v2'))
+ AND c.contype='c' AND c.convalidated AND NOT c.condeferrable
+ AND position('shein-us' in pg_get_constraintdef(c.oid))>0
+ AND position('temu-supplier' in pg_get_constraintdef(c.oid))>0
+ AND position('temu-local' in pg_get_constraintdef(c.oid))>0 AND position('tiktokshop-us' in pg_get_constraintdef(c.oid))>0`).Scan(&sitesReady).Error
+	if err != nil || !sitesReady {
 		return record.ErrUnavailable
 	}
 	return nil

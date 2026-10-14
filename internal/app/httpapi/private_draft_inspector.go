@@ -10,6 +10,7 @@ import (
 	"task-processor/internal/listing/preparation"
 	record "task-processor/internal/listing/record/target"
 	"task-processor/internal/product/collection"
+	"task-processor/internal/storecenter"
 )
 
 type supplyDraftInspector struct{ app *supplyapp.Application }
@@ -43,7 +44,8 @@ func (r supplyDraftInspector) Inspect(ctx context.Context, scope d.Scope, select
 	if saved.ID != selection.RecordID || saved.Revision != selection.ExpectedRevision {
 		return out, d.ErrRevision
 	}
-	if saved.Merchant.OrganizationID != scope.OrganizationID || saved.Merchant.Site != "shein-us" || saved.Input.SourceID != saved.Source.ID || saved.Input.StoreID != saved.Merchant.StoreID || saved.TargetID != record.TargetIdentity(owner, saved.Source.ID, saved.Input.StoreID) {
+	native := saved.Merchant.Platform == storecenter.PlatformTemu
+	if saved.Merchant.OrganizationID != scope.OrganizationID || (!native && saved.Merchant.Site != "shein-us") || native && (!saved.Merchant.ValidTemuApplication() || saved.Input.Temu == nil || saved.Temu == nil || saved.Input.Temu.Mode != string(saved.Merchant.MerchantMode) || saved.Temu.Mode != saved.Input.Temu.Mode) || saved.Input.SourceID != saved.Source.ID || saved.Input.StoreID != saved.Merchant.StoreID || saved.TargetID != record.TargetIdentity(owner, saved.Source.ID, saved.Input.StoreID) {
 		return out, d.ErrUnavailable
 	}
 	if head {
@@ -57,7 +59,7 @@ func (r supplyDraftInspector) Inspect(ctx context.Context, scope d.Scope, select
 		if e = r.app.StageProjection.RequireUploadReady(ctx, owner, saved); e != nil {
 			return out, draftError(e)
 		}
-		if r.app.PublicationReceipts == nil || r.app.PublicationStores == nil {
+		if r.app.PublicationReceipts == nil || r.app.TargetMerchants == nil {
 			return out, d.ErrUnavailable
 		}
 		published, e := r.app.Publication(ctx, saved.Source.ID, saved.Merchant.StoreID)
@@ -69,23 +71,41 @@ func (r supplyDraftInspector) Inspect(ctx context.Context, scope d.Scope, select
 		}
 	}
 	title := ""
-	for _, name := range saved.Result.Product.Names {
-		if name.Name != "" {
-			title = name.Name
-			break
+	platform := "shein"
+	if native {
+		platform = "temu"
+		if saved.Temu.Local != nil {
+			title = saved.Temu.Local.Basic.Name
+		} else if saved.Temu.Supplier != nil {
+			title = saved.Temu.Supplier.Name
+		} else {
+			return out, d.ErrUnavailable
+		}
+	} else {
+		for _, name := range saved.Result.Product.Names {
+			if name.Name != "" {
+				title = name.Name
+				break
+			}
 		}
 	}
 	runes := []rune(title)
 	if len(runes) > 200 {
 		title = string(runes[:200])
 	}
-	out.DraftBinding = d.DraftBinding{RecordID: saved.ID, Revision: saved.Revision, SourceID: saved.Source.ID, PreparationID: saved.Source.PreparationID, StoreID: saved.Merchant.StoreID, Platform: "shein", Site: saved.Merchant.Site, ProductKey: saved.Source.Source.ProductKey, ProductVersion: strconv.FormatUint(saved.EffectiveVersion, 10), Title: title, RecordHash: collection.Digest(saved), ProductHash: saved.ProductHash, RulesHash: saved.RulesHash, InventoryHash: saved.InventoryHash, SavedAt: saved.CreatedAt}
+	out.DraftBinding = d.DraftBinding{RecordID: saved.ID, Revision: saved.Revision, SourceID: saved.Source.ID, PreparationID: saved.Source.PreparationID, StoreID: saved.Merchant.StoreID, Platform: platform, Site: saved.Merchant.Site, ProductKey: saved.Source.Source.ProductKey, ProductVersion: strconv.FormatUint(saved.EffectiveVersion, 10), Title: title, RecordHash: collection.Digest(saved), ProductHash: saved.ProductHash, RulesHash: saved.RulesHash, InventoryHash: saved.InventoryHash, SavedAt: saved.CreatedAt}
 	out.Issues = []d.DraftIssue{}
 	out.OfflineTrial = saved.Merchant.ApplicationID == "offline-private-draft-trial"
-	for _, issue := range saved.Result.Issues {
-		out.Issues = append(out.Issues, d.DraftIssue{Field: issue.Field, Code: issue.Code, Message: issue.Message})
+	if native {
+		for _, issue := range saved.Temu.Issues {
+			out.Issues = append(out.Issues, d.DraftIssue{Field: issue.Field, Code: issue.Code, Message: issue.Message})
+		}
+	} else {
+		for _, issue := range saved.Result.Issues {
+			out.Issues = append(out.Issues, d.DraftIssue{Field: issue.Field, Code: issue.Code, Message: issue.Message})
+		}
 	}
-	out.ReadyForUpload = saved.Result.ReadyForUpload
+	out.ReadyForUpload = record.PublicationReady(saved)
 	if !d.ValidDraft(out) {
 		return d.DraftSnapshot{}, d.ErrUnavailable
 	}

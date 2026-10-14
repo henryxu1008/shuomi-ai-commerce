@@ -6,10 +6,10 @@ import (
 
 	"gorm.io/gorm"
 
-	"task-processor/internal/listingkit"
+	"task-processor/internal/listingkit/sheinsync"
 )
 
-func (r *GormSheinSyncRepository) SaveSyncJob(ctx context.Context, job *listingkit.SheinSyncJobRecord) error {
+func (r *GormSheinSyncRepository) SaveSyncJob(ctx context.Context, job *sheinsync.SheinSyncJobRecord) error {
 	if job == nil {
 		return nil
 	}
@@ -29,7 +29,7 @@ func (r *GormSheinSyncRepository) SaveSyncJob(ctx context.Context, job *listingk
 	}
 
 	result := r.db.WithContext(ctx).
-		Model(&listingkit.SheinSyncJobRecord{}).
+		Model(&sheinsync.SheinSyncJobRecord{}).
 		Where("id = ?", row.ID).
 		Updates(map[string]any{
 			"tenant_id":         row.TenantID,
@@ -56,9 +56,9 @@ func (r *GormSheinSyncRepository) SaveSyncJob(ctx context.Context, job *listingk
 	return nil
 }
 
-func (r *GormSheinSyncRepository) ListSyncJobs(ctx context.Context, query *listingkit.SheinSyncJobQuery) ([]listingkit.SheinSyncJobRecord, int64, error) {
+func (r *GormSheinSyncRepository) ListSyncJobs(ctx context.Context, query *sheinsync.SheinSyncJobQuery) ([]sheinsync.SheinSyncJobRecord, int64, error) {
 	page, pageSize := sheinSyncJobQueryPage(query)
-	db := r.db.WithContext(ctx).Model(&listingkit.SheinSyncJobRecord{})
+	db := r.db.WithContext(ctx).Model(&sheinsync.SheinSyncJobRecord{})
 	db = applySheinSyncJobFilters(db, query)
 
 	var total int64
@@ -66,7 +66,7 @@ func (r *GormSheinSyncRepository) ListSyncJobs(ctx context.Context, query *listi
 		return nil, 0, err
 	}
 
-	var rows []listingkit.SheinSyncJobRecord
+	var rows []sheinsync.SheinSyncJobRecord
 	if err := db.
 		Order("started_at DESC, id DESC").
 		Offset((page - 1) * pageSize).

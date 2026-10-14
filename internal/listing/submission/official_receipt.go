@@ -8,6 +8,7 @@ import (
 	"task-processor/internal/authidentity"
 	"task-processor/internal/marketplace/shein/goods"
 	model "task-processor/internal/marketplace/shein/model"
+	temugoods "task-processor/internal/marketplace/temu/goods"
 	"task-processor/internal/product/collection"
 	"task-processor/internal/storecenter"
 )
@@ -45,6 +46,9 @@ type OfficialReceipt struct {
 	Binding            storecenter.ProductMerchantBinding `json:"binding"`
 	Product            model.PublishResult                `json:"product,omitempty"`
 	Image              *goods.OfficialImageObservation    `json:"image,omitempty"`
+	TemuProduct        *temugoods.CreatedGoods            `json:"temuProduct,omitempty"`
+	TemuImage          *TemuImageReceipt                  `json:"temuImage,omitempty"`
+	TikTok             *TikTokEffectReceipt               `json:"tiktok,omitempty"`
 	ObservedAt         time.Time                          `json:"observed_at"`
 }
 type OfficialCompletion struct {
@@ -77,7 +81,7 @@ func cloneOfficialReceipt(value OfficialReceipt) (OfficialReceipt, error) {
 func completionBase(owner collection.Scope, binding storecenter.ProductMerchantBinding, attempt ExecutionAttempt, claim ExecutionClaim, payload []byte, action string) (OfficialReceipt, error) {
 	if owner.Validate() != nil || ValidatePersistedExecutionAttempt(attempt) != nil || attempt.Status != ExecutionClaimed || !validExecutionClaim(claim) ||
 		claim.Scope.OrganizationID != owner.OrganizationID || attempt.OrganizationID != owner.OrganizationID || claim.AttemptID != attempt.AttemptID || claim.OwnerID != attempt.ClaimOwnerID || claim.FenceEpoch != attempt.FenceEpoch ||
-		attempt.Target.Platform != "shein" || attempt.Target.StoreID != binding.StoreID || binding.OrganizationID != owner.OrganizationID || binding.Site != "shein-us" || attempt.Action != action ||
+		!validOfficialBindingForTarget(binding, attempt.Target) || binding.OrganizationID != owner.OrganizationID || attempt.Action != action ||
 		attempt.PayloadFingerprint != digestExecutionParts(attempt.Target.Platform, attempt.Target.StoreID, attempt.Target.SubjectID, action, string(payload)) {
 		return OfficialReceipt{}, ErrExecutionEvidenceRequired
 	}
@@ -127,9 +131,18 @@ func sealOfficialCompletion(claim ExecutionClaim, body OfficialReceipt) (Officia
 	return OfficialCompletion{claim: claim, receipt: copied, hash: collection.Digest(copied)}, nil
 }
 func ValidateOfficialReceipt(value OfficialReceipt) error {
-	if !validExecutionAttemptID(value.ID) || value.Owner.Validate() != nil || value.Target.Platform != "shein" || !collection.ValidID(value.Target.StoreID) || !authidentity.IsBoundedIdentifier(value.IntentKey) ||
-		!isExecutionDigest(value.PayloadFingerprint) || !isExecutionDigest(value.ResponseHash) || value.Binding.OrganizationID != value.Owner.OrganizationID || value.Binding.StoreID != value.Target.StoreID || value.Binding.Site != "shein-us" ||
+	if !validExecutionAttemptID(value.ID) || value.Owner.Validate() != nil || !validOfficialBindingForTarget(value.Binding, value.Target) || !collection.ValidID(value.Target.StoreID) || !authidentity.IsBoundedIdentifier(value.IntentKey) ||
+		!isExecutionDigest(value.PayloadFingerprint) || !isExecutionDigest(value.ResponseHash) || value.Binding.OrganizationID != value.Owner.OrganizationID ||
 		value.Binding.StoreVersion < 1 || value.Binding.ConnectionRevision < 1 || !value.Binding.ValidApplication() || !isExecutionDigest(value.Binding.SupplierIdentityHash) || value.Binding.ServiceExpiresAt.IsZero() || value.ObservedAt.IsZero() {
+		return ErrExecutionEvidenceRequired
+	}
+	if value.Target.Platform == "temu" {
+		return validateTemuReceipt(value)
+	}
+	if value.Target.Platform == "tiktokshop" {
+		return validateTikTokReceipt(value)
+	}
+	if value.TikTok != nil || value.TemuImage != nil || value.TemuProduct != nil {
 		return ErrExecutionEvidenceRequired
 	}
 	switch value.Kind {

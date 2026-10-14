@@ -1,5 +1,12 @@
 # ListingKit Owner Reconciliation Design
 
+> **SUPERSEDED — historical migration design.**
+> [PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08](../../product/greenfield-no-legacy-migration.md)
+> cancels the legacy owner-backfill direction. Under #529 the dry-run cmd,
+> its execute mode, dedicated assembly and write API are retired. This document
+> preserves historical rationale and evidence, not permission to run old-data
+> migration. The existing identity-preflight read contract remains unchanged.
+
 ## Goal
 
 为 ListingKit 历史 owner 为空的数据提供一个可审计的收口流程：默认只读生成脱敏报告，只对能由已验证迁移元数据唯一确定的 ZITADEL subject 提供显式、可回滚意识的分批回填；不恢复运行时 legacy user 兼容。

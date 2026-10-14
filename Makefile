@@ -1,7 +1,7 @@
 # Makefile for Task Processor / ListingKit
 .PHONY: all build-all clean test test-fast test-all test-coverage help \
-	build-listing-control-plane build-product-listing-api build-shein build-temu \
-	run-listing-control-plane run-product-listing-api run-shein run-temu lint fmt api-contract-check code-health-audit code-health-verify
+	build-listing-control-plane build-current-application build-shein build-temu \
+	run-listing-control-plane run-current-application run-shein run-temu lint fmt code-health-audit code-health-verify
 
 # 版本信息
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "v1.0.0")
@@ -12,7 +12,7 @@ LDFLAGS := -X main.appVersion=$(VERSION) -X main.buildTime=$(BUILD_TIME)
 BIN_DIR := bin
 
 # 当前维护的测试包
-FAST_TEST_PACKAGES := ./cmd/product-listing-api ./cmd/listing-control-plane ./cmd/shein-listing ./cmd/temu-listing ./internal/app/httpapi ./internal/app/runtime/listingcontrol ./internal/listingkit ./internal/listingadmin ./internal/promptmgmt ./internal/listingsubscription
+FAST_TEST_PACKAGES := ./cmd/current-application ./cmd/listing-control-plane ./cmd/shein-listing ./cmd/temu-listing ./internal/app/httpapi ./internal/app/runtime/listingcontrol ./internal/listingadmin ./internal/promptmgmt ./internal/listingsubscription
 BOUNDARY_TEST_PACKAGES := ./tests/...
 ALL_TEST_PACKAGES := ./cmd/... ./internal/... ./tests/... ./tools/... ./hack/debug/...
 
@@ -25,7 +25,7 @@ help:
 	@echo "使用方法:"
 	@echo "  make build-all                 - 构建当前受维护的服务入口"
 	@echo "  make build-listing-control-plane - 构建 Listing Control Plane"
-	@echo "  make build-product-listing-api - 构建统一 ListingKit API"
+	@echo "  make build-current-application - 构建Current Application"
 	@echo "  make build-shein               - 构建 SHEIN Listing runtime"
 	@echo "  make build-temu                - 构建 TEMU Listing runtime"
 	@echo "  make clean                     - 清理构建文件"
@@ -39,7 +39,7 @@ help:
 all: build-all
 
 # 构建所有当前受维护服务
-build-all: build-listing-control-plane build-product-listing-api build-shein build-temu
+build-all: build-listing-control-plane build-current-application build-shein build-temu
 	@echo "✅ 所有当前受维护服务构建完成"
 
 # Listing Control Plane
@@ -49,12 +49,12 @@ build-listing-control-plane:
 	CGO_ENABLED=0 GOOS=linux go build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/listing-control-plane ./cmd/listing-control-plane
 	@echo "✅ Listing Control Plane 构建完成: $(BIN_DIR)/listing-control-plane"
 
-# 统一 ListingKit API
-build-product-listing-api:
-	@echo "🔨 构建统一 ListingKit API..."
+# Current Application
+build-current-application:
+	@echo "🔨 构建Current Application..."
 	@mkdir -p $(BIN_DIR)
-	CGO_ENABLED=0 GOOS=linux go build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/product-listing-api ./cmd/product-listing-api
-	@echo "✅ 统一 ListingKit API 构建完成: $(BIN_DIR)/product-listing-api"
+	CGO_ENABLED=0 GOOS=linux go build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/current-application ./cmd/current-application
+	@echo "✅ Current Application 构建完成: $(BIN_DIR)/current-application"
 
 # SHEIN Listing runtime
 build-shein:
@@ -107,12 +107,6 @@ fmt:
 	@echo "✨ 格式化代码..."
 	go fmt ./...
 
-# Regenerate the committed OpenAPI TypeScript contract and reject drift. The
-# Node script avoids shell-specific path and mkdir semantics on Windows/macOS/Linux.
-api-contract-check:
-	node scripts/generate-api-contract.mjs
-	git diff --exit-code -- docs/api/listingkit-asset.openapi.yaml web/listingkit-ui/src/lib/api/generated
-
 # Reproducible read-only code-health audit. Reports stay under .local/.
 code-health-audit:
 	pwsh -File scripts/code-health-audit.ps1 -Mode All
@@ -126,10 +120,11 @@ run-listing-control-plane:
 	@echo "🚀 启动 Listing Control Plane..."
 	go run ./cmd/listing-control-plane -config=config/config-dev.yaml -log-level=info
 
-# 本地运行统一 ListingKit API
-run-product-listing-api:
-	@echo "🚀 启动统一 ListingKit API..."
-	go run ./cmd/product-listing-api --config=config/config-dev.yaml --port=8085
+# 本地运行Current Application
+run-current-application:
+	@test -n "$(CURRENT_APPLICATION_CONFIG)" || (echo "Set CURRENT_APPLICATION_CONFIG to an absolute private manifest path"; exit 1)
+	@echo "🚀 启动Current Application..."
+	go run ./cmd/current-application --config="$(CURRENT_APPLICATION_CONFIG)"
 
 # 本地运行 SHEIN Listing runtime
 run-shein:

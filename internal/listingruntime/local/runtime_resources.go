@@ -10,7 +10,7 @@ import (
 
 	"task-processor/internal/core/config"
 	"task-processor/internal/listingadmin"
-	"task-processor/internal/listingkit"
+	"task-processor/internal/listingkit/sheinsync"
 	listingkitstore "task-processor/internal/listingkit/store"
 	platformdatabase "task-processor/internal/platform/database"
 
@@ -32,7 +32,7 @@ type RuntimeResources struct {
 	productImportMappingRepo *listingadmin.GormProductImportMappingRepository
 	productDataRepo          *listingadmin.GormProductDataRepository
 	inventoryRecordRepo      *listingadmin.GormInventoryRecordRepository
-	sheinSyncRepo            listingkit.SheinSyncRepository
+	sheinSyncRepo            sheinsync.SheinSyncRepository
 	rawJSONDataRepo          *listingadmin.GormRawJSONDataRepository
 	importTaskRepo           *listingadmin.GormImportTaskRepository
 
@@ -246,7 +246,7 @@ func (r *RuntimeResources) ProductDataRepository() listingadmin.ProductDataRepos
 	return r.productDataRepo
 }
 
-func (r *RuntimeResources) SheinSyncRepository() listingkit.SheinSyncRepository {
+func (r *RuntimeResources) SheinSyncRepository() sheinsync.SheinSyncRepository {
 	if r == nil {
 		return nil
 	}

@@ -3,8 +3,8 @@ package storecenterapp
 import (
 	"context"
 	"errors"
-	o "task-processor/internal/marketplace/shein/observations"
 	"task-processor/internal/storecenter"
+	o "task-processor/internal/storecenter/observations"
 	"time"
 )
 
@@ -51,15 +51,19 @@ func (a *OfficialObservationAccess) Authorize(ctx context.Context, s storecenter
 	if s.Purpose != storecenter.ObservationPurposeProducts && s.Purpose != storecenter.ObservationPurposeOrders {
 		return nil, o.ErrForbidden
 	}
+	callerCtx, startedAt := ctx, a.now()
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	m, e := a.reader.ReadObservation(ctx, s, store, a.authorization, a.now())
 	if e != nil {
 		return nil, observationError(e)
 	}
-	entry, e := a.applications.resolve(m.Attempt.AppID, m.Attempt.AppVersion)
+	entry, e := a.applications.resolve(m.Attempt.AppID, m.Attempt.AppVersion, m.Platform, m.Attempt.IdentityPartition)
 	if e != nil {
 		return nil, o.ErrConflict
+	}
+	if m.Platform == storecenter.PlatformTemu {
+		return a.authorizeTemuObservation(callerCtx, startedAt, s, store, expected, m, entry)
 	}
 	if _, ok := entry.provider.(OfficialObservationProvider); !ok {
 		return nil, o.ErrUnavailable
@@ -100,11 +104,18 @@ func (h *ObservationHandle) credential(ctx context.Context) (storecenter.Officia
 	if e != nil {
 		return storecenter.OfficialMerchantCredential{}, observationError(e)
 	}
-	entry, e := h.owner.applications.resolve(m.Attempt.AppID, m.Attempt.AppVersion)
+	entry, e := h.owner.applications.resolve(m.Attempt.AppID, m.Attempt.AppVersion, m.Platform, m.Attempt.IdentityPartition)
 	if e != nil || entry.application != h.entry.application || entry.mode != h.entry.mode || m.Connection.AttemptID != h.connectionRef || privateCredentialHash(m) != h.credentialHash {
 		return storecenter.OfficialMerchantCredential{}, o.ErrConflict
 	}
 	k, e := entry.protection.Open(m.Attempt, m.Attempt.KeyID, m.Attempt.Ciphertext)
+	if m.Platform == storecenter.PlatformTemu {
+		binding, valid := verifiedTemuMerchantBinding(h.subject.OrganizationID, h.binding.StoreID, m, k, entry, h.owner.now())
+		if e != nil || !valid || binding != h.binding || ctx.Err() != nil || !h.owner.now().Before(h.expiresAt) {
+			return storecenter.OfficialMerchantCredential{}, o.ErrConflict
+		}
+		return k, nil
+	}
 	if e != nil || !validOfficialMaterial(h.subject.OrganizationID, h.binding.StoreID, m, k, entry, h.owner.now()) || officialMerchantBinding(h.subject.OrganizationID, h.binding.StoreID, m, k, entry.mode) != h.binding {
 		return storecenter.OfficialMerchantCredential{}, o.ErrConflict
 	}
@@ -132,6 +143,9 @@ func observationCall[T any](ctx context.Context, h *ObservationHandle, purpose s
 	return result, nil
 }
 func (h *ObservationHandle) Products(ctx context.Context, page int) (o.ProductPage, error) {
+	if h == nil || h.binding.Platform == storecenter.PlatformTemu {
+		return o.ProductPage{}, o.ErrUnsupported
+	}
 	return observationCall(ctx, h, storecenter.ObservationPurposeProducts, func(ctx context.Context, k storecenter.OfficialMerchantCredential) (o.ProductPage, error) {
 		return h.entry.provider.(OfficialObservationProvider).QueryObservedProducts(ctx, k, page)
 	})

@@ -1,13 +1,29 @@
-# ListingKit Workbench K3S Deployment
+# Legacy ListingKit K3S Deployment Reference
+
+> #29 retires the old Task/API source and default composition. This directory
+> retains the existing deployment/worker/OIDC/RBAC evidence; it is **not an
+> executable deployment guide for the new current-application artifact**.
+> The legacy image-compatibility gate rejects that artifact before rollout.
+> Current startup uses the existing absolute private current-application manifest
+> and [RUN-1](../../../docs/operations/current-application-run1.md). Current
+> worker, schema and canary protection remain; no live installation is performed.
+> The current native SMS callback is `/api/v1/identity/notifications/sms`; the
+> old API callback below is historical and must not be mounted for new callers.
+
 
 This deploys the customer SHEIN Studio workbench as two services:
 
 - `product-listing-api`: Go API on port `8085`.
 - `listingkit-ui`: Next.js UI on port `3000`.
 
-The browser talks to the Next.js UI. The UI proxies normal
-`/api/listing-kits/*` and `/api/sds/*` requests to `product-listing-api`
-through the cluster Service. The sole backend Ingress exception is the signed
+The browser talks to the current Next.js Console. Its existing current BFFs
+use their configured domain origins; the readonly `/api/sds/*` provider BFF
+still uses the API Service. The old `/listing-kits/**` pages and
+`/api/listing-kits/**` Task proxy are retired by #664, together with the old
+login-page-only SHEIN/SDS BFFs. This deployment directory does not prove that
+every current Console capability is mounted or enabled: use the
+[current entrypoint map](../../../docs/development/repository-structure.md#current-entrypoint-map)
+and the relevant current domain runbook. The sole backend Ingress exception is the signed
 ZITADEL SMS webhook at
 `/api/v1/listing-kits/integrations/zitadel/sms`; it is routed directly to the
 API before the UI catch-all.
@@ -407,12 +423,15 @@ automatic `workflow_run` gate. If a manual UI gate is required, supply both
 API attempt. UI tag events build and push only; they never mutate production.
 
 The ListingKit deployment workflow runs the ListingKit schema migration gate
-before the identity preflight. For an environment carrying the reviewed
-system-owned exception set, run the one-shot
-`scripts/listingkit-owner-scope-exceptions.ps1` seeder after that migration and
-before the preflight. The seeder validates the live report fingerprint and
-counts, so an empty or newly changed exception set remains a release blocker;
-the workflow never copies approved exceptions into an unrelated database.
+before the identity preflight. The former owner-scope exception seeder applied
+only to the historical report `648cdfab03c4`; its CLI, wrapper and write path
+are retired under #529 and
+[PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08](../../../docs/product/greenfield-no-legacy-migration.md).
+The current source tree does not offer an old-data reconciliation or seed step.
+Identity preflight still reads the existing exception registry, validates exact
+matches and fails closed on unresolved data or missing/invalid dependencies.
+This source retirement does not seed, erase or alter an existing registry and
+does not change workflow/OIDC/RBAC/canary gates or authorize deployment.
 
 ### Identity preflight release gate
 
@@ -482,7 +501,16 @@ Treat the API and UI as one coordinated release:
 A partial API/UI rollout is not release acceptance. The preflight is
 release-scoped and intentionally absent from the base Kustomization.
 
-### One-time owner reconciliation
+### Historical one-time owner reconciliation (SUPERSEDED)
+
+The following procedure is historical evidence for the cancelled legacy
+owner-migration direction. Both owner-scope commands, their process assembly,
+wrappers and exclusive write APIs have been retired under #529; the commands
+below are unavailable in the current source tree. Do not use this historical
+section as a current preparation step or permission to touch existing data.
+The shared read-only report/metadata/exception checks remain with the existing
+identity-preflight gate; current initialization and backup/recovery paths keep
+their own requirements.
 
 The release preflight is a blocker, not a migration command. For a database
 that has already completed the legacy migration, run the reconciliation tool
@@ -999,24 +1027,20 @@ Recommended production rollout order is owned by **ListingKit API Deploy**:
    gate finish or supply the same `release_gate_run_id` and
    `release_gate_run_attempt`; do not perform either production mutation from a
    workstation or standalone helper.
-4. Create one new ListingKit task and confirm logs contain:
-   - `WorkflowType StandardProductWorkflow`
-   - `WorkflowType PlatformAdaptWorkflow`
+Current UI verification after an authorized rollout:
 
-Manual verification after rollout:
-
-1. Create a new task from `/listing-kits/new`.
-2. Open the task status or workspace page.
-3. Use:
-   - `运行标准商品层`
-   - `运行平台适配层`
-4. Confirm both actions return `200` and produce Temporal workflow log lines.
-
-Important current behavior:
-
-- New tasks automatically run `StandardProductWorkflow`, then auto-chain into `PlatformAdaptWorkflow(platform=all)`.
-- Older tasks without `standard_product_snapshot` are still manually compatible; platform adaptation can rebuild a fallback snapshot from the persisted legacy result.
-- Successful manual reruns are allowed; standard/platform workflows now permit duplicate workflow IDs after a successful prior run.
+- Verify the existing `/api/version` endpoint on the exact released UI artifact.
+  This proves UI serving/version only, not authentication or business acceptance.
+- Use the existing `/workbench` Console and the current domain's documented
+  flow only when its backend, schema, authentication and deployment flags are
+  configured. Missing configuration must remain unavailable/denied; do not
+  use an old Task page as a fallback or a substitute acceptance path.
+- The former create-Task/status/workspace/manual-rerun verification is
+  **SUPERSEDED** by #664 and must not be a rollout prerequisite. The old
+  Task-to-Temporal/fallback behavior is historical backend evidence owned by
+  #29, not a current Console contract. This change does not claim that these
+  backend owners, queues or workers have been retired or that a rollout has
+  been executed.
 
 ## Non-production workstation build/deploy
 

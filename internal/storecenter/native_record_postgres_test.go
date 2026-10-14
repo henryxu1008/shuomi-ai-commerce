@@ -322,6 +322,80 @@ func TestNativeRecordPostgresConcurrencyRollbackAndDeleteReceipt(t *testing.T) {
 		_, err = repo.Get(ctx, "org-a", created.ID())
 		require.ErrorIs(t, err, storecenter.ErrNotFound)
 	}
+	t.Run("TEMU private input and global merchant claim serialize", func(t *testing.T) {
+		app := storecenter.OfficialApplication{AppID: "synthetic-app", Version: "identity-v1", Platform: storecenter.PlatformTemu, IdentityPartition: storecenter.PartitionCN, AuthorizationMethod: storecenter.AuthorizationManualToken, SupportedModes: storecenter.ModesFullyManaged | storecenter.ModesSemiManaged}
+		attempts := make([]storecenter.OfficialConnectionAttempt, 2)
+		for i, org := range []string{"temu-org-a", "temu-org-b"} {
+			candidate, err := storecenter.NewStore(storecenter.CreateStoreInput{ID: uuid.NewString(), OrganizationID: org, ActorSubject: "subject-create", Name: "Synthetic TEMU", Platform: "temu", Region: "CN", CreateIdempotencyKey: uuid.NewString(), OccurredAt: time.Now().UTC()})
+			require.NoError(t, err)
+			stored, _, err := repo.CreateOrReplay(ctx, org, candidate)
+			require.NoError(t, err)
+			app.AppID = "synthetic-app-" + org
+			attempts[i], err = repo.BeginOfficialConnection(ctx, storecenter.OfficialConnectionCommand{OrganizationID: org, StoreID: stored.ID(), AttemptID: uuid.NewString(), ExpectedStoreVersion: stored.Version(), ApplicationID: app.AppID, IdentityPartition: storecenter.PartitionCN}, app, strings.Repeat("a", 64), time.Now().UTC())
+			require.NoError(t, err)
+			start := make(chan struct{})
+			installed := make(chan storecenter.OfficialConnectionAttempt, 2)
+			failures := make(chan error, 2)
+			var workers sync.WaitGroup
+			for _, cipher := range []string{"sealed-first", "sealed-concurrent"} {
+				workers.Go(func() {
+					<-start
+					a, err := repo.InstallOfficialPrivateCredential(ctx, attempts[i], strings.Repeat("b", 64), "synthetic-key", cipher, time.Now().UTC())
+					installed <- a
+					failures <- err
+				})
+			}
+			close(start)
+			workers.Wait()
+			require.NoError(t, <-failures)
+			require.NoError(t, <-failures)
+			first, replay := <-installed, <-installed
+			require.Equal(t, first.Ciphertext, replay.Ciphertext, "one exact sealed input is retained")
+			attempts[i] = first
+		}
+		start := make(chan struct{})
+		outcomes := make(chan error, 2)
+		var workers sync.WaitGroup
+		for i, a := range attempts {
+			workers.Go(func() {
+				<-start
+				mode := storecenter.MerchantFullyManaged
+				if i == 1 {
+					mode = storecenter.MerchantSemiManaged
+				}
+				now := time.Now().UTC()
+				facts := &storecenter.OfficialVerificationFacts{Platform: storecenter.PlatformTemu, IdentityPartition: storecenter.PartitionCN, Namespace: storecenter.MerchantSupplierNamespace, MerchantID: "same-official-pa-identity", Mode: mode, ExpiresAt: now.Add(time.Hour), VerifiedAt: now, Scopes: []string{"bg.glo.goods.add"}, ContractRevision: "synthetic-identity-v1"}
+				_, err := repo.CompleteOfficialConnection(ctx, a, storecenter.ConnectionStatusConnected, storecenter.OfficialStoreInformation{Verification: facts}, now)
+				outcomes <- err
+			})
+		}
+		close(start)
+		workers.Wait()
+		success, conflicts, connected := 0, 0, 0
+		for range 2 {
+			if err := <-outcomes; err == nil {
+				success++
+			} else {
+				require.ErrorIs(t, err, storecenter.ErrAlreadyExists)
+				conflicts++
+			}
+		}
+		for _, a := range attempts {
+			view, err := repo.ReadOfficialConnection(ctx, a.OrganizationID, a.StoreID)
+			require.NoError(t, err)
+			if view.Status == storecenter.ConnectionStatusConnected {
+				connected++
+			} else {
+				require.Empty(t, view.MerchantIdentityHash, "the losing connection cannot retain verified facts")
+			}
+		}
+		var claims int64
+		require.NoError(t, owner.Table("workbench_store_merchant_bindings").Where("platform = ?", "temu").Count(&claims).Error)
+		require.Equal(t, 1, success)
+		require.Equal(t, 1, conflicts)
+		require.Equal(t, 1, connected)
+		require.EqualValues(t, 1, claims)
+	})
 	// Old schema metadata is rejected, never migrated or silently accepted.
 	require.NoError(t, owner.Exec("ALTER TABLE workbench_stores ADD COLUMN quota_allocation_id CHAR(36)").Error)
 	require.Error(t, storecenter.VerifyCurrentSchema(ctx, owner))

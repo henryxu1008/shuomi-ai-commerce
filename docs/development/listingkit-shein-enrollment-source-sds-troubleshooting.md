@@ -1,5 +1,7 @@
 # ListingKit SHEIN 活动报名来源 SDS 排查记录
 
+> **HISTORICAL / SUPERSEDED UI evidence (#664).** 以下保留旧平台页面和旧 Task/SDS fallback 的排查证据，不再是当前 Console 操作、派工或恢复指引。旧页面和专属 BFF 已退休；当前来源、官方店铺和身份行为由各现有 owner 管理，按 [Legacy Register](../refactoring/legacy-register.md) 与 [全新系统基线](../product/greenfield-no-legacy-migration.md) 执行，不能据此恢复跨租户 fallback、旧 ID 映射或旧任务续跑。
+
 这份记录用于排查 `SHEIN 活动报名 -> 成本价维护` 中，来源 POD/SDS 商品信息显示不完整的问题。
 
 本次典型症状是：页面能显示来源 POD/SDS 编码，例如 `XB0610007001`、`XB0608018002`，但标题、价格、发货地等来源商品基础信息为空。

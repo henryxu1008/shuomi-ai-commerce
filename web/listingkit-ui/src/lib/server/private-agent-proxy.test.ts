@@ -32,6 +32,12 @@ it("rejects another actor, wrong report identity and substituted draft reference
   expect((await proxyAgentCustomization(request(`/${id}/reports`),"token","user-a")).status).toBe(502);
   fetch.mockResolvedValue(Response.json(run));
   expect((await proxyAgentCustomization(request(`/${id}/reports/${id}`),"token","user-a")).status).toBe(200);
+  for(const site of ["temu-local","temu-supplier"]){
+   fetch.mockResolvedValue(Response.json({...run,draft:{...run.draft,platform:"temu",site,readyForUpload:false,issues:[{field:"price",code:"price_missing",message:"补充价格"}]}}));
+   expect((await proxyAgentCustomization(request(`/${id}/reports/${id}`),"token","user-a")).status).toBe(200);
+  }
+  fetch.mockResolvedValue(Response.json({...run,draft:{...run.draft,platform:"temu",site:"shein-us"}}));
+  expect((await proxyAgentCustomization(request(`/${id}/reports/${id}`),"token","user-a")).status).toBe(502);
   fetch.mockResolvedValue(Response.json({...run,id:"11111111-1111-4111-8111-111111111111"}));
   expect((await proxyAgentCustomization(request(`/${id}/reports/${id}`),"token","user-a")).status).toBe(502);
   fetch.mockResolvedValue(Response.json({...run,draft:{...run.draft,revision:4}}));

@@ -9,6 +9,7 @@ import (
 	"task-processor/internal/marketplace/shein/goods"
 	model "task-processor/internal/marketplace/shein/model"
 	"task-processor/internal/product/collection"
+	"task-processor/internal/storecenter"
 	"time"
 )
 
@@ -25,14 +26,15 @@ type OperationOptimizer interface {
 	Optimize(context.Context, preparation.Operation, preparation.OperationItem, string) (string, error)
 }
 type OperationActivities struct {
-	Operations *preparation.OperationService
-	Repository preparation.OperationRepository
-	Sources    record.TargetExecutionSourceSelector
-	Products   record.EffectiveTargetProductReader
-	Targets    record.TargetRepository
-	Creator    OperationTargetCreator
-	Uploader   OperationUploader
-	Optimizer  OperationOptimizer
+	Operations      *preparation.OperationService
+	Repository      preparation.OperationRepository
+	Sources         record.TargetExecutionSourceSelector
+	Products        record.EffectiveTargetProductReader
+	TargetMerchants TargetMerchantReader
+	Targets         record.TargetRepository
+	Creator         OperationTargetCreator
+	Uploader        OperationUploader
+	Optimizer       OperationOptimizer
 }
 type OperationPage struct {
 	Items      []preparation.OperationItem `json:"items"`
@@ -117,7 +119,7 @@ func (a *OperationActivities) process(ctx context.Context, in OperationExecution
 		}
 		result.ResultReference = receipt.Record.ID
 		result.Status = preparation.ItemSucceeded
-		if !receipt.Record.Result.ReadyForUpload {
+		if !record.PublicationReady(receipt.Record) {
 			result.Status = preparation.ItemMissing
 			result.Note = "适配资料已保存，请补全必填信息并确认图片"
 		}
@@ -134,6 +136,9 @@ func (a *OperationActivities) process(ctx context.Context, in OperationExecution
 		switch uploaded.Status {
 		case submission.ExecutionSucceeded:
 			result.Status = preparation.ItemSucceeded
+			if uploaded.TikTok != nil && uploaded.TikTok.Publication != nil && uploaded.TikTok.Publication.State == "publication_failed" {
+				result.Status = preparation.ItemFailed
+			}
 		case submission.ExecutionOutcomeUnknown:
 			result.Status = preparation.ItemUnknown
 		default:
@@ -223,6 +228,20 @@ func (a *OperationActivities) adapt(ctx context.Context, op preparation.Operatio
 		input = head.Input
 		input.ExpectedRevision = head.Revision
 	} else if errors.Is(e, record.ErrNotFound) {
+		if a.TargetMerchants == nil {
+			return record.TargetReceipt{}, preparation.ErrUnavailable
+		}
+		merchant, err := a.TargetMerchants.ReadTargetMerchant(ctx, op.Owner, op.Input.StoreID)
+		if err != nil || !validTargetMerchant(op.Owner, op.Input.StoreID, merchant) {
+			return record.TargetReceipt{}, preparation.ErrForbidden
+		}
+		if merchant.Platform == storecenter.PlatformTemu {
+			input.Temu = initialTemuInput(original, merchant)
+			return a.Creator.CreateForExecution(ctx, op.Owner, key, input)
+		}
+		if merchant.Platform == storecenter.PlatformTikTokShop {
+			return record.TargetReceipt{}, record.ErrNotReady
+		}
 		input.Draft.Product.Names = []model.LanguageContent{{Language: "en", Name: original.Snapshot.Title}}
 		input.Draft.Product.Descriptions = []model.LanguageContent{{Language: "en", Name: original.Snapshot.Description}}
 		skc := model.ProductSKC{SKUs: []model.ProductSKU{}}
@@ -238,7 +257,9 @@ func (a *OperationActivities) adapt(ctx context.Context, op preparation.Operatio
 		return record.TargetReceipt{}, e
 	}
 	if op.Input.CategoryID > 0 {
-		input.Draft.Product.CategoryID = op.Input.CategoryID
+		if input.Temu == nil {
+			input.Draft.Product.CategoryID = op.Input.CategoryID
+		}
 	}
 	return a.Creator.CreateForExecution(ctx, op.Owner, key, input)
 }

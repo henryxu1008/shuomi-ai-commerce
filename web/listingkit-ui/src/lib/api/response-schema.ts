@@ -1,6 +1,6 @@
 import type { ZodType } from "zod";
 
-import { ApiError } from "@/lib/api/client";
+import { ApiError } from "@/lib/api/api-error";
 
 export function parseApiResponseShape<T>(
   payload: unknown,

@@ -1,189 +1,64 @@
-# ListingKit UI
+# 硕米 Console
 
-> **Legacy-path engineering README / not product authority.** This directory name is current code reality, not a decision to keep ListingKit as a long-term product. Product UI / IA / navigation / page naming follow [硕米最终 UI / IA Authority](../../docs/product/final-ui-ia-authority.md); current code entrypoints and retirement rules follow [Repository Structure](../../docs/development/repository-structure.md#current-entrypoint-map) and [Legacy Register](../../docs/refactoring/legacy-register.md). Existing pages may remain operational until their approved replacements cut over, but this README must not create new ListingKit product requirements.
+`web/listingkit-ui` 是当前前端应用的工程目录名。产品 UI、导航和页面归属以
+[最终 UI / IA Authority](../../docs/product/final-ui-ia-authority.md) 为准。
+当前事实、授权和副作用由各领域 owner 管理，前端不建立第二事实源。
 
-当前文档入口：
-- [硕米最终 UI / IA Authority](../../docs/product/final-ui-ia-authority.md)
-- [产品文档索引](../../docs/product/README.md)
-- [Repository Structure / Current Entrypoint Map](../../docs/development/repository-structure.md#current-entrypoint-map)
-- [Legacy Register](../../docs/refactoring/legacy-register.md)
+## 启动
 
-下面的 routes、commands 和运行说明用于维护**当前仍存在的旧路径/工程实现**。它们不是目标产品导航，也不表示所有列出的页面仍应长期保留。
-
-Current scope:
-- review workspace: `preview`, `generation-review-session`, `generation-review-preview`, `dispatch`, `action`
-- queue console: `generation-queue`, `resolved_action_summary`, `recovery_summary`
-
-## Setup
-
-1. Enable Corepack and install the dependencies pinned by `pnpm-lock.yaml`:
+在此目录使用 `package.json` / `pnpm-lock.yaml` 固定的依赖：
 
 ```bash
-corepack enable
 pnpm install --frozen-lockfile
-```
-
-2. Copy the environment template:
-
-```bash
-cp .env.example .env.local
-```
-
-3. Point `LISTINGKIT_API_BASE` at the existing Go API.
-
-Default:
-
-```bash
-LISTINGKIT_API_BASE=http://localhost:8080/api/v1/listing-kits
-```
-
-Configure ZITADEL for the ListingKit UI session, proxy identity, and Go API:
-
-```bash
-ZITADEL_ISSUER_URL=https://your-zitadel-instance
-ZITADEL_CLIENT_ID=your_client_id
-ZITADEL_CLIENT_SECRET=your_client_secret
-ZITADEL_REDIRECT_URI=http://localhost:3000/api/auth/callback/zitadel
-ZITADEL_POST_LOGOUT_REDIRECT_URI=http://localhost:3000
-```
-
-The Next.js UI and the Go API must point at the same `ZITADEL_ISSUER_URL`,
-`ZITADEL_CLIENT_ID`, and `ZITADEL_CLIENT_SECRET`. If they differ, the UI can
-finish login successfully while `/api/listing-kits/*` still fails because the
-Go API introspects the forwarded bearer token against a different issuer/client
-pair.
-
-The Next.js proxy verifies the ZITADEL session or bearer token before forwarding
-requests to the ListingKit Go API. For session-authenticated requests it reads
-the access token only from the encrypted server-side Auth.js JWT; browser-visible
-session payloads do not contain access or ID tokens. The verified ZITADEL user
-and resource owner are forwarded as ListingKit identity headers.
-
-The Go API also verifies direct `/api/v1/listing-kits/*` and
-`/api/v1/shein-login/*` bearer-token requests when `ZITADEL_ISSUER_URL` and
-`ZITADEL_CLIENT_ID` are set. ListingKit routes now fail closed when ZITADEL is
-missing or the current session is invalid.
-
-如果要使用 ListingKit 里的 AI 能力，需要先在 ListingKit 设置页为当前租户或用户保存 AI 配置。
-后端不再回退到仓库级别的默认 OpenAI / 图片环境变量。
-
-下面这些旧环境变量说明可以删除，不再作为 ListingKit 的兜底来源：
-
-```bash
-OPENAI_API_KEY=your_api_key
-OPENAI_BASE_URL=https://api.openai.com/v1
-OPENAI_IMAGE_MODEL=gpt-image-1
-OPENAI_API_STYLE=openai
-TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_API_KEY=...
-TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_BASE_URL=...
-TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_API_STYLE=nanobanana
-TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_MODEL=nano-banana-fast
-```
-
-可选的本地演示模式：
-
-```bash
-LISTINGKIT_UI_USE_MOCK=1
-```
-
-SHEIN Studio 草稿、批次、UI 侧 async job 状态和大请求分片 stage 默认写入当前工作目录下的 `.data`。部署到需要保留状态的环境时，显式配置并挂载持久目录：
-
-```bash
-LISTINGKIT_UI_STORAGE_DIR=/var/lib/listingkit-ui
-LISTINGKIT_UI_ASYNC_JOB_TIMEOUT_MS=3600000
-```
-
-该本地 JSON 存储可以缓解刷新和同机重启后的状态丢失；超时未完成的 UI async job 会转为失败，避免一直停在 `running`。多副本部署前仍建议替换成共享数据库或对象存储。
-
-4. Start the app:
-
-```bash
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
-
-## Local Runtime Note
-
-在这套本地联调环境里，如果你发现浏览器打开 `http://localhost:3000`
-后一直刷新，先检查是不是 UI 开发服务本身出了运行态问题，而不是业务代码问题。
-
-这类现象通常表现为：
-
-- 页面路由能打开
-- 但 `/api/version`、`/api/zitadel-auth/session` 等本地 API route 返回 `404`
-- 登录门禁不断重试 session 校验
-- 最终看起来像“页面一直在自动刷新”
-
-建议先快速自检：
-
-```bash
-curl -i http://localhost:3000/api/version
-curl -i http://localhost:3000/api/zitadel-auth/session
-```
-
-预期：
-
-- `/api/version` 返回 `200`
-- `/api/zitadel-auth/session` 在未登录时返回 `401`
-
-如果它们返回 `404`，不要继续使用当前 `next dev` 进程联调。
-这更像是本地 `Next.js` 开发运行态问题，不是 ListingKit 或 SHEIN 业务代码问题。
-
-这时优先改用稳定模式：
+正式构建检查：
 
 ```bash
 pnpm build
-PORT=3000 HOSTNAME=0.0.0.0 node .next/standalone/server.js
 ```
 
-在 Windows PowerShell 下：
+开发时访问 `http://localhost:3000/` 为公开首页；`/workbench` 为当前 Console。
+发布仍使用仓库既有的 standalone 镜像与启动接线；本批不改变部署方式。
+按照已有 [Current Entrypoint Map](../../docs/development/repository-structure.md#current-entrypoint-map)
+及对应领域运行文档配置服务端 origin、ZITADEL/Auth.js 和已开放能力。
+配置与凭据通过本地私密环境提供；本目录没有需要复制的 `.env.example`。
+缺少认证或领域能力配置时保持既有 denied/unavailable 状态。
 
-```powershell
-$env:PORT='3000'
-$env:HOSTNAME='0.0.0.0'
-node .next/standalone/server.js
-```
+## 当前入口
 
-只要 `.env.local` 里的 ZITADEL 配置完整，稳定模式下访问 `/`
-的正常表现应该是跳到 `/login`，而不是无限刷新。
+- `/`：公开产品首页。
+- `/login`、`/invitations/**`：当前身份入口。
+- `/workbench/**`：当前 Console，包括账户、商品来源、内容/图片、业务任务、Review、店铺等已接入路径。
+- `/capture/1688`：现有受保护的浏览器采集接收页。
 
-## Routes
+Figma 中的页面和菜单不表示所有底层能力已经开放；各能力继续遵循现有部署开关、授权与当前 owner 的真实状态。
 
-- `/` task launcher
-- `/listing-kits` task list
-- `/listing-kits/new` generic ListingKit task creation
-- `/listing-kits/shein` SHEIN Studio workflow
-- `/listing-kits/sds` SDS product browser
-- `/listing-kits/settings` ListingKit settings
-- `/listing-kits/[taskId]/status`
-- `/listing-kits/[taskId]/workspace`
-- `/listing-kits/[taskId]/queue`
-- `/listing-kits/canonical-products`
-- `/listing-kits/style-gallery`
-- `/listing-kits/shein/gallery`
-- `/listing-kits/shein/batches/[batchId]`
+## 旧投影退休
 
-## Commands
+Issue #664 物理移除 `/listing-kits/**` 的 Task-first、Workspace、平台孤岛和独立后台页面，
+以及专属组件、hooks、Task client/DTO/generated contracts、旧默认导航壳和
+`/api/listing-kits/**` Task BFF/mock。旧登录页专属的 `/api/shein-login/**`、
+`/api/sds-login/**` BFF 一并退出。旧 URL 不转发、不映射旧 Task、不返回兼容成功。
+
+当前应用、Console、Auth.js/ZITADEL、通用 UI 组件和当前领域路径继续复用。
+SDS 只读 BFF 共用的身份/header 转发行为由 `src/lib/server/upstream-identity.ts`
+承接；当前来源/图片/Review/Store 的事实与执行 owner 未改变。
+后端 root ListingKit、数字租户桥接和其它旧命令仍由 #29/#301/#529 的原范围处理。
+
+这是源码交付说明，不表示保留实例已更新、真实 provider 已验证或用户/生产验收已通过。
+详细决定见 [Legacy Register](../../docs/refactoring/legacy-register.md)。
+
+## 开发检查
 
 ```bash
-pnpm dev
-pnpm lint
 pnpm typecheck
+pnpm lint
 pnpm test
 pnpm test:e2e
 pnpm build
 ```
 
-## Notes
-
-- The UI treats the existing listingkit JSON contracts as the source of truth.
-- The browser talks to the Next.js proxy at `/api/listing-kits`; the proxy forwards to `LISTINGKIT_API_BASE`.
-- The proxy serves built-in mock responses when `LISTINGKIT_UI_USE_MOCK=1`, the task id is `demo-task`, or the task id starts with `mock-`.
-- Conditional reads reuse `delta_token` / `ETag` through the shared API client.
-- Queue row actions currently resolve to `Review`, `Retry`, or `Inspect` from row state.
-- Local file upload now supports both:
-  - `provider=local`: backend writes to local disk
-  - `provider=s3`: backend writes to S3-compatible object storage
-- Object storage setup reference:
-  [D:\code\task-processor\docs\development\listingkit-object-storage.md](D:/code/task-processor/docs/development/listingkit-object-storage.md)
+既有 Auth.js 服务端加密 session/JWT 和受保护 BFF 继续负责凭据传输；
+不在浏览器 session payload 暴露 access/ID token，不接受浏览器伪造身份或企业。

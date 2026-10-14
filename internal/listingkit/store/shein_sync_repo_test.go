@@ -13,15 +13,15 @@ import (
 	"gorm.io/gorm/logger"
 	_ "modernc.org/sqlite"
 
-	"task-processor/internal/listingkit"
+	"task-processor/internal/listingkit/sheinsync"
 )
 
 type sheinSyncRepositoryHarness struct {
 	name           string
-	repo           listingkit.SheinSyncRepository
-	listCandidates func(ctx context.Context, query *listingkit.SheinActivityCandidateQuery) ([]listingkit.SheinActivityCandidateRecord, int64, error)
-	listRuns       func(t *testing.T) []listingkit.SheinActivityEnrollmentRunRecord
-	listItems      func(t *testing.T) []listingkit.SheinActivityEnrollmentItemRecord
+	repo           sheinsync.SheinSyncRepository
+	listCandidates func(ctx context.Context, query *sheinsync.SheinActivityCandidateQuery) ([]sheinsync.SheinActivityCandidateRecord, int64, error)
+	listRuns       func(t *testing.T) []sheinsync.SheinActivityEnrollmentRunRecord
+	listItems      func(t *testing.T) []sheinsync.SheinActivityEnrollmentItemRecord
 }
 
 func TestSheinSyncRepositoryUpsertSyncedProductsByStoreAndSKC(t *testing.T) {
@@ -35,7 +35,7 @@ func TestSheinSyncRepositoryUpsertSyncedProductsByStoreAndSKC(t *testing.T) {
 			ctx := context.Background()
 			now := time.Date(2026, 6, 4, 9, 0, 0, 0, time.UTC)
 
-			first := &listingkit.SheinSyncedProductRecord{
+			first := &sheinsync.SheinSyncedProductRecord{
 				TenantID:      1,
 				StoreID:       101,
 				SKCName:       "skc-1",
@@ -46,7 +46,7 @@ func TestSheinSyncRepositoryUpsertSyncedProductsByStoreAndSKC(t *testing.T) {
 				CreatedAt:     now,
 				UpdatedAt:     now,
 			}
-			second := &listingkit.SheinSyncedProductRecord{
+			second := &sheinsync.SheinSyncedProductRecord{
 				TenantID:      1,
 				StoreID:       101,
 				SKCName:       "skc-1",
@@ -59,14 +59,14 @@ func TestSheinSyncRepositoryUpsertSyncedProductsByStoreAndSKC(t *testing.T) {
 				UpdatedAt:     now.Add(time.Minute),
 			}
 
-			if err := harness.repo.UpsertSyncedProducts(ctx, []*listingkit.SheinSyncedProductRecord{first}); err != nil {
+			if err := harness.repo.UpsertSyncedProducts(ctx, []*sheinsync.SheinSyncedProductRecord{first}); err != nil {
 				t.Fatalf("first upsert: %v", err)
 			}
-			if err := harness.repo.UpsertSyncedProducts(ctx, []*listingkit.SheinSyncedProductRecord{second}); err != nil {
+			if err := harness.repo.UpsertSyncedProducts(ctx, []*sheinsync.SheinSyncedProductRecord{second}); err != nil {
 				t.Fatalf("second upsert: %v", err)
 			}
 
-			items, total, err := harness.repo.ListSyncedProducts(ctx, &listingkit.SheinSyncedProductQuery{
+			items, total, err := harness.repo.ListSyncedProducts(ctx, &sheinsync.SheinSyncedProductQuery{
 				TenantID: 1,
 				StoreID:  101,
 			})
@@ -85,7 +85,7 @@ func TestSheinSyncRepositoryUpsertSyncedProductsByStoreAndSKC(t *testing.T) {
 			if items[0].IsActive {
 				t.Fatalf("is_active = true, want false")
 			}
-			if items[0].CostPriceSource != listingkit.SheinCostPriceSourceAuto {
+			if items[0].CostPriceSource != sheinsync.SheinCostPriceSourceAuto {
 				t.Fatalf("cost price source = %q, want auto", items[0].CostPriceSource)
 			}
 			if items[0].EffectiveCostPrice == nil || *items[0].EffectiveCostPrice != 12.5 {
@@ -107,7 +107,7 @@ func TestSheinSyncRepositoryUpdateSyncedProductInventoryAttributes(t *testing.T)
 			t.Parallel()
 
 			ctx := context.Background()
-			err := harness.repo.UpsertSyncedProducts(ctx, []*listingkit.SheinSyncedProductRecord{{
+			err := harness.repo.UpsertSyncedProducts(ctx, []*sheinsync.SheinSyncedProductRecord{{
 				TenantID:                1,
 				StoreID:                 101,
 				SKCName:                 "skc-1",
@@ -126,7 +126,7 @@ func TestSheinSyncRepositoryUpdateSyncedProductInventoryAttributes(t *testing.T)
 				t.Fatalf("updated count = %d, want 1", count)
 			}
 
-			rows, _, err := harness.repo.ListSyncedProducts(ctx, &listingkit.SheinSyncedProductQuery{TenantID: 1, StoreID: 101, Page: 1, PageSize: 10})
+			rows, _, err := harness.repo.ListSyncedProducts(ctx, &sheinsync.SheinSyncedProductQuery{TenantID: 1, StoreID: 101, Page: 1, PageSize: 10})
 			if err != nil {
 				t.Fatalf("ListSyncedProducts() error = %v", err)
 			}
@@ -148,7 +148,7 @@ func TestSheinSyncRepositoryCountSheinEnrollmentSummary(t *testing.T) {
 			ctx := context.Background()
 			now := time.Date(2026, 6, 4, 9, 0, 0, 0, time.UTC)
 			cost := 12.5
-			if err := harness.repo.UpsertSyncedProducts(ctx, []*listingkit.SheinSyncedProductRecord{
+			if err := harness.repo.UpsertSyncedProducts(ctx, []*sheinsync.SheinSyncedProductRecord{
 				{TenantID: 1, StoreID: 101, SKCName: "skc-costed", AutoCostPrice: &cost, IsActive: true, CreatedAt: now, UpdatedAt: now},
 				{TenantID: 1, StoreID: 101, SKCName: "skc-missing", IsActive: true, CreatedAt: now, UpdatedAt: now},
 				{TenantID: 1, StoreID: 101, SKCName: "skc-inactive", IsActive: false, CreatedAt: now, UpdatedAt: now},
@@ -156,7 +156,7 @@ func TestSheinSyncRepositoryCountSheinEnrollmentSummary(t *testing.T) {
 			}); err != nil {
 				t.Fatalf("seed products: %v", err)
 			}
-			if err := harness.repo.SaveCandidates(ctx, []*listingkit.SheinActivityCandidateRecord{
+			if err := harness.repo.SaveCandidates(ctx, []*sheinsync.SheinActivityCandidateRecord{
 				{
 					TenantID:          1,
 					StoreID:           101,
@@ -164,8 +164,8 @@ func TestSheinSyncRepositoryCountSheinEnrollmentSummary(t *testing.T) {
 					ActivityKey:       "TIME_LIMITED:1:101",
 					SKCName:           "skc-pending",
 					CandidateVersion:  "old",
-					EligibilityStatus: listingkit.SheinCandidateEligibilityStatusEligible,
-					ReviewStatus:      listingkit.SheinCandidateReviewStatusApproved,
+					EligibilityStatus: sheinsync.SheinCandidateEligibilityStatusEligible,
+					ReviewStatus:      sheinsync.SheinCandidateReviewStatusApproved,
 					CreatedAt:         now,
 					UpdatedAt:         now,
 				},
@@ -176,8 +176,8 @@ func TestSheinSyncRepositoryCountSheinEnrollmentSummary(t *testing.T) {
 					ActivityKey:       "TIME_LIMITED:1:101",
 					SKCName:           "skc-pending",
 					CandidateVersion:  "new",
-					EligibilityStatus: listingkit.SheinCandidateEligibilityStatusEligible,
-					ReviewStatus:      listingkit.SheinCandidateReviewStatusPendingReview,
+					EligibilityStatus: sheinsync.SheinCandidateEligibilityStatusEligible,
+					ReviewStatus:      sheinsync.SheinCandidateReviewStatusPendingReview,
 					CreatedAt:         now.Add(time.Minute),
 					UpdatedAt:         now.Add(time.Minute),
 				},
@@ -188,8 +188,8 @@ func TestSheinSyncRepositoryCountSheinEnrollmentSummary(t *testing.T) {
 					ActivityKey:       "TIME_LIMITED:1:101",
 					SKCName:           "skc-ready",
 					CandidateVersion:  "v1",
-					EligibilityStatus: listingkit.SheinCandidateEligibilityStatusEligible,
-					ReviewStatus:      listingkit.SheinCandidateReviewStatusAutoQueued,
+					EligibilityStatus: sheinsync.SheinCandidateEligibilityStatusEligible,
+					ReviewStatus:      sheinsync.SheinCandidateReviewStatusAutoQueued,
 					CreatedAt:         now,
 					UpdatedAt:         now,
 				},
@@ -200,8 +200,8 @@ func TestSheinSyncRepositoryCountSheinEnrollmentSummary(t *testing.T) {
 					ActivityKey:       "TIME_LIMITED:1:101",
 					SKCName:           "skc-not-ready",
 					CandidateVersion:  "v1",
-					EligibilityStatus: listingkit.SheinCandidateEligibilityStatusIneligible,
-					ReviewStatus:      listingkit.SheinCandidateReviewStatusApproved,
+					EligibilityStatus: sheinsync.SheinCandidateEligibilityStatusIneligible,
+					ReviewStatus:      sheinsync.SheinCandidateReviewStatusApproved,
 					CreatedAt:         now,
 					UpdatedAt:         now,
 				},
@@ -212,8 +212,8 @@ func TestSheinSyncRepositoryCountSheinEnrollmentSummary(t *testing.T) {
 					ActivityKey:       "PROMOTION:1:101",
 					SKCName:           "skc-other-activity",
 					CandidateVersion:  "v1",
-					EligibilityStatus: listingkit.SheinCandidateEligibilityStatusEligible,
-					ReviewStatus:      listingkit.SheinCandidateReviewStatusPendingReview,
+					EligibilityStatus: sheinsync.SheinCandidateEligibilityStatusEligible,
+					ReviewStatus:      sheinsync.SheinCandidateReviewStatusPendingReview,
 					CreatedAt:         now,
 					UpdatedAt:         now,
 				},
@@ -251,7 +251,7 @@ func TestGormSheinSyncRepositorySaveCandidatesBatchesUpserts(t *testing.T) {
 
 	repo := NewSheinSyncRepository(db)
 	now := time.Date(2026, 7, 7, 10, 0, 0, 0, time.UTC)
-	records := []*listingkit.SheinActivityCandidateRecord{
+	records := []*sheinsync.SheinActivityCandidateRecord{
 		{
 			TenantID:          1,
 			StoreID:           870,
@@ -259,8 +259,8 @@ func TestGormSheinSyncRepositorySaveCandidatesBatchesUpserts(t *testing.T) {
 			ActivityKey:       "PROMOTION:1:870",
 			SKCName:           "skc-a",
 			CandidateVersion:  "v1",
-			EligibilityStatus: listingkit.SheinCandidateEligibilityStatusEligible,
-			ReviewStatus:      listingkit.SheinCandidateReviewStatusPendingReview,
+			EligibilityStatus: sheinsync.SheinCandidateEligibilityStatusEligible,
+			ReviewStatus:      sheinsync.SheinCandidateReviewStatusPendingReview,
 			CreatedAt:         now,
 			UpdatedAt:         now,
 		},
@@ -271,8 +271,8 @@ func TestGormSheinSyncRepositorySaveCandidatesBatchesUpserts(t *testing.T) {
 			ActivityKey:       "PROMOTION:1:870",
 			SKCName:           "skc-b",
 			CandidateVersion:  "v1",
-			EligibilityStatus: listingkit.SheinCandidateEligibilityStatusEligible,
-			ReviewStatus:      listingkit.SheinCandidateReviewStatusPendingReview,
+			EligibilityStatus: sheinsync.SheinCandidateEligibilityStatusEligible,
+			ReviewStatus:      sheinsync.SheinCandidateReviewStatusPendingReview,
 			CreatedAt:         now,
 			UpdatedAt:         now,
 		},
@@ -283,9 +283,9 @@ func TestGormSheinSyncRepositorySaveCandidatesBatchesUpserts(t *testing.T) {
 			ActivityKey:       "PROMOTION:1:870",
 			SKCName:           "skc-c",
 			CandidateVersion:  "v1",
-			EligibilityStatus: listingkit.SheinCandidateEligibilityStatusIneligible,
+			EligibilityStatus: sheinsync.SheinCandidateEligibilityStatusIneligible,
 			EligibilityReason: "missing effective cost price",
-			ReviewStatus:      listingkit.SheinCandidateReviewStatusPendingReview,
+			ReviewStatus:      sheinsync.SheinCandidateReviewStatusPendingReview,
 			CreatedAt:         now,
 			UpdatedAt:         now,
 		},
@@ -299,8 +299,8 @@ func TestGormSheinSyncRepositorySaveCandidatesBatchesUpserts(t *testing.T) {
 	}
 
 	items, total, err := repo.(interface {
-		ListCandidates(ctx context.Context, query *listingkit.SheinActivityCandidateQuery) ([]listingkit.SheinActivityCandidateRecord, int64, error)
-	}).ListCandidates(context.Background(), &listingkit.SheinActivityCandidateQuery{
+		ListCandidates(ctx context.Context, query *sheinsync.SheinActivityCandidateQuery) ([]sheinsync.SheinActivityCandidateRecord, int64, error)
+	}).ListCandidates(context.Background(), &sheinsync.SheinActivityCandidateQuery{
 		TenantID:     1,
 		StoreID:      870,
 		ActivityType: "PROMOTION",
@@ -327,7 +327,7 @@ func TestSheinSyncRepositoryListSyncedProductsSupportsFilteringAndPagination(t *
 			now := time.Date(2026, 6, 4, 10, 0, 0, 0, time.UTC)
 			activeOnly := true
 
-			records := []*listingkit.SheinSyncedProductRecord{
+			records := []*sheinsync.SheinSyncedProductRecord{
 				{
 					TenantID:    1,
 					StoreID:     101,
@@ -369,7 +369,7 @@ func TestSheinSyncRepositoryListSyncedProductsSupportsFilteringAndPagination(t *
 				t.Fatalf("seed synced products: %v", err)
 			}
 
-			items, total, err := harness.repo.ListSyncedProducts(ctx, &listingkit.SheinSyncedProductQuery{
+			items, total, err := harness.repo.ListSyncedProducts(ctx, &sheinsync.SheinSyncedProductQuery{
 				TenantID: 1,
 				StoreID:  101,
 				IsActive: &activeOnly,
@@ -389,7 +389,7 @@ func TestSheinSyncRepositoryListSyncedProductsSupportsFilteringAndPagination(t *
 				t.Fatalf("page 1 skc = %q, want sku-a", items[0].SKCName)
 			}
 
-			items, total, err = harness.repo.ListSyncedProducts(ctx, &listingkit.SheinSyncedProductQuery{
+			items, total, err = harness.repo.ListSyncedProducts(ctx, &sheinsync.SheinSyncedProductQuery{
 				TenantID: 1,
 				StoreID:  101,
 				IsActive: &activeOnly,
@@ -424,20 +424,20 @@ func TestSheinSyncRepositoryListMethodsHandleNilQueryWithDefaultPagination(t *te
 			startedAt := time.Date(2026, 6, 4, 12, 0, 0, 0, time.UTC)
 
 			for i := 0; i < 25; i++ {
-				record := &listingkit.SheinSyncedProductRecord{
+				record := &sheinsync.SheinSyncedProductRecord{
 					TenantID: 1,
 					StoreID:  int64(100 + i),
 					SKCName:  "skc-" + time.Duration(i).String(),
 					IsActive: true,
 				}
-				if err := harness.repo.UpsertSyncedProducts(ctx, []*listingkit.SheinSyncedProductRecord{record}); err != nil {
+				if err := harness.repo.UpsertSyncedProducts(ctx, []*sheinsync.SheinSyncedProductRecord{record}); err != nil {
 					t.Fatalf("seed synced product %d: %v", i, err)
 				}
-				job := &listingkit.SheinSyncJobRecord{
+				job := &sheinsync.SheinSyncJobRecord{
 					TenantID:    1,
 					StoreID:     int64(100 + i),
-					TriggerMode: listingkit.SheinSyncTriggerModeManual,
-					Status:      listingkit.SheinSyncJobStatusSucceeded,
+					TriggerMode: sheinsync.SheinSyncTriggerModeManual,
+					Status:      sheinsync.SheinSyncJobStatusSucceeded,
 					StartedAt:   sheinTimePtr(startedAt.Add(time.Duration(i) * time.Minute)),
 				}
 				if err := harness.repo.SaveSyncJob(ctx, job); err != nil {
@@ -468,13 +468,13 @@ func TestSheinSyncRepositoryListMethodsHandleNilQueryWithDefaultPagination(t *te
 			}
 
 			for i := 0; i < 25; i++ {
-				run := &listingkit.SheinActivityEnrollmentRunRecord{
+				run := &sheinsync.SheinActivityEnrollmentRunRecord{
 					TenantID:     1,
 					StoreID:      int64(100 + i),
 					ActivityType: "PROMOTION",
 					ActivityKey:  "PROMOTION:1:101",
-					TriggerMode:  listingkit.SheinEnrollmentRunTriggerModeManualConfirmed,
-					Status:       listingkit.SheinEnrollmentRunStatusSucceeded,
+					TriggerMode:  sheinsync.SheinEnrollmentRunTriggerModeManualConfirmed,
+					Status:       sheinsync.SheinEnrollmentRunStatusSucceeded,
 					StartedAt:    sheinTimePtr(startedAt.Add(time.Duration(i) * time.Minute)),
 				}
 				if err := harness.repo.CreateEnrollmentRun(ctx, run); err != nil {
@@ -507,7 +507,7 @@ func TestSheinSyncRepositoryUpsertPreservesCreatedAtWhenUpdateOmitsIt(t *testing
 			ctx := context.Background()
 			createdAt := time.Date(2026, 6, 4, 13, 0, 0, 0, time.UTC)
 
-			first := &listingkit.SheinSyncedProductRecord{
+			first := &sheinsync.SheinSyncedProductRecord{
 				TenantID:    1,
 				StoreID:     101,
 				SKCName:     "skc-created-at",
@@ -516,22 +516,22 @@ func TestSheinSyncRepositoryUpsertPreservesCreatedAtWhenUpdateOmitsIt(t *testing
 				CreatedAt:   createdAt,
 				UpdatedAt:   createdAt,
 			}
-			if err := harness.repo.UpsertSyncedProducts(ctx, []*listingkit.SheinSyncedProductRecord{first}); err != nil {
+			if err := harness.repo.UpsertSyncedProducts(ctx, []*sheinsync.SheinSyncedProductRecord{first}); err != nil {
 				t.Fatalf("first upsert: %v", err)
 			}
 
-			second := &listingkit.SheinSyncedProductRecord{
+			second := &sheinsync.SheinSyncedProductRecord{
 				TenantID:    1,
 				StoreID:     101,
 				SKCName:     "skc-created-at",
 				ShelfStatus: "OFF_SHELF",
 				IsActive:    false,
 			}
-			if err := harness.repo.UpsertSyncedProducts(ctx, []*listingkit.SheinSyncedProductRecord{second}); err != nil {
+			if err := harness.repo.UpsertSyncedProducts(ctx, []*sheinsync.SheinSyncedProductRecord{second}); err != nil {
 				t.Fatalf("second upsert: %v", err)
 			}
 
-			items, total, err := harness.repo.ListSyncedProducts(ctx, &listingkit.SheinSyncedProductQuery{
+			items, total, err := harness.repo.ListSyncedProducts(ctx, &sheinsync.SheinSyncedProductQuery{
 				TenantID: 1,
 				StoreID:  101,
 				SKCName:  "skc-created-at",
@@ -558,18 +558,18 @@ func TestSheinSyncRepositoryUpdateManualCostPriceRecomputesEffectiveCost(t *test
 			t.Parallel()
 
 			ctx := context.Background()
-			record := &listingkit.SheinSyncedProductRecord{
+			record := &sheinsync.SheinSyncedProductRecord{
 				TenantID:      1,
 				StoreID:       101,
 				SKCName:       "skc-cost",
 				AutoCostPrice: float64Ptr(10.5),
 				IsActive:      true,
 			}
-			if err := harness.repo.UpsertSyncedProducts(ctx, []*listingkit.SheinSyncedProductRecord{record}); err != nil {
+			if err := harness.repo.UpsertSyncedProducts(ctx, []*sheinsync.SheinSyncedProductRecord{record}); err != nil {
 				t.Fatalf("seed synced product: %v", err)
 			}
 
-			items, total, err := harness.repo.ListSyncedProducts(ctx, &listingkit.SheinSyncedProductQuery{TenantID: 1, StoreID: 101})
+			items, total, err := harness.repo.ListSyncedProducts(ctx, &sheinsync.SheinSyncedProductQuery{TenantID: 1, StoreID: 101})
 			if err != nil {
 				t.Fatalf("list before update: %v", err)
 			}
@@ -581,7 +581,7 @@ func TestSheinSyncRepositoryUpdateManualCostPriceRecomputesEffectiveCost(t *test
 				t.Fatalf("set manual cost: %v", err)
 			}
 
-			items, total, err = harness.repo.ListSyncedProducts(ctx, &listingkit.SheinSyncedProductQuery{TenantID: 1, StoreID: 101})
+			items, total, err = harness.repo.ListSyncedProducts(ctx, &sheinsync.SheinSyncedProductQuery{TenantID: 1, StoreID: 101})
 			if err != nil {
 				t.Fatalf("list after manual set: %v", err)
 			}
@@ -594,7 +594,7 @@ func TestSheinSyncRepositoryUpdateManualCostPriceRecomputesEffectiveCost(t *test
 			if items[0].EffectiveCostPrice == nil || *items[0].EffectiveCostPrice != 18.8 {
 				t.Fatalf("effective cost = %v, want 18.8", items[0].EffectiveCostPrice)
 			}
-			if items[0].CostPriceSource != listingkit.SheinCostPriceSourceManual {
+			if items[0].CostPriceSource != sheinsync.SheinCostPriceSourceManual {
 				t.Fatalf("cost price source = %q, want manual", items[0].CostPriceSource)
 			}
 
@@ -602,7 +602,7 @@ func TestSheinSyncRepositoryUpdateManualCostPriceRecomputesEffectiveCost(t *test
 				t.Fatalf("clear manual cost: %v", err)
 			}
 
-			items, total, err = harness.repo.ListSyncedProducts(ctx, &listingkit.SheinSyncedProductQuery{TenantID: 1, StoreID: 101})
+			items, total, err = harness.repo.ListSyncedProducts(ctx, &sheinsync.SheinSyncedProductQuery{TenantID: 1, StoreID: 101})
 			if err != nil {
 				t.Fatalf("list after manual clear: %v", err)
 			}
@@ -615,7 +615,7 @@ func TestSheinSyncRepositoryUpdateManualCostPriceRecomputesEffectiveCost(t *test
 			if items[0].EffectiveCostPrice == nil || *items[0].EffectiveCostPrice != 10.5 {
 				t.Fatalf("effective cost = %v, want 10.5", items[0].EffectiveCostPrice)
 			}
-			if items[0].CostPriceSource != listingkit.SheinCostPriceSourceAuto {
+			if items[0].CostPriceSource != sheinsync.SheinCostPriceSourceAuto {
 				t.Fatalf("cost price source = %q, want auto", items[0].CostPriceSource)
 			}
 		})
@@ -631,7 +631,7 @@ func TestSheinSyncRepositoryMarkMissingSyncedProductsInactive(t *testing.T) {
 			t.Parallel()
 
 			ctx := context.Background()
-			if err := harness.repo.UpsertSyncedProducts(ctx, []*listingkit.SheinSyncedProductRecord{
+			if err := harness.repo.UpsertSyncedProducts(ctx, []*sheinsync.SheinSyncedProductRecord{
 				{TenantID: 1, StoreID: 101, SKCName: "keep-active", IsActive: true, ShelfStatus: "ON_SHELF"},
 				{TenantID: 1, StoreID: 101, SKCName: "go-inactive", IsActive: true, ShelfStatus: "ON_SHELF"},
 				{TenantID: 1, StoreID: 202, SKCName: "other-store", IsActive: true, ShelfStatus: "ON_SHELF"},
@@ -643,7 +643,7 @@ func TestSheinSyncRepositoryMarkMissingSyncedProductsInactive(t *testing.T) {
 				t.Fatalf("mark missing inactive: %v", err)
 			}
 
-			items, total, err := harness.repo.ListSyncedProducts(ctx, &listingkit.SheinSyncedProductQuery{TenantID: 1, StoreID: 101})
+			items, total, err := harness.repo.ListSyncedProducts(ctx, &sheinsync.SheinSyncedProductQuery{TenantID: 1, StoreID: 101})
 			if err != nil {
 				t.Fatalf("list target store: %v", err)
 			}
@@ -667,7 +667,7 @@ func TestSheinSyncRepositoryMarkMissingSyncedProductsInactive(t *testing.T) {
 				t.Fatalf("go-inactive shelf_status = %q, want OFF_SHELF", shelfStatusBySKC["go-inactive"])
 			}
 
-			otherStore, total, err := harness.repo.ListSyncedProducts(ctx, &listingkit.SheinSyncedProductQuery{TenantID: 1, StoreID: 202})
+			otherStore, total, err := harness.repo.ListSyncedProducts(ctx, &sheinsync.SheinSyncedProductQuery{TenantID: 1, StoreID: 202})
 			if err != nil {
 				t.Fatalf("list other store: %v", err)
 			}
@@ -690,11 +690,11 @@ func TestSheinSyncRepositorySaveSyncJobAndListHistory(t *testing.T) {
 			startedAt := time.Date(2026, 6, 4, 11, 0, 0, 0, time.UTC)
 			finishedAt := startedAt.Add(2 * time.Minute)
 
-			job := &listingkit.SheinSyncJobRecord{
+			job := &sheinsync.SheinSyncJobRecord{
 				TenantID:     1,
 				StoreID:      101,
-				TriggerMode:  listingkit.SheinSyncTriggerModeManual,
-				Status:       listingkit.SheinSyncJobStatusRunning,
+				TriggerMode:  sheinsync.SheinSyncTriggerModeManual,
+				Status:       sheinsync.SheinSyncJobStatusRunning,
 				StartedAt:    &startedAt,
 				FetchedCount: 3,
 			}
@@ -705,7 +705,7 @@ func TestSheinSyncRepositorySaveSyncJobAndListHistory(t *testing.T) {
 				t.Fatalf("job id = %d, want > 0", job.ID)
 			}
 
-			job.Status = listingkit.SheinSyncJobStatusSucceeded
+			job.Status = sheinsync.SheinSyncJobStatusSucceeded
 			job.FinishedAt = &finishedAt
 			job.InsertedCount = 2
 			job.UpdatedCount = 1
@@ -713,17 +713,17 @@ func TestSheinSyncRepositorySaveSyncJobAndListHistory(t *testing.T) {
 				t.Fatalf("update sync job: %v", err)
 			}
 
-			if err := harness.repo.SaveSyncJob(ctx, &listingkit.SheinSyncJobRecord{
+			if err := harness.repo.SaveSyncJob(ctx, &sheinsync.SheinSyncJobRecord{
 				TenantID:    1,
 				StoreID:     202,
-				TriggerMode: listingkit.SheinSyncTriggerModeSchedule,
-				Status:      listingkit.SheinSyncJobStatusFailed,
+				TriggerMode: sheinsync.SheinSyncTriggerModeSchedule,
+				Status:      sheinsync.SheinSyncJobStatusFailed,
 				StartedAt:   sheinTimePtr(startedAt.Add(time.Hour)),
 			}); err != nil {
 				t.Fatalf("save other store job: %v", err)
 			}
 
-			items, total, err := harness.repo.ListSyncJobs(ctx, &listingkit.SheinSyncJobQuery{
+			items, total, err := harness.repo.ListSyncJobs(ctx, &sheinsync.SheinSyncJobQuery{
 				TenantID: 1,
 				StoreID:  101,
 			})
@@ -733,7 +733,7 @@ func TestSheinSyncRepositorySaveSyncJobAndListHistory(t *testing.T) {
 			if total != 1 || len(items) != 1 {
 				t.Fatalf("jobs = %+v total=%d, want one scoped job", items, total)
 			}
-			if items[0].Status != listingkit.SheinSyncJobStatusSucceeded {
+			if items[0].Status != sheinsync.SheinSyncJobStatusSucceeded {
 				t.Fatalf("job status = %q, want succeeded", items[0].Status)
 			}
 			if items[0].InsertedCount != 2 || items[0].UpdatedCount != 1 {
@@ -754,7 +754,7 @@ func TestSheinSyncRepositorySaveCandidatesAndCreateEnrollmentRun(t *testing.T) {
 			ctx := context.Background()
 			costA := 12.3
 			costB := 18.8
-			if err := harness.repo.SaveCandidates(ctx, []*listingkit.SheinActivityCandidateRecord{
+			if err := harness.repo.SaveCandidates(ctx, []*sheinsync.SheinActivityCandidateRecord{
 				{
 					TenantID:           1,
 					StoreID:            101,
@@ -764,8 +764,8 @@ func TestSheinSyncRepositorySaveCandidatesAndCreateEnrollmentRun(t *testing.T) {
 					SKCName:            "skc-1",
 					CandidateVersion:   "v1",
 					EffectiveCostPrice: &costA,
-					EligibilityStatus:  listingkit.SheinCandidateEligibilityStatusEligible,
-					ReviewStatus:       listingkit.SheinCandidateReviewStatusPendingReview,
+					EligibilityStatus:  sheinsync.SheinCandidateEligibilityStatusEligible,
+					ReviewStatus:       sheinsync.SheinCandidateReviewStatusPendingReview,
 				},
 				{
 					TenantID:           1,
@@ -776,14 +776,14 @@ func TestSheinSyncRepositorySaveCandidatesAndCreateEnrollmentRun(t *testing.T) {
 					SKCName:            "skc-2",
 					CandidateVersion:   "v1",
 					EffectiveCostPrice: &costB,
-					EligibilityStatus:  listingkit.SheinCandidateEligibilityStatusEligible,
-					ReviewStatus:       listingkit.SheinCandidateReviewStatusApproved,
+					EligibilityStatus:  sheinsync.SheinCandidateEligibilityStatusEligible,
+					ReviewStatus:       sheinsync.SheinCandidateReviewStatusApproved,
 				},
 			}); err != nil {
 				t.Fatalf("save candidates: %v", err)
 			}
 
-			if err := harness.repo.SaveCandidates(ctx, []*listingkit.SheinActivityCandidateRecord{
+			if err := harness.repo.SaveCandidates(ctx, []*sheinsync.SheinActivityCandidateRecord{
 				{
 					TenantID:           1,
 					StoreID:            101,
@@ -793,14 +793,14 @@ func TestSheinSyncRepositorySaveCandidatesAndCreateEnrollmentRun(t *testing.T) {
 					SKCName:            "skc-1",
 					CandidateVersion:   "v1",
 					EffectiveCostPrice: &costA,
-					EligibilityStatus:  listingkit.SheinCandidateEligibilityStatusEligible,
-					ReviewStatus:       listingkit.SheinCandidateReviewStatusApproved,
+					EligibilityStatus:  sheinsync.SheinCandidateEligibilityStatusEligible,
+					ReviewStatus:       sheinsync.SheinCandidateReviewStatusApproved,
 				},
 			}); err != nil {
 				t.Fatalf("upsert candidate: %v", err)
 			}
 
-			candidates, total, err := harness.listCandidates(ctx, &listingkit.SheinActivityCandidateQuery{
+			candidates, total, err := harness.listCandidates(ctx, &sheinsync.SheinActivityCandidateQuery{
 				TenantID:     1,
 				StoreID:      101,
 				ActivityType: "PROMOTION",
@@ -818,7 +818,7 @@ func TestSheinSyncRepositorySaveCandidatesAndCreateEnrollmentRun(t *testing.T) {
 				if candidate.TenantID != 1 || candidate.StoreID != 101 {
 					t.Fatalf("candidate scope = (%d,%d), want (1,101)", candidate.TenantID, candidate.StoreID)
 				}
-				if candidate.SKCName == "skc-1" && candidate.ReviewStatus == listingkit.SheinCandidateReviewStatusApproved {
+				if candidate.SKCName == "skc-1" && candidate.ReviewStatus == sheinsync.SheinCandidateReviewStatusApproved {
 					approvedCount++
 				}
 			}
@@ -826,13 +826,13 @@ func TestSheinSyncRepositorySaveCandidatesAndCreateEnrollmentRun(t *testing.T) {
 				t.Fatalf("approved count for skc-1 = %d, want 1 upserted record", approvedCount)
 			}
 
-			run := &listingkit.SheinActivityEnrollmentRunRecord{
+			run := &sheinsync.SheinActivityEnrollmentRunRecord{
 				TenantID:       1,
 				StoreID:        101,
 				ActivityType:   "PROMOTION",
 				ActivityKey:    "PROMO-1",
-				TriggerMode:    listingkit.SheinEnrollmentRunTriggerModeManualConfirmed,
-				Status:         listingkit.SheinEnrollmentRunStatusRunning,
+				TriggerMode:    sheinsync.SheinEnrollmentRunTriggerModeManualConfirmed,
+				Status:         sheinsync.SheinEnrollmentRunStatusRunning,
 				CandidateCount: 2,
 			}
 			if err := harness.repo.CreateEnrollmentRun(ctx, run); err != nil {
@@ -865,22 +865,22 @@ func TestSheinSyncRepositorySaveEnrollmentItemsPreservesRunHistory(t *testing.T)
 			t.Parallel()
 
 			ctx := context.Background()
-			firstRun := &listingkit.SheinActivityEnrollmentRunRecord{
+			firstRun := &sheinsync.SheinActivityEnrollmentRunRecord{
 				TenantID:       1,
 				StoreID:        101,
 				ActivityType:   "PROMOTION",
 				ActivityKey:    "PROMO-1",
-				TriggerMode:    listingkit.SheinEnrollmentRunTriggerModeManualConfirmed,
-				Status:         listingkit.SheinEnrollmentRunStatusSucceeded,
+				TriggerMode:    sheinsync.SheinEnrollmentRunTriggerModeManualConfirmed,
+				Status:         sheinsync.SheinEnrollmentRunStatusSucceeded,
 				CandidateCount: 1,
 			}
-			secondRun := &listingkit.SheinActivityEnrollmentRunRecord{
+			secondRun := &sheinsync.SheinActivityEnrollmentRunRecord{
 				TenantID:       1,
 				StoreID:        101,
 				ActivityType:   "PROMOTION",
 				ActivityKey:    "PROMO-1",
-				TriggerMode:    listingkit.SheinEnrollmentRunTriggerModeManualConfirmed,
-				Status:         listingkit.SheinEnrollmentRunStatusFailed,
+				TriggerMode:    sheinsync.SheinEnrollmentRunTriggerModeManualConfirmed,
+				Status:         sheinsync.SheinEnrollmentRunStatusFailed,
 				CandidateCount: 1,
 			}
 			if err := harness.repo.CreateEnrollmentRun(ctx, firstRun); err != nil {
@@ -891,9 +891,9 @@ func TestSheinSyncRepositorySaveEnrollmentItemsPreservesRunHistory(t *testing.T)
 			}
 
 			saveItems := harness.repo.(interface {
-				SaveEnrollmentItems(ctx context.Context, items []*listingkit.SheinActivityEnrollmentItemRecord) error
+				SaveEnrollmentItems(ctx context.Context, items []*sheinsync.SheinActivityEnrollmentItemRecord) error
 			})
-			if err := saveItems.SaveEnrollmentItems(ctx, []*listingkit.SheinActivityEnrollmentItemRecord{
+			if err := saveItems.SaveEnrollmentItems(ctx, []*sheinsync.SheinActivityEnrollmentItemRecord{
 				{
 					RunID:            firstRun.ID,
 					CandidateID:      1,
@@ -902,7 +902,7 @@ func TestSheinSyncRepositorySaveEnrollmentItemsPreservesRunHistory(t *testing.T)
 					CandidateVersion: "v1",
 					SyncedProductID:  11,
 					SKCName:          "skc-1",
-					Status:           listingkit.SheinEnrollmentItemStatusSucceeded,
+					Status:           sheinsync.SheinEnrollmentItemStatusSucceeded,
 				},
 				{
 					RunID:            secondRun.ID,
@@ -912,7 +912,7 @@ func TestSheinSyncRepositorySaveEnrollmentItemsPreservesRunHistory(t *testing.T)
 					CandidateVersion: "v1",
 					SyncedProductID:  11,
 					SKCName:          "skc-1",
-					Status:           listingkit.SheinEnrollmentItemStatusFailed,
+					Status:           sheinsync.SheinEnrollmentItemStatusFailed,
 				},
 			}); err != nil {
 				t.Fatalf("save enrollment history items: %v", err)
@@ -938,7 +938,7 @@ func TestSheinSyncRepositoryListCandidatesIncludesLatestFailedEnrollmentError(t 
 			t.Parallel()
 
 			ctx := context.Background()
-			if err := harness.repo.SaveCandidates(ctx, []*listingkit.SheinActivityCandidateRecord{
+			if err := harness.repo.SaveCandidates(ctx, []*sheinsync.SheinActivityCandidateRecord{
 				{
 					TenantID:          1,
 					StoreID:           101,
@@ -947,14 +947,14 @@ func TestSheinSyncRepositoryListCandidatesIncludesLatestFailedEnrollmentError(t 
 					ActivityKey:       "PROMO-1",
 					SKCName:           "skc-failed",
 					CandidateVersion:  "v1",
-					EligibilityStatus: listingkit.SheinCandidateEligibilityStatusEligible,
-					ReviewStatus:      listingkit.SheinCandidateReviewStatusFailed,
+					EligibilityStatus: sheinsync.SheinCandidateEligibilityStatusEligible,
+					ReviewStatus:      sheinsync.SheinCandidateReviewStatusFailed,
 				},
 			}); err != nil {
 				t.Fatalf("seed failed candidate: %v", err)
 			}
 
-			candidates, total, err := harness.listCandidates(ctx, &listingkit.SheinActivityCandidateQuery{
+			candidates, total, err := harness.listCandidates(ctx, &sheinsync.SheinActivityCandidateQuery{
 				TenantID:     1,
 				StoreID:      101,
 				ActivityType: "PROMOTION",
@@ -969,21 +969,21 @@ func TestSheinSyncRepositoryListCandidatesIncludesLatestFailedEnrollmentError(t 
 			}
 			candidateID := candidates[0].ID
 
-			firstRun := &listingkit.SheinActivityEnrollmentRunRecord{
+			firstRun := &sheinsync.SheinActivityEnrollmentRunRecord{
 				TenantID:     1,
 				StoreID:      101,
 				ActivityType: "PROMOTION",
 				ActivityKey:  "PROMO-1",
-				TriggerMode:  listingkit.SheinEnrollmentRunTriggerModeManualConfirmed,
-				Status:       listingkit.SheinEnrollmentRunStatusFailed,
+				TriggerMode:  sheinsync.SheinEnrollmentRunTriggerModeManualConfirmed,
+				Status:       sheinsync.SheinEnrollmentRunStatusFailed,
 			}
-			secondRun := &listingkit.SheinActivityEnrollmentRunRecord{
+			secondRun := &sheinsync.SheinActivityEnrollmentRunRecord{
 				TenantID:     1,
 				StoreID:      101,
 				ActivityType: "PROMOTION",
 				ActivityKey:  "PROMO-1",
-				TriggerMode:  listingkit.SheinEnrollmentRunTriggerModeManualConfirmed,
-				Status:       listingkit.SheinEnrollmentRunStatusFailed,
+				TriggerMode:  sheinsync.SheinEnrollmentRunTriggerModeManualConfirmed,
+				Status:       sheinsync.SheinEnrollmentRunStatusFailed,
 			}
 			if err := harness.repo.CreateEnrollmentRun(ctx, firstRun); err != nil {
 				t.Fatalf("create first run: %v", err)
@@ -992,9 +992,9 @@ func TestSheinSyncRepositoryListCandidatesIncludesLatestFailedEnrollmentError(t 
 				t.Fatalf("create second run: %v", err)
 			}
 			saveItems := harness.repo.(interface {
-				SaveEnrollmentItems(ctx context.Context, items []*listingkit.SheinActivityEnrollmentItemRecord) error
+				SaveEnrollmentItems(ctx context.Context, items []*sheinsync.SheinActivityEnrollmentItemRecord) error
 			})
-			if err := saveItems.SaveEnrollmentItems(ctx, []*listingkit.SheinActivityEnrollmentItemRecord{
+			if err := saveItems.SaveEnrollmentItems(ctx, []*sheinsync.SheinActivityEnrollmentItemRecord{
 				{
 					RunID:            firstRun.ID,
 					CandidateID:      candidateID,
@@ -1003,13 +1003,13 @@ func TestSheinSyncRepositoryListCandidatesIncludesLatestFailedEnrollmentError(t 
 					CandidateVersion: "v1",
 					SyncedProductID:  11,
 					SKCName:          "skc-failed",
-					Status:           listingkit.SheinEnrollmentItemStatusFailed,
+					Status:           sheinsync.SheinEnrollmentItemStatusFailed,
 					ErrorMessage:     "first failure",
 				},
 			}); err != nil {
 				t.Fatalf("save first failed item: %v", err)
 			}
-			if err := saveItems.SaveEnrollmentItems(ctx, []*listingkit.SheinActivityEnrollmentItemRecord{
+			if err := saveItems.SaveEnrollmentItems(ctx, []*sheinsync.SheinActivityEnrollmentItemRecord{
 				{
 					RunID:            secondRun.ID,
 					CandidateID:      candidateID,
@@ -1018,14 +1018,14 @@ func TestSheinSyncRepositoryListCandidatesIncludesLatestFailedEnrollmentError(t 
 					CandidateVersion: "v1",
 					SyncedProductID:  11,
 					SKCName:          "skc-failed",
-					Status:           listingkit.SheinEnrollmentItemStatusFailed,
+					Status:           sheinsync.SheinEnrollmentItemStatusFailed,
 					ErrorMessage:     "latest SHEIN rejection",
 				},
 			}); err != nil {
 				t.Fatalf("save latest failed item: %v", err)
 			}
 
-			candidates, total, err = harness.listCandidates(ctx, &listingkit.SheinActivityCandidateQuery{
+			candidates, total, err = harness.listCandidates(ctx, &sheinsync.SheinActivityCandidateQuery{
 				TenantID:     1,
 				StoreID:      101,
 				ActivityType: "PROMOTION",
@@ -1055,16 +1055,16 @@ func TestSheinSyncRepositoryListEnrollmentRunsSupportsFilteringAndPagination(t *
 
 			ctx := context.Background()
 			startedAt := time.Date(2026, 6, 5, 9, 0, 0, 0, time.UTC)
-			failedStatus := listingkit.SheinEnrollmentRunStatusFailed
+			failedStatus := sheinsync.SheinEnrollmentRunStatusFailed
 
-			seedRuns := []*listingkit.SheinActivityEnrollmentRunRecord{
+			seedRuns := []*sheinsync.SheinActivityEnrollmentRunRecord{
 				{
 					TenantID:     1,
 					StoreID:      101,
 					ActivityType: "PROMOTION",
 					ActivityKey:  "PROMOTION:1:101",
-					TriggerMode:  listingkit.SheinEnrollmentRunTriggerModeManualConfirmed,
-					Status:       listingkit.SheinEnrollmentRunStatusSucceeded,
+					TriggerMode:  sheinsync.SheinEnrollmentRunTriggerModeManualConfirmed,
+					Status:       sheinsync.SheinEnrollmentRunStatusSucceeded,
 					StartedAt:    sheinTimePtr(startedAt),
 				},
 				{
@@ -1072,8 +1072,8 @@ func TestSheinSyncRepositoryListEnrollmentRunsSupportsFilteringAndPagination(t *
 					StoreID:      101,
 					ActivityType: "PROMOTION",
 					ActivityKey:  "PROMOTION:1:101",
-					TriggerMode:  listingkit.SheinEnrollmentRunTriggerModeManualConfirmed,
-					Status:       listingkit.SheinEnrollmentRunStatusFailed,
+					TriggerMode:  sheinsync.SheinEnrollmentRunTriggerModeManualConfirmed,
+					Status:       sheinsync.SheinEnrollmentRunStatusFailed,
 					StartedAt:    sheinTimePtr(startedAt.Add(time.Minute)),
 				},
 				{
@@ -1081,8 +1081,8 @@ func TestSheinSyncRepositoryListEnrollmentRunsSupportsFilteringAndPagination(t *
 					StoreID:      101,
 					ActivityType: "TIME_LIMITED",
 					ActivityKey:  "TIME_LIMITED:1:101",
-					TriggerMode:  listingkit.SheinEnrollmentRunTriggerModeAutoSchedule,
-					Status:       listingkit.SheinEnrollmentRunStatusSucceeded,
+					TriggerMode:  sheinsync.SheinEnrollmentRunTriggerModeAutoSchedule,
+					Status:       sheinsync.SheinEnrollmentRunStatusSucceeded,
 					StartedAt:    sheinTimePtr(startedAt.Add(2 * time.Minute)),
 				},
 				{
@@ -1090,8 +1090,8 @@ func TestSheinSyncRepositoryListEnrollmentRunsSupportsFilteringAndPagination(t *
 					StoreID:      101,
 					ActivityType: "PROMOTION",
 					ActivityKey:  "PROMOTION:2:101",
-					TriggerMode:  listingkit.SheinEnrollmentRunTriggerModeManualConfirmed,
-					Status:       listingkit.SheinEnrollmentRunStatusSucceeded,
+					TriggerMode:  sheinsync.SheinEnrollmentRunTriggerModeManualConfirmed,
+					Status:       sheinsync.SheinEnrollmentRunStatusSucceeded,
 					StartedAt:    sheinTimePtr(startedAt.Add(3 * time.Minute)),
 				},
 			}
@@ -1101,7 +1101,7 @@ func TestSheinSyncRepositoryListEnrollmentRunsSupportsFilteringAndPagination(t *
 				}
 			}
 
-			rows, total, err := harness.repo.ListEnrollmentRuns(ctx, &listingkit.SheinEnrollmentRunQuery{
+			rows, total, err := harness.repo.ListEnrollmentRuns(ctx, &sheinsync.SheinEnrollmentRunQuery{
 				TenantID:     1,
 				StoreID:      101,
 				ActivityType: "PROMOTION",
@@ -1115,11 +1115,11 @@ func TestSheinSyncRepositoryListEnrollmentRunsSupportsFilteringAndPagination(t *
 			if total != 1 || len(rows) != 1 {
 				t.Fatalf("ListEnrollmentRuns(filter) total=%d len=%d, want 1", total, len(rows))
 			}
-			if rows[0].Status != listingkit.SheinEnrollmentRunStatusFailed {
+			if rows[0].Status != sheinsync.SheinEnrollmentRunStatusFailed {
 				t.Fatalf("filtered run status = %q, want failed", rows[0].Status)
 			}
 
-			rows, total, err = harness.repo.ListEnrollmentRuns(ctx, &listingkit.SheinEnrollmentRunQuery{
+			rows, total, err = harness.repo.ListEnrollmentRuns(ctx, &sheinsync.SheinEnrollmentRunQuery{
 				TenantID: 1,
 				StoreID:  101,
 				Page:     1,
@@ -1135,7 +1135,7 @@ func TestSheinSyncRepositoryListEnrollmentRunsSupportsFilteringAndPagination(t *
 				t.Fatalf("page1 first activity_type = %q, want TIME_LIMITED", rows[0].ActivityType)
 			}
 
-			rows, total, err = harness.repo.ListEnrollmentRuns(ctx, &listingkit.SheinEnrollmentRunQuery{
+			rows, total, err = harness.repo.ListEnrollmentRuns(ctx, &sheinsync.SheinEnrollmentRunQuery{
 				TenantID: 1,
 				StoreID:  101,
 				Page:     2,
@@ -1163,21 +1163,21 @@ func TestSheinSyncRepositoryListEnrollmentItemsScopesByRunStoreAndTenant(t *test
 			t.Parallel()
 
 			ctx := context.Background()
-			targetRun := &listingkit.SheinActivityEnrollmentRunRecord{
+			targetRun := &sheinsync.SheinActivityEnrollmentRunRecord{
 				TenantID:     1,
 				StoreID:      101,
 				ActivityType: "PROMOTION",
 				ActivityKey:  "PROMOTION:1:101",
-				TriggerMode:  listingkit.SheinEnrollmentRunTriggerModeManualConfirmed,
-				Status:       listingkit.SheinEnrollmentRunStatusFailed,
+				TriggerMode:  sheinsync.SheinEnrollmentRunTriggerModeManualConfirmed,
+				Status:       sheinsync.SheinEnrollmentRunStatusFailed,
 			}
-			otherStoreRun := &listingkit.SheinActivityEnrollmentRunRecord{
+			otherStoreRun := &sheinsync.SheinActivityEnrollmentRunRecord{
 				TenantID:     1,
 				StoreID:      202,
 				ActivityType: "PROMOTION",
 				ActivityKey:  "PROMOTION:1:202",
-				TriggerMode:  listingkit.SheinEnrollmentRunTriggerModeManualConfirmed,
-				Status:       listingkit.SheinEnrollmentRunStatusFailed,
+				TriggerMode:  sheinsync.SheinEnrollmentRunTriggerModeManualConfirmed,
+				Status:       sheinsync.SheinEnrollmentRunStatusFailed,
 			}
 			if err := harness.repo.CreateEnrollmentRun(ctx, targetRun); err != nil {
 				t.Fatalf("create target run: %v", err)
@@ -1186,7 +1186,7 @@ func TestSheinSyncRepositoryListEnrollmentItemsScopesByRunStoreAndTenant(t *test
 				t.Fatalf("create other store run: %v", err)
 			}
 
-			if err := harness.repo.SaveEnrollmentItems(ctx, []*listingkit.SheinActivityEnrollmentItemRecord{
+			if err := harness.repo.SaveEnrollmentItems(ctx, []*sheinsync.SheinActivityEnrollmentItemRecord{
 				{
 					RunID:           targetRun.ID,
 					CandidateID:     11,
@@ -1194,7 +1194,7 @@ func TestSheinSyncRepositoryListEnrollmentItemsScopesByRunStoreAndTenant(t *test
 					ActivityKey:     "PROMOTION:1:101",
 					SyncedProductID: 111,
 					SKCName:         "sg-target-failed",
-					Status:          listingkit.SheinEnrollmentItemStatusFailed,
+					Status:          sheinsync.SheinEnrollmentItemStatusFailed,
 					ErrorMessage:    "current status can not enroll",
 					RequestPayload:  `{"debug":true}`,
 					ResponsePayload: `{"error":"failed"}`,
@@ -1206,7 +1206,7 @@ func TestSheinSyncRepositoryListEnrollmentItemsScopesByRunStoreAndTenant(t *test
 					ActivityKey:     "PROMOTION:1:101",
 					SyncedProductID: 112,
 					SKCName:         "sg-target-success",
-					Status:          listingkit.SheinEnrollmentItemStatusSucceeded,
+					Status:          sheinsync.SheinEnrollmentItemStatusSucceeded,
 				},
 				{
 					RunID:           otherStoreRun.ID,
@@ -1215,14 +1215,14 @@ func TestSheinSyncRepositoryListEnrollmentItemsScopesByRunStoreAndTenant(t *test
 					ActivityKey:     "PROMOTION:1:202",
 					SyncedProductID: 221,
 					SKCName:         "sg-other-store",
-					Status:          listingkit.SheinEnrollmentItemStatusFailed,
+					Status:          sheinsync.SheinEnrollmentItemStatusFailed,
 					ErrorMessage:    "must not leak",
 				},
 			}); err != nil {
 				t.Fatalf("save enrollment items: %v", err)
 			}
 
-			rows, total, err := harness.repo.ListEnrollmentItems(ctx, &listingkit.SheinEnrollmentItemQuery{
+			rows, total, err := harness.repo.ListEnrollmentItems(ctx, &sheinsync.SheinEnrollmentItemQuery{
 				TenantID:       1,
 				StoreID:        101,
 				RunID:          targetRun.ID,
@@ -1243,7 +1243,7 @@ func TestSheinSyncRepositoryListEnrollmentItemsScopesByRunStoreAndTenant(t *test
 				t.Fatalf("payloads should be hidden by default: %+v", rows[0])
 			}
 
-			rows, total, err = harness.repo.ListEnrollmentItems(ctx, &listingkit.SheinEnrollmentItemQuery{
+			rows, total, err = harness.repo.ListEnrollmentItems(ctx, &sheinsync.SheinEnrollmentItemQuery{
 				TenantID: 1,
 				StoreID:  101,
 				RunID:    otherStoreRun.ID,
@@ -1268,7 +1268,7 @@ func TestSheinSyncRepositoryListCandidatesByIDsAndPersistEnrollmentOutcome(t *te
 			t.Parallel()
 
 			ctx := context.Background()
-			if err := harness.repo.SaveCandidates(ctx, []*listingkit.SheinActivityCandidateRecord{
+			if err := harness.repo.SaveCandidates(ctx, []*sheinsync.SheinActivityCandidateRecord{
 				{
 					TenantID:          1,
 					StoreID:           101,
@@ -1277,8 +1277,8 @@ func TestSheinSyncRepositoryListCandidatesByIDsAndPersistEnrollmentOutcome(t *te
 					ActivityKey:       "PROMO-1",
 					SKCName:           "skc-1",
 					CandidateVersion:  "v1",
-					EligibilityStatus: listingkit.SheinCandidateEligibilityStatusEligible,
-					ReviewStatus:      listingkit.SheinCandidateReviewStatusApproved,
+					EligibilityStatus: sheinsync.SheinCandidateEligibilityStatusEligible,
+					ReviewStatus:      sheinsync.SheinCandidateReviewStatusApproved,
 				},
 				{
 					TenantID:          1,
@@ -1288,14 +1288,14 @@ func TestSheinSyncRepositoryListCandidatesByIDsAndPersistEnrollmentOutcome(t *te
 					ActivityKey:       "PROMO-2",
 					SKCName:           "skc-2",
 					CandidateVersion:  "v1",
-					EligibilityStatus: listingkit.SheinCandidateEligibilityStatusEligible,
-					ReviewStatus:      listingkit.SheinCandidateReviewStatusApproved,
+					EligibilityStatus: sheinsync.SheinCandidateEligibilityStatusEligible,
+					ReviewStatus:      sheinsync.SheinCandidateReviewStatusApproved,
 				},
 			}); err != nil {
 				t.Fatalf("seed candidates: %v", err)
 			}
 
-			items, total, err := harness.listCandidates(ctx, &listingkit.SheinActivityCandidateQuery{
+			items, total, err := harness.listCandidates(ctx, &sheinsync.SheinActivityCandidateQuery{
 				TenantID:     1,
 				StoreID:      101,
 				ActivityType: "PROMOTION",
@@ -1314,13 +1314,13 @@ func TestSheinSyncRepositoryListCandidatesByIDsAndPersistEnrollmentOutcome(t *te
 				t.Fatalf("candidate returned = %+v, want candidate 1 scoped to PROMO-1", items[0])
 			}
 
-			run := &listingkit.SheinActivityEnrollmentRunRecord{
+			run := &sheinsync.SheinActivityEnrollmentRunRecord{
 				TenantID:       1,
 				StoreID:        101,
 				ActivityType:   "PROMOTION",
 				ActivityKey:    "PROMO-1",
-				TriggerMode:    listingkit.SheinEnrollmentRunTriggerModeManualConfirmed,
-				Status:         listingkit.SheinEnrollmentRunStatusRunning,
+				TriggerMode:    sheinsync.SheinEnrollmentRunTriggerModeManualConfirmed,
+				Status:         sheinsync.SheinEnrollmentRunStatusRunning,
 				CandidateCount: 1,
 			}
 			if err := harness.repo.CreateEnrollmentRun(ctx, run); err != nil {
@@ -1328,15 +1328,15 @@ func TestSheinSyncRepositoryListCandidatesByIDsAndPersistEnrollmentOutcome(t *te
 			}
 
 			if err := harness.repo.(interface {
-				UpdateEnrollmentRun(ctx context.Context, run *listingkit.SheinActivityEnrollmentRunRecord) error
-			}).UpdateEnrollmentRun(ctx, &listingkit.SheinActivityEnrollmentRunRecord{
+				UpdateEnrollmentRun(ctx context.Context, run *sheinsync.SheinActivityEnrollmentRunRecord) error
+			}).UpdateEnrollmentRun(ctx, &sheinsync.SheinActivityEnrollmentRunRecord{
 				ID:             run.ID,
 				TenantID:       1,
 				StoreID:        101,
 				ActivityType:   "PROMOTION",
 				ActivityKey:    "PROMO-1",
-				TriggerMode:    listingkit.SheinEnrollmentRunTriggerModeManualConfirmed,
-				Status:         listingkit.SheinEnrollmentRunStatusSucceeded,
+				TriggerMode:    sheinsync.SheinEnrollmentRunTriggerModeManualConfirmed,
+				Status:         sheinsync.SheinEnrollmentRunStatusSucceeded,
 				CandidateCount: 1,
 				SubmittedCount: 1,
 				SucceededCount: 1,
@@ -1347,8 +1347,8 @@ func TestSheinSyncRepositoryListCandidatesByIDsAndPersistEnrollmentOutcome(t *te
 			}
 
 			if err := harness.repo.(interface {
-				SaveEnrollmentItems(ctx context.Context, items []*listingkit.SheinActivityEnrollmentItemRecord) error
-			}).SaveEnrollmentItems(ctx, []*listingkit.SheinActivityEnrollmentItemRecord{
+				SaveEnrollmentItems(ctx context.Context, items []*sheinsync.SheinActivityEnrollmentItemRecord) error
+			}).SaveEnrollmentItems(ctx, []*sheinsync.SheinActivityEnrollmentItemRecord{
 				{
 					RunID:            run.ID,
 					CandidateID:      1,
@@ -1357,7 +1357,7 @@ func TestSheinSyncRepositoryListCandidatesByIDsAndPersistEnrollmentOutcome(t *te
 					CandidateVersion: "v1",
 					SyncedProductID:  11,
 					SKCName:          "skc-1",
-					Status:           listingkit.SheinEnrollmentItemStatusSucceeded,
+					Status:           sheinsync.SheinEnrollmentItemStatusSucceeded,
 					ResponsePayload:  `{"code":"0"}`,
 				},
 			}); err != nil {
@@ -1368,7 +1368,7 @@ func TestSheinSyncRepositoryListCandidatesByIDsAndPersistEnrollmentOutcome(t *te
 			if len(runs) != 1 {
 				t.Fatalf("len(runs) = %d, want 1", len(runs))
 			}
-			if runs[0].Status != listingkit.SheinEnrollmentRunStatusSucceeded {
+			if runs[0].Status != sheinsync.SheinEnrollmentRunStatusSucceeded {
 				t.Fatalf("run status = %q, want succeeded", runs[0].Status)
 			}
 			if runs[0].ActivityKey != "PROMO-1" {
@@ -1395,7 +1395,7 @@ func TestSheinSyncRepositoryListCandidatesSupportsFilteringAndSameVersionUpsert(
 			t.Parallel()
 
 			ctx := context.Background()
-			if err := harness.repo.SaveCandidates(ctx, []*listingkit.SheinActivityCandidateRecord{
+			if err := harness.repo.SaveCandidates(ctx, []*sheinsync.SheinActivityCandidateRecord{
 				{
 					TenantID:          1,
 					StoreID:           101,
@@ -1404,8 +1404,8 @@ func TestSheinSyncRepositoryListCandidatesSupportsFilteringAndSameVersionUpsert(
 					ActivityKey:       "PROMOTION:1:101",
 					SKCName:           "skc-a",
 					CandidateVersion:  "v1",
-					EligibilityStatus: listingkit.SheinCandidateEligibilityStatusEligible,
-					ReviewStatus:      listingkit.SheinCandidateReviewStatusPendingReview,
+					EligibilityStatus: sheinsync.SheinCandidateEligibilityStatusEligible,
+					ReviewStatus:      sheinsync.SheinCandidateReviewStatusPendingReview,
 				},
 				{
 					TenantID:          1,
@@ -1415,8 +1415,8 @@ func TestSheinSyncRepositoryListCandidatesSupportsFilteringAndSameVersionUpsert(
 					ActivityKey:       "PROMOTION:1:101",
 					SKCName:           "skc-b",
 					CandidateVersion:  "v1",
-					EligibilityStatus: listingkit.SheinCandidateEligibilityStatusEligible,
-					ReviewStatus:      listingkit.SheinCandidateReviewStatusPendingReview,
+					EligibilityStatus: sheinsync.SheinCandidateEligibilityStatusEligible,
+					ReviewStatus:      sheinsync.SheinCandidateReviewStatusPendingReview,
 				},
 				{
 					TenantID:          1,
@@ -1426,14 +1426,14 @@ func TestSheinSyncRepositoryListCandidatesSupportsFilteringAndSameVersionUpsert(
 					ActivityKey:       "PROMOTION:1:202",
 					SKCName:           "other-store",
 					CandidateVersion:  "v1",
-					EligibilityStatus: listingkit.SheinCandidateEligibilityStatusEligible,
-					ReviewStatus:      listingkit.SheinCandidateReviewStatusPendingReview,
+					EligibilityStatus: sheinsync.SheinCandidateEligibilityStatusEligible,
+					ReviewStatus:      sheinsync.SheinCandidateReviewStatusPendingReview,
 				},
 			}); err != nil {
 				t.Fatalf("seed candidates: %v", err)
 			}
 
-			if err := harness.repo.SaveCandidates(ctx, []*listingkit.SheinActivityCandidateRecord{
+			if err := harness.repo.SaveCandidates(ctx, []*sheinsync.SheinActivityCandidateRecord{
 				{
 					TenantID:          1,
 					StoreID:           101,
@@ -1442,8 +1442,8 @@ func TestSheinSyncRepositoryListCandidatesSupportsFilteringAndSameVersionUpsert(
 					ActivityKey:       "PROMOTION:1:101",
 					SKCName:           "skc-a",
 					CandidateVersion:  "v1",
-					EligibilityStatus: listingkit.SheinCandidateEligibilityStatusEligible,
-					ReviewStatus:      listingkit.SheinCandidateReviewStatusApproved,
+					EligibilityStatus: sheinsync.SheinCandidateEligibilityStatusEligible,
+					ReviewStatus:      sheinsync.SheinCandidateReviewStatusApproved,
 					AutoModeEligible:  true,
 					SelectedForRun:    true,
 				},
@@ -1451,7 +1451,7 @@ func TestSheinSyncRepositoryListCandidatesSupportsFilteringAndSameVersionUpsert(
 				t.Fatalf("same-version upsert candidate: %v", err)
 			}
 
-			items, total, err := harness.listCandidates(ctx, &listingkit.SheinActivityCandidateQuery{
+			items, total, err := harness.listCandidates(ctx, &sheinsync.SheinActivityCandidateQuery{
 				TenantID:     1,
 				StoreID:      101,
 				ActivityType: "PROMOTION",
@@ -1469,7 +1469,7 @@ func TestSheinSyncRepositoryListCandidatesSupportsFilteringAndSameVersionUpsert(
 				if item.SKCName != "skc-a" {
 					continue
 				}
-				if item.ReviewStatus != listingkit.SheinCandidateReviewStatusApproved {
+				if item.ReviewStatus != sheinsync.SheinCandidateReviewStatusApproved {
 					t.Fatalf("same-version review status = %q, want approved", item.ReviewStatus)
 				}
 				if !item.AutoModeEligible || !item.SelectedForRun {
@@ -1490,7 +1490,7 @@ func TestSheinSyncRepositoryListCandidatesSupportsExecutableFilterAndImage(t *te
 
 			ctx := context.Background()
 			imageURL := "https://example.com/skc-pending.jpg"
-			if err := harness.repo.UpsertSyncedProducts(ctx, []*listingkit.SheinSyncedProductRecord{
+			if err := harness.repo.UpsertSyncedProducts(ctx, []*sheinsync.SheinSyncedProductRecord{
 				{
 					TenantID:     1,
 					StoreID:      101,
@@ -1501,7 +1501,7 @@ func TestSheinSyncRepositoryListCandidatesSupportsExecutableFilterAndImage(t *te
 			}); err != nil {
 				t.Fatalf("seed synced product: %v", err)
 			}
-			products, _, err := harness.repo.ListSyncedProducts(ctx, &listingkit.SheinSyncedProductQuery{
+			products, _, err := harness.repo.ListSyncedProducts(ctx, &sheinsync.SheinSyncedProductQuery{
 				TenantID: 1,
 				StoreID:  101,
 				SKCName:  "skc-pending",
@@ -1515,7 +1515,7 @@ func TestSheinSyncRepositoryListCandidatesSupportsExecutableFilterAndImage(t *te
 				t.Fatalf("synced products = %+v, want one persisted product", products)
 			}
 
-			if err := harness.repo.SaveCandidates(ctx, []*listingkit.SheinActivityCandidateRecord{
+			if err := harness.repo.SaveCandidates(ctx, []*sheinsync.SheinActivityCandidateRecord{
 				{
 					TenantID:          1,
 					StoreID:           101,
@@ -1524,8 +1524,8 @@ func TestSheinSyncRepositoryListCandidatesSupportsExecutableFilterAndImage(t *te
 					ActivityKey:       "PROMOTION:1:101",
 					SKCName:           "skc-pending",
 					CandidateVersion:  "v1",
-					EligibilityStatus: listingkit.SheinCandidateEligibilityStatusEligible,
-					ReviewStatus:      listingkit.SheinCandidateReviewStatusPendingReview,
+					EligibilityStatus: sheinsync.SheinCandidateEligibilityStatusEligible,
+					ReviewStatus:      sheinsync.SheinCandidateReviewStatusPendingReview,
 				},
 				{
 					TenantID:          1,
@@ -1535,8 +1535,8 @@ func TestSheinSyncRepositoryListCandidatesSupportsExecutableFilterAndImage(t *te
 					ActivityKey:       "PROMOTION:1:101",
 					SKCName:           "skc-failed",
 					CandidateVersion:  "v1",
-					EligibilityStatus: listingkit.SheinCandidateEligibilityStatusEligible,
-					ReviewStatus:      listingkit.SheinCandidateReviewStatusFailed,
+					EligibilityStatus: sheinsync.SheinCandidateEligibilityStatusEligible,
+					ReviewStatus:      sheinsync.SheinCandidateReviewStatusFailed,
 				},
 				{
 					TenantID:          1,
@@ -1546,14 +1546,14 @@ func TestSheinSyncRepositoryListCandidatesSupportsExecutableFilterAndImage(t *te
 					ActivityKey:       "PROMOTION:1:101",
 					SKCName:           "skc-ineligible",
 					CandidateVersion:  "v1",
-					EligibilityStatus: listingkit.SheinCandidateEligibilityStatusIneligible,
-					ReviewStatus:      listingkit.SheinCandidateReviewStatusPendingReview,
+					EligibilityStatus: sheinsync.SheinCandidateEligibilityStatusIneligible,
+					ReviewStatus:      sheinsync.SheinCandidateReviewStatusPendingReview,
 				},
 			}); err != nil {
 				t.Fatalf("seed candidates: %v", err)
 			}
 
-			items, total, err := harness.listCandidates(ctx, &listingkit.SheinActivityCandidateQuery{
+			items, total, err := harness.listCandidates(ctx, &sheinsync.SheinActivityCandidateQuery{
 				TenantID:       1,
 				StoreID:        101,
 				ActivityType:   "PROMOTION",
@@ -1586,7 +1586,7 @@ func TestSheinSyncRepositoryKeepsCandidateStatusScopedByActivity(t *testing.T) {
 			t.Parallel()
 
 			ctx := context.Background()
-			if err := harness.repo.SaveCandidates(ctx, []*listingkit.SheinActivityCandidateRecord{
+			if err := harness.repo.SaveCandidates(ctx, []*sheinsync.SheinActivityCandidateRecord{
 				{
 					TenantID:          1,
 					StoreID:           101,
@@ -1595,8 +1595,8 @@ func TestSheinSyncRepositoryKeepsCandidateStatusScopedByActivity(t *testing.T) {
 					ActivityKey:       "PROMOTION:1:101",
 					SKCName:           "shared-skc",
 					CandidateVersion:  "v1",
-					EligibilityStatus: listingkit.SheinCandidateEligibilityStatusEligible,
-					ReviewStatus:      listingkit.SheinCandidateReviewStatusFailed,
+					EligibilityStatus: sheinsync.SheinCandidateEligibilityStatusEligible,
+					ReviewStatus:      sheinsync.SheinCandidateReviewStatusFailed,
 				},
 				{
 					TenantID:          1,
@@ -1606,14 +1606,14 @@ func TestSheinSyncRepositoryKeepsCandidateStatusScopedByActivity(t *testing.T) {
 					ActivityKey:       "TIME_LIMITED:1:101",
 					SKCName:           "shared-skc",
 					CandidateVersion:  "v1",
-					EligibilityStatus: listingkit.SheinCandidateEligibilityStatusEligible,
-					ReviewStatus:      listingkit.SheinCandidateReviewStatusPendingReview,
+					EligibilityStatus: sheinsync.SheinCandidateEligibilityStatusEligible,
+					ReviewStatus:      sheinsync.SheinCandidateReviewStatusPendingReview,
 				},
 			}); err != nil {
 				t.Fatalf("seed candidates: %v", err)
 			}
 
-			promotionCandidates, _, err := harness.listCandidates(ctx, &listingkit.SheinActivityCandidateQuery{
+			promotionCandidates, _, err := harness.listCandidates(ctx, &sheinsync.SheinActivityCandidateQuery{
 				TenantID:     1,
 				StoreID:      101,
 				ActivityType: "PROMOTION",
@@ -1628,19 +1628,19 @@ func TestSheinSyncRepositoryKeepsCandidateStatusScopedByActivity(t *testing.T) {
 			if len(promotionCandidates) != 1 {
 				t.Fatalf("promotion candidates len = %d, want 1", len(promotionCandidates))
 			}
-			run := &listingkit.SheinActivityEnrollmentRunRecord{
+			run := &sheinsync.SheinActivityEnrollmentRunRecord{
 				TenantID:     1,
 				StoreID:      101,
 				ActivityType: "PROMOTION",
 				ActivityKey:  "PROMOTION:1:101",
-				TriggerMode:  listingkit.SheinEnrollmentRunTriggerModeManualConfirmed,
-				Status:       listingkit.SheinEnrollmentRunStatusFailed,
+				TriggerMode:  sheinsync.SheinEnrollmentRunTriggerModeManualConfirmed,
+				Status:       sheinsync.SheinEnrollmentRunStatusFailed,
 				StartedAt:    sheinTimePtr(time.Date(2026, 6, 29, 10, 0, 0, 0, time.UTC)),
 			}
 			if err := harness.repo.CreateEnrollmentRun(ctx, run); err != nil {
 				t.Fatalf("create promotion run: %v", err)
 			}
-			if err := harness.repo.SaveEnrollmentItems(ctx, []*listingkit.SheinActivityEnrollmentItemRecord{
+			if err := harness.repo.SaveEnrollmentItems(ctx, []*sheinsync.SheinActivityEnrollmentItemRecord{
 				{
 					RunID:            run.ID,
 					CandidateID:      promotionCandidates[0].ID,
@@ -1649,14 +1649,14 @@ func TestSheinSyncRepositoryKeepsCandidateStatusScopedByActivity(t *testing.T) {
 					CandidateVersion: "v1",
 					SyncedProductID:  11,
 					SKCName:          "shared-skc",
-					Status:           listingkit.SheinEnrollmentItemStatusFailed,
+					Status:           sheinsync.SheinEnrollmentItemStatusFailed,
 					ErrorMessage:     "promotion failed only",
 				},
 			}); err != nil {
 				t.Fatalf("save promotion failed item: %v", err)
 			}
 
-			executableTimeLimited, total, err := harness.listCandidates(ctx, &listingkit.SheinActivityCandidateQuery{
+			executableTimeLimited, total, err := harness.listCandidates(ctx, &sheinsync.SheinActivityCandidateQuery{
 				TenantID:       1,
 				StoreID:        101,
 				ActivityType:   "TIME_LIMITED",
@@ -1671,14 +1671,14 @@ func TestSheinSyncRepositoryKeepsCandidateStatusScopedByActivity(t *testing.T) {
 			if total != 1 || len(executableTimeLimited) != 1 {
 				t.Fatalf("time limited executable count = total %d len %d, want 1", total, len(executableTimeLimited))
 			}
-			if executableTimeLimited[0].ReviewStatus != listingkit.SheinCandidateReviewStatusPendingReview {
+			if executableTimeLimited[0].ReviewStatus != sheinsync.SheinCandidateReviewStatusPendingReview {
 				t.Fatalf("time limited review status = %q, want pending_review", executableTimeLimited[0].ReviewStatus)
 			}
 			if executableTimeLimited[0].LastEnrollmentError != "" {
 				t.Fatalf("time limited last error = %q, want empty", executableTimeLimited[0].LastEnrollmentError)
 			}
 
-			failedPromotion, total, err := harness.listCandidates(ctx, &listingkit.SheinActivityCandidateQuery{
+			failedPromotion, total, err := harness.listCandidates(ctx, &sheinsync.SheinActivityCandidateQuery{
 				TenantID:     1,
 				StoreID:      101,
 				ActivityType: "PROMOTION",
@@ -1708,7 +1708,7 @@ func TestSheinSyncRepositorySaveCandidatesAllowsSupersedingOlderVersions(t *test
 			t.Parallel()
 
 			ctx := context.Background()
-			if err := harness.repo.SaveCandidates(ctx, []*listingkit.SheinActivityCandidateRecord{
+			if err := harness.repo.SaveCandidates(ctx, []*sheinsync.SheinActivityCandidateRecord{
 				{
 					TenantID:          1,
 					StoreID:           101,
@@ -1717,8 +1717,8 @@ func TestSheinSyncRepositorySaveCandidatesAllowsSupersedingOlderVersions(t *test
 					ActivityKey:       "PROMOTION:1:101",
 					SKCName:           "skc-a",
 					CandidateVersion:  "v1",
-					EligibilityStatus: listingkit.SheinCandidateEligibilityStatusEligible,
-					ReviewStatus:      listingkit.SheinCandidateReviewStatusApproved,
+					EligibilityStatus: sheinsync.SheinCandidateEligibilityStatusEligible,
+					ReviewStatus:      sheinsync.SheinCandidateReviewStatusApproved,
 					AutoModeEligible:  true,
 					SelectedForRun:    true,
 				},
@@ -1726,7 +1726,7 @@ func TestSheinSyncRepositorySaveCandidatesAllowsSupersedingOlderVersions(t *test
 				t.Fatalf("seed old candidate: %v", err)
 			}
 
-			if err := harness.repo.SaveCandidates(ctx, []*listingkit.SheinActivityCandidateRecord{
+			if err := harness.repo.SaveCandidates(ctx, []*sheinsync.SheinActivityCandidateRecord{
 				{
 					TenantID:          1,
 					StoreID:           101,
@@ -1735,9 +1735,9 @@ func TestSheinSyncRepositorySaveCandidatesAllowsSupersedingOlderVersions(t *test
 					ActivityKey:       "PROMOTION:1:101",
 					SKCName:           "skc-a",
 					CandidateVersion:  "v1",
-					EligibilityStatus: listingkit.SheinCandidateEligibilityStatusIneligible,
+					EligibilityStatus: sheinsync.SheinCandidateEligibilityStatusIneligible,
 					EligibilityReason: "superseded by newer candidate version",
-					ReviewStatus:      listingkit.SheinCandidateReviewStatusRejected,
+					ReviewStatus:      sheinsync.SheinCandidateReviewStatusRejected,
 					AutoModeEligible:  false,
 					SelectedForRun:    false,
 				},
@@ -1749,8 +1749,8 @@ func TestSheinSyncRepositorySaveCandidatesAllowsSupersedingOlderVersions(t *test
 					ActivityKey:       "PROMOTION:1:101",
 					SKCName:           "skc-a",
 					CandidateVersion:  "v2",
-					EligibilityStatus: listingkit.SheinCandidateEligibilityStatusEligible,
-					ReviewStatus:      listingkit.SheinCandidateReviewStatusPendingReview,
+					EligibilityStatus: sheinsync.SheinCandidateEligibilityStatusEligible,
+					ReviewStatus:      sheinsync.SheinCandidateReviewStatusPendingReview,
 					AutoModeEligible:  false,
 					SelectedForRun:    false,
 				},
@@ -1758,7 +1758,7 @@ func TestSheinSyncRepositorySaveCandidatesAllowsSupersedingOlderVersions(t *test
 				t.Fatalf("save versioned candidates: %v", err)
 			}
 
-			items, total, err := harness.listCandidates(ctx, &listingkit.SheinActivityCandidateQuery{
+			items, total, err := harness.listCandidates(ctx, &sheinsync.SheinActivityCandidateQuery{
 				TenantID:     1,
 				StoreID:      101,
 				ActivityType: "PROMOTION",
@@ -1773,7 +1773,7 @@ func TestSheinSyncRepositorySaveCandidatesAllowsSupersedingOlderVersions(t *test
 				t.Fatalf("versioned candidate count = total %d len %d, want 2", total, len(items))
 			}
 
-			var oldVersion, newVersion *listingkit.SheinActivityCandidateRecord
+			var oldVersion, newVersion *sheinsync.SheinActivityCandidateRecord
 			for i := range items {
 				if items[i].CandidateVersion == "v1" {
 					oldVersion = &items[i]
@@ -1785,10 +1785,10 @@ func TestSheinSyncRepositorySaveCandidatesAllowsSupersedingOlderVersions(t *test
 			if oldVersion == nil || newVersion == nil {
 				t.Fatalf("missing expected versions: %+v", items)
 			}
-			if oldVersion.ReviewStatus != listingkit.SheinCandidateReviewStatusRejected || oldVersion.AutoModeEligible || oldVersion.SelectedForRun {
+			if oldVersion.ReviewStatus != sheinsync.SheinCandidateReviewStatusRejected || oldVersion.AutoModeEligible || oldVersion.SelectedForRun {
 				t.Fatalf("old version not superseded correctly: %+v", *oldVersion)
 			}
-			if newVersion.ReviewStatus != listingkit.SheinCandidateReviewStatusPendingReview || newVersion.AutoModeEligible || newVersion.SelectedForRun {
+			if newVersion.ReviewStatus != sheinsync.SheinCandidateReviewStatusPendingReview || newVersion.AutoModeEligible || newVersion.SelectedForRun {
 				t.Fatalf("new version state incorrect: %+v", *newVersion)
 			}
 		})
@@ -1806,14 +1806,14 @@ func TestSheinSyncRepositoryUpsertsAndListsSDSCostGroups(t *testing.T) {
 			updated := 50.0
 
 			groupRepo, ok := repo.(interface {
-				UpsertSDSCostGroup(ctx context.Context, record *listingkit.SheinSDSCostGroupRecord) error
-				ListSDSCostGroups(ctx context.Context, query *listingkit.SheinSDSCostGroupQuery) ([]listingkit.SheinSDSCostGroupRecord, int64, error)
+				UpsertSDSCostGroup(ctx context.Context, record *sheinsync.SheinSDSCostGroupRecord) error
+				ListSDSCostGroups(ctx context.Context, query *sheinsync.SheinSDSCostGroupQuery) ([]sheinsync.SheinSDSCostGroupRecord, int64, error)
 			})
 			if !ok {
 				t.Fatalf("%s repo does not implement SDS cost groups", harness.name)
 			}
 
-			if err := groupRepo.UpsertSDSCostGroup(ctx, &listingkit.SheinSDSCostGroupRecord{
+			if err := groupRepo.UpsertSDSCostGroup(ctx, &sheinsync.SheinSDSCostGroupRecord{
 				TenantID:        11,
 				StoreID:         22,
 				GroupKey:        "style:B3195DA6",
@@ -1822,7 +1822,7 @@ func TestSheinSyncRepositoryUpsertsAndListsSDSCostGroups(t *testing.T) {
 			}); err != nil {
 				t.Fatalf("upsert SDS cost group: %v", err)
 			}
-			if err := groupRepo.UpsertSDSCostGroup(ctx, &listingkit.SheinSDSCostGroupRecord{
+			if err := groupRepo.UpsertSDSCostGroup(ctx, &sheinsync.SheinSDSCostGroupRecord{
 				TenantID:        11,
 				StoreID:         22,
 				GroupKey:        "style:B3195DA6",
@@ -1832,7 +1832,7 @@ func TestSheinSyncRepositoryUpsertsAndListsSDSCostGroups(t *testing.T) {
 				t.Fatalf("update SDS cost group: %v", err)
 			}
 
-			rows, total, err := groupRepo.ListSDSCostGroups(ctx, &listingkit.SheinSDSCostGroupQuery{
+			rows, total, err := groupRepo.ListSDSCostGroups(ctx, &sheinsync.SheinSDSCostGroupQuery{
 				TenantID:  11,
 				StoreID:   22,
 				GroupKeys: []string{"style:B3195DA6"},
@@ -1860,15 +1860,15 @@ func TestSheinSyncRepositoryListsSourceSDSCostGroupsFromSyncedProducts(t *testin
 			legacyCost := 43.3
 
 			sourceRepo, ok := repo.(interface {
-				UpsertSyncedProducts(ctx context.Context, records []*listingkit.SheinSyncedProductRecord) error
-				UpsertSDSCostGroup(ctx context.Context, record *listingkit.SheinSDSCostGroupRecord) error
-				ListSourceSDSCostGroups(ctx context.Context, query *listingkit.SheinSourceSDSCostGroupQuery) ([]listingkit.SheinSourceSDSCostGroupRecord, int64, error)
+				UpsertSyncedProducts(ctx context.Context, records []*sheinsync.SheinSyncedProductRecord) error
+				UpsertSDSCostGroup(ctx context.Context, record *sheinsync.SheinSDSCostGroupRecord) error
+				ListSourceSDSCostGroups(ctx context.Context, query *sheinsync.SheinSourceSDSCostGroupQuery) ([]sheinsync.SheinSourceSDSCostGroupRecord, int64, error)
 			})
 			if !ok {
 				t.Fatalf("%s repo does not implement source SDS cost groups", harness.name)
 			}
 
-			if err := sourceRepo.UpsertSyncedProducts(ctx, []*listingkit.SheinSyncedProductRecord{
+			if err := sourceRepo.UpsertSyncedProducts(ctx, []*sheinsync.SheinSyncedProductRecord{
 				{
 					TenantID:     11,
 					StoreID:      22,
@@ -1893,7 +1893,7 @@ func TestSheinSyncRepositoryListsSourceSDSCostGroupsFromSyncedProducts(t *testin
 			}); err != nil {
 				t.Fatalf("seed synced products: %v", err)
 			}
-			if err := sourceRepo.UpsertSDSCostGroup(ctx, &listingkit.SheinSDSCostGroupRecord{
+			if err := sourceRepo.UpsertSDSCostGroup(ctx, &sheinsync.SheinSDSCostGroupRecord{
 				TenantID:        11,
 				StoreID:         22,
 				GroupKey:        "style:DA578653",
@@ -1903,7 +1903,7 @@ func TestSheinSyncRepositoryListsSourceSDSCostGroupsFromSyncedProducts(t *testin
 				t.Fatalf("seed legacy SDS cost group: %v", err)
 			}
 
-			rows, total, err := sourceRepo.ListSourceSDSCostGroups(ctx, &listingkit.SheinSourceSDSCostGroupQuery{
+			rows, total, err := sourceRepo.ListSourceSDSCostGroups(ctx, &sheinsync.SheinSourceSDSCostGroupQuery{
 				TenantID: 11,
 				StoreID:  22,
 				Page:     1,
@@ -1940,14 +1940,14 @@ func TestSheinSyncRepositoryListsSourceSDSCostGroupsOnlyForActiveOnShelfProducts
 			repo := harness.repo
 
 			sourceRepo, ok := repo.(interface {
-				UpsertSyncedProducts(ctx context.Context, records []*listingkit.SheinSyncedProductRecord) error
-				ListSourceSDSCostGroups(ctx context.Context, query *listingkit.SheinSourceSDSCostGroupQuery) ([]listingkit.SheinSourceSDSCostGroupRecord, int64, error)
+				UpsertSyncedProducts(ctx context.Context, records []*sheinsync.SheinSyncedProductRecord) error
+				ListSourceSDSCostGroups(ctx context.Context, query *sheinsync.SheinSourceSDSCostGroupQuery) ([]sheinsync.SheinSourceSDSCostGroupRecord, int64, error)
 			})
 			if !ok {
 				t.Fatalf("%s repo does not implement source SDS cost groups", harness.name)
 			}
 
-			if err := sourceRepo.UpsertSyncedProducts(ctx, []*listingkit.SheinSyncedProductRecord{
+			if err := sourceRepo.UpsertSyncedProducts(ctx, []*sheinsync.SheinSyncedProductRecord{
 				{
 					TenantID:     11,
 					StoreID:      22,
@@ -1976,7 +1976,7 @@ func TestSheinSyncRepositoryListsSourceSDSCostGroupsOnlyForActiveOnShelfProducts
 				t.Fatalf("seed synced products: %v", err)
 			}
 
-			rows, total, err := sourceRepo.ListSourceSDSCostGroups(ctx, &listingkit.SheinSourceSDSCostGroupQuery{
+			rows, total, err := sourceRepo.ListSourceSDSCostGroups(ctx, &sheinsync.SheinSourceSDSCostGroupQuery{
 				TenantID: 11,
 				StoreID:  22,
 				Page:     1,
@@ -2012,15 +2012,15 @@ func TestSheinSyncRepositoryListsSourceSDSCostGroupWithVariantDetailsForMultiVar
 			variantCost := 51.2
 
 			sourceRepo, ok := repo.(interface {
-				UpsertSyncedProducts(ctx context.Context, records []*listingkit.SheinSyncedProductRecord) error
-				UpsertSDSCostGroup(ctx context.Context, record *listingkit.SheinSDSCostGroupRecord) error
-				ListSourceSDSCostGroups(ctx context.Context, query *listingkit.SheinSourceSDSCostGroupQuery) ([]listingkit.SheinSourceSDSCostGroupRecord, int64, error)
+				UpsertSyncedProducts(ctx context.Context, records []*sheinsync.SheinSyncedProductRecord) error
+				UpsertSDSCostGroup(ctx context.Context, record *sheinsync.SheinSDSCostGroupRecord) error
+				ListSourceSDSCostGroups(ctx context.Context, query *sheinsync.SheinSourceSDSCostGroupQuery) ([]sheinsync.SheinSourceSDSCostGroupRecord, int64, error)
 			})
 			if !ok {
 				t.Fatalf("%s repo does not implement source SDS cost groups", harness.name)
 			}
 
-			products := []*listingkit.SheinSyncedProductRecord{
+			products := []*sheinsync.SheinSyncedProductRecord{
 				{
 					TenantID:     11,
 					StoreID:      22,
@@ -2052,7 +2052,7 @@ func TestSheinSyncRepositoryListsSourceSDSCostGroupWithVariantDetailsForMultiVar
 			if err := sourceRepo.UpsertSyncedProducts(ctx, products); err != nil {
 				t.Fatalf("seed synced products: %v", err)
 			}
-			if err := sourceRepo.UpsertSDSCostGroup(ctx, &listingkit.SheinSDSCostGroupRecord{
+			if err := sourceRepo.UpsertSDSCostGroup(ctx, &sheinsync.SheinSDSCostGroupRecord{
 				TenantID:        11,
 				StoreID:         22,
 				GroupKey:        "source:XB0603003001",
@@ -2061,8 +2061,8 @@ func TestSheinSyncRepositoryListsSourceSDSCostGroupWithVariantDetailsForMultiVar
 			}); err != nil {
 				t.Fatalf("seed source SDS cost group: %v", err)
 			}
-			variantIdentity := listingkit.ResolveSheinSDSVariantCostGroupIdentity(*products[0])
-			if err := sourceRepo.UpsertSDSCostGroup(ctx, &listingkit.SheinSDSCostGroupRecord{
+			variantIdentity := sheinsync.ResolveSheinSDSVariantCostGroupIdentity(*products[0])
+			if err := sourceRepo.UpsertSDSCostGroup(ctx, &sheinsync.SheinSDSCostGroupRecord{
 				TenantID:        11,
 				StoreID:         22,
 				GroupKey:        variantIdentity.GroupKey,
@@ -2072,7 +2072,7 @@ func TestSheinSyncRepositoryListsSourceSDSCostGroupWithVariantDetailsForMultiVar
 				t.Fatalf("seed source SDS variant cost group: %v", err)
 			}
 
-			rows, total, err := sourceRepo.ListSourceSDSCostGroups(ctx, &listingkit.SheinSourceSDSCostGroupQuery{
+			rows, total, err := sourceRepo.ListSourceSDSCostGroups(ctx, &sheinsync.SheinSourceSDSCostGroupQuery{
 				TenantID: 11,
 				StoreID:  22,
 				Page:     1,
@@ -2144,24 +2144,24 @@ func newGormSheinSyncRepositoryHarness(t *testing.T) sheinSyncRepositoryHarness 
 	return sheinSyncRepositoryHarness{
 		name: "gorm",
 		repo: NewSheinSyncRepository(db),
-		listCandidates: func(ctx context.Context, query *listingkit.SheinActivityCandidateQuery) ([]listingkit.SheinActivityCandidateRecord, int64, error) {
+		listCandidates: func(ctx context.Context, query *sheinsync.SheinActivityCandidateQuery) ([]sheinsync.SheinActivityCandidateRecord, int64, error) {
 			return NewSheinSyncRepository(db).(interface {
-				ListCandidates(ctx context.Context, query *listingkit.SheinActivityCandidateQuery) ([]listingkit.SheinActivityCandidateRecord, int64, error)
+				ListCandidates(ctx context.Context, query *sheinsync.SheinActivityCandidateQuery) ([]sheinsync.SheinActivityCandidateRecord, int64, error)
 			}).ListCandidates(ctx, query)
 		},
-		listRuns: func(t *testing.T) []listingkit.SheinActivityEnrollmentRunRecord {
+		listRuns: func(t *testing.T) []sheinsync.SheinActivityEnrollmentRunRecord {
 			t.Helper()
 
-			var rows []listingkit.SheinActivityEnrollmentRunRecord
+			var rows []sheinsync.SheinActivityEnrollmentRunRecord
 			if err := db.Order("id ASC").Find(&rows).Error; err != nil {
 				t.Fatalf("list enrollment runs: %v", err)
 			}
 			return rows
 		},
-		listItems: func(t *testing.T) []listingkit.SheinActivityEnrollmentItemRecord {
+		listItems: func(t *testing.T) []sheinsync.SheinActivityEnrollmentItemRecord {
 			t.Helper()
 
-			var rows []listingkit.SheinActivityEnrollmentItemRecord
+			var rows []sheinsync.SheinActivityEnrollmentItemRecord
 			if err := db.Order("id ASC").Find(&rows).Error; err != nil {
 				t.Fatalf("list enrollment items: %v", err)
 			}
@@ -2177,29 +2177,29 @@ func newMemSheinSyncRepositoryHarness() sheinSyncRepositoryHarness {
 	return sheinSyncRepositoryHarness{
 		name: "mem",
 		repo: repo,
-		listCandidates: func(ctx context.Context, query *listingkit.SheinActivityCandidateQuery) ([]listingkit.SheinActivityCandidateRecord, int64, error) {
+		listCandidates: func(ctx context.Context, query *sheinsync.SheinActivityCandidateQuery) ([]sheinsync.SheinActivityCandidateRecord, int64, error) {
 			return memRepo.ListCandidates(ctx, query)
 		},
-		listRuns: func(t *testing.T) []listingkit.SheinActivityEnrollmentRunRecord {
+		listRuns: func(t *testing.T) []sheinsync.SheinActivityEnrollmentRunRecord {
 			t.Helper()
 
 			memRepo.mu.RLock()
 			defer memRepo.mu.RUnlock()
 
-			rows := make([]listingkit.SheinActivityEnrollmentRunRecord, 0, len(memRepo.enrollmentRuns))
+			rows := make([]sheinsync.SheinActivityEnrollmentRunRecord, 0, len(memRepo.enrollmentRuns))
 			for _, row := range memRepo.enrollmentRuns {
 				rows = append(rows, row)
 			}
 			sortSheinEnrollmentRuns(rows)
 			return rows
 		},
-		listItems: func(t *testing.T) []listingkit.SheinActivityEnrollmentItemRecord {
+		listItems: func(t *testing.T) []sheinsync.SheinActivityEnrollmentItemRecord {
 			t.Helper()
 
 			memRepo.mu.RLock()
 			defer memRepo.mu.RUnlock()
 
-			rows := make([]listingkit.SheinActivityEnrollmentItemRecord, 0, len(memRepo.enrollmentItems))
+			rows := make([]sheinsync.SheinActivityEnrollmentItemRecord, 0, len(memRepo.enrollmentItems))
 			for _, row := range memRepo.enrollmentItems {
 				rows = append(rows, row)
 			}
@@ -2217,7 +2217,7 @@ func float64Ptr(v float64) *float64 {
 	return &v
 }
 
-func sortSheinCandidates(rows []listingkit.SheinActivityCandidateRecord) {
+func sortSheinCandidates(rows []sheinsync.SheinActivityCandidateRecord) {
 	sort.Slice(rows, func(i, j int) bool {
 		if rows[i].ID != rows[j].ID {
 			return rows[i].ID < rows[j].ID
@@ -2226,7 +2226,7 @@ func sortSheinCandidates(rows []listingkit.SheinActivityCandidateRecord) {
 	})
 }
 
-func sortSheinEnrollmentRuns(rows []listingkit.SheinActivityEnrollmentRunRecord) {
+func sortSheinEnrollmentRuns(rows []sheinsync.SheinActivityEnrollmentRunRecord) {
 	sort.Slice(rows, func(i, j int) bool {
 		if rows[i].ID != rows[j].ID {
 			return rows[i].ID < rows[j].ID
@@ -2235,7 +2235,7 @@ func sortSheinEnrollmentRuns(rows []listingkit.SheinActivityEnrollmentRunRecord)
 	})
 }
 
-func sortSheinEnrollmentItems(rows []listingkit.SheinActivityEnrollmentItemRecord) {
+func sortSheinEnrollmentItems(rows []sheinsync.SheinActivityEnrollmentItemRecord) {
 	sort.Slice(rows, func(i, j int) bool {
 		if rows[i].ID != rows[j].ID {
 			return rows[i].ID < rows[j].ID

@@ -23,6 +23,13 @@ it("offers only the application types provided by the current catalog",async()=>
  await userEvent.setup().click(screen.getByRole("button",{name:"筛选"}));
  expect(state.push).toHaveBeenCalledWith("/workbench/stores?page=1&pageSize=20&applicationType=self_operated");
 });
+it("preserves TEMU when applying the platform filter",async()=>{
+ render(<StoreListPage/>);
+ const user=userEvent.setup();
+ await user.selectOptions(screen.getByRole("combobox",{name:"平台"}),"temu");
+ await user.click(screen.getByRole("button",{name:"筛选"}));
+ expect(state.push).toHaveBeenCalledWith("/workbench/stores?page=1&pageSize=20&platform=temu");
+});
 it("keeps an unavailable URL selection visible without offering other absent types",()=>{
  state.search="applicationType=semi_managed";
  render(<StoreListPage/>);

@@ -6,6 +6,14 @@ import {
   observationCapabilitiesSchema,
 } from "./store-observations";
 export const fixtureID = "d6f6ca0a-27e2-4c4a-b1aa-4505110ae635";
+
+it("preserves native goods and SKC identities and exact quantities without a SHEIN body",()=>{
+ const native={storeId:fixtureID,syncId:fixtureID,id:"9007199254740993",observedAt:"2026-10-12T01:00:00Z",temuProduct:{id:"9007199254740993",productId:"9007199254740993",entity:"local_goods",mode:"local",title:"Official title",externalCode:"external",imageUrl:"",saleState:"active",rawStatus:"Active",skus:[{id:"9007199254740994",externalCode:"",serialNumber:"platform",stock:"0",stockKind:"stock",specifications:[]}],sites:[],publishStatus:{status:"1",subStatus:null}}};
+ const parsed=observationRecordSchema.parse(native);expect(parsed.temuProduct?.id).toBe("9007199254740993");expect(parsed.temuProduct?.skus[0]?.stock).toBe("0");expect(parsed.product).toBeUndefined();
+ expect(observationRecordSchema.safeParse({...native,product:fixtureRecord.product}).success).toBe(false);
+ expect(observationRecordSchema.safeParse({...native,temuProduct:{...native.temuProduct,id:9007199254740993}}).success).toBe(false);
+ expect(observationCapabilitiesSchema.safeParse({available:true,canSync:true,runtimeReady:true,providerConfigured:true,kind:"products",site:"store-native",platformUrl:""}).success).toBe(true);
+});
 it("rejects executable capabilities without worker readiness or provider configuration",()=>{
  const c={available:false,canSync:false,runtimeReady:true,providerConfigured:false,kind:"products",site:"shein-us",platformUrl:"https://sellerhub.shein.com/"};
  expect(observationCapabilitiesSchema.safeParse(c).success).toBe(true);

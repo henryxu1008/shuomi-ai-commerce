@@ -3,7 +3,6 @@ package httpapi
 import (
 	"context"
 	"errors"
-	"gorm.io/gorm"
 	"net/http"
 	storeapp "task-processor/internal/app/storecenter"
 	supplyapp "task-processor/internal/app/supplychain"
@@ -12,6 +11,7 @@ import (
 	"task-processor/internal/authz"
 	"task-processor/internal/core/config"
 	"task-processor/internal/httproute"
+	completionstore "task-processor/internal/integration/persistence/listing/completiondraft"
 	officialstore "task-processor/internal/integration/persistence/listing/official"
 	prepstore "task-processor/internal/integration/persistence/listing/preparation"
 	submissionstore "task-processor/internal/integration/persistence/listing/submission"
@@ -20,11 +20,14 @@ import (
 	"task-processor/internal/listing/preparation"
 	record "task-processor/internal/listing/record/target"
 	"task-processor/internal/listing/submission"
+	temurules "task-processor/internal/marketplace/temu/rules"
 	"task-processor/internal/product/asset"
 	"task-processor/internal/product/collection"
 	"task-processor/internal/storecenter"
 	"task-processor/internal/workbenchcontext"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 type SupplyChainDependencies struct {
@@ -99,6 +102,12 @@ func buildSupplyChainModule(ctx context.Context, productDB, storeDB *gorm.DB, d 
 		return empty, err
 	}
 	rules := supplyapp.RuleReader{Stores: supplyapp.OfficialRuleStore{Access: access}}
+	temuCatalog, err := temurules.NewOfficialCatalog()
+	if err != nil {
+		return empty, err
+	}
+	temuRules := supplyapp.TemuRuleReader{Stores: supplyapp.OfficialTemuRuleStore{Access: access}, Catalog: temuCatalog}
+	tiktokRules := supplyapp.TikTokRuleReader{Stores: supplyapp.OfficialTikTokRuleStore{Access: access}}
 	assets, err := assetstore.NewBoundedApprovedInventoryReader(d.AssetDB, record.MaxPayloadBytes)
 	if err != nil {
 		return empty, err
@@ -116,7 +125,16 @@ func buildSupplyChainModule(ctx context.Context, productDB, storeDB *gorm.DB, d 
 	if err != nil {
 		return empty, err
 	}
-	targets, err := record.NewTargetService(record.TargetDependencies{Sources: sources, Products: effective, Assets: assets, Rules: rules, Records: records, Images: supplyapp.NewPublicImageProbe(), Authorizer: auth, ExecutionSources: sources, ExecutionAuthorization: executionAuth})
+	imageProbe := supplyapp.NewPublicImageProbe()
+	var completionVersions record.TargetCompletionVersionReader
+	if len(marketPOD) > 4 && marketPOD[4] {
+		versions, e := completionstore.NewRepository(ctx, productDB)
+		if e != nil {
+			return empty, e
+		}
+		completionVersions = versions
+	}
+	targets, err := record.NewTargetService(record.TargetDependencies{Sources: sources, Products: effective, Assets: assets, Rules: rules, TemuRules: temuRules, TemuImages: imageProbe, TikTokRules: tiktokRules, TikTokImages: imageProbe, CompletionVersions: completionVersions, Records: records, Images: imageProbe, Authorizer: auth, ExecutionSources: sources, ExecutionAuthorization: executionAuth})
 	if err != nil {
 		return empty, err
 	}
@@ -133,11 +151,11 @@ func buildSupplyChainModule(ctx context.Context, productDB, storeDB *gorm.DB, d 
 		return empty, err
 	}
 	stageProjection := core.app.StageProjection
-	uploader, err := supplyapp.NewUploadService(supplyapp.UploadDependencies{Sources: sources, Products: effective, Assets: assets, Rules: rules, Records: records, Authorization: executionAuth, Stores: supplyapp.OfficialExecutionStore{Access: access}, Images: supplyapp.NewPublicImageProbe(), Kernel: kernel, Intents: official, Receipts: official, ReviewGate: stageProjection.RequireUploadReady})
+	uploader, err := supplyapp.NewUploadService(supplyapp.UploadDependencies{Sources: sources, Products: effective, Assets: assets, Rules: rules, TemuRules: temuRules, TemuImages: imageProbe, TikTokRules: tiktokRules, TikTokImages: imageProbe, TikTokStores: supplyapp.OfficialTikTokExecutionStore{Access: access}, Records: records, Authorization: executionAuth, Stores: supplyapp.OfficialExecutionStore{Access: access}, TemuStores: supplyapp.OfficialTemuExecutionStore{Access: access}, Images: imageProbe, Kernel: kernel, Intents: official, Receipts: official, ReviewGate: stageProjection.RequireUploadReady})
 	if err != nil {
 		return empty, err
 	}
-	app := &supplyapp.Application{Preparations: preparations, Sources: sources, Operations: operations, Execution: supplyapp.OperationApplication{Service: operations, Repository: operationsRepo, Starter: d.Starter}, Targets: targets, Records: records, Products: effective, Rules: rules, Assets: assets, Approvals: approvals, Authorization: auth, PublicationReceipts: official, PublicationStores: supplyapp.OfficialRuleStore{Access: access}}
+	app := &supplyapp.Application{Preparations: preparations, Sources: sources, Operations: operations, Execution: supplyapp.OperationApplication{Service: operations, Repository: operationsRepo, Starter: d.Starter}, Targets: targets, Records: records, Products: effective, Rules: rules, TemuRules: temuRules, TikTokRules: tiktokRules, TikTokCatalog: tiktokRules, TikTokStatusStores: supplyapp.OfficialTikTokRuleStore{Access: access}, Assets: assets, Approvals: approvals, Authorization: auth, PublicationReceipts: official, PublicationStores: supplyapp.OfficialRuleStore{Access: access}, TargetMerchants: supplyapp.OfficialTargetMerchantStore{Access: access}}
 	var optimizer supplyapp.OperationOptimizer
 	app.StageProjection = stageProjection
 	app.Uploader = uploader
@@ -150,7 +168,7 @@ func buildSupplyChainModule(ctx context.Context, productDB, storeDB *gorm.DB, d 
 		app.AuthorizeOptimization = bridge.authorizeRequest
 		app.OptimizationOptions = bridge.options
 	}
-	currentWorker, err := d.NewWorker(&supplyapp.OperationActivities{Operations: operations, Repository: operationsRepo, Sources: sources, Products: effective, Targets: records, Creator: targets, Uploader: uploader, Optimizer: optimizer})
+	currentWorker, err := d.NewWorker(&supplyapp.OperationActivities{Operations: operations, Repository: operationsRepo, Sources: sources, Products: effective, TargetMerchants: supplyapp.OfficialTargetMerchantStore{Access: access}, Targets: records, Creator: targets, Uploader: uploader, Optimizer: optimizer})
 	if err != nil {
 		return empty, err
 	}

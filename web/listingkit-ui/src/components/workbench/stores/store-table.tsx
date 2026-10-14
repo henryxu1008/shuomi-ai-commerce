@@ -24,7 +24,7 @@ export function StoreTable({ stores, onDeleted, onRefreshStore }: { stores: Work
     const timestamp = formatStoreTimestamp(store.updatedAt);
     return <li key={store.id} className="console-store-card">
       <div className="console-store-card-header"><div className="console-store-identity"><span aria-hidden="true" className="console-store-avatar">S</span><div><h2>{store.name}</h2><p className="console-description">外部店铺 ID：<span>{store.externalStoreId || "未设置"}</span></p></div></div>
-        <div className="console-store-badges"><span>SHEIN</span><span>{store.region}</span><span>{lifecycleLabels[store.recordStatus]}</span><span>{connectionLabels[store.connectionStatus]}</span></div>
+        <div className="console-store-badges"><span>{store.platform.toUpperCase()}</span><span>{store.region}</span><span>{lifecycleLabels[store.recordStatus]}</span><span>{connectionLabels[store.connectionStatus]}</span></div>
       </div>
       <StoreStateFacts store={store} />
       <div className="console-store-card-footer"><dl><dt>更新时间</dt><dd><time dateTime={timestamp ? store.updatedAt : ""}>{timestamp || "—"}</time></dd></dl>

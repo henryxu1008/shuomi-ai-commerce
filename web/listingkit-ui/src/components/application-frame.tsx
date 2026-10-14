@@ -2,7 +2,6 @@
 
 import { usePathname } from "next/navigation";
 
-import { ListingKitAppShell } from "@/components/listingkit/shared/listingkit-app-shell";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { ToastProvider } from "@/components/providers/toast-provider";
@@ -68,7 +67,7 @@ export function ApplicationFrame({ children, dataServicesAvailable = false, repo
       <QueryProvider>
         <ToastProvider>
           <ZitadelAuthGate>
-            <ListingKitAppShell>{children}</ListingKitAppShell>
+            {children}
           </ZitadelAuthGate>
         </ToastProvider>
       </QueryProvider>

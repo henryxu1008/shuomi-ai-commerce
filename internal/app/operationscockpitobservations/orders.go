@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"task-processor/internal/authidentity"
-	o "task-processor/internal/marketplace/shein/observations"
+	o "task-processor/internal/storecenter/observations"
 	c "task-processor/internal/operationscockpit"
 )
 

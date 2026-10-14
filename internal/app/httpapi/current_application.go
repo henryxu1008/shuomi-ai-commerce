@@ -46,7 +46,6 @@ import (
 	officialhttp "task-processor/internal/knowledge/httpapi/official"
 	"task-processor/internal/ledger/orgresource"
 	"task-processor/internal/ledger/storagecapacity"
-	o "task-processor/internal/marketplace/shein/observations"
 	notificationhttp "task-processor/internal/notificationcenter/httpapi"
 	cockpithttp "task-processor/internal/operationscockpit/httpapi"
 	"task-processor/internal/product/asset"
@@ -54,6 +53,8 @@ import (
 	"task-processor/internal/product/sourcing"
 	reporthttp "task-processor/internal/reportcenter/httpapi"
 	"task-processor/internal/storecenter"
+	storehttp "task-processor/internal/storecenter/httpapi"
+	o "task-processor/internal/storecenter/observations"
 	verificationhttp "task-processor/internal/subjectverification/httpapi"
 	tm "task-processor/internal/toolmarket"
 	tmhttp "task-processor/internal/toolmarket/httpapi"
@@ -395,7 +396,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	if supplied.operationsCockpits > 0 && (supplied.storeCenters != 1 || supplied.storeCenterDB == nil) {
 		return nil, errors.New("operations cockpit requires current Store owner")
 	}
-	storeCapabilities := storecenter.RuntimeCapabilities{Observations: supplied.storeObservations == 1, OperationsCockpit: supplied.operationsCockpits == 1}
+	storeCapabilities := storecenter.RuntimeCapabilities{Observations: supplied.storeObservations == 1, OperationsCockpit: supplied.operationsCockpits == 1, TikTokShop: supplied.officialStoreApplications.TikTokConfigured()}
 	if err := validateDataServicesDependencies(supplied, sourceAccountDB, cfg); err != nil {
 		return nil, err
 	}
@@ -1102,6 +1103,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		NotificationCenter:  supplied.notifications > 0,
 		ZitadelSMS:          true,
 		StoreCenter:         supplied.storeCenters > 0,
+		TikTokShop:          supplied.officialStoreApplications.TikTokConfigured(),
 		StoreObservations:   supplied.storeObservations > 0,
 		LocalTrial:          supplied.localTrials > 0,
 		Knowledge:           supplied.knowledgeServices > 0,
@@ -1227,6 +1229,7 @@ type currentApplicationOptionalRoutes struct {
 	Knowledge           bool
 	OfficialKnowledge   bool
 	StoreCenter         bool
+	TikTokShop          bool
 	StoreObservations   bool
 	LocalTrial          bool
 	Resources           bool
@@ -1362,6 +1365,17 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 	if optional.StoreCenter {
 		for _, r := range currentStoreCenterRoutes {
 			admitted = append(admitted, currentApplicationRoute{Method: r.method, Path: r.path})
+		}
+	}
+	if optional.TikTokShop {
+		if !optional.StoreCenter {
+			return errors.New("TikTok Shop requires current Store owner")
+		}
+		admitted = append(admitted, currentApplicationRoute{Method: http.MethodPost, Path: storehttp.TikTokLifecyclePath})
+		for _, descriptor := range routes {
+			if descriptor.Path == storehttp.TikTokLifecyclePath && (descriptor.Method != http.MethodPost || descriptor.Module != storehttp.ModuleName || descriptor.AuthPolicy != httproute.AuthPolicyPublic || descriptor.OrganizationAccessPolicy != httproute.OrganizationAccessPolicyNone || descriptor.Permission != "" || descriptor.OrganizationTargetResolver != nil || descriptor.RequestTimeout != 5*time.Second || descriptor.Handler == nil) {
+				return errors.New("TikTok Shop lifecycle loses signature authority boundary")
+			}
 		}
 	}
 	if optional.StoreObservations {

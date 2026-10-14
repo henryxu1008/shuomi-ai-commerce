@@ -26,7 +26,7 @@ type officialProvider struct {
 }
 
 func (*officialProvider) Application() storecenter.OfficialApplication {
-	return storecenter.OfficialApplication{AppID: "test-app", Version: storeapp.BoundOfficialRevision("config-1", storecenter.ApplicationSelfOperated), CallbackURL: "https://localhost/callback"}
+	return storecenter.OfficialApplication{Platform: storecenter.PlatformShein, AuthorizationMethod: storecenter.AuthorizationCallback, AppID: "test-app", Version: storeapp.BoundOfficialRevision("config-1", storecenter.ApplicationSelfOperated), CallbackURL: "https://localhost/callback"}
 }
 func (*officialProvider) AuthorizationURL(state string) (string, error) {
 	return "https://openapi-sem.sheincorp.com/#/empower?state=" + state, nil

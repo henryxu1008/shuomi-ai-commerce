@@ -58,8 +58,8 @@ Threat Model 的 Must：当前 Effective Organization、真实原成员/module g
 | --- | --- |
 | 平台商品、消费者订单、物流状态 | SHEIN；本地只记录有时间的观察，不进行业务状态转换 |
 | Store身份、成员grant、连接、凭据、服务权益 | `internal/storecenter` 及当前 Store App registry |
-| 平台观察、固定同步范围/游标/结果 | 新 `internal/marketplace/shein/observations`，纯Go模型/用例/本地Port |
-| SQL事务/查询 | `internal/integration/persistence/sheinobservations`，注入显式 pool，不自开数据库 |
+| 平台观察、固定同步范围/游标/结果 | 新 `internal/storecenter/observations`，纯Go模型/用例/本地Port |
+| SQL事务/查询 | `internal/integration/persistence/storeobservations`，注入显式 pool，不自开数据库 |
 | 签名、HTTP、平台DTO解析 | 现有 `internal/integration/shein/OfficialClient`，新增独立只读adapter，复用有界transport |
 | live IAM/module授权、server-only句柄、组合 | 新 `internal/app/storeobservations`；沿既有 current member owner；不承接平台规则 |
 | HTTP/UI | 模块本地HTTP descriptor、Console/BFF，复用现有 verified identity/同源/错误合同 |
@@ -75,7 +75,7 @@ permission沿当前authz点分命名，最小四项 `workbench.store.products.re
 
 ## 5. 最小持久化与事务
 
-复用当前 Store 的专用数据库，新增明确的 observation schema（`shein_observations`），不把观察写入Product/Catalog或复制Store身份/凭据表。观察repo只访问本schema，Store仍由自身repository访问。schema-owner初始化和serving role/readiness最小清单同步；constructor不AutoMigrate，不以owner连接serve。当前Store verifier有严格表/权限准入，接线owner须显式调整enabled capability合同，缺schema/grant fail closed。
+复用当前 Store 的专用数据库，新增明确的 observation schema（`store_observations`），不把观察写入Product/Catalog或复制Store身份/凭据表。观察repo只访问本schema，Store仍由自身repository访问。schema-owner初始化和serving role/readiness最小清单同步；constructor不AutoMigrate，不以owner连接serve。当前Store verifier有严格表/权限准入，接线owner须显式调整enabled capability合同，缺schema/grant fail closed。
 
 同一owner下四类最小表，父命令回执显式存储，不能放在进程内存或以假的StoreID代替：
 

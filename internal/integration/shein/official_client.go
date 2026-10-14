@@ -40,6 +40,13 @@ type OfficialClient struct {
 }
 
 func NewOfficialClient(options OfficialClientOptions) (*OfficialClient, error) {
+	app := options.Application
+	if app.Platform != "" && app.Platform != storecenter.PlatformShein || app.IdentityPartition != "" || app.AuthorizationMethod != "" && app.AuthorizationMethod != storecenter.AuthorizationCallback || app.SupportedModes != 0 {
+		return nil, storecenter.ErrOfficialConnectionUnavailable
+	}
+	// This adapter has one explicit SHEIN callback protocol. It cannot be
+	// registered as another platform or a TEMU application partition.
+	app.Platform, app.AuthorizationMethod = storecenter.PlatformShein, storecenter.AuthorizationCallback
 	callback, err := url.Parse(options.Application.CallbackURL)
 	if err != nil || callback.Scheme != "https" || callback.Host == "" || callback.User != nil || callback.Fragment != "" || callback.RawQuery != "" || !boundedParameter(options.Application.AppID, 128) || !boundedParameter(options.Application.Version, 128) || !boundedParameter(options.AppSecret, 512) || len([]byte(options.AppSecret)) < 16 || options.APIOrigin != "https://openapi.sheincorp.com" && options.APIOrigin != "https://openapi.sheincorp.cn" {
 		return nil, storecenter.ErrOfficialConnectionUnavailable
@@ -52,7 +59,7 @@ func NewOfficialClient(options OfficialClientOptions) (*OfficialClient, error) {
 		client.Timeout = 5 * time.Second
 	}
 	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
-	return &OfficialClient{application: options.Application, appSecret: options.AppSecret, origin: options.APIOrigin, http: &client, now: time.Now, random: rand.Reader}, nil
+	return &OfficialClient{application: app, appSecret: options.AppSecret, origin: options.APIOrigin, http: &client, now: time.Now, random: rand.Reader}, nil
 }
 
 var _ storecenter.OfficialConnectionProvider = (*OfficialClient)(nil)
@@ -191,7 +198,7 @@ func decryptMerchantSecret(encoded, appSecret string) (string, error) {
 	return secret, nil
 }
 func (c *OfficialClient) QueryStore(ctx context.Context, credential storecenter.OfficialMerchantCredential) (storecenter.OfficialStoreInformation, error) {
-	if credential.AppID != c.application.AppID || !boundedParameter(credential.OpenKeyID, 128) || !boundedParameter(credential.SecretKey, 512) {
+	if credential.Temu != nil || credential.AppID != c.application.AppID || !boundedParameter(credential.OpenKeyID, 128) || !boundedParameter(credential.SecretKey, 512) {
 		return storecenter.OfficialStoreInformation{}, storecenter.ErrOfficialConnectionUnavailable
 	}
 	if _, ok := supplierIdentity(json.RawMessage(credential.SupplierID)); !ok {

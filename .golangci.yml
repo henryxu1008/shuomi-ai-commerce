@@ -4,7 +4,7 @@
 run:
   # 超时时间
   timeout: 5m
-  
+
   # 要检查的目录
   tests: true
 
@@ -13,7 +13,7 @@ output:
   # 输出格式: colored-line-number|line-number|json|tab|checkstyle|code-climate
   formats:
     - format: colored-line-number
-  
+
   # 打印检查的linter名称
   print-issued-lines: true
   print-linter-name: true
@@ -22,7 +22,7 @@ output:
 linters:
   # 禁用所有默认linters
   disable-all: true
-  
+
   # 启用的linters
   enable:
     # 基础检查
@@ -31,7 +31,7 @@ linters:
     - ineffassign   # 检查无效的赋值
     - staticcheck   # 静态分析检查
     - depguard     # 检查稳定的包依赖方向
-    
+
     # 代码风格
     - gofmt         # 检查代码格式
     - goimports     # 检查import顺序
@@ -53,28 +53,9 @@ linters-settings:
         # Exact drain caller exclusions; import-boundary tests freeze each edge.
         files:
           - "**/*.go"
-          - "!**/internal/app/httpapi/current_product_http_e2e_test.go"
           - "!**/internal/app/httpapi/server_test.go"
           - "!**/internal/app/runtime/listingkitidentitypreflight/runtime.go"
           - "!**/internal/app/runtime/listingkitidentitypreflight/runtime_test.go"
-          - "!**/internal/crawler/alibaba1688/api_service.go"
-          - "!**/internal/crawler/alibaba1688/api_service_test.go"
-          - "!**/internal/listingadmin/handler_helpers.go"
-          - "!**/internal/listingadmin/store_handler_test.go"
-          - "!**/internal/listingkit/api/admin_dispatch_event_handler.go"
-          - "!**/internal/listingkit/api/shein_sync_handler_support.go"
-          - "!**/internal/listingkit/api/shein_sync_handler_test.go"
-          - "!**/internal/listingkit/api/subscription_guard.go"
-          - "!**/internal/listingkit/httpapi/builders_legacy_tenant.go"
-          - "!**/internal/listingkit/httpapi/runtime_support_shein_adapter_helpers.go"
-          - "!**/internal/listingkit/httpapi/shein_sync_runtime_bridge_helpers.go"
-          - "!**/internal/listingkit/httpapi/shein_sync_runtime_strategy_helpers.go"
-          - "!**/internal/listingkit/httpapi/shein_sync_runtime_strategy_helpers_test.go"
-          - "!**/internal/listingkit/service_upload_logic.go"
-          - "!**/internal/listingkit/shein_settings.go"
-          - "!**/internal/listingkit/store_access_test.go"
-          - "!**/internal/listingkit/store_profile_service_test.go"
-          - "!**/internal/listingkit/task_lifecycle_service_support.go"
           - "!**/internal/sheinlogin/tenant_context.go"
           - "!**/internal/sheinlogin/tenant_context_test.go"
           - "!**/internal/tenantbridge/bootstrap/configure.go"
@@ -518,10 +499,17 @@ linters-settings:
           - "!**/internal/integration/persistence/listing/official/**/*.go"
           - "!**/internal/integration/shein/official_goods.go"
           - "!**/internal/integration/shein/official_goods_rules.go"
+          - "!**/internal/integration/temu/official_categories.go"
+          - "!**/internal/integration/temu/official_category_rules.go"
+          - "!**/internal/integration/temu/official_supplier_size.go"
+          - "!**/internal/integration/temu/official_goods.go"
+          - "!**/internal/integration/tiktokshop/goods_read.go"
+          - "!**/internal/integration/tiktokshop/goods_write.go"
+          - "!**/internal/integration/temu/official_observations.go"
           - "!**/internal/integration/shein/official_readback.go"
           - "!**/internal/integration/shein/official_observations.go"
-          - "!**/internal/integration/persistence/sheinobservations/repository.go"
-          - "!**/internal/integration/persistence/sheinobservations/schema.go"
+          - "!**/internal/integration/persistence/storeobservations/repository.go"
+          - "!**/internal/integration/persistence/storeobservations/schema.go"
           - "!**/internal/integration/persistence/product/catalog/*.go"
           - "!**/internal/integration/persistence/product/catalog/**/*.go"
           - "**/internal/platform/*.go"
@@ -646,6 +634,8 @@ linters-settings:
         files:
           - "**/internal/integration/persistence/listing/submission/*.go"
           - "**/internal/integration/persistence/listing/submission/**/*.go"
+          - "!**/internal/integration/persistence/listing/submission/temu_effects_policy.go"
+          - "!**/internal/integration/persistence/listing/submission/tiktok_effects_policy.go"
         deny:
           - pkg: "task-processor/internal/amazon$"
           - pkg: "task-processor/internal/amazon/"
@@ -1154,6 +1144,7 @@ linters-settings:
           - "gorm.io/gorm/clause$"
           - "task-processor/internal/integration/persistence/listing/record$"
           - "task-processor/internal/integration/persistence/listing/submission$"
+          - "task-processor/internal/listing/record/target$"
           - "task-processor/internal/listing/submission$"
           - "task-processor/internal/product/collection$"
 
@@ -1173,18 +1164,69 @@ linters-settings:
           - "task-processor/internal/marketplace/shein/model$"
           - "task-processor/internal/storecenter$"
 
+      temu_official_metadata_transport:
+        # #31 IMPLEMENTATION_READY: exact named metadata DTO transport, no rule implementations.
+        list-mode: strict
+        files:
+          - "**/internal/integration/temu/official_categories.go"
+          - "**/internal/integration/temu/official_category_rules.go"
+          - "**/internal/integration/temu/official_supplier_size.go"
+        allow:
+          - "$gostd"
+          - "task-processor/internal/marketplace/temu/model$"
+          - "task-processor/internal/storecenter$"
+
+      temu_original_effect_policy:
+        # #31 G4 frozen: atomic current target/image receipt checks in the original ProductDB claim transaction.
+        list-mode: strict
+        files:
+          - "**/internal/integration/persistence/listing/submission/temu_effects_policy.go"
+        allow:
+          - "$gostd"
+          - "gorm.io/gorm$"
+          - "gorm.io/gorm/clause$"
+          - "task-processor/internal/integration/persistence/listing/record$"
+          - "task-processor/internal/listing/record/target$"
+          - "task-processor/internal/listing/submission$"
+          - "task-processor/internal/product/collection$"
+
+      temu_official_goods_transport:
+        # #31 frozen: exact typed native mutation adapter under the original Store/Submission owner.
+        list-mode: strict
+        files:
+          - "**/internal/integration/temu/official_goods.go"
+        allow:
+          - "$gostd"
+          - "task-processor/internal/marketplace/temu/goods$"
+          - "task-processor/internal/marketplace/temu/model$"
+          - "task-processor/internal/storecenter$"
+
+      temu_observation_official_transport:
+        # #31 frozen: fixed native reads and the current shared Store observation port.
+        list-mode: strict
+        files:
+          - "**/internal/integration/temu/official_observations.go"
+        allow:
+          - "$gostd"
+          - "task-processor/internal/marketplace/temu/model$"
+          - "task-processor/internal/marketplace/temu/observations$"
+          - "task-processor/internal/storecenter$"
+          - "task-processor/internal/storecenter/observations$"
+
       store_observation_persistence:
         # #614 IMPLEMENTATION_READY: exact adapters consume only the frozen observation port.
         list-mode: strict
         files:
-          - "**/internal/integration/persistence/sheinobservations/repository.go"
-          - "**/internal/integration/persistence/sheinobservations/schema.go"
+          - "**/internal/integration/persistence/storeobservations/repository.go"
+          - "**/internal/integration/persistence/storeobservations/schema.go"
         allow:
           - "$gostd"
           - "github.com/google/uuid$"
           - "gorm.io/gorm$"
           - "task-processor/internal/authidentity$"
-          - "task-processor/internal/marketplace/shein/observations$"
+          - "task-processor/internal/marketplace/temu/observations$"
+          - "task-processor/internal/storecenter$"
+          - "task-processor/internal/storecenter/observations$"
 
       store_observation_official_transport:
         # #614 IMPLEMENTATION_READY: exact signed read adapter, no application or legacy imports.
@@ -1193,17 +1235,17 @@ linters-settings:
           - "**/internal/integration/shein/official_observations.go"
         allow:
           - "$gostd"
-          - "task-processor/internal/marketplace/shein/observations$"
+          - "task-processor/internal/storecenter/observations$"
           - "task-processor/internal/storecenter$"
 
   govet:
     disable:
       - fieldalignment
-    
+
   gofmt:
     # 简化代码
     simplify: true
-    
+
 # Issues 配置
 issues:
   # 排除的目录
@@ -1214,12 +1256,12 @@ issues:
     - docs
     - scripts
     - deployments
-  
+
   # 排除的文件
   exclude-files:
     - ".*\\.pb\\.go$"
     - ".*_test\\.go$"
-  
+
   # 排除的规则
   exclude-rules:
     # 排除某些linters对测试文件的检查
@@ -1227,7 +1269,7 @@ issues:
       linters:
         - errcheck
         - unparam
-        
+
     # 排除examples目录
     - path: examples/
       linters:
@@ -1236,13 +1278,13 @@ issues:
     - linters:
         - staticcheck
       text: "SA1019:"
-        
+
   # 最大问题数量，0表示无限制
   max-issues-per-linter: 0
   max-same-issues: 0
-  
+
   # 显示所有问题
   new: false
-  
+
   # 排除默认的排除规则
   exclude-use-default: false
