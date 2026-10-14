@@ -53,7 +53,7 @@ export function prepareOwnProduct(input:{title:string;brand:string;description:s
  return result.data;
 }
 
-export function variantImages(row:VariantRow){return row.originalImages?.[0]===row.image?[...row.originalImages]:row.image?[row.image]:[]}
+function variantImages(row:VariantRow){return row.originalImages?.[0]===row.image?[...row.originalImages]:row.image?[row.image]:[]}
 export function removeVariantImage(row:VariantRow,url:string):VariantRow{
  const originalImages=row.originalImages?.filter(image=>image!==url);
  return {...row,originalImages,image:row.image===url?originalImages?.[0]??"":row.image};
