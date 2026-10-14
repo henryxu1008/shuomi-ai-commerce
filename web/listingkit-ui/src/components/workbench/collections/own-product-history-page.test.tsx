@@ -18,10 +18,11 @@ it("lists saved versions and navigates to independent old/detail compare pages w
  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();expect(screen.queryByRole("button",{name:"保存新版本"})).not.toBeInTheDocument();
 });
 it("shows immutable old data and zero values without an old-version edit action",async()=>{
- state.read.mockResolvedValue({item,version:entry("1"),product:{title:"资料1",variants:[{source_id:"red",sku:"RED",price:{currency:"CNY",amount:0},stock:0}]}});
+ state.read.mockResolvedValue({item,version:entry("1"),product:{title:"资料1",variants:[{source_id:"red",sku:"RED",title:"红色常规款",attributes:[{name:"颜色",value:"红色"}],price:{currency:"CNY",amount:0},stock:0}]}});
  render(<OwnProductHistoryPage itemId={id} version="1"/>);
  await screen.findByRole("heading",{name:/历史版本 1/});
  expect(within(screen.getByRole("region",{name:"选中SKU资料"})).getByText("CNY 0")).toBeVisible();
+ expect(within(screen.getByRole("region",{name:"选中SKU资料"})).getByText("红色常规款")).toBeVisible();
  expect(screen.queryByRole("link",{name:"编辑商品"})).not.toBeInTheDocument();
 });
 it("does not display a delayed history result from a previous enterprise",async()=>{
