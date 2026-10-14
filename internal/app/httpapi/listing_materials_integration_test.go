@@ -159,6 +159,10 @@ func testMaterialsNativeOwners(t *testing.T, value string, parent *productAgentA
 		require.NoError(t, json.Unmarshal(raw, &projected))
 		require.Nil(t, projected.Adoption, "a different manual command cannot be projected as this candidate's save")
 		require.False(t, projected.CanRequestAdoption)
+		require.LessOrEqual(t, len(projected.Unresolved), 4096, "collision history must remain within the existing BFF contract")
+		require.Contains(t, projected.Unresolved, "原保存编号对应的草稿与本次建议不一致，请核对原记录。")
+		require.Contains(t, projected.Unresolved[len(projected.Unresolved)-1], "省略")
+		require.Equal(t, int32(2), calls.Load(), "reading bounded history does not call the model again")
 		return
 	}
 	if value != "default" && strings.HasPrefix(value, "default ") {
