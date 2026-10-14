@@ -142,7 +142,7 @@ func buildArtworkOriginGuard(productDB, imageDB, configurationDB *gorm.DB) (*pro
 	return &productsourcing.ArtworkOriginGuard{Snapshots: snapshots, Images: images, Facts: facts, Configuration: configuration}, nil
 }
 
-func buildPODArtworkPublisher(ctx context.Context, productDB *gorm.DB, images imageagent.Repository, urls imageagent.DurableAssetPublicURLResolver, configuration agentconfig.ArtworkConfigurationRepository, authorization collection.Authorizer) (imageagent.ArtworkPublisher, error) {
+func buildPODArtworkPublisher(ctx context.Context, productDB *gorm.DB, images imageagent.Repository, urls imageagent.DurableAssetPublicURLResolver, configuration agentconfig.ArtworkConfigurationRepository, authorization collection.Authorizer, trial *imageagent.IsolatedTrialGeneratedURLPolicy) (imageagent.ArtworkPublisher, error) {
 	repository, err := collectionstore.NewRepository(ctx, productDB, func(tx *gorm.DB) (collectionstore.OwnPublisher, error) {
 		return productsourcing.NewOwnProductWriter(tx, authorization)
 	})
@@ -157,5 +157,5 @@ func buildPODArtworkPublisher(ctx context.Context, productDB *gorm.DB, images im
 	if !ok {
 		return nil, imageagent.ErrCommandBlocked
 	}
-	return &productsourcing.ArtworkReceiver{Images: images, Facts: facts, Artifacts: artifacts, URLs: urls, Configuration: configuration, Collections: repository, Authorize: authorization}, nil
+	return &productsourcing.ArtworkReceiver{Images: images, Facts: facts, Artifacts: artifacts, URLs: urls, TrialURLs: trial, Configuration: configuration, Collections: repository, Authorize: authorization}, nil
 }
