@@ -153,9 +153,16 @@ func testSelectionHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixtur
 	}
 	limited.Store(true)
 	factsOnly.Store(true)
-	raw := call("POST", productSelectionBase+"/inspect", uuid.NewString(), in, http.StatusOK)
+	call("POST", productSelectionBase+"/inspect", uuid.NewString(), in, http.StatusForbidden)
+	call("GET", confighttp.Base+"/"+agentconfig.SelectionAgentID, "", nil, http.StatusForbidden)
+	for _, cap := range productSelectionCapabilities(actor, a) {
+		if cap.ID == "product.selection.inspect" {
+			require.Equal(t, "REQUIRES_AUTHORIZATION", cap.Readiness)
+		}
+	}
 	limited.Store(false)
 	factsOnly.Store(false)
+	raw := call("POST", productSelectionBase+"/inspect", uuid.NewString(), in, http.StatusOK)
 	var facts selection.Inspection
 	require.NoError(t, json.Unmarshal(raw, &facts))
 	require.Len(t, facts.Products, 2)

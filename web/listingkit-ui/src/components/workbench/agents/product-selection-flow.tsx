@@ -173,6 +173,7 @@ export function ProductSelectionFlow({
   const textReady = entry.capabilities.some(
     (c) => c.id === "text.generate" && c.readiness === "AVAILABLE",
   );
+  const factsReady = entry.capabilities.some(c => c.id === "product.selection.inspect" && c.readiness === "AVAILABLE");
   const input = () =>
     selectionInputSchema.parse({
       contextId: crypto.randomUUID(),
@@ -196,7 +197,7 @@ export function ProductSelectionFlow({
     window.dispatchEvent(new Event("resource-pending"));
   }
   async function inspect() {
-    if (flight.current) return;
+    if (flight.current || !factsReady) return;
     flight.current = true;
     setBusy(true);
     setFailure(undefined);
@@ -376,7 +377,7 @@ export function ProductSelectionFlow({
           </ul>
           <Button
             variant="outline"
-            disabled={locked || selected.length < 2}
+            disabled={locked || !factsReady || selected.length < 2}
             onClick={() => void inspect()}
           >
             读取事实对比
@@ -410,7 +411,8 @@ export function ProductSelectionFlow({
           </Button>
         </>
       ) : null}
-      {!textReady ? (
+      {!factsReady ? <p>事实读取需要当前企业的智能体使用和我的数据读取权限。</p> : null}
+      {!textReady && factsReady ? (
         <p>AI 分析需要当前企业的独立模型配置；可以先读取候选事实。</p>
       ) : null}
       {saved ? (
@@ -428,7 +430,7 @@ export function ProductSelectionFlow({
           </p>
           <p>建议保存在原运行历史，所有模式均只分析，不采购或修改商品。</p>
           {!preparedModeMatch ? <p role="alert">权限模式已变化或待核对，请重新准备；原请求编号和运行保留。</p> : null}
-          {!run.data && !preparedFactsMatch ? <><p>请先核对本次准备对应的商品事实。</p><Button variant="outline" disabled={locked} onClick={()=>void inspect()}>核对确认依据</Button></> : null}
+          {!run.data && !preparedFactsMatch ? <><p>请先核对本次准备对应的商品事实。</p><Button variant="outline" disabled={locked || !factsReady} onClick={()=>void inspect()}>核对确认依据</Button></> : null}
           {currentPointer?.contextId !== saved.prepared.contextId || currentPointer?.key !== saved.prepared.requestKey ? (
             <Button variant="outline" disabled={locked} onClick={() => setChosenRun({contextId:saved!.prepared.contextId,key:saved!.prepared.requestKey})}>
               返回待确认的对比

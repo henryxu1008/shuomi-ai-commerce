@@ -128,7 +128,11 @@ func (a *productSelectionApplication) freshIdentity(ctx context.Context) (authid
 	if !ok {
 		return original, agentconfig.ErrForbidden
 	}
-	return freshWorkbenchIdentity(ctx, a.resolver, a.authorizer, []string{original.EffectiveOrganizationID}, collection.PermissionRead)
+	id, err := freshWorkbenchIdentity(ctx, a.resolver, a.authorizer, []string{original.EffectiveOrganizationID}, collection.PermissionRead)
+	if err == nil && !authz.AllowedOrganization(ctx, a.authorizer, id.UserID, id.EffectiveOrganizationID, id.Roles, authz.PermissionWorkbenchAgentUse) {
+		err = agentconfig.ErrForbidden
+	}
+	return id, err
 }
 func (a *productSelectionApplication) currentIdentity(ctx context.Context) (agent.ExecutionIdentity, error) {
 	id, e := a.freshIdentity(ctx)
