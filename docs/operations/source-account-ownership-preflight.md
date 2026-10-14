@@ -1,7 +1,24 @@
 # Source-account ownership preflight (slice A)
 
 > **SUPERSEDED — historical evidence, not a runnable current operation.**
-> [PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08](../product/greenfield-no-legacy-migration.md) cancels the source-account migration direction that this preflight supported. Do not run it for future work or infer permission to inspect profiles, databases or other real environments. The retained command and evidence below are historical only; no legacy migration, old-ID mapping, profile reuse, tenantbridge consumer or compatibility path is authorized.
+> [PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08](../product/greenfield-no-legacy-migration.md) cancels the source-account migration direction that this preflight supported. Do not run it for future work or infer permission to inspect profiles, databases or other real environments. The evidence below is historical only; no legacy migration, old-ID mapping, profile reuse, tenantbridge consumer or compatibility path is authorized.
+
+The `cmd/source-account-ownership-preflight` command, its PowerShell wrapper and
+`internal/integration/persistence/sourceaccount/ownershipmigration` implementation
+are physically retired under [#529](https://github.com/qq550723504/task-processor/issues/529).
+This includes the old prepare/schema/snapshot/receipt and profile validation path.
+The commands below describe the historical A/B1 source tree and are unavailable
+from the current checkout. Historical delivery evidence remains in Git and this
+document; no database, IAM, profile or retained data was accessed or changed by
+the source retirement.
+
+Current fresh-install registry schema initialization remains
+`go run ./cmd/source-account-registry-schema-init -config <private-config>` with
+its existing owner and explicit operation requirements. It does not consume a
+historical migration receipt. Other Store-history tools, the independent SHEIN
+worker and the release identity-preflight gate remain outside this bounded batch.
+
+## Historical procedure (SUPERSEDED)
 
 This is a read-only preview, not a backfill or a production cutover gate. The full
 inventory, target contract and A–D rollout dependencies are in

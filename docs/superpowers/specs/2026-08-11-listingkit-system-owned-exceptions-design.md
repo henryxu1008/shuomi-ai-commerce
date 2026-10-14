@@ -1,5 +1,13 @@
 # ListingKit Current Orphaned Owner Exceptions Design
 
+> **Historical fixed-snapshot seed workflow — SUPERSEDED.**
+> [PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08](../../product/greenfield-no-legacy-migration.md)
+> cancels carrying these old records into new business work. The dedicated seed
+> cmd, assembly and write APIs are retired under #529. This document preserves
+> the original snapshot evidence; it does not authorize new seeding or changes
+> to existing data. Existing exception reads, exact matching and fail-closed
+> identity-preflight behavior remain unchanged until separately retired.
+
 ## Goal
 
 Allow only the 312 owner-reconciliation groups from report `648cdfab03c4` (874,891 rows) to be classified as system-owned, while preserving `creator`, `created_by`, and all future fail-closed behavior.
