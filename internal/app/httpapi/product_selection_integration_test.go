@@ -196,6 +196,39 @@ func testSelectionHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixtur
 	require.EqualValues(t, 2, calls.Load(), "one inspect decision and one proposal decision")
 	require.NotNil(t, result.Proposal)
 	require.Len(t, result.Inspection.Products, 2)
+	stored, frozen, err := a.readRun(actor, in.ContextID, key)
+	require.NoError(t, err)
+	for _, invalid := range []string{"audit_failed", "missing_call", "model_invocation", "wrong_tool"} {
+		t.Run("history_evidence_"+invalid, func(t *testing.T) {
+			copy := stored
+			copy.State.Phase, copy.State.StopReason = agent.Stopped, agent.StopAudit
+			copy.State.History = append([]agent.Observation(nil), stored.State.History...)
+			for i := range copy.State.History {
+				o := &copy.State.History[i]
+				if o.Tool != agentconfig.SelectionInspectToolRef() {
+					continue
+				}
+				switch invalid {
+				case "audit_failed":
+					o.AuditStatus = commercetool.AuditStatusRecordFailed
+				case "missing_call":
+					o.CallID = ""
+				case "model_invocation":
+					o.InvocationID = uuid.NewString()
+				case "wrong_tool":
+					o.Tool = agentconfig.MaterialsInspectToolRef()
+				}
+			}
+			projected, e := a.projectRun(actor, copy, frozen)
+			require.NoError(t, e)
+			require.Nil(t, projected.Inspection, "unaudited output is not saved run evidence")
+		})
+	}
+	stopped := stored
+	stopped.State.Phase, stopped.State.StopReason = agent.Stopped, agent.StopAudit
+	projected, err := a.projectRun(actor, stopped, frozen)
+	require.NoError(t, err)
+	require.NotNil(t, projected.Inspection, "recorded inspection remains visible even when later work stopped")
 	replay := call("POST", productSelectionBase+"/contexts/"+in.ContextID+"/runs", key, body, http.StatusOK)
 	require.JSONEq(t, string(raw), string(replay))
 	require.EqualValues(t, 2, calls.Load())
