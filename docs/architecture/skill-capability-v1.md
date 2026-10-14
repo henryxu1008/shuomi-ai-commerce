@@ -1,7 +1,7 @@
 # Skill V1：三层归属与现有商品内容 Agent 接入
 
 > Design Basis：Independent Architecture；执行 Issue：[#688](https://github.com/qq550723504/task-processor/issues/688)，产品父项 #137。
-> 状态：DESIGNING / NOT_READY。生产业务代码尚未开始；独立边界检查与局部产品位置确认完成后才可改为 IMPLEMENTATION_READY。
+> 状态：APPROVED / IMPLEMENTATION_READY。2026-10-14 第 1 轮独立技术边界检查无未处理 BLOCKER；用户同日批准第 2 节局部产品位置。实现与用户验收另行记录。
 > 调查基线：main `8fc90f237c5794904771a62c7f3b85d2ecbd6b76`，2026-10-14。滚动实现/评审状态写 Issue/主要 PR。
 
 ## 1. 用户结果、依据和阶段边界
@@ -20,7 +20,7 @@ Must：三层归属、动作分离、不可变准确版本、个人明确同意�
 
 2026-10-14 使用当前文件 `tg48P46SSXl6TBy9lZwg63`、页面 `31:463`「硕米官网」进行只读核验：`4703:429` 我的智能体、`4703:892` 能力配置、`4722:429` 执行确认、`432:534` 账户资料均可见且非归档，已读取高保真 context 与截图。按可见节点名称检索未发现 Skill/技能节点；这只说明本次结构检索结果，不把不存在的控件声明为批准设计。
 
-拟定局部映射，**待用户确认**：
+局部映射：**用户于 2026-10-14 明确批准采用以下方案**。当前 Figma 继续约束周边布局/主题/组件；批准该局部增量不表示 Figma 原先已有对应控件。
 
 | 位置 | 拟定增量 | 用户操作 |
 | --- | --- | --- |
@@ -31,7 +31,7 @@ Must：三层归属、动作分离、不可变准确版本、个人明确同意�
 
 沿现 Card/Dialog/表单、CSS Modules 和设计 tokens；不新增一级/二级菜单、个人 Workspace 或技能市场。账户资料的现身份路径已经支持没有有效企业；我的智能体现有整页需要有效企业，不将其直接改为个人资产入口。现全站主题、账户、业务 Agent 卡片布局只作局部复用。
 
-局部入口与控件需经产品确认并记录当前 Figma 候选/映射，不能由独立技术 Reviewer 代替用户批准。其他技术调查/设计可继续；生产路径准入等待该缺口解除。
+局部产品位置已由用户本人确认，记录在 #688 及主要 PR；不是独立技术 Reviewer 代替产品批准，也不是功能或用户验收。
 
 ## 3. 当前源码事实和开源复用
 
@@ -123,7 +123,7 @@ dispatch/新候选保存/人工或策略采用：UseGate 先重验当前身份/�
 
 beforeSend gate 在原 governed executor 的发送准入获得该锁，保持到同步调用返回/UNKNOWN 记账完成后释放（原 hard deadline 最多两分钟；rollback/进程断连自动释放）。revoke 若先提交，调用拒绝；若调用先准入，revoke 等待该有界效果结束，不把已在途调用描述为撤销成功或自动重做。复用现 Knowledge permit，若两者都有：先 Skill gate，再原 Knowledge gate，失败释放已取资源，原 finally 顺序释放；不为 Skill 建新 lease/reaper/运行状态机。上游成员/角色撤销沿原 live check，不能撤回已准入的外部请求。
 
-Review 采用在取得 Skill gate 后执行原 ProductDB UoW，保持共享锁直到其事务结果确定，再释放；这只是防版本/准入在检查后变更，不声称 RunDB 与 ProductDB 原子事务。Catalog/Review/receipt 仍同原 ProductDB 事务；已提交产品回执只核实和读回，Skill 当前撤销不触发补偿、重调模型或重复商品写入。若没有获得 gate、任何 reader/验证失败或无法确定结果，拒绝新效果并保留原 owner 的 UNKNOWN/回执结果。
+Review 采用在取得 Skill gate 后执行原 ProductDB UoW，保持共享锁直到其事务结果确定，再释放；这只是防版本/准入在检查后变更，不声称 RunDB 与 ProductDB 原子事务。最小 gate port 在准确 Preflight replay 后、Store.Run 前取得，覆盖 candidate intake、人工变更和策略采用，事务内重核冻结 provenance；不能在现 ExecutionPolicyResolver 中检查后立即释放。人工 Reviewer 的业务权限与原执行人的 Skill 使用权分开：复用现 live origin lookup 核验原主体/member/个人版本使用和当前企业准入，允许现有获授权管理员审核，但不向其返回他人个人正文或赋予个人管理权。Catalog/Review/receipt 仍同原 ProductDB 事务；已提交产品回执只核实和读回，Skill 当前撤销不触发补偿、重调模型或重复商品写入。若没有获得 gate、任何 reader/验证失败或无法确定结果，拒绝新效果并保留原 owner 的 UNKNOWN/回执结果。
 
 ## 9. 结果出处、缓存和验证
 
@@ -143,4 +143,4 @@ Legacy decision：N/A（当前新增有界资源，消费现 owner）；不依�
 
 一个 Writer、一个独立分支 `codex/issue688-skill-v1` 和一个主要 PR。首先交本设计与局部 Figma 候选供检查；随后在准入后按可验证提交边界完成 Skill 管理/版本/复制 → 原冻结/受控运行 → UI/原采用读回，完整用户结果一次交接，不把内部层各拆为 PR。
 
-目前必须补齐：局部产品映射确认、适用独立技术边界检查。解除条件：用户批准第 2 节位置及对应局部候选；独立检查无未处理 BLOCKER，明确 IMPLEMENTATION_READY；当前 Issue Ready 记录完整。此前只做设计/只读调查，不创建生产 schema 或修改正式业务路径。源码基线已包含 #656/#661 当前合入结果，#137 后续 Agent/安装整合有其他 owner，本批不修改其活跃分支、部署或数据。
+2026-10-14 第 1 轮独立检查绑定设计候选 e3873bb9c973fd875d129ff943df93d5d4bbbdf8，明确 IMPLEMENTATION_READY for technical boundaries，无 BLOCKER。两项 IMPLEMENTATION_TEST：实际 Review gate 覆盖原事务及准确 replay；人工 Reviewer 与 live origin 权限分离。第 8 节记录现合同澄清，未更换 owner/状态机/恢复协议；在实现测试及合并前收敛，不为此重开架构或创建验收平台。用户已批准局部产品映射，当前 Issue 可记录 Ready 并由同一 Writer 开始正式 TDD。源码基线已包含 #656/#661 当前合入结果，#137 后续 Agent/安装整合有其他 owner，本批不修改其活跃分支、部署或数据。
