@@ -75,10 +75,18 @@ func TestStandaloneSheinWorkerDoesNotCompileCurrentHTTPApplication(t *testing.T)
 		if dependency == "task-processor/internal/app/httpapi" {
 			t.Fatal("standalone SHEIN worker must use its own command runtime, not the current HTTP application assembly")
 		}
+		if dependency == "task-processor/internal/tenantbridge" || strings.HasPrefix(dependency, "task-processor/internal/tenantbridge/") {
+			t.Errorf("standalone SHEIN worker still compiles legacy numeric tenant transport %s", dependency)
+		}
 	}
 	for _, name := range []string{"shein_login_worker.go", "shein_login_worker_test.go"} {
 		if _, err := os.Stat(filepath.Join("..", "internal", "app", "httpapi", name)); !os.IsNotExist(err) {
 			t.Fatalf("shared HTTP worker source %s must be retired, without a forwarding wrapper", name)
+		}
+	}
+	for _, name := range []string{"api.go", "api_test.go", "http_module.go", "http_module_test.go", "tenant_context.go", "tenant_context_test.go"} {
+		if _, err := os.Stat(filepath.Join("..", "internal", "sheinlogin", name)); !os.IsNotExist(err) {
+			t.Errorf("unused SHEIN login HTTP source %s must be retired; the standalone worker retains its service and health endpoint", name)
 		}
 	}
 }
