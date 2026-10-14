@@ -19,6 +19,16 @@ contracts remain intact; source/build/review/CI and actual deployment are separa
 
 ## 1. Purpose
 
+### #301 standalone SHEIN service assembly calibration
+
+The dedicated worker consumes only Service/Close from its original bootstrap.
+Unused SHEIN login HTTP handlers/routes/numeric header resolution are retired;
+bootstrap builds the unchanged service without a Handler/Module. Its actual
+command dependency graph no longer contains tenantbridge. The original account
+repository, worker, Redis, browser/profile, Store sync, health and cleanup remain.
+Worker numeric account persistence and release identity-preflight remain debt;
+this does not create current Organization ownership, deploy or touch stored data.
+
 ### #678 current command assembly calibration
 
 The current application and ImageAgent worker no longer compile tenantbridge.
@@ -26,7 +36,8 @@ The existing standalone SHEIN worker's process assembly belongs to
 `internal/app/runtime/sheinloginworker`, directly consumed by its cmd; its
 shared HTTP entrypoint is absent. Unused ListingAdmin HTTP projection/helpers
 are retired, while original repository/API behavior and current SHEIN draft
-semantics are unchanged. Remaining numeric/SHEIN transport and historical tools
+semantics are unchanged. The later #301 calibration above removes idle HTTP
+transport; remaining worker numeric account persistence and historical tools
 still require their own #301/#529 retirement; this does not create a new owner
 for their old facts or claim deployment/user acceptance.
 
@@ -36,7 +47,7 @@ The later identity-preparation batch retires the Yudao-to-ZITADEL migration
 dry-run script and unconsumed `tenantbridge/bootstrap`, without moving or
 wrapping them. Current Organization identity remains with its existing owner;
 no historical account/tenant mapping preparation is admitted. Only bootstrap's
-two real import edges and depguard exclusions disappear (seven to five).
+two real import edges and depguard exclusions disappear (then seven to five).
 The release identity-preflight, remaining resolver readers and standalone SHEIN
 worker keep their existing contracts and remain explicit retirement debt.
 

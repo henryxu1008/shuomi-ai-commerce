@@ -9,8 +9,13 @@
 
 已无真实调用方的 ListingAdmin 旧 HTTP handlers/header/list-query helpers 已退休；其原
 repository/API/DTO 与有效 owner/幂等/权限测试保留。当前 Organization/StoreCenter
-路由和本地 SHEIN 草稿合同不变。独立 SHEIN worker 的 numeric/transport 债务以及 #529
-历史工具仍未退休；本批不表示全仓 legacy 清零、部署或用户验收。
+路由和本地 SHEIN 草稿合同不变。独立 SHEIN worker 的原数字账户持久化以及 #529
+发布身份预检仍是债务；本批不表示全仓 legacy 清零、部署或用户验收。
+
+后续 #301 已退休独立 SHEIN worker 未消费的旧登录 HTTP Handler/Module、API 与
+numeric header resolver。其 bootstrap 只构造原服务，worker 的真实编译依赖也退出
+tenantbridge；账户仓库、Redis/profile、浏览器、Store sync、/healthz 与关闭行为保持。
+worker 的原数字账户持久化和发布 identity-preflight 仍是债务，无真实数据/登录/部署操作。
 
 ## 目标
 

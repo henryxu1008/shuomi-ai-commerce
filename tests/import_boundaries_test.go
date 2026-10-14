@@ -176,7 +176,8 @@ func TestLocalAgentHTTPAPIReadsIdentityFromNeutralContext(t *testing.T) {
 
 func TestSheinLoginReadsIdentityFromNeutralContext(t *testing.T) {
 	root := filepath.Join("..", "internal", "sheinlogin")
-	for _, name := range []string{"tenant_context.go", "accounts.go"} {
+	// The unused HTTP tenant context is retired; the worker account reader remains.
+	for _, name := range []string{"accounts.go"} {
 		path := filepath.Join(root, name)
 		source, err := os.ReadFile(path)
 		if err != nil {

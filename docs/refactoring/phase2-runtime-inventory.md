@@ -4,7 +4,9 @@
 > is source-retired after its last production consumer exited. Its entries in
 > dated package maps and phase snapshots below remain historical evidence;
 > they are not live preparation instructions or outstanding bootstrap work.
-> The release identity-preflight and standalone SHEIN consumers remain debt.
+> The later #301 batch retires the standalone SHEIN worker's unused HTTP
+> projection/header resolver; its actual Go graph no longer compiles tenantbridge.
+> The worker service/account persistence and release identity-preflight remain debt.
 
 > **Classification: MIXED.** `CURRENT CONTRACT` applies only to the executable closure ceilings and the **Legacy consumer register** consumed by architecture/import guards. The initial baseline, dated package maps, phase sequencing, and historical pre-migration snapshots are `DATED EVIDENCE`.
 >
