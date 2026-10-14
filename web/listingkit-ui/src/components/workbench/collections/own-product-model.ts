@@ -2,7 +2,7 @@ import {ownProductSchema} from "@/lib/contracts/product-collection";
 
 export type Specification={id:string;name:string;values:string};
 export type ProductAttributeRow={id:string;name:string;value:string};
-export type VariantRow={id:string;attributes:Record<string,string>;sku:string;currency:string;price:string;stock:string;image:string};
+export type VariantRow={id:string;attributes:Record<string,string>;sku:string;currency:string;price:string;stock:string;image:string;title?:string;originalImages?:string[];existing?:boolean};
 export function newVariantRow(attributes:Record<string,string>={}):VariantRow{return {id:crypto.randomUUID(),attributes,sku:"",currency:"",price:"",stock:"",image:""}}
 const comboKey=(attributes:Record<string,string>)=>JSON.stringify(Object.entries(attributes).sort(([a],[b])=>a.localeCompare(b)));
 function parseSpecifications(specs:Specification[]){
@@ -23,7 +23,7 @@ export function buildVariantRows(specs:Specification[],prior:VariantRow[],imageC
  let combinations:Record<string,string>[]=[{}];
  for(const dimension of dimensions)combinations=combinations.flatMap(attrs=>dimension.values.map(v=>({...attrs,[dimension.name]:v})));
  const rows=combinations.map(attrs=>existing.get(comboKey(attrs))??newVariantRow(attrs));
- if(count*(1+dimensions.length)+imageCount+attributeCount+rows.filter(row=>row.image).length>1024)throw new Error("规格与已有变体图片超过当前保存限制，请减少组合或图片。");
+ if(count*(1+dimensions.length)+imageCount+attributeCount+rows.reduce((sum,row)=>sum+variantImages(row).length,0)>1024)throw new Error("规格与已有变体图片超过当前保存限制，请减少组合或图片。");
  return rows;
 }
 export function prepareProductAttributes(rows:ProductAttributeRow[]){
@@ -40,14 +40,21 @@ export function prepareProductAttributes(rows:ProductAttributeRow[]){
 export function prepareOwnProduct(input:{title:string;brand:string;description:string;images:string[];mode:"single"|"multiple";rows:VariantRow[];attributes?:ProductAttributeRow[]}){
  const {title,brand,description,images,mode,rows}=input;
  if(mode==="multiple"&&!rows.length)throw new Error("请生成至少一个变体。");
- const active=mode==="single"&&!rows[0]?.sku.trim()?undefined:rows;
+ const active=mode==="single"&&!rows[0]?.sku.trim()&&!rows[0]?.existing?undefined:rows;
  const variants=active?.map((row,index)=>{
-  if(!row.sku.trim()||!row.price.trim()||!row.stock.trim()||!row.currency.trim())throw new Error(`第 ${index+1} 个变体：请填写SKU、币种、价格和库存。`);
-  if(row.image&&!images.includes(row.image))throw new Error(`第 ${index+1} 个变体的图片已从商品图片中移除，请重新选择。`);
-  return {sourceId:row.id,title:Object.values(row.attributes).join(" / ")||title,sku:row.sku.trim(),attributes:row.attributes,currency:row.currency.trim(),price:Number(row.price),stock:Number(row.stock),...(row.image?{images:[row.image]}:{})};
+  if(!row.sku.trim()&&!row.existing||!row.price.trim()||!row.stock.trim()||!row.currency.trim())throw new Error(`第 ${index+1} 个变体：请填写SKU、币种、价格和库存。`);
+  if(row.image&&!images.includes(row.image)&&!row.originalImages?.includes(row.image))throw new Error(`第 ${index+1} 个变体的图片已从商品图片中移除，请重新选择。`);
+  const skuImages=variantImages(row);
+  return {sourceId:row.id,title:row.title??(Object.values(row.attributes).join(" / ")||title),sku:row.existing?row.sku:row.sku.trim(),attributes:row.attributes,currency:row.currency.trim(),price:Number(row.price),stock:Number(row.stock),...(skuImages.length?{images:skuImages}:{})};
  });
  const attributes=prepareProductAttributes(input.attributes??[]);
  const result=ownProductSchema.safeParse({title:title.trim(),brand:brand.trim(),description,images,...(Object.keys(attributes).length?{attributes}:{}),...(variants?{variants}:{})});
  if(!result.success){const issue=result.error.issues[0];throw new Error(issue.code==="custom"?issue.message:"请检查商品名称、图片链接、币种、数值和资料长度。")}
  return result.data;
+}
+
+function variantImages(row:VariantRow){return row.originalImages?.[0]===row.image?[...row.originalImages]:row.image?[row.image]:[]}
+export function removeVariantImage(row:VariantRow,url:string):VariantRow{
+ const originalImages=row.originalImages?.filter(image=>image!==url);
+ return {...row,originalImages,image:row.image===url?originalImages?.[0]??"":row.image};
 }

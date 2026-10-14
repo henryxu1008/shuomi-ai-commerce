@@ -111,15 +111,17 @@ type OwnVariant struct {
 	Images     []string          `json:"images,omitempty"`
 }
 type Mutation struct {
-	Action            string       `json:"action"`
-	BatchID           string       `json:"batchId,omitempty"`
-	ItemID            string       `json:"itemId,omitempty"`
-	TargetBatchID     string       `json:"targetBatchId,omitempty"`
-	ExpectedRevision  int64        `json:"expectedRevision,omitempty"`
-	Name              string       `json:"name,omitempty"`
-	SourceOperationID string       `json:"sourceOperationId,omitempty"`
-	Product           *OwnProduct  `json:"product,omitempty"`
-	Products          []OwnProduct `json:"products,omitempty"`
+	Action                string       `json:"action"`
+	BatchID               string       `json:"batchId,omitempty"`
+	ItemID                string       `json:"itemId,omitempty"`
+	TargetBatchID         string       `json:"targetBatchId,omitempty"`
+	ExpectedRevision      int64        `json:"expectedRevision,omitempty"`
+	ExpectedSourceVersion uint64       `json:"expectedSourceVersion,omitempty,string"`
+	ExpectedPublicationID string       `json:"expectedPublicationId,omitempty"`
+	Name                  string       `json:"name,omitempty"`
+	SourceOperationID     string       `json:"sourceOperationId,omitempty"`
+	Product               *OwnProduct  `json:"product,omitempty"`
+	Products              []OwnProduct `json:"products,omitempty"`
 }
 type Command struct {
 	Scope                       Scope

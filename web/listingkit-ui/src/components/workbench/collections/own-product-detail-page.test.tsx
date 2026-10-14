@@ -6,12 +6,13 @@ const state=vi.hoisted(()=>({read:vi.fn(),context:{} as Record<string,unknown>})
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>state.context}));
 vi.mock("@/lib/api/product-collection",async original=>({...await original<object>(),readCollectionItem:state.read}));
 const itemId="550e8400-e29b-41d4-a716-446655440002";
-beforeEach(()=>{state.read.mockReset();state.context={user:{id:"actor-a"},effectiveOrganization:{id:"org-a"}}});
+beforeEach(()=>{state.read.mockReset();state.context={user:{id:"actor-a"},effectiveOrganization:{id:"org-a"},permissions:["workbench.collection.manage"]}});
 afterEach(cleanup);
 it("shows common attributes and previews the selected SKU with its own image and declared values",async()=>{
  state.read.mockResolvedValue({item:{id:itemId,createdAt:"2026-10-13T12:00:00Z",source:{kind:"own",version:"1",productKey:"own-test"}},product:{title:"棉质上衣",brand:"测试品牌",description:"商品描述",attributes:[{name:"材质",value:"棉"},{name:"适用季节",value:"夏季"}],images:[{url:"https://images.example.org/main.png"}],variants:[{source_id:"red",sku:"RED",attributes:[{name:"颜色",value:"红色"}],price:{currency:"CNY",amount:12},stock:3,images:[{url:"https://images.example.org/red.png"}]},{source_id:"blue",sku:"BLUE",attributes:[{name:"颜色",value:"蓝色"}],price:{currency:"CNY",amount:0},stock:0,images:[{url:"https://images.example.org/blue.png"}]}]}});
  render(<OwnProductDetailPage itemId={itemId}/>);
  const attrs=await screen.findByRole("region",{name:"商品属性"});expect(within(attrs).getByText("材质")).toBeVisible();expect(within(attrs).getByText("棉")).toBeVisible();
+ expect(screen.getByRole("link",{name:"编辑商品"})).toHaveAttribute("href",`/workbench/data/mine/own/${itemId}/edit`);
  await userEvent.selectOptions(screen.getByLabelText("当前SKU"),screen.getByRole("option",{name:"BLUE · 颜色：蓝色"}));
  expect(screen.getByRole("img",{name:"商品大图"})).toHaveAttribute("src",expect.stringContaining(encodeURIComponent("https://images.example.org/blue.png")));
  expect(within(screen.getByRole("region",{name:"选中SKU资料"})).getByText("CNY 0")).toBeVisible();

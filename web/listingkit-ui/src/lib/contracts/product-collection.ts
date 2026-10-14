@@ -36,6 +36,11 @@ export const collectionCommandSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("archive_item"), itemId: collectionID, expectedRevision: revision }).strict(),
   z.object({ action: z.literal("add_acquisition"), batchId: collectionID.optional(), sourceOperationId: collectionID }).strict(),
   z.object({ action: z.literal("create_product"), batchId: collectionID.optional(), product: ownProductSchema }).strict(),
+  z.object({ action:z.literal("revise_product"), itemId:collectionID, expectedRevision:revision, expectedSourceVersion:version, expectedPublicationId:collectionID, product:ownProductSchema }).strict().superRefine((input,ctx)=>{
+    const product=input.product;
+    const items=2+Object.keys(product.attributes??{}).length+product.images.length+(product.variants??[]).reduce((sum,v)=>sum+1+Object.keys(v.attributes).length+(v.images?.length??0),0);
+    if(items>1024)ctx.addIssue({code:"custom",message:"商品资料已达修订保存限制，请减少两项属性或图片后保存新版本。"});
+  }),
 ]);
 export type CollectionCommand = z.infer<typeof collectionCommandSchema>;
 export const collectionSourceKindSchema = z.enum(["acquisition", "own", "market", "sds_template", "sds_finished", "amazon_data", "custom_dataset"]);
