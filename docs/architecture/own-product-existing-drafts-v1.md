@@ -1,6 +1,6 @@
 # 自有商品已有草稿与继续编辑 v1
 
-Refs #699；2026-10-14用户批准“已有草稿查询、权限和版本展示合同；商品详情已有草稿列表与继续编辑；独立页面；返回商品和批次上下文；复用供应链/草稿”。Design Basis: Independent Architecture。Admission: DESIGN_IN_PROGRESS（仅本次新的只读反查合同，冻结前不写生产代码）。
+Refs #699；2026-10-14用户批准“已有草稿查询、权限和版本展示合同；商品详情已有草稿列表与继续编辑；独立页面；返回商品和批次上下文；复用供应链/草稿”。Design Basis: Independent Architecture。Admission: IMPLEMENTATION_READY（原独立Reviewer R1通过，仅本次新的只读反查合同）。
 
 ## 1. 用户结果与authority
 
@@ -24,7 +24,7 @@ q复用collection.Query：limit默认20、最多100、after为UUID、keyword最�
 
 ## 3. 权限、scope与版本
 
-沿原verified effective identity/live supply.read + data read/owner，org/actor/member从当前identity和authorize proof取得。新的商品反查先用当前Collection.ReadItem核对item存在、ID相同且kind=own，再查询该scope；返回前再次核对live scope和当前item仍可读且own。编辑/移动当前商品允许查询同稳定item的旧草稿，不能强制Source版本等于当前item版本。归档/失去当前item访问时该详情反查拒绝，已有Source的直接读取仍沿原retained-source合同，不能改变旧read权限。
+沿原verified effective identity/live supply.read + data read/owner，org/actor/member从当前identity和authorize proof取得。新的商品反查先用当前Collection.ReadItem核对item存在、ID相同且kind=own，再查询该scope；返回前再次核对live scope和当前item仍可读且own。编辑/移动当前商品允许查询同稳定item的旧草稿，不能强制Source版本等于当前item版本。item自身归档/失去当前item访问时该详情反查拒绝；父批次归档按原ReadItem访问语义，不新增批次权限门禁，已有Source的直接读取仍沿原retained-source合同，不能改变旧read权限。
 
 read-only可查看列表/独立草稿，保存仍须原supply.manage；导航按钮不能授权。撤权、token过期、企业/成员变更、deadline失败、安全字段或retained source错配 fail closed。保持原DOMAIN 10s/HTTP20s、no-store、GET拒body/content encoding/idempotency、严格query、2MiB读取预算；无外部URL下载或provider IO。
 
@@ -49,3 +49,4 @@ TDD/开发验证：新query多preparation/同item不同Vn、最新Rn、未保存
 ## 6. 独立边界审查
 
 待原独立Reviewer只针对上述新公共只读query、scope/归属和消费者合同检查；无新的Must扩展或全局架构重审。达到IMPLEMENTATION_READY后冻结，以最多两轮正常审查及finding分类规则执行；非Blocker实现/边界验证收敛，只有真实Blocker重开设计。
+2026-10-15 R1：own_history_review实查#699正文和实际owner/SQL/BFF/独立页，绑定先于生产的设计fac7e91a3a6b36f89562ace9b85ec6f77498be89，结论IMPLEMENTATION_READY，无当前Must/AGENTS BLOCKER。以下IMPLEMENTATION_TEST在实现收敛：scope-qualified count/page与retained source/echo校验；常数次首尾live权限/当前item检查；跨Preparation固定Vn与实际最新Rn、budget/keyset；sourceID不变但导航UUID改变时将query纳入editor remount key，核对前不保留旧可保存表单。item自身归档按原ReadItem语义，父batch归档不扩新权限模型。最终集中复核实际增量。
