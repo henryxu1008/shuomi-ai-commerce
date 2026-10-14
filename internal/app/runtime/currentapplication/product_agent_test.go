@@ -72,6 +72,19 @@ func TestSelectionPolicyCannotBorrowAnotherAgentOrExpandCurrentBudget(t *testing
 	require.Error(t, cfg.validate())
 }
 
+func TestSelectionOnlyPolicyDoesNotRequireASecondTitleModel(t *testing.T) {
+	cfg := agentRuntimeConfig()
+	policy := cfg.ProductAgent.TextPolicies["org"]
+	policy.Profile.PromptVersion = agentconfig.SelectionPromptVersion
+	policy.Profile.OutputSchemaVersion = agentconfig.SelectionActionVersion
+	cfg.ProductAgent.SelectionTextPolicies = map[string]governed.RoutePolicy{"org": policy}
+	cfg.ProductAgent.TextPolicies = nil
+	require.NoError(t, cfg.validate())
+	require.Empty(t, cfg.ProductAgent.TextPolicies, "selection policy is never copied to title")
+	cfg.ProductAgent.SelectionTextPolicies = nil
+	require.Error(t, cfg.validate(), "enabled execution still needs an explicitly admitted consumer")
+}
+
 func agentRuntimeConfig() *Config {
 	cfg := runtimeTestConfig()
 	owner := cfg.SourceAccountDatabase

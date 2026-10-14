@@ -228,3 +228,74 @@ it("prepares an exact original key and retains it through uncertain paid start",
   await waitFor(() => expect(writes).toHaveLength(3));
   expect(writes[2].key).toBe(writes[0].key);
 });
+
+it("switches from viewed history to the newly prepared exact comparison", async () => {
+  const oldContext = "33333333-3333-4333-8333-333333333333";
+  const baseFetch = fetch;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((url, init) => {
+      const path = String(url);
+      if (path.includes("/recent-runs"))
+        return Promise.resolve(
+          Response.json({
+            items: [
+              {
+                runId: id,
+                operationId: oldContext,
+                requestKey: other,
+                productKey: "",
+                targetPlatform: "product",
+                phase: "stopped",
+                revision: "1",
+                startedAt: "2026-10-14T00:00:00Z",
+              },
+            ],
+            nextCursor: "",
+          }),
+        );
+      if (path.endsWith("/contexts/" + oldContext + "/runs/" + other))
+        return Promise.resolve(
+          Response.json({
+            runId: id,
+            contextId: oldContext,
+            requestKey: other,
+            phase: "stopped",
+            revision: "1",
+            configurationSnapshotRef: {
+              Kind: "agent-configuration-v1",
+              ID: id,
+              Digest: "a".repeat(64),
+            },
+            modeSnapshotRef: {
+              Kind: "agent-execution-mode-v1",
+              ID: other,
+              Digest: "b".repeat(64),
+            },
+            executionMode: "read_only",
+            modeRevision: "0",
+            goalSummary: "旧比较目标",
+            validated: false,
+            unresolved: [],
+            tokens: 0,
+            costMicros: 0,
+            currency: "CNY",
+            usageStatus: "observed",
+          }),
+        );
+      return baseFetch(url, init);
+    }),
+  );
+  show({ ...entry, canReadRuns: true });
+  fireEvent.click(await screen.findByRole("button", { name: /stopped/ }));
+  await screen.findByText(/旧比较目标/);
+  choose();
+  fireEvent.click(screen.getByRole("button", { name: "准备分析" }));
+  await screen.findByRole("heading", { name: "确认本次分析" });
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "确认生成建议" })).toBeEnabled(),
+  );
+  expect(screen.queryByText(/旧比较目标/)).toBeNull();
+  expect(writes).toHaveLength(1);
+  expect(writes[0].path).toMatch(/prepare$/);
+});

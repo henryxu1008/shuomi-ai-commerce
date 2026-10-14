@@ -66,7 +66,7 @@ func testSelectionHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixtur
 	}
 	a, err := buildProductSelectionApplication(ctx, parent, collections, f.owner, deps.organizationResolver, permissions)
 	require.NoError(t, err)
-	routes := productSelectionRoutes(a, (productReviewCapabilityBinder{}).Bind)
+	routes := productSelectionRoutes(a, a.bindRequest)
 	app := buildIsolatedApplicationHTTPServer(routes, deps, 2*time.Minute)
 	server := httptest.NewServer(app.Handler)
 	defer server.Close()
@@ -87,6 +87,11 @@ func testSelectionHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixtur
 	require.Len(t, facts.Products, 2)
 	require.Zero(t, calls.Load(), "reading facts does not invoke a paid model")
 	scope := agent.Scope{OrganizationID: "B", ActorID: "admin"}
+	for _, capability := range productAgentCapabilities(actor, deps.organizationResolver, func(context.Context, ...string) (agent.Scope, error) { return scope, nil }, nil, parent) {
+		if capability.ID == "text.generate" {
+			require.Equal(t, "NEEDS_CONFIGURATION", capability.Readiness, "selection-only must not ready an unconfigured title consumer")
+		}
+	}
 	_, err = parent.configuration.Execute(ctx, agentconfig.Command{Scope: scope, Key: uuid.NewString(), AgentID: agentconfig.SelectionAgentID, Operation: "enable", Absent: true})
 	require.NoError(t, err)
 	identity := agent.ExecutionIdentity{OrganizationID: "B", ActorID: "admin", MemberID: "member-B-admin"}

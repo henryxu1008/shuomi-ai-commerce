@@ -67,7 +67,9 @@ func CredentialVersion(row openai.AIClientCredential) string {
 func EndpointIdentityDigest(endpoint string) string { return endpointDigest(endpoint) }
 
 func NewOrganizationRouteResolver(credentials OrganizationCredentialReader, policies map[RouteKey]RoutePolicy) (*OrganizationRouteResolver, error) {
-	if credentials == nil || len(policies) == 0 || len(policies) > 128 {
+	// A separately configured registered consumer may leave this registry
+	// empty. Resolve still rejects every unconfigured exact operation.
+	if credentials == nil || len(policies) > 128 {
 		return nil, ErrInvalid
 	}
 	frozen := make(map[RouteKey]RoutePolicy, len(policies))

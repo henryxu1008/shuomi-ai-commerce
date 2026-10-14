@@ -225,6 +225,10 @@ export function ProductSelectionFlow({
           throw new MarketAPIError("OUTCOME_UNKNOWN", 502);
         if (active.current) {
           savePreparation({ input: intent.body, prepared });
+          setChosenRun({
+            contextId: prepared.contextId,
+            key: prepared.requestKey,
+          });
           pending.clear(intent);
         }
       } else {
@@ -623,6 +627,7 @@ const missingNames: Record<string, string> = {
   variants: "SKU",
   additional_attributes: "其他属性未展示",
   additional_variants: "其他 SKU 未展示",
+  additional_facts_omitted: "更多完整字段因展示预算省略",
   sales: "销量",
   market_demand: "市场需求",
   shipping: "运费",

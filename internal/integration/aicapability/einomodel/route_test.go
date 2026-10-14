@@ -71,3 +71,16 @@ func TestListingMaterialsRouteDoesNotBorrowContentOrTitlePolicy(t *testing.T) {
 		require.Equal(t, RouteUnavailable, resolver.Readiness(context.Background(), aicapability.TextInputIdentity{OrganizationID: "org", Operation: operation}))
 	}
 }
+
+func TestEmptyRegistryCannotDispatchOrBorrowAConsumerPolicy(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:empty-text-registry?mode=memory&cache=shared"), &gorm.Config{})
+	require.NoError(t, err)
+	resolver, err := NewOrganizationRouteResolver(openai.NewGormCredentialResolver(db), nil)
+	require.NoError(t, err)
+	for _, op := range []aicapability.Operation{aicapability.OperationProductAgentDecision, aicapability.OperationProductSelectionDecision} {
+		in := aicapability.TextInputIdentity{OrganizationID: "org", Operation: op}
+		_, err = resolver.Resolve(context.Background(), in)
+		require.ErrorIs(t, err, ErrNotDispatched)
+		require.Equal(t, RouteUnavailable, resolver.Readiness(context.Background(), in))
+	}
+}

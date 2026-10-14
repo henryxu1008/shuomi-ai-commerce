@@ -66,7 +66,7 @@ func (p *ProductAgentConfig) validate(cfg *Config) error {
 		}
 		seen[id] = true
 	}
-	if len(p.TextPolicies) == 0 || len(p.TextPolicies) > len(seen) {
+	if len(p.TextPolicies)+len(p.ContentTextPolicies)+len(p.MaterialsTextPolicies)+len(p.SelectionTextPolicies) == 0 || len(p.TextPolicies) > len(seen) {
 		return errors.New("product agent text policies invalid")
 	}
 	for organizationID, policy := range p.TextPolicies {

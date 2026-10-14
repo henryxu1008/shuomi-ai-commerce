@@ -250,13 +250,10 @@ export const selectionSavedPreparationSchema = z
       v.input.requestKey === v.prepared.requestKey,
   );
 export type SelectionIntent = z.infer<typeof selectionIntentSchema>;
-export type SelectionRun = z.infer<typeof selectionRunSchema>;
 export type SelectionInspection = z.infer<typeof selectionInspectionSchema>;
-export type SelectionPrepared = z.infer<typeof selectionPreparedSchema>;
 export type SelectionPreparation = z.infer<
   typeof selectionSavedPreparationSchema
 >;
-export type SelectionChoice = z.infer<typeof selectionChoiceSchema>;
 export function selectionEndpoint(
   url: URL,
   method: string,

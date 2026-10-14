@@ -85,11 +85,78 @@ func (i Inspector) Prepare(ctx context.Context, contextID string, choices []coll
 	if !binding.Valid() {
 		return empty, Inspection{}, agent.ErrInvalid
 	}
-	wire, err := json.Marshal(out)
-	if err != nil || len(wire) > MaxInspectionBytes {
+	if err := boundInspection(&out); err != nil {
 		return empty, Inspection{}, agent.ErrUnavailable
 	}
 	return binding, out, nil
+}
+
+// Preserve every authorized identity while omitting whole fields, fairly across
+// candidates. Never truncate a field into a different purported source fact.
+func boundInspection(out *Inspection) error {
+	for {
+		wire, err := json.Marshal(out)
+		if err != nil {
+			return err
+		}
+		if len(wire) <= MaxInspectionBytes {
+			return nil
+		}
+		removed := false
+		for n := range out.Products {
+			p := &out.Products[n]
+			if len(p.Facts) == 0 {
+				continue
+			}
+			drop, largest := len(p.Facts)-1, -1
+			for index, fact := range p.Facts {
+				if fact.Path == "title" && len(p.Facts) > 1 {
+					continue
+				}
+				encoded, _ := json.Marshal(fact)
+				if len(encoded) > largest {
+					drop, largest = index, len(encoded)
+				}
+			}
+			last := p.Facts[drop].Path
+			prefix := ""
+			if strings.HasSuffix(last, ".uncertainty") {
+				prefix = strings.TrimSuffix(last, ".uncertainty")
+			}
+			kept := p.Facts[:0]
+			for _, fact := range p.Facts {
+				if fact.Path == last || prefix != "" && (fact.Path == prefix || strings.HasPrefix(fact.Path, prefix+".")) {
+					addMissing(p, fact.Path)
+				} else {
+					kept = append(kept, fact)
+				}
+			}
+			p.Facts = kept
+			removed = true
+			wire, err = json.Marshal(out)
+			if err != nil {
+				return err
+			}
+			if len(wire) <= MaxInspectionBytes {
+				return nil
+			}
+		}
+		if !removed {
+			return agent.ErrUnavailable
+		}
+	}
+}
+func addMissing(p *Product, path string) {
+	for _, missing := range p.Missing {
+		if missing == path {
+			return
+		}
+	}
+	if len(p.Missing) < 32 {
+		p.Missing = append(p.Missing, path)
+		return
+	}
+	p.Missing[31] = "additional_facts_omitted"
 }
 
 func (i Inspector) Inspect(ctx context.Context, binding agent.Binding) (Inspection, error) {

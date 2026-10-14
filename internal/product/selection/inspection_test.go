@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -135,4 +136,61 @@ func TestInferredAttributeIsDisclosedAsUncertain(t *testing.T) {
 		}
 	}
 	require.True(t, found, "an inferred source attribute cannot be presented as a confirmed fact")
+}
+
+func TestFiveLegalRichProductsKeepWholeFactsWithinAggregateBudget(t *testing.T) {
+	inspector, ctx, _, store := inspectionFixture(t)
+	var choices []collection.SelectionInput
+	products := map[string]catalog.ProductSnapshot{}
+	for n := 0; n < 5; n++ {
+		key := "rich-" + strconv.Itoa(n)
+		own := collection.OwnProduct{Title: strings.Repeat("t", 500), Brand: strings.Repeat("b", 500), Description: strings.Repeat("d", 500), Attributes: map[string]string{}, Images: []string{}}
+		for j := 0; j < 8; j++ {
+			own.Attributes["attr-"+strconv.Itoa(j)] = strings.Repeat("v", 470)
+		}
+		snapshot := catalog.ProductSnapshot{Title: own.Title, Brand: own.Brand, Description: own.Description}
+		for j := 0; j < 8; j++ {
+			snapshot.Attributes = append(snapshot.Attributes, catalog.Attribute{Name: "attr-" + strconv.Itoa(j), Value: strings.Repeat("v", 470)})
+		}
+		for j := 0; j < 6; j++ {
+			sku := "sku-" + strconv.Itoa(j)
+			own.Variants = append(own.Variants, collection.OwnVariant{SourceID: sku, SKU: sku, Attributes: map[string]string{"material": strings.Repeat("m", 400)}, Price: 10, Currency: "CNY", Stock: 2})
+			snapshot.Variants = append(snapshot.Variants, catalog.Variant{SKU: sku, Attributes: []catalog.Attribute{{Name: "material", Value: strings.Repeat("m", 400)}}, Price: &catalog.Price{Amount: 10, Currency: "CNY"}, Stock: 2})
+		}
+		_, err := collection.OwnEnvelope(uuid.NewString(), own)
+		require.NoError(t, err, "the entire source product is valid under current owner constraints")
+		id := uuid.NewString()
+		item := collection.Item{ID: id, Revision: 1, Source: collection.Source{ProductKey: key, Version: 1, PublicationID: "publication-" + key, Kind: "own"}}
+		store.items[id] = item
+		products[key] = snapshot
+		choices = append(choices, collection.SelectionInput{ItemID: id, ExpectedRevision: 1, OriginalPublicationID: item.Source.PublicationID, OriginalVersion: 1})
+	}
+	inspector.Collections.(*collection.Service).WithSnapshots(inspectionSnapshots{products})
+	binding, out, err := inspector.Prepare(ctx, uuid.NewString(), choices)
+	require.NoError(t, err)
+	require.Len(t, out.Products, 5)
+	raw, err := json.Marshal(out)
+	require.NoError(t, err)
+	require.LessOrEqual(t, len(raw), MaxInspectionBytes)
+	for _, p := range out.Products {
+		full := project(p.Ref, collection.ItemDetail{Product: products[p.Ref.ProductKey]})
+		kept := map[string]bool{}
+		for _, fact := range p.Facts {
+			kept[fact.Path] = true
+			for _, original := range full.Facts {
+				if fact.Path == original.Path {
+					require.Equal(t, original, fact, "whole fact and hash must remain unchanged")
+				}
+			}
+		}
+		for _, original := range full.Facts {
+			if !kept[original.Path] {
+				require.Contains(t, p.Missing, original.Path)
+			}
+		}
+		require.NotEmpty(t, p.Facts, "all candidates remain useful within the group budget")
+	}
+	again, err := inspector.Inspect(ctx, binding)
+	require.NoError(t, err)
+	require.Equal(t, out, again, "budget omissions are deterministic for the frozen binding")
 }

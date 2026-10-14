@@ -354,6 +354,7 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		policy := settings.TextPolicies["B"]
 		policy.Profile.PromptVersion, policy.Profile.OutputSchemaVersion = agentconfig.SelectionPromptVersion, agentconfig.SelectionActionVersion
 		settings.SelectionTextPolicies = map[string]governed.RoutePolicy{"B": policy}
+		settings.TextPolicies = nil
 	}
 	if kf != nil {
 		settings.Knowledge = kf.service

@@ -342,6 +342,10 @@ func productAgentCapabilities(ctx context.Context, resolver organizationIdentity
 			}
 			if err == nil && allowed && fresh.UserID == original.UserID && fresh.TenantID == original.EffectiveOrganizationID && fresh.EffectiveOrganizationID == fresh.TenantID {
 				status := runtime.model.RouteReadinessForVerifiedOrganization(authidentity.WithAuthenticatedIdentity(ctx, fresh), fresh.EffectiveOrganizationID)
+				_, configured := runtime.config.TextPolicies[fresh.EffectiveOrganizationID]
+				if !configured && runtime.definition.ID == "product.title.agent" {
+					status = texteino.TextRouteNeedsConfiguration
+				}
 				switch status {
 				case texteino.TextRouteAvailable:
 					text.Readiness = "AVAILABLE"
