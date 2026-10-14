@@ -76,10 +76,12 @@ Agent 通过受控 Tool Contract 使用领域服务，负责确有价值的理�
 
 | 对象 | 处理方向 |
 | --- | --- |
-| root `internal/listingkit` 的混合职责 | 有效行为 EXTRACT 到当前 `internal/product/*`、`internal/listing/*`、`internal/marketplace/*`、`internal/integration/*`、`internal/app/*`；调用方切换后 RETIRE 原实现。 |
+| root `internal/listingkit` 的混合职责 | #29 已物理退休旧 Task/API/默认装配；有效 transport 与错误语义直接承接到当前 owner。残留身份/历史/数字库存 leaf 继续按 Register 排空，不作为当前事实 owner。 |
 | `internal/compatibility/listingkit`、旧 Task-first / Listing Workspace / Task Dashboard / 平台独立工作台 | RETIRE；不新增消费者，不保留永久 facade、fallback、双读双写或第二事实源。 |
 | `web/listingkit-ui` 中符合当前 Figma / owner 的 Console、BFF 与共享组件 | 按实际职责复用，不因目录名误删；其中旧 ListingKit / Task-first 页面仍按页面和调用方退出。 |
 | 历史命令、配置、路径与已提交证据中的名称 | 如实保留定位或历史用途，不据此恢复旧产品、不伪称代码已全部删除。 |
+
+当前正常启动继续使用 `go run ./cmd/current-application --config <absolute-private-manifest-path>`；`make run-current-application CURRENT_APPLICATION_CONFIG=<absolute-private-manifest-path>` 同样要求原私密配置。旧默认 API/Task schema scopes 不再使用；新的镜像制品不能通过旧 YAML/API 发布流程安装，发布保护仍保持，实际安装由原运行 owner 单独准入。
 
 后续 Agent 不得把新功能放回旧 ListingKit、仅改名后继续旧 Task 模型，或为了复用旧 Service 再造兼容层。具体代码退休在原责任 Issue 的有界交付中完成；本次文档修正不授权全仓删除、业务迁移或操作已有数据。
 

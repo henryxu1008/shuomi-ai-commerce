@@ -15,7 +15,7 @@ import (
 	"task-processor/internal/core/config"
 	crawleramazon "task-processor/internal/integration/crawler/amazon"
 	"task-processor/internal/listingadmin"
-	"task-processor/internal/listingkit"
+	"task-processor/internal/listingkit/sheinsync"
 	"task-processor/internal/listingruntime"
 	localruntime "task-processor/internal/listingruntime/local"
 	"task-processor/internal/marketplace/sourceproduct"
@@ -331,12 +331,12 @@ func (r localSchedulerFactoryRuntime) GetLocalProductDataRepository() listingadm
 	return r.source.GetLocalProductDataRepository()
 }
 
-func (r localSchedulerFactoryRuntime) GetLocalSheinSyncRepository() listingkit.SheinSyncRepository {
+func (r localSchedulerFactoryRuntime) GetLocalSheinSyncRepository() sheinsync.SheinSyncRepository {
 	if r.source == nil {
 		return nil
 	}
 	provider, ok := r.source.(interface {
-		GetLocalSheinSyncRepository() listingkit.SheinSyncRepository
+		GetLocalSheinSyncRepository() sheinsync.SheinSyncRepository
 	})
 	if !ok {
 		return nil

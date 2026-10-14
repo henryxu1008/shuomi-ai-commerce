@@ -82,6 +82,31 @@ The scan found four high-value areas that still affect production paths:
 
 These areas are drain targets. New Product, Marketplace, Agent, Tool, BusinessTask, Store, and Console work must not add new dependency on them merely because they already exist.
 
+### #29 bounded backend retirement
+
+The mixed root Go package, old Task/API/Workspace/Temporal chains and default
+HTTP assembly are absent in this checkout under #29. Valid route-role transport
+now lives in `internal/authz/httpapi`; request-role context stays with the existing
+`internal/shared/aiidentity` transport. Current image catalog/byte/URL functions
+are extracted in place in `app/httpapi/image_asset_transport.go`, and Temporal
+client validation stays in the current application runtime. Submission owns its
+original in-progress error directly. No Task mapping, schema/history migration,
+new identity authority or second execution owner is introduced.
+
+Both current-application and image-agent-temporal-worker are checked by their
+actual transitive dependency graph, not just their route registrations. Remaining
+`listingkit/sheinsync`, its exact store adapter and standalone identity/history
+leaves are still registered retirement debt under #29/#301/#529, not a current
+landing zone. Existing numeric consumers call their original leaf without the
+removed root aliases; no new current consumer is admitted.
+
+The current image recipe requires the existing private current-application
+manifest. It does not implement the old API/YAML rollout contract. The old
+release workflow retains its OIDC/RBAC/canary protection and rejects incompatible
+candidate binaries before its mutation gates. Current worker/schema capabilities
+are retained; legacy API deployment of this artifact is NOT_READY. No runtime,
+data, provider or user acceptance is claimed.
+
 ## 2. Active register
 
 | Legacy area / abstraction | Decision | Observed state | Reusable behavior | Current owner / destination | Exit condition / related work |
@@ -91,10 +116,10 @@ These areas are drain targets. New Product, Marketplace, Agent, Tool, BusinessTa
 | old `internal/catalog` | RETIRE | Production package root is absent | canonical product behavior already moved | `internal/product/catalog` | Keep absent; new callers use current Product contract. |
 | old `internal/asset` | RETIRE | Production package root is absent | approved asset behavior already moved | `internal/product/asset` | Keep absent; no second asset authority. |
 | old `internal/imageasset` | RETIRE | Production package root is absent | independently valid image/asset helpers only | `internal/product/image` or `internal/product/asset` by ownership | Keep absent; do not recreate as convenience package. |
-| `internal/compatibility/listingkit` as a long-term facade / landing zone | RETIRE | Directory still exists as a drain-only retirement zone | only behavior needed by current owners; no compatibility ownership itself | `internal/listing/*`, `internal/marketplace/*`, `internal/product/*`, `internal/integration/*`, `internal/app/*` | #29/#30/#300 drain callers and delete shells. No new consumers. |
+| `internal/compatibility/listingkit` as a long-term facade / landing zone | RETIRE | Drain shells and sourcehandoff are absent under #663/#29 | Existing current owners only; no compatibility ownership | Product/Listing/Marketplace/Integration/App according to responsibility | Keep absent; no new consumer, fallback or facade. |
 | `internal/compatibility/listingkit/preview_adapter.go` | RETIRE | Removed by the #300 guard slice after confirming no production caller | none required after current `internal/listing/preview` projection exists | `internal/listing/preview` | Keep adapter and dedicated test absent; current callers use the preview owner directly. |
 | `internal/compatibility/listingkit/sourcehandoff/a1688` | RETIRE | Package, old `/api/v1/product-sourcing/1688/listingkit/tasks` route, dedicated DTOs/tests and runtime runner are absent in this checkout under #663. Deployment and provider acceptance are separate. | Existing Sourcing/Catalog owners retain valid source evidence, immutable publication, access and receipt recovery; historical Task requests and identity mapping are not reused. | Product Sourcing/Catalog + current Store/Organization/Application | Keep old route/package/runner absent; no old data migration, forwarding or compatibility. Other legacy owners remain with #29/#301/#529. |
-| root `internal/listingkit` mixed ownership | EXTRACT | Still a large active production orchestration/API/runtime owner | deterministic marketplace rules, listing orchestration primitives, readiness/submission semantics, valid transport/runtime behavior | `internal/listing/*`, `internal/marketplace/*`, `internal/product/*`, `internal/integration/*`, `internal/app/*` | #29 drains ownership. After each caller cutover, retire old path; root ListingKit is not a permanent facade. |
+| root `internal/listingkit` mixed ownership | RETIRE / EXTRACT valid leaves | Mixed root Go package and its Task/API/default runtime chain are absent under #29 | Unchanged current role/context/Temporal/image transport and Submission error | Existing authz/aiidentity/app runtime/image transport and Listing/Submission owners | Keep root absent. Remaining numeric sync and identity/history leaf debt is explicitly separate; source retirement is not deployment or whole-parent completion. |
 | marketplace rules still owned by root ListingKit | EXTRACT | Remaining rule/policy ownership is part of #29 hard-cut | deterministic platform rules/policies/readiness logic | `internal/marketplace/*` / stable Listing seams | Move rule to current owner and switch callers. Do not wrap the old rule owner. |
 | `internal/tenantbridge` Organization ↔ legacy Yudao numeric tenant mapping | EXTRACT | Active GORM-backed production bridge used by ListingKit, SHEIN login, 1688 crawler/admin and other legacy paths | only independently valid current-identity behavior, never numeric mapping for a new system | current Organization/identity ownership + each domain's current persistence boundary | Freeze consumer count; no new tenantbridge consumer. Future work creates current Organization-owned facts and RETIREs the bridge without old-data migration, old-ID mapping, fallback or dual authority. |
 | `web/listingkit-ui` Task-first / CreateListingKitTask product projection | RETIRE | #664 removes old `/listing-kits/**` pages, their dedicated components/hooks/Task DTOs and Task BFF; the current frontend application and Console remain | current shared UI primitives, Auth.js/ZITADEL and independently valid readonly provider transport | #298 / final Figma Product Projection; current Store Center / AI Workbench / product pages | Keep old routes/request chains absent, without redirect, fallback or Task mapping. Source retirement does not prove deployment or user acceptance. |

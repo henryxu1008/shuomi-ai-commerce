@@ -5,10 +5,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	amazonlistinghttpapi "task-processor/internal/amazonlisting/httpapi"
 	"task-processor/internal/httproute"
 	kernelmodule "task-processor/internal/kernel/module"
-	listingkithttpapi "task-processor/internal/listingkit/httpapi"
 )
 
 func newCoreHTTPModule() httpModule {
@@ -26,18 +24,4 @@ func newCoreHTTPModule() httpModule {
 			return nil
 		},
 	}
-}
-
-func (c httpFeatureComposition) amazonListingHTTPModule() kernelmodule.Module {
-	if c.amazonListingModule != nil {
-		return amazonlistinghttpapi.NewRuntimeModule(c.amazonListingModule)
-	}
-	return amazonlistinghttpapi.NewHTTPModule(nil)
-}
-
-func (c httpFeatureComposition) listingKitHTTPModule() kernelmodule.Module {
-	if c.listingKitModule != nil {
-		return listingkithttpapi.NewRuntimeModule(c.listingKitModule)
-	}
-	return listingkithttpapi.NewHTTPModule(nil)
 }

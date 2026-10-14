@@ -7,10 +7,10 @@ import (
 
 	"gorm.io/gorm"
 
-	"task-processor/internal/listingkit"
+	"task-processor/internal/listingkit/sheinsync"
 )
 
-func (r *MemSheinSyncRepository) UpsertSyncedProducts(_ context.Context, records []*listingkit.SheinSyncedProductRecord) error {
+func (r *MemSheinSyncRepository) UpsertSyncedProducts(_ context.Context, records []*sheinsync.SheinSyncedProductRecord) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -22,7 +22,7 @@ func (r *MemSheinSyncRepository) UpsertSyncedProducts(_ context.Context, records
 
 		key := sheinSyncedProductKey(record.TenantID, record.StoreID, record.SKCName)
 		row := cloneSheinSyncedProductRecord(*record)
-		listingkit.ApplyEffectiveCostPrice(&row)
+		sheinsync.ApplyEffectiveCostPrice(&row)
 		existing, ok := r.products[key]
 		if ok {
 			row.ID = existing.ID
@@ -47,11 +47,11 @@ func (r *MemSheinSyncRepository) UpsertSyncedProducts(_ context.Context, records
 	return nil
 }
 
-func (r *MemSheinSyncRepository) ListSyncedProducts(_ context.Context, query *listingkit.SheinSyncedProductQuery) ([]listingkit.SheinSyncedProductRecord, int64, error) {
+func (r *MemSheinSyncRepository) ListSyncedProducts(_ context.Context, query *sheinsync.SheinSyncedProductQuery) ([]sheinsync.SheinSyncedProductRecord, int64, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	items := make([]listingkit.SheinSyncedProductRecord, 0, len(r.products))
+	items := make([]sheinsync.SheinSyncedProductRecord, 0, len(r.products))
 	for _, row := range r.products {
 		if !matchesSheinSyncedProductQuery(row, query) {
 			continue
@@ -69,7 +69,7 @@ func (r *MemSheinSyncRepository) ListSyncedProducts(_ context.Context, query *li
 	page, pageSize := sheinSyncQueryPage(query)
 	start := (page - 1) * pageSize
 	if start >= len(items) {
-		return []listingkit.SheinSyncedProductRecord{}, total, nil
+		return []sheinsync.SheinSyncedProductRecord{}, total, nil
 	}
 	end := start + pageSize
 	if end > len(items) {
@@ -78,7 +78,7 @@ func (r *MemSheinSyncRepository) ListSyncedProducts(_ context.Context, query *li
 	return items[start:end], total, nil
 }
 
-func (r *MemSheinSyncRepository) GetSyncedProductByID(_ context.Context, productID int64) (*listingkit.SheinSyncedProductRecord, error) {
+func (r *MemSheinSyncRepository) GetSyncedProductByID(_ context.Context, productID int64) (*sheinsync.SheinSyncedProductRecord, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -101,7 +101,7 @@ func (r *MemSheinSyncRepository) UpdateManualCostPrice(_ context.Context, produc
 			continue
 		}
 		row.ManualCostPrice = cloneFloat64Ptr(manualCostPrice)
-		listingkit.ApplyEffectiveCostPrice(&row)
+		sheinsync.ApplyEffectiveCostPrice(&row)
 		row.UpdatedAt = time.Now().UTC()
 		r.products[key] = row
 		return nil

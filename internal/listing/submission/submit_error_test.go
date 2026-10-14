@@ -4,8 +4,6 @@ import (
 	"errors"
 	"testing"
 	"time"
-
-	"task-processor/internal/listingkit/core"
 )
 
 func TestSubmitInProgressErrorWithLeaseExpiry(t *testing.T) {
@@ -44,8 +42,8 @@ func TestSubmitInProgressErrorUnwrapsCoreError(t *testing.T) {
 	t.Parallel()
 
 	err := &SubmitInProgressError{}
-	if !errors.Is(err, core.ErrSubmitInProgress) {
-		t.Fatalf("errors.Is(%v, core.ErrSubmitInProgress) = false, want true", err)
+	if !errors.Is(err, ErrSubmitInProgress) {
+		t.Fatalf("errors.Is(%v, ErrSubmitInProgress) = false, want true", err)
 	}
 }
 
