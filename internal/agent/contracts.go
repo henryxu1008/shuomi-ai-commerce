@@ -76,14 +76,22 @@ func ValidID(s string) bool {
 // Scope comes from the current authorizer, never model or browser payload.
 type Scope struct{ OrganizationID, ActorID string }
 type Request struct {
-	ModeSnapshotRef              ModeSnapshotRef          `json:",omitzero"`
-	ConfigurationSnapshotRef     ConfigurationSnapshotRef `json:",omitzero"`
-	ContextSnapshotRef           ContextSnapshotRef       `json:",omitzero"`
+	ContentSelection             enrichment.ContentSelection `json:",omitzero"`
+	ModeSnapshotRef              ModeSnapshotRef             `json:",omitzero"`
+	ConfigurationSnapshotRef     ConfigurationSnapshotRef    `json:",omitzero"`
+	ContextSnapshotRef           ContextSnapshotRef          `json:",omitzero"`
 	Key                          string
 	Binding                      Binding
 	GoalSummary                  string
 	PolicyVersion, PromptVersion string
 	Limits                       Limits
+}
+
+func (r Request) ValidContentSelection() bool {
+	if r.PolicyVersion == enrichment.ContentPolicyVersion {
+		return r.ContentSelection.Valid()
+	}
+	return r.ContentSelection.Absent()
 }
 
 // Direct Product Agent requests have no Chat goal. Confirmed Chat requests
@@ -149,9 +157,10 @@ var ErrModelNotDispatched = errors.New("model was not dispatched; reservation re
 var ErrModelInvalidOutput = errors.New("model returned invalid output with observed usage")
 
 type ModelInput struct {
-	ModeSnapshotRef                            ModeSnapshotRef          `json:",omitzero"`
-	ConfigurationSnapshotRef                   ConfigurationSnapshotRef `json:",omitzero"`
-	ContextSnapshotRef                         ContextSnapshotRef       `json:",omitzero"`
+	ContentSelection                           enrichment.ContentSelection `json:",omitzero"`
+	ModeSnapshotRef                            ModeSnapshotRef             `json:",omitzero"`
+	ConfigurationSnapshotRef                   ConfigurationSnapshotRef    `json:",omitzero"`
+	ContextSnapshotRef                         ContextSnapshotRef          `json:",omitzero"`
 	Binding                                    Binding
 	GoalSummary                                string
 	PolicyVersion, PromptVersion, InvocationID string
@@ -166,6 +175,7 @@ type ModelInput struct {
 // validation. The caller owns isolation/cloning and all authorization.
 func (s State) ModelInput(definition commercetool.AgentDefinition) ModelInput {
 	return ModelInput{
+		ContentSelection:         s.Request.ContentSelection,
 		ModeSnapshotRef:          s.Request.ModeSnapshotRef,
 		ConfigurationSnapshotRef: s.Request.ConfigurationSnapshotRef,
 		ContextSnapshotRef:       s.Request.ContextSnapshotRef, Binding: s.Request.Binding,
@@ -199,7 +209,7 @@ type Validation struct {
 // and hashes the candidate itself. Validators must bind cited evidence to
 // successful tool observations actually disclosed to the model.
 type Validator interface {
-	Validate(context.Context, Binding, string, enrichment.Candidate, []Observation) (Validation, error)
+	Validate(context.Context, Request, enrichment.Candidate, []Observation) (Validation, error)
 }
 type Observation struct {
 	Step                 int

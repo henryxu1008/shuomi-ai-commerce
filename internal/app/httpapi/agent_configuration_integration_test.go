@@ -28,7 +28,7 @@ func TestAgentConfigurationUsesCurrentEnterpriseWithoutTextRuntime(t *testing.T)
 	require.NoError(t, e)
 	deps := newRouteAuthDependencies()
 	deps.workbenchVerifier = titleVerifier{}
-	deps.organizationResolver = workbenchcontext.NewResolver(agentFixtureGrants{f.grants}, "project", "v1", nil)
+	deps.organizationResolver = workbenchcontext.NewResolver(agentFixtureGrants{base: f.grants}, "project", "v1", nil)
 	deps.authorizer = auth
 	module, e := buildAgentConfigurationModule(context.Background(), f.owner, deps.organizationResolver, auth, nil, nil, nil)
 	require.NoError(t, e)

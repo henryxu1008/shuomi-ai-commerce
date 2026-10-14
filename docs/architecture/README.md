@@ -262,6 +262,13 @@ source of truth for long-lived rules.
     authorization. This is design admission, not implemented runtime behavior;
     production work follows the currently prioritized acquisition/save flow.
 
+- [`product-content-localization-v1.md`](./product-content-localization-v1.md)
+  - #661 APPROVED / IMPLEMENTATION_READY: explicit language and four bounded
+    text fields, immutable registered content configuration, existing ProductDB
+    Review/Catalog atomic adoption and exact mixed publication lineage. Reuses
+    #656 execution modes and governed text/point owners; real models and user
+    acceptance remain separate gates. Main delivery PR #662 depends on #657.
+
 - [`agent-customization-v1.md`](./agent-customization-v1.md)
   - APPROVED / IMPLEMENTATION_READY #611: enterprise customization requests,
     contact consent, private files and verified-platform manual progress.

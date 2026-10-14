@@ -8,7 +8,7 @@ import (
 
 // Every new model dispatch or local adoption checks this exact original
 // configuration. History and committed receipts use their original read ports.
-func (s *Store) CheckTitleExecutionMode(ctx context.Context, identity agent.ExecutionIdentity, config agent.ConfigurationSnapshotRef, ref agent.ModeSnapshotRef) (agentconfig.ModeSnapshot, error) {
+func (s *Store) CheckRegisteredTextExecutionMode(ctx context.Context, identity agent.ExecutionIdentity, config agent.ConfigurationSnapshotRef, ref agent.ModeSnapshotRef) (agentconfig.ModeSnapshot, error) {
 	snapshot, err := s.LoadSnapshot(ctx, agent.Scope{OrganizationID: identity.OrganizationID, ActorID: identity.ActorID}, config)
 	if err != nil {
 		return agentconfig.ModeSnapshot{}, err

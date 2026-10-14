@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { knowledgeId } from "../api/knowledge";
+import { contentParametersSchema } from "./content-selection";
 export const configVersion = z
   .string()
   .max(19)
@@ -13,7 +14,8 @@ export const templateRefSchema = z.strictObject({
   templateId: knowledgeId,
   revision: configVersion,
 });
-const agentId = z.enum(["product.title.agent","product.image.agent"]),
+export const registeredAgentIdSchema = z.enum(["product.title.agent","product.image.agent","product.content.agent"]);
+const agentId = registeredAgentIdSchema,
   timestamp = z.string().datetime({ offset: true }),
   platform = z.enum(["shein", "temu", "amazon"]);
 export const templateInputSchema = z.strictObject({
@@ -29,6 +31,10 @@ export const templateInputSchema = z.strictObject({
     ),
   targetPlatform: platform,
   defaultKnowledgeBaseId: knowledgeId.nullable().optional(),
+});
+export const contentTemplateInputSchema = templateInputSchema.extend({
+  targetPlatform: z.enum(["product", "shein", "temu", "amazon"]),
+  content: contentParametersSchema,
 });
 export const configReceiptSchema = z.strictObject({
   commandId: knowledgeId,
@@ -48,7 +54,7 @@ export const configReceiptSchema = z.strictObject({
   noop: z.boolean(),
   committedAt: timestamp,
 });
-export const templateSchema = z.strictObject({
+export const titleTemplateSchema = z.strictObject({
   templateId: knowledgeId,
   agentId:z.literal("product.title.agent"),
   lifecycle: z.enum(["ACTIVE", "ARCHIVED"]),
@@ -61,6 +67,13 @@ export const templateSchema = z.strictObject({
   knowledgeAvailability: z.enum(["AVAILABLE", "UNAVAILABLE"]).optional(),
   createdAt: timestamp,
 });
+export const contentTemplateSchema = titleTemplateSchema.extend({
+  agentId: z.literal("product.content.agent"),
+  schemaVersion: z.literal("content-config-v1"),
+  targetPlatform: z.enum(["product", "shein", "temu", "amazon"]),
+  content: contentParametersSchema,
+});
+export const templateSchema = z.discriminatedUnion("agentId", [titleTemplateSchema, contentTemplateSchema]);
 const configuration = z.strictObject({
   agentId,
   activation: z.enum(["NOT_ENABLED", "ENABLED", "DISABLED"]),
@@ -74,7 +87,7 @@ export const catalogEntrySchema = z.strictObject({
   name: z.string().min(1).max(512),
   description: z.string().max(2048),
   definitionVersion: z.string().max(128),
-  parameterSchema: z.enum(["title-config-v1","image-config-v1"]),
+  parameterSchema: z.enum(["title-config-v1","image-config-v1","content-config-v1"]),
   canConfigure: z.boolean(),
   canUse: z.boolean(),
   canReadRuns: z.boolean(),
@@ -100,7 +113,7 @@ export const catalogEntrySchema = z.strictObject({
       }),
     )
     .max(5),
-}).refine(entry=>(entry.agent.agentId==="product.image.agent") === (entry.parameterSchema==="image-config-v1"),{message:"智能体与参数类型不一致"});
+}).refine(entry=>({"product.title.agent":"title-config-v1","product.image.agent":"image-config-v1","product.content.agent":"content-config-v1"})[entry.agent.agentId]===entry.parameterSchema,{message:"智能体与参数类型不一致"});
 const page = <T extends z.ZodType>(schema: T, max = 100) =>
   z.strictObject({
     items: z.array(schema).max(max),
@@ -108,13 +121,15 @@ const page = <T extends z.ZodType>(schema: T, max = 100) =>
   });
 export const catalogPageSchema = page(catalogEntrySchema);
 export const templatesPageSchema = page(templateSchema);
+export const titleTemplatesPageSchema = page(titleTemplateSchema);
+export const contentTemplatesPageSchema = page(contentTemplateSchema);
 export const recentRunsSchema = page(
   z.strictObject({
     runId: knowledgeId,
     operationId: knowledgeId,
     requestKey: knowledgeId,
     productKey: z.string().min(1).max(128),
-    targetPlatform: platform,
+    targetPlatform: z.enum(["product", "shein", "temu", "amazon"]),
     phase: z.enum([
       "running",
       "interrupted",

@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useWorkbenchContext, type PendingAcquisitionIntent } from "@/components/providers/workbench-context-provider";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { AcquisitionAPIError, acquire1688, readAcquisition, readAcquisitionProduct, verify1688, type AcquisitionContext } from "@/lib/api/product-acquisition";
 import { canonical1688Source, isAcquisitionUUID, type AcquisitionProduct, type AcquisitionResult } from "@/lib/contracts/product-acquisition";
+import { productAgentOperationHref } from "@/lib/contracts/product-agent";
 import { findConsoleRoute } from "@/lib/workbench/console-navigation";
 import { ConsolePage, ConsoleState } from "../console/console-page";
 import {ProductAgentPanel} from "./product-agent-panel";
@@ -19,6 +20,7 @@ type PendingIntent = PendingAcquisitionIntent;
 
 export function AcquisitionPage({ operationId,agentEnabled=false,knowledgeAvailable=false,plansEnabled=false }: { operationId?: string;agentEnabled?:boolean;knowledgeAvailable?:boolean;plansEnabled?:boolean }) {
   const context = useWorkbenchContext();
+  const agentKind = useSearchParams().get("agent_kind");
   const scope = useMemo<AcquisitionContext | null>(() => {
     const userId = context.user?.id;
     const organizationId = context.effectiveOrganization?.id;
@@ -30,13 +32,13 @@ export function AcquisitionPage({ operationId,agentEnabled=false,knowledgeAvaila
 
   const submittedIntent = context.pendingAcquisitionIntent;
   const sameIntentScope = submittedIntent?.userId === scope.userId && submittedIntent.organizationId === scope.organizationId;
-  if (plansEnabled && !operationId && !sameIntentScope) return <AcquisitionPlansPage key={`${scope.userId}:${scope.organizationId}`} scope={scope} initialOpen />;
+  if (plansEnabled && !operationId && !sameIntentScope) return <AcquisitionPlansPage key={`${scope.userId}:${scope.organizationId}`} scope={scope} initialOpen agentKind={agentKind} />;
   // The shell preserves a submitted key through workbench navigation, but an
   // intent is rendered or replayed only after its verified scope is restored.
-  return <ScopedAcquisitionPage key={`${scope.userId}:${scope.organizationId}:${operationId ?? ""}`} operationId={operationId} agentEnabled={agentEnabled} knowledgeAvailable={knowledgeAvailable} scope={scope} initialIntent={sameIntentScope ? submittedIntent : null} foreignIntent={!!submittedIntent && !sameIntentScope} onIntentChange={context.setPendingAcquisitionIntent} />;
+  return <ScopedAcquisitionPage key={`${scope.userId}:${scope.organizationId}:${operationId ?? ""}`} operationId={operationId} agentEnabled={agentEnabled} knowledgeAvailable={knowledgeAvailable} scope={scope} initialIntent={sameIntentScope ? submittedIntent : null} foreignIntent={!!submittedIntent && !sameIntentScope} onIntentChange={context.setPendingAcquisitionIntent} agentKind={agentKind} />;
 }
 
-function ScopedAcquisitionPage({ operationId,agentEnabled,knowledgeAvailable, scope, initialIntent, foreignIntent, onIntentChange }: { operationId?: string;agentEnabled:boolean;knowledgeAvailable:boolean; scope: AcquisitionContext; initialIntent: PendingIntent | null; foreignIntent: boolean; onIntentChange: (intent: PendingIntent | null) => boolean }) {
+function ScopedAcquisitionPage({ operationId,agentEnabled,knowledgeAvailable, scope, initialIntent, foreignIntent, onIntentChange, agentKind }: { operationId?: string;agentEnabled:boolean;knowledgeAvailable:boolean; scope: AcquisitionContext; initialIntent: PendingIntent | null; foreignIntent: boolean; onIntentChange: (intent: PendingIntent | null) => boolean; agentKind?: string | null }) {
   const router = useRouter();
   const context = useWorkbenchContext();
   const [source, setSource] = useState(initialIntent?.source ?? "");
@@ -88,7 +90,7 @@ function ScopedAcquisitionPage({ operationId,agentEnabled,knowledgeAvailable, sc
       } else {
         setPending(intent); setError("OUTCOME_UNKNOWN");
       }
-      if (next.outcome === "published") router.push(`/workbench/supply/acquisition/operation/${next.operationId}`);
+      if (next.outcome === "published") router.push(productAgentOperationHref(next.operationId, agentKind));
     } catch (failure) {
       if (!active.current) return;
       const code = codeOf(failure);
@@ -118,7 +120,7 @@ function ScopedAcquisitionPage({ operationId,agentEnabled,knowledgeAvailable, sc
       const next = await readAcquisition(recoveryID, scope, controller.signal);
       if (!active.current) return;
       setResult(next);
-      if (next.outcome === "published") router.push(`/workbench/supply/acquisition/operation/${next.operationId}`);
+      if (next.outcome === "published") router.push(productAgentOperationHref(next.operationId, agentKind));
     } catch (failure) {
       if (active.current) setError(codeOf(failure));
     } finally {

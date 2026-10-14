@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { proxyProductTitleReview } from "./product-title-review-proxy";
 import { titleProposalFixture } from "@/test/product-title-review-fixture";
+import { contentProposalFixture } from "@/test/product-content-review-fixture";
 import { applyProductTitleProposal, decideProductTitleProposal } from "@/lib/api/product-title-review-client";
 
 const id = titleProposalFixture().proposal_id;
@@ -16,6 +17,17 @@ function request(path = `${base}/${id}/decisions`, body = '{"action":"accept","e
 beforeEach(() => { vi.stubEnv("PRODUCT_REVIEW_API_ORIGIN", "http://127.0.0.1:9876"); vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL", "https://console.test"); });
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 const call = (r: Request, token = "server-token") => proxyProductTitleReview(r, token, { forwarded: false });
+it("returns content v2 and forwards the complete typed edit with its exact numeric revision",async()=>{
+ const fixture=contentProposalFixture();
+ const fetcher=vi.fn().mockResolvedValue(Response.json(fixture));vi.stubGlobal("fetch",fetcher);
+ const edited=[{field:"title",value:"Reviewed title"},{field:"description",value:"Reviewed description\nSecond line"}];
+ const response=await call(request(`${base}/${id}/decisions`,JSON.stringify({action:"edit",expected_revision:"1",content:edited})));
+ expect(response.status).toBe(200);
+ expect((await response.json()).content.selection).toEqual(fixture.content.selection);
+ expect(fetcher.mock.calls[0][1].body).toBe(`{"action":"edit","expected_revision":1,"content":${JSON.stringify(edited)}}`);
+ const forbidden=await call(request(`${base}/${id}/decisions`,JSON.stringify({action:"edit",expected_revision:"1",content:edited,contentSelection:{targetLanguage:"en-US"}})));
+ expect(forbidden.status).toBe(400);expect(fetcher).toHaveBeenCalledTimes(1);
+});
 
 it.each(["decisions", "apply"])("client retains actual %s BFF capacity failure as not_sent", async (action) => {
   const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);

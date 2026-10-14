@@ -28,6 +28,18 @@ go run ./cmd/agent-configuration-schema-init --runtime-role <existing_serving_ro
 
 原 Product Agent run schema 仍由原安装入口建立；本命令不创建、重写或迁移其记录。备份和恢复必须一起覆盖同库的 configuration/run 事实。缺少或不一致的引用会拒绝执行，不自动重建配置历史。
 
+### 内容参数的显式更新（#661）
+
+现有当前配置 schema 由另获环境更新授权的安装人员执行以下有界更新；本 PR 的隔离检查不授权对保留实例运行此命令：
+
+```powershell
+go run ./cmd/agent-configuration-schema-init --runtime-role <existing_serving_role> --content-configuration-only
+```
+
+它在原非登录 owner 的单次有界 DDL 事务中添加 nullable `content_parameters bytea` 和精确的 `content-config-v1` 组合约束，给既有运行角色该载体的 SELECT/INSERT 权限。外来、部分或不匹配 schema 拒绝；重复核对已更新形状后不重复 DDL。不回填、修改模板/启停/模式/运行快照，也不创建内容业务事实。该选项与 `--execution-modes-only` 互斥。
+
+业务构造器仅核对内容载体及约束；未安装时内容能力不可用，现标题和图片模板仍沿原合同读写。模板语言/字段只作默认值，实际选择进入不可变执行配置及幂等指纹。更新与正常程序安装/restart 由原运行 owner 按授权执行并保留命名 volumes；不得删除参数列来回滚已保存的内容模板或运行。模型接线和完整页面路径仍按 #661 当前状态，不把 schema 就绪当智能体已交付。
+
 ## 启动接线
 
 使用既有 current-application 启动入口和配置文件（参见 [运行配置](../../internal/app/runtime/currentapplication/product_agent.go)）。

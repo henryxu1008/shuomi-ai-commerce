@@ -29,28 +29,23 @@ func productReviewRoutes(s *review.Service, bind func(context.Context, string) (
 			permission = authz.PermissionLocalAgentWrite
 		}
 		routes = append(routes, httproute.Descriptor{Method: spec.method, Path: spec.path, Module: "product-review", Permission: permission, AuthPolicy: httproute.AuthPolicyVerifiedIdentity, OrganizationAccessPolicy: policy, Handler: func(c *gin.Context) {
-			if spec.kind != "get" && spec.kind != "list" {
-				if bind == nil {
-					writeProductReviewError(c, review.ErrUnavailable)
-					return
-				}
-				ctx, err := bind(c.Request.Context(), c.GetHeader("Authorization"))
-				if err != nil {
-					writeProductReviewError(c, err)
-					return
-				}
-				c.Request = c.Request.WithContext(ctx)
+			// Read routes also need the current source authorization capability.
+			// Projection availability cannot determine whether access is checked.
+			if bind == nil {
+				writeProductReviewError(c, review.ErrUnavailable)
+				return
 			}
+			ctx, err := bind(c.Request.Context(), c.GetHeader("Authorization"))
+			if err != nil {
+				writeProductReviewError(c, err)
+				return
+			}
+			c.Request = c.Request.WithContext(ctx)
 			if spec.kind == "list" {
 				listProductReviews(c, s)
 				return
 			}
 			if len(projections) == 1 && projections[0] != nil {
-				if spec.kind == "get" && bind != nil {
-					if ctx, err := bind(c.Request.Context(), c.GetHeader("Authorization")); err == nil {
-						c.Request = c.Request.WithContext(ctx)
-					}
-				}
 				c.Set(productReviewContextProjectorKey, projections[0])
 			}
 			productReviewRequest(c, s, spec.kind)
@@ -225,7 +220,11 @@ func reviewResponse(c *gin.Context, v review.View, err error) {
 		if projector, ok := c.Get(productReviewContextProjectorKey); ok {
 			projection = projector.(productReviewContextProjector)(c.Request.Context(), v.ContextProvenance)
 		}
-		wire, marshalErr := marshalProductReviewView(v, projection)
+		var mode *productReviewModeDTO
+		if projector, ok := c.Get(productReviewModeProjectorKey); ok {
+			mode = projector.(productReviewModeProjector)(c.Request.Context(), v.Execution)
+		}
+		wire, marshalErr := marshalProductReviewProjection(v, projection, mode)
 		if marshalErr != nil || len(wire) > maxProductReviewResponseBytes {
 			writeProductReviewError(c, review.ErrUnavailable)
 			return

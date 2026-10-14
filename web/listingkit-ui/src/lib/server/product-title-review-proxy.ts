@@ -25,7 +25,7 @@ async function writeBody(request: Request, apply: boolean): Promise<string | nul
   const result = productTitleDecisionSchema.safeParse(payload);
   if (!result.success) return null;
   const d = result.data;
-  return `{"action":${JSON.stringify(d.action)},"expected_revision":${d.expected_revision}${d.action === "edit" ? `,"title":${JSON.stringify(d.title)}` : ""}}`;
+  return `{"action":${JSON.stringify(d.action)},"expected_revision":${d.expected_revision}${d.action === "edit" ? "content" in d ? `,"content":${JSON.stringify(d.content)}` : `,"title":${JSON.stringify(d.title)}` : ""}}`;
 }
 
 /** Only called by the authenticated route with the shared total-deadline signal. */
@@ -81,6 +81,7 @@ export async function proxyProductTitleReview(request: Request, accessToken: str
     if (upstream.status === 200) {
       const result = collection ? parseProductTitleProposalList(payload) : parseProductTitleProposal(payload);
       if (!result || (!collection && (!("proposal_id" in result) || result.proposal_id !== id))) return invalidResponse();
+      if ("execution" in result && result.execution.scope.OrganizationID !== org) return invalidResponse();
       return productReviewJSON(result);
     }
     const failure = parseProductTitleReviewFailure(payload, upstream.status);

@@ -2,7 +2,32 @@ import { afterEach, expect, it, vi } from "vitest";
 import { buildWorkbenchUpstreamRequest, buildWorkbenchBrowserResponse } from "./workbench-proxy";
 const op = "11111111-1111-4111-8111-111111111111", key = "22222222-2222-4222-8222-222222222222";
 const path = ["sourcing", "1688", "acquisitions", op, "product-agent", "runs"];
+const contentPath = ["sourcing", "1688", "acquisitions", op, "content-agent", "runs"];
 afterEach(() => vi.unstubAllEnvs());
+it("preserves readable content diagnostics while refusing an upstream adoption claim", async () => {
+ const payload = {
+  executionMode:"full_access",modeRevision:"1",modeSnapshotRef:{Kind:"agent-execution-mode-v1",ID:op,Digest:"a".repeat(64)},
+  runId:op,requestKey:key,operationId:op,productKey:"product",catalogVersion:"1",publicationId:"publication",targetPlatform:"product",
+  contentSelection:{targetLanguage:"en-US",description:true},phase:"human_review_required",revision:"2",humanReviewRequired:true,canSubmitReview:false,
+  candidate:{Changes:[{Field:"description",Value:"Readable suggestion",EvidenceIDs:["source"]}],Warnings:[{Code:"missing_material",Field:"description",Message:"Missing material",Metadata:null}],Rejections:[]},
+  confidence:[],unresolved:["missing_material: Missing material"],steps:[],tokens:50,estimatedCostMicros:30,currency:"CNY",usageStatus:"observed",
+ };
+ const readable=await buildWorkbenchBrowserResponse(Response.json(payload),"product-agent-content-result",key);
+ expect(readable.status).toBe(200);
+ await expect(readable.json()).resolves.toMatchObject({canSubmitReview:false,unresolved:payload.unresolved,candidate:payload.candidate});
+ const unsafe=await buildWorkbenchBrowserResponse(Response.json({...payload,canSubmitReview:true}),"product-agent-content-result",key);
+ expect(unsafe.status).not.toBe(200);
+});
+it("forwards the fixed content namespace and rejects missing selection or title/content confusion", async () => {
+ vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL", "http://localhost:3000");
+ const payload={expectedModeRevision:"0",targetPlatform:"product",contentSelection:{targetLanguage:"ja",description:true}};
+ const contentRequest=(body:unknown)=>new Request(`http://localhost:3000/api/workbench/${contentPath.join("/")}`,{method:"POST",headers:req().headers,body:JSON.stringify(body)});
+ const result=await buildWorkbenchUpstreamRequest(contentRequest(payload),contentPath,"token","actor");
+ expect(result).not.toBeInstanceOf(Response);
+ if(!(result instanceof Response))expect(JSON.parse(result.init.body as string)).toEqual(payload);
+ expect(await buildWorkbenchUpstreamRequest(contentRequest({expectedModeRevision:"0",targetPlatform:"product"}),contentPath,"token","actor")).toBeInstanceOf(Response);
+ expect(await buildWorkbenchUpstreamRequest(req(JSON.stringify({...payload,targetPlatform:"shein"})),path,"token","actor")).toBeInstanceOf(Response);
+});
 function req(body = '{"targetPlatform":"shein","expectedModeRevision":"0"}',  extra: Record<string, string> = {}) { return new Request(`http://localhost:3000/api/workbench/${path.join("/")}`, { method: "POST", headers: { Origin: "http://localhost:3000", "Sec-Fetch-Site": "same-origin", Cookie: "shuomi_effective_organization=B", "X-Expected-Organization-ID": "B", "X-Expected-User-ID": "actor", "Content-Type": "application/json", "Idempotency-Key": key, ...extra }, body }); }
 it("admits an explicitly selected platform for Agent Start and rejects client authority and stale identity", async () => {
     vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL", "http://localhost:3000");
