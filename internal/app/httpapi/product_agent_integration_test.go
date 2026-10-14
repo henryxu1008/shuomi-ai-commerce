@@ -430,7 +430,7 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	if strings.HasPrefix(mode, "content flow cross-admin ") {
 		reviewIAM = newContentReviewIAM(t, &memberReplaced)
 	}
-	if mode == "selection" {
+	if mode == "selection" || mode == "diagnosis" {
 		for _, limits := range [][2]int{{3, 2}, {4, 1}} {
 			invalid := settings
 			invalid.Limits.Steps, invalid.Limits.ModelCalls = limits[0], limits[1]

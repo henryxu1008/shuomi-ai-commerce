@@ -116,6 +116,9 @@ func (p *ProductAgentConfig) validate(cfg *Config) error {
 		return errors.New("diagnosis policy outside current organization admission")
 	}
 	for org, policy := range p.DiagnosisTextPolicies {
+		if p.Steps < 4 || p.ModelCalls < 2 {
+			return errors.New("shop diagnosis requires at least four steps and two model calls")
+		}
 		profile := policy.ShapeProfile()
 		cost, err := profile.MaximumCost()
 		if !seen[org] || profile.PromptVersion != agentconfig.DiagnosisPromptVersion || profile.OutputSchemaVersion != agentconfig.DiagnosisActionVersion || profile.Currency != p.Currency || !governed.ValidRouteProfile(profile, aicapability.OperationShopDiagnosisDecision) || err != nil || profile.MaximumPromptTokens+profile.MaximumCompletionTokens > p.Tokens || cost > p.CostMicros {
