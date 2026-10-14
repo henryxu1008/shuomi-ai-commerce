@@ -49,3 +49,23 @@ func TestSourceMediaRejectsIncompleteOrIncorrectStorage(t *testing.T) {
 	c.SourceMedia = nil
 	require.NoError(t, c.validate())
 }
+
+func TestSourceMediaTrialConfigRequiresExplicitMeteredCurrentCollections(t *testing.T) {
+	c := acquisitionRuntimeConfig()
+	c.ProductCollections = true
+	c.MoneyOwnerDatabase = &DatabaseConfig{Host: "127.0.0.1", Port: 5432, User: "money_owner_runtime", Password: "fixture-password", Database: "money", MaxConnections: 2}
+	c.SourceMedia = &coreconfig.ImageAgentArtifactStoreConfig{Enabled: true, Provider: "s3", PublicBase: "https://localhost:39744/source-media-assets/source-media-trial", S3: coreconfig.ImageAgentArtifactStoreS3Config{Bucket: "source-media-trial", Region: "us-east-1", Endpoint: "http://127.0.0.1:9103", AccessKeyID: "fixture", SecretAccessKey: "fixture", UsePathStyle: true, ArtifactMode: "aws"}}
+	require.Error(t, c.validate(), "private origins are not implicitly admitted")
+	c.SourceMediaIsolatedTrial = true
+	require.Error(t, c.validate(), "trial does not bypass capacity")
+	c.StorageCapacity = true
+	require.NoError(t, c.validate())
+	require.True(t, c.CoreConfig().ProductCollectionSourceMediaIsolatedTrial)
+	c.SourceMedia.S3.UsePathStyle = false
+	require.Error(t, c.validate())
+	c.SourceMedia.S3.UsePathStyle = true
+	c.SourceMedia.S3.Endpoint = "https://real-storage.example.org"
+	require.Error(t, c.validate())
+	c.SourceMedia = nil
+	require.Error(t, c.validate(), "stale flag cannot enable another capability")
+}

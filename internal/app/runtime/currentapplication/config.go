@@ -59,6 +59,7 @@ type Config struct {
 	POD                        *PODConfig                                `json:"pod,omitempty"`
 	PrivateDraftTrial          *PrivateDraftTrialConfig                  `json:"privateDraftTrial,omitempty"`
 	SourceMedia                *coreconfig.ImageAgentArtifactStoreConfig `json:"sourceMedia,omitempty"`
+	SourceMediaIsolatedTrial   bool                                      `json:"sourceMediaIsolatedTrial,omitempty"`
 	ImageAgent                 *ImageAgentConfig                         `json:"imageAgent,omitempty"`
 	ProductAgent               *ProductAgentConfig                       `json:"productAgent,omitempty"`
 	AIWorkbench                *AIWorkbenchConfig                        `json:"aiWorkbench,omitempty"`
@@ -452,11 +453,14 @@ func (cfg *Config) validate() error {
 	if err := cfg.validateSupplyChain(); err != nil {
 		return err
 	}
+	if cfg.SourceMediaIsolatedTrial && (cfg.SourceMedia == nil || !cfg.StorageCapacity) {
+		return errors.New("source media isolated trial requires explicit metered source storage")
+	}
 	if cfg.SourceMedia != nil {
 		if !cfg.ProductCollections || cfg.ProductAcquisitionDatabase == nil {
 			return errors.New("source media requires current Product collections")
 		}
-		if err := ValidateSourceMediaStorage(*cfg.SourceMedia); err != nil {
+		if err := ValidateSourceMediaStorage(*cfg.SourceMedia, cfg.SourceMediaIsolatedTrial); err != nil {
 			return errors.New("source media storage configuration unavailable")
 		}
 	}
@@ -702,6 +706,7 @@ func (cfg *Config) CoreConfig() *coreconfig.Config {
 	}
 	if cfg.SourceMedia != nil {
 		core.ProductCollectionSourceMedia = *cfg.SourceMedia
+		core.ProductCollectionSourceMediaIsolatedTrial = cfg.SourceMediaIsolatedTrial
 	}
 	core.StorageCapacity = cfg.StorageCapacity
 	return core

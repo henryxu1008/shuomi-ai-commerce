@@ -16,6 +16,9 @@ import (
 )
 
 func buildProductCollectionModuleWithSourceMedia(ctx context.Context, db *gorm.DB, dependencies routeAuthDependencies, permissions *authz.ListingKitAuthorizer, cfg *config.Config, supply bool, media *collectionSourceMediaDependencies, marketPODImages ...bool) (kernelmodule.Module, error) {
+	if err := configureCollectionSourceMediaTrial(media, cfg); err != nil {
+		return nil, err
+	}
 	service, err := buildProductCollectionService(ctx, db, dependencies, permissions, append([]bool{supply}, marketPODImages...)...)
 	if err != nil {
 		return nil, err
@@ -31,7 +34,7 @@ func buildProductCollectionModuleWithSourceMedia(ctx context.Context, db *gorm.D
 		if cfg.StorageCapacity && media.Capacity == nil {
 			return nil, collection.ErrUnavailable
 		}
-		service.WithMedia(productsourcing.SourceMedia{Storage: media.Storage, Authorization: authority, Capacity: media.Capacity})
+		service.WithMedia(productsourcing.SourceMedia{Storage: media.Storage, Authorization: authority, Capacity: media.Capacity, TrialURLs: media.TrialURLs})
 	}
 	binder := productReviewCapabilityBinder{now: time.Now}
 	return productCollectionModule{routes: collectionhttp.Routes(service, binder.Bind), service: service}, nil
@@ -39,8 +42,31 @@ func buildProductCollectionModuleWithSourceMedia(ctx context.Context, db *gorm.D
 
 // Runtime constructs the current storage adapter; HTTP only consumes its port.
 type collectionSourceMediaDependencies struct {
-	Capacity *storagecapacity.Meter
-	Storage  productsourcing.SourceMediaStorage
+	Capacity  *storagecapacity.Meter
+	Storage   productsourcing.SourceMediaStorage
+	TrialURLs *productsourcing.IsolatedTrialSourceMediaURLPolicy
+}
+
+func configureCollectionSourceMediaTrial(media *collectionSourceMediaDependencies, cfg *config.Config) error {
+	if cfg == nil || !cfg.ProductCollectionSourceMediaIsolatedTrial {
+		if media != nil {
+			media.TrialURLs = nil
+		}
+		return nil
+	}
+	if !cfg.StorageCapacity || !cfg.ProductCollectionSourceMedia.Enabled || media == nil || media.Storage == nil || media.Capacity == nil {
+		return collection.ErrUnavailable
+	}
+	storage := cfg.ProductCollectionSourceMedia
+	if storage.S3.ArtifactMode != "aws" || !storage.S3.UsePathStyle || storage.IsolatedTrialGeneratedURLs {
+		return collection.ErrUnavailable
+	}
+	policy, err := productsourcing.NewIsolatedTrialSourceMediaURLPolicy(storage.PublicBase, storage.S3.Bucket, storage.S3.Endpoint)
+	if err != nil {
+		return err
+	}
+	media.TrialURLs = policy
+	return nil
 }
 
 func WithCollectionSourceMedia(storage productsourcing.SourceMediaStorage) CurrentApplicationOption {
@@ -51,5 +77,5 @@ func WithCollectionSourceMedia(storage productsourcing.SourceMediaStorage) Curre
 }
 
 func newImageSetManualMedia(media *collectionSourceMediaDependencies, authority imageMediaScopeAuthority) asset.ManualImageReader {
-	return imageapp.ImageSetManualMedia{Media: productsourcing.SourceMedia{Storage: media.Storage, Authorization: authority, Capacity: media.Capacity}}
+	return imageapp.ImageSetManualMedia{Media: productsourcing.SourceMedia{Storage: media.Storage, Authorization: authority, Capacity: media.Capacity, TrialURLs: media.TrialURLs}}
 }
