@@ -171,6 +171,10 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 		if err != nil {
 			return err
 		}
+		officialApplications, err = cfg.StoreCenter.TikTokShop.prepare(ctx, officialApplications)
+		if err != nil {
+			return err
+		}
 	}
 	startupContext, cancelStartup := context.WithTimeout(ctx, 15*time.Second)
 	defer cancelStartup()

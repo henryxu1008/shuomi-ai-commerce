@@ -6,6 +6,7 @@ import (
 	"strings"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/storecenter"
+	tiktok "task-processor/internal/storecenter/tiktokshop"
 )
 
 type OfficialApplicationRegistration struct {
@@ -21,8 +22,45 @@ type officialApplicationEntry struct {
 }
 type OfficialApplicationChoice = storecenter.OfficialApplicationChoice
 type OfficialApplicationRegistry struct {
-	entries map[officialApplicationKey]officialApplicationEntry
+	entries          map[officialApplicationKey]officialApplicationEntry
+	tiktokProvider   tiktok.SellerAuthorization
+	tiktokProtection tiktok.CredentialProtection
 }
+
+// TikTok uses a canonical seller grant and its own credential contract.
+// Registration shares composition with other platforms, never their tokens.
+func WithTikTokApplication(r *OfficialApplicationRegistry, provider tiktok.SellerAuthorization, protection tiktok.CredentialProtection) (*OfficialApplicationRegistry, error) {
+	if provider == nil || protection == nil || (r != nil && r.tiktokProvider != nil) {
+		return nil, storecenter.ErrOfficialConnectionUnavailable
+	}
+	app := provider.Application()
+	if !authidentity.IsBoundedIdentifier(app.AppKey) || !authidentity.IsBoundedIdentifier(app.Revision) {
+		return nil, storecenter.ErrOfficialConnectionUnavailable
+	}
+	result := &OfficialApplicationRegistry{entries: map[officialApplicationKey]officialApplicationEntry{}, tiktokProvider: provider, tiktokProtection: protection}
+	if r != nil {
+		for key, entry := range r.entries {
+			result.entries[key] = entry
+		}
+	}
+	return result, nil
+}
+
+func (r *OfficialApplicationRegistry) TikTokConfigured() bool {
+	return r != nil && r.tiktokProvider != nil
+}
+
+func newTikTokConnections(store storecenter.OfficialConnectionStore, registry *OfficialApplicationRegistry) (*TikTokConnections, error) {
+	repo, ok := store.(storecenter.TikTokConnectionStore)
+	if !ok {
+		return nil, nil
+	}
+	if !registry.TikTokConfigured() {
+		return NewTikTokConnections(repo, nil, nil)
+	}
+	return NewTikTokConnections(repo, registry.tiktokProvider, registry.tiktokProtection)
+}
+
 type officialApplicationKey struct {
 	platform  storecenter.Platform
 	partition storecenter.OfficialIdentityPartition

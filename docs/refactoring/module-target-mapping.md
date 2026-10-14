@@ -6,6 +6,17 @@
 > Scan baseline: `main @ 6e3b87208e2c4e51039b95145a2377edfbb9b1cb`
 > Bounded delivery calibration: Issue #386 against `main @ 08a6195c7aa8528acdec0bf0f4e742a8c4998e6d`
 
+### #29 backend retirement calibration
+
+The root ListingKit Task/API/default HTTP assembly is physically retired.
+Current commands no longer compile any ListingKit package. Role middleware is
+owned by `internal/authz/httpapi`, request-role context by `shared/aiidentity`,
+current image transport by `app/httpapi/image_asset_transport.go`, and the original
+submit-in-progress error by Listing/Submission. Existing identity/history and
+numeric sync leaves remain explicitly registered debt; they are not new owners
+or permission to add current consumers. Current schema evolution and worker
+contracts remain intact; source/build/review/CI and actual deployment are separate.
+
 ## 1. Purpose
 
 ### ACC-1 bounded current-owner calibration (#409)
@@ -67,8 +78,8 @@ Current target ownership domains include:
 
 | Current area | Current role | Target owner / destination | Current owner / retirement rule |
 | --- | --- | --- | --- |
-| `internal/listingkit` | mixed legacy listing orchestration/API/runtime | `internal/listing/*`, `internal/marketplace/*`, `internal/product/*`, `internal/integration/*`, `internal/app/*` according to ownership | #29: extract valid behavior, switch caller, retire old path. Do not preserve root ListingKit as permanent facade. |
-| `internal/compatibility/listingkit` | remaining historical drain paths | current real owner above | Drain only. No new consumer or feature landing. A future #30 owner may EXTRACT valid behavior or RETIRE the handoff; it must not migrate old tasks/data or add a compatibility path. #300 owns guard/obvious cleanup. |
+| `internal/listingkit` | retired mixed Task/API/default runtime | current Product/Listing/Marketplace/Integration/App owners | #29 physically removes the root Go package; valid role/context/image/Temporal transport and Submission error use current owners directly. Remaining numeric sync/identity/history leaves are registered retirement debt, not current landing zones. |
+| `internal/compatibility/listingkit` | retired drain shell/handoff | existing current Product/Listing/Marketplace owners | Physical shells/handoff absent under #663/#29; keep absent, without new facade, fallback or data mapping. |
 | `internal/listingadmin` | listing-admin behavior | `internal/listing/settings` or `internal/app/httpapi` | Split business policy from transport/assembly. |
 | `internal/listingsubscription` | listing-era plans/entitlements/usage behavior | `internal/commercial/*`, current resource/entitlement owners, narrow listing policy where truly listing-specific | Do not restore old task-quota authority; do not add wallet/payment/order ownership here. |
 | `internal/ledger/money` | canonical payment/refund/chargeback and payout-method facts; Organization wallet target owner | `internal/ledger/money` + `internal/integration/persistence/money` | CURRENT money owner. Extend only with money semantics; pricing, commercial orders and resource balances stay outside. See #457 contract. |
@@ -115,7 +126,7 @@ Current target ownership domains include:
 | `internal/sourceaccount` | legacy source-account metadata/access/persistence still used by default ListingKit/crawler composition | `internal/sourceaccountregistry` + `internal/integration/persistence/sourceaccountregistry` for current Source Account registration; provider connection remains a separate current capability | **EXTRACT/RETIRE:** do not wrap this package or route a current registry caller through it. Source access is not Organization membership. See the bounded calibration and legacy register. |
 | `internal/tenantbridge` | active Organization ↔ legacy numeric tenant mapping | current Organization identity + each consuming domain's current persistence ownership | #301: freeze new consumers; new domains use native Organization identity; RETIRE legacy callers and package by owner; it allows no legacy numeric mapping, old-data migration/backfill or cutover. Never move it to another compatibility facade. |
 | `internal/zitadelprovision` | ZITADEL management/provisioning | integration identity provisioning + app operational entrypoint | External client stays in integration; app owns lifecycle. |
-| `web/listingkit-ui` | current web app with legacy ListingKit/Task-first responsibilities and valid current surfaces | final Figma Product Projection, especially #298 and Store Center surfaces | Retire only the specific Task-first/legacy dependencies. Keep current Console, account, plans and review surfaces as current product work; do not rebuild them merely because of this path name. |
+| `web/listingkit-ui` | current Console application; #664 removes the old ListingKit/Task-first pages, default shell and dedicated request chains | final Figma Product Projection, especially #298 and Store Center surfaces; shared readonly identity transport lives in `src/lib/server/upstream-identity.ts` | Keep current Console, account, plans and review surfaces; current source/image/store surfaces and neutral primitives also remain. Retired paths stay absent without redirect, Task mapping or fallback. The directory name is not a legacy owner. Deployment and user acceptance are separate. |
 
 ### SRC-2B1 current candidate seam (#398)
 

@@ -1,3 +1,0 @@
-package listingkit
-
-type platformVisualExportBase = platformVisualPresentationBase

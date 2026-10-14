@@ -5,13 +5,22 @@ import (
 	"encoding/json"
 	"task-processor/internal/storecenter"
 	o "task-processor/internal/storecenter/observations"
+	"time"
 )
 
 type TemuObservationProvider interface {
 	QueryObservedTemuProducts(context.Context, storecenter.OfficialMerchantCredential, o.ProductQuery) (o.ProductPage, error)
 }
 
-func (a *OfficialObservationAccess) authorizeTemuObservation(ctx context.Context, s storecenter.ObservationSubject, store string, expected *MerchantBinding, m storecenter.ProductExecutionMaterial, entry officialApplicationEntry) (*ObservationHandle, error) {
+func (a *OfficialObservationAccess) authorizeTemuObservation(ctx context.Context, startedAt time.Time, s storecenter.ObservationSubject, store string, expected *MerchantBinding, m storecenter.ProductExecutionMaterial, entry officialApplicationEntry) (*ObservationHandle, error) {
+	// One fixed read-only page budget includes initial admission. Current
+	// authority is still reread before and after every provider observation.
+	expires := startedAt.Add(30 * time.Second)
+	if deadline, ok := ctx.Deadline(); ok && deadline.Before(expires) {
+		expires = deadline
+	}
+	ctx, cancel := context.WithDeadline(ctx, expires)
+	defer cancel()
 	if s.Purpose != storecenter.ObservationPurposeProducts {
 		return nil, o.ErrUnsupported
 	}
@@ -48,8 +57,7 @@ func (a *OfficialObservationAccess) authorizeTemuObservation(ctx context.Context
 	if !valid || actual != binding || privateCredentialHash(fresh) != privateCredentialHash(m) || ctx.Err() != nil {
 		return nil, o.ErrConflict
 	}
-	expires, _ := ctx.Deadline()
-	if !a.now().Before(expires) {
+	if ctx.Err() != nil || !a.now().Before(expires) {
 		return nil, o.ErrUnavailable
 	}
 	return &ObservationHandle{owner: a, entry: entry, subject: s, binding: binding, connectionRef: m.Connection.AttemptID, credentialHash: privateCredentialHash(m), expiresAt: expires}, nil

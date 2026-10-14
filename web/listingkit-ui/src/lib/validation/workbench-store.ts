@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const workbenchStorePlatformSchema = z.enum(["shein", "temu"]);
+export const workbenchStorePlatformSchema = z.enum(["shein", "temu", "tiktokshop"]);
 const workbenchStoreRecordStatusSchema = z.enum([
   "active",
   "disabled",
@@ -26,6 +26,7 @@ export const workbenchStoreCreateSchema = z
     externalStoreId: publicText(128, false).optional(),
   })
   .strict()
+  .refine(input=>input.platform!=="tiktokshop" || input.region==="US" && !!input.externalStoreId,{message:"TikTok Shop 美国跨境店铺需要 US 区域和 Seller Center 店铺编号"})
   .transform(({ externalStoreId, ...input }) =>
     externalStoreId ? { ...input, externalStoreId } : input,
   );

@@ -8,8 +8,6 @@ import (
 	"task-processor/internal/app/configadapter"
 	accountallocationschema "task-processor/internal/app/schema/accountallocation"
 	"task-processor/internal/core/config"
-	listingkitschema "task-processor/internal/listingkit/schema"
-	listingkitstore "task-processor/internal/listingkit/store"
 	"task-processor/internal/listingsubscription"
 	"task-processor/internal/pkg/appenv"
 	platformdatabase "task-processor/internal/platform/database"
@@ -23,8 +21,6 @@ type runtimeDependencies struct {
 	OpenDB            func(cfg *config.DatabaseConfig) (*gorm.DB, error)
 	OpenCommercial    func(cfg *config.DatabaseConfig) (*gorm.DB, error)
 	CloseDB           func(db *gorm.DB) error
-	MigrateAll        func(db *gorm.DB) error
-	MigrateSheinSync  func(db *gorm.DB) error
 	MigrateWorkbench  func(db *gorm.DB) error
 	MigrateCommercial func(db *gorm.DB) error
 }
@@ -44,12 +40,6 @@ func defaultRuntimeDependencies() runtimeDependencies {
 				return err
 			}
 			return sqlDB.Close()
-		},
-		MigrateAll: func(db *gorm.DB) error {
-			return autoMigrateListingKitRuntimeSchema(db)
-		},
-		MigrateSheinSync: func(db *gorm.DB) error {
-			return listingkitstore.AutoMigrateSheinSyncRepository(db)
 		},
 		MigrateWorkbench: workbenchschema.AutoMigrateRuntime,
 		MigrateCommercial: func(db *gorm.DB) error {
@@ -82,12 +72,6 @@ func runWithDependencies(ctx context.Context, opts Options, deps runtimeDependen
 	}
 	if deps.CloseDB == nil {
 		deps.CloseDB = defaults.CloseDB
-	}
-	if deps.MigrateAll == nil {
-		deps.MigrateAll = defaults.MigrateAll
-	}
-	if deps.MigrateSheinSync == nil {
-		deps.MigrateSheinSync = defaults.MigrateSheinSync
 	}
 	if deps.MigrateWorkbench == nil {
 		deps.MigrateWorkbench = defaults.MigrateWorkbench
@@ -141,26 +125,6 @@ func runWithDependencies(ctx context.Context, opts Options, deps runtimeDependen
 	if err := runMigration(db, opts.Scope, deps); err != nil {
 		return fmt.Errorf("listingkit schema migrate failed: %w", err)
 	}
-	if opts.Scope == "" || opts.Scope == "all" {
-		if cfg.CommercialDatabase == nil {
-			return fmt.Errorf("commercial database config is required for all scope")
-		}
-		commercialDB, err := deps.OpenCommercial(cfg.CommercialDatabase)
-		if err != nil {
-			return fmt.Errorf("connect commercial database failed: %w", err)
-		}
-		if commercialDB == nil {
-			return fmt.Errorf("commercial database config is required for all scope")
-		}
-		defer func() {
-			if err := deps.CloseDB(commercialDB); err != nil {
-				logger.WithError(err).Warn("close commercial database failed")
-			}
-		}()
-		if err := deps.MigrateCommercial(commercialDB); err != nil {
-			return fmt.Errorf("commercial schema migration failed: %w", err)
-		}
-	}
 	logger.WithField("scope", opts.Scope).Info("listingkit schema migrate completed")
 	return nil
 }
@@ -170,13 +134,6 @@ func runMigration(db *gorm.DB, scope string, deps runtimeDependencies) error {
 		return err
 	}
 	switch scope {
-	case "", "all":
-		if err := deps.MigrateAll(db); err != nil {
-			return err
-		}
-		return deps.MigrateWorkbench(db)
-	case "shein-sync":
-		return deps.MigrateSheinSync(db)
 	case "workbench":
 		return deps.MigrateWorkbench(db)
 	default:
@@ -186,13 +143,11 @@ func runMigration(db *gorm.DB, scope string, deps runtimeDependencies) error {
 
 func validateMigrationScope(scope string) error {
 	switch scope {
-	case "", "all", "commercial", "shein-sync", "workbench":
+	case "commercial", "workbench":
 		return nil
+	case "", "all", "shein-sync":
+		return fmt.Errorf("legacy ListingKit Task schema scope %q is retired; choose commercial or workbench", scope)
 	default:
 		return flag.ErrHelp
 	}
-}
-
-func autoMigrateListingKitRuntimeSchema(db *gorm.DB) error {
-	return listingkitschema.AutoMigrateRuntime(db)
 }

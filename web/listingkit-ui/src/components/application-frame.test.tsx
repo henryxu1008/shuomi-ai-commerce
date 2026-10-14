@@ -119,7 +119,7 @@ describe("ApplicationFrame", () => {
     expect(screen.queryByTestId("legacy-listingkit-shell")).not.toBeInTheDocument();
   });
 
-  it("keeps legacy authenticated pages on the legacy auth gate and shell", () => {
+  it("keeps authentication without mounting the retired navigation shell", () => {
     vi.mocked(usePathname).mockReturnValue("/listing-kits/home");
 
     render(
@@ -128,9 +128,8 @@ describe("ApplicationFrame", () => {
       </ApplicationFrame>,
     );
 
-    expect(screen.getByTestId("legacy-auth-gate")).toContainElement(
-      screen.getByTestId("legacy-listingkit-shell"),
-    );
+    expect(screen.getByTestId("legacy-auth-gate")).toContainElement(screen.getByText("legacy child"));
+    expect(screen.queryByTestId("legacy-listingkit-shell")).not.toBeInTheDocument();
     expect(
       screen.queryByTestId("workbench-context-provider"),
     ).not.toBeInTheDocument();

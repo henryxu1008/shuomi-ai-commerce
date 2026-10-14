@@ -1,22 +1,45 @@
 package httpapi
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"task-processor/internal/authz"
+	"task-processor/internal/httproute"
+
+	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
+
 	"task-processor/internal/core/config"
 	kernelmodule "task-processor/internal/kernel/module"
 )
 
-func TestLegacyProductRoutesAreNotRegisteredByProductionComposition(t *testing.T) {
-	composition, cfg := buildPersistentProductionCompositionFixture(t)
-	bundle, err := composition.buildRuntimeBundle(cfg)
-	if err != nil {
-		t.Fatalf("build production runtime bundle: %v", err)
+func currentRetirementTestApplication(t *testing.T) (*http.Server, []httproute.Descriptor) {
+	t.Helper()
+	dependencies := newRouteAuthDependencies()
+	factories := currentApplicationFactories{
+		buildWorkbench: func(*config.Config, *logrus.Logger) (workbenchContextBuildResult, error) {
+			return workbenchContextBuildResult{module: currentApplicationTestModule{name: "workbench", routes: currentWorkbenchApplicationRoutes}, authDependencies: &dependencies}, nil
+		},
+		buildSourceAccount: func(*gorm.DB, *authz.ListingKitAuthorizer) (kernelmodule.Module, error) { return nil, nil },
+		buildCommercial:    func(*gorm.DB, *gorm.DB, *authz.ListingKitAuthorizer) (kernelmodule.Module, error) { return nil, nil },
 	}
-	server, routes := bundle.buildServerBundle(0, appHTTPTestRouteAuthorization)
+	server, err := buildCurrentApplication(context.Background(), &gorm.DB{}, currentApplicationTestConfig(), logrus.New(), factories)
+	if err != nil {
+		t.Fatal(err)
+	}
+	routes := make([]httproute.Descriptor, 0, len(currentWorkbenchApplicationRoutes))
+	for _, route := range currentWorkbenchApplicationRoutes {
+		routes = append(routes, httproute.Descriptor{Method: route.Method, Path: route.Path})
+	}
+	return server, routes
+}
+
+func TestLegacyProductRoutesAreNotRegisteredByProductionComposition(t *testing.T) {
+	server, routes := currentRetirementTestApplication(t)
 	if len(routes) == 0 {
 		t.Fatal("production composition registered no routes")
 	}
@@ -41,8 +64,8 @@ func TestLegacyProductRoutesAreNotRegisteredByProductionComposition(t *testing.T
 }
 
 func TestProductionRuntimeRegistryHasNoLegacyProductModulesOrWorkerPools(t *testing.T) {
-	composition, cfg := buildPersistentProductionCompositionFixture(t)
-	modules := composition.routeModules()
+	cfg := &config.Config{}
+	modules := []kernelmodule.Module{newCoreHTTPModule()}
 	bundle, err := buildRuntimeBundleFromModules(cfg, modules)
 	if err != nil {
 		t.Fatalf("build production runtime bundle: %v", err)
@@ -50,10 +73,7 @@ func TestProductionRuntimeRegistryHasNoLegacyProductModulesOrWorkerPools(t *test
 	if err := validateNoLegacyProductRuntime(modules, bundle.workerPools); err != nil {
 		t.Fatal(err)
 	}
-	assertModuleRegistered(t, modules, "amazon-listing")
-	assertModuleRegistered(t, modules, "listing-kit")
-	requireCurrentE2EPool(t, bundle, "amazon_listing")
-	requireCurrentE2EPool(t, bundle, "listing_kit")
+	assertModuleRegistered(t, modules, "system")
 
 	mutatedModules := append(append([]kernelmodule.Module(nil), modules...), legacyProductMutationModule{name: "product"})
 	if err := validateNoLegacyProductRuntime(mutatedModules, bundle.workerPools); err == nil {

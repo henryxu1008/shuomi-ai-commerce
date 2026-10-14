@@ -117,6 +117,15 @@ func (r *Repository) ReadCommand(ctx context.Context, scope collection.Scope, ke
 	v, _, err := readCommand(r.db.WithContext(ctx), scope, key)
 	return v, err
 }
+
+// The Target consumer selects one actor/member-qualified immutable version.
+// Read remains the current source head; selecting a version never changes it.
+func (r *Repository) ReadVersion(ctx context.Context, scope collection.Scope, id string) (completiondraft.Record, error) {
+	if ctx == nil || scope.Validate() != nil || !collection.ValidID(id) {
+		return completiondraft.Record{}, preparation.ErrInvalid
+	}
+	return readRecord(r.db.WithContext(ctx), scope, id)
+}
 func (r *Repository) Read(ctx context.Context, scope collection.Scope, sourceID string) (completiondraft.Record, error) {
 	if scope.Validate() != nil || !collection.ValidID(sourceID) {
 		return completiondraft.Record{}, preparation.ErrInvalid
