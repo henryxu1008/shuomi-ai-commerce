@@ -21,6 +21,7 @@ import (
 	"task-processor/internal/knowledge"
 	"task-processor/internal/product/enrichment"
 	"task-processor/internal/product/review"
+	skill "task-processor/internal/skill"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -98,6 +99,7 @@ type productAgentStepDTO struct {
 	AuditStatus  string `json:"auditStatus,omitempty"`
 }
 type productAgentResultDTO struct {
+	SkillVersionRef       agent.SkillVersionRef       `json:"skillVersionRef,omitzero"`
 	ContentSelection      enrichment.ContentSelection `json:"contentSelection,omitzero"`
 	ExecutionMode         agent.ExecutionMode         `json:"executionMode,omitempty"`
 	ModeRevision          string                      `json:"modeRevision,omitempty"`
@@ -207,6 +209,11 @@ func registeredProductAgentRoutes(a *productAgentApplication, content bool) []ht
 				writeProductAgentError(c, templateErr)
 				return
 			}
+			method, methodErr := body.skillSelection(spec.action)
+			if methodErr != nil || method != nil && (!content || body.ContentSelection == nil || !body.ContentSelection.TitleOnly()) {
+				writeProductAgentError(c, agent.ErrInvalid)
+				return
+			}
 			var record agent.Record
 			var binding agent.Binding
 			runMayExist := false
@@ -229,7 +236,7 @@ func registeredProductAgentRoutes(a *productAgentApplication, content bool) []ht
 				if err == nil {
 					var request agent.Request
 					if content {
-						request, err = a.startTextRequest(ctx, binding, key, selection, "", template, aicapability.ModelProfile{}, "", body.ExpectedModeRevision, *body.ContentSelection)
+						request, err = a.startTextRequestWithSkill(ctx, binding, key, selection, "", template, aicapability.ModelProfile{}, "", body.ExpectedModeRevision, *body.ContentSelection, method)
 					} else {
 						request, err = a.startRequest(ctx, binding, key, selection, template, body.ExpectedModeRevision)
 					}
@@ -298,6 +305,7 @@ func registeredProductAgentRoutes(a *productAgentApplication, content bool) []ht
 			}
 			result := productAgentResultDTO{RunID: state.RunID, RequestKey: key, OperationID: operationID, ProductKey: binding.ProductKey, CatalogVersion: binding.CatalogVersion, PublicationID: binding.PublicationID, TargetPlatform: binding.TargetPlatform, Phase: state.Phase, Revision: strconv.FormatUint(state.Revision, 10), StopReason: state.StopReason, HumanReviewRequired: true, Candidate: state.Candidate, Confidence: state.Confidence, Unresolved: state.Unresolved, Steps: []productAgentStepDTO{}, Tokens: state.Usage.Tokens, EstimatedCostMicros: state.Usage.CostMicros, Currency: state.Request.Limits.Currency, UsageStatus: "observed", CanSubmitReview: agentRunReviewable(state)}
 			result.ContentSelection = state.Request.ContentSelection
+			result.SkillVersionRef = state.Request.SkillVersionRef
 			if content {
 				result.Unresolved = contentRunDiagnostics(state)
 			}
@@ -391,6 +399,14 @@ func writeProductAgentError(c *gin.Context, err error) {
 	}
 	status, code := http.StatusServiceUnavailable, "PRODUCT_AGENT_UNAVAILABLE"
 	switch {
+	case errors.Is(err, skill.ErrInvalid), errors.Is(err, skill.ErrUnsupported):
+		status, code = 400, err.Error()
+	case errors.Is(err, skill.ErrForbidden):
+		status, code = 403, skill.ErrForbidden.Error()
+	case errors.Is(err, skill.ErrConflict), errors.Is(err, skill.ErrNotEnabled), errors.Is(err, skill.ErrNotFound), errors.Is(err, skill.ErrRevision):
+		status, code = 409, err.Error()
+	case errors.Is(err, skill.ErrUnavailable):
+		status, code = 503, skill.ErrUnavailable.Error()
 	case errors.Is(err, knowledge.ErrContextTooLarge):
 		status, code = 409, knowledge.ErrContextTooLarge.Error()
 	case errors.Is(err, knowledge.ErrForbidden):

@@ -20,6 +20,7 @@ const ContentPolicyAdoptionVersion = "product.content.policy-adopt-v1"
 // Metadata explains the exact original Agent. Only the injected live resolver
 // can turn it into authority; no HTTP route accepts a policy approval field.
 type ExecutionProvenance struct {
+	SkillVersionRef  agent.SkillVersionRef          `json:"skillVersionRef,omitzero"`
 	ContentSelection enrichment.ContentSelection    `json:",omitzero"`
 	Scope            agent.Scope                    `json:"scope"`
 	RunID            string                         `json:"runId"`
@@ -30,7 +31,7 @@ type ExecutionProvenance struct {
 }
 
 func (p *ExecutionProvenance) Valid() bool {
-	return p == nil || (p.ContentSelection.Absent() || p.ContentSelection.Valid()) && agent.ValidID(p.Scope.OrganizationID) && agent.ValidID(p.Scope.ActorID) && validID(p.RunID) && validID(p.RequestKey) && p.Binding.Valid() && !p.Configuration.Absent() && p.Configuration.ValidOrAbsent() && p.Mode.Valid()
+	return p == nil || p.SkillVersionRef.ValidOrAbsent() && (p.SkillVersionRef.Absent() || p.ContentSelection.TitleOnly()) && (p.ContentSelection.Absent() || p.ContentSelection.Valid()) && agent.ValidID(p.Scope.OrganizationID) && agent.ValidID(p.Scope.ActorID) && validID(p.RunID) && validID(p.RequestKey) && p.Binding.Valid() && !p.Configuration.Absent() && p.Configuration.ValidOrAbsent() && p.Mode.Valid()
 }
 
 type PolicyProvenance struct {
@@ -197,6 +198,11 @@ func (p *PolicyAdoptionService) Adopt(ctx context.Context, key string, in Policy
 	if err != nil {
 		return View{}, denied, mapSourceReadError(err)
 	}
+	release, err := p.service.acquireExecutionGate(ctx, &in.Execution)
+	if err != nil {
+		return View{}, denied, err
+	}
+	defer release()
 	view, err := p.service.store.Run(ctx, op, func(tx Tx) (View, error) {
 		if v, found, e := tx.Replay(); e != nil || found {
 			return v, e

@@ -42,6 +42,8 @@ go run ./cmd/agent-configuration-schema-init --runtime-role <existing_serving_ro
 
 ## 启动接线
 
+Skill V1 在同一配置数据库增加有界三层方法版本与个人方法准入；全新配置安装入口已一起安装，已有当前配置库的 `--skills-only` 和正常管理/执行入口见 [Skill V1 交接](skill-capability-v1.md)。Serving 启动仅核对，不自动安装、准入或导入模板。
+
 使用既有 current-application 启动入口和配置文件（参见 [运行配置](../../internal/app/runtime/currentapplication/product_agent.go)）。
 
 - 仅配置管理：保留 `productAgent` 节点，`enabled: false`，提供其 `database`。仅打开 RunDB，挂载配置 API；无需文本 provider、Review 或 Asset 连接。
