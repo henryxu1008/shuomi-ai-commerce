@@ -126,7 +126,8 @@ func snapshotVariants(envelope SourceEnvelope) []catalog.Variant {
 	variants := make([]catalog.Variant, len(candidates))
 	for index, candidate := range candidates {
 		var price *catalog.Price
-		if candidate.Price > 0 || hasCost {
+		declaredOwnPrice := envelope.Identity.SourceType == "user_input" && envelope.Identity.SourcePlatform == "own_product" && len(candidate.Currency) == 3
+		if candidate.Price > 0 || hasCost || declaredOwnPrice {
 			currency := strings.TrimSpace(candidate.Currency)
 			if currency == "" {
 				currency = strings.TrimSpace(envelope.SupplierOrCostFacts.Currency)

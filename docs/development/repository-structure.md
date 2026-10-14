@@ -1,5 +1,17 @@
 # Repository Structure
 
+## #678：当前入口的命令装配隔离
+
+`cmd/shein-login-worker` 直接消费 `internal/app/runtime/sheinloginworker`，其配置、
+同库 StoreAPI/AccountRepository、Redis/service、health-port、退出信号和清理行为保持。
+通用 `app/httpapi` 不再承载该专用启动器，也没有旧入口的 forwarding wrapper。
+当前应用和图片 worker 的生产 `go list -deps` 均不包含 tenantbridge/compatibility/ListingKit。
+
+已无真实调用方的 ListingAdmin 旧 HTTP handlers/header/list-query helpers 已退休；其原
+repository/API/DTO 与有效 owner/幂等/权限测试保留。当前 Organization/StoreCenter
+路由和本地 SHEIN 草稿合同不变。独立 SHEIN worker 的 numeric/transport 债务以及 #529
+历史工具仍未退休；本批不表示全仓 legacy 清零、部署或用户验收。
+
 ## 目标
 
 这份文档说明仓库当前推荐的目录职责，以及后续结构收口的方向。当前重点是让正式入口、调试入口、长期工具和本地产物位置保持清晰，避免旧入口和临时产物继续污染仓库结构。
@@ -98,8 +110,6 @@ CURRENT STATE：命令清单核对于上述 `main @ eb9e019686564b976c1a1a9828ee
     - `issue36-local-trial-init`
     - `listing-scheduler`
     - `listingkit-identity-preflight`
-    - `listingkit-owner-scope-dry-run`
-    - `listingkit-owner-scope-exceptions`
     - `listingkit-schema-migrate`
     - `playwright-installer`
     - `product-listing-api-schema-migrate`
@@ -108,7 +118,6 @@ CURRENT STATE：命令清单核对于上述 `main @ eb9e019686564b976c1a1a9828ee
     - `shein-import-platform-recovery`
     - `shein-login-worker`
     - `store-center-schema-init`
-    - `source-account-ownership-preflight`
     - `source-account-registry-schema-init`
     - `organization-membership-schema-init`
     - `referral-schema-init`
@@ -126,8 +135,9 @@ CURRENT STATE：命令清单核对于上述 `main @ eb9e019686564b976c1a1a9828ee
   - `agent-customization-schema-init` 的构建归属为 `deployments/docker/Dockerfile.account-compose` 的 `schema-init` target；安装人员显式提供私密 `AGENT_CUSTOMIZATION_SCHEMA_DSN` 和既有 `--runtime-role`，安装独立库的人工需求、私有交付及报告 schema 与最小权限。Compose 不自动调用，不创建需求、交付或交易，不迁移旧数据。获准的当前系统 schema 演进保留已有事实。依据 #611 / [智能体定制 V1](../architecture/agent-customization-v1.md) / [私有交付 V1](../architecture/private-agent-delivery-v1.md)。
   - `product-agent-credential-provision` 由 `scripts/product-agent-credential-provision.ps1` 显式委托；部署者用私有 manifest 与私有凭据输入，通过同一 ProductAgentDB 的独立受限写入角色配置标题组织行。它不自动启用 Agent 或执行付费调用；准入条件见 [标题诊断试用交接](../operations/product-agent-trial.md)。
   - 不再新增临时调试可执行程序。
-  - `source-account-ownership-preflight` 由 `scripts/source-account-ownership-preflight.ps1` 维护，是历史 Source Account 迁移的只读运维预检，不是 #301 当前新系统开发前置；两个数据库连接从环境注入，不执行 backfill 或生产 cutover。运行说明见 `docs/operations/source-account-ownership-preflight.md`。保留历史运维工具不恢复已取消的迁移授权。
-  - `source-account-registry-schema-init` 由 `scripts/source-account-registry-local-acceptance.ps1` 维护，只初始化 #368 当前 Source Account registry 的空库 schema；不读取、迁移或兼容旧 Source Account 数据。
+  - 历史 Source Account ownership preflight CLI、脚本和专属迁移实现已按 #529 退休；其 [SUPERSEDED 说明](../operations/source-account-ownership-preflight.md) 仅保留历史证据，不是当前运行入口。
+  - 旧 `listingkit-owner-scope-dry-run` / `listingkit-owner-scope-exceptions` 及其专属装配、写入方法和包装已按 #529 退休。`listingkit-identity-preflight` 仍使用原共享只读扫描/异常匹配；它的发布门禁和 schema 归属保留，不提供旧迁移写入入口。
+  - `source-account-registry-schema-init` 由 `scripts/source-account-registry-local-acceptance.ps1` 维护，初始化当前 SourceAccountRegistry 空库 schema 及 RUN-1 在同一 source-account pool 上的账户资料、个人/企业认证 schema；不读取、迁移或兼容旧 Source Account 数据。
   - `organization-membership-schema-init` 由 `deployments/docker/account-compose` 维护，只初始化本账户中心实例的组织成员回执 schema；不读取、迁移或兼容旧成员数据。
   - `commercial-owner-schema-migrate` 由 `scripts/commercial-owner-schema-migrate.ps1` 维护；分别针对私有 schema-owner manifests 初始化 canonical money 数据库的钱包/结算 schema，以及 commercial-owner 数据库的订单与 orgresource schema，不自动切换数据库或操作生产数据。
   - `account-acceptance-fixture` 由 `deployments/docker/account-compose` 的 `acceptance` profile 维护，只通过官方 ZITADEL API 创建并回读隔离验收组织与角色授权，写入项目私有的脱敏 manifest；不提供生产路由、不写业务事实表。

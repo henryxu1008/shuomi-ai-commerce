@@ -118,6 +118,9 @@ describe("/api/workbench BFF", () => {
   it.each([
     { method: "POST", path: `supply-preparations/records/${operationKey}/materials-agent/runs`, budget: 125_000 },
     { method: "POST", path: `supply-preparations/records/${operationKey}/materials-agent/runs/${storeId}/resume`, budget: 125_000 },
+    { method: "POST", path: `supply-preparations/records/${operationKey}/materials-agent/runs/${storeId}/adopt`, budget: 125_000 },
+    { method: "GET", path: `supply-preparations/records/${operationKey}/materials-agent/runs/${storeId}/adoption`, budget: 15_000 },
+    { method: "POST", path: `supply-preparations/records/${operationKey}/materials-agent/runs/not-a-uuid/adopt`, budget: 15_000 },
     ...["product-agent", "content-agent"].flatMap((namespace) => [
       { method: "POST", path: `sourcing/1688/acquisitions/${operationKey}/${namespace}/runs`, budget: 125_000 },
       { method: "GET", path: `sourcing/1688/acquisitions/${operationKey}/${namespace}/runs/${storeId}`, budget: 125_000 },

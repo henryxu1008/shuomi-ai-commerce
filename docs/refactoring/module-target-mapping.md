@@ -19,6 +19,38 @@ contracts remain intact; source/build/review/CI and actual deployment are separa
 
 ## 1. Purpose
 
+### #678 current command assembly calibration
+
+The current application and ImageAgent worker no longer compile tenantbridge.
+The existing standalone SHEIN worker's process assembly belongs to
+`internal/app/runtime/sheinloginworker`, directly consumed by its cmd; its
+shared HTTP entrypoint is absent. Unused ListingAdmin HTTP projection/helpers
+are retired, while original repository/API behavior and current SHEIN draft
+semantics are unchanged. Remaining numeric/SHEIN transport and historical tools
+still require their own #301/#529 retirement; this does not create a new owner
+for their old facts or claim deployment/user acceptance.
+
+### #529 owner-scope tooling calibration
+
+The old owner-scope dry-run/exception cmd and their exclusive process/write
+paths are also RETIRE under #529. The shared ownerreconcile package remains
+consumed by the unchanged identity-preflight read path; only cancelled backfill
+and fixed-snapshot seed methods and write-only tests are removed. The old
+deployment procedure is SUPERSEDED evidence. This does not replace or remove
+the current release gate, shared read policy, schema or real historical data.
+
+### #529 historical Source Account tooling calibration
+
+The old ownership-preflight cmd, PowerShell wrapper and dedicated
+`integration/persistence/sourceaccount/ownershipmigration` package are RETIRE.
+The cancelled A/B1 profile/mapping/receipt/prepare/schema path has no current
+consumer or replacement owner. Its historical operational report is retained
+as SUPERSEDED evidence; it is not an executable operation in the current tree.
+Current `source-account-registry-schema-init` and SourceAccountRegistry owners
+remain unchanged and do not consume the retired package. Other Store-history
+tools, release identity-preflight and standalone SHEIN numeric consumers remain
+explicit debt; this is not whole #529/#301 closure or runtime acceptance.
+
 ### ACC-1 bounded current-owner calibration (#409)
 
 On main `aff6b8def46cf7c2d989408d115fa3c9628e585e`, personal account reads use
