@@ -210,7 +210,6 @@ func productionNonPersistentOwnerModelExclusions(repositoryRoot string) map[owne
 		{Directory: listingAdminDirectory, Package: "listingadmin", TypeName: "SensitiveWordQuery"}:           "repository filter input; SensitiveWord is represented by a separate persistence row",
 		{Directory: listingAdminDirectory, Package: "listingadmin", TypeName: "StoreQuery"}:                   "repository filter input; Store is represented by listingStore for persistence",
 		{Directory: listingAdminDirectory, Package: "listingadmin", TypeName: "StoreStatisticsQuery"}:         "repository aggregate filter input, never passed to GORM as a model",
-		{Directory: listingAdminDirectory, Package: "listingadmin", TypeName: "listQueryScope"}:               "HTTP handler pagination and authorization input, never passed to GORM as a model",
 		{Directory: listingAdminDirectory, Package: "listingadmin", TypeName: "Store"}:                        "API and domain view mapped to listingStore before persistence",
 		{Directory: listingAdminDirectory, Package: "listingadmin", TypeName: "ProductImportMapping"}:         "API and domain view mapped to listingProductImportMapping before persistence",
 		{Directory: listingAdminDirectory, Package: "listingadmin", TypeName: "StoreRespDTO"}:                 "management API transport DTO, never passed to GORM as a model",
