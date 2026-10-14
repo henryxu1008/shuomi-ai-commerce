@@ -1929,7 +1929,7 @@ func buildCurrentApplicationHTTPServer(routes []httproute.Descriptor, dependenci
 	server.IdleTimeout = 60 * time.Second
 	inner := server.Handler
 	server.Handler = http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		if isProductAgentHTTPPath(request.URL.Path) || request.Method == http.MethodPost && (isListingMaterialsHTTPPath(request.URL.Path) || isContextAgentRunHTTPPath(request.URL.Path, productSelectionBase)) {
+		if isProductAgentHTTPPath(request.URL.Path) || request.Method == http.MethodPost && (isListingMaterialsHTTPPath(request.URL.Path) || isContextAgentRunHTTPPath(request.URL.Path, productSelectionBase) || isContextAgentRunHTTPPath(request.URL.Path, shopDiagnosisBase)) {
 			// Bounded synchronous model and materials commit paths need a longer response.
 			// Header/body read timeouts and all other route deadlines stay intact.
 			if err := http.NewResponseController(writer).SetWriteDeadline(time.Now().Add(125 * time.Second)); err != nil && !errors.Is(err, http.ErrNotSupported) {
