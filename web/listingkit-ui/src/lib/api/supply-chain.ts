@@ -39,6 +39,10 @@ export const readSupplyCompletionDraft=async(scope:SupplyScope,id:string,signal?
 export const listSupplyCompletionDrafts=async(scope:SupplyScope,id:string,q:Query={},signal?:AbortSignal)=>{
  const value=await send(`${base}/${collectionID.parse(id)}/completion-drafts${query(q)}`,scope,c.completionPageSchema,signal);if(value.items.some(r=>r.source.preparationId!==id))throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
 };
+export const listItemCompletionDrafts=async(scope:SupplyScope,id:string,q:Query={},signal?:AbortSignal)=>{
+ const value=await send(`${base}/collection-items/${collectionID.parse(id)}/completion-drafts${query({limit:20,...q})}`,scope,c.itemCompletionPageSchema,signal);
+ if(value.collectionItemId!==id||value.items.some(r=>r.source.collectionItemId!==id||r.source.source.kind!=="own"))throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
+};
 export const readSupplyTarget=async(scope:SupplyScope,source:string,store:string,signal?:AbortSignal)=>{
 	const value=await send(`${base}/sources/${collectionID.parse(source)}/targets/${collectionID.parse(store)}`,scope,c.sheinTargetRecordSchema,signal);if(value.source.id!==source||value.merchant.store_id!==store)throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
 };

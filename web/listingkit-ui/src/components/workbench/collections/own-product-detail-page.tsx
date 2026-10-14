@@ -14,6 +14,7 @@ import {Select} from "@/components/ui/select";
 import {Table,TableHeader,TableHead,TableBody,TableRow,TableCell} from "@/components/ui/table";
 import {cn} from "@/lib/utils/cn";
 import {ConsolePage,ConsoleState} from "../console/console-page";
+import {OwnProductDrafts} from "./own-product-drafts";
 import {collectionFailureText} from "./use-collection-command";
 
 const library="/workbench/data/mine?view=own";
@@ -35,7 +36,7 @@ function ScopedOwnProductDetail({scope,itemId,completionAvailable}:{scope:Collec
  const [detail,setDetail]=useState<CollectionDetail|null>(null),[error,setError]=useState(""),[reload,setReload]=useState(0);
  useEffect(()=>{const controller=new AbortController();let active=true;void readCollectionItem(scope,itemId,controller.signal).then(value=>{if(active){if(value.item.source.kind!=="own")setError("NOT_FOUND");else {setDetail(value);setError("")}}}).catch(failure=>{if(active)setError(failure instanceof CollectionAPIError?failure.code:"DEPENDENCY_UNAVAILABLE")});return()=>{active=false;controller.abort()}},[scope,itemId,reload]);
  return <ConsolePage title={detail?.product.title||"自有商品资料"} description="查看商品图片、通用属性和每个SKU的原始资料。" breadcrumbs={[{label:"数据服务",href:"/workbench/data"},{label:"我的数据",href:library},{label:"自有商品资料"}]} actions={<div className="flex flex-wrap gap-3">{detail&&!error&&completionAvailable&&["workbench.collection.read","workbench.supply.read","workbench.supply.manage"].every(permission=>context.permissions.includes(permission))?<Button asChild variant="outline"><Link href={`/workbench/data/mine/own/${itemId}/prepare`}>创建待补全草稿</Link></Button>:null}{detail&&!error?<Button asChild variant="outline"><Link href={`/workbench/data/mine/own/${itemId}/history`}>版本历史</Link></Button>:null}{detail&&!error&&context.permissions.includes("workbench.collection.manage")?<Button asChild><Link href={`/workbench/data/mine/own/${itemId}/edit`}>编辑商品</Link></Button>:null}<Button asChild variant="outline"><Link href={library}><ArrowLeft size={16}/>返回自有商品库</Link></Button></div>}>
-  {error?<ConsoleState kind="error" title={collectionFailureText[error]??"暂时无法读取商品资料"}><Button variant="outline" onClick={()=>setReload(v=>v+1)}>重试读取</Button></ConsoleState>:!detail?<ConsoleState kind="loading" title="正在读取商品资料"/>:<OwnProductContents key={`${detail.item.id}:${detail.item.source.version}`} detail={detail}/>}
+  {error?<ConsoleState kind="error" title={collectionFailureText[error]??"暂时无法读取商品资料"}><Button variant="outline" onClick={()=>setReload(v=>v+1)}>重试读取</Button></ConsoleState>:!detail?<ConsoleState kind="loading" title="正在读取商品资料"/>:<div className="space-y-6"><OwnProductContents key={`${detail.item.id}:${detail.item.source.version}`} detail={detail}/>{completionAvailable&&["workbench.collection.read","workbench.supply.read"].every(permission=>context.permissions.includes(permission))?<OwnProductDrafts scope={scope} itemId={itemId} canManage={context.permissions.includes("workbench.supply.manage")}/>:null}</div>}
  </ConsolePage>;
 }
 

@@ -134,6 +134,7 @@ func TestPostgresUnboundDraftAtomicCASReplayAndUnknownRecovery(t *testing.T) {
 	require.NoError(t, err)
 	snapshots, err := catalogstore.NewBoundedSnapshotReader(runtimeDB, sourcing.MaxEncodedSnapshotBytes)
 	require.NoError(t, err)
+	cs.WithSnapshots(snapshots)
 	selector, err := preparation.NewSourceSelector(ps, cs, pr, snapshots)
 	require.NoError(t, err)
 	service, err := completiondraft.NewService(selector, cs, ps, auth, repo)
@@ -222,6 +223,52 @@ func TestPostgresUnboundDraftAtomicCASReplayAndUnknownRecovery(t *testing.T) {
 	var original string
 	require.NoError(t, db.Raw("SELECT snapshot_json->>'title' FROM product_snapshot_versions WHERE product_key=?", product).Scan(&original).Error)
 	require.Equal(t, "Original product", original)
+	t.Run("item heads span preparations and keep original version", func(t *testing.T) {
+		publication2 := uuid.NewString()
+		require.NoError(t, db.Create(&catalogstore.SnapshotVersionRecord{TenantID: scope.OrganizationID, ProductKey: product, Version: 2, PublicationID: publication2, PayloadHash: collection.Digest(raw), SnapshotJSON: raw}).Error)
+		require.NoError(t, db.Exec("UPDATE product_collection_items SET original_version=2,publication_id=?,revision=2 WHERE id=?", publication2, item).Error)
+		transfer2, e := ps.Transfer(actor, uuid.NewString(), preparation.TransferInput{BatchID: batch, ExpectedRevision: 1})
+		require.NoError(t, e)
+		sources2, e := ps.ListSources(actor, transfer2.Preparation.ID, collection.Query{Limit: 20})
+		require.NoError(t, e)
+		// An explicit transfer without a saved head is absent from the list.
+		before, e := service.ListForCollectionItem(actor, item, collection.Query{Limit: 20})
+		require.NoError(t, e)
+		require.EqualValues(t, 1, before.Total)
+		saved, e := service.Save(actor, uuid.NewString(), completiondraft.SaveInput{SourceID: sources2.Items[0].ID, Content: completiondraft.Content{Title: "Candidate V2"}})
+		require.NoError(t, e)
+		page, e := service.ListForCollectionItem(actor, item, collection.Query{Limit: 1, Keyword: "Candidate"})
+		require.NoError(t, e)
+		require.Equal(t, item, page.CollectionItemID)
+		require.EqualValues(t, 2, page.Total)
+		require.Len(t, page.Items, 1)
+		require.NotEmpty(t, page.NextCursor)
+		rest, e := service.ListForCollectionItem(actor, item, collection.Query{Limit: 1, Keyword: "Candidate", After: page.NextCursor})
+		require.NoError(t, e)
+		require.Len(t, rest.Items, 1)
+		require.Empty(t, rest.NextCursor)
+		got := map[string]completiondraft.Record{page.Items[0].Source.ID: page.Items[0], rest.Items[0].Source.ID: rest.Items[0]}
+		require.Equal(t, recovered.Record, got[input2.SourceID])
+		require.Equal(t, saved.Record, got[sources2.Items[0].ID])
+		require.EqualValues(t, 1, got[input2.SourceID].Source.Source.Version)
+		require.EqualValues(t, 4, got[input2.SourceID].Revision)
+		for _, other := range []collection.Scope{{OrganizationID: "org-b", ActorID: scope.ActorID, MemberID: scope.MemberID}, {OrganizationID: scope.OrganizationID, ActorID: "actor-b", MemberID: scope.MemberID}, {OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, MemberID: "member-b"}} {
+			private, e := repo.ListForCollectionItem(ctx, other, item, collection.Query{Limit: 20, Keyword: product})
+			require.NoError(t, e)
+			require.Zero(t, private.Total)
+			require.Empty(t, private.Items)
+		}
+		private, e := repo.ListForCollectionItem(ctx, scope, uuid.NewString(), collection.Query{Limit: 20, Keyword: product})
+		require.NoError(t, e)
+		require.Zero(t, private.Total)
+		require.NoError(t, db.Exec("UPDATE product_collection_items SET archived_at=now() WHERE id=?", item).Error)
+		_, e = service.ListForCollectionItem(actor, item, collection.Query{Limit: 20})
+		require.ErrorIs(t, e, collection.ErrNotFound)
+		_, e = service.Read(actor, input2.SourceID)
+		require.NoError(t, e, "retained source access keeps its existing archive contract")
+		require.NoError(t, db.Exec("UPDATE product_collection_items SET archived_at=NULL WHERE id=?", item).Error)
+		require.NoError(t, db.Exec("UPDATE product_collection_items SET original_version=1,publication_id=?,revision=1 WHERE id=?", publication, item).Error)
+	})
 	// Large valid descriptions must page within the existing response budget,
 	// retaining every remaining source rather than truncating the list.
 	content := completiondraft.Content{Title: "large-page-fixture", Description: strings.Repeat("a", 32768)}
@@ -261,8 +308,34 @@ func TestPostgresUnboundDraftAtomicCASReplayAndUnknownRecovery(t *testing.T) {
 		seen[v.Source.ID] = true
 	}
 	require.Len(t, seen, 70)
+	// Reuse the large records to verify the item query has the same byte budget.
+	// Give each source a distinct preparation for the retained item uniqueness.
+	for _, v := range append(largePage.Items, rest.Items...) {
+		prepID := uuid.NewString()
+		require.NoError(t, db.Exec(`INSERT INTO listing_preparations(organization_id,actor_id,member_id,id,source_batch_id,source_revision,name,item_count,revision,created_at,command_key,input_hash,input_json) SELECT organization_id,actor_id,member_id,?,source_batch_id,source_revision,name,item_count,revision,created_at,?,input_hash,input_json FROM listing_preparations WHERE id=?`, prepID, uuid.NewString(), transfer.Preparation.ID).Error)
+		require.NoError(t, db.Exec("UPDATE listing_preparation_sources SET preparation_id=?,collection_item_id=? WHERE id=?", prepID, item, v.Source.ID).Error)
+		require.NoError(t, db.Exec(`UPDATE listing_completion_draft_records SET source_json=jsonb_set(jsonb_set(source_json,'{collectionItemId}',to_jsonb(?::text)),'{preparationId}',to_jsonb(?::text)) WHERE id=?`, item, prepID, v.ID).Error)
+	}
+	auth.calls.Store(0)
+	itemPage, err := service.ListForCollectionItem(actor, item, collection.Query{Limit: 100, Keyword: "large-page-fixture"})
+	require.NoError(t, err)
+	require.Less(t, auth.calls.Load(), int64(20))
+	require.EqualValues(t, 70, itemPage.Total)
+	require.NotEmpty(t, itemPage.NextCursor)
+	encoded, err = json.Marshal(itemPage)
+	require.NoError(t, err)
+	require.LessOrEqual(t, len(encoded), 2<<20)
+	itemRest, err := service.ListForCollectionItem(actor, item, collection.Query{Limit: 100, Keyword: "large-page-fixture", After: itemPage.NextCursor})
+	require.NoError(t, err)
+	require.Empty(t, itemRest.NextCursor)
+	seen = map[string]bool{}
+	for _, v := range append(itemPage.Items, itemRest.Items...) {
+		require.False(t, seen[v.Source.ID])
+		seen[v.Source.ID] = true
+	}
+	require.Len(t, seen, 70)
 	// A stale immutable JSON/source binding cannot be returned as a current row.
 	require.NoError(t, db.Exec("UPDATE listing_preparation_sources SET collection_revision=collection_revision+1 WHERE id=?", largePage.Items[0].Source.ID).Error)
-	_, err = repo.List(ctx, scope, transfer.Preparation.ID, collection.Query{Limit: 100, Keyword: "large-page-fixture"})
+	_, err = repo.ListForCollectionItem(ctx, scope, item, collection.Query{Limit: 100, Keyword: "large-page-fixture"})
 	require.ErrorIs(t, err, preparation.ErrUnavailable)
 }

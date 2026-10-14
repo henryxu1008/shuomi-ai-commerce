@@ -13,28 +13,28 @@ import {useSupplyCommand} from "./use-supply-command";
 import {SupplyAPIError,readSupplyCompletionDraft,readSupplySource,type SupplyScope} from "@/lib/api/supply-chain";
 import {completionInputSchema,type SupplyCompletionDraft,type SupplySourceDetail} from "@/lib/contracts/supply-chain";
 
-export function CompletionDraftPage({sourceId,preparationId}:{sourceId:string;preparationId?:string}){
+export function CompletionDraftPage({sourceId,preparationId,itemId}:{sourceId:string;preparationId?:string;itemId?:string}){
  const context=useWorkbenchContext(),userId=context.user?.id,organizationId=context.effectiveOrganization?.id;
  const scope=useMemo(()=>userId&&organizationId?{userId,organizationId}:null,[userId,organizationId]);
  if(context.isLoading||context.isSwitching)return <ConsoleState kind="loading" title="正在确认当前企业"/>;
  if(!scope||context.error||context.blockingError||context.selectionRequired)return <ConsoleState kind="error" title="请先确认登录身份与当前企业"/>;
  if(!context.permissions.includes("workbench.supply.read"))return <ConsoleState kind="unavailable" title="当前身份没有供应链查看权限"/>;
  const list="/workbench/supply/mine/missing"+(preparationId?"?preparation="+preparationId:"");
- return <ConsolePage title="待补全草稿" description="候选标题和描述独立保存，原始商品版本保持固定。" breadcrumbs={[{label:"供应市场",href:"/workbench/supply"},{label:"我的供应链",href:"/workbench/supply/mine"},{label:"待补全",href:list},{label:"编辑草稿"}]} actions={<Button asChild variant="outline"><Link href={list}>返回待补全列表</Link></Button>}>
-  <CompletionDraftEditor key={userId+":"+organizationId+":"+sourceId} scope={scope} sourceId={sourceId} preparationId={preparationId} canManage={context.permissions.includes("workbench.supply.manage")} onSaved={()=>{}}/>
+ return <ConsolePage title="待补全草稿" description="候选标题和描述独立保存，原始商品版本保持固定。" breadcrumbs={[{label:"供应市场",href:"/workbench/supply"},{label:"我的供应链",href:"/workbench/supply/mine"},{label:"待补全",href:list},{label:"编辑草稿"}]} actions={<div className="flex flex-wrap gap-3">{itemId?<Button asChild variant="outline"><Link href={`/workbench/data/mine/own/${itemId}`}>返回商品</Link></Button>:null}<Button asChild variant="outline"><Link href={list}>返回待补全列表</Link></Button></div>}>
+  <CompletionDraftEditor key={`${userId}:${organizationId}:${sourceId}:${preparationId??""}:${itemId??""}`} scope={scope} sourceId={sourceId} preparationId={preparationId} itemId={itemId} canManage={context.permissions.includes("workbench.supply.manage")} onSaved={()=>{}}/>
  </ConsolePage>;
 }
-function CompletionDraftEditor({scope,sourceId,preparationId,canManage,onSaved}:{scope:SupplyScope;sourceId:string;preparationId?:string;canManage:boolean;onSaved:()=>void}){
+function CompletionDraftEditor({scope,sourceId,preparationId,itemId,canManage,onSaved}:{scope:SupplyScope;sourceId:string;preparationId?:string;itemId?:string;canManage:boolean;onSaved:()=>void}){
  const [source,setSource]=useState<SupplySourceDetail>(),[head,setHead]=useState<SupplyCompletionDraft>(),[title,setTitle]=useState(""),[description,setDescription]=useState("");
  const [reload,setReload]=useState(0),[loading,setLoading]=useState(true),[error,setError]=useState(false);
  const command=useSupplyCommand(scope,(_,intent)=>{if(intent.route==="save-completion-draft"){setLoading(true);setReload(v=>v+1);onSaved()}});
  useEffect(()=>{const c=new AbortController();let live=true;
-  void (async()=>{const detail=await readSupplySource(scope,sourceId,c.signal);if(preparationId&&detail.source.preparationId!==preparationId)throw new Error("source differs from selected batch");
+  void (async()=>{const detail=await readSupplySource(scope,sourceId,c.signal);if(preparationId&&detail.source.preparationId!==preparationId)throw new Error("source differs from selected batch");if(itemId&&(detail.source.collectionItemId!==itemId||detail.source.source.kind!=="own"))throw new Error("source differs from selected own item");
    let saved:SupplyCompletionDraft|undefined;try{saved=await readSupplyCompletionDraft(scope,sourceId,c.signal)}catch(e){if(!(e instanceof SupplyAPIError)||e.code!=="NOT_FOUND")throw e}
    if(saved&&JSON.stringify(saved.source)!==JSON.stringify(detail.source))throw new Error("Draft and fixed source differ");
    if(live){setSource(detail);setHead(saved);setTitle(saved?.content.title??detail.product.title??"");setDescription(saved?.content.description??detail.product.description??"");setError(false)}
   })().catch(()=>{if(live)setError(true)}).finally(()=>{if(live)setLoading(false)});return()=>{live=false;c.abort()};
- },[scope,sourceId,preparationId,reload]);
+ },[scope,sourceId,preparationId,itemId,reload]);
  const blocked=loading||error||!canManage||!!command.pending||command.busy||!command.ready;
  const input={sourceId,expectedRevision:head?.revision??0,content:{title,description}};
  return <div className="space-y-5"><SupplyCommandFeedback state={command}/>{loading?<ConsoleState kind="loading" title="正在读取原资料与保存版本"/>:error?<ConsoleState kind="error" title="草稿或原资料读取失败">未读取准确版本前无法保存。<Button variant="outline" onClick={()=>{setLoading(true);setReload(v=>v+1)}}>重新读取</Button></ConsoleState>:source?<>

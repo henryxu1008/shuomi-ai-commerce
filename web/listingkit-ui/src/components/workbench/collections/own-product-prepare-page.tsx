@@ -10,6 +10,7 @@ import {ConsolePage,ConsoleState} from "../console/console-page";
 import {OwnProductContents} from "./own-product-detail-page";
 import {readCollectionItem,readCollectionBatch,type CollectionScope} from "@/lib/api/product-collection";
 import {listSupplySources,type SupplyIntent} from "@/lib/api/supply-chain";
+import {completionDraftHref} from "@/lib/contracts/completion-draft-navigation";
 import {transferInputSchema,transferReceiptSchema,type SupplyPreparation} from "@/lib/contracts/supply-chain";
 import type {CollectionDetail} from "@/lib/contracts/product-collection";
 import {useSupplyCommand} from "../supply/use-supply-command";
@@ -46,7 +47,7 @@ function ScopedPrepare({scope,itemId}:{scope:CollectionScope;itemId:string}){
    if(page.total!==1||page.items.length!==1||page.nextCursor||!source||source.preparationId!==value.preparation.id||source.collectionItemId!==itemId||source.source.kind!=="own")throw new Error("Fixed source differs from selected item");
    const input=transferInputSchema.parse(value.intent.command);
    if(basis?.batch.id===input.batchId&&basis.batch.revision===input.expectedRevision&&(source.collectionRevision!==basis.detail.item.revision||JSON.stringify(source.source)!==JSON.stringify(basis.detail.item.source)))throw new Error("Fixed source differs from confirmed version");
-   if(alive.current&&!controller.signal.aborted)router.push("/workbench/supply/mine/missing/"+source.id);
+   if(alive.current&&!controller.signal.aborted)router.push(completionDraftHref(source.id,source.preparationId,source.collectionItemId));
   }catch{if(alive.current&&!controller.signal.aborted)setOpenError(true)}
   finally{if(alive.current&&!controller.signal.aborted)setOpening(false)}
  }

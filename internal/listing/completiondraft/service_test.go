@@ -62,6 +62,84 @@ type testRecords struct {
 	beforeList   func()
 	saved        Prepared
 	record       Record
+	page         collection.Page[Record]
+	listCalls    int
+}
+
+func (r *testRecords) ListForCollectionItem(context.Context, collection.Scope, string, collection.Query) (collection.Page[Record], error) {
+	r.listCalls++
+	if r.beforeList != nil {
+		r.beforeList()
+	}
+	return r.page, nil
+}
+
+type itemOwner struct {
+	*collection.Service
+	item  collection.Item
+	reads int
+	err   error
+}
+
+func (o *itemOwner) ReadItem(context.Context, string) (collection.ItemDetail, error) {
+	o.reads++
+	return collection.ItemDetail{Item: o.item}, o.err
+}
+
+func TestItemDraftListKeepsFixedVersionsAcrossPreparationsAndRechecksCurrentItem(t *testing.T) {
+	for _, change := range []string{"none", "archived", "revoked", "member", "cancelled", "wrong-item", "wrong-kind"} {
+		t.Run(change, func(t *testing.T) {
+			s, a, r, ctx, source := fixture(t)
+			owner := &itemOwner{Service: s.owners.(*collection.Service), item: collection.Item{ID: source.CollectionItemID, Source: source.Source}}
+			s.owners = owner
+			second := source
+			second.ID = uuid.NewString()
+			second.PreparationID = uuid.NewString()
+			second.Source.Version = 2
+			r.page = collection.Page[Record]{Items: []Record{{Source: source, Revision: 3}, {Source: second, Revision: 1}}, Total: 2}
+			ctx, cancel := context.WithCancel(ctx)
+			defer cancel()
+			r.beforeList = func() {
+				switch change {
+				case "archived":
+					owner.err = collection.ErrNotFound
+				case "revoked":
+					a.denied = true
+				case "member":
+					a.scope.MemberID = "replacement"
+				case "cancelled":
+					cancel()
+				case "wrong-item":
+					r.page.Items[1].Source.CollectionItemID = uuid.NewString()
+				case "wrong-kind":
+					r.page.Items[1].Source.Source.Kind = "collected"
+				}
+			}
+			page, err := s.ListForCollectionItem(ctx, source.CollectionItemID, collection.Query{Limit: 20})
+			if change != "none" {
+				require.Error(t, err)
+				require.Empty(t, page.Items)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, source.CollectionItemID, page.CollectionItemID)
+			require.Equal(t, r.page.Items, page.Items)
+			require.Equal(t, 2, owner.reads)
+			require.Equal(t, 1, r.listCalls)
+		})
+	}
+}
+
+func TestItemDraftListRejectsInvalidQueryOrUnavailableCurrentItemBeforeRepository(t *testing.T) {
+	s, _, r, ctx, source := fixture(t)
+	owner := &itemOwner{Service: s.owners.(*collection.Service), item: collection.Item{ID: source.CollectionItemID, Source: source.Source}}
+	s.owners = owner
+	_, err := s.ListForCollectionItem(ctx, source.CollectionItemID, collection.Query{Limit: 101})
+	require.ErrorIs(t, err, preparation.ErrInvalid)
+	owner.err = collection.ErrNotFound
+	_, err = s.ListForCollectionItem(ctx, source.CollectionItemID, collection.Query{Limit: 20})
+	require.ErrorIs(t, err, collection.ErrNotFound)
+	require.Zero(t, r.listCalls)
 }
 
 func (r *testRecords) Save(ctx context.Context, p Prepared) (Receipt, error) {

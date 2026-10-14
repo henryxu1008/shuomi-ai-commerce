@@ -43,6 +43,7 @@ export const completionInputSchema=z.object({sourceId:collectionID,expectedRevis
 export const completionRecordSchema=z.object({id:collectionID,draftId:collectionID,revision,source:sourceSchema,content:completionContentSchema,status:z.literal("pending_completion"),createdAt:time}).strict();
 export const completionReceiptSchema=z.object({record:completionRecordSchema,replayed:z.boolean()}).strict();
 export const completionPageSchema=page(completionRecordSchema);
+export const itemCompletionPageSchema=completionPageSchema.extend({collectionItemId:collectionID});
 export type SupplyCompletionDraft=z.infer<typeof completionRecordSchema>;
 export const sourceDetailSchema=z.object({source:sourceSchema,product:collectionDetailSchema.shape.product,images:list(z.object({id:collectionID,url:text(2048),width:integer,height:integer}),4096)});
 export const sheinTargetRecordSchema=z.object({id:collectionID,targetId:collectionID,revision,source:sourceSchema,effectiveVersion:version,applyReceiptId:collectionID.optional(),productHash:z.string().regex(/^[0-9a-f]{64}$/),inventoryHash:z.string().regex(/^[0-9a-f]{64}$/),rulesHash:z.string().regex(/^[0-9a-f]{64}$/),merchant:merchantSchema,input:sheinTargetInputSchema,result:z.object({product:officialProductSchema,images:list(imageSlot,10000),issues:list(z.object({field:text(8192),code:text(128),message:text(8192)}),4096),ready_for_upload:z.boolean()}),createdAt:time});
@@ -84,8 +85,8 @@ export const publicationSchema=z.object({sourceId:collectionID,storeId:collectio
 export const uploadAttemptSchema=z.object({recordId:collectionID,attemptId:collectionID,effectKind:z.enum(["publish","image","global_create"]),platform:z.enum(["temu","tiktokshop"]).optional(),status:z.enum(["claimed","outcome_unknown","succeeded","failed_definitive","cancelled"]),message:text(8192)}).strict();
 export const resolveUploadSchema=z.object({recordId:collectionID,attemptId:collectionID,spu:text(128).min(1)}).strict();
 export const uploadResolutionSchema=z.object({recordId:collectionID,publishedRecordId:collectionID.optional(),attemptId:collectionID,status:z.enum(["succeeded","outcome_unknown"]),currentRecordUploaded:z.boolean().optional(),message:text(8192).optional(),product:z.object({spu_name:text(128),skc_list:z.array(z.object({skc_name:text(128).min(1),sku_list:z.array(z.object({sku_code:text(128).min(1),supplier_sku:text(800).min(1)})).min(1).max(400)})).max(40).nullable()}).optional()}).refine(v=>v.status!=="succeeded"||!!v.product?.spu_name&&!!v.product.skc_list?.length&&v.publishedRecordId===v.recordId&&v.currentRecordUploaded===true);
-export type SupplyRoute=MaterialsRoute|"completion-draft"|"completion-drafts"|"completion-command"|"save-completion-draft"|"upload-attempt"|"resolve-upload"|"stages"|"optimization-options"|"publication"|"publication-status"|"preparation"|"operations"|"list"|"transfer"|"transfer-read"|"sources"|"source"|"target"|"save-target"|"rules"|"target-command"|"record"|"approve"|"inventory"|"create-operation"|"operation-key"|"operation"|"operation-items"|"ensure"|"cancel";
-export const supplyRouteMethods:ReadonlyArray<readonly["GET"|"POST",SupplyRoute]>=[...materialsRouteMethods,["POST","save-completion-draft"],["GET","completion-draft"],["GET","completion-drafts"],["GET","completion-command"],["GET","upload-attempt"],["POST","resolve-upload"],["GET","stages"],["GET","optimization-options"],["GET","publication"],["GET","publication-status"],["GET","preparation"],["GET","operations"],["GET","list"],["POST","transfer"],["GET","transfer-read"],["GET","sources"],["GET","source"],["GET","target"],["POST","save-target"],["POST","rules"],["GET","target-command"],["GET","record"],["POST","approve"],["POST","inventory"],["POST","create-operation"],["GET","operation-key"],["GET","operation"],["GET","operation-items"],["POST","ensure"],["POST","cancel"]];
+export type SupplyRoute=MaterialsRoute|"item-completion-drafts"|"completion-draft"|"completion-drafts"|"completion-command"|"save-completion-draft"|"upload-attempt"|"resolve-upload"|"stages"|"optimization-options"|"publication"|"publication-status"|"preparation"|"operations"|"list"|"transfer"|"transfer-read"|"sources"|"source"|"target"|"save-target"|"rules"|"target-command"|"record"|"approve"|"inventory"|"create-operation"|"operation-key"|"operation"|"operation-items"|"ensure"|"cancel";
+export const supplyRouteMethods:ReadonlyArray<readonly["GET"|"POST",SupplyRoute]>=[...materialsRouteMethods,["GET","item-completion-drafts"],["POST","save-completion-draft"],["GET","completion-draft"],["GET","completion-drafts"],["GET","completion-command"],["GET","upload-attempt"],["POST","resolve-upload"],["GET","stages"],["GET","optimization-options"],["GET","publication"],["GET","publication-status"],["GET","preparation"],["GET","operations"],["GET","list"],["POST","transfer"],["GET","transfer-read"],["GET","sources"],["GET","source"],["GET","target"],["POST","save-target"],["POST","rules"],["GET","target-command"],["GET","record"],["POST","approve"],["POST","inventory"],["POST","create-operation"],["GET","operation-key"],["GET","operation"],["GET","operation-items"],["POST","ensure"],["POST","cancel"]];
 export function supplyPath(method:string,p:string[]):SupplyRoute|null{
  const materials=materialsPath(method,p);if(materials)return materials;
  if(p[0]!=="supply-preparations")return null;
@@ -93,6 +94,7 @@ export function supplyPath(method:string,p:string[]):SupplyRoute|null{
   if(p.length===6&&p[1]==="sources"&&isAcquisitionUUID(p[2]!)&&p[3]==="publications"&&isAcquisitionUUID(p[4]!)&&p[5]==="status")return "publication-status";
   if(p.length===4&&p[1]==="completion-drafts"&&p[2]==="commands"&&isAcquisitionUUID(p[3]!))return "completion-command";
   if(p.length===4&&p[1]==="sources"&&isAcquisitionUUID(p[2]!)&&p[3]==="completion-draft")return "completion-draft";
+  if(p.length===4&&p[1]==="collection-items"&&isAcquisitionUUID(p[2]!)&&p[3]==="completion-drafts")return "item-completion-drafts";
   if(p.length===3&&isAcquisitionUUID(p[1]!)&&p[2]==="completion-drafts")return "completion-drafts";
   if(p.length===4&&p[1]==="uploads"&&isAcquisitionUUID(p[2]!)&&isAcquisitionUUID(p[3]!))return "upload-attempt";
   if(p.length===1)return "list";
@@ -124,6 +126,7 @@ export function supplyResponseSchema(route:SupplyRoute):z.ZodType {
  if(route==="completion-draft")return completionRecordSchema;
  if(route==="completion-command"||route==="save-completion-draft")return completionReceiptSchema;
  if(route==="completion-drafts")return completionPageSchema;
+ if(route==="item-completion-drafts")return itemCompletionPageSchema;
  return route==="upload-attempt"?uploadAttemptSchema:route==="resolve-upload"?uploadResolutionSchema:route==="stages"?stagePageSchema:route==="optimization-options"?optimizationOptionsSchema:route==="publication"||route==="publication-status"?publicationSchema:route==="preparation"?preparationSchema:route==="operations"?operationPageSchema:route==="list"?preparationPageSchema:route==="sources"?sourcePageSchema:route==="source"?sourceDetailSchema:route==="transfer"||route==="transfer-read"?transferReceiptSchema:route==="target"||route==="record"?targetRecordSchema:route==="save-target"||route==="target-command"?targetReceiptSchema:route==="approve"?imageApprovalReceiptSchema:route==="inventory"?inventorySchema:route==="create-operation"?operationReceiptSchema:route==="operation-items"?operationItemPageSchema:operationSchema;
 }
 export type SupplyPreparation=z.infer<typeof preparationSchema>;
@@ -145,6 +148,7 @@ export function parseSupplyResponse(route:SupplyRoute,payload:unknown,expected?:
   if(["materials-start","materials-read","materials-resume"].includes(route)){const value=materialsRunSchema.parse(result.data);if(`${value.recordId}:${value.requestKey}`!==expected)return null;}
   if(route==="completion-draft"&&completionRecordSchema.parse(result.data).source.id!==expected)return null;
   if(route==="completion-drafts"&&completionPageSchema.parse(result.data).items.some(r=>r.source.preparationId!==expected))return null;
+  if(route==="item-completion-drafts"){const page=itemCompletionPageSchema.parse(result.data);if(page.collectionItemId!==expected||page.items.some(r=>r.source.collectionItemId!==expected||r.source.source.kind!=="own"))return null;}
   if(route==="preparation" && preparationSchema.parse(result.data).id!==expected)return null;
   if(route==="source" && sourceDetailSchema.parse(result.data).source.id!==expected)return null;
   if(route==="record" && targetRecordSchema.parse(result.data).id!==expected)return null;

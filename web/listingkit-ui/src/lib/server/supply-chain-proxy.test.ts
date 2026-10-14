@@ -4,6 +4,15 @@ const id="550e8400-e29b-41d4-a716-446655440000";
 const scope={cookie:"shuomi_effective_organization=org-a","X-Expected-Organization-ID":"org-a","X-Expected-User-ID":"actor-a"};
 describe("private supply chain proxy",()=>{
  beforeEach(()=>vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL","http://localhost"));
+ it("bounds item draft discovery and validates the item echo and every fixed source",async()=>{
+  const path=["supply-preparations","collection-items",id,"completion-drafts"],url=`http://localhost/api/workbench/${path.join("/")}`;
+  const request=await buildWorkbenchUpstreamRequest(new Request(url+"?limit=20",{headers:scope}),path,"server-token","actor-a");expect(request).not.toBeInstanceOf(Response);if(request instanceof Response)return;expect(request.sourceMutation).toBe(false);expect(request.expectedStoreId).toBe(id);
+  for(const query of ["?limit=101","?memberId=other","?preparation="+id,"?limit=20&limit=20"]){const bad=await buildWorkbenchUpstreamRequest(new Request(url+query,{headers:scope}),path,"server-token","actor-a");expect(bad).toBeInstanceOf(Response);if(bad instanceof Response)expect(bad.status).toBe(400)}
+  const other="550e8400-e29b-41d4-a716-446655440001";
+  const record={id,draftId:id,revision:2,source:{id,preparationId:other,collectionItemId:id,collectionRevision:1,source:{productKey:"product",publicationId:id,version:"1",kind:"own"}},content:{title:"saved",description:""},status:"pending_completion",createdAt:"2026-10-12T00:00:00Z"};
+  const good=await buildWorkbenchBrowserResponse(Response.json({collectionItemId:id,items:[record],total:1}),"supply-item-completion-drafts",id);expect(good.status).toBe(200);
+  for(const page of [{collectionItemId:other,items:[record],total:1},{collectionItemId:id,items:[{...record,source:{...record.source,collectionItemId:other}}],total:1},{collectionItemId:id,items:[{...record,source:{...record.source,source:{...record.source.source,kind:"acquisition"}}}],total:1}]){const bad=await buildWorkbenchBrowserResponse(Response.json(page),"supply-item-completion-drafts",id);expect(bad.status).toBe(502)}
+ });
  it("keeps official status reads bound to source/store and accepts no browser product selector",async()=>{
   const path=["supply-preparations","sources",id,"publications",id,"status"],url=`http://localhost/api/workbench/${path.join("/")}`;
   const read=await buildWorkbenchUpstreamRequest(new Request(url,{headers:scope}),path,"server-token","actor-a");
