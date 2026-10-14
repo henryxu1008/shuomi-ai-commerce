@@ -20,6 +20,13 @@ func TestSupplyCompletionDraftDocumentPreservesOriginalAuthorityAndExplicitRollo
 	})
 }
 
+func TestOwnProductDraftEntryReusesFixedSourceAndExplicitSaveContracts(t *testing.T) {
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "own-product-draft-entry-v1.md"), []string{
+		"Reuse Existing Architecture", "BatchSelectionInput.ItemIDs", "expectedRevision", "先于确认资料",
+		"不自动执行Save", "UNKNOWN", "retained-source", "原owner安装合同", "不引入新的能力开关",
+	})
+}
+
 func TestStoreObservationsPreparationDocumentKeepsExecutionClosed(t *testing.T) {
 	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "store-observations-preparation-runtime.md"), []string{
 		"IMPLEMENTATION_READY", "preparationOnly=true", "zero", "configured official applications",
