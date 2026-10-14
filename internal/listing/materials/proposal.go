@@ -83,7 +83,7 @@ func ApplyProposal(base record.TargetRecord, p Proposal) (record.TargetInput, er
 	if validateProposal(p) != nil {
 		return record.TargetInput{}, ErrInvalidProposal
 	}
-	if p.CategoryID != nil && *p.CategoryID != base.Input.Draft.Product.CategoryID && (p.Attributes != nil || len(p.SKCs) != 0) {
+	if p.CategoryID != nil && *p.CategoryID != base.Input.Draft.Product.CategoryID && (p.BrandCode != nil || p.Attributes != nil || len(p.SKCs) != 0 || p.Images != nil) {
 		// A new category needs its actual attribute rules on the next exact
 		// record; never guess fields against another category's schema.
 		return record.TargetInput{}, ErrInvalidProposal
