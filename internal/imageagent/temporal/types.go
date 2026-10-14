@@ -155,6 +155,7 @@ type SlotWorkflowResult struct {
 // SlotWorkflowV3Input is additive and is not registered by the Task 4 worker.
 // Task 6 owns selecting this child workflow on the production wire.
 type SlotWorkflowV3Input struct {
+	Artwork            *imageagent.ArtworkPlan  `json:",omitempty"`
 	ImageSet           *imageagent.ImageSetPlan `json:",omitempty"`
 	RunID              string
 	TargetPlatform     string                         `json:",omitempty"`
@@ -184,6 +185,7 @@ type SlotWorkflowV3Result struct {
 }
 
 type EffectRecoveryWorkflowInput struct {
+	Artwork            *imageagent.ArtworkPlan  `json:",omitempty"`
 	ImageSet           *imageagent.ImageSetPlan `json:",omitempty"`
 	RunID              string
 	TargetPlatform     string                         `json:",omitempty"`
@@ -243,6 +245,7 @@ type ExecuteSlotActivityInput struct {
 // ExecuteSlotV3ActivityInput is additive until Task 6 selects the v3 wire.
 // Keep ExecuteSlotActivityInput frozen for imageagent.execute_slot.v2 replay.
 type ExecuteSlotV3ActivityInput struct {
+	Artwork                    *imageagent.ArtworkPlan  `json:",omitempty"`
 	ImageSet                   *imageagent.ImageSetPlan `json:",omitempty"`
 	RunID                      string
 	TargetPlatform             string                         `json:",omitempty"`

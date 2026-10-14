@@ -95,7 +95,12 @@ func (e *GenerationExecution) GenerateQuotedSlot(ctx context.Context, input Slot
 	var data []byte
 	var references [][]byte
 	var sourceDigest string
-	if input.ImageSet != nil {
+	if input.Artwork != nil {
+		sourceDigest, err = ArtworkGenerationInputDigest(input)
+		if err != nil {
+			return reject(err)
+		}
+	} else if input.ImageSet != nil {
 		for _, id := range input.Slot.SourceAssetIDs {
 			sourceInput := input
 			sourceInput.Slot = input.Slot
@@ -132,7 +137,9 @@ func (e *GenerationExecution) GenerateQuotedSlot(ctx context.Context, input Slot
 	}
 	m := provider.Metadata
 	intent = GenerationIntent{Identity: id, MemberID: input.OrganizationIdentity.MemberID, CatalogHash: input.AssetCatalog.Manifest.Hash, SourceDigest: sourceDigest, PromptVersion: m.PromptVersion, RouteReference: m.RouteReference, CredentialReference: m.CredentialReference, ConfigurationVersion: m.ConfigurationVersion, Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", PriceVersion: m.PriceVersion, Points: m.Points, LimitVersion: limit.Version, MonthStart: limit.MonthStart}
-	if input.ImageSet != nil {
+	if input.Artwork != nil {
+		intent.InputProtocol, intent.InputDigest, intent.PromptVersion = ArtworkSchema, sourceDigest, input.Artwork.PromptVersion
+	} else if input.ImageSet != nil {
 		intent.InputDigest, err = ImageSlotGenerationInputDigest(input)
 		if err != nil {
 			return reject(err)
@@ -225,6 +232,18 @@ func (e *GenerationExecution) GenerateQuotedSlot(ctx context.Context, input Slot
 	if dispatchErr != nil {
 		return generationUnknown(dispatchErr)
 	}
+	if input.Artwork != nil {
+		if output.SlotID != input.Slot.ID || output.Attempt != input.Attempt || output.SourceAssetID != "" || len(output.Assets) != 1 || !reflect.DeepEqual(output.Assets[0].Operations, []string{"generate_artwork"}) {
+			return generationUnknown(ErrProviderContractViolation)
+		}
+		provenance, err := NewArtworkProvenance(input, fact)
+		if err != nil {
+			return generationUnknown(err)
+		}
+		// Source-free provenance is minted by this fact owner, never accepted
+		// as provider-supplied authority or substituted for an original image.
+		output.Assets[0].Artwork = &provenance
+	}
 	return output, nil
 }
 
@@ -236,7 +255,11 @@ func (e *GenerationExecution) authorize(ctx context.Context, input SlotExecution
 	if input.PlanRevision <= 0 || input.Attempt <= 0 || input.Slot.ID == "" {
 		return ErrValidation
 	}
-	if input.ImageSet != nil || input.Slot.Recipe != nil {
+	if input.Artwork != nil {
+		if err := ValidateArtworkExecution(input); err != nil {
+			return err
+		}
+	} else if input.ImageSet != nil || input.Slot.Recipe != nil {
 		if err := ValidateImageSetExecution(input); err != nil {
 			return err
 		}
@@ -259,9 +282,16 @@ func quoteGenerationProvider(ctx context.Context, p PreparedGenerationProvider, 
 	}
 	op := base.Operations[0]
 	operation := "render_source_white_background"
-	if input.ImageSet != nil {
+	var inputQuote *ImageGenerationQuote
+	if input.Artwork != nil {
+		operation = "generate_artwork"
+		inputQuote = &input.Artwork.Quote
+	} else if input.ImageSet != nil {
 		operation = "render_source_edit"
-		q := input.Slot.Recipe.Quote
+		inputQuote = &input.Slot.Recipe.Quote
+	}
+	if inputQuote != nil {
+		q := *inputQuote
 		if q.PriceVersion != m.PriceVersion || q.Points != m.Points || q.RouteReference != m.RouteReference || q.CredentialReference != m.CredentialReference || q.ConfigurationVersion != m.ConfigurationVersion {
 			return SlotUsageQuote{}, SlotUsageQuote{}, ErrRevisionConflict
 		}

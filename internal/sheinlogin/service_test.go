@@ -166,6 +166,18 @@ func TestServiceLoginQueuesAttemptInWorkerMode(t *testing.T) {
 	}
 }
 
+// Retain the account-isolation assertion after retiring the unused HTTP handler.
+func TestServiceStatusRejectsCrossTenantStore(t *testing.T) {
+	svc := newTestService(t, &stubAutomation{})
+	if _, err := svc.Status(context.Background(), 9, 2); err != nil {
+		t.Fatalf("own tenant status: %v", err)
+	}
+	status, err := svc.Status(context.Background(), 8, 2)
+	if err == nil || status != nil {
+		t.Fatalf("cross-tenant status = %#v, error = %v; want no account status", status, err)
+	}
+}
+
 func TestServiceStatusDoesNotLeakInFlightAcrossTenants(t *testing.T) {
 	auto := &blockingLoginAutomation{
 		started:   make(chan struct{}),

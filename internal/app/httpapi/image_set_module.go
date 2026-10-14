@@ -124,7 +124,7 @@ func (m fullImageModule) routes() []httproute.Descriptor {
 			routes = append(routes, httproute.Descriptor{Method: action.method, Path: owner.base + action.suffix, Module: m.Name(), Permission: permission, AuthPolicy: httproute.AuthPolicyVerifiedIdentity, OrganizationAccessPolicy: httproute.OrganizationAccessPolicyLiveWrite, RequestTimeout: 30 * time.Second, Handler: func(c *gin.Context) { m.handle(c, owner.kind, c.Param(owner.param), action.name) }})
 		}
 	}
-	return routes
+	return append(routes, m.artworkRoutes()...)
 }
 
 func validateFullImageRun(identity authidentity.AuthenticatedIdentity, kind imageagent.ImageSourceContextKind, contextID, runID string, p imageagent.RunProjection) error {

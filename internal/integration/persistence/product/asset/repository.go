@@ -55,6 +55,15 @@ func AutoMigrate(db *gorm.DB) error {
 }
 
 func (r *repository) CommitApproval(ctx context.Context, commit productasset.ApprovalCommit) (productasset.ApprovalReceipt, error) {
+	return r.commitApproval(ctx, commit, nil)
+}
+func (r *repository) CommitSourceApproval(ctx context.Context, commit productasset.ApprovalCommit, guard func(context.Context) error) (productasset.ApprovalReceipt, error) {
+	if guard == nil {
+		return productasset.ApprovalReceipt{}, productasset.ErrSourceApprovalForbidden
+	}
+	return r.commitApproval(ctx, commit, guard)
+}
+func (r *repository) commitApproval(ctx context.Context, commit productasset.ApprovalCommit, guard func(context.Context) error) (productasset.ApprovalReceipt, error) {
 	if err := ctx.Err(); err != nil {
 		return productasset.ApprovalReceipt{}, err
 	}
@@ -107,6 +116,11 @@ func (r *repository) CommitApproval(ctx context.Context, commit productasset.App
 		}
 		if created.RowsAffected == 0 {
 			return loadExistingReceipt(tx, commit, payloadHash, &receipt)
+		}
+		if guard != nil {
+			if err := guard(ctx); err != nil {
+				return err
+			}
 		}
 		if commit.ImageSet != nil {
 			if err := compareImageInventoryHead(tx, commit); err != nil {

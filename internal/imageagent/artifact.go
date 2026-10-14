@@ -16,30 +16,32 @@ import (
 // It intentionally excludes local paths, transient URLs, credentials, and
 // provider-defined metadata.
 type StagedAssetRef struct {
-	ObjectKey         string   `json:"object_key"`
-	SHA256            string   `json:"sha256"`
-	SizeBytes         int64    `json:"size_bytes"`
-	ContentType       string   `json:"content_type"`
-	Width             int      `json:"width"`
-	Height            int      `json:"height"`
-	SourceAssetID     string   `json:"source_asset_id"`
-	Operations        []string `json:"operations"`
-	ProviderReceiptID string   `json:"provider_receipt_id,omitempty"`
+	Artwork           *ArtworkProvenance `json:"artwork,omitempty"`
+	ObjectKey         string             `json:"object_key"`
+	SHA256            string             `json:"sha256"`
+	SizeBytes         int64              `json:"size_bytes"`
+	ContentType       string             `json:"content_type"`
+	Width             int                `json:"width"`
+	Height            int                `json:"height"`
+	SourceAssetID     string             `json:"source_asset_id"`
+	Operations        []string           `json:"operations"`
+	ProviderReceiptID string             `json:"provider_receipt_id,omitempty"`
 }
 
 // PublishedAssetRef is the final/public counterpart to StagedAssetRef. It
 // retains the established manifest JSON representation while making a staged
 // reference ineligible for v3 candidate construction by type.
 type PublishedAssetRef struct {
-	ObjectKey         string   `json:"object_key"`
-	SHA256            string   `json:"sha256"`
-	SizeBytes         int64    `json:"size_bytes"`
-	ContentType       string   `json:"content_type"`
-	Width             int      `json:"width"`
-	Height            int      `json:"height"`
-	SourceAssetID     string   `json:"source_asset_id"`
-	Operations        []string `json:"operations"`
-	ProviderReceiptID string   `json:"provider_receipt_id,omitempty"`
+	Artwork           *ArtworkProvenance `json:"artwork,omitempty"`
+	ObjectKey         string             `json:"object_key"`
+	SHA256            string             `json:"sha256"`
+	SizeBytes         int64              `json:"size_bytes"`
+	ContentType       string             `json:"content_type"`
+	Width             int                `json:"width"`
+	Height            int                `json:"height"`
+	SourceAssetID     string             `json:"source_asset_id"`
+	Operations        []string           `json:"operations"`
+	ProviderReceiptID string             `json:"provider_receipt_id,omitempty"`
 }
 
 // StagingManifest carries only durable staging identities. ProviderMetadata is
@@ -150,6 +152,27 @@ func ValidatePublishedAssetRefForSlot(input SlotExecutionInput, asset PublishedA
 	if err != nil {
 		return err
 	}
+	if input.Artwork != nil {
+		if normalized.Artwork == nil || normalized.Artwork.ValidateForInput(input) != nil {
+			return ErrRevisionConflict
+		}
+	} else if normalized.Artwork != nil {
+		return ErrRevisionConflict
+	}
+	return ValidatePublishedAssetRefForEffect(SlotExternalEffectIdentity{RunScope: RunScope{TenantID: input.TenantID, OwnerUserID: input.UserID, RunID: input.RunID}, PlanRevision: input.PlanRevision, SlotID: input.Slot.ID, Attempt: input.Attempt}, normalized, expectedIndex)
+}
+
+// This validates only the immutable artifact identity. The fixed recovery
+// owner must additionally bind its original successful GenerationFact and plan.
+func ValidatePublishedAssetRefForEffect(id SlotExternalEffectIdentity, asset PublishedAssetRef, expectedIndex int) error {
+	normalized, err := normalizePublishedAssetRef(asset)
+	if err != nil {
+		return err
+	}
+	if normalized.Artwork != nil && normalized.Artwork.ValidateForIdentity(id) != nil {
+		return ErrRevisionConflict
+	}
+	input := SlotExecutionInput{TenantID: id.TenantID, UserID: id.OwnerUserID, RunID: id.RunID, PlanRevision: id.PlanRevision, Slot: Slot{ID: id.SlotID}, Attempt: id.Attempt}
 	_, extension, err := validatePublishedAssetIdentityForSlot(input, DurableAssetIdentity{ObjectKey: normalized.ObjectKey, SHA256: normalized.SHA256}, expectedIndex)
 	if err != nil {
 		return err
@@ -270,7 +293,7 @@ func normalizePublishedAssetRefs(assets []PublishedAssetRef) ([]PublishedAssetRe
 
 func normalizeStagedAssetRef(asset StagedAssetRef) (StagedAssetRef, error) {
 	identity, err := NormalizeDurableAssetIdentity(DurableAssetIdentity{ObjectKey: asset.ObjectKey, SHA256: asset.SHA256})
-	if err != nil || asset.SizeBytes <= 0 || asset.Width <= 0 || asset.Height <= 0 || ValidateProvenanceAssetID(asset.SourceAssetID) != nil || asset.ProviderReceiptID != strings.TrimSpace(asset.ProviderReceiptID) {
+	if err != nil || asset.SizeBytes <= 0 || asset.Width <= 0 || asset.Height <= 0 || validateArtifactSource(asset.SourceAssetID, asset.Artwork, asset.Operations) != nil || asset.ProviderReceiptID != strings.TrimSpace(asset.ProviderReceiptID) {
 		return StagedAssetRef{}, ErrValidation
 	}
 	switch asset.ContentType {
@@ -285,12 +308,13 @@ func normalizeStagedAssetRef(asset StagedAssetRef) (StagedAssetRef, error) {
 	asset.ObjectKey = identity.ObjectKey
 	asset.SHA256 = identity.SHA256
 	asset.Operations = operations
+	asset.Artwork = cloneArtworkProvenance(asset.Artwork)
 	return asset, nil
 }
 
 func normalizePublishedAssetRef(asset PublishedAssetRef) (PublishedAssetRef, error) {
 	identity, err := NormalizeDurableAssetIdentity(DurableAssetIdentity{ObjectKey: asset.ObjectKey, SHA256: asset.SHA256})
-	if err != nil || asset.SizeBytes <= 0 || asset.Width <= 0 || asset.Height <= 0 || ValidateProvenanceAssetID(asset.SourceAssetID) != nil || asset.ProviderReceiptID != strings.TrimSpace(asset.ProviderReceiptID) {
+	if err != nil || asset.SizeBytes <= 0 || asset.Width <= 0 || asset.Height <= 0 || validateArtifactSource(asset.SourceAssetID, asset.Artwork, asset.Operations) != nil || asset.ProviderReceiptID != strings.TrimSpace(asset.ProviderReceiptID) {
 		return PublishedAssetRef{}, ErrValidation
 	}
 	switch asset.ContentType {
@@ -305,6 +329,7 @@ func normalizePublishedAssetRef(asset PublishedAssetRef) (PublishedAssetRef, err
 	asset.ObjectKey = identity.ObjectKey
 	asset.SHA256 = identity.SHA256
 	asset.Operations = operations
+	asset.Artwork = cloneArtworkProvenance(asset.Artwork)
 	return asset, nil
 }
 

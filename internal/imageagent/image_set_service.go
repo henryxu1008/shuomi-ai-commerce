@@ -38,6 +38,7 @@ type ImageTargetSelection struct {
 }
 
 type ImageSetPreparation struct {
+	GeneratedArtwork   bool `json:"-"`
 	Source             ImageSourceBinding
 	Target             ImageTarget
 	Catalog            AssetCatalog

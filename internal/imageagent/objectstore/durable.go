@@ -105,6 +105,7 @@ type PrepareSlotArtifactsInput struct {
 }
 
 type ArtifactInput struct {
+	Artwork           *imageagent.ArtworkProvenance
 	Bytes             []byte
 	ContentType       string
 	Width             int
@@ -180,7 +181,7 @@ func (s *DurableArtifactStore) PrepareSlotArtifacts(input PrepareSlotArtifactsIn
 	assets := make([]imageagent.StagedAssetRef, len(input.Assets))
 	contents := make(map[string][]byte, len(input.Assets))
 	for index, asset := range input.Assets {
-		if imageagent.ValidateProvenanceAssetID(asset.SourceAssetID) != nil || (asset.ProviderReceiptID != "" && !safePersistedID(asset.ProviderReceiptID)) {
+		if (asset.Artwork == nil && imageagent.ValidateProvenanceAssetID(asset.SourceAssetID) != nil) || (asset.Artwork != nil && (asset.SourceAssetID != "" || asset.Artwork.ValidateForIdentity(input.Identity) != nil)) || (asset.ProviderReceiptID != "" && !safePersistedID(asset.ProviderReceiptID)) {
 			return PreparedSlotArtifacts{}, imageagent.ErrValidation
 		}
 		config, format, err := image.DecodeConfig(bytes.NewReader(asset.Bytes))
@@ -206,7 +207,7 @@ func (s *DurableArtifactStore) PrepareSlotArtifacts(input PrepareSlotArtifactsIn
 		sum := sha256.Sum256(asset.Bytes)
 		hash := hex.EncodeToString(sum[:])
 		key := fmt.Sprintf("%s/%s/%s/%s/%d/%s/%d/%d-%s.%s", defaultStagingPrefix, input.Identity.TenantID, ownerKey, input.Identity.RunID, input.Identity.PlanRevision, input.Identity.SlotID, input.Identity.Attempt, index, hash, extension)
-		assets[index] = imageagent.StagedAssetRef{ObjectKey: key, SHA256: hash, SizeBytes: int64(len(asset.Bytes)), ContentType: contentType, Width: info.Width, Height: info.Height, SourceAssetID: asset.SourceAssetID, Operations: operations, ProviderReceiptID: asset.ProviderReceiptID}
+		assets[index] = imageagent.StagedAssetRef{ObjectKey: key, SHA256: hash, SizeBytes: int64(len(asset.Bytes)), ContentType: contentType, Width: info.Width, Height: info.Height, SourceAssetID: asset.SourceAssetID, Artwork: asset.Artwork, Operations: operations, ProviderReceiptID: asset.ProviderReceiptID}
 		contents[key] = append([]byte(nil), asset.Bytes...)
 	}
 	manifest, err := imageagent.NormalizeStagingManifest(imageagent.StagingManifest{Assets: assets})
@@ -467,6 +468,7 @@ func (s *DurableArtifactStore) FinalizeWithProgress(ctx context.Context, manifes
 			}
 		}
 		finalAssets[index] = imageagent.PublishedAssetRef{
+			Artwork:   finalAsset.Artwork,
 			ObjectKey: finalAsset.ObjectKey, SHA256: finalAsset.SHA256, SizeBytes: finalAsset.SizeBytes,
 			ContentType: finalAsset.ContentType, Width: finalAsset.Width, Height: finalAsset.Height,
 			SourceAssetID: finalAsset.SourceAssetID, Operations: cloneOperationsPreservingNil(finalAsset.Operations), ProviderReceiptID: finalAsset.ProviderReceiptID,
@@ -552,7 +554,7 @@ func (s *DurableArtifactStore) prevalidateManifest(manifest imageagent.StagingMa
 	var aggregateBytes int64
 	validated := make([]prevalidatedStagedAsset, len(manifest.Assets))
 	for index, asset := range manifest.Assets {
-		if asset.SizeBytes <= 0 || asset.SizeBytes > s.maxArtifactBytes || aggregateBytes > s.maxAggregateBytes-asset.SizeBytes || !s.withinImageLimits(asset.Width, asset.Height) || imageagent.ValidateProvenanceAssetID(asset.SourceAssetID) != nil || (asset.ProviderReceiptID != "" && !safePersistedID(asset.ProviderReceiptID)) {
+		if asset.SizeBytes <= 0 || asset.SizeBytes > s.maxArtifactBytes || aggregateBytes > s.maxAggregateBytes-asset.SizeBytes || !s.withinImageLimits(asset.Width, asset.Height) || (asset.Artwork == nil && imageagent.ValidateProvenanceAssetID(asset.SourceAssetID) != nil) || (asset.ProviderReceiptID != "" && !safePersistedID(asset.ProviderReceiptID)) {
 			return nil, imageagent.ErrValidation
 		}
 		if _, err := imageagent.NormalizeArtifactOperations(asset.Operations); err != nil {
@@ -561,6 +563,13 @@ func (s *DurableArtifactStore) prevalidateManifest(manifest imageagent.StagingMa
 		identity, err := parseStagingKey(asset, index)
 		if err != nil {
 			return nil, err
+		}
+		if asset.Artwork != nil {
+			p := asset.Artwork
+			owner, err := imageagent.ArtifactOwnerKey(p.OwnerUserID)
+			if err != nil || p.Validate() != nil || asset.SourceAssetID != "" || p.TenantID != identity.tenantID || owner != identity.ownerKey || p.RunID != identity.runID || p.PlanRevision != identity.planRevision || p.SlotID != identity.slotID || int64(p.Attempt) != identity.attempt {
+				return nil, ErrObjectConflict
+			}
 		}
 		aggregateBytes += asset.SizeBytes
 		validated[index] = prevalidatedStagedAsset{ref: asset, identity: identity}

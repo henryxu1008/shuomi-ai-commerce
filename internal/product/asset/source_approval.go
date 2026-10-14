@@ -67,6 +67,7 @@ type SourceImage struct {
 	Width, Height          int
 }
 type SourceSelection struct {
+	GeneratedArtwork                                                                       bool   `json:"-"`
 	ContextKind                                                                            string `json:",omitempty"`
 	TenantID, ActorID, MemberID, ItemID, ProductKey, OriginalPublicationID, TargetPlatform string
 	ApplyReceiptID                                                                         string `json:",omitempty"`
@@ -97,13 +98,24 @@ type SourceApprovalService struct {
 	selections SourceSelectionReader
 	repository Repository
 	approvals  ApprovalCommitReader
+	guard      SourceApprovalCommitGuard
+}
+
+type SourceApprovalCommitGuard func(context.Context, SourceSelection, ApprovalCommit) error
+type GuardedSourceApprovalRepository interface {
+	CommitSourceApproval(context.Context, ApprovalCommit, func(context.Context) error) (ApprovalReceipt, error)
+}
+
+func (s *SourceApprovalService) WithSourceApprovalCommitGuard(guard SourceApprovalCommitGuard) *SourceApprovalService {
+	s.guard = guard
+	return s
 }
 
 func NewSourceApprovalService(selections SourceSelectionReader, repository Repository, approvals ApprovalCommitReader) (*SourceApprovalService, error) {
 	if selections == nil || repository == nil || approvals == nil {
 		return nil, ErrRepositoryUnavailable
 	}
-	return &SourceApprovalService{selections, repository, approvals}, nil
+	return &SourceApprovalService{selections: selections, repository: repository, approvals: approvals}, nil
 }
 func (s *SourceApprovalService) Approve(ctx context.Context, input SourceApprovalCommand) (ApprovalReceipt, error) {
 	if ctx == nil || !validIdentityPart(input.ActionID) || len(input.Images)+len(input.Approved) < 1 || len(input.Images)+len(input.Approved) > 40 || !validIdentityPart(input.Selection.ItemID) || !validIdentityPart(input.Selection.OriginalPublicationID) || input.Selection.OriginalSnapshotVersion == 0 || input.Selection.EffectiveCatalogVersion == 0 || !validIdentityPart(input.Selection.TargetPlatform) {
@@ -191,6 +203,13 @@ func (s *SourceApprovalService) Approve(ctx context.Context, input SourceApprova
 	}
 	if err := ValidateApprovalCommit(commit); err != nil {
 		return ApprovalReceipt{}, err
+	}
+	if selection.GeneratedArtwork {
+		guarded, ok := s.repository.(GuardedSourceApprovalRepository)
+		if !ok || s.guard == nil {
+			return ApprovalReceipt{}, ErrSourceApprovalForbidden
+		}
+		return guarded.CommitSourceApproval(ctx, commit, func(ctx context.Context) error { return s.guard(ctx, selection, commit) })
 	}
 	return s.repository.CommitApproval(ctx, commit)
 }

@@ -9,6 +9,8 @@ boundary rules unless they explicitly supersede a stable document.
 
 ## Approved Authorities by Responsibility
 
+- [`pod-design-agent-v1.md`](pod-design-agent-v1.md): #672 proposed design for AI-generated new artwork through current generation/asset/POD owners; DESIGN_IN_PROGRESS, not implementation admission or runtime availability.
+
 - [Final UI / IA](../product/final-ui-ia-authority.md): final navigation, naming
   and BusinessTask projection (#298), not current release capability.
 - [Product Domain](../superpowers/specs/2026-09-01-internal-target-architecture-phase3-product-design.md),
