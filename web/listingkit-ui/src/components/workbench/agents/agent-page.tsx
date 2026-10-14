@@ -306,7 +306,7 @@ function ScopedPage({
               能力与模板
             </Link>
             {entry.canUse ? (
-              <Link href="/workbench/supply/acquisition">进入使用 →</Link>
+              <Link href={entry.agent.agentId==="pod.design.agent"?"/workbench/agents/mine/pod.design.agent":"/workbench/supply/acquisition"}>进入使用 →</Link>
             ) : (
               <span className="text-muted-foreground">当前不能执行</span>
             )}
@@ -499,6 +499,7 @@ function ScopedPage({
                     {defaultTemplate.data.version}
                   </h3>
                   <p>素材平台：{defaultTemplate.data.targetPlatform}</p>
+                  {defaultTemplate.data.agentId==="pod.design.agent"&&<p>创作风格：{defaultTemplate.data.artwork.style||"未指定"} · 约束：{defaultTemplate.data.artwork.constraints||"未指定"}</p>}
                   {defaultTemplate.data.agentId === "product.content.agent" && <p>{contentSelectionLabel(defaultTemplate.data.content.selection)}</p>}
                   <p>
                     {defaultTemplate.data.knowledgeAvailability ===
@@ -654,6 +655,7 @@ function ScopedPage({
                     <h3>
                       {old.data.name} · v{old.data.version}
                     </h3>
+                    {old.data.agentId==="pod.design.agent"&&<p>创作风格：{old.data.artwork.style||"未指定"} · 约束：{old.data.artwork.constraints||"未指定"}</p>}
                     {old.data.agentId === "product.content.agent" && <p>{contentSelectionLabel(old.data.content.selection)}</p>}
                     <p>
                       素材平台 {old.data.targetPlatform} ·{" "}
@@ -982,7 +984,7 @@ function TemplateEditor({
             {!materials&&!artwork&&<option value="amazon">Amazon</option>}
           </select>
         </label>
-        {artwork&&<><label>默认创作风格<Input maxLength={512} value={artStyle} disabled={busy} onChange={e=>setArtStyle(e.target.value)}/></label><label>创作约束<textarea className={styles.prompt} maxLength={4096} value={artConstraints} disabled={busy} onChange={e=>setArtConstraints(e.target.value)}/></label></>}
+        {artwork&&<><label>默认创作风格<Input maxLength={512} value={artStyle} disabled={busy} onChange={e=>setArtStyle(e.target.value)}/></label><label>创作约束<textarea className="min-h-24 rounded-md border bg-background p-3" maxLength={4096} value={artConstraints} disabled={busy} onChange={e=>setArtConstraints(e.target.value)}/></label></>}
         {content && <ContentSelectionFields value={selection} onChange={setSelection} disabled={busy} />}
         {!materials&&!artwork&&<label>
           默认企业知识
