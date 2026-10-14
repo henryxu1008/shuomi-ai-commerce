@@ -90,6 +90,7 @@ func ValidID(s string) bool {
 // Scope comes from the current authorizer, never model or browser payload.
 type Scope struct{ OrganizationID, ActorID string }
 type Request struct {
+	SkillVersionRef              SkillVersionRef             `json:",omitzero"`
 	ContentSelection             enrichment.ContentSelection `json:",omitzero"`
 	ModeSnapshotRef              ModeSnapshotRef             `json:",omitzero"`
 	ConfigurationSnapshotRef     ConfigurationSnapshotRef    `json:",omitzero"`
@@ -181,6 +182,7 @@ var ErrModelNotDispatched = errors.New("model was not dispatched; reservation re
 var ErrModelInvalidOutput = errors.New("model returned invalid output with observed usage")
 
 type ModelInput struct {
+	SkillVersionRef                            SkillVersionRef             `json:",omitzero"`
 	ContentSelection                           enrichment.ContentSelection `json:",omitzero"`
 	ModeSnapshotRef                            ModeSnapshotRef             `json:",omitzero"`
 	ConfigurationSnapshotRef                   ConfigurationSnapshotRef    `json:",omitzero"`
@@ -199,6 +201,7 @@ type ModelInput struct {
 // validation. The caller owns isolation/cloning and all authorization.
 func (s State) ModelInput(definition commercetool.AgentDefinition) ModelInput {
 	return ModelInput{
+		SkillVersionRef:          s.Request.SkillVersionRef,
 		ContentSelection:         s.Request.ContentSelection,
 		ModeSnapshotRef:          s.Request.ModeSnapshotRef,
 		ConfigurationSnapshotRef: s.Request.ConfigurationSnapshotRef,

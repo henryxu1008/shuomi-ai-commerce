@@ -23,9 +23,12 @@ type contentTextFixture struct {
 
 func (e *contentTextFixture) GenerateWithGate(ctx context.Context, input aicapability.TextInputIdentity, quote aicapability.TextQuote, validate func(string) error, gate func(context.Context) (func(), error)) (governed.TextOutput, error) {
 	e.input = input
-	_, err := gate(ctx)
+	release, err := gate(ctx)
 	if err != nil {
 		return governed.TextOutput{}, err
+	}
+	if release != nil {
+		defer release()
 	}
 	err = validate(`{"Kind":"interrupt","Tool":{"ID":"","Version":""},"Candidate":{"Changes":null},"Unresolved":["controlled missing evidence"],"Confidence":[]}`)
 	return governed.TextOutput{Usage: governed.ObservedUsage{Known: true, PromptTokens: 10, CompletionTokens: 5, TotalTokens: 15}}, err

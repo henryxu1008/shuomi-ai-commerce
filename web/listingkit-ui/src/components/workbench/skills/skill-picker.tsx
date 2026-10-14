@@ -1,0 +1,14 @@
+"use client";
+import {useEffect,useId,useRef,useState} from "react";
+import {Button} from "@/components/ui/button";
+import {skillRequest,skillError,type SkillScope} from "@/lib/api/skill";
+import {skillCandidatesSchema,type SkillVersion,type SkillSelection} from "@/lib/contracts/skill";
+export function SkillPicker({scope,onChange}:{scope:SkillScope;onChange:(selection:SkillSelection|undefined,ready:boolean)=>void}){
+ const id=useId(),request=useRef<AbortController|null>(null),[use,setUse]=useState(false),[items,setItems]=useState<SkillVersion[]>([]),[selected,setSelected]=useState<SkillSelection|undefined>(),[loading,setLoading]=useState(false),[failure,setFailure]=useState("");
+ useEffect(()=>()=>request.current?.abort(),[]);
+ async function load(){request.current?.abort();const c=new AbortController();request.current=c;setLoading(true);setFailure("");onChange(selected,false);try{const r=await skillRequest(scope,"organization/candidates",skillCandidatesSchema,{signal:c.signal});if(c.signal.aborted)return;setItems(r.items);const valid=!!selected&&r.items.some(v=>v.skill.id===selected.skillId&&v.version===selected.version&&v.package.digest===selected.digest);if(selected&&!valid)setFailure("所选版本已不可用，请重新选择或明确取消使用技能。");onChange(selected,valid)}catch(e){if(!c.signal.aborted){setItems([]);setFailure(skillError(e));onChange(selected,false)}}finally{if(!c.signal.aborted)setLoading(false)}}
+ return <div className="my-4 space-y-3"><label><input type="checkbox" checked={use} onChange={e=>{setUse(e.target.checked);if(e.target.checked)void load();else{request.current?.abort();setLoading(false);setFailure("");setSelected(undefined);onChange(undefined,true)}}}/>使用技能 / 方法</label>
+ {use&&<><label htmlFor={`${id}-version`}>准确技能版本</label><select id={`${id}-version`} className="block w-full rounded-lg border border-border bg-background p-2" disabled={loading} value={selected?`${selected.skillId}:${selected.version}`:""} onChange={e=>{const v=items.find(v=>`${v.skill.id}:${v.version}`===e.target.value);const value=v?{skillId:v.skill.id,version:v.version,digest:v.package.digest}:undefined;setSelected(value);setFailure("");onChange(value,!!value)}}><option value="">请选择已启用版本</option>{items.map(v=><option key={`${v.skill.id}:${v.version}`} value={`${v.skill.id}:${v.version}`}>{v.package.name} · v{v.version} · {v.skill.owner.kind==="USER"?"本人":v.skill.owner.kind==="ORGANIZATION"?"当前企业":"官方"}</option>)}</select>
+ <Button variant="outline" disabled={loading} onClick={()=>void load()}>刷新技能版本</Button>{loading&&<p role="status">正在读取当前可用版本…</p>}{failure&&<p role="alert">{failure}</p>}{!loading&&!items.length&&!failure&&<p>没有已启用且获准使用的技能；个人技能需当前企业明确准入。</p>}{selected&&<p className="break-all text-sm">准确引用：{selected.skillId} · v{selected.version} · {selected.digest}</p>}</>}
+ </div>;
+}

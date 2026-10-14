@@ -15,6 +15,9 @@ import (
 )
 
 func validTextConfigurationRequest(id string, request agent.Request) bool {
+	if !request.SkillVersionRef.ValidOrAbsent() || !request.SkillVersionRef.Absent() && (id != agentconfig.ContentAgentID || !request.ContentSelection.TitleOnly()) {
+		return false
+	}
 	if id == agentconfig.DiagnosisAgentID {
 		return request.Binding.ContextKind == agent.StoreDiagnosisContextKind && request.Binding.Valid() && request.ContentSelection.Absent() && request.PolicyVersion == agentconfig.DiagnosisPolicyVersion && request.PromptVersion == agentconfig.DiagnosisPromptVersion
 	}
@@ -98,7 +101,8 @@ func (s *Store) Prepare(ctx context.Context, c agentconfig.StartCommand) (agentc
 		ExecutionModelProfile          aicapability.ModelProfile
 		MemberID, ExpectedModeRevision string
 		ContentSelection               enrichment.ContentSelection `json:",omitzero"`
-	}{c.AgentID, c.AgentVersion, c.Request.Binding, c.Request.GoalSummary, c.Template, c.KnowledgeBaseID, c.ExecutionModelProfile, c.MemberID, c.ExpectedModeRevision, c.Request.ContentSelection})
+		SkillVersionRef                agent.SkillVersionRef       `json:",omitzero"`
+	}{c.AgentID, c.AgentVersion, c.Request.Binding, c.Request.GoalSummary, c.Template, c.KnowledgeBaseID, c.ExecutionModelProfile, c.MemberID, c.ExpectedModeRevision, c.Request.ContentSelection, c.Request.SkillVersionRef})
 	if e != nil {
 		return agentconfig.Snapshot{}, e
 	}
@@ -211,14 +215,16 @@ func (s *Store) Match(ctx context.Context, c agentconfig.StartCommand, ref agent
 		Template         *agentconfig.TemplateRef
 		Base             string
 		ContentSelection enrichment.ContentSelection `json:",omitzero"`
-	}{snap.Request.Binding, snap.Request.GoalSummary, snap.Template, snap.KnowledgeBaseID, snap.Request.ContentSelection})
+		SkillVersionRef  agent.SkillVersionRef       `json:",omitzero"`
+	}{snap.Request.Binding, snap.Request.GoalSummary, snap.Template, snap.KnowledgeBaseID, snap.Request.ContentSelection, snap.Request.SkillVersionRef})
 	b, _ := hash(struct {
 		Binding          agent.Binding
 		GoalSummary      string
 		Template         *agentconfig.TemplateRef
 		Base             string
 		ContentSelection enrichment.ContentSelection `json:",omitzero"`
-	}{c.Request.Binding, c.Request.GoalSummary, c.Template, c.KnowledgeBaseID, c.Request.ContentSelection})
+		SkillVersionRef  agent.SkillVersionRef       `json:",omitzero"`
+	}{c.Request.Binding, c.Request.GoalSummary, c.Template, c.KnowledgeBaseID, c.Request.ContentSelection, c.Request.SkillVersionRef})
 	if a != b || snap.AgentID != c.AgentID || snap.AgentVersion != c.AgentVersion || snap.Request.Key != c.Request.Key || snap.MemberID != c.MemberID || snap.ExpectedModeRevision != c.ExpectedModeRevision || !snap.Request.ModeSnapshotRef.Valid() {
 		return snap, agentconfig.ErrConflict
 	}
