@@ -27,6 +27,7 @@ type SourceMedia struct {
 	Capacity      *storagecapacity.Meter
 	Storage       SourceMediaStorage
 	Authorization collection.Authorizer
+	TrialURLs     *IsolatedTrialSourceMediaURLPolicy
 }
 
 var mediaHash = regexp.MustCompile(`^[a-f0-9]{64}$`)
@@ -43,6 +44,14 @@ func (m SourceMedia) scope(ctx context.Context) (collection.Scope, error) {
 }
 func mediaKey(scope collection.Scope, id collection.MediaIdentity) string {
 	return "product-source/" + collection.Digest([]string{scope.OrganizationID, scope.ActorID}) + "/" + id.Hash
+}
+func (m SourceMedia) objectURL(scope collection.Scope, id collection.MediaIdentity) (string, error) {
+	key := mediaKey(scope, id)
+	raw := m.Storage.PublicURL(key)
+	if m.TrialURLs != nil {
+		return raw, m.TrialURLs.ValidateURL(key, raw)
+	}
+	return httpimage.ValidatePublicHTTPSURL(raw)
 }
 func inspectSourceMedia(id collection.MediaIdentity, raw []byte) (collection.MediaImage, error) {
 	if !mediaHash.MatchString(id.Hash) || id.Bytes < 1 || id.Bytes > collection.MaxMediaBytes || int64(len(raw)) != id.Bytes {
@@ -76,7 +85,7 @@ func (m SourceMedia) read(ctx context.Context, scope collection.Scope, id collec
 	if meta.ContentLength != id.Bytes || meta.ContentType != result.MediaType {
 		return collection.MediaImage{}, collection.ErrConflict
 	}
-	url, err := httpimage.ValidatePublicHTTPSURL(m.Storage.PublicURL(mediaKey(scope, id)))
+	url, err := m.objectURL(scope, id)
 	if err != nil {
 		return collection.MediaImage{}, collection.ErrUnavailable
 	}
@@ -111,7 +120,7 @@ func (m SourceMedia) Upload(ctx context.Context, id collection.MediaIdentity, ra
 		return collection.MediaImage{}, err
 	}
 	// Validate the configured public URL before producing an object.
-	if _, err = httpimage.ValidatePublicHTTPSURL(m.Storage.PublicURL(mediaKey(scope, id))); err != nil {
+	if _, err = m.objectURL(scope, id); err != nil {
 		return collection.MediaImage{}, collection.ErrUnavailable
 	}
 	var reservation storagecapacity.Reservation

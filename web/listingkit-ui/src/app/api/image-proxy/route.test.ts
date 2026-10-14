@@ -45,3 +45,39 @@ it("rejects private DNS answers and redirects away from the allowed source",asyn
  expect((await preview("https://m.media-amazon.com/x.jpg")).status).toBe(400);
  expect(state.fetch).toHaveBeenCalledOnce();
 });
+
+const sourceTrialBase="https://localhost:39744/source-media-assets/source-media-trial";
+const sourceTrialImage=`${sourceTrialBase}/product-source/${"a".repeat(64)}/${"b".repeat(64)}`;
+it("allows only the configured source-media object in production without the general private switch",async()=>{
+ vi.stubEnv("IMAGE_PROXY_SOURCE_MEDIA_TRIAL_BASE",sourceTrialBase);
+ state.lookup.mockResolvedValue([{address:"127.0.0.1",family:4},{address:"::1",family:6}]);
+ expect((await preview(sourceTrialImage)).status).toBe(200);
+ expect(state.fetch).toHaveBeenCalledOnce();
+ expect(state.fetch.mock.calls[0][1]).toMatchObject({redirect:"manual"});
+ expect(state.fetch.mock.calls[0][1].headers).not.toHaveProperty("Authorization");
+ expect(state.fetch.mock.calls[0][1].headers).not.toHaveProperty("Cookie");
+});
+it.each([
+ sourceTrialImage.replace("39744","39745"),sourceTrialImage.replace("localhost","127.0.0.1"),
+ sourceTrialImage.replace("source-media-trial","other-bucket"),`${sourceTrialImage}?download=1`,`${sourceTrialImage}#x`,
+ `${sourceTrialBase}/../source-media-trial/product-source/${"a".repeat(64)}/${"b".repeat(64)}`,
+ `${sourceTrialBase}/product-source/${"a".repeat(64)}/${"b".repeat(64)}%2fextra`,
+ "https://localhost:39744/api/v1/context","https://localhost:39744/source-media-assets/source-media-trial/",
+])("does not admit a different private target through the source-media trial: %s",async url=>{
+ vi.stubEnv("IMAGE_PROXY_SOURCE_MEDIA_TRIAL_BASE",sourceTrialBase);
+ state.lookup.mockResolvedValue([{address:"127.0.0.1",family:4}]);
+ expect((await preview(url)).status).toBe(400);expect(state.fetch).not.toHaveBeenCalled();
+});
+it("requires loopback resolution and refuses redirects or non-source file types",async()=>{
+ vi.stubEnv("IMAGE_PROXY_SOURCE_MEDIA_TRIAL_BASE",sourceTrialBase);
+ expect((await preview(sourceTrialImage)).status).toBe(400);expect(state.fetch).not.toHaveBeenCalled();
+ state.lookup.mockResolvedValue([{address:"127.0.0.1",family:4}]);
+ state.fetch.mockResolvedValueOnce(new Response(null,{status:302,headers:{Location:sourceTrialImage}}));
+ expect((await preview(sourceTrialImage)).status).toBe(400);expect(state.fetch).toHaveBeenCalledOnce();
+ state.fetch.mockResolvedValueOnce(new Response("<svg/>",{headers:{"Content-Type":"image/svg+xml"}}));
+ expect((await preview(sourceTrialImage)).status).toBe(400);
+});
+it("keeps the production source-media exception disabled by default",async()=>{
+ state.lookup.mockResolvedValue([{address:"127.0.0.1",family:4}]);
+ expect((await preview(sourceTrialImage)).status).toBe(400);expect(state.fetch).not.toHaveBeenCalled();
+});

@@ -195,6 +195,7 @@ source of truth for long-lived rules.
   - #613 frozen IMPLEMENTATION_READY feature Design Basis for enterprise-shared enablement and manual customization progress; existing capture permissions and offline quote/payment owners remain unchanged. This feature contract does not introduce repository-wide structural rules.
 - [`my-supply-chain-shein-v1.md`](./my-supply-chain-shein-v1.md): #605 的已评审冻结 Design Basis，Collection → Preparation → Target → Submission 完整交付及三种官方应用类型；运行说明见 [operations](../operations/my-supply-chain-shein-v1.md)。
 - [`own-product-entry-v1.md`](./own-product-entry-v1.md): #675 的已评审冻结 IMPLEMENTATION_READY Design Basis，独立自有商品录入与详情页、多规格变体及原 Source/Catalog/Collection 保存合同；运行说明见 [operations](../operations/own-product-entry-v1.md)。
+- [`own-product-source-media-trial-v1.md`](./own-product-source-media-trial-v1.md): #675 已评审冻结 IMPLEMENTATION_READY 的本机来源图片试用边界；原SourceMedia/S3/容量与商品owner不变，精确本地对象展示不放开通用私网下载。
 - [`notification-center-v1.md`](./notification-center-v1.md)
   - #608 notification-center design and current-business source mapping. Admission
     is stated in that document and the execution Issue; a draft is not permission
