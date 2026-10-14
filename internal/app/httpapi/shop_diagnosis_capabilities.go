@@ -15,7 +15,7 @@ func shopDiagnosisCapabilities(ctx context.Context, a *shopDiagnosisApplication)
 		if _, e := a.currentIdentity(ctx); e == nil {
 			facts.Readiness, facts.Reason = "AVAILABLE", "按当前成员权限读取所选店铺已录入财务与保存的平台观察"
 		} else {
-			facts.Readiness, facts.Reason = "REQUIRES_AUTHORIZATION", "需要当前企业的经营财务读取权限"
+			facts.Readiness, facts.Reason = "REQUIRES_AUTHORIZATION", "需要当前企业的智能体使用和经营财务读取权限"
 		}
 		if a.model != nil {
 			if id, e := a.executionIdentity(ctx); e == nil {

@@ -136,9 +136,15 @@ func testDiagnosisHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixtur
 	}
 	limited.Store(true)
 	factsOnly.Store(true)
-	raw := call("POST", shopDiagnosisBase+"/inspect", uuid.NewString(), in, http.StatusOK)
+	call("POST", shopDiagnosisBase+"/inspect", uuid.NewString(), in, http.StatusForbidden)
+	for _, cap := range shopDiagnosisCapabilities(actor, a) {
+		if cap.ID == "shop.operations-diagnosis.inspect" {
+			require.Equal(t, "REQUIRES_AUTHORIZATION", cap.Readiness)
+		}
+	}
 	limited.Store(false)
 	factsOnly.Store(false)
+	raw := call("POST", shopDiagnosisBase+"/inspect", uuid.NewString(), in, http.StatusOK)
 	var facts shopdiagnosis.Inspection
 	require.NoError(t, json.Unmarshal(raw, &facts))
 	require.NotEmpty(t, facts.Facts)

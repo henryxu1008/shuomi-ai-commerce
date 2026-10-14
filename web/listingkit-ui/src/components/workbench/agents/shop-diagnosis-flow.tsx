@@ -193,6 +193,7 @@ export function ShopDiagnosisFlow({
   const textReady = entry.capabilities.some(
     (c) => c.id === "text.generate" && c.readiness === "AVAILABLE",
   );
+  const factsReady = entry.capabilities.some(c => c.id === "shop.operations-diagnosis.inspect" && c.readiness === "AVAILABLE");
   const input = () =>
     diagnosisInputSchema.parse({
       contextId: crypto.randomUUID(),
@@ -214,7 +215,7 @@ export function ShopDiagnosisFlow({
     window.dispatchEvent(new Event("resource-pending"));
   }
   async function inspect() {
-    if (flight.current) return;
+    if (flight.current || !factsReady) return;
     flight.current = true;
     setBusy(true);
     setFailure(undefined);
@@ -435,6 +436,7 @@ export function ShopDiagnosisFlow({
             variant="outline"
             disabled={
               locked ||
+              !factsReady ||
               !validInput ||
               run.data?.phase === "running" ||
               run.data?.usageStatus === "unknown_reserved"
@@ -472,7 +474,8 @@ export function ShopDiagnosisFlow({
           </Button>
         </>
       ) : null}
-      {!textReady ? (
+      {!factsReady ? <p>事实读取需要当前企业的智能体使用、经营明细和所选店铺读取权限。</p> : null}
+      {!textReady && factsReady ? (
         <p>AI 分析需要当前企业的独立模型配置；可以先读取经营事实。</p>
       ) : null}
       {saved ? (
@@ -499,7 +502,7 @@ export function ShopDiagnosisFlow({
           ) : null}
           {!run.data && !preparedFactsMatch ? <>
             <p>请核对本次准备结果对应的经营事实；事实已变化时，重新准备分析。</p>
-            <Button variant="outline" disabled={locked} onClick={() => void inspect()}>
+            <Button variant="outline" disabled={locked || !factsReady} onClick={() => void inspect()}>
               核对确认依据
             </Button>
           </> : null}

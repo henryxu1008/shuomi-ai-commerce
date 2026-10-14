@@ -5,6 +5,7 @@ import {
   fireEvent,
   waitFor,
   cleanup,
+  act,
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ShopDiagnosisFlow } from "./shop-diagnosis-flow";
@@ -40,6 +41,7 @@ const entry: CatalogEntry = {
       reason: "",
       observedAt: "2026-10-14T00:00:00Z",
     },
+    {id: "shop.operations-diagnosis.inspect", support: "REQUIRED", readiness: "AVAILABLE", reason: "", observedAt: "2026-10-14T00:00:00Z"},
   ],
 };
 let writes: Array<{ path: string; key: string; body: unknown }>;
@@ -185,12 +187,17 @@ async function viewFacts() {
   await screen.findByRole("heading", {name: "已保存经营事实"});
 }
 it("requires an explicit diagnosis goal before preparing a paid analysis",async()=>{show();await choose();await viewFacts();await waitFor(()=>expect(screen.getByRole("button",{name:"准备分析"})).toBeEnabled());fireEvent.change(screen.getByLabelText("本次诊断目标"),{target:{value:""}});expect(screen.getByRole("button",{name:"准备分析"})).toBeDisabled();expect(writes).toHaveLength(1);expect(writes[0].path).toMatch(/inspect$/)});
+it("does not offer fact inspection without Agent-use authorization", async () => {
+  show({...entry,capabilities:entry.capabilities.map(c => c.id === "shop.operations-diagnosis.inspect" ? {...c,readiness:"REQUIRES_AUTHORIZATION"} : c)});
+  await choose(); await act(async()=>{await new Promise(resolve=>setTimeout(resolve,50))});
+  expect(screen.getByRole("button",{name:"读取经营事实"})).toBeDisabled();
+  fireEvent.click(screen.getByRole("button",{name:"读取经营事实"}));
+  expect(writes).toHaveLength(0);
+});
 it("allows factual comparison without model configuration and never starts analysis automatically", async () => {
   show({
     ...entry,
-    capabilities: [
-      { ...entry.capabilities[0], readiness: "NEEDS_CONFIGURATION" },
-    ],
+    capabilities: entry.capabilities.map(c => c.id === "text.generate" ? {...c,readiness:"NEEDS_CONFIGURATION"} : c),
   });
   await choose();
   fireEvent.click(screen.getByRole("button", { name: "读取经营事实" }));

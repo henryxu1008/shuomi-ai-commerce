@@ -134,6 +134,9 @@ func (a *shopDiagnosisApplication) freshIdentity(ctx context.Context) (authident
 	if e == nil && !authz.AllowedOrganization(ctx, a.authorizer, id.UserID, id.EffectiveOrganizationID, id.Roles, authz.PermissionCockpitStoresRead) {
 		e = c.ErrForbidden
 	}
+	if e == nil && !authz.AllowedOrganization(ctx, a.authorizer, id.UserID, id.EffectiveOrganizationID, id.Roles, authz.PermissionWorkbenchAgentUse) {
+		e = agentconfig.ErrForbidden
+	}
 	return id, e
 }
 func (a *shopDiagnosisApplication) currentIdentity(ctx context.Context) (agent.ExecutionIdentity, error) {
