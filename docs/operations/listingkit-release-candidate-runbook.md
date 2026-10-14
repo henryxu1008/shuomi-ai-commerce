@@ -1,5 +1,16 @@
 # ListingKit Release Candidate Runbook
 
+> **HISTORICAL for the current application (2026-10-14, #529 / #301).**
+> The user confirmed current internal-trial delivery; production publication
+> remains NOT_READY. This page records the old ListingKit Kubernetes release /
+> rollback protocol, not the current private-manifest delivery entry. Its old
+> migrations, preflight and release steps are not current implementation gates.
+> Valid identity, isolation and backup/recovery requirements remain with their
+> current owners. See [the proposed retirement boundary](../architecture/release-identity-preflight-retirement.md)
+> and [current internal-trial modules](../../deployments/docker/account-compose/MODULES.md).
+> The proposal has not been implemented: this notice does not declare source
+> retirement, approve deployment or revoke existing runs/IAM/services.
+
 Use this runbook for a customer-trial release candidate (RC). It separates
 evidence collection from the human Go/No-Go decision and keeps API and UI
 rollouts independently reversible.

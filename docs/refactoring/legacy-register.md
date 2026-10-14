@@ -1,6 +1,12 @@
 # Legacy Register
 
 > Status: Active legacy handling register
+
+> Design proposal (#529 / #301): [发布身份预检退休设计](../architecture/release-identity-preflight-retirement.md)
+> follows the explicitly confirmed internal-trial stage; production publication
+> remains NOT_READY. This is DESIGN ONLY, pending user design confirmation and
+> applicable Architecture Review. CLI/packages/workflows/permissions and the
+> three-edge freeze are unchanged here. Standalone SHEIN worker is retained.
 > Policy: `docs/refactoring/legacy-hard-cut-policy.md`  
 > Last reviewed: 2026-09-11 (bounded #386 calibration; full scan baseline unchanged)
 > Repository scan baseline: `main @ 6e3b87208e2c4e51039b95145a2377edfbb9b1cb`
