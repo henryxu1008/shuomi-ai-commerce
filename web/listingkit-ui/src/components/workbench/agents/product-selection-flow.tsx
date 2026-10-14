@@ -554,7 +554,7 @@ export function ProductSelectionFlow({
                     configurationSnapshotRef:
                       run.data!.configurationSnapshotRef,
                     revision: run.data!.revision,
-                    feedback: goal,
+                    feedback: run.data!.goalSummary,
                   },
                 })
               }

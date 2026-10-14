@@ -49,8 +49,13 @@ func (ModelAdmission) ProjectEvidence(raw json.RawMessage) (json.RawMessage, err
 	return append(json.RawMessage(nil), raw...), nil
 }
 func (ModelAdmission) ValidateAction(a agent.Action) error {
-	if len(a.Candidate.Changes) > 0 || len(a.Candidate.Warnings) > 0 || len(a.Candidate.Rejections) > 0 || len(a.Confidence) > 0 || len(a.ContextCitationIDs) > 0 {
+	if len(a.Candidate.Changes) > 0 || len(a.Candidate.Warnings) > 0 || len(a.Candidate.Rejections) > 0 || len(a.Confidence) > 0 || len(a.ContextCitationIDs) > 0 || len(a.Unresolved) > 4096 {
 		return agent.ErrInvalid
+	}
+	for _, unresolved := range a.Unresolved {
+		if !boundedText(unresolved, 8192, true) {
+			return agent.ErrInvalid
+		}
 	}
 	switch a.Kind {
 	case "tool":
