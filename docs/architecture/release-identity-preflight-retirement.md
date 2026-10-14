@@ -1,6 +1,6 @@
 # 发布身份预检与旧发布入口退休设计
 
-Status: **PROPOSED / DESIGN ONLY**。正式实施保持 **NOT_READY**，须由用户确认本设计，并完成适用独立 Architecture Review 后再开工。评审、批准与准确 HEAD 的滚动证据只记在 #529 / #301 和同一主要 PR。
+Status: **IMPLEMENTATION_READY / FROZEN DESIGN**。用户于 2026-10-15 确认开始实施，适用独立 Architecture Review 已完成；生产发布保持 **NOT_READY**。评审、批准与准确 HEAD 的滚动证据只记在 #529 / #301 和同一主要 PR。
 
 ## 1. 产品决定与用户结果
 
@@ -159,7 +159,7 @@ Workbench 原测试保留 canonical effective Organization、当前目录 scoped
 
 ## 8. 实现顺序与验收
 
-采用 **同一主分支/主要 PR**。本设计只交文档，用户确认与适用架构准入完成前不改正式路径。后续实际diff若要求改变这里保持的授权/事实/状态/事务/恢复边界，按 BLOCKER规则回到设计；非Blocker在本批必要实现测试中收敛。
+采用 **同一主分支/主要 PR**。用户具体确认和适用架构准入已满足，按本文冻结边界实施。后续实际diff若要求改变这里保持的授权/事实/状态/事务/恢复边界，按 BLOCKER规则回到设计；非Blocker在本批必要实现测试中收敛。
 
 实施顺序：
 
@@ -179,7 +179,7 @@ Workbench 原测试保留 canonical effective Organization、当前目录 scoped
 
 本设计不要求本轮启动 RUN-1、重新初始化已保留Store或执行生产Canary。没有真实执行的浏览器/平台、运行/用户、旧服务、IAM/RBAC和生产验收保持 NOT_RUN。
 
-## 9. Legacy decision与待确认
+## 9. Legacy decision与实施准入
 
 ```text
 Legacy decision: RETIRE
@@ -188,6 +188,6 @@ Current owner: currentapplication/auth/Organization及各domain/worker；原CI�
 Cutover/deletion condition: 当前内部试用无旧链编译依赖，旧default-source入口先失败关闭，唯一CLI消费者及包装退出，有效Workbench断言保留后bridge零消费者删除。
 ```
 
-用户已确认产品阶段；**本具体方案仍待用户确认**，包括旧API/UI normal/rollback入口在当前源码停止使用、精确identity runner/source权限项收缩，以及原发布guard按本阶段有效对象同步。独立SHEIN worker保留，存量实例/数据/历史执行者不操作，生产保持NOT_READY。
+用户已确认产品阶段和本具体方案并授权开始实施，包括旧API/UI normal/rollback入口在当前源码停止使用、精确identity runner/source权限项收缩，以及原发布guard按本阶段有效对象同步。独立SHEIN worker保留，存量实例/数据/历史执行者不操作，生产保持NOT_READY。
 
-适用独立Architecture Review针对上述真实边界进行，最多两轮正常评审；findings先分类，不从P1/P2自动推导新机制。具体确认/评审完成后由Issue记录Ready与后续实施授权；本文的提出或CI通过均不自行批准实施、合并、部署或产品验收。
+适用独立Architecture Review针对上述真实边界进行，最多两轮正常评审；findings先分类，不从P1/P2自动推导新机制。具体确认/评审已完成，Issue在生产修改前记录IMPLEMENTATION_READY与Ready；合并、部署和产品验收仍分别授权。

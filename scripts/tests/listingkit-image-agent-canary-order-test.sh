@@ -12,11 +12,26 @@ worker_manifest="$repo_root/deployments/kubernetes/listingkit-workbench/base/ima
   exit 1
 }
 
-canary_line="$(grep -n -- '--deployment image-agent-temporal-v3-canary-runner' "$workflow" | cut -d: -f1)"
-production_apply_line="$(grep -n -- '--manifest .workflow-tools/deployments/kubernetes/listingkit-workbench/base/image-agent-temporal-worker-v3-deployment.yaml' "$workflow" | cut -d: -f1)"
+expected_workflow="$(cat <<'YAML'
+name: ListingKit API Deploy
 
-[[ -n "$canary_line" && -n "$production_apply_line" && "$canary_line" -lt "$production_apply_line" ]] || {
-  printf 'v3 production worker rollout must follow the isolated canary gate\n' >&2
+"on":
+  workflow_dispatch: {}
+
+permissions: {}
+
+jobs:
+  retired:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "::error::Legacy ListingKit API release and rollback are retired; current-application production release is NOT_READY."
+          exit 1
+YAML
+)"
+# Require the actual fixed failure source; a marker cannot bypass this check.
+[[ "$(tr -d '\r' < "$workflow")" == "$expected_workflow" ]] || {
+  printf 'retired API workflow must fail before any canary or worker mutation\n' >&2
   exit 1
 }
 grep -q '"image-agent-manual-v3-canary"' "$runner_manifest" || {
@@ -32,4 +47,4 @@ grep -q '"image-agent-manual-v3"' "$worker_manifest" || {
   exit 1
 }
 
-printf '%s\n' 'listingkit image-agent canary order guard passed'
+printf '%s\n' 'retired API entry and retained image-agent canary queue isolation passed'

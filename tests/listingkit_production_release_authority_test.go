@@ -3,80 +3,56 @@ package tests
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
+
+func expectedRetiredListingKitWorkflow(owner string) map[string]any {
+	return map[string]any{
+		"name":        "ListingKit " + owner + " Deploy",
+		"on":          map[string]any{"workflow_dispatch": map[string]any{}},
+		"permissions": map[string]any{},
+		"jobs": map[string]any{"retired": map[string]any{
+			"runs-on": "ubuntu-latest",
+			"steps":   []any{map[string]any{"run": "echo \"::error::Legacy ListingKit " + owner + " release and rollback are retired; current-application production release is NOT_READY.\"\nexit 1\n"}},
+		}},
+	}
+}
+
+func TestListingKitRetiredReleaseEntrypointsHaveOnlyFixedFailure(t *testing.T) {
+	for file, owner := range map[string]string{"listingkit-deploy.yml": "API", "listingkit-ui-deploy.yml": "UI"} {
+		content, err := os.ReadFile(filepath.Join("..", ".github", "workflows", file))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var actual map[string]any
+		if err := yaml.Unmarshal(content, &actual); err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(actual, expectedRetiredListingKitWorkflow(owner)) {
+			t.Errorf("%s must have only the exact permission-free manual failure entry", file)
+		}
+	}
+	content, err := os.ReadFile(filepath.Join("..", "scripts", "build-push-deploy-listingkit-workbench.ps1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(string(content)) != `throw "Legacy ListingKit API/UI release and rollback are retired; current-application production release is NOT_READY."` {
+		t.Error("retired PowerShell wrapper must contain only its unconditional literal throw")
+	}
+}
 
 // TestListingKitProductionReleaseAuthorityRejectsCallerChosenProductionInputs
 // catches a release workflow that can be redirected to a tag, arbitrary commit,
 // or caller-provided image.  Those values are not provenance; only the exact
 // main workflow commit or a previously verified release attestation is.
-func TestListingKitProductionReleaseAuthorityRejectsCallerChosenProductionInputs(t *testing.T) {
-	workflow := loadReleaseWorkflow(t, filepath.Join("..", ".github", "workflows", "listingkit-deploy.yml"))
-	if !strings.Contains(workflow.Jobs["deploy-api"].If, "github.ref == 'refs/heads/main'") {
-		t.Fatal("tag-triggered builds must be unable to enter the production API deploy job")
-	}
-	prepare := workflow.Jobs["prepare"]
-	if strings.Contains(joinWorkflowRuns(prepare.Steps), "inputs.source_ref") ||
-		strings.Contains(joinWorkflowRuns(prepare.Steps), "inputs.api_image_digest") {
-		t.Fatal("production API deploy must not accept caller-selected source refs or image digests")
-	}
-	workflowSource, err := os.ReadFile(filepath.Join("..", ".github", "workflows", "listingkit-deploy.yml"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(workflowSource), "github.workflow_sha") {
-		t.Fatal("normal production release must bind its source to the exact workflow commit")
-	}
-
-	verifier, err := os.ReadFile(filepath.Join("..", "scripts", "verify-listingkit-api-release-attestation.sh"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, required := range []string{
-		"listingkit-api-release-gate/v2",
-		"workflow_ref",
-		"worker_wire_contract",
-		"worker_replay_contract",
-		"schema_contract",
-		"workflow head SHA does not match attested source",
-	} {
-		if !strings.Contains(string(verifier), required) {
-			t.Errorf("attestation verifier must bind rollback to %q", required)
-		}
-	}
-}
 
 // TestListingKitProductionReleaseAuthorityUsesFreshOIDCAndImmutableActions
 // catches the expired-token pattern: a single OIDC credential is reused across
 // multiple 900-second gates or a mutable third-party action can change code.
-func TestListingKitProductionReleaseAuthorityUsesFreshOIDCAndImmutableActions(t *testing.T) {
-	for _, workflowName := range []string{"listingkit-deploy.yml", "listingkit-ui-deploy.yml"} {
-		workflow := loadReleaseWorkflow(t, filepath.Join("..", ".github", "workflows", workflowName))
-		for _, job := range workflow.Jobs {
-			for _, step := range job.Steps {
-				if step.Uses == "" || strings.HasPrefix(step.Uses, "./") {
-					continue
-				}
-				at := strings.LastIndex(step.Uses, "@")
-				if at < 1 || len(step.Uses[at+1:]) != 40 {
-					t.Errorf("%s step %q must pin its action to a full commit SHA, got %q", workflowName, step.Name, step.Uses)
-				}
-			}
-		}
-	}
-
-	api := loadReleaseWorkflow(t, filepath.Join("..", ".github", "workflows", "listingkit-deploy.yml"))
-	refreshes := 0
-	for _, step := range api.Jobs["deploy-api"].Steps {
-		if strings.Contains(step.Run, "listingkit-refresh-github-oidc-kubeconfig.sh") {
-			refreshes++
-		}
-	}
-	if refreshes < 6 {
-		t.Fatalf("API release must refresh OIDC immediately before each long gate or mutation group, got %d refreshes", refreshes)
-	}
-}
 
 // TestListingKitUIReleaseHasAnExclusiveAuthorizationConfigMap catches a UI
 // principal that can rewrite API/worker runtime configuration or shares a
@@ -121,18 +97,4 @@ func TestListingKitUIReleaseRequestsExactProjectRoleClaim(t *testing.T) {
 		t.Fatal("UI authorization ConfigMap must carry the public trusted ZITADEL project ID")
 	}
 
-	workflowSource, err := os.ReadFile(filepath.Join("..", ".github", "workflows", "listingkit-ui-deploy.yml"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	workflow := string(workflowSource)
-	for _, required := range []string{
-		".data.ZITADEL_PROJECT_ID",
-		"urn:zitadel:iam:org:project:${project_id}:roles",
-		"Invalid or missing ZITADEL_PROJECT_ID",
-	} {
-		if !strings.Contains(workflow, required) {
-			t.Errorf("production UI release must derive an exact project role scope; missing %q", required)
-		}
-	}
 }

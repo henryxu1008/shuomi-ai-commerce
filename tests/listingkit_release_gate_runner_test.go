@@ -48,7 +48,6 @@ func TestListingKitReleaseGateRunnersArePreinstalledAndZeroReplica(t *testing.T)
 	want := map[string]string{
 		"product-listing-api-schema-migrate-runner": "/app/product-listing-api-schema-migrate",
 		"listingkit-schema-migrate-runner":          "/app/listingkit-schema-migrate",
-		"listingkit-identity-preflight-runner":      "/app/listingkit-identity-preflight",
 		"image-agent-temporal-v3-canary-runner":     "/app/image-agent-temporal-worker",
 	}
 	seen := map[string]bool{}
@@ -164,40 +163,6 @@ func TestListingKitReleaseGateRunnerBindsReadinessToCurrentInvocation(t *testing
 		}
 		if !strings.Contains(check.log, `"listingkit.sh/release-gate-invocation":"`+check.invocation+`"`) {
 			t.Errorf("%s invocation must patch the trusted Pod-template annotation %q:\n%s", check.name, check.invocation, check.log)
-		}
-	}
-}
-
-func TestListingKitReleaseGateWorkflowUsesTrustedInvocationIdentity(t *testing.T) {
-	t.Parallel()
-
-	content, err := os.ReadFile(filepath.Join("..", ".github", "workflows", "listingkit-deploy.yml"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var workflow struct {
-		Jobs map[string]struct {
-			Steps []struct {
-				Name string `yaml:"name"`
-				Run  string `yaml:"run"`
-			} `yaml:"steps"`
-		} `yaml:"jobs"`
-	}
-	if err := yaml.Unmarshal(content, &workflow); err != nil {
-		t.Fatalf("parse ListingKit deploy workflow: %v", err)
-	}
-	var releaseGateSteps []string
-	for _, step := range workflow.Jobs["deploy-api"].Steps {
-		if strings.Contains(step.Run, "listingkit-run-release-gate-deployment.sh") {
-			releaseGateSteps = append(releaseGateSteps, step.Run)
-		}
-	}
-	if len(releaseGateSteps) != 4 {
-		t.Fatalf("release-gate invocation count=%d, want 4", len(releaseGateSteps))
-	}
-	for index, run := range releaseGateSteps {
-		if strings.Count(run, `--run-id "$GITHUB_RUN_ID"`) != 1 || strings.Count(run, `--run-attempt "$GITHUB_RUN_ATTEMPT"`) != 1 {
-			t.Errorf("release-gate invocation %d must pass only the trusted GitHub run identity, run=%q", index, run)
 		}
 	}
 }

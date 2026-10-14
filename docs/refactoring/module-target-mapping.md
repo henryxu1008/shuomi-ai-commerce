@@ -17,6 +17,21 @@ numeric sync leaves remain explicitly registered debt; they are not new owners
 or permission to add current consumers. Current schema evolution and worker
 contracts remain intact; source/build/review/CI and actual deployment are separate.
 
+### #529 / #301 release identity-preflight retirement
+
+The approved internal-trial boundary retires identity-preflight and its
+exclusive runtime/readers/tenantbridge packages. Current source API/UI
+release/rollback and PS entrypoints always fail before operations; production
+remains NOT_READY. The current image and source runner/RBAC inventory remove
+only the identity-preflight artifacts. Existing OIDC/RBAC/attestation security
+helpers, worker/schema contracts and required CI checks remain.
+
+Workbench current Organization/scoped roles are preserved without a legacy
+resolver hook, including valid numeric string Organization IDs. All bridge
+imports are absent. Earlier calibrations below are historical then-state;
+standalone SHEIN numeric account persistence remains separate debt. No live
+IAM, deployment, data, profile or historical executor is changed.
+
 ## 1. Purpose
 
 ### #301 standalone SHEIN service assembly calibration
@@ -175,7 +190,7 @@ Current target ownership domains include:
 | `internal/ports` / `internal/domain` / `internal/model` | broad aggregation packages | local owning domains | Prefer local contracts/models over global catch-alls. |
 | `internal/scheduler` | scheduling runtime | app worker / platform queue/Temporal | Runtime only. |
 | `internal/sourceaccount` | legacy source-account metadata/access/persistence still used by default ListingKit/crawler composition | `internal/sourceaccountregistry` + `internal/integration/persistence/sourceaccountregistry` for current Source Account registration; provider connection remains a separate current capability | **EXTRACT/RETIRE:** do not wrap this package or route a current registry caller through it. Source access is not Organization membership. See the bounded calibration and legacy register. |
-| `internal/tenantbridge` | active Organization ↔ legacy numeric tenant mapping | current Organization identity + each consuming domain's current persistence ownership | #301: freeze new consumers; new domains use native Organization identity; RETIRE legacy callers and package by owner; it allows no legacy numeric mapping, old-data migration/backfill or cutover. Never move it to another compatibility facade. |
+| `internal/tenantbridge` | package and all frozen imports absent after admitted preflight retirement | current Organization identity + each consuming domain's current persistence ownership | #301: freeze new consumers; new domains use native Organization identity; RETIRE legacy callers and package by owner; it allows no legacy numeric mapping, old-data migration/backfill or cutover. Never move it to another compatibility facade. |
 | `internal/zitadelprovision` | ZITADEL management/provisioning | integration identity provisioning + app operational entrypoint | External client stays in integration; app owns lifecycle. |
 | `web/listingkit-ui` | current Console application; #664 removes the old ListingKit/Task-first pages, default shell and dedicated request chains | final Figma Product Projection, especially #298 and Store Center surfaces; shared readonly identity transport lives in `src/lib/server/upstream-identity.ts` | Keep current Console, account, plans and review surfaces; current source/image/store surfaces and neutral primitives also remain. Retired paths stay absent without redirect, Task mapping or fallback. The directory name is not a legacy owner. Deployment and user acceptance are separate. |
 

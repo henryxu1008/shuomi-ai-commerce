@@ -117,11 +117,7 @@ func TestLegacyDrainDepguardRules(t *testing.T) {
 
 // Drain-only baseline at main 2fd42cc06. Remove entries as callers drain; never regenerate upward.
 // Includes test callers and intra-legacy edges so neither can hide new consumers.
-var legacyConsumerBaseline = map[string]struct{}{
-	"internal/app/httpapi/server_test.go -> task-processor/internal/tenantbridge":                              {},
-	"internal/app/runtime/listingkitidentitypreflight/runtime.go -> task-processor/internal/tenantbridge":      {},
-	"internal/app/runtime/listingkitidentitypreflight/runtime_test.go -> task-processor/internal/tenantbridge": {},
-}
+var legacyConsumerBaseline = map[string]struct{}{}
 
 func legacyConsumerViolations(sources []listingKitImageBoundarySource, baseline map[string]struct{}) ([]string, error) {
 	edges, err := phase3BannedImportDeclarationViolations(sources, []string{
