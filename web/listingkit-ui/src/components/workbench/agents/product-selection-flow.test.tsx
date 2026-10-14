@@ -200,6 +200,28 @@ function choose() {
   fireEvent.click(screen.getByText("选择商品A"));
   fireEvent.click(screen.getByText("选择商品B"));
 }
+it("recovers an uncertain prepare through its original receipt owner and retains its key while forbidden", async () => {
+  const baseFetch = fetch;
+  const attempts: Array<{key:string;body:string}> = [];
+  vi.stubGlobal("fetch", vi.fn(async (url, init) => {
+    if (init?.method === "POST" && String(url).endsWith("/prepare")) {
+      attempts.push({key:new Headers(init.headers).get("Idempotency-Key")!,body:String(init.body)});
+      if (attempts.length === 1) return Response.json({code:"OUTCOME_UNKNOWN"}, {status:502});
+      if (attempts.length === 2) return Response.json({code:"FORBIDDEN"}, {status:403});
+    }
+    return baseFetch(url, init);
+  }));
+  show(); choose(); await viewFacts();
+  await waitFor(() => expect(screen.getByRole("button", {name:"准备分析"})).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", {name:"准备分析"}));
+  fireEvent.click(await screen.findByRole("button", {name:"核实原请求"}));
+  await waitFor(() => expect(attempts).toHaveLength(2));
+  expect(attempts[1]).toEqual(attempts[0]);
+  fireEvent.click(await screen.findByRole("button", {name:"核实原请求"}));
+  await screen.findByRole("heading", {name:"确认本次分析"});
+  expect(attempts[2]).toEqual(attempts[0]);
+  expect(writes.every(write => !write.path.endsWith("/runs"))).toBe(true);
+});
 it.each(["REVISION_MISMATCH", "CONFIGURATION_CHANGED"])("refetches the current mode after known %s without automatically retrying analysis", async code => {
   const baseFetch = fetch;
   let reject = true;

@@ -224,6 +224,7 @@ export function ProductSelectionFlow({
       setFailure(new Error("请核对本次准备的事实和权限版本；权限变化后须重新准备。"));
       return;
     }
+    const verifying = !!pending.command;
     flight.current = true;
     setBusy(true);
     setFailure(undefined);
@@ -270,6 +271,7 @@ export function ProductSelectionFlow({
         if (
           e instanceof MarketAPIError &&
           e.code !== "OUTCOME_UNKNOWN" &&
+          !verifying &&
           [400, 403, 404, 409, 412, 422].includes(e.status)
         )
           pending.clear(intent);
@@ -282,6 +284,10 @@ export function ProductSelectionFlow({
   async function verify() {
     const intent = pending.command;
     if (!intent || flight.current) return;
+    if (intent.kind === "prepare") {
+      await send(intent);
+      return;
+    }
     flight.current = true;
     setBusy(true);
     setFailure(undefined);
