@@ -373,11 +373,11 @@ func supplyEmptyBody(r *http.Request) error {
 func supplyError(c *gin.Context, err error) {
 	status, code := http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE"
 	switch {
-	case errors.Is(err, preparation.ErrInvalid), errors.Is(err, record.ErrInvalid), errors.Is(err, asset.ErrInvalidApproval):
+	case errors.Is(err, collection.ErrInvalid), errors.Is(err, preparation.ErrInvalid), errors.Is(err, record.ErrInvalid), errors.Is(err, asset.ErrInvalidApproval):
 		status, code = http.StatusBadRequest, "INVALID_REQUEST"
-	case errors.Is(err, preparation.ErrForbidden), errors.Is(err, record.ErrForbidden), errors.Is(err, asset.ErrSourceApprovalForbidden):
+	case errors.Is(err, collection.ErrForbidden), errors.Is(err, preparation.ErrForbidden), errors.Is(err, record.ErrForbidden), errors.Is(err, asset.ErrSourceApprovalForbidden):
 		status, code = http.StatusForbidden, "PERMISSION_DENIED"
-	case errors.Is(err, preparation.ErrNotFound), errors.Is(err, record.ErrNotFound):
+	case errors.Is(err, collection.ErrNotFound), errors.Is(err, preparation.ErrNotFound), errors.Is(err, record.ErrNotFound):
 		status, code = http.StatusNotFound, "NOT_FOUND"
 	case errors.Is(err, preparation.ErrConflict), errors.Is(err, record.ErrConflict), errors.Is(err, asset.ErrApprovalConflict):
 		status, code = http.StatusConflict, "REVISION_CONFLICT"

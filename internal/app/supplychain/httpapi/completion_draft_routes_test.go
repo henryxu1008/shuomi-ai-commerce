@@ -2,6 +2,7 @@ package supplychainhttp
 
 import (
 	"context"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -19,12 +20,36 @@ type completionHTTP struct {
 	writes int
 	reads  int
 	limit  int
+	err    error
 }
 
 func (a *completionHTTP) ListForCollectionItem(_ context.Context, id string, q collection.Query) (completiondraft.ItemPage, error) {
 	a.reads++
 	a.limit = q.Limit
+	if a.err != nil {
+		return completiondraft.ItemPage{}, a.err
+	}
 	return completiondraft.ItemPage{CollectionItemID: id, Page: collection.Page[completiondraft.Record]{Items: []completiondraft.Record{}, Total: 0}}, nil
+}
+func TestItemDraftHTTPPreservesCollectionReadFailureStatuses(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	for _, failure := range []struct {
+		err    error
+		status int
+		code   string
+	}{{collection.ErrNotFound, 404, "NOT_FOUND"}, {collection.ErrForbidden, 403, "PERMISSION_DENIED"}, {collection.ErrInvalid, 400, "INVALID_REQUEST"}, {collection.ErrUnavailable, 503, "DEPENDENCY_UNAVAILABLE"}} {
+		t.Run(failure.code, func(t *testing.T) {
+			app := &completionHTTP{err: fmt.Errorf("current item read: %w", failure.err)}
+			router := gin.New()
+			for _, r := range CompletionDraftRoutes(app, func(ctx context.Context, _ string) (context.Context, error) { return ctx, nil }) {
+				router.Handle(r.Method, r.Path, r.Handler)
+			}
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, httptest.NewRequest("GET", SupplyBasePath+"/collection-items/"+uuid.NewString()+"/completion-drafts", nil))
+			require.Equal(t, failure.status, w.Code)
+			require.JSONEq(t, `{"code":"`+failure.code+`"}`, w.Body.String())
+		})
+	}
 }
 func TestItemDraftHTTPRejectsUnboundedOrAuthorityQueriesAndGETBodies(t *testing.T) {
 	gin.SetMode(gin.TestMode)
