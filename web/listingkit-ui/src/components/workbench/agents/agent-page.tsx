@@ -281,7 +281,7 @@ function ScopedPage({
       <Card key={entry.agent.agentId} className={styles.agentCard}>
         <h2>{entry.name}</h2>
         <p>{entry.description}</p>
-        <p className={styles.support}>{entry.agent.agentId === "pod.design.agent" ? "原创图案 · 保存后布局与效果图" : entry.agent.agentId === "product.image.agent" ? "主图与详情图 · 人工选择批准" : entry.agent.agentId === "product.content.agent" ? "标题、描述、卖点、SEO关键词 · 内容本地化" : "标题优化 · 人工审核"}</p>
+        <p className={styles.support}>{entry.agent.agentId === "product.selection.agent" ? "商品事实对比 · 有引用建议" : entry.agent.agentId === "listing.materials.agent" ? "平台上架资料 · 可检查草稿" : entry.agent.agentId === "pod.design.agent" ? "原创图案 · 保存后布局与效果图" : entry.agent.agentId === "product.image.agent" ? "主图与详情图 · 人工选择批准" : entry.agent.agentId === "product.content.agent" ? "标题、描述、卖点、SEO关键词 · 内容本地化" : "标题优化 · 人工审核"}</p>
         <div className={styles.cardActions}>
           <span
             className={styles.status}
