@@ -1,5 +1,12 @@
 # ListingKit Owner Reconciliation Policy Implementation Plan
 
+> HISTORICAL PLAN. Migration-preparation steps below are SUPERSEDED by
+> PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08. Under #529,
+> `scripts/yudao-zitadel-migration-dry-run.ps1` is source-retired alongside the
+> earlier owner-scope migration/seed tools. These old commands are unavailable
+> and are not current execution instructions. The existing read-only preflight
+> policies and release protection are unchanged; historical evidence is retained.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make reconciliation and identity preflight enforce the approved creator/store/system-owner rules while keeping unresolved user-owned data fail-closed.
