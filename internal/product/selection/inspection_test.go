@@ -45,7 +45,11 @@ type inspectionSnapshots struct {
 }
 
 func (s inspectionSnapshots) GetSnapshot(_ context.Context, id catalog.SnapshotIdentity, v uint64) (catalog.PublishedSnapshot, error) {
-	return catalog.PublishedSnapshot{Identity: id, Version: v, PublicationID: "publication-" + id.ProductKey, Snapshot: s.products[id.ProductKey]}, nil
+	publication := "publication-" + id.ProductKey
+	if v > 1 {
+		publication += "-revised"
+	}
+	return catalog.PublishedSnapshot{Identity: id, Version: v, PublicationID: publication, Snapshot: s.products[id.ProductKey]}, nil
 }
 
 type inspectionSources struct{}
@@ -121,6 +125,8 @@ func TestInspectionRejectsStaleSelectionAndProposalCannotBorrowEvidence(t *testi
 	require.Error(t, ValidateProposal(out, proposal))
 	item := store.items[choices[1].ItemID]
 	item.Revision++
+	item.Source.Version++
+	item.Source.PublicationID = "publication-" + item.Source.ProductKey + "-revised"
 	store.items[item.ID] = item
 	_, err = inspector.Inspect(ctx, binding)
 	require.ErrorIs(t, err, collection.ErrConflict)

@@ -200,7 +200,7 @@ func (i Inspector) AuthorizeHistory(ctx context.Context, binding agent.Binding) 
 		if detail.Item.ArchivedAt != nil {
 			return collection.Scope{}, collection.ErrNotFound
 		}
-		if detail.Item.Source.ProductKey != ref.ProductKey || detail.Item.Source.PublicationID != ref.PublicationID || strconv.FormatUint(detail.Item.Source.Version, 10) != ref.CatalogVersion {
+		if detail.Item.ID != ref.ItemID || detail.Item.Source.ProductKey != ref.ProductKey {
 			return collection.Scope{}, agent.ErrConflict
 		}
 		proof, e := i.Collections.Select(ctx, collection.SelectionInput{ItemID: ref.ItemID, ExpectedRevision: detail.Item.Revision, OriginalPublicationID: detail.Item.Source.PublicationID, OriginalVersion: detail.Item.Source.Version})
