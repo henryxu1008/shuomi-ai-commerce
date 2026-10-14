@@ -2,7 +2,7 @@ import { z } from "zod";
 import { isAcquisitionUUID } from "./product-acquisition";
 
 export const COLLECTION_MAX_BYTES = 2 * 1024 * 1024;
-export type CollectionRoute = "batches" | "items" | "own" | "detail" | "history" | "history-detail" | "operation" | "command" | "import-preview" | "import-template" | "media-upload" | "media-read";
+export type CollectionRoute = "batches" | "batch" | "items" | "own" | "detail" | "history" | "history-detail" | "operation" | "command" | "import-preview" | "import-template" | "media-upload" | "media-read";
 export const collectionID = z.string().refine(isAcquisitionUUID);
 const bytes = (max: number) => z.string().refine(value => new TextEncoder().encode(value).length <= max && !value.includes("\0"));
 const revision = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
@@ -46,7 +46,7 @@ export const collectionCommandSchema = z.discriminatedUnion("action", [
 export type CollectionCommand = z.infer<typeof collectionCommandSchema>;
 export const collectionSourceKindSchema = z.enum(["acquisition", "own", "market", "sds_template", "sds_finished", "amazon_data", "custom_dataset"]);
 export type CollectionSourceKind = z.infer<typeof collectionSourceKindSchema>;
-const collectionBatchSchema = z.object({ id: collectionID, name, kind: z.enum(["acquisition", "own", "manual", "market", "sds_template", "sds_finished", "amazon_data", "custom_dataset"]),
+export const collectionBatchSchema = z.object({ id: collectionID, name, kind: z.enum(["acquisition", "own", "manual", "market", "sds_template", "sds_finished", "amazon_data", "custom_dataset"]),
   revision, count, supplyTransferSupported:z.boolean(), createdAt: timestamp, archivedAt: timestamp.optional() });
 export const collectionItemSchema = z.object({ id: collectionID, batchId: collectionID, revision, createdAt: timestamp, archivedAt: timestamp.optional(), title: bytes(2000).optional(), thumbnailUrl: bytes(2048).optional(),
   source: z.object({ productKey: bytes(128).min(1), publicationId: bytes(128).min(1), version,
@@ -91,6 +91,7 @@ export function collectionPath(method: string, path: string[]): CollectionRoute 
     if(path.length===5&&collectionVersion.safeParse(path[4]).success)return "history-detail";
   }
   if (path.length === 2 && path[1] === "batches") return "batches";
+  if (path.length === 3 && path[1] === "batches" && isAcquisitionUUID(path[2]!)) return "batch";
   if (path.length === 2 && path[1] === "own-products") return "own";
   if (path.length === 4 && path[1] === "batches" && isAcquisitionUUID(path[2]!) && path[3] === "items") return "items";
   if (path.length === 3 && isAcquisitionUUID(path[2]!)) return path[1] === "items" ? "detail" : path[1] === "by-key" ? "operation" : null;
@@ -102,9 +103,10 @@ export function parseCollectionResponse(route: CollectionRoute, payload: unknown
     if(expectedID){const [id,requestedVersion]=expectedID.split(":");if(checked.data.item.id!==id||route==="history-detail"&&("version" in checked.data?checked.data.version.version:undefined)!==requestedVersion)return null;}
     return checked.data;
   }
-  const schema = route === "media-read" || route === "media-upload" ? mediaImageSchema : route === "import-preview" ? importPreviewSchema : route === "import-template" ? importTemplateSchema : route === "batches" ? collectionBatchesSchema : route === "items" || route === "own" ? collectionItemsSchema : route === "detail" ? collectionDetailSchema : collectionReceiptSchema;
+  const schema = route === "media-read" || route === "media-upload" ? mediaImageSchema : route === "import-preview" ? importPreviewSchema : route === "import-template" ? importTemplateSchema : route === "batch" ? collectionBatchSchema : route === "batches" ? collectionBatchesSchema : route === "items" || route === "own" ? collectionItemsSchema : route === "detail" ? collectionDetailSchema : collectionReceiptSchema;
   const parsed = schema.safeParse(payload);
   if (!parsed.success || route === "detail" && expectedID && (parsed.data as CollectionDetail).item.id !== expectedID) return null;
+  if(route==="batch"&&expectedID&&(parsed.data as z.infer<typeof collectionBatchSchema>).id!==expectedID)return null;
   if((route==="media-read"||route==="media-upload")&&expectedID){const v=parsed.data as z.infer<typeof mediaImageSchema>;if(`${v.hash}:${v.bytes}`!==expectedID)return null;}
   return parsed.data;
 }

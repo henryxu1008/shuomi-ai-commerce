@@ -9,6 +9,18 @@ const request = (body: string, extra: Record<string, string> = {}) => new Reques
 
 describe("private product collection proxy", () => {
   beforeEach(() => vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL", "http://localhost"));
+  it("reads the exact owner batch revision without accepting query or mutation inputs",async()=>{
+    const path=["collections","batches",id];
+    const mapped=await buildWorkbenchUpstreamRequest(new Request(`http://localhost/api/workbench/${path.join("/")}`,{headers:scope}),path,"server-token","actor-a");
+    expect(mapped).not.toBeInstanceOf(Response);if(mapped instanceof Response)return;
+    expect(mapped.sourceMutation).toBe(false);expect(mapped.expectedStoreId).toBe(id);
+    const batch={id,name:"自有商品库",kind:"own",revision:3,count:2,supplyTransferSupported:true,createdAt:"2026-10-14T00:00:00Z"};
+    const result=await buildWorkbenchBrowserResponse(Response.json(batch),mapped.responseContract,mapped.expectedStoreId);
+    expect(result.status).toBe(200);expect(await result.json()).toEqual(batch);
+    const wrong=await buildWorkbenchBrowserResponse(Response.json({...batch,id:"550e8400-e29b-41d4-a716-446655440001"}),mapped.responseContract,mapped.expectedStoreId);
+    expect(wrong.status).toBe(502);
+    for(const extra of ["?expectedRevision=3","?limit=1"]){const rejected=await buildWorkbenchUpstreamRequest(new Request(`http://localhost/api/workbench/${path.join("/")}${extra}`,{headers:scope}),path,"server-token","actor-a");expect(rejected).toBeInstanceOf(Response);if(rejected instanceof Response)expect(rejected.status).toBe(400)}
+  });
   it("binds read-only history routes and rejects extra, duplicate, oversized and mutation inputs",async()=>{
     for(const [path,query] of [["history","limit=20&before=9007199254740993"],["history/1",""]]){
       const parts=["collections","items",id,...path.split("/")];
