@@ -16,17 +16,18 @@ func InstallOfficialSchema(db *gorm.DB) error {
 	}
 	return db.Exec(`CREATE TABLE IF NOT EXISTS listing_submission_official_intents (
  organization_id varchar(128) NOT NULL, actor_id varchar(128) NOT NULL, member_id varchar(128) NOT NULL,
- intent_key varchar(128) NOT NULL, record_id uuid NOT NULL, kind varchar(16) NOT NULL CHECK(kind IN ('publish','image')),
+ intent_key varchar(128) NOT NULL, record_id uuid NOT NULL, kind varchar(16) NOT NULL CHECK(kind IN ('publish','image','global_create')),
  input_hash varchar(64) NOT NULL CHECK(input_hash ~ '^[0-9a-f]{64}$'), body_hash varchar(64) NOT NULL CHECK(body_hash ~ '^[0-9a-f]{64}$'), body_json jsonb NOT NULL,
  PRIMARY KEY(organization_id,intent_key),
  FOREIGN KEY(organization_id,actor_id,record_id) REFERENCES listing_target_records(organization_id,actor_id,id));
 CREATE TABLE IF NOT EXISTS listing_submission_official_receipts (
  organization_id varchar(128) NOT NULL, actor_id varchar(128) NOT NULL, member_id varchar(128) NOT NULL,
  attempt_id uuid NOT NULL, intent_key varchar(128) NOT NULL, store_id uuid NOT NULL, subject_id varchar(128) NOT NULL,
- kind varchar(16) NOT NULL CHECK(kind IN ('publish','image')), body_hash varchar(64) NOT NULL CHECK(body_hash ~ '^[0-9a-f]{64}$'), body_json jsonb NOT NULL,
- PRIMARY KEY(organization_id,attempt_id), UNIQUE(organization_id,store_id,subject_id),
+ kind varchar(16) NOT NULL CHECK(kind IN ('publish','image','global_create')), body_hash varchar(64) NOT NULL CHECK(body_hash ~ '^[0-9a-f]{64}$'), body_json jsonb NOT NULL,
+ PRIMARY KEY(organization_id,attempt_id),
  FOREIGN KEY(organization_id,intent_key) REFERENCES listing_submission_official_intents(organization_id,intent_key),
- FOREIGN KEY(organization_id,attempt_id) REFERENCES listing_submission_execution_attempts(organization_id,attempt_id));`).Error
+ FOREIGN KEY(organization_id,attempt_id) REFERENCES listing_submission_execution_attempts(organization_id,attempt_id));
+CREATE UNIQUE INDEX IF NOT EXISTS listing_submission_official_permanent_effect ON listing_submission_official_receipts(organization_id,store_id,subject_id) WHERE subject_id NOT LIKE 'temu-local-image-v2-%';`).Error
 }
 func VerifyOfficialSchema(ctx context.Context, db *gorm.DB) error {
 	if ctx == nil || db == nil || db.Dialector.Name() != "postgres" || submissionstore.VerifySchema(ctx, db) != nil || recordstore.VerifySchema(ctx, db) != nil {
@@ -40,12 +41,19 @@ func VerifyOfficialSchema(ctx context.Context, db *gorm.DB) error {
 			return submission.ErrExecutionUnavailable
 		}
 	}
+	var kindsReady bool
+	if db.WithContext(ctx).Raw(`SELECT count(DISTINCT c.conrelid)=2 FROM pg_constraint c
+ WHERE c.conrelid IN (to_regclass('listing_submission_official_intents'),to_regclass('listing_submission_official_receipts'))
+ AND c.contype='c' AND c.convalidated AND NOT c.condeferrable AND pg_get_expr(c.conbin,c.conrelid)=?`,
+		`((kind)::text = ANY ((ARRAY['publish'::character varying, 'image'::character varying, 'global_create'::character varying])::text[]))`).Scan(&kindsReady).Error != nil || !kindsReady {
+		return submission.ErrExecutionUnavailable
+	}
 	var ready bool
 	err := db.WithContext(ctx).Raw(`WITH expected(relation,kind,columns,reference,reference_columns) AS (VALUES
  ('listing_submission_official_intents','p',ARRAY['organization_id','intent_key'],NULL::text,NULL::text[]),
  ('listing_submission_official_intents','f',ARRAY['organization_id','actor_id','record_id'],'listing_target_records',ARRAY['organization_id','actor_id','id']),
  ('listing_submission_official_receipts','p',ARRAY['organization_id','attempt_id'],NULL,NULL),
- ('listing_submission_official_receipts','u',ARRAY['organization_id','store_id','subject_id'],NULL,NULL),
+
  ('listing_submission_official_receipts','f',ARRAY['organization_id','intent_key'],'listing_submission_official_intents',ARRAY['organization_id','intent_key']),
  ('listing_submission_official_receipts','f',ARRAY['organization_id','attempt_id'],'listing_submission_execution_attempts',ARRAY['organization_id','attempt_id'])
  ) SELECT NOT EXISTS(SELECT 1 FROM expected e WHERE NOT EXISTS(SELECT 1 FROM pg_constraint c
@@ -55,6 +63,20 @@ func VerifyOfficialSchema(ctx context.Context, db *gorm.DB) error {
  AND (e.reference IS NULL OR (c.confrelid=to_regclass(e.reference)
  AND ARRAY(SELECT a.attname::text FROM unnest(c.confkey) WITH ORDINALITY AS k(id,position)
  JOIN pg_attribute a ON a.attrelid=c.confrelid AND a.attnum=k.id ORDER BY k.position)=e.reference_columns))))`).Scan(&ready).Error
+	if err != nil || !ready {
+		return submission.ErrExecutionUnavailable
+	}
+	// Only native local image receipts may have multiple generations. A fresh
+	// schema must retain the exact permanent-effect index and reject the old
+	// unconditional unique constraint, which would make G4 renewal unusable.
+	err = db.WithContext(ctx).Raw(`SELECT EXISTS(SELECT 1 FROM pg_index i
+ WHERE i.indrelid=to_regclass('listing_submission_official_receipts') AND i.indisunique AND i.indisvalid AND NOT i.indisprimary
+ AND ARRAY(SELECT a.attname::text FROM unnest(i.indkey) WITH ORDINALITY AS k(id,position)
+ JOIN pg_attribute a ON a.attrelid=i.indrelid AND a.attnum=k.id ORDER BY k.position)=ARRAY['organization_id','store_id','subject_id']
+ AND pg_get_expr(i.indpred,i.indrelid)=?) AND NOT EXISTS(SELECT 1 FROM pg_constraint c
+ WHERE c.conrelid=to_regclass('listing_submission_official_receipts') AND c.contype='u'
+ AND ARRAY(SELECT a.attname::text FROM unnest(c.conkey) WITH ORDINALITY AS k(id,position)
+ JOIN pg_attribute a ON a.attrelid=c.conrelid AND a.attnum=k.id ORDER BY k.position)=ARRAY['organization_id','store_id','subject_id'])`, `((subject_id)::text !~~ 'temu-local-image-v2-%'::text)`).Scan(&ready).Error
 	if err != nil || !ready {
 		return submission.ErrExecutionUnavailable
 	}

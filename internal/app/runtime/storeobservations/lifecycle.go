@@ -2,7 +2,7 @@ package storeobservationsruntime
 
 import (
 	"sync/atomic"
-	o "task-processor/internal/marketplace/shein/observations"
+	o "task-processor/internal/storecenter/observations"
 )
 
 type Worker interface {

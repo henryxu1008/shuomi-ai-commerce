@@ -5,7 +5,7 @@ import (
 
 	"task-processor/internal/core/config"
 	"task-processor/internal/listingadmin"
-	"task-processor/internal/listingkit"
+	"task-processor/internal/listingkit/sheinsync"
 	"task-processor/internal/listingruntime"
 	"task-processor/internal/pkg/types"
 )
@@ -154,7 +154,7 @@ func (p *LocalDataProvider) ProductDataRepository() listingadmin.ProductDataRepo
 	return p.productDataRepository()
 }
 
-func (p *LocalDataProvider) SheinSyncRepository() listingkit.SheinSyncRepository {
+func (p *LocalDataProvider) SheinSyncRepository() sheinsync.SheinSyncRepository {
 	if p == nil {
 		return nil
 	}

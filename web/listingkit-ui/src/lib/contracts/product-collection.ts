@@ -13,11 +13,16 @@ const name = bytes(200).refine(value => value.length > 0 && value.trim() === val
 const httpsURL = bytes(2048).refine(value => { try { const url = new URL(value); return url.protocol === "https:" && url.hostname !== "" && !url.username && !url.password && !url.hash; } catch { return false; } });
 const attributes = z.record(bytes(200), bytes(8192)).refine(value => Object.keys(value).length <= 256);
 export const ownProductSchema = z.object({
-  title: bytes(2000).refine(value => value.trim().length > 0), description: bytes(1024 * 1024), brand: bytes(2000).optional(),
+  title: bytes(2000).refine(value => value.trim().length > 0), description: bytes(8192), brand: bytes(2000).optional(),
   attributes: attributes.optional(), images: z.array(httpsURL).max(40),
-  variants: z.array(z.object({ sourceId: bytes(128), title: bytes(2000), sku: bytes(200), attributes,
-    currency: bytes(16), price: z.number().finite().nonnegative(), stock: count }).strict()).max(1000).optional(),
-}).strict();
+  variants: z.array(z.object({ sourceId: bytes(128).refine(v=>v.trim().length>0), title: bytes(2000), sku: bytes(200), attributes,
+    currency: z.string().regex(/^[A-Z]{3}$/), price: z.number().finite().nonnegative(), stock: count, images:z.array(httpsURL).max(40).optional() }).strict()).max(256).optional(),
+}).strict().superRefine((product,ctx)=>{
+ const ids=new Set<string>(),skus=new Set<string>();let items=Object.keys(product.attributes??{}).length+product.images.length+(product.variants?.length??0);
+ product.variants?.forEach((variant,index)=>{const sku=variant.sku.trim();if(ids.has(variant.sourceId)||sku&&skus.has(sku))ctx.addIssue({code:"custom",path:["variants",index,"sku"],message:"变体标识和SKU不能重复"});ids.add(variant.sourceId);if(sku)skus.add(sku);items+=Object.keys(variant.attributes).length+(variant.images?.length??0)});
+ if(items>1024)ctx.addIssue({code:"custom",path:["variants"],message:"规格与图片资料总量超过保存限制"});
+ if(new TextEncoder().encode(JSON.stringify(product)).length>COLLECTION_MAX_BYTES)ctx.addIssue({code:"custom",message:"商品资料超过2MB保存限制"});
+});
 export const mediaHashSchema=z.string().regex(/^[a-f0-9]{64}$/);
 export const mediaImageSchema=z.object({hash:mediaHashSchema,bytes:z.number().int().positive().max(3*1024*1024),url:httpsURL,mediaType:z.enum(["image/jpeg","image/png"]),width:z.number().int().positive().max(10000),height:z.number().int().positive().max(10000)}).strict().refine(v=>v.width*v.height<=40000000);
 export const importPreviewSchema = z.object({products: z.array(ownProductSchema).min(1).max(200)}).strict();

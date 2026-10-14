@@ -16,6 +16,9 @@ import {
 } from "@/lib/api/store-connection";
 
 export function SheinAuthorizationCallback() {
+  return <OfficialAuthorizationCallback platform="shein"/>;
+}
+export function OfficialAuthorizationCallback({platform}:{platform:"shein"|"tiktokshop"}) {
   const context = useWorkbenchContext();
   const captured = useRef(false);
   const busy = useRef(false);
@@ -40,13 +43,15 @@ export function SheinAuthorizationCallback() {
     const query = new URLSearchParams(window.location.search);
     // Remove one-time provider parameters before rendering any navigation.
     window.history.replaceState(null, "", window.location.pathname);
-    const original = readStoreAuthorization();
+    const original = readStoreAuthorization(platform);
     const validKeys = [...query.keys()].every(
       (key) =>
-        ["appid", "tempToken", "state"].includes(key) &&
+        (platform==="tiktokshop" ? ["code","state","error"] : ["appid", "tempToken", "state"]).includes(key) &&
         query.getAll(key).length === 1,
     );
-    const input = officialConnectionCompleteSchema.safeParse({
+    const input = officialConnectionCompleteSchema.safeParse(platform==="tiktokshop" ? {
+      attemptId:original?.attemptId,appId:original?.appId,state:query.get("state"),authCode:query.get("code"),
+    } : {
       attemptId: original?.attemptId,
       appId: query.get("appid"),
       state: query.get("state"),
@@ -56,7 +61,7 @@ export function SheinAuthorizationCallback() {
       !original ||
       !validKeys ||
       !input.success ||
-      Date.parse(original.expiresAt) <= Date.now()
+      Date.parse(original.expiresAt) <= Date.now() || platform==="tiktokshop" && query.has("error") && query.get("error")!=="auth_denied"
     );
     if (valid && input.success) callback.current = input.data;
     // Publish the captured browser snapshot after the imperative URL scrub.
@@ -71,7 +76,7 @@ export function SheinAuthorizationCallback() {
           : "本次授权返回无法确认或已过期。请回到店铺重新发起官方授权。",
       );
     });
-  }, []);
+  }, [platform]);
   const matches =
     !!pending &&
     context.user?.id === pending.expectedUserId &&
@@ -123,7 +128,7 @@ export function SheinAuthorizationCallback() {
       if (result.connectionStatus === "connected") {
         callback.current = null;
         setHasCallback(false);
-        clearStoreAuthorization(pending);
+        clearStoreAuthorization(pending,platform);
         setDone(true);
         setMessage("官方连接已完成。可以回到店铺开通服务。");
       } else {
@@ -150,7 +155,7 @@ export function SheinAuthorizationCallback() {
   }
   return (
     <main className="mx-auto max-w-xl space-y-5 p-8">
-      <h1 className="text-2xl font-semibold">SHEIN 官方授权返回</h1>
+      <h1 className="text-2xl font-semibold">{platform==="tiktokshop"?"TikTok Shop":"SHEIN"} 官方授权返回</h1>
       <p role="status">{message}</p>
       {pending && !matches ? (
         <p role="alert">

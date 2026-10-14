@@ -14,7 +14,7 @@ import (
 	"strings"
 	app "task-processor/internal/app/storeobservations"
 	"task-processor/internal/httproute"
-	o "task-processor/internal/marketplace/shein/observations"
+	o "task-processor/internal/storecenter/observations"
 	"time"
 	"unicode/utf8"
 )
@@ -157,6 +157,11 @@ func listQuery(r *http.Request, kind o.Kind) (o.Query, error) {
 			return q, o.ErrInvalid
 		}
 		switch key {
+		case "platform":
+			if v[0] != "shein" && (kind != o.Products || v[0] != "temu") {
+				return q, o.ErrInvalid
+			}
+			q.Platform = v[0]
 		case "storeId":
 			if !o.ValidID(v[0]) {
 				return q, o.ErrInvalid

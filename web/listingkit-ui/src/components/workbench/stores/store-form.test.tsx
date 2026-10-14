@@ -30,11 +30,11 @@ const STORE = {
 describe("StoreForm", () => {
   afterEach(() => { vi.restoreAllMocks(); router.push.mockReset(); router.replace.mockReset(); create.mutate.mockReset(); create.retryLast.mockReset(); create.canRetryLast = false; create.isPending = false; update.mutate.mockReset(); update.isPending = false; context.effectiveOrganization = { id: "org-a", name: "企业 A", roles: [], permissions: [] }; context.isSwitching = false; context.registerOrganizationSwitchGuard.mockClear(); });
 
-  it("validates and canonicalizes create input while keeping SHEIN trusted and read-only", async () => {
+  it("validates and canonicalizes create input with SHEIN selected initially", async () => {
     const user = userEvent.setup();
     render(<StoreForm mode="create" />);
     expect(screen.getByRole("heading", { name: "在企业 A 新建店铺" })).toBeInTheDocument();
-    expect(screen.getByDisplayValue("SHEIN")).toBeDisabled();
+    expect(screen.getByRole("combobox", {name:"平台"})).toHaveValue("shein");
     await user.click(screen.getByRole("button", { name: "创建店铺" }));
     expect(await screen.findByText("请填写店铺名称")).toBeInTheDocument();
     await user.type(screen.getByLabelText("店铺名称"), "  新店铺  ");
@@ -42,6 +42,22 @@ describe("StoreForm", () => {
     await user.click(screen.getByRole("button", { name: "创建店铺" }));
     expect(create.mutate).toHaveBeenCalledWith({ name: "新店铺", platform: "shein", region: "CN" }, expect.any(Object));
     expect(document.body.textContent).not.toMatch(/username|password|token|secret|cookie|credential/i);
+  });
+
+  it("creates a TEMU record and keeps its platform immutable when editing", async () => {
+    const user=userEvent.setup();
+    const view=render(<StoreForm mode="create"/>);
+    await user.selectOptions(screen.getByRole("combobox", {name:"平台"}), "temu");
+    await user.type(screen.getByLabelText("店铺名称"), "TEMU 店铺");
+    await user.type(screen.getByLabelText("区域"), "CN");
+    await user.click(screen.getByRole("button", {name:"创建店铺"}));
+    expect(create.mutate).toHaveBeenCalledWith({name:"TEMU 店铺", platform:"temu", region:"CN"}, expect.any(Object));
+    view.unmount();
+    render(<StoreForm mode="edit" store={{...STORE,platform:"temu"}}/>);
+    expect(screen.getByLabelText("平台")).toHaveValue("TEMU");
+    expect(screen.getByLabelText("平台")).toBeDisabled();
+    await user.click(screen.getByRole("button", {name:"保存更改"}));
+    expect(update.mutate).toHaveBeenCalledWith({id:STORE.id,version:3,input:{name:STORE.name,region:STORE.region}},expect.any(Object));
   });
 
   it("blocks Store form submission for the full Organization switch", async () => {

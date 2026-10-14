@@ -31,11 +31,12 @@ func (p operationModulePolicy) RoleModules(_ context.Context, org string, _ []st
 
 type operationStoreCheck struct {
 	storecenter.ProductExecutionReader
-	err error
+	err      error
+	platform storecenter.Platform
 }
 
 func (s operationStoreCheck) ReadProductExecution(context.Context, storecenter.ProductExecutionSubject, string, storecenter.ProductExecutionAuthorizer, time.Time) (storecenter.ProductExecutionMaterial, error) {
-	return storecenter.ProductExecutionMaterial{}, s.err
+	return storecenter.ProductExecutionMaterial{Platform: s.platform}, s.err
 }
 
 type unusedOperationOwner struct{}
@@ -81,11 +82,13 @@ func TestOperationActivitiesStopOnActualAgentOrStoreDenialAndRetryOutages(t *tes
 		policyUnavailable bool
 		storeError        error
 		stopped           bool
+		platform          storecenter.Platform
 	}{
-		{"Agent grant revoked while Supply remains", preparation.OperationOptimize, []string{"supply-mine"}, false, nil, true},
-		{"Agent policy unavailable", preparation.OperationOptimize, []string{"supply-mine", "acquisition"}, true, nil, false},
-		{"individual Store revoked", preparation.OperationUpload, []string{"supply-mine"}, false, storecenter.ErrNotFound, true},
-		{"Store unavailable", preparation.OperationUpload, []string{"supply-mine"}, false, storecenter.ErrDependencyUnavailable, false},
+		{"Agent grant revoked while Supply remains", preparation.OperationOptimize, []string{"supply-mine"}, false, nil, true, storecenter.PlatformShein},
+		{"Agent policy unavailable", preparation.OperationOptimize, []string{"supply-mine", "acquisition"}, true, nil, false, storecenter.PlatformShein},
+		{"individual Store revoked", preparation.OperationUpload, []string{"supply-mine"}, false, storecenter.ErrNotFound, true, storecenter.PlatformShein},
+		{"Store unavailable", preparation.OperationUpload, []string{"supply-mine"}, false, storecenter.ErrDependencyUnavailable, false, storecenter.PlatformShein},
+		{"TEMU title optimization has no admitted consumer", preparation.OperationOptimize, []string{"supply-mine", "acquisition"}, false, nil, true, storecenter.PlatformTemu},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
@@ -108,7 +111,7 @@ func TestOperationActivitiesStopOnActualAgentOrStoreDenialAndRetryOutages(t *tes
 			}
 			service, err := preparation.NewOperationService(&preparation.Service{}, unusedOperationOwner{}, repo)
 			require.NoError(t, err)
-			_, err = service.WithExecution(OperationExecutionAuthorization{OrganizationExecutionAuthorizer: authority, Stores: operationStoreCheck{err: tc.storeError}})
+			_, err = service.WithExecution(OperationExecutionAuthorization{OrganizationExecutionAuthorizer: authority, Stores: operationStoreCheck{err: tc.storeError, platform: tc.platform}})
 			require.NoError(t, err)
 			optimizer := &authorizationOptimizer{}
 			activities := OperationActivities{Operations: service, Repository: repo, Optimizer: optimizer}

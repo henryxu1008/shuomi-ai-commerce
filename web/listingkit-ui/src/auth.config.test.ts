@@ -112,7 +112,7 @@ describe("ListingKit Auth.js canonical ZITADEL identity", () => {
 
   it.each([
     "/workbench/stores?tab=active",
-    "https://console.shuomiai.com/listing-kits/canonical-products",
+    "https://console.shuomiai.com/workbench/supply/products/product-1",
   ])("keeps an allowlisted Auth.js return target %s", async (url) => {
     vi.stubEnv("ZITADEL_ISSUER_URL", "https://auth.shuomiai.com");
     vi.stubEnv("ZITADEL_CLIENT_ID", "listingkit-client");
@@ -133,6 +133,8 @@ describe("ListingKit Auth.js canonical ZITADEL identity", () => {
     "/\\evil.example/workbench",
     "https://console.shuomiai.com/admin",
     "https://evil.example/workbench",
+    "https://console.shuomiai.com/listing-kits/canonical-products",
+    "/listing-kits/old-task/workspace",
   ])("rejects an unsafe Auth.js return target %s", async (url) => {
     vi.stubEnv("ZITADEL_ISSUER_URL", "https://auth.shuomiai.com");
     vi.stubEnv("ZITADEL_CLIENT_ID", "listingkit-client");

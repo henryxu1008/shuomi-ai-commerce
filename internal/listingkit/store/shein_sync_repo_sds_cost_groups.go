@@ -8,10 +8,10 @@ import (
 
 	"gorm.io/gorm"
 
-	"task-processor/internal/listingkit"
+	"task-processor/internal/listingkit/sheinsync"
 )
 
-func (r *GormSheinSyncRepository) UpsertSDSCostGroup(ctx context.Context, record *listingkit.SheinSDSCostGroupRecord) error {
+func (r *GormSheinSyncRepository) UpsertSDSCostGroup(ctx context.Context, record *sheinsync.SheinSDSCostGroupRecord) error {
 	if record == nil {
 		return nil
 	}
@@ -25,7 +25,7 @@ func (r *GormSheinSyncRepository) UpsertSDSCostGroup(ctx context.Context, record
 		row.CreatedAt = now
 	}
 
-	var existing listingkit.SheinSDSCostGroupRecord
+	var existing sheinsync.SheinSDSCostGroupRecord
 	err := r.db.WithContext(ctx).
 		Where("tenant_id = ? AND store_id = ? AND group_key = ?", row.TenantID, row.StoreID, row.GroupKey).
 		First(&existing).Error
@@ -35,7 +35,7 @@ func (r *GormSheinSyncRepository) UpsertSDSCostGroup(ctx context.Context, record
 			row.GroupLabel = existing.GroupLabel
 		}
 		return r.db.WithContext(ctx).
-			Model(&listingkit.SheinSDSCostGroupRecord{}).
+			Model(&sheinsync.SheinSDSCostGroupRecord{}).
 			Where("id = ?", existing.ID).
 			Updates(map[string]any{
 				"group_label":       row.GroupLabel,
@@ -49,9 +49,9 @@ func (r *GormSheinSyncRepository) UpsertSDSCostGroup(ctx context.Context, record
 	}
 }
 
-func (r *GormSheinSyncRepository) ListSDSCostGroups(ctx context.Context, query *listingkit.SheinSDSCostGroupQuery) ([]listingkit.SheinSDSCostGroupRecord, int64, error) {
+func (r *GormSheinSyncRepository) ListSDSCostGroups(ctx context.Context, query *sheinsync.SheinSDSCostGroupQuery) ([]sheinsync.SheinSDSCostGroupRecord, int64, error) {
 	page, pageSize := normalizeSheinSyncPage(0, 0)
-	db := r.db.WithContext(ctx).Model(&listingkit.SheinSDSCostGroupRecord{})
+	db := r.db.WithContext(ctx).Model(&sheinsync.SheinSDSCostGroupRecord{})
 	if query != nil {
 		page, pageSize = normalizeSheinSyncPage(query.Page, query.PageSize)
 		if query.TenantID > 0 {
@@ -69,7 +69,7 @@ func (r *GormSheinSyncRepository) ListSDSCostGroups(ctx context.Context, query *
 	if err := db.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	var rows []listingkit.SheinSDSCostGroupRecord
+	var rows []sheinsync.SheinSDSCostGroupRecord
 	if err := db.Order("group_key ASC, id ASC").
 		Offset((page - 1) * pageSize).
 		Limit(pageSize).

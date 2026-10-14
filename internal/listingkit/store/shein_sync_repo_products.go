@@ -7,17 +7,17 @@ import (
 
 	"gorm.io/gorm"
 
-	"task-processor/internal/listingkit"
+	"task-processor/internal/listingkit/sheinsync"
 )
 
-func (r *GormSheinSyncRepository) UpsertSyncedProducts(ctx context.Context, records []*listingkit.SheinSyncedProductRecord) error {
+func (r *GormSheinSyncRepository) UpsertSyncedProducts(ctx context.Context, records []*sheinsync.SheinSyncedProductRecord) error {
 	for _, record := range records {
 		if record == nil {
 			continue
 		}
 
 		row := *record
-		listingkit.ApplyEffectiveCostPrice(&row)
+		sheinsync.ApplyEffectiveCostPrice(&row)
 		now := time.Now().UTC()
 		row.UpdatedAt = now
 		if row.CreatedAt.IsZero() {
@@ -28,7 +28,7 @@ func (r *GormSheinSyncRepository) UpsertSyncedProducts(ctx context.Context, reco
 		}
 
 		updates := sheinSyncedProductAssignments(row)
-		var existing listingkit.SheinSyncedProductRecord
+		var existing sheinsync.SheinSyncedProductRecord
 		err := r.db.WithContext(ctx).
 			Where("tenant_id = ? AND store_id = ? AND skc_name = ?", row.TenantID, row.StoreID, row.SKCName).
 			First(&existing).Error
@@ -39,14 +39,14 @@ func (r *GormSheinSyncRepository) UpsertSyncedProducts(ctx context.Context, reco
 			}
 			updates = sheinSyncedProductAssignments(row)
 			if updateErr := r.db.WithContext(ctx).
-				Model(&listingkit.SheinSyncedProductRecord{}).
+				Model(&sheinsync.SheinSyncedProductRecord{}).
 				Where("id = ?", existing.ID).
 				Updates(updates).Error; updateErr != nil {
 				return updateErr
 			}
 		case errors.Is(err, gorm.ErrRecordNotFound):
 			if createErr := r.db.WithContext(ctx).
-				Model(&listingkit.SheinSyncedProductRecord{}).
+				Model(&sheinsync.SheinSyncedProductRecord{}).
 				Create(updates).Error; createErr != nil {
 				return createErr
 			}
@@ -57,9 +57,9 @@ func (r *GormSheinSyncRepository) UpsertSyncedProducts(ctx context.Context, reco
 	return nil
 }
 
-func (r *GormSheinSyncRepository) ListSyncedProducts(ctx context.Context, query *listingkit.SheinSyncedProductQuery) ([]listingkit.SheinSyncedProductRecord, int64, error) {
+func (r *GormSheinSyncRepository) ListSyncedProducts(ctx context.Context, query *sheinsync.SheinSyncedProductQuery) ([]sheinsync.SheinSyncedProductRecord, int64, error) {
 	page, pageSize := sheinSyncQueryPage(query)
-	db := r.db.WithContext(ctx).Model(&listingkit.SheinSyncedProductRecord{})
+	db := r.db.WithContext(ctx).Model(&sheinsync.SheinSyncedProductRecord{})
 	db = applySheinSyncedProductFilters(db, query)
 
 	var total int64
@@ -67,7 +67,7 @@ func (r *GormSheinSyncRepository) ListSyncedProducts(ctx context.Context, query 
 		return nil, 0, err
 	}
 
-	var rows []listingkit.SheinSyncedProductRecord
+	var rows []sheinsync.SheinSyncedProductRecord
 	if err := db.
 		Order("created_at DESC, id DESC").
 		Offset((page - 1) * pageSize).
@@ -78,8 +78,8 @@ func (r *GormSheinSyncRepository) ListSyncedProducts(ctx context.Context, query 
 	return rows, total, nil
 }
 
-func (r *GormSheinSyncRepository) GetSyncedProductByID(ctx context.Context, productID int64) (*listingkit.SheinSyncedProductRecord, error) {
-	var row listingkit.SheinSyncedProductRecord
+func (r *GormSheinSyncRepository) GetSyncedProductByID(ctx context.Context, productID int64) (*sheinsync.SheinSyncedProductRecord, error) {
+	var row sheinsync.SheinSyncedProductRecord
 	if err := r.db.WithContext(ctx).Where("id = ?", productID).First(&row).Error; err != nil {
 		return nil, err
 	}
@@ -87,17 +87,17 @@ func (r *GormSheinSyncRepository) GetSyncedProductByID(ctx context.Context, prod
 }
 
 func (r *GormSheinSyncRepository) UpdateManualCostPrice(ctx context.Context, productID int64, manualCostPrice *float64) error {
-	var row listingkit.SheinSyncedProductRecord
+	var row sheinsync.SheinSyncedProductRecord
 	if err := r.db.WithContext(ctx).Where("id = ?", productID).First(&row).Error; err != nil {
 		return err
 	}
 
 	row.ManualCostPrice = cloneFloat64Ptr(manualCostPrice)
-	listingkit.ApplyEffectiveCostPrice(&row)
+	sheinsync.ApplyEffectiveCostPrice(&row)
 	row.UpdatedAt = time.Now().UTC()
 
 	result := r.db.WithContext(ctx).
-		Model(&listingkit.SheinSyncedProductRecord{}).
+		Model(&sheinsync.SheinSyncedProductRecord{}).
 		Where("id = ?", productID).
 		Updates(map[string]any{
 			"manual_cost_price":    row.ManualCostPrice,
@@ -116,7 +116,7 @@ func (r *GormSheinSyncRepository) UpdateManualCostPrice(ctx context.Context, pro
 
 func (r *GormSheinSyncRepository) UpdateSyncedProductInventoryAttributes(ctx context.Context, tenantID, storeID int64, skcName string, attributes string) (int, error) {
 	result := r.db.WithContext(ctx).
-		Model(&listingkit.SheinSyncedProductRecord{}).
+		Model(&sheinsync.SheinSyncedProductRecord{}).
 		Where("tenant_id = ? AND store_id = ? AND skc_name = ?", tenantID, storeID, skcName).
 		Updates(map[string]any{
 			"inventory_sync_attributes": attributes,
@@ -131,7 +131,7 @@ func (r *GormSheinSyncRepository) UpdateSyncedProductInventoryAttributes(ctx con
 func (r *GormSheinSyncRepository) MarkMissingSyncedProductsInactive(ctx context.Context, tenantID, storeID int64, activeSKCNames []string) error {
 	now := time.Now().UTC()
 	db := r.db.WithContext(ctx).
-		Model(&listingkit.SheinSyncedProductRecord{}).
+		Model(&sheinsync.SheinSyncedProductRecord{}).
 		Where("tenant_id = ? AND store_id = ?", tenantID, storeID)
 	if len(activeSKCNames) > 0 {
 		db = db.Where("skc_name NOT IN ?", activeSKCNames)
@@ -144,7 +144,7 @@ func (r *GormSheinSyncRepository) MarkMissingSyncedProductsInactive(ctx context.
 	}).Error
 }
 
-func sheinSyncedProductAssignments(row listingkit.SheinSyncedProductRecord) map[string]any {
+func sheinSyncedProductAssignments(row sheinsync.SheinSyncedProductRecord) map[string]any {
 	return map[string]any{
 		"tenant_id":                 row.TenantID,
 		"store_id":                  row.StoreID,

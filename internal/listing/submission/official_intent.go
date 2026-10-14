@@ -11,6 +11,7 @@ import (
 	record "task-processor/internal/listing/record/target"
 	"task-processor/internal/marketplace/shein/goods"
 	model "task-processor/internal/marketplace/shein/model"
+	temugoods "task-processor/internal/marketplace/temu/goods"
 	"task-processor/internal/product/collection"
 	"task-processor/internal/storecenter"
 )
@@ -27,6 +28,10 @@ type OfficialIntent struct {
 	PayloadFingerprint string                             `json:"payload_fingerprint"`
 	InputHash          string                             `json:"input_hash"`
 	Image              *goods.OfficialImageObservation    `json:"image,omitempty"`
+	TemuImage          *temugoods.ImageObservation        `json:"temuImage,omitempty"`
+	TemuImages         []TemuImageReference               `json:"temuImages,omitempty"`
+	TemuRenewalFrom    string                             `json:"temuRenewalFrom,omitempty"`
+	TikTok             *TikTokStageIntent                 `json:"tiktok,omitempty"`
 	CreatedAt          time.Time                          `json:"created_at"`
 }
 type OfficialIntentCommit struct {
@@ -95,6 +100,12 @@ func PrepareOfficialIntent(ctx context.Context, sourceProof preparation.Authoriz
 	return OfficialIntentCommit{source: sourceProof, intent: body, hash: collection.Digest(body)}, nil
 }
 func OfficialIntentInputHash(value OfficialIntent) string {
+	if value.Target.Platform == "tiktokshop" {
+		return collection.Digest([]any{value.Kind, value.Owner, value.RecordID, value.RecordHash, value.Source, value.Target, value.Binding, value.PayloadFingerprint, value.TikTok})
+	}
+	if value.Target.Platform == "temu" {
+		return collection.Digest([]any{value.Kind, value.Owner, value.RecordID, value.RecordHash, value.Source, value.Target, value.Binding, value.PayloadFingerprint, value.TemuImage, value.TemuImages, value.TemuRenewalFrom})
+	}
 	// Canonical image effects can be reused by another authorized source with
 	// identical bytes/input and the same merchant. First-origin audit is retained.
 	if value.Kind == "image" {
@@ -104,9 +115,18 @@ func OfficialIntentInputHash(value OfficialIntent) string {
 }
 func ValidateOfficialIntent(value OfficialIntent) error {
 	if !authidentity.IsBoundedIdentifier(value.Key) || value.Owner.Validate() != nil || !collection.ValidID(value.RecordID) || !isExecutionDigest(value.RecordHash) || !collection.ValidID(value.Source.ID) ||
-		value.Target.Platform != "shein" || !collection.ValidID(value.Target.StoreID) || value.Binding.OrganizationID != value.Owner.OrganizationID || value.Binding.StoreID != value.Target.StoreID || value.Binding.Site != "shein-us" ||
+		!validOfficialBindingForTarget(value.Binding, value.Target) || !collection.ValidID(value.Target.StoreID) || value.Binding.OrganizationID != value.Owner.OrganizationID ||
 		value.Binding.StoreVersion < 1 || value.Binding.ConnectionRevision < 1 || !value.Binding.ValidApplication() || !isExecutionDigest(value.Binding.SupplierIdentityHash) || value.Binding.ServiceExpiresAt.IsZero() ||
 		!isExecutionDigest(value.PayloadFingerprint) || value.CreatedAt.IsZero() || OfficialIntentInputHash(value) != value.InputHash {
+		return ErrExecutionEvidenceRequired
+	}
+	if value.Target.Platform == "temu" {
+		return validateTemuIntent(value)
+	}
+	if value.Target.Platform == "tiktokshop" {
+		return validateTikTokIntent(value)
+	}
+	if value.TikTok != nil || value.TemuImage != nil || len(value.TemuImages) > 0 || value.TemuRenewalFrom != "" {
 		return ErrExecutionEvidenceRequired
 	}
 	var subject string

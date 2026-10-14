@@ -8,19 +8,19 @@ vi.mock("server-only", () => ({}));
 import { generateMetadata } from "./layout";
 
 describe("application metadata", () => {
-  it("keeps the application shell branded as ListingKit", async () => {
+  it("brands the current application shell as Sumi", async () => {
     vi.mocked(headers).mockResolvedValue(new Headers({ host: "listingkit.example" }));
 
     const metadata = await generateMetadata();
 
-    expect(metadata.title).toBe("ListingKit | 一份资料，多平台增长");
+    expect(metadata.title).toBe("硕米智能引擎 | AI 电商智能操作系统");
     expect(metadata.openGraph).toMatchObject({
-      title: "ListingKit | 一份资料，多平台增长",
+      title: "硕米智能引擎 | AI 电商智能操作系统",
       images: ["https://listingkit.example/og-v2.png"],
     });
   });
 
-  it("applies Sumi metadata only to the public home page", async () => {
+  it("keeps the approved public home page metadata", async () => {
     const homePage = await import("./page");
 
     expect(homePage.metadata).toMatchObject({

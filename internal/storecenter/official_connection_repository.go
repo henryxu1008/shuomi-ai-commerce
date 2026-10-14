@@ -2,7 +2,10 @@ package storecenter
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"math"
 	"time"
@@ -25,39 +28,58 @@ type officialConnectionRow struct {
 func (officialConnectionRow) TableName() string { return "workbench_store_connections" }
 
 type officialAttemptRow struct {
-	OrganizationID    string    `gorm:"primaryKey;size:200;not null"`
-	AttemptID         string    `gorm:"primaryKey;type:char(36);not null"`
-	StoreID           string    `gorm:"type:char(36);not null"`
-	ActorID           string    `gorm:"size:200;not null"`
-	MemberID          string    `gorm:"size:200;not null"`
-	AppID             string    `gorm:"size:200;not null"`
-	AppVersion        string    `gorm:"size:200;not null"`
-	StateHash         string    `gorm:"size:64;not null"`
-	StoreVersion      int64     `gorm:"not null"`
-	ConnectionVersion int64     `gorm:"not null"`
-	State             string    `gorm:"size:32;not null"`
-	KeyID             string    `gorm:"size:128;not null"`
-	Ciphertext        string    `gorm:"type:text;not null"`
-	ExpiresAt         time.Time `gorm:"not null"`
-	CreatedAt         time.Time `gorm:"not null"`
-	UpdatedAt         time.Time `gorm:"not null"`
+	OrganizationID      string    `gorm:"primaryKey;size:200;not null"`
+	AttemptID           string    `gorm:"primaryKey;type:char(36);not null"`
+	StoreID             string    `gorm:"type:char(36);not null"`
+	ActorID             string    `gorm:"size:200;not null"`
+	MemberID            string    `gorm:"size:200;not null"`
+	AppID               string    `gorm:"size:200;not null"`
+	AppVersion          string    `gorm:"size:200;not null"`
+	Platform            string    `gorm:"size:32;not null"`
+	IdentityPartition   string    `gorm:"size:16;not null"`
+	AuthorizationMethod string    `gorm:"size:32;not null"`
+	PrivateInputDigest  string    `gorm:"size:64;not null"`
+	VerificationJSON    string    `gorm:"type:text;not null"`
+	StateHash           string    `gorm:"size:64;not null"`
+	StoreVersion        int64     `gorm:"not null"`
+	ConnectionVersion   int64     `gorm:"not null"`
+	State               string    `gorm:"size:32;not null"`
+	KeyID               string    `gorm:"size:128;not null"`
+	Ciphertext          string    `gorm:"type:text;not null"`
+	ExpiresAt           time.Time `gorm:"not null"`
+	CreatedAt           time.Time `gorm:"not null"`
+	UpdatedAt           time.Time `gorm:"not null"`
 }
 
 func (officialAttemptRow) TableName() string { return "workbench_store_connection_attempts" }
 
 type officialMerchantBinding struct {
-	AppID          string `gorm:"primaryKey;size:200;not null"`
-	OpenKeyID      string `gorm:"primaryKey;size:200;not null"`
+	IdentityHash   string `gorm:"primaryKey;size:64;not null"`
+	Platform       string `gorm:"size:32;not null"`
+	AppID          string `gorm:"size:200;not null"`
+	OpenKeyID      string `gorm:"size:200;not null"`
 	OrganizationID string `gorm:"size:200;not null"`
 	StoreID        string `gorm:"type:char(36);not null"`
 }
 
 func (officialMerchantBinding) TableName() string { return "workbench_store_merchant_bindings" }
 func attemptValue(a officialAttemptRow) OfficialConnectionAttempt {
-	return OfficialConnectionAttempt{OrganizationID: a.OrganizationID, StoreID: a.StoreID, AttemptID: a.AttemptID, ActorID: a.ActorID, MemberID: a.MemberID, AppID: a.AppID, AppVersion: a.AppVersion, StateHash: a.StateHash, StoreVersion: a.StoreVersion, ConnectionVersion: a.ConnectionVersion, ExpiresAt: a.ExpiresAt, State: a.State, KeyID: a.KeyID, Ciphertext: a.Ciphertext}
+	return OfficialConnectionAttempt{OrganizationID: a.OrganizationID, StoreID: a.StoreID, AttemptID: a.AttemptID, ActorID: a.ActorID, MemberID: a.MemberID, AppID: a.AppID, AppVersion: a.AppVersion, StateHash: a.StateHash, StoreVersion: a.StoreVersion, ConnectionVersion: a.ConnectionVersion, ExpiresAt: a.ExpiresAt, State: a.State, KeyID: a.KeyID, Ciphertext: a.Ciphertext, Platform: Platform(a.Platform), IdentityPartition: OfficialIdentityPartition(a.IdentityPartition), AuthorizationMethod: OfficialAuthorizationMethod(a.AuthorizationMethod), PrivateInputDigest: a.PrivateInputDigest, VerificationJSON: a.VerificationJSON}
+}
+
+func sameOfficialAttemptBinding(original officialAttemptRow, a OfficialConnectionAttempt) bool {
+	return original.OrganizationID == a.OrganizationID && original.StoreID == a.StoreID && original.AttemptID == a.AttemptID && original.ActorID == a.ActorID && original.MemberID == a.MemberID && original.AppID == a.AppID && original.AppVersion == a.AppVersion && original.Platform == string(a.Platform) && original.IdentityPartition == string(a.IdentityPartition) && original.AuthorizationMethod == string(a.AuthorizationMethod) && original.StateHash == a.StateHash && original.StoreVersion == a.StoreVersion && original.ConnectionVersion == a.ConnectionVersion
 }
 func connectionView(c officialConnectionRow, a officialAttemptRow) OfficialConnectionView {
-	return OfficialConnectionView{AppID: a.AppID, AppRevision: a.AppVersion, AttemptID: c.AttemptID, State: a.State, Status: ConnectionStatus(c.Status), Version: c.Version, ObservedAt: c.ObservedAt}
+	view := OfficialConnectionView{Platform: Platform(a.Platform), IdentityPartition: OfficialIdentityPartition(a.IdentityPartition), AuthorizationMethod: OfficialAuthorizationMethod(a.AuthorizationMethod), AppID: a.AppID, AppRevision: a.AppVersion, AttemptID: c.AttemptID, State: a.State, Status: ConnectionStatus(c.Status), Version: c.Version, ObservedAt: c.ObservedAt}
+	if a.Platform == string(PlatformTemu) && a.VerificationJSON != "" {
+		var facts OfficialVerificationFacts
+		if json.Unmarshal([]byte(a.VerificationJSON), &facts) == nil {
+			view.MerchantIdentityHash, _ = facts.MerchantIdentityHash()
+			view.Mode, view.RegionID, view.CredentialExpiresAt = facts.Mode, facts.RegionID, &facts.ExpiresAt
+		}
+	}
+	return view
 }
 func validConnectionCommand(c OfficialConnectionCommand) bool {
 	return c.OrganizationID != "" && len(c.OrganizationID) <= MaxOrganizationIDBytes && uuid.Validate(c.StoreID) == nil && uuid.Validate(c.AttemptID) == nil && c.ExpectedStoreVersion > 0 && c.ExpectedStoreVersion < math.MaxInt64
@@ -80,6 +102,9 @@ func (r *MemberScopedStoreRepository) BeginOfficialConnection(ctx context.Contex
 		}
 		if store.Version != c.ExpectedStoreVersion {
 			return ErrVersionConflict
+		}
+		if store.Platform != string(app.Platform) || app.Platform == PlatformTemu && (app.AuthorizationMethod != AuthorizationManualToken || app.IdentityPartition != c.IdentityPartition) || app.Platform == PlatformShein && (app.AuthorizationMethod != AuthorizationCallback || app.IdentityPartition != "") {
+			return ErrNotFound
 		}
 		var existing officialAttemptRow
 		if err := tx.Where("organization_id = ? AND attempt_id = ?", c.OrganizationID, c.AttemptID).Take(&existing).Error; err == nil {
@@ -111,7 +136,7 @@ func (r *MemberScopedStoreRepository) BeginOfficialConnection(ctx context.Contex
 		if err := updateConnectionRef(tx, store, c.AttemptID, access.ActorID, now); err != nil {
 			return err
 		}
-		row := officialAttemptRow{OrganizationID: c.OrganizationID, StoreID: c.StoreID, AttemptID: c.AttemptID, ActorID: access.ActorID, MemberID: access.MemberID, AppID: app.AppID, AppVersion: app.Version, StateHash: stateHash, StoreVersion: store.Version + 1, ConnectionVersion: next.Version, State: "awaiting_consent", ExpiresAt: now.UTC().Add(5 * time.Minute), CreatedAt: now.UTC(), UpdatedAt: now.UTC()}
+		row := officialAttemptRow{OrganizationID: c.OrganizationID, StoreID: c.StoreID, AttemptID: c.AttemptID, ActorID: access.ActorID, MemberID: access.MemberID, AppID: app.AppID, AppVersion: app.Version, Platform: string(app.Platform), IdentityPartition: string(app.IdentityPartition), AuthorizationMethod: string(app.AuthorizationMethod), StateHash: stateHash, StoreVersion: store.Version + 1, ConnectionVersion: next.Version, State: "awaiting_consent", ExpiresAt: now.UTC().Add(5 * time.Minute), CreatedAt: now.UTC(), UpdatedAt: now.UTC()}
 		if err := tx.Create(&row).Error; err != nil {
 			return err
 		}
@@ -192,6 +217,9 @@ func (r *MemberScopedStoreRepository) ClaimOfficialExchange(ctx context.Context,
 		if a.StoreID != storeID || a.AppID != appID || a.AppVersion != appVersion || len(stateHash) != 64 || subtle.ConstantTimeCompare([]byte(a.StateHash), []byte(stateHash)) != 1 {
 			return ErrNotFound
 		}
+		if a.AuthorizationMethod != string(AuthorizationCallback) || a.Platform != string(PlatformShein) {
+			return ErrNotFound
+		}
 		if a.State == "awaiting_consent" {
 			if !now.Before(a.ExpiresAt) {
 				return ErrOfficialAuthorizationRejected
@@ -226,12 +254,17 @@ func (r *MemberScopedStoreRepository) SaveOfficialCredential(ctx context.Context
 		if attemptValue(original) != a || original.State != "exchange_dispatched" {
 			return ErrNotFound
 		}
-		binding := officialMerchantBinding{AppID: a.AppID, OpenKeyID: openKey, OrganizationID: a.OrganizationID, StoreID: a.StoreID}
+		if original.Platform != string(PlatformShein) || original.AuthorizationMethod != string(AuthorizationCallback) {
+			return ErrNotFound
+		}
+		identity, _ := json.Marshal([]string{string(PlatformShein), a.AppID, openKey})
+		hash := sha256.Sum256(identity)
+		binding := officialMerchantBinding{IdentityHash: hex.EncodeToString(hash[:]), Platform: string(PlatformShein), AppID: a.AppID, OpenKeyID: openKey, OrganizationID: a.OrganizationID, StoreID: a.StoreID}
 		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&binding).Error; err != nil {
 			return err
 		}
 		var existing officialMerchantBinding
-		if err := tx.Where("app_id = ? AND open_key_id = ?", a.AppID, openKey).Take(&existing).Error; err != nil {
+		if err := tx.Where("identity_hash = ?", binding.IdentityHash).Take(&existing).Error; err != nil {
 			return err
 		}
 		if existing.OrganizationID != a.OrganizationID || existing.StoreID != a.StoreID {
@@ -278,12 +311,12 @@ func (r *MemberScopedStoreRepository) ReadOfficialAttemptBinding(ctx context.Con
 		if original.StoreID != storeID {
 			return ErrNotFound
 		}
-		result = OfficialAttemptBinding{AppID: original.AppID, AppVersion: original.AppVersion}
+		result = OfficialAttemptBinding{AppID: original.AppID, AppVersion: original.AppVersion, Platform: Platform(original.Platform), IdentityPartition: OfficialIdentityPartition(original.IdentityPartition)}
 		return nil
 	})
 	return result, err
 }
-func (r *MemberScopedStoreRepository) CompleteOfficialConnection(ctx context.Context, a OfficialConnectionAttempt, status ConnectionStatus, now time.Time) (view OfficialConnectionView, err error) {
+func (r *MemberScopedStoreRepository) CompleteOfficialConnection(ctx context.Context, a OfficialConnectionAttempt, status ConnectionStatus, info OfficialStoreInformation, now time.Time) (view OfficialConnectionView, err error) {
 	access, err := r.authorize(ctx, a.OrganizationID, true)
 	if err != nil {
 		return view, err
@@ -296,7 +329,7 @@ func (r *MemberScopedStoreRepository) CompleteOfficialConnection(ctx context.Con
 		if err != nil {
 			return err
 		}
-		if original.AppID != a.AppID || original.AppVersion != a.AppVersion || original.ConnectionVersion != a.ConnectionVersion {
+		if !sameOfficialAttemptBinding(original, a) || original.Ciphertext != a.Ciphertext || original.KeyID != a.KeyID {
 			return ErrNotFound
 		}
 		next := original.State
@@ -304,11 +337,21 @@ func (r *MemberScopedStoreRepository) CompleteOfficialConnection(ctx context.Con
 			if original.State != "credential_received" && original.State != "verified" {
 				return ErrNotFound
 			}
+			if original.Platform == string(PlatformTemu) {
+				verified, err := bindTemuVerification(tx, original, info.Verification, now)
+				if err != nil {
+					return err
+				}
+				original.VerificationJSON = verified
+			}
 			next = "verified"
 		} else if status == ConnectionStatusExpired || status == ConnectionStatusDisconnected {
 			next = "failed"
 		}
 		updates := map[string]any{"state": next, "updated_at": now.UTC()}
+		if next == "verified" {
+			updates["verification_json"] = original.VerificationJSON
+		}
 		if next == "failed" {
 			updates["key_id"] = ""
 			updates["ciphertext"] = ""
@@ -329,13 +372,14 @@ func (r *MemberScopedStoreRepository) CompleteOfficialConnection(ctx context.Con
 	return view, err
 }
 func (r *MemberScopedStoreRepository) ReadOfficialConnection(ctx context.Context, org, storeID string) (OfficialConnectionView, error) {
-	if _, err := r.Get(ctx, org, storeID); err != nil {
+	stored, err := r.Get(ctx, org, storeID)
+	if err != nil {
 		return OfficialConnectionView{}, err
 	}
 	var c officialConnectionRow
-	err := r.db.WithContext(ctx).Session(&gorm.Session{Logger: logger.Default.LogMode(logger.Silent)}).Where("organization_id = ? AND store_id = ?", org, storeID).Take(&c).Error
+	err = r.db.WithContext(ctx).Session(&gorm.Session{Logger: logger.Default.LogMode(logger.Silent)}).Where("organization_id = ? AND store_id = ?", org, storeID).Take(&c).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return OfficialConnectionView{State: "disconnected", Status: ConnectionStatusDisconnected}, nil
+		return OfficialConnectionView{Platform: stored.Platform(), State: "disconnected", Status: ConnectionStatusDisconnected}, nil
 	}
 	if err != nil {
 		return OfficialConnectionView{}, err
@@ -350,15 +394,15 @@ func (r *MemberScopedStoreRepository) ReadOfficialConnection(ctx context.Context
 // Read/Observe are server-owned status boundaries. They require an exact
 // current Store reference and never attach credentials or grant user access.
 func (r *MemberScopedStoreRepository) ReadOfficialCredential(ctx context.Context, input ConnectionStatusInput) (OfficialConnectionAttempt, OfficialConnectionView, error) {
-	if input.Platform != PlatformShein || input.OrganizationID == "" || uuid.Validate(input.StoreID) != nil {
+	if input.Platform != PlatformShein && input.Platform != PlatformTemu || input.OrganizationID == "" || uuid.Validate(input.StoreID) != nil {
 		return OfficialConnectionAttempt{}, OfficialConnectionView{}, ErrNotFound
 	}
 	var s workbenchStoreRecord
-	if err := r.db.WithContext(ctx).Session(&gorm.Session{Logger: logger.Default.LogMode(logger.Silent)}).Where("organization_id = ? AND id = ? AND deleted_at IS NULL", input.OrganizationID, input.StoreID).Take(&s).Error; err != nil || s.ConnectionRef != input.ConnectionRef {
+	if err := r.db.WithContext(ctx).Session(&gorm.Session{Logger: logger.Default.LogMode(logger.Silent)}).Where("organization_id = ? AND id = ? AND deleted_at IS NULL", input.OrganizationID, input.StoreID).Take(&s).Error; err != nil || s.Platform != string(input.Platform) || s.ConnectionRef != input.ConnectionRef {
 		return OfficialConnectionAttempt{}, OfficialConnectionView{}, ErrNotFound
 	}
 	if input.ConnectionRef == "" {
-		return OfficialConnectionAttempt{}, OfficialConnectionView{State: "disconnected", Status: ConnectionStatusDisconnected}, nil
+		return OfficialConnectionAttempt{}, OfficialConnectionView{Platform: input.Platform, State: "disconnected", Status: ConnectionStatusDisconnected}, nil
 	}
 	var c officialConnectionRow
 	var a officialAttemptRow
@@ -370,7 +414,7 @@ func (r *MemberScopedStoreRepository) ReadOfficialCredential(ctx context.Context
 	}
 	return attemptValue(a), connectionView(c, a), nil
 }
-func (r *MemberScopedStoreRepository) ObserveOfficialConnection(ctx context.Context, a OfficialConnectionAttempt, status ConnectionStatus, now time.Time) error {
+func (r *MemberScopedStoreRepository) ObserveOfficialConnection(ctx context.Context, a OfficialConnectionAttempt, status ConnectionStatus, info OfficialStoreInformation, now time.Time) error {
 	if status != ConnectionStatusConnected && status != ConnectionStatusExpired && status != ConnectionStatusUnavailable {
 		return ErrNotFound
 	}
@@ -386,8 +430,17 @@ func (r *MemberScopedStoreRepository) ObserveOfficialConnection(ctx context.Cont
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("organization_id = ? AND attempt_id = ?", a.OrganizationID, a.AttemptID).Take(&original).Error; err != nil {
 			return err
 		}
-		if original.State != "verified" || original.KeyID != a.KeyID || original.Ciphertext != a.Ciphertext {
+		if original.State != "verified" || !sameOfficialAttemptBinding(original, a) || original.KeyID != a.KeyID || original.Ciphertext != a.Ciphertext {
 			return ErrNotFound
+		}
+		if status == ConnectionStatusConnected && original.Platform == string(PlatformTemu) {
+			verified, err := bindTemuVerification(tx, original, info.Verification, now)
+			if err != nil {
+				return err
+			}
+			if err := tx.Model(&officialAttemptRow{}).Where("organization_id = ? AND attempt_id = ?", a.OrganizationID, a.AttemptID).Update("verification_json", verified).Error; err != nil {
+				return err
+			}
 		}
 		if status == ConnectionStatusExpired {
 			if err := tx.Model(&officialAttemptRow{}).Where("organization_id = ? AND attempt_id = ?", a.OrganizationID, a.AttemptID).Updates(map[string]any{"state": "failed", "key_id": "", "ciphertext": "", "updated_at": now.UTC()}).Error; err != nil {
@@ -415,7 +468,7 @@ func (r *MemberScopedStoreRepository) DisconnectOfficialConnection(ctx context.C
 		}
 		var current officialConnectionRow
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("organization_id = ? AND store_id = ?", c.OrganizationID, c.StoreID).Take(&current).Error; errors.Is(err, gorm.ErrRecordNotFound) {
-			view = OfficialConnectionView{State: "disconnected", Status: ConnectionStatusDisconnected}
+			view = OfficialConnectionView{Platform: Platform(s.Platform), State: "disconnected", Status: ConnectionStatusDisconnected}
 			return nil
 		} else if err != nil {
 			return err
@@ -433,7 +486,7 @@ func (r *MemberScopedStoreRepository) DisconnectOfficialConnection(ctx context.C
 		if err := updateConnectionRef(tx, s, "", access.ActorID, now); err != nil {
 			return err
 		}
-		view = OfficialConnectionView{AttemptID: current.AttemptID, State: "failed", Status: ConnectionStatusDisconnected, Version: current.Version + 1, ObservedAt: &at}
+		view = OfficialConnectionView{Platform: Platform(s.Platform), AttemptID: current.AttemptID, State: "failed", Status: ConnectionStatusDisconnected, Version: current.Version + 1, ObservedAt: &at}
 		return nil
 	})
 	return view, err

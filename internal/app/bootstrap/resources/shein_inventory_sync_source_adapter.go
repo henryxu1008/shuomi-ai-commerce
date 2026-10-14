@@ -3,15 +3,15 @@ package resources
 import (
 	"context"
 
-	"task-processor/internal/listingkit"
+	"task-processor/internal/listingkit/sheinsync"
 	"task-processor/internal/shein/inventory"
 )
 
 type sheinSyncedInventoryProductFeed struct {
-	repo listingkit.SheinSyncRepository
+	repo sheinsync.SheinSyncRepository
 }
 
-func newSheinSyncedInventoryProductFeed(repo listingkit.SheinSyncRepository) inventory.SyncedInventoryProductFeed {
+func newSheinSyncedInventoryProductFeed(repo sheinsync.SheinSyncRepository) inventory.SyncedInventoryProductFeed {
 	if repo == nil {
 		return nil
 	}
@@ -19,7 +19,7 @@ func newSheinSyncedInventoryProductFeed(repo listingkit.SheinSyncRepository) inv
 }
 
 func (s sheinSyncedInventoryProductFeed) ListSyncedInventoryProducts(ctx context.Context, query inventory.SyncedInventoryProductQuery) ([]inventory.SyncedInventoryProductRecord, int64, error) {
-	rows, total, err := s.repo.ListSyncedProducts(ctx, &listingkit.SheinSyncedProductQuery{
+	rows, total, err := s.repo.ListSyncedProducts(ctx, &sheinsync.SheinSyncedProductQuery{
 		TenantID: query.TenantID,
 		StoreID:  query.StoreID,
 		IsActive: query.IsActive,

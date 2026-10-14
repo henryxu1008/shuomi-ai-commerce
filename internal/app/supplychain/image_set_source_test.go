@@ -51,6 +51,10 @@ func TestSupplySetSourceReusesRetainedSourceOwnerAndLiveExecutionAuthorization(t
 	require.NoError(t, err, "generic asset approval uses the same explicit source owner")
 	require.Equal(t, "product", selection.TargetPlatform)
 	require.Equal(t, result.Catalog.Assets[0].ID, selection.Images[0].ID)
+	temuSelection, err := selectionReader.ReadSourceSelection(ctx, asset.SourceSelectionRequest{ItemID: input.ContextID, OriginalPublicationID: original.PublicationID, OriginalSnapshotVersion: 1, EffectiveCatalogVersion: 1, TargetPlatform: "temu"})
+	require.NoError(t, err, "TEMU source approval must use the current source and original live authority")
+	require.Equal(t, "temu", temuSelection.TargetPlatform)
+	require.Equal(t, selection.Images, temuSelection.Images)
 	auth.denied = true
 	_, err = reader.ReadImageSetSource(ctx, identity, input)
 	require.Error(t, err, "per-dispatch source permissions must be live")

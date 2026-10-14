@@ -73,6 +73,13 @@ func (privateDraftTrialMerchant) LinkedRules(context.Context, model.LinkedRulesR
 }
 
 func (m privateDraftTrialMerchant) Binding() storecenter.ProductMerchantBinding { return m.binding }
+func (s privateDraftTrialStore) ReadTargetMerchant(ctx context.Context, scope collection.Scope, id string) (storecenter.ProductMerchantBinding, error) {
+	merchant, err := s.RulesMerchant(ctx, scope, id, nil)
+	if err != nil {
+		return storecenter.ProductMerchantBinding{}, err
+	}
+	return merchant.Binding(), nil
+}
 func (s privateDraftTrialStore) RulesMerchant(ctx context.Context, scope collection.Scope, id string, expected *storecenter.ProductMerchantBinding) (supplyapp.RulesMerchant, error) {
 	if scope != s.scope || id != s.storeID {
 		return nil, record.ErrForbidden
@@ -117,6 +124,7 @@ func buildPrivateDraftTrialModule(ctx context.Context, productDB, storeDB *gorm.
 	}
 	rules := privateDraftTrialStore{d.Scope, d.StoreID, stores}
 	core.app.PublicationStores = rules
+	core.app.TargetMerchants = rules
 	core.app.ValidateDraftRead = rules.validateRecord
 	binder := productReviewCapabilityBinder{now: time.Now}
 	return supplyChainModule{app: core.app, routes: supplyhttp.PrivateDraftReadRoutes(core.app, binder.Bind)}, nil

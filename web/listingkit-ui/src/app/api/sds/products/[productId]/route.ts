@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 
 import { serverAuth } from "@/auth";
-import type { AuthenticatedListingKitRequest } from "@/app/api/listing-kits/proxy-auth";
+import type { AuthenticatedUpstreamRequest } from "@/lib/server/upstream-identity";
 import { fetchSDSJSON, sdsAPIErrorPayload } from "@/app/api/sds/shared";
 import type { SDSProductDetail } from "@/lib/types/sds";
 
 export const dynamic = "force-dynamic";
 
 const authenticatedGET = serverAuth(async (
-  request: AuthenticatedListingKitRequest,
+  request: AuthenticatedUpstreamRequest,
   { params }: { params: Promise<{ productId: string }> },
 ) => {
   const { productId } = await params;

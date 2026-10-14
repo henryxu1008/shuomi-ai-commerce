@@ -10,6 +10,8 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+throw "Legacy ListingKit API startup is retired (#29). Use current-application with its approved private manifest; this shared-YAML launcher cannot operate current owners."
+
 function Get-RepoRoot {
     $scriptDir = $PSScriptRoot
     return (Resolve-Path (Join-Path $scriptDir "..")).Path

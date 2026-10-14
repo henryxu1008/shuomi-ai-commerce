@@ -18,7 +18,7 @@ import (
 
 	storeschema "task-processor/internal/app/schema/storecenter"
 	coreconfig "task-processor/internal/core/config"
-	observationschema "task-processor/internal/integration/persistence/sheinobservations"
+	observationschema "task-processor/internal/integration/persistence/storeobservations"
 	platformdatabase "task-processor/internal/platform/database"
 	"task-processor/internal/storecenter"
 )
@@ -30,8 +30,9 @@ func main() {
 	grantsOnly := flag.Bool("observations-grants-only", false, "explicitly restore original observation grants on an existing owner-controlled schema")
 	verify := flag.Bool("observations-verify", false, "read-only verification using the private store_center_runtime config")
 	cockpit := flag.Bool("operations-cockpit", false, "install manual financial facts and goals on an authorized fresh empty Store instance")
+	tiktok := flag.Bool("tiktok-shop", false, "grant admitted TikTok OAuth tables on an authorized fresh empty Store instance")
 	flag.Parse()
-	if err := run(*path, *observations, *cockpit, *observationsOnly, *grantsOnly, *verify); err != nil {
+	if err := runWithTikTok(*path, *observations, *cockpit, *observationsOnly, *grantsOnly, *verify, *tiktok); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
@@ -47,13 +48,16 @@ func main() {
 }
 
 func run(storePath string, observations, cockpit, observationsOnly, grantsOnly, verify bool) error {
+	return runWithTikTok(storePath, observations, cockpit, observationsOnly, grantsOnly, verify, false)
+}
+func runWithTikTok(storePath string, observations, cockpit, observationsOnly, grantsOnly, verify, tiktok bool) error {
 	narrowModes := 0
 	for _, enabled := range []bool{observationsOnly, grantsOnly, verify} {
 		if enabled {
 			narrowModes++
 		}
 	}
-	if narrowModes > 1 || narrowModes > 0 && (observations || cockpit) {
+	if narrowModes > 1 || narrowModes > 0 && (observations || cockpit || tiktok) {
 		return errors.New("observation narrow modes cannot be combined with each other, base or Cockpit installation")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -95,6 +99,14 @@ func run(storePath string, observations, cockpit, observationsOnly, grantsOnly, 
 	}
 	if err := grantStoreRuntime(ctx, records); err != nil {
 		return err
+	}
+	if tiktok {
+		if err := records.WithContext(ctx).Exec(`GRANT SELECT,INSERT,UPDATE ON public.workbench_store_tiktok_oauth_grants,public.workbench_store_tiktok_oauth_attempts,public.workbench_store_tiktok_shop_bindings,public.workbench_store_tiktok_oauth_refresh_operations TO store_center_runtime`).Error; err != nil {
+			return err
+		}
+		if err := records.WithContext(ctx).Exec(`GRANT SELECT,INSERT ON public.workbench_store_tiktok_authorization_events TO store_center_runtime`).Error; err != nil {
+			return err
+		}
 	}
 	if observations {
 		if err := storeschema.InstallObservations(ctx, records); err != nil {

@@ -218,12 +218,8 @@ func TestSheinLoginReadsIdentityFromNeutralContext(t *testing.T) {
 
 func TestListingKitIdentityReadersUseNeutralContext(t *testing.T) {
 	paths := []string{
-		filepath.Join("..", "internal", "listingkit", "api", "tenant_context.go"),
-		filepath.Join("..", "internal", "listingkit", "api", "authenticated_actor.go"),
-		filepath.Join("..", "internal", "listingkit", "api", "subscription_guard.go"),
-		filepath.Join("..", "internal", "listingkit", "httpapi", "zitadel_auth_route_authorization.go"),
-		filepath.Join("..", "internal", "listingkit", "request_context.go"),
-		filepath.Join("..", "internal", "listingkit", "task_lifecycle_service_support.go"),
+		filepath.Join("..", "internal", "authz", "httpapi", "route_authorization.go"),
+		filepath.Join("..", "internal", "app", "httpapi", "server_auth.go"),
 	}
 	for _, path := range paths {
 		source, err := os.ReadFile(path)
@@ -602,17 +598,6 @@ func TestListingAdminDispatchEventCompatibilityAliasesStayRetired(t *testing.T) 
 	}
 }
 
-func TestListingAdminStorePageResponseAliasStaysRetired(t *testing.T) {
-	path := filepath.Join("..", "internal", "listingadmin", "store_handler.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	if strings.Contains(string(content), "type storePageResponse =") {
-		t.Fatalf("%s exposes storePageResponse alias; decode StorePage directly in store handler tests", path)
-	}
-}
-
 func TestListingRuntimeDebugTaskLoaderUsesLocalTaskModel(t *testing.T) {
 	path := filepath.Join("..", "internal", "app", "runtime", "listing", "debug_task_runner.go")
 	content, err := os.ReadFile(path)
@@ -718,22 +703,6 @@ func TestListingKitSheinSyncAsyncIdentityContextDoesNotImportOpenAI(t *testing.T
 		}
 		if _, ok := facts.imports[`"task-processor/internal/integration/openai"`]; ok {
 			t.Errorf("%s imports the concrete OpenAI client; use shared aiidentity for SHEIN sync request context", path)
-		}
-	}
-}
-
-func TestListingKitSheinAdapterReviewContentOptimizerDoesNotImportOpenAI(t *testing.T) {
-	root := filepath.Join("..", "internal", "listingkit", "sheinadapter")
-	index, err := loadGoFileIndex(root, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for path, facts := range index.files {
-		if strings.HasSuffix(filepath.Base(path), "_test.go") {
-			continue
-		}
-		if _, ok := facts.imports[`"task-processor/internal/integration/openai"`]; ok {
-			t.Errorf("%s imports the concrete OpenAI client; use the neutral internal/ai contract for SHEIN review content", path)
 		}
 	}
 }
@@ -1388,73 +1357,6 @@ func TestListingKitSheinWorkspaceBridgeDoesNotImportLegacyWorkspaceDomain(t *tes
 	assertNoBannedImports(t, root, []string{
 		`"task-processor/internal/workspace/shein"`,
 	}, nil)
-}
-
-func TestListingKitHTTPAPIExternalClientImportsStayAllowlisted(t *testing.T) {
-	root := filepath.Join("..", "internal", "listingkit", "httpapi")
-	allowedFiles := map[string]struct{}{
-		filepath.Clean(filepath.Join(root, "ai_credential_store_adapter.go")):           {},
-		filepath.Clean(filepath.Join(root, "ai_image_generator_adapter.go")):            {},
-		filepath.Clean(filepath.Join(root, "ai_client_builders.go")):                    {},
-		filepath.Clean(filepath.Join(root, "ai_client_fallback_helpers.go")):            {},
-		filepath.Clean(filepath.Join(root, "ai_client_image_routing.go")):               {},
-		filepath.Clean(filepath.Join(root, "ai_client_strict_chat.go")):                 {},
-		filepath.Clean(filepath.Join(root, "ai_client_strict_image.go")):                {},
-		filepath.Clean(filepath.Join(root, "ai_clients.go")):                            {},
-		filepath.Clean(filepath.Join(root, "ai_clients_test.go")):                       {},
-		filepath.Clean(filepath.Join(root, "ai_capability_studio_catalog.go")):          {},
-		filepath.Clean(filepath.Join(root, "ai_capability_studio_catalog_test.go")):     {},
-		filepath.Clean(filepath.Join(root, "bootstrap_contracts.go")):                   {},
-		filepath.Clean(filepath.Join(root, "bootstrap_submit_module.go")):               {},
-		filepath.Clean(filepath.Join(root, "bootstrap_test.go")):                        {},
-		filepath.Clean(filepath.Join(root, "runtime_support_hooks.go")):                 {},
-		filepath.Clean(filepath.Join(root, "shein_category_selector_adapter.go")):       {},
-		filepath.Clean(filepath.Join(root, "runtime_support_shein.go")):                 {},
-		filepath.Clean(filepath.Join(root, "runtime_support_shein_adapter_helpers.go")): {},
-	}
-
-	index, err := loadGoFileIndex(root, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for path, facts := range index.files {
-		if pathAllowed(path, allowedFiles) {
-			continue
-		}
-		for _, bannedImport := range []string{
-			`"task-processor/internal/integration/grsai"`,
-			`"task-processor/internal/integration/openai"`,
-		} {
-			if _, ok := facts.imports[bannedImport]; ok {
-				t.Errorf("%s imports %s; keep listingkit/httpapi concrete external clients limited to current AI runtime and bootstrap seams", path, bannedImport)
-			}
-		}
-	}
-}
-
-func TestListingKitHTTPAPIRetiredManagementImportsStayBlocked(t *testing.T) {
-	root := filepath.Join("..", "internal", "listingkit", "httpapi")
-	allowedFiles := map[string]struct{}{
-		filepath.Clean(filepath.Join(root, "shein_sync_runtime_strategy_helpers.go")): {},
-	}
-
-	index, err := loadGoFileIndex(root, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for path, facts := range index.files {
-		if pathAllowed(path, allowedFiles) {
-			continue
-		}
-		for quotedImport := range facts.imports {
-			importPath := strings.Trim(quotedImport, `"`)
-			if importMatchesPrefix(importPath, "task-processor/internal/infra/clients/management") {
-				t.Errorf("%s imports %s; keep listingkit/httpapi management dependencies limited to current retirement seams and prefer in-repository database/repository access for new business data", path, importPath)
-			}
-		}
-	}
 }
 
 func TestAppTaskRetiredManagementImportsStayBlocked(t *testing.T) {
@@ -3550,7 +3452,7 @@ func TestCmdPackagesDoNotImportAppCompatibilityLayers(t *testing.T) {
 func TestDomainHTTPPackagesDoNotImportAppHTTPAPI(t *testing.T) {
 	for _, domainRoot := range []string{
 		filepath.Join("..", "internal", "amazonlisting", "httpapi"),
-		filepath.Join("..", "internal", "listingkit", "httpapi"),
+		filepath.Join("..", "internal", "authz", "httpapi"),
 		filepath.Join("..", "internal", "sourceaccountregistry", "httpapi"),
 	} {
 		t.Run(filepath.Base(domainRoot), func(t *testing.T) {
@@ -3683,6 +3585,10 @@ func TestInfrastructurePackagesDoNotImportBusinessDomains(t *testing.T) {
 
 func TestListingSubmissionPersistenceAdapterImplementsOnlySubmissionPort(t *testing.T) {
 	adapterRoot := filepath.Join("..", "internal", "integration", "persistence", "listing", "submission")
+	// #31 G4 and frozen #669: exact atomic same-ProductDB effect policies consume the current
+	// immutable target and digest ports. It remains in the original claim UoW.
+	policy := filepath.Join(adapterRoot, "temu_effects_policy.go")
+	tiktokPolicy := filepath.Join(adapterRoot, "tiktok_effects_policy.go")
 	assertNoBannedImportPrefixes(t, adapterRoot, []string{
 		"task-processor/internal/amazon",
 		"task-processor/internal/amazonlisting",
@@ -3698,7 +3604,7 @@ func TestListingSubmissionPersistenceAdapterImplementsOnlySubmissionPort(t *test
 		"task-processor/internal/shein",
 		"task-processor/internal/temu",
 		"task-processor/internal/workspace",
-	}, nil)
+	}, map[string]struct{}{policy: {}, tiktokPolicy: {}})
 
 	index, err := loadGoFileIndex(adapterRoot, "")
 	if err != nil {
@@ -3714,7 +3620,7 @@ func TestListingSubmissionPersistenceAdapterImplementsOnlySubmissionPort(t *test
 			if !importMatchesPrefix(importPath, "task-processor/internal/listing") {
 				continue
 			}
-			if importPath != "task-processor/internal/listing/submission" {
+			if importPath != "task-processor/internal/listing/submission" && !((path == policy || path == tiktokPolicy) && importPath == "task-processor/internal/listing/record/target") {
 				t.Errorf("%s imports Listing sibling %s; the adapter may implement only Listing Submission-owned ports", path, importPath)
 			}
 			foundSubmissionPort = true
@@ -3826,9 +3732,7 @@ func findNonCatalogProductDomainImports(t *testing.T, root string) []bannedImpor
 }
 
 func TestBusinessDomainsDoNotImportAppRuntimeAssembly(t *testing.T) {
-	allowedFiles := map[string]struct{}{
-		filepath.Clean(filepath.Join("..", "internal", "listingkit", "httpapi")) + string(os.PathSeparator): {},
-	}
+	allowedFiles := map[string]struct{}{}
 
 	for _, domainRoot := range []string{
 		filepath.Join("..", "internal", "amazon"),
@@ -3857,6 +3761,7 @@ func TestBusinessDomainsDoNotImportAppRuntimeAssembly(t *testing.T) {
 
 func businessHTTPPackages(root string) map[string]struct{} {
 	allowedHTTPPackages := map[string]struct{}{
+		filepath.Clean(filepath.Join(root, "authz", "httpapi")) + string(os.PathSeparator):                 {},
 		filepath.Clean(filepath.Join(root, "authruntime", "zitadel")) + string(os.PathSeparator):           {},
 		filepath.Clean(filepath.Join(root, "app", "httpapi")) + string(os.PathSeparator):                   {},
 		filepath.Clean(filepath.Join(root, "amazonlisting", "api")) + string(os.PathSeparator):             {},
@@ -3864,8 +3769,6 @@ func businessHTTPPackages(root string) map[string]struct{} {
 		filepath.Clean(filepath.Join(root, "httproute")) + string(os.PathSeparator):                        {},
 		filepath.Clean(filepath.Join(root, "imageagent", "httpapi")) + string(os.PathSeparator):            {},
 		filepath.Clean(filepath.Join(root, "kernel", "module")) + string(os.PathSeparator):                 {},
-		filepath.Clean(filepath.Join(root, "listingkit", "api")) + string(os.PathSeparator):                {},
-		filepath.Clean(filepath.Join(root, "listingkit", "httpapi")) + string(os.PathSeparator):            {},
 		filepath.Clean(filepath.Join(root, "promptmgmt", "api")) + string(os.PathSeparator):                {},
 		filepath.Clean(filepath.Join(root, "sds", "httpapi")) + string(os.PathSeparator):                   {},
 		filepath.Clean(filepath.Join(root, "sourceaccountregistry", "httpapi")) + string(os.PathSeparator): {},
@@ -3873,23 +3776,6 @@ func businessHTTPPackages(root string) map[string]struct{} {
 		filepath.Clean(filepath.Join(root, "sheinlogin")) + string(os.PathSeparator):                       {},
 		filepath.Clean(filepath.Join(root, "taskrpcapi")) + string(os.PathSeparator):                       {},
 		filepath.Clean(filepath.Join(root, "amazonlisting", "interfaces.go")):                              {},
-		filepath.Clean(filepath.Join(root, "listingadmin", "category_handler.go")):                         {},
-		filepath.Clean(filepath.Join(root, "listingadmin", "filter_rule_handler.go")):                      {},
-		filepath.Clean(filepath.Join(root, "listingadmin", "generation_topic_catalog_handler.go")):         {},
-		filepath.Clean(filepath.Join(root, "listingadmin", "generation_topic_override_handler.go")):        {},
-		filepath.Clean(filepath.Join(root, "listingadmin", "generation_topic_policy_handler.go")):          {},
-		filepath.Clean(filepath.Join(root, "listingadmin", "handler_helpers.go")):                          {},
-		filepath.Clean(filepath.Join(root, "listingadmin", "import_task_handler.go")):                      {},
-		filepath.Clean(filepath.Join(root, "listingadmin", "operation_strategy_handler.go")):               {},
-		filepath.Clean(filepath.Join(root, "listingadmin", "pricing_rule_handler.go")):                     {},
-		filepath.Clean(filepath.Join(root, "listingadmin", "product_data_handler.go")):                     {},
-		filepath.Clean(filepath.Join(root, "listingadmin", "product_import_mapping_handler.go")):           {},
-		filepath.Clean(filepath.Join(root, "listingadmin", "profit_rule_handler.go")):                      {},
-		filepath.Clean(filepath.Join(root, "listingadmin", "request_context.go")):                          {},
-		filepath.Clean(filepath.Join(root, "listingadmin", "scheduled_task_config_handler.go")):            {},
-		filepath.Clean(filepath.Join(root, "listingadmin", "sensitive_word_handler.go")):                   {},
-		filepath.Clean(filepath.Join(root, "listingadmin", "store_handler.go")):                            {},
-		filepath.Clean(filepath.Join(root, "listingadmin", "store_statistics_handler.go")):                 {},
 		filepath.Clean(filepath.Join(root, "listingkit", "studio_session_handler.go")):                     {},
 		filepath.Clean(filepath.Join(root, "listingsubscription", "handler.go")):                           {},
 	}
@@ -5052,10 +4938,8 @@ func commandEntrypointBannedPrefixes() []string {
 
 func TestTemporalSDKImportsStayInRuntimeAndOrchestrationAdapters(t *testing.T) {
 	orchestrationAllowedFiles := map[string]struct{}{
-		filepath.Clean(filepath.Join("..", "internal", "app", "runtime")) + string(os.PathSeparator):                  {},
-		filepath.Clean(filepath.Join("..", "internal", "imageagent", "temporal")) + string(os.PathSeparator):          {},
-		filepath.Clean(filepath.Join("..", "internal", "listingkit", "temporal")) + string(os.PathSeparator):          {},
-		filepath.Clean(filepath.Join("..", "internal", "listingkit", "task_temporal_submission_activity_support.go")): {},
+		filepath.Clean(filepath.Join("..", "internal", "app", "runtime")) + string(os.PathSeparator):         {},
+		filepath.Clean(filepath.Join("..", "internal", "imageagent", "temporal")) + string(os.PathSeparator): {},
 	}
 	assertNoBannedImports(t, filepath.Join("..", "internal"), []string{
 		`"go.temporal.io/api/enums/v1"`,
@@ -5091,8 +4975,6 @@ func temporalPlatformSDKClientAllowedFiles() map[string]struct{} {
 func TestTemporalRuntimePackagesDoNotImportHTTPAPI(t *testing.T) {
 	for _, root := range []string{
 		filepath.Join("..", "internal", "app", "runtime"),
-		filepath.Join("..", "internal", "listingkit", "temporal"),
-		filepath.Join("..", "internal", "listingkit", "workflow"),
 	} {
 		t.Run(filepath.ToSlash(root), func(t *testing.T) {
 			assertNoBannedImportPrefixes(t, root, []string{
@@ -5398,57 +5280,6 @@ func TestHTTPAPIRouteHandlerTypesFileStaysRetired(t *testing.T) {
 		t.Fatalf("%s still exists; keep production handler accessors beside their bootstrap/module consumers instead of reviving a route handler types bucket", path)
 	} else if !os.IsNotExist(err) {
 		t.Fatalf("stat %s: %v", path, err)
-	}
-}
-
-func TestHTTPAPIFeatureModuleResultAliasesStayRetired(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "httpapi", "feature_module_builders.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	for _, phrase := range []string{
-		"type productModuleResult =",
-		"type imageModuleResult =",
-		"type amazonListingModuleResult =",
-		"type listingKitModuleResult =",
-	} {
-		if strings.Contains(string(content), phrase) {
-			t.Fatalf("%s exposes %q; use owning httpapi Module types directly in app HTTP assembly", path, phrase)
-		}
-	}
-}
-
-func TestHTTPAPISupportModuleResultAliasesStayRetired(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "httpapi", "runtime_module_results.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	for _, phrase := range []string{
-		"type promptModuleResult =",
-		"type sdsModuleResult =",
-		"type taskRPCModuleResult =",
-	} {
-		if strings.Contains(string(content), phrase) {
-			t.Fatalf("%s exposes %q; use owning support BuildResult types directly in app HTTP assembly", path, phrase)
-		}
-	}
-}
-
-func TestHTTPAPILoginModuleResultAliasesStayRetired(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "httpapi", "runtime_login_modules.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	for _, phrase := range []string{
-		"type sheinLoginModuleResult =",
-		"type sdsLoginModuleResult =",
-	} {
-		if strings.Contains(string(content), phrase) {
-			t.Fatalf("%s exposes %q; use owning login BuildResult types directly in app HTTP assembly", path, phrase)
-		}
 	}
 }
 
@@ -5769,8 +5600,8 @@ func currentOwnerLegacyListingKitRootViolations(sources []listingKitImageBoundar
 	return violations, nil
 }
 
-// #605 frozen design admits current persistence ports and three official DTO
-// transport files. Every admitted edge is separately checked below.
+// Frozen #605/#31 designs admit current persistence ports and exact official
+// DTO transport files. Every admitted edge is separately checked below.
 func supplyAdapterBusinessPorts() map[string][]string {
 	base := filepath.Join("..", "internal", "integration")
 	return map[string][]string{
@@ -5778,12 +5609,22 @@ func supplyAdapterBusinessPorts() map[string][]string {
 		filepath.Join(base, "persistence", "listing", "completiondraft") + string(os.PathSeparator): {"task-processor/internal/listing/completiondraft", "task-processor/internal/listing/preparation", "task-processor/internal/product/collection"},
 		filepath.Join(base, "persistence", "listing", "record") + string(os.PathSeparator):          {"task-processor/internal/listing/record/target", "task-processor/internal/product/collection"},
 		filepath.Join(base, "persistence", "listing", "official") + string(os.PathSeparator):        {"task-processor/internal/listing/submission", "task-processor/internal/product/collection"},
+		filepath.Join(base, "persistence", "listing", "official", "official_repository.go"):         {"task-processor/internal/listing/record/target"},
+		filepath.Join(base, "persistence", "listing", "submission", "temu_effects_policy.go"):       {"task-processor/internal/listing/submission", "task-processor/internal/listing/record/target", "task-processor/internal/product/collection"},
+		filepath.Join(base, "persistence", "listing", "submission", "tiktok_effects_policy.go"):     {"task-processor/internal/listing/submission", "task-processor/internal/listing/record/target", "task-processor/internal/product/collection"},
 		filepath.Join(base, "shein", "official_goods.go"):                                           {"task-processor/internal/marketplace/shein/goods", "task-processor/internal/marketplace/shein/model"},
 		filepath.Join(base, "shein", "official_goods_rules.go"):                                     {"task-processor/internal/marketplace/shein/model"},
+		filepath.Join(base, "temu", "official_categories.go"):                                       {"task-processor/internal/marketplace/temu/model"},
+		filepath.Join(base, "temu", "official_category_rules.go"):                                   {"task-processor/internal/marketplace/temu/model"},
+		filepath.Join(base, "temu", "official_supplier_size.go"):                                    {"task-processor/internal/marketplace/temu/model"},
+		filepath.Join(base, "temu", "official_goods.go"):                                            {"task-processor/internal/marketplace/temu/model", "task-processor/internal/marketplace/temu/goods"},
+		filepath.Join(base, "tiktokshop", "goods_read.go"):                                          {"task-processor/internal/marketplace/tiktokshop"},
+		filepath.Join(base, "tiktokshop", "goods_write.go"):                                         {"task-processor/internal/marketplace/tiktokshop"},
+		filepath.Join(base, "temu", "official_observations.go"):                                     {"task-processor/internal/marketplace/temu/model", "task-processor/internal/marketplace/temu/observations", "task-processor/internal/storecenter/observations"},
 		filepath.Join(base, "shein", "official_readback.go"):                                        {"task-processor/internal/marketplace/shein/goods", "task-processor/internal/marketplace/shein/model"},
-		filepath.Join(base, "shein", "official_observations.go"):                                    {"task-processor/internal/marketplace/shein/observations"},
-		filepath.Join(base, "persistence", "sheinobservations", "repository.go"):                    {"task-processor/internal/marketplace/shein/observations"},
-		filepath.Join(base, "persistence", "sheinobservations", "schema.go"):                        {"task-processor/internal/marketplace/shein/observations"},
+		filepath.Join(base, "shein", "official_observations.go"):                                    {"task-processor/internal/storecenter/observations"},
+		filepath.Join(base, "persistence", "storeobservations", "repository.go"):                    {"task-processor/internal/storecenter/observations", "task-processor/internal/marketplace/temu/observations"},
+		filepath.Join(base, "persistence", "storeobservations", "schema.go"):                        {"task-processor/internal/storecenter/observations"},
 	}
 }
 func supplyAdapterPortAllowed(path, imported string) bool {
@@ -5828,6 +5669,12 @@ func TestSupplyPersistenceAndOfficialTransportOnlyImportAdmittedPorts(t *testing
 	if !supplyAdapterPortAllowed(good, "task-processor/internal/marketplace/shein/goods") || supplyAdapterPortAllowed(bad, "task-processor/internal/marketplace/shein/goods") || supplyAdapterPortAllowed(good, "task-processor/internal/marketplace/shein/goods/child") {
 		t.Fatal("official DTO admission must be exact")
 	}
+	for _, file := range []string{"official_categories.go", "official_category_rules.go", "official_supplier_size.go"} {
+		admitted := filepath.Join(root, "temu", file)
+		if !supplyAdapterPortAllowed(admitted, "task-processor/internal/marketplace/temu/model") || supplyAdapterPortAllowed(admitted, "task-processor/internal/marketplace/temu/rules") || supplyAdapterPortAllowed(admitted, "task-processor/internal/marketplace/temu/model/child") || supplyAdapterPortAllowed(filepath.Join(root, "temu", "other.go"), "task-processor/internal/marketplace/temu/model") {
+			t.Fatal("TEMU official metadata admission must be the exact DTO leaf and files")
+		}
+	}
 }
 func TestSupplyAndCollectionHTTPRegistrationKeepsBusinessSiblingsFrameworkFree(t *testing.T) {
 	root := filepath.Join("..", "internal")
@@ -5835,7 +5682,7 @@ func TestSupplyAndCollectionHTTPRegistrationKeepsBusinessSiblingsFrameworkFree(t
 	for _, tc := range []struct {
 		path string
 		want bool
-	}{{"app/supplychain/httpapi/http_routes.go", true}, {"app/supplychain/operations.go", false}, {"app/supplychain/httpapi_extra/other.go", false}, {"product/collection/httpapi/handler.go", true}, {"product/collection/service.go", false}, {"product/collection/httpapi_extra/other.go", false}} {
+	}{{"authz/httpapi/route_authorization.go", true}, {"authz/authorization.go", false}, {"authz/httpapi_extra/other.go", false}, {"app/supplychain/httpapi/http_routes.go", true}, {"app/supplychain/operations.go", false}, {"app/supplychain/httpapi_extra/other.go", false}, {"product/collection/httpapi/handler.go", true}, {"product/collection/service.go", false}, {"product/collection/httpapi_extra/other.go", false}} {
 		if pathAllowed(filepath.Join(root, filepath.FromSlash(tc.path)), allowed) != tc.want {
 			t.Errorf("registration %s", tc.path)
 		}

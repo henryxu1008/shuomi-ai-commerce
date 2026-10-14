@@ -7,6 +7,7 @@ import {
 } from "@/lib/api/workbench-context";
 import {
   workbenchStoreCreateSchema,
+  workbenchStorePlatformSchema,
   workbenchStoreListFiltersSchema,
   workbenchStoreUpdateSchema,
   type WorkbenchStoreCreateInput,
@@ -53,7 +54,7 @@ export const workbenchStoreSchema = z
   .object({
     id: canonicalUUIDSchema,
     name: normalizedPublicString(1, 120),
-    platform: z.literal("shein"),
+    platform: workbenchStorePlatformSchema,
     region: normalizedPublicString(1, 64),
     externalStoreId: normalizedPublicString(0, 128),
     recordStatus: z.enum([

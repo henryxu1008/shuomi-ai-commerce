@@ -11,6 +11,7 @@ import (
 	"task-processor/internal/listing/preparation"
 	record "task-processor/internal/listing/record/target"
 	"task-processor/internal/product/collection"
+	"task-processor/internal/storecenter"
 )
 
 func (s *supplyProductAgent) titleSelection(ctx context.Context, scope agent.Scope, selected agentconfig.TemplateRef) (aicapability.ModelProfile, agentconfig.OrganizationAgent, agentconfig.Template, error) {
@@ -114,10 +115,27 @@ func (s *supplyProductAgent) authorizeRequest(ctx context.Context, in preparatio
 	if err != nil {
 		return preparation.ErrForbidden
 	}
+	if err := s.requireOptimizationStore(ctx, collection.Scope{OrganizationID: identity.TenantID, ActorID: identity.UserID, MemberID: identity.EffectiveMemberID}, in.StoreID); err != nil {
+		return err
+	}
 	mode, err := s.agent.configuration.ReadExecutionMode(ctx, agent.ExecutionIdentity{OrganizationID: identity.TenantID, ActorID: identity.UserID, MemberID: identity.EffectiveMemberID}, s.agent.modeSubject())
 	if err != nil || mode.Revision != in.TitleModeRevision {
 		return agentconfig.ErrChanged
 	}
 	_, err = s.validateTitleSelection(ctx, agent.Scope{OrganizationID: identity.TenantID, ActorID: identity.UserID}, agentconfig.TemplateRef{TemplateID: in.TitleTemplateID, Revision: in.TitleTemplateRevision}, in.TitleQuoteHash)
 	return err
+}
+
+func (s *supplyProductAgent) requireOptimizationStore(ctx context.Context, scope collection.Scope, storeID string) error {
+	if s == nil || s.app == nil || s.app.TargetMerchants == nil {
+		return record.ErrNotReady
+	}
+	binding, err := s.app.TargetMerchants.ReadTargetMerchant(ctx, scope, storeID)
+	if err != nil {
+		return err
+	}
+	if binding.Platform != storecenter.PlatformShein || binding.OrganizationID != scope.OrganizationID || binding.StoreID != storeID {
+		return record.ErrNotReady
+	}
+	return nil
 }

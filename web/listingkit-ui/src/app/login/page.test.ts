@@ -16,13 +16,20 @@ describe("LoginPage", () => {
   it("redirects to the ZITADEL login endpoint with a normalized returnTo", async () => {
     await LoginPage({
       searchParams: Promise.resolve({
-        returnTo: "/listing-kits/canonical-products?source=import",
+        returnTo: "/workbench/supply/products/product-1?source=import",
       }),
     });
 
     expect(redirectMock).toHaveBeenCalledWith(
-      "/api/zitadel-auth/login?returnTo=%2Flisting-kits%2Fcanonical-products%3Fsource%3Dimport",
+      "/api/zitadel-auth/login?returnTo=%2Fworkbench%2Fsupply%2Fproducts%2Fproduct-1%3Fsource%3Dimport",
     );
+  });
+
+  it("rejects a retired Task-first return target", async () => {
+    await LoginPage({ searchParams: Promise.resolve({
+      returnTo: "/listing-kits/canonical-products?source=import",
+    }) });
+    expect(redirectMock).toHaveBeenCalledWith("/api/zitadel-auth/login?returnTo=%2F");
   });
 
   it.each(["otp", "password"])(

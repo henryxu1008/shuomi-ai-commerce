@@ -6,13 +6,10 @@ const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   {
-    // Legacy listingkit semantic fields stay available only in compatibility helpers,
-    // type definitions, and test fixtures. New UI code should read the new field names.
+    // Retired Task fields cannot enter current UI code. Historical test fixtures
+    // remain exempt; the retired production helper/type exemptions are gone.
     files: ["src/**/*.{ts,tsx}"],
     ignores: [
-      "src/lib/listingkit/semantic-fields.ts",
-      "src/lib/types/listingkit/**/*.ts",
-      "src/lib/api/task-list-schema.ts",
       "src/**/*.test.ts",
       "src/**/*.test.tsx",
     ],
@@ -23,49 +20,49 @@ const eslintConfig = defineConfig([
           selector:
             "MemberExpression[property.type='Identifier'][property.name='request_draft']",
           message:
-            "Use draft_payload or the listingkit semantic field helper instead of request_draft in new UI code.",
+            "Use draft_payload instead of request_draft in new UI code.",
         },
         {
           selector:
             "MemberExpression[computed=true][property.type='Literal'][property.value='request_draft']",
           message:
-            "Use draft_payload or the listingkit semantic field helper instead of request_draft in new UI code.",
+            "Use draft_payload instead of request_draft in new UI code.",
         },
         {
           selector:
             "Property[key.type='Identifier'][key.name='request_draft']",
           message:
-            "Use draft_payload or the listingkit semantic field helper instead of request_draft in new UI code.",
+            "Use draft_payload instead of request_draft in new UI code.",
         },
         {
           selector:
             "Property[key.type='Literal'][key.value='request_draft']",
           message:
-            "Use draft_payload or the listingkit semantic field helper instead of request_draft in new UI code.",
+            "Use draft_payload instead of request_draft in new UI code.",
         },
         {
           selector:
             "MemberExpression[property.type='Identifier'][property.name='preview_product']",
           message:
-            "Use preview_payload or the listingkit semantic field helper instead of preview_product in new UI code.",
+            "Use preview_payload instead of preview_product in new UI code.",
         },
         {
           selector:
             "MemberExpression[computed=true][property.type='Literal'][property.value='preview_product']",
           message:
-            "Use preview_payload or the listingkit semantic field helper instead of preview_product in new UI code.",
+            "Use preview_payload instead of preview_product in new UI code.",
         },
         {
           selector:
             "Property[key.type='Identifier'][key.name='preview_product']",
           message:
-            "Use preview_payload or the listingkit semantic field helper instead of preview_product in new UI code.",
+            "Use preview_payload instead of preview_product in new UI code.",
         },
         {
           selector:
             "Property[key.type='Literal'][key.value='preview_product']",
           message:
-            "Use preview_payload or the listingkit semantic field helper instead of preview_product in new UI code.",
+            "Use preview_payload instead of preview_product in new UI code.",
         },
         {
           selector:
@@ -95,25 +92,25 @@ const eslintConfig = defineConfig([
           selector:
             "MemberExpression[property.type='Identifier'][property.name='sds_sync']",
           message:
-            "Use sds_design_result or the listingkit semantic field helper instead of sds_sync in new UI code.",
+            "Use sds_design_result instead of sds_sync in new UI code.",
         },
         {
           selector:
             "MemberExpression[computed=true][property.type='Literal'][property.value='sds_sync']",
           message:
-            "Use sds_design_result or the listingkit semantic field helper instead of sds_sync in new UI code.",
+            "Use sds_design_result instead of sds_sync in new UI code.",
         },
         {
           selector:
             "Property[key.type='Identifier'][key.name='sds_sync']",
           message:
-            "Use sds_design_result or the listingkit semantic field helper instead of sds_sync in new UI code.",
+            "Use sds_design_result instead of sds_sync in new UI code.",
         },
         {
           selector:
             "Property[key.type='Literal'][key.value='sds_sync']",
           message:
-            "Use sds_design_result or the listingkit semantic field helper instead of sds_sync in new UI code.",
+            "Use sds_design_result instead of sds_sync in new UI code.",
         },
       ],
     },

@@ -38,7 +38,7 @@ func TestConnectionCallbackAndRecoveryAlwaysUseTheOriginalApplication(t *testing
 			providers := []*multiApplicationProvider{}
 			entries := []storeapp.OfficialApplicationRegistration{}
 			for index, kind := range modes {
-				provider := &multiApplicationProvider{application: storecenter.OfficialApplication{AppID: string(kind), Version: storeapp.BoundOfficialRevision("v1", kind), CallbackURL: "https://localhost/callback"}}
+				provider := &multiApplicationProvider{application: storecenter.OfficialApplication{Platform: storecenter.PlatformShein, AuthorizationMethod: storecenter.AuthorizationCallback, AppID: string(kind), Version: storeapp.BoundOfficialRevision("v1", kind), CallbackURL: "https://localhost/callback"}}
 				providers = append(providers, provider)
 				key := make([]byte, 32)
 				key[0] = byte(index + 1)

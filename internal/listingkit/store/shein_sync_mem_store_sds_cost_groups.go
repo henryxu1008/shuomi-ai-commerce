@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"task-processor/internal/listingkit"
+	"task-processor/internal/listingkit/sheinsync"
 )
 
-func (r *MemSheinSyncRepository) UpsertSDSCostGroup(_ context.Context, record *listingkit.SheinSDSCostGroupRecord) error {
+func (r *MemSheinSyncRepository) UpsertSDSCostGroup(_ context.Context, record *sheinsync.SheinSDSCostGroupRecord) error {
 	if record == nil {
 		return nil
 	}
@@ -40,7 +40,7 @@ func (r *MemSheinSyncRepository) UpsertSDSCostGroup(_ context.Context, record *l
 	return nil
 }
 
-func (r *MemSheinSyncRepository) ListSDSCostGroups(_ context.Context, query *listingkit.SheinSDSCostGroupQuery) ([]listingkit.SheinSDSCostGroupRecord, int64, error) {
+func (r *MemSheinSyncRepository) ListSDSCostGroups(_ context.Context, query *sheinsync.SheinSDSCostGroupQuery) ([]sheinsync.SheinSDSCostGroupRecord, int64, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -50,7 +50,7 @@ func (r *MemSheinSyncRepository) ListSDSCostGroups(_ context.Context, query *lis
 			groupKeys[key] = struct{}{}
 		}
 	}
-	items := make([]listingkit.SheinSDSCostGroupRecord, 0, len(r.sdsCostGroups))
+	items := make([]sheinsync.SheinSDSCostGroupRecord, 0, len(r.sdsCostGroups))
 	for _, row := range r.sdsCostGroups {
 		if query != nil {
 			if query.TenantID > 0 && row.TenantID != query.TenantID {
@@ -84,7 +84,7 @@ func (r *MemSheinSyncRepository) ListSDSCostGroups(_ context.Context, query *lis
 	}
 	start := (page - 1) * pageSize
 	if start >= len(items) {
-		return []listingkit.SheinSDSCostGroupRecord{}, total, nil
+		return []sheinsync.SheinSDSCostGroupRecord{}, total, nil
 	}
 	end := start + pageSize
 	if end > len(items) {

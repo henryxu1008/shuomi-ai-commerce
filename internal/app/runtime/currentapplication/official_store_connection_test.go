@@ -42,6 +42,45 @@ func TestOfficialStoreConfigRequiresSeparatePrivateKeysAndFixedHTTPSOrigin(t *te
 	require.Nil(t, provider)
 	require.Nil(t, protection)
 }
+
+func TestTemuOfficialApplicationsSupportBothSupplierModesAndSeparateLocalPartitions(t *testing.T) {
+	configs := []OfficialStoreConnectionConfig{}
+	for _, partition := range []storecenter.OfficialIdentityPartition{storecenter.PartitionCN, storecenter.PartitionUS, storecenter.PartitionEU, storecenter.PartitionGlobal} {
+		root := t.TempDir()
+		config := OfficialStoreConnectionConfig{Platform: storecenter.PlatformTemu, IdentityPartition: partition, AppID: "same-app-id", Version: "v1", AppSecretFile: filepath.Join(root, "app-secret"), CredentialKeyFile: filepath.Join(root, "credential-key"), CredentialKeyID: "key-" + string(partition)}
+		require.NoError(t, config.validate())
+		require.NoError(t, os.WriteFile(config.AppSecretFile, []byte("synthetic-app-secret-0123456789"), 0600))
+		require.NoError(t, os.WriteFile(config.CredentialKeyFile, []byte(base64.StdEncoding.EncodeToString(make([]byte, 32))), 0600))
+		privatizeSyntheticTestFile(t, config.AppSecretFile)
+		privatizeSyntheticTestFile(t, config.CredentialKeyFile)
+		configs = append(configs, config)
+	}
+	r, err := prepareOfficialApplications(context.Background(), configs)
+	require.NoError(t, err)
+	choices := r.Applications()
+	require.Len(t, choices, 4)
+	for _, choice := range choices {
+		require.Equal(t, storecenter.PlatformTemu, choice.Platform)
+		require.Equal(t, storecenter.AuthorizationManualToken, choice.AuthorizationMethod)
+		require.Empty(t, choice.Type)
+		if choice.IdentityPartition == storecenter.PartitionCN {
+			require.True(t, choice.SupportedModes.Supports(storecenter.MerchantSemiManaged))
+			require.True(t, choice.SupportedModes.Supports(storecenter.MerchantFullyManaged))
+		} else {
+			require.True(t, choice.SupportedModes.Supports(storecenter.MerchantLocal))
+		}
+	}
+	for _, mutate := range []func(*OfficialStoreConnectionConfig){
+		func(c *OfficialStoreConnectionConfig) { c.Type = storecenter.ApplicationFullyManaged },
+		func(c *OfficialStoreConnectionConfig) { c.IdentityPartition = "PA" },
+		func(c *OfficialStoreConnectionConfig) { c.APIOrigin = "https://openapi-b-us.temu.com" },
+		func(c *OfficialStoreConnectionConfig) { c.CallbackURL = "https://example.com/callback" },
+	} {
+		changed := configs[0]
+		mutate(&changed)
+		require.Error(t, changed.validate())
+	}
+}
 func TestOfficialApplicationsRejectSharedFilesKeysAndUnknownTypes(t *testing.T) {
 	configs := []OfficialStoreConnectionConfig{}
 	for _, mode := range []storecenter.OfficialApplicationType{storecenter.ApplicationSelfOperated, storecenter.ApplicationSemiManaged, storecenter.ApplicationFullyManaged} {

@@ -41,6 +41,14 @@ an approved contract. Follow the explicit responsibility/supersession above.
 
 ## Recommended Reading Order
 
+TEMU 三模式与全部官方站点的设计候选见
+[`temu-platform-v1.md`](temu-platform-v1.md) / execution Issue #31；
+[`temu-official-contract-evidence.md`](temu-official-contract-evidence.md) 记录官方
+CN/PA/US/EU/GLOBAL 路由与各模式站点依据。第二轮相关增量已独立确认
+IMPLEMENTATION_READY / FROZEN；G1/G2/G3 在实现层验证收敛。
+GE/AM 价格规格仍缺已读官方依据，阻塞受影响发布和全覆盖交付/合并；
+缺规格拒绝发送不算全站点完成，不缩小 #31 产品范围。
+
 1688 acquisition plans, frozen rules, public discovery and Preparation-only
 composition are governed by [`1688-acquisition-figma-v1.md`](1688-acquisition-figma-v1.md),
 with current product scope and independent admission recorded in execution #637.
@@ -49,6 +57,14 @@ Official Knowledge's approved reading scope and admission record are tracked in
 [`official-knowledge-v1.md`](official-knowledge-v1.md) / execution Issue #632. Its
 reviewed status must be checked before implementation; it is separate from the
 enterprise Knowledge owner and has no AI-consumption or online-publisher scope.
+
+TikTok Shop's US cross-border feature Design Basis is frozen IMPLEMENTATION_READY
+in [`tiktok-shop-us-v1.md`](tiktok-shop-us-v1.md) / execution Issue #669;
+[`tiktok-shop-us-contract-evidence.md`](tiktok-shop-us-contract-evidence.md)
+records the official OAuth, Shop, signing and publication protocols. These
+feature contracts reuse the current Store/Listing/Submission owners rather than
+changing repository-wide structural rules. Shared wiring, real application
+credentials and user acceptance remain separate delivery conditions.
 
 After identifying the applicable approved authorities above, review structural rules in this order:
 
@@ -178,6 +194,7 @@ source of truth for long-lived rules.
   - Native composition and local installation limits: [current-tool-market operations](../operations/current-tool-market.md).
   - #613 frozen IMPLEMENTATION_READY feature Design Basis for enterprise-shared enablement and manual customization progress; existing capture permissions and offline quote/payment owners remain unchanged. This feature contract does not introduce repository-wide structural rules.
 - [`my-supply-chain-shein-v1.md`](./my-supply-chain-shein-v1.md): #605 的已评审冻结 Design Basis，Collection → Preparation → Target → Submission 完整交付及三种官方应用类型；运行说明见 [operations](../operations/my-supply-chain-shein-v1.md)。
+- [`own-product-entry-v1.md`](./own-product-entry-v1.md): #675 的已评审冻结 IMPLEMENTATION_READY Design Basis，独立自有商品录入与详情页、多规格变体及原 Source/Catalog/Collection 保存合同；运行说明见 [operations](../operations/own-product-entry-v1.md)。
 - [`notification-center-v1.md`](./notification-center-v1.md)
   - #608 notification-center design and current-business source mapping. Admission
     is stated in that document and the execution Issue; a draft is not permission
