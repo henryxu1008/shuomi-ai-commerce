@@ -144,7 +144,8 @@ type SlotExternalEffectIdentity struct {
 }
 
 type GeneratedAsset struct {
-	URL string
+	Artwork *ArtworkProvenance `json:",omitempty"`
+	URL     string
 	// StagedRef is transient proof from a recovered v3 manifest; never persist
 	// it in a Temporal payload or a slot-effect record.
 	StagedRef         *StagedAssetRef `json:"-"`

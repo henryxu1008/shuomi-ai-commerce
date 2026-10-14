@@ -42,7 +42,7 @@ func (a *Activities) recoverSucceededGenerationOutput(ctx context.Context, input
 	if fact.State != imageagent.GenerationSucceeded {
 		return effect, nil
 	}
-	if input.ImageSet != nil {
+	if input.ImageSet != nil || input.Artwork != nil {
 		if closure, closureErr := imageagent.ImageGenerationClosure(fact); closureErr == nil {
 			current, readErr := a.repository.GetProjection(ctx, reservation.Identity.RunScope)
 			if readErr != nil {
@@ -62,12 +62,12 @@ func (a *Activities) recoverSucceededGenerationOutput(ctx context.Context, input
 		if !errors.Is(err, objectstore.ErrArtifactUnavailable) {
 			return effect, imageagent.ErrValidation
 		}
-		if fact.Success.ResultURL == "" && input.ImageSet == nil {
+		if fact.Success.ResultURL == "" && input.ImageSet == nil && input.Artwork == nil {
 			return effect, blockedSlotEffectV3Error(slotProviderOutcomeUnknownCode)
 		}
 		generated, getErr := a.generationOutputRecovery(ctx, input, fact)
 		if getErr != nil {
-			if input.ImageSet != nil && errors.Is(getErr, imageagent.ErrInvalidGeneratedOutput) {
+			if (input.ImageSet != nil || input.Artwork != nil) && errors.Is(getErr, imageagent.ErrInvalidGeneratedOutput) {
 				// The original Slot projection transaction validates and closes
 				// this charged failure; immutable economic proof stays intact.
 				return effect, nil

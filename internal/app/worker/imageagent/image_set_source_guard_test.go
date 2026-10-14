@@ -37,3 +37,9 @@ func TestSetDispatchRequiresFreshOriginalSourceOwnerBeforeReadingProviderInput(t
 	require.ErrorIs(t, revalidateGenerationImageSet(context.Background(), repo, contexts, input), imageagent.ErrRevisionConflict)
 	require.Equal(t, 1, contexts.calls, "an altered source owner cannot reach source fetch")
 }
+
+func TestArtworkGenerationAuthorizerDoesNotTreatSourceFreePlanAsUngoverned(t *testing.T) {
+	repo := generationProjectionReader{plan: imageagent.Plan{Artwork: &imageagent.ArtworkPlan{Schema: imageagent.ArtworkSchema}}}
+	gate := imageSetGenerationAuthorizer{repository: repo, live: &generationLiveAuthorizer{}}
+	require.ErrorIs(t, gate.AuthorizeExecution(context.Background(), imageagent.ExecutionIdentity{RunID: "run", TenantID: "org", UserID: "actor"}), imageagent.ErrCommandBlocked, "source-free creative execution requires its original mode/configuration guard")
+}

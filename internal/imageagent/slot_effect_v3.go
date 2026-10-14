@@ -233,6 +233,7 @@ type SlotEffectV3PublishedResult struct {
 }
 
 type SlotEffectV3AssetCandidate struct {
+	Artwork       *ArtworkProvenance   `json:"artwork,omitempty"`
 	AssetID       string               `json:"asset_id"`
 	SourceAssetID string               `json:"source_asset_id"`
 	DurableAsset  DurableAssetIdentity `json:"durable_asset"`
@@ -252,7 +253,8 @@ func NewSlotEffectV3PublishedResult(result SlotExecutionResult) (SlotEffectV3Pub
 		}
 		candidates[index] = SlotEffectV3AssetCandidate{
 			AssetID: candidate.AssetID, SourceAssetID: candidate.SourceAssetID, DurableAsset: candidate.DurableAsset,
-			Width: candidate.Width, Height: candidate.Height, Operations: append([]string(nil), candidate.Operations...),
+			Artwork: cloneArtworkProvenance(candidate.Artwork),
+			Width:   candidate.Width, Height: candidate.Height, Operations: append([]string(nil), candidate.Operations...),
 		}
 	}
 	return NormalizeSlotEffectV3PublishedResult(SlotEffectV3PublishedResult{SlotID: result.SlotID, Attempt: result.Attempt, Candidates: candidates})
@@ -264,7 +266,7 @@ func NormalizeSlotEffectV3PublishedResult(result SlotEffectV3PublishedResult) (S
 	}
 	seen := make(map[string]struct{}, len(result.Candidates))
 	for index, candidate := range result.Candidates {
-		if candidate.AssetID == "" || candidate.AssetID != strings.TrimSpace(candidate.AssetID) || candidate.SourceAssetID == "" || candidate.SourceAssetID != strings.TrimSpace(candidate.SourceAssetID) {
+		if candidate.AssetID == "" || candidate.AssetID != strings.TrimSpace(candidate.AssetID) || validateArtifactSource(candidate.SourceAssetID, candidate.Artwork, candidate.Operations) != nil {
 			return SlotEffectV3PublishedResult{}, ErrValidation
 		}
 		identity, err := NormalizeDurableAssetIdentity(candidate.DurableAsset)
@@ -281,6 +283,7 @@ func NormalizeSlotEffectV3PublishedResult(result SlotEffectV3PublishedResult) (S
 		seen[candidate.AssetID] = struct{}{}
 		candidate.DurableAsset = identity
 		candidate.Operations = operations
+		candidate.Artwork = cloneArtworkProvenance(candidate.Artwork)
 		result.Candidates[index] = candidate
 	}
 	return result, nil
@@ -322,7 +325,7 @@ func ValidateSlotEffectV3Completion(result SlotEffectV3PublishedResult, manifest
 			return ErrRevisionConflict
 		}
 		consumed[identity] = struct{}{}
-		if candidate.DurableAsset.ObjectKey != asset.ObjectKey || candidate.DurableAsset.SHA256 != asset.SHA256 || candidate.SourceAssetID != asset.SourceAssetID || (slotEffectV3CandidateMetadataPresent(candidate) && (candidate.Width != asset.Width || candidate.Height != asset.Height || !reflect.DeepEqual(candidate.Operations, asset.Operations))) {
+		if candidate.DurableAsset.ObjectKey != asset.ObjectKey || candidate.DurableAsset.SHA256 != asset.SHA256 || candidate.SourceAssetID != asset.SourceAssetID || !reflect.DeepEqual(candidate.Artwork, asset.Artwork) || (slotEffectV3CandidateMetadataPresent(candidate) && (candidate.Width != asset.Width || candidate.Height != asset.Height || !reflect.DeepEqual(candidate.Operations, asset.Operations))) {
 			return ErrRevisionConflict
 		}
 	}

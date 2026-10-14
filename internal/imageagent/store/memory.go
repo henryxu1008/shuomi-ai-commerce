@@ -424,6 +424,7 @@ func cloneRun(run imageagent.Run) imageagent.Run {
 
 func clonePlan(plan imageagent.Plan) imageagent.Plan {
 	plan.Set = imageagent.CloneImageSetPlan(plan.Set)
+	plan.Artwork = imageagent.CloneArtworkPlan(plan.Artwork)
 	plan.SourceAssetIDs = append([]string(nil), plan.SourceAssetIDs...)
 	plan.StyleReferenceIDs = append([]string(nil), plan.StyleReferenceIDs...)
 	slots := make([]imageagent.Slot, len(plan.Slots))

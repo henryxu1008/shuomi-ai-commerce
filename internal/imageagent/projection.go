@@ -64,7 +64,7 @@ func ValidateProjectionSnapshot(scope RunScope, snapshot RunProjection) error {
 		return ErrRevisionConflict
 	}
 	if snapshot.Run.ImageAdmission != nil {
-		if err := ValidateImageSetAdmission(snapshot.Run, snapshot.Plan); err != nil {
+		if err := ValidateVisualAdmission(snapshot.Run, snapshot.Plan); err != nil {
 			return err
 		}
 	}

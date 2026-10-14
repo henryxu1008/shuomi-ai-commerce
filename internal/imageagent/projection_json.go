@@ -14,6 +14,7 @@ func (value SlotProjection) MarshalJSON() ([]byte, error) {
 	for index, candidate := range value.Candidates {
 		candidates[index] = slotProjectionJSONCandidate{
 			GenerationProof: candidate.GenerationProof,
+			Artwork:         cloneArtworkProvenance(candidate.Artwork),
 			AssetID:         candidate.AssetID,
 			SourceAssetID:   candidate.SourceAssetID,
 			Width:           candidate.Width,
@@ -51,6 +52,7 @@ func (value *SlotProjection) UnmarshalJSON(raw []byte) error {
 	for index, candidate := range decoded.Candidates {
 		candidates[index] = AssetCandidate{
 			GenerationProof: candidate.GenerationProof,
+			Artwork:         cloneArtworkProvenance(candidate.Artwork),
 			AssetID:         candidate.AssetID,
 			SourceAssetID:   candidate.SourceAssetID,
 			Width:           candidate.Width,
@@ -80,6 +82,7 @@ type slotProjectionJSON struct {
 }
 
 type slotProjectionJSONCandidate struct {
+	Artwork         *ArtworkProvenance    `json:",omitempty"`
 	GenerationProof *ImageGenerationProof `json:",omitempty"`
 	AssetID         string
 	URL             *string `json:"URL,omitempty"`

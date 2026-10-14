@@ -20,6 +20,9 @@ import (
 )
 
 type Dependencies struct {
+	GeneratedArtworkBytes func(context.Context, collection.Scope, pod.ArtworkReference, asset.ApprovedAsset, int64) ([]byte, bool, error)
+	ArtworkOriginGuard    ArtworkOriginAuthorizer
+	SourceApprovalGuard   asset.SourceApprovalCommitGuard
 	ProductDB, AssetDB    *gorm.DB
 	Authorization         collection.Authorizer
 	OriginalAuthorization collection.ExecutionAuthorizer
@@ -76,10 +79,13 @@ func NewApplication(ctx context.Context, d Dependencies) (*Application, error) {
 		return nil, e
 	}
 	inputs := OriginalInputs{RequestAuthorization: d.Authorization, Collections: d.Collections, Authorization: d.OriginalAuthorization, DesignAuthorization: d.DesignAuthorization, Approvals: approvals, Snapshots: snapshots, Applied: applied, ImageHTTP: httpimage.NewPublicImageHTTPClient()}
+	inputs.ArtworkOriginGuard = d.ArtworkOriginGuard
+	inputs.GeneratedArtworkBytes = d.GeneratedArtworkBytes
 	approvalService, e := asset.NewSourceApprovalService(inputs, assets, approvals)
 	if e != nil {
 		return nil, e
 	}
+	approvalService.WithSourceApprovalCommitGuard(d.SourceApprovalGuard)
 	templates, e := sds.NewTemplateClient(d.HTTP, d.Credentials)
 	if e != nil {
 		return nil, e

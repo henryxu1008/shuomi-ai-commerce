@@ -19,7 +19,7 @@ func materialsChecksInstalled(tx *gorm.DB) (bool, error) {
 	if err := tx.Raw(`SELECT conname AS name, pg_get_constraintdef(oid) AS definition, convalidated AS valid, connoinherit AS inherited FROM pg_constraint WHERE conrelid='agent_configuration.template_revisions'::regclass AND conname IN ('template_revisions_check','template_revisions_schema_version_check')`).Scan(&checks).Error; err != nil {
 		return false, err
 	}
-	return exactSchemaChecks(checks, map[string]string{"template_revisions_check": materialsParametersCheck, "template_revisions_schema_version_check": materialsSchemaVersionCheck}), nil
+	return exactSchemaChecks(checks, map[string]string{"template_revisions_check": materialsParametersCheck, "template_revisions_schema_version_check": materialsSchemaVersionCheck}) || exactSchemaChecks(checks, map[string]string{"template_revisions_check": artworkParametersCheck, "template_revisions_schema_version_check": artworkSchemaVersionCheck}), nil
 }
 
 // Serving only verifies the exact admitted contract. It never installs or
@@ -40,5 +40,5 @@ func VerifyMaterialsConfigurationSchema(ctx context.Context, db *gorm.DB) error 
 }
 
 func UpdateMaterialsConfigurationSchema(ctx context.Context, db *gorm.DB, runtimeRole string) error {
-	return updateConfigurationSchema(ctx, db, runtimeRole, true)
+	return updateConfigurationSchema(ctx, db, runtimeRole, true, false)
 }

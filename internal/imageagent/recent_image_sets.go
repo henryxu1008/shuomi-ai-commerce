@@ -16,3 +16,7 @@ type ImageSetRunSummary struct {
 type ImageSetRunReader interface {
 	ListImageSets(context.Context, ExecutionIdentity, string, string, int) ([]ImageSetRunSummary, string, error)
 }
+
+type ArtworkRunReader interface {
+	ListArtworkRuns(context.Context, ExecutionIdentity, string, int) ([]ImageSetRunSummary, string, error)
+}

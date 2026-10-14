@@ -416,6 +416,12 @@ func planToRecords(scope imageagent.RunScope, plan imageagent.Plan) (planRecord,
 			return planRecord{}, nil, err
 		}
 	}
+	if plan.Artwork != nil {
+		planRow.SetJSON, err = marshalJSON(plan.Artwork)
+		if err != nil {
+			return planRecord{}, nil, err
+		}
+	}
 	slots := make([]slotRecord, 0, len(plan.Slots))
 	for _, slot := range plan.Slots {
 		slotSources, err := marshalJSON(slot.SourceAssetIDs)

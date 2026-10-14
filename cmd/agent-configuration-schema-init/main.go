@@ -20,8 +20,15 @@ func main() {
 	modesOnly := flag.Bool("execution-modes-only", false, "add only execution mode tables and their bounded grants; retain existing facts and grants")
 	contentOnly := flag.Bool("content-configuration-only", false, "add only the content parameter carrier and exact checks; retain existing facts, activations and grants")
 	materialsOnly := flag.Bool("materials-configuration-only", false, "add only exact registered platform materials checks; retain existing facts, activations and grants")
+	artworkOnly := flag.Bool("artwork-configuration-only", false, "add only exact POD creative configuration checks; retain existing facts, activations and grants")
 	flag.Parse()
-	if flag.NArg() != 0 || *modesOnly && (*contentOnly || *materialsOnly) || *contentOnly && *materialsOnly || !regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`).MatchString(*role) {
+	selected := 0
+	for _, value := range []bool{*modesOnly, *contentOnly, *materialsOnly, *artworkOnly} {
+		if value {
+			selected++
+		}
+	}
+	if flag.NArg() != 0 || selected > 1 || !regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`).MatchString(*role) {
 		fmt.Fprintln(os.Stderr, "requires --runtime-role with an existing role")
 		os.Exit(2)
 	}
@@ -43,6 +50,9 @@ func main() {
 	}
 	defer raw.Close()
 	e = db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if *artworkOnly {
+			return store.UpdateArtworkConfigurationSchema(ctx, tx, *role)
+		}
 		if *materialsOnly {
 			return store.UpdateMaterialsConfigurationSchema(ctx, tx, *role)
 		}

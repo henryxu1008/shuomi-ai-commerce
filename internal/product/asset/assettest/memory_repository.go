@@ -70,6 +70,15 @@ func (r *MemoryRepository) ReadApprovalCommit(ctx context.Context, tenantID, act
 }
 
 func (r *MemoryRepository) CommitApproval(ctx context.Context, commit asset.ApprovalCommit) (asset.ApprovalReceipt, error) {
+	return r.commitApproval(ctx, commit, nil)
+}
+func (r *MemoryRepository) CommitSourceApproval(ctx context.Context, commit asset.ApprovalCommit, guard func(context.Context) error) (asset.ApprovalReceipt, error) {
+	if guard == nil {
+		return asset.ApprovalReceipt{}, asset.ErrSourceApprovalForbidden
+	}
+	return r.commitApproval(ctx, commit, guard)
+}
+func (r *MemoryRepository) commitApproval(ctx context.Context, commit asset.ApprovalCommit, guard func(context.Context) error) (asset.ApprovalReceipt, error) {
 	if err := ctx.Err(); err != nil {
 		return asset.ApprovalReceipt{}, err
 	}
@@ -89,6 +98,11 @@ func (r *MemoryRepository) CommitApproval(ctx context.Context, commit asset.Appr
 			return asset.ApprovalReceipt{}, asset.ErrApprovalConflict
 		}
 		return asset.CloneApprovalReceipt(existing.receipt), nil
+	}
+	if guard != nil {
+		if err := guard(ctx); err != nil {
+			return asset.ApprovalReceipt{}, err
+		}
 	}
 	for _, approved := range commit.Assets {
 		if _, exists := r.assetIDs[tenantAssetKey{tenantID: commit.TenantID, assetID: approved.ID}]; exists {

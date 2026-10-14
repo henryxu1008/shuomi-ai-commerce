@@ -543,12 +543,12 @@ func validateProjectionMutation(current imageagent.RunProjection, input imageage
 		expectedRun.ActivePlanRevision = input.RunMutation.ActivePlanRevision
 		expectedRun.Block = cloneBlock(input.RunMutation.Block)
 		if input.RunMutation.ImageAdmission != nil {
-			if current.Run.ImageAdmission != nil || current.Run.Status != imageagent.RunStatusAwaitingPlanApproval || current.Plan.Set == nil || input.PlanMutation != nil || len(mutations) != 0 || input.RunMutation.Status != imageagent.RunStatusExecuting || input.RunMutation.CurrentNode != "execute_slots" || input.RunMutation.ActivePlanRevision != current.Plan.Revision {
+			if current.Run.ImageAdmission != nil || current.Run.Status != imageagent.RunStatusAwaitingPlanApproval || current.Plan.Set == nil && current.Plan.Artwork == nil || input.PlanMutation != nil || len(mutations) != 0 || input.RunMutation.Status != imageagent.RunStatusExecuting || input.RunMutation.CurrentNode != "execute_slots" || input.RunMutation.ActivePlanRevision != current.Plan.Revision {
 				return imageagent.ErrRevisionConflict
 			}
 			expectedRun.ImageAdmission = imageagent.CloneImageAdmission(input.RunMutation.ImageAdmission)
 			expectedRun.StartedAt = expectedRun.ImageAdmission.AdmittedAt
-			if err := imageagent.ValidateImageSetAdmission(expectedRun, current.Plan); err != nil {
+			if err := imageagent.ValidateVisualAdmission(expectedRun, current.Plan); err != nil {
 				return err
 			}
 		}
@@ -605,14 +605,20 @@ func orderedSlotProjectionMutations(input imageagent.ProjectionCommit) ([]imagea
 }
 
 func validateSlotProjectionMutationIdentity(input imageagent.ProjectionCommit, currentSlot imageagent.SlotProjection, mutation imageagent.SlotProjectionMutation) error {
-	if input.Snapshot.Plan.Set != nil {
+	if input.Snapshot.Plan.Set != nil || input.Snapshot.Plan.Artwork != nil {
 		closure := mutation.Projection.Closure
 		if closure != nil && !closure.Valid(mutation.Result.Attempt) || currentSlot.Closure != nil && !reflect.DeepEqual(currentSlot.Closure, closure) {
 			return imageagent.ErrRevisionConflict
 		}
 		if mutation.Result.Status == imageagent.SlotStatusAccepted {
 			recipe := mutation.Projection.Slot.Recipe
-			if closure == nil || closure.Kind != "settled" || recipe == nil || closure.Points != recipe.Quote.Points || len(mutation.Projection.Candidates) != 1 {
+			points := int64(0)
+			if input.Snapshot.Plan.Artwork != nil {
+				points = input.Snapshot.Plan.Artwork.Quote.Points
+			} else if recipe != nil {
+				points = recipe.Quote.Points
+			}
+			if closure == nil || closure.Kind != "settled" || points <= 0 || closure.Points != points || len(mutation.Projection.Candidates) != 1 {
 				return imageagent.ErrRevisionConflict
 			}
 			candidate := mutation.Projection.Candidates[0]
@@ -625,8 +631,8 @@ func validateSlotProjectionMutationIdentity(input imageagent.ProjectionCommit, c
 			}
 		}
 	}
-	unstarted := input.Snapshot.Plan.Set != nil && currentSlot.Attempt == 0 && (currentSlot.Slot.Status == imageagent.SlotStatusPending || currentSlot.Slot.Status == "") && mutation.Result.Attempt == 0 && mutation.Result.Status == imageagent.SlotStatusBlocked && len(mutation.Projection.Candidates) == 0 && mutation.Projection.Closure != nil && *mutation.Projection.Closure == (imageagent.ImageSlotClosure{Kind: "not_dispatched"}) && mutation.Projection.ErrorCode != ""
-	if !reflect.DeepEqual(mutation.Result.Closure, mutation.Projection.Closure) || input.Snapshot.Plan.Set == nil && mutation.Result.Closure != nil {
+	unstarted := (input.Snapshot.Plan.Set != nil || input.Snapshot.Plan.Artwork != nil) && currentSlot.Attempt == 0 && (currentSlot.Slot.Status == imageagent.SlotStatusPending || currentSlot.Slot.Status == "") && mutation.Result.Attempt == 0 && mutation.Result.Status == imageagent.SlotStatusBlocked && len(mutation.Projection.Candidates) == 0 && mutation.Projection.Closure != nil && *mutation.Projection.Closure == (imageagent.ImageSlotClosure{Kind: "not_dispatched"}) && mutation.Projection.ErrorCode != ""
+	if !reflect.DeepEqual(mutation.Result.Closure, mutation.Projection.Closure) || input.Snapshot.Plan.Set == nil && input.Snapshot.Plan.Artwork == nil && mutation.Result.Closure != nil {
 		return imageagent.ErrRevisionConflict
 	}
 	if mutation.PlanRevision != input.Snapshot.Plan.Revision || mutation.PlanRevision != input.Snapshot.Run.ActivePlanRevision ||
@@ -662,7 +668,7 @@ func validateSlotProjectionMutationIdentity(input imageagent.ProjectionCommit, c
 		return fmt.Errorf("%w: recovery slot mutation metadata does not match the projection commit", imageagent.ErrRevisionConflict)
 	}
 	if mutation.Result.Status == imageagent.SlotStatusBlocked {
-		knownSetClosure := input.Snapshot.Plan.Set != nil && mutation.Result.Closure != nil && mutation.Result.Closure.Valid(mutation.Result.Attempt) && (mutation.Result.ErrorCode == imageagent.InvalidGeneratedOutputCode || mutation.Result.ErrorCode == imageagent.SlotProviderNotDispatchedCode || mutation.Result.ErrorCode == imageagent.StorageLimitExceededCode)
+		knownSetClosure := (input.Snapshot.Plan.Set != nil || input.Snapshot.Plan.Artwork != nil) && mutation.Result.Closure != nil && mutation.Result.Closure.Valid(mutation.Result.Attempt) && (mutation.Result.ErrorCode == imageagent.InvalidGeneratedOutputCode || mutation.Result.ErrorCode == imageagent.SlotProviderNotDispatchedCode || mutation.Result.ErrorCode == imageagent.StorageLimitExceededCode)
 		if !reflect.DeepEqual(mutation.Projection.Slot, currentSlot.Slot) || !reflect.DeepEqual(mutation.Projection.Candidates, currentSlot.Candidates) ||
 			(!imageagent.IsRecoverableEffectBlockCode(mutation.Result.ErrorCode) && !knownSetClosure) || mutation.Projection.ErrorCode != mutation.Result.ErrorCode ||
 			mutation.Attempt.Outcome != "blocked" || mutation.Attempt.ErrorCategory != mutation.Result.ErrorCode {

@@ -124,6 +124,9 @@ type Mutation struct {
 	Products              []OwnProduct `json:"products,omitempty"`
 }
 type Command struct {
+	// Only internal artwork adoption consumes this gate, after receipt lookup
+	// and before a new Product UoW write. It is never a transport parameter.
+	ArtworkWriteGuard           func(context.Context) error `json:"-"`
 	Scope                       Scope
 	Key, OperationID, InputHash string
 	Mutation                    Mutation

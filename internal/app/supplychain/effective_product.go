@@ -74,6 +74,11 @@ func (r SourceImageReader) ReadSourceSelection(ctx context.Context, input asset.
 	}
 	result := asset.SourceSelection{TenantID: scope.OrganizationID, ActorID: scope.ActorID, MemberID: scope.MemberID, ItemID: source.ID, ProductKey: source.Source.ProductKey, OriginalPublicationID: original.PublicationID, OriginalSnapshotVersion: original.Version, EffectiveCatalogVersion: input.EffectiveCatalogVersion, TargetPlatform: input.TargetPlatform, Images: SourceImages(original)}
 	result.ApplyReceiptID = input.ApplyReceiptID
+	for _, source := range original.Snapshot.Sources {
+		if source.Type == "agent_generated" || source.Platform == "pod_artwork" || source.ReferenceType == "pod-artwork-v1" {
+			result.GeneratedArtwork = true
+		}
+	}
 	return result, nil
 }
 func SourceImages(snapshot catalog.PublishedSnapshot) []asset.SourceImage {

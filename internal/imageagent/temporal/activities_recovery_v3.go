@@ -29,7 +29,7 @@ func (a *Activities) RecoverEffectV3(ctx context.Context, input EffectRecoveryWo
 		return EffectRecoveryResult{}, err
 	}
 	executionInput := imageagent.SlotExecutionInput{
-		ImageSet:             imageagent.CloneImageSetPlan(input.ImageSet),
+		ImageSet: imageagent.CloneImageSetPlan(input.ImageSet), Artwork: imageagent.CloneArtworkPlan(input.Artwork),
 		OrganizationIdentity: input.Identity,
 		RunID:                input.RunID, TenantID: input.Identity.TenantID, UserID: input.Identity.UserID,
 		TargetPlatform: input.TargetPlatform, ImagePolicyContext: clonePolicyContext(input.ImagePolicyContext),
@@ -57,7 +57,7 @@ func (a *Activities) RecoverEffectV3(ctx context.Context, input EffectRecoveryWo
 	}
 	reservation.Policy = effect.Policy
 	reservation.Quote = effect.Quote
-	if input.ImageSet != nil && effect.InputFingerprint != reservation.InputFingerprint {
+	if (input.ImageSet != nil || input.Artwork != nil) && effect.InputFingerprint != reservation.InputFingerprint {
 		return EffectRecoveryResult{}, imageagent.ErrRevisionConflict
 	}
 	if effect.Phase == imageagent.SlotEffectV3RecoveryBlocked && strings.TrimSpace(input.ActionID) != "" {
@@ -101,8 +101,8 @@ func (a *Activities) RecoverEffectV3(ctx context.Context, input EffectRecoveryWo
 	}
 	budgetAuthorization := effect.Quote.Fingerprint != ""
 	published, err := a.ExecuteSlotV3(ctx, ExecuteSlotV3ActivityInput{
-		ImageSet: imageagent.CloneImageSetPlan(input.ImageSet),
-		RunID:    input.RunID, Identity: input.Identity, PlanRevision: input.PlanRevision,
+		ImageSet: imageagent.CloneImageSetPlan(input.ImageSet), Artwork: imageagent.CloneArtworkPlan(input.Artwork),
+		RunID: input.RunID, Identity: input.Identity, PlanRevision: input.PlanRevision,
 		TargetPlatform: input.TargetPlatform, ImagePolicyContext: clonePolicyContext(input.ImagePolicyContext),
 		Slot: input.Slot, Attempt: input.Attempt,
 		IdempotencyKey:             executionInput.IdempotencyKey,
@@ -135,8 +135,8 @@ func (a *Activities) PersistRecoveryBlockedEffectV3(ctx context.Context, input E
 		return EffectRecoveryResult{}, err
 	}
 	executionInput := imageagent.SlotExecutionInput{
-		ImageSet: imageagent.CloneImageSetPlan(input.ImageSet),
-		RunID:    input.RunID, TenantID: input.Identity.TenantID, UserID: input.Identity.UserID,
+		ImageSet: imageagent.CloneImageSetPlan(input.ImageSet), Artwork: imageagent.CloneArtworkPlan(input.Artwork),
+		RunID: input.RunID, TenantID: input.Identity.TenantID, UserID: input.Identity.UserID,
 		TargetPlatform: input.TargetPlatform, ImagePolicyContext: clonePolicyContext(input.ImagePolicyContext),
 		PlanRevision: input.PlanRevision, Slot: input.Slot, Attempt: input.Attempt,
 		IdempotencyKey: slotAttemptKey(input.PlanRevision, input.Slot, input.Attempt),
@@ -204,6 +204,7 @@ func (a *Activities) ReconcileEffectRecoveryV3(ctx context.Context, input Effect
 		return EffectRecoveryResult{}, err
 	}
 	execution := imageagent.SlotExecutionInput{
+		ImageSet: imageagent.CloneImageSetPlan(input.ImageSet), Artwork: imageagent.CloneArtworkPlan(input.Artwork),
 		RunID: input.RunID, TenantID: input.Identity.TenantID, UserID: input.Identity.UserID,
 		TargetPlatform: input.TargetPlatform, ImagePolicyContext: clonePolicyContext(input.ImagePolicyContext),
 		PlanRevision: input.PlanRevision, Slot: input.Slot, Attempt: input.Attempt,
@@ -220,7 +221,7 @@ func (a *Activities) ReconcileEffectRecoveryV3(ctx context.Context, input Effect
 	if err := validatePersistedSlotEffectV3(effect); err != nil {
 		return EffectRecoveryResult{}, err
 	}
-	if input.ImageSet != nil && effect.InputFingerprint != imageagent.SlotExecutionFingerprint(recoverySlotExecutionInput(input)) {
+	if (input.ImageSet != nil || input.Artwork != nil) && effect.InputFingerprint != imageagent.SlotExecutionFingerprint(recoverySlotExecutionInput(input)) {
 		return EffectRecoveryResult{}, imageagent.ErrRevisionConflict
 	}
 	result, err := effectRecoveryResultFromDurableEffect(effect)
@@ -296,7 +297,7 @@ func (a *Activities) reconcileEffectRecoveryProjection(ctx context.Context, inpu
 	}
 	ownerIndex := recoverableEffectIndex(owners, input.Slot.ID, input.Attempt)
 	if ownerIndex < 0 {
-		if current.Plan.Set != nil && current.Slots[slotIndex].Slot.Status == imageagent.SlotStatusBlocked && current.Slots[slotIndex].Closure != nil {
+		if (current.Plan.Set != nil || current.Plan.Artwork != nil) && current.Slots[slotIndex].Slot.Status == imageagent.SlotStatusBlocked && current.Slots[slotIndex].Closure != nil {
 			published := effect.Published
 			if published.SlotID == "" {
 				published.SlotID, published.Attempt = input.Slot.ID, input.Attempt
@@ -312,7 +313,7 @@ func (a *Activities) reconcileEffectRecoveryProjection(ctx context.Context, inpu
 			return nil
 		}
 		if effect.Phase == imageagent.SlotEffectV3PublicationComplete && recoveredSlotProjectionMatches(current.Slots[slotIndex], effect.Published) {
-			if current.Plan.Set != nil {
+			if current.Plan.Set != nil || current.Plan.Artwork != nil {
 				result.Closure = current.Slots[slotIndex].Closure
 				if len(current.Slots[slotIndex].Candidates) == 1 {
 					result.GenerationProof = current.Slots[slotIndex].Candidates[0].GenerationProof
@@ -341,7 +342,7 @@ func (a *Activities) reconcileEffectRecoveryProjection(ctx context.Context, inpu
 		candidates := make([]imageagent.AssetCandidate, 0, len(published.Candidates))
 		for _, candidate := range published.Candidates {
 			candidates = append(candidates, imageagent.AssetCandidate{
-				AssetID: candidate.AssetID, SourceAssetID: candidate.SourceAssetID, DurableAsset: candidate.DurableAsset,
+				AssetID: candidate.AssetID, SourceAssetID: candidate.SourceAssetID, DurableAsset: candidate.DurableAsset, Artwork: candidate.Artwork,
 				Width: candidate.Width, Height: candidate.Height, Operations: append([]string(nil), candidate.Operations...),
 			})
 		}
@@ -361,7 +362,7 @@ func (a *Activities) reconcileEffectRecoveryProjection(ctx context.Context, inpu
 			updated.Run.Block.Message = result.BlockedCode
 		}
 	}
-	if current.Plan.Set != nil {
+	if current.Plan.Set != nil || current.Plan.Artwork != nil {
 		status := updated.Slots[slotIndex].Slot.Status
 		published := effect.Published
 		if published.SlotID == "" {
