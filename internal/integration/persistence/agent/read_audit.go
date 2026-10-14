@@ -55,6 +55,28 @@ func (s *Store) LookupInTransaction(ctx context.Context, tx *gorm.DB, scope agen
 	return record, err == nil, err
 }
 
+// LookupContext reads an exact retained receipt without inventing a Product
+// binding. It keeps the original organization/actor/context/key boundary;
+// consumers must authorize the complete decoded binding before disclosure.
+func (s *Store) LookupContext(ctx context.Context, scope agent.Scope, kind, contextID, key string) (agent.Record, bool, error) {
+	if s == nil || s.db == nil {
+		return agent.Record{}, false, agent.ErrUnavailable
+	}
+	if !agent.ValidID(scope.OrganizationID) || !agent.ValidID(scope.ActorID) || !agent.ValidID(kind) || !agent.ValidID(contextID) || !agent.ValidID(key) {
+		return agent.Record{}, false, agent.ErrInvalid
+	}
+	var row runRow
+	err := s.db.WithContext(ctx).Where("org = ? AND actor = ? AND context_kind = ? AND context_id = ? AND request_key = ?", scope.OrganizationID, scope.ActorID, kind, contextID, key).Take(&row).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return agent.Record{}, false, nil
+	}
+	if err != nil {
+		return agent.Record{}, false, err
+	}
+	record, err := decode(row)
+	return record, err == nil, err
+}
+
 func (toolAuditRow) TableName() string { return "product_agent_tool_calls" }
 
 // RecordToolCall persists the existing safe audit envelope with this run owner.

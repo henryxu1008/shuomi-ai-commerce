@@ -14,6 +14,12 @@ beforeEach(()=>{
  Object.defineProperty(HTMLDialogElement.prototype,"close",{configurable:true,value:function(this:HTMLDialogElement){this.open=false}});
 });
 afterEach(()=>{cleanup();localStorage.clear()});
+
+it("refreshes the business consumer only after verifying the original saved mode receipt",async()=>{
+ const onSaved=vi.fn();state.send.mockRejectedValueOnce(new ConfigurationError("OUTCOME_UNKNOWN"));render(<ExecutionModeSettings scope={scope} subject={subject} onSaved={onSaved}/>);
+ fireEvent.click(await screen.findByRole("button",{name:"配置权限"}));fireEvent.click(screen.getByRole("button",{name:"保存配置"}));await screen.findByText(/操作结果尚未确认/);expect(onSaved).not.toHaveBeenCalled();
+ const original=state.send.mock.calls[0][3];state.send.mockImplementation(saveReceipt);fireEvent.click(screen.getByRole("button",{name:"核实原保存操作"}));await screen.findByText(/权限模式已保存/);expect(onSaved).toHaveBeenCalledOnce();expect(state.send.mock.calls[1][3].headers["Idempotency-Key"]).toBe(original.headers["Idempotency-Key"]);
+});
 function saveReceipt(_scope:unknown,_path:unknown,_schema:unknown,options:{body:string;headers:Record<string,string>}){
  const payload=JSON.parse(options.body),key=options.headers["Idempotency-Key"];
  const value={...state.view,mode:payload.mode,revision:"1",updatedBy:"actor",receipt:{subject:state.view.subject,commandId:"2b9ac69f-bf25-4d28-a85a-8036ea005013",requestKey:key,operation:"set-execution-mode",mode:payload.mode,beforeRevision:payload.expectedRevision,revision:"1",noop:false,committedAt:"2026-10-12T00:00:00Z",updatedBy:"actor",updatedAt:state.view.updatedAt}};

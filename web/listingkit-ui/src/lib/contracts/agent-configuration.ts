@@ -16,7 +16,7 @@ export const templateRefSchema = z.strictObject({
   templateId: knowledgeId,
   revision: configVersion,
 });
-export const registeredAgentIdSchema = z.enum(["product.title.agent","product.image.agent","product.content.agent","listing.materials.agent","pod.design.agent"]);
+export const registeredAgentIdSchema = z.enum(["product.title.agent","product.image.agent","product.content.agent","listing.materials.agent","pod.design.agent","product.selection.agent"]);
 const agentId = registeredAgentIdSchema,
   timestamp = z.string().datetime({ offset: true }),
   platform = z.enum(["shein", "temu", "amazon"]);
@@ -94,7 +94,7 @@ export const catalogEntrySchema = z.strictObject({
   name: z.string().min(1).max(512),
   description: z.string().max(2048),
   definitionVersion: z.string().max(128),
-	parameterSchema: z.enum(["title-config-v1","image-config-v1","content-config-v1","listing-materials-config-v1","pod-artwork-config-v1"]),
+	parameterSchema: z.enum(["title-config-v1","image-config-v1","content-config-v1","listing-materials-config-v1","pod-artwork-config-v1","product-selection-config-v1"]),
   canConfigure: z.boolean(),
   canUse: z.boolean(),
   canReadRuns: z.boolean(),
@@ -105,6 +105,7 @@ export const catalogEntrySchema = z.strictObject({
           "text.generate",
           "product.source-evidence",
           "listing.materials.inspect",
+          "product.selection.inspect",
           "knowledge.context",
           "image.generate",
           "platform.write",
@@ -121,7 +122,7 @@ export const catalogEntrySchema = z.strictObject({
       }),
     )
     .max(5),
-}).refine(entry=>({"product.title.agent":"title-config-v1","product.image.agent":"image-config-v1","product.content.agent":"content-config-v1","listing.materials.agent":"listing-materials-config-v1","pod.design.agent":"pod-artwork-config-v1"})[entry.agent.agentId]===entry.parameterSchema,{message:"智能体与参数类型不一致"});
+}).refine(entry=>({"product.title.agent":"title-config-v1","product.image.agent":"image-config-v1","product.content.agent":"content-config-v1","listing.materials.agent":"listing-materials-config-v1","pod.design.agent":"pod-artwork-config-v1","product.selection.agent":"product-selection-config-v1"})[entry.agent.agentId]===entry.parameterSchema,{message:"智能体与参数类型不一致"});
 const page = <T extends z.ZodType>(schema: T, max = 100) =>
   z.strictObject({
     items: z.array(schema).max(max),

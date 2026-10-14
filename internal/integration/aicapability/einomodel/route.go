@@ -67,13 +67,15 @@ func CredentialVersion(row openai.AIClientCredential) string {
 func EndpointIdentityDigest(endpoint string) string { return endpointDigest(endpoint) }
 
 func NewOrganizationRouteResolver(credentials OrganizationCredentialReader, policies map[RouteKey]RoutePolicy) (*OrganizationRouteResolver, error) {
-	if credentials == nil || len(policies) == 0 || len(policies) > 128 {
+	// A separately configured registered consumer may leave this registry
+	// empty. Resolve still rejects every unconfigured exact operation.
+	if credentials == nil || len(policies) > 128 {
 		return nil, ErrInvalid
 	}
 	frozen := make(map[RouteKey]RoutePolicy, len(policies))
 	for key, policy := range policies {
 		if key.OrganizationID == "" || len(key.OrganizationID) > 128 ||
-			(key.Operation != aicapability.OperationAIWorkbenchChatPlan && key.Operation != aicapability.OperationProductAgentDecision && key.Operation != aicapability.OperationProductContentDecision && key.Operation != aicapability.OperationListingMaterialsDecision) ||
+			(key.Operation != aicapability.OperationAIWorkbenchChatPlan && key.Operation != aicapability.OperationProductAgentDecision && key.Operation != aicapability.OperationProductContentDecision && key.Operation != aicapability.OperationListingMaterialsDecision && key.Operation != aicapability.OperationProductSelectionDecision) ||
 			policy.AdmittedEndpointIdentityDigest == "" {
 			return nil, ErrInvalid
 		}

@@ -8,6 +8,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { AgentPage } from "./agent-page";
+vi.mock("./product-selection-flow",()=>({ProductSelectionFlow:({nonce}:{nonce:number})=><p>业务流程刷新：{nonce}</p>}));
 const scope = vi.hoisted(() => ({
   user: { id: "actor" },
   effectiveOrganization: { id: "org-a", name: "企业A" },
@@ -80,6 +81,42 @@ afterEach(() => {
   vi.unstubAllGlobals();
   scope.effectiveOrganization = { id: "org-a", name: "企业A" };
   scope.isSwitching = false;
+});
+
+it.each(["market", "mine"] as const)("exposes authorized selection facts from %s before activation without enabling analysis", async (mode) => {
+  const fetch = vi.fn(async (_url: unknown, _init?: RequestInit) => { void _url; void _init; return Response.json({items: [{...item, name: "选品对比", parameterSchema: "product-selection-config-v1", agent: {...item.agent, agentId: "product.selection.agent"}, capabilities: [{id: "product.selection.inspect", support: "REQUIRED", readiness: "AVAILABLE", reason: "", observedAt: "2026-10-14T00:00:00Z"}]}], nextCursor: ""}); });
+  vi.stubGlobal("fetch", fetch);
+  render(<AgentPage mode={mode}/>);
+  expect(await screen.findByRole("link", {name: "查看商品事实 →"})).toHaveAttribute("href", "/workbench/agents/mine/product.selection.agent");
+  expect(screen.getByText("商品事实对比 · 有引用建议")).toBeInTheDocument();
+  expect(screen.queryByText("标题优化 · 人工审核")).toBeNull();
+  expect(screen.queryByRole("link", {name: "进入使用 →"})).toBeNull();
+  expect(screen.getByText("尚未启用")).toBeInTheDocument();
+  expect(fetch.mock.calls.every(([, init]) => !init?.method || init.method === "GET")).toBe(true);
+});
+
+it("does not expose selection inspection when its current capability denies access", async () => {
+  vi.stubGlobal("fetch", vi.fn(async () => Response.json({items: [{...item, parameterSchema: "product-selection-config-v1", agent: {...item.agent, agentId: "product.selection.agent"}, capabilities: [{id: "product.selection.inspect", support: "REQUIRED", readiness: "REQUIRES_AUTHORIZATION", reason: "需要授权", observedAt: "2026-10-14T00:00:00Z"}]}], nextCursor: ""})));
+  render(<AgentPage mode="market"/>);
+  await screen.findByText("需要授权");
+  expect(screen.queryByRole("link", {name: "查看商品事实 →"})).toBeNull();
+});
+
+it("refreshes the adjacent business flow after the mode sidebar saves its exact receipt",async()=>{
+ localStorage.clear();let revision="0";
+ Object.defineProperty(HTMLDialogElement.prototype,"showModal",{configurable:true,value:function(this:HTMLDialogElement){this.open=true}});Object.defineProperty(HTMLDialogElement.prototype,"close",{configurable:true,value:function(this:HTMLDialogElement){this.open=false}});
+ const subject={kind:"registered_agent",id:"product.selection.agent"},definition={id:subject.id,version:"v1.0.0"};
+ const mode=()=>({subject,definition,mode:"read_only",revision,policyVersion:"agent-execution-policy-v1",canConfigure:true,updatedAt:"2026-10-14T00:00:00Z",updatedBy:"actor"});
+ vi.stubGlobal("fetch",vi.fn(async(url,init)=>{
+  const path=String(url);
+  if(path.includes("execution-modes")){
+   if(init?.method==="PUT"){const payload=JSON.parse(init.body),key=new Headers(init.headers).get("Idempotency-Key");revision="1";return Response.json({...mode(),receipt:{subject,requestKey:key,commandId:"11111111-1111-4111-8111-111111111111",operation:"set-execution-mode",mode:payload.mode,beforeRevision:payload.expectedRevision,revision,noop:false,committedAt:"2026-10-14T00:00:00Z",updatedBy:"actor",updatedAt:"2026-10-14T00:00:00Z"}})}
+   return Response.json(mode());
+  }
+  if(path.endsWith("/agents/product.selection.agent"))return Response.json({...item,agent:{...item.agent,agentId:subject.id,activation:"ENABLED",revision:"1",activationEpoch:"1"},name:"选品对比",parameterSchema:"product-selection-config-v1",canUse:true});
+  return Response.json({items:[],nextCursor:""});
+ }));
+ render(<AgentPage mode="mine" id="product.selection.agent"/>);await screen.findByText("业务流程刷新：0");fireEvent.click(await screen.findByRole("button",{name:"刷新权限状态"}));await screen.findByText("业务流程刷新：1");fireEvent.click(await screen.findByRole("button",{name:"配置权限"}));fireEvent.click(screen.getByRole("button",{name:"保存配置"}));await screen.findByText("业务流程刷新：2");localStorage.clear();
 });
 it("waits for a committed enable receipt and refetches the shared fact", async () => {
   let enabled = false;

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"task-processor/internal/product/enrichment"
+	"task-processor/internal/product/selection"
 	"testing"
 	"time"
 
@@ -222,6 +223,35 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		}
 		var content string
 		switch {
+		case mode == "selection" && step == 1:
+			content = `{"Kind":"tool","Tool":{"ID":"product.selection.inspect","Version":"v1.0.0"}}`
+		case mode == "selection":
+			var wire struct {
+				Messages []struct {
+					Content string `json:"content"`
+				} `json:"messages"`
+			}
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&wire))
+			var disclosure selection.Inspection
+			for _, message := range wire.Messages {
+				var prompt struct {
+					Input struct {
+						History []struct{ Output json.RawMessage }
+					}
+				}
+				if json.Unmarshal([]byte(message.Content), &prompt) == nil {
+					for _, observed := range prompt.Input.History {
+						if got, err := selection.ParseInspection(observed.Output); err == nil {
+							disclosure = got
+						}
+					}
+				}
+			}
+			require.Len(t, disclosure.Products, 2, "proposal must cite the actual tool disclosure")
+			proposal := selection.Proposal{Overview: "根据已保存资料，先核实完整成本", RecommendedItemID: disclosure.Products[0].Ref.ItemID, Assessments: []selection.Assessment{{ItemID: disclosure.Products[0].Ref.ItemID, Advice: "先核实今日供货条件", EvidenceIDs: []string{disclosure.Products[0].Facts[0].ID}}}}
+			action, err := json.Marshal(agent.Action{Kind: "propose", DomainProposal: &agent.DomainProposal{Kind: agentconfig.SelectionProposalKind, Payload: mustSelectionJSON(t, proposal)}})
+			require.NoError(t, err)
+			content = string(action)
 		case strings.HasPrefix(mode, "supply materials") && step%2 == 1:
 			content = `{"Kind":"tool","Tool":{"ID":"listing.materials.inspect","Version":"v1.0.0"}}`
 		case strings.HasPrefix(mode, "supply materials"):
@@ -360,6 +390,12 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		}
 		settings.MaterialsTextPolicies = map[string]governed.RoutePolicy{"B": policy}
 	}
+	if mode == "selection" {
+		policy := settings.TextPolicies["B"]
+		policy.Profile.PromptVersion, policy.Profile.OutputSchemaVersion = agentconfig.SelectionPromptVersion, agentconfig.SelectionActionVersion
+		settings.SelectionTextPolicies = map[string]governed.RoutePolicy{"B": policy}
+		settings.TextPolicies = nil
+	}
 	if kf != nil {
 		settings.Knowledge = kf.service
 	}
@@ -381,8 +417,40 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	if strings.HasPrefix(mode, "content flow cross-admin ") {
 		reviewIAM = newContentReviewIAM(t, &memberReplaced)
 	}
+	if mode == "selection" {
+		for _, limits := range [][2]int{{3, 2}, {4, 1}} {
+			invalid := settings
+			invalid.Limits.Steps, invalid.Limits.ModelCalls = limits[0], limits[1]
+			_, admissionErr := buildProductAgentModule(context.Background(), f.db, deps, auth, invalid, reviewIAM.config())
+			require.ErrorIs(t, admissionErr, agent.ErrUnavailable, "application admission must reject a deterministically incomplete flow")
+			require.Zero(t, calls.Load())
+		}
+		settings.Limits.Steps, settings.Limits.ModelCalls = 4, 2
+		profile := settings.SelectionTextPolicies["B"].ShapeProfile()
+		cost, quoteErr := profile.MaximumCost()
+		require.NoError(t, quoteErr)
+		for _, short := range []string{"tokens", "cost"} {
+			invalid := settings
+			invalid.Limits.Tokens = 2 * (profile.MaximumPromptTokens + profile.MaximumCompletionTokens)
+			invalid.Limits.CostMicros = 2 * cost
+			if short == "tokens" {
+				invalid.Limits.Tokens--
+			} else {
+				invalid.Limits.CostMicros--
+			}
+			_, admissionErr := buildProductAgentModule(context.Background(), f.db, deps, auth, invalid, reviewIAM.config())
+			require.ErrorIs(t, admissionErr, agent.ErrUnavailable)
+			require.Zero(t, calls.Load())
+		}
+		settings.Limits.Tokens = 2 * (profile.MaximumPromptTokens + profile.MaximumCompletionTokens)
+		settings.Limits.CostMicros = 2 * cost
+	}
 	module, err := buildProductAgentModule(context.Background(), f.db, deps, auth, settings, reviewIAM.config())
 	require.NoError(t, err)
+	if mode == "selection" {
+		testSelectionHTTPThroughNativeOwners(t, f, module.(productAgentModule).application, deps, auth, &calls)
+		return
+	}
 	if strings.HasPrefix(mode, "content flow") {
 		contentApp := module.(productAgentModule).application.content
 		require.NotNil(t, contentApp)
@@ -749,13 +817,30 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		require.Equal(t, 503, code, string(raw), "new work cannot select the disabled model route")
 		require.EqualValues(t, 4, calls.Load())
 		application := module.(productAgentModule).application
-		recent, _, recentErr := configuration.Recent(context.Background(), agent.Scope{OrganizationID: "B", ActorID: "admin"}, "product.title.agent", "", 20, application.store, func(b agent.Binding) error { require.Equal(t, op.ProductKey, b.ProductKey); return nil })
+		recent, _, recentErr := configuration.Recent(context.Background(), agent.Scope{OrganizationID: "B", ActorID: "admin"}, "member-B-admin", "product.title.agent", "", 20, application.store, func(b agent.Binding) error { require.Equal(t, op.ProductKey, b.ProductKey); return nil })
 		require.NoError(t, recentErr)
 		require.Len(t, recent, 1)
 		require.Equal(t, result.RunID, recent[0].RunID)
-		denied, _, recentErr := configuration.Recent(context.Background(), agent.Scope{OrganizationID: "B", ActorID: "other"}, "product.title.agent", "", 20, application.store, func(agent.Binding) error { return nil })
+		for _, failure := range []error{agentconfig.ErrUnavailable, context.DeadlineExceeded, errors.New("fixture dependency outage")} {
+			items, next, err := configuration.Recent(context.Background(), agent.Scope{OrganizationID: "B", ActorID: "admin"}, "member-B-admin", "product.title.agent", "", 20, application.store, func(agent.Binding) error { return failure })
+			require.ErrorIs(t, err, failure, "an outage is not an empty authorized history")
+			require.Empty(t, items)
+			require.Empty(t, next)
+		}
+		denied, _, recentErr := configuration.Recent(context.Background(), agent.Scope{OrganizationID: "B", ActorID: "other"}, "member-B-other", "product.title.agent", "", 20, application.store, func(agent.Binding) error { return nil })
 		require.NoError(t, recentErr)
 		require.Empty(t, denied)
+		denied, next, recentErr := configuration.Recent(context.Background(), agent.Scope{OrganizationID: "B", ActorID: "admin"}, "member-B-admin-replacement", "product.title.agent", "", 20, application.store, func(agent.Binding) error {
+			t.Fatal("foreign member must be filtered before resource authorization")
+			return nil
+		})
+		require.NoError(t, recentErr)
+		require.Empty(t, denied)
+		require.Empty(t, next)
+		var originalSnapshot struct{ ID string }
+		require.NoError(t, f.owner.Table("agent_configuration.start_snapshots").Select("id").Where("organization_id=? AND actor_id=? AND request_key=?", "B", "admin", key).Take(&originalSnapshot).Error)
+		_, _, recentErr = configuration.Recent(context.Background(), agent.Scope{OrganizationID: "B", ActorID: "admin"}, "member-B-admin-replacement", "product.title.agent", originalSnapshot.ID, 20, application.store, func(agent.Binding) error { return nil })
+		require.ErrorIs(t, recentErr, agentconfig.ErrInvalid, "another member's snapshot cannot act as a cursor")
 	}
 	if mode == "release failed" {
 		require.Equal(t, agent.StopModelUnknown, result.StopReason)

@@ -16,7 +16,7 @@ func (r *GormInvocationRecorder) ReadModelInvocation(ctx context.Context, org, i
 	}
 	var row invocationRow
 	if err := r.db.WithContext(ctx).Where("tenant_id = ? AND invocation_id = ? AND operation IN ?", org, id,
-		[]aicapability.Operation{aicapability.OperationProductAgentDecision, aicapability.OperationProductContentDecision, aicapability.OperationListingMaterialsDecision, aicapability.OperationAIWorkbenchChatPlan}).Take(&row).Error; err != nil {
+		[]aicapability.Operation{aicapability.OperationProductAgentDecision, aicapability.OperationProductContentDecision, aicapability.OperationListingMaterialsDecision, aicapability.OperationProductSelectionDecision, aicapability.OperationAIWorkbenchChatPlan}).Take(&row).Error; err != nil {
 		return aicapability.InvocationRecord{}, err
 	}
 	fact := invocationRecordFromRow(row)

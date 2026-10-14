@@ -57,9 +57,16 @@ const (
 type Binding struct {
 	ContextKind, ContextID                                    string
 	ProductKey, CatalogVersion, PublicationID, TargetPlatform string
+	Selection                                                 [MaxSelectionProducts]SelectionProductRef `json:",omitzero"`
 }
 
 func (b Binding) Valid() bool {
+	if b.ContextKind == SelectionContextKind {
+		return b.validSelection()
+	}
+	if b.Selection != ([MaxSelectionProducts]SelectionProductRef{}) {
+		return false
+	}
 	for _, s := range []string{b.ContextKind, b.ContextID, b.ProductKey, b.PublicationID, b.TargetPlatform} {
 		if !ValidID(s) {
 			return false

@@ -10,6 +10,7 @@ boundary rules unless they explicitly supersede a stable document.
 ## Approved Authorities by Responsibility
 
 - [`pod-design-agent-v1.md`](pod-design-agent-v1.md): #672 proposed design for AI-generated new artwork through current generation/asset/POD owners; DESIGN_IN_PROGRESS, not implementation admission or runtime availability.
+- [`product-selection-comparison-agent-v1.md`](product-selection-comparison-agent-v1.md): #680 IMPLEMENTATION_READY design for factual comparison of 2–5 privately authorized saved products through existing Agent/configuration/model owners; source admission does not imply runtime or user acceptance.
 
 - [Final UI / IA](../product/final-ui-ia-authority.md): final navigation, naming
   and BusinessTask projection (#298), not current release capability.

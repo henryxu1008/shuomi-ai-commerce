@@ -21,6 +21,7 @@ type ProductAgentConfig struct {
 	TextPolicies           map[string]governed.RoutePolicy `json:"textPolicies"`
 	ContentTextPolicies    map[string]governed.RoutePolicy `json:"contentTextPolicies,omitempty"`
 	MaterialsTextPolicies  map[string]governed.RoutePolicy `json:"materialsTextPolicies,omitempty"`
+	SelectionTextPolicies  map[string]governed.RoutePolicy `json:"selectionTextPolicies,omitempty"`
 	Currency               string                          `json:"currency"`
 	Steps                  int                             `json:"steps"`
 	ModelCalls             int                             `json:"modelCalls"`
@@ -65,7 +66,7 @@ func (p *ProductAgentConfig) validate(cfg *Config) error {
 		}
 		seen[id] = true
 	}
-	if len(p.TextPolicies) == 0 || len(p.TextPolicies) > len(seen) {
+	if len(p.TextPolicies)+len(p.ContentTextPolicies)+len(p.MaterialsTextPolicies)+len(p.SelectionTextPolicies) == 0 || len(p.TextPolicies) > len(seen) {
 		return errors.New("product agent text policies invalid")
 	}
 	for organizationID, policy := range p.TextPolicies {
@@ -95,6 +96,19 @@ func (p *ProductAgentConfig) validate(cfg *Config) error {
 		cost, err := profile.MaximumCost()
 		if !seen[org] || profile.PromptVersion != agentconfig.MaterialsPromptVersion || profile.OutputSchemaVersion != agentconfig.MaterialsActionVersion || profile.Currency != p.Currency || !governed.ValidRouteProfile(profile, aicapability.OperationListingMaterialsDecision) || err != nil || profile.MaximumPromptTokens+profile.MaximumCompletionTokens > p.Tokens || cost > p.CostMicros {
 			return errors.New("platform materials text policy invalid")
+		}
+	}
+	if len(p.SelectionTextPolicies) > len(seen) {
+		return errors.New("selection policy outside current organization admission")
+	}
+	for org, policy := range p.SelectionTextPolicies {
+		if p.Steps < 4 || p.ModelCalls < 2 {
+			return errors.New("product selection requires at least four steps and two model calls")
+		}
+		profile := policy.ShapeProfile()
+		cost, err := profile.MaximumCost()
+		if !seen[org] || profile.PromptVersion != agentconfig.SelectionPromptVersion || profile.OutputSchemaVersion != agentconfig.SelectionActionVersion || profile.Currency != p.Currency || !governed.ValidRouteProfile(profile, aicapability.OperationProductSelectionDecision) || err != nil || profile.MaximumCompletionTokens > p.Tokens/2 || profile.MaximumPromptTokens > p.Tokens/2-profile.MaximumCompletionTokens || cost > p.CostMicros/2 {
+			return errors.New("product selection text policy invalid")
 		}
 	}
 	return nil
