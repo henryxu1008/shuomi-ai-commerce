@@ -1,4 +1,4 @@
-package httpapi
+package sheinloginworker
 
 import (
 	"context"
@@ -48,9 +48,9 @@ func (r *sheinLoginWorkerRuntime) Close() error {
 	return errors.Join(closeErrors...)
 }
 
-// RunSheinLoginWorker starts only the dependencies required by the dedicated
+// Run starts only the dependencies required by the dedicated
 // browser worker. It deliberately does not construct an HTTP server.
-func RunSheinLoginWorker(logger *logrus.Logger, options Options) error {
+func Run(logger *logrus.Logger, options Options) error {
 	workerRuntime, err := buildSheinLoginWorkerRuntime(options.ConfigPath)
 	if err != nil {
 		return fmt.Errorf("build SHEIN login worker runtime: %w", err)

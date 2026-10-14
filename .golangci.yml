@@ -56,8 +56,6 @@ linters-settings:
           - "!**/internal/app/httpapi/server_test.go"
           - "!**/internal/app/runtime/listingkitidentitypreflight/runtime.go"
           - "!**/internal/app/runtime/listingkitidentitypreflight/runtime_test.go"
-          - "!**/internal/listingadmin/handler_helpers.go"
-          - "!**/internal/listingadmin/store_handler_test.go"
           - "!**/internal/sheinlogin/tenant_context.go"
           - "!**/internal/sheinlogin/tenant_context_test.go"
           - "!**/internal/tenantbridge/bootstrap/configure.go"
