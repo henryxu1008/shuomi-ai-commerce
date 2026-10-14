@@ -60,7 +60,7 @@ func TestAlibaba1688CrawlerDoesNotConfigureLegacyTenantThroughListingKitHTTPAPI(
 			if dotImportedListingKitHTTPAPI {
 				ident, ok := call.Fun.(*ast.Ident)
 				if ok && ident.Name == "ConfigureLegacyTenantResolver" {
-					t.Errorf("%s dot-imports listingkit/httpapi to configure Legacy Tenant Bridge; use internal/tenantbridge/bootstrap", path)
+					t.Errorf("%s dot-imports listingkit/httpapi to configure Legacy Tenant Bridge; current sourcing must use native Organization identity", path)
 				}
 			}
 			selector, ok := call.Fun.(*ast.SelectorExpr)
@@ -70,7 +70,7 @@ func TestAlibaba1688CrawlerDoesNotConfigureLegacyTenantThroughListingKitHTTPAPI(
 			ident, ok := selector.X.(*ast.Ident)
 			if ok {
 				if _, imported := listingKitHTTPAPINames[ident.Name]; imported {
-					t.Errorf("%s still configures Legacy Tenant Bridge through listingkit/httpapi; use internal/tenantbridge/bootstrap", path)
+					t.Errorf("%s still configures Legacy Tenant Bridge through listingkit/httpapi; current sourcing must use native Organization identity", path)
 				}
 			}
 			return true
