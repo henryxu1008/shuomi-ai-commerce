@@ -187,6 +187,8 @@ func testSelectionHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixtur
 		call("POST", productSelectionBase+"/prepare", key, invalid, http.StatusBadRequest)
 	}
 	raw = call("POST", productSelectionBase+"/prepare", key, preparation, http.StatusOK)
+	require.Equal(t, raw, call("POST", productSelectionBase+"/prepare", key, preparation, http.StatusOK), "uncertain preparation recovers its exact original committed receipt")
+	require.Zero(t, calls.Load(), "preparation recovery never starts a paid run")
 	var prepared struct {
 		ConfigurationSnapshotRef agent.ConfigurationSnapshotRef `json:"configurationSnapshotRef"`
 	}
