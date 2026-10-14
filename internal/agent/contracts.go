@@ -124,11 +124,21 @@ type Action struct {
 	// before handing validated ContextCitationRefs to the runtime.
 	ContextCitationIDs []string `json:",omitempty"`
 	// Kind is tool, propose or interrupt. No arbitrary next-node name is accepted.
-	Kind       string
-	Tool       commercetool.ToolRef
-	Candidate  enrichment.Candidate
-	Unresolved []string
-	Confidence []FieldConfidence
+	Kind      string
+	Tool      commercetool.ToolRef
+	Candidate enrichment.Candidate
+	// DomainProposal is a bounded suggestion for the consumer selected by the
+	// trusted runtime configuration. It is mutually exclusive with Candidate.
+	DomainProposal *DomainProposal `json:",omitempty"`
+	Unresolved     []string
+	Confidence     []FieldConfidence
+}
+
+// DomainProposal transports domain-owned suggestions, never durable business
+// facts. Only the configured domain validator interprets the strict payload.
+type DomainProposal struct {
+	Kind    string
+	Payload json.RawMessage
 }
 
 // FieldConfidence is model-reported, never an approval or truth score. Missing
@@ -211,6 +221,12 @@ type Validation struct {
 type Validator interface {
 	Validate(context.Context, Request, enrichment.Candidate, []Observation) (Validation, error)
 }
+
+// DomainValidator is the alternative to Product validation for an explicitly
+// registered consumer. The runtime computes the complete proposal hash.
+type DomainValidator interface {
+	ValidateDomain(context.Context, Request, DomainProposal, []Observation) (Validation, error)
+}
 type Observation struct {
 	Step                 int
 	Tool                 commercetool.ToolRef
@@ -239,6 +255,7 @@ type State struct {
 	Repairs               int
 	History               []Observation
 	Candidate             enrichment.Candidate
+	DomainProposal        *DomainProposal `json:",omitempty"`
 	Validation            *Validation
 	Unresolved            []string
 	StopReason            StopReason

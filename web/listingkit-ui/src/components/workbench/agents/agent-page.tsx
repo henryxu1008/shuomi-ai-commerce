@@ -51,6 +51,7 @@ const labels: Record<string, string> = {
 const capabilityNames: Record<string, string> = {
   "text.generate": "文本生成",
   "product.source-evidence": "采集证据读取",
+  "listing.materials.inspect": "草稿、店铺规则与已批准资产读取",
   "knowledge.context": "企业知识引用",
   "image.generate": "图片生成",
   "platform.write": "平台写入",
@@ -710,7 +711,7 @@ function ScopedPage({
                       {run.productKey} · {labels[run.phase]}
                     </span>
                     <Link
-                      href={`/workbench/supply/acquisition/operation/${run.operationId}?agent_key=${run.requestKey}&agent_actor=${encodeURIComponent(scope.userId)}&agent_org=${encodeURIComponent(scope.organizationId)}&agent_platform=${run.targetPlatform}${agentId === "product.content.agent" ? "&agent_kind=content" : ""}`}
+                      href={agentId==="listing.materials.agent"?`/workbench/supply/materials/${run.operationId}?agent_key=${run.requestKey}&agent_actor=${encodeURIComponent(scope.userId)}&agent_org=${encodeURIComponent(scope.organizationId)}`:`/workbench/supply/acquisition/operation/${run.operationId}?agent_key=${run.requestKey}&agent_actor=${encodeURIComponent(scope.userId)}&agent_org=${encodeURIComponent(scope.organizationId)}&agent_platform=${run.targetPlatform}${agentId === "product.content.agent" ? "&agent_kind=content" : ""}`}
                     >
                       查看任务 →
                     </Link>
@@ -887,6 +888,7 @@ function TemplateEditor({
   onCancel: () => void;
 }) {
   const content = agentId === "product.content.agent";
+  const materials=agentId==="listing.materials.agent";
   const dialog = useRef<HTMLDialogElement>(null);
   const [name, setName] = useState(template?.name ?? ""),
     [platform, setPlatform] = useState(template?.targetPlatform ?? (content ? "product" : "shein")),
@@ -905,6 +907,7 @@ function TemplateEditor({
     const e = dialog.current;
     e?.showModal();
     const controller = new AbortController();
+    if(materials) return ()=>{e?.close();controller.abort()};
     knowledgeRequest(
       scope,
       `knowledge-bases?pageSize=100&page=${basePage}`,
@@ -925,7 +928,7 @@ function TemplateEditor({
       e?.close();
       controller.abort();
     };
-  }, [scope, basePage]);
+  }, [scope, basePage,materials]);
   return (
     <dialog
       ref={dialog}
@@ -937,9 +940,9 @@ function TemplateEditor({
       }}
     >
       <h2 id="template-editor-title">
-        {template ? "保存模板新版本" : content ? "保存内容模板" : "保存标题模板"}
+        {template ? "保存模板新版本" : materials ? "保存平台资料模板" : content ? "保存内容模板" : "保存标题模板"}
       </h2>
-      <p>模板保存默认配置，执行前仍需确认当前企业权限、预算和知识版本。</p>
+      <p>{materials?"模板保存目标平台；执行前仍核对当前企业权限、预算、标准商品和店铺规则。":"模板保存默认配置，执行前仍需确认当前企业权限、预算和知识版本。"}</p>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -947,7 +950,7 @@ function TemplateEditor({
             onSave({
               name,
               targetPlatform: platform,
-              defaultKnowledgeBaseId: base || null,
+              ...(!materials?{defaultKnowledgeBaseId:base||null}:{}),
               ...(content ? { content: { schema: "content-config-v1", selection } } : {}),
             });
         }}
@@ -959,23 +962,23 @@ function TemplateEditor({
             maxLength={120}
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder={content ? "例如：英文商品内容" : "例如：品牌标题优化"}
+            placeholder={materials ? "例如：SHEIN 美国站资料" : content ? "例如：英文商品内容" : "例如：品牌标题优化"}
           />
         </label>
         <label>
-          素材平台
+          {materials?"目标平台":"素材平台"}
           <select
             value={platform}
             onChange={(e) => setPlatform(e.target.value as typeof platform)}
           >
             {content && <option value="product">标准商品（不指定平台）</option>}
             <option value="shein">SHEIN</option>
-            <option value="temu">TEMU</option>
-            <option value="amazon">Amazon</option>
+            {!materials&&<option value="temu">TEMU</option>}
+            {!materials&&<option value="amazon">Amazon</option>}
           </select>
         </label>
         {content && <ContentSelectionFields value={selection} onChange={setSelection} disabled={busy} />}
-        <label>
+        {!materials&&<label>
           默认企业知识
           <select value={base} onChange={(e) => setBase(e.target.value)}>
             {base === "unresolved" && (
@@ -996,8 +999,8 @@ function TemplateEditor({
               </option>
             ))}
           </select>
-        </label>
-        {baseTotal > 100 && (
+        </label>}
+        {!materials&&baseTotal > 100 && (
           <nav aria-label="模板知识库分页" className={styles.actions}>
             <Button
               type="button"

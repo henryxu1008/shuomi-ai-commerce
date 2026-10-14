@@ -30,6 +30,7 @@ import (
 	reviewstore "task-processor/internal/integration/persistence/product/review"
 	"task-processor/internal/knowledge"
 	"task-processor/internal/ledger/orgresource"
+	"task-processor/internal/listing/materials"
 	productasset "task-processor/internal/product/asset"
 	"task-processor/internal/product/review"
 	"task-processor/internal/workbenchcontext"
@@ -200,6 +201,51 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		}
 		var content string
 		switch {
+		case strings.HasPrefix(mode, "supply materials") && step%2 == 1:
+			content = `{"Kind":"tool","Tool":{"ID":"listing.materials.inspect","Version":"v1.0.0"}}`
+		case strings.HasPrefix(mode, "supply materials"):
+			var wire struct {
+				Messages []struct {
+					Content string `json:"content"`
+				} `json:"messages"`
+			}
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&wire))
+			var evidence string
+			for _, message := range wire.Messages {
+				var prompt struct {
+					Input struct {
+						History []struct {
+							Output struct {
+								EvidenceID string `json:"evidenceId"`
+							}
+						}
+					}
+				}
+				if json.Unmarshal([]byte(message.Content), &prompt) == nil {
+					for _, step := range prompt.Input.History {
+						if step.Output.EvidenceID != "" {
+							evidence = step.Output.EvidenceID
+						}
+					}
+				}
+			}
+			require.NotEmpty(t, evidence, "proposal cites the actual bounded disclosure")
+			content = `{"Kind":"propose","DomainProposal":{"Kind":"listing-materials-v1","Payload":{"brandCode":"fixture-brand","evidenceIds":["` + evidence + `"]}}}`
+			if strings.Contains(mode, "receipt collision") {
+				var action map[string]any
+				require.NoError(t, json.Unmarshal([]byte(content), &action))
+				notes := make([]string, 4096)
+				action["Unresolved"] = notes
+				encoded, err := json.Marshal(action)
+				require.NoError(t, err)
+				var admitted agent.Action
+				require.NoError(t, json.Unmarshal(encoded, &admitted))
+				require.NoError(t, (materials.ModelAdmission{}).ValidateAction(admitted))
+				content = string(encoded)
+			}
+			if strings.Contains(mode, " qualified") {
+				content = `{"Kind":"propose","DomainProposal":{"Kind":"listing-materials-v1","Payload":{"images":[{"group":"skc","skc":0,"sku":0,"asset_id":"qualified-main","sort":1,"type":1},{"group":"skc","skc":0,"sku":0,"asset_id":"qualified-detail","sort":3,"type":2},{"group":"skc","skc":0,"sku":0,"asset_id":"qualified-square","sort":2,"type":5}],"evidenceIds":["` + evidence + `"]}}}`
+			}
 		case (strings.HasPrefix(mode, "content flow") || mode == "supply content") && (step-1)%3 == 0:
 			content = `{"Kind":"tool","Tool":{"ID":"product.canonical.inspect","Version":"v2.0.0"}}`
 		case (strings.HasPrefix(mode, "content flow") || mode == "supply content") && (step-1)%3 == 1:
@@ -281,6 +327,14 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		policy := settings.TextPolicies["B"]
 		policy.Profile.PromptVersion, policy.Profile.OutputSchemaVersion = agentconfig.ContentPromptVersion, agentconfig.ContentActionVersion
 		settings.ContentTextPolicies = map[string]governed.RoutePolicy{"B": policy}
+	}
+	if strings.HasPrefix(mode, "supply materials") {
+		policy := settings.TextPolicies["B"]
+		policy.Profile.PromptVersion, policy.Profile.OutputSchemaVersion = agentconfig.MaterialsPromptVersion, agentconfig.MaterialsActionVersion
+		if strings.Contains(mode, "receipt collision") {
+			policy.Profile.MaximumOutputBytes = agent.MaxModelOutputBytes
+		}
+		settings.MaterialsTextPolicies = map[string]governed.RoutePolicy{"B": policy}
 	}
 	if kf != nil {
 		settings.Knowledge = kf.service
@@ -587,6 +641,16 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	}
 	code, raw, err := acquisitionHTTPRequest(server, "POST", path, "admin", "B", key, startBody)
 	require.NoError(t, err)
+	if mode == "revoked before dispatch" || mode == "release failed" {
+		// Projection uses current membership even when the invocation has already
+		// recorded a stopped/UNKNOWN run. Restore the grant only to inspect that
+		// original immutable result; do not dispatch another invocation.
+		require.Equal(t, 403, code, string(raw))
+		require.Zero(t, calls.Load())
+		f.grants.revoked.Store(false)
+		code, raw, err = acquisitionHTTPRequest(server, "GET", path+"/"+key, "admin", "B", "", "")
+		require.NoError(t, err)
+	}
 	require.Equal(t, 200, code, string(raw))
 	var result productAgentResultDTO
 	require.NoError(t, json.Unmarshal(raw, &result))
@@ -737,6 +801,13 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	require.EqualValues(t, 4, calls.Load())
 	code, raw, err = acquisitionHTTPRequest(server, "POST", path+"/"+key+"/review", "admin", "B", "", `{}`)
 	require.NoError(t, err)
+	if mode == "configuration" {
+		// A readable frozen result is not authority for a new Review write after
+		// its registered configuration was disabled/template archived above.
+		require.Equal(t, 409, code, string(raw))
+		require.EqualValues(t, 4, calls.Load())
+		return
+	}
 	require.Equal(t, 200, code, string(raw))
 	var link struct {
 		ProposalID string `json:"proposalId"`
@@ -838,10 +909,6 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		require.EqualValues(t, 160, usage.Quantity)
 	}
 	// The human, using the original Review endpoint, decides and applies.
-	if mode == "configuration" {
-		titleCall(t, server, "POST", titleBasePath+"/"+view.ID+"/decisions", "admin", "B", uuid.NewString(), `{"action":"accept","expected_revision":1}`, 409)
-		return
-	}
 	accepted := titleCall(t, server, "POST", titleBasePath+"/"+view.ID+"/decisions", "admin", "B", uuid.NewString(), `{"action":"accept","expected_revision":1}`, 200)
 	_ = accepted
 	code, raw, err = acquisitionHTTPRequest(server, "POST", titleBasePath+"/"+view.ID+"/apply", "admin", "B", uuid.NewString(), `{"expected_revision":2}`)

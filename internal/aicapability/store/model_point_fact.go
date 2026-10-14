@@ -8,7 +8,7 @@ import (
 	"task-processor/internal/aicapability"
 )
 
-// ReadModelInvocation reads either admitted priced-text operation from the
+// ReadModelInvocation reads admitted priced-text operations from the
 // existing AI invocation owner, never caller-supplied usage.
 func (r *GormInvocationRecorder) ReadModelInvocation(ctx context.Context, org, id string) (aicapability.InvocationRecord, error) {
 	if r == nil || r.db == nil || strings.TrimSpace(org) == "" || strings.TrimSpace(id) == "" {
@@ -16,7 +16,7 @@ func (r *GormInvocationRecorder) ReadModelInvocation(ctx context.Context, org, i
 	}
 	var row invocationRow
 	if err := r.db.WithContext(ctx).Where("tenant_id = ? AND invocation_id = ? AND operation IN ?", org, id,
-		[]aicapability.Operation{aicapability.OperationProductAgentDecision, aicapability.OperationProductContentDecision, aicapability.OperationAIWorkbenchChatPlan}).Take(&row).Error; err != nil {
+		[]aicapability.Operation{aicapability.OperationProductAgentDecision, aicapability.OperationProductContentDecision, aicapability.OperationListingMaterialsDecision, aicapability.OperationAIWorkbenchChatPlan}).Take(&row).Error; err != nil {
 		return aicapability.InvocationRecord{}, err
 	}
 	fact := invocationRecordFromRow(row)

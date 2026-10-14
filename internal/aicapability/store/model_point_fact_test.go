@@ -48,6 +48,28 @@ func TestContentPricedInvocationKeepsCanonicalIdentityAndReplay(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestListingMaterialsPricedInvocationRetainsExistingScopedLedger(t *testing.T) {
+	db := newInvocationLedgerDB(t)
+	ledger := NewGormInvocationRecorder(db)
+	fact := aicapability.InvocationRecord{InvocationID: "materials-invocation", TenantID: "org", UserID: "actor", MemberID: "member", AgentRunID: "materials-run", InputHash: "exact-material-disclosure", Operation: aicapability.OperationListingMaterialsDecision, Outcome: aicapability.InvocationDispatched, StartedAt: time.Now().UTC(), MaximumPromptTokens: 100, MaximumCompletionTokens: 50, PointTariff: aicapability.ModelPointTariff{PriceVersion: "synthetic", InputPointsPerMillionTokens: 1, OutputPointsPerMillionTokens: 1}}
+	acquired, err := ledger.ClaimInvocation(context.Background(), fact)
+	require.NoError(t, err)
+	require.True(t, acquired)
+	acquired, err = ledger.ClaimInvocation(context.Background(), fact)
+	require.NoError(t, err)
+	require.False(t, acquired)
+	read, err := ledger.ReadModelInvocation(context.Background(), "org", fact.InvocationID)
+	require.NoError(t, err)
+	require.Equal(t, fact.AgentRunID, read.AgentRunID)
+	require.Equal(t, fact.PointTariff, read.PointTariff)
+	foreign := fact
+	foreign.Operation = aicapability.OperationProductContentDecision
+	_, err = ledger.ClaimInvocation(context.Background(), foreign)
+	require.Error(t, err)
+	_, err = ledger.ReadModelInvocation(context.Background(), "other-org", fact.InvocationID)
+	require.Error(t, err)
+}
+
 func TestPlannerPricedInvocationUsesSameScopedOwnerWithoutFakeAgentRun(t *testing.T) {
 	db := newInvocationLedgerDB(t)
 	r := NewGormInvocationRecorder(db)

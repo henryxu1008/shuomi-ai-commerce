@@ -37,6 +37,24 @@ func TestContentTextPolicyIsOptionalAndCannotBorrowTheTitleRoute(t *testing.T) {
 	require.Error(t, cfg.validate(), "content cannot increase the current token/cost ceiling")
 }
 
+func TestMaterialsTextPolicyIsIndependentOptionalAndBounded(t *testing.T) {
+	cfg := agentRuntimeConfig()
+	require.NoError(t, cfg.validate())
+	policy := cfg.ProductAgent.TextPolicies["org"]
+	cfg.ProductAgent.MaterialsTextPolicies = map[string]governed.RoutePolicy{"org": policy}
+	require.Error(t, cfg.validate(), "the title policy cannot advertise platform materials")
+	policy.Profile.PromptVersion = agentconfig.MaterialsPromptVersion
+	policy.Profile.OutputSchemaVersion = agentconfig.MaterialsActionVersion
+	cfg.ProductAgent.MaterialsTextPolicies["org"] = policy
+	require.NoError(t, cfg.validate())
+	cfg.ProductAgent.MaterialsTextPolicies["outside"] = policy
+	require.Error(t, cfg.validate())
+	delete(cfg.ProductAgent.MaterialsTextPolicies, "outside")
+	policy.Profile.MaximumCompletionTokens = cfg.ProductAgent.Tokens
+	cfg.ProductAgent.MaterialsTextPolicies["org"] = policy
+	require.Error(t, cfg.validate())
+}
+
 func agentRuntimeConfig() *Config {
 	cfg := runtimeTestConfig()
 	owner := cfg.SourceAccountDatabase

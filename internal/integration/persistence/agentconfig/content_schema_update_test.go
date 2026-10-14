@@ -103,7 +103,19 @@ func TestContentSchemaUpdateRejectsDriftBeforeChangingFactsOrColumns(t *testing.
 			if !test.current {
 				require.NoError(t, db.Exec(priorContentSchema).Error)
 			}
-			require.NoError(t, db.Exec(test.sql).Error)
+			sql := test.sql
+			if test.name == "foreign table owner" {
+				// This isolated database must own its fixture role; the test
+				// cannot depend on a role left by another package or CI setup.
+				foreign := "content_foreign_" + strings.ReplaceAll(uuid.NewString(), "-", "")
+				require.NoError(t, db.Exec("CREATE ROLE "+foreign+" NOLOGIN").Error)
+				t.Cleanup(func() {
+					_ = db.Exec("DROP OWNED BY " + foreign + " CASCADE").Error
+					_ = db.Exec("DROP ROLE " + foreign).Error
+				})
+				sql = strings.ReplaceAll(sql, "permission_test", foreign)
+			}
+			require.NoError(t, db.Exec(sql).Error)
 			role := "content_runtime_" + strings.ReplaceAll(uuid.NewString(), "-", "")
 			require.NoError(t, db.Exec("CREATE ROLE "+role+" NOLOGIN").Error)
 			t.Cleanup(func() { _ = db.Exec("DROP OWNED BY " + role).Error; _ = db.Exec("DROP ROLE " + role).Error })

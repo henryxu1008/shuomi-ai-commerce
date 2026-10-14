@@ -2,7 +2,8 @@ import { cleanup,render,screen,waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach,beforeEach,expect,it,vi } from "vitest";
 import { SupplyTargetEditor } from "./target-editor";
-import type { SupplySourceDetail,SupplyRules } from "@/lib/contracts/supply-chain";
+import type { SupplySourceDetail,SupplyRules,SupplyTarget } from "@/lib/contracts/supply-chain";
+import {initialSupplyDraft} from "./draft-fields";
 import type { SupplyCommandState } from "./use-supply-command";
 const state=vi.hoisted(()=>({rules:vi.fn(),inventory:vi.fn(),execute:vi.fn(),imagePanel:vi.fn(),completion:vi.fn()}));
 vi.mock("../acquisition/product-image-set-panel",()=>({ProductImageSetPanel:(props:{onSaved:()=>void;effectiveVersion:string})=>{state.imagePanel(props);return <button onClick={props.onSaved}>保存图片测试回调</button>}}));
@@ -10,6 +11,15 @@ vi.mock("@/lib/api/supply-chain",async original=>({...await original<object>(),s
 const id="11111111-1111-4111-8111-111111111111";
 const source:SupplySourceDetail={source:{id,preparationId:id,collectionItemId:id,collectionRevision:1,source:{productKey:"product-a",publicationId:id,version:"1",kind:"own"}},product:{title:"原始商品",variants:[{sku:"source-sku",price:{amount:99},stock:42}]},images:[{id,url:"https://example.org/main.jpg",width:900,height:900}]};
 const command={execute:state.execute} as unknown as SupplyCommandState;
+it("opens materials only for an unchanged saved Target and removes the entry after manual edits",async()=>{
+ state.rules.mockResolvedValue(rules("self_operated"));
+ const draft=initialSupplyDraft(source);
+ const existing={id,targetId:id,revision:1,effectiveVersion:"1",input:{sourceId:id,storeId:id,expectedRevision:0,effectiveVersion:"1",draft},merchant:{site:"shein-us"},result:{ready_for_upload:false,issues:[]}} as unknown as SupplyTarget;
+ render(<SupplyTargetEditor scope={{userId:"actor",organizationId:"org"}} source={source} storeId={id} existing={existing} command={command} disabled={false} saved={0} materialsAvailable/>);
+ expect(await screen.findByRole("link",{name:"准备平台资料"})).toHaveAttribute("href",`/workbench/supply/materials/${id}`);
+ await userEvent.type(screen.getByLabelText("商品标题内容 1")," 修改");
+ expect(screen.queryByRole("link",{name:"准备平台资料"})).toBeNull();expect(state.execute).not.toHaveBeenCalled();
+});
 it("does not automatically override formal fields when a completion draft is available",async()=>{
  state.rules.mockResolvedValue(rules("self_operated"));state.completion.mockResolvedValue({revision:3,content:{title:"明确带入的候选",description:"待补全描述"}});
  render(<SupplyTargetEditor scope={{userId:"actor",organizationId:"org"}} source={source} storeId={id} command={command} disabled={false} saved={0} completionAvailable/>);

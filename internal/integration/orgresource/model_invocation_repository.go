@@ -24,7 +24,7 @@ type ModelInvocationAuthorizer interface {
 	AuthorizeModelInvocation(context.Context, aicapability.InvocationRecord) error
 }
 
-// This adapter is fixed to native Product Agent invocation facts. Token arguments
+// This adapter is fixed to native registered text invocation facts. Token arguments
 // only cross-check that fact; they are never an independent charge authority.
 type GormModelInvocationRepository struct {
 	db         *gorm.DB
@@ -80,7 +80,7 @@ func (r *GormModelInvocationRepository) readFact(ctx context.Context, org, id st
 
 func modelPointBusinessScope(fact aicapability.InvocationRecord) string {
 	switch fact.Operation {
-	case aicapability.OperationProductAgentDecision, aicapability.OperationProductContentDecision:
+	case aicapability.OperationProductAgentDecision, aicapability.OperationProductContentDecision, aicapability.OperationListingMaterialsDecision:
 		if fact.AgentRunID != "" {
 			return fact.AgentRunID
 		}

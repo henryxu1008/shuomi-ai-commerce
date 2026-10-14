@@ -11,8 +11,10 @@ import (
 func TestProductAgentCatalogHasDistinctDefinitionsInCursorOrder(t *testing.T) {
 	entries, err := (productAgentCatalog{}).ReadCatalog(context.Background())
 	require.NoError(t, err)
-	require.Len(t, entries, 3)
-	require.Less(t, entries[0].Definition.ID, entries[1].Definition.ID, "market cursors require canonical ID order")
+	require.Len(t, entries, 4)
+	for i := 1; i < len(entries); i++ {
+		require.Less(t, entries[i-1].Definition.ID, entries[i].Definition.ID, "market cursors require canonical ID order without duplicate definitions")
+	}
 	schemas := map[string]string{}
 	for _, entry := range entries {
 		schemas[entry.Definition.ID] = entry.ParameterSchema
@@ -20,6 +22,7 @@ func TestProductAgentCatalogHasDistinctDefinitionsInCursorOrder(t *testing.T) {
 	require.Equal(t, agentconfig.ImageParameterSchema, schemas[agentconfig.ImageAgentID])
 	require.Equal(t, agentconfig.ParameterSchema, schemas["product.title.agent"])
 	require.Equal(t, agentconfig.ContentParameterSchema, schemas[agentconfig.ContentAgentID])
+	require.Equal(t, agentconfig.MaterialsParameterSchema, schemas[agentconfig.MaterialsAgentID])
 }
 
 func TestProductAgentTemplateSelectionIsExplicitAndStartOnly(t *testing.T) {

@@ -116,6 +116,11 @@ describe("/api/workbench BFF", () => {
   });
 
   it.each([
+    { method: "POST", path: `supply-preparations/records/${operationKey}/materials-agent/runs`, budget: 125_000 },
+    { method: "POST", path: `supply-preparations/records/${operationKey}/materials-agent/runs/${storeId}/resume`, budget: 125_000 },
+    { method: "POST", path: `supply-preparations/records/${operationKey}/materials-agent/runs/${storeId}/adopt`, budget: 125_000 },
+    { method: "GET", path: `supply-preparations/records/${operationKey}/materials-agent/runs/${storeId}/adoption`, budget: 15_000 },
+    { method: "POST", path: `supply-preparations/records/${operationKey}/materials-agent/runs/not-a-uuid/adopt`, budget: 15_000 },
     ...["product-agent", "content-agent"].flatMap((namespace) => [
       { method: "POST", path: `sourcing/1688/acquisitions/${operationKey}/${namespace}/runs`, budget: 125_000 },
       { method: "GET", path: `sourcing/1688/acquisitions/${operationKey}/${namespace}/runs/${storeId}`, budget: 125_000 },
@@ -154,6 +159,23 @@ describe("/api/workbench BFF", () => {
     }
     expect(fetchMock).not.toHaveBeenCalled();
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("retains a dispatched materials timeout as UNKNOWN without resending", async () => {
+    vi.useFakeTimers();
+    authState.session = { accessToken: "private-token" };authState.token = "private-token";authState.identity = { userId: "user-a" };
+    vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL", "http://localhost");
+    const fetchMock = vi.fn<typeof fetch>((_input, init) => new Promise((_resolve, reject) => {
+      init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")), { once: true });
+    }));vi.stubGlobal("fetch", fetchMock);
+    const path = ["supply-preparations", "records", operationKey, "materials-agent", "runs"];
+    const pending = call(POST, new NextRequest(`http://localhost/api/workbench/${path.join("/")}`, {
+      method:"POST", headers:{cookie:"shuomi_effective_organization=org-b",Origin:"http://localhost","Content-Type":"application/json","X-Expected-Organization-ID":"org-b","X-Expected-User-ID":"user-a","Idempotency-Key":storeId},
+      body:JSON.stringify({configurationSnapshotRef:{Kind:"agent-configuration-v1",ID:storeId,Digest:"a".repeat(64)}}),
+    }),path);
+    await vi.advanceTimersByTimeAsync(124_999);expect(fetchMock).toHaveBeenCalledOnce();expect(fetchMock.mock.calls[0][1]?.signal?.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);const response=await pending;
+    expect(response.status).toBe(503);expect((await response.json()).code).toBe("OUTCOME_UNKNOWN");expect(fetchMock).toHaveBeenCalledOnce();expect(vi.getTimerCount()).toBe(0);
   });
 
   it.each([

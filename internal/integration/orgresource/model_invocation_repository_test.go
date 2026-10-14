@@ -26,6 +26,9 @@ func modelPointFixture(t *testing.T, operations ...aicapability.Operation) (*gor
 	require.NoError(t, aistore.AutoMigrateInvocationLedger(native))
 	now := time.Date(2026, 9, 30, 23, 59, 0, 0, time.UTC)
 	fact := aicapability.InvocationRecord{InvocationID: "invocation", TenantID: "org", UserID: "actor", MemberID: "member", AgentRunID: "run", InputHash: "input", Operation: aicapability.OperationProductAgentDecision, Outcome: aicapability.InvocationDispatched, StartedAt: now, MaximumPromptTokens: 10, MaximumCompletionTokens: 10, PointTariff: aicapability.ModelPointTariff{PriceVersion: "synthetic", InputPointsPerMillionTokens: 1000000, OutputPointsPerMillionTokens: 2000000}}
+	if len(operations) == 1 {
+		fact.Operation = operations[0]
+	}
 	if len(operations) == 1 && operations[0] == aicapability.OperationAIWorkbenchChatPlan {
 		fact.Operation = operations[0]
 		fact.Capability = aicapability.CapabilityAIWorkbenchChatPlanning
@@ -46,6 +49,26 @@ func modelPointFixture(t *testing.T, operations ...aicapability.Operation) (*gor
 	require.NoError(t, resource.Omit("Reservations", "Debts").Create(&organizationResourceBucketRow{OrganizationID: "org", ResourceType: "ai_point", Available: 100}).Error)
 	recorder.SetUsageSettler(repo)
 	return resource, recorder, repo, auth, fact
+}
+
+func TestListingMaterialsModelPointsUseOriginalRunAndSettleOnce(t *testing.T) {
+	db, recorder, _, _, fact := modelPointFixture(t, aicapability.OperationListingMaterialsDecision)
+	ctx := context.Background()
+	require.NoError(t, recorder.ReserveAIInvocationUsage(ctx, fact.TenantID, fact.MemberID, fact.InvocationID, 20, fact.StartedAt))
+	require.NoError(t, recorder.ReserveAIInvocationUsage(ctx, fact.TenantID, fact.MemberID, fact.InvocationID, 20, fact.StartedAt))
+	var reservation organizationResourceReservationRow
+	require.NoError(t, db.Where("owner_attempt_id=?", fact.InvocationID).Take(&reservation).Error)
+	require.Equal(t, fact.AgentRunID, reservation.BusinessScope)
+	fact.Outcome, fact.UsageKnown = aicapability.InvocationUsageObservedFailed, true
+	fact.PromptTokens, fact.CompletionTokens, fact.TotalTokens = 3, 2, 5
+	fact.FinishedAt = fact.StartedAt.Add(time.Second)
+	require.NoError(t, recorder.RecordInvocation(ctx, fact))
+	require.NoError(t, recorder.RecordInvocation(ctx, fact))
+	var bucket organizationResourceBucketRow
+	require.NoError(t, db.Take(&bucket).Error)
+	require.Zero(t, bucket.Reserved)
+	require.EqualValues(t, 7, bucket.Consumed)
+	require.EqualValues(t, 93, bucket.Available)
 }
 
 func TestPlannerModelPointsBindChatPlanScopeWithoutAgentRun(t *testing.T) {

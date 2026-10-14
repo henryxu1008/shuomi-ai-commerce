@@ -54,6 +54,7 @@ type ProductAgentDependencies struct {
 	Ledger                   ProductAgentInvocationLedger
 	TextPolicies             map[string]governed.RoutePolicy
 	ContentTextPolicies      map[string]governed.RoutePolicy
+	MaterialsTextPolicies    map[string]governed.RoutePolicy
 	Enabled                  bool
 	AllowedOrganizationIDs   []string
 	Limits                   agent.Limits
@@ -69,6 +70,7 @@ type ProductAgentInvocationLedger interface {
 }
 
 type productAgentApplication struct {
+	materials               *listingMaterialsApplication
 	content                 *productAgentApplication
 	configuration           *configstore.Store
 	snapshots               catalog.CompleteSnapshotReader
@@ -125,6 +127,13 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 			return nil, agent.ErrUnavailable
 		}
 	}
+	for org, policy := range cfg.MaterialsTextPolicies {
+		profile := policy.ShapeProfile()
+		cost, err := profile.MaximumCost()
+		if !allowedOrganizations[org] || profile.PromptVersion != agentconfig.MaterialsPromptVersion || profile.OutputSchemaVersion != agentconfig.MaterialsActionVersion || !governed.ValidRouteProfile(profile, aicapability.OperationListingMaterialsDecision) || profile.Currency != cfg.Limits.Currency || err != nil || profile.MaximumPromptTokens+profile.MaximumCompletionTokens > cfg.Limits.Tokens || cost > cfg.Limits.CostMicros {
+			return nil, agent.ErrUnavailable
+		}
+	}
 	if cfg.PointAccountingDB == nil || cfg.Ledger == nil {
 		return nil, agent.ErrUnavailable
 	}
@@ -148,6 +157,10 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 	a.config.ContentTextPolicies = make(map[string]governed.RoutePolicy, len(cfg.ContentTextPolicies))
 	for organizationID, policy := range cfg.ContentTextPolicies {
 		a.config.ContentTextPolicies[organizationID] = policy
+	}
+	a.config.MaterialsTextPolicies = make(map[string]governed.RoutePolicy, len(cfg.MaterialsTextPolicies))
+	for org, policy := range cfg.MaterialsTextPolicies {
+		a.config.MaterialsTextPolicies[org] = policy
 	}
 	var err error
 	var contexts []texteino.KnowledgeContext

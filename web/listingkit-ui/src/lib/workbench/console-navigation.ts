@@ -122,6 +122,11 @@ export function findConsoleRoute(pathname: string): ConsoleRoute | undefined {
     const node: ConsoleNavNode = { label: "采集结果", href: pathname, availability: "connected" };
     return { node, trail: [...parent.trail, node] };
   }
+  if (/^\/workbench\/supply\/materials\/[0-9a-f-]{36}$/.test(pathname)) {
+	const parent=findConsoleRoute("/workbench/supply/mine")!;
+	const node:ConsoleNavNode={label:"平台上架资料",href:pathname,availability:"connected"};
+	return {node,trail:[...parent.trail,node]};
+  }
   if (/^\/workbench\/stores\/[^/]+$/.test(pathname)) {
     const parent = findConsoleRoute("/workbench/stores")!;
     const node: ConsoleNavNode = { label: pathname.endsWith("/new") ? "新建店铺" : "店铺详情", href: pathname, availability: "connected" };

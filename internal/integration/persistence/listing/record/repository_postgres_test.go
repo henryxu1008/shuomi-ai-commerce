@@ -59,6 +59,16 @@ func (missingAssets) GetApprovedInventory(context.Context, asset.InventoryScope)
 
 type currentRules struct{}
 
+type capturedTargetRepository struct {
+	record.TargetRepository
+	prepared record.TargetPrepared
+}
+
+func (r *capturedTargetRepository) SaveTarget(ctx context.Context, proof record.TargetPrepared) (record.TargetReceipt, error) {
+	r.prepared = proof
+	return r.TargetRepository.SaveTarget(ctx, proof)
+}
+
 type readyAssets struct{}
 
 func (readyAssets) GetApprovedInventory(_ context.Context, scope asset.InventoryScope) (asset.ApprovedAssetInventory, error) {
@@ -192,6 +202,75 @@ func TestPostgresTargetImmutableRevisionsCommandReplayAndConcurrentCAS(t *testin
 	require.False(t, authenticated)
 	_, err = service.CreateForExecution(ctx, collection.Scope{scope.OrganizationID, scope.ActorID, "replacement-member"}, uuid.NewString(), changed)
 	require.ErrorIs(t, err, record.ErrForbidden)
+	t.Run("agent adoption guard checks new writes and preserves committed replay", func(t *testing.T) {
+		captured := &capturedTargetRepository{TargetRepository: repository}
+		guarded, err := record.NewTargetService(record.TargetDependencies{Sources: selector, ExecutionSources: selector, ExecutionAuthorization: execution, Products: record.OriginalTargetProduct{}, Assets: missingAssets{}, Rules: currentRules{}, Records: captured, Images: recordTestImages{}, Authorizer: authority})
+		require.NoError(t, err)
+		candidate := record.TargetInput{SourceID: page.Items[0].ID, StoreID: uuid.NewString(), EffectiveVersion: 1}
+		_, err = guarded.CreateForAgent(actor, uuid.NewString(), candidate, nil)
+		require.ErrorIs(t, err, record.ErrForbidden)
+		_, err = guarded.CreateForExecutionForAgent(ctx, scope, uuid.NewString(), candidate, nil)
+		require.ErrorIs(t, err, record.ErrForbidden)
+		calls, deny := 0, false
+		guard := func(_ context.Context, facts record.TargetCommitFacts) error {
+			calls++
+			if deny {
+				return record.ErrForbidden
+			}
+			require.Equal(t, candidate.SourceID, facts.Record.Source.ID)
+			require.Equal(t, scope.OrganizationID, facts.Record.Merchant.OrganizationID)
+			require.Equal(t, collection.Digest(facts.Rules), facts.Record.RulesHash)
+			require.Equal(t, collection.Digest(facts.Inventory), facts.Record.InventoryHash)
+			return nil
+		}
+		command := uuid.NewString()
+		first, err := guarded.CreateForAgent(actor, command, candidate, guard)
+		require.NoError(t, err)
+		require.Equal(t, 2, calls, "Agent guard runs before mutation and again before commit")
+		deny = true // Current mode/configuration no longer permits a new write.
+		replay, err := guarded.CreateForAgent(actor, command, candidate, guard)
+		require.NoError(t, err)
+		require.Equal(t, first.Record, replay.Record)
+		require.Equal(t, 2, calls, "service replay must not reapply a write gate")
+		transactionReplay, err := repository.SaveTarget(actor, captured.prepared)
+		require.NoError(t, err, "transaction receipt replay precedes the new-write gate")
+		require.Equal(t, first.Record, transactionReplay.Record)
+		require.Equal(t, 2, calls)
+		changed := candidate
+		changed.ExpectedRevision = first.Record.Revision
+		_, err = guarded.CreateForExecutionForAgent(ctx, scope, uuid.NewString(), changed, guard)
+		require.ErrorIs(t, err, record.ErrForbidden)
+		require.Equal(t, 3, calls)
+		head, err := repository.ReadTargetHead(actor, scope, first.Record.TargetID)
+		require.NoError(t, err)
+		require.Equal(t, first.Record, head)
+		original, err := guarded.ReadCommand(actor, command)
+		require.NoError(t, err)
+		require.Equal(t, first.Record, original.Record)
+	})
+	t.Run("agent mode revoked at final commit rolls back record head and command", func(t *testing.T) {
+		candidate := record.TargetInput{SourceID: page.Items[0].ID, StoreID: uuid.NewString(), EffectiveVersion: 1}
+		calls := 0
+		guard := func(context.Context, record.TargetCommitFacts) error {
+			calls++
+			if calls == 2 {
+				return record.ErrForbidden
+			}
+			return nil
+		}
+		command := uuid.NewString()
+		_, err := service.CreateForAgent(actor, command, candidate, guard)
+		require.ErrorIs(t, err, record.ErrForbidden)
+		require.Equal(t, 2, calls)
+		var count int64
+		require.NoError(t, db.Table("listing_target_records").Where("organization_id=? AND actor_id=? AND store_id=?", scope.OrganizationID, scope.ActorID, candidate.StoreID).Count(&count).Error)
+		require.Zero(t, count, "late revocation must roll back the inserted immutable record")
+		_, err = repository.ReadTargetHead(actor, scope, record.TargetIdentity(scope, candidate.SourceID, candidate.StoreID))
+		require.ErrorIs(t, err, record.ErrNotFound)
+		_, err = repository.ReadTargetCommand(actor, scope, command)
+		require.ErrorIs(t, err, record.ErrNotFound)
+
+	})
 	t.Run("three TEMU modes share immutable source command and revision storage", func(t *testing.T) {
 		for _, mode := range []storecenter.OfficialMerchantMode{storecenter.MerchantLocal, storecenter.MerchantFullyManaged, storecenter.MerchantSemiManaged} {
 			targetService, err := record.NewTargetService(record.TargetDependencies{Sources: selector, Products: record.OriginalTargetProduct{}, Assets: missingAssets{}, Rules: currentRules{}, TemuRules: currentTemuSaveRules{mode}, Records: repository, Images: recordTestImages{}, Authorizer: authority})

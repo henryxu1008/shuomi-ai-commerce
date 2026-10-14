@@ -1,6 +1,7 @@
 "use client";
 import { useEffect,useRef,useState,type ReactNode } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +19,7 @@ type RuleAttribute=SupplyRules["rules"]["attributes"]["attribute_infos"][number]
 const modeLabel={self_operated:"自营",semi_managed:"半托管",fully_managed:"全托管"};
 const roleLabel={main:"主图",white_background:"白底图",gallery:"展示图",design:"设计图"};
 type Role=keyof typeof roleLabel;
-export function SupplyTargetEditor({scope,source,storeId,existing,appliedProposal,command,disabled,saved,completionAvailable=false}:{scope:SupplyScope;source:SupplySourceDetail;storeId:string;existing?:SupplyTarget;appliedProposal?:ProductTitleProposal;command:SupplyCommandState;disabled:boolean;saved:number;completionAvailable?:boolean}){
+export function SupplyTargetEditor({scope,source,storeId,existing,appliedProposal,command,disabled,saved,completionAvailable=false,materialsAvailable=false}:{scope:SupplyScope;source:SupplySourceDetail;storeId:string;existing?:SupplyTarget;appliedProposal?:ProductTitleProposal;command:SupplyCommandState;disabled:boolean;saved:number;completionAvailable?:boolean;materialsAvailable?:boolean}){
  const [completion,setCompletion]=useState<SupplyCompletionDraft>(),[completionError,setCompletionError]=useState(false);
  useEffect(()=>{if(!completionAvailable)return;const c=new AbortController();let live=true;
   void readSupplyCompletionDraft(scope,source.source.id,c.signal).then(value=>{if(live)setCompletion(value)}).catch(e=>{if(live&&(!(e instanceof SupplyAPIError)||e.code!=="NOT_FOUND"))setCompletionError(true)});
@@ -53,6 +54,7 @@ export function SupplyTargetEditor({scope,source,storeId,existing,appliedProposa
  const selectionSafe=sourceSelectionSchema.safeParse(selection).success;
  return <div className="space-y-6">
   <ProductImageSetPanel kind="supply" contextId={source.source.id} effectiveVersion={version} applyReceiptId={applied} target={existing?{Platform:"shein",RecordID:existing.id,StoreID:storeId,Site:existing.merchant.site,CategoryID:existing.input.draft.product.category_id}:undefined} onSaved={()=>{setRuleEpoch(old=>old+1);setInventoryEpoch(old=>old+1)}}/>
+  {materialsAvailable&&<section className="space-y-3 rounded-xl border border-border p-4"><h3 className="font-semibold">平台上架资料智能体</h3><p className="text-sm text-muted-foreground">使用已保存版本和真实店铺规则准备类目、属性、SKU 与已批准图片；内容完善由内容智能体负责。</p>{existing&&existing.effectiveVersion===version&&existing.applyReceiptId===applied&&JSON.stringify(draft)===JSON.stringify(existing.input.draft)&&!disabled&&!command.busy&&!command.pending?<Button asChild variant="outline"><Link href={`/workbench/supply/materials/${existing.id}`} prefetch={false}>准备平台资料</Link></Button>:<p className="text-sm text-muted-foreground">请先保存当前编辑内容，完成原操作核对后，从已保存草稿准备资料。</p>}</section>}
   <details className="rounded-xl bg-slate-50 p-4"><summary className="cursor-pointer text-sm font-medium">查看原始资料 · 版本 {source.source.source.version}</summary><p className="mt-3 font-medium">{source.product.title}</p><p className="mt-2 whitespace-pre-wrap text-sm">{source.product.description}</p><dl className="mt-3 grid gap-2 sm:grid-cols-2">{source.product.attributes?.map((a,i)=><div key={i} className="text-sm"><dt className="text-slate-500">{a.name}</dt><dd>{a.value}</dd></div>)}</dl></details>
   <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm font-semibold">SHEIN · {priceMode?modeLabel[priceMode]:"正在读取应用类型"} · {priceMode==="fully_managed"?"平台分配市场":"美国站"}</p><Button variant="outline" size="sm" disabled={loading} onClick={()=>setRuleEpoch(n=>n+1)}>刷新店铺规则</Button></div>
   {error?<p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>:null}{loading?<p role="status" className="text-sm text-slate-500">正在读取店铺类目与规则</p>:null}

@@ -17,6 +17,8 @@ import (
 	configstore "task-processor/internal/integration/persistence/agentconfig"
 	kernelmodule "task-processor/internal/kernel/module"
 	"task-processor/internal/knowledge"
+	"task-processor/internal/listing/materials/tools/materialsinspect"
+	"task-processor/internal/listing/preparation"
 	"task-processor/internal/listing/readiness/tools/readinessinspect"
 	"task-processor/internal/product/asset/tools/assetinspect"
 	"task-processor/internal/product/catalog/tools/canonicalinspect"
@@ -47,6 +49,7 @@ func (productAgentCatalog) ReadCatalog(context.Context) ([]agentconfig.CatalogEn
 	d, _ := productTitleRegistration()
 	content, _ := contentagent.Registration()
 	return []agentconfig.CatalogEntry{
+		{Definition: materialsinspect.AgentDefinition(), Name: "平台上架资料智能体", Description: "使用标准商品和当前店铺规则完善类目、属性、SKU与已批准图片资料，保存可核对的本地平台草稿。", ParameterSchema: agentconfig.MaterialsParameterSchema},
 		{Definition: content, Name: "商品内容完善与本地化智能体", Description: "按明确目标语言和字段生成标题、描述、卖点与SEO关键词建议，按当前权限核对并采用到本地商品。", ParameterSchema: agentconfig.ContentParameterSchema},
 		{Definition: productImageRegistration(), Name: "商品图片智能体", Description: "基于真实商品素材规划整套主图和详情图，确认点数后分别生成，人工选择并批准商品图片。", ParameterSchema: agentconfig.ImageParameterSchema},
 		{Definition: d, Name: "商品标题优化智能体", Description: "读取商品证据生成标题建议，经过人工审核后显式应用。", ParameterSchema: agentconfig.ParameterSchema},
@@ -118,6 +121,13 @@ func buildAgentConfigurationModule(ctx context.Context, db *gorm.DB, resolver or
 		return nil
 	}
 	h.Capabilities = func(ctx context.Context, entry agentconfig.CatalogEntry) []agentconfig.Capability {
+		if entry.Definition.ID == agentconfig.MaterialsAgentID {
+			var listing *listingMaterialsApplication
+			if runtime != nil {
+				listing = runtime.materials
+			}
+			return listingMaterialsAgentCapabilities(ctx, listing)
+		}
 		if entry.Definition.ID == agentconfig.ContentAgentID {
 			var content *productAgentApplication
 			if runtime != nil {
@@ -163,6 +173,9 @@ func buildAgentConfigurationModule(ctx context.Context, db *gorm.DB, resolver or
 		return productAgentCapabilities(ctx, resolver, h.Authorize, k, runtime)
 	}
 	h.RunsAvailable = func(_ context.Context, entry agentconfig.CatalogEntry) bool {
+		if entry.Definition.ID == agentconfig.MaterialsAgentID {
+			return runtime != nil && runtime.materials != nil
+		}
 		if entry.Definition.ID == agentconfig.ContentAgentID {
 			return runtime != nil && runtime.content != nil
 		}
@@ -172,6 +185,26 @@ func buildAgentConfigurationModule(ctx context.Context, db *gorm.DB, resolver or
 		return runtime != nil
 	}
 	h.Recent = func(ctx context.Context, scope agent.Scope, id, cursor string, size int) (any, string, error) {
+		if id == agentconfig.MaterialsAgentID {
+			if runtime == nil || runtime.materials == nil {
+				return nil, "", agentconfig.ErrUnavailable
+			}
+			listing := runtime.materials
+			fresh, e := listing.currentIdentity(ctx)
+			if e != nil || fresh.ActorID != scope.ActorID || fresh.OrganizationID != scope.OrganizationID {
+				return nil, "", agentconfig.ErrForbidden
+			}
+			return repo.Recent(ctx, scope, id, cursor, size, runtime.store, func(b agent.Binding) error {
+				_, _, exact, e := listing.readBase(ctx, b.ContextID)
+				if e != nil {
+					return e
+				}
+				if b != exact {
+					return agentconfig.ErrConflict
+				}
+				return nil
+			})
+		}
 		if id == agentconfig.ImageAgentID {
 			if imageRuntime == nil {
 				return nil, "", agentconfig.ErrUnavailable
@@ -196,6 +229,35 @@ func buildAgentConfigurationModule(ctx context.Context, db *gorm.DB, resolver or
 		return repo.Recent(ctx, scope, id, cursor, size, selected.store, func(b agent.Binding) error { _, e := selected.Authorize(ctx, b); return e })
 	}
 	return confighttp.NewModule(h), nil
+}
+
+func listingMaterialsAgentCapabilities(ctx context.Context, runtime *listingMaterialsApplication) []agentconfig.Capability {
+	now := time.Now().UTC()
+	text := agentconfig.Capability{ID: "text.generate", Support: "REQUIRED", Readiness: "NEEDS_CONFIGURATION", Reason: "需要安装平台资料配置约束并配置本企业平台资料模型路由与凭据", ObservedAt: now}
+	evidence := agentconfig.Capability{ID: "listing.materials.inspect", Support: "REQUIRED", Readiness: "UNAVAILABLE", Reason: "需要正常供应链、真实店铺及已保存平台草稿", ObservedAt: now}
+	if runtime != nil {
+		if _, e := runtime.supply.Authorization.Authorize(ctx, preparation.PermissionRead); e == nil {
+			evidence.Readiness, evidence.Reason = "AVAILABLE", "运行时核对所选草稿、标准商品、店铺规则和已批准资产"
+		} else {
+			evidence.Readiness, evidence.Reason = "REQUIRES_AUTHORIZATION", "需要当前企业供应链读取权限"
+		}
+		if runtime.model != nil && runtime.runtime != nil {
+			id, e := runtime.currentIdentity(ctx)
+			if e != nil {
+				text.Readiness, text.Reason = "REQUIRES_AUTHORIZATION", "需要当前企业智能体使用权限"
+			} else {
+				switch runtime.model.RouteReadinessForVerifiedOrganization(ctx, id.OrganizationID) {
+				case texteino.TextRouteAvailable:
+					text.Readiness, text.Reason = "AVAILABLE", "平台资料模型配置已接入，执行时重新核对当前权限和预算"
+				case texteino.TextRouteNeedsConfiguration:
+					text.Reason = "当前企业平台资料模型凭据尚未配置"
+				default:
+					text.Readiness, text.Reason = "UNAVAILABLE", "当前企业平台资料执行尚未开放"
+				}
+			}
+		}
+	}
+	return []agentconfig.Capability{text, evidence, {ID: "knowledge.context", Support: "NOT_SUPPORTED", Readiness: "UNAVAILABLE", Reason: "平台资料依据标准商品与店铺规则，无知识选择入口", ObservedAt: now}, {ID: "platform.write", Support: "NOT_SUPPORTED", Readiness: "UNAVAILABLE", Reason: "只保存本地草稿，真实平台发布另行授权", ObservedAt: now}}
 }
 
 func productImageAgentCapabilities(ctx context.Context, authorize func(context.Context, ...string) (agent.Scope, error)) []agentconfig.Capability {

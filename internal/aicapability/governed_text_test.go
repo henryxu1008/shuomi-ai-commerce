@@ -102,3 +102,20 @@ func TestContentDecisionQuoteUsesTheSameBoundedTextLedgerContract(t *testing.T) 
 	_, err = QuoteText(input)
 	require.Error(t, err)
 }
+
+func TestListingMaterialsDecisionHasIndependentQuoteAndExistingUsageRules(t *testing.T) {
+	in := TextInputIdentity{OrganizationID: "org", ActorID: "actor", MemberID: "member", AgentRunID: "run", Operation: OperationListingMaterialsDecision, System: "fixed platform material rules", Prompt: "exact saved draft and disclosed rules", Profile: testTextProfile()}
+	quote, err := QuoteText(in)
+	require.NoError(t, err)
+	require.True(t, SupportsObservedUsageFailure(in.Operation))
+	for _, operation := range []Operation{OperationProductAgentDecision, OperationProductContentDecision} {
+		other := in
+		other.Operation = operation
+		changed, err := QuoteText(other)
+		require.NoError(t, err)
+		require.NotEqual(t, quote.InputHash, changed.InputHash)
+	}
+	in.AgentRunID = ""
+	_, err = QuoteText(in)
+	require.Error(t, err)
+}

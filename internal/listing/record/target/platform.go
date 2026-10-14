@@ -60,6 +60,7 @@ type preparedPlatform struct {
 	tiktok       *tiktok.Draft
 	tiktokRules  *tiktok.RuleSnapshot
 	tiktokImages []tiktok.ImageObservation
+	sheinRules   goods.OfficialRuleSnapshot
 }
 
 func (s *TargetService) preparePlatform(ctx context.Context, scope collection.Scope, input TargetInput, inventory asset.ApprovedAssetInventory) (preparedPlatform, error) {
@@ -122,5 +123,5 @@ func (s *TargetService) preparePlatform(ctx context.Context, scope collection.Sc
 		return preparedPlatform{}, err
 	}
 	result := goods.BuildOfficial(input.Draft, rules, inventory, observations, proofs)
-	return preparedPlatform{merchant: merchant, rulesHash: collection.Digest(rules), shein: result, images: observations, proofs: proofs}, nil
+	return preparedPlatform{merchant: merchant, rulesHash: collection.Digest(rules), shein: result, sheinRules: rules, images: observations, proofs: proofs}, nil
 }

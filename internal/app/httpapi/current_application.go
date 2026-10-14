@@ -854,6 +854,14 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		modules = append(modules, module)
 		supplyRuntime = &module
 	}
+	if supplied.supplyChain != nil && productRuntime != nil {
+		materials, e := buildListingMaterialsApplication(ctx, productRuntime, supplyRuntime.app)
+		if e != nil {
+			return nil, fmt.Errorf("build current listing materials agent: %w", e)
+		}
+		productRuntime.materials = materials
+		modules = append(modules, listingMaterialsModule{app: materials})
+	}
 	if supplied.privateDraftTrial != nil {
 		// Private draft trial is intentionally separate from normal plan composition.
 		module, e := buildPrivateDraftTrialModule(ctx, supplied.productAcquisitionDB, supplied.storeCenterDB, *supplied.privateDraftTrial, *workbench.authDependencies, authorizer, cfg)
@@ -1294,6 +1302,11 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
 		}
 	}
+	if optional.SupplyChain && optional.ProductAgent {
+		for _, r := range listingMaterialsRoutes(nil, nil) {
+			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
+		}
+	}
 	if optional.CompletionDrafts {
 		if !optional.Collections || optional.PrivateDraftTrial {
 			return errors.New("completion drafts require current collections and exclude synthetic trial")
@@ -1556,6 +1569,15 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 			}
 		}
 		if (descriptor.Path == supplyhttp.SupplyBasePath || strings.HasPrefix(descriptor.Path, supplyhttp.SupplyBasePath+"/")) && !strings.HasPrefix(descriptor.Path, supplyImageSetBase) {
+			if strings.HasPrefix(descriptor.Path, listingMaterialsBase+"/") {
+				if !optional.SupplyChain || !optional.ProductAgent || optional.PrivateDraftTrial {
+					return errors.New("listing materials requires normal supply and product agent owners")
+				}
+				if e := validateListingMaterialsDescriptor(descriptor); e != nil {
+					return e
+				}
+				continue
+			}
 			if supplyhttp.IsCompletionDraftRoute(descriptor.Method, descriptor.Path) {
 				if !optional.CompletionDrafts {
 					return errors.New("completion drafts not admitted")
@@ -1826,8 +1848,8 @@ func buildCurrentApplicationHTTPServer(routes []httproute.Descriptor, dependenci
 	server.IdleTimeout = 60 * time.Second
 	inner := server.Handler
 	server.Handler = http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		if isProductAgentHTTPPath(request.URL.Path) {
-			// Only this bounded synchronous model path needs a longer response.
+		if isProductAgentHTTPPath(request.URL.Path) || request.Method == http.MethodPost && isListingMaterialsHTTPPath(request.URL.Path) {
+			// Bounded synchronous model and materials commit paths need a longer response.
 			// Header/body read timeouts and all other route deadlines stay intact.
 			if err := http.NewResponseController(writer).SetWriteDeadline(time.Now().Add(125 * time.Second)); err != nil && !errors.Is(err, http.ErrNotSupported) {
 				http.Error(writer, "response deadline unavailable", http.StatusServiceUnavailable)
