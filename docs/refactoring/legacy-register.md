@@ -109,6 +109,27 @@ data, provider or user acceptance is claimed.
 
 ## 2. Active register
 
+### #301 unused SHEIN login HTTP retirement
+
+The standalone worker was the only production consumer of
+`sheinlogin/bootstrap`, and used only its Service and Close. Its unused HTTP
+Handler/Module, API routes and numeric header resolver are RETIRE, including
+tests dedicated to that retired protocol. Bootstrap now builds only the same
+service; the original repository, Redis, profile, browser, Store sync, worker,
+health endpoint and close behavior are retained. The HTTP cross-tenant account
+rejection assertion is preserved at the unchanged service boundary alongside
+the existing account/session isolation tests.
+
+The worker's actual Go dependency graph no longer contains tenantbridge.
+Only the two deleted tenant-context import edges and their exact depguard
+exclusions are removed, reducing the frozen baseline from five to three.
+Those remaining edges are the release identity-preflight runtime/test and the
+current Workbench resolver-isolation test. The preflight's shared readers,
+resolver and release protection are unchanged; they remain debt under #529/#301.
+No data, IAM, browser login, provider or deployment operation was executed.
+The worker's existing numeric account persistence is retained, not reclassified
+as current Organization ownership or declared fully retired.
+
 ### #529 / #301 obsolete identity preparation retirement
 
 The Yudao-to-ZITADEL migration dry-run script and the entire
@@ -119,8 +140,8 @@ legacy resolver. Neither has a current production consumer. No maintained
 default command compiles bootstrap, and no replacement preparation path is added.
 
 Their two bootstrap-to-tenantbridge import edges and exact depguard exclusions
-are removed, reducing the frozen baseline from seven to five. The five remaining
-edges belong to the unchanged identity-preflight, SHEIN transport and current
+are removed, reducing that batch's frozen baseline from seven to five. Its then-five
+remaining edges belonged to the unchanged identity-preflight, SHEIN transport and current
 Workbench isolation test. The tenantbridge resolver itself, shared readers,
 current worker/schema paths and release protection remain unchanged. Historical
 plan and dated inventory entries are evidence, not callable current preparation.
@@ -182,9 +203,10 @@ fact ownership, authorization or Submission/recovery contracts.
 
 Current-application and ImageAgent worker production graphs have no tenantbridge,
 compatibility or ListingKit. The two deleted exact bridge edges/exclusions are
-removed; the other seven (including tests/self-use) remain registered debt.
-Standalone SHEIN numeric HTTP and historical preflight consumers are not current
-Organization owners and remain with #301/#529. No migration/data/provider action
+removed; its then-seven remaining edges (including tests/self-use) remained registered debt.
+The later #301 batch above retires unused standalone SHEIN numeric HTTP.
+Historical preflight consumers and worker numeric account persistence are not
+current Organization owners and remain with #301/#529. No migration/data/provider action
 or deployment is part of this source delivery.
 
 | Legacy area / abstraction | Decision | Observed state | Reusable behavior | Current owner / destination | Exit condition / related work |
@@ -199,7 +221,7 @@ or deployment is part of this source delivery.
 | `internal/compatibility/listingkit/sourcehandoff/a1688` | RETIRE | Package, old `/api/v1/product-sourcing/1688/listingkit/tasks` route, dedicated DTOs/tests and runtime runner are absent in this checkout under #663. Deployment and provider acceptance are separate. | Existing Sourcing/Catalog owners retain valid source evidence, immutable publication, access and receipt recovery; historical Task requests and identity mapping are not reused. | Product Sourcing/Catalog + current Store/Organization/Application | Keep old route/package/runner absent; no old data migration, forwarding or compatibility. Other legacy owners remain with #29/#301/#529. |
 | root `internal/listingkit` mixed ownership | RETIRE / EXTRACT valid leaves | Mixed root Go package and its Task/API/default runtime chain are absent under #29 | Unchanged current role/context/Temporal/image transport and Submission error | Existing authz/aiidentity/app runtime/image transport and Listing/Submission owners | Keep root absent. Remaining numeric sync and identity/history leaf debt is explicitly separate; source retirement is not deployment or whole-parent completion. |
 | marketplace rules still owned by root ListingKit | EXTRACT | Remaining rule/policy ownership is part of #29 hard-cut | deterministic platform rules/policies/readiness logic | `internal/marketplace/*` / stable Listing seams | Move rule to current owner and switch callers. Do not wrap the old rule owner. |
-| `internal/tenantbridge` Organization ↔ legacy Yudao numeric tenant mapping | EXTRACT | Active GORM-backed production bridge used by ListingKit, SHEIN login, 1688 crawler/admin and other legacy paths | only independently valid current-identity behavior, never numeric mapping for a new system | current Organization/identity ownership + each domain's current persistence boundary | Freeze consumer count; no new tenantbridge consumer. Future work creates current Organization-owned facts and RETIREs the bridge without old-data migration, old-ID mapping, fallback or dual authority. |
+| `internal/tenantbridge` Organization ↔ legacy Yudao numeric tenant mapping | RETIRE | Retained identity-preflight runtime/test and Workbench resolver-isolation test are the three frozen import edges; current application, ImageAgent and standalone SHEIN worker do not compile it | existing current-identity behavior already belongs to its current owner; numeric mapping is not reusable for a new system | current Organization/identity ownership + each domain's current persistence boundary | Drain the actual release preflight consumer under its own admitted contract before deleting the resolver. No new consumer, old-data migration, old-ID mapping, fallback or dual authority. |
 | `web/listingkit-ui` Task-first / CreateListingKitTask product projection | RETIRE | #664 removes old `/listing-kits/**` pages, their dedicated components/hooks/Task DTOs and Task BFF; the current frontend application and Console remain | current shared UI primitives, Auth.js/ZITADEL and independently valid readonly provider transport | #298 / final Figma Product Projection; current Store Center / AI Workbench / product pages | Keep old routes/request chains absent, without redirect, fallback or Task mapping. Source retirement does not prove deployment or user acceptance. |
 | Generic independent Listing Workspace (#27) | RETIRE | Backlog abstraction already closed | independently valid Product/Listing UI behavior only if required by current IA | final Product Projection pages defined by Figma authority | Do not revive a generic top-level Listing Workspace. |
 | Old Product Task Center / unified internal Task Dashboard (#35) | RETIRE | Old issue closed; final UI now has a different BusinessTask Center | diagnostics may be projected if useful | #298 BusinessTask Product Projection; internal execution remains with Workflow/Task owners | BusinessTask is a new user-facing object, not a renamed legacy Task. No bidirectional sync. |

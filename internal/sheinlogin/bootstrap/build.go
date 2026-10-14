@@ -2,7 +2,6 @@ package bootstrap
 
 import (
 	"task-processor/internal/core/config"
-	kernelmodule "task-processor/internal/kernel/module"
 	"task-processor/internal/listingadmin"
 	sheinclient "task-processor/internal/shein/client"
 	"task-processor/internal/sheinlogin"
@@ -16,13 +15,11 @@ type BuildInput struct {
 }
 
 type BuildResult struct {
-	Handler sheinlogin.HTTPRouteHandler
-	Module  kernelmodule.Module
 	Service *sheinlogin.Service
 	Close   func() error
 }
 
-func BuildHandler(input BuildInput) (*BuildResult, error) {
+func BuildService(input BuildInput) (*BuildResult, error) {
 	if input.Config == nil {
 		return nil, nil
 	}
@@ -46,11 +43,8 @@ func BuildHandler(input BuildInput) (*BuildResult, error) {
 		svc.ConfigureDuplicateStoreLookup(sheinloginmanaged.NewDuplicateStoreLookupWithStoreAPI(input.StoreAPI))
 	}
 	sheinclient.ConfigureLocalLoginRefresher(svc)
-	handler := sheinlogin.NewHandler(svc)
 
 	return &BuildResult{
-		Handler: handler,
-		Module:  sheinlogin.NewHTTPModule(handler),
 		Service: svc,
 		Close: func() error {
 			return svc.Close()
