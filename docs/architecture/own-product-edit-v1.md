@@ -1,6 +1,6 @@
 # 自有商品版本更新与独立编辑页 v1
 
-Execution Issue: [#675](https://github.com/qq550723504/task-processor/issues/675)。Design Basis: **Independent Architecture**。Admission Status: **NOT_READY / REVIEW_PENDING**；本文件先于正式实现。
+Execution Issue: [#675](https://github.com/qq550723504/task-processor/issues/675)。Design Basis: **Independent Architecture**。Admission Status: **IMPLEMENTATION_READY**；独立检查绑定设计提交 `5502e40ab629fc8533182a704aa5cbb05878c7af`，无设计BLOCKER；本文件先于正式实现。
 
 ## 用户结果、依据和范围
 
@@ -48,9 +48,9 @@ Service先授权/验证和生成稳定操作id；事务内从已授权item取得
 
 ## 页面和无损消费
 
-复用现OwnProductEntry表单为共享录入/编辑表单，不复制整页；新增保持行为。编辑入口仅在详情已成功读取own且具manage权限时显示；未读到准确资料前不挂可保存空表单。编辑保存按钮“保存新版本”，页内显示基于资料版本，成功导航同item详情；取消返回同item，沿原dirty确认/组织flight guard。
+复用现OwnProductEntry表单为共享录入/编辑表单，不复制整页；新增保持行为。编辑入口仅在详情已成功读取own且具manage权限时显示；未读到准确资料前不挂可保存空表单。编辑保存按钮“保存新版本”，页内显示基于资料版本，成功导航同item详情；取消返回同item，新增页内取消/返回dirty确认，复用组织flight guard。
 
-预填从ReadItem当前准确snapshot构造OwnProduct，稳定variant source_id/原标题、属性、所有公共及SKU图片、数值声明0均保留；缺失必需SKU数值/身份或不可无损表达的当前own资料显示明确读取错误，不猜0/币种/新ID或静默删字段。多SKU规格维度从已有属性推导；原删去组合保持，不自动重新生成笛卡尔积；单个已有SKU即使有销售属性也保留。
+预填从ReadItem当前准确snapshot构造OwnProduct，稳定variant source_id/原标题、属性、所有公共及SKU图片、数值声明0均保留；own声明合同已要求库存必填，但当前Catalog JSON对库存0使用omitempty；该own投影省略库存时准确还原原声明0，不扩展到其它来源。缺失必需价格/币种/身份或不可无损表达的当前own资料显示明确读取错误，不猜0/币种/新ID或静默删字段。多SKU规格维度从已有属性推导；原删去组合保持，不自动重新生成笛卡尔积；单个已有SKU即使有销售属性也保留。
 
 现表格选择一张SKU图片。为避免丢失原多图，模型保留每行原图片组与原标题；当前选择不变时全部保留，既有SKU专用图可作为原图选项，不混入公共池。选择不同图片时明确提示替换该SKU图片组；用户主动从公共池删除图时才同步移除对应SKU引用。新生成组合用原稳定规则分配新ID，未变组合保留全部已填资料。
 
@@ -63,3 +63,6 @@ TDD先捕获：修订严格形状及权限；v1→新版本、同item/key/数量
 运行交接使用授权范围内的本地可操作预览；若升级原保留独立试用实例则仅当前原owner/配置/命名卷，保留数据和图片，不跑初始化或schema。需要超出既有实例准备权限的真实操作另行说明。设计与实现不代签用户/生产验收。
 
 Legacy decision: **N/A**：当前Owner与原版本算法，无RETIRE引用、旧ID mapping/迁移/fallback/双读写。合并、关单、共享/生产、真实provider与数据清理未授权。
+
+独立检查归IMPLEMENTATION_TEST：无损预填（含own省略的0库存）、父publication/version元数据的Source预算、原事务/CAS/UNKNOWN、pending与页内返回确认。均在本编辑批次实现/自检收敛，未满足时不能交付本路径；没有新增BLOCKER或扩大范围。
+
