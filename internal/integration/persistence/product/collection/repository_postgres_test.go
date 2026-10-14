@@ -22,6 +22,13 @@ import (
 type testOwnPublisher struct{ tx *gorm.DB }
 
 func (p testOwnPublisher) PublishOwn(ctx context.Context, scope collection.Scope, operation string, envelope sourcing.SourceEnvelope) (collection.Source, error) {
+	zero := uint64(0)
+	return p.publish(ctx, scope, operation, "own-"+operation, &zero, envelope)
+}
+func (p testOwnPublisher) ReviseOwn(ctx context.Context, scope collection.Scope, operation string, base collection.Source, envelope sourcing.SourceEnvelope) (collection.Source, error) {
+	return p.publish(ctx, scope, operation, base.ProductKey, nil, envelope)
+}
+func (p testOwnPublisher) publish(ctx context.Context, scope collection.Scope, operation, key string, expected *uint64, envelope sourcing.SourceEnvelope) (collection.Source, error) {
 	writer, err := catalogstore.NewTransactionWriter(p.tx)
 	if err != nil {
 		return collection.Source{}, err
@@ -34,9 +41,7 @@ func (p testOwnPublisher) PublishOwn(ctx context.Context, scope collection.Scope
 	if err != nil {
 		return collection.Source{}, err
 	}
-	key := "own-" + operation
-	zero := uint64(0)
-	published, err := publisher.Publish(ctx, catalog.PublishRequest{Identity: catalog.SnapshotIdentity{TenantID: scope.OrganizationID, ProductKey: key}, PublicationID: operation, ExpectedBaseVersion: &zero, Snapshot: snapshot})
+	published, err := publisher.Publish(ctx, catalog.PublishRequest{Identity: catalog.SnapshotIdentity{TenantID: scope.OrganizationID, ProductKey: key}, PublicationID: operation, ExpectedBaseVersion: expected, Snapshot: snapshot})
 	if err != nil {
 		return collection.Source{}, err
 	}
@@ -222,6 +227,89 @@ func TestPostgresCollectionAtomicReplayOwnershipMoveAndCommitUnknown(t *testing.
 		require.ErrorIs(t, err, collection.ErrNotFound)
 	})
 	// A same-count FK aimed at the wrong ownership relation is not readiness.
+	t.Run("revision CAS replay rollback unknown and archived boundaries", func(t *testing.T) {
+		owner := collection.Scope{OrganizationID: "revision-org", ActorID: "revision-actor", MemberID: "revision-member"}
+		created, err := repository.Execute(ctx, testCommand(owner, uuid.NewString(), collection.Mutation{Action: "create_product", Product: &collection.OwnProduct{Title: "v1"}}))
+		require.NoError(t, err)
+		original, err := repository.ReadItem(ctx, owner, created.ItemID)
+		require.NoError(t, err)
+		base := collection.Mutation{Action: "revise_product", ItemID: original.ID, ExpectedRevision: original.Revision, ExpectedSourceVersion: original.Source.Version, ExpectedPublicationID: original.Source.PublicationID, Product: &collection.OwnProduct{Title: "v2"}}
+		commands := []collection.Command{testCommand(owner, uuid.NewString(), base), testCommand(owner, uuid.NewString(), base)}
+		type outcome struct {
+			index int
+			err   error
+		}
+		outcomes := make(chan outcome, 2)
+		for index, command := range commands {
+			go func() { _, err := repository.Execute(ctx, command); outcomes <- outcome{index, err} }()
+		}
+		winner := -1
+		for range 2 {
+			result := <-outcomes
+			if result.err == nil {
+				require.Equal(t, -1, winner)
+				winner = result.index
+			} else {
+				require.ErrorIs(t, result.err, collection.ErrConflict)
+			}
+		}
+		require.NotEqual(t, -1, winner)
+		current, err := repository.ReadItem(ctx, owner, created.ItemID)
+		require.NoError(t, err)
+		require.EqualValues(t, 2, current.Source.Version)
+		require.EqualValues(t, 2, current.Revision)
+		replay, err := repository.Execute(ctx, commands[winner])
+		require.NoError(t, err)
+		require.True(t, replay.Replayed)
+		changed := commands[winner]
+		changed.Mutation.Product = &collection.OwnProduct{Title: "different"}
+		changed.InputHash = collection.Digest(changed.Mutation)
+		_, err = repository.Execute(ctx, changed)
+		require.ErrorIs(t, err, collection.ErrConflict)
+		base.ExpectedRevision, base.ExpectedSourceVersion, base.ExpectedPublicationID = current.Revision, current.Source.Version, current.Source.PublicationID
+		repository.own = func(tx *gorm.DB) (OwnPublisher, error) { return testFailOwnPublisher{base: testOwnPublisher{tx}}, nil }
+		failed := testCommand(owner, uuid.NewString(), base)
+		_, err = repository.Execute(ctx, failed)
+		require.ErrorIs(t, err, collection.ErrUnavailable)
+		repository.own = func(tx *gorm.DB) (OwnPublisher, error) { return testOwnPublisher{tx}, nil }
+		var versions int64
+		require.NoError(t, db.Table("product_snapshot_versions").Where("tenant_id=? AND product_key=?", owner.OrganizationID, current.Source.ProductKey).Count(&versions).Error)
+		require.EqualValues(t, 2, versions)
+		unknown := testCommand(owner, uuid.NewString(), base)
+		repository.afterCommit = func() error { return errors.New("response lost") }
+		_, err = repository.Execute(ctx, unknown)
+		require.ErrorIs(t, err, collection.ErrUnknown)
+		repository.afterCommit = nil
+		verified, err := repository.ReadOperation(ctx, owner, unknown.OperationID)
+		require.NoError(t, err)
+		require.EqualValues(t, 3, verified.Revision)
+		_, err = repository.Execute(ctx, unknown)
+		require.NoError(t, err)
+		// A committed old-key replay remains valid after a newer edit.
+		_, err = repository.Execute(ctx, commands[winner])
+		require.NoError(t, err)
+		current, err = repository.ReadItem(ctx, owner, current.ID)
+		require.NoError(t, err)
+		stale := testCommand(owner, uuid.NewString(), collection.Mutation{Action: "revise_product", ItemID: current.ID, ExpectedRevision: current.Revision, ExpectedSourceVersion: current.Source.Version, ExpectedPublicationID: current.Source.PublicationID, Product: &collection.OwnProduct{Title: "stale"}})
+		target, err := repository.Execute(ctx, testCommand(owner, uuid.NewString(), collection.Mutation{Action: "create_batch", Name: "新库"}))
+		require.NoError(t, err)
+		_, err = repository.Execute(ctx, testCommand(owner, uuid.NewString(), collection.Mutation{Action: "move_item", ItemID: current.ID, ExpectedRevision: current.Revision, TargetBatchID: target.BatchID}))
+		require.NoError(t, err)
+		_, err = repository.Execute(ctx, stale)
+		require.ErrorIs(t, err, collection.ErrConflict)
+		current, err = repository.ReadItem(ctx, owner, current.ID)
+		require.NoError(t, err)
+		_, err = repository.Execute(ctx, testCommand(owner, uuid.NewString(), collection.Mutation{Action: "archive_item", ItemID: current.ID, ExpectedRevision: current.Revision}))
+		require.NoError(t, err)
+		_, err = repository.Execute(ctx, stale)
+		require.ErrorIs(t, err, collection.ErrNotFound)
+		other := stale
+		other.Scope.ActorID = "another"
+		other.Key = uuid.NewString()
+		other.OperationID = collection.StableID(other.Scope.OrganizationID, other.Scope.ActorID, other.Key)
+		_, err = repository.Execute(ctx, other)
+		require.ErrorIs(t, err, collection.ErrNotFound)
+	})
 	require.NoError(t, db.Exec("ALTER TABLE product_collection_items DROP CONSTRAINT product_collection_items_organization_id_actor_id_batch_id_fkey").Error)
 	require.NoError(t, db.Exec("DELETE FROM product_collection_items").Error)
 	require.NoError(t, db.Exec("ALTER TABLE product_collection_items ADD FOREIGN KEY(organization_id,actor_id,id) REFERENCES product_collection_batches(organization_id,actor_id,id)").Error)
@@ -231,6 +319,14 @@ func TestPostgresCollectionAtomicReplayOwnershipMoveAndCommitUnknown(t *testing.
 type testFailOwnPublisher struct {
 	base  testOwnPublisher
 	calls *int
+}
+
+func (p testFailOwnPublisher) ReviseOwn(ctx context.Context, scope collection.Scope, operation string, base collection.Source, envelope sourcing.SourceEnvelope) (collection.Source, error) {
+	_, err := p.base.ReviseOwn(ctx, scope, operation, base, envelope)
+	if err != nil {
+		return collection.Source{}, err
+	}
+	return collection.Source{}, collection.ErrUnavailable
 }
 
 func (p testFailOwnPublisher) PublishOwn(ctx context.Context, scope collection.Scope, operation string, envelope sourcing.SourceEnvelope) (collection.Source, error) {

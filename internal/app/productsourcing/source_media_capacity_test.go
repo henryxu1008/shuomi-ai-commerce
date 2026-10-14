@@ -3,6 +3,7 @@ package productsourcing
 import (
 	"bytes"
 	"context"
+	"errors"
 	"github.com/stretchr/testify/require"
 	"image"
 	"image/png"
@@ -16,6 +17,7 @@ type mediaCapacitySpy struct {
 	storagecapacity.Writer
 	deny               bool
 	reserves, confirms int
+	confirmError       error
 }
 
 func (s *mediaCapacitySpy) ReserveWrite(_ context.Context, i storagecapacity.WriteIntent) (storagecapacity.Reservation, error) {
@@ -31,7 +33,29 @@ func (s *mediaCapacitySpy) BindObjects(context.Context, string, string, []storag
 func (s *mediaCapacitySpy) ClaimDispatch(context.Context, string, string) error { return nil }
 func (s *mediaCapacitySpy) ConfirmStored(context.Context, string, string, string, string, string, int64) error {
 	s.confirms++
-	return nil
+	return s.confirmError
+}
+
+func TestSourceMediaCapacityConfirmationUnknownRequiresSameUploadReplay(t *testing.T) {
+	var b bytes.Buffer
+	require.NoError(t, png.Encode(&b, image.NewRGBA(image.Rect(0, 0, 2, 2))))
+	raw := b.Bytes()
+	id := collection.MediaIdentity{Hash: storagecapacity.Digest(string(raw)), Bytes: int64(len(raw))}
+	storage := &mediaStorage{values: map[string]s3.ImmutableObjectPut{}}
+	capacity := &mediaCapacitySpy{confirmError: errors.New("confirmation response unavailable")}
+	service := SourceMedia{Storage: storage, Authorization: &mediaAuth{scope: collection.Scope{OrganizationID: "org", ActorID: "actor", MemberID: "member"}}, Capacity: &storagecapacity.Meter{Writer: capacity, Namespace: "namespace"}}
+	_, err := service.Upload(context.Background(), id, raw)
+	require.ErrorIs(t, err, collection.ErrUnknown)
+	_, err = service.Read(context.Background(), id)
+	require.NoError(t, err)
+	require.Equal(t, 1, capacity.reserves)
+	require.Equal(t, 1, capacity.confirms, "GET cannot confirm the old intent")
+	capacity.confirmError = nil
+	_, err = service.Upload(context.Background(), id, raw)
+	require.NoError(t, err)
+	require.Equal(t, 2, capacity.reserves)
+	require.Equal(t, 2, capacity.confirms)
+	require.Len(t, storage.values, 1, "same-key replay retains one physical object")
 }
 func TestSourceMediaCapacityDenialPrecedesPutAndReadDoesNotAccount(t *testing.T) {
 	var b bytes.Buffer

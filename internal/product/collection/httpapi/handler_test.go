@@ -36,6 +36,12 @@ func (*serviceFixture) ReadItem(context.Context, string) (collection.ItemDetail,
 func (*serviceFixture) ReadOperation(context.Context, string) (collection.Receipt, error) {
 	return collection.Receipt{}, collection.ErrNotFound
 }
+func (*serviceFixture) ListOwnHistory(context.Context, string, uint64, int) (collection.OwnHistoryPage, error) {
+	return collection.OwnHistoryPage{}, collection.ErrNotFound
+}
+func (*serviceFixture) ReadOwnVersion(context.Context, string, uint64) (collection.OwnVersionDetail, error) {
+	return collection.OwnVersionDetail{}, collection.ErrNotFound
+}
 func TestCollectionRoutesKeepLiveActorScopeAndStrictCommands(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	service := &serviceFixture{}

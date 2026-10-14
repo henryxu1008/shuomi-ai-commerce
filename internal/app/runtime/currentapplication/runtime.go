@@ -615,7 +615,7 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 	}
 	var sourceMediaStorage productsourcing.SourceMediaStorage
 	if cfg.SourceMedia != nil {
-		sourceMediaStorage, err = NewSourceMediaStorage(*cfg.SourceMedia, logger)
+		sourceMediaStorage, err = NewSourceMediaStorage(*cfg.SourceMedia, logger, cfg.SourceMediaIsolatedTrial)
 		if err != nil {
 			return errors.New("source media storage unavailable")
 		}

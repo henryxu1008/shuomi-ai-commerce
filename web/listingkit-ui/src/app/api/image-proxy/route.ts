@@ -103,7 +103,24 @@ function isBlockedAddress(address: string) {
   return true;
 }
 
-async function validateImageURL(url: URL) {
+// This admits an exact server-produced source object, never a private host list.
+function isSourceMediaTrialURL(raw: string) {
+  const base=process.env.IMAGE_PROXY_SOURCE_MEDIA_TRIAL_BASE ?? "";
+  const match=/^https:\/\/localhost:([1-9][0-9]{0,4})\/source-media-assets\/([a-z0-9][a-z0-9-]{1,61}[a-z0-9])$/.exec(base);
+  if(!match||Number(match[1])>65535||!raw.startsWith(`${base}/product-source/`))return false;
+  return /^[a-f0-9]{64}\/[a-f0-9]{64}$/.test(raw.slice(`${base}/product-source/`.length));
+}
+
+function isLoopbackAddress(address: string) {
+  return address==="::1" || (isIP(address)===4 && address.startsWith("127."));
+}
+
+async function validateImageURL(url: URL, sourceTrial=false) {
+  if(sourceTrial){
+    if(url.protocol!=="https:"||url.hostname!=="localhost")return "host_not_allowed";
+    const addresses=await lookup(url.hostname,{all:true,verbatim:true});
+    return addresses.length>0&&addresses.every(address=>isLoopbackAddress(address.address))?"":"host_not_allowed";
+  }
   if (url.protocol !== "http:" && url.protocol !== "https:") {
     return "unsupported_protocol";
   }
@@ -125,10 +142,10 @@ async function validateImageURL(url: URL) {
   return "";
 }
 
-async function fetchValidatedImage(url: URL) {
+async function fetchValidatedImage(url: URL, sourceTrial=false) {
   let current = url;
   for (let redirect = 0; redirect <= MAX_REDIRECTS; redirect += 1) {
-    const validationError = await validateImageURL(current);
+    const validationError = await validateImageURL(current,sourceTrial);
     if (validationError) {
       return { error: validationError as string, response: null };
     }
@@ -147,6 +164,7 @@ async function fetchValidatedImage(url: URL) {
     }
 
     if (response.status >= 300 && response.status < 400) {
+      if(sourceTrial)return {error:"invalid_redirect",response:null};
       const location = response.headers.get("location");
       if (!location) {
         return { error: "invalid_redirect", response: null };
@@ -182,7 +200,8 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const { error: proxyError, response: upstream } = await fetchValidatedImage(url);
+  const sourceTrial=isSourceMediaTrialURL(rawUrl);
+  const { error: proxyError, response: upstream } = await fetchValidatedImage(url,sourceTrial);
   if (proxyError || !upstream) {
     logRequestWarn("image proxy rejected request", {
       requestId,
@@ -215,7 +234,8 @@ export async function GET(request: NextRequest) {
   }
 
   const contentLength = Number(upstream.headers.get("content-length") ?? 0);
-  if (contentLength > MAX_IMAGE_BYTES) {
+  const maxBytes=sourceTrial?3*1024*1024:MAX_IMAGE_BYTES;
+  if (contentLength > maxBytes) {
     return NextResponse.json(
       { error: "image_too_large", message: "Image is too large for preview." },
       { status: 413 },
@@ -223,6 +243,9 @@ export async function GET(request: NextRequest) {
   }
 
   const contentType = upstream.headers.get("content-type") ?? "image/jpeg";
+  if(sourceTrial && !["image/jpeg","image/png"].includes(contentType)){
+    return NextResponse.json({error:"image_type_not_allowed",message:"Source image type is not allowed."},{status:400});
+  }
   let body: ArrayBuffer;
   try {
     body = await upstream.arrayBuffer();
@@ -240,7 +263,7 @@ export async function GET(request: NextRequest) {
       { status: 502 },
     );
   }
-  if (body.byteLength > MAX_IMAGE_BYTES) {
+  if (body.byteLength > maxBytes) {
     return NextResponse.json(
       { error: "image_too_large", message: "Image is too large for preview." },
       { status: 413 },

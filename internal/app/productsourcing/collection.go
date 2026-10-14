@@ -76,6 +76,18 @@ func (a ownPublicationAuthority) Authorize(ctx context.Context) (sourcing.Public
 	return sourcing.PublicationScope{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID}, nil
 }
 func (p ownProductWriter) PublishOwn(ctx context.Context, scope collection.Scope, operation string, envelope sourcing.SourceEnvelope) (collection.Source, error) {
+	zero := uint64(0)
+	return p.publish(ctx, scope, operation, "own-"+operation, &zero, envelope)
+}
+
+func (p ownProductWriter) ReviseOwn(ctx context.Context, scope collection.Scope, operation string, base collection.Source, envelope sourcing.SourceEnvelope) (collection.Source, error) {
+	if base.Kind != "own" || base.ProductKey == "" || base.Version == 0 || !collection.ValidID(base.PublicationID) {
+		return collection.Source{}, collection.ErrInvalid
+	}
+	return p.publish(ctx, scope, operation, base.ProductKey, nil, envelope)
+}
+
+func (p ownProductWriter) publish(ctx context.Context, scope collection.Scope, operation, productKey string, expected *uint64, envelope sourcing.SourceEnvelope) (collection.Source, error) {
 	store, err := sourcingstore.NewTransactionWriter(p.tx, newCatalogBridge)
 	if err != nil {
 		return collection.Source{}, err
@@ -85,8 +97,7 @@ func (p ownProductWriter) PublishOwn(ctx context.Context, scope collection.Scope
 	if err != nil {
 		return collection.Source{}, err
 	}
-	zero := uint64(0)
-	receipt, err := publisher.Publish(ctx, sourcing.PublicationCommand{PublicationID: operation, ProductKey: "own-" + operation, Producer: producer, ExpectedBaseVersion: &zero, Envelope: envelope})
+	receipt, err := publisher.Publish(ctx, sourcing.PublicationCommand{PublicationID: operation, ProductKey: productKey, Producer: producer, ExpectedBaseVersion: expected, Envelope: envelope})
 	if err != nil {
 		return collection.Source{}, err
 	}
