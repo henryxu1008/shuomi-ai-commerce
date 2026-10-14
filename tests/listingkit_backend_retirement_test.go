@@ -45,7 +45,7 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 }
 
 func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
-	for _, command := range []string{"current-application", "image-agent-temporal-worker"} {
+	for _, command := range []string{"current-application", "image-agent-temporal-worker", "source-account-registry-schema-init"} {
 		t.Run(command, func(t *testing.T) {
 			cmd := exec.Command("go", "list", "-deps", "./cmd/"+command)
 			cmd.Dir = ".."
@@ -54,7 +54,7 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 				t.Fatalf("go list current command: %v\n%s", err, output)
 			}
 			for _, dependency := range strings.Fields(string(output)) {
-				for _, retired := range []string{"task-processor/internal/listingkit", "task-processor/internal/tenantbridge", "task-processor/internal/compatibility"} {
+				for _, retired := range []string{"task-processor/internal/listingkit", "task-processor/internal/tenantbridge", "task-processor/internal/compatibility", "task-processor/internal/integration/persistence/sourceaccount/ownershipmigration"} {
 					if dependency == retired || strings.HasPrefix(dependency, retired+"/") {
 						t.Errorf("%s still compiles retired business dependency %s", command, dependency)
 					}
@@ -80,6 +80,29 @@ func TestStandaloneSheinWorkerDoesNotCompileCurrentHTTPApplication(t *testing.T)
 		if _, err := os.Stat(filepath.Join("..", "internal", "app", "httpapi", name)); !os.IsNotExist(err) {
 			t.Fatalf("shared HTTP worker source %s must be retired, without a forwarding wrapper", name)
 		}
+	}
+}
+
+func TestIdentityPreflightKeepsReadOwnerWithoutRetiredToolRuntimes(t *testing.T) {
+	cmd := exec.Command("go", "list", "-deps", "./cmd/listingkit-identity-preflight")
+	cmd.Dir = ".."
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("go list retained identity preflight: %v\n%s", err, output)
+	}
+	keptReadOwner := false
+	for _, dependency := range strings.Fields(string(output)) {
+		if dependency == "task-processor/internal/listingkit/ownerreconcile" {
+			keptReadOwner = true
+		}
+		for _, retired := range []string{"task-processor/internal/app/runtime/listingkitownerreconcile", "task-processor/internal/app/runtime/listingkitownerexceptions"} {
+			if dependency == retired || strings.HasPrefix(dependency, retired+"/") {
+				t.Errorf("identity preflight still compiles retired tool runtime %s", dependency)
+			}
+		}
+	}
+	if !keptReadOwner {
+		t.Fatal("identity preflight must retain its existing read-only owner reconciliation consumer")
 	}
 }
 
