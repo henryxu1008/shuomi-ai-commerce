@@ -414,6 +414,11 @@ export function ProductSelectionFlow({
             {saved.prepared.currency}
           </p>
           <p>建议保存在原运行历史，所有模式均只分析，不采购或修改商品。</p>
+          {currentPointer?.contextId !== saved.prepared.contextId || currentPointer?.key !== saved.prepared.requestKey ? (
+            <Button variant="outline" disabled={locked} onClick={() => setChosenRun({contextId:saved!.prepared.contextId,key:saved!.prepared.requestKey})}>
+              返回待确认的对比
+            </Button>
+          ) : null}
           <Button
             disabled={
               locked ||
