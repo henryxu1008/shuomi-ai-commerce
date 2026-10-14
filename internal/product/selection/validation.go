@@ -11,12 +11,15 @@ import (
 type InspectionReader interface {
 	Inspect(context.Context, agent.Binding) (Inspection, error)
 }
+type ValidationAuthority interface {
+	AuthorizeHistory(context.Context, agent.Binding) (collection.Scope, error)
+}
 type ConfigurationReader interface {
 	LoadSnapshot(context.Context, agent.Scope, agent.ConfigurationSnapshotRef) (agentconfig.Snapshot, error)
 	CheckRegisteredTextExecutionMode(context.Context, agent.ExecutionIdentity, agent.ConfigurationSnapshotRef, agent.ModeSnapshotRef) (agentconfig.ModeSnapshot, error)
 }
 type Validator struct {
-	Reader        InspectionReader
+	Reader        ValidationAuthority
 	Configuration ConfigurationReader
 }
 
@@ -29,11 +32,11 @@ func (v Validator) ValidateDomain(ctx context.Context, request agent.Request, ca
 	if err != nil {
 		return invalid, nil
 	}
-	current, err := v.Reader.Inspect(ctx, request.Binding)
+	current, err := v.Reader.AuthorizeHistory(ctx, request.Binding)
 	if err != nil {
 		return agent.Validation{}, err
 	}
-	identity := agent.ExecutionIdentity{OrganizationID: current.Scope.OrganizationID, ActorID: current.Scope.ActorID, MemberID: current.Scope.MemberID}
+	identity := agent.ExecutionIdentity{OrganizationID: current.OrganizationID, ActorID: current.ActorID, MemberID: current.MemberID}
 	scope := agent.Scope{OrganizationID: identity.OrganizationID, ActorID: identity.ActorID}
 	frozen, err := v.Configuration.LoadSnapshot(ctx, scope, request.ConfigurationSnapshotRef)
 	if err != nil {
@@ -53,12 +56,12 @@ func (v Validator) ValidateDomain(ctx context.Context, request agent.Request, ca
 			continue
 		}
 		out, err := ParseInspection(observation.Output)
-		if err == nil && collection.Digest(out) == collection.Digest(current) {
+		if err == nil && InspectionMatchesBinding(out, request.Binding) && ValidateProposal(out, proposal) == nil {
 			disclosed = true
 			break
 		}
 	}
-	if !disclosed || ValidateProposal(current, proposal) != nil {
+	if !disclosed {
 		return invalid, nil
 	}
 	return agent.Validation{Valid: true, PolicyVersion: agentconfig.SelectionPolicyVersion}, nil

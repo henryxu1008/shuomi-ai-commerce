@@ -183,6 +183,11 @@ export function ProductSelectionFlow({
         originalVersion: i.source.version,
       })),
     });
+  const matchesFacts = (candidates: SelectionPreparation["input"]["candidates"]) =>
+    !!facts && facts.products.length === candidates.length && candidates.every(c => facts.products.some(p => p.ref.ItemID === c.itemId && p.ref.ItemRevision === c.expectedRevision && p.ref.PublicationID === c.originalPublicationId && p.ref.CatalogVersion === c.originalVersion));
+  const selectedFactsMatch = selected.length >= 2 && matchesFacts(selected.map(i => ({itemId:i.id,expectedRevision:String(i.revision),originalPublicationId:i.source.publicationId,originalVersion:i.source.version})));
+  const preparedFactsMatch = !!saved && matchesFacts(saved.input.candidates);
+  const preparedModeMatch = !!saved && !!mode.data && saved.prepared.modeRevision === mode.data.revision;
   function savePreparation(value: SelectionPreparation) {
     const raw = JSON.stringify(selectionSavedPreparationSchema.parse(value));
     localStorage.setItem(cacheKey, raw);
@@ -198,7 +203,7 @@ export function ProductSelectionFlow({
     const abort = new AbortController();
     controller.current = abort;
     try {
-      const result = await inspectSelection(scope, input(), abort.signal);
+      const result = await inspectSelection(scope, saved ? {contextId:saved.input.contextId,candidates:saved.input.candidates} : input(), abort.signal);
       if (active.current) {
         setChosenRun(null);
         setFacts(result);
@@ -212,6 +217,10 @@ export function ProductSelectionFlow({
   }
   async function send(intent: SelectionIntent) {
     if (flight.current || !active.current || !pending.ready) return;
+    if (intent.kind === "start" && !pending.command && (!preparedFactsMatch || !preparedModeMatch)) {
+      setFailure(new Error("请核对本次准备的事实和权限版本；权限变化后须重新准备。"));
+      return;
+    }
     flight.current = true;
     setBusy(true);
     setFailure(undefined);
@@ -309,7 +318,8 @@ export function ProductSelectionFlow({
     setChosenRun(null);
     setFacts(undefined);
   }
-  const display = run.data?.inspection ?? facts;
+  const selectedSavedPointer = !!saved && chosenRun?.contextId === saved.prepared.contextId && chosenRun?.key === saved.prepared.requestKey;
+  const display = run.data ? run.data.inspection : chosenRun && !selectedSavedPointer ? undefined : facts;
   const prepareAllowed =
     entry.canUse &&
     entry.agent.activation === "ENABLED" &&
@@ -317,7 +327,7 @@ export function ProductSelectionFlow({
     !!mode.data &&
     !locked &&
     !saved &&
-    selected.length >= 2 && goal.trim().length > 0;
+    selectedFactsMatch && goal.trim().length > 0;
   return (
     <Card className={styles.panel}>
       <h2>选品对比</h2>
@@ -408,7 +418,7 @@ export function ProductSelectionFlow({
           <h3>确认本次分析</h3>
           <p>{saved.input.goalSummary}</p>
           <p>
-            候选 {saved.input.candidates.length} 个 · 当前模式{" "}
+            候选 {saved.input.candidates.length} 个 · 准备权限版本 {saved.prepared.modeRevision} · 当前模式{" "}
             {mode.data ? executionModeLabels[mode.data.mode] : "待核对"} ·
             单次调用最多{" "}
             {(saved.prepared.maximumCallCostMicros / 1000000).toFixed(6)}{" "}
@@ -417,6 +427,8 @@ export function ProductSelectionFlow({
             {saved.prepared.currency}
           </p>
           <p>建议保存在原运行历史，所有模式均只分析，不采购或修改商品。</p>
+          {!preparedModeMatch ? <p role="alert">权限模式已变化或待核对，请重新准备；原请求编号和运行保留。</p> : null}
+          {!run.data && !preparedFactsMatch ? <><p>请先核对本次准备对应的商品事实。</p><Button variant="outline" disabled={locked} onClick={()=>void inspect()}>核对确认依据</Button></> : null}
           {currentPointer?.contextId !== saved.prepared.contextId || currentPointer?.key !== saved.prepared.requestKey ? (
             <Button variant="outline" disabled={locked} onClick={() => setChosenRun({contextId:saved!.prepared.contextId,key:saved!.prepared.requestKey})}>
               返回待确认的对比
@@ -428,7 +440,7 @@ export function ProductSelectionFlow({
               !!run.data ||
               entry.agent.activation !== "ENABLED" ||
               !entry.canUse ||
-              !textReady
+              !textReady || !preparedFactsMatch || !preparedModeMatch
             }
             onClick={() =>
               void send({

@@ -89,6 +89,9 @@ func buildProductSelectionApplication(ctx context.Context, parent *productAgentA
 	}, []commercetool.ToolRef{agentconfig.SelectionInspectToolRef()}, a.executionIdentity, selection.ModelAdmission{}, func(ctx context.Context, in agent.ModelInput) error {
 		ctx = context.WithValue(ctx, selectionExecutionContextKey{}, agent.Request{Binding: in.Binding, ConfigurationSnapshotRef: in.ConfigurationSnapshotRef, ModeSnapshotRef: in.ModeSnapshotRef})
 		_, e := a.Authorize(ctx, in.Binding)
+		if e == nil {
+			_, e = a.inspector.Inspect(ctx, in.Binding)
+		}
 		return e
 	})
 	if err != nil {
@@ -154,11 +157,11 @@ func (a *productSelectionApplication) Authorize(ctx context.Context, binding age
 			return agent.Scope{}, e
 		}
 	}
-	out, e := a.inspector.Inspect(ctx, binding)
+	current, e := a.inspector.AuthorizeHistory(ctx, binding)
 	if e != nil {
 		return agent.Scope{}, e
 	}
-	if out.Scope != (collection.Scope{OrganizationID: id.OrganizationID, ActorID: id.ActorID, MemberID: id.MemberID}) {
+	if current != (collection.Scope{OrganizationID: id.OrganizationID, ActorID: id.ActorID, MemberID: id.MemberID}) {
 		return agent.Scope{}, agentconfig.ErrForbidden
 	}
 	return agent.Scope{OrganizationID: id.OrganizationID, ActorID: id.ActorID}, nil
