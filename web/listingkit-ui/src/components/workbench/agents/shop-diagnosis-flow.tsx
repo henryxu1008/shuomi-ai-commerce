@@ -205,6 +205,7 @@ export function ShopDiagnosisFlow({
     facts.ref.StartDate === saved.prepared.inspectionRef.StartDate &&
     facts.ref.EndDate === saved.prepared.inspectionRef.EndDate &&
     facts.ref.EvidenceDigest === saved.prepared.inspectionRef.EvidenceDigest;
+  const preparedModeMatch = !!saved && !!mode.data && saved.prepared.modeRevision === mode.data.revision;
   function savePreparation(value: DiagnosisPreparation) {
     const raw = JSON.stringify(diagnosisSavedPreparationSchema.parse(value));
     localStorage.setItem(cacheKey, raw);
@@ -238,7 +239,7 @@ export function ShopDiagnosisFlow({
   }
   async function send(intent: DiagnosisIntent) {
     if (flight.current || !active.current || !pending.ready) return;
-    if (intent.kind === "start" && !pending.command && !preparedFactsMatch) {
+    if (intent.kind === "start" && !pending.command && (!preparedFactsMatch || !preparedModeMatch)) {
       setFailure(new Error("请先核对本次准备结果对应的经营事实。"));
       return;
     }
@@ -339,7 +340,8 @@ export function ShopDiagnosisFlow({
     setChosenRun(null);
     setFacts(undefined);
   }
-  const display = run.data?.inspection ?? facts;
+  const selectedSavedPointer = !!saved && chosenRun?.contextId === saved.prepared.contextId && chosenRun?.key === saved.prepared.requestKey;
+  const display = run.data ? run.data.inspection : chosenRun && !selectedSavedPointer ? undefined : facts;
   const prepareAllowed =
     entry.canUse &&
     entry.agent.activation === "ENABLED" &&
@@ -478,7 +480,7 @@ export function ShopDiagnosisFlow({
           <h3>确认本次分析</h3>
           <p>{saved.input.goalSummary}</p>
           <p>
-            周期 {saved.input.startDate} 至 {saved.input.endDate} · 当前模式{" "}
+            周期 {saved.input.startDate} 至 {saved.input.endDate} · 准备权限版本 {saved.prepared.modeRevision} · 当前模式{" "}
             {mode.data ? executionModeLabels[mode.data.mode] : "待核对"} ·
             单次调用最多{" "}
             {(saved.prepared.maximumCallCostMicros / 1000000).toFixed(6)}{" "}
@@ -489,6 +491,7 @@ export function ShopDiagnosisFlow({
           <p>
             建议保存在原运行历史，所有模式均只提供建议，不修改店铺、财务或商品。
           </p>
+          {!preparedModeMatch ? <p role="alert">权限模式已变化或待核对，请重新准备；原请求编号和运行保留。</p> : null}
           {currentPointer?.contextId !== saved.prepared.contextId || currentPointer?.key !== saved.prepared.requestKey ? (
             <Button variant="outline" disabled={locked} onClick={() => setChosenRun({contextId:saved!.prepared.contextId,key:saved!.prepared.requestKey})}>
               返回待确认的诊断
@@ -507,7 +510,7 @@ export function ShopDiagnosisFlow({
               entry.agent.activation !== "ENABLED" ||
               !entry.canUse ||
               !textReady ||
-              !preparedFactsMatch
+              !preparedFactsMatch || !preparedModeMatch
             }
             onClick={() =>
               void send({

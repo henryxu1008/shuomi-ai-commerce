@@ -44,9 +44,11 @@ const entry: CatalogEntry = {
 };
 let writes: Array<{ path: string; key: string; body: unknown }>;
 let preparedDigest: string, inspectedDigest: string;
+let currentModeRevision = "0";
 beforeEach(() => {
   localStorage.clear();
   writes = [];
+  currentModeRevision = "0";
   preparedDigest = inspectedDigest = "c".repeat(64);
   vi.stubGlobal(
     "fetch",
@@ -85,7 +87,7 @@ beforeEach(() => {
             version: "v1.0.0",
           },
           mode: "read_only",
-          revision: "0",
+          revision: currentModeRevision,
           policyVersion: "agent-execution-policy-v1",
           canConfigure: true,
           updatedAt: "2026-10-14T00:00:00Z",
@@ -157,11 +159,16 @@ function show(value = entry) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  return render(
+  const mounted = render(
     <QueryClientProvider client={client}>
       <ShopDiagnosisFlow scope={scope} entry={value} nonce={0} />
     </QueryClientProvider>,
   );
+  return {...mounted, refresh: (nonce: number) => mounted.rerender(
+    <QueryClientProvider client={client}>
+      <ShopDiagnosisFlow scope={scope} entry={value} nonce={nonce} />
+    </QueryClientProvider>,
+  )};
 }
 async function choose() {
   await screen.findByRole("option", { name: /测试店铺/ });
@@ -263,6 +270,18 @@ it("blocks a new paid start when prepared facts changed after viewing", async ()
   expect(writes.every(w => !w.path.endsWith("/runs"))).toBe(true);
 });
 
+it("requires a new preparation when the current mode no longer matches the frozen one", async () => {
+  const mounted = show(); await choose(); await viewFacts();
+  fireEvent.click(screen.getByRole("button", {name: "准备分析"}));
+  await waitFor(() => expect(screen.getByRole("button", {name: "确认生成建议"})).toBeEnabled());
+  const key = writes[1].key;
+  currentModeRevision = "1"; mounted.refresh(1);
+  await screen.findByText(/权限模式已变化或待核对/);
+  expect(screen.getByRole("button", {name: "确认生成建议"})).toBeDisabled();
+  expect(writes).toHaveLength(2);
+  expect(JSON.stringify(localStorage)).toContain(key);
+});
+
 it("reloads preparation without inventing facts and rereads the original context", async () => {
   show(); await choose(); await viewFacts();
   fireEvent.click(screen.getByRole("button", {name: "准备分析"}));
@@ -334,8 +353,10 @@ it("switches from viewed history to the newly prepared exact comparison", async 
     }),
   );
   show({ ...entry, canReadRuns: true });
+  await choose(); await viewFacts();
   fireEvent.click(await screen.findByRole("button", { name: /stopped/ }));
   await screen.findByText(/旧比较目标/);
+  expect(screen.queryByRole("heading", {name: "已保存经营事实"})).toBeNull();
   await choose();
   await viewFacts();
   fireEvent.click(screen.getByRole("button", { name: "准备分析" }));
@@ -344,9 +365,9 @@ it("switches from viewed history to the newly prepared exact comparison", async 
     expect(screen.getByRole("button", { name: "确认生成建议" })).toBeEnabled(),
   );
   expect(screen.queryByText(/旧比较目标/)).toBeNull();
-  expect(writes).toHaveLength(2);
-  expect(writes[1].path).toMatch(/prepare$/);
-  const key = writes[1].key;
+  expect(writes).toHaveLength(3);
+  expect(writes[2].path).toMatch(/prepare$/);
+  const key = writes[2].key;
   fireEvent.click(screen.getByRole("button", {name:/stopped/}));
   await screen.findByText(/旧比较目标/);
   fireEvent.click(await screen.findByRole("button", {name:"返回待确认的诊断"}));

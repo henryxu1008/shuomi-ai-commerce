@@ -6,6 +6,7 @@ import (
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/authidentity"
+	"task-processor/internal/commercetool"
 	c "task-processor/internal/operationscockpit"
 	"task-processor/internal/shopdiagnosis"
 	"time"
@@ -222,7 +223,7 @@ func (a *shopDiagnosisApplication) projectRun(ctx context.Context, run agent.Rec
 		out.Inspection, out.Proposal, out.Validated = &inspection, &proposal, true
 	} else {
 		for _, o := range s.History {
-			if o.Tool == agentconfig.DiagnosisInspectToolRef() {
+			if o.Tool == agentconfig.DiagnosisInspectToolRef() && o.AuditStatus == commercetool.AuditStatusRecorded && agent.ValidID(o.CallID) && o.InvocationID == "" {
 				inspection, e := shopdiagnosis.ParseInspection(o.Output)
 				if e == nil && shopdiagnosis.InspectionMatchesBinding(inspection, s.Request.Binding) {
 					out.Inspection = &inspection

@@ -91,6 +91,9 @@ func buildShopDiagnosisApplication(ctx context.Context, parent *productAgentAppl
 	}, []commercetool.ToolRef{agentconfig.DiagnosisInspectToolRef()}, a.executionIdentity, shopdiagnosis.ModelAdmission{}, func(ctx context.Context, in agent.ModelInput) error {
 		ctx = context.WithValue(ctx, diagnosisExecutionContextKey{}, agent.Request{Binding: in.Binding, ConfigurationSnapshotRef: in.ConfigurationSnapshotRef, ModeSnapshotRef: in.ModeSnapshotRef})
 		_, e := a.Authorize(ctx, in.Binding)
+		if e == nil {
+			_, e = a.inspector.Inspect(ctx, in.Binding)
+		}
 		return e
 	})
 	if err != nil {
@@ -160,11 +163,11 @@ func (a *shopDiagnosisApplication) Authorize(ctx context.Context, binding agent.
 			return agent.Scope{}, e
 		}
 	}
-	out, e := a.inspector.Inspect(ctx, binding)
+	current, e := a.inspector.AuthorizeHistory(ctx, binding)
 	if e != nil {
 		return agent.Scope{}, e
 	}
-	if out.Scope != (agent.ExecutionIdentity{OrganizationID: id.OrganizationID, ActorID: id.ActorID, MemberID: id.MemberID}) {
+	if current != (agent.ExecutionIdentity{OrganizationID: id.OrganizationID, ActorID: id.ActorID, MemberID: id.MemberID}) {
 		return agent.Scope{}, agentconfig.ErrForbidden
 	}
 	return agent.Scope{OrganizationID: id.OrganizationID, ActorID: id.ActorID}, nil

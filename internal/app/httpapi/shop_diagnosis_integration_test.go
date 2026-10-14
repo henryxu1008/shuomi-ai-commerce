@@ -26,8 +26,11 @@ import (
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
 	"task-processor/internal/commercetool"
+	einoruntime "task-processor/internal/integration/agent/eino"
+	configstore "task-processor/internal/integration/persistence/agentconfig"
 
 	"task-processor/internal/shopdiagnosis"
+	"task-processor/internal/shopdiagnosis/tools/diagnosisinspect"
 )
 
 type diagnosisHistoryModules struct{ factsOnly *atomic.Bool }
@@ -93,6 +96,21 @@ func testDiagnosisHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixtur
 	gate := &diagnosisModuleGate{Authorizer: boundary, stores: true, advice: true}
 	reads := &shopdiagnosis.NativeReader{Repository: repository, Boundary: gate, Observations: spy}
 	a, err := buildShopDiagnosisApplication(ctx, parent, reads, boundary.Bind, f.owner, deps.organizationResolver, permissions)
+	require.NoError(t, err)
+	changingModel := &mutationAfterProposalModel{GovernedModel: a.model, mutate: func(ctx context.Context) error {
+		updated := fact
+		updated.Amounts.Revenue = 110000
+		_, e := repository.Execute(ctx, cockpit.Command{Scope: cockpit.Scope{OrganizationID: "B", ActorID: "admin"}, Operation: "fact_update", Key: uuid.NewString(), ID: factID, StoreID: shopID, Expected: 1, Fact: &updated})
+		return e
+	}}
+	guard, err := configstore.NewGuard(parent.config.RunDB, a.configuration, a.store, func(id, version string) (agent.Limits, error) {
+		if id != agentconfig.DiagnosisAgentID || version != agentconfig.DiagnosisAgentVersion {
+			return agent.Limits{}, agentconfig.ErrDefinition
+		}
+		return parent.config.Limits, nil
+	}, a.currentExecutionIdentity)
+	require.NoError(t, err)
+	a.runtime, err = einoruntime.New(einoruntime.Config{Definition: diagnosisinspect.AgentDefinition(), Tools: []commercetool.Definition{diagnosisinspect.Definition()}, Model: changingModel, Gateway: a, DomainProposalKind: agentconfig.DiagnosisProposalKind, DomainValidator: shopdiagnosis.Validator{Reader: a.inspector, Configuration: a.configuration}, Authorizer: a, Store: guard})
 	require.NoError(t, err)
 	in := diagnosisInput{ContextID: uuid.NewString(), StoreID: shopID, StartDate: fact.Period.Start, EndDate: fact.Period.End}
 	routes := shopDiagnosisRoutes(a, a.bindRequest)
@@ -168,10 +186,44 @@ func testDiagnosisHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixtur
 	var result diagnosisRunDTO
 	require.NoError(t, json.Unmarshal(raw, &result))
 	require.True(t, result.Validated, string(raw))
+	require.True(t, changingModel.mutated, "the native financial revision changed after the last model dispatch")
 	require.Equal(t, agent.ModeReadOnly, result.ExecutionMode)
 	require.EqualValues(t, 2, calls.Load(), "one inspect decision and one proposal decision")
 	require.NotNil(t, result.Proposal)
 	require.NotEmpty(t, result.Inspection.Facts)
+	stored, frozen, err := a.readRun(actor, in.ContextID, key)
+	require.NoError(t, err)
+	for _, invalid := range []string{"audit_failed", "missing_call", "model_invocation", "wrong_tool"} {
+		t.Run("history_evidence_"+invalid, func(t *testing.T) {
+			copy := stored
+			copy.State.Phase, copy.State.StopReason = agent.Stopped, agent.StopAudit
+			copy.State.History = append([]agent.Observation(nil), stored.State.History...)
+			for i := range copy.State.History {
+				o := &copy.State.History[i]
+				if o.Tool != agentconfig.DiagnosisInspectToolRef() {
+					continue
+				}
+				switch invalid {
+				case "audit_failed":
+					o.AuditStatus = commercetool.AuditStatusRecordFailed
+				case "missing_call":
+					o.CallID = ""
+				case "model_invocation":
+					o.InvocationID = uuid.NewString()
+				case "wrong_tool":
+					o.Tool = agentconfig.SelectionInspectToolRef()
+				}
+			}
+			projected, e := a.projectRun(actor, copy, frozen)
+			require.NoError(t, e)
+			require.Nil(t, projected.Inspection, "unaudited output is not saved run evidence")
+		})
+	}
+	stopped := stored
+	stopped.State.Phase, stopped.State.StopReason = agent.Stopped, agent.StopAudit
+	projected, err := a.projectRun(actor, stopped, frozen)
+	require.NoError(t, err)
+	require.NotNil(t, projected.Inspection, "recorded inspection remains visible even when later work stopped")
 	replay := call("POST", shopDiagnosisBase+"/contexts/"+in.ContextID+"/runs", key, body, http.StatusOK)
 	require.JSONEq(t, string(raw), string(replay))
 	require.EqualValues(t, 2, calls.Load())
@@ -193,7 +245,7 @@ func testDiagnosisHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixtur
 	require.EqualValues(t, 2, calls.Load())
 	// Editing native facts changes future dispatch identity, not retained advice.
 	fact.Amounts.Revenue = 120000
-	_, err = repository.Execute(actor, cockpit.Command{Scope: cockpit.Scope{OrganizationID: "B", ActorID: "admin"}, Operation: "fact_update", Key: uuid.NewString(), ID: factID, StoreID: shopID, Expected: 1, Fact: &fact})
+	_, err = repository.Execute(actor, cockpit.Command{Scope: cockpit.Scope{OrganizationID: "B", ActorID: "admin"}, Operation: "fact_update", Key: uuid.NewString(), ID: factID, StoreID: shopID, Expected: 2, Fact: &fact})
 	require.NoError(t, err)
 	call("GET", path, "", nil, http.StatusOK)
 	require.NoError(t, f.owner.Exec("UPDATE workbench_stores SET record_status='deleted',deleted_at=now() WHERE id=?", shopID).Error)
