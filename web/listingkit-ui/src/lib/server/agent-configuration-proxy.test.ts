@@ -97,6 +97,18 @@ it("rejects title parameters in image templates and another agent's mutation rec
  expect(result.status).toBeGreaterThanOrEqual(500);expect((await result.json()).code).toBe("OUTCOME_UNKNOWN");
 });
 
+it("routes content preferences through their own endpoint and rejects cross-agent payloads",async()=>{
+ const content={schema:"content-config-v1",selection:{targetLanguage:"en-US",title:true,description:true}};
+ const fetch=vi.fn().mockResolvedValue(Response.json({commandId:key,operation:"create-template",agentId:"product.content.agent",templateId:key,revision:"1",version:"1",noop:false,committedAt:"2026-10-12T00:00:00Z"}));vi.stubGlobal("fetch",fetch);
+ const r=request("product.content.agent/templates","POST",{name:"English content",targetPlatform:"product",content});r.headers.delete("If-Match");
+ expect((await proxyAgentConfiguration(r,"token","actor")).status).toBe(200);
+ expect(JSON.parse(fetch.mock.calls[0][1].body).content).toEqual(content);
+ for(const [path,payload] of [["product.title.agent/templates",{name:"bad",targetPlatform:"shein",content}],["product.content.agent/templates",{name:"bad",targetPlatform:"product"}]]){
+  const bad=request(path as string,"POST",payload);bad.headers.delete("If-Match");expect((await proxyAgentConfiguration(bad,"token","actor")).status).toBe(400);
+ }
+ expect(fetch).toHaveBeenCalledTimes(1);
+});
+
 it("forwards an exact execution-mode intent without inventing activation or an If-Match header",async()=>{
  const subject={kind:"private_delivery",id:key};
  const receipt={commandId:"2b9ac69f-bf25-4d28-a85a-8036ea005013",requestKey:key,operation:"set-execution-mode",subject,mode:"full_access",beforeRevision:"0",revision:"1",noop:false,committedAt:"2026-10-12T01:00:00Z",updatedAt:"2026-10-12T01:00:00Z",updatedBy:"actor"};

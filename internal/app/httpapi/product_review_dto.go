@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"regexp"
 	"strconv"
+	"task-processor/internal/product/enrichment"
 	"task-processor/internal/product/review"
 	"time"
 
@@ -15,6 +16,8 @@ import (
 
 const productReviewSchemaVersion = 1
 const productReviewCoverage = "product-title-proposals-only"
+const productContentReviewSchemaVersion = 2
+const productContentReviewCoverage = "product-content-proposals-only"
 const maxProductReviewQueryBytes = 1024
 const maxProductReviewResponseBytes = 128 << 10
 
@@ -50,27 +53,38 @@ type productReviewReceiptDTO struct {
 }
 
 type productReviewViewDTO struct {
-	PolicyAdoption *review.PolicyProvenance   `json:"policy_adoption,omitempty"`
-	SchemaVersion  int                        `json:"schema_version"`
-	Coverage       string                     `json:"coverage"`
-	ProposalID     string                     `json:"proposal_id"`
-	Owner          string                     `json:"owner"`
-	Input          productReviewInputDTO      `json:"input"`
-	Before         string                     `json:"before"`
-	After          string                     `json:"after"`
-	OriginalTitle  string                     `json:"original_title"`
-	Policy         string                     `json:"policy"`
-	State          string                     `json:"state"`
-	Revision       string                     `json:"revision"`
-	Evidence       []review.Evidence          `json:"evidence"`
-	Quality        productReviewQualityDTO    `json:"quality"`
-	Unresolved     []string                   `json:"unresolved"`
-	Decisions      []productReviewDecisionDTO `json:"decisions"`
-	ApplyReceipt   *productReviewReceiptDTO   `json:"apply_receipt,omitempty"`
-	Knowledge      *productKnowledgeDTO       `json:"knowledge,omitempty"`
+	ExecutionMode  *productReviewModeDTO       `json:"execution_mode,omitempty"`
+	Content        *review.ContentPayload      `json:"content,omitempty"`
+	Execution      *review.ExecutionProvenance `json:"execution,omitempty"`
+	PolicyAdoption *review.PolicyProvenance    `json:"policy_adoption,omitempty"`
+	SchemaVersion  int                         `json:"schema_version"`
+	Coverage       string                      `json:"coverage"`
+	ProposalID     string                      `json:"proposal_id"`
+	Owner          string                      `json:"owner"`
+	Input          productReviewInputDTO       `json:"input"`
+	Before         string                      `json:"before"`
+	After          string                      `json:"after"`
+	OriginalTitle  string                      `json:"original_title"`
+	Policy         string                      `json:"policy"`
+	State          string                      `json:"state"`
+	Revision       string                      `json:"revision"`
+	Evidence       []review.Evidence           `json:"evidence"`
+	Quality        productReviewQualityDTO     `json:"quality"`
+	Unresolved     []string                    `json:"unresolved"`
+	Decisions      []productReviewDecisionDTO  `json:"decisions"`
+	ApplyReceipt   *productReviewReceiptDTO    `json:"apply_receipt,omitempty"`
+	Knowledge      *productKnowledgeDTO        `json:"knowledge,omitempty"`
 }
 
 func marshalProductReviewView(view review.View, projections ...*productKnowledgeDTO) ([]byte, error) {
+	var projection *productKnowledgeDTO
+	if len(projections) == 1 {
+		projection = projections[0]
+	}
+	return marshalProductReviewProjection(view, projection, nil)
+}
+
+func marshalProductReviewProjection(view review.View, projection *productKnowledgeDTO, mode *productReviewModeDTO) ([]byte, error) {
 	if err := review.ValidateView(view); err != nil {
 		return nil, err
 	}
@@ -102,8 +116,15 @@ func marshalProductReviewView(view review.View, projections ...*productKnowledge
 		Unresolved:     unresolved,
 		Decisions:      decisions,
 	}
-	if view.ContextProvenance != nil && len(projections) == 1 && projections[0] != nil {
-		dto.Knowledge = projections[0]
+	if view.Content != nil {
+		dto.SchemaVersion, dto.Coverage = productContentReviewSchemaVersion, productContentReviewCoverage
+		dto.Content, dto.Execution = view.Content, view.Execution
+		if mode != nil && view.Execution != nil && mode.Snapshot == view.Execution.Mode {
+			dto.ExecutionMode = mode
+		}
+	}
+	if view.ContextProvenance != nil && projection != nil {
+		dto.Knowledge = projection
 	}
 	if view.Receipt != nil {
 		if view.Receipt.At.IsZero() {
@@ -184,11 +205,13 @@ func parseProductReviewCollectionQuery(query url.Values) (review.PageRequest, er
 }
 
 type productReviewCollectionItemDTO struct {
-	ProposalID       string `json:"proposal_id"`
-	ProductKey       string `json:"product_key"`
-	BaseVersion      string `json:"base_version"`
-	ProposalRevision string `json:"proposal_revision"`
-	State            string `json:"state"`
+	Policy           string                       `json:"policy,omitempty"`
+	ContentSelection *enrichment.ContentSelection `json:"content_selection,omitempty"`
+	ProposalID       string                       `json:"proposal_id"`
+	ProductKey       string                       `json:"product_key"`
+	BaseVersion      string                       `json:"base_version"`
+	ProposalRevision string                       `json:"proposal_revision"`
+	State            string                       `json:"state"`
 }
 
 type productReviewPageDTO struct {
@@ -200,11 +223,17 @@ type productReviewPageDTO struct {
 
 func marshalProductReviewPage(page review.Page) ([]byte, error) {
 	items := make([]productReviewCollectionItemDTO, len(page.Items))
+	content := false
 	for index, item := range page.Items {
 		if err := review.ValidateCollectionItem(item); err != nil {
 			return nil, err
 		}
 		items[index] = productReviewCollectionItemDTO{ProposalID: item.ID, ProductKey: item.ProductKey, BaseVersion: strconv.FormatUint(item.BaseVersion, 10), ProposalRevision: strconv.FormatUint(item.Revision, 10), State: item.State}
+		if !item.ContentSelection.Absent() {
+			selection := item.ContentSelection
+			items[index].ContentSelection = &selection
+			content = true
+		}
 	}
 	if page.NextCursor != nil && len(page.Items) == 0 {
 		return nil, review.ErrUnavailable
@@ -217,5 +246,16 @@ func marshalProductReviewPage(page review.Page) ([]byte, error) {
 		}
 		next = &encoded
 	}
-	return json.Marshal(productReviewPageDTO{SchemaVersion: productReviewSchemaVersion, Coverage: productReviewCoverage, Items: items, NextCursor: next})
+	version, coverage := productReviewSchemaVersion, productReviewCoverage
+	if content {
+		version, coverage = productContentReviewSchemaVersion, "product-text-proposals"
+		for i := range items {
+			if items[i].ContentSelection != nil {
+				items[i].Policy = enrichment.ContentPolicyVersion
+			} else {
+				items[i].Policy = "title-review-v1"
+			}
+		}
+	}
+	return json.Marshal(productReviewPageDTO{SchemaVersion: version, Coverage: coverage, Items: items, NextCursor: next})
 }

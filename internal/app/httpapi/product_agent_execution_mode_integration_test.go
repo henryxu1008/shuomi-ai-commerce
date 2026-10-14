@@ -3,9 +3,11 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
@@ -22,8 +24,16 @@ func TestWorkbenchExistingTitleRunFinishesPolicyAdoption(t *testing.T) {
 	}
 }
 
+func TestWorkbenchExistingRunConfigurationChangeKeepsOriginalKey(t *testing.T) {
+	for _, mode := range []string{"auto_approve", "full_access"} {
+		t.Run(mode, func(t *testing.T) { testProductAgentOwners(t, "permission recovery changed "+mode) })
+	}
+}
+
 func testWorkbenchTitlePolicyRecovery(t *testing.T, value, operationID string, configuration *configstore.Store, a *productAgentApplication, server *httptest.Server, calls *atomic.Int32) {
 	t.Helper()
+	changed := strings.HasPrefix(value, "changed ")
+	value = strings.TrimPrefix(value, "changed ")
 	identity := agent.ExecutionIdentity{OrganizationID: "B", ActorID: "admin", MemberID: "member-B-admin"}
 	receipt, err := configuration.ExecuteMode(context.Background(), agentconfig.ModeCommand{Identity: identity, Subject: a.modeSubject(), Key: uuid.NewString(), Mode: agent.ExecutionMode(value)})
 	require.NoError(t, err)
@@ -49,6 +59,39 @@ func testWorkbenchTitlePolicyRecovery(t *testing.T, value, operationID string, c
 	view, err := a.reviews.CreateFromCandidate(ctx, "agent:"+run.State.RunID, input)
 	require.NoError(t, err)
 	require.Equal(t, "pending", view.State)
+	if changed {
+		a.policyAdoption = policy
+		revision, parseErr := agentconfig.ParseModeRevision(receipt.Revision)
+		require.NoError(t, parseErr)
+		_, err = configuration.ExecuteMode(context.Background(), agentconfig.ModeCommand{Identity: identity, Subject: a.modeSubject(), Key: uuid.NewString(), Mode: agent.ModeDefault, ExpectedRevision: revision})
+		require.NoError(t, err)
+		_, err = a.finishTitleCandidate(ctx, run)
+		require.ErrorIs(t, err, agentconfig.ErrChanged, "post-run adoption can reject changed configuration after the model and Review were saved")
+		path := productAcquisitionBase + "/" + operationID + "/product-agent/runs"
+		body := fmt.Sprintf(`{"expectedModeRevision":%q,"targetPlatform":"shein"}`, receipt.Revision)
+		code, raw, err := acquisitionHTTPRequest(server, "POST", path, "admin", "B", request.Key, body)
+		require.NoError(t, err)
+		require.Equal(t, 409, code, string(raw))
+		var failure struct {
+			Code string `json:"code"`
+		}
+		require.NoError(t, json.Unmarshal(raw, &failure))
+		require.Equal(t, "AGENT_CONFLICT", failure.Code, "existing run rejection must never advertise zero Claim or discard its key")
+		code, raw, err = acquisitionHTTPRequest(server, "GET", path+"/"+request.Key, "admin", "B", "", "")
+		require.NoError(t, err)
+		require.Equal(t, 200, code, string(raw))
+		var retained productAgentResultDTO
+		require.NoError(t, json.Unmarshal(raw, &retained))
+		require.Equal(t, request.Key, retained.RequestKey)
+		require.Equal(t, run.State.RunID, retained.RunID)
+		code, raw, err = acquisitionHTTPRequest(server, "POST", path, "admin", "B", uuid.NewString(), body)
+		require.NoError(t, err)
+		require.Equal(t, 409, code, string(raw))
+		require.NoError(t, json.Unmarshal(raw, &failure))
+		require.Equal(t, "CONFIGURATION_CHANGED", failure.Code, "a fresh key with stale confirmation must still report the genuine pre-Claim rejection")
+		require.Equal(t, beforeCalls, calls.Load(), "replay/configuration recovery cannot repeat the model")
+		return
+	}
 	wire, err := json.Marshal(request)
 	require.NoError(t, err)
 	task := aiworkbench.BusinessTask{Scope: aiworkbench.Scope{OrganizationID: "B", ActorID: "admin"}, OperationID: operationID, TargetPlatform: "shein", ExecutionRequestKey: request.Key, ConfigurationSnapshotRef: request.ConfigurationSnapshotRef, ContextSnapshotRef: request.ContextSnapshotRef, ExecutionRequest: wire}

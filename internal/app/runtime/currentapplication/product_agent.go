@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"task-processor/internal/agent"
+	"task-processor/internal/agentconfig"
 	"task-processor/internal/aicapability"
 	governed "task-processor/internal/integration/aicapability/einomodel"
 )
@@ -18,6 +19,7 @@ type ProductAgentConfig struct {
 	AssetDatabase          DatabaseConfig                  `json:"assetDatabase"`
 	AllowedOrganizationIDs []string                        `json:"allowedOrganizationIds"`
 	TextPolicies           map[string]governed.RoutePolicy `json:"textPolicies"`
+	ContentTextPolicies    map[string]governed.RoutePolicy `json:"contentTextPolicies,omitempty"`
 	Currency               string                          `json:"currency"`
 	Steps                  int                             `json:"steps"`
 	ModelCalls             int                             `json:"modelCalls"`
@@ -72,6 +74,16 @@ func (p *ProductAgentConfig) validate(cfg *Config) error {
 			profile.Currency != p.Currency || !governed.ValidRouteProfile(profile, aicapability.OperationProductAgentDecision) || err != nil ||
 			profile.MaximumPromptTokens+profile.MaximumCompletionTokens > p.Tokens || costMicros > p.CostMicros {
 			return errors.New("product agent organization text policy invalid")
+		}
+	}
+	if len(p.ContentTextPolicies) > len(seen) {
+		return errors.New("content policy outside current organization admission")
+	}
+	for organizationID, policy := range p.ContentTextPolicies {
+		profile := policy.ShapeProfile()
+		cost, err := profile.MaximumCost()
+		if !seen[organizationID] || profile.PromptVersion != agentconfig.ContentPromptVersion || profile.OutputSchemaVersion != agentconfig.ContentActionVersion || profile.Currency != p.Currency || !governed.ValidRouteProfile(profile, aicapability.OperationProductContentDecision) || err != nil || profile.MaximumPromptTokens+profile.MaximumCompletionTokens > p.Tokens || cost > p.CostMicros {
+			return errors.New("product content policy invalid")
 		}
 	}
 	return nil

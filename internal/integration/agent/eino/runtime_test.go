@@ -35,6 +35,7 @@ type fakeModel struct {
 	waitStarted        chan struct{}
 	notDispatchedAt    int
 	observedInvalid    bool
+	lastInput          agent.ModelInput
 }
 
 func (m *fakeModel) Quote(context.Context, agent.ModelInput) (agent.Quote, error) {
@@ -42,6 +43,7 @@ func (m *fakeModel) Quote(context.Context, agent.ModelInput) (agent.Quote, error
 }
 func (m *fakeModel) Decide(ctx context.Context, in agent.ModelInput) (agent.ModelResult, error) {
 	m.calls++
+	m.lastInput = in
 	if m.calls == m.notDispatchedAt {
 		return agent.ModelResult{InvocationID: in.InvocationID, Usage: agent.ObservedUsage{Known: true, Currency: in.UpperBound.Currency}}, agent.ErrModelNotDispatched
 	}
@@ -100,17 +102,19 @@ type fakeValidator struct {
 	calls      int
 	unresolved []string
 	history    []agent.Observation
+	request    agent.Request
 }
 
-func (v *fakeValidator) Validate(_ context.Context, _ agent.Binding, policy string, c enrichment.Candidate, history []agent.Observation) (agent.Validation, error) {
+func (v *fakeValidator) Validate(_ context.Context, request agent.Request, c enrichment.Candidate, history []agent.Observation) (agent.Validation, error) {
 	v.calls++
+	v.request = request
 	v.history = history
 	valid := len(c.Changes) == 1 && c.Changes[0].Value == "supported title"
 	unresolved := v.unresolved
 	if unresolved == nil {
 		unresolved = []string{"image approval not evaluated"}
 	}
-	return agent.Validation{Valid: valid, PolicyVersion: policy, Unresolved: unresolved}, nil
+	return agent.Validation{Valid: valid, PolicyVersion: request.PolicyVersion, Unresolved: unresolved}, nil
 }
 
 // A test-only atomic store. This is not a production persistence/recovery claim.
@@ -232,6 +236,38 @@ func TestGraphReadsProposesRepairsAndStopsForHuman(t *testing.T) {
 	}
 	if _, err = r.Start(context.Background(), req); err != nil || model.calls != 4 {
 		t.Fatal("replay regenerated a proposal", err)
+	}
+}
+
+func TestContentRuntimeKeepsOriginalSelectionThroughModelValidationAndReplay(t *testing.T) {
+	runtime, request, model, _, validator, _, _ := fixture(t, proposal("supported title"))
+	selection, err := enrichment.NewContentSelection("en-US", []string{"title"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.ContentSelection, request.PolicyVersion = selection, enrichment.ContentPolicyVersion
+	result, err := runtime.Start(context.Background(), request)
+	if err != nil || result.State.Phase != agent.HumanReviewRequired || validator.request != request || model.lastInput.ContentSelection != selection {
+		t.Fatalf("content selection was not frozen through the graph: result=%+v validator=%+v model=%+v err=%v", result.State, validator.request, model.lastInput, err)
+	}
+	changed := request
+	changed.ContentSelection.TargetLanguage = "de"
+	if _, err := runtime.Start(context.Background(), changed); !errors.Is(err, agent.ErrConflict) || model.calls != 1 {
+		t.Fatal("same original key changed language or dispatched again", err)
+	}
+	changed = request
+	changed.ContentSelection.Description = true
+	if _, err := runtime.Start(context.Background(), changed); !errors.Is(err, agent.ErrConflict) || model.calls != 1 {
+		t.Fatal("same original key expanded fields or dispatched again", err)
+	}
+}
+
+func TestContentRuntimeRejectsAbsentSelectionBeforeClaim(t *testing.T) {
+	runtime, request, model, _, _, _, store := fixture(t)
+	request.PolicyVersion = enrichment.ContentPolicyVersion
+	_, attempted, err := runtime.StartWithClaimAttempt(context.Background(), request)
+	if !errors.Is(err, agent.ErrInvalid) || attempted || store.exists || model.calls != 0 {
+		t.Fatalf("missing content selection was admitted: attempted=%v exists=%v calls=%d err=%v", attempted, store.exists, model.calls, err)
 	}
 }
 func TestInvalidPatchAfterTwoRepairsStaysInvalid(t *testing.T) {

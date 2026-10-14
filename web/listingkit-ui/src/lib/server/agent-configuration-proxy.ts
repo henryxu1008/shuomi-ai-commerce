@@ -4,13 +4,13 @@ import {imageSetRecentSchema} from "@/lib/contracts/product-image-set";
 import {
   catalogEntrySchema,
   catalogPageSchema,
+  contentTemplateInputSchema, contentTemplateSchema, contentTemplatesPageSchema,
   configReceiptSchema,
   configVersion,
   recentRunsSchema,
   templateInputSchema,
-  templateSchema,
-  templatesPageSchema,
   templateRefSchema,
+  titleTemplateSchema, titleTemplatesPageSchema,
 } from "@/lib/contracts/agent-configuration";
 import { knowledgeId } from "@/lib/api/knowledge";
 import { executionModeInputSchema, executionModeViewSchema, modeSubjectSchema } from "@/lib/contracts/execution-mode";
@@ -35,11 +35,12 @@ function endpoint(url: URL, method: string) {
     input = method === "PUT" ? executionModeInputSchema : undefined;
   } else if (p.length === 1 && ["market", "mine"].includes(p[0]) && method === "GET")
     output = catalogPageSchema;
-  else if (["product.title.agent","product.image.agent"].includes(p[0])) {
+  else if (["product.title.agent","product.image.agent","product.content.agent"].includes(p[0])) {
     const image=p[0]==="product.image.agent";
-    const typedTemplates=image?imageTemplatesPageSchema:templatesPageSchema;
-    const typedTemplate=image?imageTemplateSchema:templateSchema;
-    const typedInput=image?imageTemplateInputSchema:templateInputSchema;
+    const content=p[0]==="product.content.agent";
+    const typedTemplates=image?imageTemplatesPageSchema:content?contentTemplatesPageSchema:titleTemplatesPageSchema;
+    const typedTemplate=image?imageTemplateSchema:content?contentTemplateSchema:titleTemplateSchema;
+    const typedInput=image?imageTemplateInputSchema:content?contentTemplateInputSchema:templateInputSchema;
     if (p.length === 1 && method === "GET") output = catalogEntrySchema;
     else if (
       p.length === 2 &&
@@ -86,7 +87,7 @@ function endpoint(url: URL, method: string) {
   } else return null;
   const list =
     output === catalogPageSchema ||
-    output === templatesPageSchema ||
+    output === titleTemplatesPageSchema || output === contentTemplatesPageSchema ||
     output === recentRunsSchema || output === imageSetRecentSchema || output === imageTemplatesPageSchema;
   if (url.search.length > 512 || (url.search && !list)) return null;
   for (const [k, v] of url.searchParams) {
@@ -101,7 +102,7 @@ function endpoint(url: URL, method: string) {
       if (!/^[A-Za-z0-9_-]{1,180}$/.test(v)) return null;
     } else if (k === "activation" && p[0] === "mine") {
       if (!["ENABLED", "DISABLED"].includes(v)) return null;
-    } else if (k === "lifecycle" && (output === templatesPageSchema || output === imageTemplatesPageSchema)) {
+    } else if (k === "lifecycle" && (output === titleTemplatesPageSchema || output === contentTemplatesPageSchema || output === imageTemplatesPageSchema)) {
       if (!["ACTIVE", "ARCHIVED"].includes(v)) return null;
     } else return null;
   }
@@ -264,8 +265,8 @@ export async function proxyAgentConfiguration(
       } else if (view.receipt) throw new Error();
     }
     if (
-      (route.output === templateSchema || route.output === imageTemplateSchema) &&
-      (value.templateId !== parts[2] ||
+      (route.output === titleTemplateSchema || route.output === contentTemplateSchema || route.output === imageTemplateSchema) &&
+      (value.agentId !== parts[0] || value.templateId !== parts[2] ||
         (parts[3] === "revisions" && value.version !== parts[4]))
     )
       throw new Error();

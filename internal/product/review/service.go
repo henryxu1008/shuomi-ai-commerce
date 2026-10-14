@@ -97,8 +97,11 @@ func (s *Service) CreateFromCandidateWithTransactionAttempt(ctx context.Context,
 	if !in.ContextProvenance.Valid() {
 		return View{}, false, ErrInvalid
 	}
-	if ctx == nil || !ValidKey(in.PublicationID) || in.PolicyVersion != "title-review-v1" {
+	if ctx == nil || !ValidKey(in.PublicationID) {
 		return View{}, false, ErrInvalid
+	}
+	if _, err := candidatePolicy(in); err != nil {
+		return View{}, false, err
 	}
 	raw, err := json.Marshal(in)
 	if err != nil {
@@ -114,20 +117,26 @@ func (s *Service) CreateFromCandidateWithTransactionAttempt(ctx context.Context,
 	return s.create(ctx, key, isolated.Base, &isolated)
 }
 
-// ValidateCandidate uses the same exact source and title policy as intake,
+// ValidateCandidate uses the same exact source and fixed field policy as intake,
 // without generating or saving a proposal. Intake always repeats this check.
 func (s *Service) ValidateCandidate(ctx context.Context, in CandidateInput) (enrichment.Proposal, error) {
 	if !in.ContextProvenance.Valid() {
 		return enrichment.Proposal{}, ErrInvalid
 	}
-	if ctx == nil || in.PolicyVersion != "title-review-v1" || !ValidKey(in.PublicationID) {
+	if ctx == nil || !ValidKey(in.PublicationID) {
 		return enrichment.Proposal{}, ErrInvalid
+	}
+	if _, err := candidatePolicy(in); err != nil {
+		return enrichment.Proposal{}, err
 	}
 	ctx, cancel := context.WithTimeout(ctx, Timeout)
 	defer cancel()
 	scope, err := s.authorize(ctx, true, false)
 	if err != nil {
 		return enrichment.Proposal{}, err
+	}
+	if !contentScopeMatches(in, scope) {
+		return enrichment.Proposal{}, ErrForbidden
 	}
 	base, source, err := s.source(ctx, s.reader, s.sourceReader, scope, in.Base)
 	if err != nil {
@@ -136,17 +145,7 @@ func (s *Service) ValidateCandidate(ctx context.Context, in CandidateInput) (enr
 	if base.PublicationID != in.PublicationID {
 		return enrichment.Proposal{}, ErrConflict
 	}
-	proposal, err := enrichment.ValidateCandidate(ctx, enrichment.Request{Snapshot: base.Snapshot, Source: source, Policy: enrichment.PolicySnapshot{Version: in.PolicyVersion, AllowedFields: []string{"title"}, RequiredFields: []string{"title"}}}, in.Candidate)
-	if err != nil {
-		return proposal, err
-	}
-	if len(proposal.Changes) != 1 || proposal.Changes[0].Field != "title" || !proposal.Validation.Valid {
-		return proposal, ErrInvalid
-	}
-	if err = ValidateTitle(proposal.Changes[0].Value); err != nil {
-		return proposal, err
-	}
-	return proposal, nil
+	return validateIntakeProposal(ctx, base.Snapshot, source, in)
 }
 
 func (s *Service) create(ctx context.Context, key string, in CreateInput, supplied *CandidateInput) (View, bool, error) {
@@ -162,10 +161,17 @@ func (s *Service) create(ctx context.Context, key string, in CreateInput, suppli
 	kind, payload := "create", any(in)
 	if supplied != nil {
 		kind, payload = "create_candidate", supplied
+		if !contentScopeMatches(*supplied, a) {
+			return View{}, false, ErrForbidden
+		}
 	}
 	op, err := operation(a, key, kind, "", payload)
 	if err != nil {
 		return View{}, false, err
+	}
+	ctx, err = s.sourceReader.AuthorizeRead(ctx)
+	if err != nil {
+		return View{}, false, mapSourceReadError(err)
 	}
 	if v, found, e := s.store.Preflight(ctx, op); e != nil || found {
 		return v, false, e
@@ -181,24 +187,37 @@ func (s *Service) create(ctx context.Context, key string, in CreateInput, suppli
 	request := enrichment.Request{Snapshot: base.Snapshot, Source: source, Policy: policy}
 	var proposal enrichment.Proposal
 	if supplied != nil {
-		proposal, err = enrichment.ValidateCandidate(ctx, request, supplied.Candidate)
+		policy, err = candidatePolicy(*supplied)
+		if err != nil {
+			return View{}, false, err
+		}
+		proposal, err = validateIntakeProposal(ctx, base.Snapshot, source, *supplied)
 	} else {
 		proposal, err = s.proposer.Propose(ctx, request)
 	}
 	if err != nil {
 		return View{}, false, err
 	}
-	if len(proposal.Changes) != 1 || proposal.Changes[0].Field != "title" || !proposal.Validation.Valid {
+	if !proposal.Validation.Valid || policy.Version == "title-review-v1" && (len(proposal.Changes) != 1 || proposal.Changes[0].Field != "title") {
 		return View{}, false, ErrInvalid
 	}
-	if err = ValidateTitle(proposal.Changes[0].Value); err != nil {
-		return View{}, false, err
+	if policy.Version == "title-review-v1" {
+		if err = ValidateTitle(proposal.Changes[0].Value); err != nil {
+			return View{}, false, err
+		}
 	}
 	ctx, err = s.sourceReader.AuthorizeRead(ctx)
 	if err != nil {
 		return View{}, false, mapSourceReadError(err)
 	}
 	r := Record{ID: uuid.NewString(), Org: a.Org, Owner: a.Actor, Input: in, BasePublicationID: base.PublicationID, Policy: policy.Version, Before: base.Snapshot.Title, Title: proposal.Changes[0].Value, State: "pending", Revision: 1, Original: proposal}
+	if policy.Version == enrichment.ContentPolicyVersion {
+		r.Before, r.Title = "", ""
+		r.Content, err = contentPayload(base.Snapshot, supplied.ContentSelection, proposal)
+		if err != nil {
+			return View{}, false, err
+		}
+	}
 	if supplied != nil {
 		r.ContextProvenance = supplied.ContextProvenance.clone()
 		if !supplied.Execution.Valid() {
@@ -209,17 +228,33 @@ func (s *Service) create(ctx context.Context, key string, in CreateInput, suppli
 			r.Execution = &value
 		}
 	}
+	if err = r.ValidateStorage(); err != nil {
+		return View{}, false, err
+	}
 	view, err := s.store.Run(ctx, op, func(tx Tx) (View, error) {
 		if v, found, e := tx.Replay(); e != nil || found {
 			return v, e
 		}
-		rechecked, _, e := s.source(ctx, tx.Reader(), tx.SourceReader(), a, in, appliedLookup(tx))
+		rechecked, freshSource, e := s.source(ctx, tx.Reader(), tx.SourceReader(), a, in, appliedLookup(tx))
 		if e != nil {
 			return View{}, e
 		}
 		if rechecked.Identity != base.Identity || rechecked.Version != base.Version ||
 			rechecked.PublicationID != base.PublicationID || !reflect.DeepEqual(rechecked.Snapshot, base.Snapshot) {
 			return View{}, ErrConflict
+		}
+		if supplied != nil {
+			if _, e = validateIntakeProposal(ctx, rechecked.Snapshot, freshSource, *supplied); e != nil {
+				return View{}, e
+			}
+		}
+		// A committed replay above remains a read. Creating a new Agent
+		// suggestion needs the original execution's current member/config/mode
+		// authority, including in read_only (which may save suggestions).
+		if r.Execution != nil {
+			if _, e = s.resolveRecordExecutionPolicy(ctx, r); e != nil {
+				return View{}, e
+			}
 		}
 		if e := tx.Save(r); e != nil {
 			return View{}, e
@@ -243,6 +278,13 @@ func (s *Service) Get(ctx context.Context, id string) (View, error) {
 	if !validID(id) {
 		return View{}, ErrInvalid
 	}
+	if s.sourceReader == nil {
+		return View{}, ErrUnavailable
+	}
+	ctx, err = s.sourceReader.AuthorizeRead(ctx)
+	if err != nil {
+		return View{}, mapSourceReadError(err)
+	}
 	r, err := s.store.Read(ctx, a, id)
 	if err != nil {
 		return View{}, err
@@ -262,6 +304,13 @@ func (s *Service) FindAgentReview(ctx context.Context, runID string) (View, bool
 	scope, err := s.authorize(ctx, false, false)
 	if err != nil {
 		return View{}, false, err
+	}
+	if s.sourceReader == nil {
+		return View{}, false, ErrUnavailable
+	}
+	ctx, err = s.sourceReader.AuthorizeRead(ctx)
+	if err != nil {
+		return View{}, false, mapSourceReadError(err)
 	}
 	record, found, err := s.findAgentReview(ctx, scope, runID)
 	if err != nil || !found {
@@ -321,6 +370,13 @@ func (s *Service) Decide(ctx context.Context, key, id string, in DecisionInput) 
 	})
 }
 func (s *Service) validatePatch(ctx context.Context, tx Tx, r *Record, a Scope) (catalog.PublishedSnapshot, error) {
+	if r.Policy == enrichment.ContentPolicyVersion {
+		base, source, err := s.source(ctx, tx.Reader(), tx.SourceReader(), Scope{Org: a.Org, Actor: r.Owner}, r.Input, appliedLookup(tx))
+		if err != nil {
+			return base, err
+		}
+		return base, validateContentPatch(ctx, base, source, *r)
+	}
 	if err := ValidateTitle(r.Title); err != nil {
 		return catalog.PublishedSnapshot{}, err
 	}
@@ -346,7 +402,7 @@ func (s *Service) Apply(ctx context.Context, key, id string, in ApplyInput) (Vie
 		if err != nil {
 			return err
 		}
-		return publishTitle(ctx, tx, r, a, base)
+		return publishReview(ctx, tx, r, a, base)
 	})
 }
 func (s *Service) change(ctx context.Context, key, id, kind string, input any, admin, sourceRead bool, mutate func(context.Context, Tx, *Record, Scope) error) (View, error) {
@@ -363,9 +419,6 @@ func (s *Service) change(ctx context.Context, key, id, kind string, input any, a
 	if err != nil {
 		return View{}, err
 	}
-	if v, found, e := s.store.Preflight(ctx, op); e != nil || found {
-		return v, e
-	}
 	if sourceRead {
 		if s.sourceReader == nil {
 			return View{}, ErrUnavailable
@@ -375,6 +428,9 @@ func (s *Service) change(ctx context.Context, key, id, kind string, input any, a
 			return View{}, mapSourceReadError(err)
 		}
 	}
+	if v, found, e := s.store.Preflight(ctx, op); e != nil || found {
+		return v, e
+	}
 	return s.store.Run(ctx, op, func(tx Tx) (View, error) {
 		if v, found, e := tx.Replay(); e != nil || found {
 			return v, e
@@ -383,11 +439,8 @@ func (s *Service) change(ctx context.Context, key, id, kind string, input any, a
 		if e != nil {
 			return View{}, e
 		}
-		if s.executionPolicy != nil {
-			if r.Execution == nil {
-				return View{}, ErrForbidden
-			}
-			proof, e := s.executionPolicy(ctx, *r.Execution, enrichment.Candidate{Changes: r.Original.Changes}, true)
+		if r.Execution != nil || s.executionPolicy != nil {
+			proof, e := s.resolveRecordExecutionPolicy(ctx, r)
 			if e != nil {
 				return View{}, e
 			}

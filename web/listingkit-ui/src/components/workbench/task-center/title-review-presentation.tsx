@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import styles from "./title-review.module.css";
+import { contentSelectionLabel, type ContentSelection } from "@/lib/contracts/content-selection";
 
 // Presentation props only. The #344 consumer supplies validated values.
 export function TitleComparison({ before, after, originalTitle }: { before: string; after: string; originalTitle: string }) {
@@ -30,8 +31,8 @@ export function TitleEditor({ title, pending, onSave, onCancel }: {
   </form>;
 }
 
-export function TitleApplyConfirmation({ productKey, baseVersion, revision, pending, onConfirm, onCancel }: {
-  productKey: string; baseVersion: string; revision: string; pending: boolean; onConfirm: () => void; onCancel: () => void;
+export function TitleApplyConfirmation({ productKey, baseVersion, revision, pending, contentSelection, onConfirm, onCancel }: {
+  productKey: string; baseVersion: string; revision: string; pending: boolean; contentSelection?:ContentSelection; onConfirm: () => void; onCancel: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const cancel = useRef<HTMLButtonElement>(null);
@@ -46,7 +47,7 @@ export function TitleApplyConfirmation({ productKey, baseVersion, revision, pend
   return <dialog ref={dialog} className={styles.confirmation} aria-labelledby={`${id}-title`} aria-describedby={`${id}-description`}
     onCancel={(event) => { event.preventDefault(); if (!pending) onCancel(); }}>
     <h2 id={`${id}-title`}>应用到标准商品</h2>
-    <p id={`${id}-description`}>本次仅修改标题。确认后产生新的标准商品版本；平台资料尚未同步，本次未操作平台。</p>
+    <p id={`${id}-description`}>{contentSelection?`本次采用 ${contentSelectionLabel(contentSelection)}。`:"本次仅修改标题。"}确认后产生新的标准商品版本；平台资料尚未同步，本次未操作平台。</p>
     <dl><dt>目标商品</dt><dd>{productKey}</dd><dt>基线版本</dt><dd>{baseVersion}</dd><dt>已接受提案修订</dt><dd>{revision}</dd></dl>
     <div className={styles.actions}>
       <Button ref={cancel} variant="outline" disabled={pending} onClick={onCancel}>返回审核</Button>

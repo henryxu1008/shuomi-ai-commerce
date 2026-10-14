@@ -7,8 +7,9 @@ import { baseSchema, basesSchema, sourcesSchema, knowledgeRequest, KnowledgeErro
 import styles from "../task-center/title-review.module.css";
 import type {ExecutionModeView} from "@/lib/contracts/execution-mode";
 import {executionModeLabels} from "../agents/execution-mode-settings";
+import { contentSelectionLabel, type ContentSelection } from "@/lib/contracts/content-selection";
 
-export function TitleAgentConfirmation({scope,organization,platform,template,knowledgeAvailable,knowledgeReadable=true,executionMode,onConfirm,onCancel}:{scope:KnowledgeScope;organization:string;platform:string;template?:AgentTemplate;knowledgeAvailable:boolean;knowledgeReadable?:boolean;executionMode?:ExecutionModeView;onConfirm:(baseId?:string)=>void;onCancel:()=>void}) {
+export function TitleAgentConfirmation({scope,organization,platform,template,knowledgeAvailable,knowledgeReadable=true,executionMode,contentSelection,onConfirm,onCancel}:{scope:KnowledgeScope;organization:string;platform:string;template?:AgentTemplate;knowledgeAvailable:boolean;knowledgeReadable?:boolean;executionMode?:ExecutionModeView;contentSelection?:ContentSelection;onConfirm:(baseId?:string)=>void;onCancel:()=>void}) {
  const dialog=useRef<HTMLDialogElement>(null),cancelButton=useRef<HTMLButtonElement>(null),request=useRef<AbortController|null>(null);
  const id=useId();
  const defaultKnowledge=!!template?.defaultKnowledgeBaseId||template?.knowledgeAvailability==="UNAVAILABLE";
@@ -35,8 +36,9 @@ export function TitleAgentConfirmation({scope,organization,platform,template,kno
  const activeSources=sources.filter(source=>source.state==="ACTIVE");
  const ready=!!baseId&&!loading&&!failure&&activeSources.length>0&&activeSources.length<=4&&activeSources.every(source=>source.currentReadableRevision);
  return <dialog ref={dialog} className={styles.confirmation} aria-labelledby={`${id}-title`} aria-describedby={`${id}-description`} onCancel={event=>{event.preventDefault();onCancel()}}>
-  <h2 id={`${id}-title`}>确认标题优化</h2><p>当前企业 · {organization}</p>
-  <p id={`${id}-description`}>{!executionMode?"尚未读取当前权限模式，暂不能执行。":`${executionModeLabels[executionMode.mode]} · 配置版本 ${executionMode.revision}。${executionMode.mode==="full_access"?"合格标题可按策略直接采用，未经逐项人工审阅。":executionMode.mode==="auto_approve"?"通过确定性规则的标题可自动采用，无法判断的内容需要人工确认。":executionMode.mode==="read_only"?"仅保存建议和诊断，不修改商品。":"建议由本人审核后采用。"}`}商品事实以当前已保存版本为准。</p>
+  <h2 id={`${id}-title`}>{contentSelection ? "确认内容完善与本地化" : "确认标题优化"}</h2><p>当前企业 · {organization}</p>
+  {contentSelection && <p>{contentSelectionLabel(contentSelection)}</p>}
+  <p id={`${id}-description`}>{!executionMode?"尚未读取当前权限模式，暂不能执行。":`${executionModeLabels[executionMode.mode]} · 配置版本 ${executionMode.revision}。${executionMode.mode==="full_access"?(contentSelection?"完整合法的原内容建议可按策略直接采用，未经逐项人工审阅。":"合格标题可按策略直接采用，未经逐项人工审阅。"):executionMode.mode==="auto_approve"?(contentSelection?"仅标题建议可按程序校验自动采用；含描述、卖点或SEO字段时整组保留人工审核。":"通过确定性规则的标题可自动采用，无法判断的内容需要人工确认。"):executionMode.mode==="read_only"?"仅保存建议和诊断，不修改商品。":"建议由本人审核后采用。"}`}商品事实以当前已保存版本为准。</p>
   <p>素材查询平台：{platform}。发送前重新检查企业权限、模型能力和成员额度；完整输入参与既有预算与计费，当前未报价。</p>
   <p>{template?`采用模板：${template.name} · v${template.version}。最终平台和知识以本页确认为准。`:"本次不使用模板。"}</p>
   {(knowledgeAvailable&&knowledgeReadable)||defaultKnowledge?<label className="mt-4 flex items-center gap-2"><input type="checkbox" checked={useKnowledge} onChange={event=>{setUseKnowledge(event.target.checked);setBaseId("");setSources([]);setFailure("");if(event.target.checked){if(knowledgeAvailable&&knowledgeReadable)void load();else setFailure("当前企业知识不可用，请明确取消使用知识。")}else{request.current?.abort();setLoading(false)}}}/>使用企业知识（可选）</label>:<p>{knowledgeAvailable?"当前身份无权读取企业知识；本次可不使用知识。":"当前环境未开放企业知识；本次仅使用商品证据。"}</p>}

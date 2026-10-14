@@ -342,14 +342,20 @@ func decodeTitleView(t *testing.T, raw []byte) review.View {
 	t.Helper()
 	var dto productReviewViewDTO
 	require.NoError(t, json.Unmarshal(raw, &dto))
-	require.Equal(t, productReviewSchemaVersion, dto.SchemaVersion)
-	require.Equal(t, productReviewCoverage, dto.Coverage)
+	if dto.Content == nil {
+		require.Equal(t, productReviewSchemaVersion, dto.SchemaVersion)
+		require.Equal(t, productReviewCoverage, dto.Coverage)
+	} else {
+		require.Equal(t, productContentReviewSchemaVersion, dto.SchemaVersion)
+		require.Equal(t, productContentReviewCoverage, dto.Coverage)
+	}
 	baseVersion, err := strconv.ParseUint(dto.Input.BaseVersion, 10, 64)
 	require.NoError(t, err)
 	revision, err := strconv.ParseUint(dto.Revision, 10, 64)
 	require.NoError(t, err)
 	view := review.View{ID: dto.ProposalID, Owner: dto.Owner, Input: review.CreateInput{ProductKey: dto.Input.ProductKey, BaseVersion: baseVersion}, Before: dto.Before, Title: dto.After, OriginalTitle: dto.OriginalTitle, Policy: dto.Policy, State: dto.State, Revision: revision, Evidence: dto.Evidence, Quality: enrichment.QualityScore{Overall: dto.Quality.Overall, EvidenceCoverage: dto.Quality.EvidenceCoverage, RequiredFieldCoverage: dto.Quality.RequiredFieldCoverage}, Unresolved: dto.Unresolved}
 	view.PolicyAdoption = dto.PolicyAdoption
+	view.Content, view.Execution = dto.Content, dto.Execution
 	for _, decision := range dto.Decisions {
 		decisionRevision, parseErr := strconv.ParseUint(decision.Revision, 10, 64)
 		require.NoError(t, parseErr)
