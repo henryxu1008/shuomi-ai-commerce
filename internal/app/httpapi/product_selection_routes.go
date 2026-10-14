@@ -47,7 +47,7 @@ func (m productSelectionModule) Register(reg *kernelmodule.Registry) error {
 	reg.AddRoutes(productSelectionRoutes(m.app, m.app.bindRequest)...)
 	return nil
 }
-func (a *productSelectionApplication) bindRequest(ctx context.Context, bearer string) (context.Context, error) {
+func (a *productSelectionApplication) bindRequest(ctx context.Context, bearer, action string) (context.Context, error) {
 	ctx, e := (productReviewCapabilityBinder{now: time.Now}).Bind(ctx, bearer)
 	if e != nil {
 		return ctx, e
@@ -56,12 +56,12 @@ func (a *productSelectionApplication) bindRequest(ctx context.Context, bearer st
 	if e != nil {
 		return ctx, e
 	}
-	if !authz.AllowedOrganization(ctx, a.authorizer, id.UserID, id.EffectiveOrganizationID, id.Roles, authz.PermissionWorkbenchAgentUse) {
+	if action != "inspect" && !authz.AllowedOrganization(ctx, a.authorizer, id.UserID, id.EffectiveOrganizationID, id.Roles, authz.PermissionWorkbenchAgentUse) {
 		return ctx, agentconfig.ErrForbidden
 	}
 	return ctx, nil
 }
-func productSelectionRoutes(app selectionHTTPService, bind func(context.Context, string) (context.Context, error)) []httproute.Descriptor {
+func productSelectionRoutes(app selectionHTTPService, bind func(context.Context, string, string) (context.Context, error)) []httproute.Descriptor {
 	specs := []struct{ method, path, action string }{{"POST", "/inspect", "inspect"}, {"POST", "/prepare", "prepare"}, {"POST", "/contexts/:context_id/runs", "start"}, {"GET", "/contexts/:context_id/runs/:request_key", "read"}, {"POST", "/contexts/:context_id/runs/:request_key/resume", "resume"}}
 	var routes []httproute.Descriptor
 	for _, spec := range specs {
@@ -101,7 +101,7 @@ func productSelectionRoutes(app selectionHTTPService, bind func(context.Context,
 				if _, err := prepare.selectionInput.inputs(); err != nil {
 					e = err
 				}
-				if !agentconfig.UUID(prepare.RequestKey) || !agent.ValidGoalSummary(prepare.GoalSummary) {
+				if !agentconfig.UUID(prepare.RequestKey) || prepare.GoalSummary == "" || !agent.ValidGoalSummary(prepare.GoalSummary) {
 					e = agent.ErrInvalid
 				}
 				contextID, key = prepare.ContextID, prepare.RequestKey
@@ -130,7 +130,7 @@ func productSelectionRoutes(app selectionHTTPService, bind func(context.Context,
 				writeSelectionError(c, agent.ErrUnavailable, contextID, key, false)
 				return
 			}
-			ctx, e := bind(c.Request.Context(), c.GetHeader("Authorization"))
+			ctx, e := bind(c.Request.Context(), c.GetHeader("Authorization"), spec.action)
 			if e != nil {
 				writeSelectionError(c, e, contextID, key, false)
 				return

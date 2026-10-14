@@ -317,7 +317,7 @@ export function ProductSelectionFlow({
     !!mode.data &&
     !locked &&
     !saved &&
-    selected.length >= 2;
+    selected.length >= 2 && goal.trim().length > 0;
   return (
     <Card className={styles.panel}>
       <h2>选品对比</h2>
