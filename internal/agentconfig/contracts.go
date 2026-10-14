@@ -44,10 +44,11 @@ func LimitsAdmissible(f, c agent.Limits) bool {
 }
 
 type TemplateInput struct {
-	Name                   string       `json:"name"`
-	TargetPlatform         string       `json:"targetPlatform"`
-	DefaultKnowledgeBaseID string       `json:"defaultKnowledgeBaseId,omitempty"`
-	Image                  *SetTemplate `json:"image,omitempty"`
+	Name                   string           `json:"name"`
+	TargetPlatform         string           `json:"targetPlatform"`
+	DefaultKnowledgeBaseID string           `json:"defaultKnowledgeBaseId,omitempty"`
+	Image                  *SetTemplate     `json:"image,omitempty"`
+	Content                *ContentTemplate `json:"content,omitempty"`
 }
 
 func (p TemplateInput) Valid() bool {
@@ -56,12 +57,18 @@ func (p TemplateInput) Valid() bool {
 		return false
 	}
 	if p.Image != nil {
-		return p.DefaultKnowledgeBaseID == "" && (p.TargetPlatform == "product" || Platform(p.TargetPlatform)) && p.Image.Validate() == nil
+		return p.Content == nil && p.DefaultKnowledgeBaseID == "" && (p.TargetPlatform == "product" || Platform(p.TargetPlatform)) && p.Image.Validate() == nil
+	}
+	if p.Content != nil {
+		return (p.TargetPlatform == "product" || Platform(p.TargetPlatform)) && (p.DefaultKnowledgeBaseID == "" || UUID(p.DefaultKnowledgeBaseID)) && p.Content.Valid()
 	}
 	return Platform(p.TargetPlatform) && (p.DefaultKnowledgeBaseID == "" || UUID(p.DefaultKnowledgeBaseID))
 }
 
 func ParameterSchemaForAgent(id string) string {
+	if id == ContentAgentID {
+		return ContentParameterSchema
+	}
 	if id == ImageAgentID {
 		return ImageParameterSchema
 	}
@@ -69,7 +76,7 @@ func ParameterSchemaForAgent(id string) string {
 }
 
 func (p TemplateInput) ValidForAgent(id string) bool {
-	return p.Valid() && (id == ImageAgentID) == (p.Image != nil)
+	return p.Valid() && (id == ImageAgentID) == (p.Image != nil) && (id == ContentAgentID) == (p.Content != nil)
 }
 
 type TemplateRef struct {

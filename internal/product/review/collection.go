@@ -1,6 +1,9 @@
 package review
 
-import "context"
+import (
+	"context"
+	"task-processor/internal/product/enrichment"
+)
 
 const MaxPageSize = 100
 
@@ -24,11 +27,12 @@ func (r PageRequest) Validate() error {
 }
 
 type CollectionItem struct {
-	ID          string
-	ProductKey  string
-	BaseVersion uint64
-	Revision    uint64
-	State       string
+	ContentSelection enrichment.ContentSelection
+	ID               string
+	ProductKey       string
+	BaseVersion      uint64
+	Revision         uint64
+	State            string
 }
 
 type Page struct {
@@ -46,6 +50,13 @@ func (s *Service) List(ctx context.Context, request PageRequest) (Page, error) {
 	if err := request.Validate(); err != nil {
 		return Page{}, err
 	}
+	if s.sourceReader == nil {
+		return Page{}, ErrUnavailable
+	}
+	ctx, err = s.sourceReader.AuthorizeRead(ctx)
+	if err != nil {
+		return Page{}, mapSourceReadError(err)
+	}
 	return s.store.List(ctx, scope, request)
 }
 
@@ -58,6 +69,9 @@ func CollectionItemForPersistence(record Record) (CollectionItem, error) {
 		return CollectionItem{}, ErrUnavailable
 	}
 	item := CollectionItem{ID: record.ID, ProductKey: record.Input.ProductKey, BaseVersion: record.Input.BaseVersion, Revision: record.Revision, State: record.State}
+	if record.Content != nil {
+		item.ContentSelection = record.Content.Selection
+	}
 	if err := ValidateCollectionItem(item); err != nil {
 		return CollectionItem{}, err
 	}
@@ -65,6 +79,9 @@ func CollectionItemForPersistence(record Record) (CollectionItem, error) {
 }
 
 func ValidateCollectionItem(item CollectionItem) error {
+	if !item.ContentSelection.Absent() && !item.ContentSelection.Valid() {
+		return ErrUnavailable
+	}
 	if !validID(item.ID) || !ValidKey(item.ProductKey) || item.BaseVersion == 0 || item.BaseVersion > 1<<63-1 || item.Revision == 0 || item.Revision > 1<<63-1 || (item.State != "pending" && item.State != "accepted") {
 		return ErrUnavailable
 	}

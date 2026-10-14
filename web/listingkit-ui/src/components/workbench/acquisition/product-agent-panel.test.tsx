@@ -19,8 +19,8 @@ it("keeps a closed capability explicit and never dispatches on mount", () => {
     expect(screen.getByText("当前环境尚未开放 Product Agent。")).toBeInTheDocument();
     expect(fixture.request).not.toHaveBeenCalled();
 });
-it("retains one request key after lost response without automatically retrying", async () => {
-    fixture.request.mockRejectedValue(new ProductAgentError("OUTCOME_UNKNOWN"));
+it.each(["OUTCOME_UNKNOWN", "AGENT_CONFLICT"])("retains one request key after %s without automatically retrying", async code => {
+    fixture.request.mockRejectedValue(new ProductAgentError(code));
     render(<ProductAgentPanel {...props}/>);
     expect(screen.getByText("生成标题建议")).toBeDisabled();
     fireEvent.change(screen.getByLabelText("素材查询平台"), { target: { value: "shein" } });

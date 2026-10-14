@@ -83,6 +83,29 @@ func TestStandaloneSheinWorkerDoesNotCompileCurrentHTTPApplication(t *testing.T)
 	}
 }
 
+func TestIdentityPreflightKeepsReadOwnerWithoutRetiredToolRuntimes(t *testing.T) {
+	cmd := exec.Command("go", "list", "-deps", "./cmd/listingkit-identity-preflight")
+	cmd.Dir = ".."
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("go list retained identity preflight: %v\n%s", err, output)
+	}
+	keptReadOwner := false
+	for _, dependency := range strings.Fields(string(output)) {
+		if dependency == "task-processor/internal/listingkit/ownerreconcile" {
+			keptReadOwner = true
+		}
+		for _, retired := range []string{"task-processor/internal/app/runtime/listingkitownerreconcile", "task-processor/internal/app/runtime/listingkitownerexceptions"} {
+			if dependency == retired || strings.HasPrefix(dependency, retired+"/") {
+				t.Errorf("identity preflight still compiles retired tool runtime %s", dependency)
+			}
+		}
+	}
+	if !keptReadOwner {
+		t.Fatal("identity preflight must retain its existing read-only owner reconciliation consumer")
+	}
+}
+
 func TestListingAdminLegacyHTTPProjectionIsRetired(t *testing.T) {
 	files, err := filepath.Glob(filepath.Join("..", "internal", "listingadmin", "*handler*.go"))
 	if err != nil {

@@ -22,12 +22,14 @@ CREATE TABLE IF NOT EXISTS agent_configuration.templates (
 CREATE TABLE IF NOT EXISTS agent_configuration.template_revisions (
  organization_id varchar(128) NOT NULL, agent_id varchar(128) NOT NULL, template_id uuid NOT NULL,
  version bigint NOT NULL CHECK(version>0), name varchar(512) NOT NULL CHECK(length(name) BETWEEN 1 AND 120),
- schema_version varchar(64) NOT NULL CHECK(schema_version IN ('title-config-v1','image-config-v1')),
+ schema_version varchar(64) NOT NULL CHECK(schema_version IN ('title-config-v1','image-config-v1','content-config-v1')),
  target_platform varchar(8) NOT NULL CHECK(target_platform IN ('product','shein','temu','amazon')),
  image_parameters bytea,
+ content_parameters bytea,
  default_knowledge_base_id uuid, created_by varchar(128) NOT NULL, created_at timestamptz NOT NULL,
- CHECK ((schema_version='title-config-v1' AND agent_id<>'product.image.agent' AND target_platform<>'product' AND image_parameters IS NULL)
- OR (schema_version='image-config-v1' AND agent_id='product.image.agent' AND default_knowledge_base_id IS NULL AND image_parameters IS NOT NULL AND octet_length(image_parameters) BETWEEN 2 AND 65536)),
+ CHECK ((schema_version='title-config-v1' AND agent_id NOT IN ('product.image.agent','product.content.agent') AND target_platform<>'product' AND image_parameters IS NULL AND content_parameters IS NULL)
+ OR (schema_version='image-config-v1' AND agent_id='product.image.agent' AND default_knowledge_base_id IS NULL AND image_parameters IS NOT NULL AND content_parameters IS NULL AND octet_length(image_parameters) BETWEEN 2 AND 65536)
+ OR (schema_version='content-config-v1' AND agent_id='product.content.agent' AND image_parameters IS NULL AND content_parameters IS NOT NULL AND octet_length(content_parameters) BETWEEN 2 AND 4096)),
  PRIMARY KEY(organization_id,agent_id,template_id,version),
  FOREIGN KEY(organization_id,agent_id,template_id) REFERENCES agent_configuration.templates(organization_id,agent_id,template_id)
 );

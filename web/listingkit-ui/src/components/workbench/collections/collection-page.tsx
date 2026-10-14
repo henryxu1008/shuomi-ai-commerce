@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from "@/components/ui/table";
 import { CollectionAPIError, listCollectionBatches, listCollectionItems, listOwnProducts, readCollectionItem, type CollectionScope, type CollectionIntent } from "@/lib/api/product-collection";
-import { type CollectionBatch, type CollectionItem, type CollectionDetail, type CollectionCommand } from "@/lib/contracts/product-collection";
+import { collectionID, type CollectionBatch, type CollectionItem, type CollectionDetail, type CollectionCommand } from "@/lib/contracts/product-collection";
 import { findConsoleRoute } from "@/lib/workbench/console-navigation";
 import { useSupplyCommand } from "../supply/use-supply-command";
 import { SupplyCommandFeedback } from "../supply/command-feedback";
@@ -24,17 +24,17 @@ import { ConsolePage, ConsoleState } from "../console/console-page";
 const kindLabels = { acquisition: "在线采集", own: "自有商品", manual: "手动分组", market: "供应市场", sds_template: "SDS 模板（未定制）", sds_finished: "SDS 定制成品", amazon_data: "Amazon数据", custom_dataset: "定制数据集" };
 const failureText: Record<string, string> = { OUTCOME_UNKNOWN: "结果待核实", INTENT_STORAGE_UNAVAILABLE: "无法保存原请求，请恢复浏览器存储后重试。", REVISION_CONFLICT: "资料已发生变化，请刷新后重试。", PERMISSION_DENIED: "当前权限不足。", NOT_FOUND: "未找到当前身份下的记录。", ORGANIZATION_CONTEXT_CHANGED: "企业上下文已变化。", IDENTITY_CONTEXT_CHANGED: "登录身份已变化。", INVALID_REQUEST: "请检查填写内容。" };
 
-export function CollectionPage({supplyAvailable=false,initialBatchId,initialItemId,initialView="batches"}:{supplyAvailable?:boolean;initialBatchId?:string;initialItemId?:string;initialView?:"batches"|"own"}) {
+export function CollectionPage({agentAvailable=false,supplyAvailable=false,initialBatchId,initialItemId,initialView="batches"}:{agentAvailable?:boolean;supplyAvailable?:boolean;initialBatchId?:string;initialItemId?:string;initialView?:"batches"|"own"}) {
   const context = useWorkbenchContext();
   const userId = context.user?.id;
   const organizationId = context.effectiveOrganization?.id;
   const scope = useMemo(() => userId && organizationId ? { userId, organizationId } : null, [userId, organizationId]);
   if (context.isLoading || context.isSwitching) return <ConsoleState kind="loading" title="正在确认当前企业" />;
   if (!scope || context.selectionRequired || context.error || context.blockingError) return <ConsoleState kind="error" title="请先确认登录身份与当前企业" />;
-  return <ScopedCollectionPage key={`${scope.userId}:${scope.organizationId}:${initialItemId??""}`} scope={scope} supplyAvailable={supplyAvailable} initialBatchId={initialBatchId} initialItemId={initialItemId} initialView={initialView} />;
+  return <ScopedCollectionPage key={`${scope.userId}:${scope.organizationId}:${initialItemId??""}`} scope={scope} agentAvailable={agentAvailable} supplyAvailable={supplyAvailable} initialBatchId={initialBatchId} initialItemId={initialItemId} initialView={initialView} />;
 }
 
-function ScopedCollectionPage({ scope,supplyAvailable,initialBatchId,initialItemId,initialView }: { scope: CollectionScope;supplyAvailable:boolean;initialBatchId?:string;initialItemId?:string;initialView:"batches"|"own" }) {
+function ScopedCollectionPage({ scope,agentAvailable,supplyAvailable,initialBatchId,initialItemId,initialView }: { scope: CollectionScope;agentAvailable:boolean;supplyAvailable:boolean;initialBatchId?:string;initialItemId?:string;initialView:"batches"|"own" }) {
   const context = useWorkbenchContext();
   const {replace}=useRouter();
   const [tab, setTab] = useState<"batches" | "own">(initialView);
@@ -164,7 +164,7 @@ function ScopedCollectionPage({ scope,supplyAvailable,initialBatchId,initialItem
       {dialog === "move" && selectedItem ? <form className="space-y-4" onSubmit={event => { event.preventDefault(); void command({ action: "move_item", itemId: selectedItem.id, targetBatchId: targetBatch, expectedRevision: selectedItem.revision }); }}><label className="grid gap-2">目标批次<Select value={targetBatch} onChange={event => setTargetBatch(event.target.value)}><option value="">选择批次</option>{batches.filter(batch => batch.id !== selectedItem.batchId).map(batch => <option key={batch.id} value={batch.id}>{batch.name}</option>)}</Select></label><div className="flex gap-2">{moveAfter ? <Button type="button" variant="outline" disabled={writeBlocked} onClick={() => void showMove(selectedItem)}>返回首页批次</Button> : null}{moveNext ? <Button type="button" variant="outline" disabled={writeBlocked} onClick={() => void showMove(selectedItem,moveNext)}>下一页批次</Button> : null}</div>{busy ? <p role="status">正在读取目标批次…</p> : null}<p className="text-sm text-muted-foreground">移动只改变分组，原始资料保留。</p><Button type="submit" disabled={writeBlocked || !targetBatch}>确认移动</Button></form> : null}
       {dialog === "transfer" && selectedBatch ? <><p>将“{selectedBatch.name}”的全部 {selectedBatch.count} 件商品加入我的供应链。</p><p className="text-sm text-muted-foreground">确认后保存当前批次的原始资料，后续可选择店铺并完成适配。</p><Button disabled={transferBlocked} onClick={()=>supply.execute("transfer",{batchId:selectedBatch.id,expectedRevision:selectedBatch.revision})}>确认加入</Button></> : null}
       {dialog === "import" ? <ExcelImportForm scope={scope} disabled={writeBlocked} onSubmit={input=>void command(input)}/> : null}
-      {dialog === "detail" ? detail ? <ProductFacts detail={detail} /> : detailFailure ? <p role="alert">{failureText[detailFailure]??"商品资料暂时无法读取，请关闭后重试。"}</p> : <p role="status">正在读取原始资料…</p> : null}
+      {dialog === "detail" ? detail ? <><ProductFacts detail={detail} /><ContentAgentEntry source={detail.item.source} enabled={agentAvailable && context.permissions.includes("workbench.agent.use") && context.permissions.includes("local_agent.write")} /></> : detailFailure ? <p role="alert">{failureText[detailFailure]??"商品资料暂时无法读取，请关闭后重试。"}</p> : <p role="status">正在读取原始资料…</p> : null}
     </CollectionDialog> : null}
   </ConsolePage>;
 }
@@ -173,6 +173,11 @@ export function CollectionDialog({ title, children, onClose, className }: { titl
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => { const dialog = ref.current; if (dialog && !dialog.open) { if (typeof dialog.showModal === "function") dialog.showModal(); else dialog.setAttribute("open", ""); } }, []);
   return <dialog ref={ref} aria-label={title} onCancel={event => { event.preventDefault(); onClose(); }} className={cn("m-auto max-h-[85vh] w-[min(960px,calc(100vw-32px))] overflow-auto rounded-2xl border border-border bg-card p-6 text-card-foreground shadow-2xl backdrop:bg-slate-900/30",className)}><div className="mb-5 flex items-center justify-between"><h2 className="text-xl font-bold">{title}</h2><Button variant="ghost" size="icon" aria-label="关闭弹窗" onClick={onClose}>×</Button></div><div className="space-y-4">{children}</div></dialog>;
+}
+function ContentAgentEntry({ source, enabled }: { source: CollectionItem["source"]; enabled: boolean }) {
+  const operation = collectionID.safeParse(source.operationId);
+  if (!enabled || source.kind !== "acquisition" || !operation.success) return null;
+  return <Button asChild><Link href={`/workbench/supply/acquisition/operation/${operation.data}?agent_kind=content`}>商品内容完善与本地化</Link></Button>;
 }
 function ProductFacts({ detail }: { detail: CollectionDetail }) {
   const product = detail.product;

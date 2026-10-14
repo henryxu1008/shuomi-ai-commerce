@@ -30,16 +30,18 @@ type CreateInput struct {
 // CandidateInput is an internal caller contract, not an HTTP request body.
 // The owner re-reads the exact source and revalidates every proposed field.
 type CandidateInput struct {
-	Execution                    *ExecutionProvenance  `json:",omitempty"`
-	ContextProvenance            *ContextProvenanceRef `json:",omitempty"`
+	ContentSelection             enrichment.ContentSelection `json:",omitzero"`
+	Execution                    *ExecutionProvenance        `json:",omitempty"`
+	ContextProvenance            *ContextProvenanceRef       `json:",omitempty"`
 	Base                         CreateInput
 	PublicationID, PolicyVersion string
 	Candidate                    enrichment.Candidate
 }
 type DecisionInput struct {
-	Action           string `json:"action"`
-	ExpectedRevision uint64 `json:"expected_revision"`
-	Title            string `json:"title,omitempty"`
+	Content          []ContentValue `json:"content,omitempty"`
+	Action           string         `json:"action"`
+	ExpectedRevision uint64         `json:"expected_revision"`
+	Title            string         `json:"title,omitempty"`
 }
 type ApplyInput struct {
 	ExpectedRevision uint64 `json:"expected_revision"`
@@ -61,6 +63,7 @@ type Receipt struct {
 	At             time.Time `json:"at"`
 }
 type Record struct {
+	Content                                         *ContentPayload       `json:",omitempty"`
 	Execution                                       *ExecutionProvenance  `json:",omitempty"`
 	PolicyAdoption                                  *PolicyProvenance     `json:",omitempty"`
 	ContextProvenance                               *ContextProvenanceRef `json:",omitempty"`
@@ -75,6 +78,7 @@ type Record struct {
 
 // View intentionally excludes provider metadata, complete Product and raw output.
 type View struct {
+	Content           *ContentPayload         `json:"content,omitempty"`
 	Execution         *ExecutionProvenance    `json:"execution,omitempty"`
 	PolicyAdoption    *PolicyProvenance       `json:"policy_adoption,omitempty"`
 	ContextProvenance *ContextProvenanceRef   `json:"context_provenance,omitempty"`
@@ -103,6 +107,7 @@ type Evidence struct {
 
 func (r Record) View() View {
 	v := View{ID: r.ID, Owner: r.Owner, Input: r.Input, Before: r.Before, Title: r.Title, Policy: r.Policy, State: r.State, Revision: r.Revision, Quality: r.Original.Quality, History: r.History, Receipt: r.Receipt}
+	v.Content = r.Content.clone()
 	v.ContextProvenance = r.ContextProvenance.clone()
 	if r.Execution != nil {
 		value := *r.Execution
@@ -112,7 +117,7 @@ func (r Record) View() View {
 		value := *r.PolicyAdoption
 		v.PolicyAdoption = &value
 	}
-	if len(r.Original.Changes) == 1 {
+	if r.Content == nil && len(r.Original.Changes) == 1 {
 		v.OriginalTitle = r.Original.Changes[0].Value
 	}
 	for _, e := range r.Original.Evidence {
@@ -137,6 +142,9 @@ func validState(state string) bool {
 // ValidateStoredRecord rejects persistence corruption before it can be
 // projected as an authoritative review state.
 func ValidateStoredRecord(r Record) error {
+	if !r.validContentRecord() {
+		return ErrUnavailable
+	}
 	if !r.Execution.Valid() || !r.PolicyAdoption.Valid() || r.PolicyAdoption != nil && (r.Execution == nil || r.PolicyAdoption.Execution != *r.Execution || r.PolicyAdoption.Identity.OrganizationID != r.Org || r.PolicyAdoption.Identity.ActorID != r.Owner || r.State != "applied" || len(r.History) != 0) {
 		return ErrUnavailable
 	}
@@ -166,13 +174,16 @@ func ValidateStoredRecord(r Record) error {
 // ValidateView applies the persistence-independent invariants required before
 // an operation replay or record view is emitted on the HTTP wire.
 func ValidateView(v View) error {
+	if !v.validContentView() {
+		return ErrUnavailable
+	}
 	if !v.Execution.Valid() || !v.PolicyAdoption.Valid() || v.PolicyAdoption != nil && (v.Execution == nil || v.PolicyAdoption.Execution != *v.Execution || v.PolicyAdoption.Identity.ActorID != v.Owner || v.State != "applied" || len(v.History) != 0) {
 		return ErrUnavailable
 	}
 	if !v.ContextProvenance.Valid() {
 		return ErrUnavailable
 	}
-	if !validID(v.ID) || !ValidKey(v.Owner) || !ValidKey(v.Input.ProductKey) || v.Input.BaseVersion == 0 || v.Input.BaseVersion > 1<<63-1 || v.Revision == 0 || v.Revision > 1<<63-1 || !validState(v.State) || v.Policy != "title-review-v1" {
+	if !validID(v.ID) || !ValidKey(v.Owner) || !ValidKey(v.Input.ProductKey) || v.Input.BaseVersion == 0 || v.Input.BaseVersion > 1<<63-1 || v.Revision == 0 || v.Revision > 1<<63-1 || !validState(v.State) || (v.Policy != "title-review-v1" && v.Policy != enrichment.ContentPolicyVersion) {
 		return ErrUnavailable
 	}
 	for _, d := range v.History {
@@ -201,6 +212,12 @@ func ValidateTitle(s string) error {
 	return nil
 }
 func (r *Record) Decide(actor string, d DecisionInput) error {
+	if r.Policy == enrichment.ContentPolicyVersion || r.Content != nil {
+		return r.decideContent(actor, d)
+	}
+	if len(d.Content) != 0 {
+		return ErrInvalid
+	}
 	if d.Action == "edit" && r.Revision >= 99 {
 		return ErrConflict
 	}

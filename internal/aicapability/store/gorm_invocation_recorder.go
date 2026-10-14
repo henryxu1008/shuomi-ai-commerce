@@ -320,7 +320,7 @@ func validateUsage(record aicapability.InvocationRecord) error {
 
 func validPricedTextOperationIdentity(record aicapability.InvocationRecord) bool {
 	switch record.Operation {
-	case aicapability.OperationProductAgentDecision:
+	case aicapability.OperationProductAgentDecision, aicapability.OperationProductContentDecision:
 		return record.AgentRunID != ""
 	case aicapability.OperationAIWorkbenchChatPlan:
 		return record.AgentRunID == "" && record.BusinessTaskID == "" &&

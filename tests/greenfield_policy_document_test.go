@@ -1,6 +1,9 @@
 package tests
 
 import (
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"os"
 	"path/filepath"
 	"strings"
@@ -258,6 +261,45 @@ func readGreenfieldPolicyDocument(t *testing.T, path string) string {
 		t.Fatal(err)
 	}
 	return string(contents)
+}
+
+func TestHistoricalOwnerScopeToolsStayRetired(t *testing.T) {
+	for _, relative := range []string{
+		"cmd/listingkit-owner-scope-dry-run",
+		"cmd/listingkit-owner-scope-exceptions",
+		"internal/app/runtime/listingkitownerreconcile",
+		"internal/app/runtime/listingkitownerexceptions",
+	} {
+		files := trackedFiles(t, relative)
+		if len(files) != 0 {
+			t.Errorf("retired owner-scope tool has tracked artifacts: %v", files)
+		}
+	}
+	for _, name := range []string{"listingkit-owner-scope-dry-run.ps1", "listingkit-owner-scope-dry-run.Tests.ps1", "listingkit-owner-scope-exceptions.ps1"} {
+		if _, err := os.Stat(filepath.Join("..", "scripts", name)); !os.IsNotExist(err) {
+			t.Errorf("retired owner-scope wrapper remains: %s", name)
+		}
+	}
+	files, err := filepath.Glob(filepath.Join("..", "internal", "listingkit", "ownerreconcile", "*.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range files {
+		source, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, declaration := range source.Decls {
+			function, ok := declaration.(*ast.FuncDecl)
+			if !ok {
+				continue
+			}
+			switch function.Name.Name {
+			case "ApplyUnique", "ValidateApprovedExceptionReport", "InsertSystemOwnedExceptions":
+				t.Errorf("%s exposes retired historical owner mutation %s", path, function.Name.Name)
+			}
+		}
+	}
 }
 
 func documentSection(t *testing.T, contents, start, end string) string {

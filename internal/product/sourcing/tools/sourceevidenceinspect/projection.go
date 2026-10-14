@@ -59,6 +59,7 @@ type Disclosure struct {
 	CaptureFieldsOmitted  []string `json:"capture_fields_omitted"`
 }
 type Output struct {
+	PublicationLineage   *PublicationLineage     `json:"applied_publication_lineage,omitempty"`
 	Requested            CatalogReference        `json:"requested_reference"`
 	Applied              []AppliedTitleReference `json:"applied_title_lineage"`
 	ProductKey           string                  `json:"product_key"`
