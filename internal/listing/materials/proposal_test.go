@@ -67,6 +67,8 @@ func TestMaterialProposalCannotInventSKUOrGuessNewCategoryAttributes(t *testing.
 		`{"skcs":[{"index":0,"skus":[{"index":1,"attributes":[]}]}],"evidenceIds":["observed"]}`,
 		`{"categoryId":99,"attributes":[{"attribute_id":5}],"evidenceIds":["observed"]}`,
 		`{"categoryId":99,"skcs":[{"index":0,"saleAttribute":{"attribute_id":1}}],"evidenceIds":["observed"]}`,
+		`{"categoryId":99,"brandCode":"known-brand","evidenceIds":["observed"]}`,
+		`{"categoryId":99,"images":[],"evidenceIds":["observed"]}`,
 	} {
 		proposal, err := ParseProposal(json.RawMessage(raw))
 		if err != nil {
@@ -75,6 +77,20 @@ func TestMaterialProposalCannotInventSKUOrGuessNewCategoryAttributes(t *testing.
 		if _, err = ApplyProposal(base, proposal); err == nil {
 			t.Fatalf("unobserved SKU/category fields admitted: %s", raw)
 		}
+	}
+	proposal, err := ParseProposal(json.RawMessage(`{"categoryId":99,"evidenceIds":["observed"]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	input, err := ApplyProposal(base, proposal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := base.Input
+	expected.ExpectedRevision = base.Revision
+	expected.Draft.Product.CategoryID = 99
+	if !reflect.DeepEqual(expected, input) {
+		t.Fatal("category-only proposal changed companion fields")
 	}
 }
 

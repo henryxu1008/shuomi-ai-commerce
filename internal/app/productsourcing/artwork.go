@@ -30,6 +30,7 @@ type ArtworkReceiver struct {
 	Facts         imageagent.GenerationFactRepository
 	Artifacts     imageagent.SlotExternalEffectV3Repository
 	URLs          imageagent.DurableAssetPublicURLResolver
+	TrialURLs     *imageagent.IsolatedTrialGeneratedURLPolicy
 	Configuration agentconfig.ArtworkConfigurationRepository
 	Collections   collection.Repository
 	Authorize     collection.Authorizer
@@ -76,7 +77,7 @@ func (r *ArtworkReceiver) PublishArtwork(ctx context.Context, in imageagent.Publ
 	if !reflect.DeepEqual(candidate.Artwork, &provenance) || !reflect.DeepEqual(candidate.GenerationProof, proof) || imageagent.ValidatePublishedAssetRefForSlot(execution, ref, 0) != nil || candidate.DurableAsset.ObjectKey != ref.ObjectKey || candidate.DurableAsset.SHA256 != ref.SHA256 || candidate.AssetID != effect.Published.Candidates[0].AssetID {
 		return empty, imageagent.ErrRevisionConflict
 	}
-	url, err := imageagent.ResolvePublishedAssetURL(execution, candidate.DurableAsset, 0, r.URLs, nil)
+	url, err := imageagent.ResolvePublishedAssetURL(execution, candidate.DurableAsset, 0, r.URLs, r.TrialURLs)
 	if err != nil {
 		return empty, err
 	}

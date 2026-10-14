@@ -60,6 +60,55 @@ func (m *artworkModeFixture) CheckArtworkExecutionMode(context.Context, agent.Ex
 
 type artworkURLFixture struct{}
 
+type artworkTrialURLFixture struct{ base string }
+
+func (r artworkTrialURLFixture) PublicURL(key string) string { return r.base + "/" + key }
+
+type artworkCollectionFixture struct {
+	collection.Repository
+	command collection.Command
+}
+
+func (r *artworkCollectionFixture) Execute(ctx context.Context, command collection.Command) (collection.Receipt, error) {
+	if err := command.ArtworkWriteGuard(ctx); err != nil {
+		return collection.Receipt{}, err
+	}
+	r.command = command
+	return collection.Receipt{OperationID: command.OperationID, ItemID: collection.StableID("artwork-item")}, nil
+}
+func (r *artworkCollectionFixture) ReadItem(context.Context, collection.Scope, string) (collection.Item, error) {
+	return collection.Item{Source: collection.Source{Kind: "own", ProductKey: collection.StableID("artwork-product"), PublicationID: r.command.OperationID, Version: 1}}, nil
+}
+
+type artworkScopeFixture struct{ scope collection.Scope }
+
+func (a artworkScopeFixture) Authorize(context.Context, string) (collection.Scope, error) {
+	return a.scope, nil
+}
+
+func TestArtworkReceiverKeepsConfiguredTrialArtifactPolicy(t *testing.T) {
+	const base = "https://localhost:19444/image-agent-assets/issue487-images"
+	scope := collection.Scope{OrganizationID: "org-a", ActorID: "actor-a", MemberID: "member-a"}
+	facts := completedArtworkFixture(t, scope)
+	repository := &artworkCollectionFixture{}
+	receiver := &ArtworkReceiver{Images: facts, Facts: facts, Artifacts: facts, URLs: artworkTrialURLFixture{base}, Configuration: &artworkModeFixture{}, Collections: repository, Authorize: artworkScopeFixture{scope}}
+	policy, err := imageagent.NewIsolatedTrialGeneratedURLPolicy(base, "issue487-images")
+	require.NoError(t, err)
+	receiver.TrialURLs = policy
+	p := facts.p
+	input := imageagent.PublishArtworkInput{Identity: imageagent.ExecutionIdentity{ScopeProtocol: p.Run.ScopeProtocol, RunID: p.Run.ID, TenantID: scope.OrganizationID, UserID: scope.ActorID, MemberID: scope.MemberID, BusinessTaskID: p.Run.BusinessTaskID}, PlanRevision: p.Plan.Revision, ResultDigest: p.ResultDigest, ActionID: p.PendingCommand.ActionID}
+	_, err = receiver.PublishArtwork(context.Background(), input)
+	require.NoError(t, err)
+	require.Equal(t, base+"/"+p.Slots[0].Candidates[0].DurableAsset.ObjectKey, repository.command.Envelope.AssetCandidates[0].URL)
+	receiver.URLs = artworkTrialURLFixture{"https://localhost:19445/image-agent-assets/issue487-images"}
+	_, err = receiver.PublishArtwork(context.Background(), input)
+	require.Error(t, err, "a different trial origin must not be admitted")
+	receiver.URLs = artworkTrialURLFixture{base}
+	receiver.TrialURLs = nil
+	_, err = receiver.PublishArtwork(context.Background(), input)
+	require.Error(t, err, "default runtime never admits a loopback artifact")
+}
+
 func (artworkURLFixture) PublicURL(string) string {
 	return "https://cdn.example.org/original-artwork.png"
 }
