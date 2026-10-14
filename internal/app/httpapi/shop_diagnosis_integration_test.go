@@ -62,7 +62,8 @@ func testDiagnosisHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixtur
 	ctx := context.Background()
 	limited := &atomic.Bool{}
 	factsOnly := &atomic.Bool{}
-	deps.organizationResolver = workbenchcontext.NewResolver(selectionHistoryGrants{agentFixtureGrants: agentFixtureGrants{base: f.grants}, limited: limited}, "project", "v1", nil)
+	memberReplaced := &atomic.Bool{}
+	deps.organizationResolver = workbenchcontext.NewResolver(selectionHistoryGrants{agentFixtureGrants: agentFixtureGrants{base: f.grants, replacement: memberReplaced}, limited: limited}, "project", "v1", nil)
 	permissions.SetRolePolicyReader(diagnosisHistoryModules{factsOnly: factsOnly})
 	require.NoError(t, storecenter.AutoMigrateStoreRepository(f.owner))
 	records, err := storecenter.NewGormStoreRepository(f.owner)
@@ -228,7 +229,17 @@ func testDiagnosisHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixtur
 	require.JSONEq(t, string(raw), string(replay))
 	require.EqualValues(t, 2, calls.Load())
 	recentPath := confighttp.Base + "/" + agentconfig.DiagnosisAgentID + "/recent-runs?pageSize=20"
-	call("GET", recentPath, "", nil, http.StatusOK)
+	currentRecent := call("GET", recentPath, "", nil, http.StatusOK)
+	require.Contains(t, string(currentRecent), result.RunID)
+	require.NoError(t, memberStores.SetMemberGrant(ctx, storecenter.MemberStoreGrantCommand{OrganizationID: "B", StoreID: shopID, MemberID: "member-B-admin-replacement", OperationID: uuid.NewString(), Active: true}))
+	memberReplaced.Store(true)
+	call("POST", shopDiagnosisBase+"/inspect", uuid.NewString(), in, http.StatusOK)
+	rejoinedRecent := call("GET", recentPath, "", nil, http.StatusOK)
+	require.NotContains(t, string(rejoinedRecent), result.RunID, "current resource access must not disclose the old membership's runs")
+	require.NotContains(t, string(rejoinedRecent), key)
+	call("GET", path, "", nil, http.StatusConflict)
+	memberReplaced.Store(false)
+	require.JSONEq(t, string(currentRecent), string(call("GET", recentPath, "", nil, http.StatusOK)))
 	limited.Store(true)
 	limitedCatalog := call("GET", confighttp.Base+"/"+agentconfig.DiagnosisAgentID, "", nil, http.StatusOK)
 	require.Contains(t, string(limitedCatalog), `"canReadRuns":false`)

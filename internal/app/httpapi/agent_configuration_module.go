@@ -235,7 +235,7 @@ func buildAgentConfigurationModule(ctx context.Context, db *gorm.DB, resolver or
 			if e != nil || fresh.ActorID != scope.ActorID || fresh.OrganizationID != scope.OrganizationID {
 				return nil, "", agentconfig.ErrForbidden
 			}
-			return repo.Recent(ctx, scope, id, cursor, size, diagnosis.store, func(b agent.Binding) error {
+			return repo.Recent(ctx, scope, fresh.MemberID, id, cursor, size, diagnosis.store, func(b agent.Binding) error {
 				current, e := diagnosis.inspector.AuthorizeHistory(ctx, b)
 				if e != nil {
 					return e
