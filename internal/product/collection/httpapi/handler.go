@@ -199,7 +199,7 @@ func readMutation(request *http.Request) (string, collection.Mutation, error) {
 		return "", input, collection.ErrInvalid
 	}
 	strict, err := sigjson.UnmarshalStrict(raw, &input, sigjson.DisallowDuplicateFields, sigjson.DisallowUnknownFields)
-	if err != nil || len(strict) > 0 || !ownVariantNumbersDeclared(raw) {
+	if err != nil || len(strict) > 0 || !ownVariantNumbersDeclared(raw) || !revisionVersionDeclared(raw, input) {
 		return "", input, collection.ErrInvalid
 	}
 	return keys[0], input, nil

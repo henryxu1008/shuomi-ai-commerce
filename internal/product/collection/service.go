@@ -3,6 +3,7 @@ package collection
 import (
 	"context"
 	"encoding/json"
+	"math"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -63,6 +64,15 @@ func (s *Service) Mutate(ctx context.Context, key string, input Mutation) (Recei
 		}
 	}
 	switch input.Action {
+	case "revise_product":
+		if input.ItemID == "" || input.ExpectedRevision <= 0 || input.ExpectedSourceVersion == 0 || input.ExpectedSourceVersion > math.MaxInt64 || !ValidID(input.ExpectedPublicationID) || input.Product == nil {
+			return Receipt{}, ErrInvalid
+		}
+		envelope, err := OwnRevisionEnvelope(command.OperationID, *input.Product, input.ExpectedPublicationID, input.ExpectedSourceVersion)
+		if err != nil {
+			return Receipt{}, err
+		}
+		command.Envelope = &envelope
 	case "import_products":
 		if !validName(input.Name) || len(input.Products) < 1 || len(input.Products) > 200 {
 			return Receipt{}, ErrInvalid
@@ -125,6 +135,8 @@ func validName(name string) bool {
 func validMutationShape(input Mutation) bool {
 	allowed := Mutation{Action: input.Action}
 	switch input.Action {
+	case "revise_product":
+		allowed.ItemID, allowed.ExpectedRevision, allowed.ExpectedSourceVersion, allowed.ExpectedPublicationID, allowed.Product = input.ItemID, input.ExpectedRevision, input.ExpectedSourceVersion, input.ExpectedPublicationID, input.Product
 	case "import_products":
 		allowed.Name, allowed.Products = input.Name, input.Products
 	case "create_batch":

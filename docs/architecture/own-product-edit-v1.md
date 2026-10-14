@@ -66,3 +66,4 @@ Legacy decision: **N/A**：当前Owner与原版本算法，无RETIRE引用、旧
 
 独立检查归IMPLEMENTATION_TEST：无损预填（含own省略的0库存）、父publication/version元数据的Source预算、原事务/CAS/UNKNOWN、pending与页内返回确认。均在本编辑批次实现/自检收敛，未满足时不能交付本路径；没有新增BLOCKER或扩大范围。
 
+实现细化：修订parent metadata占原Source aggregate的两项；前后端在原1024总量内明确校验（最多1022用户属性/图片/变体项），超限在发送前说明如何减少资料，不放宽Source预算。现own JSON省略0库存按原必填声明还原，未知其它资料拒绝挂载编辑表单。

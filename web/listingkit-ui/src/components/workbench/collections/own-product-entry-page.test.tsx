@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
 import {OwnProductEntryPage} from "./own-product-entry-page";
 import {OwnProductDetailPage} from "./own-product-detail-page";
+import {OwnProductEditPage} from "./own-product-edit-page";
 import {CollectionPage} from "./collection-page";
 import {CollectionAPIError,type CollectionIntent} from "@/lib/api/product-collection";
 
@@ -14,6 +15,41 @@ vi.mock("@/lib/api/product-collection",async original=>({...await original<objec
 const itemId="550e8400-e29b-41d4-a716-446655440002";
 beforeEach(()=>{state.mutate.mockReset();state.read.mockReset();state.item.mockReset();state.push.mockReset();state.context={user:{id:"actor-a"},effectiveOrganization:{id:"org-a"},permissions:["workbench.collection.manage"],pendingCollectionIntent:null,collectionIntentReady:true,pendingSupplyIntent:null,supplyIntentReady:true,registerOrganizationSwitchGuard:()=>()=>{},setPendingCollectionIntent:(value:CollectionIntent|null)=>{state.context.pendingCollectionIntent=value;return true}}});
 afterEach(cleanup);
+
+const savedDetail={item:{id:itemId,batchId:itemId,revision:3,createdAt:"2026-10-14T01:00:00Z",source:{kind:"own" as const,productKey:"own-product",publicationId:itemId,version:"5"}},product:{title:"已有商品",brand:"原品牌",description:"原描述",attributes:[{name:"材质",value:"棉"}],images:[{url:"https://images.example.org/public.png"}],variants:[{source_id:"stable-sku",title:"原SKU标题",sku:"RED",attributes:[{name:"颜色",value:"红色"}],price:{amount:0,currency:"CNY"},images:[{url:"https://images.example.org/red.png"},{url:"https://images.example.org/red-detail.png"}]}]}};
+it("prefills a saved product and appends with exact base while preserving SKU facts",async()=>{
+ state.item.mockResolvedValue(savedDetail);state.mutate.mockResolvedValue({operationId:itemId,itemId,revision:4,replayed:false});
+ render(<OwnProductEditPage itemId={itemId}/>);
+ expect(await screen.findByDisplayValue("已有商品")).toBeInTheDocument();expect(screen.getByLabelText("库存 1")).toHaveValue(0);
+ await userEvent.clear(screen.getByLabelText("商品名称"));await userEvent.type(screen.getByLabelText("商品名称"),"编辑后的商品");
+ await userEvent.click(screen.getByRole("button",{name:"保存新版本"}));
+ await waitFor(()=>expect(state.mutate).toHaveBeenCalledOnce());
+ expect(state.mutate.mock.calls[0][0].command).toMatchObject({action:"revise_product",itemId,expectedRevision:3,expectedSourceVersion:"5",expectedPublicationId:itemId,product:{title:"编辑后的商品",variants:[{sourceId:"stable-sku",title:"原SKU标题",price:0,stock:0,images:["https://images.example.org/red.png","https://images.example.org/red-detail.png"]}]}});
+ await waitFor(()=>expect(state.push).toHaveBeenCalledWith(`/workbench/data/mine/own/${itemId}`));expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});
+it("shows a read error instead of a blank editable form for another source",async()=>{
+ state.item.mockResolvedValue({...savedDetail,item:{...savedDetail.item,source:{...savedDetail.item.source,kind:"acquisition"}}});
+ render(<OwnProductEditPage itemId={itemId}/>);
+ expect(await screen.findByText(/未找到当前身份下的记录/)).toBeInTheDocument();expect(screen.queryByRole("button",{name:"保存新版本"})).not.toBeInTheDocument();
+});
+it("keeps a pending revision's original content and key when current source has advanced",async()=>{
+ const product={title:"原待核实资料",description:"",images:[]};
+ const pending:CollectionIntent={userId:"actor-a",organizationId:"org-a",key:itemId,command:{action:"revise_product",itemId,expectedRevision:1,expectedSourceVersion:"1",expectedPublicationId:itemId,product}};
+ state.context.pendingCollectionIntent=pending;state.item.mockResolvedValue(savedDetail);state.read.mockRejectedValue(new CollectionAPIError("NOT_FOUND",404));state.mutate.mockResolvedValue({operationId:itemId,itemId,revision:2,replayed:true});
+ render(<OwnProductEditPage itemId={itemId}/>);
+ expect(await screen.findByDisplayValue("原待核实资料")).toBeDisabled();expect(screen.getByText("基于资料版本 1")).toBeInTheDocument();
+ await userEvent.click(screen.getByRole("button",{name:"核实原操作"}));
+ await userEvent.click(await screen.findByRole("button",{name:"重试原请求"}));
+ await waitFor(()=>expect(state.mutate).toHaveBeenCalledWith(pending,expect.any(AbortSignal)));
+ expect(state.push).toHaveBeenCalledWith(`/workbench/data/mine/own/${itemId}`);
+});
+it("keeps local changes after a conflict and asks before abandoning them",async()=>{
+ state.item.mockResolvedValue(savedDetail);state.mutate.mockRejectedValue(new CollectionAPIError("REVISION_CONFLICT",409));
+ const confirm=vi.spyOn(window,"confirm").mockReturnValue(false);render(<OwnProductEditPage itemId={itemId}/>);
+ await screen.findByDisplayValue("已有商品");await userEvent.type(screen.getByLabelText("商品名称"),"修改");await userEvent.click(screen.getByRole("button",{name:"保存新版本"}));
+ expect(await screen.findByText("资料已发生变化，请刷新后重试。")).toBeInTheDocument();expect(state.push).not.toHaveBeenCalled();
+ await userEvent.click(screen.getByRole("button",{name:"取消并返回详情"}));expect(confirm).toHaveBeenCalledOnce();expect(state.push).not.toHaveBeenCalled();confirm.mockRestore();
+});
 
 it("merges delayed upload callbacks into current images and locks image editing during pending upload",async()=>{
  render(<OwnProductEntryPage/>);
