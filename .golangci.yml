@@ -56,8 +56,6 @@ linters-settings:
           - "!**/internal/app/httpapi/server_test.go"
           - "!**/internal/app/runtime/listingkitidentitypreflight/runtime.go"
           - "!**/internal/app/runtime/listingkitidentitypreflight/runtime_test.go"
-          - "!**/internal/sheinlogin/tenant_context.go"
-          - "!**/internal/sheinlogin/tenant_context_test.go"
         deny:
           - pkg: "task-processor/internal/tenantbridge$"
           - pkg: "task-processor/internal/tenantbridge/"

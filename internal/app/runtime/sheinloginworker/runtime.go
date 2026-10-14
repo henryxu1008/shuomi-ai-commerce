@@ -174,7 +174,7 @@ func closeWorkerRuntimeClosers(closers ...func() error) error {
 }
 
 func buildSheinLoginWorkerService(cfg *config.Config, storeAPI listingadmin.StoreAPI, accountRepository listingadmin.StoreRepository) (*sheinloginbootstrap.BuildResult, func() error, error) {
-	result, err := sheinloginbootstrap.BuildHandler(sheinloginbootstrap.BuildInput{Config: cfg, StoreAPI: storeAPI, AccountRepository: accountRepository})
+	result, err := sheinloginbootstrap.BuildService(sheinloginbootstrap.BuildInput{Config: cfg, StoreAPI: storeAPI, AccountRepository: accountRepository})
 	if err != nil {
 		return nil, nil, err
 	}
