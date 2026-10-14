@@ -8,6 +8,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { AgentPage } from "./agent-page";
+vi.mock("./product-selection-flow",()=>({ProductSelectionFlow:({nonce}:{nonce:number})=><p>业务流程刷新：{nonce}</p>}));
 const scope = vi.hoisted(() => ({
   user: { id: "actor" },
   effectiveOrganization: { id: "org-a", name: "企业A" },
@@ -80,6 +81,23 @@ afterEach(() => {
   vi.unstubAllGlobals();
   scope.effectiveOrganization = { id: "org-a", name: "企业A" };
   scope.isSwitching = false;
+});
+
+it("refreshes the adjacent business flow after the mode sidebar saves its exact receipt",async()=>{
+ localStorage.clear();let revision="0";
+ Object.defineProperty(HTMLDialogElement.prototype,"showModal",{configurable:true,value:function(this:HTMLDialogElement){this.open=true}});Object.defineProperty(HTMLDialogElement.prototype,"close",{configurable:true,value:function(this:HTMLDialogElement){this.open=false}});
+ const subject={kind:"registered_agent",id:"product.selection.agent"},definition={id:subject.id,version:"v1.0.0"};
+ const mode=()=>({subject,definition,mode:"read_only",revision,policyVersion:"agent-execution-policy-v1",canConfigure:true,updatedAt:"2026-10-14T00:00:00Z",updatedBy:"actor"});
+ vi.stubGlobal("fetch",vi.fn(async(url,init)=>{
+  const path=String(url);
+  if(path.includes("execution-modes")){
+   if(init?.method==="PUT"){const payload=JSON.parse(init.body),key=new Headers(init.headers).get("Idempotency-Key");revision="1";return Response.json({...mode(),receipt:{subject,requestKey:key,commandId:"11111111-1111-4111-8111-111111111111",operation:"set-execution-mode",mode:payload.mode,beforeRevision:payload.expectedRevision,revision,noop:false,committedAt:"2026-10-14T00:00:00Z",updatedBy:"actor",updatedAt:"2026-10-14T00:00:00Z"}})}
+   return Response.json(mode());
+  }
+  if(path.endsWith("/agents/product.selection.agent"))return Response.json({...item,agent:{...item.agent,agentId:subject.id,activation:"ENABLED",revision:"1",activationEpoch:"1"},name:"选品对比",parameterSchema:"product-selection-config-v1",canUse:true});
+  return Response.json({items:[],nextCursor:""});
+ }));
+ render(<AgentPage mode="mine" id="product.selection.agent"/>);await screen.findByText("业务流程刷新：0");fireEvent.click(await screen.findByRole("button",{name:"配置权限"}));fireEvent.click(screen.getByRole("button",{name:"保存配置"}));await screen.findByText("业务流程刷新：1");localStorage.clear();
 });
 it("waits for a committed enable receipt and refetches the shared fact", async () => {
   let enabled = false;

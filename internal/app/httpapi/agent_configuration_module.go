@@ -209,6 +209,9 @@ func buildAgentConfigurationModule(ctx context.Context, db *gorm.DB, resolver or
 	}
 	h.Recent = func(ctx context.Context, scope agent.Scope, id, cursor string, size int) (any, string, error) {
 		if id == agentconfig.SelectionAgentID {
+			if _, err := h.Authorize(ctx, authz.PermissionLocalAgentWrite); err != nil {
+				return nil, "", err
+			}
 			if selection == nil || selection.store == nil {
 				return nil, "", agentconfig.ErrUnavailable
 			}

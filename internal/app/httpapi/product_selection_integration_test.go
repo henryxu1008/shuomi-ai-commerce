@@ -15,16 +15,42 @@ import (
 	"gorm.io/gorm"
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
+	confighttp "task-processor/internal/agentconfig/httpapi"
 	"task-processor/internal/app/productsourcing"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
 	"task-processor/internal/commercetool"
 	catalogstore "task-processor/internal/integration/persistence/product/catalog"
 	collectionstore "task-processor/internal/integration/persistence/product/collection"
+	kernelmodule "task-processor/internal/kernel/module"
 	"task-processor/internal/product/collection"
 	"task-processor/internal/product/selection"
 	"task-processor/internal/product/sourcing"
+	"task-processor/internal/workbenchcontext"
 )
+
+type selectionHistoryGrants struct {
+	agentFixtureGrants
+	limited *atomic.Bool
+}
+
+func (g selectionHistoryGrants) Load(ctx context.Context, source workbenchcontext.GrantSource, request workbenchcontext.GrantRequest) (workbenchcontext.GrantResult, error) {
+	result, err := g.agentFixtureGrants.Load(ctx, source, request)
+	if g.limited.Load() {
+		for i := range result.Grants {
+			if result.Grants[i].OrganizationID == "B" {
+				result.Grants[i].Roles = []string{authz.EnterpriseRoleKey("B", 1)}
+			}
+		}
+	}
+	return result, err
+}
+
+type selectionHistoryModules struct{}
+
+func (selectionHistoryModules) RoleModules(context.Context, string, []string) (map[string][]string, error) {
+	return map[string][]string{authz.EnterpriseRoleKey("B", 1): {"agent-custom", "data-mine"}}, nil
+}
 
 func TestSelectionHTTPUsesRealConfigurationToolModelLedgerAndReceipt(t *testing.T) {
 	testProductAgentOwners(t, "selection")
@@ -38,6 +64,9 @@ func mustSelectionJSON(t *testing.T, v any) json.RawMessage {
 func testSelectionHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixture, parent *productAgentApplication, deps routeAuthDependencies, permissions *authz.ListingKitAuthorizer, calls *atomic.Int32) {
 	t.Helper()
 	ctx := context.Background()
+	limited := &atomic.Bool{}
+	deps.organizationResolver = workbenchcontext.NewResolver(selectionHistoryGrants{agentFixtureGrants: agentFixtureGrants{base: f.grants}, limited: limited}, "project", "v1", nil)
+	permissions.SetRolePolicyReader(selectionHistoryModules{})
 	live := &productReviewLiveOrganizationAccess{resolver: deps.organizationResolver, now: time.Now}
 	authority, err := collection.NewContextAuthorizer(live, permissions)
 	require.NoError(t, err)
@@ -67,6 +96,11 @@ func testSelectionHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixtur
 	a, err := buildProductSelectionApplication(ctx, parent, collections, f.owner, deps.organizationResolver, permissions)
 	require.NoError(t, err)
 	routes := productSelectionRoutes(a, a.bindRequest)
+	configurationModule, err := buildAgentConfigurationModule(ctx, f.owner, deps.organizationResolver, permissions, nil, parent, nil, a)
+	require.NoError(t, err)
+	registry := kernelmodule.NewRegistry()
+	require.NoError(t, configurationModule.Register(registry))
+	routes = append(routes, registry.Routes()...)
 	app := buildIsolatedApplicationHTTPServer(routes, deps, 2*time.Minute)
 	server := httptest.NewServer(app.Handler)
 	defer server.Close()
@@ -120,6 +154,15 @@ func testSelectionHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixtur
 	replay := call("POST", productSelectionBase+"/contexts/"+in.ContextID+"/runs", key, body, http.StatusOK)
 	require.JSONEq(t, string(raw), string(replay))
 	require.EqualValues(t, 2, calls.Load())
+	recentPath := confighttp.Base + "/" + agentconfig.SelectionAgentID + "/recent-runs?pageSize=20"
+	call("GET", recentPath, "", nil, http.StatusOK)
+	limited.Store(true)
+	limitedCatalog := call("GET", confighttp.Base+"/"+agentconfig.SelectionAgentID, "", nil, http.StatusOK)
+	require.Contains(t, string(limitedCatalog), `"canReadRuns":false`)
+	call("GET", recentPath, "", nil, http.StatusForbidden)
+	call("GET", path, "", nil, http.StatusForbidden)
+	limited.Store(false)
+	call("GET", recentPath, "", nil, http.StatusOK)
 	_, err = parent.configuration.Execute(ctx, agentconfig.Command{Scope: scope, Key: uuid.NewString(), AgentID: agentconfig.SelectionAgentID, Operation: "disable", Expected: 1})
 	require.NoError(t, err)
 	history := call("GET", path, "", nil, http.StatusOK)

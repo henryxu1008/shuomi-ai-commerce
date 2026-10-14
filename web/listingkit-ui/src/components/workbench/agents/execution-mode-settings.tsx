@@ -23,11 +23,11 @@ const descriptions: Record<ExecutionMode,string> = {
 const intentSchema = z.strictObject({key:knowledgeId,payload:executionModeInputSchema});
 type Intent = z.infer<typeof intentSchema>;
 
-export function ExecutionModeSettings({scope,subject}:{scope:ConfigurationScope;subject:ModeSubject}) {
- return <BoundExecutionModeSettings key={JSON.stringify([scope.userId,scope.organizationId,subject.kind,subject.id])} scope={scope} subject={subject}/>;
+export function ExecutionModeSettings({scope,subject,onSaved}:{scope:ConfigurationScope;subject:ModeSubject;onSaved?:()=>void}) {
+ return <BoundExecutionModeSettings key={JSON.stringify([scope.userId,scope.organizationId,subject.kind,subject.id])} scope={scope} subject={subject} onSaved={onSaved}/>;
 }
 
-function BoundExecutionModeSettings({scope,subject}:{scope:ConfigurationScope;subject:ModeSubject}) {
+function BoundExecutionModeSettings({scope,subject,onSaved}:{scope:ConfigurationScope;subject:ModeSubject;onSaved?:()=>void}) {
  const path=`execution-modes/${subject.kind}/${subject.id}`;
  const pending=useResourcePending({expectedUserId:scope.userId,expectedOrganizationId:scope.organizationId},["agent-execution-mode",subject.kind,subject.id],intentSchema,{storage:"local",maxLength:2048});
  const context=useWorkbenchContext();
@@ -48,7 +48,7 @@ function BoundExecutionModeSettings({scope,subject}:{scope:ConfigurationScope;su
    const saved=await configurationRequest(scope,path,executionModeViewSchema,{method:"PUT",headers:{"Content-Type":"application/json","Idempotency-Key":intent.key},body:JSON.stringify(intent.payload),signal:controller.signal});
    if(saved.subject.kind!==subject.kind||saved.subject.id!==subject.id||saved.receipt?.requestKey!==intent.key||saved.mode!==intent.payload.mode||saved.receipt.beforeRevision!==intent.payload.expectedRevision)throw new ConfigurationError("OUTCOME_UNKNOWN");
    if(!active.current)return;
-   pending.clear(intent);setOpen(false);setNonce(n=>n+1);setMessage("权限模式已保存，下一次新运行将使用当前模式。已存在的运行不会升级权限。");
+   pending.clear(intent);setOpen(false);setNonce(n=>n+1);onSaved?.();setMessage("权限模式已保存，下一次新运行将使用当前模式。已存在的运行不会升级权限。");
   } catch(error) {
    if(!active.current)return;
    setFailure(error);

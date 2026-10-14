@@ -275,6 +275,7 @@ it("switches from viewed history to the newly prepared exact comparison", async 
             executionMode: "read_only",
             modeRevision: "0",
             goalSummary: "旧比较目标",
+            inspection: {products:[{ref:{ItemID:id,ItemRevision:"1",ProductKey:"a",CatalogVersion:"1",PublicationID:"source-a"},sourceKind:"own",facts:[{id:"fact:"+"c".repeat(64),path:"title",value:"旧事实标题"}],missing:[]},{ref:{ItemID:other,ItemRevision:"1",ProductKey:"b",CatalogVersion:"1",PublicationID:"source-b"},sourceKind:"own",facts:[],missing:[]}]},
             validated: false,
             unresolved: [],
             tokens: 0,
@@ -290,23 +291,26 @@ it("switches from viewed history to the newly prepared exact comparison", async 
   fireEvent.click(await screen.findByRole("button", { name: /stopped/ }));
   await screen.findByText(/旧比较目标/);
   choose();
+  fireEvent.click(screen.getByRole("button", { name: "读取事实对比" }));
+  await waitFor(() => expect(screen.queryAllByText("旧事实标题")).toHaveLength(0));
+  await screen.findByRole("heading", {name:"已保存原始事实"});
   fireEvent.click(screen.getByRole("button", { name: "准备分析" }));
   await screen.findByRole("heading", { name: "确认本次分析" });
   await waitFor(() =>
     expect(screen.getByRole("button", { name: "确认生成建议" })).toBeEnabled(),
   );
   expect(screen.queryByText(/旧比较目标/)).toBeNull();
-  expect(writes).toHaveLength(1);
-  expect(writes[0].path).toMatch(/prepare$/);
-  const preparedKey = writes[0].key;
+  expect(writes).toHaveLength(2);
+  expect(writes[1].path).toMatch(/prepare$/);
+  const preparedKey = writes[1].key;
   fireEvent.click(screen.getByRole("button", {name:/stopped/}));
   await screen.findByText(/旧比较目标/);
   fireEvent.click(await screen.findByRole("button", {name:"返回待确认的对比"}));
   await waitFor(()=>expect(screen.getByRole("button", {name:"确认生成建议"})).toBeEnabled());
-  expect(writes).toHaveLength(1);
+  expect(writes).toHaveLength(2);
   fireEvent.click(screen.getByRole("button", {name:"确认生成建议"}));
-  await waitFor(()=>expect(writes).toHaveLength(2));
-  expect(writes[1].key).toBe(preparedKey);
+  await waitFor(()=>expect(writes).toHaveLength(3));
+  expect(writes[2].key).toBe(preparedKey);
 });
 
 it("resumes a reloaded interrupted run with its persisted custom goal", async () => {

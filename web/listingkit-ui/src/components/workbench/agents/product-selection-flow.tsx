@@ -199,7 +199,10 @@ export function ProductSelectionFlow({
     controller.current = abort;
     try {
       const result = await inspectSelection(scope, input(), abort.signal);
-      if (active.current) setFacts(result);
+      if (active.current) {
+        setChosenRun(null);
+        setFacts(result);
+      }
     } catch (e) {
       if (active.current) setFailure(e);
     } finally {

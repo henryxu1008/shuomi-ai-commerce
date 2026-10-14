@@ -471,7 +471,7 @@ function ScopedPage({
               ))}
             </Card>
             <div className={styles.detailSidebar}>
-            {detail.agent.activation !== "NOT_ENABLED" ? <ExecutionModeSettings scope={scope} subject={{kind:"registered_agent",id:detail.agent.agentId}}/> : null}
+            {detail.agent.activation !== "NOT_ENABLED" ? <ExecutionModeSettings scope={scope} subject={{kind:"registered_agent",id:detail.agent.agentId}} onSaved={()=>setNonce(n=>n+1)}/> : null}
           <Card className={styles.panel}>
               <div className={styles.cardActions}>
                 <h2>默认模板</h2>
