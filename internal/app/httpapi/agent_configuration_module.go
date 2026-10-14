@@ -26,6 +26,7 @@ import (
 	"task-processor/internal/product/contentagent"
 	"task-processor/internal/product/selection/tools/selectioninspect"
 	"task-processor/internal/product/sourcing/tools/sourceevidenceinspect"
+	"task-processor/internal/shopdiagnosis/tools/diagnosisinspect"
 	"task-processor/internal/workbenchcontext"
 	"time"
 )
@@ -51,6 +52,7 @@ func (productAgentCatalog) ReadCatalog(context.Context) ([]agentconfig.CatalogEn
 	d, _ := productTitleRegistration()
 	content, _ := contentagent.Registration()
 	entries := []agentconfig.CatalogEntry{
+		{Definition: diagnosisinspect.AgentDefinition(), Name: "店铺经营诊断智能体", Description: "选择店铺与周期，分析已录入财务与保存的平台观察，给出有事实引用的建议和缺失信息。", ParameterSchema: agentconfig.DiagnosisParameterSchema},
 		{Definition: selectioninspect.AgentDefinition(), Name: "选品对比智能体", Description: "比较2–5个真实已保存商品，给出有事实引用的选品建议和缺失信息，不采购或修改商品。", ParameterSchema: agentconfig.SelectionParameterSchema},
 		{Definition: commercetool.AgentDefinition{ID: agentconfig.ArtworkAgentID, Version: agentconfig.ArtworkAgentVersion}, Name: "POD设计智能体", Description: "从主题生成全新图案，确认保存后进入模板布局与效果图流程。", ParameterSchema: agentconfig.ArtworkParameterSchema},
 		{Definition: materialsinspect.AgentDefinition(), Name: "平台上架资料智能体", Description: "使用标准商品和当前店铺规则完善类目、属性、SKU与已批准图片资料，保存可核对的本地平台草稿。", ParameterSchema: agentconfig.MaterialsParameterSchema},
@@ -64,7 +66,7 @@ func (productAgentCatalog) ReadCatalog(context.Context) ([]agentconfig.CatalogEn
 func WithAgentConfiguration(db *gorm.DB) CurrentApplicationOption {
 	return func(o *currentApplicationOptions) { o.agentConfigurationDB = db }
 }
-func buildAgentConfigurationModule(ctx context.Context, db *gorm.DB, resolver organizationIdentityResolver, auth *authz.ListingKitAuthorizer, k *knowledge.Service, runtime *productAgentApplication, private privateModeDeliveryReader, selection *productSelectionApplication, images ...*fullImageApplication) (kernelmodule.Module, error) {
+func buildAgentConfigurationModule(ctx context.Context, db *gorm.DB, resolver organizationIdentityResolver, auth *authz.ListingKitAuthorizer, k *knowledge.Service, runtime *productAgentApplication, private privateModeDeliveryReader, selection *productSelectionApplication, diagnosis *shopDiagnosisApplication, images ...*fullImageApplication) (kernelmodule.Module, error) {
 	if len(images) > 1 {
 		return nil, agentconfig.ErrUnavailable
 	}
@@ -127,6 +129,9 @@ func buildAgentConfigurationModule(ctx context.Context, db *gorm.DB, resolver or
 		return nil
 	}
 	h.Capabilities = func(ctx context.Context, entry agentconfig.CatalogEntry) []agentconfig.Capability {
+		if entry.Definition.ID == agentconfig.DiagnosisAgentID {
+			return shopDiagnosisCapabilities(ctx, diagnosis)
+		}
 		if entry.Definition.ID == agentconfig.SelectionAgentID {
 			return productSelectionCapabilities(ctx, selection)
 		}
@@ -190,6 +195,9 @@ func buildAgentConfigurationModule(ctx context.Context, db *gorm.DB, resolver or
 		return productAgentCapabilities(ctx, resolver, h.Authorize, k, runtime)
 	}
 	h.RunsAvailable = func(_ context.Context, entry agentconfig.CatalogEntry) bool {
+		if entry.Definition.ID == agentconfig.DiagnosisAgentID {
+			return diagnosis != nil && diagnosis.store != nil && diagnosis.configuration != nil
+		}
 		if entry.Definition.ID == agentconfig.SelectionAgentID {
 			return selection != nil && selection.store != nil && selection.configuration != nil
 		}
@@ -208,6 +216,33 @@ func buildAgentConfigurationModule(ctx context.Context, db *gorm.DB, resolver or
 		return runtime != nil
 	}
 	h.Recent = func(ctx context.Context, scope agent.Scope, id, cursor string, size int) (any, string, error) {
+		if id == agentconfig.DiagnosisAgentID {
+			if diagnosis == nil || diagnosis.store == nil {
+				return nil, "", agentconfig.ErrUnavailable
+			}
+			capability, ok := ctx.Value(productReviewCapabilityContextKey{}).(productReviewRequestCapability)
+			if !ok {
+				return nil, "", agentconfig.ErrForbidden
+			}
+			ctx, e := diagnosis.bindNative(ctx, "Bearer "+capability.bearerToken)
+			if e != nil {
+				return nil, "", e
+			}
+			fresh, e := diagnosis.currentIdentity(ctx)
+			if e != nil || fresh.ActorID != scope.ActorID || fresh.OrganizationID != scope.OrganizationID {
+				return nil, "", agentconfig.ErrForbidden
+			}
+			return repo.Recent(ctx, scope, id, cursor, size, diagnosis.store, func(b agent.Binding) error {
+				current, e := diagnosis.inspector.AuthorizeHistory(ctx, b)
+				if e != nil {
+					return e
+				}
+				if current.OrganizationID != fresh.OrganizationID || current.ActorID != fresh.ActorID || current.MemberID != fresh.MemberID {
+					return agentconfig.ErrForbidden
+				}
+				return nil
+			})
+		}
 		if id == agentconfig.SelectionAgentID {
 			if selection == nil || selection.store == nil {
 				return nil, "", agentconfig.ErrUnavailable

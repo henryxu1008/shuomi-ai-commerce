@@ -52,7 +52,7 @@ func modelPointFixture(t *testing.T, operations ...aicapability.Operation) (*gor
 }
 
 func TestAdvisoryAgentsModelPointsUseOriginalRunAndSettleOnce(t *testing.T) {
-	for _, op := range []aicapability.Operation{aicapability.OperationListingMaterialsDecision, aicapability.OperationProductSelectionDecision} {
+	for _, op := range []aicapability.Operation{aicapability.OperationListingMaterialsDecision, aicapability.OperationProductSelectionDecision, aicapability.OperationShopDiagnosisDecision} {
 		t.Run(string(op), func(t *testing.T) {
 			db, recorder, _, _, fact := modelPointFixture(t, op)
 			ctx := context.Background()

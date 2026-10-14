@@ -15,10 +15,14 @@ import (
 )
 
 func validTextConfigurationRequest(id string, request agent.Request) bool {
+	if id == agentconfig.DiagnosisAgentID {
+		return request.Binding.ContextKind == agent.StoreDiagnosisContextKind && request.Binding.Valid() && request.ContentSelection.Absent() && request.PolicyVersion == agentconfig.DiagnosisPolicyVersion && request.PromptVersion == agentconfig.DiagnosisPromptVersion
+	}
+
 	if id == agentconfig.SelectionAgentID {
 		return request.Binding.ContextKind == agent.SelectionContextKind && request.Binding.Valid() && request.ContentSelection.Absent() && request.PolicyVersion == agentconfig.SelectionPolicyVersion && request.PromptVersion == agentconfig.SelectionPromptVersion
 	}
-	if request.Binding.ContextKind == agent.SelectionContextKind || request.Binding.Selection != ([agent.MaxSelectionProducts]agent.SelectionProductRef{}) {
+	if request.Binding.ContextKind == agent.StoreDiagnosisContextKind || request.Binding.StoreDiagnosis != (agent.StoreDiagnosisRef{}) || request.Binding.ContextKind == agent.SelectionContextKind || request.Binding.Selection != ([agent.MaxSelectionProducts]agent.SelectionProductRef{}) {
 		return false
 	}
 	if id == agentconfig.MaterialsAgentID {
@@ -53,6 +57,10 @@ func (s *Store) Prepare(ctx context.Context, c agentconfig.StartCommand) (agentc
 	if c.AgentID == agentconfig.ImageAgentID {
 		return agentconfig.Snapshot{}, agentconfig.ErrInvalid
 	}
+	if c.AgentID == agentconfig.DiagnosisAgentID && (c.AgentVersion != agentconfig.DiagnosisAgentVersion || c.Template != nil || c.KnowledgeBaseID != "" || !validDiagnosisTextProfile(c.ExecutionModelProfile)) {
+		return agentconfig.Snapshot{}, agentconfig.ErrInvalid
+	}
+
 	if c.AgentID == agentconfig.SelectionAgentID && (c.AgentVersion != agentconfig.SelectionAgentVersion || c.Template != nil || c.KnowledgeBaseID != "" || !validSelectionTextProfile(c.ExecutionModelProfile)) {
 		return agentconfig.Snapshot{}, agentconfig.ErrInvalid
 	}
@@ -160,6 +168,10 @@ func (s *Store) Prepare(ctx context.Context, c agentconfig.StartCommand) (agentc
 }
 
 func validMaterialsTextConfiguration(id, version, knowledge string, profile aicapability.ModelProfile) bool {
+	if id == agentconfig.DiagnosisAgentID {
+		return version == agentconfig.DiagnosisAgentVersion && knowledge == "" && validDiagnosisTextProfile(profile)
+	}
+
 	if id == agentconfig.SelectionAgentID {
 		return version == agentconfig.SelectionAgentVersion && knowledge == "" && validSelectionTextProfile(profile)
 	}
@@ -211,4 +223,8 @@ func (s *Store) Match(ctx context.Context, c agentconfig.StartCommand, ref agent
 		return snap, agentconfig.ErrConflict
 	}
 	return snap, nil
+}
+
+func validDiagnosisTextProfile(p aicapability.ModelProfile) bool {
+	return p.PromptVersion == agentconfig.DiagnosisPromptVersion && p.OutputSchemaVersion == agentconfig.DiagnosisActionVersion
 }

@@ -21,6 +21,7 @@ type ProductAgentConfig struct {
 	TextPolicies           map[string]governed.RoutePolicy `json:"textPolicies"`
 	ContentTextPolicies    map[string]governed.RoutePolicy `json:"contentTextPolicies,omitempty"`
 	MaterialsTextPolicies  map[string]governed.RoutePolicy `json:"materialsTextPolicies,omitempty"`
+	DiagnosisTextPolicies  map[string]governed.RoutePolicy `json:"diagnosisTextPolicies,omitempty"`
 	SelectionTextPolicies  map[string]governed.RoutePolicy `json:"selectionTextPolicies,omitempty"`
 	Currency               string                          `json:"currency"`
 	Steps                  int                             `json:"steps"`
@@ -66,7 +67,7 @@ func (p *ProductAgentConfig) validate(cfg *Config) error {
 		}
 		seen[id] = true
 	}
-	if len(p.TextPolicies)+len(p.ContentTextPolicies)+len(p.MaterialsTextPolicies)+len(p.SelectionTextPolicies) == 0 || len(p.TextPolicies) > len(seen) {
+	if len(p.TextPolicies)+len(p.ContentTextPolicies)+len(p.MaterialsTextPolicies)+len(p.SelectionTextPolicies)+len(p.DiagnosisTextPolicies) == 0 || len(p.TextPolicies) > len(seen) {
 		return errors.New("product agent text policies invalid")
 	}
 	for organizationID, policy := range p.TextPolicies {
@@ -106,6 +107,16 @@ func (p *ProductAgentConfig) validate(cfg *Config) error {
 		cost, err := profile.MaximumCost()
 		if !seen[org] || profile.PromptVersion != agentconfig.SelectionPromptVersion || profile.OutputSchemaVersion != agentconfig.SelectionActionVersion || profile.Currency != p.Currency || !governed.ValidRouteProfile(profile, aicapability.OperationProductSelectionDecision) || err != nil || profile.MaximumPromptTokens+profile.MaximumCompletionTokens > p.Tokens || cost > p.CostMicros {
 			return errors.New("product selection text policy invalid")
+		}
+	}
+	if len(p.DiagnosisTextPolicies) > len(seen) {
+		return errors.New("diagnosis policy outside current organization admission")
+	}
+	for org, policy := range p.DiagnosisTextPolicies {
+		profile := policy.ShapeProfile()
+		cost, err := profile.MaximumCost()
+		if !seen[org] || profile.PromptVersion != agentconfig.DiagnosisPromptVersion || profile.OutputSchemaVersion != agentconfig.DiagnosisActionVersion || profile.Currency != p.Currency || !governed.ValidRouteProfile(profile, aicapability.OperationShopDiagnosisDecision) || err != nil || profile.MaximumPromptTokens+profile.MaximumCompletionTokens > p.Tokens || cost > p.CostMicros {
+			return errors.New("product diagnosis text policy invalid")
 		}
 	}
 	return nil
