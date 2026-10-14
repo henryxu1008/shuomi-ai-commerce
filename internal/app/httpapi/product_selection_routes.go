@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"strconv"
+	"strings"
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/authz"
@@ -19,6 +20,16 @@ import (
 )
 
 const productSelectionBase = "/api/v1/workbench/product-selection"
+
+func isContextAgentRunHTTPPath(path, base string) bool {
+	prefix := base + "/contexts/"
+	if !strings.HasPrefix(path, prefix) {
+		return false
+	}
+	parts := strings.Split(strings.TrimPrefix(path, prefix), "/")
+	return len(parts) >= 2 && agentconfig.UUID(parts[0]) && parts[1] == "runs" &&
+		(len(parts) == 2 || len(parts) == 4 && agentconfig.UUID(parts[2]) && parts[3] == "resume")
+}
 
 type selectionHTTPService interface {
 	inspectInput(context.Context, selectionInput) (agent.Binding, selection.Inspection, error)
