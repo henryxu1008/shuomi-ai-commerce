@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 	imageapp "task-processor/internal/app/imageagent"
 	"task-processor/internal/app/productsourcing"
@@ -58,6 +59,10 @@ func configureCollectionSourceMediaTrial(media *collectionSourceMediaDependencie
 		return collection.ErrUnavailable
 	}
 	storage := cfg.ProductCollectionSourceMedia
+	id, parseErr := uuid.Parse(cfg.ProductCollectionSourceMediaIsolatedTrialDeploymentID)
+	if parseErr != nil || id == uuid.Nil || id.String() != cfg.ProductCollectionSourceMediaIsolatedTrialDeploymentID {
+		return collection.ErrUnavailable
+	}
 	if storage.S3.ArtifactMode != "aws" || !storage.S3.UsePathStyle || storage.IsolatedTrialGeneratedURLs {
 		return collection.ErrUnavailable
 	}

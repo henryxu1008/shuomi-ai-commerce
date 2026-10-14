@@ -35,6 +35,7 @@ services:
       - runtime-secrets:/runtime
       - source-media-storage-secret:/private:ro
       - ./source-media-configure.sh:/init/source-media-configure.sh:ro
+      - source-media-objects:/provider:ro
   current-application:
     depends_on:
       source-media-objects: {condition: service_healthy}

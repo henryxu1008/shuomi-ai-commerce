@@ -30,6 +30,8 @@ func TestCollectionSourceMediaTrialWiresOriginalReaderAndRequiresCapacity(t *tes
 	media := options.collectionSourceMedia
 	require.ErrorIs(t, configureCollectionSourceMediaTrial(media, cfg), collection.ErrUnavailable)
 	media.Capacity = &storagecapacity.Meter{}
+	require.ErrorIs(t, configureCollectionSourceMediaTrial(media, cfg), collection.ErrUnavailable)
+	cfg.ProductCollectionSourceMediaIsolatedTrialDeploymentID = "d7b806bb-6f4f-47be-999c-99f027252244"
 	require.NoError(t, configureCollectionSourceMediaTrial(media, cfg))
 	require.NotNil(t, media.TrialURLs)
 	reader := newImageSetManualMedia(media, imageMediaScopeAuthority{}).(imageapp.ImageSetManualMedia)
@@ -42,6 +44,7 @@ func TestCollectionSourceMediaTrialWiresOriginalReaderAndRequiresCapacity(t *tes
 	cfg.ProductCollectionSourceMedia.S3.Endpoint = "https://storage.example.org"
 	require.ErrorIs(t, configureCollectionSourceMediaTrial(media, cfg), collection.ErrUnavailable)
 	cfg.ProductCollectionSourceMediaIsolatedTrial = false
+	cfg.ProductCollectionSourceMediaIsolatedTrialDeploymentID = ""
 	require.NoError(t, configureCollectionSourceMediaTrial(media, cfg))
 	require.Nil(t, media.TrialURLs, "normal mode cannot retain a trial policy")
 }

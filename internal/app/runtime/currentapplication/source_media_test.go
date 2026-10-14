@@ -59,8 +59,11 @@ func TestSourceMediaTrialConfigRequiresExplicitMeteredCurrentCollections(t *test
 	c.SourceMediaIsolatedTrial = true
 	require.Error(t, c.validate(), "trial does not bypass capacity")
 	c.StorageCapacity = true
+	require.Error(t, c.validate(), "MinIO requires its provider deployment pin")
+	c.SourceMediaIsolatedTrialDeploymentID = "d7b806bb-6f4f-47be-999c-99f027252244"
 	require.NoError(t, c.validate())
 	require.True(t, c.CoreConfig().ProductCollectionSourceMediaIsolatedTrial)
+	require.Equal(t, c.SourceMediaIsolatedTrialDeploymentID, c.CoreConfig().ProductCollectionSourceMediaIsolatedTrialDeploymentID)
 	c.SourceMedia.S3.UsePathStyle = false
 	require.Error(t, c.validate())
 	c.SourceMedia.S3.UsePathStyle = true

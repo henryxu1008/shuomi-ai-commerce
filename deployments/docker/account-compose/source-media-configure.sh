@@ -8,14 +8,16 @@ test "$port" -ge 1 && test "$port" -le 65535
 base="https://localhost:$port/source-media-assets/source-media-trial"
 test -s /runtime/current-application.json
 test -s /private/root-password
+deployment=$(jq -er '.id | select(type == "string" and test("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$") and . != "00000000-0000-0000-0000-000000000000")' /provider/.minio.sys/format.json)
 # Use the existing initialized owners; never run Product/schema initialization.
 jq -e '.productCollections == true and .productAcquisitionDatabase != null and .commercialOwnerDatabase != null and .moneyOwnerDatabase != null' /runtime/current-application.json >/dev/null
 jq --arg base "$base" -e '.sourceMedia == null or (.sourceMediaIsolatedTrial == true and .sourceMedia.publicBase == $base and .sourceMedia.s3.bucket == "source-media-trial" and .sourceMedia.s3.endpoint == "http://127.0.0.1:9103")' /runtime/current-application.json >/dev/null
+jq --arg deployment "$deployment" -e 'if .sourceMedia == null then .sourceMediaIsolatedTrialDeploymentID == null else .sourceMediaIsolatedTrialDeploymentID == $deployment end' /runtime/current-application.json >/dev/null
 test -e /runtime/current-application.before-source-media.json || cp /runtime/current-application.json /runtime/current-application.before-source-media.json
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
-jq --arg base "$base" --rawfile password /private/root-password \
-  '.storageCapacity = true | .sourceMediaIsolatedTrial = true | .sourceMedia = {enabled:true, provider:"s3", publicBase:$base, s3:{region:"us-east-1",endpoint:"http://127.0.0.1:9103",bucket:"source-media-trial",accessKeyID:"source_media_local_root",secretAccessKey:($password|rtrimstr("\n")),usePathStyle:true,artifactMode:"aws"}}' \
+jq --arg base "$base" --arg deployment "$deployment" --rawfile password /private/root-password \
+  '.storageCapacity = true | .sourceMediaIsolatedTrial = true | .sourceMediaIsolatedTrialDeploymentID = $deployment | .sourceMedia = {enabled:true, provider:"s3", publicBase:$base, s3:{region:"us-east-1",endpoint:"http://127.0.0.1:9103",bucket:"source-media-trial",accessKeyID:"source_media_local_root",secretAccessKey:($password|rtrimstr("\n")),usePathStyle:true,artifactMode:"aws"}}' \
   /runtime/current-application.json > "$work/current.json"
 chmod 600 "$work/current.json"
 mv "$work/current.json" /runtime/current-application.json
