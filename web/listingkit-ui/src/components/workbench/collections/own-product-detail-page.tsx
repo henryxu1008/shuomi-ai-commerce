@@ -22,25 +22,26 @@ type Variant=NonNullable<Product["variants"]>[number];
 const imageProxy=(url:string)=>`/api/image-proxy?url=${encodeURIComponent(url)}`;
 const variantLabel=(variant:Variant)=>variant.attributes?.map(a=>`${a.name}：${a.value}`).join(" / ")||variant.title||"默认规格";
 
-export function OwnProductDetailPage({itemId}:{itemId:string}){
+export function OwnProductDetailPage({itemId,completionAvailable=false}:{itemId:string;completionAvailable?:boolean}){
  const context=useWorkbenchContext();
  const userId=context.user?.id,organizationId=context.effectiveOrganization?.id;
  const scope=useMemo(()=>userId&&organizationId?{userId,organizationId}:null,[userId,organizationId]);
  if(context.isLoading||context.isSwitching)return <ConsoleState kind="loading" title="正在确认当前企业"/>;
  if(!scope||context.selectionRequired||context.error||context.blockingError)return <ConsoleState kind="error" title="请先确认登录身份与当前企业"/>;
- return <ScopedOwnProductDetail key={`${scope.userId}:${scope.organizationId}:${itemId}`} scope={scope} itemId={itemId}/>;
+ return <ScopedOwnProductDetail key={`${scope.userId}:${scope.organizationId}:${itemId}`} scope={scope} itemId={itemId} completionAvailable={completionAvailable}/>;
 }
-function ScopedOwnProductDetail({scope,itemId}:{scope:CollectionScope;itemId:string}){
+function ScopedOwnProductDetail({scope,itemId,completionAvailable}:{scope:CollectionScope;itemId:string;completionAvailable:boolean}){
  const context=useWorkbenchContext();
  const [detail,setDetail]=useState<CollectionDetail|null>(null),[error,setError]=useState(""),[reload,setReload]=useState(0);
  useEffect(()=>{const controller=new AbortController();let active=true;void readCollectionItem(scope,itemId,controller.signal).then(value=>{if(active){if(value.item.source.kind!=="own")setError("NOT_FOUND");else {setDetail(value);setError("")}}}).catch(failure=>{if(active)setError(failure instanceof CollectionAPIError?failure.code:"DEPENDENCY_UNAVAILABLE")});return()=>{active=false;controller.abort()}},[scope,itemId,reload]);
- return <ConsolePage title={detail?.product.title||"自有商品资料"} description="查看商品图片、通用属性和每个SKU的原始资料。" breadcrumbs={[{label:"数据服务",href:"/workbench/data"},{label:"我的数据",href:library},{label:"自有商品资料"}]} actions={<div className="flex flex-wrap gap-3">{detail&&!error?<Button asChild variant="outline"><Link href={`/workbench/data/mine/own/${itemId}/history`}>版本历史</Link></Button>:null}{detail&&!error&&context.permissions.includes("workbench.collection.manage")?<Button asChild><Link href={`/workbench/data/mine/own/${itemId}/edit`}>编辑商品</Link></Button>:null}<Button asChild variant="outline"><Link href={library}><ArrowLeft size={16}/>返回自有商品库</Link></Button></div>}>
+ return <ConsolePage title={detail?.product.title||"自有商品资料"} description="查看商品图片、通用属性和每个SKU的原始资料。" breadcrumbs={[{label:"数据服务",href:"/workbench/data"},{label:"我的数据",href:library},{label:"自有商品资料"}]} actions={<div className="flex flex-wrap gap-3">{detail&&!error&&completionAvailable&&["workbench.collection.read","workbench.supply.read","workbench.supply.manage"].every(permission=>context.permissions.includes(permission))?<Button asChild variant="outline"><Link href={`/workbench/data/mine/own/${itemId}/prepare`}>创建待补全草稿</Link></Button>:null}{detail&&!error?<Button asChild variant="outline"><Link href={`/workbench/data/mine/own/${itemId}/history`}>版本历史</Link></Button>:null}{detail&&!error&&context.permissions.includes("workbench.collection.manage")?<Button asChild><Link href={`/workbench/data/mine/own/${itemId}/edit`}>编辑商品</Link></Button>:null}<Button asChild variant="outline"><Link href={library}><ArrowLeft size={16}/>返回自有商品库</Link></Button></div>}>
   {error?<ConsoleState kind="error" title={collectionFailureText[error]??"暂时无法读取商品资料"}><Button variant="outline" onClick={()=>setReload(v=>v+1)}>重试读取</Button></ConsoleState>:!detail?<ConsoleState kind="loading" title="正在读取商品资料"/>:<OwnProductContents key={`${detail.item.id}:${detail.item.source.version}`} detail={detail}/>}
  </ConsolePage>;
 }
 
-export function OwnProductContents({detail,savedAt}:{detail:CollectionDetail;savedAt?:string}){
+export function OwnProductContents({detail,savedAt}:{detail:{product:CollectionDetail["product"];item:{source:CollectionDetail["item"]["source"];createdAt?:string}};savedAt?:string}){
  const {product,item}=detail,variants=product.variants??[],attributes=product.attributes??[];
+ const displayDate=savedAt??item.createdAt;
  const [selectedIndex,setSelectedIndex]=useState(0),[selectedImage,setSelectedImage]=useState("");
  const selected=variants[selectedIndex];
  const images=Array.from(new Set([...(selected?.images??[]),...(product.images??[])].map(image=>image.url)));
@@ -53,7 +54,7 @@ export function OwnProductContents({detail,savedAt}:{detail:CollectionDetail;sav
    <ProductGallery images={images} url={activeImage} onSelect={setSelectedImage}/>
    <Card className="space-y-6 p-6" role="region" aria-label="选中SKU资料">
     <div className="flex items-start justify-between gap-4"><div><h2 className="text-lg font-semibold">商品概览</h2><p className="mt-1 text-sm text-muted-foreground">{product.category_path?.length?product.category_path.join(" / "):"已保存的自有商品原始资料"}</p></div><Package size={24} className="shrink-0 text-muted-foreground" aria-hidden="true"/></div>
-    <dl className="grid gap-4 sm:grid-cols-2"><div><dt className="text-xs text-muted-foreground">品牌</dt><dd className="mt-1 text-sm font-medium">{product.brand||"未填写"}</dd></div><div><dt className="text-xs text-muted-foreground">{savedAt?"保存时间":"创建时间"}</dt><dd className="mt-1 text-sm">{savedAt||item.createdAt?new Date(savedAt||item.createdAt).toLocaleString("zh-CN"):"未提供"}</dd></div></dl>
+    <dl className="grid gap-4 sm:grid-cols-2"><div><dt className="text-xs text-muted-foreground">品牌</dt><dd className="mt-1 text-sm font-medium">{product.brand||"未填写"}</dd></div><div><dt className="text-xs text-muted-foreground">{savedAt?"保存时间":"创建时间"}</dt><dd className="mt-1 text-sm">{displayDate?new Date(displayDate).toLocaleString("zh-CN"):"未提供"}</dd></div></dl>
     {selected?<><label className="grid gap-2 text-sm">当前SKU<Select value={String(selectedIndex)} onChange={event=>selectVariant(Number(event.target.value))}>{variants.map((variant,index)=><option key={index} value={String(index)}>{variant.sku||"未填写SKU"} · {variantLabel(variant)}</option>)}</Select></label>
      {selected.attributes?.length?<div className="flex flex-wrap gap-2">{selected.attributes.map((attribute,index)=><Badge key={index} variant="outline" className="whitespace-normal break-words">{attribute.name}：{attribute.value}</Badge>)}</div>:null}
      <div className="grid gap-5 rounded-xl border border-border bg-muted/40 p-5 sm:grid-cols-2"><div><p className="text-xs text-muted-foreground">来源价格</p><p className="mt-2 text-3xl font-semibold tracking-tight">{selected.price?.amount!==undefined?`${selected.price.currency||""} ${selected.price.amount}`.trim():"未填写"}</p></div><div><p className="text-xs text-muted-foreground">来源库存</p><p className="mt-2 text-3xl font-semibold tracking-tight">{selected.stock??0} 件</p></div></div>

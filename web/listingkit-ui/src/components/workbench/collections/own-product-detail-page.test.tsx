@@ -8,6 +8,13 @@ vi.mock("@/lib/api/product-collection",async original=>({...await original<objec
 const itemId="550e8400-e29b-41d4-a716-446655440002";
 beforeEach(()=>{state.read.mockReset();state.context={user:{id:"actor-a"},effectiveOrganization:{id:"org-a"},permissions:["workbench.collection.manage"]}});
 afterEach(cleanup);
+it("opens the independent draft entry only when completion and current permissions are available",async()=>{
+ state.context.permissions=["workbench.collection.read","workbench.collection.manage","workbench.supply.read","workbench.supply.manage"];
+ state.read.mockResolvedValue({item:{id:itemId,source:{kind:"own",version:"1",productKey:"own-test"}},product:{title:"商品",variants:[],images:[]}});
+ const view=render(<OwnProductDetailPage itemId={itemId} completionAvailable/>);
+ expect(await screen.findByRole("link",{name:"创建待补全草稿"})).toHaveAttribute("href",`/workbench/data/mine/own/${itemId}/prepare`);
+ view.rerender(<OwnProductDetailPage itemId={itemId}/>);expect(screen.queryByRole("link",{name:"创建待补全草稿"})).not.toBeInTheDocument();
+});
 it("shows a saved SKU name even when it also has sales specifications",async()=>{
  state.read.mockResolvedValue({item:{id:itemId,source:{kind:"own",version:"1",productKey:"own-test"}},product:{title:"商品",variants:[{source_id:"red",sku:"RED",title:"红色常规款",attributes:[{name:"颜色",value:"红色"}],price:{currency:"CNY",amount:0},stock:0}]}});
  render(<OwnProductDetailPage itemId={itemId}/>);

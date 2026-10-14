@@ -4,6 +4,13 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 
 describe("Figma Console navigation contract", () => {
+  it("keeps own-item confirmation and independent draft detail under their current parents",()=>{
+    const id="11111111-1111-4111-8111-111111111111";
+    const confirmation=findConsoleRoute(`/workbench/data/mine/own/${id}/prepare`);
+    expect(confirmation?.node.label).toBe("转入待补全");expect(confirmation?.trail.map(node=>node.label)).toContain("我的数据");
+    const draft=findConsoleRoute(`/workbench/supply/mine/missing/${id}`);
+    expect(draft?.node.label).toBe("待补全草稿");expect(draft?.trail.map(node=>node.label)).toContain("我的供应链");
+  });
   it("keeps the two catalog entries under their Figma parent and real pages", () => {
     const parent = findConsoleRoute("/workbench/supply/catalogs")!;
     expect(parent.node.children?.map(node => [node.label, node.href])).toEqual([

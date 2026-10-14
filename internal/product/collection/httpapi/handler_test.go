@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -32,6 +33,35 @@ func (*serviceFixture) ListItems(context.Context, string, collection.Query) (col
 }
 func (*serviceFixture) ReadItem(context.Context, string) (collection.ItemDetail, error) {
 	return collection.ItemDetail{}, collection.ErrNotFound
+}
+func (*serviceFixture) ReadBatch(_ context.Context, id string) (collection.Batch, error) {
+	if !collection.ValidID(id) {
+		return collection.Batch{}, collection.ErrInvalid
+	}
+	return collection.Batch{ID: id, Name: "自有商品库", Kind: "own", Revision: 3, Count: 2, SupplyTransferSupported: true, CreatedAt: time.Date(2026, 10, 14, 0, 0, 0, 0, time.UTC)}, nil
+}
+
+func TestCollectionBatchReadExposesExistingOwnerRevisionAndRejectsMutationInputs(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	for _, route := range Routes(&serviceFixture{}, func(ctx context.Context, _ string) (context.Context, error) { return ctx, nil }) {
+		router.Handle(route.Method, route.Path, route.Handler)
+	}
+	id := uuid.NewString()
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, BasePath+"/batches/"+id, nil))
+	require.Equal(t, http.StatusOK, response.Code)
+	require.Equal(t, "no-store", response.Header().Get("Cache-Control"))
+	require.Contains(t, response.Body.String(), `"revision":3`)
+	require.Contains(t, response.Body.String(), id)
+	for _, suffix := range []string{"?expectedRevision=3", "?organizationId=foreign"} {
+		response = httptest.NewRecorder()
+		router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, BasePath+"/batches/"+id+suffix, nil))
+		require.Equal(t, http.StatusBadRequest, response.Code)
+	}
+	response = httptest.NewRecorder()
+	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, BasePath+"/batches/"+id, strings.NewReader(`{}`)))
+	require.Equal(t, http.StatusBadRequest, response.Code)
 }
 func (*serviceFixture) ReadOperation(context.Context, string) (collection.Receipt, error) {
 	return collection.Receipt{}, collection.ErrNotFound

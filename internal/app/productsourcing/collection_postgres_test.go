@@ -19,9 +19,13 @@ import (
 	"gorm.io/gorm/logger"
 	"task-processor/internal/authz"
 	"task-processor/internal/imageagent"
+	completionstore "task-processor/internal/integration/persistence/listing/completiondraft"
+	preparationstore "task-processor/internal/integration/persistence/listing/preparation"
 	acquisitionstore "task-processor/internal/integration/persistence/product/acquisition"
 	catalogstore "task-processor/internal/integration/persistence/product/catalog"
 	collectionstore "task-processor/internal/integration/persistence/product/collection"
+	"task-processor/internal/listing/completiondraft"
+	"task-processor/internal/listing/preparation"
 	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/collection"
 	"task-processor/internal/product/sourcing"
@@ -281,6 +285,68 @@ func TestCollectionPublicationUsesOneActualSourceCatalogTransaction(t *testing.T
 		afterFailure, err := service.ReadItem(actor, own.ItemID)
 		require.NoError(t, err)
 		require.Equal(t, current.Item.Source, afterFailure.Item.Source)
+	})
+	t.Run("single own transfer and completion keep the confirmed source after editing", func(t *testing.T) {
+		// Install the existing opt-in owner only in this fresh disposable fixture.
+		require.NoError(t, preparationstore.InstallSchema(db))
+		require.NoError(t, completionstore.InstallSchema(db))
+		require.NoError(t, acquisitionstore.GrantCompletionDraftPermissions(ctx, db))
+		t.Cleanup(func() {
+			require.NoError(t, db.Exec("DROP TABLE listing_completion_draft_commands,listing_completion_draft_heads,listing_completion_draft_records,listing_preparation_sources,listing_preparations").Error)
+		})
+		prepAuth, err := preparation.NewContextAuthorizer(live, permissions)
+		require.NoError(t, err)
+		prepRepo, err := preparationstore.NewRepository(ctx, runtimeDB)
+		require.NoError(t, err)
+		prepService, err := preparation.NewService(prepRepo, service, prepAuth)
+		require.NoError(t, err)
+		selector, err := preparation.NewSourceSelector(prepService, service, prepRepo, snapshots)
+		require.NoError(t, err)
+		draftRepo, err := completionstore.NewRepository(ctx, runtimeDB)
+		require.NoError(t, err)
+		drafts, err := completiondraft.NewService(selector, service, prepService, prepAuth, draftRepo)
+		require.NoError(t, err)
+		before, err := service.ReadItem(actor, own.ItemID)
+		require.NoError(t, err)
+		batch, err := service.ReadBatch(actor, before.Item.BatchID)
+		require.NoError(t, err)
+		key := uuid.NewString()
+		input := preparation.TransferInput{BatchID: batch.ID, ExpectedRevision: batch.Revision, ItemIDs: []string{own.ItemID}}
+		transfer, err := prepService.Transfer(actor, key, input)
+		require.NoError(t, err)
+		require.EqualValues(t, 1, transfer.Preparation.Count)
+		selected, err := prepService.ListSources(actor, transfer.Preparation.ID, collection.Query{Limit: 2})
+		require.NoError(t, err)
+		require.Len(t, selected.Items, 1)
+		fixed := selected.Items[0]
+		require.Equal(t, before.Item.Source, fixed.Source)
+		write, err := drafts.Save(actor, uuid.NewString(), completiondraft.SaveInput{SourceID: fixed.ID, Content: completiondraft.Content{Title: "独立候选草稿", Description: "候选描述"}})
+		require.NoError(t, err)
+		require.Equal(t, fixed, write.Record.Source)
+		next := ownInput
+		next.Title = "后来编辑的来源商品"
+		_, err = service.Mutate(actor, uuid.NewString(), collection.Mutation{Action: "revise_product", ItemID: own.ItemID, ExpectedRevision: before.Item.Revision, ExpectedSourceVersion: before.Item.Source.Version, ExpectedPublicationID: before.Item.Source.PublicationID, Product: &next})
+		require.NoError(t, err)
+		_, err = prepService.Transfer(actor, uuid.NewString(), input)
+		require.ErrorIs(t, err, collection.ErrConflict, "old confirmation cannot transfer newly edited content")
+		replay, err := prepService.Transfer(actor, key, input)
+		require.NoError(t, err)
+		require.True(t, replay.Replayed)
+		require.Equal(t, transfer.Preparation, replay.Preparation)
+		read, err := drafts.Read(actor, fixed.ID)
+		require.NoError(t, err)
+		require.Equal(t, write.Record, read)
+		proof, err := selector.Select(actor, fixed.ID)
+		require.NoError(t, err)
+		_, retained, snapshot, err := proof.Read(actor)
+		require.NoError(t, err)
+		require.Equal(t, before.Item.Source, retained.Source)
+		require.Equal(t, before.Product, snapshot.Snapshot)
+		require.Len(t, snapshot.Snapshot.Variants, 2)
+		require.Zero(t, snapshot.Snapshot.Variants[0].Price.Amount)
+		require.Zero(t, snapshot.Snapshot.Variants[0].Stock)
+		_, err = drafts.Read(acquisitionIdentity(scope.OrganizationID, "other-actor"), fixed.ID)
+		require.Error(t, err)
 	})
 	require.NoError(t, db.Exec("DROP TABLE product_collection_operations,product_collection_items,product_collection_batches").Error)
 	_, err = captures.Capture(actor, uuid.NewString(), body)
