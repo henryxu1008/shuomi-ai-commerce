@@ -6,8 +6,8 @@
 > prerequisite for current internal-trial development or user acceptance. Valid
 > authentication, isolation and data-protection behavior is still verified under
 > the current owners' actual scope. [The retirement design](../architecture/release-identity-preflight-retirement.md)
-> is a proposal only; old evidence is preserved and no source/runtime/data
-> operation has been executed by this documentation change.
+> is user-confirmed and its source retirement is implemented. Old evidence is
+> preserved; no runtime, IAM, instance or data operation follows from this checklist.
 
 Use this checklist for each controlled customer-trial release. It records
 evidence and a human Go/No-Go decision; passing local or CI checks alone does

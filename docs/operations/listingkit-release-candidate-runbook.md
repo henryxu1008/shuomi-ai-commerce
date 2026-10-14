@@ -6,10 +6,10 @@
 > rollback protocol, not the current private-manifest delivery entry. Its old
 > migrations, preflight and release steps are not current implementation gates.
 > Valid identity, isolation and backup/recovery requirements remain with their
-> current owners. See [the proposed retirement boundary](../architecture/release-identity-preflight-retirement.md)
+> current owners. See [the approved retirement boundary](../architecture/release-identity-preflight-retirement.md)
 > and [current internal-trial modules](../../deployments/docker/account-compose/MODULES.md).
-> The proposal has not been implemented: this notice does not declare source
-> retirement, approve deployment or revoke existing runs/IAM/services.
+> The old source entrypoints and identity-preflight are now retired under that
+> boundary. This does not approve deployment or revoke existing runs/IAM/services.
 
 Use this runbook for a customer-trial release candidate (RC). It separates
 evidence collection from the human Go/No-Go decision and keeps API and UI
