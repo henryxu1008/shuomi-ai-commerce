@@ -76,7 +76,20 @@ func TestBinaryInitializesEmptyPostgresExactly(t *testing.T) {
 	if err := db.Raw(`SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' ORDER BY table_name`).Scan(&tables).Error; err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"goose_source_account_registry_version", "source_account_operations", "source_account_resources"}
+	// RUN-1 installs current account-profile and verification schemas in the
+	// source-account pool as well; no historical migration table is required.
+	want := []string{
+		"account_business_profile_audit_events",
+		"account_business_profiles",
+		"account_user_preferences",
+		"goose_account_profile_version",
+		"goose_source_account_registry_version",
+		"personal_verification_applications",
+		"source_account_operations",
+		"source_account_resources",
+		"subject_verification_applications",
+		"subject_verification_messages",
+	}
 	if !slices.Equal(tables, want) {
 		t.Fatalf("public tables = %v, want %v", tables, want)
 	}

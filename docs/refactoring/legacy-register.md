@@ -109,6 +109,27 @@ data, provider or user acceptance is claimed.
 
 ## 2. Active register
 
+### #529 Source Account historical migration tool retirement
+
+`cmd/source-account-ownership-preflight` was the only production consumer of
+`internal/integration/persistence/sourceaccount/ownershipmigration`; its only
+operational wrapper was `scripts/source-account-ownership-preflight.ps1`. All
+three are RETIRE under the approved greenfield decision. The unused A/B1
+prepare/schema/snapshot/receipt and platform-specific profile validation source,
+embedded SQL and tests that assert only the cancelled migration are removed.
+No replacement migration owner, facade, command or runtime path is introduced.
+
+Current SourceAccountRegistry, its app-owned schema initializer and valid
+authorization/organization/idempotency tests remain. The maintained command
+inventory is narrowed; the superseded operational report and historical A/B1
+evidence remain explicitly historical. Existing source-absence and actual
+command-dependency guards prevent revival without a new scan framework.
+
+This bounded removal has no tenantbridge import edge; its seven-edge freeze is
+unchanged. Other Store-history/identity-preflight and standalone SHEIN consumers
+remain #529/#301 debt, including the unchanged release identity gate. This is
+source retirement, not a real migration, cleanup, deployment or user acceptance.
+
 ### #678 current-application tenantbridge dependency exit
 
 The dedicated SHEIN worker's valid process assembly is extracted directly to
