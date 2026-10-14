@@ -50,6 +50,16 @@ it("keeps local changes after a conflict and asks before abandoning them",async(
  expect(await screen.findByText("资料已发生变化，请刷新后重试。")).toBeInTheDocument();expect(state.push).not.toHaveBeenCalled();
  await userEvent.click(screen.getByRole("button",{name:"取消并返回详情"}));expect(confirm).toHaveBeenCalledOnce();expect(state.push).not.toHaveBeenCalled();confirm.mockRestore();
 });
+it("does not reuse a fresh base with stale restored content after original-key conflict",async()=>{
+ const pending:CollectionIntent={userId:"actor-a",organizationId:"org-a",key:itemId,command:{action:"revise_product",itemId,expectedRevision:1,expectedSourceVersion:"1",expectedPublicationId:itemId,product:{title:"旧版待核实内容",description:"",images:[]}}};
+ state.context.pendingCollectionIntent=pending;state.item.mockResolvedValue(savedDetail);state.read.mockRejectedValue(new CollectionAPIError("NOT_FOUND",404));state.mutate.mockRejectedValue(new CollectionAPIError("REVISION_CONFLICT",409));
+ render(<OwnProductEditPage itemId={itemId}/>);await screen.findByDisplayValue("旧版待核实内容");
+ await userEvent.click(screen.getByRole("button",{name:"核实原操作"}));await userEvent.click(await screen.findByRole("button",{name:"重试原请求"}));
+ await screen.findByText("资料已发生变化，请刷新后重试。");
+ expect(screen.getByRole("button",{name:"保存新版本"})).toBeDisabled();expect(screen.getByLabelText("商品名称")).toBeDisabled();
+ await userEvent.click(screen.getByRole("button",{name:"保存新版本"}));expect(state.mutate).toHaveBeenCalledOnce();
+ expect(state.mutate.mock.calls[0][0]).toEqual(pending);
+});
 
 it("merges delayed upload callbacks into current images and locks image editing during pending upload",async()=>{
  render(<OwnProductEntryPage/>);
