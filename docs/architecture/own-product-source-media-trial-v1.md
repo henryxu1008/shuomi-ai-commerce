@@ -32,7 +32,7 @@ Design Basis: **Independent Architecture**。Admission Status: **IMPLEMENTATION_
 
 ## 持久化、启动和恢复
 
-复用[企业容量批准合同](enterprise-storage-capacity-v1.md)：原商业owner已初始化容量表及runtime权限，先只读核实本独立实例的实际schema/ACL；不跑非空Product初始化、不重置商业价格/权益，不改权限或schema。第一次启用按原S3 bucket Owner.ID与空`product-source/` prefix登记；后续启动沿原namespace登记，不因图片已保存重新要求空库。
+复用[企业容量批准合同](enterprise-storage-capacity-v1.md)：原商业owner已初始化容量表及runtime权限，先只读核实本独立实例的实际schema/ACL；不跑非空Product初始化、不重置商业价格/权益，不改权限或schema。正式S3仍按bucket Owner.ID登记；本机MinIO按下方已核实的provider deployment ID依据登记空`product-source/` prefix。后续启动沿原namespace登记，不因图片已保存重新要求空库。
 
 容量/对象与商品UoW保持既有分离：上传成功而未保存商品，图片仍是已计量候选；重复上传同内容不产生新身份/双占用。不自行清理未引用文件。
 
@@ -47,3 +47,19 @@ Legacy decision: N/A；只消费当前SourceMedia/S3/容量/UoW，不包裹Image
 TDD先捕获：默认模式拒绝localhost；仅正确显式试用配置准入；精确已读回对象URL成功，错origin/key/编码/query/flag/容量配置拒绝；生产图片代理只接纳固定来源对象、拒redirect/任意private目标；GET核实不丢Upload pending，同文件重放后容量恰好占一次；正式公网模式不受影响。复用原签名不可变S3读回与容量/权限测试，验证实际Core→HTTP消费，不建新runner。
 
 正常浏览器完成两张不同图片上传、分配不同SKU、保存、刷新、切换准确图片，并保留此前六SKU/两属性商品。复用相关Go/frontend检查与稳定候选PR CI，最终独立复核仅覆盖本轮增量；实现者验证不代签用户/生产验收。
+
+## 真实启动发现的MinIO身份BLOCKER增量
+
+Admission Status: **REOPENED / REVIEW_PENDING**（仅本节新增依据；未修改部分沿原728c7ab准入）。50f507f06真实启动无法完成核心happy path：签名GetBucketAcl成功但Owner.ID为空，原容量合同拒绝；签名ACL/list/versioning响应也无deployment header。MinIO固定版本[官方ACL实现](https://raw.githubusercontent.com/minio/minio/RELEASE.2025-04-22T22-12-26Z/cmd/acl-handlers.go)返回dummy ACL，不能伪造owner、凭据hash、改匿名政策或跳过容量作为修复。
+
+有界只读实测：本项目provider卷`.minio.sys/format.json.id`与原官方`mc admin info`的`deploymentID`同为非空规范UUID；后者是有签名认证的MinIO只读ServerInfo，不是S3响应header。增量仅为默认关闭、明确来源试用的物理实例身份准入，不建设通用provider平台、账本或恢复协议。
+
+私有`sourceMediaIsolatedTrialDeploymentID`只与原sourceMediaIsolatedTrial一起使用，必填且规范非零UUID；正式模式出现该字段、trial缺字段或其它endpoint均拒绝。setup从本项目已有provider对象卷只读取得ID，首次pin进原runtime manifest；重配若已有pin与卷ID不等则拒绝，不能重pin掩盖实例替换。
+
+复用官方MinIO madmin-go SDK的只读ServerInfo，沿相同loopback endpoint/现有本项目凭据、不用环境proxy、不redirect、保留正常TLS。构造API与HTTP容量meter前均比较认证返回deploymentID与pin；失败/空/不匹配拒绝。namespace=Digest(["isolated-source-minio",endpoint,region,bucket,deploymentID])，不依赖可轮换凭据；第一次仍要求空prefix、后续仍原Ensure/RequireNamespace。S3 aws/cos正式owner证明不增加空owner fallback。对象不可变PUT、内容读回、scope授权、容量/商品事实owner和schema全部不变。
+
+调用：Config校验及Core字段→runtime prepareStorageCapacity、HTTP collection source-media容量接线→同一个来源专用resolver→原namespace仓储/meter。原生成图/Knowledge/Ecoservices继续原S3 resolver。只修改本次来源接线，避免把试用policy扩到其它消费者。
+
+增量验证先RED：仅完整显式trial及规范pin准入；真实形状ServerInfo认证只读且正确ID成功、空/错/无权限/redirect拒绝；相同实例凭据变化namespace稳定；正式空ACL仍拒绝；runtime/HTTP消费同resolver；实际MinIO首次与已有图片重启都可用。该BLOCKER影响图片试用启动，不授权新schema/ACL或接受容量风险。
+
+同时发现新main未开放Store模块与保留实例旧schema不一致。该模块无应用/观测/运行任务，不属于本轮自有商品结果；本项目私有配置关闭未开放Store模块并保留其数据库，产品owner与原六SKU商品不变。没有执行旧数据迁移/非空Product初始化。正常保留start采用分步--no-deps启动已准备服务，避免重新运行schema/bootstrap setup。
