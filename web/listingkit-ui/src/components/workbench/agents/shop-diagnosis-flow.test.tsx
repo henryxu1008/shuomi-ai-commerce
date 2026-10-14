@@ -345,6 +345,18 @@ it("switches from viewed history to the newly prepared exact comparison", async 
   expect(screen.queryByText(/旧比较目标/)).toBeNull();
   expect(writes).toHaveLength(2);
   expect(writes[1].path).toMatch(/prepare$/);
+  const key = writes[1].key;
+  fireEvent.click(screen.getByRole("button", {name:/stopped/}));
+  await screen.findByText(/旧比较目标/);
+  fireEvent.click(await screen.findByRole("button", {name:"返回待确认的诊断"}));
+  await waitFor(()=>expect(screen.queryByText(/旧比较目标/)).toBeNull());
+  const reread = screen.queryByRole("button", {name:"核对确认依据"});
+  if(reread) fireEvent.click(reread);
+  await waitFor(()=>expect(screen.getByRole("button", {name:"确认生成建议"})).toBeEnabled());
+  expect(writes.every(w=>!w.path.endsWith("/runs"))).toBe(true);
+  fireEvent.click(screen.getByRole("button", {name:"确认生成建议"}));
+  await screen.findByRole("button", {name:"核实原请求"});
+  expect(writes[writes.length-1].key).toBe(key);
 });
 
 it("keeps an outstanding historical run from starting a new paid diagnosis", async () => {

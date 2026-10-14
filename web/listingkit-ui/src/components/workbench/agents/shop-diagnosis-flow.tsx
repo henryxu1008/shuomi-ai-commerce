@@ -489,6 +489,11 @@ export function ShopDiagnosisFlow({
           <p>
             建议保存在原运行历史，所有模式均只提供建议，不修改店铺、财务或商品。
           </p>
+          {currentPointer?.contextId !== saved.prepared.contextId || currentPointer?.key !== saved.prepared.requestKey ? (
+            <Button variant="outline" disabled={locked} onClick={() => setChosenRun({contextId:saved!.prepared.contextId,key:saved!.prepared.requestKey})}>
+              返回待确认的诊断
+            </Button>
+          ) : null}
           {!run.data && !preparedFactsMatch ? <>
             <p>请核对本次准备结果对应的经营事实；事实已变化时，重新准备分析。</p>
             <Button variant="outline" disabled={locked} onClick={() => void inspect()}>
