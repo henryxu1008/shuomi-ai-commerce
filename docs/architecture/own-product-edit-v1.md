@@ -12,7 +12,7 @@ Product/Figma Authority沿[Final UI/IA](../product/final-ui-ia-authority.md)、[
 
 Must：完整预填与独立编辑保存；同一itemId/productKey、batch、商品数量保持；追加不可变新快照；旧快照/已创建草稿固定引用保留；并发/移动/归档冲突拒绝；原键幂等及UNKNOWN；当前企业/actor权限；未经修改的数据准确保留（含0价格/库存、稳定variant sourceId、通用图与SKU图分别保存、既有多张SKU图和自定义SKU标题）。
 
-Out of Scope：采集/市场等其它来源编辑；草稿自动升级、AI建议/图片批准/平台发布；历史列表/回滚UI；库存实时同步、资金、真实provider；新schema/数据迁移、对象删除/清理、新恢复或验收平台、合并/关单/共享或生产部署。没有新增Accepted Risk。
+Out of Scope：采集/市场等其它来源编辑；草稿自动升级、AI建议/图片批准/平台发布；历史列表/回滚UI；库存实时同步、资金、真实provider；新schema/数据迁移、对象删除/清理、新恢复或验收平台、合并/关单/共享或生产部署。没有新增Accepted Risk。2026-10-14 用户新增历史阶段决定仅替代“历史列表UI”，见[历史读取合同](own-product-history-v1.md)；回滚仍未开放。
 
 ## 唯一owner与版本语义
 

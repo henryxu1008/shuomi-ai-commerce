@@ -8,6 +8,12 @@ vi.mock("@/lib/api/product-collection",async original=>({...await original<objec
 const itemId="550e8400-e29b-41d4-a716-446655440002";
 beforeEach(()=>{state.read.mockReset();state.context={user:{id:"actor-a"},effectiveOrganization:{id:"org-a"},permissions:["workbench.collection.manage"]}});
 afterEach(cleanup);
+it("shows a saved SKU name even when it also has sales specifications",async()=>{
+ state.read.mockResolvedValue({item:{id:itemId,source:{kind:"own",version:"1",productKey:"own-test"}},product:{title:"商品",variants:[{source_id:"red",sku:"RED",title:"红色常规款",attributes:[{name:"颜色",value:"红色"}],price:{currency:"CNY",amount:0},stock:0}]}});
+ render(<OwnProductDetailPage itemId={itemId}/>);
+ const region=await screen.findByRole("region",{name:"选中SKU资料"});
+ expect(within(region).getByText("红色常规款")).toBeVisible();
+});
 it("shows common attributes and previews the selected SKU with its own image and declared values",async()=>{
  state.read.mockResolvedValue({item:{id:itemId,createdAt:"2026-10-13T12:00:00Z",source:{kind:"own",version:"1",productKey:"own-test"}},product:{title:"棉质上衣",brand:"测试品牌",description:"商品描述",attributes:[{name:"材质",value:"棉"},{name:"适用季节",value:"夏季"}],images:[{url:"https://images.example.org/main.png"}],variants:[{source_id:"red",sku:"RED",attributes:[{name:"颜色",value:"红色"}],price:{currency:"CNY",amount:12},stock:3,images:[{url:"https://images.example.org/red.png"}]},{source_id:"blue",sku:"BLUE",attributes:[{name:"颜色",value:"蓝色"}],price:{currency:"CNY",amount:0},stock:0,images:[{url:"https://images.example.org/blue.png"}]}]}});
  render(<OwnProductDetailPage itemId={itemId}/>);

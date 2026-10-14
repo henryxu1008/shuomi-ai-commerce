@@ -2,13 +2,14 @@ import { z } from "zod";
 import { isAcquisitionUUID } from "./product-acquisition";
 
 export const COLLECTION_MAX_BYTES = 2 * 1024 * 1024;
-export type CollectionRoute = "batches" | "items" | "own" | "detail" | "operation" | "command" | "import-preview" | "import-template" | "media-upload" | "media-read";
+export type CollectionRoute = "batches" | "items" | "own" | "detail" | "history" | "history-detail" | "operation" | "command" | "import-preview" | "import-template" | "media-upload" | "media-read";
 export const collectionID = z.string().refine(isAcquisitionUUID);
 const bytes = (max: number) => z.string().refine(value => new TextEncoder().encode(value).length <= max && !value.includes("\0"));
 const revision = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
 const count = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
 const timestamp = z.iso.datetime({ offset: true });
-const version = z.string().regex(/^[1-9][0-9]{0,18}$/).refine(value => BigInt(value) <= BigInt("9223372036854775807"));
+export const collectionVersion = z.string().regex(/^[1-9][0-9]{0,18}$/).refine(value => /^[1-9][0-9]{0,18}$/.test(value)&&BigInt(value) <= BigInt("9223372036854775807"));
+const version = collectionVersion;
 const name = bytes(200).refine(value => value.length > 0 && value.trim() === value && !/[\r\n]/.test(value));
 const httpsURL = bytes(2048).refine(value => { try { const url = new URL(value); return url.protocol === "https:" && url.hostname !== "" && !url.username && !url.password && !url.hash; } catch { return false; } });
 const attributes = z.record(bytes(200), bytes(8192)).refine(value => Object.keys(value).length <= 256);
@@ -71,6 +72,12 @@ export const collectionDetailSchema = z.object({ item: collectionItemSchema, pro
 export type CollectionBatch = z.infer<typeof collectionBatchSchema>;
 export type CollectionItem = z.infer<typeof collectionItemSchema>;
 export type CollectionDetail = z.infer<typeof collectionDetailSchema>;
+const ownHistoryItem=collectionItemSchema.refine(item=>item.source.kind==="own");
+const ownVersion=z.object({version,publicationId:collectionID,savedAt:timestamp,title:bytes(2000)});
+export const collectionOwnHistorySchema=z.object({item:ownHistoryItem,versions:z.array(ownVersion).max(20),nextBefore:version.optional()}).refine(value=>collectionVersion.safeParse(value.item.source.version).success&&value.versions.every(entry=>collectionVersion.safeParse(entry.version).success)&&value.versions.every((entry,index)=>BigInt(entry.version)<=BigInt(value.item.source.version)&&(index===0||BigInt(entry.version)<BigInt(value.versions[index-1]!.version))&&(entry.version!==value.item.source.version||entry.publicationId===value.item.source.publicationId))&&(!value.nextBefore||value.nextBefore===value.versions.at(-1)?.version));
+export const collectionOwnVersionSchema=z.object({item:ownHistoryItem,version:ownVersion,product:collectionDetailSchema.shape.product}).refine(value=>collectionVersion.safeParse(value.item.source.version).success&&collectionVersion.safeParse(value.version.version).success&&BigInt(value.version.version)<=BigInt(value.item.source.version)&&(value.version.version!==value.item.source.version||value.version.publicationId===value.item.source.publicationId)&&value.version.title===value.product.title);
+export type OwnHistory=z.infer<typeof collectionOwnHistorySchema>;
+export type OwnVersionDetail=z.infer<typeof collectionOwnVersionSchema>;
 
 export function collectionPath(method: string, path: string[]): CollectionRoute | null {
   if (path[0] !== "collections") return null;
@@ -79,6 +86,10 @@ export function collectionPath(method: string, path: string[]): CollectionRoute 
   if(path.length===2&&path[1]==="media"&&method==="POST")return "media-upload";
   if(path.length===3&&path[1]==="media"&&method==="GET"&&mediaHashSchema.safeParse(path[2]).success)return "media-read";
   if (method !== "GET") return null;
+  if(path[1]==="items"&&isAcquisitionUUID(path[2]??"")&&path[3]==="history"){
+    if(path.length===4)return "history";
+    if(path.length===5&&collectionVersion.safeParse(path[4]).success)return "history-detail";
+  }
   if (path.length === 2 && path[1] === "batches") return "batches";
   if (path.length === 2 && path[1] === "own-products") return "own";
   if (path.length === 4 && path[1] === "batches" && isAcquisitionUUID(path[2]!) && path[3] === "items") return "items";
@@ -86,6 +97,11 @@ export function collectionPath(method: string, path: string[]): CollectionRoute 
   return null;
 }
 export function parseCollectionResponse(route: CollectionRoute, payload: unknown, expectedID?: string): unknown | null {
+  if(route==="history"||route==="history-detail"){
+    const checked=(route==="history"?collectionOwnHistorySchema:collectionOwnVersionSchema).safeParse(payload);if(!checked.success)return null;
+    if(expectedID){const [id,requestedVersion]=expectedID.split(":");if(checked.data.item.id!==id||route==="history-detail"&&("version" in checked.data?checked.data.version.version:undefined)!==requestedVersion)return null;}
+    return checked.data;
+  }
   const schema = route === "media-read" || route === "media-upload" ? mediaImageSchema : route === "import-preview" ? importPreviewSchema : route === "import-template" ? importTemplateSchema : route === "batches" ? collectionBatchesSchema : route === "items" || route === "own" ? collectionItemsSchema : route === "detail" ? collectionDetailSchema : collectionReceiptSchema;
   const parsed = schema.safeParse(payload);
   if (!parsed.success || route === "detail" && expectedID && (parsed.data as CollectionDetail).item.id !== expectedID) return null;

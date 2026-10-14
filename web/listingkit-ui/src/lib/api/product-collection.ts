@@ -2,6 +2,7 @@ import { z } from "zod";
 import { COLLECTION_MAX_BYTES, collectionID, collectionCommandSchema, collectionBatchesSchema, collectionItemsSchema, collectionDetailSchema, collectionReceiptSchema, type CollectionCommand } from "../contracts/product-collection";
 import { readBoundedStrictJSON } from "./strict-json-response";
 import {importPreviewSchema,importTemplateSchema,mediaImageSchema,mediaHashSchema} from "../contracts/product-collection";
+import {collectionVersion,collectionOwnHistorySchema,collectionOwnVersionSchema} from "../contracts/product-collection";
 
 export type CollectionScope = Readonly<{ userId: string; organizationId: string }>;
 export type CollectionIntent = Readonly<CollectionScope & { key: string; command: CollectionCommand }>;
@@ -28,6 +29,16 @@ export async function readCollectionItem(scope: CollectionScope, itemId: string,
   const detail = await send(`${base}/items/${itemId}`, scope, collectionDetailSchema, signal);
   if (detail.item.id !== itemId) throw new CollectionAPIError("DEPENDENCY_UNAVAILABLE", 502);
   return detail;
+}
+export async function listOwnHistory(scope:CollectionScope,itemId:string,before?:string,signal?:AbortSignal){
+ collectionID.parse(itemId);if(before)collectionVersion.parse(before);
+ const result=await send(`${base}/items/${itemId}/history?limit=20${before?`&before=${before}`:""}`,scope,collectionOwnHistorySchema,signal);
+ if(result.item.id!==itemId||before&&result.versions.some(entry=>BigInt(entry.version)>=BigInt(before)))throw new CollectionAPIError("DEPENDENCY_UNAVAILABLE",502);return result;
+}
+export async function readOwnVersion(scope:CollectionScope,itemId:string,version:string,signal?:AbortSignal){
+ collectionID.parse(itemId);collectionVersion.parse(version);
+ const result=await send(`${base}/items/${itemId}/history/${version}`,scope,collectionOwnVersionSchema,signal);
+ if(result.item.id!==itemId||result.version.version!==version)throw new CollectionAPIError("DEPENDENCY_UNAVAILABLE",502);return result;
 }
 export function mutateCollection(intent: CollectionIntent, signal?: AbortSignal) {
   const key = collectionID.parse(intent.key);
