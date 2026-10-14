@@ -244,6 +244,9 @@ func buildAgentConfigurationModule(ctx context.Context, db *gorm.DB, resolver or
 			})
 		}
 		if id == agentconfig.SelectionAgentID {
+			if _, err := h.Authorize(ctx, authz.PermissionLocalAgentWrite); err != nil {
+				return nil, "", err
+			}
 			if selection == nil || selection.store == nil {
 				return nil, "", agentconfig.ErrUnavailable
 			}
