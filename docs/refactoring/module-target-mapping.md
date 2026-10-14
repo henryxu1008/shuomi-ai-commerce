@@ -30,6 +30,15 @@ semantics are unchanged. Remaining numeric/SHEIN transport and historical tools
 still require their own #301/#529 retirement; this does not create a new owner
 for their old facts or claim deployment/user acceptance.
 
+### #529 owner-scope tooling calibration
+
+The old owner-scope dry-run/exception cmd and their exclusive process/write
+paths are also RETIRE under #529. The shared ownerreconcile package remains
+consumed by the unchanged identity-preflight read path; only cancelled backfill
+and fixed-snapshot seed methods and write-only tests are removed. The old
+deployment procedure is SUPERSEDED evidence. This does not replace or remove
+the current release gate, shared read policy, schema or real historical data.
+
 ### #529 historical Source Account tooling calibration
 
 The old ownership-preflight cmd, PowerShell wrapper and dedicated
