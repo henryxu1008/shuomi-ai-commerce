@@ -292,13 +292,11 @@ export function ProductSelectionFlow({
     setBusy(true);
     setFailure(undefined);
     try {
-      const contextId =
-        intent.kind === "prepare" ? intent.body.contextId : intent.contextId;
+      const contextId = intent.contextId;
       const result = await readSelectionRun(scope, contextId, intent.key);
       if (!active.current) return;
       setChosenRun({ contextId, key: intent.key });
       if (
-        intent.kind === "prepare" ||
         intent.kind === "start" ||
         (intent.kind === "resume" &&
           BigInt(result.revision) > BigInt(intent.body.revision))
