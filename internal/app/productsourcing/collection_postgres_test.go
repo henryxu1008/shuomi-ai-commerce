@@ -203,6 +203,85 @@ func TestCollectionPublicationUsesOneActualSourceCatalogTransaction(t *testing.T
 		require.Error(t, err)
 	})
 	// Source writer never installs a schema or repairs omitted collection tables.
+	t.Run("own edit appends after derived head and preserves source history", func(t *testing.T) {
+		catalogRepo, err := catalogstore.NewRepository(db)
+		require.NoError(t, err)
+		catalogPublisher, err := catalog.NewPublisher(catalogRepo)
+		require.NoError(t, err)
+		derived := detail.Product
+		derived.Title = "AI derived (not selected)"
+		_, err = catalogPublisher.Publish(actor, catalog.PublishRequest{Identity: catalog.SnapshotIdentity{TenantID: scope.OrganizationID, ProductKey: detail.Item.Source.ProductKey}, PublicationID: uuid.NewString(), Snapshot: derived})
+		require.NoError(t, err)
+		mutation := collection.Mutation{Action: "revise_product", ItemID: own.ItemID, ExpectedRevision: detail.Item.Revision, ExpectedSourceVersion: detail.Item.Source.Version, ExpectedPublicationID: detail.Item.Source.PublicationID, Product: &changed}
+		edited, err := service.Mutate(actor, uuid.NewString(), mutation)
+		require.NoError(t, err)
+		require.Equal(t, own.ItemID, edited.ItemID)
+		current, err := service.ReadItem(actor, own.ItemID)
+		require.NoError(t, err)
+		require.Equal(t, changed.Title, current.Product.Title)
+		require.Equal(t, detail.Item.Source.ProductKey, current.Item.Source.ProductKey)
+		require.Equal(t, detail.Item.CreatedAt, current.Item.CreatedAt)
+		require.EqualValues(t, 3, current.Item.Source.Version)
+		historyReader, err := NewOwnHistoryReader(runtimeDB)
+		require.NoError(t, err)
+		service.WithOwnHistory(historyReader)
+		history, err := service.ListOwnHistory(actor, own.ItemID, 0, 1)
+		require.NoError(t, err)
+		require.Len(t, history.Versions, 1)
+		require.EqualValues(t, 3, history.Versions[0].Version)
+		require.Equal(t, "3", history.NextBefore)
+		older, err := service.ListOwnHistory(actor, own.ItemID, 3, 20)
+		require.NoError(t, err)
+		require.Len(t, older.Versions, 1)
+		require.EqualValues(t, 1, older.Versions[0].Version)
+		require.Equal(t, ownInput.Title, older.Versions[0].Title)
+		require.False(t, older.Versions[0].SavedAt.IsZero())
+		oldDetail, err := service.ReadOwnVersion(actor, own.ItemID, 1)
+		require.NoError(t, err)
+		require.Equal(t, detail.Product, oldDetail.Product)
+		for _, version := range []uint64{2, 4} {
+			_, err = service.ReadOwnVersion(actor, own.ItemID, version)
+			require.ErrorIs(t, err, collection.ErrNotFound)
+		}
+		_, err = service.ListOwnHistory(acquisitionIdentity(scope.OrganizationID, "other-actor"), own.ItemID, 0, 20)
+		require.ErrorIs(t, err, collection.ErrNotFound)
+		for index, variant := range current.Product.Variants {
+			previous := detail.Product.Variants[index]
+			require.Equal(t, previous.SourceID, variant.SourceID)
+			require.Equal(t, previous.Title, variant.Title)
+			require.Equal(t, previous.SKU, variant.SKU)
+			require.Equal(t, previous.Attributes, variant.Attributes)
+			require.Equal(t, previous.Price, variant.Price)
+			require.Equal(t, previous.Stock, variant.Stock)
+			for imageIndex, image := range variant.Images {
+				require.Equal(t, previous.Images[imageIndex].URL, image.URL)
+			}
+		}
+		original, err := snapshots.GetSnapshot(actor, catalog.SnapshotIdentity{TenantID: scope.OrganizationID, ProductKey: detail.Item.Source.ProductKey}, detail.Item.Source.Version)
+		require.NoError(t, err)
+		require.Equal(t, ownInput.Title, original.Snapshot.Title)
+		var count int64
+		require.NoError(t, db.Table("product_collection_items").Where("organization_id=? AND actor_id=? AND product_key=?", scope.OrganizationID, scope.ActorID, detail.Item.Source.ProductKey).Count(&count).Error)
+		require.EqualValues(t, 1, count)
+		_, err = service.Mutate(actor, uuid.NewString(), mutation)
+		require.ErrorIs(t, err, collection.ErrConflict)
+		var evidenceBefore, versionsBefore int64
+		require.NoError(t, db.Table("product_source_publications").Count(&evidenceBefore).Error)
+		require.NoError(t, db.Table("product_snapshot_versions").Count(&versionsBefore).Error)
+		require.NoError(t, db.Exec("CREATE TRIGGER reject_collection_revision BEFORE UPDATE ON product_collection_items FOR EACH ROW EXECUTE FUNCTION reject_collection()").Error)
+		mutation.ExpectedRevision, mutation.ExpectedSourceVersion, mutation.ExpectedPublicationID = current.Item.Revision, current.Item.Source.Version, current.Item.Source.PublicationID
+		_, err = service.Mutate(actor, uuid.NewString(), mutation)
+		require.Error(t, err)
+		require.NoError(t, db.Exec("DROP TRIGGER reject_collection_revision ON product_collection_items").Error)
+		var evidenceAfter, versionsAfter int64
+		require.NoError(t, db.Table("product_source_publications").Count(&evidenceAfter).Error)
+		require.NoError(t, db.Table("product_snapshot_versions").Count(&versionsAfter).Error)
+		require.Equal(t, evidenceBefore, evidenceAfter)
+		require.Equal(t, versionsBefore, versionsAfter)
+		afterFailure, err := service.ReadItem(actor, own.ItemID)
+		require.NoError(t, err)
+		require.Equal(t, current.Item.Source, afterFailure.Item.Source)
+	})
 	require.NoError(t, db.Exec("DROP TABLE product_collection_operations,product_collection_items,product_collection_batches").Error)
 	_, err = captures.Capture(actor, uuid.NewString(), body)
 	require.Error(t, err)

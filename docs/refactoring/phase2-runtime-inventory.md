@@ -1,5 +1,11 @@
 # Phase 2 runtime convergence inventory
 
+> Bounded retirement update (#529 / #301): `internal/tenantbridge/bootstrap`
+> is source-retired after its last production consumer exited. Its entries in
+> dated package maps and phase snapshots below remain historical evidence;
+> they are not live preparation instructions or outstanding bootstrap work.
+> The release identity-preflight and standalone SHEIN consumers remain debt.
+
 > **Classification: MIXED.** `CURRENT CONTRACT` applies only to the executable closure ceilings and the **Legacy consumer register** consumed by architecture/import guards. The initial baseline, dated package maps, phase sequencing, and historical pre-migration snapshots are `DATED EVIDENCE`.
 >
 > The word “migration” in this file describes code/package dependency convergence. It does **not** authorize old business-data migration, legacy profile/account carry-over, compatibility adapters, fallback, dual read/write, or a second fact source. Those are governed by [PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08](../product/greenfield-no-legacy-migration.md) and the [Legacy Hard-Cut Policy](legacy-hard-cut-policy.md).
@@ -301,7 +307,6 @@ internal wiring is intentionally excluded; no other package class is excluded.
 | `task-processor/internal/platform/database` | `task-processor/internal/listingruntime/local` | listing business consumer | listing owner / Phase 5 |
 | `task-processor/internal/platform/database` | `task-processor/internal/shein/pipeline` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/platform/database` | `task-processor/internal/sourceaccount/bootstrap` | organization persistence consumer | organization owner / Phase 7 |
-| `task-processor/internal/platform/database` | `task-processor/internal/tenantbridge/bootstrap` | organization persistence consumer | organization owner / Phase 7 |
 | `task-processor/internal/platform/redis` | `task-processor/internal/crawler/amazon` | crawler business consumer | product + marketplace / Phases 3-4 |
 | `task-processor/internal/platform/redis` | `task-processor/internal/crawler/shared` | crawler business consumer | product + marketplace / Phases 3-4 |
 | `task-processor/internal/platform/queue/rabbitmq` | `task-processor/internal/crawler/fetcher` | crawler business consumer | product + marketplace / Phases 3-4 |

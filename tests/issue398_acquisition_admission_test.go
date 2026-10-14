@@ -59,7 +59,7 @@ func issue398AcquisitionAPIViolations(sources []listingKitImageBoundarySource) (
 			"internal/app/runtime/currentapplication/source_media_storage.go": {"NewClient", "ClientConfig", "NewUploaderWithOptions", "UploaderOptions", "AdaptLogrus", "ArtifactStorageCapabilities", "ArtifactStorageMode"},
 			// #659 frozen capacity design: exact startup identity/empty-prefix proof,
 			// without admission for upload/delete APIs or sibling files.
-			"internal/app/runtime/currentapplication/storage_capacity.go": {"ResolveCapacityNamespace", "VerifyEmptyCapacityPrefix", "ClientConfig"},
+			"internal/app/runtime/currentapplication/storage_capacity.go": {"ResolveCapacityNamespace", "ResolveSourceMediaCapacityNamespace", "VerifyEmptyCapacityPrefix", "ClientConfig"},
 		}},
 		{"internal/app/runtime/currentapplication", issue398HTTP, map[string][]string{"internal/app/runtime/currentapplication/source_media_storage.go": {"ValidatePublicHTTPSURL"}}},
 		// #31 frozen approved-image contract reuses only these current safe leaves.
@@ -77,10 +77,11 @@ func issue398AcquisitionAPIViolations(sources []listingKitImageBoundarySource) (
 			"internal/app/pod/inputs.go":      {"Download", "InspectGeneratedArtifact"},
 		}},
 		{"internal/integration/sds", issue398HTTP, map[string][]string{"internal/integration/sds/mutations.go": {"InspectGeneratedArtifact"}}},
-		{"internal/app/httpapi/collection_source_media.go", "task-processor/internal/app/productsourcing", map[string][]string{"internal/app/httpapi/collection_source_media.go": {"SourceMedia", "SourceMediaStorage"}}},
-		{"internal/app/httpapi/product_collection_application.go", "task-processor/internal/app/productsourcing", map[string][]string{"internal/app/httpapi/product_collection_application.go": {"NewOwnProductWriter", "NewPublishedAcquisitionReader"}}},
+		// #675 frozen source-only local URL policy; no sibling or download admission.
+		{"internal/app/httpapi/collection_source_media.go", "task-processor/internal/app/productsourcing", map[string][]string{"internal/app/httpapi/collection_source_media.go": {"SourceMedia", "SourceMediaStorage", "IsolatedTrialSourceMediaURLPolicy", "NewIsolatedTrialSourceMediaURLPolicy"}}},
+		{"internal/app/httpapi/product_collection_application.go", "task-processor/internal/app/productsourcing", map[string][]string{"internal/app/httpapi/product_collection_application.go": {"NewOwnProductWriter", "NewPublishedAcquisitionReader", "NewOwnHistoryReader"}}},
 		{"internal/app/httpapi/supply_chain_agents.go", "task-processor/internal/app/productsourcing", map[string][]string{"internal/app/httpapi/supply_chain_agents.go": {"NewExecutionPublicationGateway", "NewTransactionReader"}}},
-		{"internal/app/runtime/currentapplication", "task-processor/internal/app/productsourcing", map[string][]string{"internal/app/runtime/currentapplication/source_media_storage.go": {"SourceMediaStorage"}, "internal/app/runtime/currentapplication/runtime.go": {"SourceMediaStorage"}}},
+		{"internal/app/runtime/currentapplication", "task-processor/internal/app/productsourcing", map[string][]string{"internal/app/runtime/currentapplication/source_media_storage.go": {"SourceMediaStorage", "NewIsolatedTrialSourceMediaURLPolicy"}, "internal/app/runtime/currentapplication/runtime.go": {"SourceMediaStorage"}}},
 	}
 	var violations []string
 	for _, source := range sources {
@@ -246,6 +247,9 @@ func TestIssue398CurrentLeafAndInitializerAPIGuard(t *testing.T) {
 		{"module exact published reader", "internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing", "NewPublishedAcquisitionReader", true},
 		{"image module exact scoped receipt reader", "internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing", "NewScopedPublishedAcquisitionReader", true},
 		{"Collection cannot consume image scoped constructor", "internal/app/httpapi/product_collection_application.go", "task-processor/internal/app/productsourcing", "NewScopedPublishedAcquisitionReader", false},
+		{"source module exact trial URL policy", "internal/app/httpapi/collection_source_media.go", "task-processor/internal/app/productsourcing", "NewIsolatedTrialSourceMediaURLPolicy", true},
+		{"trial policy cannot reach acquisition module", "internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing", "NewIsolatedTrialSourceMediaURLPolicy", false},
+		{"trial policy cannot reach runtime sibling", "internal/app/runtime/currentapplication/runtime.go", "task-processor/internal/app/productsourcing", "NewIsolatedTrialSourceMediaURLPolicy", false},
 		{"module exact charge proof owner", "internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing", "NewAcquisitionChargeOwner", true},
 		{"module target subpackage", "internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing/httpapi", "NewPublicAcquisition", false},
 	} {

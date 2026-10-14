@@ -123,8 +123,6 @@ var legacyConsumerBaseline = map[string]struct{}{
 	"internal/app/runtime/listingkitidentitypreflight/runtime_test.go -> task-processor/internal/tenantbridge": {},
 	"internal/sheinlogin/tenant_context.go -> task-processor/internal/tenantbridge":                            {},
 	"internal/sheinlogin/tenant_context_test.go -> task-processor/internal/tenantbridge":                       {},
-	"internal/tenantbridge/bootstrap/configure.go -> task-processor/internal/tenantbridge":                     {},
-	"internal/tenantbridge/bootstrap/configure_test.go -> task-processor/internal/tenantbridge":                {},
 }
 
 func legacyConsumerViolations(sources []listingKitImageBoundarySource, baseline map[string]struct{}) ([]string, error) {

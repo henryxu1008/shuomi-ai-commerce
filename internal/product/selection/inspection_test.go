@@ -103,6 +103,12 @@ func TestInspectionBindsAllPrivateCandidatesAndMakesUnknownFactsExplicit(t *test
 	require.Empty(t, partial.Products, "no partial disclosure when one candidate is unauthorized")
 }
 
+func TestSparseComparisonReportsOmittedMissingFactsAtTheExistingCap(t *testing.T) {
+	product := project(agent.SelectionProductRef{}, collection.ItemDetail{Product: catalog.ProductSnapshot{Variants: make([]catalog.Variant, 6)}})
+	require.Len(t, product.Missing, 32)
+	require.Equal(t, "additional_facts_omitted", product.Missing[31])
+}
+
 func TestInspectionRejectsStaleSelectionAndProposalCannotBorrowEvidence(t *testing.T) {
 	inspector, ctx, choices, store := inspectionFixture(t)
 	binding, out, err := inspector.Prepare(ctx, uuid.NewString(), choices)

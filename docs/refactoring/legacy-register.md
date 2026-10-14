@@ -109,6 +109,23 @@ data, provider or user acceptance is claimed.
 
 ## 2. Active register
 
+### #529 / #301 obsolete identity preparation retirement
+
+The Yudao-to-ZITADEL migration dry-run script and the entire
+`internal/tenantbridge/bootstrap` package, including its dedicated tests, are
+RETIRE. The script generated old account/tenant/email/login/metadata migration
+plans; bootstrap probed historical ZITADEL databases and installed a global
+legacy resolver. Neither has a current production consumer. No maintained
+default command compiles bootstrap, and no replacement preparation path is added.
+
+Their two bootstrap-to-tenantbridge import edges and exact depguard exclusions
+are removed, reducing the frozen baseline from seven to five. The five remaining
+edges belong to the unchanged identity-preflight, SHEIN transport and current
+Workbench isolation test. The tenantbridge resolver itself, shared readers,
+current worker/schema paths and release protection remain unchanged. Historical
+plan and dated inventory entries are evidence, not callable current preparation.
+No old script, database, IAM or provider operation was executed.
+
 ### #529 legacy owner-scope tool retirement
 
 The subsequent #529 owner-scope batch retires the two old reconciliation/seed
@@ -122,8 +139,10 @@ reader and DryRun call. Only its unused Beginner write-handle assignment is
 removed with that retired interface. Read-only scanning, metadata validation,
 fixed-report matching and fail-closed tests remain; the shared package is still
 registered debt, not retired or a new current owner. Passive query/template
-metadata is unchanged. Release workflow/OIDC/RBAC/canary/schema protection and
-seven bridge edges remain intact; no existing database or registry was changed.
+metadata is unchanged. That batch preserved release workflow/OIDC/RBAC/canary/
+schema protection and the then-seven bridge edges; no existing database or
+registry was changed. The subsequent identity-preparation batch above removes
+only two unused bootstrap edges.
 
 ### #529 Source Account historical migration tool retirement
 
@@ -141,8 +160,8 @@ inventory is narrowed; the superseded operational report and historical A/B1
 evidence remain explicitly historical. Existing source-absence and actual
 command-dependency guards prevent revival without a new scan framework.
 
-This bounded removal has no tenantbridge import edge; its seven-edge freeze is
-unchanged. Other Store-history/identity-preflight and standalone SHEIN consumers
+That bounded removal had no tenantbridge import edge and preserved the then-seven
+edge freeze. Other Store-history/identity-preflight and standalone SHEIN consumers
 remain #529/#301 debt, including the unchanged release identity gate. This is
 source retirement, not a real migration, cleanup, deployment or user acceptance.
 

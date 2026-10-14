@@ -9,6 +9,20 @@ const request = (body: string, extra: Record<string, string> = {}) => new Reques
 
 describe("private product collection proxy", () => {
   beforeEach(() => vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL", "http://localhost"));
+  it("binds read-only history routes and rejects extra, duplicate, oversized and mutation inputs",async()=>{
+    for(const [path,query] of [["history","limit=20&before=9007199254740993"],["history/1",""]]){
+      const parts=["collections","items",id,...path.split("/")];
+      const mapped=await buildWorkbenchUpstreamRequest(new Request(`http://localhost/api/workbench/${parts.join("/")}?${query}`,{headers:scope}),parts,"server-token","actor-a");
+      expect(mapped).not.toBeInstanceOf(Response);if(mapped instanceof Response)continue;
+      expect(mapped.sourceMutation).toBe(false);expect(mapped.expectedStoreId).toBe(path==="history"?id:`${id}:1`);
+    }
+    for(const query of ["limit=21","limit=01","before=all","before=9223372036854775808","before=1&before=2","publicationId=foreign"]){
+      const result=await buildWorkbenchUpstreamRequest(new Request(`http://localhost/api/workbench/collections/items/${id}/history?${query}`,{headers:scope}),["collections","items",id,"history"],"server-token","actor-a");
+      expect(result).toBeInstanceOf(Response);if(result instanceof Response)expect(result.status).toBe(400);
+    }
+    const mutation=await buildWorkbenchUpstreamRequest(new Request(`http://localhost/api/workbench/collections/items/${id}/history`,{headers:{...scope,"Idempotency-Key":id}}),["collections","items",id,"history"],"server-token","actor-a");
+    expect(mutation).toBeInstanceOf(Response);if(mutation instanceof Response)expect(mutation.status).toBe(400);
+  });
   it("binds writes to the verified actor and current enterprise", async () => {
     const mapped = await buildWorkbenchUpstreamRequest(request('{"action":"create_batch","name":"批次"}'), ["collections", "commands"], "server-token", "actor-a");
     expect(mapped).not.toBeInstanceOf(Response);

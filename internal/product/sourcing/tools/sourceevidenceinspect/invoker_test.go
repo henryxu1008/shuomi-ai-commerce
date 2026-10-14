@@ -172,7 +172,11 @@ func TestInvokerSafeErrorTaxonomyAndNoPartialOutput(t *testing.T) {
 	}
 }
 
-type blockingPrincipal struct{ observed time.Duration }
+type blockingPrincipal struct {
+	observed         time.Duration
+	observedDeadline time.Time
+	cancel           context.CancelFunc
+}
 
 func (p *blockingPrincipal) ResolvePrincipal(ctx context.Context) (commercetool.Principal, error) {
 	deadline, ok := ctx.Deadline()
@@ -180,6 +184,10 @@ func (p *blockingPrincipal) ResolvePrincipal(ctx context.Context) (commercetool.
 		return commercetool.Principal{}, errors.New("preflight has no deadline")
 	}
 	p.observed = time.Until(deadline)
+	p.observedDeadline = deadline
+	if p.cancel != nil {
+		p.cancel()
+	}
 	<-ctx.Done()
 	return commercetool.Principal{}, ctx.Err()
 }
@@ -201,40 +209,49 @@ func TestInvokerBoundsFreshPreflightByToolDeadline(t *testing.T) {
 
 func TestInvokerPreservesShorterCallerDeadline(t *testing.T) {
 	ctx, c, s, agent, deps, _ := invocationFixture(t)
-	ctx, cancel := context.WithTimeout(ctx, 40*time.Millisecond)
+	ctx, cancel := context.WithTimeout(ctx, Definition().Timeout.Duration/2)
 	defer cancel()
-	blocking := &blockingPrincipal{}
+	callerDeadline, _ := ctx.Deadline()
+	blocking := &blockingPrincipal{cancel: cancel}
 	deps.PrincipalResolver = blocking
 	i, err := NewInvoker(c, s, agent, deps)
 	if err != nil {
 		t.Fatal(err)
 	}
 	_, err = i.Invoke(ctx, callMetadata(), Input{ProductKey: "product", CatalogVersion: "1"})
-	if err == nil || blocking.observed <= 0 || blocking.observed > 40*time.Millisecond || c.calls != 0 {
-		t.Fatalf("caller deadline lost: %s %v", blocking.observed, err)
+	if err == nil || !blocking.observedDeadline.Equal(callerDeadline) || c.calls != 0 {
+		t.Fatalf("caller deadline lost: observed=%s caller=%s err=%v", blocking.observedDeadline, callerDeadline, err)
 	}
 }
 
-type waitingCatalog struct{ observed time.Duration }
+type waitingCatalog struct {
+	observed time.Time
+	cancel   context.CancelFunc
+}
 
 func (r *waitingCatalog) GetSnapshot(ctx context.Context, _ catalog.SnapshotIdentity, _ uint64) (catalog.PublishedSnapshot, error) {
 	deadline, ok := ctx.Deadline()
 	if !ok {
 		return catalog.PublishedSnapshot{}, errors.New("no reader deadline")
 	}
-	r.observed = time.Until(deadline)
+	r.observed = deadline
+	r.cancel()
 	<-ctx.Done()
 	return catalog.PublishedSnapshot{}, ctx.Err()
 }
 
-type waitingSource struct{ observed time.Duration }
+type waitingSource struct {
+	observed time.Time
+	cancel   context.CancelFunc
+}
 
 func (r *waitingSource) Read(ctx context.Context, _ string) (sourcing.PersistedPublication, error) {
 	deadline, ok := ctx.Deadline()
 	if !ok {
 		return sourcing.PersistedPublication{}, errors.New("no source deadline")
 	}
-	r.observed = time.Until(deadline)
+	r.observed = deadline
+	r.cancel()
 	<-ctx.Done()
 	return sourcing.PersistedPublication{}, ctx.Err()
 }
@@ -242,10 +259,11 @@ func TestInvokerBoundsOwnerReadsByEarlierCallerDeadline(t *testing.T) {
 	for _, phase := range []string{"catalog", "source"} {
 		t.Run(phase, func(t *testing.T) {
 			ctx, c, s, agent, deps, _ := invocationFixture(t)
-			ctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
+			ctx, cancel := context.WithTimeout(ctx, Definition().Timeout.Duration/2)
 			defer cancel()
-			cr := &waitingCatalog{}
-			sr := &waitingSource{}
+			callerDeadline, _ := ctx.Deadline()
+			cr := &waitingCatalog{cancel: cancel}
+			sr := &waitingSource{cancel: cancel}
 			var snapshots catalog.VersionedSnapshotReader = c
 			var sources SourceReader = s
 			if phase == "catalog" {
@@ -262,8 +280,8 @@ func TestInvokerBoundsOwnerReadsByEarlierCallerDeadline(t *testing.T) {
 			if phase == "source" {
 				observed = sr.observed
 			}
-			if commercetool.CodeOf(err) != commercetool.ErrorDeadlineExceeded || len(result.Output) != 0 || observed <= 0 || observed > 50*time.Millisecond {
-				t.Fatalf("reader deadline lost: observed=%s %v", observed, err)
+			if commercetool.CodeOf(err) != commercetool.ErrorDeadlineExceeded || len(result.Output) != 0 || !observed.Equal(callerDeadline) {
+				t.Fatalf("reader deadline lost: observed=%s caller=%s err=%v", observed, callerDeadline, err)
 			}
 		})
 	}

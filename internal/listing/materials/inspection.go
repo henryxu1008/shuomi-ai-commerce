@@ -50,11 +50,12 @@ type Disclosure struct {
 }
 
 type DisclosedAsset struct {
-	ID     string     `json:"id"`
-	Role   asset.Role `json:"role"`
-	URL    string     `json:"url"`
-	Width  int        `json:"width"`
-	Height int        `json:"height"`
+	ID                string                        `json:"id"`
+	Role              asset.Role                    `json:"role"`
+	URL               string                        `json:"url"`
+	Width             int                           `json:"width"`
+	Height            int                           `json:"height"`
+	OfficialPlacement *asset.ImageOfficialPlacement `json:"officialPlacement,omitempty"`
 }
 
 func (i Inspection) Disclose() (Disclosure, error) {
@@ -73,7 +74,7 @@ func (i Inspection) Disclose() (Disclosure, error) {
 	}
 	d := Disclosure{EvidenceID: i.EvidenceID, Binding: i.Binding, Revision: i.Base.Revision, StoreID: i.Base.Input.StoreID, Draft: i.Base.Input.Draft, Product: canonical.Snapshot, Rules: i.Rules, Assets: []DisclosedAsset{}, Issues: i.Base.Result.Issues}
 	for _, a := range i.Inventory.Assets {
-		d.Assets = append(d.Assets, DisclosedAsset{a.ID, a.Role, a.URL, a.Width, a.Height})
+		d.Assets = append(d.Assets, DisclosedAsset{a.ID, a.Role, a.URL, a.Width, a.Height, a.OfficialPlacement})
 	}
 	raw, err := json.Marshal(d)
 	if err != nil || len(raw) > MaxInspectionBytes {

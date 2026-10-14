@@ -32,6 +32,7 @@ import (
 	reviewstore "task-processor/internal/integration/persistence/product/review"
 	"task-processor/internal/knowledge"
 	"task-processor/internal/ledger/orgresource"
+	"task-processor/internal/listing/materials"
 	productasset "task-processor/internal/product/asset"
 	"task-processor/internal/product/review"
 	"task-processor/internal/workbenchcontext"
@@ -290,6 +291,18 @@ func testProductAgentOwners(t *testing.T, mode string) {
 			}
 			require.NotEmpty(t, evidence, "proposal cites the actual bounded disclosure")
 			content = `{"Kind":"propose","DomainProposal":{"Kind":"listing-materials-v1","Payload":{"brandCode":"fixture-brand","evidenceIds":["` + evidence + `"]}}}`
+			if strings.Contains(mode, "receipt collision") {
+				var action map[string]any
+				require.NoError(t, json.Unmarshal([]byte(content), &action))
+				notes := make([]string, 4096)
+				action["Unresolved"] = notes
+				encoded, err := json.Marshal(action)
+				require.NoError(t, err)
+				var admitted agent.Action
+				require.NoError(t, json.Unmarshal(encoded, &admitted))
+				require.NoError(t, (materials.ModelAdmission{}).ValidateAction(admitted))
+				content = string(encoded)
+			}
 			if strings.Contains(mode, " qualified") {
 				content = `{"Kind":"propose","DomainProposal":{"Kind":"listing-materials-v1","Payload":{"images":[{"group":"skc","skc":0,"sku":0,"asset_id":"qualified-main","sort":1,"type":1},{"group":"skc","skc":0,"sku":0,"asset_id":"qualified-detail","sort":3,"type":2},{"group":"skc","skc":0,"sku":0,"asset_id":"qualified-square","sort":2,"type":5}],"evidenceIds":["` + evidence + `"]}}}`
 			}
@@ -378,6 +391,9 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	if strings.HasPrefix(mode, "supply materials") {
 		policy := settings.TextPolicies["B"]
 		policy.Profile.PromptVersion, policy.Profile.OutputSchemaVersion = agentconfig.MaterialsPromptVersion, agentconfig.MaterialsActionVersion
+		if strings.Contains(mode, "receipt collision") {
+			policy.Profile.MaximumOutputBytes = agent.MaxModelOutputBytes
+		}
 		settings.MaterialsTextPolicies = map[string]governed.RoutePolicy{"B": policy}
 	}
 	if mode == "diagnosis" {

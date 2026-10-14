@@ -120,3 +120,33 @@ func TestMaterialsInspectionRejectsDriftAndOversizedDisclosure(t *testing.T) {
 	_, err = NewInspection(value.Base, value.Product, value.Rules, value.Inventory)
 	require.ErrorIs(t, err, ErrInspectionTooLarge)
 }
+
+func TestMaterialImagesKeepTheirApprovedOfficialPlacement(t *testing.T) {
+	value := materialInspection(t)
+	value.Inventory.Assets[0].OfficialPlacement = &asset.ImageOfficialPlacement{Group: "skc", SKC: 0, SKU: 0, Type: 1, Sort: 1, Site: "shein-us"}
+	value.Base.InventoryHash = collection.Digest(value.Inventory)
+	value, err := NewInspection(value.Base, value.Product, value.Rules, value.Inventory)
+	require.NoError(t, err)
+	original := goods.OfficialImageSlot{Group: "skc", SKC: 0, SKU: 0, AssetID: "approved", Type: 1, Sort: 1}
+	for _, change := range []func(*goods.OfficialImageSlot){
+		func(s *goods.OfficialImageSlot) { s.Group = "spu" },
+		func(s *goods.OfficialImageSlot) { s.SKC++ },
+		func(s *goods.OfficialImageSlot) { s.SKU++ },
+		func(s *goods.OfficialImageSlot) { s.Type++ },
+		func(s *goods.OfficialImageSlot) { s.Sort++ },
+	} {
+		slot := original
+		change(&slot)
+		images := []goods.OfficialImageSlot{slot}
+		_, err := Preview(value, Proposal{Images: &images, EvidenceIDs: []string{value.EvidenceID}})
+		require.ErrorIs(t, err, ErrInvalidProposal)
+	}
+	images := []goods.OfficialImageSlot{original}
+	_, err = Preview(value, Proposal{Images: &images, EvidenceIDs: []string{value.EvidenceID}})
+	require.NoError(t, err)
+	disclosed, err := value.Disclose()
+	require.NoError(t, err)
+	require.Equal(t, value.Inventory.Assets[0].OfficialPlacement, disclosed.Assets[0].OfficialPlacement)
+	disclosed.Assets[0].OfficialPlacement.Sort++
+	require.Equal(t, 1, value.Inventory.Assets[0].OfficialPlacement.Sort, "the model disclosure must not alias approved placement facts")
+}

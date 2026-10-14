@@ -28,15 +28,16 @@ type DesignExecutionAuthorizer interface {
 	AuthorizePODDesign(context.Context, collection.Scope) error
 }
 type OriginalInputs struct {
-	ArtworkOriginGuard   ArtworkOriginAuthorizer
-	RequestAuthorization collection.Authorizer
-	Collections          *collection.Service
-	Authorization        collection.ExecutionAuthorizer
-	DesignAuthorization  DesignExecutionAuthorizer
-	Approvals            asset.ApprovalCommitReader
-	Snapshots            catalog.VersionedSnapshotReader
-	Applied              review.AppliedPublicationLookup
-	ImageHTTP            *http.Client
+	GeneratedArtworkBytes func(context.Context, collection.Scope, pod.ArtworkReference, asset.ApprovedAsset, int64) ([]byte, bool, error)
+	ArtworkOriginGuard    ArtworkOriginAuthorizer
+	RequestAuthorization  collection.Authorizer
+	Collections           *collection.Service
+	Authorization         collection.ExecutionAuthorizer
+	DesignAuthorization   DesignExecutionAuthorizer
+	Approvals             asset.ApprovalCommitReader
+	Snapshots             catalog.VersionedSnapshotReader
+	Applied               review.AppliedPublicationLookup
+	ImageHTTP             *http.Client
 }
 
 type ArtworkOriginAuthorizer interface {
@@ -150,7 +151,17 @@ func (r OriginalInputs) bytes(ctx context.Context, scope collection.Scope, ref p
 	}
 	ctx, cancel := context.WithTimeout(ctx, 8*time.Second)
 	defer cancel()
-	raw, e := httpimage.Download(ctx, r.ImageHTTP, approved.URL, pod.MaxArtworkBytes)
+	var raw []byte
+	generated := false
+	if r.GeneratedArtworkBytes != nil {
+		raw, generated, e = r.GeneratedArtworkBytes(ctx, scope, ref, approved, pod.MaxArtworkBytes)
+		if e != nil {
+			return nil, ref, e
+		}
+	}
+	if !generated {
+		raw, e = httpimage.Download(ctx, r.ImageHTTP, approved.URL, pod.MaxArtworkBytes)
+	}
 	if e != nil {
 		return nil, ref, pod.ErrUnavailable
 	}

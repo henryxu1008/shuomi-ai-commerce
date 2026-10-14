@@ -231,11 +231,7 @@ func factID(ref agent.SelectionProductRef, path string, value json.RawMessage) s
 }
 func project(ref agent.SelectionProductRef, detail collection.ItemDetail) Product {
 	p := Product{Ref: ref, SourceKind: detail.Item.Source.Kind, Facts: []Fact{}, Missing: []string{"sales", "market_demand", "shipping", "commission", "tax", "landed_cost"}}
-	missing := func(path string) {
-		if len(p.Missing) < 32 {
-			p.Missing = append(p.Missing, path)
-		}
-	}
+	missing := func(path string) { addMissing(&p, path) }
 	add := func(path string, value any, known bool) {
 		if !known {
 			missing(path)

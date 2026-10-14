@@ -27,6 +27,7 @@ import (
 	kernelmodule "task-processor/internal/kernel/module"
 	"task-processor/internal/product/asset"
 	"task-processor/internal/product/collection"
+	"task-processor/internal/product/pod"
 	"task-processor/internal/product/supplymarket"
 	markethttp "task-processor/internal/product/supplymarket/httpapi"
 	"task-processor/internal/workbenchcontext"
@@ -37,15 +38,16 @@ type SupplyMarketDependencies struct {
 	Storage supplymarket.PrivateFileStorage
 }
 type PODDependencies struct {
-	ArtworkOriginGuard  podapp.ArtworkOriginAuthorizer
-	SourceApprovalGuard asset.SourceApprovalCommitGuard
-	AssetDB             *gorm.DB
-	Credentials         sds.CredentialSource
-	HTTP                *http.Client
-	OSSHosts            []string
-	Starter             podapp.Starter
-	NewWorker           podapp.WorkerFactory
-	Worker              *podapp.Worker
+	GeneratedArtworkBytes func(context.Context, collection.Scope, pod.ArtworkReference, asset.ApprovedAsset, int64) ([]byte, bool, error)
+	ArtworkOriginGuard    podapp.ArtworkOriginAuthorizer
+	SourceApprovalGuard   asset.SourceApprovalCommitGuard
+	AssetDB               *gorm.DB
+	Credentials           sds.CredentialSource
+	HTTP                  *http.Client
+	OSSHosts              []string
+	Starter               podapp.Starter
+	NewWorker             podapp.WorkerFactory
+	Worker                *podapp.Worker
 }
 
 func WithSupplyMarket(d SupplyMarketDependencies) CurrentApplicationOption {
@@ -95,7 +97,7 @@ func buildSupplyMarketModule(ctx context.Context, db *gorm.DB, d SupplyMarketDep
 		if e = assetstore.VerifySourceRuntimePermissions(ctx, p.AssetDB); e != nil {
 			return empty, e
 		}
-		pod, e := podapp.NewApplication(ctx, podapp.Dependencies{ArtworkOriginGuard: p.ArtworkOriginGuard, SourceApprovalGuard: p.SourceApprovalGuard, ProductDB: db, AssetDB: p.AssetDB, Authorization: auth, OriginalAuthorization: original, DesignAuthorization: original, Collections: collections, Credentials: p.Credentials, HTTP: p.HTTP, OSSHosts: p.OSSHosts, Starter: p.Starter, ReceiveProduct: productsourcing.ReceivePOD})
+		pod, e := podapp.NewApplication(ctx, podapp.Dependencies{GeneratedArtworkBytes: p.GeneratedArtworkBytes, ArtworkOriginGuard: p.ArtworkOriginGuard, SourceApprovalGuard: p.SourceApprovalGuard, ProductDB: db, AssetDB: p.AssetDB, Authorization: auth, OriginalAuthorization: original, DesignAuthorization: original, Collections: collections, Credentials: p.Credentials, HTTP: p.HTTP, OSSHosts: p.OSSHosts, Starter: p.Starter, ReceiveProduct: productsourcing.ReceivePOD})
 		if e != nil {
 			return empty, e
 		}
