@@ -423,12 +423,15 @@ automatic `workflow_run` gate. If a manual UI gate is required, supply both
 API attempt. UI tag events build and push only; they never mutate production.
 
 The ListingKit deployment workflow runs the ListingKit schema migration gate
-before the identity preflight. For an environment carrying the reviewed
-system-owned exception set, run the one-shot
-`scripts/listingkit-owner-scope-exceptions.ps1` seeder after that migration and
-before the preflight. The seeder validates the live report fingerprint and
-counts, so an empty or newly changed exception set remains a release blocker;
-the workflow never copies approved exceptions into an unrelated database.
+before the identity preflight. The former owner-scope exception seeder applied
+only to the historical report `648cdfab03c4`; its CLI, wrapper and write path
+are retired under #529 and
+[PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08](../../../docs/product/greenfield-no-legacy-migration.md).
+The current source tree does not offer an old-data reconciliation or seed step.
+Identity preflight still reads the existing exception registry, validates exact
+matches and fails closed on unresolved data or missing/invalid dependencies.
+This source retirement does not seed, erase or alter an existing registry and
+does not change workflow/OIDC/RBAC/canary gates or authorize deployment.
 
 ### Identity preflight release gate
 
@@ -498,7 +501,16 @@ Treat the API and UI as one coordinated release:
 A partial API/UI rollout is not release acceptance. The preflight is
 release-scoped and intentionally absent from the base Kustomization.
 
-### One-time owner reconciliation
+### Historical one-time owner reconciliation (SUPERSEDED)
+
+The following procedure is historical evidence for the cancelled legacy
+owner-migration direction. Both owner-scope commands, their process assembly,
+wrappers and exclusive write APIs have been retired under #529; the commands
+below are unavailable in the current source tree. Do not use this historical
+section as a current preparation step or permission to touch existing data.
+The shared read-only report/metadata/exception checks remain with the existing
+identity-preflight gate; current initialization and backup/recovery paths keep
+their own requirements.
 
 The release preflight is a blocker, not a migration command. For a database
 that has already completed the legacy migration, run the reconciliation tool
