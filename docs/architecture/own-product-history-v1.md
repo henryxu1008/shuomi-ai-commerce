@@ -22,7 +22,7 @@ Must：历史列表按真实手工保存版本倒序分页、真实保存时间�
 
 GET `/collections/items/:item_id/history?limit=20&before=<version>`：limit 1..20，before 可选规范正十进制字符串 <=MaxInt64，表示严格早于该版本；返回 current item、至多 limit 个 `{version,publicationId,savedAt,title}`，有后页才返回 nextBefore。before 是筛选边界，不是授权证据，不接受客户端 org/actor/productKey/publication/head。没有伪造 total。
 
-GET `/collections/items/:item_id/history/:version`：version 同上，只允许在上述手工历史集合中的准确 Source 发布，返回 current item、selected version 元数据、该发布已验证的 product。未来版本、衍生版本、其它商品/actor/org 返回 NOT_FOUND；格式/重复/未知 query、GET body/Idempotency-Key 拒绝。两 GET 沿 verified identity/live membership、`workbench.collection.read`、no-store、现 15s Collection timeout、单响应 2MiB；历史引用查询限制 limit+1，详细内容沿现 Source/Catalog 2MiB 单快照边界。
+GET `/collections/items/:item_id/history/:version`：version 同上，只允许在上述手工历史集合中的准确 Source 发布，返回 current item、selected version 元数据、该发布已验证的 product。未来版本、衍生版本、其它商品/actor/org 返回 NOT_FOUND；格式/重复/未知 query、GET body/Idempotency-Key 拒绝。两 GET 沿 verified identity/live membership、`workbench.collection.read`、no-store、现 10s Collection timeout、单响应 2MiB；历史引用查询限制 limit+1，详细内容沿现 Source/Catalog 2MiB 单快照边界。
 
 `route descriptor → 原 BFF allowlist/严格校验 → Collection.Service → 原 actor-scoped Repository.ReadItem → 新 Sourcing 只读 history reader → 原 Source 内部读取与 Catalog binding → 对外 projection`。生产构造器显式注入 history reader，无可选 legacy fallback。完成读取后再次实时授权并复读活跃 item/相同 productKey；撤权/换企业/归档不交付已读取资料。移动分组不撤销原 actor 商品读取权；编辑并发只改变当前引用，已选不可变旧版保持准确且不升级为新版。
 
