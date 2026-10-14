@@ -2,7 +2,7 @@ import {z} from "zod";
 import {readBoundedStrictJSON} from "./strict-json-response";
 import {SupplyAPIError,type SupplyScope} from "./supply-chain";
 import {collectionID} from "../contracts/product-collection";
-import {materialsRunSchema,targetReceiptSchema} from "../contracts/supply-chain";
+import {materialsRunSchema,materialsAdoptionSchema} from "../contracts/supply-chain";
 import {materialsPrepareSchema,materialsPreparedSchema,materialsStartSchema,materialsResumeSchema,materialsAdoptSchema} from "../contracts/listing-materials";
 
 export type MaterialsPrepared=z.infer<typeof materialsPreparedSchema>;
@@ -37,5 +37,5 @@ export async function startMaterials(scope:SupplyScope,recordId:string,key:strin
 }
 export async function readMaterials(scope:SupplyScope,recordId:string,key:string,signal:AbortSignal){return exactRun(await send(scope,recordId,`/runs/${collectionID.parse(key)}`,materialsRunSchema,signal),recordId,key)}
 export async function resumeMaterials(scope:SupplyScope,recordId:string,key:string,input:z.infer<typeof materialsResumeSchema>,signal:AbortSignal){return exactRun(await send(scope,recordId,`/runs/${collectionID.parse(key)}/resume`,materialsRunSchema,signal,materialsResumeSchema.parse(input)),recordId,key)}
-export const adoptMaterials=(scope:SupplyScope,recordId:string,key:string,input:MaterialsAdopt,signal:AbortSignal)=>send(scope,recordId,`/runs/${collectionID.parse(key)}/adopt`,targetReceiptSchema,signal,materialsAdoptSchema.parse(input));
-export const readMaterialsAdoption=(scope:SupplyScope,recordId:string,key:string,signal:AbortSignal)=>send(scope,recordId,`/runs/${collectionID.parse(key)}/adoption`,targetReceiptSchema,signal);
+export const adoptMaterials=(scope:SupplyScope,recordId:string,key:string,input:MaterialsAdopt,signal:AbortSignal)=>send(scope,recordId,`/runs/${collectionID.parse(key)}/adopt`,materialsAdoptionSchema,signal,materialsAdoptSchema.parse(input));
+export const readMaterialsAdoption=(scope:SupplyScope,recordId:string,key:string,signal:AbortSignal)=>send(scope,recordId,`/runs/${collectionID.parse(key)}/adoption`,materialsAdoptionSchema,signal);
