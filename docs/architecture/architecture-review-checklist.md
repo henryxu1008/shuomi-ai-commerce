@@ -112,6 +112,7 @@ consider the applicable guards, including:
 - `TestSupplyMarketHTTPBoundaryRegistration` — permits only the approved Supply Market and POD HTTP subtrees; rejects domain roots, siblings and similar prefixes.
 - `TestDataServiceHTTPBoundaryRegistration` — permits only the approved Data Service HTTP subtree; rejects its domain, DI assembly, siblings and similar prefixes.
 - `TestProjectCenterHTTPBoundaryRegistration` — permits only the approved Project Center HTTP subtree; rejects the domain root and similar prefixes.
+- `TestSkillHTTPBoundaryRegistration` — permits only the approved Skill HTTP subtree; rejects domain contracts, siblings and similar prefixes.
 - `depguard: source_handoff_legacy_http`
 - `TestSourceHandoffLegacyHTTPImportsStayRetiredAcrossBuildTargets`
 - `TestAlibaba1688CrawlerDoesNotImportListingKitRoot`

@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	confighttp "task-processor/internal/agentconfig/httpapi"
 	"task-processor/internal/httproute"
+	skillhttp "task-processor/internal/skill/httpapi"
 )
 
 func agentAndPointRoutes(agent, points bool) []httproute.Descriptor {
@@ -33,12 +34,13 @@ func agentAndPointRoutes(agent, points bool) []httproute.Descriptor {
 
 func TestCurrentApplicationConfigurationMountsWithoutExecution(t *testing.T) {
 	routes := append(agentAndPointRoutes(false, false), confighttp.Routes(nil)...)
+	routes = append(routes, skillhttp.Routes(nil)...)
 	validate := func(r []httproute.Descriptor) error {
 		return validateCurrentApplicationRoutesInternal(r, false, false, false, false, false, false, false, currentApplicationOptionalRoutes{AgentConfiguration: true})
 	}
 	require.NoError(t, validate(routes))
 	for i, route := range routes {
-		if route.Module != confighttp.Module {
+		if route.Module != confighttp.Module && route.Module != "skills" {
 			continue
 		}
 		changed := append([]httproute.Descriptor(nil), routes...)

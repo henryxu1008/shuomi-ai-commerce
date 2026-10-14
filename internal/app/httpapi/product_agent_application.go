@@ -29,6 +29,7 @@ import (
 	assetstore "task-processor/internal/integration/persistence/product/asset"
 	catalogstore "task-processor/internal/integration/persistence/product/catalog"
 	reviewstore "task-processor/internal/integration/persistence/product/review"
+	skillstore "task-processor/internal/integration/persistence/skill"
 	"task-processor/internal/knowledge"
 	"task-processor/internal/listing/readiness/tools/readinessinspect"
 	"task-processor/internal/product/asset/tools/assetinspect"
@@ -71,6 +72,7 @@ type ProductAgentInvocationLedger interface {
 }
 
 type productAgentApplication struct {
+	skills                  *skillstore.Store
 	materials               *listingMaterialsApplication
 	content                 *productAgentApplication
 	configuration           *configstore.Store
@@ -316,6 +318,16 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 	a.content, err = buildContentProductApplication(ctx, a, reader, sources, repo, deps, contexts)
 	if err != nil {
 		return nil, err
+	}
+	a.reviews.WithExecutionGate(a.acquireSkillReview)
+	if a.executionReviews != nil {
+		a.executionReviews.WithExecutionGate(a.acquireSkillReview)
+	}
+	if a.policyAdoption != nil {
+		a.policyAdoption.WithExecutionGate(a.acquireSkillReview)
+	}
+	if a.executionPolicyAdoption != nil {
+		a.executionPolicyAdoption.WithExecutionGate(a.acquireSkillReview)
 	}
 	return a, nil
 }

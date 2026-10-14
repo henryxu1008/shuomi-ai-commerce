@@ -20,6 +20,7 @@ import (
 	governed "task-processor/internal/integration/aicapability/einomodel"
 	k "task-processor/internal/knowledge"
 	"task-processor/internal/product/enrichment"
+	skill "task-processor/internal/skill"
 
 	sigjson "sigs.k8s.io/json"
 )
@@ -46,6 +47,7 @@ type AgentTextModel struct {
 	selection          bool
 	selectionAdmission SelectionModelAdmission
 	selectionDispatch  func(context.Context, agent.ModelInput) error
+	skills             SkillContext
 	content            bool
 	materials          bool
 	materialsAdmission MaterialsModelAdmission
@@ -88,6 +90,7 @@ Large tool outputs use a title-evidence-v1 view: evidence contains exact whole f
 Use Kind=interrupt when required evidence is absent. A proposal never applies changes. Address deterministic Validation failures with at most two repairs. Report uncertainty honestly.`
 
 type preparedAgentText struct {
+	skill     *skill.Package
 	knowledge *k.ContextBundle
 	ctx       context.Context
 	identity  agent.ExecutionIdentity
@@ -122,6 +125,7 @@ func (m *AgentTextModel) RouteReadinessForVerifiedOrganization(ctx context.Conte
 func (m *AgentTextModel) prepare(ctx context.Context, in agent.ModelInput) (preparedAgentText, error) {
 	var p preparedAgentText
 	if m == nil || ctx == nil || ctx.Err() != nil || !in.ConfigurationSnapshotRef.ValidOrAbsent() ||
+		!in.SkillVersionRef.ValidOrAbsent() || !in.SkillVersionRef.Absent() && (!m.content || !in.ContentSelection.TitleOnly()) ||
 		in.ConfigurationSnapshotRef.Absent() || !in.ContextSnapshotRef.ValidOrAbsent() ||
 		!in.Binding.Valid() || !agent.ValidID(in.AgentRunID) || !agent.ValidID(in.PromptVersion) {
 		return p, agent.ErrInvalid
@@ -152,7 +156,7 @@ func (m *AgentTextModel) prepare(ctx context.Context, in agent.ModelInput) (prep
 		snapshot.MemberID != identity.MemberID || !in.ModeSnapshotRef.Valid() || snapshot.Request.ModeSnapshotRef != in.ModeSnapshotRef ||
 		snapshot.Request.Binding != in.Binding || snapshot.Request.ContextSnapshotRef != (agent.ContextSnapshotRef{}) ||
 		snapshot.Request.PolicyVersion != in.PolicyVersion || snapshot.Request.PromptVersion != in.PromptVersion ||
-		snapshot.Request.ContentSelection != in.ContentSelection || snapshot.Request.GoalSummary != in.GoalSummary || !agent.ValidGoalSummary(in.GoalSummary) {
+		snapshot.Request.ContentSelection != in.ContentSelection || snapshot.Request.SkillVersionRef != in.SkillVersionRef || snapshot.Request.GoalSummary != in.GoalSummary || !agent.ValidGoalSummary(in.GoalSummary) {
 		return p, agent.ErrUnavailable
 	}
 	// ContextSnapshotRef is materialized after AgentConfig.Prepare; the exact
@@ -209,11 +213,16 @@ func (m *AgentTextModel) prepare(ctx context.Context, in agent.ModelInput) (prep
 	if err != nil {
 		return p, err
 	}
+	p.skill, err = m.readSkill(p, in)
+	if err != nil {
+		return p, err
+	}
 	prompt, err := json.Marshal(struct {
 		Input        agent.ModelInput
 		AllowedTools []commercetool.ToolRef
 		Knowledge    *k.ContextBundle `json:",omitempty"`
-	}{in, m.tools, p.knowledge})
+		Skill        *skill.Package   `json:",omitempty"`
+	}{in, m.tools, p.knowledge, p.skill})
 	if err != nil {
 		return p, agent.ErrInvalid
 	}
@@ -230,6 +239,9 @@ func (m *AgentTextModel) prepare(ctx context.Context, in agent.ModelInput) (prep
 	}
 	if p.knowledge != nil {
 		system += "\n" + knowledgeTextSystem
+	}
+	if p.skill != nil {
+		system += "\n" + skillMethodSystem
 	}
 	p.text = aicapability.TextInputIdentity{OrganizationID: identity.OrganizationID, ActorID: identity.ActorID,
 		MemberID: identity.MemberID, Operation: operation,
@@ -302,16 +314,37 @@ func (m *AgentTextModel) Decide(ctx context.Context, in agent.ModelInput) (agent
 				return nil, err
 			}
 		}
+		var releaseSkill func()
+		if p.skill != nil {
+			releaseSkill, err = m.skills.AcquireMethod(gateCtx, identity, in.SkillVersionRef)
+			if err != nil {
+				if releaseSkill != nil {
+					releaseSkill()
+				}
+				return nil, err
+			}
+			if releaseSkill == nil {
+				return nil, agent.ErrUnavailable
+			}
+		}
 		if p.knowledge == nil {
-			return nil, nil
+			return releaseSkill, nil
 		}
 		permit, err := m.knowledge.AcquireDispatchPermit(gateCtx,
 			k.Scope{OrganizationID: p.identity.OrganizationID, ActorID: p.identity.ActorID},
 			knowledgeRef(in.ContextSnapshotRef), in.InvocationID)
 		if err != nil {
+			if releaseSkill != nil {
+				releaseSkill()
+			}
 			return nil, err
 		}
-		return func() { m.releaseKnowledge(ctx, permit) }, nil
+		return func() {
+			m.releaseKnowledge(ctx, permit)
+			if releaseSkill != nil {
+				releaseSkill()
+			}
+		}, nil
 	}
 	output, err := m.executor.GenerateWithGate(p.ctx, p.text, p.quote, validate, beforeSend)
 	if errors.Is(err, governed.ErrNotDispatched) {

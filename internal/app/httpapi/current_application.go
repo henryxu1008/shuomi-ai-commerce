@@ -34,12 +34,15 @@ import (
 	ehttp "task-processor/internal/ecoservices/httpapi"
 	"task-processor/internal/httproute"
 	"task-processor/internal/imageagent"
+	configstore "task-processor/internal/integration/persistence/agentconfig"
 	commercialstore "task-processor/internal/integration/persistence/commercialbilling"
 	moneystore "task-processor/internal/integration/persistence/money"
 	referralstore "task-processor/internal/integration/persistence/referral"
+	skillstore "task-processor/internal/integration/persistence/skill"
 	sourceaccountstore "task-processor/internal/integration/persistence/sourceaccountregistry"
 	capacitystore "task-processor/internal/integration/persistence/storagecapacity"
 	s3integration "task-processor/internal/integration/s3"
+	"task-processor/internal/integration/skillauth"
 	"task-processor/internal/integration/zitadelregistration"
 	kernelmodule "task-processor/internal/kernel/module"
 	"task-processor/internal/knowledge"
@@ -53,6 +56,8 @@ import (
 	collectionhttp "task-processor/internal/product/collection/httpapi"
 	"task-processor/internal/product/sourcing"
 	reporthttp "task-processor/internal/reportcenter/httpapi"
+	"task-processor/internal/skill"
+	skillhttp "task-processor/internal/skill/httpapi"
 	"task-processor/internal/storecenter"
 	storehttp "task-processor/internal/storecenter/httpapi"
 	o "task-processor/internal/storecenter/observations"
@@ -980,6 +985,30 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		}
 		modules = append(modules, m)
 	}
+	if supplied.agentConfigurationDB != nil {
+		access, e := skillauth.New(workbench.authDependencies.organizationResolver, authorizer)
+		if e != nil {
+			return nil, e
+		}
+		h := &skillhttp.Handler{Bind: access.Bind}
+		// Optional capability: verification performs no DDL. An uninstalled
+		// Skill schema reports unavailable without changing existing Agent paths.
+		if skillstore.VerifySchema(ctx, supplied.agentConfigurationDB) == nil {
+			repo, e := skillstore.New(supplied.agentConfigurationDB)
+			if e != nil {
+				return nil, e
+			}
+			h.Service, e = skill.NewService(repo, access.Resolve)
+			if e != nil {
+				return nil, e
+			}
+			h.Policy, e = configstore.New(supplied.agentConfigurationDB)
+			if e != nil {
+				return nil, e
+			}
+		}
+		modules = append(modules, skillhttp.Module{Handler: h})
+	}
 	var projectChat *aiWorkbenchApplication
 	if supplied.aiWorkbench != nil {
 		chatConfig := *supplied.aiWorkbench
@@ -1386,6 +1415,9 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 		for _, r := range confighttp.Routes(nil) {
 			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
 		}
+		for _, r := range skillhttp.Routes(nil) {
+			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
+		}
 	}
 	if optional.Knowledge {
 		for _, r := range knowledgehttp.Routes(&knowledgehttp.Handler{}) {
@@ -1658,6 +1690,14 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 				return errors.New("#36 local trial route loses admitted permission or deadline")
 			}
 		}
+		if strings.HasPrefix(descriptor.Path, skillhttp.Base+"/") {
+			if !optional.AgentConfiguration {
+				return errors.New("skills not admitted")
+			}
+			if e := skillhttp.ValidateDescriptor(descriptor); e != nil {
+				return e
+			}
+		}
 		if strings.HasPrefix(descriptor.Path, confighttp.Base+"/") {
 			if !optional.AgentConfiguration {
 				return errors.New("agent configuration not admitted")
@@ -1743,6 +1783,14 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 	}
 	seen := make(map[currentApplicationRoute]struct{}, len(routes))
 	for _, descriptor := range routes {
+		if strings.HasPrefix(descriptor.Path, skillhttp.Base+"/") {
+			if !optional.AgentConfiguration {
+				return errors.New("skills not admitted")
+			}
+			if e := skillhttp.ValidateDescriptor(descriptor); e != nil {
+				return e
+			}
+		}
 		if strings.HasPrefix(descriptor.Path, confighttp.Base+"/") {
 			if !optional.AgentConfiguration {
 				return errors.New("agent configuration not admitted")

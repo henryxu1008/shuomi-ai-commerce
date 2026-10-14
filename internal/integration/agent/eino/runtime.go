@@ -117,7 +117,7 @@ func (r *Runtime) ResumeWithClaimAttempt(ctx context.Context, request agent.Requ
 }
 
 func (r *Runtime) runWithClaimAttempt(ctx context.Context, request agent.Request, expected uint64, feedback string) (agent.Record, bool, error) {
-	if !request.ContextSnapshotRef.ValidOrAbsent() || !request.ConfigurationSnapshotRef.ValidOrAbsent() {
+	if !request.ContextSnapshotRef.ValidOrAbsent() || !request.ConfigurationSnapshotRef.ValidOrAbsent() || !request.SkillVersionRef.ValidOrAbsent() {
 		return agent.Record{}, false, agent.ErrInvalid
 	}
 	if ctx == nil || r == nil || !request.Binding.Valid() || !request.ValidContentSelection() || !agent.ValidID(request.Key) || !agent.ValidID(request.PolicyVersion) || !agent.ValidID(request.PromptVersion) || !agent.ValidGoalSummary(request.GoalSummary) || !request.Limits.Valid() || request.Limits.Steps > (1<<29) {

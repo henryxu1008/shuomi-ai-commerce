@@ -10,18 +10,30 @@ import (
 )
 
 type Guard struct {
-	db       *gorm.DB
-	config   *Store
-	runs     *runstore.Store
-	ceilings func(string, string) (agent.Limits, error)
-	identity func(context.Context) (agent.ExecutionIdentity, error)
+	db         *gorm.DB
+	config     *Store
+	runs       *runstore.Store
+	ceilings   func(string, string) (agent.Limits, error)
+	identity   func(context.Context) (agent.ExecutionIdentity, error)
+	skillCheck func(context.Context, *gorm.DB, agent.ExecutionIdentity, agent.SkillVersionRef) error
 }
 
 func NewGuard(db *gorm.DB, s *Store, r *runstore.Store, c func(string, string) (agent.Limits, error), identity func(context.Context) (agent.ExecutionIdentity, error)) (*Guard, error) {
 	if db == nil || s == nil || s.db != db || r == nil || !r.UsesPool(db) || c == nil || identity == nil {
 		return nil, agentconfig.ErrUnavailable
 	}
-	return &Guard{db, s, r, c, identity}, nil
+	return &Guard{db: db, config: s, runs: r, ceilings: c, identity: identity}, nil
+}
+
+// WithSkillGuard joins new Skill admission to this existing RunDB transaction.
+// It neither loads method text into the run nor creates another Claim owner.
+func (g *Guard) WithSkillGuard(check func(context.Context, *gorm.DB, agent.ExecutionIdentity, agent.SkillVersionRef) error) (*Guard, error) {
+	if g == nil || check == nil {
+		return nil, agentconfig.ErrUnavailable
+	}
+	copy := *g
+	copy.skillCheck = check
+	return &copy, nil
 }
 func (g *Guard) Claim(ctx context.Context, initial agent.Record, expected uint64) (agent.Record, bool, error) {
 	snap, e := g.config.LoadSnapshot(ctx, initial.State.Scope, initial.State.Request.ConfigurationSnapshotRef)
@@ -88,6 +100,14 @@ func (g *Guard) Claim(ctx context.Context, initial agent.Record, expected uint64
 		}
 		if !agentconfig.LimitsAdmissible(snap.Request.Limits, ceiling) {
 			return agentconfig.ErrChanged
+		}
+		if !command.SkillVersionRef.Absent() {
+			if g.skillCheck == nil {
+				return agentconfig.ErrUnavailable
+			}
+			if e := g.skillCheck(ctx, tx, identity, command.SkillVersionRef); e != nil {
+				return e
+			}
 		}
 		result, acquired, e = g.runs.ClaimInTransaction(ctx, tx, initial, expected)
 		return e
