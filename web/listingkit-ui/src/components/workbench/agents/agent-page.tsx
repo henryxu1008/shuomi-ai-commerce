@@ -27,6 +27,7 @@ import {
 import { basesSchema, knowledgeRequest } from "@/lib/api/knowledge";
 import styles from "./agents.module.css";
 import { ExecutionModeSettings } from "./execution-mode-settings";
+import { SkillManagerTrigger } from "../skills/skill-manager";
 import { ImageAgentPage } from "./image-agent-page";
 import { configurationError, useConfigurationRead as useRead } from "./agent-configuration-hooks";
 import { PrivateAgentCards } from "./private-agent-page";
@@ -400,6 +401,7 @@ function ScopedPage({
         </ConsoleState>
       ) : id && detail ? (
         <>
+          {agentId==="product.content.agent"&&<SkillManagerTrigger key={`${scope.userId}:${scope.organizationId}:${detail.canConfigure}`} scope={scope} space="organization" canConfigure={detail.canConfigure}/>}
           <Card className={styles.detailHead}>
             <div>
               <h2>{agentId === "product.title.agent" ? "商品内容与本地化 · 标题优化配置" : detail.name}</h2>

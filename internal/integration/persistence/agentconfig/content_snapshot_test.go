@@ -14,7 +14,7 @@ import (
 )
 
 func TestContentConfigurationReplayBindsLanguageAndFieldSet(t *testing.T) {
-	_, store, _ := fixture(t)
+	db, store, runs := fixture(t)
 	ctx := context.Background()
 	scope := agent.Scope{OrganizationID: "content-org", ActorID: "content-actor"}
 	enable := command(scope, "enable", 0)
@@ -48,4 +48,31 @@ func TestContentConfigurationReplayBindsLanguageAndFieldSet(t *testing.T) {
 	wrong.AgentID = "product.title.agent"
 	_, err = store.Prepare(ctx, wrong)
 	require.ErrorIs(t, err, agentconfig.ErrInvalid)
+	skillStart := start
+	skillStart.Request.Key = uuid.NewString()
+	skillStart.Request.ContentSelection = enrichment.ContentSelection{TargetLanguage: "en-US", Title: true}
+	skillStart.Request.SkillVersionRef = agent.SkillVersionRef{Kind: "skill-version-v1", ID: uuid.NewString(), OwnerKind: "USER", OwnerID: scope.ActorID, Version: 1, Digest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", PolicyVersion: "skill-method-v1"}
+	skillSnapshot, err := store.Prepare(ctx, skillStart)
+	require.NoError(t, err)
+	changedSkill := skillStart
+	changedSkill.Request.SkillVersionRef.Version = 2
+	_, err = store.Prepare(ctx, changedSkill)
+	require.ErrorIs(t, err, agentconfig.ErrConflict)
+	skillRef := agent.ConfigurationSnapshotRef{Kind: agentconfig.SnapshotKind, ID: skillSnapshot.ID, Digest: skillSnapshot.Digest}
+	_, err = store.Match(ctx, changedSkill, skillRef)
+	require.ErrorIs(t, err, agentconfig.ErrConflict)
+	unsupported := skillStart
+	unsupported.Request.Key = uuid.NewString()
+	unsupported.Request.ContentSelection.Description = true
+	_, err = store.Prepare(ctx, unsupported)
+	require.ErrorIs(t, err, agentconfig.ErrInvalid)
+	guard, err := NewGuard(db, store, runs, func(string, string) (agent.Limits, error) { return skillStart.Request.Limits, nil }, func(context.Context) (agent.ExecutionIdentity, error) {
+		return agent.ExecutionIdentity{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, MemberID: "member"}, nil
+	})
+	require.NoError(t, err)
+	request := skillSnapshot.Request
+	request.ConfigurationSnapshotRef = skillRef
+	_, acquired, err := guard.Claim(ctx, agent.Record{State: agent.State{Scope: scope, Request: request}}, 0)
+	require.ErrorIs(t, err, agentconfig.ErrUnavailable)
+	require.False(t, acquired)
 }

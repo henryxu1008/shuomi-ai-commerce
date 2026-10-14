@@ -28,11 +28,15 @@ import (
 	configstore "task-processor/internal/integration/persistence/agentconfig"
 	assetstore "task-processor/internal/integration/persistence/product/asset"
 	reviewstore "task-processor/internal/integration/persistence/product/review"
+	skillstore "task-processor/internal/integration/persistence/skill"
+	"task-processor/internal/integration/skillauth"
 	"task-processor/internal/knowledge"
 	"task-processor/internal/ledger/orgresource"
 	"task-processor/internal/listing/materials"
 	productasset "task-processor/internal/product/asset"
 	"task-processor/internal/product/review"
+	skill "task-processor/internal/skill"
+	skillhttp "task-processor/internal/skill/httpapi"
 	"task-processor/internal/workbenchcontext"
 
 	"github.com/google/uuid"
@@ -127,7 +131,14 @@ func TestContentHTTPWarningsRemainReadableWithoutAdoption(t *testing.T) {
 }
 
 func testProductAgentOwners(t *testing.T, mode string) {
+	withSkill := strings.Contains(mode, "skill ")
+	mode = strings.Replace(mode, "skill ", "", 1)
 	f := newAcquisitionHTTPFixture(t)
+	if withSkill {
+		pool, e := f.owner.DB()
+		require.NoError(t, e)
+		pool.SetMaxOpenConns(8)
+	}
 	fixtureActor := "admin"
 	if strings.HasPrefix(mode, "supply ") || strings.HasPrefix(mode, "permission ") {
 		fixtureActor = "admin"
@@ -143,6 +154,9 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	require.NoError(t, reviewstore.InstallSchema(f.owner))
 	require.NoError(t, agentstore.InstallSchema(f.owner))
 	require.NoError(t, configstore.InstallSchema(f.owner))
+	if withSkill {
+		require.NoError(t, skillstore.InstallSchema(context.Background(), f.owner))
+	}
 	configuration, configErr := configstore.New(f.owner)
 	require.NoError(t, configErr)
 	_, configErr = configuration.Execute(context.Background(), agentconfig.Command{Scope: agent.Scope{OrganizationID: "B", ActorID: "admin"}, Key: uuid.NewString(), AgentID: "product.title.agent", Operation: "enable", Absent: true})
@@ -168,6 +182,13 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	}
 	var calls atomic.Int32
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if withSkill {
+			raw, e := io.ReadAll(r.Body)
+			require.NoError(t, e)
+			require.Contains(t, string(raw), "Normalize exact saved facts")
+			require.Contains(t, string(raw), "references/style.md")
+			r.Body = io.NopCloser(strings.NewReader(string(raw)))
+		}
 		step := calls.Add(1)
 		cycle := step
 		if strings.HasPrefix(mode, "supply ") {
@@ -252,6 +273,9 @@ func testProductAgentOwners(t *testing.T, mode string) {
 			content = `{"Kind":"tool","Tool":{"ID":"product.source-evidence.inspect","Version":"v2.0.0"}}`
 		case strings.HasPrefix(mode, "content flow") || mode == "supply content":
 			content = `{"Kind":"propose","Candidate":{"Changes":[{"Field":"title","Value":"Localized bottle title","EvidenceIDs":["981645030344"]},{"Field":"description","Value":"Localized bottle description","EvidenceIDs":["981645030344"]},{"Field":"selling_points","Value":"[\"Reusable bottle\"]","EvidenceIDs":["981645030344"]},{"Field":"seo_keywords","Value":"[\"bottle\"]","EvidenceIDs":["981645030344"]}]}}`
+			if withSkill {
+				content = `{"Kind":"propose","Candidate":{"Changes":[{"Field":"title","Value":"Localized bottle title","EvidenceIDs":["981645030344"]}]}}`
+			}
 		case strings.HasPrefix(mode, "supply ") && step > 4 && cycle == 1:
 			content = `{"Kind":"tool","Tool":{"ID":"product.canonical.inspect","Version":"v2.0.0"}}`
 		case strings.HasPrefix(mode, "supply ") && step > 4 && cycle == 2:
@@ -314,7 +338,7 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	var memberReplaced atomic.Bool
 	deps.organizationResolver = workbenchcontext.NewResolver(agentFixtureGrants{base: f.grants, replacement: &memberReplaced}, "project", "v1", nil)
 	var platformUsers []string
-	if mode == "content flow cross-admin configured-user roles revoked" {
+	if mode == "content flow cross-admin configured-user roles revoked" || withSkill {
 		platformUsers = []string{"admin"}
 	}
 	auth, err := authz.NewListingKitAuthorizer(platformUsers, nil)
@@ -366,6 +390,9 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		require.NoError(t, err)
 		modeRevision := "0"
 		selectedMode := strings.TrimPrefix(mode, "content flow ")
+		if withSkill && mode == "content flow bff" {
+			selectedMode = "default"
+		}
 		if strings.HasPrefix(mode, "content flow cross-admin ") {
 			selectedMode = "default"
 		}
@@ -380,9 +407,27 @@ func testProductAgentOwners(t *testing.T, mode string) {
 			require.NoError(t, err)
 			modeRevision = receipt.Revision
 		}
-		app := buildIsolatedApplicationHTTPServer(module.(productAgentModule).routes, deps, 2*time.Minute)
+		routes := module.(productAgentModule).routes
+		if withSkill {
+			repo, e := skillstore.New(f.owner)
+			require.NoError(t, e)
+			access, e := skillauth.New(deps.organizationResolver, auth)
+			require.NoError(t, e)
+			service, e := skill.NewService(repo, access.Resolve)
+			require.NoError(t, e)
+			routes = append(routes, skillhttp.Routes(&skillhttp.Handler{Service: service, Policy: configuration, Bind: access.Bind})...)
+		}
+		app := buildIsolatedApplicationHTTPServer(routes, deps, 2*time.Minute)
 		server := httptest.NewServer(app.Handler)
 		defer server.Close()
+		if withSkill {
+			if mode == "content flow bff" {
+				testSkillBFFClient(t, f, server, op.OperationID, modeRevision)
+				return
+			}
+			testSkillContentFlow(t, f, server, configuration, contentApp, op.OperationID, selectedMode, modeRevision, reviewIAM, &memberReplaced, &calls, strings.TrimPrefix(mode, "content flow cross-admin "))
+			return
+		}
 		key := uuid.NewString()
 		path := productAcquisitionBase + "/" + op.OperationID + "/content-agent/runs"
 		code, raw, err := acquisitionHTTPRequest(server, "POST", path, "admin", "B", key, `{"expectedModeRevision":"`+modeRevision+`","targetPlatform":"product","contentSelection":{"targetLanguage":"en-US","title":true,"description":true,"sellingPoints":true,"seoKeywords":true}}`)

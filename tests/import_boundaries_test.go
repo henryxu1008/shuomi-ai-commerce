@@ -3792,6 +3792,8 @@ func businessHTTPPackages(root string) map[string]struct{} {
 	allowedHTTPPackages[filepath.Clean(filepath.Join(root, "app", "pod", "httpapi"))+string(os.PathSeparator)] = struct{}{}
 	// #570 / PR #571 admits only Agent Configuration's feature-local HTTP adapter.
 	allowedHTTPPackages[filepath.Clean(filepath.Join(root, "agentconfig", "httpapi"))+string(os.PathSeparator)] = struct{}{}
+	// #688 admits only the frozen Skill transport adapter; contracts stay framework-free.
+	allowedHTTPPackages[filepath.Clean(filepath.Join(root, "skill", "httpapi"))+string(os.PathSeparator)] = struct{}{}
 	// #611 admits only the approved customization HTTP adapter, not its domain.
 	allowedHTTPPackages[filepath.Clean(filepath.Join(root, "agentcustomization", "httpapi"))+string(os.PathSeparator)] = struct{}{}
 	allowedHTTPPackages[filepath.Clean(filepath.Join(root, "listingsubscription", "httpapi"))+string(os.PathSeparator)] = struct{}{}
@@ -4003,6 +4005,16 @@ func TestBusinessImplementationPackagesDoNotImportGinDirectly(t *testing.T) {
 		}
 		if _, ok := facts.imports[`"github.com/gin-gonic/gin"`]; ok {
 			t.Errorf("%s imports gin directly; keep HTTP framework dependencies in api/httpapi or explicitly registered legacy HTTP adapter packages", path)
+		}
+	}
+}
+
+func TestSkillHTTPBoundaryRegistration(t *testing.T) {
+	root := filepath.Join("..", "internal")
+	allowed := businessHTTPPackages(root)
+	for path, want := range map[string]bool{"skill/httpapi/handler.go": true, "skill/httpapi/nested/handler.go": true, "skill/service.go": false, "skill/httpapi_extra/handler.go": false, "skill-extra/httpapi/handler.go": false} {
+		if got := pathAllowed(filepath.Join(root, filepath.FromSlash(path)), allowed); got != want {
+			t.Errorf("Skill HTTP boundary allows %s = %v, want %v", path, got, want)
 		}
 	}
 }

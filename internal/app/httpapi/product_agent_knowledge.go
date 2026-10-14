@@ -18,6 +18,7 @@ import (
 	"task-processor/internal/knowledge"
 	"task-processor/internal/product/enrichment"
 	"task-processor/internal/product/review"
+	skill "task-processor/internal/skill"
 )
 
 type productAgentRequestBody struct {
@@ -27,7 +28,30 @@ type productAgentRequestBody struct {
 	Feedback             string                       `json:"feedback,omitempty"`
 	TargetPlatform       string                       `json:"targetPlatform,omitempty"`
 	KnowledgeSelection   json.RawMessage              `json:"knowledgeSelection,omitempty"`
+	SkillSelection       json.RawMessage              `json:"skillSelection,omitempty"`
 	ExpectedModeRevision string                       `json:"expectedModeRevision,omitempty"`
+}
+
+type productSkillSelection struct {
+	SkillID string `json:"skillId"`
+	Version uint64 `json:"version"`
+	Digest  string `json:"digest"`
+}
+
+func (b productAgentRequestBody) skillSelection(action string) (*productSkillSelection, error) {
+	if len(b.SkillSelection) == 0 {
+		return nil, nil
+	}
+	if action != "start" {
+		return nil, agent.ErrInvalid
+	}
+	var s productSkillSelection
+	violations, e := sigjson.UnmarshalStrict(b.SkillSelection, &s)
+	ref := agent.SkillVersionRef{Kind: "skill-version-v1", ID: s.SkillID, Version: s.Version, Digest: s.Digest, OwnerKind: "PLATFORM", OwnerID: "official", PolicyVersion: "skill-method-v1"}
+	if e != nil || len(violations) > 0 || !ref.Valid() {
+		return nil, agent.ErrInvalid
+	}
+	return &s, nil
 }
 
 func (b productAgentRequestBody) templateSelection(action string) (*agentconfig.TemplateRef, error) {
@@ -84,11 +108,17 @@ func (a *productAgentApplication) startRequestWithProfile(ctx context.Context, b
 }
 
 func (a *productAgentApplication) startTextRequest(ctx context.Context, binding agent.Binding, key, baseID, expectedRevisionSet string, template *agentconfig.TemplateRef, expectedProfile aicapability.ModelProfile, goalSummary, expectedModeRevision string, selection enrichment.ContentSelection) (agent.Request, error) {
+	return a.startTextRequestWithSkill(ctx, binding, key, baseID, expectedRevisionSet, template, expectedProfile, goalSummary, expectedModeRevision, selection, nil)
+}
+func (a *productAgentApplication) startTextRequestWithSkill(ctx context.Context, binding agent.Binding, key, baseID, expectedRevisionSet string, template *agentconfig.TemplateRef, expectedProfile aicapability.ModelProfile, goalSummary, expectedModeRevision string, selection enrichment.ContentSelection, method *productSkillSelection) (agent.Request, error) {
 	if !agent.ValidGoalSummary(goalSummary) {
 		return agent.Request{}, agent.ErrInvalid
 	}
 	request := agent.Request{Key: key, Binding: binding, GoalSummary: goalSummary, PolicyVersion: "title-review-v1", PromptVersion: "product-title-agent-v1", Limits: a.config.Limits}
 	content := a.definition.ID == agentconfig.ContentAgentID
+	if method != nil && (!content || !selection.TitleOnly()) {
+		return agent.Request{}, agent.ErrInvalid
+	}
 	if content {
 		if !selection.Valid() {
 			return agent.Request{}, agent.ErrInvalid
@@ -120,6 +150,13 @@ func (a *productAgentApplication) startTextRequest(ctx context.Context, binding 
 		return agent.Request{}, readErr
 	}
 	if found {
+		if method != nil {
+			ref := existing.State.Request.SkillVersionRef
+			if !ref.Valid() || ref.ID != method.SkillID || ref.Version != method.Version || ref.Digest != method.Digest {
+				return agent.Request{}, agentconfig.ErrConflict
+			}
+			input.Request.SkillVersionRef = ref
+		}
 		frozen, err := a.configuration.Match(ctx, input, existing.State.Request.ConfigurationSnapshotRef)
 		if err != nil {
 			return agent.Request{}, err
@@ -138,6 +175,20 @@ func (a *productAgentApplication) startTextRequest(ctx context.Context, binding 
 			}
 		}
 		return existing.State.Request, nil
+	}
+	if method != nil {
+		if a.skills == nil {
+			return agent.Request{}, skill.ErrUnavailable
+		}
+		p, e := a.skillPrincipal(ctx, identity)
+		if e != nil {
+			return agent.Request{}, e
+		}
+		ref, e := a.skills.ResolveSelection(ctx, p, method.SkillID, method.Version, method.Digest)
+		if e != nil {
+			return agent.Request{}, e
+		}
+		input.Request.SkillVersionRef = ref
 	}
 	if a.selectTitleProfile == nil {
 		return agent.Request{}, agent.ErrUnavailable

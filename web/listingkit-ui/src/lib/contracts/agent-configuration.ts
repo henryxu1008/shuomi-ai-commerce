@@ -1,5 +1,6 @@
 import { artworkParametersSchema } from "./artwork-parameters";
 import { z } from "zod";
+import {skillRefSchema} from "./skill";
 import { knowledgeId } from "../api/knowledge";
 import { contentParametersSchema } from "./content-selection";
 export const configVersion = z
@@ -146,6 +147,7 @@ export const recentRunsSchema = page(
     ]),
     revision: configVersion,
     startedAt: timestamp,
+    skillVersionRef:skillRefSchema.optional(),
   }),
   20,
 );
