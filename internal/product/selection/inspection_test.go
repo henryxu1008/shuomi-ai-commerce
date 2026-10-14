@@ -150,6 +150,18 @@ func TestInferredAttributeIsDisclosedAsUncertain(t *testing.T) {
 	require.True(t, found, "an inferred source attribute cannot be presented as a confirmed fact")
 }
 
+func TestVariantAttributesRequireCompletePairs(t *testing.T) {
+	for _, attrs := range [][]catalog.Attribute{{{Name: "color", Value: ""}}, {{Name: "", Value: "red"}}, {{Name: "color", Value: "red"}, {Name: "size", Value: ""}}} {
+		product := project(agent.SelectionProductRef{}, collection.ItemDetail{Product: catalog.ProductSnapshot{Variants: []catalog.Variant{{Attributes: attrs}}}})
+		require.Contains(t, product.Missing, "variants.0.attributes")
+		for _, fact := range product.Facts {
+			require.NotEqual(t, "variants.0.attributes", fact.Path)
+		}
+	}
+	product := project(agent.SelectionProductRef{}, collection.ItemDetail{Product: catalog.ProductSnapshot{Variants: []catalog.Variant{{Attributes: []catalog.Attribute{{Name: "color", Value: "red"}, {Name: "size", Value: "M"}}}}}})
+	require.NotContains(t, product.Missing, "variants.0.attributes")
+}
+
 func TestFiveLegalRichProductsKeepWholeFactsWithinAggregateBudget(t *testing.T) {
 	inspector, ctx, _, store := inspectionFixture(t)
 	var choices []collection.SelectionInput

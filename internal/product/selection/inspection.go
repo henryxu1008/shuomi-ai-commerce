@@ -271,7 +271,14 @@ func project(ref agent.SelectionProductRef, detail collection.ItemDetail) Produc
 		}
 		prefix := "variants." + strconv.Itoa(n)
 		add(prefix+".sku", v.SKU, v.SKU != "")
-		add(prefix+".attributes", variantAttributes(v.Attributes), len(v.Attributes) > 0)
+		attributesKnown := len(v.Attributes) > 0
+		for _, attribute := range v.Attributes {
+			if attribute.Name == "" || attribute.Value == "" {
+				attributesKnown = false
+				break
+			}
+		}
+		add(prefix+".attributes", variantAttributes(v.Attributes), attributesKnown)
 		knownPrice := v.Price != nil && v.Price.Currency != "" && v.Price.Amount >= 0 && !math.IsInf(v.Price.Amount, 0) && !math.IsNaN(v.Price.Amount)
 		if knownPrice {
 			add(prefix+".price", struct {
