@@ -11,10 +11,11 @@ import (
 	"task-processor/internal/integration/operationscockpitauth"
 	persistence "task-processor/internal/integration/persistence/operationscockpit"
 	kernelmodule "task-processor/internal/kernel/module"
-	o "task-processor/internal/storecenter/observations"
 	c "task-processor/internal/operationscockpit"
 	cockpithttp "task-processor/internal/operationscockpit/httpapi"
+	"task-processor/internal/shopdiagnosis"
 	"task-processor/internal/storecenter"
+	o "task-processor/internal/storecenter/observations"
 	"time"
 )
 
@@ -22,7 +23,11 @@ func WithOperationsCockpit() CurrentApplicationOption {
 	return func(o *currentApplicationOptions) { o.operationsCockpits++ }
 }
 
-type operationsCockpitModule struct{ routes []httproute.Descriptor }
+type operationsCockpitModule struct {
+	routes         []httproute.Descriptor
+	diagnosisReads *shopdiagnosis.NativeReader
+	bind           func(context.Context, string) (context.Context, error)
+}
 
 func (operationsCockpitModule) Name() string { return cockpithttp.ModuleName }
 func (operationsCockpitModule) Enabled(cfg *config.Config) bool {
@@ -62,5 +67,9 @@ func buildOperationsCockpit(ctx context.Context, db *gorm.DB, deps routeAuthDepe
 	if err != nil {
 		return nil, err
 	}
-	return operationsCockpitModule{routes: routes}, nil
+	reads := &shopdiagnosis.NativeReader{Repository: repo, Boundary: boundary}
+	if observations != nil {
+		reads.Observations = observations
+	}
+	return operationsCockpitModule{routes: routes, diagnosisReads: reads, bind: boundary.Bind}, nil
 }

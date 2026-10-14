@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"task-processor/internal/product/enrichment"
 	"task-processor/internal/product/selection"
+	"task-processor/internal/shopdiagnosis"
 	"testing"
 	"time"
 
@@ -223,6 +224,35 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		}
 		var content string
 		switch {
+		case mode == "diagnosis" && step == 1:
+			content = `{"Kind":"tool","Tool":{"ID":"shop.operations-diagnosis.inspect","Version":"v1.0.0"}}`
+		case mode == "diagnosis":
+			var wire struct {
+				Messages []struct {
+					Content string `json:"content"`
+				} `json:"messages"`
+			}
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&wire))
+			var disclosure shopdiagnosis.Inspection
+			for _, message := range wire.Messages {
+				var prompt struct {
+					Input struct {
+						History []struct{ Output json.RawMessage }
+					}
+				}
+				if json.Unmarshal([]byte(message.Content), &prompt) == nil {
+					for _, observed := range prompt.Input.History {
+						if got, err := shopdiagnosis.ParseInspection(observed.Output); err == nil {
+							disclosure = got
+						}
+					}
+				}
+			}
+			require.NotEmpty(t, disclosure.Facts)
+			proposal := shopdiagnosis.Proposal{Overview: "根据保存经营事实核对成本", Recommendations: []shopdiagnosis.Recommendation{{Advice: "核对本期人工录入成本", EvidenceIDs: []string{disclosure.Facts[0].ID}}}}
+			action, err := json.Marshal(agent.Action{Kind: "propose", DomainProposal: &agent.DomainProposal{Kind: agentconfig.DiagnosisProposalKind, Payload: mustSelectionJSON(t, proposal)}})
+			require.NoError(t, err)
+			content = string(action)
 		case mode == "selection" && step == 1:
 			content = `{"Kind":"tool","Tool":{"ID":"product.selection.inspect","Version":"v1.0.0"}}`
 		case mode == "selection":
@@ -390,6 +420,13 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		}
 		settings.MaterialsTextPolicies = map[string]governed.RoutePolicy{"B": policy}
 	}
+	if mode == "diagnosis" {
+		policy := settings.TextPolicies["B"]
+		policy.Profile.PromptVersion, policy.Profile.OutputSchemaVersion = agentconfig.DiagnosisPromptVersion, agentconfig.DiagnosisActionVersion
+		settings.DiagnosisTextPolicies = map[string]governed.RoutePolicy{"B": policy}
+		settings.TextPolicies = nil
+	}
+
 	if mode == "selection" {
 		policy := settings.TextPolicies["B"]
 		policy.Profile.PromptVersion, policy.Profile.OutputSchemaVersion = agentconfig.SelectionPromptVersion, agentconfig.SelectionActionVersion
@@ -417,7 +454,7 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	if strings.HasPrefix(mode, "content flow cross-admin ") {
 		reviewIAM = newContentReviewIAM(t, &memberReplaced)
 	}
-	if mode == "selection" {
+	if mode == "selection" || mode == "diagnosis" {
 		for _, limits := range [][2]int{{3, 2}, {4, 1}} {
 			invalid := settings
 			invalid.Limits.Steps, invalid.Limits.ModelCalls = limits[0], limits[1]
@@ -427,6 +464,9 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		}
 		settings.Limits.Steps, settings.Limits.ModelCalls = 4, 2
 		profile := settings.SelectionTextPolicies["B"].ShapeProfile()
+		if mode == "diagnosis" {
+			profile = settings.DiagnosisTextPolicies["B"].ShapeProfile()
+		}
 		cost, quoteErr := profile.MaximumCost()
 		require.NoError(t, quoteErr)
 		for _, short := range []string{"tokens", "cost"} {
@@ -447,6 +487,10 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	}
 	module, err := buildProductAgentModule(context.Background(), f.db, deps, auth, settings, reviewIAM.config())
 	require.NoError(t, err)
+	if mode == "diagnosis" {
+		testDiagnosisHTTPThroughNativeOwners(t, f, module.(productAgentModule).application, deps, auth, &calls)
+		return
+	}
 	if mode == "selection" {
 		testSelectionHTTPThroughNativeOwners(t, f, module.(productAgentModule).application, deps, auth, &calls)
 		return

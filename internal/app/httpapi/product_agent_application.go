@@ -56,6 +56,7 @@ type ProductAgentDependencies struct {
 	TextPolicies             map[string]governed.RoutePolicy
 	ContentTextPolicies      map[string]governed.RoutePolicy
 	MaterialsTextPolicies    map[string]governed.RoutePolicy
+	DiagnosisTextPolicies    map[string]governed.RoutePolicy
 	SelectionTextPolicies    map[string]governed.RoutePolicy
 	Enabled                  bool
 	AllowedOrganizationIDs   []string
@@ -147,6 +148,17 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 			return nil, agent.ErrUnavailable
 		}
 	}
+
+	for org, policy := range cfg.DiagnosisTextPolicies {
+		if cfg.Limits.Steps < 4 || cfg.Limits.ModelCalls < 2 {
+			return nil, agent.ErrUnavailable
+		}
+		profile := policy.ShapeProfile()
+		cost, err := profile.MaximumCost()
+		if !allowedOrganizations[org] || profile.PromptVersion != agentconfig.DiagnosisPromptVersion || profile.OutputSchemaVersion != agentconfig.DiagnosisActionVersion || !governed.ValidRouteProfile(profile, aicapability.OperationShopDiagnosisDecision) || profile.Currency != cfg.Limits.Currency || err != nil || profile.MaximumCompletionTokens > cfg.Limits.Tokens/2 || profile.MaximumPromptTokens > cfg.Limits.Tokens/2-profile.MaximumCompletionTokens || cost > cfg.Limits.CostMicros/2 {
+			return nil, agent.ErrUnavailable
+		}
+	}
 	if cfg.PointAccountingDB == nil || cfg.Ledger == nil {
 		return nil, agent.ErrUnavailable
 	}
@@ -178,6 +190,11 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 	a.config.SelectionTextPolicies = make(map[string]governed.RoutePolicy, len(cfg.SelectionTextPolicies))
 	for org, policy := range cfg.SelectionTextPolicies {
 		a.config.SelectionTextPolicies[org] = policy
+	}
+
+	a.config.DiagnosisTextPolicies = make(map[string]governed.RoutePolicy, len(cfg.DiagnosisTextPolicies))
+	for org, policy := range cfg.DiagnosisTextPolicies {
+		a.config.DiagnosisTextPolicies[org] = policy
 	}
 	var err error
 	var contexts []texteino.KnowledgeContext

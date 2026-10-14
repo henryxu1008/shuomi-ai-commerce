@@ -132,7 +132,7 @@ func testSelectionHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixtur
 	a.runtime, err = einoruntime.New(einoruntime.Config{Definition: selectioninspect.AgentDefinition(), Tools: []commercetool.Definition{selectioninspect.Definition()}, Model: changingModel, Gateway: a, DomainProposalKind: agentconfig.SelectionProposalKind, DomainValidator: selection.Validator{Reader: a.inspector, Configuration: a.configuration}, Authorizer: a, Store: guard})
 	require.NoError(t, err)
 	routes := productSelectionRoutes(a, a.bindRequest)
-	configurationModule, err := buildAgentConfigurationModule(ctx, f.owner, deps.organizationResolver, permissions, nil, parent, nil, a)
+	configurationModule, err := buildAgentConfigurationModule(ctx, f.owner, deps.organizationResolver, permissions, nil, parent, nil, a, nil)
 	require.NoError(t, err)
 	registry := kernelmodule.NewRegistry()
 	require.NoError(t, configurationModule.Register(registry))

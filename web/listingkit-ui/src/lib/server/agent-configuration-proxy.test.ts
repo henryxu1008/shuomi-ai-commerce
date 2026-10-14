@@ -25,6 +25,14 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
 });
+
+it("admits diagnosis history with the original strict run pagination bounds",async()=>{
+ const fetch=vi.fn().mockResolvedValue(Response.json({items:[],nextCursor:""}));vi.stubGlobal("fetch",fetch);
+ expect((await proxyAgentConfiguration(request("shop.operations-diagnosis.agent/recent-runs?pageSize=20&cursor=original_cursor"),"token","actor")).status).toBe(200);
+ expect(String(fetch.mock.calls[0][0])).toContain("shop.operations-diagnosis.agent/recent-runs?pageSize=20&cursor=original_cursor");
+ for(const query of ["pageSize=21","pageSize=20&pageSize=1","unknown=1"]){expect((await proxyAgentConfiguration(request("shop.operations-diagnosis.agent/recent-runs?"+query),"token","actor")).status).toBe(400)}
+ expect(fetch).toHaveBeenCalledTimes(1);
+});
 it("forwards only the exact platform materials template and rejects borrowed parameters",async()=>{
  const fetch=vi.fn().mockResolvedValue(Response.json({commandId:key,operation:"create-template",agentId:"listing.materials.agent",templateId:"85cf7a89-4979-411a-a58f-90fd61b7415a",revision:"1",version:"1",noop:false,committedAt:"2026-10-13T00:00:00Z"}));vi.stubGlobal("fetch",fetch);
  const req=request("listing.materials.agent/templates","POST",{name:"SHEIN 资料",targetPlatform:"shein"});req.headers.delete("If-Match");

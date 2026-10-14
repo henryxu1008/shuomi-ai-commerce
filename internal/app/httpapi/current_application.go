@@ -15,6 +15,7 @@ import (
 	billinghttp "task-processor/internal/commercial/billing/httpapi"
 	"task-processor/internal/product/collection"
 	markethttp "task-processor/internal/product/supplymarket/httpapi"
+	"task-processor/internal/shopdiagnosis"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -690,11 +691,15 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		}
 		modules = append(modules, trial)
 	}
+	var cockpitReads *shopdiagnosis.NativeReader
+	var cockpitBind func(context.Context, string) (context.Context, error)
 	if supplied.operationsCockpits > 0 {
 		module, err := buildOperationsCockpit(ctx, supplied.storeCenterDB, *workbench.authDependencies, authorizer, storeCapabilities, savedObservations)
 		if err != nil {
 			return nil, fmt.Errorf("build operations cockpit: %w", err)
 		}
+		native := module.(operationsCockpitModule)
+		cockpitReads, cockpitBind = native.diagnosisReads, native.bind
 		modules = append(modules, module)
 		if workbench.handler != nil {
 			workbench.handler.SetOperationsCockpitAvailable(true)
@@ -867,6 +872,15 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		modelPointRecovery = agentModule.(productAgentModule).recoverPoints
 		productRuntime = agentModule.(productAgentModule).application
 	}
+	var diagnosisRuntime *shopDiagnosisApplication
+	if cockpitReads != nil {
+		var e error
+		diagnosisRuntime, e = buildShopDiagnosisApplication(ctx, productRuntime, cockpitReads, cockpitBind, supplied.agentConfigurationDB, workbench.authDependencies.organizationResolver, authorizer)
+		if e != nil {
+			return nil, fmt.Errorf("build current shop diagnosis: %w", e)
+		}
+		modules = append(modules, shopDiagnosisModule{app: diagnosisRuntime})
+	}
 	var selectionRuntime *productSelectionApplication
 	if planCollections != nil {
 		var e error
@@ -979,7 +993,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			imageRuntime = full
 			modules = append(modules, fullImageModule{application: full, bind: (productReviewCapabilityBinder{now: time.Now}).Bind})
 		}
-		m, e := buildAgentConfigurationModule(ctx, supplied.agentConfigurationDB, workbench.authDependencies.organizationResolver, authorizer, supplied.knowledge, productRuntime, modePrivateDeliveries, selectionRuntime, imageRuntime)
+		m, e := buildAgentConfigurationModule(ctx, supplied.agentConfigurationDB, workbench.authDependencies.organizationResolver, authorizer, supplied.knowledge, productRuntime, modePrivateDeliveries, selectionRuntime, diagnosisRuntime, imageRuntime)
 		if e != nil {
 			return nil, fmt.Errorf("build current agent configuration: %w", e)
 		}
@@ -1155,6 +1169,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		POD:                 supplied.pods > 0,
 		Collections:         supplied.productCollections > 0,
 		ProductSelection:    selectionRuntime != nil,
+		ShopDiagnosis:       diagnosisRuntime != nil,
 		NotificationCenter:  supplied.notifications > 0,
 		ZitadelSMS:          true,
 		StoreCenter:         supplied.storeCenters > 0,
@@ -1280,6 +1295,7 @@ type currentApplicationOptionalRoutes struct {
 	CompletionDrafts    bool
 	Collections         bool
 	ProductSelection    bool
+	ShopDiagnosis       bool
 	NotificationCenter  bool
 	AgentConfiguration  bool
 	Knowledge           bool
@@ -1396,6 +1412,14 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 					return err
 				}
 			}
+		}
+	}
+	if optional.ShopDiagnosis {
+		if !optional.OperationsCockpit || !optional.StoreCenter {
+			return errors.New("shop diagnosis requires native cockpit and stores")
+		}
+		for _, r := range shopDiagnosisRoutes(nil, nil) {
+			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
 		}
 	}
 	if optional.ProductSelection {
@@ -1573,6 +1597,14 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 	}
 	includeCommercialBilling := false
 	for _, descriptor := range routes {
+		if strings.HasPrefix(descriptor.Path, shopDiagnosisBase+"/") {
+			if !optional.ShopDiagnosis || !optional.OperationsCockpit || !optional.StoreCenter {
+				return errors.New("shop diagnosis requires native cockpit and stores")
+			}
+			if e := validateShopDiagnosisDescriptor(descriptor); e != nil {
+				return e
+			}
+		}
 		if strings.HasPrefix(descriptor.Path, productSelectionBase+"/") {
 			if !optional.Collections || !optional.ProductSelection {
 				return errors.New("product selection requires current private collections")
@@ -1953,7 +1985,7 @@ func buildCurrentApplicationHTTPServer(routes []httproute.Descriptor, dependenci
 	server.IdleTimeout = 60 * time.Second
 	inner := server.Handler
 	server.Handler = http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		if isProductAgentHTTPPath(request.URL.Path) || request.Method == http.MethodPost && (isListingMaterialsHTTPPath(request.URL.Path) || isContextAgentRunHTTPPath(request.URL.Path, productSelectionBase)) {
+		if isProductAgentHTTPPath(request.URL.Path) || request.Method == http.MethodPost && (isListingMaterialsHTTPPath(request.URL.Path) || isContextAgentRunHTTPPath(request.URL.Path, productSelectionBase) || isContextAgentRunHTTPPath(request.URL.Path, shopDiagnosisBase)) {
 			// Bounded synchronous model and materials commit paths need a longer response.
 			// Header/body read timeouts and all other route deadlines stay intact.
 			if err := http.NewResponseController(writer).SetWriteDeadline(time.Now().Add(125 * time.Second)); err != nil && !errors.Is(err, http.ErrNotSupported) {

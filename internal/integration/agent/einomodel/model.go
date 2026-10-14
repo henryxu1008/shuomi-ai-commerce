@@ -44,6 +44,9 @@ const (
 )
 
 type AgentTextModel struct {
+	diagnosis          bool
+	diagnosisAdmission DiagnosisModelAdmission
+	diagnosisDispatch  func(context.Context, agent.ModelInput) error
 	selection          bool
 	selectionAdmission SelectionModelAdmission
 	selectionDispatch  func(context.Context, agent.ModelInput) error
@@ -130,7 +133,11 @@ func (m *AgentTextModel) prepare(ctx context.Context, in agent.ModelInput) (prep
 		!in.Binding.Valid() || !agent.ValidID(in.AgentRunID) || !agent.ValidID(in.PromptVersion) {
 		return p, agent.ErrInvalid
 	}
-	if m.selection {
+	if m.diagnosis {
+		if in.AgentID != agentconfig.DiagnosisAgentID || in.AgentVersion != agentconfig.DiagnosisAgentVersion || !in.ContentSelection.Absent() || in.PolicyVersion != agentconfig.DiagnosisPolicyVersion || in.PromptVersion != agentconfig.DiagnosisPromptVersion || in.Binding.ContextKind != agent.StoreDiagnosisContextKind || !in.ContextSnapshotRef.Absent() {
+			return p, agent.ErrInvalid
+		}
+	} else if m.selection {
 		if in.AgentID != agentconfig.SelectionAgentID || in.AgentVersion != agentconfig.SelectionAgentVersion || !in.ContentSelection.Absent() || in.PolicyVersion != agentconfig.SelectionPolicyVersion || in.PromptVersion != agentconfig.SelectionPromptVersion || in.Binding.ContextKind != agent.SelectionContextKind || !in.ContextSnapshotRef.Absent() {
 			return p, agent.ErrInvalid
 		}
@@ -142,7 +149,7 @@ func (m *AgentTextModel) prepare(ctx context.Context, in agent.ModelInput) (prep
 		if in.AgentID != agentconfig.ContentAgentID || in.AgentVersion != agentconfig.ContentAgentVersion || !in.ContentSelection.Valid() || in.PolicyVersion != enrichment.ContentPolicyVersion || in.PromptVersion != agentconfig.ContentPromptVersion {
 			return p, agent.ErrInvalid
 		}
-	} else if !in.ContentSelection.Absent() || in.AgentID == agentconfig.ContentAgentID || in.AgentID == agentconfig.MaterialsAgentID || in.AgentID == agentconfig.SelectionAgentID || in.Binding.ContextKind == agent.SelectionContextKind {
+	} else if !in.ContentSelection.Absent() || in.AgentID == agentconfig.ContentAgentID || in.AgentID == agentconfig.MaterialsAgentID || in.AgentID == agentconfig.SelectionAgentID || in.Binding.ContextKind == agent.SelectionContextKind || in.AgentID == agentconfig.DiagnosisAgentID || in.Binding.ContextKind == agent.StoreDiagnosisContextKind {
 		return p, agent.ErrInvalid
 	}
 	identity, resolvedCtx, err := m.resolveIdentity(ctx)
@@ -167,10 +174,13 @@ func (m *AgentTextModel) prepare(ctx context.Context, in agent.ModelInput) (prep
 	if m.materials && snapshot.KnowledgeBaseID != "" {
 		return p, agent.ErrUnavailable
 	}
-	if m.selection && (snapshot.KnowledgeBaseID != "" || snapshot.Template != nil) {
+	if (m.selection || m.diagnosis) && (snapshot.KnowledgeBaseID != "" || snapshot.Template != nil) {
 		return p, agent.ErrUnavailable
 	}
 	p.profile = snapshot.ExecutionModelProfile
+	if m.diagnosis && (p.profile.PromptVersion != agentconfig.DiagnosisPromptVersion || p.profile.OutputSchemaVersion != agentconfig.DiagnosisActionVersion) {
+		return p, agent.ErrUnavailable
+	}
 	if p.profile.Validate() != nil || m.content && (p.profile.PromptVersion != agentconfig.ContentPromptVersion || p.profile.OutputSchemaVersion != agentconfig.ContentActionVersion) || m.materials && (p.profile.PromptVersion != agentconfig.MaterialsPromptVersion || p.profile.OutputSchemaVersion != agentconfig.MaterialsActionVersion) || m.selection && (p.profile.PromptVersion != agentconfig.SelectionPromptVersion || p.profile.OutputSchemaVersion != agentconfig.SelectionActionVersion) {
 		return p, agent.ErrUnavailable
 	}
@@ -184,7 +194,15 @@ func (m *AgentTextModel) prepare(ctx context.Context, in agent.ModelInput) (prep
 	in.UpperBound = agent.Quote{}
 	in.History = append([]agent.Observation(nil), in.History...)
 	for i := range in.History {
-		if m.selection {
+		if m.diagnosis {
+			if in.History[i].Tool == agentconfig.DiagnosisInspectToolRef() {
+				in.History[i].Output, err = m.diagnosisAdmission.ProjectEvidence(in.History[i].Output)
+			} else if in.History[i].Tool != (commercetool.ToolRef{}) || len(in.History[i].Output) > agent.MaxModelOutputBytes || len(in.History[i].Output) > 0 && !json.Valid(in.History[i].Output) {
+				err = agent.ErrInvalid
+			} else {
+				in.History[i].Output = append(json.RawMessage(nil), in.History[i].Output...)
+			}
+		} else if m.selection {
 			if in.History[i].Tool == agentconfig.SelectionInspectToolRef() {
 				in.History[i].Output, err = m.selectionAdmission.ProjectEvidence(in.History[i].Output)
 			} else if in.History[i].Tool != (commercetool.ToolRef{}) || len(in.History[i].Output) > agent.MaxModelOutputBytes || len(in.History[i].Output) > 0 && !json.Valid(in.History[i].Output) {
@@ -237,6 +255,9 @@ func (m *AgentTextModel) prepare(ctx context.Context, in agent.ModelInput) (prep
 	if m.selection {
 		system, operation = selectionTextSystem, aicapability.OperationProductSelectionDecision
 	}
+	if m.diagnosis {
+		system, operation = diagnosisTextSystem, aicapability.OperationShopDiagnosisDecision
+	}
 	if p.knowledge != nil {
 		system += "\n" + knowledgeTextSystem
 	}
@@ -285,6 +306,9 @@ func (m *AgentTextModel) Decide(ctx context.Context, in agent.ModelInput) (agent
 		if m.materials && m.materialsAdmission.ValidateAction(action) != nil {
 			return governed.ErrInvalid
 		}
+		if m.diagnosis && m.diagnosisAdmission.ValidateAction(action) != nil {
+			return governed.ErrInvalid
+		}
 		if m.selection && m.selectionAdmission.ValidateAction(action) != nil {
 			return governed.ErrInvalid
 		}
@@ -311,6 +335,11 @@ func (m *AgentTextModel) Decide(ctx context.Context, in agent.ModelInput) (agent
 		}
 		if m.selection {
 			if err = m.selectionDispatch(gateCtx, in); err != nil {
+				return nil, err
+			}
+		}
+		if m.diagnosis {
+			if err = m.diagnosisDispatch(gateCtx, in); err != nil {
 				return nil, err
 			}
 		}
