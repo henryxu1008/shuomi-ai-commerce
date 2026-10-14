@@ -50,7 +50,7 @@ TDD先捕获：默认模式拒绝localhost；仅正确显式试用配置准入�
 
 ## 真实启动发现的MinIO身份BLOCKER增量
 
-Admission Status: **REOPENED / REVIEW_PENDING**（仅本节新增依据；未修改部分沿原728c7ab准入）。50f507f06真实启动无法完成核心happy path：签名GetBucketAcl成功但Owner.ID为空，原容量合同拒绝；签名ACL/list/versioning响应也无deployment header。MinIO固定版本[官方ACL实现](https://raw.githubusercontent.com/minio/minio/RELEASE.2025-04-22T22-12-26Z/cmd/acl-handlers.go)返回dummy ACL，不能伪造owner、凭据hash、改匿名政策或跳过容量作为修复。
+Admission Status: **IMPLEMENTATION_READY / FROZEN**，独立Reviewer `own_entry_review`准入绑定design-only HEAD `307769aa894e82bbcb24885f1b23090dde8d6035`，无未解决设计BLOCKER，先于该增量生产修改；仅本节新增依据，未修改部分沿原728c7ab准入。50f507f06真实启动无法完成核心happy path：签名GetBucketAcl成功但Owner.ID为空，原容量合同拒绝；签名ACL/list/versioning响应也无deployment header。MinIO固定版本[官方ACL实现](https://raw.githubusercontent.com/minio/minio/RELEASE.2025-04-22T22-12-26Z/cmd/acl-handlers.go)返回dummy ACL，不能伪造owner、凭据hash、改匿名政策或跳过容量作为修复。
 
 有界只读实测：本项目provider卷`.minio.sys/format.json.id`与原官方`mc admin info`的`deploymentID`同为非空规范UUID；后者是有签名认证的MinIO只读ServerInfo，不是S3响应header。增量仅为默认关闭、明确来源试用的物理实例身份准入，不建设通用provider平台、账本或恢复协议。
 
