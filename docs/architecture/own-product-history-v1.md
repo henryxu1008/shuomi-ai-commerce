@@ -1,6 +1,6 @@
 # 自有商品历史读取、旧版详情和对比 v1
 
-Execution Issue: [#675](https://github.com/qq550723504/task-processor/issues/675)。Design Basis: **Independent Architecture**。Admission Status: **REVIEW_PENDING**。本文先于正式实现。
+Execution Issue: [#675](https://github.com/qq550723504/task-processor/issues/675)。Design Basis: **Independent Architecture**。Admission Status: **IMPLEMENTATION_READY**。独立设计检查绑定 `0874d2b333049b5791580ddc9b527f64954838cb`，无当前 Must BLOCKER，本文先于正式实现。首尾授权/父分组、查询tuple及证据完整性、过滤/分页、大整数、稳定SKU/0/图片顺序归 IMPLEMENTATION_TEST 在本批次收敛。
 
 ## 产品结果与依据
 

@@ -197,6 +197,7 @@ source of truth for long-lived rules.
 - [`own-product-entry-v1.md`](./own-product-entry-v1.md): #675 的已评审冻结 IMPLEMENTATION_READY Design Basis，独立自有商品录入与详情页、多规格变体及原 Source/Catalog/Collection 保存合同；运行说明见 [operations](../operations/own-product-entry-v1.md)。
 - [`own-product-source-media-trial-v1.md`](./own-product-source-media-trial-v1.md): #675 已评审冻结 IMPLEMENTATION_READY 的本机来源图片试用边界；原SourceMedia/S3/容量与商品owner不变，精确本地对象展示不放开通用私网下载。
 - [`own-product-edit-v1.md`](./own-product-edit-v1.md): #675 已评审冻结 IMPLEMENTATION_READY 的自有商品版本更新与独立编辑页；追加不可变快照、条目基准CAS、原键恢复及既有草稿固定版本，复用原Source/Catalog/Collection owner和事务。
+- [`own-product-history-v1.md`](./own-product-history-v1.md): #675 已评审冻结 IMPLEMENTATION_READY 的自有商品手工保存历史读取、旧版详情和差异独立页面；原 actor/item 权限及 Source/Catalog 准确绑定，实时首尾授权，只读且不开放回滚。
 - [`notification-center-v1.md`](./notification-center-v1.md)
   - #608 notification-center design and current-business source mapping. Admission
     is stated in that document and the execution Issue; a draft is not permission
