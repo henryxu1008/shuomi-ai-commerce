@@ -11,6 +11,7 @@ import (
 	podhttp "task-processor/internal/app/pod/httpapi"
 	supplyapp "task-processor/internal/app/supplychain"
 	supplyhttp "task-processor/internal/app/supplychain/httpapi"
+	imageworker "task-processor/internal/app/worker/imageagent"
 	billinghttp "task-processor/internal/commercial/billing/httpapi"
 	"task-processor/internal/product/collection"
 	markethttp "task-processor/internal/product/supplymarket/httpapi"
@@ -831,6 +832,13 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		if err != nil {
 			return nil, err
 		}
+		materials, err := imageworker.NewImageSetMaterialReader(supplied.fullImages.WorkerConfig, logger)
+		if err != nil {
+			return nil, err
+		}
+		guard.URLs = imageAgentDurableAssetPublicURLResolver(supplied.fullImages.WorkerConfig)
+		guard.ReadGeneratedBytes = materials.Read
+		supplied.pod.GeneratedArtworkBytes = guard.ReadArtworkSourceBytes
 		supplied.pod.ArtworkOriginGuard = guard
 		supplied.pod.SourceApprovalGuard = guard.AuthorizeSourceApproval
 	}
