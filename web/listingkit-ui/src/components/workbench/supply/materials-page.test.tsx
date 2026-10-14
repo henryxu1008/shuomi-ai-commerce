@@ -38,7 +38,7 @@ it("keeps a lost start's exact UUID/configuration and blocks enterprise switch u
  render(<MaterialsPage recordId={id}/>);await generate();await screen.findByRole("alert");
  const original=f.start.mock.calls[0][2],stored=JSON.parse(new URL(window.location.href).searchParams.get("materials_intent")!);
  expect(stored.key).toBe(original);expect(stored.prepared.configurationSnapshotRef).toEqual(ref);expect(f.guards.some(g=>!g())).toBe(true);
- f.read.mockResolvedValue(run(original));fireEvent.click(screen.getByRole("button",{name:"核对原运行"}));await screen.findByText("建议差异 · 尚未保存");expect(f.start).toHaveBeenCalledTimes(1);expect(f.read.mock.calls[0][2]).toBe(original);expect(f.guards.every(g=>g())).toBe(true);
+ f.read.mockResolvedValue(run(original));fireEvent.click(screen.getByRole("button",{name:"核对原运行"}));await screen.findByText("建议差异 · 尚未保存");expect(f.start).toHaveBeenCalledTimes(1);expect(f.read.mock.calls[0][2]).toBe(original);await waitFor(()=>expect(f.guards.every(g=>g())).toBe(true));
 });
 it("replays a lost unclaimed Start with its original prepared reference after NOT_FOUND",async()=>{
  f.start.mockRejectedValueOnce(new SupplyAPIError("OUTCOME_UNKNOWN",503));f.read.mockRejectedValueOnce(new SupplyAPIError("NOT_FOUND",404));
@@ -69,7 +69,7 @@ it("restores a lost resume's exact feedback and revision for retry",async()=>{
  expect(screen.getByRole("textbox")).toBeDisabled();
  fireEvent.click(screen.getByRole("button",{name:"重试原继续请求"}));
  await waitFor(()=>expect(f.resume).toHaveBeenCalledTimes(1));expect(f.resume.mock.calls[0][3]).toEqual(input);
- await screen.findByText("建议差异 · 尚未保存");expect(f.guards.every(g=>g())).toBe(true);
+ await screen.findByText("建议差异 · 尚未保存");await waitFor(()=>expect(f.guards.every(g=>g())).toBe(true));
 });
 it("restores a lost save and only replays the original exact candidate",async()=>{
  const input={configurationSnapshotRef:ref,candidateHash:"c".repeat(64),humanConfirmed:true};
@@ -78,7 +78,7 @@ it("restores a lost save and only replays the original exact candidate",async()=
  render(<MaterialsPage recordId={id}/>);await screen.findByText("建议差异 · 尚未保存");
  expect(screen.getByRole("checkbox")).toBeDisabled();expect(f.guards.some(g=>!g())).toBe(true);
  fireEvent.click(screen.getByRole("button",{name:"重试原保存请求"}));await screen.findByText("本地草稿已保存 · v2");
- expect(f.adopt.mock.calls[0][3]).toEqual(input);expect(f.guards.every(g=>g())).toBe(true);
+ expect(f.adopt.mock.calls[0][3]).toEqual(input);await waitFor(()=>expect(f.guards.every(g=>g())).toBe(true));
 });
 it("allows original reads but no writes when a retained mutation is damaged",async()=>{
  f.params=new URLSearchParams({agent_key:key,agent_actor:"actor",agent_org:"org",materials_mutation:"damaged"});
