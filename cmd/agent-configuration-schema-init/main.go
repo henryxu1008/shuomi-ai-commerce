@@ -12,6 +12,7 @@ import (
 	"os"
 	"regexp"
 	store "task-processor/internal/integration/persistence/agentconfig"
+	skillstore "task-processor/internal/integration/persistence/skill"
 	"time"
 )
 
@@ -20,11 +21,12 @@ func main() {
 	modesOnly := flag.Bool("execution-modes-only", false, "add only execution mode tables and their bounded grants; retain existing facts and grants")
 	contentOnly := flag.Bool("content-configuration-only", false, "add only the content parameter carrier and exact checks; retain existing facts, activations and grants")
 	materialsOnly := flag.Bool("materials-configuration-only", false, "add only exact registered platform materials checks; retain existing facts, activations and grants")
+	skillsOnly := flag.Bool("skills-only", false, "add bounded Skill storage and content personal-Skill admission; do not enable agents or import templates")
 	artworkOnly := flag.Bool("artwork-configuration-only", false, "add only exact POD creative configuration checks; retain existing facts, activations and grants")
 	flag.Parse()
 	selected := 0
-	for _, value := range []bool{*modesOnly, *contentOnly, *materialsOnly, *artworkOnly} {
-		if value {
+	for _, v := range []bool{*modesOnly, *contentOnly, *materialsOnly, *skillsOnly, *artworkOnly} {
+		if v {
 			selected++
 		}
 	}
@@ -50,6 +52,12 @@ func main() {
 	}
 	defer raw.Close()
 	e = db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if *skillsOnly {
+			if e := skillstore.InstallSchema(ctx, tx); e != nil {
+				return e
+			}
+			return skillstore.GrantRuntime(ctx, tx, *role)
+		}
 		if *artworkOnly {
 			return store.UpdateArtworkConfigurationSchema(ctx, tx, *role)
 		}
@@ -65,7 +73,13 @@ func main() {
 		if e := store.InstallSchema(tx); e != nil {
 			return e
 		}
-		return store.GrantRuntime(tx, *role)
+		if e := store.GrantRuntime(tx, *role); e != nil {
+			return e
+		}
+		if e := skillstore.InstallSchema(ctx, tx); e != nil {
+			return e
+		}
+		return skillstore.GrantRuntime(ctx, tx, *role)
 	})
 	if e != nil {
 		fmt.Fprintln(os.Stderr, "agent configuration schema initialization failed")

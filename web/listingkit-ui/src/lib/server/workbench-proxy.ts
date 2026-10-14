@@ -1170,7 +1170,8 @@ export async function buildWorkbenchBrowserResponse(
     const code=payload&&typeof payload==="object"&&"code" in payload&&typeof payload.code==="string"?payload.code:"";
     const statuses:Record<string,number>={INVALID_AGENT_REQUEST:400,FORBIDDEN:403,AGENT_CONFLICT:409,PRODUCT_AGENT_UNAVAILABLE:503,KNOWLEDGE_CONTEXT_TOO_LARGE:409,KNOWLEDGE_FORBIDDEN:403,KNOWLEDGE_DISABLED:409,KNOWLEDGE_NOT_READY:409,KNOWLEDGE_NOT_FOUND:409,...acquisitionErrorStatuses,
       CONFIGURATION_CHANGED:409,AGENT_NOT_ENABLED:409,TEMPLATE_ARCHIVED:409,AGENT_DEFINITION_UNAVAILABLE:409,
-      NOT_FOUND:404,TEMPLATE_IS_DEFAULT:409,REVISION_MISMATCH:412,PRECONDITION_REQUIRED:428};
+      NOT_FOUND:404,TEMPLATE_IS_DEFAULT:409,REVISION_MISMATCH:412,PRECONDITION_REQUIRED:428,
+      SKILL_INVALID:400,SKILL_UNSUPPORTED_FIELD:400,SKILL_FORBIDDEN:403,SKILL_NOT_FOUND:409,SKILL_NOT_ENABLED:409,SKILL_IDEMPOTENCY_CONFLICT:409,SKILL_REVISION_MISMATCH:409,SKILL_UNAVAILABLE:503};
     if(upstream.status===404 && statuses[code]===undefined)return protocolError(503,"PRODUCT_AGENT_UNAVAILABLE","Product Agent is not enabled",options.requestId??"");
     if(statuses[code]!==upstream.status)return invalid();
     const response=protocolError(upstream.status,code,"Agent request could not be completed",options.requestId??"");

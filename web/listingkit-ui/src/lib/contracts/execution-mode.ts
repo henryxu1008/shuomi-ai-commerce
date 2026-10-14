@@ -2,6 +2,7 @@ import { z } from "zod";
 import { knowledgeId } from "../api/knowledge";
 import { configVersion } from "./agent-configuration";
 import { contentSelectionSchema } from "./content-selection";
+import {skillRefSchema} from "./skill";
 
 export const executionModeSchema = z.enum(["default", "auto_approve", "read_only", "full_access"]);
 export const modeRevisionSchema = z.union([z.literal("0"), configVersion]);
@@ -69,9 +70,10 @@ const policyAdoptionBaseSchema = z.strictObject({
 });
 export const titlePolicyAdoptionSchema = policyAdoptionBaseSchema.refine(v=>v.identity.OrganizationID===v.execution.scope.OrganizationID&&v.identity.ActorID===v.execution.scope.ActorID&&!(v.mode==="auto_approve"&&v.requiresHuman));
 export const contentExecutionProvenanceSchema = titleExecutionProvenanceSchema.extend({
+ skillVersionRef:skillRefSchema.optional(),
  ContentSelection: contentSelectionSchema,
  binding: titleExecutionProvenanceSchema.shape.binding.extend({TargetPlatform:z.enum(["product","shein","temu","amazon"])}),
-});
+}).refine(v=>!v.skillVersionRef||v.ContentSelection.title&&!v.ContentSelection.description&&!v.ContentSelection.sellingPoints&&!v.ContentSelection.seoKeywords);
 export const contentPolicyAdoptionSchema = policyAdoptionBaseSchema.extend({
  execution: contentExecutionProvenanceSchema,
  actionVersion: z.literal("product.content.policy-adopt-v1"),
