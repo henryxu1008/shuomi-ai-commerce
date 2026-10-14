@@ -3,12 +3,14 @@ package httpapi
 import (
 	"context"
 	"errors"
+	"time"
 
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/listing/materials"
 	"task-processor/internal/listing/preparation"
 	record "task-processor/internal/listing/record/target"
+	"task-processor/internal/product/collection"
 )
 
 var errMaterialsHumanRequired = errors.New("listing materials require explicit human confirmation")
@@ -42,7 +44,9 @@ func (a *listingMaterialsApplication) prepare(ctx context.Context, recordID stri
 	if err != nil {
 		return agentconfig.Snapshot{}, err
 	}
-	request := agent.Request{Key: in.RequestKey, Binding: inspection.Binding, GoalSummary: in.GoalSummary, PolicyVersion: materials.PolicyVersion, PromptVersion: materials.PromptVersion, Limits: a.parent.config.Limits}
+	limits := a.parent.config.Limits
+	limits.Runtime = min(limits.Runtime, 90*time.Second)
+	request := agent.Request{Key: in.RequestKey, Binding: inspection.Binding, GoalSummary: in.GoalSummary, PolicyVersion: materials.PolicyVersion, PromptVersion: materials.PromptVersion, Limits: limits}
 	return a.parent.configuration.Prepare(ctx, agentconfig.StartCommand{Scope: agent.Scope{OrganizationID: id.OrganizationID, ActorID: id.ActorID}, MemberID: id.MemberID, ExpectedModeRevision: in.ExpectedModeRevision, AgentID: materials.AgentID, AgentVersion: materials.AgentVersion, Template: in.Template, Request: request, ExecutionModelProfile: profile})
 }
 
@@ -106,7 +110,9 @@ func (a *listingMaterialsApplication) start(ctx context.Context, recordID, key s
 	}
 	request := snapshot.Request
 	request.ConfigurationSnapshotRef = ref
-	run, attempted, err := a.runtime.StartWithClaimAttempt(ctx, request)
+	modelCtx, cancel := materialsModelContext(ctx)
+	run, attempted, err := a.runtime.StartWithClaimAttempt(modelCtx, request)
+	cancel()
 	if err == nil {
 		err = a.finishAutomaticAdoption(ctx, recordID, run)
 	}
@@ -124,11 +130,23 @@ func (a *listingMaterialsApplication) resume(ctx context.Context, recordID, key 
 	if a.runtime == nil {
 		return run, true, agentconfig.ErrUnavailable
 	}
-	next, attempted, err := a.runtime.ResumeWithClaimAttempt(ctx, run.State.Request, revision, feedback)
+	modelCtx, cancel := materialsModelContext(ctx)
+	next, attempted, err := a.runtime.ResumeWithClaimAttempt(modelCtx, run.State.Request, revision, feedback)
+	cancel()
 	if err == nil {
 		err = a.finishAutomaticAdoption(ctx, recordID, next)
 	}
 	return next, attempted, err
+}
+
+// The enclosing two-minute route also owns local Target reads and commit.
+// Model work cannot consume the time reserved for that existing owner.
+func materialsModelContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	deadline := time.Now().Add(90 * time.Second)
+	if enclosing, ok := ctx.Deadline(); ok && enclosing.Add(-30*time.Second).Before(deadline) {
+		deadline = enclosing.Add(-30 * time.Second)
+	}
+	return context.WithDeadline(ctx, deadline)
 }
 
 // Only the admitted Start/resume path may initiate an automatic local save.
@@ -164,7 +182,39 @@ func (a *listingMaterialsApplication) adoption(ctx context.Context, recordID, ke
 	if !materialsRunReviewable(run.State) {
 		return record.TargetReceipt{}, agentconfig.ErrConflict
 	}
-	return a.supply.Targets.ReadCommand(ctx, materialsAdoptionKey(run.State))
+	return a.readAdoptionReceipt(ctx, run.State)
+}
+
+// Receipt replay is correlated to the immutable original input and candidate,
+// without applying current new-write mode/configuration/head admission.
+func verifyMaterialsAdoptionReceipt(base record.TargetRecord, state agent.State, prior record.TargetReceipt) error {
+	if !materialsRunReviewable(state) || base.ID != state.Request.Binding.ContextID {
+		return agentconfig.ErrConflict
+	}
+	proposal, err := materials.ParseProposal(state.DomainProposal.Payload)
+	if err != nil {
+		return agentconfig.ErrConflict
+	}
+	expected, err := materials.ApplyProposal(base, proposal)
+	if err != nil || prior.Record.TargetID != base.TargetID || prior.Record.Revision != base.Revision+1 || prior.Record.Source.ID != base.Source.ID || prior.Record.EffectiveVersion != base.EffectiveVersion || prior.Record.ApplyReceiptID != base.ApplyReceiptID || collection.Digest(prior.Record.Input) != collection.Digest(expected) {
+		return agentconfig.ErrConflict
+	}
+	return nil
+}
+
+func (a *listingMaterialsApplication) readAdoptionReceipt(ctx context.Context, state agent.State) (record.TargetReceipt, error) {
+	prior, err := a.supply.Targets.ReadCommand(ctx, materialsAdoptionKey(state))
+	if err != nil {
+		return prior, err
+	}
+	_, base, binding, err := a.readBase(ctx, state.Request.Binding.ContextID)
+	if err != nil {
+		return record.TargetReceipt{}, err
+	}
+	if binding != state.Request.Binding || verifyMaterialsAdoptionReceipt(base, state, prior) != nil {
+		return record.TargetReceipt{}, agentconfig.ErrConflict
+	}
+	return prior, nil
 }
 
 func (a *listingMaterialsApplication) adopt(ctx context.Context, recordID, key string, ref agent.ConfigurationSnapshotRef, candidateHash string, human bool) (record.TargetReceipt, error) {
@@ -176,7 +226,7 @@ func (a *listingMaterialsApplication) adopt(ctx context.Context, recordID, key s
 		return record.TargetReceipt{}, agentconfig.ErrConflict
 	}
 	commandKey := materialsAdoptionKey(run.State)
-	prior, err := a.supply.Targets.ReadCommand(ctx, commandKey)
+	prior, err := a.readAdoptionReceipt(ctx, run.State)
 	if err == nil {
 		prior.Replayed = true
 		return prior, nil

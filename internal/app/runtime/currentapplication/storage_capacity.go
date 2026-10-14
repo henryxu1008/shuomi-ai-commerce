@@ -56,7 +56,7 @@ func prepareStorageCapacity(ctx context.Context, c *Config, db *gorm.DB, service
 	}
 	if c.SourceMedia != nil {
 		s := c.SourceMedia.S3
-		ns, err := s3.ResolveCapacityNamespace(ctx, s3.ClientConfig{Region: s.Region, Endpoint: s.Endpoint, AccessKeyID: s.AccessKeyID, SecretAccessKey: s.SecretAccessKey, UsePathStyle: s.UsePathStyle}, s.Bucket, s.ArtifactMode)
+		ns, err := s3.ResolveSourceMediaCapacityNamespace(ctx, s3.ClientConfig{Region: s.Region, Endpoint: s.Endpoint, AccessKeyID: s.AccessKeyID, SecretAccessKey: s.SecretAccessKey, UsePathStyle: s.UsePathStyle}, s.Bucket, s.ArtifactMode, c.SourceMediaIsolatedTrial, c.SourceMediaIsolatedTrialDeploymentID)
 		if err != nil {
 			return errors.New("source-media storage account admission failed")
 		}

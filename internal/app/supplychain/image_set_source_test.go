@@ -15,6 +15,58 @@ import (
 
 type selectedImageSourceFixture struct{ source preparation.AuthorizedSource }
 
+type revisedCollectionFixture struct {
+	collection.Repository
+	item collection.Item
+}
+
+func (f revisedCollectionFixture) ReadItem(context.Context, collection.Scope, string) (collection.Item, error) {
+	return f.item, nil
+}
+
+type retainedVersionFixture struct{ original, current catalog.PublishedSnapshot }
+
+func (f retainedVersionFixture) GetSnapshot(_ context.Context, _ catalog.SnapshotIdentity, version uint64) (catalog.PublishedSnapshot, error) {
+	if version == f.original.Version {
+		return f.original, nil
+	}
+	if version == f.current.Version {
+		return f.current, nil
+	}
+	return catalog.PublishedSnapshot{}, preparation.ErrNotFound
+}
+
+func TestRetainedConsumerKeepsOriginalAfterOwnCollectionRevision(t *testing.T) {
+	_, scope, records, _, _, _, auth := uploadFixture(t)
+	source := records.saved.Source
+	original := catalog.PublishedSnapshot{Identity: catalog.SnapshotIdentity{TenantID: scope.OrganizationID, ProductKey: source.Source.ProductKey}, PublicationID: source.Source.PublicationID, Version: 1, Snapshot: catalog.ProductSnapshot{Title: "original draft source"}}
+	current := original
+	current.Version = 2
+	current.PublicationID = collection.StableID(source.ID, "edit")
+	current.Snapshot = catalog.ProductSnapshot{Title: "edited library source"}
+	item := collection.Item{ID: source.CollectionItemID, Revision: source.CollectionRevision + 1, Source: collection.Source{Kind: "own", ProductKey: current.Identity.ProductKey, PublicationID: current.PublicationID, Version: 2}}
+	collections, err := collection.NewService(revisedCollectionFixture{item: item}, auth, uploadUnusedSources{})
+	require.NoError(t, err)
+	versions := retainedVersionFixture{original, current}
+	collections.WithSnapshots(versions)
+	sources := uploadSources{source: source}
+	preparations, err := preparation.NewService(sources, collections, auth)
+	require.NoError(t, err)
+	selector, err := preparation.NewSourceSelector(preparations, collections, sources, versions)
+	require.NoError(t, err)
+	ctx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{TenantID: scope.OrganizationID, EffectiveOrganizationID: scope.OrganizationID, UserID: scope.ActorID, EffectiveMemberID: scope.MemberID, TokenExpiresAt: time.Now().Add(time.Minute)})
+	detail, err := collections.ReadItem(ctx, item.ID)
+	require.NoError(t, err)
+	require.Equal(t, "edited library source", detail.Product.Title)
+	selected, err := selector.Select(ctx, source.ID)
+	require.NoError(t, err)
+	_, retained, snapshot, err := selected.Read(ctx)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, retained.Source.Version)
+	require.EqualValues(t, 1, snapshot.Version)
+	require.Equal(t, "original draft source", snapshot.Snapshot.Title)
+}
+
 func (f selectedImageSourceFixture) Select(context.Context, string) (preparation.AuthorizedSource, error) {
 	return f.source, nil
 }
@@ -33,7 +85,7 @@ func TestSupplySetSourceReusesRetainedSourceOwnerAndLiveExecutionAuthorization(t
 	require.NoError(t, err)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	ctx = authidentity.WithAuthenticatedIdentity(ctx, authidentity.AuthenticatedIdentity{TenantID: scope.OrganizationID, EffectiveOrganizationID: scope.OrganizationID, UserID: scope.ActorID, EffectiveMemberID: scope.MemberID})
+	ctx = authidentity.WithAuthenticatedIdentity(ctx, authidentity.AuthenticatedIdentity{TenantID: scope.OrganizationID, EffectiveOrganizationID: scope.OrganizationID, UserID: scope.ActorID, EffectiveMemberID: scope.MemberID, TokenExpiresAt: time.Now().Add(time.Minute)})
 	reader := ImageSetSources{ExecutionSources: selector, ExecutionAuthorization: auth, Products: EffectiveProductReader{}}
 	identity := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, TenantID: scope.OrganizationID, UserID: scope.ActorID, MemberID: scope.MemberID, BusinessTaskID: records.saved.Source.ID}
 	input := imageagent.PrepareImageSetInput{ContextID: records.saved.Source.ID, Target: imageagent.ImageTargetSelection{Platform: "product"}}

@@ -1,0 +1,53 @@
+http:
+  routers:
+    identity-login:
+      entryPoints: [identity]
+      rule: Host(`localhost`) && PathPrefix(`/ui/v2/login`)
+      priority: 100
+      service: zitadel-login
+      tls: {}
+    identity-api:
+      entryPoints: [identity]
+      rule: Host(`localhost`)
+      priority: 1
+      service: zitadel-api
+      tls: {}
+    source-media-public:
+      entryPoints: [application]
+      rule: Host(`localhost`) && PathRegexp(`^/source-media-assets/source-media-trial/product-source/[a-f0-9]{64}/[a-f0-9]{64}$`) && (Method(`GET`) || Method(`HEAD`))
+      priority: 200
+      middlewares: [source-media-public-headers, source-media-public-prefix]
+      service: source-media-public
+      tls: {}
+    listingkit-ui:
+      entryPoints: [application]
+      rule: Host(`localhost`)
+      priority: 1
+      service: listingkit-ui
+      tls: {}
+  middlewares:
+    source-media-public-headers:
+      headers:
+        customRequestHeaders:
+          Cookie: ""
+          Authorization: ""
+    source-media-public-prefix:
+      stripPrefix:
+        prefixes: [/source-media-assets]
+  services:
+    zitadel-api:
+      loadBalancer:
+        servers: [{url: h2c://127.0.0.1:8080}]
+    zitadel-login:
+      loadBalancer:
+        servers: [{url: http://127.0.0.1:3000}]
+    listingkit-ui:
+      loadBalancer:
+        servers: [{url: http://127.0.0.1:3001}]
+    source-media-public:
+      loadBalancer:
+        servers: [{url: http://127.0.0.1:9103}]
+tls:
+  certificates:
+    - certFile: /private/tls/localhost.crt
+      keyFile: /private/tls/localhost.key

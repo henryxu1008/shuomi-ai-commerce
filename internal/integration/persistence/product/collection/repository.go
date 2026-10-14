@@ -14,6 +14,7 @@ import (
 
 type OwnPublisher interface {
 	PublishOwn(context.Context, collection.Scope, string, sourcing.SourceEnvelope) (collection.Source, error)
+	ReviseOwn(context.Context, collection.Scope, string, collection.Source, sourcing.SourceEnvelope) (collection.Source, error)
 }
 type OwnPublisherFactory func(*gorm.DB) (OwnPublisher, error)
 type Repository struct {
@@ -59,6 +60,12 @@ func (r *Repository) Execute(ctx context.Context, command collection.Command) (c
 		receipt = collection.Receipt{OperationID: command.OperationID}
 		input, scope, now := command.Mutation, command.Scope, r.now().UTC().Truncate(time.Microsecond)
 		switch input.Action {
+		case "revise_product":
+			updated, err := r.reviseOwn(ctx, tx, command)
+			if err != nil {
+				return err
+			}
+			receipt = updated
 		case "import_products":
 			if len(command.Envelopes) < 1 || len(command.Envelopes) > 200 || len(command.Envelopes) != len(input.Products) {
 				return collection.ErrInvalid

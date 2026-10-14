@@ -11,10 +11,60 @@ import (
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/imageagent"
+	"task-processor/internal/product/asset"
+	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/collection"
+	"task-processor/internal/product/pod"
+	"task-processor/internal/product/sourcing"
 	"testing"
 	"time"
 )
+
+type artworkSnapshotFixture struct{ snapshot catalog.PublishedSnapshot }
+
+func (f artworkSnapshotFixture) GetSnapshot(context.Context, catalog.SnapshotIdentity, uint64) (catalog.PublishedSnapshot, error) {
+	return f.snapshot, nil
+}
+
+func TestArtworkSourceBytesRetainOriginalGenerationAndApprovalAuthority(t *testing.T) {
+	scope := collection.Scope{"org", "actor", "member"}
+	facts := completedArtworkFixture(t, scope)
+	base := "https://localhost:33644/image-agent-assets/images"
+	urls := artworkTrialURLFixture{base}
+	published := facts.effect.FinalManifest.Assets[0]
+	origin := artworkOriginFromRun(facts.p, published)
+	envelope, err := artworkEnvelope("publication", facts.p.Plan.Artwork, origin, published, urls.PublicURL(published.ObjectKey))
+	require.NoError(t, err)
+	snapshot, err := sourcing.ToSnapshot(envelope)
+	require.NoError(t, err)
+	ref := pod.ArtworkReference{Input: pod.InputReference{Source: collection.Source{ProductKey: "product", PublicationID: "publication", Version: 1}}}
+	mode := &artworkModeFixture{}
+	reads := 0
+	guard := ArtworkOriginGuard{Snapshots: artworkSnapshotFixture{catalog.PublishedSnapshot{Identity: catalog.SnapshotIdentity{TenantID: scope.OrganizationID, ProductKey: "product"}, PublicationID: "publication", Version: 1, Snapshot: snapshot}}, Images: facts, Facts: facts, Configuration: mode, URLs: urls, ReadGeneratedBytes: func(_ context.Context, selection asset.SourceSelection, approved asset.ApprovedAsset, maximum int64) ([]byte, error) {
+		reads++
+		require.Equal(t, scope.OrganizationID, selection.TenantID)
+		require.Equal(t, facts.p.Run.ID, approved.RunID)
+		require.Equal(t, published.SHA256, approved.GenerationEvidence.ArtifactHash)
+		require.Nil(t, approved.SourceApproval)
+		require.EqualValues(t, pod.MaxArtworkBytes, maximum)
+		return []byte("original owner bytes"), nil
+	}}
+	approved := asset.ApprovedAsset{URL: urls.PublicURL(published.ObjectKey)}
+	raw, generated, err := guard.ReadArtworkSourceBytes(context.Background(), scope, ref, approved, pod.MaxArtworkBytes)
+	require.NoError(t, err)
+	require.True(t, generated)
+	require.Equal(t, "original owner bytes", string(raw))
+	require.Equal(t, 1, reads)
+	approved.URL = "https://localhost:33645/image-agent-assets/images/changed.png"
+	_, _, err = guard.ReadArtworkSourceBytes(context.Background(), scope, ref, approved, pod.MaxArtworkBytes)
+	require.Error(t, err)
+	require.Equal(t, 1, reads)
+	mode.denied = true
+	approved.URL = urls.PublicURL(published.ObjectKey)
+	_, _, err = guard.ReadArtworkSourceBytes(context.Background(), scope, ref, approved, pod.MaxArtworkBytes)
+	require.Error(t, err)
+	require.Equal(t, 1, reads, "revocation prevents any private object read")
+}
 
 type artworkFactsFixture struct {
 	imageagent.Repository

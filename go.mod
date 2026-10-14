@@ -16,7 +16,7 @@ require (
 	github.com/cenkalti/backoff/v5 v5.0.3
 	github.com/cloudwego/eino v0.9.21
 	github.com/disintegration/imaging v1.6.2
-	github.com/fsnotify/fsnotify v1.6.0
+	github.com/fsnotify/fsnotify v1.7.0
 	github.com/gin-gonic/gin v1.10.1
 	github.com/go-openapi/jsonpointer v1.0.0
 	github.com/go-pay/crypto v0.0.3
@@ -28,6 +28,8 @@ require (
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/jellydator/ttlcache/v3 v3.4.1
 	github.com/mattn/go-sqlite3 v1.14.22
+	github.com/minio/madmin-go/v3 v3.0.94
+	github.com/minio/minio-go/v7 v7.0.83-0.20241230094935-5757f2c8544a
 	github.com/mxschmitt/playwright-go v0.6100.0
 	github.com/oklog/ulid/v2 v2.1.1
 	github.com/open-feature/go-sdk v1.18.0
@@ -70,6 +72,23 @@ require (
 )
 
 require (
+	github.com/go-ini/ini v1.67.0 // indirect
+	github.com/golang-jwt/jwt/v4 v4.5.2 // indirect
+	github.com/golang/protobuf v1.5.4 // indirect
+	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
+	github.com/minio/md5-simd v1.1.2 // indirect
+	github.com/philhofer/fwd v1.1.3-0.20240916144458-20a13a1f6b7c // indirect
+	github.com/prometheus/prom2json v1.4.0 // indirect
+	github.com/prometheus/prometheus v0.54.1 // indirect
+	github.com/rs/xid v1.6.0 // indirect
+	github.com/safchain/ethtool v0.4.1 // indirect
+	github.com/secure-io/sio-go v0.3.1 // indirect
+	github.com/shirou/gopsutil/v3 v3.24.5 // indirect
+	github.com/shoenig/go-m1cpu v0.1.6 // indirect
+	github.com/tinylib/msgp v1.2.5 // indirect
+)
+
+require (
 	cloud.google.com/go/auth v0.18.2 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
 	cloud.google.com/go/compute/metadata v0.9.0 // indirect
@@ -91,7 +110,7 @@ require (
 	github.com/cloudwego/eino-ext/components/model/openai v0.1.13
 	github.com/cloudwego/eino-ext/libs/acl/openai v0.1.17 // indirect
 	github.com/eino-contrib/jsonschema v1.0.3 // indirect
-	github.com/evanphx/json-patch v0.5.2 // indirect
+	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/go-pay/errgroup v0.0.3 // indirect
 	github.com/go-pay/smap v0.0.2 // indirect
 	github.com/go-pay/util v0.0.4 // indirect
@@ -157,7 +176,6 @@ require (
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/containerd/platforms v0.2.1 // indirect
 	github.com/cpuguy83/dockercfg v0.3.2 // indirect
-	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/deckarep/golang-set/v2 v2.8.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/distribution/reference v0.6.0 // indirect
@@ -172,7 +190,7 @@ require (
 	github.com/go-jose/go-jose/v3 v3.0.5 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
-	github.com/go-ole/go-ole v1.2.6 // indirect
+	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-playground/validator/v10 v10.30.1 // indirect
@@ -195,7 +213,7 @@ require (
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
-	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
+	github.com/lufia/plan9stats v0.0.0-20240909124753-873cd0166683 // indirect
 	github.com/magiconair/properties v1.8.10 // indirect
 	github.com/mattn/go-isatty v0.0.23 // indirect
 	github.com/mfridman/interpolate v0.0.2 // indirect

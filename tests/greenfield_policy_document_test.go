@@ -226,10 +226,11 @@ func TestGreenfieldNoLegacyMigrationPolicyIsConsistent(t *testing.T) {
 	}
 }
 
-func TestSourceAccountOwnershipMigrationToolsStayRetired(t *testing.T) {
+func TestHistoricalIdentityPreparationToolsStayRetired(t *testing.T) {
 	for _, relative := range []string{
 		"cmd/source-account-ownership-preflight",
 		"internal/integration/persistence/sourceaccount/ownershipmigration",
+		"internal/tenantbridge/bootstrap",
 	} {
 		t.Run(relative, func(t *testing.T) {
 			err := filepath.WalkDir(filepath.Join("..", filepath.FromSlash(relative)), func(path string, entry os.DirEntry, err error) error {
@@ -240,7 +241,7 @@ func TestSourceAccountOwnershipMigrationToolsStayRetired(t *testing.T) {
 					return err
 				}
 				if !entry.IsDir() {
-					t.Errorf("retired source-account migration artifact remains: %s", path)
+					t.Errorf("retired identity preparation artifact remains: %s", path)
 				}
 				return nil
 			})
@@ -249,8 +250,10 @@ func TestSourceAccountOwnershipMigrationToolsStayRetired(t *testing.T) {
 			}
 		})
 	}
-	if _, err := os.Stat(filepath.Join("..", "scripts", "source-account-ownership-preflight.ps1")); !os.IsNotExist(err) {
-		t.Fatal("retired source-account migration CLI wrapper must be absent")
+	for _, name := range []string{"source-account-ownership-preflight.ps1", "yudao-zitadel-migration-dry-run.ps1"} {
+		if _, err := os.Stat(filepath.Join("..", "scripts", name)); !os.IsNotExist(err) {
+			t.Errorf("retired identity preparation script must be absent: %s", name)
+		}
 	}
 }
 

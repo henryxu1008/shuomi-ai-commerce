@@ -39,6 +39,10 @@ func TestMaterialsNewAdoptionRechecksOriginalModeConfigurationAndTemplate(t *tes
 	}
 }
 
+func TestMaterialsAdoptionRejectsDifferentManualCommandUnderAgentKey(t *testing.T) {
+	testProductAgentOwners(t, "supply materials default receipt collision")
+}
+
 func TestMaterialsQualifiedAutomaticSaveUsesNativeReceipt(t *testing.T) {
 	for _, mode := range []string{"auto_approve", "full_access"} {
 		t.Run(mode, func(t *testing.T) { testProductAgentOwners(t, "supply materials "+mode+" qualified") })
@@ -93,6 +97,7 @@ func testMaterialsNativeOwners(t *testing.T, value string, parent *productAgentA
 	a, err := buildListingMaterialsApplication(ctx, parent, supply)
 	require.NoError(t, err)
 	require.NotNil(t, a.runtime)
+	parent.config.Limits.Runtime = 2 * time.Minute
 	parent.materials = a
 	server := httptest.NewServer(buildIsolatedApplicationHTTPServer(listingMaterialsRoutes(a, a.bindRequest), deps, 2*time.Minute).Handler)
 	defer server.Close()
@@ -114,6 +119,9 @@ func testMaterialsNativeOwners(t *testing.T, value string, parent *productAgentA
 		ConfigurationSnapshotRef agent.ConfigurationSnapshotRef `json:"configurationSnapshotRef"`
 	}
 	require.NoError(t, json.Unmarshal(raw, &prepared))
+	frozen, err := parent.configuration.LoadSnapshot(ctx, scope, prepared.ConfigurationSnapshotRef)
+	require.NoError(t, err)
+	require.LessOrEqual(t, frozen.Request.Limits.Runtime, 90*time.Second, "the model run must reserve route time for Target saving")
 	require.True(t, materialsRefValid(prepared.ConfigurationSnapshotRef))
 	start := materialsStartBody{ConfigurationSnapshotRef: prepared.ConfigurationSnapshotRef}
 	raw = call("POST", path+"/runs", key, start, 200)
@@ -140,6 +148,27 @@ func testMaterialsNativeOwners(t *testing.T, value string, parent *productAgentA
 	require.Equal(t, int32(2), calls.Load(), "one governed inspect/propose sequence")
 	require.Nil(t, result.Adoption, "incomplete rules never automatically adopt, even full")
 	adopt := materialsAdoptBody{ConfigurationSnapshotRef: prepared.ConfigurationSnapshotRef, CandidateHash: result.CandidateHash}
+	if strings.Contains(value, "receipt collision") {
+		manual := base.Record.Input
+		manual.ExpectedRevision = base.Record.Revision
+		manual.Draft.Product.BrandCode = "different-manual-brand"
+		commandKey := collection.StableID("B", "admin", "listing-materials-adopt", result.RunID, result.CandidateHash)
+		_, err := supply.Targets.Create(actor, commandKey, manual)
+		require.NoError(t, err)
+		call("GET", path+"/runs/"+key+"/adoption", "", nil, 409)
+		adopt.HumanConfirmed = true
+		call("POST", path+"/runs/"+key+"/adopt", "", adopt, 409)
+		raw := call("GET", path+"/runs/"+key, "", nil, 200)
+		var projected materialsRunDTO
+		require.NoError(t, json.Unmarshal(raw, &projected))
+		require.Nil(t, projected.Adoption, "a different manual command cannot be projected as this candidate's save")
+		require.False(t, projected.CanRequestAdoption)
+		require.LessOrEqual(t, len(projected.Unresolved), 4096, "collision history must remain within the existing BFF contract")
+		require.Contains(t, projected.Unresolved, "原保存编号对应的草稿与本次建议不一致，请核对原记录。")
+		require.Contains(t, projected.Unresolved[len(projected.Unresolved)-1], "省略")
+		require.Equal(t, int32(2), calls.Load(), "reading bounded history does not call the model again")
+		return
+	}
 	if value != "default" && strings.HasPrefix(value, "default ") {
 		switch strings.TrimPrefix(value, "default ") {
 		case "mode changed":
