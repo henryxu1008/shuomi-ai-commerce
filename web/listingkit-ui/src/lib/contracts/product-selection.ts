@@ -101,7 +101,7 @@ export const selectionInputSchema = z
 export const selectionPrepareSchema = selectionInputSchema.safeExtend({
   requestKey: collectionID,
   expectedModeRevision: modeRevisionSchema,
-  goalSummary: text(512).refine((v) => v.trim() === v),
+  goalSummary: text(512).min(1).refine((v) => v.trim() === v),
 });
 export const selectionPreparedSchema = z.strictObject({
   contextId: collectionID,

@@ -188,6 +188,7 @@ function choose() {
   fireEvent.click(screen.getByText("选择商品A"));
   fireEvent.click(screen.getByText("选择商品B"));
 }
+it("requires an explicit comparison goal before preparing a paid analysis",async()=>{show();choose();await waitFor(()=>expect(screen.getByRole("button",{name:"准备分析"})).toBeEnabled());fireEvent.change(screen.getByLabelText("本次比较目标"),{target:{value:""}});expect(screen.getByRole("button",{name:"准备分析"})).toBeDisabled();expect(writes).toHaveLength(0)});
 it("allows factual comparison without model configuration and never starts analysis automatically", async () => {
   show({
     ...entry,

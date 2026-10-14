@@ -46,9 +46,12 @@ func (g selectionHistoryGrants) Load(ctx context.Context, source workbenchcontex
 	return result, err
 }
 
-type selectionHistoryModules struct{}
+type selectionHistoryModules struct{ factsOnly *atomic.Bool }
 
-func (selectionHistoryModules) RoleModules(context.Context, string, []string) (map[string][]string, error) {
+func (m selectionHistoryModules) RoleModules(context.Context, string, []string) (map[string][]string, error) {
+	if m.factsOnly != nil && m.factsOnly.Load() {
+		return map[string][]string{authz.EnterpriseRoleKey("B", 1): {"data-mine"}}, nil
+	}
 	return map[string][]string{authz.EnterpriseRoleKey("B", 1): {"agent-custom", "data-mine"}}, nil
 }
 
@@ -65,8 +68,9 @@ func testSelectionHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixtur
 	t.Helper()
 	ctx := context.Background()
 	limited := &atomic.Bool{}
+	factsOnly := &atomic.Bool{}
 	deps.organizationResolver = workbenchcontext.NewResolver(selectionHistoryGrants{agentFixtureGrants: agentFixtureGrants{base: f.grants}, limited: limited}, "project", "v1", nil)
-	permissions.SetRolePolicyReader(selectionHistoryModules{})
+	permissions.SetRolePolicyReader(selectionHistoryModules{factsOnly: factsOnly})
 	live := &productReviewLiveOrganizationAccess{resolver: deps.organizationResolver, now: time.Now}
 	authority, err := collection.NewContextAuthorizer(live, permissions)
 	require.NoError(t, err)
@@ -115,7 +119,11 @@ func testSelectionHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixtur
 		require.Equal(t, status, code, string(data))
 		return data
 	}
+	limited.Store(true)
+	factsOnly.Store(true)
 	raw := call("POST", productSelectionBase+"/inspect", uuid.NewString(), in, http.StatusOK)
+	limited.Store(false)
+	factsOnly.Store(false)
 	var facts selection.Inspection
 	require.NoError(t, json.Unmarshal(raw, &facts))
 	require.Len(t, facts.Products, 2)
@@ -134,6 +142,11 @@ func testSelectionHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixtur
 	require.NoError(t, err)
 	key := uuid.NewString()
 	preparation := selectionPrepareInput{selectionInput: in, RequestKey: key, ExpectedModeRevision: mode.Revision, GoalSummary: "根据真实资料比较并指出缺项"}
+	for _, goal := range []string{"", " "} {
+		invalid := preparation
+		invalid.GoalSummary = goal
+		call("POST", productSelectionBase+"/prepare", key, invalid, http.StatusBadRequest)
+	}
 	raw = call("POST", productSelectionBase+"/prepare", key, preparation, http.StatusOK)
 	var prepared struct {
 		ConfigurationSnapshotRef agent.ConfigurationSnapshotRef `json:"configurationSnapshotRef"`
