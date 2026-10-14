@@ -19,6 +19,17 @@ contracts remain intact; source/build/review/CI and actual deployment are separa
 
 ## 1. Purpose
 
+### #678 current command assembly calibration
+
+The current application and ImageAgent worker no longer compile tenantbridge.
+The existing standalone SHEIN worker's process assembly belongs to
+`internal/app/runtime/sheinloginworker`, directly consumed by its cmd; its
+shared HTTP entrypoint is absent. Unused ListingAdmin HTTP projection/helpers
+are retired, while original repository/API behavior and current SHEIN draft
+semantics are unchanged. Remaining numeric/SHEIN transport and historical tools
+still require their own #301/#529 retirement; this does not create a new owner
+for their old facts or claim deployment/user acceptance.
+
 ### ACC-1 bounded current-owner calibration (#409)
 
 On main `aff6b8def46cf7c2d989408d115fa3c9628e585e`, personal account reads use

@@ -87,7 +87,7 @@ func (v *Variant) UnmarshalJSON(data []byte) error {
 
 type Price struct {
 	Currency     string  `json:"currency,omitempty"`
-	Amount       float64 `json:"amount,omitempty"`
+	Amount       float64 `json:"amount"`
 	CompareAt    float64 `json:"compare_at,omitempty"`
 	CostPrice    float64 `json:"cost_price,omitempty"`
 	WholesaleMin int     `json:"wholesale_min,omitempty"`

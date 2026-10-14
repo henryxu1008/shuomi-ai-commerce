@@ -5,7 +5,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"task-processor/internal/app/httpapi"
+	"task-processor/internal/app/runtime/sheinloginworker"
 	"task-processor/internal/pkg/appenv"
 )
 
@@ -15,14 +15,14 @@ var (
 	healthPort = flag.Int("health-port", 8086, "worker health server port")
 )
 
-func start(logger *logrus.Logger, options httpapi.Options) error {
-	return httpapi.RunSheinLoginWorker(logger, options)
+func start(logger *logrus.Logger, options sheinloginworker.Options) error {
+	return sheinloginworker.Run(logger, options)
 }
 
 func main() {
 	flag.Parse()
 	logger := appenv.SetupLoggerWithLevel(*logLevel)
-	if err := start(logger, httpapi.Options{ConfigPath: *configPath, Port: *healthPort}); err != nil {
+	if err := start(logger, sheinloginworker.Options{ConfigPath: *configPath, Port: *healthPort}); err != nil {
 		logger.Fatalf("SHEIN login worker exited: %v", err)
 	}
 }

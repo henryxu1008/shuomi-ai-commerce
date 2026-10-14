@@ -1,15 +1,12 @@
 package shein
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
-	"net/http"
-	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 
-	"github.com/gin-gonic/gin"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	_ "modernc.org/sqlite"
@@ -20,10 +17,10 @@ import (
 	sharedtenantctx "task-processor/internal/shared/tenantctx"
 )
 
-func TestAdminGenerationTopicPolicyCreationFlowsIntoPromptAndPreviewSanitizer(t *testing.T) {
-	repo := newGenerationTopicPolicyAdminRepo(t)
-	createGenerationTopicPolicyViaAdmin(t, repo, "101", "children")
-	createGenerationTopicPolicyViaAdmin(t, repo, "202", "meals")
+func TestAdminGenerationTopicPolicyPersistenceFlowsIntoPromptAndPreviewSanitizer(t *testing.T) {
+	repo := newGenerationTopicPolicyRepo(t)
+	createGenerationTopicPolicy(t, repo, "101", "children")
+	createGenerationTopicPolicy(t, repo, "202", "meals")
 
 	restorePromptRepo := SetGenerationTopicPolicyRepository(repo)
 	defer restorePromptRepo()
@@ -55,7 +52,7 @@ func TestAdminGenerationTopicPolicyCreationFlowsIntoPromptAndPreviewSanitizer(t 
 	}
 	systemPrompt := ai.lastSystemPrompt
 	if !strings.Contains(systemPrompt, "Do not mention children, babies, or age-specific users.") {
-		t.Fatalf("system prompt = %q, want children directive from admin-created policy", systemPrompt)
+		t.Fatalf("system prompt = %q, want children directive from repository-created policy", systemPrompt)
 	}
 	if strings.Contains(systemPrompt, "breakfast") || strings.Contains(systemPrompt, "meal") {
 		t.Fatalf("system prompt = %q, want tenant 101 prompt to exclude tenant 202 directives", systemPrompt)
@@ -85,9 +82,9 @@ func TestAdminGenerationTopicPolicyCreationFlowsIntoPromptAndPreviewSanitizer(t 
 }
 
 func TestAdminGenerationTopicOverrideFlowsIntoPromptAndPreviewSanitizer(t *testing.T) {
-	policyRepo, overrideRepo := newGenerationTopicAdminRepos(t)
-	createGenerationTopicPolicyViaAdmin(t, policyRepo, "101", "children")
-	createGenerationTopicOverrideViaAdmin(t, overrideRepo, "101", `{
+	policyRepo, overrideRepo := newGenerationTopicRepos(t)
+	createGenerationTopicPolicy(t, policyRepo, "101", "children")
+	createGenerationTopicOverride(t, overrideRepo, "101", `{
 		"platform":"shein",
 		"topicKey":"children",
 		"additionalPromptDirectives":["Avoid toddler-focused positioning."],
@@ -149,9 +146,8 @@ func TestAdminGenerationTopicOverrideFlowsIntoPromptAndPreviewSanitizer(t *testi
 	}
 }
 
-func newGenerationTopicPolicyAdminRepo(t *testing.T) listingadmin.GenerationTopicPolicyRepository {
+func newGenerationTopicPolicyRepo(t *testing.T) listingadmin.GenerationTopicPolicyRepository {
 	t.Helper()
-	gin.SetMode(gin.TestMode)
 	db, err := gorm.Open(sqlite.Dialector{DriverName: "sqlite", DSN: ":memory:"}, &gorm.Config{})
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
@@ -162,9 +158,8 @@ func newGenerationTopicPolicyAdminRepo(t *testing.T) listingadmin.GenerationTopi
 	return listingadmin.NewGormGenerationTopicPolicyRepository(db)
 }
 
-func newGenerationTopicAdminRepos(t *testing.T) (listingadmin.GenerationTopicPolicyRepository, listingadmin.GenerationTopicOverrideRepository) {
+func newGenerationTopicRepos(t *testing.T) (listingadmin.GenerationTopicPolicyRepository, listingadmin.GenerationTopicOverrideRepository) {
 	t.Helper()
-	gin.SetMode(gin.TestMode)
 	db, err := gorm.Open(sqlite.Dialector{DriverName: "sqlite", DSN: ":memory:"}, &gorm.Config{})
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
@@ -178,45 +173,35 @@ func newGenerationTopicAdminRepos(t *testing.T) (listingadmin.GenerationTopicPol
 	return listingadmin.NewGormGenerationTopicPolicyRepository(db), listingadmin.NewGormGenerationTopicOverrideRepository(db)
 }
 
-func createGenerationTopicPolicyViaAdmin(t *testing.T, repo listingadmin.GenerationTopicPolicyRepository, tenantID string, topicKey string) {
+func createGenerationTopicPolicy(t *testing.T, repo listingadmin.GenerationTopicPolicyRepository, tenantID string, topicKey string) {
 	t.Helper()
-	handler := listingadmin.NewGenerationTopicPolicyHandler(repo)
-	engine := gin.New()
-	engine.POST("/generation-topic-policies", handler.CreateGenerationTopicPolicy)
-
-	body := bytes.NewBufferString(`{"platform":"shein","topicKey":"` + topicKey + `","status":1}`)
-	req := httptest.NewRequest(http.MethodPost, "/generation-topic-policies", body)
-	req.Header.Set("X-Tenant-ID", tenantID)
-	req.Header.Set("X-User-ID", "user-"+tenantID)
-	req.Header.Set("Content-Type", "application/json")
-	resp := httptest.NewRecorder()
-	engine.ServeHTTP(resp, req)
-	if resp.Code != http.StatusCreated {
-		t.Fatalf("POST /generation-topic-policies = %d, body=%s", resp.Code, resp.Body.String())
+	tenant, err := strconv.ParseInt(tenantID, 10, 64)
+	if err != nil {
+		t.Fatal(err)
 	}
-
-	var created listingadmin.GenerationTopicPolicy
-	if err := json.Unmarshal(resp.Body.Bytes(), &created); err != nil {
-		t.Fatalf("decode response: %v", err)
+	ctx := listingadmin.WithOwnerUserID(context.Background(), "user-"+tenantID)
+	created, err := repo.CreateGenerationTopicPolicy(ctx, &listingadmin.GenerationTopicPolicy{TenantID: tenant, Platform: "shein", TopicKey: topicKey, Status: 1})
+	if err != nil {
+		t.Fatalf("persist policy: %v", err)
 	}
 	if created.TopicKey != topicKey || created.Platform != "shein" {
-		t.Fatalf("created policy = %+v, want topicKey=%q platform=shein", created, topicKey)
+		t.Fatalf("created policy = %+v", created)
 	}
 }
 
-func createGenerationTopicOverrideViaAdmin(t *testing.T, repo listingadmin.GenerationTopicOverrideRepository, tenantID string, payload string) {
+func createGenerationTopicOverride(t *testing.T, repo listingadmin.GenerationTopicOverrideRepository, tenantID string, payload string) {
 	t.Helper()
-	handler := listingadmin.NewGenerationTopicOverrideHandler(repo)
-	engine := gin.New()
-	engine.POST("/generation-topic-overrides", handler.CreateGenerationTopicOverride)
-
-	req := httptest.NewRequest(http.MethodPost, "/generation-topic-overrides", bytes.NewBufferString(payload))
-	req.Header.Set("X-Tenant-ID", tenantID)
-	req.Header.Set("X-User-ID", "user-"+tenantID)
-	req.Header.Set("Content-Type", "application/json")
-	resp := httptest.NewRecorder()
-	engine.ServeHTTP(resp, req)
-	if resp.Code != http.StatusCreated {
-		t.Fatalf("POST /generation-topic-overrides = %d, body=%s", resp.Code, resp.Body.String())
+	var item listingadmin.GenerationTopicOverride
+	if err := json.Unmarshal([]byte(payload), &item); err != nil {
+		t.Fatal(err)
+	}
+	tenant, err := strconv.ParseInt(tenantID, 10, 64)
+	if err != nil {
+		t.Fatal(err)
+	}
+	item.TenantID = tenant
+	ctx := listingadmin.WithOwnerUserID(context.Background(), "user-"+tenantID)
+	if _, err := repo.CreateGenerationTopicOverride(ctx, &item); err != nil {
+		t.Fatalf("persist override: %v", err)
 	}
 }

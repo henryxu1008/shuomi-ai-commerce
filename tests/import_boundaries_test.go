@@ -598,17 +598,6 @@ func TestListingAdminDispatchEventCompatibilityAliasesStayRetired(t *testing.T) 
 	}
 }
 
-func TestListingAdminStorePageResponseAliasStaysRetired(t *testing.T) {
-	path := filepath.Join("..", "internal", "listingadmin", "store_handler.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	if strings.Contains(string(content), "type storePageResponse =") {
-		t.Fatalf("%s exposes storePageResponse alias; decode StorePage directly in store handler tests", path)
-	}
-}
-
 func TestListingRuntimeDebugTaskLoaderUsesLocalTaskModel(t *testing.T) {
 	path := filepath.Join("..", "internal", "app", "runtime", "listing", "debug_task_runner.go")
 	content, err := os.ReadFile(path)
@@ -3787,23 +3776,6 @@ func businessHTTPPackages(root string) map[string]struct{} {
 		filepath.Clean(filepath.Join(root, "sheinlogin")) + string(os.PathSeparator):                       {},
 		filepath.Clean(filepath.Join(root, "taskrpcapi")) + string(os.PathSeparator):                       {},
 		filepath.Clean(filepath.Join(root, "amazonlisting", "interfaces.go")):                              {},
-		filepath.Clean(filepath.Join(root, "listingadmin", "category_handler.go")):                         {},
-		filepath.Clean(filepath.Join(root, "listingadmin", "filter_rule_handler.go")):                      {},
-		filepath.Clean(filepath.Join(root, "listingadmin", "generation_topic_catalog_handler.go")):         {},
-		filepath.Clean(filepath.Join(root, "listingadmin", "generation_topic_override_handler.go")):        {},
-		filepath.Clean(filepath.Join(root, "listingadmin", "generation_topic_policy_handler.go")):          {},
-		filepath.Clean(filepath.Join(root, "listingadmin", "handler_helpers.go")):                          {},
-		filepath.Clean(filepath.Join(root, "listingadmin", "import_task_handler.go")):                      {},
-		filepath.Clean(filepath.Join(root, "listingadmin", "operation_strategy_handler.go")):               {},
-		filepath.Clean(filepath.Join(root, "listingadmin", "pricing_rule_handler.go")):                     {},
-		filepath.Clean(filepath.Join(root, "listingadmin", "product_data_handler.go")):                     {},
-		filepath.Clean(filepath.Join(root, "listingadmin", "product_import_mapping_handler.go")):           {},
-		filepath.Clean(filepath.Join(root, "listingadmin", "profit_rule_handler.go")):                      {},
-		filepath.Clean(filepath.Join(root, "listingadmin", "request_context.go")):                          {},
-		filepath.Clean(filepath.Join(root, "listingadmin", "scheduled_task_config_handler.go")):            {},
-		filepath.Clean(filepath.Join(root, "listingadmin", "sensitive_word_handler.go")):                   {},
-		filepath.Clean(filepath.Join(root, "listingadmin", "store_handler.go")):                            {},
-		filepath.Clean(filepath.Join(root, "listingadmin", "store_statistics_handler.go")):                 {},
 		filepath.Clean(filepath.Join(root, "listingkit", "studio_session_handler.go")):                     {},
 		filepath.Clean(filepath.Join(root, "listingsubscription", "handler.go")):                           {},
 	}

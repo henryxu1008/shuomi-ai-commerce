@@ -7,13 +7,6 @@ import (
 	"gorm.io/gorm"
 )
 
-func (q *ScheduledTaskConfigQuery) applyListScope(scope listQueryScope) {
-	q.TenantID = scope.TenantID
-	q.OwnerUserID = scope.OwnerUserID
-	q.Page = scope.Page
-	q.PageSize = scope.PageSize
-}
-
 func findScheduledTaskConfigRows(ctx context.Context, db *gorm.DB, query ScheduledTaskConfigQuery) ([]listingScheduledTaskConfig, int64, int, int, error) {
 	scopeQuery := query
 	if strings.TrimSpace(scopeQuery.OwnerUserID) == "" {
