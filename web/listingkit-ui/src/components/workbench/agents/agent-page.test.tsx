@@ -83,21 +83,29 @@ afterEach(() => {
   scope.isSwitching = false;
 });
 
-it.each(["market", "mine"] as const)("exposes authorized selection facts from %s before activation without enabling analysis", async (mode) => {
-  const fetch = vi.fn(async (_url: unknown, _init?: RequestInit) => { void _url; void _init; return Response.json({items: [{...item, name: "选品对比", parameterSchema: "product-selection-config-v1", agent: {...item.agent, agentId: "product.selection.agent"}, capabilities: [{id: "product.selection.inspect", support: "REQUIRED", readiness: "AVAILABLE", reason: "", observedAt: "2026-10-14T00:00:00Z"}]}], nextCursor: ""}); });
+it.each([
+  ["market", "product.selection.agent", "product.selection.inspect", "product-selection-config-v1", "查看商品事实 →"],
+  ["mine", "product.selection.agent", "product.selection.inspect", "product-selection-config-v1", "查看商品事实 →"],
+  ["market", "shop.operations-diagnosis.agent", "shop.operations-diagnosis.inspect", "shop-operations-diagnosis-config-v1", "查看经营事实 →"],
+  ["mine", "shop.operations-diagnosis.agent", "shop.operations-diagnosis.inspect", "shop-operations-diagnosis-config-v1", "查看经营事实 →"],
+] as const)("exposes authorized facts from %s for %s before activation without enabling analysis", async (mode, agentId, capabilityId, parameterSchema, label) => {
+  const fetch = vi.fn(async (_url: unknown, _init?: RequestInit) => { void _url; void _init; return Response.json({items: [{...item, parameterSchema, agent: {...item.agent, agentId}, capabilities: [{id: capabilityId, support: "REQUIRED", readiness: "AVAILABLE", reason: "", observedAt: "2026-10-14T00:00:00Z"}]}], nextCursor: ""}); });
   vi.stubGlobal("fetch", fetch);
   render(<AgentPage mode={mode}/>);
-  expect(await screen.findByRole("link", {name: "查看商品事实 →"})).toHaveAttribute("href", "/workbench/agents/mine/product.selection.agent");
+  expect(await screen.findByRole("link", {name: label})).toHaveAttribute("href", `/workbench/agents/mine/${agentId}`);
   expect(screen.queryByRole("link", {name: "进入使用 →"})).toBeNull();
   expect(screen.getByText("尚未启用")).toBeInTheDocument();
   expect(fetch.mock.calls.every(([, init]) => !init?.method || init.method === "GET")).toBe(true);
 });
 
-it("does not expose selection inspection when its current capability denies access", async () => {
-  vi.stubGlobal("fetch", vi.fn(async () => Response.json({items: [{...item, parameterSchema: "product-selection-config-v1", agent: {...item.agent, agentId: "product.selection.agent"}, capabilities: [{id: "product.selection.inspect", support: "REQUIRED", readiness: "REQUIRES_AUTHORIZATION", reason: "需要授权", observedAt: "2026-10-14T00:00:00Z"}]}], nextCursor: ""})));
+it.each([
+  ["product.selection.agent", "product.selection.inspect", "product-selection-config-v1", "查看商品事实 →"],
+  ["shop.operations-diagnosis.agent", "shop.operations-diagnosis.inspect", "shop-operations-diagnosis-config-v1", "查看经营事实 →"],
+])("does not expose %s inspection when its current capability denies access", async (agentId, capabilityId, parameterSchema, label) => {
+  vi.stubGlobal("fetch", vi.fn(async () => Response.json({items: [{...item, parameterSchema, agent: {...item.agent, agentId}, capabilities: [{id: capabilityId, support: "REQUIRED", readiness: "REQUIRES_AUTHORIZATION", reason: "需要授权", observedAt: "2026-10-14T00:00:00Z"}]}], nextCursor: ""})));
   render(<AgentPage mode="market"/>);
   await screen.findByText("需要授权");
-  expect(screen.queryByRole("link", {name: "查看商品事实 →"})).toBeNull();
+  expect(screen.queryByRole("link", {name: label})).toBeNull();
 });
 
 it("refreshes the adjacent business flow after the mode sidebar saves its exact receipt",async()=>{

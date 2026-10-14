@@ -278,6 +278,7 @@ function ScopedPage({
   }
   function card(entry: CatalogEntry) {
     const canInspectSelection = entry.agent.agentId === "product.selection.agent" && entry.capabilities.some(cap => cap.id === "product.selection.inspect" && cap.readiness === "AVAILABLE");
+    const canInspectDiagnosis = entry.agent.agentId === "shop.operations-diagnosis.agent" && entry.capabilities.some(cap => cap.id === "shop.operations-diagnosis.inspect" && cap.readiness === "AVAILABLE");
     return (
       <Card key={entry.agent.agentId} className={styles.agentCard}>
         <h2>{entry.name}</h2>
@@ -310,6 +311,7 @@ function ScopedPage({
             </Link>
           )}
           {canInspectSelection ? <Link href={`/workbench/agents/mine/${entry.agent.agentId}`}>查看商品事实 →</Link> : null}
+          {canInspectDiagnosis ? <Link href={`/workbench/agents/mine/${entry.agent.agentId}`}>查看经营事实 →</Link> : null}
         </div>
         {mode === "mine" && (
           <div className={styles.cardActions}>
