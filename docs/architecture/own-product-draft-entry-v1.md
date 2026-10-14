@@ -37,7 +37,7 @@ Design Basis: Reuse Existing Architecture。当前已批准合同可完整覆盖
 
 ## 4. 两次明确操作与恢复
 
-转入提交Preparation及一条SourceItem；成功回执的count必须1，source必须属于该preparation且collectionItemId匹配所选item。之后跳转 `/workbench/supply/mine/missing/<sourceId>` 独立编辑页，通过原SourceSelector重新读取固定资料。
+转入提交Preparation及一条SourceItem；成功回执的count必须1，source必须属于该preparation且collectionItemId匹配所选item。当前确认仍对应原input时，读回source tuple与collection revision还须匹配展示资料；恢复旧key时读取其原固定事实，不能和新确认混用。之后跳转 `/workbench/supply/mine/missing/<sourceId>` 独立编辑页，通过原SourceSelector重新读取固定资料。成功后source读取失败保留回执，只单独重读来源或从原待适配继续，不重复转入。
 
 转入成功不声称草稿已保存，不自动执行Save。独立页显示“尚未保存”，候选文字默认来自固定来源；用户保存才由原CompletionDraft事务写入。离开/取消编辑只保留已转入事实，之后可从原待适配继续填写；不补偿删除Preparation。
 

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { COLLECTION_MAX_BYTES, collectionID, collectionCommandSchema, collectionBatchesSchema, collectionItemsSchema, collectionDetailSchema, collectionReceiptSchema, type CollectionCommand } from "../contracts/product-collection";
+import { COLLECTION_MAX_BYTES, collectionID, collectionCommandSchema, collectionBatchesSchema, collectionBatchSchema, collectionItemsSchema, collectionDetailSchema, collectionReceiptSchema, type CollectionCommand } from "../contracts/product-collection";
 import { readBoundedStrictJSON } from "./strict-json-response";
 import {importPreviewSchema,importTemplateSchema,mediaImageSchema,mediaHashSchema} from "../contracts/product-collection";
 import {collectionVersion,collectionOwnHistorySchema,collectionOwnVersionSchema} from "../contracts/product-collection";
@@ -19,6 +19,10 @@ const queryString = (query: Query) => {
   return `?${params}`;
 };
 export const listCollectionBatches = (scope: CollectionScope, query: Query = {}, signal?: AbortSignal) => send(`${base}/batches${queryString(query)}`, scope, collectionBatchesSchema, signal);
+export async function readCollectionBatch(scope:CollectionScope,batchId:string,signal?:AbortSignal){
+ collectionID.parse(batchId);const batch=await send(`${base}/batches/${batchId}`,scope,collectionBatchSchema,signal);
+ if(batch.id!==batchId)throw new CollectionAPIError("DEPENDENCY_UNAVAILABLE",502);return batch;
+}
 export const listOwnProducts = (scope: CollectionScope, query: Query = {}, signal?: AbortSignal) => send(`${base}/own-products${queryString(query)}`, scope, collectionItemsSchema, signal);
 export function listCollectionItems(scope: CollectionScope, batchId: string, query: Query = {}, signal?: AbortSignal) {
   collectionID.parse(batchId);
