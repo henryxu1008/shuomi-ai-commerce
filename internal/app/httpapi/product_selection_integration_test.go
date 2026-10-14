@@ -96,7 +96,7 @@ func testSelectionHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixtur
 	a, err := buildProductSelectionApplication(ctx, parent, collections, f.owner, deps.organizationResolver, permissions)
 	require.NoError(t, err)
 	routes := productSelectionRoutes(a, a.bindRequest)
-	configurationModule, err := buildAgentConfigurationModule(ctx, f.owner, deps.organizationResolver, permissions, nil, parent, nil, a)
+	configurationModule, err := buildAgentConfigurationModule(ctx, f.owner, deps.organizationResolver, permissions, nil, parent, nil, a, nil)
 	require.NoError(t, err)
 	registry := kernelmodule.NewRegistry()
 	require.NoError(t, configurationModule.Register(registry))

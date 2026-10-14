@@ -98,14 +98,14 @@ function endpoint(url: URL, method: string) {
   const list =
     output === catalogPageSchema ||
     output === titleTemplatesPageSchema || output === contentTemplatesPageSchema || output===materialsTemplatesPageSchema ||
-    output === recentRunsSchema || output === selectionRecentSchema || output === imageSetRecentSchema || output === imageTemplatesPageSchema || output === artworkRecentSchema || output === artworkTemplatesPageSchema;
+    output === recentRunsSchema || output === selectionRecentSchema || output === diagnosisRecentSchema || output === imageSetRecentSchema || output === imageTemplatesPageSchema || output === artworkRecentSchema || output === artworkTemplatesPageSchema;
   if (url.search.length > 512 || (url.search && !list)) return null;
   for (const [k, v] of url.searchParams) {
     if (url.searchParams.getAll(k).length !== 1) return null;
     if (k === "pageSize") {
       if (
         !/^[1-9][0-9]*$/.test(v) ||
-        Number(v) > ((output === recentRunsSchema || output === selectionRecentSchema || output === imageSetRecentSchema || output === artworkRecentSchema) ? 20 : 100)
+        Number(v) > ((output === recentRunsSchema || output === selectionRecentSchema || output === diagnosisRecentSchema || output === imageSetRecentSchema || output === artworkRecentSchema) ? 20 : 100)
       )
         return null;
     } else if (k === "cursor") {

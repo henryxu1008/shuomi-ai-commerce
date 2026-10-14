@@ -14,11 +14,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
+	confighttp "task-processor/internal/agentconfig/httpapi"
 	"task-processor/internal/integration/operationscockpitauth"
 	cockpitstore "task-processor/internal/integration/persistence/operationscockpit"
+	kernelmodule "task-processor/internal/kernel/module"
 	cockpit "task-processor/internal/operationscockpit"
 	"task-processor/internal/storecenter"
 	observations "task-processor/internal/storecenter/observations"
+	"task-processor/internal/workbenchcontext"
 
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
@@ -26,6 +29,12 @@ import (
 
 	"task-processor/internal/shopdiagnosis"
 )
+
+type diagnosisHistoryModules struct{}
+
+func (diagnosisHistoryModules) RoleModules(context.Context, string, []string) (map[string][]string, error) {
+	return map[string][]string{authz.EnterpriseRoleKey("B", 1): {"agent-custom", "overview-stores", "advice", "stores"}}, nil
+}
 
 func TestDiagnosisHTTPUsesRealConfigurationToolModelLedgerAndReceipt(t *testing.T) {
 	testProductAgentOwners(t, "diagnosis")
@@ -39,6 +48,9 @@ func mustDiagnosisJSON(t *testing.T, v any) json.RawMessage {
 func testDiagnosisHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixture, parent *productAgentApplication, deps routeAuthDependencies, permissions *authz.ListingKitAuthorizer, calls *atomic.Int32) {
 	t.Helper()
 	ctx := context.Background()
+	limited := &atomic.Bool{}
+	deps.organizationResolver = workbenchcontext.NewResolver(selectionHistoryGrants{agentFixtureGrants: agentFixtureGrants{base: f.grants}, limited: limited}, "project", "v1", nil)
+	permissions.SetRolePolicyReader(diagnosisHistoryModules{})
 	require.NoError(t, storecenter.AutoMigrateStoreRepository(f.owner))
 	records, err := storecenter.NewGormStoreRepository(f.owner)
 	require.NoError(t, err)
@@ -71,6 +83,11 @@ func testDiagnosisHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixtur
 	require.NoError(t, err)
 	in := diagnosisInput{ContextID: uuid.NewString(), StoreID: shopID, StartDate: fact.Period.Start, EndDate: fact.Period.End}
 	routes := shopDiagnosisRoutes(a, a.bindRequest)
+	configurationModule, err := buildAgentConfigurationModule(ctx, f.owner, deps.organizationResolver, permissions, nil, parent, nil, nil, a)
+	require.NoError(t, err)
+	registry := kernelmodule.NewRegistry()
+	require.NoError(t, configurationModule.Register(registry))
+	routes = append(routes, registry.Routes()...)
 	app := buildIsolatedApplicationHTTPServer(routes, deps, 2*time.Minute)
 	server := httptest.NewServer(app.Handler)
 	defer server.Close()
@@ -136,6 +153,15 @@ func testDiagnosisHTTPThroughNativeOwners(t *testing.T, f *acquisitionHTTPFixtur
 	replay := call("POST", shopDiagnosisBase+"/contexts/"+in.ContextID+"/runs", key, body, http.StatusOK)
 	require.JSONEq(t, string(raw), string(replay))
 	require.EqualValues(t, 2, calls.Load())
+	recentPath := confighttp.Base + "/" + agentconfig.DiagnosisAgentID + "/recent-runs?pageSize=20"
+	call("GET", recentPath, "", nil, http.StatusOK)
+	limited.Store(true)
+	limitedCatalog := call("GET", confighttp.Base+"/"+agentconfig.DiagnosisAgentID, "", nil, http.StatusOK)
+	require.Contains(t, string(limitedCatalog), `"canReadRuns":false`)
+	call("GET", recentPath, "", nil, http.StatusForbidden)
+	call("GET", path, "", nil, http.StatusForbidden)
+	limited.Store(false)
+	call("GET", recentPath, "", nil, http.StatusOK)
 	_, err = parent.configuration.Execute(ctx, agentconfig.Command{Scope: scope, Key: uuid.NewString(), AgentID: agentconfig.DiagnosisAgentID, Operation: "disable", Expected: 1})
 	require.NoError(t, err)
 	history := call("GET", path, "", nil, http.StatusOK)
