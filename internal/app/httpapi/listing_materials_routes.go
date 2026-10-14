@@ -26,6 +26,18 @@ import (
 
 const listingMaterialsBase = supplyhttp.SupplyBasePath + "/records/:record_id/materials-agent"
 
+func isListingMaterialsHTTPPath(path string) bool {
+	prefix := supplyhttp.SupplyBasePath + "/records/"
+	if !strings.HasPrefix(path, prefix) {
+		return false
+	}
+	parts := strings.Split(strings.TrimPrefix(path, prefix), "/")
+	if len(parts) < 3 || !agentconfig.UUID(parts[0]) || parts[1] != "materials-agent" || parts[2] != "runs" {
+		return false
+	}
+	return len(parts) == 3 || len(parts) == 5 && agentconfig.UUID(parts[3]) && (parts[4] == "resume" || parts[4] == "adopt")
+}
+
 type listingMaterialsHTTPService interface {
 	prepare(context.Context, string, materialsPrepareInput) (agentconfig.Snapshot, error)
 	start(context.Context, string, string, agent.ConfigurationSnapshotRef) (agent.Record, bool, error)
