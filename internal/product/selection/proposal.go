@@ -58,5 +58,8 @@ func ValidateProposal(out Inspection, p Proposal) error {
 			citations[id] = true
 		}
 	}
+	if p.RecommendedItemID != "" && !seen[p.RecommendedItemID] {
+		return agent.ErrInvalid
+	}
 	return nil
 }

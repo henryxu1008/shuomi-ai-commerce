@@ -162,6 +162,19 @@ func TestVariantAttributesRequireCompletePairs(t *testing.T) {
 	require.NotContains(t, product.Missing, "variants.0.attributes")
 }
 
+func TestRecommendationRequiresItsOwnCitedAssessment(t *testing.T) {
+	inspector, ctx, choices, _ := inspectionFixture(t)
+	_, out, err := inspector.Prepare(ctx, uuid.NewString(), choices)
+	require.NoError(t, err)
+	a, b := out.Products[0], out.Products[1]
+	proposal := Proposal{Overview: "比较已保存事实", RecommendedItemID: b.Ref.ItemID, Assessments: []Assessment{{ItemID: a.Ref.ItemID, Advice: "依据资料核对", EvidenceIDs: []string{a.Facts[0].ID}}}}
+	require.ErrorIs(t, ValidateProposal(out, proposal), agent.ErrInvalid)
+	proposal.Assessments = append(proposal.Assessments, Assessment{ItemID: b.Ref.ItemID, Advice: "核对推荐依据", EvidenceIDs: []string{b.Facts[0].ID}})
+	require.NoError(t, ValidateProposal(out, proposal))
+	proposal.RecommendedItemID = ""
+	require.NoError(t, ValidateProposal(out, proposal))
+}
+
 func TestFiveLegalRichProductsKeepWholeFactsWithinAggregateBudget(t *testing.T) {
 	inspector, ctx, _, store := inspectionFixture(t)
 	var choices []collection.SelectionInput

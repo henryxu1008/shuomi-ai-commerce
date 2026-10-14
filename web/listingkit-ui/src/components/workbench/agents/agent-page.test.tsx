@@ -93,6 +93,8 @@ it.each([
   vi.stubGlobal("fetch", fetch);
   render(<AgentPage mode={mode}/>);
   expect(await screen.findByRole("link", {name: label})).toHaveAttribute("href", `/workbench/agents/mine/${agentId}`);
+  expect(screen.getByText(agentId === "product.selection.agent" ? "商品事实对比 · 有引用建议" : "经营事实诊断 · 有引用建议")).toBeInTheDocument();
+  expect(screen.queryByText("标题优化 · 人工审核")).toBeNull();
   expect(screen.queryByRole("link", {name: "进入使用 →"})).toBeNull();
   expect(screen.getByText("尚未启用")).toBeInTheDocument();
   expect(fetch.mock.calls.every(([, init]) => !init?.method || init.method === "GET")).toBe(true);
