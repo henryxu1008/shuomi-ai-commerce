@@ -54,6 +54,34 @@ func TestMinIOInfoRequiresSingleCompleteJSONDocument(t *testing.T) {
 	}
 }
 
+func TestMinIOCapacityRejectsNoncanonicalRegionBeforeIO(t *testing.T) {
+	for _, consumer := range []string{"configured-capacity", "source-trial"} {
+		t.Run(consumer, func(t *testing.T) {
+			requests := 0
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				requests++
+				_, _ = w.Write([]byte(`{"deploymentID":"` + trialDeploymentID + `"}`))
+			}))
+			defer server.Close()
+			for _, region := range []string{" us-east-1", "us-east-1 ", "\tus-east-1\n"} {
+				cfg := ClientConfig{Endpoint: server.URL, Region: region, AccessKeyID: "runtime", SecretAccessKey: "synthetic", UsePathStyle: true}
+				var ns string
+				var err error
+				if consumer == "source-trial" {
+					ns, err = ResolveSourceMediaCapacityNamespace(context.Background(), cfg, "source-media-trial", "aws", true, trialDeploymentID)
+				} else {
+					cfg.CapacityIdentityProvider, cfg.CapacityMinIODeploymentID = MinIOCapacityIdentityProvider, trialDeploymentID
+					require.Error(t, cfg.ValidateCapacityIdentity("knowledge", "aws"))
+					ns, err = ResolveCapacityNamespace(context.Background(), cfg, "knowledge", "aws")
+				}
+				require.Error(t, err, "noncanonical region must never identify a new physical namespace")
+				require.Empty(t, ns)
+			}
+			require.Zero(t, requests, "reject configuration before any signed storage I/O")
+		})
+	}
+}
+
 func TestConfiguredMinIOCapacityBindsAuthenticatedDeployment(t *testing.T) {
 	for _, scenario := range []string{"correct", "different", "empty", "forbidden", "redirect", "malformed", "truncated", "oversized"} {
 		t.Run(scenario, func(t *testing.T) {

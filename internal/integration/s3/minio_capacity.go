@@ -32,7 +32,7 @@ func (c ClientConfig) ValidateCapacityIdentity(bucket, mode string) error {
 	u, parseErr := url.Parse(c.Endpoint)
 	if provider != MinIOCapacityIdentityProvider || mode != "aws" || !c.UsePathStyle ||
 		err != nil || id == uuid.Nil || id.String() != pin || !storagecapacity.ValidID(bucket, 128) ||
-		strings.TrimSpace(c.Region) == "" || strings.TrimSpace(c.AccessKeyID) == "" || strings.TrimSpace(c.SecretAccessKey) == "" ||
+		strings.TrimSpace(c.Region) == "" || c.Region != strings.TrimSpace(c.Region) || strings.TrimSpace(c.AccessKeyID) == "" || strings.TrimSpace(c.SecretAccessKey) == "" ||
 		parseErr != nil || u.Scheme != "http" && u.Scheme != "https" || u.User != nil || u.Path != "" || u.RawPath != "" ||
 		u.RawQuery != "" || u.ForceQuery || u.Fragment != "" || u.Opaque != "" || u.String() != c.Endpoint {
 		return storagecapacity.ErrInvalid

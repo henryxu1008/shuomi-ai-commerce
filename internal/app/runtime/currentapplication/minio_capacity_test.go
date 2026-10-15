@@ -33,9 +33,9 @@ func TestLoadConfigAcceptsExplicitMinIOKnowledgeCapacityIdentity(t *testing.T) {
 
 func TestMinIOCapacityConfigRejectsIncompleteOrForeignIdentity(t *testing.T) {
 	for _, kind := range []string{"knowledge", "ecoservices"} {
-		for _, scenario := range []string{"unknown_provider", "missing_pin", "pin_without_provider", "nil_uuid", "foreign_endpoint", "cos"} {
+		for _, scenario := range []string{"canonical_region", "unknown_provider", "missing_pin", "pin_without_provider", "nil_uuid", "foreign_endpoint", "noncanonical_region", "cos"} {
 			t.Run(kind+"/"+scenario, func(t *testing.T) {
-				storage := KnowledgeStorageConfig{Endpoint: "http://knowledge-objects:9000", Region: "us-east-1", Bucket: kind, Mode: "aws", AccessKeyID: "runtime", SecretAccessKey: "synthetic", CapacityIdentityProvider: "minio-deployment", CapacityMinIODeploymentID: minioCapacityTestID}
+				storage := KnowledgeStorageConfig{Endpoint: "http://" + kind + "-objects:9000", Region: "us-east-1", Bucket: kind, Mode: "aws", AccessKeyID: "runtime", SecretAccessKey: "synthetic", CapacityIdentityProvider: "minio-deployment", CapacityMinIODeploymentID: minioCapacityTestID}
 				switch scenario {
 				case "unknown_provider":
 					storage.CapacityIdentityProvider = "unknown"
@@ -47,14 +47,17 @@ func TestMinIOCapacityConfigRejectsIncompleteOrForeignIdentity(t *testing.T) {
 					storage.CapacityMinIODeploymentID = "00000000-0000-0000-0000-000000000000"
 				case "foreign_endpoint":
 					storage.Endpoint = "http://10.0.0.2:9000"
+				case "noncanonical_region":
+					storage.Region = " us-east-1 "
 				case "cos":
 					storage.Mode = "cos"
 					storage.COSImmutableNonVersionedBucketPolicy = true
 				}
+				var err error
 				if kind == "knowledge" {
 					c := knowledgeRuntimeTestConfig()
 					c.Knowledge.Storage = storage
-					require.Error(t, c.validateKnowledge())
+					err = c.validateKnowledge()
 				} else {
 					c := runtimeTestConfig()
 					db := c.SourceAccountDatabase
@@ -62,7 +65,12 @@ func TestMinIOCapacityConfigRejectsIncompleteOrForeignIdentity(t *testing.T) {
 					db.User = "ecoservices_runtime"
 					db.MaxConnections = 4
 					c.Ecoservices = &EcoservicesConfig{Enabled: true, NonPaymentOnly: true, Database: db, Storage: storage}
-					require.Error(t, c.validateEcoservices())
+					err = c.validateEcoservices()
+				}
+				if scenario == "canonical_region" {
+					require.NoError(t, err)
+				} else {
+					require.Error(t, err)
 				}
 			})
 		}

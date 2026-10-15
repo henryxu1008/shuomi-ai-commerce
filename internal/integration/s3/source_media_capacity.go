@@ -23,7 +23,7 @@ func ResolveSourceMediaCapacityNamespace(ctx context.Context, c ClientConfig, bu
 	u, parseErr := url.Parse(c.Endpoint)
 	if err != nil || id == uuid.Nil || id.String() != deploymentID || parseErr != nil ||
 		mode != "aws" || !c.UsePathStyle || !storagecapacity.ValidID(bucket, 128) ||
-		strings.TrimSpace(c.AccessKeyID) == "" || strings.TrimSpace(c.SecretAccessKey) == "" || strings.TrimSpace(c.Region) == "" ||
+		strings.TrimSpace(c.AccessKeyID) == "" || strings.TrimSpace(c.SecretAccessKey) == "" || strings.TrimSpace(c.Region) == "" || c.Region != strings.TrimSpace(c.Region) ||
 		u.Hostname() != "127.0.0.1" || u.Scheme != "http" && u.Scheme != "https" ||
 		u.Port() == "" || u.User != nil || u.Path != "" || u.RawPath != "" ||
 		u.RawQuery != "" || u.ForceQuery || u.Fragment != "" || u.Opaque != "" || u.String() != c.Endpoint {
