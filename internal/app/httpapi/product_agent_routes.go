@@ -75,7 +75,10 @@ func buildProductAgentModule(ctx context.Context, productDB *gorm.DB, deps route
 	if a.content != nil {
 		a.content.originExecution = a.originExecution
 	}
-	routes := productAgentRoutes(a)
+	var routes []httproute.Descriptor
+	if !agentCfg.ContentTitleOnly {
+		routes = productAgentRoutes(a)
+	}
 	routes = append(routes, registeredProductAgentRoutes(a.content, true)...)
 	// Candidate intake returns an ID understood by the existing review UI.
 	// Its original decision/Apply handlers retain their current permission checks.
@@ -257,6 +260,10 @@ func registeredProductAgentRoutes(a *productAgentApplication, content bool) []ht
 					err = agent.ErrConflict
 				}
 				if err == nil && spec.action == "resume" {
+					if err = a.checkContentTitleSelection(record.State.Request.ContentSelection); err != nil {
+						writeProductAgentRunError(c, err, true)
+						return
+					}
 					revision, parseErr := strconv.ParseUint(body.Revision, 10, 64)
 					if parseErr != nil || revision == 0 || strconv.FormatUint(revision, 10) != body.Revision {
 						err = agent.ErrInvalid

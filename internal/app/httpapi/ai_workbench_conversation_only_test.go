@@ -52,6 +52,17 @@ func (*conversationOnlyGrants) RoleModules(_ context.Context, org string, keys [
 }
 
 func TestAIWorkbenchConversationOnlyScopedCRUDAndNoExecution(t *testing.T) {
+	testConversationOnlyScopedCRUDAndNoExecution(t, nil)
+}
+
+func TestAIWorkbenchConversationOnlyCoexistsWithContentTitleOnly(t *testing.T) {
+	var config ProductAgentDependencies
+	require.NoError(t, json.Unmarshal([]byte(`{"ContentTitleOnly":true}`), &config))
+	testConversationOnlyScopedCRUDAndNoExecution(t, &productAgentApplication{config: config})
+}
+
+func testConversationOnlyScopedCRUDAndNoExecution(t *testing.T, content *productAgentApplication) {
+	t.Helper()
 	f := newAcquisitionHTTPFixture(t)
 	require.NoError(t, workstore.InstallSchema(f.owner))
 	require.NoError(t, f.owner.Exec(`DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='ai_workbench_runtime') THEN CREATE ROLE ai_workbench_runtime LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS; END IF; END $$`).Error)
@@ -74,7 +85,7 @@ func TestAIWorkbenchConversationOnlyScopedCRUDAndNoExecution(t *testing.T) {
 	require.NoError(t, err)
 	auth.SetRolePolicyReader(grants)
 	deps.authorizer = auth
-	module, err := buildAIWorkbenchModule(context.Background(), AIWorkbenchDependencies{DB: db, ConversationOnly: true, AllowedOrganizationIDs: []string{"B"}, resolver: deps.organizationResolver, authorizer: auth}, nil)
+	module, err := buildAIWorkbenchModule(context.Background(), AIWorkbenchDependencies{DB: db, ConversationOnly: true, AllowedOrganizationIDs: []string{"B"}, resolver: deps.organizationResolver, authorizer: auth}, content)
 	require.NoError(t, err)
 	m := module.(aiWorkbenchModule)
 	require.True(t, m.AdmittedOrganization("B"))

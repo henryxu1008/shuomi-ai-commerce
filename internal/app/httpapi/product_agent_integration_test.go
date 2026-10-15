@@ -108,6 +108,14 @@ func TestContentHTTPRunSavesFullProposalThroughRealOwners(t *testing.T) {
 	testProductAgentOwners(t, "content flow")
 }
 
+func TestContentTitleOnlyUsesSkillAndCurrentOwnersWithoutAsset(t *testing.T) {
+	testProductAgentOwners(t, "title-only skill content flow default")
+}
+
+func TestContentTitleOnlyRetainsFrozenMultifieldReceiptWithoutResumingIt(t *testing.T) {
+	testProductAgentOwners(t, "content flow frozen-title-only")
+}
+
 func TestContentHTTPNativeAdoptionAndReadOnlyUseCurrentModes(t *testing.T) {
 	for _, mode := range []string{"full_access", "auto_approve", "read_only"} {
 		t.Run(mode, func(t *testing.T) { testProductAgentOwners(t, "content flow "+mode) })
@@ -133,6 +141,12 @@ func TestContentHTTPWarningsRemainReadableWithoutAdoption(t *testing.T) {
 }
 
 func testProductAgentOwners(t *testing.T, mode string) {
+	frozenTitleOnly := mode == "content flow frozen-title-only"
+	if frozenTitleOnly {
+		mode = "content flow"
+	}
+	contentTitleOnly := strings.HasPrefix(mode, "title-only ")
+	mode = strings.TrimPrefix(mode, "title-only ")
 	withSkill := strings.Contains(mode, "skill ")
 	mode = strings.Replace(mode, "skill ", "", 1)
 	f := newAcquisitionHTTPFixture(t)
@@ -163,13 +177,15 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	require.NoError(t, configErr)
 	_, configErr = configuration.Execute(context.Background(), agentconfig.Command{Scope: agent.Scope{OrganizationID: "B", ActorID: "admin"}, Key: uuid.NewString(), AgentID: "product.title.agent", Operation: "enable", Absent: true})
 	require.NoError(t, configErr)
-	require.NoError(t, assetstore.AutoMigrate(f.owner))
-	assets, err := assetstore.NewRepository(f.owner)
-	require.NoError(t, err)
-	version, err := strconv.ParseUint(op.CatalogVersion, 10, 64)
-	require.NoError(t, err)
-	_, err = assets.CommitApproval(context.Background(), productasset.ApprovalCommit{TenantID: "B", ProductKey: op.ProductKey, TargetPlatform: "shein", SourceSnapshotVersion: version, ActionID: "approved-for-shein", Assets: []productasset.ApprovedAsset{{ID: "approved-shein-main", RunID: "image-run", PlanRevision: 1, SlotID: "main", Attempt: 1, Role: productasset.RoleMain, URL: "https://cdn.example.test/shein.png"}}})
-	require.NoError(t, err)
+	if !contentTitleOnly {
+		require.NoError(t, assetstore.AutoMigrate(f.owner))
+		assets, err := assetstore.NewRepository(f.owner)
+		require.NoError(t, err)
+		version, err := strconv.ParseUint(op.CatalogVersion, 10, 64)
+		require.NoError(t, err)
+		_, err = assets.CommitApproval(context.Background(), productasset.ApprovalCommit{TenantID: "B", ProductKey: op.ProductKey, TargetPlatform: "shein", SourceSnapshotVersion: version, ActionID: "approved-for-shein", Assets: []productasset.ApprovedAsset{{ID: "approved-shein-main", RunID: "image-run", PlanRevision: 1, SlotID: "main", Attempt: 1, Role: productasset.RoleMain, URL: "https://cdn.example.test/shein.png"}}})
+		require.NoError(t, err)
+	}
 	require.NoError(t, aistore.AutoMigrateInvocationLedger(f.owner))
 	require.NoError(t, f.owner.AutoMigrate(&openai.AIClientCredential{}))
 	require.NoError(t, resourceadapter.AutoMigrate(f.owner))
@@ -365,6 +381,9 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		if strings.HasPrefix(mode, "supply ") && step > 4 {
 			content = strings.ReplaceAll(content, "Reviewed bottle title", "Reconstructed bottle title")
 		}
+		if frozenTitleOnly && step == 3 {
+			content = `{"Kind":"interrupt","Unresolved":["confirm the original fields"]}`
+		}
 		if strings.HasPrefix(mode, "content flow unresolved ") && strings.Contains(content, `"Kind":"propose"`) {
 			content = strings.TrimSuffix(content, "}") + `,"Unresolved":["missing material specification"]}`
 		}
@@ -411,6 +430,9 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		policy := settings.TextPolicies["B"]
 		policy.Profile.PromptVersion, policy.Profile.OutputSchemaVersion = agentconfig.ContentPromptVersion, agentconfig.ContentActionVersion
 		settings.ContentTextPolicies = map[string]governed.RoutePolicy{"B": policy}
+	}
+	if contentTitleOnly {
+		settings.ContentTitleOnly, settings.AssetDB, settings.TextPolicies = true, nil, nil
 	}
 	if strings.HasPrefix(mode, "supply materials") {
 		policy := settings.TextPolicies["B"]
@@ -487,6 +509,14 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	}
 	module, err := buildProductAgentModule(context.Background(), f.db, deps, auth, settings, reviewIAM.config())
 	require.NoError(t, err)
+	if contentTitleOnly {
+		parent := module.(productAgentModule).application
+		require.Nil(t, parent.model)
+		require.Nil(t, parent.runtime)
+		require.Nil(t, parent.assets)
+		require.Nil(t, parent.readiness)
+		require.False(t, f.owner.Migrator().HasTable("product_approved_assets"))
+	}
 	if mode == "diagnosis" {
 		testDiagnosisHTTPThroughNativeOwners(t, f, module.(productAgentModule).application, deps, auth, &calls)
 		return
@@ -532,6 +562,21 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		app := buildIsolatedApplicationHTTPServer(routes, deps, 2*time.Minute)
 		server := httptest.NewServer(app.Handler)
 		defer server.Close()
+		if contentTitleOnly {
+			path := productAcquisitionBase + "/" + op.OperationID + "/content-agent/runs"
+			code, raw, e := acquisitionHTTPRequest(server, "POST", path, "admin", "B", uuid.NewString(), `{"expectedModeRevision":"`+modeRevision+`","targetPlatform":"product","contentSelection":{"targetLanguage":"en-US","title":true,"description":true}}`)
+			require.NoError(t, e)
+			require.Equal(t, 400, code, string(raw))
+			var runs, snapshots int64
+			require.NoError(t, f.owner.Table("product_agent_runs").Count(&runs).Error)
+			require.NoError(t, f.owner.Table("agent_configuration.start_snapshots").Count(&snapshots).Error)
+			require.Zero(t, runs)
+			require.Zero(t, snapshots)
+			require.Zero(t, calls.Load())
+			code, raw, e = acquisitionHTTPRequest(server, "POST", productAcquisitionBase+"/"+op.OperationID+"/product-agent/runs", "admin", "B", uuid.NewString(), `{}`)
+			require.NoError(t, e)
+			require.Equal(t, 404, code, string(raw))
+		}
 		if withSkill {
 			if mode == "content flow bff" {
 				testSkillBFFClient(t, f, server, op.OperationID, modeRevision)
@@ -547,6 +592,31 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		require.Equal(t, 200, code, string(raw))
 		var result productAgentResultDTO
 		require.NoError(t, json.Unmarshal(raw, &result))
+		if frozenTitleOnly {
+			require.Equal(t, agent.Interrupted, result.Phase)
+			beforeCalls := calls.Load()
+			var before, after struct {
+				Revision uint64
+				Payload  []byte
+			}
+			require.NoError(t, f.owner.Table("product_agent_runs").Select("revision,payload").Where("run_id=?", result.RunID).Take(&before).Error)
+			contentApp.config.ContentTitleOnly = true
+			code, raw, err = acquisitionHTTPRequest(server, "GET", path+"/"+key, "admin", "B", "", "")
+			require.NoError(t, err)
+			require.Equal(t, 200, code, string(raw))
+			code, raw, err = acquisitionHTTPRequest(server, "POST", path+"/"+key+"/resume", "admin", "B", "", `{"revision":"`+result.Revision+`","feedback":"continue with the original fields"}`)
+			require.NoError(t, err)
+			require.Equal(t, 400, code, string(raw))
+			for _, startKey := range []string{key, uuid.NewString()} {
+				code, raw, err = acquisitionHTTPRequest(server, "POST", path, "admin", "B", startKey, `{"expectedModeRevision":"0","targetPlatform":"product","contentSelection":{"targetLanguage":"en-US","title":true,"description":true,"sellingPoints":true,"seoKeywords":true}}`)
+				require.NoError(t, err)
+				require.Equal(t, 400, code, string(raw))
+			}
+			require.NoError(t, f.owner.Table("product_agent_runs").Select("revision,payload").Where("run_id=?", result.RunID).Take(&after).Error)
+			require.Equal(t, before, after)
+			require.Equal(t, beforeCalls, calls.Load(), "a retained non-title request must not be resumed or requoted")
+			return
+		}
 		require.Equal(t, agent.HumanReviewRequired, result.Phase)
 		require.Len(t, result.Candidate.Changes, 4)
 		if strings.HasPrefix(mode, "content flow unresolved ") || strings.HasPrefix(mode, "content flow warnings ") {

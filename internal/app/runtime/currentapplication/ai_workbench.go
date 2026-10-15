@@ -22,11 +22,15 @@ func (w *AIWorkbenchConfig) validate(cfg *Config) error {
 	if w == nil {
 		return nil
 	}
+	if cfg.ProductAgent != nil && cfg.ProductAgent.ContentTitleOnly &&
+		(len(w.PlanningTextPolicies) != 0 || w.Enabled && !w.ConversationOnly) {
+		return errors.New("content-title-only permits only storage-only Chat")
+	}
 	if !w.Enabled {
 		return w.Database.validate("aiWorkbench.database")
 	}
 	if w.ConversationOnly {
-		if cfg.ProductAgent == nil || cfg.ProductAgent.Enabled || len(w.PlanningTextPolicies) != 0 ||
+		if cfg.ProductAgent == nil || cfg.ProductAgent.Enabled && !cfg.ProductAgent.ContentTitleOnly || len(w.PlanningTextPolicies) != 0 ||
 			w.Database.validate("aiWorkbench.database") != nil || w.Database.User != "ai_workbench_runtime" ||
 			w.Database.User == cfg.ProductAgent.Database.User || w.Database.Host != cfg.ProductAgent.Database.Host ||
 			w.Database.Port != cfg.ProductAgent.Database.Port || w.Database.Database != cfg.ProductAgent.Database.Database ||
