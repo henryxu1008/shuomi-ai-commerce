@@ -14,6 +14,7 @@ import (
 // in the existing Organization AI credential owner, never in this option.
 type ProductAgentConfig struct {
 	Enabled                bool                            `json:"enabled"`
+	ContentTitleOnly       bool                            `json:"contentTitleOnly,omitempty"`
 	Database               DatabaseConfig                  `json:"database"`
 	ReviewDatabase         DatabaseConfig                  `json:"reviewDatabase"`
 	AssetDatabase          DatabaseConfig                  `json:"assetDatabase"`
@@ -42,7 +43,20 @@ func (p *ProductAgentConfig) validate(cfg *Config) error {
 	if cfg.ProductAcquisitionDatabase == nil || cfg.CommercialOwnerDatabase == nil {
 		return errors.New("product agent requires acquisition and current commercial owner")
 	}
-	for name, db := range map[string]DatabaseConfig{"database": p.Database, "reviewDatabase": p.ReviewDatabase, "assetDatabase": p.AssetDatabase} {
+	databases := map[string]DatabaseConfig{"database": p.Database, "reviewDatabase": p.ReviewDatabase}
+	if p.ContentTitleOnly {
+		if p.Database.User != "product_agent_runtime" || p.ReviewDatabase.User != "product_review_runtime" {
+			return errors.New("content-title-only requires the prepared Run and Review runtime identities")
+		}
+		if p.AssetDatabase != (DatabaseConfig{}) || len(p.ContentTextPolicies) == 0 || len(p.TextPolicies) != 0 ||
+			len(p.MaterialsTextPolicies) != 0 || len(p.SelectionTextPolicies) != 0 || len(p.DiagnosisTextPolicies) != 0 ||
+			cfg.AIWorkbench != nil && (len(cfg.AIWorkbench.PlanningTextPolicies) != 0 || cfg.AIWorkbench.Enabled && !cfg.AIWorkbench.ConversationOnly) {
+			return errors.New("content-title-only requires only content policies and no Asset or Chat execution")
+		}
+	} else {
+		databases["assetDatabase"] = p.AssetDatabase
+	}
+	for name, db := range databases {
 		if err := db.validate("productAgent." + name); err != nil {
 			return err
 		}

@@ -32,12 +32,8 @@ func InstallExecutionModes(db *gorm.DB, role string) error {
 		if err := tx.Exec("RESET ROLE").Error; err != nil {
 			return err
 		}
-		quoted := `"` + role + `"`
-		for _, sql := range []string{
-			"GRANT SELECT, INSERT ON agent_configuration.execution_modes, agent_configuration.execution_mode_snapshots TO " + quoted,
-			"GRANT UPDATE (mode, revision, updated_by, updated_at) ON agent_configuration.execution_modes TO " + quoted,
-		} {
-			if err := tx.Exec(sql).Error; err != nil {
+		for _, grant := range ExecutionModeRuntimeTableGrants() {
+			if err := tx.Exec(grant.SQL(role)).Error; err != nil {
 				return err
 			}
 		}

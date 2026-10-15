@@ -82,7 +82,10 @@ func buildProductAgentModule(ctx context.Context, productDB *gorm.DB, deps route
 	if a.content != nil {
 		a.content.originExecution = a.originExecution
 	}
-	routes := productAgentRoutes(a)
+	var routes []httproute.Descriptor
+	if !agentCfg.ContentTitleOnly {
+		routes = productAgentRoutes(a)
+	}
 	routes = append(routes, registeredProductAgentRoutes(a.content, true)...)
 	// Candidate intake returns an ID understood by the existing review UI.
 	// Its original decision/Apply handlers retain their current permission checks.
@@ -291,6 +294,10 @@ func productAgentRoutesForSource(a *productAgentApplication, content, own bool) 
 					err = agent.ErrConflict
 				}
 				if err == nil && spec.action == "resume" {
+					if err = a.checkContentTitleSelection(record.State.Request.ContentSelection); err != nil {
+						writeProductAgentRunError(c, err, true)
+						return
+					}
 					revision, parseErr := strconv.ParseUint(body.Revision, 10, 64)
 					if parseErr != nil || revision == 0 || strconv.FormatUint(revision, 10) != body.Revision {
 						err = agent.ErrInvalid
@@ -307,6 +314,20 @@ func productAgentRoutesForSource(a *productAgentApplication, content, own bool) 
 				if !agentRunReviewable(record.State) {
 					writeProductAgentError(c, agent.ErrConflict)
 					return
+				}
+				if selectionErr := a.checkContentTitleSelection(record.State.Request.ContentSelection); selectionErr != nil {
+					// Existing receipts remain owned by Review. Delegate an exact
+					// replay to its normal fingerprint/auth preflight; never use
+					// the current View as a replacement for the saved receipt.
+					_, found, lookupErr := a.reviews.FindAgentReview(ctx, record.State.RunID)
+					if lookupErr != nil {
+						writeProductAgentError(c, lookupErr)
+						return
+					}
+					if !found {
+						writeProductAgentError(c, selectionErr)
+						return
+					}
 				}
 				input := agentReviewInput(binding, record.State.Request.PolicyVersion, record.State.Candidate)
 				input.Execution = agentExecutionProvenance(record.State)
@@ -337,7 +358,7 @@ func productAgentRoutesForSource(a *productAgentApplication, content, own bool) 
 				writeProductAgentError(c, provenanceErr)
 				return
 			}
-			result := productAgentResultDTO{RunID: state.RunID, RequestKey: key, OperationID: operationID, ProductKey: binding.ProductKey, CatalogVersion: binding.CatalogVersion, PublicationID: binding.PublicationID, TargetPlatform: binding.TargetPlatform, Phase: state.Phase, Revision: strconv.FormatUint(state.Revision, 10), StopReason: state.StopReason, HumanReviewRequired: true, Candidate: state.Candidate, Confidence: state.Confidence, Unresolved: state.Unresolved, Steps: []productAgentStepDTO{}, Tokens: state.Usage.Tokens, EstimatedCostMicros: state.Usage.CostMicros, Currency: state.Request.Limits.Currency, UsageStatus: "observed", CanSubmitReview: agentRunReviewable(state)}
+			result := productAgentResultDTO{RunID: state.RunID, RequestKey: key, OperationID: operationID, ProductKey: binding.ProductKey, CatalogVersion: binding.CatalogVersion, PublicationID: binding.PublicationID, TargetPlatform: binding.TargetPlatform, Phase: state.Phase, Revision: strconv.FormatUint(state.Revision, 10), StopReason: state.StopReason, HumanReviewRequired: true, Candidate: state.Candidate, Confidence: state.Confidence, Unresolved: state.Unresolved, Steps: []productAgentStepDTO{}, Tokens: state.Usage.Tokens, EstimatedCostMicros: state.Usage.CostMicros, Currency: state.Request.Limits.Currency, UsageStatus: "observed", CanSubmitReview: agentRunReviewable(state) && a.checkContentTitleSelection(state.Request.ContentSelection) == nil}
 			result.ContentSelection = state.Request.ContentSelection
 			if own {
 				result.ContextKind = contentagent.OwnProductContext

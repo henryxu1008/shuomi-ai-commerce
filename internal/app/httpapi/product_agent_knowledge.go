@@ -112,6 +112,9 @@ func (a *productAgentApplication) startTextRequest(ctx context.Context, binding 
 	return a.startTextRequestWithSkill(ctx, binding, key, baseID, expectedRevisionSet, template, expectedProfile, goalSummary, expectedModeRevision, selection, nil)
 }
 func (a *productAgentApplication) startTextRequestWithSkill(ctx context.Context, binding agent.Binding, key, baseID, expectedRevisionSet string, template *agentconfig.TemplateRef, expectedProfile aicapability.ModelProfile, goalSummary, expectedModeRevision string, selection enrichment.ContentSelection, method *productSkillSelection) (agent.Request, error) {
+	if err := a.checkContentTitleSelection(selection); err != nil {
+		return agent.Request{}, err
+	}
 	if !agent.ValidGoalSummary(goalSummary) {
 		return agent.Request{}, agent.ErrInvalid
 	}
@@ -238,6 +241,13 @@ func (a *productAgentApplication) startTextRequestWithSkill(ctx context.Context,
 		return agent.Request{}, err
 	}
 	return request, nil
+}
+
+func (a *productAgentApplication) checkContentTitleSelection(selection enrichment.ContentSelection) error {
+	if a.config.ContentTitleOnly && (a.definition.ID != agentconfig.ContentAgentID || !selection.TitleOnly()) {
+		return agent.ErrInvalid
+	}
+	return nil
 }
 
 func agentContextProvenance(state agent.State) (*review.ContextProvenanceRef, error) {

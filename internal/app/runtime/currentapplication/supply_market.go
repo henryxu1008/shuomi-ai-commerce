@@ -88,7 +88,7 @@ func (c *Config) validateSupplyMarket() error {
 				return errors.New("POD assets require their independently owned database")
 			}
 		}
-		if c.SupplyChain != nil && !sameDatabaseTarget(p.AssetDatabase, c.SupplyChain.AssetDatabase) || c.ImageAgent != nil && !sameDatabaseTarget(p.AssetDatabase, c.ImageAgent.Database) || c.ProductAgent != nil && c.ProductAgent.Enabled && !sameDatabaseTarget(p.AssetDatabase, c.ProductAgent.AssetDatabase) {
+		if c.SupplyChain != nil && !sameDatabaseTarget(p.AssetDatabase, c.SupplyChain.AssetDatabase) || c.ImageAgent != nil && !sameDatabaseTarget(p.AssetDatabase, c.ImageAgent.Database) || c.ProductAgent != nil && c.ProductAgent.Enabled && !c.ProductAgent.ContentTitleOnly && !sameDatabaseTarget(p.AssetDatabase, c.ProductAgent.AssetDatabase) {
 			return errors.New("POD must use the current canonical Asset database")
 		}
 		host, port, e := net.SplitHostPort(p.TemporalAddress)

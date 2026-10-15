@@ -26,18 +26,17 @@ func GrantRuntime(db *gorm.DB, role string) error {
 		return agentconfig.ErrInvalid
 	}
 	quoted := `"` + role + `"`
-	for _, sql := range []string{
+	statements := []string{
 		"REVOKE ALL ON SCHEMA agent_configuration FROM PUBLIC",
 		"REVOKE ALL ON SCHEMA agent_configuration FROM " + quoted,
 		"REVOKE ALL ON ALL TABLES IN SCHEMA agent_configuration FROM PUBLIC",
 		"REVOKE ALL ON ALL TABLES IN SCHEMA agent_configuration FROM " + quoted,
 		"GRANT USAGE ON SCHEMA agent_configuration TO " + quoted,
-		"GRANT SELECT, INSERT, UPDATE ON agent_configuration.organization_agents, agent_configuration.templates TO " + quoted,
-		"GRANT SELECT, INSERT ON agent_configuration.template_revisions, agent_configuration.start_snapshots, agent_configuration.commands, agent_configuration.image_run_admissions TO " + quoted,
-		"GRANT UPDATE (before_revision, after_revision, receipt, template_id) ON agent_configuration.commands TO " + quoted,
-		"GRANT SELECT, INSERT ON agent_configuration.execution_modes, agent_configuration.execution_mode_snapshots TO " + quoted,
-		"GRANT UPDATE (mode, revision, updated_by, updated_at) ON agent_configuration.execution_modes TO " + quoted,
-	} {
+	}
+	for _, grant := range RuntimeTableGrants() {
+		statements = append(statements, grant.SQL(role))
+	}
+	for _, sql := range statements {
 		if e := db.Exec(sql).Error; e != nil {
 			return e
 		}

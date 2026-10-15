@@ -22,11 +22,9 @@ import (
 	governed "task-processor/internal/integration/aicapability/einomodel"
 	"task-processor/internal/integration/commercetoolauth"
 	"task-processor/internal/integration/knowledgeauth"
-	"task-processor/internal/integration/openai"
 	orgresourceadapter "task-processor/internal/integration/orgresource"
 	agentstore "task-processor/internal/integration/persistence/agent"
 	configstore "task-processor/internal/integration/persistence/agentconfig"
-	assetstore "task-processor/internal/integration/persistence/product/asset"
 	catalogstore "task-processor/internal/integration/persistence/product/catalog"
 	reviewstore "task-processor/internal/integration/persistence/product/review"
 	skillstore "task-processor/internal/integration/persistence/skill"
@@ -60,6 +58,7 @@ type ProductAgentDependencies struct {
 	DiagnosisTextPolicies    map[string]governed.RoutePolicy
 	SelectionTextPolicies    map[string]governed.RoutePolicy
 	Enabled                  bool
+	ContentTitleOnly         bool
 	AllowedOrganizationIDs   []string
 	Limits                   agent.Limits
 	// Code-owned transport injection for isolated protocol fixtures; never
@@ -109,7 +108,10 @@ type productAgentApplication struct {
 }
 
 func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, receipts sourcing.PublishedAcquisitionReader, resolver organizationIdentityResolver, auth *authz.ListingKitAuthorizer, cfg ProductAgentDependencies) (*productAgentApplication, error) {
-	if !cfg.Enabled || len(cfg.AllowedOrganizationIDs) == 0 || !cfg.Limits.Valid() || cfg.Limits.Runtime > 2*time.Minute || cfg.Limits.Steps > 16 || cfg.Limits.ModelCalls > 8 || productDB == nil || cfg.AssetDB == nil || receipts == nil || resolver == nil || auth == nil {
+	if !cfg.Enabled || len(cfg.AllowedOrganizationIDs) == 0 || !cfg.Limits.Valid() || cfg.Limits.Runtime > 2*time.Minute || cfg.Limits.Steps > 16 || cfg.Limits.ModelCalls > 8 || productDB == nil || !cfg.ContentTitleOnly && cfg.AssetDB == nil || receipts == nil || resolver == nil || auth == nil {
+		return nil, agent.ErrUnavailable
+	}
+	if cfg.ContentTitleOnly && (cfg.AssetDB != nil || len(cfg.ContentTextPolicies) == 0 || len(cfg.TextPolicies) != 0 || len(cfg.MaterialsTextPolicies) != 0 || len(cfg.SelectionTextPolicies) != 0 || len(cfg.DiagnosisTextPolicies) != 0) {
 		return nil, agent.ErrUnavailable
 	}
 	allowedOrganizations := make(map[string]bool, len(cfg.AllowedOrganizationIDs))
@@ -231,10 +233,6 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 	if err != nil {
 		return nil, err
 	}
-	assets, err := assetstore.NewBoundedApprovedInventoryReader(cfg.AssetDB, 1<<20)
-	if err != nil {
-		return nil, err
-	}
 	sources, err := productsourcing.NewInternalProducer(productDB, &productReviewLiveOrganizationAccess{resolver: resolver, now: time.Now}, auth)
 	if err != nil {
 		return nil, err
@@ -251,11 +249,6 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 	}
 	a.reviews.WithExecutionPolicy(a.resolveTitlePolicy)
 	a.snapshots, a.reviewLookup = reader, repo
-	a.policyAdoption, err = review.NewPolicyAdoptionService(reader, sources, repo, auth, a.titlePolicyScope, a.resolveTitlePolicy)
-	if err != nil {
-		return nil, err
-	}
-	definition, definitions := productTitleRegistration()
 	fresh, err := commercetoolauth.NewFreshWorkbenchPrincipalResolver(commercetoolauth.FreshOrganizationResolverFunc(func(ctx context.Context, _ commercetoolauth.OrganizationRequest) (authidentity.AuthenticatedIdentity, error) {
 		return a.freshIdentity(ctx)
 	}), time.Now)
@@ -268,70 +261,19 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 	}
 	principal := productAgentPrincipal{application: a, request: fresh}
 	deps := commercetool.InvocationDependencies{PrincipalResolver: principal, Authorizer: permissions, Recorder: a.store, Tracer: otel.Tracer("product-agent"), Now: time.Now, AuditTimeout: 2 * time.Second}
-	a.canonical, err = canonicalinspect.NewInvoker(reader, definition, deps)
-	if err != nil {
-		return nil, err
-	}
-	a.sources, err = sourceevidenceinspect.NewInvoker(reader, productAgentSourceGateway{application: a, request: sources}, definition, deps)
-	if err != nil {
-		return nil, err
-	}
-	a.assets, err = assetinspect.NewInvoker(reader, assets, principal, definition, deps)
-	if err != nil {
-		return nil, err
-	}
-	a.readiness, err = readinessinspect.NewInvoker(reader, assets, principal, definition, deps)
-	if err != nil {
-		return nil, err
-	}
-	routes := make(map[governed.RouteKey]governed.RoutePolicy, len(a.config.TextPolicies))
-	for organizationID, policy := range a.config.TextPolicies {
-		routes[governed.RouteKey{OrganizationID: organizationID, Operation: aicapability.OperationProductAgentDecision}] = policy
-	}
-	routeResolver, err := governed.NewOrganizationRouteResolver(openai.NewGormCredentialResolver(cfg.RunDB), routes)
-	if err != nil {
-		return nil, err
-	}
-	a.titleRoutes = routeResolver
-	a.selectTitleProfile = func(ctx context.Context, organizationID string) (aicapability.ModelProfile, error) {
-		route, routeErr := routeResolver.Resolve(ctx, aicapability.TextInputIdentity{OrganizationID: organizationID, Operation: aicapability.OperationProductAgentDecision})
-		return route.Profile, routeErr
-	}
 	a.textAdmission = governed.NewBoundedAdmission()
-	executor := &governed.Executor{Ledger: cfg.Ledger, Admission: a.textAdmission, Resolve: routeResolver.Resolve, BaseTransport: cfg.TextTransport, Authorize: func(ctx context.Context, in aicapability.TextInputIdentity) error {
-		if supplyAgentContext(ctx) {
-			return a.authorizeSupplyModel(ctx, in.OrganizationID, in.ActorID, in.MemberID)
+	if cfg.ContentTitleOnly {
+		a.content, err = buildContentProductApplication(ctx, a, reader, sources, repo, deps, contexts)
+		if err != nil {
+			return nil, err
 		}
-		i, e := a.freshIdentity(ctx)
-		if e != nil || i.TenantID != in.OrganizationID || i.UserID != in.ActorID || i.EffectiveMemberID != in.MemberID {
-			return review.ErrForbidden
+		if a.content == nil {
+			return nil, agent.ErrUnavailable
 		}
-		return nil
-	}}
-	model, err := texteino.NewAgentTextModel(executor, a.configuration, a.selectTitleProfile,
-		func(ctx context.Context, org string) texteino.TextRouteReadiness {
-			return texteino.TextRouteReadiness(routeResolver.Readiness(ctx, aicapability.TextInputIdentity{
-				OrganizationID: org, Operation: aicapability.OperationProductAgentDecision}))
-		}, definition.AllowedTools, a.freshIdentity, contexts...)
-	if err != nil {
-		return nil, err
+		a.reviews.WithExecutionGate(a.acquireSkillReview)
+		return a, nil
 	}
-	model, err = model.WithExecutionResolver(a.resolveExecutionIdentity)
-	if err != nil {
-		return nil, err
-	}
-	a.model, a.definition = model, definition
-	guard, err := configstore.NewGuard(cfg.RunDB, a.configuration, a.store, func(id, version string) (agent.Limits, error) {
-		if id != definition.ID || version != definition.Version {
-			return agent.Limits{}, agentconfig.ErrDefinition
-		}
-		return a.config.Limits, nil
-	}, a.currentModeIdentity)
-	if err != nil {
-		return nil, err
-	}
-	a.runtime, err = einoruntime.New(einoruntime.Config{Definition: definition, Tools: definitions, Model: model, Gateway: a, Validator: a, Authorizer: a, Store: guard})
-	if err != nil {
+	if err := buildTitleProductRuntime(ctx, a, reader, sources, repo, deps, contexts); err != nil {
 		return nil, err
 	}
 	a.content, err = buildContentProductApplication(ctx, a, reader, sources, repo, deps, contexts)

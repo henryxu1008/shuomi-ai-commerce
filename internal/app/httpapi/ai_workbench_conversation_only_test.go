@@ -21,6 +21,7 @@ import (
 	"task-processor/internal/aiworkbench"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
+	governed "task-processor/internal/integration/aicapability/einomodel"
 	workstore "task-processor/internal/integration/persistence/aiworkbench"
 	"task-processor/internal/workbenchcontext"
 )
@@ -52,6 +53,17 @@ func (*conversationOnlyGrants) RoleModules(_ context.Context, org string, keys [
 }
 
 func TestAIWorkbenchConversationOnlyScopedCRUDAndNoExecution(t *testing.T) {
+	testConversationOnlyScopedCRUDAndNoExecution(t, nil)
+}
+
+func TestAIWorkbenchConversationOnlyCoexistsWithContentTitleOnly(t *testing.T) {
+	var config ProductAgentDependencies
+	require.NoError(t, json.Unmarshal([]byte(`{"ContentTitleOnly":true}`), &config))
+	testConversationOnlyScopedCRUDAndNoExecution(t, &productAgentApplication{config: config})
+}
+
+func testConversationOnlyScopedCRUDAndNoExecution(t *testing.T, content *productAgentApplication) {
+	t.Helper()
 	f := newAcquisitionHTTPFixture(t)
 	require.NoError(t, workstore.InstallSchema(f.owner))
 	require.NoError(t, f.owner.Exec(`DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='ai_workbench_runtime') THEN CREATE ROLE ai_workbench_runtime LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS; END IF; END $$`).Error)
@@ -74,7 +86,7 @@ func TestAIWorkbenchConversationOnlyScopedCRUDAndNoExecution(t *testing.T) {
 	require.NoError(t, err)
 	auth.SetRolePolicyReader(grants)
 	deps.authorizer = auth
-	module, err := buildAIWorkbenchModule(context.Background(), AIWorkbenchDependencies{DB: db, ConversationOnly: true, AllowedOrganizationIDs: []string{"B"}, resolver: deps.organizationResolver, authorizer: auth}, nil)
+	module, err := buildAIWorkbenchModule(context.Background(), AIWorkbenchDependencies{DB: db, ConversationOnly: true, AllowedOrganizationIDs: []string{"B"}, resolver: deps.organizationResolver, authorizer: auth}, content)
 	require.NoError(t, err)
 	m := module.(aiWorkbenchModule)
 	require.True(t, m.AdmittedOrganization("B"))
@@ -84,6 +96,25 @@ func TestAIWorkbenchConversationOnlyScopedCRUDAndNoExecution(t *testing.T) {
 	require.Nil(t, m.application.service)
 	require.Nil(t, m.application.plan)
 	require.Nil(t, m.application.agent)
+	if content != nil {
+		for _, kind := range []string{"full", "planner", "shared-pool", "unbounded-parent"} {
+			bad := AIWorkbenchDependencies{DB: db, ConversationOnly: true, AllowedOrganizationIDs: []string{"B"}, resolver: deps.organizationResolver, authorizer: auth}
+			parent := *content
+			switch kind {
+			case "full":
+				bad.ConversationOnly = false
+			case "planner":
+				bad.PlanningTextPolicies = map[string]governed.RoutePolicy{"B": {}}
+			case "shared-pool":
+				parent.config.RunDB = db
+			case "unbounded-parent":
+				parent.config.ContentTitleOnly = false
+			}
+			built, e := buildAIWorkbenchApplication(context.Background(), bad, &parent)
+			require.Error(t, e, kind)
+			require.Nil(t, built, kind)
+		}
+	}
 	server := httptest.NewServer(buildIsolatedApplicationHTTPServer(m.routes, deps, 15*time.Second).Handler)
 	t.Cleanup(server.Close)
 	key := uuid.NewString()

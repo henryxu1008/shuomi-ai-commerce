@@ -10,12 +10,14 @@ import (
 )
 
 type ClientConfig struct {
-	Region          string
-	Endpoint        string
-	AccessKeyID     string
-	SecretAccessKey string
-	UsePathStyle    bool
-	HTTPClient      aws.HTTPClient
+	CapacityIdentityProvider  string
+	CapacityMinIODeploymentID string
+	Region                    string
+	Endpoint                  string
+	AccessKeyID               string
+	SecretAccessKey           string
+	UsePathStyle              bool
+	HTTPClient                aws.HTTPClient
 }
 
 func NewClient(cfg ClientConfig) (*s3.Client, error) {
