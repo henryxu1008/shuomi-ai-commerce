@@ -3,17 +3,10 @@ package s3
 import (
 	"context"
 	"encoding/json"
-	"io"
-	"net/http"
+	"github.com/google/uuid"
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
-
-	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
-	"github.com/google/uuid"
-	madmin "github.com/minio/madmin-go/v3"
-	"github.com/minio/minio-go/v7/pkg/credentials"
 	"task-processor/internal/ledger/storagecapacity"
 )
 
@@ -40,51 +33,9 @@ func ResolveSourceMediaCapacityNamespace(ctx context.Context, c ClientConfig, bu
 	if err != nil || port < 1 || port > 65535 || strconv.Itoa(port) != u.Port() {
 		return "", storagecapacity.ErrInvalid
 	}
-	transport := awshttp.NewBuildableClient().GetTransport()
-	transport.Proxy = nil
-	client, err := madmin.NewWithOptions(u.Host, &madmin.Options{
-		Creds: credentials.NewStaticV4(c.AccessKeyID, c.SecretAccessKey, ""), Secure: u.Scheme == "https",
-		Transport: sourceMinIOInfoTransport{base: transport, origin: u.Scheme + "://" + u.Host},
-	})
-	if err != nil {
-		return "", storagecapacity.ErrUnavailable
-	}
-	readContext, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-	info, err := client.ServerInfo(readContext)
-	if err != nil || info.DeploymentID != deploymentID {
-		return "", storagecapacity.ErrUnavailable
+	if err := verifyMinIODeployment(ctx, c, deploymentID); err != nil {
+		return "", err
 	}
 	raw, _ := json.Marshal([]string{"isolated-source-minio", c.Endpoint, c.Region, bucket, deploymentID})
 	return storagecapacity.Digest(string(raw)), nil
-}
-
-// Keep the SDK's authentication/decoding, with one bounded local read surface.
-// Reject before the SDK's http.Client can follow a redirect or replay cookies.
-type sourceMinIOInfoTransport struct {
-	base   http.RoundTripper
-	origin string
-}
-
-func (t sourceMinIOInfoTransport) RoundTrip(r *http.Request) (*http.Response, error) {
-	if r.Method != http.MethodGet || r.URL.Scheme+"://"+r.URL.Host != t.origin ||
-		r.URL.Path != "/minio/admin/v3/info" || r.URL.RawPath != "" || r.URL.User != nil {
-		return nil, storagecapacity.ErrUnavailable
-	}
-	r.Header.Del("Cookie")
-	response, err := t.base.RoundTrip(r)
-	if err != nil {
-		return nil, err
-	}
-	if response.StatusCode != http.StatusOK || response.ContentLength > 1<<20 {
-		_ = response.Body.Close()
-		return nil, storagecapacity.ErrUnavailable
-	}
-	response.Body = sourceMinIOInfoBody{Reader: io.LimitReader(response.Body, 1<<20), Closer: response.Body}
-	return response, nil
-}
-
-type sourceMinIOInfoBody struct {
-	io.Reader
-	io.Closer
 }

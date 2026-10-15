@@ -21,7 +21,29 @@ func main() {
 	manifest := flag.String("config", "", "absolute path to the private commercial schema-owner database JSON config")
 	moneyManifest := flag.String("money-config", "", "absolute path to the private canonical money schema-owner database JSON config")
 	storageAdditive := flag.Bool("storage-disabled-additive-only", false, "add current storage schema and SELECT only to a retained commercial owner; metering stays disabled")
+	storageEnable := flag.Bool("storage-enable-empty-only", false, "grant the existing empty capacity schema and install its original offer without DDL or a Money connection")
 	flag.Parse()
+	if *storageEnable {
+		moneyProvided := false
+		otherModeProvided := false
+		flag.Visit(func(option *flag.Flag) {
+			if option.Name == "money-config" {
+				moneyProvided = true
+			}
+			if option.Name == "storage-disabled-additive-only" {
+				otherModeProvided = true
+			}
+		})
+		if *manifest == "" || moneyProvided || otherModeProvided || flag.NArg() != 0 {
+			fmt.Fprintln(os.Stderr, "storage-enable-empty-only requires only -config; other installation modes, -money-config and positional arguments are forbidden")
+			os.Exit(2)
+		}
+		if err := runStorageEnableEmpty(*manifest); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
 	if *storageAdditive {
 		moneyProvided := false
 		flag.Visit(func(option *flag.Flag) {

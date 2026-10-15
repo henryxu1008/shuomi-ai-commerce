@@ -88,6 +88,9 @@ func (c *Config) validateEcoservices() error {
 		}
 	}
 	s := v.Storage
+	if err := s.validateCapacityIdentity(); err != nil {
+		return err
+	}
 	if s.Region == "" || s.Bucket == "" || s.AccessKeyID == "" || s.SecretAccessKey == "" || s.Mode != "aws" && s.Mode != "cos" || s.Mode == "cos" && !s.COSImmutableNonVersionedBucketPolicy {
 		return errors.New("ecoservices requires private immutable object storage")
 	}
