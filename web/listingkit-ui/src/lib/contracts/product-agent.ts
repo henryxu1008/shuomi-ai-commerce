@@ -17,12 +17,17 @@ export const agentEmptyRequestSchema = z.strictObject({});
 const agentTargetPlatformSchema = z.enum(["shein", "temu", "amazon"]);
 export const agentStartRequestSchema = z.strictObject({ expectedModeRevision:modeRevisionSchema,targetPlatform: agentTargetPlatformSchema, knowledgeSelection:knowledgeSelectionSchema.optional(),templateSelection:templateRefSchema.optional() });
 export const contentAgentStartRequestSchema = agentStartRequestSchema.extend({targetPlatform:z.enum(["product","shein","temu","amazon"]),contentSelection:contentSelectionSchema,skillSelection:skillSelectionSchema.optional()}).refine(v=>!v.skillSelection||v.contentSelection.title&&!v.contentSelection.description&&!v.contentSelection.sellingPoints&&!v.contentSelection.seoKeywords);
+export const ownSourceSelectionSchema=z.strictObject({catalogVersion:version,publicationId:z.string().min(1).max(128)});
+export type OwnSourceSelection=z.infer<typeof ownSourceSelectionSchema>;
+export const ownContentStartRequestSchema=contentAgentStartRequestSchema.safeExtend({targetPlatform:z.literal("product"),ownSource:ownSourceSelectionSchema});
+export const ownContentSourceSchema=z.strictObject({itemId:id,productKey:z.string().min(1).max(128),catalogVersion:version,publicationId:z.string().min(1).max(128),originalVersion:z.number().int().positive().max(Number.MAX_SAFE_INTEGER),originalPublicationId:z.string().min(1).max(128),title:z.string().max(20000)});
 export const agentResumeRequestSchema = z.strictObject({ revision: version, feedback: z.string().refine(v => new TextEncoder().encode(v).length <= 8192) });
 export const agentReviewLinkSchema = z.strictObject({ proposalId: id, requestKey: id, operationId: id });
 const baseAgentResultSchema = z.strictObject({
     executionMode:executionModeSchema.optional(),modeRevision:modeRevisionSchema.optional(),modeSnapshotRef:modeSnapshotRefSchema.optional(),modeUnavailableReason:z.literal("EXECUTION_MODE_NOT_FROZEN").optional(),policyAdoption:z.union([titlePolicyAdoptionSchema,contentPolicyAdoptionSchema]).optional(),reviewId:id.optional(),
     knowledge:productKnowledgeSchema.optional(),
     templateSelection:templateRefSchema.optional(),
+    contextKind:z.literal("own_product").optional(),
     runId: id, requestKey: id, operationId: id, productKey: z.string().min(1).max(128), catalogVersion: version, publicationId: z.string().min(1).max(128), targetPlatform: z.enum(["product","shein","temu","amazon"]),
     phase: z.enum(["running", "interrupted", "human_review_required", "stopped"]), revision: version, stopReason: z.string().max(128).optional(), humanReviewRequired: z.boolean(),
     candidate: z.strictObject({ Changes: z.array(change).nullable(), Warnings: z.array(diagnostic).nullable(), Rejections: z.array(diagnostic).nullable() }),
@@ -32,6 +37,7 @@ const baseAgentResultSchema = z.strictObject({
     tokens: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER), estimatedCostMicros: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER), currency: z.string().regex(/^[A-Z]{3}$/), usageStatus: z.enum(["observed", "unknown_reserved"]), canSubmitReview: z.boolean(),
 });
 function authorityMatches(v:z.infer<typeof baseAgentResultSchema>) {
+    if(v.contextKind && (v.targetPlatform!=="product" || v.policyAdoption&&v.policyAdoption.execution.binding.ContextKind!==v.contextKind))return false;
     if (v.modeUnavailableReason ? (v.executionMode || v.modeRevision || v.modeSnapshotRef || v.canSubmitReview || !v.humanReviewRequired) : (!v.executionMode || !v.modeRevision || !v.modeSnapshotRef)) return false;
     if (!v.humanReviewRequired && (!v.policyAdoption || !v.reviewId || v.canSubmitReview)) return false;
     const p=v.policyAdoption;
@@ -50,6 +56,12 @@ export const contentAgentResultSchema = baseAgentResultSchema.extend({targetPlat
 })())
 .refine(v=>!v.policyAdoption || sameContentSelection(v.policyAdoption.execution.ContentSelection,v.contentSelection));
 export type ProductAgentResult = z.infer<typeof agentResultSchema> | z.infer<typeof contentAgentResultSchema>;
+export function ownAgentPath(path:string[]):string|null {
+ if(path[0]!=="collections"||path[1]!=="items"||!isAcquisitionUUID(path[2]??"")||path[3]!=="content-agent")return null;
+ if(path.length===5&&path[4]==="source")return path.join("/");
+ if(path[4]!=="runs")return null;
+ return path.length===5||path.length===6&&isAcquisitionUUID(path[5]??"")||path.length===7&&isAcquisitionUUID(path[5]??"")&&["resume","review"].includes(path[6]??"")?path.join("/"):null;
+}
 export function agentPath(path: string[], namespace?: "product-agent" | "content-agent"): string | null {
     if (path[0] !== "sourcing" || path[1] !== "1688" || path[2] !== "acquisitions" || !isAcquisitionUUID(path[3] ?? "") || (namespace ? path[4] !== namespace : !["product-agent", "content-agent"].includes(path[4] ?? "")) || path[5] !== "runs")
         return null;

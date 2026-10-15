@@ -13,6 +13,7 @@ type RecentRun struct {
 	SkillVersionRef agent.SkillVersionRef `json:"skillVersionRef,omitzero"`
 	RunID           string                `json:"runId"`
 	OperationID     string                `json:"operationId"`
+	ContextKind     string                `json:"contextKind"`
 	RequestKey      string                `json:"requestKey"`
 	ProductKey      string                `json:"productKey"`
 	TargetPlatform  string                `json:"targetPlatform"`
@@ -70,7 +71,7 @@ func (s *Store) Recent(ctx context.Context, scope agent.Scope, memberID, id, aft
 		if r.State.Request.ConfigurationSnapshotRef.ID != snap.ID || r.State.Request.ConfigurationSnapshotRef.Digest != snap.Digest || r.State.Request.SkillVersionRef != snap.Request.SkillVersionRef {
 			return nil, "", agentconfig.ErrUnavailable
 		}
-		out = append(out, RecentRun{SkillVersionRef: r.State.Request.SkillVersionRef, RunID: r.State.RunID, OperationID: snap.Request.Binding.ContextID, RequestKey: snap.Request.Key, ProductKey: snap.Request.Binding.ProductKey, TargetPlatform: snap.Request.Binding.TargetPlatform, Phase: r.State.Phase, Revision: decimal(int64(r.State.Revision)), StartedAt: r.State.StartedAt})
+		out = append(out, RecentRun{ContextKind: snap.Request.Binding.ContextKind, SkillVersionRef: r.State.Request.SkillVersionRef, RunID: r.State.RunID, OperationID: snap.Request.Binding.ContextID, RequestKey: snap.Request.Key, ProductKey: snap.Request.Binding.ProductKey, TargetPlatform: snap.Request.Binding.TargetPlatform, Phase: r.State.Phase, Revision: decimal(int64(r.State.Revision)), StartedAt: r.State.StartedAt})
 	}
 	return out, next, nil
 }

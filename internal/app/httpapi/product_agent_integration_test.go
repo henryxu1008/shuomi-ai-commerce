@@ -327,10 +327,12 @@ func testProductAgentOwners(t *testing.T, mode string) {
 			if strings.Contains(mode, " qualified") {
 				content = `{"Kind":"propose","DomainProposal":{"Kind":"listing-materials-v1","Payload":{"images":[{"group":"skc","skc":0,"sku":0,"asset_id":"qualified-main","sort":1,"type":1},{"group":"skc","skc":0,"sku":0,"asset_id":"qualified-detail","sort":3,"type":2},{"group":"skc","skc":0,"sku":0,"asset_id":"qualified-square","sort":2,"type":5}],"evidenceIds":["` + evidence + `"]}}}`
 			}
-		case (strings.HasPrefix(mode, "content flow") || mode == "supply content") && (step-1)%3 == 0:
+		case (strings.HasPrefix(mode, "content flow") || strings.HasPrefix(mode, "own content ") || mode == "supply content") && (step-1)%3 == 0:
 			content = `{"Kind":"tool","Tool":{"ID":"product.canonical.inspect","Version":"v2.0.0"}}`
-		case (strings.HasPrefix(mode, "content flow") || mode == "supply content") && (step-1)%3 == 1:
+		case (strings.HasPrefix(mode, "content flow") || strings.HasPrefix(mode, "own content ") || mode == "supply content") && (step-1)%3 == 1:
 			content = `{"Kind":"tool","Tool":{"ID":"product.source-evidence.inspect","Version":"v2.0.0"}}`
+		case strings.HasPrefix(mode, "own content "):
+			content = ownContentFixtureProposal(t, r)
 		case strings.HasPrefix(mode, "content flow") || mode == "supply content":
 			content = `{"Kind":"propose","Candidate":{"Changes":[{"Field":"title","Value":"Localized bottle title","EvidenceIDs":["981645030344"]},{"Field":"description","Value":"Localized bottle description","EvidenceIDs":["981645030344"]},{"Field":"selling_points","Value":"[\"Reusable bottle\"]","EvidenceIDs":["981645030344"]},{"Field":"seo_keywords","Value":"[\"bottle\"]","EvidenceIDs":["981645030344"]}]}}`
 			if withSkill {
@@ -407,7 +409,7 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	// Keep the synthetic input bound below escapedBase's encoded prompt so the
 	// pre-Claim envelope rejection remains observable under the frozen profile.
 	settings := ProductAgentDependencies{Enabled: true, AllowedOrganizationIDs: []string{"B"}, RunDB: f.owner, PointAccountingDB: f.owner, AssetDB: f.owner, ReviewDB: f.owner, Ledger: ledger, TextPolicies: map[string]governed.RoutePolicy{"B": {AdmittedCredentialVersion: governed.CredentialVersion(*row), AdmittedEndpointIdentityDigest: governed.EndpointIdentityDigest(provider.URL + "/v1"), Profile: aicapability.ModelProfile{ClientName: "default", ProviderID: "grsai", AdapterKind: "openai-compatible", ModelID: "gemini-2.5-flash", RoutingPolicyVersion: "route-v1", AdapterPolicyVersion: "adapter-v1", PromptVersion: "product-title-agent-v1", OutputSchemaVersion: "product-title-action-v1", UsageMappingVersion: "usage-v1", CostPricingVersion: "fixture-v1", PointTariff: aicapability.ModelPointTariff{PriceVersion: "synthetic-points-v1", InputPointsPerMillionTokens: 1000000, OutputPointsPerMillionTokens: 2000000}, Currency: "CNY", InputMicrosPerMillion: 300000, OutputMicrosPerMillion: 2000000, MaximumPromptTokens: 1048576, MaximumCompletionTokens: 8192, MaximumInputBytes: 64 << 10, MaximumOutputBytes: 16 << 10, DeadlineBound: 3 * time.Second}}}, Limits: agent.Limits{Steps: 12, ModelCalls: 6, Tokens: 5000000, CostMicros: 5000000, Currency: "CNY", Runtime: time.Minute}}
-	if mode == "content assembly" || strings.HasPrefix(mode, "content flow") || mode == "supply content" {
+	if mode == "content assembly" || strings.HasPrefix(mode, "content flow") || strings.HasPrefix(mode, "own content ") || mode == "supply content" {
 		policy := settings.TextPolicies["B"]
 		policy.Profile.PromptVersion, policy.Profile.OutputSchemaVersion = agentconfig.ContentPromptVersion, agentconfig.ContentActionVersion
 		settings.ContentTextPolicies = map[string]governed.RoutePolicy{"B": policy}
@@ -487,6 +489,10 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	}
 	module, err := buildProductAgentModule(context.Background(), f.db, deps, auth, settings, reviewIAM.config())
 	require.NoError(t, err)
+	if strings.HasPrefix(mode, "own content ") {
+		testOwnContentThroughOwners(t, f, module.(productAgentModule), deps, auth, configuration, agent.ExecutionMode(strings.TrimPrefix(mode, "own content ")), &calls)
+		return
+	}
 	if mode == "diagnosis" {
 		testDiagnosisHTTPThroughNativeOwners(t, f, module.(productAgentModule).application, deps, auth, &calls)
 		return

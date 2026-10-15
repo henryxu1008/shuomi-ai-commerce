@@ -22,6 +22,7 @@ import (
 )
 
 type productAgentRequestBody struct {
+	OwnSource            *ownSourceSelection          `json:"ownSource,omitempty"`
 	ContentSelection     *enrichment.ContentSelection `json:"contentSelection,omitempty"`
 	TemplateSelection    json.RawMessage              `json:"templateSelection,omitempty"`
 	Revision             string                       `json:"revision,omitempty"`

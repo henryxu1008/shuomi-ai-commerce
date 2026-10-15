@@ -138,6 +138,7 @@ export const recentRunsSchema = page(
   z.strictObject({
     runId: knowledgeId,
     operationId: knowledgeId,
+    contextKind:z.string().min(1).max(128),
     requestKey: knowledgeId,
     productKey: z.string().min(1).max(128),
     targetPlatform: z.enum(["product", "shein", "temu", "amazon"]),
