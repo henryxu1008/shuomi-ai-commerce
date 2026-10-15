@@ -45,6 +45,17 @@ This establishes a reproducible configuration defect. It does not establish
 which historical foreign cookie or tab caused the *first* incident: original
 cookie values were not captured and must not be fabricated or extracted now.
 
+The original owner's timestamped handoff places the first JWT error before any
+new credential entry (09:42:50 +08), the PKCE error at 09:50:11, and later JWT
+errors through 10:09:23. Configured entry/callback remain on localhost:35444,
+issuer on localhost:35443. The same Edge profile also has localhost:39744 open.
+A credential-free, headers-only HTTPS GET to that application's public CSRF
+endpoint returned 200 and default `__Host-authjs.csrf-token` /
+`__Secure-authjs.callback-url`, Path `/`, Secure/HttpOnly/SameSite=Lax. No response
+body, cookie values or browser state was read or changed. This confirms a real
+co-host name-collision condition; it still does not identify the historical
+session/PKCE cookie that produced a particular failure.
+
 ## Contract → implementation → injection → consumer
 
 1. Reuse the existing configured public-origin resolution. Auth.js `AUTH_URL`,
