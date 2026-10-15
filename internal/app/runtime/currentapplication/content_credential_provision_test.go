@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
@@ -33,7 +34,13 @@ func contentProvisionFixture() (*Config, TitleCredentialProvision) {
 
 func contentProvisionDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	db, err := gorm.Open(sqlite.Dialector{DriverName: "sqlite", DSN: ":memory:"}, &gorm.Config{})
+	// Keep separate writes on distinct clock ticks without timing assumptions
+	// about the host's clock resolution.
+	now := time.Date(2026, 10, 15, 0, 0, 0, 0, time.UTC)
+	db, err := gorm.Open(sqlite.Dialector{DriverName: "sqlite", DSN: ":memory:"}, &gorm.Config{NowFunc: func() time.Time {
+		now = now.Add(time.Second)
+		return now
+	}})
 	require.NoError(t, err)
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
