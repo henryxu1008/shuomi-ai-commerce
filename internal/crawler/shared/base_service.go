@@ -28,8 +28,8 @@ type resultStore interface {
 	Delete(ctx context.Context, key string) error
 }
 
-// BaseService 封装两个爬虫服务共同的结果存储与 worker 池逻辑。
-// amazon.Service 和 alibaba1688.Service 通过嵌入此结构体消除重复代码。
+// BaseService 封装爬虫服务共用的结果存储与 worker 池逻辑。
+// 当前由 amazon.Service 等消费者嵌入复用；1688 旧队列服务已退休。
 type BaseService struct {
 	workerPool        worker.WorkerPool
 	results           sync.Map

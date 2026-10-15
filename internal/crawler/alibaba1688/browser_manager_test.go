@@ -48,7 +48,7 @@ func TestAlibaba1688BrowserProfileNamespaceIsStableAcrossRestarts(t *testing.T) 
 	}
 }
 
-func TestAlibaba1688BrowserRuntimeConfigUsesAccountProfileWithoutMutatingGlobalConfig(t *testing.T) {
+func TestAlibaba1688BrowserRuntimeConfigPreservesSettingsWithoutMutatingConfig(t *testing.T) {
 	cfg := config.NewDefaultConfig()
 	cfg.Browser.Headless = false
 	cfg.Browser.BrowserPath = "C:/browsers/chrome.exe"
@@ -57,44 +57,37 @@ func TestAlibaba1688BrowserRuntimeConfigUsesAccountProfileWithoutMutatingGlobalC
 	cfg.Browser.ViewportWidth = 1600
 	cfg.Browser.ViewportHeight = 1000
 
-	profile := &AccountProfile{
-		ID:          3001,
-		TenantID:    101,
-		ProfileDir:  "C:/account-profiles/101/3001",
-		ProxyServer: "http://account-proxy:8080",
-	}
+	runtimeConfig := newAlibaba1688BrowserRuntimeConfig(cfg)
 
-	runtimeConfig := newAlibaba1688BrowserRuntimeConfig(cfg, profile)
-
-	if runtimeConfig.userDataDir != profile.ProfileDir {
-		t.Fatalf("user data dir = %q, want %q", runtimeConfig.userDataDir, profile.ProfileDir)
+	if runtimeConfig.userDataDir != cfg.Browser.UserDataDir {
+		t.Fatalf("user data dir = %q, want %q", runtimeConfig.userDataDir, cfg.Browser.UserDataDir)
 	}
-	if runtimeConfig.browser.ProxyServer != profile.ProxyServer {
-		t.Fatalf("proxy = %q, want account proxy", runtimeConfig.browser.ProxyServer)
+	if runtimeConfig.browser.ProxyServer != cfg.Browser.ProxyServer {
+		t.Fatalf("proxy = %q, want configured proxy", runtimeConfig.browser.ProxyServer)
 	}
 	if runtimeConfig.browser.BrowserPath != cfg.Browser.BrowserPath ||
 		runtimeConfig.browser.Headless != cfg.Browser.Headless ||
 		runtimeConfig.browser.ViewportWidth != cfg.Browser.ViewportWidth ||
 		runtimeConfig.browser.ViewportHeight != cfg.Browser.ViewportHeight {
-		t.Fatal("account profile changed unrelated browser settings")
+		t.Fatal("runtime config changed browser settings")
 	}
 	if cfg.Browser.UserDataDir != "C:/global-profile" || cfg.Browser.ProxyServer != "http://global-proxy:8080" {
-		t.Fatal("account profile mutated the process-wide browser configuration")
+		t.Fatal("runtime config mutated the process-wide browser configuration")
 	}
 }
 
-func TestAlibaba1688BrowserRuntimeConfigUsesGlobalFallbackWithoutAccount(t *testing.T) {
+func TestAlibaba1688BrowserRuntimeConfigUsesConfiguredDirectoryAndProxy(t *testing.T) {
 	cfg := config.NewDefaultConfig()
 	cfg.Browser.UserDataDir = "C:/global-profile"
 	cfg.Browser.ProxyServer = "http://global-proxy:8080"
 
-	runtimeConfig := newAlibaba1688BrowserRuntimeConfig(cfg, nil)
+	runtimeConfig := newAlibaba1688BrowserRuntimeConfig(cfg)
 
 	if runtimeConfig.userDataDir != cfg.Browser.UserDataDir {
-		t.Fatalf("user data dir = %q, want global fallback %q", runtimeConfig.userDataDir, cfg.Browser.UserDataDir)
+		t.Fatalf("user data dir = %q, want configured directory %q", runtimeConfig.userDataDir, cfg.Browser.UserDataDir)
 	}
 	if runtimeConfig.browser.ProxyServer != cfg.Browser.ProxyServer {
-		t.Fatalf("proxy = %q, want global fallback %q", runtimeConfig.browser.ProxyServer, cfg.Browser.ProxyServer)
+		t.Fatalf("proxy = %q, want configured proxy %q", runtimeConfig.browser.ProxyServer, cfg.Browser.ProxyServer)
 	}
 }
 
@@ -111,17 +104,8 @@ func TestAlibaba1688PublicBrowserRuntimeConfigDoesNotUsePersistentProfile(t *tes
 	if runtimeConfig.browser.ProxyServer != cfg.Browser.ProxyServer {
 		t.Fatalf("proxy = %q, want global proxy %q", runtimeConfig.browser.ProxyServer, cfg.Browser.ProxyServer)
 	}
-}
-
-func TestAlibaba1688BrowserRuntimeConfigRetainsGlobalProxyWhenAccountProxyUnavailable(t *testing.T) {
-	cfg := config.NewDefaultConfig()
-	cfg.Browser.ProxyServer = "http://global-proxy:8080"
-	profile := &AccountProfile{ID: 3001, TenantID: 101, ProfileDir: "C:/account-profiles/101/3001"}
-
-	runtimeConfig := newAlibaba1688BrowserRuntimeConfig(cfg, profile)
-
-	if runtimeConfig.browser.ProxyServer != cfg.Browser.ProxyServer {
-		t.Fatalf("proxy = %q, want global fallback %q", runtimeConfig.browser.ProxyServer, cfg.Browser.ProxyServer)
+	if cfg.Browser.UserDataDir != "C:/global-profile" || cfg.Browser.ProxyServer != "http://global-proxy:8080" {
+		t.Fatal("public browser config mutated configured profile or proxy")
 	}
 }
 
