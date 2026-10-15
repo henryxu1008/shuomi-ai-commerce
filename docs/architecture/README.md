@@ -9,7 +9,7 @@ boundary rules unless they explicitly supersede a stable document.
 
 ## Boundary Designs Awaiting Confirmation
 
-- [`shein-worker-identity-persistence-boundary.md`](shein-worker-identity-persistence-boundary.md): #301 design-only ownership, retained worker capabilities and deletion conditions. Current Organization/Store and official execution remain separate from the retained numeric login runtime. No production implementation or runtime/data action is authorized; no new internal-trial prerequisite.
+- [`shein-worker-identity-persistence-boundary.md`](shein-worker-identity-persistence-boundary.md): #301 confirmed ownership, retained worker capabilities and deletion conditions. §7 retires the unused managed provider/helpers/verification DTO and fixes tenant-qualified duplicate lookup with fail-closed Store sync. Current Organization/Store and official execution remain separate from the retained numeric login runtime; no runtime/data action or new internal-trial prerequisite.
 
 ## Approved Authorities by Responsibility
 

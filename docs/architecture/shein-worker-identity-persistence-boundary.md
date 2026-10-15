@@ -2,8 +2,8 @@
 
 Refs [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
-- Status: **DESIGN_REVIEW / 待用户确认；正式实施未授权**。
-- Design Basis: **N/A（本批仅文档及只读现状映射）**。不改变身份、权限、事实 owner、状态机、持久化或外部副作用；本文件不是新业务合同的实施准入。
+- Status: **CONFIRMED / §7 有界实施**。用户已确认本设计并授权在 #722 退休闲置工件、最小修复查重 tenant 隔离；最终检查与合并权限另记 Issue/PR。
+- Design Basis: **Reuse Existing Architecture**（#301 已记录 Ready、owner、调用路径、不变量、验证与明确非目标）。复用原 worker 的租户隔离与同步合同，不新增身份、权限模型、事实 owner、状态机、持久化或外部副作用；原设计文档阶段为 N/A，不代替本次正式实施准入。
 - 调查基线：`main @ b3940ea9448d0190a3b69617160b176c36f4a11a`。
 - 用户决定：保留当前采集能力、有效共享基础层和独立 SHEIN worker；不操作运行实例或数据；设计确认后再实施；本项不作为内部试用的新前置。
 
@@ -11,11 +11,11 @@ Refs [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
 操作者继续使用当前内部试用应用，并保留原独立 SHEIN worker。维护者可以按具体合同判断哪些代码可删、哪些仍拥有运行态，避免为了清空数字字段而破坏 worker，或把旧账号接入当前 Store。
 
-本设计提出三个边界决定，待用户确认：
+用户已确认三个边界决定：
 
 1. 当前新业务只消费当前 Organization、Store、官方应用/凭据和各业务 owner 的合同。保留旧 worker 不增加一条当前业务的登录、身份或恢复路径。
 2. 独立 worker 及其仍被消费的数字账号仓库、Redis、Profile、会话、状态机和 Store 同步保持原 owner。保留的是符合原租户隔离要求的能力，不包括已确认的无 tenant 条件查重缺陷，见 §5.1。它们仍是退出条件未满足的旧设计债务，不是新系统的合法事实来源，也不是新增 Compatibility 类别。
-3. 下一实施候选退休已无生产消费者的另一套 managed 账号 provider 和孤立验证码请求 DTO，并最小修复 §5.1 的既有租户隔离缺陷，见 §7。使用中的 provider、验证码服务、Store 同步及 worker 不在删除清单中；本轮没有实施这些删除或修复。
+3. §7 实施退休已无生产消费者的另一套 managed 账号 provider 和孤立验证码请求 DTO，并最小修复 §5.1 的既有租户隔离缺陷。使用中的 provider、验证码服务、Store 同步及 worker 不在删除清单中。
 
 保留 worker 的决定与“全仓数字身份依赖清零”目前不能同时作为已完成结果。#301 保持开放；当前应用退出旧运行链的成果和保留 worker 的债务分别记录。不得把未删除写成已退休，也不为关闭父 Issue 自动发明新的账号/凭据系统。
 
@@ -29,9 +29,9 @@ Refs [#301](https://github.com/qq550723504/task-processor/issues/301)。
 - [Store 平台观察](store-center-platform-observations-v1.md) 及[内部准备接线](store-observations-preparation-runtime.md)：保留当前记录/观察与原权限、配置和真实可用性边界，不因本设计新增 provider 调用或试用前置。
 - [发布预检退休](release-identity-preflight-retirement.md)、#703/#719/#721：旧 bridge、1688 数字账号/队列/Profile 和未注册导入 HTTP 已退休，不能通过 SHEIN 边界恢复它们。
 
-本批交付仅此设计与直接引用校准，UI/IA 不变，Figma N/A。当前采集、共享层、所有生产源码、schema、Redis 键、配置、部署、CI 和保护规则均不改。
+本批交付本设计、§7 准确删除与 §5.1 最小修复及必要原测试。UI/IA 不变，Figma N/A。当前采集、有效共享层、schema、Redis 键、配置、部署、CI 和保护规则均不改。
 
-Architecture Review 对本次纯文档交付为 N/A；最终 PR 仍按原流程做完整差异检查。§7 的有界退休可在用户确认并把准确实施范围写入 Issue 后，按 Reuse Existing Architecture 复用这些依据。若未来改变身份/授权、DB 所有权、状态机、事务、恢复或外部副作用，则另做 Independent Architecture、适用独立评审及 IMPLEMENTATION_READY；本文件不代替该准入或用户实施授权。
+本次复用现有架构，无新高风险边界需要另建 Independent Architecture；最终 PR 按原流程集中检查真实差异。用户确认后，准确实施范围已写入 #301 并达到 Reuse Existing Architecture 的 Ready。若未来改变身份/授权、DB 所有权、状态机、事务、恢复或外部副作用，则另做 Independent Architecture、适用独立评审及 IMPLEMENTATION_READY；本文件不代替该准入或扩大用户授权。
 
 ## 3. 三类身份与事实所有权
 
@@ -101,7 +101,7 @@ cmd/shein-login-worker
 
 Finding classification: **BLOCKER（跨租户访问/数据混淆）**。受影响 Must 是既有租户隔离与正确 Store 写入；阻塞把此行为确认为可原样复用，以及后续 worker 实施/验收。没有跨 tenant 全局查重的产品授权，不分类为 Accepted Risk。它不增加当前独立内部试用路径的前置。
 
-后续实施只在原 helper/service owner 补齐既有隔离合同：
+本次实施只在原 helper/service owner 补齐既有隔离合同：
 
 1. `account.TenantID` 必须为正，账号行 ID 与解析出的外部 Store ID 必须有效；输入无效时在查询/Store mutation 前拒绝，不以 tenant=0 表示“全部”。
 2. 每一页 `StorePageReqDTO` 都显式使用 `account.TenantID`，保留原分页和平台过滤。查重只考虑同 tenant、非自身、启用中的 SHEIN 行；同外部 Store ID 出现在其他 tenant 不能成为禁用当前行的依据。
@@ -112,7 +112,7 @@ Finding classification: **BLOCKER（跨租户访问/数据混淆）**。受影�
 
 同根因相邻路径已静态核对：原账号 provider 的查询已显式带 tenant；实际 Store 同步工厂忽略 factory 的 tenant 参数，不能把 factory 本身当成隔离保证。原 GORM StoreAPI 仍是内部能力，本次不因此重构整个 StoreAPI/IAM；在查重查询和服务副作用入口落实上述同 tenant 约束。若实现证明还必须改变公共授权合同或持久化/恢复边界，再停止并按 Independent Architecture 准入。
 
-验证要求写入下一候选，全部尚未执行：先用现有 helper/service/GORM 测试设施做 RED→GREEN；证明每页 tenant 参数、两个 tenant 同外部 ID 不互相禁用/泄露、异常外租户返回与查询失败均无 Store 写入，以及同 tenant 重复、自身/disabled 排除和分页仍符合原合同。不得只改文案、仅在展示时隐藏数据，或只依赖 stub 忽略原 GORM 路径。
+实现使用原 helper/service/GORM 测试设施做 RED→GREEN：每页 tenant 参数、两个 tenant 同外部 ID 不互相禁用/泄露、异常外租户返回与查询失败均无 Store 写入，以及同 tenant 重复、自身/disabled 排除和分页保持。原缺陷先在真实 GORM 查询和服务写入测试中复现，不仅修正文案或展示。页面元数据/行数不完整、nil page/行、账号或返回行 scope 无效均失败关闭；缺少 lookup 注入也不能当作“无重复”。只记录通用失败分类，不透传可能包含外 tenant 信息的查询错误。
 
 ## 6. 保留能力与非目标
 
@@ -122,22 +122,22 @@ Finding classification: **BLOCKER（跨租户访问/数据混淆）**。受影�
 
 不新增账号页面、登录 HTTP、operator 步骤、验收 runner、状态平台、IAM、凭据 vault、映射/迁移、官方连接或发布能力。内部试用继续沿已有交付范围进行；不等待 worker 原生 Organization 化、旧数据处理或本设计落地。其它活跃 PR 与运行实例继续由各原 owner 负责。
 
-## 7. 删除矩阵与下一有界实施候选
+## 7. 删除矩阵与已确认有界实施
 
-以下是设计候选，**当前没有执行任何删除**。正式实施前须取得用户确认、刷新消费者并在 #301 写入准确 Ready 范围。
+用户已确认本节实施，并在 #301 完成 Reuse Existing Architecture / Ready；实施前已刷新全仓消费者。下表只涉及源码与专属测试，实际资源/数据不在授权内。
 
 | 工件 | 设计处置 | 源码删除条件 |
 | --- | --- | --- |
-| `sheinloginmanaged.AccountProvider`、`storeClientFactory`、其 `tenantAccountCache`、`NewAccountProviderWithStoreClientFactory`、GetAccount/ListAccounts | RETIRE 候选；这是另一套通过 StoreAPI 读取账号的闲置具体实现，不是 `sheinlogin.AccountProvider` 接口 | 全仓生产引用为零；唯一外部包消费者 bootstrap 仍只调用两项 Store 同步/查重工厂；原仓库 provider 保持原接线，不用别名/包装替代 |
-| 同文件 `mapStoreToAccount`、`MapStoreToAccountForTest`、`normalizeLoginURL` 及专属测试 | 随上述闲置实现 RETIRE | 只被其自身/测试使用；比较当前 `sheinlogin/accounts.go` 的有效平台/凭据/URL映射断言，已有覆盖复用，确有缺口才在保留 owner 补齐，不保留生产 test-only API |
-| `sheinlogin.VerifyCodeRequest` | RETIRE 候选；已退休 HTTP 的孤立 wire DTO | 全仓仅定义，无生产或有效测试消费者；保留 `SubmitVerifyCode`、`SubmitVerifyCodeForAttempt`、attempt/取消协议及 `LoginRequest`，后者仍由 worker/service 使用 |
-| 使用中的 `findDuplicateStore` / `syncStoreIDAfterLogin` 查重与写入入口 | 保留能力，并按 §5.1 最小修复现有 tenant 隔离缺陷；不是删除目标 | 未实施。原 scope 合同的 focused RED→GREEN、实际 GORM 路径及同/跨 tenant 服务副作用断言通过前，不得称 worker 此边界已修复或放行下一实施候选合并 |
+| `sheinloginmanaged.AccountProvider`、`storeClientFactory`、其 `tenantAccountCache`、`NewAccountProviderWithStoreClientFactory`、GetAccount/ListAccounts | RETIRE / 源码删除；不是 `sheinlogin.AccountProvider` 接口 | 全仓生产引用为零；唯一外部包消费者 bootstrap 仍只调用两项 Store 同步/查重工厂；原仓库 provider 保持原接线，无别名/包装替代 |
+| 同文件 `mapStoreToAccount`、`MapStoreToAccountForTest`、`normalizeLoginURL` 及专属测试 | 随上述闲置实现 RETIRE / 删除 | 只被其自身/测试使用；有效平台/凭据/URL映射断言在保留的仓库 provider 原测试复用/补齐，共用 StoreAPI fixture 转到保留 helper 的测试；无生产 test-only API |
+| `sheinlogin.VerifyCodeRequest` | RETIRE / 删除；已退休 HTTP 的孤立 wire DTO | 全仓仅定义，无生产或有效测试消费者；`SubmitVerifyCode`、`SubmitVerifyCodeForAttempt`、attempt/取消协议及 worker/service 的 `LoginRequest` 保留 |
+| 使用中的 `findDuplicateStore` / `syncStoreIDAfterLogin` 查重与写入入口 | 保留能力，落实 §5.1 最小隔离修复 | 原 scope 合同的 focused RED→GREEN、真实 GORM 路径及同/跨 tenant 服务副作用断言覆盖；准确候选 CI/独立检查写 PR，不等于真实 worker/平台或用户验收 |
 | `sheinlogin.ListingAdminAccountProvider`、`AccountProvider` 接口、原 Account/LoginRequest/LoginAttempt、原 Store 仓库与两项 managed 工厂/查重 helper | 保留，仍被 worker 实际消费 | 本批删除条件未满足。须先有用户确认的独立替代能力或明确退休该能力的决定，当前权威/安全行为切换且原消费者退出；不能先删再包装旧 owner |
 | worker Redis 键/stream/Lua、Profile、锁/session、登录/验证码状态机、原 Store 同步 | 保留原 owner 与格式 | 本批删除条件未满足。若未来改变其身份/持久化/恢复，另做 Independent Architecture；不能把旧键、Profile 或行 ID 搬到新系统续跑 |
 | 当前共享包里的有效合同、平台规则、基础层与当前采集 | 保留；仅具体无消费者旧工件可 RETIRE | 基于当前消费者逐项判断，禁止 blanket-delete `listingadmin` / `listingruntime` / `sheinloginmanaged` 或整套 shared 层 |
 | 已退休的 bridge、旧 HTTP/Task/Profile/预检入口 | RETIRE / 保持缺席 | 原 absence、实际依赖和权限守卫继续；不得因 worker 保留而恢复 |
 
-§7 闲置 provider/mapper/DTO 的退休与 §5.1 最小租户隔离修复可在同一主要实施 PR 收敛，使用 Reuse Existing Architecture：删无消费者代码和只验证旧实现的测试，保留并补齐原 Store 同步/查重测试、当前账号 provider 的权限/缓存隔离和验证码/attempt 测试，复用原 guard。修复的是已批准隔离合同未被执行的局部缺陷，不新增权限模型；设计确认和正式实施授权仍待用户。纯库删除不是实际数据库、Redis、文件、镜像或实例删除授权。
+§7 闲置 provider/mapper/DTO 的退休与 §5.1 最小租户隔离修复在同一主要 PR #722 收敛，使用 Reuse Existing Architecture：删无消费者代码和只验证旧实现的测试，保留并补齐原 Store 同步/查重测试、当前账号 provider 的权限/缓存隔离和验证码/attempt 测试，复用原 guard。修复的是已批准隔离合同未被执行的局部缺陷，不新增权限模型；用户已确认设计和本节实施，合并另需准确候选授权。源码删除不是实际数据库、Redis、Profile 文件、镜像或实例删除授权。
 
 对测试先分类：闲置构造器/旧 transport wire/旧 mapper 实现细节可为 NOT_APPLICABLE；当前租户/账号/凭据隔离、平台过滤、取消/终态、幂等和副作用保护仍是 Must，不能通过删测试规避。必要 finding 沿原分类规则处理；不能借本候选追加新的通用验证平台。
 
@@ -145,13 +145,13 @@ Finding classification: **BLOCKER（跨租户访问/数据混淆）**。受影�
 
 ## 8. 检查与交付停止点
 
-本批检查只包含实际源码/消费者映射、上述命令的 `go list -deps`、文档链接、diff 范围及 `git diff --check`，并使用原 PR 适用 CI/独立检查。不运行 worker、浏览器、Docker、数据库/Redis查询、迁移、初始化或平台调用；已有测试名/历史 PASS 仅是后续复用位置，不冒充本次执行。
+本批检查包含实际源码/消费者映射、上述命令的 `go list -deps`、保留命令编译、文档链接、diff 范围及 `git diff --check`，并使用原 PR 适用 CI/独立检查。必要测试只用隔离的内存 SQLite/miniredis 和原 mock；不运行真实 worker、浏览器、Docker、真实数据库/Redis查询、迁移、初始化或平台调用。已有未变代码证据与准确候选直接执行结果分别记录，不冒充本次执行。
 
-后续 §7 实施的必要检查复用现有能力：
+§7 实施的必要检查复用现有能力：
 
 - 原 current commands / standalone SHEIN actual dependency 与退休 guard；不得放宽现有 CI/保护。
 - `sheinlogin` 的原账号 owner/角色缓存隔离、跨 tenant 读写/锁/session、Cookie-only、attempt 原子创建/取消/终态/重启测试；`sheinloginmanaged` 保留的原同步/查重测试；bootstrap 与独立 runtime 配置/Close 测试。
 - §5.1 的查重租户条件、实际 GORM 查询与服务副作用 RED→GREEN；这是真实 BLOCKER 的最小必要测试，不新增专项工具或人工流程。
 - 保留命令编译及受影响当前采集/共享层原回归；无关未变代码证据可明确复用，不人工重复完整 CI。
 
-本批交付后停在 **设计待用户确认**，不自动进入 §7 实施、不合并、不部署、不关闭 #301。设计、源码实现、准确候选CI、合并/main CI、真实运行和用户验收分别记录；未执行项目保持 NOT_RUN。当前保留实例的地址、数据、Redis拓扑/持久化、Profile 和凭据均未读取或更改。
+本批实施完成后停在 **In Review，待独立检查/用户决定**，不自动合并、不部署、不关闭 #301。设计、源码实现、准确候选 CI、合并/main CI、真实运行和用户验收分别记录；未执行项目保持 NOT_RUN。当前保留实例的地址、数据、Redis 拓扑/持久化、Profile 和凭据均未读取或更改；生产仍 NOT_READY，内部试用不新增前置。

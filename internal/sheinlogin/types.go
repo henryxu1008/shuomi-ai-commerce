@@ -98,12 +98,6 @@ type LoginAttempt struct {
 	CompletedAt *time.Time         `json:"completed_at,omitempty"`
 }
 
-type VerifyCodeRequest struct {
-	Code          string `json:"code"`
-	ExpireSeconds int    `json:"expire_seconds,omitempty"`
-	AttemptID     string `json:"attempt_id,omitempty"`
-}
-
 type LoginResult struct {
 	Success              bool               `json:"success"`
 	Message              string             `json:"message"`
