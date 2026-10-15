@@ -158,6 +158,10 @@ func TestListingAdminAccountProviderLoadsSheinAccountsFromRepository(t *testing.
 	if accounts[0].LoginURL != "https://sellerhub.shein.com" {
 		t.Fatalf("expected normalized login url, got %q", accounts[0].LoginURL)
 	}
+	if accounts[0].Username != "demo-user" || accounts[0].Password != "secret" ||
+		accounts[0].Proxy != "http://127.0.0.1:8080" || accounts[0].ShopName != "Demo Shop" || accounts[0].StoreName != "SHEIN-12" {
+		t.Fatal("expected worker account credentials, proxy and store metadata from the repository owner")
+	}
 	if !provider.repo.(*stubListingAdminAccountStore).query.ReadAccess {
 		t.Fatal("ListAccounts query ReadAccess = false, want shared-store read access")
 	}

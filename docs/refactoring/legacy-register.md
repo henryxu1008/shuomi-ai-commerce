@@ -182,6 +182,28 @@ The standalone SHEIN worker's original numeric account persistence remains
 separate #301 debt. No live revoke, deployment, data/profile deletion, user
 acceptance or production readiness is implied.
 
+### #301 confirmed SHEIN worker boundary and bounded retirement
+
+The [identity/persistence boundary design](../architecture/shein-worker-identity-persistence-boundary.md)
+records current owners and exact deletion conditions. It preserves the worker's
+repository-backed account provider, original DB/Redis/Profile/session/state and
+Store sync/duplicate lookup. Current Organization/Store/official business paths
+must not consume that old identity or browser login state. The unused alternate
+`sheinloginmanaged.AccountProvider` and isolated `sheinlogin.VerifyCodeRequest`
+and its exclusive helpers/tests are RETIRE and deleted under confirmed §7. Shared
+ListingAdmin/ListingRuntime contracts still used by current applications are
+not blanket retirement targets. Design section 5.1 records the confirmed
+unqualified duplicate-store lookup defect: preserving the capability requires
+tenant-qualified lookup, response-scope checks and no Store mutation on lookup
+failure. This existing tenant-isolation contract is enforced at the helper and
+service effect boundary, with RED→GREEN coverage through the real GORM adapter,
+every-page tenant scope and invalid/failed lookup handling. Successful Redis
+Cookie/attempt commits keep their original owner and are not rolled back by a
+later Store sync failure. The repository provider, verification/cancellation,
+durable attempts and independent worker remain. This adds no internal-trial
+prerequisite and authorizes no runtime, data or provider action; candidate
+checks and real-environment acceptance remain separate.
+
 
 ### #301 unused SHEIN login HTTP retirement
 

@@ -7,6 +7,10 @@ historical evaluations. Use the stable documents for code review and new
 implementation decisions. Use plans and runbooks for context, not as newer
 boundary rules unless they explicitly supersede a stable document.
 
+## Boundary Designs Awaiting Confirmation
+
+- [`shein-worker-identity-persistence-boundary.md`](shein-worker-identity-persistence-boundary.md): #301 confirmed ownership, retained worker capabilities and deletion conditions. §7 retires the unused managed provider/helpers/verification DTO and fixes tenant-qualified duplicate lookup with fail-closed Store sync. Current Organization/Store and official execution remain separate from the retained numeric login runtime; no runtime/data action or new internal-trial prerequisite.
+
 ## Approved Authorities by Responsibility
 
 - [`auth-instance-cookie-isolation.md`](auth-instance-cookie-isolation.md): #706 IMPLEMENTATION_READY native Auth.js cookie isolation for configured instances; identity, permissions, secrets and business data remain with existing owners. Source admission is not runtime or user acceptance.
