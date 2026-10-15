@@ -339,48 +339,13 @@ func TestListingKitMemberInvitationTokenIsAPIScoped(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read ListingKit deploy workflow: %v", err)
 	}
-	deployAPIJob := listingKitDeployAPIJob(t, string(deployWorkflow))
-	for _, required := range []string{
-		"Reject legacy invitation credentials in shared Secret",
-		"Validate dedicated member invitation Secret",
-		"path: .workflow-tools",
-		"ref: ${{ github.workflow_sha }}",
-		"scripts/validate-listingkit-invitation-secret.sh",
-		"bash .workflow-tools/scripts/validate-listingkit-invitation-secret.sh",
-		"listingkit-workbench-secret",
-		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_MEMBER_INVITATION_TOKEN",
-		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_PROJECT_ID",
-		"NotFound",
-		"jq -e --arg key \"$key\"",
-	} {
-		if !strings.Contains(deployAPIJob, required) {
-			t.Errorf("ListingKit deploy workflow must contain %q", required)
-		}
+	var workflow map[string]any
+	if err := yaml.Unmarshal(deployWorkflow, &workflow); err != nil {
+		t.Fatal(err)
 	}
-	preflight := strings.Index(deployAPIJob, "Validate dedicated member invitation Secret")
-	deploymentUpdate := strings.Index(deployAPIJob, ".workflow-tools/scripts/listingkit-apply-api-deployment.sh")
-	if preflight == -1 || deploymentUpdate == -1 || preflight > deploymentUpdate {
-		t.Fatal("ListingKit invitation Secret preflight must run before the API Deployment is updated")
+	if !reflect.DeepEqual(workflow, expectedRetiredListingKitWorkflow("API")) {
+		t.Fatal("retired release source must reject before reading or mutating invitation credentials")
 	}
-}
-
-func listingKitDeployAPIJob(t *testing.T, workflow string) string {
-	t.Helper()
-	workflow = strings.ReplaceAll(workflow, "\r\n", "\n")
-	const marker = "\n  deploy-api:\n"
-	start := strings.Index(workflow, marker)
-	if start == -1 {
-		t.Fatal("ListingKit deploy workflow must define deploy-api job")
-	}
-	job := workflow[start+len(marker):]
-	offset := 0
-	for _, line := range strings.SplitAfter(job, "\n") {
-		if strings.HasPrefix(line, "  ") && !strings.HasPrefix(line, "   ") && strings.HasSuffix(strings.TrimSpace(line), ":") {
-			return job[:offset]
-		}
-		offset += len(line)
-	}
-	return job
 }
 
 func TestTencentSMSSecretIsAPIScopedAndWebhookIngressIsExact(t *testing.T) {

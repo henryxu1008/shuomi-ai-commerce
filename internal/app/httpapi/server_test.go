@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -19,7 +20,6 @@ import (
 	"task-processor/internal/authz"
 	"task-processor/internal/core/config"
 	"task-processor/internal/httproute"
-	"task-processor/internal/tenantbridge"
 	"task-processor/internal/workbenchcontext"
 	workbenchcontexthttpapi "task-processor/internal/workbenchcontext/httpapi"
 )
@@ -555,55 +555,45 @@ func (loader mountedGrantLoader) Load(context.Context, workbenchcontext.GrantSou
 
 func (mountedGrantLoader) Invalidate(string, string) {}
 
-type poisonLegacyTenantResolver struct {
-	calls int
-}
-
-func (resolver *poisonLegacyTenantResolver) ResolveLegacyTenantID(context.Context, string) (int64, bool, error) {
-	resolver.calls++
-	return 0, false, errors.New("legacy numeric tenant resolver must not be reached by workbench routes")
-}
-
-func TestMountedWorkbenchContextDoesNotReachLegacyNumericTenantResolver(t *testing.T) {
-	legacyResolver := &poisonLegacyTenantResolver{}
-	restoreLegacyResolver := tenantbridge.ConfigureLegacyTenantResolver(legacyResolver)
-	t.Cleanup(restoreLegacyResolver)
-
-	now := time.Now().UTC()
-	resolver := workbenchcontext.NewResolver(mountedGrantLoader{grants: []authidentity.OrganizationGrant{{
-		OrganizationID: "org-canonical", ProjectID: "project-1", Roles: []string{"listingkit_viewer"},
-	}}}, "project-1", "v1", nil)
-	router := gin.New()
-	mountRoutesWithAuthDependencies(router, []httproute.Descriptor{{
-		Method: http.MethodGet, Path: "/api/v1/workbench/context", AuthPolicy: httproute.AuthPolicyVerifiedIdentity,
-		OrganizationAccessPolicy: httproute.OrganizationAccessPolicyContextRead,
-		Handler: func(c *gin.Context) {
-			identity, ok := authidentity.AuthenticatedIdentityFromContext(c.Request.Context())
-			require.True(t, ok)
-			require.Equal(t, "org-canonical", identity.TenantID)
-			require.Equal(t, "org-canonical", identity.EffectiveOrganizationID)
-			require.Equal(t, []string{"listingkit_viewer"}, identity.Roles)
-			c.JSON(http.StatusOK, gin.H{
-				"effectiveOrganizationId": identity.EffectiveOrganizationID,
-				"roles":                   identity.Roles,
+func TestMountedWorkbenchContextUsesCurrentOpaqueOrganizationAndScopedRoles(t *testing.T) {
+	for _, organizationID := range []string{"org-canonical", "246", "92233720368547758080001"} {
+		t.Run(organizationID, func(t *testing.T) {
+			now := time.Now().UTC()
+			resolver := workbenchcontext.NewResolver(mountedGrantLoader{grants: []authidentity.OrganizationGrant{{
+				OrganizationID: organizationID, ProjectID: "project-1", Roles: []string{"listingkit_viewer"},
+			}}}, "project-1", "v1", nil)
+			router := gin.New()
+			mountRoutesWithAuthDependencies(router, []httproute.Descriptor{{
+				Method: http.MethodGet, Path: "/api/v1/workbench/context", AuthPolicy: httproute.AuthPolicyVerifiedIdentity,
+				OrganizationAccessPolicy: httproute.OrganizationAccessPolicyContextRead,
+				Handler: func(c *gin.Context) {
+					identity, ok := authidentity.AuthenticatedIdentityFromContext(c.Request.Context())
+					require.True(t, ok)
+					require.Equal(t, organizationID, identity.TenantID)
+					require.Equal(t, organizationID, identity.EffectiveOrganizationID)
+					require.Equal(t, []string{"listingkit_viewer"}, identity.Roles)
+					c.JSON(http.StatusOK, gin.H{
+						"effectiveOrganizationId": identity.EffectiveOrganizationID,
+						"roles":                   identity.Roles,
+					})
+				},
+			}}, routeAuthDependencies{
+				workbenchVerifier: mountedVerifierStub{identity: authidentity.AuthenticatedIdentity{
+					TenantID: "246", UserID: "user-1", HomeOrganizationID: organizationID,
+					Roles: []string{"legacy_admin"}, TokenExpiresAt: now.Add(time.Minute),
+				}},
+				organizationResolver: resolver,
 			})
-		},
-	}}, routeAuthDependencies{
-		workbenchVerifier: mountedVerifierStub{identity: authidentity.AuthenticatedIdentity{
-			TenantID: "246", UserID: "user-1", HomeOrganizationID: "org-canonical",
-			Roles: []string{"legacy_admin"}, TokenExpiresAt: now.Add(time.Minute),
-		}},
-		organizationResolver: resolver,
-	})
-	request := httptest.NewRequest(http.MethodGet, "/api/v1/workbench/context", nil)
-	request.Header.Set("Authorization", "Bearer current-request-token")
-	response := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodGet, "/api/v1/workbench/context", nil)
+			request.Header.Set("Authorization", "Bearer current-request-token")
+			response := httptest.NewRecorder()
 
-	router.ServeHTTP(response, request)
+			router.ServeHTTP(response, request)
 
-	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
-	require.JSONEq(t, `{"effectiveOrganizationId":"org-canonical","roles":["listingkit_viewer"]}`, response.Body.String())
-	require.Zero(t, legacyResolver.calls, "mounted Workbench route reached the legacy numeric tenant resolver")
+			require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+			require.JSONEq(t, fmt.Sprintf(`{"effectiveOrganizationId":%q,"roles":["listingkit_viewer"]}`, organizationID), response.Body.String())
+		})
+	}
 }
 
 func TestWorkbenchScopedRoleDoesNotCarryAdminFromOrganizationAToViewerOrganizationB(t *testing.T) {

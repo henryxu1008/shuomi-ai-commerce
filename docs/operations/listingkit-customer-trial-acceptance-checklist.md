@@ -1,5 +1,14 @@
 # ListingKit Customer Trial Acceptance Checklist
 
+> **Historical release/Task checklist for the current delivery (2026-10-14).**
+> #529 / #301 now follow the user-confirmed internal-trial stage; production
+> remains NOT_READY. This old Kubernetes/ListingKit checklist is not a universal
+> prerequisite for current internal-trial development or user acceptance. Valid
+> authentication, isolation and data-protection behavior is still verified under
+> the current owners' actual scope. [The retirement design](../architecture/release-identity-preflight-retirement.md)
+> is user-confirmed and its source retirement is implemented. Old evidence is
+> preserved; no runtime, IAM, instance or data operation follows from this checklist.
+
 Use this checklist for each controlled customer-trial release. It records
 evidence and a human Go/No-Go decision; passing local or CI checks alone does
 not authorize customer publishing.

@@ -91,26 +91,33 @@ func TestStandaloneSheinWorkerDoesNotCompileCurrentHTTPApplication(t *testing.T)
 	}
 }
 
-func TestIdentityPreflightKeepsReadOwnerWithoutRetiredToolRuntimes(t *testing.T) {
-	cmd := exec.Command("go", "list", "-deps", "./cmd/listingkit-identity-preflight")
-	cmd.Dir = ".."
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("go list retained identity preflight: %v\n%s", err, output)
-	}
-	keptReadOwner := false
-	for _, dependency := range strings.Fields(string(output)) {
-		if dependency == "task-processor/internal/listingkit/ownerreconcile" {
-			keptReadOwner = true
-		}
-		for _, retired := range []string{"task-processor/internal/app/runtime/listingkitownerreconcile", "task-processor/internal/app/runtime/listingkitownerexceptions"} {
-			if dependency == retired || strings.HasPrefix(dependency, retired+"/") {
-				t.Errorf("identity preflight still compiles retired tool runtime %s", dependency)
-			}
+func TestLegacyReleaseIdentityPreflightIsRetired(t *testing.T) {
+	for _, relative := range []string{
+		"cmd/listingkit-identity-preflight", "internal/app/runtime/listingkitidentitypreflight",
+		"internal/listingkit/identitypreflight", "internal/listingkit/ownerreconcile",
+		"internal/listingkit/userdirectory", "internal/tenantbridge",
+		"deployments/docker/Dockerfile.listingkit-identity-preflight",
+		"deployments/kubernetes/listingkit-workbench/jobs/listingkit-identity-preflight-job.yaml",
+		"scripts/listingkit-identity-preflight-job.sh", "scripts/tests/listingkit-identity-preflight-job-test.sh",
+		"scripts/listingkit-clean-legacy-identity-secret.sh", "scripts/tests/listingkit-clean-legacy-identity-secret-test.sh",
+	} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Errorf("retired identity-preflight artifact remains: %s (stat: %v)", relative, err)
 		}
 	}
-	if !keptReadOwner {
-		t.Fatal("identity preflight must retain its existing read-only owner reconciliation consumer")
+	for _, relative := range []string{
+		"deployments/docker/Dockerfile.product-listing-api",
+		"deployments/kubernetes/listingkit-workbench/release-authority/release-policy.yaml",
+		"deployments/kubernetes/listingkit-workbench/release-authority/listingkit-api-release-role.yaml",
+		"deployments/kubernetes/listingkit-workbench/release-authority/listingkit-release-gate-runners.yaml",
+	} {
+		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(content), "listingkit-identity-preflight") {
+			t.Errorf("%s still packages or authorizes retired identity preflight", relative)
+		}
 	}
 }
 
