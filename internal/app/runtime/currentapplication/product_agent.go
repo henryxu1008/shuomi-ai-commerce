@@ -68,6 +68,9 @@ func (p *ProductAgentConfig) validate(cfg *Config) error {
 	if p.ReviewDatabase.Host != product.Host || p.ReviewDatabase.Port != product.Port || p.ReviewDatabase.Database != product.Database {
 		return errors.New("product agent review must use the current Product database")
 	}
+	if p.ContentTitleOnly && sameDatabaseTarget(p.Database, p.ReviewDatabase) {
+		return errors.New("content-title-only requires separate Run and Product/Review databases")
+	}
 	if !p.Limits().Valid() || p.RuntimeSeconds > 120 || p.RuntimeSeconds < 1 || p.Steps > 16 || p.ModelCalls > 8 {
 		return errors.New("product agent limits or title policy invalid")
 	}

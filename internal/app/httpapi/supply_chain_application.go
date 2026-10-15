@@ -164,9 +164,11 @@ func buildSupplyChainModule(ctx context.Context, productDB, storeDB *gorm.DB, d 
 		if e != nil {
 			return empty, e
 		}
-		optimizer = bridge
-		app.AuthorizeOptimization = bridge.authorizeRequest
-		app.OptimizationOptions = bridge.options
+		if bridge != nil {
+			optimizer = bridge
+			app.AuthorizeOptimization = bridge.authorizeRequest
+			app.OptimizationOptions = bridge.options
+		}
 	}
 	currentWorker, err := d.NewWorker(&supplyapp.OperationActivities{Operations: operations, Repository: operationsRepo, Sources: sources, Products: effective, TargetMerchants: supplyapp.OfficialTargetMerchantStore{Access: access}, Targets: records, Creator: targets, Uploader: uploader, Optimizer: optimizer})
 	if err != nil {

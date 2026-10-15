@@ -51,10 +51,15 @@ func TestContentTitleOnlyConfigCoexistsWithStorageOnlyChat(t *testing.T) {
 		"run owner forbidden":               func(c *Config) { c.ProductAgent.Database.User = "product_agent_owner" },
 		"review acquisition role forbidden": func(c *Config) { c.ProductAgent.ReviewDatabase.User = "source_acquisition_runtime" },
 		"review owner forbidden":            func(c *Config) { c.ProductAgent.ReviewDatabase.User = "acquisition_owner" },
-		"planner policy forbidden":          func(c *Config) { c.AIWorkbench.PlanningTextPolicies = c.ProductAgent.ContentTextPolicies },
-		"full chat forbidden":               func(c *Config) { c.AIWorkbench.ConversationOnly = false },
-		"chat owner unchanged":              func(c *Config) { c.AIWorkbench.Database.Database = "another-owner" },
-		"chat role remains separate":        func(c *Config) { c.AIWorkbench.Database.User = c.ProductAgent.Database.User },
+		"run and Product targets separate": func(c *Config) {
+			c.AIWorkbench = nil
+			c.ProductAgent.Database = c.ProductAgent.ReviewDatabase
+			c.ProductAgent.Database.User = "product_agent_runtime"
+		},
+		"planner policy forbidden":   func(c *Config) { c.AIWorkbench.PlanningTextPolicies = c.ProductAgent.ContentTextPolicies },
+		"full chat forbidden":        func(c *Config) { c.AIWorkbench.ConversationOnly = false },
+		"chat owner unchanged":       func(c *Config) { c.AIWorkbench.Database.Database = "another-owner" },
+		"chat role remains separate": func(c *Config) { c.AIWorkbench.Database.User = c.ProductAgent.Database.User },
 	} {
 		t.Run(name, func(t *testing.T) {
 			c := contentTitleRuntimeConfig(t)
