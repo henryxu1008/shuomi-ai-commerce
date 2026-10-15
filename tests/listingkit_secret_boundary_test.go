@@ -115,7 +115,7 @@ func TestListingKitWorkloadsUseLeastPrivilegeSharedSecretKeys(t *testing.T) {
 	}
 }
 
-func TestListingKitAPIAndIdentityPreflightKeepRequiredSharedSecret(t *testing.T) {
+func TestListingKitAPIKeepsRequiredSharedSecret(t *testing.T) {
 	container := loadOnlyContainer(t, "base/product-listing-api-deployment.yaml")
 	for _, source := range container.EnvFrom {
 		if source.SecretRef == nil || source.SecretRef.Name != listingKitSharedSecret {
@@ -127,35 +127,6 @@ func TestListingKitAPIAndIdentityPreflightKeepRequiredSharedSecret(t *testing.T)
 		return
 	}
 	t.Fatalf("product API must import required shared Secret %s", listingKitSharedSecret)
-}
-
-func TestListingKitIdentityPreflightUsesExactSharedSecretKeys(t *testing.T) {
-	container := loadOnlyContainer(t, "jobs/listingkit-identity-preflight-job.yaml")
-	for _, source := range container.EnvFrom {
-		if source.SecretRef != nil && source.SecretRef.Name == listingKitSharedSecret {
-			t.Fatalf("identity preflight must not import shared Secret %s with envFrom", listingKitSharedSecret)
-		}
-	}
-
-	actual := make(map[string]string)
-	for _, variable := range container.Env {
-		if variable.ValueFrom == nil || variable.ValueFrom.SecretKeyRef == nil {
-			continue
-		}
-		ref := variable.ValueFrom.SecretKeyRef
-		if ref.Name == listingKitSharedSecret {
-			if ref.Optional == nil || *ref.Optional {
-				t.Fatalf("identity preflight Secret key %s must be required", ref.Key)
-			}
-			actual[variable.Name] = ref.Key
-		}
-	}
-	want := databaseSecretKeys()
-	want["ZITADEL_ISSUER_URL"] = "ZITADEL_ISSUER_URL"
-	want["TASK_PROCESSOR_LISTINGKIT_ZITADEL_TENANT_DIRECTORY_TOKEN"] = "TASK_PROCESSOR_LISTINGKIT_ZITADEL_TENANT_DIRECTORY_TOKEN"
-	if !reflect.DeepEqual(actual, want) {
-		t.Fatalf("identity preflight Secret allowlist = %#v, want %#v", actual, want)
-	}
 }
 
 func TestListingKitSecretExamplesDefineCanonicalUIAllowlists(t *testing.T) {

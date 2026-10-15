@@ -1,14 +1,16 @@
 # Legacy ListingKit K3S Deployment Reference
 
-> #29 retires the old Task/API source and default composition. This directory
-> retains the existing deployment/worker/OIDC/RBAC evidence; it is **not an
-> executable deployment guide for the new current-application artifact**.
-> The legacy image-compatibility gate rejects that artifact before rollout.
-> Current startup uses the existing absolute private current-application manifest
-> and [RUN-1](../../../docs/operations/current-application-run1.md). Current
-> worker, schema and canary protection remain; no live installation is performed.
-> The current native SMS callback is `/api/v1/identity/notifications/sms`; the
-> old API callback below is historical and must not be mounted for new callers.
+> #529 / #301 retire the old identity preflight and API/UI release/rollback
+> source entrypoints. Both workflows and the PowerShell wrapper now only fail;
+> historical instructions and receipts below cannot re-enable them.
+> This directory is historical deployment/worker/OIDC/RBAC evidence, not an
+> executable current-application release guide. Production remains NOT_READY.
+> Internal-trial delivery follows [Account Compose](../../docker/account-compose/README.md)
+> and existing private manifests; [RUN-1](../../../docs/operations/current-application-run1.md)
+> is acceptance evidence only. Standalone SHEIN worker and current schema/
+> worker safety remain; no live install, revoke, stop or data operation occurred.
+> Current SMS callback is `/api/v1/identity/notifications/sms`; the old callback
+> below must not be mounted for new callers.
 
 
 This deploys the customer SHEIN Studio workbench as two services:

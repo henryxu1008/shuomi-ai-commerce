@@ -31,7 +31,6 @@ func maintainedOperationalCommands() map[string]struct{} {
 		"notification-center-schema-init":     {},
 		"issue36-local-trial-init":            {},
 		"listing-scheduler":                   {},
-		"listingkit-identity-preflight":       {},
 		"listingkit-schema-migrate":           {},
 		"playwright-installer":                {},
 		"product-listing-api-schema-migrate":  {},

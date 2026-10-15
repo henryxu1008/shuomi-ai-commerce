@@ -191,6 +191,10 @@ source of truth for long-lived rules.
 
 ## Supporting Context
 
+- `release-identity-preflight-retirement.md` ([design](./release-identity-preflight-retirement.md))
+  - #529 / #301 approved internal-trial release-preflight retirement boundary;
+    standalone SHEIN worker retained, implementation admitted, production NOT_READY.
+
 - [`operations-cockpit-figma-read-v1.md`](./operations-cockpit-figma-read-v1.md)
   - #619 four-page Figma alignment and bounded readonly cockpit summary/query
     supplement; admission is stated in the document, preserving #627 frozen owners.

@@ -53,9 +53,6 @@ linters-settings:
         # Exact drain caller exclusions; import-boundary tests freeze each edge.
         files:
           - "**/*.go"
-          - "!**/internal/app/httpapi/server_test.go"
-          - "!**/internal/app/runtime/listingkitidentitypreflight/runtime.go"
-          - "!**/internal/app/runtime/listingkitidentitypreflight/runtime_test.go"
         deny:
           - pkg: "task-processor/internal/tenantbridge$"
           - pkg: "task-processor/internal/tenantbridge/"

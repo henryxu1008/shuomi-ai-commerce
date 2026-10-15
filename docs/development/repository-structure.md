@@ -114,7 +114,6 @@ CURRENT STATE：命令清单核对于上述 `main @ eb9e019686564b976c1a1a9828ee
     - `knowledge-schema-init`
     - `issue36-local-trial-init`
     - `listing-scheduler`
-    - `listingkit-identity-preflight`
     - `listingkit-schema-migrate`
     - `playwright-installer`
     - `product-listing-api-schema-migrate`
@@ -141,7 +140,7 @@ CURRENT STATE：命令清单核对于上述 `main @ eb9e019686564b976c1a1a9828ee
   - `product-agent-credential-provision` 由 `scripts/product-agent-credential-provision.ps1` 显式委托；部署者用私有 manifest 与私有凭据输入，通过同一 ProductAgentDB 的独立受限写入角色配置标题组织行。它不自动启用 Agent 或执行付费调用；准入条件见 [标题诊断试用交接](../operations/product-agent-trial.md)。
   - 不再新增临时调试可执行程序。
   - 历史 Source Account ownership preflight CLI、脚本和专属迁移实现已按 #529 退休；其 [SUPERSEDED 说明](../operations/source-account-ownership-preflight.md) 仅保留历史证据，不是当前运行入口。
-  - 旧 `listingkit-owner-scope-dry-run` / `listingkit-owner-scope-exceptions` 及其专属装配、写入方法和包装已按 #529 退休。`listingkit-identity-preflight` 仍使用原共享只读扫描/异常匹配；它的发布门禁和 schema 归属保留，不提供旧迁移写入入口。
+  - 旧 `listingkit-owner-scope-dry-run` / `listingkit-owner-scope-exceptions` 及其专属装配、写入方法和包装已按 #529 退休。旧发布身份预检、独占共享reader与tenantbridge已按批准设计退休；schema工具与独立SHEIN worker保持。
   - `source-account-registry-schema-init` 由 `scripts/source-account-registry-local-acceptance.ps1` 维护，初始化当前 SourceAccountRegistry 空库 schema 及 RUN-1 在同一 source-account pool 上的账户资料、个人/企业认证 schema；不读取、迁移或兼容旧 Source Account 数据。
   - `organization-membership-schema-init` 由 `deployments/docker/account-compose` 维护，只初始化本账户中心实例的组织成员回执 schema；不读取、迁移或兼容旧成员数据。
   - `commercial-owner-schema-migrate` 由 `scripts/commercial-owner-schema-migrate.ps1` 维护；分别针对私有 schema-owner manifests 初始化 canonical money 数据库的钱包/结算 schema，以及 commercial-owner 数据库的订单与 orgresource schema，不自动切换数据库或操作生产数据。

@@ -25,8 +25,6 @@ releaseAuthority:
             operationSteps: [Migrate Product Listing API schema before ListingKit rollout]
           - refreshStep: Refresh API OIDC for ListingKit schema gate
             operationSteps: [Migrate ListingKit schema before owner exception seeding and preflight]
-          - refreshStep: Refresh API OIDC for identity preflight gate
-            operationSteps: [Run identity preflight release gate]
           - refreshStep: Refresh API OIDC for identity cleanup and v2 worker mutation group
             operationSteps:
               - Remove deprecated ListingKit identity keys from shared Secret
@@ -63,8 +61,6 @@ releaseAuthority:
           - Migrate Product Listing API schema before ListingKit rollout
           - Refresh API OIDC for ListingKit schema gate
           - Migrate ListingKit schema before owner exception seeding and preflight
-          - Refresh API OIDC for identity preflight gate
-          - Run identity preflight release gate
           - Refresh API OIDC for identity cleanup and v2 worker mutation group
           - Remove deprecated ListingKit identity keys from shared Secret
           - Apply ListingKit runtime configuration for candidate
@@ -161,7 +157,7 @@ releaseAuthority:
   releaseGateRunners:
     manifest: deployments/kubernetes/listingkit-workbench/release-authority/listingkit-release-gate-runners.yaml
     holdImage: registry.k8s.io/pause@sha256:ee6521f290b2168b6e0935a181d4cff9be1ac3f505666ef0e3c98fae8199917a
-    names: [product-listing-api-schema-migrate-runner, listingkit-schema-migrate-runner, listingkit-identity-preflight-runner, image-agent-temporal-v3-canary-runner]
+    names: [product-listing-api-schema-migrate-runner, listingkit-schema-migrate-runner, image-agent-temporal-v3-canary-runner]
   protectedResources:
     - {owner: api, apiGroups: [""], resource: configmaps, resourceNames: [listingkit-workbench-config], verbs: [get, patch, update]}
     - {owner: api, apiGroups: [""], resource: secrets, resourceNames: [listingkit-workbench-secret], verbs: [get, patch, update]}
@@ -169,7 +165,7 @@ releaseAuthority:
     - owner: api
       apiGroups: [apps]
       resource: deployments
-      resourceNames: [product-listing-api, image-agent-temporal-worker, image-agent-temporal-worker-v3, product-listing-api-schema-migrate-runner, listingkit-schema-migrate-runner, listingkit-identity-preflight-runner, image-agent-temporal-v3-canary-runner]
+      resourceNames: [product-listing-api, image-agent-temporal-worker, image-agent-temporal-worker-v3, product-listing-api-schema-migrate-runner, listingkit-schema-migrate-runner, image-agent-temporal-v3-canary-runner]
       verbs: [get, patch, update, watch]
     - {owner: api, apiGroups: [networking.k8s.io], resource: ingresses, resourceNames: [listingkit-workbench], verbs: [get, patch, update]}
     - {owner: ui, apiGroups: [""], resource: configmaps, resourceNames: [listingkit-ui-auth-config], verbs: [get, patch, update]}

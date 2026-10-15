@@ -23,7 +23,6 @@ rules:
       - image-agent-temporal-worker-v3
       - product-listing-api-schema-migrate-runner
       - listingkit-schema-migrate-runner
-      - listingkit-identity-preflight-runner
       - image-agent-temporal-v3-canary-runner
     verbs: ["get", "patch", "update", "watch"]
   - apiGroups: ["networking.k8s.io"]
