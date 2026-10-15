@@ -1,5 +1,6 @@
 import { z } from "zod";
 import * as c from "../contracts/supply-chain";
+import {completionContentEqual} from "../contracts/completion-content";
 import { collectionID, type CollectionSourceKind } from "../contracts/product-collection";
 import type { CollectionScope } from "./product-collection";
 import { readBoundedStrictJSON } from "./strict-json-response";
@@ -121,7 +122,7 @@ function commandResult(value:unknown,intent:SupplyIntent,mutates:boolean){
  let valid=false;
  if(intent.route==="save-completion-draft"){
   const input=c.completionInputSchema.parse(intent.command),record=c.completionReceiptSchema.parse(value).record;
-  valid=record.source.id===input.sourceId&&record.revision===input.expectedRevision+1&&record.content.title===input.content.title&&record.content.description===input.content.description;
+  valid=record.source.id===input.sourceId&&record.revision===input.expectedRevision+1&&completionContentEqual(record.content,input.content);
  }
  if(intent.route==="approve")valid=c.imageApprovalReceiptSchema.parse(value).action_id===intent.key;
  if(intent.route==="transfer"){

@@ -123,7 +123,7 @@ func TestPostgresUnboundDraftAtomicCASReplayAndUnknownRecovery(t *testing.T) {
 	ps, err := preparation.NewService(pr, cs, auth)
 	require.NoError(t, err)
 	batch, item, product, publication := uuid.NewString(), uuid.NewString(), uuid.NewString(), uuid.NewString()
-	raw := json.RawMessage(`{"title":"Original product"}`)
+	raw := json.RawMessage(`{"title":"Original product","variants":[{"sku":"","price":{"currency":"CNY","amount":0},"stock":0},{"sku":"","stock":3}]}`)
 	require.NoError(t, db.Create(&catalogstore.SnapshotVersionRecord{TenantID: scope.OrganizationID, ProductKey: product, Version: 1, PublicationID: publication, PayloadHash: collection.Digest(raw), SnapshotJSON: raw}).Error)
 	require.NoError(t, db.Exec("INSERT INTO product_collection_batches(organization_id,actor_id,member_id,id,name,kind,revision,created_at) VALUES(?,?,?,?,?,'manual',1,now())", scope.OrganizationID, scope.ActorID, scope.MemberID, batch, "真实原始批次").Error)
 	require.NoError(t, db.Exec("INSERT INTO product_collection_items(organization_id,actor_id,member_id,id,batch_id,product_key,publication_id,original_version,source_kind,source_operation_id,revision,created_at) VALUES(?,?,?,?,?,?,?,1,'own','',1,now())", scope.OrganizationID, scope.ActorID, scope.MemberID, item, batch, product, publication).Error)
@@ -401,4 +401,74 @@ func TestPostgresUnboundDraftAtomicCASReplayAndUnknownRecovery(t *testing.T) {
 	require.NoError(t, db.Exec("UPDATE listing_preparation_sources SET collection_revision=collection_revision+1 WHERE id=?", largePage.Items[0].Source.ID).Error)
 	_, err = repo.ListForCollectionItem(ctx, scope, item, collection.Query{Limit: 100, Keyword: "large-page-fixture"})
 	require.ErrorIs(t, err, preparation.ErrUnavailable)
+
+	t.Run("structured JSONB values preserve old commands and complete snapshot CAS", func(t *testing.T) {
+		originalSource := sources.Items[0].ID
+		latest, e := service.Read(actor, originalSource)
+		require.NoError(t, e)
+		structured := completiondraft.SaveInput{SourceID: originalSource, ExpectedRevision: latest.Revision}
+		require.NoError(t, json.Unmarshal([]byte(`{"title":"structured","description":"","structured":{"attributes":[],"variants":[{"sourceIndex":0,"price":{"currency":"CNY","amount":0},"stock":0},{"sourceIndex":1,"price":null,"stock":null}]}}`), &structured.Content))
+		commandKey := uuid.NewString()
+		written, e := service.Save(actor, commandKey, structured)
+		require.NoError(t, e)
+		read, e := service.Read(actor, originalSource)
+		require.NoError(t, e)
+		require.Equal(t, written.Record, read)
+		repeated, e := service.ReadCommand(actor, commandKey)
+		require.NoError(t, e)
+		require.Equal(t, written.Record, repeated.Record)
+		old, e := service.ReadCommand(actor, key)
+		require.NoError(t, e)
+		require.Equal(t, first.Record, old.Record)
+		oldRevision, e := service.ReadRevision(actor, originalSource, 1)
+		require.NoError(t, e)
+		require.Nil(t, oldRevision.Content.Structured)
+		history, e := service.ReadRevision(actor, originalSource, written.Record.Revision)
+		require.NoError(t, e)
+		require.Equal(t, written.Record, history)
+		changed := structured
+		// A JSON copy ensures the same-key mutation does not edit the original test input.
+		encoded, e := json.Marshal(structured)
+		require.NoError(t, e)
+		require.NoError(t, json.Unmarshal(encoded, &changed))
+		*changed.Content.Structured.Variants[0].Stock = 1
+		_, e = service.Save(actor, commandKey, changed)
+		require.ErrorIs(t, e, preparation.ErrConflict)
+		structured.ExpectedRevision = written.Record.Revision
+		outcomes := make(chan error, 2)
+		var group sync.WaitGroup
+		for range 2 {
+			group.Add(1)
+			go func() {
+				defer group.Done()
+				_, failure := service.Save(actor, uuid.NewString(), structured)
+				outcomes <- failure
+			}()
+		}
+		group.Wait()
+		close(outcomes)
+		var success, conflict int
+		for failure := range outcomes {
+			if failure == nil {
+				success++
+			} else {
+				require.ErrorIs(t, failure, preparation.ErrConflict)
+				conflict++
+			}
+		}
+		require.Equal(t, 1, success)
+		require.Equal(t, 1, conflict)
+		latest, e = service.Read(actor, originalSource)
+		require.NoError(t, e)
+		require.True(t, completiondraft.EqualContent(structured.Content, latest.Content))
+		require.EqualValues(t, 1, latest.Source.Source.Version)
+		// JSONB canonicalizes numeric -0 to 0; hashes must use the same zero.
+		zeroInput := completiondraft.SaveInput{SourceID: originalSource, ExpectedRevision: latest.Revision}
+		require.NoError(t, json.Unmarshal([]byte(`{"title":"signed zero","description":"","structured":{"attributes":[],"variants":[{"sourceIndex":0,"price":{"currency":"CNY","amount":-0},"stock":0},{"sourceIndex":1,"price":null,"stock":null}]}}`), &zeroInput.Content))
+		zeroSave, e := service.Save(actor, uuid.NewString(), zeroInput)
+		require.NoError(t, e)
+		zeroRead, e := service.Read(actor, originalSource)
+		require.NoError(t, e)
+		require.Equal(t, zeroSave.Record, zeroRead)
+	})
 }

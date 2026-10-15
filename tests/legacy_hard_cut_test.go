@@ -237,3 +237,29 @@ func TestLegacy1688SharedAccountDTOStaysRetired(t *testing.T) {
 		})
 	}
 }
+
+func TestUnusedSheinManagedProviderAndVerifyDTOStayRetired(t *testing.T) {
+	for _, scope := range []string{"internal/sheinloginmanaged", "internal/sheinlogin"} {
+		for _, source := range trackedProductionTextSources(t, []string{scope}, func(path string) bool {
+			return strings.HasSuffix(path, ".go") && !strings.HasSuffix(path, "_test.go")
+		}) {
+			file, err := parser.ParseFile(token.NewFileSet(), source.path, source.text, 0)
+			require.NoError(t, err)
+			ast.Inspect(file, func(node ast.Node) bool {
+				switch declaration := node.(type) {
+				case *ast.TypeSpec:
+					if scope == "internal/sheinloginmanaged" {
+						require.NotContains(t, []string{"AccountProvider", "storeClientFactory", "tenantAccountCache"}, declaration.Name.Name, source.path)
+					} else {
+						require.NotEqual(t, "VerifyCodeRequest", declaration.Name.Name, source.path)
+					}
+				case *ast.FuncDecl:
+					if scope == "internal/sheinloginmanaged" {
+						require.NotContains(t, []string{"NewAccountProviderWithStoreClientFactory", "mapStoreToAccount", "MapStoreToAccountForTest", "normalizeLoginURL"}, declaration.Name.Name, source.path)
+					}
+				}
+				return true
+			})
+		}
+	}
+}

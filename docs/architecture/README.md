@@ -7,12 +7,17 @@ historical evaluations. Use the stable documents for code review and new
 implementation decisions. Use plans and runbooks for context, not as newer
 boundary rules unless they explicitly supersede a stable document.
 
+## Boundary Designs Awaiting Confirmation
+
+- [`shein-worker-identity-persistence-boundary.md`](shein-worker-identity-persistence-boundary.md): #301 confirmed ownership, retained worker capabilities and deletion conditions. §7 retires the unused managed provider/helpers/verification DTO and fixes tenant-qualified duplicate lookup with fail-closed Store sync. Current Organization/Store and official execution remain separate from the retained numeric login runtime; no runtime/data action or new internal-trial prerequisite.
+
 ## Approved Authorities by Responsibility
 
 - [`own-product-optimization-v1.md`](own-product-optimization-v1.md): #710 IMPLEMENTATION_READY own-product context for store-independent content generation and existing Review/Apply; preserves current runtime, permissions, facts and UNKNOWN owners.
 - [`auth-instance-cookie-isolation.md`](auth-instance-cookie-isolation.md): #706 IMPLEMENTATION_READY native Auth.js cookie isolation for configured instances; identity, permissions, secrets and business data remain with existing owners. Source admission is not runtime or user acceptance.
 - [`completion-draft-history-v1.md`](completion-draft-history-v1.md): #704 IMPLEMENTATION_READY read-only saved revision history and same-draft text comparison; existing records, source authority and save protocol retained.
 - [`completion-draft-restore-v1.md`](completion-draft-restore-v1.md): #708 Reuse Existing Architecture; independently preview historical title/description and append a new revision through existing Save/CAS/idempotency, preserving permissions, immutable history and navigation context.
+- [`completion-draft-structured-v1.md`](completion-draft-structured-v1.md): #718 Independent Architecture; candidate attributes and fixed-source SKU prices/stocks in existing CompletionDraft snapshots, preserving original CAS, permissions, history and text-only restoration.
 - [`pod-design-agent-v1.md`](pod-design-agent-v1.md): #672 proposed design for AI-generated new artwork through current generation/asset/POD owners; DESIGN_IN_PROGRESS, not implementation admission or runtime availability.
 - [`product-selection-comparison-agent-v1.md`](product-selection-comparison-agent-v1.md): #680 IMPLEMENTATION_READY design for factual comparison of 2–5 privately authorized saved products through existing Agent/configuration/model owners; source admission does not imply runtime or user acceptance.
 - [`shop-operations-diagnosis-agent-v1.md`](shop-operations-diagnosis-agent-v1.md): #685 IMPLEMENTATION_READY / FROZEN for one-shop diagnosis from native Cockpit and no-provider-I/O saved evidence; three scoped implementation obligations preserve dual access, exact digest and native TEMU read boundaries.

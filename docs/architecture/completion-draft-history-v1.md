@@ -1,5 +1,7 @@
 # 待补全草稿保存历史与比较 v1
 
+结构化字段的历史和比较语义沿 [结构化候选合同](completion-draft-structured-v1.md)；原准确版本读取/只读权限/固定来源不变。
+
 Refs #704；Design Basis: Independent Architecture。Admission: IMPLEMENTATION_READY，R1独立边界审查通过后冻结。
 
 后续 #708 的[历史内容恢复](completion-draft-restore-v1.md)增加独立的普通 Save 消费者；本合同的历史接口、旧记录和详情继续只读，原历史阶段 Out of Scope 不禁止用户后续明确批准的独立新版本保存。

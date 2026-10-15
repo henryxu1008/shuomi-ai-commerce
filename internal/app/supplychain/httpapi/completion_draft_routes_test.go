@@ -119,3 +119,29 @@ func TestCompletionDraftHTTPIsBoundedStrictAndHasNoOfficialExecutionRoutes(t *te
 	_, err := supplyQuery(httptest.NewRequest("GET", SupplyBasePath+"/"+id+"/completion-drafts?limit=101", nil))
 	require.ErrorIs(t, err, preparation.ErrInvalid)
 }
+
+func TestCompletionDraftStructuredHTTPKeepsStrictNestedFieldsAndZeroValues(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	app := &completionHTTP{}
+	router := gin.New()
+	for _, route := range CompletionDraftRoutes(app, func(ctx context.Context, _ string) (context.Context, error) { return ctx, nil }) {
+		router.Handle(route.Method, route.Path, route.Handler)
+	}
+	id := uuid.NewString()
+	valid := `{"sourceId":"` + id + `","expectedRevision":0,"content":{"title":"","description":"","structured":{"attributes":[],"variants":[{"sourceIndex":0,"price":{"currency":"CNY","amount":0},"stock":0}]}}}`
+	for _, body := range []string{valid, strings.Replace(valid, `"attributes":[]`, `"attributes":[],"storeId":"forbidden"`, 1), strings.Replace(valid, `"amount":0`, `"amount":0,"amount":1`, 1), strings.Replace(valid, `"sourceIndex":0`, `"sourceIndex":0,"sku":"changed"`, 1), strings.Replace(valid, `"stock":0`, `"stock":-1`, 1)} {
+		request := httptest.NewRequest(http.MethodPost, SupplyBasePath+"/completion-drafts", strings.NewReader(body))
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("Idempotency-Key", id)
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, request)
+		if body == valid {
+			require.Equal(t, 200, response.Code)
+			require.Contains(t, response.Body.String(), `"stock":0`)
+			require.Contains(t, response.Body.String(), `"amount":0`)
+		} else {
+			require.Equal(t, 400, response.Code)
+		}
+	}
+	require.Equal(t, 1, app.writes)
+}
