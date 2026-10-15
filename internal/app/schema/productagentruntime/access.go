@@ -78,6 +78,40 @@ func verifyCredentialSequence(db *gorm.DB) error {
 	if !ok {
 		return fmt.Errorf("credential id sequence owner/dependency/ACL differs")
 	}
+	return verifyCredentialSequenceState(db)
+}
+
+// The owner model uses a default bigint sequence. Read its prospective value
+// without reserving/advancing it; gaps from conflict/rollback are valid.
+func verifyCredentialSequenceState(db *gorm.DB) error {
+	var originalParameters bool
+	if err := db.Raw(`SELECT seqtypid='pg_catalog.int8'::regtype AND seqstart=1 AND seqincrement=1 AND seqmin=1 AND seqmax=9223372036854775807 AND seqcache=1 AND NOT seqcycle FROM pg_catalog.pg_sequence WHERE seqrelid='public.ai_client_credentials_id_seq'::regclass`).Scan(&originalParameters).Error; err != nil {
+		return err
+	}
+	if !originalParameters {
+		return fmt.Errorf("credential id sequence parameters differ from the original model")
+	}
+	var state struct {
+		LastValue int64
+		IsCalled  bool
+	}
+	if err := db.Raw("SELECT last_value,is_called FROM public.ai_client_credentials_id_seq").Scan(&state).Error; err != nil {
+		return err
+	}
+	next := state.LastValue
+	if state.IsCalled {
+		if next == 1<<63-1 {
+			return fmt.Errorf("credential id sequence is exhausted")
+		}
+		next++
+	}
+	var maximumID int64
+	if err := db.Raw("SELECT COALESCE(pg_catalog.max(id),0) FROM public.ai_client_credentials").Scan(&maximumID).Error; err != nil {
+		return err
+	}
+	if next < 1 || next <= maximumID {
+		return fmt.Errorf("credential id sequence does not follow existing IDs")
+	}
 	return nil
 }
 
