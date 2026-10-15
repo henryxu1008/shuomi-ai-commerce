@@ -63,6 +63,10 @@ profile：独立 client、供应商、模型、endpoint 准入、版本化计价
 `clientName`、`apiKey`、`baseURL`、`model`、`apiStyle`、`timeoutSecond` 和 `writerDatabase`。
 writer 必须连接同一 host/port/database 并使用独立身份，timeout 不短于 profile 的 deadline。
 密钥和数据库密码只放在受限访问的本地私密文件中，不写入命令行、仓库或普通日志。
+同一组织的 content、title、planning、materials、selection、diagnosis 策略须使用各自的凭据
+client。原 owner 的键是组织/用户/client，不含消费者；命令在 upsert 和 disable 前按其
+去首尾空白、空名映射为 default 的语义检查全部已配置引用，拒绝跨能力重名，防止覆盖或停用
+另一能力的凭据。未启用策略仍参与检查；不同组织的同名 client 不冲突，不自动改名或迁移旧行。
 
 ```powershell
 go run ./cmd/product-agent-credential-provision -config C:\private\current-application.json -input C:\private\content-credential.json

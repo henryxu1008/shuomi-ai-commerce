@@ -173,3 +173,109 @@ func TestContentCredentialProvisionRejectsUnadmittedRoutesBeforeWriting(t *testi
 		})
 	}
 }
+
+func TestCredentialProvisionRejectsCrossConsumerClientCollision(t *testing.T) {
+	for _, other := range []string{"title", "planning", "materials", "selection", "diagnosis"} {
+		for _, action := range []string{"upsert", "disable"} {
+			t.Run(other+"/"+action, func(t *testing.T) {
+				cfg, input := contentProvisionFixture()
+				policy := cfg.ProductAgent.ContentTextPolicies["org"]
+				// Compare the owner's canonical client key even for an inactive,
+				// malformed sibling policy; do not rely on its runtime validation.
+				policy.Profile.ClientName = " \tcontent\n"
+				switch other {
+				case "title":
+					cfg.ProductAgent.TextPolicies["org"] = policy
+				case "planning":
+					cfg.AIWorkbench = &AIWorkbenchConfig{PlanningTextPolicies: map[string]governed.RoutePolicy{"org": policy}}
+				case "materials":
+					cfg.ProductAgent.MaterialsTextPolicies = map[string]governed.RoutePolicy{"org": policy}
+				case "selection":
+					cfg.ProductAgent.SelectionTextPolicies = map[string]governed.RoutePolicy{"org": policy}
+				case "diagnosis":
+					cfg.ProductAgent.DiagnosisTextPolicies = map[string]governed.RoutePolicy{"org": policy}
+				}
+				assertCredentialCollisionPreservesRow(t, cfg, input, action)
+			})
+		}
+	}
+	for _, consumer := range []string{"title", "planning"} {
+		for _, action := range []string{"upsert", "disable"} {
+			t.Run("reverse/"+consumer+"/"+action, func(t *testing.T) {
+				cfg, input := contentProvisionFixture()
+				policy := cfg.ProductAgent.ContentTextPolicies["org"]
+				input.Consumer = consumer
+				if consumer == "title" {
+					policy.Profile.PromptVersion, policy.Profile.OutputSchemaVersion = "product-title-agent-v1", "product-title-action-v1"
+					cfg.ProductAgent.TextPolicies["org"] = policy
+				} else {
+					policy.Profile.PromptVersion, policy.Profile.OutputSchemaVersion = "ai-workbench-chat-plan-v1", "ai-workbench-plan-decision-v1"
+					policy.Profile.MaximumCompletionTokens, policy.Profile.MaximumInputBytes = 4096, 128<<10
+					cfg.AIWorkbench = &AIWorkbenchConfig{PlanningTextPolicies: map[string]governed.RoutePolicy{"org": policy}}
+				}
+				assertCredentialCollisionPreservesRow(t, cfg, input, action)
+			})
+		}
+	}
+}
+
+func assertCredentialCollisionPreservesRow(t *testing.T, cfg *Config, input TitleCredentialProvision, action string) {
+	t.Helper()
+	db := contentProvisionDB(t)
+	store := openai.NewGormCredentialResolver(db)
+	require.NoError(t, store.SaveCredential(context.Background(), openai.AIClientCredential{
+		TenantID: "org", ClientName: input.ClientName, APIKey: "synthetic-preserved-key", BaseURL: "https://original.example.test/v1",
+		Model: "preserved-model", APIStyle: "openai-compatible", Enabled: true,
+	}))
+	before, err := store.GetCredential(context.Background(), "org", "", input.ClientName)
+	require.NoError(t, err)
+	require.NotNil(t, before)
+	input.Action = action
+	if action == "disable" {
+		input.APIKey, input.BaseURL, input.Model, input.APIStyle, input.TimeoutSecond = "", "", "", "", 0
+	}
+	_, err = SaveTitleCredential(context.Background(), cfg, input, db)
+	require.Error(t, err, "ambiguous credential targets must fail before any write")
+	after, err := store.GetCredential(context.Background(), "org", "", input.ClientName)
+	require.NoError(t, err)
+	require.Equal(t, before, after, "the entire existing credential and its version must be preserved")
+}
+
+func TestCredentialProvisionRejectsDefaultClientCollision(t *testing.T) {
+	for _, action := range []string{"upsert", "disable"} {
+		t.Run(action, func(t *testing.T) {
+			cfg, input := contentProvisionFixture()
+			policy := cfg.ProductAgent.ContentTextPolicies["org"]
+			input.ClientName, policy.Profile.ClientName = "default", "default"
+			cfg.ProductAgent.ContentTextPolicies["org"] = policy
+			policy.Profile.ClientName = " \t"
+			cfg.ProductAgent.TextPolicies["org"] = policy
+			assertCredentialCollisionPreservesRow(t, cfg, input, action)
+		})
+	}
+}
+
+func TestContentCredentialProvisionKeepsDistinctOwnerKeysAvailable(t *testing.T) {
+	for name, key := range map[string][2]string{"other organization": {"other-org", "content"}, "case-sensitive client": {"org", "Content"}} {
+		t.Run(name, func(t *testing.T) {
+			cfg, input := contentProvisionFixture()
+			policy := cfg.ProductAgent.ContentTextPolicies["org"]
+			policy.Profile.ClientName = key[1]
+			cfg.ProductAgent.TextPolicies = map[string]governed.RoutePolicy{key[0]: policy}
+			db := contentProvisionDB(t)
+			store := openai.NewGormCredentialResolver(db)
+			require.NoError(t, store.SaveCredential(context.Background(), openai.AIClientCredential{
+				TenantID: key[0], ClientName: key[1], APIKey: "synthetic-other-key", BaseURL: "https://original.example.test/v1",
+				Model: "preserved-model", APIStyle: "openai-compatible", Enabled: true,
+			}))
+			before, err := store.GetCredential(context.Background(), key[0], "", key[1])
+			require.NoError(t, err)
+			require.NotNil(t, before)
+			_, err = SaveTitleCredential(context.Background(), cfg, input, db)
+			require.NoError(t, err)
+			after, err := store.GetCredential(context.Background(), key[0], "", key[1])
+			require.NoError(t, err)
+			require.Equal(t, before, after)
+		})
+	}
+}

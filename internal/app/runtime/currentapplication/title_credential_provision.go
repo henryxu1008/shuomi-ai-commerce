@@ -102,6 +102,9 @@ func ValidateTitleCredentialProvision(cfg *Config, input TitleCredentialProvisio
 	if !found || policy.Profile.ClientName != input.ClientName {
 		return errors.New("title credential client is not admitted")
 	}
+	if sharedProvisionClient(cfg, input.OrganizationID, input.ClientName) {
+		return errors.New("credential client is shared by multiple consumers")
+	}
 	if input.Action == "disable" {
 		if input.APIKey != "" || input.BaseURL != "" || input.Model != "" || input.APIStyle != "" || input.TimeoutSecond != 0 {
 			return errors.New("disable input must not include provider values")
@@ -137,6 +140,32 @@ func credentialProvisionPolicy(cfg *Config, consumer, organizationID string) (go
 		}
 	}
 	return policy, found
+}
+
+func sharedProvisionClient(cfg *Config, organizationID, clientName string) bool {
+	policies := []map[string]governed.RoutePolicy{cfg.ProductAgent.TextPolicies, cfg.ProductAgent.ContentTextPolicies,
+		cfg.ProductAgent.MaterialsTextPolicies, cfg.ProductAgent.SelectionTextPolicies, cfg.ProductAgent.DiagnosisTextPolicies}
+	if cfg.AIWorkbench != nil {
+		policies = append(policies, cfg.AIWorkbench.PlanningTextPolicies)
+	}
+	references := 0
+	for _, routes := range policies {
+		if policy, found := routes[organizationID]; found {
+			// Match the credential owner's TrimSpace/default key even when an
+			// inactive sibling policy has not passed runtime validation.
+			canonical := strings.TrimSpace(policy.Profile.ClientName)
+			if canonical == "" {
+				canonical = "default"
+			}
+			if canonical == clientName {
+				references++
+				if references > 1 {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 func validProvisionPolicy(cfg *Config, consumer string, policy governed.RoutePolicy, endpointDigest string) bool {
