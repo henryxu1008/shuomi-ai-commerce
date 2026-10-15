@@ -18,7 +18,10 @@ vi.mock("./qualifications",()=>({Qualifications:({onIDs,onLocked}:{onIDs:(ids:st
 const id="11111111-1111-4111-8111-111111111111",other="22222222-2222-4222-8222-222222222222",foreign="33333333-3333-4333-8333-333333333333",batch="44444444-4444-4444-8444-444444444444",fileId="55555555-5555-4555-8555-555555555555";
 const item=(itemId=id,kind="own")=>({id:itemId,batchId:batch,revision:1,createdAt:"2026-10-15T00:00:00Z",title:itemId===id?"已优化自有外套":"未优化自有商品",source:{kind:kind as "own",productKey:"own-"+itemId,publicationId:batch,version:"1"}});
 const selection={itemId:id,expectedRevision:1,originalPublicationId:batch,originalVersion:"1",effectiveVersion:"2",applyId:fileId};
-const choice=(itemId=id,optimized=true)=>({selection:{...selection,itemId},optimized,product:{title:itemId===id?"已优化自有外套":"未优化自有商品",images:["https://images.example.org/own.png"],attributes:{},variants:[]}});
+const choice=(itemId=id,optimized=true):Awaited<ReturnType<typeof readMarketChoice>>=>{
+  const product={title:itemId===id?"已优化自有外套":"未优化自有商品",images:["https://images.example.org/own.png"],attributes:{},variants:[]};
+  return optimized?{selection:{...selection,itemId},optimized:true,product}:{selection:{...selection,itemId,effectiveVersion:"1",applyId:undefined},optimized:false,ineligibleReason:"not_optimized",product};
+};
 beforeEach(()=>{
   state.context.effectiveOrganization.id="org-a";state.context.isLoading=false;state.context.isSwitching=false;state.locked=false;state.execute.mockReset();
   vi.mocked(listOwnProducts).mockReset().mockResolvedValue({items:[item(),item(other),item(foreign,"acquisition")],total:3});
@@ -31,9 +34,9 @@ async function advance(){const user=userEvent.setup();await user.click(await scr
 it("shows the Figma selection step and only optimized own candidates",async()=>{
   page();await screen.findByRole("radio",{name:"选择 已优化自有外套"});
   expect(screen.getByRole("heading",{level:1,name:"选择申请商品"})).toBeVisible();
-  expect(screen.getByRole("table",{name:"可申请自有商品"})).toBeVisible();
-  expect(screen.queryByText("未优化自有商品")).not.toBeInTheDocument();
-  expect(screen.getByText("新品开发")).toBeVisible();
+  expect(screen.getByRole("table",{name:"自有商品申请资格"})).toBeVisible();
+  expect(screen.getByRole("radio",{name:"选择 未优化自有商品"})).toBeDisabled();
+  expect(screen.getAllByText("新品开发")).toHaveLength(2);
   expect(screen.getByRole("img",{name:"已优化自有外套"})).toHaveAttribute("src","https://images.example.org/own.png");
   expect(readMarketChoice).toHaveBeenCalledTimes(2);
   expect(readMarketChoice).not.toHaveBeenCalledWith(expect.anything(),foreign,expect.anything());
@@ -60,11 +63,12 @@ it("explains an empty own library and links to the real add-product page",async(
   expect(screen.getByRole("link",{name:"添加自有商品"})).toHaveAttribute("href","/workbench/data/mine/own/new");
   expect(screen.getByRole("button",{name:"下一步：填写供货信息"})).toBeDisabled();
 });
-it("explains missing optimization instead of offering an ineligible item",async()=>{
+it("shows missing optimization as a disabled product instead of hiding it",async()=>{
   vi.mocked(listOwnProducts).mockResolvedValue({items:[item(other)],total:1});page();
-  await screen.findByText("本页暂无可申请商品");
-  expect(screen.getByText(/自有商品须完成智能优化/)).toBeVisible();
-  expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+  expect(await screen.findByRole("radio",{name:"选择 未优化自有商品"})).toBeDisabled();
+  expect(screen.getByText("未完成智能优化")).toBeVisible();
+  expect(screen.getByRole("button",{name:"下一步：填写供货信息"})).toBeDisabled();
+  expect(state.execute).not.toHaveBeenCalled();
 });
 it("blocks the supply step while eligibility is unknown or a refresh fails",async()=>{
   const {client}=page();const user=userEvent.setup();
@@ -133,4 +137,50 @@ it("retains the separate platform official-draft entry",async()=>{
   expect(screen.getByRole("heading",{level:1,name:"建立自营发布草稿"})).toBeVisible();
   expect(screen.getByRole("button",{name:"保存发布草稿"})).toBeDisabled();
   expect(screen.queryByRole("button",{name:"下一步：填写供货信息"})).not.toBeInTheDocument();
+});
+it.each(["not_optimized","incomplete_product"] as const)("keeps a no-image %s product visible beside an eligible own product",async(reason)=>{
+  vi.mocked(readMarketChoice).mockImplementation(async(_scope,itemId)=>itemId===id?choice():reason==="not_optimized"?{selection:{...selection,itemId,effectiveVersion:"1",applyId:undefined},optimized:false,ineligibleReason:reason}:{selection:{...selection,itemId},optimized:true,ineligibleReason:reason});
+  page();const user=userEvent.setup();
+  expect(await screen.findByRole("radio",{name:"选择 未优化自有商品"})).toBeDisabled();
+  expect(screen.getByText(reason==="not_optimized"?"未完成智能优化":"商品资料不符合申请要求")).toBeVisible();
+  expect(screen.getByText("暂无图片")).toBeVisible();
+  expect(screen.getByText("本页 1 件可申请")).toBeVisible();
+  await user.click(screen.getByRole("radio",{name:"选择 已优化自有外套"}));
+  expect(screen.getByRole("button",{name:"下一步：填写供货信息"})).toBeEnabled();
+  expect(state.execute).not.toHaveBeenCalled();
+});
+it("blocks an open supply form when the same exact optimized choice loses completeness",async()=>{
+  const {client}=page();await advance();
+  vi.mocked(readMarketChoice).mockResolvedValue({selection,optimized:true,ineligibleReason:"incomplete_product"});
+  await client.invalidateQueries({queryKey:["supply-market","member-a","org-a","application-products"]});
+  await screen.findByText("商品或申请资格已变化，请返回选择商品并重新确认。");
+  expect(screen.getByLabelText("可供库存（件）")).toBeDisabled();
+  expect(screen.getByRole("button",{name:"提交申请"})).toBeDisabled();
+  expect(state.execute).not.toHaveBeenCalled();
+});
+it("keeps unoptimized complete products usable for the official draft only",async()=>{
+  vi.mocked(readMarketChoice).mockResolvedValue(choice(other,false));page(true);const user=userEvent.setup();
+  await user.selectOptions(await screen.findByRole("combobox",{name:"申请商品"}),other);
+  await screen.findByText("自有商品原始资料");
+  await user.click(screen.getByRole("checkbox",{name:/我确认这是本人/}));
+  expect(screen.getByRole("button",{name:"保存发布草稿"})).toBeEnabled();
+});
+it("shows an incomplete official candidate without crashing or allowing save",async()=>{
+  vi.mocked(readMarketChoice).mockResolvedValue({selection:{...selection,itemId:other,effectiveVersion:"1",applyId:undefined},optimized:false,ineligibleReason:"not_optimized"});
+  page(true);const user=userEvent.setup();await user.selectOptions(await screen.findByRole("combobox",{name:"申请商品"}),other);
+  await screen.findByText("商品资料不符合发布要求，请先完善自有商品。");
+  await user.click(screen.getByRole("checkbox",{name:/我确认这是本人/}));
+  expect(screen.getByRole("button",{name:"保存发布草稿"})).toBeDisabled();
+  expect(state.execute).not.toHaveBeenCalled();
+});
+it("blocks an official cached choice after a failed refresh",async()=>{
+  vi.mocked(readMarketChoice).mockResolvedValue(choice(other,false));const {client}=page(true);const user=userEvent.setup();
+  await user.selectOptions(await screen.findByRole("combobox",{name:"申请商品"}),other);await screen.findByText("自有商品原始资料");
+  await user.click(screen.getByRole("checkbox",{name:/我确认这是本人/}));
+  expect(screen.getByRole("button",{name:"保存发布草稿"})).toBeEnabled();
+  vi.mocked(readMarketChoice).mockRejectedValue(new Error("unavailable"));
+  await client.invalidateQueries({queryKey:["supply-market","member-a","org-a","choice",other]});
+  await screen.findByRole("button",{name:"重新读取"});
+  expect(screen.getByRole("button",{name:"保存发布草稿"})).toBeDisabled();
+  expect(state.execute).not.toHaveBeenCalled();
 });

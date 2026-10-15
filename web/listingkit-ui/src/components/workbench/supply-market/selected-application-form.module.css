@@ -23,6 +23,7 @@
 .table small{display:block;font-size:10px;color:var(--application-copy);margin-top:5px}
 .product{display:flex;align-items:center;gap:12px;cursor:pointer;min-width:0}.product input{flex-shrink:0;accent-color:#0f9f8f}
 .product img{width:64px;height:64px;object-fit:contain;border-radius:10px;flex-shrink:0}
+.noImage{width:64px;height:64px;display:flex;align-items:center;justify-content:center;border-radius:10px;flex-shrink:0;background:var(--application-subtle);color:var(--application-copy);font-size:10px}
 .product strong{display:block;font-size:13px;line-height:19px}
 .badge{display:inline-block;background:var(--application-accent-bg);color:var(--application-accent);padding:4px 9px;border-radius:10px;font-size:10px;font-weight:700}
 .pagination{min-height:52px;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:var(--application-subtle);font-size:11px;color:var(--application-copy)}

@@ -2,6 +2,8 @@ package supplymarketapp
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/collection"
@@ -14,6 +16,53 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
+
+func TestChoiceReturnsNormalIneligibilityWithoutWeakeningPublication(t *testing.T) {
+	for _, optimized := range []bool{false, true} {
+		for _, complete := range []bool{false, true} {
+			t.Run(fmt.Sprintf("optimized=%t/complete=%t", optimized, complete), func(t *testing.T) {
+				scope := collection.Scope{"org-a", "actor-a", "member-a"}
+				id := uuid.NewString()
+				original := catalog.PublishedSnapshot{Identity: catalog.SnapshotIdentity{TenantID: scope.OrganizationID, ProductKey: "own"}, PublicationID: "original", Version: 1, Snapshot: catalog.ProductSnapshot{Title: "原商品"}}
+				if complete {
+					original.Snapshot.Images = []catalog.Image{{URL: "https://images.example.org/source.png"}}
+				}
+				current := original
+				if optimized {
+					current.Version = 2
+					current.PublicationID = "review:" + id
+					current.Snapshot.Title = "优化商品"
+				}
+				record := review.Record{ID: id, Org: scope.OrganizationID, Owner: scope.ActorID, Input: review.CreateInput{ProductKey: "own", BaseVersion: 1}, BasePublicationID: original.PublicationID, Policy: "title-review-v1", Before: original.Snapshot.Title, Title: current.Snapshot.Title, State: "applied", Revision: 2, Original: enrichment.Proposal{Changes: []enrichment.FieldChange{{Field: "title"}}}, Receipt: &review.Receipt{ProposalID: id, Revision: 2, ProductVersion: 2, PublicationID: current.PublicationID, Actor: scope.ActorID, At: time.Now()}}
+				reader := EffectiveProductReader{Snapshots: snapshotFixture{original, current}, Applied: reviewFixture{record}}
+				item := collection.ItemDetail{Item: collection.Item{ID: uuid.NewString(), Revision: 1, Source: collection.Source{Kind: "own", ProductKey: "own", PublicationID: "original", Version: 1}}, Product: original.Snapshot}
+				ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+				defer cancel()
+				choice, err := reader.ReadChoice(ctx, scope, item)
+				require.NoError(t, err, "a saved own product is a normal candidate even when unqualified")
+				require.Equal(t, optimized, choice.Optimized)
+				raw, err := json.Marshal(choice)
+				require.NoError(t, err)
+				var body map[string]any
+				require.NoError(t, json.Unmarshal(raw, &body))
+				if !optimized {
+					require.Equal(t, "not_optimized", body["ineligibleReason"])
+				} else if !complete {
+					require.Equal(t, "incomplete_product", body["ineligibleReason"])
+				} else {
+					require.NotContains(t, body, "ineligibleReason")
+				}
+				if complete {
+					require.Contains(t, body, "product")
+				} else {
+					require.NotContains(t, body, "product")
+					_, err = supplymarket.PublicProjection(current.Snapshot)
+					require.ErrorIs(t, err, supplymarket.ErrInvalid, "publication requirements must remain strict")
+				}
+			})
+		}
+	}
+}
 
 type snapshotFixture struct{ original, applied catalog.PublishedSnapshot }
 
