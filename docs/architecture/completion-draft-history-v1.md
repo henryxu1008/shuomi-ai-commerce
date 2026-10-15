@@ -1,6 +1,6 @@
 # 待补全草稿保存历史与比较 v1
 
-Refs #704；Design Basis: Independent Architecture。Admission: NOT_READY，独立边界审查通过前不修改生产路径。
+Refs #704；Design Basis: Independent Architecture。Admission: IMPLEMENTATION_READY，R1独立边界审查通过后冻结。
 
 ## 用户结果和依据
 
@@ -63,3 +63,7 @@ HTTP/BFF沿原no-store、verified identity/live organization access、HTTP20s/do
 必要TDD：domain的范围/首尾权限/错误record、实际fresh PostgreSQL多Rn/倒序keyset/预算截页/精确旧版/错scope/source/篡改source拒绝；HTTP/BFF严格参数/GET/echo；UI只读三页面、空/错误、两版本比较、导航返回和迟到响应；相关原Save回归、typecheck/lint/build、最终候选CI及一次最终独立复核。不另建验收工具。实现者开发核对不代签用户/生产验收。
 
 运行沿现有CompletionDraft能力开关与安装；后台/前端同候选，无新schema/grants。本次不更新own675或操作业务数据；交付候选入口、正常启动命令及数据保留说明，实例更新另需具体授权。
+
+## 独立准入
+
+2026-10-15，own_history_review实查#704正文、适用规则及实际Service/SQL/SourceSelector/导航/注入，以先于生产的设计提交834fdf4ebddab140041a716703675b6b26a00abd确认R1 IMPLEMENTATION_READY，无当前Must/AGENTS BLOCKER。冻结本合同；scope/source/draft隔离与首尾权限、head上界/倒序预算分页、同草稿比较及导航迟到隔离均为IMPLEMENTATION_TEST，在本Delivery Batch实现和验证，不重开架构或扩展验收平台。
