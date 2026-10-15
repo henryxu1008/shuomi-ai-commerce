@@ -1,5 +1,7 @@
 # Supply 未绑定店铺待补全草稿
 
+当前字段扩展见 [结构化候选合同](completion-draft-structured-v1.md)，达到其增量准入后实施；原owner/事务/权限是复用基线。
+
 Design Basis: Independent Architecture
 Admission Status: IMPLEMENTATION_READY / FROZEN — 2026-10-12 独立高风险边界检查通过。
 
