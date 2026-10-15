@@ -31,7 +31,7 @@ func (c *Config) validateSupplyChain() error {
 	if err := c.validateAssetOwnerIsolation(s.AssetDatabase); err != nil {
 		return err
 	}
-	if c.ImageAgent != nil && !sameDatabaseTarget(s.AssetDatabase, c.ImageAgent.Database) || c.ProductAgent != nil && c.ProductAgent.Enabled && !sameDatabaseTarget(s.AssetDatabase, c.ProductAgent.AssetDatabase) {
+	if c.ImageAgent != nil && !sameDatabaseTarget(s.AssetDatabase, c.ImageAgent.Database) || c.ProductAgent != nil && c.ProductAgent.Enabled && !c.ProductAgent.ContentTitleOnly && !sameDatabaseTarget(s.AssetDatabase, c.ProductAgent.AssetDatabase) {
 		return errors.New("supply must use the current canonical Asset database")
 	}
 	host, port, err := net.SplitHostPort(s.TemporalAddress)

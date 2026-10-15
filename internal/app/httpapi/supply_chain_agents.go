@@ -278,7 +278,7 @@ func (a *productAgentApplication) validateSupplyCandidate(ctx context.Context, b
 	return agent.Validation{Valid: proposal.Validation.Valid, PolicyVersion: policy}, nil
 }
 func connectSupplyProductAgent(ctx context.Context, db *gorm.DB, application *supplyapp.Application, a *productAgentApplication, authority supplyapp.OrganizationExecutionAuthorizer) (*supplyProductAgent, error) {
-	if a == nil {
+	if a == nil || a.config.ContentTitleOnly {
 		return nil, nil
 	}
 	bridge := &supplyProductAgent{agent: a, app: application, authorization: authority}

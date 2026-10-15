@@ -120,7 +120,7 @@ func GrantSkillAdmissionRuntime(ctx context.Context, db *gorm.DB, role string) e
 			return agentconfig.ErrForbidden
 		}
 		quoted := `"` + role + `"`
-		for _, query := range []string{"REVOKE ALL ON agent_configuration.skill_admissions FROM " + quoted, "GRANT SELECT,INSERT ON agent_configuration.skill_admissions TO " + quoted, "GRANT UPDATE(allow_personal,revision,updated_by,updated_at) ON agent_configuration.skill_admissions TO " + quoted} {
+		for _, query := range []string{"REVOKE ALL ON agent_configuration.skill_admissions FROM " + quoted, SkillAdmissionRuntimeTableGrant().SQL(role)} {
 			if e := tx.Exec(query).Error; e != nil {
 				return e
 			}
