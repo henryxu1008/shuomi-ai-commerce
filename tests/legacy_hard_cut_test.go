@@ -164,6 +164,17 @@ func TestLegacyImportParserRejectsMalformedSources(t *testing.T) {
 // The old source-to-ListingKit task route and handoff are retired, not hidden.
 // Protect the production composition without banning current Product Sourcing.
 func TestLegacy1688TaskHandoffAndRouteStayRetired(t *testing.T) {
+	for _, relative := range []string{
+		"internal/sourceaccount",
+		"internal/infra/httpx/crawler_1688_handler.go",
+		"internal/infra/httpx/crawler_1688_handler_test.go",
+	} {
+		_, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative)))
+		require.True(t, os.IsNotExist(err), "retired numeric source-account artifact must remain absent: %s (%v)", relative, err)
+	}
+	for _, relative := range []string{"internal/crawler/alibaba1688", "internal/infra/httpx"} {
+		assertNoBannedImportPrefixes(t, filepath.Join("..", filepath.FromSlash(relative)), []string{"task-processor/internal/sourceaccount"}, nil)
+	}
 	legacyRoot := filepath.Join("..", "internal", "compatibility", "listingkit", "sourcehandoff")
 	_, err := os.Stat(legacyRoot)
 	require.True(t, os.IsNotExist(err), "retired 1688 Task handoff package must remain absent: %v", err)

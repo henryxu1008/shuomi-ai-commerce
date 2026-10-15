@@ -308,7 +308,6 @@ internal wiring is intentionally excluded; no other package class is excluded.
 | `task-processor/internal/platform/logging` | `task-processor/internal/core/logger` | compatibility facade | owning domains / Phases 3-8 |
 | `task-processor/internal/platform/database` | `task-processor/internal/listingruntime/local` | listing business consumer | listing owner / Phase 5 |
 | `task-processor/internal/platform/database` | `task-processor/internal/shein/pipeline` | marketplace business consumer | marketplace owner / Phase 4 |
-| `task-processor/internal/platform/database` | `task-processor/internal/sourceaccount/bootstrap` | organization persistence consumer | organization owner / Phase 7 |
 | `task-processor/internal/platform/redis` | `task-processor/internal/crawler/amazon` | crawler business consumer | product + marketplace / Phases 3-4 |
 | `task-processor/internal/platform/redis` | `task-processor/internal/crawler/shared` | crawler business consumer | product + marketplace / Phases 3-4 |
 | `task-processor/internal/platform/queue/rabbitmq` | `task-processor/internal/crawler/fetcher` | crawler business consumer | product + marketplace / Phases 3-4 |

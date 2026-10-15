@@ -45,7 +45,7 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 }
 
 func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
-	for _, command := range []string{"current-application", "image-agent-temporal-worker", "source-account-registry-schema-init"} {
+	for _, command := range []string{"current-application", "image-agent-temporal-worker", "source-account-registry-schema-init", "1688-local-agent", "1688-public-browser-collector"} {
 		t.Run(command, func(t *testing.T) {
 			cmd := exec.Command("go", "list", "-deps", "./cmd/"+command)
 			cmd.Dir = ".."
@@ -54,7 +54,7 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 				t.Fatalf("go list current command: %v\n%s", err, output)
 			}
 			for _, dependency := range strings.Fields(string(output)) {
-				for _, retired := range []string{"task-processor/internal/listingkit", "task-processor/internal/tenantbridge", "task-processor/internal/compatibility", "task-processor/internal/integration/persistence/sourceaccount/ownershipmigration"} {
+				for _, retired := range []string{"task-processor/internal/listingkit", "task-processor/internal/tenantbridge", "task-processor/internal/compatibility", "task-processor/internal/sourceaccount", "task-processor/internal/integration/persistence/sourceaccount/ownershipmigration"} {
 					if dependency == retired || strings.HasPrefix(dependency, retired+"/") {
 						t.Errorf("%s still compiles retired business dependency %s", command, dependency)
 					}
@@ -72,6 +72,9 @@ func TestStandaloneSheinWorkerDoesNotCompileCurrentHTTPApplication(t *testing.T)
 		t.Fatalf("go list standalone SHEIN worker: %v\n%s", err, output)
 	}
 	for _, dependency := range strings.Fields(string(output)) {
+		if dependency == "task-processor/internal/sourceaccount" || strings.HasPrefix(dependency, "task-processor/internal/sourceaccount/") {
+			t.Errorf("standalone SHEIN worker still compiles retired source-account persistence %s", dependency)
+		}
 		if dependency == "task-processor/internal/app/httpapi" {
 			t.Fatal("standalone SHEIN worker must use its own command runtime, not the current HTTP application assembly")
 		}
