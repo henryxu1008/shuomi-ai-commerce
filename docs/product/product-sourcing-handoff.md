@@ -83,10 +83,12 @@ historical; #663 retires only the old Task handoff in this checkout:
   assembly used only by the retired Task handoff is removed.
 - [Current source application](../../internal/app/productsourcing/application.go)
   composes the admitted `InternalProducer`; browser/acquisition consumers retain
-  their own authorized entrypoints and exact receipt recovery. Its prepared
-  [HTTP handler](../../internal/app/productsourcing/httpapi/handler.go) alone
-  does not establish a deployed provider import path. Existing startup commands
-  and configuration remain with those current applications.
+  their own authorized entrypoints and exact receipt recovery. #301 retires the
+  unregistered numeric-account import HTTP package and its exclusive DTOs/tests;
+  it is not a future wiring target. Existing startup commands and configuration
+  remain with the current applications. Shared crawler task/result types retain
+  trusted tenant scope and valid runtime behavior, without the retired 1688
+  account-assisted/fallback metadata.
 - Source-account preflight from #303 is historical evidence only; it is not a
   prerequisite for a fresh-install source path.
 
