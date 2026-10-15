@@ -142,16 +142,16 @@ func reviewContracts(db *gorm.DB) ([]relationContract, error) {
 
 func verifyRelation(db *gorm.DB, spec relationContract) error {
 	var rel struct {
-		Owner, Kind string
-		Rls, Forced bool
-		Triggers    int64
+		Owner, Kind, Persistence string
+		Rls, Forced              bool
+		Triggers                 int64
 	}
-	err := db.Raw(`SELECT pg_catalog.pg_get_userbyid(c.relowner) AS owner,c.relkind::text AS kind,c.relrowsecurity AS rls,c.relforcerowsecurity AS forced,(SELECT count(*) FROM pg_catalog.pg_trigger t WHERE t.tgrelid=c.oid AND NOT t.tgisinternal) AS triggers FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname=?`, spec.Name).Scan(&rel).Error
+	err := db.Raw(`SELECT pg_catalog.pg_get_userbyid(c.relowner) AS owner,c.relkind::text AS kind,c.relpersistence::text AS persistence,c.relrowsecurity AS rls,c.relforcerowsecurity AS forced,(SELECT count(*) FROM pg_catalog.pg_trigger t WHERE t.tgrelid=c.oid AND NOT t.tgisinternal) AS triggers FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname=?`, spec.Name).Scan(&rel).Error
 	if err != nil {
 		return err
 	}
-	if rel.Owner != spec.Owner || rel.Kind != "r" || rel.Rls || rel.Forced || rel.Triggers != 0 {
-		return fmt.Errorf("public.%s owner or relation contract differs", spec.Name)
+	if rel.Owner != spec.Owner || rel.Kind != "r" || rel.Persistence != "p" || rel.Rls || rel.Forced || rel.Triggers != 0 {
+		return fmt.Errorf("public.%s owner, durability or relation contract differs", spec.Name)
 	}
 	var cols []struct {
 		Name, Type, Default string

@@ -22,7 +22,7 @@ func retainedSnapshot(t *testing.T, db *gorm.DB, tables []string) []string {
 	for _, table := range tables {
 		var facts, metadata string
 		require.NoError(t, db.Raw("SELECT COALESCE(jsonb_agg(to_jsonb(r) ORDER BY to_jsonb(r)::text),'[]'::jsonb)::text FROM "+table+" r").Scan(&facts).Error)
-		require.NoError(t, db.Raw(`SELECT jsonb_build_object('owner',c.relowner,'acl',c.relacl,'columns',(SELECT jsonb_agg(to_jsonb(a) ORDER BY a.attnum) FROM pg_catalog.pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0),'constraints',(SELECT jsonb_agg(pg_catalog.pg_get_constraintdef(x.oid) ORDER BY x.conname) FROM pg_catalog.pg_constraint x WHERE x.conrelid=c.oid),'indexes',(SELECT jsonb_agg(pg_catalog.pg_get_indexdef(x.indexrelid) ORDER BY x.indexrelid) FROM pg_catalog.pg_index x WHERE x.indrelid=c.oid))::text FROM pg_catalog.pg_class c WHERE c.oid=pg_catalog.to_regclass(?)`, table).Scan(&metadata).Error)
+		require.NoError(t, db.Raw(`SELECT jsonb_build_object('owner',c.relowner,'persistence',c.relpersistence,'acl',c.relacl,'columns',(SELECT jsonb_agg(to_jsonb(a) ORDER BY a.attnum) FROM pg_catalog.pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0),'constraints',(SELECT jsonb_agg(pg_catalog.pg_get_constraintdef(x.oid) ORDER BY x.conname) FROM pg_catalog.pg_constraint x WHERE x.conrelid=c.oid),'indexes',(SELECT jsonb_agg(pg_catalog.pg_get_indexdef(x.indexrelid) ORDER BY x.indexrelid) FROM pg_catalog.pg_index x WHERE x.indrelid=c.oid))::text FROM pg_catalog.pg_class c WHERE c.oid=pg_catalog.to_regclass(?)`, table).Scan(&metadata).Error)
 		result = append(result, facts, metadata)
 	}
 	return result
