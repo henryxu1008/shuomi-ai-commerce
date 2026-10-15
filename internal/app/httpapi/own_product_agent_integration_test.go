@@ -33,6 +33,12 @@ func TestOwnContentRunsThroughRealReviewApplyAndChoiceWithoutShop(t *testing.T) 
 	}
 }
 
+func TestOwnContentTitleOnlyRunsThroughRealReviewApplyAndChoiceWithoutShop(t *testing.T) {
+	for _, mode := range []string{"default", "read_only", "auto_approve", "full_access"} {
+		t.Run(mode, func(t *testing.T) { testProductAgentOwners(t, "title-only own content "+mode) })
+	}
+}
+
 // The controlled provider cites only evidence that the real canonical tool
 // disclosed. It does not fabricate an acquisition receipt for an own product.
 func ownContentFixtureProposal(t *testing.T, r *http.Request) string {
@@ -178,11 +184,17 @@ func testOwnContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, module
 		require.Equal(t, "1", replay.CatalogVersion)
 	}
 	require.Equal(t, before, calls.Load())
-	for _, wrong := range []string{strings.Replace(input, `"title":true`, `"description":true`, 1), strings.Replace(input, preview.PublicationID, uuid.NewString(), 1)} {
+	for index, wrong := range []string{strings.Replace(input, `"title":true`, `"description":true`, 1), strings.Replace(input, preview.PublicationID, uuid.NewString(), 1)} {
 		code, raw, err = acquisitionHTTPRequest(server, "POST", path, "admin", "B", key, wrong)
 		require.NoError(t, err)
-		require.Equal(t, 409, code, string(raw))
+		want := http.StatusConflict
+		if index == 0 && a.config.ContentTitleOnly {
+			// The title-only gate rejects description before idempotency lookup.
+			want = http.StatusBadRequest
+		}
+		require.Equal(t, want, code, string(raw))
 	}
+	require.Equal(t, before, calls.Load(), "invalid selection/source must not call the model")
 	// The acquisition namespace cannot read the same UUID/key.
 	code, _, err = acquisitionHTTPRequest(server, "GET", productAcquisitionBase+"/"+item.Item.ID+"/content-agent/runs/"+key, "admin", "B", "", "")
 	require.NoError(t, err)
