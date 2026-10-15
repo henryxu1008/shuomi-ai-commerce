@@ -2,7 +2,7 @@
 
 Execution Issue: [#659](https://github.com/qq550723504/task-processor/issues/659)
 
-Design Basis: **Independent Architecture**。Admission Status: **DESIGN_REVIEW_REQUIRED**。
+Design Basis: **Independent Architecture**。Admission Status: **IMPLEMENTATION_READY** — 2026-10-15 独立 Reviewer `minio_admission_review` round 1 核对 design-only commit `4806f7b78d29a908f18213ef2de96fc29c6aeecf` / 本稿 blob `fcfa6fdccd436875bf5cb888acef24cfaacee38c`、Issue 当前用户授权与实际 owner 路径，无新增 BLOCKER。
 本稿为 [企业存储 V1](enterprise-storage-capacity-v1.md) 的有界增量；正式生产路径必须在独立评审明确 `IMPLEMENTATION_READY` 后修改。
 
 ## 1 用户结果、依据与范围
@@ -101,4 +101,4 @@ Current owner: integration/s3、currentapplication、Commercial schema-owner、s
 Cutover/deletion condition: 新显式配置直接调用现行 owner；现有 trial/cloud身份保持，不建立旧账户/endpoint fallback、双读写或迁移。
 ```
 
-当前 round 0，等待独立评审。只审核本增量身份/权限/受限安装与本地切换边界；按 BLOCKER / IMPLEMENTATION_TEST / BACKLOG / ACCEPTED_RISK / NOT_APPLICABLE 分类，最多两轮正常架构评审。正式准入绑定 design-only commit/blob，并先于实现记录到本稿和 Issue。
+round 1 已达到 IMPLEMENTATION_READY，设计冻结；只审核本增量身份/权限/受限安装与本地切换边界，不重审原计量/购买合同。两项 IMPLEMENTATION_TEST 在候选启用前收敛：共享 transport 必须先读取完整 limit+1、拒绝未知长度有效 JSON 后的超大尾部；新空schema启用入口必须先只读确认六表/七列全部存在，不能走原 additive 的缺失修补分支，覆盖拒绝/回滚/重放和互斥 flag。二者是既定合同内实现要求，不阻止编码、不另开架构或 runner。评审不签发实现/运行/用户/生产验收。准入先于正式实现记录到本稿和 Issue。
