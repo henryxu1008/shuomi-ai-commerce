@@ -1136,7 +1136,7 @@ export async function buildWorkbenchBrowserResponse(
     }
     const standard = parseWorkbenchErrorEnvelopePayload(payload);
     const code = typeof payload.code === "string" ? payload.code : standard.success ? standard.data.code : "";
-    const statuses: Record<string, number> = { ...acquisitionErrorStatuses, INVALID_REQUEST: 400, PERMISSION_DENIED: 403, NOT_FOUND: 404, REVISION_CONFLICT: 409, OUTCOME_UNKNOWN: 409 };
+    const statuses: Record<string, number> = { ...acquisitionErrorStatuses, INVALID_REQUEST: 400, PERMISSION_DENIED: 403, NOT_FOUND: 404, REVISION_CONFLICT: 409, STORAGE_LIMIT_EXCEEDED: 409, OUTCOME_UNKNOWN: 409 };
     if (statuses[code] !== upstream.status) return invalid();
     const response = protocolError(upstream.status, code, "Collection request could not be completed", options.requestId ?? "");
     if (code === "ORGANIZATION_ACCESS_REVOKED" || code === "ORGANIZATION_ACCESS_DENIED") clearSelectionCookie(response);

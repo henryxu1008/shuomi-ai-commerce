@@ -86,6 +86,22 @@ describe("private product collection proxy", () => {
     const over=await buildWorkbenchUpstreamRequest(new Request("http://localhost/api/workbench/collections/media",{method:"POST",headers:{...scope,Origin:"http://localhost","Content-Type":"application/octet-stream","X-Content-SHA256":"a".repeat(64)},body:new Uint8Array(3*1024*1024+1)}),["collections","media"],"server-token","actor-a");
     expect(over).toBeInstanceOf(Response);if(over instanceof Response)expect(over.status).toBe(413);
   });
+  it("preserves a definitive capacity rejection for a source-media upload",async()=>{
+    const bytes=new Uint8Array([255,216,255,217]);
+    const mapped=await buildWorkbenchUpstreamRequest(new Request("http://localhost/api/workbench/collections/media",{
+      method:"POST",headers:{...scope,Origin:"http://localhost","Content-Type":"application/octet-stream","X-Content-SHA256":"a".repeat(64)},body:bytes,
+    }),["collections","media"],"server-token","actor-a");
+    expect(mapped).not.toBeInstanceOf(Response);if(mapped instanceof Response)return;
+    const options={sourceMutation:mapped.sourceMutation};
+    const response=await buildWorkbenchBrowserResponse(Response.json({code:"STORAGE_LIMIT_EXCEEDED"},{status:409}),mapped.responseContract,mapped.expectedStoreId,options);
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({code:"STORAGE_LIMIT_EXCEEDED"});
+    for(const status of [400,403,503]){
+      const invalid=await buildWorkbenchBrowserResponse(Response.json({code:"STORAGE_LIMIT_EXCEEDED"},{status}),mapped.responseContract,mapped.expectedStoreId,options);
+      expect(invalid.status).toBe(503);
+      expect(await invalid.json()).toMatchObject({code:"OUTCOME_UNKNOWN"});
+    }
+  });
   it("preserves the original media hash and byte count through upload and refresh verification",async()=>{
     const hash="a".repeat(64),bytes=new Uint8Array([255,216,255,217]);
     const image={hash,bytes:bytes.length,url:"https://images.example.org/product.jpg",mediaType:"image/jpeg",width:900,height:900};
