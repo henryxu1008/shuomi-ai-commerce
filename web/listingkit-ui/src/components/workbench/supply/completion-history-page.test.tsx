@@ -8,8 +8,13 @@ const id="11111111-1111-4111-8111-111111111111",batch="22222222-2222-4222-8222-2
 const source={id,preparationId:batch,collectionItemId:batch,collectionRevision:1,source:{kind:"own",version:"1",productKey:"fixed-own",publicationId:batch}};
 const old={id,draftId:batch,revision:1,source,content:{title:"旧标题",description:"\n"},status:"pending_completion",createdAt:"2026-10-14T00:00:00Z"};
 const current={...old,id:batch,revision:2,content:{title:"新标题",description:"新版描述\n第二行"}};
-beforeEach(()=>{vi.clearAllMocks();f.context.effectiveOrganization.id="org";f.list.mockResolvedValue({source,draftId:batch,currentRevision:2,items:[current,old]});f.read.mockImplementation((_scope,_id,revision)=>Promise.resolve(revision===1?old:current))});
+beforeEach(()=>{vi.clearAllMocks();f.context.effectiveOrganization.id="org";f.context.permissions=["workbench.supply.read"];f.list.mockResolvedValue({source,draftId:batch,currentRevision:2,items:[current,old]});f.read.mockImplementation((_scope,_id,revision)=>Promise.resolve(revision===1?old:current))});
 afterEach(cleanup);
+it("offers an independent restore entry only to managers without making historical details editable",async()=>{
+ const view=render(<CompletionHistoryPage sourceId={id} revision={1} preparationId={batch} itemId={batch}/>);await screen.findByText("旧标题");expect(screen.queryByRole("link",{name:"将此版内容恢复为新版本"})).not.toBeInTheDocument();
+ f.context.permissions.push("workbench.supply.manage");view.rerender(<CompletionHistoryPage sourceId={id} revision={1} preparationId={batch} itemId={batch}/>);
+ expect(screen.getByRole("link",{name:"将此版内容恢复为新版本"})).toHaveAttribute("href",`/workbench/supply/mine/missing/${id}/history/1/restore?preparation=${batch}&item=${batch}`);expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+});
 it("lists saved versions and keeps draft, product and batch navigation for read-only users",async()=>{
  render(<CompletionHistoryPage sourceId={id} preparationId={batch} itemId={batch}/>);
  await screen.findByText("新标题");expect(screen.queryByRole("dialog")).not.toBeInTheDocument();

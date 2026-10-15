@@ -2,6 +2,8 @@
 
 Refs #704；Design Basis: Independent Architecture。Admission: IMPLEMENTATION_READY，R1独立边界审查通过后冻结。
 
+后续 #708 的[历史内容恢复](completion-draft-restore-v1.md)增加独立的普通 Save 消费者；本合同的历史接口、旧记录和详情继续只读，原历史阶段 Out of Scope 不禁止用户后续明确批准的独立新版本保存。
+
 ## 用户结果和依据
 
 2026-10-15用户批准：先明确待补全草稿历史读取、权限和比较范围，再实现保存历史、旧版详情、差异对比；独立页面；保留返回草稿、商品和批次上下文；复用CompletionDraft保存记录。
