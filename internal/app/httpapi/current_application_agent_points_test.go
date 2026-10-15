@@ -20,6 +20,7 @@ func agentAndPointRoutes(agent, points bool) []httproute.Descriptor {
 	routes = append(routes, billingDescriptorsForTest()...)
 	if agent {
 		routes = append(routes, productAgentRoutes(nil)...)
+		routes = append(routes, registeredProductAgentRoutes(nil, true)...)
 		for _, route := range productReviewRoutes(nil, nil) {
 			if route.Method != http.MethodPost || route.Path != "/api/product/text-proposals" {
 				routes = append(routes, route)
@@ -72,7 +73,7 @@ func TestCurrentApplicationAgentAndPointPermissionsSurviveComposition(t *testing
 	}
 	require.NoError(t, validate(routes))
 	for i, route := range routes {
-		if !strings.HasPrefix(route.Path, productAgentBase) && !strings.HasPrefix(route.Path, memberPointLimitBase) {
+		if !strings.HasPrefix(route.Path, productAgentBase) && !strings.HasPrefix(route.Path, productContentAgentBase) && !strings.HasPrefix(route.Path, memberPointLimitBase) {
 			continue
 		}
 		for name, mutate := range map[string]func(*httproute.Descriptor){

@@ -332,10 +332,13 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 			targets = append(targets, struct {
 				cfg  DatabaseConfig
 				dest **gorm.DB
-			}{cfg.ProductAgent.ReviewDatabase, &agentReviewDB}, struct {
-				cfg  DatabaseConfig
-				dest **gorm.DB
-			}{cfg.ProductAgent.AssetDatabase, &agentAssetDB})
+			}{cfg.ProductAgent.ReviewDatabase, &agentReviewDB})
+			if !cfg.ProductAgent.ContentTitleOnly {
+				targets = append(targets, struct {
+					cfg  DatabaseConfig
+					dest **gorm.DB
+				}{cfg.ProductAgent.AssetDatabase, &agentAssetDB})
+			}
 		}
 		for _, target := range targets {
 			pool, openErr := dependencies.OpenProductAgent(startupContext, target.cfg)

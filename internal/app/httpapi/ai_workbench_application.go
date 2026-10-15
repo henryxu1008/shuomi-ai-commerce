@@ -87,7 +87,7 @@ func (x workbenchExecution) AuthorizeReceipt(ctx context.Context, scope aiworkbe
 
 func buildAIWorkbenchApplication(ctx context.Context, cfg AIWorkbenchDependencies, a *productAgentApplication) (*aiWorkbenchApplication, error) {
 	if cfg.ConversationOnly {
-		if cfg.DB == nil || a != nil || cfg.resolver == nil || cfg.authorizer == nil || len(cfg.PlanningTextPolicies) != 0 || len(cfg.AllowedOrganizationIDs) == 0 || len(cfg.AllowedOrganizationIDs) > 64 {
+		if cfg.DB == nil || a != nil && (!a.config.ContentTitleOnly || cfg.DB == a.config.RunDB) || cfg.resolver == nil || cfg.authorizer == nil || len(cfg.PlanningTextPolicies) != 0 || len(cfg.AllowedOrganizationIDs) == 0 || len(cfg.AllowedOrganizationIDs) > 64 {
 			return nil, aiworkbench.ErrUnavailable
 		}
 		seen := map[string]bool{}
@@ -106,7 +106,7 @@ func buildAIWorkbenchApplication(ctx context.Context, cfg AIWorkbenchDependencie
 		}
 		return &aiWorkbenchApplication{store: store, conversationOnly: true, allowedOrganizationIDs: append([]string(nil), cfg.AllowedOrganizationIDs...), resolver: cfg.resolver, authorizer: cfg.authorizer}, nil
 	}
-	if cfg.DB == nil || a == nil || a.config.RunDB == nil || a.config.Ledger == nil || a.textAdmission == nil || len(cfg.PlanningTextPolicies) == 0 {
+	if cfg.DB == nil || a == nil || a.config.ContentTitleOnly || a.config.RunDB == nil || a.config.Ledger == nil || a.textAdmission == nil || len(cfg.PlanningTextPolicies) == 0 {
 		return nil, aiworkbench.ErrUnavailable
 	}
 	if err := workstore.VerifySchema(ctx, cfg.DB); err != nil {

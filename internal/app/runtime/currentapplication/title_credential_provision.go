@@ -88,8 +88,8 @@ func ValidateTitleCredentialProvision(cfg *Config, input TitleCredentialProvisio
 		return errors.New("title credential writer database is invalid")
 	}
 	target := cfg.ProductAgent.Database
-	if input.WriterDatabase.Host != target.Host || input.WriterDatabase.Port != target.Port || input.WriterDatabase.Database != target.Database || input.WriterDatabase.User == target.User {
-		return errors.New("title credential writer must be separate and target ProductAgentDB")
+	if input.WriterDatabase.Host != target.Host || input.WriterDatabase.Port != target.Port || input.WriterDatabase.Database != target.Database || input.WriterDatabase.User != "title_credential_writer" || input.WriterDatabase.User == target.User {
+		return errors.New("title credential writer must use the prepared title_credential_writer identity separately on ProductAgentDB")
 	}
 	allowed := false
 	for _, id := range cfg.ProductAgent.AllowedOrganizationIDs {

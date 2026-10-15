@@ -495,7 +495,10 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	}
 	if chat := supplied.aiWorkbench; chat != nil {
 		if chat.DB == nil || chat.DB == sourceAccountDB || chat.DB == supplied.commercialOwnerDB || chat.DB == supplied.productAcquisitionDB ||
-			chat.ConversationOnly && supplied.productAgent != nil || !chat.ConversationOnly && (supplied.productAgent == nil || chat.DB == supplied.productAgent.RunDB) {
+			supplied.productAgent != nil && chat.DB == supplied.productAgent.RunDB ||
+			chat.ConversationOnly && len(chat.PlanningTextPolicies) != 0 ||
+			chat.ConversationOnly && supplied.productAgent != nil && !supplied.productAgent.ContentTitleOnly ||
+			!chat.ConversationOnly && (supplied.productAgent == nil || supplied.productAgent.ContentTitleOnly) {
 			return nil, errors.New("AI Workbench requires distinct bounded pool and explicit execution mode")
 		}
 	}
@@ -1181,6 +1184,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		AcquisitionImage:    factories.buildAcquisitionImage != nil,
 		FullImageSet:        imageRuntime != nil,
 		ProductAgent:        supplied.productAgent != nil,
+		ContentTitleOnly:    supplied.productAgent != nil && supplied.productAgent.ContentTitleOnly,
 		AIWorkbench:         supplied.aiWorkbench != nil,
 		ProjectCenter:       supplied.projectCenterDB != nil,
 		AgentConfiguration:  supplied.agentConfigurationDB != nil,
@@ -1310,6 +1314,7 @@ type currentApplicationOptionalRoutes struct {
 	AcquisitionImage    bool
 	FullImageSet        bool
 	ProductAgent        bool
+	ContentTitleOnly    bool
 	AIWorkbench         bool
 	ProjectCenter       bool
 	MemberPoints        bool
@@ -1317,6 +1322,9 @@ type currentApplicationOptionalRoutes struct {
 }
 
 func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, includeAudit, includeAcquisition, includeReferrals, includeMembership, includeAccountProfile, includeAllocation, includeBrowser bool, optional currentApplicationOptionalRoutes) error {
+	if optional.ContentTitleOnly && !optional.ProductAgent {
+		return errors.New("title-only routes require the current product agent")
+	}
 	if optional.PrivateDraftTrial && (optional.SupplyMarket || optional.POD) {
 		return errors.New("private draft trial excludes market/POD services")
 	}
@@ -1543,7 +1551,7 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 		}
 	}
 	if optional.ProductAgent {
-		for _, r := range productAgentRoutes(nil) {
+		for _, r := range productAgentProfileRoutes(nil, optional.ContentTitleOnly) {
 			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
 		}
 		for _, r := range productReviewRoutes(nil, nil) {
@@ -1859,7 +1867,7 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 		if (descriptor.Path == commercialResourcesPath || descriptor.Path == commercialResourceEventsPath) && (descriptor.Module != commercialResourcesModuleName || descriptor.Method != http.MethodGet || descriptor.AuthPolicy != httproute.AuthPolicyCurrentIdentity || descriptor.OrganizationAccessPolicy != httproute.OrganizationAccessPolicyLiveWrite || descriptor.OrganizationTargetResolver != nil || descriptor.Permission != authz.PermissionWorkbenchCommercialRead || descriptor.RequestTimeout != 15*time.Second || !descriptor.RejectUnreadRequestBody || descriptor.Handler == nil) {
 			return errors.New("commercial resources route loses live read boundary")
 		}
-		if strings.HasPrefix(descriptor.Path, productAgentBase) && (descriptor.Module != "product-agent" || descriptor.AuthPolicy != httproute.AuthPolicyVerifiedIdentity || descriptor.OrganizationAccessPolicy != httproute.OrganizationAccessPolicyLiveWrite || descriptor.Permission != authz.PermissionLocalAgentWrite || descriptor.RequestTimeout != 2*time.Minute) {
+		if (strings.HasPrefix(descriptor.Path, productAgentBase) || strings.HasPrefix(descriptor.Path, productContentAgentBase)) && (descriptor.Module != "product-agent" || descriptor.AuthPolicy != httproute.AuthPolicyVerifiedIdentity || descriptor.OrganizationAccessPolicy != httproute.OrganizationAccessPolicyLiveWrite || descriptor.Permission != authz.PermissionLocalAgentWrite || descriptor.RequestTimeout != 2*time.Minute) {
 			return errors.New("product agent loses fresh permission boundary")
 		}
 		if strings.HasPrefix(descriptor.Path, ph.Base) {
