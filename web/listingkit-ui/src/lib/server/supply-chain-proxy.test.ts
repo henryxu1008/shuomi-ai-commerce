@@ -4,6 +4,18 @@ const id="550e8400-e29b-41d4-a716-446655440000";
 const scope={cookie:"shuomi_effective_organization=org-a","X-Expected-Organization-ID":"org-a","X-Expected-User-ID":"actor-a"};
 describe("private supply chain proxy",()=>{
  beforeEach(()=>vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL","http://localhost"));
+ it("binds history query bounds and exact saved revisions without command authority",async()=>{
+  const path=["supply-preparations","sources",id,"completion-draft","history"],url=`http://localhost/api/workbench/${path.join("/")}`;
+  const result=await buildWorkbenchUpstreamRequest(new Request(url+"?before=3&limit=2",{headers:scope}),path,"server-token","actor-a");
+  expect(result).not.toBeInstanceOf(Response);if(result instanceof Response)return;
+  expect(result.sourceMutation).toBe(false);expect(result.expectedStoreId).toBe(`${id}:3:2`);
+  for(const query of ["?before=0","?before=01","?before=9007199254740992","?before=2&before=2","?after="+id,"?actor=other","?limit=101"]){const bad=await buildWorkbenchUpstreamRequest(new Request(url+query,{headers:scope}),path,"server-token","actor-a");expect(bad).toBeInstanceOf(Response);if(bad instanceof Response)expect(bad.status).toBe(400)}
+  for(const suffix of [[],["1"]]){const bad=await buildWorkbenchUpstreamRequest(new Request(url+(suffix.length?"/1":""),{headers:{...scope,"Content-Encoding":"gzip"}}),[...path,...suffix],"server-token","actor-a");expect(bad).toBeInstanceOf(Response);if(bad instanceof Response)expect(bad.status).toBe(400)}
+  const other="550e8400-e29b-41d4-a716-446655440001",record={id,draftId:id,revision:1,source:{id,preparationId:other,collectionItemId:id,collectionRevision:1,source:{productKey:"product",publicationId:id,version:"1",kind:"own"}},content:{title:"saved",description:""},status:"pending_completion",createdAt:"2026-10-12T00:00:00Z"};
+  expect((await buildWorkbenchBrowserResponse(Response.json(record),"supply-completion-history-detail",`${id}:1`)).status).toBe(200);
+  expect((await buildWorkbenchBrowserResponse(Response.json(record),"supply-completion-history-detail",`${id}:2`)).status).toBe(502);
+  expect((await buildWorkbenchBrowserResponse(Response.json({source:record.source,draftId:id,currentRevision:1,items:[record]}),"supply-completion-history",`${other}:0:20`)).status).toBe(502);
+ });
  it("bounds item draft discovery and validates the item echo and every fixed source",async()=>{
   const path=["supply-preparations","collection-items",id,"completion-drafts"],url=`http://localhost/api/workbench/${path.join("/")}`;
   const request=await buildWorkbenchUpstreamRequest(new Request(url+"?limit=20",{headers:scope}),path,"server-token","actor-a");expect(request).not.toBeInstanceOf(Response);if(request instanceof Response)return;expect(request.sourceMutation).toBe(false);expect(request.expectedStoreId).toBe(id);

@@ -67,6 +67,8 @@ type Repository interface {
 	ReadCommand(context.Context, collection.Scope, string) (Receipt, error)
 	List(context.Context, collection.Scope, string, collection.Query) (collection.Page[Record], error)
 	ListForCollectionItem(context.Context, collection.Scope, string, collection.Query) (collection.Page[Record], error)
+	ListHistory(context.Context, collection.Scope, string, HistoryQuery) (HistoryPage, error)
+	ReadRevision(context.Context, collection.Scope, string, int64) (Record, error)
 }
 type Service struct {
 	sources      *preparation.SourceSelector

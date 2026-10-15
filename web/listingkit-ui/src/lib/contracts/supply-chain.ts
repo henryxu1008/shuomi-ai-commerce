@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { collectionID, collectionItemSchema, collectionDetailSchema } from "./product-collection";
 import { isAcquisitionUUID } from "./product-acquisition";
+import { completionRevision } from "./completion-draft-navigation";
 import {listingMaterialsSchemas,materialsRouteMethods,materialsPath,materialsRequestSchema,materialsPreparedSchema,type MaterialsRoute} from "./listing-materials";
 import {temuDraftInputSchema,temuDraftSchema,temuModeSchema,temuRuleSnapshotSchema,ruleSelectionSchema,temuCreatedGoodsSchema} from "./temu-model";
 import {tiktokDraftInputSchema,tiktokSelectionSchema,tiktokMerchantSchema,tiktokRuleSnapshotSchema,tiktokCatalogSchema,tiktokDraftSchema,tiktokEffectSchema} from "./tiktokshop-model";
@@ -44,6 +45,13 @@ export const completionRecordSchema=z.object({id:collectionID,draftId:collection
 export const completionReceiptSchema=z.object({record:completionRecordSchema,replayed:z.boolean()}).strict();
 export const completionPageSchema=page(completionRecordSchema);
 export const itemCompletionPageSchema=completionPageSchema.extend({collectionItemId:collectionID});
+export const completionHistoryQuerySchema=z.object({before:revision.optional(),limit:revision.max(100).default(20)}).strict();
+export const completionHistorySchema=z.object({source:sourceSchema,draftId:collectionID,currentRevision:integer,items:z.array(completionRecordSchema).max(100),nextBefore:revision.optional()}).strict().refine(page=>{
+ let previous=Number.POSITIVE_INFINITY;const ids=new Set<string>();
+ for(const record of page.items){if(ids.has(record.id)||record.draftId!==page.draftId||JSON.stringify(record.source)!==JSON.stringify(page.source)||record.revision>page.currentRevision||record.revision>=previous)return false;ids.add(record.id);previous=record.revision}
+ return !(page.currentRevision===0&&page.items.length>0)&&(!page.nextBefore||(page.items.length>0&&page.nextBefore===previous&&previous>1));
+});
+export type CompletionHistory=z.infer<typeof completionHistorySchema>;
 export type SupplyCompletionDraft=z.infer<typeof completionRecordSchema>;
 export const sourceDetailSchema=z.object({source:sourceSchema,product:collectionDetailSchema.shape.product,images:list(z.object({id:collectionID,url:text(2048),width:integer,height:integer}),4096)});
 export const sheinTargetRecordSchema=z.object({id:collectionID,targetId:collectionID,revision,source:sourceSchema,effectiveVersion:version,applyReceiptId:collectionID.optional(),productHash:z.string().regex(/^[0-9a-f]{64}$/),inventoryHash:z.string().regex(/^[0-9a-f]{64}$/),rulesHash:z.string().regex(/^[0-9a-f]{64}$/),merchant:merchantSchema,input:sheinTargetInputSchema,result:z.object({product:officialProductSchema,images:list(imageSlot,10000),issues:list(z.object({field:text(8192),code:text(128),message:text(8192)}),4096),ready_for_upload:z.boolean()}),createdAt:time});
@@ -85,14 +93,16 @@ export const publicationSchema=z.object({sourceId:collectionID,storeId:collectio
 export const uploadAttemptSchema=z.object({recordId:collectionID,attemptId:collectionID,effectKind:z.enum(["publish","image","global_create"]),platform:z.enum(["temu","tiktokshop"]).optional(),status:z.enum(["claimed","outcome_unknown","succeeded","failed_definitive","cancelled"]),message:text(8192)}).strict();
 export const resolveUploadSchema=z.object({recordId:collectionID,attemptId:collectionID,spu:text(128).min(1)}).strict();
 export const uploadResolutionSchema=z.object({recordId:collectionID,publishedRecordId:collectionID.optional(),attemptId:collectionID,status:z.enum(["succeeded","outcome_unknown"]),currentRecordUploaded:z.boolean().optional(),message:text(8192).optional(),product:z.object({spu_name:text(128),skc_list:z.array(z.object({skc_name:text(128).min(1),sku_list:z.array(z.object({sku_code:text(128).min(1),supplier_sku:text(800).min(1)})).min(1).max(400)})).max(40).nullable()}).optional()}).refine(v=>v.status!=="succeeded"||!!v.product?.spu_name&&!!v.product.skc_list?.length&&v.publishedRecordId===v.recordId&&v.currentRecordUploaded===true);
-export type SupplyRoute=MaterialsRoute|"item-completion-drafts"|"completion-draft"|"completion-drafts"|"completion-command"|"save-completion-draft"|"upload-attempt"|"resolve-upload"|"stages"|"optimization-options"|"publication"|"publication-status"|"preparation"|"operations"|"list"|"transfer"|"transfer-read"|"sources"|"source"|"target"|"save-target"|"rules"|"target-command"|"record"|"approve"|"inventory"|"create-operation"|"operation-key"|"operation"|"operation-items"|"ensure"|"cancel";
-export const supplyRouteMethods:ReadonlyArray<readonly["GET"|"POST",SupplyRoute]>=[...materialsRouteMethods,["GET","item-completion-drafts"],["POST","save-completion-draft"],["GET","completion-draft"],["GET","completion-drafts"],["GET","completion-command"],["GET","upload-attempt"],["POST","resolve-upload"],["GET","stages"],["GET","optimization-options"],["GET","publication"],["GET","publication-status"],["GET","preparation"],["GET","operations"],["GET","list"],["POST","transfer"],["GET","transfer-read"],["GET","sources"],["GET","source"],["GET","target"],["POST","save-target"],["POST","rules"],["GET","target-command"],["GET","record"],["POST","approve"],["POST","inventory"],["POST","create-operation"],["GET","operation-key"],["GET","operation"],["GET","operation-items"],["POST","ensure"],["POST","cancel"]];
+export type SupplyRoute=MaterialsRoute|"completion-history"|"completion-history-detail"|"item-completion-drafts"|"completion-draft"|"completion-drafts"|"completion-command"|"save-completion-draft"|"upload-attempt"|"resolve-upload"|"stages"|"optimization-options"|"publication"|"publication-status"|"preparation"|"operations"|"list"|"transfer"|"transfer-read"|"sources"|"source"|"target"|"save-target"|"rules"|"target-command"|"record"|"approve"|"inventory"|"create-operation"|"operation-key"|"operation"|"operation-items"|"ensure"|"cancel";
+export const supplyRouteMethods:ReadonlyArray<readonly["GET"|"POST",SupplyRoute]>=[...materialsRouteMethods,["GET","completion-history"],["GET","completion-history-detail"],["GET","item-completion-drafts"],["POST","save-completion-draft"],["GET","completion-draft"],["GET","completion-drafts"],["GET","completion-command"],["GET","upload-attempt"],["POST","resolve-upload"],["GET","stages"],["GET","optimization-options"],["GET","publication"],["GET","publication-status"],["GET","preparation"],["GET","operations"],["GET","list"],["POST","transfer"],["GET","transfer-read"],["GET","sources"],["GET","source"],["GET","target"],["POST","save-target"],["POST","rules"],["GET","target-command"],["GET","record"],["POST","approve"],["POST","inventory"],["POST","create-operation"],["GET","operation-key"],["GET","operation"],["GET","operation-items"],["POST","ensure"],["POST","cancel"]];
 export function supplyPath(method:string,p:string[]):SupplyRoute|null{
  const materials=materialsPath(method,p);if(materials)return materials;
  if(p[0]!=="supply-preparations")return null;
  if(method==="GET"){
   if(p.length===6&&p[1]==="sources"&&isAcquisitionUUID(p[2]!)&&p[3]==="publications"&&isAcquisitionUUID(p[4]!)&&p[5]==="status")return "publication-status";
   if(p.length===4&&p[1]==="completion-drafts"&&p[2]==="commands"&&isAcquisitionUUID(p[3]!))return "completion-command";
+  if(p.length===5&&p[1]==="sources"&&isAcquisitionUUID(p[2]!)&&p[3]==="completion-draft"&&p[4]==="history")return "completion-history";
+  if(p.length===6&&p[1]==="sources"&&isAcquisitionUUID(p[2]!)&&p[3]==="completion-draft"&&p[4]==="history"&&completionRevision(p[5])!==null)return "completion-history-detail";
   if(p.length===4&&p[1]==="sources"&&isAcquisitionUUID(p[2]!)&&p[3]==="completion-draft")return "completion-draft";
   if(p.length===4&&p[1]==="collection-items"&&isAcquisitionUUID(p[2]!)&&p[3]==="completion-drafts")return "item-completion-drafts";
   if(p.length===3&&isAcquisitionUUID(p[1]!)&&p[2]==="completion-drafts")return "completion-drafts";
@@ -121,6 +131,8 @@ export const supplyRequestSchema=(route:SupplyRoute)=>route.startsWith("material
 export const supplyUsesKey=(route:SupplyRoute)=>["materials-start","transfer","save-target","save-completion-draft","approve","create-operation"].includes(route);
 export const supplyMutates=(route:SupplyRoute)=>supplyUsesKey(route)||["materials-prepare","materials-resume","materials-adopt","resolve-upload","ensure","cancel"].includes(route);
 export function supplyResponseSchema(route:SupplyRoute):z.ZodType {
+ if(route==="completion-history")return completionHistorySchema;
+ if(route==="completion-history-detail")return completionRecordSchema;
  if(route.startsWith("materials-"))return route==="materials-prepare"?materialsPreparedSchema:route==="materials-adopt"||route==="materials-adoption"?materialsAdoptionSchema:materialsRunSchema;
  if(route==="rules")return z.union([rulesSchema,temuRulesSchema,tiktokRulesSchema]);
  if(route==="completion-draft")return completionRecordSchema;
@@ -144,6 +156,11 @@ export type OfficialProduct=z.infer<typeof officialProductSchema>;
 export function parseSupplyResponse(route:SupplyRoute,payload:unknown,expected?:string):unknown|null {
  const result=supplyResponseSchema(route).safeParse(payload);if(!result.success)return null;
  if(expected){
+  if(route==="completion-history"){
+   const page=completionHistorySchema.parse(result.data),[id,before,limit]=expected.split(":");
+   if(page.source.id!==id||page.items.length>Number(limit??20)||Number(before)>0&&page.items.some(r=>r.revision>=Number(before))||!Number(before)&&page.currentRevision>0&&page.items[0]?.revision!==page.currentRevision)return null;
+  }
+  if(route==="completion-history-detail"){const record=completionRecordSchema.parse(result.data);if(`${record.source.id}:${record.revision}`!==expected)return null;}
   if(route==="materials-prepare"){const value=materialsPreparedSchema.parse(result.data);if(`${value.recordId}:${value.requestKey}`!==expected)return null;}
   if(["materials-start","materials-read","materials-resume"].includes(route)){const value=materialsRunSchema.parse(result.data);if(`${value.recordId}:${value.requestKey}`!==expected)return null;}
   if(route==="completion-draft"&&completionRecordSchema.parse(result.data).source.id!==expected)return null;
