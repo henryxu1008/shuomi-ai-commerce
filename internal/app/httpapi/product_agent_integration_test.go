@@ -489,16 +489,16 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	}
 	module, err := buildProductAgentModule(context.Background(), f.db, deps, auth, settings, reviewIAM.config())
 	require.NoError(t, err)
-	if strings.HasPrefix(mode, "own content ") {
-		testOwnContentThroughOwners(t, f, module.(productAgentModule), deps, auth, configuration, agent.ExecutionMode(strings.TrimPrefix(mode, "own content ")), &calls)
-		return
-	}
 	if mode == "diagnosis" {
 		testDiagnosisHTTPThroughNativeOwners(t, f, module.(productAgentModule).application, deps, auth, &calls)
 		return
 	}
 	if mode == "selection" {
 		testSelectionHTTPThroughNativeOwners(t, f, module.(productAgentModule).application, deps, auth, &calls)
+		return
+	}
+	if strings.HasPrefix(mode, "own content ") {
+		testOwnContentThroughOwners(t, f, module.(productAgentModule), deps, auth, configuration, agent.ExecutionMode(strings.TrimPrefix(mode, "own content ")), &calls)
 		return
 	}
 	if strings.HasPrefix(mode, "content flow") {
