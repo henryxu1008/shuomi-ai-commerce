@@ -12,6 +12,9 @@ import (
 // ResolveCapacityNamespace binds the physical bucket owner, not the caller's
 // rotating credentials. Resolve before consulting a prior namespace admission.
 func ResolveCapacityNamespace(ctx context.Context, c ClientConfig, bucket, mode string) (string, error) {
+	if c.CapacityIdentityProvider != "" || c.CapacityMinIODeploymentID != "" {
+		return resolveMinIOCapacityNamespace(ctx, c, bucket, mode)
+	}
 	if (mode != "aws" && mode != "cos") || strings.TrimSpace(bucket) == "" {
 		return "", storagecapacity.ErrInvalid
 	}

@@ -8,6 +8,8 @@ import (
 )
 
 type KnowledgeStorageConfig struct {
+	CapacityIdentityProvider             string `json:"capacityIdentityProvider,omitempty"`
+	CapacityMinIODeploymentID            string `json:"capacityMinIODeploymentID,omitempty"`
 	Endpoint                             string `json:"endpoint"`
 	Region                               string `json:"region"`
 	Bucket                               string `json:"bucket"`
@@ -16,6 +18,7 @@ type KnowledgeStorageConfig struct {
 	Mode                                 string `json:"mode"`
 	COSImmutableNonVersionedBucketPolicy bool   `json:"cosImmutableNonVersionedBucketPolicy,omitempty"`
 }
+
 type KnowledgeConfig struct {
 	Enabled        bool                   `json:"enabled"`
 	Database       DatabaseConfig         `json:"database"`
@@ -36,6 +39,9 @@ func (c *Config) validateKnowledge() error {
 	}
 	if k.Storage.Region == "" || k.Storage.Bucket == "" || k.Storage.AccessKeyID == "" || k.Storage.SecretAccessKey == "" || k.Storage.Mode != "aws" && k.Storage.Mode != "cos" || k.Storage.Mode == "cos" && !k.Storage.COSImmutableNonVersionedBucketPolicy {
 		return errors.New("knowledge requires explicit private immutable object storage")
+	}
+	if err := k.Storage.validateCapacityIdentity(); err != nil {
+		return err
 	}
 	if k.Storage.Endpoint != "" {
 		endpoint, err := url.Parse(k.Storage.Endpoint)
