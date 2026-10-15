@@ -192,7 +192,11 @@ must not consume that old identity or browser login state. The unused alternate
 `sheinloginmanaged.AccountProvider` and isolated `sheinlogin.VerifyCodeRequest`
 are proposed bounded RETIRE candidates, not implemented deletions. Shared
 ListingAdmin/ListingRuntime contracts still used by current applications are
-not blanket retirement targets. This is design-only, requires user confirmation
+not blanket retirement targets. Design section 5.1 records the confirmed
+unqualified duplicate-store lookup defect: preserving the capability requires
+tenant-qualified lookup, response-scope checks and no Store mutation on lookup
+failure; that repair is not implemented or accepted as a cross-tenant policy.
+This is design-only, requires user confirmation
 before implementation, adds no internal-trial prerequisite and authorizes no
 runtime, data or provider action.
 
