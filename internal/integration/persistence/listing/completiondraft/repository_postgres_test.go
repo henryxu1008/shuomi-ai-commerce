@@ -223,6 +223,38 @@ func TestPostgresUnboundDraftAtomicCASReplayAndUnknownRecovery(t *testing.T) {
 	var original string
 	require.NoError(t, db.Raw("SELECT snapshot_json->>'title' FROM product_snapshot_versions WHERE product_key=?", product).Scan(&original).Error)
 	require.Equal(t, "Original product", original)
+	t.Run("history reads exact committed records within retained source scope", func(t *testing.T) {
+		history, e := service.ListHistory(actor, input2.SourceID, completiondraft.HistoryQuery{Limit: 2})
+		require.NoError(t, e)
+		require.EqualValues(t, 4, history.CurrentRevision)
+		require.EqualValues(t, 3, history.NextBefore)
+		require.Equal(t, []int64{4, 3}, []int64{history.Items[0].Revision, history.Items[1].Revision})
+		rest, e := service.ListHistory(actor, input2.SourceID, completiondraft.HistoryQuery{Limit: 2, Before: history.NextBefore})
+		require.NoError(t, e)
+		require.Equal(t, []completiondraft.Record{second.Record, first.Record}, rest.Items)
+		require.Zero(t, rest.NextBefore)
+		old, e := service.ReadRevision(actor, input2.SourceID, 1)
+		require.NoError(t, e)
+		require.Equal(t, first.Record, old)
+		_, e = service.ReadRevision(actor, input2.SourceID, 5)
+		require.ErrorIs(t, e, preparation.ErrNotFound)
+		for _, other := range []collection.Scope{{OrganizationID: "org-b", ActorID: scope.ActorID, MemberID: scope.MemberID}, {OrganizationID: scope.OrganizationID, ActorID: "actor-b", MemberID: scope.MemberID}, {OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, MemberID: "member-b"}} {
+			_, e = repo.ListHistory(ctx, other, input2.SourceID, completiondraft.HistoryQuery{Limit: 20})
+			require.ErrorIs(t, e, preparation.ErrNotFound)
+			_, e = repo.ReadRevision(ctx, other, input2.SourceID, 1)
+			require.ErrorIs(t, e, preparation.ErrNotFound)
+		}
+		_, e = repo.ReadRevision(ctx, scope, uuid.NewString(), 1)
+		require.ErrorIs(t, e, preparation.ErrNotFound)
+		require.NoError(t, db.Exec("UPDATE listing_completion_draft_records SET source_json=jsonb_set(source_json,'{collectionRevision}','999') WHERE id=?", first.Record.ID).Error)
+		_, e = service.ReadRevision(actor, input2.SourceID, 1)
+		require.ErrorIs(t, e, preparation.ErrUnavailable)
+		_, e = service.ListHistory(actor, input2.SourceID, completiondraft.HistoryQuery{Limit: 20})
+		require.ErrorIs(t, e, preparation.ErrUnavailable)
+		sourceJSON, e := json.Marshal(first.Record.Source)
+		require.NoError(t, e)
+		require.NoError(t, db.Exec("UPDATE listing_completion_draft_records SET source_json=? WHERE id=?", sourceJSON, first.Record.ID).Error)
+	})
 	t.Run("item heads span preparations and keep original version", func(t *testing.T) {
 		publication2 := uuid.NewString()
 		require.NoError(t, db.Create(&catalogstore.SnapshotVersionRecord{TenantID: scope.OrganizationID, ProductKey: product, Version: 2, PublicationID: publication2, PayloadHash: collection.Digest(raw), SnapshotJSON: raw}).Error)
@@ -232,6 +264,10 @@ func TestPostgresUnboundDraftAtomicCASReplayAndUnknownRecovery(t *testing.T) {
 		sources2, e := ps.ListSources(actor, transfer2.Preparation.ID, collection.Query{Limit: 20})
 		require.NoError(t, e)
 		// An explicit transfer without a saved head is absent from the list.
+		emptyHistory, e := service.ListHistory(actor, sources2.Items[0].ID, completiondraft.HistoryQuery{})
+		require.NoError(t, e)
+		require.Empty(t, emptyHistory.Items)
+		require.Zero(t, emptyHistory.CurrentRevision)
 		before, e := service.ListForCollectionItem(actor, item, collection.Query{Limit: 20})
 		require.NoError(t, e)
 		require.EqualValues(t, 1, before.Total)
@@ -266,10 +302,37 @@ func TestPostgresUnboundDraftAtomicCASReplayAndUnknownRecovery(t *testing.T) {
 		require.ErrorIs(t, e, collection.ErrNotFound)
 		_, e = service.Read(actor, input2.SourceID)
 		require.NoError(t, e, "retained source access keeps its existing archive contract")
+		_, e = service.ListHistory(actor, input2.SourceID, completiondraft.HistoryQuery{})
+		require.NoError(t, e, "history uses the same retained-source authority")
 		require.NoError(t, db.Exec("UPDATE product_collection_items SET archived_at=NULL WHERE id=?", item).Error)
 		require.NoError(t, db.Exec("UPDATE product_collection_items SET original_version=1,publication_id=?,revision=1 WHERE id=?", publication, item).Error)
 	})
 	// Large valid descriptions must page within the existing response budget,
+	t.Run("history budget keeps every earlier saved revision", func(t *testing.T) {
+		content := completiondraft.Content{Title: "history-budget", Description: strings.Repeat("a", 32768)}
+		contentJSON, e := json.Marshal(content)
+		require.NoError(t, e)
+		for revision := 5; revision <= 74; revision++ {
+			require.NoError(t, db.Exec(`INSERT INTO listing_completion_draft_records (organization_id,actor_id,member_id,id,source_id,draft_id,revision,source_json,content_json,content_hash,created_at) SELECT organization_id,actor_id,member_id,gen_random_uuid(),source_id,draft_id,?,source_json,?,?,now() FROM listing_completion_draft_records WHERE id=?`, revision, contentJSON, collection.Digest(content), first.Record.ID).Error)
+		}
+		require.NoError(t, db.Exec(`UPDATE listing_completion_draft_heads SET revision=74,record_id=(SELECT id FROM listing_completion_draft_records WHERE source_id=? AND revision=74) WHERE source_id=?`, input2.SourceID, input2.SourceID).Error)
+		auth.calls.Store(0)
+		history, e := service.ListHistory(actor, input2.SourceID, completiondraft.HistoryQuery{Limit: 100})
+		require.NoError(t, e)
+		require.Less(t, auth.calls.Load(), int64(30), "authorization is bounded per page, not per record")
+		require.NotZero(t, history.NextBefore)
+		encoded, e := json.Marshal(history)
+		require.NoError(t, e)
+		require.Less(t, len(encoded), 2<<20)
+		rest, e := service.ListHistory(actor, input2.SourceID, completiondraft.HistoryQuery{Limit: 100, Before: history.NextBefore})
+		require.NoError(t, e)
+		require.Zero(t, rest.NextBefore)
+		all := append(history.Items, rest.Items...)
+		require.Len(t, all, 74)
+		for index, record := range all {
+			require.EqualValues(t, 74-index, record.Revision)
+		}
+	})
 	// retaining every remaining source rather than truncating the list.
 	content := completiondraft.Content{Title: "large-page-fixture", Description: strings.Repeat("a", 32768)}
 	contentJSON, err := json.Marshal(content)

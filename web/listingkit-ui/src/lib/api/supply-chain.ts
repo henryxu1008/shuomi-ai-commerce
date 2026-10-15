@@ -36,6 +36,17 @@ export const readSupplySource=async(scope:SupplyScope,id:string,signal?:AbortSig
 export const readSupplyCompletionDraft=async(scope:SupplyScope,id:string,signal?:AbortSignal)=>{
  const value=await send(`${base}/sources/${collectionID.parse(id)}/completion-draft`,scope,c.completionRecordSchema,signal);if(value.source.id!==id)throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
 };
+export const listCompletionHistory=async(scope:SupplyScope,id:string,q:{before?:number;limit?:number}={},signal?:AbortSignal)=>{
+ const checked=c.completionHistoryQuerySchema.parse(q),params=new URLSearchParams({limit:String(checked.limit)});
+ if(checked.before)params.set("before",String(checked.before));
+ const value=await send(`${base}/sources/${collectionID.parse(id)}/completion-draft/history?${params}`,scope,c.completionHistorySchema,signal);
+ if(!c.parseSupplyResponse("completion-history",value,`${id}:${checked.before??0}:${checked.limit}`))throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
+};
+export const readCompletionRevision=async(scope:SupplyScope,id:string,revision:number,signal?:AbortSignal)=>{
+ const checked=c.completionHistoryQuerySchema.parse({before:revision}).before!;
+ const value=await send(`${base}/sources/${collectionID.parse(id)}/completion-draft/history/${checked}`,scope,c.completionRecordSchema,signal);
+ if(value.source.id!==id||value.revision!==checked)throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
+};
 export const listSupplyCompletionDrafts=async(scope:SupplyScope,id:string,q:Query={},signal?:AbortSignal)=>{
  const value=await send(`${base}/${collectionID.parse(id)}/completion-drafts${query(q)}`,scope,c.completionPageSchema,signal);if(value.items.some(r=>r.source.preparationId!==id))throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
 };
