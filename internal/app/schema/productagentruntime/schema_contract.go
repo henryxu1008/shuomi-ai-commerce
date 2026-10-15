@@ -154,11 +154,12 @@ func verifyRelation(db *gorm.DB, spec relationContract) error {
 		return fmt.Errorf("public.%s owner, durability or relation contract differs", spec.Name)
 	}
 	var cols []struct {
+		DefaultCollation                         bool
 		Name, Type, Default, Identity, Generated string
 		NotNull                                  bool
 		Position                                 int
 	}
-	err = db.Raw(`SELECT a.attname AS name,pg_catalog.format_type(a.atttypid,a.atttypmod) AS type,COALESCE(pg_catalog.pg_get_expr(d.adbin,d.adrelid),'') AS default,a.attidentity::text AS identity,a.attgenerated::text AS generated,a.attnotnull AS not_null,a.attnum AS position FROM pg_catalog.pg_attribute a LEFT JOIN pg_catalog.pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum WHERE a.attrelid=pg_catalog.to_regclass(?) AND a.attnum>0 AND NOT a.attisdropped ORDER BY a.attnum`, "public."+spec.Name).Scan(&cols).Error
+	err = db.Raw(`SELECT a.attname AS name,pg_catalog.format_type(a.atttypid,a.atttypmod) AS type,COALESCE(pg_catalog.pg_get_expr(d.adbin,d.adrelid),'') AS default,a.attidentity::text AS identity,a.attgenerated::text AS generated,a.attcollation=t.typcollation AS default_collation,a.attnotnull AS not_null,a.attnum AS position FROM pg_catalog.pg_attribute a JOIN pg_catalog.pg_type t ON t.oid=a.atttypid LEFT JOIN pg_catalog.pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum WHERE a.attrelid=pg_catalog.to_regclass(?) AND a.attnum>0 AND NOT a.attisdropped ORDER BY a.attnum`, "public."+spec.Name).Scan(&cols).Error
 	if err != nil {
 		return err
 	}
@@ -171,7 +172,7 @@ func verifyRelation(db *gorm.DB, spec relationContract) error {
 		if expected.Default == "@owned-sequence" {
 			defaultOK = actual.Default == "nextval('ai_client_credentials_id_seq'::regclass)"
 		}
-		if actual.Name != expected.Name || actual.Type != expected.Type || actual.NotNull != expected.NotNull || actual.Position != i+1 || actual.Identity != "" || actual.Generated != "" || !defaultOK {
+		if actual.Name != expected.Name || actual.Type != expected.Type || actual.NotNull != expected.NotNull || actual.Position != i+1 || actual.Identity != "" || actual.Generated != "" || !actual.DefaultCollation || !defaultOK {
 			return fmt.Errorf("public.%s.%s column contract differs", spec.Name, expected.Name)
 		}
 	}

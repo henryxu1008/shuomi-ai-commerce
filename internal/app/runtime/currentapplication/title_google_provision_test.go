@@ -23,7 +23,7 @@ func TestGoogleTitleProvisionIsOfficialVersionedAndNotPlanner(t *testing.T) {
 	p.AdmittedCredentialVersion, p.AdmittedEndpointIdentityDigest = "", ""
 	cfg.ProductAgent.TextPolicies["org"] = p
 	writerDB := cfg.ProductAgent.Database
-	writerDB.User = "credential_writer"
+	writerDB.User = "title_credential_writer"
 	input := TitleCredentialProvision{Action: "upsert", Consumer: "title", OrganizationID: "org", ClientName: p.Profile.ClientName,
 		APIKey: "synthetic-only", BaseURL: googleinteractions.Origin, Model: googleinteractions.Model, APIStyle: "google-interactions", TimeoutSecond: 3, WriterDatabase: writerDB}
 	db, err := gorm.Open(sqlite.Dialector{DriverName: "sqlite", DSN: ":memory:"}, &gorm.Config{})

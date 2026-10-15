@@ -118,7 +118,7 @@ func TestPlanningCredentialProvisionUsesItsOwnAdmittedRoute(t *testing.T) {
 		t.Fatal(err)
 	}
 	writerDB := cfg.ProductAgent.Database
-	writerDB.User = "credential_writer"
+	writerDB.User = "title_credential_writer"
 	input := TitleCredentialProvision{Action: "upsert", Consumer: "planning", OrganizationID: "org", ClientName: "chat",
 		APIKey: "synthetic-key", BaseURL: "https://api.anthropic.com", Model: "claude-fixture", APIStyle: "claude-native", TimeoutSecond: 3, WriterDatabase: writerDB}
 	tooShort := input
@@ -165,7 +165,7 @@ func TestFirstPlanningCredentialProvisionReturnsBindingBeforeModuleEnable(t *tes
 		t.Fatal(err)
 	}
 	writerDB := cfg.ProductAgent.Database
-	writerDB.User = "credential_writer"
+	writerDB.User = "title_credential_writer"
 	input := TitleCredentialProvision{Action: "upsert", Consumer: "planning", OrganizationID: "org", ClientName: "chat",
 		APIKey: "synthetic-key", BaseURL: "https://api.anthropic.com", Model: "claude-fixture", APIStyle: "claude-native", TimeoutSecond: 3, WriterDatabase: writerDB}
 	result, err := SaveTitleCredential(context.Background(), cfg, input, db)
@@ -208,7 +208,7 @@ func TestFirstTitleCredentialProvisionReturnsBindingBeforeModuleEnable(t *testin
 		t.Fatal(err)
 	}
 	writerDB := cfg.ProductAgent.Database
-	writerDB.User = "credential_writer"
+	writerDB.User = "title_credential_writer"
 	input := TitleCredentialProvision{Action: "upsert", Consumer: "title", OrganizationID: "org", ClientName: "text",
 		APIKey: "synthetic-key", BaseURL: "https://grsaiapi.com/v1", Model: "gemini-2.5-flash", APIStyle: "grsai", TimeoutSecond: 3, WriterDatabase: writerDB}
 	result, err := SaveTitleCredential(context.Background(), cfg, input, db)
