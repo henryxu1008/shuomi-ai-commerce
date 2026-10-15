@@ -52,6 +52,15 @@ func verifyRole(db *gorm.DB, role string) error {
 	if !allowed {
 		return fmt.Errorf("role %s is missing or has unapproved authority", role)
 	}
+	// SET LOCAL ROLE does not apply login defaults. Resolve only the current
+	// database's effective write mode, preserving more specific overrides.
+	var readOnly bool
+	if err := db.Raw(`SELECT COALESCE((SELECT o.option_value::boolean FROM pg_catalog.pg_db_role_setting s JOIN pg_catalog.pg_roles r ON r.rolname=? JOIN pg_catalog.pg_database d ON d.datname=current_database() CROSS JOIN LATERAL pg_catalog.pg_options_to_table(s.setconfig) o WHERE s.setrole IN (0,r.oid) AND s.setdatabase IN (0,d.oid) AND o.option_name='default_transaction_read_only' ORDER BY (s.setrole=r.oid) DESC,(s.setdatabase=d.oid) DESC LIMIT 1),false)`, role).Scan(&readOnly).Error; err != nil {
+		return err
+	}
+	if readOnly {
+		return fmt.Errorf("role %s starts transactions read-only", role)
+	}
 	return verifyObjectBounds(db, role)
 }
 
