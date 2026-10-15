@@ -6,9 +6,53 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestMinIOInfoRequiresSingleCompleteJSONDocument(t *testing.T) {
+	for _, consumer := range []string{"configured-capacity", "source-trial"} {
+		for _, transfer := range []string{"content-length", "chunked"} {
+			for _, tc := range []struct {
+				name, tail string
+				valid      bool
+			}{{"single", "", true}, {"whitespace", "\n \t\r\n", true}, {"garbage", "garbage", false}, {"second-object", "\n{}", false}} {
+				t.Run(consumer+"/"+transfer+"/"+tc.name, func(t *testing.T) {
+					server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+						require.Equal(t, "/minio/admin/v3/info", r.URL.Path)
+						require.True(t, strings.HasPrefix(r.Header.Get("Authorization"), "AWS4-HMAC-SHA256 "))
+						w.Header().Set("Content-Type", "application/json")
+						if transfer == "chunked" {
+							w.WriteHeader(http.StatusOK)
+							w.(http.Flusher).Flush()
+						}
+						_, _ = w.Write([]byte(`{"deploymentID":"` + trialDeploymentID + `"}` + tc.tail))
+					}))
+					defer server.Close()
+					cfg := ClientConfig{Endpoint: server.URL, Region: "us-east-1", AccessKeyID: "runtime", SecretAccessKey: "synthetic", UsePathStyle: true}
+					ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+					defer cancel()
+					var ns string
+					var err error
+					if consumer == "source-trial" {
+						ns, err = ResolveSourceMediaCapacityNamespace(ctx, cfg, "source-media-trial", "aws", true, trialDeploymentID)
+					} else {
+						cfg.CapacityIdentityProvider, cfg.CapacityMinIODeploymentID = MinIOCapacityIdentityProvider, trialDeploymentID
+						ns, err = ResolveCapacityNamespace(ctx, cfg, "knowledge", "aws")
+					}
+					if tc.valid {
+						require.NoError(t, err)
+						require.Len(t, ns, 64)
+					} else {
+						require.Error(t, err, "an abnormal complete response must not admit a namespace")
+						require.Empty(t, ns)
+					}
+				})
+			}
+		}
+	}
+}
 
 func TestConfiguredMinIOCapacityBindsAuthenticatedDeployment(t *testing.T) {
 	for _, scenario := range []string{"correct", "different", "empty", "forbidden", "redirect", "malformed", "truncated", "oversized"} {

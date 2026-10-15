@@ -106,10 +106,10 @@ func (t minIOInfoTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	if response.StatusCode != http.StatusOK || response.ContentLength > 1<<20 {
 		return nil, storagecapacity.ErrUnavailable
 	}
-	// Decode only after checking the whole bounded response, including a tail
-	// following an otherwise valid first JSON value and chunked responses.
+	// The SDK decodes only its first JSON value. Require a complete, single
+	// document after bounding the entire response, including chunked bodies.
 	body, err := io.ReadAll(io.LimitReader(response.Body, (1<<20)+1))
-	if err != nil || len(body) > 1<<20 {
+	if err != nil || len(body) > 1<<20 || !json.Valid(body) {
 		return nil, storagecapacity.ErrUnavailable
 	}
 	response.Body = io.NopCloser(bytes.NewReader(body))
