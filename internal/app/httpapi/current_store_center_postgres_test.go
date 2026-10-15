@@ -82,6 +82,19 @@ func TestCurrentStorePostgresDelivery(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, entitlement)
 	records, quota := open("store_center", "store_center_runtime"), open("commercial", "store_quota_runtime")
+	t.Run("optional TikTok persistence does not admit extra runtime access", func(t *testing.T) {
+		require.NoError(t, storecenter.VerifyCurrentSchemaForCapabilities(ctx, recordsOwner, storecenter.RuntimeCapabilities{TikTokShop: true}))
+		require.Error(t, storecenter.VerifyRuntimePermissionsForCapabilities(ctx, records, storecenter.RuntimeCapabilities{TikTokShop: true}), "configured TikTok requires its exact grants")
+		require.NoError(t, recordsOwner.Exec(`GRANT SELECT ON workbench_store_tiktok_oauth_grants TO store_center_runtime`).Error)
+		require.Error(t, storecenter.VerifyRuntimePermissions(ctx, records), "disabled TikTok still rejects extra access")
+		require.NoError(t, recordsOwner.Exec(`REVOKE SELECT ON workbench_store_tiktok_oauth_grants FROM store_center_runtime`).Error)
+	})
+	// This fixture's Store consumer has no configured TikTok application. The
+	// full installer verified every table above; now exercise an absent extension.
+	require.NoError(t, recordsOwner.Exec(`DROP TABLE public.workbench_store_tiktok_oauth_attempts,public.workbench_store_tiktok_oauth_grants,public.workbench_store_tiktok_shop_bindings,public.workbench_store_tiktok_oauth_refresh_operations,public.workbench_store_tiktok_authorization_events RESTRICT`).Error)
+	require.NoError(t, storecenter.VerifyCurrentSchemaForCapabilities(ctx, records, storecenter.RuntimeCapabilities{}))
+	require.ErrorContains(t, storecenter.VerifyCurrentSchemaForCapabilities(ctx, recordsOwner, storecenter.RuntimeCapabilities{TikTokShop: true}), "store schema columns mismatch")
+	require.ErrorContains(t, storecenter.VerifyCurrentSchema(ctx, recordsOwner), "store schema columns mismatch", "full installation verification remains strict")
 	charges, err := orgresource.NewConsumerChargeService(currentStoreChargeFixture{}, map[orgresource.ResourceConsumer]orgresource.ConsumerChargeOwner{orgresource.ConsumerStoreService: currentStoreChargeFixture{}})
 	require.NoError(t, err)
 	module, err := buildCurrentStoreCenterModule(ctx, records, authz.DefaultListingKitAuthorizer(), charges, nil, storecenter.RuntimeCapabilities{})
@@ -364,7 +377,7 @@ func TestCurrentStorePostgresDelivery(t *testing.T) {
 	})
 	t.Run("missing-store-primary-identity", func(t *testing.T) {
 		require.NoError(t, recordsOwner.Exec(`ALTER TABLE workbench_stores DROP CONSTRAINT workbench_stores_pkey`).Error)
-		require.Error(t, storecenter.VerifyCurrentSchema(ctx, records))
+		require.Error(t, storecenter.VerifyCurrentSchemaForCapabilities(ctx, records, storecenter.RuntimeCapabilities{}))
 		require.NoError(t, recordsOwner.Exec(`ALTER TABLE workbench_stores ADD PRIMARY KEY(id)`).Error)
 	})
 	t.Run("missing-quota-bucket-primary", func(t *testing.T) {
@@ -377,7 +390,7 @@ func TestCurrentStorePostgresDelivery(t *testing.T) {
 		require.Error(t, listingsubscription.VerifyStoreQuotaRuntime(ctx, quota), "replay requires the installed canonical uniqueness boundary")
 		require.NoError(t, commercial.Exec(`CREATE UNIQUE INDEX idx_saas_store_quota_org_request ON saas_store_quota_allocations(organization_id,request_key)`).Error)
 	})
-	require.NoError(t, storecenter.VerifyCurrentSchema(ctx, records))
+	require.NoError(t, storecenter.VerifyCurrentSchemaForCapabilities(ctx, records, storecenter.RuntimeCapabilities{}))
 	require.NoError(t, listingsubscription.VerifyStoreQuotaRuntime(ctx, quota))
 	t.Run("official-credential-shape-on-narrow-postgres", func(t *testing.T) {
 		repo, err := storecenter.NewMemberScopedStoreRepository(records, postgresConnectionAccess{})
@@ -419,7 +432,7 @@ func TestCurrentStorePostgresDelivery(t *testing.T) {
 	t.Run("weakened-store-constraint", func(t *testing.T) {
 		require.NoError(t, recordsOwner.Exec(`ALTER TABLE workbench_stores DROP CONSTRAINT store_service_period`).Error)
 		require.NoError(t, recordsOwner.Exec(`ALTER TABLE workbench_stores ADD CONSTRAINT store_service_period CHECK (TRUE)`).Error)
-		require.Error(t, storecenter.VerifyCurrentSchema(ctx, records), "a constraint name alone is not a service contract")
+		require.Error(t, storecenter.VerifyCurrentSchemaForCapabilities(ctx, records, storecenter.RuntimeCapabilities{}), "a constraint name alone is not a service contract")
 	})
 
 }

@@ -36,7 +36,7 @@ func buildCurrentResourceChargesWithOwners(ctx context.Context, productDB, store
 		if authorizer == nil {
 			return nil, orgresource.ErrInvalidInput
 		}
-		if err := storecenter.VerifyCurrentSchema(ctx, storeDB); err != nil {
+		if err := storecenter.VerifyCurrentSchemaForCapabilities(ctx, storeDB, capabilities); err != nil {
 			return nil, err
 		}
 		if err := storecenter.VerifyRuntimePermissionsForCapabilities(ctx, storeDB, capabilities); err != nil {

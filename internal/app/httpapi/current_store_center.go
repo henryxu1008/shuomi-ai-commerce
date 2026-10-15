@@ -38,7 +38,7 @@ func buildCurrentStoreCenterModule(ctx context.Context, records *gorm.DB, author
 	if records == nil {
 		return nil, errors.New("store center requires its native record pool")
 	}
-	if err := storecenter.VerifyCurrentSchema(ctx, records); err != nil {
+	if err := storecenter.VerifyCurrentSchemaForCapabilities(ctx, records, capabilities); err != nil {
 		return nil, fmt.Errorf("verify store center schema: %w", err)
 	}
 	if err := storecenter.VerifyRuntimePermissionsForCapabilities(ctx, records, capabilities); err != nil {
