@@ -90,6 +90,27 @@ The scan found four high-value areas that still affect production paths:
 
 These areas are drain targets. New Product, Marketplace, Agent, Tool, BusinessTask, Store, and Console work must not add new dependency on them merely because they already exist.
 
+### #301 bounded 1688 numeric source-account retirement
+
+The unused `httpx.Crawler1688Handler`, repository-backed 1688 account-profile
+resolver and entire old `internal/sourceaccount` package (including its GORM
+schema/bootstrap) are retired. Their constructors had no production consumers;
+the current build no longer pulls old numeric account persistence through the
+shared crawler/HTTP packages. No database, profile or retained runtime was changed.
+
+The current `sourceaccountregistry` remains the Organization-scoped registration
+owner; registration still means `pending_connection`, not a usable login.
+Current anonymous acquisition, Browser Capture and local-agent collection retain
+their existing owners and contracts. The crawler leaf retains its `AccountProfile`
+interface/error codes and original public/account-assisted processing and locks.
+Its numeric Profile interface is remaining legacy service debt, not a current
+Organization contract or permission to reintroduce the old repository. Shared
+HTTP scoped result protections and Amazon routes remain with `httpx`.
+
+The standalone SHEIN worker and its original account persistence, Store sync,
+Redis/browser/profile, health and shutdown remain unchanged. Source retirement
+does not establish provider, user, deployed-runtime or production acceptance.
+
 ### #29 bounded backend retirement
 
 The mixed root Go package, old Task/API/Workspace/Temporal chains and default
@@ -276,7 +297,7 @@ This section calibrates only the exact edges below; it does not claim a new full
 
 | Exact legacy / mixed edge | Decision | Current replacement / bounded evidence | Reusable behavior | Exit condition / prohibited new work |
 | --- | --- | --- | --- | --- |
-| `internal/app/httpapi/composition_builder.go` -> old `internal/sourceaccount` repository/access validator -> crawler | EXTRACT, then RETIRE old owner | SA1 is `internal/sourceaccountregistry` + its persistence/schema/application boundary; PR #369 is merged, but its application remains isolated and the default composition still uses the old repository. | Only independently valid provider-connection/access behavior after a current owner and current external requirement are named; registration facts do not belong here. | Switch each admitted caller to its current owner, then remove this old edge. No registry wrapper, tenantbridge, old-ID migration, fallback, dual read/write or second account fact source. #301 coordinates remaining old identity consumers. |
+| Old `internal/sourceaccount` repository/access validator/bootstrap and unused 1688 HTTP/profile resolver | RETIRE | Old composition was removed under #29; #301 removes the remaining unconstructed resolver/HTTP leaf and old account package. Current registration remains `sourceaccountregistry` + its existing persistence/schema/application boundary. | Browser Profile interface/error classification and shared HTTP scoped result protection remain in their original leaf owners. Provider connection is separate from registration. | Keep old package, resolver and HTTP submission absent. No registry wrapper, old table/profile dependency, tenantbridge, ID migration, fallback, dual read/write or second account fact source. |
 | `composition_builder.go` -> `internal/compatibility/listingkit/sourcehandoff/a1688.NewTaskCommandService` -> legacy Task/request | RETIRE | Handoff construction, module field/accessor/registration and source-only validator removed under #663. Original unrelated source repository/crawler and ListingKit callers remain. | Current Sourcing/Catalog source normalization, identity, authorization, evidence and atomic publication are already owned by current applications. | Current admitted source applications, without old Task side effects. | No wrapper, old ID/data migration, forwarding, dual facts or new tenantbridge consumer. Remaining root ListingKit/tenantbridge debt belongs to #29/#301. |
 | `internal/app/httpapi.newImageAgentAuthorizedAssetCatalog(listingkitstore.NewTaskRepository(...))` and `imageAgentCatalogFromTask*` accepting root `listingkit.Task` | RETIRE input bridge | ImageAgent domain/workflow/store, Temporal worker, `cmd/image-agent-temporal-worker` and deployment definitions remain **CURRENT**. Organization worker governance is the separate isolated `BuildOrganizationImageCapabilities` + `OrganizationExecutionAuthorizer`; default `buildProductionImageCapabilities` does not install its `reviewGovernance`/invocation recorder, and the default Temporal activity assembly does not populate `imageagenttemporal.ActivityDependencies.ExecutionAuthorizer`. `NewImageAgentOrganizationApplication` is a separate current opt-in HTTP/catalog/service assembly, also **NOT_PRESENT** in default composition. | Deterministic asset selection/validation only when moved behind a current Product/Asset-owned catalog input; ImageAgent behavior and isolated Organization governance are not legacy. | Replace the default task catalog with an admitted authoritative current input and switch callers, then delete the Task bridge. No fallback/dual catalog, no blanket retirement of ImageAgent, and no silent default-worker installation of the isolated Organization governance. |
 | Root `internal/listingkit` Task-first submission/workspace paths beside `internal/listing/submission.ExecutionKernel`, DRAFT-S1 and other extracted leaf owners | EXTRACT by behavior; RETIRE old path after caller cutover | SUB-K1 kernel is merged in PR #385 but has no non-test application/default caller; DRAFT-S1 is merged in PR #377 but remains isolated. Their existence does not mark the whole root or whole submission chain current. | Deterministic marketplace/readiness rules and provider-neutral submission behavior only under `internal/listing/*` or `internal/marketplace/*`; `ListingKitAuthorizer` and leaf packages are not legacy merely by name. | Cut over exact callers/provider adapters under separate admission. Do not wrap root ListingKit, clone a state machine, or claim `submit_lock`/provider/default deployment complete. #29 owns the root drain. |
