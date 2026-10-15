@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"task-processor/internal/authz"
 	"task-processor/internal/httproute"
+	collectionhttp "task-processor/internal/product/collection/httpapi"
 )
 
 func TestOwnContentAgentRoutesKeepExplicitFreshBoundaries(t *testing.T) {
@@ -36,5 +37,26 @@ func TestOwnContentAgentRoutesKeepExplicitFreshBoundaries(t *testing.T) {
 	}
 	for _, path := range []string{base + "/bad", base + "/" + key + "/apply", base + "/" + key + "/review/extra", "/api/v1/workbench/collections/items/bad/content-agent/runs"} {
 		require.False(t, isProductAgentHTTPPath(path), path)
+	}
+}
+
+func TestOwnContentAdmissionRequiresCollectionAndAgentRoutes(t *testing.T) {
+	routes := append(agentAndPointRoutes(true, false), collectionhttp.Routes(nil, nil)...)
+	routes = append(routes, ownContentAgentRoutes(nil)...)
+	validate := func(r []httproute.Descriptor, flags currentApplicationOptionalRoutes) error {
+		return validateCurrentApplicationRoutesInternal(r, false, false, false, false, false, false, false, flags)
+	}
+	flags := currentApplicationOptionalRoutes{ProductAgent: true, Collections: true}
+	require.NoError(t, validate(routes, flags))
+	for _, missing := range []currentApplicationOptionalRoutes{{ProductAgent: true}, {Collections: true}} {
+		require.Error(t, validate(routes, missing))
+	}
+	for i, r := range routes {
+		if r.Module != "product-agent" {
+			continue
+		}
+		bad := append([]httproute.Descriptor(nil), routes...)
+		bad[i].AuthPolicy = httproute.AuthPolicyPublic
+		require.Error(t, validate(bad, flags))
 	}
 }

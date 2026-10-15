@@ -17,7 +17,7 @@ export const agentEmptyRequestSchema = z.strictObject({});
 const agentTargetPlatformSchema = z.enum(["shein", "temu", "amazon"]);
 export const agentStartRequestSchema = z.strictObject({ expectedModeRevision:modeRevisionSchema,targetPlatform: agentTargetPlatformSchema, knowledgeSelection:knowledgeSelectionSchema.optional(),templateSelection:templateRefSchema.optional() });
 export const contentAgentStartRequestSchema = agentStartRequestSchema.extend({targetPlatform:z.enum(["product","shein","temu","amazon"]),contentSelection:contentSelectionSchema,skillSelection:skillSelectionSchema.optional()}).refine(v=>!v.skillSelection||v.contentSelection.title&&!v.contentSelection.description&&!v.contentSelection.sellingPoints&&!v.contentSelection.seoKeywords);
-export const ownSourceSelectionSchema=z.strictObject({catalogVersion:version,publicationId:z.string().min(1).max(128)});
+const ownSourceSelectionSchema=z.strictObject({catalogVersion:version,publicationId:z.string().min(1).max(128)});
 export type OwnSourceSelection=z.infer<typeof ownSourceSelectionSchema>;
 export const ownContentStartRequestSchema=contentAgentStartRequestSchema.safeExtend({targetPlatform:z.literal("product"),ownSource:ownSourceSelectionSchema});
 export const ownContentSourceSchema=z.strictObject({itemId:id,productKey:z.string().min(1).max(128),catalogVersion:version,publicationId:z.string().min(1).max(128),originalVersion:z.number().int().positive().max(Number.MAX_SAFE_INTEGER),originalPublicationId:z.string().min(1).max(128),title:z.string().max(20000)});
