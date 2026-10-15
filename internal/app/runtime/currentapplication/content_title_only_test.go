@@ -143,3 +143,32 @@ func TestContentTitleOnlyDoesNotTakeOverOtherAssetConsumers(t *testing.T) {
 		})
 	}
 }
+
+func TestContentTitleOnlyManifestKeepsMinIOCapacityConsumers(t *testing.T) {
+	cfg := contentTitleRuntimeConfig(t)
+	cfg.StorageCapacity = true
+	cfg.Knowledge = knowledgeRuntimeTestConfig().Knowledge
+	eco := ecoservicesTestConfig()
+	cfg.Ecoservices = eco.Ecoservices
+	cfg.MoneyOwnerDatabase = eco.MoneyOwnerDatabase
+	cfg.Ecoservices.NonPaymentOnly = true
+	cfg.Ecoservices.Payments = EcoservicesPaymentsConfig{}
+	cfg.Ecoservices.PayloadKey = ""
+	for kind, storage := range map[string]*KnowledgeStorageConfig{"knowledge": &cfg.Knowledge.Storage, "ecoservices": &cfg.Ecoservices.Storage} {
+		storage.Endpoint = "http://" + kind + "-objects:9000"
+		storage.Region = "us-east-1"
+		storage.CapacityIdentityProvider = "minio-deployment"
+		storage.CapacityMinIODeploymentID = minioCapacityTestID
+	}
+	raw, err := json.Marshal(cfg)
+	require.NoError(t, err)
+	loaded, err := LoadConfig(writeManifest(t, string(raw)))
+	require.NoError(t, err)
+	require.True(t, loaded.ProductAgent.ContentTitleOnly)
+	require.True(t, loaded.AIWorkbench.ConversationOnly)
+	require.True(t, loaded.StorageCapacity)
+	require.Equal(t, cfg.Knowledge.Storage, loaded.Knowledge.Storage)
+	require.Equal(t, cfg.Ecoservices.Storage, loaded.Ecoservices.Storage)
+	loaded.Knowledge.Storage.CapacityMinIODeploymentID = ""
+	require.Error(t, loaded.validate(), "content profile must not bypass existing capacity identity admission")
+}
