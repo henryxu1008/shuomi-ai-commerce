@@ -58,8 +58,9 @@ session/PKCE cookie that produced a particular failure.
 
 ## Contract → implementation → injection → consumer
 
-1. Reuse the existing configured public-origin resolution. Auth.js `AUTH_URL`,
-   when supplied, is the canonical authority for this Auth.js instance; otherwise
+1. Reuse the existing configured public-origin resolution. Auth.js `AUTH_URL`
+   (or its existing SDK-supported `NEXTAUTH_URL` alias), when supplied, is the
+   canonical authority for this Auth.js instance; otherwise
    use the existing `resolvePublicAppOrigin()` behavior, including its current
    localhost development default. There is no new configuration flag or legacy
    origin fallback. If needed, EXTRACT that existing pure resolver to a shared

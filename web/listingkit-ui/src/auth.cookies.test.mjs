@@ -151,6 +151,16 @@ it("continues to reject a wrong secret/check under its own namespace without a l
   await expect(pkce.use(read(jar, originA), [], oa)).rejects.toMatchObject({ name: "InvalidCheck" });
 });
 
+it("honors the SDK's existing NEXTAUTH_URL authority without a secure-cookie downgrade", () => {
+  const canonical = configFor(originA);
+  vi.stubEnv("AUTH_URL", undefined);
+  vi.stubEnv("NEXTAUTH_URL", originA);
+  vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL", "http://localhost:3000");
+  const alias = buildAuthConfig();
+  expect(alias.useSecureCookies).toBe(true);
+  expect(alias.cookies).toEqual(canonical.cookies);
+});
+
 it.each(["not-a-url", "file:///tmp/app", "https://user:password@localhost:35444"])("rejects invalid configured cookie authority %s", origin => {
   expect(() => configFor(origin)).toThrow(/origin/i);
 });

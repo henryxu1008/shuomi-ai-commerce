@@ -132,7 +132,9 @@ export function getAuthJsSecret() {
 function authCookieConfig(zitadel: ZitadelAuthOptions | undefined) {
   let publicURL: URL;
   try {
-    publicURL = new URL(process.env.AUTH_URL?.trim() || resolvePublicAppOrigin());
+    publicURL = new URL(
+      (process.env.AUTH_URL ?? process.env.NEXTAUTH_URL)?.trim() || resolvePublicAppOrigin(),
+    );
   } catch {
     throw new Error("Invalid public auth origin");
   }
