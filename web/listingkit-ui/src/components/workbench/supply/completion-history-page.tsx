@@ -9,7 +9,7 @@ import {Table,TableBody,TableCell,TableHead,TableHeader,TableRow} from "@/compon
 import {ConsolePage,ConsoleState} from "../console/console-page";
 import {listCompletionHistory,readCompletionRevision,type SupplyScope} from "@/lib/api/supply-chain";
 import type {CompletionHistory,SupplyCompletionDraft} from "@/lib/contracts/supply-chain";
-import {completionDraftHref,completionHistoryHref,completionRevision} from "@/lib/contracts/completion-draft-navigation";
+import {completionDraftHref,completionHistoryHref,completionRestoreHref,completionRevision} from "@/lib/contracts/completion-draft-navigation";
 
 type Props={sourceId:string;preparationId?:string;itemId?:string;revision?:number;from?:number;to?:number};
 type Source=SupplyCompletionDraft["source"];
@@ -23,10 +23,10 @@ export function CompletionHistoryPage(props:Props){
  if(!context.permissions.includes("workbench.supply.read"))return <ConsoleState kind="unavailable" title="当前身份没有供应链查看权限"/>;
  const comparing=props.from!==undefined||props.to!==undefined;
  if(props.revision!==undefined&&(comparing||completionRevision(String(props.revision))===null)||comparing&&(completionRevision(String(props.from))===null||completionRevision(String(props.to))===null||props.from!>=props.to!))return <ConsoleState kind="error" title="比较版本参数无效"/>;
- return <ScopedHistory key={`${userId}:${organizationId}:${props.sourceId}:${props.preparationId??""}:${props.itemId??""}:${props.revision??""}:${props.from??""}:${props.to??""}`} {...props} scope={scope}/>;
+ return <ScopedHistory key={`${userId}:${organizationId}:${props.sourceId}:${props.preparationId??""}:${props.itemId??""}:${props.revision??""}:${props.from??""}:${props.to??""}`} {...props} scope={scope} canManage={context.permissions.includes("workbench.supply.manage")}/>;
 }
 
-function ScopedHistory({scope,sourceId,preparationId,itemId,revision,from,to}:Props&{scope:SupplyScope}){
+function ScopedHistory({scope,sourceId,preparationId,itemId,revision,from,to,canManage}:Props&{scope:SupplyScope;canManage:boolean}){
  const [history,setHistory]=useState<CompletionHistory>(),[details,setDetails]=useState<SupplyCompletionDraft[]>(),[error,setError]=useState(false),[loading,setLoading]=useState(true);
  const [before,setBefore]=useState<number>(),[reload,setReload]=useState(0),[selected,setSelected]=useState<number[]>([]);
  const comparing=from!==undefined&&to!==undefined;
@@ -53,7 +53,7 @@ function ScopedHistory({scope,sourceId,preparationId,itemId,revision,from,to}:Pr
  </div>:undefined}>
   {loading?<ConsoleState kind="loading" title="正在读取准确保存记录"/>:error?<ConsoleState kind="error" title="无法读取保存历史">请确认当前权限、来源和版本。<Button variant="outline" onClick={refresh}>重试读取</Button></ConsoleState>:source?<div className="space-y-5">
    <Card className="flex flex-wrap items-center gap-3 p-5"><Badge variant="secondary">固定来源 V{source.source.version}</Badge><p className="break-all text-xs text-muted-foreground">来源 {sourceId} · 转入批次 {source.preparationId}</p></Card>
-   {details?comparing?<Comparison records={details}/>:<SavedDetail record={details[0]!}/>:history?<HistoryList page={history} selected={selected} setSelected={setSelected} href={view=>completionHistoryHref(sourceId,batch,ownItem,view)} earlier={()=>{setLoading(true);setBefore(history.nextBefore)}} refresh={()=>{setBefore(undefined);setSelected([]);refresh()}}/>:null}
+   {details?comparing?<CompletionTextComparison records={details}/>:<><SavedDetail record={details[0]!}/>{canManage?<Button asChild><Link href={completionRestoreHref(sourceId,details[0]!.revision,batch,ownItem)}>将此版内容恢复为新版本</Link></Button>:null}</>:history?<HistoryList page={history} selected={selected} setSelected={setSelected} href={view=>completionHistoryHref(sourceId,batch,ownItem,view)} earlier={()=>{setLoading(true);setBefore(history.nextBefore)}} refresh={()=>{setBefore(undefined);setSelected([]);refresh()}}/>:null}
   </div>:null}
  </ConsolePage>;
 }
@@ -70,10 +70,10 @@ function HistoryList({page,selected,setSelected,href,earlier,refresh}:{page:Comp
 function SavedDetail({record}:{record:SupplyCompletionDraft}){
  return <Card className="space-y-5 p-5"><div className="flex flex-wrap items-center justify-between gap-3"><Badge variant="outline">保存版本 R{record.revision} · 只读</Badge><p className="text-xs text-muted-foreground">保存于 {savedTime(record.createdAt)}</p></div><section className="space-y-2"><h2 className="font-semibold">候选标题</h2><TextValue value={record.content.title}/></section><section className="space-y-2"><h2 className="font-semibold">候选描述</h2><TextValue value={record.content.description}/></section></Card>;
 }
-function Comparison({records}:{records:SupplyCompletionDraft[]}){
+export function CompletionTextComparison({records,title,labels}:{records:SupplyCompletionDraft[];title?:string;labels?:[string,string]}){
  const [left,right]=records;
  const rows=[{key:"title" as const,label:"候选标题"},{key:"description" as const,label:"候选描述"}];
- return <Card className="overflow-hidden"><div className="space-y-2 border-b border-border p-5"><h2 className="font-semibold">R{left!.revision} → R{right!.revision}</h2><p className="text-xs text-muted-foreground">R{left!.revision}：{savedTime(left!.createdAt)} · R{right!.revision}：{savedTime(right!.createdAt)}</p><p className="text-sm text-muted-foreground">比较已保存标题和描述，保留空值、空白和换行。</p></div><Table className="min-w-[640px]"><TableHeader><TableRow><TableHead>字段</TableHead><TableHead>变化</TableHead><TableHead>R{left!.revision}</TableHead><TableHead>R{right!.revision}</TableHead></TableRow></TableHeader><TableBody>{rows.map(({key,label})=><TableRow key={key}><TableCell className="font-medium">{label}</TableCell><TableCell><Badge variant="secondary">{left!.content[key]===right!.content[key]?"未变化":"已变化"}</Badge></TableCell><TableCell className="w-[36%]"><TextValue value={left!.content[key]}/></TableCell><TableCell className="w-[36%]"><TextValue value={right!.content[key]}/></TableCell></TableRow>)}</TableBody></Table>{rows.every(({key})=>left!.content[key]===right!.content[key])?<p className="p-5 text-sm text-muted-foreground">标题和描述没有变化。</p>:null}</Card>;
+ return <Card className="overflow-hidden"><div className="space-y-2 border-b border-border p-5"><h2 className="font-semibold">{title??`R${left!.revision} → R${right!.revision}`}</h2><p className="text-xs text-muted-foreground">R{left!.revision}：{savedTime(left!.createdAt)} · R{right!.revision}：{savedTime(right!.createdAt)}</p><p className="text-sm text-muted-foreground">比较已保存标题和描述，保留空值、空白和换行。</p></div><Table className="min-w-[640px]"><TableHeader><TableRow><TableHead>字段</TableHead><TableHead>变化</TableHead><TableHead>{labels?.[0]??`R${left!.revision}`}</TableHead><TableHead>{labels?.[1]??`R${right!.revision}`}</TableHead></TableRow></TableHeader><TableBody>{rows.map(({key,label})=><TableRow key={key}><TableCell className="font-medium">{label}</TableCell><TableCell><Badge variant="secondary">{left!.content[key]===right!.content[key]?"未变化":"已变化"}</Badge></TableCell><TableCell className="w-[36%]"><TextValue value={left!.content[key]}/></TableCell><TableCell className="w-[36%]"><TextValue value={right!.content[key]}/></TableCell></TableRow>)}</TableBody></Table>{rows.every(({key})=>left!.content[key]===right!.content[key])?<p className="p-5 text-sm text-muted-foreground">标题和描述没有变化。</p>:null}</Card>;
 }
 function TextValue({value}:{value:string}){
  return <div className="max-h-96 overflow-auto"><p className="whitespace-pre-wrap break-words text-sm">{value===""?"未填写":value}</p>{value!==""&&value.trim()===""?<p className="text-xs text-muted-foreground">仅含空白文本 · {value.length} 个字符</p>:null}</div>;

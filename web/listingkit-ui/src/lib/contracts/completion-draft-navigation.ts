@@ -39,3 +39,8 @@ export function completionHistoryHref(sourceId:string,preparationId?:string,item
  if(view.from!==undefined||view.to!==undefined){if(completionRevision(String(view.from))===null||completionRevision(String(view.to))===null||view.from!>=view.to!)throw new Error("Invalid comparison");suffix="/compare";query.set("from",String(view.from));query.set("to",String(view.to))}
  return `/workbench/supply/mine/missing/${collectionID.parse(sourceId)}/history${suffix}${query.size?`?${query}`:""}`;
 }
+
+export function completionRestoreHref(sourceId:string,revision:number,preparationId?:string,itemId?:string){
+ const [path,query]=completionHistoryHref(sourceId,preparationId,itemId,{revision}).split("?");
+ return `${path}/restore${query?`?${query}`:""}`;
+}
