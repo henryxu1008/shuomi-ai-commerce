@@ -281,6 +281,20 @@ func registeredProductAgentRoutes(a *productAgentApplication, content bool) []ht
 					writeProductAgentError(c, agent.ErrConflict)
 					return
 				}
+				if selectionErr := a.checkContentTitleSelection(record.State.Request.ContentSelection); selectionErr != nil {
+					// Existing receipts remain owned by Review. Delegate an exact
+					// replay to its normal fingerprint/auth preflight; never use
+					// the current View as a replacement for the saved receipt.
+					_, found, lookupErr := a.reviews.FindAgentReview(ctx, record.State.RunID)
+					if lookupErr != nil {
+						writeProductAgentError(c, lookupErr)
+						return
+					}
+					if !found {
+						writeProductAgentError(c, selectionErr)
+						return
+					}
+				}
 				input := agentReviewInput(binding, record.State.Request.PolicyVersion, record.State.Candidate)
 				input.Execution = agentExecutionProvenance(record.State)
 				input.ContentSelection = record.State.Request.ContentSelection
@@ -310,7 +324,7 @@ func registeredProductAgentRoutes(a *productAgentApplication, content bool) []ht
 				writeProductAgentError(c, provenanceErr)
 				return
 			}
-			result := productAgentResultDTO{RunID: state.RunID, RequestKey: key, OperationID: operationID, ProductKey: binding.ProductKey, CatalogVersion: binding.CatalogVersion, PublicationID: binding.PublicationID, TargetPlatform: binding.TargetPlatform, Phase: state.Phase, Revision: strconv.FormatUint(state.Revision, 10), StopReason: state.StopReason, HumanReviewRequired: true, Candidate: state.Candidate, Confidence: state.Confidence, Unresolved: state.Unresolved, Steps: []productAgentStepDTO{}, Tokens: state.Usage.Tokens, EstimatedCostMicros: state.Usage.CostMicros, Currency: state.Request.Limits.Currency, UsageStatus: "observed", CanSubmitReview: agentRunReviewable(state)}
+			result := productAgentResultDTO{RunID: state.RunID, RequestKey: key, OperationID: operationID, ProductKey: binding.ProductKey, CatalogVersion: binding.CatalogVersion, PublicationID: binding.PublicationID, TargetPlatform: binding.TargetPlatform, Phase: state.Phase, Revision: strconv.FormatUint(state.Revision, 10), StopReason: state.StopReason, HumanReviewRequired: true, Candidate: state.Candidate, Confidence: state.Confidence, Unresolved: state.Unresolved, Steps: []productAgentStepDTO{}, Tokens: state.Usage.Tokens, EstimatedCostMicros: state.Usage.CostMicros, Currency: state.Request.Limits.Currency, UsageStatus: "observed", CanSubmitReview: agentRunReviewable(state) && a.checkContentTitleSelection(state.Request.ContentSelection) == nil}
 			result.ContentSelection = state.Request.ContentSelection
 			result.SkillVersionRef = state.Request.SkillVersionRef
 			if content {

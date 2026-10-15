@@ -116,6 +116,14 @@ func TestContentTitleOnlyRetainsFrozenMultifieldReceiptWithoutResumingIt(t *test
 	testProductAgentOwners(t, "content flow frozen-title-only")
 }
 
+func TestContentTitleOnlyRejectsNewMultifieldReviewButRetainsHistory(t *testing.T) {
+	testProductAgentOwners(t, "content flow frozen-review-title-only")
+}
+
+func TestContentTitleOnlyRetainsExistingReviewReplayAndAdoption(t *testing.T) {
+	testProductAgentOwners(t, "content flow frozen-existing-review-title-only")
+}
+
 func TestContentHTTPNativeAdoptionAndReadOnlyUseCurrentModes(t *testing.T) {
 	for _, mode := range []string{"full_access", "auto_approve", "read_only"} {
 		t.Run(mode, func(t *testing.T) { testProductAgentOwners(t, "content flow "+mode) })
@@ -142,7 +150,9 @@ func TestContentHTTPWarningsRemainReadableWithoutAdoption(t *testing.T) {
 
 func testProductAgentOwners(t *testing.T, mode string) {
 	frozenTitleOnly := mode == "content flow frozen-title-only"
-	if frozenTitleOnly {
+	frozenReviewTitleOnly := mode == "content flow frozen-review-title-only"
+	frozenExistingReviewTitleOnly := mode == "content flow frozen-existing-review-title-only"
+	if frozenTitleOnly || frozenReviewTitleOnly || frozenExistingReviewTitleOnly {
 		mode = "content flow"
 	}
 	contentTitleOnly := strings.HasPrefix(mode, "title-only ")
@@ -619,6 +629,38 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		}
 		require.Equal(t, agent.HumanReviewRequired, result.Phase)
 		require.Len(t, result.Candidate.Changes, 4)
+		if frozenReviewTitleOnly {
+			contentApp.config.ContentTitleOnly = true
+			var before, after struct {
+				Revision uint64
+				Payload  []byte
+			}
+			require.NoError(t, f.owner.Table("product_agent_runs").Select("revision,payload").Where("run_id=?", result.RunID).Take(&before).Error)
+			counts := func() []int64 {
+				var values []int64
+				for _, table := range []string{"product_title_proposals", "product_title_operations", "product_snapshot_versions"} {
+					var n int64
+					require.NoError(t, f.owner.Table(table).Count(&n).Error)
+					values = append(values, n)
+				}
+				return values
+			}
+			beforeCounts, beforeCalls := counts(), calls.Load()
+			code, raw, err = acquisitionHTTPRequest(server, "GET", path+"/"+key, "admin", "B", "", "")
+			require.NoError(t, err)
+			require.Equal(t, 200, code, string(raw))
+			var historical productAgentResultDTO
+			require.NoError(t, json.Unmarshal(raw, &historical))
+			code, raw, err = acquisitionHTTPRequest(server, "POST", path+"/"+key+"/review", "admin", "B", "", `{}`)
+			require.NoError(t, err)
+			require.Equal(t, 400, code, string(raw))
+			require.False(t, historical.CanSubmitReview)
+			require.NoError(t, f.owner.Table("product_agent_runs").Select("revision,payload").Where("run_id=?", result.RunID).Take(&after).Error)
+			require.Equal(t, before, after)
+			require.Equal(t, beforeCounts, counts())
+			require.Equal(t, beforeCalls, calls.Load())
+			return
+		}
 		if strings.HasPrefix(mode, "content flow unresolved ") || strings.HasPrefix(mode, "content flow warnings ") {
 			expected := []string{"missing material specification"}
 			if strings.HasPrefix(mode, "content flow warnings ") {
@@ -675,6 +717,21 @@ func testProductAgentOwners(t *testing.T, mode string) {
 			ProposalID string `json:"proposalId"`
 		}
 		require.NoError(t, json.Unmarshal(raw, &response))
+		if frozenExistingReviewTitleOnly {
+			contentApp.config.ContentTitleOnly = true
+			var beforeProposals, beforeOperations int64
+			require.NoError(t, f.owner.Table("product_title_proposals").Count(&beforeProposals).Error)
+			require.NoError(t, f.owner.Table("product_title_operations").Count(&beforeOperations).Error)
+			code, replayed, e := acquisitionHTTPRequest(server, "POST", path+"/"+key+"/review", "admin", "B", "", `{}`)
+			require.NoError(t, e)
+			require.Equal(t, 200, code, string(replayed))
+			require.JSONEq(t, string(raw), string(replayed))
+			var proposals, operations int64
+			require.NoError(t, f.owner.Table("product_title_proposals").Count(&proposals).Error)
+			require.NoError(t, f.owner.Table("product_title_operations").Count(&operations).Error)
+			require.Equal(t, beforeProposals, proposals)
+			require.Equal(t, beforeOperations, operations)
+		}
 		view := titleCall(t, server, "GET", titleBasePath+"/"+response.ProposalID, "admin", "B", "", "", 200)
 		require.NotNil(t, view.Content)
 		require.Len(t, view.Content.After, 4)
@@ -733,7 +790,7 @@ func testProductAgentOwners(t *testing.T, mode string) {
 			applied := titleApply(t, server, accepted, uuid.NewString(), 200)
 			require.Equal(t, "applied", applied.State)
 			require.Len(t, applied.Content.After, 4)
-			if mode == "content flow" {
+			if mode == "content flow" && !frozenExistingReviewTitleOnly {
 				before := calls.Load()
 				code, raw, err = acquisitionHTTPRequest(server, "GET", path+"/"+key, "admin", "B", "", "")
 				require.NoError(t, err)

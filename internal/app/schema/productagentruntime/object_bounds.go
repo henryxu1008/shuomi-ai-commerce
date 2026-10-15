@@ -2,6 +2,7 @@ package productagentruntime
 
 import (
 	"fmt"
+	"strings"
 
 	"gorm.io/gorm"
 	configstore "task-processor/internal/integration/persistence/agentconfig"
@@ -16,8 +17,17 @@ func verifyObjectBounds(db *gorm.DB, role string) error {
 	if err != nil {
 		return err
 	}
+	namespaces := map[string]bool{"public": true}
+	for relation := range allowed {
+		namespace, _, _ := strings.Cut(relation, ".")
+		namespaces[namespace] = true
+	}
+	var admittedSchemas []string
+	for namespace := range namespaces {
+		admittedSchemas = append(admittedSchemas, namespace)
+	}
 	var schemaAuthority bool
-	if err = db.Raw(`SELECT EXISTS(SELECT 1 FROM pg_catalog.pg_namespace n WHERE n.nspname<>'information_schema' AND n.nspname NOT LIKE 'pg\_%' ESCAPE '\' AND (pg_catalog.has_schema_privilege(?,n.oid,'CREATE') OR pg_catalog.has_schema_privilege(?,n.oid,'USAGE WITH GRANT OPTION')))`, role, role).Scan(&schemaAuthority).Error; err != nil {
+	if err = db.Raw(`SELECT EXISTS(SELECT 1 FROM pg_catalog.pg_namespace n WHERE n.nspname<>'information_schema' AND n.nspname NOT LIKE 'pg\_%' ESCAPE '\' AND (pg_catalog.has_schema_privilege(?,n.oid,'CREATE') OR pg_catalog.has_schema_privilege(?,n.oid,'USAGE WITH GRANT OPTION') OR (n.nspname NOT IN ? AND pg_catalog.has_schema_privilege(?,n.oid,'USAGE'))))`, role, role, admittedSchemas, role).Scan(&schemaAuthority).Error; err != nil {
 		return err
 	}
 	if schemaAuthority {
