@@ -4,6 +4,21 @@ const op = "11111111-1111-4111-8111-111111111111", key = "22222222-2222-4222-822
 const path = ["sourcing", "1688", "acquisitions", op, "product-agent", "runs"];
 const contentPath = ["sourcing", "1688", "acquisitions", op, "content-agent", "runs"];
 afterEach(() => vi.unstubAllEnvs());
+it("seals an own-product source in its own namespace and keeps mutation checks",async()=>{
+ vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL","http://localhost:3000");
+ const ownPath=["collections","items",op,"content-agent","runs"];
+ const payload={expectedModeRevision:"0",targetPlatform:"product",contentSelection:{targetLanguage:"zh-CN",title:true},ownSource:{catalogVersion:"2",publicationId:key}};
+ const ownRequest=(body:unknown,extra:Record<string,string>={})=>new Request(`http://localhost:3000/api/workbench/${ownPath.join("/")}`,{method:"POST",headers:{...Object.fromEntries(req().headers),...extra},body:JSON.stringify(body)});
+ const result=await buildWorkbenchUpstreamRequest(ownRequest(payload),ownPath,"token","actor");
+ expect(result).not.toBeInstanceOf(Response);
+ if(!(result instanceof Response)){expect(JSON.parse(result.init.body as string)).toEqual(payload);expect(result.sourceMutation).toBe(true)}
+ for(const body of [{...payload,ownSource:undefined},{...payload,targetPlatform:"shein"},{...payload,ownSource:{...payload.ownSource,productKey:"forged"}}])expect(await buildWorkbenchUpstreamRequest(ownRequest(body),ownPath,"token","actor")).toBeInstanceOf(Response);
+ expect(await buildWorkbenchUpstreamRequest(ownRequest(payload,{Origin:"http://evil.test"}),ownPath,"token","actor")).toBeInstanceOf(Response);
+ expect(await buildWorkbenchUpstreamRequest(req(JSON.stringify(payload)),contentPath,"token","actor")).toBeInstanceOf(Response);
+ const readPath=[...ownPath,key];
+ const read=await buildWorkbenchUpstreamRequest(new Request(`http://localhost:3000/api/workbench/${readPath.join("/")}`,{headers:req().headers}),readPath,"token","actor");
+ expect(read).not.toBeInstanceOf(Response);if(!(read instanceof Response))expect(read.expectedStoreId).toBe(key);
+});
 it("preserves readable content diagnostics while refusing an upstream adoption claim", async () => {
  const payload = {
   executionMode:"full_access",modeRevision:"1",modeSnapshotRef:{Kind:"agent-execution-mode-v1",ID:op,Digest:"a".repeat(64)},

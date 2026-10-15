@@ -871,6 +871,15 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		if agentErr != nil {
 			return nil, fmt.Errorf("build current product agent: %w", agentErr)
 		}
+		if planCollections != nil {
+			m := agentModule.(productAgentModule)
+			m.application.ownProducts = planCollections
+			if m.application.content != nil {
+				m.application.content.ownProducts = planCollections
+			}
+			m.routes = append(m.routes, ownContentAgentRoutes(m.application.content)...)
+			agentModule = m
+		}
 		modules = append(modules, agentModule)
 		modelPointRecovery = agentModule.(productAgentModule).recoverPoints
 		productRuntime = agentModule.(productAgentModule).application
@@ -1554,6 +1563,11 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 		for _, r := range productAgentProfileRoutes(nil, optional.ContentTitleOnly) {
 			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
 		}
+		if optional.Collections {
+			for _, r := range ownContentAgentRoutes(nil) {
+				admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
+			}
+		}
 		for _, r := range productReviewRoutes(nil, nil) {
 			if r.Method == http.MethodPost && r.Path == "/api/product/text-proposals" {
 				continue
@@ -1867,7 +1881,7 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 		if (descriptor.Path == commercialResourcesPath || descriptor.Path == commercialResourceEventsPath) && (descriptor.Module != commercialResourcesModuleName || descriptor.Method != http.MethodGet || descriptor.AuthPolicy != httproute.AuthPolicyCurrentIdentity || descriptor.OrganizationAccessPolicy != httproute.OrganizationAccessPolicyLiveWrite || descriptor.OrganizationTargetResolver != nil || descriptor.Permission != authz.PermissionWorkbenchCommercialRead || descriptor.RequestTimeout != 15*time.Second || !descriptor.RejectUnreadRequestBody || descriptor.Handler == nil) {
 			return errors.New("commercial resources route loses live read boundary")
 		}
-		if (strings.HasPrefix(descriptor.Path, productAgentBase) || strings.HasPrefix(descriptor.Path, productContentAgentBase)) && (descriptor.Module != "product-agent" || descriptor.AuthPolicy != httproute.AuthPolicyVerifiedIdentity || descriptor.OrganizationAccessPolicy != httproute.OrganizationAccessPolicyLiveWrite || descriptor.Permission != authz.PermissionLocalAgentWrite || descriptor.RequestTimeout != 2*time.Minute) {
+		if (strings.HasPrefix(descriptor.Path, productAgentBase) || strings.HasPrefix(descriptor.Path, productContentAgentBase) || strings.HasPrefix(descriptor.Path, ownContentAgentBase)) && (descriptor.Module != "product-agent" || descriptor.AuthPolicy != httproute.AuthPolicyVerifiedIdentity || descriptor.OrganizationAccessPolicy != httproute.OrganizationAccessPolicyLiveWrite || descriptor.Permission != authz.PermissionLocalAgentWrite || descriptor.RequestTimeout != 2*time.Minute) {
 			return errors.New("product agent loses fresh permission boundary")
 		}
 		if strings.HasPrefix(descriptor.Path, ph.Base) {

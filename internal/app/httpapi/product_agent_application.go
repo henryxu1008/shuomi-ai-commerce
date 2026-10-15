@@ -33,6 +33,7 @@ import (
 	"task-processor/internal/product/asset/tools/assetinspect"
 	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/catalog/tools/canonicalinspect"
+	"task-processor/internal/product/contentagent"
 	"task-processor/internal/product/enrichment"
 	"task-processor/internal/product/review"
 	"task-processor/internal/product/sourcing"
@@ -72,6 +73,7 @@ type ProductAgentInvocationLedger interface {
 }
 
 type productAgentApplication struct {
+	ownProducts             ownProductReader
 	skills                  *skillstore.Store
 	materials               *listingMaterialsApplication
 	content                 *productAgentApplication
@@ -438,14 +440,19 @@ func (a *productAgentApplication) Authorize(ctx context.Context, binding agent.B
 	if binding.ContextKind == "collection" {
 		return a.authorizeSupplyBinding(ctx, binding)
 	}
-	if binding.ContextKind != "acquisition" {
+	if binding.ContextKind != "acquisition" && binding.ContextKind != contentagent.OwnProductContext {
 		return agent.Scope{}, agent.ErrInvalid
 	}
 	i, err := a.freshIdentity(ctx)
 	if err != nil {
 		return agent.Scope{}, err
 	}
-	if err = a.authorizeAcquisitionBinding(ctx, i, binding); err != nil {
+	if binding.ContextKind == contentagent.OwnProductContext {
+		err = a.authorizeOwnBinding(ctx, i, binding)
+	} else {
+		err = a.authorizeAcquisitionBinding(ctx, i, binding)
+	}
+	if err != nil {
 		return agent.Scope{}, err
 	}
 	return agent.Scope{OrganizationID: i.TenantID, ActorID: i.UserID}, nil

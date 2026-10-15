@@ -85,7 +85,7 @@ func (m productCollectionModule) Register(reg *kernelmodule.Registry) error {
 	return nil
 }
 func validateCollectionDescriptor(route httproute.Descriptor) error {
-	for _, expected := range collectionhttp.Routes(nil, nil) {
+	for _, expected := range append(collectionhttp.Routes(nil, nil), ownContentAgentRoutes(nil)...) {
 		if expected.Method == route.Method && expected.Path == route.Path {
 			if route.Module != expected.Module || route.Permission != expected.Permission || route.AuthPolicy != expected.AuthPolicy || route.OrganizationAccessPolicy != expected.OrganizationAccessPolicy || route.OrganizationTargetResolver != nil || route.RequestTimeout != expected.RequestTimeout || route.Handler == nil {
 				return errors.New("collection route loses live actor-private permission boundary")

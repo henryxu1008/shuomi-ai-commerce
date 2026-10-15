@@ -13,6 +13,7 @@ boundary rules unless they explicitly supersede a stable document.
 
 ## Approved Authorities by Responsibility
 
+- [`own-product-optimization-v1.md`](own-product-optimization-v1.md): #710 IMPLEMENTATION_READY own-product context for store-independent content generation and existing Review/Apply; preserves current runtime, permissions, facts and UNKNOWN owners.
 - [`auth-instance-cookie-isolation.md`](auth-instance-cookie-isolation.md): #706 IMPLEMENTATION_READY native Auth.js cookie isolation for configured instances; identity, permissions, secrets and business data remain with existing owners. Source admission is not runtime or user acceptance.
 - [`completion-draft-history-v1.md`](completion-draft-history-v1.md): #704 IMPLEMENTATION_READY read-only saved revision history and same-draft text comparison; existing records, source authority and save protocol retained.
 - [`completion-draft-restore-v1.md`](completion-draft-restore-v1.md): #708 Reuse Existing Architecture; independently preview historical title/description and append a new revision through existing Save/CAS/idempotency, preserving permissions, immutable history and navigation context.

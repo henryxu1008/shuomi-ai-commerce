@@ -1,7 +1,8 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useWorkbenchContext } from "@/components/providers/workbench-context-provider";
 import { Button } from "@/components/ui/button";
 import { applyProductTitleProposal, decideProductTitleProposal, fetchProductTitleProposal, fetchProductTitleProposals, ProductTitleReviewError } from "@/lib/api/product-title-review-client";
@@ -9,7 +10,8 @@ import { ConsoleState } from "../console/console-page";
 import { TaskCenterLayout } from "./task-center-layout";
 import { TitleReviewPanels } from "./title-review-panels";
 import { TitleReviewControls, TitleReviewDetail, titleReviewStateLabel } from "./title-review-detail";
-import type { ContentValue } from "@/lib/api/product-title-review";
+import type { ContentValue, ProductTitleProposal } from "@/lib/api/product-title-review";
+import { isAcquisitionUUID } from "@/lib/contracts/product-acquisition";
 import { contentSelectionLabel } from "@/lib/contracts/content-selection";
 
 const queryPolicy = { gcTime: 0, staleTime: 0, retry: false, refetchOnWindowFocus: false, refetchOnReconnect: false, refetchInterval: false } as const;
@@ -124,8 +126,31 @@ function ProposalSession({ proposalId, organizationId, scope, userId, roles, per
         {writeError && !uncertain ? <ReviewError error={writeError} /> : null}
         {!uncertain ? <TitleReviewControls key={`${data.revision}:${read}`} proposal={data} roles={roles} permissions={permissions} userId={userId} pending={pending} decide={decide} apply={apply} /> : null}
         <TitleReviewDetail proposal={data} />
+        {!uncertain && !pending && !writeError ? <OwnProductApplyReturn proposal={data} organizationId={organizationId} userId={userId} /> : null}
       </> : null}
   </>;
+}
+
+function OwnProductApplyReturn({ proposal, organizationId, userId }: { proposal: ProductTitleProposal; organizationId: string; userId: string }) {
+  // The authorized Review response already carries the immutable own binding.
+  // Never accept a caller-provided return URL or infer own identity from a key.
+  const own = proposal.policy === "product-content-review-v1" && proposal.state === "applied" && proposal.apply_receipt &&
+    proposal.execution.scope.OrganizationID === organizationId && proposal.execution.scope.ActorID === userId &&
+    proposal.execution.binding.ContextKind === "own_product" && proposal.execution.binding.TargetPlatform === "product" &&
+    isAcquisitionUUID(proposal.execution.binding.ContextID) ? proposal.execution.binding.ContextID : undefined;
+  const client = useQueryClient();
+  const refreshEligibility = useCallback(() => {
+    void client.invalidateQueries({ queryKey: ["supply-market", userId, organizationId] });
+  }, [client, userId, organizationId]);
+  useEffect(() => { if (own) refreshEligibility(); }, [own, proposal.apply_receipt?.publication_id, refreshEligibility]);
+  if (!own) return null;
+  return <section aria-label="自有商品应用结果" className="mt-4 space-y-3">
+    <p>自有商品内容已应用；返回优选申请后会重新核对当前资格。</p>
+    <div className="flex flex-wrap gap-3">
+      <Button asChild><Link href="/workbench/supply/applications/new" prefetch={false} onClick={refreshEligibility}>返回优选申请并刷新资格</Link></Button>
+      <Button asChild variant="outline"><Link href={`/workbench/data/mine/own/${own}`} prefetch={false}>查看自有商品</Link></Button>
+    </div>
+  </section>;
 }
 
 function ReviewError({ error, recover }: { error: unknown; recover?: () => void }) {
