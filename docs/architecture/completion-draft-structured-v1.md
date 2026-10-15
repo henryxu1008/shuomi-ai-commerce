@@ -1,7 +1,7 @@
 # CompletionDraft 结构化候选 v1
 
 Design Basis: Independent Architecture
-Admission Status: NOT_READY / DESIGNING — 独立评审前不改生产路径。
+Admission Status: IMPLEMENTATION_READY / FROZEN — 2026-10-15 R1独立检查通过，设计提交dc4e33327e0222049580372da582767fc930b359；固定SKU集合/深复制、未填与零/旧hash、完整回执与消费者保留结构作为IMPLEMENTATION_TEST在合并前收敛。
 
 ## 1. Outcome / authority / boundaries
 
@@ -69,3 +69,5 @@ Legacy decision: N/A。当前有效CompletionDraft/Preparation/Catalog/Console�
 - 类型/生产lint/build、必要相关测试及最终准确HEAD CI；README架构索引齐备。独立Reviewer只做设计准入与完整交付里程碑，finding先分类，修复复核对应增量。
 
 合并、Issue关闭、保留实例安装/业务写入、用户/生产验收分别另授权。不把CI、fixture或AI检查当产品验收。
+
+后续发布须协调更新后台和前端，不设计混合旧DTO兼容路径。原文字记录/待核实旧命令在新二进制中保持hash；已有结构化新记录后不直接降级旧二进制，不能忽略字段或重算历史hash来伪造兼容。保留数据并修复前进，不自动回写/迁移/删除。本轮无真实部署授权。
