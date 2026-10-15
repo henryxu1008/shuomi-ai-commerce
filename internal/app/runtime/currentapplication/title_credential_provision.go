@@ -16,6 +16,7 @@ import (
 	"gorm.io/gorm/logger"
 
 	"task-processor/internal/agent"
+	"task-processor/internal/agentconfig"
 	"task-processor/internal/aicapability"
 	coreconfig "task-processor/internal/core/config"
 	governed "task-processor/internal/integration/aicapability/einomodel"
@@ -97,16 +98,7 @@ func ValidateTitleCredentialProvision(cfg *Config, input TitleCredentialProvisio
 	if !allowed {
 		return errors.New("title credential organization is not admitted")
 	}
-	var policy governed.RoutePolicy
-	var found bool
-	switch input.Consumer {
-	case "title":
-		policy, found = cfg.ProductAgent.TextPolicies[input.OrganizationID]
-	case "planning":
-		if cfg.AIWorkbench != nil {
-			policy, found = cfg.AIWorkbench.PlanningTextPolicies[input.OrganizationID]
-		}
-	}
+	policy, found := credentialProvisionPolicy(cfg, input.Consumer, input.OrganizationID)
 	if !found || policy.Profile.ClientName != input.ClientName {
 		return errors.New("title credential client is not admitted")
 	}
@@ -131,12 +123,34 @@ func ValidateTitleCredentialProvision(cfg *Config, input TitleCredentialProvisio
 	return nil
 }
 
+func credentialProvisionPolicy(cfg *Config, consumer, organizationID string) (governed.RoutePolicy, bool) {
+	var policy governed.RoutePolicy
+	var found bool
+	switch consumer {
+	case "title":
+		policy, found = cfg.ProductAgent.TextPolicies[organizationID]
+	case "content":
+		policy, found = cfg.ProductAgent.ContentTextPolicies[organizationID]
+	case "planning":
+		if cfg.AIWorkbench != nil {
+			policy, found = cfg.AIWorkbench.PlanningTextPolicies[organizationID]
+		}
+	}
+	return policy, found
+}
+
 func validProvisionPolicy(cfg *Config, consumer string, policy governed.RoutePolicy, endpointDigest string) bool {
 	profile := policy.ShapeProfile()
 	profile.EndpointIdentityDigest = endpointDigest
 	operation := aicapability.OperationProductAgentDecision
-	if consumer == "planning" {
+	switch consumer {
+	case "title":
+	case "content":
+		operation = aicapability.OperationProductContentDecision
+	case "planning":
 		operation = aicapability.OperationAIWorkbenchChatPlan
+	default:
+		return false
 	}
 	if !governed.ValidRouteProfile(profile, operation) || profile.Currency != cfg.ProductAgent.Currency ||
 		profile.MaximumPromptTokens+profile.MaximumCompletionTokens > cfg.ProductAgent.Tokens {
@@ -149,6 +163,8 @@ func validProvisionPolicy(cfg *Config, consumer string, policy governed.RoutePol
 	switch consumer {
 	case "title":
 		return profile.PromptVersion == "product-title-agent-v1" && profile.OutputSchemaVersion == "product-title-action-v1"
+	case "content":
+		return profile.PromptVersion == agentconfig.ContentPromptVersion && profile.OutputSchemaVersion == agentconfig.ContentActionVersion
 	case "planning":
 		return profile.PromptVersion == "ai-workbench-chat-plan-v1" && profile.OutputSchemaVersion == "ai-workbench-plan-decision-v1" &&
 			profile.MaximumCompletionTokens <= 4096 && profile.MaximumInputBytes <= 128<<10 && profile.MaximumOutputBytes <= 16<<10
@@ -164,6 +180,7 @@ func SaveTitleCredential(ctx context.Context, cfg *Config, input TitleCredential
 	if ctx == nil || ctx.Err() != nil || db == nil || ValidateTitleCredentialProvision(cfg, input) != nil {
 		return result, errors.New("title credential provision is unavailable")
 	}
+	policy, _ := credentialProvisionPolicy(cfg, input.Consumer, input.OrganizationID)
 	safeDB := db.Session(&gorm.Session{Logger: logger.Default.LogMode(logger.Silent)})
 	err := safeDB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		store := openai.NewGormCredentialResolver(tx)
@@ -191,11 +208,7 @@ func SaveTitleCredential(ctx context.Context, cfg *Config, input TitleCredential
 			stored.BaseURL != input.BaseURL || stored.Model != input.Model || stored.APIStyle != input.APIStyle {
 			return errors.New("title route resolution failed")
 		}
-		if input.Consumer == "planning" {
-			result.ProviderID = cfg.AIWorkbench.PlanningTextPolicies[input.OrganizationID].Profile.ProviderID
-		} else {
-			result.ProviderID = cfg.ProductAgent.TextPolicies[input.OrganizationID].Profile.ProviderID
-		}
+		result.ProviderID = policy.Profile.ProviderID
 		result.CredentialVersion = governed.CredentialVersion(*stored)
 		result.EndpointIdentityDigest = governed.EndpointIdentityDigest(stored.BaseURL)
 		return nil

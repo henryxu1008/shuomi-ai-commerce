@@ -45,6 +45,39 @@ pnpm start --hostname 127.0.0.1 --port <allocated_port>
 
 实际商品执行还需原 Product/Run/Review/Catalog、企业启用、有效成员权限、contentTextPolicies、计量/额度/计价和已准入 provider 配置。UI/BFF 复用 `LISTINGKIT_SERVICE_API_BASE`、`PRODUCT_REVIEW_API_ORIGIN` 与现会话；不接收浏览器提交的 owner、角色、身份或凭据权威。模型真实费用和 provider 健康仍需另行确认。
 
+## 商品内容模型凭据
+
+个人技能管理完成后，真实标题优化使用商品内容智能体的独立 `product.content.decision` 路由。
+部署者先保持执行关闭，在私密 manifest 的 `productAgent.contentTextPolicies` 中配置准确组织的
+profile：独立 client、供应商、模型、endpoint 准入、版本化计价/点数费率，以及 token/字节/deadline
+和运行费用上限。固定 `PromptVersion: product-content-agent-v1`、
+`OutputSchemaVersion: product-content-action-v1`；首次凭据写入时
+`AdmittedCredentialVersion` 和 `AdmittedEndpointIdentityDigest` 留空，导入后用真实返回值绑定。
+凭据导入无需启用执行，也不借用 title/planning 策略。当前支持已准入的 OpenAI 兼容与 Claude
+原生 route；仅标题能力准入的 Google Interactions adapter 不适用于商品内容。
+
+复用 [受限凭据写入说明](product-agent-trial.md)：目标 ProductAgentDB 必须已具备合格的
+`ai_client_credentials` schema 和独立受限 writer，serving role 保持只读。命令不会创建表、角色
+或修补权限；缺少这些前置时先由原安装负责人提出独立安装方案，不能用 serving/管理员连接替代。
+私密输入沿原字段使用 `action: "upsert"`、`consumer: "content"`、`organizationId`、准确
+`clientName`、`apiKey`、`baseURL`、`model`、`apiStyle`、`timeoutSecond` 和 `writerDatabase`。
+writer 必须连接同一 host/port/database 并使用独立身份，timeout 不短于 profile 的 deadline。
+密钥和数据库密码只放在受限访问的本地私密文件中，不写入命令行、仓库或普通日志。
+
+```powershell
+go run ./cmd/product-agent-credential-provision -config C:\private\current-application.json -input C:\private\content-credential.json
+```
+
+命令只返回非敏感的组织、content 供应商、凭据版本及 endpoint 摘要。将后两项准确填回本组织
+content 策略；轮换后重新绑定，不自动启用 runtime。停用仍使用同一命令，私密输入仅保留
+`action: "disable"`、`consumer: "content"`、组织、client 和 writerDatabase，不携带 provider 值。
+它只停用该组织的准确 client 行，不回落成员或其他能力凭据。
+
+真实试用前还需合格的 Run/调用计量表及原 Review/Asset/Catalog 角色与权限、允许当前服务模式
+启用商品智能体、企业启用与成员额度、个人技能指定版本发布/启用及企业个人技能准入。用户须
+确认商品/语言、向供应商发送商品信息、实际计价与单次/累计费用上限，并另行授权运行配置、
+必要停启及真实付费调用。缺项时保留执行关闭；凭据写入、CI 或隔离测试不代表真实生成已可用。
+
 ## 保存、停用与恢复
 
 Skill 定义、不可变版本、命令回执和共享申请在同 RunDB 的 `skill_capability`；个人技能准入在原 `agent_configuration.skill_admissions`。原配置、运行、预算/UNKNOWN、Review 和 Catalog 保持各自 owner。备份应一起覆盖 Skill、配置和 Run 事实，并保留原 ProductDB 备份；不通过重新导入构造运行历史。
