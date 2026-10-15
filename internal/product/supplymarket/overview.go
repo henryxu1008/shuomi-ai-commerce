@@ -102,7 +102,7 @@ func (s *Service) ApplicationOverview(ctx context.Context) (ApplicationOverview,
 				if choice.Selection.ItemID != item.ID || choice.Selection.ExpectedRevision != item.Revision {
 					return ErrConflict
 				}
-				if choice.Optimized {
+				if choice.Eligible() {
 					if len(choice.Product.Images) == 0 {
 						return ErrUnavailable
 					}

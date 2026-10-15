@@ -1762,6 +1762,14 @@ func TestSelectedApplicationOverviewDocumentPreservesReadOnlyOwnerBoundaries(t *
 	})
 }
 
+func TestSupplyMarketChoiceEligibilityDocumentPreservesQualificationBoundaries(t *testing.T) {
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "supply-market-choice-eligibility.md"), []string{
+		"IMPLEMENTATION_READY", "not_optimized", "incomplete_product", "sealed selection",
+		"ReadEffective", "PublicProjection", "create_official_draft", "submit_selected",
+		"不提交申请", "正向流程仍为 NOT_RUN",
+	})
+}
+
 func TestArchitectureReadmeReferencesExistingDocuments(t *testing.T) {
 	readmePath := filepath.Join("..", "docs", "architecture", "README.md")
 	readmeContent, err := os.ReadFile(readmePath)

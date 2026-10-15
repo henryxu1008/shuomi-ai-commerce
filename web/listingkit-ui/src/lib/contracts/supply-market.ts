@@ -34,7 +34,11 @@ export const marketFileSchema=z.object({id:marketID,contentType:z.enum(["image/j
 const page=<T extends z.ZodType>(schema:T)=>z.object({items:z.array(schema).max(50).nullable().transform(v=>v??[]),total:count,nextCursor:marketID.optional()}).strict();
 export const marketReleasesSchema=page(marketReleaseSchema),marketRecordsSchema=page(marketRecordSchema),marketEventsSchema=page(marketEventSchema);
 export type MarketReceipt=z.infer<typeof marketReceiptSchema>;
-export const marketChoiceSchema=z.object({selection:marketSelectionSchema,product:marketProductSchema,optimized:z.boolean()}).strict();
+export const marketChoiceSchema=z.union([
+ z.object({selection:marketSelectionSchema,product:marketProductSchema,optimized:z.literal(true),ineligibleReason:z.never().optional()}).strict(),
+ z.object({selection:marketSelectionSchema,product:marketProductSchema.optional(),optimized:z.literal(false),ineligibleReason:z.literal("not_optimized")}).strict(),
+ z.object({selection:marketSelectionSchema,product:z.never().optional(),optimized:z.literal(true),ineligibleReason:z.literal("incomplete_product")}).strict(),
+]);
 export const applicationOverviewSchema=z.object({eligibleProducts:count,reviewing:count,supplementRequired:count,approved:count,products:z.array(z.object({itemId:marketID,title:text(2000,1),thumbnailUrl:image,groupName:text(200,1),source:z.literal("own")}).strict()).max(3)}).strict().refine(v=>v.products.length<=v.eligibleProducts);
 export function marketEndpoint(url:URL,method:string){
  const m=/^\/api\/(workbench|admin)\/supply-market\/([a-z0-9/-]+)$/.exec(url.pathname);if(!m)return null;

@@ -17,6 +17,19 @@ describe("market BFF disclosure and uncertain writes",()=>{
   const r=await proxySupplyMarket(request("releases",{headers:{"X-Expected-Organization-ID":"org-b"}}),"private-token","user-a");
   expect(r.status).toBe(409);expect(fetcher).not.toHaveBeenCalled();
  });
+ it("accepts normal ineligible choices but keeps the public projection strict",async()=>{
+  const selection={itemId:id,expectedRevision:1,originalPublicationId:id,originalVersion:"1",effectiveVersion:"1"};
+  const unoptimized={selection,optimized:false,ineligibleReason:"not_optimized"};
+  const product={title:"Own product",images:["https://images.example/product.png"]};
+  const applied={...selection,effectiveVersion:"2",applyId:id};
+  const fetcher=vi.fn();vi.stubGlobal("fetch",fetcher);
+  for(const body of [unoptimized,{...unoptimized,product},{selection:applied,optimized:true,ineligibleReason:"incomplete_product"},{selection:applied,optimized:true,product}]){
+   fetcher.mockResolvedValueOnce(Response.json(body));const result=await proxySupplyMarket(request("choices/"+id),"private-token","user-a");expect(result.status).toBe(200);expect(await result.json()).toEqual(body);
+  }
+  for(const body of [{selection:applied,optimized:true},{selection:applied,optimized:true,product:{...product,images:[]}},{...unoptimized,product:{...product,images:[]}},{...unoptimized,rawSnapshot:{secret:true}}]){
+   fetcher.mockResolvedValueOnce(Response.json(body));expect((await proxySupplyMarket(request("choices/"+id),"private-token","user-a")).status).toBe(502);
+  }
+ });
  it("does not forward private fields from a released product",async()=>{
   vi.stubGlobal("fetch",vi.fn(async()=>Response.json({items:[{id,channel:"official",revision:1,active:true,publishedAt:"2026-10-10T00:00:00Z",product:{title:"Released",images:["https://images.example/p.png"]},supply:{stock:1,minimumQuantity:1,leadDays:1,province:"浙江",city:"杭州"},source:{organizationId:"secret"}}],total:1})));
   const r=await proxySupplyMarket(request("releases"),"private-token","user-a");

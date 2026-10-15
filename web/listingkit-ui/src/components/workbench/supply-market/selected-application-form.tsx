@@ -18,6 +18,8 @@ import styles from "./selected-application-form.module.css";
 
 type Choice=Awaited<ReturnType<typeof readMarketChoice>>;
 type Candidate={item:CollectionItem;choice:Choice;groupName:string};
+type EligibleCandidate=Candidate&{choice:Extract<Choice,{ineligibleReason?:undefined}>};
+const isEligible=(row:Candidate):row is EligibleCandidate=>row.choice.optimized&&!row.choice.ineligibleReason&&!!row.choice.product;
 const selectionKey=(choice:Choice)=>{const s=choice.selection;return [s.itemId,s.expectedRevision,s.originalPublicationId,s.originalVersion,s.effectiveVersion,s.applyId].join("/")};
 
 async function readCandidates(scope:MarketScope,keyword:string,after:string|undefined,signal:AbortSignal){
@@ -32,7 +34,7 @@ async function readCandidates(scope:MarketScope,keyword:string,after:string|unde
       if(choice.selection.itemId!==item.id||choice.selection.expectedRevision!==item.revision||choice.selection.originalPublicationId!==item.source.publicationId||choice.selection.originalVersion!==item.source.version)throw new MarketAPIError("REVISION_CONFLICT",409);
       return {item,choice};
     }));
-    for(const candidate of candidates)if(candidate.choice.optimized)products.push({...candidate,groupName:""});
+    for(const candidate of candidates)products.push({...candidate,groupName:""});
   }
   const groups=new Map<string,string>();
   for(const product of products){
@@ -44,34 +46,37 @@ async function readCandidates(scope:MarketScope,keyword:string,after:string|unde
 
 export function SelectedApplicationForm({scope}:{scope:MarketScope}){
   const [search,setSearch]=useState(""),[keyword,setKeyword]=useState(""),[after,setAfter]=useState<string>();
-  const [selected,setSelected]=useState<Candidate>(),[step,setStep]=useState<"select"|"supply">("select");
+  const [selected,setSelected]=useState<EligibleCandidate>(),[step,setStep]=useState<"select"|"supply">("select");
   const [supply,setSupply]=useState({stock:0,capacity:"",minimumQuantity:1,leadDays:0,province:"",city:"",priceNote:"",afterSaleNote:""});
   const [fileIds,setFileIDs]=useState<string[]>([]),[uploadLocked,setUploadLocked]=useState(false),[disclosure,setDisclosure]=useState(false);
   const commands=useMarketCommands(scope);
   const query=useQuery({queryKey:["supply-market",scope.userId,scope.organizationId,"application-products",keyword,after],queryFn:({signal})=>readCandidates(scope,keyword,after,signal),retry:false});
   const data=query.error?undefined:query.data;
-  const current=!query.isFetching&&selected?data?.products.find(row=>selectionKey(row.choice)===selectionKey(selected.choice)):undefined;
+  const current=!query.isFetching&&selected?data?.products.filter(isEligible).find(row=>selectionKey(row.choice)===selectionKey(selected.choice)):undefined;
   const interactionLocked=commands.locked||!!commands.saved;
   const locked=interactionLocked||uploadLocked;
   const blocked=locked||!current||!disclosure||!fileIds.length;
   function changePage(cursor?:string){setAfter(cursor);setSelected(undefined)}
   const selecting=step==="select";
-  return <ConsolePage className={styles.page} title={selecting?"选择申请商品":"填写供货信息"} description={selecting?"仅展示已优化且符合基本申请条件的自有商品。每次申请选择一件商品。":"补充本次申请的库存、交付和合作信息，提交后由专员联系评估。"} breadcrumbs={[{label:"供应市场",href:"/workbench/supply"},{label:"优选申请",href:"/workbench/supply/applications"},{label:selecting?"选择商品":"填写供货信息"}]}>
+  return <ConsolePage className={styles.page} title={selecting?"选择申请商品":"填写供货信息"} description={selecting?"仅已优化且符合基本申请条件的自有商品可申请。每次申请选择一件商品。":"补充本次申请的库存、交付和合作信息，提交后由专员联系评估。"} breadcrumbs={[{label:"供应市场",href:"/workbench/supply"},{label:"优选申请",href:"/workbench/supply/applications"},{label:selecting?"选择商品":"填写供货信息"}]}>
     {commands.notice}
     {commands.saved?.recordId?<Card className={styles.summary} role="status">申请已保存。<Link href={"/workbench/supply/applications/"+commands.saved.recordId} prefetch={false}>查看申请进度</Link></Card>:null}
     {selecting?<>
       <Card className={styles.filters}>
         <div><span>商品来源</span><strong>自有商品</strong></div><div><span>申请条件</span><strong>已完成智能优化</strong></div>
         <form onSubmit={e=>{e.preventDefault();setKeyword(search.trim());setAfter(undefined);setSelected(undefined)}}><Input aria-label="商品关键词" placeholder="搜索自有商品" maxLength={80} value={search} disabled={locked} onChange={e=>setSearch(e.target.value)}/><Button type="submit" variant="outline" disabled={locked}>搜索</Button></form>
-        <p>{query.isFetching?"正在核对申请资格":data?`本页 ${data.products.length} 件可申请`:"申请资格暂不可用"}</p>
+        <p>{query.isFetching?"正在核对申请资格":data?`本页 ${data.products.filter(isEligible).length} 件可申请`:"申请资格暂不可用"}</p>
       </Card>
       <Card className={styles.list}>
         <div className={styles.listActions}><p><strong>已选择 {current?1:0} 件</strong><span>选择商品后进入供货信息填写</span></p><Button className={styles.next} disabled={locked||!current} onClick={()=>setStep("supply")}>下一步：填写供货信息</Button></div>
-        <Table className={styles.table} aria-label="可申请自有商品"><TableHeader><TableRow><TableHead>商品（单选）</TableHead><TableHead>来源</TableHead><TableHead>所属分组</TableHead><TableHead>申请状态</TableHead></TableRow></TableHeader><TableBody>
-          {!query.isFetching&&data?.products.map(row=><TableRow key={row.item.id}><TableCell><label className={styles.product}><input type="radio" name="application-product" aria-label={"选择 "+row.choice.product.title} checked={current?.item.id===row.item.id} disabled={locked} onChange={()=>{setSelected(row);setDisclosure(false)}}/><img src={row.choice.product.images[0]} alt={row.choice.product.title} width={64} height={64}/><span><strong>{row.choice.product.title}</strong><small>{row.choice.product.variants?.[0]?.sku||"自有商品"}</small></span></label></TableCell><TableCell><span className={styles.badge}>自有商品</span></TableCell><TableCell>{row.groupName}</TableCell><TableCell><strong>可申请</strong><small>已完成智能优化</small></TableCell></TableRow>)}
+        <Table className={styles.table} aria-label="自有商品申请资格"><TableHeader><TableRow><TableHead>商品（单选）</TableHead><TableHead>来源</TableHead><TableHead>所属分组</TableHead><TableHead>申请状态</TableHead></TableRow></TableHeader><TableBody>
+          {!query.isFetching&&data?.products.map(row=>{
+            const title=row.choice.product?.title||row.item.title||"自有商品",image=row.choice.product?.images[0],eligible=isEligible(row);
+            return <TableRow key={row.item.id}><TableCell><label className={styles.product}><input type="radio" name="application-product" aria-label={"选择 "+title} checked={current?.item.id===row.item.id} disabled={locked||!eligible} onChange={()=>{if(isEligible(row)){setSelected(row);setDisclosure(false)}}}/>{image?<img src={image} alt={title} width={64} height={64}/>:<span className={styles.noImage}>暂无图片</span>}<span><strong>{title}</strong><small>{row.choice.product?.variants?.[0]?.sku||"自有商品"}</small></span></label></TableCell><TableCell><span className={styles.badge}>自有商品</span></TableCell><TableCell>{row.groupName}</TableCell><TableCell><strong>{eligible?"可申请":"不可申请"}</strong><small>{eligible?"已完成智能优化":row.choice.ineligibleReason==="incomplete_product"?"商品资料不符合申请要求":"未完成智能优化"}</small></TableCell></TableRow>;
+          })}
         </TableBody></Table>
         {query.isFetching?<p className={styles.state} role="status">正在读取自有商品并核对优化结果</p>:query.error?<MarketReadError error={query.error} retry={()=>void query.refetch()}/>:data?.products.length===0?<div className={styles.state} role="status"><h2>{data.total===0&&!keyword?"暂无自有商品":"本页暂无可申请商品"}</h2><p>自有商品须完成智能优化，才能申请硕米优选。采集、市场选入及 SDS 商品不支持优选申请。</p><Button asChild variant="outline"><Link href={data.total===0&&!keyword?"/workbench/data/mine/own/new":"/workbench/data/mine?view=own"} prefetch={false}>{data.total===0&&!keyword?"添加自有商品":"查看自有商品"}</Link></Button></div>:null}
-        {data?<div className={styles.pagination}><p>按自有商品分页，当前页仅展示符合条件的商品。</p><CursorButtons after={after} next={data.nextCursor} total={data.total} onAfter={changePage}/></div>:null}
+        {data?<div className={styles.pagination}><p>按自有商品分页，不可申请商品需先完善资料并完成智能优化。</p><CursorButtons after={after} next={data.nextCursor} total={data.total} onAfter={changePage}/></div>:null}
       </Card>
     </>:<>
       <Card className={styles.summary}><div><strong>已选择 1 件自有商品</strong><p>{selected?.choice.product.title}</p></div><Button type="button" variant="ghost" disabled={locked} onClick={()=>setStep("select")}>返回修改商品</Button></Card>
