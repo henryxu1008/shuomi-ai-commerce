@@ -75,11 +75,7 @@ func buildProductAgentModule(ctx context.Context, productDB *gorm.DB, deps route
 	if a.content != nil {
 		a.content.originExecution = a.originExecution
 	}
-	var routes []httproute.Descriptor
-	if !agentCfg.ContentTitleOnly {
-		routes = productAgentRoutes(a)
-	}
-	routes = append(routes, registeredProductAgentRoutes(a.content, true)...)
+	routes := productAgentProfileRoutes(a, agentCfg.ContentTitleOnly)
 	// Candidate intake returns an ID understood by the existing review UI.
 	// Its original decision/Apply handlers retain their current permission checks.
 	binder := productReviewCapabilityBinder{now: time.Now}
@@ -136,6 +132,19 @@ type productAgentResultDTO struct {
 
 func productAgentRoutes(a *productAgentApplication) []httproute.Descriptor {
 	return registeredProductAgentRoutes(a, false)
+}
+
+// Mounting and global admission share the trusted profile's exact inventory.
+func productAgentProfileRoutes(a *productAgentApplication, titleOnly bool) []httproute.Descriptor {
+	var routes []httproute.Descriptor
+	if !titleOnly {
+		routes = productAgentRoutes(a)
+	}
+	var content *productAgentApplication
+	if a != nil {
+		content = a.content
+	}
+	return append(routes, registeredProductAgentRoutes(content, true)...)
 }
 
 func registeredProductAgentRoutes(a *productAgentApplication, content bool) []httproute.Descriptor {
