@@ -53,19 +53,14 @@ func (sp *SingleProcessor) Prepare(ctx context.Context) error {
 
 // ProcessWithSingleBrowser 使用单个浏览器处理产品
 func (sp *SingleProcessor) ProcessWithSingleBrowser(ctx context.Context, url string, startTime time.Time) (*model.Product1688, error) {
-	return sp.processWithBrowserManager(ctx, url, startTime, sp.newPublicBrowserManager(), false)
-}
-
-// ProcessWithAccountProfile uses a short-lived browser manager configured for one 1688 login account.
-func (sp *SingleProcessor) ProcessWithAccountProfile(ctx context.Context, url string, startTime time.Time, profile AccountProfile) (*model.Product1688, error) {
-	return sp.processWithBrowserManager(ctx, url, startTime, NewBrowserManagerForAccountProfile(sp.config, profile), true)
+	return sp.processWithBrowserManager(ctx, url, startTime, sp.newPublicBrowserManager())
 }
 
 func (sp *SingleProcessor) newPublicBrowserManager() *BrowserManager {
 	return NewPublicBrowserManager(sp.config)
 }
 
-func (sp *SingleProcessor) processWithBrowserManager(ctx context.Context, url string, startTime time.Time, browserManager *BrowserManager, allowManualCaptcha bool) (*model.Product1688, error) {
+func (sp *SingleProcessor) processWithBrowserManager(ctx context.Context, url string, startTime time.Time, browserManager *BrowserManager) (*model.Product1688, error) {
 	logger.GetGlobalLogger("crawler/alibaba1688").Infof("使用单浏览器模式处理1688产品: %s", url)
 
 	// 验证和标准化URL
@@ -88,12 +83,7 @@ func (sp *SingleProcessor) processWithBrowserManager(ctx context.Context, url st
 	}
 
 	// 导航到产品页面
-	var navErr error
-	if allowManualCaptcha {
-		navErr = sp.pageOperator.NavigateToProduct(ctx, page, normalizedURL)
-	} else {
-		navErr = sp.pageOperator.NavigateToProductWithoutManualCaptcha(ctx, page, normalizedURL)
-	}
+	navErr := sp.pageOperator.NavigateToProductWithoutManualCaptcha(ctx, page, normalizedURL)
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}

@@ -1193,6 +1193,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		AcquisitionImage:    factories.buildAcquisitionImage != nil,
 		FullImageSet:        imageRuntime != nil,
 		ProductAgent:        supplied.productAgent != nil,
+		ContentTitleOnly:    supplied.productAgent != nil && supplied.productAgent.ContentTitleOnly,
 		AIWorkbench:         supplied.aiWorkbench != nil,
 		ProjectCenter:       supplied.projectCenterDB != nil,
 		AgentConfiguration:  supplied.agentConfigurationDB != nil,
@@ -1322,6 +1323,7 @@ type currentApplicationOptionalRoutes struct {
 	AcquisitionImage    bool
 	FullImageSet        bool
 	ProductAgent        bool
+	ContentTitleOnly    bool
 	AIWorkbench         bool
 	ProjectCenter       bool
 	MemberPoints        bool
@@ -1329,6 +1331,9 @@ type currentApplicationOptionalRoutes struct {
 }
 
 func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, includeAudit, includeAcquisition, includeReferrals, includeMembership, includeAccountProfile, includeAllocation, includeBrowser bool, optional currentApplicationOptionalRoutes) error {
+	if optional.ContentTitleOnly && !optional.ProductAgent {
+		return errors.New("title-only routes require the current product agent")
+	}
 	if optional.PrivateDraftTrial && (optional.SupplyMarket || optional.POD) {
 		return errors.New("private draft trial excludes market/POD services")
 	}
@@ -1555,10 +1560,7 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 		}
 	}
 	if optional.ProductAgent {
-		for _, r := range productAgentRoutes(nil) {
-			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
-		}
-		for _, r := range registeredProductAgentRoutes(nil, true) {
+		for _, r := range productAgentProfileRoutes(nil, optional.ContentTitleOnly) {
 			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
 		}
 		if optional.Collections {
