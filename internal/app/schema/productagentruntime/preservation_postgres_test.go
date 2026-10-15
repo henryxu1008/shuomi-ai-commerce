@@ -31,6 +31,7 @@ func retainedSnapshot(t *testing.T, db *gorm.DB, tables []string) []string {
 func TestPrepareRunPreservesChatSkillAndSharedLedger(t *testing.T) {
 	f := newPrepareFixture(t, "run")
 	require.NoError(t, configstore.InstallSchema(f.db))
+	require.NoError(t, configstore.GrantRuntime(f.db, "product_agent_runtime"))
 	require.NoError(t, skillstore.InstallSchema(context.Background(), f.db))
 	require.NoError(t, skillstore.GrantRuntime(context.Background(), f.db, "product_agent_runtime"))
 	require.NoError(t, workstore.InstallSchema(f.db))
@@ -40,7 +41,7 @@ func TestPrepareRunPreservesChatSkillAndSharedLedger(t *testing.T) {
 	ledger := aistore.NewGormInvocationRecorder(f.db)
 	_, err := ledger.ClaimInvocation(context.Background(), aicapability.InvocationRecord{InvocationID: "retained", TenantID: "org", UserID: "actor", MemberID: "member", AgentRunID: "old-run", InputHash: "input", Operation: aicapability.OperationProductContentDecision, StartedAt: time.Now().UTC(), Outcome: aicapability.InvocationDispatched})
 	require.NoError(t, err)
-	tables := []string{"ai_workbench.conversations", "ai_workbench.commands", "ai_workbench.business_tasks", "skill_capability.skills", "skill_capability.versions", "skill_capability.commands", "agent_configuration.skill_admissions"}
+	tables := []string{"ai_workbench.conversations", "ai_workbench.commands", "ai_workbench.business_tasks", "skill_capability.skills", "skill_capability.versions", "skill_capability.commands", "skill_capability.share_requests", "agent_configuration.skill_admissions", "agent_configuration.organization_agents", "agent_configuration.templates", "agent_configuration.template_revisions", "agent_configuration.start_snapshots", "agent_configuration.commands", "agent_configuration.image_run_admissions", "agent_configuration.execution_modes", "agent_configuration.execution_mode_snapshots"}
 	before := retainedSnapshot(t, f.db, tables)
 	var ledgerBefore, aclBefore string
 	require.NoError(t, f.db.Raw("SELECT to_jsonb(r)::text FROM public.ai_invocations r WHERE invocation_id='retained'").Scan(&ledgerBefore).Error)
@@ -66,6 +67,18 @@ func TestPrepareRunPreservesChatSkillAndSharedLedger(t *testing.T) {
 	_, err = PrepareRun(context.Background(), f.db)
 	require.NoError(t, err)
 	require.Equal(t, before, retainedSnapshot(t, f.db, []string{"public.product_agent_runs", "public.product_agent_tool_calls", "public.ai_client_credentials", "public.ai_invocations"}))
+	for _, test := range []struct{ grant, revoke string }{
+		{"GRANT SELECT ON ai_workbench.conversations TO product_agent_runtime", "REVOKE SELECT ON ai_workbench.conversations FROM product_agent_runtime"},
+		{"GRANT SELECT ON ai_workbench.conversations TO PUBLIC", "REVOKE SELECT ON ai_workbench.conversations FROM PUBLIC"},
+		{"GRANT UPDATE(files) ON skill_capability.versions TO product_agent_runtime", "REVOKE UPDATE(files) ON skill_capability.versions FROM product_agent_runtime"},
+	} {
+		require.NoError(t, f.db.Exec(test.grant).Error)
+		current := retainedSnapshot(t, f.db, tables)
+		_, err = PrepareRun(context.Background(), f.db)
+		require.Error(t, err)
+		require.Equal(t, current, retainedSnapshot(t, f.db, tables), "rejection preserves legitimate and forbidden pre-existing ACLs without repair")
+		require.NoError(t, f.db.Exec(test.revoke).Error) // fixture setup only; the qualifier never revokes.
+	}
 }
 
 func TestPrepareRunRefusesWrongOwnerWeakenedConstraintAndPermissions(t *testing.T) {

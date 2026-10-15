@@ -52,7 +52,7 @@ func verifyRole(db *gorm.DB, role string) error {
 	if !allowed {
 		return fmt.Errorf("role %s is missing or has unapproved authority", role)
 	}
-	return nil
+	return verifyObjectBounds(db, role)
 }
 
 // Only the three private targets have a closed ACL. Existing shared ledger,

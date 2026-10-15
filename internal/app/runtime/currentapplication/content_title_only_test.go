@@ -24,6 +24,7 @@ func contentTitleRuntimeConfig(t *testing.T) *Config {
 	cfg.ProductAgent.ContentTextPolicies = map[string]governed.RoutePolicy{"org": policy}
 	cfg.ProductAgent.TextPolicies = nil
 	cfg.ProductAgent.AssetDatabase = DatabaseConfig{}
+	cfg.ProductAgent.Database.User = "product_agent_runtime"
 	// Exercise the trusted deployment input without depending on the new field
 	// existing before the regression is first run.
 	require.NoError(t, json.Unmarshal([]byte(`{"contentTitleOnly":true}`), cfg.ProductAgent))
@@ -40,16 +41,20 @@ func TestContentTitleOnlyConfigCoexistsWithStorageOnlyChat(t *testing.T) {
 		"explicit opt-in required": func(c *Config) {
 			require.NoError(t, json.Unmarshal([]byte(`{"contentTitleOnly":false}`), c.ProductAgent))
 		},
-		"asset connection forbidden": func(c *Config) { c.ProductAgent.AssetDatabase = agentRuntimeConfig().ProductAgent.AssetDatabase },
-		"title policy forbidden":     func(c *Config) { c.ProductAgent.TextPolicies = agentRuntimeConfig().ProductAgent.TextPolicies },
-		"materials policy forbidden": func(c *Config) { c.ProductAgent.MaterialsTextPolicies = c.ProductAgent.ContentTextPolicies },
-		"selection policy forbidden": func(c *Config) { c.ProductAgent.SelectionTextPolicies = c.ProductAgent.ContentTextPolicies },
-		"diagnosis policy forbidden": func(c *Config) { c.ProductAgent.DiagnosisTextPolicies = c.ProductAgent.ContentTextPolicies },
-		"content policy required":    func(c *Config) { c.ProductAgent.ContentTextPolicies = nil },
-		"planner policy forbidden":   func(c *Config) { c.AIWorkbench.PlanningTextPolicies = c.ProductAgent.ContentTextPolicies },
-		"full chat forbidden":        func(c *Config) { c.AIWorkbench.ConversationOnly = false },
-		"chat owner unchanged":       func(c *Config) { c.AIWorkbench.Database.Database = "another-owner" },
-		"chat role remains separate": func(c *Config) { c.AIWorkbench.Database.User = c.ProductAgent.Database.User },
+		"asset connection forbidden":        func(c *Config) { c.ProductAgent.AssetDatabase = agentRuntimeConfig().ProductAgent.AssetDatabase },
+		"title policy forbidden":            func(c *Config) { c.ProductAgent.TextPolicies = agentRuntimeConfig().ProductAgent.TextPolicies },
+		"materials policy forbidden":        func(c *Config) { c.ProductAgent.MaterialsTextPolicies = c.ProductAgent.ContentTextPolicies },
+		"selection policy forbidden":        func(c *Config) { c.ProductAgent.SelectionTextPolicies = c.ProductAgent.ContentTextPolicies },
+		"diagnosis policy forbidden":        func(c *Config) { c.ProductAgent.DiagnosisTextPolicies = c.ProductAgent.ContentTextPolicies },
+		"content policy required":           func(c *Config) { c.ProductAgent.ContentTextPolicies = nil },
+		"run role must be prepared runtime": func(c *Config) { c.ProductAgent.Database.User = "agent_runtime" },
+		"run owner forbidden":               func(c *Config) { c.ProductAgent.Database.User = "product_agent_owner" },
+		"review acquisition role forbidden": func(c *Config) { c.ProductAgent.ReviewDatabase.User = "source_acquisition_runtime" },
+		"review owner forbidden":            func(c *Config) { c.ProductAgent.ReviewDatabase.User = "acquisition_owner" },
+		"planner policy forbidden":          func(c *Config) { c.AIWorkbench.PlanningTextPolicies = c.ProductAgent.ContentTextPolicies },
+		"full chat forbidden":               func(c *Config) { c.AIWorkbench.ConversationOnly = false },
+		"chat owner unchanged":              func(c *Config) { c.AIWorkbench.Database.Database = "another-owner" },
+		"chat role remains separate":        func(c *Config) { c.AIWorkbench.Database.User = c.ProductAgent.Database.User },
 	} {
 		t.Run(name, func(t *testing.T) {
 			c := contentTitleRuntimeConfig(t)
@@ -94,6 +99,33 @@ func TestContentTitleOnlyStartupDoesNotOpenAssetPool(t *testing.T) {
 	require.Equal(t, 5, closed)
 }
 
+func TestContentTitleOnlyWrongRolesStopBeforeOpeningPools(t *testing.T) {
+	t.Run("disabled management keeps its existing contract", func(t *testing.T) {
+		cfg := contentTitleRuntimeConfig(t)
+		cfg.ProductAgent.Enabled = false
+		cfg.ProductAgent.Database.User = "retained_management_runtime"
+		require.NoError(t, cfg.validate())
+	})
+	for _, target := range []string{"run", "review"} {
+		t.Run(target, func(t *testing.T) {
+			cfg := contentTitleRuntimeConfig(t)
+			if target == "run" {
+				cfg.ProductAgent.Database.User = "product_agent_owner"
+			} else {
+				cfg.ProductAgent.ReviewDatabase.User = "source_acquisition_runtime"
+			}
+			opened := 0
+			open := func(context.Context, DatabaseConfig) (*gorm.DB, error) {
+				opened++
+				return nil, errors.New("unexpected open")
+			}
+			err := Run(context.Background(), cfg, logrus.New(), Dependencies{OpenSourceAccount: open, OpenProductAgent: open, OpenProductAcquisition: open, IdentityPreflight: func(context.Context, IdentityConfig) error { t.Fatal("identity preflight must not begin"); return nil }})
+			require.ErrorContains(t, err, "prepared Run and Review runtime identities")
+			require.Zero(t, opened)
+		})
+	}
+}
+
 func TestContentTitleOnlyDoesNotTakeOverOtherAssetConsumers(t *testing.T) {
 	for name, factory := range map[string]func(*testing.T) *Config{"image": fullImageGenericRuntimeConfig, "supply": supplyRuntimeConfig} {
 		t.Run(name, func(t *testing.T) {
@@ -103,6 +135,7 @@ func TestContentTitleOnlyDoesNotTakeOverOtherAssetConsumers(t *testing.T) {
 			if cfg.ProductAgent != nil {
 				content.Database = cfg.ProductAgent.Database
 			}
+			content.Database.User = "product_agent_runtime"
 			content.ReviewDatabase = *cfg.ProductAcquisitionDatabase
 			content.ReviewDatabase.User = "product_review_runtime"
 			cfg.ProductAgent = content

@@ -100,7 +100,11 @@ func GrantRuntime(ctx context.Context, db *gorm.DB, role string) error {
 			return d.ErrForbidden
 		}
 		quoted := `"` + role + `"`
-		for _, sql := range []string{"REVOKE ALL ON SCHEMA skill_capability FROM " + quoted, "REVOKE ALL ON ALL TABLES IN SCHEMA skill_capability FROM " + quoted, "GRANT USAGE ON SCHEMA skill_capability TO " + quoted, "GRANT SELECT,INSERT ON ALL TABLES IN SCHEMA skill_capability TO " + quoted, "GRANT UPDATE(head_version,revision,updated_at) ON skill_capability.skills TO " + quoted, "GRANT UPDATE(state,visibility) ON skill_capability.versions TO " + quoted, "GRANT UPDATE(state,result_skill_id,updated_at) ON skill_capability.share_requests TO " + quoted, "GRANT SELECT,INSERT ON agent_configuration.skill_admissions TO " + quoted, "GRANT UPDATE(allow_personal,revision,updated_by,updated_at) ON agent_configuration.skill_admissions TO " + quoted} {
+		statements := []string{"REVOKE ALL ON SCHEMA skill_capability FROM " + quoted, "REVOKE ALL ON ALL TABLES IN SCHEMA skill_capability FROM " + quoted, "GRANT USAGE ON SCHEMA skill_capability TO " + quoted}
+		for _, grant := range append(RuntimeTableGrants(), configstore.SkillAdmissionRuntimeTableGrant()) {
+			statements = append(statements, grant.SQL(role))
+		}
+		for _, sql := range statements {
 			if e := tx.Exec(sql).Error; e != nil {
 				return e
 			}

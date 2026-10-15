@@ -45,6 +45,9 @@ func (p *ProductAgentConfig) validate(cfg *Config) error {
 	}
 	databases := map[string]DatabaseConfig{"database": p.Database, "reviewDatabase": p.ReviewDatabase}
 	if p.ContentTitleOnly {
+		if p.Database.User != "product_agent_runtime" || p.ReviewDatabase.User != "product_review_runtime" {
+			return errors.New("content-title-only requires the prepared Run and Review runtime identities")
+		}
 		if p.AssetDatabase != (DatabaseConfig{}) || len(p.ContentTextPolicies) == 0 || len(p.TextPolicies) != 0 ||
 			len(p.MaterialsTextPolicies) != 0 || len(p.SelectionTextPolicies) != 0 || len(p.DiagnosisTextPolicies) != 0 ||
 			cfg.AIWorkbench != nil && (len(cfg.AIWorkbench.PlanningTextPolicies) != 0 || cfg.AIWorkbench.Enabled && !cfg.AIWorkbench.ConversationOnly) {

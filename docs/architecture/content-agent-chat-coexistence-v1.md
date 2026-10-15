@@ -91,6 +91,8 @@ Legacy decision: N/A，没有消费已登记 RETIRE 的抽象。共享正确构�
 
 角色约束：普通 serving/writer LOGIN 角色不得具备 superuser/createdb/createrole/replication/bypassrls、owner 成员关系或其它继承超额权限；既有角色/ACL/PUBLIC 不重置。新增普通角色的真实创建/密码文件不是此命令副作用。确认现 owner 具备管理自身表的资格，不将运行角色提升成 owner。只有新增目标与明确列出的权限发生变化；缺失 owner/角色、已有危险权限或 schema 不匹配均先失败，不自动 REVOKE/换库修补。
 
+实现准入细化沿上述原合同：启用 contentTitleOnly 时固定 Run/Review 配置身份为 `product_agent_runtime` / `product_review_runtime`，错误身份在开池前拒绝；disabled 管理与原 full 合同不变。三固定角色仅在本目标库内核对有效表/列/序列及 grant-option 权限。Run 的原共享合法上限复用 Skill 和 agent_configuration owner 的同一初始化授权定义（8 配置关系、1 Skill 准入、4 Skill 关系），不要求这些关系存在、不安装或补旧权、不整 schema 放行；writer/Review 只接纳下表的固定目标。范围外有效权限拒绝且保留原 ACL，不做跨库/跨实例 ACL 治理。所有原表与 credential 序列须为永久关系，UNLOGGED 属漂移，拒绝不修复。
+
 ### 精确关系与权限清单
 
 S=SELECT，I=INSERT，U=UPDATE。均另需本目标数据库 CONNECT、public schema USAGE；不授 CREATE/TEMP、DELETE/TRUNCATE/REFERENCES/TRIGGER、WITH GRANT OPTION、owner 或通配 ALL TABLES/SEQUENCES 权限。
