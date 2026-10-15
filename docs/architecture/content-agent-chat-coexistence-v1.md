@@ -1,6 +1,6 @@
 # 商品内容标题试用与现有 Chat 共存的最小运行接线
 
-Status: DRAFT / NOT_IMPLEMENTATION_READY。执行 Issue #688，父项 #137。Design Basis: Independent Architecture；只审本次运行组合与既有 owner 的有界安装入口，不重开内容、Skill、四权限或预算架构。准入前不得修改正式业务路径；最终文档、准确提交、独立边界检查与 Ready 记录须先于实现。
+Status: IMPLEMENTATION_READY。独立高风险准入已对设计35c2326dff2476a4489082a7dea7837050fd3172完成，无设计BLOCKER；批准记录见[#715 comment6185409465](https://github.com/qq550723504/task-processor/pull/715#issuecomment-6185409465)。执行 Issue #688，父项 #137。Design Basis: Independent Architecture；只审本次运行组合与既有 owner 的有界安装入口，不重开内容、Skill、四权限或预算架构。准入前不得修改正式业务路径；最终文档、准确提交、独立边界检查与 Ready 记录须先于实现。
 
 ## 用户结果、授权和非目标
 
@@ -37,7 +37,7 @@ Status: DRAFT / NOT_IMPLEMENTATION_READY。执行 Issue #688，父项 #137。Des
 
 只补原模型的有界 additive 入口（下节固定命令与 owner 函数），不调用当前 serving 初始化或整库 AutoMigrate，不复制模型 DTO 或建安装平台。
 
-RunDB 阶段在原 product_agent_owner 下单数据库事务：先核目标库/owner、既有 ai_invocations 准确原 schema 和拟消费权限；仅在固定目标三表全部缺失时创建 product_agent_runs、tool_calls、ai_client_credentials 原模型及原索引/约束，授予现 product_agent_runtime 所需有界权限和独立 credential writer 权限。ai_invocations 只验证、不 ALTER/重建/回填；仅对明确已有原列授予实际所需的现权限。不动原 Chat/Skill/配置/知识/计量事实或其 grants。
+RunDB 阶段在原 product_agent_owner 下单数据库事务：先核目标库/owner、既有 ai_invocations 准确原 schema 和拟消费权限；仅在固定目标三表全部缺失时创建 product_agent_runs、product_agent_tool_calls、ai_client_credentials 原模型及原索引/约束，授予现 product_agent_runtime 所需有界权限和独立 credential writer 权限。ai_invocations 只验证、不 ALTER/重建/回填；仅对明确已有原列授予实际所需的现权限。不动原 Chat/Skill/配置/知识/计量事实或其 grants。
 
 ProductDB 阶段在原 owner/有界管理员下单数据库事务：验证既有 Review/Catalog/source 六表及对应 owner/约束，不创建/更新业务表；只给新的独立 Review runtime 角色授予实际 SELECT/INSERT 和精确可变列 UPDATE。credential writer 仍只沿 #713 原 CLI/原 owner 写准确组织/client，不取得 serving/其它库业务写权限。
 
@@ -114,3 +114,5 @@ credential updater 的列来自 `SaveCredential` 原 Assign/UpdatedAt，Review u
 三目标全缺时才允许原定义创建；三目标全在且 public/schema/owner/结构/约束/索引与当前模型精确一致、角色有效权限恰好匹配时 ALREADY_READY，只读 no-op。存在一或二张、漂移/外来关系/owner、权限超额或原共享表不合格时拒绝。既有部分权限缺失的“完整三表”也不静默补救：报告准确差异，交原安装 owner 单独决定，避免把未知前次提交或第三方安装当成新空安装。实际先 Run 后 Product；第二库失败不回滚第一库已经提交事实，仍保持执行关闭，不删除第一库新表/数据。
 
 最终真实清单要列出上述53列的展开名称、确切序列、原 schema/ACL 保留摘要、执行参数/镜像摘要、先后顺序和停启边界；由原实例 owner 在准确候选形成后交用户批准。本设计文档/fixture 不是实际改库授权。
+
+准入IMPLEMENTATION_TEST（必须在本PR合并层收口，不重开设计）：三层拒绝contentTitleOnly+fullChat/PlanningTextPolicies且Chat执行端口空；title-only覆盖quote/start和按冻结请求resume/retry的新执行，原receipt按权限读取；实际隔离受限PG角色验证Run/invocation/Review/Catalog写、完整no-op/部分漂移拒绝及共享事实/ACL保留。上述要求不授权原保留环境改库/角色/Key/停启或真实模型调用。
