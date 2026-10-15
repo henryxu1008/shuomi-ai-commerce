@@ -9,6 +9,7 @@ boundary rules unless they explicitly supersede a stable document.
 
 ## Approved Authorities by Responsibility
 
+- [`auth-instance-cookie-isolation.md`](auth-instance-cookie-isolation.md): #706 IMPLEMENTATION_READY native Auth.js cookie isolation for configured instances; identity, permissions, secrets and business data remain with existing owners. Source admission is not runtime or user acceptance.
 - [`completion-draft-history-v1.md`](completion-draft-history-v1.md): #704 IMPLEMENTATION_READY read-only saved revision history and same-draft text comparison; existing records, source authority and save protocol retained.
 - [`pod-design-agent-v1.md`](pod-design-agent-v1.md): #672 proposed design for AI-generated new artwork through current generation/asset/POD owners; DESIGN_IN_PROGRESS, not implementation admission or runtime availability.
 - [`product-selection-comparison-agent-v1.md`](product-selection-comparison-agent-v1.md): #680 IMPLEMENTATION_READY design for factual comparison of 2–5 privately authorized saved products through existing Agent/configuration/model owners; source admission does not imply runtime or user acceptance.

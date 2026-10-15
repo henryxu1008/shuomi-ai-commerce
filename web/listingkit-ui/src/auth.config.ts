@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { customFetch } from "@auth/core";
 import type { NextAuthConfig, Session } from "next-auth";
 import type { JWT } from "next-auth/jwt";
@@ -5,6 +6,7 @@ import ZITADEL from "next-auth/providers/zitadel";
 
 import { createResilientOidcFetch } from "@/lib/server/auth-fetch";
 import { resolveAuthRedirect } from "@/lib/server/login-entry";
+import { resolvePublicAppOrigin } from "@/lib/server/public-app-origin";
 import { persistZitadelAcceptanceToken } from "@/lib/server/zitadel-acceptance-token";
 import {
   extractZitadelIdentityFromClaims,
@@ -127,6 +129,44 @@ export function getAuthJsSecret() {
   );
 }
 
+function authCookieConfig(zitadel: ZitadelAuthOptions | undefined) {
+  let publicURL: URL;
+  try {
+    publicURL = new URL(
+      (process.env.AUTH_URL ?? process.env.NEXTAUTH_URL)?.trim() || resolvePublicAppOrigin(),
+    );
+  } catch {
+    throw new Error("Invalid public auth origin");
+  }
+  if (
+    !["https:", "http:"].includes(publicURL.protocol) ||
+    publicURL.username || publicURL.password
+  ) {
+    throw new Error("Invalid public auth origin");
+  }
+  // Cookies are shared across ports. Keep every native Auth.js slot local to
+  // this configured origin/application without changing any secret or cipher.
+  const namespace = createHash("sha256")
+    .update(JSON.stringify([publicURL.origin, zitadel?.issuerUrl ?? "", zitadel?.clientId ?? ""]))
+    .digest("hex").slice(0, 32);
+  const useSecureCookies = publicURL.protocol === "https:";
+  const prefix = `${useSecureCookies ? "__Secure-" : ""}shuomi.${namespace}.`;
+  return {
+    useSecureCookies,
+    // Only names are customized. Auth.js merges its native security options,
+    // check lifetimes, chunking and clearing behavior for each configured name.
+    cookies: {
+      sessionToken: { name: `${prefix}session-token` },
+      callbackUrl: { name: `${prefix}callback-url` },
+      csrfToken: { name: `${useSecureCookies ? "__Host-" : ""}shuomi.${namespace}.csrf-token` },
+      pkceCodeVerifier: { name: `${prefix}pkce.code_verifier` },
+      state: { name: `${prefix}state` },
+      nonce: { name: `${prefix}nonce` },
+      webauthnChallenge: { name: `${prefix}challenge` },
+    },
+  } satisfies Pick<NextAuthConfig, "useSecureCookies" | "cookies">;
+}
+
 export function buildAuthConfig(): NextAuthConfig {
   const zitadel = getZitadelAuthOptions();
   const oidcFetch = createResilientOidcFetch({
@@ -170,6 +210,7 @@ export function buildAuthConfig(): NextAuthConfig {
 
   return {
     secret: getAuthJsSecret(),
+    ...authCookieConfig(zitadel),
     trustHost: true,
     session: { strategy: "jwt" },
     providers: zitadelProvider ? [zitadelProvider] : [],
