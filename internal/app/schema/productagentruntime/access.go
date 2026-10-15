@@ -45,7 +45,7 @@ func reviewGrants() []tableGrant {
 
 func verifyRole(db *gorm.DB, role string) error {
 	var allowed bool
-	err := db.Raw(`SELECT rolcanlogin AND rolconnlimit<>0 AND NOT (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls) AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_auth_members m WHERE m.member=r.oid OR m.roleid=r.oid) AND NOT pg_catalog.has_database_privilege(r.oid,current_database(),'CREATE') AND NOT pg_catalog.has_database_privilege(r.oid,current_database(),'TEMP') AND NOT pg_catalog.has_schema_privilege(r.oid,'public','CREATE') AND NOT pg_catalog.has_database_privilege(r.oid,current_database(),'CONNECT WITH GRANT OPTION') AND NOT pg_catalog.has_schema_privilege(r.oid,'public','USAGE WITH GRANT OPTION') FROM pg_catalog.pg_roles r WHERE rolname=?`, role).Scan(&allowed).Error
+	err := db.Raw(`SELECT rolcanlogin AND rolconnlimit<>0 AND (rolvaliduntil IS NULL OR rolvaliduntil>pg_catalog.clock_timestamp()) AND NOT (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls) AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_auth_members m WHERE m.member=r.oid OR m.roleid=r.oid) AND NOT pg_catalog.has_database_privilege(r.oid,current_database(),'CREATE') AND NOT pg_catalog.has_database_privilege(r.oid,current_database(),'TEMP') AND NOT pg_catalog.has_schema_privilege(r.oid,'public','CREATE') AND NOT pg_catalog.has_database_privilege(r.oid,current_database(),'CONNECT WITH GRANT OPTION') AND NOT pg_catalog.has_schema_privilege(r.oid,'public','USAGE WITH GRANT OPTION') FROM pg_catalog.pg_roles r WHERE rolname=?`, role).Scan(&allowed).Error
 	if err != nil {
 		return err
 	}

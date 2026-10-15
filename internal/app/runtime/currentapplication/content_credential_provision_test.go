@@ -26,7 +26,7 @@ func contentProvisionFixture() (*Config, TitleCredentialProvision) {
 	policy.AdmittedCredentialVersion, policy.AdmittedEndpointIdentityDigest = "", ""
 	cfg.ProductAgent.ContentTextPolicies = map[string]governed.RoutePolicy{"org": policy}
 	writer := cfg.ProductAgent.Database
-	writer.User = "credential_writer"
+	writer.User = "title_credential_writer"
 	return cfg, TitleCredentialProvision{Action: "upsert", Consumer: "content", OrganizationID: "org", ClientName: "content",
 		APIKey: "synthetic-content-key", BaseURL: "https://content.example.test/v1", Model: "content-model",
 		APIStyle: "openai-compatible", TimeoutSecond: 3, WriterDatabase: writer}
@@ -47,6 +47,28 @@ func contentProvisionDB(t *testing.T) *gorm.DB {
 	t.Cleanup(func() { _ = sqlDB.Close() })
 	require.NoError(t, db.AutoMigrate(&openai.AIClientCredential{}))
 	return db
+}
+
+func TestCredentialProvisionRequiresThePreparedWriterBeforeWriting(t *testing.T) {
+	for _, action := range []string{"upsert", "disable"} {
+		for _, role := range []string{"product_agent_owner", "postgres", "credential_writer"} {
+			t.Run(action+"/"+role, func(t *testing.T) {
+				cfg, input := contentProvisionFixture()
+				if action == "disable" {
+					input = TitleCredentialProvision{Action: action, Consumer: "content", OrganizationID: input.OrganizationID, ClientName: input.ClientName, WriterDatabase: input.WriterDatabase}
+				}
+				require.NoError(t, ValidateTitleCredentialProvision(cfg, input), "the prepared writer remains valid while execution is disabled")
+				input.WriterDatabase.User = role
+				require.Error(t, ValidateTitleCredentialProvision(cfg, input), "the CLI must reject an unqualified writer before opening its database")
+				db := contentProvisionDB(t)
+				_, err := SaveTitleCredential(context.Background(), cfg, input, db)
+				require.Error(t, err)
+				var count int64
+				require.NoError(t, db.Model(&openai.AIClientCredential{}).Count(&count).Error)
+				require.Zero(t, count)
+			})
+		}
+	}
 }
 
 func TestContentCredentialProvisionUsesOnlyItsOwnRouteAndOrganizationRow(t *testing.T) {

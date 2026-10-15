@@ -80,7 +80,7 @@ profile：独立 client、供应商、模型、endpoint 准入、版本化计价
 或修补权限；缺少这些前置时先由原安装负责人提出独立安装方案，不能用 serving/管理员连接替代。
 私密输入沿原字段使用 `action: "upsert"`、`consumer: "content"`、`organizationId`、准确
 `clientName`、`apiKey`、`baseURL`、`model`、`apiStyle`、`timeoutSecond` 和 `writerDatabase`。
-writer 必须连接同一 host/port/database 并使用独立身份，timeout 不短于 profile 的 deadline。
+writer 必须连接同一 host/port/database 并使用已准备的 `title_credential_writer`，不能替换为 owner、管理员、serving 或任意其它身份；upsert/disable 在开库前同样检查。timeout 不短于 profile 的 deadline。
 密钥和数据库密码只放在受限访问的本地私密文件中，不写入命令行、仓库或普通日志。
 同一组织的 content、title、planning、materials、selection、diagnosis 策略须使用各自的凭据
 client。原 owner 的键是组织/用户/client，不含消费者；命令在 upsert 和 disable 前按其
