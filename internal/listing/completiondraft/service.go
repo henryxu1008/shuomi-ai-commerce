@@ -53,21 +53,30 @@ type Receipt struct {
 	Record   Record `json:"record"`
 	Replayed bool   `json:"replayed"`
 }
+type ItemPage struct {
+	CollectionItemID string `json:"collectionItemId"`
+	collection.Page[Record]
+}
+type CollectionOwner interface {
+	preparation.CollectionOwnerAuthority
+	ReadItem(context.Context, string) (collection.ItemDetail, error)
+}
 type Repository interface {
 	Save(context.Context, Prepared) (Receipt, error)
 	Read(context.Context, collection.Scope, string) (Record, error)
 	ReadCommand(context.Context, collection.Scope, string) (Receipt, error)
 	List(context.Context, collection.Scope, string, collection.Query) (collection.Page[Record], error)
+	ListForCollectionItem(context.Context, collection.Scope, string, collection.Query) (collection.Page[Record], error)
 }
 type Service struct {
 	sources      *preparation.SourceSelector
-	owners       preparation.CollectionOwnerAuthority
+	owners       CollectionOwner
 	preparations *preparation.Service
 	auth         preparation.Authorizer
 	repo         Repository
 }
 
-func NewService(sources *preparation.SourceSelector, owners preparation.CollectionOwnerAuthority, preparations *preparation.Service, auth preparation.Authorizer, repo Repository) (*Service, error) {
+func NewService(sources *preparation.SourceSelector, owners CollectionOwner, preparations *preparation.Service, auth preparation.Authorizer, repo Repository) (*Service, error) {
 	if sources == nil || owners == nil || preparations == nil || auth == nil || repo == nil {
 		return nil, preparation.ErrUnavailable
 	}
@@ -272,4 +281,51 @@ func (s *Service) List(ctx context.Context, preparationID string, q collection.Q
 		return collection.Page[Record]{}, preparation.ErrForbidden
 	}
 	return page, nil
+}
+
+// ListForCollectionItem reads saved heads across preparations. Current item
+// authority gates discovery; each retained source keeps its original version.
+func (s *Service) ListForCollectionItem(ctx context.Context, itemID string, q collection.Query) (ItemPage, error) {
+	ctx, cancel := context.WithTimeout(ctx, preparation.Timeout)
+	defer cancel()
+	scope, err := s.authorize(ctx, preparation.PermissionRead)
+	if err != nil {
+		return ItemPage{}, err
+	}
+	if !collection.ValidID(itemID) || q.Validate() != nil {
+		return ItemPage{}, preparation.ErrInvalid
+	}
+	readItem := func() error {
+		detail, err := s.owners.ReadItem(ctx, itemID)
+		if err != nil {
+			return err
+		}
+		if detail.Item.ID != itemID || detail.Item.Source.Kind != "own" || detail.Item.ArchivedAt != nil {
+			return preparation.ErrNotFound
+		}
+		return nil
+	}
+	if err = readItem(); err != nil {
+		return ItemPage{}, err
+	}
+	page, err := s.repo.ListForCollectionItem(ctx, scope, itemID, q)
+	if err != nil {
+		return ItemPage{}, err
+	}
+	for _, r := range page.Items {
+		if r.Source.CollectionItemID != itemID || r.Source.Source.Kind != "own" || !collection.ValidID(r.Source.ID) || ctx.Err() != nil {
+			return ItemPage{}, preparation.ErrUnavailable
+		}
+	}
+	if err = readItem(); err != nil {
+		return ItemPage{}, err
+	}
+	current, err := s.authorize(ctx, preparation.PermissionRead)
+	if err != nil {
+		return ItemPage{}, err
+	}
+	if current != scope {
+		return ItemPage{}, preparation.ErrForbidden
+	}
+	return ItemPage{CollectionItemID: itemID, Page: page}, nil
 }

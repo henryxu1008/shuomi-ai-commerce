@@ -464,3 +464,5 @@ within that boundary, prefer the stable boundary document and update the older
 contextual note with a link instead of creating a third interpretation.
 Every stable or development boundary document must have a document test before
 it is treated as a long-lived review entrypoint.
+
+- [`own-product-existing-drafts-v1.md`](./own-product-existing-drafts-v1.md): #699 按准确自有商品有界查询已保存草稿、固定来源与保存版本、独立继续编辑及返回上下文；IMPLEMENTATION_READY，独立R1限定新读合同准入。

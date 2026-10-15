@@ -18,6 +18,7 @@ type CompletionDraftApplication interface {
 	Read(context.Context, string) (completiondraft.Record, error)
 	ReadCommand(context.Context, string) (completiondraft.Receipt, error)
 	List(context.Context, string, collection.Query) (collection.Page[completiondraft.Record], error)
+	ListForCollectionItem(context.Context, string, collection.Query) (completiondraft.ItemPage, error)
 }
 
 func CompletionDraftRoutes(app CompletionDraftApplication, bind func(context.Context, string) (context.Context, error)) []httproute.Descriptor {
@@ -26,6 +27,7 @@ func CompletionDraftRoutes(app CompletionDraftApplication, bind func(context.Con
 		{http.MethodGet, "/completion-drafts/commands/:key", "command", preparation.PermissionRead},
 		{http.MethodGet, "/sources/:source_id/completion-draft", "read", preparation.PermissionRead},
 		{http.MethodGet, "/:preparation_id/completion-drafts", "list", preparation.PermissionRead},
+		{http.MethodGet, "/collection-items/:item_id/completion-drafts", "item-list", preparation.PermissionRead},
 	}
 	routes := []httproute.Descriptor{}
 	for _, spec := range specs {
@@ -40,7 +42,7 @@ func CompletionDraftRoutes(app CompletionDraftApplication, bind func(context.Con
 				supplyError(c, preparation.ErrForbidden)
 				return
 			}
-			if spec.action != "list" && c.Request.URL.RawQuery != "" {
+			if spec.action != "list" && spec.action != "item-list" && c.Request.URL.RawQuery != "" {
 				supplyError(c, preparation.ErrInvalid)
 				return
 			}
@@ -81,6 +83,19 @@ func CompletionDraftRoutes(app CompletionDraftApplication, bind func(context.Con
 						err = preparation.ErrInvalid
 					} else {
 						output, err = app.List(ctx, c.Param("preparation_id"), q)
+					}
+				}
+			case "item-list":
+				var q collection.Query
+				q, err = supplyQuery(c.Request)
+				if err == nil {
+					if !c.Request.URL.Query().Has("limit") {
+						q.Limit = 20
+					}
+					if !collection.ValidID(c.Param("item_id")) {
+						err = preparation.ErrInvalid
+					} else {
+						output, err = app.ListForCollectionItem(ctx, c.Param("item_id"), q)
 					}
 				}
 			}

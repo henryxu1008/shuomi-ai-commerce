@@ -20,7 +20,7 @@ it("reads the batch revision before the displayed item and transfers only that i
  expect(screen.getByText("CNY 0")).toBeVisible();expect(screen.getByText("0 件")).toBeVisible();expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
  fireEvent.click(screen.getByRole("button",{name:"确认转入并填写草稿"}));
  await waitFor(()=>expect(f.save).toHaveBeenCalledWith(expect.objectContaining({route:"transfer",command:{batchId,expectedRevision:5,itemIds:[itemId]}}),expect.any(AbortSignal)));
- await waitFor(()=>expect(f.push).toHaveBeenCalledWith(`/workbench/supply/mine/missing/${sourceId}`));
+ await waitFor(()=>expect(f.push).toHaveBeenCalledWith(`/workbench/supply/mine/missing/${sourceId}?preparation=${preparationId}&item=${itemId}`));
 });
 it("requires a fresh confirmation after a conflict",async()=>{
  f.save.mockRejectedValue(new SupplyAPIError("REVISION_CONFLICT",409));render(<OwnProductPreparePage itemId={itemId}/>);await screen.findByText("商品版本2");fireEvent.click(screen.getByRole("button",{name:"确认转入并填写草稿"}));
@@ -31,7 +31,7 @@ it("recovers an original single-item transfer even after the current product cha
  const intent={userId:"actor",organizationId:"org",route:"transfer",key:sourceId,command:{batchId,expectedRevision:1,itemIds:[itemId]}};f.context.pendingSupplyIntent=intent;
  f.recover.mockResolvedValue({...receipt,preparation:{...receipt.preparation,sourceRevision:1},replayed:true});f.sources.mockResolvedValue({items:[{...retained,source:{...retained.source,version:"1"}}],total:1});
  render(<OwnProductPreparePage itemId={itemId}/>);fireEvent.click(await screen.findByRole("button",{name:"核实原操作"}));
- await waitFor(()=>expect(f.push).toHaveBeenCalledWith(`/workbench/supply/mine/missing/${sourceId}`));expect(f.recover.mock.lastCall![0]).toEqual(intent);expect(f.save).not.toHaveBeenCalled();
+ await waitFor(()=>expect(f.push).toHaveBeenCalledWith(`/workbench/supply/mine/missing/${sourceId}?preparation=${preparationId}&item=${itemId}`));expect(f.recover.mock.lastCall![0]).toEqual(intent);expect(f.save).not.toHaveBeenCalled();
 });
 it("keeps a successful transfer and retries only source reading when that read fails",async()=>{
  f.sources.mockRejectedValueOnce(new SupplyAPIError("DEPENDENCY_UNAVAILABLE",503));render(<OwnProductPreparePage itemId={itemId}/>);await screen.findByText("商品版本2");fireEvent.click(screen.getByRole("button",{name:"确认转入并填写草稿"}));

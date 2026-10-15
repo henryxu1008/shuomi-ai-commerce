@@ -11,6 +11,23 @@ const detail={source,images:[],product:{title:"固定原商品V1",description:"�
 const record={id,draftId:preparation,revision:1,source,content:{title:"候选内容R1",description:"候选描述"},status:"pending_completion",createdAt:"2026-10-14T00:00:00Z"};
 beforeEach(()=>{vi.clearAllMocks();f.context.pendingSupplyIntent=null;f.context.effectiveOrganization.id="org";f.context.setPendingSupplyIntent.mockImplementation(v=>{f.context.pendingSupplyIntent=v;return true});f.source.mockResolvedValue(detail);f.read.mockRejectedValue(new SupplyAPIError("NOT_FOUND",404));f.save.mockResolvedValue({record,replayed:false})});
 afterEach(cleanup);
+it("keeps both return links, reads the latest head, and freezes same-source navigation changes",async()=>{
+ f.read.mockResolvedValue({...record,revision:3});
+ const view=render(<CompletionDraftPage sourceId={id} preparationId={preparation} itemId={preparation}/>);
+ expect(await screen.findByRole("textbox",{name:"候选标题"})).toHaveValue(record.content.title);expect(screen.getByText(/^未绑定店铺 · 已保存 R3/)).toBeVisible();
+ expect(screen.getByRole("link",{name:"返回商品"})).toHaveAttribute("href",`/workbench/data/mine/own/${preparation}`);expect(screen.getByRole("link",{name:"返回待补全列表"})).toHaveAttribute("href",`/workbench/supply/mine/missing?preparation=${preparation}`);
+ f.source.mockReturnValue(new Promise(()=>{}));view.rerender(<CompletionDraftPage sourceId={id} preparationId={id} itemId={preparation}/>);expect(screen.queryByRole("textbox",{name:"候选标题"})).not.toBeInTheDocument();expect(screen.queryByRole("button",{name:"保存待补全草稿"})).not.toBeInTheDocument();
+});
+it("rejects a mismatching item or preparation before reading or prefilling saved content",async()=>{
+ for(const props of [{preparationId:id,itemId:preparation},{preparationId:preparation,itemId:id}]){
+  f.read.mockClear();const view=render(<CompletionDraftPage sourceId={id} {...props}/>);await screen.findByText("草稿或原资料读取失败");expect(f.read).not.toHaveBeenCalled();expect(screen.queryByRole("textbox")).not.toBeInTheDocument();view.unmount();
+ }
+});
+it("freezes the form when only the item context changes and keeps read-only saves disabled",async()=>{
+ f.read.mockResolvedValue(record);const view=render(<CompletionDraftPage sourceId={id} preparationId={preparation} itemId={preparation}/>);await screen.findByRole("textbox",{name:"候选标题"});
+ f.source.mockReturnValue(new Promise(()=>{}));view.rerender(<CompletionDraftPage sourceId={id} preparationId={preparation} itemId={id}/>);expect(screen.queryByRole("textbox")).not.toBeInTheDocument();view.unmount();
+ f.source.mockResolvedValue(detail);f.context.permissions=["workbench.supply.read"];render(<CompletionDraftPage sourceId={id} preparationId={preparation} itemId={preparation}/>);expect(await screen.findByRole("textbox",{name:"候选标题"})).toBeDisabled();expect(screen.getByRole("button",{name:"保存待补全草稿"})).toBeDisabled();f.context.permissions=["workbench.supply.read","workbench.supply.manage"];
+});
 it("independently edits and saves candidate text while inspecting the fixed own snapshot",async()=>{
  render(<CompletionDraftPage sourceId={id}/>);const title=await screen.findByRole("textbox",{name:"候选标题"});expect(title).toHaveValue("固定原商品V1");expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
  fireEvent.click(screen.getByText("查看固定原始商品资料"));expect(within(screen.getByRole("region",{name:"选中SKU资料"})).getByText("红色常规款")).toBeVisible();expect(screen.getByText("CNY 0")).toBeVisible();expect(screen.getByText("0 件")).toBeVisible();expect(screen.getByText("棉")).toBeVisible();

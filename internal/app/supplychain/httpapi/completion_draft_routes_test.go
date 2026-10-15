@@ -2,6 +2,7 @@ package supplychainhttp
 
 import (
 	"context"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -10,12 +11,74 @@ import (
 	"strings"
 	"task-processor/internal/listing/completiondraft"
 	"task-processor/internal/listing/preparation"
+	"task-processor/internal/product/collection"
 	"testing"
 )
 
 type completionHTTP struct {
 	CompletionDraftApplication
 	writes int
+	reads  int
+	limit  int
+	err    error
+}
+
+func (a *completionHTTP) ListForCollectionItem(_ context.Context, id string, q collection.Query) (completiondraft.ItemPage, error) {
+	a.reads++
+	a.limit = q.Limit
+	if a.err != nil {
+		return completiondraft.ItemPage{}, a.err
+	}
+	return completiondraft.ItemPage{CollectionItemID: id, Page: collection.Page[completiondraft.Record]{Items: []completiondraft.Record{}, Total: 0}}, nil
+}
+func TestItemDraftHTTPPreservesCollectionReadFailureStatuses(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	for _, failure := range []struct {
+		err    error
+		status int
+		code   string
+	}{{collection.ErrNotFound, 404, "NOT_FOUND"}, {collection.ErrForbidden, 403, "PERMISSION_DENIED"}, {collection.ErrInvalid, 400, "INVALID_REQUEST"}, {collection.ErrUnavailable, 503, "DEPENDENCY_UNAVAILABLE"}} {
+		t.Run(failure.code, func(t *testing.T) {
+			app := &completionHTTP{err: fmt.Errorf("current item read: %w", failure.err)}
+			router := gin.New()
+			for _, r := range CompletionDraftRoutes(app, func(ctx context.Context, _ string) (context.Context, error) { return ctx, nil }) {
+				router.Handle(r.Method, r.Path, r.Handler)
+			}
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, httptest.NewRequest("GET", SupplyBasePath+"/collection-items/"+uuid.NewString()+"/completion-drafts", nil))
+			require.Equal(t, failure.status, w.Code)
+			require.JSONEq(t, `{"code":"`+failure.code+`"}`, w.Body.String())
+		})
+	}
+}
+func TestItemDraftHTTPRejectsUnboundedOrAuthorityQueriesAndGETBodies(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	app := &completionHTTP{}
+	router := gin.New()
+	for _, r := range CompletionDraftRoutes(app, func(ctx context.Context, _ string) (context.Context, error) { return ctx, nil }) {
+		router.Handle(r.Method, r.Path, r.Handler)
+	}
+	id := uuid.NewString()
+	path := SupplyBasePath + "/collection-items/" + id + "/completion-drafts"
+	for _, query := range []string{"?limit=20", "?limit=101", "?itemId=" + id, "?memberId=other", "?limit=20&limit=20", "?version=2"} {
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, httptest.NewRequest("GET", path+query, nil))
+		if query == "?limit=20" {
+			require.Equal(t, 200, w.Code)
+			require.Contains(t, w.Body.String(), id)
+			require.Equal(t, "no-store", w.Header().Get("Cache-Control"))
+		} else {
+			require.Equal(t, 400, w.Code)
+		}
+	}
+	wDefault := httptest.NewRecorder()
+	router.ServeHTTP(wDefault, httptest.NewRequest("GET", path, nil))
+	require.Equal(t, 200, wDefault.Code)
+	require.Equal(t, 20, app.limit)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, httptest.NewRequest("GET", path, strings.NewReader(`{}`)))
+	require.Equal(t, 400, w.Code)
+	require.Equal(t, 2, app.reads)
 }
 
 func (a *completionHTTP) Save(_ context.Context, key string, in completiondraft.SaveInput) (completiondraft.Receipt, error) {
@@ -27,7 +90,7 @@ func TestCompletionDraftHTTPIsBoundedStrictAndHasNoOfficialExecutionRoutes(t *te
 	app := &completionHTTP{}
 	router := gin.New()
 	routes := CompletionDraftRoutes(app, func(ctx context.Context, _ string) (context.Context, error) { return ctx, nil })
-	require.Len(t, routes, 4)
+	require.Len(t, routes, 5)
 	for _, r := range routes {
 		require.NoError(t, ValidateCompletionDraftDescriptor(r))
 		router.Handle(r.Method, r.Path, r.Handler)

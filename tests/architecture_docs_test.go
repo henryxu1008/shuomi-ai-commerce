@@ -27,6 +27,14 @@ func TestOwnProductDraftEntryReusesFixedSourceAndExplicitSaveContracts(t *testin
 	})
 }
 
+func TestOwnProductExistingDraftsDocumentKeepsBoundedReadAndNavigationAuthority(t *testing.T) {
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "own-product-existing-drafts-v1.md"), []string{
+		"Independent Architecture", "ListForCollectionItem", "org/actor/member", "2MiB", "keyset",
+		"不建反向映射或第二事实源", "不新增每行IAM", "导航按钮不能授权", "不是“自动过期/不可用”",
+		"原sourceID", "不接受完整return URL", "只列已明确保存", "UNKNOWN", "不代签用户/生产验收",
+	})
+}
+
 func TestStoreObservationsPreparationDocumentKeepsExecutionClosed(t *testing.T) {
 	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "store-observations-preparation-runtime.md"), []string{
 		"IMPLEMENTATION_READY", "preparationOnly=true", "zero", "configured official applications",
