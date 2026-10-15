@@ -38,11 +38,7 @@ func (r EffectiveProductReader) ReadChoice(ctx context.Context, scope collection
 	if err != nil {
 		return supplymarket.ProductChoice{}, err
 	}
-	product, err := supplymarket.PublicProjection(effective.Snapshot)
-	if err != nil {
-		return supplymarket.ProductChoice{}, err
-	}
-	return supplymarket.ProductChoice{Selection: supplymarket.SelectionInput{ItemID: item.Item.ID, ExpectedRevision: item.Item.Revision, OriginalPublicationID: item.Item.Source.PublicationID, OriginalVersion: item.Item.Source.Version, EffectiveVersion: effective.Version, ApplyID: apply}, Product: product, Optimized: apply != ""}, nil
+	return supplymarket.ProjectChoice(supplymarket.SelectionInput{ItemID: item.Item.ID, ExpectedRevision: item.Item.Revision, OriginalPublicationID: item.Item.Source.PublicationID, OriginalVersion: item.Item.Source.Version, EffectiveVersion: effective.Version, ApplyID: apply}, effective.Snapshot)
 }
 
 func (r EffectiveProductReader) ReadEffective(ctx context.Context, scope collection.Scope, item collection.ItemDetail, version uint64, applyID string) (catalog.PublishedSnapshot, error) {
