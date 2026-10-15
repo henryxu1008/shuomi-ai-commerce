@@ -21,6 +21,7 @@ import (
 	"task-processor/internal/aiworkbench"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
+	governed "task-processor/internal/integration/aicapability/einomodel"
 	workstore "task-processor/internal/integration/persistence/aiworkbench"
 	"task-processor/internal/workbenchcontext"
 )
@@ -95,6 +96,25 @@ func testConversationOnlyScopedCRUDAndNoExecution(t *testing.T, content *product
 	require.Nil(t, m.application.service)
 	require.Nil(t, m.application.plan)
 	require.Nil(t, m.application.agent)
+	if content != nil {
+		for _, kind := range []string{"full", "planner", "shared-pool", "unbounded-parent"} {
+			bad := AIWorkbenchDependencies{DB: db, ConversationOnly: true, AllowedOrganizationIDs: []string{"B"}, resolver: deps.organizationResolver, authorizer: auth}
+			parent := *content
+			switch kind {
+			case "full":
+				bad.ConversationOnly = false
+			case "planner":
+				bad.PlanningTextPolicies = map[string]governed.RoutePolicy{"B": {}}
+			case "shared-pool":
+				parent.config.RunDB = db
+			case "unbounded-parent":
+				parent.config.ContentTitleOnly = false
+			}
+			built, e := buildAIWorkbenchApplication(context.Background(), bad, &parent)
+			require.Error(t, e, kind)
+			require.Nil(t, built, kind)
+		}
+	}
 	server := httptest.NewServer(buildIsolatedApplicationHTTPServer(m.routes, deps, 15*time.Second).Handler)
 	t.Cleanup(server.Close)
 	key := uuid.NewString()

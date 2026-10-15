@@ -448,6 +448,8 @@ documents unless they say so explicitly:
   - time-bounded first-slice PAY-042 generation settlement boundary; it does
     not authorize payment-provider changes or enable the rollout flag
 
+- `content-agent-chat-coexistence-v1.md`: IMPLEMENTATION_READY #688/#715 bounded content title execution alongside storage-only Chat; fixed native Run/Review preparation, no real installation or provider enablement authority.
+
 ## Plans, runbooks, and evaluations
 
 Documents with names such as `*-plan.md`, `*-runbook.md`, `*-evaluation.md`,
