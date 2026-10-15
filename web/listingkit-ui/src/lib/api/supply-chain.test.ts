@@ -6,6 +6,17 @@ const intent:SupplyIntent={userId:"actor",organizationId:"org",key:id,route:"cre
 const operation={id,input:intent.command,count:205,completed:0,status:"pending",execution:"pending",createdAt:"2026-10-08T00:00:00Z"};
 const reply=(v:unknown)=>new Response(JSON.stringify(v),{headers:{"Content-Type":"application/json"}});
 afterEach(()=>vi.unstubAllGlobals());
+it("checks structured receipt values before confirming or recovering the original save",async()=>{
+ const structured={attributes:[],variants:[{sourceIndex:0,price:{currency:"CNY",amount:0},stock:0}]};
+ const content={title:"候选",description:"",structured};
+ const saveIntent:SupplyIntent={...intent,route:"save-completion-draft",command:{sourceId:id,expectedRevision:2,content}};
+ const record={id,draftId:other,revision:3,source:{id,preparationId:other,collectionItemId:other,collectionRevision:1,source:{kind:"own",productKey:"product",publicationId:other,version:"1"}},content,status:"pending_completion",createdAt:"2026-10-15T00:00:00Z"};
+ const fetcher=vi.fn().mockImplementation(()=>Promise.resolve(reply({record,replayed:false})));vi.stubGlobal("fetch",fetcher);
+ await expect(supplyCommand(saveIntent)).resolves.toMatchObject({record:{content}});
+ fetcher.mockImplementation(()=>Promise.resolve(reply({record:{...record,content:{...content,structured:{...structured,variants:[{...structured.variants[0],stock:null}]}}},replayed:false})));
+ await expect(supplyCommand(saveIntent)).rejects.toMatchObject({code:"OUTCOME_UNKNOWN"});
+ await expect(readSupplyCommand(saveIntent)).rejects.toMatchObject({code:"DEPENDENCY_UNAVAILABLE"});
+});
 
 it("reads approved inventory for the exact signed-64-bit catalog version",async()=>{
  const version="9223372036854775807";

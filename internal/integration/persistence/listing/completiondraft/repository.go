@@ -105,7 +105,7 @@ func readCommand(db *gorm.DB, scope collection.Scope, key string) (completiondra
 	if err != nil {
 		return completiondraft.Receipt{}, "", err
 	}
-	if r.Source.ID != cmd.SourceID || r.DraftID != cmd.DraftID || r.Revision != cmd.Revision || r.Content != in.Content {
+	if r.Source.ID != cmd.SourceID || r.DraftID != cmd.DraftID || r.Revision != cmd.Revision || !completiondraft.EqualContent(r.Content, in.Content) {
 		return completiondraft.Receipt{}, "", preparation.ErrUnavailable
 	}
 	return completiondraft.Receipt{Record: r, Replayed: true}, cmd.InputHash, nil

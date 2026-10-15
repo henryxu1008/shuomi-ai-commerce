@@ -16,7 +16,7 @@ const head={...old,id:other,revision:3,content:{title:"当前标题",description
 const saved={...head,revision:4,content:old.content};
 const props={sourceId:id,preparationId:batch,itemId:batch,revision:1};
 const confirm=()=>screen.getByRole("button",{name:"恢复为新版本"});
-const receipt=(record=saved)=>({record,replayed:false});
+const receipt=(record:unknown=saved)=>({record,replayed:false});
 beforeEach(()=>{
  vi.clearAllMocks();f.context.user.id="actor";f.context.effectiveOrganization.id="org";f.context.permissions=["workbench.supply.read","workbench.supply.manage"];f.context.supplyIntentReady=true;f.context.pendingSupplyIntent=null;
  f.context.setPendingSupplyIntent.mockImplementation(v=>{f.context.pendingSupplyIntent=v;return true});
@@ -57,7 +57,7 @@ it("rejects wrong source/draft/revision and navigation before showing a confirma
 });
 it("does not append when selecting the current version or identical content, preserving whitespace differences",async()=>{
  f.head.mockResolvedValue(old);let view=render(<CompletionRestorePage {...props}/>);await screen.findByText("所选版本已是当前版本，无需恢复。");expect(confirm()).toBeDisabled();view.unmount();
- f.head.mockResolvedValue({...head,content:old.content});view=render(<CompletionRestorePage {...props}/>);await screen.findByText("标题和描述与当前版本相同，无需恢复。");expect(confirm()).toBeDisabled();view.unmount();
+ f.head.mockResolvedValue({...head,content:{...old.content,structured:{attributes:[{name:"材质",value:"当前候选"}],variants:[]}}});view=render(<CompletionRestorePage {...props}/>);await screen.findByText("标题和描述与当前版本相同，无需恢复。");expect(confirm()).toBeDisabled();expect(f.save).not.toHaveBeenCalled();view.unmount();
  f.old.mockResolvedValue({...old,content:{title:"",description:"\n"}});f.head.mockResolvedValue({...head,content:{title:"",description:""}});f.save.mockResolvedValue(receipt({...saved,content:{title:"",description:"\n"}}));render(<CompletionRestorePage {...props}/>);await screen.findByText("仅含空白文本 · 1 个字符");fireEvent.click(confirm());await waitFor(()=>expect(f.save).toHaveBeenCalledWith(expect.objectContaining({command:{sourceId:id,expectedRevision:3,content:{title:"",description:"\n"}}}),expect.any(AbortSignal)));
 });
 it("locks a conflicted preview until explicit reload and requires a new confirmation against the new head",async()=>{
@@ -103,6 +103,14 @@ it("drops late old content immediately when scope or same-source navigation/revi
  let resolve!:(value:unknown)=>void;f.old.mockReturnValueOnce(new Promise(r=>{resolve=r}));const view=render(<CompletionRestorePage {...props}/>);
  f.context.effectiveOrganization.id="another-org";f.old.mockReturnValue(new Promise(()=>{}));view.rerender(<CompletionRestorePage {...props}/>);await act(async()=>resolve(old));expect(screen.queryByText("旧标题")).not.toBeInTheDocument();
  view.rerender(<CompletionRestorePage {...props} revision={2}/>);expect(screen.queryByRole("button",{name:"恢复为新版本"})).not.toBeInTheDocument();view.rerender(<CompletionRestorePage {...props} itemId={other}/>);expect(screen.queryByText("当前标题")).not.toBeInTheDocument();expect(f.save).not.toHaveBeenCalled();
+});
+it("restores only old text while keeping the current structured candidate",async()=>{
+ const current={attributes:[{name:"材质",value:"当前"}],variants:[{sourceIndex:0,price:{currency:"CNY",amount:0},stock:0}]};
+ const previous={attributes:[],variants:[{sourceIndex:0,price:null,stock:null}]};
+ f.head.mockResolvedValue({...head,content:{...head.content,structured:current}});f.old.mockResolvedValue({...old,content:{...old.content,structured:previous}});
+ f.save.mockResolvedValue(receipt({...saved,content:{...old.content,structured:current}}));
+ render(<CompletionRestorePage {...props}/>);await screen.findByText("当前已保存 R3");fireEvent.click(confirm());
+ await waitFor(()=>expect(f.save).toHaveBeenCalledWith(expect.objectContaining({command:{sourceId:id,expectedRevision:3,content:{...old.content,structured:current}}}),expect.any(AbortSignal)));
 });
 it("guards the independent route, feature flags, revision syntax and strict navigation query",async()=>{
  const route=(params={stage:"missing",sourceId:id,revision:"1"},query:Record<string,string|string[]|undefined>={preparation:batch,item:batch})=>RestoreRoute({params:Promise.resolve(params),searchParams:Promise.resolve(query)});

@@ -6,6 +6,10 @@ export function completionDraftHref(sourceId:string,preparationId:string,itemId?
  return `/workbench/supply/mine/missing/${collectionID.parse(sourceId)}?${query}`;
 }
 
+export function completionStructuredHref(sourceId:string,preparationId:string,itemId?:string){
+ const [path,query]=completionDraftHref(sourceId,preparationId,itemId).split("?");return `${path}/structure?${query}`;
+}
+
 // These IDs carry navigation context only. The editor checks the actual source
 // before prefilling; scope and authorization come from the existing APIs.
 export function completionDraftNavigation(query:Record<string,string|string[]|undefined>){
