@@ -47,8 +47,8 @@ func TestConfiguredMinIOCapacityBindsAuthenticatedDeployment(t *testing.T) {
 				}
 			}))
 			defer server.Close()
-			c := ClientConfig{Endpoint: server.URL, Region: "us-east-1", UsePathStyle: true, AccessKeyID: "runtime-key", SecretAccessKey: "synthetic"}
-			ns, err := ResolveConfiguredCapacityNamespace(context.Background(), c, "knowledge", "aws", MinIOCapacityIdentityProvider, trialDeploymentID)
+			c := ClientConfig{Endpoint: server.URL, Region: "us-east-1", UsePathStyle: true, AccessKeyID: "runtime-key", SecretAccessKey: "synthetic", CapacityIdentityProvider: MinIOCapacityIdentityProvider, CapacityMinIODeploymentID: trialDeploymentID}
+			ns, err := ResolveCapacityNamespace(context.Background(), c, "knowledge", "aws")
 			if scenario != "correct" {
 				require.Error(t, err)
 				require.Empty(t, ns)
@@ -58,7 +58,7 @@ func TestConfiguredMinIOCapacityBindsAuthenticatedDeployment(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, ns, 64)
 			c.AccessKeyID, c.SecretAccessKey = "rotated", "rotated-secret"
-			again, err := ResolveConfiguredCapacityNamespace(context.Background(), c, "knowledge", "aws", MinIOCapacityIdentityProvider, trialDeploymentID)
+			again, err := ResolveCapacityNamespace(context.Background(), c, "knowledge", "aws")
 			require.NoError(t, err)
 			require.Equal(t, ns, again)
 			trial, err := ResolveSourceMediaCapacityNamespace(context.Background(), c, "knowledge", "aws", true, trialDeploymentID)
@@ -69,25 +69,30 @@ func TestConfiguredMinIOCapacityBindsAuthenticatedDeployment(t *testing.T) {
 }
 
 func TestConfiguredMinIOCapacityRejectsInvalidOrNonLocalInputsBeforeIO(t *testing.T) {
-	base := ClientConfig{Endpoint: "http://127.0.0.1:9000", Region: "us-east-1", UsePathStyle: true, AccessKeyID: "runtime", SecretAccessKey: "synthetic"}
+	base := ClientConfig{Endpoint: "http://127.0.0.1:9000", Region: "us-east-1", UsePathStyle: true, AccessKeyID: "runtime", SecretAccessKey: "synthetic", CapacityIdentityProvider: MinIOCapacityIdentityProvider, CapacityMinIODeploymentID: trialDeploymentID}
 	for _, endpoint := range []string{"http://localhost:9000", "http://10.0.0.2:9000", "https://example.com:443", "http://knowledge-objects.example.com:9000", "http://knowledge-objects", "http://127.0.0.1:09000", "http://127.0.0.1:9000/", "http://127.0.0.1:9000?", "http://127.0.0.1:9000?x=1", "http://user@127.0.0.1:9000", "http://127.0.0.1:9000#x"} {
 		c := base
 		c.Endpoint = endpoint
-		require.Error(t, ValidateCapacityIdentity(c, "knowledge", "aws", MinIOCapacityIdentityProvider, trialDeploymentID), endpoint)
+		require.Error(t, c.ValidateCapacityIdentity("knowledge", "aws"), endpoint)
 	}
 	for _, endpoint := range []string{base.Endpoint, "https://[::1]:9000", "http://knowledge-objects:9000", "http://ecoservices-objects:9101"} {
 		c := base
 		c.Endpoint = endpoint
-		require.NoError(t, ValidateCapacityIdentity(c, "knowledge", "aws", MinIOCapacityIdentityProvider, trialDeploymentID))
+		require.NoError(t, c.ValidateCapacityIdentity("knowledge", "aws"))
 	}
 	for _, pin := range []string{"", "invalid", "00000000-0000-0000-0000-000000000000", strings.ToUpper(trialDeploymentID)} {
-		require.Error(t, ValidateCapacityIdentity(base, "knowledge", "aws", MinIOCapacityIdentityProvider, pin))
+		c := base
+		c.CapacityMinIODeploymentID = pin
+		require.Error(t, c.ValidateCapacityIdentity("knowledge", "aws"))
 	}
-	require.Error(t, ValidateCapacityIdentity(base, "knowledge", "aws", "", trialDeploymentID))
-	require.Error(t, ValidateCapacityIdentity(base, "knowledge", "aws", "unknown", trialDeploymentID))
-	require.Error(t, ValidateCapacityIdentity(base, "knowledge", "cos", MinIOCapacityIdentityProvider, trialDeploymentID))
+	base.CapacityIdentityProvider = ""
+	require.Error(t, base.ValidateCapacityIdentity("knowledge", "aws"))
+	base.CapacityIdentityProvider = "unknown"
+	require.Error(t, base.ValidateCapacityIdentity("knowledge", "aws"))
+	base.CapacityIdentityProvider = MinIOCapacityIdentityProvider
+	require.Error(t, base.ValidateCapacityIdentity("knowledge", "cos"))
 	base.AccessKeyID = ""
-	require.Error(t, ValidateCapacityIdentity(base, "knowledge", "aws", MinIOCapacityIdentityProvider, trialDeploymentID))
+	require.Error(t, base.ValidateCapacityIdentity("knowledge", "aws"))
 }
 
 func TestConfiguredCapacityCloudOwnerNeverFallsBackToMinIO(t *testing.T) {
@@ -100,7 +105,7 @@ func TestConfiguredCapacityCloudOwnerNeverFallsBackToMinIO(t *testing.T) {
 		_, _ = w.Write([]byte(`<AccessControlPolicy><Owner/></AccessControlPolicy>`))
 	}))
 	defer server.Close()
-	_, err := ResolveConfiguredCapacityNamespace(context.Background(), ClientConfig{Endpoint: server.URL, Region: "us-east-1", AccessKeyID: "runtime", SecretAccessKey: "synthetic", UsePathStyle: true}, "knowledge", "aws", "", "")
+	_, err := ResolveCapacityNamespace(context.Background(), ClientConfig{Endpoint: server.URL, Region: "us-east-1", AccessKeyID: "runtime", SecretAccessKey: "synthetic", UsePathStyle: true}, "knowledge", "aws")
 	require.Error(t, err)
 	require.Zero(t, infoCalls)
 }
@@ -108,6 +113,6 @@ func TestConfiguredCapacityCloudOwnerNeverFallsBackToMinIO(t *testing.T) {
 func TestConfiguredMinIOCapacityHonorsCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	_, err := ResolveConfiguredCapacityNamespace(ctx, ClientConfig{Endpoint: "http://127.0.0.1:9000", Region: "us-east-1", AccessKeyID: "runtime", SecretAccessKey: "synthetic", UsePathStyle: true}, "knowledge", "aws", MinIOCapacityIdentityProvider, trialDeploymentID)
+	_, err := ResolveCapacityNamespace(ctx, ClientConfig{Endpoint: "http://127.0.0.1:9000", Region: "us-east-1", AccessKeyID: "runtime", SecretAccessKey: "synthetic", UsePathStyle: true, CapacityIdentityProvider: MinIOCapacityIdentityProvider, CapacityMinIODeploymentID: trialDeploymentID}, "knowledge", "aws")
 	require.Error(t, err)
 }

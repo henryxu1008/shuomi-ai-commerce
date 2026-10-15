@@ -139,13 +139,18 @@ func TestLocalMinIOCapacityUsesNarrowRuntimeAndRealDeployment(t *testing.T) {
 	info, err := admin.ServerInfo(ctx)
 	require.NoError(t, err)
 	require.NotEmpty(t, info.DeploymentID)
-	ns, err := ResolveConfiguredCapacityNamespace(ctx, cfg, "knowledge", "aws", MinIOCapacityIdentityProvider, info.DeploymentID)
+	cfg.CapacityIdentityProvider, cfg.CapacityMinIODeploymentID = MinIOCapacityIdentityProvider, info.DeploymentID
+	ns, err := ResolveCapacityNamespace(ctx, cfg, "knowledge", "aws")
 	require.NoError(t, err)
 	require.Len(t, ns, 64)
 	require.NoError(t, VerifyEmptyCapacityPrefix(ctx, cfg, "knowledge", "knowledge/", "aws"))
-	_, err = ResolveConfiguredCapacityNamespace(ctx, cfg, "knowledge", "aws", MinIOCapacityIdentityProvider, trialDeploymentID)
+	wrongPin := cfg
+	wrongPin.CapacityMinIODeploymentID = trialDeploymentID
+	_, err = ResolveCapacityNamespace(ctx, wrongPin, "knowledge", "aws")
 	require.Error(t, err)
-	_, err = ResolveConfiguredCapacityNamespace(ctx, cfg, "knowledge", "aws", "", "")
+	cloud := cfg
+	cloud.CapacityIdentityProvider, cloud.CapacityMinIODeploymentID = "", ""
+	_, err = ResolveCapacityNamespace(ctx, cloud, "knowledge", "aws")
 	require.Error(t, err, "dummy ACL cannot be promoted into a cloud account proof")
 	client, err := NewKnowledgeClient(cfg)
 	require.NoError(t, err)
@@ -158,7 +163,7 @@ func TestLocalMinIOCapacityUsesNarrowRuntimeAndRealDeployment(t *testing.T) {
 	object := knowledge.Object{Key: "knowledge/capacity-proof/" + knowledge.Digest(data), SHA256: knowledge.Digest(data), ContentType: "text/plain", SizeBytes: int64(len(data)), Data: data}
 	require.NoError(t, store.PutImmutable(ctx, object))
 	require.Error(t, VerifyEmptyCapacityPrefix(ctx, cfg, "knowledge", "knowledge/", "aws"), "an existing unmetered object cannot be admitted as empty")
-	again, err := ResolveConfiguredCapacityNamespace(ctx, cfg, "knowledge", "aws", MinIOCapacityIdentityProvider, info.DeploymentID)
+	again, err := ResolveCapacityNamespace(ctx, cfg, "knowledge", "aws")
 	require.NoError(t, err)
 	require.Equal(t, ns, again)
 	_, err = client.DeleteObject(ctx, &awss3.DeleteObjectInput{Bucket: aws.String("knowledge"), Key: aws.String(object.Key)})

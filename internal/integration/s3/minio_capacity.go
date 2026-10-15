@@ -23,7 +23,8 @@ const MinIOCapacityIdentityProvider = "minio-deployment"
 
 // ValidateCapacityIdentity is configuration-only: cloud storage never falls
 // back to a local identity when its canonical owner cannot be established.
-func ValidateCapacityIdentity(c ClientConfig, bucket, mode, provider, pin string) error {
+func (c ClientConfig) ValidateCapacityIdentity(bucket, mode string) error {
+	provider, pin := c.CapacityIdentityProvider, c.CapacityMinIODeploymentID
 	if provider == "" && pin == "" {
 		return nil
 	}
@@ -46,13 +47,11 @@ func ValidateCapacityIdentity(c ClientConfig, bucket, mode, provider, pin string
 	return nil
 }
 
-func ResolveConfiguredCapacityNamespace(ctx context.Context, c ClientConfig, bucket, mode, provider, pin string) (string, error) {
-	if err := ValidateCapacityIdentity(c, bucket, mode, provider, pin); err != nil {
+func resolveMinIOCapacityNamespace(ctx context.Context, c ClientConfig, bucket, mode string) (string, error) {
+	if err := c.ValidateCapacityIdentity(bucket, mode); err != nil {
 		return "", err
 	}
-	if provider == "" {
-		return ResolveCapacityNamespace(ctx, c, bucket, mode)
-	}
+	pin := c.CapacityMinIODeploymentID
 	if err := verifyMinIODeployment(ctx, c, pin); err != nil {
 		return "", err
 	}

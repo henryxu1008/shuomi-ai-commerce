@@ -5,7 +5,6 @@ import (
 	"net"
 	"net/url"
 	"strings"
-	"task-processor/internal/integration/s3"
 )
 
 type KnowledgeStorageConfig struct {
@@ -18,10 +17,6 @@ type KnowledgeStorageConfig struct {
 	SecretAccessKey                      string `json:"secretAccessKey"`
 	Mode                                 string `json:"mode"`
 	COSImmutableNonVersionedBucketPolicy bool   `json:"cosImmutableNonVersionedBucketPolicy,omitempty"`
-}
-
-func (s KnowledgeStorageConfig) validateCapacityIdentity() error {
-	return s3.ValidateCapacityIdentity(s3.ClientConfig{Endpoint: s.Endpoint, Region: s.Region, AccessKeyID: s.AccessKeyID, SecretAccessKey: s.SecretAccessKey, UsePathStyle: true}, s.Bucket, s.Mode, s.CapacityIdentityProvider, s.CapacityMinIODeploymentID)
 }
 
 type KnowledgeConfig struct {
