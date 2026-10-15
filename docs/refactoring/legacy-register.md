@@ -182,6 +182,20 @@ The standalone SHEIN worker's original numeric account persistence remains
 separate #301 debt. No live revoke, deployment, data/profile deletion, user
 acceptance or production readiness is implied.
 
+### #301 independent SHEIN worker boundary design — awaiting confirmation
+
+The [identity/persistence boundary design](../architecture/shein-worker-identity-persistence-boundary.md)
+records current owners and exact deletion conditions. It preserves the worker's
+repository-backed account provider, original DB/Redis/Profile/session/state and
+Store sync/duplicate lookup. Current Organization/Store/official business paths
+must not consume that old identity or browser login state. The unused alternate
+`sheinloginmanaged.AccountProvider` and isolated `sheinlogin.VerifyCodeRequest`
+are proposed bounded RETIRE candidates, not implemented deletions. Shared
+ListingAdmin/ListingRuntime contracts still used by current applications are
+not blanket retirement targets. This is design-only, requires user confirmation
+before implementation, adds no internal-trial prerequisite and authorizes no
+runtime, data or provider action.
+
 
 ### #301 unused SHEIN login HTTP retirement
 
