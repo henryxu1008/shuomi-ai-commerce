@@ -1,7 +1,9 @@
 # Auth.js instance cookie isolation — #706
 
-Status: DRAFT / NOT_READY. Only investigation and an explicitly nonformal spike
-have run; no production path has changed.
+Status: IMPLEMENTATION_READY. The original independent reviewer approved design
+`d0ea048c6fe8ed4d7ab5551976897fd4ab474089` before production modification, with no
+Architecture BLOCKER. Native regression tests below close IMPLEMENTATION_TEST
+items; this does not authorize deployment or claim user acceptance.
 
 ## Product outcome and authority
 
