@@ -155,6 +155,12 @@ var currentColumnNames = map[string][]string{
 }
 
 func VerifyCurrentSchema(ctx context.Context, db *gorm.DB) error {
+	return VerifyCurrentSchemaForCapabilities(ctx, db, RuntimeCapabilities{TikTokShop: true})
+}
+
+// VerifyCurrentSchemaForCapabilities keeps the core Store contract mandatory.
+// Optional TikTok persistence is consumed only by its configured runtime.
+func VerifyCurrentSchemaForCapabilities(ctx context.Context, db *gorm.DB, capabilities RuntimeCapabilities) error {
 	if db == nil || db.Dialector == nil || db.Dialector.Name() != "postgres" {
 		return errors.New("store center requires installed PostgreSQL schema")
 	}
@@ -163,6 +169,9 @@ func VerifyCurrentSchema(ctx context.Context, db *gorm.DB) error {
 		return err
 	}
 	for table, want := range currentColumnNames {
+		if !capabilities.TikTokShop && isTikTokSchemaTable(table) {
+			continue
+		}
 		rows, err := sqlDB.QueryContext(ctx, `SELECT column_name,is_nullable,data_type,coalesce(character_maximum_length,0) FROM information_schema.columns WHERE table_schema='public' AND table_name=$1 ORDER BY ordinal_position`, table)
 		if err != nil {
 			return err
@@ -264,7 +273,18 @@ func VerifyCurrentSchema(ctx context.Context, db *gorm.DB) error {
 			return errors.New("store member schema boundary unavailable")
 		}
 	}
-	return verifyTikTokSchema(ctx, sqlDB)
+	if capabilities.TikTokShop {
+		return verifyTikTokSchema(ctx, sqlDB)
+	}
+	return nil
+}
+
+func isTikTokSchemaTable(table string) bool {
+	switch table {
+	case "workbench_store_tiktok_oauth_attempts", "workbench_store_tiktok_oauth_grants", "workbench_store_tiktok_shop_bindings", "workbench_store_tiktok_oauth_refresh_operations", "workbench_store_tiktok_authorization_events":
+		return true
+	}
+	return false
 }
 
 const storeRuntimePermissionQuery = `SELECT current_user,

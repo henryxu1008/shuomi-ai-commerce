@@ -49,6 +49,7 @@ func TestTikTokStoreSchemaCanonicalGrantAndBindingConstraints(t *testing.T) {
 	require.NoError(t, db.Exec(`ALTER TABLE workbench_store_tiktok_oauth_grants DROP CONSTRAINT tiktok_grant_bounds`).Error)
 	require.NoError(t, db.Exec(`ALTER TABLE workbench_store_tiktok_oauth_grants ADD CONSTRAINT tiktok_grant_bounds CHECK (generation>0)`).Error)
 	require.Error(t, storecenter.VerifyCurrentSchema(ctx, db))
+	require.Error(t, storecenter.VerifyCurrentSchemaForCapabilities(ctx, db, storecenter.RuntimeCapabilities{TikTokShop: true}), "configured TikTok still rejects a weakened constraint")
 }
 
 func newTikTokStoreDatabase(t *testing.T) *gorm.DB {

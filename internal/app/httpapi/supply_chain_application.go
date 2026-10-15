@@ -64,7 +64,7 @@ func buildSupplyChainModule(ctx context.Context, productDB, storeDB *gorm.DB, d 
 	if err := assetstore.VerifySourceRuntimePermissions(ctx, d.AssetDB); err != nil {
 		return empty, err
 	}
-	if err := storecenter.VerifyCurrentSchema(ctx, storeDB); err != nil {
+	if err := storecenter.VerifyCurrentSchemaForCapabilities(ctx, storeDB, capabilities); err != nil {
 		return empty, err
 	}
 	if err := storecenter.VerifyRuntimePermissionsForCapabilities(ctx, storeDB, capabilities); err != nil {

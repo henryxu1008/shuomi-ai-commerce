@@ -40,6 +40,8 @@
 
 两个文件必须为不同的绝对路径私有普通文件。应用密钥文件存实际 app_secret；凭据保护文件存 Base64 编码的独立 32 字节 AES-GCM 密钥。不要把密钥、授权码或 token 写入聊天、Git、URL 或前端存储。`tiktokShop` 省略时不读取这些私有文件；原 SHEIN/TEMU 配置继续沿原 registry 装配。该示例不是可直接使用的凭据或完整 manifest。
 
+Store 消费者沿同一明确配置的能力校验 schema 与权限：未配置 `tiktokShop` 时不消费其五张 OAuth 扩展表，也不接受额外的 TikTok runtime 授权；核心 Store 的列、约束和权限仍须符合当前正式合同。配置后必须通过完整 TikTok schema 与最小权限校验。完整初始化器的 schema 核对保持严格；运行启动不安装表、不修改约束或自动启用平台。
+
 ## 全新安装与启动
 
 沿[当前供应链的正常初始化和启动](my-supply-chain-shein-v1.md#初始化与正常启动)准备已获准、明确命名的**全新空** Product、Asset、Store 数据库及各自 runtime role。Product owner manifest 启用 `collections:true,supplyChain:true`；需要未绑定草稿时另启用 `supplyCompletionDrafts:true`。TikTok 使用原 Listing Target/Submission 表，不复制事实 owner；当前 schema 包含 tiktokshop-us 和 global_create。

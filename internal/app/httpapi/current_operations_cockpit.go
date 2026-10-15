@@ -41,7 +41,7 @@ func buildOperationsCockpit(ctx context.Context, db *gorm.DB, deps routeAuthDepe
 	if !capabilities.OperationsCockpit {
 		return nil, c.ErrUnavailable
 	}
-	if err := storecenter.VerifyCurrentSchema(ctx, db); err != nil {
+	if err := storecenter.VerifyCurrentSchemaForCapabilities(ctx, db, capabilities); err != nil {
 		return nil, err
 	}
 	if err := storecenter.VerifyRuntimePermissionsForCapabilities(ctx, db, capabilities); err != nil {
