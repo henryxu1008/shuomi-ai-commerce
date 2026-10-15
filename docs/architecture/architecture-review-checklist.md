@@ -408,6 +408,7 @@ Supporting context documents must not be listed as review references unless prom
 - `docs/architecture/self-service-subscription-purchase-contract.md`
 - `docs/architecture/store-center-current-application-v1.md`
 - `docs/architecture/supply-market-v1.md`
+- `docs/architecture/supply-market-choice-eligibility.md`
 - `docs/architecture/selected-application-overview-v1.md`
 - `docs/architecture/store-center-platform-observations-v1.md`
 - `docs/architecture/store-observations-preparation-runtime.md`
