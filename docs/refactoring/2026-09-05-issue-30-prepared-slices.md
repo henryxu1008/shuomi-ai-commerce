@@ -3,6 +3,11 @@
 > **SUPERSEDED — historical evidence, not a current execution entrypoint.**
 > [PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08](../product/greenfield-no-legacy-migration.md) replaces the retained preparation/cutover direction below. It cannot authorize migration, old-ID mapping, source-account/profile reuse, tenantbridge expansion, compatibility work or real-environment operations for future tasks.
 
+> #301 retires the unregistered numeric-account import HTTP package described
+> below, including its exclusive DTOs/tests/fixture. Historical commands and
+> prepared-contract results remain evidence only; use the current acquisition,
+> Browser Capture and local-agent owners, not this package, for current work.
+
 Baseline: main `2fd42cc061fd689184892380771cdf292abeacb9`.
 Branch: `codex/issue-30-product-sourcing`.
 

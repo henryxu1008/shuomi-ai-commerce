@@ -101,7 +101,7 @@ shared crawler/HTTP packages. No database, profile or retained runtime was chang
 The current `sourceaccountregistry` remains the Organization-scoped registration
 owner; registration still means `pending_connection`, not a usable login.
 Current anonymous acquisition, Browser Capture and local-agent collection retain
-their existing owners and contracts. The next bounded #301 batch also retires the
+their existing owners and contracts. #719 also retired the
 unconstructed 1688 queue `Service`, `Crawler1688Processor`, numeric `AccountProfile`
 interface/resolver and account-assisted browser/fallback chain. No current
 consumer constructed that service or called the account-profile methods.
@@ -110,6 +110,18 @@ path, extractors, typed failure classification and cancellation/cleanup remain.
 The original configured browser factory stays available; anonymous attempts
 continue using a fresh non-persistent public manager. Shared result/worker/HTTP
 behavior, scoped protections and Amazon routes remain with their original owners.
+
+The unregistered `internal/app/productsourcing/httpapi` package is retired under
+#301: its numeric source-account/Store import DTO, unimplemented Importer,
+snapshot/receipt projections and exclusive tests/fixture had no production
+composition or consumer. Current acquisition and Browser Capture use their own
+admitted HTTP/application owners; do not mount, wrap or recreate the old import.
+The shared crawler task's `SourceAccountID`, `SourceAccessMode` and compatibility
+inference, plus the result's source-access/fallback metadata, are also retired
+after the old 1688 queue/Profile consumers disappeared. Trusted `TenantID`,
+Amazon task fields, task/result state behavior, scoped result access, Redis,
+browser, workerpool and HTTP infrastructure remain. This does not retire current
+Organization-scoped source-account registration or the current sourcing producer.
 
 The standalone SHEIN worker and its original account persistence, Store sync,
 Redis/browser/profile, health and shutdown remain unchanged. Source retirement

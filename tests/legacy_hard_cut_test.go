@@ -166,6 +166,7 @@ func TestLegacyImportParserRejectsMalformedSources(t *testing.T) {
 func TestLegacy1688TaskHandoffAndRouteStayRetired(t *testing.T) {
 	for _, relative := range []string{
 		"internal/sourceaccount",
+		"internal/app/productsourcing/httpapi",
 		"internal/infra/httpx/crawler_1688_handler.go",
 		"internal/infra/httpx/crawler_1688_handler_test.go",
 		"internal/crawler/alibaba1688/crawler_service.go",
@@ -214,5 +215,25 @@ func TestLegacy1688TaskHandoffAndRouteStayRetired(t *testing.T) {
 		path := filepath.Join("..", "internal", "app", "httpapi", name)
 		_, err := os.Stat(path)
 		require.True(t, os.IsNotExist(err), "retired Task assembly must remain absent: %s (%v)", name, err)
+	}
+}
+
+func TestLegacy1688SharedAccountDTOStaysRetired(t *testing.T) {
+	for _, source := range trackedProductionTextSources(t, []string{"internal/crawler/shared"}, func(path string) bool {
+		return strings.HasSuffix(path, ".go")
+	}) {
+		file, err := parser.ParseFile(token.NewFileSet(), source.path, source.text, 0)
+		require.NoError(t, err)
+		ast.Inspect(file, func(node ast.Node) bool {
+			switch declaration := node.(type) {
+			case *ast.Field:
+				for _, name := range declaration.Names {
+					require.NotContains(t, []string{"SourceAccountID", "SourceAccessMode", "SourceFallbackReason"}, name.Name, source.path)
+				}
+			case *ast.FuncDecl:
+				require.NotEqual(t, "EffectiveSourceAccessMode", declaration.Name.Name, source.path)
+			}
+			return true
+		})
 	}
 }
