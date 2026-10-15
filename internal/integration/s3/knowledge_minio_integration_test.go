@@ -4,6 +4,8 @@ package s3
 
 import (
 	"context"
+	"net/netip"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -11,17 +13,22 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awss3 "github.com/aws/aws-sdk-go-v2/service/s3"
+	madmin "github.com/minio/madmin-go/v3"
+	"github.com/minio/minio-go/v7/pkg/credentials"
+	dockernetwork "github.com/moby/moby/api/types/network"
 	dockerclient "github.com/moby/moby/client"
 	tc "github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/network"
 	"github.com/testcontainers/testcontainers-go/wait"
 
+	"github.com/stretchr/testify/require"
 	"task-processor/internal/knowledge"
 )
 
 // Reuse the shipped storage bootstrap and IAM policy, with synthetic test-only
 // credentials. This verifies the actual runtime user, never the root user.
-func TestKnowledgeMinIORuntimeMissingObjectAndImmutableRoundTrip(t *testing.T) {
+func knowledgeMinIORuntimeFixture(t *testing.T, capacity bool) (context.Context, ClientConfig) {
+	t.Helper()
 	ctx := context.Background()
 	root, err := filepath.Abs("../../..")
 	if err != nil {
@@ -30,7 +37,15 @@ func TestKnowledgeMinIORuntimeMissingObjectAndImmutableRoundTrip(t *testing.T) {
 	build := func(target string) tc.FromDockerfile {
 		return tc.FromDockerfile{Context: filepath.Join(root, "deployments/docker/account-compose"), Dockerfile: "Dockerfile.knowledge-storage", BuildOptionsModifier: func(options *dockerclient.ImageBuildOptions) { options.Target = target }}
 	}
-	net, err := network.New(ctx)
+	var networkOptions []network.NetworkCustomizer
+	if subnet := os.Getenv("MINIO_TEST_SUBNET"); subnet != "" {
+		// Optional caller-checked test subnet when Docker's automatic pools are
+		// exhausted; never remove or modify another task's retained networks.
+		prefix, parseErr := netip.ParsePrefix(subnet)
+		require.NoError(t, parseErr)
+		networkOptions = append(networkOptions, network.WithIPAM(&dockernetwork.IPAM{Config: []dockernetwork.IPAMConfig{{Subnet: prefix}}}))
+	}
+	net, err := network.New(ctx, networkOptions...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,9 +67,14 @@ func TestKnowledgeMinIORuntimeMissingObjectAndImmutableRoundTrip(t *testing.T) {
 		{Reader: strings.NewReader("knowledge-runtime-test"), ContainerFilePath: "/private/access-key", FileMode: 0600},
 		{Reader: strings.NewReader("isolated-minio-runtime-password"), ContainerFilePath: "/private/secret-key", FileMode: 0600},
 	}
+	entrypoint := []string{"/bin/sh", "/init/knowledge-storage-init.sh"}
+	if capacity {
+		files = append(files, tc.ContainerFile{HostFilePath: filepath.Join(root, "deployments/docker/account-compose/knowledge-capacity-read-policy.json"), ContainerFilePath: "/init/capacity-policy.json", FileMode: 0600})
+		entrypoint = []string{"/bin/sh", "-ec", `/bin/sh /init/knowledge-storage-init.sh; export MC_CONFIG_DIR=/tmp/knowledge-mc; mc admin policy create local knowledge-capacity-read /init/capacity-policy.json; mc admin policy attach local knowledge-capacity-read --user knowledge-runtime-test`}
+	}
 	setup, err := tc.GenericContainer(ctx, tc.GenericContainerRequest{ContainerRequest: tc.ContainerRequest{
 		FromDockerfile: build("client"),
-		Entrypoint:     []string{"/bin/sh", "/init/knowledge-storage-init.sh"}, Files: files, Networks: []string{net.Name}, WaitingFor: wait.ForExit().WithExitTimeout(30 * time.Second),
+		Entrypoint:     entrypoint, Files: files, Networks: []string{net.Name}, WaitingFor: wait.ForExit().WithExitTimeout(30 * time.Second),
 	}, Started: true})
 	if err != nil {
 		t.Fatal(err)
@@ -65,8 +85,16 @@ func TestKnowledgeMinIORuntimeMissingObjectAndImmutableRoundTrip(t *testing.T) {
 		t.Fatalf("storage init failed: %v", err)
 	}
 	host, _ := server.Host(ctx)
+	if host == "localhost" {
+		host = "127.0.0.1"
+	}
 	port, _ := server.MappedPort(ctx, "9000/tcp")
-	client, err := NewKnowledgeClient(ClientConfig{Region: "us-east-1", Endpoint: "http://" + host + ":" + port.Port(), AccessKeyID: "knowledge-runtime-test", SecretAccessKey: "isolated-minio-runtime-password", UsePathStyle: true})
+	return ctx, ClientConfig{Region: "us-east-1", Endpoint: "http://" + host + ":" + port.Port(), AccessKeyID: "knowledge-runtime-test", SecretAccessKey: "isolated-minio-runtime-password", UsePathStyle: true}
+}
+
+func TestKnowledgeMinIORuntimeMissingObjectAndImmutableRoundTrip(t *testing.T) {
+	ctx, cfg := knowledgeMinIORuntimeFixture(t, false)
+	client, err := NewKnowledgeClient(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,4 +130,42 @@ func TestKnowledgeMinIORuntimeMissingObjectAndImmutableRoundTrip(t *testing.T) {
 	if _, err = client.DeleteObject(ctx, &awss3.DeleteObjectInput{Bucket: aws.String("knowledge"), Key: aws.String(object.Key)}); err == nil {
 		t.Fatal("runtime deleted a Knowledge object")
 	}
+}
+
+func TestLocalMinIOCapacityUsesNarrowRuntimeAndRealDeployment(t *testing.T) {
+	ctx, cfg := knowledgeMinIORuntimeFixture(t, true)
+	admin, err := madmin.NewWithOptions(strings.TrimPrefix(cfg.Endpoint, "http://"), &madmin.Options{Creds: credentials.NewStaticV4("knowledge_local_root", "isolated-minio-root-password", ""), Secure: false})
+	require.NoError(t, err)
+	info, err := admin.ServerInfo(ctx)
+	require.NoError(t, err)
+	require.NotEmpty(t, info.DeploymentID)
+	cfg.CapacityIdentityProvider, cfg.CapacityMinIODeploymentID = MinIOCapacityIdentityProvider, info.DeploymentID
+	ns, err := ResolveCapacityNamespace(ctx, cfg, "knowledge", "aws")
+	require.NoError(t, err)
+	require.Len(t, ns, 64)
+	require.NoError(t, VerifyEmptyCapacityPrefix(ctx, cfg, "knowledge", "knowledge/", "aws"))
+	wrongPin := cfg
+	wrongPin.CapacityMinIODeploymentID = trialDeploymentID
+	_, err = ResolveCapacityNamespace(ctx, wrongPin, "knowledge", "aws")
+	require.Error(t, err)
+	cloud := cfg
+	cloud.CapacityIdentityProvider, cloud.CapacityMinIODeploymentID = "", ""
+	_, err = ResolveCapacityNamespace(ctx, cloud, "knowledge", "aws")
+	require.Error(t, err, "dummy ACL cannot be promoted into a cloud account proof")
+	client, err := NewKnowledgeClient(cfg)
+	require.NoError(t, err)
+	_, err = client.ListObjectsV2(ctx, &awss3.ListObjectsV2Input{Bucket: aws.String("knowledge"), Prefix: aws.String("outside/")})
+	require.Error(t, err, "capacity policy must not list another prefix")
+	uploader := mustNewUploader(t, client, UploaderOptions{Bucket: "knowledge", ArtifactCapabilities: ArtifactStorageCapabilities{Mode: ArtifactStorageModeAWS}})
+	store, err := NewKnowledgeStore(uploader)
+	require.NoError(t, err)
+	data := []byte("isolated capacity proof")
+	object := knowledge.Object{Key: "knowledge/capacity-proof/" + knowledge.Digest(data), SHA256: knowledge.Digest(data), ContentType: "text/plain", SizeBytes: int64(len(data)), Data: data}
+	require.NoError(t, store.PutImmutable(ctx, object))
+	require.Error(t, VerifyEmptyCapacityPrefix(ctx, cfg, "knowledge", "knowledge/", "aws"), "an existing unmetered object cannot be admitted as empty")
+	again, err := ResolveCapacityNamespace(ctx, cfg, "knowledge", "aws")
+	require.NoError(t, err)
+	require.Equal(t, ns, again)
+	_, err = client.DeleteObject(ctx, &awss3.DeleteObjectInput{Bucket: aws.String("knowledge"), Key: aws.String(object.Key)})
+	require.Error(t, err)
 }

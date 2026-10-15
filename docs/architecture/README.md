@@ -349,6 +349,7 @@ source of truth for long-lived rules.
 - [`commercial-retail-pricing-v1.md`](./commercial-retail-pricing-v1.md)
   - IMPLEMENTATION_READY #600: approved Store CNY 168 per 30-day period, AI-point purchase CNY 0.01 per point, create-only catalog installation and price-only public projection; unchanged wallet/resource/Store contracts.
 - [`enterprise-storage-capacity-v1.md`](./enterprise-storage-capacity-v1.md): IMPLEMENTATION_READY #659; enterprise retained-byte admission, 5 GiB base capacity, wallet-funded 50 GiB / 30-day expansion and current resource page authority.
+- [`minio-capacity-admission-v1.md`](./minio-capacity-admission-v1.md): IMPLEMENTATION_READY #659; explicit local MinIO deployment identity and bounded existing-empty-schema capacity enablement, preserving cloud and isolated-trial contracts.
 
 These documents are useful background, but should not override stable boundary
 documents unless they say so explicitly:
