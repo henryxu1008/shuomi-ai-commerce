@@ -45,6 +45,25 @@ pnpm start --hostname 127.0.0.1 --port <allocated_port>
 
 实际商品执行还需原 Product/Run/Review/Catalog、企业启用、有效成员权限、contentTextPolicies、计量/额度/计价和已准入 provider 配置。UI/BFF 复用 `LISTINGKIT_SERVICE_API_BASE`、`PRODUCT_REVIEW_API_ORIGIN` 与现会话；不接收浏览器提交的 owner、角色、身份或凭据权威。模型真实费用和 provider 健康仍需另行确认。
 
+## 标题路径与现有 Chat 共存
+
+部署者按[已批准的有界组合](../architecture/content-agent-chat-coexistence-v1.md)准备私密 manifest：`productAgent.contentTitleOnly:true`，只有 `contentTextPolicies`；`textPolicies`、materials/selection/diagnosis 策略均为空，不提供 `assetDatabase`。Run 仍用原 `product_agent_runtime`；Review 连接同一 ProductDB 的独立 `product_review_runtime` 池。其它已运行模块保持其原有配置和 owner，不因本 profile 改用这些连接。
+
+现 Chat 保持 `aiWorkbench.conversationOnly:true`，使用同一逻辑 RunDB 的独立 `ai_workbench_runtime` 账号/连接池和原组织范围，不配置 `planningTextPolicies`。它仍只管理会话；发送、规划和任务执行不会借内容模型开放。模型、准确 route、计价和预算尚缺时保留 `productAgent.enabled:false`；不能用占位模型或凭据来启用执行。默认未设置 `contentTitleOnly` 的完整模式仍执行原来的 Asset/标题等合同。
+
+原安装负责人先提交实际备份、owner/角色和以下精确差异清单，取得真实环境批准后才分别执行：
+
+```powershell
+# 私密环境 PRODUCT_AGENT_SCHEMA_DSN：原 product_agent_owner/获准管理员连接。
+go run ./cmd/product-agent-runtime-prepare --target run
+# 私密环境 PRODUCT_REVIEW_SCHEMA_DSN：原 acquisition_owner/获准管理员连接。
+go run ./cmd/product-agent-runtime-prepare --target review
+```
+
+标准后端镜像也包含 `/app/product-agent-runtime-prepare`。命令不创建角色或密码；固定普通 LOGIN runtime/writer 角色须由原安装负责人按单独批准预备。Run 仅在 `product_agent_runs`、`product_agent_tool_calls`、`ai_client_credentials` 全缺时按原定义创建；既有 `ai_invocations` 53 列只验证，不 ALTER。Review 只验证已有六表。精确 SELECT/INSERT、可变列 UPDATE 和 credential id 序列 USAGE 见设计权限清单；不授 DDL/删除/owner/grant option，不重置现共享 ACL。
+
+三表完整且结构/owner/权限均精确合格时只读 `ALREADY_READY`；部分表、漂移或危险权限均停止，不修补。Run 与 Review 分别提交；后者失败不删除前者的新表/记录，保持执行关闭。响应丢失/提交未知先只读核实，不盲重跑。配置、密钥、原事实、Skill、Chat 和持久任务均保留；实际 backend/同进程 worker 停启必须另列队列、优雅停止和四 poller 恢复边界，不能由准备命令代替。
+
 ## 商品内容模型凭据
 
 个人技能管理完成后，真实标题优化使用商品内容智能体的独立 `product.content.decision` 路由。
@@ -77,7 +96,7 @@ content 策略；轮换后重新绑定，不自动启用 runtime。停用仍使�
 `action: "disable"`、`consumer: "content"`、组织、client 和 writerDatabase，不携带 provider 值。
 它只停用该组织的准确 client 行，不回落成员或其他能力凭据。
 
-真实试用前还需合格的 Run/调用计量表及原 Review/Asset/Catalog 角色与权限、允许当前服务模式
+真实试用前还需合格的 Run/调用计量表及原 Review/Catalog 角色与权限、允许上述有界服务模式
 启用商品智能体、企业启用与成员额度、个人技能指定版本发布/启用及企业个人技能准入。用户须
 确认商品/语言、向供应商发送商品信息、实际计价与单次/累计费用上限，并另行授权运行配置、
 必要停启及真实付费调用。缺项时保留执行关闭；凭据写入、CI 或隔离测试不代表真实生成已可用。
@@ -93,3 +112,5 @@ Skill 定义、不可变版本、命令回执和共享申请在同 RunDB 的 `sk
 ## 开发验证入口
 
 复用仓库 Go/React/Vitest 检查，无独立 runner 或验收平台。隔离 PostgreSQL：`ISSUE688_TEST_DSN` 运行 Skill 持久化/权限/并发测试；原 HTTP fixture 使用任务自己的 `ISSUE398_TEST_DSN`。安装本工作区前端依赖后，`ISSUE688_FRONTEND_TEST=1` 的 `TestSkillConsoleClientsUseActualBFFAndOwners` 执行真实 TypeScript client → Next route/BFF → mounted Go auth/Skill/config/Agent → 原 Review/Catalog；只有外部身份与模型响应受控替代。该测试不表示真实 ZITADEL、1688、模型质量或浏览器用户验收。滚动 SHA、CI 和独立评审证据写主要 PR。
+
+窄 native 入口使用任务独立的 `ISSUE688_RUNTIME_TEST_DSN` 运行 `go test ./internal/app/schema/productagentruntime -count=1`，验证实际普通角色写入、完整 no-op、部分/漂移拒绝及原 Chat/Skill/调用事实和 ACL 保留；不指向原保留实例。
