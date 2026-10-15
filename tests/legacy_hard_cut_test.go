@@ -168,12 +168,37 @@ func TestLegacy1688TaskHandoffAndRouteStayRetired(t *testing.T) {
 		"internal/sourceaccount",
 		"internal/infra/httpx/crawler_1688_handler.go",
 		"internal/infra/httpx/crawler_1688_handler_test.go",
+		"internal/crawler/alibaba1688/crawler_service.go",
+		"internal/crawler/alibaba1688/crawler_service_test.go",
+		"internal/crawler/alibaba1688/worker_processor.go",
+		"internal/crawler/alibaba1688/worker_processor_test.go",
+		"internal/crawler/alibaba1688/account_profile.go",
+		"internal/crawler/alibaba1688/account_profile_test.go",
 	} {
 		_, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative)))
 		require.True(t, os.IsNotExist(err), "retired numeric source-account artifact must remain absent: %s (%v)", relative, err)
 	}
 	for _, relative := range []string{"internal/crawler/alibaba1688", "internal/infra/httpx"} {
 		assertNoBannedImportPrefixes(t, filepath.Join("..", filepath.FromSlash(relative)), []string{"task-processor/internal/sourceaccount"}, nil)
+	}
+	assertNoBannedImportPrefixes(t, filepath.Join("..", "internal", "crawler", "alibaba1688"), []string{
+		"task-processor/internal/platform/workerpool",
+		"task-processor/internal/infra/httpx",
+	}, nil)
+	for _, source := range trackedProductionTextSources(t, []string{"internal/crawler/alibaba1688"}, func(path string) bool {
+		return strings.HasSuffix(path, ".go")
+	}) {
+		file, err := parser.ParseFile(token.NewFileSet(), source.path, source.text, 0)
+		require.NoError(t, err)
+		ast.Inspect(file, func(node ast.Node) bool {
+			switch declaration := node.(type) {
+			case *ast.TypeSpec:
+				require.NotContains(t, []string{"AccountProfile", "AccountProfileResolver", "Crawler1688Processor"}, declaration.Name.Name, source.path)
+			case *ast.FuncDecl:
+				require.NotContains(t, []string{"ProcessWithAccountProfile", "NewBrowserManagerForAccountProfile", "IsAccountFallbackEligible"}, declaration.Name.Name, source.path)
+			}
+			return true
+		})
 	}
 	legacyRoot := filepath.Join("..", "internal", "compatibility", "listingkit", "sourcehandoff")
 	_, err := os.Stat(legacyRoot)

@@ -1,27 +1,27 @@
 package alibaba1688
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
-func TestIsAccountFallbackEligibleOnlyForRecoverablePublicFailures(t *testing.T) {
-	tests := []struct {
-		name string
-		err  error
-		want bool
-	}{
-		{name: "challenge", err: NewPublicAccessError(PublicAccessFailureChallenge, errors.New("captcha")), want: true},
-		{name: "missing fields", err: NewPublicAccessError(PublicAccessFailureMissingFields, errors.New("title missing")), want: true},
-		{name: "invalid url", err: NewPublicAccessError(PublicAccessFailureInvalidURL, errors.New("bad url")), want: false},
-		{name: "transport", err: NewPublicAccessError(PublicAccessFailureTransport, errors.New("timeout")), want: false},
-		{name: "validation", err: NewPublicAccessError(PublicAccessFailureValidation, errors.New("invalid image")), want: false},
-		{name: "unknown", err: errors.New("unexpected"), want: false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := IsAccountFallbackEligible(tt.err); got != tt.want {
-				t.Fatalf("IsAccountFallbackEligible() = %t, want %t", got, tt.want)
+func TestPublicAccessErrorPreservesKindAndCause(t *testing.T) {
+	for _, kind := range []PublicAccessFailureKind{
+		PublicAccessFailureBrowser, PublicAccessFailureChallenge, PublicAccessFailureMissingFields,
+		PublicAccessFailureValidation, PublicAccessFailureInvalidURL, PublicAccessFailureTransport,
+	} {
+		t.Run(string(kind), func(t *testing.T) {
+			for _, cause := range []error{errors.New("source failed"), context.Canceled, context.DeadlineExceeded} {
+				err := NewPublicAccessError(kind, cause)
+				var classified *PublicAccessError
+				require.ErrorAs(t, fmt.Errorf("acquire: %w", err), &classified)
+				require.Equal(t, kind, classified.Kind)
+				require.ErrorIs(t, err, cause)
+				require.Equal(t, cause.Error(), err.Error())
 			}
 		})
 	}
