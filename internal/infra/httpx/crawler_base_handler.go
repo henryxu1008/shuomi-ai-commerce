@@ -2,6 +2,7 @@
 package httpx
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
@@ -11,6 +12,9 @@ import (
 )
 
 var errTenantScopeRequired = errors.New("trusted tenant context is required")
+
+// TenantResolver resolves a tenant from caller-provided trusted request context.
+type TenantResolver func(context.Context) (int64, bool)
 
 // baseCrawlerHandler 爬虫处理器公共基础，包含所有平台共享的路由逻辑。
 // 各平台处理器通过嵌入此结构体复用公共方法，只需实现自己的 handleCrawl。
