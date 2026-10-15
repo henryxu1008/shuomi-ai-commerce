@@ -33,7 +33,7 @@ type alibaba1688BrowserRuntimeConfig struct {
 
 // NewBrowserManager 创建1688浏览器管理器
 func NewBrowserManager(cfg *config.Config) *BrowserManager {
-	return newAlibaba1688BrowserManager(cfg, nil)
+	return newAlibaba1688BrowserManagerWithRuntimeConfig(cfg, newAlibaba1688BrowserRuntimeConfig(cfg))
 }
 
 // NewPublicBrowserManager creates a clean, non-persistent browser manager for
@@ -41,15 +41,6 @@ func NewBrowserManager(cfg *config.Config) *BrowserManager {
 // browser profile, whose cookies could make a public attempt account-backed.
 func NewPublicBrowserManager(cfg *config.Config) *BrowserManager {
 	return newAlibaba1688BrowserManagerWithRuntimeConfig(cfg, newAlibaba1688PublicBrowserRuntimeConfig(cfg))
-}
-
-// NewBrowserManagerForAccountProfile creates an isolated browser manager for one account profile.
-func NewBrowserManagerForAccountProfile(cfg *config.Config, profile AccountProfile) *BrowserManager {
-	return newAlibaba1688BrowserManager(cfg, &profile)
-}
-
-func newAlibaba1688BrowserManager(cfg *config.Config, profile *AccountProfile) *BrowserManager {
-	return newAlibaba1688BrowserManagerWithRuntimeConfig(cfg, newAlibaba1688BrowserRuntimeConfig(cfg, profile))
 }
 
 func newAlibaba1688BrowserManagerWithRuntimeConfig(cfg *config.Config, runtimeConfig alibaba1688BrowserRuntimeConfig) *BrowserManager {
@@ -64,7 +55,7 @@ func newAlibaba1688BrowserManagerWithRuntimeConfig(cfg *config.Config, runtimeCo
 	}
 }
 
-func newAlibaba1688BrowserRuntimeConfig(cfg *config.Config, profile *AccountProfile) alibaba1688BrowserRuntimeConfig {
+func newAlibaba1688BrowserRuntimeConfig(cfg *config.Config) alibaba1688BrowserRuntimeConfig {
 	browserConfig := &sharedbrowser.BrowserConfig{
 		UserAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
 	}
@@ -76,17 +67,11 @@ func newAlibaba1688BrowserRuntimeConfig(cfg *config.Config, profile *AccountProf
 		browserConfig.ViewportWidth = cfg.Browser.ViewportWidth
 		browserConfig.ViewportHeight = cfg.Browser.ViewportHeight
 	}
-	if profile != nil {
-		userDataDir = profile.ProfileDir
-		if proxy := strings.TrimSpace(profile.ProxyServer); proxy != "" {
-			browserConfig.ProxyServer = proxy
-		}
-	}
 	return alibaba1688BrowserRuntimeConfig{browser: browserConfig, userDataDir: userDataDir}
 }
 
 func newAlibaba1688PublicBrowserRuntimeConfig(cfg *config.Config) alibaba1688BrowserRuntimeConfig {
-	runtimeConfig := newAlibaba1688BrowserRuntimeConfig(cfg, nil)
+	runtimeConfig := newAlibaba1688BrowserRuntimeConfig(cfg)
 	runtimeConfig.userDataDir = ""
 	return runtimeConfig
 }
