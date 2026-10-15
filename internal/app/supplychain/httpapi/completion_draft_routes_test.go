@@ -90,7 +90,7 @@ func TestCompletionDraftHTTPIsBoundedStrictAndHasNoOfficialExecutionRoutes(t *te
 	app := &completionHTTP{}
 	router := gin.New()
 	routes := CompletionDraftRoutes(app, func(ctx context.Context, _ string) (context.Context, error) { return ctx, nil })
-	require.Len(t, routes, 5)
+	require.Len(t, routes, 7)
 	for _, r := range routes {
 		require.NoError(t, ValidateCompletionDraftDescriptor(r))
 		router.Handle(r.Method, r.Path, r.Handler)

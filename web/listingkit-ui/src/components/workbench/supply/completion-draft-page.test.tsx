@@ -16,6 +16,7 @@ it("keeps both return links, reads the latest head, and freezes same-source navi
  const view=render(<CompletionDraftPage sourceId={id} preparationId={preparation} itemId={preparation}/>);
  expect(await screen.findByRole("textbox",{name:"候选标题"})).toHaveValue(record.content.title);expect(screen.getByText(/^未绑定店铺 · 已保存 R3/)).toBeVisible();
  expect(screen.getByRole("link",{name:"返回商品"})).toHaveAttribute("href",`/workbench/data/mine/own/${preparation}`);expect(screen.getByRole("link",{name:"返回待补全列表"})).toHaveAttribute("href",`/workbench/supply/mine/missing?preparation=${preparation}`);
+ expect(screen.getByRole("link",{name:"保存历史"})).toHaveAttribute("href",`/workbench/supply/mine/missing/${id}/history?preparation=${preparation}&item=${preparation}`);
  f.source.mockReturnValue(new Promise(()=>{}));view.rerender(<CompletionDraftPage sourceId={id} preparationId={id} itemId={preparation}/>);expect(screen.queryByRole("textbox",{name:"候选标题"})).not.toBeInTheDocument();expect(screen.queryByRole("button",{name:"保存待补全草稿"})).not.toBeInTheDocument();
 });
 it("rejects a mismatching item or preparation before reading or prefilling saved content",async()=>{

@@ -1,4 +1,5 @@
 import { catalogVersionSchema, COMPLETION_MAX_BYTES, SUPPLY_MAX_BYTES, supplyRouteMethods, supplyPath, supplyRequestSchema, supplyUsesKey, supplyMutates, parseSupplyResponse, type SupplyRoute } from "@/lib/contracts/supply-chain";
+import {completionRevision} from "@/lib/contracts/completion-draft-navigation";
 import {materialsErrorStatuses} from "@/lib/contracts/listing-materials";
 import { hasValidStoreServiceFacts, workbenchStorePlatformSchema } from "@/lib/validation/workbench-store";
 import { planPath, planMethods, planRequestSchema, planResponseSchema, type PlanRoute } from "@/lib/contracts/acquisition-plan";
@@ -544,12 +545,12 @@ export async function buildWorkbenchUpstreamRequest(
         if(action==="approve" && "actionId" in checked.data && checked.data.actionId && checked.data.actionId!==key)return protocolError(400,"INVALID_REQUEST","Approval action differs from its original key");
         body=JSON.stringify(checked.data);headers.set("Content-Type","application/json");if(key)headers.set("Idempotency-Key",key);
       }else{
-        if(request.headers.has("Idempotency-Key") || (action==="item-completion-drafts"&&request.headers.has("content-encoding")) || !(await requestHasNoBody(request)))return protocolError(400,"INVALID_REQUEST","Body or command key is not allowed");
-        const allowed=["item-completion-drafts","completion-drafts","list","sources","stages","operation-items","operations","optimization-options"].includes(action)?new Set(["limit","after",...action==="stages"?["storeId","stage","keyword","sourceKind"]:action==="operations"?["storeId"]:action==="optimization-options"?[]:["keyword"]]):new Set<string>();
+        if(request.headers.has("Idempotency-Key") || ((action==="item-completion-drafts"||action.startsWith("completion-history"))&&request.headers.has("content-encoding")) || !(await requestHasNoBody(request)))return protocolError(400,"INVALID_REQUEST","Body or command key is not allowed");
+        const allowed=action==="completion-history"?new Set(["before","limit"]):["item-completion-drafts","completion-drafts","list","sources","stages","operation-items","operations","optimization-options"].includes(action)?new Set(["limit","after",...action==="stages"?["storeId","stage","keyword","sourceKind"]:action==="operations"?["storeId"]:action==="optimization-options"?[]:["keyword"]]):new Set<string>();
         if(/%(?![0-9A-Fa-f]{2})/.test(url.search)||(action==="operations"||action==="stages")&&!isAcquisitionUUID(url.searchParams.get("storeId")??"")||action==="stages"&&!["all","waiting","missing","ready","review","uploaded"].includes(url.searchParams.get("stage")??""))return protocolError(400,"INVALID_REQUEST","Supply query invalid");
         for(const key of url.searchParams.keys()){
           const values=url.searchParams.getAll(key);if(!allowed.has(key)||values.length!==1||!values[0])return protocolError(400,"INVALID_REQUEST","Supply query invalid");
-          const value=values[0];if(key==="limit"&&(!/^[1-9][0-9]*$/.test(value)||Number(value)>100)||(key==="after"||key==="storeId")&&!isAcquisitionUUID(value)||key==="sourceKind"&&!collectionSourceKindSchema.safeParse(value).success||key==="keyword"&&(new TextEncoder().encode(value).length>80||/[\0\r\n]/.test(value)))return protocolError(400,"INVALID_REQUEST","Supply query invalid");
+          const value=values[0];if(key==="before"&&completionRevision(value)===null||key==="limit"&&(!/^[1-9][0-9]*$/.test(value)||Number(value)>100)||(key==="after"||key==="storeId")&&!isAcquisitionUUID(value)||key==="sourceKind"&&!collectionSourceKindSchema.safeParse(value).success||key==="keyword"&&(new TextEncoder().encode(value).length>80||/[\0\r\n]/.test(value)))return protocolError(400,"INVALID_REQUEST","Supply query invalid");
         }
         query=url.search;
       }
@@ -1011,6 +1012,8 @@ export async function buildWorkbenchUpstreamRequest(
     expectedStoreId: imageSetContract ? JSON.stringify(imageSetResponseBinding(path,route.requestContract.slice(10) as ImageSetRoute)) : expectedCollectionMedia ?? (
       route.requestContract.startsWith("supply-materials-")?`${path[2]}:${path[5]??request.headers.get("Idempotency-Key")??(typeof body==="string"?JSON.parse(body).requestKey:"")}`:
       route.requestContract==="product-acquisition-plan-read"||route.requestContract==="product-acquisition-plan-advance"?path[3]:
+      route.requestContract==="supply-completion-history"?`${path[2]}:${new URL(request.url).searchParams.get("before")??0}:${new URL(request.url).searchParams.get("limit")??20}`:
+      route.requestContract==="supply-completion-history-detail"?`${path[2]}:${path[5]}`:
       (route.requestContract==="supply-target"||route.requestContract==="supply-publication"||route.requestContract==="supply-publication-status") ? `${path[2]}:${path[4]}` :
       ["supply-item-completion-drafts","supply-completion-draft","supply-completion-drafts","supply-source","supply-preparation","supply-record","supply-operation","supply-ensure","supply-cancel"].includes(route.requestContract) ? (["supply-preparation","supply-completion-drafts"].includes(route.requestContract)?path[1]:path[2]) :
       route.requestContract === "collection-detail" || route.requestContract === "collection-batch" ? path[2] :
