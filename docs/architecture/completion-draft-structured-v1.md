@@ -28,7 +28,7 @@ Issue #718，依据 [PD-COMPLETION-STRUCTURED-2026-10-15](../product/completion-
 - 对象内 attributes/variants 必须显式数组；空属性是已保存空集合。Save 是完整候选快照而非 patch，数组顺序保留并参与 hash/比较。
 - 属性 <=256；名称合法 UTF-8 <=200 bytes、trim 后非空且 trim 后唯一；值 <=8192 bytes、允许空串。拒 null 字符/非法 UTF-8，文本原样存储并仅文字渲染，不映射平台属性或销售规格。
 - SKU 身份为**固定 SourceItem Vn + 原 snapshot.variants 的零基 sourceIndex**，不按可空/重复 SKU 编码猜匹配。最多256行，须严格为0..n-1，数量与准确固定 snapshot 相同；服务端拒重复/越界/缺行/重排/新增 SKU，不接收来源编码、规格、图片等字段。
-- price 为 {currency,amount} 或 null；stock 为整数或 null。null=未填，0=明确零。币种 `[A-Z]{3}`，金额 finite/nonnegative 且 <=9007199254740991，库存整数0..9007199254740991。不做换算/舍入/资金或平台校验，沿用 Product 数值表示。
+- price 为 {currency,amount} 或 null；stock 为整数或 null。null=未填，0=明确零。币种 `[A-Z]{3}`，金额 finite/nonnegative 且 <=9007199254740991，库存整数0..9007199254740991。签名零规范为JSONB读回的0，保持保存与回执hash一致；不做换算/舍入/资金或平台校验，沿用 Product 数值表示。
 - 来源 >256 变体时明确超出结构化编辑预算；文字/历史仍可用。自有商品当前 UI 同为256变体上限。
 - 未保存结构化内容时编辑页可从**准确固定来源**预填，明确尚未保存。已保存结构化内容（含空属性、null价格/库存）准确读回，不能被来源原值或 `||` 覆盖；无法规范预填的来源值显示未填并由表单验证。
 

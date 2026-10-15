@@ -2,6 +2,7 @@ import { z } from "zod";
 import { collectionID, collectionItemSchema, collectionDetailSchema } from "./product-collection";
 import { isAcquisitionUUID } from "./product-acquisition";
 import { completionRevision } from "./completion-draft-navigation";
+import {completionContentSchema,completionPayloadBytes} from "./completion-content";
 import {listingMaterialsSchemas,materialsRouteMethods,materialsPath,materialsRequestSchema,materialsPreparedSchema,type MaterialsRoute} from "./listing-materials";
 import {temuDraftInputSchema,temuDraftSchema,temuModeSchema,temuRuleSnapshotSchema,ruleSelectionSchema,temuCreatedGoodsSchema} from "./temu-model";
 import {tiktokDraftInputSchema,tiktokSelectionSchema,tiktokMerchantSchema,tiktokRuleSnapshotSchema,tiktokCatalogSchema,tiktokDraftSchema,tiktokEffectSchema} from "./tiktokshop-model";
@@ -39,8 +40,7 @@ const merchantSchema=z.object({organization_id:text(128),store_id:collectionID,s
 export const preparationSchema=z.object({id:collectionID,sourceBatchId:collectionID,sourceRevision:revision,name:text(200),count:integer,revision,createdAt:time});
 const sourceSchema=z.object({id:collectionID,preparationId:collectionID,collectionItemId:collectionID,collectionRevision:revision,source:collectionItemSchema.shape.source});
 export const COMPLETION_MAX_BYTES=64*1024;
-const completionContentSchema=z.object({title:text(1024),description:text(32768)}).strict();
-export const completionInputSchema=z.object({sourceId:collectionID,expectedRevision:integer,content:completionContentSchema}).strict();
+export const completionInputSchema=z.object({sourceId:collectionID,expectedRevision:integer,content:completionContentSchema}).strict().refine(value=>completionPayloadBytes(value)<=COMPLETION_MAX_BYTES,"候选内容超过64KiB保存上限");
 export const completionRecordSchema=z.object({id:collectionID,draftId:collectionID,revision,source:sourceSchema,content:completionContentSchema,status:z.literal("pending_completion"),createdAt:time}).strict();
 export const completionReceiptSchema=z.object({record:completionRecordSchema,replayed:z.boolean()}).strict();
 export const completionPageSchema=page(completionRecordSchema);

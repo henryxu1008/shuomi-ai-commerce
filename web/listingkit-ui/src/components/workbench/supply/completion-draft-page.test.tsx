@@ -11,6 +11,24 @@ const detail={source,images:[],product:{title:"固定原商品V1",description:"�
 const record={id,draftId:preparation,revision:1,source,content:{title:"候选内容R1",description:"候选描述"},status:"pending_completion",createdAt:"2026-10-14T00:00:00Z"};
 beforeEach(()=>{vi.clearAllMocks();f.context.pendingSupplyIntent=null;f.context.effectiveOrganization.id="org";f.context.setPendingSupplyIntent.mockImplementation(v=>{f.context.pendingSupplyIntent=v;return true});f.source.mockResolvedValue(detail);f.read.mockRejectedValue(new SupplyAPIError("NOT_FOUND",404));f.save.mockResolvedValue({record,replayed:false})});
 afterEach(cleanup);
+it("locks text editing after CAS conflict until the shared head is explicitly reloaded",async()=>{
+ f.read.mockResolvedValue(record);f.save.mockRejectedValueOnce(new SupplyAPIError("REVISION_CONFLICT",409));
+ render(<CompletionDraftPage sourceId={id}/>);await screen.findByRole("textbox",{name:"候选标题"});fireEvent.click(screen.getByRole("button",{name:"保存待补全草稿"}));await screen.findByText("资料已发生变化，请重新读取后补齐。");expect(screen.getByRole("button",{name:"保存待补全草稿"})).toBeDisabled();
+ f.read.mockResolvedValue({...record,revision:2,content:{...record.content,structured:{attributes:[],variants:[{sourceIndex:0,price:null,stock:0}]}}});fireEvent.click(screen.getByRole("button",{name:"重新读取保存版本"}));await waitFor(()=>expect(screen.getByRole("button",{name:"保存待补全草稿"})).toBeEnabled());
+});
+it("links to an independent structured editor with the same source, item and batch",async()=>{
+ render(<CompletionDraftPage sourceId={id} preparationId={preparation} itemId={preparation}/>);
+ await screen.findByRole("textbox",{name:"候选标题"});
+ expect(screen.getByRole("link",{name:"编辑商品属性和 SKU"})).toHaveAttribute("href",`/workbench/supply/mine/missing/${id}/structure?preparation=${preparation}&item=${preparation}`);
+});
+it("keeps current structured candidates when saving title and description",async()=>{
+ const structured={attributes:[],variants:[{sourceIndex:0,price:null,stock:0}]};
+ const current={...record,content:{...record.content,structured}};
+ f.read.mockResolvedValue(current);f.save.mockResolvedValue({record:{...current,revision:2},replayed:false});
+ render(<CompletionDraftPage sourceId={id} preparationId={preparation} itemId={preparation}/>);
+ await screen.findByRole("textbox",{name:"候选标题"});fireEvent.click(screen.getByRole("button",{name:"保存待补全草稿"}));
+ await waitFor(()=>expect(f.save).toHaveBeenCalledWith(expect.objectContaining({command:{sourceId:id,expectedRevision:1,content:current.content}}),expect.any(AbortSignal)));
+});
 it("keeps both return links, reads the latest head, and freezes same-source navigation changes",async()=>{
  f.read.mockResolvedValue({...record,revision:3});
  const view=render(<CompletionDraftPage sourceId={id} preparationId={preparation} itemId={preparation}/>);

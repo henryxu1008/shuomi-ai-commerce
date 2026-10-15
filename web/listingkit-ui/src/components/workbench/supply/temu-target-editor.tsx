@@ -95,6 +95,7 @@ export function TemuTargetEditor({scope,source,storeId,existing,command,disabled
   <div className="flex flex-wrap items-center gap-3"><p className="font-semibold">TEMU · {draft?modes[draft.mode]:"正在核实店铺"}{target?.region?.label?` · ${target.region.label}`:""}</p><Button size="sm" variant="outline" disabled={loading} onClick={()=>{setModeChecked(false);setRefresh(n=>n+1)}}>刷新官方规则</Button></div>
   {unavailable?<p className="rounded-lg bg-amber-50 p-3 text-sm">站点规格尚未核实。可以保存商品资料，发布入口保持关闭。</p>:null}
   {draft?.mode!=="local"&&draft?<p className="text-sm text-amber-700">全托管与半托管使用各自的供货价和站点规则。资料或规则缺失时会显示原因，并保持待补全。</p>:null}
+  {completion&&draft?<p className="text-sm text-muted-foreground">仅带入标题和描述，候选属性、价格和库存尚未带入。</p>:null}
   {completion&&draft?<Button variant="outline" disabled={disabled} onClick={()=>change(v=>{if(v.local){v.local.goodsBasic.goodsName=completion.content.title;v.local.goodsBasic.goodsDesc=completion.content.description??""}if(v.supplier)v.supplier.productName=completion.content.title})}>带入待补全草稿 R{completion.revision}</Button>:null}
   {draft?<><Field label="商品标题"><Input disabled={disabled} value={draft.local?.goodsBasic.goodsName??draft.supplier?.productName??""} onChange={e=>change(v=>{if(v.local)v.local.goodsBasic.goodsName=e.target.value;if(v.supplier)v.supplier.productName=e.target.value})}/></Field>
    {draft.local?<Field label="商品描述"><Textarea disabled={disabled} value={draft.local.goodsBasic.goodsDesc??""} onChange={e=>local(v=>{v.goodsBasic.goodsDesc=e.target.value})}/></Field>:null}

@@ -59,6 +59,7 @@ export function TikTokTargetEditor({scope,source,storeId,existing,command,disabl
    {categoryId?<Button variant="ghost" disabled={disabled||loading} onClick={()=>chooseCategory("")}>重新选择类目和属性</Button>:null}
    <Field label="商品标题"><Input value={draft.title} disabled={disabled} onChange={e=>{setChosenCompletion(undefined);edit(v=>{v.title=e.target.value})}}/></Field>
    <Field label="英文商品描述"><Textarea value={draft.description} disabled={disabled} onChange={e=>{setChosenCompletion(undefined);edit(v=>{v.description=e.target.value})}}/></Field>
+   {completion?<p className="text-sm text-muted-foreground">仅带入标题和描述，候选属性、价格和库存尚未带入。</p>:null}
    {completion?<Button variant="outline" disabled={disabled} onClick={()=>{const selected=carryTikTokCompletion(draft,completion);setDraft(selected.draft);setChosenCompletion(selected.selection)}}>带入待补全草稿 R{completion.revision}</Button>:null}
    {chosenCompletion?<p className="text-xs text-slate-500">已选择待补全草稿版本 R{chosenCompletion.revision}。编辑标题或描述后将重新以手填内容保存。</p>:null}
    <Field label="平台提交方式"><Select value={draft.saveMode} disabled={disabled} onChange={e=>edit(v=>{v.saveMode=e.target.value as TikTokDraftInput["saveMode"]})}><option value="">请选择</option>{method==="LOCAL_REPLICATION"?<option value="AS_DRAFT">创建平台草稿</option>:null}<option value="LISTING">提交美国站刊登</option></Select></Field>

@@ -12,6 +12,7 @@ import {completionDraftHref,completionHistoryHref,completionRevision} from "@/li
 import {CompletionTextComparison} from "./completion-history-page";
 import {useSupplyCommand} from "./use-supply-command";
 import {SupplyCommandFeedback} from "./command-feedback";
+import {completionContentEqual} from "@/lib/contracts/completion-content";
 
 type Props={sourceId:string;revision:number;preparationId?:string;itemId?:string};
 type Preview={old:SupplyCompletionDraft;head:SupplyCompletionDraft};
@@ -39,7 +40,7 @@ function ScopedRestore({scope,sourceId,revision,preparationId,itemId}:Props&{sco
    const input=completionInputSchema.safeParse(intent.command);
    if(input.success&&input.data.sourceId===sourceId){
     const receipt=completionReceiptSchema.safeParse(result);
-    if(!receipt.success||receipt.data.record.source.id!==sourceId||receipt.data.record.revision!==input.data.expectedRevision+1||!sameContent(receipt.data.record.content,input.data.content)){
+    if(!receipt.success||receipt.data.record.source.id!==sourceId||receipt.data.record.revision!==input.data.expectedRevision+1||!completionContentEqual(receipt.data.record.content,input.data.content)){
      setReadError(true);return;
     }
     setCompleted({record:receipt.data.record,input:input.data});
@@ -76,11 +77,11 @@ function ScopedRestore({scope,sourceId,revision,preparationId,itemId}:Props&{sco
    <Card className="flex flex-wrap items-center gap-3 p-5"><Badge variant="secondary">固定来源 V{source.source.version}</Badge><p className="break-all text-xs text-muted-foreground">来源 {sourceId} · 转入批次 {source.preparationId}</p></Card>
    <CompletionTextComparison records={[visible.head,visible.old]} title="恢复内容预览" labels={[`当前已保存 R${visible.head.revision}`,`将采用旧版 R${revision} 内容`]}/>
    <Card className="space-y-4 p-5">
-    <p className="text-sm">确认后将旧版 R{revision} 的标题和描述保存为新的版本，其他资料和全部历史记录保持不变。</p>
+    <p className="text-sm">确认后将旧版 R{revision} 的标题和描述保存为新的版本，当前候选属性、价格、库存和全部历史记录保持不变。</p>
     {visible.old.revision===visible.head.revision?<p className="text-sm text-muted-foreground">所选版本已是当前版本，无需恢复。</p>:sameContent(visible.old.content,visible.head.content)?<p className="text-sm text-muted-foreground">标题和描述与当前版本相同，无需恢复。</p>:null}
     {visible.head.revision>=Number.MAX_SAFE_INTEGER?<p role="alert">保存版本已达上限，无法追加新版本。</p>:null}
     {conflict?<p role="alert" className="text-sm text-destructive">当前版本已变化，请重新读取并确认差异后再恢复。</p>:null}
-    <div className="flex flex-wrap gap-3"><Button disabled={disabled} onClick={()=>{if(!disabled&&visible){setConflictReviewed(false);void command.execute("save-completion-draft",{sourceId,expectedRevision:visible.head.revision,content:visible.old.content})}}}>恢复为新版本</Button><Button variant="outline" disabled={command.busy||!!command.pending} onClick={refresh}>重新读取当前版本</Button><Button asChild variant="outline"><Link href={completionHistoryHref(sourceId,source.preparationId,itemId)}>返回保存历史</Link></Button></div>
+    <div className="flex flex-wrap gap-3"><Button disabled={disabled} onClick={()=>{if(!disabled&&visible){setConflictReviewed(false);void command.execute("save-completion-draft",{sourceId,expectedRevision:visible.head.revision,content:{...visible.head.content,title:visible.old.content.title,description:visible.old.content.description}})}}}>恢复为新版本</Button><Button variant="outline" disabled={command.busy||!!command.pending} onClick={refresh}>重新读取当前版本</Button><Button asChild variant="outline"><Link href={completionHistoryHref(sourceId,source.preparationId,itemId)}>返回保存历史</Link></Button></div>
    </Card>
   </div>:null}
  </ConsolePage>;
