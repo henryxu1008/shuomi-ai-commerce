@@ -106,6 +106,18 @@ it("blocks a stale item revision instead of turning it into a candidate",async()
   expect(screen.queryByRole("radio")).not.toBeInTheDocument();
   expect(screen.getByRole("button",{name:"下一步：填写供货信息"})).toBeDisabled();
 });
+it("requires and allows a fresh selection after the product version changes",async()=>{
+  const {client}=page();const user=userEvent.setup();
+  await user.click(await screen.findByRole("radio",{name:"选择 已优化自有外套"}));
+  vi.mocked(listOwnProducts).mockResolvedValue({items:[{...item(),revision:2}],total:1});
+  vi.mocked(readMarketChoice).mockResolvedValue({...choice(),selection:{...selection,expectedRevision:2}});
+  await client.invalidateQueries({queryKey:["supply-market","member-a","org-a","application-products"]});
+  const radio=await screen.findByRole("radio",{name:"选择 已优化自有外套"});
+  expect(radio).not.toBeChecked();
+  expect(screen.getByRole("button",{name:"下一步：填写供货信息"})).toBeDisabled();
+  await user.click(radio);
+  expect(screen.getByRole("button",{name:"下一步：填写供货信息"})).toBeEnabled();
+});
 it("aborts the candidate read and removes the old page during an enterprise switch",async()=>{
   const {client,rerender}=page();await screen.findByRole("radio",{name:"选择 已优化自有外套"});
   vi.mocked(readMarketChoice).mockImplementation((_scope,_id,signal)=>new Promise((_resolve,reject)=>signal?.addEventListener("abort",()=>reject(new Error("aborted")))));
