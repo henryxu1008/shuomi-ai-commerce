@@ -1,8 +1,8 @@
 # own675 Store 核心合同对齐方案
 
-状态：`IMPLEMENTATION_AUTHORIZED / EXECUTION_NOT_AUTHORIZED`。2026-10-16 方案 fa41947c3 已独立复核 PASS，用户随后批准现有命令入口及必要隔离测试；本轮不执行 own675 DDL/DML/GRANT、不更新实例或配置、不调用平台、不发布。
+状态：`IMPLEMENTED / EXECUTION_NOT_AUTHORIZED`。2026-10-16 方案 fa41947c3 已独立复核 PASS，用户随后批准现有命令入口及必要隔离测试；本轮不执行 own675 DDL/DML/GRANT、不更新实例或配置、不调用平台、不发布。
 
-执行 Issue：[#735](https://github.com/qq550723504/task-processor/issues/735)；主要 PR：[#736](https://github.com/qq550723504/task-processor/pull/736)。代码依据为 `066a404be`（已包含 main `05ae7947f`）；下面实例证据是本轮只读核对，不是安装或运行验收。
+执行 Issue：[#735](https://github.com/qq550723504/task-processor/issues/735)；主要 PR：[#736](https://github.com/qq550723504/task-processor/pull/736)。代码依据为 `066a404be`（已包含 main `05ae7947f`）；下面实例证据是先前方案阶段的只读核对，不是安装或运行验收。
 
 ## 用户结果、依据与范围
 
@@ -12,7 +12,7 @@ Design Basis：**Reuse Existing Architecture**。引用 [Store 当前应用 owne
 
 本方案不改变 Store 业务状态机、租户/成员权限、官方连接、CAS/幂等、权益/资金或 provider UNKNOWN owner。没有 UI 变更，现有 Figma authority 不变。Legacy decision: N/A；只消费当前合格 Store owner，无 legacy service、双读/双写或第二事实源。
 
-## 本轮只读证据与根因
+## 方案阶段只读证据与根因
 
 查询仅针对 `task-processor-own675-20261014-c1e22342-business-db-1` 的 `store_center`，使用显式 `BEGIN READ ONLY` 和 5 秒 statement timeout。未读取凭据或业务行内容；仅查询 catalog、Goose 版本及聚合计数。只读审计连接使用现有集群审计身份，不把它作为未来安装身份的准入证据。
 
@@ -81,8 +81,18 @@ PostgreSQL 的 Goose 行自增序列可能在失败后留空号；不能重置�
 
 不提供自动 Down 或删除版本记录；新核心平台枚举已变化，回旧镜像不等于 schema 已安全回退。若未来确需反向调整，另行核对所有当前行及实际消费者并批准准确方案；本轮优先保留当前状态、由原 Store owner 修复前进，不删业务记录使旧约束通过。Store、Product、Asset/Temporal 不在同一事务；本合同不冒充整实例原子升级。
 
-## 后续必要验证与当前交接
+## 已实现的命令与当前交接
 
-获准实现后，只需复用现有隔离 PostgreSQL 测试依赖和 Store owner：用真实非空 SHEIN/TEMU、成员授权、商家绑定、配置/连接记录及 Goose 历史确认保留；覆盖 A→B、B 无版本登记、B 已应用只读重入/并发、混合状态/弱约束/缺史/非 owner/授权漂移拒绝、后段失败与取消/commit 不确定重入。检查四项定义及 validated，原行/ACL/PK/FK/索引不变，只有一个新 Goose 版本；capabilities=false 的 serving schema/权限核对通过，未配置平台仍不可调用。无须新建安装 runner、故障平台或人工验收系统。
+从本 PR 候选构建现有 `cmd/store-center-schema-init`；后续实际执行另获准后，命令为：
+
+```text
+store-center-schema-init --config <私有Store-owner配置绝对路径> --align-core-contract --confirm-database store_center
+```
+
+配置继续使用原严格 JSON 格式：`host`、`port`、`user`、`password`、`database`、`maxConnections`、`maxIdleConnections`。host 必须为 literal `127.0.0.1`，user 固定 `store_center_owner`；database 必须与准确确认一致且不是系统库，连接池 1–2。实际端口和密码只放入私有配置文件，不放在命令行、仓库或日志。没有新的应用配置项、runtime 授权或平台启用开关。
+
+实现归原 Store owner 和 Store Goose runner。只读核对使用 pinned repeatable-read 事务避免并发提交造成混合读；新版本的核对和四项 DDL 使用 Goose 的同一个 `RunTx`，固定顺序锁两张表并保留 5 秒 lock timeout。新版本记录与 DDL 原子提交。原表列/默认值、原约束定义、PK/FK/索引及 runtime 的原 allow/deny 边界均核对；额外、弱化或未验证的约束不被自动修复。fresh 创建与对齐共用四项当前 CHECK 表达式，默认 fresh 命令不隐式对齐 retained core。
+
+必要验证复用现有隔离 PostgreSQL 测试依赖和 Store owner：用真实非空 SHEIN/TEMU、成员授权、商家绑定、配置/连接记录及 Goose 历史确认保留；覆盖 A→B、B 无版本登记、B 已应用只读重入/并发、混合状态/弱约束/缺史/非 owner/授权漂移拒绝、Goose 版本插入失败回滚、取消和成功响应丢失后的重入。检查四项定义及 validated，原行/ACL/PK/FK/索引不变，只有一个新 Goose 版本；capabilities=false 的 serving schema/权限核对通过。实际网络 commit 响应丢失未另建故障框架，Goose 原子事务与成功后重入分别验证。fresh、observations 及 TikTok/Walmart 显式 capability 权限回归沿用原测试；不增加安装 runner、故障平台或人工验收系统。
 
 原方案调查只读完成；本轮仅获准入口实现和隔离 PostgreSQL 测试，未执行 own675 DDL/版本登记/权限变更、未暂停或重启任何服务、未运行真实 SHEIN/TikTok/Walmart 操作。表、数据、图片、配置和授权保留。实例安装与产品试用均 `NOT_RUN`，实际环境操作仍须另行授权。独立检查及准确提交证据维护在 Issue/PR，不以开发自检或另一 AI 检查代签用户验收。

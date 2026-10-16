@@ -152,7 +152,7 @@ product-acquisition-init --config <私有owner-manifest绝对路径> --enable-su
 后续获准执行时：
 
 1. 重新核对容器/镜像/原配置与角色，私密备份 Product、Store、配置和图片基线；先核对官方应用/回调可准备，避免先改变原 Product ACL 再发现凭据缺失。
-2. 暂停 own675 后台/前端的写入口，保留原依赖。仅在 Store 入口实现、检查及准确安装范围另获准后，独立事务对齐 Store 并核实；当前没有可执行命令。随后创建新的 Asset 空库/两个角色，沿既有工具安装四表和窄权限；准备专属 Temporal 卷及服务。不修改原对象存储，各阶段记录实际完成状态，不冒充整实例原子操作。
+2. 暂停 own675 后台/前端的写入口，保留原依赖。Store 入口现已补齐；检查完成且准确执行范围另获准后，使用 `store-center-schema-init --config <私有Store-owner配置绝对路径> --align-core-contract --confirm-database store_center` 独立事务对齐两表四项 CHECK 并核实。原配置字段及 A/B/Goose 版本重入合同见 [Store 核心对齐方案](../architecture/own675-store-core-alignment-v1.md)。该命令不补可选平台表或授权，不能替代 fresh/平台安装。随后创建新的 Asset 空库/两个角色，沿既有工具安装四表和窄权限；准备专属 Temporal 卷及服务。不修改原对象存储，各阶段记录实际完成状态，不冒充整实例原子操作。
 3. 使用已完成检查的 Product 增量入口，事务安装 13 表和上表 grant；原 14 表及原 ACL 保持。外部新库/新服务与 Product 事务不是一个原子事务，失败停在已知阶段，保留资源，未齐备不启用新配置。
 4. 核对配置差异仅为上表项目，启动同候选后台、前端。后台只验证 schema/grants，不在启动中执行安装。既有 supply worker 会运行，但不自动创建 adapt/upload/optimize 操作。
 5. 用户经正常 Store 入口创建/连接一间获准的 SHEIN 店铺，再以**新专用试用商品、批次和候选**执行适配、保存 Target R1、带入预览及确认 R2；币种/仓库跟随实际商户模式。原 R1 候选和 CNY/零值样例不为试用改写。
