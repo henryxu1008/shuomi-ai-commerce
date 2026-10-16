@@ -997,13 +997,16 @@ PAY-030 到 PAY-032 若仓库已有相应机制，AI 应先做 inventory，补�
 
 ## 15. 通用验证命令
 
+> #726 有界退休校准：两个旧入口及专属control-plane编排已源码退休，移除其专属race命令；
+> 仍维护的任务仓库claim/rollback/recovery并发检查、全库测试和当前命令构建继续保留，
+> 与[已确认边界 §6.1](../architecture/legacy-listing-control-plane-retirement-boundary.md)一致。
+> 本次不改变本文现行收费/外部准入、entitlement、Go/No-Go或生产放行门禁，
+> 不将商业rollout要求追加为当前内部试用前置，也不恢复顶部已列为历史的旧ListingKit owner。
+
 后端：
 
 ```powershell
 go test ./... -count=1
-
-go test -race ./internal/app/runtime/listingcontrol `
-  -run TestControlPlaneService -count=1
 
 go test -race ./internal/listingadmin `
   -run "TestConcurrentClaimForDispatchOnlyOneWorkerWins|TestConcurrentRollbackDispatchOnlyOriginalQueuedClaimIsRestoredOnce|TestConcurrentRecoveryOnlyUpdatesStillEligibleRowsOnce" `

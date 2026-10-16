@@ -7,10 +7,12 @@ payload. It is produced by the application task submitter and the distributed
 crawler client, and decoded by `app/task.MessageAdapter` before a consumer
 constructs a model task.
 
-The Listing Control Plane's `listingcontrol.DispatchPublisher` is deliberately
-out of scope. Its `ListingDispatchSignal` contains only a task ID, and its
-receiver loads the task from persistent state. It is neither a V2 producer nor
-a legacy consumer for this migration.
+The former Listing Control Plane publisher sent an ID-only `ListingDispatchSignal`
+and was outside this V2 contract. That publisher and its runtime are source-retired
+under the [confirmed #726 boundary](legacy-listing-control-plane-retirement-boundary.md).
+Retained task submitter, distributed crawler and MessageAdapter contracts stay
+unchanged; this retirement creates no replacement producer, payload migration or
+current-application consumer of the old numeric task chain.
 
 ## Wire schema
 
