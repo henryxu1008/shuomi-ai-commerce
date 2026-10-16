@@ -36,7 +36,6 @@ func maintainedOperationalCommands() map[string]struct{} {
 		"product-agent-credential-provision":  {},
 		"product-agent-runtime-prepare":       {},
 		"product-acquisition-init":            {},
-		"shein-import-platform-recovery":      {},
 		"shein-login-worker":                  {},
 		"store-center-schema-init":            {},
 		"source-account-registry-schema-init": {},
@@ -50,7 +49,6 @@ func TestCmdContainsOnlyOfficialEntrypoints(t *testing.T) {
 		"1688-public-browser-collector": {},
 		"current-application":           {},
 		"image-agent-temporal-worker":   {},
-		"listing-control-plane":         {},
 	}
 	operationalCommands := maintainedOperationalCommands()
 	document, err := os.ReadFile(filepath.Join("..", "docs", "development", "repository-structure.md"))

@@ -2,8 +2,8 @@
 
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29)、[#301](https://github.com/qq550723504/task-processor/issues/301)。
 
-- Status: **DESIGN_IN_REVIEW / 待用户确认；正式实施 NOT_READY**。
-- Design Basis: **N/A**，本轮仅文档与只读源码映射；不改变产品、领域合同、权限、状态、持久化或外部副作用。
+- Status: **用户已确认 §5、§6、§6.1、§7；按 Reuse Existing Architecture / Ready 实施源码退休**；准确候选、CI 与独立检查以 #726 为准。
+- 实施 Design Basis: **Reuse Existing Architecture**；已确认设计8188c6967先于正式源码修改，#29/#301已记录Ready。原文档阶段N/A仅适用于设计候选，不替代本批实施准入。
 - 源码调查基线：`main @ 43a225fa62eb9609bc643f3fd34b8cd1eb372450`（#723 合并后）。
 - 用户决定：先设计 `listing-control-plane`、`shein-import-platform-recovery` 与旧数字任务派发/恢复链的退休，确认后再实施；保留当前采集、Store 观察同步、有效共享合同、必需和安全检查及独立 SHEIN 登录 worker；不操作运行实例或数据，不增加内部试用前置。
 
@@ -11,7 +11,7 @@ Refs [#29](https://github.com/qq550723504/task-processor/issues/29)、[#301](htt
 
 维护者获得明确的源码删除清单：剩余旧生产者和一次性数据修复入口退出，当前内部试用能力沿原入口使用。目标是消除旧数字任务执行入口及其专属编排，不新增当前刊登执行器，不承诺所有数字类型或旧仓库已经清零，也不证明历史实例已停用。
 
-依据 [Greenfield 产品决定](../product/greenfield-no-legacy-migration.md)、[Hard-Cut](../refactoring/legacy-hard-cut-policy.md)、[Legacy register](../refactoring/legacy-register.md)、[module mapping](../refactoring/module-target-mapping.md) 和 [项目领域边界](project-boundaries.md)。上一批 [三 CLI 退休设计 §5](legacy-listing-cli-retirement-boundary.md#5-相邻生产者与保留边界) 将控制面与 recovery 工具列为单独债务；本次只为该后续范围提出设计，未撤销其实施前的保留要求。
+依据 [Greenfield 产品决定](../product/greenfield-no-legacy-migration.md)、[Hard-Cut](../refactoring/legacy-hard-cut-policy.md)、[Legacy register](../refactoring/legacy-register.md)、[module mapping](../refactoring/module-target-mapping.md) 和 [项目领域边界](project-boundaries.md)。上一批 [三 CLI 退休设计 §5](legacy-listing-cli-retirement-boundary.md#5-相邻生产者与保留边界) 将控制面与 recovery 工具列为单独债务；用户已明确确认本设计，将这两个入口及专属编排纳入本轮源码退休，其它保留合同不变。
 
 保留能力的依据为 [当前 Store](store-center-current-application-v1.md)、[平台观察](store-center-platform-observations-v1.md)、[观察准备接线](store-observations-preparation-runtime.md)、[当前 SHEIN 供货链](my-supply-chain-shein-v1.md)、[独立 SHEIN worker 身份/持久化边界](shein-worker-identity-persistence-boundary.md) 和 [发布预检退休](release-identity-preflight-retirement.md)。当前权限、连接、Submission、重试及 UNKNOWN 各归原 owner，不能由旧任务状态替代。缺配置或尚未开放的能力仍按原合同报告，不伪造可用。无 UI/IA 改动，Figma N/A。
 
@@ -19,11 +19,11 @@ Must：不恢复旧 CLI、兼容桥、ID 映射、迁移、fallback、双读双�
 
 ## 2. Design Basis 与开工界线
 
-本轮文档工作 Ready；**不是生产实现 Ready**。设计文档、实际依赖、逐项 owner 与检查处置经用户确认后，严格限定的删除可在 #29/#301 正文记录 **Reuse Existing Architecture**：复用上述批准合同、用户结果、调用路径、不变量、验收和 Ready，不新建事实 owner。旧代码跨多个目录或超过文件数提示线，本身不要求重建架构或机械拆 PR；已有批准架构须完整覆盖实际变化。
+设计8188c6967的文档阶段为N/A，现已获用户确认。实施前，#29/#301正文已按 **Reuse Existing Architecture / Ready** 记录批准合同、用户结果、调用路径、不变量与验收，并同步main43a225fa。严格限定的删除不新建事实owner，不改变保留合同、权限/状态/事务/恢复或副作用。旧代码跨多个目录或超过文件数提示线由上述已批准有界退休完整覆盖，不机械拆PR或重建架构。
 
 若必须改变保留消费者的领域合同、权限/租户/身份、状态机、schema/持久化事实 owner、事务/retry/UNKNOWN/recovery 或不可安全重复的副作用，停止对应正式实现，改走 Independent Architecture、适用独立边界检查和 IMPLEMENTATION_READY。文档 CI、历史设计、无命令消费者或本次设计调查均不替代用户确认与实施准入。
 
-保持一个 Writer、一个主要 PR。本轮不修改 Go/测试/CI/Makefile/配置/部署声明；只写本设计与直接文档引用。实现阶段仅复用原 guard/回归及一次集中最终检查，不新建 runner、验收 session、恢复平台或内部试用门槛。
+保持一个Writer、原主要PR #726。按已确认§5/§6/§6.1删除专属Go/测试/操作接线并精确清理旧CI目标；共享配置与矩阵中的保留源码/安全合同不变。仅复用原guard/回归及一次集中最终检查，不新建runner、验收session、恢复平台或内部试用门槛。
 
 ## 3. 实际 contract → implementation → injection → consumer
 
@@ -62,9 +62,9 @@ DB claim、RabbitMQ publish 与事件写入不是同一事务。发布超时/响
 
 ## 5. 删除矩阵与保留债务
 
-以下为**待确认实施边界**；源码删除必须刷新实际消费者，不能按目录名猜测。保留债务仍为 RETIRE，非 Compatibility 类别，不允许扩展或新增当前消费者。
+以下为**用户已确认的实施边界**；实际消费者已刷新，专属RETIRE项源码退出，保留项仍在原owner。保留债务仍为RETIRE，非Compatibility类别，不允许扩展或新增当前消费者。§3/§4保留原基线调用与持久化行为作为删除依据，不表示旧入口仍存在。
 
-| 源码/工件 | 确认后的拟处置 | 删除条件/保留原因 |
+| 源码/工件 | 已确认处置 | 删除条件/保留原因 |
 | --- | --- | --- |
 | `cmd/listing-control-plane`、`internal/app/runtime/listingcontrol`、`internal/listingcontrol` 及专属测试 | RETIRE | 全仓无非目标生产消费者；删除原装配、leader/status、调度/恢复/发布/readiness/quota 实现，不搬到当前业务或以 stub 保活 |
 | `cmd/shein-import-platform-recovery`、`internal/app/runtime/sheinplatformrecovery`、`scripts/shein-import-platform-recovery.ps1` | RETIRE | 一并退出可执行入口及专属 flags/runtime 测试，不保留可写修复后门 |
@@ -79,9 +79,9 @@ DB claim、RabbitMQ publish 与事件写入不是同一事务。发布超时/响
 
 ## 6. 交付接线与必需/安全检查
 
-用户确认后才做以下源码接线变更；本设计 PR 中这些文件零 diff。
+以下源码接线变更已随用户确认在原#726实施；设计候选阶段这些文件零diff，不能将原设计CI当作实现验证。
 
-| 位置 | 唯一允许的后续变化 | 必须保持 |
+| 位置 | 唯一允许的源码变化 | 必须保持 |
 | --- | --- | --- |
 | Makefile / `scripts/test-fast.ps1` | 移除目标 CLI 的 build/run/help/build-all/fast-test 引用及 runtime 包条目（实际存在者）；无其它目标替换/格式整理 | current-application、shein-login-worker、listingadmin 和其它有效目标及安全断言 |
 | `deployments/docker/Dockerfile.listing-control-plane`、`scripts/build-push-deploy-listing-control-plane.ps1` | 删除目标专属构建/推送/部署入口 | 不运行这些脚本、不重建/推送镜像、不扩大旧发布链能力 |
@@ -92,7 +92,7 @@ ownership-controller 是旧队列归属协调声明，已无当前可重建旧 C
 
 ### 6.1 精确 CI / guard 处置，不能把删安全门禁当退休
 
-物理删除控制面后，不可能继续成功编译其不存在的包。以下只处置该旧 owner 的目标，须随设计一起由用户确认；不是静默放宽 CI。
+物理删除控制面后，不可能继续成功编译其不存在的包。用户已随设计确认以下精确处置；只退出该旧owner目标，其它必需/安全门禁保持。
 
 | 原 workflow/guard 目标 | 确认后的精确处置 | 原因与保留证据 |
 | --- | --- | --- |
@@ -106,11 +106,11 @@ ownership-controller 是旧队列归属协调声明，已无当前可重建旧 C
 
 Backend 其它测试、原 PostgreSQL/public-facts/schema-context、资金并发、Release/OIDC/RBAC/策略负例、全部必需 job 和 Required CI Gate、workflow 选择/trigger/permissions/concurrency/保护规则保持。保留 worker 的 health/shutdown、Cookie/attempt/验证码取消、tenant-qualified 查重失败关闭和现有安全检查保持；本批不追加新平台/生产验收作为合并或试用前置。
 
-精确引用盘点覆盖全部 `.github/workflows`、`tests`、Makefile、scripts 和 deployments；基线两个 workflow 均包含旧 runtime race，不能只改主 `ci.yml`。Commercial Readiness 的 `make build-all` 随 §6 原 Makefile 清理退出控制面目标，仍构建两个当前命令。这里是检查清单设计，**本 PR 不修改上述 workflow 或测试、不执行 workflow_dispatch**。
+精确引用盘点覆盖全部 `.github/workflows`、`tests`、Makefile、scripts和deployments。两个workflow的旧runtime race及主CI旧build目标已按表退出，原step/id/pipefail/仓库race与证据保留。Commercial Readiness的`make build-all`随§6清理退出控制面目标，仍构建两个当前命令。原guard已按retained→absent先RED再删除；**不执行workflow_dispatch或任何业务入口**。
 
 ## 7. 确认后的最小实施与交接
 
-本设计建议一次有界实施：按 §5 删除两入口、专属 runtime/control 库/一次性修复 helper及专属测试；按 §6/§6.1 精确清理交付目标/guard，保留矩阵中的仓库安全和源码债务。在现有主要 PR 连续完成必要修复，不展开新的数字任务仓库清理或当前执行器建设。
+本批按用户确认范围一次有界实施：按§5删除两入口、专属runtime/control库/一次性修复helper及专属测试；按§6/§6.1精确清理交付目标/guard，保留矩阵中的仓库安全和源码债务。在原主要PR连续完成必要修复，不展开新的数字任务仓库清理或当前执行器建设。
 
 实施前一次同步实际 main、刷新活跃 Writer/PR 与真实依赖，#29/#301 正文记录用户确认、Reuse Existing Architecture 与 Ready。若真实消费者超出矩阵或必须改变保留合同，停在对应边界报告，不临时改成 EXTRACT/fallback。旧纯实现测试按 §6.1 分类；在原 retirement/actual-deps guard 上先 RED→GREEN，再用现有测试和构建验证保留消费者与相关共享行为，不开发新验证器。
 
@@ -124,5 +124,5 @@ Backend 其它测试、原 PostgreSQL/public-facts/schema-context、资金并发
 Legacy decision: RETIRE
 Reusable behavior: 当前采集、Store observations、有效共享合同与仓库安全、独立 SHEIN 登录能力保持原 owner。
 Current owner: 当前 Domain/Capability/persistence 与独立 worker 各原 owner；旧数字任务仓库/运行态仍为未退出债务。
-Cutover/deletion condition: 用户确认 §5、§6、§6.1 和 §7，实施准入完成后按零消费者逐项源码退休；不授权运行资源/数据处置。
+Cutover/deletion condition: 用户已确认 §5、§6、§6.1 和 §7，实施准入完成后按零消费者逐项源码退休；保留原安全检查，不授权运行资源/数据处置。
 ```

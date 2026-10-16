@@ -192,7 +192,9 @@ func TestCommercialReadinessWorkflowCollectsPinnedReleaseEvidence(t *testing.T) 
 		"^[0-9a-fA-F]{40}$",
 		"ref: ${{ inputs.commit_sha }}",
 		"go test ./... -count=1",
-		"go test -race ./internal/app/runtime/listingcontrol -run TestControlPlaneService -count=1",
+		"id: race_tests",
+		"set -o pipefail",
+		"tee evidence/listingadmin-race.log",
 		"go test -race ./internal/listingadmin -run \"TestConcurrentClaimForDispatchOnlyOneWorkerWins|TestConcurrentRollbackDispatchOnlyOriginalQueuedClaimIsRestoredOnce|TestConcurrentRecoveryOnlyUpdatesStillEligibleRowsOnce\" -count=1",
 		"make build-all",
 		"cache: " + packageManager,
@@ -215,6 +217,11 @@ func TestCommercialReadinessWorkflowCollectsPinnedReleaseEvidence(t *testing.T) 
 
 	if strings.Contains(workflow, "continue-on-error: true") {
 		t.Fatal("commercial-readiness workflow must not hide failed validation steps")
+	}
+	for _, retired := range []string{"./internal/app/runtime/listingcontrol", "evidence/listingcontrol-race.log"} {
+		if strings.Contains(workflow, retired) {
+			t.Errorf("commercial-readiness workflow must not reference retired runtime evidence %q", retired)
+		}
 	}
 }
 
