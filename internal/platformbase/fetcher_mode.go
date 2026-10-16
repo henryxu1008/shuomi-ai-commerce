@@ -26,8 +26,6 @@ func ResolvePlatformFetcherType(cfg *config.Config, platform string) (appfetcher
 		return "", nil
 	case "local":
 		return appfetcher.LocalFetcher, nil
-	case "distributed":
-		return appfetcher.DistributedFetcher, nil
 	case "remote-api", "remoteapi", "remote_api":
 		return appfetcher.RemoteAPIFetcher, nil
 	default:

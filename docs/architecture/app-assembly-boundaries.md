@@ -205,14 +205,10 @@ App-layer assembly boundaries are guarded by:
 
 - `TestBusinessDomainsDoNotImportAppRuntimeAssembly`
 - `TestAppBootstrapRetiredManagementImportsStayBlocked`
-- `TestAppTaskRetiredManagementImportsStayBlocked`
-- `TestAppTaskRuntimeStoreAliasesStayRetired`
 - `TestAppRunnerRetiredManagementImportsStayBlocked`
 - `TestAppConsumerRetiredManagementImportsStayBlocked`
 - `TestAppHTTPAPIRetiredManagementImportsStayBlocked`
 - `TestAppRuntimeListingRetiredManagementImportsStayBlocked`
-- `depguard: app_taskstatus_legacy_management`
-- `TestAppTaskStatusRetiredManagementImportsStayBlocked`
 - `TestAppHTTPAPIProductImageExternalClientImportsStayAllowlisted`
 - `TestHTTPAPITypesKeepExternalClientRuntimeDepsDedicated`
 - `TestHTTPAPIAdaptersKeepOpenAIAssemblyDedicated`
@@ -224,11 +220,13 @@ This keeps business domains from depending directly on concrete
 transition seam is necessary, document the narrow exception and update the
 allowlist in the same change.
 
-The app-layer retired management service import guards are retirement seams, not a long-term
-design target. `bootstrap`, `task`, `runner`, `consumer`, `httpapi`,
-`runtime/listing`, and `taskstatus` may still assemble current
-management-backed runtime dependencies, but new business data access should
-prefer in-repository database/repository seams owned by the relevant domain.
+The app-layer management guards protect retained boundaries, not permission to revive retired owners.
+The numeric task/status/processor execution closure is retired under #729; bootstrap,
+runner/consumer and old listing runtime owners already retired in earlier batches stay absent.
+Current HTTP and standalone login assembly keep their existing contracts. New business data
+access belongs to in-repository database/repository seams owned by the relevant domain.
+`TestListingKitTaskBackendSourcesAreRetired` and
+`TestCurrentCommandsDoNotCompileLegacyBusinessBackends` protect the retired closure.
 
 The `internal/app/httpapi` package also has package-local runtime seam guards.
 They keep generic files such as `types.go`, `adapters.go`, and `runtime.go`

@@ -2,8 +2,8 @@
 
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
-- Status: **PROPOSED / 待用户确认；本轮只交付设计，不实施源码退休**。
-- Design Basis: **N/A（设计文档阶段）**。只做源码、实际 Go 依赖与既有检查调查，不改变生产能力、领域合同、状态、权限、持久化或副作用。
+- Status: **用户已确认 §5、§6、§6.1、§7，按 Reuse Existing Architecture / Ready 在 #729 实施源码退休**；准确实现候选、CI与独立检查以 PR 为准。
+- 实施 Design Basis: **Reuse Existing Architecture**。用户确认的设计1f9c37d98先于正式源码修改；#29/#301已记录Ready。原设计阶段N/A及其文档CI不替代本轮实现准入或验证。
 - 调查基线：`main @ db47d15e563c0ced7469ba12d251d8c7be1da4dd`，即 #726 的实际合并提交。
 - 用户授权：先设计 `app/task`、`app/taskstatus`、`processor`、旧 Amazon 执行器及分布式爬虫专属接线，设计确认后再实施。保留当前采集、Store 观察同步、有效平台 API、规则、共享合同和独立 SHEIN 登录 worker；不操作运行实例或数据，不增加内部试用前置。
 
@@ -17,9 +17,9 @@ Must：保留上述当前能力及其安全合同；无 fallback、双读双写�
 
 ## 2. Design Basis、准入与停止条件
 
-本轮仅文档，**N/A / Ready for design** 不等于生产实施 Ready 或 `IMPLEMENTATION_READY`。用户确认 §5、§6、§6.1、§7 后，实施 Issue 须先记录准确确认版本、scope、owner、主要路径、不变量与验证方法。
+设计1f9c37d98的文档阶段为N/A，现已获用户确认。实施前#29/#301正文已记录确认版本、scope、owner、主要路径、不变量、验证与 **Reuse Existing Architecture / Ready**，同步main db47d15e5；不以文档CI替代实现验证。
 
-拟采用 **Reuse Existing Architecture**：按现有 Hard-Cut 与已确认的当前 owner 合同删除无命令入口的旧执行闭包；保留功能的事实 owner、权限/租户/身份、状态机、schema、事务、retry/UNKNOWN/recovery 和外部副作用保持。预计跨多个目录且超过 30 文件，必须在实施 Issue 说明批准矩阵如何完整覆盖提示线，不为满足文件数机械拆 PR。
+本批采用 **Reuse Existing Architecture**：按现有 Hard-Cut 与已确认的当前 owner 合同删除无命令入口的旧执行闭包；保留功能的事实 owner、权限/租户/身份、状态机、schema、事务、retry/UNKNOWN/recovery 和外部副作用保持。预计跨多个目录且超过 30 文件，必须在实施 Issue 说明批准矩阵如何完整覆盖提示线，不为满足文件数机械拆 PR。
 
 若刷新后发现当前运行入口/具体外部可观察合同，或者必须改变保留合同、身份/租户、事实 owner、状态机、持久化、事务或恢复协议，**停止对应正式实现并报告用户**。需要新边界时转 Independent Architecture、适用独立评审与 `IMPLEMENTATION_READY`；不得用删除名义发明 adapter、替代执行器、排空器、补偿或新的兼容例外。历史镜像或运行实例是否仍执行旧代码，不能由本次 Go 图判断。
 
@@ -59,9 +59,9 @@ Must：保留上述当前能力及其安全合同；无 fallback、双读双写�
 
 journal 的进程内锁不隔离同机不同进程；默认路径共享，写入也没有临时文件原子替换或 fsync 协议。因此它不能作为当前系统的可靠恢复设计模板。批量请求若部分已发布，后项失败后的本地 pending 清理不会撤回前项；重启不能从内存 pending 重建结果。这些是源码可见的旧设计债务，**不是新增已接受风险或本轮修复授权**。采取 RETIRE，不为其建设 Saga/outbox/fencing/新的 UNKNOWN owner，也不声称已处置真实旧运行态。
 
-## 5. 删除矩阵与保留边界（待确认）
+## 5. 用户已确认的删除矩阵与保留边界
 
-| 源码/工件 | 拟处置 | 条件与限制 |
+| 源码/工件 | 已确认处置 | 条件与限制 |
 | --- | --- | --- |
 | `internal/app/task/*.go`（24 文件，含 7 测试） | RETIRE | 精确退出取任务、claim/journal、guard/dispatch/monitor/cleanup、submitter adapter、message/payload/route 与专属去重实现；先消除矩阵内所有包外生产消费者，不换目录保活 |
 | `internal/app/taskstatus/*.go`（2 文件） | RETIRE | 消费者仅本批 task/processor/根 Amazon；连同专属 service 测试退出，不删根 listingruntime 的状态 DTO/其它消费者 |
@@ -70,7 +70,7 @@ journal 的进程内锁不隔离同机不同进程；默认路径共享，写入
 | `internal/app/crawler/distributed/*.go`（10 文件） | RETIRE | client、listener、pending registry、interfaces/types、RabbitMQ adapter 和专属测试全部退出；其唯一 fetcher 消费者同步退出 |
 | `internal/crawler/fetcher/distributed_fetcher.go` | RETIRE | 删除专属分布式实现与内部 helpers；不迁移该类或旧消息 payload 到当前采集 |
 | `internal/crawler/fetcher/contracts.go` | 精确 RETIRE 专属片段 | 删除 DistributedFetcher 常量、distributed factory case/构造函数；删除无外部生产调用的具体 ProductFetcherBuilder/私有 resolver、CreateFetcherFromConfig、GetRecommendedFetcher。保留 ProductReader/ProductCache/ProductFetcher/Stats、LocalFetcher/RemoteAPIFetcher、factory 的 local/remote 路径、source adapter 与原公开参数/返回合同。对字符串 `distributed` 沿现有 unsupported-type 默认拒绝，不新增 stub、fallback、自动重选或 provider 调用 |
-| `internal/temu/sync/inventory_sync_factory.go` | RETIRE | 仅退出无外部生产调用且硬编码旧分布式执行器的工厂；不改 InventorySyncService、商品/库存 repository/API、定时/规则或当前 Store observations，不重写为 local/remote 工厂 |
+| `internal/temu/sync/inventory_sync_factory.go` | RETIRE | 仅退出无外部生产调用且硬编码旧分布式执行器的工厂；其原 `inventoryServiceFactoryRuntime` 方法集仍由 ServiceRuntime 嵌入，声明原样保留到同包已有 runtime_adapter.go。不改 InventorySyncService、商品/库存 repository/API、定时/规则或当前 Store observations，不重写为 local/remote 工厂 |
 | `internal/platformbase/fetcher_mode.go` | 精确 RETIRE distributed 分支 | 只删除 `case "distributed"`；该输入沿原 unsupported-mode 默认错误拒绝。两 helper 的 public 签名与 local/remote/auto 行为、原有效测试、`fetcher_builder.go` 共享接口/func adapter、errors 与其它 platformbase 保持，不整文件/整包清理 |
 | listingadmin ImportTask/paused/dispatch 仓库及相关 DTO、root listingruntime、model.Task/status、state 与通用 queue/taskdomain/config | **本批保留** | 仍有有效源码/测试消费者或独立安全合同；不按名称、数字字段或命令不可达推定全部退休，不删除原表/索引/owner/tenant/唯一性/CAS/claim-token/eligible-row guard |
 | `crawler/amazon`、integration/crawler/amazon、marketplace/sourceproduct、有效 local/remote fetcher、平台 API/规则/模型/pipeline | **保留** | 新旧 Amazon 包不是同一 owner；本设计不改变 source request、CrawlSource、缓存、平台校验、SP-API 或确定性行为 |
@@ -80,7 +80,7 @@ journal 的进程内锁不隔离同机不同进程；默认路径共享，写入
 
 ## 6. 检查、文档与安全断言的处置
 
-正式实施只在既有测试/guard 中补足本闭包，不开发新 runner、治理检查器、验收 session 或验证平台。设计阶段不修改测试、生产、CI、lint 或部署。
+本批只在既有测试/guard中补足本闭包，不开发新runner、治理检查器、验收session或验证平台。原设计阶段未改生产/测试/CI；用户确认后按本表实施，workflow与部署保持不变。
 
 | 位置 | 确认后最小处置 | 必须保持 |
 | --- | --- | --- |
@@ -98,13 +98,13 @@ journal 的进程内锁不隔离同机不同进程；默认路径共享，写入
 
 两套 workflow `.github/workflows/ci.yml`、`commercial-readiness.yml`、Makefile、触发/权限/并发/保护规则 **本批无需改动**。它们在 #726 已退出旧控制面目标；原 `listingadmin` 三项 claim/rollback/recovery race、PG 权限/public-facts/schema-context、资金、当前 application/login-worker build、前端、Required CI Gate、pinned SHA/pipefail/artifact 等保持。
 
-设计本轮：文档链接、diff 和既有相关文档 guard；实际依赖图及源码消费者只读调查。无形式 RED，不新增文档测试框架；文档 CI 不当未来源码实施结果。
+原设计阶段：文档链接、diff 和既有相关文档 guard；实际依赖图及源码消费者只读调查。无形式 RED，不新增文档测试框架；文档 CI 不当未来源码实施结果。
 
 确认后的实施：原退休 guard RED→GREEN；保留 fetcher/source adapter/platform API/worker 的相关原测试与命令编译/实际 Go 图。稳定候选一次必需 CI、一次集中最终独立检查；对未变化代码明确复用已有证据，只验证新增组合风险。若删除链需要改留存 owner 的边界，先执行 §2 停止规则。真实 browser/provider、队列、journal 恢复、实例/用户/平台/生产验收保持 NOT_RUN。
 
 ## 7. 确认内容、实施顺序与交接
 
-待用户确认的是 §5 的完整闭包、§6/§6.1 的精确检查处置与本节的权限边界；本设计不会自动变成实施授权。确认后先刷新 main、活跃 Writer/PR、实际源码/符号消费者，在 #29/#301 记录批准版本与适用实施 Design Basis/Ready，然后由同一 Writer 在一个主要 PR 连续实施必要修复。
+用户已确认§5完整闭包、§6/§6.1精确检查处置和本节权限边界，并明确授权在原#729实施。已刷新main、活跃Writer/PR与实际源码/符号消费者，在#29/#301先于正式修改记录批准版本与Reuse Existing Architecture/Ready，由同一Writer在原主要PR连续实施必要修复。
 
 实施顺序为：在既有 guard 记录目标 RED；同批移除 distributed 专属装配/fetcher/client、根 Amazon/processor、task/status 的闭包，保留 factory local/remote/共享合同；只校准随 owner 消失的专属测试/依赖基线和直接冲突文档；完成 GREEN、保留消费者必要回归、必需 CI 与独立最终检查。顺序是提交/验证边界，不是机械拆多个 PR 或新建平台。
 
@@ -116,5 +116,5 @@ journal 的进程内锁不隔离同机不同进程；默认路径共享，写入
 Legacy decision: RETIRE
 Reusable behavior: 有效平台API/规则、ProductFetcher读写缓存合同与local/remote行为、当前采集/观察及独立登录保持原owner，不抽取旧任务协议保活。
 Current owner: 当前各Domain/Capability/persistence与独立worker；保留旧仓库和实际运行态各归原owner，无新owner。
-Cutover/deletion condition: 用户确认准确设计与实施准入后，刷新并删除本矩阵零外部消费者闭包；有效共享/安全合同保留，真实资源/数据处置另行授权。
+Cutover/deletion condition: 用户已确认设计1f9c37d98且实施准入满足，刷新并删除本矩阵零外部消费者闭包；有效共享/安全合同保留，真实资源/数据处置另行授权。
 ```

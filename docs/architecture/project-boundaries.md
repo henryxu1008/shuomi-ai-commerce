@@ -678,21 +678,13 @@ The active import-boundary tests in `tests/import_boundaries_test.go` and archit
 - `TestAppBootstrapRetiredManagementImportsStayBlocked`
 - `depguard: listingruntime_local_legacy_management`
 - `TestListingRuntimeLocalManagementImportsStayRetiredAcrossBuildTargets`
-- `TestAppTaskRetiredManagementImportsStayBlocked`
-- `TestAppTaskRuntimeStoreAliasesStayRetired`
-- `TestAppTaskFetcherDoesNotStoreRetiredManagementService`
-- `TestAppTaskDispatchGuardUsesCapabilityNames`
-- `TestAppTaskDispatcherUsesCapabilityNames`
-- `TestAppTaskStatusUpdatesUseCapabilityNames`
 - `TestAppRunnerRetiredManagementImportsStayBlocked`
 - `TestAppConsumerRetiredManagementImportsStayBlocked`
 - `TestAppHTTPAPIRetiredManagementImportsStayBlocked`
 - `TestAppRuntimeListingRetiredManagementImportsStayBlocked`
-- `TestAppTaskStatusRetiredManagementImportsStayBlocked`
 - `TestPlatformTaskRetiredManagementImportsStayBlocked`
 - `TestStateRetiredManagementImportsStayBlocked`
 - `TestPlatformBaseRetiredManagementImportsStayBlocked`
-- `TestProcessorRetiredManagementImportsStayBlocked`
 - `TestTaskRPCAPIRetiredManagementImportsStayBlocked`
 - `TestSDSClientRetiredManagementImportsStayBlocked`
 - `TestSheinLoginBootstrapRetiredManagementImportsStayBlocked`
@@ -712,17 +704,11 @@ The active import-boundary tests in `tests/import_boundaries_test.go` and archit
 - `TestInfrastructurePackagesDoNotImportBusinessDomains`
 - `depguard: infrastructure_business_boundaries`
 - `TestBusinessImplementationPackagesDoNotImportGinDirectly`
-- `TestAppTaskPollingSourceUsesCapabilityNames`
 - `TestPlatformProcessorRegistryDoesNotExposeRetiredManagementService`
 - `TestAppConsumerTaskStatusRuntimeProviderIsNotNamedRetiredManagementService`
 - `TestAppConsumerDoesNotUseManagementNamedTaskStatusAdapter`
 - `TestTaskStatusAdapterCallersUseRuntimeNamedConstructor`
 - `TestTaskStatusCompatibilityPackageStaysRetired`
-- `TestTaskStatusPackageDoesNotExposeManagementNamedAdapter`
-- `TestTaskStatusRuntimeErrorsUseCapabilityNames`
-- `depguard: app_taskstatus_legacy_management`
-- `TestAmazonTaskStatusUpdatesUseTaskStatusRuntime`
-- `TestAmazonAuthPauseUsesStoreAPIPort`
 - `TestAmazonServicesUseStoreAPIPort`
 - `TestTemuPricingRuntimeUsesCapabilityNames`
 - `TestTemuSchedulerRuntimeUsesCapabilityNames`
@@ -734,7 +720,6 @@ The active import-boundary tests in `tests/import_boundaries_test.go` and archit
 - `TestAppRunnerSchedulerStoreRuntimeUsesCapabilityNames`
 - `TestAppRunnerProcessorLifecycleUsesRuntimeNames`
 - `TestAppRunnerHealthChecksUseRuntimeNames`
-- `TestTaskStatusPackageDoesNotExposeBroadManagementRuntimeConstructor`
 
 ## 9. Immediate Enforcement
 

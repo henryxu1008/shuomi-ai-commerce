@@ -3,10 +3,11 @@
 > Status: Active legacy handling register
 
 > #29 / #301 [旧数字任务执行链退休设计](../architecture/legacy-numeric-task-execution-retirement-boundary.md)
-> is PROPOSED / design-only after #726. It maps the unregistered task/status/processor,
-> root Amazon executor and exclusive distributed crawler closure, with persistence
-> owners and exact deletion/check boundaries. It has not retired those sources or
-> changed retained platform/shared contracts, runtime/data or internal-trial gates.
+> is user-confirmed and implementation-admitted after #726. The unregistered
+> task/status/processor, root Amazon executor and exclusive distributed crawler
+> sources are absent. Mixed fetcher local/remote contracts, platform API/rules,
+> shared repositories and standalone SHEIN login remain under their original owners.
+> Source retirement has not changed runtime/data or internal-trial gates.
 
 > #529 / #301 [发布身份预检退休设计](../architecture/release-identity-preflight-retirement.md)
 > is user-confirmed and implementation-admitted. The legacy API/UI and PS

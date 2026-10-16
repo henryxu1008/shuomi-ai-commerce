@@ -1,5 +1,10 @@
 # Repository Structure
 
+> #729 retires only the unregistered numeric task/status/processor, root Amazon
+> executor and exclusive distributed crawler wiring. The maintained command set,
+> current acquisition/Store observations, platform APIs/rules/shared contracts and
+> standalone SHEIN login worker stay unchanged; no new runtime or trial prerequisite.
+
 ## #678：当前入口的命令装配隔离
 
 `cmd/shein-login-worker` 直接消费 `internal/app/runtime/sheinloginworker`，其配置、

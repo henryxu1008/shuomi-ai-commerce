@@ -14,6 +14,18 @@ historical. Current contract checks for retained clients/rules, control-plane,
 shared ListingAdmin/ListingRuntime and independent login worker remain. No new
 compatibility owner, runtime action or internal-trial gate is introduced.
 
+## #729 bounded retirement calibration
+
+The [confirmed execution retirement](legacy-numeric-task-execution-retirement-boundary.md)
+removes app/task, app/taskstatus, processor, the root Amazon executor and the exclusive
+distributed crawler chain. The owner-specific path/name guards and the dedicated
+app-taskstatus depguard are retired with those owners; source absence and actual
+command-dependency guards remain. Earlier calibration paragraphs and dated hotspot
+lists below are historical, including their old guard names. The control-plane left
+in #723 was subsequently retired by #726. Retained platform APIs/rules, shared
+ListingAdmin/ListingRuntime and independent login contracts are unchanged; no runtime,
+data, provider or internal-trial action is authorized by this source retirement.
+
 ## Goal
 
 This inventory records the current direct coupling between business-facing
