@@ -8,6 +8,11 @@
 
 ## #723 retained-producer boundary
 
+A [follow-up retirement design](../architecture/legacy-listing-control-plane-retirement-boundary.md)
+is awaiting user confirmation. This design-only change does not retire the
+command or authorize executing this runbook. Source implementation, exact CI
+target disposition and any real-runtime action remain separate decisions.
+
 The three legacy listing CLIs and their exclusive consumer/scheduler chain are
 source-retired. Control-plane/taskstatus/claim/dispatch/recovery contracts remain,
 so this is not full numeric-task-chain closure. The mixed SHEIN overlay retains

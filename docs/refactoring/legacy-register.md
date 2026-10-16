@@ -169,6 +169,22 @@ objects; the latter controller's historical image is not rebuilt or executed.
 This is source retirement, not full numeric-task-chain closure, runtime/data
 cleanup, deployment or a new internal-trial prerequisite. Production NOT_READY.
 
+### #29 / #301 proposed control-plane and numeric dispatch/recovery retirement
+
+The [follow-up design](../architecture/legacy-listing-control-plane-retirement-boundary.md)
+maps main `43a225fa62eb9609bc643f3fd34b8cd1eb372450` after #723. It is
+**design only, awaiting user confirmation**, not implementation admission or
+completed retirement. Proposed deletion covers the remaining control-plane,
+the store-986 platform recovery entrypoint and exclusive orchestration/helpers.
+Current acquisition, Store observations, valid shared contracts, required/security
+checks and the independent SHEIN login worker retain their original owners.
+ImportTask repository/claim/rollback/recovery races, package-external task/status
+consumers, shared configuration and the historical ownership-controller declaration
+remain explicit debt in this bounded proposal. No whole-package cleanup, current
+consumer, compatibility bridge, runtime/data action or internal-trial prerequisite
+is authorized. Exact obsolete CI targets and retained safety assertions are
+specified in design section 6.1; this documentation does not change CI.
+
 ## 2. Active register
 
 ### #529 / #301 release identity-preflight retirement
