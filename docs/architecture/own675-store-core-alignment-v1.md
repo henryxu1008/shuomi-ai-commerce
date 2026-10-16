@@ -1,6 +1,6 @@
 # own675 Store 核心合同对齐方案
 
-状态：`DESIGN_ONLY / IMPLEMENTATION_NOT_AUTHORIZED / EXECUTION_NOT_AUTHORIZED`。2026-10-16 用户仅批准明确差异和保留数据的处置方案；本轮不开发入口、不执行 DDL/DML/GRANT、不更新实例或配置、不调用平台、不发布。
+状态：`IMPLEMENTATION_AUTHORIZED / EXECUTION_NOT_AUTHORIZED`。2026-10-16 方案 fa41947c3 已独立复核 PASS，用户随后批准现有命令入口及必要隔离测试；本轮不执行 own675 DDL/DML/GRANT、不更新实例或配置、不调用平台、不发布。
 
 执行 Issue：[#735](https://github.com/qq550723504/task-processor/issues/735)；主要 PR：[#736](https://github.com/qq550723504/task-processor/pull/736)。代码依据为 `066a404be`（已包含 main `05ae7947f`）；下面实例证据是本轮只读核对，不是安装或运行验收。
 
@@ -36,11 +36,11 @@ Design Basis：**Reuse Existing Architecture**。引用 [Store 当前应用 owne
 1. `Migrate` 的两个既有 Goose ID 已被应用，但 `InstallCoreSchemaTx` 的创建回调随当前模型演进。旧版本号不能证明当前物理合同；再次 `Up` 不会重跑已应用的创建回调，也不能修复本差异。不得删除/伪造旧版本记录强制重跑。
 2. `VerifyCurrentSchemaForCapabilities` 对 Store 核心 CHECK 无条件核对，但对 merchant shape 当前仅核对名称/类型/validated。仅补前两项报错可能掩盖 merchant 差异。未来 owner 的对齐前/后核实须精确覆盖本表四项定义，不把“同名存在”当完成。
 
-## 推荐的最小实现边界（本轮未实现）
+## 已批准的最小实现边界
 
 - 领域 DDL 和确切前/后 schema 定义由 `internal/storecenter` 唯一维护，fresh 创建与对齐后校验共用当前定义；不在 CLI 复制一套业务 schema。
-- `internal/app/schema/storecenter` 复用已安装的 `github.com/pressly/goose/v3`（当前 3.27.3）、`NewWithVersionTable`、PostgreSQL session locker 和 `RunTx`。追加一个新的 Store schema version（实现时在本 owner 内确定唯一 ID），不得改写旧 ID 的已应用历史。
-- 现有 `cmd/store-center-schema-init` 后续可增加一个显式 core-only 模式及准确数据库确认。名称尚未实现，不提供可执行安装命令。与 fresh/observations/Cockpit/TikTok/Walmart/grants-only 模式互斥，不接受位置参数；保留已有模式语义。
+- `internal/app/schema/storecenter` 复用已安装的 `github.com/pressly/goose/v3`（当前 3.27.3）、`NewWithVersionTable`、PostgreSQL session locker 和 `RunTx`。追加 Store schema version `2026101601`，不得改写旧 ID 的已应用历史。
+- 现有 `cmd/store-center-schema-init` 增加 `--align-core-contract --confirm-database <准确库名>`。与 fresh/observations/Cockpit/TikTok/Walmart/grants-only 模式互斥，不接受位置参数；保留已有模式语义。默认 fresh 路径的新版本只核实 B 并登记，不得隐式对齐保留库；已有非 full-current schema 必须走显式 core-only 入口。
 - 沿既有私有 owner config、literal `127.0.0.1`、固定 `store_center_owner`、连接池上限 2 和 30 秒 context；另要求实际数据库名与准确确认一致，拒绝系统库、runtime 或其他维护身份。不能因审计账号能读 catalog 就允许其取得安装权。
 - 只消费已存在的 12 表和原 Goose 历史。缺表、旧 applied 版本缺失或未知版本均拒绝，不调用空库 owner 安装器、`Migrate` 的全功能入口或通用补表/补授权。
 - 当前 SHEIN 范围的 Store capabilities 均 false（Observations、Cockpit、TikTokShop、WalmartUS）；不创建 5 张 TikTok 或 2 张 Walmart OAuth 表，不授予其权限，不启用应用/店铺。直接调用默认 `VerifyCurrentSchema` 会要求全部平台表，不适用于本 core-only 入口。
@@ -85,4 +85,4 @@ PostgreSQL 的 Goose 行自增序列可能在失败后留空号；不能重置�
 
 获准实现后，只需复用现有隔离 PostgreSQL 测试依赖和 Store owner：用真实非空 SHEIN/TEMU、成员授权、商家绑定、配置/连接记录及 Goose 历史确认保留；覆盖 A→B、B 无版本登记、B 已应用只读重入/并发、混合状态/弱约束/缺史/非 owner/授权漂移拒绝、后段失败与取消/commit 不确定重入。检查四项定义及 validated，原行/ACL/PK/FK/索引不变，只有一个新 Goose 版本；capabilities=false 的 serving schema/权限核对通过，未配置平台仍不可调用。无须新建安装 runner、故障平台或人工验收系统。
 
-本轮仅完成调查与合同：未写 Store 生产代码或测试、未执行上述 DDL/版本登记/权限变更、未暂停或重启任何服务、未运行真实 SHEIN/TikTok/Walmart 操作。表、数据、图片、配置和授权保留。实例安装与产品试用均 `NOT_RUN`；实现准入和实际环境操作分别另行授权。独立合同检查及准确提交证据维护在 Issue/PR，不以方案或另一 AI 检查代签用户验收。
+原方案调查只读完成；本轮仅获准入口实现和隔离 PostgreSQL 测试，未执行 own675 DDL/版本登记/权限变更、未暂停或重启任何服务、未运行真实 SHEIN/TikTok/Walmart 操作。表、数据、图片、配置和授权保留。实例安装与产品试用均 `NOT_RUN`，实际环境操作仍须另行授权。独立检查及准确提交证据维护在 Issue/PR，不以开发自检或另一 AI 检查代签用户验收。
