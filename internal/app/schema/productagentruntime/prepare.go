@@ -37,11 +37,13 @@ func prepare(ctx context.Context, db *gorm.DB, target, owner string, run func(*g
 			return errors.New("database owner differs from fixed target")
 		}
 		var safeOwner bool
-		if err := tx.Raw(`SELECT NOT (rolcanlogin OR rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls) FROM pg_catalog.pg_roles WHERE rolname=?`, owner).Scan(&safeOwner).Error; err != nil {
+		// The official bootstrap uses LOGIN owners for schema commands. Keep
+		// that capability intact; serving and writer roles are checked separately.
+		if err := tx.Raw(`SELECT NOT (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls) FROM pg_catalog.pg_roles WHERE rolname=?`, owner).Scan(&safeOwner).Error; err != nil {
 			return err
 		}
 		if !safeOwner {
-			return errors.New("fixed schema owner must be a bounded NOLOGIN role")
+			return errors.New("fixed schema owner must be a bounded role")
 		}
 		result.Database = actual.Name
 		if err := tx.Exec("SET LOCAL ROLE " + quote(owner)).Error; err != nil {
