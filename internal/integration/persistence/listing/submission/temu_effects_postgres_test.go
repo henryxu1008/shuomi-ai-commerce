@@ -72,6 +72,7 @@ func TestPostgresTemuImageRenewalRequiresLatestKnownExpiredSuccess(t *testing.T)
 	for _, table := range []string{effectsstore.AttemptTable, effectsstore.TargetFenceTable, "listing_submission_official_intents", "listing_submission_official_receipts"} {
 		require.NoError(t, db.Exec("GRANT SELECT,INSERT,UPDATE ON "+table+" TO temu_runtime31").Error)
 	}
+	require.NoError(t, db.Exec("GRANT SELECT ON listing_walmart_sku_bindings,listing_walmart_feed_observations TO temu_runtime31").Error)
 	runtimeDSN, err := url.Parse(dsn)
 	require.NoError(t, err)
 	runtimeDSN.User = url.UserPassword("temu_runtime31", "synthetic-runtime-only")

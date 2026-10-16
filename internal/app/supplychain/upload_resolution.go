@@ -21,12 +21,15 @@ type ResolveUploadInput struct {
 	SPU       string `json:"spu"`
 }
 type UploadAttemptView struct {
-	RecordID   string                     `json:"recordId"`
-	AttemptID  string                     `json:"attemptId"`
-	EffectKind string                     `json:"effectKind"`
-	Platform   string                     `json:"platform,omitempty"`
-	Status     submission.ExecutionStatus `json:"status"`
-	Message    string                     `json:"message"`
+	RecordID      string                     `json:"recordId"`
+	AttemptID     string                     `json:"attemptId"`
+	EffectKind    string                     `json:"effectKind"`
+	Platform      string                     `json:"platform,omitempty"`
+	Status        submission.ExecutionStatus `json:"status"`
+	Message       string                     `json:"message"`
+	CorrelationID string                     `json:"correlationId,omitempty"`
+	WireHash      string                     `json:"wireHash,omitempty"`
+	ApprovedAt    *time.Time                 `json:"approvedAt,omitempty"`
 }
 
 func (a *Application) ReadUploadAttempt(ctx context.Context, recordID, attemptID string) (UploadAttemptView, error) {
@@ -66,6 +69,17 @@ func (a *Application) ReadUploadAttempt(ctx context.Context, recordID, attemptID
 	}
 	message := "可填写原商品 SPU，从官方查询审核通过的商品核实。"
 	platform := ""
+
+	if saved.Merchant.Platform == storecenter.PlatformWalmart {
+		if a.TargetMerchants == nil {
+			return UploadAttemptView{}, record.ErrUnavailable
+		}
+		binding, e := a.TargetMerchants.ReadTargetMerchant(ctx, scope, saved.Merchant.StoreID)
+		if e != nil || !submission.WalmartCompatibleBinding(binding, saved.Merchant) {
+			return UploadAttemptView{}, record.ErrForbidden
+		}
+		return UploadAttemptView{RecordID: recordID, AttemptID: attemptID, EffectKind: intent.Kind, Platform: "walmart", Status: attempt.Status, Message: "原 Feed 提交结果未知，保留原操作；未取得 Feed ID 时不能安全确认或重新提交。可凭关联编号、批准时间与资料指纹核查平台记录。", CorrelationID: submission.WalmartCorrelationID(intent), WireHash: intent.Walmart.WireHash, ApprovedAt: &intent.CreatedAt}, nil
+	}
 	if saved.Merchant.Platform == storecenter.PlatformTikTokShop {
 		if a.TargetMerchants == nil {
 			return UploadAttemptView{}, record.ErrUnavailable
@@ -195,7 +209,7 @@ func (s *UploadService) ResolveUpload(ctx context.Context, scope collection.Scop
 	if err != nil || intent.RecordID != saved.ID || intent.RecordHash != collection.Digest(saved) || intent.Target != attempt.Target || intent.Binding != saved.Merchant {
 		return UploadResult{}, record.ErrConflict
 	}
-	if saved.Merchant.Platform == storecenter.PlatformTikTokShop {
+	if saved.Merchant.Platform == storecenter.PlatformTikTokShop || saved.Merchant.Platform == storecenter.PlatformWalmart {
 		return UploadResult{}, record.ErrNotReady
 	}
 	if intent.Kind != "publish" {

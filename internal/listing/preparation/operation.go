@@ -32,20 +32,33 @@ const (
 )
 
 type OperationInput struct {
-	PreparationID         string   `json:"preparationId"`
-	ExpectedRevision      int64    `json:"expectedRevision"`
-	Action                string   `json:"action"`
-	StoreID               string   `json:"storeId"`
-	SourceIDs             []string `json:"sourceIds,omitempty"`
-	CategoryID            int64    `json:"categoryId,omitempty"`
-	TitleTemplateID       string   `json:"titleTemplateId,omitempty"`
-	TitleTemplateRevision string   `json:"titleTemplateRevision,omitempty"`
-	TitleQuoteHash        string   `json:"titleQuoteHash,omitempty"`
-	TitleModeRevision     string   `json:"titleModeRevision,omitempty"`
-	ImageTemplateID       string   `json:"imageTemplateId,omitempty"`
+	WalmartApprovals      []WalmartUploadApproval `json:"walmartApprovals,omitempty"`
+	PreparationID         string                  `json:"preparationId"`
+	ExpectedRevision      int64                   `json:"expectedRevision"`
+	Action                string                  `json:"action"`
+	StoreID               string                  `json:"storeId"`
+	SourceIDs             []string                `json:"sourceIds,omitempty"`
+	CategoryID            int64                   `json:"categoryId,omitempty"`
+	TitleTemplateID       string                  `json:"titleTemplateId,omitempty"`
+	TitleTemplateRevision string                  `json:"titleTemplateRevision,omitempty"`
+	TitleQuoteHash        string                  `json:"titleQuoteHash,omitempty"`
+	TitleModeRevision     string                  `json:"titleModeRevision,omitempty"`
+	ImageTemplateID       string                  `json:"imageTemplateId,omitempty"`
 }
 
 func (i OperationInput) Validate() error {
+	if len(i.WalmartApprovals) > 0 {
+		if i.Action != OperationUpload || len(i.WalmartApprovals) > 1000 {
+			return ErrInvalid
+		}
+		seen := map[string]bool{}
+		for _, a := range i.WalmartApprovals {
+			if !a.Valid() || seen[a.SourceID] {
+				return ErrInvalid
+			}
+			seen[a.SourceID] = true
+		}
+	}
 	if !collection.ValidID(i.PreparationID) || !collection.ValidID(i.StoreID) || i.ExpectedRevision < 1 || i.CategoryID < 0 || len(i.SourceIDs) > 1000 {
 		return ErrInvalid
 	}
@@ -152,6 +165,7 @@ func (p OperationCommit) Read(ctx context.Context) (Scope, string, OperationInpu
 	}
 	input := p.input
 	input.SourceIDs = append([]string(nil), input.SourceIDs...)
+	input.WalmartApprovals = append([]WalmartUploadApproval(nil), input.WalmartApprovals...)
 	return scope, p.key, input, nil
 }
 
@@ -223,6 +237,7 @@ func (s *OperationService) Create(ctx context.Context, key string, input Operati
 		return OperationReceipt{}, ErrInvalid
 	}
 	input.SourceIDs = append([]string(nil), input.SourceIDs...)
+	input.WalmartApprovals = append([]WalmartUploadApproval(nil), input.WalmartApprovals...)
 	sort.Strings(input.SourceIDs)
 	prior, err := s.repository.FindOperation(ctx, scope, key, collection.Digest(input))
 	if err == nil {

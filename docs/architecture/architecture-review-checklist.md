@@ -95,6 +95,7 @@ consider the applicable guards, including:
 - `TestProductCatalogPersistenceAdapterImplementsOnlyApprovedBusinessPort`
 - `TestListingSubmissionPersistenceAdapterImplementsOnlySubmissionPort`
 - `TestSupplyPersistenceAndOfficialTransportOnlyImportAdmittedPorts`
+- `TestWalmartAdapterBusinessPortsStayExact`
 - `TestSupplyAndCollectionHTTPRegistrationKeepsBusinessSiblingsFrameworkFree`
 - `TestCockpitHTTPBoundaryRegistration`
 - `TestProductCatalogPersistenceGuardRejectsEverySiblingProductDomainFixture`

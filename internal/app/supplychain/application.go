@@ -10,6 +10,7 @@ import (
 	"task-processor/internal/marketplace/shein/goods"
 	temugoods "task-processor/internal/marketplace/temu/goods"
 	tiktok "task-processor/internal/marketplace/tiktokshop"
+	walmart "task-processor/internal/marketplace/walmart"
 	"task-processor/internal/product/asset"
 	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/collection"
@@ -18,6 +19,7 @@ import (
 )
 
 type Application struct {
+	WalmartCatalog        WalmartRuleReader
 	Preparations          *preparation.Service
 	Sources               *preparation.SourceSelector
 	Operations            *preparation.OperationService
@@ -30,6 +32,9 @@ type Application struct {
 	TikTokRules           record.TargetTikTokRuleReader
 	TikTokCatalog         TikTokRuleReader
 	TikTokStatusStores    TikTokRuleStore
+	WalmartRules          record.TargetWalmartRuleReader
+	WalmartStatusStores   WalmartRuleStore
+	WalmartResults        submission.WalmartResultRepository
 	Assets                record.ApprovedAssetReader
 	Approvals             *asset.SourceApprovalService
 	Authorization         preparation.Authorizer
@@ -72,16 +77,24 @@ func (a *Application) Source(ctx context.Context, id string) (SourceDetail, erro
 }
 
 type TargetRules struct {
-	Merchant      storecenter.ProductMerchantBinding `json:"merchant"`
-	Rules         goods.OfficialRuleSnapshot         `json:"rules,omitzero"`
-	Temu          *temugoods.RuleSnapshot            `json:"temu,omitempty"`
-	TikTok        *tiktok.RuleSnapshot               `json:"tiktok,omitempty"`
-	TikTokCatalog *TikTokCatalog                     `json:"tiktokCatalog,omitempty"`
+	WalmartCatalog *walmart.RuleCatalog               `json:"walmartCatalog,omitempty"`
+	Merchant       storecenter.ProductMerchantBinding `json:"merchant"`
+	Rules          goods.OfficialRuleSnapshot         `json:"rules,omitzero"`
+	Temu           *temugoods.RuleSnapshot            `json:"temu,omitempty"`
+	TikTok         *tiktok.RuleSnapshot               `json:"tiktok,omitempty"`
+	TikTokCatalog  *TikTokCatalog                     `json:"tiktokCatalog,omitempty"`
+	Walmart        *walmart.RuleSnapshot              `json:"walmart,omitempty"`
 }
 
 func (a *Application) QueryRules(ctx context.Context, in record.TargetInput) (TargetRules, error) {
 	if ctx == nil || a == nil || a.Authorization == nil || a.Sources == nil || a.Products == nil {
 		return TargetRules{}, preparation.ErrUnavailable
+	}
+	if in.WalmartRules != nil && (in.Walmart != nil || in.Temu != nil || in.TikTok != nil || in.TemuRules != nil || in.TikTokRules != nil || !reflect.DeepEqual(in.Draft, goods.OfficialDraftInput{})) {
+		return TargetRules{}, record.ErrInvalid
+	}
+	if in.Walmart != nil && (in.Temu != nil || in.TikTok != nil || in.TemuRules != nil || in.TikTokRules != nil || !reflect.DeepEqual(in.Draft, goods.OfficialDraftInput{})) {
+		return TargetRules{}, record.ErrInvalid
 	}
 	if in.Temu != nil || in.TikTok != nil || in.TemuRules != nil && in.TikTokRules != nil || (in.TemuRules != nil || in.TikTokRules != nil) && !reflect.DeepEqual(in.Draft, goods.OfficialDraftInput{}) {
 		return TargetRules{}, record.ErrInvalid
@@ -102,6 +115,34 @@ func (a *Application) QueryRules(ctx context.Context, in record.TargetInput) (Ta
 	}
 	if _, err = a.Products.ReadEffectiveTargetProduct(ctx, selected, in.EffectiveVersion, in.ApplyReceiptID); err != nil {
 		return TargetRules{}, err
+	}
+	if in.WalmartRules != nil {
+		selection := *in.WalmartRules
+		if selection.ProductType == "" && selection.Version == "" {
+			b, c, e := a.WalmartCatalog.ReadCatalog(ctx, scope, in.StoreID, selection.FeedType)
+			if e != nil {
+				return TargetRules{}, e
+			}
+			return TargetRules{Merchant: b, WalmartCatalog: &c}, nil
+		}
+		if a.WalmartRules == nil {
+			return TargetRules{}, record.ErrUnavailable
+		}
+		b, r, e := a.WalmartRules.ReadWalmartTargetRules(ctx, scope, in.StoreID, selection)
+		if e != nil {
+			return TargetRules{}, e
+		}
+		return TargetRules{Merchant: b, Walmart: &r}, nil
+	}
+	if in.Walmart != nil {
+		if a.WalmartRules == nil {
+			return TargetRules{}, record.ErrUnavailable
+		}
+		b, r, e := a.WalmartRules.ReadWalmartTargetRules(ctx, scope, in.StoreID, in.Walmart.Selection)
+		if e != nil {
+			return TargetRules{}, e
+		}
+		return TargetRules{Merchant: b, Walmart: &r}, nil
 	}
 	if in.TikTokRules != nil {
 		if a.TikTokRules == nil {

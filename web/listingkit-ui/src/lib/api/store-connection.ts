@@ -165,12 +165,12 @@ const pendingSchema = z
     appId:z.string().min(1).max(128).optional(),
   })
   .strict();
-const authorizationPendingKey=(platform:"shein"|"tiktokshop")=>`listingkit.${platform}.pending`;
+const authorizationPendingKey=(platform:"shein"|"tiktokshop"|"walmart")=>`listingkit.${platform}.pending`;
 // Contains local routing metadata only. Consent state, tempToken, merchant
 // credentials and authorization URL never enter browser persistence.
 export function rememberStoreAuthorization(
   value: z.infer<typeof pendingSchema>,
-  platform:"shein"|"tiktokshop"="shein",
+  platform:"shein"|"tiktokshop"|"walmart"="shein",
 ) {
   const pendingKey=authorizationPendingKey(platform);
   const encoded = JSON.stringify(pendingSchema.parse(value));
@@ -178,7 +178,7 @@ export function rememberStoreAuthorization(
   if (sessionStorage.getItem(pendingKey) !== encoded)
     throw new Error("Authorization routing metadata could not be saved");
 }
-export function readStoreAuthorization(platform:"shein"|"tiktokshop"="shein") {
+export function readStoreAuthorization(platform:"shein"|"tiktokshop"|"walmart"="shein") {
   const pendingKey=authorizationPendingKey(platform);
   try {
     return pendingSchema.parse(
@@ -190,7 +190,7 @@ export function readStoreAuthorization(platform:"shein"|"tiktokshop"="shein") {
 }
 export function clearStoreAuthorization(
   original: z.infer<typeof pendingSchema>,
-  platform:"shein"|"tiktokshop"="shein",
+  platform:"shein"|"tiktokshop"|"walmart"="shein",
 ) {
   const pendingKey=authorizationPendingKey(platform);
   const current = readStoreAuthorization(platform);
@@ -201,3 +201,5 @@ export function clearStoreAuthorization(
     return;
   sessionStorage.removeItem(pendingKey);
 }
+
+export function refreshWalmartConnection(scope:MemberResourceScope,storeId:string,generation:number){return request(scope,storeId,"refresh",officialConnectionViewSchema,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({operationId:crypto.randomUUID(),generation:String(generation)})})}

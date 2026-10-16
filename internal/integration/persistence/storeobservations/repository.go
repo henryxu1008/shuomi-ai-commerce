@@ -13,6 +13,7 @@ import (
 	"strings"
 	"task-processor/internal/authidentity"
 	temuo "task-processor/internal/marketplace/temu/observations"
+	walmart "task-processor/internal/marketplace/walmart"
 	"task-processor/internal/storecenter"
 	o "task-processor/internal/storecenter/observations"
 	"time"
@@ -23,6 +24,7 @@ type Repository struct{ db *gorm.DB }
 const productRowsLateral = ` CROSS JOIN LATERAL (
  SELECT k->>'id' AS row_id,jsonb_build_object('product',jsonb_build_object('id',r.platform_id,'skcs',jsonb_build_array(k))) AS payload,k AS item,CASE WHEN k->>'siteStatus'='1' THEN 'active' WHEN k->>'siteStatus'='0' THEN 'off' ELSE 'unknown' END AS sale_state FROM jsonb_array_elements(r.payload->'product'->'skcs') k WHERE jsonb_exists(r.payload,'product')
  UNION ALL SELECT r.platform_id,r.payload,r.payload->'temuProduct',coalesce(r.payload->'temuProduct'->>'saleState','unknown') WHERE jsonb_exists(r.payload,'temuProduct')
+ UNION ALL SELECT r.platform_id,r.payload,r.payload->'walmartProduct',CASE WHEN r.payload->'walmartProduct'->>'publishedStatus'='PUBLISHED' AND r.payload->'walmartProduct'->>'lifecycleStatus'='ACTIVE' THEN 'active' WHEN r.payload->'walmartProduct'->>'publishedStatus'='UNPUBLISHED' OR r.payload->'walmartProduct'->>'lifecycleStatus' IN ('ARCHIVED','RETIRED') THEN 'off' ELSE 'unknown' END WHERE jsonb_exists(r.payload,'walmartProduct')
  ) entry`
 
 type syncRow struct {
@@ -237,11 +239,14 @@ func (r *Repository) CommitPage(ctx context.Context, expected o.Sync, next o.Che
 				return o.ErrInvalid
 			}
 			seen[v.ID] = true
-			validProduct := v.Order == nil && v.Product != nil && v.TemuProduct == nil && v.Product.ID == v.ID && current.Binding.Platform != storecenter.PlatformTemu
+			validProduct := v.WalmartProduct == nil && v.Order == nil && v.Product != nil && v.TemuProduct == nil && v.Product.ID == v.ID && current.Binding.Platform != storecenter.PlatformTemu && current.Binding.Platform != storecenter.PlatformWalmart
 			if current.Binding.Platform == storecenter.PlatformTemu {
-				validProduct = v.Order == nil && v.Product == nil && v.TemuProduct != nil && v.TemuProduct.ID == v.ID && temuo.ValidProduct(*v.TemuProduct) && v.TemuProduct.Mode == string(current.Binding.MerchantMode)
+				validProduct = v.WalmartProduct == nil && v.Order == nil && v.Product == nil && v.TemuProduct != nil && v.TemuProduct.ID == v.ID && temuo.ValidProduct(*v.TemuProduct) && v.TemuProduct.Mode == string(current.Binding.MerchantMode)
 			}
-			if current.Kind == o.Products && !validProduct || current.Kind == o.Orders && (v.Order == nil || v.Product != nil || v.TemuProduct != nil || v.Order.ID != v.ID || v.Order.Site != "shein-us" || current.Binding.Platform == storecenter.PlatformTemu) {
+			if current.Binding.Platform == storecenter.PlatformWalmart {
+				validProduct = v.Order == nil && v.Product == nil && v.TemuProduct == nil && v.WalmartProduct != nil && v.WalmartProduct.Valid() && v.WalmartProduct.SKU == v.ID
+			}
+			if current.Kind == o.Products && !validProduct || current.Kind == o.Orders && (v.WalmartProduct != nil || current.Binding.Platform == storecenter.PlatformWalmart || v.Order == nil || v.Product != nil || v.TemuProduct != nil || v.Order.ID != v.ID || v.Order.Site != "shein-us" || current.Binding.Platform == storecenter.PlatformTemu) {
 				return o.ErrInvalid
 			}
 			var prior struct {
@@ -256,10 +261,11 @@ func (r *Repository) CommitPage(ctx context.Context, expected o.Sync, next o.Che
 				next.Note("duplicate_platform_identity")
 			}
 			payload, _ := json.Marshal(struct {
-				Product     *o.Product     `json:"product,omitempty"`
-				TemuProduct *temuo.Product `json:"temuProduct,omitempty"`
-				Order       *o.Order       `json:"order,omitempty"`
-			}{v.Product, v.TemuProduct, v.Order})
+				WalmartProduct *walmart.Product `json:"walmartProduct,omitempty"`
+				Product        *o.Product       `json:"product,omitempty"`
+				TemuProduct    *temuo.Product   `json:"temuProduct,omitempty"`
+				Order          *o.Order         `json:"order,omitempty"`
+			}{v.WalmartProduct, v.Product, v.TemuProduct, v.Order})
 			if len(payload) > 262144 {
 				return o.ErrInvalid
 			}
@@ -401,8 +407,8 @@ func (r *Repository) list(ctx context.Context, org string, q o.Query) (o.Result,
 	if q.Keyword != "" {
 		pattern := "%" + strings.NewReplacer("\\", "\\\\", "%", "\\%", "_", "\\_").Replace(q.Keyword) + "%"
 		if q.Kind == o.Products {
-			filter += ` AND (platform_id ILIKE ? OR row_id ILIKE ? OR item->>'title' ILIKE ? OR item->>'sellerCode' ILIKE ? OR item->>'externalCode' ILIKE ? OR item->>'productId' ILIKE ? OR EXISTS(SELECT 1 FROM jsonb_array_elements(item->'skus') sku WHERE sku->>'id' ILIKE ? OR sku->>'sellerSku' ILIKE ? OR sku->>'externalCode' ILIKE ? OR sku->>'serialNumber' ILIKE ?))`
-			for i := 0; i < 10; i++ {
+			filter += ` AND (platform_id ILIKE ? OR row_id ILIKE ? OR item->>'title' ILIKE ? OR item->>'sellerCode' ILIKE ? OR item->>'externalCode' ILIKE ? OR item->>'productId' ILIKE ? OR item->>'productName' ILIKE ? OR item->>'wpid' ILIKE ? OR item->>'gtin' ILIKE ? OR EXISTS(SELECT 1 FROM jsonb_array_elements(item->'skus') sku WHERE sku->>'id' ILIKE ? OR sku->>'sellerSku' ILIKE ? OR sku->>'externalCode' ILIKE ? OR sku->>'serialNumber' ILIKE ?))`
+			for i := 0; i < 13; i++ {
 				args = append(args, pattern)
 			}
 		} else {
@@ -553,7 +559,7 @@ func (r *Repository) StoreAggregates(ctx context.Context, org string, kind o.Kin
 		// Transfer only inventory identities and quantities, never full Product detail.
 		// Local TEMU stock is SKU aggregate stock. Its internal counting bucket is
 		// not an official physical warehouse and is never persisted or exposed as one.
-		rows, err := tx.Raw(`SELECT r.store_id,coalesce(sku->>'id','missing:'||r.platform_id||':'||(k->>'id')),CASE WHEN k->>'entity'='local_goods' THEN 'temu:local:aggregate-stock' ELSE coalesce(stock->>'warehouseId','') END,CASE WHEN jsonb_typeof(stock->'quantity')='number' THEN (stock->>'quantity')::bigint WHEN k->>'entity'='local_goods' AND sku->>'stock' ~ '^[0-9]{1,19}$' THEN (sku->>'stock')::bigint ELSE NULL END`+base+` LEFT JOIN LATERAL jsonb_array_elements(k->'skus') sku ON true LEFT JOIN LATERAL jsonb_array_elements(sku->'inventory') stock ON true`+where, args...).Rows()
+		rows, err := tx.Raw(`SELECT r.store_id,coalesce(sku->>'id',k->>'sku','missing:'||r.platform_id||':'||(k->>'id')),CASE WHEN k->>'entity'='local_goods' THEN 'temu:local:aggregate-stock' ELSE coalesce(stock->>'warehouseId','') END,CASE WHEN jsonb_typeof(stock->'quantity')='number' THEN (stock->>'quantity')::bigint WHEN k->>'entity'='local_goods' AND sku->>'stock' ~ '^[0-9]{1,19}$' THEN (sku->>'stock')::bigint ELSE NULL END`+base+` LEFT JOIN LATERAL jsonb_array_elements(k->'skus') sku ON true LEFT JOIN LATERAL jsonb_array_elements(sku->'inventory') stock ON true`+where, args...).Rows()
 		if err != nil {
 			return err
 		}

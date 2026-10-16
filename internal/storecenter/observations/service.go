@@ -394,6 +394,25 @@ func (s *Service) Step(ctx context.Context, org, id string) (Sync, error) {
 		count = len(page.Items)
 		total = &page.Total
 		seen := map[string]bool{}
+		if sync.Binding.Platform == storecenter.PlatformWalmart {
+			if len(page.Items) > 0 || len(page.TemuItems) > 0 || len(page.WalmartItems) > 10 {
+				return stop(ErrConflict)
+			}
+			count = len(page.WalmartItems)
+			for _, p := range page.WalmartItems {
+				if !p.Valid() || seen[p.SKU] {
+					return stop(ErrConflict)
+				}
+				seen[p.SKU] = true
+				product := p
+				records = append(records, Record{StoreID: sync.StoreID, SyncID: sync.ID, ID: p.SKU, WalmartProduct: &product})
+			}
+			if c.Page >= 1000 && c.Seen+count < page.Total {
+				c.Note("walmart_offset_limit")
+			}
+		} else if len(page.WalmartItems) > 0 {
+			return stop(ErrConflict)
+		}
 		if nativePage != nil {
 			count = len(page.TemuItems)
 			for _, note := range page.Notes {
@@ -504,6 +523,10 @@ func (s *Service) Step(ctx context.Context, org, id string) (Sync, error) {
 	if e != nil {
 		return Sync{}, e
 	}
+	if sync.Binding.Platform == storecenter.PlatformWalmart && c.Page >= 1000 && status == "running" {
+		next.Note("walmart_offset_limit")
+		status = "partial"
+	}
 	at := s.now()
 	for i := range records {
 		records[i].ObservedAt = at
@@ -536,7 +559,7 @@ func (s *Service) List(ctx context.Context, scope Scope, q Query) (Result, error
 			return Result{}, ErrInvalid
 		}
 	}
-	if q.Platform != "" && q.Platform != "shein" && q.Platform != "temu" || q.Kind == Orders && q.Platform == "temu" {
+	if q.Platform != "" && q.Platform != "shein" && q.Platform != "temu" && q.Platform != "walmart" || q.Kind == Orders && (q.Platform == "temu" || q.Platform == "walmart") {
 		return Result{}, ErrInvalid
 	}
 	stores, e := s.allowedStores(ctx, scope, q.Kind, false, q.Stores, q.Platform)

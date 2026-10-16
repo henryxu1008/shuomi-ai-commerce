@@ -37,7 +37,7 @@ func (d Directory) ListStores(ctx context.Context, s o.Scope, kind o.Kind, selec
 		return nil, o.ErrUnavailable
 	}
 	platform := storecenter.Platform(selectedPlatform)
-	if selectedPlatform != "" && platform != storecenter.PlatformShein && platform != storecenter.PlatformTemu || kind == o.Orders && platform == storecenter.PlatformTemu {
+	if selectedPlatform != "" && platform != storecenter.PlatformShein && platform != storecenter.PlatformTemu && platform != storecenter.PlatformWalmart || kind == o.Orders && (platform == storecenter.PlatformTemu || platform == storecenter.PlatformWalmart) {
 		return nil, o.ErrInvalid
 	}
 	if kind == o.Orders {

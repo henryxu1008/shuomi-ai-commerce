@@ -77,6 +77,7 @@ func SupplyRoutes(app *supplyapp.Application, bind func(context.Context, string)
 		{"GET", "/:preparation_id/stages", "stages", preparation.PermissionRead},
 		{"GET", "/:preparation_id", "preparation", preparation.PermissionRead}, {"GET", "/:preparation_id/operations", "operations", preparation.PermissionRead},
 		{"GET", "/sources/:source_id/publications/:store_id", "publication", preparation.PermissionRead},
+		{"GET", "/sources/:source_id/publications/:store_id/status/:receipt_id", "publication-status", preparation.PermissionRead},
 		{"GET", "/sources/:source_id/publications/:store_id/status", "publication-status", preparation.PermissionRead},
 		{"GET", "/sources/:source_id/targets/:store_id", "target", preparation.PermissionRead}, {"POST", "/targets", "save-target", preparation.PermissionManage}, {"POST", "/target-rules", "rules", preparation.PermissionRead}, {"GET", "/target-commands/:key", "target-command", preparation.PermissionRead}, {"GET", "/records/:record_id", "record", preparation.PermissionRead},
 		{"POST", "/uploads/resolve", "resolve-upload", preparation.PermissionManage},
@@ -193,7 +194,7 @@ func SupplyRoutes(app *supplyapp.Application, bind func(context.Context, string)
 			case "publication":
 				output, err = app.Publication(ctx, c.Param("source_id"), c.Param("store_id"))
 			case "publication-status":
-				output, err = app.TikTokPublicationStatus(ctx, c.Param("source_id"), c.Param("store_id"))
+				output, err = app.PublicationStatus(ctx, c.Param("source_id"), c.Param("store_id"), c.Param("receipt_id"))
 			case "record":
 				output, err = app.ReadRecord(ctx, c.Param("record_id"))
 			case "target-command":

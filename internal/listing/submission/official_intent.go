@@ -32,6 +32,7 @@ type OfficialIntent struct {
 	TemuImages         []TemuImageReference               `json:"temuImages,omitempty"`
 	TemuRenewalFrom    string                             `json:"temuRenewalFrom,omitempty"`
 	TikTok             *TikTokStageIntent                 `json:"tiktok,omitempty"`
+	Walmart            *WalmartFeedIntent                 `json:"walmart,omitempty"`
 	CreatedAt          time.Time                          `json:"created_at"`
 }
 type OfficialIntentCommit struct {
@@ -100,6 +101,9 @@ func PrepareOfficialIntent(ctx context.Context, sourceProof preparation.Authoriz
 	return OfficialIntentCommit{source: sourceProof, intent: body, hash: collection.Digest(body)}, nil
 }
 func OfficialIntentInputHash(value OfficialIntent) string {
+	if value.Target.Platform == "walmart" {
+		return collection.Digest([]any{value.Kind, value.Owner, value.RecordID, value.RecordHash, value.Source, value.Target, value.Binding, value.PayloadFingerprint, value.Walmart})
+	}
 	if value.Target.Platform == "tiktokshop" {
 		return collection.Digest([]any{value.Kind, value.Owner, value.RecordID, value.RecordHash, value.Source, value.Target, value.Binding, value.PayloadFingerprint, value.TikTok})
 	}
@@ -118,6 +122,12 @@ func ValidateOfficialIntent(value OfficialIntent) error {
 		!validOfficialBindingForTarget(value.Binding, value.Target) || !collection.ValidID(value.Target.StoreID) || value.Binding.OrganizationID != value.Owner.OrganizationID ||
 		value.Binding.StoreVersion < 1 || value.Binding.ConnectionRevision < 1 || !value.Binding.ValidApplication() || !isExecutionDigest(value.Binding.SupplierIdentityHash) || value.Binding.ServiceExpiresAt.IsZero() ||
 		!isExecutionDigest(value.PayloadFingerprint) || value.CreatedAt.IsZero() || OfficialIntentInputHash(value) != value.InputHash {
+		return ErrExecutionEvidenceRequired
+	}
+	if value.Target.Platform == "walmart" {
+		return validateWalmartIntent(value)
+	}
+	if value.Walmart != nil {
 		return ErrExecutionEvidenceRequired
 	}
 	if value.Target.Platform == "temu" {

@@ -81,7 +81,7 @@ func VerifyRuntime(ctx context.Context, db *gorm.DB) error {
 		return o.ErrUnavailable
 	}
 	var variant bool
-	if e := db.WithContext(ctx).Raw(`SELECT to_regnamespace('shein_observations') IS NULL AND EXISTS(SELECT 1 FROM pg_constraint WHERE conrelid='store_observations.records'::regclass AND conname='store_observation_record_variant' AND contype='c' AND convalidated AND pg_get_constraintdef(oid) LIKE '%temuProduct%')`).Scan(&variant).Error; e != nil || !variant {
+	if e := db.WithContext(ctx).Raw(`SELECT to_regnamespace('shein_observations') IS NULL AND EXISTS(SELECT 1 FROM pg_constraint WHERE conrelid='store_observations.records'::regclass AND conname='store_observation_record_variant' AND contype='c' AND convalidated AND pg_get_constraintdef(oid) LIKE '%temuProduct%' AND pg_get_constraintdef(oid) LIKE '%walmartProduct%' AND pg_get_constraintdef(oid) LIKE '%COALESCE%')`).Scan(&variant).Error; e != nil || !variant {
 		return o.ErrUnavailable
 	}
 	return nil
