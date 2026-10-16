@@ -1,7 +1,7 @@
 # Makefile for Task Processor / ListingKit
 .PHONY: all build-all clean test test-fast test-all test-coverage help \
-	build-listing-control-plane build-current-application build-shein-login-worker \
-	run-listing-control-plane run-current-application lint fmt code-health-audit code-health-verify
+	build-current-application build-shein-login-worker \
+	run-current-application lint fmt code-health-audit code-health-verify
 
 # 版本信息
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "v1.0.0")
@@ -12,7 +12,7 @@ LDFLAGS := -X main.appVersion=$(VERSION) -X main.buildTime=$(BUILD_TIME)
 BIN_DIR := bin
 
 # 当前维护的测试包
-FAST_TEST_PACKAGES := ./cmd/current-application ./cmd/listing-control-plane ./cmd/shein-login-worker ./internal/app/httpapi ./internal/app/runtime/listingcontrol ./internal/listingadmin ./internal/promptmgmt ./internal/listingsubscription
+FAST_TEST_PACKAGES := ./cmd/current-application ./cmd/shein-login-worker ./internal/app/httpapi ./internal/listingadmin ./internal/promptmgmt ./internal/listingsubscription
 BOUNDARY_TEST_PACKAGES := ./tests/...
 ALL_TEST_PACKAGES := ./cmd/... ./internal/... ./tests/... ./tools/... ./hack/debug/...
 
@@ -24,7 +24,6 @@ help:
 	@echo ""
 	@echo "使用方法:"
 	@echo "  make build-all                 - 构建当前受维护的服务入口"
-	@echo "  make build-listing-control-plane - 构建 Listing Control Plane"
 	@echo "  make build-current-application - 构建Current Application"
 	@echo "  make build-shein-login-worker   - 构建独立 SHEIN 登录 worker"
 	@echo "  make clean                     - 清理构建文件"
@@ -38,15 +37,8 @@ help:
 all: build-all
 
 # 构建所有当前受维护服务
-build-all: build-listing-control-plane build-current-application build-shein-login-worker
+build-all: build-current-application build-shein-login-worker
 	@echo "✅ 所有当前受维护服务构建完成"
-
-# Listing Control Plane
-build-listing-control-plane:
-	@echo "🔨 构建 Listing Control Plane..."
-	@mkdir -p $(BIN_DIR)
-	CGO_ENABLED=0 GOOS=linux go build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/listing-control-plane ./cmd/listing-control-plane
-	@echo "✅ Listing Control Plane 构建完成: $(BIN_DIR)/listing-control-plane"
 
 # Current Application
 build-current-application:
@@ -104,11 +96,6 @@ code-health-audit:
 # CI/local ratchet: compile, run pinned analyzers, and reject new Knip findings.
 code-health-verify:
 	pwsh -File scripts/code-health-audit.ps1 -Mode Verify
-
-# 本地运行 Listing Control Plane
-run-listing-control-plane:
-	@echo "🚀 启动 Listing Control Plane..."
-	go run ./cmd/listing-control-plane -config=config/config-dev.yaml -log-level=info
 
 # 本地运行Current Application
 run-current-application:

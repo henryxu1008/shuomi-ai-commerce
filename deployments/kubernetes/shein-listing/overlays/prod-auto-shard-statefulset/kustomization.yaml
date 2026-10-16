@@ -5,4 +5,3 @@ namespace: task-processor
 
 resources:
   - ownership-controller.yaml
-  - listing-control-plane.yaml

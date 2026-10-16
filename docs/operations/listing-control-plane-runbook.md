@@ -1,194 +1,35 @@
-# Listing Control Plane Runbook
+# 旧 Listing Control Plane：源码退休与运行态边界
 
-> Status: active operational runbook.
->
-> Bounded retirement calibration: 2026-10-16 (#723); original control-plane contract retained.
->
-> Scope: `cmd/listing-control-plane`, dispatch/recovery control loops, validation, smoke checks, and operator troubleshooting.
+Status: **RETIRED source entrypoints**（#726，#29 / #301）。
+用户已确认[退休设计 §5、§6、§6.1、§7](../architecture/legacy-listing-control-plane-retirement-boundary.md)。
+本说明替代原控制面构建、发布、运行和 smoke 操作；原操作仅留在 Git 历史。
 
-## #723 retained-producer boundary
+## 已退出的源码入口
 
-The three legacy listing CLIs and their exclusive consumer/scheduler chain are
-source-retired. Control-plane/taskstatus/claim/dispatch/recovery contracts remain,
-so this is not full numeric-task-chain closure. The mixed SHEIN overlay retains
-control-plane and ownership-controller declarations; the latter still references
-its historical image and is not rebuilt from this source. Source retention is not
-permission to start, update or stop instances or handle inflight effects/data.
-Actual old-runtime cutover belongs to its separately authorized runtime owner;
-this is not a new prerequisite for current internal trials. See the
-[confirmed boundary](../architecture/legacy-listing-cli-retirement-boundary.md).
+`listing-control-plane`、`shein-import-platform-recovery` 及专属 runtime/control 库、
+一次性平台归一 helper/DTO/测试、Dockerfile/操作脚本和 control-plane workload 已退休。
+不存在可沿旧命令或旧 build/push/deploy 步骤启动的当前源码入口，不提供 forwarding stub。
+两套 workflow 精确移除旧 runtime race，主 CI 移除旧 build；原仓库并发安全和其它必需检查保持。
 
-## 1. Purpose
+## 保留的 owner 与当前入口
 
-`cmd/listing-control-plane` is a current official runtime entrypoint. It coordinates Listing control-plane behavior around dispatch, recovery, leadership, and operational visibility.
+任务/事件仓库、claim-token rollback、eligible-row recovery 及其并发/owner/tenant 安全检查、
+有效 ListingAdmin/根 ListingRuntime 合同、共享配置和仍有源码消费者的 task/status 留原 owner。
+这些是未退出的旧债务，不是新当前业务依赖或第二事实源。
 
-This runbook defines how to build, validate, run, and troubleshoot that runtime without confusing it with historical one-off commands or crawler/debug entrypoints.
+混合 SHEIN overlay 仅保留历史 ownership-controller 声明；它引用既有历史镜像，
+不是当前源码可重建入口。本批未更换或运行该镜像，未整删共享配置、Secret/RBAC/监控对象。
+源码清单不证明实例不存在、健康、停用或在途副作用已解决。
 
-## 2. Current entrypoint
+当前应用继续沿原私密 manifest 入口；采集、Store 观察同步及图片/Temporal 原合同保持。
+独立 SHEIN 登录 worker 保留原命令、账号仓库、Cookie/attempt/验证码/Profile、
+tenant-qualified Store 查重、health/shutdown 与恢复合同。参见[入口地图](../development/repository-structure.md)
+和[worker 身份/持久化边界](../architecture/shein-worker-identity-persistence-boundary.md)。
 
-Runtime command:
+## 运行态与数据停止点
 
-```text
-cmd/listing-control-plane
-```
-
-Local build:
-
-```powershell
-go build ./cmd/listing-control-plane
-```
-
-Make target:
-
-```powershell
-make build-listing-control-plane
-```
-
-Local run example:
-
-```powershell
-go run ./cmd/listing-control-plane -config=config/config-dev.yaml -log-level=info
-```
-
-Docker build path:
-
-```text
-deployments/docker/Dockerfile.listing-control-plane
-```
-
-The official `cmd/` entrypoint list is maintained in `docs/development/repository-structure.md` and guarded by repository structure tests.
-
-## 3. Required validation before release-sensitive changes
-
-Run the backend gate used by CI when practical:
-
-```powershell
-go test ./... -count=1
-```
-
-Run the control-plane race gate:
-
-```powershell
-go test -race ./internal/app/runtime/listingcontrol -run TestControlPlaneService -count=1
-```
-
-Run listingadmin dispatch/recovery race coverage:
-
-```powershell
-go test -race ./internal/listingadmin -run "TestConcurrentClaimForDispatchOnlyOneWorkerWins|TestConcurrentRollbackDispatchOnlyOriginalQueuedClaimIsRestoredOnce|TestConcurrentRecoveryOnlyUpdatesStillEligibleRowsOnce" -count=1
-```
-
-Build the maintained runtime commands:
-
-```powershell
-go build ./cmd/listing-control-plane
-go build ./cmd/current-application
-go build ./cmd/shein-login-worker
-```
-
-If dependency analysis is needed, keep generated output local:
-
-```powershell
-New-Item -ItemType Directory -Force .local/refactoring | Out-Null
-./scripts/analyze-project-deps.ps1 6>&1 | Tee-Object -FilePath .local/refactoring/dependency-baseline-output.txt
-```
-
-Do not recommit generated package/dependency snapshots as long-lived documentation.
-
-## 4. Runtime responsibilities
-
-The control plane should own runtime coordination concerns such as:
-
-- leader ownership and leader status;
-- dispatch loop coordination;
-- recovery loop coordination;
-- work claiming / rollback / recovery orchestration;
-- cycle-level operational reporting;
-- health and readiness signals needed by deployment tooling.
-
-It should not own:
-
-- marketplace business rules;
-- ListingKit task DTO shaping;
-- SHEIN/TEMU/Amazon publish payload construction;
-- product source normalization;
-- crawler/browser extraction logic;
-- broad retired management-service semantics.
-
-Business policy should remain in the relevant domain packages, and runtime assembly should stay under `internal/app/runtime/listingcontrol`.
-
-## 5. Smoke checklist
-
-Before treating a control-plane change as releasable, confirm:
-
-```text
-[ ] cmd/listing-control-plane builds.
-[ ] current-application and standalone shein-login-worker build.
-[ ] control-plane race tests pass or failures are classified.
-[ ] listingadmin dispatch/rollback/recovery race tests pass or failures are classified.
-[ ] go test ./... -count=1 passes or failures are explicitly documented.
-[ ] leader status is visible in logs or runtime health output.
-[ ] dispatch cycle logs distinguish claimed, skipped, failed, and recovered work.
-[ ] recovery cycle logs distinguish no-op, recovered, skipped, and failed work.
-```
-
-## 6. Operational signals to watch
-
-Watch for:
-
-- repeated leader churn;
-- dispatch cycles with unexpected `failed > 0`;
-- recovery cycles with repeated skipped or failed rows;
-- rollback attempts that do not restore eligible queued rows;
-- claim conflicts that do not settle to one winner;
-- control loop stalls without explicit no-op logging;
-- logs that use old management-service naming instead of runtime/task/status/store/product/pricing/health capability names.
-
-## 7. Troubleshooting guide
-
-### Dispatch is not claiming work
-
-Check:
-
-1. Is this instance the active leader?
-2. Are candidate rows eligible for dispatch?
-3. Are rows already claimed or blocked by another worker?
-4. Are capability names and runtime names used in errors instead of a retired management-service label?
-5. Do listingadmin race tests still pass?
-
-### Recovery is not restoring work
-
-Check:
-
-1. Are rows still eligible for recovery?
-2. Was the original queued claim restored exactly once?
-3. Are recovery filters too narrow?
-4. Is the recovery path trying to own marketplace publish policy instead of runtime recovery orchestration?
-5. Do recovery logs show skip reason, rollback reason, and final state?
-
-### Control plane starts but does nothing
-
-Check:
-
-1. Config path and environment.
-2. Database connectivity.
-3. Redis/lock or leader election prerequisites, if enabled.
-4. Scheduler/loop enablement flags.
-5. Whether this environment expects another leader to be active.
-
-### Logs mention broad management-service semantics
-
-Treat this as a boundary regression candidate.
-
-Expected wording should name the specific runtime capability, such as task status, store API, product facts, pricing, health, dispatch, or recovery. Do not use a generic retired management-service label as the runtime owner.
-
-## 8. Documentation update rule
-
-When the control plane changes runtime ownership or validation gates, update:
-
-- this runbook;
-- `docs/refactoring/current-refactoring-status.md` if Now / Next / Later changes;
-- `docs/development/repository-structure.md` if official entrypoints change;
-- CI workflow and structure tests if build or race gates change.
-
-Do not add new runtime entrypoints under `cmd/` without updating the repository structure document and guard tests in the same change.
+本批没有启动、停止、重启、部署或销毁实例，没有查询/修复真实 DB/Redis/RabbitMQ、
+执行 recovery dry-run、重放/清空消息、读取凭据/Profile 或调用浏览器/provider。
+旧表、行、索引、key、journal、消息、镜像、卷、备份、日志及所有历史资源保持。
+真实旧运行态和在途业务若需处置，由其原 owner 另获明确授权；不得隐式转交当前应用或登录 worker。
+这不是当前内部试用的新前置。真实运行/用户验收 NOT_RUN，生产 NOT_READY；#29/#301保持 OPEN。

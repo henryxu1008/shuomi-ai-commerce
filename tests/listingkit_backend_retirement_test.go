@@ -28,6 +28,9 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/listingkit/temporal", "internal/listingkit/workflow", "internal/listingkit/workspace",
 		"internal/listingkit/sheinadapter",
 		"cmd/listing-scheduler", "cmd/shein-listing", "cmd/temu-listing",
+		"cmd/listing-control-plane", "cmd/shein-import-platform-recovery",
+		"internal/app/runtime/listingcontrol", "internal/app/runtime/sheinplatformrecovery", "internal/listingcontrol",
+		"internal/listingadmin/platform_recovery.go", "internal/listingadmin/platform_recovery_test.go",
 		"internal/app/runtime/listing", "internal/app/runtime/listingscheduler",
 		"internal/app/bootstrap", "internal/app/consumer", "internal/app/runner", "internal/app/scheduler",
 		"internal/listingruntime/local", "internal/listingkit/sheinsync", "internal/listingkit/store",
@@ -59,7 +62,7 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 }
 
 func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
-	for _, command := range []string{"current-application", "listing-control-plane", "shein-login-worker", "image-agent-temporal-worker", "source-account-registry-schema-init", "1688-local-agent", "1688-public-browser-collector"} {
+	for _, command := range []string{"current-application", "shein-login-worker", "image-agent-temporal-worker", "source-account-registry-schema-init", "1688-local-agent", "1688-batch-import", "1688-public-browser-collector"} {
 		t.Run(command, func(t *testing.T) {
 			cmd := exec.Command("go", "list", "-deps", "./cmd/"+command)
 			cmd.Dir = ".."
@@ -68,7 +71,7 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 				t.Fatalf("go list current command: %v\n%s", err, output)
 			}
 			for _, dependency := range strings.Fields(string(output)) {
-				for _, retired := range []string{"task-processor/internal/app/bootstrap", "task-processor/internal/app/consumer", "task-processor/internal/app/runner", "task-processor/internal/app/scheduler", "task-processor/internal/listingruntime/local", "task-processor/internal/platforms", "task-processor/internal/listingkit", "task-processor/internal/tenantbridge", "task-processor/internal/compatibility", "task-processor/internal/sourceaccount", "task-processor/internal/integration/persistence/sourceaccount/ownershipmigration"} {
+				for _, retired := range []string{"task-processor/internal/app/bootstrap", "task-processor/internal/app/consumer", "task-processor/internal/app/runner", "task-processor/internal/app/scheduler", "task-processor/internal/app/runtime/listingcontrol", "task-processor/internal/app/runtime/sheinplatformrecovery", "task-processor/internal/listingcontrol", "task-processor/internal/app/task", "task-processor/internal/app/taskstatus", "task-processor/internal/listingruntime/local", "task-processor/internal/platforms", "task-processor/internal/listingkit", "task-processor/internal/tenantbridge", "task-processor/internal/compatibility", "task-processor/internal/sourceaccount", "task-processor/internal/integration/persistence/sourceaccount/ownershipmigration"} {
 					if dependency == retired || strings.HasPrefix(dependency, retired+"/") {
 						t.Errorf("%s still compiles retired business dependency %s", command, dependency)
 					}
@@ -197,19 +200,27 @@ func TestRetiredListingCLIsHaveNoBuildOrDeploymentEntrypoints(t *testing.T) {
 		"scripts/build-push-listing-scheduler.ps1", "scripts/build-push-deploy-shein-listing.ps1",
 		"scripts/deploy-single-store-listing.ps1", "scripts/sync-single-store-listings.ps1",
 		"scripts/rollout-shein-shard-statefulset.ps1",
+		"deployments/docker/Dockerfile.listing-control-plane",
+		"scripts/build-push-deploy-listing-control-plane.ps1", "scripts/shein-import-platform-recovery.ps1",
+		"deployments/kubernetes/shein-listing/overlays/prod-auto-shard-statefulset/listing-control-plane.yaml",
 	} {
 		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
 			t.Errorf("retired CLI operation entrypoint remains: %s (stat: %v)", relative, err)
 		}
 	}
-	for _, relative := range []string{"Makefile", "scripts/test-fast.ps1", ".github/workflows/ci.yml"} {
+	for _, relative := range []string{"Makefile", "scripts/test-fast.ps1", ".github/workflows/ci.yml", ".github/workflows/commercial-readiness.yml", "deployments/kubernetes/shein-listing/overlays/prod-auto-shard-statefulset/kustomization.yaml"} {
 		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, command := range []string{"listing-scheduler", "shein-listing", "temu-listing"} {
+		for _, command := range []string{"listing-scheduler", "shein-listing", "temu-listing", "listing-control-plane", "shein-import-platform-recovery"} {
 			if strings.Contains(string(content), "./cmd/"+command) {
 				t.Errorf("%s still invokes retired CLI %s", relative, command)
+			}
+		}
+		for _, retired := range []string{"./internal/app/runtime/listingcontrol", "./internal/app/runtime/sheinplatformrecovery", "./internal/listingcontrol", "listing-control-plane.yaml"} {
+			if strings.Contains(string(content), retired) {
+				t.Errorf("%s still references retired runtime or workload %s", relative, retired)
 			}
 		}
 	}
@@ -217,7 +228,7 @@ func TestRetiredListingCLIsHaveNoBuildOrDeploymentEntrypoints(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, command := range []string{"listing-control-plane", "current-application", "shein-login-worker"} {
+	for _, command := range []string{"current-application", "shein-login-worker"} {
 		if !strings.Contains(string(content), "go build ./cmd/"+command) {
 			t.Errorf("CI must compile retained command %s", command)
 		}

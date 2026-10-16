@@ -162,12 +162,29 @@ platform module/scheduler/task-processor glue are physically absent. Retained
 platform clients/rules, generic infrastructure and current Store observations
 are not deleted. CI replaces only the obsolete build target with the current
 application and standalone login worker; required/security checks remain.
-Control-plane/taskstatus, ListingAdmin and root ListingRuntime still have
-consumers and keep their original contracts. Mixed deployment sources retain
-control-plane/ownership-controller, shared configuration, Secret and monitoring
-objects; the latter controller's historical image is not rebuilt or executed.
+Taskstatus, ListingAdmin and root ListingRuntime retain their original contracts.
+The control-plane retained in #723 subsequently exits under #726 below. Mixed
+deployment sources now retain only ownership-controller, shared configuration,
+Secret and monitoring objects; the controller's historical image is not rebuilt or executed.
 This is source retirement, not full numeric-task-chain closure, runtime/data
 cleanup, deployment or a new internal-trial prerequisite. Production NOT_READY.
+
+### #29 / #301 confirmed control-plane and numeric dispatch/recovery retirement
+
+The user-confirmed [follow-up design](../architecture/legacy-listing-control-plane-retirement-boundary.md)
+§5/§6/§6.1/§7 admits this bounded RETIRE batch after #723. The remaining
+control-plane and store-986 platform recovery entrypoints, their exclusive
+runtime/control library, cohort helpers/tests and operation packaging are absent.
+Current acquisition, Store observations, valid shared contracts, required/security
+checks and the independent SHEIN login worker retain their original owners.
+ImportTask repository/claim/rollback/recovery races, package-external task/status
+consumers, shared configuration and the historical ownership-controller declaration
+remain explicit debt in this bounded batch. No whole-package cleanup, current
+consumer, compatibility bridge, runtime/data action or internal-trial prerequisite
+is authorized. Both workflows remove only the retired runtime race target and
+main CI removes its obsolete build line; design section 6.1 preserves all other
+steps, pinned-SHA/release evidence, required and security checks. Source retirement
+does not prove real-runtime cutover, user acceptance or production readiness.
 
 ## 2. Active register
 
