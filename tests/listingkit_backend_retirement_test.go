@@ -35,6 +35,15 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/crawler/fetcher/distributed_fetcher.go", "internal/crawler/fetcher/builder_test.go",
 		"internal/temu/sync/inventory_sync_factory.go",
 		"internal/shein/inventory", "internal/temu/sync",
+		"internal/shein/pricing/auto_pricing.go", "internal/shein/pricing/pricing_evaluator.go",
+		"internal/shein/pricing/pricing_calculator.go", "internal/shein/pricing/pricing_builder.go",
+		"internal/shein/pricing/time_helper.go", "internal/shein/pricing/auto_pricing_repo_test.go",
+		"internal/shein/pricing/time_helper_test.go",
+		"internal/temu/pricing/auto_pricing_service.go", "internal/temu/pricing/pricing_decision_service.go",
+		"internal/temu/pricing/pricing_rules.go", "internal/temu/pricing/pricing_data_service.go",
+		"internal/temu/pricing/store_config_service.go", "internal/temu/pricing/runtime_adapter.go",
+		"internal/temu/pricing/pricing_rules_test.go", "internal/temu/pricing/pricing_data_service_test.go",
+		"internal/temu/pricing/store_config_service_test.go",
 		"internal/shein/productsync/product_sync.go", "internal/shein/productsync/product_sync_fetcher.go",
 		"internal/shein/productsync/product_sync_enricher.go", "internal/shein/productsync/product_snapshot.go",
 		"internal/shein/productsync/product_snapshot_repository.go",
@@ -89,6 +98,10 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/listingadmin/management_api_types.go": {
 			"type InventoryRecordCreateReqDTO struct", "type InventoryRecordRespDTO struct", "type InventoryRecordAPI interface",
 		},
+		"internal/temu/pricing/interfaces.go": {
+			"type StoreConfigProvider interface", "type ProductDataProvider interface", "type ProductFetcher interface",
+			"type DecisionMaker interface", "type PricingProcessor interface",
+		},
 		"internal/app/runtime/listingkitschemamigrate/runtime_test.go": {
 			"func openRuntimeSchemaTestDB(", "\"listing_product_import_task\"",
 		},
@@ -100,6 +113,51 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		for _, token := range retired {
 			if strings.Contains(string(content), token) {
 				t.Errorf("%s must not recreate retired numeric task contract %q", relative, token)
+			}
+		}
+	}
+	for relative, required := range map[string][]string{
+		"internal/shein/pricing/price_manager.go": {"type PriceManager struct", "func NewPriceManager(", "type CostPriceRequest struct"},
+		"internal/temu/pricing/interfaces.go": {
+			"type PriceCalculator interface",
+			"GetDefaultPricingRules(originCostPrice float64, rules *[]listingadmin.PricingRuleRespDTO) *listingadmin.PricingRuleRespDTO",
+			"CalculateMinAcceptablePrice(originCostPrice float64, rule *listingadmin.PricingRuleRespDTO) float64",
+		},
+	} {
+		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, token := range required {
+			if !strings.Contains(string(content), token) {
+				t.Errorf("%s must preserve shared pricing contract %q", relative, token)
+			}
+		}
+	}
+	for _, platform := range []string{"shein", "temu"} {
+		root := filepath.Join("..", "internal", platform, "pricing")
+		entries, err := os.ReadDir(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, entry := range entries {
+			if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") || strings.HasSuffix(entry.Name(), "_test.go") {
+				continue
+			}
+			content, err := os.ReadFile(filepath.Join(root, entry.Name()))
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, retired := range []string{
+				"type AutoPricingService ", "NewAutoPricingService", "autoPricingServiceImpl",
+				"type PricingDecisionService ", "type PricingRuntime ", "NewPricingRuntime",
+				"type PricingDataService ", "type StoreConfigService ", "type PricingRequestBuilder ", "type TimeHelper ",
+				"type StoreConfigProvider interface", "type ProductDataProvider interface", "type ProductFetcher interface",
+				"type DecisionMaker interface", "type PricingProcessor interface",
+			} {
+				if strings.Contains(string(content), retired) {
+					t.Errorf("%s must not recreate retired automatic pricing %q", filepath.Join(root, entry.Name()), retired)
+				}
 			}
 		}
 	}
@@ -143,6 +201,13 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 		"internal/listingadmin/product_data_repository.go", "internal/listingadmin/product_import_mapping_repository.go",
 		"internal/core/config/type_platform.go",
 		"internal/shein/productsync/product_sync_types.go", "internal/shein/productsync/marketing_client_boundary_test.go",
+		"internal/shein/pricing/price_manager.go", "internal/shein/pricing/pricing_repo.go",
+		"internal/shein/pricing/calculator.go", "internal/shein/pricing/calculator_test.go",
+		"internal/shein/pricing/cost_profit_calculator.go", "internal/shein/pricing/cost_profit_calculator_test.go",
+		"internal/shein/product/product_repo.go",
+		"internal/temu/pricing/interfaces.go", "internal/temu/pricing/pricing_rule_calculator.go",
+		"internal/temu/pricing/pricing_rule_calculator_test.go",
+		"internal/marketplace/temu/publishing/pricing_policy.go", "internal/marketplace/temu/publishing/pricing_policy_test.go",
 	} {
 		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); err != nil {
 			t.Errorf("retained platform/shared contract %s must remain: %v", relative, err)

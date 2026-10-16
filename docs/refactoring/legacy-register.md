@@ -152,6 +152,16 @@ does not establish provider, user, deployed-runtime or production acceptance.
 
 ### #29 bounded backend retirement
 
+The [confirmed automatic-pricing boundary](../architecture/legacy-auto-pricing-retirement-boundary.md)
+retires the unconstructed SHEIN/TEMU service, decision, reader, cache/retry and
+exclusive runtime/request/time-helper closure under #743: 16 files and five
+exclusive interfaces are absent. PriceManager with its ProductAPI wiring,
+PriceCalculator, both platforms' APIs/rules, shared formulas/contracts and the
+two SHEIN attribute types remain. Store/mapping/rule persistence, current
+acquisition/observations and independent login with Store sync retain their
+original owners. Both workflows are unchanged; no runtime/data action,
+fact/recovery transfer or new internal-trial prerequisite.
+
 The [confirmed numeric product/inventory synchronization boundary](../architecture/legacy-numeric-product-inventory-sync-retirement-boundary.md)
 retires the unconstructed SHEIN/TEMU services and exclusive InventoryRecord source
 closure under #742. The exact 63-file closure and three mixed DTO declarations

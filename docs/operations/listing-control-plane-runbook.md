@@ -16,6 +16,12 @@ Status: **RETIRED source entrypoints**（#726，#29 / #301）。
 
 ## 保留的 owner 与当前入口
 
+#743按[确认核价矩阵](../architecture/legacy-auto-pricing-retirement-boundary.md)进一步退出
+无装配的旧SHEIN/TEMU自动核价编排、reader/adapter/cache/retry及专属接口。价格API
+和PriceManager/PriceCalculator、有效纯规则与原持久化owner保持；平台写入/UNKNOWN
+责任不转给当前应用、observations或登录worker，不提供旧服务启动/恢复/清理步骤。
+两套workflow与全部指定当前能力保持，不增加内部试用前置。
+
 旧 ImportTask/派发事件/暂停与超时恢复/调度配置/任务统计及专属测试已在 #740 退休；
 原三项 claim/rollback/recovery 并发测试随对应协议退出，不用空选择保留虚假绿灯。
 有效 Store/owner/规则/mapping 合同、原租户/事务安全断言与共享配置留原 owner；旧 task/status 已按
