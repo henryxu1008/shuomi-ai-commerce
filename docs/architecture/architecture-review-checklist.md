@@ -302,7 +302,6 @@ consider the applicable guards, including:
 - `TestAppTaskStatusDTOAdapterIsRetired`
 - `TestAmazonServicesUseStoreAPIPort`
 - `TestAmazonUsesManagementAPIPortAliases`
-- `TestTemuPricingRuntimeUsesCapabilityNames`
 - `TestTemuSchedulerRuntimeUsesCapabilityNames`
 - `TestTemuProcessorRuntimeUsesCapabilityNames`
 - `TestTemuRuntimeErrorsUseCapabilityNames`
@@ -316,7 +315,6 @@ consider the applicable guards, including:
 - `TestTemuProductUsesManagementAPIPortAliases`
 - `TestTemuPricingUsesManagementAPIPortAliases`
 - `TestTemuAPIClientUsesManagementAPIPortAliases`
-- `TestTemuPricingFallbackLogsUseCapabilityNames`
 - `TestRetiredManagementServiceHotspotsUseCapabilityNames`
 - `TestRetiredManagementRuntimeNamingHotspotsUseCapabilityNames`
 - `TestAppRunnerSchedulerStoreRuntimeUsesCapabilityNames`

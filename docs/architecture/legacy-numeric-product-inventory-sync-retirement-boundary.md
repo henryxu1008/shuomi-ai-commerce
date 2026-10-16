@@ -7,6 +7,8 @@ Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](htt
 - 实施 Design Basis: **Reuse Existing Architecture**。用户确认的冻结设计2cd716969先于正式源码修改，#29/#301已记录Ready；复用原owner与合同，无新身份、权限、持久化、状态或副作用边界。原设计阶段N/A、设计CI/review保留为历史，不替代实施验证。
 - 用户边界：保留当前采集、Store 观察同步、有效平台 API/规则、共享合同、独立 SHEIN 登录 worker 及其 Store 同步；不操作运行实例或数据，不增加内部试用前置。
 
+> 后续 #743 已按[用户确认核价边界](legacy-auto-pricing-retirement-boundary.md)退出16个专属核价文件与五个旧服务接口。下方#742矩阵/检查属于该批准确历史，不再把其中的旧自动核价编排作为当前保留消费者；PriceManager、PriceCalculator、有效平台API/规则、共享合同、两SHEIN属性及全部指定当前能力仍保留，两workflow及真实运行/数据不变。
+
 ## 1. 用户结果与范围
 
 维护当前内部试用源码、构建和独立登录 worker 的操作者，需要能分清已失去执行入口的旧数字商品/库存同步与仍使用的合同，避免在后续删除时破坏 Store 观察、平台能力或登录后店铺信息写回。本设计交付准确源码闭包和持久化边界；它不阻塞当前试用操作，也不把清理旧代码变成新产品需求。

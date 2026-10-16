@@ -5,6 +5,14 @@
 > current acquisition/Store observations, platform APIs/rules/shared contracts and
 > standalone SHEIN login worker stay unchanged; no new runtime or trial prerequisite.
 
+## #743：旧自动核价闭包退休
+
+按[确认矩阵](../architecture/legacy-auto-pricing-retirement-boundary.md)，旧SHEIN/TEMU
+自动核价服务、专属reader/决策/cache/retry/runtime/request/time helper共16文件退出，
+TEMU混合接口仅保留原PriceCalculator。PriceManager及ProductAPI接线、平台API/规则、
+纯公式/原测试、共享仓库与配置、两SHEIN属性类型、当前采集/Store观察和独立登录
+及其Store同步均保持；两套workflow零改动，无实例/数据操作，不增加试用前置。
+
 ## #678：当前入口的命令装配隔离
 
 `cmd/shein-login-worker` 直接消费 `internal/app/runtime/sheinloginworker`，其配置、

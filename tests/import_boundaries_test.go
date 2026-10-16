@@ -1561,41 +1561,11 @@ func TestAmazonUsesManagementAPIPortAliases(t *testing.T) {
 	}
 }
 
-func TestTemuPricingRuntimeUsesCapabilityNames(t *testing.T) {
-	path := filepath.Join("..", "internal", "temu", "pricing", "runtime_adapter.go")
-	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, path, nil, 0)
-	if err != nil {
-		t.Fatalf("parse %s: %v", path, err)
-	}
-
-	for _, decl := range file.Decls {
-		switch typed := decl.(type) {
-		case *ast.GenDecl:
-			for _, spec := range typed.Specs {
-				typeSpec, ok := spec.(*ast.TypeSpec)
-				if !ok || typeSpec.Name == nil {
-					continue
-				}
-				if typeSpec.Name.Name == "ManagementRuntime" {
-					t.Fatalf("%s exposes ManagementRuntime; use pricing runtime names for TEMU pricing ports", path)
-				}
-			}
-		case *ast.FuncDecl:
-			if typed.Name != nil && typed.Name.Name == "NewManagementRuntime" {
-				t.Fatalf("%s exposes NewManagementRuntime; use NewPricingRuntime for TEMU pricing ports", path)
-			}
-		}
-	}
-}
-
 func TestTemuRuntimeErrorsUseCapabilityNames(t *testing.T) {
 	paths := []string{
 		filepath.Join("..", "internal", "temu", "api", "client", "auth_pause_handler.go"),
 		filepath.Join("..", "internal", "temu", "api", "client", "client.go"),
 		filepath.Join("..", "internal", "temu", "api", "client", "cookie_manager.go"),
-		filepath.Join("..", "internal", "temu", "pricing", "pricing_data_service.go"),
-		filepath.Join("..", "internal", "temu", "pricing", "store_config_service.go"),
 	}
 	for _, path := range paths {
 		content, err := os.ReadFile(path)
@@ -1727,23 +1697,6 @@ func TestTemuAPIClientUsesManagementAPIPortAliases(t *testing.T) {
 	}
 }
 
-func TestTemuPricingFallbackLogsUseCapabilityNames(t *testing.T) {
-	paths := []string{
-		filepath.Join("..", "internal", "temu", "pricing", "pricing_data_service.go"),
-		filepath.Join("..", "internal", "temu", "pricing", "store_config_service.go"),
-	}
-
-	for _, path := range paths {
-		content, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatalf("read %s: %v", path, err)
-		}
-		if strings.Contains(string(content), "management client") {
-			t.Fatalf("%s mentions management client in fallback logs; use pricing/store capability names", path)
-		}
-	}
-}
-
 func TestRetiredManagementServiceHotspotsUseCapabilityNames(t *testing.T) {
 	paths := []string{
 		filepath.Join("..", "internal", "sheinloginmanaged", "bridge.go"),
@@ -1790,12 +1743,6 @@ func TestRetiredManagementRuntimeNamingHotspotsUseCapabilityNames(t *testing.T) 
 		},
 		filepath.Join("..", "internal", "temu", "product", "submit_handler.go"): {
 			"management_api",
-		},
-		filepath.Join("..", "internal", "temu", "pricing", "auto_pricing_service.go"): {
-			"managementClient不能为空",
-		},
-		filepath.Join("..", "internal", "temu", "pricing", "pricing_decision_service.go"): {
-			"managementClient不能为空",
 		},
 		filepath.Join("..", "internal", "app", "bootstrap", "resources", "shared_resources.go"): {
 			"managementSchedulerFactoryRuntime",
@@ -2600,11 +2547,8 @@ func TestSheinRetiredManagementImportsStayBlocked(t *testing.T) {
 		filepath.Clean(filepath.Join(root, "pipeline", "processor.go")):                    {},
 		filepath.Clean(filepath.Join(root, "pipeline", "task.go")):                         {},
 		filepath.Clean(filepath.Join(root, "pipeline", "task_authorized_brand_test.go")):   {},
-		filepath.Clean(filepath.Join(root, "pricing", "auto_pricing.go")):                  {},
 		filepath.Clean(filepath.Join(root, "pricing", "calculator.go")):                    {},
 		filepath.Clean(filepath.Join(root, "pricing", "calculator_test.go")):               {},
-		filepath.Clean(filepath.Join(root, "pricing", "pricing_calculator.go")):            {},
-		filepath.Clean(filepath.Join(root, "pricing", "pricing_evaluator.go")):             {},
 		filepath.Clean(filepath.Join(root, "product", "skc", "skc_build_input.go")):        {},
 		filepath.Clean(filepath.Join(root, "product", "skc", "variant_runtime_test.go")):   {},
 		filepath.Clean(filepath.Join(root, "product", "sku", "sku_runtime_input.go")):      {},
@@ -2990,12 +2934,8 @@ func TestSharedPricingRetiredManagementImportsStayBlocked(t *testing.T) {
 
 func TestTEMUSyncAndPricingRetiredManagementImportsStayBlocked(t *testing.T) {
 	allowedFiles := map[string]struct{}{
-		filepath.Clean(filepath.Join("..", "internal", "temu", "pricing", "auto_pricing_service.go")):     {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "pricing", "interfaces.go")):               {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "pricing", "pricing_data_service.go")):     {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "pricing", "pricing_decision_service.go")): {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "pricing", "pricing_rule_calculator.go")):  {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "pricing", "store_config_service.go")):     {},
+		filepath.Clean(filepath.Join("..", "internal", "temu", "pricing", "interfaces.go")):              {},
+		filepath.Clean(filepath.Join("..", "internal", "temu", "pricing", "pricing_rule_calculator.go")): {},
 	}
 
 	for _, root := range []string{
