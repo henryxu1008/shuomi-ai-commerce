@@ -2,6 +2,8 @@
 
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
+> 后续已确认的[活动退休边界](legacy-shein-activity-retirement-boundary.md) §5–§7 在 #744 退出活动编排/reader/调度 DTO，并将有效规则解到无 IO 接缝。下列活动 reader/JSON/mapping 消费描述与保留待决定仅是本批次基线；当前两种属性仍由纯 SKU 成本规则消费并完整保留，不恢复 productsync 服务。
+
 - Status: **用户已确认 §5、§6、§7，按 Reuse Existing Architecture / Ready 在 #742 实施源码退休**；准确候选、CI 和独立最终检查以 PR 为准。
 - 调查基线：`main @ 08d55f930bf286aa857571542817dc5accff7687`；#740 已源码合并，实际 push/main CI 证据保留在原 PR。
 - 实施 Design Basis: **Reuse Existing Architecture**。用户确认的冻结设计2cd716969先于正式源码修改，#29/#301已记录Ready；复用原owner与合同，无新身份、权限、持久化、状态或副作用边界。原设计阶段N/A、设计CI/review保留为历史，不替代实施验证。

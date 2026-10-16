@@ -5,17 +5,9 @@ import (
 	"testing"
 
 	"task-processor/internal/shein/api/marketing"
-
-	"github.com/sirupsen/logrus"
 )
 
 func TestActivityStockValidation(t *testing.T) {
-	logger := logrus.NewEntry(logrus.New())
-
-	service := &activityRegistrationServiceImpl{
-		logger: logger,
-	}
-
 	tests := []struct {
 		name        string
 		totalStock  int
@@ -62,7 +54,7 @@ func TestActivityStockValidation(t *testing.T) {
 			}
 
 			// 计算活动库存
-			actStock := service.calculateActivityStock(product.Stock, tt.stockRatio)
+			actStock := calculateActivityStock(product.Stock, tt.stockRatio)
 
 			// 验证是否应该跳过
 			shouldSkip := actStock <= 0 || product.Stock <= 0
