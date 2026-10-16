@@ -1,6 +1,6 @@
 # own675：SHEIN 带入的最小复用安装方案
 
-状态：`PREPARED / NOT_AUTHORIZED_TO_EXECUTE`。本轮只读调查与方案文档；不执行 DDL、授权、凭据配置、店铺连接、业务保存或发布。
+状态：`INSTALLER_IMPLEMENTATION_AUTHORIZED / INSTALLATION_NOT_AUTHORIZED`。2026-10-16 用户批准补齐现有命令的增量入口及必要测试；保留环境仍不执行 DDL、授权、凭据配置、店铺连接、业务保存或发布。开发测试仅使用独立临时 PostgreSQL。
 
 执行 Issue：[#735](https://github.com/qq550723504/task-processor/issues/735)，主要 PR：[#736](https://github.com/qq550723504/task-processor/pull/736)。核对基线：`23a301245638d972a25b5e5d7c92b778c0a49452`，2026-10-16。实际执行前重新核对实例和候选，不把本次只读证据当作之后的运行验收。
 
@@ -12,7 +12,7 @@
 
 当前组合将 Target 与操作执行、官方发布回执、Asset、Temporal 一起准入。因此“只安装三张 Target 表”不能运行。此处的最小集合指**复用既有运行组合与 owner 安装单元的最低安装集合**，不是声称草稿保存本身需要全部发布表。若以后要将草稿运行与执行运行解耦，属于另一个明确的产品/实现范围，本方案不实施。
 
-依据：[供应链架构](../architecture/my-supply-chain-shein-v1.md)、[运行说明](my-supply-chain-shein-v1.md)、[带入合同](../architecture/completion-shein-import-v1.md)。方案文档的 Design Basis 为 N/A（只读调查与文档）；后续有界增量安装入口可按 Reuse Existing Architecture 填写准入，复用现有安装、权限、事务与精确数据库确认合同，不据本文直接开工或执行。
+依据：[供应链架构](../architecture/my-supply-chain-shein-v1.md)、[运行说明](my-supply-chain-shein-v1.md)、[带入合同](../architecture/completion-shein-import-v1.md)。方案最初为只读文档；当前有界入口阶段的 Design Basis 为 Reuse Existing Architecture，准入在 Issue #735 记录，复用现有安装、权限、事务与精确数据库确认合同。此实现授权不构成环境安装授权。
 
 ## 只读现状
 
@@ -95,6 +95,18 @@ Temporal 复用仓库已固定的官方镜像 `temporalio/temporal@sha256:cf8670
 既有 `privateDraftTrial` 只有七个 GET、没有规则或保存能力，且与当前 CompletionDraft 配置冲突，不能用它替代本次带入确认。
 
 ## 增量入口和执行顺序
+
+### 已批准实现范围的入口合同
+
+入口为 `product-acquisition-init --config <私有owner-manifest> --enable-supply-chain --confirm-database <准确Product数据库名>`。`--enable-supply-chain` 与 `--confirm-empty-database`、其他 feature 增量开关互斥；拒绝额外位置参数。保留原空库与 plan/completion 入口语义。增量 manifest 明确 `collections:true,supplyCompletionDrafts:true,supplyChain:true`，本阶段不组合其他可选 capability，避免把未授权功能的安装混入。
+
+维护连接沿现有私有文件、literal loopback、准确数据库名和 30 秒 context；不接受 runtime 身份。数据库中现有 14 张 public 基线表必须归同一当前维护 owner、满足现有 owner schema/keys 与当前 runtime allow/deny 合同，不能用其他同名表/角色继承或凭据轮换取得准入。
+
+同一个 Product 事务与既有 advisory lock 串行首次安装和重入。首次只对新 11 表执行现有 owner 安装器，新增授权只覆盖上表的 10 张 runtime 表，既有 14 表 ACL、表 owner 和数据不改。全部 11 表已存在时只读核实 owner、schema、约束和完整权限，不再次安装或补授权。缺失部分表或任一不匹配即拒绝。事务失败或超时不留下部分 DDL/GRANT，提交响应不确定时原命令重入核实已完成结果，不建新的安装事实源。
+
+维护核对复用现有 runtime 权限查询中的同一 allow/deny 清单，以固定 `source_acquisition_runtime` 为 catalog 检查对象；普通运行连接仍检查实际 session/current user，维护检查不能变成 serving 准入。没有 `SET ROLE`、运行凭据读取、role 创建/继承、全库 REVOKE 或默认授权变更。新表的 Review 校验归既有 Review owner，不能只凭表名把漂移误认成完成。
+
+验证：CLI 互斥/准确确认/严格 manifest；隔离 PostgreSQL 中的真实非空基线保留、精确新增权限、重入及并发、非 owner/部分安装/结构或权限漂移拒绝、事务后段失败回滚与有界取消。复用现有测试依赖，不建安装/验收平台；不访问 own675、对象存储或真实 SHEIN。
 
 增量入口采用既有 owner manifest、精确数据库名确认、`source-acquisition-init` 事务锁及 bounded context 的模式。安装目标仅 `product_acquisition`，要求维护身份为既有 owner、原 14 表和能力仍有效；DDL 与**新增表的精确 grant 增量**在同一 Product 事务内提交。复用 `InstallSupplyChainSchema` 及其 owner 安装器，安装前检查现有两张 Preparation 表；不得调用空库初始化或全局 `GrantRuntimePermissions` 清空后重授原权限。
 
