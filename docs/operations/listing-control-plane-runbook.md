@@ -2,9 +2,21 @@
 
 > Status: active operational runbook.
 >
-> Last reviewed: 2026-07-09.
+> Bounded retirement calibration: 2026-10-16 (#723); original control-plane contract retained.
 >
 > Scope: `cmd/listing-control-plane`, dispatch/recovery control loops, validation, smoke checks, and operator troubleshooting.
+
+## #723 retained-producer boundary
+
+The three legacy listing CLIs and their exclusive consumer/scheduler chain are
+source-retired. Control-plane/taskstatus/claim/dispatch/recovery contracts remain,
+so this is not full numeric-task-chain closure. The mixed SHEIN overlay retains
+control-plane and ownership-controller declarations; the latter still references
+its historical image and is not rebuilt from this source. Source retention is not
+permission to start, update or stop instances or handle inflight effects/data.
+Actual old-runtime cutover belongs to its separately authorized runtime owner;
+this is not a new prerequisite for current internal trials. See the
+[confirmed boundary](../architecture/legacy-listing-cli-retirement-boundary.md).
 
 ## 1. Purpose
 
@@ -70,7 +82,8 @@ Build the maintained runtime commands:
 
 ```powershell
 go build ./cmd/listing-control-plane
-go build ./cmd/shein-listing
+go build ./cmd/current-application
+go build ./cmd/shein-login-worker
 ```
 
 If dependency analysis is needed, keep generated output local:
@@ -110,14 +123,13 @@ Before treating a control-plane change as releasable, confirm:
 
 ```text
 [ ] cmd/listing-control-plane builds.
-[ ] cmd/shein-listing builds.
+[ ] current-application and standalone shein-login-worker build.
 [ ] control-plane race tests pass or failures are classified.
 [ ] listingadmin dispatch/rollback/recovery race tests pass or failures are classified.
 [ ] go test ./... -count=1 passes or failures are explicitly documented.
 [ ] leader status is visible in logs or runtime health output.
 [ ] dispatch cycle logs distinguish claimed, skipped, failed, and recovered work.
 [ ] recovery cycle logs distinguish no-op, recovered, skipped, and failed work.
-[ ] SHEIN listing browser startup path remains covered by the rollout smoke checklist when SHEIN runtime is part of the release.
 ```
 
 ## 6. Operational signals to watch
