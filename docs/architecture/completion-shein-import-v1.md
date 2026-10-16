@@ -1,7 +1,7 @@
 # CompletionDraft → SHEIN Target 带入预览与确认
 
 Design Basis: Independent Architecture
-Admission Status: NOT_READY — 待独立高风险边界检查，生产代码尚未修改。
+Admission Status: IMPLEMENTATION_READY — 2026-10-16 独立 R1 核对设计提交 83f34ad3698beb51be17f808b25b9c98a05a54f3，无架构 BLOCKER；按本基线实施。
 
 ## Authority / Outcome
 
@@ -21,7 +21,7 @@ TargetInput 新增可选 `sheinImport`，仅 SHEIN 可用：baseRecordId、固�
 
 selection 中标题/描述是布尔选择。属性项用候选数组 index、目标 attributeId、可选 optionId；不得重复来源或目标属性。目标要求 type 3/4、dimension 1、show=1、status 非停用、mode 已知。mode 0 用候选值作整数；其他 mode 显式选择已有可见 option；mode 4 的 extra_value 用候选原值，其他 mode 不携带 extra_value。替换所选目标 attributeId 的全部旧值，其他属性保留，不映射销售/尺码/SKC/SKU 属性。完整业务合法性仍归现有 goods.BuildOfficial，问题不伪装为 Ready。
 
-SKU 项固定 sourceIndex → skcIndex/skuIndex，双方唯一、有界且至少选择 price/stock 一项；从固定候选结构读取数值，不能由请求另填。价格按当前 application mode 及 currency 严格匹配，采用原单位/表示，无转换/舍入。自营只覆盖目标价格列表为 USD/she in-us 单项；托管只覆盖 cost_info，其余原价字段保留。库存覆盖明确选中 warehouse ID 的一项，其他仓保留；无仓/全托管只能覆盖唯一无仓项，有歧义的已有仓项拒绝。未填写禁止选择，0 与省略区分。数量和数组限制沿原合同，映射最多 256 属性/256 SKU。
+SKU 项固定 sourceIndex → skcIndex/skuIndex，双方唯一、有界且至少选择 price/stock 一项；从固定候选结构读取数值，不能由请求另填。价格按当前 application mode 及 currency 严格匹配，采用原单位/表示，无转换/舍入。自营只覆盖目标价格列表为 USD/shein-us 单项；托管只覆盖 cost_info，其余原价字段保留。库存覆盖明确选中 warehouse ID 的一项，其他仓保留；无仓/全托管只能覆盖唯一无仓项，有歧义的已有仓项拒绝。未填写禁止选择，0 与省略区分。数量和数组限制沿原合同，映射最多 256 属性/256 SKU。
 
 服务端从基线完整 draft 深拷贝、按 selection 派生唯一输出，不能信任客户端全量 draft。预览读取基线规则后映射，再按结果读取当前规则（包含 linked 规则）；按新规则重算同一输出，不一致/失效即拒绝。返回完整 input 及规则/商户绑定 hash，页面以该 input 展示变化，编辑映射即清除预览，只有显式确认可提交。
 
@@ -46,3 +46,5 @@ Legacy decision: N/A。复用当前 Target/Completion/Store/规则 owner，不�
 TDD 覆盖固定旧候选/源错配、显式一对一映射、空/零、币种和仓库、只覆盖选中字段、篡改完整 payload、规则/商户漂移、目标并发 409、scope、原 key replay。使用现有 domain/HTTP/SQL fixture 和 Console 测试，不新建验证平台。前端验证独立页、前后预览、修改后重新预览、409 显式重读、UNKNOWN 原命令恢复、主题及返回上下文。沿既有必要 CI；真实 Store/provider、保留实例与产品验收 NOT_RUN，分别授权/确认。
 
 适用两个检查点：本合同独立高风险边界检查，以及完整实现后的最终交付检查；不增加常驻多 writer 或重复全局架构审查。
+
+R1 finding：IMPLEMENTATION_TEST（合并层）：带入保存及原键回执核对必须比较完整规范 TargetInput 和本次 Rm+1，不能仅比较 source/store/version 元数据；沿原恢复协议补测试和最小修复。
