@@ -4,7 +4,7 @@ Refs [#733](https://github.com/qq550723504/task-processor/issues/733)。
 
 - Product Decision：**PD-WALMART-US-MULTIMERCHANT-V1-2026-10-16**。用户确认美国站、开放给多个商家，并确认首期范围；平台申请由用户自行处理。
 - Design Basis：**Independent Architecture**。
-- Admission Status：**NOT_READY / DESIGN_REVIEW_PENDING**。本文件是设计候选；独立检查完成前不修改正式生产路径。
+- Admission Status：**IMPLEMENTATION_READY / FROZEN**。2026-10-16 第一轮独立只读架构检查未发现设计 BLOCKER；证据与所审候选记录在 [PR #734](https://github.com/qq550723504/task-processor/pull/734)。本阶段仍只授权设计，不自动启动生产实现。
 - 调查基线：main `db47d15e563c0ced7469ba12d251d8c7be1da4dd`，2026-10-16；一个 Writer，分支 `codex/walmart-us-design`。
 - 当前授权仅覆盖设计、必要调查、文档检查及主要 PR；设计准入不自动启动实施、部署或真实平台操作。
 
@@ -218,4 +218,11 @@ Legacy decision: **EXTRACT | RETIRE**。
 
 ## 13. 独立检查与 finding 处置
 
-候选形成后执行一次独立只读架构检查，绑定实际提交；按 AGENTS.md 先分类，正常最多两轮。当前：PENDING。准入状态与实际评审证据在 #733/主要 PR 记录；尚未发生的检查不写 PASS。
+2026-10-16 第一轮独立只读架构检查已完成，结论 **IMPLEMENTATION_READY**，无设计 BLOCKER；所审候选和准确证据见 #733/[PR #734](https://github.com/qq550723504/task-processor/pull/734)。最终候选同步 main 的增量仅 Skill 三个文件，与本设计和所审 Store/Submission 合同无交叉。以下为已由设计覆盖、在实施和验证层收敛的义务，分类均为 **IMPLEMENTATION_TEST**；当前 Must 未通过时仍阻止实现切片合并，不重开冻结架构：
+
+1. M4：pending/UNKNOWN Feed 必须挡住第二次发送，failed-SKU 修复须与原完整证据、准确子集和 target fence 在同事务核对；不重发成功 SKU。
+2. M1：永久商家 identity 不含 appID/token；跨应用、断开/重授权和跨企业冲突不能重占或覆盖原绑定。
+3. M1/M4：code/refresh 的单次 claim、token generation、迟到结果、响应丢失与 commit-unknown 均使用原持久事实，不回退或盲重发。
+4. M5/M6：正常 Console/BFF/Operation/worker/result consumer 必须分开受理、逐 SKU ingestion 与真实 publication，不能从 kernel succeeded 投影平台已发布。
+
+本批不增加 Accepted Risk 或新验证平台。设计准入不是产品验收；业务实现、真实平台与用户试用仍未执行。
