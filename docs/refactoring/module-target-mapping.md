@@ -152,7 +152,7 @@ Current target ownership domains include:
 | `internal/ledger/orgresource` | Organization platform-resource balance/events/reservations | `internal/ledger/orgresource` + `internal/integration/orgresource` | CURRENT resource owner. Commercial acquisition may enter only through the narrow source-bound purchased-resource grant; no generic browser mint. |
 | `internal/commercial/billing` | sellable offer / authoritative quote / commercial order and recovery coordination | `internal/commercial/billing` | TARGET/CURRENT landing zone introduced by #457. It composes money and resource owners and must not duplicate their balances or settlement facts. |
 | `internal/platformtask` | task execution helpers | `internal/listing/task` or runtime owner such as Temporal/queue | Business task semantics and runtime execution stay separate. |
-| `internal/taskstatus` | task status helpers | owning listing/runtime domain or `internal/shared` for truly generic primitives | Do not make internal Task the user product model. |
+| retired `internal/taskstatus` / `internal/app/taskstatus` | old numeric task status helpers | current owning domains; no replacement numeric executor | **RETIRE: absent after #729; keep absent.** |
 | old `internal/catalog` | old canonical product package | `internal/product/catalog` | **RETIRE: package is already absent; keep it absent.** |
 | old `internal/asset` | old asset package | `internal/product/asset` | **RETIRE: package is already absent; keep it absent.** |
 | old `internal/imageasset` | old image/asset helpers | `internal/product/image` or `internal/product/asset` | **RETIRE: package is already absent; extract only if a still-valid behavior is rediscovered.** |
@@ -165,7 +165,7 @@ Current target ownership domains include:
 | `internal/aicapability` | current model capability/routing/policy/cost foundation | current AI Capability/Agent control-plane owner + persistence adapters | #126/#130 stabilize before Product Agent main implementation. |
 | `internal/prompt` / `internal/promptmgmt` | prompt contracts, persistence, management transport | Agent/prompt owner + integration persistence + app transport | Split domain contract, persistence, and HTTP assembly. |
 | `internal/crawler` | historical crawler implementations | `internal/integration/crawler/*` | Crawler owns extraction/runtime, not canonical Product facts. |
-| `internal/amazon` | mixed Amazon source/target logic | `internal/marketplace/amazon/*` + `internal/integration/crawler/amazon` | Keep source and target listing concepts separate. |
+| `internal/amazon/*` retained subpackages | Amazon API/rules/models/pipeline; root task executor retired by #729 | `internal/marketplace/amazon/*` + `internal/integration/crawler/amazon` | Keep source and target listing concepts separate. |
 | `internal/amazonlisting` | Amazon listing behavior | `internal/marketplace/amazon/*` / listing seams | Extract platform rules; do not copy a platform Workbench. |
 | `internal/shein` | mixed SHEIN logic | `internal/marketplace/shein/*` + `internal/integration/shein` | Separate API/client integration from platform business rules. |
 | `internal/publishing/shein` | historical SHEIN publishing shell | `internal/marketplace/shein/*` / existing submission owner | Extract valid rule/transport behavior; retire shell after callers switch. |
@@ -186,7 +186,7 @@ Current target ownership domains include:
 | `internal/kernel` / `internal/core` / `internal/pkg` | generic/cross-cutting helpers | `internal/platform/*`, `internal/shared`, or a named domain | Avoid new dumping grounds. |
 | `internal/validation` | generic validation primitives | `internal/shared/validation` or deterministic validator owner when business-specific | #34 owns readiness/validator business contract. |
 | `internal/state` | generic state handling | runtime or business state owner | State machines must have one named owner. |
-| `internal/processor` / `internal/pipeline` | mixed orchestration | app worker, Product sourcing, Listing workflow, or runtime owner | Split by business/side-effect ownership. |
+| `internal/pipeline` (numeric `internal/processor` retired by #729) | remaining orchestration | app worker, Product sourcing, Listing workflow, or runtime owner | Split by business/side-effect ownership. |
 | `internal/ports` / `internal/domain` / `internal/model` | broad aggregation packages | local owning domains | Prefer local contracts/models over global catch-alls. |
 | `internal/scheduler` | scheduling runtime | app worker / platform queue/Temporal | Runtime only. |
 | `internal/sourceaccount` + unconstructed 1688 numeric queue/Profile chain + unregistered `app/productsourcing/httpapi` | old package, numeric import HTTP/DTO, queue Service/worker, numeric Profile/account-assisted methods and unused shared source-account metadata retired under #301 | `internal/sourceaccountregistry` + its existing persistence for current registration; current sourcing/acquisition/Browser Capture owners, original public browser/processor, local-agent and shared HTTP/result owners retain valid behavior | **RETIRE:** keep absent without wrapper, old-table/profile reuse or ID mapping. Registration is not a connected-account guarantee. Shared trusted TenantID, task/result state, scoped protections, infrastructure and the independent SHEIN worker remain unchanged. |
@@ -275,7 +275,7 @@ Do not add a new internal compatibility wrapper just because retirement is incon
 
 | New work type | Preferred landing zone | Do not default to |
 | --- | --- | --- |
-| Amazon source crawler | `internal/integration/crawler/amazon` | mixed `internal/amazon`, old crawler roots |
+| Amazon source crawler | `internal/integration/crawler/amazon` | retained Amazon subpackages and old crawler roots; root numeric executor absent |
 | 1688 source crawler | `internal/integration/crawler/a1688` | `internal/crawler/alibaba1688`, compatibility handoff |
 | Source normalization / lineage | `internal/product/sourcing` | crawler DTOs, root ListingKit |
 | Product facts/assets/enrichment/image | `internal/product/{catalog,asset,enrichment,image}` | retired ProductEnrich/ProductImage/catalog/asset roots |

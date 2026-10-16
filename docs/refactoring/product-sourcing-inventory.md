@@ -1,5 +1,11 @@
 # Product Sourcing Inventory
 
+> #729 current calibration: the numeric task executor and exclusive distributed
+> fetcher/client/queue wiring are retired. Earlier implemented-step notes about
+> app/crawler/fetcher/distributed paths are historical evidence, not current runtime
+> entrypoints. Valid source-request, local/remote fetcher, source integration, cache
+> and platform rules stay with their existing owners; no fallback or new trial gate.
+
 > Status: initial inventory for moving source-input ownership toward `internal/product/sourcing` and `internal/integration/crawler/*`.
 
 ## 1. Purpose
