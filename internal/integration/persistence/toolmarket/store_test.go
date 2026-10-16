@@ -52,9 +52,22 @@ func create() tm.Command {
 func TestCompleteDemandFilesAreAtomicPrivateAndUsableByRuntimeRole(t *testing.T) {
 	db, owner := fixture(t)
 	require.NoError(t, db.Exec("DO $$ BEGIN IF NOT EXISTS(SELECT FROM pg_roles WHERE rolname='tool_market_runtime') THEN CREATE ROLE tool_market_runtime LOGIN PASSWORD 'isolated-test-only'; END IF; END $$").Error)
-	require.NoError(t, db.Exec("GRANT USAGE ON SCHEMA tool_market TO tool_market_runtime").Error)
-	require.NoError(t, db.Exec("GRANT SELECT,INSERT,UPDATE ON tool_market.activations,tool_market.requests,tool_market.commands TO tool_market_runtime").Error)
-	require.NoError(t, db.Exec("GRANT SELECT,INSERT ON tool_market.events,tool_market.attachments TO tool_market_runtime").Error)
+	// Exercise the actual fresh-install serving grants, so this test cannot hide
+	// a missing bootstrap permission behind a richer hand-written test role.
+	bootstrap, err := os.ReadFile("../../../../deployments/docker/account-compose/native-modules-init.sh")
+	require.NoError(t, err)
+	_, block, ok := strings.Cut(strings.ReplaceAll(string(bootstrap), "\r\n", "\n"), "psql -X -v ON_ERROR_STOP=1 -d tool_market <<'SQL'\n")
+	require.True(t, ok)
+	block, _, ok = strings.Cut(block, "\nSQL")
+	require.True(t, ok)
+	grants := 0
+	for _, line := range strings.Split(block, "\n") {
+		if strings.HasPrefix(line, "GRANT ") {
+			require.NoError(t, db.Exec(line).Error)
+			grants++
+		}
+	}
+	require.Positive(t, grants)
 	var database string
 	require.NoError(t, db.Raw("SELECT current_database()").Scan(&database).Error)
 	u, err := url.Parse(os.Getenv("TOOLMARKET_TEST_DSN"))
