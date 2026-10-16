@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"github.com/google/uuid"
+	"net/http"
 	"strings"
 	"task-processor/internal/authidentity"
 	"time"
@@ -28,6 +29,9 @@ const AcquisitionID = "product-acquisition"
 // EventPageSize leaves room for the request and worst-case JSON escaping of
 // every permitted note/description inside the existing 256 KiB response cap.
 const EventPageSize = 16
+const MaxFileBytes = 2 << 20
+const MaxCreateBytes = 9 << 20
+const ConsentVersion = "tool-customization-contact-v1"
 
 type Scope struct{ OrganizationID, ActorID string }
 
@@ -45,13 +49,57 @@ func bounded(s string, n int, multiline bool) bool {
 }
 
 type Demand struct {
-	Kind        string `json:"kind"`
-	Title       string `json:"title"`
-	Description string `json:"description"`
+	Kind          string   `json:"kind"`
+	Title         string   `json:"title"`
+	Description   string   `json:"description"`
+	Scenario      string   `json:"scenario"`
+	ContactName   string   `json:"contactName"`
+	ContactMethod string   `json:"contactMethod"`
+	Consent       bool     `json:"consent"`
+	Files         []Upload `json:"files,omitempty"`
 }
 
 func (d Demand) Valid() bool {
-	return (d.Kind == "DATA" || d.Kind == "CONNECTION" || d.Kind == "AUTOMATION" || d.Kind == "OUTPUT") && bounded(d.Title, 120, false) && bounded(d.Description, 4000, true)
+	if !(d.Kind == "DATA" || d.Kind == "CONNECTION" || d.Kind == "AUTOMATION" || d.Kind == "OUTPUT") || !bounded(d.Title, 120, false) || !bounded(d.Description, 4000, true) || !bounded(d.Scenario, 240, false) || !bounded(d.ContactName, 80, false) || !bounded(d.ContactMethod, 160, false) || !d.Consent || len(d.Files) > 3 {
+		return false
+	}
+	for _, f := range d.Files {
+		if !bounded(f.Name, 200, false) || strings.ContainsAny(f.Name, "/\\") {
+			return false
+		}
+		if _, err := FileType(f.Data); err != nil {
+			return false
+		}
+	}
+	return true
+}
+
+type Upload struct {
+	Name string `json:"name"`
+	Data []byte `json:"data"`
+}
+type Attachment struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	ContentType string `json:"contentType"`
+	Size        int    `json:"size"`
+	SHA256      string `json:"sha256"`
+}
+
+func FileType(data []byte) (string, error) {
+	if len(data) == 0 || len(data) > MaxFileBytes {
+		return "", ErrInvalid
+	}
+	typ := http.DetectContentType(data)
+	switch typ {
+	case "application/pdf", "image/png", "image/jpeg":
+		return typ, nil
+	case "text/plain; charset=utf-8":
+		if utf8.Valid(data) {
+			return typ, nil
+		}
+	}
+	return "", ErrInvalid
 }
 
 type Progress struct {
@@ -96,10 +144,13 @@ type Request struct {
 	ID             string `json:"id"`
 	OrganizationID string `json:"organizationId"`
 	Demand
-	Stage     string    `json:"stage"`
-	Revision  string    `json:"revision"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
+	CreatedBy      string       `json:"createdBy"`
+	ConsentVersion string       `json:"consentVersion"`
+	Attachments    []Attachment `json:"attachments"`
+	Stage          string       `json:"stage"`
+	Revision       string       `json:"revision"`
+	CreatedAt      time.Time    `json:"createdAt"`
+	UpdatedAt      time.Time    `json:"updatedAt"`
 }
 type Event struct {
 	Revision   string    `json:"revision"`
@@ -161,6 +212,7 @@ type Repository interface {
 	Activations(context.Context, Scope) ([]Activation, error)
 	Requests(context.Context, Scope, bool, string, int) (RequestPage, error)
 	Detail(context.Context, Scope, bool, string, string) (Detail, error)
+	Download(context.Context, Scope, bool, string, string) (Attachment, []byte, error)
 	// beforeApply checks current capability only for a new application. Durable
 	// receipts replay after fresh authorization even when capability is offline.
 	Execute(context.Context, Command, func(context.Context) error, ...func(context.Context) error) (Receipt, error)

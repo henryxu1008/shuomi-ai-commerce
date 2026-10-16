@@ -22,7 +22,7 @@ afterEach(() => { cleanup(); vi.unstubAllEnvs(); fixture.redirect.mockReset(); f
 
 it.each([
   [AgentsPage, "按岗位启用智能体，打造属于自己的AI电商团队"],
-  [ToolsPage, "按业务场景启用工具，让智能体获得可靠执行能力"],
+  [ToolsPage, "连接工具能力，让业务流程更高效"],
   [StorePage, "统一管理店铺、商品与订单，让经营链路更清晰"],
   [WorkbenchPage, "经营全局，一屏掌握"],
   [AIPage, "AI工作台"],
@@ -37,7 +37,7 @@ it("keeps the tools introduction when its owner is not mounted without advertisi
   vi.stubEnv("LISTINGKIT_TOOL_MARKET_ENABLED", "false");
   render(<ToolsPage />);
   expect(fixture.redirect).not.toHaveBeenCalled();
-  expect(screen.getByRole("heading", { name: "如何开始使用" })).toBeVisible();
+  expect(screen.getByRole("heading", { name: "标准工具使用流程" })).toBeVisible();
   expect(screen.queryByRole("link", { name: /浏览官方工具/ })).not.toBeInTheDocument();
 });
 

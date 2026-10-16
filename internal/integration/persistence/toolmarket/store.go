@@ -61,7 +61,7 @@ func VerifySchema(ctx context.Context, db *gorm.DB) error {
 	if db == nil {
 		return tm.ErrUnavailable
 	}
-	for _, q := range []string{"SELECT organization_id,tool_id,enabled,revision,updated_by,updated_at FROM tool_market.activations LIMIT 0", "SELECT id,organization_id,created_by,kind,title,description,stage,revision,created_at,updated_at FROM tool_market.requests LIMIT 0", "SELECT request_id,revision,stage,note,actor_id,occurred_at FROM tool_market.events LIMIT 0", "SELECT organization_id,actor_id,idempotency_key,fingerprint,receipt FROM tool_market.commands LIMIT 0"} {
+	for _, q := range []string{"SELECT organization_id,tool_id,enabled,revision,updated_by,updated_at FROM tool_market.activations LIMIT 0", "SELECT id,organization_id,created_by,kind,title,description,scenario,contact_name,contact_method,consent,consent_version,stage,revision,created_at,updated_at FROM tool_market.requests LIMIT 0", "SELECT id,request_id,name,content_type,sha256,size,data FROM tool_market.attachments LIMIT 0", "SELECT request_id,revision,stage,note,actor_id,occurred_at FROM tool_market.events LIMIT 0", "SELECT organization_id,actor_id,idempotency_key,fingerprint,receipt FROM tool_market.commands LIMIT 0"} {
 		if e := db.WithContext(ctx).Exec(q).Error; e != nil {
 			return tm.ErrUnavailable
 		}
@@ -83,11 +83,50 @@ type requestRow struct {
 	ID, OrganizationID, CreatedBy, Kind, Title, Description, Stage string
 	Revision                                                       int64
 	CreatedAt, UpdatedAt                                           time.Time
+	Scenario, ContactName, ContactMethod, ConsentVersion           string
+	Consent                                                        bool
 }
 
 func (requestRow) TableName() string { return "tool_market.requests" }
 func (r requestRow) view() tm.Request {
-	return tm.Request{ID: r.ID, OrganizationID: r.OrganizationID, Demand: tm.Demand{Kind: r.Kind, Title: r.Title, Description: r.Description}, Stage: r.Stage, Revision: strconv.FormatInt(r.Revision, 10), CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt}
+	return tm.Request{ID: r.ID, OrganizationID: r.OrganizationID, Demand: tm.Demand{Kind: r.Kind, Title: r.Title, Description: r.Description, Scenario: r.Scenario, ContactName: r.ContactName, ContactMethod: r.ContactMethod, Consent: r.Consent}, CreatedBy: r.CreatedBy, ConsentVersion: r.ConsentVersion, Attachments: []tm.Attachment{}, Stage: r.Stage, Revision: strconv.FormatInt(r.Revision, 10), CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt}
+}
+
+type attachmentRow struct {
+	ID, RequestID, Name, ContentType, SHA256 string
+	Size                                     int
+	Data                                     []byte
+}
+
+func (attachmentRow) TableName() string { return "tool_market.attachments" }
+func (r attachmentRow) view() tm.Attachment {
+	return tm.Attachment{ID: r.ID, Name: r.Name, ContentType: r.ContentType, Size: r.Size, SHA256: r.SHA256}
+}
+
+func (s *Store) Download(ctx context.Context, scope tm.Scope, platform bool, id, file string) (tm.Attachment, []byte, error) {
+	if !scope.Valid(platform) {
+		return tm.Attachment{}, nil, tm.ErrForbidden
+	}
+	if !tm.UUID(id) || !tm.UUID(file) {
+		return tm.Attachment{}, nil, tm.ErrInvalid
+	}
+	q := s.db.WithContext(ctx).Table("tool_market.attachments AS a").Select("a.*").Joins("JOIN tool_market.requests AS r ON r.id=a.request_id").Where("a.id=? AND a.request_id=?", file, id)
+	if !platform {
+		q = q.Where("r.organization_id=?", scope.OrganizationID)
+	}
+	var row attachmentRow
+	if err := q.Take(&row).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return tm.Attachment{}, nil, tm.ErrNotFound
+		}
+		return tm.Attachment{}, nil, err
+	}
+	hash := sha256.Sum256(row.Data)
+	typ, err := tm.FileType(row.Data)
+	if err != nil || len(row.Data) != row.Size || hex.EncodeToString(hash[:]) != row.SHA256 || typ != row.ContentType {
+		return tm.Attachment{}, nil, tm.ErrUnavailable
+	}
+	return row.view(), row.Data, nil
 }
 
 type eventRow struct {
@@ -173,6 +212,13 @@ func (s *Store) Detail(ctx context.Context, scope tm.Scope, platform bool, id, e
 		return result, e
 	}
 	result.Request = r.view()
+	files := []attachmentRow{}
+	if e := s.db.WithContext(ctx).Select("id,request_id,name,content_type,sha256,size").Where("request_id=?", id).Order("id").Limit(3).Find(&files).Error; e != nil {
+		return result, e
+	}
+	for _, f := range files {
+		result.Request.Attachments = append(result.Request.Attachments, f.view())
+	}
 	rows := []eventRow{}
 	events := s.db.WithContext(ctx).Where("request_id=? AND revision<=?", id, r.Revision)
 	if eventsBefore != "" {
@@ -275,9 +321,19 @@ func (s *Store) Execute(ctx context.Context, c tm.Command, guard func(context.Co
 				result.Revision = strconv.FormatInt(a.Revision+1, 10)
 			}
 		case "create":
-			demand = requestRow{ID: uuid.NewString(), OrganizationID: org, CreatedBy: c.Scope.ActorID, Kind: c.Demand.Kind, Title: c.Demand.Title, Description: c.Demand.Description, Stage: "SUBMITTED", Revision: 1, CreatedAt: now, UpdatedAt: now}
+			demand = requestRow{ID: uuid.NewString(), OrganizationID: org, CreatedBy: c.Scope.ActorID, Kind: c.Demand.Kind, Title: c.Demand.Title, Description: c.Demand.Description, Scenario: c.Demand.Scenario, ContactName: c.Demand.ContactName, ContactMethod: c.Demand.ContactMethod, Consent: c.Demand.Consent, ConsentVersion: tm.ConsentVersion, Stage: "SUBMITTED", Revision: 1, CreatedAt: now, UpdatedAt: now}
 			if e := tx.Create(&demand).Error; e != nil {
 				return e
+			}
+			for _, f := range c.Demand.Files {
+				typ, err := tm.FileType(f.Data)
+				if err != nil {
+					return err
+				}
+				hash := sha256.Sum256(f.Data)
+				if e := tx.Create(&attachmentRow{ID: uuid.NewString(), RequestID: demand.ID, Name: f.Name, ContentType: typ, SHA256: hex.EncodeToString(hash[:]), Size: len(f.Data), Data: f.Data}).Error; e != nil {
+					return e
+				}
 			}
 			result.ID = demand.ID
 			result.Revision = "1"

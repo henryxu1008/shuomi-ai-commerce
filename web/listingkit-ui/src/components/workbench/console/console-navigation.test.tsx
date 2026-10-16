@@ -7,6 +7,13 @@ import { ConsoleNavigation } from "./console-navigation";
 import { findConsoleRoute } from "@/lib/workbench/console-navigation";
 
 const query=vi.hoisted(()=>({value:""}));
+it("uses the installed tool capability for both customization children", () => {
+  const view=render(<ConsoleNavigation pathname="/workbench/tools/custom/new" ariaLabel="主导航" toolMarketAvailable />);
+  expect(screen.getByRole("link", {name:"提交定制需求"})).toHaveAttribute("aria-current","page");
+  expect(screen.getByRole("link", {name:"定制进度"})).toHaveAttribute("title","定制进度");
+  view.rerender(<ConsoleNavigation pathname="/workbench/tools/custom/new" ariaLabel="主导航" />);
+  expect(screen.getByRole("link", {name:"提交定制需求"})).toHaveAttribute("title","提交定制需求：业务暂未启用");
+});
 it("opens native completion navigation while official adaptation and upload remain closed",()=>{
  render(<ConsoleNavigation pathname="/workbench/supply/mine/missing" ariaLabel="主导航" supplyPreparationAvailable supplyCompletionDraftsAvailable/>);
  for(const name of ["待适配","待补全"])expect(screen.getByRole("link",{name})).toHaveAttribute("title",name);
