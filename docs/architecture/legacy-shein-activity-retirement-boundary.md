@@ -2,16 +2,16 @@
 
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
-- Status: **DESIGN_ONLY / 待用户确认；没有实施准入**。本候选只提交本设计和索引，不修改生产、测试、guard 或 workflow。
+- Status: **用户已确认冻结设计1be544ce5 §5、§6、§6.1、§7，按 Reuse Existing Architecture / Ready 在 #744 实施源码退休**；准确实现候选、CI 和独立检查以 PR 为准。
 - 调查基线：`main @ 77f5f933baf031034c68bc9dba310bbcdaea0384`。#743 的合并与 push/main CI 归原 PR；不作为本设计候选的直接验证结果。
-- 本轮 Design Basis: **N/A**，原因是只读调查与纯文档，不改变业务、领域合同、状态、权限、持久化或外部副作用。未来源码实施拟走 **Reuse Existing Architecture**，须先经用户确认 §5、§6、§6.1、§7，并在 Issue 记录引用、不变量及 Ready；当前不是 IMPLEMENTATION_READY 或 Ready。
+- 实施 Design Basis: **Reuse Existing Architecture**。用户确认的冻结设计1be544ce5先于生产修改，#29/#301 已记录 Ready、单 Writer、原 owner/不变量与准确消费者刷新；不新增当前事实、公共领域合同、权限、状态或副作用边界。原设计阶段 N/A、设计 CI/review 仅作历史，不替代实施证据。
 - 用户边界：保留营销 API、有效规则、共享合同、两种 SHEIN 属性类型、PriceManager/PriceCalculator、当前采集、Store 观察同步、独立 SHEIN 登录 worker 及其 Store 同步；两套 workflow 不改，不操作实例或数据，不增加内部试用前置。
 
 ## 1. 用户结果、Scope 与 Out of Scope
 
 使用者是维护内部试用源码、平台 API/规则与独立登录 worker 的维护者。交付是可逐项确认的服务退出、规则保留和持久化边界，避免复活没有当前装配的活动服务，也避免以“整包无入口”为由删除有效公式、库存与每 SKU 安全规则。本轮没有新增试用阻塞或用户操作前置。
 
-调查覆盖 `internal/shein/activity` 的活动报名、常规/限量促销配置保存与开启、活动快照会话、限时折扣查询/算价/创建，以及专属 Store/Mapping/ProductData reader。仅设计源码退休，不开发新的营销产品、UI/菜单、定时执行器、批量报名、恢复/幂等系统或验证平台。无需新开源依赖，复用原 API、Go、现有规则和测试工具。
+调查覆盖 `internal/shein/activity` 的活动报名、常规/限量促销配置保存与开启、活动快照会话、限时折扣查询/算价/创建，以及专属 Store/Mapping/ProductData reader。仅做确认范围的源码退休，不开发新的营销产品、UI/菜单、定时执行器、批量报名、恢复/幂等系统或验证平台。无需新开源依赖，复用原 API、Go、现有规则和测试工具。
 
 不读取真实配置/凭据、数据库、Redis、Profile 或平台状态；不启动命令 main，不执行平台 dry-run、实例启停/部署、数据迁移/清理/补写、活动开关/撤回/重放；不处理其他活跃批次。
 
@@ -24,7 +24,7 @@ Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](htt
 - [独立 SHEIN worker 身份/持久化](shein-worker-identity-persistence-boundary.md)：登录账号、Cookie/attempt、Redis/browser/Profile、同 tenant 查重及 Store 同步保持原 owner、格式和恢复边界。
 - [当前 Store](store-center-current-application-v1.md)、[Store observations](store-center-platform-observations-v1.md)、[准备接线](store-observations-preparation-runtime.md)、[当前 SHEIN 业务](my-supply-chain-shein-v1.md)：当前 Organization、连接、观察、Submission、UNKNOWN/retry 不交给旧活动服务。没有 UI/IA 变化，Figma N/A。
 
-拟实施只移除无装配的旧编排，将混合服务中的确定性行为解开到**本包已有规则文件/纯函数接缝**。不保留空服务/receiver 壳，不给当前业务新增 activity import，不把这些规则当作已开放营销能力；将来新产品仍须由当前 marketplace owner 单独设计。现有配置/价格/校验规则职责不变，不新设当前事实 owner、公共当前领域合同、状态机、事务、授权/tenant、幂等键或 recovery owner。
+本批只移除无装配的旧编排，将混合服务中的确定性行为解开到**本包已有规则文件/纯函数接缝**。不保留空服务/receiver 壳，不给当前业务新增 activity import，不把这些规则当作已开放营销能力；将来新产品仍须由当前 marketplace owner 单独设计。现有配置/价格/校验规则职责不变，不新设当前事实 owner、公共当前领域合同、状态机、事务、授权/tenant、幂等键或 recovery owner。
 
 基线活动包为 17 个 Go 文件（11 生产、6 测试）；11 个生产文件共 3,017 行，混合文件拆解可能命中生产变更风险提示线。以上既有 Hard-Cut、原 API/规则与独立 worker 边界覆盖本次源码退出，不按行数拆 PR 或搬目录绕过准入。若规则抽离实际要求新当前领域合同、事实/权限/状态/外部副作用边界，停止该部分，先走适用 Independent Architecture；不能用 N/A 或 Reuse 掩盖新架构。
 
@@ -62,13 +62,13 @@ Must：§5/§6 保留能力和有效安全断言不减；没有新活动执行�
 
 失败、响应丢失、重试、重启、取消、并发和恢复不建立新协议。源码退出不表示在途写入完成、失败、可重试或已回滚；最后写入及历史恢复仍归原平台/运行 owner。没有数据库 DDL、迁移、数据清理或真实状态扫描，不能从“不再读取”推出“可删除持久化”。
 
-## 5. 待确认的精确源码删除与保留矩阵
+## 5. 用户已确认的精确源码删除与保留矩阵
 
-以下均为**拟议**实施范围。路径相对 `internal/shein/activity/`，除明确列出的退出/抽离部分，其余保留。不以整个活动目录缺席为目标。
+以下为用户确认的实施矩阵，本候选已完成精确 EXTRACT / RETIRE。7 个专属文件（5 生产、2 测试）缺席，5 个混合生产文件收缩，原 validation_utils.go 完整保留。路径相对 `internal/shein/activity/`，除明确列出的退出/抽离部分，其余保留；不以整个活动目录缺席为目标。
 
-| 对象 | 待确认处置 | 删除条件 / 明确保留 |
+| 对象 | 确认处置 | 删除条件 / 明确保留 |
 | --- | --- | --- |
-| registration.go | RETIRE 完整文件，**先**将下列无 IO 规则移入已有 registration_config.go：ensureLimitedPromotionDropRatesGreater、validateAutoPartakeDiscountsForStrategy、autoPartakePriceModeFromStrategy、autoPartakeActivityTypesFromStrategy、autoPartakeStockRatioFromStrategy、autoPartakeRequiresStockRatio | 服务/impl/constructor、Bridge/Session interfaces、PromotionRegistrationResult、ports、fetch/save/find/open 编排、promotionConfigIDForActivityType、单值 activityType 包装及 Store/Mapping 转换全部退出；不能为保留测试留旧服务壳 |
+| registration.go | RETIRE 完整文件，**先**将下列无 IO 规则移入已有 registration_config.go：ensureLimitedPromotionDropRatesGreater、validateAutoPartakeDiscountsForStrategy、autoPartakePriceModeFromStrategy、autoPartakeActivityTypesFromStrategy、autoPartakeStockRatioFromStrategy、autoPartakeRequiresStockRatio；§6 要求保留的 promotionConfigListForActivityType 常规/限量/BOTH 无 IO 投影同时解为私有函数，其 limited PROFIT 只调用传入快照的纯 builder | 服务/impl/constructor、Bridge/Session interfaces、PromotionRegistrationResult、ports、fetch/save/find/open 编排、promotionConfigIDForActivityType、单值 activityType 包装及 Store/Mapping 转换全部退出；不能为保留测试留旧服务壳 |
 | mixed.go / profit.go | RETIRE 两个完整文件 | 占位混合报名、旧 pipeline 与 Mapping reader 随旧服务退出，不补齐，不替代成新 owner reader |
 | product_data_helper.go | RETIRE 完整文件；仅将 AmazonCostBySKU 的确定性映射抽离为 price_calculator.go 内无 receiver 私有函数 | helper/constructor/repository 字段、分页/JSON/首个成本查找退出；保留 SKU trim/upper、缺失/非正成本过滤的原规则及两种属性合同 |
 | price_calculator.go | 仅 RETIRE buildCalculateRequestWithPriceMode 及 reader 专属接线/imports；加入上一行无 IO 成本映射 | 保留 calculateActivityPrice / Discount / Profit / Breakeven、capSHEINActivityPrice、calculateProfitRate、promotionSKUUSSupplyPrice / MaxUSSupplyPrice。80% 降幅上限、分币向上取整、不可盈利/非正值处理、SKU 无 SKC 供货价回退不变 |
@@ -91,7 +91,7 @@ Must：§5/§6 保留能力和有效安全断言不减；没有新活动执行�
 
 旧测试不是架构依据，仍有效的断言也不能随服务整删。逐项处置以下六个原测试文件/fixture，先保全行为后移除接缝，不新建验收 runner。
 
-| 基线测试 | 待确认处置 | 继续验证的行为 |
+| 基线测试 | 确认处置 | 继续验证的行为 |
 | --- | --- | --- |
 | validation_utils_test.go | 原样保留完整文件 | 降幅上下限、非法折扣及默认值 |
 | config_test.go | RETIRE 完整文件，**先**把 TestApplyPromotionCreateConfigKeepsFullStockRatioUnlimited 的业务断言移到原 registration_direct_products_test.go 的无 IO 规则接缝 | 旧 DTO 默认、Validate、StartEqualsEnd、五分钟/十五天计划 builder 的专属测试随调度合同退出，不是当前平台规则的 Authority；保留原营销 API 日期 wire 测试，不能用旧 DTO 维持 fixture |
@@ -111,7 +111,7 @@ registration_direct_products_test.go 中必须继续覆盖的规则分组：
 
 ## 6.1. Guard、文档与两套 workflow
 
-| 既有对象 | 未来同批实施处置 | 必须保留 |
+| 既有对象 | 本批实施处置 | 必须保留 |
 | --- | --- | --- |
 | tests/listingkit_backend_retirement_test.go | 既有 absence 清单加入 registration.go、mixed.go、profit.go、product_data_helper.go、config.go、config_test.go、repository_test.go；混合文件精确检查退出符号与保留规则/风险错误/属性 | 不禁止整个 activity 包；断言旧 service/constructor/session/TimeLimitedDiscountConfig 及其 default/Validate/专属错误不复活，规则不能通过空壳恢复 |
 | tests/import_boundaries_test.go 的 TestSheinRetiredManagementImportsStayBlocked | 删除 activity 下 mixed.go、product_data_helper.go、profit.go、registration.go、registration_config.go、time_limited.go 六个 management allowlist 项 | 后两个仍存在但只剩无 IO 规则，不能因文件保留继续豁免；其它条目/deny 保持，不加新 exemption 或调高 ceiling |
@@ -119,12 +119,12 @@ registration_direct_products_test.go 中必须继续覆盖的规则分组：
 | docs/refactoring/phase2-runtime-inventory.md | 实际 import 图确认后，只减当前 core/logger → shein/activity 这一行 | logrus 与其余消费者/ceilings/历史清单保留，不将纯规则包登记为整个目录退休 |
 | .github/workflows/ci.yml / commercial-readiness.yml | **零改动** | 原必需/安全检查、触发、权限、并发、选择、完整 listingadmin race、current-application / shein-login-worker build、PG/资金/发布检查及保护保持；其它部署 workflow 不改、不执行 |
 
-未来自检限原 retirement/import/命名/文档 guard、受影响规则/API/共享 owner/worker/观察的必要原测试和命令实图/编译。稳定候选跑原适用 PR CI，一次集中独立最终检查；分类器原有 SKIPPED 不记 PASS，设计检查不冒充源码实施或 main CI。
+本轮自检限原 retirement/import/命名/文档 guard、受影响规则/API/共享 owner/worker/观察的必要原测试和命令实图/编译。稳定候选跑原适用 PR CI，一次集中独立最终检查；分类器原有 SKIPPED 不记 PASS，设计检查不冒充源码实施或 main CI。
 
 ## 7. 确认、实施准入与停止点
 
-1. 本轮只形成设计和 Draft PR，完成文档检查、适用 CI 与一次独立最终文档检查。停在 **设计待用户确认**，不修改生产、业务测试、guard 或 workflow；不把 Draft/绿色 CI 当实施批准。
-2. 用户确认 §5、§6、§6.1、本节后，在同一主要 PR/分支继续；先在 #29/#301 当前正文记录 **Reuse Existing Architecture / Ready**、冻结设计提交、原 owner/调用路径/不变量/非目标、唯一 Writer、开工 main，并刷新外部 import、注入与全部命令图。发现新边界按 §2 停止并完成适用独立准入，不临时发明兼容。
+1. 设计阶段 N/A 与检查保留为历史；用户已确认冻结设计1be544ce5 的 §5、§6、§6.1、本节，授权在原 #744 实施。原设计 CI/review 不作为本轮实施证据。
+2. #29/#301 已在任何生产修改前记录 **Reuse Existing Architecture / Ready**、冻结设计、原 owner/调用路径/不变量/非目标、唯一 Writer、开工 main；同一分支/主要 PR 连续完成。main 仍为77f5f933b，31 命令与包外 import/注入/DTO 刷新符合矩阵。若发现新边界，按 §2 停止并完成适用独立准入，不临时发明兼容。
 3. 先在原 guard 写出旧编排应缺席、有效规则应保留的 RED；按原样本保存有效断言，再做最小 EXTRACT/RETIRE 与 GREEN。切片是同批实现/提交边界，不机械拆 PR。新 finding 先分类并查 siblings；真实 Must 未满足不得合并，不放宽安全检查。
 4. 最终候选前同步一次实际 main，仅处理真实组合问题；准确实现 HEAD、CI、独立最终检查和局限写 PR。未变代码证据可明确复用，不作为新 SHA 的直接执行结果；修复后只复核相关增量，不重复同 SHA 全量评审。
 5. 实现完成交付 In Review，仍需单独准确 HEAD 合并授权；之后才按 expected-head 正常合并并核对实际 merge SHA 对应 push/main CI。设计确认不是合并/关闭/部署/运行/数据权限，PR CI 不是 main CI。

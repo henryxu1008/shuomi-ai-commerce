@@ -2524,12 +2524,6 @@ func TestSheinBridgeExternalClientImportsStayAllowlisted(t *testing.T) {
 func TestSheinRetiredManagementImportsStayBlocked(t *testing.T) {
 	root := filepath.Join("..", "internal", "shein")
 	allowedFiles := map[string]struct{}{
-		filepath.Clean(filepath.Join(root, "activity", "mixed.go")):                        {},
-		filepath.Clean(filepath.Join(root, "activity", "product_data_helper.go")):          {},
-		filepath.Clean(filepath.Join(root, "activity", "profit.go")):                       {},
-		filepath.Clean(filepath.Join(root, "activity", "registration.go")):                 {},
-		filepath.Clean(filepath.Join(root, "activity", "registration_config.go")):          {},
-		filepath.Clean(filepath.Join(root, "activity", "time_limited.go")):                 {},
 		filepath.Clean(filepath.Join(root, "addresscopy", "service.go")):                   {},
 		filepath.Clean(filepath.Join(root, "api", "image", "client.go")):                   {},
 		filepath.Clean(filepath.Join(root, "authorizedbrand", "context_test.go")):          {},

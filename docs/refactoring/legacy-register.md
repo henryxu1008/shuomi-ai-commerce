@@ -2,6 +2,14 @@
 
 > Status: Active legacy handling register
 
+> #29 / #301 [SHEIN activity retirement](../architecture/legacy-shein-activity-retirement-boundary.md)
+> is user-confirmed and implementation-admitted in #744. Unconstructed registration,
+> promotion/session/platform orchestration, exclusive readers and scheduler DTOs
+> are absent. Valid rules use private stateless inputs and the original marketing
+> request DTOs; APIs, shared attributes/contracts, current acquisition/observations,
+> pricing and standalone login with Store sync retain their owners. Both workflows
+> are unchanged; no real instance, platform state or data operation is authorized.
+
 > #29 / #301 [numeric-task persistence retirement](../architecture/legacy-numeric-task-persistence-retirement-boundary.md)
 > is user-confirmed and implementation-admitted in #740. The unconsumed ImportTask,
 > dispatch events, pause/timeout recovery, scheduled configuration, task statistics

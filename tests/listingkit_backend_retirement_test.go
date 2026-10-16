@@ -39,6 +39,10 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/shein/pricing/pricing_calculator.go", "internal/shein/pricing/pricing_builder.go",
 		"internal/shein/pricing/time_helper.go", "internal/shein/pricing/auto_pricing_repo_test.go",
 		"internal/shein/pricing/time_helper_test.go",
+		"internal/shein/activity/registration.go", "internal/shein/activity/mixed.go",
+		"internal/shein/activity/profit.go", "internal/shein/activity/product_data_helper.go",
+		"internal/shein/activity/config.go", "internal/shein/activity/config_test.go",
+		"internal/shein/activity/repository_test.go",
 		"internal/temu/pricing/auto_pricing_service.go", "internal/temu/pricing/pricing_decision_service.go",
 		"internal/temu/pricing/pricing_rules.go", "internal/temu/pricing/pricing_data_service.go",
 		"internal/temu/pricing/store_config_service.go", "internal/temu/pricing/runtime_adapter.go",
@@ -117,7 +121,16 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		}
 	}
 	for relative, required := range map[string][]string{
-		"internal/shein/pricing/price_manager.go": {"type PriceManager struct", "func NewPriceManager(", "type CostPriceRequest struct"},
+		"internal/shein/activity/price_calculator.go": {"func calculateActivityPrice(", "func amazonCostBySKU("},
+		"internal/shein/activity/registration_config.go": {
+			"type activityRuleInputs struct", "func minimumPromotionSKUDiscountRate(", "func calculateActivityStock(",
+			"func buildActivityConfigsFromProvidedProducts(", "func ensureLimitedPromotionDropRatesGreater(", "func promotionConfigListForActivityType(",
+		},
+		"internal/shein/activity/promotion_create_products.go": {"func buildCalculateRequestForPromotionProducts(", "func promotionSKUPriceInputs("},
+		"internal/shein/activity/time_limited.go":              {"func buildCreateActivityRequest(", "func isTimeLimitedDiscountValid(", "func validatePriceRisk("},
+		"internal/shein/activity/validation_utils.go":          {"func ValidateDropRate(", "func CalculateDropRateFromDiscount("},
+		"internal/shein/activity/errors.go":                    {"ErrProductPriceRisk"},
+		"internal/shein/pricing/price_manager.go":              {"type PriceManager struct", "func NewPriceManager(", "type CostPriceRequest struct"},
 		"internal/temu/pricing/interfaces.go": {
 			"type PriceCalculator interface",
 			"GetDefaultPricingRules(originCostPrice float64, rules *[]listingadmin.PricingRuleRespDTO) *listingadmin.PricingRuleRespDTO",
@@ -161,6 +174,34 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			}
 		}
 	}
+	activityRoot := filepath.Join("..", "internal", "shein", "activity")
+	activityFiles, err := os.ReadDir(activityRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range activityFiles {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") || strings.HasSuffix(entry.Name(), "_test.go") {
+			continue
+		}
+		content, err := os.ReadFile(filepath.Join(activityRoot, entry.Name()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, retired := range []string{
+			"ActivityRegistrationService", "activityRegistrationServiceImpl", "PromotionRegistrationBridge",
+			"PromotionRegistrationSession", "promotionRegistrationSession", "PromotionRegistrationResult", "ProductDataHelper",
+			"TimeLimitedDiscountConfig", "ErrInvalidActivityName", "ErrInvalidActivityTime", "ErrInvalidTimeZone",
+			"ErrNoAvailableProducts", "ErrInsufficientStock", "ErrActivityCreationFailed", "ErrActivityAlreadyExists",
+			"buildCalculateRequestWithPriceMode", "GenerateActivityName", "defaultActivityStartLeadTime",
+			"\"context\"", "task-processor/internal/listingadmin", "task-processor/internal/core/logger",
+			"task-processor/internal/infra/clients/management", "marketing.MarketingAPI", "marketing.NewClient(",
+			".SaveConfig(", ".UpdateConfigState(", ".CreateActivity(", ".QueryPromotionGoods(", ".CalculateSupplyPrice(",
+		} {
+			if strings.Contains(string(content), retired) {
+				t.Errorf("%s must not recreate retired SHEIN activity orchestration %q", entry.Name(), retired)
+			}
+		}
+	}
 	attributePath := filepath.Join("..", "internal", "shein", "productsync", "product_sync_types.go")
 	attributes, err := os.ReadFile(attributePath)
 	if err != nil {
@@ -201,6 +242,12 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 		"internal/listingadmin/product_data_repository.go", "internal/listingadmin/product_import_mapping_repository.go",
 		"internal/core/config/type_platform.go",
 		"internal/shein/productsync/product_sync_types.go", "internal/shein/productsync/marketing_client_boundary_test.go",
+		"internal/shein/api/marketing/client.go", "internal/shein/api/marketing/client_test.go",
+		"internal/shein/api/marketing/interface.go", "internal/shein/api/marketing/activity_types.go",
+		"internal/shein/api/marketing/price_types.go", "internal/shein/api/marketing/promotion_types.go",
+		"internal/shein/api/marketing/workflow_example.go",
+		"internal/shein/activity/price_calculator_test.go", "internal/shein/activity/activity_stock_validation_test.go",
+		"internal/shein/activity/registration_direct_products_test.go", "internal/shein/activity/validation_utils_test.go",
 		"internal/shein/pricing/price_manager.go", "internal/shein/pricing/pricing_repo.go",
 		"internal/shein/pricing/calculator.go", "internal/shein/pricing/calculator_test.go",
 		"internal/shein/pricing/cost_profit_calculator.go", "internal/shein/pricing/cost_profit_calculator_test.go",
