@@ -1,5 +1,5 @@
 import { isBrowserCapturePath, isBrowserCaptureRequestURL } from "@/lib/contracts/browser-capture";
-import {agentPath} from "@/lib/contracts/product-agent";
+import {agentPath,ownAgentPath} from "@/lib/contracts/product-agent";
 import {materialsPath} from "@/lib/contracts/listing-materials";
 import { aiWorkbenchPath } from "@/lib/contracts/ai-workbench";
 import { collectionPath } from "@/lib/contracts/product-collection";
@@ -140,7 +140,9 @@ async function handleWorkbenchRequest(
   if (request.signal.aborted) abort();
   const path = new URL(request.url).pathname.split("/").filter(Boolean).slice(2);
   const imageSetRequest = imageSetRoutes.some((action) => imageSetMethods[action] === request.method && imageSetPath(path, action) !== null);
-  const agentRequest=agentPath(path)!==null || ["materials-start","materials-resume","materials-adopt"].includes(materialsPath(request.method,path)??"") || ["message", "confirm", "task-start", "task-resume", "task-review"].includes(aiWorkbenchPath(request.method, path) ?? "");
+  const ownAgentRunRequest = path[4] === "runs" && ownAgentPath(path) !== null &&
+    (request.method === "GET" && path.length === 6 || request.method === "POST" && (path.length === 5 || path.length === 7));
+  const agentRequest=agentPath(path)!==null || ownAgentRunRequest || ["materials-start","materials-resume","materials-adopt"].includes(materialsPath(request.method,path)??"") || ["message", "confirm", "task-start", "task-resume", "task-review"].includes(aiWorkbenchPath(request.method, path) ?? "");
   const timeout = setTimeout(abort, planPath(request.method,path)?52000:imageSetRequest ? IMAGE_SET_TIMEOUT_MS : agentRequest?125000:dispatchState.acquisitionRequest ? ACQUISITION_TIMEOUT_MS : UPSTREAM_TIMEOUT_MS);
   try {
     const scopedRequest = new NextRequest(request, { signal: controller.signal });
