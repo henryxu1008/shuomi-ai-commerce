@@ -59,10 +59,11 @@ CREATE TABLE store_observations.records(
  FOREIGN KEY(organization_id,store_id,kind,sync_id) REFERENCES store_observations.syncs(organization_id,store_id,kind,id),
  CONSTRAINT store_observation_record_variant CHECK(
   (kind='products' AND NOT payload ? 'order' AND (
-    (payload ? 'product' AND NOT payload ? 'temuProduct' AND payload->'product'->>'id'=platform_id)
-    OR (payload ? 'temuProduct' AND NOT payload ? 'product' AND payload->'temuProduct'->>'id'=platform_id AND payload->'temuProduct'->>'entity' IN('local_goods','supplier_skc'))
+    (payload ? 'product' AND NOT payload ? 'walmartProduct' AND NOT payload ? 'temuProduct' AND payload->'product'->>'id'=platform_id)
+    OR (payload ? 'temuProduct' AND NOT payload ? 'walmartProduct' AND NOT payload ? 'product' AND payload->'temuProduct'->>'id'=platform_id AND payload->'temuProduct'->>'entity' IN('local_goods','supplier_skc'))
+ OR (payload ? 'walmartProduct' AND NOT payload ? 'product' AND NOT payload ? 'temuProduct' AND jsonb_typeof(payload->'walmartProduct')='object' AND COALESCE(payload->'walmartProduct'->>'sku','')<>'' AND payload->'walmartProduct'->>'sku'=platform_id)
   ))
-  OR (kind='orders' AND payload ? 'order' AND payload->'order'->>'id'=platform_id AND payload->'order'->>'site'='shein-us' AND NOT payload ? 'product' AND NOT payload ? 'temuProduct')
+  OR (kind='orders' AND payload ? 'order' AND payload->'order'->>'id'=platform_id AND payload->'order'->>'site'='shein-us' AND NOT payload ? 'product' AND NOT payload ? 'temuProduct' AND NOT payload ? 'walmartProduct')
  )
 );
 CREATE INDEX observations_sync_generation ON store_observations.syncs(organization_id,store_id,kind,generation DESC);

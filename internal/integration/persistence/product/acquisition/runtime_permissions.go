@@ -129,6 +129,7 @@ const supplyPrivileges = `,('listing_preparations','SELECT'),('listing_preparati
  ('listing_submission_target_fences','SELECT'),('listing_submission_target_fences','INSERT'),('listing_submission_target_fences','UPDATE'),
  ('listing_submission_official_intents','SELECT'),('listing_submission_official_intents','INSERT'),
  ('listing_submission_official_receipts','SELECT'),('listing_submission_official_receipts','INSERT'),
+ ('listing_walmart_sku_bindings','SELECT'),('listing_walmart_sku_bindings','INSERT'),('listing_walmart_sku_bindings','UPDATE'),('listing_walmart_feed_observations','SELECT'),('listing_walmart_feed_observations','INSERT'),
  ('product_title_proposals','SELECT')`
 
 // Read-only readiness for the existing SRC-1/Catalog schema consumed by this

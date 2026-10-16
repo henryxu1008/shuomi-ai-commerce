@@ -2136,10 +2136,11 @@ func TestInfrastructurePackagesDoNotImportBusinessDomains(t *testing.T) {
 
 func TestListingSubmissionPersistenceAdapterImplementsOnlySubmissionPort(t *testing.T) {
 	adapterRoot := filepath.Join("..", "internal", "integration", "persistence", "listing", "submission")
-	// #31 G4 and frozen #669: exact atomic same-ProductDB effect policies consume the current
+	// #31 G4, frozen #669 and #733: exact atomic same-ProductDB effect policies consume the current
 	// immutable target and digest ports. It remains in the original claim UoW.
 	policy := filepath.Join(adapterRoot, "temu_effects_policy.go")
 	tiktokPolicy := filepath.Join(adapterRoot, "tiktok_effects_policy.go")
+	walmartPolicy := filepath.Join(adapterRoot, "walmart_effects_policy.go")
 	assertNoBannedImportPrefixes(t, adapterRoot, []string{
 		"task-processor/internal/amazon",
 		"task-processor/internal/amazonlisting",
@@ -2155,7 +2156,7 @@ func TestListingSubmissionPersistenceAdapterImplementsOnlySubmissionPort(t *test
 		"task-processor/internal/shein",
 		"task-processor/internal/temu",
 		"task-processor/internal/workspace",
-	}, map[string]struct{}{policy: {}, tiktokPolicy: {}})
+	}, map[string]struct{}{policy: {}, tiktokPolicy: {}, walmartPolicy: {}})
 
 	index, err := loadGoFileIndex(adapterRoot, "")
 	if err != nil {
@@ -2171,7 +2172,7 @@ func TestListingSubmissionPersistenceAdapterImplementsOnlySubmissionPort(t *test
 			if !importMatchesPrefix(importPath, "task-processor/internal/listing") {
 				continue
 			}
-			if importPath != "task-processor/internal/listing/submission" && !((path == policy || path == tiktokPolicy) && importPath == "task-processor/internal/listing/record/target") {
+			if importPath != "task-processor/internal/listing/submission" && !((path == policy || path == tiktokPolicy || path == walmartPolicy) && importPath == "task-processor/internal/listing/record/target") {
 				t.Errorf("%s imports Listing sibling %s; the adapter may implement only Listing Submission-owned ports", path, importPath)
 			}
 			foundSubmissionPort = true
@@ -3987,6 +3988,10 @@ func currentOwnerLegacyListingKitRootViolations(sources []listingKitImageBoundar
 func supplyAdapterBusinessPorts() map[string][]string {
 	base := filepath.Join("..", "internal", "integration")
 	return map[string][]string{
+		filepath.Join(base, "walmart", "client.go"):                                                 {"task-processor/internal/marketplace/walmart"},
+		filepath.Join(base, "walmart", "products.go"):                                               {"task-processor/internal/marketplace/walmart"},
+		filepath.Join(base, "persistence", "listing", "official", "walmart_results.go"):             {"task-processor/internal/marketplace/walmart"},
+		filepath.Join(base, "persistence", "listing", "submission", "walmart_effects_policy.go"):    {"task-processor/internal/listing/submission", "task-processor/internal/listing/record/target", "task-processor/internal/product/collection", "task-processor/internal/marketplace/walmart"},
 		filepath.Join(base, "persistence", "listing", "preparation") + string(os.PathSeparator):     {"task-processor/internal/listing/preparation", "task-processor/internal/product/collection"},
 		filepath.Join(base, "persistence", "listing", "completiondraft") + string(os.PathSeparator): {"task-processor/internal/listing/completiondraft", "task-processor/internal/listing/preparation", "task-processor/internal/product/collection"},
 		filepath.Join(base, "persistence", "listing", "record") + string(os.PathSeparator):          {"task-processor/internal/listing/record/target", "task-processor/internal/product/collection"},
@@ -4005,7 +4010,7 @@ func supplyAdapterBusinessPorts() map[string][]string {
 		filepath.Join(base, "temu", "official_observations.go"):                                     {"task-processor/internal/marketplace/temu/model", "task-processor/internal/marketplace/temu/observations", "task-processor/internal/storecenter/observations"},
 		filepath.Join(base, "shein", "official_readback.go"):                                        {"task-processor/internal/marketplace/shein/goods", "task-processor/internal/marketplace/shein/model"},
 		filepath.Join(base, "shein", "official_observations.go"):                                    {"task-processor/internal/storecenter/observations"},
-		filepath.Join(base, "persistence", "storeobservations", "repository.go"):                    {"task-processor/internal/storecenter/observations", "task-processor/internal/marketplace/temu/observations"},
+		filepath.Join(base, "persistence", "storeobservations", "repository.go"):                    {"task-processor/internal/storecenter/observations", "task-processor/internal/marketplace/temu/observations", "task-processor/internal/marketplace/walmart"},
 		filepath.Join(base, "persistence", "storeobservations", "schema.go"):                        {"task-processor/internal/storecenter/observations"},
 	}
 }
@@ -4067,6 +4072,30 @@ func TestSupplyAndCollectionHTTPRegistrationKeepsBusinessSiblingsFrameworkFree(t
 	}{{"authz/httpapi/route_authorization.go", true}, {"authz/authorization.go", false}, {"authz/httpapi_extra/other.go", false}, {"app/supplychain/httpapi/http_routes.go", true}, {"app/supplychain/operations.go", false}, {"app/supplychain/httpapi_extra/other.go", false}, {"product/collection/httpapi/handler.go", true}, {"product/collection/service.go", false}, {"product/collection/httpapi_extra/other.go", false}} {
 		if pathAllowed(filepath.Join(root, filepath.FromSlash(tc.path)), allowed) != tc.want {
 			t.Errorf("registration %s", tc.path)
+		}
+	}
+}
+
+func TestWalmartAdapterBusinessPortsStayExact(t *testing.T) {
+	base := filepath.Join("..", "internal", "integration")
+	port := "task-processor/internal/marketplace/walmart"
+	for _, path := range []string{
+		filepath.Join(base, "walmart", "client.go"),
+		filepath.Join(base, "walmart", "products.go"),
+		filepath.Join(base, "persistence", "listing", "official", "walmart_results.go"),
+		filepath.Join(base, "persistence", "listing", "submission", "walmart_effects_policy.go"),
+		filepath.Join(base, "persistence", "storeobservations", "repository.go"),
+	} {
+		if !supplyAdapterPortAllowed(path, port) {
+			t.Errorf("approved Walmart adapter %s must consume its current leaf", path)
+		}
+		for _, bad := range []string{port + "/child", "task-processor/internal/marketplace/temu/model", "task-processor/internal/product/catalog"} {
+			if supplyAdapterPortAllowed(path, bad) {
+				t.Errorf("%s must not admit %s", path, bad)
+			}
+		}
+		if supplyAdapterPortAllowed(filepath.Join(filepath.Dir(path), "unapproved.go"), port) {
+			t.Errorf("%s admission must not extend to sibling files", path)
 		}
 	}
 }

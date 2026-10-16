@@ -68,6 +68,8 @@ func issue398AcquisitionAPIViolations(sources []listingKitImageBoundarySource) (
 			"internal/app/supplychain/temu_image_probe.go": {"ValidatePublicHTTPSURL", "Download", "InspectGeneratedArtifact"},
 			// #669 reuses the same SSRF-safe leaves for an approved native image.
 			"internal/app/supplychain/tiktok_image_probe.go": {"ValidatePublicHTTPSURL", "Download", "InspectGeneratedArtifact"},
+			// #733 frozen Walmart image contract reuses only the same approved URL/byte validation leaves.
+			"internal/app/supplychain/walmart_image_probe.go": {"ValidatePublicHTTPSURL", "Download", "InspectGeneratedArtifact"},
 		}},
 		{"internal/integration/shein", issue398HTTP, map[string][]string{"internal/integration/shein/official_goods.go": {"ValidatePublicHTTPSURL"}}},
 		// #622 frozen design reuses these current SSRF-safe and pure image leaves.
@@ -202,6 +204,8 @@ func TestIssue398CurrentLeafAndInitializerAPIGuard(t *testing.T) {
 		{"TEMU legacy downloader denied", "internal/app/supplychain/temu_image_probe.go", issue398HTTP, "NewProductImageDownloader", false},
 		{"TikTok approved image reader", "internal/app/supplychain/tiktok_image_probe.go", issue398HTTP, "Download", true},
 		{"TikTok legacy downloader denied", "internal/app/supplychain/tiktok_image_probe.go", issue398HTTP, "NewProductImageDownloader", false},
+		{"Walmart approved image reader", "internal/app/supplychain/walmart_image_probe.go", issue398HTTP, "Download", true},
+		{"Walmart legacy downloader denied", "internal/app/supplychain/walmart_image_probe.go", issue398HTTP, "NewProductImageDownloader", false},
 		{"probe sibling", "internal/app/supplychain/other.go", issue398HTTP, "Download", false},
 		{"POD exact image reader", "internal/app/pod/inputs.go", issue398HTTP, "Download", true},
 		{"POD legacy API denied", "internal/app/pod/inputs.go", issue398HTTP, "NewProductImageDownloader", false},

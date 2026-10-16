@@ -44,7 +44,7 @@ func TestStoreObservationEnabledRuntimeHasExactSharedGrants(t *testing.T) {
 	require.NoError(t, GrantRuntime(ctx, owner, "store_center_runtime"))
 	require.Error(t, storecenter.VerifyRuntimePermissions(ctx, serving), "disabled remains strict")
 	require.NoError(t, storecenter.VerifyRuntimePermissionsForCapabilities(ctx, serving, enabled))
-	require.NoError(t, storecenter.VerifyCurrentSchema(ctx, serving))
+	require.NoError(t, storecenter.VerifyCurrentSchemaForCapabilities(ctx, serving, enabled))
 	repo, err := NewRepository(ctx, serving)
 	require.NoError(t, err)
 	require.NoError(t, repo.VerifyEmpty(ctx))

@@ -7,6 +7,8 @@ import (
 
 func TestMarketPODRuntimeGrantsAreExplicit(t *testing.T) {
 	market := runtimePermissionsFor(RuntimeCapabilities{Collections: true, SupplyMarket: true})
+	require.NotContains(t, market, "listing_walmart_sku_bindings")
+	require.Contains(t, runtimePermissionsFor(RuntimeCapabilities{SupplyChain: true}), "('listing_walmart_sku_bindings','UPDATE')")
 	require.Contains(t, market, "('supply_market_records','UPDATE')")
 	require.NotContains(t, market, "('product_pod_fences','DELETE')")
 	pod := runtimePermissionsFor(RuntimeCapabilities{Collections: true, SupplyMarket: true, POD: true})

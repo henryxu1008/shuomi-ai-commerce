@@ -45,24 +45,28 @@ type UploadKernel interface {
 	Expire(context.Context, submission.ExecutionScope, string) (submission.ExecutionAttempt, error)
 }
 type UploadDependencies struct {
-	Sources       record.TargetExecutionSourceSelector
-	Products      record.EffectiveTargetProductReader
-	Assets        record.ApprovedAssetReader
-	Rules         record.TargetRuleReader
-	TemuRules     record.TargetTemuRuleReader
-	TemuImages    record.TargetTemuImageReader
-	Records       record.TargetRepository
-	Authorization collection.ExecutionAuthorizer
-	Stores        ExecutionStore
-	TemuStores    TemuExecutionStore
-	TikTokStores  TikTokExecutionStore
-	TikTokRules   record.TargetTikTokRuleReader
-	TikTokImages  TikTokImageContentReader
-	Images        ImageProbe
-	Kernel        UploadKernel
-	Intents       submission.OfficialIntentRepository
-	Receipts      submission.OfficialReceiptRepository
-	ReviewGate    func(context.Context, collection.Scope, record.TargetRecord) error
+	Sources           record.TargetExecutionSourceSelector
+	Products          record.EffectiveTargetProductReader
+	Assets            record.ApprovedAssetReader
+	Rules             record.TargetRuleReader
+	TemuRules         record.TargetTemuRuleReader
+	TemuImages        record.TargetTemuImageReader
+	Records           record.TargetRepository
+	Authorization     collection.ExecutionAuthorizer
+	Stores            ExecutionStore
+	TemuStores        TemuExecutionStore
+	TikTokStores      TikTokExecutionStore
+	TikTokRules       record.TargetTikTokRuleReader
+	TikTokImages      TikTokImageContentReader
+	WalmartStores     WalmartExecutionStore
+	WalmartReadStores WalmartRuleStore
+	WalmartRules      record.TargetWalmartRuleReader
+	WalmartImages     record.TargetWalmartImageReader
+	Images            ImageProbe
+	Kernel            UploadKernel
+	Intents           submission.OfficialIntentRepository
+	Receipts          submission.OfficialReceiptRepository
+	ReviewGate        func(context.Context, collection.Scope, record.TargetRecord) error
 }
 type UploadService struct{ dependencies UploadDependencies }
 type UploadResult struct {
@@ -74,6 +78,7 @@ type UploadResult struct {
 	Product               model.PublishResult             `json:"product,omitempty"`
 	TemuProduct           *temugoods.CreatedGoods         `json:"temuProduct,omitempty"`
 	TikTok                *submission.TikTokEffectReceipt `json:"tiktok,omitempty"`
+	Walmart               *submission.WalmartFeedReceipt  `json:"walmart,omitempty"`
 	Message               string                          `json:"message,omitempty"`
 }
 
@@ -197,6 +202,9 @@ func (s *UploadService) Upload(ctx context.Context, scope collection.Scope, key,
 	}
 	if saved.Merchant.Platform == storecenter.PlatformTikTokShop {
 		return s.uploadTikTok(ctx, scope, key, saved)
+	}
+	if saved.Merchant.Platform == storecenter.PlatformWalmart {
+		return s.uploadWalmart(ctx, scope, key, saved)
 	}
 	if _, err = s.dependencies.Stores.ExecutionMerchant(ctx, scope, saved.Merchant.StoreID, storecenter.ProductPurposePublish, &saved.Merchant); err != nil {
 		return UploadResult{}, err

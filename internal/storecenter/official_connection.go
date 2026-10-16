@@ -94,7 +94,7 @@ type OfficialConnectionBegin struct {
 	ExpiresAt           time.Time                   `json:"expiresAt"`
 	AuthorizationMethod OfficialAuthorizationMethod `json:"authorizationMethod"`
 }
-type CompleteOfficialConnection struct{ OrganizationID, StoreID, AttemptID, AppID, State, TempToken, AuthCode string }
+type CompleteOfficialConnection struct{ OrganizationID, StoreID, AttemptID, AppID, State, TempToken, AuthCode, SellerID, CallbackType, MerchantConfirmation string }
 type OfficialConnectionView struct {
 	Platform             Platform                    `json:"platform"`
 	IdentityPartition    OfficialIdentityPartition   `json:"identityPartition,omitempty"`
@@ -111,6 +111,7 @@ type OfficialConnectionView struct {
 	Version              int64                       `json:"version"`
 	ObservedAt           *time.Time                  `json:"observedAt"`
 	TikTok               *TikTokConnectionDetails    `json:"tiktok,omitempty"`
+	Walmart              *WalmartConnectionDetails   `json:"walmart,omitempty"`
 }
 type OfficialConnectionStore interface {
 	ReadOfficialInstallAttempt(context.Context, string, string, string) (OfficialConnectionAttempt, error)

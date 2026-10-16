@@ -158,7 +158,7 @@ func listQuery(r *http.Request, kind o.Kind) (o.Query, error) {
 		}
 		switch key {
 		case "platform":
-			if v[0] != "shein" && (kind != o.Products || v[0] != "temu") {
+			if v[0] != "shein" && (kind != o.Products || v[0] != "temu" && v[0] != "walmart") {
 				return q, o.ErrInvalid
 			}
 			q.Platform = v[0]

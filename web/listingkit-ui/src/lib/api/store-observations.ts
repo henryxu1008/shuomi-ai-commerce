@@ -1,4 +1,5 @@
 import { z } from "zod";
+import {walmartObservedProductSchema} from "../contracts/walmart-model";
 import {temuObservedProductSchema} from "../contracts/temu-observations";
 import { readBoundedStrictJSON } from "./strict-json-response";
 export const observationID = z
@@ -118,13 +119,14 @@ export const observationRecordSchema = z
     stale: z.boolean().optional(),
     product: product.optional(),
     temuProduct:temuObservedProductSchema.optional(),
+    walmartProduct:walmartObservedProductSchema.optional(),
     order: order.optional(),
   })
   .strict()
   .refine(
     (v) =>
-      [v.product,v.temuProduct,v.order].filter(Boolean).length===1 &&
-      (v.product?.id ?? v.temuProduct?.id ?? v.order?.id) === v.id,
+      [v.product,v.temuProduct,v.walmartProduct,v.order].filter(Boolean).length===1 &&
+      (v.product?.id ?? v.temuProduct?.id ?? v.walmartProduct?.sku ?? v.order?.id) === v.id,
   );
 export const observationKindSchema = z.enum(["products", "orders"]);
 export type ObservationKind = z.infer<typeof observationKindSchema>;

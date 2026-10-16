@@ -7,6 +7,7 @@ import (
 	"task-processor/internal/authidentity"
 	"task-processor/internal/storecenter"
 	tiktok "task-processor/internal/storecenter/tiktokshop"
+	walmart "task-processor/internal/storecenter/walmart"
 )
 
 type OfficialApplicationRegistration struct {
@@ -22,9 +23,11 @@ type officialApplicationEntry struct {
 }
 type OfficialApplicationChoice = storecenter.OfficialApplicationChoice
 type OfficialApplicationRegistry struct {
-	entries          map[officialApplicationKey]officialApplicationEntry
-	tiktokProvider   tiktok.SellerAuthorization
-	tiktokProtection tiktok.CredentialProtection
+	entries           map[officialApplicationKey]officialApplicationEntry
+	tiktokProvider    tiktok.SellerAuthorization
+	tiktokProtection  tiktok.CredentialProtection
+	walmartProvider   walmart.Authorization
+	walmartProtection walmart.CredentialProtection
 }
 
 // TikTok uses a canonical seller grant and its own credential contract.
@@ -39,11 +42,35 @@ func WithTikTokApplication(r *OfficialApplicationRegistry, provider tiktok.Selle
 	}
 	result := &OfficialApplicationRegistry{entries: map[officialApplicationKey]officialApplicationEntry{}, tiktokProvider: provider, tiktokProtection: protection}
 	if r != nil {
+		result.walmartProvider = r.walmartProvider
+		result.walmartProtection = r.walmartProtection
 		for key, entry := range r.entries {
 			result.entries[key] = entry
 		}
 	}
 	return result, nil
+}
+
+func WithWalmartApplication(r *OfficialApplicationRegistry, p walmart.Authorization, protection walmart.CredentialProtection) (*OfficialApplicationRegistry, error) {
+	if p == nil || protection == nil || r != nil && r.walmartProvider != nil {
+		return nil, storecenter.ErrOfficialConnectionUnavailable
+	}
+	app := p.Application()
+	if !authidentity.IsBoundedIdentifier(app.ClientID) || !authidentity.IsBoundedIdentifier(app.Revision) || app.Environment != "production" && app.Environment != "sandbox" {
+		return nil, storecenter.ErrOfficialConnectionUnavailable
+	}
+	out := &OfficialApplicationRegistry{entries: map[officialApplicationKey]officialApplicationEntry{}, walmartProvider: p, walmartProtection: protection}
+	if r != nil {
+		out.tiktokProvider = r.tiktokProvider
+		out.tiktokProtection = r.tiktokProtection
+		for k, e := range r.entries {
+			out.entries[k] = e
+		}
+	}
+	return out, nil
+}
+func (r *OfficialApplicationRegistry) WalmartConfigured() bool {
+	return r != nil && r.walmartProvider != nil
 }
 
 func (r *OfficialApplicationRegistry) TikTokConfigured() bool {

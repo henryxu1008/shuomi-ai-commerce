@@ -10,6 +10,7 @@ import (
 	"task-processor/internal/listing/preparation"
 	"task-processor/internal/marketplace/shein/goods"
 	model "task-processor/internal/marketplace/shein/model"
+	"task-processor/internal/marketplace/walmart"
 	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/collection"
 	"task-processor/internal/storecenter"
@@ -166,6 +167,25 @@ func TestSheinImportRejectsForeignSourceStaleHeadAndCommitReferenceDrift(t *test
 			_, err = s.Create(ctx, uuid.NewString(), p.Input)
 			require.ErrorIs(t, err, ErrConflict)
 			require.Equal(t, 1, r.writes)
+		})
+	}
+}
+
+func TestSheinImportSaveRejectsWalmartPayloadAndRules(t *testing.T) {
+	for _, name := range []string{"payload", "rules"} {
+		t.Run(name, func(t *testing.T) {
+			ctx, service, records, _, _, request := importServiceFixture(t)
+			preview, err := service.PreviewSheinImport(ctx, request)
+			require.NoError(t, err)
+			if name == "payload" {
+				preview.Input.Draft = goods.OfficialDraftInput{}
+				preview.Input.Walmart = &walmart.DraftInput{}
+			} else {
+				preview.Input.WalmartRules = &walmart.RuleSelection{}
+			}
+			_, err = service.Create(ctx, uuid.NewString(), preview.Input)
+			require.ErrorIs(t, err, ErrInvalid, "SHEIN import must reject another platform before its rule lookup")
+			require.Equal(t, 1, records.writes)
 		})
 	}
 }

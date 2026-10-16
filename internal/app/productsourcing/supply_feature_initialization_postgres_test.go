@@ -89,7 +89,7 @@ CREATE ROLE retained_reader NOLOGIN`).Error)
 		require.Error(t, acquisitionstore.VerifyRuntimePermissions(ctx, f.owner, capabilities), "maintenance verification must not admit serving as owner")
 		var tables []string
 		require.NoError(t, f.owner.Raw("SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename").Scan(&tables).Error)
-		require.Len(t, tables, 25)
+		require.Len(t, tables, 27)
 		require.NoError(t, f.owner.Exec(`INSERT INTO product_title_operations VALUES ('org','actor','retained-command','fingerprint','retained-response')`).Error)
 		installed := supplyFeatureSnapshot(t, f.owner, tables)
 		require.NoError(t, EnableSupplyChain(ctx, f.manifest, f.database), "lost success response can verify without re-installation")
@@ -113,6 +113,10 @@ CREATE ROLE retained_reader NOLOGIN`).Error)
 		{"Review column drift", "ALTER TABLE product_title_operations ALTER COLUMN fingerprint TYPE varchar(8)", true},
 		{"Review constraint drift", "ALTER TABLE product_title_proposals DROP CONSTRAINT ck_product_title_proposals_state_payload", true},
 		{"Review index missing", "DROP INDEX ix_product_title_proposals_actionable_owner", true},
+		{"only previous eleven tables", "DROP TABLE listing_walmart_feed_observations; DROP TABLE listing_walmart_sku_bindings", true},
+		{"Walmart constraint drift", "ALTER TABLE listing_walmart_sku_bindings DROP CONSTRAINT listing_walmart_sku_bindings_market_check", true},
+		{"Walmart observation mutation", "GRANT UPDATE ON listing_walmart_feed_observations TO source_acquisition_runtime", true},
+		{"missing Walmart grant", "REVOKE INSERT ON listing_walmart_feed_observations FROM source_acquisition_runtime", true},
 		{"new column grant", "GRANT UPDATE(body_json) ON listing_target_records TO source_acquisition_runtime", true},
 		{"new grant option", "GRANT SELECT ON listing_target_records TO source_acquisition_runtime WITH GRANT OPTION", true},
 		{"new column grant option", "GRANT SELECT(body_json) ON listing_target_records TO source_acquisition_runtime WITH GRANT OPTION", true},

@@ -19,6 +19,7 @@ type OfficialConnections struct {
 	store        storecenter.OfficialConnectionStore
 	applications *OfficialApplicationRegistry
 	tiktok       *TikTokConnections
+	walmart      *WalmartConnections
 }
 
 func (a *OfficialConnections) InstallToken(ctx context.Context, input storecenter.InstallOfficialToken) (storecenter.OfficialConnectionView, error) {
@@ -65,7 +66,7 @@ func NewOfficialConnections(store storecenter.OfficialConnectionStore, applicati
 	if err != nil {
 		return nil, err
 	}
-	return &OfficialConnections{store: store, applications: applications, tiktok: tiktok}, nil
+	return &OfficialConnections{store: store, applications: applications, tiktok: tiktok, walmart: newWalmartConnections(store, applications)}, nil
 }
 
 // Missing developer setup affects this capability, while Store CRUD and local
@@ -78,10 +79,19 @@ func NewUnconfiguredOfficialConnections(store storecenter.OfficialConnectionStor
 	if err != nil {
 		return nil, err
 	}
-	return &OfficialConnections{store: store, tiktok: tiktok}, nil
+	return &OfficialConnections{store: store, tiktok: tiktok, walmart: newWalmartConnections(store, nil)}, nil
 }
 
 func (a *OfficialConnections) Begin(ctx context.Context, c storecenter.OfficialConnectionCommand) (storecenter.OfficialConnectionBegin, error) {
+	if a.walmart != nil {
+		owns, e := a.walmart.Owns(ctx, c.OrganizationID, c.StoreID)
+		if e != nil {
+			return storecenter.OfficialConnectionBegin{}, e
+		}
+		if owns {
+			return a.walmart.Begin(ctx, c)
+		}
+	}
 	if a.tiktok != nil {
 		owns, err := a.tiktok.Owns(ctx, c.OrganizationID, c.StoreID)
 		if err != nil {
@@ -116,6 +126,16 @@ func (a *OfficialConnections) Begin(ctx context.Context, c storecenter.OfficialC
 	return storecenter.OfficialConnectionBegin{AttemptID: attempt.AttemptID, AuthorizationURL: url, ExpiresAt: attempt.ExpiresAt, AuthorizationMethod: entry.application.AuthorizationMethod}, nil
 }
 func (a *OfficialConnections) Complete(ctx context.Context, c storecenter.CompleteOfficialConnection) (storecenter.OfficialConnectionView, error) {
+	if a.walmart != nil {
+		owns, e := a.walmart.Owns(ctx, c.OrganizationID, c.StoreID)
+		if e != nil {
+			return storecenter.OfficialConnectionView{}, e
+		}
+		if owns {
+			return a.walmart.Complete(ctx, storecenter.CompleteWalmartConnection{OrganizationID: c.OrganizationID, StoreID: c.StoreID, AttemptID: c.AttemptID, AppID: c.AppID, State: c.State, Code: c.AuthCode, SellerID: c.SellerID, CallbackType: c.CallbackType, MerchantConfirmation: c.MerchantConfirmation})
+		}
+	}
+	if c.SellerID!=""||c.CallbackType!=""||c.MerchantConfirmation!=""{return storecenter.OfficialConnectionView{},storecenter.ErrNotFound}
 	if a.tiktok != nil {
 		owns, err := a.tiktok.Owns(ctx, c.OrganizationID, c.StoreID)
 		if err != nil {
@@ -198,6 +218,15 @@ func (a *OfficialConnections) Complete(ctx context.Context, c storecenter.Comple
 }
 
 func (a *OfficialConnections) ResumeQuery(ctx context.Context, org, storeID, attemptID string) (storecenter.OfficialConnectionView, error) {
+	if a.walmart != nil {
+		owns, e := a.walmart.Owns(ctx, org, storeID)
+		if e != nil {
+			return storecenter.OfficialConnectionView{}, e
+		}
+		if owns {
+			return a.walmart.Resume(ctx, org, storeID, attemptID)
+		}
+	}
 	if a.tiktok != nil {
 		owns, err := a.tiktok.Owns(ctx, org, storeID)
 		if err != nil {
@@ -249,6 +278,15 @@ func (a *OfficialConnections) queryAttempt(ctx context.Context, attempt storecen
 	return view, nil
 }
 func (a *OfficialConnections) Disconnect(ctx context.Context, c storecenter.OfficialConnectionCommand) (storecenter.OfficialConnectionView, error) {
+	if a.walmart != nil {
+		owns, e := a.walmart.Owns(ctx, c.OrganizationID, c.StoreID)
+		if e != nil {
+			return storecenter.OfficialConnectionView{}, e
+		}
+		if owns {
+			return a.walmart.Disconnect(ctx, c)
+		}
+	}
 	if a.tiktok != nil {
 		owns, err := a.tiktok.Owns(ctx, c.OrganizationID, c.StoreID)
 		if err != nil {
@@ -261,6 +299,15 @@ func (a *OfficialConnections) Disconnect(ctx context.Context, c storecenter.Offi
 	return a.store.DisconnectOfficialConnection(ctx, c, time.Now().UTC())
 }
 func (a *OfficialConnections) Read(ctx context.Context, org, store string) (storecenter.OfficialConnectionView, error) {
+	if a.walmart != nil {
+		owns, e := a.walmart.Owns(ctx, org, store)
+		if e != nil {
+			return storecenter.OfficialConnectionView{}, e
+		}
+		if owns {
+			return a.walmart.Read(ctx, org, store)
+		}
+	}
 	if a.tiktok != nil {
 		owns, err := a.tiktok.Owns(ctx, org, store)
 		if err != nil {
@@ -284,6 +331,15 @@ func (a *OfficialConnections) Read(ctx context.Context, org, store string) (stor
 	return view, nil
 }
 func (a *OfficialConnections) Applications(ctx context.Context, org, store string) ([]storecenter.OfficialApplicationChoice, error) {
+	if a.walmart != nil {
+		owns, e := a.walmart.Owns(ctx, org, store)
+		if e != nil {
+			return nil, e
+		}
+		if owns {
+			return a.walmart.Applications(ctx, org, store)
+		}
+	}
 	if a.tiktok != nil {
 		owns, err := a.tiktok.Owns(ctx, org, store)
 		if err != nil {
@@ -306,6 +362,9 @@ func (a *OfficialConnections) Applications(ctx context.Context, org, store strin
 	return choices, nil
 }
 func (a *OfficialConnections) Status(ctx context.Context, input storecenter.ConnectionStatusInput) (storecenter.ConnectionStatus, error) {
+	if input.Platform == storecenter.PlatformWalmart && a.walmart != nil {
+		return a.walmart.Status(ctx, input)
+	}
 	if input.Platform == storecenter.PlatformTikTokShop && a.tiktok != nil {
 		return a.tiktok.Status(ctx, input)
 	}

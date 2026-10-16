@@ -834,3 +834,51 @@ func TestProjectBoundaryListingKitDepguardPatternCoversDomainTrees(t *testing.T)
 		}
 	}
 }
+
+func TestWalmartDepguardRegistersOnlyFrozenAdapterPorts(t *testing.T) {
+	rules := loadDepguardRules(t, filepath.Join("..", ".golangci.yml"))
+	cases := []struct {
+		name         string
+		files, ports []string
+	}{
+		{"walmart_official_transport", []string{
+			"**/internal/integration/walmart/client.go",
+			"**/internal/integration/walmart/products.go",
+		}, []string{"$gostd", "github.com/google/uuid$", "task-processor/internal/marketplace/walmart$", "task-processor/internal/storecenter/walmart$"}},
+		{"walmart_effects_persistence", []string{
+			"**/internal/integration/persistence/listing/submission/walmart_effects_policy.go",
+			"**/internal/integration/persistence/listing/official/walmart_results.go",
+		}, []string{"$gostd", "github.com/google/uuid$", "gorm.io/gorm$", "gorm.io/gorm/clause$",
+			"task-processor/internal/integration/persistence/listing/record$",
+			"task-processor/internal/integration/persistence/listing/submission$",
+			"task-processor/internal/listing/submission$", "task-processor/internal/marketplace/walmart$", "task-processor/internal/product/collection$"}},
+	}
+	for _, tc := range cases {
+		rule := requireDepguardRule(t, rules, tc.name)
+		if rule.ListMode != "strict" || len(rule.Files) != len(tc.files) || len(rule.Allow) != len(tc.ports) {
+			t.Fatalf("%s must keep its exact strict file/port allowlist: %+v", tc.name, rule)
+		}
+		files, ports := stringSet(rule.Files), stringSet(rule.Allow)
+		for _, file := range tc.files {
+			if _, ok := files[file]; !ok {
+				t.Errorf("%s missing exact file %s", tc.name, file)
+			}
+		}
+		for _, port := range tc.ports {
+			if _, ok := ports[port]; !ok {
+				t.Errorf("%s missing exact port %s", tc.name, port)
+			}
+		}
+	}
+	for _, tc := range []struct{ name, exclusion string }{
+		{"infrastructure_business_boundaries", "!**/internal/integration/walmart/client.go"},
+		{"infrastructure_business_boundaries", "!**/internal/integration/walmart/products.go"},
+		{"listing_submission_persistence_boundary", "!**/internal/integration/persistence/listing/submission/walmart_effects_policy.go"},
+		{"supply_official_uow_persistence", "!**/internal/integration/persistence/listing/official/walmart_results.go"},
+	} {
+		files := stringSet(requireDepguardRule(t, rules, tc.name).Files)
+		if _, ok := files[tc.exclusion]; !ok {
+			t.Errorf("%s must delegate the exact adapter to its strict rule", tc.name)
+		}
+	}
+}

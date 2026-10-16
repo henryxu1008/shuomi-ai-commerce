@@ -43,6 +43,7 @@ type ProductExecutionMaterial struct {
 	Connection       OfficialConnectionView
 	Attempt          OfficialConnectionAttempt       `json:"-"`
 	TikTok           *TikTokProductExecutionMaterial `json:"-"`
+	Walmart          *WalmartGrant                   `json:"-"`
 }
 
 type TikTokProductExecutionMaterial struct {
@@ -61,6 +62,7 @@ type TikTokMerchantBinding struct {
 // ProductMerchantBinding is a public reference to current Store authority. It
 // contains no credential and never grants durable execution on its own.
 type ProductMerchantBinding struct {
+	Walmart              WalmartMerchantBinding    `json:"walmart,omitempty,omitzero"`
 	TikTok               TikTokMerchantBinding     `json:"tiktok,omitempty,omitzero"`
 	Platform             Platform                  `json:"platform,omitempty"`
 	IdentityPartition    OfficialIdentityPartition `json:"identity_partition,omitempty"`
@@ -82,6 +84,12 @@ type ProductMerchantBinding struct {
 }
 
 func (b ProductMerchantBinding) ValidApplication() bool {
+	if b.Platform == PlatformWalmart {
+		return b.ValidWalmartApplication()
+	}
+	if b.Walmart != (WalmartMerchantBinding{}) {
+		return false
+	}
 	if b.Platform == PlatformTikTokShop {
 		return b.ValidTikTokApplication()
 	}
@@ -95,10 +103,16 @@ func (b ProductMerchantBinding) ValidApplication() bool {
 }
 
 func (b ProductMerchantBinding) ValidTikTokApplication() bool {
+	if b.Walmart != (WalmartMerchantBinding{}) {
+		return false
+	}
 	return b.Platform == PlatformTikTokShop && b.Site == "tiktokshop-us" && b.IdentityPartition == "" && b.ApplicationType == "" && b.MerchantMode == "" && b.RegionID == 0 && authidentity.IsBoundedIdentifier(b.ApplicationID) && authidentity.IsBoundedIdentifier(b.ApplicationRevision) && len(b.SupplierIdentityHash) == 64 && len(b.ScopesHash) == 64 && !b.CredentialExpiresAt.IsZero() && uuid.Validate(b.TikTok.GrantID) == nil && authidentity.IsBoundedIdentifier(b.TikTok.ShopID) && b.TikTok.GrantGeneration > 0 && b.TikTok.GrantRevision >= b.TikTok.GrantGeneration && b.TikTok.BindingRevision > 0
 }
 
 func (b ProductMerchantBinding) ValidTemuApplication() bool {
+	if b.Walmart != (WalmartMerchantBinding{}) {
+		return false
+	}
 	if b.TikTok != (TikTokMerchantBinding{}) {
 		return false
 	}
@@ -177,7 +191,7 @@ func (r *MemberScopedStoreRepository) readOfficialMaterial(ctx context.Context, 
 		if err := tx.Where("organization_id = ? AND id = ? AND deleted_at IS NULL", subject.OrganizationID, storeID).Take(&stored).Error; err != nil {
 			return err
 		}
-		if stored.Platform != "shein" && stored.Platform != "temu" && stored.Platform != "tiktokshop" || stored.RecordStatus != "active" || stored.ServiceStatus == nil || *stored.ServiceStatus != "active" || stored.ServiceStartedAt == nil || stored.ServiceExpiresAt == nil || now.Before(*stored.ServiceStartedAt) || !now.Before(*stored.ServiceExpiresAt) || stored.ConnectionRef == "" {
+		if stored.Platform != "shein" && stored.Platform != "temu" && stored.Platform != "tiktokshop" && stored.Platform != "walmart" || stored.RecordStatus != "active" || stored.ServiceStatus == nil || *stored.ServiceStatus != "active" || stored.ServiceStartedAt == nil || stored.ServiceExpiresAt == nil || now.Before(*stored.ServiceStartedAt) || !now.Before(*stored.ServiceExpiresAt) || stored.ConnectionRef == "" {
 			return ErrNotFound
 		}
 		var connection officialConnectionRow
@@ -186,6 +200,21 @@ func (r *MemberScopedStoreRepository) readOfficialMaterial(ctx context.Context, 
 		}
 		if connection.Status != "connected" {
 			return ErrNotFound
+		}
+		if stored.Platform == "walmart" {
+			var attempt WalmartConnectionAttempt
+			if err := tx.Where("organization_id=? AND store_id=? AND attempt_id=? AND connection_version=? AND state='bound'", subject.OrganizationID, storeID, connection.AttemptID, connection.Version).Take(&attempt).Error; err != nil {
+				return ErrNotFound
+			}
+			var grant WalmartGrant
+			if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("organization_id=? AND store_id=? AND id=?", subject.OrganizationID, storeID, attempt.GrantID).Take(&grant).Error; err != nil {
+				return ErrNotFound
+			}
+			if stored.Region != "US" || grant.AppID != attempt.AppID || grant.AppRevision != attempt.AppRevision || grant.Environment != attempt.Environment || !grant.CanRead(now) {
+				return ErrNotFound
+			}
+			material = ProductExecutionMaterial{StoreVersion: stored.Version, Platform: PlatformWalmart, ServiceExpiresAt: stored.ServiceExpiresAt.UTC(), Connection: walmartConnectionView(connection, attempt, grant, now), Walmart: &grant}
+			return ctx.Err()
 		}
 		if stored.Platform == "tiktokshop" {
 			var attempt tiktokAttemptRow

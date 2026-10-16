@@ -8,8 +8,8 @@ import (
 	"task-processor/internal/product/sourcing"
 )
 
-const supplyRecordRuntimeGrant = "GRANT SELECT,INSERT ON public.listing_target_records,public.listing_target_record_commands,public.listing_submission_official_intents,public.listing_submission_official_receipts TO source_acquisition_runtime"
-const supplyExecutionRuntimeGrant = "GRANT SELECT,INSERT,UPDATE ON public.listing_preparation_targets,public.listing_preparation_operations,public.listing_preparation_operation_items,public.listing_submission_execution_attempts,public.listing_submission_target_fences TO source_acquisition_runtime"
+const supplyRecordRuntimeGrant = "GRANT SELECT,INSERT ON public.listing_target_records,public.listing_target_record_commands,public.listing_submission_official_intents,public.listing_submission_official_receipts,public.listing_walmart_feed_observations TO source_acquisition_runtime"
+const supplyExecutionRuntimeGrant = "GRANT SELECT,INSERT,UPDATE ON public.listing_preparation_targets,public.listing_preparation_operations,public.listing_preparation_operation_items,public.listing_submission_execution_attempts,public.listing_submission_target_fences,public.listing_walmart_sku_bindings TO source_acquisition_runtime"
 const supplyReviewRuntimeGrant = "GRANT SELECT ON public.product_title_proposals TO source_acquisition_runtime"
 
 // VerifyOwnerRuntimePermissions is catalog-only maintenance for this fixed
