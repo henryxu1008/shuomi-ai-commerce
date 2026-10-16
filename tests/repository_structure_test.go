@@ -35,6 +35,7 @@ func maintainedOperationalCommands() map[string]struct{} {
 		"product-listing-api-schema-migrate":  {},
 		"product-agent-credential-provision":  {},
 		"product-agent-runtime-prepare":       {},
+		"local-ai-trial-grant":                {},
 		"product-acquisition-init":            {},
 		"shein-import-platform-recovery":      {},
 		"shein-login-worker":                  {},
