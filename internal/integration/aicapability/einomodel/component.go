@@ -47,11 +47,13 @@ var (
 )
 
 type ComponentConfig struct {
-	Adapter             AdapterKind
-	Endpoint            string
-	APIKey              string
-	ModelID             string
-	MaximumOutputTokens int
+	Adapter              AdapterKind
+	ProviderID           string
+	AdapterPolicyVersion string
+	Endpoint             string
+	APIKey               string
+	ModelID              string
+	MaximumOutputTokens  int
 }
 
 // NewComponent always constructs an unbound model instance. Neither callers
@@ -60,6 +62,7 @@ func NewComponent(ctx context.Context, cfg ComponentConfig, guard *GuardedClient
 	if ctx == nil || guard == nil || guard.Client == nil || cfg.APIKey == "" || cfg.ModelID == "" ||
 		cfg.MaximumOutputTokens < 1 || cfg.MaximumOutputTokens > 65536 ||
 		!ValidAdapterEndpoint(cfg.Adapter, cfg.Endpoint) || cfg.Adapter != guard.cfg.Adapter ||
+		cfg.ProviderID != guard.cfg.ProviderID || cfg.AdapterPolicyVersion != guard.cfg.AdapterPolicyVersion ||
 		cfg.Endpoint != guard.cfg.Endpoint || cfg.ModelID != guard.cfg.ModelID ||
 		cfg.MaximumOutputTokens != guard.cfg.MaximumOutputTokens {
 		return nil, ErrInvalid
@@ -72,9 +75,13 @@ func NewComponent(ctx context.Context, cfg ComponentConfig, guard *GuardedClient
 		}
 		return &googleComponent{config: cfg, guard: guard}, nil
 	case AdapterOpenAICompatible:
+		var extra map[string]any
+		if cfg.AdapterPolicyVersion == DashScopeDeepSeekV41FlashNonThinkingPolicy {
+			extra = map[string]any{"enable_thinking": false}
+		}
 		return openaimodel.NewChatModel(ctx, &openaimodel.ChatModelConfig{
 			APIKey: cfg.APIKey, BaseURL: cfg.Endpoint, Model: cfg.ModelID,
-			MaxTokens: &maxTokens, HTTPClient: guard.Client,
+			MaxTokens: &maxTokens, HTTPClient: guard.Client, ExtraFields: extra,
 		})
 	case AdapterClaudeNative:
 		endpoint := cfg.Endpoint
@@ -89,6 +96,8 @@ func NewComponent(ctx context.Context, cfg ComponentConfig, guard *GuardedClient
 
 type GuardConfig struct {
 	Adapter              AdapterKind
+	ProviderID           string
+	AdapterPolicyVersion string
 	Endpoint             string
 	ModelID              string
 	MaximumOutputTokens  int
@@ -153,6 +162,9 @@ func NewGuardedClient(cfg GuardConfig, base http.RoundTripper, finalGate func(co
 		cfg.MaximumRequestBytes > 1<<20 || cfg.MaximumResponseBytes < 1 ||
 		cfg.MaximumResponseBytes > 1<<20 || cfg.Timeout <= 0 || cfg.Timeout > 2*time.Minute ||
 		finalGate == nil {
+		return nil, ErrInvalid
+	}
+	if !validFixedAdapterPolicy(cfg.Adapter, cfg.ProviderID, cfg.ModelID, cfg.AdapterPolicyVersion) {
 		return nil, ErrInvalid
 	}
 	if cfg.Adapter == AdapterGoogleInteractions && (cfg.ModelID != googleinteractions.Model || cfg.MaximumRequestBytes > 128<<10 || cfg.MaximumResponseBytes > 256<<10) {
@@ -267,6 +279,10 @@ func validWire(raw []byte, cfg GuardConfig) bool {
 	}
 	var modelID string
 	if json.Unmarshal(envelope["model"], &modelID) != nil || modelID != cfg.ModelID {
+		return false
+	}
+	if cfg.AdapterPolicyVersion == DashScopeDeepSeekV41FlashNonThinkingPolicy &&
+		!bytes.Equal(bytes.TrimSpace(envelope["enable_thinking"]), []byte("false")) {
 		return false
 	}
 	if cfg.Adapter == AdapterGoogleInteractions {

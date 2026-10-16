@@ -119,6 +119,19 @@ func TestSelectionOnlyPolicyDoesNotRequireASecondTitleModel(t *testing.T) {
 	require.Error(t, cfg.validate(), "enabled execution still needs an explicitly admitted consumer")
 }
 
+func TestContentDeepSeekConfigRequiresFixedNonThinkingPolicy(t *testing.T) {
+	cfg := agentRuntimeConfig()
+	policy := cfg.ProductAgent.TextPolicies["org"]
+	policy.Profile.ProviderID, policy.Profile.ModelID = "DASHSCOPE", "deepseek-v4.1-flash"
+	policy.Profile.PromptVersion, policy.Profile.OutputSchemaVersion = agentconfig.ContentPromptVersion, agentconfig.ContentActionVersion
+	cfg.ProductAgent.TextPolicies = nil
+	cfg.ProductAgent.ContentTextPolicies = map[string]governed.RoutePolicy{"org": policy}
+	require.Error(t, cfg.validate(), "an old generic policy must not inherit the thinking default")
+	policy.Profile.AdapterPolicyVersion = governed.DashScopeDeepSeekV41FlashNonThinkingPolicy
+	cfg.ProductAgent.ContentTextPolicies["org"] = policy
+	require.NoError(t, cfg.validate(), "the fixed policy uses existing content configuration fields")
+}
+
 func agentRuntimeConfig() *Config {
 	cfg := runtimeTestConfig()
 	owner := cfg.SourceAccountDatabase
