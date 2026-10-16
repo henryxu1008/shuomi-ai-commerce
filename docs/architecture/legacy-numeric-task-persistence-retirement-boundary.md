@@ -2,9 +2,9 @@
 
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
-- Status: **PROPOSED / DESIGN_ONLY / AWAITING_USER_CONFIRMATION**。本轮只调查、设计和维护文档 PR；生产源码、测试、workflow 与真实运行态未改。
+- Status: **用户已确认冻结设计 49833f924 的 §5、§6、§6.1、§7，按 Reuse Existing Architecture / Ready 在 #740 实施源码退休**。准确实现候选、检查与复核结果以 PR 为准；没有操作真实运行态或数据。
 - 调查基线：`main @ 68b4e99a4cb6afd95deea7ed95b9dad6b4e65edd`（#738 已合并）。31 个现行命令根均已用实际 Go import 图核对；源码检索区分生产、专属测试和同包编译，不运行任何命令 main 或 schema 工具。
-- 当前文档批 **Design Basis: N/A**，理由是没有生产语义变化；未来实施拟走 **Reuse Existing Architecture**，必须在用户确认本文件 §5、§6、§6.1、§7 并刷新消费者后，先在执行 Issue 记录 Ready，才能改生产路径。本文件不是实施授权。
+- 实施 **Design Basis: Reuse Existing Architecture**。用户确认设计及消费者刷新先于正式源码修改，#29/#301 已记录 Ready。原文档阶段 N/A、设计 CI/复核仅为历史，不替代当前实现准入或准确候选验证。
 
 ## 1. 用户结果与范围
 
@@ -16,7 +16,7 @@ Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](htt
 
 依据：[全新系统基线](../product/greenfield-no-legacy-migration.md)、[Hard-Cut](../refactoring/legacy-hard-cut-policy.md)、[Legacy register](../refactoring/legacy-register.md)、[项目边界](project-boundaries.md)、[旧 control-plane](legacy-listing-control-plane-retirement-boundary.md)、[旧数字执行链](legacy-numeric-task-execution-retirement-boundary.md)、[ownership/controller 配置退休](legacy-ownership-controller-retirement-boundary.md)、[独立 SHEIN worker 边界](shein-worker-identity-persistence-boundary.md)、[当前 Store](store-center-current-application-v1.md) 和 [Store observations](store-observations-preparation-runtime.md)。本设计只替代前批对本闭包的“保留待后续”决定；不重写当时证据或扩大其它范围。无 UI/IA 变化，Figma N/A。
 
-未来 Reuse 路径复用上述已确认的 owner 与 Hard-Cut，不新增表、事实 owner、公共当前领域合同、权限/身份/租户政策、状态机、事务、幂等/retry/UNKNOWN/recovery 或平台副作用。不因文件数或删除量重新设计全局架构：批准矩阵必须完整覆盖本批提示线；若发现未覆盖的当前消费者或必须改变保留边界，停止对应删除、报告具体证据并按需升级 Independent Architecture，不能临时发明兼容路径。
+本次 Reuse 路径复用上述已确认的 owner 与 Hard-Cut，不新增表、事实 owner、公共当前领域合同、权限/身份/租户政策、状态机、事务、幂等/retry/UNKNOWN/recovery 或平台副作用。不因文件数或删除量重新设计全局架构：批准矩阵完整覆盖本批提示线；若发现未覆盖的当前消费者或必须改变保留边界，停止对应删除、报告具体证据并按需升级 Independent Architecture，不能临时发明兼容路径。
 
 Must：有效 Store/owner/规则/worker 行为与原安全断言保持；无 fallback、空壳、双读双写、第二事实源、新调度/恢复 owner 或旧任务向新身份映射；源码删除不触及真实状态；三项旧协议检查的处置必须和源码同批生效，保留有效检查与失败阻断。Should：现行文档和 guard 如实区分旧任务表、保留字段与当前观察事实。Out of Scope：实际旧环境探测、排空/补偿/重放/迁移、当前业务扩张、共享包全面清理、通用恢复或验证平台。无新增 Accepted Risk，不扩大 Threat Model，不把未知运行态写成已安全退休。
 
@@ -48,9 +48,9 @@ Must：有效 Store/owner/规则/worker 行为与原安全断言保持；无 fal
 
 不存在本轮新幂等键、新状态转换、跨库一致性协议或恢复触发。响应丢失、重试、UNKNOWN、并发和历史任务如何处置仍由原运行 owner 决定；本设计不访问真实环境，不把源码删除当运行态安全证明，也不添加试用验收要求。
 
-## 5. 拟删除矩阵与明确保留
+## 5. 用户已确认的删除矩阵与明确保留
 
-以下以 `internal/listingadmin/` 为前缀；实施基线需先刷新与 §3 一致。
+以下以 `internal/listingadmin/` 为前缀；实施前已刷新与 §3 一致。专属源码已按矩阵退出；真实表、索引、行及运行 owner 不变。
 
 | 文件/符号 | 决定 | 删除条件与保留 |
 | --- | --- | --- |
@@ -66,13 +66,14 @@ Must：有效 Store/owner/规则/worker 行为与原安全断言保持；无 fal
 
 ## 6. 测试与原三项并发检查处置
 
-| 对象 | 拟处置 | 保留的约束 |
+| 对象 | 用户已确认的处置 | 保留的约束 |
 | --- | --- | --- |
 | `import_task_dispatch_test.go`、`import_task_model_test.go`、`import_task_query_test.go`、`dispatch_event_repository_test.go`、`paused_task_recovery_test.go`、`scheduled_task_config_repository_test.go`、`store_statistics_test.go` | RETIRE 七个专属测试文件及只服务它们的 fixture | 原 runConcurrently/seedDispatchTasks 等仅在这批专属测试中使用；实施刷新如发现保留测试使用某 helper，只保留所需纯测试行为于既有 test helper，不引入 runner/framework |
-| `schema_migrate_test.go` | RETIRE ImportTask 专属测试/fixture（从 `TestAutoMigrateImportTaskRepositoryMakesCategoryIDNullable` 起的专属段）和闲置 import | 前三项 owner constraint、sensitive-word、通用 PostgreSQL column type 检查全部保留 |
+| `schema_migrate_test.go` | RETIRE ImportTask 专属测试/fixture（从 `TestAutoMigrateImportTaskRepositoryMakesCategoryIDNullable` 起的专属段）和闲置 import | 前三项 owner constraint、sensitive-word、通用 PostgreSQL column type 检查全部保留；同段内仍被前部有效断言使用的原 `intPtr` 纯 helper 留在原文件，不恢复旧测试 |
 | `owner_scoped_batch_test.go` | 只 RETIRE `TestBatchCreateImportTasksRejectsOwnerlessBatchBeforeInsert` | ProductData 无部分写、事务内 Store owner、mapping lookup/DB 错误与请求身份不可被 payload 覆盖的其余六项完整保留 |
 | `owner_scoped_repository_test.go` | 只 RETIRE `TestUpsertScheduledTaskConfigRejectsOwnerlessWrite` | Store/category/规则等十项保留测试及通用 fixture/ownerless 断言不变 |
 | 名含 ImportTaskID 的 mapping/product/raw JSON 其它测试 | 保留原有效断言 | 不以子串搜索批删测试、字段、列或数值 fixture |
+| `internal/app/runtime/listingkitschemamigrate/runtime_test.go` 的 `openRuntimeSchemaTestDB` | RETIRE 零调用的旧任务建表 fixture；同批 BACKLOG finding 的精确补列，不重开架构 | 保留所有 runtime 测试、商用/Workbench scope 与旧 scope 在 I/O 前拒绝的断言；sqlite/gorm/modernc imports 仍被有效 Workbench SQLite 测试使用，全部保留 |
 | 原 `tests/listingkit_backend_retirement_test.go` | 在同一原 guard 扩展目标 absence；将 import_task_repository 从 retained 列表转到 absence；增加混合文件目标符号不复活与保留合同检查 | 先在完整源码仍存在时确认目标 RED，再最小删除后 GREEN；其它必读文件、当前命令实际依赖、旧目录禁入和安全断言保持，不遇缺跳过 |
 | 原 `tests/commercial_readiness_workflow_test.go` | 同步 §6.1 的精确命令与旧目标禁止引用断言 | pinned commit、race step/id、pipefail、日志/证据上传、失败分类和其它所有原要求不变；不整删测试或降低门禁 |
 
@@ -86,26 +87,26 @@ Must：有效 Store/owner/规则/worker 行为与原安全断言保持；无 fal
 
 这三项是有效的历史旧协议安全测试，不代表所有并发安全需求都已取消。它们只在对应生产协议同批物理退出且无保留消费者时退休；保留 Store/owner/权限/幂等和当前执行协议的测试不得被替换成固定成功或新造的“等价”测试。
 
-### 6.1 两套 workflow 的精确变更提案
+### 6.1 用户已确认的两套 workflow 精确变更
 
-两处当前专属 `-run` 正则均只包含上述三个旧测试。实施后不能继续保留它，否则 Go 可因零匹配而成功。拟在同一主要 PR **仅替换 run 命令，保留步骤、id 和失败阻断**：
+两处原专属 `-run` 正则均只包含上述三个旧测试。源码退休后不能继续保留它，否则 Go 可因零匹配而成功。同一主要 PR 中 **仅替换 run 命令，保留步骤、id 和失败阻断**：
 
 | 文件 / 步骤 | 确认后的命令 | 保留内容 |
 | --- | --- | --- |
 | `.github/workflows/ci.yml` / `Run listing concurrency race tests` | `go test -race ./internal/listingadmin -count=1` | 原 step 与 Backend/Required CI Gate、当前两个 runtime build、所有其它检查保持；不保留旧 regex，不加 skip/continue-on-error |
 | `.github/workflows/commercial-readiness.yml` / `Run ListingKit race tests` | `go test -race ./internal/listingadmin -count=1 2>&1 \| tee evidence/listingadmin-race.log`（实际 shell 命令的管道不带转义） | `id: race_tests`、`shell: bash`、`set -o pipefail`、原日志路径、outcome 分类、artifact、准确 SHA、触发/权限/并发/保护与其它步骤不变 |
 
-替换后实际运行的是保留包内全部现有测试并启用 Go race detector，覆盖仍使用的 Store/owner/mapping/规则行为。它**不声称等价验证已退休的三套状态转换**，不新增测试平台或新业务需求；不扩大到全仓 `-race`。实施刷新须确认该包仍有上述保留测试，必要时用原 Go test 列表核对，不能让空包/空选择冒充安全检查。此设计阶段不修改任何 workflow；用户确认本节后才实施。
+替换后实际运行的是保留包内全部现有测试并启用 Go race detector，覆盖仍使用的 Store/owner/mapping/规则行为。它**不声称等价验证已退休的三套状态转换**，不新增测试平台或新业务需求；不扩大到全仓 `-race`。实施刷新已确认该包仍有上述保留测试，不能让空包/空选择冒充安全检查。源码实施与精确命令替换已获用户同批授权。
 
 原 PostgreSQL 权限/public-facts/schema-context、资金并发、发布 OIDC/RBAC、前端/采集、依赖健康及其它所有必需检查完整保留；不改变 classifier/Required Gate/保护规则或把 SKIPPED 写成 PASS。合并另需最终准确 HEAD 授权，并核对实际 merge 对应 push/main CI。
 
 ## 7. 实施准入、验证与停止点
 
-1. 用户确认 §5、§6、§6.1 和本节后，在 #29/#301 记录 Reuse Existing Architecture / Ready、单 Writer/主要 PR、准确 main 和保留 owner；刷新 31 命令图、外部构造器/符号及旧表源码消费者。原 #739/#736/#692 等其它活跃范围和运行 owner 不接管。任何新当前消费者不按旧设计强删，报告差异。
+1. 用户已确认 §5、§6、§6.1 和本节，#29/#301 已先于修改记录 Reuse Existing Architecture / Ready、单 Writer/主要 PR、准确 main 和保留 owner；31 命令图、外部构造器/符号及旧表源码消费者刷新与冻结矩阵一致。原 #739/#736/#692 等其它活跃范围和运行 owner 不接管。任何新当前消费者不按旧设计强删，报告差异。
 2. 原退休/实际依赖 guard 在旧源码仍存在时先 RED；按矩阵逐项删专属闭包、精确收缩混合 schema/types/测试，保留 owner helper 和 mapping/Store/规则全部有效行为；再 GREEN。原三项旧测试和两处精确命令同批变更，不出现零匹配成功、临时 stub 或空壳恢复服务。
 3. 只执行适用原 retirement/文档/workflow guard、保留 listingadmin 与 SHEIN service/bootstrap/worker、必要 current 规则回归、31 命令编译/实际图及 §6.1 保留包 race 检查；不运行命令 main、schema、真实 recovery dry-run 或平台操作。稳定候选再跑完整 PR CI；未变代码证据可明确复用，不自行加验收矩阵/runner。
 4. 最终候选前同步一次实际 main，只解决真实组合问题；一次集中独立交付检查，finding 先分类，同根因 sibling 一起处理。若实际发现当前 Must 的 owner/租户/数据/恢复 Blocker，停止对应实现并返回适用设计；非 Blocker 不重开全局架构或追加产品前置。
-5. 实现完成进入 In Review，交付准确 HEAD、适用 CI/复核与保留入口/限制。用户当前只授权设计，本轮止于设计 PR 与证据；不修改生产/测试/workflow、不合并、关单、部署或操作实例/数据。真实运行/用户/平台验收 NOT_RUN，生产 NOT_READY，#29/#301 保持 OPEN。
+5. 实现完成进入 In Review，交付准确 HEAD、适用 CI/复核与保留入口/限制。本轮实现、自检、提交/推送和维护原 #740 已获授权；合并、关单、部署或实例/数据操作另行授权。真实运行/用户/平台验收 NOT_RUN，生产 NOT_READY，#29/#301 保持 OPEN。
 
 ```text
 Legacy decision: RETIRE

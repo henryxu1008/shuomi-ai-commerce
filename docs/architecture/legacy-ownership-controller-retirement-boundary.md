@@ -1,5 +1,10 @@
 # 旧 ownership-controller 与 auto-shard 配置退休设计
 
+后续校准：#738 当时保留的无消费者 ImportTask/事件/恢复/调度持久化闭包，随后按
+[#740 确认矩阵](legacy-numeric-task-persistence-retirement-boundary.md)退出源码；
+旧三项 race 随协议退休，两套原步骤验证完整保留 listingadmin 包。有效 Store/owner/规则/
+mapping、共享配置与独立登录保持；本文件 §6.1 的零 workflow 修改只描述 #738 当时范围。
+
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
 - Status: **用户已确认冻结设计 dc1fff14e 的 §5、§6、§6.1、§7，按 Reuse Existing Architecture / Ready 在 #738 实施源码退休**；准确实现候选、CI 与独立最终复核以 PR 为准。

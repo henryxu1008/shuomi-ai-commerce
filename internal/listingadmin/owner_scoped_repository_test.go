@@ -132,18 +132,6 @@ func TestCreateProfitRuleRejectsOwnerlessWrite(t *testing.T) {
 	assertOwnerlessWriteRejected(t, db, "listing_profit_rule", err)
 }
 
-func TestUpsertScheduledTaskConfigRejectsOwnerlessWrite(t *testing.T) {
-	db := newOwnerScopedSQLiteDB(t, &listingScheduledTaskConfig{})
-	_, err := NewGormScheduledTaskConfigRepository(db).UpsertScheduledTaskConfig(context.Background(), &ScheduledTaskConfig{
-		TenantID:        101,
-		StoreID:         1,
-		Platform:        "SHEIN",
-		TaskType:        "sync",
-		IntervalSeconds: 3600,
-	})
-	assertOwnerlessWriteRejected(t, db, "listing_scheduled_task_config", err)
-}
-
 func TestCreateSensitiveWordRejectsOwnerlessWrite(t *testing.T) {
 	db := newOwnerScopedSQLiteDB(t, &listingSensitiveWord{})
 	_, err := NewGormSensitiveWordRepository(db).CreateSensitiveWord(context.Background(), &SensitiveWord{

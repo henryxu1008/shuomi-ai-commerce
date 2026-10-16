@@ -35,6 +35,16 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/crawler/fetcher/distributed_fetcher.go", "internal/crawler/fetcher/builder_test.go",
 		"internal/temu/sync/inventory_sync_factory.go",
 		"internal/listingadmin/platform_recovery.go", "internal/listingadmin/platform_recovery_test.go",
+		"internal/listingadmin/import_task.go", "internal/listingadmin/import_task_model.go",
+		"internal/listingadmin/import_task_query.go", "internal/listingadmin/import_task_repository.go",
+		"internal/listingadmin/dispatch_event_repository.go", "internal/listingadmin/paused_task_recovery.go",
+		"internal/listingadmin/scheduled_task_config.go", "internal/listingadmin/scheduled_task_config_model.go",
+		"internal/listingadmin/scheduled_task_config_query.go", "internal/listingadmin/scheduled_task_config_repository.go",
+		"internal/listingadmin/store_statistics.go", "internal/listingadmin/runtime_prerequisites.go",
+		"internal/listingadmin/import_task_dispatch_test.go", "internal/listingadmin/import_task_model_test.go",
+		"internal/listingadmin/import_task_query_test.go", "internal/listingadmin/dispatch_event_repository_test.go",
+		"internal/listingadmin/paused_task_recovery_test.go", "internal/listingadmin/scheduled_task_config_repository_test.go",
+		"internal/listingadmin/store_statistics_test.go",
 		"internal/app/runtime/listing", "internal/app/runtime/listingscheduler",
 		"internal/app/bootstrap", "internal/app/consumer", "internal/app/runner", "internal/app/scheduler",
 		"internal/listingruntime/local", "internal/listingkit/sheinsync", "internal/listingkit/store",
@@ -63,6 +73,25 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			}
 		})
 	}
+	for relative, retired := range map[string][]string{
+		"internal/listingruntime/types.go": {
+			"type ImportTask struct", "type ScheduledTaskConfig struct", "type TaskStatusUpdate struct",
+		},
+		"internal/listingadmin/schema_migrate.go": {"ImportTask", "importTask"},
+		"internal/app/runtime/listingkitschemamigrate/runtime_test.go": {
+			"func openRuntimeSchemaTestDB(", "\"listing_product_import_task\"",
+		},
+	} {
+		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, token := range retired {
+			if strings.Contains(string(content), token) {
+				t.Errorf("%s must not recreate retired numeric task contract %q", relative, token)
+			}
+		}
+	}
 }
 
 func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
@@ -70,10 +99,31 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 		"internal/crawler/fetcher/contracts.go", "internal/crawler/fetcher/remote_fetcher.go",
 		"internal/platformbase/fetcher_mode.go", "internal/platformbase/fetcher_builder.go",
 		"internal/amazon/api/client.go", "internal/amazon/pipeline/manager.go",
-		"internal/listingruntime/types.go", "internal/listingadmin/import_task_repository.go",
+		"internal/listingruntime/types.go", "internal/listingadmin/import_task_owner.go",
+		"internal/listingadmin/import_task_owner_test.go", "internal/listingadmin/schema_migrate.go",
+		"internal/listingadmin/product_data_repository.go", "internal/listingadmin/product_import_mapping_repository.go",
+		"internal/core/config/type_platform.go",
 	} {
 		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); err != nil {
 			t.Errorf("retained platform/shared contract %s must remain: %v", relative, err)
+		}
+	}
+	for _, relative := range []string{".github/workflows/ci.yml", ".github/workflows/commercial-readiness.yml"} {
+		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(content), "go test -race ./internal/listingadmin -count=1") {
+			t.Errorf("%s must run the retained listingadmin tests with the race detector", relative)
+		}
+		for _, retired := range []string{
+			"TestConcurrentClaimForDispatchOnlyOneWorkerWins",
+			"TestConcurrentRollbackDispatchOnlyOriginalQueuedClaimIsRestoredOnce",
+			"TestConcurrentRecoveryOnlyUpdatesStillEligibleRowsOnce",
+		} {
+			if strings.Contains(string(content), retired) {
+				t.Errorf("%s must not select retired task test %q", relative, retired)
+			}
 		}
 	}
 	for _, command := range []string{"current-application", "shein-login-worker", "image-agent-temporal-worker", "source-account-registry-schema-init", "1688-local-agent", "1688-batch-import", "1688-public-browser-collector"} {

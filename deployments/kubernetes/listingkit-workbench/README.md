@@ -12,6 +12,12 @@
 > Current SMS callback is `/api/v1/identity/notifications/sms`; the old callback
 > below must not be mounted for new callers.
 
+> #740 additionally retires unconsumed numeric ImportTask, dispatch-event,
+> recovery, scheduled-configuration and task-statistics sources. Legacy table
+> backfill/constraint SQL below is historical evidence, not an executable current
+> procedure or authority to alter retained tables. Store/owner/mapping/rule
+> contracts and standalone SHEIN login remain; no runtime or data action occurred.
+
 
 This deploys the customer SHEIN Studio workbench as two services:
 
@@ -542,7 +548,9 @@ The application migration installs a PostgreSQL `owner_user_id` check as
 migration fail on the historical ownerless set. Do not validate these
 constraints until the reviewed reconciliation report shows both
 `unresolved_rows=0` and `auto_rows=0`. After the controlled backfill, validate
-each legacy owner-scoped table explicitly:
+each legacy owner-scoped table explicitly (historical procedure only: this source
+retirement does not authorize executing the following SQL, including the retired
+task/configuration objects; real retained objects remain with their original owner):
 
 ```sql
 ALTER TABLE "listing_store"

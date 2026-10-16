@@ -10,31 +10,6 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-func TestBatchCreateImportTasksRejectsOwnerlessBatchBeforeInsert(t *testing.T) {
-	db := openOwnerScopedBatchSQLite(t)
-	if err := db.AutoMigrate(&listingProductImportTask{}); err != nil {
-		t.Fatalf("migrate import task: %v", err)
-	}
-	if err := AutoMigrateImportTaskRepository(db); err != nil {
-		t.Fatalf("migrate import task repository: %v", err)
-	}
-	storeID := int64(986)
-	_, err := NewGormImportTaskRepository(db).BatchCreateImportTasks(context.Background(), []ImportTask{
-		{TenantID: 246, StoreID: &storeID, Platform: "amazon", TargetPlatform: "shein", Region: "US", ProductID: "A"},
-		{TenantID: 246, StoreID: &storeID, Platform: "amazon", TargetPlatform: "shein", Region: "US", ProductID: "B"},
-	})
-	if !errors.Is(err, ErrOwnerUserIDRequired) {
-		t.Fatalf("BatchCreateImportTasks() error = %v, want ErrOwnerUserIDRequired", err)
-	}
-	var count int64
-	if err := db.Table("listing_product_import_task").Count(&count).Error; err != nil {
-		t.Fatalf("count import tasks: %v", err)
-	}
-	if count != 0 {
-		t.Fatalf("import task rows = %d, want 0", count)
-	}
-}
-
 func TestUpsertProductDataBatchRejectsOwnerlessItemWithoutPartialWrite(t *testing.T) {
 	db := openOwnerScopedBatchSQLite(t)
 	if err := db.AutoMigrate(&listingProductData{}); err != nil {

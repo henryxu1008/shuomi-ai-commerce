@@ -4,6 +4,11 @@
 及专属 auto-shard 配置，随后已按 [#738 已确认范围](legacy-ownership-controller-retirement-boundary.md)
 源码退休；旧表/运行态、有效共享合同和独立登录仍保留，历史矩阵不回写为当时已删。
 
+其后 [#740 已确认范围](legacy-numeric-task-persistence-retirement-boundary.md)退役
+无消费者的 ImportTask/事件/暂停与超时恢复/调度配置和专属源码/测试；原三项 race
+随旧协议退出，两套 race 步骤运行完整保留 listingadmin 包。有效 Store/owner/mapping/规则、
+共享配置和真实表/索引/数据/恢复 owner 不变，下方保留矩阵仍描述 #729 当时边界。
+
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
 - Status: **用户已确认 §5、§6、§6.1、§7，按 Reuse Existing Architecture / Ready 在 #729 实施源码退休**；准确实现候选、CI与独立检查以 PR 为准。

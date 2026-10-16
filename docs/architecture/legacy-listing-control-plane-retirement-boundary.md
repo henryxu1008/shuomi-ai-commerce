@@ -4,6 +4,11 @@
 声明和无保留消费者的专属 auto-shard 配置 overlay，随后按 [#738 确认矩阵](legacy-ownership-controller-retirement-boundary.md)
 退出源码；不删除其它有效配置/Secret/监控或操作真实资源，原历史矩阵不回写。
 
+原保留的无消费者 ImportTask/派发事件/暂停恢复/调度配置及专属残留，随后按
+[#740 确认矩阵](legacy-numeric-task-persistence-retirement-boundary.md)源码退休；
+旧三项并发测试随协议退出，两套原 race 步骤改为完整保留 listingadmin 包。
+有效 Store/owner/mapping/规则与真实持久化 owner 保持；下方 §6.1 是 #726 当时证据。
+
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29)、[#301](https://github.com/qq550723504/task-processor/issues/301)。
 
 - Status: **用户已确认 §5、§6、§6.1、§7；按 Reuse Existing Architecture / Ready 实施源码退休**；准确候选、CI 与独立检查以 #726 为准。
@@ -11,7 +16,7 @@ Refs [#29](https://github.com/qq550723504/task-processor/issues/29)、[#301](htt
 - 源码调查基线：`main @ 43a225fa62eb9609bc643f3fd34b8cd1eb372450`（#723 合并后）。
 - 用户决定：先设计 `listing-control-plane`、`shein-import-platform-recovery` 与旧数字任务派发/恢复链的退休，确认后再实施；保留当前采集、Store 观察同步、有效共享合同、必需和安全检查及独立 SHEIN 登录 worker；不操作运行实例或数据，不增加内部试用前置。
 
-后续仅设计：[旧数字任务执行链退休边界](legacy-numeric-task-execution-retirement-boundary.md) 重新调查本文件 §5 保留的 task/status/processor、根 Amazon 和分布式爬虫专属接线。该提案尚待用户确认，不改变本批已实施删除范围或保留状态，不授权源码实施或真实运行态处置。
+后续校准：[旧数字任务执行链退休边界](legacy-numeric-task-execution-retirement-boundary.md) 已在 #729 按用户确认范围退休 task/status/processor、根 Amazon 和分布式爬虫专属接线；不回写本文件当时矩阵，也不授权真实运行态处置。
 
 ## 1. 用户结果、Authority 与非目标
 
