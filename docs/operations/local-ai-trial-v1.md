@@ -104,3 +104,14 @@ C:\private\local-ai-trial-grant.exe -config C:\private\trial-724.json -operation
 默认先停止新生成，按原 owner 合格入口关闭相应执行/准入或该 content 凭据；执行结果未知先读回，不能盲目重复 mutation。停启仅正常 SIGTERM/原队列与worker恢复顺序，保留全部任务，不 KILL/清卷/覆盖数据库。旧应用回退仍沿 A 的全历史 structured/UNKNOWN/漂移条件；存在新结构化事实或不能安全判断时停止，不能退旧 DTO 或用备份覆写。
 
 最终交接分别列清：代码/CI/独立复核、实际配置/发点、真实模型/费用/技能证据、Review/Apply/刷新版本及供货页截图、未执行项和用户待确认项。当前真实 B 结果全部 NOT_RUN，不自行签发用户验收或关闭 Issue。
+
+## 6. 受治理文本调用的安全诊断
+
+当前应用组装将现有应用 logger 注入所有受治理文本 Executor（内容、标题、Chat 及同一 owner 的其它消费者），沿原日志输出和轮转配置记录 `event=governed_text_diagnostic`。不需要增加日志服务、供应商探针或数据库表；源码交付不代表已经部署，也不构成再次模型调用的批准。
+
+- `stage/category` 区分准入、claim、reservation、最终 handoff、transport、response body、SDK 解析、usage、输出校验与 terminal recorder；只记录固定类别，不记录原始错误串、URL、请求/响应正文、Key、Prompt 或 SQL 值。`terminal/record_failed` 表示 recorder 调用未确认成功，不能单凭这一条定位其内部 CAS 或结算阶段，仍以原持久事实核验。
+- `invocation_id_hash` 是调用身份的 SHA-256；`http_request_id_hash` 仅来自响应的 `X-Request-Id`，`completion_id_hash` 仅来自 OpenAI-compatible JSON 的 `id`，输入标识超过 128 字节时不记。二者均不输出原文，也不是同一个标识；固定 Eino SDK 的 Extra `openai-request-id` 实际装载 completion ID，不可据名称冒作 HTTP 请求 ID。
+- `http_status`、有界 `elapsed_ms`、`response_bytes`、`usage_known` 与有限 `network_phase` 仅是诊断。`handoffs=1` 及 `write_attempt_done` 均不证明供应商收到或执行了请求。`context_state` 是当前阶段上下文，`caller_context_state` 是受治理调用上下文，避免把 SDK 自己清理 HTTP 子上下文误判为上层取消。
+- 诊断不会改变单发送、UNKNOWN、usage/报价保护、terminal CAS 或结算协议，不成为费用/结果事实源。旧 UNKNOWN 记录与预留不能因新日志、空日志、离线替身或哈希标识而释放、补账或重放。此前缺失的原始响应、实际用量、费用与历史唯一根因仍可能无法追溯。
+
+开发回归复用 `internal/integration/aicapability/einomodel` 的可注入 RoundTripper、httptest 与 recordingLedger，只使用本地端点和 synthetic Key；不得读取真实 Key 或调用供应商来验证诊断。实际安装、配置变更及任何后续真实试用仍须遵守当前 Issue 的独立授权和停止点。

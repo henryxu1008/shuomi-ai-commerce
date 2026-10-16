@@ -56,7 +56,7 @@ func buildListingMaterialsApplication(ctx context.Context, parent *productAgentA
 		r, e := routes.Resolve(ctx, aicapability.TextInputIdentity{OrganizationID: org, Operation: aicapability.OperationListingMaterialsDecision})
 		return r.Profile, e
 	}
-	executor := &governed.Executor{Ledger: parent.config.Ledger, Admission: parent.textAdmission, Resolve: routes.Resolve, BaseTransport: parent.config.TextTransport, Authorize: func(ctx context.Context, in aicapability.TextInputIdentity) error {
+	executor := &governed.Executor{Ledger: parent.config.Ledger, Logger: parent.config.TextLogger, Admission: parent.textAdmission, Resolve: routes.Resolve, BaseTransport: parent.config.TextTransport, Authorize: func(ctx context.Context, in aicapability.TextInputIdentity) error {
 		id, err := a.currentIdentity(ctx)
 		if err != nil || id.OrganizationID != in.OrganizationID || id.ActorID != in.ActorID || id.MemberID != in.MemberID {
 			return preparation.ErrForbidden
