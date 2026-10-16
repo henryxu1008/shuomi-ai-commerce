@@ -7,6 +7,8 @@ Refs [#29](https://github.com/qq550723504/task-processor/issues/29)、[#301](htt
 - 源码调查基线：`main @ 43a225fa62eb9609bc643f3fd34b8cd1eb372450`（#723 合并后）。
 - 用户决定：先设计 `listing-control-plane`、`shein-import-platform-recovery` 与旧数字任务派发/恢复链的退休，确认后再实施；保留当前采集、Store 观察同步、有效共享合同、必需和安全检查及独立 SHEIN 登录 worker；不操作运行实例或数据，不增加内部试用前置。
 
+后续仅设计：[旧数字任务执行链退休边界](legacy-numeric-task-execution-retirement-boundary.md) 重新调查本文件 §5 保留的 task/status/processor、根 Amazon 和分布式爬虫专属接线。该提案尚待用户确认，不改变本批已实施删除范围或保留状态，不授权源码实施或真实运行态处置。
+
 ## 1. 用户结果、Authority 与非目标
 
 维护者获得明确的源码删除清单：剩余旧生产者和一次性数据修复入口退出，当前内部试用能力沿原入口使用。目标是消除旧数字任务执行入口及其专属编排，不新增当前刊登执行器，不承诺所有数字类型或旧仓库已经清零，也不证明历史实例已停用。
