@@ -42,3 +42,11 @@ it("never interprets plain HTML-looking data and safely renders an untrusted ric
  view.rerender(<DescriptionView value={'<p onclick="evil()">safe<img src="'+image+'" onerror="evil()"></p><script>evil()</script>'} format="html-v1" images={[image]}/>);
  expect(view.container.querySelector("[onclick],[onerror],script")).toBeNull();expect(view.container.querySelector("img")).toHaveAttribute("src","/api/image-proxy?url="+encodeURIComponent(image));
 });
+
+it("updates toolbar selection state without changing untouched description bytes",async()=>{
+ const change=vi.fn();render(<DescriptionEditor label="描述" value="" images={[]} maxBytes={8192} onChange={change}/>);
+ await screen.findByRole("textbox",{name:"描述"});
+ fireEvent.click(screen.getByRole("button",{name:"加粗"}));
+ await waitFor(()=>expect(screen.getByRole("button",{name:"加粗"})).toHaveAttribute("aria-pressed","true"));
+ expect(change).not.toHaveBeenCalled();
+});

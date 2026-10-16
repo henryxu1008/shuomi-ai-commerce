@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"sort"
 	"time"
+
+	"task-processor/internal/product/description"
 )
 
 type ProductSnapshot struct {
@@ -21,6 +23,12 @@ type ProductSnapshot struct {
 	Review            *ReviewState    `json:"review,omitempty"`
 	Sources           []SourceRecord  `json:"sources,omitempty"`
 	Warnings          []Warning       `json:"warnings,omitempty"`
+}
+
+// PlainDescription projects the owned representation for current text-only
+// consumers without exposing parsing dependencies or mutating the snapshot.
+func (p ProductSnapshot) PlainDescription() string {
+	return description.PlainText(p.Description, p.DescriptionFormat)
 }
 
 func (p *ProductSnapshot) UnmarshalJSON(data []byte) error {

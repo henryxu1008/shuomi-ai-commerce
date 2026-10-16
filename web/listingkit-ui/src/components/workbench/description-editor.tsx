@@ -1,6 +1,6 @@
 "use client";
 import {useEffect,useId,useRef,useState} from "react";
-import {EditorContent,useEditor} from "@tiptap/react";
+import {EditorContent,useEditor,useEditorState} from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import ImageExtension from "@tiptap/extension-image";
 import {Button} from "@/components/ui/button";
@@ -38,6 +38,9 @@ export function DescriptionEditor({label,value,format,images,disabled=false,maxB
    last.current={value:html,format:"html-v1"};latest.current.onChange(html,"html-v1");
   },
  });
+ const active=useEditorState({editor,selector:({editor})=>({
+  paragraph:!!editor?.isActive("paragraph"),heading:!!editor?.isActive("heading",{level:2}),bold:!!editor?.isActive("bold"),italic:!!editor?.isActive("italic"),strike:!!editor?.isActive("strike"),bullet:!!editor?.isActive("bulletList"),ordered:!!editor?.isActive("orderedList"),quote:!!editor?.isActive("blockquote"),
+ })});
  useEffect(()=>{if(!editor)return;editor.setEditable(!disabled,false);if(last.current.value!==value||last.current.format!==format){editor.commands.setContent(descriptionEditorHTML(value,format,images),{emitUpdate:false});last.current={value,format}}},[editor,value,format,images,disabled]);
  const run=(action:()=>void)=>{if(editor&&!disabled){action();setNotice("")}};
  const action=(name:string,call:()=>void,active=false)=><Button type="button" size="sm" variant={active?"secondary":"ghost"} aria-pressed={active} disabled={disabled||!editor} onMouseDown={e=>e.preventDefault()} onClick={()=>run(call)}>{name}</Button>;
@@ -46,14 +49,14 @@ export function DescriptionEditor({label,value,format,images,disabled=false,maxB
   <label htmlFor={id} className="text-sm font-medium">{label}</label>
   <div className="overflow-hidden rounded-lg border border-border bg-background">
    <div role="toolbar" aria-label={label+"排版"} className="flex flex-wrap gap-1 border-b border-border bg-muted/40 p-2">
-    {action("正文",()=>editor!.chain().focus().setParagraph().run(),!!editor?.isActive("paragraph"))}
-    {action("小标题",()=>editor!.chain().focus().toggleHeading({level:2}).run(),!!editor?.isActive("heading",{level:2}))}
-    {action("加粗",()=>editor!.chain().focus().toggleBold().run(),!!editor?.isActive("bold"))}
-    {action("斜体",()=>editor!.chain().focus().toggleItalic().run(),!!editor?.isActive("italic"))}
-    {action("删除线",()=>editor!.chain().focus().toggleStrike().run(),!!editor?.isActive("strike"))}
-    {action("项目列表",()=>editor!.chain().focus().toggleBulletList().run(),!!editor?.isActive("bulletList"))}
-    {action("编号列表",()=>editor!.chain().focus().toggleOrderedList().run(),!!editor?.isActive("orderedList"))}
-    {action("引用",()=>editor!.chain().focus().toggleBlockquote().run(),!!editor?.isActive("blockquote"))}
+    {action("正文",()=>editor!.chain().focus().setParagraph().run(),!!active?.paragraph)}
+    {action("小标题",()=>editor!.chain().focus().toggleHeading({level:2}).run(),!!active?.heading)}
+    {action("加粗",()=>editor!.chain().focus().toggleBold().run(),!!active?.bold)}
+    {action("斜体",()=>editor!.chain().focus().toggleItalic().run(),!!active?.italic)}
+    {action("删除线",()=>editor!.chain().focus().toggleStrike().run(),!!active?.strike)}
+    {action("项目列表",()=>editor!.chain().focus().toggleBulletList().run(),!!active?.bullet)}
+    {action("编号列表",()=>editor!.chain().focus().toggleOrderedList().run(),!!active?.ordered)}
+    {action("引用",()=>editor!.chain().focus().toggleBlockquote().run(),!!active?.quote)}
     {action("撤销",()=>editor!.chain().focus().undo().run())}{action("重做",()=>editor!.chain().focus().redo().run())}
    </div>
    <EditorContent editor={editor}/>
