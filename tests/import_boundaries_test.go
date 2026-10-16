@@ -602,7 +602,7 @@ func TestListingAdminDispatchEventCompatibilityAliasesStayRetired(t *testing.T) 
 func TestAppTaskStatusDTOAdapterIsRetired(t *testing.T) {
 	path := filepath.Join("..", "internal", "app", "taskstatusdto")
 	if _, err := os.Stat(path); err == nil {
-		t.Fatalf("%s still exists; keep management task status DTO conversion in the management adapter", path)
+		t.Fatalf("%s still exists; keep the retired task status DTO owner absent", path)
 	} else if !os.IsNotExist(err) {
 		t.Fatalf("stat %s: %v", path, err)
 	}
@@ -1307,44 +1307,6 @@ func TestListingKitSheinWorkspaceBridgeDoesNotImportLegacyWorkspaceDomain(t *tes
 	}, nil)
 }
 
-func TestAppTaskRetiredManagementImportsStayBlocked(t *testing.T) {
-	root := filepath.Join("..", "internal", "app", "task")
-	allowedFiles := map[string]struct{}{}
-
-	index, err := loadGoFileIndex(root, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for path, facts := range index.files {
-		if pathAllowed(path, allowedFiles) {
-			continue
-		}
-		for quotedImport := range facts.imports {
-			importPath := strings.Trim(quotedImport, `"`)
-			if importMatchesPrefix(importPath, "task-processor/internal/infra/clients/management") {
-				t.Errorf("%s imports %s; keep app/task management dependencies limited to current task-source retirement seams and prefer in-repository database/repository access for new task data", path, importPath)
-			}
-		}
-	}
-}
-
-func TestAppTaskRuntimeStoreAliasesStayRetired(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "task", "models.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	for _, phrase := range []string{
-		"type StoreInfo =",
-		"type StorePauseStatusDetail =",
-	} {
-		if strings.Contains(string(content), phrase) {
-			t.Fatalf("%s exposes %q; use listingruntime store models directly in app task assembly", path, phrase)
-		}
-	}
-}
-
 func TestRootBootstrapListingRuntimeDependenciesFacadeStaysRetired(t *testing.T) {
 	path := filepath.Join("..", "internal", "app", "bootstrap", "consumer_dependencies.go")
 	if _, err := os.Stat(path); err == nil {
@@ -1451,163 +1413,8 @@ func TestBootstrapProcessorAndSchedulerFacadesStayRetired(t *testing.T) {
 	}
 }
 
-func TestAppTaskPollingSourceUsesCapabilityNames(t *testing.T) {
-	checks := map[string][]string{
-		filepath.Join("..", "internal", "app", "task", "dispatcher.go"): {
-			"管理客户端为空，跳过任务获取",
-		},
-		filepath.Join("..", "internal", "app", "task", "fetcher_utils.go"): {
-			"fetches candidate tasks from management",
-			"return f.managementClient",
-		},
-	}
-
-	for path, phrases := range checks {
-		content, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatalf("read %s: %v", path, err)
-		}
-		for _, phrase := range phrases {
-			if strings.Contains(string(content), phrase) {
-				t.Fatalf("%s mentions %q; use pending task source names for legacy polling dependencies", path, phrase)
-			}
-		}
-	}
-}
-
-func TestAppTaskLegacyTaskSourceStaysRetired(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "task", "task_source.go")
-	if _, err := os.Stat(path); err == nil {
-		t.Fatalf("%s still exists; fetch pending runtime tasks directly in TaskFetcher instead of reviving the legacy polling TaskSource wrapper", path)
-	} else if !os.IsNotExist(err) {
-		t.Fatalf("stat %s: %v", path, err)
-	}
-
-	index, err := loadGoFileIndex(filepath.Join("..", "internal", "app", "task"), "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for path := range index.files {
-		content, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatalf("read %s: %v", path, err)
-		}
-		for _, phrase := range []string{"type TaskSource", "NewTaskSource", "FetchPendingTasks", "legacy polling task source"} {
-			if strings.Contains(string(content), phrase) {
-				t.Fatalf("%s mentions %q; keep pending task fetching inside TaskFetcher without a legacy TaskSource wrapper", path, phrase)
-			}
-		}
-	}
-}
-
-func TestAppTaskFetcherDoesNotStoreRetiredManagementService(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "task", "fetcher.go")
-	file, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
-	if err != nil {
-		t.Fatalf("parse %s: %v", path, err)
-	}
-
-	for _, decl := range file.Decls {
-		gen, ok := decl.(*ast.GenDecl)
-		if !ok || gen.Tok != token.TYPE {
-			continue
-		}
-		for _, spec := range gen.Specs {
-			typeSpec, ok := spec.(*ast.TypeSpec)
-			if !ok || typeSpec.Name == nil || typeSpec.Name.Name != "TaskFetcher" {
-				continue
-			}
-			structType, ok := typeSpec.Type.(*ast.StructType)
-			if !ok || structType.Fields == nil {
-				continue
-			}
-			for _, field := range structType.Fields.List {
-				for _, name := range field.Names {
-					if name.Name == "managementClient" {
-						t.Fatalf("%s stores managementClient on TaskFetcher; store narrower task runtime capabilities instead", path)
-					}
-				}
-			}
-		}
-	}
-}
-
-func TestAppTaskInterfacesDoNotExposeLegacyClientProviders(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "task", "interfaces.go")
-	file, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
-	if err != nil {
-		t.Fatalf("parse %s: %v", path, err)
-	}
-	legacyTypes := map[string]struct{}{
-		"ManagementClientProvider": {},
-		"ImportTaskClient":         {},
-	}
-
-	for _, decl := range file.Decls {
-		gen, ok := decl.(*ast.GenDecl)
-		if !ok || gen.Tok != token.TYPE {
-			continue
-		}
-		for _, spec := range gen.Specs {
-			typeSpec, ok := spec.(*ast.TypeSpec)
-			if !ok || typeSpec.Name == nil {
-				continue
-			}
-			if _, ok := legacyTypes[typeSpec.Name.Name]; ok {
-				t.Fatalf("%s exposes %s; inject narrower task runtime capabilities instead", path, typeSpec.Name.Name)
-			}
-		}
-	}
-}
-
-func TestAppTaskDispatchGuardUsesCapabilityNames(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "task", "task_dispatch_guard.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	for _, phrase := range []string{
-		"fetcher.managementClient",
-		"GetDailyListingCountClient",
-	} {
-		if strings.Contains(string(content), phrase) {
-			t.Fatalf("%s mentions %q; inject dispatch guard runtime capabilities instead", path, phrase)
-		}
-	}
-}
-
-func TestAppTaskDispatcherUsesCapabilityNames(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "task", "dispatcher.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	if strings.Contains(string(content), "managementClient.GetRuntimeStoreService") {
-		t.Fatalf("%s reaches into managementClient for store dispatch; inject store dispatch runtime capability instead", path)
-	}
-}
-
-func TestAppTaskStatusUpdatesUseCapabilityNames(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "task", "fetcher_utils.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	for _, phrase := range []string{
-		"f == nil || f.managementClient == nil",
-		"f.managementClient.UpdateRuntimeTaskStatus",
-	} {
-		if strings.Contains(string(content), phrase) {
-			t.Fatalf("%s mentions %q; use runtime task status updater capability instead", path, phrase)
-		}
-	}
-}
-
 func TestTaskStatusAdapterCallersUseRuntimeNamedConstructor(t *testing.T) {
 	root := filepath.Join("..", "internal")
-	allowedFiles := map[string]struct{}{
-		filepath.Clean(filepath.Join(root, "app", "taskstatus", "service.go")): {},
-	}
 
 	index, err := loadGoFileIndex(root, "")
 	if err != nil {
@@ -1615,9 +1422,6 @@ func TestTaskStatusAdapterCallersUseRuntimeNamedConstructor(t *testing.T) {
 	}
 
 	for path, facts := range index.files {
-		if pathAllowed(path, allowedFiles) {
-			continue
-		}
 		file, err := parser.ParseFile(token.NewFileSet(), path, facts.source, 0)
 		if err != nil {
 			t.Fatalf("parse %s: %v", path, err)
@@ -1639,7 +1443,7 @@ func TestTaskStatusAdapterCallersUseRuntimeNamedConstructor(t *testing.T) {
 func TestTaskStatusCompatibilityPackageStaysRetired(t *testing.T) {
 	path := filepath.Join("..", "internal", "taskstatus")
 	if _, err := os.Stat(path); err == nil {
-		t.Fatalf("%s still exists; use internal/app/taskstatus as the owning task status runtime package", path)
+		t.Fatalf("%s still exists; the retired numeric task status owner must remain absent", path)
 	} else if !os.IsNotExist(err) {
 		t.Fatalf("stat %s: %v", path, err)
 	}
@@ -1652,106 +1456,9 @@ func TestTaskStatusCompatibilityPackageStaysRetired(t *testing.T) {
 	for path, facts := range index.files {
 		for quotedImport := range facts.imports {
 			if strings.Trim(quotedImport, `"`) == "task-processor/internal/taskstatus" {
-				t.Fatalf("%s imports retired internal/taskstatus compatibility package; use internal/app/taskstatus directly", path)
+				t.Fatalf("%s imports retired internal/taskstatus compatibility package; do not revive the numeric task status owner", path)
 			}
 		}
-	}
-}
-
-func TestTaskStatusPackageDoesNotExposeManagementNamedAdapter(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "taskstatus", "service.go")
-	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, path, nil, 0)
-	if err != nil {
-		t.Fatalf("parse %s: %v", path, err)
-	}
-
-	for _, decl := range file.Decls {
-		fn, ok := decl.(*ast.FuncDecl)
-		if ok && fn.Name != nil && fn.Name.Name == "NewManagementClientAdapter" {
-			t.Fatalf("%s exposes NewManagementClientAdapter; expose runtime-named task status adapters instead", path)
-		}
-	}
-}
-
-func TestTaskStatusPackageDoesNotExposeBroadManagementRuntimeConstructor(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "taskstatus", "service.go")
-	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, path, nil, 0)
-	if err != nil {
-		t.Fatalf("parse %s: %v", path, err)
-	}
-
-	for _, decl := range file.Decls {
-		fn, ok := decl.(*ast.FuncDecl)
-		if ok && fn.Name != nil && fn.Name.Name == "NewManagementRuntime" {
-			t.Fatalf("%s exposes NewManagementRuntime; use task-status-specific runtime constructor names", path)
-		}
-	}
-}
-
-func TestTaskStatusRuntimeErrorsUseCapabilityNames(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "taskstatus", "service.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	if strings.Contains(string(content), "management client is not initialized") {
-		t.Fatalf("%s mentions management client initialization; use task status runtime names for task status dependencies", path)
-	}
-}
-
-func TestBaseProcessorDoesNotExposeRetiredManagementService(t *testing.T) {
-	path := filepath.Join("..", "internal", "processor", "base_processor.go")
-	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, path, nil, 0)
-	if err != nil {
-		t.Fatalf("parse %s: %v", path, err)
-	}
-
-	for _, imp := range file.Imports {
-		importPath := strings.Trim(imp.Path.Value, `"`)
-		if importMatchesPrefix(importPath, "task-processor/internal/infra/clients/management") {
-			t.Fatalf("%s imports %s; BaseProcessor must only expose explicitly injected runtime ports after retired management service shutdown", path, importPath)
-		}
-	}
-
-	for _, decl := range file.Decls {
-		switch typedDecl := decl.(type) {
-		case *ast.FuncDecl:
-			if typedDecl.Recv != nil && typedDecl.Name != nil && typedDecl.Name.Name == "GetManagementClient" {
-				t.Fatalf("%s exposes BaseProcessor.GetManagementClient; expose narrower runtime-owned ports instead", path)
-			}
-		case *ast.GenDecl:
-			for _, spec := range typedDecl.Specs {
-				typeSpec, ok := spec.(*ast.TypeSpec)
-				if !ok || typeSpec.Name == nil {
-					continue
-				}
-				if typeSpec.Name.Name != "BaseProcessor" && typeSpec.Name.Name != "BaseProcessorConfig" {
-					continue
-				}
-				structType, ok := typeSpec.Type.(*ast.StructType)
-				if !ok {
-					continue
-				}
-				for _, field := range structType.Fields.List {
-					for _, name := range field.Names {
-						if strings.EqualFold(name.Name, "managementClient") {
-							t.Fatalf("%s %s exposes %s; inject StoreAPI/TaskStatusRuntime/DailyCountClientProvider ports instead", path, typeSpec.Name.Name, name.Name)
-						}
-					}
-				}
-			}
-		}
-	}
-
-	source, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	if strings.Contains(string(source), "management.New") {
-		t.Fatalf("%s constructs management clients; BaseProcessor must not revive retired management service", path)
 	}
 }
 
@@ -1792,54 +1499,6 @@ func TestStateAndTaskRPCUseManagementAPIPortAliases(t *testing.T) {
 		if _, ok := facts.imports[`"task-processor/internal/infra/clients/management/api"`]; ok {
 			t.Fatalf("%s imports concrete management API DTOs; use listingadmin/local runtime types", path)
 		}
-	}
-}
-
-func TestAmazonTaskStatusUpdatesUseTaskStatusRuntime(t *testing.T) {
-	path := filepath.Join("..", "internal", "amazon", "task_status.go")
-	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, path, nil, 0)
-	if err != nil {
-		t.Fatalf("parse %s: %v", path, err)
-	}
-
-	for _, decl := range file.Decls {
-		fn, ok := decl.(*ast.FuncDecl)
-		if !ok || fn.Name == nil || fn.Name.Name != "updateTaskStatusSyncWithInput" {
-			continue
-		}
-		ast.Inspect(fn.Body, func(node ast.Node) bool {
-			selector, ok := node.(*ast.SelectorExpr)
-			if !ok || selector.Sel == nil || selector.Sel.Name != "GetManagementClient" {
-				return true
-			}
-			t.Fatalf("%s updateTaskStatusSyncWithInput calls GetManagementClient; use GetTaskStatusRuntime for task status updates", path)
-			return true
-		})
-	}
-}
-
-func TestAmazonAuthPauseUsesStoreAPIPort(t *testing.T) {
-	path := filepath.Join("..", "internal", "amazon", "task_status.go")
-	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, path, nil, 0)
-	if err != nil {
-		t.Fatalf("parse %s: %v", path, err)
-	}
-
-	for _, decl := range file.Decls {
-		fn, ok := decl.(*ast.FuncDecl)
-		if !ok || fn.Name == nil || fn.Name.Name != "pauseStoreForAuthentication" {
-			continue
-		}
-		ast.Inspect(fn.Body, func(node ast.Node) bool {
-			selector, ok := node.(*ast.SelectorExpr)
-			if !ok || selector.Sel == nil || selector.Sel.Name != "GetManagementClient" {
-				return true
-			}
-			t.Fatalf("%s pauseStoreForAuthentication calls GetManagementClient; use a store API port for auth pause updates", path)
-			return true
-		})
 	}
 }
 
@@ -3144,28 +2803,6 @@ func TestAppHTTPAPIRetiredManagementImportsStayBlocked(t *testing.T) {
 	}
 }
 
-func TestAppTaskStatusRetiredManagementImportsStayBlocked(t *testing.T) {
-	root := filepath.Join("..", "internal", "app", "taskstatus")
-	allowedFiles := map[string]struct{}{}
-
-	index, err := loadGoFileIndex(root, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for path, facts := range index.files {
-		if pathAllowed(path, allowedFiles) {
-			continue
-		}
-		for quotedImport := range facts.imports {
-			importPath := strings.Trim(quotedImport, `"`)
-			if importMatchesPrefix(importPath, "task-processor/internal/infra/clients/management") {
-				t.Errorf("%s imports %s; keep app/taskstatus management dependencies limited to current task-status retirement seams and prefer in-repository database/repository access for new task-status data", path, importPath)
-			}
-		}
-	}
-}
-
 func TestStateRetiredManagementImportsStayBlocked(t *testing.T) {
 	root := filepath.Join("..", "internal", "state")
 	allowedFiles := map[string]struct{}{}
@@ -3207,24 +2844,6 @@ func TestPlatformBaseRetiredManagementImportsStayBlocked(t *testing.T) {
 			importPath := strings.Trim(quotedImport, `"`)
 			if importMatchesPrefix(importPath, "task-processor/internal/infra/clients/management") {
 				t.Errorf("%s imports %s; keep platformbase management dependencies limited to current platform-factory retirement seams and prefer in-repository database/repository access for new platform data", path, importPath)
-			}
-		}
-	}
-}
-
-func TestProcessorRetiredManagementImportsStayBlocked(t *testing.T) {
-	root := filepath.Join("..", "internal", "processor")
-
-	index, err := loadGoFileIndex(root, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for path, facts := range index.files {
-		for quotedImport := range facts.imports {
-			importPath := strings.Trim(quotedImport, `"`)
-			if importMatchesPrefix(importPath, "task-processor/internal/infra/clients/management") {
-				t.Errorf("%s imports %s; keep processor free of retired management services and inject narrower runtime-owned ports instead", path, importPath)
 			}
 		}
 	}

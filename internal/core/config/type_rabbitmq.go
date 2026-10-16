@@ -1,18 +1,11 @@
 package config
 
-import (
-	"strings"
-	"time"
-)
+import "time"
 
 const (
 	NodeRoleTask    = "task"
 	NodeRoleCrawler = "crawler"
 	NodeRoleHybrid  = "hybrid"
-
-	AutoShardRoleCoordinator = "coordinator"
-	AutoShardRoleWorker      = "worker"
-	AutoShardRoleDisabled    = "disabled"
 )
 
 // RabbitMQConfig RabbitMQ完整配置
@@ -26,7 +19,6 @@ type RabbitMQConfig struct {
 	ResultReporter    ResultReporterConfig    `yaml:"resultReporter"`            // 结果上报器配置
 	LoadMonitor       LoadMonitorConfig       `yaml:"loadMonitor"`               // 负载监控配置
 	Node              NodeConfig              `yaml:"node"`                      // 节点配置
-	AutoShard         AutoShardConfig         `yaml:"autoShard"`                 // 自动分片配置
 	DeadLetter        DeadLetterConfig        `yaml:"deadLetter"`                // 死信处理配置
 	ProcessingTimeout ProcessingTimeoutConfig `yaml:"processingTimeoutWatchdog"` // processing 超时恢复配置
 	StaleQueued       StaleQueuedConfig       `yaml:"staleQueuedWatchdog"`       // queued 超时恢复配置
@@ -102,53 +94,6 @@ type NodeConfig struct {
 	OwnedBuckets    []int         `yaml:"ownedBuckets"`    // 分桶队列白名单，仅在平台共享分桶队列模式时生效
 	UseStoreQueues  bool          `yaml:"useStoreQueues"`  // 是否启用按店铺队列/店铺亲和消费，默认 false 走平台共享队列
 	Regions         []string      `yaml:"regions"`         // 本节点负责的 region 列表（如 US、UK、JP），为空则处理所有 region
-}
-
-// AutoShardConfig controls automatic store-to-node assignment for dedicated store queues.
-type AutoShardConfig struct {
-	Enabled             bool           `yaml:"enabled"`                  // 是否启用自动分片
-	Role                string         `yaml:"role" mapstructure:"role"` // 自动分片角色：coordinator | worker | disabled
-	Platform            string         `yaml:"platform"`                 // 目标平台，默认 shein
-	Interval            time.Duration  `yaml:"interval"`                 // 自动分片刷新间隔
-	PageSize            int            `yaml:"pageSize"`                 // 分页拉取店铺大小
-	LockKey             string         `yaml:"lockKey"`                  // Redis 分布式锁 key
-	LockTTL             time.Duration  `yaml:"lockTTL"`                  // Redis 分布式锁 TTL
-	CandidateNodes      []string       `yaml:"candidateNodes"`           // 可分配的节点列表
-	TargetStoresPerNode int            `yaml:"targetStoresPerNode"`      // 每个节点期望承载的启用上架店铺数，未配置时使用全部候选节点
-	NodeWeights         map[string]int `yaml:"nodeWeights"`              // 节点权重，未配置默认为 1
-}
-
-// EffectiveRole returns the normalized auto-shard runtime role.
-func (c AutoShardConfig) EffectiveRole() string {
-	if !c.Enabled {
-		return AutoShardRoleDisabled
-	}
-
-	role := strings.ToLower(strings.TrimSpace(c.Role))
-	if role == "" {
-		return AutoShardRoleCoordinator
-	}
-	return role
-}
-
-// HasValidRole reports whether the configured auto-shard role is supported.
-func (c AutoShardConfig) HasValidRole() bool {
-	switch c.EffectiveRole() {
-	case AutoShardRoleCoordinator, AutoShardRoleWorker, AutoShardRoleDisabled:
-		return true
-	default:
-		return false
-	}
-}
-
-// IsCoordinator reports whether this process should coordinate auto-shard assignments.
-func (c AutoShardConfig) IsCoordinator() bool {
-	return c.EffectiveRole() == AutoShardRoleCoordinator
-}
-
-// IsWorker reports whether this process participates as an auto-shard worker.
-func (c AutoShardConfig) IsWorker() bool {
-	return c.EffectiveRole() == AutoShardRoleWorker
 }
 
 // NormalizedRole returns the effective node role, defaulting to hybrid for backward compatibility.

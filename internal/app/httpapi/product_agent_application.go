@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/aicapability"
@@ -64,6 +66,7 @@ type ProductAgentDependencies struct {
 	// Code-owned transport injection for isolated protocol fixtures; never
 	// populated by the deployment manifest or browser input.
 	TextTransport http.RoundTripper `json:"-"`
+	TextLogger    *logrus.Entry     `json:"-"`
 }
 
 type ProductAgentInvocationLedger interface {

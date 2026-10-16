@@ -104,3 +104,26 @@ C:\private\local-ai-trial-grant.exe -config C:\private\trial-724.json -operation
 默认先停止新生成，按原 owner 合格入口关闭相应执行/准入或该 content 凭据；执行结果未知先读回，不能盲目重复 mutation。停启仅正常 SIGTERM/原队列与worker恢复顺序，保留全部任务，不 KILL/清卷/覆盖数据库。旧应用回退仍沿 A 的全历史 structured/UNKNOWN/漂移条件；存在新结构化事实或不能安全判断时停止，不能退旧 DTO 或用备份覆写。
 
 最终交接分别列清：代码/CI/独立复核、实际配置/发点、真实模型/费用/技能证据、Review/Apply/刷新版本及供货页截图、未执行项和用户待确认项。当前真实 B 结果全部 NOT_RUN，不自行签发用户验收或关闭 Issue。
+
+## 6. 受治理文本调用的安全诊断
+
+当前应用组装将现有应用 logger 注入所有受治理文本 Executor（内容、标题、Chat 及同一 owner 的其它消费者），沿原日志输出和轮转配置记录 `event=governed_text_diagnostic`。不需要增加日志服务、供应商探针或数据库表；源码交付不代表已经部署，也不构成再次模型调用的批准。
+
+- `stage/category` 区分准入、claim、reservation、最终 handoff、transport、response body、SDK 解析、usage、输出校验与 terminal recorder；只记录固定类别，不记录原始错误串、URL、请求/响应正文、Key、Prompt 或 SQL 值。`terminal/record_failed` 表示 recorder 调用未确认成功，不能单凭这一条定位其内部 CAS 或结算阶段，仍以原持久事实核验。
+- `invocation_id_hash` 是调用身份的 SHA-256；`http_request_id_hash` 仅来自响应的 `X-Request-Id`，`completion_id_hash` 仅来自 OpenAI-compatible JSON 的 `id`，输入标识超过 128 字节时不记。二者均不输出原文，也不是同一个标识；固定 Eino SDK 的 Extra `openai-request-id` 实际装载 completion ID，不可据名称冒作 HTTP 请求 ID。
+- `http_status`、有界 `elapsed_ms`、`response_bytes`、`usage_known` 与有限 `network_phase` 仅是诊断。`handoffs=1` 及 `write_attempt_done` 均不证明供应商收到或执行了请求。`context_state` 是当前阶段上下文，`caller_context_state` 是受治理调用上下文，避免把 SDK 自己清理 HTTP 子上下文误判为上层取消。
+- 诊断不会改变单发送、UNKNOWN、usage/报价保护、terminal CAS 或结算协议，不成为费用/结果事实源。旧 UNKNOWN 记录与预留不能因新日志、空日志、离线替身或哈希标识而释放、补账或重放。此前缺失的原始响应、实际用量、费用与历史唯一根因仍可能无法追溯。
+
+开发回归复用 `internal/integration/aicapability/einomodel` 的可注入 RoundTripper、httptest 与 recordingLedger，只使用本地端点和 synthetic Key；不得读取真实 Key 或调用供应商来验证诊断。实际安装、配置变更及任何后续真实试用仍须遵守当前 Issue 的独立授权和停止点。
+
+## 7. 一次性非 main 诊断源码候选
+
+本次来源决定与正式开工依据见 [#688 的 B 候选范围](https://github.com/qq550723504/task-processor/issues/688#issuecomment-6215830543)。固定 trial base `codex/issue688-trial-base-9f6` 指向已接受运行源码 `9f6ec0556bc9c823670e71a2b76b1596356b0edf`，完整 tree 为 `f744a3517a1d3de81017394eb3b6062bbbb66c18`；原 Writer 在 `codex/issue688-trial-diagnostics` 形成一个以该 base 为目标的完整 Git 候选。该来源只用于本次内部试用准备，不是 main 产物或通用维护发布规则。
+
+完整增量固定为 #729 实际 merge `8035e4c0e02bd5b1e4f162766acc8f5b8c21f645` 相对9f6的退休闭包、#738 merge `68b4e99a4cb6afd95deea7ed95b9dad6b4e65edd` 相对其 parent `05ae7947f8558ebb31f69e1b251482458ac80c29` 的退休 diff，以及 #739 HEAD `902f7719b9d9f8bf457883737f9c25043a677d86` 相对68b4的诊断 diff。三组包含必要测试、声明和文档，不能仅拷贝15个后台编译文件。Git 提取提交保留原提交标识，原 #739 候选与 main 不修改。Walmart 的业务、schema、约束、权限和配置增量不进入此树；当前 Store/DataServices worker、独立登录和原事实 owner 保留。
+
+范围在上述准入时冻结，不随无关 main 前进自动扩展。后续 #740 的旧 listingadmin/listingruntime 持久化退休不纳入本候选。Linux/amd64、CGO=0 的 current-application 图仍含这两个共享包，且编译14个后来由 #740 修改或删除的文件；这不能解释为旧任务行为仍获准执行。它们与有效 Store/规则合同同包，须按已确认的 [#740 符号边界](https://github.com/qq550723504/task-processor/blob/c7f89d3f477e675a34e450dcb43f133dc666800e/docs/architecture/legacy-numeric-task-persistence-retirement-boundary.md#3-实际消费者与同包编译)区分编译和执行。相对9f6，本候选没有增加两个共享包的导入或 ImportTask、PausedTask、ScheduledTask、DispatchEvent 调用；新增诊断仅消费原 logger、Executor/GuardedClient 和终态 owner，4个配置文件仅退出既有 auto-shard 字段，不接线旧任务。既存未消费的任务源码不作为兼容入口，不恢复旧行为，也不因此扩大为 #740 或 CI 规则修改。若真实消费者或业务路径证明必须依赖已退休行为，停止对应部分并报告，不能增加 fallback 或绕过 Hard-Cut。
+
+现有 CI 对该非 main 目标 PR 运行：明确区分 head-checkout 与默认 PR merge-ref jobs，记录各自实际 SHA/tree，核对 merge-ref tree 与候选 tree 一致。`push` 仅触发 main；本候选没有 push/main CI，#739 或其它 main CI 不能代替它。不改 workflow、检查或保护规则。必要检查与原 Reviewer 完成后，由原运行 owner 根据准确候选另交正常合并、构件来源、原 worker 停启和恢复清单，等待人类确认；PR 通过不授权镜像构建、安装或停启。
+
+两个历史 UNKNOWN 及两笔各5点预留保持。本来源准备不允许模型请求、新 Run、重放、补账、Apply、申请或发布，也不改变真实数据、密钥、配置、卷和持久任务。第1至5节的试用步骤仅为历史准备合同，实际阶段和授权以 #688 当前决定为准。

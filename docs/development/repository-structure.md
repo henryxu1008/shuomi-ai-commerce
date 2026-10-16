@@ -1,5 +1,10 @@
 # Repository Structure
 
+> #729 retires only the unregistered numeric task/status/processor, root Amazon
+> executor and exclusive distributed crawler wiring. The maintained command set,
+> current acquisition/Store observations, platform APIs/rules/shared contracts and
+> standalone SHEIN login worker stay unchanged; no new runtime or trial prerequisite.
+
 ## #678：当前入口的命令装配隔离
 
 `cmd/shein-login-worker` 直接消费 `internal/app/runtime/sheinloginworker`，其配置、
@@ -25,8 +30,9 @@ local runtime、旧 SHEIN sync 和平台 module/scheduler 随实际消费者排�
 专属派发/恢复编排、Dockerfile/操作脚本退出；任务仓库和原claim/rollback/recovery安全检查保留。
 共享`listingadmin`/根`listingruntime`、当前采集、Store观察同步、图片/Temporal及独立
 `shein-login-worker`保持原owner和入口。独立worker使用原Dockerfile/启动合同。
-混合Kubernetes目录只退出control-plane workload，保留ownership-controller与配置/Secret/监控声明；
-ownership-controller 仍引用其原历史镜像，不属于当前源码可重建入口，不在本批更换或运行。
+后续 #738 按[确认矩阵](../architecture/legacy-ownership-controller-retirement-boundary.md)退出
+ownership-controller、两个无保留消费者的专属 ConfigMap 源文件及各自装配，清理 auto-shard
+专属配置闭包；其它有效配置/Secret/监控、共享解析与独立登录保持，不更换或运行历史镜像。
 源码退休不代表实例停用或全数字任务链退休；无实例/数据操作，生产 NOT_READY。
 
 ## 目标

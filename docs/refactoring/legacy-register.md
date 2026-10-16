@@ -2,6 +2,20 @@
 
 > Status: Active legacy handling register
 
+> #29 / #301 [旧数字任务执行链退休设计](../architecture/legacy-numeric-task-execution-retirement-boundary.md)
+> is user-confirmed and implementation-admitted after #726. The unregistered
+> task/status/processor, root Amazon executor and exclusive distributed crawler
+> sources are absent. Mixed fetcher local/remote contracts, platform API/rules,
+> shared repositories and standalone SHEIN login remain under their original owners.
+> Source retirement has not changed runtime/data or internal-trial gates.
+
+> #29 / #301 [ownership-controller / auto-shard retirement](../architecture/legacy-ownership-controller-retirement-boundary.md)
+> is user-confirmed and implementation-admitted in #738. The old workload,
+> unconsumed heavy/lite ConfigMap overlay and exclusive configuration closure are
+> absent from this source candidate. Shared config/helpers, valid repositories,
+> current acquisition, Store observations and standalone login retain their owners.
+> Real ConfigMaps, ownership keys/locks, instances and data have not been touched.
+
 > #529 / #301 [发布身份预检退休设计](../architecture/release-identity-preflight-retirement.md)
 > is user-confirmed and implementation-admitted. The legacy API/UI and PS
 > entrypoints now fail before operations; identity-preflight, its exclusive
@@ -164,8 +178,10 @@ are not deleted. CI replaces only the obsolete build target with the current
 application and standalone login worker; required/security checks remain.
 Taskstatus, ListingAdmin and root ListingRuntime retain their original contracts.
 The control-plane retained in #723 subsequently exits under #726 below. Mixed
-deployment sources now retain only ownership-controller, shared configuration,
-Secret and monitoring objects; the controller's historical image is not rebuilt or executed.
+deployment sources retained ownership-controller and configuration in that batch;
+the exclusive declaration/configuration closure subsequently retires under #738.
+Other effective configuration, Secret and monitoring objects remain; no historical
+image is rebuilt or executed.
 This is source retirement, not full numeric-task-chain closure, runtime/data
 cleanup, deployment or a new internal-trial prerequisite. Production NOT_READY.
 
@@ -178,8 +194,8 @@ runtime/control library, cohort helpers/tests and operation packaging are absent
 Current acquisition, Store observations, valid shared contracts, required/security
 checks and the independent SHEIN login worker retain their original owners.
 ImportTask repository/claim/rollback/recovery races, package-external task/status
-consumers, shared configuration and the historical ownership-controller declaration
-remain explicit debt in this bounded batch. No whole-package cleanup, current
+consumers and shared configuration were explicit debt in that bounded batch;
+the ownership declaration subsequently retires under #738. No whole-package cleanup, current
 consumer, compatibility bridge, runtime/data action or internal-trial prerequisite
 is authorized. Both workflows remove only the retired runtime race target and
 main CI removes its obsolete build line; design section 6.1 preserves all other
