@@ -1,11 +1,13 @@
 # Local 一次性 AI 试用来源 v1
 
 Design Basis: Independent Architecture。
-Admission Status: NOT_IMPLEMENTATION_READY / DESIGN_IN_PROGRESS。
+Admission Status: IMPLEMENTATION_READY。
 
 执行 Issue：[Local 一次性 AI 试用来源 #724](https://github.com/qq550723504/task-processor/issues/724)。
 
-本文先于生产实现。当前只记录人类已批准产品来源和待独立检查的最小合同；A 更新/读回优先，尚未派独立检查、发放或启模型。
+本文先于生产实现。A 实例更新和只读交接已经完成，见 [#688 回执](https://github.com/qq550723504/task-processor/issues/688#issuecomment-6206004477)；准确 main CI `38832583011` 已核实 success。2026-10-16 原协调会话人类消息 `01a1426c-7625-74f3-a60d-072d1835c09f` 授权本原 Writer 完成 #724 设计准入、试用额度入口、CI/独立复核和可审查执行清单。当前设计仍待独立检查，不能提前写生产路径；真实发点/接线/技能准入/付费调用/Apply/申请提交均不在本轮执行权限内。
+
+准入记录：既有独立 Reviewer `choice_contract_review` 第一轮确认 IMPLEMENTATION_READY、无设计级 BLOCKER；评审绑定基线 HEAD `79b95233a75ce002e7ee9acae5db8160e3453499`、本架构正文修改前 SHA256 `D63E35F9441ED998BB5CEB9A01CD9367DE864CD389E896EE733E61D301857C04`，完整评语留 [Issue #724](https://github.com/qq550723504/task-processor/issues/724)。固定来源/幂等/债务/回滚/响应丢失及 inspect/授权/权限检查归 IMPLEMENTATION_TEST，在实现层收敛；不新增设计轮次或运行权限。以下合同冻结，只有真实 BLOCKER 才重新打开设计。
 
 ## 1. Outcome / authority / scope
 
@@ -22,6 +24,10 @@ Figma沿产品依据，无新增页面；原资源明细若缺少新来源文案
 新增专用 `TrialAIGrantService` / typed executor；输入只有组织、operation ID、可信operator principal，不接收浏览器任意resource/quantity/source。runtime装配的专用authorizer提供准确批准的组织、固定policy及approvalEvidenceID，并验证可信native operator；人类／企业角色字符串不能替代该授权。执行只允许ai_point、固定10000及固定来源，adapter也校验这些常量，不能将execution DTO变通用mint。
 
 调用链：原owner受保护批准清单/既有资源库窄角色 → 一次性native `local-ai-trial-grant` → 专用authorizer/service → 当前GORM repository/事务runner/positive credit helper → 原资源账本 → 正常资源和模型消费。无常驻HTTP路由、不在serving启动时seed。native默认只读检查/读回，明确grant动作才写；严格小JSON、未知字段拒绝，DSN/凭据私密输入，错误脱敏，不输出或接受命令行明文密码。
+
+native 装配位于 `internal/app/localaitrial`，命令只接受私密配置路径、稳定 operation ID 和 `inspect|grant`，默认 inspect。配置至多16KiB，拒绝重复/未知字段、尾随JSON、非绝对路径/非常规文件；数据库配置复用 platform/database，用户名在开库前固定为 `commercial_owner_runtime`。配置内明确绑定批准的 organization ID、可信 operator ID、不可变 evidence ID 和默认关闭的 grant enabled；其中不提供 quantity/resource/source/campaign 参数。部署清单只允许既定 Local `394513833252618242`，不可将显示名作为企业身份。operator 已控制私密配置和受限连接，是现可信运维边界；不把本机配置当作新的浏览器认证。
+
+domain 授权接口每次核对 principal 和目标组织，只读 inspect 不要求允许新发放；grant 必须额外开启当前批准。execution DTO 不暴露资源或数量，adapter 固定 ai_point/10000/source 并复核规范身份和 fingerprint。成员月限、模型接线和技能准入只列入后续正常入口执行清单，本 native 不实现这些写入。
 
 资源库连接复用 `commercial_owner_runtime` 和现 `VerifyRuntimePermissions`；不调用AutoMigrate/initializer、不临时增加权限。角色/schema不满足即停止交实际差异。私有operator及资源库管理员属于既有可信运维边界，不新增IAM或对恶意DB管理员的防护产品。
 
@@ -57,6 +63,6 @@ B真实执行在A更新和登录/草稿历史/比较/刷新读回交接后，绑
 
 必要TDD：未授权/错组织/缺证据拒绝，固定resource/quantity；同键重放、异键同源一次credit、不同载荷冲突；原真实PostgreSQL并发/事务及debt优先、提交后响应丢失读回，复用现testcontainers/隔离测试，不连接保留业务库或造新验收框架。native非法输入/只读零写入与敏感错误脱敏；如文案直接消费新增reason则只补对应现有测试。
 
-独立检查只覆盖新增发放边界，最多两轮正常设计评审；达到IMPLEMENTATION_READY后才正式生产编码。完成完整有界路径后一次最终实际diff检查，finding按AGENTS分类；未变模型／财务／Review证据复用。
+独立检查只覆盖新增发放边界，复用既有 `choice_contract_review`，最多两轮正常设计评审；达到IMPLEMENTATION_READY后才正式生产编码。完成完整有界路径后一次最终实际diff检查，finding按AGENTS分类；未变模型／财务／Review证据复用。本轮验收是正式入口的隔离验证、准确HEAD/CI/复核和执行清单；以下真实运行结果留待明确确认，不能作为已执行或以fixture代替。
 
 实际使用必须分别记录：一次grant与回执、余额/月限真实读回、真实模型调用/费用/候选、正常Review/Apply新Catalog版本与真实资格、供货页/Figma截图和表单检查。止于提交前，CI/受控测试不冒充这些结果，不自行签发产品验收或关闭父Issue。
