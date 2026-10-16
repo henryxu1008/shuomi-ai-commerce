@@ -51,7 +51,8 @@ DASHSCOPE 的 `deepseek-v4.1-flash` 使用同一个受控 Eino OpenAI-compatible
 该准确组合必须显式配置 `Profile.ProviderID=DASHSCOPE`、
 `AdapterKind=openai-compatible`、`ModelID=deepseek-v4.1-flash`、
 `AdapterPolicyVersion=dashscope-deepseek-v4.1-flash-nonthinking-v1`。该版本仅属于此供应商/模型/协议组合；
-旧通用版本不能就绪。组件仅通过固定 SDK 发送 `enable_thinking:false`，最终网络门禁在发送前要求真实 JSON 布尔 `false`，
+旧通用版本不能就绪。组件仅通过固定 SDK 发送 `enable_thinking:false`，最终网络门禁在发送前要求真实 JSON 布尔 `false`。
+该模型的 `dashscope` / `DashScope` 等大小写变体也会被拒绝，不静默修改供应商或报价身份。
 不接收自定义 ExtraFields 或浏览器参数。整个 Profile（含该版本）继续绑定报价与发送前的原路由校验，策略改变须重新报价。
 内容试用配在原 `productAgent.contentTextPolicies[organizationId]`，继续使用原 `consumer: "content"` 独立组织凭据；
 不复用标题或 Chat 的凭据准入。即使固定关闭思考，返回非空思考内容仍按原输出合同拒绝；

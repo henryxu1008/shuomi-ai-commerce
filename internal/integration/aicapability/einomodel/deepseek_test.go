@@ -73,6 +73,8 @@ func TestDeepSeekPolicyQualificationBeforeClaim(t *testing.T) {
 	}{
 		{"fixed", "DASHSCOPE", "deepseek-v4.1-flash", DashScopeDeepSeekV41FlashNonThinkingPolicy, AdapterOpenAICompatible, true},
 		{"old policy", "DASHSCOPE", "deepseek-v4.1-flash", "adapter-v1", AdapterOpenAICompatible, false},
+		{"lowercase provider", "dashscope", "deepseek-v4.1-flash", "adapter-v1", AdapterOpenAICompatible, false},
+		{"mixed case provider", "DashScope", "deepseek-v4.1-flash", "adapter-v1", AdapterOpenAICompatible, false},
 		{"missing policy", "DASHSCOPE", "deepseek-v4.1-flash", "", AdapterOpenAICompatible, false},
 		{"wrong provider", "synthetic", "deepseek-v4.1-flash", DashScopeDeepSeekV41FlashNonThinkingPolicy, AdapterOpenAICompatible, false},
 		{"wrong model", "DASHSCOPE", "other-model", DashScopeDeepSeekV41FlashNonThinkingPolicy, AdapterOpenAICompatible, false},
@@ -128,6 +130,18 @@ func TestDeepSeekGuardRequiresBooleanFalseBeforeHandoff(t *testing.T) {
 				require.Zero(t, sends.Load())
 				require.Zero(t, gates.Load())
 			}
+		})
+	}
+}
+
+func TestDeepSeekGuardRejectsProviderCaseAliases(t *testing.T) {
+	for _, provider := range []string{"dashscope", "DashScope"} {
+		t.Run(provider, func(t *testing.T) {
+			_, err := NewGuardedClient(GuardConfig{Adapter: AdapterOpenAICompatible, ProviderID: provider,
+				ModelID: "deepseek-v4.1-flash", AdapterPolicyVersion: "adapter-v1", Endpoint: "http://127.0.0.1:1/v1",
+				MaximumOutputTokens: 64, MaximumRequestBytes: 1024, MaximumResponseBytes: 1024, Timeout: time.Second},
+				nil, func(context.Context) error { return nil })
+			require.ErrorIs(t, err, ErrInvalid, "provider spelling must not select the old thinking default")
 		})
 	}
 }
