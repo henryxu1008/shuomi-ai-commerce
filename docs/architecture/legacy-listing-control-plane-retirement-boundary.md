@@ -94,15 +94,19 @@ ownership-controller 是旧队列归属协调声明，已无当前可重建旧 C
 
 物理删除控制面后，不可能继续成功编译其不存在的包。以下只处置该旧 owner 的目标，须随设计一起由用户确认；不是静默放宽 CI。
 
-| 原 Backend/guard 目标 | 确认后的精确处置 | 原因与保留证据 |
+| 原 workflow/guard 目标 | 确认后的精确处置 | 原因与保留证据 |
 | --- | --- | --- |
 | `go build ./cmd/listing-control-plane` | 仅移除此行；原 Build runtime commands step 保持 | 同一步 `go build ./cmd/current-application`、`go build ./cmd/shein-login-worker` 逐字保留；不伪造控制面 stub，不为凑目标数增加编译入口 |
 | `go test -race ./internal/app/runtime/listingcontrol -run TestControlPlaneService -count=1` | 仅移除此行及其已退休执行器测试 | `NOT_APPLICABLE`：只验证已删除循环/leader 的执行细节。仍有效的仓库并发安全行为不随之消失，原 race step 保持并执行下一行 |
+| `.github/workflows/commercial-readiness.yml` 的同一 runtime race 命令及 `tee evidence/listingcontrol-race.log` | 仅移除该旧目标整行；保留原 `race_tests` step/id、`set -o pipefail`、下一行 listingadmin race 与 `evidence/listingadmin-race.log` | 手动 pinned-SHA 验证流程继续执行原全库测试、`make build-all`、前端/构建/清单检查、结果分类与 artifact 上传；不删 job/step、不 `continue-on-error`，不触发实际发布或把该流程当 current-application 的生产发布能力 |
+| `tests/commercial_readiness_workflow_test.go` 对该旧 runtime 命令的 required-string 断言 | 在原测试中仅将该目标从 required 转为不得再引用已退休包的断言 | 保留 workflow_dispatch/40位 pinned SHA、全库测试、listingadmin 三项 race、build-all、前端及 artifact/失败可见性等其它原断言；不能整删该测试或让商业就绪检查失去 release evidence |
 | `go test -race ./internal/listingadmin -run "TestConcurrentClaimForDispatchOnlyOneWorkerWins\|TestConcurrentRollbackDispatchOnlyOriginalQueuedClaimIsRestoredOnce\|TestConcurrentRecoveryOnlyUpdatesStillEligibleRowsOnce" -count=1` | **命令原文、三个测试和生产保护全部保留**（表格中的反斜线仅用于 Markdown 转义） | 保留仓库的单 winner claim、仅原 claim rollback、仅 eligible row 一次恢复；不得删测试/改 pattern/skip 或用空命令代替 |
 | `tests/listingkit_backend_retirement_test.go` 的旧 retained command/CI 断言、`tests/repository_structure_test.go` 官方命令清单及相关 owner 登记 | 原有 guard 内精确将两目标从 retained 转 absent，覆盖 cmd/runtime/control 库及专属交付引用；先 RED 后删除 | 保留旧 CLI 不得复活、当前命令必须存在/编译、独立 worker 不依赖当前 HTTP 等原断言；不是删整个 guard 或关闭目录/import 检查 |
 | 目标 flags/runtime/leader/control 库及一次性 cohort 修复专属测试 | 随被删 owner 删除；分类 `NOT_APPLICABLE` | 一次性修复的 count/fingerprint/tenant-conflict 测试只保护被删方法，不通过保留测试制造新旧行为；当前登录 tenant、Store/owner、唯一性、权限等有效回归仍保留 |
 
 Backend 其它测试、原 PostgreSQL/public-facts/schema-context、资金并发、Release/OIDC/RBAC/策略负例、全部必需 job 和 Required CI Gate、workflow 选择/trigger/permissions/concurrency/保护规则保持。保留 worker 的 health/shutdown、Cookie/attempt/验证码取消、tenant-qualified 查重失败关闭和现有安全检查保持；本批不追加新平台/生产验收作为合并或试用前置。
+
+精确引用盘点覆盖全部 `.github/workflows`、`tests`、Makefile、scripts 和 deployments；基线两个 workflow 均包含旧 runtime race，不能只改主 `ci.yml`。Commercial Readiness 的 `make build-all` 随 §6 原 Makefile 清理退出控制面目标，仍构建两个当前命令。这里是检查清单设计，**本 PR 不修改上述 workflow 或测试、不执行 workflow_dispatch**。
 
 ## 7. 确认后的最小实施与交接
 
