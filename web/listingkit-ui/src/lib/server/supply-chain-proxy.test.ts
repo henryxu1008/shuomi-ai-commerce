@@ -85,3 +85,11 @@ describe("private supply chain proxy",()=>{
   }
  });
 });
+
+it("Walmart historical Feed reads and refresh preserve actor and organization boundaries",async()=>{
+ vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL","http://localhost");
+ for(const path of [["supply-preparations","sources",id,"publications",id,"status",id],["stores",id,"connection","refresh"]]){
+ const refresh=path[0]==="stores";const request=new Request(`http://localhost/api/workbench/${path.join("/")}`,{method:refresh?"POST":"GET",headers:{...scope,...refresh?{Origin:"http://localhost","Content-Type":"application/json"}:{}},...refresh?{body:JSON.stringify({operationId:id,generation:"1"})}:{}});
+ const result=await buildWorkbenchUpstreamRequest(request,path,"server-private-token","actor-a");expect(result).not.toBeInstanceOf(Response);if(result instanceof Response)continue;expect(result.sourceMutation).toBe(refresh);expect(new Headers(result.init.headers).get("X-Requested-Organization-ID")).toBe("org-a");
+ }
+});

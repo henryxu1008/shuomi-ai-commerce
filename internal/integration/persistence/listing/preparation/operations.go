@@ -181,10 +181,11 @@ func (r *OperationRepository) PrepareOperation(ctx context.Context, proof prepar
 				var target struct {
 					CurrentRecordID string
 					Revision        int64
+					Site            string
 				}
 				query := tx.Table("listing_preparation_targets").Clauses(clause.Locking{Strength: "SHARE"}).Where("organization_id=? AND actor_id=? AND member_id=? AND source_id=? AND store_id=?", scope.OrganizationID, scope.ActorID, scope.MemberID, source.ID, input.StoreID)
 				if input.Action == preparation.OperationUpload {
-					query = query.Where("site IN ?", []string{"shein-us", "temu-supplier", "temu-local", "tiktokshop-us"})
+					query = query.Where("site IN ?", []string{"shein-us", "temu-supplier", "temu-local", "tiktokshop-us", "walmart-us"})
 				} else {
 					// Optimization and BindOperationTarget remain SHEIN-only.
 					query = query.Where("site=?", "shein-us")
@@ -194,6 +195,24 @@ func (r *OperationRepository) PrepareOperation(ctx context.Context, proof prepar
 					return preparation.OperationReceipt{}, preparation.ErrUnavailable
 				}
 				if result.Error == nil {
+					if input.Action == preparation.OperationUpload && target.Site == "walmart-us" {
+						var wire string
+						if e := tx.Raw("SELECT body_json->'walmart'->>'wireHash' FROM listing_target_records WHERE organization_id=? AND actor_id=? AND member_id=? AND id=?", scope.OrganizationID, scope.ActorID, scope.MemberID, target.CurrentRecordID).Scan(&wire).Error; e != nil {
+							return preparation.OperationReceipt{}, preparation.ErrUnavailable
+						}
+						matched := false
+						for _, a := range input.WalmartApprovals {
+							if a.Matches(source.ID, target.CurrentRecordID, target.Revision, wire) {
+								matched = true
+								break
+							}
+						}
+						if !matched {
+							return preparation.OperationReceipt{}, preparation.ErrConflict
+						}
+					} else if len(input.WalmartApprovals) > 0 {
+						return preparation.OperationReceipt{}, preparation.ErrInvalid
+					}
 					item.RecordID, item.RecordRevision = &target.CurrentRecordID, &target.Revision
 				} else if input.Action == preparation.OperationUpload {
 					item.Status, item.Note = preparation.ItemMissing, "尚无该店铺的适配资料"

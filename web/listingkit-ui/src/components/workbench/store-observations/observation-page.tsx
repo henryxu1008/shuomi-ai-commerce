@@ -342,7 +342,7 @@ function ScopedPage({
       ]}
       description={
         kind === "products"
-          ? "查看店铺已同步的 SHEIN / TEMU 商品、平台状态和库存事实。"
+          ? "查看店铺已同步的 SHEIN / TEMU / Walmart 商品、平台状态和库存事实。"
           : "同步最近 30 天的消费者订单，查看详情、物流和平台异常。发货与售后到 SHEIN 处理。"
       }
       actions={
@@ -364,7 +364,7 @@ function ScopedPage({
         <label>
           平台
           <Select aria-label="平台" disabled={kind==="orders"} value={kind==="products"?platform:"shein"} onChange={e=>{setPlatform(e.target.value);setStore("");resetPage()}}>
-            {kind==="products"?<><option value="">全部平台</option><option value="shein">SHEIN</option><option value="temu">TEMU</option></>:<option value="shein">SHEIN</option>}
+            {kind==="products"?<><option value="">全部平台</option><option value="shein">SHEIN</option><option value="temu">TEMU</option><option value="walmart">Walmart US</option></>:<option value="shein">SHEIN</option>}
           </Select>
         </label>
         <label>
@@ -703,7 +703,14 @@ function ProductTable({
         </TableHeader>
         <TableBody>
           {rows.map((r) => {
-			if(r.temuProduct){const p=r.temuProduct;return <TableRow key={`${r.storeId}:${r.id}`}>
+			if(r.walmartProduct){const p=r.walmartProduct;return <TableRow key={`${r.storeId}:${r.id}`}>
+              <TableCell><strong>{p.productName||"平台未返回名称"}</strong><small>WPID {p.wpid||"平台未返回"}</small></TableCell>
+              <TableCell>{p.sku}</TableCell><TableCell>Walmart<br/>美国站</TableCell><TableCell>{names.get(r.storeId)??r.storeId}</TableCell>
+              <TableCell>{p.price?`${p.price.currency} ${p.price.amount}`:"平台未返回"}</TableCell><TableCell>本期未读取库存</TableCell>
+              <TableCell>{p.publishedStatus||"发布状态未知"}<small>{p.lifecycleStatus||"生命周期未知"}</small></TableCell>
+              <TableCell>{timestamp(r.observedAt)}</TableCell><TableCell><Button size="sm" variant="ghost" onClick={()=>open(r)}>查看详情</Button></TableCell>
+            </TableRow>}
+            if(r.temuProduct){const p=r.temuProduct;return <TableRow key={`${r.storeId}:${r.id}`}>
 			 <TableCell><div className={styles.identity}><Thumbnail src={p.imageUrl}/><div><strong>{p.title||"平台未提供标题"}</strong><small>商品 {p.productId}{p.entity==="supplier_skc"?<><br/>SKC {p.id}</>:null}</small></div></div></TableCell>
 			 <TableCell>{p.skus.slice(0,3).map(s=><small key={s.id}>{s.externalCode||s.serialNumber||s.id}</small>)}{p.skus.length>3?"更多见详情":null}</TableCell>
 			 <TableCell>TEMU<br/>{p.mode==="local"?"本土":p.mode==="fully_managed"?"全托管":"半托管"}</TableCell>
@@ -994,6 +1001,10 @@ function Detail({
               ))}
             </section>
           ))}
+          {detail.data.walmartProduct?<section><h3>Walmart 美国站平台事实</h3><dl className={styles.facts}>
+            {Object.entries({SKU:detail.data.walmartProduct.sku,WPID:detail.data.walmartProduct.wpid,GTIN:detail.data.walmartProduct.gtin,名称:detail.data.walmartProduct.productName,发布状态:detail.data.walmartProduct.publishedStatus,生命周期:detail.data.walmartProduct.lifecycleStatus,可售状态:detail.data.walmartProduct.availability}).map(([k,v])=><div key={k}><dt>{k}</dt><dd>{v||"平台未返回"}</dd></div>)}
+            <dt>售价</dt><dd>{detail.data.walmartProduct.price?`${detail.data.walmartProduct.price.currency} ${detail.data.walmartProduct.price.amount}`:"平台未返回"}</dd>
+            <dt>库存</dt><dd>本期未读取库存；可售状态不代表库存数量。</dd></dl><p>取得时间：{timestamp(detail.data.observedAt)}。这些信息是平台观察结果。</p></section>:null}
           {detail.data.temuProduct?<TemuProductFacts product={detail.data.temuProduct}/>:null}
           {order ? (
             <>

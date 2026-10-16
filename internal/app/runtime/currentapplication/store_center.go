@@ -14,6 +14,7 @@ type StoreCenterConfig struct {
 	Database             DatabaseConfig                  `json:"database"`
 	OfficialApplications []OfficialStoreConnectionConfig `json:"officialApplications,omitempty"`
 	TikTokShop           *TikTokShopConfig               `json:"tiktokShop,omitempty"`
+	WalmartUS            *WalmartUSConfig                `json:"walmartUS,omitempty"`
 }
 
 func (c *Config) validateStoreCenter() error {
@@ -24,8 +25,36 @@ func (c *Config) validateStoreCenter() error {
 		return nil
 	}
 	s := c.StoreCenter
+	if err := s.WalmartUS.validate(); err != nil {
+		return err
+	}
 	if err := s.TikTokShop.validate(); err != nil {
 		return err
+	}
+	if s.WalmartUS != nil {
+		type privateApp struct {
+			key   string
+			files []string
+		}
+		others := []privateApp{}
+		for _, app := range s.OfficialApplications {
+			others = append(others, privateApp{app.CredentialKeyID, []string{app.AppSecretFile, app.CredentialKeyFile}})
+		}
+		if s.TikTokShop != nil {
+			others = append(others, privateApp{s.TikTokShop.CredentialKeyID, []string{s.TikTokShop.AppSecretFile, s.TikTokShop.CredentialKeyFile}})
+		}
+		for _, app := range others {
+			if app.key == s.WalmartUS.CredentialKeyID {
+				return errors.New("Store application credential key identities must be unique")
+			}
+			for _, old := range app.files {
+				for _, next := range []string{s.WalmartUS.ClientSecretFile, s.WalmartUS.CredentialKeyFile} {
+					if strings.EqualFold(filepath.Clean(old), filepath.Clean(next)) {
+						return errors.New("Store applications require separate private files")
+					}
+				}
+			}
+		}
 	}
 	if s.TikTokShop != nil {
 		for _, app := range s.OfficialApplications {

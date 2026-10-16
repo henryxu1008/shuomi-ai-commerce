@@ -49,6 +49,7 @@ type OfficialReceipt struct {
 	TemuProduct        *temugoods.CreatedGoods            `json:"temuProduct,omitempty"`
 	TemuImage          *TemuImageReceipt                  `json:"temuImage,omitempty"`
 	TikTok             *TikTokEffectReceipt               `json:"tiktok,omitempty"`
+	Walmart            *WalmartFeedReceipt                `json:"walmart,omitempty"`
 	ObservedAt         time.Time                          `json:"observed_at"`
 }
 type OfficialCompletion struct {
@@ -134,6 +135,12 @@ func ValidateOfficialReceipt(value OfficialReceipt) error {
 	if !validExecutionAttemptID(value.ID) || value.Owner.Validate() != nil || !validOfficialBindingForTarget(value.Binding, value.Target) || !collection.ValidID(value.Target.StoreID) || !authidentity.IsBoundedIdentifier(value.IntentKey) ||
 		!isExecutionDigest(value.PayloadFingerprint) || !isExecutionDigest(value.ResponseHash) || value.Binding.OrganizationID != value.Owner.OrganizationID ||
 		value.Binding.StoreVersion < 1 || value.Binding.ConnectionRevision < 1 || !value.Binding.ValidApplication() || !isExecutionDigest(value.Binding.SupplierIdentityHash) || value.Binding.ServiceExpiresAt.IsZero() || value.ObservedAt.IsZero() {
+		return ErrExecutionEvidenceRequired
+	}
+	if value.Target.Platform == "walmart" {
+		return validateWalmartReceipt(value)
+	}
+	if value.Walmart != nil {
 		return ErrExecutionEvidenceRequired
 	}
 	if value.Target.Platform == "temu" {

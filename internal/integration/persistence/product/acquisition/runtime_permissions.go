@@ -129,6 +129,7 @@ const supplyPrivileges = `,('listing_preparations','SELECT'),('listing_preparati
  ('listing_submission_target_fences','SELECT'),('listing_submission_target_fences','INSERT'),('listing_submission_target_fences','UPDATE'),
  ('listing_submission_official_intents','SELECT'),('listing_submission_official_intents','INSERT'),
  ('listing_submission_official_receipts','SELECT'),('listing_submission_official_receipts','INSERT'),
+ ('listing_walmart_sku_bindings','SELECT'),('listing_walmart_sku_bindings','INSERT'),('listing_walmart_sku_bindings','UPDATE'),('listing_walmart_feed_observations','SELECT'),('listing_walmart_feed_observations','INSERT'),
  ('product_title_proposals','SELECT')`
 
 // Read-only readiness for the existing SRC-1/Catalog schema consumed by this
@@ -272,7 +273,7 @@ func GrantRuntimePermissions(ctx context.Context, db *gorm.DB, capabilities ...R
 		if supply {
 			statements = append(statements, preparationRuntimeGrant, "GRANT SELECT,INSERT ON public.listing_target_records,public.listing_target_record_commands,public.listing_submission_official_intents,public.listing_submission_official_receipts TO source_acquisition_runtime",
 				"GRANT SELECT,INSERT,UPDATE ON public.listing_preparation_targets,public.listing_preparation_operations,public.listing_preparation_operation_items,public.listing_submission_execution_attempts,public.listing_submission_target_fences TO source_acquisition_runtime",
-				"GRANT SELECT ON public.product_title_proposals TO source_acquisition_runtime")
+				"GRANT SELECT,INSERT,UPDATE ON public.listing_walmart_sku_bindings TO source_acquisition_runtime", "GRANT SELECT,INSERT ON public.listing_walmart_feed_observations TO source_acquisition_runtime", "GRANT SELECT ON public.product_title_proposals TO source_acquisition_runtime")
 		}
 		if plans {
 			if _, err := planstore.NewRepository(ctx, tx); err != nil {

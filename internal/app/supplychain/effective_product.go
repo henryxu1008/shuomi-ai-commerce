@@ -54,7 +54,7 @@ type SourceImageReader struct {
 }
 
 func (r SourceImageReader) ReadSourceSelection(ctx context.Context, input asset.SourceSelectionRequest) (asset.SourceSelection, error) {
-	if ctx == nil || r.Sources == nil || r.Products == nil || r.Authorization == nil || input.TargetPlatform != "shein" && input.TargetPlatform != "temu" && input.TargetPlatform != "tiktokshop" && input.TargetPlatform != "product" {
+	if ctx == nil || r.Sources == nil || r.Products == nil || r.Authorization == nil || input.TargetPlatform != "shein" && input.TargetPlatform != "temu" && input.TargetPlatform != "tiktokshop" && input.TargetPlatform != "product" && input.TargetPlatform != "walmart" {
 		return asset.SourceSelection{}, asset.ErrSourceApprovalForbidden
 	}
 	scope, err := r.Authorization.Authorize(ctx, preparation.PermissionManage)

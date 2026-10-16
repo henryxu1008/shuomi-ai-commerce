@@ -146,6 +146,18 @@ func (r *Repository) Acquire(ctx context.Context, reservation submission.Executi
 		if found && (fence.CurrentStatus == string(submission.ExecutionClaimed) || fence.CurrentStatus == string(submission.ExecutionOutcomeUnknown)) {
 			return mutation{}, submission.ErrExecutionTargetClaimed
 		}
+		if attempt.Target.Platform == "walmart" {
+			if !r.immutableOfficialEffects {
+				return mutation{}, submission.ErrExecutionEvidenceRequired
+			}
+			previous := ""
+			if found && fence.CurrentStatus == string(submission.ExecutionSucceeded) {
+				previous = fence.CurrentAttemptID
+			}
+			if err := r.requireWalmartEffect(ctx, tx, attempt, previous); err != nil {
+				return mutation{}, err
+			}
+		}
 		if found && fence.CurrentStatus == string(submission.ExecutionSucceeded) && r.immutableOfficialEffects && attempt.Target.Platform == "temu" {
 			if attempt.Action == submission.TemuPublishAction {
 				return mutation{}, submission.ErrExecutionTargetSucceeded

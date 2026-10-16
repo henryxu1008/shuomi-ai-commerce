@@ -403,7 +403,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	if supplied.operationsCockpits > 0 && (supplied.storeCenters != 1 || supplied.storeCenterDB == nil) {
 		return nil, errors.New("operations cockpit requires current Store owner")
 	}
-	storeCapabilities := storecenter.RuntimeCapabilities{Observations: supplied.storeObservations == 1, OperationsCockpit: supplied.operationsCockpits == 1, TikTokShop: supplied.officialStoreApplications.TikTokConfigured()}
+	storeCapabilities := storecenter.RuntimeCapabilities{Observations: supplied.storeObservations == 1, OperationsCockpit: supplied.operationsCockpits == 1, TikTokShop: supplied.officialStoreApplications.TikTokConfigured(), WalmartUS: supplied.officialStoreApplications.WalmartConfigured()}
 	if err := validateDataServicesDependencies(supplied, sourceAccountDB, cfg); err != nil {
 		return nil, err
 	}

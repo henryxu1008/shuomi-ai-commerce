@@ -14,6 +14,8 @@ import (
 	"gorm.io/gorm/logger"
 	"net/url"
 	"strings"
+	walmart "task-processor/internal/marketplace/walmart"
+	"task-processor/internal/storecenter"
 	o "task-processor/internal/storecenter/observations"
 	"testing"
 	"time"
@@ -242,4 +244,29 @@ func TestObservationPostgresLargeRecordsPaginateWithinResponseBudget(t *testing.
 		}
 		require.Len(t, seen, 10)
 	}
+}
+
+func TestWalmartObservationPersistsNativeFactsAndUnknownInventory(t *testing.T) {
+	ctx, _, r := observationDatabase(t)
+	scope := o.Scope{"org-a", "actor-a", "member-a"}
+	store := uuid.NewString()
+	in, children := syncInput(scope, store)
+	children[0].Binding.Platform = storecenter.PlatformWalmart
+	cmd, e := r.Begin(ctx, scope, uuid.NewString(), "walmart", in, children)
+	require.NoError(t, e)
+	sync := cmd.Syncs[0]
+	p := walmart.Product{SKU: "seller-a", WPID: "wpid-a", GTIN: "12345678901234", ProductName: "Native Shirt", PublicationStatus: "UNPUBLISHED", LifecycleStatus: "ACTIVE"}
+	_, e = r.CommitPage(ctx, sync, sync.Progress, []o.Record{{ID: p.SKU, StoreID: store, SyncID: sync.ID, WalmartProduct: &p}}, "completed", time.Now().UTC())
+	require.NoError(t, e)
+	page, e := r.List(ctx, scope.OrganizationID, o.Query{Kind: o.Products, Limit: 20, Sources: map[string]string{store: sync.ID}, Keyword: "Native Shirt"})
+	require.NoError(t, e)
+	require.Len(t, page.Items, 1)
+	require.Equal(t, p, *page.Items[0].WalmartProduct)
+	require.Nil(t, page.Items[0].Product)
+	require.Equal(t, 1, page.Summary.OffShelf)
+	aggregates, e := r.StoreAggregates(ctx, scope.OrganizationID, o.Products, map[string]string{store: sync.ID}, true)
+	require.NoError(t, e)
+	require.Len(t, aggregates[store].Inventory, 1)
+	require.Nil(t, aggregates[store].Inventory[0].Quantity)
+	require.Equal(t, p.SKU, aggregates[store].Inventory[0].SKU)
 }

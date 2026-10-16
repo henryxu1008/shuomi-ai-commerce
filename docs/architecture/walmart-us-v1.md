@@ -4,9 +4,9 @@ Refs [#733](https://github.com/qq550723504/task-processor/issues/733)。
 
 - Product Decision：**PD-WALMART-US-MULTIMERCHANT-V1-2026-10-16**。用户确认美国站、开放给多个商家，并确认首期范围；平台申请由用户自行处理。
 - Design Basis：**Independent Architecture**。
-- Admission Status：**IMPLEMENTATION_READY / FROZEN**。2026-10-16 第一轮独立只读架构检查未发现设计 BLOCKER；证据与所审候选记录在 [PR #734](https://github.com/qq550723504/task-processor/pull/734)。本阶段仍只授权设计，不自动启动生产实现。
+- Admission Status：**IMPLEMENTATION_READY / FROZEN**。2026-10-16 第一轮独立只读架构检查未发现设计 BLOCKER；证据与所审候选记录在 [PR #734](https://github.com/qq550723504/task-processor/pull/734)。用户随后明确授权按冻结设计实现 #733，继续 PR #734。
 - 调查基线：main `db47d15e563c0ced7469ba12d251d8c7be1da4dd`，2026-10-16；一个 Writer，分支 `codex/walmart-us-design`。
-- 当前授权仅覆盖设计、必要调查、文档检查及主要 PR；设计准入不自动启动实施、部署或真实平台操作。
+- 当前授权覆盖冻结设计的正式实现、必要验证、提交/推送和主要 PR；不合并、部署或操作真实店铺，平台申请由用户处理。
 
 ## 1. 用户结果与本期边界
 
@@ -184,7 +184,7 @@ HTTP/BFF 使用原认证/同源/strict DTO/ETag/幂等，生产参数中禁止�
 
 ## 11. 实现顺序与验证映射
 
-保持一个 Delivery Batch/主要 PR。以下为提交边界，不机械拆 PR；只有后续获准实施才执行：
+保持一个 Delivery Batch/主要 PR。以下为实施提交边界，不机械拆 PR；用户已授权执行：
 
 1. Store Walmart US variant、加密 OAuth/真实 merchant 核实、当前 HTTP/BFF/店铺授权消费者；缺配置场景真实关闭。
 2. 商品只读观察与原页面、确定性 schema/图片/两种 listing mode、Target 草稿和显式批准；原 CompletionDraft 仍独立可用。
@@ -214,7 +214,7 @@ Legacy decision: **EXTRACT | RETIRE**。
 
 由用户取得服务商/主体/应用/scopes/商家、适用合同/保险/安全评估、部署与跨境处理批准。它们不阻塞文档或独立设计检查；缺失时真实授权/平台读取/刊登/客户开放为 NOT_RUN。官方字段/新错误码的实施测试不足只阻止相应正式能力，不伪造实例。若真实证据证明必须改变唯一 owner/事务/授权/UNKNOWN 并命中 AGENTS.md BLOCKER，才重开设计；非 Blocker 归 IMPLEMENTATION_TEST/BACKLOG，不追加通用系统。
 
-本阶段停止于：独立检查后的 Design Basis、官方证据与 Issue/PR 可评审；不实现生产业务、不合并、不部署、不注册/接受协议、不读写真实商家数据、不代签用户验收。
+当前实施阶段停止于：首期完整路径、必要验证与最终独立交付检查，交付入口及已知限制；不合并、不部署、不注册/接受协议、不读写真实商家数据、不代签用户验收。
 
 ## 13. 独立检查与 finding 处置
 
@@ -225,4 +225,4 @@ Legacy decision: **EXTRACT | RETIRE**。
 3. M1/M4：code/refresh 的单次 claim、token generation、迟到结果、响应丢失与 commit-unknown 均使用原持久事实，不回退或盲重发。
 4. M5/M6：正常 Console/BFF/Operation/worker/result consumer 必须分开受理、逐 SKU ingestion 与真实 publication，不能从 kernel succeeded 投影平台已发布。
 
-本批不增加 Accepted Risk 或新验证平台。设计准入不是产品验收；业务实现、真实平台与用户试用仍未执行。
+本批不增加 Accepted Risk 或新验证平台。设计准入不是产品验收。业务实现与必要隔离验证的当前证据记录在 #733 / PR #734；真实平台与用户试用仍为 NOT_RUN。操作和配置见 [首期说明](../operations/walmart-us-v1.md)。

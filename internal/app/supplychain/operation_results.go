@@ -18,6 +18,7 @@ type OperationItemView struct {
 	ConfirmedProduct     *model.PublishResult            `json:"confirmedProduct,omitempty"`
 	ConfirmedTemuProduct *temugoods.CreatedGoods         `json:"confirmedTemuProduct,omitempty"`
 	ConfirmedTikTok      *submission.TikTokEffectReceipt `json:"confirmedTikTok,omitempty"`
+	ConfirmedWalmart     *submission.WalmartFeedReceipt  `json:"confirmedWalmart,omitempty"`
 }
 
 func (a *Application) operationItemView(ctx context.Context, operation preparation.Operation, item preparation.OperationItem) (OperationItemView, error) {
@@ -45,7 +46,9 @@ func (a *Application) operationItemView(ctx context.Context, operation preparati
 	if saved.ID != item.RecordID || saved.Revision != item.RecordRevision || saved.Source.ID != item.SourceID || saved.Source.Source.ProductKey != receipt.ProductKey || saved.Merchant != receipt.Binding {
 		return view, record.ErrConflict
 	}
-	if receipt.TikTok != nil {
+	if receipt.Walmart != nil {
+		view.ConfirmedWalmart = receipt.Walmart
+	} else if receipt.TikTok != nil {
 		view.ConfirmedTikTok = receipt.TikTok
 	} else if receipt.TemuProduct != nil {
 		view.ConfirmedTemuProduct = receipt.TemuProduct
@@ -74,7 +77,7 @@ func (a *Application) OperationItems(ctx context.Context, id string, q collectio
 			return result, err
 		}
 		result.Items = append(result.Items, value)
-		confirmed = confirmed || value.ConfirmedProduct != nil || value.ConfirmedTemuProduct != nil || value.ConfirmedTikTok != nil
+		confirmed = confirmed || value.ConfirmedProduct != nil || value.ConfirmedTemuProduct != nil || value.ConfirmedTikTok != nil || value.ConfirmedWalmart != nil
 	}
 	if confirmed {
 		if a.TargetMerchants == nil {
