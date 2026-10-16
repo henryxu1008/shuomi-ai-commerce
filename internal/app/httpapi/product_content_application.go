@@ -68,7 +68,7 @@ func buildContentProductApplication(ctx context.Context, parent *productAgentApp
 		route, err := routes.Resolve(ctx, aicapability.TextInputIdentity{OrganizationID: org, Operation: aicapability.OperationProductContentDecision})
 		return route.Profile, err
 	}
-	executor := &governed.Executor{Ledger: a.config.Ledger, Admission: a.textAdmission, Resolve: routes.Resolve, BaseTransport: a.config.TextTransport, Authorize: func(ctx context.Context, input aicapability.TextInputIdentity) error {
+	executor := &governed.Executor{Ledger: a.config.Ledger, Logger: a.config.TextLogger, Admission: a.textAdmission, Resolve: routes.Resolve, BaseTransport: a.config.TextTransport, Authorize: func(ctx context.Context, input aicapability.TextInputIdentity) error {
 		if supplyAgentContext(ctx) {
 			return a.authorizeSupplyModel(ctx, input.OrganizationID, input.ActorID, input.MemberID)
 		}

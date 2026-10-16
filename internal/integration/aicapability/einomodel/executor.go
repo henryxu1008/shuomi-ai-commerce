@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	"task-processor/internal/aicapability"
 	"task-processor/internal/integration/googleinteractions"
 )
@@ -37,6 +39,7 @@ type Executor struct {
 	Resolve       func(context.Context, aicapability.TextInputIdentity) (QualifiedRoute, error)
 	Authorize     func(context.Context, aicapability.TextInputIdentity) error
 	BaseTransport http.RoundTripper
+	Logger        *logrus.Entry `json:"-"`
 }
 
 func endpointDigest(endpoint string) string {
@@ -100,7 +103,15 @@ func (e *Executor) terminal(ctx context.Context, record aicapability.InvocationR
 	// A canceled HTTP request cannot erase an already observed provider outcome.
 	writeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
 	defer cancel()
-	return e.Ledger.RecordInvocation(writeCtx, record)
+	err := e.Ledger.RecordInvocation(writeCtx, record)
+	if diagnostic, ok := ctx.Value(textDiagnosticKey{}).(*textDiagnostics); ok {
+		category := "recorded"
+		if err != nil {
+			category = "record_failed"
+		}
+		diagnostic.emit(writeCtx, "terminal", category)
+	}
+	return err
 }
 
 // Generate requires a quote prepared with the exact frozen input. A receipt
@@ -123,8 +134,25 @@ func (e *Executor) GenerateWithGate(ctx context.Context, input aicapability.Text
 	boundedCtx, cancel := context.WithTimeout(ctx, input.Profile.DeadlineBound)
 	defer cancel()
 	ctx = boundedCtx
+	var logger *logrus.Entry
+	if e != nil {
+		logger = e.Logger
+	}
+	diagnostic := newTextDiagnostics(ctx, input.InvocationID, logger)
+	if input.AgentRunID != "" {
+		diagnostic.set("agent_run_id_hash", diagnosticHash(input.AgentRunID))
+	}
+	diagnostic.set("profile_digest", quote.ProfileDigest)
+	ctx = context.WithValue(ctx, textDiagnosticKey{}, diagnostic)
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			diagnostic.emit(ctx, "executor", "panic")
+			panic(recovered) // The existing Eino recovery owner remains authoritative.
+		}
+	}()
 	route, err := e.admitted(ctx, input)
 	if err != nil {
+		diagnostic.emit(ctx, "admission", "rejected_before_claim")
 		return TextOutput{}, err
 	}
 	p := input.Profile
@@ -134,7 +162,7 @@ func (e *Executor) GenerateWithGate(ctx context.Context, input aicapability.Text
 			cleanup()
 		}
 	}()
-	guardCfg := GuardConfig{Adapter: AdapterKind(p.AdapterKind), Endpoint: route.Endpoint, ModelID: p.ModelID,
+	guardCfg := GuardConfig{Logger: logger, Adapter: AdapterKind(p.AdapterKind), Endpoint: route.Endpoint, ModelID: p.ModelID,
 		ProviderID: p.ProviderID, AdapterPolicyVersion: p.AdapterPolicyVersion,
 		MaximumOutputTokens: int(p.MaximumCompletionTokens), MaximumRequestBytes: int64(p.MaximumInputBytes),
 		MaximumResponseBytes: int64(p.MaximumOutputBytes), Timeout: p.DeadlineBound}
@@ -161,24 +189,32 @@ func (e *Executor) GenerateWithGate(ctx context.Context, input aicapability.Text
 		return nil
 	})
 	if err != nil {
+		diagnostic.emit(ctx, "component", "rejected_before_claim")
 		return TextOutput{}, ErrNotDispatched
 	}
 	component, err := NewComponent(ctx, ComponentConfig{Adapter: guardCfg.Adapter, Endpoint: route.Endpoint,
 		ProviderID: p.ProviderID, AdapterPolicyVersion: p.AdapterPolicyVersion,
 		APIKey: route.APIKey, ModelID: p.ModelID, MaximumOutputTokens: guardCfg.MaximumOutputTokens}, guard)
 	if err != nil {
+		diagnostic.emit(ctx, "component", "rejected_before_claim")
 		return TextOutput{}, ErrNotDispatched
 	}
 	now := time.Now().UTC()
 	record := textRecord(input, quote, now)
 	acquired, err := e.Ledger.ClaimInvocation(ctx, record)
 	if err != nil || !acquired {
+		category := "existing"
+		if err != nil {
+			category = "claim_unconfirmed"
+		}
+		diagnostic.emit(ctx, "claim", category)
 		// The claim may have committed even when its response was lost. A
 		// duplicate also has an existing durable fact. Neither proves a
 		// terminal no-send outcome or permits another provider attempt.
 		return TextOutput{}, ErrOutcomeUnknown
 	}
 	if err := e.Ledger.ReserveAIInvocationUsage(ctx, record.TenantID, record.MemberID, record.InvocationID, quote.MaximumTokens, now); err != nil {
+		diagnostic.emit(ctx, "reservation", "reserve_failed")
 		record.Outcome = aicapability.InvocationFailed
 		record.FinishedAt = time.Now().UTC()
 		record.ErrorCode = "reservation_failed_before_dispatch"
@@ -198,6 +234,7 @@ func (e *Executor) GenerateWithGate(ctx context.Context, input aicapability.Text
 		}()
 	}
 	if admissionErr != nil || guard.NetworkSends() == 0 {
+		diagnostic.emit(ctx, "handoff", "not_dispatched")
 		record.Outcome = aicapability.InvocationFailed
 		record.FinishedAt = time.Now().UTC()
 		record.ErrorCode = "rejected_before_dispatch"
@@ -210,6 +247,11 @@ func (e *Executor) GenerateWithGate(ctx context.Context, input aicapability.Text
 	if !output.Usage.Known || output.Usage.PromptTokens > int(record.MaximumPromptTokens) ||
 		output.Usage.CompletionTokens > int(p.MaximumCompletionTokens) ||
 		errors.Is(generationErr, ErrOutcomeUnknown) || errors.Is(generationErr, ErrUsageUnknown) {
+		category := "outcome_or_usage_unknown"
+		if output.Usage.Known && (output.Usage.PromptTokens > int(record.MaximumPromptTokens) || output.Usage.CompletionTokens > int(p.MaximumCompletionTokens)) {
+			category = "usage_bound_exceeded"
+		}
+		diagnostic.emit(ctx, "usage", category)
 		return TextOutput{}, ErrOutcomeUnknown
 	}
 	record.FinishedAt = time.Now().UTC()
@@ -219,6 +261,7 @@ func (e *Executor) GenerateWithGate(ctx context.Context, input aicapability.Text
 	record.UsageKnown, record.EstimatedCostKnown = true, true
 	record.EstimatedCostMicros, err = p.CostFor(int64(record.PromptTokens), int64(record.CompletionTokens))
 	if err != nil {
+		diagnostic.emit(ctx, "cost_mapping", "rejected")
 		return TextOutput{}, ErrOutcomeUnknown
 	}
 	record.Outcome = aicapability.InvocationUsageObservedFailed
@@ -226,6 +269,9 @@ func (e *Executor) GenerateWithGate(ctx context.Context, input aicapability.Text
 	validErr := generationErr
 	if validErr == nil && validate != nil {
 		validErr = validate(output.Content)
+	}
+	if validErr != nil {
+		diagnostic.emit(ctx, "output_validation", "schema_rejected")
 	}
 	if validErr == nil {
 		record.Outcome = aicapability.InvocationSucceeded

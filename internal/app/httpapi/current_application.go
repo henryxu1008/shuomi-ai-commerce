@@ -865,6 +865,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	}
 	if supplied.productAgent != nil {
 		agentConfig := *supplied.productAgent
+		agentConfig.TextLogger = logrus.NewEntry(logger).WithField("component", "governed-text")
 		agentConfig.Knowledge = supplied.knowledge
 		agentConfig.PointAccountingDB = supplied.commercialOwnerDB
 		agentModule, agentErr := buildProductAgentModule(ctx, supplied.productAcquisitionDB, *workbench.authDependencies, authorizer, agentConfig, cfg)

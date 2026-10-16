@@ -12,6 +12,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptrace"
 	"net/url"
 	"strings"
 	"sync"
@@ -22,6 +23,7 @@ import (
 	openaimodel "github.com/cloudwego/eino-ext/components/model/openai"
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
+	"github.com/sirupsen/logrus"
 	"task-processor/internal/integration/googleinteractions"
 )
 
@@ -95,6 +97,7 @@ func NewComponent(ctx context.Context, cfg ComponentConfig, guard *GuardedClient
 }
 
 type GuardConfig struct {
+	Logger               *logrus.Entry `json:"-"`
 	Adapter              AdapterKind
 	ProviderID           string
 	AdapterPolicyVersion string
@@ -124,6 +127,19 @@ type GuardedClient struct {
 	mu                sync.Mutex
 	usage             ObservedUsage
 	providerRequestID string
+	diagnostic        *textDiagnostics
+}
+
+func (g *GuardedClient) diagnosticsFor(ctx context.Context) *textDiagnostics {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.diagnostic == nil {
+		g.diagnostic, _ = ctx.Value(textDiagnosticKey{}).(*textDiagnostics)
+		if g.diagnostic == nil {
+			g.diagnostic = newTextDiagnostics(ctx, "", g.cfg.Logger)
+		}
+	}
+	return g.diagnostic
 }
 
 func validEndpoint(raw string) bool {
@@ -216,18 +232,22 @@ func (g *GuardedClient) RoundTrip(req *http.Request) (*http.Response, error) {
 		g.cfg.Adapter == AdapterGoogleInteractions && req.URL.EscapedPath() != "/v1beta/interactions" {
 		return nil, ErrNotDispatched
 	}
+	diagnostic := g.diagnosticsFor(req.Context())
 	body, err := io.ReadAll(io.LimitReader(req.Body, g.cfg.MaximumRequestBytes+1))
 	_ = req.Body.Close()
 	if err != nil || int64(len(body)) > g.cfg.MaximumRequestBytes || !validWire(body, g.cfg) {
+		diagnostic.emit(req.Context(), "wire_guard", "rejected_before_handoff")
 		return nil, ErrNotDispatched
 	}
 	g.sendMu.Lock()
 	if g.sent.Load() {
 		g.sendMu.Unlock()
+		diagnostic.emit(req.Context(), "handoff", "duplicate_blocked")
 		return nil, ErrOutcomeUnknown
 	}
 	if err := g.finalGate(req.Context()); err != nil {
 		g.sendMu.Unlock()
+		diagnostic.emit(req.Context(), "final_gate", "rejected_before_handoff")
 		return nil, errors.Join(ErrNotDispatched, err)
 	}
 	if !g.sent.CompareAndSwap(false, true) {
@@ -235,25 +255,39 @@ func (g *GuardedClient) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, ErrOutcomeUnknown
 	}
 	g.sendMu.Unlock()
+	diagnostic.set("handoffs", 1)
 	req.Body = io.NopCloser(bytes.NewReader(body))
 	req.ContentLength = int64(len(body))
 	req.GetBody = nil
+	req = req.WithContext(httptrace.WithClientTrace(req.Context(), diagnostic.trace()))
 	response, err := g.base.RoundTrip(req)
 	if err != nil {
+		diagnostic.emit(req.Context(), "transport", diagnosticErrorCategory(err))
 		return nil, ErrOutcomeUnknown
 	}
 	if response == nil || response.Body == nil {
+		diagnostic.emit(req.Context(), "transport", "response_missing")
 		return nil, ErrOutcomeUnknown
 	}
+	diagnostic.response(response.StatusCode, response.Header.Get("X-Request-Id"), nil, g.cfg.Adapter)
 	if g.cfg.Adapter == AdapterGoogleInteractions && (response.StatusCode != http.StatusOK || !strings.HasPrefix(response.Header.Get("Content-Type"), "application/json")) {
 		_ = response.Body.Close()
+		diagnostic.emit(req.Context(), "response", "http_or_content_type_rejected")
 		return nil, ErrOutcomeUnknown
 	}
 	raw, err := io.ReadAll(io.LimitReader(response.Body, g.cfg.MaximumResponseBytes+1))
 	_ = response.Body.Close()
 	if err != nil || int64(len(raw)) > g.cfg.MaximumResponseBytes {
+		category := "read_failed"
+		if int64(len(raw)) > g.cfg.MaximumResponseBytes {
+			category = "response_too_large"
+		}
+		diagnostic.emit(req.Context(), "response_body", category)
 		return nil, ErrOutcomeUnknown
 	}
+	diagnostic.response(response.StatusCode, response.Header.Get("X-Request-Id"), raw, g.cfg.Adapter)
+	diagnostic.set("response_bytes", len(raw))
+	diagnostic.emit(req.Context(), "response", "response_received")
 	if response.StatusCode >= 200 && response.StatusCode < 300 {
 		usage := observeUsage(raw, g.cfg.Adapter)
 		var providerID string
@@ -384,9 +418,12 @@ func GenerateText(ctx context.Context, component model.BaseChatModel, system, pr
 	if ctx == nil || component == nil || guard == nil || system == "" || prompt == "" {
 		return TextOutput{}, ErrInvalid
 	}
+	diagnostic := guard.diagnosticsFor(ctx)
 	message, err := component.Generate(ctx, []*schema.Message{schema.SystemMessage(system), schema.UserMessage(prompt)})
 	usage := guard.Usage()
+	diagnostic.set("usage_known", usage.Known)
 	if err != nil {
+		diagnostic.emit(ctx, "sdk", diagnostic.sdkCategory(err))
 		if guard.NetworkSends() == 0 {
 			return TextOutput{}, errors.Join(ErrNotDispatched, err)
 		}
@@ -398,6 +435,7 @@ func GenerateText(ctx context.Context, component model.BaseChatModel, system, pr
 		output.FinishReason = message.ResponseMeta.FinishReason
 	}
 	if !usage.Known {
+		diagnostic.emit(ctx, "usage", "usage_missing_or_invalid")
 		return output, ErrUsageUnknown
 	}
 	if message == nil || message.Role != schema.Assistant || message.ResponseMeta == nil ||
@@ -409,6 +447,7 @@ func GenerateText(ctx context.Context, component model.BaseChatModel, system, pr
 		message.ReasoningContent != "" || !safeComponentMetadata(message.Extra) ||
 		message.Content == "" || len(message.Content) > 16384 ||
 		(output.FinishReason != "stop" && output.FinishReason != "end_turn") {
+		diagnostic.emit(ctx, "output_validation", "rejected")
 		return output, ErrInvalid
 	}
 	return output, nil
