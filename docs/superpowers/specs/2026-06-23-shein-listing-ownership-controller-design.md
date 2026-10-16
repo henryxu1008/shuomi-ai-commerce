@@ -1,5 +1,7 @@
 # SHEIN Listing Ownership Controller Design
 
+> Historical context: the listing CLI and execution sources have since retired under #723/#726/#729. The workload declaration and auto-shard configuration remain at the baseline of the [new retirement proposal](../../architecture/legacy-ownership-controller-retirement-boundary.md), which awaits user confirmation. This original document does not authorize current rollout, Redis/DB/broker inspection, lock changes or compatibility implementation; its historical evidence is retained below.
+
 ## Context
 
 The SHEIN listing runtime currently mixes store ownership coordination, queue initialization, dynamic store assignment, and task execution inside the same `shein-listing` worker process. This caused store 976 to be consumed by both its dedicated pod and a shared shard after a dedicated pod was deployed.
