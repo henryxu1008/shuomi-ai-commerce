@@ -126,6 +126,17 @@ describe("/api/workbench BFF", () => {
       { method: "GET", path: `sourcing/1688/acquisitions/${operationKey}/${namespace}/runs/${storeId}`, budget: 125_000 },
       { method: "POST", path: `sourcing/1688/acquisitions/${operationKey}/${namespace}/runs/${storeId}/resume`, budget: 125_000 },
     ]),
+    { method: "POST", path: `collections/items/${operationKey}/content-agent/runs`, budget: 125_000 },
+    { method: "GET", path: `collections/items/${operationKey}/content-agent/runs/${storeId}`, budget: 125_000 },
+    { method: "POST", path: `collections/items/${operationKey}/content-agent/runs/${storeId}/resume`, budget: 125_000 },
+    { method: "POST", path: `collections/items/${operationKey}/content-agent/runs/${storeId}/review`, budget: 125_000 },
+    { method: "GET", path: `collections/items/${operationKey}/content-agent/source`, budget: 15_000 },
+    { method: "POST", path: "collections/items/not-a-uuid/content-agent/runs", budget: 15_000 },
+    { method: "GET", path: `collections/items/${operationKey}/content-agent/runs/not-a-uuid`, budget: 15_000 },
+    { method: "POST", path: `collections/items/${operationKey}/product-agent/runs`, budget: 15_000 },
+    { method: "GET", path: `collections/items/${operationKey}/content-agent/runs`, budget: 15_000 },
+    { method: "POST", path: `collections/items/${operationKey}/content-agent/runs/${storeId}`, budget: 15_000 },
+    { method: "PUT", path: `collections/items/${operationKey}/content-agent/runs`, budget: 15_000 },
     ...["sourcing/1688/acquisitions", "supply-preparations/sources"].flatMap((base) => [
       { method: "GET", path: `${base}/${operationKey}/images/sources`, budget: 32_000 },
       { method: "GET", path: `${base}/${operationKey}/images/runs/${storeId}`, budget: 32_000 },
@@ -135,7 +146,7 @@ describe("/api/workbench BFF", () => {
       { method: "GET", path: `${base}/not-a-uuid/images/sources`, budget: 15_000 },
       { method: "GET", path: `${base}/${operationKey}/images/runs/not-a-uuid`, budget: 15_000 },
     ]),
-  ])("bounds image auth before dispatch using the exact route: $method $path", async ({ method, path, budget }) => {
+  ])("bounds auth before dispatch using the exact method and route: $method $path", async ({ method, path, budget }) => {
     vi.useFakeTimers();
     let releaseAuth = () => {};
     authState.gate = new Promise<void>((resolve) => { releaseAuth = resolve; });
@@ -359,7 +370,9 @@ describe("/api/workbench BFF", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it.each(["start", "resume"])("keeps a dispatched content %s deadline UNKNOWN after the full agent window", async (action) => {
+  it.each(["start", "resume", "review"].flatMap(action => [
+    { kind: "acquisition", action }, { kind: "own", action },
+  ]))("keeps a dispatched $kind content $action deadline UNKNOWN after the full agent window", async ({kind, action}) => {
     vi.useFakeTimers();
     authState.session = { accessToken: "private-token" };
     authState.token = "private-token";
@@ -369,7 +382,7 @@ describe("/api/workbench BFF", () => {
       init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")), { once: true });
     }));
     vi.stubGlobal("fetch", fetchMock);
-    const path = ["sourcing", "1688", "acquisitions", operationKey, "content-agent", "runs", ...(action === "resume" ? [storeId, "resume"] : [])];
+    const path = [...(kind === "own" ? ["collections", "items", operationKey] : ["sourcing", "1688", "acquisitions", operationKey]), "content-agent", "runs", ...(action === "start" ? [] : [storeId, action])];
     let settled = false;
     const pending = call(POST, new NextRequest(`http://localhost/api/workbench/${path.join("/")}`, {
       method: "POST", headers: {
@@ -377,11 +390,16 @@ describe("/api/workbench BFF", () => {
         "Content-Type": "application/json", "Idempotency-Key": storeId,
         "X-Expected-Organization-ID": "org-b", "X-Expected-User-ID": "user-a",
       },
-      body: JSON.stringify(action === "resume" ? { revision: "1", feedback: "check evidence" } : {
+      body: JSON.stringify(action === "review" ? {} : action === "resume" ? { revision: "1", feedback: "check evidence" } : {
         expectedModeRevision: "0", targetPlatform: "product", contentSelection: { targetLanguage: "en-US", title: true },
+        ...(kind === "own" ? { ownSource: { catalogVersion: "2", publicationId: "original-own-publication" } } : {}),
       }),
     }), path).then(response => { settled = true; return response; });
-    await vi.advanceTimersByTimeAsync(124_999);
+    await vi.advanceTimersByTimeAsync(15_000);
+    expect(settled).toBe(false);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock.mock.calls[0][1]?.signal?.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(109_999);
     expect(settled).toBe(false);
     await vi.advanceTimersByTimeAsync(1);
     const response = await pending;
