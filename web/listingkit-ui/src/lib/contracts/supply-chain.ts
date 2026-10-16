@@ -30,8 +30,20 @@ const officialProductSchema=z.object({category_id:integer,product_type_id:intege
  sample_info:z.object({sample_spec:z.object({main_spec:z.object({attribute_id:integer,attribute_value_id:integer}).strict(),sub_spec_list:list(z.object({attribute_id:text(128),attribute_value_id:text(128)}).strict(),256)}).strict(),sample_judge_type:integer,reserve_sample_flag:integer,spot_flag:integer}).strict().optional(),fill_configuration_info:z.object({filled_quantity_to_sku:z.boolean()}).strict().optional(),fill_configuration_tags:list(text(256),256).optional()}).strict();
 const imageSlot=z.object({group:z.enum(["spu","skc","sku","detail"]),skc:integer,sku:integer,asset_id:text(128).min(1),sort:integer,type:integer}).strict();
 export const officialDraftInputSchema=z.object({product:officialProductSchema,images:list(imageSlot,10000)}).strict();
-const sheinTargetInputSchema=z.object({sourceId:collectionID,storeId:collectionID,expectedRevision:integer,effectiveVersion:version,applyReceiptId:collectionID.optional(),draft:officialDraftInputSchema}).strict();
-const targetBase=sheinTargetInputSchema.omit({draft:true});
+const sheinImportSelectionSchema=z.object({title:z.boolean(),description:z.boolean(),attributes:z.array(z.object({sourceIndex:integer.max(255),attributeId:integer.min(1),optionId:integer.min(1).optional()}).strict()).max(256).nullable().transform(v=>v??[]),skus:z.array(z.object({sourceIndex:integer.max(255),skcIndex:integer.max(39),skuIndex:integer.max(999),price:z.boolean(),stock:z.boolean(),warehouseId:text(128)}).strict().refine(v=>v.price||v.stock)).max(256).nullable().transform(v=>v??[])}).strict();
+export const sheinImportRequestSchema=z.object({sourceId:collectionID,baseRecordId:collectionID,completionDraft:z.object({recordId:collectionID,revision:integer.min(1)}).strict(),selection:sheinImportSelectionSchema}).strict();
+const sheinImportSchema=sheinImportRequestSchema.omit({sourceId:true}).extend({targetId:collectionID,rulesHash:z.string().regex(/^[0-9a-f]{64}$/),merchantHash:z.string().regex(/^[0-9a-f]{64}$/)}).strict();
+const targetBase=z.object({sourceId:collectionID,storeId:collectionID,expectedRevision:integer,effectiveVersion:version,applyReceiptId:collectionID.optional()}).strict();
+const sheinTargetInputSchema=targetBase.extend({draft:officialDraftInputSchema,sheinImport:sheinImportSchema.optional()}).strict();
+export const sheinImportPreviewSchema=z.object({input:sheinTargetInputSchema.refine(v=>!!v.sheinImport&&v.expectedRevision>0)}).strict();
+export type SheinImportSelection=z.infer<typeof sheinImportSelectionSchema>;
+export type SheinImportRequest=z.infer<typeof sheinImportRequestSchema>;
+
+export function matchesSheinImportPreview(value:unknown,request:unknown){
+ const r=sheinImportRequestSchema.safeParse(request),v=sheinImportPreviewSchema.safeParse(value);if(!r.success||!v.success||!v.data.input.sheinImport)return false;
+ const {sourceId,baseRecordId,completionDraft,selection}=r.data,actual=v.data.input.sheinImport;
+ return v.data.input.sourceId===sourceId&&actual.baseRecordId===baseRecordId&&JSON.stringify(actual.completionDraft)===JSON.stringify(completionDraft)&&JSON.stringify(actual.selection)===JSON.stringify(selection);
+}
 export const temuTargetInputSchema=targetBase.extend({temu:temuDraftInputSchema}).strict();
 export const temuRulesQuerySchema=targetBase.extend({temuRules:ruleSelectionSchema}).strict();
 export const tiktokTargetInputSchema=targetBase.extend({tiktok:tiktokDraftInputSchema,completionDraft:z.object({recordId:collectionID,revision:integer.min(1)}).strict().optional()}).strict();
@@ -99,8 +111,8 @@ export const publicationSchema=z.object({walmart:walmartReceiptSchema.optional()
 export const uploadAttemptSchema=z.object({recordId:collectionID,attemptId:collectionID,effectKind:z.enum(["publish","image","global_create"]),platform:z.enum(["temu","tiktokshop","walmart"]).optional(),status:z.enum(["claimed","outcome_unknown","succeeded","failed_definitive","cancelled"]),message:text(8192),correlationId:z.uuid().optional(),wireHash:z.string().regex(/^[a-f0-9]{64}$/).optional(),approvedAt:z.iso.datetime({offset:true}).optional()}).strict();
 export const resolveUploadSchema=z.object({recordId:collectionID,attemptId:collectionID,spu:text(128).min(1)}).strict();
 export const uploadResolutionSchema=z.object({recordId:collectionID,publishedRecordId:collectionID.optional(),attemptId:collectionID,status:z.enum(["succeeded","outcome_unknown"]),currentRecordUploaded:z.boolean().optional(),message:text(8192).optional(),product:z.object({spu_name:text(128),skc_list:z.array(z.object({skc_name:text(128).min(1),sku_list:z.array(z.object({sku_code:text(128).min(1),supplier_sku:text(800).min(1)})).min(1).max(400)})).max(40).nullable()}).optional()}).refine(v=>v.status!=="succeeded"||!!v.product?.spu_name&&!!v.product.skc_list?.length&&v.publishedRecordId===v.recordId&&v.currentRecordUploaded===true);
-export type SupplyRoute=MaterialsRoute|"completion-history"|"completion-history-detail"|"item-completion-drafts"|"completion-draft"|"completion-drafts"|"completion-command"|"save-completion-draft"|"upload-attempt"|"resolve-upload"|"stages"|"optimization-options"|"publication"|"publication-status"|"preparation"|"operations"|"list"|"transfer"|"transfer-read"|"sources"|"source"|"target"|"save-target"|"rules"|"target-command"|"record"|"approve"|"inventory"|"create-operation"|"operation-key"|"operation"|"operation-items"|"ensure"|"cancel";
-export const supplyRouteMethods:ReadonlyArray<readonly["GET"|"POST",SupplyRoute]>=[...materialsRouteMethods,["GET","completion-history"],["GET","completion-history-detail"],["GET","item-completion-drafts"],["POST","save-completion-draft"],["GET","completion-draft"],["GET","completion-drafts"],["GET","completion-command"],["GET","upload-attempt"],["POST","resolve-upload"],["GET","stages"],["GET","optimization-options"],["GET","publication"],["GET","publication-status"],["GET","preparation"],["GET","operations"],["GET","list"],["POST","transfer"],["GET","transfer-read"],["GET","sources"],["GET","source"],["GET","target"],["POST","save-target"],["POST","rules"],["GET","target-command"],["GET","record"],["POST","approve"],["POST","inventory"],["POST","create-operation"],["GET","operation-key"],["GET","operation"],["GET","operation-items"],["POST","ensure"],["POST","cancel"]];
+export type SupplyRoute=MaterialsRoute|"shein-completion-preview"|"completion-history"|"completion-history-detail"|"item-completion-drafts"|"completion-draft"|"completion-drafts"|"completion-command"|"save-completion-draft"|"upload-attempt"|"resolve-upload"|"stages"|"optimization-options"|"publication"|"publication-status"|"preparation"|"operations"|"list"|"transfer"|"transfer-read"|"sources"|"source"|"target"|"save-target"|"rules"|"target-command"|"record"|"approve"|"inventory"|"create-operation"|"operation-key"|"operation"|"operation-items"|"ensure"|"cancel";
+export const supplyRouteMethods:ReadonlyArray<readonly["GET"|"POST",SupplyRoute]>=[...materialsRouteMethods,["POST","shein-completion-preview"],["GET","completion-history"],["GET","completion-history-detail"],["GET","item-completion-drafts"],["POST","save-completion-draft"],["GET","completion-draft"],["GET","completion-drafts"],["GET","completion-command"],["GET","upload-attempt"],["POST","resolve-upload"],["GET","stages"],["GET","optimization-options"],["GET","publication"],["GET","publication-status"],["GET","preparation"],["GET","operations"],["GET","list"],["POST","transfer"],["GET","transfer-read"],["GET","sources"],["GET","source"],["GET","target"],["POST","save-target"],["POST","rules"],["GET","target-command"],["GET","record"],["POST","approve"],["POST","inventory"],["POST","create-operation"],["GET","operation-key"],["GET","operation"],["GET","operation-items"],["POST","ensure"],["POST","cancel"]];
 export function supplyPath(method:string,p:string[]):SupplyRoute|null{
  const materials=materialsPath(method,p);if(materials)return materials;
  if(p[0]!=="supply-preparations")return null;
@@ -126,6 +138,7 @@ export function supplyPath(method:string,p:string[]):SupplyRoute|null{
   if(p.length===5 && p[1]==="sources" && isAcquisitionUUID(p[2]!) && isAcquisitionUUID(p[4]!))return p[3]==="targets"?"target":p[3]==="publications"?"publication":null;
  }
  if(method==="POST"){
+  if(p.length===2&&p[1]==="shein-completion-preview")return "shein-completion-preview";
   if(p.length===2&&p[1]==="completion-drafts")return "save-completion-draft";
   if(p.length===3 && p[1]==="uploads"&&p[2]==="resolve")return "resolve-upload";
   if(p.length===2)return p[1]==="transfer"?"transfer":p[1]==="targets"?"save-target":p[1]==="target-rules"?"rules":p[1]==="operations"?"create-operation":null;
@@ -134,10 +147,11 @@ export function supplyPath(method:string,p:string[]):SupplyRoute|null{
  }
  return null;
 }
-export const supplyRequestSchema=(route:SupplyRoute)=>route.startsWith("materials-")?materialsRequestSchema(route as MaterialsRoute):route==="save-completion-draft"?completionInputSchema:route==="resolve-upload"?resolveUploadSchema:route==="transfer"?transferInputSchema:route==="save-target"||route==="rules"?targetInputSchema:route==="approve"?imageApprovalSchema:route==="inventory"?sourceSelectionSchema:route==="create-operation"?operationInputSchema:null;
+export const supplyRequestSchema=(route:SupplyRoute)=>route==="shein-completion-preview"?sheinImportRequestSchema:route.startsWith("materials-")?materialsRequestSchema(route as MaterialsRoute):route==="save-completion-draft"?completionInputSchema:route==="resolve-upload"?resolveUploadSchema:route==="transfer"?transferInputSchema:route==="save-target"||route==="rules"?targetInputSchema:route==="approve"?imageApprovalSchema:route==="inventory"?sourceSelectionSchema:route==="create-operation"?operationInputSchema:null;
 export const supplyUsesKey=(route:SupplyRoute)=>["materials-start","transfer","save-target","save-completion-draft","approve","create-operation"].includes(route);
 export const supplyMutates=(route:SupplyRoute)=>supplyUsesKey(route)||["materials-prepare","materials-resume","materials-adopt","resolve-upload","ensure","cancel"].includes(route);
 export function supplyResponseSchema(route:SupplyRoute):z.ZodType {
+ if(route==="shein-completion-preview")return sheinImportPreviewSchema;
  if(route==="completion-history")return completionHistorySchema;
  if(route==="completion-history-detail")return completionRecordSchema;
  if(route.startsWith("materials-"))return route==="materials-prepare"?materialsPreparedSchema:route==="materials-adopt"||route==="materials-adoption"?materialsAdoptionSchema:materialsRunSchema;
@@ -163,6 +177,7 @@ export type OfficialProduct=z.infer<typeof officialProductSchema>;
 export function parseSupplyResponse(route:SupplyRoute,payload:unknown,expected?:string):unknown|null {
  const result=supplyResponseSchema(route).safeParse(payload);if(!result.success)return null;
  if(expected){
+  if(route==="shein-completion-preview"){try{return matchesSheinImportPreview(result.data,JSON.parse(expected))?result.data:null}catch{return null}}
   if(route==="completion-history"){
    const page=completionHistorySchema.parse(result.data),[id,before,limit]=expected.split(":");
    if(page.source.id!==id||page.items.length>Number(limit??20)||Number(before)>0&&page.items.some(r=>r.revision>=Number(before))||!Number(before)&&page.currentRevision>0&&page.items[0]?.revision!==page.currentRevision)return null;

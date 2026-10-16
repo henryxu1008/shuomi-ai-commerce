@@ -37,6 +37,7 @@ type TargetInput struct {
 	Walmart          *walmart.DraftInput       `json:"walmart,omitempty"`
 	TikTokRules      *tiktok.RuleSelection     `json:"tiktokRules,omitempty"`
 	CompletionDraft  *CompletionDraftSelection `json:"completionDraft,omitempty"`
+	SheinImport      *SheinImport              `json:"sheinImport,omitempty"`
 }
 type TargetRecord struct {
 	ID                       string                                `json:"id"`
@@ -277,6 +278,9 @@ func (s *TargetService) createForExecution(ctx context.Context, scope collection
 }
 
 func (s *TargetService) create(ctx context.Context, scope collection.Scope, key string, input TargetInput, selectSource func(context.Context, string) (preparation.AuthorizedSource, error), reauthorize func(context.Context) error, guard TargetAgentGuard) (TargetReceipt, error) {
+	if input.SheinImport != nil && (input.Temu != nil || input.TikTok != nil || input.Walmart != nil || input.TemuRules != nil || input.TikTokRules != nil || input.WalmartRules != nil || input.CompletionDraft != nil) {
+		return TargetReceipt{}, ErrInvalid
+	}
 	// Named TEMU metadata is query-only until the admitted TEMU record/payload
 	// variant is complete. Never save it through the qualified SHEIN builder.
 	if input.TemuRules != nil || input.TikTokRules != nil || input.WalmartRules != nil {
@@ -365,6 +369,12 @@ func (s *TargetService) create(ctx context.Context, scope collection.Scope, key 
 	prepared, err := s.preparePlatform(ctx, scope, input, inventory, product)
 	if err != nil {
 		return TargetReceipt{}, err
+	}
+	if input.SheinImport != nil {
+		completionVersion = func(ctx context.Context) error { return s.validateSheinImport(ctx, scope, input, source, prepared) }
+		if err = completionVersion(ctx); err != nil {
+			return TargetReceipt{}, err
+		}
 	}
 	value := TargetRecord{ID: collection.StableID(scope.OrganizationID, scope.ActorID, "supply-record", key), TargetID: TargetIdentity(scope, source.ID, input.StoreID), Revision: input.ExpectedRevision + 1, Source: source, EffectiveVersion: product.Version, ApplyReceiptID: input.ApplyReceiptID, ProductHash: collection.Digest(product.Snapshot), InventoryHash: collection.Digest(inventory), RulesHash: prepared.rulesHash, Merchant: prepared.merchant, Input: input, Result: prepared.shein, CreatedAt: time.Now().UTC()}
 	value.ImageObservations = prepared.images

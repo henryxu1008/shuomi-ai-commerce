@@ -153,13 +153,22 @@ func InstallSupplyChainSchema(db *gorm.DB) error {
 		return errors.New("supply requires existing Product PostgreSQL owner")
 	}
 	return db.Transaction(func(tx *gorm.DB) error {
-		for _, install := range []func(*gorm.DB) error{preparationstore.InstallSchema, recordstore.InstallSchema, preparationstore.InstallOperationSchema, submissionstore.InstallSchema, officialstore.InstallOfficialSchema, reviewstore.InstallSchema} {
-			if err := install(tx); err != nil {
-				return err
-			}
+		if err := preparationstore.InstallSchema(tx); err != nil {
+			return err
 		}
-		return nil
+		return installSupplyExecutionSchema(tx)
 	})
+}
+
+// Existing Preparation facts are verified, never installed again, by the
+// nonempty feature entry. Both entries reuse exactly these owner installers.
+func installSupplyExecutionSchema(db *gorm.DB) error {
+	for _, install := range []func(*gorm.DB) error{recordstore.InstallSchema, preparationstore.InstallOperationSchema, submissionstore.InstallSchema, officialstore.InstallOfficialSchema, reviewstore.InstallSchema} {
+		if err := install(db); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func readAcquisitionInitManifest(manifest, confirmedDatabase string, unavailable error) (acquisitionInitManifest, error) {

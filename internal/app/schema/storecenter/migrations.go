@@ -20,9 +20,16 @@ func Migrate(ctx context.Context, db *gorm.DB) error {
 	if err != nil {
 		return err
 	}
-	runner, err := platformmigration.NewWithVersionTable(goose.DialectPostgres, sqlDB, "public.goose_store_center_version",
-		goose.NewGoMigration(2026092801, &goose.GoFunc{RunTx: func(ctx context.Context, tx *sql.Tx) error { return storecenter.InstallCoreSchemaTx(ctx, tx) }}, nil),
-		goose.NewGoMigration(2026101101, &goose.GoFunc{RunTx: func(ctx context.Context, tx *sql.Tx) error { return storecenter.InstallMetadataSchemaTx(ctx, tx) }}, nil))
+	var existing bool
+	if err := sqlDB.QueryRowContext(ctx, `SELECT to_regclass('public.workbench_stores') IS NOT NULL`).Scan(&existing); err != nil {
+		return err
+	}
+	if existing {
+		if err := storecenter.VerifyCurrentSchema(ctx, db); err != nil {
+			return errors.New("retained Store schema requires its explicit admitted maintenance entry")
+		}
+	}
+	runner, err := newStoreRunner(sqlDB, storecenter.VerifyAlignedCoreSchemaTx)
 	if err != nil {
 		return err
 	}
@@ -30,4 +37,11 @@ func Migrate(ctx context.Context, db *gorm.DB) error {
 		return err
 	}
 	return storecenter.VerifyCurrentSchema(ctx, db)
+}
+
+func newStoreRunner(db *sql.DB, align func(context.Context, *sql.Tx) error) (*platformmigration.Runner, error) {
+	return platformmigration.NewWithVersionTable(goose.DialectPostgres, db, "public.goose_store_center_version",
+		goose.NewGoMigration(2026092801, &goose.GoFunc{RunTx: storecenter.InstallCoreSchemaTx}, nil),
+		goose.NewGoMigration(2026101101, &goose.GoFunc{RunTx: storecenter.InstallMetadataSchemaTx}, nil),
+		goose.NewGoMigration(CoreAlignmentVersion, &goose.GoFunc{RunTx: align}, nil))
 }

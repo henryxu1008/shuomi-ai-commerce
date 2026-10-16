@@ -21,6 +21,7 @@ import (
 	submissionstore "task-processor/internal/integration/persistence/listing/submission"
 	catalogstore "task-processor/internal/integration/persistence/product/catalog"
 	collectionstore "task-processor/internal/integration/persistence/product/collection"
+	"task-processor/internal/listing/completiondraft"
 	"task-processor/internal/listing/preparation"
 	record "task-processor/internal/listing/record/target"
 	"task-processor/internal/listing/submission"
@@ -34,6 +35,26 @@ import (
 	"task-processor/internal/product/sourcing"
 	"task-processor/internal/storecenter"
 )
+
+type importCandidateVersion struct {
+	scope collection.Scope
+	value completiondraft.Record
+}
+
+func (v importCandidateVersion) ReadVersion(_ context.Context, scope collection.Scope, id string) (completiondraft.Record, error) {
+	if scope != v.scope || id != v.value.ID {
+		return completiondraft.Record{}, record.ErrNotFound
+	}
+	return v.value, nil
+}
+
+type stableImportRules struct{ expires time.Time }
+
+func (r stableImportRules) ReadTargetRules(ctx context.Context, scope collection.Scope, store string, in goods.OfficialDraftInput) (storecenter.ProductMerchantBinding, goods.OfficialRuleSnapshot, error) {
+	m, rules, err := (currentRules{}).ReadTargetRules(ctx, scope, store, in)
+	m.ServiceExpiresAt = r.expires
+	return m, rules, err
+}
 
 type fixedAuth struct{ scope collection.Scope }
 
@@ -194,6 +215,41 @@ func TestPostgresTargetImmutableRevisionsCommandReplayAndConcurrentCAS(t *testin
 	var count int64
 	require.NoError(t, db.Table("listing_target_records").Count(&count).Error)
 	require.EqualValues(t, 2, count, "losing CAS rolls back its record and command together")
+	t.Run("SHEIN candidate import uses original record transaction CAS and replay", func(t *testing.T) {
+		candidate := completiondraft.Record{ID: uuid.NewString(), Revision: 3, Source: page.Items[0], Content: completiondraft.Content{Title: "fixed candidate", Description: ""}}
+		importService, err := record.NewTargetService(record.TargetDependencies{Sources: selector, Products: record.OriginalTargetProduct{}, Assets: missingAssets{}, Rules: stableImportRules{time.Now().Add(time.Hour)}, Records: repository, Images: recordTestImages{}, Authorizer: authority, CompletionVersions: importCandidateVersion{scope, candidate}})
+		require.NoError(t, err)
+		baseline, err := importService.Create(actor, uuid.NewString(), record.TargetInput{SourceID: candidate.Source.ID, StoreID: uuid.NewString(), EffectiveVersion: 1, Draft: input.Draft})
+		require.NoError(t, err)
+		preview, err := importService.PreviewSheinImport(actor, record.SheinImportRequest{SourceID: candidate.Source.ID, BaseRecordID: baseline.Record.ID, CompletionDraft: record.CompletionDraftSelection{RecordID: candidate.ID, Revision: 3}, Selection: record.SheinImportSelection{Title: true}})
+		require.NoError(t, err)
+		keys := [2]string{uuid.NewString(), uuid.NewString()}
+		var results [2]record.TargetReceipt
+		var failures [2]error
+		var group sync.WaitGroup
+		for i := range keys {
+			group.Add(1)
+			go func(i int) {
+				defer group.Done()
+				results[i], failures[i] = importService.Create(actor, keys[i], preview.Input)
+			}(i)
+		}
+		group.Wait()
+		winner := 0
+		if failures[0] != nil {
+			winner = 1
+		}
+		require.NoError(t, failures[winner])
+		require.ErrorIs(t, failures[1-winner], record.ErrConflict)
+		readback, err := importService.ReadCommand(actor, keys[winner])
+		require.NoError(t, err)
+		require.Equal(t, results[winner].Record, readback.Record)
+		require.Equal(t, candidate.ID, readback.Record.Input.SheinImport.CompletionDraft.RecordID)
+		replay, err := importService.Create(actor, keys[winner], preview.Input)
+		require.NoError(t, err)
+		require.True(t, replay.Replayed)
+		require.Equal(t, readback.Record, replay.Record)
+	})
 	changed.ExpectedRevision = 2
 	worker, err := service.CreateForExecution(ctx, scope, uuid.NewString(), changed)
 	require.NoError(t, err, "worker commits use live execution proof without a fabricated authenticated identity")

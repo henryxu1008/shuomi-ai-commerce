@@ -1,0 +1,1 @@
+host=127.0.0.1 port=5433 user=supply_asset_owner password=__PRIVATE_NEW_ASSET_OWNER_PASSWORD__ dbname=own675_supply_assets sslmode=disable connect_timeout=5 TimeZone=Asia/Shanghai

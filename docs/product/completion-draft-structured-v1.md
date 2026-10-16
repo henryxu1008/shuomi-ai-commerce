@@ -22,3 +22,5 @@ Product Decision: PD-COMPLETION-STRUCTURED-2026-10-15 / Issue #718
 仅扩展 [未绑定草稿](supply-unbound-completion-drafts.md) 的通用候选。原正式 Target / Store / 当前规则 / 资产批准 / 发布准入保留；既有 Target“带入草稿”仍只带入文字，明确提示属性和 SKU 候选尚未带入。
 
 按 [独立增量架构](../architecture/completion-draft-structured-v1.md) 完成准入后才修改生产路径。
+
+2026-10-16 增量：[SHEIN 带入预览与确认](completion-shein-import-v1.md) 仅对 SHEIN 扩展上述文字带入范围；本页候选保存及文字历史恢复合同不变。
