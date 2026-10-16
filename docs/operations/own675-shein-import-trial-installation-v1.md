@@ -4,7 +4,7 @@
 
 同日最终同步发现 main 的 PR #734 已将两张 Walmart 执行表纳入现有官方安装器和 SupplyChain 必需权限。用户明确批准代码与方案跟随当前 owner，从原 11 表调整为下列 13 表；不拆写旧版安装器或增加缺表 fallback。原 11 表测试证据保留，当前 13 表的代码、增量复核与 CI 另在 PR #736 绑定。此决定仍不授权 own675 安装或真实平台调用。
 
-**当前 main 的完整实例安装尚有 Store 准入阻碍。** #734 同时改变 `workbench_stores` 的核心 `store_platform` 约束并要求 `store_walmart_market`；当前 `VerifyCurrentSchemaForCapabilities` 即使未启用 Walmart 也检查这些核心约束。下面 Store 12 表已齐的只读结论绑定原 `23a301245` 基线，不能作为新 main 的 Store 准入证明。本轮只交付 Product 增量工具，不修改 Store、不设计旧库迁移或降级验证；后续必须先由用户明确保留 Store 数据/授权与当前核心 schema 的处置边界，再形成完整可执行实例安装候选。
+**当前 main 的完整实例安装尚有 Store 准入阻碍。** 先前从 #734 识别出两项 Walmart 启动差异；本轮只读 catalog 确认 own675 实际只有 SHEIN/TEMU 核心枚举，还缺 TikTok identity，且 merchant shape 仍为两平台定义。准确最小处置为 [Store 核心对齐合同](../architecture/own675-store-core-alignment-v1.md) 的四项 CHECK 与原 Goose 表一条新版本记录，业务表/数据/授权保留。当前仅方案，Store 入口未实现、未改库；不能把 Product 工具完成或原 12 表数量当成 Store 准入。
 
 执行 Issue：[#735](https://github.com/qq550723504/task-processor/issues/735)，主要 PR：[#736](https://github.com/qq550723504/task-processor/pull/736)。核对基线：`23a301245638d972a25b5e5d7c92b778c0a49452`，2026-10-16。实际执行前重新核对实例和候选，不把本次只读证据当作之后的运行验收。
 
@@ -22,7 +22,7 @@
 
 - 目标仅为 `task-processor-own675-20261014-c1e22342`。后台/前端现为 `23a301245`，均 healthy；本轮不更新其他实例。
 - `product_acquisition` 已有 14 张 public 表，owner 为 `acquisition_owner`，运行角色为 `source_acquisition_runtime`；包含 Collection、Preparation、CompletionDraft 和来源事实，不重建或迁移它们。
-- `store_center` 已有 12 张 public 表（含版本表），Store schema 与所需运行授权已经存在；当前店铺数为 0。没有配置官方应用，没有已连接 SHEIN 店铺。
+- `store_center` 已有 12 张 public 表（含版本表），均归 `store_center_owner`；本轮只读核对的 11 张业务表列名/顺序与 current core 相同，但四项 CHECK 不满足当前目标，不能声称完整 schema 已通过。店铺和 merchant bindings 均为 0；原窄 ACL 保留。没有配置官方应用，没有已连接 SHEIN 店铺。
 - 后台没有 `supplyChain`；前端 `LISTINGKIT_SUPPLY_CHAIN_ENABLED=false`。Product 无下列新增表；无独立 Supply Asset 库/运行角色。
 - own675 网络命名空间内 `127.0.0.1:7233` 当前未监听。原数据库、对象存储、登录、代理、端口、37 个命名卷、图片与容量账本均保持。
 
@@ -67,7 +67,7 @@ DDL/约束/索引来自原 owner：`internal/integration/persistence/listing/{re
 
 仅 CONNECT、public USAGE 与上述表级权限；无 DELETE/DDL/TEMP/角色继承，不新增其他数据库或 schema 授权。两个新角色均不持有 SUPERUSER/CREATEDB/CREATEROLE/REPLICATION/BYPASSRLS，运行角色不能是表 owner，维护角色及其凭据不交给服务。连接池设为 4（既有合同上限为 8）。新空 Asset 库可以使用现有 `cmd/supply-asset-init` 的明确空库安装入口；该命令不得指向非空旧库。
 
-本轮 Product 增量入口不操作 Store 表或 ACL。原方案拟继续使用 `store_center_runtime` 窄授权；新 main 的 Store 核心约束差异须先按上述准入阻碍处理，不能仅凭原 12 表数量继续安装。未配置 Walmart 时不因此追加其 Store OAuth 两表授权。Source/身份/商业/资金/容量 owner 的 schema、凭据及授权保持不变。
+Product 增量入口不操作 Store 表或 ACL。Store 的单独方案只拟对两张既有表的四项 CHECK 和原 Goose 元数据做当前系统正常 schema 演进，继续保留 `store_center_runtime` 窄授权；尚未实现或获准执行。不开启 Observations/Cockpit/TikTok/Walmart Store capability，不创建/授权其可选表。Source/身份/商业/资金/容量 owner 的 schema、凭据及授权保持不变。
 
 业务授权继续按当前企业、actor/member 和 live Store 访问核对：读草稿使用 `workbench.supply.read`，带入预览及本地保存使用 `workbench.supply.manage`，选择店铺使用 `workbench.store.read`。当前 Store 为空，后续新建/更新/启用店铺分别沿 `workbench.store.create/update/lifecycle` 原权限。发布沿独立的 `workbench.listing.submit` 检查，本方案不为带入追加发布权限，也不改已有角色。
 
@@ -97,7 +97,7 @@ Temporal 复用仓库已固定的官方镜像 `temporalio/temporal@sha256:cf8670
 2. 一个真实 SHEIN 应用的上述配置和私有文件，以及用户对随后正常店铺连接/官方规则读取的明确授权。当前没有应用或店铺，安装表本身不能产生官方规则。只读方案阶段不发起这些请求。
 3. 店铺通过现有 Store 流程达到当前成员可访问、连接有效、服务启用且未过期。沿既有权益/资源合同；不直接写 active 状态，不自动购买套餐、扣费或变更现有权益。
 4. 本方案及准确候选的安装授权。当前用户批准方案和增量入口开发，明确暂不执行 own675 安装；尚未批准本方案的 DDL、grants、新服务/配置和业务试用写入。
-5. 当前 main 对原 Store 核心约束的处置决定及相应准入证据。这里只读代码确认差异，未对 own675 执行新版本 Store 校验；不擅自 ALTER 旧约束、重跑空库安装、放宽校验或将该阻碍扩展成本轮 Store 开发。
+5. 按 [Store 核心合同](../architecture/own675-store-core-alignment-v1.md) 明确的范围，另行授权最小实现并完成隔离测试及准确候选检查；实际 own675 Store 调整仍须单独授权。本轮已经只读核对实际 catalog，尚未运行候选 Store 校验或执行对齐；不重跑空库安装、不放宽校验。
 
 既有 `privateDraftTrial` 只有七个 GET、没有规则或保存能力，且与当前 CompletionDraft 配置冲突，不能用它替代本次带入确认。
 
@@ -152,7 +152,7 @@ product-acquisition-init --config <私有owner-manifest绝对路径> --enable-su
 后续获准执行时：
 
 1. 重新核对容器/镜像/原配置与角色，私密备份 Product、Store、配置和图片基线；先核对官方应用/回调可准备，避免先改变原 Product ACL 再发现凭据缺失。
-2. 暂停 own675 后台/前端的写入口，保留原依赖。创建新的 Asset 空库/两个角色，沿既有工具安装四表和窄权限；准备专属 Temporal 卷及服务。不修改原对象存储。
+2. 暂停 own675 后台/前端的写入口，保留原依赖。仅在 Store 入口实现、检查及准确安装范围另获准后，独立事务对齐 Store 并核实；当前没有可执行命令。随后创建新的 Asset 空库/两个角色，沿既有工具安装四表和窄权限；准备专属 Temporal 卷及服务。不修改原对象存储，各阶段记录实际完成状态，不冒充整实例原子操作。
 3. 使用已完成检查的 Product 增量入口，事务安装 13 表和上表 grant；原 14 表及原 ACL 保持。外部新库/新服务与 Product 事务不是一个原子事务，失败停在已知阶段，保留资源，未齐备不启用新配置。
 4. 核对配置差异仅为上表项目，启动同候选后台、前端。后台只验证 schema/grants，不在启动中执行安装。既有 supply worker 会运行，但不自动创建 adapt/upload/optimize 操作。
 5. 用户经正常 Store 入口创建/连接一间获准的 SHEIN 店铺，再以**新专用试用商品、批次和候选**执行适配、保存 Target R1、带入预览及确认 R2；币种/仓库跟随实际商户模式。原 R1 候选和 CNY/零值样例不为试用改写。
