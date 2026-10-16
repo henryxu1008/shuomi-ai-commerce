@@ -5,11 +5,3 @@ namespace: task-processor
 
 resources:
   - ../../base
-
-images:
-  - name: xuwei190/task-processor-temu-listing
-    newTag: "8324377"
-
-patches:
-  - path: patch-deployment.yaml
-  - path: patch-hpa.yaml

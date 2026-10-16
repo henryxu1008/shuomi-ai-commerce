@@ -1,7 +1,7 @@
 # Makefile for Task Processor / ListingKit
 .PHONY: all build-all clean test test-fast test-all test-coverage help \
-	build-listing-control-plane build-current-application build-shein build-temu \
-	run-listing-control-plane run-current-application run-shein run-temu lint fmt code-health-audit code-health-verify
+	build-listing-control-plane build-current-application build-shein-login-worker \
+	run-listing-control-plane run-current-application lint fmt code-health-audit code-health-verify
 
 # 版本信息
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "v1.0.0")
@@ -12,7 +12,7 @@ LDFLAGS := -X main.appVersion=$(VERSION) -X main.buildTime=$(BUILD_TIME)
 BIN_DIR := bin
 
 # 当前维护的测试包
-FAST_TEST_PACKAGES := ./cmd/current-application ./cmd/listing-control-plane ./cmd/shein-listing ./cmd/temu-listing ./internal/app/httpapi ./internal/app/runtime/listingcontrol ./internal/listingadmin ./internal/promptmgmt ./internal/listingsubscription
+FAST_TEST_PACKAGES := ./cmd/current-application ./cmd/listing-control-plane ./cmd/shein-login-worker ./internal/app/httpapi ./internal/app/runtime/listingcontrol ./internal/listingadmin ./internal/promptmgmt ./internal/listingsubscription
 BOUNDARY_TEST_PACKAGES := ./tests/...
 ALL_TEST_PACKAGES := ./cmd/... ./internal/... ./tests/... ./tools/... ./hack/debug/...
 
@@ -26,8 +26,7 @@ help:
 	@echo "  make build-all                 - 构建当前受维护的服务入口"
 	@echo "  make build-listing-control-plane - 构建 Listing Control Plane"
 	@echo "  make build-current-application - 构建Current Application"
-	@echo "  make build-shein               - 构建 SHEIN Listing runtime"
-	@echo "  make build-temu                - 构建 TEMU Listing runtime"
+	@echo "  make build-shein-login-worker   - 构建独立 SHEIN 登录 worker"
 	@echo "  make clean                     - 清理构建文件"
 	@echo "  make test                      - 运行常用快速测试"
 	@echo "  make test-fast                 - 运行常用快速测试"
@@ -39,7 +38,7 @@ help:
 all: build-all
 
 # 构建所有当前受维护服务
-build-all: build-listing-control-plane build-current-application build-shein build-temu
+build-all: build-listing-control-plane build-current-application build-shein-login-worker
 	@echo "✅ 所有当前受维护服务构建完成"
 
 # Listing Control Plane
@@ -56,19 +55,10 @@ build-current-application:
 	CGO_ENABLED=0 GOOS=linux go build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/current-application ./cmd/current-application
 	@echo "✅ Current Application 构建完成: $(BIN_DIR)/current-application"
 
-# SHEIN Listing runtime
-build-shein:
-	@echo "🔨 构建 SHEIN Listing runtime..."
+# Standalone SHEIN login worker
+build-shein-login-worker:
 	@mkdir -p $(BIN_DIR)
-	CGO_ENABLED=0 GOOS=linux go build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/shein-listing ./cmd/shein-listing
-	@echo "✅ SHEIN Listing runtime 构建完成: $(BIN_DIR)/shein-listing"
-
-# TEMU Listing runtime
-build-temu:
-	@echo "🔨 构建 TEMU Listing runtime..."
-	@mkdir -p $(BIN_DIR)
-	CGO_ENABLED=0 GOOS=linux go build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/temu-listing ./cmd/temu-listing
-	@echo "✅ TEMU Listing runtime 构建完成: $(BIN_DIR)/temu-listing"
+	CGO_ENABLED=0 GOOS=linux go build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/shein-login-worker ./cmd/shein-login-worker
 
 # 清理构建文件
 clean:
@@ -125,13 +115,3 @@ run-current-application:
 	@test -n "$(CURRENT_APPLICATION_CONFIG)" || (echo "Set CURRENT_APPLICATION_CONFIG to an absolute private manifest path"; exit 1)
 	@echo "🚀 启动Current Application..."
 	go run ./cmd/current-application --config="$(CURRENT_APPLICATION_CONFIG)"
-
-# 本地运行 SHEIN Listing runtime
-run-shein:
-	@echo "🚀 启动 SHEIN Listing runtime..."
-	go run ./cmd/shein-listing --config=config/config-dev.yaml
-
-# 本地运行 TEMU Listing runtime
-run-temu:
-	@echo "🚀 启动 TEMU Listing runtime..."
-	go run ./cmd/temu-listing --config=config/config-dev.yaml

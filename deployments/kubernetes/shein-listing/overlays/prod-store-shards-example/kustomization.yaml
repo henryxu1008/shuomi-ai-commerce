@@ -6,14 +6,3 @@ namespace: task-processor
 resources:
   - ../../base
   - secret.example.yaml
-  - deployment-store-a.yaml
-  - deployment-store-b.yaml
-
-images:
-  - name: xuwei190/task-processor-shein-listing
-    newTag: "cd8db1b-claimdrop"
-
-patches:
-  - path: delete-base-deployment.yaml
-  - path: delete-base-service.yaml
-  - path: delete-base-hpa.yaml

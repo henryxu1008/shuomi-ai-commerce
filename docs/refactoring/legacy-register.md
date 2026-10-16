@@ -153,20 +153,21 @@ worker/schema/canary contracts remain under their existing owners. Current worke
 are retained; legacy API deployment of this artifact is NOT_READY. No runtime,
 data, provider or user acceptance is claimed.
 
-### #29 / #301 standalone listing CLI retirement design — awaiting confirmation
+### #29 / #301 standalone listing CLI and exclusive scheduler retirement
 
-The [CLI/scheduler boundary design](../architecture/legacy-listing-cli-retirement-boundary.md)
-maps the remaining `listing-scheduler`, `shein-listing` and `temu-listing`
-composition, numeric persistence, queue/provider effects and exact deletion
-conditions. Their shared local/consumer/scheduler/sync graph is a RETIRE
-candidate, not an implemented deletion. `listing-control-plane` still consumes
-task/status/dispatch contracts; current applications and the retained login
-worker still use valid ListingAdmin/ListingRuntime contracts. Those consumers,
-Store observations, current acquisition and shared infrastructure remain.
-The design separately identifies the CI build reference and mixed packaging
-and deployment sources; no CI/production code, instance, schema, queue or data
-is changed. User design confirmation and formal implementation admission are
-still required, without adding an internal-trial prerequisite.
+The user-confirmed [boundary](../architecture/legacy-listing-cli-retirement-boundary.md)
+§5/§6/§6.1 admits this bounded RETIRE batch. The three CLIs, exclusive app
+bootstrap/consumer/runner/scheduler, local runtime, SHEIN sync adapters and
+platform module/scheduler/task-processor glue are physically absent. Retained
+platform clients/rules, generic infrastructure and current Store observations
+are not deleted. CI replaces only the obsolete build target with the current
+application and standalone login worker; required/security checks remain.
+Control-plane/taskstatus, ListingAdmin and root ListingRuntime still have
+consumers and keep their original contracts. Mixed deployment sources retain
+control-plane/ownership-controller, shared configuration, Secret and monitoring
+objects; the latter controller's historical image is not rebuilt or executed.
+This is source retirement, not full numeric-task-chain closure, runtime/data
+cleanup, deployment or a new internal-trial prerequisite. Production NOT_READY.
 
 ## 2. Active register
 

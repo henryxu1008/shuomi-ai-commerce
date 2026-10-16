@@ -2,8 +2,8 @@
 
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29)、[#301](https://github.com/qq550723504/task-processor/issues/301)。
 
-- Status: **DESIGN_REVIEW / 待用户确认；正式实施未授权**。
-- 本轮 Design Basis: **N/A（纯文档、只读源码/依赖及持久化映射）**；不改变任何生产业务路径、权限、状态机、事实 owner、schema、配置、CI 或外部副作用。
+- Status: **用户已确认 §5、§6、§6.1；Reuse Existing Architecture / Ready 后正式实施**。
+- 实施 Design Basis: **Reuse Existing Architecture**；只退休已登记旧入口及零消费者专属链，不改变保留 owner 的权限、状态机、持久化、恢复与副作用合同。#29/#301 在生产修改前已记录 Ready/In Progress。
 - 调查基线：`main @ 8a3f97850d04d2109bda4b432cbc0361289c04b9`。
 - 用户决定：先设计 `listing-scheduler`、`shein-listing`、`temu-listing` 与调度链的退休，确认后再实施；保留当前采集、Store 观察同步、有效共享基础层和独立 SHEIN 登录 worker，不操作运行实例或数据，不增加内部试用前置。
 
@@ -23,13 +23,13 @@ Refs [#29](https://github.com/qq550723504/task-processor/issues/29)、[#301](htt
 
 ## 2. Design Basis 与实施准入
 
-当前只完成文档设计与直接引用校准，N/A 不表示后续生产修改可跳过准入。未来候选若严格限定为本设计 §6 的已登记旧路径 RETIRE、零消费者专属代码/测试删除及必要引用校准，可在用户确认后按 **Reuse Existing Architecture** 写入执行 Issue：复用上述批准的 Hard-Cut、当前身份/Store/Submission 与 worker 合同，明确准确 Scope、owner、不变量、CI 引用处置和 Ready，再开始实现。
+设计阶段 N/A 仅适用于原文档候选。用户于 2026-10-16 明确确认 §5、§6、§6.1，实施严格限定为本设计登记旧路径 RETIRE、零消费者专属实现/测试和必要引用校准。正式修改前，#29/#301 已按 **Reuse Existing Architecture** 记录原合同、owner、不变量、验收及 Ready；起始 main `15200f4905ecc10f81c1c330c03d750061d9fbb7` 已同步。
 
 该路径不新增产品流程、事实/数据库 owner、权限模型、状态/事务/恢复边界或外部副作用。预期会跨多个旧子系统、文件数可能超过提示线；适用依据是既有整体 Hard-Cut 和明确保留边界，而非按文件数机械拆 PR。保持一个主要 Delivery Batch；实现/提交可分为可验证的小步骤。
 
 若实际需要改变当前消费者的业务语义、事实 owner、授权/组织边界、状态机、跨数据库一致性、补偿/retry/UNKNOWN 或平台发送边界，必须停止对应正式实现，改按 Independent Architecture、适用独立检查及 IMPLEMENTATION_READY。不得借退休实现新的当前执行器，也不得把旧 DTO/Service 改名或移目录继续供当前业务调用。
 
-本次纯文档没有新增高风险实施边界，独立 Architecture Review N/A；最终设计差异仍走原 PR 独立检查。**用户尚未确认本设计，正式实施不 Ready；文档/CI/review 不是用户确认。**
+本批不新增高风险边界，不重复全局 Architecture Review；最终源码差异仍在原 #723 集中独立检查。用户确认记录及实现前准入见 #29/#301，旧文档 CI 不作为实现候选证据。
 
 ## 3. 实际 contract → implementation → injection → consumer
 
@@ -75,20 +75,20 @@ Refs [#29](https://github.com/qq550723504/task-processor/issues/29)、[#301](htt
 
 架构上的实际耦合是：三个 CLI 只是旧链的消费/部分调度入口，`listing-control-plane` 仍能读原 Store/ImportTask、claim/publish、watchdog/recovery，并使用相同 DB/Redis/RabbitMQ 资源。因此**删除三个命令不能宣称整个数字任务链已退休**；也不能顺手删除 `app/taskstatus`、任务仓库/dispatch 协议、共享 DTO、原并发安全测试或 control-plane 的构建。
 
-本设计候选保留 `cmd/listing-control-plane` / `internal/listingcontrol` / 其 runtime，以及 `shein-import-platform-recovery` 等非目标入口的源码，继续登记其独立债务和准确消费者。保留不把它们提升为当前 Product/Organization 架构权威，也不授权把它们接到 current-application。若后续需要一起退休，先交用户明确决定和相应准入，不在这三个 CLI 的实施中扩成全链重写。
+本批保留 `cmd/listing-control-plane` / `internal/listingcontrol` / 其 runtime，以及 `shein-import-platform-recovery` 等非目标入口的源码，继续登记其独立债务和准确消费者。保留不把它们提升为当前 Product/Organization 架构权威，也不授权把它们接到 current-application。若后续需要一起退休，先交用户明确决定和相应准入，不在这三个 CLI 的实施中扩成全链重写。
 
 源码树退休和已运行二进制/服务的停用是两项工作。本轮没有实例/消息拓扑证据，不推断旧实例存在或不存在。未来若获准实际停用，必须由原运行 owner 先明确同一范围内的生产者、消费者及在途副作用处置，避免仍在生产消息时先停消费、丢弃任务或重复发送；真实未完成资产/外部可观察契约一旦有具体证据，按 Hard-Cut 规则报告用户，不能自行加兼容/迁移。该限制仅适用于未来旧实例处置，**不是内部试用的新前置**。
 
-## 6. 待确认删除矩阵与实施顺序
+## 6. 已确认删除矩阵与实施顺序
 
-以下全部为设计候选，本轮生产源码/测试/构建/部署/数据均未修改。
+以下矩阵已由用户明确确认；源码退休与运行实例/数据操作分开，后者未授权。
 
 | 工件 | 决策与删除条件 |
 | --- | --- |
 | 三个 `cmd`、`app/runtime/listing` / `listingscheduler` 的启动、flags/options、专属 health/debug/paused-recovery glue | RETIRE；用户确认本设计及正式 Ready 后物理删除。无命令别名、失败后 fallback 或借新命令继续运行旧实现；当前命令/登录 worker 的健康和关闭保持 |
-| `app/bootstrap/listingruntime`、旧 shared resources/schedulers、`app/consumer` / `runner` / `scheduler` 及平台 module 专属接线 | RETIRE 候选；全部命令的实际消费者当前只有三 CLI，但须刷新全仓生产引用，按完整旧链排空。原 ports、通用 fetcher、task/workerpool/HTTP/browser/metrics/logging/队列基础层或其它仍有效消费者不 blanket-delete |
-| `listingruntime/local` 旧 DB/Redis/client/factory/config wrapper、仅为旧链存在的 adapters | RETIRE 候选；零当前消费者后删除，禁止把旧 LocalDataProvider/RuntimeResources 换名包装为新能力。根 `listingruntime` 的仍有效合同保持；不删除真实 DB/Redis |
-| `listingkit/sheinsync` 与 `listingkit/store` 精确 sync adapter / mem-store / 专属测试 | RETIRE 候选；local/shared synced-feed 等原消费者退出且全仓生产引用归零后删除。独立现有平台规则/当前 Store observation 与共享 API 不在整包连带删除范围 |
+| `app/bootstrap/listingruntime`、旧 shared resources/schedulers、`app/consumer` / `runner` / `scheduler` 及平台 module 专属接线 | RETIRE；全部命令的实际消费者当前只有三 CLI，但须刷新全仓生产引用，按完整旧链排空。原 ports、通用 fetcher、task/workerpool/HTTP/browser/metrics/logging/队列基础层或其它仍有效消费者不 blanket-delete |
+| `listingruntime/local` 旧 DB/Redis/client/factory/config wrapper、仅为旧链存在的 adapters | RETIRE；零当前消费者后删除，禁止把旧 LocalDataProvider/RuntimeResources 换名包装为新能力。根 `listingruntime` 的仍有效合同保持；不删除真实 DB/Redis |
+| `listingkit/sheinsync` 与 `listingkit/store` 精确 sync adapter / mem-store / 专属测试 | RETIRE；local/shared synced-feed 等原消费者退出且全仓生产引用归零后删除。独立现有平台规则/当前 Store observation 与共享 API 不在整包连带删除范围 |
 | `platforms/*`、`shein/*`、`temu/*` 的旧 pipeline/factory/调度/活动/价格/库存调用 | 只退休已确认旧 CLI 专属的 glue/实现。仍被当前 marketplace/publishing、采集、登录或其它有效 owner 消费的合同/规则/客户端保留；需要 EXTRACT 时逐项指明现有正确 owner、原有效行为和消费者，不能以搬目录代替退休 |
 | `listingadmin`、根 `listingruntime`、`app/taskstatus`、control-plane 与其它工具共享工件 | 本候选保持；有实际剩余消费者。只可在未来精确引用归零且适用合同/安全断言已归正确 owner 后另行提出，不能整包或按数字类型删除 |
 | `deployments/docker/Dockerfile.listing`、专属 build/push/deploy 脚本、配置与源码交付引用 | 先列清准确调用者。只为三 CLI 服务的构建目标/操作入口可 RETIRE；混合脚本中 retained control-plane、登录 worker、有效 shared runtime/base、安全 verifier 等不能连带删除。脚本中的 kubectl/docker/Redis 命令只读调查，未来源码删改也不得执行它们 |
@@ -98,21 +98,20 @@ Refs [#29](https://github.com/qq550723504/task-processor/issues/29)、[#301](htt
 
 建议在同一主要实施 PR 依次完成：确认准确 Ready/测试分类与所有 caller → 退休三个入口/专属装配 → 排空零消费者的 local/sync/专属平台 glue → 校准专属构建/交付引用及原 guard → 集中候选 CI/独立检查。它们是实现/提交边界，不为此机械拆 PR；任何仍有有效消费者的工件留在原 owner 并如实记录，不为“清零”扩大删除。
 
-### 6.1 必须明确确认的 CI 引用处置
+### 6.1 已确认的 CI 引用处置
 
 基线 `.github/workflows/ci.yml` 的 Backend 仍执行 `go build ./cmd/shein-listing`，并保留 control-plane/runtime build、listingadmin claim/rollback/recovery race 等检查。直接删命令而保留编译引用会破坏 CI；整体跳过 Backend 或删共享安全回归不符合当前 Must。
 
-未来用户确认退休时，需同时明确授权在**原 Backend job / 原构建步骤**中，将仅指向退休 `shein-listing` 的编译引用更新为保留的 `current-application` 与 `shein-login-worker` 目标，并按原 retirement/dependency guard 验证三命令及旧链没有恢复。原 control-plane 构建、相关并发/PG/权限回归、Required CI Gate、job 名称、trigger/concurrency/权限和分支保护均保持。此处是具体待确认改动，**本轮不修改 CI**；若未获该项授权，不能先删其目标再临时放宽检查。
+用户已同时明确授权在**原 Backend job / 原构建步骤**中，将仅指向退休 `shein-listing` 的编译引用更新为保留的 `current-application` 与 `shein-login-worker` 目标，并按原 retirement/dependency guard 验证三命令及旧链没有恢复。原 control-plane 构建、相关并发/PG/权限回归、Required CI Gate、job 名称、trigger/concurrency/权限和分支保护均保持。本批仅执行此处两目标替换；不跳过、删除或放宽任何安全/必需检查。
 
-## 7. 验证与交付停止点
+## 7. 实施范围、验证与交付停止点
 
-本轮执行：准确源码/调用者调查、全部命令实际 `go list` 图与上述比对、持久化/副作用 owner 的源码映射、直接文档链接、范围/diff 检查及原适用文档 guard；原 PR CI/独立设计检查按准确候选记录在 PR。测试可编译源码，但不执行任何命令入口。所有真实 DB/Redis/RabbitMQ/平台/浏览器/实例与数据项目 NOT_RUN。
+实际全仓生产引用与所有保留 cmd 图核对后，已排空并物理退休：三个 cmd、两个专属 runtime、旧 app/bootstrap（含孤立根装配、fetchers/processors）、consumer/runner/scheduler、listingruntime/local、listingkit/sheinsync/store、platforms module、SHEIN/TEMU scheduler 和只消费旧任务的 SHEIN pipeline/TEMU 根 processor。platformtask、scheduler alias 及 platformbase 的 BaseFactory/调度展示/转换三个文件随唯一调用者退出；platformbase 其余中立 fetcher/error 合同、平台子包/客户端/规则保留。未按平台或共享包名整删。
 
-后续正式实施复用原检查，当前全部仍为待执行：
+旧 CLI flags/debug/recover-paused-tasks、module/processor 构造、数字任务 pipeline/调度协议与旧 local/sync 实现细节测试随 owner 退休，分类 **NOT_APPLICABLE**：当前用户操作不再经过它们。仍有效的当前授权/租户隔离、官方 Store/Submission 幂等/UNKNOWN、原 control-plane claim/rollback/recovery、独立 worker Cookie/attempt/账户/健康/关闭测试保持。针对已消失路径的架构细节守卫同步退出，由既有源缺席与真实命令依赖 guard 覆盖完整退休集合；不采用遇缺文件就 skip。
 
-- 在原 hard-cut / actual dependency guard 里先 RED 捕获目标，再 GREEN 证明命令/专属旧链缺席；当前采集、Store observation、图片 worker、独立登录 worker与保留 control-plane 的依赖/健康/关闭/有效合同不变。
-- 保留当前官方 Store/Organization/Submission 的授权、隔离、幂等和 UNKNOWN/恢复回归；保留原 control-plane/任务仓库尚有消费者的 claim/rollback/recovery 与 worker Cookie/attempt 回归。
-- 必要的当前命令编译、原准确候选 CI 和最终集中独立检查；只验证真实组合风险，不人工重复原 CI 全部矩阵，不追加 runner 或人工流程。
-- 仅源码/打包引用退休，不读取/清理历史业务记录、队列、对象、镜像、卷、Profile、日志或 secrets；未执行的真实验收继续 NOT_RUN。
+精确交付引用：旧 Dockerfile.listing、三个 CLI 专属 build/push/deploy、单店同步与 shard rollout 入口退休；Makefile 改为构建 current-application、control-plane 和原独立 login worker。原 Backend job 内只替换 shein-listing 编译目标。Kubernetes 只移除旧消费/调度 workload、专属服务/HPA/patch 和模板，并校准原 kustomization 引用；Namespace、配置、Secret/ExternalSecret、监控、安全声明保持。混合目录中 control-plane 与 ownership-controller 保留；后者仍引用原历史镜像，**不是当前源码可重建入口**，本批不更新或执行。control-plane 继续使用其原专属构建脚本/Dockerfile，独立 login worker 使用原 Dockerfile/runtime/base。
 
-设计交付停在 **In Review / 待用户确认**。用户需确认 §5 的保留生产者/共享边界、§6 的精确退休范围及 §6.1 的 CI 编译引用处置，随后另行记录正式实施 Ready；不自动实施、合并、部署或关闭 #29/#301。生产仍 NOT_READY，原内部试用和 #717/运行更新继续由各原 owner 按已有授权推进。
+验证复用原检查：retirement/build-target guard 已先 RED 捕获旧入口，再验证 GREEN；当前采集、Store observations、图片/Temporal、登录 worker 与保留 control-plane 用实际 Go 图与相关编译/原回归核对。原 PG、money、claim/rollback/recovery race、Required CI Gate 等保持，稳定候选 CI 和集中独立检查结果按准确 SHA 写 #723；旧文档候选 CI 不作为本批验证。未变代码的历史证据如复用须明确，不能称为新 SHA 直接执行。
+
+交付状态以 #723 当前证据为准；完成实现后 In Review，待独立验证/用户试用，合并另按最终准确 HEAD 授权。当前应用沿原私密 manifest 入口，独立登录 worker 沿原命令与私有配置；本批不增加启动或内部试用前置。**不执行入口、Docker/Kubernetes、真实 DB/Redis/RabbitMQ、浏览器/provider 或数据操作**；不迁移/删除表、记录、消息、镜像、卷、Profile、日志或 secrets。真实运行和用户验收 NOT_RUN，生产 NOT_READY，#29/#301 保持 OPEN。

@@ -599,17 +599,6 @@ func TestListingAdminDispatchEventCompatibilityAliasesStayRetired(t *testing.T) 
 	}
 }
 
-func TestListingRuntimeDebugTaskLoaderUsesLocalTaskModel(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "runtime", "listing", "debug_task_runner.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	if strings.Contains(string(content), "ProductImportTaskRespDTO") {
-		t.Fatalf("%s uses ProductImportTaskRespDTO; keep debug task loading on local listingadmin/model types", path)
-	}
-}
-
 func TestAppTaskStatusDTOAdapterIsRetired(t *testing.T) {
 	path := filepath.Join("..", "internal", "app", "taskstatusdto")
 	if _, err := os.Stat(path); err == nil {
@@ -662,48 +651,6 @@ func TestListingKitNonAPISheinImportsStayAllowlisted(t *testing.T) {
 			if _, ok := allowedFiles[path]; !ok {
 				t.Errorf("%s imports %s; keep non-API SHEIN dependencies isolated to the current allowlisted adapter files", path, bannedImport)
 			}
-		}
-	}
-}
-
-func TestListingKitSheinSyncLegacyPromotionImportsStayAllowlisted(t *testing.T) {
-	root := filepath.Join("..", "internal", "listingkit", "sheinsync")
-	allowedFiles := map[string]struct{}{
-		filepath.Clean(filepath.Join(root, "promotion_bridge_legacy_adapter.go")): {},
-	}
-
-	index, err := loadGoFileIndex(root, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for path, facts := range index.files {
-		if strings.HasSuffix(filepath.Base(path), "_test.go") || pathAllowed(path, allowedFiles) {
-			continue
-		}
-		for _, bannedImport := range []string{
-			`"task-processor/internal/infra/clients/management/api"`,
-			`"task-processor/internal/shein/activity"`,
-		} {
-			if _, ok := facts.imports[bannedImport]; ok {
-				t.Errorf("%s imports %s; keep SHEIN sync legacy promotion DTO/bridge dependencies isolated to promotion_bridge_legacy_adapter.go", path, bannedImport)
-			}
-		}
-	}
-}
-
-func TestListingKitSheinSyncAsyncIdentityContextDoesNotImportOpenAI(t *testing.T) {
-	root := filepath.Join("..", "internal", "listingkit", "sheinsync")
-	index, err := loadGoFileIndex(root, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for path, facts := range index.files {
-		if strings.HasSuffix(filepath.Base(path), "_test.go") {
-			continue
-		}
-		if _, ok := facts.imports[`"task-processor/internal/integration/openai"`]; ok {
-			t.Errorf("%s imports the concrete OpenAI client; use shared aiidentity for SHEIN sync request context", path)
 		}
 	}
 }
@@ -1398,536 +1345,6 @@ func TestAppTaskRuntimeStoreAliasesStayRetired(t *testing.T) {
 	}
 }
 
-func TestAppRunnerRetiredManagementImportsStayBlocked(t *testing.T) {
-	root := filepath.Join("..", "internal", "app", "runner")
-	allowedFiles := map[string]struct{}{
-		filepath.Clean(filepath.Join(root, "health_checks.go")):                  {},
-		filepath.Clean(filepath.Join(root, "processor_modules_test.go")):         {},
-		filepath.Clean(filepath.Join(root, "processor_service.go")):              {},
-		filepath.Clean(filepath.Join(root, "processor_service_impl.go")):         {},
-		filepath.Clean(filepath.Join(root, "scheduler_dependencies_builder.go")): {},
-		filepath.Clean(filepath.Join(root, "scheduler_service.go")):              {},
-		filepath.Clean(filepath.Join(root, "scheduler_task_starter.go")):         {},
-		filepath.Clean(filepath.Join(root, "scheduler_task_starter_test.go")):    {},
-	}
-
-	index, err := loadGoFileIndex(root, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for path, facts := range index.files {
-		if pathAllowed(path, allowedFiles) {
-			continue
-		}
-		for quotedImport := range facts.imports {
-			importPath := strings.Trim(quotedImport, `"`)
-			if importMatchesPrefix(importPath, "task-processor/internal/infra/clients/management") {
-				t.Errorf("%s imports %s; keep app/runner management dependencies limited to current runtime assembly retirement seams and prefer in-repository database/repository access for new runtime data", path, importPath)
-			}
-		}
-	}
-}
-
-func TestAppConsumerRetiredManagementImportsStayBlocked(t *testing.T) {
-	root := filepath.Join("..", "internal", "app", "consumer")
-	allowedFiles := map[string]struct{}{
-		filepath.Clean(filepath.Join(root, "auto_shard_coordinator.go")):      {},
-		filepath.Clean(filepath.Join(root, "auto_shard_coordinator_test.go")): {},
-		filepath.Clean(filepath.Join(root, "listing_runtime_support.go")):     {},
-		filepath.Clean(filepath.Join(root, "platform_processor_registry.go")): {},
-		filepath.Clean(filepath.Join(root, "processor_registry.go")):          {},
-		filepath.Clean(filepath.Join(root, "product_fetcher_builder.go")):     {},
-		filepath.Clean(filepath.Join(root, "rabbitmq_service.go")):            {},
-		filepath.Clean(filepath.Join(root, "rabbitmq_service_test.go")):       {},
-		filepath.Clean(filepath.Join(root, "service_component_state.go")):     {},
-		filepath.Clean(filepath.Join(root, "service_manager.go")):             {},
-		filepath.Clean(filepath.Join(root, "shared_resources.go")):            {},
-		filepath.Clean(filepath.Join(root, "task_handler.go")):                {},
-		filepath.Clean(filepath.Join(root, "task_handler_test.go")):           {},
-	}
-
-	index, err := loadGoFileIndex(root, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for path, facts := range index.files {
-		if pathAllowed(path, allowedFiles) {
-			continue
-		}
-		for quotedImport := range facts.imports {
-			importPath := strings.Trim(quotedImport, `"`)
-			if importMatchesPrefix(importPath, "task-processor/internal/infra/clients/management") {
-				t.Errorf("%s imports %s; keep app/consumer management dependencies limited to current consumer runtime retirement seams and prefer in-repository database/repository access for new consumer data", path, importPath)
-			}
-		}
-	}
-}
-
-func TestPlatformProcessorRegistryDoesNotExposeRetiredManagementService(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "consumer", "platform_processor_registry.go")
-	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, path, nil, 0)
-	if err != nil {
-		t.Fatalf("parse %s: %v", path, err)
-	}
-
-	for _, decl := range file.Decls {
-		fn, ok := decl.(*ast.FuncDecl)
-		if !ok || fn.Recv == nil || fn.Name == nil || fn.Name.Name != "GetManagementClient" {
-			continue
-		}
-		if len(fn.Recv.List) == 0 {
-			continue
-		}
-		star, ok := fn.Recv.List[0].Type.(*ast.StarExpr)
-		if !ok {
-			continue
-		}
-		ident, ok := star.X.(*ast.Ident)
-		if ok && ident.Name == "PlatformProcessorRegistry" {
-			t.Fatalf("%s exposes PlatformProcessorRegistry.GetManagementClient; expose narrower runtime-owned ports instead", path)
-		}
-	}
-}
-
-func TestAppConsumerRuntimeBoundariesDoNotCarryRetiredManagementService(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "consumer", "shared_resources.go")
-	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, path, nil, 0)
-	if err != nil {
-		t.Fatalf("parse %s: %v", path, err)
-	}
-
-	for _, decl := range file.Decls {
-		gen, ok := decl.(*ast.GenDecl)
-		if !ok {
-			continue
-		}
-		for _, spec := range gen.Specs {
-			typeSpec, ok := spec.(*ast.TypeSpec)
-			if !ok || typeSpec.Name == nil {
-				continue
-			}
-			if typeSpec.Name.Name != "SharedResources" && typeSpec.Name.Name != "PlatformRuntimeContext" {
-				continue
-			}
-			st, ok := typeSpec.Type.(*ast.StructType)
-			if !ok || st.Fields == nil {
-				continue
-			}
-			for _, field := range st.Fields.List {
-				for _, name := range field.Names {
-					if name.Name == "ManagementClient" {
-						t.Fatalf("%s exposes %s.ManagementClient; pass narrower runtime-owned ports instead", path, typeSpec.Name.Name)
-					}
-				}
-			}
-		}
-	}
-}
-
-func TestAppConsumerSharedResourcesDoNotCarryListingRuntimeHealthValidator(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "consumer", "shared_resources.go")
-	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, path, nil, 0)
-	if err != nil {
-		t.Fatalf("parse %s: %v", path, err)
-	}
-
-	for _, decl := range file.Decls {
-		gen, ok := decl.(*ast.GenDecl)
-		if !ok {
-			continue
-		}
-		for _, spec := range gen.Specs {
-			typeSpec, ok := spec.(*ast.TypeSpec)
-			if !ok || typeSpec.Name == nil {
-				continue
-			}
-			if typeSpec.Name.Name == "ListingRuntimeHealthValidator" {
-				t.Fatalf("%s defines ListingRuntimeHealthValidator; keep listing runtime health checks owned by app/runtime/listing", path)
-			}
-			if typeSpec.Name.Name != "SharedResources" {
-				continue
-			}
-			st, ok := typeSpec.Type.(*ast.StructType)
-			if !ok || st.Fields == nil {
-				continue
-			}
-			for _, field := range st.Fields.List {
-				for _, name := range field.Names {
-					if name.Name == "ListingRuntimeHealthValidator" {
-						t.Fatalf("%s exposes SharedResources.ListingRuntimeHealthValidator; keep listing runtime health checks out of consumer assembly resources", path)
-					}
-				}
-			}
-		}
-	}
-}
-
-func TestPlatformProcessorRegistryDoesNotStoreRetiredManagementService(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "consumer", "platform_processor_registry.go")
-	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, path, nil, 0)
-	if err != nil {
-		t.Fatalf("parse %s: %v", path, err)
-	}
-
-	for _, decl := range file.Decls {
-		gen, ok := decl.(*ast.GenDecl)
-		if !ok {
-			continue
-		}
-		for _, spec := range gen.Specs {
-			typeSpec, ok := spec.(*ast.TypeSpec)
-			if !ok || typeSpec.Name == nil || typeSpec.Name.Name != "PlatformProcessorRegistry" {
-				continue
-			}
-			st, ok := typeSpec.Type.(*ast.StructType)
-			if !ok || st.Fields == nil {
-				continue
-			}
-			for _, field := range st.Fields.List {
-				for _, name := range field.Names {
-					if name.Name == "managementClient" {
-						t.Fatalf("%s stores PlatformProcessorRegistry.managementClient; store narrower runtime-owned ports instead", path)
-					}
-					if name.Name == "listingRuntimeHealthValidator" {
-						t.Fatalf("%s stores PlatformProcessorRegistry.listingRuntimeHealthValidator; let listing runtime consume the initialized health validator directly", path)
-					}
-				}
-			}
-		}
-	}
-}
-
-func TestPlatformProcessorRegistryDoesNotFanOutSharedResources(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "consumer", "platform_processor_registry.go")
-	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, path, nil, 0)
-	if err != nil {
-		t.Fatalf("parse %s: %v", path, err)
-	}
-
-	bannedFields := map[string]struct{}{
-		"listingRuntimeImportTaskRepository": {},
-		"rawJSONDataClient":                  {},
-		"storeAPI":                           {},
-		"schedulerRuntime":                   {},
-		"schedulerFactoryRuntime":            {},
-		"processorRuntime":                   {},
-		"sharedCrawlSource":                  {},
-		"sharedProductFetcher":               {},
-	}
-
-	for _, decl := range file.Decls {
-		gen, ok := decl.(*ast.GenDecl)
-		if !ok {
-			continue
-		}
-		for _, spec := range gen.Specs {
-			typeSpec, ok := spec.(*ast.TypeSpec)
-			if !ok || typeSpec.Name == nil || typeSpec.Name.Name != "PlatformProcessorRegistry" {
-				continue
-			}
-			st, ok := typeSpec.Type.(*ast.StructType)
-			if !ok || st.Fields == nil {
-				continue
-			}
-			for _, field := range st.Fields.List {
-				for _, name := range field.Names {
-					if _, banned := bannedFields[name.Name]; banned {
-						t.Fatalf("%s stores PlatformProcessorRegistry.%s; keep initialized runtime resources bundled as SharedResources", path, name.Name)
-					}
-				}
-			}
-		}
-	}
-}
-
-func TestPlatformProcessorRegistryDoesNotStoreSharedResources(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "consumer", "platform_processor_registry.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	for _, phrase := range []string{
-		"sharedResources  *SharedResources",
-		"r.sharedResources",
-		"runtimeResources",
-		"useSharedResources",
-		"GetSharedCrawlSource",
-		"GetSharedProductFetcher",
-	} {
-		if strings.Contains(string(content), phrase) {
-			t.Fatalf("%s mentions %q; pass SharedResources explicitly instead of storing runtime resources on the registry", path, phrase)
-		}
-	}
-}
-
-func TestPlatformProcessorRegistryDoesNotStoreRabbitMQClient(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "consumer", "platform_processor_registry.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	for _, phrase := range []string{
-		"rabbitmqClient",
-		"r.rabbitmqClient",
-	} {
-		if strings.Contains(string(content), phrase) {
-			t.Fatalf("%s mentions %q; pass RabbitMQ client through the current runtime context instead of storing it on the registry", path, phrase)
-		}
-	}
-}
-
-func TestPlatformProcessorRegistryDoesNotBuildPlatformRuntimeContext(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "consumer", "platform_processor_registry.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	for _, phrase := range []string{
-		"PlatformRuntimeContext{",
-		"func (r *PlatformProcessorRegistry) runtimeContext",
-		"func (r *PlatformProcessorRegistry) RuntimeContext",
-	} {
-		if strings.Contains(string(content), phrase) {
-			t.Fatalf("%s mentions %q; build platform runtime context through the consumer runtime-context builder instead of the registry", path, phrase)
-		}
-	}
-}
-
-func TestPlatformProcessorRegistryDoesNotUseRegistrationClosures(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "consumer", "platform_processor_registry.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	for _, phrase := range []string{
-		"type processorRegistration",
-		"buildProcessorRegistrations",
-		"registration.register",
-	} {
-		if strings.Contains(string(content), phrase) {
-			t.Fatalf("%s mentions %q; register resolved platform modules directly instead of routing through registration closures", path, phrase)
-		}
-	}
-}
-
-func TestPlatformProcessorRegistryDoesNotOwnPlatformSelectionParsing(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "consumer", "platform_processor_registry.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	for _, phrase := range []string{
-		"enabledPlatforms []string",
-		"parsePlatformList",
-		"getEnabledPlatformsFromModules",
-		"containsPlatform",
-		"func (r *PlatformProcessorRegistry) isPlatformEnabled",
-	} {
-		if strings.Contains(string(content), phrase) {
-			t.Fatalf("%s mentions %q; keep platform selection parsing outside the processor registry", path, phrase)
-		}
-	}
-}
-
-func TestPlatformProcessorRegistryDoesNotImplementPlatformModuleCatalog(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "consumer", "platform_processor_registry.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	for _, phrase := range []string{
-		"platformModules []PlatformModule",
-		"func (r *PlatformProcessorRegistry) ResolvePlatformModule",
-		"func (r *PlatformProcessorRegistry) resolveModules",
-		"func (r *PlatformProcessorRegistry) enabledModules",
-		"func (r *PlatformProcessorRegistry) findModule",
-		"func moduleNames",
-	} {
-		if strings.Contains(string(content), phrase) {
-			t.Fatalf("%s mentions %q; keep platform module catalog and lookup outside the processor registry", path, phrase)
-		}
-	}
-}
-
-func TestPlatformModuleCatalogStaysPackageInternal(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "consumer", "platform_module_catalog.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	for _, phrase := range []string{
-		"type PlatformModuleCatalog",
-		"func NewPlatformModuleCatalog",
-		"func (c PlatformModuleCatalog) EnabledPlatformNames",
-		"func (c PlatformModuleCatalog) Resolve(",
-		"func (c PlatformModuleCatalog) ResolveMany",
-		"func (c PlatformModuleCatalog) IsEnabled",
-	} {
-		if strings.Contains(string(content), phrase) {
-			t.Fatalf("%s mentions %q; keep platform module catalog package-internal behind registry dependency methods", path, phrase)
-		}
-	}
-}
-
-func TestPlatformProcessorRegistryDoesNotComputePlatformResourceNeeds(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "consumer", "platform_processor_registry.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	for _, phrase := range []string{
-		"func (r *PlatformProcessorRegistry) anyModuleNeedsAmazon",
-		"NeedAmazonCrawler:",
-		"PlatformUsesLocalFetcher",
-	} {
-		if strings.Contains(string(content), phrase) {
-			t.Fatalf("%s mentions %q; keep platform resource-need computation outside the processor registry", path, phrase)
-		}
-	}
-}
-
-func TestPlatformResourceNeedsResolverStaysPackageInternal(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "consumer", "platform_resource_needs.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	for _, phrase := range []string{
-		"type PlatformResourceNeedsResolver",
-		"func NewPlatformResourceNeedsResolver",
-		"func (r PlatformResourceNeedsResolver) Resolve",
-		"func (r PlatformResourceNeedsResolver) anyModuleNeedsAmazon",
-	} {
-		if strings.Contains(string(content), phrase) {
-			t.Fatalf("%s mentions %q; keep platform resource need resolution package-internal behind registry methods", path, phrase)
-		}
-	}
-}
-
-func TestPlatformProcessorRegistryDoesNotImplementPlatformModuleRegistration(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "consumer", "platform_processor_registry.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	for _, phrase := range []string{
-		"func (r *PlatformProcessorRegistry) registerPlatformModule",
-		"BuildPlatformRuntimeContext(",
-		"module.RegisterConsumer",
-	} {
-		if strings.Contains(string(content), phrase) {
-			t.Fatalf("%s mentions %q; keep platform module registration execution outside the processor registry", path, phrase)
-		}
-	}
-}
-
-func TestPlatformModuleRegistrarFactoryStaysPackageInternal(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "consumer", "dependencies.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	if strings.Contains(string(content), "type PlatformModuleRegistrarFactory") {
-		t.Fatalf("%s exposes PlatformModuleRegistrarFactory; keep registrar factory wiring package-internal", path)
-	}
-}
-
-func TestPlatformModuleRegistrarStaysPackageInternal(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "consumer", "platform_module_registrar.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	for _, phrase := range []string{
-		"type PlatformModuleRegistrar",
-		"func NewPlatformModuleRegistrar",
-		"func (r PlatformModuleRegistrar) Register",
-	} {
-		if strings.Contains(string(content), phrase) {
-			t.Fatalf("%s mentions %q; keep platform module registration execution package-internal", path, phrase)
-		}
-	}
-}
-
-func TestPlatformProcessorRegistryDoesNotAssemblePlatformRuntimeHelpers(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "consumer", "platform_processor_registry.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	for _, phrase := range []string{
-		"NewPlatformModuleCatalog(",
-		"NewPlatformResourceNeedsResolver(",
-		"deps.PlatformModules",
-		"platformsStr string",
-	} {
-		if strings.Contains(string(content), phrase) {
-			t.Fatalf("%s mentions %q; assemble platform runtime helpers in dependencies/bootstrap instead of the processor registry constructor", path, phrase)
-		}
-	}
-}
-
-func TestPlatformProcessorRegistryDoesNotStoreConfigOrBuildRegistrars(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "consumer", "platform_processor_registry.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	for _, phrase := range []string{
-		`"task-processor/internal/core/config"`,
-		"config *config.Config",
-		"cfg *config.Config",
-		"NewPlatformModuleRegistrar(",
-	} {
-		if strings.Contains(string(content), phrase) {
-			t.Fatalf("%s mentions %q; inject registrar construction through dependencies instead of storing config on the processor registry", path, phrase)
-		}
-	}
-}
-
-func TestListingRuntimeDependenciesDoesNotExposePartialConsumerDependencies(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "bootstrap", "listingruntime", "dependencies.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	for _, phrase := range []string{
-		"Consumer        consumer.PlatformProcessorRegistryDependencies",
-		"d.Consumer.PlatformModules",
-		"Consumer: buildConsumerDependencies()",
-		"func BuildConsumerDependencies(",
-		"func buildConsumerDependencies() consumer.PlatformProcessorRegistryDependencies",
-	} {
-		if strings.Contains(string(content), phrase) {
-			t.Fatalf("%s mentions %q; expose only complete consumer dependencies built with config and platform selection", path, phrase)
-		}
-	}
-}
-
-func TestListingRuntimeDependenciesTypeStaysPackageInternal(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "bootstrap", "listingruntime", "dependencies.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	for _, phrase := range []string{
-		"type ListingRuntimeDependencies",
-		"func BuildListingRuntimeDependencies() ListingRuntimeDependencies",
-		"func (d ListingRuntimeDependencies)",
-	} {
-		if strings.Contains(string(content), phrase) {
-			t.Fatalf("%s mentions %q; keep the listing runtime dependency container type package-internal", path, phrase)
-		}
-	}
-}
-
 func TestRootBootstrapListingRuntimeDependenciesFacadeStaysRetired(t *testing.T) {
 	path := filepath.Join("..", "internal", "app", "bootstrap", "consumer_dependencies.go")
 	if _, err := os.Stat(path); err == nil {
@@ -1943,99 +1360,6 @@ func TestListingRuntimeLocalCompatibilityFacadeStaysRetired(t *testing.T) {
 		t.Fatalf("%s still exists; use explicit LocalRuntime and LocalDataProvider constructors instead of the local runtime compatibility facade", path)
 	} else if !os.IsNotExist(err) {
 		t.Fatalf("stat %s: %v", path, err)
-	}
-}
-
-func TestPlatformProcessorRegistryDependenciesDoNotExposePlatformModules(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "consumer", "dependencies.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	for _, phrase := range []string{
-		"PlatformModules []PlatformModule",
-		"PlatformModules: modules",
-	} {
-		if strings.Contains(string(content), phrase) {
-			t.Fatalf("%s mentions %q; keep platform module lists as constructor input instead of exposing partial registry dependencies", path, phrase)
-		}
-	}
-}
-
-func TestPlatformProcessorRegistryDependenciesDoNotExposeRuntimeHelpers(t *testing.T) {
-	paths := []string{
-		filepath.Join("..", "internal", "app", "consumer", "dependencies.go"),
-		filepath.Join("..", "internal", "app", "runtime", "listing", "runtime.go"),
-	}
-	for _, path := range paths {
-		content, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatalf("read %s: %v", path, err)
-		}
-		for _, phrase := range []string{
-			"Catalog       PlatformModuleCatalog",
-			"ResourceNeeds PlatformResourceNeedsResolver",
-			"NewRegistrar  PlatformModuleRegistrarFactory",
-			"consumerDeps.Catalog",
-		} {
-			if strings.Contains(string(content), phrase) {
-				t.Fatalf("%s mentions %q; expose narrow dependency methods instead of runtime helper fields", path, phrase)
-			}
-		}
-	}
-}
-
-func TestCrawlerRegistryStaysRetired(t *testing.T) {
-	for _, path := range []string{
-		filepath.Join("..", "internal", "app", "consumer", "crawler_registry.go"),
-		filepath.Join("..", "internal", "app", "consumer", "crawler_creators.go"),
-	} {
-		if _, err := os.Stat(path); err == nil {
-			t.Fatalf("%s still exists; keep crawler processor wiring in shared resources and platform runtime registration instead of reviving the unused crawler registry", path)
-		} else if !os.IsNotExist(err) {
-			t.Fatalf("stat %s: %v", path, err)
-		}
-	}
-
-	files := map[string][]string{
-		filepath.Join("..", "internal", "app", "consumer", "dependencies.go"): {
-			"CrawlerRegistryDependencies",
-			"NewCrawlerRegistryDependencies",
-		},
-		filepath.Join("..", "internal", "app", "bootstrap", "listingruntime", "dependencies.go"): {
-			"BuildCrawlerDependencies",
-		},
-	}
-	for path, phrases := range files {
-		content, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatalf("read %s: %v", path, err)
-		}
-		for _, phrase := range phrases {
-			if strings.Contains(string(content), phrase) {
-				t.Fatalf("%s mentions %q; keep the unused crawler registry dependency path retired", path, phrase)
-			}
-		}
-	}
-}
-
-func TestPlatformModulesUseRuntimeProductFetcher(t *testing.T) {
-	for _, path := range []string{
-		filepath.Join("..", "internal", "platforms", "shein", "module.go"),
-		filepath.Join("..", "internal", "platforms", "temu", "module.go"),
-	} {
-		content, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatalf("read %s: %v", path, err)
-		}
-		for _, phrase := range []string{
-			"consumer.BuildPlatformProductFetcher(",
-			"rt.RawJSONDataClient",
-		} {
-			if strings.Contains(string(content), phrase) {
-				t.Fatalf("%s mentions %q; platform modules should consume rt.ProductFetcher built by runtime shared resources", path, phrase)
-			}
-		}
 	}
 }
 
@@ -2064,33 +1388,6 @@ func TestProductSourceCompatibilityAliasStaysRetired(t *testing.T) {
 	}
 }
 
-func TestRunnerCrawlSourceCompatibilityAliasStaysRetired(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "runner", "processor_service.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	for _, phrase := range []string{
-		"type crawlSource = ports.CrawlSource",
-		"type CrawlSource = ports.CrawlSource",
-	} {
-		if strings.Contains(string(content), phrase) {
-			t.Fatalf("%s mentions %q; use app/ports.CrawlSource directly instead of re-exporting crawl-source types from runner", path, phrase)
-		}
-	}
-}
-
-func TestRunnerRawJSONDataClientCompatibilityAliasStaysRetired(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "runner", "processor_service.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	if strings.Contains(string(content), "type rawJSONDataClientProvider = product.RawJsonDataClient") {
-		t.Fatalf("%s exposes rawJSONDataClientProvider; use product.RawJsonDataClient directly instead of retaining runner-local type aliases", path)
-	}
-}
-
 func TestListingControlRuntimeConfigAliasesStayRetired(t *testing.T) {
 	path := filepath.Join("..", "internal", "app", "runtime", "listingcontrol", "runtime.go")
 	content, err := os.ReadFile(path)
@@ -2111,7 +1408,6 @@ func TestListingControlRuntimeConfigAliasesStayRetired(t *testing.T) {
 
 func TestAppRuntimeLegacyAppConfigFlagsStayRetired(t *testing.T) {
 	roots := []string{
-		filepath.Join("..", "internal", "app", "runtime", "listing"),
 		filepath.Join("..", "internal", "app", "runtime", "listingcontrol"),
 		filepath.Join("..", "internal", "app", "runtime", "listingkitschemamigrate"),
 	}
@@ -2130,22 +1426,6 @@ func TestAppRuntimeLegacyAppConfigFlagsStayRetired(t *testing.T) {
 					t.Fatalf("%s mentions %q; use the canonical --config runtime option instead of retaining legacy app-config compatibility", path, phrase)
 				}
 			}
-		}
-	}
-}
-
-func TestPlatformRuntimeContextDoesNotExposeRawJSONDataClient(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "consumer", "shared_resources.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	for _, phrase := range []string{
-		"RawJSONDataClient                  product.RawJsonDataClient",
-		"RawJSONDataClient:                  resources.RawJSONDataClient",
-	} {
-		if strings.Contains(string(content), phrase) {
-			t.Fatalf("%s mentions %q; expose ProductFetcher instead of raw JSON data clients through platform runtime context", path, phrase)
 		}
 	}
 }
@@ -2170,35 +1450,6 @@ func TestConsumerProductFetcherBuilderStaysRetired(t *testing.T) {
 	}
 }
 
-func TestBootstrapFetchersDoNotOwnPlatformFetcherModeRules(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "bootstrap", "fetchers", "product_fetcher_builder.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	for _, phrase := range []string{
-		"func ResolvePlatformFetcherType(",
-		"func PlatformUsesLocalFetcher(",
-		"cfg.Platforms.Temu.FetchMode",
-		"cfg.Platforms.Shein.FetchMode",
-	} {
-		if strings.Contains(string(content), phrase) {
-			t.Fatalf("%s mentions %q; keep platform fetcher mode rules in platformbase", path, phrase)
-		}
-	}
-}
-
-func TestBootstrapFetchersDoNotExposeSharedProductFetcherBuilder(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "bootstrap", "fetchers", "product_fetcher_builder.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	if strings.Contains(string(content), "func BuildSharedProductFetcher(") {
-		t.Fatalf("%s exposes BuildSharedProductFetcher; build product fetchers with an explicit platform", path)
-	}
-}
-
 func TestBootstrapResourceFacadeStaysRetired(t *testing.T) {
 	path := filepath.Join("..", "internal", "app", "bootstrap", "resource_factories.go")
 	if _, err := os.Stat(path); err == nil {
@@ -2216,126 +1467,6 @@ func TestBootstrapProcessorAndSchedulerFacadesStayRetired(t *testing.T) {
 		} else if !os.IsNotExist(err) {
 			t.Fatalf("stat %s: %v", path, err)
 		}
-	}
-}
-
-func TestPlatformProcessorRegistryDoesNotInspectRabbitMQClient(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "consumer", "platform_processor_registry.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	for _, phrase := range []string{
-		"serviceManager.GetClient()",
-		"RabbitMQ client available for distributed fetching",
-		"RabbitMQ client unavailable; distributed fetching is unavailable",
-	} {
-		if strings.Contains(string(content), phrase) {
-			t.Fatalf("%s mentions %q; keep RabbitMQ client availability checks behind ServiceManager", path, phrase)
-		}
-	}
-}
-
-func TestPlatformProcessorRegistryDoesNotOwnSharedResourceProvider(t *testing.T) {
-	paths := []string{
-		filepath.Join("..", "internal", "app", "consumer", "dependencies.go"),
-		filepath.Join("..", "internal", "app", "consumer", "platform_processor_registry.go"),
-		filepath.Join("..", "internal", "app", "consumer", "shared_resources.go"),
-	}
-	for _, path := range paths {
-		content, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatalf("read %s: %v", path, err)
-		}
-		for _, phrase := range []string{
-			"SharedResourceProvider",
-			"sharedResourceProvider",
-			"initializeSharedResources",
-		} {
-			if strings.Contains(string(content), phrase) {
-				t.Fatalf("%s mentions %q; build shared resources in bootstrap/runtime assembly and inject the resource bundle into the registry", path, phrase)
-			}
-		}
-	}
-}
-
-func TestPlatformProcessorRegistryDoesNotExposeListingRuntimeHealthValidator(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "consumer", "platform_processor_registry.go")
-	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, path, nil, 0)
-	if err != nil {
-		t.Fatalf("parse %s: %v", path, err)
-	}
-
-	for _, decl := range file.Decls {
-		fn, ok := decl.(*ast.FuncDecl)
-		if !ok || fn.Recv == nil || fn.Name == nil || fn.Name.Name != "GetListingRuntimeHealthValidator" {
-			continue
-		}
-		if len(fn.Recv.List) == 0 {
-			continue
-		}
-		star, ok := fn.Recv.List[0].Type.(*ast.StarExpr)
-		if !ok {
-			continue
-		}
-		ident, ok := star.X.(*ast.Ident)
-		if ok && ident.Name == "PlatformProcessorRegistry" {
-			t.Fatalf("%s exposes PlatformProcessorRegistry.GetListingRuntimeHealthValidator; listing runtime should consume the initialized health validator without a registry accessor", path)
-		}
-	}
-}
-
-func TestAppConsumerTaskStatusRuntimeProviderIsNotNamedRetiredManagementService(t *testing.T) {
-	root := filepath.Join("..", "internal", "app", "consumer")
-	index, err := loadGoFileIndex(root, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for path, facts := range index.files {
-		file, err := parser.ParseFile(token.NewFileSet(), path, facts.source, 0)
-		if err != nil {
-			t.Fatalf("parse %s: %v", path, err)
-		}
-		for _, decl := range file.Decls {
-			gen, ok := decl.(*ast.GenDecl)
-			if !ok || gen.Tok != token.TYPE {
-				continue
-			}
-			for _, spec := range gen.Specs {
-				typeSpec, ok := spec.(*ast.TypeSpec)
-				if ok && typeSpec.Name.Name == "managementClientProvider" {
-					t.Fatalf("%s defines managementClientProvider; name task status runtime ports after the capability they expose", path)
-				}
-			}
-		}
-	}
-}
-
-func TestAppConsumerDoesNotUseManagementNamedTaskStatusAdapter(t *testing.T) {
-	root := filepath.Join("..", "internal", "app", "consumer")
-	index, err := loadGoFileIndex(root, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for path, facts := range index.files {
-		file, err := parser.ParseFile(token.NewFileSet(), path, facts.source, 0)
-		if err != nil {
-			t.Fatalf("parse %s: %v", path, err)
-		}
-		ast.Inspect(file, func(node ast.Node) bool {
-			selector, ok := node.(*ast.SelectorExpr)
-			if !ok || selector.Sel == nil || selector.Sel.Name != "NewManagementClientAdapter" {
-				return true
-			}
-			ident, ok := selector.X.(*ast.Ident)
-			if ok && ident.Name == "taskstatus" {
-				t.Fatalf("%s calls taskstatus.NewManagementClientAdapter; use a runtime task status adapter in app/consumer", path)
-			}
-			return true
-		})
 	}
 }
 
@@ -2643,41 +1774,6 @@ func TestBaseProcessorDoesNotExposeRetiredManagementService(t *testing.T) {
 	}
 }
 
-func TestAppAssemblyUsesManagementAPIPortAliases(t *testing.T) {
-	paths := []string{
-		filepath.Join("..", "internal", "app", "runner", "processor_service.go"),
-		filepath.Join("..", "internal", "app", "bootstrap", "resources", "shared_resources.go"),
-		filepath.Join("..", "internal", "app", "consumer", "shared_resources.go"),
-		filepath.Join("..", "internal", "app", "consumer", "platform_processor_registry.go"),
-		filepath.Join("..", "internal", "app", "consumer", "auto_shard_coordinator.go"),
-		filepath.Join("..", "internal", "app", "consumer", "listing_runtime_support.go"),
-		filepath.Join("..", "internal", "app", "consumer", "processor_registry.go"),
-		filepath.Join("..", "internal", "app", "consumer", "rabbitmq_service.go"),
-		filepath.Join("..", "internal", "app", "consumer", "service_component_state.go"),
-		filepath.Join("..", "internal", "app", "consumer", "service_manager.go"),
-		filepath.Join("..", "internal", "app", "consumer", "task_handler.go"),
-		filepath.Join("..", "internal", "app", "consumer", "auto_shard_coordinator_test.go"),
-		filepath.Join("..", "internal", "app", "consumer", "rabbitmq_service_test.go"),
-		filepath.Join("..", "internal", "app", "consumer", "task_handler_test.go"),
-		filepath.Join("..", "internal", "app", "runtime", "listing", "debug_task_runner.go"),
-		filepath.Join("..", "internal", "app", "runtime", "listing", "debug_task_runner_test.go"),
-	}
-	for _, path := range paths {
-		path = filepath.Clean(path)
-		index, err := loadGoFileIndex(filepath.Dir(path), "")
-		if err != nil {
-			t.Fatalf("load %s: %v", path, err)
-		}
-		facts, ok := index.files[path]
-		if !ok {
-			t.Fatalf("load %s: file facts missing", path)
-		}
-		if _, ok := facts.imports[`"task-processor/internal/infra/clients/management/api"`]; ok {
-			t.Fatalf("%s imports concrete management API DTOs; use listingadmin/local runtime types in assembly interfaces", path)
-		}
-	}
-}
-
 func TestListingAdminUsesManagementAPIPortAliases(t *testing.T) {
 	root := filepath.Join("..", "internal", "listingadmin")
 	allowedFiles := map[string]struct{}{
@@ -2843,34 +1939,6 @@ func TestTemuPricingRuntimeUsesCapabilityNames(t *testing.T) {
 	}
 }
 
-func TestTemuSchedulerRuntimeUsesCapabilityNames(t *testing.T) {
-	path := filepath.Join("..", "internal", "temu", "scheduler", "runtime_adapter.go")
-	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, path, nil, 0)
-	if err != nil {
-		t.Fatalf("parse %s: %v", path, err)
-	}
-
-	for _, decl := range file.Decls {
-		switch typed := decl.(type) {
-		case *ast.GenDecl:
-			for _, spec := range typed.Specs {
-				typeSpec, ok := spec.(*ast.TypeSpec)
-				if !ok || typeSpec.Name == nil {
-					continue
-				}
-				if typeSpec.Name.Name == "ManagementRuntime" || typeSpec.Name.Name == "managementRuntime" {
-					t.Fatalf("%s exposes ManagementRuntime; use scheduler runtime names for TEMU scheduler ports", path)
-				}
-			}
-		case *ast.FuncDecl:
-			if typed.Name != nil && typed.Name.Name == "NewManagementRuntime" {
-				t.Fatalf("%s exposes NewManagementRuntime; use NewSchedulerRuntime for TEMU scheduler ports", path)
-			}
-		}
-	}
-}
-
 func TestTemuSyncRuntimeUsesCapabilityNames(t *testing.T) {
 	path := filepath.Join("..", "internal", "temu", "sync", "runtime_adapter.go")
 	fset := token.NewFileSet()
@@ -2924,27 +1992,6 @@ func TestTemuContextUsesManagementAPIPortAliases(t *testing.T) {
 		t.Fatal(err)
 	}
 	for path, facts := range index.files {
-		if _, ok := facts.imports[`"task-processor/internal/infra/clients/management/api"`]; ok {
-			t.Fatalf("%s imports concrete management API DTOs; use listingadmin/local runtime types", path)
-		}
-	}
-}
-
-func TestTemuRootUsesManagementAPIPortAliases(t *testing.T) {
-	paths := []string{
-		filepath.Join("..", "internal", "temu", "processor.go"),
-		filepath.Join("..", "internal", "temu", "pipeline_registry.go"),
-	}
-	for _, path := range paths {
-		path = filepath.Clean(path)
-		index, err := loadGoFileIndex(filepath.Dir(path), "")
-		if err != nil {
-			t.Fatalf("load %s: %v", path, err)
-		}
-		facts, ok := index.files[path]
-		if !ok {
-			t.Fatalf("load %s: file facts missing", path)
-		}
 		if _, ok := facts.imports[`"task-processor/internal/infra/clients/management/api"`]; ok {
 			t.Fatalf("%s imports concrete management API DTOs; use listingadmin/local runtime types", path)
 		}
@@ -3101,7 +2148,6 @@ func TestRetiredManagementServiceHotspotsUseCapabilityNames(t *testing.T) {
 		filepath.Join("..", "internal", "sheinloginmanaged", "bridge.go"),
 		filepath.Join("..", "internal", "shein", "publish", "exists_check.go"),
 		filepath.Join("..", "internal", "shein", "publish", "variant_success.go"),
-		filepath.Join("..", "internal", "app", "consumer", "listing_runtime_support.go"),
 		filepath.Join("..", "internal", "shein", "client", "cookie_manager_local_test.go"),
 	}
 
@@ -3188,141 +2234,6 @@ func TestRetiredManagementRuntimeNamingHotspotsUseCapabilityNames(t *testing.T) 
 			if strings.Contains(string(content), phrase) {
 				t.Fatalf("%s mentions %q; use runtime/repository/listingadmin capability names", path, phrase)
 			}
-		}
-	}
-}
-
-func TestAppRunnerSchedulerStoreRuntimeUsesCapabilityNames(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "runner", "scheduler_task_starter.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-
-	for _, phrase := range []string{
-		"management client is not initialized",
-		"client SchedulerRuntimeProvider",
-		"schedulerStoreRuntimeAdapter{client:",
-	} {
-		if strings.Contains(string(content), phrase) {
-			t.Fatalf("%s mentions %q; use scheduler runtime names for scheduler store runtime dependencies", path, phrase)
-		}
-	}
-}
-
-func TestAppRunnerProcessorLifecycleUsesRuntimeNames(t *testing.T) {
-	path := filepath.Join("..", "internal", "app", "runner", "processor_lifecycle.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	for _, phrase := range []string{
-		"s.managementClient == nil",
-		"管理客户端未注入",
-	} {
-		if strings.Contains(string(content), phrase) {
-			t.Fatalf("%s mentions %q; gate processor startup on processor runtime dependencies", path, phrase)
-		}
-	}
-}
-
-func TestAppRunnerHealthChecksUseRuntimeNames(t *testing.T) {
-	checks := map[string][]string{
-		filepath.Join("..", "internal", "app", "runner", "health_checks.go"): {
-			"ManagementClientHealthCheck",
-			"management_client",
-			"管理客户端未初始化",
-		},
-		filepath.Join("..", "internal", "app", "runner", "processor_service_impl.go"): {
-			"ManagementClientHealthCheck",
-		},
-	}
-
-	for path, phrases := range checks {
-		content, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatalf("read %s: %v", path, err)
-		}
-		for _, phrase := range phrases {
-			if strings.Contains(string(content), phrase) {
-				t.Fatalf("%s mentions %q; name runner health checks after runtime dependencies", path, phrase)
-			}
-		}
-	}
-}
-
-func TestTemuProcessorRuntimeUsesCapabilityNames(t *testing.T) {
-	paths := []string{
-		filepath.Join("..", "internal", "temu", "processor.go"),
-		filepath.Join("..", "internal", "temu", "dependencies_builder.go"),
-	}
-
-	for _, path := range paths {
-		fset := token.NewFileSet()
-		file, err := parser.ParseFile(fset, path, nil, 0)
-		if err != nil {
-			t.Fatalf("parse %s: %v", path, err)
-		}
-
-		ast.Inspect(file, func(node ast.Node) bool {
-			switch typed := node.(type) {
-			case *ast.TypeSpec:
-				if typed.Name != nil && typed.Name.Name == "managementRuntime" {
-					t.Fatalf("%s defines managementRuntime; use processor runtime names for TEMU processor ports", path)
-				}
-			case *ast.Field:
-				for _, name := range typed.Names {
-					if name.Name == "ManagementRuntime" || name.Name == "managementRuntime" {
-						t.Fatalf("%s exposes %s; use processor runtime names for TEMU processor ports", path, name.Name)
-					}
-				}
-			case *ast.KeyValueExpr:
-				if key, ok := typed.Key.(*ast.Ident); ok && key.Name == "ManagementRuntime" {
-					t.Fatalf("%s assigns ManagementRuntime; use ProcessorRuntime for TEMU processor dependencies", path)
-				}
-			}
-			return true
-		})
-	}
-}
-
-func TestAppBootstrapRetiredManagementImportsStayBlocked(t *testing.T) {
-	root := filepath.Join("..", "internal", "app", "bootstrap")
-	allowedFiles := map[string]struct{}{
-		filepath.Clean(filepath.Join(root, "app.go")):                        {},
-		filepath.Clean(filepath.Join(root, "schedulers", "dependencies.go")): {},
-	}
-
-	index, err := loadGoFileIndex(root, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for path, facts := range index.files {
-		if pathAllowed(path, allowedFiles) {
-			continue
-		}
-		for quotedImport := range facts.imports {
-			importPath := strings.Trim(quotedImport, `"`)
-			if importMatchesPrefix(importPath, "task-processor/internal/infra/clients/management") {
-				t.Errorf("%s imports %s; keep app/bootstrap management dependencies limited to current application assembly retirement seams and prefer in-repository database/repository access for new bootstrap data", path, importPath)
-			}
-		}
-	}
-}
-
-func TestListingRuntimeLocalManagementImportsStayRetiredAcrossBuildTargets(t *testing.T) {
-	root := filepath.Join("..", "internal", "listingruntime", "local")
-	index, err := loadGoFileIndex(root, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for path, facts := range index.files {
-		if strings.HasSuffix(filepath.Base(path), "_test.go") {
-			continue
-		}
-		if _, ok := facts.imports[`"task-processor/internal/infra/clients/management"`]; ok {
-			t.Errorf("%s imports retired management client; keep the neutral local runtime on local runtime contracts", path)
 		}
 	}
 }
@@ -3558,7 +2469,6 @@ func TestInfrastructurePackagesDoNotImportBusinessDomains(t *testing.T) {
 		filepath.Join("..", "internal", "integration"),
 		filepath.Join("..", "internal", "platform"),
 		filepath.Join("..", "internal", "platformbase"),
-		filepath.Join("..", "internal", "platformtask"),
 	} {
 		t.Run(filepath.ToSlash(infraRoot), func(t *testing.T) {
 			assertNoBannedImportPrefixes(t, infraRoot, []string{
@@ -4158,26 +3068,6 @@ func TestSheinRetiredManagementImportsStayBlocked(t *testing.T) {
 	}
 }
 
-func TestSheinPipelineRuntimeDependenciesDoNotUseRetiredManagementNames(t *testing.T) {
-	paths := []string{
-		filepath.Join("..", "internal", "shein", "pipeline", "processor.go"),
-		filepath.Join("..", "internal", "shein", "pipeline", "dependencies_builder.go"),
-	}
-	banned := []string{"ManagementClient", "managementClient"}
-
-	for _, path := range paths {
-		content, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatalf("read %s: %v", path, err)
-		}
-		for _, token := range banned {
-			if strings.Contains(string(content), token) {
-				t.Fatalf("%s contains %s; name SHEIN runtime dependencies after the capability, not the retired management service", path, token)
-			}
-		}
-	}
-}
-
 func TestSheinOpenAIImportsStayAllowlisted(t *testing.T) {
 	root := filepath.Join("..", "internal", "shein")
 	allowedFiles := map[string]struct{}{
@@ -4273,31 +3163,6 @@ func TestAppHTTPAPIRetiredManagementImportsStayBlocked(t *testing.T) {
 	}
 }
 
-func TestAppRuntimeListingRetiredManagementImportsStayBlocked(t *testing.T) {
-	root := filepath.Join("..", "internal", "app", "runtime", "listing")
-	allowedFiles := map[string]struct{}{
-		filepath.Clean(filepath.Join(root, "debug_task_runner.go")):      {},
-		filepath.Clean(filepath.Join(root, "debug_task_runner_test.go")): {},
-	}
-
-	index, err := loadGoFileIndex(root, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for path, facts := range index.files {
-		if pathAllowed(path, allowedFiles) {
-			continue
-		}
-		for quotedImport := range facts.imports {
-			importPath := strings.Trim(quotedImport, `"`)
-			if importMatchesPrefix(importPath, "task-processor/internal/infra/clients/management") {
-				t.Errorf("%s imports %s; keep app/runtime/listing management dependencies limited to current listing debug runtime retirement seams and prefer in-repository database/repository access for new listing runtime data", path, importPath)
-			}
-		}
-	}
-}
-
 func TestAppTaskStatusRetiredManagementImportsStayBlocked(t *testing.T) {
 	root := filepath.Join("..", "internal", "app", "taskstatus")
 	allowedFiles := map[string]struct{}{}
@@ -4315,35 +3180,6 @@ func TestAppTaskStatusRetiredManagementImportsStayBlocked(t *testing.T) {
 			importPath := strings.Trim(quotedImport, `"`)
 			if importMatchesPrefix(importPath, "task-processor/internal/infra/clients/management") {
 				t.Errorf("%s imports %s; keep app/taskstatus management dependencies limited to current task-status retirement seams and prefer in-repository database/repository access for new task-status data", path, importPath)
-			}
-		}
-	}
-}
-
-func TestPlatformTaskRetiredManagementImportsStayBlocked(t *testing.T) {
-	root := filepath.Join("..", "internal", "platformtask")
-	allowedFiles := map[string]struct{}{
-		filepath.Clean(filepath.Join(root, "auto_pricing_task.go")):        {},
-		filepath.Clean(filepath.Join(root, "auto_pricing_task_test.go")):   {},
-		filepath.Clean(filepath.Join(root, "inventory_sync_task.go")):      {},
-		filepath.Clean(filepath.Join(root, "inventory_sync_task_test.go")): {},
-		filepath.Clean(filepath.Join(root, "product_sync_task.go")):        {},
-		filepath.Clean(filepath.Join(root, "product_sync_task_test.go")):   {},
-	}
-
-	index, err := loadGoFileIndex(root, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for path, facts := range index.files {
-		if pathAllowed(path, allowedFiles) {
-			continue
-		}
-		for quotedImport := range facts.imports {
-			importPath := strings.Trim(quotedImport, `"`)
-			if importMatchesPrefix(importPath, "task-processor/internal/infra/clients/management") {
-				t.Errorf("%s imports %s; keep platformtask management dependencies limited to current platform task retirement seams and prefer in-repository database/repository access for new platform task data", path, importPath)
 			}
 		}
 	}
@@ -4439,7 +3275,6 @@ func TestTaskRPCAPIRetiredActionRoutesStayRetired(t *testing.T) {
 	paths := []string{
 		filepath.Join("..", "internal", "taskrpcapi"),
 		filepath.Join("..", "internal", "app", "httpapi", "routes_core.go"),
-		filepath.Join("..", "internal", "listingruntime", "local", "local_task_rpc_provider.go"),
 	}
 	for _, path := range paths {
 		info, err := os.Stat(path)
@@ -4677,22 +3512,12 @@ func TestTEMUProductStoreAndSchedulerRetiredManagementImportsStayBlocked(t *test
 		filepath.Clean(filepath.Join("..", "internal", "temu", "product", "save_publish_result_handler.go")): {},
 		filepath.Clean(filepath.Join("..", "internal", "temu", "product", "spu_builder.go")):                 {},
 		filepath.Clean(filepath.Join("..", "internal", "temu", "product", "submit_handler.go")):              {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "scheduler", "auto_pricing_adapter.go")):      {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "scheduler", "auto_pricing_adapter_test.go")): {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "scheduler", "factory.go")):                   {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "scheduler", "inventory_sync_adapter.go")):    {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "scheduler", "inventory_task.go")):            {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "scheduler", "pricing_task.go")):              {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "scheduler", "product_sync_adapter.go")):      {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "scheduler", "product_sync_adapter_test.go")): {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "scheduler", "product_task.go")):              {},
 		filepath.Clean(filepath.Join("..", "internal", "temu", "store", "id_handler.go")):                    {},
 		filepath.Clean(filepath.Join("..", "internal", "temu", "store", "info_handler.go")):                  {},
 	}
 
 	for _, root := range []string{
 		filepath.Join("..", "internal", "temu", "product"),
-		filepath.Join("..", "internal", "temu", "scheduler"),
 		filepath.Join("..", "internal", "temu", "store"),
 	} {
 		t.Run(filepath.ToSlash(root), func(t *testing.T) {
@@ -4809,19 +3634,6 @@ func TestTEMUOpenAIImportsStayAllowlisted(t *testing.T) {
 	}
 }
 
-func TestPlatformModulesDoNotImportBusinessOrHTTPAssemblyPackages(t *testing.T) {
-	assertNoBannedImportPrefixes(t, filepath.Join("..", "internal", "platforms"), []string{
-		"task-processor/internal/app/httpapi",
-		"task-processor/internal/asset",
-		"task-processor/internal/product/catalog",
-		"task-processor/internal/listingkit",
-		"task-processor/internal/marketplace",
-		"task-processor/internal/productimage",
-		"task-processor/internal/publishing",
-		"task-processor/internal/workspace",
-	}, nil)
-}
-
 func TestAICapabilityModuleUsesOnlyApprovedDependencies(t *testing.T) {
 	root := filepath.Join("..", "internal", "aicapability")
 	approvedExternal := []string{
@@ -4858,49 +3670,6 @@ func TestAICapabilityModuleUsesOnlyApprovedDependencies(t *testing.T) {
 			}
 			if !approved {
 				t.Errorf("%s imports %s; AI capability contracts may depend only on the standard library, approved storage adapters, and their own package", path, importPath)
-			}
-		}
-	}
-}
-
-func TestPlatformModulesHistoricalImplementationImportsStayAllowlisted(t *testing.T) {
-	root := filepath.Join("..", "internal", "platforms")
-	allowedImports := map[string]map[string]struct{}{
-		"task-processor/internal/amazon": {
-			filepath.Clean(filepath.Join(root, "amazon", "module.go")): {},
-		},
-		"task-processor/internal/shein/pipeline": {
-			filepath.Clean(filepath.Join(root, "shein", "module.go")): {},
-		},
-		"task-processor/internal/temu": {
-			filepath.Clean(filepath.Join(root, "temu", "module.go")): {},
-		},
-	}
-
-	index, err := loadGoFileIndex(root, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for path, facts := range index.files {
-		if strings.HasSuffix(filepath.Base(path), "_test.go") {
-			continue
-		}
-		for _, bannedPrefix := range []string{
-			"task-processor/internal/amazon",
-			"task-processor/internal/shein",
-			"task-processor/internal/temu",
-		} {
-			for quotedImport := range facts.imports {
-				importPath := strings.Trim(quotedImport, `"`)
-				if importMatchesPrefix(importPath, bannedPrefix) {
-					if allowedFiles, ok := allowedImports[importPath]; ok {
-						if _, allowed := allowedFiles[path]; allowed {
-							continue
-						}
-					}
-					t.Errorf("%s imports %s; keep internal/platforms as thin registration and route new platform rules to marketplace or publishing packages", path, importPath)
-				}
 			}
 		}
 	}

@@ -6,11 +6,3 @@ namespace: task-processor
 resources:
   - ../../base
   - external-secret.yaml
-
-images:
-  - name: xuwei190/task-processor-shein-listing
-    newTag: "cd8db1b-claimdrop"
-
-patches:
-  - path: patch-deployment.yaml
-  - path: patch-hpa.yaml
