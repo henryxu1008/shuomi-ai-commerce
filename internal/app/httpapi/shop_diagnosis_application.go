@@ -79,7 +79,7 @@ func buildShopDiagnosisApplication(ctx context.Context, parent *productAgentAppl
 		r, e := routes.Resolve(ctx, aicapability.TextInputIdentity{OrganizationID: org, Operation: aicapability.OperationShopDiagnosisDecision})
 		return r.Profile, e
 	}
-	executor := &governed.Executor{Ledger: parent.config.Ledger, Admission: parent.textAdmission, Resolve: routes.Resolve, BaseTransport: parent.config.TextTransport, Authorize: func(ctx context.Context, in aicapability.TextInputIdentity) error {
+	executor := &governed.Executor{Ledger: parent.config.Ledger, Logger: parent.config.TextLogger, Admission: parent.textAdmission, Resolve: routes.Resolve, BaseTransport: parent.config.TextTransport, Authorize: func(ctx context.Context, in aicapability.TextInputIdentity) error {
 		identity, e := a.executionIdentity(ctx)
 		if e != nil || identity.TenantID != in.OrganizationID || identity.UserID != in.ActorID || identity.EffectiveMemberID != in.MemberID {
 			return agentconfig.ErrForbidden

@@ -132,7 +132,7 @@ func buildAIWorkbenchApplication(ctx context.Context, cfg AIWorkbenchDependencie
 	if err != nil {
 		return nil, err
 	}
-	executor := &governed.Executor{Ledger: a.config.Ledger, Admission: a.textAdmission, Resolve: resolver.Resolve,
+	executor := &governed.Executor{Ledger: a.config.Ledger, Logger: a.config.TextLogger, Admission: a.textAdmission, Resolve: resolver.Resolve,
 		Authorize: func(ctx context.Context, in aicapability.TextInputIdentity) error {
 			identity, err := a.freshChatIdentity(ctx)
 			if err != nil || identity.TenantID != in.OrganizationID || identity.UserID != in.ActorID || identity.EffectiveMemberID != in.MemberID {
