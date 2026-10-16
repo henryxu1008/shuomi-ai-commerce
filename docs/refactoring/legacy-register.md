@@ -152,6 +152,13 @@ does not establish provider, user, deployed-runtime or production acceptance.
 
 ### #29 bounded backend retirement
 
+The [numeric product/inventory synchronization retirement proposal](../architecture/legacy-numeric-product-inventory-sync-retirement-boundary.md)
+maps the remaining unconstructed SHEIN/TEMU services and exclusive InventoryRecord
+source closure. It is design-only and awaits user confirmation: none of those
+sources is marked absent by this proposal. The two shared SHEIN attribute types,
+platform APIs/rules, current Store observations and the standalone login worker
+with its Store sync remain; no runtime/data action or new trial prerequisite.
+
 The mixed root Go package, old Task/API/Workspace/Temporal chains and default
 HTTP assembly are absent in this checkout under #29. Valid route-role transport
 now lives in `internal/authz/httpapi`; request-role context stays with the existing
