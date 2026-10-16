@@ -3,6 +3,17 @@
 > **Classification: MIXED.** The **Local Interface Rule**, management-client retirement direction, guardrail/review rules, and the requirement to keep concrete external adapters behind owning boundaries remain `CURRENT CONTRACT`. Dated hotspot/file inventories and dated migration notes are `DATED EVIDENCE` and must be rechecked against the actual HEAD before acting on them.
 >
 > “Legacy” or “compatibility” wording in the historical hotspot notes records seams to retire; it does not grant permission to add a new compatibility layer, old-data migration, fallback, dual read/write, or a second fact source. Current legacy handling is [EXTRACT | RETIRE](../refactoring/legacy-hard-cut-policy.md) under [PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08](../product/greenfield-no-legacy-migration.md).
+## #723 bounded retirement calibration
+
+The user-confirmed [CLI boundary](legacy-listing-cli-retirement-boundary.md)
+retires the three listing CLIs and exclusive bootstrap/consumer/runner/scheduler,
+local/sync and platform task-processor glue. The path-level implementation guards
+for those deleted owners are NOT_APPLICABLE and replaced by the existing source
+absence and actual command-dependency guards. Dated hotspot lists below remain
+historical. Current contract checks for retained clients/rules, control-plane,
+shared ListingAdmin/ListingRuntime and independent login worker remain. No new
+compatibility owner, runtime action or internal-trial gate is introduced.
+
 ## Goal
 
 This inventory records the current direct coupling between business-facing

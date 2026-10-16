@@ -1,30 +1,19 @@
-# SHEIN auto shard StatefulSet
+# 原 SHEIN shard overlay：保留的控制面声明
 
-这套清单把 `shein-listing` 部署为共享 worker 池，而不是单店独享 Deployment。
+Status: **listing workers / scheduler RETIRED；control-plane declarations retained**（#723）。
+原 SHEIN shard StatefulSet、headless/worker Service 和 listing-scheduler Deployment
+已退休；这里不再提供 shard 扩容、消费者启动或调度器发布操作。
 
-特点：
+当前 kustomization 仅保留：
 
-- 用 `StatefulSet` 保证每个 Pod 有稳定唯一的 `node_id`
-- `TASK_PROCESSOR_RABBITMQ_NODE_NODE_ID` 直接取 `metadata.name`
-- `shein-listing-shard-*` 只做 RabbitMQ worker，`processor.schedulerEnabled=false`
-- `listing-scheduler` 是独立 Deployment，负责读取后台计划任务配置并触发定时任务
-- 自动分片候选节点固定为：
-  - `shein-listing-shard-0`
-  - `shein-listing-shard-1`
-  - `shein-listing-shard-2`
-  - ...
-  - `shein-listing-shard-19`
+- `listing-control-plane.yaml`：原 control-plane 镜像、配置引用、健康与运行合同。
+- `ownership-controller.yaml`：原 ownership-controller 历史镜像及共享配置/身份声明。
+  它仍引用既有 `/app/listing-service` 制品，**不是当前源码可重新构建的入口**；
+  本批没有替换该镜像、重建协调器或修改其运行协议。
 
-当前副本数是 `20`，候选节点范围为 `shein-listing-shard-0` 到 `shein-listing-shard-19`。
+目录名沿用历史路径，不表示 worker 池仍由当前源码提供。保留声明也不证明任何实例
+存在、健康或可发布；真实旧生产者/消费者与在途副作用的停用由原运行 owner 另行取得
+明确授权，不是当前内部试用的新前置。不得整体清理这个混合目录或真实 Secret/资源/数据。
 
-计划任务调度器：
-
-- Deployment: `listing-scheduler`
-- 默认副本数: `1`
-- 镜像入口: `cmd/listing-scheduler/main.go`
-- 仍保留 Redis 分布式锁，避免误扩容时重复执行同一 `platform + taskType + storeID`
-
-如果后面要扩到更多 shard worker，必须同时修改两处：
-
-1. `spec.replicas`
-2. `TASK_PROCESSOR_RABBITMQ_AUTO_SHARD_CANDIDATE_NODES`
+有效 control-plane 操作继续参考[原 runbook](../../../../../docs/operations/listing-control-plane-runbook.md)；
+范围与限制见[已确认退休边界](../../../../../docs/architecture/legacy-listing-cli-retirement-boundary.md)。

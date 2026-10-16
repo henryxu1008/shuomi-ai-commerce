@@ -135,8 +135,6 @@ func TestProductionProviderConstructorInventoryIsComplete(t *testing.T) {
 		"internal/amazon/processor.go":                          {openAI: 1},
 		"internal/app/worker/imageagent/dependencies.go":        {openAI: 1},
 		"internal/app/worker/imageagent/generation_provider.go": {grsai: 1},
-		"internal/shein/pipeline/pipeline.go":                   {openAI: 1},
-		"internal/temu/pipeline_registry.go":                    {openAI: 1},
 		"internal/temu/sku/ai_mapping_handler.go":               {openAI: 1},
 	}
 	got := scanProviderConstructors(t,

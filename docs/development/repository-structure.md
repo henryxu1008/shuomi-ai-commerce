@@ -17,6 +17,17 @@ numeric header resolver。其 bootstrap 只构造原服务，worker 的真实编
 tenantbridge；账户仓库、Redis/profile、浏览器、Store sync、/healthz 与关闭行为保持。
 worker 的原数字账户持久化和发布 identity-preflight 仍是债务，无真实数据/登录/部署操作。
 
+## #723：旧刊登 CLI 与专属调度链退休
+
+三个旧刊登 CLI 已从源码和构建入口退出，专属 bootstrap/consumer/runner/scheduler、
+local runtime、旧 SHEIN sync 和平台 module/scheduler 随实际消费者排空。
+`listing-control-plane`、共享 `listingadmin`/根 `listingruntime`、当前采集、Store 观察同步、
+图片/Temporal 与独立 `shein-login-worker` 保留。现有 control-plane 专属构建脚本仍为
+`scripts/build-push-deploy-listing-control-plane.ps1`，独立 worker 使用原 Dockerfile/启动合同。
+混合 Kubernetes 目录保留 ownership-controller、control-plane 与配置/Secret/监控声明；
+ownership-controller 仍引用其原历史镜像，不属于当前源码可重建入口，不在本批更换或运行。
+源码退休不代表实例停用或全数字任务链退休；无实例/数据操作，生产 NOT_READY。
+
 ## 目标
 
 这份文档说明仓库当前推荐的目录职责，以及后续结构收口的方向。当前重点是让正式入口、调试入口、长期工具和本地产物位置保持清晰，避免旧入口和临时产物继续污染仓库结构。
@@ -88,14 +99,12 @@ CURRENT STATE：命令清单核对于上述 `main @ eb9e019686564b976c1a1a9828ee
 
 - `cmd/`
   - 只放受维护的产品运行入口或有明确所有者的运维入口。
-  - 当前六个产品运行入口为：
+  - 当前四个产品运行入口为：
     - `1688-public-browser-collector`
     - `current-application`
     - `image-agent-temporal-worker`
     - `listing-control-plane`
 
-    - `shein-listing`
-    - `temu-listing`
   - 当前受维护的运维入口为：
     - `account-acceptance-fixture`
     - `account-audit-ledger-schema-init`
@@ -114,7 +123,6 @@ CURRENT STATE：命令清单核对于上述 `main @ eb9e019686564b976c1a1a9828ee
     - `fingerprint-browser-installer`
     - `knowledge-schema-init`
     - `issue36-local-trial-init`
-    - `listing-scheduler`
     - `listingkit-schema-migrate`
     - `playwright-installer`
     - `product-listing-api-schema-migrate`

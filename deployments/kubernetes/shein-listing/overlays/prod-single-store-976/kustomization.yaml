@@ -3,5 +3,4 @@ kind: Kustomization
 
 namespace: task-processor
 
-resources:
-  - deployment.yaml
+resources: []

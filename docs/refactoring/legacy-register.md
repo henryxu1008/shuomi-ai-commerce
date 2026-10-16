@@ -153,6 +153,22 @@ worker/schema/canary contracts remain under their existing owners. Current worke
 are retained; legacy API deployment of this artifact is NOT_READY. No runtime,
 data, provider or user acceptance is claimed.
 
+### #29 / #301 standalone listing CLI and exclusive scheduler retirement
+
+The user-confirmed [boundary](../architecture/legacy-listing-cli-retirement-boundary.md)
+§5/§6/§6.1 admits this bounded RETIRE batch. The three CLIs, exclusive app
+bootstrap/consumer/runner/scheduler, local runtime, SHEIN sync adapters and
+platform module/scheduler/task-processor glue are physically absent. Retained
+platform clients/rules, generic infrastructure and current Store observations
+are not deleted. CI replaces only the obsolete build target with the current
+application and standalone login worker; required/security checks remain.
+Control-plane/taskstatus, ListingAdmin and root ListingRuntime still have
+consumers and keep their original contracts. Mixed deployment sources retain
+control-plane/ownership-controller, shared configuration, Secret and monitoring
+objects; the latter controller's historical image is not rebuilt or executed.
+This is source retirement, not full numeric-task-chain closure, runtime/data
+cleanup, deployment or a new internal-trial prerequisite. Production NOT_READY.
+
 ## 2. Active register
 
 ### #529 / #301 release identity-preflight retirement

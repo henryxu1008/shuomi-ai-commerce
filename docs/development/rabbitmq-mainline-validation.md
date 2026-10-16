@@ -1,5 +1,14 @@
 # RabbitMQ 主链验收手册
 
+> **DATED EVIDENCE / 旧刊登链历史材料**：#723 已按用户确认退休三个旧 CLI 及专属
+> 调度/消费链。下列旧命令、部署与验收步骤不再是当前操作说明，不得用于启动/发布或
+> 作为当前内部试用前置。历史事实保留；当前入口见
+> [Repository Structure](../development/repository-structure.md)，精确保留/删除边界见
+> [CLI retirement](../architecture/legacy-listing-cli-retirement-boundary.md)。
+> control-plane、独立登录 worker 与当前采集/Store observation 保持各自原合同；
+> 此次无运行实例或数据操作授权。
+
+
 本文档用于验证当前主链是否已经切到：
 
 `yudao-cloud 数据库选任务 -> RabbitMQ -> shein-listing / temu-listing / amazon-listing -> 状态回写`
