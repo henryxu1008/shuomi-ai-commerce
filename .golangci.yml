@@ -498,6 +498,8 @@ linters-settings:
           - "!**/internal/integration/temu/official_goods.go"
           - "!**/internal/integration/tiktokshop/goods_read.go"
           - "!**/internal/integration/tiktokshop/goods_write.go"
+          - "!**/internal/integration/walmart/client.go"
+          - "!**/internal/integration/walmart/products.go"
           - "!**/internal/integration/temu/official_observations.go"
           - "!**/internal/integration/shein/official_readback.go"
           - "!**/internal/integration/shein/official_observations.go"
@@ -629,6 +631,7 @@ linters-settings:
           - "**/internal/integration/persistence/listing/submission/**/*.go"
           - "!**/internal/integration/persistence/listing/submission/temu_effects_policy.go"
           - "!**/internal/integration/persistence/listing/submission/tiktok_effects_policy.go"
+          - "!**/internal/integration/persistence/listing/submission/walmart_effects_policy.go"
         deny:
           - pkg: "task-processor/internal/amazon$"
           - pkg: "task-processor/internal/amazon/"
@@ -1121,6 +1124,7 @@ linters-settings:
           - "**/internal/integration/persistence/listing/official/*.go"
           - "**/internal/integration/persistence/listing/official/**/*.go"
           - "!**/*_test.go"
+          - "!**/internal/integration/persistence/listing/official/walmart_results.go"
         allow:
           - "$gostd"
           - "gorm.io/gorm$"
@@ -1208,6 +1212,7 @@ linters-settings:
           - "gorm.io/gorm$"
           - "task-processor/internal/authidentity$"
           - "task-processor/internal/marketplace/temu/observations$"
+          - "task-processor/internal/marketplace/walmart$"
           - "task-processor/internal/storecenter$"
           - "task-processor/internal/storecenter/observations$"
 
@@ -1220,6 +1225,35 @@ linters-settings:
           - "$gostd"
           - "task-processor/internal/storecenter/observations$"
           - "task-processor/internal/storecenter$"
+
+      walmart_official_transport:
+        # #733 frozen design: exact transport files consume only current Walmart ports.
+        list-mode: strict
+        files:
+          - "**/internal/integration/walmart/client.go"
+          - "**/internal/integration/walmart/products.go"
+        allow:
+          - "$gostd"
+          - "github.com/google/uuid$"
+          - "task-processor/internal/marketplace/walmart$"
+          - "task-processor/internal/storecenter/walmart$"
+
+      walmart_effects_persistence:
+        # #733 frozen design: original Submission UoW and append-only readback adapters.
+        list-mode: strict
+        files:
+          - "**/internal/integration/persistence/listing/submission/walmart_effects_policy.go"
+          - "**/internal/integration/persistence/listing/official/walmart_results.go"
+        allow:
+          - "$gostd"
+          - "github.com/google/uuid$"
+          - "gorm.io/gorm$"
+          - "gorm.io/gorm/clause$"
+          - "task-processor/internal/integration/persistence/listing/record$"
+          - "task-processor/internal/integration/persistence/listing/submission$"
+          - "task-processor/internal/listing/submission$"
+          - "task-processor/internal/marketplace/walmart$"
+          - "task-processor/internal/product/collection$"
 
   govet:
     disable:
