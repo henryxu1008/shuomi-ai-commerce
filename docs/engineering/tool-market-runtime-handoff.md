@@ -52,7 +52,7 @@ routes, err := toolmarkethttp.BuildRoutes(h)
 ```
 
 runtime角色只需schema USAGE、activations SELECT/INSERT/UPDATE、requests SELECT/INSERT/UPDATE、
-events SELECT/INSERT、commands SELECT/INSERT/UPDATE；无schema CREATE/DROP/ALTER或owner成员权。
+events和attachments SELECT/INSERT、commands SELECT/INSERT/UPDATE；无schema CREATE/DROP/ALTER或owner成员权。
 所有新事实在同一个PG pool，原有Product/Commercial库和采集计价合同不变。
 
 ## 插件包
@@ -77,7 +77,15 @@ Handler不暴露原始包bytes注入口，ConfigurePackage内部调用LoadPackag
 - `/workbench/tools/official`：分类浏览；管理员启用商品采集插件；七项开发中工具无法启用。
 - `/workbench/tools/mine`：企业真实清单；插件下载/安装步骤、当前1688在线采集和我的数据入口。
   停用仅改变清单，不撤销插件或既有采集。
-- `/workbench/tools/custom`：提交需求、查询原需求和专员进度；线下报价付款。
+- `/workbench/tools/custom`：定制服务介绍及流程；线下报价付款。
+- `/workbench/tools/custom/new`：提交完整 Figma 需求；场景、类型、名称、规则、联系人、
+  手机/微信、显式联系同意及可选私有参考资料沿 [#730增量设计](../architecture/tool-customization-figma-v1.md)。
+- `/workbench/tools/custom/progress`：读取当前企业需求及专员进度；
+  提交成功跳转 `?request=<UUID>`，刷新仍读取该需求，实际授权始终由原API确认。
+  无记录显示真实空态，不展示原型示例为真实需求；进度不证明付款或工具已安装。
+- 企业及专员详情下载 `requests/:id/files/:file`；附件与需求同一tool_market事务保存，
+  schema owner仅给serving role附件SELECT/INSERT。新字段/表只用于fresh schema，
+  VerifySchema缺失拒绝启动，本次不迁移或覆盖已有保留实例。
 - `/workbench/tools/custom/review`：硕米专员处理；平台API独立授权，无客户企业选择要求。
 - 专属BFF `/api/tool-market/[...path]`使用既有serverAuth及服务端token，
   `LISTINGKIT_SERVICE_API_BASE`和可信公共Origin沿用当前安装，不传客户端Bearer。
@@ -93,7 +101,9 @@ Handler不暴露原始包bytes注入口，ConfigurePackage内部调用LoadPackag
 企业与专员GET详情均接受单值`eventsBefore`精确revision游标。需求当前revision始终独立返回，
 写请求仍按该revision发送If-Match；历史分页不变更schema、状态或写事务。
 
-未知写响应保存在本浏览器会话的原actor+org隔离存储，刷新/返回原上下文可重试原命令。
+未知写响应保存在本浏览器会话的原actor+org隔离存储，短载荷刷新/返回原上下文可重试原命令。
+大附件载荷仅在有界内存中保留，导航后可恢复；刷新或挤出后若字节丢失，保留原marker并暂停
+新提交。此时从进度页查看保存结果并联系平台核实，不能换新key再次创建需求。
 浏览器无法读写恢复记录时暂停新提交；不清理用户浏览器数据来恢复操作。
 
 ## 验证界限

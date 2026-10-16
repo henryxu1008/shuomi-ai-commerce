@@ -4,6 +4,17 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 
 describe("Figma Console navigation contract", () => {
+  it("keeps tool customization children on real routes under their Figma parent", () => {
+    const children = findConsoleRoute("/workbench/tools/custom")?.node.children;
+    expect(children?.map(node => [node.label, node.href])).toEqual([
+      ["提交定制需求", "/workbench/tools/custom/new"],
+      ["定制进度", "/workbench/tools/custom/progress"],
+    ]);
+    for (const child of children ?? []) {
+      expect(findConsoleRoute(child.href)?.trail.map(node => node.label)).toEqual(["工具市场", "工具定制", child.label]);
+      expect(existsSync(join(process.cwd(), "src/app", child.href.slice(1), "page.tsx"))).toBe(true);
+    }
+  });
   it("keeps own-item confirmation and independent draft detail under their current parents",()=>{
     const id="11111111-1111-4111-8111-111111111111";
     const confirmation=findConsoleRoute(`/workbench/data/mine/own/${id}/prepare`);

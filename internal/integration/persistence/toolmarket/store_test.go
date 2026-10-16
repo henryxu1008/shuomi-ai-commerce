@@ -46,7 +46,100 @@ func fixture(t *testing.T) (*gorm.DB, *Store) {
 var allow = func(context.Context) error { return nil }
 
 func create() tm.Command {
-	return tm.Command{Scope: tm.Scope{OrganizationID: "org-a", ActorID: "admin-a"}, Key: uuid.NewString(), Operation: "create", Absent: true, Demand: tm.Demand{Kind: "DATA", Title: "商品需求", Description: "保存商品资料"}}
+	return tm.Command{Scope: tm.Scope{OrganizationID: "org-a", ActorID: "admin-a"}, Key: uuid.NewString(), Operation: "create", Absent: true, Demand: tm.Demand{Kind: "DATA", Title: "商品需求", Description: "保存商品资料", Scenario: "商品管理", ContactName: "测试联系人", ContactMethod: "test-wechat", Consent: true}}
+}
+
+func TestCompleteDemandFilesAreAtomicPrivateAndUsableByRuntimeRole(t *testing.T) {
+	db, owner := fixture(t)
+	require.NoError(t, db.Exec("DO $$ BEGIN IF NOT EXISTS(SELECT FROM pg_roles WHERE rolname='tool_market_runtime') THEN CREATE ROLE tool_market_runtime LOGIN PASSWORD 'isolated-test-only'; END IF; END $$").Error)
+	// Exercise the actual fresh-install serving grants, so this test cannot hide
+	// a missing bootstrap permission behind a richer hand-written test role.
+	bootstrap, err := os.ReadFile("../../../../deployments/docker/account-compose/native-modules-init.sh")
+	require.NoError(t, err)
+	_, block, ok := strings.Cut(strings.ReplaceAll(string(bootstrap), "\r\n", "\n"), "psql -X -v ON_ERROR_STOP=1 -d tool_market <<'SQL'\n")
+	require.True(t, ok)
+	block, _, ok = strings.Cut(block, "\nSQL")
+	require.True(t, ok)
+	grants := 0
+	for _, line := range strings.Split(block, "\n") {
+		if strings.HasPrefix(line, "GRANT ") {
+			require.NoError(t, db.Exec(line).Error)
+			grants++
+		}
+	}
+	require.Positive(t, grants)
+	var database string
+	require.NoError(t, db.Raw("SELECT current_database()").Scan(&database).Error)
+	u, err := url.Parse(os.Getenv("TOOLMARKET_TEST_DSN"))
+	require.NoError(t, err)
+	u.Path = "/" + database
+	u.User = url.UserPassword("tool_market_runtime", "isolated-test-only")
+	runtimeDB, err := gorm.Open(postgres.Open(u.String()), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	require.NoError(t, err)
+	sqlDB, err := runtimeDB.DB()
+	require.NoError(t, err)
+	defer sqlDB.Close()
+	runtime, err := New(runtimeDB)
+	require.NoError(t, err)
+	ctx := context.Background()
+	require.NoError(t, VerifySchema(ctx, runtimeDB))
+	c := create()
+	c.Demand.Files = []tm.Upload{{Name: "流程说明.txt", Data: []byte("授权采集后保存商品资料")}}
+	receipt, err := runtime.Execute(ctx, c, allow)
+	require.NoError(t, err)
+	detail, err := owner.Detail(ctx, c.Scope, false, receipt.ID, "")
+	require.NoError(t, err)
+	require.Equal(t, c.Demand.Scenario, detail.Request.Scenario)
+	require.Equal(t, c.Demand.ContactName, detail.Request.ContactName)
+	require.True(t, detail.Request.Consent)
+	require.Equal(t, tm.ConsentVersion, detail.Request.ConsentVersion)
+	require.Equal(t, c.Scope.ActorID, detail.Request.CreatedBy)
+	require.Empty(t, detail.Request.Files)
+	require.Len(t, detail.Request.Attachments, 1)
+	file := detail.Request.Attachments[0]
+	meta, bytes, err := runtime.Download(ctx, c.Scope, false, receipt.ID, file.ID)
+	require.NoError(t, err)
+	require.Equal(t, c.Demand.Files[0].Data, bytes)
+	require.Equal(t, file, meta)
+	_, _, err = runtime.Download(ctx, tm.Scope{ActorID: "other", OrganizationID: "org-b"}, false, receipt.ID, file.ID)
+	require.ErrorIs(t, err, tm.ErrNotFound)
+	other, err := runtime.Execute(ctx, create(), allow)
+	require.NoError(t, err)
+	_, _, err = runtime.Download(ctx, c.Scope, false, other.ID, file.ID)
+	require.ErrorIs(t, err, tm.ErrNotFound)
+	_, _, err = runtime.Download(ctx, tm.Scope{ActorID: "specialist"}, true, receipt.ID, file.ID)
+	require.NoError(t, err)
+	replay, err := runtime.Execute(ctx, c, allow)
+	require.NoError(t, err)
+	require.Equal(t, receipt, replay)
+	changed := c
+	changed.Demand.ContactMethod = "another"
+	_, err = runtime.Execute(ctx, changed, allow)
+	require.ErrorIs(t, err, tm.ErrConflict)
+	changed = c
+	changed.Demand.Files = []tm.Upload{{Name: "流程说明.txt", Data: []byte("changed")}}
+	_, err = runtime.Execute(ctx, changed, allow)
+	require.ErrorIs(t, err, tm.ErrConflict)
+	rollback := create()
+	rollback.Demand.Files = c.Demand.Files
+	n := 0
+	_, err = runtime.Execute(ctx, rollback, func(context.Context) error {
+		n++
+		if n == 2 {
+			return tm.ErrForbidden
+		}
+		return nil
+	})
+	require.ErrorIs(t, err, tm.ErrForbidden)
+	for _, table := range []string{"requests", "commands", "events"} {
+		var count int64
+		require.NoError(t, db.Table("tool_market."+table).Count(&count).Error)
+		require.EqualValues(t, 2, count)
+	}
+	var count int64
+	require.NoError(t, db.Table("tool_market.attachments").Count(&count).Error)
+	require.EqualValues(t, 1, count)
+	require.Error(t, runtimeDB.Exec("DELETE FROM tool_market.attachments").Error, "runtime must not delete private reference facts")
 }
 func TestAtomicConcurrentReplayAndTenantIsolation(t *testing.T) {
 	db, s := fixture(t)

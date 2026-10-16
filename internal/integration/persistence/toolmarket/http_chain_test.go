@@ -2,6 +2,7 @@ package toolmarketpersistence
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -56,7 +57,8 @@ func TestEnterpriseDemandAndSpecialistProgressHTTPChain(t *testing.T) {
 	mine := send("GET", api.Base+"/mine", "", "")
 	require.Equal(t, 200, mine.Code)
 	require.Contains(t, mine.Body.String(), `"enabled":true`)
-	create := send("POST", api.Base+"/requests", `{"kind":"DATA","title":"商品资料需求","description":"保存已授权商品资料"}`, "")
+	data := "仅供工具需求评估的参考资料"
+	create := send("POST", api.Base+"/requests", `{"kind":"DATA","title":"商品资料需求","description":"保存已授权商品资料","scenario":"商品管理","contactName":"测试联系人","contactMethod":"test-wechat","consent":true,"files":[{"name":"需求说明.txt","data":"`+base64.StdEncoding.EncodeToString([]byte(data))+`"}]}`, "")
 	require.Equal(t, 200, create.Code)
 	var receipt tm.Receipt
 	require.NoError(t, json.Unmarshal(create.Body.Bytes(), &receipt))
@@ -68,7 +70,26 @@ func TestEnterpriseDemandAndSpecialistProgressHTTPChain(t *testing.T) {
 	detail := send("GET", api.Base+"/requests/"+receipt.ID, "", "")
 	require.Equal(t, 200, detail.Code)
 	require.Contains(t, detail.Body.String(), "专员正在核实采集范围")
+	var saved tm.Detail
+	require.NoError(t, json.Unmarshal(detail.Body.Bytes(), &saved))
+	require.Equal(t, "商品管理", saved.Request.Scenario)
+	require.Equal(t, "test-wechat", saved.Request.ContactMethod)
+	require.Len(t, saved.Request.Attachments, 1)
+	filePath := "/requests/" + receipt.ID + "/files/" + saved.Request.Attachments[0].ID
+	for _, base := range []string{api.Base, api.AdminBase} {
+		file := send("GET", base+filePath, "", "")
+		require.Equal(t, 200, file.Code)
+		require.Equal(t, data, file.Body.String())
+		require.Equal(t, "text/plain; charset=utf-8", file.Header().Get("Content-Type"))
+		require.Contains(t, file.Header().Get("Content-Disposition"), "attachment;")
+		require.Contains(t, file.Header().Get("Content-Disposition"), "filename*=utf-8''")
+		require.Equal(t, "nosniff", file.Header().Get("X-Content-Type-Options"))
+		require.Contains(t, file.Header().Get("Cache-Control"), "no-store")
+	}
+	specialist = false
+	require.Equal(t, 403, send("GET", api.AdminBase+filePath, "", "").Code)
 	current.OrganizationID = "org-b"
+	require.Equal(t, 404, send("GET", api.Base+filePath, "", "").Code)
 	detail = send("GET", api.Base+"/requests/"+receipt.ID, "", "")
 	require.Equal(t, 404, detail.Code)
 }
