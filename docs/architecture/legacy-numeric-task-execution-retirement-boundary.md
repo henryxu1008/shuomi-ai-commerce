@@ -90,7 +90,7 @@ journal 的进程内锁不隔离同机不同进程；默认路径共享，写入
 | `internal/crawler/fetcher/{contracts,builder,amazon_source_adapter,remote_fetcher}_test.go` | distributed/旧 auto-selection 专属断言随实现退休；保留 local/remote、CrawlSource 注入、取消/deadline、nil 拒绝、缓存隔离及平台规则用例，必要时只改为直接调用保留 factory | 不把原安全失败关闭断言改为成功，不在保留路径增加 fallback；沿原 unsupported 默认分支验证退休 mode 被拒绝 |
 | `internal/platformbase/fetcher_builder_test.go`、本矩阵专属测试 | 保留原 local/remote/auto 选择与 invalid-mode 拒绝；沿现有 invalid-mode 用例覆盖 distributed 被拒绝。其它专属测试逐项确认是否仅验证已退 owner，再退出对应项 | 不按文件名批量删混合测试；共享接口/func adapter/其它平台与授权断言保持，不借退休撤掉仍存生产保护 |
 | `.golangci.yml` / 原 depguard 文本守卫 | `app_taskstatus_legacy_management` 的专属 files/deny 随该 owner 一并退出；若原 guard要求此已消失 owner，精确同步该项 | 其它全部 deny、file selection、frozen edge/closure 上限及当前保留路径保护不放宽，不添加豁免；实际允许边只能减少 |
-| `architecture-review-checklist.md` 的现行测试清单与 `tests/architecture_docs_test.go` | 对确实退休的测试名同步删除当前清单项，保持当前 guard coverage 与实际测试对应；只校准对应 owner，不清空整个清单或跳过覆盖检查 | 新的/扩展的原退休 absence guard 继续证明源码不复活；历史测试/扫描快照保留，既有当前安全守卫的覆盖要求不取消 |
+| `architecture-review-checklist.md`、`app-assembly-boundaries.md`、`project-boundaries.md` 的现行测试清单，以及 `external-client-boundary-inventory.md` 与 `tests/architecture_docs_test.go` | 对确实退休的测试名/直接构造消费者同步删除当前清单项，保持当前 guard coverage 与实际测试对应；只校准对应 owner，不清空整个清单或跳过覆盖检查 | 新的/扩展的原退休 absence guard 继续证明源码不复活；历史测试/扫描快照保留，既有当前安全守卫的覆盖要求不取消 |
 | 当前消费者/模块地图 | `phase2-runtime-inventory.md` 的机器校验表只删除实际已消失 consumer；`module-target-mapping.md`、`product-sourcing-inventory.md`、repository-structure/直接运行说明按真实变化校准 | 有效保留包/命令与 owner 不改，日期化历史扫描/决策/测试证据保留，不将历史 failure/cancel/未执行验收改为 PASS |
 
 ### 6.1 CI、构建与验证范围
