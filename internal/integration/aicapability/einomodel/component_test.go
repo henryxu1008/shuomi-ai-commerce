@@ -2,6 +2,7 @@ package einomodel
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -34,6 +35,9 @@ func TestPinnedEinoComponentsUseOneGuardedSyntheticTransport(t *testing.T) {
 				sends.Add(1)
 				require.Equal(t, "POST", r.Method)
 				require.Equal(t, "application/json", r.Header.Get("Content-Type"))
+				var payload map[string]any
+				require.NoError(t, json.NewDecoder(r.Body).Decode(&payload))
+				require.NotContains(t, payload, "enable_thinking", "other model protocols are unchanged")
 				w.Header().Set("Content-Type", "application/json")
 				_, _ = fmt.Fprint(w, tc.response)
 			}))

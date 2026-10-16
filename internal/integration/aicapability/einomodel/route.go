@@ -150,9 +150,10 @@ func (r *OrganizationRouteResolver) resolve(ctx context.Context, input aicapabil
 }
 
 // ValidRouteProfile is static protocol qualification, never user permission.
+// The selected DashScope model requires its fixed non-thinking policy.
 // Google is qualified only for the current title operation and fixed versions.
 func ValidRouteProfile(p aicapability.ModelProfile, operation aicapability.Operation) bool {
-	if p.Validate() != nil {
+	if p.Validate() != nil || !validFixedAdapterPolicy(AdapterKind(p.AdapterKind), p.ProviderID, p.ModelID, p.AdapterPolicyVersion) {
 		return false
 	}
 	if AdapterKind(p.AdapterKind) != AdapterGoogleInteractions {

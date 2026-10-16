@@ -47,6 +47,18 @@ credential SELECT、invocation SELECT/INSERT/UPDATE；Review 连接需要既有 
 [Chat 试用说明](ai-workbench-chat-trial.md)。只有精确 route 的计量、定价、付费授权均有
 证据时才启用；不能从兼容协议或别家模型窗口推断。
 
+DASHSCOPE 的 `deepseek-v4.1-flash` 使用同一个受控 Eino OpenAI-compatible 组件。
+该准确组合必须显式配置 `Profile.ProviderID=DASHSCOPE`、
+`AdapterKind=openai-compatible`、`ModelID=deepseek-v4.1-flash`、
+`AdapterPolicyVersion=dashscope-deepseek-v4.1-flash-nonthinking-v1`。该版本仅属于此供应商/模型/协议组合；
+旧通用版本不能就绪。组件仅通过固定 SDK 发送 `enable_thinking:false`，最终网络门禁在发送前要求真实 JSON 布尔 `false`，
+不接收自定义 ExtraFields 或浏览器参数。整个 Profile（含该版本）继续绑定报价与发送前的原路由校验，策略改变须重新报价。
+内容试用配在原 `productAgent.contentTextPolicies[organizationId]`，继续使用原 `consumer: "content"` 独立组织凭据；
+不复用标题或 Chat 的凭据准入。即使固定关闭思考，返回非空思考内容仍按原输出合同拒绝；
+完整报告的 completion usage 全部计入上限/费用，用量缺失或不一致仍为 UNKNOWN，不换键重发。
+供应商对思考默认值及计费的说明见 [官方 DeepSeek API](https://help.aliyun.com/zh/model-studio/deepseek-api)。
+这些字段只说明源码配置合同；真实 endpoint/地域/密钥权限、价格、准入、预算及付费调用仍需原运行清单和单独授权。
+
 Google 标题路由按 [#588 组合增量 §6.7](../architecture/ai-workbench-chat-business-task-v1.md#67-google-interactions-composition-increment) 配置同一 `RoutePolicy`：
 `Profile.ProviderID=google`、`AdapterKind=google-interactions`、`ModelID=gemini-3.8-flash`、
 `AdapterPolicyVersion=google-interactions-v1`、`UsageMappingVersion=google-interactions-usage-v1`。
