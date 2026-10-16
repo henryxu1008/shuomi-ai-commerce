@@ -566,6 +566,8 @@ Before merging a refactoring or feature PR, check:
 
 The active import-boundary tests in `tests/import_boundaries_test.go` and architecture document tests in `tests/architecture_docs_test.go` are the executable version of this document. When this list changes, update this document in the same change so future refactors can find the enforced boundary from one place.
 
+- `TestListingKitTaskBackendSourcesAreRetired`
+- `TestCurrentCommandsDoNotCompileLegacyBusinessBackends`
 - `TestDomainHTTPPackagesDoNotImportAppHTTPAPI`
 - `TestBusinessDomainsDoNotImportAppHTTPAPI`
 - `depguard: domain_app_httpapi_boundaries`
@@ -713,10 +715,8 @@ The active import-boundary tests in `tests/import_boundaries_test.go` and archit
 - `TestTemuPricingRuntimeUsesCapabilityNames`
 - `TestTemuSchedulerRuntimeUsesCapabilityNames`
 - `TestTemuProcessorRuntimeUsesCapabilityNames`
-- `TestTemuSyncRuntimeUsesCapabilityNames`
 - `TestTemuRuntimeErrorsUseCapabilityNames`
 - `TestTemuPricingFallbackLogsUseCapabilityNames`
-- `TestTemuSyncFallbackLogsUseCapabilityNames`
 - `TestAppRunnerSchedulerStoreRuntimeUsesCapabilityNames`
 - `TestAppRunnerProcessorLifecycleUsesRuntimeNames`
 - `TestAppRunnerHealthChecksUseRuntimeNames`

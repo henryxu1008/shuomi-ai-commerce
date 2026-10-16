@@ -1589,31 +1589,6 @@ func TestTemuPricingRuntimeUsesCapabilityNames(t *testing.T) {
 	}
 }
 
-func TestTemuSyncRuntimeUsesCapabilityNames(t *testing.T) {
-	path := filepath.Join("..", "internal", "temu", "sync", "runtime_adapter.go")
-	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, path, nil, 0)
-	if err != nil {
-		t.Fatalf("parse %s: %v", path, err)
-	}
-
-	for _, decl := range file.Decls {
-		gen, ok := decl.(*ast.GenDecl)
-		if !ok {
-			continue
-		}
-		for _, spec := range gen.Specs {
-			typeSpec, ok := spec.(*ast.TypeSpec)
-			if !ok || typeSpec.Name == nil {
-				continue
-			}
-			if typeSpec.Name.Name == "managementRuntime" {
-				t.Fatalf("%s defines managementRuntime; use service runtime names for TEMU sync ports", path)
-			}
-		}
-	}
-}
-
 func TestTemuRuntimeErrorsUseCapabilityNames(t *testing.T) {
 	paths := []string{
 		filepath.Join("..", "internal", "temu", "api", "client", "auth_pause_handler.go"),
@@ -1739,19 +1714,6 @@ func TestTemuPricingUsesManagementAPIPortAliases(t *testing.T) {
 	}
 }
 
-func TestTemuSyncUsesManagementAPIPortAliases(t *testing.T) {
-	root := filepath.Join("..", "internal", "temu", "sync")
-	index, err := loadGoFileIndex(root, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for path, facts := range index.files {
-		if _, ok := facts.imports[`"task-processor/internal/infra/clients/management/api"`]; ok {
-			t.Fatalf("%s imports concrete management API DTOs; use listingadmin/local runtime types", path)
-		}
-	}
-}
-
 func TestTemuAPIClientUsesManagementAPIPortAliases(t *testing.T) {
 	root := filepath.Join("..", "internal", "temu", "api", "client")
 	index, err := loadGoFileIndex(root, "")
@@ -1779,17 +1741,6 @@ func TestTemuPricingFallbackLogsUseCapabilityNames(t *testing.T) {
 		if strings.Contains(string(content), "management client") {
 			t.Fatalf("%s mentions management client in fallback logs; use pricing/store capability names", path)
 		}
-	}
-}
-
-func TestTemuSyncFallbackLogsUseCapabilityNames(t *testing.T) {
-	path := filepath.Join("..", "internal", "temu", "sync", "inventory_sync_helper.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	if strings.Contains(string(content), "management client") {
-		t.Fatalf("%s mentions management client in fallback logs; use inventory/store capability names", path)
 	}
 }
 
@@ -1857,15 +1808,6 @@ func TestRetiredManagementRuntimeNamingHotspotsUseCapabilityNames(t *testing.T) 
 		filepath.Join("..", "internal", "temu", "scheduler", "factory.go"): {
 			"ManagementRuntime:",
 			"GetManagementRuntime",
-		},
-		filepath.Join("..", "internal", "temu", "sync", "product_sync_service.go"): {
-			"management_client",
-		},
-		filepath.Join("..", "internal", "temu", "sync", "product_sync_repository_test.go"): {
-			"WithoutManagementClient",
-		},
-		filepath.Join("..", "internal", "shein", "productsync", "product_sync_repository_test.go"): {
-			"WithoutManagementClient",
 		},
 		filepath.Join("..", "internal", "pricing", "cost_calculator_test.go"): {
 			"managementClient",
@@ -2646,15 +2588,6 @@ func TestSheinRetiredManagementImportsStayBlocked(t *testing.T) {
 		filepath.Clean(filepath.Join(root, "authorizedbrand", "context_test.go")):          {},
 		filepath.Clean(filepath.Join(root, "authorizedbrand", "types.go")):                 {},
 		filepath.Clean(filepath.Join(root, "context", "context.go")):                       {},
-		filepath.Clean(filepath.Join(root, "inventory", "api.go")):                         {},
-		filepath.Clean(filepath.Join(root, "inventory", "change_checker.go")):              {},
-		filepath.Clean(filepath.Join(root, "inventory", "cost_calculator.go")):             {},
-		filepath.Clean(filepath.Join(root, "inventory", "monitor.go")):                     {},
-		filepath.Clean(filepath.Join(root, "inventory", "price_strategy.go")):              {},
-		filepath.Clean(filepath.Join(root, "inventory", "record.go")):                      {},
-		filepath.Clean(filepath.Join(root, "inventory", "strategy.go")):                    {},
-		filepath.Clean(filepath.Join(root, "inventory", "sync.go")):                        {},
-		filepath.Clean(filepath.Join(root, "inventory", "types.go")):                       {},
 		filepath.Clean(filepath.Join(root, "managedclient", "api_client_test.go")):         {},
 		filepath.Clean(filepath.Join(root, "managedclient", "bridge.go")):                  {},
 		filepath.Clean(filepath.Join(root, "managedclient", "manager.go")):                 {},
@@ -2676,8 +2609,6 @@ func TestSheinRetiredManagementImportsStayBlocked(t *testing.T) {
 		filepath.Clean(filepath.Join(root, "product", "skc", "variant_runtime_test.go")):   {},
 		filepath.Clean(filepath.Join(root, "product", "sku", "sku_runtime_input.go")):      {},
 		filepath.Clean(filepath.Join(root, "product", "sku", "strategy_test.go")):          {},
-		filepath.Clean(filepath.Join(root, "productsync", "product_sync.go")):              {},
-		filepath.Clean(filepath.Join(root, "productsync", "product_sync_enricher.go")):     {},
 		filepath.Clean(filepath.Join(root, "productsync", "product_sync_types.go")):        {},
 		filepath.Clean(filepath.Join(root, "publish", "checker.go")):                       {},
 		filepath.Clean(filepath.Join(root, "publish", "exists_check.go")):                  {},
@@ -3059,38 +2990,16 @@ func TestSharedPricingRetiredManagementImportsStayBlocked(t *testing.T) {
 
 func TestTEMUSyncAndPricingRetiredManagementImportsStayBlocked(t *testing.T) {
 	allowedFiles := map[string]struct{}{
-		filepath.Clean(filepath.Join("..", "internal", "temu", "pricing", "auto_pricing_service.go")):        {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "pricing", "interfaces.go")):                  {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "pricing", "pricing_data_service.go")):        {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "pricing", "pricing_decision_service.go")):    {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "pricing", "pricing_rule_calculator.go")):     {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "pricing", "store_config_service.go")):        {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "sync", "factory.go")):                        {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "sync", "inventory_sync_api.go")):             {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "sync", "inventory_sync_change_checker.go")):  {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "sync", "inventory_sync_concurrent.go")):      {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "sync", "inventory_sync_cost_calculator.go")): {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "sync", "inventory_sync_factory.go")):         {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "sync", "inventory_sync_interface.go")):       {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "sync", "inventory_sync_monitor.go")):         {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "sync", "inventory_sync_record.go")):          {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "sync", "inventory_sync_service.go")):         {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "sync", "inventory_sync_strategy.go")):        {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "sync", "inventory_sync_updater.go")):         {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "sync", "mapping.go")):                        {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "sync", "product_converter.go")):              {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "sync", "product_data_builder.go")):           {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "sync", "product_data_helpers.go")):           {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "sync", "product_sync_service.go")):           {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "sync", "product_sync_types.go")):             {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "sync", "product_utils.go")):                  {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "sync", "sku_details_handler.go")):            {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "sync", "sku_mapping_enricher.go")):           {},
+		filepath.Clean(filepath.Join("..", "internal", "temu", "pricing", "auto_pricing_service.go")):     {},
+		filepath.Clean(filepath.Join("..", "internal", "temu", "pricing", "interfaces.go")):               {},
+		filepath.Clean(filepath.Join("..", "internal", "temu", "pricing", "pricing_data_service.go")):     {},
+		filepath.Clean(filepath.Join("..", "internal", "temu", "pricing", "pricing_decision_service.go")): {},
+		filepath.Clean(filepath.Join("..", "internal", "temu", "pricing", "pricing_rule_calculator.go")):  {},
+		filepath.Clean(filepath.Join("..", "internal", "temu", "pricing", "store_config_service.go")):     {},
 	}
 
 	for _, root := range []string{
 		filepath.Join("..", "internal", "temu", "pricing"),
-		filepath.Join("..", "internal", "temu", "sync"),
 	} {
 		t.Run(filepath.ToSlash(root), func(t *testing.T) {
 			index, err := loadGoFileIndex(root, "")
@@ -3105,7 +3014,7 @@ func TestTEMUSyncAndPricingRetiredManagementImportsStayBlocked(t *testing.T) {
 				for quotedImport := range facts.imports {
 					importPath := strings.Trim(quotedImport, `"`)
 					if importMatchesPrefix(importPath, "task-processor/internal/infra/clients/management") {
-						t.Errorf("%s imports %s; keep TEMU retired management service dependencies limited to current sync and pricing seams", path, importPath)
+						t.Errorf("%s imports %s; keep TEMU retired management service dependencies limited to remaining pricing seams; sync is retired", path, importPath)
 					}
 				}
 			}

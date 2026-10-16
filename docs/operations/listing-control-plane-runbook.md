@@ -23,6 +23,12 @@ Status: **RETIRED source entrypoints**（#726，#29 / #301）。
 共享包、Store owner helper 与 ImportTaskID 字段仍有有效消费者，不能整包或按名字清扫；
 它们也不是新当前业务增加旧数字 owner 依赖的许可。
 
+#742 的[确认同步边界](../architecture/legacy-numeric-product-inventory-sync-retirement-boundary.md)
+进一步退出未注入的 SHEIN/TEMU 数字商品/库存同步与专属 InventoryRecord 源码/DTO，
+不把监控/平台 mutation 交给新调度器、当前 observations 或登录 worker。两种 SHEIN
+属性类型、有效平台 API/规则、其余共享仓库及登录后的 Store 同步保持；两套 workflow
+继续原检查，未操作实例、真实表/索引/行/历史、配置凭据或 Profile，不增加试用前置。
+
 前批保留的历史 ownership-controller 声明，随后已按 #738 的[确认边界](../architecture/legacy-ownership-controller-retirement-boundary.md)
 连同专属配置 overlay 和 auto-shard 配置闭包源码退休；没有更换或运行该历史镜像。
 其它有效共享配置、Secret/RBAC/监控对象与保留 Store/owner/规则安全合同保持。

@@ -11,6 +11,11 @@
 
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
+再后 [#742 已确认同步边界](legacy-numeric-product-inventory-sync-retirement-boundary.md)退出
+当时保留的 SHEIN/TEMU 数字商品/库存同步服务、runtime adapter 及专属 InventoryRecord
+源码；SHEIN 两种共享属性类型、平台 API/规则、其余有效仓库/合同、当前观察与独立登录的
+Store 同步保持。下方 #729 矩阵仍是当时边界，不据此恢复已退出服务或操作真实状态。
+
 - Status: **用户已确认 §5、§6、§6.1、§7，按 Reuse Existing Architecture / Ready 在 #729 实施源码退休**；准确实现候选、CI与独立检查以 PR 为准。
 - 实施 Design Basis: **Reuse Existing Architecture**。用户确认的设计1f9c37d98先于正式源码修改；#29/#301已记录Ready。原设计阶段N/A及其文档CI不替代本轮实现准入或验证。
 - 调查基线：`main @ db47d15e563c0ced7469ba12d251d8c7be1da4dd`，即 #726 的实际合并提交。
