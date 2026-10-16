@@ -408,42 +408,6 @@ func knownEnvBindings() map[string]envBinding {
 			Primary:    "TASK_PROCESSOR_RABBITMQ_NODE_USE_STORE_QUEUES",
 			Deprecated: []string{"RABBITMQ_NODE_USE_STORE_QUEUES"},
 		},
-		"rabbitmq.autoShard.enabled": {
-			Primary:    "TASK_PROCESSOR_RABBITMQ_AUTO_SHARD_ENABLED",
-			Deprecated: []string{"RABBITMQ_AUTO_SHARD_ENABLED"},
-		},
-		"rabbitmq.autoShard.role": {
-			Primary:    "TASK_PROCESSOR_RABBITMQ_AUTO_SHARD_ROLE",
-			Deprecated: []string{"RABBITMQ_AUTO_SHARD_ROLE"},
-		},
-		"rabbitmq.autoShard.platform": {
-			Primary:    "TASK_PROCESSOR_RABBITMQ_AUTO_SHARD_PLATFORM",
-			Deprecated: []string{"RABBITMQ_AUTO_SHARD_PLATFORM"},
-		},
-		"rabbitmq.autoShard.interval": {
-			Primary:    "TASK_PROCESSOR_RABBITMQ_AUTO_SHARD_INTERVAL",
-			Deprecated: []string{"RABBITMQ_AUTO_SHARD_INTERVAL"},
-		},
-		"rabbitmq.autoShard.pageSize": {
-			Primary:    "TASK_PROCESSOR_RABBITMQ_AUTO_SHARD_PAGE_SIZE",
-			Deprecated: []string{"RABBITMQ_AUTO_SHARD_PAGE_SIZE"},
-		},
-		"rabbitmq.autoShard.lockKey": {
-			Primary:    "TASK_PROCESSOR_RABBITMQ_AUTO_SHARD_LOCK_KEY",
-			Deprecated: []string{"RABBITMQ_AUTO_SHARD_LOCK_KEY"},
-		},
-		"rabbitmq.autoShard.lockTTL": {
-			Primary:    "TASK_PROCESSOR_RABBITMQ_AUTO_SHARD_LOCK_TTL",
-			Deprecated: []string{"RABBITMQ_AUTO_SHARD_LOCK_TTL"},
-		},
-		"rabbitmq.autoShard.candidateNodes": {
-			Primary:    "TASK_PROCESSOR_RABBITMQ_AUTO_SHARD_CANDIDATE_NODES",
-			Deprecated: []string{"RABBITMQ_AUTO_SHARD_CANDIDATE_NODES"},
-		},
-		"rabbitmq.autoShard.targetStoresPerNode": {
-			Primary:    "TASK_PROCESSOR_RABBITMQ_AUTO_SHARD_TARGET_STORES_PER_NODE",
-			Deprecated: []string{"RABBITMQ_AUTO_SHARD_TARGET_STORES_PER_NODE"},
-		},
 		"rabbitmq.deadLetter.enabled": {
 			Primary:    "TASK_PROCESSOR_RABBITMQ_DEAD_LETTER_ENABLED",
 			Deprecated: []string{"RABBITMQ_DEAD_LETTER_ENABLED"},

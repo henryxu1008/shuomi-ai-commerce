@@ -1,5 +1,9 @@
 # 旧数字任务执行链：退休设计与持久化边界
 
+后续校准：本文件记录 #729 当时的删除/保留边界。原保留的 ownership-controller
+及专属 auto-shard 配置，随后已按 [#738 已确认范围](legacy-ownership-controller-retirement-boundary.md)
+源码退休；旧表/运行态、有效共享合同和独立登录仍保留，历史矩阵不回写为当时已删。
+
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
 - Status: **用户已确认 §5、§6、§6.1、§7，按 Reuse Existing Architecture / Ready 在 #729 实施源码退休**；准确实现候选、CI与独立检查以 PR 为准。
