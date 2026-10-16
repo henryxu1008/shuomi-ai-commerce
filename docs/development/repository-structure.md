@@ -116,6 +116,7 @@ CURRENT STATE：命令清单核对于上述 `main @ eb9e019686564b976c1a1a9828ee
     - `notification-center-schema-init`
     - `product-agent-credential-provision`
     - `product-agent-runtime-prepare`
+    - `local-ai-trial-grant`
     - `1688-batch-import`
     - `1688-local-agent`
     - `commercial-owner-schema-migrate`
@@ -148,6 +149,7 @@ CURRENT STATE：命令清单核对于上述 `main @ eb9e019686564b976c1a1a9828ee
   - `agent-customization-schema-init` 的构建归属为 `deployments/docker/Dockerfile.account-compose` 的 `schema-init` target；安装人员显式提供私密 `AGENT_CUSTOMIZATION_SCHEMA_DSN` 和既有 `--runtime-role`，安装独立库的人工需求、私有交付及报告 schema 与最小权限。Compose 不自动调用，不创建需求、交付或交易，不迁移旧数据。获准的当前系统 schema 演进保留已有事实。依据 #611 / [智能体定制 V1](../architecture/agent-customization-v1.md) / [私有交付 V1](../architecture/private-agent-delivery-v1.md)。
   - `product-agent-credential-provision` 由 `scripts/product-agent-credential-provision.ps1` 显式委托；部署者用私有 manifest 与私有凭据输入，通过同一 ProductAgentDB 的独立受限写入角色配置标题组织行。它不自动启用 Agent 或执行付费调用；准入条件见 [标题诊断试用交接](../operations/product-agent-trial.md)。
   - `product-agent-runtime-prepare` 的构建归属为 `deployments/docker/Dockerfile.product-listing-api`；安装者获准后显式选择 `--target run` 或 `--target review`，分别使用私密 `PRODUCT_AGENT_SCHEMA_DSN` / `PRODUCT_REVIEW_SCHEMA_DSN`。它只编排原 owner 的三表全缺新建及现表窄 grants / 完整精确 no-op；部分状态和漂移拒绝，不创建角色或密码，不迁移、不启用模型、不启动 serving 或 worker。两库分别提交，未知结果先核实；依据 [内容标题与 Chat 共存](../architecture/content-agent-chat-coexistence-v1.md)。
+  - `local-ai-trial-grant` 的构建归属为 `deployments/docker/Dockerfile.product-listing-api`，装配归 `internal/app/localaitrial`、资源事实归 `ledger/orgresource`。沿私密配置和既有 `commercial_owner_runtime`，默认 inspect 只读；明确获准并开启 grant 后仅一次10000非现金ai_point，复用来源幂等/事务/债务/审计，未知结果原键读回。它不安装 schema/权限、不改钱包/成员限额、不启模型或调用 provider；依据 [#724 专用来源设计](../architecture/local-ai-trial-v1.md) 和[待确认执行清单](../operations/local-ai-trial-v1.md)。列入维护清单不授权真实发点或部署。
   - 不再新增临时调试可执行程序。
   - 历史 Source Account ownership preflight CLI、脚本和专属迁移实现已按 #529 退休；其 [SUPERSEDED 说明](../operations/source-account-ownership-preflight.md) 仅保留历史证据，不是当前运行入口。
   - 旧 `listingkit-owner-scope-dry-run` / `listingkit-owner-scope-exceptions` 及其专属装配、写入方法和包装已按 #529 退休。旧发布身份预检、独占共享reader与tenantbridge已按批准设计退休；schema工具与独立SHEIN worker保持。
