@@ -1,5 +1,12 @@
 # Phase 2 runtime convergence inventory
 
+> #726 bounded source retirement: control-plane/platform-recovery entrypoints
+> and exclusive orchestration are absent under the confirmed #29/#301 scope.
+> The current consumer register removes only the now-absent listingcontrol
+> RabbitMQ importer; historical Phase 2 package maps below remain dated evidence.
+> Shared contracts, closure ceilings, task repository safety and independent
+> SHEIN login worker remain; no runtime/data action or new trial prerequisite.
+
 > Bounded retirement update (#529 / #301): `internal/tenantbridge/bootstrap`
 > is source-retired after its last production consumer exited. Its entries in
 > dated package maps and phase snapshots below remain historical evidence;
@@ -303,7 +310,6 @@ internal wiring is intentionally excluded; no other package class is excluded.
 | `task-processor/internal/platform/redis` | `task-processor/internal/crawler/amazon` | crawler business consumer | product + marketplace / Phases 3-4 |
 | `task-processor/internal/platform/redis` | `task-processor/internal/crawler/shared` | crawler business consumer | product + marketplace / Phases 3-4 |
 | `task-processor/internal/platform/queue/rabbitmq` | `task-processor/internal/crawler/fetcher` | crawler business consumer | product + marketplace / Phases 3-4 |
-| `task-processor/internal/platform/queue/rabbitmq` | `task-processor/internal/listingcontrol` | listing business consumer | listing owner / Phase 5 |
 | `task-processor/internal/platform/queue/rabbitmq` | `task-processor/internal/platformbase` | runtime-support debt | app retirement / Phase 8 |
 | `task-processor/internal/platform/queue/rabbitmq` | `task-processor/internal/temu/sync` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/platform/workerpool` | `task-processor/internal/amazon` | marketplace business consumer | marketplace owner / Phase 4 |
