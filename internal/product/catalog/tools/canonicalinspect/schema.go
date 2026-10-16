@@ -40,7 +40,7 @@ var outputSchema = json.RawMessage(`{
       "properties":{
         "title":{"type":"string"},"brand":{"type":"string"},
         "category_path":{"type":"array","items":{"type":"string"}},
-        "description":{"type":"string"},
+        "description":{"type":"string"},"description_format":{"type":"string","enum":["html-v1"]},
         "selling_points":{"type":"array","items":{"type":"string"}},
         "seo_keywords":{"type":"array","items":{"type":"string"}},
         "attributes":{"type":"array","items":{"$ref":"#/$defs/attribute"}},

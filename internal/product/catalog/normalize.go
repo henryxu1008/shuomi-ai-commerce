@@ -14,18 +14,19 @@ func Normalize(product *canonical.Product) (*ProductSnapshot, error) {
 	}
 
 	snapshot := &ProductSnapshot{
-		Title:          product.Title,
-		Brand:          product.Brand,
-		CategoryPath:   cloneStrings(product.CategoryPath),
-		Description:    product.Description,
-		SellingPoints:  cloneStrings(product.SellingPoints),
-		SEOKeywords:    cloneStrings(product.SEOKeywords),
-		Attributes:     buildAttributes(product.Attributes),
-		Specifications: buildSpecifications(product.Specifications),
-		Variants:       buildVariants(product.Variants),
-		Images:         buildImages(product.Images),
-		Review:         buildReviewState(product),
-		Sources:        collectSources(product),
+		Title:             product.Title,
+		Brand:             product.Brand,
+		CategoryPath:      cloneStrings(product.CategoryPath),
+		Description:       product.Description,
+		DescriptionFormat: product.DescriptionFormat,
+		SellingPoints:     cloneStrings(product.SellingPoints),
+		SEOKeywords:       cloneStrings(product.SEOKeywords),
+		Attributes:        buildAttributes(product.Attributes),
+		Specifications:    buildSpecifications(product.Specifications),
+		Variants:          buildVariants(product.Variants),
+		Images:            buildImages(product.Images),
+		Review:            buildReviewState(product),
+		Sources:           collectSources(product),
 	}
 
 	return snapshot, nil

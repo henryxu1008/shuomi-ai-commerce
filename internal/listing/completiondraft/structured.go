@@ -5,6 +5,7 @@ import (
 	"math"
 	"reflect"
 	"strings"
+	"task-processor/internal/product/description"
 	"unicode/utf8"
 
 	"task-processor/internal/listing/preparation"
@@ -61,7 +62,16 @@ func (c *StructuredContent) validate() error {
 	return nil
 }
 func (c Content) matchesSnapshot(product catalog.ProductSnapshot) bool {
-	return c.Structured == nil || len(c.Structured.Variants) == len(product.Variants)
+	images := []string{}
+	for _, image := range product.Images {
+		images = append(images, image.URL)
+	}
+	for _, v := range product.Variants {
+		for _, image := range v.Images {
+			images = append(images, image.URL)
+		}
+	}
+	return description.Validate(c.Description, c.DescriptionFormat, images) == nil && (c.Structured == nil || len(c.Structured.Variants) == len(product.Variants))
 }
 
 // EqualContent compares the complete immutable candidate, including pointer and

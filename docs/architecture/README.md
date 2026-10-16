@@ -1,5 +1,7 @@
 # Architecture Documentation
 
+- [`own-product-rich-description-v1.md`](own-product-rich-description-v1.md): versioned safe rich descriptions in current Product/CompletionDraft, existing image pool, history/restore, and explicit text-only platform projection; no schema/runtime/provider action.
+
 ## Goal
 
 This index separates stable architecture rules from plans, runbooks, and

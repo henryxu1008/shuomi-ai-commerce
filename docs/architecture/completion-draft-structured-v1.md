@@ -1,5 +1,7 @@
 # CompletionDraft 结构化候选 v1
 
+2026-10-17 格式增量见[自有商品富文本合同](own-product-rich-description-v1.md)：描述及格式共同保存/比较；草稿恢复完整旧描述格式并保留当前 structured，平台文字字段使用明确的纯文字投影。原权限、固定来源、CAS、幂等及发布边界不变。
+
 Design Basis: Independent Architecture
 Admission Status: IMPLEMENTATION_READY / FROZEN — 2026-10-15 R1独立检查通过，设计提交dc4e33327e0222049580372da582767fc930b359；固定SKU集合/深复制、未填与零/旧hash、完整回执与消费者保留结构作为IMPLEMENTATION_TEST在合并前收敛。
 

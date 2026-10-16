@@ -123,7 +123,10 @@ func TestPostgresUnboundDraftAtomicCASReplayAndUnknownRecovery(t *testing.T) {
 	ps, err := preparation.NewService(pr, cs, auth)
 	require.NoError(t, err)
 	batch, item, product, publication := uuid.NewString(), uuid.NewString(), uuid.NewString(), uuid.NewString()
-	raw := json.RawMessage(`{"title":"Original product","variants":[{"sku":"","price":{"currency":"CNY","amount":0},"stock":0},{"sku":"","stock":3}]}`)
+	raw := json.RawMessage(`{"title":"Original product","description":"<p>Original rich source</p>","description_format":"html-v1","images":[{"url":"https://images.example.org/a.png"}],"variants":[{"sku":"","price":{"currency":"CNY","amount":0},"stock":0},{"sku":"","stock":3}]}`)
+	// Match the Catalog encoder: its hash covers the exact HTML-escaped JSON bytes.
+	raw, err = json.Marshal(raw)
+	require.NoError(t, err)
 	require.NoError(t, db.Create(&catalogstore.SnapshotVersionRecord{TenantID: scope.OrganizationID, ProductKey: product, Version: 1, PublicationID: publication, PayloadHash: collection.Digest(raw), SnapshotJSON: raw}).Error)
 	require.NoError(t, db.Exec("INSERT INTO product_collection_batches(organization_id,actor_id,member_id,id,name,kind,revision,created_at) VALUES(?,?,?,?,?,'manual',1,now())", scope.OrganizationID, scope.ActorID, scope.MemberID, batch, "真实原始批次").Error)
 	require.NoError(t, db.Exec("INSERT INTO product_collection_items(organization_id,actor_id,member_id,id,batch_id,product_key,publication_id,original_version,source_kind,source_operation_id,revision,created_at) VALUES(?,?,?,?,?,?,?,1,'own','',1,now())", scope.OrganizationID, scope.ActorID, scope.MemberID, item, batch, product, publication).Error)
@@ -147,10 +150,17 @@ func TestPostgresUnboundDraftAtomicCASReplayAndUnknownRecovery(t *testing.T) {
 	require.EqualValues(t, 1, first.Record.Revision)
 	input2 := input
 	input2.ExpectedRevision = 1
-	input2.Content.Description = "Candidate R2"
-	second, err := service.Save(actor, uuid.NewString(), input2)
+	input2.Content.Description = `<p><strong>Candidate R2</strong><img src="https://images.example.org/a.png"></p>`
+	input2.Content.DescriptionFormat = "html-v1"
+	richKey := uuid.NewString()
+	second, err := service.Save(actor, richKey, input2)
 	require.NoError(t, err)
 	require.EqualValues(t, 2, second.Record.Revision)
+	require.Equal(t, input2.Content, second.Record.Content)
+	differentFormat := input2
+	differentFormat.Content.DescriptionFormat = ""
+	_, err = service.Save(actor, richKey, differentFormat)
+	require.ErrorIs(t, err, preparation.ErrConflict)
 	replay, err := service.Save(actor, key, input)
 	require.NoError(t, err)
 	require.True(t, replay.Replayed)
@@ -233,6 +243,9 @@ func TestPostgresUnboundDraftAtomicCASReplayAndUnknownRecovery(t *testing.T) {
 		require.NoError(t, e)
 		require.Equal(t, []completiondraft.Record{second.Record, first.Record}, rest.Items)
 		require.Zero(t, rest.NextBefore)
+		rich, e := service.ReadRevision(actor, input2.SourceID, 2)
+		require.NoError(t, e)
+		require.Equal(t, second.Record, rich)
 		old, e := service.ReadRevision(actor, input2.SourceID, 1)
 		require.NoError(t, e)
 		require.Equal(t, first.Record, old)

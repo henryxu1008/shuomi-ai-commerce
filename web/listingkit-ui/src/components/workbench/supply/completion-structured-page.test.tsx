@@ -60,3 +60,9 @@ it("refuses wrong navigation, readonly edits, and late responses after scope cha
  f.context.permissions=["workbench.supply.read"];const ro=render(<CompletionStructuredPage {...props}/>);await screen.findByRole("heading",{name:"候选商品属性"});expect(save()).toBeDisabled();expect(screen.getByRole("spinbutton",{name:"候选库存 SKU 1"})).toBeDisabled();ro.unmount();
  f.context.permissions=["workbench.supply.read","workbench.supply.manage"];let resolve!:(value:unknown)=>void;f.source.mockReturnValueOnce(new Promise(r=>{resolve=r}));const view=render(<CompletionStructuredPage {...props}/>);f.context.effectiveOrganization.id="changed";f.source.mockReturnValue(new Promise(()=>{}));view.rerender(<CompletionStructuredPage {...props}/>);await act(async()=>resolve(detail));expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
 });
+
+it("retains the exact rich description and format when saving only attributes and SKUs",async()=>{
+ const rich={...head,content:{...content,description:"<p><strong>保留排版</strong></p>",descriptionFormat:"html-v1" as const}};
+ f.head.mockResolvedValue(rich);render(<CompletionStructuredPage {...props}/>);await screen.findByRole("heading",{name:"候选商品属性"});
+ fireEvent.click(save());await waitFor(()=>expect(f.save).toHaveBeenCalledWith(expect.objectContaining({command:{sourceId:id,expectedRevision:3,content:rich.content}}),expect.any(AbortSignal)));
+});

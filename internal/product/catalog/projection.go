@@ -6,16 +6,17 @@ import "task-processor/internal/product/catalog/canonical"
 // It does not publish facts, approve images, or load external inputs.
 func ProjectCanonical(snapshot ProductSnapshot) *canonical.Product {
 	product := &canonical.Product{
-		Title:          snapshot.Title,
-		Brand:          snapshot.Brand,
-		CategoryPath:   append([]string(nil), snapshot.CategoryPath...),
-		Description:    snapshot.Description,
-		SellingPoints:  append([]string(nil), snapshot.SellingPoints...),
-		SEOKeywords:    append([]string(nil), snapshot.SEOKeywords...),
-		Attributes:     canonicalAttributesFromSnapshot(snapshot.Attributes),
-		Specifications: canonicalSpecificationsFromSnapshot(snapshot.Specifications),
-		Variants:       canonicalVariantsFromSnapshot(snapshot.Variants),
-		Images:         canonicalImagesFromSnapshot(snapshot.Images),
+		Title:             snapshot.Title,
+		Brand:             snapshot.Brand,
+		CategoryPath:      append([]string(nil), snapshot.CategoryPath...),
+		Description:       snapshot.Description,
+		DescriptionFormat: snapshot.DescriptionFormat,
+		SellingPoints:     append([]string(nil), snapshot.SellingPoints...),
+		SEOKeywords:       append([]string(nil), snapshot.SEOKeywords...),
+		Attributes:        canonicalAttributesFromSnapshot(snapshot.Attributes),
+		Specifications:    canonicalSpecificationsFromSnapshot(snapshot.Specifications),
+		Variants:          canonicalVariantsFromSnapshot(snapshot.Variants),
+		Images:            canonicalImagesFromSnapshot(snapshot.Images),
 	}
 	if snapshot.Review != nil {
 		product.NeedsReview = snapshot.Review.NeedsReview

@@ -1,7 +1,11 @@
 import {cleanup,fireEvent,render,screen,waitFor,within} from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
 import {SupplyAPIError} from "@/lib/api/supply-chain";
 import {CompletionDraftPage} from "./completion-draft-page";
+// JSDOM does not lay out text selections; ProseMirror needs these browser APIs.
+Object.defineProperty(Range.prototype,"getClientRects",{configurable:true,value:()=>[]});
+Object.defineProperty(Range.prototype,"getBoundingClientRect",{configurable:true,value:()=>new DOMRect()});
 const f=vi.hoisted(()=>({context:{user:{id:"actor"},effectiveOrganization:{id:"org"},permissions:["workbench.supply.read","workbench.supply.manage"],supplyIntentReady:true,pendingSupplyIntent:null as unknown,setPendingSupplyIntent:vi.fn<(intent:unknown)=>boolean>(),registerOrganizationSwitchGuard:()=>()=>{}},source:vi.fn(),read:vi.fn(),save:vi.fn()}));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>f.context}));
 vi.mock("@/lib/api/supply-chain",async original=>({...await original<object>(),readSupplySource:f.source,readSupplyCompletionDraft:f.read,supplyCommand:f.save}));
@@ -53,8 +57,8 @@ it("freezes the form when only the item context changes and keeps read-only save
 it("independently edits and saves candidate text while inspecting the fixed own snapshot",async()=>{
  render(<CompletionDraftPage sourceId={id}/>);const title=await screen.findByRole("textbox",{name:"候选标题"});expect(title).toHaveValue("固定原商品V1");expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
  fireEvent.click(screen.getByText("查看固定原始商品资料"));expect(within(screen.getByRole("region",{name:"选中SKU资料"})).getByText("红色常规款")).toBeVisible();expect(screen.getByText("CNY 0")).toBeVisible();expect(screen.getByText("0 件")).toBeVisible();expect(screen.getByText("棉")).toBeVisible();
- fireEvent.change(title,{target:{value:record.content.title}});fireEvent.change(screen.getByRole("textbox",{name:"候选描述"}),{target:{value:record.content.description}});f.read.mockResolvedValue(record);fireEvent.click(screen.getByRole("button",{name:"保存待补全草稿"}));
- await waitFor(()=>expect(f.save).toHaveBeenCalledWith(expect.objectContaining({route:"save-completion-draft",command:{sourceId:id,expectedRevision:0,content:record.content}}),expect.any(AbortSignal)));
+ fireEvent.change(title,{target:{value:record.content.title}});const editor=screen.getByRole("textbox",{name:"候选描述"});await userEvent.clear(editor);await screen.findByText(/^7 \/ 32768 字节/);fireEvent.paste(screen.getByRole("textbox",{name:"候选描述"}),{clipboardData:{getData:(type:string)=>type==="text/plain"?record.content.description:"",types:["text/plain"],files:[]}});await screen.findByText(/^19 \/ 32768 字节/);f.read.mockResolvedValue(record);fireEvent.click(screen.getByRole("button",{name:"保存待补全草稿"}));
+ await waitFor(()=>expect(f.save).toHaveBeenCalledWith(expect.objectContaining({route:"save-completion-draft",command:{sourceId:id,expectedRevision:0,content:{...record.content,description:`<p>${record.content.description}</p>`,descriptionFormat:"html-v1"}}}),expect.any(AbortSignal)));
  await screen.findByText(/^未绑定店铺 · 已保存 R1/);expect(f.source).toHaveBeenCalledWith({userId:"actor",organizationId:"org"},id,expect.any(AbortSignal));
 });
 it("refuses candidate content whose retained source differs from the fixed detail",async()=>{

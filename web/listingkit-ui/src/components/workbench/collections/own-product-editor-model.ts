@@ -2,7 +2,7 @@ import {ownProductSchema,type CollectionDetail} from "@/lib/contracts/product-co
 import type {z} from "zod";
 import {newVariantRow,type VariantRow,type Specification,type ProductAttributeRow} from "./own-product-model";
 
-export type OwnProductFormState={title:string;brand:string;description:string;images:string[];mode:"single"|"multiple";rows:VariantRow[];specs:Specification[];attributes:ProductAttributeRow[]};
+export type OwnProductFormState={title:string;brand:string;description:string;descriptionFormat?:"html-v1";images:string[];mode:"single"|"multiple";rows:VariantRow[];specs:Specification[];attributes:ProductAttributeRow[]};
 const unreadable=()=>new Error("当前商品包含无法完整编辑的资料，请返回详情查看；尚未保存任何修改。");
 function attributeMap(values:NonNullable<CollectionDetail["product"]["attributes"]>){
  const result:Record<string,string>=Object.create(null);
@@ -19,7 +19,7 @@ export function hydrateOwnProduct(detail:CollectionDetail):OwnProductFormState{
   if(!v.source_id||v.price?.amount===undefined||!v.price.currency||v.barcode||v.is_default||v.price.compare_at!==undefined||v.price.cost_price!==undefined||v.price.wholesale_min!==undefined)throw unreadable();
   return {sourceId:v.source_id,title:v.title??"",sku:v.sku??"",attributes:attributeMap(v.attributes??[]),currency:v.price.currency,price:v.price.amount,stock:v.stock??0,images:(v.images??[]).map(image=>image.url)};
  });
- const raw={title:p.title??"",brand:p.brand??"",description:p.description??"",images,attributes:attributeMap(p.attributes??[]),variants};
+ const raw={title:p.title??"",brand:p.brand??"",description:p.description??"",...(p.description_format?{descriptionFormat:p.description_format}:{}),images,attributes:attributeMap(p.attributes??[]),variants};
  const parsed=ownProductSchema.safeParse(raw);
  if(!parsed.success||raw.title!==raw.title.trim()||raw.brand!==raw.brand.trim())throw unreadable();
  return formFromOwnProduct(parsed.data);
@@ -29,5 +29,5 @@ export function formFromOwnProduct(raw:z.infer<typeof ownProductSchema>):OwnProd
  const dimensions=new Map<string,Set<string>>();
  for(const row of rows)for(const [name,value] of Object.entries(row.attributes)){if(!dimensions.has(name))dimensions.set(name,new Set());dimensions.get(name)!.add(value)}
  const specs=[...dimensions].map(([name,values],index)=>({id:`dimension-${index}`,name,values:[...values].join(",")}));
- return {title:raw.title,brand:raw.brand??"",description:raw.description,images:raw.images,rows:rows.length?rows:[newVariantRow()],mode:rows.length>1||dimensions.size?"multiple":"single",specs:specs.length?specs:[{id:"initial",name:"",values:""}],attributes:Object.entries(raw.attributes??{}).map(([name,value],index)=>({id:`attribute-${index}`,name,value}))};
+ return {title:raw.title,brand:raw.brand??"",description:raw.description,...(raw.descriptionFormat?{descriptionFormat:raw.descriptionFormat}:{}),images:raw.images,rows:rows.length?rows:[newVariantRow()],mode:rows.length>1||dimensions.size?"multiple":"single",specs:specs.length?specs:[{id:"initial",name:"",values:""}],attributes:Object.entries(raw.attributes??{}).map(([name,value],index)=>({id:`attribute-${index}`,name,value}))};
 }

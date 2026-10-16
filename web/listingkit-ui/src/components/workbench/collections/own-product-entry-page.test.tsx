@@ -146,3 +146,12 @@ it("submits common attributes through the original product request and blocks du
  await userEvent.click(screen.getByRole("button",{name:"删除商品属性 2"}));await userEvent.click(screen.getByRole("button",{name:"保存商品"}));
  await waitFor(()=>expect(state.mutate).toHaveBeenCalledOnce());expect(state.mutate.mock.calls[0][0].command.product.attributes).toEqual({材质:"棉"});
 });
+
+it("preserves a saved rich description byte-for-byte while editing only its title",async()=>{
+ const detail={...savedDetail,product:{...savedDetail.product,description:'<h2>材质</h2><p><strong>棉</strong><img src="https://images.example.org/public.png"></p>',description_format:"html-v1" as const}};
+ state.item.mockResolvedValue(detail);state.mutate.mockResolvedValue({operationId:itemId,itemId,revision:4,replayed:false});
+ render(<OwnProductEditPage itemId={itemId}/>);expect(await screen.findByRole("textbox",{name:"商品描述"})).toHaveTextContent("材质棉");
+ await userEvent.clear(screen.getByLabelText("商品名称"));await userEvent.type(screen.getByLabelText("商品名称"),"只改名称");await userEvent.click(screen.getByRole("button",{name:"保存新版本"}));
+ await waitFor(()=>expect(state.mutate).toHaveBeenCalledOnce());
+ expect(state.mutate.mock.calls[0][0].command.product).toMatchObject({description:detail.product.description,descriptionFormat:"html-v1"});
+});

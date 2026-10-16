@@ -1,6 +1,6 @@
 # 自有商品描述富文本 v1
 
-Refs #745。Design Basis: **Independent Architecture**。Admission Status: **NOT_READY / DESIGNING**。设计先于正式代码；独立评审只检查本轮格式、安全及其调用边界。
+Refs #745。Design Basis: **Independent Architecture**。Admission Status: **IMPLEMENTATION_READY / FROZEN**。2026-10-17 独立 Reviewer own_history_review 检查 design-only HEAD f803038631aa6d90b958c9f93e951fa38a9f9ad7，无设计 BLOCKER；格式/hash、安全/图片绑定、兄弟保存与恢复、平台/AI文字投影归 IMPLEMENTATION_TEST，在本批合并前收敛。设计先于正式代码。
 
 ## 产品结果、权威和范围
 
@@ -58,4 +58,3 @@ TDD：先捕获格式传播/纯文本旧hash、直接API危险HTML/URL/图片绑
 交接提供 PR、现有独立路由及正常启动方式；own675 不部署、不改配置/库/图片/授权，真实平台/模型/发布与用户试用 NOT_RUN。
 
 依据开源官方文档：[Tiptap Next.js](https://tiptap.dev/docs/editor/getting-started/install/nextjs)、[StarterKit](https://tiptap.dev/docs/editor/extensions/functionality/starterkit)、[bluemonday](https://github.com/microcosm-cc/bluemonday)。复用 [Product edit](own-product-edit-v1.md)、[结构化候选](completion-draft-structured-v1.md)、[恢复](completion-draft-restore-v1.md)、[SHEIN带入](completion-shein-import-v1.md)、[SourceMedia](own-product-source-media-trial-v1.md)。
-

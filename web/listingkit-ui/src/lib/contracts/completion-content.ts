@@ -1,4 +1,5 @@
 import {z} from "zod";
+import {descriptionFormatSchema} from "./product-description";
 
 const text=(max:number)=>z.string().refine(value=>new TextEncoder().encode(value).length<=max&&!value.includes("\0"));
 const amount=z.number().finite().min(0).max(Number.MAX_SAFE_INTEGER);
@@ -9,7 +10,7 @@ const completionStructuredSchema=z.object({
  const names=new Set<string>();value.attributes.forEach((a,index)=>{const name=a.name.trim();if(names.has(name))ctx.addIssue({code:"custom",path:["attributes",index,"name"],message:"属性名称不能重复"});names.add(name)});
  value.variants.forEach((v,index)=>{if(v.sourceIndex!==index)ctx.addIssue({code:"custom",path:["variants",index,"sourceIndex"],message:"SKU必须对应固定来源顺序"})});
 });
-export const completionContentSchema=z.object({title:text(1024),description:text(32768),structured:completionStructuredSchema.nullish().transform(v=>v??undefined)}).strict();
+export const completionContentSchema=z.object({title:text(1024),description:text(32768),descriptionFormat:descriptionFormatSchema,structured:completionStructuredSchema.nullish().transform(v=>v??undefined)}).strict();
 export type CompletionStructured=z.infer<typeof completionStructuredSchema>;
 
 // Go's existing input hash/size encoder escapes these JSON string characters.

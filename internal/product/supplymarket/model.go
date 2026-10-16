@@ -8,6 +8,7 @@ import (
 	"math"
 	"net/url"
 	"strings"
+	"task-processor/internal/product/description"
 	"time"
 	"unicode/utf8"
 
@@ -172,7 +173,7 @@ func PublicProjection(snapshot catalog.ProductSnapshot) (PublicProduct, error) {
 	if !text(snapshot.Title, 1, 2000) || !text(snapshot.Description, 0, sourcing.MaxSourceEnvelopeStringBytes) || !text(snapshot.Brand, 0, 1000) || len(snapshot.Attributes) > 256 || len(snapshot.Variants) > sourcing.MaxSourceEnvelopeCollectionItems || len(snapshot.Images) < 1 || len(snapshot.Images) > 40 {
 		return PublicProduct{}, ErrInvalid
 	}
-	p := PublicProduct{Title: snapshot.Title, Description: snapshot.Description, Brand: snapshot.Brand}
+	p := PublicProduct{Title: snapshot.Title, Description: description.PlainText(snapshot.Description, snapshot.DescriptionFormat), Brand: snapshot.Brand}
 	var err error
 	if p.Attributes, err = publicAttributes(snapshot.Attributes); err != nil {
 		return PublicProduct{}, err

@@ -1,4 +1,5 @@
 "use client";
+import {restoreDescription} from "@/lib/contracts/product-description";
 import {useEffect,useMemo,useState} from "react";
 import Link from "next/link";
 import {useWorkbenchContext} from "@/components/providers/workbench-context-provider";
@@ -17,7 +18,7 @@ import {completionContentEqual} from "@/lib/contracts/completion-content";
 type Props={sourceId:string;revision:number;preparationId?:string;itemId?:string};
 type Preview={old:SupplyCompletionDraft;head:SupplyCompletionDraft};
 type CompletedSave={record:SupplyCompletionDraft;input:ReturnType<typeof completionInputSchema.parse>};
-const sameContent=(left:SupplyCompletionDraft["content"],right:SupplyCompletionDraft["content"])=>left.title===right.title&&left.description===right.description;
+const sameContent=(left:SupplyCompletionDraft["content"],right:SupplyCompletionDraft["content"])=>left.title===right.title&&left.description===right.description&&left.descriptionFormat===right.descriptionFormat;
 const sameSource=(left:SupplyCompletionDraft["source"],right:SupplyCompletionDraft["source"])=>left.id===right.id&&left.preparationId===right.preparationId&&left.collectionItemId===right.collectionItemId&&left.collectionRevision===right.collectionRevision
  &&left.source.kind===right.source.kind&&left.source.productKey===right.source.productKey&&left.source.publicationId===right.source.publicationId&&left.source.version===right.source.version&&left.source.operationId===right.source.operationId;
 
@@ -81,7 +82,7 @@ function ScopedRestore({scope,sourceId,revision,preparationId,itemId}:Props&{sco
     {visible.old.revision===visible.head.revision?<p className="text-sm text-muted-foreground">所选版本已是当前版本，无需恢复。</p>:sameContent(visible.old.content,visible.head.content)?<p className="text-sm text-muted-foreground">标题和描述与当前版本相同，无需恢复。</p>:null}
     {visible.head.revision>=Number.MAX_SAFE_INTEGER?<p role="alert">保存版本已达上限，无法追加新版本。</p>:null}
     {conflict?<p role="alert" className="text-sm text-destructive">当前版本已变化，请重新读取并确认差异后再恢复。</p>:null}
-    <div className="flex flex-wrap gap-3"><Button disabled={disabled} onClick={()=>{if(!disabled&&visible){setConflictReviewed(false);void command.execute("save-completion-draft",{sourceId,expectedRevision:visible.head.revision,content:{...visible.head.content,title:visible.old.content.title,description:visible.old.content.description}})}}}>恢复为新版本</Button><Button variant="outline" disabled={command.busy||!!command.pending} onClick={refresh}>重新读取当前版本</Button><Button asChild variant="outline"><Link href={completionHistoryHref(sourceId,source.preparationId,itemId)}>返回保存历史</Link></Button></div>
+    <div className="flex flex-wrap gap-3"><Button disabled={disabled} onClick={()=>{if(!disabled&&visible){setConflictReviewed(false);void command.execute("save-completion-draft",{sourceId,expectedRevision:visible.head.revision,content:restoreDescription(visible.head.content,visible.old.content)})}}}>恢复为新版本</Button><Button variant="outline" disabled={command.busy||!!command.pending} onClick={refresh}>重新读取当前版本</Button><Button asChild variant="outline"><Link href={completionHistoryHref(sourceId,source.preparationId,itemId)}>返回保存历史</Link></Button></div>
    </Card>
   </div>:null}
  </ConsolePage>;

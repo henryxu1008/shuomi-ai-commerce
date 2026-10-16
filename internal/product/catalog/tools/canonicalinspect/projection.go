@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"task-processor/internal/product/description"
 
 	"task-processor/internal/product/catalog"
 )
@@ -38,6 +39,8 @@ func Project(published catalog.PublishedSnapshot) (json.RawMessage, error) {
 		return nil, fmt.Errorf("clone canonical snapshot: %w", err)
 	}
 	removeSourceMetadata(&cloned)
+	cloned.Description = description.PlainText(cloned.Description, cloned.DescriptionFormat)
+	cloned.DescriptionFormat = ""
 
 	diagnostics := Diagnostics{ReviewReasons: []string{}, Warnings: []catalog.Warning{}}
 	if cloned.Review != nil {

@@ -4,6 +4,7 @@ import (
 	"math"
 	"net/url"
 	"strings"
+	"task-processor/internal/product/description"
 	"task-processor/internal/product/sourcing"
 	"unicode/utf8"
 )
@@ -55,6 +56,13 @@ func validateOwnProduct(input OwnProduct) error {
 		}
 	}
 	if items > sourcing.MaxSourceEnvelopeAggregateItems {
+		return ErrInvalid
+	}
+	images := append([]string{}, input.Images...)
+	for _, v := range input.Variants {
+		images = append(images, v.Images...)
+	}
+	if description.Validate(input.Description, input.DescriptionFormat, images) != nil {
 		return ErrInvalid
 	}
 	return nil

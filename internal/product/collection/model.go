@@ -93,12 +93,13 @@ type Page[T any] struct {
 	Total      int64  `json:"total"`
 }
 type OwnProduct struct {
-	Title       string            `json:"title"`
-	Description string            `json:"description"`
-	Brand       string            `json:"brand,omitempty"`
-	Attributes  map[string]string `json:"attributes,omitempty"`
-	Variants    []OwnVariant      `json:"variants,omitempty"`
-	Images      []string          `json:"images"`
+	Title             string            `json:"title"`
+	Description       string            `json:"description"`
+	DescriptionFormat string            `json:"descriptionFormat,omitempty"`
+	Brand             string            `json:"brand,omitempty"`
+	Attributes        map[string]string `json:"attributes,omitempty"`
+	Variants          []OwnVariant      `json:"variants,omitempty"`
+	Images            []string          `json:"images"`
 }
 type OwnVariant struct {
 	SourceID   string            `json:"sourceId"`
@@ -179,7 +180,7 @@ func OwnEnvelope(id string, input OwnProduct) (sourcing.SourceEnvelope, error) {
 	if err != nil || len(raw) > MaxPayloadBytes || !utf8.Valid(raw) {
 		return sourcing.SourceEnvelope{}, ErrInvalid
 	}
-	envelope := sourcing.SourceEnvelope{Identity: sourcing.SourceIdentity{SourceType: "user_input", SourcePlatform: "own_product", SourceID: id}, RawReference: sourcing.RawSourceReference{ReferenceType: "user_input", ReferenceID: id, Checksum: sourcing.RawSnapshotChecksum(string(raw))}, ProductCandidate: sourcing.ProductCandidate{Title: input.Title, Description: input.Description, Brand: input.Brand, Attributes: input.Attributes}}
+	envelope := sourcing.SourceEnvelope{Identity: sourcing.SourceIdentity{SourceType: "user_input", SourcePlatform: "own_product", SourceID: id}, RawReference: sourcing.RawSourceReference{ReferenceType: "user_input", ReferenceID: id, Checksum: sourcing.RawSnapshotChecksum(string(raw))}, ProductCandidate: sourcing.ProductCandidate{Title: input.Title, Description: input.Description, DescriptionFormat: input.DescriptionFormat, Brand: input.Brand, Attributes: input.Attributes}}
 	for _, variant := range input.Variants {
 		candidate := sourcing.ProductVariantCandidate{SourceID: variant.SourceID, Title: variant.Title, SKU: variant.SKU, Attributes: variant.Attributes, Currency: variant.Currency, Price: variant.Price, Stock: variant.Stock}
 		for index, value := range variant.Images {

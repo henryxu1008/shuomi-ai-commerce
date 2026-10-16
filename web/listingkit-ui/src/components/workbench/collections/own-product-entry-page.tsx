@@ -12,6 +12,7 @@ import {Select} from "@/components/ui/select";
 import {Textarea} from "@/components/ui/textarea";
 import {Table,TableHeader,TableHead,TableBody,TableRow,TableCell} from "@/components/ui/table";
 import {ConsolePage,ConsoleState} from "../console/console-page";
+import {DescriptionEditor} from "../description-editor";
 import {SourceImageUploader} from "./source-image-uploader";
 import {useCollectionCommand} from "./use-collection-command";
 import {CollectionCommandFeedback} from "./collection-command-feedback";
@@ -35,6 +36,7 @@ export function OwnProductForm({scope,edit}:{scope:CollectionScope;edit?:{detail
  const [frozen]=useState(()=>{const pending=context.pendingCollectionIntent;if(edit&&pending?.userId===scope.userId&&pending.organizationId===scope.organizationId&&pending.command.action==="revise_product"&&pending.command.itemId===edit.detail.item.id)return pending.command;return null});
  const [initial]=useState(()=>frozen?formFromOwnProduct(frozen.product):edit?.initial);
  const [title,setTitle]=useState(initial?.title??""),[brand,setBrand]=useState(initial?.brand??""),[description,setDescription]=useState(initial?.description??"");
+ const [descriptionFormat,setDescriptionFormat]=useState<"html-v1"|undefined>(initial?.descriptionFormat);
  const [attributes,setAttributes]=useState<ProductAttributeRow[]>(initial?.attributes??[{id:"initial",name:"",value:""}]);
  const [images,setImages]=useState<string[]>(initial?.images??[]),[imageURL,setImageURL]=useState(""),[mediaBlocked,setMediaBlocked]=useState(false);
  const imagesRef=useRef<string[]>(initial?.images??[]);
@@ -62,11 +64,11 @@ export function OwnProductForm({scope,edit}:{scope:CollectionScope;edit?:{detail
   setRows(prior=>prior.map((row,index)=>({...row,...(bulk.prefix?{sku:`${bulk.prefix.trim()}-${index+1}`}:{}) ,...(bulk.currency?{currency:bulk.currency}:{}) ,...(bulk.price.trim()?{price:bulk.price}:{}) ,...(bulk.stock.trim()?{stock:bulk.stock}:{})})));setError("");
  }
  const activeRows=mode==="single"?[single]:rows;
- const formIdentity=JSON.stringify({title,brand,description,images,attributes,mode,single,rows,specs}),originalForm=useRef(formIdentity);
+ const formIdentity=JSON.stringify({title,brand,description,descriptionFormat,images,attributes,mode,single,rows,specs}),originalForm=useRef(formIdentity);
  function leave(){if(edit&&!commands.pending&&originalForm.current!==formIdentity&&!window.confirm("还有未保存的修改，确定返回商品详情吗？"))return;router.push(edit?`/workbench/data/mine/own/${edit.detail.item.id}`:library)}
  const pageTitle=edit?"编辑自有商品":"添加自有商品";
  return <ConsolePage title={pageTitle} description={edit?"修改已保存的商品资料，保存后生成新的资料版本。":"录入商品资料和销售规格，保存到当前企业下的自有商品库。"} breadcrumbs={[{label:"数据服务",href:"/workbench/data"},{label:"我的数据",href:library},{label:pageTitle}]} actions={<Button variant="outline" disabled={commands.busy||mediaBlocked} onClick={leave}><ArrowLeft size={16}/>{edit?"取消并返回详情":"返回自有商品库"}</Button>}>
-  <form className="space-y-6" onSubmit={event=>{event.preventDefault();if(disabled||mediaBlocked)return;if(stale){setError("规格已修改，请先更新变体组合。");return}try{const product=prepareOwnProduct({title,brand,description,images,mode,rows:activeRows,attributes});const command=edit?{action:"revise_product" as const,itemId:edit.detail.item.id,expectedRevision:frozen?.expectedRevision??edit.detail.item.revision,expectedSourceVersion:frozen?.expectedSourceVersion??edit.detail.item.source.version,expectedPublicationId:frozen?.expectedPublicationId??edit.detail.item.source.publicationId,product}:{action:"create_product" as const,product};const parsed=collectionCommandSchema.safeParse(command);if(!parsed.success)throw new Error(parsed.error.issues[0]?.message??"请检查填写内容。");setError("");void commands.run(parsed.data)}catch(failure){setError((failure as Error).message)}}}>
+  <form className="space-y-6" onSubmit={event=>{event.preventDefault();if(disabled||mediaBlocked)return;if(stale){setError("规格已修改，请先更新变体组合。");return}try{const product=prepareOwnProduct({title,brand,description,descriptionFormat,images,mode,rows:activeRows,attributes});const command=edit?{action:"revise_product" as const,itemId:edit.detail.item.id,expectedRevision:frozen?.expectedRevision??edit.detail.item.revision,expectedSourceVersion:frozen?.expectedSourceVersion??edit.detail.item.source.version,expectedPublicationId:frozen?.expectedPublicationId??edit.detail.item.source.publicationId,product}:{action:"create_product" as const,product};const parsed=collectionCommandSchema.safeParse(command);if(!parsed.success)throw new Error(parsed.error.issues[0]?.message??"请检查填写内容。");setError("");void commands.run(parsed.data)}catch(failure){setError((failure as Error).message)}}}>
    <CollectionCommandFeedback state={commands}/>
    {restoredRequestEnded?<p role="status" className="text-sm text-muted-foreground">原请求未保存。重新读取最新资料后才能继续编辑，避免用旧内容覆盖新版本。</p>:null}
    {edit&&(commands.error==="REVISION_CONFLICT"||restoredRequestEnded)?<Button type="button" variant="outline" onClick={()=>{if(window.confirm("重新读取会放弃当前未保存的修改，确定读取最新资料吗？"))window.location.reload()}}>重新读取最新资料</Button>:null}
@@ -78,7 +80,7 @@ export function OwnProductForm({scope,edit}:{scope:CollectionScope;edit?:{detail
      <Card className="space-y-5 p-6"><div><h2 className="text-lg font-semibold">基本资料</h2><p className="mt-1 text-sm text-muted-foreground">所有变体共用商品名称、品牌和描述。</p></div>
       <label className="grid gap-2 text-sm">商品名称<Input required maxLength={2000} value={title} placeholder="输入商品名称" onChange={e=>setTitle(e.target.value)}/></label>
       <label className="grid gap-2 text-sm">品牌<Input value={brand} maxLength={2000} placeholder="选填" onChange={e=>setBrand(e.target.value)}/></label>
-      <label className="grid gap-2 text-sm">商品描述<Textarea rows={6} maxLength={8192} value={description} placeholder="材质、用途及其他商品资料" onChange={e=>setDescription(e.target.value)}/></label>
+      <DescriptionEditor label="商品描述" value={description} format={descriptionFormat} images={[...new Set([...images,...activeRows.flatMap(v=>v.originalImages??[])])]} disabled={disabled} maxBytes={8192} onChange={(value,format)=>{setDescription(value);setDescriptionFormat(format)}}/>
      </Card>
      <Card className="space-y-5 p-6"><div><h2 className="text-lg font-semibold">商品图片</h2><p className="mt-1 text-sm text-muted-foreground">第一张作为商品主图；在变体表格中为不同规格选择对应图片。</p></div>
       {images.length?<div className="grid grid-cols-3 gap-3">{images.map((url,index)=><div key={url} className="min-w-0 space-y-2 rounded-lg border border-border p-2"><Image unoptimized src={`/api/image-proxy?url=${encodeURIComponent(url)}`} alt={`商品图片 ${index+1}`} width={120} height={120} className="aspect-square w-full rounded-md object-contain"/><div className="flex items-center justify-between text-xs"><span>{index===0?"主图":"图片 "+(index+1)}</span><Button type="button" size="icon" variant="ghost" aria-label={`移除图片 ${index+1}`} disabled={mediaBlocked} onClick={()=>removeImage(url)}><Trash2 size={14}/></Button></div></div>)}</div>:<p className="rounded-lg border border-dashed border-border p-5 text-center text-sm text-muted-foreground">尚未添加图片</p>}
