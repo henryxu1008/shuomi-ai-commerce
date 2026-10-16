@@ -1,19 +1,14 @@
 package activity
 
 import (
-	"context"
-	"encoding/json"
 	"math"
 	"reflect"
 	"testing"
 
-	"task-processor/internal/listingadmin"
 	"task-processor/internal/shein"
 	"task-processor/internal/shein/api/marketing"
 	"task-processor/internal/shein/api/product"
 	"task-processor/internal/shein/productsync"
-
-	"github.com/sirupsen/logrus"
 )
 
 const floatTolerance = 1e-9
@@ -41,94 +36,13 @@ func TestAmazonCostBySKUUsesNormalizedSKUAndSkipsMissingCosts(t *testing.T) {
 		{SkuInfo: product.SkuInfo{SkuCode: "sku-missing"}},
 	}}
 
-	got := (&ProductDataHelper{}).AmazonCostBySKU(data)
+	got := amazonCostBySKU(data)
 	want := map[string]float64{"SKU-SMALL": 12.5, "SKU-LARGE": 20.5}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("cost map = %#v, want %#v", got, want)
 	}
 }
 
-func TestBuildCalculateRequestWithPriceModeBreakevenUsesPerSKUCost(t *testing.T) {
-	attributes, err := json.Marshal([]productsync.EnrichedSkcInfo{{
-		SkcName: "skc-1",
-		SkuInfo: []productsync.EnrichedSkuInfo{
-			{SkuInfo: product.SkuInfo{SkuCode: "sku-small"}, AmazonMonitorData: &shein.AmazonMonitorData{Price: 12.5}},
-			{SkuInfo: product.SkuInfo{SkuCode: "sku-large"}, AmazonMonitorData: &shein.AmazonMonitorData{Price: 20.5}},
-			{SkuInfo: product.SkuInfo{SkuCode: "sku-invalid"}, AmazonMonitorData: &shein.AmazonMonitorData{Price: 20}},
-		},
-	}})
-	if err != nil {
-		t.Fatalf("marshal attributes: %v", err)
-	}
-
-	service := &activityRegistrationServiceImpl{
-		productDataRepo: priceCalculatorProductDataRepo{items: []listingadmin.ProductData{{Attributes: json.RawMessage(attributes)}}},
-		logger:          logrus.NewEntry(logrus.New()),
-	}
-	req := service.buildCalculateRequestWithPriceMode(TimeLimitedDiscountConfig{
-		PriceMode:            "BREAKEVEN",
-		FixedPriceAdjustment: 1,
-	}, []marketing.PromotionGoodsData{{
-		Skc: "skc-1",
-		SkuInfoList: []marketing.PromotionSkuInfo{
-			{Sku: "sku-small", USSupplyPrice: promotionFloat64Ptr(30)},
-			{Sku: "sku-large", USSupplyPrice: promotionFloat64Ptr(45)},
-			{Sku: "sku-invalid", USSupplyPrice: promotionFloat64Ptr(18)},
-		},
-	}}, 1)
-
-	if len(req.SkcInfoList) != 1 {
-		t.Fatalf("SKC count = %d, want 1", len(req.SkcInfoList))
-	}
-	got := req.SkcInfoList[0].SkuInfoList
-	if len(got) != 2 {
-		t.Fatalf("SKU count = %d, want 2; prices = %+v", len(got), got)
-	}
-	if got[0].SkuCode != "sku-small" || got[0].ProductPrice != 30 || got[0].DiscountValue != 13.5 {
-		t.Fatalf("first SKU price = %+v, want sku-small original 30 activity 13.5", got[0])
-	}
-	if got[1].SkuCode != "sku-large" || got[1].ProductPrice != 45 || got[1].DiscountValue != 21.5 {
-		t.Fatalf("second SKU price = %+v, want sku-large original 45 activity 21.5", got[1])
-	}
-}
-
-type priceCalculatorProductDataRepo struct {
-	items []listingadmin.ProductData
-}
-
-func (r priceCalculatorProductDataRepo) ListProductData(context.Context, listingadmin.ProductDataQuery) (*listingadmin.ProductDataPage, error) {
-	return &listingadmin.ProductDataPage{Items: r.items}, nil
-}
-
-func (priceCalculatorProductDataRepo) GetProductData(context.Context, int64, int64) (*listingadmin.ProductData, error) {
-	return nil, nil
-}
-
-func (priceCalculatorProductDataRepo) CreateProductData(context.Context, *listingadmin.ProductData) (*listingadmin.ProductData, error) {
-	return nil, nil
-}
-
-func (priceCalculatorProductDataRepo) UpdateProductData(context.Context, *listingadmin.ProductData) (*listingadmin.ProductData, error) {
-	return nil, nil
-}
-
-func (priceCalculatorProductDataRepo) UpdateProductDataStatus(context.Context, int64, int64, int16) (*listingadmin.ProductData, error) {
-	return nil, nil
-}
-
-func (priceCalculatorProductDataRepo) DeleteProductData(context.Context, int64, int64) error {
-	return nil
-}
-
-func (priceCalculatorProductDataRepo) UpsertProductDataBatch(context.Context, []listingadmin.ProductData) (int, error) {
-	return 0, nil
-}
-
-func (priceCalculatorProductDataRepo) BatchUpdateAttributesByPlatformProductID(context.Context, []listingadmin.ProductData) (int, error) {
-	return 0, nil
-}
-
-// TestCalculatePriceByDiscount 验证折扣率定价
 func TestCalculatePriceByDiscount(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -154,7 +68,6 @@ func TestCalculatePriceByDiscount(t *testing.T) {
 	}
 }
 
-// TestCalculatePriceByProfit 验证利润率定价
 func TestCalculatePriceByProfit(t *testing.T) {
 	tests := []struct {
 		name            string
@@ -238,12 +151,12 @@ func TestCalculatePriceByBreakevenCapsSHEINDiscountAtEightyPercent(t *testing.T)
 func TestCalculateActivityPriceCapsSHEINDiscountAtEightyPercentInEveryMode(t *testing.T) {
 	tests := []struct {
 		name   string
-		config TimeLimitedDiscountConfig
+		config activityRuleInputs
 		cost   float64
 	}{
-		{name: "breakeven", config: TimeLimitedDiscountConfig{PriceMode: "BREAKEVEN"}, cost: 24.88},
-		{name: "profit", config: TimeLimitedDiscountConfig{PriceMode: "PROFIT", MinProfitRate: 0.1}, cost: 10},
-		{name: "discount", config: TimeLimitedDiscountConfig{PriceMode: "DISCOUNT", DiscountRate: 0.9}},
+		{name: "breakeven", config: activityRuleInputs{PriceMode: "BREAKEVEN"}, cost: 24.88},
+		{name: "profit", config: activityRuleInputs{PriceMode: "PROFIT", MinProfitRate: 0.1}, cost: 10},
+		{name: "discount", config: activityRuleInputs{PriceMode: "DISCOUNT", DiscountRate: 0.9}},
 	}
 
 	for _, tt := range tests {
@@ -256,7 +169,6 @@ func TestCalculateActivityPriceCapsSHEINDiscountAtEightyPercentInEveryMode(t *te
 	}
 }
 
-// TestCalculateProfitRate 验证利润率计算
 func TestCalculateProfitRate(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -282,11 +194,10 @@ func TestCalculateProfitRate(t *testing.T) {
 	}
 }
 
-// TestCalculateActivityPrice 验证活动价格按定价模式路由
 func TestCalculateActivityPrice(t *testing.T) {
 	tests := []struct {
 		name          string
-		config        TimeLimitedDiscountConfig
+		config        activityRuleInputs
 		originalPrice float64
 		costPrice     float64
 		wantFn        func(float64) bool
@@ -294,7 +205,7 @@ func TestCalculateActivityPrice(t *testing.T) {
 	}{
 		{
 			name: "DISCOUNT模式使用折扣率",
-			config: TimeLimitedDiscountConfig{
+			config: activityRuleInputs{
 				PriceMode:    "DISCOUNT",
 				DiscountRate: 0.3,
 			},
@@ -305,7 +216,7 @@ func TestCalculateActivityPrice(t *testing.T) {
 		},
 		{
 			name: "PROFIT模式使用利润率",
-			config: TimeLimitedDiscountConfig{
+			config: activityRuleInputs{
 				PriceMode:     "PROFIT",
 				MinProfitRate: 0.15,
 			},
@@ -318,7 +229,7 @@ func TestCalculateActivityPrice(t *testing.T) {
 		},
 		{
 			name: "未知模式默认使用利润率",
-			config: TimeLimitedDiscountConfig{
+			config: activityRuleInputs{
 				PriceMode:     "UNKNOWN",
 				MinProfitRate: 0.15,
 			},
@@ -338,5 +249,24 @@ func TestCalculateActivityPrice(t *testing.T) {
 				t.Errorf("calculateActivityPrice() = %v, description: %s", got, tt.description)
 			}
 		})
+	}
+}
+
+func TestBreakevenPricesUseExtractedAmazonCosts(t *testing.T) {
+	data := &productsync.EnrichedSkcInfo{SkuInfo: []productsync.EnrichedSkuInfo{
+		{SkuInfo: product.SkuInfo{SkuCode: "sku-small"}, AmazonMonitorData: &shein.AmazonMonitorData{Price: 12.5}},
+		{SkuInfo: product.SkuInfo{SkuCode: "sku-large"}, AmazonMonitorData: &shein.AmazonMonitorData{Price: 20.5}},
+		{SkuInfo: product.SkuInfo{SkuCode: "sku-invalid"}, AmazonMonitorData: &shein.AmazonMonitorData{Price: 20}},
+	}}
+	costs := amazonCostBySKU(data)
+	for _, tc := range []struct {
+		sku            string
+		original, want float64
+	}{
+		{"SKU-SMALL", 30, 13.5}, {"SKU-LARGE", 45, 21.5}, {"SKU-INVALID", 18, 0},
+	} {
+		if got := calculatePriceByBreakeven(tc.original, costs[tc.sku], 1); !almostEqual(got, tc.want) {
+			t.Fatalf("%s: activity price %v, want %v", tc.sku, got, tc.want)
+		}
 	}
 }
