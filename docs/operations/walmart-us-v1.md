@@ -10,7 +10,7 @@
 4. 既有供应链入口 `/workbench/supply` 中打开已保存商品，选择 Walmart 店铺，逐件“查看 / 补全”。明确选择匹配已有目录 `MP_ITEM_MATCH` 或新建卖家配送商品 `MP_ITEM`；读取已配置版本的官方规则。填写真实标识、成色、首次报价、重量和条件必需属性。完整商品须选用该商品、该版本已批准的稳定公开 HTTPS 图片。
 5. 保存只生成本地 Target。可展开检查准确载荷、来源 SKU → sellerSKU、规则版本和指纹。CompletionDraft 只显式采用已保存版本的标题/描述；结构化候选仍保留在原草稿。
 6. 选择已检查的商品后确认刊登；批准固定 record/revision、Feed 类型、SKU 集合及 wire hash。整个批次超过当前已加载并检查范围时，先分组选取商品。本期不自动适配 Walmart 或调用新的 AI。
-7. Operation 完成表示 Feed 已受理。商品详情“查询平台结果”分别显示 Feed 状态、逐 SKU ingestion 和实际 publication/lifecycle/availability。每次最多刷新 10 个成功 SKU 的发布事实，重复查询优先取得尚未读取或较旧的 SKU；逐项显示发布时间戳。历史 Feed 可单独刷新，已转入修复操作的 SKU 不会被旧查询覆盖。
+7. Operation 完成表示 Feed 已受理。商品详情“查询平台结果”分别显示 Feed 状态、逐 SKU ingestion 和实际 publication/lifecycle/availability。每次最多刷新 10 个成功 SKU 的发布事实，重复查询优先取得尚未读取或较旧的 SKU；逐项显示发布时间戳。仍持有 SKU 的每个 Feed 都保留其最新观察，重复查询不会挤走其他 SKU；历史 Feed 可单独刷新，已转入修复操作的 SKU 不会被旧查询覆盖。
 8. 完整终结结果确认的失败 SKU，可从原 Feed 选择子集，修正资料、保存新 Target 后再次明确批准。仍在处理、缺页、重复/缺失 SKU、计数不一致、未知结果和成功 SKU 不能据此重发。分次修复保留原批次剩余失败项；当前 Feed 未安全终结时禁止第二次提交。
 
 没有取得 Feed ID 的 UNKNOWN 保留原操作、关联编号、批准时间和资料指纹。页面只提供查看原结果，不提供重置、手填商品号认领或盲重发入口。

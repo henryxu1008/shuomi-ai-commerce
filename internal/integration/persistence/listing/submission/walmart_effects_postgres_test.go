@@ -172,6 +172,20 @@ func TestPostgresWalmartFeedAdmissionAndPartialRepairAreAtomic(t *testing.T) {
 	require.NoError(t, e)
 	_, e = official.SaveWalmartRead(ctx, scope, repairRead, marketplace.FeedObservation{FeedID: repairReceipt.Walmart.FeedID, FeedStatus: "PROCESSED", Received: 1, Succeeded: 1, ObservedAt: time.Now().UTC(), Items: []marketplace.ItemResult{{SKU: repairReceipt.Walmart.SKUs[0].SellerSKU, IngestionStatus: "SUCCESS"}}})
 	require.NoError(t, e)
+
+	for range 101 {
+		read, e := official.BeginWalmartRead(ctx, scope, repairReceipt.ID)
+		require.NoError(t, e)
+		_, e = official.SaveWalmartRead(ctx, scope, read, marketplace.FeedObservation{FeedID: repairReceipt.Walmart.FeedID, FeedStatus: "PROCESSED", Received: 1, Succeeded: 1, ObservedAt: time.Now().UTC(), Items: []marketplace.ItemResult{{SKU: repairReceipt.Walmart.SKUs[0].SellerSKU, IngestionStatus: "SUCCESS"}}})
+		require.NoError(t, e)
+	}
+	visible, e := official.ReadWalmartResults(ctx, scope, receipt.Target)
+	require.NoError(t, e)
+	visibleReceipts := []string{}
+	for _, r := range visible {
+		visibleReceipts = append(visibleReceipts, r.ReceiptID)
+	}
+	require.Contains(t, visibleReceipts, receipt.ID, "frequent reads of repair Feed cannot evict still-owned original SKU facts")
 	third, e := kernel.Acquire(ctx, repairC)
 	require.NoError(t, e, "unselected original failed SKU remains repairable after another subset succeeds")
 	require.NotNil(t, third.Permit)

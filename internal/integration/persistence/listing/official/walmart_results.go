@@ -143,9 +143,18 @@ func (r *OfficialRepository) ReadWalmartResults(ctx context.Context, scope colle
 		return nil, submission.ErrExecutionInvalid
 	}
 	var rows []walmartObservationRow
-	if e := r.db.WithContext(ctx).Table("listing_walmart_feed_observations o").Select("o.*").Joins("JOIN listing_submission_official_receipts r ON r.organization_id=o.organization_id AND r.attempt_id=o.receipt_id").Where("o.organization_id=? AND r.store_id=? AND r.subject_id=?", scope.OrganizationID, target.StoreID, target.SubjectID).Order("o.observed_at DESC,o.generation DESC").Limit(100).Find(&rows).Error; e != nil {
+	// One latest observation per receipt that still owns at least one SKU.
+	// Repeated reads of a repair Feed must not evict unrelated live SKU facts.
+	if e := r.db.WithContext(ctx).Raw(`SELECT * FROM (
+ SELECT DISTINCT ON(o.receipt_id) o.* FROM listing_walmart_feed_observations o
+ JOIN listing_submission_official_receipts r ON r.organization_id=o.organization_id AND r.attempt_id=o.receipt_id
+ WHERE o.organization_id=? AND r.store_id=? AND r.subject_id=?
+ AND EXISTS(SELECT 1 FROM listing_walmart_sku_bindings s WHERE s.organization_id=o.organization_id AND s.last_attempt_id=o.receipt_id)
+ ORDER BY o.receipt_id,o.generation DESC
+ ) live ORDER BY observed_at DESC,generation DESC LIMIT ?`, scope.OrganizationID, target.StoreID, target.SubjectID, marketplace.MaxSKUs).Scan(&rows).Error; e != nil {
 		return nil, e
 	}
+
 	out := []submission.WalmartResultRecord{}
 	for _, row := range rows {
 		var obs marketplace.FeedObservation
