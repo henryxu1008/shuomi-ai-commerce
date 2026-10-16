@@ -132,7 +132,6 @@ func scanProviderConstructors(t *testing.T, roots ...string) map[string]provider
 func TestProductionProviderConstructorInventoryIsComplete(t *testing.T) {
 	want := map[string]providerConstructorCounts{
 		"hack/debug/replay-sale-attribute/main.go":              {openAI: 1},
-		"internal/amazon/processor.go":                          {openAI: 1},
 		"internal/app/worker/imageagent/dependencies.go":        {openAI: 1},
 		"internal/app/worker/imageagent/generation_provider.go": {grsai: 1},
 		"internal/temu/sku/ai_mapping_handler.go":               {openAI: 1},

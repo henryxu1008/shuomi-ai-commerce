@@ -6,6 +6,12 @@ import (
 	"task-processor/internal/marketplace/sourceproduct"
 )
 
+type inventoryServiceFactoryRuntime interface {
+	inventorySyncRuntime
+	GetRawJsonDataAdapter() sourceproduct.RawJsonDataClient
+	GetInventoryRecordAPI() listingadmin.InventoryRecordAPI
+}
+
 type ServiceRuntime interface {
 	productSyncRuntime
 	inventoryServiceFactoryRuntime

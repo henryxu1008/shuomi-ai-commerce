@@ -32,9 +32,10 @@ func TestResolvePlatformFetcherType(t *testing.T) {
 func TestResolvePlatformFetcherTypeRejectsInvalidMode(t *testing.T) {
 	t.Parallel()
 
-	cfg := config.NewDefaultConfig()
-	cfg.Platforms.Shein.FetchMode = "invalid"
-
-	_, err := ResolvePlatformFetcherType(cfg, "shein")
-	require.Error(t, err)
+	for _, mode := range []string{"invalid", "distributed"} {
+		cfg := config.NewDefaultConfig()
+		cfg.Platforms.Shein.FetchMode = mode
+		_, err := ResolvePlatformFetcherType(cfg, "shein")
+		require.Error(t, err, "mode %q must be rejected", mode)
+	}
 }
