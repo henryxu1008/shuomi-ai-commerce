@@ -1,6 +1,6 @@
 # SHEIN Listing Ownership Controller Implementation Plan
 
-> Historical plan, not current execution authority: #723/#726/#729 retired the old listing CLI and execution chain. The remaining declaration and exclusive configuration are covered by a [retirement design awaiting user confirmation](../../architecture/legacy-ownership-controller-retirement-boundary.md). Do not execute this plan's former implementation, deployment or Redis operations; the original text is retained as history.
+> Historical plan, not current execution authority: #723/#726/#729 retired the old listing CLI and execution chain. The user-confirmed [#738 boundary](../../architecture/legacy-ownership-controller-retirement-boundary.md) retires the remaining declaration, unconsumed ConfigMap overlay and exclusive configuration sources. Do not execute this plan's former implementation, deployment or Redis operations; original evidence and real runtime/data owners are retained.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

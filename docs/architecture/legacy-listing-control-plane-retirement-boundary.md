@@ -1,5 +1,9 @@
 # 旧 Listing control-plane 与数字任务派发/恢复链退休设计
 
+后续校准：本文件保留 #726 当时的范围/证据。原保留的 ownership-controller
+声明和无保留消费者的专属 auto-shard 配置 overlay，随后按 [#738 确认矩阵](legacy-ownership-controller-retirement-boundary.md)
+退出源码；不删除其它有效配置/Secret/监控或操作真实资源，原历史矩阵不回写。
+
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29)、[#301](https://github.com/qq550723504/task-processor/issues/301)。
 
 - Status: **用户已确认 §5、§6、§6.1、§7；按 Reuse Existing Architecture / Ready 实施源码退休**；准确候选、CI 与独立检查以 #726 为准。

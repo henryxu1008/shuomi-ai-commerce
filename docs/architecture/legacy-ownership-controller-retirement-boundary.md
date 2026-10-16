@@ -2,8 +2,8 @@
 
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
-- Status: **DESIGN_REVIEW / 待用户确认；仅设计，尚未授权实施**。
-- 本轮 Design Basis: **N/A**。只读调查与文档不改变产品、领域合同、业务运行、权限、持久化或外部副作用；不修改 Go、测试、CI、配置或部署源。
+- Status: **用户已确认冻结设计 dc1fff14e 的 §5、§6、§6.1、§7，按 Reuse Existing Architecture / Ready 在 #738 实施源码退休**；准确实现候选、CI 与独立最终复核以 PR 为准。
+- 实施 Design Basis: **Reuse Existing Architecture**。#29/#301 已先于正式源码修改记录 Ready；原文档阶段的 N/A、设计 CI/评审仅是批准依据，不替代实施准入或本候选验证。
 - 调查基线：`main @ 05ae7947f8558ebb31f69e1b251482458ac80c29`（含 #729 的源码退休）；准确设计 HEAD、CI 和独立复核记录在关联 PR。
 - 用户范围：先明确旧 ownership-controller 部署声明与 auto-shard 专属配置的消费者、持久化 owner 和删除边界，设计确认后再实施。保留当前采集、Store 观察同步、有效共享合同和独立 SHEIN 登录 worker；不操作实例或数据，不增加内部试用前置。
 
@@ -11,7 +11,7 @@ Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](htt
 
 维护者获得一份可直接审查的源码删除矩阵：消除旧执行器已不存在、部署声明仍指向历史镜像、共享配置仍描述旧分片能力的脱节。当前内部试用继续使用原入口，不以本设计、后续源码退休或旧环境处理为前置，也不新增刊登/协调/恢复能力。
 
-依据为 [Greenfield 产品决定](../product/greenfield-no-legacy-migration.md)、[Hard-Cut](../refactoring/legacy-hard-cut-policy.md)、[Legacy register](../refactoring/legacy-register.md)、[项目边界](project-boundaries.md)，以及已确认的 [三 CLI](legacy-listing-cli-retirement-boundary.md)、[control-plane](legacy-listing-control-plane-retirement-boundary.md)、[数字执行链](legacy-numeric-task-execution-retirement-boundary.md) 退休边界。前批保留 ownership-controller 声明和共享配置的事实仍然有效；本提案不把未实施的删除写成完成。
+依据为 [Greenfield 产品决定](../product/greenfield-no-legacy-migration.md)、[Hard-Cut](../refactoring/legacy-hard-cut-policy.md)、[Legacy register](../refactoring/legacy-register.md)、[项目边界](project-boundaries.md)，以及已确认的 [三 CLI](legacy-listing-cli-retirement-boundary.md)、[control-plane](legacy-listing-control-plane-retirement-boundary.md)、[数字执行链](legacy-numeric-task-execution-retirement-boundary.md) 退休边界。前批保留声明/配置的当时事实作为历史保留；用户随后已确认本批精确退休范围，不将其它共享对象一并删除。
 
 当前能力继续服从 [Store 当前应用](store-center-current-application-v1.md)、[平台观察](store-center-platform-observations-v1.md)、[观察准备接线](store-observations-preparation-runtime.md)、[独立 SHEIN worker 身份/持久化](shein-worker-identity-persistence-boundary.md) 和 [发布预检退休](release-identity-preflight-retirement.md)。无 UI/IA 变化，Figma N/A。
 
@@ -19,7 +19,7 @@ Must：当前能力、原授权/租户/身份、事实 owner、安全检查和�
 
 ## 2. Design Basis 与正式开工条件
 
-本轮是 N/A 文档工作；下列矩阵是**待确认提案**，不是正式源码实施准入。用户确认后，拟按 **Reuse Existing Architecture** 在 #29/#301 正文记录用户结果、批准版本、当前 owner、调用路径、不变量、验收和 Ready，再在同一主要 PR 继续。复用原 Hard-Cut 和保留合同，不新建事实/schema owner、授权、状态机、事务/retry/UNKNOWN/recovery 或外部副作用。
+冻结设计 dc1fff14e 的文档阶段为 N/A，用户现已明确确认本矩阵。正式修改前，#29/#301 已按 **Reuse Existing Architecture / Ready** 记录批准版本、用户结果、当前 owner、调用路径、不变量与验收，并刷新 main 与消费者，在同一主要 PR #738 继续。复用原 Hard-Cut 和保留合同，不新建事实/schema owner、授权、状态机、事务/retry/UNKNOWN/recovery 或外部副作用。
 
 实现范围跨 Go 配置、静态声明和测试，是对现有批准退休的有界收尾，不是新的跨系统运行协议。文件数或子系统提示线须按实施前实际 diff 核对并说明既有批准矩阵覆盖；不机械拆 PR，也不为删除发明新平台。
 
@@ -55,9 +55,9 @@ Must：当前能力、原授权/租户/身份、事实 owner、安全检查和�
 
 响应丢失、重试、重启、并发或部分 Redis 写入的历史运行结果不能从这份 YAML 和历史设计推导；这里没有核验历史镜像实现，也没有真实运行态证据。源码退休不宣称排空成功、租约安全、跨 DB/Redis 原子或 exactly-once，不新增 outbox/Saga/reconciler/故障注入平台。真实运行/用户/平台验收 NOT_RUN，生产 NOT_READY；这些未知不是内部试用的新前置。
 
-## 5. 拟议删除矩阵与保留边界
+## 5. 用户已确认的删除矩阵与保留边界
 
-| 源码/声明 | 用户确认后的拟议处置 | 精确限制 |
+| 源码/声明 | 用户已确认的实施处置 | 精确限制 |
 | --- | --- | --- |
 | `deployments/kubernetes/shein-listing/overlays/prod-auto-shard-statefulset/ownership-controller.yaml` | RETIRE 整个旧 workload 文件 | 仅仓库声明；不操作集群/镜像/Secret 或实际实例 |
 | 同目录 `kustomization.yaml` | RETIRE 只有该 workload 的装配文件 | 不留下空协调器/替代入口；README 可留退休说明。不递归删除目录；先刷新无其它 resource/消费者 |
@@ -73,7 +73,7 @@ Must：当前能力、原授权/租户/身份、事实 owner、安全检查和�
 
 ## 6. 原测试、文档与安全断言的处置
 
-本轮只写文档，下表为确认后实施的测试方案；没有把尚未执行的 RED/GREEN 记成 PASS。
+下表为用户已确认的检查处置；本批先在原 guard 确认 RED 再实施删除。准确 RED/GREEN、保留回归、实现 CI 与独立最终复核结果记录在 #738，不用设计检查代替。
 
 | 位置 | 拟议最小处置 | 必须保持 |
 | --- | --- | --- |
@@ -90,7 +90,7 @@ Must：当前能力、原授权/租户/身份、事实 owner、安全检查和�
 
 ## 7. 确认后实施顺序与删除条件
 
-1. 用户确认本设计 §5、§6、§6.1 和本节后，在 #29/#301 记录 Reuse Existing Architecture / Ready；核对最新 main、当前消费者和单 Writer，保持同一主要 PR。若矩阵外出现消费者，先报告，不为让测试通过扩大删除。
+1. 用户已确认冻结设计 §5、§6、§6.1 和本节，#29/#301 已先于修改记录 Reuse Existing Architecture / Ready。开工 main 与设计基线一致，31 命令/14 共享配置消费者与两个命名 ConfigMap、overlay 引用已刷新，无矩阵外保留消费者，保持原单 Writer/主要 PR。若后续出现矩阵外消费者，先报告，不为让测试通过扩大删除。
 2. 在原 guard 增补专属闭包 absence，先确认 RED 捕获仍在的声明/配置，再按矩阵精确删除并收敛 GREEN；混合 helper/测试按 §6 保留或改 fixture。对实际影响运行原 core/config 与必要共享/worker 回归，核对所有命令编译图，不执行 main、schema、provider 或运维入口。
 3. 重新核对两个命名 ConfigMap 和 overlay 的仓库实际消费者；若仍仅为拟退 workload/无其它消费者，连同三个专属源 YAML 及 README 旧 apply 入口退出。保留其它有效配置 schema/helper/资源与生产路径，真实 ConfigMap/数据不动；核对 CI/构建/保护无改动。只读源码解析/编译不是 kubectl apply、server-side dry-run 或真实环境验收。
 4. 稳定候选提交/推送，完成适用必需 CI 和一次集中独立最终检查；绑定实际 HEAD 与组合，不把设计 CI/旧 SHA/作者自检写成产品验收。提交范围内真实问题沿原 PR 分类修复；达到实现 In Review 后等待用户决定，合并另需最终准确 HEAD 授权。
@@ -98,7 +98,7 @@ Must：当前能力、原授权/租户/身份、事实 owner、安全检查和�
 源码删除条件是：批准矩阵、适用 Ready、消费者闭包核对、有效合同/安全检查保持及准确候选证据满足。**不存在以真实旧环境排空/删锁/删数据为这批源码合并或内部试用前置的条件。** 不复制历史配置到新 owner，不将镜像或运行态处置塞入 PR。若以后要停止/归档旧实例，由用户另定准确环境/动作与原运行 owner；本设计没有发出该操作指令。
 
 ```text
-Legacy decision: RETIRE（提案待确认）
+Legacy decision: RETIRE
 Reusable behavior: 通用配置/解析/有效校验、当前采集/观察/平台合同及独立登录能力保留。
 Current owner: 当前各 Domain/Capability/config 与独立 worker；历史集群/DB/Redis/broker/镜像各原运行/持久化 owner。
 Cutover/deletion condition: 用户确认 + 适用Ready + 本矩阵专属消费者/检查满足后删源码；不操作或转交真实资源/状态。
@@ -106,4 +106,4 @@ Cutover/deletion condition: 用户确认 + 适用Ready + 本矩阵专属消费�
 
 ## 8. 本轮交付与停止点
 
-本轮交付本提案、索引和历史上下文标注；仅做现有文档/link/diff 检查与适用 PR CI/独立最终复核。设计结果不等于删除已执行、IMPLEMENTATION_READY、合并许可、真实能力验收或生产发布。用户确认前不改正式 Go、测试、配置、CI 或部署源；#29/#301 保持 OPEN。
+本批在已确认设计内交付专属源码/声明退休、原测试与现行文档校准，并执行必要原自检、适用 PR CI 和集中独立实现复核。设计旧证据不替代实现结果；源码退休和 CI 绿色不等于合并许可、真实能力验收或生产发布。完成后进入 In Review，待用户决定；合并/部署/关单和真实环境操作仍分别授权，#29/#301 保持 OPEN。

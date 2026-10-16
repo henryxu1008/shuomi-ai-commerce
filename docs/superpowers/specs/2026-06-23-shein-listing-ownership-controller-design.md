@@ -1,6 +1,6 @@
 # SHEIN Listing Ownership Controller Design
 
-> Historical context: the listing CLI and execution sources have since retired under #723/#726/#729. The workload declaration and auto-shard configuration remain at the baseline of the [new retirement proposal](../../architecture/legacy-ownership-controller-retirement-boundary.md), which awaits user confirmation. This original document does not authorize current rollout, Redis/DB/broker inspection, lock changes or compatibility implementation; its historical evidence is retained below.
+> Historical context: the listing CLI and execution sources retired under #723/#726/#729. The user-confirmed [#738 retirement boundary](../../architecture/legacy-ownership-controller-retirement-boundary.md) now retires the remaining workload, unconsumed ConfigMap overlay and exclusive auto-shard configuration sources. This original document does not authorize current rollout, Redis/DB/broker inspection, lock changes or compatibility implementation; its historical evidence is retained below. Source retirement has not changed actual runtime/data owners.
 
 ## Context
 
