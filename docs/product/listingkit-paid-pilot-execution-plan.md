@@ -172,7 +172,7 @@ M0 固定基线和发布证据
 - 输出精确 commit SHA、Go 版本、Node 版本、依赖锁文件摘要。
 - 执行：
   - `go test ./... -count=1`
-  - Listing Control Plane 和 listingadmin race tests
+  - 保留的 listingadmin claim / rollback / recovery 三项 race tests（原安全断言不变）
   - `make build-all`
   - 前端 lint、typecheck、test、build
   - API/UI Docker build
@@ -184,11 +184,15 @@ M0 固定基线和发布证据
 
 ```text
 [x] 可以对一个不可变 SHA 手动触发完整验证。
-[x] 四个正式 command 全部构建。
+[x] make build-all 覆盖受维护的正式构建入口，以当次固定 SHA 的 Makefile 清单为准，不写死命令数量或恢复已退休入口。
 [x] API 和 UI 镜像可以在不 push 的情况下完成 build。
 [x] 输出可以关联到具体 workflow run 和 artifact。
 [x] 失败不会被通知步骤或非关键上传步骤掩盖。
 ```
+
+以上勾选保留原workflow建设验收；当时四入口的构建记录仍是历史证据，不表示#726已执行
+手动commercial-readiness或取得当前候选的商业/生产验收。后续商业候选仍按原固定SHA流程
+另行收集当次有效测试、构建和artifact证据；这次源码退休不增加当前内部试用前置。
 
 ### PAY-001：记录首个商业候选基线
 
