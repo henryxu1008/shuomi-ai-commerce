@@ -76,6 +76,7 @@ Must：有效 Store/owner/规则/worker 行为与原安全断言保持；无 fal
 | `internal/app/runtime/listingkitschemamigrate/runtime_test.go` 的 `openRuntimeSchemaTestDB` | RETIRE 零调用的旧任务建表 fixture；同批 BACKLOG finding 的精确补列，不重开架构 | 保留所有 runtime 测试、商用/Workbench scope 与旧 scope 在 I/O 前拒绝的断言；sqlite/gorm/modernc imports 仍被有效 Workbench SQLite 测试使用，全部保留 |
 | 原 `tests/listingkit_backend_retirement_test.go` | 在同一原 guard 扩展目标 absence；将 import_task_repository 从 retained 列表转到 absence；增加混合文件目标符号不复活与保留合同检查 | 先在完整源码仍存在时确认目标 RED，再最小删除后 GREEN；其它必读文件、当前命令实际依赖、旧目录禁入和安全断言保持，不遇缺跳过 |
 | 原 `tests/commercial_readiness_workflow_test.go` | 同步 §6.1 的精确命令与旧目标禁止引用断言 | pinned commit、race step/id、pipefail、日志/证据上传、失败分类和其它所有原要求不变；不整删测试或降低门禁 |
+| 原 `TestListingAdminDispatchEventCompatibilityAliasesStayRetired` | 将必读已退休 dispatch 文件改为读取保留 listingadmin 包内实际 Go 源；同批 CI IMPLEMENTATION_TEST 修复 | 三个原 alias 禁用断言完整保留并覆盖保留包，目录/文件读取失败仍 fatal；不因文件删除跳过，不恢复空壳，不改其它 DTO/边界检查 |
 
 三项原检查逐项判断：
 

@@ -583,18 +583,28 @@ func TestListingAdminCompatibilityDoesNotExposeImportTaskResponseDTO(t *testing.
 }
 
 func TestListingAdminDispatchEventCompatibilityAliasesStayRetired(t *testing.T) {
-	path := filepath.Join("..", "internal", "listingadmin", "dispatch_event_repository.go")
-	content, err := os.ReadFile(path)
+	root := filepath.Join("..", "internal", "listingadmin")
+	entries, err := os.ReadDir(root)
 	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
+		t.Fatalf("read %s: %v", root, err)
 	}
-	for _, phrase := range []string{
-		"type DispatchEventFilter =",
-		"type DispatchEventSummaryRow =",
-		"type DispatchEventListRow =",
-	} {
-		if strings.Contains(string(content), phrase) {
-			t.Fatalf("%s exposes %q; use DispatchEventQuery, DispatchEventReasonCount, and DispatchEventItem directly", path, phrase)
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") {
+			continue
+		}
+		path := filepath.Join(root, entry.Name())
+		content, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		for _, phrase := range []string{
+			"type DispatchEventFilter =",
+			"type DispatchEventSummaryRow =",
+			"type DispatchEventListRow =",
+		} {
+			if strings.Contains(string(content), phrase) {
+				t.Fatalf("%s recreates retired dispatch event alias %q", path, phrase)
+			}
 		}
 	}
 }
