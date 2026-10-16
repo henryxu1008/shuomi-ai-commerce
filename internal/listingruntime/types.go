@@ -1,27 +1,5 @@
 package listingruntime
 
-type ImportTask struct {
-	ID              int64
-	TenantID        int64
-	StoreID         int64
-	Platform        string
-	SourcePlatform  string
-	TargetPlatform  string
-	Region          string
-	CategoryID      int64
-	ProductID       string
-	Status          int16
-	ErrorMessage    string
-	RetryCount      int
-	MaxRetryCount   int
-	Priority        int
-	CreateTime      int64
-	PublishedTime   int64
-	Creator         string
-	StatusKey       string
-	CanonicalStatus string
-}
-
 type StoreInfo struct {
 	ID                       int64
 	TenantID                 int64
@@ -48,31 +26,11 @@ type StoreInfo struct {
 	AuthorizedBrandName      string
 }
 
-type ScheduledTaskConfig struct {
-	TenantID        int64
-	StoreID         int64
-	Platform        string
-	TaskType        string
-	Enabled         bool
-	IntervalSeconds int
-}
-
 type StorePauseStatusDetail struct {
 	Paused     bool
 	PauseType  string
 	Reason     string
 	TTLSeconds int64
-}
-
-type TaskStatusUpdate struct {
-	ID                    int64
-	Status                int16
-	ErrorMessage          string
-	ReasonCode            string
-	Stage                 string
-	ExpectedCurrentStatus *int16
-	RetryCount            *int
-	Priority              *int
 }
 
 type ProductImportMapping struct {

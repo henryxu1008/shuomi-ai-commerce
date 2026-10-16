@@ -2,6 +2,15 @@
 
 > Status: Active legacy handling register
 
+> #29 / #301 [numeric-task persistence retirement](../architecture/legacy-numeric-task-persistence-retirement-boundary.md)
+> is user-confirmed and implementation-admitted in #740. The unconsumed ImportTask,
+> dispatch events, pause/timeout recovery, scheduled configuration, task statistics
+> and idle aggregate schema bootstrap are absent. Shared Store/owner/rule/mapping
+> contracts and the standalone login worker remain, including valid ImportTaskID
+> fields and the Store owner helper. Both workflows run the retained listingadmin
+> suite with the race detector; historical task protocol checks retire with their
+> protocol. Real tables, indexes, rows, instances and recovery ownership are untouched.
+
 > #29 / #301 [旧数字任务执行链退休设计](../architecture/legacy-numeric-task-execution-retirement-boundary.md)
 > is user-confirmed and implementation-admitted after #726. The unregistered
 > task/status/processor, root Amazon executor and exclusive distributed crawler
@@ -195,7 +204,9 @@ Current acquisition, Store observations, valid shared contracts, required/securi
 checks and the independent SHEIN login worker retain their original owners.
 ImportTask repository/claim/rollback/recovery races, package-external task/status
 consumers and shared configuration were explicit debt in that bounded batch;
-the ownership declaration subsequently retires under #738. No whole-package cleanup, current
+the ownership declaration subsequently retires under #738, and #740 retires the
+unconsumed task persistence/recovery closure with its dedicated tests. Retained
+Store/owner/mapping/rule checks run in both original race steps. No whole-package cleanup, current
 consumer, compatibility bridge, runtime/data action or internal-trial prerequisite
 is authorized. Both workflows remove only the retired runtime race target and
 main CI removes its obsolete build line; design section 6.1 preserves all other

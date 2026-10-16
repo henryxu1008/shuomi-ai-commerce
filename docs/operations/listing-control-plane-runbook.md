@@ -9,18 +9,23 @@ Status: **RETIRED source entrypoints**（#726，#29 / #301）。
 `listing-control-plane`、`shein-import-platform-recovery` 及专属 runtime/control 库、
 一次性平台归一 helper/DTO/测试、Dockerfile/操作脚本和 control-plane workload 已退休。
 不存在可沿旧命令或旧 build/push/deploy 步骤启动的当前源码入口，不提供 forwarding stub。
-两套 workflow 精确移除旧 runtime race，主 CI 移除旧 build；原仓库并发安全和其它必需检查保持。
+两套 workflow 在 #726 精确移除旧 runtime race，主 CI 移除旧 build；
+原保留仓库后续按 #740 的[确认矩阵](../architecture/legacy-numeric-task-persistence-retirement-boundary.md)
+退出无消费者的数字任务持久化/恢复闭包。原 race 步骤现在运行完整保留 listingadmin 包，
+日志/失败分类/pipefail 与其它必需和安全检查保持。
 
 ## 保留的 owner 与当前入口
 
-任务/事件仓库、claim-token rollback、eligible-row recovery 及其并发/owner/tenant 安全检查、
-有效 ListingAdmin/根 ListingRuntime 合同与共享配置留原 owner；旧 task/status 随后已按
+旧 ImportTask/派发事件/暂停与超时恢复/调度配置/任务统计及专属测试已在 #740 退休；
+原三项 claim/rollback/recovery 并发测试随对应协议退出，不用空选择保留虚假绿灯。
+有效 Store/owner/规则/mapping 合同、原租户/事务安全断言与共享配置留原 owner；旧 task/status 已按
 [#729 范围](../architecture/legacy-numeric-task-execution-retirement-boundary.md)退出源码，不转移原持久化责任。
-仍保留的旧仓库债务不是新当前业务依赖或第二事实源。
+共享包、Store owner helper 与 ImportTaskID 字段仍有有效消费者，不能整包或按名字清扫；
+它们也不是新当前业务增加旧数字 owner 依赖的许可。
 
 前批保留的历史 ownership-controller 声明，随后已按 #738 的[确认边界](../architecture/legacy-ownership-controller-retirement-boundary.md)
 连同专属配置 overlay 和 auto-shard 配置闭包源码退休；没有更换或运行该历史镜像。
-其它有效共享配置、Secret/RBAC/监控对象与原任务仓库安全合同保持。
+其它有效共享配置、Secret/RBAC/监控对象与保留 Store/owner/规则安全合同保持。
 源码清单不证明实例不存在、健康、停用或在途副作用已解决。
 
 当前应用继续沿原私密 manifest 入口；采集、Store 观察同步及图片/Temporal 原合同保持。

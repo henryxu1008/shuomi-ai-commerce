@@ -195,7 +195,7 @@ func TestCommercialReadinessWorkflowCollectsPinnedReleaseEvidence(t *testing.T) 
 		"id: race_tests",
 		"set -o pipefail",
 		"tee evidence/listingadmin-race.log",
-		"go test -race ./internal/listingadmin -run \"TestConcurrentClaimForDispatchOnlyOneWorkerWins|TestConcurrentRollbackDispatchOnlyOriginalQueuedClaimIsRestoredOnce|TestConcurrentRecoveryOnlyUpdatesStillEligibleRowsOnce\" -count=1",
+		"go test -race ./internal/listingadmin -count=1",
 		"make build-all",
 		"cache: " + packageManager,
 		"cache-dependency-path: web/listingkit-ui/" + lockfile,
@@ -218,7 +218,12 @@ func TestCommercialReadinessWorkflowCollectsPinnedReleaseEvidence(t *testing.T) 
 	if strings.Contains(workflow, "continue-on-error: true") {
 		t.Fatal("commercial-readiness workflow must not hide failed validation steps")
 	}
-	for _, retired := range []string{"./internal/app/runtime/listingcontrol", "evidence/listingcontrol-race.log"} {
+	for _, retired := range []string{
+		"./internal/app/runtime/listingcontrol", "evidence/listingcontrol-race.log",
+		"TestConcurrentClaimForDispatchOnlyOneWorkerWins",
+		"TestConcurrentRollbackDispatchOnlyOriginalQueuedClaimIsRestoredOnce",
+		"TestConcurrentRecoveryOnlyUpdatesStillEligibleRowsOnce",
+	} {
 		if strings.Contains(workflow, retired) {
 			t.Errorf("commercial-readiness workflow must not reference retired runtime evidence %q", retired)
 		}

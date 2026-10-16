@@ -229,29 +229,3 @@ func TestMigrationScopeFlagHelpAdvertisesAllSupportedScopes(t *testing.T) {
 		}
 	}
 }
-
-func openRuntimeSchemaTestDB(t *testing.T) *gorm.DB {
-	t.Helper()
-
-	db, err := gorm.Open(sqlite.Dialector{DriverName: "sqlite", DSN: ":memory:"}, &gorm.Config{})
-	if err != nil {
-		t.Fatalf("open db: %v", err)
-	}
-	for _, table := range []string{
-		"listing_store",
-		"listing_product_import_task",
-		"listing_filter_rule",
-		"listing_profit_rule",
-		"listing_pricing_rule",
-		"listing_operation_strategy",
-		"listing_sensitive_word",
-		"listing_product_import_mapping",
-		"listing_category",
-		"listing_product_data",
-	} {
-		if err := db.Exec("CREATE TABLE " + table + " (id integer)").Error; err != nil {
-			t.Fatalf("create legacy %s table: %v", table, err)
-		}
-	}
-	return db
-}

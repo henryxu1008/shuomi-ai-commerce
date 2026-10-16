@@ -27,13 +27,19 @@ worker 的原数字账户持久化和发布 identity-preflight 仍是债务，�
 三个旧刊登 CLI 已从源码和构建入口退出，专属 bootstrap/consumer/runner/scheduler、
 local runtime、旧 SHEIN sync 和平台 module/scheduler 随实际消费者排空。
 该批原保留的control-plane后续已按#726确认范围连同一次性platform-recovery入口及
-专属派发/恢复编排、Dockerfile/操作脚本退出；任务仓库和原claim/rollback/recovery安全检查保留。
+专属派发/恢复编排、Dockerfile/操作脚本退出；该批当时保留任务仓库和原claim/rollback/recovery安全检查。
 共享`listingadmin`/根`listingruntime`、当前采集、Store观察同步、图片/Temporal及独立
 `shein-login-worker`保持原owner和入口。独立worker使用原Dockerfile/启动合同。
 后续 #738 按[确认矩阵](../architecture/legacy-ownership-controller-retirement-boundary.md)退出
 ownership-controller、两个无保留消费者的专属 ConfigMap 源文件及各自装配，清理 auto-shard
 专属配置闭包；其它有效配置/Secret/监控、共享解析与独立登录保持，不更换或运行历史镜像。
 源码退休不代表实例停用或全数字任务链退休；无实例/数据操作，生产 NOT_READY。
+
+后续 #740 按[已确认矩阵](../architecture/legacy-numeric-task-persistence-retirement-boundary.md)
+退出无消费者的 ImportTask/派发事件/暂停与超时恢复/调度配置/旧任务统计及专属 schema 残留。
+共享 Store/owner helper、规则、mapping（含 ImportTaskID）、当前采集/观察与独立登录保持；
+两套 workflow 原 race 步骤改为完整保留包的 `-race`，日志和失败阻断不变。
+仅删除源码，不删除真实表/索引/行或接管历史恢复，不增加内部试用前置。
 
 ## 目标
 
