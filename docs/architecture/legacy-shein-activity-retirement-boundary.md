@@ -75,23 +75,26 @@ Must：§5/§6 保留能力和有效安全断言不减；没有新活动执行�
 | registration_config.go | RETIRE buildActivityConfigs、buildActivityConfigsWithStrategy、buildActivityConfigsByProfit 三个 DB/旧服务 builder；RETIRE buildTimeLimitedDiscountConfig、defaultActivityStartLeadTime、GenerateActivityNameForActivityKey | 保留 minimumPromotionSKUDiscountRate、normalizePromotionSKUCode、firstAvailablePromotionSalePrice；将 buildActivityConfigsFromProvidedProducts、dropRateFromProvidedProduct、calculateEquivalentDropRate、calculateActivityStock 解为无 receiver 函数，并保留本表首行规则。只接传入值与需要的日志参数，不接 repo/API/StoreService/context.Background |
 | promotion_create_products.go | RETIRE 三段 createPromotionActivityFromProducts / NewPromotionRegistrationSession / createPromotionActivityFromPreparedGoods、promotionRegistrationSession 及其方法、buildPromotionCreateConfig、clonePromotionOperationStrategy | 保留 applyPromotionCreateConfig、selectedPromotionSKCs、filterPromotionGoodsBySKC、promotionGoodsFromProductSnapshots、enrichPromotionGoodsFromProductSnapshots、configCurrencyOrDefault、promotionSKUPriceInput(s)、normalizedPromotionSKUCode；buildCalculateRequestForPromotionProducts 解为无 receiver 纯投影。promotionFloat64Ptr 只作测试 fixture 时移入原测试，不保留专属生产壳 |
 | time_limited.go | RETIRE queryPromotionGoods、calculateSupplyPrice、createTimeLimitedDiscount、queryAllPromotionGoods、buildQueryRequest、checkCreateResult、GenerateActivityName、CreateTimeLimitedDiscountActivity、noAvailablePromotionProductsError | 保留 isTimeLimitedDiscountValid、原 95% 常量、过滤原因上限及两个 append helper；validatePriceRisk、buildCreateActivityRequest 解为无 receiver 的无 IO 规则/纯 DTO 投影，日志仅显式输入。保留每 SKU 严格小于95%的十进制边界、风险/警告、库存/平台上下限、白名单、500商品上限、无效/缺失价格排除及 filter reasons |
-| config.go / validation_utils.go | 原样保留 | 完整 TimeLimitedDiscountConfig、默认/Validate、四个配置错误、ValidateDropRate / CalculateDropRateFromDiscount 与常量不改；StartTime==EndTime 的现有判断也不暗改 |
-| errors.go | 只 RETIRE ErrNoAvailableProducts、ErrInsufficientStock、ErrActivityCreationFailed、ErrActivityAlreadyExists 及旧调度器/创建专属注释 | 保留四个配置错误与 ErrProductPriceRisk；实施前全仓刷新无外部消费者再删，不因本包纯规则存在就留下旧生命周期错误协议 |
+| config.go | RETIRE 完整文件、导出的 TimeLimitedDiscountConfig、DefaultTimeLimitedDiscountConfig 和 Validate | 全仓没有包外消费者；不能因旧默认值/StartTime==EndTime 测试保留调度 DTO、日期/命名生命周期或配置 owner。纯规则必要输入按下段剥离，不留原类型的 alias/wrapper/字段复制壳 |
+| validation_utils.go | 原样保留 | ValidateDropRate / CalculateDropRateFromDiscount、80% 上限与常量保持，不依赖旧调度 DTO |
+| errors.go | 仅保留 ErrProductPriceRisk；RETIRE 四个 ErrInvalidActivity* / ErrInvalidTimeZone 配置错误及 ErrNoAvailableProducts、ErrInsufficientStock、ErrActivityCreationFailed、ErrActivityAlreadyExists 和旧调度器注释 | 配置错误具体为 ErrInvalidActivityName、ErrInvalidActivityTime、ErrInvalidActivityTimeRange、ErrInvalidTimeZone；均随退出的 Validate/生命周期走，不以导出名字推定共享合同；实施前全仓刷新无外部消费者再删 |
 | 营销 API、有效平台规则与共享合同 | 原样保留 internal/shein/api/marketing 整包、client/端点/凭据/错误合同/原 wire 测试、当前 marketplace/publishing 规则、listingadmin/root listingruntime 与配置 | 不改 API 签名、请求/响应、开启状态/活动类型常量、Payload 或已有规则；不从一个 caller 退出推导 DTO/Store/Mapping/策略字段可以删除 |
 | 用户明确保留能力 | 两种属性及产品同步 client-boundary 测试、所有 PriceManager/PriceCalculator、当前采集/Store observations/独立登录及 Store sync 完整保留 | 不创建 activity 运行入口，不改登录 worker/观察/价格能力的代码、配置、持久化或恢复；两套 workflow 零改动 |
 
-以上 EXTRACT 只剥离有效行为与旧 receiver/IO 的依赖，保留既有纯规则职责，不创建营销应用接口、wrapper、第二套公式或运行接线。同期不做公式优化、字段精简或规范化策略合并；两个已有 SKU normalizer 的等价性也不凭猜测顺手统一。已有输入内的站点/供货价选择不是新增 legacy 数据源回退，本轮不得新增仓库/API 双读或改变其规则。
+以上 EXTRACT 只剥离有效行为与旧 receiver/IO 的依赖，保留既有纯规则职责，不创建营销应用接口、wrapper、第二套公式或运行接线。不能原样保留旧调度 DTO 再将其称为规则合同：calculateActivityPrice / applyPromotionCreateConfig / 请求投影 / validatePriceRisk 等只消费必要的包内私有值输入或显式参数。私有规则字段仅限 PriceMode、DiscountRate、MinProfitRate、FixedPriceAdjustment、StockLimit、StockPercent、FilterSkcList、AllowRiskProducts、MaxWarningValue；不含 StoreID、时间/名称生成或任何持久化/执行状态，不导出新公共领域合同。只保留实际被上述规则读取的值，不复制旧 DTO 全字段或其 Validate/default 生命周期。
+
+请求元数据沿已有 marketing.CalculateSupplyPriceRequest 和 marketing.CreateActivityRequest 的值输入传递：纯 builder 只填充对应 SKU/价格/库存/过滤结果，不生成日期或活动身份、不读取实例配置、不调用 API。原定价模式、比例、风险参数的样本/有效默认分支继续在规则测试中证明；旧活动时间/时区/name/refTool/库存总配置等默认装配不再作为独立调度产品保留。同期不做公式优化或规范化策略合并；两个已有 SKU normalizer 的等价性不凭猜测顺手统一。已有输入内的站点/供货价选择不是新增 legacy 数据源回退，本轮不得新增仓库/API 双读或改变其规则。
 
 实施前若发现当前外部消费者、durable asset/副作用 owner，或无法按本矩阵脱离旧服务保留有效行为，停止相应项并报告证据；不得 missing skip、新 allowlist、空壳或误删保绿。
 
 ## 6. 测试与安全规则的同批处置
 
-旧测试不是架构依据，仍有效的断言也不能随服务整删。复用以下六个原测试文件/fixture，先保全行为后移除接缝，不新建验收 runner。
+旧测试不是架构依据，仍有效的断言也不能随服务整删。逐项处置以下六个原测试文件/fixture，先保全行为后移除接缝，不新建验收 runner。
 
 | 基线测试 | 待确认处置 | 继续验证的行为 |
 | --- | --- | --- |
 | validation_utils_test.go | 原样保留完整文件 | 降幅上下限、非法折扣及默认值 |
-| config_test.go | 保留默认、Validate、StartEqualsEnd、applyPromotionCreateConfig 全库存比例用例；仅退休 TestBuildTimeLimitedDiscountConfigSchedulesStartWithFutureBuffer | 五分钟/十五天由旧执行器生成计划的测试随计划 builder 退出；不改变 API 日期格式或保留配置校验 |
+| config_test.go | RETIRE 完整文件，**先**把 TestApplyPromotionCreateConfigKeepsFullStockRatioUnlimited 的业务断言移到原 registration_direct_products_test.go 的无 IO 规则接缝 | 旧 DTO 默认、Validate、StartEqualsEnd、五分钟/十五天计划 builder 的专属测试随调度合同退出，不是当前平台规则的 Authority；保留原营销 API 日期 wire 测试，不能用旧 DTO 维持 fixture |
 | activity_stock_validation_test.go | 保留两组测试所有有效 case；仅去掉旧 service 构造，库存计算直接调用无 IO 函数 | 负/零库存、比例和最少一个库存、ActivityConfig 库存/降幅字段断言 |
 | price_calculator_test.go | 保留所有纯公式、SKU 价格不回退、Amazon 成本映射测试；退出 TestBuildCalculateRequestWithPriceModeBreakevenUsesPerSKUCost 的 repo/JSON/service fixture | 原每 SKU 成本/无效 SKU 与保本值断言迁到无 IO 成本与现有价格接缝，不把删除仓储 fixture 当删除业务规则许可 |
 | registration_direct_products_test.go | **保留文件并收缩**：纯 helper 用例去 receiver，service 端到端用例先把有效业务断言改到本表下述纯接缝，再退出 save/open/create/query/session mocks 与专属 Store stub | 不以整文件删除代替规则评估；保存/开启次数、分页找ID、activityKey命名、分块session、调用来源仓库/实时平台的专属协议断言随旧编排退休 |
@@ -110,7 +113,7 @@ registration_direct_products_test.go 中必须继续覆盖的规则分组：
 
 | 既有对象 | 未来同批实施处置 | 必须保留 |
 | --- | --- | --- |
-| tests/listingkit_backend_retirement_test.go | 既有 absence 清单加入 registration.go、mixed.go、profit.go、product_data_helper.go、repository_test.go；混合文件精确检查退出符号与保留规则/错误/属性 | 不禁止整个 activity 包；断言旧 service/constructor/session 不复活，规则不能通过空壳恢复 |
+| tests/listingkit_backend_retirement_test.go | 既有 absence 清单加入 registration.go、mixed.go、profit.go、product_data_helper.go、config.go、config_test.go、repository_test.go；混合文件精确检查退出符号与保留规则/风险错误/属性 | 不禁止整个 activity 包；断言旧 service/constructor/session/TimeLimitedDiscountConfig 及其 default/Validate/专属错误不复活，规则不能通过空壳恢复 |
 | tests/import_boundaries_test.go 的 TestSheinRetiredManagementImportsStayBlocked | 删除 activity 下 mixed.go、product_data_helper.go、profit.go、registration.go、registration_config.go、time_limited.go 六个 management allowlist 项 | 后两个仍存在但只剩无 IO 规则，不能因文件保留继续豁免；其它条目/deny 保持，不加新 exemption 或调高 ceiling |
 | 架构索引/原设计与 tests/architecture_docs_test.go | 将本设计状态与 §5/§6/本节落地结果同步；若旧文档直接当前保留断言冲突，只更新直接冲突引用/原文档测试 | 历史批次/dated inventory/原 CI 结果不重写；复用原文档测试入口，不额外建治理检查器 |
 | docs/refactoring/phase2-runtime-inventory.md | 实际 import 图确认后，只减当前 core/logger → shein/activity 这一行 | logrus 与其余消费者/ceilings/历史清单保留，不将纯规则包登记为整个目录退休 |
