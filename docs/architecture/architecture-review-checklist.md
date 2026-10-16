@@ -62,6 +62,8 @@ The `Current guard coverage` section in `docs/architecture/next-steps.md`
 points here instead of maintaining a second copy. Structural review must
 consider the applicable guards, including:
 
+- `TestListingKitTaskBackendSourcesAreRetired`
+- `TestCurrentCommandsDoNotCompileLegacyBusinessBackends`
 - `TestBusinessDomainsDoNotImportAppHTTPAPI`
 - `depguard: domain_app_httpapi_boundaries`
 - `TestProjectBoundaryDomainsDoNotImportListingKitFacade`
@@ -303,7 +305,6 @@ consider the applicable guards, including:
 - `TestTemuPricingRuntimeUsesCapabilityNames`
 - `TestTemuSchedulerRuntimeUsesCapabilityNames`
 - `TestTemuProcessorRuntimeUsesCapabilityNames`
-- `TestTemuSyncRuntimeUsesCapabilityNames`
 - `TestTemuRuntimeErrorsUseCapabilityNames`
 - `TestTemuContextUsesManagementAPIPortAliases`
 - `TestTemuRootUsesManagementAPIPortAliases`
@@ -314,10 +315,8 @@ consider the applicable guards, including:
 - `TestTemuSkuUsesManagementAPIPortAliases`
 - `TestTemuProductUsesManagementAPIPortAliases`
 - `TestTemuPricingUsesManagementAPIPortAliases`
-- `TestTemuSyncUsesManagementAPIPortAliases`
 - `TestTemuAPIClientUsesManagementAPIPortAliases`
 - `TestTemuPricingFallbackLogsUseCapabilityNames`
-- `TestTemuSyncFallbackLogsUseCapabilityNames`
 - `TestRetiredManagementServiceHotspotsUseCapabilityNames`
 - `TestRetiredManagementRuntimeNamingHotspotsUseCapabilityNames`
 - `TestAppRunnerSchedulerStoreRuntimeUsesCapabilityNames`
