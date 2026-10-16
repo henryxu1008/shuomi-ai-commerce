@@ -32,12 +32,37 @@ func main() {
 	cockpit := flag.Bool("operations-cockpit", false, "install manual financial facts and goals on an authorized fresh empty Store instance")
 	tiktok := flag.Bool("tiktok-shop", false, "grant admitted TikTok OAuth tables on an authorized fresh empty Store instance")
 	walmart := flag.Bool("walmart-us", false, "grant admitted Walmart US OAuth tables on an authorized fresh empty Store instance")
+	align := flag.Bool("align-core-contract", false, "align only the four admitted core CHECKs on a retained Store database; no grants or platform installation")
+	confirmed := flag.String("confirm-database", "", "exact existing database name required for --align-core-contract")
 	flag.Parse()
-	if err := runWithTikTok(*path, *observations, *cockpit, *observationsOnly, *grantsOnly, *verify, *tiktok, *walmart); err != nil {
+	confirmationSet := false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == "confirm-database" {
+			confirmationSet = true
+		}
+	})
+	err := func() error {
+		if flag.NArg() != 0 {
+			return errors.New("unexpected positional arguments")
+		}
+		if *align {
+			if *observations || *cockpit || *observationsOnly || *grantsOnly || *verify || *tiktok || *walmart {
+				return errors.New("core alignment cannot be combined with any installation or observation mode")
+			}
+			return alignCoreContract(*path, *confirmed)
+		}
+		if confirmationSet {
+			return errors.New("--confirm-database requires --align-core-contract")
+		}
+		return runWithTikTok(*path, *observations, *cockpit, *observationsOnly, *grantsOnly, *verify, *tiktok, *walmart)
+	}()
+	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	if *verify {
+	if *align {
+		fmt.Println("Store core contract and schema version verified; existing facts and permissions retained")
+	} else if *verify {
 		fmt.Println("Store observation schema and serving privileges verified; no schema operation")
 	} else if *grantsOnly {
 		fmt.Println("Original Store observation grants restored; schema and facts retained")
@@ -46,6 +71,27 @@ func main() {
 	} else {
 		fmt.Println("current Store schema installed and narrow runtime roles granted")
 	}
+}
+
+func alignCoreContract(path, confirmed string) error {
+	if confirmed == "" {
+		return errors.New("core contract alignment refused: exact database confirmation required")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	cfg, err := loadOwnerConfig(path, "store_center_owner")
+	if err != nil || cfg.Database != confirmed {
+		return errors.New("core contract alignment refused: private owner config and exact database confirmation required")
+	}
+	db, err := platformdatabase.OpenExistingWritableContext(ctx, cfg)
+	if err != nil {
+		return errors.New("core contract alignment refused: owner database unavailable")
+	}
+	defer platformdatabase.Close(db)
+	if err := storeschema.AlignCoreContract(ctx, db, confirmed); err != nil {
+		return fmt.Errorf("core contract alignment refused: %w", err)
+	}
+	return nil
 }
 
 func run(storePath string, observations, cockpit, observationsOnly, grantsOnly, verify bool) error {

@@ -1,8 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildWorkbenchUpstreamRequest, buildWorkbenchBrowserResponse } from "./workbench-proxy";
+import {sheinImportFixture} from "@/test/shein-import-fixture";
 const id="550e8400-e29b-41d4-a716-446655440000";
 const scope={cookie:"shuomi_effective_organization=org-a","X-Expected-Organization-ID":"org-a","X-Expected-User-ID":"actor-a"};
 describe("private supply chain proxy",()=>{
+ it("keeps SHEIN preview read-only and binds its entire selection echo",async()=>{
+  const f=sheinImportFixture(),path=["supply-preparations","shein-completion-preview"],url=`http://localhost/api/workbench/${path.join("/")}`;
+  const request=()=>new Request(url,{method:"POST",headers:{...scope,"content-type":"application/json"},body:JSON.stringify(f.request)});
+  const upstream=await buildWorkbenchUpstreamRequest(request(),path,"server-token","actor-a");expect(upstream).not.toBeInstanceOf(Response);if(upstream instanceof Response)return;
+  expect(upstream.sourceMutation).toBe(false);expect(upstream.expectedStoreId).toBe(JSON.stringify(f.request));
+  expect((await buildWorkbenchBrowserResponse(Response.json(f.preview),"supply-shein-completion-preview",upstream.expectedStoreId)).status).toBe(200);
+  expect((await buildWorkbenchBrowserResponse(Response.json({input:{...f.preview.input,sheinImport:{...f.preview.input.sheinImport,completionDraft:{recordId:id,revision:4}}}}),"supply-shein-completion-preview",upstream.expectedStoreId)).status).toBe(502);
+ });
  beforeEach(()=>vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL","http://localhost"));
  it("binds history query bounds and exact saved revisions without command authority",async()=>{
   const path=["supply-preparations","sources",id,"completion-draft","history"],url=`http://localhost/api/workbench/${path.join("/")}`;

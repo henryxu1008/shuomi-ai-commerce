@@ -11,6 +11,9 @@ const detail={source,images:[],product:{title:"固定原商品V1",description:"�
 const record={id,draftId:preparation,revision:1,source,content:{title:"候选内容R1",description:"候选描述"},status:"pending_completion",createdAt:"2026-10-14T00:00:00Z"};
 beforeEach(()=>{vi.clearAllMocks();f.context.pendingSupplyIntent=null;f.context.effectiveOrganization.id="org";f.context.setPendingSupplyIntent.mockImplementation(v=>{f.context.pendingSupplyIntent=v;return true});f.source.mockResolvedValue(detail);f.read.mockRejectedValue(new SupplyAPIError("NOT_FOUND",404));f.save.mockResolvedValue({record,replayed:false})});
 afterEach(cleanup);
+it("links the exact saved candidate to SHEIN with verified item and batch context",async()=>{
+ f.read.mockResolvedValue(record);render(<CompletionDraftPage sourceId={id} preparationId={preparation} itemId={preparation} sheinAvailable/>);expect(await screen.findByRole("link",{name:"SHEIN 带入预览（已保存 R1）"})).toHaveAttribute("href",`/workbench/supply/mine/missing/${id}/shein?preparation=${preparation}&item=${preparation}&revision=1`);
+});
 it("locks text editing after CAS conflict until the shared head is explicitly reloaded",async()=>{
  f.read.mockResolvedValue(record);f.save.mockRejectedValueOnce(new SupplyAPIError("REVISION_CONFLICT",409));
  render(<CompletionDraftPage sourceId={id}/>);await screen.findByRole("textbox",{name:"候选标题"});fireEvent.click(screen.getByRole("button",{name:"保存待补全草稿"}));await screen.findByText("资料已发生变化，请重新读取后补齐。");expect(screen.getByRole("button",{name:"保存待补全草稿"})).toBeDisabled();

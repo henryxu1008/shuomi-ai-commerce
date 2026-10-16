@@ -12,14 +12,6 @@ export function applyApplicationMode(value:SupplyDraft,mode:"self_operated"|"sem
  for(const skc of draft.product.skc_list)for(const sku of skc.sku_list){delete sku.price_info_list;delete sku.cost_info;delete sku.stop_purchase;sku.stock_info_list=[]}
  return draft;
 }
-// Only an explicit user action brings saved candidate text into a target.
-export function applyCompletionText(value:SupplyDraft,content:{title:string;description:string}):SupplyDraft{
- const draft=structuredClone(value);
- const replace=(values:{language:string;name:string}[],text:string)=>values.some(v=>v.language==="en")?values.map(v=>v.language==="en"?{...v,name:text}:v):[...values,{language:"en",name:text}];
- draft.product.multi_language_name_list=replace(draft.product.multi_language_name_list,content.title);
- draft.product.multi_language_desc_list=replace(draft.product.multi_language_desc_list??[],content.description);
- return draft;
-}
 export type SKU=OfficialProduct["skc_list"][number]["sku_list"][number];
 export type AttributeValue=OfficialProduct["product_attribute_list"][number];
 export function sampleForSKU(draft:SupplyDraft,skcIndex:number,skuIndex:number):OfficialProduct["sample_info"]{

@@ -108,6 +108,9 @@ func ApplyProposal(base record.TargetRecord, p Proposal) (record.TargetInput, er
 	}
 	p = copied
 	result.ExpectedRevision = base.Revision
+	// The old import belongs to the immutable base operation, not this new
+	// human-reviewed platform proposal. Its business fields remain in Draft.
+	result.SheinImport = nil
 	if p.CategoryID != nil {
 		result.Draft.Product.CategoryID = *p.CategoryID
 	}

@@ -71,3 +71,5 @@ Legacy decision: N/A。当前有效CompletionDraft/Preparation/Catalog/Console�
 合并、Issue关闭、保留实例安装/业务写入、用户/生产验收分别另授权。不把CI、fixture或AI检查当产品验收。
 
 后续发布须协调更新后台和前端，不设计混合旧DTO兼容路径。原文字记录/待核实旧命令在新二进制中保持hash；已有结构化新记录后不直接降级旧二进制，不能忽略字段或重算历史hash来伪造兼容。保留数据并修复前进，不自动回写/迁移/删除。本轮无真实部署授权。
+
+2026-10-16 增量：[SHEIN 带入预览与确认](completion-shein-import-v1.md) 仅扩展 SHEIN Target 的候选带入范围；本文 CompletionDraft 保存、版本、权限和文字历史恢复合同不变。

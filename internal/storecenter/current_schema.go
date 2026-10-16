@@ -33,9 +33,9 @@ var currentSchemaStatements = []string{
    (service_status='suspended' AND ((service_started_at IS NULL AND service_expires_at IS NULL) OR (service_started_at IS NOT NULL AND service_expires_at IS NOT NULL AND service_expires_at > service_started_at)))),
  CONSTRAINT store_delete_shape CHECK ((record_status IN ('deleting','deleted') AND delete_operation_key <> '') OR (record_status NOT IN ('deleting','deleted') AND delete_operation_key = '')),
  CONSTRAINT store_deleted_shape CHECK ((record_status='deleted') = (deleted_at IS NOT NULL)),
- CONSTRAINT store_version CHECK (version > 0), CONSTRAINT store_platform CHECK (platform IN ('shein','temu','tiktokshop','walmart')),
- CONSTRAINT store_walmart_market CHECK (platform<>'walmart' OR region='US'),
- CONSTRAINT store_tiktok_identity CHECK (platform<>'tiktokshop' OR (region='US' AND external_store_id<>'')),
+ CONSTRAINT store_version CHECK (version > 0), CONSTRAINT store_platform ` + storePlatformCheckSQL + `,
+ CONSTRAINT store_walmart_market ` + storeWalmartCheckSQL + `,
+ CONSTRAINT store_tiktok_identity ` + storeTikTokCheckSQL + `,
  CONSTRAINT store_organization_identity UNIQUE (organization_id,id),
  CONSTRAINT store_times CHECK (updated_at >= created_at AND (deleted_at IS NULL OR deleted_at >= updated_at))
 )`,
@@ -111,7 +111,7 @@ var currentSchemaStatements = []string{
 	`CREATE TABLE public.workbench_store_merchant_bindings (
  identity_hash VARCHAR(64) NOT NULL, platform VARCHAR(32) NOT NULL, app_id VARCHAR(200) NOT NULL, open_key_id VARCHAR(200) NOT NULL, organization_id VARCHAR(200) NOT NULL, store_id CHAR(36) NOT NULL,
  PRIMARY KEY (identity_hash),
- CONSTRAINT store_merchant_binding_shape CHECK (octet_length(identity_hash)=64 AND app_id<>'' AND ((platform='shein' AND open_key_id<>'') OR (platform IN ('temu','walmart') AND open_key_id=''))),
+ CONSTRAINT store_merchant_binding_shape ` + storeMerchantCheckSQL + `,
  CONSTRAINT store_merchant_binding_store FOREIGN KEY (organization_id,store_id) REFERENCES public.workbench_stores (organization_id,id)
 )`,
 }
@@ -174,6 +174,28 @@ func VerifyCurrentSchemaForCapabilities(ctx context.Context, db *gorm.DB, capabi
 	if err != nil {
 		return err
 	}
+	if err := verifyCoreSchema(ctx, sqlDB, capabilities, currentConstraintDefinitions); err != nil {
+		return err
+	}
+	if capabilities.TikTokShop {
+		if err := verifyTikTokSchema(ctx, sqlDB); err != nil {
+			return err
+		}
+	}
+	if capabilities.WalmartUS {
+		return verifyWalmartSchema(ctx, sqlDB)
+	}
+	return nil
+}
+
+// Both serving and owner maintenance read the same contract. A migration uses
+// its pinned transaction so uncommitted DDL is verified on that connection.
+type coreSchemaQueryer interface {
+	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
+	QueryRowContext(context.Context, string, ...any) *sql.Row
+}
+
+func verifyCoreSchema(ctx context.Context, sqlDB coreSchemaQueryer, capabilities RuntimeCapabilities, definitions map[string]string) error {
 	for table, want := range currentColumnNames {
 		if !capabilities.TikTokShop && isTikTokSchemaTable(table) {
 			continue
@@ -216,7 +238,7 @@ func VerifyCurrentSchemaForCapabilities(ctx context.Context, db *gorm.DB, capabi
 			return fmt.Errorf("store schema columns mismatch: %s", table)
 		}
 	}
-	for name, want := range currentConstraintDefinitions {
+	for name, want := range definitions {
 		var definition string
 		if err := sqlDB.QueryRowContext(ctx, `SELECT pg_get_constraintdef(oid) FROM pg_catalog.pg_constraint WHERE conrelid='public.workbench_stores'::regclass AND contype='c' AND conname=$1 AND convalidated`, name).Scan(&definition); err != nil {
 			return errors.New("store schema state constraints unavailable")
@@ -282,14 +304,6 @@ func VerifyCurrentSchemaForCapabilities(ctx context.Context, db *gorm.DB, capabi
 			return errors.New("store member schema boundary unavailable")
 		}
 	}
-	if capabilities.TikTokShop {
-		if err := verifyTikTokSchema(ctx, sqlDB); err != nil {
-			return err
-		}
-	}
-	if capabilities.WalmartUS {
-		return verifyWalmartSchema(ctx, sqlDB)
-	}
 	return nil
 }
 
@@ -304,38 +318,38 @@ func isTikTokSchemaTable(table string) bool {
 const storeRuntimePermissionQuery = `SELECT current_user,
  current_schema()='public' AND current_schemas(false)=ARRAY['public']::name[]
  AND pg_catalog.to_regclass('workbench_stores')=pg_catalog.to_regclass('public.workbench_stores') AND pg_catalog.to_regclass('workbench_store_audit_logs')=pg_catalog.to_regclass('public.workbench_store_audit_logs')
- AND has_database_privilege(current_user,current_database(),'CONNECT') AND has_schema_privilege(current_user,'public','USAGE')
- AND has_table_privilege(current_user,'public.workbench_stores','SELECT') AND has_table_privilege(current_user,'public.workbench_stores','INSERT') AND has_table_privilege(current_user,'public.workbench_stores','UPDATE')
- AND has_table_privilege(current_user,'public.workbench_store_audit_logs','SELECT') AND has_table_privilege(current_user,'public.workbench_store_audit_logs','INSERT')
- AND has_table_privilege(current_user,'public.workbench_store_member_grants','SELECT') AND has_table_privilege(current_user,'public.workbench_store_member_grants','INSERT') AND has_table_privilege(current_user,'public.workbench_store_member_grants','UPDATE')
- AND has_table_privilege(current_user,'public.workbench_store_member_grant_operations','SELECT') AND has_table_privilege(current_user,'public.workbench_store_member_grant_operations','INSERT')
- AND has_table_privilege(current_user,'public.workbench_store_service_operations','SELECT') AND has_table_privilege(current_user,'public.workbench_store_service_operations','INSERT') AND has_table_privilege(current_user,'public.workbench_store_service_operations','UPDATE')
- AND has_table_privilege(current_user,'public.workbench_store_connections','SELECT') AND has_table_privilege(current_user,'public.workbench_store_connections','INSERT') AND has_table_privilege(current_user,'public.workbench_store_connections','UPDATE')
- AND has_table_privilege(current_user,'public.workbench_store_connection_attempts','SELECT') AND has_table_privilege(current_user,'public.workbench_store_connection_attempts','INSERT') AND has_table_privilege(current_user,'public.workbench_store_connection_attempts','UPDATE')
- AND has_table_privilege(current_user,'public.workbench_store_merchant_bindings','SELECT') AND has_table_privilege(current_user,'public.workbench_store_merchant_bindings','INSERT')
- AND has_table_privilege(current_user,'public.workbench_store_groups','SELECT') AND has_table_privilege(current_user,'public.workbench_store_groups','INSERT') AND has_table_privilege(current_user,'public.workbench_store_groups','UPDATE')
- AND has_table_privilege(current_user,'public.workbench_store_profiles','SELECT') AND has_table_privilege(current_user,'public.workbench_store_profiles','INSERT') AND has_table_privilege(current_user,'public.workbench_store_profiles','UPDATE')
- AND has_table_privilege(current_user,'public.workbench_store_metadata_operations','SELECT') AND has_table_privilege(current_user,'public.workbench_store_metadata_operations','INSERT')
+ AND has_database_privilege(subject.runtime_role,current_database(),'CONNECT') AND has_schema_privilege(subject.runtime_role,'public','USAGE')
+ AND has_table_privilege(subject.runtime_role,'public.workbench_stores','SELECT') AND has_table_privilege(subject.runtime_role,'public.workbench_stores','INSERT') AND has_table_privilege(subject.runtime_role,'public.workbench_stores','UPDATE')
+ AND has_table_privilege(subject.runtime_role,'public.workbench_store_audit_logs','SELECT') AND has_table_privilege(subject.runtime_role,'public.workbench_store_audit_logs','INSERT')
+ AND has_table_privilege(subject.runtime_role,'public.workbench_store_member_grants','SELECT') AND has_table_privilege(subject.runtime_role,'public.workbench_store_member_grants','INSERT') AND has_table_privilege(subject.runtime_role,'public.workbench_store_member_grants','UPDATE')
+ AND has_table_privilege(subject.runtime_role,'public.workbench_store_member_grant_operations','SELECT') AND has_table_privilege(subject.runtime_role,'public.workbench_store_member_grant_operations','INSERT')
+ AND has_table_privilege(subject.runtime_role,'public.workbench_store_service_operations','SELECT') AND has_table_privilege(subject.runtime_role,'public.workbench_store_service_operations','INSERT') AND has_table_privilege(subject.runtime_role,'public.workbench_store_service_operations','UPDATE')
+ AND has_table_privilege(subject.runtime_role,'public.workbench_store_connections','SELECT') AND has_table_privilege(subject.runtime_role,'public.workbench_store_connections','INSERT') AND has_table_privilege(subject.runtime_role,'public.workbench_store_connections','UPDATE')
+ AND has_table_privilege(subject.runtime_role,'public.workbench_store_connection_attempts','SELECT') AND has_table_privilege(subject.runtime_role,'public.workbench_store_connection_attempts','INSERT') AND has_table_privilege(subject.runtime_role,'public.workbench_store_connection_attempts','UPDATE')
+ AND has_table_privilege(subject.runtime_role,'public.workbench_store_merchant_bindings','SELECT') AND has_table_privilege(subject.runtime_role,'public.workbench_store_merchant_bindings','INSERT')
+ AND has_table_privilege(subject.runtime_role,'public.workbench_store_groups','SELECT') AND has_table_privilege(subject.runtime_role,'public.workbench_store_groups','INSERT') AND has_table_privilege(subject.runtime_role,'public.workbench_store_groups','UPDATE')
+ AND has_table_privilege(subject.runtime_role,'public.workbench_store_profiles','SELECT') AND has_table_privilege(subject.runtime_role,'public.workbench_store_profiles','INSERT') AND has_table_privilege(subject.runtime_role,'public.workbench_store_profiles','UPDATE')
+ AND has_table_privilege(subject.runtime_role,'public.workbench_store_metadata_operations','SELECT') AND has_table_privilege(subject.runtime_role,'public.workbench_store_metadata_operations','INSERT')
  AND CASE WHEN $1 THEN
- coalesce(has_schema_privilege(current_user,(SELECT oid FROM pg_namespace WHERE nspname='store_observations'),'USAGE'),false)
- AND coalesce(has_table_privilege(current_user,to_regclass('store_observations.commands'),'SELECT') AND has_table_privilege(current_user,to_regclass('store_observations.commands'),'INSERT'),false)
- AND coalesce(has_table_privilege(current_user,to_regclass('store_observations.syncs'),'SELECT') AND has_table_privilege(current_user,to_regclass('store_observations.syncs'),'INSERT') AND has_table_privilege(current_user,to_regclass('store_observations.syncs'),'UPDATE'),false)
- AND coalesce(has_table_privilege(current_user,to_regclass('store_observations.records'),'SELECT') AND has_table_privilege(current_user,to_regclass('store_observations.records'),'INSERT') AND has_table_privilege(current_user,to_regclass('store_observations.records'),'UPDATE'),false)
- AND coalesce(has_table_privilege(current_user,to_regclass('store_observations.heads'),'SELECT') AND has_table_privilege(current_user,to_regclass('store_observations.heads'),'INSERT') AND has_table_privilege(current_user,to_regclass('store_observations.heads'),'UPDATE'),false)
+ coalesce(has_schema_privilege(subject.runtime_role,(SELECT oid FROM pg_namespace WHERE nspname='store_observations'),'USAGE'),false)
+ AND coalesce(has_table_privilege(subject.runtime_role,to_regclass('store_observations.commands'),'SELECT') AND has_table_privilege(subject.runtime_role,to_regclass('store_observations.commands'),'INSERT'),false)
+ AND coalesce(has_table_privilege(subject.runtime_role,to_regclass('store_observations.syncs'),'SELECT') AND has_table_privilege(subject.runtime_role,to_regclass('store_observations.syncs'),'INSERT') AND has_table_privilege(subject.runtime_role,to_regclass('store_observations.syncs'),'UPDATE'),false)
+ AND coalesce(has_table_privilege(subject.runtime_role,to_regclass('store_observations.records'),'SELECT') AND has_table_privilege(subject.runtime_role,to_regclass('store_observations.records'),'INSERT') AND has_table_privilege(subject.runtime_role,to_regclass('store_observations.records'),'UPDATE'),false)
+ AND coalesce(has_table_privilege(subject.runtime_role,to_regclass('store_observations.heads'),'SELECT') AND has_table_privilege(subject.runtime_role,to_regclass('store_observations.heads'),'INSERT') AND has_table_privilege(subject.runtime_role,to_regclass('store_observations.heads'),'UPDATE'),false)
  ELSE true END,
- has_database_privilege(current_user,current_database(),'CREATE') OR has_database_privilege(current_user,current_database(),'TEMP') OR has_schema_privilege(current_user,'public','CREATE')
- OR EXISTS (SELECT 1 FROM pg_catalog.pg_namespace n WHERE n.nspname NOT IN ('pg_catalog','information_schema') AND n.nspname !~ '^pg_' AND has_schema_privilege(current_user,n.oid,'CREATE'))
- OR EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=current_user AND (rolsuper OR rolcreaterole OR rolcreatedb OR rolreplication OR rolbypassrls))
- OR EXISTS (SELECT 1 FROM pg_catalog.pg_class s JOIN pg_catalog.pg_namespace n ON n.oid=s.relnamespace WHERE n.nspname NOT IN ('pg_catalog','information_schema') AND n.nspname !~ '^pg_' AND s.relkind='S' AND (has_sequence_privilege(current_user,s.oid,'SELECT') OR has_sequence_privilege(current_user,s.oid,'UPDATE') OR has_sequence_privilege(current_user,s.oid,'USAGE')))
+ has_database_privilege(subject.runtime_role,current_database(),'CREATE') OR has_database_privilege(subject.runtime_role,current_database(),'TEMP') OR has_schema_privilege(subject.runtime_role,'public','CREATE')
+ OR EXISTS (SELECT 1 FROM pg_catalog.pg_namespace n WHERE n.nspname NOT IN ('pg_catalog','information_schema') AND n.nspname !~ '^pg_' AND has_schema_privilege(subject.runtime_role,n.oid,'CREATE'))
+ OR EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=subject.runtime_role AND (rolsuper OR rolcreaterole OR rolcreatedb OR rolreplication OR rolbypassrls))
+ OR EXISTS (SELECT 1 FROM pg_catalog.pg_class s JOIN pg_catalog.pg_namespace n ON n.oid=s.relnamespace WHERE n.nspname NOT IN ('pg_catalog','information_schema') AND n.nspname !~ '^pg_' AND CASE WHEN s.relkind='S' THEN (has_sequence_privilege(subject.runtime_role,s.oid,'SELECT') OR has_sequence_privilege(subject.runtime_role,s.oid,'UPDATE') OR has_sequence_privilege(subject.runtime_role,s.oid,'USAGE')) ELSE false END)
  OR EXISTS (SELECT 1 FROM pg_catalog.pg_class r JOIN pg_catalog.pg_namespace n ON n.oid=r.relnamespace
  CROSS JOIN LATERAL pg_catalog.aclexplode(pg_catalog.acldefault('r',r.relowner)) p
  WHERE n.nspname NOT IN ('pg_catalog','information_schema') AND n.nspname !~ '^pg_' AND r.relkind IN ('r','p','v','m','f')
- AND CASE WHEN p.privilege_type IN ('SELECT','INSERT','UPDATE','REFERENCES') THEN pg_catalog.has_any_column_privilege(current_user,r.oid,p.privilege_type) ELSE pg_catalog.has_table_privilege(current_user,r.oid,p.privilege_type) END
+ AND CASE WHEN p.privilege_type IN ('SELECT','INSERT','UPDATE','REFERENCES') THEN pg_catalog.has_any_column_privilege(subject.runtime_role,r.oid,p.privilege_type) ELSE pg_catalog.has_table_privilege(subject.runtime_role,r.oid,p.privilege_type) END
  AND NOT (
  (n.nspname='public' AND (r.relname,p.privilege_type) IN (('workbench_store_groups','SELECT'),('workbench_store_groups','INSERT'),('workbench_store_groups','UPDATE'),('workbench_store_profiles','SELECT'),('workbench_store_profiles','INSERT'),('workbench_store_profiles','UPDATE'),('workbench_store_metadata_operations','SELECT'),('workbench_store_metadata_operations','INSERT'),('workbench_stores','SELECT'),('workbench_stores','INSERT'),('workbench_stores','UPDATE'),('workbench_store_audit_logs','SELECT'),('workbench_store_audit_logs','INSERT'),('workbench_store_member_grants','SELECT'),('workbench_store_member_grants','INSERT'),('workbench_store_member_grants','UPDATE'),('workbench_store_member_grant_operations','SELECT'),('workbench_store_member_grant_operations','INSERT'),('workbench_store_service_operations','SELECT'),('workbench_store_service_operations','INSERT'),('workbench_store_service_operations','UPDATE'),('workbench_store_connections','SELECT'),('workbench_store_connections','INSERT'),('workbench_store_connections','UPDATE'),('workbench_store_connection_attempts','SELECT'),('workbench_store_connection_attempts','INSERT'),('workbench_store_connection_attempts','UPDATE'),('workbench_store_merchant_bindings','SELECT'),('workbench_store_merchant_bindings','INSERT')))
  OR ($1 AND n.nspname='store_observations' AND ((r.relname='commands' AND p.privilege_type IN ('SELECT','INSERT')) OR (r.relname IN ('syncs','records','heads') AND p.privilege_type IN ('SELECT','INSERT','UPDATE'))))
  OR ($2 AND n.nspname='operations_cockpit' AND ((r.relname IN ('facts','fact_versions','goal_heads','goal_versions','commands') AND p.privilege_type IN ('SELECT','INSERT')) OR (r.relname IN ('facts','goal_heads') AND p.privilege_type='UPDATE')))
- OR ($3 AND n.nspname='public' AND ((r.relname IN ('workbench_store_tiktok_oauth_grants','workbench_store_tiktok_oauth_attempts','workbench_store_tiktok_shop_bindings','workbench_store_tiktok_oauth_refresh_operations') AND p.privilege_type IN ('SELECT','INSERT','UPDATE')) OR (r.relname='workbench_store_tiktok_authorization_events' AND p.privilege_type IN ('SELECT','INSERT')))) OR ($4 AND n.nspname='public' AND r.relname IN ('workbench_store_walmart_oauth_grants','workbench_store_walmart_oauth_attempts') AND p.privilege_type IN ('SELECT','INSERT','UPDATE'))))`
+ OR ($3 AND n.nspname='public' AND ((r.relname IN ('workbench_store_tiktok_oauth_grants','workbench_store_tiktok_oauth_attempts','workbench_store_tiktok_shop_bindings','workbench_store_tiktok_oauth_refresh_operations') AND p.privilege_type IN ('SELECT','INSERT','UPDATE')) OR (r.relname='workbench_store_tiktok_authorization_events' AND p.privilege_type IN ('SELECT','INSERT')))) OR ($4 AND n.nspname='public' AND r.relname IN ('workbench_store_walmart_oauth_grants','workbench_store_walmart_oauth_attempts') AND p.privilege_type IN ('SELECT','INSERT','UPDATE')))) FROM (SELECT current_user::text AS runtime_role) subject`
 
 // RuntimeCapabilities admits only explicitly enabled feature tables.
 // The default Store boundary continues to reject every additional privilege.
