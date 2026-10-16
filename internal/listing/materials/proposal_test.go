@@ -32,6 +32,7 @@ func TestMaterialProposalPreservesSKUIdentityPricesStockAndContent(t *testing.T)
 		CategoryID: 12, BrandCode: "old-brand", Names: []model.LanguageContent{{Language: "en", Name: "Approved title"}}, Descriptions: []model.LanguageContent{{Language: "en", Name: "Approved description"}},
 		SKCs: []model.ProductSKC{{SupplierCode: "merchant-skc", SKUs: []model.ProductSKU{{SupplierSKU: "merchant-sku", Prices: []model.ProductPrice{{BasePrice: 12.5, Currency: "USD", SubSite: "shein-us"}}, Stock: []model.ProductStock{{Quantity: 17, WarehouseID: "warehouse"}}, Length: "10", Weight: floatPointer(45)}}}},
 	}}}}
+	base.Input.SheinImport = &record.SheinImport{BaseRecordID: "original-import-base", CompletionDraft: record.CompletionDraftSelection{RecordID: "fixed-candidate", Revision: 3}, Selection: record.SheinImportSelection{Title: true}}
 	before, _ := json.Marshal(base)
 	proposal, err := ParseProposal(json.RawMessage(`{"brandCode":"known-brand","skcs":[{"index":0,"skus":[{"index":0,"attributes":[{"attribute_id":5,"attribute_value_id":8}]}]}],"evidenceIds":["observed"]}`))
 	if err != nil {
@@ -43,6 +44,9 @@ func TestMaterialProposalPreservesSKUIdentityPricesStockAndContent(t *testing.T)
 	}
 	if input.ExpectedRevision != 4 || input.SourceID != base.Input.SourceID || input.StoreID != base.Input.StoreID || input.ApplyReceiptID != base.Input.ApplyReceiptID || input.EffectiveVersion != base.Input.EffectiveVersion {
 		t.Fatal("proposal replaced owner-qualified source/version/CAS")
+	}
+	if input.SheinImport != nil {
+		t.Fatal("new proposal retained the previous import operation binding")
 	}
 	sku := input.Draft.Product.SKCs[0].SKUs[0]
 	original := base.Input.Draft.Product.SKCs[0].SKUs[0]

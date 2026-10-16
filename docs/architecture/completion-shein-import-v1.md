@@ -15,6 +15,8 @@ CompletionDraft 原 record/head/command 是不可变候选的唯一 owner；Sour
 
 TargetInput 新增可选 `sheinImport`，仅 SHEIN 可用：targetId、baseRecordId、固定 completionDraft 引用、selection、rulesHash、merchantHash。所有字段进入原 inputHash，并随原 TargetRecord 保存。普通 Target 编辑不得延续已保存的旧 sheinImport；只有本轮明确预览并确认的命令携带它。TikTok 的 completionDraft 文字绑定不变，不允许平台字段交叉混用。
 
+后续新请求包括普通编辑、重新适配和资料建议确认：复用已保存的业务字段，但清除上一操作的 sheinImport。历史 TargetRecord 和原键回执保留原绑定；不把一次带入变成以后所有编辑的约束，也不取消新一次带入自身的版本核对。
+
 ## 版本、映射与覆盖合同
 
 预览按当前 scope 读取不可变 baseRecordId 和 CompletionDraft recordId；核对同一准确 SourceItem、sourceId、SHEIN 平台、相同目标身份。目标当前 head 必须等于 baseRecordId/Rm，否则 409。候选 Rn 可以是历史版本；候选 head 后续增长不影响该选择，禁止静默换成最新。Target effectiveVersion/applyReceiptId 保持基线，原 Product/Review owner 继续核对它们。
