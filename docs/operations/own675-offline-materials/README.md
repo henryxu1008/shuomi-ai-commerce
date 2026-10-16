@@ -42,7 +42,7 @@ product-acquisition-init --config <私有product-owner.json绝对路径> --enabl
 supply-asset-init --dsn-file <私有asset-owner.dsn绝对路径> --confirm-database own675_supply_assets --install-empty-schema
 ```
 
-前置：后续另获准的维护者创建新专属库 `own675_supply_assets` 及独立 `supply_asset_owner` / `supply_asset_runtime`，维护 owner 拥有该库和 public schema；不指向 Product、Store、系统库或其他已有业务库。新角色无 SUPERUSER/CREATEDB/CREATEROLE/REPLICATION/BYPASSRLS 或角色继承，runtime 不得拥有表；维护凭据不进入后台。安装器不创建数据库/角色，也不安装 Temporal。
+前置：后续另获准的维护者创建新专属库 `own675_supply_assets` 及独立 `supply_asset_owner` / `supply_asset_runtime`，维护 owner 拥有该库且具备 public schema 安装/授权能力；不指向 Product、Store、系统库或其他已有业务库。新角色无 SUPERUSER/CREATEDB/CREATEROLE/REPLICATION/BYPASSRLS 或角色继承，runtime 不得拥有表；维护凭据不进入后台。安装器不创建数据库/角色，也不安装 Temporal。
 
 | 新 Asset 表 | `supply_asset_runtime` 最小权限 |
 | --- | --- |
