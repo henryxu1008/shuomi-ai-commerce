@@ -2,6 +2,8 @@
 
 状态：`INSTALLER_IMPLEMENTATION_AUTHORIZED / INSTALLATION_NOT_AUTHORIZED`。2026-10-16 用户批准补齐现有命令的增量入口及必要测试；保留环境仍不执行 DDL、授权、凭据配置、店铺连接、业务保存或发布。开发测试仅使用独立临时 PostgreSQL。
 
+同日最终同步发现 main 的 PR #734 已将两张 Walmart 执行表纳入现有官方安装器和 SupplyChain 必需权限。用户明确批准代码与方案跟随当前 owner，从原 11 表调整为下列 13 表；不拆写旧版安装器或增加缺表 fallback。原 11 表测试证据保留，当前 13 表的代码、增量复核与 CI 另在 PR #736 绑定。此决定仍不授权 own675 安装或真实平台调用。
+
 执行 Issue：[#735](https://github.com/qq550723504/task-processor/issues/735)，主要 PR：[#736](https://github.com/qq550723504/task-processor/pull/736)。核对基线：`23a301245638d972a25b5e5d7c92b778c0a49452`，2026-10-16。实际执行前重新核对实例和候选，不把本次只读证据当作之后的运行验收。
 
 ## 用户结果和采用的路径
@@ -24,7 +26,7 @@
 
 ## 需要新增的表和最小运行权限
 
-### 现有 Product 数据库：新增 11 张，原 14 张及原授权保留
+### 现有 Product 数据库：新增 13 张，原 14 张及原授权保留
 
 以下新增表沿 `acquisition_owner` 安装。S/I/U 分别表示 SELECT/INSERT/UPDATE；均不含 DELETE、TRUNCATE、REFERENCES、TRIGGER 或 DDL。运行角色仍是 `source_acquisition_runtime`。
 
@@ -39,10 +41,12 @@
 | `listing_submission_target_fences` | 既有执行 fencing | S/I/U |
 | `listing_submission_official_intents` | 官方副作用意图 | S/I |
 | `listing_submission_official_receipts` | 官方执行回执/阶段读取 | S/I |
+| `listing_walmart_sku_bindings` | 当前官方 owner 安装单元的 Walmart SKU 执行绑定 | S/I/U |
+| `listing_walmart_feed_observations` | 当前官方 owner 安装单元的 Walmart feed 观察记录 | S/I |
 | `product_title_proposals` | 读取当前有效商品及 Review 投影 | S |
 | `product_title_operations` | 既有 Review schema 安装单元的配套表 | 无；保持 owner-only |
 
-运行组合直接要求前 10 张表的权限；既有 `reviewpersistence.InstallSchema` 同时创建最后两张表。方案复用该 owner 安装单元，不为减少一张空表复制或拆写 Review DDL，也不授予 title producer 权限。原 `listing_preparations`、`listing_preparation_sources` 和三个 CompletionDraft 表已经满足权限，不新增重复授权或改写事实。
+运行组合直接要求 12 张表的权限；既有 `reviewpersistence.InstallSchema` 同时创建最后两张表，其中 `product_title_operations` 保持 owner-only。方案复用该 owner 安装单元，不为减少一张空表复制或拆写 Review DDL，也不授予 title producer 权限。Walmart 两表是当前通用 SupplyChain 启动的既有依赖，不因此配置 Walmart 应用、店铺或执行平台调用。原 `listing_preparations`、`listing_preparation_sources` 和三个 CompletionDraft 表已经满足权限，不新增重复授权或改写事实。
 
 DDL/约束/索引来自原 owner：`internal/integration/persistence/listing/{record,preparation,submission,official}` 和 `internal/integration/persistence/product/review`。不能使用旧 `internal/app/listingrecordstore/schema.sql`；它不是本次 Target owner。
 
@@ -87,7 +91,7 @@ Temporal 复用仓库已固定的官方镜像 `temporalio/temporal@sha256:cf8670
 
 ## 执行前仍缺少的条件
 
-1. **有界增量安装入口已补齐。** `cmd/product-acquisition-init --enable-supply-chain` 复用现有 owner 安装器；隔离 PostgreSQL 的非空基线、精确权限、重入/并发及拒绝/回滚测试已通过。代码、独立检查与 CI 的最终绑定记录在 PR #736；尚未对 own675 执行该入口。
+1. **原 11 表增量入口已补齐，当前 13 表组合已获准调整。** `cmd/product-acquisition-init --enable-supply-chain` 复用现有 owner 安装器。代码、隔离测试、独立检查与 CI 的最终绑定记录在 PR #736；尚未对 own675 执行该入口。
 2. 一个真实 SHEIN 应用的上述配置和私有文件，以及用户对随后正常店铺连接/官方规则读取的明确授权。当前没有应用或店铺，安装表本身不能产生官方规则。只读方案阶段不发起这些请求。
 3. 店铺通过现有 Store 流程达到当前成员可访问、连接有效、服务启用且未过期。沿既有权益/资源合同；不直接写 active 状态，不自动购买套餐、扣费或变更现有权益。
 4. 本方案及准确候选的安装授权。当前用户批准方案和增量入口开发，明确暂不执行 own675 安装；尚未批准本方案的 DDL、grants、新服务/配置和业务试用写入。
@@ -102,7 +106,7 @@ Temporal 复用仓库已固定的官方镜像 `temporalio/temporal@sha256:cf8670
 
 维护连接沿现有私有文件、literal loopback、准确数据库名和 30 秒 context；不接受 runtime 身份。数据库中现有 14 张 public 基线表必须归同一当前维护 owner、满足现有 owner schema/keys 与当前 runtime allow/deny 合同，不能用其他同名表/角色继承或凭据轮换取得准入。
 
-同一个 Product 事务与既有 advisory lock 串行首次安装和重入。首次只对新 11 表执行现有 owner 安装器，新增授权只覆盖上表的 10 张 runtime 表，既有 14 表 ACL、表 owner 和数据不改。全部 11 表已存在时只读核实 owner、schema、约束和完整权限，不再次安装或补授权。缺失部分表或任一不匹配即拒绝。事务失败或超时不留下部分 DDL/GRANT，提交响应不确定时原命令重入核实已完成结果，不建新的安装事实源。
+同一个 Product 事务与既有 advisory lock 串行首次安装和重入。首次只对新 13 表执行现有 owner 安装器，新增授权只覆盖上表的 12 张 runtime 表，既有 14 表 ACL、表 owner 和数据不改。全部 13 表已存在时只读核实 owner、schema、约束和完整权限，不再次安装或补授权。缺失部分表（包括仅存在原 11 表）或任一不匹配即拒绝。事务失败或超时不留下部分 DDL/GRANT，提交响应不确定时原命令重入核实已完成结果，不建新的安装事实源。
 
 维护核对复用现有 runtime 权限查询中的同一 allow/deny 清单，以固定 `source_acquisition_runtime` 为 catalog 检查对象；普通运行连接仍检查实际 session/current user，维护检查不能变成 serving 准入。没有 `SET ROLE`、运行凭据读取、role 创建/继承、全库 REVOKE 或默认授权变更。新表的 Review 校验归既有 Review owner，不能只凭表名把漂移误认成完成。
 
@@ -110,7 +114,7 @@ Temporal 复用仓库已固定的官方镜像 `temporalio/temporal@sha256:cf8670
 
 增量入口采用既有 owner manifest、精确数据库名确认、`source-acquisition-init` 事务锁及 bounded context 的模式。安装目标仅 `product_acquisition`，要求维护身份为既有 owner、原 14 表和能力仍有效；DDL 与**新增表的精确 grant 增量**在同一 Product 事务内提交。与 `InstallSupplyChainSchema` 共用只安装新表的内部 helper 和现有 owner 安装器；不重跑原 Preparation 安装器，先只读核对其 schema 和来源分页索引。不得调用空库初始化或全局 `GrantRuntimePermissions` 清空后重授原权限。
 
-只接受两个清晰结果：新增 11 表均不存在时安装；全部存在且当前 schema/约束/ACL 完整匹配时核实已完成。部分存在、同名漂移、原表/授权变化均停止并报告，不 DROP/ALTER/修复旧对象。响应丢失后先核实原事务结果，不盲目重建；最终以 `RuntimeCapabilities{Collections:true, CompletionDrafts:true, SupplyChain:true}` 的现有只读检查核对。
+只接受两个清晰结果：新增 13 表均不存在时安装；全部存在且当前 schema/约束/ACL 完整匹配时核实已完成。部分存在、同名漂移、原表/授权变化均停止并报告，不 DROP/ALTER/修复旧对象。响应丢失后先核实原事务结果，不盲目重建；最终以 `RuntimeCapabilities{Collections:true, CompletionDrafts:true, SupplyChain:true}` 的现有只读检查核对。
 
 ### 命令准备（当前不执行）
 
@@ -138,7 +142,7 @@ Temporal 复用仓库已固定的官方镜像 `temporalio/temporal@sha256:cf8670
 product-acquisition-init --config <私有owner-manifest绝对路径> --enable-supply-chain --confirm-database product_acquisition
 ```
 
-成功首次执行提交 11 表和精确权限增量；相同命令重入仅核实。拒绝时保留现状，先查明缺失/漂移原因，不改成空库命令或放宽授权。
+成功首次执行提交 13 表和精确权限增量；相同命令重入仅核实。拒绝时保留现状，先查明缺失/漂移原因，不改成空库命令或放宽授权。
 
 本轮开发证据包括 CLI 互斥与位置参数检查、PostgreSQL 17.2 的非空基线保留/并发重入/结构及列级权限漂移/后段回滚/取消，以及原供应链、图片和带 integration 标签的数据服务安装回归。原 14 表的行、owner、表级/列级 ACL、列定义、约束和索引以隔离测试前后快照比较；不读取或重写原图片对象。未将隔离测试结果记为 own675 安装或用户验收。
 
@@ -146,7 +150,7 @@ product-acquisition-init --config <私有owner-manifest绝对路径> --enable-su
 
 1. 重新核对容器/镜像/原配置与角色，私密备份 Product、Store、配置和图片基线；先核对官方应用/回调可准备，避免先改变原 Product ACL 再发现凭据缺失。
 2. 暂停 own675 后台/前端的写入口，保留原依赖。创建新的 Asset 空库/两个角色，沿既有工具安装四表和窄权限；准备专属 Temporal 卷及服务。不修改原对象存储。
-3. 使用已完成检查的 Product 增量入口，事务安装 11 表和上表 grant；原 14 表及原 ACL 保持。外部新库/新服务与 Product 事务不是一个原子事务，失败停在已知阶段，保留资源，未齐备不启用新配置。
+3. 使用已完成检查的 Product 增量入口，事务安装 13 表和上表 grant；原 14 表及原 ACL 保持。外部新库/新服务与 Product 事务不是一个原子事务，失败停在已知阶段，保留资源，未齐备不启用新配置。
 4. 核对配置差异仅为上表项目，启动同候选后台、前端。后台只验证 schema/grants，不在启动中执行安装。既有 supply worker 会运行，但不自动创建 adapt/upload/optimize 操作。
 5. 用户经正常 Store 入口创建/连接一间获准的 SHEIN 店铺，再以**新专用试用商品、批次和候选**执行适配、保存 Target R1、带入预览及确认 R2；币种/仓库跟随实际商户模式。原 R1 候选和 CNY/零值样例不为试用改写。
 6. 核对来源 Vn、候选 Rn、Target Rm，映射前后值、未选字段、刷新读回和返回上下文；原保存并发/幂等合同不变。缺必填项可显示诊断，不冒充可发布。必要开发/安装自检不能代签用户产品验收。
