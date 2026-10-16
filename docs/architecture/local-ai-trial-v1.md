@@ -5,7 +5,7 @@ Admission Status: IMPLEMENTATION_READY。
 
 执行 Issue：[Local 一次性 AI 试用来源 #724](https://github.com/qq550723504/task-processor/issues/724)。
 
-本文先于生产实现。A 实例更新和只读交接已经完成，见 [#688 回执](https://github.com/qq550723504/task-processor/issues/688#issuecomment-6206004477)；准确 main CI `38832583011` 已核实 success。2026-10-16 原协调会话人类消息 `01a1426c-7625-74f3-a60d-072d1835c09f` 授权本原 Writer 完成 #724 设计准入、试用额度入口、CI/独立复核和可审查执行清单。当前设计仍待独立检查，不能提前写生产路径；真实发点/接线/技能准入/付费调用/Apply/申请提交均不在本轮执行权限内。
+本文先于生产实现。A 实例更新和只读交接已经完成，见 [#688 回执](https://github.com/qq550723504/task-processor/issues/688#issuecomment-6206004477)；准确 main CI `38832583011` 已核实 success。2026-10-16 原协调会话人类消息 `01a1426c-7625-74f3-a60d-072d1835c09f` 授权本原 Writer 完成 #724 设计准入、试用额度入口、CI/独立复核和可审查执行清单。独立检查与 Issue Ready 均已先于生产编码完成；真实发点/接线/技能准入/付费调用/Apply/申请提交均不在本轮执行权限内。
 
 准入记录：既有独立 Reviewer `choice_contract_review` 第一轮确认 IMPLEMENTATION_READY、无设计级 BLOCKER；评审绑定基线 HEAD `79b95233a75ce002e7ee9acae5db8160e3453499`、本架构正文修改前 SHA256 `D63E35F9441ED998BB5CEB9A01CD9367DE864CD389E896EE733E61D301857C04`，完整评语留 [Issue #724](https://github.com/qq550723504/task-processor/issues/724)。固定来源/幂等/债务/回滚/响应丢失及 inspect/授权/权限检查归 IMPLEMENTATION_TEST，在实现层收敛；不新增设计轮次或运行权限。以下合同冻结，只有真实 BLOCKER 才重新打开设计。
 

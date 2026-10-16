@@ -27,6 +27,7 @@ const reasons: Record<string, string> = {
   consumed: "消费",
   released: "释放",
   grant_commercial_purchase: "购买到账",
+  grant_local_ai_trial: "本轮AI试用赠额",
   allocate_member_resource: "分配成员资源",
   reclaim_member_resource: "回收成员资源",
   reserve: "预留",

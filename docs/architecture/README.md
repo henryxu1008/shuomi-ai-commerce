@@ -14,6 +14,7 @@ boundary rules unless they explicitly supersede a stable document.
 
 ## Approved Authorities by Responsibility
 
+- [`local-ai-trial-v1.md`](local-ai-trial-v1.md): #724 IMPLEMENTATION_READY fixed non-cash AI trial source in the existing resource owner; exact source/operation replay, debt preservation and private native entry. Runtime execution remains separately approved.
 - [`own-product-optimization-v1.md`](own-product-optimization-v1.md): #710 IMPLEMENTATION_READY own-product context for store-independent content generation and existing Review/Apply; preserves current runtime, permissions, facts and UNKNOWN owners.
 - [`auth-instance-cookie-isolation.md`](auth-instance-cookie-isolation.md): #706 IMPLEMENTATION_READY native Auth.js cookie isolation for configured instances; identity, permissions, secrets and business data remain with existing owners. Source admission is not runtime or user acceptance.
 - [`completion-draft-history-v1.md`](completion-draft-history-v1.md): #704 IMPLEMENTATION_READY read-only saved revision history and same-draft text comparison; existing records, source authority and save protocol retained.
