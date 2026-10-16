@@ -1589,31 +1589,6 @@ func TestTemuPricingRuntimeUsesCapabilityNames(t *testing.T) {
 	}
 }
 
-func TestTemuSyncRuntimeUsesCapabilityNames(t *testing.T) {
-	path := filepath.Join("..", "internal", "temu", "sync", "runtime_adapter.go")
-	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, path, nil, 0)
-	if err != nil {
-		t.Fatalf("parse %s: %v", path, err)
-	}
-
-	for _, decl := range file.Decls {
-		gen, ok := decl.(*ast.GenDecl)
-		if !ok {
-			continue
-		}
-		for _, spec := range gen.Specs {
-			typeSpec, ok := spec.(*ast.TypeSpec)
-			if !ok || typeSpec.Name == nil {
-				continue
-			}
-			if typeSpec.Name.Name == "managementRuntime" {
-				t.Fatalf("%s defines managementRuntime; use service runtime names for TEMU sync ports", path)
-			}
-		}
-	}
-}
-
 func TestTemuRuntimeErrorsUseCapabilityNames(t *testing.T) {
 	paths := []string{
 		filepath.Join("..", "internal", "temu", "api", "client", "auth_pause_handler.go"),
@@ -1739,19 +1714,6 @@ func TestTemuPricingUsesManagementAPIPortAliases(t *testing.T) {
 	}
 }
 
-func TestTemuSyncUsesManagementAPIPortAliases(t *testing.T) {
-	root := filepath.Join("..", "internal", "temu", "sync")
-	index, err := loadGoFileIndex(root, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for path, facts := range index.files {
-		if _, ok := facts.imports[`"task-processor/internal/infra/clients/management/api"`]; ok {
-			t.Fatalf("%s imports concrete management API DTOs; use listingadmin/local runtime types", path)
-		}
-	}
-}
-
 func TestTemuAPIClientUsesManagementAPIPortAliases(t *testing.T) {
 	root := filepath.Join("..", "internal", "temu", "api", "client")
 	index, err := loadGoFileIndex(root, "")
@@ -1779,17 +1741,6 @@ func TestTemuPricingFallbackLogsUseCapabilityNames(t *testing.T) {
 		if strings.Contains(string(content), "management client") {
 			t.Fatalf("%s mentions management client in fallback logs; use pricing/store capability names", path)
 		}
-	}
-}
-
-func TestTemuSyncFallbackLogsUseCapabilityNames(t *testing.T) {
-	path := filepath.Join("..", "internal", "temu", "sync", "inventory_sync_helper.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	if strings.Contains(string(content), "management client") {
-		t.Fatalf("%s mentions management client in fallback logs; use inventory/store capability names", path)
 	}
 }
 

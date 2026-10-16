@@ -1,5 +1,9 @@
 # Phase 2 runtime convergence inventory
 
+> #742 bounded calibration: the confirmed numeric product/inventory sync closure
+> is source-retired. Only its three vanished core/logger consumer rows leave the
+> current register; shared SHEIN attribute types and dated evidence remain.
+
 > #729 bounded calibration: the confirmed numeric task/status/processor, root Amazon
 > executor and distributed crawler closure are source-retired. Only vanished exact
 > consumers are removed from the current machine register; retained platform/API
@@ -272,7 +276,6 @@ internal wiring is intentionally excluded; no other package class is excluded.
 | `task-processor/internal/core/logger` | `task-processor/internal/shein/category` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/core/logger` | `task-processor/internal/shein/client` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/core/logger` | `task-processor/internal/shein/content` | marketplace business consumer | marketplace owner / Phase 4 |
-| `task-processor/internal/core/logger` | `task-processor/internal/shein/inventory` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/core/logger` | `task-processor/internal/shein/managedclient` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/core/logger` | `task-processor/internal/shein/mapping` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/core/logger` | `task-processor/internal/shein/pricing` | marketplace business consumer | marketplace owner / Phase 4 |
@@ -285,7 +288,6 @@ internal wiring is intentionally excluded; no other package class is excluded.
 | `task-processor/internal/core/logger` | `task-processor/internal/shein/product/sku` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/core/logger` | `task-processor/internal/shein/product/variant` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/core/logger` | `task-processor/internal/shein/productdata` | marketplace business consumer | marketplace owner / Phase 4 |
-| `task-processor/internal/core/logger` | `task-processor/internal/shein/productsync` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/core/logger` | `task-processor/internal/shein/publish` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/core/logger` | `task-processor/internal/shein/store` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/core/logger` | `task-processor/internal/shein/translate` | marketplace business consumer | marketplace owner / Phase 4 |
@@ -307,7 +309,6 @@ internal wiring is intentionally excluded; no other package class is excluded.
 | `task-processor/internal/core/logger` | `task-processor/internal/temu/sku` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/core/logger` | `task-processor/internal/temu/spec` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/core/logger` | `task-processor/internal/temu/store` | marketplace business consumer | marketplace owner / Phase 4 |
-| `task-processor/internal/core/logger` | `task-processor/internal/temu/sync` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/core/logger` | `task-processor/internal/temu/template` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/platform/logging` | `task-processor/internal/core/config` | application schema | owning domains / Phases 3-7 |
 | `task-processor/internal/platform/logging` | `task-processor/internal/core/logger` | compatibility facade | owning domains / Phases 3-8 |
