@@ -4,6 +4,8 @@
 
 同日最终同步发现 main 的 PR #734 已将两张 Walmart 执行表纳入现有官方安装器和 SupplyChain 必需权限。用户明确批准代码与方案跟随当前 owner，从原 11 表调整为下列 13 表；不拆写旧版安装器或增加缺表 fallback。原 11 表测试证据保留，当前 13 表的代码、增量复核与 CI 另在 PR #736 绑定。此决定仍不授权 own675 安装或真实平台调用。
 
+**当前 main 的完整实例安装尚有 Store 准入阻碍。** #734 同时改变 `workbench_stores` 的核心 `store_platform` 约束并要求 `store_walmart_market`；当前 `VerifyCurrentSchemaForCapabilities` 即使未启用 Walmart 也检查这些核心约束。下面 Store 12 表已齐的只读结论绑定原 `23a301245` 基线，不能作为新 main 的 Store 准入证明。本轮只交付 Product 增量工具，不修改 Store、不设计旧库迁移或降级验证；后续必须先由用户明确保留 Store 数据/授权与当前核心 schema 的处置边界，再形成完整可执行实例安装候选。
+
 执行 Issue：[#735](https://github.com/qq550723504/task-processor/issues/735)，主要 PR：[#736](https://github.com/qq550723504/task-processor/pull/736)。核对基线：`23a301245638d972a25b5e5d7c92b778c0a49452`，2026-10-16。实际执行前重新核对实例和候选，不把本次只读证据当作之后的运行验收。
 
 ## 用户结果和采用的路径
@@ -65,7 +67,7 @@ DDL/约束/索引来自原 owner：`internal/integration/persistence/listing/{re
 
 仅 CONNECT、public USAGE 与上述表级权限；无 DELETE/DDL/TEMP/角色继承，不新增其他数据库或 schema 授权。两个新角色均不持有 SUPERUSER/CREATEDB/CREATEROLE/REPLICATION/BYPASSRLS，运行角色不能是表 owner，维护角色及其凭据不交给服务。连接池设为 4（既有合同上限为 8）。新空 Asset 库可以使用现有 `cmd/supply-asset-init` 的明确空库安装入口；该命令不得指向非空旧库。
 
-Store 不新增表或 ACL，继续使用 `store_center_runtime` 当前窄授权。Source/身份/商业/资金/容量 owner 的 schema、凭据及授权保持不变。
+本轮 Product 增量入口不操作 Store 表或 ACL。原方案拟继续使用 `store_center_runtime` 窄授权；新 main 的 Store 核心约束差异须先按上述准入阻碍处理，不能仅凭原 12 表数量继续安装。未配置 Walmart 时不因此追加其 Store OAuth 两表授权。Source/身份/商业/资金/容量 owner 的 schema、凭据及授权保持不变。
 
 业务授权继续按当前企业、actor/member 和 live Store 访问核对：读草稿使用 `workbench.supply.read`，带入预览及本地保存使用 `workbench.supply.manage`，选择店铺使用 `workbench.store.read`。当前 Store 为空，后续新建/更新/启用店铺分别沿 `workbench.store.create/update/lifecycle` 原权限。发布沿独立的 `workbench.listing.submit` 检查，本方案不为带入追加发布权限，也不改已有角色。
 
@@ -95,6 +97,7 @@ Temporal 复用仓库已固定的官方镜像 `temporalio/temporal@sha256:cf8670
 2. 一个真实 SHEIN 应用的上述配置和私有文件，以及用户对随后正常店铺连接/官方规则读取的明确授权。当前没有应用或店铺，安装表本身不能产生官方规则。只读方案阶段不发起这些请求。
 3. 店铺通过现有 Store 流程达到当前成员可访问、连接有效、服务启用且未过期。沿既有权益/资源合同；不直接写 active 状态，不自动购买套餐、扣费或变更现有权益。
 4. 本方案及准确候选的安装授权。当前用户批准方案和增量入口开发，明确暂不执行 own675 安装；尚未批准本方案的 DDL、grants、新服务/配置和业务试用写入。
+5. 当前 main 对原 Store 核心约束的处置决定及相应准入证据。这里只读代码确认差异，未对 own675 执行新版本 Store 校验；不擅自 ALTER 旧约束、重跑空库安装、放宽校验或将该阻碍扩展成本轮 Store 开发。
 
 既有 `privateDraftTrial` 只有七个 GET、没有规则或保存能力，且与当前 CompletionDraft 配置冲突，不能用它替代本次带入确认。
 
