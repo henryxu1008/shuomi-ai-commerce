@@ -69,8 +69,10 @@ func specs() []spec {
 		{"GET", Base + "/requests", authz.PermissionWorkbenchToolsRead, "requests", false},
 		{"POST", Base + "/requests", authz.PermissionWorkbenchToolsCustomize, "create", false},
 		{"GET", Base + "/requests/:id", authz.PermissionWorkbenchToolsRead, "detail", false},
+		{"GET", Base + "/requests/:id/files/:file", authz.PermissionWorkbenchToolsRead, "file", false},
 		{"GET", AdminBase + "/requests", authz.PermissionListingKitPlatformAdm, "requests", true},
 		{"GET", AdminBase + "/requests/:id", authz.PermissionListingKitPlatformAdm, "detail", true},
+		{"GET", AdminBase + "/requests/:id/files/:file", authz.PermissionListingKitPlatformAdm, "file", true},
 		{"POST", AdminBase + "/requests/:id/progress", authz.PermissionListingKitPlatformAdm, "progress", true},
 	}
 }
@@ -124,13 +126,17 @@ func reply(c *gin.Context, v any) {
 	c.Header("Cache-Control", "private, no-store")
 	c.Data(200, "application/json; charset=utf-8", raw)
 }
-func body(c *gin.Context, v any) error {
+func body(c *gin.Context, v any, limits ...int) error {
+	max := 16 << 10
+	if len(limits) == 1 {
+		max = limits[0]
+	}
 	media, _, e := mime.ParseMediaType(c.GetHeader("Content-Type"))
 	if e != nil || media != "application/json" || c.GetHeader("Content-Encoding") != "" {
 		return tm.ErrInvalid
 	}
-	raw, e := io.ReadAll(io.LimitReader(c.Request.Body, (16<<10)+1))
-	if e != nil || len(raw) > 16<<10 || !strings.HasPrefix(strings.TrimSpace(string(raw)), "{") {
+	raw, e := io.ReadAll(io.LimitReader(c.Request.Body, int64(max)+1))
+	if e != nil || len(raw) > max || !strings.HasPrefix(strings.TrimSpace(string(raw)), "{") {
 		return tm.ErrInvalid
 	}
 	violations, e := strict.UnmarshalStrict(raw, v)
@@ -284,6 +290,16 @@ func (h *Handler) serve(c *gin.Context, s spec) {
 				return
 			}
 			reply(c, v)
+		case "file":
+			meta, data, err := h.Repository.Download(ctx, scope, s.platform, c.Param("id"), c.Param("file"))
+			if err != nil {
+				failure(c, err)
+				return
+			}
+			c.Header("Cache-Control", "private, no-store")
+			c.Header("X-Content-Type-Options", "nosniff")
+			c.Header("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": meta.Name}))
+			c.Data(200, meta.ContentType, data)
 		}
 		return
 	}
@@ -306,7 +322,7 @@ func (h *Handler) serve(c *gin.Context, s spec) {
 			}
 		}
 	case "create":
-		e = body(c, &cmd.Demand)
+		e = body(c, &cmd.Demand, tm.MaxCreateBytes)
 	case "progress":
 		e = body(c, &cmd.Progress)
 	}

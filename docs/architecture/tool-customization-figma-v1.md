@@ -1,6 +1,8 @@
 # 工具定制完整 Figma 表单与私有参考资料
 
-Status: DESIGN_REVIEW_PENDING. Design Basis: Independent Architecture. Execution: #730.
+Status: IMPLEMENTATION_READY. Design Basis: Independent Architecture. Execution: #730.
+
+2026-10-16 独立只读 Architecture Review 确认设计 commit 0de8660e8 / blob f27ef4128e21baaf052b3d6feccd1beb5c762ba2 无架构 BLOCKER，私有下载和原scope/key大载荷恢复边界可实施；具体实现与故障验证在原批次收敛，不新增全局机制。
 
 ## Product outcome and authority
 

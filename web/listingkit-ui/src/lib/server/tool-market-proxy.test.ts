@@ -16,6 +16,15 @@ const request = (body: string) =>
     headers,
     body,
   });
+const fullDemand = {
+  kind: "DATA",
+  title: "x",
+  description: "x",
+  scenario: "商品管理",
+  contactName: "测试联系人",
+  contactMethod: "test-wechat",
+  consent: true,
+};
 describe("tool market trusted proxy", () => {
   beforeEach(() => {
     vi.unstubAllGlobals();
@@ -40,7 +49,7 @@ describe("tool market trusted proxy", () => {
   it("retains uncertain dispatched write outcomes", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("lost")));
     const r = await proxyToolMarket(
-      request('{"kind":"DATA","title":"x","description":"x"}'),
+      request(JSON.stringify(fullDemand)),
       "token",
       "actor",
     );
@@ -68,10 +77,91 @@ describe("tool market trusted proxy", () => {
       ),
     ).toBe(false);
   });
+  it("bounds private downloads and keeps enterprise and specialist transport separate", async () => {
+    const id = "aa1043df-c64c-499d-9c99-57598f7bff18",
+      file = "bb1043df-c64c-499d-9c99-57598f7bff18";
+    const fetch = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(
+      async () =>
+        new Response("private reference", {
+          headers: {
+            "Content-Type": "text/plain; charset=utf-8",
+            "Content-Disposition": 'attachment; filename="flow.txt"',
+          },
+        }),
+    );
+    vi.stubGlobal("fetch", fetch);
+    for (const prefix of ["", "admin/"]) {
+      const response = await proxyToolMarket(
+        new Request(
+          "https://app.example.com/api/tool-market/" +
+            prefix +
+            "requests/" +
+            id +
+            "/files/" +
+            file,
+          { headers: prefix ? { "X-Expected-User-ID": "actor" } : headers },
+        ),
+        "token",
+        "actor",
+      );
+      expect(response.status).toBe(200);
+      expect(response.headers.get("Content-Disposition")).toContain(
+        "attachment;",
+      );
+      expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
+      expect(response.headers.get("Cache-Control")).toContain("no-store");
+      expect(await response.text()).toBe("private reference");
+      expect(
+        new Headers(fetch.mock.lastCall?.[1]?.headers).has(
+          "X-Requested-Organization-ID",
+        ),
+      ).toBe(!prefix);
+    }
+  });
+  it("rejects oversized or inline private references before returning bytes", async () => {
+    const path =
+      "https://app.example.com/api/tool-market/requests/aa1043df-c64c-499d-9c99-57598f7bff18/files/bb1043df-c64c-499d-9c99-57598f7bff18";
+    for (const [body, type, disposition] of [
+      [
+        "x".repeat((2 << 20) + 1),
+        "text/plain; charset=utf-8",
+        "attachment; filename=flow.txt",
+      ],
+      ["<svg></svg>", "image/svg+xml", "attachment; filename=flow.svg"],
+      ["private", "text/plain; charset=utf-8", "inline; filename=flow.txt"],
+    ]) {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(
+          async () =>
+            new Response(body, {
+              headers: {
+                "Content-Type": type,
+                "Content-Disposition": disposition,
+              },
+            }),
+        ),
+      );
+      const response = await proxyToolMarket(
+        new Request(path, { headers }),
+        "token",
+        "actor",
+      );
+      expect(response.status).toBe(502);
+      expect(await response.json()).toEqual({ code: "DEPENDENCY_UNAVAILABLE" });
+    }
+  });
   it("forwards only exact bounded event cursors for enterprise and platform details", async () => {
     const id = "aa1043df-c64c-499d-9c99-57598f7bff18";
     const payload = {
       request: {
+        scenario: "商品管理",
+        contactName: "测试联系人",
+        contactMethod: "test-wechat",
+        consent: true,
+        createdBy: "actor",
+        consentVersion: "tool-customization-contact-v1",
+        attachments: [],
         id,
         organizationId: "org-a",
         kind: "DATA",

@@ -23,6 +23,9 @@ func (*repo) Requests(context.Context, tm.Scope, bool, string, int) (tm.RequestP
 func (*repo) Detail(context.Context, tm.Scope, bool, string, string) (tm.Detail, error) {
 	return tm.Detail{}, tm.ErrNotFound
 }
+func (*repo) Download(context.Context, tm.Scope, bool, string, string) (tm.Attachment, []byte, error) {
+	return tm.Attachment{}, nil, tm.ErrNotFound
+}
 func (r *repo) Execute(ctx context.Context, c tm.Command, g func(context.Context) error, beforeApply ...func(context.Context) error) (tm.Receipt, error) {
 	if e := g(ctx); e != nil {
 		return tm.Receipt{}, e
@@ -68,7 +71,7 @@ func TestBuildRoutesRequiresAllInjectedDependencies(t *testing.T) {
 	}
 	routes, err := BuildRoutes(&Handler{Repository: &repo{}, Bind: bound, Authorize: authorize, ReadAuthorize: authorize})
 	require.NoError(t, err)
-	require.Len(t, routes, 10)
+	require.Len(t, routes, 12)
 	for _, route := range routes {
 		require.NoError(t, ValidateDescriptor(route))
 	}

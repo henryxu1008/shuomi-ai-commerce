@@ -1,5 +1,9 @@
 import { z } from "zod";
 import { readBoundedStrictJSON } from "./strict-json-response";
+import {
+  maxToolFileBytes,
+  type toolAttachment,
+} from "@/lib/contracts/tool-market";
 export type ToolScope = { userId: string; organizationId: string };
 export class ToolMarketError extends Error {
   constructor(
@@ -82,4 +86,95 @@ export async function downloadTool(scope: ToolScope) {
   link.download = "shuomi-1688-capture.zip";
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export async function downloadToolReference(
+  scope: ToolScope,
+  admin: boolean,
+  requestId: string,
+  file: z.infer<typeof toolAttachment>,
+  signal?: AbortSignal,
+) {
+  const controller = new AbortController(),
+    abort = () => controller.abort(),
+    timer = setTimeout(() => controller.abort(), 15000);
+  signal?.addEventListener("abort", abort, { once: true });
+  if (signal?.aborted) abort();
+  try {
+    controller.signal.throwIfAborted();
+    const response = await fetch(
+      "/api/tool-market/" +
+        (admin ? "admin/" : "") +
+        "requests/" +
+        requestId +
+        "/files/" +
+        file.id,
+      {
+        headers: {
+          "X-Expected-User-ID": scope.userId,
+          "X-Expected-Organization-ID": scope.organizationId,
+        },
+        credentials: "same-origin",
+        cache: "no-store",
+        redirect: "error",
+        signal: controller.signal,
+      },
+    );
+    if (
+      !response.ok ||
+      response.status !== 200 ||
+      response.headers.get("content-type") !== file.contentType
+    )
+      throw new ToolMarketError("DEPENDENCY_UNAVAILABLE");
+    const reader = response.body?.getReader();
+    if (!reader) throw new ToolMarketError("DEPENDENCY_UNAVAILABLE");
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    const cancel = () => {
+      void reader.cancel().catch(() => undefined);
+    };
+    controller.signal.addEventListener("abort", cancel, { once: true });
+    try {
+      while (true) {
+        controller.signal.throwIfAborted();
+        const next = await reader.read();
+        controller.signal.throwIfAborted();
+        if (next.done) break;
+        size += next.value.length;
+        if (size > maxToolFileBytes || size > file.size)
+          throw new Error("Invalid file size");
+        chunks.push(next.value);
+      }
+    } catch (e) {
+      cancel();
+      throw e;
+    } finally {
+      controller.signal.removeEventListener("abort", cancel);
+      reader.releaseLock();
+    }
+    if (size !== file.size) throw new Error("Invalid file size");
+    const bytes = new Uint8Array(size);
+    let at = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, at);
+      at += chunk.length;
+    }
+    const digest = Array.from(
+      new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)),
+      (v) => v.toString(16).padStart(2, "0"),
+    ).join("");
+    controller.signal.throwIfAborted();
+    if (digest !== file.sha256) throw new Error("Invalid file digest");
+    const href = URL.createObjectURL(
+      new Blob([bytes], { type: file.contentType }),
+    );
+    const link = document.createElement("a");
+    link.href = href;
+    link.download = file.name;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(href), 1000);
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener("abort", abort);
+  }
 }

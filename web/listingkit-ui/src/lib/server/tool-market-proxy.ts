@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { toolEndpoint, toolVersion } from "@/lib/contracts/tool-market";
+import {
+  toolEndpoint,
+  toolVersion,
+  maxToolCreateBytes,
+  maxToolFileBytes,
+  toolAttachment,
+} from "@/lib/contracts/tool-market";
 import { readBoundedStrictJSON } from "@/lib/api/strict-json-response";
 import { readToolPackage } from "@/lib/api/tool-package";
 import { hasTrustedSameOriginWrite } from "./same-origin-write";
@@ -56,7 +62,11 @@ export async function proxyToolMarket(
   let dispatched = false;
   try {
     const headers = new Headers({
-      Accept: route.download ? "application/zip" : "application/json",
+      Accept: route.fileDownload
+        ? "application/octet-stream"
+        : route.download
+          ? "application/zip"
+          : "application/json",
       Authorization: "Bearer " + token,
     });
     if (!route.admin) headers.set("X-Requested-Organization-ID", org);
@@ -87,7 +97,7 @@ export async function proxyToolMarket(
             "Content-Type": request.headers.get("Content-Type") ?? "",
           },
         }),
-        16384,
+        route.operation === "create" ? maxToolCreateBytes : 16384,
         controller.signal,
       );
       const parsed = route.input!.safeParse(payload);
@@ -130,6 +140,54 @@ export async function proxyToolMarket(
         redirect: "manual",
       },
     );
+    if (route.fileDownload && response.status === 200) {
+      const contentType = response.headers.get("content-type");
+      if (
+        !toolAttachment.shape.contentType.safeParse(contentType).success ||
+        !response.headers.get("content-disposition")?.startsWith("attachment;")
+      )
+        throw new Error();
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error();
+      const chunks: Uint8Array[] = [];
+      let size = 0;
+      const cancel = () => {
+        void reader.cancel().catch(() => undefined);
+      };
+      controller.signal.addEventListener("abort", cancel, { once: true });
+      try {
+        while (true) {
+          controller.signal.throwIfAborted();
+          const next = await reader.read();
+          controller.signal.throwIfAborted();
+          if (next.done) break;
+          size += next.value.byteLength;
+          if (size > maxToolFileBytes) throw new Error();
+          chunks.push(next.value);
+        }
+      } catch (e) {
+        cancel();
+        throw e;
+      } finally {
+        controller.signal.removeEventListener("abort", cancel);
+        reader.releaseLock();
+      }
+      if (!size) throw new Error();
+      const bytes = new Uint8Array(size);
+      let offset = 0;
+      for (const chunk of chunks) {
+        bytes.set(chunk, offset);
+        offset += chunk.length;
+      }
+      return new Response(bytes, {
+        status: 200,
+        headers: {
+          ...safe,
+          "Content-Type": contentType!,
+          "Content-Disposition": response.headers.get("content-disposition")!,
+        },
+      });
+    }
     if (route.download && response.status === 200) {
       if (response.headers.get("content-type") !== "application/zip")
         throw new Error();

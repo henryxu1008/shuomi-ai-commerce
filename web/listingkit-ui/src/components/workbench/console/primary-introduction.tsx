@@ -35,18 +35,18 @@ const introductions = {
     ],
   },
   tools: {
-    label: "工具市场", title: "按业务场景启用工具，让智能体获得可靠执行能力",
-    subtitle: "选择适合业务场景的工具，了解权限、适用范围和使用方式，再接入对应业务流程。",
+    label: "工具市场", title: "连接工具能力，让业务流程更高效",
+    subtitle: "发现官方工具、管理已启用能力，或申请专属定制服务，让工具按需参与实际业务。",
     entries: [
-      ["01 · 标准工具", "官方工具", "浏览平台官方维护的工具，了解能力、适用范围、权限和使用方式。", "适合：快速接入标准工具能力", "浏览官方工具", "/workbench/tools/official"],
-      ["02 · 已启用工具", "我的工具", "管理本企业已启用的工具，查看权限与安装说明，进入现有业务入口。", "适合：日常管理与授权查看", "管理我的工具", "/workbench/tools/mine"],
-      ["03 · 专属需求", "工具定制", "标准工具无法满足流程时，可提交专属工具与连接能力定制需求。", "适合：特殊流程与专属连接能力", "提交工具定制", "/workbench/tools/custom"],
+      ["01", "官方工具", "查看平台维护的工具，了解功能、适用范围和使用要求。", "", "浏览官方工具", "/workbench/tools/official"],
+      ["02", "我的工具", "集中管理已启用工具，查看授权与配置，并进入使用。", "", "管理我的工具", "/workbench/tools/mine"],
+      ["03", "工具定制", "提交特殊采集、系统连接或自动化工具需求。", "", "了解定制服务", "/workbench/tools/custom"],
     ],
-    flowTitle: "如何开始使用", flowSubtitle: "从发现合适工具到接入业务流程，只需四步",
-    steps: [["发现工具", "按业务场景筛选适合的官方工具"], ["查看工具能力", "了解权限、适用范围和调用方式"], ["启用并授权", "获准管理员确认权限与费用后启用"], ["开始使用", "按工具说明进入现有业务流程"]],
+    flowTitle: "标准工具使用流程", flowSubtitle: "从了解工具到正式调用，按实际权限与配置要求完成",
+    steps: [["发现工具", "按业务需要浏览适合的工具"], ["了解能力", "确认适用范围、权限及费用"], ["启用与配置", "完成必要授权和使用配置"], ["按需使用", "在支持的业务流程中调用"]],
     notes: [
-      ["使用位置", "启用后在哪里使用", "启用后进入“我的工具”，当前商品采集工具通过对应插件和1688采集入口使用。", "工具市场负责接入工具 · AI工作台负责执行任务"],
-      ["服务说明", "权限、适用范围和费用均提前说明", "使用前明确查看权限、适用范围和费用；通用任务、智能体自动调用能力尚未开放。", "定制工具由专员评估需求、交付周期和费用"],
+      ["使用与管理", "工具启用后在哪里使用", "启用后可在「我的工具」管理和配置。", "当前商品采集通过插件或1688采集入口使用。"],
+      ["权限与计费", "了解授权要求与服务费用", "工具权限、额度与费用以服务规则为准。", "定制服务需评估报价；实际交付及开放另行核实。"],
     ],
   },
   stores: {
@@ -68,16 +68,16 @@ const introductions = {
 
 export function PrimaryIntroduction({ kind, available = [true, true, true], entryHrefs, notice }: { kind: keyof typeof introductions; available?: readonly boolean[]; entryHrefs?: readonly string[]; notice?: string }) {
   const data = introductions[kind], id = `primary-${kind}`;
-  return <section className={`${styles.page} ${homeStyles.page}`} aria-labelledby={id}>
+  return <section className={`${styles.page} ${homeStyles.page} ${kind === "tools" ? homeStyles.tools : ""}`} aria-labelledby={id}>
     <header className={styles.header}><p className={styles.eyebrow}>{data.label}</p><h1 id={id}>{data.title}</h1><p className={styles.subtitle}>{data.subtitle}</p></header>
     {notice ? <p role="status" className={styles.subtitle}>{notice}</p> : null}
-    <div className={styles.entries}>{data.entries.map(([badge, title, description, audience, action, href], index) => {
-      const content = <><span className={styles.badge}>{badge}</span><h2>{title}</h2><p className={styles.description}>{description}</p><p className={styles.audience}>{audience}</p><span className={styles.action}>{available[index] ? `${action} →` : "暂未启用"}</span></>;
+    <div className={`${styles.entries} ${kind === "tools" ? homeStyles.entries : ""}`}>{data.entries.map(([badge, title, description, audience, action, href], index) => {
+      const content = <>{kind === "tools" ? <div className={homeStyles.entryHeading}><span className={styles.badge}>{badge}</span><h2>{title}</h2></div> : <><span className={styles.badge}>{badge}</span><h2>{title}</h2></>}<p className={styles.description}>{description}</p>{audience ? <p className={styles.audience}>{audience}</p> : null}<span className={styles.action}>{available[index] ? `${action}${kind === "tools" ? "" : " →"}` : "暂未启用"}</span></>;
       return available[index] ? <Link key={href} href={entryHrefs?.[index] ?? href} prefetch={false} className={styles.entry} data-tone={["teal", "blue", "purple"][index]}>{content}</Link> : <Card key={href} className={styles.entry} data-tone={["teal", "blue", "purple"][index]} data-state="unavailable">{content}</Card>;
     })}</div>
     <section className={styles.flow} aria-labelledby={`${id}-flow`}><div className={styles.flowHeading}><h2 id={`${id}-flow`}>{data.flowTitle}</h2><p>{data.flowSubtitle}</p></div>
-      <ol className={styles.steps}>{data.steps.map(([title, description], index) => <li key={title}><Card className={styles.step} data-tone={["teal", "blue", "green", "purple"][index]}><span className={styles.number}>{String(index + 1).padStart(2, "0")}</span><h3>{title}</h3><p>{description}</p></Card></li>)}</ol>
+      <ol className={`${styles.steps} ${kind === "tools" ? homeStyles.steps : ""}`}>{data.steps.map(([title, description], index) => <li key={title}><Card className={styles.step} data-tone={["teal", "blue", "green", "purple"][index]}><span className={styles.number}>{String(index + 1).padStart(2, "0")}</span><h3>{title}</h3><p>{description}</p></Card></li>)}</ol>
     </section>
-    <div className={styles.notes}>{data.notes.map(([label, title, description, footer], index) => <Card key={label} className={`${styles.note} ${index === 0 ? styles.dataFlow : ""}`} data-tone={index === 0 ? "teal" : "purple"}><p className={styles.noteLabel}>{label}</p><h2>{title}</h2><p className={styles.description}>{description}</p><p className={styles.noteFooter}>{footer}</p></Card>)}</div>
+    <div className={`${styles.notes} ${kind === "tools" ? homeStyles.notes : ""}`}>{data.notes.map(([label, title, description, footer], index) => <Card key={label} className={`${styles.note} ${index === 0 ? styles.dataFlow : ""}`} data-tone={index === 0 ? "teal" : "purple"}><p className={styles.noteLabel}>{label}</p><h2>{title}</h2><p className={styles.description}>{description}</p><p className={styles.noteFooter}>{footer}</p></Card>)}</div>
   </section>;
 }

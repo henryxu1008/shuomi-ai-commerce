@@ -8,10 +8,19 @@ CREATE TABLE tool_market.requests (
  id uuid PRIMARY KEY, organization_id varchar(128) NOT NULL, created_by varchar(128) NOT NULL,
  kind varchar(20) NOT NULL CHECK(kind IN ('DATA','CONNECTION','AUTOMATION','OUTPUT')),
  title varchar(120) NOT NULL, description varchar(4000) NOT NULL,
+ scenario varchar(240) NOT NULL, contact_name varchar(80) NOT NULL, contact_method varchar(160) NOT NULL,
+ consent boolean NOT NULL CHECK(consent), consent_version varchar(64) NOT NULL,
  stage varchar(20) NOT NULL CHECK(stage IN ('SUBMITTED','EVALUATING','PLAN_CONFIRMED','DEVELOPING','DELIVERED','CLOSED')),
  revision bigint NOT NULL CHECK(revision>0), created_at timestamptz NOT NULL, updated_at timestamptz NOT NULL
 );
 CREATE INDEX requests_org_page ON tool_market.requests(organization_id,id);
+CREATE TABLE tool_market.attachments (
+ id uuid PRIMARY KEY, request_id uuid NOT NULL REFERENCES tool_market.requests(id),
+ name varchar(200) NOT NULL, content_type varchar(80) NOT NULL,
+ sha256 char(64) NOT NULL, size integer NOT NULL CHECK(size>0 AND size<=2097152),
+ data bytea NOT NULL CHECK(octet_length(data)=size)
+);
+CREATE INDEX attachments_request ON tool_market.attachments(request_id,id);
 CREATE TABLE tool_market.events (
  request_id uuid NOT NULL REFERENCES tool_market.requests(id), revision bigint NOT NULL CHECK(revision>0),
  stage varchar(20) NOT NULL, note varchar(2000) NOT NULL, actor_id varchar(128) NOT NULL, occurred_at timestamptz NOT NULL,
