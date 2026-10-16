@@ -75,6 +75,7 @@ func SupplyRoutes(app *supplyapp.Application, bind func(context.Context, string)
 		{"GET", "", "list", preparation.PermissionRead}, {"POST", "/transfer", "transfer", preparation.PermissionManage}, {"GET", "/transfers/by-key/:key", "transfer-read", preparation.PermissionRead},
 		{"GET", "/:preparation_id/sources", "sources", preparation.PermissionRead}, {"GET", "/sources/:source_id", "source", preparation.PermissionRead},
 		{"GET", "/:preparation_id/stages", "stages", preparation.PermissionRead},
+		{"POST", "/shein-completion-preview", "shein-completion-preview", preparation.PermissionManage},
 		{"GET", "/:preparation_id", "preparation", preparation.PermissionRead}, {"GET", "/:preparation_id/operations", "operations", preparation.PermissionRead},
 		{"GET", "/sources/:source_id/publications/:store_id", "publication", preparation.PermissionRead},
 		{"GET", "/sources/:source_id/publications/:store_id/status", "publication-status", preparation.PermissionRead},
@@ -109,6 +110,22 @@ func SupplyRoutes(app *supplyapp.Application, bind func(context.Context, string)
 				return
 			}
 			switch spec.action {
+			case "shein-completion-preview":
+				var in record.SheinImportRequest
+				_, e := supplyBody(c.Request, &in, false)
+				if e != nil {
+					supplyError(c, e)
+					return
+				}
+				if !collection.ValidID(in.SourceID) || !collection.ValidID(in.BaseRecordID) || !collection.ValidID(in.CompletionDraft.RecordID) || in.CompletionDraft.Revision < 1 {
+					supplyError(c, preparation.ErrInvalid)
+					return
+				}
+				if app.Targets == nil {
+					supplyError(c, preparation.ErrUnavailable)
+					return
+				}
+				output, err = app.Targets.PreviewSheinImport(ctx, in)
 			case "upload-attempt":
 				if c.Request.URL.RawQuery != "" {
 					supplyError(c, preparation.ErrInvalid)

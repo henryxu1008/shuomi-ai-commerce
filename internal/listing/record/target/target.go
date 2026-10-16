@@ -34,6 +34,7 @@ type TargetInput struct {
 	TikTok           *tiktok.DraftInput        `json:"tiktok,omitempty"`
 	TikTokRules      *tiktok.RuleSelection     `json:"tiktokRules,omitempty"`
 	CompletionDraft  *CompletionDraftSelection `json:"completionDraft,omitempty"`
+	SheinImport      *SheinImport              `json:"sheinImport,omitempty"`
 }
 type TargetRecord struct {
 	ID                      string                                `json:"id"`
@@ -280,6 +281,9 @@ func (s *TargetService) create(ctx context.Context, scope collection.Scope, key 
 	if input.CompletionDraft != nil && (input.TikTok == nil || !collection.ValidID(input.CompletionDraft.RecordID) || input.CompletionDraft.Revision < 1) {
 		return TargetReceipt{}, ErrInvalid
 	}
+	if input.SheinImport != nil && (input.Temu != nil || input.TikTok != nil || input.CompletionDraft != nil) {
+		return TargetReceipt{}, ErrInvalid
+	}
 	if !collection.ValidID(key) || !collection.ValidID(input.SourceID) || !collection.ValidID(input.StoreID) || input.ExpectedRevision < 0 || input.ExpectedRevision >= 1<<63-1 || input.EffectiveVersion == 0 || input.EffectiveVersion > 1<<63-1 || input.ApplyReceiptID != "" && !authidentity.IsBoundedIdentifier(input.ApplyReceiptID) {
 		return TargetReceipt{}, ErrInvalid
 	}
@@ -351,6 +355,12 @@ func (s *TargetService) create(ctx context.Context, scope collection.Scope, key 
 	prepared, err := s.preparePlatform(ctx, scope, input, inventory)
 	if err != nil {
 		return TargetReceipt{}, err
+	}
+	if input.SheinImport != nil {
+		completionVersion = func(ctx context.Context) error { return s.validateSheinImport(ctx, scope, input, source, prepared) }
+		if err = completionVersion(ctx); err != nil {
+			return TargetReceipt{}, err
+		}
 	}
 	value := TargetRecord{ID: collection.StableID(scope.OrganizationID, scope.ActorID, "supply-record", key), TargetID: TargetIdentity(scope, source.ID, input.StoreID), Revision: input.ExpectedRevision + 1, Source: source, EffectiveVersion: product.Version, ApplyReceiptID: input.ApplyReceiptID, ProductHash: collection.Digest(product.Snapshot), InventoryHash: collection.Digest(inventory), RulesHash: prepared.rulesHash, Merchant: prepared.merchant, Input: input, Result: prepared.shein, CreatedAt: time.Now().UTC()}
 	value.ImageObservations = prepared.images

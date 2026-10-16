@@ -28,3 +28,11 @@ UI authority 继承 [当前 UI/IA](final-ui-ia-authority.md)、Figma `tg48P46SSX
 不做真实 SHEIN mutation、自动发布、模型调用、批量带入、跨平台泛化、平台 SKU 结构编辑、新表/迁移/第二事实源、试用实例更新。既有文字历史恢复仍只恢复标题和描述，保留当前结构化候选。
 
 设计及准入见 [独立增量架构](../architecture/completion-shein-import-v1.md)。本决定仅对 SHEIN 取代此前“Target 仅带入文字”的阶段限制，TikTok/TEMU 及 CompletionDraft 原合同保持原范围。
+
+## 使用入口与交接
+
+供应市场 → 我的供应链 → 待补全 → 已保存草稿 → “SHEIN 带入预览（已保存 Rn）”；或已保存且未被编辑的 SHEIN 平台资料 → “SHEIN 带入预览”。地址为 `/workbench/supply/mine/missing/{sourceId}/shein`，严格 ID query 保留 preparation/item/revision/target 上下文。候选有未保存的编辑时，入口明确采用已保存 Rn。
+
+选择店铺及映射 → 预览带入结果 → 检查覆盖前后值 → 确认保存为新平台草稿版本。冲突时重新读取目标并重新预览；结果待核实保留原操作键，沿“核实原操作”处理。本轮没有部署或真实平台操作。
+
+入口沿既有 Product Collections、CompletionDraft、完整 Supply Chain 三项运行配置开放，不新增开关；缺少正式店铺/规则时明确不可用。新页面和结果待核实提示使用当前主题 token。运行与试用仍按原系统启动/部署方案，不能将本地 fixture 测试当真实店铺或用户验收。

@@ -71,6 +71,10 @@ export const readSupplyRecord=async(scope:SupplyScope,id:string,signal?:AbortSig
 	const value=await send(`${base}/records/${collectionID.parse(id)}`,scope,c.sheinTargetRecordSchema,signal);if(value.id!==id)throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
 };
 export const supplyRules=(scope:SupplyScope,input:c.SupplyTargetInput,signal?:AbortSignal)=>send(`${base}/target-rules`,scope,c.rulesSchema,signal,{method:"POST",command:c.targetInputSchema.parse(input)});
+export async function previewSheinImport(scope:SupplyScope,request:c.SheinImportRequest,signal?:AbortSignal){
+ const input=c.sheinImportRequestSchema.parse(request),result=await send(`${base}/shein-completion-preview`,scope,c.sheinImportPreviewSchema,signal,{method:"POST",command:input});
+ if(!c.matchesSheinImportPreview(result,input))throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return result;
+}
 export const temuSupplyRules=(scope:SupplyScope,input:z.infer<typeof c.temuRulesQuerySchema>,signal?:AbortSignal)=>send(`${base}/target-rules`,scope,c.temuRulesSchema,signal,{method:"POST",command:c.temuRulesQuerySchema.parse(input)});
 export const tiktokSupplyRules=(scope:SupplyScope,input:z.infer<typeof c.tiktokRulesQuerySchema>,signal?:AbortSignal)=>send(`${base}/target-rules`,scope,c.tiktokRulesSchema,signal,{method:"POST",command:c.tiktokRulesQuerySchema.parse(input)});
 export const supplyInventory=(scope:SupplyScope,input:z.infer<typeof c.sourceSelectionSchema>,signal?:AbortSignal)=>send(`${base}/images/inventory`,scope,c.inventorySchema,signal,{method:"POST",command:c.sourceSelectionSchema.parse(input)});
@@ -132,6 +136,7 @@ function commandResult(value:unknown,intent:SupplyIntent,mutates:boolean){
  if(intent.route==="save-target"){
   const input=c.targetInputSchema.parse(intent.command),result=c.targetReceiptSchema.parse(value).record;
   valid=result.source.id===input.sourceId&&result.merchant.store_id===input.storeId&&result.input.expectedRevision===input.expectedRevision&&result.effectiveVersion===input.effectiveVersion&&(result.applyReceiptId??"")===(input.applyReceiptId??"");
+  if("sheinImport" in input&&input.sheinImport)valid=valid&&result.targetId===input.sheinImport.targetId&&result.revision===input.expectedRevision+1&&JSON.stringify(c.targetInputSchema.parse(result.input))===JSON.stringify(input);
  }
  if(intent.route==="create-operation"){
   const input=c.operationInputSchema.parse(intent.command),receipt=c.operationReceiptSchema.safeParse(value);

@@ -14,16 +14,19 @@ const command={execute:state.execute} as unknown as SupplyCommandState;
 it("opens materials only for an unchanged saved Target and removes the entry after manual edits",async()=>{
  state.rules.mockResolvedValue(rules("self_operated"));
  const draft=initialSupplyDraft(source);
- const existing={id,targetId:id,revision:1,effectiveVersion:"1",input:{sourceId:id,storeId:id,expectedRevision:0,effectiveVersion:"1",draft},merchant:{site:"shein-us"},result:{ready_for_upload:false,issues:[]}} as unknown as SupplyTarget;
+ const existing={id,targetId:id,revision:1,effectiveVersion:"1",input:{sourceId:id,storeId:id,expectedRevision:0,effectiveVersion:"1",draft},merchant:{site:"shein-us",application_type:"self_operated"},result:{ready_for_upload:false,issues:[]}} as unknown as SupplyTarget;
  render(<SupplyTargetEditor scope={{userId:"actor",organizationId:"org"}} source={source} storeId={id} existing={existing} command={command} disabled={false} saved={0} materialsAvailable/>);
  expect(await screen.findByRole("link",{name:"准备平台资料"})).toHaveAttribute("href",`/workbench/supply/materials/${id}`);
  await userEvent.type(screen.getByLabelText("商品标题内容 1")," 修改");
  expect(screen.queryByRole("link",{name:"准备平台资料"})).toBeNull();expect(state.execute).not.toHaveBeenCalled();
 });
-it("does not automatically override formal fields when a completion draft is available",async()=>{
+it("requires an unchanged saved Target before entering independent candidate preview",async()=>{
  state.rules.mockResolvedValue(rules("self_operated"));state.completion.mockResolvedValue({revision:3,content:{title:"明确带入的候选",description:"待补全描述"}});
- render(<SupplyTargetEditor scope={{userId:"actor",organizationId:"org"}} source={source} storeId={id} command={command} disabled={false} saved={0} completionAvailable/>);
- const bring=await screen.findByRole("button",{name:"带入待补全草稿 R3"});expect(screen.getByLabelText("商品标题内容 1")).toHaveValue("原始商品");await userEvent.click(bring);expect(screen.getByLabelText("商品标题内容 1")).toHaveValue("明确带入的候选");expect(state.execute).not.toHaveBeenCalled();
+ const existing={id,revision:1,effectiveVersion:"1",input:{draft:initialSupplyDraft(source)},merchant:{site:"shein-us",application_type:"self_operated"},result:{issues:[],ready_for_upload:false}} as unknown as SupplyTarget;
+ const view=render(<SupplyTargetEditor scope={{userId:"actor",organizationId:"org"}} source={source} storeId={id} existing={existing} command={command} disabled={false} saved={0} completionAvailable/>);
+ expect(await screen.findByRole("link",{name:"SHEIN 带入预览"})).toHaveAttribute("href",`/workbench/supply/mine/missing/${id}/shein?preparation=${id}&item=${id}&target=${id}&revision=3`);expect(screen.getByLabelText("商品标题内容 1")).toHaveValue("原始商品");
+ await userEvent.type(screen.getByLabelText("商品标题内容 1")," 手工修改");expect(screen.queryByRole("link",{name:"SHEIN 带入预览"})).not.toBeInTheDocument();expect(state.execute).not.toHaveBeenCalled();view.unmount();
+ render(<SupplyTargetEditor scope={{userId:"actor",organizationId:"org"}} source={source} storeId={id} command={command} disabled={false} saved={0} completionAvailable/>);await screen.findByText(/请先保存当前平台编辑内容/);expect(screen.queryByRole("link",{name:"SHEIN 带入预览"})).not.toBeInTheDocument();
 });
 function rules(mode:SupplyRules["merchant"]["application_type"]){return {merchant:{application_type:mode},rules:{application_type:mode,categories:[{category_id:123,product_type_id:456,category_name:"可发布类目",last_category:true,children:[]}],brands:[],warehouses:[],fill:{fill_in_standard_list:[],currency:"CNY",supplier_code_in_spu_dimension:false,picture_config_list:[]},attributes:{attribute_infos:[]}}} as unknown as SupplyRules}
 beforeEach(()=>{state.rules.mockReset();state.inventory.mockReset().mockResolvedValue({assets:[{id:"approved-main",role:"main",url:"https://example.org/main.jpg",width:900,height:900}]});state.execute.mockReset();state.imagePanel.mockReset()});afterEach(()=>{cleanup();vi.unstubAllGlobals()});

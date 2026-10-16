@@ -13,7 +13,7 @@ CompletionDraft 原 record/head/command 是不可变候选的唯一 owner；Sour
 
 新增有界 `POST supply-preparations/shein-completion-preview` 只读预览，接收 sourceId、baseRecordId、completionDraft{recordId,revision} 和 selection。Console BFF 严格 DTO/响应绑定 → supply HTTP → 现有 TargetService（已注入 SourceSelector、CompletionVersions、Records、Rules）→ 返回完整 TargetInput。它不是保存、授权凭证或发布入口。
 
-TargetInput 新增可选 `sheinImport`，仅 SHEIN 可用：baseRecordId、固定 completionDraft 引用、selection、rulesHash、merchantHash。所有字段进入原 inputHash，并随原 TargetRecord 保存。普通 Target 编辑不得延续已保存的旧 sheinImport；只有本轮明确预览并确认的命令携带它。TikTok 的 completionDraft 文字绑定不变，不允许平台字段交叉混用。
+TargetInput 新增可选 `sheinImport`，仅 SHEIN 可用：targetId、baseRecordId、固定 completionDraft 引用、selection、rulesHash、merchantHash。所有字段进入原 inputHash，并随原 TargetRecord 保存。普通 Target 编辑不得延续已保存的旧 sheinImport；只有本轮明确预览并确认的命令携带它。TikTok 的 completionDraft 文字绑定不变，不允许平台字段交叉混用。
 
 ## 版本、映射与覆盖合同
 
@@ -27,7 +27,7 @@ SKU 项固定 sourceIndex → skcIndex/skuIndex，双方唯一、有界且至少
 
 ## Save、并发、幂等及恢复
 
-确认复用原 `POST targets`、expectedRevision=Rm、durable key/payload、FindTargetCommand、原 TargetPrepared/SQL CAS 和事务。新写时重新读取同 scope 候选/基线，检查来源、revision、当前 head 及基线版本，使用当前官方规则与商户绑定重算 draft，与请求完整 draft 精确比较；rulesHash/merchantHash 漂移返回 409。不得夹带其他字段变更。
+确认复用原 `POST targets`、expectedRevision=Rm、durable key/payload、FindTargetCommand、原 TargetPrepared/SQL CAS 和事务。新写时重新读取同 scope 候选/基线，检查来源、revision、当前 head 及基线版本，使用当前官方规则与商户绑定重算 draft，与请求完整 draft 精确比较（沿 Console 既有 list DTO，仅空数组的 null/[] 表示等价；不归一化其他业务值）；rulesHash/merchantHash 漂移返回 409。不得夹带其他字段变更。
 
 候选与基线在 Prepared.Read 的持久化边界再次按 immutable ID 核对；不在 SQL 事务内重复官方网络请求。商户/规则核对继承既有 Target 当前读取和 expiry 合同，不新增跨系统锁或声称官方规则可被本地事务锁定。当前 supply.manage/SourceSelector/live Store 访问和 expiry 按原保存路径复核。目标 head 由原事务锁和 CAS 最终判定，409 不自动合并或换基线。
 
@@ -48,3 +48,5 @@ TDD 覆盖固定旧候选/源错配、显式一对一映射、空/零、币种�
 适用两个检查点：本合同独立高风险边界检查，以及完整实现后的最终交付检查；不增加常驻多 writer 或重复全局架构审查。
 
 R1 finding：IMPLEMENTATION_TEST（合并层）：带入保存及原键回执核对必须比较完整规范 TargetInput 和本次 Rm+1，不能仅比较 source/store/version 元数据；沿原恢复协议补测试和最小修复。
+
+部署边界：本轮不操作实例。后续前后端应更新到同一候选；写过 sheinImport 的记录需要保留该完整 DTO，不降级到丢失绑定元数据的旧解析器。无新表、backfill 或兼容路径。
