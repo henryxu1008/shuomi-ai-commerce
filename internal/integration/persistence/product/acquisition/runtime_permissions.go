@@ -187,36 +187,39 @@ const admittedPrivileges = `(VALUES
  ('product_snapshot_versions','SELECT'),('product_snapshot_versions','INSERT'),
  ('product_snapshot_heads','SELECT'),('product_snapshot_heads','INSERT'),('product_snapshot_heads','UPDATE'))`
 
+const currentRuntimeSubject = `(SELECT current_user::text AS runtime_role)`
+
 const runtimePermissionQuery = `WITH admitted(table_name,privilege) AS ` + admittedPrivileges + `
  SELECT current_user::text AS role_name,
  session_user=current_user
  AND current_schemas(false)=ARRAY['public']::name[]
  AND pg_my_temp_schema()=0
- AND has_database_privilege(current_user,current_database(),'CONNECT')
- AND has_schema_privilege(current_user,'public','USAGE')
- AND EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND rolcanlogin
+ AND has_database_privilege(subject.runtime_role,current_database(),'CONNECT')
+ AND has_schema_privilege(subject.runtime_role,'public','USAGE')
+ AND EXISTS(SELECT 1 FROM pg_roles WHERE rolname=subject.runtime_role AND rolcanlogin
    AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls)
- AND NOT EXISTS(SELECT 1 FROM admitted WHERE NOT has_table_privilege(current_user,format('public.%I',table_name),privilege))
+ AND NOT EXISTS(SELECT 1 FROM admitted WHERE NOT has_table_privilege(subject.runtime_role,format('public.%I',table_name),privilege))
  AS required_privileges,
- has_database_privilege(current_user,current_database(),'CREATE')
- OR has_database_privilege(current_user,current_database(),'TEMPORARY')
- OR EXISTS(SELECT 1 FROM pg_auth_members WHERE member=(SELECT oid FROM pg_roles WHERE rolname=current_user))
+ has_database_privilege(subject.runtime_role,current_database(),'CREATE')
+ OR has_database_privilege(subject.runtime_role,current_database(),'TEMPORARY')
+ OR EXISTS(SELECT 1 FROM pg_auth_members WHERE member=(SELECT oid FROM pg_roles WHERE rolname=subject.runtime_role))
  OR EXISTS(SELECT 1 FROM pg_namespace n WHERE n.nspname NOT LIKE 'pg_%' AND n.nspname<>'information_schema'
-   AND (has_schema_privilege(current_user,n.oid,'CREATE') OR (n.nspname<>'public' AND has_schema_privilege(current_user,n.oid,'USAGE'))))
+   AND (has_schema_privilege(subject.runtime_role,n.oid,'CREATE') OR (n.nspname<>'public' AND has_schema_privilege(subject.runtime_role,n.oid,'USAGE'))))
  OR EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
    CROSS JOIN LATERAL aclexplode(acldefault('r',c.relowner)) p
    WHERE n.nspname NOT LIKE 'pg_%' AND n.nspname<>'information_schema'
    AND c.relkind IN ('r','p','v','m','f')
    AND CASE WHEN p.privilege_type IN ('SELECT','INSERT','UPDATE','REFERENCES')
-     THEN has_any_column_privilege(current_user,c.oid,p.privilege_type)
-     ELSE has_table_privilege(current_user,c.oid,p.privilege_type) END
+     THEN has_any_column_privilege(subject.runtime_role,c.oid,p.privilege_type)
+     ELSE has_table_privilege(subject.runtime_role,c.oid,p.privilege_type) END
    AND NOT EXISTS(SELECT 1 FROM admitted a WHERE n.nspname='public' AND a.table_name=c.relname AND a.privilege=p.privilege_type))
  OR EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
    WHERE n.nspname='public' AND c.relname IN (SELECT table_name FROM admitted)
-   AND (c.relkind<>'r' OR c.relrowsecurity OR c.relforcerowsecurity OR c.relowner=(SELECT oid FROM pg_roles WHERE rolname=current_user)))
+   AND (c.relkind<>'r' OR c.relrowsecurity OR c.relforcerowsecurity OR c.relowner=(SELECT oid FROM pg_roles WHERE rolname=subject.runtime_role)))
  OR EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
-   WHERE c.relkind='S' AND n.nspname NOT LIKE 'pg_%' AND n.nspname<>'information_schema'
-   AND has_sequence_privilege(current_user,c.oid,'USAGE,SELECT,UPDATE')) AS forbidden_privileges`
+   WHERE n.nspname NOT LIKE 'pg_%' AND n.nspname<>'information_schema'
+   AND CASE WHEN c.relkind='S' THEN has_sequence_privilege(subject.runtime_role,c.oid,'USAGE,SELECT,UPDATE') ELSE false END) AS forbidden_privileges
+ FROM ` + currentRuntimeSubject + ` subject`
 
 // GrantRuntimePermissions is an explicit, dedicated-database initialization
 // operation. The deployment owner provisions the login separately; this code
@@ -270,9 +273,7 @@ func GrantRuntimePermissions(ctx context.Context, db *gorm.DB, capabilities ...R
 				"GRANT SELECT,INSERT ON public.product_collection_operations TO source_acquisition_runtime")
 		}
 		if supply {
-			statements = append(statements, preparationRuntimeGrant, "GRANT SELECT,INSERT ON public.listing_target_records,public.listing_target_record_commands,public.listing_submission_official_intents,public.listing_submission_official_receipts TO source_acquisition_runtime",
-				"GRANT SELECT,INSERT,UPDATE ON public.listing_preparation_targets,public.listing_preparation_operations,public.listing_preparation_operation_items,public.listing_submission_execution_attempts,public.listing_submission_target_fences TO source_acquisition_runtime",
-				"GRANT SELECT ON public.product_title_proposals TO source_acquisition_runtime")
+			statements = append(statements, preparationRuntimeGrant, supplyRecordRuntimeGrant, supplyExecutionRuntimeGrant, supplyReviewRuntimeGrant)
 		}
 		if plans {
 			if _, err := planstore.NewRepository(ctx, tx); err != nil {
@@ -359,8 +360,12 @@ func VerifyRuntimePermissions(ctx context.Context, db *gorm.DB, capabilities ...
 	if user != RuntimeRole || !required || forbidden {
 		return sourcing.ErrAcquisitionUnavailable
 	}
+	return verifyRuntimeSchema(ctx, db, capability)
+}
+
+func verifyRuntimeSchema(ctx context.Context, db *gorm.DB, capability RuntimeCapabilities) error {
 	var schemaReady bool
-	if err := pool.QueryRowContext(ctx, publicationSchemaQuery).Scan(&schemaReady); err != nil || !schemaReady {
+	if err := db.WithContext(ctx).Raw(publicationSchemaQuery).Scan(&schemaReady).Error; err != nil || !schemaReady {
 		return sourcing.ErrAcquisitionUnavailable
 	}
 	if capability.Collections {
@@ -408,6 +413,6 @@ func VerifyRuntimePermissions(ctx context.Context, db *gorm.DB, capabilities ...
 			return err
 		}
 	}
-	_, err = NewRepository(ctx, db)
+	_, err := NewRepository(ctx, db)
 	return err
 }

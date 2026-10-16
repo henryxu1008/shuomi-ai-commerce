@@ -87,10 +87,10 @@ Temporal 复用仓库已固定的官方镜像 `temporalio/temporal@sha256:cf8670
 
 ## 执行前仍缺少的条件
 
-1. **有界增量安装入口尚不存在。** `cmd/product-acquisition-init` 只有全新空库初始化和既有 plan/completion 增量入口，没有 supply 增量开关。必须先在该现有入口内补齐精确非空库安装路径及必要测试，才能执行本方案；不伪造可直接运行的命令。
+1. **有界增量安装入口已补齐。** `cmd/product-acquisition-init --enable-supply-chain` 复用现有 owner 安装器；隔离 PostgreSQL 的非空基线、精确权限、重入/并发及拒绝/回滚测试已通过。代码、独立检查与 CI 的最终绑定记录在 PR #736；尚未对 own675 执行该入口。
 2. 一个真实 SHEIN 应用的上述配置和私有文件，以及用户对随后正常店铺连接/官方规则读取的明确授权。当前没有应用或店铺，安装表本身不能产生官方规则。只读方案阶段不发起这些请求。
 3. 店铺通过现有 Store 流程达到当前成员可访问、连接有效、服务启用且未过期。沿既有权益/资源合同；不直接写 active 状态，不自动购买套餐、扣费或变更现有权益。
-4. 本方案及准确候选的安装授权。当前用户仅批准明确方案，尚未批准 DDL、grants、新服务/配置和业务试用写入。
+4. 本方案及准确候选的安装授权。当前用户批准方案和增量入口开发，明确暂不执行 own675 安装；尚未批准本方案的 DDL、grants、新服务/配置和业务试用写入。
 
 既有 `privateDraftTrial` 只有七个 GET、没有规则或保存能力，且与当前 CompletionDraft 配置冲突，不能用它替代本次带入确认。
 
@@ -108,9 +108,39 @@ Temporal 复用仓库已固定的官方镜像 `temporalio/temporal@sha256:cf8670
 
 验证：CLI 互斥/准确确认/严格 manifest；隔离 PostgreSQL 中的真实非空基线保留、精确新增权限、重入及并发、非 owner/部分安装/结构或权限漂移拒绝、事务后段失败回滚与有界取消。复用现有测试依赖，不建安装/验收平台；不访问 own675、对象存储或真实 SHEIN。
 
-增量入口采用既有 owner manifest、精确数据库名确认、`source-acquisition-init` 事务锁及 bounded context 的模式。安装目标仅 `product_acquisition`，要求维护身份为既有 owner、原 14 表和能力仍有效；DDL 与**新增表的精确 grant 增量**在同一 Product 事务内提交。复用 `InstallSupplyChainSchema` 及其 owner 安装器，安装前检查现有两张 Preparation 表；不得调用空库初始化或全局 `GrantRuntimePermissions` 清空后重授原权限。
+增量入口采用既有 owner manifest、精确数据库名确认、`source-acquisition-init` 事务锁及 bounded context 的模式。安装目标仅 `product_acquisition`，要求维护身份为既有 owner、原 14 表和能力仍有效；DDL 与**新增表的精确 grant 增量**在同一 Product 事务内提交。与 `InstallSupplyChainSchema` 共用只安装新表的内部 helper 和现有 owner 安装器；不重跑原 Preparation 安装器，先只读核对其 schema 和来源分页索引。不得调用空库初始化或全局 `GrantRuntimePermissions` 清空后重授原权限。
 
 只接受两个清晰结果：新增 11 表均不存在时安装；全部存在且当前 schema/约束/ACL 完整匹配时核实已完成。部分存在、同名漂移、原表/授权变化均停止并报告，不 DROP/ALTER/修复旧对象。响应丢失后先核实原事务结果，不盲目重建；最终以 `RuntimeCapabilities{Collections:true, CompletionDrafts:true, SupplyChain:true}` 的现有只读检查核对。
+
+### 命令准备（当前不执行）
+
+从同候选构建 `product-acquisition-init` 后，使用独立私有维护 manifest。字段沿现有严格解析器，不使用后台完整 manifest，也不写入 runtime 凭据：
+
+```json
+{
+  "schemaVersion": 1,
+  "database": {
+    "host": "127.0.0.1",
+    "port": 5432,
+    "user": "acquisition_owner",
+    "password": "<私密维护凭据>",
+    "database": "product_acquisition"
+  },
+  "collections": true,
+  "supplyCompletionDrafts": true,
+  "supplyChain": true
+}
+```
+
+端口必须取目标网络中实际的 PostgreSQL loopback 端口；上述值是格式说明，不是 own675 的连接配置。私有文件权限遵循既有入口检查。随后获准执行时使用准确目标名：
+
+```text
+product-acquisition-init --config <私有owner-manifest绝对路径> --enable-supply-chain --confirm-database product_acquisition
+```
+
+成功首次执行提交 11 表和精确权限增量；相同命令重入仅核实。拒绝时保留现状，先查明缺失/漂移原因，不改成空库命令或放宽授权。
+
+本轮开发证据包括 CLI 互斥与位置参数检查、PostgreSQL 17.2 的非空基线保留/并发重入/结构及列级权限漂移/后段回滚/取消，以及原供应链、图片和带 integration 标签的数据服务安装回归。原 14 表的行、owner、表级/列级 ACL、列定义、约束和索引以隔离测试前后快照比较；不读取或重写原图片对象。未将隔离测试结果记为 own675 安装或用户验收。
 
 后续获准执行时：
 
