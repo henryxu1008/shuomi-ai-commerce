@@ -1,5 +1,14 @@
 # Centralized Deployment Plan
 
+> **DATED EVIDENCE / 旧刊登链历史材料**：#723 已按用户确认退休三个旧 CLI 及专属
+> 调度/消费链。下列旧命令、部署与验收步骤不再是当前操作说明，不得用于启动/发布或
+> 作为当前内部试用前置。历史事实保留；当前入口见
+> [Repository Structure](../development/repository-structure.md)，精确保留/删除边界见
+> [CLI retirement](../architecture/legacy-listing-cli-retirement-boundary.md)。
+> control-plane、独立登录 worker 与当前采集/Store observation 保持各自原合同；
+> 此次无运行实例或数据操作授权。
+
+
 本文档描述 `task-processor` 从“按店铺分散部署”逐步演进到“中心化调度 + 少量任务节点 + 独立爬虫节点”的改造方案。
 
 目标不是把所有任务强行收敛到 1 台机器，而是把当前“1-2 个店铺部署 1 台机器”的运行方式，改造成更容易扩缩容、运维成本更低、店铺不再绑定单机的架构。

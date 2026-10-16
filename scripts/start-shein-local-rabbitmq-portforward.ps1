@@ -151,20 +151,7 @@ try {
     Write-Host "Local shein dependencies port-forward is ready." -ForegroundColor Green
     Write-Host "Port-forward session id: $script:PortForwardSessionId" -ForegroundColor DarkGray
     Write-Host ""
-    Write-Host "Suggested env override for local shein-listing:" -ForegroundColor Yellow
-    if (-not $SkipDatabase) {
-        Write-Host "  `$env:TASK_PROCESSOR_DATABASE_HOST='127.0.0.1'"
-        Write-Host "  `$env:TASK_PROCESSOR_DATABASE_PORT='${LocalDbPort}'"
-    }
-    if (-not $SkipRedis) {
-        Write-Host "  `$env:TASK_PROCESSOR_REDIS_HOST='127.0.0.1'"
-        Write-Host "  `$env:TASK_PROCESSOR_REDIS_PORT='${LocalRedisPort}'"
-        Write-Host "  `$env:TASK_PROCESSOR_SHEIN_COOKIE_REDIS_HOST='127.0.0.1'"
-        Write-Host "  `$env:TASK_PROCESSOR_SHEIN_COOKIE_REDIS_PORT='${LocalRedisPort}'"
-    }
-    Write-Host "  `$env:TASK_PROCESSOR_RABBITMQ_URL='amqp://admin:RabbitMQ%402026%23Prod@127.0.0.1:${LocalAMQPPort}/'"
-    Write-Host "  `$env:TASK_PROCESSOR_MANAGEMENT_STORE_IDS='968'"
-    Write-Host "  go run ./cmd/shein-listing -config config/config-dev.yaml -log-level debug"
+    Write-Host "Use the retained command's existing private configuration; the old listing CLIs are retired." -ForegroundColor Yellow
     if ($EnableManagement) {
         Write-Host ""
         Write-Host "RabbitMQ management UI: http://127.0.0.1:${LocalManagementPort}" -ForegroundColor Yellow

@@ -3,7 +3,4 @@ kind: Kustomization
 
 namespace: task-processor
 
-resources:
-  - deployment-store-a.yaml
-  - deployment-store-b.yaml
-
+resources: []

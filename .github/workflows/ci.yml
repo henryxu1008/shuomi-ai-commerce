@@ -194,7 +194,8 @@ jobs:
       - name: Build runtime commands
         run: |
           go build ./cmd/listing-control-plane
-          go build ./cmd/shein-listing
+          go build ./cmd/current-application
+          go build ./cmd/shein-login-worker
 
   frontend:
     name: Frontend Checks

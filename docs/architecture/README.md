@@ -9,6 +9,7 @@ boundary rules unless they explicitly supersede a stable document.
 
 ## Boundary Designs Awaiting Confirmation
 
+- [`legacy-listing-cli-retirement-boundary.md`](legacy-listing-cli-retirement-boundary.md): #29/#301 user-confirmed retirement of three listing CLIs and their exclusive scheduler/local/sync chain; retained control-plane/shared contracts, exact CI target replacement and source-only operation boundary.
 - [`shein-worker-identity-persistence-boundary.md`](shein-worker-identity-persistence-boundary.md): #301 confirmed ownership, retained worker capabilities and deletion conditions. §7 retires the unused managed provider/helpers/verification DTO and fixes tenant-qualified duplicate lookup with fail-closed Store sync. Current Organization/Store and official execution remain separate from the retained numeric login runtime; no runtime/data action or new internal-trial prerequisite.
 
 ## Approved Authorities by Responsibility

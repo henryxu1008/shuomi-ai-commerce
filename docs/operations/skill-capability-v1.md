@@ -62,6 +62,8 @@ go run ./cmd/product-agent-runtime-prepare --target review
 
 标准后端镜像也包含 `/app/product-agent-runtime-prepare`。命令不创建角色或密码；固定普通 LOGIN runtime/writer 角色须由原安装负责人按单独批准预备。Run 仅在 `product_agent_runs`、`product_agent_tool_calls`、`ai_client_credentials` 全缺时按原定义创建；既有 `ai_invocations` 53 列只验证，不 ALTER。Review 只验证已有六表。精确 SELECT/INSERT、可变列 UPDATE 和 credential id 序列 USAGE 见设计权限清单；不授 DDL/删除/owner/grant option，不重置现共享 ACL。
 
+既有数据库 owner `product_agent_owner` / `acquisition_owner` 沿正式 bootstrap 与原 schema 入口可为 LOGIN；原 native 同样接受合格的 NOLOGIN owner，通过固定 owner 或有权 SET ROLE 的管理员执行。它只拒绝这些 owner 的 superuser/createdb/createrole/replication/bypassrls 超额能力，不改其登录属性、密码、成员关系或原授权。不能为了运行工具将原 LOGIN owner 改为 NOLOGIN；serving/writer 的独立角色与限定权限检查继续保持。
+
 三表完整且结构/owner/权限均精确合格时只读 `ALREADY_READY`；部分表、漂移或危险权限均停止，不修补。Run 与 Review 分别提交；后者失败不删除前者的新表/记录，保持执行关闭。响应丢失/提交未知先只读核实，不盲重跑。配置、密钥、原事实、Skill、Chat 和持久任务均保留；实际 backend/同进程 worker 停启必须另列队列、优雅停止和四 poller 恢复边界，不能由准备命令代替。
 
 ## 商品内容模型凭据

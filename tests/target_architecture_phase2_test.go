@@ -81,7 +81,6 @@ func TestProductListingRepositoryBuildersDoNotCallDirectAutoMigrate(t *testing.T
 	for _, root := range []string{
 		filepath.Join("..", "internal", "amazonlisting", "httpapi"),
 		filepath.Join("..", "internal", "app", "httpapi"),
-		filepath.Join("..", "internal", "app", "bootstrap", "resources"),
 	} {
 		err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
 			if err != nil {
