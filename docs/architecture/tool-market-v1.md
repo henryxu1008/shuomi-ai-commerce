@@ -2,6 +2,11 @@
 
 Status: **IMPLEMENTATION_READY**
 
+2026-10-16 用户在 #730 明确要求按完整 Figma 表单对齐，新增场景、联系人、联系方式、
+显式联系同意及私有参考资料。当前该输入/下载边界以已独立准入的
+[tool-customization-figma-v1](tool-customization-figma-v1.md) 为准，替代下文原三字段限制；
+启用、采集、权限、人工阶段及计价owner保持本基线。
+
 2026-10-09 独立Architecture Review第二轮确认设计blob
 `f9298fe72c11e10586411f538323eafad0738a69`原平台授权BLOCKER已消除；
 企业权限、原子提交/并发重放和发布包校验归IMPLEMENTATION_TEST，按下文实现验证。

@@ -30,6 +30,10 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"cmd/listing-scheduler", "cmd/shein-listing", "cmd/temu-listing",
 		"cmd/listing-control-plane", "cmd/shein-import-platform-recovery",
 		"internal/app/runtime/listingcontrol", "internal/app/runtime/sheinplatformrecovery", "internal/listingcontrol",
+		"internal/app/task", "internal/app/taskstatus", "internal/processor", "internal/app/crawler/distributed",
+		"internal/amazon/processor.go", "internal/amazon/task_status.go", "internal/amazon/task_status_test.go",
+		"internal/crawler/fetcher/distributed_fetcher.go", "internal/crawler/fetcher/builder_test.go",
+		"internal/temu/sync/inventory_sync_factory.go",
 		"internal/listingadmin/platform_recovery.go", "internal/listingadmin/platform_recovery_test.go",
 		"internal/app/runtime/listing", "internal/app/runtime/listingscheduler",
 		"internal/app/bootstrap", "internal/app/consumer", "internal/app/runner", "internal/app/scheduler",
@@ -62,6 +66,16 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 }
 
 func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
+	for _, relative := range []string{
+		"internal/crawler/fetcher/contracts.go", "internal/crawler/fetcher/remote_fetcher.go",
+		"internal/platformbase/fetcher_mode.go", "internal/platformbase/fetcher_builder.go",
+		"internal/amazon/api/client.go", "internal/amazon/pipeline/manager.go",
+		"internal/listingruntime/types.go", "internal/listingadmin/import_task_repository.go",
+	} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); err != nil {
+			t.Errorf("retained platform/shared contract %s must remain: %v", relative, err)
+		}
+	}
 	for _, command := range []string{"current-application", "shein-login-worker", "image-agent-temporal-worker", "source-account-registry-schema-init", "1688-local-agent", "1688-batch-import", "1688-public-browser-collector"} {
 		t.Run(command, func(t *testing.T) {
 			cmd := exec.Command("go", "list", "-deps", "./cmd/"+command)
@@ -71,7 +85,7 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 				t.Fatalf("go list current command: %v\n%s", err, output)
 			}
 			for _, dependency := range strings.Fields(string(output)) {
-				for _, retired := range []string{"task-processor/internal/app/bootstrap", "task-processor/internal/app/consumer", "task-processor/internal/app/runner", "task-processor/internal/app/scheduler", "task-processor/internal/app/runtime/listingcontrol", "task-processor/internal/app/runtime/sheinplatformrecovery", "task-processor/internal/listingcontrol", "task-processor/internal/app/task", "task-processor/internal/app/taskstatus", "task-processor/internal/listingruntime/local", "task-processor/internal/platforms", "task-processor/internal/listingkit", "task-processor/internal/tenantbridge", "task-processor/internal/compatibility", "task-processor/internal/sourceaccount", "task-processor/internal/integration/persistence/sourceaccount/ownershipmigration"} {
+				for _, retired := range []string{"task-processor/internal/app/bootstrap", "task-processor/internal/app/consumer", "task-processor/internal/app/runner", "task-processor/internal/app/scheduler", "task-processor/internal/app/runtime/listingcontrol", "task-processor/internal/app/runtime/sheinplatformrecovery", "task-processor/internal/listingcontrol", "task-processor/internal/app/task", "task-processor/internal/app/taskstatus", "task-processor/internal/processor", "task-processor/internal/app/crawler/distributed", "task-processor/internal/listingruntime/local", "task-processor/internal/platforms", "task-processor/internal/listingkit", "task-processor/internal/tenantbridge", "task-processor/internal/compatibility", "task-processor/internal/sourceaccount", "task-processor/internal/integration/persistence/sourceaccount/ownershipmigration"} {
 					if dependency == retired || strings.HasPrefix(dependency, retired+"/") {
 						t.Errorf("%s still compiles retired business dependency %s", command, dependency)
 					}

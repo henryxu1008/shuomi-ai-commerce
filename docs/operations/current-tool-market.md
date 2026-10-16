@@ -10,7 +10,12 @@ consumers. Tool Market uses a dedicated `tool_market` database and the existing
 or its embedded SQL under a `tool_market_owner` NOLOGIN schema owner. Never migrate
 or replace retained instances. The serving role is `tool_market_runtime`, with
 CONNECT, schema USAGE, SELECT/INSERT/UPDATE on activations, requests and commands,
-and SELECT/INSERT on events. It has no schema CREATE or owner membership.
+and SELECT/INSERT on events and attachments. It has no schema CREATE or owner membership.
+The complete Figma form uses the current fresh schema with scenario/contact/consent
+columns and the private attachments table; see [#730 Design Basis](../architecture/tool-customization-figma-v1.md).
+Grant only SELECT/INSERT on attachments, with no UPDATE/DELETE/TRUNCATE. VerifySchema
+rejects an installation missing these columns or this table. Do not upgrade or reset
+a retained database by running the initializer; this delivery validates a new isolated database.
 
 The private native manifest adds:
 
@@ -53,6 +58,18 @@ The three entries are `/workbench/tools/official`, `/workbench/tools/mine`, and
 `/workbench/tools/custom`. The exact `/workbench/tools/custom/review` route uses
 independent verified platform identity and does not require customer membership.
 Enterprise siblings retain their Organization gate. Seven future tools stay closed.
+
+Customization children are `/workbench/tools/custom/new` and
+`/workbench/tools/custom/progress`. The form saves scenario, contact name, phone/WeChat,
+explicit contact consent (initially unchecked), and up to three private reference
+files (2MiB each; PDF, PNG, JPEG or UTF-8 text/CSV). Files are saved in the same
+transaction as the request and can be downloaded in enterprise and specialist details.
+Contact consent is recorded with the submitting actor/time and server version;
+the application does not automatically contact anyone. No payment or installation fact is created.
+Large pending payloads survive navigation in bounded memory; after reload or eviction,
+the remaining session marker blocks a new submission if its bytes are unavailable.
+Use the progress page to inspect saved requests and ask the platform to verify the original
+operation; do not clear browser storage or submit a new key to recover an unknown result.
 
 Local trial: administrator enables acquisition → member reads the enterprise list;
 member assigned the `tools-custom` module submits a synthetic requirement →
