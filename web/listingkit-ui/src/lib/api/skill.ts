@@ -3,7 +3,8 @@ import {readBoundedStrictJSON} from "./strict-json-response";
 export type SkillScope={userId:string;organizationId?:string};
 export class SkillError extends Error {constructor(public code:string,public unknown=false){super(code)}}
 export async function skillRequest<T>(scope:SkillScope,path:string,schema:z.ZodType<T>,init:RequestInit={}):Promise<T>{
- const write=!!init.method&&init.method!=="GET",headers=new Headers(init.headers);headers.set("Accept","application/json");headers.set("X-Expected-User-ID",scope.userId);if(path.startsWith("organization/")||path==="organization")headers.set("X-Expected-Organization-ID",scope.organizationId??"");
+ const pathname=path.split("?",1)[0];
+ const write=!!init.method&&init.method!=="GET",headers=new Headers(init.headers);headers.set("Accept","application/json");headers.set("X-Expected-User-ID",scope.userId);if(pathname.startsWith("organization/")||pathname==="organization")headers.set("X-Expected-Organization-ID",scope.organizationId??"");
  try{const r=await fetch("/api/workbench/skills/"+path,{...init,headers,cache:"no-store",credentials:"same-origin",redirect:"error"});const value=await readBoundedStrictJSON(r,262144,init.signal??undefined);if(!r.ok){const e=z.strictObject({code:z.string().regex(/^[A-Z_]{1,80}$/)}).safeParse(value);throw new SkillError(e.success?e.data.code:write?"OUTCOME_UNKNOWN":"SKILL_UNAVAILABLE",write&&(!e.success||e.data.code==="OUTCOME_UNKNOWN"))}return schema.parse(value)}
  catch(e){if(e instanceof SkillError)throw e;throw new SkillError(write?"OUTCOME_UNKNOWN":"SKILL_UNAVAILABLE",write)}
 }
