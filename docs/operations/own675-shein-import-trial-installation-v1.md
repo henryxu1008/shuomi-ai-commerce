@@ -8,6 +8,12 @@
 
 执行 Issue：[#735](https://github.com/qq550723504/task-processor/issues/735)，主要 PR：[#736](https://github.com/qq550723504/task-processor/pull/736)。本次合同/代码核对基线：`deaf7453bddd74d6fa1deece043d3832a5e51720`，2026-10-16；实例后台/前端仍为 `23a301245`。实际执行前重新核对实例和准确候选，不把本次只读证据当作之后的运行验收。
 
+## 无真实应用时的离线材料
+
+用户随后批准制作 [own675 离线安装材料](own675-offline-materials/README.md)：现有 Product/Asset 安装器的参数模板、非生效 Temporal Compose、最小配置差异和分阶段失败处置。Design Basis 为 Reuse Existing Architecture，准入及实际检查维护在 Issue #735 / PR #736。材料不包含凭据，不注册到现有启动文件，不执行安装或启动服务；原表/数据/图片/配置/授权保留。真实应用和实例执行仍未授权。
+
+Asset 原工具与 Product 重入语义不同：Asset 首次成功后不能直接重放空库 flag，不带该 flag 仍会改 ACL；材料明确区分，只复用当前 owner，不新增自动修复/重试机制。
+
 ## 用户结果和采用的路径
 
 用户在 own675 正常登录，使用一个专用试用商品和已保存候选 Rn，先通过既有供应链适配/编辑入口保存 SHEIN Target Rm，再进入独立带入页，显式映射、预览并确认保存 Rm+1。保留返回草稿、商品和批次的上下文，不自动发布。

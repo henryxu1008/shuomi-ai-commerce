@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "database": {
+    "host": "127.0.0.1",
+    "port": 5433,
+    "user": "acquisition_owner",
+    "password": "__PRIVATE_EXISTING_ACQUISITION_OWNER_PASSWORD__",
+    "database": "product_acquisition"
+  },
+  "collections": true,
+  "supplyCompletionDrafts": true,
+  "supplyChain": true
+}
