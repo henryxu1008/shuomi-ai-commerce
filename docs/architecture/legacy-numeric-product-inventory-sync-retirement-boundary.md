@@ -2,17 +2,16 @@
 
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
-- Status: **PROPOSED / 待用户确认；正式源码尚未实施**。
+- Status: **用户已确认 §5、§6、§7，按 Reuse Existing Architecture / Ready 在 #742 实施源码退休**；准确候选、CI 和独立最终检查以 PR 为准。
 - 调查基线：`main @ 08d55f930bf286aa857571542817dc5accff7687`；#740 已源码合并，实际 push/main CI 证据保留在原 PR。
-- 本轮 Design Basis: **N/A**，仅只读调查与文档，不改变产品、源码、领域合同、权限、持久化或外部副作用。
-- 拟后续实施分类：**Reuse Existing Architecture**，须用户确认 §5、§6、§7 并先在执行 Issue 记录 Ready；当前实施 **Backlog / NOT_READY**。文档阶段 N/A、设计 CI 或 review 均不替代该准入。
+- 实施 Design Basis: **Reuse Existing Architecture**。用户确认的冻结设计2cd716969先于正式源码修改，#29/#301已记录Ready；复用原owner与合同，无新身份、权限、持久化、状态或副作用边界。原设计阶段N/A、设计CI/review保留为历史，不替代实施验证。
 - 用户边界：保留当前采集、Store 观察同步、有效平台 API/规则、共享合同、独立 SHEIN 登录 worker 及其 Store 同步；不操作运行实例或数据，不增加内部试用前置。
 
 ## 1. 用户结果与范围
 
 维护当前内部试用源码、构建和独立登录 worker 的操作者，需要能分清已失去执行入口的旧数字商品/库存同步与仍使用的合同，避免在后续删除时破坏 Store 观察、平台能力或登录后店铺信息写回。本设计交付准确源码闭包和持久化边界；它不阻塞当前试用操作，也不把清理旧代码变成新产品需求。
 
-拟退休 `internal/shein/productsync` 的无注入商品同步实现、`internal/shein/inventory`、`internal/temu/sync` 的旧同步/监控闭包，以及仅服务两平台监控的 InventoryRecord 持久化源码/DTO。保留 productsync 中仍被活动代码使用的两个属性类型和既有营销 client 禁入测试；不按包名、数字字段或“编译过”判断可删。
+本候选按矩阵退出 `internal/shein/productsync` 的无注入商品同步实现、`internal/shein/inventory`、`internal/temu/sync` 的旧同步/监控闭包，以及仅服务两平台监控的 InventoryRecord 持久化源码/DTO。保留 productsync 中仍被活动代码使用的两个属性类型和既有营销 client 禁入测试；不按包名、数字字段或“编译过”判断可删。
 
 本轮不重新设计活动报名、刊登/结果写回、核价、平台 client、当前 Product/Store/Submission，也不新建同步执行器、通用接口或恢复平台。没有当前使用要求需要引入新的开源组件；直接复用既有合同、测试和工具。
 
@@ -34,7 +33,7 @@ Must：保留现有有效安全/租户/owner/平台/规则断言；共享类型�
 
 基线上执行 `go list -f '{{.ImportPath}}|{{join .Deps ","}}' ./cmd/...` 并逐根核对全部 **31 个**当前命令；未运行任何命令 main。所有命令均无 `shein/productsync`、`shein/inventory`、`temu/sync` 或 `shein/activity` 依赖。全仓 Go import/构造器/方法检索用于进一步区分仅有源码互调与真实注入；测试构造和同包编译不构成产品保留义务。
 
-| 合同/实现 | 基线实际消费者/注入 | 提案 |
+| 合同/实现 | 基线实际消费者/注入 | 源码处理 |
 | --- | --- | --- |
 | SHEIN `ProductSyncService` → `productSyncServiceImpl` | `NewProductSyncService` 只有定义和专属测试；无包外生产构造/命令注入。读取平台商品/库存/价格、转换快照并写 listingadmin ProductData | RETIRE 服务、快照、转换/富化/写入实现及专属测试，精确见 §5 |
 | SHEIN `InventorySyncService` → 两个构造器 | 无包外 Go import/构造或当前命令注入；内部用 ProductData、mapping、Amazon fetcher、策略与平台写 API | RETIRE inventory 完整基线闭包，不删它引用的共享 API/规则/基础设施 |
@@ -54,7 +53,7 @@ Must：保留现有有效安全/租户/owner/平台/规则断言；共享类型�
 | --- | --- | --- |
 | `listing_product_data` | listingadmin ProductDataRepository；旧同步批次调用 UpsertProductDataBatch，原 repository 自有事务/Store owner 检查；监控更新 Attributes、shelf/平台快照 | 只退出本闭包 caller；模型/仓库/API、tenant/Store/owner/事务与字段全部保留，当前 Product canonical facts 不接管旧行 |
 | `listing_product_import_mapping` | listingadmin mapping 仓库；旧商品富化读取平台商品/SKU 与原数字任务关联；活动/刊登等源码仍消费映射 | 仓库/API/owner helper、ImportTaskID 及 root runtime mapping 类型保持，不创建新旧映射、不改唯一索引/行 |
-| `listing_inventory_record` | InventoryRecordRepository/GORM API，按 platform/product/region 读最近记录，再按“同一天”条件追加 Amazon 价格/库存历史；该读→写不是同一跨系统事务，不能称 exactly-once | 源码 writer/reader/专属 DTO 拟退休；真实表/索引/行/历史与最后写入/恢复责任仍归原运行/数据 owner。本轮不探测是否存在，不 DROP/ALTER/清理/补写，不将历史搬到 observations |
+| `listing_inventory_record` | InventoryRecordRepository/GORM API，按 platform/product/region 读最近记录，再按“同一天”条件追加 Amazon 价格/库存历史；该读→写不是同一跨系统事务，不能称 exactly-once | 源码 writer/reader/专属 DTO 已随本闭包在候选退出；真实表/索引/行/历史与最后写入/恢复责任仍归原运行/数据 owner。本轮不探测是否存在，不 DROP/ALTER/清理/补写，不将历史搬到 observations |
 | `listing_raw_json_data` | 共享 RawJSONData 仓库/API与 sourceproduct 窄合同；旧监控读取 Amazon 原始证据，相关基础层仍有其它引用 | 原仓库/字段/DTO/采集/缓存/HTTP/browser/fetcher 保留，不以少一个 caller 推导整包删除 |
 | 原 synced-product feed | 本闭包只有抽象端口和 fake，没有当前生产 writer/adapter；常量名字不是当前表已被接管的证据 | 连同专属查询/转换退出；旧表/日志/任务的真实存在、备份/恢复均未知且未读取，不接到新 Observation owner |
 | 平台及 Amazon 副作用 | 旧服务读取商品/库存/价格、Amazon fetcher；监控可下架/重新上架/改库存并随后写本地快照/历史/Attributes。平台调用与本地 DB 不构成共享事务，局部错误会记录后继续/返回 | 删除旧编排，不转交发送、重试、补偿或 UNKNOWN 责任；有效 SHEIN/TEMU API、transport/client DTO、平台规则和共享定价逻辑保留但不调用 |
@@ -64,11 +63,11 @@ Must：保留现有有效安全/租户/owner/平台/规则断言；共享类型�
 
 共享 `core/config.ScheduledTaskConfig`、平台 ProductSync/InventorySync/Monitor、loader/default/validator/registry 仍有相邻配置消费者，本轮原样保留。运行 manifest、环境变量、部署/YAML、Redis 键/锁/TTL 和配置文件均不改，不借退休服务收缩共享安全门禁。
 
-## 5. 待确认的精确源码删除矩阵
+## 5. 用户已确认的精确源码删除矩阵
 
-矩阵只指调查基线的源码/测试；实施前必须刷新消费者。**RETIRE 共 63 个完整文件（51 生产、12 测试）并精确收缩 1 个混合生产文件**；不是运行资源/表的删除清单。§6 的既有 guard/文档随同一主要 PR 校准，不机械拆 PR。
+矩阵只指调查基线的源码/测试；实施前已刷新消费者，与本矩阵一致。**RETIRE 共 63 个完整文件（51 生产、12 测试）并精确收缩 1 个混合生产文件**，已在本候选按下表退出；不是运行资源/表的删除清单。§6 的既有 guard/文档随同一主要 PR 校准，不机械拆 PR。
 
-| 对象 | 提案 | 删除条件 / 明确保留 |
+| 对象 | 确认处置 | 删除条件 / 明确保留 |
 | --- | --- | --- |
 | `shein/productsync` 5 生产文件 | RETIRE product_sync.go、product_sync_fetcher.go、product_sync_enricher.go、product_snapshot.go、product_snapshot_repository.go | 无包外服务/快照生产注入；不保留 stub、别名或转发构造器 |
 | 同包 4 专属测试 | RETIRE product_sync_repository_test.go、product_sync_save_test.go、product_snapshot_test.go、product_snapshot_repository_test.go | 只验证已退休服务、快照/转换及其 repository seam；原 listingadmin owner/批次安全测试不改 |
@@ -88,7 +87,7 @@ Must：保留现有有效安全/租户/owner/平台/规则断言；共享类型�
 
 ## 6. 测试、guard、文档与 CI 的处置
 
-| 既有对象 | 同批实施提案 | 保留约束 |
+| 既有对象 | 同批实施处置 | 保留约束 |
 | --- | --- | --- |
 | `tests/listingkit_backend_retirement_test.go` | 原 absence 清单扩展 §5 63 文件/两个完整目录；原混合文件 guard 禁三库存 DTO；补明确两类型/营销边界文件必须存在。原命令依赖检查加入旧 sync 目录，productSync 仅禁退出服务文件/符号，不能禁仍保留的整个包 | 在旧源码仍存在时先得到目标 RED，再最小删除后 GREEN；不因读不到应保留文件跳过，不恢复空壳，不将类型保留误写成整个产品同步仍可用 |
 | `TestSheinRetiredManagementImportsStayBlocked` | 删除本批退出 inventory 及两个 productsync service 文件的精确 allowlist 项 | product_sync_types.go、activity 等保留项和原禁止 management client 的断言不变；不扩新增豁免，不顺手清理其它历史目录 |
@@ -98,15 +97,15 @@ Must：保留现有有效安全/租户/owner/平台/规则断言；共享类型�
 | 当前地图与批准前批留债说明 | 实施时校准本设计/架构索引、legacy-register、repository-structure/runbook 和前批数字执行设计中关于 InventorySyncService 的现时保留语句，保留其历史证据 | 只更正本闭包当前状态，历史依赖/基线/测试结果不重写成新 PASS，不提供实际 DROP/迁移/停机步骤 |
 | `.github/workflows/ci.yml`、commercial-readiness 及全部其它 workflow | **不改**；现有全保留 listingadmin race 仍有大量有效 Store/owner/mapping/规则测试 | 不新增空包命令或零匹配 regex，不改 step/id/pipefail/log/artifact、分类、触发、Required CI Gate、权限/并发/保护规则。原 PostgreSQL/public-facts/schema-context、资金并发、发布策略和当前 runtime build 等全部保持 |
 
-开发验证限于原 retirement/import/文档 guard、保留 productsync/activity 与有效平台规则/owner/worker/当前观察回归、31 命令实际依赖与必要编译；不执行命令 main、schema/真实 recovery/provider/实例操作。稳定候选再跑适用完整 PR CI，未变代码有效证据明确复用；不新造 runner、验收平台或全仓故障矩阵。本设计阶段只执行只读依赖调查、文档链接/结构检查，不为纯文档制造源码 RED，也不把代码回归计划当已运行结果。
+开发验证限于原 retirement/import/文档 guard、保留 productsync/activity 与有效平台规则/owner/worker/当前观察回归、31 命令实际依赖与必要编译；不执行命令 main、schema/真实 recovery/provider/实例操作。稳定候选再跑适用完整 PR CI，未变代码有效证据明确复用；不新造 runner、验收平台或全仓故障矩阵。原设计阶段只读调查与文档检查的历史证据保留；本轮实施及源码 RED→GREEN 另绑准确候选记录于 PR，不把计划或旧设计 CI 当实现结果。
 
 ## 7. 实施准入与停止点
 
-1. 当前只有设计授权。本设计 PR 交付完整矩阵和适用检查后，等待用户明确确认 §5、§6、本节；Issue 才能在正式源码修改前记录 Reuse Existing Architecture / Ready、唯一 Writer/主要 PR、main 基线、保留 owner/不变量和准确消费者刷新。设计 CI、自动 review 或旧 #740 授权不扩大为本轮实施/合并许可。
+1. 用户已确认冻结设计2cd716969的 §5、§6、本节，授权在原#742实施；#29/#301在任何生产修改前记录 Reuse Existing Architecture / Ready、唯一Writer/主要PR、main基线、保留owner/不变量和准确消费者刷新。开工main仍为08d55f930，31命令图及外部构造/引用与矩阵相符，无其它同范围Writer。设计CI和旧#740授权不替代本轮实现验证或合并许可。
 2. 使用同一主要设计/实施 PR 连续完成范围内工作；先在旧源码存在时使原 retirement guard RED，再按矩阵删除、精确收缩混合 DTO/原 guard，GREEN。实施中遇到保留消费者/helper 或 Must 缺陷，先分类并核对 sibling；未满足当前 Must 不能合并。
 3. 本闭包只退出源码，没有新持久化/安全/状态/副作用边界，不重复全局架构评审；若真实发现必须改变这些边界，停止对应实施并完成适用 Independent Architecture 准入。不能恢复旧 scheduler/bridge/HTTP、加 adapter/fallback、移交到 worker/当前 Observation 来绕过设计。
 4. 最终候选前同步一次实际 main，只处理真实组合问题；稳定完整候选集中做最终独立交付检查，修复只复核相关增量，不重复同 SHA/未变代码的完整评审。设计及实施证据分列，SKIPPED 不写 PASS，真实运行/用户/平台验收保持 NOT_RUN。
-5. 本轮只读设计、必要检查、commit/push 与主要 Draft PR 维护已获授权；正式实施须本设计确认，准确 HEAD 合并须另授权，部署/关闭 Issue/运行实例/真实数据操作均不在本轮。#29/#301 保持 OPEN，生产 NOT_READY，不增加内部试用前置；#741/#692、当前产品与运行 owner 不接管。
+5. 本轮矩阵内源码实施、必要隔离自检、commit/push与原PR维护已获授权；实现完成进入In Review，交用户决定，准确HEAD合并仍须另授权。部署/关闭Issue/运行实例/真实数据操作均不在本轮。#29/#301保持OPEN，生产NOT_READY，不增加内部试用前置；#741/#692、当前产品与运行owner不接管。
 
 ```text
 Legacy decision: RETIRE

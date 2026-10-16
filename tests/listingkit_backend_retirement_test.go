@@ -34,6 +34,14 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/amazon/processor.go", "internal/amazon/task_status.go", "internal/amazon/task_status_test.go",
 		"internal/crawler/fetcher/distributed_fetcher.go", "internal/crawler/fetcher/builder_test.go",
 		"internal/temu/sync/inventory_sync_factory.go",
+		"internal/shein/inventory", "internal/temu/sync",
+		"internal/shein/productsync/product_sync.go", "internal/shein/productsync/product_sync_fetcher.go",
+		"internal/shein/productsync/product_sync_enricher.go", "internal/shein/productsync/product_snapshot.go",
+		"internal/shein/productsync/product_snapshot_repository.go",
+		"internal/shein/productsync/product_sync_repository_test.go", "internal/shein/productsync/product_sync_save_test.go",
+		"internal/shein/productsync/product_snapshot_test.go", "internal/shein/productsync/product_snapshot_repository_test.go",
+		"internal/listingadmin/inventory_record.go", "internal/listingadmin/inventory_record_repository.go",
+		"internal/listingadmin/gorm_inventory_record_api.go", "internal/listingadmin/inventory_record_query_test.go",
 		"internal/listingadmin/platform_recovery.go", "internal/listingadmin/platform_recovery_test.go",
 		"internal/listingadmin/import_task.go", "internal/listingadmin/import_task_model.go",
 		"internal/listingadmin/import_task_query.go", "internal/listingadmin/import_task_repository.go",
@@ -78,6 +86,9 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			"type ImportTask struct", "type ScheduledTaskConfig struct", "type TaskStatusUpdate struct",
 		},
 		"internal/listingadmin/schema_migrate.go": {"ImportTask", "importTask"},
+		"internal/listingadmin/management_api_types.go": {
+			"type InventoryRecordCreateReqDTO struct", "type InventoryRecordRespDTO struct", "type InventoryRecordAPI interface",
+		},
 		"internal/app/runtime/listingkitschemamigrate/runtime_test.go": {
 			"func openRuntimeSchemaTestDB(", "\"listing_product_import_task\"",
 		},
@@ -92,6 +103,34 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			}
 		}
 	}
+	attributePath := filepath.Join("..", "internal", "shein", "productsync", "product_sync_types.go")
+	attributes, err := os.ReadFile(attributePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, retained := range []string{"type EnrichedSkuInfo struct", "type EnrichedSkcInfo struct"} {
+		if !strings.Contains(string(attributes), retained) {
+			t.Errorf("shared SHEIN attribute contract must remain: %s", retained)
+		}
+	}
+	entries, err := os.ReadDir(filepath.Dir(attributePath))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") || strings.HasSuffix(entry.Name(), "_test.go") {
+			continue
+		}
+		content, err := os.ReadFile(filepath.Join(filepath.Dir(attributePath), entry.Name()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, retired := range []string{"type ProductSyncService interface", "func NewProductSyncService(", "type ProductSnapshot struct", "func sheinProductDataFromSnapshot("} {
+			if strings.Contains(string(content), retired) {
+				t.Errorf("%s must not recreate retired product synchronization %q", entry.Name(), retired)
+			}
+		}
+	}
 }
 
 func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
@@ -103,6 +142,7 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 		"internal/listingadmin/import_task_owner_test.go", "internal/listingadmin/schema_migrate.go",
 		"internal/listingadmin/product_data_repository.go", "internal/listingadmin/product_import_mapping_repository.go",
 		"internal/core/config/type_platform.go",
+		"internal/shein/productsync/product_sync_types.go", "internal/shein/productsync/marketing_client_boundary_test.go",
 	} {
 		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); err != nil {
 			t.Errorf("retained platform/shared contract %s must remain: %v", relative, err)
@@ -135,7 +175,7 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 				t.Fatalf("go list current command: %v\n%s", err, output)
 			}
 			for _, dependency := range strings.Fields(string(output)) {
-				for _, retired := range []string{"task-processor/internal/app/bootstrap", "task-processor/internal/app/consumer", "task-processor/internal/app/runner", "task-processor/internal/app/scheduler", "task-processor/internal/app/runtime/listingcontrol", "task-processor/internal/app/runtime/sheinplatformrecovery", "task-processor/internal/listingcontrol", "task-processor/internal/app/task", "task-processor/internal/app/taskstatus", "task-processor/internal/processor", "task-processor/internal/app/crawler/distributed", "task-processor/internal/listingruntime/local", "task-processor/internal/platforms", "task-processor/internal/listingkit", "task-processor/internal/tenantbridge", "task-processor/internal/compatibility", "task-processor/internal/sourceaccount", "task-processor/internal/integration/persistence/sourceaccount/ownershipmigration"} {
+				for _, retired := range []string{"task-processor/internal/shein/inventory", "task-processor/internal/temu/sync", "task-processor/internal/app/bootstrap", "task-processor/internal/app/consumer", "task-processor/internal/app/runner", "task-processor/internal/app/scheduler", "task-processor/internal/app/runtime/listingcontrol", "task-processor/internal/app/runtime/sheinplatformrecovery", "task-processor/internal/listingcontrol", "task-processor/internal/app/task", "task-processor/internal/app/taskstatus", "task-processor/internal/processor", "task-processor/internal/app/crawler/distributed", "task-processor/internal/listingruntime/local", "task-processor/internal/platforms", "task-processor/internal/listingkit", "task-processor/internal/tenantbridge", "task-processor/internal/compatibility", "task-processor/internal/sourceaccount", "task-processor/internal/integration/persistence/sourceaccount/ownershipmigration"} {
 					if dependency == retired || strings.HasPrefix(dependency, retired+"/") {
 						t.Errorf("%s still compiles retired business dependency %s", command, dependency)
 					}

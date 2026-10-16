@@ -41,6 +41,12 @@ ownership-controller、两个无保留消费者的专属 ConfigMap 源文件及�
 两套 workflow 原 race 步骤改为完整保留包的 `-race`，日志和失败阻断不变。
 仅删除源码，不删除真实表/索引/行或接管历史恢复，不增加内部试用前置。
 
+#742 按[已确认同步矩阵](../architecture/legacy-numeric-product-inventory-sync-retirement-boundary.md)
+退出无生产注入的 SHEIN/TEMU 数字商品/库存同步链和专属 InventoryRecord 源码/DTO。
+`shein/productsync` 保留两种属性类型及营销 client guard，活动/平台 API/规则和
+ProductData/mapping/raw JSON/Store 等有效共享合同保持；当前 Store observations 与独立
+SHEIN 登录后的 Store ID/查重同步沿原 owner。两套 workflow、配置/真实数据均不改。
+
 ## 目标
 
 这份文档说明仓库当前推荐的目录职责，以及后续结构收口的方向。当前重点是让正式入口、调试入口、长期工具和本地产物位置保持清晰，避免旧入口和临时产物继续污染仓库结构。
