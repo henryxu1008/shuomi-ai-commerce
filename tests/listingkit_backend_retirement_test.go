@@ -217,12 +217,17 @@ func TestRetiredListingCLIsHaveNoBuildOrDeploymentEntrypoints(t *testing.T) {
 		"deployments/docker/Dockerfile.listing-control-plane",
 		"scripts/build-push-deploy-listing-control-plane.ps1", "scripts/shein-import-platform-recovery.ps1",
 		"deployments/kubernetes/shein-listing/overlays/prod-auto-shard-statefulset/listing-control-plane.yaml",
+		"deployments/kubernetes/shein-listing/overlays/prod-auto-shard-statefulset/ownership-controller.yaml",
+		"deployments/kubernetes/shein-listing/overlays/prod-auto-shard-statefulset/kustomization.yaml",
+		"deployments/kubernetes/shein-listing/overlays/prod-store-auto-shard/configmap-heavy.yaml",
+		"deployments/kubernetes/shein-listing/overlays/prod-store-auto-shard/configmap-lite.yaml",
+		"deployments/kubernetes/shein-listing/overlays/prod-store-auto-shard/kustomization.yaml",
 	} {
 		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
 			t.Errorf("retired CLI operation entrypoint remains: %s (stat: %v)", relative, err)
 		}
 	}
-	for _, relative := range []string{"Makefile", "scripts/test-fast.ps1", ".github/workflows/ci.yml", ".github/workflows/commercial-readiness.yml", "deployments/kubernetes/shein-listing/overlays/prod-auto-shard-statefulset/kustomization.yaml"} {
+	for _, relative := range []string{"Makefile", "scripts/test-fast.ps1", ".github/workflows/ci.yml", ".github/workflows/commercial-readiness.yml"} {
 		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
 		if err != nil {
 			t.Fatal(err)
@@ -245,6 +250,20 @@ func TestRetiredListingCLIsHaveNoBuildOrDeploymentEntrypoints(t *testing.T) {
 	for _, command := range []string{"current-application", "shein-login-worker"} {
 		if !strings.Contains(string(content), "go build ./cmd/"+command) {
 			t.Errorf("CI must compile retained command %s", command)
+		}
+	}
+	for _, relative := range []string{
+		"internal/core/config/type_rabbitmq.go", "internal/core/config/loader_rabbitmq.go",
+		"internal/core/config/config.go", "internal/core/config/validator_rabbitmq.go",
+	} {
+		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, retired := range []string{"AutoShard", "rabbitmq.autoShard", "RABBITMQ_AUTO_SHARD_"} {
+			if strings.Contains(string(content), retired) {
+				t.Errorf("%s still declares or loads retired auto-shard configuration %s", relative, retired)
+			}
 		}
 	}
 }

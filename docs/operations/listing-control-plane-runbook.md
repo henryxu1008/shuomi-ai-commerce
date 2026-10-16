@@ -14,11 +14,13 @@ Status: **RETIRED source entrypoints**（#726，#29 / #301）。
 ## 保留的 owner 与当前入口
 
 任务/事件仓库、claim-token rollback、eligible-row recovery 及其并发/owner/tenant 安全检查、
-有效 ListingAdmin/根 ListingRuntime 合同、共享配置和仍有源码消费者的 task/status 留原 owner。
-这些是未退出的旧债务，不是新当前业务依赖或第二事实源。
+有效 ListingAdmin/根 ListingRuntime 合同与共享配置留原 owner；旧 task/status 随后已按
+[#729 范围](../architecture/legacy-numeric-task-execution-retirement-boundary.md)退出源码，不转移原持久化责任。
+仍保留的旧仓库债务不是新当前业务依赖或第二事实源。
 
-混合 SHEIN overlay 仅保留历史 ownership-controller 声明；它引用既有历史镜像，
-不是当前源码可重建入口。本批未更换或运行该镜像，未整删共享配置、Secret/RBAC/监控对象。
+前批保留的历史 ownership-controller 声明，随后已按 #738 的[确认边界](../architecture/legacy-ownership-controller-retirement-boundary.md)
+连同专属配置 overlay 和 auto-shard 配置闭包源码退休；没有更换或运行该历史镜像。
+其它有效共享配置、Secret/RBAC/监控对象与原任务仓库安全合同保持。
 源码清单不证明实例不存在、健康、停用或在途副作用已解决。
 
 当前应用继续沿原私密 manifest 入口；采集、Store 观察同步及图片/Temporal 原合同保持。
