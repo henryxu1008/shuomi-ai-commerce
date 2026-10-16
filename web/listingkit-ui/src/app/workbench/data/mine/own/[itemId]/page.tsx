@@ -7,5 +7,5 @@ export default async function Page({params}:{params:Promise<{itemId:string}>}){
  await connection();
  const {itemId}=await params;
  if(process.env.LISTINGKIT_PRODUCT_COLLECTIONS_ENABLED!=="true"||!collectionID.safeParse(itemId).success)notFound();
- return <OwnProductDetailPage itemId={itemId} completionAvailable={process.env.LISTINGKIT_SUPPLY_COMPLETION_DRAFTS_ENABLED==="true"}/>;
+ return <OwnProductDetailPage itemId={itemId} optimizationAvailable={process.env.LISTINGKIT_PRODUCT_AGENT_ENABLED==="true"} completionAvailable={process.env.LISTINGKIT_SUPPLY_COMPLETION_DRAFTS_ENABLED==="true"}/>;
 }
