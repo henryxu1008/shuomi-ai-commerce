@@ -41,18 +41,6 @@ func BuildRabbitMQConfig(v *viper.Viper) *RabbitMQConfig {
 			UseStoreQueues:  v.GetBool("rabbitmq.node.useStoreQueues"),
 			Regions:         v.GetStringSlice("rabbitmq.node.regions"),
 		},
-		AutoShard: AutoShardConfig{
-			Enabled:             v.GetBool("rabbitmq.autoShard.enabled"),
-			Role:                v.GetString("rabbitmq.autoShard.role"),
-			Platform:            v.GetString("rabbitmq.autoShard.platform"),
-			Interval:            getDuration(v, "rabbitmq.autoShard.interval", 30),
-			PageSize:            v.GetInt("rabbitmq.autoShard.pageSize"),
-			LockKey:             v.GetString("rabbitmq.autoShard.lockKey"),
-			LockTTL:             getDuration(v, "rabbitmq.autoShard.lockTTL", 25),
-			CandidateNodes:      getStringSlice(v, "rabbitmq.autoShard.candidateNodes"),
-			TargetStoresPerNode: v.GetInt("rabbitmq.autoShard.targetStoresPerNode"),
-			NodeWeights:         getStringIntMap(v, "rabbitmq.autoShard.nodeWeights"),
-		},
 		DeadLetter: DeadLetterConfig{
 			Enabled:   v.GetBool("rabbitmq.deadLetter.enabled"),
 			QueueName: v.GetString("rabbitmq.deadLetter.queueName"),

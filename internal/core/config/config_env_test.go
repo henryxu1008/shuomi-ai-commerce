@@ -40,10 +40,6 @@ func TestNewViper_BindsPrimaryEnvironmentVariables(t *testing.T) {
 	t.Setenv("TASK_PROCESSOR_RABBITMQ_NODE_OWNED_STORES", "101, 202")
 	t.Setenv("TASK_PROCESSOR_RABBITMQ_NODE_OWNED_BUCKETS", "0, 3")
 	t.Setenv("TASK_PROCESSOR_RABBITMQ_NODE_USE_STORE_QUEUES", "true")
-	t.Setenv("TASK_PROCESSOR_RABBITMQ_AUTO_SHARD_ENABLED", "true")
-	t.Setenv("TASK_PROCESSOR_RABBITMQ_AUTO_SHARD_PLATFORM", "shein")
-	t.Setenv("TASK_PROCESSOR_RABBITMQ_AUTO_SHARD_CANDIDATE_NODES", "shein-store-a, shein-store-b")
-	t.Setenv("TASK_PROCESSOR_RABBITMQ_AUTO_SHARD_TARGET_STORES_PER_NODE", "3")
 	t.Setenv("TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_API_KEY", "image-key")
 	t.Setenv("TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_BASE_URL", "https://image.example.test/v1")
 	t.Setenv("TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_API_STYLE", "nanobanana")
@@ -60,10 +56,6 @@ func TestNewViper_BindsPrimaryEnvironmentVariables(t *testing.T) {
 	assert.Equal(t, []int64{101, 202}, getInt64Slice(v, "rabbitmq.node.ownedStores"))
 	assert.Equal(t, []int{0, 3}, getIntSlice(v, "rabbitmq.node.ownedBuckets"))
 	assert.True(t, v.GetBool("rabbitmq.node.useStoreQueues"))
-	assert.True(t, v.GetBool("rabbitmq.autoShard.enabled"))
-	assert.Equal(t, "shein", v.GetString("rabbitmq.autoShard.platform"))
-	assert.Equal(t, []string{"shein-store-a", "shein-store-b"}, getStringSlice(v, "rabbitmq.autoShard.candidateNodes"))
-	assert.Equal(t, 3, v.GetInt("rabbitmq.autoShard.targetStoresPerNode"))
 	assert.Equal(t, 18081, v.GetInt("rabbitmq.node.healthCheckPort"))
 	assert.Equal(t, 19090, v.GetInt("rabbitmq.node.metricsPort"))
 	assert.Equal(t, "image-key", v.GetString("openai.clients.image.apiKey"))
@@ -151,13 +143,13 @@ func TestCommittedConfigArtifactsDeclareEveryTracingField(t *testing.T) {
 }
 
 func TestGetStringSlice_SplitsCommaSeparatedSingleEntry(t *testing.T) {
-	t.Setenv("TASK_PROCESSOR_RABBITMQ_AUTO_SHARD_CANDIDATE_NODES", "shein-store-a,shein-store-b,shein-store-c,shein-store-d")
+	t.Setenv("LISTINGKIT_PLATFORM_ADMIN_USERS", "user-a,user-b,user-c,user-d")
 
 	v := newViper()
 
 	assert.Equal(t,
-		[]string{"shein-store-a", "shein-store-b", "shein-store-c", "shein-store-d"},
-		getStringSlice(v, "rabbitmq.autoShard.candidateNodes"),
+		[]string{"user-a", "user-b", "user-c", "user-d"},
+		getStringSlice(v, "listingkit.platformAdminUsers"),
 	)
 }
 

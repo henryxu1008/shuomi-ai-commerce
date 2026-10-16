@@ -1,19 +1,16 @@
-# 原 SHEIN shard overlay：保留的 ownership-controller 声明
+# 原 SHEIN shard overlay：源码入口已退休
 
-Status: **listing workers / scheduler / control-plane RETIRED；ownership-controller retained**（#723 / #726）。
-原 SHEIN shard StatefulSet、headless/worker Service 和 listing-scheduler Deployment
-已退休；这里不再提供 shard 扩容、消费者启动或调度器发布操作。
+Status: **RETIRED source entrypoints**（#723 / #726 / #738，#29 / #301）。
 
-当前 kustomization 仅保留：
+原 shard workers、scheduler、control-plane 和 ownership-controller 的 workload
+均已从源码退出；本目录已无 Kustomize 装配入口。旧 `/app/listing-service` 历史
+镜像不由当前源码重建，不提供替代协调器、空部署或恢复旧消费链的入口。
 
-- `ownership-controller.yaml`：原 ownership-controller 历史镜像及共享配置/身份声明。
-  它仍引用既有 `/app/listing-service` 制品，**不是当前源码可重新构建的入口**；
-  本批没有替换该镜像、重建协调器或修改其运行协议。
+ownership-controller 和其唯一 kustomization 按[已确认边界](../../../../../docs/architecture/legacy-ownership-controller-retirement-boundary.md)
+退休。特定 ConfigMap 源文件在确认无其它仓库消费者后随专属配置 overlay 退出；
+其它有效配置、Secret/ExternalSecret、Namespace、RBAC、监控及独立 SHEIN 登录
+worker 保持原 owner。当前采集和 Store 观察同步沿原入口使用。
 
-目录名沿用历史路径，不表示 worker 池仍由当前源码提供。保留声明也不证明任何实例
-存在、健康或可发布；真实旧生产者/消费者与在途副作用的停用由原运行 owner 另行取得
-明确授权，不是当前内部试用的新前置。不得整体清理这个混合目录或真实 Secret/资源/数据。
-
-control-plane workload及其构建/部署入口已源码退休，不能沿历史操作启动；
-参见[运行态边界](../../../../../docs/operations/listing-control-plane-runbook.md)和
-[已确认退休边界](../../../../../docs/architecture/legacy-listing-control-plane-retirement-boundary.md)。
+这是源码退休，不证明任何实例已停止、锁已释放或在途任务已处理；没有查询或改动
+实际集群、镜像、ConfigMap/Secret、DB/Redis/队列/Profile/数据。真实运行态仍由
+原 owner 在另行明确授权后处置，不增加内部试用前置。生产 NOT_READY。
