@@ -2,6 +2,7 @@
 import {ShopDiagnosisFlow} from "./shop-diagnosis-flow";
 import Link from "next/link";
 import { AgentMarket } from "./agent-market";
+import { AgentMine } from "./agent-mine";
 import {ProductSelectionFlow} from "./product-selection-flow";
 import {PODArtworkFlow} from "./pod-artwork-flow";
 import { useEffect, useRef, useState } from "react";
@@ -124,8 +125,7 @@ function ScopedPage({
   podAvailable?: boolean;
 }) {
   const agentId = id ?? "product.title.agent";
-  const [filter, setFilter] = useState(""),
-    [after, setAfter] = useState(""),
+  const [after, setAfter] = useState(""),
     [nonce, setNonce] = useState(0),
     [intent, setIntent] = useState<Intent | null>(null),
     [busy, setBusy] = useState(false),
@@ -149,7 +149,7 @@ function ScopedPage({
   }, []);
   const path = id
     ? agentId
-    : `${mode}?pageSize=20${filter ? "&activation=" + filter : ""}${after ? "&cursor=" + after : ""}`;
+    : `${mode}?pageSize=20${after ? "&cursor=" + after : ""}`;
   const list = useRead<CatalogEntry | z.infer<typeof catalogPageSchema>>(
     scope,
     path,
@@ -254,94 +254,6 @@ function ScopedPage({
     });
   }
   const mutationDisabled = busy || !!intent;
-  const contentOperations = entries.filter(entry => ["product.title.agent", "product.content.agent"].includes(entry.agent.agentId));
-  function contentCard() {
-    return <Card key="product-content" className={styles.agentCard}>
-      <h2>商品内容与本地化</h2>
-      <p>完善标准商品的标题、描述、卖点与关键词，按明确目标语言处理内容。</p>
-      {contentOperations.map(entry => {
-        const title = entry.agent.agentId === "product.title.agent";
-        const operation = title ? "标题优化" : "内容完善与本地化";
-        const configuration = title ? "标题优化配置与历史" : "内容本地化配置与历史";
-        return <section key={entry.agent.agentId} aria-label={operation} className="space-y-2 pt-3">
-          <h3>{operation}</h3>
-          <div className={styles.cardActions}>
-            <span className={styles.status} data-active={entry.agent.activation === "ENABLED"}>{labels[entry.agent.activation]}</span>
-            <Link href={`/workbench/agents/mine/${entry.agent.agentId}`}>{configuration}</Link>
-            {entry.canConfigure && entry.agent.activation !== "ENABLED" ? <Button disabled={mutationDisabled} onClick={() => mutate(`${entry.agent.agentId}/enable`, {}, entry.agent.revision || undefined, entry.agent.activation === "NOT_ENABLED")}>启用到当前企业</Button> : null}
-            {mode === "mine" && entry.canUse ? <Link href={`/workbench/supply/acquisition?agent_kind=${title ? "title" : "content"}`}>进入{operation} →</Link> : null}
-            {mode === "mine" && entry.canConfigure && entry.agent.activation === "ENABLED" ? <Button variant="outline" disabled={mutationDisabled} onClick={() => setDisable(entry)}>停用{operation}</Button> : null}
-          </div>
-          {!entry.canUse ? <p className="text-muted-foreground">当前不能执行{operation}</p> : null}
-          {!entry.canUse && entry.capabilities.filter(cap => cap.support === "REQUIRED" && cap.readiness !== "AVAILABLE").map(cap => <p key={cap.id} className="text-muted-foreground"><strong>{capabilityNames[cap.id]}</strong>：<span>{cap.reason}</span></p>)}
-        </section>;
-      })}
-    </Card>;
-  }
-  function card(entry: CatalogEntry) {
-    const canInspectSelection = entry.agent.agentId === "product.selection.agent" && entry.capabilities.some(cap => cap.id === "product.selection.inspect" && cap.readiness === "AVAILABLE");
-    const canInspectDiagnosis = entry.agent.agentId === "shop.operations-diagnosis.agent" && entry.capabilities.some(cap => cap.id === "shop.operations-diagnosis.inspect" && cap.readiness === "AVAILABLE");
-    return (
-      <Card key={entry.agent.agentId} className={styles.agentCard}>
-        <h2>{entry.name}</h2>
-        <p>{entry.description}</p>
-        <p className={styles.support}>{entry.agent.agentId === "shop.operations-diagnosis.agent" ? "经营事实诊断 · 有引用建议" : entry.agent.agentId === "product.selection.agent" ? "商品事实对比 · 有引用建议" : entry.agent.agentId === "listing.materials.agent" ? "平台上架资料 · 可检查草稿" : entry.agent.agentId === "pod.design.agent" ? "原创图案 · 保存后布局与效果图" : entry.agent.agentId === "product.image.agent" ? "主图与详情图 · 人工选择批准" : entry.agent.agentId === "product.content.agent" ? "标题、描述、卖点、SEO关键词 · 内容本地化" : "标题优化 · 人工审核"}</p>
-        <div className={styles.cardActions}>
-          <span
-            className={styles.status}
-            data-active={entry.agent.activation === "ENABLED"}
-          >
-            {labels[entry.agent.activation]}
-          </span>
-          {entry.canConfigure && entry.agent.activation !== "ENABLED" ? (
-            <Button
-              disabled={mutationDisabled}
-              onClick={() =>
-                mutate(
-                  `${entry.agent.agentId}/enable`,
-                  {},
-                  entry.agent.revision || undefined,
-                  entry.agent.activation === "NOT_ENABLED",
-                )
-              }
-            >
-              启用到当前企业
-            </Button>
-          ) : (
-            <Link href={`/workbench/agents/mine/${entry.agent.agentId}`}>
-              查看配置 →
-            </Link>
-          )}
-          {canInspectSelection ? <Link href={`/workbench/agents/mine/${entry.agent.agentId}`}>查看商品事实 →</Link> : null}
-          {canInspectDiagnosis ? <Link href={`/workbench/agents/mine/${entry.agent.agentId}`}>查看经营事实 →</Link> : null}
-        </div>
-        {mode === "mine" && (
-          <div className={styles.cardActions}>
-            <Link href={`/workbench/agents/mine/${entry.agent.agentId}`}>
-              能力与模板
-            </Link>
-            {entry.canUse ? (
-              <Link href={["pod.design.agent","product.selection.agent","shop.operations-diagnosis.agent"].includes(entry.agent.agentId)?"/workbench/agents/mine/"+entry.agent.agentId:"/workbench/supply/acquisition"}>进入使用 →</Link>
-            ) : (
-              <span className="text-muted-foreground">当前不能执行</span>
-            )}
-          </div>
-        )}
-        {!entry.canUse &&
-          entry.capabilities
-            .filter(
-              (cap) =>
-                cap.support === "REQUIRED" && cap.readiness !== "AVAILABLE",
-            )
-            .map((cap) => (
-              <p key={cap.id} className="text-muted-foreground">
-                <strong>{capabilityNames[cap.id]}</strong>：
-                <span>{cap.reason}</span>
-              </p>
-            ))}
-      </Card>
-    );
-  }
   return (
     <ConsolePage
       title={
@@ -351,7 +263,7 @@ function ScopedPage({
         <>
           当前企业 · {organization}。
           {mode === "mine"
-            ? "管理企业智能体，查看配置状态和本人最近任务。"
+            ? "管理当前企业的智能体，在这里启用、配置并进入使用。"
             : "按业务分类查找智能体，在我的智能体中启用与配置。"}
         </>
       }
@@ -367,19 +279,9 @@ function ScopedPage({
         },
         ...(id ? [{ label: "智能体配置" }] : []),
       ]}
-      actions={
-        <Link
-          href={
-            mode === "market"
-              ? "/workbench/agents/mine"
-              : "/workbench/agents/market"
-          }
-        >
-          {mode === "market" ? "我的智能体 →" : "前往智能体市场 →"}
-        </Link>
-      }
+      actions={mode === "mine" ? <Button asChild variant="outline" size="sm"><Link href={id ? "/workbench/agents/mine" : "/workbench/agents/market"} prefetch={false}>{id ? "返回我的智能体" : "前往智能体市场"}</Link></Button> : <Link href="/workbench/agents/mine">我的智能体 →</Link>}
     >
-      {mode === "mine" && !id ? <PrivateAgentCards scope={scope}/> : null}
+
       {failure != null && (
         <div role="alert" className={styles.notice}>
           {configurationError(failure)}
@@ -767,63 +669,12 @@ function ScopedPage({
       ) : mode === "market" ? (
         <AgentMarket entries={entries} />
       ) : (
-        <>
-          {mode === "mine" && (
-            <div className={styles.filters}>
-              {[
-                ["", "全部"],
-                ["ENABLED", "已启用"],
-                ["DISABLED", "已停用"],
-              ].map(([value, label]) => (
-                <Button
-                  key={value}
-                  variant="outline"
-                  aria-pressed={filter === value}
-                  onClick={() => {
-                    setFilter(value);
-                    setAfter("");
-                  }}
-                >
-                  {label}
-                </Button>
-              ))}
-            </div>
-          )}
-          <div
-            className={styles.mineGrid}
-          >
-            <div
-              className={styles.mineCards}
-            >
-              {entries.length ? (
-                entries.map(entry => ["product.title.agent", "product.content.agent"].includes(entry.agent.agentId)
-                  ? entry.agent.agentId === contentOperations[0]?.agent.agentId ? contentCard() : null : card(entry))
-              ) : (
-                <ConsoleState kind="empty" title="当前企业尚无符合条件的智能体">
-                  <Link href="/workbench/agents/market">前往市场启用</Link>
-                </ConsoleState>
-              )}
-            </div>
-            {mode === "mine" && (
-              <Card className={styles.panel}>
-                <h2>使用流程</h2>
-                <ol className={styles.steps}>
-                  <li>选择企业已启用的智能体</li>
-                  <li>从 1688 采集已保存商品中选择商品</li>
-                  <li>确认精确模板版本、平台和企业知识选择</li>
-                  <li>查看生成建议，按本次权限确认或查看策略采用回执</li>
-                </ol>
-                <p>启用智能体不会创建执行任务，也不会自动使用知识。</p>
-              </Card>
-            )}
-          </div>
-          {!id && data && "nextCursor" in data && data.nextCursor && (
-            <Button variant="outline" onClick={() => setAfter(data.nextCursor)}>
-              下一页
-            </Button>
-          )}
-        </>
+        <AgentMine scope={scope} entries={entries} pageScoped={Boolean(after || (!id && data && "nextCursor" in data && data.nextCursor))} pagination={after || (data && "nextCursor" in data && data.nextCursor) ? <nav aria-label="智能体分页" className={styles.actions}>
+          {after ? <Button variant="outline" onClick={()=>setAfter("")}>返回智能体首页</Button> : null}
+          {data && "nextCursor" in data && data.nextCursor ? <Button variant="outline" onClick={()=>setAfter(data.nextCursor)}>下一页</Button> : null}
+        </nav> : null}/>
       )}
+      {mode === "mine" && !id ? <PrivateAgentCards scope={scope}/> : null}
       {disable && (
         <ConfirmDisable
           busy={busy}
