@@ -159,6 +159,9 @@ Current direct dependency hotspots are:
     and filtering those exact subtrees so an absent store directory needs no skip;
     reintroduced store sources remain checked against the management deny rule.
     Only the two retired store exemptions leave; the three product exemptions stay
+  - `TestTemuStoreUsesManagementAPIPortAliases` also indexes the stable parent
+    while filtering only its original store subtree; its concrete management DTO
+    import prohibition remains, including if store sources are reintroduced
   - `internal/temu/api/client`, `internal/temu/context`,
     `internal/temu/bulkrelist`, `internal/temu/filter`,
     `internal/temu/handlerbase`, `internal/temu/rules`, and the root

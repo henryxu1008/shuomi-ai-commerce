@@ -1634,11 +1634,14 @@ func TestTemuHandlerBaseUsesManagementAPIPortAliases(t *testing.T) {
 
 func TestTemuStoreUsesManagementAPIPortAliases(t *testing.T) {
 	root := filepath.Join("..", "internal", "temu", "store")
-	index, err := loadGoFileIndex(root, "")
+	index, err := loadGoFileIndex(filepath.Dir(root), "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	for path, facts := range index.files {
+		if !strings.HasPrefix(path, root+string(os.PathSeparator)) {
+			continue
+		}
 		if _, ok := facts.imports[`"task-processor/internal/infra/clients/management/api"`]; ok {
 			t.Fatalf("%s imports concrete management API DTOs; use listingadmin/local runtime types", path)
 		}
