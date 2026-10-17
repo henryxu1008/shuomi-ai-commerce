@@ -4,11 +4,20 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/http/httptrace"
+	"os"
 	"strings"
+	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -186,5 +195,177 @@ func TestExecutorPanicDiagnosticsPreserveOriginalPanicAndDispatch(t *testing.T) 
 	require.Len(t, ledger.records, 1)
 	require.Equal(t, aicapability.InvocationDispatched, ledger.records[0].Outcome)
 	require.Contains(t, output.String(), `"category":"panic"`)
+	require.NotContains(t, output.String(), "synthetic-secret")
+}
+
+func diagnosticLogEntries(t *testing.T, output *bytes.Buffer) []map[string]any {
+	t.Helper()
+	decoder := json.NewDecoder(bytes.NewReader(output.Bytes()))
+	var entries []map[string]any
+	for {
+		var entry map[string]any
+		err := decoder.Decode(&entry)
+		if errors.Is(err, io.EOF) {
+			return entries
+		}
+		require.NoError(t, err)
+		entries = append(entries, entry)
+	}
+}
+
+func TestComponentTransportDiagnosticsClassifyStandardErrors(t *testing.T) {
+	for _, tc := range []struct {
+		category string
+		err      error
+	}{
+		{"eof", io.EOF},
+		{"unexpected_eof", io.ErrUnexpectedEOF},
+		{"connection_reset", syscall.ECONNRESET},
+		{"connection_refused", syscall.ECONNREFUSED},
+		{"broken_pipe", syscall.EPIPE},
+		{"connection_closed", net.ErrClosed},
+		{"connection_closed", io.ErrClosedPipe},
+	} {
+		for _, wrapped := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/wrapped=%t/%T", tc.category, wrapped, tc.err), func(t *testing.T) {
+				ctx, logger, output := diagnosticContext()
+				transportErr := tc.err
+				if wrapped {
+					transportErr = fmt.Errorf("https://synthetic-secret-url/?key=synthetic-secret-key: %w", &net.OpError{
+						Op: "synthetic-secret-operation", Net: "synthetic-secret-network", Err: transportErr,
+					})
+				}
+				sends := 0
+				result, err := runDiagnosticComponent(t, ctx, logger, diagnosticTransport(func(*http.Request) (*http.Response, error) {
+					sends++
+					return nil, transportErr
+				}), "synthetic-secret-key")
+				require.ErrorIs(t, err, ErrOutcomeUnknown)
+				require.False(t, result.Usage.Known)
+				require.Equal(t, 1, sends)
+				found := false
+				for _, entry := range diagnosticLogEntries(t, output) {
+					if entry["stage"] == "transport" {
+						found = true
+						require.Equal(t, tc.category, entry["category"])
+						require.EqualValues(t, 1, entry["handoffs"])
+					}
+				}
+				require.True(t, found)
+				require.NotContains(t, output.String(), "synthetic-secret")
+				require.NotContains(t, output.String(), "https://")
+			})
+		}
+	}
+}
+
+func TestDiagnosticErrorCategoriesPreservePriorityAndRejectFreeText(t *testing.T) {
+	for _, tc := range []struct {
+		name, category string
+		err            error
+	}{
+		{"deadline", "deadline_exceeded", errors.Join(io.EOF, context.DeadlineExceeded)},
+		{"canceled", "context_canceled", errors.Join(syscall.ECONNRESET, context.Canceled)},
+		{"DNS timeout", "dns_error", &net.DNSError{Err: "synthetic-secret-error", Name: "synthetic-secret-host", IsTimeout: true}},
+		{"certificate", "tls_certificate_error", errors.Join(io.EOF, x509.UnknownAuthorityError{})},
+		{"timeout", "network_timeout", fmt.Errorf("synthetic-secret: %w", os.ErrDeadlineExceeded)},
+		{"free text", "transport_error", errors.New("EOF: connection reset, refused, broken pipe, closed synthetic-secret")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.category, diagnosticErrorCategory(tc.err))
+		})
+	}
+}
+
+func TestComponentTraceDiagnosticsKeepCallbackResultsWithoutClaimingSuccess(t *testing.T) {
+	secretEOF := fmt.Errorf("synthetic-secret-key https://synthetic-secret-host: %w", io.EOF)
+	for _, tc := range []struct {
+		name                             string
+		tlsErrors, writeErrors           []error
+		tlsSuccess, tlsFailure           int
+		writeSuccess, writeFailure       int
+		tlsLastFailure, writeLastFailure string
+	}{
+		{name: "not observed"},
+		{name: "callbacks succeeded but outcome unknown", tlsErrors: []error{nil}, writeErrors: []error{nil}, tlsSuccess: 1, writeSuccess: 1},
+		{name: "failed callbacks", tlsErrors: []error{secretEOF}, writeErrors: []error{syscall.EPIPE}, tlsFailure: 1, writeFailure: 1, tlsLastFailure: "eof", writeLastFailure: "broken_pipe"},
+		{name: "later success preserves failures", tlsErrors: []error{secretEOF, syscall.ECONNRESET, nil}, writeErrors: []error{syscall.EPIPE, net.ErrClosed, nil}, tlsSuccess: 1, tlsFailure: 2, writeSuccess: 1, writeFailure: 2, tlsLastFailure: "connection_reset", writeLastFailure: "connection_closed"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, logger, output := diagnosticContext()
+			sends := 0
+			result, err := runDiagnosticComponent(t, ctx, logger, diagnosticTransport(func(r *http.Request) (*http.Response, error) {
+				sends++
+				trace := httptrace.ContextClientTrace(r.Context())
+				require.NotNil(t, trace)
+				for _, callbackErr := range tc.tlsErrors {
+					trace.TLSHandshakeDone(tls.ConnectionState{}, callbackErr)
+				}
+				for _, callbackErr := range tc.writeErrors {
+					trace.WroteRequest(httptrace.WroteRequestInfo{Err: callbackErr})
+				}
+				return nil, io.EOF
+			}), "synthetic-secret-key")
+			require.ErrorIs(t, err, ErrOutcomeUnknown)
+			require.False(t, result.Usage.Known)
+			require.Equal(t, 1, sends)
+			for _, entry := range diagnosticLogEntries(t, output) {
+				require.EqualValues(t, tc.tlsSuccess, entry["tls_handshake_success_count"])
+				require.EqualValues(t, tc.tlsFailure, entry["tls_handshake_failure_count"])
+				require.EqualValues(t, tc.writeSuccess, entry["wrote_request_success_count"])
+				require.EqualValues(t, tc.writeFailure, entry["wrote_request_failure_count"])
+				for key, expected := range map[string]string{
+					"tls_handshake_last_failure_category": tc.tlsLastFailure,
+					"wrote_request_last_failure_category": tc.writeLastFailure,
+				} {
+					if expected == "" {
+						require.NotContains(t, entry, key)
+					} else {
+						require.Equal(t, expected, entry[key])
+					}
+				}
+			}
+			require.NotContains(t, output.String(), "synthetic-secret")
+			require.NotContains(t, output.String(), "https://")
+		})
+	}
+}
+
+func TestTraceDiagnosticCallbackSnapshotsRemainConsistentUnderConcurrency(t *testing.T) {
+	ctx, logger, output := diagnosticContext()
+	diagnostic := newTextDiagnostics(ctx, "synthetic-secret-invocation", logger)
+	trace := diagnostic.trace()
+	const callbacks = 32
+	var workers sync.WaitGroup
+	for range callbacks {
+		workers.Go(func() {
+			trace.TLSHandshakeDone(tls.ConnectionState{}, io.EOF)
+			trace.TLSHandshakeDone(tls.ConnectionState{}, nil)
+			trace.WroteRequest(httptrace.WroteRequestInfo{Err: syscall.EPIPE})
+			trace.WroteRequest(httptrace.WroteRequestInfo{})
+			diagnostic.emit(ctx, "offline_snapshot", "transport_error")
+		})
+	}
+	workers.Wait()
+	diagnostic.emit(ctx, "offline_final", "transport_error")
+	entries := diagnosticLogEntries(t, output)
+	require.Len(t, entries, callbacks+1)
+	for _, entry := range entries {
+		for prefix, category := range map[string]string{"tls_handshake": "eof", "wrote_request": "broken_pipe"} {
+			failure, ok := entry[prefix+"_failure_count"].(float64)
+			require.True(t, ok)
+			if failure == 0 {
+				require.NotContains(t, entry, prefix+"_last_failure_category")
+			} else {
+				require.Equal(t, category, entry[prefix+"_last_failure_category"])
+			}
+		}
+	}
+	final := entries[len(entries)-1]
+	for _, prefix := range []string{"tls_handshake", "wrote_request"} {
+		require.EqualValues(t, callbacks, final[prefix+"_success_count"])
+		require.EqualValues(t, callbacks, final[prefix+"_failure_count"])
+	}
+	require.EqualValues(t, 0, final["handoffs"], "callback counts do not create transport handoffs")
 	require.NotContains(t, output.String(), "synthetic-secret")
 }

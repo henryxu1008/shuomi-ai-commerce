@@ -8,9 +8,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"io"
 	"net"
 	"net/http/httptrace"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -32,7 +34,11 @@ type textDiagnostics struct {
 
 func newTextDiagnostics(ctx context.Context, invocationID string, logger *logrus.Entry) *textDiagnostics {
 	d := &textDiagnostics{logger: logger, started: time.Now(), caller: ctx,
-		fields: logrus.Fields{"event": "governed_text_diagnostic", "handoffs": 0}}
+		fields: logrus.Fields{
+			"event": "governed_text_diagnostic", "handoffs": 0,
+			"tls_handshake_success_count": 0, "tls_handshake_failure_count": 0,
+			"wrote_request_success_count": 0, "wrote_request_failure_count": 0,
+		}}
 	if invocationID != "" {
 		d.fields["invocation_id_hash"] = diagnosticHash(invocationID)
 	}
@@ -70,6 +76,18 @@ func diagnosticErrorCategory(err error) string {
 		return "tls_certificate_error"
 	case errors.As(err, &network) && network.Timeout():
 		return "network_timeout"
+	case errors.Is(err, io.EOF):
+		return "eof"
+	case errors.Is(err, io.ErrUnexpectedEOF):
+		return "unexpected_eof"
+	case errors.Is(err, syscall.ECONNRESET):
+		return "connection_reset"
+	case errors.Is(err, syscall.ECONNREFUSED):
+		return "connection_refused"
+	case errors.Is(err, syscall.EPIPE):
+		return "broken_pipe"
+	case errors.Is(err, net.ErrClosed), errors.Is(err, io.ErrClosedPipe):
+		return "connection_closed"
 	default:
 		return "transport_error"
 	}
@@ -79,6 +97,24 @@ func (d *textDiagnostics) set(key string, value any) {
 	d.mu.Lock()
 	d.fields[key] = value
 	d.mu.Unlock()
+}
+
+// These are callback observations, not provider execution or transport handoffs.
+// Keep counters and the last failure together; later success cannot erase it.
+func (d *textDiagnostics) traceResult(phase, prefix string, err error) {
+	category := ""
+	if err != nil {
+		category = diagnosticErrorCategory(err)
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.fields["network_phase"] = phase
+	countKey := prefix + "_success_count"
+	if err != nil {
+		countKey = prefix + "_failure_count"
+		d.fields[prefix+"_last_failure_category"] = category
+	}
+	d.fields[countKey] = d.fields[countKey].(int) + 1
 }
 
 // Both sources are opaque, bounded hashes. Even a well-formed provider ID can
@@ -120,11 +156,15 @@ func (d *textDiagnostics) sdkCategory(err error) string {
 
 func (d *textDiagnostics) trace() *httptrace.ClientTrace {
 	return &httptrace.ClientTrace{
-		DNSStart:             func(httptrace.DNSStartInfo) { d.set("network_phase", "dns") },
-		ConnectStart:         func(string, string) { d.set("network_phase", "connect") },
-		TLSHandshakeStart:    func() { d.set("network_phase", "tls") },
-		TLSHandshakeDone:     func(tls.ConnectionState, error) { d.set("network_phase", "tls_done") },
-		WroteRequest:         func(httptrace.WroteRequestInfo) { d.set("network_phase", "write_attempt_done") },
+		DNSStart:          func(httptrace.DNSStartInfo) { d.set("network_phase", "dns") },
+		ConnectStart:      func(string, string) { d.set("network_phase", "connect") },
+		TLSHandshakeStart: func() { d.set("network_phase", "tls") },
+		TLSHandshakeDone: func(_ tls.ConnectionState, err error) {
+			d.traceResult("tls_done", "tls_handshake", err)
+		},
+		WroteRequest: func(info httptrace.WroteRequestInfo) {
+			d.traceResult("write_attempt_done", "wrote_request", info.Err)
+		},
 		GotFirstResponseByte: func() { d.set("network_phase", "first_response_byte") },
 	}
 }
