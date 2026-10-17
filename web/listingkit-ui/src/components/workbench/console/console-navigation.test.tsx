@@ -7,6 +7,14 @@ import { ConsoleNavigation } from "./console-navigation";
 import { findConsoleRoute } from "@/lib/workbench/console-navigation";
 
 const query=vi.hoisted(()=>({value:""}));
+it("opens the skill library categories under the intelligent market", () => {
+  render(<ConsoleNavigation pathname="/workbench/agents/skills/mine" ariaLabel="主导航" />);
+  expect(screen.getByRole("link", {name:"技能库"})).toHaveAttribute("href", "/workbench/agents/skills");
+  expect(screen.getByRole("link", {name:"官方模板"})).toHaveAttribute("href", "/workbench/agents/skills/official");
+  expect(screen.getByRole("link", {name:"我的技能"})).toHaveAttribute("aria-current", "page");
+  expect(screen.getByRole("link", {name:"团队技能"})).toHaveAttribute("href", "/workbench/agents/skills/team");
+  expect(findConsoleRoute("/workbench/agents/skills/mine")?.trail.map(node => node.label)).toEqual(["智能市场", "技能库", "我的技能"]);
+});
 it("uses the installed tool capability for both customization children", () => {
   const view=render(<ConsoleNavigation pathname="/workbench/tools/custom/new" ariaLabel="主导航" toolMarketAvailable />);
   expect(screen.getByRole("link", {name:"提交定制需求"})).toHaveAttribute("aria-current","page");

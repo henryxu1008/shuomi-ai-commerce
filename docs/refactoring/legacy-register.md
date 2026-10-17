@@ -2,6 +2,18 @@
 
 > Status: Active legacy handling register
 
+> #29 / #301 [TEMU filter/AI preflight retirement](../architecture/legacy-temu-filter-mapping-retirement-boundary.md)
+> follows user-confirmed design `0d8bc3785` in #754. Nine exclusive orchestration,
+> rule-wrapper/result files, one obsolete source-image Task test and the mixed
+> input's AIHandlerInput/buildAIHandlerInput are source-retired. Effective rules
+> remain in marketplace/productpolicy, status=0 and FilterRule API/DTO/repository
+> retain their owners, and AIBatchInput/methods/SKU mapping remain unchanged.
+> The unused reversed-status stats path is removed, without a new stats service.
+> Shared/provider contracts, acquisition/Store observations and independent SHEIN
+> login/Store sync remain. Workflows/ceilings are unchanged; no runtime/data action
+> or new trial prerequisite. Earlier preservation claims for these wrappers are
+> historical baselines, not requirements to recreate the retired closure.
+
 > #29 / #301 [TEMU variant retirement](../architecture/legacy-temu-variant-retirement-boundary.md)
 > follows user-confirmed design `70c60af89` in #751. Four unconstructed variant
 > read/postprocess/cache components and the exclusive ASIN-map helper are
