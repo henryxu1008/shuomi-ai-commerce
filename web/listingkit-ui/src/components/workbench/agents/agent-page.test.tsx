@@ -6,6 +6,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { AgentPage } from "./agent-page";
 vi.mock("./product-selection-flow",()=>({ProductSelectionFlow:({nonce}:{nonce:number})=><p>业务流程刷新：{nonce}</p>}));
@@ -52,11 +53,10 @@ vi.mock("@/components/providers/workbench-context-provider", () => ({
   useWorkbenchContext: () => scope,
 }));
 vi.mock("next/link", () => ({
-  default: ({ children, href, ...props }: React.ComponentProps<"a">) => (
-    <a href={href} {...props}>
-      {children}
-    </a>
-  ),
+  default: ({ children, href, prefetch, ...props }: React.ComponentProps<"a"> & {prefetch?: boolean}) => {
+    void prefetch;
+    return <a href={href} {...props}>{children}</a>;
+  },
 }));
 const item = {
   agent: {
@@ -84,9 +84,7 @@ afterEach(() => {
 });
 
 it.each([
-  ["market", "product.selection.agent", "product.selection.inspect", "product-selection-config-v1", "查看商品事实 →"],
   ["mine", "product.selection.agent", "product.selection.inspect", "product-selection-config-v1", "查看商品事实 →"],
-  ["market", "shop.operations-diagnosis.agent", "shop.operations-diagnosis.inspect", "shop-operations-diagnosis-config-v1", "查看经营事实 →"],
   ["mine", "shop.operations-diagnosis.agent", "shop.operations-diagnosis.inspect", "shop-operations-diagnosis-config-v1", "查看经营事实 →"],
 ] as const)("exposes authorized facts from %s for %s before activation without enabling analysis", async (mode, agentId, capabilityId, parameterSchema, label) => {
   const fetch = vi.fn(async (_url: unknown, _init?: RequestInit) => { void _url; void _init; return Response.json({items: [{...item, parameterSchema, agent: {...item.agent, agentId}, capabilities: [{id: capabilityId, support: "REQUIRED", readiness: "AVAILABLE", reason: "", observedAt: "2026-10-14T00:00:00Z"}]}], nextCursor: ""}); });
@@ -105,7 +103,7 @@ it.each([
   ["shop.operations-diagnosis.agent", "shop.operations-diagnosis.inspect", "shop-operations-diagnosis-config-v1", "查看经营事实 →"],
 ])("does not expose %s inspection when its current capability denies access", async (agentId, capabilityId, parameterSchema, label) => {
   vi.stubGlobal("fetch", vi.fn(async () => Response.json({items: [{...item, parameterSchema, agent: {...item.agent, agentId}, capabilities: [{id: capabilityId, support: "REQUIRED", readiness: "REQUIRES_AUTHORIZATION", reason: "需要授权", observedAt: "2026-10-14T00:00:00Z"}]}], nextCursor: ""})));
-  render(<AgentPage mode="market"/>);
+  render(<AgentPage mode="mine"/>);
   await screen.findByText("需要授权");
   expect(screen.queryByRole("link", {name: label})).toBeNull();
 });
@@ -140,31 +138,104 @@ it("waits for a committed enable receipt and refetches the shared fact", async (
         committedAt: "2026-09-29T00:00:00Z",
       });
     }
-    return Response.json({
-      items: [
-        enabled
-          ? {
-              ...item,
-              agent: {
-                ...item.agent,
-                activation: "ENABLED",
-                revision: "1",
-                activationEpoch: "1",
-              },
-            }
-          : item,
-      ],
-      nextCursor: "",
+    if (String(_url).includes("execution-modes")) return Response.json({
+      subject:{kind:"registered_agent",id:"product.title.agent"},
+      definition:{id:"product.title.agent",version:"v1.0.0"},
+      mode:"default",revision:"0",policyVersion:"agent-execution-policy-v1",
+      canConfigure:true,updatedAt:"2026-10-17T00:00:00Z",updatedBy:"",
     });
+    if (String(_url).endsWith("/agents/product.title.agent")) return Response.json(enabled
+      ? {...item,agent:{...item.agent,activation:"ENABLED",revision:"1",activationEpoch:"1"}}
+      : item);
+    return Response.json({items:[],nextCursor:""});
   });
   vi.stubGlobal("fetch", fetch);
-  render(<AgentPage mode="market" />);
+  render(<AgentPage mode="mine" id="product.title.agent" />);
   fireEvent.click(
     await screen.findByRole("button", { name: "启用到当前企业" }),
   );
-  await waitFor(() => expect(screen.getByText("已启用")).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText(/^已启用 ·/)).toBeInTheDocument());
   const call = fetch.mock.calls.find(([, init]) => init?.method === "POST")!;
   expect(new Headers(call[1]?.headers).get("If-None-Match")).toBe("*");
+});
+
+function marketEntries() {
+  return [
+    ["product.title.agent", "title-config-v1", "商品标题优化智能体"],
+    ["product.content.agent", "content-config-v1", "商品内容完善与本地化智能体"],
+    ["listing.materials.agent", "listing-materials-config-v1", "平台上架资料智能体"],
+    ["product.image.agent", "image-config-v1", "商品图片智能体"],
+    ["pod.design.agent", "pod-artwork-config-v1", "POD设计智能体"],
+    ["product.selection.agent", "product-selection-config-v1", "选品对比智能体"],
+    ["shop.operations-diagnosis.agent", "shop-operations-diagnosis-config-v1", "店铺经营诊断智能体"],
+  ].map(([agentId, parameterSchema, name]) => ({...item, name, parameterSchema, agent: {...item.agent, agentId}}));
+}
+
+it("browses the original Figma categories without inventing agents in empty categories", async () => {
+  const fetch = vi.fn(async () => Response.json({items:marketEntries(),nextCursor:""}));
+  vi.stubGlobal("fetch", fetch);
+  render(<AgentPage mode="market" />);
+  await screen.findByRole("button", {name:"商品"});
+  const categories = within(screen.getByRole("group", {name:"智能体业务分类"}));
+  expect(categories.getAllByRole("button").map(button => button.textContent)).toEqual(["全部","商品","选品","运营","广告","客服","数据"]);
+  expect(screen.getAllByRole("article")).toHaveLength(6);
+  expect(screen.getAllByRole("heading",{name:"商品内容与本地化"})).toHaveLength(1);
+  fireEvent.click(categories.getByRole("button",{name:"商品"}));
+  expect(screen.getAllByRole("article")).toHaveLength(4);
+  expect(screen.queryByRole("heading",{name:"选品对比智能体"})).toBeNull();
+  fireEvent.click(categories.getByRole("button",{name:"选品"}));
+  expect(screen.getAllByRole("article")).toHaveLength(1);
+  expect(screen.getByRole("heading",{name:"选品对比智能体"})).toBeInTheDocument();
+  fireEvent.click(categories.getByRole("button",{name:"运营"}));
+  expect(screen.getByRole("heading",{name:"店铺经营诊断智能体"})).toBeInTheDocument();
+  for (const name of ["广告","客服","数据"]) {
+    fireEvent.click(categories.getByRole("button",{name}));
+    expect(screen.queryByRole("article")).toBeNull();
+    expect(screen.getByRole("heading",{name:"该分类暂无智能体"})).toBeInTheDocument();
+  }
+  fireEvent.click(categories.getByRole("button",{name:"全部"}));
+  expect(screen.getAllByRole("article")).toHaveLength(6);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
+
+it("keeps market browsing read-only and sends configuration and capability details to mine", async () => {
+  const entries = marketEntries().map(entry => ({...entry,capabilities:[{id:"text.generate",support:"REQUIRED",readiness:"NEEDS_CONFIGURATION",reason:"需要独立模型路由与预算配置",observedAt:"2026-10-17T00:00:00Z"}]}));
+  const fetch = vi.fn(async (_url: unknown, init?: RequestInit) => { void _url; void init; return Response.json({items:entries,nextCursor:""}); });
+  vi.stubGlobal("fetch", fetch);
+  render(<AgentPage mode="market" />);
+  const card = await screen.findByRole("article",{name:"平台上架资料智能体"});
+  expect(within(card).getByRole("link",{name:"前往启用"})).toHaveAttribute("href","/workbench/agents/mine/listing.materials.agent");
+  expect(screen.queryByText("需要独立模型路由与预算配置")).toBeNull();
+  expect(screen.queryByRole("link",{name:/配置|历史|查看商品事实|查看经营事实/})).toBeNull();
+  expect(screen.queryByRole("button",{name:"启用到当前企业"})).toBeNull();
+  expect(fetch.mock.calls.every(([, init]) => !init?.method || init.method === "GET")).toBe(true);
+});
+
+it("keeps mixed content activation honest and does not expose an enable action to a read-only viewer", async () => {
+  const entries = marketEntries().slice(0,2).map((entry,index) => ({...entry,canConfigure:false,agent:{...entry.agent,...(index===1?{activation:"ENABLED",revision:"1",activationEpoch:"1"}:{})}}));
+  vi.stubGlobal("fetch",vi.fn(async () => Response.json({items:entries,nextCursor:""})));
+  render(<AgentPage mode="market" />);
+  const card = await screen.findByRole("article",{name:"商品内容与本地化"});
+  expect(within(card).getByText("部分已启用")).toBeInTheDocument();
+  expect(within(card).getByRole("link",{name:"前往我的智能体"})).toHaveAttribute("href","/workbench/agents/mine");
+  expect(screen.queryByRole("heading",{name:"标题优化"})).toBeNull();
+});
+
+it("disables the selected content operation instead of the default title agent", async () => {
+  Object.defineProperty(HTMLDialogElement.prototype,"showModal",{configurable:true,value:function(this:HTMLDialogElement){this.open=true}});
+  Object.defineProperty(HTMLDialogElement.prototype,"close",{configurable:true,value:function(this:HTMLDialogElement){this.open=false}});
+  const content = {...marketEntries()[1],agent:{...marketEntries()[1].agent,activation:"ENABLED",revision:"4",activationEpoch:"1"}};
+  const fetch = vi.fn(async (_url:unknown,init?:RequestInit) => init?.method === "POST"
+    ? Response.json({commandId:"8fc227bb-b572-4138-8e2a-5f1a0be98617",operation:"disable",agentId:"product.content.agent",revision:"5",noop:false,committedAt:"2026-10-17T00:00:00Z"})
+    : Response.json({items:[content],nextCursor:""}));
+  vi.stubGlobal("fetch",fetch);
+  render(<AgentPage mode="mine" />);
+  fireEvent.click(await screen.findByRole("button",{name:"停用内容完善与本地化"}));
+  fireEvent.click(screen.getByRole("button",{name:"确认停用"}));
+  await waitFor(() => expect(fetch.mock.calls.some(([,init])=>init?.method==="POST")).toBe(true));
+  const call=fetch.mock.calls.find(([,init])=>init?.method==="POST")!;
+  expect(String(call[0])).toMatch(/\/agents\/product\.content\.agent\/disable$/);
+  expect(new Headers(call[1]?.headers).get("If-Match")).toBe('"4"');
 });
 
 it("presents title and localization as operations of one content responsibility without merging their permissions", async () => {
