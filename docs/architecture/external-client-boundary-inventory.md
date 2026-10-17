@@ -146,13 +146,22 @@ Current direct dependency hotspots are:
   - direct external client imports are guarded by
     `TestSheinBridgeExternalClientImportsStayAllowlisted`
 - `internal/temu`
-  - broad `management` coupling in sync, pricing, product, store, and scheduler
+  - broad `management` coupling in sync, pricing, product, and scheduler
     paths, plus `openai` coupling in AI, image, SKU, product, and pipeline helpers
+  - the former `internal/temu/store` handlers and exclusive numeric cache are
+    source-retired under the [confirmed store/init boundary](legacy-temu-store-init-retirement-boundary.md);
+    current Store Center, retained Store API/DTO/repository and real APIClient
+    Cookie/MallID effects keep their original owners
   - `internal/temu/sync` and `internal/temu/pricing` management seams are guarded by
     `TestTEMUSyncAndPricingRetiredManagementImportsStayBlocked`
-  - `internal/temu/product`, `internal/temu/store`, and `internal/temu/scheduler`
-    management seams are guarded by
-    `TestTEMUProductStoreAndSchedulerRetiredManagementImportsStayBlocked`
+  - `TestTEMUProductStoreAndSchedulerRetiredManagementImportsStayBlocked` still
+    covers the original product/store subtrees, indexing the stable TEMU parent
+    and filtering those exact subtrees so an absent store directory needs no skip;
+    reintroduced store sources remain checked against the management deny rule.
+    Only the two retired store exemptions leave; the three product exemptions stay
+  - `TestTemuStoreUsesManagementAPIPortAliases` also indexes the stable parent
+    while filtering only its original store subtree; its concrete management DTO
+    import prohibition remains, including if store sources are reintroduced
   - `internal/temu/api/client`, `internal/temu/context`,
     `internal/temu/bulkrelist`, `internal/temu/filter`,
     `internal/temu/handlerbase`, `internal/temu/rules`, and the root

@@ -1634,11 +1634,14 @@ func TestTemuHandlerBaseUsesManagementAPIPortAliases(t *testing.T) {
 
 func TestTemuStoreUsesManagementAPIPortAliases(t *testing.T) {
 	root := filepath.Join("..", "internal", "temu", "store")
-	index, err := loadGoFileIndex(root, "")
+	index, err := loadGoFileIndex(filepath.Dir(root), "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	for path, facts := range index.files {
+		if !strings.HasPrefix(path, root+string(os.PathSeparator)) {
+			continue
+		}
 		if _, ok := facts.imports[`"task-processor/internal/infra/clients/management/api"`]; ok {
 			t.Fatalf("%s imports concrete management API DTOs; use listingadmin/local runtime types", path)
 		}
@@ -2961,21 +2964,23 @@ func TestTEMUProductStoreAndSchedulerRetiredManagementImportsStayBlocked(t *test
 		filepath.Clean(filepath.Join("..", "internal", "temu", "product", "build_spu_handler.go")): {},
 		filepath.Clean(filepath.Join("..", "internal", "temu", "product", "price_handler.go")):     {},
 		filepath.Clean(filepath.Join("..", "internal", "temu", "product", "spu_builder.go")):       {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "store", "id_handler.go")):          {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "store", "info_handler.go")):        {},
 	}
 
+	// Index the stable parent so the retired store directory can stay absent,
+	// while both original subtrees remain covered if sources are reintroduced.
+	index, err := loadGoFileIndex(filepath.Join("..", "internal", "temu"), "")
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, root := range []string{
 		filepath.Join("..", "internal", "temu", "product"),
 		filepath.Join("..", "internal", "temu", "store"),
 	} {
 		t.Run(filepath.ToSlash(root), func(t *testing.T) {
-			index, err := loadGoFileIndex(root, "")
-			if err != nil {
-				t.Fatal(err)
-			}
-
 			for path, facts := range index.files {
+				if !strings.HasPrefix(path, root+string(os.PathSeparator)) {
+					continue
+				}
 				if pathAllowed(path, allowedFiles) {
 					continue
 				}
