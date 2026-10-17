@@ -213,7 +213,7 @@ export function StoreForm(props: StoreFormProps) {
   return (
     <section className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-6">
       <p className="text-sm text-muted-foreground">店铺中心 · {organizationName}</p>
-      <h1 className="mt-1 text-2xl font-semibold tracking-tight">
+      <h1 className="mt-1 text-3xl font-semibold tracking-tight">
         {props.mode === "create" ? `在${organizationName} 新建店铺` : `编辑${props.store.name}`}
       </h1>
       <p className="mt-2 text-sm text-muted-foreground">

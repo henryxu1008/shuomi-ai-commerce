@@ -132,7 +132,7 @@ export function WorkspaceAppShell({ children, dataServicesAvailable = false, rep
           role="status"
         >
           <div>
-            <h1 className="text-xl font-semibold">请选择企业以继续</h1>
+            <h1 className="text-3xl font-semibold">请选择企业以继续</h1>
             <p className="mt-2 text-sm text-muted-foreground">
               选择后才会加载该企业的工作台数据。
             </p>
@@ -223,7 +223,7 @@ function AccessState({ action, code, browserRecovery = false }: { action: () => 
   return (
     <main className="flex min-h-svh items-center justify-center bg-background px-6">
       <section className="max-w-md rounded-xl border border-border bg-card p-6 text-center shadow-sm">
-        <h1 className="text-lg font-semibold" role="alert">
+        <h1 className="text-xl font-semibold" role="alert">
           {workbenchErrorMessage(code)}
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">

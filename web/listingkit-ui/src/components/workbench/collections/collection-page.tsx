@@ -173,7 +173,7 @@ function ScopedCollectionPage({ scope,agentAvailable,supplyAvailable,initialBatc
 export function CollectionDialog({ title, children, onClose, className }: { title: string; children: ReactNode; onClose: () => void; className?: string }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => { const dialog = ref.current; if (dialog && !dialog.open) { if (typeof dialog.showModal === "function") dialog.showModal(); else dialog.setAttribute("open", ""); } }, []);
-  return <dialog ref={ref} aria-label={title} onCancel={event => { event.preventDefault(); onClose(); }} className={cn("m-auto max-h-[85vh] w-[min(960px,calc(100vw-32px))] overflow-auto rounded-2xl border border-border bg-card p-6 text-card-foreground shadow-2xl backdrop:bg-muted/30",className)}><div className="mb-5 flex items-center justify-between"><h2 className="text-xl font-bold">{title}</h2><Button variant="ghost" size="icon" aria-label="关闭弹窗" onClick={onClose}>×</Button></div><div className="space-y-4">{children}</div></dialog>;
+  return <dialog ref={ref} aria-label={title} onCancel={event => { event.preventDefault(); onClose(); }} className={cn("m-auto max-h-[85vh] w-[min(960px,calc(100vw-32px))] overflow-auto rounded-lg border border-border bg-card p-6 text-card-foreground shadow-[0_24px_64px_var(--shadow-color)] backdrop:bg-[var(--overlay)]",className)}><div className="mb-5 flex items-center justify-between"><h2 className="text-xl font-bold">{title}</h2><Button variant="ghost" size="icon" aria-label="关闭弹窗" onClick={onClose}>×</Button></div><div className="space-y-4">{children}</div></dialog>;
 }
 function ContentAgentEntry({ source, enabled }: { source: CollectionItem["source"]; enabled: boolean }) {
   const operation = collectionID.safeParse(source.operationId);

@@ -16,7 +16,7 @@
 }
 .drawer h2 {
   margin: 0;
-  font-size: var(--section-title-size);
+  font-size: var(--dialog-title-size);
   font-weight: 700;
 }
 .drawer p {
