@@ -35,6 +35,24 @@ const introductions = {
       ["服务说明", "能力、权益和费用均提前说明", "能力目录与配置不代表模型执行已经开放；具体准入、使用权益和费用以各能力页面为准。", "定制智能体由专员评估需求、交付周期和费用"],
     ],
   },
+  skills: {
+    label: "技能库", title: "把业务经验沉淀为可复用的技能",
+    subtitle: "查看官方模板，整理个人方法，沉淀团队技能，在支持的业务操作中按需使用。",
+    entries: [
+      ["标准方法", "官方模板", "查看已发布启用的模板与使用说明，\n按许可复制，也可直接自建技能。", "", "浏览官方模板", "/workbench/agents/skills/official"],
+      ["个人沉淀", "我的技能", "保存个人业务方法与参考材料，\n管理版本，需要时提交团队审核。", "", "管理我的技能", "/workbench/agents/skills/mine"],
+      ["企业复用", "团队技能", "维护当前企业可复用的业务方法，\n按权限审批个人提交和管理准入。", "", "管理团队技能", "/workbench/agents/skills/team"],
+    ],
+    featuresTitle: "让方法可以积累，也能被团队复用",
+    featuresSubtitle: "把反复使用的方法整理下来，按版本迭代，在个人与团队之间有序复用",
+    features: [["方法可复用", "把反复使用的业务方法保存下来。"], ["材料可组织", "为方法补充参考文本与模板。"], ["版本可管理", "更新时保存新版本，保留原有内容。"], ["团队可沉淀", "指定版本经审批后生成企业副本。"]],
+    flowTitle: "如何开始使用", flowSubtitle: "从找到方法到业务中使用，按需要逐步完成",
+    steps: [["选择来源", "浏览官方模板，或新建自己的技能"], ["完善方法", "编写方法与参考材料，并检查格式"], ["保存并启用", "保存版本，发布并启用后按需选择"], ["业务中使用", "在支持的业务操作中选用技能"]],
+    notes: [
+      ["个人与团队", "个人与团队如何复用", "个人技能归属本人；本人同意并提交指定版本后，\n由企业维护者审核并生成独立的团队副本。", ""],
+      ["执行边界", "技能如何参与执行", "启用后在支持的业务操作中选择技能；执行继续\n使用现有智能体的权限、预算与审核。", ""],
+    ],
+  },
   tools: {
     label: "工具市场", title: "连接工具能力，让业务流程更高效",
     subtitle: "发现官方工具、管理已启用能力，或申请专属定制服务，让工具按需参与实际业务。",
@@ -69,16 +87,21 @@ const introductions = {
 
 export function PrimaryIntroduction({ kind, available = [true, true, true], entryHrefs, notice }: { kind: keyof typeof introductions; available?: readonly boolean[]; entryHrefs?: readonly string[]; notice?: string }) {
   const data = introductions[kind], id = `primary-${kind}`;
-  return <section className={`${styles.page} ${homeStyles.page} ${kind === "tools" ? homeStyles.tools : ""}`} aria-labelledby={id}>
+  const isSkills = kind === "skills", compact = kind === "tools" || isSkills;
+  return <section className={`${styles.page} ${homeStyles.page} ${kind === "tools" ? homeStyles.tools : ""} ${isSkills ? homeStyles.skills : ""}`} aria-labelledby={id}>
     <header className={styles.header}><p className={styles.eyebrow}>{data.label}</p><h1 id={id}>{data.title}</h1><p className={styles.subtitle}>{data.subtitle}</p></header>
     {notice ? <p role="status" className={styles.subtitle}>{notice}</p> : null}
-    <div className={`${styles.entries} ${kind === "tools" ? homeStyles.entries : ""}`}>{data.entries.map(([badge, title, description, audience, action, href], index) => {
-      const content = <>{kind === "tools" ? <div className={homeStyles.entryHeading}><span className={styles.badge}>{badge}</span><h2>{title}</h2></div> : <><span className={styles.badge}>{badge}</span><h2>{title}</h2></>}<p className={styles.description}>{description}</p>{audience ? <p className={styles.audience}>{audience}</p> : null}<span className={styles.action}>{available[index] ? `${action}${kind === "tools" ? "" : " →"}` : "暂未启用"}</span></>;
+    <div className={`${styles.entries} ${compact ? homeStyles.entries : ""}`}>{data.entries.map(([badge, title, description, audience, action, href], index) => {
+      const content = <>{isSkills ? <><div className={homeStyles.entryHeading}><span className={homeStyles.entryNumber} aria-hidden="true">{String(index + 1).padStart(2, "0")}</span><h2>{title}</h2></div><span className={`${styles.badge} ${homeStyles.skillBadge}`}>{badge}</span></> : kind === "tools" ? <div className={homeStyles.entryHeading}><span className={styles.badge}>{badge}</span><h2>{title}</h2></div> : <><span className={styles.badge}>{badge}</span><h2>{title}</h2></>}<p className={styles.description}>{description}</p>{audience ? <p className={styles.audience}>{audience}</p> : null}<span className={styles.action}>{available[index] ? `${action}${compact ? "" : " →"}` : "暂未启用"}</span></>;
       return available[index] ? <Link key={href} href={entryHrefs?.[index] ?? href} prefetch={false} className={styles.entry} data-tone={["teal", "blue", "purple"][index]}>{content}</Link> : <Card key={href} className={styles.entry} data-tone={["teal", "blue", "purple"][index]} data-state="unavailable">{content}</Card>;
     })}</div>
+    {"features" in data ? <section className={homeStyles.features} aria-labelledby={`${id}-features`}>
+      <div className={homeStyles.featureHeading}><h2 id={`${id}-features`}>{data.featuresTitle}</h2><p>{data.featuresSubtitle}</p></div>
+      <Card className={homeStyles.featurePanel}>{data.features.map(([title, description]) => <div key={title}><h3>{title}</h3><p>{description}</p></div>)}</Card>
+    </section> : null}
     <section className={styles.flow} aria-labelledby={`${id}-flow`}><div className={styles.flowHeading}><h2 id={`${id}-flow`}>{data.flowTitle}</h2><p>{data.flowSubtitle}</p></div>
-      <ol className={`${styles.steps} ${kind === "tools" ? homeStyles.steps : ""}`}>{data.steps.map(([title, description], index) => <li key={title}><Card className={styles.step} data-tone={["teal", "blue", "green", "purple"][index]}><span className={styles.number}>{String(index + 1).padStart(2, "0")}</span><h3>{title}</h3><p>{description}</p></Card></li>)}</ol>
+      <ol className={`${styles.steps} ${compact ? homeStyles.steps : ""}`}>{data.steps.map(([title, description], index) => <li key={title}><Card className={styles.step} data-tone={["teal", "blue", "green", "purple"][index]}><span className={styles.number}>{String(index + 1).padStart(2, "0")}</span><h3>{title}</h3><p>{description}</p></Card></li>)}</ol>
     </section>
-    <div className={`${styles.notes} ${kind === "tools" ? homeStyles.notes : ""}`}>{data.notes.map(([label, title, description, footer], index) => <Card key={label} className={`${styles.note} ${index === 0 ? styles.dataFlow : ""}`} data-tone={index === 0 ? "teal" : "purple"}><p className={styles.noteLabel}>{label}</p><h2>{title}</h2><p className={styles.description}>{description}</p><p className={styles.noteFooter}>{footer}</p></Card>)}</div>
+    <div className={`${styles.notes} ${compact ? homeStyles.notes : ""}`}>{data.notes.map(([label, title, description, footer], index) => <Card key={label} className={`${styles.note} ${index === 0 && !isSkills ? styles.dataFlow : ""}`} data-tone={index === 0 ? "teal" : "purple"}>{!isSkills ? <p className={styles.noteLabel}>{label}</p> : null}<h2>{title}</h2><p className={styles.description}>{description}</p>{footer ? <p className={styles.noteFooter}>{footer}</p> : null}</Card>)}</div>
   </section>;
 }
