@@ -2959,7 +2959,6 @@ func TestTEMUSyncAndPricingRetiredManagementImportsStayBlocked(t *testing.T) {
 func TestTEMUProductStoreAndSchedulerRetiredManagementImportsStayBlocked(t *testing.T) {
 	allowedFiles := map[string]struct{}{
 		filepath.Clean(filepath.Join("..", "internal", "temu", "product", "build_spu_handler.go")): {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "product", "filter_checker.go")):    {},
 		filepath.Clean(filepath.Join("..", "internal", "temu", "product", "price_handler.go")):     {},
 		filepath.Clean(filepath.Join("..", "internal", "temu", "product", "spu_builder.go")):       {},
 		filepath.Clean(filepath.Join("..", "internal", "temu", "store", "id_handler.go")):          {},
@@ -2993,11 +2992,10 @@ func TestTEMUProductStoreAndSchedulerRetiredManagementImportsStayBlocked(t *test
 
 func TestTEMURuntimeAndBridgeRetiredManagementImportsStayBlocked(t *testing.T) {
 	allowedFiles := map[string]struct{}{
-		filepath.Clean(filepath.Join("..", "internal", "temu", "api", "client", "client.go")):            {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "api", "client", "cookie_manager.go")):    {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "api", "client", "manager.go")):           {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "handlerbase", "fulfillment_checker.go")): {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "processor.go")):                          {},
+		filepath.Clean(filepath.Join("..", "internal", "temu", "api", "client", "client.go")):         {},
+		filepath.Clean(filepath.Join("..", "internal", "temu", "api", "client", "cookie_manager.go")): {},
+		filepath.Clean(filepath.Join("..", "internal", "temu", "api", "client", "manager.go")):        {},
+		filepath.Clean(filepath.Join("..", "internal", "temu", "processor.go")):                       {},
 	}
 
 	for _, root := range []string{
@@ -3058,7 +3056,6 @@ func TestTEMUOpenAIImportsStayAllowlisted(t *testing.T) {
 		filepath.Clean(filepath.Join(root, "pipeline_registry.go")):                  {},
 		filepath.Clean(filepath.Join(root, "product", "build_spu_handler.go")):       {},
 		filepath.Clean(filepath.Join(root, "product", "spu_builder.go")):             {},
-		filepath.Clean(filepath.Join(root, "sku", "ai_mapping_handler.go")):          {},
 		filepath.Clean(filepath.Join(root, "sku", "ai_mapping_single_processor.go")): {},
 		filepath.Clean(filepath.Join(root, "sku", "builder.go")):                     {},
 		filepath.Clean(filepath.Join(root, "sku", "variant_processor.go")):           {},
