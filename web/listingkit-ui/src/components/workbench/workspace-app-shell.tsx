@@ -206,7 +206,7 @@ function DelegatedOperationIndicator({
   return (
     <p
       aria-label="企业代管状态"
-      className="min-w-0 text-right text-xs font-medium text-amber-700 dark:text-amber-300"
+      className="min-w-0 text-right text-xs font-medium text-warning-foreground dark:text-warning-foreground"
       role="status"
     >
       <span className="block truncate">

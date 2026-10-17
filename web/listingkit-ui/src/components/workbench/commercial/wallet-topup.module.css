@@ -1,7 +1,7 @@
 .entry {
   display: grid;
   gap: 10px;
-  font-size: 12px;
+  font-size: var(--label-text-size);
 }
 .entry p {
   margin: 0;
@@ -11,7 +11,7 @@
   color: var(--foreground);
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--radius);
   padding: 24px;
   width: min(480px, calc(100vw - 32px));
   max-height: calc(100dvh - 40px);
@@ -19,7 +19,7 @@
   margin: auto;
 }
 .dialog::backdrop {
-  background: rgb(15 23 42 / 0.5);
+  background: var(--overlay);
 }
 .dialog form {
   display: grid;
@@ -27,13 +27,13 @@
 }
 .dialog h2,
 .payment h2 {
-  font-size: 20px;
+  font-size: var(--dialog-title-size);
   font-weight: 700;
   margin: 0;
 }
 .description {
   color: var(--muted-foreground);
-  font-size: 11px;
+  font-size: var(--body-text-size);
   line-height: 1.8;
   margin: -8px 0 0;
 }
@@ -41,15 +41,15 @@
   display: grid;
   gap: 8px;
   color: var(--muted-foreground);
-  font-size: 11px;
+  font-size: var(--caption-text-size);
 }
 .field input {
   height: 42px;
-  border-radius: 8px;
+  border-radius: var(--control-radius);
   color: var(--foreground);
 }
 .range {
-  font-size: 11px;
+  font-size: var(--caption-text-size);
   color: var(--muted-foreground);
   margin: -12px 0 0;
 }
@@ -59,7 +59,7 @@
   min-width: 0;
 }
 .dialog legend {
-  font-size: 11px;
+  font-size: var(--caption-text-size);
   color: var(--muted-foreground);
   margin-bottom: 12px;
 }
@@ -71,9 +71,9 @@
 .amounts button {
   background: var(--muted);
   padding: 0 4px;
-  border-radius: 9px;
+  border-radius: var(--control-radius);
   height: 34px;
-  font-size: 12px;
+  font-size: var(--label-text-size);
 }
 .amounts button[aria-pressed="true"] {
   border-color: var(--primary);
@@ -90,13 +90,13 @@
   min-height: 48px;
   padding: 12px;
   border: 1px solid var(--border);
-  border-radius: 9px;
-  font-size: 11px;
+  border-radius: var(--radius);
+  font-size: var(--caption-text-size);
 }
 .channels span {
   margin-left: auto;
   color: var(--muted-foreground);
-  font-size: 10px;
+  font-size: var(--caption-text-size);
 }
 .channels input {
   accent-color: var(--primary);
@@ -109,20 +109,20 @@
 }
 .dialog .actions button {
   min-width: 96px;
-  border-radius: 9px;
+  border-radius: var(--control-radius);
   height: 36px;
-  font-size: 12px;
+  font-size: var(--label-text-size);
 }
 .payment {
   border: 1px solid var(--border);
   background: var(--card);
-  border-radius: 14px;
+  border-radius: var(--radius);
   padding: 24px;
   display: grid;
   gap: 16px;
 }
 .payment p {
-  font-size: 12px;
+  font-size: var(--label-text-size);
   color: var(--muted-foreground);
   margin: 0;
   line-height: 1.8;

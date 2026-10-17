@@ -258,7 +258,7 @@ function PlatformField({control,disabled}:{control:ReturnType<typeof useForm<Wor
 
 function ConflictNotice({ conflict, onRetry, pending }: { conflict: Conflict; onRetry: () => void; pending: boolean }) {
   const fields = conflict.changedFields.map(editableFieldLabel).join("、") || "店铺信息";
-  return <section className="mt-5 rounded-xl border border-amber-500/40 bg-amber-50 p-4 text-sm dark:bg-amber-950/20" role="alert"><p>最新版本中{fields}已被其他人修改。你的草稿仍被保留，请确认后再保存。</p><Button className="mt-3" disabled={pending} onClick={onRetry} type="button" variant="outline">使用最新版本重新保存</Button></section>;
+  return <section className="mt-5 rounded-xl border border-warning-foreground/40 bg-warning p-4 text-sm dark:bg-warning/20" role="alert"><p>最新版本中{fields}已被其他人修改。你的草稿仍被保留，请确认后再保存。</p><Button className="mt-3" disabled={pending} onClick={onRetry} type="button" variant="outline">使用最新版本重新保存</Button></section>;
 }
 
 function editableFieldLabel(field: EditableField) { return field === "name" ? "名称" : "区域"; }
