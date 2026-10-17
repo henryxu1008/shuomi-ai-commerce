@@ -1,9 +1,15 @@
 .dialog{margin:auto;width:min(850px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto;overflow-wrap:anywhere;padding:24px;border:1px solid var(--border);border-radius:var(--radius);background:var(--background);color:var(--foreground)}
 .dialog::backdrop{background:rgb(0 0 0 / .5)}
+.manager{padding:24px;border:1px solid var(--border);border-radius:var(--radius);background:var(--card);color:var(--foreground);overflow-wrap:anywhere}
+.manager h2,.manager h3{font-weight:600;margin:12px 0}.manager p{margin:10px 0;color:var(--muted-foreground)}
+.categories{display:flex;flex-wrap:wrap;gap:8px;border-bottom:1px solid var(--border);padding-bottom:12px}
+.categories a{padding:10px 16px;border-radius:var(--radius);color:var(--muted-foreground)}
+.categories a[aria-current=page]{background:var(--secondary);color:var(--foreground);font-weight:600}
+.categories a:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
 .dialog>header{justify-content:space-between;align-items:flex-start;flex-wrap:nowrap}.dialog>header>div{min-width:0}.dialog>header>button{flex-shrink:0}
 .dialog h2,.dialog h3{font-weight:600;margin:12px 0}.dialog p{margin:10px 0;color:var(--muted-foreground)}
 .actions{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin:12px 0}
 .list{display:grid;gap:10px;margin:16px 0;list-style:none;padding:0}.list li{border:1px solid var(--border);border-radius:var(--radius);padding:12px}.list button{cursor:pointer;text-align:start;display:grid;gap:6px;width:100%}.list button:disabled{opacity:.6;cursor:default}.list small{color:var(--muted-foreground)}
 .form{display:grid;gap:16px}.form label,.detail label{display:grid;gap:6px}.form input:not([type=checkbox]),.form textarea,.detail select{border:1px solid var(--border);border-radius:8px;background:var(--background);color:var(--foreground);padding:10px;width:100%}.form textarea{font-family:var(--font-mono),monospace;font-size:13px}
 .notice,.detail{border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-top:16px}.digest{overflow-wrap:anywhere}.detail pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:300px;overflow:auto;padding:12px;background:var(--secondary);font-size:13px}.detail details{margin:10px 0}.detail summary{cursor:pointer}
-@media(max-width:600px){.dialog{padding:16px}.actions{gap:8px}.dialog button{min-height:40px}}
+@media(max-width:600px){.dialog,.manager{padding:16px}.actions{gap:8px}.dialog button,.manager button{min-height:40px}}

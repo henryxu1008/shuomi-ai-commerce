@@ -34,6 +34,9 @@ export function WorkspaceAppShell({ children, dataServicesAvailable = false, rep
     "/workbench/account/referrals/withdrawals",
     "/workbench/account/profile/verification",
     "/workbench/notifications",
+    "/workbench/agents/skills",
+    "/workbench/agents/skills/official",
+    "/workbench/agents/skills/mine",
   ].includes(pathname) || /^\/workbench\/notifications\/(official|business)\/[A-Za-z0-9_-]{1,2048}$/.test(pathname);
   const isBrowserCaptureRoute = pathname === "/capture/1688";
   const marketOperatorRoute = pathname === "/workbench/supply/operator" || pathname.startsWith("/workbench/supply/operator/") && isAcquisitionUUID(pathname.slice("/workbench/supply/operator/".length));
