@@ -1,6 +1,7 @@
 "use client";
 import {ShopDiagnosisFlow} from "./shop-diagnosis-flow";
 import Link from "next/link";
+import { AgentMarket } from "./agent-market";
 import {ProductSelectionFlow} from "./product-selection-flow";
 import {PODArtworkFlow} from "./pod-artwork-flow";
 import { useEffect, useRef, useState } from "react";
@@ -351,7 +352,7 @@ function ScopedPage({
           当前企业 · {organization}。
           {mode === "mine"
             ? "管理企业智能体，查看配置状态和本人最近任务。"
-            : "选择适合业务场景的智能体，显式启用到当前企业。"}
+            : "按业务分类查找智能体，在我的智能体中启用与配置。"}
         </>
       }
       breadcrumbs={[
@@ -763,6 +764,8 @@ function ScopedPage({
             )}
           </Card>}
         </>
+      ) : mode === "market" ? (
+        <AgentMarket entries={entries} />
       ) : (
         <>
           {mode === "mine" && (
@@ -787,10 +790,10 @@ function ScopedPage({
             </div>
           )}
           <div
-            className={mode === "market" ? styles.marketGrid : styles.mineGrid}
+            className={styles.mineGrid}
           >
             <div
-              className={mode === "market" ? styles.cards : styles.mineCards}
+              className={styles.mineCards}
             >
               {entries.length ? (
                 entries.map(entry => ["product.title.agent", "product.content.agent"].includes(entry.agent.agentId)
@@ -826,7 +829,7 @@ function ScopedPage({
           busy={busy}
           onCancel={() => setDisable(null)}
           onConfirm={() =>
-            mutate(`${agentId}/disable`, {}, disable.agent.revision)
+            mutate(`${disable.agent.agentId}/disable`, {}, disable.agent.revision)
           }
         />
       )}
