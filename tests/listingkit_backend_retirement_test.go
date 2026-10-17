@@ -54,6 +54,7 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/temu/filter/rule_handler.go", "internal/temu/filter/rule_manager.go", "internal/temu/filter/rule_stats_provider.go",
 		"internal/temu/product/filter_checker.go", "internal/temu/rules/rule_validator.go", "internal/temu/rules/rule_validator_test.go",
 		"internal/temu/handlerbase/fulfillment_checker.go", "internal/temu/handlerbase/filter_types.go",
+		"internal/temu/store", "internal/temu/handlerbase/init_handler.go",
 		"internal/shein/pricing/auto_pricing.go", "internal/shein/pricing/pricing_evaluator.go",
 		"internal/shein/pricing/pricing_calculator.go", "internal/shein/pricing/pricing_builder.go",
 		"internal/shein/pricing/time_helper.go", "internal/shein/pricing/auto_pricing_repo_test.go",
@@ -158,10 +159,28 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			"type OutGoodsSnCheckResult struct", "type OutSkuSnFailItem struct",
 		},
 		"internal/temu/context/temu_context.go": {
-			"type TemuTaskContext struct", "type PublishState struct", "PriceQueryResponse", "TemuProduct",
+			"type TemuTaskContext struct", "type PublishState struct", "PriceQueryResponse", "TemuProduct", "StoreInfo",
 			"RuntimeState", "ProductState", "TemplateState", "AssetState", "VariantState", "RuleState", "AISkuMapping",
 			"SetAPIClients", "AttachRuntime", "SetAmazonProduct", "SetVariants", "SetTemuProduct",
 		},
+		"internal/temu/context/sku_runtime_input.go": {"type SKUBuildRuntime struct", "func BuildSKUBuildRuntime(", "StoreInfo"},
+		"internal/temu/handlerbase/base_handler.go":  {"type BaseTemuHandler struct", "func NewBaseTemuHandler(", "func (h *BaseTemuHandler) GetTemuContext("},
+		"internal/temu/handlerbase/temu_handler.go":  {"type TemuHandler interface"},
+		"internal/temu/api/client/client.go": {
+			"func NewAPIClient(", "func (c *APIClient) initializeMallID(",
+			"func (c *APIClient) GetMallID(", "func (c *APIClient) SetMallID(", ".UpdateStoreId(",
+		},
+		"internal/temu/api/client/interfaces.go":     {"type StoreRuntime interface", "GetStoreAPI("},
+		"internal/temu/api/client/cookie_manager.go": {"type CookieManager struct"},
+		"internal/temu/api/product/goods_types.go":   {"type Product struct", "type GoodsBasicInfo struct", "type ServicePromise struct", "type ExtraInfo struct"},
+		"internal/shared/ptr/pointer.go":             {"func BoolPtr("},
+		"internal/listingadmin/gorm_store_api.go":    {"func NewGormStoreAPI(", "func (a gormStoreAPI) GetStore(", "func (a gormStoreAPI) UpdateStoreId(", "func (a gormStoreAPI) UpdateStoreStatus("},
+		"internal/listingadmin/store_repository.go":  {"type GormStoreRepository struct", "func (r *GormStoreRepository) GetStore("},
+		"internal/storecenter/gorm_repository.go":    {"type GormStoreRepository struct"},
+		"internal/shein/store/store_info.go":         {"type StoreInfoHandler struct", "func NewStoreInfoHandler(", "func GetStoreCacheStats("},
+		"internal/shein/store/store_id.go":           {"type StoreIDHandler struct", "func NewStoreIDHandler(", "func GetInstanceID("},
+		"internal/amazon/pipeline/store_info.go":     {"type StoreInfoHandler struct", "func NewStoreInfoHandler("},
+		"internal/pkg/appenv/apputil.go":             {"func GetInstanceID("},
 		"internal/marketplace/temu/publishing/submission_validation_policy.go": {
 			"func validateSubmissionSpecs(", "func validateSubmissionPackaging(",
 		},
@@ -221,6 +240,7 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/listingadmin/management_api_types.go": {
 			"type ProductImportMappingAPI interface", "CheckProductExists(",
 			"type FilterRuleAPI interface", "type FilterRuleReqDTO struct", "type FilterRuleRespDTO struct", "ToFilterRule(",
+			"type StoreAPI interface", "type StoreRespDTO struct", "type StoreIdUpdateReqDTO struct", "type StoreStatusUpdateReqDTO struct",
 		},
 		"internal/shein/publish/exists_check.go": {"type ProductExistsCheckHandler struct", "func NewProductExistsCheckHandler("},
 		"internal/temu/api/inventory/inventory.go": {
@@ -312,7 +332,12 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 				return err
 			}
 			ast.Inspect(file, func(node ast.Node) bool {
-				if ident, ok := node.(*ast.Ident); ok && retiredTEMUSymbols[ident.Name] {
+				ident, ok := node.(*ast.Ident)
+				if !ok {
+					return true
+				}
+				retiredInit := pkg == "handlerbase" && (ident.Name == "InitDataHandler" || ident.Name == "NewInitDataHandler")
+				if retiredTEMUSymbols[ident.Name] || retiredInit {
 					t.Errorf("%s must not recreate retired TEMU Task orchestration %q", path, ident.Name)
 				}
 				return true
@@ -529,7 +554,7 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 				t.Fatalf("go list current command: %v\n%s", err, output)
 			}
 			for _, dependency := range strings.Fields(string(output)) {
-				for _, retired := range []string{"task-processor/internal/shein/inventory", "task-processor/internal/temu/sync", "task-processor/internal/temu/bulkrelist", "task-processor/internal/app/bootstrap", "task-processor/internal/app/consumer", "task-processor/internal/app/runner", "task-processor/internal/app/scheduler", "task-processor/internal/app/runtime/listingcontrol", "task-processor/internal/app/runtime/sheinplatformrecovery", "task-processor/internal/listingcontrol", "task-processor/internal/app/task", "task-processor/internal/app/taskstatus", "task-processor/internal/processor", "task-processor/internal/app/crawler/distributed", "task-processor/internal/listingruntime/local", "task-processor/internal/platforms", "task-processor/internal/listingkit", "task-processor/internal/tenantbridge", "task-processor/internal/compatibility", "task-processor/internal/sourceaccount", "task-processor/internal/integration/persistence/sourceaccount/ownershipmigration"} {
+				for _, retired := range []string{"task-processor/internal/shein/inventory", "task-processor/internal/temu/sync", "task-processor/internal/temu/bulkrelist", "task-processor/internal/temu/store", "task-processor/internal/app/bootstrap", "task-processor/internal/app/consumer", "task-processor/internal/app/runner", "task-processor/internal/app/scheduler", "task-processor/internal/app/runtime/listingcontrol", "task-processor/internal/app/runtime/sheinplatformrecovery", "task-processor/internal/listingcontrol", "task-processor/internal/app/task", "task-processor/internal/app/taskstatus", "task-processor/internal/processor", "task-processor/internal/app/crawler/distributed", "task-processor/internal/listingruntime/local", "task-processor/internal/platforms", "task-processor/internal/listingkit", "task-processor/internal/tenantbridge", "task-processor/internal/compatibility", "task-processor/internal/sourceaccount", "task-processor/internal/integration/persistence/sourceaccount/ownershipmigration"} {
 					if dependency == retired || strings.HasPrefix(dependency, retired+"/") {
 						t.Errorf("%s still compiles retired business dependency %s", command, dependency)
 					}

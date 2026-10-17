@@ -1,5 +1,13 @@
 # Phase 2 runtime convergence inventory
 
+> #760 bounded calibration: the exclusive TEMU StoreInfo/StoreID/InitData handlers
+> and numeric cache/helpers are source-retired. Only core/logger -> temu/store
+> leaves the current consumer register. The retained BaseTemuHandler still consumes
+> core/logger, so its handlerbase row stays. Store/API/Cookie/context/SKU owners and
+> independent SHEIN login/Store sync remain; original product/store import coverage,
+> dated inventories, ceilings and workflows stay unchanged. No runtime/data action
+> or new trial prerequisite.
+
 > #754 bounded calibration: nine exclusive TEMU filter/AI preflight and rule-wrapper
 > production files, one obsolete Task test and mixed input's exclusive helper are
 > source-retired. Shared rules/status/API/repository, AIBatchInput/methods and SKU
@@ -339,7 +347,6 @@ internal wiring is intentionally excluded; no other package class is excluded.
 | `task-processor/internal/core/logger` | `task-processor/internal/temu/rules` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/core/logger` | `task-processor/internal/temu/sku` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/core/logger` | `task-processor/internal/temu/spec` | marketplace business consumer | marketplace owner / Phase 4 |
-| `task-processor/internal/core/logger` | `task-processor/internal/temu/store` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/core/logger` | `task-processor/internal/temu/template` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/platform/logging` | `task-processor/internal/core/config` | application schema | owning domains / Phases 3-7 |
 | `task-processor/internal/platform/logging` | `task-processor/internal/core/logger` | compatibility facade | owning domains / Phases 3-8 |

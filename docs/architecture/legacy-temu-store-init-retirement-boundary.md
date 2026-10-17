@@ -2,16 +2,16 @@
 
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
-- Status: **DESIGN_ONLY / AWAITING_USER_CONFIRMATION**。当前仅交付设计，三个目标生产文件仍在；没有实施、合并或真实操作授权。
-- 调查基线：`main @ 59dc134e3a407a8697a96084d318b411aa4c0441`。已包含 #754 的筛选/AI 前置闭包退休；准确设计 HEAD、CI、独立检查与用户决定维护于 PR，不在本文滚动。
-- 当前 **Design Basis: N/A**：仅文档及只读消费者/合同映射。用户确认冻结矩阵后，未来实施拟采用 §2 的 **Reuse Existing Architecture / Ready**。
+- Status: **USER_CONFIRMED / SOURCE_RETIRED**。用户在当前会话明确“确认设计”，批准冻结设计 `fe3ce75634c487f73bb4c32adf91736fb7943eb9` 的 §5、§6、§6.1、§7；三个目标生产文件及专属缓存/helper 已按矩阵退出。合并和真实操作仍须单独授权。
+- 调查与实施开工基线：`main @ 59dc134e3a407a8697a96084d318b411aa4c0441`，已包含 #754 的筛选/AI 前置闭包退休；实施前同步 main 无增量。准确实现 HEAD、CI、独立最终检查与用户决定维护于 PR，不在本文滚动；旧设计 CI/review 仅历史证据。
+- 当前 **Design Basis: Reuse Existing Architecture**：用户确认后，生产修改前已在 #29/#301 登记 **Ready**、冻结依据与唯一 Writer，再转入实施；原设计期 N/A 仅覆盖当时的文档/只读映射。
 - 保留此前全部约定能力：当前 Store、平台 API/同名 DTO、有效规则/共享合同、两种 SHEIN 属性、PriceManager/PriceCalculator、Reader/Cache/Mapping、AIBatchInput/现有 SKU 映射、当前采集/Store 观察及独立 SHEIN 登录 worker/Store sync。两套及其它 workflow、必需/安全检查、保护/ceiling 不改，不操作实例或数据，不增加试用前置。
 
 ## 1. 用户结果、范围与非目标
 
-使用者是维护当前内部试用、采集和 Store 能力的维护者。交付为旧 Task 店铺上下文与商品初始化阶段的实际消费者、事实/副作用 owner、有效行为、精确删除/保留和验证矩阵，防止数字店铺缓存、旧 Task 默认值或告警被误接为当前 Store/平台规则。没有当前用户操作被本设计阻塞，不将本维护变成内部试用前置。
+使用者是维护当前内部试用、采集和 Store 能力的维护者。交付为旧 Task 店铺上下文与商品初始化专属闭包的源码退休，按以下矩阵保留有效行为和事实/副作用 owner，防止数字店铺缓存、旧 Task 默认值或告警被误接为当前 Store/平台规则。当前用户入口不变，不将本维护变成内部试用前置。
 
-范围只有 `internal/temu/store/id_handler.go`（106 行）、`store/info_handler.go`（152 行）、`handlerbase/init_handler.go`（114 行），共 **3 个生产文件 / 372 行**，以及前两个文件内部独占的缓存、统计和主机名 helper。`internal/temu/store` 当前恰好只有上述两文件，没有专属测试；其余 `handlerbase` 是混合保留包。
+范围只有 `internal/temu/store/id_handler.go`（106 行）、`store/info_handler.go`（152 行）、`handlerbase/init_handler.go`（114 行），共 **3 个生产文件 / 372 行**，以及前两个文件内部独占的缓存、统计和主机名 helper。删除前 `internal/temu/store` 恰好只有上述两文件，没有专属测试；其余 `handlerbase` 是混合保留包。
 
 不退休同名 SHEIN/Amazon handler、appenv.GetInstanceID、当前 Store Center、listingadmin Store API/DTO/仓库、TEMU APIClient/Cookie/MallID、平台 Product DTO、混合 context、SKU/runtime/builder、template/category/image/SPU 及有效共享规则。不新增缓存/IAM/Store 身份系统、Product factory、站点/认证/发货策略、provider 调用、runner 或验收工具。
 
@@ -26,7 +26,7 @@ Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](htt
 - [当前 Store Center](store-center-current-application-v1.md)、[观察同步](store-center-platform-observations-v1.md)、[准备接线](store-observations-preparation-runtime.md)、[独立 worker 身份/持久化](shein-worker-identity-persistence-boundary.md)：当前 Organization Store 与保留数字登录运行态不互相代替事实源；身份、权限、租户、同步/恢复 owner 保持原合同。
 - [TEMU publishing](../../internal/marketplace/temu/publishing/README.md)、原 API/DTO、listingadmin Store 合同、共享 ptr、mixed context 和 SKU owner：有效行为保持原实现。Figma N/A，无 UI/IA 修改。
 
-当前 N/A 仅覆盖本文与架构索引。未来实施拟采用 **Reuse Existing Architecture**：用户明确确认 §5、§6、§6.1、§7 后，在 #29/#301 记录冻结依据、用户结果、上述引用、原 owner/调用路径、不变量、验证、唯一 Writer 和 **Ready**，才删除这三个文件/专属 helper 并校准原登记。不新增生产函数/公共合同/入口、事实/schema、身份/权限/tenant、状态机/事务、幂等、retry/UNKNOWN/recovery 或外部副作用 owner；若实际需要改变这些边界，停止对应实现并补适用 Independent Architecture 准入。
+实施采用 **Reuse Existing Architecture**：用户明确确认 §5、§6、§6.1、§7 后，已在 #29/#301 记录冻结依据、用户结果、上述引用、原 owner/调用路径、不变量、验证、唯一 Writer 和 **Ready**，再删除这三个文件/专属 helper 并校准原登记。不新增生产函数/公共合同/入口、事实/schema、身份/权限/tenant、状态机/事务、幂等、retry/UNKNOWN/recovery 或外部副作用 owner；若实际需要改变这些边界，停止对应实现并补适用 Independent Architecture 准入。
 
 Must：本文件保留项、原事实/规则/授权/凭据/恢复及 worker Store sync 不减，两套及其它 workflow/必需和安全检查/保护/ceiling 不改。Should：源码、原 guard、当前登记及直接冲突说明一致。Out of Scope 如 §1；无新增 Accepted Risk。Threat Model 限误删仍消费的 Store/API/context、将数字缓存当当前租户授权、将旧硬编码值抽成当前平台规则、混淆真实持久化/副作用 owner、复活旧入口及误报运行态清零。
 
@@ -34,7 +34,7 @@ Must：本文件保留项、原事实/规则/授权/凭据/恢复及 worker Stor
 
 ## 3. 实际消费者、注入与调用
 
-基线全仓 Go 搜索：三个 TEMU 类型/constructor 只有各自定义和 receiver 内部引用，无外部构造、直接实例化、注册接线，也没有 `task-processor/internal/temu/store` 的 Go import。`go list ./cmd/...` 共 **31 个当前命令**；依赖并集中的旧 `temu/store`、`temu/handlerbase`、`temu/context` 均为 **0**。未运行 main；这是源码/静态图证据，不是实例或产品验收。
+删除前基线全仓 Go 搜索：三个 TEMU 类型/constructor 只有各自定义和 receiver 内部引用，无外部构造、直接实例化、注册接线，也没有 `task-processor/internal/temu/store` 的 Go import。`go list ./cmd/...` 共 **31 个当前命令**；依赖并集中的旧 `temu/store`、`temu/handlerbase`、`temu/context` 均为 **0**。下表及 §4.1 的退休对象行为是删除前取证，保留实现未变。未运行 main；这是源码/静态图证据，不是实例或产品验收。
 
 | 合同 → 实现 | 注入与调用 | 决策 |
 | --- | --- | --- |
@@ -75,7 +75,7 @@ Must：本文件保留项、原事实/规则/授权/凭据/恢复及 worker Stor
 
 ## 5. 精确删除与保留矩阵
 
-以下是**未来拟实施范围，当前尚未删除**。
+以下是**用户确认后已实施的精确矩阵**。
 
 | 对象 | 决策 | 删除/保留条件 |
 | --- | --- | --- |
@@ -95,9 +95,9 @@ Cutover/deletion condition: 用户确认冻结 §5/§6/§6.1/§7、Issue Reuse E
 
 ## 6. 验证与交付
 
-当前设计只提交本文与架构索引，执行 diff/相对链接、源码/31命令图、原适用 PR CI 和一次准确设计 HEAD 独立检查；不改生产代码/测试，不为文档制造 RED，不人工重复完整 CI。设计结果不代表实施、实例/provider 或用户验收 PASS。
+设计阶段只提交本文与架构索引；设计结果不代表实施、实例/provider 或用户验收 PASS。用户确认后已扩展原退休 guard，在目标源码仍存在时确认 RED，再按 §5 精确删除后 GREEN；两条对应 import 豁免、原子树扫描与当前登记/说明按 §6.1 校准。准确实现 HEAD 的回归、CI 和独立最终检查证据维护于 PR，不人工重复完整 CI。
 
-未来确认后的最小实施检查：
+用户确认后的最小实施检查：
 
 1. 刷新三个类型/constructor、store import/全部 helper 与 mixed context 消费者及当前命令图；发现新调用或当前兼容义务停止对应删除并报告。
 2. 扩展原 TestListingKitTaskBackendSourcesAreRetired：整个 temu/store 路径和 init_handler.go 缺席；仅在 handlerbase 范围用原 AST 能力阻止 InitDataHandler/NewInitDataHandler 复活。保留原全部断言；不得全仓禁止通用 StoreInfoHandler/GetInstanceID/cache 名称。源码仍在时先 RED，再按 §5 精确删除 GREEN。
@@ -107,7 +107,7 @@ Cutover/deletion condition: 用户确认冻结 §5/§6/§6.1/§7、Issue Reuse E
 
 ### 6.1 原 guard、登记、文档与 workflow 精确处置
 
-| 工件 | 未来拟改动 | 保留边界 |
+| 工件 | 本次改动 | 保留边界 |
 | --- | --- | --- |
 | tests/listingkit_backend_retirement_test.go | 原 guard 增加专属包/文件/准确符号缺席及 §6 保留断言；原命令依赖检查增加 temu/store 前缀 | 不禁 handlerbase 整包；当前 worker/采集/平台/安全/并发检查继续保留，不新建通用工具 |
 | tests/import_boundaries_test.go 的 TestTEMUProductStoreAndSchedulerRetiredManagementImportsStayBlocked | 精确删 id_handler.go/info_handler.go 两条对应豁免，保留 build_spu_handler.go/price_handler.go/spu_builder.go 三条。loadGoFileIndex 在根不存在时报错；改用稳定 temu 父目录索引，按**原 product/store 两棵子树**精确过滤，仍检查这两棵子树的全部Go源 | 不删整个 store 扫描覆盖，不因路径消失加 os.IsNotExist/skip 或放宽通用 helper；复活 store 仍受原 management deny 检查。其它扫描/roots/deny/ceiling 不动 |
@@ -119,8 +119,8 @@ Cutover/deletion condition: 用户确认冻结 §5/§6/§6.1/§7、Issue Reuse E
 
 ## 7. 确认与实施停止点
 
-1. 本轮仅设计，一个 Draft PR 维护 §5/§6/§6.1、准确设计 HEAD CI 和独立检查；#29/#301 保持 OPEN，原正文历史保留。
-2. **用户明确确认冻结 §5、§6、§6.1、§7 后**，才在同一分支/PR 登记 Reuse Existing Architecture / Ready、冻结依据/确认、唯一 Writer 与 §2 不变量，进入正式实施。本次“可以”只批准设计。
+1. #760 先以 Draft PR 交付设计、准确设计 HEAD CI 和独立检查；#29/#301 保持 OPEN，原正文历史保留。旧设计证据不替代实施结果。
+2. **用户已明确确认冻结 §5、§6、§6.1、§7**，在同一分支/PR 继续；生产修改前登记 Reuse Existing Architecture / Ready、冻结依据/确认、唯一 Writer 与 §2 不变量。设计确认授权上述有界实施，不代替准确最终 HEAD 的合并授权。
 3. 获准实施时同步一次实际 main，最终候选前再次核对，只处理真实组合风险。新消费者/具体兼容义务，或合同/身份/权限/持久化/状态/副作用边界变化，停止相应项并报告，不自行扩删或补 wrapper。
 4. 原 guard RED→GREEN、精确删除/登记校准、保留回归、准确实现 HEAD CI/最终检查后交付 In Review；不以反复审核未变代码扩大流程，也不把源码退出当真实运行态验收。
 5. 合并仍需用户准确最终 HEAD 单独授权、正常 expected-head/保护，无管理员绕过。设计/实施都不授权 Issue 关闭、部署、真实 provider/实例/凭据/数据操作，不增加内部试用前置。

@@ -2,6 +2,16 @@
 
 > Status: Active legacy handling register
 
+> #29 / #301 [TEMU Store/context initialization retirement](../architecture/legacy-temu-store-init-retirement-boundary.md)
+> follows user-confirmed design `fe3ce7563` in #760. The three unconstructed
+> StoreInfo/StoreID/InitData handlers and exclusive numeric cache/statistics/hostname
+> helpers are source-retired. Current Store Center, retained listingadmin Store
+> API/DTO/repository, real APIClient Cookie/MallID effects, platform Product DTOs,
+> mixed context/SKU and the other handlerbase contracts keep their original owners.
+> No replacement cache, identity/default rule or Product factory is introduced.
+> Acquisition/Store observations and independent SHEIN login/Store sync remain;
+> workflows/ceilings are unchanged, with no runtime/data action or trial prerequisite.
+
 > #29 / #301 [TEMU filter/AI preflight retirement](../architecture/legacy-temu-filter-mapping-retirement-boundary.md)
 > follows user-confirmed design `0d8bc3785` in #754. Nine exclusive orchestration,
 > rule-wrapper/result files, one obsolete source-image Task test and the mixed
