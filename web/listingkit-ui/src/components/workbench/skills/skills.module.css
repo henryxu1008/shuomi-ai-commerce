@@ -2,10 +2,10 @@
 .dialog::backdrop{background:rgb(0 0 0 / .5)}
 .manager{padding:24px;border:1px solid var(--border);border-radius:var(--radius);background:var(--card);color:var(--foreground);overflow-wrap:anywhere}
 .manager h2,.manager h3{font-weight:600;margin:12px 0}.manager p{margin:10px 0;color:var(--muted-foreground)}
-.categories{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
-.categories a{display:flex;flex-direction:column;gap:6px;min-width:0;min-height:82px;padding:16px;border:1px solid var(--intro-border);border-radius:12px;background:var(--intro-surface);color:var(--intro-muted);font-size:12px;line-height:20px;text-decoration:none}
-.categories a[aria-current=page]{background:var(--intro-teal-fill);border-color:var(--intro-teal)}
-.categories a:hover{border-color:var(--intro-teal)}
+.categories{display:flex;align-items:center;gap:4px;border-bottom:1px solid var(--intro-border)}
+.categories a{display:flex;align-items:center;justify-content:center;flex:0 0 120px;min-width:0;min-height:44px;margin-bottom:-1px;padding:10px 16px;border-bottom:2px solid transparent;border-radius:8px 8px 0 0;color:var(--intro-muted);font-size:14px;line-height:22px;font-weight:700;white-space:nowrap;text-decoration:none}
+.categories a[aria-current=page]{background:var(--intro-teal-fill);border-bottom-color:var(--intro-teal);color:var(--intro-teal)}
+.categories a:hover{color:var(--intro-teal)}
 .categories a:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
 .dialog>header{justify-content:space-between;align-items:flex-start;flex-wrap:nowrap}.dialog>header>div{min-width:0}.dialog>header>button{flex-shrink:0}
 .dialog h2,.dialog h3{font-weight:600;margin:12px 0}.dialog p{margin:10px 0;color:var(--muted-foreground)}
@@ -22,9 +22,6 @@
 .libraryPage :global(.console-page-header) h1{font-size:27px;line-height:34px;font-weight:700}
 .libraryPage :global(.console-description){margin-top:6px;color:var(--intro-muted);font-size:13px;line-height:22px}
 .organization{display:block;font-size:12px}
-.categoryHeading{display:flex;align-items:center;gap:10px;min-height:27px}
-.categoryHeading>span{width:26px;color:var(--intro-teal);font-size:12px}
-.categoryHeading strong{color:var(--intro-text);font-size:18px;line-height:27px;font-weight:700}
 .pageManager{border-color:var(--intro-border);border-radius:12px;background:var(--intro-surface);color:var(--intro-text);min-width:0}
 .pageToolbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px}
 .pageToolbar>div{min-width:0}
@@ -52,5 +49,5 @@
 .notes>div{display:flex;flex-direction:column;gap:8px;min-width:0;min-height:116px;padding:16px;border:1px solid var(--intro-border);border-radius:12px;background:var(--intro-surface);box-shadow:none}
 .notes h2{margin:0;font-size:15px;line-height:24px;font-weight:700}
 .notes p{margin:0;color:var(--intro-muted);font-size:13px;line-height:22px}
-@media(max-width:800px){.categories{gap:12px}.notes{grid-template-columns:1fr;gap:12px}.pageToolbar{align-items:flex-start}}
-@media(max-width:600px){.libraryPage.libraryPage{padding:20px 16px 32px;gap:16px}.categories{grid-template-columns:1fr}.categories a{min-height:0;padding:12px 16px}.pageManager{padding:16px}.pageToolbar,.toolbarActions{width:100%}.toolbarActions button{white-space:normal;height:auto;min-height:40px}.pageManager>.list button{grid-template-columns:minmax(0,1fr)}.versionAction{grid-row:4}.empty{padding:24px 8px}.notes>div{min-height:0}}
+@media(max-width:800px){.notes{grid-template-columns:1fr;gap:12px}.pageToolbar{align-items:flex-start}}
+@media(max-width:600px){.libraryPage.libraryPage{padding:20px 16px 32px;gap:16px}.categories a{flex:1;padding:10px 8px}.pageManager{padding:16px}.pageToolbar,.toolbarActions{width:100%}.toolbarActions button{white-space:normal;height:auto;min-height:40px}.pageManager>.list button{grid-template-columns:minmax(0,1fr)}.versionAction{grid-row:4}.empty{padding:24px 8px}.notes>div{min-height:0}}
