@@ -2,9 +2,9 @@
 
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
-- Status: **DESIGN_ONLY / AWAITING_USER_CONFIRMATION**。用户仅授权设计；本文不代表四文件或 helper 已退休，不授权实施、合并或真实操作。
-- 调查基线：`main @ b296819751ca8a6b8e20344eb8f21b34bfc5c640`（#750 已合并）。准确设计 HEAD、适用 CI、独立检查和用户决定维护于 PR。
-- 当前 **Design Basis: N/A**：只读源码映射与文档，不改变业务路径。未来按 §2 满足 **Reuse Existing Architecture / Ready** 后才可实施。
+- Status: **USER_CONFIRMED / SOURCE_RETIRED**。用户已确认 #751 冻结设计 `70c60af893aee799f4618190f7ca99e8830676ac` 的 §5、§6、§6.1、§7 并授权同一 PR 实施；四文件与专属 helper 已源码退休。准确实现 HEAD、适用 CI、独立最终检查及合并决定维护于 PR，不在本文滚动。
+- 调查基线：`main @ b296819751ca8a6b8e20344eb8f21b34bfc5c640`；实施开工同步 `main @ ac7957b81d10f7849c7912b3f5aa0563065c6e1d`。#752 的模型证据读取/TLS 改动不重叠本轮删除范围。
+- 当前 **Design Basis: Reuse Existing Architecture；Admission: Ready**。生产修改前已在 #29/#301 登记并读回；原设计 N/A、CI/复核只是历史设计证据，不代替实施验证或授权合并/真实操作。
 - 保留当前采集、Store 观察同步、有效平台 API/DTO、规则与共享合同、两种 SHEIN 属性、PriceManager/PriceCalculator、独立 SHEIN 登录 worker 及其 Store 同步。两套及其它 workflow、必需/安全检查、保护/ceiling 零改动；不操作实例或数据，不增加内部试用前置。
 
 ## 1. 用户结果、范围与非目标
@@ -26,7 +26,7 @@ Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](htt
 - [TEMU publishing owner](../../internal/marketplace/temu/publishing/README.md)：平台规则和 payload shaping 继续归原 owner；已有 `internal/shared/strx.CleanProductTitle` 复用原实现，不在旧 Task 外再包装或复制一份算法。
 - [独立 worker 身份/持久化](shein-worker-identity-persistence-boundary.md)、[当前 Store](store-center-current-application-v1.md)、[observations](store-center-platform-observations-v1.md)、[准备接线](store-observations-preparation-runtime.md)、[当前 SHEIN](my-supply-chain-shein-v1.md)：当前事实、身份、授权与 retry/UNKNOWN 不转交。Figma N/A，无 UI/IA 修改。
 
-当前 N/A 仅覆盖本文与架构索引。未来实施拟采用 **Reuse Existing Architecture**：在用户确认 §5、§6、§6.1、§7 后，于 #29/#301 写明冻结设计、用户结果、上述引用、原 owner/调用路径、不变量、验证、唯一 Writer 及 **Ready**，再删除无装配消费者的四文件与专属函数。不新增函数/类型/公共接口或当前入口；既有标题清理已有正确共享 owner，无须新增 EXTRACT 实现。
+原设计 N/A 仅覆盖文档调查。本次实施采用 **Reuse Existing Architecture**：用户已确认冻结 §5、§6、§6.1、§7；生产修改前 #29/#301 已写明冻结设计、用户结果、上述引用、原 owner/调用路径、不变量、验证、唯一 Writer 及 **Ready**。仅删除无装配消费者的四文件与专属函数，不新增生产函数/类型/公共接口或当前入口；既有标题清理已有正确共享 owner，无须新增 EXTRACT 实现。
 
 Must：§5 保留能力不减；当前 tenant/权限/凭据、共享来源字段、平台/Store/持久化合同及必需/安全检查不变；不改变事实/schema、状态机、事务、幂等或 retry/UNKNOWN/recovery owner。Should：原 guard 与当前源码盘点一致。Out of Scope 如 §1；无新增 Accepted Risk。Threat Model 限误删有效规则/同名共享类型、混淆缓存和 Product fact owner、复活旧 Task，以及把源码退出误写为运行态验收。
 
@@ -34,7 +34,7 @@ Must：§5 保留能力不减；当前 tenant/权限/凭据、共享来源字段
 
 ## 3. 实际消费者、注入与调用路径
 
-全仓 Go 搜索中，四个目标类型/构造器仅在各自文件内定义和使用，无外部构造、直接实例化、注册或装配调用。`go list ./cmd/...` 共 **31 个当前命令**；其 `go list -deps -f '{{.ImportPath}}' ./cmd/...` 依赖并集中 `internal/temu/sku` 命中 **0**。未运行 main；这是源码/静态图证据，不是运行态或真实平台验收。
+基线全仓 Go 搜索中，四个目标类型/构造器仅在各自文件内定义和使用，无外部构造、直接实例化、注册或装配调用。`go list ./cmd/...` 共 **31 个当前命令**；其 `go list -deps -f '{{.ImportPath}}' ./cmd/...` 依赖并集中 `internal/temu/sku` 命中 **0**，实施刷新结果相同。未运行 main；这是源码/静态图证据，不是运行态或真实平台验收。
 
 | 合同 → 实现 | 实际路径与消费者 | 处置 |
 | --- | --- | --- |
@@ -66,7 +66,7 @@ Must：§5 保留能力不减；当前 tenant/权限/凭据、共享来源字段
 
 ## 5. 精确删除与有效规则保留矩阵
 
-以下是**拟实施范围**，当前尚未删除。
+以下为用户已确认的精确矩阵，**四文件与混合文件的单个专属函数已源码退休**。基线调用映射保留用于解释边界，不代表目标仍存在。
 
 | 对象 | 决策 | 删除/保留条件 |
 | --- | --- | --- |
@@ -83,13 +83,13 @@ Must：§5 保留能力不减；当前 tenant/权限/凭据、共享来源字段
 Legacy decision: **RETIRE 四个闲置旧 Task 组件和一个专属函数**。
 Reusable behavior: 标题清理、共享批量读取/缓存与 SKU 映射仍有价值，均已有正确 owner，保留原实现；不新增抽取函数或公共合同。
 Current owner: strx/现有 marketplace 文本规则、sourceproduct/fetcher/Raw JSON、SKU mapping、当前 Product/Store/worker 各保持原 owner。
-Cutover/deletion condition: 用户确认冻结矩阵、Issue 实施 Ready；刷新无新消费者，原 guard 先确认目标存在而 RED，再精确删除 GREEN，保留包编译与既有必要回归通过。源码删除不授权运行态或数据退出。
+Cutover/deletion condition: 用户确认冻结矩阵、Issue 实施 Ready 已满足；刷新无新消费者，原 guard 已先捕获目标存在而 RED，再精确删除 GREEN。保留包编译、既有必要回归、准确候选 CI 与最终检查按 §6 在 PR 记录。源码删除不授权运行态或数据退出。
 
 ## 6. 验证与交付
 
-当前设计阶段只交本文与架构索引；检查 diff/相对链接、静态消费者/命令图、原适用 PR CI 和准确设计 HEAD 的一次独立设计检查。设计 CI/review 不是未来实现或真实使用 PASS；不为文档制造 RED，不修改测试/guard。
+原设计阶段只提交本文与架构索引，其 diff/相对链接、静态消费者/命令图、原适用 PR CI 和一次独立设计检查是历史设计证据，不替代本次实现或真实使用 PASS。本次仅扩展原 guard 并精确删除，不新建验收流程或工具。
 
-未来获准实施后的最小验证：
+本次范围内的最小验证：
 
 1. 刷新四构造器、类型、专属 helper 与保留共享调用，复核 31 命令的实际依赖；如消费者变化，停止对应删除并报告。
 2. 扩展原退休 guard：四路径缺席、限定 `internal/temu/sku` 的四个准确类型/构造器及专属 helper 缺席。先确认现有源码使新增断言 RED，再删除 GREEN；通过原 Go AST 能力精确区分 VariantProcessor 与 SkuVariantProcessor，不能子串封禁或全仓禁止 SHEIN 同名类型。
@@ -99,17 +99,17 @@ Cutover/deletion condition: 用户确认冻结矩阵、Issue 实施 Ready；刷�
 
 ### 6.1 原 guard、文档和 workflow 精确处置
 
-| 工件 | 拟实施改动 | 保留边界 |
+| 工件 | 实施处置 | 保留边界 |
 | --- | --- | --- |
 | tests/listingkit_backend_retirement_test.go | 扩展原 TestListingKitTaskBackendSourcesAreRetired 的四路径/准确旧 SKU 符号缺席和 §5 保留项；复用现有 AST 能力 | 原 TestCurrentCommandsDoNotCompileLegacyBusinessBackends、独立 worker、安全断言保留，不 skip 缺文件或删原 gate |
-| tests/import_boundaries_test.go、integration_provider_logger_contract_test.go、.golangci.yml | 基线全仓核对未见四目标路径或专属 helper 的硬编码 allowlist，**无已确认需移除的条目** | 不类推上批 exists_check_handler 的 allowlist 删除；ai_mapping_handler 原豁免、其它 roots/deny/graph/ceiling 保留。实现刷新如发现漏项，先核对消失目标再精确处置 |
-| Legacy register、phase2-runtime-inventory 当前状态、本文/架构索引与直接当前说明 | 用户确认后校准四组件/专属函数 source-retired 和保留规则 owner | SKU 包仍有 logger/openai 源码消费者，不删除整个消费者行；历史清单/图/证据及 ceiling 不改，不提前写已退休 |
+| tests/import_boundaries_test.go、integration_provider_logger_contract_test.go、.golangci.yml | 基线与实施刷新均未见四目标路径或专属 helper 的硬编码 allowlist，**本轮零改动** | 不类推上批 exists_check_handler 的 allowlist 删除；ai_mapping_handler 原豁免、其它 roots/deny/graph/ceiling 保留，不臆造消失条目 |
+| Legacy register、phase2-runtime-inventory 当前状态、本文/架构索引与直接当前说明 | 按用户确认矩阵校准四组件/专属函数 source-retired 和保留规则 owner；前置设计的变体消费者说明标为其历史基线 | SKU 包仍有 logger/openai 源码消费者，不删除整个消费者行；历史清单/图/证据及 ceiling 不改，不将源码退出宣称为运行态清零 |
 | ci.yml / commercial-readiness.yml / 其它 workflow、保护规则 | **零改动** | 原必需/安全检查、race/编译目标、分类/触发/权限/并发及 Required CI Gate 保留；原 SKIPPED 不改写 PASS |
 
 ## 7. 确认与实施停止点
 
-1. 本轮仅设计；一个 Draft PR 交付 §5/§6/§6.1 矩阵、准确设计 HEAD CI 与独立检查。#29/#301 保持 OPEN，原正文历史保留。
-2. **用户明确确认设计后**，在同一分支/PR 继续；生产修改前更新 Issue Design Basis 为 Reuse Existing Architecture / Ready，引用冻结设计、确认记录、唯一 Writer 和 §2 不变量。本次“可以”仅授权设计，不能代替这一步。
-3. 获准实施时同步一次实际 main，形成最终候选前再核对一次，不持续机械 merge。仅解决真实组合风险；新消费者/公共合同/持久化/权限/状态/副作用变化停止对应项并报告，不擅自扩大删除。
+1. 原设计以一个 Draft PR 交付，准确设计 HEAD 的适用 CI 与独立检查通过；证据保持历史。#29/#301 保持 OPEN，原正文历史保留。
+2. **用户已确认冻结设计并授权在原分支/#751 继续实施**；生产修改前 Issue 已登记 Reuse Existing Architecture / Ready、冻结设计/确认记录、唯一 Writer 和 §2 不变量。此实施确认不授权合并、部署或真实操作。
+3. 开工已同步一次实际 main；形成最终候选前再核对一次，不持续机械 merge。仅解决真实组合风险；新消费者/公共合同/持久化/权限/状态/副作用变化停止对应项并报告，不擅自扩大删除。
 4. 按矩阵实施、原 guard RED→GREEN、必要保留回归、准确候选 CI 和独立最终检查后交付 **In Review / 待用户确认**。设计证据可追溯但不冒充实现证据；不用未变化代码重复审核扩展流程。
 5. 合并仍需准确 HEAD 的单独用户授权；遵守 expected-head 和保护，无管理员绕过。此设计/实施均不授权部署、Issue 关闭、真实平台/实例/凭据/数据操作，也不增加内部试用前置。

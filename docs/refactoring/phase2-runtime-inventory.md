@@ -1,5 +1,12 @@
 # Phase 2 runtime convergence inventory
 
+> #751 bounded calibration: four exclusive TEMU variant read/postprocess/cache
+> components and one ASIN-map helper are source-retired. Shared Reader/Cache,
+> title rules, SkuVariantProcessor and the mixed helper's other methods remain.
+> The SKU package still consumes logger/openai, so its current consumer rows stay;
+> dated inventories, ceilings and workflows are unchanged. No runtime/data action
+> or new trial prerequisite.
+
 > #750 bounded calibration: four exclusive TEMU preflight Task handlers are
 > source-retired after preserving two private SKU value rules in the existing
 > marketplace owner. Shared Reader/Cache/Mapping, APIs/DTOs, mixed context and

@@ -45,6 +45,8 @@ Must：有效 SKU 规则与 §5 保留项不减；当前权限/tenant/凭据、�
 
 混合包仍有源码消费者：`temu/sku/{builder,item_builder}.go`、`temu/filter/rule_handler.go` 使用 `temu/product`；多个 SKU/filter 文件使用 `temu/context`。`skugen.Generate` 仍被 TEMU SKU item builder、TEMU SPU builder、SHEIN SPU record 使用。共享 Reader/Cache 仍被 TEMU variant handlers、SHEIN productdata handlers 使用；这些是源码消费者，不据此宣称当前命令已装配全部旧 handler。
 
+上段 TEMU variant consumers 是 #750 调查基线；后续 [#751 已确认变体退休](legacy-temu-variant-retirement-boundary.md) 精确退休三个闲置 variant handler 与孤立 VariantProcessor/专属 helper。共享 Reader/Cache、SHEIN productdata、保留 SKU/规则与原持久化 owner 不随之删除，不据旧基线复活目标。
+
 `internal/shein/publish/exists_check.go` 有同名 ProductExistsCheckHandler，SHEIN publish checker 有另一条 runtime repository 查询路径；都不在此四文件闭包。禁止用全仓类型名或“查重/cache”关键词整删。独立 SHEIN 登录 worker 的原 service/bootstrap/StoreRepository/StoreAPI、账户/Redis/Profile/浏览器、健康/关闭与 Store sync 接线不改。
 
 ## 4. 持久化、身份与平台副作用 owner
