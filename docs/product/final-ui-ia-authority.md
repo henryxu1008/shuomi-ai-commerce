@@ -50,6 +50,12 @@
 9. 套餐与权益
 10. 我的账户
 
+### 2026-10-17 用户批准增量：技能库
+
+执行 [#756](https://github.com/qq550723504/task-processor/issues/756)，复用 [Skill V1](../architecture/skill-capability-v1.md) 合同。用户明确批准在「智能市场」下增加「技能库」，包含「官方模板」「我的技能」「团队技能」。根路径 `/workbench/agents/skills` 默认官方模板，三个分类路径分别为 `/official`、`/mine`、`/team`；侧栏、页内导航和面包屑保持一致。
+
+这是用户新批准的局部 Product Authority，不声称当前 Figma 已有对应节点；周边 Console 视觉/主题继续沿用当前 Figma。替代 #688 原「仅账户 Dialog、不新增二级菜单」的阶段入口约束，不替代 Skill 归属和权限。个人技能及官方模板按验证身份访问，团队技能按有效当前企业及既有权限管理；原账户/智能体配置的管理快捷入口及业务执行选择保留。官方目录没有模板或服务未就绪时如实展示，不新增公开/付费交易市场。
+
 当前设计中，历史「商品中心」已归档；不建立独立顶层 `Product Center` / `Listing Center` 作为最终 IA 前提。
 
 `ProductSnapshot`、Platform Draft、Listing、ApprovedAsset 等仍然可以并且应该作为稳定领域事实存在，但 **领域对象不等于顶层导航菜单**。
