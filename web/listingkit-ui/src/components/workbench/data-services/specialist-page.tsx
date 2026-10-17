@@ -36,7 +36,7 @@ export function SpecialistPage({ userId }: {
             setSelected(parsed.data);
         setRefresh(n => n + 1);
     }
-    return <main className="mx-auto max-w-6xl space-y-6 p-5 md:p-8"><header className="flex flex-wrap items-center justify-between gap-4"><div><h1 className="text-2xl font-semibold">数据集定制工作台</h1><p className="mt-2 text-sm text-muted-foreground">记录线下规格与报价确认、制作进度，并向原申请人交付数据。</p></div><Button variant="outline" onClick={() => setRefresh(n => n + 1)}>刷新</Button></header><DataNotice error={error || command.error}/>{command.pending ? <Card className="gap-3 border-amber-200 bg-amber-50 p-4"><p className="text-sm">原操作 {command.pending.key} 待核实，继续时保留原文件及条件。</p><Button disabled={command.busy} variant="outline" onClick={async () => {
+    return <main className="mx-auto max-w-6xl space-y-6 p-5 md:p-8"><header className="flex flex-wrap items-center justify-between gap-4"><div><h1 className="text-2xl font-semibold">数据集定制工作台</h1><p className="mt-2 text-sm text-muted-foreground">记录线下规格与报价确认、制作进度，并向原申请人交付数据。</p></div><Button variant="outline" onClick={() => setRefresh(n => n + 1)}>刷新</Button></header><DataNotice error={error || command.error}/>{command.pending ? <Card className="gap-3 border-warning-foreground bg-warning p-4"><p className="text-sm">原操作 {command.pending.key} 待核实，继续时保留原文件及条件。</p><Button disabled={command.busy} variant="outline" onClick={async () => {
                 const value = await command.recover();
                 if (value !== undefined)
                     received(value);

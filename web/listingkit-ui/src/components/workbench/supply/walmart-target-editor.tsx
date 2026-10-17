@@ -46,7 +46,7 @@ export function WalmartTargetEditor({scope,source,storeId,existing,command,disab
  return <div className="space-y-5"><DescriptionProjectionNote format={completion?.content.descriptionFormat??source.product.description_format}/>
   <p className="font-semibold">Walmart Marketplace · 美国站</p>
   <p className="text-sm text-muted-foreground">先选择匹配已有目录或提交新商品，保存后检查逐 SKU 资料，再在供应链明确批准刊登。匹配失败后需重新选择并批准新商品资料。</p>
-  {error?<p role="alert" className="rounded-lg bg-red-50 p-3 text-sm">{error}</p>:null}
+  {error?<p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm">{error}</p>:null}
   <label className="grid gap-1 text-sm">刊登方式<Select value={draft.selection.feedType} disabled={locked} onChange={e=>{setDraft(v=>({...v,selection:{feedType:e.target.value as WalmartDraftInput["selection"]["feedType"],version:"",productType:""},skus:v.skus.map(s=>({...s,visible:e.target.value==="MP_ITEM"?{productName:source.product.title??"",shortDescription:descriptionPlainText(source.product.description??"",source.product.description_format)}:undefined}))}));setCatalog(undefined);setRequirements(undefined);setAdopted(undefined);setAttributeErrors({})}}><option value="MP_ITEM_MATCH">匹配 Walmart 已有目录商品</option><option value="MP_ITEM">提交新商品资料（卖家配送）</option></Select></label>
   <Button variant="outline" disabled={locked} onClick={()=>void loadRules(true)}>读取当前可用类目</Button>
   {draft.selection.feedType==="MP_ITEM"?<label className="grid gap-1 text-sm">商品类型<Select value={draft.selection.productType} disabled={locked||!catalog} onChange={e=>{setDraft(v=>({...v,selection:{...v.selection,productType:e.target.value}}));setRequirements(undefined)}}><option value="">选择官方商品类型</option>{catalog?.productTypes.map(pt=><option key={pt} value={pt}>{pt}</option>)}</Select></label>:null}

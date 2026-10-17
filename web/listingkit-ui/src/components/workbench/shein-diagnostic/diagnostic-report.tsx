@@ -74,7 +74,7 @@ function CheckGroup({ title, checks, tone }: { title: string; checks: SheinDiagn
   return (
     <section aria-labelledby={id} className="min-w-0 rounded-lg border border-border bg-card p-5 shadow-sm sm:p-6">
       <h2 className="flex items-center gap-2 font-semibold" id={id}>
-        {tone !== "neutral" ? <AlertTriangle aria-hidden="true" className={`size-4 ${tone === "problem" ? "text-destructive" : "text-amber-700 dark:text-amber-300"}`} /> : null}
+        {tone !== "neutral" ? <AlertTriangle aria-hidden="true" className={`size-4 ${tone === "problem" ? "text-destructive" : "text-warning-foreground dark:text-warning-foreground"}`} /> : null}
         {title}（{checks.length}）
       </h2>
       {checks.length === 0 ? <p className="mt-3 text-sm text-muted-foreground">本次没有{title}项。</p> : (
