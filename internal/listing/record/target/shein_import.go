@@ -7,6 +7,7 @@ import (
 	"reflect"
 	sigjson "sigs.k8s.io/json"
 	"strconv"
+	"task-processor/internal/product/description"
 	"time"
 
 	"task-processor/internal/listing/completiondraft"
@@ -116,7 +117,7 @@ func deriveSheinDraft(base goods.OfficialDraftInput, candidate completiondraft.C
 		result.Product.Names = replaceEnglish(result.Product.Names, candidate.Title)
 	}
 	if selection.Description {
-		result.Product.Descriptions = replaceEnglish(result.Product.Descriptions, candidate.Description)
+		result.Product.Descriptions = replaceEnglish(result.Product.Descriptions, description.PlainText(candidate.Description, candidate.DescriptionFormat))
 	}
 	if len(selection.Attributes)+len(selection.SKUs) > 0 && candidate.Structured == nil {
 		return result, ErrConflict

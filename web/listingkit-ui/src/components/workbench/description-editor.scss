@@ -1,0 +1,94 @@
+@use "../../vendor/tiptap/styles/variables";
+
+/* Adapt the official Simple Editor to the existing form and Console theme.
+   The same scope includes Radix portals, which render outside the form. */
+.product-description-editor,
+.tiptap-popover,
+.tiptap-dropdown-menu,
+.tiptap-tooltip {
+  --tt-brand-color-400: var(--primary);
+  --tt-brand-color-500: var(--primary);
+  --tt-brand-color-600: var(--primary);
+  --tt-brand-color-100: var(--accent);
+  --tt-brand-color-200: var(--accent);
+  --tt-brand-color-800: var(--accent);
+  --tt-brand-color-900: var(--accent);
+  --tt-toolbar-bg-color: var(--card);
+  --tt-toolbar-border-color: var(--border);
+  --tt-bg-color: var(--card);
+  --tt-theme-text: var(--foreground);
+  --tt-card-bg-color: var(--popover);
+  --tiptap-card-bg-color: var(--popover);
+  --tiptap-card-border-color: var(--border);
+  --tiptap-card-group-label-color: var(--foreground);
+  --tt-popover-bg-color: var(--popover);
+  --tt-popover-text-color: var(--popover-foreground);
+  --tt-popover-border-color: var(--border);
+  --tt-input-text: var(--foreground);
+  --tt-input-placeholder: var(--muted-foreground);
+  --tt-tooltip-bg: var(--popover);
+  --tt-tooltip-text: var(--popover-foreground);
+  --tt-kbd: var(--muted-foreground);
+  --tt-cursor-color: var(--primary);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), sans-serif;
+
+  .tiptap-button {
+    --tt-button-default-text-color: var(--foreground);
+    --tt-button-default-icon-color: var(--foreground);
+    --tt-button-hover-text-color: var(--foreground);
+    --tt-button-hover-icon-color: var(--foreground);
+    --tt-button-hover-bg-color: var(--accent);
+    --tt-button-active-bg-color: var(--accent);
+    --tt-button-active-bg-color-emphasized: var(--accent);
+    --tt-button-active-text-color: var(--accent-foreground);
+    --tt-button-active-text-color-emphasized: var(--accent-foreground);
+    --tt-button-active-icon-color: var(--primary);
+    --tt-button-active-icon-color-emphasized: var(--primary);
+    --tt-button-disabled-text-color: var(--muted-foreground);
+    --tt-button-disabled-icon-color: var(--muted-foreground);
+    color: var(--foreground);
+    &:focus-visible, &[data-focus-visible="true"] {
+      outline: 2px solid var(--ring);
+      outline-offset: 1px;
+    }
+  }
+}
+
+.product-description-editor {
+  min-width: 0;
+  .tiptap-toolbar[data-variant="fixed"] {
+    position: relative;
+    top: auto;
+    height: auto;
+    min-height: 3rem;
+    padding: .5rem;
+    gap: .375rem;
+    flex-wrap: wrap;
+    overflow: visible;
+    border-top: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .simple-editor-content .tiptap {
+    min-height: 14rem;
+    max-height: 36rem;
+    overflow-y: auto;
+    padding: 1.25rem;
+    color: var(--foreground);
+    caret-color: var(--foreground);
+  }
+  [hidden] { display: none; }
+}
+
+.tiptap-popover,
+.tiptap-dropdown-menu {
+  max-width: calc(100vw - 2rem);
+  z-index: 60;
+  .tiptap-card { color: var(--popover-foreground); }
+  .tiptap-input { min-width: 0; color: var(--foreground); }
+  .tiptap-card-item-group[data-orientation="horizontal"] { flex-wrap: wrap; }
+}
+
+@media (max-width: 480px) {
+  .product-description-editor .simple-editor-content .tiptap { padding: 1rem; }
+}

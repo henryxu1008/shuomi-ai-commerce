@@ -1,3 +1,4 @@
+import {descriptionPlainText} from "@/lib/contracts/product-description";
 import type {TemuDraftInput} from "@/lib/contracts/temu-model";
 
 type Local=NonNullable<TemuDraftInput["local"]>;
@@ -8,8 +9,8 @@ export function emptyTemuLocalSKU():NonNullable<Local["skuList"]>[number]{
 export function emptyTemuSupplierSKU():NonNullable<NonNullable<Supplier["productSkcReqs"]>[number]["productSkuReqs"]>[number]{
  return {currencyType:"",extCode:"",thumbUrl:"",productSkuWhExtAttrReq:null,productSkuSpecReqs:[]};
 }
-export function initialTemuDraft(source:{title?:string|null;description?:string|null},mode:TemuDraftInput["mode"]):TemuDraftInput{
+export function initialTemuDraft(source:{title?:string|null;description?:string|null;description_format?:string},mode:TemuDraftInput["mode"]):TemuDraftInput{
  const common={mode,selection:{parentCatId:"0",catId:"0"},packageUnits:{weight:"",dimension:""},images:[]};
- if(mode==="local")return {...common,local:{goodsBasic:{goodsName:source.title??"",goodsDesc:source.description??"",catId:"0"},goodsServicePromise:{shipmentLimitDay:null,costTemplateId:""},skuList:[emptyTemuLocalSKU()]}};
+ if(mode==="local")return {...common,local:{goodsBasic:{goodsName:source.title??"",goodsDesc:descriptionPlainText(source.description??"",source.description_format),catId:"0"},goodsServicePromise:{shipmentLimitDay:null,costTemplateId:""},skuList:[emptyTemuLocalSKU()]}};
  return {...common,supplier:{productName:source.title??"",cat1Id:null,cat2Id:null,cat3Id:null,cat4Id:null,cat5Id:null,cat6Id:null,cat7Id:null,cat8Id:null,cat9Id:null,cat10Id:null,productSpecPropertyReqs:[],productPropertyReqs:[],materialImgUrl:"",productSkcReqs:[{extCode:"",productSkuReqs:[emptyTemuSupplierSKU()],mainProductSkuSpecReqs:[],previewImgUrls:[]}]}};
 }

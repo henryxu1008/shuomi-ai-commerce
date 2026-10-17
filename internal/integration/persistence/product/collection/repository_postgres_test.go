@@ -261,7 +261,7 @@ func TestPostgresCollectionAtomicReplayOwnershipMoveAndCommitUnknown(t *testing.
 		require.NoError(t, err)
 		original, err := repository.ReadItem(ctx, owner, created.ItemID)
 		require.NoError(t, err)
-		base := collection.Mutation{Action: "revise_product", ItemID: original.ID, ExpectedRevision: original.Revision, ExpectedSourceVersion: original.Source.Version, ExpectedPublicationID: original.Source.PublicationID, Product: &collection.OwnProduct{Title: "v2"}}
+		base := collection.Mutation{Action: "revise_product", ItemID: original.ID, ExpectedRevision: original.Revision, ExpectedSourceVersion: original.Source.Version, ExpectedPublicationID: original.Source.PublicationID, Product: &collection.OwnProduct{Title: "v2", Description: `<p><strong>Version two</strong><img src="https://images.example.org/a.png"></p>`, DescriptionFormat: "html-v1", Images: []string{"https://images.example.org/a.png"}}}
 		commands := []collection.Command{testCommand(owner, uuid.NewString(), base), testCommand(owner, uuid.NewString(), base)}
 		type outcome struct {
 			index int
@@ -285,6 +285,13 @@ func TestPostgresCollectionAtomicReplayOwnershipMoveAndCommitUnknown(t *testing.
 		current, err := repository.ReadItem(ctx, owner, created.ItemID)
 		require.NoError(t, err)
 		require.EqualValues(t, 2, current.Source.Version)
+		rich, err := snapshots.GetSnapshot(ctx, catalog.SnapshotIdentity{TenantID: owner.OrganizationID, ProductKey: current.Source.ProductKey}, current.Source.Version)
+		require.NoError(t, err)
+		require.Equal(t, base.Product.Description, rich.Snapshot.Description)
+		require.Equal(t, "html-v1", rich.Snapshot.DescriptionFormat)
+		originalSnapshot, err := snapshots.GetSnapshot(ctx, rich.Identity, 1)
+		require.NoError(t, err)
+		require.Empty(t, originalSnapshot.Snapshot.DescriptionFormat)
 		require.EqualValues(t, 2, current.Revision)
 		replay, err := repository.Execute(ctx, commands[winner])
 		require.NoError(t, err)

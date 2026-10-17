@@ -1,3 +1,4 @@
+import {descriptionReferences} from "@/lib/contracts/product-description";
 import {ownProductSchema} from "@/lib/contracts/product-collection";
 
 export type Specification={id:string;name:string;values:string};
@@ -37,7 +38,7 @@ export function prepareProductAttributes(rows:ProductAttributeRow[]){
  if(!ownProductSchema.shape.attributes.safeParse(attributes).success)throw new Error("商品属性超过保存限制，请减少属性数量或文字长度。");
  return attributes;
 }
-export function prepareOwnProduct(input:{title:string;brand:string;description:string;images:string[];mode:"single"|"multiple";rows:VariantRow[];attributes?:ProductAttributeRow[]}){
+export function prepareOwnProduct(input:{title:string;brand:string;description:string;descriptionFormat?:"html-v1";images:string[];mode:"single"|"multiple";rows:VariantRow[];attributes?:ProductAttributeRow[]}){
  const {title,brand,description,images,mode,rows}=input;
  if(mode==="multiple"&&!rows.length)throw new Error("请生成至少一个变体。");
  const active=mode==="single"&&!rows[0]?.sku.trim()&&!rows[0]?.existing?undefined:rows;
@@ -48,7 +49,9 @@ export function prepareOwnProduct(input:{title:string;brand:string;description:s
   return {sourceId:row.id,title:row.title??(Object.values(row.attributes).join(" / ")||title),sku:row.existing?row.sku:row.sku.trim(),attributes:row.attributes,currency:row.currency.trim(),price:Number(row.price),stock:Number(row.stock),...(skuImages.length?{images:skuImages}:{})};
  });
  const attributes=prepareProductAttributes(input.attributes??[]);
- const result=ownProductSchema.safeParse({title:title.trim(),brand:brand.trim(),description,images,...(Object.keys(attributes).length?{attributes}:{}),...(variants?{variants}:{})});
+ const allowed=[...images,...(variants??[]).flatMap(v=>v.images??[])];
+ if(descriptionReferences(description,input.descriptionFormat).some(url=>!allowed.includes(url)))throw new Error("描述中仍有已移除的图片，请先移除描述内引用或重新加入商品图片。");
+ const result=ownProductSchema.safeParse({title:title.trim(),brand:brand.trim(),description,...(input.descriptionFormat?{descriptionFormat:input.descriptionFormat}:{}),images,...(Object.keys(attributes).length?{attributes}:{}),...(variants?{variants}:{})});
  if(!result.success){const issue=result.error.issues[0];throw new Error(issue.code==="custom"?issue.message:"请检查商品名称、图片链接、币种、数值和资料长度。")}
  return result.data;
 }

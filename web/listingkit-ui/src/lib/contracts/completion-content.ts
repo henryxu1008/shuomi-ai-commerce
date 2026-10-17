@@ -1,4 +1,5 @@
 import {z} from "zod";
+import {descriptionFormatSchema,descriptionReferences,descriptionURL} from "./product-description";
 
 const text=(max:number)=>z.string().refine(value=>new TextEncoder().encode(value).length<=max&&!value.includes("\0"));
 const amount=z.number().finite().min(0).max(Number.MAX_SAFE_INTEGER);
@@ -9,7 +10,11 @@ const completionStructuredSchema=z.object({
  const names=new Set<string>();value.attributes.forEach((a,index)=>{const name=a.name.trim();if(names.has(name))ctx.addIssue({code:"custom",path:["attributes",index,"name"],message:"属性名称不能重复"});names.add(name)});
  value.variants.forEach((v,index)=>{if(v.sourceIndex!==index)ctx.addIssue({code:"custom",path:["variants",index,"sourceIndex"],message:"SKU必须对应固定来源顺序"})});
 });
-export const completionContentSchema=z.object({title:text(1024),description:text(32768),structured:completionStructuredSchema.nullish().transform(v=>v??undefined)}).strict();
+export const completionContentSchema=z.object({title:text(1024),description:text(32768),descriptionFormat:descriptionFormatSchema,descriptionImages:z.array(z.string().refine(descriptionURL)).max(40).optional().transform(v=>v?.length?v:undefined),structured:completionStructuredSchema.nullish().transform(v=>v??undefined)}).strict().superRefine((value,ctx)=>{
+ if(!value.descriptionImages)return;
+ const references=descriptionReferences(value.description,value.descriptionFormat);
+ if(value.descriptionFormat!=="html-v1"||new Set(value.descriptionImages).size!==value.descriptionImages.length||value.descriptionImages.some(image=>!references.includes(image)))ctx.addIssue({code:"custom",path:["descriptionImages"],message:"新增图片必须属于当前富文本描述"});
+});
 export type CompletionStructured=z.infer<typeof completionStructuredSchema>;
 
 // Go's existing input hash/size encoder escapes these JSON string characters.

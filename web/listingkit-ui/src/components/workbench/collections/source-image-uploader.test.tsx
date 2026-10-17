@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import {cleanup,fireEvent,render,screen,waitFor} from "@testing-library/react";
+import {act,cleanup,fireEvent,render,screen,waitFor} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
 import {CollectionAPIError} from "@/lib/api/product-collection";
@@ -43,4 +43,26 @@ it("retains the original intent if same-file replay is still unknown",async()=>{
  await userEvent.click(screen.getByRole("button",{name:"重试原文件"}));
  await waitFor(()=>expect(state.upload).toHaveBeenCalledOnce());
  expect(localStorage.getItem("shuomi_source_media_intent")).toBe(JSON.stringify(intent));expect(onImage).not.toHaveBeenCalled();
+});
+
+it("retains a late confirmation for recovery when write permission changes in flight",async()=>{
+ localStorage.clear();let finish!:(value:typeof image)=>void;
+ state.upload.mockReturnValue(new Promise(resolve=>{finish=resolve}));
+ const onImage=vi.fn(),onBlocked=vi.fn();
+ const view=render(<SourceImageUploader scope={intent} disabled={false} onImage={onImage} onBlocked={onBlocked}/>);
+ fireEvent.change(screen.getByLabelText("图片文件"),{target:{files:[originalFile()]}});
+ await waitFor(()=>expect(screen.getByRole("button",{name:"上传并添加图片链接"})).toBeEnabled());
+ fireEvent.click(screen.getByRole("button",{name:"上传并添加图片链接"}));await waitFor(()=>expect(state.upload).toHaveBeenCalledOnce());
+ view.rerender(<SourceImageUploader scope={intent} disabled onImage={onImage} onBlocked={onBlocked}/>);
+ finish(image);await screen.findByText(/身份或权限已变化/);
+ expect(onImage).not.toHaveBeenCalled();expect(localStorage.getItem("shuomi_source_media_intent")).not.toBeNull();
+});
+
+it("does not consume a late upload after navigation and retains its same-file intent",async()=>{
+ localStorage.clear();let finish!:(value:typeof image)=>void;state.upload.mockReturnValue(new Promise(resolve=>{finish=resolve}));
+ const onImage=vi.fn();const view=render(<SourceImageUploader scope={intent} disabled={false} onImage={onImage} onBlocked={()=>{}}/>);
+ fireEvent.change(screen.getByLabelText("图片文件"),{target:{files:[originalFile()]}});
+ await waitFor(()=>expect(screen.getByRole("button",{name:"上传并添加图片链接"})).toBeEnabled());fireEvent.click(screen.getByRole("button",{name:"上传并添加图片链接"}));
+ await waitFor(()=>expect(state.upload).toHaveBeenCalledOnce());view.unmount();await act(async()=>finish(image));
+ expect(onImage).not.toHaveBeenCalled();expect(localStorage.getItem("shuomi_source_media_intent")).not.toBeNull();
 });

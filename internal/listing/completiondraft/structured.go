@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"math"
 	"reflect"
+	"slices"
 	"strings"
+	"task-processor/internal/product/description"
 	"unicode/utf8"
 
 	"task-processor/internal/listing/preparation"
@@ -61,7 +63,35 @@ func (c *StructuredContent) validate() error {
 	return nil
 }
 func (c Content) matchesSnapshot(product catalog.ProductSnapshot) bool {
-	return c.Structured == nil || len(c.Structured.Variants) == len(product.Variants)
+	images := []string{}
+	for _, image := range product.Images {
+		images = append(images, image.URL)
+	}
+	for _, v := range product.Variants {
+		for _, image := range v.Images {
+			images = append(images, image.URL)
+		}
+	}
+	images = append(images, c.DescriptionImages...)
+	return description.Validate(c.Description, c.DescriptionFormat, images) == nil && c.validDescriptionImages() && (c.Structured == nil || len(c.Structured.Variants) == len(product.Variants))
+}
+
+func (c Content) validDescriptionImages() bool {
+	if len(c.DescriptionImages) == 0 {
+		return true
+	}
+	if c.DescriptionFormat != description.HTML || len(c.DescriptionImages) > 40 {
+		return false
+	}
+	references := description.ImageReferences(c.Description, c.DescriptionFormat)
+	seen := map[string]bool{}
+	for _, image := range c.DescriptionImages {
+		if seen[image] || !slices.Contains(references, image) {
+			return false
+		}
+		seen[image] = true
+	}
+	return true
 }
 
 // EqualContent compares the complete immutable candidate, including pointer and

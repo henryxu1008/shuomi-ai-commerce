@@ -1,5 +1,6 @@
 "use client";
 
+import {DescriptionView} from "../description-view";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -181,7 +182,7 @@ function ContentAgentEntry({ source, enabled }: { source: CollectionItem["source
 }
 function ProductFacts({ detail }: { detail: CollectionDetail }) {
   const product = detail.product;
-  return <div className="space-y-5"><h3 className="text-lg font-semibold">{product.title || "未命名商品"}</h3><p className="break-all text-xs text-muted-foreground">{detail.item.source.productKey} · 原始版本 {detail.item.source.version}</p><p className="whitespace-pre-wrap text-sm">{product.description || "没有商品描述"}</p><dl className="grid grid-cols-2 gap-3 text-sm">{product.attributes?.map((attribute, index) => <div key={index}><dt className="text-muted-foreground">{attribute.name}</dt><dd>{attribute.value}</dd></div>)}</dl><div className="flex flex-wrap gap-3">{product.images?.map((image, index) => <Image key={`${image.url}:${index}`} unoptimized src={`/api/image-proxy?url=${encodeURIComponent(image.url)}`} width={128} height={128} className="rounded-lg object-contain" alt={`原始商品图片 ${index + 1}`} />)}</div><Button variant="outline" onClick={() => downloadJSON(detail)}>下载原始资料</Button></div>;
+  return <div className="space-y-5"><h3 className="text-lg font-semibold">{product.title || "未命名商品"}</h3><p className="break-all text-xs text-muted-foreground">{detail.item.source.productKey} · 原始版本 {detail.item.source.version}</p><DescriptionView value={product.description} format={product.description_format} images={[...(product.images??[]),...(product.variants??[]).flatMap(v=>v.images??[])].map(v=>v.url)}/><dl className="grid grid-cols-2 gap-3 text-sm">{product.attributes?.map((attribute, index) => <div key={index}><dt className="text-muted-foreground">{attribute.name}</dt><dd>{attribute.value}</dd></div>)}</dl><div className="flex flex-wrap gap-3">{product.images?.map((image, index) => <Image key={`${image.url}:${index}`} unoptimized src={`/api/image-proxy?url=${encodeURIComponent(image.url)}`} width={128} height={128} className="rounded-lg object-contain" alt={`原始商品图片 ${index + 1}`} />)}</div><Button variant="outline" onClick={() => downloadJSON(detail)}>下载原始资料</Button></div>;
 }
 function downloadJSON(detail: CollectionDetail) { const url = URL.createObjectURL(new Blob([JSON.stringify(detail, null, 2)], { type: "application/json" })); const link = document.createElement("a"); link.href = url; link.download = `product-${detail.item.id}.json`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
 function date(value: string) { return new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(value)); }

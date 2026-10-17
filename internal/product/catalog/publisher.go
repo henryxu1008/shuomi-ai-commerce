@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"task-processor/internal/product/description"
 )
 
 // Publisher owns validation and defensive copying at the Catalog write
@@ -93,6 +94,18 @@ func ValidateSnapshotIdentity(identity SnapshotIdentity) error {
 }
 
 func CloneProductSnapshot(snapshot ProductSnapshot) (ProductSnapshot, error) {
+	images := []string{}
+	for _, image := range snapshot.Images {
+		images = append(images, image.URL)
+	}
+	for _, v := range snapshot.Variants {
+		for _, image := range v.Images {
+			images = append(images, image.URL)
+		}
+	}
+	if err := description.Validate(snapshot.Description, snapshot.DescriptionFormat, images); err != nil {
+		return ProductSnapshot{}, ErrInvalidSnapshot
+	}
 	encoded, err := json.Marshal(snapshot)
 	if err != nil {
 		return ProductSnapshot{}, fmt.Errorf("%w: encode snapshot: %v", ErrInvalidSnapshot, err)

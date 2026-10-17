@@ -81,3 +81,22 @@ func TestContentPatchArrayValuesHaveStrictBoundedStringSchema(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []string{"原有事实", "Supported fact"}, got.SellingPoints)
 }
+
+func TestContentPatchPreservesRichDescriptionUnlessExplicitlyReplaced(t *testing.T) {
+	base := catalog.ProductSnapshot{Title: "title", Description: "<p><strong>cotton</strong></p>", DescriptionFormat: "html-v1"}
+	selection, err := enrichment.NewContentSelection("en", []string{"title"})
+	require.NoError(t, err)
+	got, err := applyContentPatch(base, selection, []enrichment.FieldChange{{Field: "title", Value: "new title"}})
+	require.NoError(t, err)
+	require.Equal(t, base.Description, got.Description)
+	require.Equal(t, "html-v1", got.DescriptionFormat)
+	selection, err = enrichment.NewContentSelection("en", []string{"description"})
+	require.NoError(t, err)
+	got, err = applyContentPatch(base, selection, []enrichment.FieldChange{{Field: "description", Value: "<b>literal output</b>"}})
+	require.NoError(t, err)
+	require.Empty(t, got.DescriptionFormat)
+	require.Equal(t, "<b>literal output</b>", got.Description)
+	values, err := snapshotContentValues(base, selection)
+	require.NoError(t, err)
+	require.Equal(t, "cotton", values[0].Value)
+}

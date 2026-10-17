@@ -21,3 +21,8 @@ it("distinguishes missing prices from declared zero and rejects ambiguous SKU id
  expect(()=>compareOwnProducts(a,{variants:[{source_id:"same"},{source_id:"same"}]})).toThrow();
  expect(()=>compareOwnProducts(a,{variants:[{sku:"missing"}]})).toThrow();
 });
+
+it("includes a description format change even when stored characters match",()=>{
+ const rows=compareOwnProducts({description:"<p>same</p>"},{description:"<p>same</p>",description_format:"html-v1"});
+ expect(rows).toEqual(expect.arrayContaining([expect.objectContaining({label:"描述格式",before:"纯文本",after:"富文本"})]));
+});

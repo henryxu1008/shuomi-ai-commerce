@@ -52,7 +52,7 @@ it("shows real empty/error states and blocks mismatched navigation or cross-draf
 it("distinguishes identical saved text from whitespace changes",async()=>{
  f.read.mockImplementation((_scope,_id,revision)=>Promise.resolve({...old,id:revision===1?id:batch,revision}));
  const view=render(<CompletionHistoryPage sourceId={id} from={1} to={2}/>);
- await screen.findByText("标题和描述没有变化。");expect(within(screen.getByRole("table",{name:"标题和描述差异"})).getAllByText("未变化")).toHaveLength(2);view.unmount();
+ await screen.findByText("标题和描述没有变化。");expect(within(screen.getByRole("table",{name:"标题和描述差异"})).getAllByText("未变化")).toHaveLength(4);view.unmount();
  f.read.mockImplementation((_scope,_id,revision)=>Promise.resolve({...old,id:revision===1?id:batch,revision,content:{title:"",description:revision===1?"":"\n"}}));
  render(<CompletionHistoryPage sourceId={id} from={1} to={2}/>);await screen.findByText("已变化");expect(screen.getByText("仅含空白文本 · 1 个字符")).toBeVisible();expect(screen.queryByText("标题和描述没有变化。")).not.toBeInTheDocument();
 });
