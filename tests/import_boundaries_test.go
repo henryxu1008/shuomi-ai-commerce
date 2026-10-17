@@ -2961,9 +2961,7 @@ func TestTEMUSyncAndPricingRetiredManagementImportsStayBlocked(t *testing.T) {
 
 func TestTEMUProductStoreAndSchedulerRetiredManagementImportsStayBlocked(t *testing.T) {
 	allowedFiles := map[string]struct{}{
-		filepath.Clean(filepath.Join("..", "internal", "temu", "product", "build_spu_handler.go")): {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "product", "price_handler.go")):     {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "product", "spu_builder.go")):       {},
+		filepath.Clean(filepath.Join("..", "internal", "temu", "product", "price_handler.go")): {},
 	}
 
 	// Index the stable parent so the retired store directory can stay absent,
@@ -3059,8 +3057,6 @@ func TestTEMUOpenAIImportsStayAllowlisted(t *testing.T) {
 		filepath.Clean(filepath.Join(root, "image", "dimension_annotator.go")):       {},
 		filepath.Clean(filepath.Join(root, "image", "vision_detector.go")):           {},
 		filepath.Clean(filepath.Join(root, "pipeline_registry.go")):                  {},
-		filepath.Clean(filepath.Join(root, "product", "build_spu_handler.go")):       {},
-		filepath.Clean(filepath.Join(root, "product", "spu_builder.go")):             {},
 		filepath.Clean(filepath.Join(root, "sku", "ai_mapping_single_processor.go")): {},
 		filepath.Clean(filepath.Join(root, "sku", "builder.go")):                     {},
 		filepath.Clean(filepath.Join(root, "sku", "variant_processor.go")):           {},

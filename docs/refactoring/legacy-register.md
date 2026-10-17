@@ -2,6 +2,16 @@
 
 > Status: Active legacy handling register
 
+> #29 / #301 [TEMU SPU/maximum-retail-price retirement](../architecture/legacy-temu-spu-price-query-retirement-boundary.md)
+> follows user-confirmed design `2b151ffec` in #768. Seven existing structural value
+> checks are extracted into the existing TEMU publishing owner using its private
+> specification snapshot. The four unused SPU/build/validation/query owners and
+> exclusive helpers are source-retired. PriceHandler/SKU and ProfitRuleAPI,
+> platform APIs/DTOs, AI/text/property/specification and mixed-context contracts,
+> acquisition/Store observations and independent SHEIN login/Store sync remain.
+> No new entrypoint, fact or recovery owner; workflows/ceilings are unchanged,
+> with no runtime/data action or new trial prerequisite.
+
 > #29 / #301 [TEMU Store/context initialization retirement](../architecture/legacy-temu-store-init-retirement-boundary.md)
 > follows user-confirmed design `fe3ce7563` in #760. The three unconstructed
 > StoreInfo/StoreID/InitData handlers and exclusive numeric cache/statistics/hostname

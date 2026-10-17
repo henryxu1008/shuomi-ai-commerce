@@ -8,6 +8,15 @@ used specification coverage/nonzero VID and Multiple Sets packaging counts.
 They do not mutate inputs, repair products, call platforms, or depend on legacy
 Task/context/client/state ownership. There is no new submission entrypoint.
 
+The private SPU structure value check reuses the existing specification snapshot
+and preserves the seven name/SKC/SKU/specification empty-value checks in their
+original first-error order. It does not trim values, filter SKU entries, validate
+prices or stock, or resolve temporary specifications. The four unused SPU and
+maximum-retail-price Task owners are source-retired under
+[#768's confirmed boundary](../../../../docs/architecture/legacy-temu-spu-price-query-retirement-boundary.md).
+PriceHandler/SKU, platform APIs/DTOs, AI/text/property/specification implementations
+and mixed context retain their owners; no execution or trial prerequisite is added.
+
 Private SKU value functions preserve stable main-then-variant code order,
 empty-identifier skipping and deduplication through the existing skugen ASIN-only
 strategy. Any reported duplicate failure is rejected while retaining diagnostic
