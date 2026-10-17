@@ -1,8 +1,8 @@
 # 多商品优选申请 v1
 
-Design Basis: Independent Architecture。Admission Status: NOT_READY / DESIGN_REVIEW_REQUIRED。
+Design Basis: Independent Architecture。Admission Status: IMPLEMENTATION_READY / FROZEN。
 
-Authority：[产品决定](../product/selected-application-multi-product.md)、Issue #710 当前正文；复用冻结 supply-market-v1、supply-market-choice-eligibility、own-product-optimization-v1。生产代码尚未修改，独立架构检查通过并明确 IMPLEMENTATION_READY 后实施。
+Authority：[产品决定](../product/selected-application-multi-product.md)、Issue #710 当前正文；复用冻结 supply-market-v1、supply-market-choice-eligibility、own-product-optimization-v1。独立只读架构检查绑定设计提交5358a3815be9556e51599a086029b207d77daccb及原文件hash，结论IMPLEMENTATION_READY/无BLOCKER；本次仅更新准入元数据，语义设计未变。评审记录：https://github.com/qq550723504/task-processor/pull/759#issuecomment-6231368789。之后按此冻结设计实施，非阻塞实现测试不重开架构。
 
 ## 1. Outcome / Scope
 
