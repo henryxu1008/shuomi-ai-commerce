@@ -52,9 +52,15 @@
 
 ### 2026-10-17 用户批准增量：技能库
 
-执行 [#756](https://github.com/qq550723504/task-processor/issues/756)，复用 [Skill V1](../architecture/skill-capability-v1.md) 合同。用户明确批准在「智能市场」下增加「技能库」，包含「官方模板」「我的技能」「团队技能」。根路径 `/workbench/agents/skills` 默认官方模板，三个分类路径分别为 `/official`、`/mine`、`/team`；侧栏、页内导航和面包屑保持一致。
+执行 [#756](https://github.com/qq550723504/task-processor/issues/756)，复用 [Skill V1](../architecture/skill-capability-v1.md) 合同。用户明确批准在「智能市场」下增加「技能库」，包含「官方模板」「我的技能」「团队技能」。三个分类路径分别为 `/workbench/agents/skills/official`、`/mine`、`/team`；侧栏、页内导航和面包屑保持一致。
 
-这是用户新批准的局部 Product Authority，不声称当前 Figma 已有对应节点；周边 Console 视觉/主题继续沿用当前 Figma。替代 #688 原「仅账户 Dialog、不新增二级菜单」的阶段入口约束，不替代 Skill 归属和权限。个人技能及官方模板按验证身份访问，团队技能按有效当前企业及既有权限管理；原账户/智能体配置的管理快捷入口及业务执行选择保留。官方目录没有模板或服务未就绪时如实展示，不新增公开/付费交易市场。
+最初由用户批准局部 Product Authority，替代 #688 原「仅账户 Dialog、不新增二级菜单」的阶段入口约束；后续已补齐 Figma 节点。个人技能及官方模板按验证身份访问，团队技能按有效当前企业及既有权限管理；原账户/智能体配置的管理快捷入口及业务执行选择保留。官方目录没有模板或服务未就绪时如实展示，不新增公开/付费交易市场。
+
+#### 技能库着陆页（2026-10-17 后续批准）
+
+用户明确批准按 [浅色介绍页 `6734:1666`](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=6734-1666) / [深色介绍页 `6734:1427`](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=6734-1427) 实现，保留已有数据、配置及会话，不重复派工。这一决定将根路径 `/workbench/agents/skills` 从默认跳转官方模板改为静态介绍页，复用现有 `PrimaryIntroduction`、Card、Console 主题与响应式布局。
+
+介绍页包含用途说明、三个真实分类入口、方法复用说明、四步流程「选择来源 → 完善方法 → 保存并启用 → 业务中使用」及个人提交团队审核/执行权限边界说明。入口只导航，不读取技能目录、创建模板、启用版本、提交共享或调用模型；不显示虚构模板、数量或成功状态。根页继续验证登录身份且不要求企业，分类页与原管理/执行路径的授权、事实 owner、状态、持久化和配置保持不变。Design Basis: Reuse Existing Architecture；当前执行范围与验证写 #756。
 
 当前设计中，历史「商品中心」已归档；不建立独立顶层 `Product Center` / `Listing Center` 作为最终 IA 前提。
 
