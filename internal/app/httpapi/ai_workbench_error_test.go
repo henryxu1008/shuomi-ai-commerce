@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 
+	"task-processor/internal/agentconfig"
 	"task-processor/internal/aiworkbench"
 )
 
@@ -29,11 +30,15 @@ func TestWorkbenchRevisionConflictDiffersFromStaleProposal(t *testing.T) {
 	}
 }
 func TestWorkbenchMessageRejectionProjectsOnlyExplicitUnacceptedProof(t *testing.T) {
-	for _, cause := range []error{aiworkbench.ErrInvalid, aiworkbench.ErrProposalStale} {
+	for _, cause := range []error{aiworkbench.ErrInvalid, aiworkbench.ErrProposalStale, agentconfig.ErrChanged} {
 		w := httptest.NewRecorder()
 		ctx, _ := gin.CreateTestContext(w)
 		writeAIWorkbenchError(ctx, &aiworkbench.MessageNotAcceptedError{Cause: cause})
 		require.Contains(t, w.Body.String(), `"messageAccepted":false`)
+		if cause == agentconfig.ErrChanged {
+			require.Equal(t, http.StatusConflict, w.Code)
+			require.Contains(t, w.Body.String(), "PROPOSAL_STALE")
+		}
 		w = httptest.NewRecorder()
 		ctx, _ = gin.CreateTestContext(w)
 		writeAIWorkbenchError(ctx, cause)

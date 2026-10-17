@@ -713,7 +713,8 @@ func (s *Store) AppendUser(ctx context.Context, scope aiworkbench.Scope, convers
 		return nil
 	})
 	if err != nil {
-		if errors.Is(err, aiworkbench.ErrInvalid) || errors.Is(err, aiworkbench.ErrNotFound) ||
+		var rejected *aiworkbench.MessageNotAcceptedError
+		if errors.As(err, &rejected) || errors.Is(err, aiworkbench.ErrInvalid) || errors.Is(err, aiworkbench.ErrNotFound) ||
 			errors.Is(err, aiworkbench.ErrConversationArchived) || errors.Is(err, aiworkbench.ErrIdempotencyConflict) {
 			return aiworkbench.PlanningCommand{}, false, err
 		}

@@ -7,6 +7,12 @@ import { ConsoleNavigation } from "./console-navigation";
 import { findConsoleRoute } from "@/lib/workbench/console-navigation";
 
 const query=vi.hoisted(()=>({value:""}));
+it("keeps the selected platform context on the supply introduction parent",()=>{
+ const id="11111111-1111-4111-8111-111111111111";query.value=`preparation=${id}&store=${id}&operation=${id}&mode=platform`;
+ render(<ConsoleNavigation pathname="/workbench/supply/mine/missing" ariaLabel="主导航" supplyChainAvailable supplyCompletionDraftsAvailable/>);
+ const href=new URL(screen.getByRole("link",{name:"我的供应链"}).getAttribute("href")!,"https://test.invalid");
+ expect(Object.fromEntries(href.searchParams)).toEqual({preparation:id,store:id,operation:id});query.value="";
+});
 it("keeps canonical unbound draft navigation local with the full runtime enabled",()=>{
  const id="11111111-1111-4111-8111-111111111111";query.value=`preparation=${id}`;
  render(<ConsoleNavigation pathname={`/workbench/supply/mine/missing/${id}`} ariaLabel="主导航" supplyChainAvailable supplyCompletionDraftsAvailable/>);

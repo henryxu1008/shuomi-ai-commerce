@@ -74,7 +74,8 @@ function EcoservicesBranch({ node, pathname, trail, onNavigate, userId }: { node
 function NavBranch({ node, pathname, trail, depth, onNavigate, supplyQuery = "" }: { node: ConsoleNavNode; pathname: string; trail: readonly string[]; depth: number; onNavigate?: () => void; supplyQuery?:string }) {
   const supplyStage=node.href.startsWith("/workbench/supply/mine/")?stageSchema.safeParse(node.href.split("/").at(-1)):null;
   const selection=new URLSearchParams(supplyQuery);
-  const href=supplyStage?.success?supplyStageHref(supplyStage.data,{preparation:selection.get("preparation")??undefined,store:selection.get("store")??undefined,operation:selection.get("operation")??undefined,mode:selection.get("mode")==="platform"?"platform":selection.get("mode")==="local"?"local":undefined}):node.href;
+  const parentSelection=new URLSearchParams(selection);parentSelection.delete("mode");
+  const href=supplyStage?.success?supplyStageHref(supplyStage.data,{preparation:selection.get("preparation")??undefined,store:selection.get("store")??undefined,operation:selection.get("operation")??undefined,mode:selection.get("mode")==="platform"?"platform":selection.get("mode")==="local"?"local":undefined}):node.href==="/workbench/supply/mine"&&parentSelection.size?`${node.href}?${parentSelection}`:node.href;
   const active = trail.includes(node.href) || pathname === node.href;
   // The route-keyed subtree resets disclosure even when navigating back to an earlier route.
   const [expanded, setExpanded] = useState(active);

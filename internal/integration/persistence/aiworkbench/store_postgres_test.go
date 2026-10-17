@@ -20,6 +20,7 @@ import (
 	"gorm.io/gorm/logger"
 
 	"task-processor/internal/agent"
+	"task-processor/internal/agentconfig"
 	"task-processor/internal/aiworkbench"
 )
 
@@ -57,13 +58,17 @@ func TestMessageRejectionProofPrecedesAppendAndDoesNotOverrideReplay(t *testing.
 	require.NoError(t, err)
 	input := aiworkbench.MessageInput{Content: "goal", OperationID: "operation-1", TargetPlatform: "shein"}
 	key := uuid.NewString()
+	var rejectionCause error = aiworkbench.ErrInvalid
 	reject := func([]aiworkbench.Message, string) (aiworkbench.PreparedPlan, error) {
-		return aiworkbench.PreparedPlan{}, aiworkbench.ErrInvalid
+		return aiworkbench.PreparedPlan{}, rejectionCause
 	}
-	_, _, err = store.AppendUser(ctx, scope, conversation.ID, key, input, reject)
 	var proof *aiworkbench.MessageNotAcceptedError
-	require.ErrorAs(t, err, &proof)
-	require.ErrorIs(t, err, aiworkbench.ErrInvalid)
+	for _, cause := range []error{aiworkbench.ErrInvalid, agentconfig.ErrChanged} {
+		rejectionCause = cause
+		_, _, err = store.AppendUser(ctx, scope, conversation.ID, key, input, reject)
+		require.ErrorAs(t, err, &proof)
+		require.ErrorIs(t, err, cause)
+	}
 	messages, err := store.ListMessages(ctx, scope, conversation.ID, 50)
 	require.NoError(t, err)
 	require.Empty(t, messages)
