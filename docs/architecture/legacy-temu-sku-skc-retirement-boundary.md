@@ -68,7 +68,7 @@ Should：源码、当前清单及直接冲突说明与实际边界一致。Out o
 | 原行为 | 决策 / owner | 精确语义 |
 | --- | --- | --- |
 | item.deduplicateSpecs | EXTRACT 为既有 publishing 的私有值函数，复用 submissionSpec | 以 ParentSpecID 精确字符串为 key，保留首次值与原顺序；不 trim/排序/过滤空值。同一空 parent 也只保留首次，不修改输入；不把旧 DTO metadata 搬入新合同 |
-| item.buildSkuSpecList 的未解析临时 SpecID 检查 | EXTRACT 为 publishing 私有纯谓词，与去重分离 | 对 SpecID 精确、区分大小写的 TEMP_ 前缀作检测；不新增 ParentSpecID 检测、解析、默认规格或错误修复。旧 caller 的日志/返回空 DTO slice 不保留为新执行协议；resolver/HasTemporaryIDs 的原独立行为不变 |
+| item.buildSkuSpecList 的未解析临时 SpecID 检查 | EXTRACT 为 publishing 私有纯谓词，与去重分离 | 对 SpecID 精确、区分大小写的 TEMP_ 前缀作检测；原顺序是先按 parent 去重，再检测保留项，不能因被淘汰重复项的 TEMP_ 新增拒绝。不新增 ParentSpecID 检测、解析、默认规格或错误修复。旧 caller 的日志/返回空 DTO slice 不保留为新执行协议；resolver/HasTemporaryIDs 的原独立行为不变 |
 | item.buildMultiplePackage 中 classification=1 的单品约束 | EXTRACT 私有 scalar 值函数 | 输入 classification=1 时 pieces/individuallyPacked 输出 1/1；其它 classification 原数值透传，包括 0/负数，不加新验证。不提取原缺失字段默认赋 1、字符串重复字段或完整包装 DTO；不启用新调用入口 |
 | 图像最多 10 张，尺寸图优先、保持顺序 | 已有 ParallelImageProcessor.ApplyImageResults 包含同一规则，原位保留 | 不复制第二份算法，不让 publishing 依赖 image/API；item 的重复实现随 caller 删除，不新增图像数量门槛 |
 | 物流数值、价格、SKU 生成 | 已有 publishing.FormatWeight/FormatDimension、productpolicy、PriceHandler、skugen 原位保留 | 只删旧包装/日志/配置解析 caller，不复制、不修默认值、倍率/货币换算或随机库存 |
@@ -107,7 +107,7 @@ Cutover/deletion condition: 用户确认 §5/§6/§6.1/§7；生产修改前 Iss
 用户确认后才做以下最小实施验证：
 
 1. 刷新六文件、19 方法、两字段、组合 helper/类型及构造/导入/注册和当前命令依赖，确认没有当前消费者或兼容义务。
-2. 三项值规则 TDD RED→GREEN：规格首次 parent 去重的稳定顺序/空 key/nil/空/单项/不变输入；精确 TEMP_、大小写/位置/ParentSpecID 不新增判断；classification=1 的 1/1 及其它 classification 原值透传。不新增价格、库存或平台要求。
+2. 三项值规则 TDD RED→GREEN：规格首次 parent 去重的稳定顺序/空 key/nil/空/单项/不变输入；精确 TEMP_、大小写/位置/ParentSpecID 不新增判断，先去重再检测，被淘汰重复项含 TEMP_ 不新增失败；classification=1 的 1/1 及其它 classification 原值透传。不新增价格、库存或平台要求。
 3. 原退休 guard 先准确 RED，再删源码 GREEN；限 TEMU sku 的目标类型、constructor、19 receiver 方法和 helper，不误封 handlerbase 接口、平台 DTO 或 SHEIN 同名实现。
 4. AI 保留回归使用最小本地值与 stub，构造收窄后的原映射 owner：验证规格/空模板、批次值、映射数量/维度统一与错误分支；只在受影响边界补测试，不新建 runner/验收框架、不调用真实 AI/API。保留字段/方法、convertSpecInfos 及用户规格转换须证明未被误删。
 5. 保留 publishing/productpolicy/product/rules 规则与原 import/provider/logger/consumer/ceiling/命令图 guards；sku/context/handlerbase/spec/image/ai/property/api 适用编译。current-application 与 shein-login-worker 只编译，不运行 main。完整必需检查交给稳定实施候选原 CI，不人工重复全量。
