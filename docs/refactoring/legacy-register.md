@@ -2,6 +2,16 @@
 
 > Status: Active legacy handling register
 
+> #29 / #301 [TEMU category/template orchestration retirement](../architecture/legacy-temu-category-template-retirement-boundary.md)
+> follows user-confirmed design `a451f0cbd` in #773. Five unused handlers and two
+> exclusive input/output DTO files are source-retired. Valid category, template,
+> shipping and specification rules retain their existing owners; no new extraction
+> or replacement entrypoint is introduced. Platform APIs/DTOs, all four shared
+> TemplateState fields, AI/SKU mapping, pricing and shared contracts remain.
+> This supersedes earlier retention of these seven callers only; acquisition/Store
+> observations and independent SHEIN login/Store sync retain their owners.
+> Workflows/ceilings are unchanged, with no runtime/data action or trial prerequisite.
+
 > #29 / #301 [TEMU SKU/SKC construction retirement](../architecture/legacy-temu-sku-skc-retirement-boundary.md)
 > follows user-confirmed design `3ceea910b` in #771. Three existing private value
 > rules live in TEMU publishing. Six unused construction files and exclusive
