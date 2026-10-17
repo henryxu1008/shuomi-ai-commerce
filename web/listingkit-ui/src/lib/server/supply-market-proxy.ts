@@ -1,3 +1,4 @@
+import {createHash} from "node:crypto";
 import {marketEndpoint,marketCommandSchema,marketID} from "../contracts/supply-market";
 import {readBoundedStrictJSON} from "../api/strict-json-response";
 import {hasTrustedSameOriginWrite} from "./same-origin-write";
@@ -5,6 +6,13 @@ import {hasEmptyBody} from "./members-proxy";
 import {WORKBENCH_COOKIE_NAME} from "./workbench-proxy";
 const headers={"Cache-Control":"private, no-store","X-Content-Type-Options":"nosniff"};
 export const marketFailure=(status:number,code:string)=>Response.json({code},{status,headers});
+// Current SupplyMarket Service/ByKey identity: collection.StableID(org, actor, key).
+// Scope identifiers are bounded ASCII; UUIDv5 URL namespace hashes their JSON array.
+function operationID(principal:string,actor:string,key:string){
+ const bytes=createHash("sha1").update(Buffer.from("6ba7b8119dad11d180b400c04fd430c8","hex")).update(JSON.stringify([principal,actor,key])).digest().subarray(0,16);
+ bytes[6]=(bytes[6]!&0x0f)|0x50;bytes[8]=(bytes[8]!&0x3f)|0x80;
+ const hex=bytes.toString("hex");return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+}
 async function boundedBytes(body:ReadableStream<Uint8Array>|null,max:number,signal:AbortSignal){
  if(!body)throw new Error("empty file");const reader=body.getReader(),chunks:Uint8Array[]=[];let length=0;const cancel=()=>{void reader.cancel().catch(()=>undefined)};signal.addEventListener("abort",cancel,{once:true});
  try{while(true){signal.throwIfAborted();const r=await reader.read();signal.throwIfAborted();if(r.done)break;length+=r.value.length;if(length>max)throw new Error("file too large");chunks.push(r.value)}const data=new Uint8Array(length);let offset=0;for(const c of chunks){data.set(c,offset);offset+=c.length}return data.buffer}catch(e){cancel();throw e}finally{signal.removeEventListener("abort",cancel);reader.releaseLock()}
@@ -39,6 +47,8 @@ export async function proxySupplyMarket(request:Request,token:string,userId:stri
   const payload=await readBoundedStrictJSON(response,2*1024*1024,controller.signal);controller.signal.throwIfAborted();
   if(!response.ok){const code=(payload as {code?:unknown})?.code;if(write&&response.status>=500)return marketFailure(response.status,"OUTCOME_UNKNOWN");return marketFailure(response.status>=400&&response.status<600?response.status:502,typeof code==="string"&&/^[A-Z_]{1,80}$/.test(code)?code:"DEPENDENCY_UNAVAILABLE")}
   const parsed=route.output.safeParse(payload);if(response.status!==200||!parsed.success)throw new Error();
+  const receiptKey=write&&!route.upload?upstreamHeaders.get("Idempotency-Key"):route.path.startsWith("by-key/")?route.path.slice(7):null;
+  if(receiptKey&&(parsed.data as {operationId?:string}).operationId!==operationID(route.admin?"supply-platform":upstreamHeaders.get("X-Requested-Organization-ID")!,userId,receiptKey))throw new Error();
   if((route.path.startsWith("releases/")||/^records\/[a-f0-9-]{36}$/.test(route.path))&&(parsed.data as {id?:string}).id!==route.path.split("/")[1])throw new Error();
   return Response.json(parsed.data,{headers});
  }catch{return marketFailure(dispatched?502:400,write&&dispatched?"OUTCOME_UNKNOWN":dispatched?"DEPENDENCY_UNAVAILABLE":"INVALID_REQUEST")}finally{clearTimeout(timeout);request.signal.removeEventListener("abort",abort)}
