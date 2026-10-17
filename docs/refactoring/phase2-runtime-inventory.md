@@ -1,5 +1,12 @@
 # Phase 2 runtime convergence inventory
 
+> #750 bounded calibration: four exclusive TEMU preflight Task handlers are
+> source-retired after preserving two private SKU value rules in the existing
+> marketplace owner. Shared Reader/Cache/Mapping, APIs/DTOs, mixed context and
+> valid rules retain their owners. Other product files still consume logger and
+> openai, so both current consumer rows remain; dated inventories, ceilings and
+> workflows are unchanged. No runtime/data action or new trial prerequisite.
+
 > #749 bounded calibration: exclusive TEMU Commit/save/submit/result/quota source
 > and publish-context members are retired after extracting two validations into
 > the existing marketplace owner. The mixed product package still consumes
