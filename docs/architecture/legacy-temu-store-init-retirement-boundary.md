@@ -54,6 +54,7 @@ Must：本文件保留项、原事实/规则/授权/凭据/恢复及 worker Stor
 | 当前 Organization Store、版本/状态/审计 | internal/storecenter 及当前 authz/StoreQuotaLedger 合同；当前 HTTP/BFF/Console 读写其 owner database | 不以数字缓存/旧 StoreRespDTO 替代；不改当前表、权限、配额、状态/服务或同步 owner |
 | 保留数字 Store | listingadmin StoreAPI → gormStoreAPI → GormStoreRepository / listing_store；原 Store DTO、owner/tenant 查询、字段更新和 worker Store adapter 均保留 | 不迁移/删除表、索引/数据，不把无新消费者误写成整个数字 Store 退休 |
 | 旧 StoreAPI 的限制 | gormStoreAPI.GetStore 使用 context.Background 和 FindStoreByID；DTO/窄接口不是当前 Organization 请求身份、tenant/owner scope 或 deadline | 保留不等于授权/隔离验收 PASS；不增加当前私有数据消费者，不据本轮重建 IAM 或增加试用前置 |
+| 保留旧 SKU/context 的身份限制 | BuildSKUBuildRuntime 在缺少 Task 身份时使用 tenant/store=1；上述31个当前命令不依赖该 context | 保留既存代码不认可此默认值作为当前身份，不新增消费者；本批不改变该行为。若发现具体当前消费/权限或租户 Must 后果，按停止条件报告并补适用准入，不静默复用默认身份 |
 | 旧数字缓存 | storeID(int64) → *StoreRespDTO，5分钟TTL，全局内存 map，统计仅 hits/misses；命中不回原仓库 | 无独立当前授权/租户、撤销/版本刷新合同；单一数字 key **本身不证明当前跨租户漏洞**。该链无装配消费者，退休专属缓存，不修成通用缓存、不扫 Redis 或释放锁 |
 | 真正的 MallID/Cookie/Store 更新 | 保留的 APIClient.NewAPIClient 会加载 Cookie 并 initializeMallID：GetStore 后可能 UpdateStoreId，或 SetMallID 更新 Cookie/客户端；仓库/CookieManager 的真实效果仍归原 owner | constructor 不是纯计算，设计期不调用。删除 StoreIDHandler 不删除这些路径/API/DTO、凭据/Profile/持久化，也不代表它们满足当前官方 Store 身份准入 |
 | payload 初始化 | InitDataHandler 只写内存 TemuProduct，无 DB/platform 提交、事务/outbox/幂等/恢复记录 | 不新建持久化初始化事实，不访问 provider、结算历史或重放请求；时间戳/硬编码组合不成为当前平台默认合同 |
@@ -84,7 +85,7 @@ Must：本文件保留项、原事实/规则/授权/凭据/恢复及 worker Stor
 | internal/temu/store 包路径 | RETIRE 完整专属包 | 仅上述两Go文件，无外部 import/装配；guard 要保证整个路径的Go源缺席并阻止当前命令重新依赖，不留下空壳或 placeholder |
 | listingadmin StoreAPI/StoreRespDTO/StoreIdUpdateReqDTO/StoreStatusUpdateReqDTO、gormStoreAPI/仓库/模型及原查询/权限测试 | 保留原合同与持久化 owner | 仍有 APIClient/SHEIN worker 等消费者；真实表/索引/数据/owner/tenant/状态合同不动 |
 | APIClient/StoreRuntime/manager、CookieManager、GetMallID/SetMallID/initializeMallID、API Product/嵌套 DTO/字段、shared ptr | 保留原实现 | 有当前保留的源码消费者；没有被三个待删 handler 独占，不改变副作用/凭据 owner |
-| mixed TemuTaskContext.StoreInfo/TemuProduct/SetTemuProduct、SKUBuildRuntime/BuildSKUBuildRuntime、其它 handlerbase/sku/SPU/category/template/image/规则 | 保留全部原边界 | 仍有消费者，不把旧初始化出口删除误当字段/其它行为已无用；不改原身份/default/retry 合同或接入当前产品 |
+| mixed TemuTaskContext.StoreInfo/TemuProduct/SetTemuProduct、SKUBuildRuntime/BuildSKUBuildRuntime、其它 handlerbase/sku/SPU/category/template/image/规则 | 保留全部原边界 | 仍有消费者，不把旧初始化出口删除误当字段/其它行为已无用；不改变本批之外的既存行为或新增当前消费者，保留不证明身份/授权正确（见 §4） |
 | SHEIN/Amazon 同名 handler/helper、appenv.GetInstanceID 与此前全部保留能力 | 保留 | 不全仓字符串删除/禁止，独立 SHEIN 登录/Store sync、当前采集/Store观察照原 owner 保留 |
 
 Legacy decision: **RETIRE 三个生产文件及其独占 helper/数字缓存**。
@@ -112,6 +113,7 @@ Cutover/deletion condition: 用户确认冻结 §5/§6/§6.1/§7、Issue Reuse E
 | tests/import_boundaries_test.go 的 TestTEMUProductStoreAndSchedulerRetiredManagementImportsStayBlocked | 精确删 id_handler.go/info_handler.go 两条对应豁免，保留 build_spu_handler.go/price_handler.go/spu_builder.go 三条。loadGoFileIndex 在根不存在时报错；改用稳定 temu 父目录索引，按**原 product/store 两棵子树**精确过滤，仍检查这两棵子树的全部Go源 | 不删整个 store 扫描覆盖，不因路径消失加 os.IsNotExist/skip 或放宽通用 helper；复活 store 仍受原 management deny 检查。其它扫描/roots/deny/ceiling 不动 |
 | phase2-runtime-inventory.md 当前 consumer register | 包确实删除后只移除 core/logger → internal/temu/store 一行，添加本批校准说明 | handlerbase 的 core/logger 仍由 base_handler 消费，该行和其它 consumer 行保留；不改 dated 清单/closure ceilings |
 | Legacy register、本文/架构索引、code-health-decisions.md 的旧 temu/store retention claim | 用户确认实施后校准 source-retired；只对旧 store 行明确已被本次确认边界取代，保留原 dated 报告/1 declaration 数量及其它决策 | 旧 configured processor 已退出，其历史保留表述不构成当前装配证据；不改全表或把其它 legacy 包顺带判为退休 |
+| [external-client-boundary-inventory.md](external-client-boundary-inventory.md) 当前 TEMU 热点/guard 说明 | 用户确认实施后，只校准其将 temu/store 描述为当前 management 热点/现存包的表述：注明该包 source-retired，原 guard 改从稳定父目录索引、仍按 product/store 两子树检查；保留仍有效 product 边界及其它有效扫描说明 | 这是当前清单，不能只更新历史 ledger 而遗漏；明确 dated 的记录保留。全仓 sibling 刷新还命中旧退休文档的基线/当批保留矩阵和 checklist 中未改名的 guard，它们是历史范围/原 gate，不重写或据此恢复 store，不扩清理其它债务 |
 | provider constructor/logger/LLM 登记、其它 import 豁免与 gate | 零改动 | 目标没有新建 provider constructor，不据 logger 调用退出删其它登记或改扫描范围 |
 | ci.yml / commercial-readiness.yml / 其它 workflow、.golangci.yml、保护规则 | **零改动** | 原分类/触发/权限/并发、race/编译、安全检查/Required CI Gate、保护与ceiling保持；原SKIPPED不记PASS |
 
