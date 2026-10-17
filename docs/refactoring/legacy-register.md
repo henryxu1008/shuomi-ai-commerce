@@ -2,6 +2,16 @@
 
 > Status: Active legacy handling register
 
+> #29 / #301 [TEMU preflight retirement](../architecture/legacy-temu-preflight-retirement-boundary.md)
+> follows user-confirmed design `ca7a6e2ea` in #750. The four unconstructed Task
+> handlers for product/SKU checks, raw-data reads and caching are source-retired.
+> Stable SKU code shaping and duplicate failure validation live as private values
+> in the existing marketplace owner, reusing skugen. Shared Reader/Cache/Mapping,
+> APIs/DTOs, mixed context, valid rules and all retained capabilities keep their
+> owners, including acquisition/observations and independent SHEIN login/Store sync.
+> Workflows/ceilings are unchanged; no real instance/platform/data operation,
+> cleanup/replay or new trial prerequisite is authorized.
+
 > #29 / #301 [TEMU save/submit/result retirement](../architecture/legacy-temu-listing-submit-retirement-boundary.md)
 > follows user-confirmed design `e0003f196` in #749. Fourteen exclusive production
 > files, one Task fixture test, eight publish-context fields and eight methods are

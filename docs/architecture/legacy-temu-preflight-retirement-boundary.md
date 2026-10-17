@@ -2,9 +2,9 @@
 
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
-- Status: **DESIGN_ONLY / AWAITING_USER_CONFIRMATION**。用户只授权本轮调查与设计，确认 §5、§6、§6.1、§7 后再实施。
-- 调查基线：`main @ 6132a08a028ff6e7a1ad912414ccc67ef3be55ab`（#749 已合并）。准确设计 HEAD、CI、独立检查与用户决定维护于 PR。
-- 当前 **Design Basis: N/A**：只读源码/依赖映射与 Markdown，不改变生产代码、测试/guard、公共领域合同、权限/tenant、状态/事务、持久化或平台副作用；生产实施未 Ready、未开工。
+- Status: **USER_CONFIRMED / SOURCE_RETIRED**。用户已确认 #750 冻结设计 `ca7a6e2ea19314898b024a8d50b31913ce191265` 的 §5、§6、§6.1、§7，授权在同一 PR 实施；准确实现 HEAD、CI 与独立最终检查维护于 PR，合并/真实操作仍未授权。
+- 调查与实施开工基线：`main @ 6132a08a028ff6e7a1ad912414ccc67ef3be55ab`（#749 已合并）。原设计 CI/review 是历史设计证据，不替代实现候选验证。
+- 当前 **Design Basis: Reuse Existing Architecture；Admission: Ready**，生产修改前已在 #29/#301 记录并读回核验。此前 N/A 只覆盖文档调查；本次不新增公共领域合同、权限/tenant、事实/schema、状态机/事务、恢复或平台副作用 owner。
 - 保留当前采集、Store 观察同步、有效平台 API/DTO、规则与共享合同、两种 SHEIN 属性、PriceManager/PriceCalculator、独立 SHEIN 登录 worker 及其 Store 同步。两套及其它 workflow、必需/安全检查、保护和 ceiling 零改动；不操作实例或数据，不增加试用前置。
 
 ## 1. 用户结果、范围与非目标
@@ -26,7 +26,7 @@ Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](htt
 - [TEMU publishing owner](../../internal/marketplace/temu/publishing/README.md)：平台确定性规则与 payload shaping 属于既有 `internal/marketplace/temu/publishing`；编码生成复用 `internal/pkg/skugen`。不让旧 Task/context 成为当前规则 owner。
 - [独立 worker 身份/持久化](shein-worker-identity-persistence-boundary.md)、[当前 Store](store-center-current-application-v1.md)、[observations](store-center-platform-observations-v1.md)、[准备接线](store-observations-preparation-runtime.md)、[当前 SHEIN](my-supply-chain-shein-v1.md)：身份、当前事实、授权与 retry/UNKNOWN 继续归原 owner。Figma N/A，无 UI/IA 变化。
 
-未来实施拟采用 **Reuse Existing Architecture**：删除未装配的四个旧 handler；先将 §5 两项确定性行为抽取到既有 marketplace owner 的包内私有值函数，编码仍调用原 `skugen.Generate(..., StrategyASINOnly, ...)`。不导出新类型/接口、不新增调用入口；不新增或转交领域/事实/schema、权限/tenant/身份、状态机、事务、幂等、retry/UNKNOWN/recovery 或外部副作用 owner。用户确认冻结矩阵后，生产修改前须在 Issue 写明引用、Ready 与唯一 Writer；设计检查不能自动触发实施。
+本次实施采用 **Reuse Existing Architecture**：删除未装配的四个旧 handler；先将 §5 两项确定性行为抽取到既有 marketplace owner 的包内私有值函数，编码仍调用原 `skugen.Generate(..., StrategyASINOnly, ...)`。不导出新类型/接口、不新增调用入口；不新增或转交领域/事实/schema、权限/tenant/身份、状态机、事务、幂等、retry/UNKNOWN/recovery 或外部副作用 owner。用户已确认冻结矩阵，生产修改前已在 Issue 写明引用、Ready 与唯一 Writer；原设计检查不作为实施验证或合并授权。
 
 Must：有效 SKU 规则与 §5 保留项不减；当前权限/tenant/凭据、平台/Store/持久化原合同和安全检查不变；两套 workflow 与其它保护/ceiling 零改动；不接管历史数据、在途操作或 UNKNOWN。Should：原 guard 和当前文档与实际源码一致。Out of Scope 如 §1；无新增 Accepted Risk。Threat Model 限误删有效行为、混淆共享 owner、错误接入旧 Task/身份及将源码退出误报为运行态清零。
 
@@ -65,7 +65,7 @@ Reader 使用 Task.GetSourcePlatformOrDefault，而旧 cache handler 使用 Task
 
 ## 5. 精确删除、抽取与保留矩阵
 
-以下路径均相对 `internal/temu/product/`；**确认设计后实施，当前文件仍存在**。
+以下路径均相对 `internal/temu/product/`；用户已确认冻结矩阵，**四个原文件已源码退休**，两项有效规则位于既有 marketplace owner，未新增执行入口。
 
 | 对象 | 决策 | 删除/保留条件 |
 | --- | --- | --- |
@@ -73,7 +73,7 @@ Reader 使用 Task.GetSourcePlatformOrDefault，而旧 cache handler 使用 Task
 | out_goods_sn_check_handler.go（227 行） | EXTRACT 两项有效纯行为后 RETIRE 全文件 | 编码列表 shaping 与重复拒绝归既有 marketplace；Task/context/API 请求及日志编排不迁移，不用 wrapper 维持旧 Handler |
 | raw_json_data_handler.go（94 行） | RETIRE 全文件 | 退出 Task→FetchRequest、ProductNotFoundError→旧 NONRETRYABLE 和上下文回填/Shutdown；原 Reader/SourceFetcher/Stats/错误类型保留 |
 | cache_handler.go（82 行） | RETIRE 全文件 | 退出 Task→FetchRequest、空商品跳过与警告吞错调用层；缓存共享实现和事实原 owner 保留 |
-| 私有编码列表函数（拟 sku_sn_validation_policy.go） | EXTRACT 到 existing marketplace/temu/publishing | 输入只为主 ASIN、按原顺序的 variant ASIN 值列表、prefix/suffix；输出独立 []string。调用原 skugen ASINOnly；仅跳过精确空字符串，主项先、变体后、按最终编码首次出现稳定去重；不 trim、排序、改变策略或修改输入，无 Task/model/context/平台请求 |
+| 私有编码列表函数（sku_sn_validation_policy.go） | EXTRACT 到 existing marketplace/temu/publishing | 输入只为主 ASIN、按原顺序的 variant ASIN 值列表、prefix/suffix；输出独立 []string。调用原 skugen ASINOnly；仅跳过精确空字符串，主项先、变体后、按最终编码首次出现稳定去重；不 trim、排序、改变策略或修改输入，无 Task/model/context/平台请求 |
 | 私有重复项判定函数及私有值快照（同文件） | EXTRACT 到同一 owner | 输入仅 OutSkuSn/UsedGoodsID/UsedSkuID/FailReason 值；nil/空列表通过，任意失败项都拒绝并保留可诊断项。即使失败项字段为空也不能忽略；不持久化、不查询、不修复编码、不新增当前执行入口。旧日志/错误字面不是公共合同 |
 | internal/pkg/skugen、QueryAPI.CheckSkuSn、SkuSnCheckRequest/Response、OutSkuSnItem、OutGoodsSnCheckResult、OutSkuSnFailItem 及 api.go 原 re-export | 保留原 owner/行为/格式 | 不因旧 caller 退出删除平台能力、DTO 或其它 SKU 生成策略；也不将 handler 整体移入 marketplace |
 | ProductReader/ProductCache/ProductFetcherStats、FetcherFactory/local/remote、sourceproduct 的 FetchRequest/SourceRequest/RawJsonDataClient/CacheManager、DataParser、Raw JSON API/仓库/模型 | 保留原合同及源码消费者 | 不删除/改名/重建共享层，不新增兼容或 current-application 调用；有效采集、来源字段保真、缓存规则和测试保留 |
@@ -83,13 +83,13 @@ Reader 使用 Task.GetSourcePlatformOrDefault，而旧 cache handler 使用 Task
 Legacy decision: **RETIRE 四个闲置 Task handler；EXTRACT 两项确定性 SKU 行为**。
 Reusable behavior: 原编码生成/稳定去重与平台返回重复项的拒绝判定；已存在的共享采集、缓存、Mapping、平台及 SKU 能力保持原 owner。
 Current owner: 纯平台 shaping/validation 为 marketplace/temu/publishing，编码生成为 pkg/skugen；事实/采集/缓存/平台请求/Store/worker 仍各归原 owner。
-Cutover/deletion condition: 用户确认冻结矩阵、Issue 实施 Ready；刷新无新消费者，先规则 TDD 和原 absence guard RED，再抽取/精确删除并 GREEN。源码删除不授权真实资源/数据删除或说明历史运行态已退出。
+Cutover/deletion condition: 用户确认冻结矩阵、Issue 实施 Ready 已满足；刷新无新消费者，规则 TDD 和原 absence guard 先 RED，再抽取/精确删除并 GREEN。源码删除不授权真实资源/数据删除或说明历史运行态已退出。
 
 ## 6. 验证与交付
 
-设计阶段仅提交本文与架构索引；执行 diff/本地相对链接检查与上述静态 consumer/命令依赖映射。准确设计 HEAD 的原 PR CI 与一次集中独立设计检查分别记录；不新增设计检查器、runner、矩阵平台或真实验收流程。此阶段不为形式修改测试或制造 RED。
+原设计阶段仅提交本文与架构索引，其 diff/相对链接、静态映射、原 PR CI 与一次独立设计检查保留为设计证据。本次已获实施授权，按下列有界测试与删除矩阵验证；不新增检查器、runner、矩阵平台或真实验收流程。
 
-用户确认后的必要实施检查：
+本次范围内必要实施检查：
 
 1. 两项纯规则先写能捕获行为丢失的测试并确认 RED：主/变体同编码、跨变体重复、空 ASIN、顺序/prefix/suffix、空失败列表、非空失败/空字段失败、多项诊断、输入不变；再最小实现 GREEN。不调用原构造器/平台/采集/缓存，不复制或依赖旧 Task。
 2. 在原退休 guard 加四路径及限定旧 product 范围的 handler 符号检查，先确认存在而 RED，再删除 GREEN；同 guard 保留原平台/共享 token，并补 CheckSkuSn/DTO/re-export、共享 Reader/Cache、两私有函数的原位存在检查。不能全仓禁止 SHEIN 同名符号。
@@ -99,7 +99,7 @@ Cutover/deletion condition: 用户确认冻结矩阵、Issue 实施 Ready；刷�
 
 ### 6.1 原 guard、文档与 workflow 精确处置
 
-| 工件 | 用户确认后的改动 | 保留边界 |
+| 工件 | 本轮改动 | 保留边界 |
 | --- | --- | --- |
 | tests/listingkit_backend_retirement_test.go | 扩展原 TestListingKitTaskBackendSourcesAreRetired 的四路径/旧 product 符号缺席与平台/共享/纯函数保留检查；继续原 TestCurrentCommandsDoNotCompileLegacyBusinessBackends、独立 worker guard | 不删旧安全断言，不给缺文件加 skip；不全仓封禁同名 SHEIN handler 或平台 DTO |
 | tests/import_boundaries_test.go | 仅从 TestTEMUProductStoreAndSchedulerRetiredManagementImportsStayBlocked 删 exists_check_handler.go 一条已消失路径 allowlist | 其它 6 条和 product/store roots、deny/graph/ceiling 不变；全仓检索未发现另三路径的硬编码豁免，不臆造更多删除 |
@@ -109,9 +109,15 @@ Cutover/deletion condition: 用户确认冻结矩阵、Issue 实施 Ready；刷�
 
 ## 7. 确认与实施停止点
 
-1. 以一个 Draft PR 交付设计、原适用 CI、独立设计检查与限制；#29/#301 保持 OPEN。当前 DESIGN_ONLY，源码/测试/guard/workflow 零 diff。
-2. **等待用户确认 §5、§6、§6.1、§7** 后，在同一主要分支/PR 实施。生产修改前 Issue 写明冻结设计、Reuse Existing Architecture / Ready、owner/调用链/不变量/非目标、唯一 Writer；设计授权不是实施授权。
-3. 开工刷新一次实际 main、构造器/实例化/注册与 31 命令图；如有真实新消费者或需要改变 §2 保留边界，停止对应项并报告，不能直接整包删除或接兼容路径。与本批无关的其它 owner 工作不接管。
+1. 原设计以 Draft PR 交付，准确设计 HEAD 的原适用 CI 与独立设计检查通过；证据是历史设计验证，不作为新实现候选 PASS。#29/#301 保持 OPEN。
+2. **用户已确认冻结设计 §5、§6、§6.1、§7 并授权同一主要分支/PR 实施**。生产修改前 Issue 已写明冻结设计、Reuse Existing Architecture / Ready、owner/调用链/不变量/非目标、唯一 Writer；不扩为合并、部署或真实操作授权。
+3. 开工已刷新实际 main、构造器/实例化/注册与 31 命令图，无新消费者；如出现真实新消费者或必须改变 §2 保留边界，停止对应项并报告，不能直接整包删除或接兼容路径。与本批无关的其它 owner 工作不接管。
 4. 按 §6 先有效规则 TDD/absence RED，再 EXTRACT/RETIRE 与必要 GREEN，finding 先分类并检查 sibling。非阻塞完善不扩为新系统；当前 Must 未满足不能合并。
 5. 最终候选前同步一次实际 main，只处理真实组合风险；实现 HEAD、CI、独立最终检查和限制维护于 PR。完成进入 In Review；准确 HEAD 合并须另获授权，随后核对实际 merge SHA 对应 push/main CI。
 6. 不授权关单、部署/运行、真实平台/实例/数据操作，不宣称用户验收/上线或 #29/#301 全量清零，不增加内部试用前置。所有用户指定保留能力继续归原 owner。
+
+## 8. 源码交付校准
+
+四个旧 handler 缺席；原 guard 在删除前确实捕获四路径/四符号，删除后通过。两个 SKU 函数/私有快照先测试 RED 后最小实现 GREEN，复用原 skugen，不依赖 Task/model/context/API/client/state/IO、不修改输入或修复编码、不新增当前调用入口。仅删除 exists_check_handler 的一条 allowlist，其它六条及 roots/deny/ceiling 保留。
+
+共享 Reader/Cache/Mapping、平台 API/DTO/re-export、混合 context、SKU/其它规则、所有用户指定保留能力与原权限/持久化/副作用 owner 均保留。product 仍有其它 logger/openai 消费者，其当前盘点行和全部 dated 图不删除。两套及其它 workflow、保护和 ceiling 零改动。实现/必要检查、准确 HEAD/CI/独立最终复核维护于 PR；真实平台、实例/数据、部署与用户验收仍 NOT_RUN。

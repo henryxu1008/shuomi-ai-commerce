@@ -46,6 +46,8 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/temu/product/submit_utils.go", "internal/temu/product/submit_error_analyzer.go",
 		"internal/temu/product/submit_fixer.go", "internal/temu/product/submit_validator.go",
 		"internal/temu/product/check_daily_limit_handler.go",
+		"internal/temu/product/exists_check_handler.go", "internal/temu/product/out_goods_sn_check_handler.go",
+		"internal/temu/product/raw_json_data_handler.go", "internal/temu/product/cache_handler.go",
 		"internal/shein/pricing/auto_pricing.go", "internal/shein/pricing/pricing_evaluator.go",
 		"internal/shein/pricing/pricing_calculator.go", "internal/shein/pricing/pricing_builder.go",
 		"internal/shein/pricing/time_helper.go", "internal/shein/pricing/auto_pricing_repo_test.go",
@@ -138,13 +140,16 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			"product.SaveRequest", "product.SaveResponse", "product.SaveResult", "product.SubmitRequest", "product.SubmitResponse",
 			"product.CreateCommitRequest", "product.CreateCommitResponse", "query.CommitDetailRequest", "query.CommitDetailResponse",
 			"NewProductAPI", "NewSubmitAPI", "product.NewAPI",
+			"query.SkuSnCheckRequest", "query.SkuSnCheckResponse", "query.OutSkuSnItem", "query.OutGoodsSnCheckResult",
 		},
 		"internal/temu/api/product/api.go": {
 			"func (a *API) Save(", "func (a *API) Submit(", "func (a *API) CreateCommit(",
 		},
-		"internal/temu/api/query/query.go": {"func (a *API) QueryCommitDetail("},
+		"internal/temu/api/query/query.go": {"func (a *API) QueryCommitDetail(", "func (a *API) CheckSkuSn("},
 		"internal/temu/api/query/query_types.go": {
 			"type CommitDetailRequest struct", "type CommitDetailResponse struct", "type CommitDetailResult struct", "type CommitDetailCategoryTree struct",
+			"type SkuSnCheckRequest struct", "type SkuSnCheckResponse struct", "type OutSkuSnItem struct",
+			"type OutGoodsSnCheckResult struct", "type OutSkuSnFailItem struct",
 		},
 		"internal/temu/context/temu_context.go": {
 			"type TemuTaskContext struct", "type PublishState struct", "PriceQueryResponse", "TemuProduct",
@@ -154,6 +159,15 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/marketplace/temu/publishing/submission_validation_policy.go": {
 			"func validateSubmissionSpecs(", "func validateSubmissionPackaging(",
 		},
+		"internal/marketplace/temu/publishing/sku_sn_validation_policy.go": {
+			"func buildUniqueSKUSNs(", "func validateSKUSNFailures(", "type skuSNFailure struct",
+		},
+		"internal/pkg/skugen/skugen.go": {"func Generate(", "StrategyASINOnly"},
+		"internal/crawler/fetcher/contracts.go": {
+			"type ProductReader interface", "type ProductCache interface", "type ProductFetcherStats interface",
+		},
+		"internal/listingadmin/management_api_types.go": {"type ProductImportMappingAPI interface", "CheckProductExists("},
+		"internal/shein/publish/exists_check.go":        {"type ProductExistsCheckHandler struct", "func NewProductExistsCheckHandler("},
 		"internal/temu/api/inventory/inventory.go": {
 			"type RelistRequest struct", "type RelistResponse struct", "type SearchRequest struct", "type SearchResponse struct",
 			"func (a *API) Relist(", "func (a *API) SearchOffline(",
@@ -205,9 +219,10 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			"ProductSaveHandler", "ProductSubmitHandler", "CommitCreateHandler", "CommitDetailHandler", "SavePublishResultHandler", "CheckDailyLimitHandler",
 			"ProductRequestInput", "CommitDetailOutput", "SaveProductOutput", "SubmitProductOutput", "SavePublishResultInput",
 			"ProductSubmitUtils", "ProductSubmitErrorAnalyzer", "ProductSubmitFixer", "ProductSubmitValidator",
+			"ProductExistsCheckHandler", "OutGoodsSnCheckHandler", "RawJsonDataHandlerV2", "CacheProductHandler",
 		} {
 			if strings.Contains(string(content), retired) {
-				t.Errorf("%s must not recreate retired TEMU submission orchestration %q", path, retired)
+				t.Errorf("%s must not recreate retired TEMU Task orchestration %q", path, retired)
 			}
 		}
 		return nil
@@ -373,6 +388,8 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 		"internal/temu/context/temu_context.go",
 		"internal/marketplace/temu/publishing/submission_validation_policy.go",
 		"internal/marketplace/temu/publishing/submission_validation_policy_test.go",
+		"internal/marketplace/temu/publishing/sku_sn_validation_policy.go",
+		"internal/marketplace/temu/publishing/sku_sn_validation_policy_test.go",
 		"internal/shein/productsync/product_sync_types.go", "internal/shein/productsync/marketing_client_boundary_test.go",
 		"internal/shein/api/marketing/client.go", "internal/shein/api/marketing/client_test.go",
 		"internal/shein/api/marketing/interface.go", "internal/shein/api/marketing/activity_types.go",

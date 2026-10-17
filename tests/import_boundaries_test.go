@@ -2958,13 +2958,12 @@ func TestTEMUSyncAndPricingRetiredManagementImportsStayBlocked(t *testing.T) {
 
 func TestTEMUProductStoreAndSchedulerRetiredManagementImportsStayBlocked(t *testing.T) {
 	allowedFiles := map[string]struct{}{
-		filepath.Clean(filepath.Join("..", "internal", "temu", "product", "build_spu_handler.go")):    {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "product", "exists_check_handler.go")): {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "product", "filter_checker.go")):       {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "product", "price_handler.go")):        {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "product", "spu_builder.go")):          {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "store", "id_handler.go")):             {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "store", "info_handler.go")):           {},
+		filepath.Clean(filepath.Join("..", "internal", "temu", "product", "build_spu_handler.go")): {},
+		filepath.Clean(filepath.Join("..", "internal", "temu", "product", "filter_checker.go")):    {},
+		filepath.Clean(filepath.Join("..", "internal", "temu", "product", "price_handler.go")):     {},
+		filepath.Clean(filepath.Join("..", "internal", "temu", "product", "spu_builder.go")):       {},
+		filepath.Clean(filepath.Join("..", "internal", "temu", "store", "id_handler.go")):          {},
+		filepath.Clean(filepath.Join("..", "internal", "temu", "store", "info_handler.go")):        {},
 	}
 
 	for _, root := range []string{
