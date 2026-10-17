@@ -3,13 +3,13 @@
 ## 1. 状态、用户结果与范围
 
 - 日期：2026-10-18；执行依据：#29 / #301 与用户本轮明确授权。
-- 状态：**DESIGN_ONLY / AWAITING_USER_CONFIRMATION**。本 PR 只交付本文及架构索引；五个 handler、DTO、测试/guard、workflow 均未修改。设计确认后才在同一主要 PR 实施，不把设计检查写成实施完成。
-- **Design Basis: N/A（本轮仅文档与只读代码/依赖图映射）**。未来有界实施拟采用 **Reuse Existing Architecture**，须先按 §2 在 Issue 登记 Ready；本文不自行签发 IMPLEMENTATION_READY 或用户验收。
+- 状态：**USER_CONFIRMED / SOURCE_RETIRED**。用户已确认 #773 冻结设计 `a451f0cbd7b5bd3b6a4dabb027fa8843a544b4af` 的 §5/§6/§6.1/§7；五个 handler 及两个专属 DTO/helper 文件已按矩阵退出。合并和真实操作仍须单独授权，原设计 CI/review 不替代实施证据。
+- 当前 **Design Basis: Reuse Existing Architecture；Admission: Ready**。用户确认后，生产修改前已在 #29/#301 登记冻结依据、owner/不变量/验证并读回 Ready。原设计 N/A 仅覆盖当时文档/只读映射；准确实现 HEAD、CI 与最终独立检查维护于 PR，不自行签发用户验收。
 - 取证基线：actual main `5e738e3ea69ad7a940a67dc221f67e1f88f7ba23`，含 #771 已合并 SKU/SKC 退休；之后 #772 只改 UI/产品说明，与本范围无交集。唯一 Writer 复用原附属独占 worktree，新分支 `codex/issue29-temu-category-template-retirement-design`；已核对接单及现有 PR，无同范围 owner，不接管 #692。
 
 使用者是维护当前内部试用、采集及 Store 能力的维护者。交付为五个旧 handler 和专属输入输出 DTO 的实际消费者、有效规则、持久化与平台副作用 owner、删除/保留/检查矩阵，避免旧 Task/raw payload 编排再次成为当前入口。**当前没有用户操作被本维护阻塞；设计与后续源码退休均不增加内部试用前置。**
 
-候选范围仅 `internal/temu/category` 三个 handler 与 `internal/temu/template` 两个 handler、两个 DTO/helper 文件，共七文件 872 行。没有新页面/交互，Figma N/A。
+已退休整文件范围为 `internal/temu/category` 三个 handler 与 `internal/temu/template` 两个 handler、两个 DTO/helper 文件，共七文件 872 行。没有新增 EXTRACT 代码；有效规则复用当前 owner。没有新页面/交互，Figma N/A。
 
 非目标：新增刊登或类目推荐产品、默认发货/运费/儿童类目策略、API 接线、AI 调用、公共领域合同、schema/身份/恢复平台或验收工具；修复其它保留实现；运行 constructor/main、真实平台/API/provider/采集、上传/Query/Preview/DryRun；读取配置/凭据/DB/Redis/Profile/历史运行日志；部署、重放、迁移、清理及 Issue 关闭。
 
@@ -22,7 +22,7 @@ Architecture / Contract：
 - 此前用户确认的 [保存/提交](legacy-temu-listing-submit-retirement-boundary.md)、[前置](legacy-temu-preflight-retirement-boundary.md)、[变体](legacy-temu-variant-retirement-boundary.md)、[筛选/映射](legacy-temu-filter-mapping-retirement-boundary.md)、[Store 初始化](legacy-temu-store-init-retirement-boundary.md)、[SPU/价格查询](legacy-temu-spu-price-query-retirement-boundary.md)、[SKU/SKC](legacy-temu-sku-skc-retirement-boundary.md)：旧入口已退出，平台与共享能力保留。旧文档中 category/template 的保留陈述是当批边界；用户确认本文后，仅 §5 七文件由本矩阵替代，平台 DTO、其它保留项及历史证据不被覆盖。
 - [Store current application](store-center-current-application-v1.md)、[Store observations](store-center-platform-observations-v1.md)、[独立 SHEIN 身份与持久化](shein-worker-identity-persistence-boundary.md)：当前与保留数字运行链各守原 owner，不从旧账号/Cookie/Profile 补当前身份，不操作运行资产。
 
-未来实施拟 **Reuse Existing Architecture**：七文件只退出无装配的旧编排及专属进程值；有效校验已有当前 owner，平台 API/DTO 与共享上下文不变。不新增或改变公共领域合同、事实/schema、身份/权限/tenant、状态机/事务、幂等/retry/UNKNOWN/recovery、AI 准入/预算/计量或平台副作用 owner。估计七生产文件 872 行删除，加原 guard/清单/直接冲突说明，未命中 30 文件或 2,500 生产行提示线；若实际需要改变上述边界，停止对应部分并补适用 Independent Architecture 准入。
+本次实施采用 **Reuse Existing Architecture**：七文件只退出无装配的旧编排及专属进程值；有效校验已有当前 owner，平台 API/DTO 与共享上下文不变。不新增或改变公共领域合同、事实/schema、身份/权限/tenant、状态机/事务、幂等/retry/UNKNOWN/recovery、AI 准入/预算/计量或平台副作用 owner。七生产文件 872 行删除，加原 guard/清单/直接冲突说明，未命中 30 文件或 2,500 生产行提示线；若实际需要改变上述边界，停止对应部分并补适用 Independent Architecture 准入。
 
 Must：保留平台 API/同名 DTO/re-export、有效规则/共享合同、AI/SKU 映射与 AIBatchInput、PriceHandler/ProfitRuleAPI、PriceManager/PriceCalculator、两种 SHEIN 属性、Reader/Cache/Mapping、当前采集/Store 观察及独立 SHEIN 登录 worker/Store sync；保留 AI、规格、图像、属性、文本和其它有效实现。两套及其它 workflow、必需/安全检查、保护/ceiling、依赖不改。
 
@@ -66,7 +66,7 @@ Should：原 guard、当前清单及直接冲突说明与源码一致。Out of S
 | 商品已有类目即跳过、Amazon 名称回退、前三项限制、儿童名称子串 heuristics、稀疏层级拼接 | 无当前产品合同要求用这些旧推荐策略替代当次官方可选类目、资质和用户明确资料 | RETIRE 该 handler 专属策略/childrenRelatedKeywords；不撤销官方限制、不修改当前规则或 SHEIN 同名规则，不宣称推荐结果代表资格 |
 | 声明 PromptList 转写、ClickType/QueryAll/commit version 默认、缺 client/类目跳过/吞错 | 旧 Task transport/预填，平台 DTO/API 与当前明确事实/失败关闭合同各有 owner | RETIRE 专属 wrapper/值搬运及宽松分支；保留原 API/平台模型，不复制默认值为当前领域要求 |
 
-## 5. 精确删除与保留矩阵（待用户确认）
+## 5. 精确删除与保留矩阵（用户已确认并实施）
 
 | 路径 / 对象 | 决定 | 删除边界 / 保留条件 |
 | --- | --- | --- |
@@ -89,9 +89,9 @@ Cutover/deletion condition: 用户明确确认 §5/§6/§6.1/§7；实施前登�
 
 ## 6. 验证与验收边界
 
-本设计已完成七文件及 API/共享消费者只读映射、精确导入/声明装配检索、31 命令静态依赖图和前批保留边界对照。只改 Markdown 后做 diff/相对链接检查；设计 PR 原 CI 和最终独立检查绑定准确 HEAD，证据维护 PR。设计通过不表示源码已删、平台效果验证或用户验收。
+设计阶段已完成七文件及 API/共享消费者只读映射、精确导入/声明装配检索、31 命令静态依赖图和前批保留边界对照，只交付 Markdown 并做 diff/相对链接检查。本次实施前已再次刷新 main/消费者；原退休 guard 在七文件尚在时准确 RED，全部保留断言通过，精确删除后 GREEN。适用保留验证、准确实施 HEAD 的原 CI 与最终独立检查维护于 PR；旧设计证据不替代实施检查、平台效果验证或用户验收。
 
-未来实施只做必要检查：
+本次实施的必要验证边界：
 
 1. 开工同步一次实际 main，重新检查五个 handler/两个 DTO 的外部导入、直接实例化、注册及当前命令依赖；新增真实消费者、兼容义务或有效规则不能在旧闭包内擅改，停止对应项报告。
 2. 先在原退休 guard 加准确类别/模板目录禁令，七文件尚在时确认 RED，再精确删除七文件并 GREEN。此次不新增业务规则，无需为删除旧算法制造业务 RED 或新测试框架。
@@ -101,18 +101,18 @@ Cutover/deletion condition: 用户明确确认 §5/§6/§6.1/§7；实施前登�
 
 ### 6.1 原检查、清单与文档的精确处置
 
-| 现有位置 | 未来实施的最小变更 | 不得扩大 / 削弱 |
+| 现有位置 | 本次实施的最小变更 | 不得扩大 / 削弱 |
 | --- | --- | --- |
 | tests/listingkit_backend_retirement_test.go | 在原 TestListingKitTaskBackendSourcesAreRetired 的目录缺席列表增加 `internal/temu/category`、`internal/temu/template`，覆盖改名重建的 Go 文件；原保留 map 补 API/category、QueryTemplate/Advanced/CostTemplate、两套平台模板 DTO、四个 TemplateState 字段及当前规则 owner 的准确断言 | 原 root/product 子树、五个原 mixed 包 AST 扫描、SKU declaration fixture、全部原断言保留；两个退休目录不加入要求必须存在的 AST 遍历，不为目录消失加广泛 skip；不禁平台 category/template 包或 SHEIN 同名类型 |
 | 原 import/provider/logger/Phase2/命令/worker guard | 当前候选不直接 import OpenAI/provider，不在相关豁免中；目录删除后复用原规则 | 不加 skip/allowlist，不改 root/扫描/deny/helper、PriceHandler 唯一 management 豁免、ceiling 或必需/安全覆盖 |
 | docs/refactoring/phase2-runtime-inventory.md 当前 consumer register | 仅移除 `core/logger → temu/category` 与 `core/logger → temu/template` 两行失去的直接消费者 | dated inventory、historical debt list、其它 consumer 行及 closure ceiling 不改，不把整套 logger/平台能力写为已退休 |
-| Legacy register / 本文 / 架构索引与直接冲突的前批当前说明 | 实施后标准确 source-retired 七文件，说明共享上下文/API/规则仍保留；对前批 category/template 全保留陈述加本设计的窄替代说明 | 历史设计取证/审批保留；code-health 当前无这两包专属行，不发明行或改其它基线；设计阶段只提交本文与索引 |
+| Legacy register / 本文 / 架构索引与直接冲突的前批当前说明 | 已标准确 source-retired 七文件，说明共享上下文/API/规则仍保留；对前批 category/template 全保留陈述加本设计的窄替代说明 | 历史设计取证/审批保留；code-health 当前无这两包专属行，不发明行或改其它基线；设计阶段只提交本文与索引 |
 | .github/workflows/ci.yml、commercial-readiness.yml 及其它 workflow、.golangci.yml/依赖/保护 | **零变更** | 原检查目标/必需、安全检查与条件分类均保持；本批不为无 runtime 消费者的维护改 CI/发布/环境前置 |
 
 ## 7. 确认、实施与停止条件
 
-1. 本轮只读调查、设计和主要 PR 维护已授权；提交的七文件矩阵为提案，尚未退休任何源码。交付状态为 **In Review（设计）/ 待用户确认**，不是生产 Ready。
-2. 用户明确确认 §5/§6/§6.1/§7 后，在同一 PR 更新 Issue 为 Reuse Existing Architecture / Ready，引用本冻结设计、当前 owner/路径/不变量及验证；生产修改前读回准入，随后实施七文件退休和精确 guard/清单校准。
+1. 用户已明确确认冻结设计 §5/§6/§6.1/§7，授权在同一 #773 实施七文件退休。原设计交付与确认保留为历史依据；实现、自检及 PR 维护不是用户验收或生产发布批准。
+2. 生产修改前已在同一 PR 对应 Issue 登记 Reuse Existing Architecture / Ready，引用冻结设计、当前 owner/路径/不变量及验证并读回；随后才实施七文件退休和原 guard/清单精确校准。准确实现 HEAD 与交付状态以 PR 当前证据为准，不在本文滚动。
 3. 发现新当前消费者、具体外部可观察兼容义务、仍有效规则无正确 owner，或必须改变身份/tenant/事实/状态/事务/恢复/副作用协议，停止受影响部分报告；不临时增加 adapter/fallback，不自动扩成 IAM/规则/恢复平台。
 4. 实施完成以准确 HEAD 的保留验证、原 CI 及一次最终交付检查进入 In Review；已有未变证据可明确复用，finding 先分类，修复只复核增量。设计 CI/review 不冒充实施 CI/review。
 5. 合并仍需准确最终 HEAD 单独授权并正常 expected-head/保护；本设计不授权 Issue 关闭、部署、真实实例/provider/凭据/业务数据操作。当前采集、Store 观察与独立 SHEIN 登录/Store sync 保留，本项不增加内部试用前置。
