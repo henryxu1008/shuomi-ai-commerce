@@ -2,6 +2,14 @@
 
 > Status: Active legacy handling register
 
+> #29 / #301 [TEMU bulk-relist retirement](../architecture/legacy-temu-bulk-relist-retirement-boundary.md)
+> follows the user-confirmed frozen design at `47d97972d` in #747. The seven-file
+> unconstructed orchestration and exclusive DTO closure is source-retired. Platform
+> APIs and same-named API DTOs/re-exports, valid rules and shared contracts retain
+> their owners, as do SHEIN attributes, pricing, acquisition/observations and the
+> independent SHEIN login worker with Store sync. Both workflows are unchanged;
+> no real platform/instance/data operation or new trial prerequisite is authorized.
+
 > #29 / #301 [SHEIN activity retirement](../architecture/legacy-shein-activity-retirement-boundary.md)
 > is user-confirmed and implementation-admitted in #744. Unconstructed registration,
 > promotion/session/platform orchestration, exclusive readers and scheduler DTOs
