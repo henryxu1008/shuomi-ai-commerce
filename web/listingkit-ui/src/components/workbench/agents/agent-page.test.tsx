@@ -76,11 +76,122 @@ const item = {
   canReadRuns: false,
   capabilities: [],
 };
+const initialPermissions = [...scope.permissions];
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
   scope.effectiveOrganization = { id: "org-a", name: "企业A" };
   scope.isSwitching = false;
+  scope.permissions = [...initialPermissions];
+});
+
+function modeFixture(agentId:string, canConfigure=true) {
+  return {subject:{kind:"registered_agent",id:agentId},definition:{id:agentId,version:"v1.0.0"},mode:"default",revision:"0",policyVersion:"agent-execution-policy-v1",canConfigure,updatedAt:"2026-10-17T00:00:00Z",updatedBy:""};
+}
+function installDialogMethods() {
+  Object.defineProperty(HTMLDialogElement.prototype, "showModal", {configurable:true,value:function(this:HTMLDialogElement){this.open=true;}});
+  Object.defineProperty(HTMLDialogElement.prototype, "close", {configurable:true,value:function(this:HTMLDialogElement){this.open=false;}});
+}
+
+it("labels paginated counts as current-page facts and keeps the existing cursor navigation", async () => {
+  const pod = {...marketEntries()[4],agent:{...marketEntries()[4].agent,activation:"ENABLED",revision:"1",activationEpoch:"1"}};
+  const materials = {...marketEntries()[2],agent:{...marketEntries()[2].agent,activation:"ENABLED",revision:"1",activationEpoch:"1"}};
+  const fetch = vi.fn(async(url:unknown,init?:RequestInit)=>{
+    void init;
+    const path = String(url);
+    return Response.json(!path.includes("/agents/mine?") ? {items:[],nextCursor:""} : path.includes("cursor=second") ? {items:[materials],nextCursor:""} : {items:[pod],nextCursor:"second"});
+  });
+  vi.stubGlobal("fetch",fetch);
+  render(<AgentPage mode="mine"/>);
+  await screen.findByRole("article",{name:"POD设计智能体"});
+  expect(screen.getByText(/当前页已启用/)).toBeInTheDocument();
+  expect(screen.queryByText(/当前企业已启用/)).toBeNull();
+  fireEvent.click(screen.getByRole("button",{name:"下一页"}));
+  await screen.findByRole("article",{name:"平台上架资料智能体"});
+  expect(screen.getByText(/当前页已启用/)).toBeInTheDocument();
+  expect(screen.queryByRole("article",{name:"POD设计智能体"})).toBeNull();
+  fireEvent.click(screen.getByRole("button",{name:"返回智能体首页"}));
+  await screen.findByRole("article",{name:"POD设计智能体"});
+  expect(fetch.mock.calls.every(([,init])=>!init?.method||init.method==="GET")).toBe(true);
+});
+
+it("organizes mine into responsibility cards with honest activation filters and a separate usage guide", async () => {
+  const entries = marketEntries().filter(entry => ["product.title.agent","product.content.agent","listing.materials.agent","pod.design.agent"].includes(entry.agent.agentId)).map(entry => ({
+    ...entry,
+    agent:{...entry.agent,activation:["product.title.agent","pod.design.agent"].includes(entry.agent.agentId)?"DISABLED":"ENABLED",revision:"2",activationEpoch:"1"},
+    canUse:entry.agent.agentId==="product.content.agent",
+    capabilities:[{id:"text.generate",support:"REQUIRED",readiness:"NEEDS_CONFIGURATION",reason:"不应在管理卡片展开的模型路由长说明",observedAt:"2026-10-17T00:00:00Z"}],
+  }));
+  const fetch = vi.fn(async (_url:unknown,init?:RequestInit) => {void init;return Response.json({items:String(_url).includes("private")?[]:entries,nextCursor:""});});
+  vi.stubGlobal("fetch", fetch);
+  render(<AgentPage mode="mine"/>);
+  const content = await screen.findByRole("article",{name:"商品内容与本地化"});
+  expect(within(content).getByText("部分已启用")).toBeInTheDocument();
+  expect(within(content).getByRole("link",{name:"能力配置"})).toHaveAttribute("href","/workbench/agents/mine/product.content.agent");
+  expect(within(content).getByRole("link",{name:"进入使用"})).toHaveAttribute("href","/workbench/supply/acquisition?agent_kind=content");
+  expect(screen.getByRole("complementary",{name:"使用流程"})).toBeInTheDocument();
+  expect(screen.queryByText("不应在管理卡片展开的模型路由长说明")).toBeNull();
+  const filters = within(screen.getByRole("group",{name:"企业智能体状态"}));
+  expect(filters.getByRole("button",{name:"全部 3"})).toHaveAttribute("aria-pressed","true");
+  fireEvent.click(filters.getByRole("button",{name:"已停用 1"}));
+  expect(screen.queryByRole("article",{name:"商品内容与本地化"})).toBeNull();
+  expect(screen.getByRole("article",{name:"POD设计智能体"})).toBeInTheDocument();
+  fireEvent.click(filters.getByRole("button",{name:"已启用 2"}));
+  expect(screen.getByRole("article",{name:"商品内容与本地化"})).toBeInTheDocument();
+  expect(screen.queryByRole("article",{name:"POD设计智能体"})).toBeNull();
+  expect(fetch.mock.calls.every(([,init])=>!init?.method||init.method==="GET")).toBe(true);
+  expect(fetch.mock.calls.filter(([url])=>String(url).includes("/agents/mine?")).length).toBe(1);
+});
+
+it("loads the activation picker only when requested and navigates to the existing scoped detail without enabling", async () => {
+  installDialogMethods();
+  const fetch = vi.fn(async (url:unknown,init?:RequestInit)=>{void init;return Response.json({items:String(url).includes("/agents/market?")?marketEntries():[],nextCursor:""});});
+  vi.stubGlobal("fetch",fetch);
+  render(<AgentPage mode="mine"/>);
+  await screen.findByText("当前企业尚未启用智能体");
+  expect(fetch.mock.calls.some(([url])=>String(url).includes("/agents/market?"))).toBe(false);
+  fireEvent.click(screen.getByRole("button",{name:"启用智能体"}));
+  const picker = screen.getByRole("dialog",{name:"启用当前企业智能体"});
+  expect(await within(picker).findByRole("article",{name:"POD设计智能体"})).toBeInTheDocument();
+  expect(within(within(picker).getByRole("article",{name:"POD设计智能体"})).getByRole("link",{name:"前往启用"})).toHaveAttribute("href","/workbench/agents/mine/pod.design.agent");
+  expect(within(picker).queryByRole("button",{name:"启用到当前企业"})).toBeNull();
+  fireEvent.click(within(picker).getByRole("button",{name:"关闭"}));
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(fetch.mock.calls.every(([,init])=>!init?.method||init.method==="GET")).toBe(true);
+});
+
+it("closes the activation picker and discards its old organization response when context changes", async () => {
+  installDialogMethods();
+  let resolveCatalog!:(response:Response)=>void;
+  const delayedCatalog = new Promise<Response>(resolve=>{resolveCatalog=resolve;});
+  vi.stubGlobal("fetch",vi.fn(async(url:unknown)=>String(url).includes("/agents/market?")?delayedCatalog:Response.json({items:[],nextCursor:""})));
+  const view = render(<AgentPage mode="mine"/>);
+  await screen.findByText("当前企业尚未启用智能体");
+  fireEvent.click(screen.getByRole("button",{name:"启用智能体"}));
+  expect(screen.getByRole("dialog")).toBeInTheDocument();
+  scope.isSwitching=true;
+  view.rerender(<AgentPage mode="mine"/>);
+  expect(screen.queryByRole("dialog")).toBeNull();
+  scope.effectiveOrganization={id:"org-b",name:"企业B"};
+  scope.isSwitching=false;
+  view.rerender(<AgentPage mode="mine"/>);
+  await act(async()=>resolveCatalog(Response.json({items:[{...marketEntries()[4],name:"旧企业待启用智能体"}],nextCursor:""})));
+  expect(screen.queryByText("旧企业待启用智能体")).toBeNull();
+  expect(screen.queryByRole("dialog")).toBeNull();
+});
+
+it("removes an open activation picker after configuration permission is revoked", async () => {
+  installDialogMethods();
+  vi.stubGlobal("fetch",vi.fn(async()=>Response.json({items:[],nextCursor:""})));
+  const view=render(<AgentPage mode="mine"/>);
+  await screen.findByText("当前企业尚未启用智能体");
+  fireEvent.click(screen.getByRole("button",{name:"启用智能体"}));
+  expect(screen.getByRole("dialog")).toBeInTheDocument();
+  scope.permissions=scope.permissions.filter(permission=>permission!=="workbench.agent.configure");
+  view.rerender(<AgentPage mode="mine"/>);
+  await screen.findByText("当前企业尚未启用智能体");
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.getByRole("button",{name:"启用智能体"})).toBeDisabled();
 });
 
 it.each([
@@ -221,41 +332,53 @@ it("keeps mixed content activation honest and does not expose an enable action t
   expect(screen.queryByRole("heading",{name:"标题优化"})).toBeNull();
 });
 
-it("disables the selected content operation instead of the default title agent", async () => {
-  Object.defineProperty(HTMLDialogElement.prototype,"showModal",{configurable:true,value:function(this:HTMLDialogElement){this.open=true}});
-  Object.defineProperty(HTMLDialogElement.prototype,"close",{configurable:true,value:function(this:HTMLDialogElement){this.open=false}});
+it("uses the configured content operation's exact disable ID and revision", async () => {
+  installDialogMethods();
   const content = {...marketEntries()[1],agent:{...marketEntries()[1].agent,activation:"ENABLED",revision:"4",activationEpoch:"1"}};
-  const fetch = vi.fn(async (_url:unknown,init?:RequestInit) => init?.method === "POST"
-    ? Response.json({commandId:"8fc227bb-b572-4138-8e2a-5f1a0be98617",operation:"disable",agentId:"product.content.agent",revision:"5",noop:false,committedAt:"2026-10-17T00:00:00Z"})
-    : Response.json({items:[content],nextCursor:""}));
+  const fetch = vi.fn(async (url:unknown,init?:RequestInit) => {
+    if (init?.method === "POST") return Response.json({commandId:"8fc227bb-b572-4138-8e2a-5f1a0be98617",operation:"disable",agentId:"product.content.agent",revision:"5",noop:false,committedAt:"2026-10-17T00:00:00Z"});
+    if (String(url).includes("execution-modes")) return Response.json(modeFixture("product.content.agent"));
+    if (String(url).endsWith("/agents/product.content.agent")) return Response.json(content);
+    return Response.json({items:[],nextCursor:""});
+  });
   vi.stubGlobal("fetch",fetch);
-  render(<AgentPage mode="mine" />);
-  fireEvent.click(await screen.findByRole("button",{name:"停用内容完善与本地化"}));
+  render(<AgentPage mode="mine" id="product.content.agent"/>);
+  fireEvent.click(await screen.findByRole("button",{name:"停用智能体"}));
   fireEvent.click(screen.getByRole("button",{name:"确认停用"}));
   await waitFor(() => expect(fetch.mock.calls.some(([,init])=>init?.method==="POST")).toBe(true));
   const call=fetch.mock.calls.find(([,init])=>init?.method==="POST")!;
   expect(String(call[0])).toMatch(/\/agents\/product\.content\.agent\/disable$/);
   expect(new Headers(call[1]?.headers).get("If-Match")).toBe('"4"');
 });
-
-it("presents title and localization as operations of one content responsibility without merging their permissions", async () => {
+it("presents one content responsibility and uses only the actually available operation", async () => {
   const content = { ...item, name: "商品内容完善与本地化智能体", parameterSchema: "content-config-v1",
     agent: { ...item.agent, agentId: "product.content.agent", activation: "ENABLED", revision: "1", activationEpoch: "1" },
     canConfigure: false, canUse: true,
   };
-  const fetch = vi.fn(async (_url: unknown, init?: RequestInit) => { void init; return Response.json({ items: [item, content], nextCursor: "" }); });
+  const fetch = vi.fn(async (url: unknown, init?: RequestInit) => { void init; return Response.json({ items: String(url).includes("/agents/mine?") ? [item, content] : [], nextCursor: "" }); });
   vi.stubGlobal("fetch", fetch);
   render(<AgentPage mode="mine" />);
-  await screen.findByRole("heading", { name: "商品内容与本地化" });
+  const card = await screen.findByRole("article", {name:"商品内容与本地化"});
   expect(screen.getAllByRole("heading", { name: "商品内容与本地化" })).toHaveLength(1);
-  expect(screen.queryByRole("heading", { name: "商品标题优化智能体" })).toBeNull();
-  expect(screen.getByRole("heading", { name: "标题优化" })).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "内容完善与本地化" })).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "标题优化配置与历史" })).toHaveAttribute("href", "/workbench/agents/mine/product.title.agent");
-  expect(screen.getByRole("link", { name: "内容本地化配置与历史" })).toHaveAttribute("href", "/workbench/agents/mine/product.content.agent");
+  expect(within(card).getByText("部分已启用")).toBeInTheDocument();
+  expect(within(card).getByRole("link", {name:"能力配置"})).toHaveAttribute("href","/workbench/agents/mine/product.content.agent");
+  expect(within(card).getByRole("link", {name:"进入使用"})).toHaveAttribute("href","/workbench/supply/acquisition?agent_kind=content");
+  expect(within(card).queryByRole("button", {name:/停用|启用到当前企业/})).toBeNull();
   expect(fetch.mock.calls.every(call => !call[1]?.method || call[1]?.method === "GET")).toBe(true);
 });
 
+it("retains separate title and localization configuration and history routes in the existing detail", async () => {
+  const content = {...marketEntries()[1],canConfigure:false,agent:{...marketEntries()[1].agent,activation:"ENABLED",revision:"1",activationEpoch:"1"}};
+  vi.stubGlobal("fetch",vi.fn(async(url:unknown)=>{
+    if(String(url).includes("execution-modes"))return Response.json(modeFixture("product.content.agent",false));
+    return Response.json(String(url).endsWith("/agents/product.content.agent")?content:{items:[],nextCursor:""});
+  }));
+  render(<AgentPage mode="mine" id="product.content.agent"/>);
+  const navigation = await screen.findByRole("navigation",{name:"商品内容操作配置"});
+  expect(within(navigation).getByRole("link",{name:"标题优化配置与历史"})).toHaveAttribute("href","/workbench/agents/mine/product.title.agent");
+  expect(within(navigation).getByRole("link",{name:"内容本地化配置与历史"})).toHaveAttribute("href","/workbench/agents/mine/product.content.agent");
+  expect(screen.queryByRole("button",{name:"停用智能体"})).toBeNull();
+});
 it("configures platform materials with SHEIN only and never requests title knowledge",async()=>{
  Object.defineProperty(HTMLDialogElement.prototype,"showModal",{configurable:true,value:function(this:HTMLDialogElement){this.open=true}});
  Object.defineProperty(HTMLDialogElement.prototype,"close",{configurable:true,value:function(this:HTMLDialogElement){this.open=false}});
@@ -313,67 +436,20 @@ it("drops a late protected response after switching A to B to A", async () => {
   expect(screen.queryByText("旧企业受保护内容")).toBeNull();
 });
 
-it("shows the required acquisition permission when title execution cannot use evidence", async () => {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async () =>
-      Response.json({
-        items: [
-          {
-            ...item,
-            agent: {
-              ...item.agent,
-              activation: "ENABLED",
-              revision: "1",
-              activationEpoch: "1",
-            },
-            canConfigure: false,
-            canUse: false,
-            canReadRuns: true,
-            capabilities: [
-              {
-                id: "text.generate",
-                support: "REQUIRED",
-                readiness: "AVAILABLE",
-                reason: "模型已接入",
-                observedAt: "2026-10-08T00:00:00Z",
-              },
-              {
-                id: "product.source-evidence",
-                support: "REQUIRED",
-                readiness: "REQUIRES_AUTHORIZATION",
-                reason: "标题执行需要1688采集模块权限",
-                observedAt: "2026-10-08T00:00:00Z",
-              },
-              {
-                id: "knowledge.context",
-                support: "OPTIONAL",
-                readiness: "UNAVAILABLE",
-                reason: "未接入",
-                observedAt: "2026-10-08T00:00:00Z",
-              },
-              {
-                id: "image.generate",
-                support: "NOT_SUPPORTED",
-                readiness: "UNAVAILABLE",
-                reason: "未提供",
-                observedAt: "2026-10-08T00:00:00Z",
-              },
-              {
-                id: "platform.write",
-                support: "NOT_SUPPORTED",
-                readiness: "UNAVAILABLE",
-                reason: "未提供",
-                observedAt: "2026-10-08T00:00:00Z",
-              },
-            ],
-          },
-        ],
-        nextCursor: "",
-      }),
-    ),
-  );
-  render(<AgentPage mode="mine" />);
-  expect(await screen.findByText("标题执行需要1688采集模块权限")).toBeTruthy();
-  expect(screen.getByText("采集证据读取")).toBeTruthy();
+it("shows the required acquisition permission in configuration when title execution cannot use evidence", async () => {
+  const detail = {...item,agent:{...item.agent,activation:"ENABLED",revision:"1",activationEpoch:"1"},canConfigure:false,canUse:false,canReadRuns:true,capabilities:[
+    {id:"text.generate",support:"REQUIRED",readiness:"AVAILABLE",reason:"模型已接入",observedAt:"2026-10-08T00:00:00Z"},
+    {id:"product.source-evidence",support:"REQUIRED",readiness:"REQUIRES_AUTHORIZATION",reason:"标题执行需要1688采集模块权限",observedAt:"2026-10-08T00:00:00Z"},
+    {id:"knowledge.context",support:"OPTIONAL",readiness:"UNAVAILABLE",reason:"未接入",observedAt:"2026-10-08T00:00:00Z"},
+    {id:"image.generate",support:"NOT_SUPPORTED",readiness:"UNAVAILABLE",reason:"未提供",observedAt:"2026-10-08T00:00:00Z"},
+    {id:"platform.write",support:"NOT_SUPPORTED",readiness:"UNAVAILABLE",reason:"未提供",observedAt:"2026-10-08T00:00:00Z"},
+  ]};
+  vi.stubGlobal("fetch",vi.fn(async(url:unknown)=>{
+    if(String(url).includes("execution-modes"))return Response.json(modeFixture("product.title.agent",false));
+    return Response.json(String(url).endsWith("/agents/product.title.agent")?detail:{items:[],nextCursor:""});
+  }));
+  render(<AgentPage mode="mine" id="product.title.agent"/>);
+  expect(await screen.findByText("标题执行需要1688采集模块权限")).toBeInTheDocument();
+  expect(screen.getByRole("heading",{name:"采集证据读取 · 必需"})).toBeInTheDocument();
+  expect(screen.queryByRole("link",{name:"选择商品并进入使用 →"})).toBeNull();
 });
