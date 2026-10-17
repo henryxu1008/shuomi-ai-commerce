@@ -62,6 +62,20 @@ function renderShell(child = <p>organization child</p>) {
 }
 
 describe("WorkspaceAppShell", () => {
+  it.each(["/workbench/agents/skills", "/workbench/agents/skills/official", "/workbench/agents/skills/mine"])("allows the identity-only skill route %s without enterprise selection", pathname => {
+    navigation.pathname = pathname;
+    injectProfileContext({error: {code: "ORGANIZATION_ACCESS_REVOKED"}});
+    render(<WorkspaceAppShell><p>personal skill consumer</p></WorkspaceAppShell>);
+    expect(screen.getByText("personal skill consumer")).toBeVisible();
+    expect(navigation.replace).not.toHaveBeenCalled();
+  });
+  it.each(["/workbench/agents/skills/team", "/workbench/agents/skills/mine/extra", "/workbench/agents/mine"])("retains the enterprise gate on the skill sibling %s", pathname => {
+    navigation.pathname = pathname;
+    injectProfileContext();
+    render(<WorkspaceAppShell><p>protected skill consumer</p></WorkspaceAppShell>);
+    expect(screen.queryByText("protected skill consumer")).not.toBeInTheDocument();
+    expect(navigation.replace).toHaveBeenCalledWith("/workbench/no-organization");
+  });
   it.each(["/workbench/supply/operator", "/workbench/supply/operator/22222222-2222-4222-8222-222222222222"])("opens the enabled specialist route %s without enterprise selection", pathname => {
     navigation.pathname=pathname; injectProfileContext({blockingError:{code:"ORGANIZATION_ACCESS_REVOKED"}});
     render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><WorkspaceAppShell supplyMarketAvailable><p>market specialist consumer</p></WorkspaceAppShell></QueryClientProvider>);
