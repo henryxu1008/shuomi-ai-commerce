@@ -14,6 +14,7 @@ import {MarketAPIError,readMarketChoice,type MarketScope} from "@/lib/api/supply
 import type {CollectionItem} from "@/lib/contracts/product-collection";
 import {MarketReadError,CursorButtons,useMarketCommands} from "./shared";
 import {Qualifications} from "./qualifications";
+import {SupplyLocationFields} from "./supply-location-fields";
 import styles from "./selected-application-form.module.css";
 
 type Choice=Awaited<ReturnType<typeof readMarketChoice>>;
@@ -88,8 +89,7 @@ export function SelectedApplicationForm({scope}:{scope:MarketScope}){
             <label>最小起订量（件）<Input type="number" required min={1} max={1e9} value={supply.minimumQuantity} onChange={e=>setSupply({...supply,minimumQuantity:Number(e.target.value)})}/></label>
             <label>发货时效（天）<Input type="number" required min={0} max={3650} value={supply.leadDays} onChange={e=>setSupply({...supply,leadDays:Number(e.target.value)})}/></label>
             <label>生产能力<Input placeholder="无现货时请填写生产能力" required={supply.stock===0} maxLength={4000} value={supply.capacity} onChange={e=>setSupply({...supply,capacity:e.target.value})}/></label>
-            <label>发货省份<Input required maxLength={100} value={supply.province} onChange={e=>setSupply({...supply,province:e.target.value})}/></label>
-            <label>发货城市<Input required maxLength={100} value={supply.city} onChange={e=>setSupply({...supply,city:e.target.value})}/></label>
+            <SupplyLocationFields province={supply.province} city={supply.city} onChange={location=>setSupply(previous=>({...previous,...location}))}/>
           </div><label>供货价说明<Textarea placeholder="例如：含税 / 不含运费，可由专员进一步确认" maxLength={4000} value={supply.priceNote} onChange={e=>setSupply({...supply,priceNote:e.target.value})}/></label></Card>
           <Card className={styles.formCard}><h2>合作与资质</h2><p>只保留平台评估所需的必要信息</p><label>售后政策<Textarea placeholder="简要说明退换货及质量保障" maxLength={4000} value={supply.afterSaleNote} onChange={e=>setSupply({...supply,afterSaleNote:e.target.value})}/></label>
             <div className={styles.upload}><Qualifications scope={scope} ids={fileIds} onIDs={setFileIDs} onLocked={setUploadLocked}/></div>
