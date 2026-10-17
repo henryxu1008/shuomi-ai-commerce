@@ -1,8 +1,8 @@
 # 官方标题与图片技能 V1
 
 > Execution: [#774](https://github.com/qq550723504/task-processor/issues/774)，Refs #756 / #688 / #612。
-> Design Basis: **Independent Architecture**；Admission: **DESIGN_REVIEW_PENDING**。
-> 开工基线：`5e738e3ea69ad7a940a67dc221f67e1f88f7ba23`。本文件与 Figma 先于生产实现；适用独立检查完成后才能标记 IMPLEMENTATION_READY。
+> Design Basis: **Independent Architecture**；Admission: **IMPLEMENTATION_READY**。
+> 开工基线：`5e738e3ea69ad7a940a67dc221f67e1f88f7ba23`。本文件与 Figma 先于生产实现；两轮适用独立检查已完成，冻结设计候选4149cbf307。
 
 ## 1. 产品决定与结果
 
@@ -123,4 +123,4 @@ Round1（03aa53a24，[检查记录](https://github.com/qq550723504/task-processo
 - [metadata.target 反向收紧](https://github.com/qq550723504/task-processor/pull/795#discussion_r4303526542)：接受根因；采用可选明确标记，普通 metadata 的原校验不变，不改写任何数据。共享解析器回归覆盖已有任意 target/未知标记。
 - [确认回执先于方法栅栏](https://github.com/qq550723504/task-processor/pull/795#discussion_r4303526546)：接受根因；第5节步骤8明确原准入回执优先、只有新准入持锁，测试覆盖准入成功/CAS丢失/后续停用的同 action 恢复。
 
-上述最小设计修订完成，Round2仅复核这两项增量；未完成复核前继续 DESIGN_REVIEW_PENDING，不改生产代码。
+Round2仅复核两项增量（4149cbf307，[完成记录](https://github.com/qq550723504/task-processor/pull/795#issuecomment-6236901704)）：未发现重大问题。两项BLOCKER已在设计层收敛，进入IMPLEMENTATION_READY；对应断言仍须实现测试，不把设计复核当运行验收。
