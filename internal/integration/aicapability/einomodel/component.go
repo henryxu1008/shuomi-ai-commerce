@@ -191,6 +191,12 @@ func NewGuardedClient(cfg GuardConfig, base http.RoundTripper, finalGate func(co
 		transport := http.DefaultTransport.(*http.Transport).Clone()
 		transport.DisableKeepAlives = true
 		transport.TLSNextProto = map[string]func(string, *tls.Conn) http.RoundTripper{}
+		// Clone can inherit h2 ALPN from the initialized default transport.
+		// Advertise only the protocol handled by this single-send transport.
+		if transport.TLSClientConfig == nil {
+			transport.TLSClientConfig = &tls.Config{}
+		}
+		transport.TLSClientConfig.NextProtos = []string{"http/1.1"}
 		base = transport
 	}
 	guard := &GuardedClient{cfg: cfg, endpoint: endpoint, base: base, finalGate: finalGate}
