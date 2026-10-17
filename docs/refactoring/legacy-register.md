@@ -2,6 +2,15 @@
 
 > Status: Active legacy handling register
 
+> #29 / #301 [TEMU variant retirement](../architecture/legacy-temu-variant-retirement-boundary.md)
+> follows user-confirmed design `70c60af89` in #751. Four unconstructed variant
+> read/postprocess/cache components and the exclusive ASIN-map helper are
+> source-retired. Shared Reader/Cache, title rules, SkuVariantProcessor and the
+> mixed helper's other methods keep their owners; no new extraction or entrypoint.
+> Platform/shared contracts, acquisition/observations and independent SHEIN login
+> with Store sync remain. Workflows/ceilings are unchanged; no real instance/data
+> action, replay, cleanup or new trial prerequisite is authorized.
+
 > #29 / #301 [TEMU preflight retirement](../architecture/legacy-temu-preflight-retirement-boundary.md)
 > follows user-confirmed design `ca7a6e2ea` in #750. The four unconstructed Task
 > handlers for product/SKU checks, raw-data reads and caching are source-retired.

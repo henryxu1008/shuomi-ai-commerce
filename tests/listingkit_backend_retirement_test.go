@@ -48,6 +48,8 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/temu/product/check_daily_limit_handler.go",
 		"internal/temu/product/exists_check_handler.go", "internal/temu/product/out_goods_sn_check_handler.go",
 		"internal/temu/product/raw_json_data_handler.go", "internal/temu/product/cache_handler.go",
+		"internal/temu/sku/variant_json_data_handler.go", "internal/temu/sku/parallel_variant_handler.go",
+		"internal/temu/sku/cache_variants_handler.go", "internal/temu/sku/variant_data_processor.go",
 		"internal/shein/pricing/auto_pricing.go", "internal/shein/pricing/pricing_evaluator.go",
 		"internal/shein/pricing/pricing_calculator.go", "internal/shein/pricing/pricing_builder.go",
 		"internal/shein/pricing/time_helper.go", "internal/shein/pricing/auto_pricing_repo_test.go",
@@ -165,7 +167,32 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/pkg/skugen/skugen.go": {"func Generate(", "StrategyASINOnly"},
 		"internal/crawler/fetcher/contracts.go": {
 			"type ProductReader interface", "type ProductCache interface", "type ProductFetcherStats interface",
+			"FetchVariants(", "CacheVariants(",
 		},
+		"internal/marketplace/sourceproduct/product_fetcher.go": {
+			"func (f *ProductFetcher) FetchVariants(", "func (f *ProductFetcher) CacheVariants(", "VariantFetchRequest(",
+		},
+		"internal/marketplace/sourceproduct/cache_manager.go": {"func (c *CacheManager) CacheVariants("},
+		"internal/crawler/fetcher/remote_fetcher.go": {
+			"func (f *RemoteAPIProductFetcher) FetchVariants(", "func (f *RemoteAPIProductFetcher) CacheVariants(",
+		},
+		"internal/temu/sku/variant_processor.go": {"type SkuVariantProcessor struct", "func NewSkuVariantProcessor("},
+		"internal/temu/sku/builder.go":           {"NewSkuVariantProcessor("},
+		"internal/temu/sku/ai_mapping_utils_helper.go": {
+			"func (vp *SkuVariantProcessor) getProductDimensions(", "func (vp *SkuVariantProcessor) getItemWeight(",
+			"func (vp *SkuVariantProcessor) getProductDetailField(", "func (vp *SkuVariantProcessor) marshalWithoutHTMLEscape(",
+			"func (vp *SkuVariantProcessor) buildAIVariant(",
+		},
+		"internal/temu/sku/ai_mapping_single_processor.go": {"vp.getProductDimensions(", "vp.getItemWeight(", "vp.buildAIVariant("},
+		"internal/shared/strx/cleaner.go":                  {"func CleanProductTitle("},
+		"internal/temu/rules/text_processor.go":            {"strx.CleanProductTitle("},
+		"internal/shein/productdata/variant_data.go": {
+			"type VariantJsonDataHandler struct", "func NewVariantJsonDataHandler(", "func GetVariantByAsinFromVariants(",
+		},
+		"internal/shein/productdata/fetch_and_cache_variants.go": {
+			"type FetchAndCacheVariantsHandler struct", "h.reader.FetchVariants(", "h.cache.CacheVariants(",
+		},
+		"internal/shein/publish/mapping_helper.go":      {"productdata.GetVariantByAsinFromVariants("},
 		"internal/listingadmin/management_api_types.go": {"type ProductImportMappingAPI interface", "CheckProductExists("},
 		"internal/shein/publish/exists_check.go":        {"type ProductExistsCheckHandler struct", "func NewProductExistsCheckHandler("},
 		"internal/temu/api/inventory/inventory.go": {
@@ -225,6 +252,34 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 				t.Errorf("%s must not recreate retired TEMU Task orchestration %q", path, retired)
 			}
 		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	retiredVariantSymbols := map[string]bool{
+		"VariantJsonDataHandler": true, "NewVariantJsonDataHandler": true,
+		"ParallelVariantHandler": true, "NewParallelVariantHandler": true,
+		"CacheVariantsHandler": true, "NewCacheVariantsHandler": true,
+		"VariantProcessor": true, "NewVariantProcessor": true, "extractAsinListFromMap": true,
+	}
+	skuRoot := filepath.Join("..", "internal", "temu", "sku")
+	if err := filepath.WalkDir(skuRoot, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
+		if err != nil {
+			return err
+		}
+		ast.Inspect(file, func(node ast.Node) bool {
+			if ident, ok := node.(*ast.Ident); ok && retiredVariantSymbols[ident.Name] {
+				t.Errorf("%s must not recreate retired TEMU variant orchestration %q", path, ident.Name)
+			}
+			return true
+		})
 		return nil
 	}); err != nil {
 		t.Fatal(err)
