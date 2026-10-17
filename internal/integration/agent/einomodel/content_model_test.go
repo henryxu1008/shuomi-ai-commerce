@@ -2,6 +2,8 @@ package einomodel
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,6 +15,7 @@ import (
 	"task-processor/internal/authidentity"
 	"task-processor/internal/commercetool"
 	governed "task-processor/internal/integration/aicapability/einomodel"
+	"task-processor/internal/product/contentagent"
 	"task-processor/internal/product/enrichment"
 )
 
@@ -44,7 +47,8 @@ func TestContentModelBindsFixedOperationAndFrozenSelection(t *testing.T) {
 	binding := agent.Binding{ContextKind: "acquisition", ContextID: "context", ProductKey: "product", CatalogVersion: "1", PublicationID: "publication", TargetPlatform: "product"}
 	snapshot := agentconfig.Snapshot{AgentID: agentconfig.ContentAgentID, AgentVersion: agentconfig.ContentAgentVersion, MemberID: identity.EffectiveMemberID, ExecutionModelProfile: profile, Request: agent.Request{ContentSelection: selection, ModeSnapshotRef: modeRef, Binding: binding, PolicyVersion: enrichment.ContentPolicyVersion, PromptVersion: agentconfig.ContentPromptVersion, Limits: agent.Limits{Steps: 4, ModelCalls: 2, Tokens: 17000, CostMicros: 17000, Currency: "CNY", Runtime: time.Minute}}}
 	executor := &contentTextFixture{}
-	model, err := NewContentAgentTextModel(executor, testSnapshotReader{snapshot}, func(context.Context, string) (aicapability.ModelProfile, error) { return profile, nil }, func(context.Context, string) TextRouteReadiness { return TextRouteAvailable }, []commercetool.ToolRef{{ID: "product.snapshot.read", Version: "v1"}}, func(context.Context) (authidentity.AuthenticatedIdentity, error) { return identity, nil })
+	definition, _ := contentagent.Registration()
+	model, err := NewContentAgentTextModel(executor, testSnapshotReader{snapshot}, func(context.Context, string) (aicapability.ModelProfile, error) { return profile, nil }, func(context.Context, string) TextRouteReadiness { return TextRouteAvailable }, definition.AllowedTools, func(context.Context) (authidentity.AuthenticatedIdentity, error) { return identity, nil })
 	require.NoError(t, err)
 	input := agent.ModelInput{ContentSelection: selection, ModeSnapshotRef: modeRef, ConfigurationSnapshotRef: agent.ConfigurationSnapshotRef{Kind: agentconfig.SnapshotKind, ID: uuid.NewString(), Digest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, Binding: binding, PolicyVersion: enrichment.ContentPolicyVersion, PromptVersion: agentconfig.ContentPromptVersion, AgentID: agentconfig.ContentAgentID, AgentVersion: agentconfig.ContentAgentVersion, AgentRunID: uuid.NewString()}
 	quote, err := model.Quote(ctx, input)
@@ -63,4 +67,47 @@ func TestContentModelBindsFixedOperationAndFrozenSelection(t *testing.T) {
 	require.Contains(t, executor.input.Prompt, `"targetLanguage":"en-US"`)
 	require.Contains(t, executor.input.System, "ONLY the explicitly selected content fields")
 	require.NotContains(t, executor.input.System, "ONLY a title change")
+	require.Contains(t, executor.input.System, "An empty Input.History means evidence has not been read yet, not that the saved product lacks facts.")
+	require.Contains(t, executor.input.System, "Before proposing or interrupting for missing product facts, request product.canonical.inspect")
+	var dispatched struct {
+		Input        agent.ModelInput
+		AllowedTools []commercetool.ToolRef
+	}
+	require.NoError(t, json.Unmarshal([]byte(executor.input.Prompt), &dispatched))
+	require.Empty(t, dispatched.Input.History, "initial facts must still be fetched by the authorized tool")
+	require.Equal(t, input.Binding, dispatched.Input.Binding)
+	require.Equal(t, definition.AllowedTools, dispatched.AllowedTools)
+}
+
+// Prompt examples are executable protocol examples: each must name one real
+// action, with no competing Tool/Candidate fields. This does not pretend to
+// predict a provider's response; the real model path is verified separately.
+func TestContentPromptActionExamplesAreUnambiguous(t *testing.T) {
+	definition, _ := contentagent.Registration()
+	examples := map[string]agent.Action{}
+	for _, line := range strings.Split(contentTextSystem, "\n") {
+		if !strings.HasPrefix(line, `{"Kind":`) {
+			continue
+		}
+		var action agent.Action
+		require.NoError(t, json.Unmarshal([]byte(line), &action))
+		require.NotContains(t, examples, action.Kind)
+		examples[action.Kind] = action
+	}
+	require.Len(t, examples, 3, "show separate tool, propose and interrupt examples instead of a mixed action")
+	read, ok := examples["tool"]
+	require.True(t, ok)
+	require.Contains(t, definition.AllowedTools, read.Tool)
+	require.Equal(t, "product.canonical.inspect", read.Tool.ID)
+	require.Empty(t, read.Candidate.Changes)
+	require.Empty(t, read.Unresolved)
+	proposal, ok := examples["propose"]
+	require.True(t, ok)
+	require.Empty(t, proposal.Tool)
+	require.NotEmpty(t, proposal.Candidate.Changes)
+	missing, ok := examples["interrupt"]
+	require.True(t, ok)
+	require.Empty(t, missing.Tool)
+	require.Empty(t, missing.Candidate.Changes)
+	require.NotEmpty(t, missing.Unresolved)
 }
