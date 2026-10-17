@@ -356,28 +356,6 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"SpuValidator": true, "NewSpuValidator": true,
 		"PriceQueryHandler": true, "NewPriceQueryHandler": true,
 	}
-	retiredSKUSymbols := map[string]bool{
-		"SkuBuilder": true, "NewSkuBuilder": true, "SkuItemBuilder": true, "NewSkuItemBuilder": true,
-		"SkuSkcBuilder": true, "NewSkuSkcBuilder": true, "SkuParallelBuilder": true, "NewSkuParallelBuilder": true,
-		"SKUVariantBuildInput": true, "SKUProcessInput": true, "buildSKUVariantBuildInputWithRuntime": true,
-		"buildSKUVariantBuildInput": true, "buildSKUProcessInput": true,
-		"SkuPriceCalculator": true, "NewSkuPriceCalculator": true,
-		"skuPackagingInfo": true, "skuExpressInfo": true, "skuPricingInfo": true, "SpecDimension": true, "SpecValue": true,
-	}
-	retiredSKUMethods := map[string]map[string]bool{
-		"SkuVariantProcessor": {
-			"BuildVariantSkcs": true, "resolveVariantAIMapping": true, "resolveAndBuildVariantSkcs": true,
-			"assignBuiltVariantSkcs": true, "BuildSkcsFromAIMapping": true, "prepareAndBuildVariantSkcs": true,
-			"buildSkcsFromPreparedAIMapping": true, "resolveSkcBuildSpecs": true, "buildMultipleSkcs": true, "buildSingleSkc": true,
-			"CreateDefaultSkc": true, "resolveDefaultBuildProduct": true, "resolveAndBuildDefaultSkc": true,
-			"prepareAndBuildDefaultSkc": true, "buildDefaultSkcFromPreparedMapping": true, "selectDefaultAIMapping": true,
-			"buildDefaultSkuFromAIMapping": true, "resolveDefaultAIMapping": true, "prepareDefaultAIMappingForBuild": true,
-		},
-		"SkuSpecHandler": {
-			"collectNonColorSpecsForColor": true, "generateNonColorSpecCombinations": true, "generateCartesianProduct": true,
-			"createSpecCombinationKey": true, "createNonColorSpecKey": true, "createSpecCombinationKeyFromSpecs": true, "isColorSpec": true,
-		},
-	}
 	for _, pkg := range []string{"sku", "filter", "product", "rules", "handlerbase"} {
 		if err := filepath.WalkDir(filepath.Join("..", "internal", "temu", pkg), func(path string, entry os.DirEntry, err error) error {
 			if err != nil {
@@ -390,41 +368,19 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			ast.Inspect(file, func(node ast.Node) bool {
-				if pkg == "sku" {
-					switch declaration := node.(type) {
-					case *ast.FuncDecl:
-						if declaration.Recv != nil && len(declaration.Recv.List) == 1 {
-							receiver := declaration.Recv.List[0].Type
-							if pointer, ok := receiver.(*ast.StarExpr); ok {
-								receiver = pointer.X
-							}
-							if owner, ok := receiver.(*ast.Ident); ok && retiredSKUMethods[owner.Name][declaration.Name.Name] {
-								t.Errorf("%s must not recreate retired SKU method %s.%s", path, owner.Name, declaration.Name.Name)
-							}
-						}
-					case *ast.TypeSpec:
-						if declaration.Name.Name == "SkuVariantProcessor" {
-							if state, ok := declaration.Type.(*ast.StructType); ok {
-								for _, field := range state.Fields.List {
-									for _, name := range field.Names {
-										if name.Name == "skcBuilder" || name.Name == "itemBuilder" {
-											t.Errorf("%s must not retain exclusive SKU construction field %s", path, name.Name)
-										}
-									}
-								}
-							}
-						}
-					}
+			if pkg == "sku" {
+				for _, violation := range retiredSKUConstructionViolations(file) {
+					t.Errorf("%s: %s", path, violation)
 				}
+			}
+			ast.Inspect(file, func(node ast.Node) bool {
 				ident, ok := node.(*ast.Ident)
 				if !ok {
 					return true
 				}
 				retiredInit := pkg == "handlerbase" && (ident.Name == "InitDataHandler" || ident.Name == "NewInitDataHandler")
 				retiredSPU := pkg == "product" && retiredProductSPUSymbols[ident.Name]
-				retiredSKU := pkg == "sku" && retiredSKUSymbols[ident.Name]
-				if retiredTEMUSymbols[ident.Name] || retiredInit || retiredSPU || retiredSKU {
+				if retiredTEMUSymbols[ident.Name] || retiredInit || retiredSPU {
 					t.Errorf("%s must not recreate retired TEMU Task orchestration %q", path, ident.Name)
 				}
 				return true
@@ -824,4 +780,108 @@ func TestRetiredListingCLIsHaveNoBuildOrDeploymentEntrypoints(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestSKURetirementGuardPreservesSharedNames(t *testing.T) {
+	for _, tt := range []struct {
+		name, source string
+		wantRetired  bool
+	}{
+		{name: "retained selector", source: `package sku; import handlerbase "task-processor/internal/temu/handlerbase"; var _ handlerbase.SkuBuilder`},
+		{name: "retained alias with current name", source: `package sku; import handlerbase "task-processor/internal/temu/handlerbase"; type CurrentBuilder = handlerbase.SkuBuilder`},
+		{name: "local names and fields", source: `package sku; type Metadata struct { SpecValue string }; func retained(SkuBuilder int) { SpecValue := SkuBuilder; _ = SpecValue; type SKUProcessInput struct{}; _ = SKUProcessInput{}; type SkuVariantProcessor struct { itemBuilder int }; _ = SkuVariantProcessor{} }`},
+		{name: "concrete type", source: `package sku; type SkuBuilder struct{}`, wantRetired: true},
+		{name: "retired alias", source: `package sku; type SkuBuilder = CurrentBuilder`, wantRetired: true},
+		{name: "constructor", source: `package sku; func NewSkuBuilder() {}`, wantRetired: true},
+		{name: "constructor binding", source: `package sku; var NewSkuBuilder = factory`, wantRetired: true},
+		{name: "retired method", source: `package sku; func (*SkuVariantProcessor) BuildVariantSkcs() {}`, wantRetired: true},
+		{name: "retired field", source: `package sku; type SkuVariantProcessor struct { itemBuilder any }`, wantRetired: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			file, err := parser.ParseFile(token.NewFileSet(), "sku.go", tt.source, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			violations := retiredSKUConstructionViolations(file)
+			if (len(violations) != 0) != tt.wantRetired {
+				t.Fatalf("retirement violations = %v, wantRetired=%v", violations, tt.wantRetired)
+			}
+		})
+	}
+}
+
+func retiredSKUConstructionViolations(file *ast.File) []string {
+	retiredSKUSymbols := map[string]bool{
+		"SkuBuilder": true, "NewSkuBuilder": true, "SkuItemBuilder": true, "NewSkuItemBuilder": true,
+		"SkuSkcBuilder": true, "NewSkuSkcBuilder": true, "SkuParallelBuilder": true, "NewSkuParallelBuilder": true,
+		"SKUVariantBuildInput": true, "SKUProcessInput": true, "buildSKUVariantBuildInputWithRuntime": true,
+		"buildSKUVariantBuildInput": true, "buildSKUProcessInput": true,
+		"SkuPriceCalculator": true, "NewSkuPriceCalculator": true,
+		"skuPackagingInfo": true, "skuExpressInfo": true, "skuPricingInfo": true, "SpecDimension": true, "SpecValue": true,
+	}
+	retiredSKUMethods := map[string]map[string]bool{
+		"SkuVariantProcessor": {
+			"BuildVariantSkcs": true, "resolveVariantAIMapping": true, "resolveAndBuildVariantSkcs": true,
+			"assignBuiltVariantSkcs": true, "BuildSkcsFromAIMapping": true, "prepareAndBuildVariantSkcs": true,
+			"buildSkcsFromPreparedAIMapping": true, "resolveSkcBuildSpecs": true, "buildMultipleSkcs": true, "buildSingleSkc": true,
+			"CreateDefaultSkc": true, "resolveDefaultBuildProduct": true, "resolveAndBuildDefaultSkc": true,
+			"prepareAndBuildDefaultSkc": true, "buildDefaultSkcFromPreparedMapping": true, "selectDefaultAIMapping": true,
+			"buildDefaultSkuFromAIMapping": true, "resolveDefaultAIMapping": true, "prepareDefaultAIMappingForBuild": true,
+		},
+		"SkuSpecHandler": {
+			"collectNonColorSpecsForColor": true, "generateNonColorSpecCombinations": true, "generateCartesianProduct": true,
+			"createSpecCombinationKey": true, "createNonColorSpecKey": true, "createSpecCombinationKeyFromSpecs": true, "isColorSpec": true,
+		},
+	}
+	var violations []string
+	checkName := func(name string) {
+		if retiredSKUSymbols[name] {
+			violations = append(violations, "retired SKU declaration "+name)
+		}
+	}
+	// Inspect package declarations only: retained selectors and local names do
+	// not recreate the retired concrete package owner.
+	for _, declaration := range file.Decls {
+		switch declaration := declaration.(type) {
+		case *ast.FuncDecl:
+			if declaration.Recv == nil {
+				checkName(declaration.Name.Name)
+				continue
+			}
+			if len(declaration.Recv.List) != 1 {
+				continue
+			}
+			receiver := declaration.Recv.List[0].Type
+			if pointer, ok := receiver.(*ast.StarExpr); ok {
+				receiver = pointer.X
+			}
+			if owner, ok := receiver.(*ast.Ident); ok && retiredSKUMethods[owner.Name][declaration.Name.Name] {
+				violations = append(violations, "retired SKU method "+owner.Name+"."+declaration.Name.Name)
+			}
+		case *ast.GenDecl:
+			for _, spec := range declaration.Specs {
+				switch spec := spec.(type) {
+				case *ast.ValueSpec:
+					for _, name := range spec.Names {
+						checkName(name.Name)
+					}
+				case *ast.TypeSpec:
+					checkName(spec.Name.Name)
+					if spec.Name.Name != "SkuVariantProcessor" {
+						continue
+					}
+					if state, ok := spec.Type.(*ast.StructType); ok {
+						for _, field := range state.Fields.List {
+							for _, name := range field.Names {
+								if name.Name == "skcBuilder" || name.Name == "itemBuilder" {
+									violations = append(violations, "exclusive SKU construction field "+name.Name)
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return violations
 }
