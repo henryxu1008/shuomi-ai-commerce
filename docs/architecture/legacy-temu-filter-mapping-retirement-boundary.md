@@ -2,14 +2,14 @@
 
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
-- Status: **DESIGN_ONLY / AWAITING_USER_CONFIRMATION**。用户仅授权设计；目标源码仍在，尚未授权实施、合并或真实操作。
-- 调查基线：`main @ ad24d032c1af98056a77f6439c52b079db33f2a3`（#751 已合并）。准确设计 HEAD、适用 CI、独立设计检查与用户决定维护于 PR，不在本文滚动。
-- 当前 **Design Basis: N/A**：仅文档及只读源码映射。用户确认冻结矩阵后，未来实施按 §2 满足 **Reuse Existing Architecture / Ready** 才能修改生产路径。
+- Status: **USER_CONFIRMED / SOURCE_RETIRED**。用户在当前会话确认 #754 冻结设计 `0d8bc37850e949048e6de6fd33a2ea473eb44e65` 的 §5、§6、§6.1、§7；九个专属生产文件、一个旧测试和 mixed input 专属部分已按矩阵退出。合并和真实操作仍须单独授权。
+- 调查基线：`main @ ad24d032c1af98056a77f6439c52b079db33f2a3`（#751 已合并）。实施前同步实际 main `bd30076b2ec80364e0c6442ac075b1d763dbd451`；增量仅 #753 前端地点选择及其文档，无目标消费者变化。准确实现 HEAD、CI、独立最终检查与用户决定维护于 PR，不在本文滚动；旧设计 CI/review 仅为历史证据。
+- 当前 **Design Basis: Reuse Existing Architecture**：用户确认后，生产修改前已在 #29/#301 登记 **Ready**、冻结依据与唯一 Writer，再转入实施；原设计期 N/A 仅覆盖当时的文档/只读映射。
 - 保留当前采集、Store 观察同步、平台 API/同名 DTO、有效规则/共享合同、两种 SHEIN 属性、PriceManager/PriceCalculator、Reader/Cache/Mapping、独立 SHEIN 登录 worker 和 Store sync。两套及其它 workflow、必需/安全检查、保护/ceiling 零改动，不操作实例或数据，不增加内部试用前置。
 
 ## 1. 用户结果、范围与非目标
 
-使用者是维护当前内部试用、采集、平台/Store 能力与独立登录的维护者。交付为闲置 Task 变体筛选与 AI SKU 映射前置编排的完整专属闭包、实际消费者、provider/持久化 owner、状态判断冲突、删除/有效规则保留和验证矩阵，防止后续接线重新引入旧 Task owner。此维护不阻塞当前用户操作，不改变入口或新增试用前置。
+使用者是维护当前内部试用、采集、平台/Store 能力与独立登录的维护者。交付为闲置 Task 变体筛选与 AI SKU 映射前置编排完整专属闭包的源码退休，保留有效规则、batch 与原 owner，防止后续接线重新引入旧 Task owner。此维护不阻塞当前用户操作，不改变入口或新增试用前置。
 
 范围为 `internal/temu/sku/{variant_filter_handler,ai_mapping_handler}.go`、`internal/temu/filter/{rule_handler,rule_manager,rule_stats_provider}.go`，以及经消费者刷新确认专属的 `product/filter_checker.go`、`rules/rule_validator.go`、`handlerbase/{fulfillment_checker,filter_types}.go`：基线 **9 个生产文件共 884 行**；专属 `rules/rule_validator_test.go`（113 行）仅断言旧固定源图门槛，按 §4.1 退休。另仅包括混合 `sku/ai_mapping_handler_input.go` 的 `AIHandlerInput`、`buildAIHandlerInput` 及唯一不再使用的 temucontext import；混合输入文件不整删。
 
@@ -26,7 +26,7 @@ Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](htt
 - [既有商品规则 owner](../../internal/marketplace/productpolicy)、[TEMU publishing owner](../../internal/marketplace/temu/publishing/README.md)、[持久化规则状态](../../internal/listingadmin/rule_status.go)、FilterRuleAPI/DTO/仓库与现有 SKU processor/batch 合同：有效行为继续原 owner，不把旧 Task 编排包装成新能力。
 - [独立 worker 身份/持久化](shein-worker-identity-persistence-boundary.md)、[当前 Store](store-center-current-application-v1.md)、[observations](store-center-platform-observations-v1.md)、[准备接线](store-observations-preparation-runtime.md)：当前事实、身份、授权、retry/UNKNOWN 继续原 owner。Figma N/A，无 UI/IA 修改。
 
-当前 N/A 只覆盖本文和架构索引。未来实施拟采用 **Reuse Existing Architecture**：用户明确确认 §5、§6、§6.1、§7 后，在 #29/#301 记录冻结设计、用户结果、上述引用、原 owner/调用路径、不变量、验证、唯一 Writer 及 **Ready**，再删除完整专属闭包/旧测试/专属输入，并精确校准四条对应登记。不新增生产函数/类型/入口、公共领域合同、事实/schema、权限/tenant/身份、状态机/事务、幂等、retry/UNKNOWN/recovery 或 provider 副作用 owner。
+实施采用 **Reuse Existing Architecture**：用户明确确认 §5、§6、§6.1、§7 后，已在 #29/#301 记录冻结设计、用户结果、上述引用、原 owner/调用路径、不变量、验证、唯一 Writer 及 **Ready**，再删除完整专属闭包/旧测试/专属输入，并精确校准四条对应登记。不新增生产函数/类型/入口、公共领域合同、事实/schema、权限/tenant/身份、状态机/事务、幂等、retry/UNKNOWN/recovery 或 provider 副作用 owner。
 
 Must：§5 保留能力及现有状态/规则、provider/预算/计量/凭据和 Store 合同不减；两套及其它 workflow/必需和安全检查/保护/ceiling 不改。Should：原 guard、当前文档和源码一致。Out of Scope 如 §1；无新增 Accepted Risk。Threat Model 限误删共享 batch/规则/API、把错误统计抽成有效规则、混淆 Task/provider/持久化 owner、复活旧入口，以及误报运行态清零。
 
@@ -67,7 +67,7 @@ Finding: 旧统计启用态与有效状态合同相反。Product requirement aff
 
 ### 4.1 规则包装器与有效行为映射
 
-独立复核提出的“两个包装器没有保留消费者”已分类 **IMPLEMENTATION_TEST**，影响本设计 §5 闭包和保留 guard 的准确性，不构成当前试用/生产 Blocker。此设计尚未冻结；同一文档补齐完整专属闭包，不增加当前产品需求。有效行为已有正确 owner，无须复制或新增 EXTRACT 生产实现：
+设计期独立复核提出的“两个包装器没有保留消费者”已分类 **IMPLEMENTATION_TEST**，影响本设计 §5 闭包和保留 guard 的准确性，不构成当前试用/生产 Blocker。完整专属闭包已在冻结前补齐并完成增量复核，用户随后确认；不增加当前产品需求。有效行为已有正确 owner，无须复制或新增 EXTRACT 生产实现：
 
 | 原行为 | 当前有效 owner / 保留决策 | 旧包装的处置 |
 | --- | --- | --- |
@@ -80,7 +80,7 @@ Finding: 旧统计启用态与有效状态合同相反。Product requirement aff
 
 ## 5. 精确删除与有效规则保留矩阵
 
-以下为**拟实施范围，当前尚未删除**。
+以下为**用户确认后已实施的精确矩阵**；§3/§4 中调用关系描述删除前的取证基线。有效保留实现没有改动。
 
 | 对象 | 决策 | 删除/保留条件 |
 | --- | --- | --- |
@@ -105,9 +105,9 @@ Cutover/deletion condition: 用户确认冻结 §5/§6/§6.1/§7、Issue Reuse E
 
 ## 6. 验证与交付
 
-当前设计阶段仅提交本文与架构索引，检查 diff/相对链接、源码/命令图、原适用 PR CI 和一次准确设计 HEAD 的独立检查。设计 CI/review 不代表实施或真实使用 PASS；不修改测试/guard、不制造文档 RED。
+设计阶段仅提交本文与架构索引，设计 CI/review 不代表实施或真实使用 PASS。用户确认后，原退休 guard 已先在目标源码仍在时 RED，再按 §5 删除后 GREEN；三条对应 import 豁免和一条 constructor 登记精确退出，完整扫描和其它登记不减。实现验证和最终检查的准确证据维护于 PR。
 
-未来用户确认后的最小实施检查：
+用户确认后的最小实施检查：
 
 1. 刷新五编排类型、三个规则包装器/专属结果 DTO 和 mixed input 的消费者及 31 命令依赖；确认专属闭包不新增当前调用，否则停止对应删除并报告。
 2. 扩展原 TestListingKitTaskBackendSourcesAreRetired：九生产路径/旧测试缺席、限定旧 sku/filter/product/rules/handlerbase 范围的准确专属符号缺席；先确认源码存在而 RED，再精确删除 GREEN。复用现有 AST 能力，不全仓子串禁止 FilterRule、AI mapping、RuleChecker 或 shared batch 名称。
@@ -117,7 +117,7 @@ Cutover/deletion condition: 用户确认冻结 §5/§6/§6.1/§7、Issue Reuse E
 
 ### 6.1 原登记、guard、文档与 workflow 精确处置
 
-| 工件 | 未来拟改动 | 保留边界 |
+| 工件 | 本次改动 | 保留边界 |
 | --- | --- | --- |
 | tests/listingkit_backend_retirement_test.go | 扩展原九生产路径/一旧测试/专属符号缺席、shared input/状态/productpolicy/provider 保留 guard；已核对无强制保留这几个包装文件的原断言 | 原当前命令依赖/独立 worker/全部安全断言保留，不 skip 缺文件或移除 gate |
 | tests/import_boundaries_test.go | 精确移除三条对应消失路径：TestTEMUOpenAIImportsStayAllowlisted 的 ai_mapping_handler.go；TestTEMUProductStoreAndSchedulerRetiredManagementImportsStayBlocked 的 product/filter_checker.go；TestTEMURuntimeAndBridgeRetiredManagementImportsStayBlocked 的 handlerbase/fulfillment_checker.go | 三表分别保留其它11/5/4条，roots/deny/graph/ceiling不变，不借机清理其它旧条目；其余目标未发现其它硬编码路径豁免 |
@@ -127,8 +127,8 @@ Cutover/deletion condition: 用户确认冻结 §5/§6/§6.1/§7、Issue Reuse E
 
 ## 7. 确认与实施停止点
 
-1. 本轮只交设计，一个 Draft PR 维护 §5/§6/§6.1 矩阵、准确设计 HEAD CI 和独立设计检查；#29/#301 保持 OPEN，原正文历史保留。
-2. **用户明确确认冻结矩阵后**，才在同一分支/PR 继续；生产修改前登记 Reuse Existing Architecture / Ready、冻结设计/确认记录、唯一 Writer 和 §2 不变量。本次“可以”仅批准设计，不代替实施确认。
+1. #754 先以 Draft PR 交付设计、准确设计 HEAD CI 和独立设计检查；#29/#301 保持 OPEN，原正文历史保留。旧设计证据不得冒充实施结果。
+2. **用户已明确确认冻结矩阵**，在同一分支/PR 继续；生产修改前登记 Reuse Existing Architecture / Ready、冻结设计/确认记录、唯一 Writer 和 §2 不变量。设计确认授权上述有界实施，不代替准确最终 HEAD 的合并授权。
 3. 获准实施时同步一次实际 main，最终候选前再核对一次，只处理真实组合风险，不持续机械 merge。出现新消费者/当前兼容义务或保留合同/事实/权限/状态/副作用变化，停止对应项并报告，不擅自扩删除或加 wrapper。
 4. 按矩阵删除/登记/原 guard RED→GREEN、必要回归、准确实现候选 CI 和独立最终检查后交付 In Review；设计证据保持历史，不冒充实现结果，不以无变化代码反复审核扩大流程。
 5. 合并仍需用户准确 HEAD 的单独授权，遵守 expected-head/保护，无管理员绕过。设计或实施都不授权 Issue 关闭、部署、真实 provider/实例/凭据/数据操作，不增加内部试用前置。

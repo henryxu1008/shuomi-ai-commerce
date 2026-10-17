@@ -1,5 +1,14 @@
 # Phase 2 runtime convergence inventory
 
+> #754 bounded calibration: nine exclusive TEMU filter/AI preflight and rule-wrapper
+> production files, one obsolete Task test and mixed input's exclusive helper are
+> source-retired. Shared rules/status/API/repository, AIBatchInput/methods and SKU
+> mapping keep their original owners. Filter still consumes core/logger; SKU still
+> consumes core/logger and integration/openai, so all three current rows remain.
+> Only three corresponding import exemptions and one provider constructor entry
+> exit their original test inventories; other entries, scans, dated inventories,
+> ceilings and workflows remain. No runtime/data action or new trial prerequisite.
+
 > #751 bounded calibration: four exclusive TEMU variant read/postprocess/cache
 > components and one ASIN-map helper are source-retired. Shared Reader/Cache,
 > title rules, SkuVariantProcessor and the mixed helper's other methods remain.

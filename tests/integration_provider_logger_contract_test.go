@@ -134,7 +134,6 @@ func TestProductionProviderConstructorInventoryIsComplete(t *testing.T) {
 		"hack/debug/replay-sale-attribute/main.go":              {openAI: 1},
 		"internal/app/worker/imageagent/dependencies.go":        {openAI: 1},
 		"internal/app/worker/imageagent/generation_provider.go": {grsai: 1},
-		"internal/temu/sku/ai_mapping_handler.go":               {openAI: 1},
 	}
 	got := scanProviderConstructors(t,
 		filepath.Join("..", "internal"),
