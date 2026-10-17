@@ -122,6 +122,11 @@ it("shows the recovered single application's receipt and prevents an unintended 
   expect(await screen.findByRole("checkbox",{name:"选择 已优化自有外套"})).toBeDisabled();
   expect(screen.getByRole("button",{name:"下一步：填写供货信息"})).toBeDisabled();expect(state.start).not.toHaveBeenCalled();
 });
+it("opens My Data for a recovered select-release Collection receipt",async()=>{
+  state.saved={operationId:crypto.randomUUID(),releaseId:other,collection:{operationId:crypto.randomUUID(),batchId:batch,revision:1,replayed:true},revision:1,replayed:true};page();
+  expect(screen.getByRole("link",{name:"查看原操作结果"})).toHaveAttribute("href","/workbench/data/mine");
+  expect(screen.getByRole("button",{name:"下一步：填写供货信息"})).toBeDisabled();expect(state.start).not.toHaveBeenCalled();
+});
 it("shows the Figma selection step and only optimized own candidates",async()=>{
   page();await screen.findByRole("checkbox",{name:"选择 已优化自有外套"});
   expect(screen.getByRole("heading",{level:1,name:"选择申请商品"})).toBeVisible();
