@@ -9,6 +9,7 @@ import type { ConfigurationScope } from "@/lib/api/agent-configuration";
 import { catalogPageSchema, type CatalogEntry } from "@/lib/contracts/agent-configuration";
 import { ConsoleState } from "../console/console-page";
 import { AgentMarket } from "./agent-market";
+import { AgentCapabilityDialog } from "./agent-capability-dialog";
 import { configurationError, useConfigurationRead } from "./agent-configuration-hooks";
 import { groupActivation, groupAgentEntries } from "./agent-responsibilities";
 import sharedStyles from "./agents.module.css";
@@ -47,6 +48,14 @@ export function AgentMine({ entries, scope, pageScoped, pagination }: {
 }) {
   const [filter, setFilter] = useState("ALL");
   const [picker, setPicker] = useState(false);
+  const [capability, setCapability] = useState<CatalogEntry["agent"]["agentId"] | null>(null);
+  const capabilityTrigger = useRef<HTMLButtonElement | null>(null);
+  useEffect(()=>{
+    if (!capability && capabilityTrigger.current?.isConnected) {
+      capabilityTrigger.current.focus();
+      capabilityTrigger.current = null;
+    }
+  },[capability]);
   const { permissions } = useWorkbenchContext();
   const groups = groupAgentEntries(entries);
   const enabled = groups.filter(group => groupActivation(group).active).length;
@@ -80,7 +89,7 @@ export function AgentMine({ entries, scope, pageScoped, pagination }: {
             <div className={styles.footer}>
               <span className={styles.status} data-active={activation.active}>{activation.label}</span>
               <div className={styles.actions}>
-                <Button asChild variant="outline" size="sm" className={styles.configuration}><Link href={configurationHref(configuration)} prefetch={false}>能力配置</Link></Button>
+                <Button variant="outline" size="sm" className={styles.configuration} aria-haspopup="dialog" onClick={event=>{capabilityTrigger.current=event.currentTarget;setCapability(configuration.agent.agentId);}}>能力配置</Button>
                 {usable ? <Button asChild size="sm" className={styles.use}><Link href={usageHref(usable)} prefetch={false}>进入使用</Link></Button> : inspect ? <Button asChild size="sm" className={styles.use}><Link href={configurationHref(inspect)} prefetch={false}>{inspect.agent.agentId==="product.selection.agent"?"查看商品事实 →":"查看经营事实 →"}</Link></Button> : <Button size="sm" className={styles.use} disabled>暂不可用</Button>}
               </div>
             </div>
@@ -102,6 +111,7 @@ export function AgentMine({ entries, scope, pageScoped, pagination }: {
       </aside>
     </div>
     {picker && <ActivationPicker scope={scope} onClose={()=>setPicker(false)}/>}
+    {capability && <AgentCapabilityDialog key={capability} scope={scope} agentId={capability} onClose={()=>setCapability(null)}/>}
   </section>;
 }
 

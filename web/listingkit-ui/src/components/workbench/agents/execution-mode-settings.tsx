@@ -67,7 +67,7 @@ function BoundExecutionModeSettings({scope,subject,onSaved,onRefresh}:{scope:Con
   <div className={styles.boundary}><strong>权限范围</strong><p>范围受当前企业、成员及资源权限限制。发布、改价、下架、删除和增加付费额度需另行授权；生成前仍须确认计划和预算。</p></div>
   {!open?operationStatus:null}
   <div className={styles.refresh}><Button variant="ghost" size="sm" disabled={busy} onClick={()=>{setNonce(n=>n+1);onRefresh?.()}}>刷新权限状态</Button></div>
-  {open&&view?<ResourceDialog title="智能体能力配置" onClose={()=>setOpen(false)} locked={locked} className={styles.dialog}>
+  {open&&view?<ResourceDialog title="执行权限配置" onClose={()=>setOpen(false)} locked={locked} className={styles.dialog}>
    <p className={styles.intro}>选择本地结果的处理方式。模式不会增加当前企业、成员或资源的访问权限。</p>
    <fieldset disabled={locked} className={styles.options}><legend>执行权限模式</legend>{(Object.keys(executionModeLabels) as ExecutionMode[]).map(mode=><label key={mode} className={styles.option} data-selected={selected===mode}><input type="radio" name={`execution-mode-${subject.id}`} value={mode} checked={selected===mode} onChange={()=>setSelected(mode)}/><span className={styles.optionContent}><span className={styles.optionHeading}><strong>{executionModeLabels[mode]}</strong>{selected===mode?<span className={styles.selected} aria-hidden="true">已选</span>:null}</span><span className={styles.description}>{descriptions[mode]}</span></span></label>)}</fieldset>
    <div className={styles.boundary}><p>保存后只影响新的执行准入；已运行操作变更策略后需要新运行。</p></div>

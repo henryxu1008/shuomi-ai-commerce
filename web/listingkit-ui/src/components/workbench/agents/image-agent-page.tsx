@@ -17,12 +17,12 @@ import { useResourcePending } from "../resources/resource-pending";
 import { configurationError, useConfigurationRead } from "./agent-configuration-hooks";
 import { ImageConfigurationDialog } from "./image-configuration-dialog";
 import { ExecutionModeSettings } from "./execution-mode-settings";
+import { AgentCapabilityPanel } from "./agent-capability-panel";
 import styles from "./agents.module.css";
 import {RecentImageSets} from "./recent-image-sets";
 
 const agentId = "product.image.agent";
 const activationNames = { ENABLED: "已启用", DISABLED: "已停用", NOT_ENABLED: "尚未启用" };
-const capabilityNames: Record<string, string> = { "image.generate": "图片生成", "product.source-evidence": "商品素材读取", "platform.write": "平台写入" };
 const emptyPayload = z.strictObject({});
 const defaultPayload = z.strictObject({templateId:knowledgeId.nullable(),revision:configVersion.nullable()}).refine(value => (value.templateId === null) === (value.revision === null));
 const intentSchema = z.strictObject({path:z.string().max(200),payload:z.unknown(),method:z.enum(["POST","PUT"]),key:z.uuid(),operation:configReceiptSchema.shape.operation,revision:configVersion.optional(),absent:z.boolean().optional(),templateId:knowledgeId.optional()}).refine(command => {
@@ -112,7 +112,7 @@ export function ImageAgentPage({ scope, organization }: { scope: ConfigurationSc
         {entry.canConfigure && (entry.agent.activation === "ENABLED" ? <Button variant="outline" disabled={locked} onClick={() => setDisable(true)}>停用智能体</Button> : <Button disabled={locked} onClick={() => mutate({ path: `${agentId}/enable`, payload: {}, method: "POST", operation: "enable", revision: entry.agent.revision || undefined, absent: entry.agent.activation === "NOT_ENABLED" })}>启用到当前企业</Button>)}
       </Card>
       {entry.agent.activation !== "NOT_ENABLED" ? <ExecutionModeSettings scope={scope} subject={{kind:"registered_agent",id:agentId}}/> : null}
-      <Card className={styles.panel}><h2>当前能力</h2>{entry.capabilities.filter(cap => cap.support === "REQUIRED").map(cap => <div className={styles.capability} key={cap.id}><div><h3>{capabilityNames[cap.id] ?? cap.id}</h3><p>{cap.reason}</p></div><span>{cap.readiness === "AVAILABLE" ? "可用" : cap.readiness === "NEEDS_CONFIGURATION" ? "需要配置" : cap.readiness === "REQUIRES_AUTHORIZATION" ? "需要授权" : "当前不可用"}</span></div>)}<p>使用时先选择真实原图与平台类目，再核对整套计划和点数。主图与详情图分别生成，共用素材时仅共用原图。</p>{entry.canUse && <Link href="/workbench/supply/acquisition">进入采集商品选择素材 →</Link>}</Card>
+      <Card className={styles.panel}><AgentCapabilityPanel entry={entry}/><p>使用时先选择真实原图与平台类目，再核对整套计划和点数。主图与详情图分别生成，共用素材时仅共用原图。</p>{entry.canUse && <Link href="/workbench/supply/acquisition">进入采集商品选择素材 →</Link>}</Card>
       <Card className={styles.panel}><h2>企业默认模板</h2>{defaultRef ? <><p>{defaultTemplate.data ? `${defaultTemplate.data.name} · v${defaultTemplate.data.version}` : defaultTemplate.error ? configurationError(defaultTemplate.error) : "正在读取默认模板"}</p>{entry.canConfigure && <Button variant="outline" disabled={locked} onClick={() => mutate({ path: `${agentId}/default-template`, payload: { templateId: null, revision: null }, method: "PUT", operation: "default", revision: entry.agent.revision })}>清除默认模板</Button>}</> : <p>尚未设置默认模板，生成时需要显式选择模板。</p>}</Card>
       <Card className={styles.panel}><div className={styles.cardActions}><h2>图片模板</h2>{entry.canConfigure && entry.agent.activation !== "NOT_ENABLED" && <Button disabled={locked || !!draft} onClick={() => { setDraft(initialDraft()); setFormError(""); }}>新建图片模板</Button>}</div>
         {templates.error ? <p role="alert">{configurationError(templates.error)}</p> : templates.data?.items.length ? <div className={styles.templateList}>{templates.data.items.map(template => <section key={template.templateId} className={styles.templateRow}><div><h3>{template.name} · v{template.version}</h3><p>{template.targetPlatform === "product" ? "通用商品素材" : template.targetPlatform.toUpperCase()} · 主图 {template.image.carousel.length} 张 · 详情图 {template.image.detail.length} 张 · {template.lifecycle === "ACTIVE" ? "可选用" : "已归档"}</p><p>{template.image.shareOriginals ? "共用原始素材，两组独立生成" : "两组分别选择素材并生成"}</p></div><div className={styles.actions}>

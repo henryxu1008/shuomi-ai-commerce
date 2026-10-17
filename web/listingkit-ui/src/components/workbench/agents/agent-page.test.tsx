@@ -93,6 +93,101 @@ function installDialogMethods() {
   Object.defineProperty(HTMLDialogElement.prototype, "close", {configurable:true,value:function(this:HTMLDialogElement){this.open=false;}});
 }
 
+it("opens a read-only capability dialog with fresh facts and keeps the original configuration routes", async () => {
+  installDialogMethods();
+  const entry = {...marketEntries()[1], canConfigure:false, agent:{...marketEntries()[1].agent,activation:"ENABLED",revision:"7",activationEpoch:"1"}};
+  const current = {...entry,capabilities:[
+    {id:"text.generate",support:"REQUIRED",readiness:"NEEDS_CONFIGURATION",reason:"本企业尚未配置文本路由，原配置保持不变",observedAt:"2026-10-17T00:00:00Z"},
+    {id:"image.generate",support:"NOT_SUPPORTED",readiness:"AVAILABLE",reason:"本智能体不提供图片执行",observedAt:"2026-10-17T00:00:00Z"},
+    {id:"knowledge.context",support:"OPTIONAL",readiness:"AVAILABLE",reason:"引用企业知识仍需在执行前明确选择",observedAt:"2026-10-17T00:00:00Z"},
+    {id:"platform.write",support:"NOT_SUPPORTED",readiness:"UNAVAILABLE",reason:"不提供平台写入",observedAt:"2026-10-17T00:00:00Z"},
+  ]};
+  const fetch=vi.fn(async(url:unknown,init?:RequestInit)=>{void init;return Response.json(String(url).endsWith("/agents/product.content.agent")?current:{items:String(url).includes("/agents/mine?")?[entry]:[],nextCursor:""});});
+  vi.stubGlobal("fetch",fetch);
+  render(<AgentPage mode="mine"/>);
+  const card=await screen.findByRole("article",{name:"商品内容与本地化"});
+  expect(fetch.mock.calls.some(([url])=>String(url).endsWith("/agents/product.content.agent"))).toBe(false);
+  fireEvent.click(within(card).getByRole("button",{name:"能力配置"}));
+  const dialog=screen.getByRole("dialog",{name:"智能体能力配置"});
+  await within(dialog).findByText("本企业尚未配置文本路由，原配置保持不变");
+  expect(within(dialog).getByText("需要配置")).toBeInTheDocument();
+  const image=within(dialog).getByRole("region",{name:"图片生成 · 不支持"});
+  expect(within(image).getByText("不支持")).toBeInTheDocument();
+  expect(within(image).queryByText("可用")).toBeNull();
+  expect(within(dialog).getByText("引用企业知识仍需在执行前明确选择")).toBeInTheDocument();
+  expect(within(dialog).queryByText(/硕米官方模型|品牌与表达规范/)).toBeNull();
+  expect(within(dialog).queryByRole("button",{name:/保存|启用|停用/})).toBeNull();
+  expect(within(dialog).getByRole("link",{name:"查看权限与模板"})).toHaveAttribute("href","/workbench/agents/mine/product.content.agent");
+  expect(within(dialog).getByRole("link",{name:"标题优化配置与历史"})).toHaveAttribute("href","/workbench/agents/mine/product.title.agent");
+  fireEvent.click(within(dialog).getByRole("button",{name:"关闭能力配置"}));
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(within(card).getByRole("button",{name:"能力配置"})).toHaveFocus();
+  expect(fetch.mock.calls.every(([,init])=>!init?.method||init.method==="GET")).toBe(true);
+});
+
+it("retries capability reads without changing saved configuration or issuing a command", async () => {
+  installDialogMethods();
+  const entry={...marketEntries()[4],agent:{...marketEntries()[4].agent,activation:"ENABLED",revision:"3",activationEpoch:"1"}};
+  let reads=0;
+  const fetch=vi.fn(async(url:unknown,init?:RequestInit)=>{void init;if(String(url).endsWith("/agents/pod.design.agent")){reads++;return reads===1?Response.json({code:"DEPENDENCY_UNAVAILABLE"},{status:503}):Response.json(entry);}return Response.json({items:String(url).includes("/agents/mine?")?[entry]:[],nextCursor:""});});
+  vi.stubGlobal("fetch",fetch);
+  render(<AgentPage mode="mine"/>);
+  fireEvent.click(within(await screen.findByRole("article",{name:"POD设计智能体"})).getByRole("button",{name:"能力配置"}));
+  const dialog=screen.getByRole("dialog",{name:"智能体能力配置"});
+  await within(dialog).findByRole("alert");
+  expect(within(dialog).queryByRole("link",{name:"管理权限与模板"})).toBeNull();
+  fireEvent.click(within(dialog).getByRole("button",{name:"重新读取能力"}));
+  expect(await within(dialog).findByRole("link",{name:"管理权限与模板"})).toHaveAttribute("href","/workbench/agents/mine/pod.design.agent");
+  expect(reads).toBe(2);
+  fireEvent(dialog,new Event("cancel",{cancelable:true}));
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(fetch.mock.calls.every(([,init])=>!init?.method||init.method==="GET")).toBe(true);
+});
+
+it("closes capability details on organization change and rejects the late previous-scope response", async () => {
+  installDialogMethods();
+  const entry={...marketEntries()[1],agent:{...marketEntries()[1].agent,activation:"ENABLED",revision:"1",activationEpoch:"1"}};
+  let finish!:(response:Response)=>void;
+  const pending=new Promise<Response>(resolve=>{finish=resolve;});
+  vi.stubGlobal("fetch",vi.fn(async(url:unknown)=>String(url).endsWith("/agents/product.content.agent")?pending:Response.json({items:String(url).includes("/agents/mine?")?[entry]:[],nextCursor:""})));
+  const view=render(<AgentPage mode="mine"/>);
+  fireEvent.click(within(await screen.findByRole("article",{name:"商品内容与本地化"})).getByRole("button",{name:"能力配置"}));
+  expect(screen.getByRole("dialog")).toBeInTheDocument();
+  scope.effectiveOrganization={id:"org-b",name:"企业B"};
+  view.rerender(<AgentPage mode="mine"/>);
+  expect(screen.queryByRole("dialog")).toBeNull();
+  await act(async()=>finish(Response.json({...entry,description:"旧企业的能力详情不得回流"})));
+  expect(screen.queryByText("旧企业的能力详情不得回流")).toBeNull();
+  expect(screen.queryByRole("dialog")).toBeNull();
+});
+
+it("clears an open capability dialog after permissions change and keeps read-only access", async () => {
+  installDialogMethods();
+  const entry={...marketEntries()[4],canConfigure:false,agent:{...marketEntries()[4].agent,activation:"ENABLED",revision:"1",activationEpoch:"1"}};
+  vi.stubGlobal("fetch",vi.fn(async(url:unknown)=>Response.json(String(url).endsWith("/agents/pod.design.agent")?entry:{items:String(url).includes("/agents/mine?")?[entry]:[],nextCursor:""})));
+  const view=render(<AgentPage mode="mine"/>);
+  fireEvent.click(within(await screen.findByRole("article",{name:"POD设计智能体"})).getByRole("button",{name:"能力配置"}));
+  await screen.findByRole("link",{name:"查看权限与模板"});
+  scope.permissions=scope.permissions.filter(permission=>permission!=="workbench.agent.configure");
+  view.rerender(<AgentPage mode="mine"/>);
+  expect(screen.queryByRole("dialog")).toBeNull();
+  const card=await screen.findByRole("article",{name:"POD设计智能体"});
+  expect(within(card).getByRole("button",{name:"能力配置"})).toBeEnabled();
+  expect(screen.getByRole("button",{name:"启用智能体"})).toBeDisabled();
+});
+
+it("does not show a mismatched agent returned for a capability read", async () => {
+  installDialogMethods();
+  const entry={...marketEntries()[4],agent:{...marketEntries()[4].agent,activation:"ENABLED",revision:"1",activationEpoch:"1"}};
+  vi.stubGlobal("fetch",vi.fn(async(url:unknown)=>Response.json(String(url).endsWith("/agents/pod.design.agent")?{...marketEntries()[1],name:"另一个智能体的详情"}:{items:String(url).includes("/agents/mine?")?[entry]:[],nextCursor:""})));
+  render(<AgentPage mode="mine"/>);
+  fireEvent.click(within(await screen.findByRole("article",{name:"POD设计智能体"})).getByRole("button",{name:"能力配置"}));
+  const dialog=screen.getByRole("dialog",{name:"智能体能力配置"});
+  await within(dialog).findByRole("alert");
+  expect(within(dialog).queryByText("另一个智能体的详情")).toBeNull();
+  expect(within(dialog).queryByRole("link",{name:/权限与模板/})).toBeNull();
+});
+
 it("labels paginated counts as current-page facts and keeps the existing cursor navigation", async () => {
   const pod = {...marketEntries()[4],agent:{...marketEntries()[4].agent,activation:"ENABLED",revision:"1",activationEpoch:"1"}};
   const materials = {...marketEntries()[2],agent:{...marketEntries()[2].agent,activation:"ENABLED",revision:"1",activationEpoch:"1"}};
@@ -127,7 +222,7 @@ it("organizes mine into responsibility cards with honest activation filters and 
   render(<AgentPage mode="mine"/>);
   const content = await screen.findByRole("article",{name:"商品内容与本地化"});
   expect(within(content).getByText("部分已启用")).toBeInTheDocument();
-  expect(within(content).getByRole("link",{name:"能力配置"})).toHaveAttribute("href","/workbench/agents/mine/product.content.agent");
+  expect(within(content).getByRole("button",{name:"能力配置"})).toHaveAttribute("aria-haspopup","dialog");
   expect(within(content).getByRole("link",{name:"进入使用"})).toHaveAttribute("href","/workbench/supply/acquisition?agent_kind=content");
   expect(screen.getByRole("complementary",{name:"使用流程"})).toBeInTheDocument();
   expect(screen.queryByText("不应在管理卡片展开的模型路由长说明")).toBeNull();
@@ -361,7 +456,7 @@ it("presents one content responsibility and uses only the actually available ope
   const card = await screen.findByRole("article", {name:"商品内容与本地化"});
   expect(screen.getAllByRole("heading", { name: "商品内容与本地化" })).toHaveLength(1);
   expect(within(card).getByText("部分已启用")).toBeInTheDocument();
-  expect(within(card).getByRole("link", {name:"能力配置"})).toHaveAttribute("href","/workbench/agents/mine/product.content.agent");
+  expect(within(card).getByRole("button", {name:"能力配置"})).toHaveAttribute("aria-haspopup","dialog");
   expect(within(card).getByRole("link", {name:"进入使用"})).toHaveAttribute("href","/workbench/supply/acquisition?agent_kind=content");
   expect(within(card).queryByRole("button", {name:/停用|启用到当前企业/})).toBeNull();
   expect(fetch.mock.calls.every(call => !call[1]?.method || call[1]?.method === "GET")).toBe(true);
