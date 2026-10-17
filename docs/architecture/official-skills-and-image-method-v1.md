@@ -50,7 +50,7 @@ Should：明暗主题、移动布局、准确版本说明易读。Out of Scope�
 
 现状缺口：Skill 使用/候选检查在原 Store 写死 product.content.agent；图片计划没有方法引用。不能仅在 UI 新增模板卡片或把方法塞进 background/brief 冒充准确 Skill 接入。
 
-新包在现有受限 frontmatter.metadata 内声明 `target`（`product-title` / `product-image`）和展示名。只将 target 解释为内容兼容性，不作为身份、工具或执行权限。现有未声明 target 的有效方法仍沿当前标题方法合同；图片必须显式声明。解析、文件/字节限制、摘要、版本与原 yaml.v3/goldmark 校验器复用；未知 target 拒绝，不引入新解析器。Package 的展示投影可包含可选展示名/target，实际使用从准确版本文件重新验证，不能信客户端投影。
+新包在现有受限 frontmatter.metadata 内使用明确的可选标记 `listingkit-method-v1: product-title | product-image` 和 `listingkit-display-name`。只对该标记的两个准确值投影 target；其余任意 metadata（包括既有 `target`、未知标记值）仍按原合同作为有界普通文本接受，不收紧共享包校验器，也不改写已保存文件或 digest。未明确标记的当前方法继续沿当前标题方法合同，图片必须明确标记 product-image；HTTP 请求的消费能力则必须命中枚举。标记只代表内容兼容性，不代表身份、工具或执行权限。解析、文件/字节限制、摘要与原 yaml.v3/goldmark 校验器复用，不引入新解析器。Package 展示投影可包含可选展示名/target；实际使用从准确版本文件重新验证，不能信客户端投影。这是同一当前包合同的可选解释，不是 Legacy 兼容层、双读或迁移。
 
 ## 4. 官方包安装
 
@@ -71,7 +71,7 @@ Should：明暗主题、移动布局、准确版本说明易读。Out of Scope�
 5. 图片准备时读取并验证有界准确包、检查每个所选 slot 的完整 prompt 字节边界；超界明确拒绝，不截断。计划/API/checkpoint只保存准确引用及 digest，不复制方法正文。材料仅在调用前从准确 Skill 版本重新取得并验证 digest。
 6. `GenerationExecutionDependencies` 增加图片方法材料/可用性端口。报价和新派发分别验证；provider 请求构造在原确定性商品策略之后加入显式隔离的 untrusted-method 区域，不能覆盖原 schema/商品事实/素材/预算/路由。实际请求的材料由已验证 ref/digest 和固定组合策略确定；InputDigest/fingerprint绑定这些输入。材料不进入普通日志、浏览器回执或 Temporal checkpoint。
 7. 新派发先沿原 Generation fact 检查已存在 attempt；已有 prepared/UNKNOWN/success 仍只读回/交给原恢复 owner，绝不因方法变化或撤销取得新POST许可。仅新 effect 在原 reserve/dispatch/provider调用前取得可用性读锁，并持有到既有调用返回（含UNKNOWN），随后可靠释放。
-8. 图片确认和新的正式素材采用分别在原操作前取得同一 Skill 可用性栅栏，持有到原 CAS/Asset commit 返回；不能在 candidate reader 返回时提前释放。原准确 action receipt 重放先读既有回执，不因方法后来停用而重复采用或重计费。新采用仍校验完整原 run/plan/slot/attempt/source/target/result digest。
+8. 图片确认先读取并核对原 ImageDB admission/projection 和 `ReadImageRunAdmission` 的准确 action/plan/quote/input 回执；已有原回执只恢复同一 CAS/原 workflow 输入，不受后来方法停用阻断，也不因此授予新 provider POST。只有原 owner 确认没有准入回执时，新确认才取得 Skill 可用性栅栏，持有到原 admission 写入及 ImageDB CAS 返回。新的正式素材采用同样先查原准确 action receipt，再为新动作取得栅栏并持有到原 Asset commit 返回，不能在 candidate reader 返回时提前释放。回执重放不重复采用或重计费；新采用仍校验完整原 run/plan/slot/attempt/source/target/result digest。
 9. `current_application.go` / `image_set_application.go` / 原图片 worker 装配同时注入准备、派发、采用所需端口；选择了方法但任一必要端口/ schema/受信 pool 不可用时 fail closed。未选方法时原功能继续沿原合同，不补猜测或兼容路径。
 
 具体叶子端口命名可在实现时收敛；上述准确绑定、锁的持有范围及 owner 不可改变。不得把临时正文拼到长期模板、background 或用户配置，省略撤销/指纹检查。
@@ -89,6 +89,7 @@ Should：明暗主题、移动布局、准确版本说明易读。Out of Scope�
 | 方法在确认/新生成前被停用、撤销或失权 | 拒绝新动作；无新provider请求或正式采用 |
 | 状态写与新动作并发 | 栅栏与状态写串行决定顺序，不容许检查后偷跑 |
 | 计划/报价响应丢失，同键同载荷 | 原准确回执/计划读回；同键换方法冲突 |
+| 确认准入成功但 ImageDB CAS/响应丢失，方法随后停用 | 先读并校验原准入回执，恢复同一 CAS/原 workflow；新 slot 派发仍须当前方法可用 |
 | 已有effect UNKNOWN、方法后来变化 | 沿原恢复事实读回，不重新生成/预留，不把撤销当失败补偿 |
 | provider返回后方法才停用 | 已发生effect仍沿原计量/结算；阻止后续新effect/新采用，不撤销真实费用 |
 | 原采用响应丢失，方法随后撤销 | 同action读原回执，不重复Asset写入 |
@@ -114,3 +115,12 @@ Legacy decision: N/A；只复用当前 Skill/ImageSet/Generation/Asset，不依�
 - 前后端相关类型/lint/test/build及稳定候选必需CI，一次最终交付检查；隔离Edge对照Figma明暗/移动/原权限。
 
 本批一个主要PR。设计独立检查最多两轮；先分类finding，只有命中当前Must BLOCKER才重开冻结基线。完成后交出代码/入口/安装操作和限制，状态In Review。真实provider、当前实例/目录安装、合并/部署/关闭Issue均未授权，不以CI或fixture代签用户产品验收。
+
+## 9. 独立设计检查
+
+Round1（03aa53a24，[检查记录](https://github.com/qq550723504/task-processor/pull/795#pullrequestreview-5558834422)）两项均分类 BLOCKER，影响原数据可读与确认核心路径：
+
+- [metadata.target 反向收紧](https://github.com/qq550723504/task-processor/pull/795#discussion_r4303526542)：接受根因；采用可选明确标记，普通 metadata 的原校验不变，不改写任何数据。共享解析器回归覆盖已有任意 target/未知标记。
+- [确认回执先于方法栅栏](https://github.com/qq550723504/task-processor/pull/795#discussion_r4303526546)：接受根因；第5节步骤8明确原准入回执优先、只有新准入持锁，测试覆盖准入成功/CAS丢失/后续停用的同 action 恢复。
+
+上述最小设计修订完成，Round2仅复核这两项增量；未完成复核前继续 DESIGN_REVIEW_PENDING，不改生产代码。
