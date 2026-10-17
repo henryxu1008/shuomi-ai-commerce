@@ -3,6 +3,7 @@ import {ShopDiagnosisFlow} from "./shop-diagnosis-flow";
 import Link from "next/link";
 import { AgentMarket } from "./agent-market";
 import { AgentMine } from "./agent-mine";
+import { AgentCapabilityPanel } from "./agent-capability-panel";
 import {ProductSelectionFlow} from "./product-selection-flow";
 import {PODArtworkFlow} from "./pod-artwork-flow";
 import { useEffect, useRef, useState } from "react";
@@ -53,16 +54,6 @@ const labels: Record<string, string> = {
   interrupted: "等待继续",
   human_review_required: "待人工审核",
   stopped: "已停止",
-};
-const capabilityNames: Record<string, string> = {
-  "text.generate": "文本生成",
-  "product.source-evidence": "采集证据读取",
-  "listing.materials.inspect": "草稿、店铺规则与已批准资产读取",
-  "shop.operations-diagnosis.inspect":"店铺经营事实读取与诊断",
- "product.selection.inspect": "候选商品事实读取与对比",
-  "knowledge.context": "企业知识引用",
-  "image.generate": "图片生成",
-  "platform.write": "平台写入",
 };
 type Intent = {
   path: string;
@@ -359,27 +350,7 @@ function ScopedPage({
           </Card>
           <div className={styles.detailGrid}>
             <Card className={styles.panel}>
-              <h2>当前能力</h2>
-              <p>配置状态不代表执行许可，执行时重新确认当前权限与预算。</p>
-              {detail.capabilities.map((cap) => (
-                <section key={cap.id} className={styles.capability}>
-                  <div>
-                    <h3>
-                      {capabilityNames[cap.id]} · {labels[cap.support]}
-                    </h3>
-                    <p>{cap.reason}</p>
-                  </div>
-                  <span className={styles.capabilityStatus} data-readiness={cap.support === "NOT_SUPPORTED" ? cap.support : cap.readiness}>
-                    {
-                      labels[
-                        cap.support === "NOT_SUPPORTED"
-                          ? cap.support
-                          : cap.readiness
-                      ]
-                    }
-                  </span>
-                </section>
-              ))}
+              <AgentCapabilityPanel entry={detail}/>
             </Card>
             <div className={styles.detailSidebar}>
             {detail.agent.activation !== "NOT_ENABLED" ? <ExecutionModeSettings scope={scope} subject={{kind:"registered_agent",id:detail.agent.agentId}} onSaved={()=>setNonce(n=>n+1)} onRefresh={()=>setNonce(n=>n+1)}/> : null}

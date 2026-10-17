@@ -14,6 +14,23 @@ const detail={agent:{agentId:id,activation:"ENABLED",revision:"1",activationEpoc
 beforeEach(()=>{localStorage.clear();configurationContext.guards.clear();});
 afterEach(()=>{cleanup();vi.unstubAllGlobals();vi.restoreAllMocks();localStorage.clear();});
 
+it("keeps image readiness and unsupported platform capabilities honest in the shared panel",async()=>{
+  const entry={...detail,canConfigure:false,capabilities:[
+    {id:"image.generate",support:"REQUIRED",readiness:"NEEDS_CONFIGURATION",reason:"本企业图片路由尚未配置",observedAt:"2026-10-17T00:00:00Z"},
+    {id:"product.source-evidence",support:"REQUIRED",readiness:"AVAILABLE",reason:"只读原有商品素材",observedAt:"2026-10-17T00:00:00Z"},
+    {id:"platform.write",support:"NOT_SUPPORTED",readiness:"AVAILABLE",reason:"图片配置不授予平台写入",observedAt:"2026-10-17T00:00:00Z"},
+  ]};
+  const fetch=vi.fn(async(url:unknown,init?:RequestInit)=>{void init;return Response.json(String(url).endsWith(`/agents/${id}`)?entry:{items:[],nextCursor:""});});
+  vi.stubGlobal("fetch",fetch);
+  render(<ImageAgentPage scope={{userId:"actor",organizationId:"org-a"}} organization="企业A"/>);
+  expect(await screen.findByText("本企业图片路由尚未配置")).toBeInTheDocument();
+  expect(screen.getByRole("heading",{name:"商品素材读取 · 必需"})).toBeInTheDocument();
+  expect(screen.getByRole("heading",{name:"平台写入 · 不支持"})).toBeInTheDocument();
+  expect(screen.getByText("不支持")).toBeInTheDocument();
+  expect(screen.queryByRole("link",{name:"进入采集商品选择素材 →"})).toBeNull();
+  expect(fetch.mock.calls.every(([,init])=>!init?.method||init.method==="GET")).toBe(true);
+});
+
 it("restores an aborted template request only in its original scope and preserves it through a temporary denial",async()=>{
   let attempts=0;
   const fetch=vi.fn(async(url:unknown,init?:RequestInit)=>{

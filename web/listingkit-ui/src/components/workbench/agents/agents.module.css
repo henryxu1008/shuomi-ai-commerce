@@ -98,44 +98,6 @@
   gap: 18px;
   min-width: 0;
 }
-.detailGrid .capability > div {
-  min-width: 0;
-}
-.detailGrid .capabilityStatus {
-  padding: 4px 10px;
-  border-radius: 8px;
-  background: var(--muted);
-  color: var(--muted-foreground);
-  font-weight: 600;
-}
-.detailGrid .capabilityStatus[data-readiness="AVAILABLE"] {
-  color: var(--success-foreground);
-  background: var(--success);
-}
-.detailGrid .capabilityStatus[data-readiness="NEEDS_CONFIGURATION"],
-.detailGrid .capabilityStatus[data-readiness="REQUIRES_AUTHORIZATION"] {
-  color: var(--warning-foreground);
-  background: var(--warning);
-}
-.capability {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 20px;
-  padding: 16px;
-  margin-top: 12px;
-  border: 1px solid var(--border);
-  background: var(--secondary);
-  border-radius: 10px;
-}
-.capability h3 {
-  font-weight: 700;
-}
-.capability span {
-  white-space: nowrap;
-  color: var(--console-blue);
-  font-size: 12px;
-}
 .actions,
 .filters {
   display: flex;

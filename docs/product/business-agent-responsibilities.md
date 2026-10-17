@@ -49,3 +49,13 @@ Design Basis: Reuse Existing Architecture。复用当前企业目录、`organiza
 - 状态筛选与计数均按当前实际返回的职责卡片投影；有分页时明确当前页，不将分组数或已加载数伪称全局任务/商品总数。已交付私有智能体保留在管理区之后。
 
 Design Basis: Reuse Existing Architecture。复用 `organization-agent-configuration-v1`、`enterprise-agent-permission-modes-v1`、当前 catalog/mine/详情与配置命令；不改变状态机、租户/权限边界、事实 owner、持久化、计费、执行与 UNKNOWN/recovery。
+
+## 能力配置布局（2026-10-17 用户决定，#764）
+
+“我的智能体”的能力配置按原 Figma `4703:892` 打开紧凑弹窗，打开时读取当前企业所选准确操作的能力。文本/图片能力使用状态卡片，知识、资料读取与平台授权保留真实说明；模型、知识名称和就绪状态均以当前读投影为准，不复制原图示例值。
+
+此弹窗只读，不为能力状态提供无效的“保存配置”。权限、精确模板、企业启停与历史继续使用原 `/workbench/agents/mine/[id]` 及现有表单；标题/内容保留独立入口和准确ID。此最新入口决定替代上节“能力配置直接进入操作页”的主入口表现，原操作页仍可从弹窗访问，不合并原配置或改变保存/恢复协议。
+
+原“配置权限”弹窗准确命名为“执行权限配置”，避免把权限模式与能力就绪混为同一设置；保存载荷、版本和恢复协议保持。
+
+Design Basis: Reuse Existing Architecture；scope变化复用现有remount/abort清除弹窗及迟到响应。普通与图片详情复用同一能力显示；不改变权限、状态机、owner、持久化、预算、执行准入或外部副作用。
