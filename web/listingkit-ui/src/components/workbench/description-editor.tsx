@@ -39,8 +39,8 @@ export function DescriptionEditor({label,value,format,images,disabled=false,maxB
   editorProps:{
    attributes:{role:"textbox","aria-label":label,"aria-multiline":"true",id,class:descriptionClasses+" min-h-48 p-4 outline-none focus-visible:ring-2 focus-visible:ring-ring"},
    transformPastedHTML:html=>sanitizeDescriptionHTML(html,latest.current.images),
-   handlePaste:()=>{setNotice("粘贴内容已按支持的格式过滤；插图请从商品图片中选择。");return false},
-   handleDrop:(_view,event)=>{if(event.dataTransfer?.files.length){setNotice("请先在商品图片区完成上传，再选择插入描述。");return true}return false},
+   handlePaste:()=>{setNotice("粘贴内容已按支持的格式过滤；插图请使用工具栏图片上传或选择。");return false},
+   handleDrop:(_view,event)=>{if(event.dataTransfer?.files.length){setNotice("请点击工具栏图片上传，再插入描述。");return true}return false},
   },
   onUpdate:({editor})=>{
    if(latest.current.disabled)return;
