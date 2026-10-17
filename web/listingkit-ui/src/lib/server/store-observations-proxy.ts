@@ -67,7 +67,7 @@ function observationEndpoint(url: URL, method: string): Endpoint | null {
       )
         return null;
     const platform=url.searchParams.get("platform");
-    if(platform!==null && platform!=="shein" && (kind!=="products"||platform!=="temu")) return null;
+    if(platform!==null && platform!=="shein" && (kind!=="products"||!["temu","walmart"].includes(platform))) return null;
     for (const k of ["storeId", "syncId"])
       if (
         url.searchParams.has(k) &&
@@ -206,7 +206,7 @@ function matches(e: Endpoint, data: unknown): boolean {
       v.id === e.record &&
       v.storeId === e.store &&
       v.syncId === e.sync &&
-      (e.kind === "products" ? Boolean(v.product||v.temuProduct) : Boolean(v.order))
+      (e.kind === "products" ? Boolean(v.product||v.temuProduct||v.walmartProduct) : Boolean(v.order))
     );
   }
   if (e.schema === observationSyncSchema) {
@@ -233,7 +233,7 @@ function matches(e: Endpoint, data: unknown): boolean {
     const v = observationListSchema.parse(data);
     return (
       v.items.every((r) =>
-        e.kind === "products" ? Boolean(r.product||r.temuProduct) : Boolean(r.order),
+        e.kind === "products" ? Boolean(r.product||r.temuProduct||r.walmartProduct) : Boolean(r.order),
       ) &&
       v.syncs.every((s) => s.kind === e.kind) &&
       v.latest.every((s) => s.kind === e.kind)

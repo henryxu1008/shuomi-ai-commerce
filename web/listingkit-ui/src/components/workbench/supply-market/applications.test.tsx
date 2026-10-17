@@ -4,8 +4,17 @@ import {QueryClient, QueryClientProvider} from "@tanstack/react-query";
 import {afterEach, beforeEach, expect, it, vi} from "vitest";
 import {listMarketRecords,readApplicationOverview} from "@/lib/api/supply-market";
 import {SupplyApplicationsPage} from "./applications";
+import CatalogApplyRoute from "@/app/workbench/supply/catalogs/apply/page";
+vi.mock("next/server",()=>({connection:vi.fn()}));
+it.each(["progress","records"] as const)("reads only the applicant connection %s via the real catalog route",async(view)=>{
+ vi.stubEnv("LISTINGKIT_SUPPLY_MARKET_ENABLED","true");
+ const component=await CatalogApplyRoute({searchParams:Promise.resolve({view})});
+ const client=new QueryClient({defaultOptions:{queries:{retry:false}}});render(<QueryClientProvider client={client}>{component}</QueryClientProvider>);
+ await waitFor(()=>expect(listMarketRecords).toHaveBeenCalledWith({userId:"member-a",organizationId:"org-a"},{kind:"connection",ended:view==="records",after:undefined},false,expect.any(AbortSignal)));
+ client.clear();vi.unstubAllEnvs();
+});
 
-const context = vi.hoisted(() => ({user:{id:"member-a"}, effectiveOrganization:{id:"org-a"}, isLoading:false, isSwitching:false, error:null, blockingError:null}));
+const context = vi.hoisted(() => ({user:{id:"member-a"}, effectiveOrganization:{id:"org-a"}, isLoading:false, isSwitching:false, error:null, blockingError:null,registerOrganizationSwitchGuard:()=>()=>{}}));
 vi.mock("@/components/providers/workbench-context-provider", () => ({useWorkbenchContext:() => context}));
 vi.mock("@/lib/api/supply-market", async importOriginal => ({...await importOriginal<typeof import("@/lib/api/supply-market")>(), listMarketRecords:vi.fn(),readApplicationOverview:vi.fn()}));
 afterEach(cleanup);

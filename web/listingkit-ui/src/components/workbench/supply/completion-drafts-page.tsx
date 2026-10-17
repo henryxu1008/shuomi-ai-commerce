@@ -21,7 +21,7 @@ export function CompletionDraftsPage({initialPreparation,initialSource,fullAvail
  if(context.isLoading||context.isSwitching)return <ConsoleState kind="loading" title="正在确认当前企业"/>;
  if(!scope||context.error||context.blockingError||context.selectionRequired)return <ConsoleState kind="error" title="请先确认登录身份与当前企业"/>;
  if(!context.permissions.includes("workbench.supply.read"))return <ConsoleState kind="unavailable" title="当前身份没有供应链查看权限"/>;
- if(initialSource)return <CompletionDraftPage sourceId={initialSource} preparationId={initialPreparation}/>;
+ if(initialSource)return <CompletionDraftPage sourceId={initialSource} preparationId={initialPreparation} sheinAvailable={fullAvailable}/>;
  return <ScopedCompletionDrafts key={`${userId}:${organizationId}:${initialPreparation??""}`} scope={scope} initialPreparation={initialPreparation} fullAvailable={fullAvailable}/>;
 }
 function ScopedCompletionDrafts({scope,initialPreparation,fullAvailable}:{scope:SupplyScope;initialPreparation?:string;fullAvailable:boolean}){

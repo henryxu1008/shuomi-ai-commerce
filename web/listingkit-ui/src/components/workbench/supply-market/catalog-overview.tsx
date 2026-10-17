@@ -26,7 +26,7 @@ export function CatalogOverview() {
         <span className={styles.kicker}>需要的货盘尚未接入</span>
         <h2>申请对接</h2>
         <p>提交货盘资料，由硕米专员评估业务、数据与技术对接方案。</p>
-        <Button asChild className={styles.entryButton}><Link href="/workbench/supply/catalogs/apply" prefetch={false}>申请对接货盘</Link></Button>
+        <Button asChild className={styles.entryButton}><Link href="/workbench/supply/catalogs/apply" prefetch={false}>申请对接货盘</Link></Button><Link href="/workbench/supply/catalogs/apply?view=progress" prefetch={false}>查看对接进度与记录</Link>
       </Card>
     </div>
     <div className={styles.processes}>

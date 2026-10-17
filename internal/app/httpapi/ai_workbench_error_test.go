@@ -28,3 +28,15 @@ func TestWorkbenchRevisionConflictDiffersFromStaleProposal(t *testing.T) {
 		})
 	}
 }
+func TestWorkbenchMessageRejectionProjectsOnlyExplicitUnacceptedProof(t *testing.T) {
+	for _, cause := range []error{aiworkbench.ErrInvalid, aiworkbench.ErrProposalStale} {
+		w := httptest.NewRecorder()
+		ctx, _ := gin.CreateTestContext(w)
+		writeAIWorkbenchError(ctx, &aiworkbench.MessageNotAcceptedError{Cause: cause})
+		require.Contains(t, w.Body.String(), `"messageAccepted":false`)
+		w = httptest.NewRecorder()
+		ctx, _ = gin.CreateTestContext(w)
+		writeAIWorkbenchError(ctx, cause)
+		require.NotContains(t, w.Body.String(), "messageAccepted")
+	}
+}

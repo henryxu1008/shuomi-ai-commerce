@@ -57,7 +57,7 @@ const digest = z.string().regex(/^[0-9a-f]{64}$/);
 const identifier = z.string().min(1).max(128);
 const scopeSchema = z.strictObject({OrganizationID:identifier,ActorID:identifier});
 export const modeSnapshotRefSchema = z.strictObject({Kind:z.literal("agent-execution-mode-v1"),ID:knowledgeId,Digest:digest});
-const titleExecutionProvenanceSchema = z.strictObject({
+export const titleExecutionProvenanceSchema = z.strictObject({
  scope:scopeSchema,runId:knowledgeId,requestKey:knowledgeId,
  binding:z.strictObject({ContextKind:identifier,ContextID:identifier,ProductKey:identifier,CatalogVersion:configVersion,PublicationID:identifier,TargetPlatform:z.enum(["shein","temu","amazon"])}),
  configuration:z.strictObject({Kind:z.literal("agent-configuration-v1"),ID:knowledgeId,Digest:digest}),mode:modeSnapshotRefSchema,

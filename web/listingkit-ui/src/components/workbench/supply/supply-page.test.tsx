@@ -2,6 +2,8 @@ import { cleanup, render, screen, waitFor, within } from "@testing-library/react
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { SupplyPage } from "./supply-page";
+import StagePage from "@/app/workbench/supply/mine/[stage]/page";
+vi.mock("next/server",()=>({connection:vi.fn()}));
 const state=vi.hoisted(()=>({context:{} as Record<string,unknown>,preparation:vi.fn(),stages:vi.fn(),sources:vi.fn(),history:vi.fn(),stores:vi.fn(),options:vi.fn(),write:vi.fn(),push:vi.fn(),detail:vi.fn(),target:vi.fn(),publication:vi.fn(),operation:vi.fn(),items:vi.fn(),attempt:vi.fn()}));
 vi.mock("next/navigation",()=>({useRouter:()=>({push:state.push})}));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>state.context}));
@@ -11,6 +13,7 @@ vi.mock("./bulk-review-panel",()=>({BulkSupplyReviewPanel:({items}:{items:unknow
 vi.mock("@/lib/api/workbench-stores",()=>({listWorkbenchStores:state.stores}));
 const prep="11111111-1111-4111-8111-111111111111",store="22222222-2222-4222-8222-222222222222",source="33333333-3333-4333-8333-333333333333";
 beforeEach(()=>{
+ for(const name of ["LISTINGKIT_SUPPLY_CHAIN_ENABLED","LISTINGKIT_PRODUCT_COLLECTIONS_ENABLED","LISTINGKIT_SUPPLY_COMPLETION_DRAFTS_ENABLED"])vi.stubEnv(name,"true");
  state.context={user:{id:"actor-a"},effectiveOrganization:{id:"org-a"},permissions:["workbench.supply.read","workbench.supply.manage","workbench.listing.submit","workbench.store.read"],supplyIntentReady:true,pendingSupplyIntent:null,pendingCollectionIntent:null,setPendingSupplyIntent:()=>true,registerOrganizationSwitchGuard:()=>()=>{}};
  state.options.mockReset().mockResolvedValue({titles:[],reason:"未启用"});
  state.stages.mockReset().mockResolvedValue({items:[],total:205,batchTotal:205,counts:{all:205,waiting:205,missing:0,ready:0,review:0,uploaded:0},nextCursor:source});
@@ -18,6 +21,26 @@ beforeEach(()=>{
  state.sources.mockReset().mockResolvedValue({items:[],total:205,nextCursor:source});state.history.mockReset().mockResolvedValue({items:[],total:0});state.write.mockReset().mockResolvedValue({operation:{id:source,input:{preparationId:prep,expectedRevision:1,storeId:store,action:"adapt"},count:205,completed:0,status:"pending",execution:"started",createdAt:"2026-10-08T00:00:00Z"},replayed:false});
  state.stores.mockReset().mockResolvedValue({items:[{id:store,name:"美国试用店铺",platform:"shein",recordStatus:"active",connectionStatus:"connected",serviceStatus:"active"}],pagination:{page:1,pageSize:100,total:1}});
 });afterEach(cleanup);
+it.each(["missing","all"] as const)("keeps platform context through the actual %s route",async(stage)=>{
+ state.push.mockClear();
+ render(<SupplyPage initialPreparation={prep} initialStore={store} initialStage="review"/>);
+ await userEvent.click(await screen.findByRole("tab",{name:stage==="missing"?/待补全/:/全部/}));
+ const url=new URL(state.push.mock.lastCall![0],"https://test.invalid");
+ expect(url.pathname).toBe(`/workbench/supply/mine/${stage}`);
+ const page=await StagePage({params:Promise.resolve({stage}),searchParams:Promise.resolve(Object.fromEntries(url.searchParams))});
+ expect(page.type).toBe(SupplyPage);expect(page.props).toMatchObject({initialStage:stage,initialPreparation:prep,initialStore:store});
+});
+it("disables selected Walmart automatic adaptation and preserves manual editing",async()=>{
+ state.stores.mockResolvedValue({items:[{id:store,name:"Walmart",platform:"walmart",recordStatus:"active"}],pagination:{page:1,pageSize:100,total:1}});
+ state.stages.mockResolvedValue({items:[{sourceId:source,stage:"waiting"}],total:1,batchTotal:1,counts:{all:1,waiting:1,missing:0,ready:0,review:0,uploaded:0}});
+ state.detail.mockResolvedValue({source:{id:source,source:{kind:"own",productKey:"product",version:1}},product:{title:"Walmart 商品"},images:[]});
+ state.target.mockResolvedValue(undefined);state.publication.mockResolvedValue({sourceId:source,storeId:store});
+ render(<SupplyPage initialPreparation={prep} initialStore={store} initialStage="waiting"/>);
+ await userEvent.click(await screen.findByLabelText("选择 Walmart 商品"));
+ expect(screen.getByRole("button",{name:"开始适配"})).toBeDisabled();
+ expect(screen.getByRole("button",{name:"适配所选 1"})).toBeDisabled();
+ expect(screen.getByRole("button",{name:"查看 / 补全"})).toBeEnabled();expect(state.write).not.toHaveBeenCalled();
+});
 it.each(["waiting","review"] as const)("identifies same-named marketplace targets in the %s selector and confirmation",async(initialStage)=>{
  const temu="44444444-4444-4444-8444-444444444444";
  state.stores.mockResolvedValue({items:[{id:store,name:"同名店铺",platform:"shein",region:"US",recordStatus:"active",connectionStatus:"connected",serviceStatus:"active"},{id:temu,name:"同名店铺",platform:"temu",region:"GE",recordStatus:"active",connectionStatus:"connected",serviceStatus:"active"}],pagination:{page:1,pageSize:100,total:2}});

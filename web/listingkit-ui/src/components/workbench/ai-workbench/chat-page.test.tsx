@@ -36,6 +36,25 @@ beforeEach(() => {
   });
 });
 afterEach(() => { cleanup(); client.clear(); sessionStorage.clear(); });
+it.each(["INVALID_REQUEST","PROPOSAL_STALE"])("releases a definitively rejected %s message for correction with a new key",async(code)=>{
+ fixture.request.mockImplementation(async({route})=>{if(route==="conversation-read")return {conversation,messages:[],proposals:[],before:""};throw new AIWorkbenchError(code,false)});
+ const view=render(tree());await screen.findByText("开始讨论");
+ fireEvent.change(screen.getByLabelText("采集操作 ID"),{target:{value:operationId}});fireEvent.change(screen.getByLabelText("需求"),{target:{value:"保留需求"}});
+ fireEvent.click(screen.getByRole("button",{name:"发送消息"}));
+ await waitFor(()=>expect(screen.getByLabelText("需求")).toBeEnabled());expect(screen.getByLabelText("需求")).toHaveValue("保留需求");
+ const first=fixture.request.mock.calls.find(([v])=>v.route==="message")![0];
+ view.unmount();render(tree());await screen.findByText("开始讨论");expect(screen.getByLabelText("需求")).toBeEnabled();
+ fireEvent.change(screen.getByLabelText("采集操作 ID"),{target:{value:operationId}});fireEvent.change(screen.getByLabelText("需求"),{target:{value:"修正需求"}});fireEvent.click(screen.getByRole("button",{name:"发送消息"}));
+ await waitFor(()=>expect(fixture.request.mock.calls.filter(([v])=>v.route==="message")).toHaveLength(2));
+ expect(fixture.request.mock.calls.filter(([v])=>v.route==="message")[1][0].key).not.toBe(first.key);
+});
+it.each(["INVALID_REQUEST","PROPOSAL_STALE"])("retains the original intent for %s without owner rejection evidence",async(code)=>{
+ fixture.request.mockImplementation(async({route})=>{if(route==="conversation-read")return {conversation,messages:[],proposals:[],before:""};throw new AIWorkbenchError(code)});
+ render(tree());await screen.findByText("开始讨论");fireEvent.change(screen.getByLabelText("采集操作 ID"),{target:{value:operationId}});fireEvent.change(screen.getByLabelText("需求"),{target:{value:"原需求"}});fireEvent.click(screen.getByRole("button",{name:"发送消息"}));
+ await screen.findByRole("button",{name:"重试同一消息"});expect(screen.getByLabelText("需求")).toBeDisabled();
+ const original=fixture.request.mock.calls.find(([v])=>v.route==="message")![0];fireEvent.click(screen.getByRole("button",{name:"重试同一消息"}));
+ await waitFor(()=>expect(fixture.request.mock.calls.filter(([v])=>v.route==="message")).toHaveLength(2));expect(fixture.request.mock.calls.filter(([v])=>v.route==="message")[1][0]).toMatchObject({key:original.key,body:original.body});
+});
 
 it("shows the unavailable state without sending Chat requests when the module is absent", () => {
   fixture.context.aiWorkbenchAvailable = false;

@@ -669,7 +669,7 @@ func (s *Store) AppendUser(ctx context.Context, scope aiworkbench.Scope, convers
 		}{scope.OrganizationID, scope.ActorID, conversationID, key, fingerprint})
 		prepared, err := prepare(history, invocationID)
 		if err != nil {
-			return err
+			return &aiworkbench.MessageNotAcceptedError{Cause: err}
 		}
 		if !validName(prepared.MemberID) ||
 			!prepared.Unavailable && (!validDigest(prepared.InputHash) || !json.Valid(prepared.ModelProfile) || prepared.Deadline.IsZero()) {

@@ -26,6 +26,18 @@ beforeEach(() => {
   Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value: function (this: HTMLDialogElement) { this.open = true; } });
   Object.defineProperty(HTMLDialogElement.prototype, "close", { configurable: true, value: function (this: HTMLDialogElement) { this.open = false; } });
 });
+it.each(["read_only",undefined] as const)("keeps title execution suggestions readable without writes for frozen mode %s",async(mode)=>{
+ const {ContentSelection:unused,...execution}=contentProposalFixture().execution;void unused;
+ const frozen={...titleProposalFixture(),execution:{...execution,binding:{...execution.binding,TargetPlatform:"shein"}},...(mode?{execution_mode:{mode,revision:"1",snapshot:execution.mode}}:{})};
+ calls.get.mockResolvedValue(frozen);await open();
+ expect(screen.getByText("Original title")).toBeVisible();expect(screen.queryByRole("button",{name:"接受提案"})).not.toBeInTheDocument();
+ expect(screen.queryByRole("button",{name:"编辑标题"})).not.toBeInTheDocument();expect(calls.decide).not.toHaveBeenCalled();
+ expect(()=>parseProductTitleProposal(frozen)).not.toThrow();
+});
+it("rereads access after an action denial while preserving an authorized suggestion",async()=>{
+ calls.decide.mockRejectedValue(failure("permission_denied","rejected",403));await open();await userEvent.click(screen.getByRole("button",{name:"接受提案"}));
+ expect(await screen.findByText("当前身份没有标题审核权限")).toBeVisible();expect(screen.getByText("Original title")).toBeVisible();
+});
 afterEach(() => { cleanup(); client.clear(); });
 async function open() { render(tree()); await userEvent.click(await screen.findByRole("button", { name: /product.*查看详情/ })); await screen.findByText("Original title"); }
 
@@ -108,6 +120,7 @@ it.each(["organization", "user", "roles", "switching", "revoked", "logout", "unm
 });
 
 it("clears sensitive data on write denial and never falls back to admin", async () => {
+  calls.get.mockResolvedValueOnce(proposal()).mockRejectedValue(failure("PERMISSION_DENIED","rejected",403));
   calls.decide.mockRejectedValue(failure("PERMISSION_DENIED", "rejected", 403)); await open();
   await userEvent.click(screen.getByRole("button", { name: "接受提案" }));
   expect(await screen.findByText("当前身份没有标题审核权限")).toBeVisible();

@@ -28,6 +28,21 @@ afterEach(() => {
 });
 
 describe("ReferralsPage", () => {
+  it("cancels a second requested withdrawal after the first completes",async()=>{
+    const projection={code:"CODE1234",codeAvailability:"available",count:1,generatedAt:"2026-09-13T10:00:00Z",earnings:{availability:"available",currency:"CNY",pendingMinor:"0",availableMinor:"12000",reservedMinor:"20000",adjustmentMinor:"0",version:"1",updatedAt:"2026-09-13T10:00:00Z"}};
+    const row={id:"withdrawal-A",currency:"CNY",method:"ALIPAY",payoutMethodId:"method-1",amountMinor:"10000",status:"REQUESTED",payoutReference:"",version:"2",createdAt:"2026-09-13T10:01:00Z",updatedAt:"2026-09-13T10:01:00Z"};
+    let rows=[row,{...row,id:"withdrawal-B"}];
+    const fetch=vi.fn(async(input:unknown,init?:RequestInit)=>{
+      void init;const path=String(input);
+      if(path.endsWith("/referrals"))return Response.json(projection);
+      if(path.endsWith("/referral-payout-methods"))return Response.json({schemaVersion:"payout-methods-v1",methods:[{methodId:"method-1",type:"ALIPAY",displayName:"支付宝",maskedDestination:"***1234",version:"1"}]});
+      if(path.endsWith("/cancel")){const id=path.split("/").at(-2);rows=rows.map(item=>item.id===id?{...item,status:"CANCELED",version:"3"}:item);return Response.json({schemaVersion:"referral-withdrawal-v1",...rows.find(r=>r.id===id)})}
+      return Response.json({schemaVersion:"referral-withdrawals-v1",withdrawals:rows});
+    });vi.stubGlobal("fetch",fetch);mount("overview","subject-1",true,"withdrawals");
+    await userEvent.click(await screen.findByRole("button",{name:"取消提现申请"}));await screen.findByText("提现状态：CANCELED。");
+    await userEvent.click(await screen.findByRole("button",{name:"取消提现申请"}));
+    await waitFor(()=>expect(fetch.mock.calls.some(([path,init])=>path==="/api/account/referral-withdrawals/withdrawal-B/cancel"&&init?.method==="POST")).toBe(true));
+  });
   it("keeps four owner-backed overview facts in one horizontal metrics group", async () => {
     vi.stubGlobal("fetch", vi.fn((input: string) => Promise.resolve(String(input).includes("referral-withdrawals")
       ? Response.json({ schemaVersion: "referral-withdrawals-v1", withdrawals: [] })

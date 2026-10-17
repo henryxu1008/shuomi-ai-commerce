@@ -22,6 +22,12 @@ beforeAll(() => {
 });
 afterEach(() => { cleanup(); clients.splice(0).forEach(client => client.clear()); vi.unstubAllGlobals(); vi.restoreAllMocks(); state.switching = false; state.org = "org";state.counts={total:1,active:1,administrators:0,inactive:0}; sessionStorage.clear(); });
 function page(client = new QueryClient()) { vi.stubGlobal("fetch",withAdditionalReads(globalThis.fetch)); clients.push(client); return <QueryClientProvider client={client}><MembersPage expectedUserId="actor" /></QueryClientProvider>; }
+it("labels the authorization member ID separately from its user ID",async()=>{
+ vi.stubGlobal("fetch",vi.fn().mockImplementation(()=>Promise.resolve(Response.json(result))));render(page());
+ await userEvent.click(await screen.findByRole("button",{name:"查看详情"}));
+ const dialog=await screen.findByRole("dialog",{name:"成员详情"});
+ expect(within(dialog).getByText("成员 ID").nextElementSibling).toHaveTextContent("grant");
+});
 it("opens directory search and both filters for read-only members",async()=>{
   vi.stubGlobal("fetch",vi.fn().mockResolvedValue(Response.json(result)));render(page());
   await screen.findByText("成员甲");

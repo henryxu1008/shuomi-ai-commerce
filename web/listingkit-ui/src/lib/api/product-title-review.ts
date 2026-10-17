@@ -1,5 +1,5 @@
 import { z } from "zod";
-import {titlePolicyAdoptionSchema,contentPolicyAdoptionSchema,contentExecutionProvenanceSchema,executionModeSchema,modeRevisionSchema,modeSnapshotRefSchema} from "../contracts/execution-mode";
+import {titleExecutionProvenanceSchema,titlePolicyAdoptionSchema,contentPolicyAdoptionSchema,contentExecutionProvenanceSchema,executionModeSchema,modeRevisionSchema,modeSnapshotRefSchema} from "../contracts/execution-mode";
 import { contentSelectionSchema, sameContentSelection, type ContentSelection } from "../contracts/content-selection";
 import { productKnowledgeSchema } from "../contracts/product-knowledge";
 import { parseWorkbenchErrorEnvelopePayload, type WorkbenchErrorEnvelope } from "./workbench-context";
@@ -29,6 +29,8 @@ const proposalCollection = z.union([collection,textCollection]);
 const decision = z.strictObject({ action: z.enum(["accept", "edit", "reject"]), actor: text.min(1), revision: version, before: text, after: text, at: time });
 const receipt = z.strictObject({ proposal_id: productTitleIDSchema, revision: version, product_version: version, publication_id: text.min(1), actor: text.min(1), at: time });
 const proposalBase = z.strictObject({
+  execution:titleExecutionProvenanceSchema.optional(),
+  execution_mode:z.strictObject({mode:executionModeSchema,revision:modeRevisionSchema,snapshot:modeSnapshotRefSchema}).optional(),
   policy_adoption:titlePolicyAdoptionSchema.optional(),
   knowledge:productKnowledgeSchema.optional(),
   ...basis, proposal_id: productTitleIDSchema, owner: text.min(1),
@@ -39,7 +41,9 @@ const proposalBase = z.strictObject({
   quality: z.strictObject({ overall: z.number(), evidence_coverage: z.number(), required_field_coverage: z.number() }),
   unresolved: z.array(text), decisions: z.array(decision), apply_receipt: receipt.optional(),
 });
-const proposal = proposalBase.refine((v) => v.state === "applied" ? !!v.apply_receipt && v.apply_receipt.proposal_id === v.proposal_id : !v.apply_receipt);
+const proposal = proposalBase.refine((v) => v.state === "applied" ? !!v.apply_receipt && v.apply_receipt.proposal_id === v.proposal_id : !v.apply_receipt)
+ .refine(v=>!v.execution||v.execution.scope.ActorID===v.owner&&v.execution.binding.ProductKey===v.input.product_key&&v.execution.binding.CatalogVersion===v.input.base_version)
+ .refine(v=>!v.execution_mode||!!v.execution&&v.execution_mode.snapshot.ID===v.execution.mode.ID&&v.execution_mode.snapshot.Digest===v.execution.mode.Digest);
 const contentFields = ["title", "description", "selling_points", "seo_keywords"] as const;
 const contentValueSchema = z.strictObject({field:z.enum(contentFields),value:text});
 export type ContentValue = z.infer<typeof contentValueSchema>;

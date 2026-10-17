@@ -7,6 +7,20 @@ import { ConsoleNavigation } from "./console-navigation";
 import { findConsoleRoute } from "@/lib/workbench/console-navigation";
 
 const query=vi.hoisted(()=>({value:""}));
+it("keeps canonical unbound draft navigation local with the full runtime enabled",()=>{
+ const id="11111111-1111-4111-8111-111111111111";query.value=`preparation=${id}`;
+ render(<ConsoleNavigation pathname={`/workbench/supply/mine/missing/${id}`} ariaLabel="主导航" supplyChainAvailable supplyCompletionDraftsAvailable/>);
+ const href=new URL(screen.getByRole("link",{name:"待补全"}).getAttribute("href")!,"https://test.invalid");
+ expect(href.searchParams.has("mode")).toBe(false);query.value="";
+});
+it("preserves platform stage and operation in sidebar navigation",()=>{
+ const id="11111111-1111-4111-8111-111111111111";
+ query.value=`preparation=${id}&store=${id}&operation=${id}`;
+ render(<ConsoleNavigation pathname="/workbench/supply/mine/ready" ariaLabel="主导航" supplyChainAvailable supplyCompletionDraftsAvailable/>);
+ const href=new URL(screen.getByRole("link",{name:"待补全"}).getAttribute("href")!,"https://test.invalid");
+ expect(href.searchParams.get("mode")).toBe("platform");expect(href.searchParams.get("operation")).toBe(id);
+ query.value="";
+});
 it("opens the skill library categories under the intelligent market", () => {
   render(<ConsoleNavigation pathname="/workbench/agents/skills/mine" ariaLabel="主导航" />);
   expect(screen.getByRole("link", {name:"技能库"})).toHaveAttribute("href", "/workbench/agents/skills");
@@ -240,7 +254,7 @@ it("only opens supply stage navigation when the serving runtime enables it",asyn
  expect(screen.getByRole("link",{name:"已适配"})).toHaveAttribute("title","已适配：业务暂未启用");
  view.rerender(<ConsoleNavigation pathname="/workbench/supply/mine/ready" ariaLabel="主导航" supplyChainAvailable/>);
  expect(screen.getByRole("link",{name:"已适配"})).toHaveAttribute("href","/workbench/supply/mine/ready");expect(screen.getByRole("link",{name:"已适配"})).toHaveAttribute("aria-current","page");
- expect(screen.getByRole("link",{name:"待补全"})).toHaveAttribute("href","/workbench/supply/mine/missing");
+ expect(screen.getByRole("link",{name:"待补全"})).toHaveAttribute("href","/workbench/supply/mine/missing?mode=platform");
 });
 
 it("retains only valid batch and store selection across supply stage links",()=>{

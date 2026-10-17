@@ -6,6 +6,7 @@ import type {CatalogItem} from "@/lib/api/store-center";
 const state=vi.hoisted(()=>({request:vi.fn()}));
 vi.mock("@/lib/api/store-observations",async(importOriginal)=>({...await importOriginal<typeof import("@/lib/api/store-observations")>(),observationRequest:state.request}));
 import {StoreSyncDialog} from "./store-sync-dialog";
+import {ObservationError} from "@/lib/api/store-observations";
 const store={id:"11111111-1111-4111-8111-111111111111",name:"TEMU 店铺",platform:"temu"} as CatalogItem;
 const scope={organizationId:"org-a",userId:"actor"};
 beforeEach(()=>{
@@ -14,10 +15,21 @@ beforeEach(()=>{
  HTMLDialogElement.prototype.showModal=function(){this.setAttribute("open","")};HTMLDialogElement.prototype.close=function(){this.removeAttribute("open")};
 });
 afterEach(()=>{sessionStorage.clear();vi.clearAllMocks()});
-function show(initialKind:"products"|"orders"="products"){
+function show(initialKind:"products"|"orders"="products",platform="temu"){
  const client=new QueryClient({defaultOptions:{queries:{retry:false},mutations:{retry:false}}});
- return render(<QueryClientProvider client={client}><StoreSyncDialog store={store} scope={scope} initialKind={initialKind} onClose={vi.fn()} onChanged={vi.fn().mockResolvedValue(null)}/></QueryClientProvider>);
+ return render(<QueryClientProvider client={client}><StoreSyncDialog store={{...store,platform} as CatalogItem} scope={scope} initialKind={initialKind} onClose={vi.fn()} onChanged={vi.fn().mockResolvedValue(null)}/></QueryClientProvider>);
 }
+it("blocks new Walmart orders and explicitly releases inaccessible local tracking",async()=>{
+ const view=show("products","walmart");
+ await waitFor(()=>expect(screen.getByRole("button",{name:"开始同步"})).toBeEnabled());
+ expect(screen.getByRole("option",{name:"订单"})).toBeDisabled();view.unmount();
+ const key="22222222-2222-4222-8222-222222222222";
+ sessionStorage.setItem("store-dialog-sync:org-a:actor",JSON.stringify({key,input:{kind:"orders",stores:[store.id]}}));
+ state.request.mockImplementation(async(path:string)=>{if(path.endsWith("/capabilities"))return {available:true,canSync:true};throw new ObservationError("NOT_FOUND",404)});
+ show("products","walmart");await userEvent.click(await screen.findByRole("button",{name:"清除此页同步记录"}));
+ expect(sessionStorage.getItem("store-dialog-sync:org-a:actor")).toBeNull();
+ expect(screen.getByRole("combobox",{name:"同步数据"})).toHaveValue("products");expect(state.request.mock.calls.some(([path])=>path.endsWith("/syncs"))).toBe(false);
+});
 it("starts TEMU products with the retained command and blocks a new TEMU order intent",async()=>{
  const view=show();await waitFor(()=>expect(screen.getByRole("button",{name:"开始同步"})).toBeEnabled());
  expect(screen.getByRole("option",{name:"订单"})).toBeDisabled();

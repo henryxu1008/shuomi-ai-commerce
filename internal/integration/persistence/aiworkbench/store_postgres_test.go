@@ -47,6 +47,40 @@ func workbenchDB(t *testing.T) *gorm.DB {
 	require.NoError(t, InstallSchema(db))
 	return db
 }
+func TestMessageRejectionProofPrecedesAppendAndDoesNotOverrideReplay(t *testing.T) {
+	db := workbenchDB(t)
+	store, err := New(db)
+	require.NoError(t, err)
+	ctx := context.Background()
+	scope := aiworkbench.Scope{OrganizationID: "org-a", ActorID: "user-a"}
+	conversation, _, err := store.Create(ctx, scope, uuid.NewString(), aiworkbench.CreateInput{})
+	require.NoError(t, err)
+	input := aiworkbench.MessageInput{Content: "goal", OperationID: "operation-1", TargetPlatform: "shein"}
+	key := uuid.NewString()
+	reject := func([]aiworkbench.Message, string) (aiworkbench.PreparedPlan, error) {
+		return aiworkbench.PreparedPlan{}, aiworkbench.ErrInvalid
+	}
+	_, _, err = store.AppendUser(ctx, scope, conversation.ID, key, input, reject)
+	var proof *aiworkbench.MessageNotAcceptedError
+	require.ErrorAs(t, err, &proof)
+	require.ErrorIs(t, err, aiworkbench.ErrInvalid)
+	messages, err := store.ListMessages(ctx, scope, conversation.ID, 50)
+	require.NoError(t, err)
+	require.Empty(t, messages)
+	prepare := func([]aiworkbench.Message, string) (aiworkbench.PreparedPlan, error) {
+		return aiworkbench.PreparedPlan{MemberID: "member-a", Unavailable: true}, nil
+	}
+	original, _, err := store.AppendUser(ctx, scope, conversation.ID, key, input, prepare)
+	require.NoError(t, err)
+	replayed, replay, err := store.AppendUser(ctx, scope, conversation.ID, key, input, reject)
+	require.NoError(t, err)
+	require.True(t, replay)
+	require.Equal(t, original, replayed)
+	_, _, err = store.CompletePlan(ctx, scope, key, aiworkbench.PlanTerminal{})
+	proof = nil
+	require.ErrorIs(t, err, aiworkbench.ErrInvalid)
+	require.False(t, errors.As(err, &proof))
+}
 
 func TestMetadataAuditCommitsWithConversationRevision(t *testing.T) {
 	db := workbenchDB(t)

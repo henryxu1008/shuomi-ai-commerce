@@ -190,7 +190,12 @@ func writeAIWorkbenchError(c *gin.Context, err error) {
 		status, code = http.StatusForbidden, "FORBIDDEN"
 	}
 	c.Header("Cache-Control", "private, no-store")
-	c.JSON(status, gin.H{"code": code})
+	body := gin.H{"code": code}
+	var notAccepted *aiworkbench.MessageNotAcceptedError
+	if errors.As(err, &notAccepted) {
+		body["messageAccepted"] = false
+	}
+	c.JSON(status, body)
 }
 
 const workbenchResponseMaxBytes = 256 << 10
