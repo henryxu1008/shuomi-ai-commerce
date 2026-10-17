@@ -34,15 +34,7 @@ type TemplateState struct {
 }
 
 type PublishState struct {
-	SaveResult          *api.SaveResponse
-	SavedToDraft        bool
-	PriceQueryResponse  *api.PriceQueryResponse
-	CommitDetail        *api.CommitDetailResponse
-	SubmitResponse      *api.SubmitResponse
-	ProductData         *api.Product
-	DailyQuotaReserved  bool
-	DailyQuotaDate      string
-	DailyQuotaIncrement int64
+	PriceQueryResponse *api.PriceQueryResponse
 }
 
 type AssetState struct {
@@ -130,55 +122,6 @@ func (tc *TemuTaskContext) SetAISkuMapping(mapping *AISkuMappingResponse) {
 
 func (tc *TemuTaskContext) SetTemuProduct(product *api.Product) {
 	tc.TemuProduct = product
-}
-
-func (tc *TemuTaskContext) SetPublishProductData(product *api.Product) {
-	tc.ProductData = product
-}
-
-func (tc *TemuTaskContext) SetSaveResponse(response *api.SaveResponse) {
-	tc.SaveResult = response
-}
-
-func (tc *TemuTaskContext) SetCommitDetailResponse(response *api.CommitDetailResponse) {
-	tc.CommitDetail = response
-}
-
-func (tc *TemuTaskContext) SetSubmitResponse(response *api.SubmitResponse) {
-	tc.SubmitResponse = response
-}
-
-func (tc *TemuTaskContext) SetSavedToDraft(saved bool) {
-	tc.SavedToDraft = saved
-}
-
-func (tc *TemuTaskContext) SetDailyQuotaReservation(date string, increment int64) {
-	tc.DailyQuotaReserved = true
-	tc.DailyQuotaDate = date
-	tc.DailyQuotaIncrement = increment
-}
-
-func (tc *TemuTaskContext) ClearDailyQuotaReservation() {
-	tc.DailyQuotaReserved = false
-	tc.DailyQuotaDate = ""
-	tc.DailyQuotaIncrement = 0
-}
-
-func (tc *TemuTaskContext) ApplySaveResult(result *api.SaveResult) {
-	if tc == nil || tc.TemuProduct == nil || result == nil {
-		return
-	}
-
-	basic := &tc.TemuProduct.GoodsBasic
-	if result.ListingCommitID != "" {
-		basic.ListingCommitID = result.ListingCommitID
-	}
-	if result.ListingCommitVersion != "" {
-		basic.ListingCommitVersion = result.ListingCommitVersion
-	}
-	if result.GoodsCommitID != "" {
-		basic.GoodsCommitID = result.GoodsCommitID
-	}
 }
 
 var _ pipeline.AmazonContext = (*TemuTaskContext)(nil)

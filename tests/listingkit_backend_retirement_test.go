@@ -1,6 +1,9 @@
 package tests
 
 import (
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -35,6 +38,14 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/crawler/fetcher/distributed_fetcher.go", "internal/crawler/fetcher/builder_test.go",
 		"internal/temu/sync/inventory_sync_factory.go",
 		"internal/shein/inventory", "internal/temu/sync", "internal/temu/bulkrelist",
+		"internal/temu/product/save_handler.go", "internal/temu/product/submit_handler.go",
+		"internal/temu/product/commit_create_handler.go", "internal/temu/product/commit_detail_handler.go",
+		"internal/temu/product/save_publish_result_handler.go", "internal/temu/product/publish_result_steps.go",
+		"internal/temu/product/publish_result_input.go", "internal/temu/product/publish_result_input_test.go",
+		"internal/temu/product/request_models.go", "internal/temu/product/result_output.go",
+		"internal/temu/product/submit_utils.go", "internal/temu/product/submit_error_analyzer.go",
+		"internal/temu/product/submit_fixer.go", "internal/temu/product/submit_validator.go",
+		"internal/temu/product/check_daily_limit_handler.go",
 		"internal/shein/pricing/auto_pricing.go", "internal/shein/pricing/pricing_evaluator.go",
 		"internal/shein/pricing/pricing_calculator.go", "internal/shein/pricing/pricing_builder.go",
 		"internal/shein/pricing/time_helper.go", "internal/shein/pricing/auto_pricing_repo_test.go",
@@ -124,6 +135,24 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/temu/api/api.go": {
 			"InventoryAPI", "inventory.API", "inventory.RelistRequest", "inventory.RelistResponse",
 			"product.BulkRelistOptions", "product.BulkRelistSummary",
+			"product.SaveRequest", "product.SaveResponse", "product.SaveResult", "product.SubmitRequest", "product.SubmitResponse",
+			"product.CreateCommitRequest", "product.CreateCommitResponse", "query.CommitDetailRequest", "query.CommitDetailResponse",
+			"NewProductAPI", "NewSubmitAPI", "product.NewAPI",
+		},
+		"internal/temu/api/product/api.go": {
+			"func (a *API) Save(", "func (a *API) Submit(", "func (a *API) CreateCommit(",
+		},
+		"internal/temu/api/query/query.go": {"func (a *API) QueryCommitDetail("},
+		"internal/temu/api/query/query_types.go": {
+			"type CommitDetailRequest struct", "type CommitDetailResponse struct", "type CommitDetailResult struct", "type CommitDetailCategoryTree struct",
+		},
+		"internal/temu/context/temu_context.go": {
+			"type TemuTaskContext struct", "type PublishState struct", "PriceQueryResponse", "TemuProduct",
+			"RuntimeState", "ProductState", "TemplateState", "AssetState", "VariantState", "RuleState", "AISkuMapping",
+			"SetAPIClients", "AttachRuntime", "SetAmazonProduct", "SetVariants", "SetTemuProduct",
+		},
+		"internal/marketplace/temu/publishing/submission_validation_policy.go": {
+			"func validateSubmissionSpecs(", "func validateSubmissionPackaging(",
 		},
 		"internal/temu/api/inventory/inventory.go": {
 			"type RelistRequest struct", "type RelistResponse struct", "type SearchRequest struct", "type SearchResponse struct",
@@ -131,6 +160,8 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		},
 		"internal/temu/api/product/request_types.go": {
 			"type BulkRelistOptions struct", "type SkipConditions struct", "type BulkRelistSummary struct", "type CategoryStats struct",
+			"type SaveRequest struct", "type SaveResponse struct", "type SaveResult struct", "type SubmitRequest struct", "type SubmitResponse struct",
+			"type CreateCommitRequest struct", "type CreateCommitResponse struct",
 		},
 		"internal/shein/activity/price_calculator.go": {"func calculateActivityPrice(", "func amazonCostBySKU("},
 		"internal/shein/activity/registration_config.go": {
@@ -155,6 +186,88 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		for _, token := range required {
 			if !strings.Contains(string(content), token) {
 				t.Errorf("%s must preserve retained platform/shared contract %q", relative, token)
+			}
+		}
+	}
+	productRoot := filepath.Join("..", "internal", "temu", "product")
+	if err := filepath.WalkDir(productRoot, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		for _, retired := range []string{
+			"ProductSaveHandler", "ProductSubmitHandler", "CommitCreateHandler", "CommitDetailHandler", "SavePublishResultHandler", "CheckDailyLimitHandler",
+			"ProductRequestInput", "CommitDetailOutput", "SaveProductOutput", "SubmitProductOutput", "SavePublishResultInput",
+			"ProductSubmitUtils", "ProductSubmitErrorAnalyzer", "ProductSubmitFixer", "ProductSubmitValidator",
+		} {
+			if strings.Contains(string(content), retired) {
+				t.Errorf("%s must not recreate retired TEMU submission orchestration %q", path, retired)
+			}
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	contextPath := filepath.Join("..", "internal", "temu", "context", "temu_context.go")
+	contextFile, err := parser.ParseFile(token.NewFileSet(), contextPath, nil, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	retiredFields := map[string]bool{
+		"SaveResult": true, "SavedToDraft": true, "CommitDetail": true, "SubmitResponse": true, "ProductData": true,
+		"DailyQuotaReserved": true, "DailyQuotaDate": true, "DailyQuotaIncrement": true,
+	}
+	retiredMethods := map[string]bool{
+		"SetPublishProductData": true, "SetSaveResponse": true, "SetCommitDetailResponse": true, "SetSubmitResponse": true,
+		"SetSavedToDraft": true, "SetDailyQuotaReservation": true, "ClearDailyQuotaReservation": true, "ApplySaveResult": true,
+	}
+	ast.Inspect(contextFile, func(node ast.Node) bool {
+		switch node := node.(type) {
+		case *ast.TypeSpec:
+			if node.Name.Name != "PublishState" && node.Name.Name != "TemuTaskContext" {
+				return false
+			}
+			if state, ok := node.Type.(*ast.StructType); ok {
+				for _, field := range state.Fields.List {
+					for _, name := range field.Names {
+						if retiredFields[name.Name] {
+							t.Errorf("TEMU %s must not retain exclusive publish field %s", node.Name, name)
+						}
+					}
+				}
+			}
+		case *ast.FuncDecl:
+			if node.Recv != nil && retiredMethods[node.Name.Name] {
+				t.Errorf("TEMU context must not retain exclusive publish method %s", node.Name)
+			}
+		}
+		return true
+	})
+	policyPath := filepath.Join("..", "internal", "marketplace", "temu", "publishing", "submission_validation_policy.go")
+	policyFile, err := parser.ParseFile(token.NewFileSet(), policyPath, nil, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, imported := range policyFile.Imports {
+		if imported.Path.Value != "\"fmt\"" && imported.Path.Value != "\"strings\"" {
+			t.Errorf("submission validation must remain a value-only rule, found import %s", imported.Path.Value)
+		}
+	}
+	for _, declaration := range policyFile.Decls {
+		if function, ok := declaration.(*ast.FuncDecl); ok && function.Name.IsExported() {
+			t.Errorf("submission extraction must not add exported contract %s", function.Name)
+		}
+		if group, ok := declaration.(*ast.GenDecl); ok {
+			for _, spec := range group.Specs {
+				if typ, ok := spec.(*ast.TypeSpec); ok && typ.Name.IsExported() {
+					t.Errorf("submission extraction must not add exported type %s", typ.Name)
+				}
 			}
 		}
 	}
@@ -256,6 +369,10 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 		"internal/temu/api/client/client.go", "internal/temu/api/client/cookie_manager.go",
 		"internal/temu/api/client/auth_pause_handler.go", "internal/temu/api/inventory/inventory.go",
 		"internal/temu/api/product/request_types.go",
+		"internal/temu/api/product/api.go", "internal/temu/api/query/query.go", "internal/temu/api/query/query_types.go",
+		"internal/temu/context/temu_context.go",
+		"internal/marketplace/temu/publishing/submission_validation_policy.go",
+		"internal/marketplace/temu/publishing/submission_validation_policy_test.go",
 		"internal/shein/productsync/product_sync_types.go", "internal/shein/productsync/marketing_client_boundary_test.go",
 		"internal/shein/api/marketing/client.go", "internal/shein/api/marketing/client_test.go",
 		"internal/shein/api/marketing/interface.go", "internal/shein/api/marketing/activity_types.go",

@@ -1,5 +1,12 @@
 # Phase 2 runtime convergence inventory
 
+> #749 bounded calibration: exclusive TEMU Commit/save/submit/result/quota source
+> and publish-context members are retired after extracting two validations into
+> the existing marketplace owner. The mixed product package still consumes
+> core/logger and integration/openai: both current consumer rows remain. Dated
+> inventories, all closure ceilings, APIs/shared owners and workflows are unchanged;
+> no runtime/data action, cleanup/replay or new trial prerequisite is authorized.
+
 > #747 bounded calibration: the confirmed TEMU bulk-relist closure is source-retired.
 > Only its vanished core/logger consumer row leaves the current register. Platform
 > APIs, shared contracts and rules, dated inventories and closure ceilings remain;
