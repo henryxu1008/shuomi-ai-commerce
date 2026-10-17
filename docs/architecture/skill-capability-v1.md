@@ -36,6 +36,8 @@ Must：三层归属、动作分离、不可变准确版本、个人明确同意�
 
 沿现 ConsolePage、Card/Dialog/表单、CSS Modules 和设计 tokens；一级导航不变，在智能市场下增加二级「技能库」和上述三个分类。技能库使用页内管理视图，原快捷入口继续使用 Dialog，两种展示复用同一管理逻辑。不是公开/付费技能交易市场，不增加个人 Workspace、搜索推荐平台或第二技能服务。
 
+2026-10-17 分类页面展示增量沿 [当前 Figma 分类页依据](../product/final-ui-ia-authority.md#技能库分类页2026-10-17-后续批准)：复用介绍页配色和字体，区分页面标题、三分类导航、权限工具栏、版本列表、团队准入及使用说明。仅 `presentation=page` 调整管理组件排版；Dialog、scope/key、读写处理器和服务权限合同不变。Figma 示例不生成目录或配置；空目录与服务失败继续分别如实显示，准确版本入口仍调用原 readVersion。
+
 新页面复用 `requireAuthenticatedUserId` 的 server identity gate，并将准确 expected user 交给客户端；官方/个人读取不依赖有效企业，团队必须当前 live organization。Console 已有 identity-only 页面白名单精确增加技能库根路径、`/official`、`/mine`；`/team` 及未知子路由不放宽原企业访问要求，不把整个 `/agents` 前缀作为个人入口。登录失效或身份变化立即清除原管理子树；企业切换/撤权/上下文失败时不保留旧团队内容和请求，个人/官方仍按 identity-only 原合同读取。页面与导航不产生任何后端授权，正文/复制/审批/准入仍由原 service/BFF 复核。管理组件按用户、企业、分类及权限变化重建，不混用旧版本、待确认命令或审批预览。
 
 本次复用范围为 UI → 原 `skillRequest` → 原 `/api/workbench/skills/{official|personal|organization}` → 原 `internal/skill` service/RunDB；不改变 API/schema/owner、状态机、事务、CAS、幂等/UNKNOWN、模型预算或执行选择。没有迁移、回填、复制现有业务库数据或共享实例更新。开发验证覆盖导航/面包屑、三分类、无企业个人与官方访问、团队错误/权限/切换隔离、原管理操作及准确服务不可用状态；真实保留实例验收不在本次授权内。
