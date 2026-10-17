@@ -29,7 +29,7 @@ export interface ListButtonProps
   showShortcut?: boolean
 }
 
-export function ListShortcutBadge({
+function ListShortcutBadge({
   type,
   shortcutKeys = LIST_SHORTCUT_KEYS[type],
 }: {

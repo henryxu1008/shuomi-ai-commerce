@@ -37,7 +37,7 @@ export interface UndoRedoButtonProps
   showShortcut?: boolean
 }
 
-export function HistoryShortcutBadge({
+function HistoryShortcutBadge({
   action,
   shortcutKeys = UNDO_REDO_SHORTCUT_KEYS[action],
 }: {

@@ -2,7 +2,6 @@
 import { descriptionURL } from "@/lib/contracts/product-description"
 
 import * as React from "react"
-import type { Editor } from "@tiptap/react"
 
 // --- Hooks ---
 import { useIsMobile } from "@/vendor/tiptap/hooks/use-mobile"
@@ -34,7 +33,7 @@ import {
 } from "@/vendor/tiptap/components/tiptap-ui-primitive/card"
 import { Input, InputGroup } from "@/vendor/tiptap/components/tiptap-ui-primitive/input"
 
-export interface LinkMainProps {
+interface LinkMainProps {
   /**
    * The URL to set for the link.
    */
@@ -78,7 +77,7 @@ export interface LinkPopoverProps
 /**
  * Link button component for triggering the link popover
  */
-export const LinkButton = React.forwardRef<HTMLButtonElement, ButtonProps>(
+const LinkButton = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, children, ...props }, ref) => {
     return (
       <Button
@@ -193,19 +192,6 @@ const LinkMain: React.FC<LinkMainProps> = ({
 }
 
 /**
- * Link content component for standalone use
- */
-export const LinkContent: React.FC<{
-  editor?: Editor | null
-}> = ({ editor }) => {
-  const linkPopover = useLinkPopover({
-    editor,
-  })
-
-  return <LinkMain {...linkPopover} />
-}
-
-/**
  * Link popover component for Tiptap editors.
  *
  * For custom popover implementations, use the `useLinkPopover` hook instead.
@@ -313,5 +299,3 @@ export const LinkPopover = React.forwardRef<
 )
 
 LinkPopover.displayName = "LinkPopover"
-
-export default LinkPopover

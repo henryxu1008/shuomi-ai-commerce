@@ -119,5 +119,3 @@ export function ListDropdownMenu({
     </DropdownMenu>
   )
 }
-
-export default ListDropdownMenu

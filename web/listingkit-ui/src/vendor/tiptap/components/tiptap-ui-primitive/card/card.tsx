@@ -11,16 +11,6 @@ const Card = React.forwardRef<HTMLDivElement, React.ComponentProps<"div">>(
 )
 Card.displayName = "Card"
 
-const CardHeader = React.forwardRef<
-  HTMLDivElement,
-  React.ComponentProps<"div">
->(({ className, ...props }, ref) => {
-  return (
-    <div ref={ref} className={cn("tiptap-card-header", className)} {...props} />
-  )
-})
-CardHeader.displayName = "CardHeader"
-
 const CardBody = React.forwardRef<HTMLDivElement, React.ComponentProps<"div">>(
   ({ className, ...props }, ref) => {
     return (
@@ -47,28 +37,4 @@ const CardItemGroup = React.forwardRef<
 })
 CardItemGroup.displayName = "CardItemGroup"
 
-const CardGroupLabel = React.forwardRef<
-  HTMLDivElement,
-  React.ComponentProps<"div">
->(({ className, ...props }, ref) => {
-  return (
-    <div
-      ref={ref}
-      className={cn("tiptap-card-group-label", className)}
-      {...props}
-    />
-  )
-})
-CardGroupLabel.displayName = "CardGroupLabel"
-
-const CardFooter = React.forwardRef<
-  HTMLDivElement,
-  React.ComponentProps<"div">
->(({ className, ...props }, ref) => {
-  return (
-    <div ref={ref} className={cn("tiptap-card-footer", className)} {...props} />
-  )
-})
-CardFooter.displayName = "CardFooter"
-
-export { Card, CardHeader, CardFooter, CardBody, CardItemGroup, CardGroupLabel }
+export { Card, CardBody, CardItemGroup }

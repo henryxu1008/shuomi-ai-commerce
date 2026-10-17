@@ -22,7 +22,7 @@ export interface ButtonProps
   shortcutKeys?: string
 }
 
-export const ShortcutDisplay: React.FC<{ shortcuts: string[] }> = ({
+const ShortcutDisplay: React.FC<{ shortcuts: string[] }> = ({
   shortcuts,
 }) => {
   if (shortcuts.length === 0) return null
@@ -110,5 +110,3 @@ export const ButtonGroup = React.forwardRef<
   )
 })
 ButtonGroup.displayName = "ButtonGroup"
-
-export default Button

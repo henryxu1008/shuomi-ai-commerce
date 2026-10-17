@@ -33,7 +33,7 @@ export interface HeadingButtonProps
   showShortcut?: boolean
 }
 
-export function HeadingShortcutBadge({
+function HeadingShortcutBadge({
   level,
   shortcutKeys = HEADING_SHORTCUT_KEYS[level],
 }: {

@@ -7,6 +7,7 @@ Actual transitive source components used by the official Simple Editor: Toolbar,
 
 Local adaptations:
 - Import paths isolated here; keep Tiptap 3.32.0.
+- Keep only exports consumed by this product; internal helpers stay local and unused standalone primitives/helpers are removed. No Knip exclusions or code-health baseline changes.
 - The upstream SCSS is retained as source and precompiled locally into CSS with official Dart Sass 1.93.2; production imports CSS and adds no Sass compiler/lifecycle dependency. Regenerate each SCSS with `sass.compile(path, {style: "expanded"})`; product styles use description-editor.scss as source.
 - Include the required upstream keyframes and prefix animation names with tiptap- so portal exit animations finish without global name collisions.
 - Scope root theme variables to editor/portal controls; remove global typography/reset; prefix white/black variables. App tokens override in description-editor.scss.

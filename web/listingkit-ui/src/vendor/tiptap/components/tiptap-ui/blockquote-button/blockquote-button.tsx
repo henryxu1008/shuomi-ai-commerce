@@ -32,7 +32,7 @@ export interface BlockquoteButtonProps
   showShortcut?: boolean
 }
 
-export function BlockquoteShortcutBadge({
+function BlockquoteShortcutBadge({
   shortcutKeys = BLOCKQUOTE_SHORTCUT_KEY,
 }: {
   shortcutKeys?: string
