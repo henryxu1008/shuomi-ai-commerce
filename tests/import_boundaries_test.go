@@ -3058,7 +3058,6 @@ func TestTEMUOpenAIImportsStayAllowlisted(t *testing.T) {
 		filepath.Clean(filepath.Join(root, "image", "vision_detector.go")):           {},
 		filepath.Clean(filepath.Join(root, "pipeline_registry.go")):                  {},
 		filepath.Clean(filepath.Join(root, "sku", "ai_mapping_single_processor.go")): {},
-		filepath.Clean(filepath.Join(root, "sku", "builder.go")):                     {},
 		filepath.Clean(filepath.Join(root, "sku", "variant_processor.go")):           {},
 	}
 

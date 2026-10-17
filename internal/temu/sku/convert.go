@@ -2,7 +2,6 @@
 package sku
 
 import (
-	"task-processor/internal/pkg/jsonx"
 	models "task-processor/internal/temu/api/product"
 	temucontext "task-processor/internal/temu/context"
 )
@@ -20,9 +19,4 @@ func convertSpecInfos(src []temucontext.SpecInfo) []models.SpecInfo {
 		}
 	}
 	return result
-}
-
-// marshalWithoutHTMLEscape 序列化JSON但不转义HTML字符
-func (sb *SkuBuilder) marshalWithoutHTMLEscape(v any) ([]byte, error) {
-	return jsonx.MarshalIndentWithoutHTMLEscape(v, "", "  ")
 }

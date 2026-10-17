@@ -2,18 +2,18 @@
 
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
-- Status: **DESIGN_ONLY / AWAITING_USER_CONFIRMATION**。用户授权先做设计，确认后再实施；本文不授予生产修改、合并、实例或数据操作权限。
-- 调查基线：main **bdd5bae1c07bdf22c861720a814dc19f53664b1d**，已包含 #768。准确设计 HEAD、CI 与独立检查维护于主要 PR，不在仓库文档滚动。
-- 当前 **Design Basis: N/A**，仅文档与只读源码/依赖映射。未来实施拟 **Reuse Existing Architecture**，需用户确认 §5、§6、§6.1、§7 后，在生产修改前登记该分类、冻结依据与 Ready；不能用设计 CI 代替实施准入或结果。
+- Status: **USER_CONFIRMED / SOURCE_RETIRED**。用户已确认冻结设计 3ceea910b709d12863d62165a18064dd16070848 的 §5/§6/§6.1/§7；三项纯值行为已抽取，六文件与混合构建专属闭包已退休。合并与真实操作仍须单独授权。
+- 调查基线：main **bdd5bae1c07bdf22c861720a814dc19f53664b1d**，已包含 #768；实施开工同步 actual main **849007918ccb2e07bb98918d18ad0b829237005d**，#770 仅 UI/文档，无范围变化。准确实现 HEAD、CI 与独立检查维护于主要 PR；旧设计证据仅历史。
+- 当前 **Design Basis: Reuse Existing Architecture；Admission: Ready**。用户确认后，生产修改前已在 #29/#301 登记冻结依据、owner/不变量与 Ready。原设计 N/A 只覆盖当时文档/只读映射，设计 CI 不代替实施结果。
 - 保留 AI/SKU 映射、PriceHandler、平台 API/DTO、有效规则与此前全部保留能力。两套及其它 workflow、必需/安全检查、保护规则、ceiling 和依赖不改；不操作实例或数据，不增加内部试用前置。
 
 ## 1. 用户结果、范围与非目标
 
 使用者是维护当前内部试用、采集与 Store 能力的维护者。交付为退出无装配旧 SKU/SKC payload 构建编排、保留确定性值规则和 AI 映射的准确矩阵，避免再次将旧 Task、默认数字身份和 raw payload 当作当前执行入口。当前没有用户操作被此维护阻塞，设计与后续源码退休都不是试用前置。
 
-候选整删范围为 `internal/temu/sku/` 的六个生产文件：builder.go（174 行）、item_builder.go（475 行）、skc_builder.go（265 行）、parallel_builder.go（103 行）、build_input.go（84 行）、price_calculator.go（17 行），基线共 **1,118 行**。另精确裁剪混合 variant_processor.go、convert.go、spec_handler.go 的构建专属部分；不是删除整个 sku 包或 SkuVariantProcessor。
+已退休的整文件范围为 `internal/temu/sku/` 的六个生产文件：builder.go（174 行）、item_builder.go（475 行）、skc_builder.go（265 行）、parallel_builder.go（103 行）、build_input.go（84 行）、price_calculator.go（17 行），基线共 **1,118 行**。另精确裁剪混合 variant_processor.go、convert.go、spec_handler.go 的构建专属部分；不是删除整个 sku 包或 SkuVariantProcessor。
 
-先按 §4.1 保留三项已有值规则，再退出旧构建 owner。`SkuPriceCalculator` 只有 logger 字段/constructor，没有计算方法或消费者；它不是应保留的 PriceManager/PriceCalculator，也不是 product.PriceHandler。三者不能按近似名称一起删除。
+已先按 §4.1 抽取三项已有值规则，再退出旧构建 owner。`SkuPriceCalculator` 只有 logger 字段/constructor，没有计算方法或消费者；它不是应保留的 PriceManager/PriceCalculator，也不是 product.PriceHandler。三者不能按近似名称一起删除。
 
 非目标：新刊登入口、平台能力、AI provider 接线、工厂/缓存/恢复平台、schema、状态机、公共领域合同或验证工具；修复保留 AI/价格/图像实现的历史行为；运行 constructor/main、真实 API/AI、采集、上传、Query/Preview/DryRun、配置/凭据/DB/Redis/Profile/历史日志读取；部署、重放、迁移、清理、关闭 Issue。
 
@@ -22,11 +22,11 @@ Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](htt
 依据：
 
 - [Greenfield](../product/greenfield-no-legacy-migration.md)、[Hard-Cut](../refactoring/legacy-hard-cut-policy.md)、[Legacy register](../refactoring/legacy-register.md)、[Project Boundaries](project-boundaries.md)：只有 EXTRACT / RETIRE，无 wrapper/fallback、旧 ID 映射、双读双写或第二事实源。
-- 已确认的 [保存/提交](legacy-temu-listing-submit-retirement-boundary.md)、[前置](legacy-temu-preflight-retirement-boundary.md)、[变体](legacy-temu-variant-retirement-boundary.md)、[筛选/AI 前置](legacy-temu-filter-mapping-retirement-boundary.md)、[Store/初始化](legacy-temu-store-init-retirement-boundary.md)、[SPU/零售价查询](legacy-temu-spu-price-query-retirement-boundary.md)：旧 Task 入口已退出，共享规则/映射/价格仍按原 owner 保留。此前“保留 SKU 构建”的陈述是当批删除边界；本设计尚未确认，不提前推翻该边界。
+- 已确认的 [保存/提交](legacy-temu-listing-submit-retirement-boundary.md)、[前置](legacy-temu-preflight-retirement-boundary.md)、[变体](legacy-temu-variant-retirement-boundary.md)、[筛选/AI 前置](legacy-temu-filter-mapping-retirement-boundary.md)、[Store/初始化](legacy-temu-store-init-retirement-boundary.md)、[SPU/零售价查询](legacy-temu-spu-price-query-retirement-boundary.md)：旧 Task 入口已退出，共享规则/映射/价格仍按原 owner 保留。此前“保留 SKU 构建”的陈述是当批删除边界；用户确认本设计后，仅 §5 的旧构建 caller 保留项由本矩阵替代，其它保留边界不变。
 - [既有 TEMU publishing](../../internal/marketplace/temu/publishing/README.md)：规则与 payload 值处理 owner；已有私有 submissionSpec 可复用，不需新公开 DTO 或依赖旧 Task/API DTO。
 - [当前 Store](store-center-current-application-v1.md)、[观察](store-center-platform-observations-v1.md)、[独立 SHEIN 身份/持久化](shein-worker-identity-persistence-boundary.md)：事实、授权、凭据、同步及恢复归原 owner。Figma N/A，无 UI/IA 修改。
 
-未来实施拟复用以上架构：只抽取已执行的无 IO 私有值规则、删除旧编排，并收窄无外部消费者的包内 Go constructor 接线。它不是新增/改变公共领域合同、AI 调用/准入/预算/计量、平台 retry/UNKNOWN、身份/tenant、持久化事实、状态机或事务 owner。保留的映射算法、输入/响应合同与 provider 调用实现不变。若实际需要改变上述边界或增加当前消费者，停止对应部分，补适用 Independent Architecture 准入，不能在实现里临时发明架构。
+本次实施复用以上架构：只抽取已执行的无 IO 私有值规则、删除旧编排，并收窄无外部消费者的包内 Go constructor 接线。它不是新增/改变公共领域合同、AI 调用/准入/预算/计量、平台 retry/UNKNOWN、身份/tenant、持久化事实、状态机或事务 owner。保留的映射算法、输入/响应合同与 provider 调用实现不变。若实际需要改变上述边界或增加当前消费者，停止对应部分，补适用 Independent Architecture 准入，不能在实现里临时发明架构。
 
 Must：保留 AI/SKU 映射与 AIBatchInput、PriceHandler 全部售价/库存/倍数行为及 ProfitRuleAPI、PriceManager/PriceCalculator、平台 API/同名 DTO/re-export、有效规则/共享合同、两种 SHEIN 属性、Reader/Cache/Mapping、当前采集/Store 观察、独立 SHEIN 登录 worker 及 Store sync。原 guard 的有效覆盖不能减少。
 
@@ -75,17 +75,17 @@ Should：源码、当前清单及直接冲突说明与实际边界一致。Out o
 | 规格验证/解析、用户规格转换、尺寸判断、AI 响应修正与映射数量修复 | 原 SkuSpecHandler、SpecResolverService、SkuMappingProcessor 和 AI owner 保留 | convertUserInputSpecsToGoodsSpecProperties 仍被 AI input 使用，绝不可作为构建专属删除；ValidateSpecs、IsSizeSpec、CreateDefaultSpec、convertSpecInfos 保留 |
 | 模板颜色分组、笛卡尔积补组合、无匹配组合日志、默认映射挑首项、ASIN 串并行筛选、USD/市场价二倍等 raw payload 固定赋值、净含量传递 | RETIRE 此旧装配与专属 helper | 不把未实现的缺失 SKU 生成、默认库存 10、浮点转分/翻倍、旧空字段填充、map 顺序或吞错升级为当前领域规则；不丢弃原 AI/平台 DTO 或其字段 |
 
-私有函数只接受 submissionSpec 或 scalar 值，不导入旧 Task/context/model/API DTO、pipeline/provider/logger；不新增公开类型、adapter、legacy wrapper 或第二事实源。用户确认以上选择性抽取后才编码；若出现额外有效规则或需新公开合同，先报告相应缺口。
+私有函数只接受 submissionSpec 或 scalar 值，不导入旧 Task/context/model/API DTO、pipeline/provider/logger；不新增公开类型、adapter、legacy wrapper 或第二事实源。用户确认以上选择性抽取后才编码；若出现额外有效规则或需新公开合同，仍须先报告相应缺口。
 
 ## 5. 精确抽取、删除与保留矩阵
 
-以下是**待用户确认的未来实施矩阵**，本 PR 不执行。
+以下是**用户确认后已实施的精确矩阵**。删除前行为与消费者取证仍按原基线保留；保留实现不变。
 
 | 对象 | 决策 | 精确边界 |
 | --- | --- | --- |
 | sku/builder.go、item_builder.go、skc_builder.go、parallel_builder.go、build_input.go、price_calculator.go | 先 §4.1 EXTRACT，再 RETIRE 六全文件 | 对应类型/constructor、SKUVariantBuildInput/SKUProcessInput、item 三个私有 payload struct 及独占 helper 全退，不保留 alias/receiver 空壳或兼容串行路径 |
-| variant_processor.go | 保留混合 owner，仅退构建闭包 | 删除 BuildVariantSkcs、resolveVariantAIMapping、resolveAndBuildVariantSkcs、assignBuiltVariantSkcs、BuildSkcsFromAIMapping、prepareAndBuildVariantSkcs、buildSkcsFromPreparedAIMapping、resolveSkcBuildSpecs、buildMultipleSkcs、buildSingleSkc、CreateDefaultSkc、resolveDefaultBuildProduct、resolveAndBuildDefaultSkc、prepareAndBuildDefaultSkc、buildDefaultSkcFromPreparedMapping、selectDefaultAIMapping、buildDefaultSkuFromAIMapping、resolveDefaultAIMapping、prepareDefaultAIMappingForBuild 共 19 方法；只去 skcBuilder/itemBuilder 两字段和对应 ctor 参数/赋值、仅因此失用的 template import |
-| 同一 NewSkuVariantProcessor | 最小内部接线收窄 | 保留函数名/返回类型，参数拟为 logger、aiClient、specHandler、specResolver；保持原 mappingProcessor 初始化，不新增默认 provider、PriceHandler、builder 或 spec adapter。全仓无外部 Go 调用；这不是公共领域合同变更。若刷新发现外部使用，停止此裁剪 |
+| variant_processor.go | 保留混合 owner，仅退构建闭包 | 删除 BuildVariantSkcs、resolveVariantAIMapping、resolveAndBuildVariantSkcs、assignBuiltVariantSkcs、BuildSkcsFromAIMapping、prepareAndBuildVariantSkcs、buildSkcsFromPreparedAIMapping、resolveSkcBuildSpecs、buildMultipleSkcs、buildSingleSkc、CreateDefaultSkc、resolveDefaultBuildProduct、resolveAndBuildDefaultSkc、prepareAndBuildDefaultSkc、buildDefaultSkcFromPreparedMapping、selectDefaultAIMapping、buildDefaultSkuFromAIMapping、resolveDefaultAIMapping、prepareDefaultAIMappingForBuild 共 19 方法；只去 skcBuilder/itemBuilder 两字段和对应 ctor 参数/赋值、仅因此失用的 template/models import |
+| 同一 NewSkuVariantProcessor | 最小内部接线收窄 | 保留函数名/返回类型，参数已收窄为 logger、aiClient、specHandler、specResolver；保持原 mappingProcessor 初始化，不新增默认 provider、PriceHandler、builder 或 spec adapter。全仓无外部 Go 调用；这不是公共领域合同变更。若刷新发现外部使用，停止此裁剪 |
 | variant_processor.go 的其它方法/字段 | 保留 | GenerateAISkuMapping、100 变体/20 批上限、分批选择、validateAIMappingSpecs、resolveAIMappingSpecIDs、prepareAIMappingForBuild、ensureAIMappingMatchesVariants、normalizeAIMappingForBuild、生成结果归一化/维度统一等原实现不变；名称含 ForBuild 不等于构建专属，仍承载保留映射校验/解析能力 |
 | sku/convert.go | 仅 RETIRE SkuBuilder.marshalWithoutHTMLEscape | 只删此 receiver 方法与因此失用的 jsonx import；convertSpecInfos 全字段转换原样保留。SkuVariantProcessor 同名 JSON helper 及 jsonx 原能力不动 |
 | sku/spec_handler.go | 只 RETIRE 专属组合 helper | 删除 SpecDimension/SpecValue 两类型及 collectNonColorSpecsForColor、generateNonColorSpecCombinations、generateCartesianProduct、createSpecCombinationKey、createNonColorSpecKey、createSpecCombinationKeyFromSpecs、isColorSpec 七方法；保留 SkuSpecHandler/ctor、IsSizeSpec、convertUserInputSpecsToGoodsSpecProperties、ValidateSpecs、CreateDefaultSpec 全部实现/所需 import |
@@ -102,9 +102,9 @@ Cutover/deletion condition: 用户确认 §5/§6/§6.1/§7；生产修改前 Iss
 
 ## 6. 验证与交付
 
-设计阶段只提交本文与架构索引，做 diff/相对链接与原文档索引检查。本文的静态图是调查证据，不是未来实施、真实平台或用户验收 PASS；不为文档制造业务测试 RED。
+原设计阶段只提交本文与架构索引；其 CI/review 不是实施或用户验收。确认后已完成三值规则 TDD RED→GREEN；原退休 guard 在六文件仍存在时准确 RED（19 构建方法、7 helper、两字段，无保留断言失败），精确删除后 GREEN。准确实现 HEAD 的保留回归/CI/最终检查维护于 PR，不把静态图当真实平台验收。
 
-用户确认后才做以下最小实施验证：
+用户确认后采用以下最小实施验证范围：
 
 1. 刷新六文件、19 方法、两字段、组合 helper/类型及构造/导入/注册和当前命令依赖，确认没有当前消费者或兼容义务。
 2. 三项值规则 TDD RED→GREEN：规格首次 parent 去重的稳定顺序/空 key/nil/空/单项/不变输入；精确 TEMP_、大小写/位置/ParentSpecID 不新增判断，先去重再检测，被淘汰重复项含 TEMP_ 不新增失败；classification=1 的 1/1 及其它 classification 原值透传。不新增价格、库存或平台要求。
@@ -114,22 +114,22 @@ Cutover/deletion condition: 用户确认 §5/§6/§6.1/§7；生产修改前 Iss
 
 ### 6.1 原 guard、清单、文档和 workflow 的准确处置
 
-| 工件 | 未来实施改动 | 不变的防线 |
+| 工件 | 本次实施改动 | 不变的防线 |
 | --- | --- | --- |
 | tests/listingkit_backend_retirement_test.go | 扩展原 TestListingKitTaskBackendSourcesAreRetired，增加六文件缺席与 sku 限定的类型/ctor/19 方法/专属 helper AST 禁令；保留矩阵只移除 builder.go 的构造字符串行与 item_builder.go 的价格调用字符串行，转为原 PriceHandler/AI 映射/规则/API/共享合同断言 | 不是删除 PriceHandler 保留断言；原其它断言、31 命令与独立 worker guards 全保留。禁止旧构建回归，不禁止 sku 整包或 handlerbase 同名接口 |
 | tests/import_boundaries_test.go | TestTEMUOpenAIImportsStayAllowlisted 仅移除 sku/builder.go 一条消失路径豁免（原九条→八条） | ai_mapping_single_processor.go、variant_processor.go 和其它六条均保留；root/扫描/deny/helper 不动。management product 的唯一 price_handler.go 豁免完全不动；无目录缺失适配或 skip |
 | docs/refactoring/phase2-runtime-inventory.md 当前 consumer register | integration/openai→temu/sku 仍由 AI 文件消费，保留该行；core/logger 的 SKU 唯一直接 import 在 parallel_builder.go，删除此文件后仅移除 core/logger→temu/sku 一行 | 不删整个 SKU/OpenAI consumer；logrus 与 core/logger 不是同一导入。dated inventory、closure ceiling 与其它行不变 |
 | code-health-decisions.md 的 SKU/product 行 | 精确注明六文件/混合构建闭包退休、映射与 PriceHandler 保留，旧 runtime 构建依据仅历史；原 dated 21/20 declarations 留存 | 不把 SKU/product 整包写为 removed，不顺带清理其它历史行或提高 ceiling |
 | external-client-boundary-inventory.md 当前 TEMU SKU/OpenAI 描述 | 只注明 builder 直接 OpenAI import/一个豁免退出，AI mapping/provider seams 仍在 | 其它树、guard 覆盖、provider 计量/安全 owner 不改，不能宣称全部 OpenAI 依赖已退休 |
-| Legacy register、本文/架构索引、publishing README 与直接冲突的前批当前说明 | 确认后标 source-retired 和三项值规则 owner，精确替代前批对构建 caller 的保留陈述 | 不重写历史设计/审批证据；AI/价格/规格/图像/平台等保留矩阵不被笼统覆盖 |
+| Legacy register、本文/架构索引、publishing README 与直接冲突的前批当前说明 | 已标 source-retired 和三项值规则 owner，精确替代前批对构建 caller 的保留陈述 | 不重写历史设计/审批证据；AI/价格/规格/图像/平台等保留矩阵不被笼统覆盖 |
 | 两套及其它 workflow、.golangci.yml、依赖、必需/安全检查、保护/ceiling | **零修改** | 不删除 job/编译目标、不减少扫描范围、不改保护规则、不因专属 caller 删除而降低 provider inventory 防线 |
 
 sku 目录仍存在，不需要目录缺席适配。若原 CI 发现同范围额外硬编码引用，先定位、分类并核对 sibling，只校准准确已退出目标，不能扩大删除、删 gate、改必需检查或加通用 skip。
 
 ## 7. 确认与实施停止点
 
-1. 本轮只交付可评审设计与准确设计 HEAD 的证据；#29/#301 保持 OPEN，不将设计交付记作源码退休或内部试用新增前置。
-2. 等待用户明确确认 §5、§6、§6.1、§7，再在同一主要分支/PR继续；生产修改前登记冻结设计、Reuse Existing Architecture、owner/不变量/验证与 Ready。设计确认不替代最终准确 HEAD 合并授权。
+1. #771 原设计已交付；用户确认后在同一主要分支/PR继续实施。#29/#301保持 OPEN，不将源码退休作为内部试用新增前置。
+2. 用户已明确确认冻结 3ceea910b 的 §5、§6、§6.1、§7；生产修改前已登记 Reuse Existing Architecture、冻结设计、owner/不变量/验证与 Ready。设计确认不替代最终准确 HEAD 合并授权。
 3. 实施开工同步一次 main，稳定最终候选再核对实际组合；发现新消费者/具体兼容义务、新有效规则/公共领域合同、身份/tenant、持久化/状态/事务或平台/AI 副作用协议变化，停止对应部分报告，不增 wrapper/默认客户端或临时新架构。
 4. 三项规则/原 guard RED→GREEN、精确拆除与保留回归、准确实施 HEAD CI/最终独立检查后交付 In Review；设计 CI/review 不冒充实施或用户验收。
 5. 合并仍需用户准确最终 HEAD 单独授权及正常 expected-head/保护。设计和后续实施均不授权 Issue 关闭、部署、真实 provider/实例/凭据/数据操作；平台/运行/产品与用户验收分别保持 NOT_RUN。
