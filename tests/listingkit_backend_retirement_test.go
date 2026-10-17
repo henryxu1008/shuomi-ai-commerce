@@ -48,6 +48,8 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/temu/product/check_daily_limit_handler.go",
 		"internal/temu/product/exists_check_handler.go", "internal/temu/product/out_goods_sn_check_handler.go",
 		"internal/temu/product/raw_json_data_handler.go", "internal/temu/product/cache_handler.go",
+		"internal/temu/product/build_spu_handler.go", "internal/temu/product/spu_builder.go",
+		"internal/temu/product/spu_validator.go", "internal/temu/product/price_query_handler.go",
 		"internal/temu/sku/variant_json_data_handler.go", "internal/temu/sku/parallel_variant_handler.go",
 		"internal/temu/sku/cache_variants_handler.go", "internal/temu/sku/variant_data_processor.go",
 		"internal/temu/sku/variant_filter_handler.go", "internal/temu/sku/ai_mapping_handler.go",
@@ -148,9 +150,11 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			"product.CreateCommitRequest", "product.CreateCommitResponse", "query.CommitDetailRequest", "query.CommitDetailResponse",
 			"NewProductAPI", "NewSubmitAPI", "product.NewAPI",
 			"query.SkuSnCheckRequest", "query.SkuSnCheckResponse", "query.OutSkuSnItem", "query.OutGoodsSnCheckResult",
+			"product.PriceQueryRequest", "product.PriceQueryResponse", "product.MaxRetailPriceQueryItem", "product.MaxRetailPriceResultItem",
 		},
 		"internal/temu/api/product/api.go": {
 			"func (a *API) Save(", "func (a *API) Submit(", "func (a *API) CreateCommit(",
+			"func (a *API) QueryMaxRetailPrice(",
 		},
 		"internal/temu/api/query/query.go": {"func (a *API) QueryCommitDetail(", "func (a *API) CheckSkuSn("},
 		"internal/temu/api/query/query_types.go": {
@@ -163,9 +167,20 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			"RuntimeState", "ProductState", "TemplateState", "AssetState", "VariantState", "RuleState", "AISkuMapping",
 			"SetAPIClients", "AttachRuntime", "SetAmazonProduct", "SetVariants", "SetTemuProduct",
 		},
-		"internal/temu/context/sku_runtime_input.go": {"type SKUBuildRuntime struct", "func BuildSKUBuildRuntime(", "StoreInfo"},
-		"internal/temu/handlerbase/base_handler.go":  {"type BaseTemuHandler struct", "func NewBaseTemuHandler(", "func (h *BaseTemuHandler) GetTemuContext("},
-		"internal/temu/handlerbase/temu_handler.go":  {"type TemuHandler interface"},
+		"internal/temu/context/sku_runtime_input.go":         {"type SKUBuildRuntime struct", "func BuildSKUBuildRuntime(", "StoreInfo"},
+		"internal/temu/handlerbase/base_handler.go":          {"type BaseTemuHandler struct", "func NewBaseTemuHandler(", "func (h *BaseTemuHandler) GetTemuContext("},
+		"internal/temu/handlerbase/temu_handler.go":          {"type TemuHandler interface"},
+		"internal/temu/handlerbase/sku_builder_interface.go": {"type SkuBuilder interface", "type SpecHandler interface"},
+		"internal/temu/product/price_handler.go": {
+			"type PriceHandler struct", "func NewPriceHandler(", "func (ph *PriceHandler) CalculateVariantPriceWithRuntime(",
+			"func (ph *PriceHandler) GetDefaultStockWithRuntime(", "func (ph *PriceHandler) GetPriceMultiplierWithRuntime(",
+		},
+		"internal/temu/sku/item_builder.go":        {"*product.PriceHandler", "ib.priceHandler.CalculateVariantPriceWithRuntime(", "ib.priceHandler.GetDefaultStockWithRuntime("},
+		"internal/temu/sku/spec_handler.go":        {"func (sh *SkuSpecHandler) ValidateSpecs("},
+		"internal/temu/spec/resolver_service.go":   {"type SpecResolverService struct", "func (s *SpecResolverService) HasTemporaryIDs("},
+		"internal/temu/property/mapper_adapter.go": {"type PropertyMapper struct", "func (m *PropertyMapper) BuildGoodsProperties("},
+		"internal/temu/ai/content_rewriter.go":     {"type AIContentRewriter struct", "func NewAIContentRewriterHandler("},
+		"internal/shein/product/build/spu.go":      {"type BuildSpuHandler struct", "func NewBuildSpuHandler("},
 		"internal/temu/api/client/client.go": {
 			"func NewAPIClient(", "func (c *APIClient) initializeMallID(",
 			"func (c *APIClient) GetMallID(", "func (c *APIClient) SetMallID(", ".UpdateStoreId(",
@@ -182,8 +197,9 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/amazon/pipeline/store_info.go":     {"type StoreInfoHandler struct", "func NewStoreInfoHandler("},
 		"internal/pkg/appenv/apputil.go":             {"func GetInstanceID("},
 		"internal/marketplace/temu/publishing/submission_validation_policy.go": {
-			"func validateSubmissionSpecs(", "func validateSubmissionPackaging(",
+			"type submissionSpec struct", "func validateSubmissionSpecs(", "func validateSubmissionPackaging(",
 		},
+		"internal/marketplace/temu/publishing/spu_validation_policy.go": {"func validateSPUStructure("},
 		"internal/marketplace/temu/publishing/sku_sn_validation_policy.go": {
 			"func buildUniqueSKUSNs(", "func validateSKUSNFailures(", "type skuSNFailure struct",
 		},
@@ -221,7 +237,7 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/shein/validation/rule_checker.go":       {"productpolicy.RuleChecker", "productpolicy.NewRuleChecker("},
 		"internal/shein/validation/filter_rule.go":        {"NewFilterRuleChecker(", ".ToFilterRule(", ".CheckPriceRange(", ".CheckInventory("},
 		"internal/shein/validation/reapply_filter.go":     {"NewFilterRuleChecker(", ".ToFilterRule(", ".CheckPriceRange(", ".CheckInventory("},
-		"internal/temu/sku/builder.go":                    {"NewSkuVariantProcessor("},
+		"internal/temu/sku/builder.go":                    {"NewSkuVariantProcessor(", "product.NewPriceHandler(", "NewSkuItemBuilder("},
 		"internal/temu/sku/ai_mapping_utils_helper.go": {
 			"func (vp *SkuVariantProcessor) getProductDimensions(", "func (vp *SkuVariantProcessor) getItemWeight(",
 			"func (vp *SkuVariantProcessor) getProductDetailField(", "func (vp *SkuVariantProcessor) marshalWithoutHTMLEscape(",
@@ -229,7 +245,7 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		},
 		"internal/temu/sku/ai_mapping_single_processor.go": {"vp.getProductDimensions(", "vp.getItemWeight(", "vp.buildAIVariant("},
 		"internal/shared/strx/cleaner.go":                  {"func CleanProductTitle("},
-		"internal/temu/rules/text_processor.go":            {"strx.CleanProductTitle("},
+		"internal/temu/rules/text_processor.go":            {"strx.CleanProductTitle(", "type TextProcessor struct", "func (tp *TextProcessor) ProcessProductTitle("},
 		"internal/shein/productdata/variant_data.go": {
 			"type VariantJsonDataHandler struct", "func NewVariantJsonDataHandler(", "func GetVariantByAsinFromVariants(",
 		},
@@ -241,6 +257,7 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			"type ProductImportMappingAPI interface", "CheckProductExists(",
 			"type FilterRuleAPI interface", "type FilterRuleReqDTO struct", "type FilterRuleRespDTO struct", "ToFilterRule(",
 			"type StoreAPI interface", "type StoreRespDTO struct", "type StoreIdUpdateReqDTO struct", "type StoreStatusUpdateReqDTO struct",
+			"type ProfitRuleAPI interface", "type ProfitRuleReqDTO struct", "type ProfitRuleRespDTO struct",
 		},
 		"internal/shein/publish/exists_check.go": {"type ProductExistsCheckHandler struct", "func NewProductExistsCheckHandler("},
 		"internal/temu/api/inventory/inventory.go": {
@@ -251,6 +268,7 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			"type BulkRelistOptions struct", "type SkipConditions struct", "type BulkRelistSummary struct", "type CategoryStats struct",
 			"type SaveRequest struct", "type SaveResponse struct", "type SaveResult struct", "type SubmitRequest struct", "type SubmitResponse struct",
 			"type CreateCommitRequest struct", "type CreateCommitResponse struct",
+			"type PriceQueryRequest struct", "type PriceQueryResponse struct", "type MaxRetailPriceQueryItem struct", "type MaxRetailPriceResultItem struct",
 		},
 		"internal/shein/activity/price_calculator.go": {"func calculateActivityPrice(", "func amazonCostBySKU("},
 		"internal/shein/activity/registration_config.go": {
@@ -319,6 +337,12 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"FulfillmentChecker": true, "NewFulfillmentChecker": true, "buildFulfillmentProductValue": true,
 		"FilterCheckResult": true, "AIHandlerInput": true, "buildAIHandlerInput": true,
 	}
+	retiredProductSPUSymbols := map[string]bool{
+		"BuildSpuHandler": true, "NewBuildSpuHandler": true,
+		"SpuBuilder": true, "NewSpuBuilder": true,
+		"SpuValidator": true, "NewSpuValidator": true,
+		"PriceQueryHandler": true, "NewPriceQueryHandler": true,
+	}
 	for _, pkg := range []string{"sku", "filter", "product", "rules", "handlerbase"} {
 		if err := filepath.WalkDir(filepath.Join("..", "internal", "temu", pkg), func(path string, entry os.DirEntry, err error) error {
 			if err != nil {
@@ -337,7 +361,8 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 					return true
 				}
 				retiredInit := pkg == "handlerbase" && (ident.Name == "InitDataHandler" || ident.Name == "NewInitDataHandler")
-				if retiredTEMUSymbols[ident.Name] || retiredInit {
+				retiredSPU := pkg == "product" && retiredProductSPUSymbols[ident.Name]
+				if retiredTEMUSymbols[ident.Name] || retiredInit || retiredSPU {
 					t.Errorf("%s must not recreate retired TEMU Task orchestration %q", path, ident.Name)
 				}
 				return true

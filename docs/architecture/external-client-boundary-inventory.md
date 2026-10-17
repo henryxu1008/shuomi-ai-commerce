@@ -147,7 +147,12 @@ Current direct dependency hotspots are:
     `TestSheinBridgeExternalClientImportsStayAllowlisted`
 - `internal/temu`
   - broad `management` coupling in sync, pricing, product, and scheduler
-    paths, plus `openai` coupling in AI, image, SKU, product, and pipeline helpers
+    paths, plus `openai` coupling in AI, image, SKU, and pipeline helpers
+  - the four unused product SPU/maximum-retail-price Task owners are source-retired
+    under the [confirmed SPU/query boundary](legacy-temu-spu-price-query-retirement-boundary.md).
+    Their direct product OpenAI imports leave; the structural value check belongs
+    to existing TEMU publishing. Product PriceHandler/SKU, platform APIs/DTOs and
+    the AI/text/property/specification implementations keep their owners
   - the former `internal/temu/store` handlers and exclusive numeric cache are
     source-retired under the [confirmed store/init boundary](legacy-temu-store-init-retirement-boundary.md);
     current Store Center, retained Store API/DTO/repository and real APIClient
@@ -158,7 +163,8 @@ Current direct dependency hotspots are:
     covers the original product/store subtrees, indexing the stable TEMU parent
     and filtering those exact subtrees so an absent store directory needs no skip;
     reintroduced store sources remain checked against the management deny rule.
-    Only the two retired store exemptions leave; the three product exemptions stay
+    The former store and SPU exemptions are absent; only the retained product
+    price_handler.go exemption remains. The original scanning scope and deny stay
   - `TestTemuStoreUsesManagementAPIPortAliases` also indexes the stable parent
     while filtering only its original store subtree; its concrete management DTO
     import prohibition remains, including if store sources are reintroduced
@@ -168,6 +174,8 @@ Current direct dependency hotspots are:
     `processor.go` runtime seam are guarded by
     `TestTEMURuntimeAndBridgeRetiredManagementImportsStayBlocked`
   - TEMU OpenAI seams are guarded by `TestTEMUOpenAIImportsStayAllowlisted`
+    with only the two retired product-file exemptions removed; all other entries,
+    the original root and import denial remain unchanged
   - cleanup should begin at service constructors and package-local contracts
 - `internal/app`
   - expected to construct concrete clients, but should avoid leaking concrete
