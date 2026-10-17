@@ -3000,14 +3000,12 @@ func TestTEMURuntimeAndBridgeRetiredManagementImportsStayBlocked(t *testing.T) {
 		filepath.Clean(filepath.Join("..", "internal", "temu", "api", "client", "client.go")):            {},
 		filepath.Clean(filepath.Join("..", "internal", "temu", "api", "client", "cookie_manager.go")):    {},
 		filepath.Clean(filepath.Join("..", "internal", "temu", "api", "client", "manager.go")):           {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "bulkrelist", "bulk_relist_entry.go")):    {},
 		filepath.Clean(filepath.Join("..", "internal", "temu", "handlerbase", "fulfillment_checker.go")): {},
 		filepath.Clean(filepath.Join("..", "internal", "temu", "processor.go")):                          {},
 	}
 
 	for _, root := range []string{
 		filepath.Join("..", "internal", "temu", "api", "client"),
-		filepath.Join("..", "internal", "temu", "bulkrelist"),
 		filepath.Join("..", "internal", "temu", "context"),
 		filepath.Join("..", "internal", "temu", "filter"),
 		filepath.Join("..", "internal", "temu", "handlerbase"),
