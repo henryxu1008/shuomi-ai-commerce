@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"task-processor/internal/integration/openai"
 	"task-processor/internal/model"
-	models "task-processor/internal/temu/api/product"
-	temutemplate "task-processor/internal/temu/api/template"
 	temucontext "task-processor/internal/temu/context"
 	"task-processor/internal/temu/spec"
 
@@ -18,249 +16,19 @@ type SkuVariantProcessor struct {
 	logger           *logrus.Entry
 	aiClient         openai.ChatCompleter
 	specHandler      *SkuSpecHandler
-	skcBuilder       *SkuSkcBuilder
 	mappingProcessor *SkuMappingProcessor
 	specResolver     *spec.SpecResolverService
-	itemBuilder      *SkuItemBuilder
 }
 
 // NewSkuVariantProcessor 创建新的SKU变体处理器
-func NewSkuVariantProcessor(logger *logrus.Entry, aiClient openai.ChatCompleter, specHandler *SkuSpecHandler, skcBuilder *SkuSkcBuilder, specResolver *spec.SpecResolverService, itemBuilder *SkuItemBuilder) *SkuVariantProcessor {
+func NewSkuVariantProcessor(logger *logrus.Entry, aiClient openai.ChatCompleter, specHandler *SkuSpecHandler, specResolver *spec.SpecResolverService) *SkuVariantProcessor {
 	return &SkuVariantProcessor{
 		logger:           logger,
 		aiClient:         aiClient,
 		specHandler:      specHandler,
-		skcBuilder:       skcBuilder,
 		mappingProcessor: NewSkuMappingProcessor(logger, specHandler),
 		specResolver:     specResolver,
-		itemBuilder:      itemBuilder,
 	}
-}
-
-// BuildVariantSkcs 构建变体SKC
-func (vp *SkuVariantProcessor) BuildVariantSkcs(temuCtx *temucontext.TemuTaskContext, variants []*model.Product) error {
-	vp.logger.Infof("构建变体SKC，变体数量: %d", len(variants))
-
-	skcList, err := vp.resolveAndBuildVariantSkcs(temuCtx, variants)
-	if err != nil {
-		vp.logger.Warnf("%v，使用默认映射", err)
-		return nil
-	}
-
-	vp.assignBuiltVariantSkcs(temuCtx, skcList)
-	return nil
-}
-
-func (vp *SkuVariantProcessor) resolveVariantAIMapping(temuCtx *temucontext.TemuTaskContext) (*temucontext.AISkuMappingResponse, error) {
-	if temuCtx.AISkuMapping != nil {
-		return temuCtx.AISkuMapping, nil
-	}
-
-	return nil, fmt.Errorf("没有可用的AI映射")
-}
-
-func (vp *SkuVariantProcessor) resolveAndBuildVariantSkcs(
-	temuCtx *temucontext.TemuTaskContext,
-	variants []*model.Product,
-) ([]models.Skc, error) {
-	aiMapping, err := vp.resolveVariantAIMapping(temuCtx)
-	if err != nil {
-		return nil, fmt.Errorf("获取AI映射失败: %w", err)
-	}
-
-	skcList, err := vp.prepareAndBuildVariantSkcs(temuCtx, variants, aiMapping)
-	if err != nil {
-		return nil, fmt.Errorf("根据AI映射构建SKC失败: %w", err)
-	}
-
-	return skcList, nil
-}
-
-func (vp *SkuVariantProcessor) assignBuiltVariantSkcs(temuCtx *temucontext.TemuTaskContext, skcList []models.Skc) {
-	temuCtx.TemuProduct.SkcList = skcList
-	vp.logger.Infof("AI辅助构建完成，创建了%d个SKC", len(skcList))
-}
-
-// buildSkcsFromAIMapping 根据AI映射构建SKC
-func (vp *SkuVariantProcessor) BuildSkcsFromAIMapping(temuCtx *temucontext.TemuTaskContext, variants []*model.Product, aiMapping *temucontext.AISkuMappingResponse) ([]models.Skc, error) {
-	return vp.prepareAndBuildVariantSkcs(temuCtx, variants, aiMapping)
-}
-
-func (vp *SkuVariantProcessor) prepareAndBuildVariantSkcs(
-	temuCtx *temucontext.TemuTaskContext,
-	variants []*model.Product,
-	aiMapping *temucontext.AISkuMappingResponse,
-) ([]models.Skc, error) {
-	if err := vp.prepareAIMappingForBuild(temuCtx, variants, aiMapping); err != nil {
-		return nil, err
-	}
-
-	return vp.buildSkcsFromPreparedAIMapping(temuCtx, variants, aiMapping), nil
-}
-
-func (vp *SkuVariantProcessor) buildSkcsFromPreparedAIMapping(temuCtx *temucontext.TemuTaskContext, variants []*model.Product, aiMapping *temucontext.AISkuMappingResponse) []models.Skc {
-	templateSpecs, shouldCreateMultipleSkcs := vp.resolveSkcBuildSpecs(temuCtx)
-	if shouldCreateMultipleSkcs {
-		return vp.buildMultipleSkcs(temuCtx, variants, aiMapping, templateSpecs)
-	}
-
-	return vp.buildSingleSkc(temuCtx, variants, aiMapping, templateSpecs)
-}
-
-func (vp *SkuVariantProcessor) resolveSkcBuildSpecs(temuCtx *temucontext.TemuTaskContext) ([]temutemplate.TemplateRespGoodsSpecProperty, bool) {
-	templateInfo := temuCtx.TemplateInfo
-	hasTemplateInfo := templateInfo != nil
-	userInputSpecs := temuCtx.UserInputParentSpecList
-	hasUserInputSpecs := len(userInputSpecs) > 0
-
-	if hasTemplateInfo && len(templateInfo.GoodsSpecProperties) > 0 {
-		for _, prop := range templateInfo.GoodsSpecProperties {
-			if len(prop.Values) > 0 {
-				vp.logger.Infof("GoodsSpecProperties有预置规格值，构建多个SKC，规格属性数量: %d", len(templateInfo.GoodsSpecProperties))
-				return templateInfo.GoodsSpecProperties, true
-			}
-		}
-	}
-
-	if hasUserInputSpecs && len(userInputSpecs) > 0 {
-		vp.logger.Infof("使用UserInputParentSpecList，用户规格数量: %d", len(userInputSpecs))
-		return vp.specHandler.convertUserInputSpecsToGoodsSpecProperties(userInputSpecs), false
-	} else if hasTemplateInfo {
-		vp.logger.Infof("使用GoodsSpecProperties（无预置值），规格属性数量: %d", len(templateInfo.GoodsSpecProperties))
-		return templateInfo.GoodsSpecProperties, false
-	}
-
-	vp.logger.Warn("未找到任何规格信息")
-	return []temutemplate.TemplateRespGoodsSpecProperty{}, false
-}
-
-func (vp *SkuVariantProcessor) buildMultipleSkcs(
-	temuCtx *temucontext.TemuTaskContext,
-	variants []*model.Product,
-	aiMapping *temucontext.AISkuMappingResponse,
-	templateSpecs []temutemplate.TemplateRespGoodsSpecProperty,
-) []models.Skc {
-	return vp.skcBuilder.buildMultipleSkcsFromTemplate(temuCtx, variants, aiMapping, templateSpecs)
-}
-
-func (vp *SkuVariantProcessor) buildSingleSkc(
-	temuCtx *temucontext.TemuTaskContext,
-	variants []*model.Product,
-	aiMapping *temucontext.AISkuMappingResponse,
-	templateSpecs []temutemplate.TemplateRespGoodsSpecProperty,
-) []models.Skc {
-	vp.logger.Info("创建单个SKC，多个SKU")
-	return vp.skcBuilder.buildSingleSkcFromUserInput(temuCtx, variants, aiMapping, templateSpecs)
-}
-
-// CreateDefaultSkc 创建默认SKC（用于没有变体的产品）
-func (vp *SkuVariantProcessor) CreateDefaultSkc(temuCtx *temucontext.TemuTaskContext) (models.Skc, error) {
-	vp.logger.Info("创建默认SKC（产品没有变体）")
-
-	defaultSkc, err := vp.resolveAndBuildDefaultSkc(temuCtx)
-	if err != nil {
-		return models.Skc{}, err
-	}
-
-	return defaultSkc, nil
-}
-
-func (vp *SkuVariantProcessor) resolveDefaultBuildProduct(temuCtx *temucontext.TemuTaskContext) (*model.Product, error) {
-	amazonProduct := temuCtx.GetAmazonProduct()
-	if amazonProduct == nil {
-		return nil, fmt.Errorf("没有Amazon产品信息")
-	}
-
-	return amazonProduct, nil
-}
-
-func (vp *SkuVariantProcessor) resolveAndBuildDefaultSkc(temuCtx *temucontext.TemuTaskContext) (models.Skc, error) {
-	amazonProduct, err := vp.resolveDefaultBuildProduct(temuCtx)
-	if err != nil {
-		return models.Skc{}, err
-	}
-
-	return vp.prepareAndBuildDefaultSkc(temuCtx, amazonProduct)
-}
-
-func (vp *SkuVariantProcessor) prepareAndBuildDefaultSkc(
-	temuCtx *temucontext.TemuTaskContext,
-	amazonProduct *model.Product,
-) (models.Skc, error) {
-	aiMapping, err := vp.prepareDefaultAIMappingForBuild(temuCtx, amazonProduct)
-	if err != nil {
-		return models.Skc{}, err
-	}
-
-	return vp.buildDefaultSkcFromPreparedMapping(temuCtx, amazonProduct, aiMapping)
-}
-
-func (vp *SkuVariantProcessor) buildDefaultSkcFromPreparedMapping(temuCtx *temucontext.TemuTaskContext, amazonProduct *model.Product, aiMapping *temucontext.AISkuMappingResponse) (models.Skc, error) {
-	aiSku, err := vp.selectDefaultAIMapping(aiMapping)
-	if err != nil {
-		return models.Skc{}, err
-	}
-	sku := vp.buildDefaultSkuFromAIMapping(temuCtx, amazonProduct, aiSku)
-
-	return models.Skc{
-		SkuList: []models.Sku{sku},
-	}, nil
-}
-
-func (vp *SkuVariantProcessor) selectDefaultAIMapping(aiMapping *temucontext.AISkuMappingResponse) (*temucontext.AIGeneratedSku, error) {
-	if aiMapping.SkuCount() == 0 {
-		return nil, fmt.Errorf("AI未生成任何SKU")
-	}
-
-	aiSku, ok := aiMapping.FirstSKU()
-	if !ok {
-		return nil, fmt.Errorf("AI映射中未找到首个SKU")
-	}
-
-	return aiSku, nil
-}
-
-func (vp *SkuVariantProcessor) buildDefaultSkuFromAIMapping(
-	temuCtx *temucontext.TemuTaskContext,
-	amazonProduct *model.Product,
-	aiSku *temucontext.AIGeneratedSku,
-) models.Sku {
-	vp.logger.Infof("✅ AI成功生成规格: %+v", aiSku.Spec)
-	vp.logger.Infof("✅ AI提取的重量尺寸: weight=%s, length=%s, width=%s, height=%s",
-		aiSku.Weight, aiSku.Length, aiSku.Width, aiSku.Height)
-
-	return vp.itemBuilder.buildSkuFromVariantWithAI(temuCtx, amazonProduct, *aiSku)
-}
-
-func (vp *SkuVariantProcessor) resolveDefaultAIMapping(temuCtx *temucontext.TemuTaskContext, amazonProduct *model.Product) (*temucontext.AISkuMappingResponse, error) {
-	if temuCtx.AISkuMapping != nil {
-		vp.logger.Info("✅ 使用AISkuMappingHandler已生成的AI映射，避免重复调用")
-		return temuCtx.AISkuMapping, nil
-	}
-
-	vp.logger.Info("未找到现有AI映射，开始生成新的AI映射")
-	variants := []*model.Product{amazonProduct}
-	aiMapping, err := vp.GenerateAISkuMapping(temuCtx, variants)
-	if err != nil {
-		vp.logger.Errorf("❌ AI生成SKU映射失败: %v", err)
-		return nil, fmt.Errorf("AI生成SKU映射失败: %w", err)
-	}
-
-	return aiMapping, nil
-}
-
-func (vp *SkuVariantProcessor) prepareDefaultAIMappingForBuild(temuCtx *temucontext.TemuTaskContext, amazonProduct *model.Product) (*temucontext.AISkuMappingResponse, error) {
-	aiMapping, err := vp.resolveDefaultAIMapping(temuCtx, amazonProduct)
-	if err != nil {
-		return nil, err
-	}
-
-	variants := []*model.Product{amazonProduct}
-	if err := vp.prepareAIMappingForBuild(temuCtx, variants, aiMapping); err != nil {
-		return nil, err
-	}
-
-	return aiMapping, nil
 }
 
 // generateAISkuMapping 生成AI SKU映射

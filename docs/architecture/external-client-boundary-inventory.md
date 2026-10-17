@@ -146,6 +146,12 @@ Current direct dependency hotspots are:
   - direct external client imports are guarded by
     `TestSheinBridgeExternalClientImportsStayAllowlisted`
 - `internal/temu`
+  - the unused SKU/SKC construction closure is source-retired under the
+    [confirmed SKU/SKC boundary](legacy-temu-sku-skc-retirement-boundary.md).
+    Three private value rules live in existing TEMU publishing. Only the SKU
+    builder's OpenAI exemption leaves; ai_mapping_single_processor.go and
+    variant_processor.go remain OpenAI consumers. PriceHandler, specification,
+    image/upload, platform API/DTO and shared owners remain unchanged
   - broad `management` coupling in sync, pricing, product, and scheduler
     paths, plus `openai` coupling in AI, image, SKU, and pipeline helpers
   - the four unused product SPU/maximum-retail-price Task owners are source-retired
@@ -174,7 +180,8 @@ Current direct dependency hotspots are:
     `processor.go` runtime seam are guarded by
     `TestTEMURuntimeAndBridgeRetiredManagementImportsStayBlocked`
   - TEMU OpenAI seams are guarded by `TestTEMUOpenAIImportsStayAllowlisted`
-    with only the two retired product-file exemptions removed; all other entries,
+    with the two retired product-file exemptions and the retired SKU builder
+    exemption removed; all other entries,
     the original root and import denial remain unchanged
   - cleanup should begin at service constructors and package-local contracts
 - `internal/app`

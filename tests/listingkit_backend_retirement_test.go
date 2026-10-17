@@ -53,6 +53,8 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/temu/sku/variant_json_data_handler.go", "internal/temu/sku/parallel_variant_handler.go",
 		"internal/temu/sku/cache_variants_handler.go", "internal/temu/sku/variant_data_processor.go",
 		"internal/temu/sku/variant_filter_handler.go", "internal/temu/sku/ai_mapping_handler.go",
+		"internal/temu/sku/builder.go", "internal/temu/sku/item_builder.go", "internal/temu/sku/skc_builder.go",
+		"internal/temu/sku/parallel_builder.go", "internal/temu/sku/build_input.go", "internal/temu/sku/price_calculator.go",
 		"internal/temu/filter/rule_handler.go", "internal/temu/filter/rule_manager.go", "internal/temu/filter/rule_stats_provider.go",
 		"internal/temu/product/filter_checker.go", "internal/temu/rules/rule_validator.go", "internal/temu/rules/rule_validator_test.go",
 		"internal/temu/handlerbase/fulfillment_checker.go", "internal/temu/handlerbase/filter_types.go",
@@ -156,7 +158,7 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			"func (a *API) Save(", "func (a *API) Submit(", "func (a *API) CreateCommit(",
 			"func (a *API) QueryMaxRetailPrice(",
 		},
-		"internal/temu/api/query/query.go": {"func (a *API) QueryCommitDetail(", "func (a *API) CheckSkuSn("},
+		"internal/temu/api/query/query.go": {"func (a *API) QueryCommitDetail(", "func (a *API) CheckSkuSn(", "func (a *API) QuerySpec("},
 		"internal/temu/api/query/query_types.go": {
 			"type CommitDetailRequest struct", "type CommitDetailResponse struct", "type CommitDetailResult struct", "type CommitDetailCategoryTree struct",
 			"type SkuSnCheckRequest struct", "type SkuSnCheckResponse struct", "type OutSkuSnItem struct",
@@ -175,8 +177,11 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			"type PriceHandler struct", "func NewPriceHandler(", "func (ph *PriceHandler) CalculateVariantPriceWithRuntime(",
 			"func (ph *PriceHandler) GetDefaultStockWithRuntime(", "func (ph *PriceHandler) GetPriceMultiplierWithRuntime(",
 		},
-		"internal/temu/sku/item_builder.go":        {"*product.PriceHandler", "ib.priceHandler.CalculateVariantPriceWithRuntime(", "ib.priceHandler.GetDefaultStockWithRuntime("},
-		"internal/temu/sku/spec_handler.go":        {"func (sh *SkuSpecHandler) ValidateSpecs("},
+		"internal/temu/sku/spec_handler.go": {
+			"type SkuSpecHandler struct", "func NewSkuSpecHandler(", "func (sh *SkuSpecHandler) ValidateSpecs(",
+			"func (sh *SkuSpecHandler) IsSizeSpec(", "func (sh *SkuSpecHandler) convertUserInputSpecsToGoodsSpecProperties(", "func (sh *SkuSpecHandler) CreateDefaultSpec(",
+		},
+		"internal/temu/sku/convert.go":             {"func convertSpecInfos(", "ParentSpecName: s.ParentSpecName", "ParentID:       s.ParentID"},
 		"internal/temu/spec/resolver_service.go":   {"type SpecResolverService struct", "func (s *SpecResolverService) HasTemporaryIDs("},
 		"internal/temu/property/mapper_adapter.go": {"type PropertyMapper struct", "func (m *PropertyMapper) BuildGoodsProperties("},
 		"internal/temu/ai/content_rewriter.go":     {"type AIContentRewriter struct", "func NewAIContentRewriterHandler("},
@@ -200,6 +205,9 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			"type submissionSpec struct", "func validateSubmissionSpecs(", "func validateSubmissionPackaging(",
 		},
 		"internal/marketplace/temu/publishing/spu_validation_policy.go": {"func validateSPUStructure("},
+		"internal/marketplace/temu/publishing/sku_value_policy.go": {
+			"func deduplicateSKUSpecs(", "func hasUnresolvedSKUSpecs(", "func normalizeSingleItemPackaging(",
+		},
 		"internal/marketplace/temu/publishing/sku_sn_validation_policy.go": {
 			"func buildUniqueSKUSNs(", "func validateSKUSNFailures(", "type skuSNFailure struct",
 		},
@@ -215,7 +223,13 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/crawler/fetcher/remote_fetcher.go": {
 			"func (f *RemoteAPIProductFetcher) FetchVariants(", "func (f *RemoteAPIProductFetcher) CacheVariants(",
 		},
-		"internal/temu/sku/variant_processor.go": {"type SkuVariantProcessor struct", "func NewSkuVariantProcessor("},
+		"internal/temu/sku/variant_processor.go": {
+			"type SkuVariantProcessor struct", "func NewSkuVariantProcessor(", "NewSkuMappingProcessor(",
+			"func (vp *SkuVariantProcessor) GenerateAISkuMapping(", "func (vp *SkuVariantProcessor) validateAIMappingSpecs(",
+			"func (vp *SkuVariantProcessor) prepareAIMappingForBuild(", "func (vp *SkuVariantProcessor) resolveAIMappingSpecIDs(",
+			"func (vp *SkuVariantProcessor) ensureAIMappingMatchesVariants(", "func (vp *SkuVariantProcessor) normalizeAIMappingForBuild(",
+			"func (vp *SkuVariantProcessor) unifyAIMappingSpecDimensions(",
+		},
 		"internal/temu/sku/ai_mapping_handler_input.go": {
 			"type AIBatchInput struct", "func buildAIBatchInput(",
 			"func (input *AIBatchInput) TotalBatches(", "func (input *AIBatchInput) BatchVariants(",
@@ -237,7 +251,6 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/shein/validation/rule_checker.go":       {"productpolicy.RuleChecker", "productpolicy.NewRuleChecker("},
 		"internal/shein/validation/filter_rule.go":        {"NewFilterRuleChecker(", ".ToFilterRule(", ".CheckPriceRange(", ".CheckInventory("},
 		"internal/shein/validation/reapply_filter.go":     {"NewFilterRuleChecker(", ".ToFilterRule(", ".CheckPriceRange(", ".CheckInventory("},
-		"internal/temu/sku/builder.go":                    {"NewSkuVariantProcessor(", "product.NewPriceHandler(", "NewSkuItemBuilder("},
 		"internal/temu/sku/ai_mapping_utils_helper.go": {
 			"func (vp *SkuVariantProcessor) getProductDimensions(", "func (vp *SkuVariantProcessor) getItemWeight(",
 			"func (vp *SkuVariantProcessor) getProductDetailField(", "func (vp *SkuVariantProcessor) marshalWithoutHTMLEscape(",
@@ -355,6 +368,11 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			if err != nil {
 				return err
 			}
+			if pkg == "sku" {
+				for _, violation := range retiredSKUConstructionViolations(file) {
+					t.Errorf("%s: %s", path, violation)
+				}
+			}
 			ast.Inspect(file, func(node ast.Node) bool {
 				ident, ok := node.(*ast.Ident)
 				if !ok {
@@ -407,24 +425,26 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		}
 		return true
 	})
-	policyPath := filepath.Join("..", "internal", "marketplace", "temu", "publishing", "submission_validation_policy.go")
-	policyFile, err := parser.ParseFile(token.NewFileSet(), policyPath, nil, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, imported := range policyFile.Imports {
-		if imported.Path.Value != "\"fmt\"" && imported.Path.Value != "\"strings\"" {
-			t.Errorf("submission validation must remain a value-only rule, found import %s", imported.Path.Value)
+	for _, policyName := range []string{"submission_validation_policy.go", "sku_value_policy.go"} {
+		policyPath := filepath.Join("..", "internal", "marketplace", "temu", "publishing", policyName)
+		policyFile, err := parser.ParseFile(token.NewFileSet(), policyPath, nil, 0)
+		if err != nil {
+			t.Fatal(err)
 		}
-	}
-	for _, declaration := range policyFile.Decls {
-		if function, ok := declaration.(*ast.FuncDecl); ok && function.Name.IsExported() {
-			t.Errorf("submission extraction must not add exported contract %s", function.Name)
+		for _, imported := range policyFile.Imports {
+			if imported.Path.Value != "\"fmt\"" && imported.Path.Value != "\"strings\"" {
+				t.Errorf("submission validation must remain a value-only rule, found import %s", imported.Path.Value)
+			}
 		}
-		if group, ok := declaration.(*ast.GenDecl); ok {
-			for _, spec := range group.Specs {
-				if typ, ok := spec.(*ast.TypeSpec); ok && typ.Name.IsExported() {
-					t.Errorf("submission extraction must not add exported type %s", typ.Name)
+		for _, declaration := range policyFile.Decls {
+			if function, ok := declaration.(*ast.FuncDecl); ok && function.Name.IsExported() {
+				t.Errorf("submission extraction must not add exported contract %s", function.Name)
+			}
+			if group, ok := declaration.(*ast.GenDecl); ok {
+				for _, spec := range group.Specs {
+					if typ, ok := spec.(*ast.TypeSpec); ok && typ.Name.IsExported() {
+						t.Errorf("submission extraction must not add exported type %s", typ.Name)
+					}
 				}
 			}
 		}
@@ -760,4 +780,108 @@ func TestRetiredListingCLIsHaveNoBuildOrDeploymentEntrypoints(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestSKURetirementGuardPreservesSharedNames(t *testing.T) {
+	for _, tt := range []struct {
+		name, source string
+		wantRetired  bool
+	}{
+		{name: "retained selector", source: `package sku; import handlerbase "task-processor/internal/temu/handlerbase"; var _ handlerbase.SkuBuilder`},
+		{name: "retained alias with current name", source: `package sku; import handlerbase "task-processor/internal/temu/handlerbase"; type CurrentBuilder = handlerbase.SkuBuilder`},
+		{name: "local names and fields", source: `package sku; type Metadata struct { SpecValue string }; func retained(SkuBuilder int) { SpecValue := SkuBuilder; _ = SpecValue; type SKUProcessInput struct{}; _ = SKUProcessInput{}; type SkuVariantProcessor struct { itemBuilder int }; _ = SkuVariantProcessor{} }`},
+		{name: "concrete type", source: `package sku; type SkuBuilder struct{}`, wantRetired: true},
+		{name: "retired alias", source: `package sku; type SkuBuilder = CurrentBuilder`, wantRetired: true},
+		{name: "constructor", source: `package sku; func NewSkuBuilder() {}`, wantRetired: true},
+		{name: "constructor binding", source: `package sku; var NewSkuBuilder = factory`, wantRetired: true},
+		{name: "retired method", source: `package sku; func (*SkuVariantProcessor) BuildVariantSkcs() {}`, wantRetired: true},
+		{name: "retired field", source: `package sku; type SkuVariantProcessor struct { itemBuilder any }`, wantRetired: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			file, err := parser.ParseFile(token.NewFileSet(), "sku.go", tt.source, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			violations := retiredSKUConstructionViolations(file)
+			if (len(violations) != 0) != tt.wantRetired {
+				t.Fatalf("retirement violations = %v, wantRetired=%v", violations, tt.wantRetired)
+			}
+		})
+	}
+}
+
+func retiredSKUConstructionViolations(file *ast.File) []string {
+	retiredSKUSymbols := map[string]bool{
+		"SkuBuilder": true, "NewSkuBuilder": true, "SkuItemBuilder": true, "NewSkuItemBuilder": true,
+		"SkuSkcBuilder": true, "NewSkuSkcBuilder": true, "SkuParallelBuilder": true, "NewSkuParallelBuilder": true,
+		"SKUVariantBuildInput": true, "SKUProcessInput": true, "buildSKUVariantBuildInputWithRuntime": true,
+		"buildSKUVariantBuildInput": true, "buildSKUProcessInput": true,
+		"SkuPriceCalculator": true, "NewSkuPriceCalculator": true,
+		"skuPackagingInfo": true, "skuExpressInfo": true, "skuPricingInfo": true, "SpecDimension": true, "SpecValue": true,
+	}
+	retiredSKUMethods := map[string]map[string]bool{
+		"SkuVariantProcessor": {
+			"BuildVariantSkcs": true, "resolveVariantAIMapping": true, "resolveAndBuildVariantSkcs": true,
+			"assignBuiltVariantSkcs": true, "BuildSkcsFromAIMapping": true, "prepareAndBuildVariantSkcs": true,
+			"buildSkcsFromPreparedAIMapping": true, "resolveSkcBuildSpecs": true, "buildMultipleSkcs": true, "buildSingleSkc": true,
+			"CreateDefaultSkc": true, "resolveDefaultBuildProduct": true, "resolveAndBuildDefaultSkc": true,
+			"prepareAndBuildDefaultSkc": true, "buildDefaultSkcFromPreparedMapping": true, "selectDefaultAIMapping": true,
+			"buildDefaultSkuFromAIMapping": true, "resolveDefaultAIMapping": true, "prepareDefaultAIMappingForBuild": true,
+		},
+		"SkuSpecHandler": {
+			"collectNonColorSpecsForColor": true, "generateNonColorSpecCombinations": true, "generateCartesianProduct": true,
+			"createSpecCombinationKey": true, "createNonColorSpecKey": true, "createSpecCombinationKeyFromSpecs": true, "isColorSpec": true,
+		},
+	}
+	var violations []string
+	checkName := func(name string) {
+		if retiredSKUSymbols[name] {
+			violations = append(violations, "retired SKU declaration "+name)
+		}
+	}
+	// Inspect package declarations only: retained selectors and local names do
+	// not recreate the retired concrete package owner.
+	for _, declaration := range file.Decls {
+		switch declaration := declaration.(type) {
+		case *ast.FuncDecl:
+			if declaration.Recv == nil {
+				checkName(declaration.Name.Name)
+				continue
+			}
+			if len(declaration.Recv.List) != 1 {
+				continue
+			}
+			receiver := declaration.Recv.List[0].Type
+			if pointer, ok := receiver.(*ast.StarExpr); ok {
+				receiver = pointer.X
+			}
+			if owner, ok := receiver.(*ast.Ident); ok && retiredSKUMethods[owner.Name][declaration.Name.Name] {
+				violations = append(violations, "retired SKU method "+owner.Name+"."+declaration.Name.Name)
+			}
+		case *ast.GenDecl:
+			for _, spec := range declaration.Specs {
+				switch spec := spec.(type) {
+				case *ast.ValueSpec:
+					for _, name := range spec.Names {
+						checkName(name.Name)
+					}
+				case *ast.TypeSpec:
+					checkName(spec.Name.Name)
+					if spec.Name.Name != "SkuVariantProcessor" {
+						continue
+					}
+					if state, ok := spec.Type.(*ast.StructType); ok {
+						for _, field := range state.Fields.List {
+							for _, name := range field.Names {
+								if name.Name == "skcBuilder" || name.Name == "itemBuilder" {
+									violations = append(violations, "exclusive SKU construction field "+name.Name)
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return violations
 }

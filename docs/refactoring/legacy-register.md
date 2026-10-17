@@ -2,6 +2,17 @@
 
 > Status: Active legacy handling register
 
+> #29 / #301 [TEMU SKU/SKC construction retirement](../architecture/legacy-temu-sku-skc-retirement-boundary.md)
+> follows user-confirmed design `3ceea910b` in #771. Three existing private value
+> rules live in TEMU publishing. Six unused construction files and exclusive
+> mixed-file methods/helpers are source-retired; the original AI mapping receiver
+> retains generation/batching/validation/resolution with narrowed internal wiring.
+> PriceHandler, PriceManager/PriceCalculator, platform APIs/DTOs, specification,
+> image/upload and shared contracts retain their owners. This supersedes earlier
+> retention of these construction callers only; acquisition/Store observations,
+> standalone SHEIN login/Store sync, workflows and ceilings remain unchanged.
+> No new entrypoint, fact/recovery owner, runtime/data action or trial prerequisite.
+
 > #29 / #301 [TEMU SPU/maximum-retail-price retirement](../architecture/legacy-temu-spu-price-query-retirement-boundary.md)
 > follows user-confirmed design `2b151ffec` in #768. Seven existing structural value
 > checks are extracted into the existing TEMU publishing owner using its private

@@ -1,5 +1,13 @@
 # Phase 2 runtime convergence inventory
 
+> #771 bounded calibration: the user-confirmed SKU/SKC construction closure is
+> source-retired after three private value rules move to existing TEMU publishing.
+> Only core/logger -> temu/sku leaves the current consumer register, because its
+> sole direct importer was the retired parallel builder. OpenAI -> temu/sku still
+> has retained AI mapping consumers. PriceHandler, APIs/rules/shared contracts and
+> standalone SHEIN login/Store sync remain; dated inventories, ceilings, provider
+> inventories and workflows stay unchanged. No runtime/data action or trial gate.
+
 > #768 bounded calibration: four unused TEMU SPU/maximum-retail-price Task owners
 > are source-retired after extracting the structural value check to existing TEMU
 > publishing. Only integration/openai -> temu/product leaves the current register.
@@ -353,7 +361,6 @@ internal wiring is intentionally excluded; no other package class is excluded.
 | `task-processor/internal/core/logger` | `task-processor/internal/temu/product` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/core/logger` | `task-processor/internal/temu/property` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/core/logger` | `task-processor/internal/temu/rules` | marketplace business consumer | marketplace owner / Phase 4 |
-| `task-processor/internal/core/logger` | `task-processor/internal/temu/sku` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/core/logger` | `task-processor/internal/temu/spec` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/core/logger` | `task-processor/internal/temu/template` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/platform/logging` | `task-processor/internal/core/config` | application schema | owning domains / Phases 3-7 |

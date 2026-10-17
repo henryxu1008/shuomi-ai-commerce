@@ -2,6 +2,8 @@
 
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
+后续用户确认的 [#771 SKU/SKC 边界](legacy-temu-sku-skc-retirement-boundary.md) 已退休本文当批保留的旧 SKU 构建 caller。本文消费者与删除前矩阵保留为历史取证；当前 PriceHandler 全部实现、SKU AI/映射、平台/规格/图像和其它共享 owner 仍保留，不据此恢复旧构建链。
+
 - Status: **USER_CONFIRMED / SOURCE_RETIRED**。用户在当前会话“确认设计”，批准冻结 `2b151ffec1af2866c7d8031889a10a3a3f8ddbe3` 的 §5/§6/§6.1/§7；七项结构检查已抽到既有规则 owner，四目标生产文件及专属 helper 已退休。合并和真实操作仍须单独授权。
 - 调查基线：main **28d2305233f272609da80c17a5e0462d681dd9fc**，已包含 #760；实施开工同步 actual main **a59131ba782504e1b994aa6b9f306864d27c8b3d** 无增量。准确实现 HEAD、CI、独立最终检查维护于主要 PR；旧设计证据仅历史，不替代实施检查。
 - 当前 **Design Basis: Reuse Existing Architecture**：用户确认后，生产修改前已在 #29/#301 登记冻结依据、原 owner/不变量与 **Ready**，再进入实施。原设计期 N/A 只覆盖当时文档/只读映射。
