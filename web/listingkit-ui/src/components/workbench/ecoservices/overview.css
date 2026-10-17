@@ -1,47 +1,39 @@
-/* Figma introduction 1179:359 / 1181:359. These tokens belong only to this page. */
+/* Figma introduction 1179:359 / 1181:359. Page aliases consume the shared Console theme. */
 .eco-overview-page {
-  --foreground: #f1f6fc;
-  --card: #0b1725;
-  --card-foreground: #f1f6fc;
-  --border: #203a55;
-  --muted-foreground: #839ab3;
-  --eco-overview-teal: #24d7c7;
-  --eco-overview-blue: #63a7ff;
-  --eco-overview-green: #56dba3;
-  --eco-overview-purple: #a889ff;
-  --eco-overview-teal-badge: #0b3432;
-  --eco-overview-blue-badge: #102a49;
-  --eco-overview-purple-badge: #272146;
-  --eco-overview-management: #0b2f31;
-  --eco-overview-note-text: #93a9be;
+
+  --eco-overview-teal: var(--primary);
+  --eco-overview-blue: var(--console-blue);
+  --eco-overview-green: var(--success-foreground);
+  --eco-overview-purple: var(--console-purple);
+  --eco-overview-teal-badge: var(--accent);
+  --eco-overview-blue-badge: var(--info);
+  --eco-overview-purple-badge: var(--purple-muted);
+  --eco-overview-management: var(--secondary);
+  --eco-overview-note-text: var(--muted-foreground);
   container-type: inline-size;
-  padding-left: 28px;
-  padding-right: 28px;
+  padding-left: var(--page-gutter);
+  padding-right: var(--page-gutter);
   color: var(--foreground);
 }
 .light .eco-overview-page {
-  --foreground: #14243a;
-  --card: #fff;
-  --card-foreground: #14243a;
-  --border: #ccd9e8;
-  --muted-foreground: #71869e;
-  --eco-overview-teal: #16b8a8;
-  --eco-overview-blue: #458ff4;
-  --eco-overview-green: #32b781;
-  --eco-overview-purple: #7c5ce7;
-  --eco-overview-teal-badge: #e9f9f6;
-  --eco-overview-blue-badge: #ebf3ff;
-  --eco-overview-purple-badge: #f2eeff;
-  --eco-overview-management: #eaf8f6;
-  --eco-overview-note-text: #62798f;
+
+  --eco-overview-teal: var(--primary);
+  --eco-overview-blue: var(--console-blue);
+  --eco-overview-green: var(--success-foreground);
+  --eco-overview-purple: var(--console-purple);
+  --eco-overview-teal-badge: var(--accent);
+  --eco-overview-blue-badge: var(--info);
+  --eco-overview-purple-badge: var(--purple-muted);
+  --eco-overview-management: var(--secondary);
+  --eco-overview-note-text: var(--muted-foreground);
 }
-.eco-overview-page .console-breadcrumb { margin-bottom: 6px; font-size: 13px; line-height: 20px; font-weight: 700; color: var(--eco-overview-teal); }
+.eco-overview-page .console-breadcrumb { margin-bottom: 6px; font-size: var(--body-text-size); line-height: 20px; font-weight: 700; color: var(--eco-overview-teal); }
 .eco-overview-page .console-page-header { min-height: 66px; margin-bottom: 16px; }
-.eco-overview-page .console-page-header h1 { margin: 0; font-size: 26px; line-height: 38px; letter-spacing: normal; }
-.eco-overview-page .console-description { margin-top: 6px; font-size: 13px; line-height: 20px; color: var(--muted-foreground); }
+.eco-overview-page .console-page-header h1 { margin: 0; font-size: var(--page-title-size); line-height: 38px; letter-spacing: normal; }
+.eco-overview-page .console-description { margin-top: 6px; font-size: var(--body-text-size); line-height: 20px; color: var(--muted-foreground); }
 .eco-overview-content { display: flex; flex-direction: column; gap: 16px; }
 .eco-overview-entries { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 20px; }
-.eco-overview-entry { min-width: 0; color: inherit; text-decoration: none; border-radius: 12px; }
+.eco-overview-entry { min-width: 0; color: inherit; text-decoration: none; border-radius: var(--radius); }
 .eco-overview-entry:focus-visible { outline: 2px solid var(--eco-overview-tone); outline-offset: 4px; }
 .eco-overview-entry:hover .eco-overview-entry-card { border-color: var(--eco-overview-tone); }
 .eco-overview-page [data-tone=teal] { --eco-overview-tone: var(--eco-overview-teal); --eco-overview-badge: var(--eco-overview-teal-badge); }
@@ -49,27 +41,27 @@
 .eco-overview-page [data-tone=green] { --eco-overview-tone: var(--eco-overview-green); }
 .eco-overview-page [data-tone=purple] { --eco-overview-tone: var(--eco-overview-purple); --eco-overview-badge: var(--eco-overview-purple-badge); }
 .eco-overview-entry-card, .eco-overview-step-card, .eco-overview-note { box-shadow: none; display: flex; flex-direction: column; align-items: flex-start; }
-.eco-overview-entry-card { min-height: 218px; height: 100%; padding: 18px 20px; border-radius: 12px; gap: 10px; }
-.eco-overview-badge { background: var(--eco-overview-badge); color: var(--eco-overview-tone); padding: 4px 10px; border-radius: 999px; font-size: 11px; line-height: 17px; font-weight: 700; }
-.eco-overview-entry-card h2 { margin: 0; font-size: 18px; line-height: 26px; font-weight: 700; }
-.eco-overview-entry-card p { margin: 0; font-size: 12px; line-height: 18px; color: var(--muted-foreground); }
-.eco-overview-entry-card small { font-size: 11px; line-height: 17px; color: var(--muted-foreground); }
-.eco-overview-action { font-size: 12px; line-height: 18px; font-weight: 700; color: var(--eco-overview-tone); }
+.eco-overview-entry-card { min-height: 218px; height: 100%; padding: 18px 20px; border-radius: var(--radius); gap: 10px; }
+.eco-overview-badge { background: var(--eco-overview-badge); color: var(--eco-overview-tone); padding: 4px 10px; border-radius: 999px; font-size: var(--caption-text-size); line-height: 17px; font-weight: 700; }
+.eco-overview-entry-card h2 { margin: 0; font-size: var(--card-title-size); line-height: 26px; font-weight: 700; }
+.eco-overview-entry-card p { margin: 0; font-size: var(--label-text-size); line-height: 18px; color: var(--muted-foreground); }
+.eco-overview-entry-card small { font-size: var(--caption-text-size); line-height: 17px; color: var(--muted-foreground); }
+.eco-overview-action { font-size: var(--label-text-size); line-height: 18px; font-weight: 700; color: var(--eco-overview-tone); }
 .eco-overview-action > span { margin-left: 8px; }
 .eco-overview-guide-heading { display: flex; align-items: center; gap: 16px; min-height: 26px; margin-bottom: 14px; }
-.eco-overview-guide-heading h2 { margin: 0; font-size: 17px; line-height: 26px; font-weight: 700; }
-.eco-overview-guide-heading p { margin: 0; font-size: 12px; line-height: 18px; color: var(--muted-foreground); }
+.eco-overview-guide-heading h2 { margin: 0; font-size: var(--section-title-size); line-height: 26px; font-weight: 700; }
+.eco-overview-guide-heading p { margin: 0; font-size: var(--label-text-size); line-height: 18px; color: var(--muted-foreground); }
 .eco-overview-steps { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
 .eco-overview-steps li { min-width: 0; }
-.eco-overview-step-card { min-height: 150px; height: 100%; padding: 14px 16px; border-radius: 10px; gap: 8px; }
-.eco-overview-step-number { font-size: 12px; line-height: 18px; font-weight: 700; color: var(--eco-overview-tone); }
-.eco-overview-step-card h3 { margin: 0; font-size: 14px; line-height: 20px; font-weight: 700; }
-.eco-overview-step-card p { margin: 0; font-size: 12px; line-height: 18px; color: var(--muted-foreground); }
+.eco-overview-step-card { min-height: 150px; height: 100%; padding: 14px 16px; border-radius: var(--radius); gap: 8px; }
+.eco-overview-step-number { font-size: var(--label-text-size); line-height: 18px; font-weight: 700; color: var(--eco-overview-tone); }
+.eco-overview-step-card h3 { margin: 0; font-size: var(--card-title-size); line-height: 20px; font-weight: 700; }
+.eco-overview-step-card p { margin: 0; font-size: var(--label-text-size); line-height: 18px; color: var(--muted-foreground); }
 .eco-overview-notes { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px; }
-.eco-overview-note { min-height: 150px; padding: 17px 20px; border-radius: 12px; gap: 9px; }
-.eco-overview-note small, .eco-overview-note strong { font-size: 11px; line-height: 17px; font-weight: 700; }
-.eco-overview-note h2 { margin: 0; font-size: 16px; line-height: 23px; font-weight: 700; }
-.eco-overview-note p { margin: 0; font-size: 12px; line-height: 18px; color: var(--eco-overview-note-text); }
+.eco-overview-note { min-height: 150px; padding: 17px 20px; border-radius: var(--radius); gap: 9px; }
+.eco-overview-note small, .eco-overview-note strong { font-size: var(--caption-text-size); line-height: 17px; font-weight: 700; }
+.eco-overview-note h2 { margin: 0; font-size: var(--section-title-size); line-height: 23px; font-weight: 700; }
+.eco-overview-note p { margin: 0; font-size: var(--label-text-size); line-height: 18px; color: var(--eco-overview-note-text); }
 .eco-overview-management { background: var(--eco-overview-management); border-color: transparent; }
 .eco-overview-management small, .eco-overview-management strong { color: var(--eco-overview-teal); }
 .eco-overview-explanation small, .eco-overview-explanation strong { color: var(--eco-overview-purple); }

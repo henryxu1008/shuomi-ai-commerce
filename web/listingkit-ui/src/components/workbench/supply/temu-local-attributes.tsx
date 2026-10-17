@@ -26,7 +26,7 @@ export function TemuLocalAttributes({rules,values,disabled,onChange}:{rules?:Tem
   const max=attr.attributeRules?.chooseMaxNum;
   const canAdd=enabled&&known&&!!max&&BigInt(max)>BigInt(rows.length);
   return <div key={ref} className="space-y-2 rounded-lg border p-3"><p className="text-sm font-medium">{name}{attr.required||attr.attributeRules?.transnationalAttribute?" *":""}</p>
-   {!enabled?<p className="text-xs text-muted-foreground">先选择启用此属性的父属性值。</p>:!known?<p className="text-xs text-amber-700">当前属性输入规则尚未核实。</p>:null}
+   {!enabled?<p className="text-xs text-muted-foreground">先选择启用此属性的父属性值。</p>:!known?<p className="text-xs text-warning-foreground">当前属性输入规则尚未核实。</p>:null}
    {rows.map(({value,index},i)=><div key={index} className="grid gap-2 sm:grid-cols-3">
     <label className="grid gap-1.5 text-sm">{name} 值 {i+1}{["1","16","19"].includes(control??"")?<select className="h-10 rounded-md border px-3" disabled={disabled||!enabled||!known} value={value.vid??(control==="19"&&value.value!==undefined?"custom":"")} onChange={e=>update(index,v=>{delete v.vid;delete v.value;if(e.target.value==="custom")v.value="";else if(e.target.value)v.vid=e.target.value})}><option value="">选择官方值</option>{options.filter(v=>v.vid).map(option=><option key={option.vid} value={option.vid!}>{option.value}</option>)}{control==="19"?<option value="custom">自定义值</option>:null}</select>:<Input disabled={disabled||!enabled||!known} value={value.value??""} onChange={e=>update(index,v=>{v.value=e.target.value;delete v.vid})}/>}</label>
     {control==="19"&&value.value!==undefined&&!value.vid?<label className="grid gap-1.5 text-sm">{name} 自定义值 {i+1}<Input disabled={disabled||!enabled} value={value.value} onChange={e=>update(index,v=>{v.value=e.target.value})}/></label>:null}
