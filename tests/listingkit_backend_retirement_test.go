@@ -34,7 +34,7 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/amazon/processor.go", "internal/amazon/task_status.go", "internal/amazon/task_status_test.go",
 		"internal/crawler/fetcher/distributed_fetcher.go", "internal/crawler/fetcher/builder_test.go",
 		"internal/temu/sync/inventory_sync_factory.go",
-		"internal/shein/inventory", "internal/temu/sync",
+		"internal/shein/inventory", "internal/temu/sync", "internal/temu/bulkrelist",
 		"internal/shein/pricing/auto_pricing.go", "internal/shein/pricing/pricing_evaluator.go",
 		"internal/shein/pricing/pricing_calculator.go", "internal/shein/pricing/pricing_builder.go",
 		"internal/shein/pricing/time_helper.go", "internal/shein/pricing/auto_pricing_repo_test.go",
@@ -121,6 +121,17 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		}
 	}
 	for relative, required := range map[string][]string{
+		"internal/temu/api/api.go": {
+			"InventoryAPI", "inventory.API", "inventory.RelistRequest", "inventory.RelistResponse",
+			"product.BulkRelistOptions", "product.BulkRelistSummary",
+		},
+		"internal/temu/api/inventory/inventory.go": {
+			"type RelistRequest struct", "type RelistResponse struct", "type SearchRequest struct", "type SearchResponse struct",
+			"func (a *API) Relist(", "func (a *API) SearchOffline(",
+		},
+		"internal/temu/api/product/request_types.go": {
+			"type BulkRelistOptions struct", "type SkipConditions struct", "type BulkRelistSummary struct", "type CategoryStats struct",
+		},
 		"internal/shein/activity/price_calculator.go": {"func calculateActivityPrice(", "func amazonCostBySKU("},
 		"internal/shein/activity/registration_config.go": {
 			"type activityRuleInputs struct", "func minimumPromotionSKUDiscountRate(", "func calculateActivityStock(",
@@ -143,7 +154,7 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		}
 		for _, token := range required {
 			if !strings.Contains(string(content), token) {
-				t.Errorf("%s must preserve shared pricing contract %q", relative, token)
+				t.Errorf("%s must preserve retained platform/shared contract %q", relative, token)
 			}
 		}
 	}
@@ -241,6 +252,10 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 		"internal/listingadmin/import_task_owner_test.go", "internal/listingadmin/schema_migrate.go",
 		"internal/listingadmin/product_data_repository.go", "internal/listingadmin/product_import_mapping_repository.go",
 		"internal/core/config/type_platform.go",
+		"internal/temu/api/api.go", "internal/temu/api/client/interfaces.go",
+		"internal/temu/api/client/client.go", "internal/temu/api/client/cookie_manager.go",
+		"internal/temu/api/client/auth_pause_handler.go", "internal/temu/api/inventory/inventory.go",
+		"internal/temu/api/product/request_types.go",
 		"internal/shein/productsync/product_sync_types.go", "internal/shein/productsync/marketing_client_boundary_test.go",
 		"internal/shein/api/marketing/client.go", "internal/shein/api/marketing/client_test.go",
 		"internal/shein/api/marketing/interface.go", "internal/shein/api/marketing/activity_types.go",
@@ -287,7 +302,7 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 				t.Fatalf("go list current command: %v\n%s", err, output)
 			}
 			for _, dependency := range strings.Fields(string(output)) {
-				for _, retired := range []string{"task-processor/internal/shein/inventory", "task-processor/internal/temu/sync", "task-processor/internal/app/bootstrap", "task-processor/internal/app/consumer", "task-processor/internal/app/runner", "task-processor/internal/app/scheduler", "task-processor/internal/app/runtime/listingcontrol", "task-processor/internal/app/runtime/sheinplatformrecovery", "task-processor/internal/listingcontrol", "task-processor/internal/app/task", "task-processor/internal/app/taskstatus", "task-processor/internal/processor", "task-processor/internal/app/crawler/distributed", "task-processor/internal/listingruntime/local", "task-processor/internal/platforms", "task-processor/internal/listingkit", "task-processor/internal/tenantbridge", "task-processor/internal/compatibility", "task-processor/internal/sourceaccount", "task-processor/internal/integration/persistence/sourceaccount/ownershipmigration"} {
+				for _, retired := range []string{"task-processor/internal/shein/inventory", "task-processor/internal/temu/sync", "task-processor/internal/temu/bulkrelist", "task-processor/internal/app/bootstrap", "task-processor/internal/app/consumer", "task-processor/internal/app/runner", "task-processor/internal/app/scheduler", "task-processor/internal/app/runtime/listingcontrol", "task-processor/internal/app/runtime/sheinplatformrecovery", "task-processor/internal/listingcontrol", "task-processor/internal/app/task", "task-processor/internal/app/taskstatus", "task-processor/internal/processor", "task-processor/internal/app/crawler/distributed", "task-processor/internal/listingruntime/local", "task-processor/internal/platforms", "task-processor/internal/listingkit", "task-processor/internal/tenantbridge", "task-processor/internal/compatibility", "task-processor/internal/sourceaccount", "task-processor/internal/integration/persistence/sourceaccount/ownershipmigration"} {
 					if dependency == retired || strings.HasPrefix(dependency, retired+"/") {
 						t.Errorf("%s still compiles retired business dependency %s", command, dependency)
 					}

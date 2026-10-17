@@ -1,5 +1,10 @@
 # Phase 2 runtime convergence inventory
 
+> #747 bounded calibration: the confirmed TEMU bulk-relist closure is source-retired.
+> Only its vanished core/logger consumer row leaves the current register. Platform
+> APIs, shared contracts and rules, dated inventories and closure ceilings remain;
+> no runtime/data action or new trial prerequisite is authorized.
+
 > #742 bounded calibration: the confirmed numeric product/inventory sync closure
 > is source-retired. Only its three vanished core/logger consumer rows leave the
 > current register; shared SHEIN attribute types and dated evidence remain.
@@ -295,7 +300,6 @@ internal wiring is intentionally excluded; no other package class is excluded.
 | `task-processor/internal/core/logger` | `task-processor/internal/state` | runtime-support debt | app retirement / Phase 8 |
 | `task-processor/internal/core/logger` | `task-processor/internal/temu/ai` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/core/logger` | `task-processor/internal/temu/api/client` | marketplace business consumer | marketplace owner / Phase 4 |
-| `task-processor/internal/core/logger` | `task-processor/internal/temu/bulkrelist` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/core/logger` | `task-processor/internal/temu/category` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/core/logger` | `task-processor/internal/temu/filter` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/core/logger` | `task-processor/internal/temu/handlerbase` | marketplace business consumer | marketplace owner / Phase 4 |
