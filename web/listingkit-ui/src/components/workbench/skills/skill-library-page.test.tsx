@@ -31,7 +31,7 @@ afterEach(() => {cleanup(); vi.clearAllMocks()});
 it("manages personal skills without an organization or a modal", async () => {
   render(<SkillLibraryPage expectedUserId="alice" category="mine"/>);
   expect(await screen.findByRole("button", {name: "新建技能"})).toBeEnabled();
-  expect(screen.getByRole("heading", {level: 1, name: "技能库"})).toBeInTheDocument();
+  expect(screen.getByRole("heading", {level: 1, name: "我的技能"})).toBeInTheDocument();
   expect(screen.getByRole("link", {name: "我的技能"})).toHaveAttribute("aria-current", "page");
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   expect(vi.mocked(skillRequest).mock.calls.every(([scope, path]) => scope.userId === "alice" && !scope.organizationId && path.startsWith("personal"))).toBe(true);
@@ -48,6 +48,27 @@ it("keeps the team category closed without a current organization", () => {
   render(<SkillLibraryPage expectedUserId="alice" category="team"/>);
   expect(screen.getByRole("heading", {name: "请先选择企业"})).toBeInTheDocument();
   expect(skillRequest).not.toHaveBeenCalled();
+});
+
+it.each([['official', '官方模板', '模板目录'], ['mine', '我的技能', '个人技能列表'], ['team', '团队技能', '团队技能列表']] as const)("identifies %s and keeps its toolbar subject to service permissions", async (category, title, directory) => {
+  Object.assign(context, {effectiveOrganization: {id: 'org-a', name: '企业 A'}, selectionRequired: false});
+  vi.mocked(skillRequest).mockImplementation(async (_scope, path) => path.endsWith('/info')
+    ? {available: true, canCreate: false, reason: ''}
+    : path.endsWith('/admission') ? {policy: {allowPersonal: true, revision: '7'}, canConfigure: false}
+    : {items: [], nextCursor: ''});
+  render(<SkillLibraryPage expectedUserId="alice" category={category}/>);
+  await waitFor(() => expect(screen.getByRole('button', {name: '刷新列表'})).toBeEnabled());
+  expect(screen.getByRole('heading', {level: 1, name: title})).toBeInTheDocument();
+  expect(screen.getByRole('heading', {level: 2, name: directory})).toBeInTheDocument();
+  expect(screen.getByRole('link', {name: title})).toHaveAttribute('aria-current', 'page');
+  expect(screen.queryByRole('button', {name: '新建技能'})).not.toBeInTheDocument();
+  if (category === 'team') {
+    expect(screen.getByText(/当前企业：企业 A/)).toBeInTheDocument();
+    expect(screen.getByRole('button', {name: '待审批的个人提交'})).toBeDisabled();
+    expect(screen.queryByRole('button', {name: '关闭个人技能准入'})).not.toBeInTheDocument();
+    expect(screen.getByText('仅显示当前权限可读取的技能。')).toBeInTheDocument();
+  }
+  expect(vi.mocked(skillRequest).mock.calls.every(([, , , init]) => !init?.method || init.method === 'GET')).toBe(true);
 });
 
 it("uses current team permissions and removes the old request subtree during a switch", async () => {
