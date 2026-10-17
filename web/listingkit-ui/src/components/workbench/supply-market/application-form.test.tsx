@@ -48,14 +48,36 @@ it("keeps the existing single-item command through supply, qualifications and re
   expect(screen.getByRole("heading",{level:1,name:"填写供货信息"})).toBeVisible();
   expect(screen.getByRole("heading",{name:"合作与资质"})).toBeVisible();
   await user.clear(screen.getByLabelText("可供库存（件）"));await user.type(screen.getByLabelText("可供库存（件）"),"12");
-  await user.type(screen.getByLabelText("发货省份"),"浙江");await user.type(screen.getByLabelText("发货城市"),"杭州");
+  await user.selectOptions(screen.getByRole("combobox",{name:"发货省份"}),"浙江省");await user.selectOptions(screen.getByRole("combobox",{name:"发货城市"}),"杭州市");
   await user.click(screen.getByRole("button",{name:"保存测试资质"}));
   await user.click(screen.getByRole("checkbox",{name:/我确认这是本人/}));
   await user.click(screen.getByRole("button",{name:"返回选择商品"}));
   await user.click(screen.getByRole("button",{name:"下一步：填写供货信息"}));
   expect(screen.getByLabelText("可供库存（件）")).toHaveValue(12);
   await user.click(screen.getByRole("button",{name:"提交申请"}));
-  expect(state.execute).toHaveBeenCalledExactlyOnceWith({action:"submit_selected",selection,supply:{stock:12,capacity:"",minimumQuantity:1,leadDays:0,province:"浙江",city:"杭州",priceNote:"",afterSaleNote:""},fileIds:[fileId],disclosure:true});
+  expect(state.execute).toHaveBeenCalledExactlyOnceWith({action:"submit_selected",selection,supply:{stock:12,capacity:"",minimumQuantity:1,leadDays:0,province:"浙江省",city:"杭州市",priceNote:"",afterSaleNote:""},fileIds:[fileId],disclosure:true});
+});
+it("requires an explicit province and clears the city when the province changes",async()=>{
+  page();const user=await advance();
+  const province=screen.getByRole("combobox",{name:"发货省份"}),city=screen.getByRole("combobox",{name:"发货城市"});
+  expect(province).toHaveValue("");expect(province).toBeRequired();
+  expect(city).toHaveValue("");expect(city).toBeDisabled();expect(city).toBeRequired();
+  expect(screen.getByRole("option",{name:"请先选择省份"})).toBeVisible();
+  await user.selectOptions(province,"浙江省");expect(city).toBeEnabled();
+  await user.selectOptions(city,"杭州市");
+  await user.selectOptions(province,"广东省");
+  expect(city).toHaveValue("");expect(city).toBeInvalid();
+  expect(screen.queryByRole("option",{name:"杭州市"})).not.toBeInTheDocument();
+  await user.selectOptions(province,"");expect(city).toBeDisabled();expect(city).toHaveValue("");
+  expect(state.execute).not.toHaveBeenCalled();
+});
+it.each([["北京市","北京市"],["重庆市","重庆市"],["湖北省","仙桃市"],["新疆维吾尔自治区","石河子市"]])("offers actual city names for %s",async(provinceName,cityName)=>{
+  page();const user=await advance();
+  await user.selectOptions(screen.getByRole("combobox",{name:"发货省份"}),provinceName);
+  await user.selectOptions(screen.getByRole("combobox",{name:"发货城市"}),cityName);
+  expect(screen.getByRole("combobox",{name:"发货城市"})).toHaveValue(cityName);
+  expect(screen.queryByRole("option",{name:/^(县|省直辖县|自治区直辖县级行政区划)$/})).not.toBeInTheDocument();
+  expect(state.execute).not.toHaveBeenCalled();
 });
 it("explains an empty own library and links to the real add-product page",async()=>{
   vi.mocked(listOwnProducts).mockResolvedValue({items:[],total:0});page();
@@ -162,8 +184,13 @@ it("keeps unoptimized complete products usable for the official draft only",asyn
   vi.mocked(readMarketChoice).mockResolvedValue(choice(other,false));page(true);const user=userEvent.setup();
   await user.selectOptions(await screen.findByRole("combobox",{name:"申请商品"}),other);
   await screen.findByText("自有商品原始资料");
+  await user.clear(screen.getByLabelText("现有库存（件）"));await user.type(screen.getByLabelText("现有库存（件）"),"12");
+  await user.selectOptions(screen.getByRole("combobox",{name:"发货省份"}),"上海市");
+  await user.selectOptions(screen.getByRole("combobox",{name:"发货城市"}),"上海市");
   await user.click(screen.getByRole("checkbox",{name:/我确认这是本人/}));
   expect(screen.getByRole("button",{name:"保存发布草稿"})).toBeEnabled();
+  await user.click(screen.getByRole("button",{name:"保存发布草稿"}));
+  expect(state.execute).toHaveBeenCalledExactlyOnceWith({action:"create_official_draft",selection:{...selection,itemId:other,effectiveVersion:"1",applyId:undefined},supply:{stock:12,capacity:"",minimumQuantity:1,leadDays:0,province:"上海市",city:"上海市",priceNote:"",afterSaleNote:""},disclosure:true});
 });
 it("shows an incomplete official candidate without crashing or allowing save",async()=>{
   vi.mocked(readMarketChoice).mockResolvedValue({selection:{...selection,itemId:other,effectiveVersion:"1",applyId:undefined},optimized:false,ineligibleReason:"not_optimized"});
