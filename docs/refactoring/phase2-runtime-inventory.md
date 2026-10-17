@@ -1,5 +1,13 @@
 # Phase 2 runtime convergence inventory
 
+> #768 bounded calibration: four unused TEMU SPU/maximum-retail-price Task owners
+> are source-retired after extracting the structural value check to existing TEMU
+> publishing. Only integration/openai -> temu/product leaves the current register.
+> PriceHandler and other product rules still consume core/logger, so that row
+> remains. SKU/API/AI/shared contracts, acquisition/Store observations and standalone
+> SHEIN login/Store sync remain; dated inventories, ceilings, provider inventories
+> and workflows are unchanged. No runtime/data action or new trial prerequisite.
+
 > #760 bounded calibration: the exclusive TEMU StoreInfo/StoreID/InitData handlers
 > and numeric cache/helpers are source-retired. Only core/logger -> temu/store
 > leaves the current consumer register. The retained BaseTemuHandler still consumes
@@ -375,7 +383,6 @@ internal wiring is intentionally excluded; no other package class is excluded.
 | `task-processor/internal/integration/openai` | `task-processor/internal/sheinbridge/saleattribute` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/integration/openai` | `task-processor/internal/temu/ai` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/integration/openai` | `task-processor/internal/temu/image` | marketplace business consumer | marketplace owner / Phase 4 |
-| `task-processor/internal/integration/openai` | `task-processor/internal/temu/product` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/integration/openai` | `task-processor/internal/temu/sku` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/integration/httpimage` | `task-processor/internal/imageagent` | agent business consumer | agent owner / Phase 6 |
 | `task-processor/internal/integration/httpimage` | `task-processor/internal/sds/design` | marketplace business consumer | marketplace owner / Phase 4 |
