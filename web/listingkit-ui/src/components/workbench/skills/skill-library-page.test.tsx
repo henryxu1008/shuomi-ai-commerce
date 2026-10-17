@@ -1,8 +1,9 @@
-import {afterEach, beforeEach, expect, it, vi} from "vitest";
+import {afterEach, beforeAll, beforeEach, expect, it, vi} from "vitest";
 import {cleanup, fireEvent, render, screen, waitFor} from "@testing-library/react";
 import {skillRequest} from "@/lib/api/skill";
 import type {SkillProjection} from "@/lib/contracts/skill";
 import {SkillLibraryPage} from "./skill-library-page";
+import {SkillManagerTrigger} from "./skill-manager";
 
 const context = vi.hoisted(() => ({
   user: {id: "alice"},
@@ -13,6 +14,10 @@ const context = vi.hoisted(() => ({
 }));
 vi.mock("@/components/providers/workbench-context-provider", () => ({useWorkbenchContext: () => context}));
 vi.mock("@/lib/api/skill", async importOriginal => ({...await importOriginal<typeof import("@/lib/api/skill")>(), skillRequest: vi.fn()}));
+beforeAll(() => {
+  HTMLDialogElement.prototype.showModal = function () {this.setAttribute("open", "")};
+  HTMLDialogElement.prototype.close = function () {this.removeAttribute("open")};
+});
 
 beforeEach(() => {
   Object.assign(context, {user: {id: "alice"}, effectiveOrganization: null, permissions: [], selectionRequired: true, isLoading: false, isSwitching: false, error: null, blockingError: null});
@@ -99,7 +104,7 @@ it.each([["复制到本人", "personal/copy"], ["复制到当前企业", "organi
       package: {name: "official-method", description: "Official method", digest: "a".repeat(64), files: []}, state: "ENABLED", visibility: "SHARED", allowCopy: true, allowExport: true, createdAt: "2026-10-17T00:00:00Z"},
     canEdit: false, canPublish: false, canUse: true, canCopy: true, canExport: true,
   };
-  vi.mocked(skillRequest).mockImplementation(async (_scope, requestPath) => requestPath.endsWith("/info") ? {available: true, canCreate: false, reason: ""}
+  vi.mocked(skillRequest).mockImplementation(async (_scope, requestPath) => requestPath.endsWith("/info") ? {available: true, canCreate: requestPath === "organization/info", reason: ""}
     : requestPath.endsWith("/versions/2") ? item : requestPath.endsWith("/versions") ? {items: [item.version]}
     : requestPath.endsWith("/copy") ? {} : {items: [item], nextCursor: ""});
   render(<SkillLibraryPage expectedUserId="alice" category="official"/>);
@@ -111,4 +116,30 @@ it.each([["复制到本人", "personal/copy"], ["复制到当前企业", "organi
   expect(call[3]?.method).toBe("POST");
   expect(call[3]?.headers).toHaveProperty("Idempotency-Key", expect.any(String));
   expect(JSON.parse(String(call[3]?.body))).toEqual({source: {kind: "skill-version-v1", id: item.version.skill.id, ownerKind: "PLATFORM", ownerId: "official", version: 2, digest: "a".repeat(64), policyVersion: "skill-method-v1"}, allowCopy: false, allowExport: false});
+});
+
+it.each([[false, "page"], ["unavailable", "page"], [false, "dialog"], ["unavailable", "dialog"]])("hides organization copy when organization/info canCreate is %s in %s", async (allowed, presentation) => {
+  Object.assign(context, {effectiveOrganization: {id: "org-a", name: "企业 A"}, selectionRequired: false, permissions: ["workbench.agent.read"]});
+  const item = {
+    version: {skill: {id: "11111111-1111-4111-8111-111111111111", owner: {kind: "PLATFORM", id: "official"}, creator: "maintainer", headVersion: 1, revision: 1, createdAt: "2026-10-17T00:00:00Z", updatedAt: "2026-10-17T00:00:00Z"}, version: 1,
+      package: {name: "readable-official", description: "Official method", digest: "a".repeat(64), files: []}, state: "ENABLED", visibility: "SHARED", allowCopy: true, allowExport: true, createdAt: "2026-10-17T00:00:00Z"},
+    canEdit: false, canPublish: false, canUse: true, canCopy: true, canExport: true,
+  };
+  vi.mocked(skillRequest).mockImplementation(async (_scope, path) => {
+    if (path === "organization/info" && allowed === "unavailable") throw new Error("organization unavailable");
+    return path.endsWith("/info") ? {available: true, canCreate: false, reason: ""}
+      : path === "organization/admission" ? {policy: {allowPersonal: false, revision: "0"}, canConfigure: false}
+      : path.startsWith("organization") ? {items: [], nextCursor: ""}
+      : path.endsWith("/versions/1") ? item : path.endsWith("/versions") ? {items: [item.version]}
+      : {items: [item], nextCursor: ""};
+  });
+  render(presentation === "page" ? <SkillLibraryPage expectedUserId="alice" category="official"/> : <SkillManagerTrigger scope={{userId: "alice", organizationId: "org-a"}} space="organization"/>);
+  if (presentation === "dialog") {
+    fireEvent.click(screen.getByRole("button", {name: "团队技能"}));
+    fireEvent.click(await screen.findByRole("button", {name: "官方模板"}));
+  }
+  fireEvent.click(await screen.findByText("readable-official"));
+  if (presentation === "page") expect(await screen.findByRole("button", {name: "复制到本人"})).toBeEnabled();
+  else await screen.findByRole("heading", {name: "readable-official · v1"});
+  expect(screen.queryByRole("button", {name: "复制到当前企业"})).not.toBeInTheDocument();
 });
