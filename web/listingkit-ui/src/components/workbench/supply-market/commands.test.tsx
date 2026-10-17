@@ -8,7 +8,7 @@ const intent={key:"12752596-6056-4316-9f2f-380c97df9675",admin:false,command:{ac
 vi.mock("@/components/workbench/resources/resource-pending",()=>({useResourcePending:()=>({command:intent,ready:true,error:false,storageKey:"market-test",persist,clear,read:()=>intent})}));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>({user:{id:"u"},effectiveOrganization:{id:"o"},registerOrganizationSwitchGuard:()=>()=>{}})}));
 vi.mock("@tanstack/react-query",()=>({useQueryClient:()=>({invalidateQueries:vi.fn()})}));
-beforeEach(()=>{vi.clearAllMocks()});
+beforeEach(()=>{vi.clearAllMocks();Object.defineProperty(navigator,"locks",{configurable:true,value:{request:async(_name:string,_options:unknown,fn:(lock:unknown)=>unknown)=>fn({name:"market-test"})}})});
 it("a restored unknown command queries its original receipt without sending another write",async()=>{
  resolve.mockResolvedValue({operationId:intent.key,revision:1,replayed:true});
  const h=renderHook(()=>useMarketCommands({userId:"u",organizationId:"o"}));

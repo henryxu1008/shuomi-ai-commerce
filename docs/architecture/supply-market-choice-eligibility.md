@@ -1,5 +1,9 @@
 # 优选申请资格读取：正常不可申请结果
 
+> 2026-10-17：[多商品申请产品决定](../product/selected-application-multi-product.md)替代旧切片的单件交互范围。
+> 本文的“不新增批量”仅描述当时资格 bugfix；新的多件交互仍逐件复用本文资格与精确版本合同，
+> 不放宽 own/Apply 条件，按[新独立设计](selected-application-multi-product-v1.md)准入。
+
 Execution: #710；补充冻结的 [供应市场 v1](supply-market-v1.md)。
 Design Basis: Independent Architecture（有界资格读取响应合同修正）。
 Status: IMPLEMENTATION_READY；2026-10-15 独立只读评审通过，原自营消费者阻塞已修订关闭。

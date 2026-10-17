@@ -1750,6 +1750,16 @@ func TestSelectedApplicationOverviewDocumentPreservesReadOnlyOwnerBoundaries(t *
 	})
 }
 
+func TestSelectedApplicationMultiProductDocumentPreservesIndependentOwnersAndOriginalIntentRecovery(t *testing.T) {
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "selected-application-multi-product-v1.md"), []string{
+		"Independent Architecture", "IMPLEMENTATION_READY / FROZEN", "SupplyMarket", "submit_selected",
+		"useResourcePending", "navigator.locks", "1 MiB", "journal 在整批处理期间不可变",
+		"每件仍提交一个 submit_selected", "每件 Repository.Execute 仍在自己的同库事务",
+		"不新增后端批次 API/表", "刷新/重启页面：不自动 POST", "404 仅表示未读到回执，不证明未执行",
+		"完全相同键/载荷", "同一 member navigator lock", "无新公开URL", "不使用保留实例真实上传/提交/审批/发布",
+	})
+}
+
 func TestSupplyMarketChoiceEligibilityDocumentPreservesQualificationBoundaries(t *testing.T) {
 	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "supply-market-choice-eligibility.md"), []string{
 		"IMPLEMENTATION_READY", "not_optimized", "incomplete_product", "sealed selection",

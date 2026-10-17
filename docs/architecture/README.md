@@ -159,6 +159,8 @@ Use these as the main source of truth for structural work:
   - #622 frozen IMPLEMENTATION_READY market disclosure, manual qualification and shared-account SDS design contract; current implementation and protocol evidence do not imply runtime or user acceptance
 - `supply-market-choice-eligibility.md`
   - #710 qualified choice read results and normal ineligible own products; preserves exact Apply, official drafts and strict write-side disclosure
+- `selected-application-multi-product-v1.md`
+  - #710 IMPLEMENTATION_READY multi-product selection, shared defaults and original-key recovery; each application, review, transaction and private-file fact remains with its current owner
 - `selected-application-overview-v1.md`
   - #619 frozen IMPLEMENTATION_READY member-only selected-application counts and bounded optimized own-product preview; original qualification, submit, authorization and fact owners remain unchanged
 - `store-center-platform-observations-v1.md`
