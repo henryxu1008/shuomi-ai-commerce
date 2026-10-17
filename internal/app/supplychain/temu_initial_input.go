@@ -6,13 +6,14 @@ import (
 	"task-processor/internal/marketplace/temu/model"
 	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/collection"
+	"task-processor/internal/product/description"
 	"task-processor/internal/storecenter"
 )
 
 func initialTemuInput(source catalog.PublishedSnapshot, merchant storecenter.ProductMerchantBinding) *temugoods.DraftInput {
 	input := &temugoods.DraftInput{Mode: string(merchant.MerchantMode), Images: []temugoods.ImageSlot{}}
 	if merchant.MerchantMode == storecenter.MerchantLocal {
-		input.Local = &model.LocalGoodsV2{Basic: model.LocalGoodsBasic{Name: source.Snapshot.Title, Description: source.Snapshot.Description, ExternalGoodsID: collection.StableID(source.Identity.ProductKey, merchant.SupplierIdentityHash, "temu-goods")}, SKUs: []model.LocalSKU{}}
+		input.Local = &model.LocalGoodsV2{Basic: model.LocalGoodsBasic{Name: source.Snapshot.Title, Description: description.PlainText(source.Snapshot.Description, source.Snapshot.DescriptionFormat), ExternalGoodsID: collection.StableID(source.Identity.ProductKey, merchant.SupplierIdentityHash, "temu-goods")}, SKUs: []model.LocalSKU{}}
 		for i, variant := range source.Snapshot.Variants {
 			input.Local.SKUs = append(input.Local.SKUs, model.LocalSKU{ExternalSKUID: collection.StableID(source.Identity.ProductKey, merchant.SupplierIdentityHash, "temu-sku", variant.SourceID, variant.SKU, strconv.Itoa(i))})
 		}

@@ -106,12 +106,13 @@ func RawSnapshotChecksum(raw string) string {
 // mapped into catalog facts. Keep target-marketplace category and publishing
 // payload decisions out of this shape.
 type ProductCandidate struct {
-	Title        string
-	Description  string
-	Brand        string
-	CategoryPath []string
-	Attributes   map[string]string
-	Variants     []ProductVariantCandidate
+	Title             string
+	Description       string
+	DescriptionFormat string `json:",omitempty"`
+	Brand             string
+	CategoryPath      []string
+	Attributes        map[string]string
+	Variants          []ProductVariantCandidate
 }
 
 // ProductVariantCandidate carries neutral variant facts from the source.

@@ -1,5 +1,7 @@
 # 自有商品历史读取、旧版详情和对比 v1
 
+2026-10-17 格式增量见[自有商品富文本合同](own-product-rich-description-v1.md)：描述及格式共同保存/比较；草稿恢复完整旧描述格式并保留当前 structured，平台文字字段使用明确的纯文字投影。原权限、固定来源、CAS、幂等及发布边界不变。
+
 Execution Issue: [#675](https://github.com/qq550723504/task-processor/issues/675)。Design Basis: **Independent Architecture**。Admission Status: **IMPLEMENTATION_READY**。独立设计检查绑定 `0874d2b333049b5791580ddc9b527f64954838cb`，无当前 Must BLOCKER，本文先于正式实现。首尾授权/父分组、查询tuple及证据完整性、过滤/分页、大整数、稳定SKU/0/图片顺序归 IMPLEMENTATION_TEST 在本批次收敛。
 
 ## 产品结果与依据

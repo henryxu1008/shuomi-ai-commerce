@@ -1,5 +1,7 @@
 # 待补全草稿保存历史与比较 v1
 
+2026-10-17 格式增量见[自有商品富文本合同](own-product-rich-description-v1.md)：描述及格式共同保存/比较；草稿恢复完整旧描述格式并保留当前 structured，平台文字字段使用明确的纯文字投影。原权限、固定来源、CAS、幂等及发布边界不变。
+
 结构化字段的历史和比较语义沿 [结构化候选合同](completion-draft-structured-v1.md)；原准确版本读取/只读权限/固定来源不变。
 
 Refs #704；Design Basis: Independent Architecture。Admission: IMPLEMENTATION_READY，R1独立边界审查通过后冻结。

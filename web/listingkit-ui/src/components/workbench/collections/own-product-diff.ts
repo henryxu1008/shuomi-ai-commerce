@@ -1,3 +1,4 @@
+import {descriptionFormatLabel} from "@/lib/contracts/product-description";
 import type {CollectionDetail} from "@/lib/contracts/product-collection";
 type Product=CollectionDetail["product"];
 type Field={label:string;value:string;images?:boolean};
@@ -6,6 +7,7 @@ function fields(product:Product){
  const result=new Map<string,Field>();
  const put=(key:string[],label:string,value:string,images=false)=>result.set(JSON.stringify(key),{label,value,images});
  for(const [key,label] of [["title","商品名称"],["brand","品牌"],["description","商品描述"]] as const)put([key],label,product[key]??"");
+ put(["descriptionFormat"],"描述格式",descriptionFormatLabel(product.description_format));
  const attrs=(key:string[],label:string,values:Product["attributes"])=>{const seen=new Set<string>();for(const attr of values??[]){if(!attr.name||seen.has(attr.name))throw new Error("属性名称不完整或重复，无法准确对比");seen.add(attr.name);put([...key,attr.name],`${label} · ${attr.name}`,attr.value??"")}};
  attrs(["attributes"],"商品属性",product.attributes);put(["images"],"公共图片",(product.images??[]).map(image=>image.url).join("\n"),true);
  const ids=new Set<string>();

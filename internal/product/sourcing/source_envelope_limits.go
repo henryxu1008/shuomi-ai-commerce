@@ -37,6 +37,7 @@ func validateSourceEnvelopePreflight(envelope SourceEnvelope) error {
 		envelope.RawReference.Checksum,
 		envelope.ProductCandidate.Title,
 		envelope.ProductCandidate.Description,
+		envelope.ProductCandidate.DescriptionFormat,
 		envelope.ProductCandidate.Brand,
 		envelope.SupplierOrCostFacts.SupplierID,
 		envelope.SupplierOrCostFacts.SupplierName,

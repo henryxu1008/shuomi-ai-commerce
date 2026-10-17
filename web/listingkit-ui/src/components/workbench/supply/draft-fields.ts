@@ -1,10 +1,11 @@
+import {descriptionPlainText} from "@/lib/contracts/product-description";
 import type { OfficialProduct,SupplySourceDetail,SupplyTargetInput } from "@/lib/contracts/supply-chain";
 export type SupplyDraft=SupplyTargetInput["draft"];
 export const emptySKU=()=>({supplier_sku:"",mall_state:0,stock_info_list:[],sale_attribute_list:[]});
 export const emptySKC=()=>({supplier_code:"",sale_attribute:{attribute_id:0},image_info:{image_info_list:[]},sku_list:[emptySKU()]});
 export function initialSupplyDraft(source:SupplySourceDetail):SupplyDraft{
  const product=source.product;
- return {product:{category_id:0,product_type_id:0,source_system:"OpenAPI",suit_flag:"0",is_spu_pic:false,multi_language_name_list:[{language:"en",name:product.title??""}],multi_language_desc_list:[{language:"en",name:product.description??""}],product_attribute_list:[],skc_list:[{...emptySKC(),sku_list:product.variants?.length?product.variants.map(v=>({...emptySKU(),supplier_sku:v.sku??""})):[emptySKU()]}]},images:[]};
+ return {product:{category_id:0,product_type_id:0,source_system:"OpenAPI",suit_flag:"0",is_spu_pic:false,multi_language_name_list:[{language:"en",name:product.title??""}],multi_language_desc_list:[{language:"en",name:descriptionPlainText(product.description??"",product.description_format)}],product_attribute_list:[],skc_list:[{...emptySKC(),sku_list:product.variants?.length?product.variants.map(v=>({...emptySKU(),supplier_sku:v.sku??""})):[emptySKU()]}]},images:[]};
 }
 export function applyApplicationMode(value:SupplyDraft,mode:"self_operated"|"semi_managed"|"fully_managed"):SupplyDraft{
  const draft=structuredClone(value);

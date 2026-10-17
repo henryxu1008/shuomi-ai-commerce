@@ -281,3 +281,23 @@ func TestSheinImportManagedPriceAndNoWarehouseStock(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []model.LanguageContent{{Language: "en", Name: ""}}, result.Product.Descriptions)
 }
+
+func TestSheinRichDescriptionImportUsesPlainProjectionAndRetainsCandidate(t *testing.T) {
+	ctx, service, _, versions, _, request := importServiceFixture(t)
+	versions.saved.Content.Description = "<h2>Details</h2><p><strong>Cotton</strong><br>Wash gently</p>"
+	versions.saved.Content.DescriptionFormat = "html-v1"
+	request.Selection.Description = true
+	before := versions.saved.Content
+	preview, err := service.PreviewSheinImport(ctx, request)
+	require.NoError(t, err)
+	var got string
+	for _, item := range preview.Input.Draft.Product.Descriptions {
+		if item.Language == "en" {
+			got = item.Name
+		}
+	}
+	require.Equal(t, "Details\nCotton\nWash gently", got)
+	_, err = service.Create(ctx, uuid.NewString(), preview.Input)
+	require.NoError(t, err)
+	require.Equal(t, before, versions.saved.Content)
+}

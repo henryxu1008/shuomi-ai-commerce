@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"task-processor/internal/product/description"
 	"unicode/utf8"
 
 	"task-processor/internal/agent"
@@ -248,7 +249,7 @@ func project(ref agent.SelectionProductRef, detail collection.ItemDetail) Produc
 	add("title", s.Title, s.Title != "")
 	add("brand", s.Brand, s.Brand != "")
 	add("category_path", s.CategoryPath, len(s.CategoryPath) > 0)
-	add("description", s.Description, s.Description != "")
+	add("description", description.PlainText(s.Description, s.DescriptionFormat), s.Description != "")
 	add("selling_points", s.SellingPoints, len(s.SellingPoints) > 0)
 	add("specifications", s.Specifications, s.Specifications != nil)
 	for n, a := range s.Attributes {

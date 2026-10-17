@@ -1,4 +1,6 @@
 "use client";
+import {DescriptionProjectionNote} from "../description-view";
+import {descriptionPlainText} from "@/lib/contracts/product-description";
 import {useEffect,useState} from "react";
 import {z} from "zod";
 import {Button} from "@/components/ui/button";
@@ -40,12 +42,12 @@ export function WalmartTargetEditor({scope,source,storeId,existing,command,disab
   else{setRequirements(decodeWalmartDocument(result.walmart.schema))}
  }catch(e){setError(e instanceof SupplyAPIError?e.code:"未取得当前商家的完整官方规则，请刷新后重试。")}finally{setBusy(false)}}
  function save(){const checked=walmartTargetInputSchema.safeParse({...base,walmart:draft,...adopted?{completionDraft:adopted}:{}});if(!checked.success){setError("请补齐刊登方式、官方类目、逐 SKU 标识、价格和重量。");return}command.execute("save-target",checked.data)}
- function adopt(){if(!completion)return;setDraft(v=>({...v,skus:v.skus.map(s=>({...s,visible:{...s.visible,productName:completion.content.title,shortDescription:completion.content.description}}))}));setAdopted({recordId:completion.id,revision:completion.revision})}
- return <div className="space-y-5">
+ function adopt(){if(!completion)return;setDraft(v=>({...v,skus:v.skus.map(s=>({...s,visible:{...s.visible,productName:completion.content.title,shortDescription:descriptionPlainText(completion.content.description,completion.content.descriptionFormat)}}))}));setAdopted({recordId:completion.id,revision:completion.revision})}
+ return <div className="space-y-5"><DescriptionProjectionNote format={completion?.content.descriptionFormat??source.product.description_format}/>
   <p className="font-semibold">Walmart Marketplace · 美国站</p>
   <p className="text-sm text-muted-foreground">先选择匹配已有目录或提交新商品，保存后检查逐 SKU 资料，再在供应链明确批准刊登。匹配失败后需重新选择并批准新商品资料。</p>
   {error?<p role="alert" className="rounded-lg bg-red-50 p-3 text-sm">{error}</p>:null}
-  <label className="grid gap-1 text-sm">刊登方式<Select value={draft.selection.feedType} disabled={locked} onChange={e=>{setDraft(v=>({...v,selection:{feedType:e.target.value as WalmartDraftInput["selection"]["feedType"],version:"",productType:""},skus:v.skus.map(s=>({...s,visible:e.target.value==="MP_ITEM"?{productName:source.product.title??"",shortDescription:source.product.description??""}:undefined}))}));setCatalog(undefined);setRequirements(undefined);setAdopted(undefined);setAttributeErrors({})}}><option value="MP_ITEM_MATCH">匹配 Walmart 已有目录商品</option><option value="MP_ITEM">提交新商品资料（卖家配送）</option></Select></label>
+  <label className="grid gap-1 text-sm">刊登方式<Select value={draft.selection.feedType} disabled={locked} onChange={e=>{setDraft(v=>({...v,selection:{feedType:e.target.value as WalmartDraftInput["selection"]["feedType"],version:"",productType:""},skus:v.skus.map(s=>({...s,visible:e.target.value==="MP_ITEM"?{productName:source.product.title??"",shortDescription:descriptionPlainText(source.product.description??"",source.product.description_format)}:undefined}))}));setCatalog(undefined);setRequirements(undefined);setAdopted(undefined);setAttributeErrors({})}}><option value="MP_ITEM_MATCH">匹配 Walmart 已有目录商品</option><option value="MP_ITEM">提交新商品资料（卖家配送）</option></Select></label>
   <Button variant="outline" disabled={locked} onClick={()=>void loadRules(true)}>读取当前可用类目</Button>
   {draft.selection.feedType==="MP_ITEM"?<label className="grid gap-1 text-sm">商品类型<Select value={draft.selection.productType} disabled={locked||!catalog} onChange={e=>{setDraft(v=>({...v,selection:{...v.selection,productType:e.target.value}}));setRequirements(undefined)}}><option value="">选择官方商品类型</option>{catalog?.productTypes.map(pt=><option key={pt} value={pt}>{pt}</option>)}</Select></label>:null}
   <p className="text-xs text-muted-foreground">规则版本：{draft.selection.version||"尚未读取"}</p><Button variant="outline" disabled={locked||draft.selection.feedType==="MP_ITEM"&&!draft.selection.productType||!draft.selection.version} onClick={()=>void loadRules(false)}>查看本类目必填要求</Button>

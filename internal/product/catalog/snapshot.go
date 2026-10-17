@@ -4,22 +4,31 @@ import (
 	"encoding/json"
 	"sort"
 	"time"
+
+	"task-processor/internal/product/description"
 )
 
 type ProductSnapshot struct {
-	Title          string          `json:"title,omitempty"`
-	Brand          string          `json:"brand,omitempty"`
-	CategoryPath   []string        `json:"category_path,omitempty"`
-	Description    string          `json:"description,omitempty"`
-	SellingPoints  []string        `json:"selling_points,omitempty"`
-	SEOKeywords    []string        `json:"seo_keywords,omitempty"`
-	Attributes     []Attribute     `json:"attributes,omitempty"`
-	Specifications *Specifications `json:"specifications,omitempty"`
-	Variants       []Variant       `json:"variants,omitempty"`
-	Images         []Image         `json:"images,omitempty"`
-	Review         *ReviewState    `json:"review,omitempty"`
-	Sources        []SourceRecord  `json:"sources,omitempty"`
-	Warnings       []Warning       `json:"warnings,omitempty"`
+	Title             string          `json:"title,omitempty"`
+	Brand             string          `json:"brand,omitempty"`
+	CategoryPath      []string        `json:"category_path,omitempty"`
+	Description       string          `json:"description,omitempty"`
+	DescriptionFormat string          `json:"description_format,omitempty"`
+	SellingPoints     []string        `json:"selling_points,omitempty"`
+	SEOKeywords       []string        `json:"seo_keywords,omitempty"`
+	Attributes        []Attribute     `json:"attributes,omitempty"`
+	Specifications    *Specifications `json:"specifications,omitempty"`
+	Variants          []Variant       `json:"variants,omitempty"`
+	Images            []Image         `json:"images,omitempty"`
+	Review            *ReviewState    `json:"review,omitempty"`
+	Sources           []SourceRecord  `json:"sources,omitempty"`
+	Warnings          []Warning       `json:"warnings,omitempty"`
+}
+
+// PlainDescription projects the owned representation for current text-only
+// consumers without exposing parsing dependencies or mutating the snapshot.
+func (p ProductSnapshot) PlainDescription() string {
+	return description.PlainText(p.Description, p.DescriptionFormat)
 }
 
 func (p *ProductSnapshot) UnmarshalJSON(data []byte) error {

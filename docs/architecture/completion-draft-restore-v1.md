@@ -1,5 +1,9 @@
 # 待补全草稿：恢复历史内容为新版本
 
+2026-10-17 后续[独立上传增量](rich-description-simple-editor-images-v1.md)将 descriptionImages 作为完整描述的资源引用：恢复时随旧描述及格式采用旧引用；保留当前 structured、固定来源及Product/SKU图片，不删除存储对象。它不开放原商品/SKU图库恢复。
+
+2026-10-17 格式增量见[自有商品富文本合同](own-product-rich-description-v1.md)：描述及格式共同保存/比较；草稿恢复完整旧描述格式并保留当前 structured，平台文字字段使用明确的纯文字投影。原权限、固定来源、CAS、幂等及发布边界不变。
+
 后续 [结构化候选合同](completion-draft-structured-v1.md) 明确本页仍只恢复文字，保存时必须保留当前预览head的候选属性/价格/库存；用户2026-10-15已明确选择此范围。
 
 Refs #708。

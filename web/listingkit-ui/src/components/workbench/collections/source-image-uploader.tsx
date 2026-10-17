@@ -11,6 +11,7 @@ const pendingSchema=z.object({userId:z.string().min(1).max(128),organizationId:z
 function load():MediaIntent|null{try{if(typeof window==="undefined")return null;const raw=localStorage.getItem(key);return raw?pendingSchema.parse(JSON.parse(raw)):null;}catch{return null;}}
 export function SourceImageUploader({scope,disabled,onImage,onBlocked,onMedia,allowNewUpload=true}:{scope:CollectionScope;disabled:boolean;onImage:(url:string)=>void;onBlocked:(v:boolean)=>void;onMedia?:(image:z.infer<typeof mediaImageSchema>)=>void;allowNewUpload?:boolean}){
  const context=useWorkbenchContext(),flight=useRef(false),abort=useRef<AbortController|null>(null),raw=useRef<ArrayBuffer|null>(null);
+ const current=useRef({scope,disabled,onImage,onMedia});useEffect(()=>{current.current={scope,disabled,onImage,onMedia}},[scope,disabled,onImage,onMedia]);
  const [pending,setPending]=useState<MediaIntent|null>(load),[selected,setSelected]=useState<MediaIntent|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState(""),[canReplay,setCanReplay]=useState(false),[fileName,setFileName]=useState("");
  const foreign=!!pending&&(pending.userId!==scope.userId||pending.organizationId!==scope.organizationId);
  useEffect(()=>context.registerOrganizationSwitchGuard(()=>!flight.current),[context]);useEffect(()=>()=>abort.current?.abort(),[]);
@@ -34,7 +35,8 @@ export function SourceImageUploader({scope,disabled,onImage,onBlocked,onMedia,al
    const result=verify?await readSourceImage(intent,controller.signal):await uploadSourceImage(intent,raw.current!,controller.signal);
    if(controller.signal.aborted)return;
    if(verify){setCanReplay(true);setError("原图片可读取，上传确认尚未完成。请使用同一文件重试原上传。");return;}
-   localStorage.removeItem(key);setPending(null);setSelected(null);raw.current=null;setFileName("");setCanReplay(false);onImage(result.url);onMedia?.(result);
+   if(current.current.disabled||current.current.scope.userId!==intent.userId||current.current.scope.organizationId!==intent.organizationId){setError("身份或权限已变化，保留原图片意图，请恢复原身份与权限后核实。");return;}
+   localStorage.removeItem(key);setPending(null);setSelected(null);raw.current=null;setFileName("");setCanReplay(false);current.current.onImage(result.url);current.current.onMedia?.(result);
   }catch(e){
    if(controller.signal.aborted)return;
    if(e instanceof CollectionAPIError){setCanReplay(verify&&e.code==="NOT_FOUND");if(!verify&&e.status>=400&&e.status<500&&e.code!=="OUTCOME_UNKNOWN"){localStorage.removeItem(key);setPending(null);}

@@ -1,4 +1,5 @@
 "use client";
+import {DescriptionProjectionNote} from "../description-view";
 import {useEffect,useState,type ReactNode} from "react";
 import Image from "next/image";
 import {z} from "zod";
@@ -50,7 +51,7 @@ export function TikTokTargetEditor({scope,source,storeId,existing,command,disabl
  const categories=catalog?.method===method?catalog.categories.filter(c=>c.is_leaf&&c.permission_statuses.includes("AVAILABLE")):rules?[rules.category]:[];
  const assets=(inventory?.assets??[]).filter(a=>a.role!=="design");
  const warehouses=(rules?.warehouses??[]).filter(w=>w.type==="SALES_WAREHOUSE"&&w.effect_status==="ENABLED");
- return <div className="space-y-5"><p className="text-sm text-slate-600">美国跨境店铺。先选择官方允许的方式和类目，补齐英文资料后保存校验。平台创建与刊登需在列表另行确认。</p>
+ return <div className="space-y-5"><DescriptionProjectionNote format={completion?.content.descriptionFormat??source.product.description_format}/><p className="text-sm text-slate-600">美国跨境店铺。先选择官方允许的方式和类目，补齐英文资料后保存校验。平台创建与刊登需在列表另行确认。</p>
   {error?<p role="alert" className="text-sm text-amber-700">{error} 请先在“我的店铺”完成授权，并确认开发者应用及所需权限已配置。</p>:null}
   {loading?<p role="status" className="text-sm">正在读取当前店铺的 TikTok 官方规则…</p>:null}
   <Field label="TikTok 发布方式"><Select value={method} disabled={disabled||loading} onChange={e=>chooseMethod(e.target.value as typeof method)}><option value="">请选择官方可用方式</option>{methods.map(m=><option key={m} value={m}>{methodNames[m]}</option>)}</Select></Field>

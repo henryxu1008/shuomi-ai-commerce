@@ -16,15 +16,16 @@ func ToSnapshot(in SourceEnvelope) (catalog.ProductSnapshot, error) {
 		return catalog.ProductSnapshot{}, err
 	}
 	return catalog.ProductSnapshot{
-		Title:        normalized.ProductCandidate.Title,
-		Brand:        normalized.ProductCandidate.Brand,
-		CategoryPath: snapshotCategoryPath(normalized.ProductCandidate.CategoryPath),
-		Description:  normalized.ProductCandidate.Description,
-		Attributes:   snapshotAttributes(normalized.ProductCandidate.Attributes),
-		Variants:     snapshotVariants(normalized),
-		Images:       snapshotImages(normalized),
-		Review:       reviewFromSourceWarnings(normalized.Warnings),
-		Warnings:     snapshotWarnings(normalized.Warnings),
+		Title:             normalized.ProductCandidate.Title,
+		Brand:             normalized.ProductCandidate.Brand,
+		CategoryPath:      snapshotCategoryPath(normalized.ProductCandidate.CategoryPath),
+		Description:       normalized.ProductCandidate.Description,
+		DescriptionFormat: normalized.ProductCandidate.DescriptionFormat,
+		Attributes:        snapshotAttributes(normalized.ProductCandidate.Attributes),
+		Variants:          snapshotVariants(normalized),
+		Images:            snapshotImages(normalized),
+		Review:            reviewFromSourceWarnings(normalized.Warnings),
+		Warnings:          snapshotWarnings(normalized.Warnings),
 		Sources: []catalog.SourceRecord{{
 			Type: normalized.Identity.SourceType, Detail: normalized.RawReference.ReferenceID,
 			Platform: normalized.Identity.SourcePlatform, SourceID: normalized.Identity.SourceID,

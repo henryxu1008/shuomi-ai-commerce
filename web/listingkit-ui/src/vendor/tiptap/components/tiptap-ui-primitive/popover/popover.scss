@@ -1,0 +1,63 @@
+.tiptap-popover {
+  --tt-popover-bg-color: var(--tt-white);
+  --tt-popover-border-color: var(--tt-gray-light-a-100);
+  --tt-popover-text-color: var(--tt-gray-light-a-600);
+
+  .dark & {
+    --tt-popover-border-color: var(--tt-gray-dark-a-50);
+    --tt-popover-bg-color: var(--tt-gray-dark-50);
+    --tt-popover-text-color: var(--tt-gray-dark-a-600);
+  }
+}
+
+/* --------------------------------------------
+    --------- POPOVER STYLING SETTINGS -----------
+    -------------------------------------------- */
+.tiptap-popover {
+  z-index: 50;
+  outline: none;
+  transform-origin: var(--radix-popover-content-transform-origin);
+  max-height: var(--radix-popover-content-available-height);
+
+  > * {
+    max-height: var(--radix-popover-content-available-height);
+  }
+
+  /* Animation states */
+  &[data-state="open"] {
+    animation:
+      tiptap-fadeIn 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      tiptap-zoomIn 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  &[data-state="closed"] {
+    animation:
+      tiptap-fadeOut 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      tiptap-zoomOut 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  /* Position-based animations */
+  &[data-side="top"],
+  &[data-side="top-start"],
+  &[data-side="top-end"] {
+    animation: tiptap-slideFromBottom 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  &[data-side="right"],
+  &[data-side="right-start"],
+  &[data-side="right-end"] {
+    animation: tiptap-slideFromLeft 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  &[data-side="bottom"],
+  &[data-side="bottom-start"],
+  &[data-side="bottom-end"] {
+    animation: tiptap-slideFromTop 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  &[data-side="left"],
+  &[data-side="left-start"],
+  &[data-side="left-end"] {
+    animation: tiptap-slideFromRight 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}

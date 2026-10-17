@@ -1,5 +1,7 @@
 # CompletionDraft → SHEIN Target 带入预览与确认
 
+2026-10-17 格式增量见[自有商品富文本合同](own-product-rich-description-v1.md)：描述及格式共同保存/比较；草稿恢复完整旧描述格式并保留当前 structured，平台文字字段使用明确的纯文字投影。原权限、固定来源、CAS、幂等及发布边界不变。
+
 Design Basis: Independent Architecture
 Admission Status: IMPLEMENTATION_READY — 2026-10-16 独立 R1 核对设计提交 83f34ad3698beb51be17f808b25b9c98a05a54f3，无架构 BLOCKER；按本基线实施。
 

@@ -119,3 +119,17 @@ it("guards the independent route, feature flags, revision syntax and strict navi
  for(const query of [{item:[batch,batch]},{preparation:"bad"},{returnTo:"https://example.org"},{from:"1",to:"2"}])await expect(route(undefined,query)).rejects.toThrow("NOT_FOUND");
  vi.stubEnv("LISTINGKIT_SUPPLY_COMPLETION_DRAFTS_ENABLED","false");await expect(route()).rejects.toThrow("NOT_FOUND");vi.stubEnv("LISTINGKIT_SUPPLY_COMPLETION_DRAFTS_ENABLED","true");vi.stubEnv("LISTINGKIT_PRODUCT_COLLECTIONS_ENABLED","false");await expect(route()).rejects.toThrow("NOT_FOUND");
 });
+
+it("restores the old description format and preserves current structured candidates in both directions",async()=>{
+ const structured={attributes:[{name:"材质",value:"棉"}],variants:[]};
+ for(const richOld of [true,false]){
+  const previous={...old,content:{title:"same",description:"<p>same</p>",...(richOld?{descriptionFormat:"html-v1" as const}:{})}};
+  const current={...head,content:{title:"same",description:"<p>same</p>",...(!richOld?{descriptionFormat:"html-v1" as const}:{}),structured}};
+  f.old.mockResolvedValue(previous);f.head.mockResolvedValue(current);f.save.mockClear();
+  const view=render(<CompletionRestorePage {...props}/>);await screen.findByText("当前已保存 R3");expect(confirm()).toBeEnabled();
+  fireEvent.click(confirm());await waitFor(()=>expect(f.save).toHaveBeenCalledOnce());
+  const content=f.save.mock.calls[0]![0].command.content;
+  expect(content).toEqual({...previous.content,structured});if(!richOld)expect(content).not.toHaveProperty("descriptionFormat");
+  view.unmount();f.context.pendingSupplyIntent=null;
+ }
+});

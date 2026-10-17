@@ -6,6 +6,7 @@ import (
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/imageagent"
 	"task-processor/internal/product/catalog"
+	"task-processor/internal/product/description"
 )
 
 // Source IDs are supplied by each existing source owner. Acquisition keeps
@@ -51,7 +52,7 @@ func ImageProductEvidence(product catalog.ProductSnapshot) (map[string]string, e
 		evidence["brand"] = product.Brand
 	}
 	if product.Description != "" {
-		evidence["description"] = product.Description
+		evidence["description"] = description.PlainText(product.Description, product.DescriptionFormat)
 	}
 	if len(product.SellingPoints) > 0 {
 		if err := putJSON("selling_points", product.SellingPoints); err != nil {
