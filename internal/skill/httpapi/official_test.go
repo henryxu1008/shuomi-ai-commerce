@@ -10,12 +10,50 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"task-processor/internal/agent"
+	"task-processor/internal/authz"
 	d "task-processor/internal/skill"
 )
 
 type officialRepo struct {
 	d.Repository
 	calls int
+}
+
+type imageCandidateRepo struct {
+	d.Repository
+	target string
+}
+
+func (r *imageCandidateRepo) CandidatesForTarget(_ context.Context, p d.Principal, target string) ([]d.Version, error) {
+	if !p.UseOrganization {
+		return nil, d.ErrForbidden
+	}
+	r.target = target
+	return []d.Version{}, nil
+}
+
+func TestImageCandidatesUseImageAuthorityInsteadOfTitleAdmission(t *testing.T) {
+	repo := &imageCandidateRepo{}
+	title, err := d.NewService(repo, func(context.Context) (d.Principal, error) { return d.Principal{UserID: "actor"}, nil })
+	require.NoError(t, err)
+	images, err := d.NewService(repo, func(context.Context) (d.Principal, error) {
+		return d.Principal{UserID: "actor", UseOrganization: true}, nil
+	})
+	require.NoError(t, err)
+	engine := gin.New()
+	for _, r := range Routes(&Handler{Service: title, ImageService: images}) {
+		if r.Path == Base+"/organization/image-candidates" {
+			require.Equal(t, authz.PermissionImageAgentWrite, r.Permission)
+		}
+		engine.Handle(r.Method, r.Path, r.Handler)
+	}
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, httptest.NewRequest("GET", Base+"/organization/image-candidates", nil))
+	require.Equal(t, 200, w.Code)
+	require.Equal(t, d.ImageTarget, repo.target)
+	w = httptest.NewRecorder()
+	engine.ServeHTTP(w, httptest.NewRequest("GET", Base+"/organization/candidates", nil))
+	require.Equal(t, 403, w.Code)
 }
 
 func (r *officialRepo) InstallOfficial(_ context.Context, p d.Principal, resolve d.ResolvePrincipal) (d.OfficialInstallResult, error) {

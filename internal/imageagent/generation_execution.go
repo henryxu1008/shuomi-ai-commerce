@@ -42,6 +42,11 @@ type GenerationExecution struct {
 	dependencies GenerationExecutionDependencies
 }
 
+func (e *GenerationExecution) WithImageMethodContext(methods ImageMethodContext) *GenerationExecution {
+	e.dependencies.Methods = methods
+	return e
+}
+
 func NewGenerationExecution(d GenerationExecutionDependencies) (*GenerationExecution, error) {
 	if d.Facts == nil || d.Resources == nil || d.Authorizer == nil || d.ReadMemberLimit == nil || d.ReadSourceBytes == nil || d.PrepareProvider == nil || d.RevalidateProvider == nil || d.MaxSourceBytes <= 0 {
 		return nil, ErrValidation

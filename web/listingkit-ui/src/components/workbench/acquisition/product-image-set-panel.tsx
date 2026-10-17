@@ -9,6 +9,8 @@ import {Button} from "@/components/ui/button";
 import {Card} from "@/components/ui/card";
 import {Select} from "@/components/ui/select";
 import {Input} from "@/components/ui/input";
+import {SkillPicker,ImageMethodSummary} from "../skills/skill-picker";
+import type {SkillSelection} from "@/lib/contracts/skill";
 import {SourceImageUploader} from "../collections/source-image-uploader";
 import {configurationRequest} from "@/lib/api/agent-configuration";
 import {catalogEntrySchema} from "@/lib/contracts/agent-configuration";
@@ -24,7 +26,7 @@ type Props={kind:ImageSetScope["kind"];contextId:string;target?:ImageSetPrepare[
 type Intent={action:ImageSetRoute;runId?:string;requestKey?:string;body:unknown};
 type ChoiceView={key:string;url:string;label:string;choice:ImageSetChoice};
 const stateNames:Record<string,string>={awaiting_plan_approval:"等待点数确认",executing:"生成中",evaluating:"处理结果中",repairing:"处理结果中",awaiting_final_approval:"等待人工选择",blocked:"已阻止",completed:"已保存正式素材",failed:"生成失败",cancelled:"已取消",pending:"等待执行",accepted:"已生成",rejected:"失败"};
-const reasons:Record<string,string>={OUTCOME_UNKNOWN:"本次请求结果尚未确认，请核实原请求。",IMAGE_UNAVAILABLE:"当前图片执行或依赖不可用。",IMAGE_AGENT_DISABLED:"请先由管理员启用商品图片智能体。",IMAGE_BLOCKED:"当前素材、任务依据或平台位置不满足要求，请核实后重新准备。",IMAGE_CONFIGURATION_CHANGED:"配置已变化，请重新读取并准备计划。",IMAGE_CONFLICT:"原任务或版本已变化，请读取当前结果。",IMAGE_SELECTION_CHANGED:"正式图片集合或规则已变化，请刷新后重新选择。",FORBIDDEN:"当前身份没有这项操作的权限。",IMAGE_ASSETS_NOT_READY:"图片或结算依据尚未收束，请继续核实原任务。",IMAGE_NOT_FOUND:"原请求暂未找到，请保留原编号继续核实。"};
+const reasons:Record<string,string>={IMAGE_METHOD_UNAVAILABLE:"所选图片技能版本已不可用，请重新选择或明确不使用技能，再准备新计划。原请求仍可核实。",OUTCOME_UNKNOWN:"本次请求结果尚未确认，请核实原请求。",IMAGE_UNAVAILABLE:"当前图片执行或依赖不可用。",IMAGE_AGENT_DISABLED:"请先由管理员启用商品图片智能体。",IMAGE_BLOCKED:"当前素材、任务依据或平台位置不满足要求，请核实后重新准备。",IMAGE_CONFIGURATION_CHANGED:"配置已变化，请重新读取并准备计划。",IMAGE_CONFLICT:"原任务或版本已变化，请读取当前结果。",IMAGE_SELECTION_CHANGED:"正式图片集合或规则已变化，请刷新后重新选择。",FORBIDDEN:"当前身份没有这项操作的权限。",IMAGE_ASSETS_NOT_READY:"图片或结算依据尚未收束，请继续核实原任务。",IMAGE_NOT_FOUND:"原请求暂未找到，请保留原编号继续核实。"};
 const labels=new Map<string,string>([...carouselTasks,...detailTasks].map(task=>[task.purpose,task.label]));
 
 export function ProductImageSetPanel(props:Props){
@@ -48,6 +50,8 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
  const [template,setTemplate]=useState<ImageAgentTemplate>(),[sources,setSources]=useState<z.infer<typeof imageSetSourcesSchema>>(),[run,setRun]=useState<ImageSetRun>();
  const [runTemplate,setRunTemplate]=useState<ImageAgentTemplate>();
  const [runSources,setRunSources]=useState<z.infer<typeof imageSetSourcesSchema>>();
+ const [method,setMethod]=useState<SkillSelection>(),[methodReady,setMethodReady]=useState(true);
+ const onMethodChange=useCallback((value:SkillSelection|undefined,ready:boolean)=>{setMethod(value);setMethodReady(ready)},[]);
  const [priorRuns,setPriorRuns]=useState<ImageSetRun[]>([]);
  const [recent,setRecent]=useState<z.infer<typeof imageSetRecentSchema>["items"]>([]),[inventory,setInventory]=useState<ImageSetInventory>();
  const [recentCursor,setRecentCursor]=useState("");
@@ -195,7 +199,7 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
  }
  function newPreparation(parent?:ImageSetRun){
   const content=parent?runTemplate:template,preparationSources=parent?runSources:sources;
-  if(locked||!content||!preparationSources||!(parent?regenerate:tasks).length)return;
+  if(locked||!methodReady||!content||!preparationSources||!(parent?regenerate:tasks).length)return;
   const selectedTasks=parent?regenerate:tasks;
   const groups=parent?{carousel:content.image.carousel.filter(t=>selectedTasks.includes(t.id)).length,detail:content.image.detail.filter(t=>selectedTasks.includes(t.id)).length}:null;
   const selectedTarget=parent?parent.plan.Target.Platform==="shein"?parent.plan.Target:{Platform:"product" as const}:platform==="shein"&&editorTarget?editorTarget:{Platform:"product" as const};
@@ -204,7 +208,7 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
   const selectedSource=parent?.plan.Source??preparationSources.source;
   const originals=(group?:"carousel"|"detail")=>[...new Set(parent!.slots.filter(slot=>selectedTasks.includes(slot.slotId)&&(!group||slot.recipe.Placement.Group===group)).flatMap(slot=>slot.recipe.References.map(ref=>ref.AssetID)))];
   if(!executionMode.data){setError("尚未读取当前权限模式，请刷新后确认。");return}
-  const body:ImageSetPrepare={expectedModeRevision:executionMode.data.revision,template:{templateId:content.templateId,revision:content.version},target:selectedTarget,selectedTaskIds:selectedTasks,effectiveCatalogVersion:selectedSource.EffectiveVersion,...selectedSource.ApplyReceiptID?{applyReceiptId:selectedSource.ApplyReceiptID}:{},...content.image.shareOriginals?{sharedOriginalIds:parent?originals():shared}:{carouselOriginalIds:parent?originals("carousel"):groups&&!groups.carousel?[]:carousel,detailOriginalIds:parent?originals("detail"):groups&&!groups.detail?[]:detail},...selectedTarget.Platform==="shein"?{officialPlacements:Object.fromEntries(selectedTasks.flatMap(id=>{const position=positions[id];return position?[[id,position]]:[]}))}:{}};
+  const body:ImageSetPrepare={expectedModeRevision:executionMode.data.revision,...method?{skill:method}:{},template:{templateId:content.templateId,revision:content.version},target:selectedTarget,selectedTaskIds:selectedTasks,effectiveCatalogVersion:selectedSource.EffectiveVersion,...selectedSource.ApplyReceiptID?{applyReceiptId:selectedSource.ApplyReceiptID}:{},...content.image.shareOriginals?{sharedOriginalIds:parent?originals():shared}:{carouselOriginalIds:parent?originals("carousel"):groups&&!groups.carousel?[]:carousel,detailOriginalIds:parent?originals("detail"):groups&&!groups.detail?[]:detail},...selectedTarget.Platform==="shein"?{officialPlacements:Object.fromEntries(selectedTasks.flatMap(id=>{const position=positions[id];return position?[[id,position]]:[]}))}:{}};
   void send({action:parent?"regenerate":"prepare",runId:parent?.runId,requestKey:crypto.randomUUID(),body});
  }
  function useCurrentTarget(){
@@ -254,8 +258,8 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
  const allTasks=template?[...template.image.carousel.map(t=>({...t,group:"carousel" as const})),...template.image.detail.map(t=>({...t,group:"detail" as const}))]:[];
  const preparePositionsReady=currentOfficialPositions(tasks.map(id=>positions[id]),requirements),regeneratePositionsReady=currentOfficialPositions(regenerate.map(id=>positions[id]),requirements);
  const positionHint="请选择当前规则允许的位置和类型，并为同一图片组设置不重复的排序。";
- const canPrepare=available&&!!executionMode.data&&!!template&&compatibleImageTemplate(template,platform)&&tasks.length>0&&(template.image.shareOriginals?shared.length>0:(!template.image.carousel.some(t=>tasks.includes(t.id))||carousel.length>0)&&(!template.image.detail.some(t=>tasks.includes(t.id))||detail.length>0))&&(platform==="product"||preparePositionsReady);
- const canRegenerate=available&&!!executionMode.data&&!!runTemplate&&compatibleImageTemplate(runTemplate,run?.plan.Target.Platform)&&!!runSources&&regenerate.length>0&&regenerate.every(id=>[...runTemplate.image.carousel,...runTemplate.image.detail].some(task=>task.id===id))&&(run?.plan.Target.Platform!=="shein"||regeneratePositionsReady);
+ const canPrepare=available&&methodReady&&!!executionMode.data&&!!template&&compatibleImageTemplate(template,platform)&&tasks.length>0&&(template.image.shareOriginals?shared.length>0:(!template.image.carousel.some(t=>tasks.includes(t.id))||carousel.length>0)&&(!template.image.detail.some(t=>tasks.includes(t.id))||detail.length>0))&&(platform==="product"||preparePositionsReady);
+ const canRegenerate=available&&methodReady&&!!executionMode.data&&!!runTemplate&&compatibleImageTemplate(runTemplate,run?.plan.Target.Platform)&&!!runSources&&regenerate.length>0&&regenerate.every(id=>[...runTemplate.image.carousel,...runTemplate.image.detail].some(task=>task.id===id))&&(run?.plan.Target.Platform!=="shein"||regeneratePositionsReady);
  function originalChoices(group:string,values:string[],change:(next:string[])=>void){return <section className="space-y-3"><h4 className="text-sm font-medium">{group} · {values.length}/8</h4><div className="grid grid-cols-3 gap-2 sm:grid-cols-4">{sources?.originals.map((image,i)=><label key={image.id} className={`rounded-lg border p-2 ${values.includes(image.id)?"border-success-foreground bg-success":"border-border"}`}><Image src={image.displayUrl} width={100} height={100} unoptimized alt={`原始素材 ${i+1}`} className="h-20 w-full object-contain"/><span className="mt-2 flex items-center gap-1 text-xs"><input type="checkbox" aria-label={`${group} 素材 ${i+1}`} disabled={locked||!values.includes(image.id)&&values.length>=8} checked={values.includes(image.id)} onChange={e=>change(e.target.checked?[...values,image.id]:values.filter(id=>id!==image.id))}/>素材 {i+1}</span></label>)}</div></section>}
  const official=run?.plan.Target.Platform==="shein";
  const selectedPositionsReady=!official||currentOfficialPositions(selected.map(item=>item.choice.official_placement?fromPosition(item.choice.official_placement):undefined),requirements,false);
@@ -265,6 +269,7 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
   {loading?<p className="text-sm text-muted-foreground">正在读取企业配置与真实商品素材…</p>:!available?<p className="text-sm text-muted-foreground">{entry?.agent.activation==="DISABLED"?"智能体已停用，已有任务仍可核实与审核。":entry?.capabilities.find(c=>c.id==="image.generate")?.reason||"当前完整图片流程不可用。"}</p>:null}
   {intent?<div className="rounded-lg border border-warning-foreground bg-warning p-4 text-sm"><p>保留原请求：{intent.requestKey??(intent.action==="restart"?intent.runId:(intent.body as {actionId:string}).actionId)}</p><p className="mt-1 text-xs">继续操作沿用原编号与参数；暂未找到不能视为未执行。</p><Button className="mt-3" variant="outline" disabled={busy} onClick={()=>void verify()}>核实原请求</Button>{intent.action==="confirm"&&run&&run.runId===intent.runId&&(!run.confirmationActionId||run.confirmationActionId===(intent.body as {actionId:string}).actionId)&&run.status!=="completed"&&run.status!=="cancelled"?<Button className="ml-2" variant="outline" disabled={busy} onClick={()=>void send(intent,true)}>继续原确认</Button>:null}{intent.action!=="confirm"?<Button className="ml-2" variant="outline" disabled={busy} onClick={()=>void send(intent,true)}>继续原操作</Button>:null}</div>:null}
   {available&&sources?<>
+   <SkillPicker scope={stableScope} target="product-image" disabled={locked} onChange={onMethodChange}/>
    {template&&!compatibleImageTemplate(template,platform)?<p className="text-sm text-warning-foreground">当前模板不适用于此素材目标，请选择匹配的模板或切换目标。</p>:null}
    {platform==="shein"&&requirements&&tasks.length>0&&!preparePositionsReady?<p className="text-sm text-warning-foreground">{positionHint}</p>:null}
    <div className="grid gap-4 sm:grid-cols-2"><label className="space-y-2 text-sm">图片模板<Select disabled={locked} value={template?`${template.templateId}:${template.version}`:""} onChange={e=>{const t=templates.find(v=>`${v.templateId}:${v.version}`===e.target.value);if(t&&compatibleImageTemplate(t,platform))installTemplate(t,sources.evidence)}}><option value="">选择模板</option>{template&&!templates.some(t=>t.templateId===template.templateId&&t.version===template.version)?<option disabled={!compatibleImageTemplate(template,platform)} value={`${template.templateId}:${template.version}`}>{template.name} v{template.version}</option>:null}{templates.filter(t=>t.lifecycle==="ACTIVE").map(t=><option key={`${t.templateId}:${t.version}`} disabled={!compatibleImageTemplate(t,platform)} value={`${t.templateId}:${t.version}`}>{t.name} v{t.version}</option>)}</Select></label><label className="space-y-2 text-sm">素材目标<Select disabled={locked} value={platform} onChange={e=>{setPlatform(e.target.value as typeof platform);setRequirements(undefined);setPositions({});setPreview(null)}}><option value="product">通用商品素材</option>{editorTarget?<option value="shein">当前 SHEIN 店铺与类目</option>:null}</Select></label></div>
@@ -279,6 +284,7 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
   {recentCursor?<Button variant="outline" disabled={locked} onClick={()=>void loadMoreRuns()}>加载更多图片任务</Button>:null}
   {run?<section className="space-y-4 border-t border-border pt-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-semibold">{stateNames[run.status]??run.status}</h3><p className="text-xs text-muted-foreground">任务 {run.runId} · {run.slots.filter(s=>s.status==="accepted").length}/{run.images} 张已生成 · 已确认用量 {run.settledPoints} 点</p></div><Button variant="outline" disabled={busy} onClick={()=>void readRun(run.runId).catch(fail)}>刷新原任务</Button></div>
    {run.executionMode?<p className="text-sm">本次权限：{executionModeLabels[run.executionMode]} · 模式版本 {run.modeRevision}</p>:<p className="text-sm text-warning-foreground">本次权限模式不可用，只能查看原记录。</p>}
+   {run.plan.Method?<ImageMethodSummary scope={stableScope} method={run.plan.Method} refresh={run}/>:<p className="text-sm text-muted-foreground">计划使用的方法：不使用技能</p>}
    {run.modeUnavailableReason==="EXECUTION_MODE_CHANGED"?<p className="text-sm text-warning-foreground">权限配置已变化，本次运行不能获得新权限；请保留原请求，重新确认新运行。</p>:null}
    {run.executionMode==="read_only"?<p className="text-sm">只读模式不能生成图片或保存正式素材。</p>:null}
    {run.policyAdoption?<p className="text-sm">正式素材已按完全访问策略采用，未经逐项人工审阅。{run.status!=="completed"?"原工作流状态仍在核实，请沿用原操作编号。":""}</p>:null}

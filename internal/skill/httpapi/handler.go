@@ -23,9 +23,10 @@ import (
 const Base = "/api/v1/workbench/skills"
 
 type Handler struct {
-	Service *d.Service
-	Policy  agentconfig.SkillAdmissionRepository
-	Bind    func(context.Context, string, bool) (context.Context, error)
+	ImageService *d.Service
+	Service      *d.Service
+	Policy       agentconfig.SkillAdmissionRepository
+	Bind         func(context.Context, string, bool) (context.Context, error)
 }
 type routeSpec struct{ method, path, scope, operation string }
 
@@ -39,6 +40,7 @@ func specs() []routeSpec {
 		}
 	}
 	out = append(out, routeSpec{"POST", Base + "/official/install", "official", "install-official"})
+	out = append(out, routeSpec{"GET", Base + "/organization/image-candidates", "organization", "image-candidates"})
 	return append(out, routeSpec{"GET", Base + "/personal/shares", "personal", "shares"}, routeSpec{"POST", Base + "/personal/shares/:share_id/withdraw", "personal", "withdraw"}, routeSpec{"GET", Base + "/organization/shares", "organization", "shares"}, routeSpec{"POST", Base + "/organization/shares", "organization", "share"}, routeSpec{"GET", Base + "/organization/shares/:share_id", "organization", "read-shared"}, routeSpec{"POST", Base + "/organization/shares/:share_id/:action", "organization", "decide-share"}, routeSpec{"GET", Base + "/organization/candidates", "organization", "candidates"}, routeSpec{"GET", Base + "/organization/admission", "organization", "read-admission"}, routeSpec{"PUT", Base + "/organization/admission", "organization", "set-admission"})
 }
 func Routes(h *Handler) []httproute.Descriptor {
@@ -61,6 +63,9 @@ func Routes(h *Handler) []httproute.Descriptor {
 			}
 			if spec.operation == "candidates" {
 				permission = authz.PermissionWorkbenchAgentUse
+			}
+			if spec.operation == "image-candidates" {
+				permission = authz.PermissionImageAgentWrite
 			}
 		}
 		out = append(out, httproute.Descriptor{Method: spec.method, Path: spec.path, Module: "skills", AuthPolicy: authPolicy, OrganizationAccessPolicy: orgPolicy, Permission: permission, RequestTimeout: 10 * time.Second, RejectUnreadRequestBody: spec.method == "GET", Handler: func(c *gin.Context) {
@@ -278,7 +283,7 @@ func (h *Handler) serve(c *gin.Context, s routeSpec) {
 		h.command(c, s)
 	case "shares", "share", "read-shared", "decide-share", "withdraw":
 		h.share(c, s)
-	case "candidates":
+	case "candidates", "image-candidates":
 		query := c.Request.URL.Query()
 		for name, values := range query {
 			if name != "target" || len(values) != 1 {
@@ -290,7 +295,22 @@ func (h *Handler) serve(c *gin.Context, s routeSpec) {
 		if values, ok := query["target"]; ok {
 			target = values[0]
 		}
-		items, e := h.Service.CandidatesForTarget(ctx, target)
+		if s.operation == "image-candidates" {
+			if c.Request.URL.RawQuery != "" {
+				Failure(c, d.ErrInvalid)
+				return
+			}
+			target = d.ImageTarget
+		}
+		service := h.Service
+		if target == d.ImageTarget {
+			service = h.ImageService
+			if service == nil {
+				Failure(c, d.ErrUnavailable)
+				return
+			}
+		}
+		items, e := service.CandidatesForTarget(ctx, target)
 		if e != nil {
 			Failure(c, e)
 			return

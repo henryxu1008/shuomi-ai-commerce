@@ -221,7 +221,9 @@ func (s *Service) PrepareImageSet(ctx context.Context, input PrepareImageSetInpu
 	var methodText string
 	if input.Method != nil {
 		method = &ImageMethodBinding{Skill: *input.Method, PolicyVersion: ImageMethodPolicyVersion}
-		text, release, err := AcquireImageMethod(ctx, s.imageMethods, identity, method)
+		methodIdentity := identity
+		methodIdentity.RunID = runID
+		text, release, err := AcquireImageMethod(ctx, s.imageMethods, methodIdentity, method)
 		if err != nil {
 			return PreparedImageSet{}, err
 		}
