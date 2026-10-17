@@ -29,7 +29,7 @@ CompletionDraft.Content 增加可选 `descriptionImages: string[]`（Go `omitemp
 - 缺省及空列表均不序列化；现有纯文本/富文本请求 JSON、hash、回执和历史字节不改写。UI 无修改不补字段。已有记录不回填。
 - 数组最多40项，逐项规范 HTTPS、无 userinfo/fragment/空白/反斜杠、UTF-8 URL最多2048字节，且去重。沿当前 Product 公共图片 URL 语义允许公开来源链接；它不证明文件是由当前 actor 上传、属于私有对象或已获 Asset 批准。上传入口仍只能返回当前 scope 的原 SourceMedia URL，不新增私有对象访问能力。
 - 服务端只允许 `html-v1` 非空图片引用；每个 descriptionImages URL 必须实际出现在当前描述 img.src 中，不允许用此字段存无关图库。描述内图片必须逐字属于 **固定来源公共/全部SKU图片集合 ∪ 此版本 descriptionImages**。未声明的池外图片、危险标签/URL/属性仍拒绝，不静默净化后保存。
-- 描述删除插图后 UI 同步移除不再引用的 descriptionImages；对象/容量事实不删除。引用列表顺序与内容按原 JSON 精确保存/hash，不做“等价载荷”重放。
+- 描述删除或撤销插图后，保存的 descriptionImages 同步移除不再引用的 URL；本次编辑已确认的临时图片池保留，以便重做或撤销删除时重新声明准确资源。临时池不作为持久化图库，重新读取、草稿/身份/来源切换仍沿原加载边界重置；对象/容量事实不删除。引用列表顺序与内容按原 JSON 精确保存/hash，不做“等价载荷”重放。
 - html-v1 描述32768字节、整个 CompletionDraft Save64KiB不变，URL/列表均计入。过限在本地及服务端拒绝，不能先保存半个版本。
 - 商品不新增 descriptionImages 字段，仍由原商品图片池提供全部描述图片。候选新增图只保存在候选 Content，不向固定 Product 或其他草稿同步。
 

@@ -67,9 +67,10 @@ it("refuses candidate content whose retained source differs from the fixed detai
  await screen.findByText("草稿或原资料读取失败");expect(screen.queryByRole("textbox",{name:"候选标题"})).not.toBeInTheDocument();expect(screen.queryByText(record.content.title)).not.toBeInTheDocument();
 });
 
-it("uploads directly into the candidate description and saves its images without changing the fixed source",async()=>{
+it.each([false,true])("saves only referenced uploaded resources after undo/redo (redo=%s) without changing the fixed source",async redo=>{
  localStorage.clear();f.context.permissions.push("workbench.collection.manage");
  const image="https://images.example.org/candidate.png";
+ f.save.mockImplementation(({command}:{command:{expectedRevision:number;content:Record<string,unknown>}})=>{const saved={...record,revision:command.expectedRevision+1,content:command.content};f.read.mockResolvedValue(saved);return Promise.resolve({record:saved,replayed:false})});
  vi.stubGlobal("crypto",{randomUUID:()=>id,subtle:{digest:vi.fn().mockResolvedValue(new Uint8Array(32).buffer)}});
  f.upload.mockResolvedValue({url:image,hash:"00".repeat(32),bytes:3,mediaType:"image/png",width:2,height:2});
  render(<CompletionDraftPage sourceId={id}/>);await screen.findByRole("textbox",{name:"候选描述"});
@@ -80,10 +81,26 @@ it("uploads directly into the candidate description and saves its images without
  await waitFor(()=>expect(screen.getByRole("button",{name:"上传并添加图片链接"})).toBeEnabled());
  fireEvent.click(screen.getByRole("button",{name:"上传并添加图片链接"}));
  await waitFor(()=>expect(screen.getByRole("textbox",{name:"候选描述"}).querySelector("img")).toHaveAttribute("src","/api/image-proxy?url="+encodeURIComponent(image)));
+ await waitFor(()=>expect(screen.getByRole("button",{name:"撤销"})).toBeEnabled());fireEvent.click(screen.getByRole("button",{name:"撤销"}));
+ await waitFor(()=>expect(screen.getByRole("textbox",{name:"候选描述"}).querySelector("img")).toBeNull());
+ if(redo){await waitFor(()=>expect(screen.getByRole("button",{name:"重做"})).toBeEnabled());fireEvent.click(screen.getByRole("button",{name:"重做"}));await waitFor(()=>expect(screen.getByRole("textbox",{name:"候选描述"}).querySelector("img")).toHaveAttribute("src","/api/image-proxy?url="+encodeURIComponent(image)))}
  await waitFor(()=>expect(screen.getByRole("button",{name:"保存待补全草稿"})).toBeEnabled());
  fireEvent.click(screen.getByRole("button",{name:"保存待补全草稿"}));
- await waitFor(()=>expect(f.save).toHaveBeenCalledWith(expect.objectContaining({command:expect.objectContaining({sourceId:id,content:expect.objectContaining({descriptionImages:[image],descriptionFormat:"html-v1",description:expect.stringContaining(image)})})}),expect.any(AbortSignal)));
+ await waitFor(()=>expect(f.save).toHaveBeenCalled());
+ const savedContent=f.save.mock.calls[0][0].command.content;
+ expect(savedContent.descriptionFormat).toBe("html-v1");expect(savedContent.descriptionImages).toEqual(redo?[image]:undefined);expect(savedContent.description.includes(image)).toBe(redo);
+ await screen.findByText(/^未绑定店铺 · 已保存 R1/);
  expect(detail.product.images).toEqual([]);expect(detail.source.source.version).toBe("1");
+});
+it("restores saved candidate image references when undoing a description deletion",async()=>{
+ const image="https://images.example.org/saved.png";
+ f.read.mockResolvedValue({...record,content:{...record.content,description:`<p>已保存的描述</p><img src="${image}" alt="商品描述插图">`,descriptionFormat:"html-v1",descriptionImages:[image]}});
+ render(<CompletionDraftPage sourceId={id}/>);const editor=await screen.findByRole("textbox",{name:"候选描述"});
+ await userEvent.clear(editor);await waitFor(()=>expect(editor.querySelector("img")).toBeNull());
+ await waitFor(()=>expect(screen.getByRole("button",{name:"撤销"})).toBeEnabled());fireEvent.click(screen.getByRole("button",{name:"撤销"}));
+ await waitFor(()=>expect(editor.querySelector("img")).toHaveAttribute("src","/api/image-proxy?url="+encodeURIComponent(image)));
+ fireEvent.click(screen.getByRole("button",{name:"保存待补全草稿"}));await waitFor(()=>expect(f.save).toHaveBeenCalled());
+ expect(f.save.mock.calls[0][0].command.content.descriptionImages).toEqual([image]);
 });
 it("keeps pending upload recovery visible and blocks save when upload permission was removed",async()=>{
  localStorage.setItem("shuomi_source_media_intent",JSON.stringify({userId:"actor",organizationId:"org",hash:"00".repeat(32),bytes:3}));
