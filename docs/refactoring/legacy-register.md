@@ -2,6 +2,16 @@
 
 > Status: Active legacy handling register
 
+> #29 / #301 [TEMU save/submit/result retirement](../architecture/legacy-temu-listing-submit-retirement-boundary.md)
+> follows user-confirmed design `e0003f196` in #749. Fourteen exclusive production
+> files, one Task fixture test, eight publish-context fields and eight methods are
+> source-retired. Two validations belong to existing marketplace private value
+> functions; APIs/same-named DTOs, PriceQueryResponse/mixed context, Store-qualified
+> Mapping transactions, state managers and all retained rules/contracts remain.
+> SHEIN attributes, pricing, acquisition/observations and independent login with
+> Store sync retain their owners. Workflows/ceilings are unchanged; no real
+> instance/platform/data operation, cleanup/replay or new trial prerequisite.
+
 > #29 / #301 [TEMU bulk-relist retirement](../architecture/legacy-temu-bulk-relist-retirement-boundary.md)
 > follows the user-confirmed frozen design at `47d97972d` in #747. The seven-file
 > unconstructed orchestration and exclusive DTO closure is source-retired. Platform
