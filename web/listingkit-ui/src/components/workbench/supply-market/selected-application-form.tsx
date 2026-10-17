@@ -52,7 +52,7 @@ export function SelectedApplicationForm({scope}:{scope:MarketScope}){
   const query=useQuery({queryKey:["supply-market",scope.userId,scope.organizationId,"application-products",keyword,after],queryFn:({signal})=>readCandidates(scope,keyword,after,signal),retry:false});
   const data=query.error?undefined:query.data;
   const validSelection=!query.isFetching&&!query.error&&drafts.length>0&&drafts.every(d=>{const row=data?.products.find(row=>row.item.id===d.selection.itemId);return !row||isEligible(row)&&selectionKey(row.choice.selection)===selectionKey(d.selection)});
-  const interactionLocked=single.locked||batch.locked||checking,locked=interactionLocked||uploadLocked;
+  const interactionLocked=single.locked||!!single.saved||batch.locked||checking,locked=interactionLocked||uploadLocked;
   const resultRows=batch.results.length?batch.results:batch.journal?.items.map(item=>({title:item.title,key:item.intent.key,state:"waiting" as const}));
   const showingResults=!!batch.journal||!!resultRows?.length;
   function changed(){setDisclosure(false);setReviewed([]);setIssues([])}
@@ -73,6 +73,7 @@ export function SelectedApplicationForm({scope}:{scope:MarketScope}){
   const title=showingResults?"本批申请结果":step==="select"?"选择申请商品":step==="supply"?"填写供货信息":"确认本批申请";
   return <ConsolePage className={styles.page} title={title} description="选择多件已优化自有商品，复用公共信息、逐件核对供货差异；每件申请独立审核，批准后仍需明确发布。" breadcrumbs={[{label:"供应市场",href:"/workbench/supply"},{label:"优选申请",href:"/workbench/supply/applications"},{label:title}]}>
     {!batch.journal?single.notice:null}
+    {single.saved?<Card className={styles.summary} role="status"><p>原操作已确认。</p><Link href={single.saved.recordId?"/workbench/supply/applications/"+single.saved.recordId:"/workbench/supply/mine"} prefetch={false}>查看原操作结果</Link></Card>:null}
     {batch.error?<Card className="p-4" role="alert">{marketError(batch.error)}</Card>:null}
     {batch.pendingError?<Card className="p-4" role="alert">无法读取原申请，已暂停新提交。请保留浏览器数据。</Card>:null}
     {showingResults?<>

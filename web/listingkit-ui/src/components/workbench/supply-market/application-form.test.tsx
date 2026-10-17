@@ -6,15 +6,16 @@ import {listOwnProducts, readCollectionBatch} from "@/lib/api/product-collection
 import {readMarketChoice} from "@/lib/api/supply-market";
 import {SupplyApplicationForm} from "./applications";
 import type {ApplicationResult} from "./use-selected-batch";
+import type {MarketReceipt} from "@/lib/contracts/supply-market";
 
 const state = vi.hoisted(() => ({
   context:{user:{id:"member-a"},effectiveOrganization:{id:"org-a"},isLoading:false,isSwitching:false,error:null,blockingError:null},
-  execute:vi.fn(),start:vi.fn(),locked:false,finishIDs:null as ((ids:string[])=>void)|null,results:[] as ApplicationResult[],
+  execute:vi.fn(),start:vi.fn(),locked:false,finishIDs:null as ((ids:string[])=>void)|null,results:[] as ApplicationResult[],saved:null as MarketReceipt|null,
 }));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>state.context}));
 vi.mock("@/lib/api/product-collection",()=>({listOwnProducts:vi.fn(),readCollectionBatch:vi.fn()}));
 vi.mock("@/lib/api/supply-market",async original=>({...await original<typeof import("@/lib/api/supply-market")>(),readMarketChoice:vi.fn()}));
-vi.mock("./shared",async original=>({...await original<typeof import("./shared")>(),useMarketCommands:()=>({execute:state.execute,locked:state.locked,saved:null,notice:null})}));
+vi.mock("./shared",async original=>({...await original<typeof import("./shared")>(),useMarketCommands:()=>({execute:state.execute,locked:state.locked,saved:state.saved,notice:null})}));
 vi.mock("./use-selected-batch",()=>({useSelectedBatch:()=>({start:state.start,reset:()=>{state.results=[]},locked:state.locked,journal:null,results:state.results,error:null,pendingError:false,busy:false})}));
 vi.mock("./qualifications",()=>({Qualifications:({onIDs,onLocked}:{onIDs:(ids:string[])=>void;onLocked:(locked:boolean)=>void})=><><button type="button" onClick={()=>onIDs([fileId])}>保存测试资质</button><button type="button" onClick={()=>{state.finishIDs=onIDs}}>保存延迟测试资质</button><button type="button" onClick={()=>onLocked(true)}>暂存附件待确认</button><button type="button" onClick={()=>onLocked(false)}>继续确认原附件</button></>}));
 const id="11111111-1111-4111-8111-111111111111",other="22222222-2222-4222-8222-222222222222",foreign="33333333-3333-4333-8333-333333333333",batch="44444444-4444-4444-8444-444444444444",fileId="55555555-5555-4555-8555-555555555555";
@@ -25,7 +26,7 @@ const choice=(itemId=id,optimized=true):Awaited<ReturnType<typeof readMarketChoi
   return optimized?{selection:{...selection,itemId},optimized:true,product}:{selection:{...selection,itemId,effectiveVersion:"1",applyId:undefined},optimized:false,ineligibleReason:"not_optimized",product};
 };
 beforeEach(()=>{
-  state.context.effectiveOrganization.id="org-a";state.context.isLoading=false;state.context.isSwitching=false;state.locked=false;state.execute.mockReset();state.start.mockReset();state.results=[];state.finishIDs=null;
+  state.context.effectiveOrganization.id="org-a";state.context.isLoading=false;state.context.isSwitching=false;state.locked=false;state.execute.mockReset();state.start.mockReset();state.results=[];state.finishIDs=null;state.saved=null;
   vi.mocked(listOwnProducts).mockReset().mockResolvedValue({items:[item(),item(other),item(foreign,"acquisition")],total:3});
   vi.mocked(readMarketChoice).mockReset().mockImplementation(async(_scope,itemId)=>choice(itemId,itemId===id));
   vi.mocked(readCollectionBatch).mockReset().mockResolvedValue({id:batch,name:"新品开发",kind:"own",revision:1,count:3,supplyTransferSupported:true,createdAt:"2026-10-15T00:00:00Z"});
@@ -113,6 +114,13 @@ it("rebuilds only definite failures from restored results, preserving the final 
   expect(screen.getByText("已选择 1 件自有商品")).toBeVisible();expect(screen.getByLabelText("可供库存（件）")).toHaveValue(37);
   expect(screen.queryByRole("option",{name:"已优化自有外套"})).not.toBeInTheDocument();
   expect(screen.getByLabelText("商品售后政策")).toHaveValue("原售后");expect(state.start).not.toHaveBeenCalled();
+});
+it("shows the recovered single application's receipt and prevents an unintended new application",async()=>{
+  state.saved={operationId:crypto.randomUUID(),recordId:id,revision:1,replayed:true};page();
+  expect(await screen.findByText("原操作已确认。")).toBeVisible();
+  expect(screen.getByRole("link",{name:"查看原操作结果"})).toHaveAttribute("href","/workbench/supply/applications/"+id);
+  expect(await screen.findByRole("checkbox",{name:"选择 已优化自有外套"})).toBeDisabled();
+  expect(screen.getByRole("button",{name:"下一步：填写供货信息"})).toBeDisabled();expect(state.start).not.toHaveBeenCalled();
 });
 it("shows the Figma selection step and only optimized own candidates",async()=>{
   page();await screen.findByRole("checkbox",{name:"选择 已优化自有外套"});
