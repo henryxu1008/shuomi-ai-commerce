@@ -2,6 +2,8 @@
 
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
+后续用户确认的 [#773 类目/模板边界](legacy-temu-category-template-retirement-boundary.md) 已退休本文当批保留的五个 category/template handler 与两个专属 DTO 文件。下文消费者与删除前矩阵保留为历史取证；平台 API/DTO、四个 TemplateState 字段、有效规则和其它共享能力仍保留，仅这七文件由后续矩阵窄替代。
+
 - Status: **USER_CONFIRMED / SOURCE_RETIRED**。用户已确认冻结设计 3ceea910b709d12863d62165a18064dd16070848 的 §5/§6/§6.1/§7；三项纯值行为已抽取，六文件与混合构建专属闭包已退休。合并与真实操作仍须单独授权。
 - 调查基线：main **bdd5bae1c07bdf22c861720a814dc19f53664b1d**，已包含 #768；实施开工同步 actual main **849007918ccb2e07bb98918d18ad0b829237005d**，#770 仅 UI/文档，无范围变化。准确实现 HEAD、CI 与独立检查维护于主要 PR；旧设计证据仅历史。
 - 当前 **Design Basis: Reuse Existing Architecture；Admission: Ready**。用户确认后，生产修改前已在 #29/#301 登记冻结依据、owner/不变量与 Ready。原设计 N/A 只覆盖当时文档/只读映射，设计 CI 不代替实施结果。
