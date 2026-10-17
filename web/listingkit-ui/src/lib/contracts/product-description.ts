@@ -51,9 +51,11 @@ export function descriptionEditorHTML(value:string,format?:string,images?:string
  if(format==="html-v1")return sanitizeDescriptionHTML(value,images);
  return "<p>"+value.replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("\n","<br>")+"</p>";
 }
-export function restoreDescription<T extends {title:string;description:string;descriptionFormat?:DescriptionFormat}>(current:T,old:{title:string;description:string;descriptionFormat?:DescriptionFormat}):T{
+export function restoreDescription<T extends {title:string;description:string;descriptionFormat?:DescriptionFormat;descriptionImages?:string[]}>(current:T,old:{title:string;description:string;descriptionFormat?:DescriptionFormat;descriptionImages?:string[]}):T{
  const restored={...current,title:old.title,description:old.description};
  delete restored.descriptionFormat;
+ delete restored.descriptionImages;
  if(old.descriptionFormat)restored.descriptionFormat=old.descriptionFormat;
+ if(old.descriptionImages?.length)restored.descriptionImages=[...old.descriptionImages];
  return restored;
 }

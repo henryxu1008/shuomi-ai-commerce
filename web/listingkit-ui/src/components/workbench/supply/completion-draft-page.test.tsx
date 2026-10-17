@@ -6,15 +6,16 @@ import {CompletionDraftPage} from "./completion-draft-page";
 // JSDOM does not lay out text selections; ProseMirror needs these browser APIs.
 Object.defineProperty(Range.prototype,"getClientRects",{configurable:true,value:()=>[]});
 Object.defineProperty(Range.prototype,"getBoundingClientRect",{configurable:true,value:()=>new DOMRect()});
-const f=vi.hoisted(()=>({context:{user:{id:"actor"},effectiveOrganization:{id:"org"},permissions:["workbench.supply.read","workbench.supply.manage"],supplyIntentReady:true,pendingSupplyIntent:null as unknown,setPendingSupplyIntent:vi.fn<(intent:unknown)=>boolean>(),registerOrganizationSwitchGuard:()=>()=>{}},source:vi.fn(),read:vi.fn(),save:vi.fn()}));
+const f=vi.hoisted(()=>({context:{user:{id:"actor"},effectiveOrganization:{id:"org"},permissions:["workbench.supply.read","workbench.supply.manage"],supplyIntentReady:true,pendingSupplyIntent:null as unknown,setPendingSupplyIntent:vi.fn<(intent:unknown)=>boolean>(),registerOrganizationSwitchGuard:()=>()=>{}},source:vi.fn(),read:vi.fn(),save:vi.fn(),upload:vi.fn()}));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>f.context}));
 vi.mock("@/lib/api/supply-chain",async original=>({...await original<object>(),readSupplySource:f.source,readSupplyCompletionDraft:f.read,supplyCommand:f.save}));
+vi.mock("@/lib/api/product-collection",async original=>({...await original<object>(),uploadSourceImage:f.upload}));
 const id="11111111-1111-4111-8111-111111111111",preparation="22222222-2222-4222-8222-222222222222";
 const source={id,preparationId:preparation,collectionItemId:preparation,collectionRevision:1,source:{kind:"own",version:"1",productKey:"fixed-own",publicationId:preparation}};
 const detail={source,images:[],product:{title:"固定原商品V1",description:"原始描述",attributes:[{name:"材质",value:"棉"}],images:[],variants:[{source_id:"red",sku:"RED",title:"红色常规款",price:{currency:"CNY",amount:0},stock:0}]}};
 const record={id,draftId:preparation,revision:1,source,content:{title:"候选内容R1",description:"候选描述"},status:"pending_completion",createdAt:"2026-10-14T00:00:00Z"};
 beforeEach(()=>{vi.clearAllMocks();f.context.pendingSupplyIntent=null;f.context.effectiveOrganization.id="org";f.context.setPendingSupplyIntent.mockImplementation(v=>{f.context.pendingSupplyIntent=v;return true});f.source.mockResolvedValue(detail);f.read.mockRejectedValue(new SupplyAPIError("NOT_FOUND",404));f.save.mockResolvedValue({record,replayed:false})});
-afterEach(cleanup);
+afterEach(()=>{cleanup();localStorage.clear();vi.unstubAllGlobals();f.context.permissions=["workbench.supply.read","workbench.supply.manage"]});
 it("links the exact saved candidate to SHEIN with verified item and batch context",async()=>{
  f.read.mockResolvedValue(record);render(<CompletionDraftPage sourceId={id} preparationId={preparation} itemId={preparation} sheinAvailable/>);expect(await screen.findByRole("link",{name:"SHEIN 带入预览（已保存 R1）"})).toHaveAttribute("href",`/workbench/supply/mine/missing/${id}/shein?preparation=${preparation}&item=${preparation}&revision=1`);
 });
@@ -64,4 +65,34 @@ it("independently edits and saves candidate text while inspecting the fixed own 
 it("refuses candidate content whose retained source differs from the fixed detail",async()=>{
  f.read.mockResolvedValue({...record,source:{...source,source:{...source.source,version:"2"}}});render(<CompletionDraftPage sourceId={id}/>);
  await screen.findByText("草稿或原资料读取失败");expect(screen.queryByRole("textbox",{name:"候选标题"})).not.toBeInTheDocument();expect(screen.queryByText(record.content.title)).not.toBeInTheDocument();
+});
+
+it("uploads directly into the candidate description and saves its images without changing the fixed source",async()=>{
+ localStorage.clear();f.context.permissions.push("workbench.collection.manage");
+ const image="https://images.example.org/candidate.png";
+ vi.stubGlobal("crypto",{randomUUID:()=>id,subtle:{digest:vi.fn().mockResolvedValue(new Uint8Array(32).buffer)}});
+ f.upload.mockResolvedValue({url:image,hash:"00".repeat(32),bytes:3,mediaType:"image/png",width:2,height:2});
+ render(<CompletionDraftPage sourceId={id}/>);await screen.findByRole("textbox",{name:"候选描述"});
+ fireEvent.click(screen.getByRole("button",{name:"图片"}));
+ const file=new File([new Uint8Array([1,2,3])],"candidate.png",{type:"image/png"});
+ Object.defineProperty(file,"arrayBuffer",{value:async()=>new Uint8Array([1,2,3]).buffer});
+ fireEvent.change(screen.getByLabelText("图片文件"),{target:{files:[file]}});
+ await waitFor(()=>expect(screen.getByRole("button",{name:"上传并添加图片链接"})).toBeEnabled());
+ fireEvent.click(screen.getByRole("button",{name:"上传并添加图片链接"}));
+ await waitFor(()=>expect(screen.getByRole("textbox",{name:"候选描述"}).querySelector("img")).toHaveAttribute("src","/api/image-proxy?url="+encodeURIComponent(image)));
+ await waitFor(()=>expect(screen.getByRole("button",{name:"保存待补全草稿"})).toBeEnabled());
+ fireEvent.click(screen.getByRole("button",{name:"保存待补全草稿"}));
+ await waitFor(()=>expect(f.save).toHaveBeenCalledWith(expect.objectContaining({command:expect.objectContaining({sourceId:id,content:expect.objectContaining({descriptionImages:[image],descriptionFormat:"html-v1",description:expect.stringContaining(image)})})}),expect.any(AbortSignal)));
+ expect(detail.product.images).toEqual([]);expect(detail.source.source.version).toBe("1");
+});
+it("keeps pending upload recovery visible and blocks save when upload permission was removed",async()=>{
+ localStorage.setItem("shuomi_source_media_intent",JSON.stringify({userId:"actor",organizationId:"org",hash:"00".repeat(32),bytes:3}));
+ render(<CompletionDraftPage sourceId={id}/>);await screen.findByRole("textbox",{name:"候选描述"});
+ await waitFor(()=>expect(screen.getByRole("button",{name:"保存待补全草稿"})).toBeDisabled());
+ expect(screen.getByRole("button",{name:"重新读取保存版本"})).toBeDisabled();
+ expect(fireEvent.click(screen.getByRole("link",{name:"返回待补全列表"}))).toBe(false);
+ expect(fireEvent.click(screen.getByRole("link",{name:"编辑商品属性和 SKU"}))).toBe(false);
+ fireEvent.click(screen.getByRole("button",{name:"图片"}));
+ expect(screen.getByRole("button",{name:"核实原图片"})).toBeDisabled();expect(localStorage.getItem("shuomi_source_media_intent")).not.toBeNull();
+ expect(f.save).not.toHaveBeenCalled();
 });

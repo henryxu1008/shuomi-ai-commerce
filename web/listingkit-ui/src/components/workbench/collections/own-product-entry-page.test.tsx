@@ -69,12 +69,12 @@ it("merges delayed upload callbacks into current images and locks image editing 
  await userEvent.click(screen.getByRole("button",{name:"移除图片 1"}));
  act(()=>state.block!(true));expect(screen.getByLabelText("图片链接")).toBeDisabled();expect(screen.getByRole("button",{name:"移除图片 1"})).toBeDisabled();
  act(()=>delayed("https://images.example.org/c.png"));
- expect(screen.getAllByRole("img")).toHaveLength(2);expect(screen.getAllByRole("img")[0]).toHaveAttribute("src",expect.stringContaining("b.png"));
+ expect(screen.getAllByAltText(/商品图片 \d/)).toHaveLength(2);expect(screen.getByAltText("商品图片 1")).toHaveAttribute("src",expect.stringContaining("b.png"));
  act(()=>state.block!(false));expect(screen.getByLabelText("图片链接")).toBeEnabled();
 });
 it("blocks new uploads at 40 public images without replacing the existing recovery component",()=>{
  render(<OwnProductEntryPage/>);for(let i=0;i<40;i++)act(()=>state.upload!(`https://images.example.org/${i}.png`));
- expect(state.allowUpload).toBe(false);expect(screen.getAllByRole("img")).toHaveLength(40);
+ expect(state.allowUpload).toBe(false);expect(screen.getAllByAltText(/商品图片 \d/)).toHaveLength(40);
 });
 it("blocks save for a pending supply command but still allows scoped read-only recovery after write permission revocation",async()=>{
  const pending={userId:"actor-a",organizationId:"org-a",key:itemId,command:{action:"create_product" as const,product:{title:"已发请求",description:"",images:[]}}};

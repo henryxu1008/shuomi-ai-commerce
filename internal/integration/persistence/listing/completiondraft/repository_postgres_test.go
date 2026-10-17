@@ -150,8 +150,9 @@ func TestPostgresUnboundDraftAtomicCASReplayAndUnknownRecovery(t *testing.T) {
 	require.EqualValues(t, 1, first.Record.Revision)
 	input2 := input
 	input2.ExpectedRevision = 1
-	input2.Content.Description = `<p><strong>Candidate R2</strong><img src="https://images.example.org/a.png"></p>`
+	input2.Content.Description = `<p><strong>Candidate R2</strong><img src="https://images.example.org/candidate.png"></p>`
 	input2.Content.DescriptionFormat = "html-v1"
+	input2.Content.DescriptionImages = []string{"https://images.example.org/candidate.png"}
 	richKey := uuid.NewString()
 	second, err := service.Save(actor, richKey, input2)
 	require.NoError(t, err)
@@ -159,6 +160,7 @@ func TestPostgresUnboundDraftAtomicCASReplayAndUnknownRecovery(t *testing.T) {
 	require.Equal(t, input2.Content, second.Record.Content)
 	differentFormat := input2
 	differentFormat.Content.DescriptionFormat = ""
+	differentFormat.Content.DescriptionImages = nil
 	_, err = service.Save(actor, richKey, differentFormat)
 	require.ErrorIs(t, err, preparation.ErrConflict)
 	replay, err := service.Save(actor, key, input)

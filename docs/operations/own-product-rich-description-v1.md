@@ -1,22 +1,26 @@
 # 自有商品描述富文本操作说明
 
-Refs #745；[格式、安全与版本合同](../architecture/own-product-rich-description-v1.md)。
+Refs #745；[格式、安全与版本合同](../architecture/own-product-rich-description-v1.md)、[官方编辑器与独立上传增量](../architecture/rich-description-simple-editor-images-v1.md)。
 
 ## 入口与使用
 
-本批为源码交付，own675 未更新。正常开发启动沿 [Console README](../../web/listingkit-ui/README.md)：在 web/listingkit-ui 执行 pnpm install --frozen-lockfile 后 pnpm dev；使用原私密身份、后端 origin、Product Collection/CompletionDraft 配置。没有新增配置键、数据库表、权限或安装步骤，不复制/重置既有环境。
+本次官方UI/独立上传增量为源码交付，不更新 own675；前一候选的单独授权试用记录保留在PR。正常开发启动沿 [Console README](../../web/listingkit-ui/README.md)：在 web/listingkit-ui 执行 pnpm install --frozen-lockfile 后 pnpm dev；使用原私密身份、后端 origin、Product Collection/CompletionDraft 配置。没有新增配置键、数据库表、权限或安装步骤，不复制/重置既有环境。
 
 - 自有商品库：/workbench/data/mine?view=own；原“添加自有商品”进入独立 /workbench/data/mine/own/new。
 - 已保存商品：/workbench/data/mine/own/:itemId；原编辑/历史入口继续独立页面。
 - 待补全草稿：/workbench/supply/mine/missing/:sourceId；历史、旧版、比较、恢复沿原 /history 路由，原 preparation/item 上下文继续保留。
 
-在描述编辑区输入文字并使用正文、小标题、加粗、斜体、删除线、列表、引用、撤销/重做。选中文字后填写 HTTPS 链接并添加。新图片先在商品图片区用原上传功能完成确认，再从“描述插图”选择插入；原商品图片池和存储计量规则不变。草稿只选择固定来源版本的图片，不新上传。展开“预览描述”检查后，点击原保存按钮生成商品新版本或草稿新 Rn；刷新后读取服务端保存结果。
+描述使用 Tiptap 官方 Simple Editor 组件：正文、二/三级标题菜单、加粗、斜体、删除线、列表菜单、引用、撤销/重做，工具可键盘操作并跟随应用深浅色。选中文字后点击链接图标，在浮层填写 HTTPS 地址并应用；危险或其他协议不可应用。
+
+点击工具栏“图片”，可以选择已有图片，也可以在描述内独立选择 JPEG/PNG 文件并确认上传。仍用原 SourceImageUploader：每张最多3MiB，原容量计量/同文件核实不变，确认成功后才插入，不生成成功占位图。商品新图片同时进入原商品图片池；草稿新图随当前候选描述版本保存，不改固定来源 Vn、原商品或SKU图片。单页只有一个上传意图，busy/pending时展示核实区并锁住保存/刷新；权限或scope变化后的迟到响应保留原意图，不写入其他表单。
+
+独立上传继续要求原 `workbench.collection.manage`，草稿查看/编辑/保存继续原 `workbench.supply.read/manage`。没有上传权限且没有待核实上传时仍可编辑原文字；不改角色或授权。展开“预览描述”检查后，点击原保存按钮生成商品新版本或草稿新 Rn；刷新后读取服务端保存结果。
 
 ## 保存、历史与恢复
 
 旧纯文本即使包含 HTML 字样也按文字显示；仅打开编辑器、修改标题或属性不会改写原描述。实际修改描述后按 html-v1 保存。商品描述仍最多8192 UTF-8字节，草稿描述32768字节且整个保存请求64KiB，HTML标签和URL均计入。移除仍被描述引用的商品图片时，须先删除描述中的对应插图才能保存。
 
-详情/旧版安全显示排版和代理图片。比较含“描述格式”，并可查看转义原文核对准确排版；不会执行差异源码。草稿恢复使用旧版标题、描述和格式，保留当前候选属性、价格、库存，确认后追加新版本，不覆盖历史和固定 Product 来源。恢复纯文本旧版会清除当前富文本格式标记。
+详情/旧版安全显示排版和代理图片。比较含“描述格式”和“描述新增图片”，并可查看转义原文核对准确排版；不会执行差异源码。草稿恢复使用旧版标题、完整描述、格式及描述图片引用，保留当前候选属性、价格、库存，确认后追加新版本，不覆盖历史和固定 Product 来源。恢复没有额外图片的旧版会清除该描述资源字段；不删除对象/容量事实。恢复纯文本旧版同时清除当前富文本格式标记。
 
 并发冲突后重新读取并确认。结果待核实时使用原按钮核实/重试原键及原载荷，不转换或新建请求掩盖 UNKNOWN。上传成功而商品尚未保存的图片仍按既有规则保留和计量，不执行清理。
 

@@ -25,3 +25,12 @@ it("restores a plain revision without leaving the current rich marker or changin
 });
 
 it("uses the same Unicode whitespace projection as Go",()=>{expect(descriptionPlainText("<p>\u0085x\u0085</p>","html-v1")).toBe("x");expect(descriptionPlainText("<p>\uFEFFx\uFEFF</p>","html-v1")).toBe("\uFEFFx\uFEFF")});
+
+it("restores the complete old description resource while preserving current structured fields",()=>{
+ const structured={attributes:[],variants:[]};
+ const current={title:"new",description:"<p>new</p>",descriptionFormat:"html-v1" as const,descriptionImages:["https://images.example.org/new.png"],structured};
+ expect(restoreDescription(current,{title:"old",description:"literal"})).toEqual({title:"old",description:"literal",structured});
+ const old={title:"old",description:'<img src="https://images.example.org/old.png">',descriptionFormat:"html-v1" as const,descriptionImages:["https://images.example.org/old.png"]};
+ expect(restoreDescription(current,old)).toEqual({...old,structured});
+ expect(current.descriptionImages).toEqual(["https://images.example.org/new.png"]);
+});

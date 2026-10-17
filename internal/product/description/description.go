@@ -158,6 +158,36 @@ func Validate(value, format string, images []string) error {
 	return nil
 }
 
+// ImageReferences reads resources from the already validated description.
+// It has no object-storage or network effects.
+func ImageReferences(value, format string) []string {
+	if format != HTML {
+		return nil
+	}
+	nodes, err := fragment(value)
+	if err != nil {
+		return nil
+	}
+	var result []string
+	var walk func(*html.Node)
+	walk = func(n *html.Node) {
+		if n.Type == html.ElementNode && n.Data == "img" {
+			for _, attr := range n.Attr {
+				if attr.Key == "src" {
+					result = append(result, attr.Val)
+				}
+			}
+		}
+		for child := n.FirstChild; child != nil; child = child.NextSibling {
+			walk(child)
+		}
+	}
+	for _, node := range nodes {
+		walk(node)
+	}
+	return result
+}
+
 // PlainText is a transient projection for existing text-only contracts. Images
 // and link destinations are not copied or fetched. Plain input is unchanged.
 func PlainText(value, format string) string {

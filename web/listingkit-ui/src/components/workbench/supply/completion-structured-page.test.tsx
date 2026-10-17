@@ -62,7 +62,7 @@ it("refuses wrong navigation, readonly edits, and late responses after scope cha
 });
 
 it("retains the exact rich description and format when saving only attributes and SKUs",async()=>{
- const rich={...head,content:{...content,description:"<p><strong>保留排版</strong></p>",descriptionFormat:"html-v1" as const}};
+ const rich={...head,content:{...content,description:'<p><strong>保留排版</strong><img src="https://images.example.org/new.png"></p>',descriptionFormat:"html-v1" as const,descriptionImages:["https://images.example.org/new.png"]}};
  f.head.mockResolvedValue(rich);render(<CompletionStructuredPage {...props}/>);await screen.findByRole("heading",{name:"候选商品属性"});
  fireEvent.click(save());await waitFor(()=>expect(f.save).toHaveBeenCalledWith(expect.objectContaining({command:{sourceId:id,expectedRevision:3,content:rich.content}}),expect.any(AbortSignal)));
 });

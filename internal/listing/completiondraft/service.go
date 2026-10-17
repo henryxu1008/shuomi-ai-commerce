@@ -24,6 +24,7 @@ type Content struct {
 	Title             string             `json:"title"`
 	Description       string             `json:"description"`
 	DescriptionFormat string             `json:"descriptionFormat,omitempty"`
+	DescriptionImages []string           `json:"descriptionImages,omitempty"`
 	Structured        *StructuredContent `json:"structured,omitempty"`
 }
 type SaveInput struct {
@@ -33,7 +34,7 @@ type SaveInput struct {
 }
 
 func (in SaveInput) Validate() error {
-	if in.Content.Structured.validate() != nil || description.Validate(in.Content.Description, in.Content.DescriptionFormat, nil) != nil {
+	if in.Content.Structured.validate() != nil || description.Validate(in.Content.Description, in.Content.DescriptionFormat, nil) != nil || !in.Content.validDescriptionImages() {
 		return preparation.ErrInvalid
 	}
 	if !collection.ValidID(in.SourceID) || in.ExpectedRevision < 0 || in.ExpectedRevision == math.MaxInt64 || len(in.Content.Title) > 1024 || len(in.Content.Description) > 32768 || !utf8.ValidString(in.Content.Title) || !utf8.ValidString(in.Content.Description) || strings.ContainsRune(in.Content.Title, 0) || strings.ContainsRune(in.Content.Description, 0) {

@@ -1,5 +1,7 @@
 # 自有商品描述富文本 v1
 
+2026-10-17 用户进一步批准[官方 Simple Editor 与描述图片独立上传增量](rich-description-simple-editor-images-v1.md)。其新增候选描述资源合同替代本文“草稿只使用固定来源图片”的范围限制；固定 Product 来源、原保存/权限/CAS/容量及平台文字投影仍不变。本文的其余冻结合同继续适用。
+
 Refs #745。Design Basis: **Independent Architecture**。Admission Status: **IMPLEMENTATION_READY / FROZEN**。2026-10-17 独立 Reviewer own_history_review 检查 design-only HEAD f803038631aa6d90b958c9f93e951fa38a9f9ad7，无设计 BLOCKER；格式/hash、安全/图片绑定、兄弟保存与恢复、平台/AI文字投影归 IMPLEMENTATION_TEST，在本批合并前收敛。设计先于正式代码。
 
 ## 产品结果、权威和范围

@@ -1,6 +1,6 @@
 # 官方 Simple Editor 与描述图片独立上传
 
-Refs #745 / PR #746。Design Basis: **Independent Architecture**（本轮新增 CompletionDraft 描述图片引用事实）；状态 **DESIGNING / NOT_READY**，独立检查达到 IMPLEMENTATION_READY 前不修改正式生产路径。
+Refs #745 / PR #746。Design Basis: **Independent Architecture**（本轮新增 CompletionDraft 描述图片引用事实）；状态 **IMPLEMENTATION_READY / FROZEN**。独立 Reviewer own_history_review 已核对 design-only HEAD `5a441ccad1b6b2d02c22b91c20a63e40f15f98c5`，无设计 BLOCKER；编码/hash、引用/预算、保存/恢复、上传联锁、官方UI/主题归 IMPLEMENTATION_TEST，在当前批次合并前收敛。准入先于本轮生产实现。
 
 ## 用户结果与边界
 
