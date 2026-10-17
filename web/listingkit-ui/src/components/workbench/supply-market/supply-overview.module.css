@@ -34,7 +34,7 @@
 .kicker{color:var(--supply-muted);font-size: var(--caption-text-size);font-weight:700;line-height:16px;margin:0;display:flex;gap:14px}
 .kicker span{color:var(--tone)}
 .green .kicker{color:var(--tone)}
-.feature h2{color:var(--supply-title);font-size: var(--section-title-size);font-weight:700;line-height:26px;margin:0}
+.feature h2{color:var(--supply-title);font-size: var(--card-title-size);font-weight:700;line-height:26px;margin:0}
 .copy{color:var(--supply-copy);font-size: var(--label-text-size);line-height:20px;margin:0}
 .feature a,.unavailable{color:var(--tone);font-size: var(--label-text-size);font-weight:700;line-height:18px;text-decoration:none;align-self:flex-start}
 .feature a:hover{text-decoration:underline}

@@ -8,7 +8,7 @@
   --catalog-stage: var(--secondary);
   --catalog-step-title: var(--foreground);
   --catalog-step-copy: var(--muted-foreground);
-  --catalog-number: var(--primary-foreground);
+  --catalog-number: var(--foreground);
   --catalog-number-fill: var(--accent);
   --catalog-number-line: var(--border);
   --catalog-teal: var(--primary);
@@ -29,7 +29,7 @@
   --catalog-stage: var(--secondary);
   --catalog-step-title: var(--foreground);
   --catalog-step-copy: var(--muted-foreground);
-  --catalog-number: var(--primary-foreground);
+  --catalog-number: var(--foreground);
   --catalog-number-fill: var(--accent);
   --catalog-number-line: var(--border);
 }
@@ -43,10 +43,10 @@
 .kicker {font-size: var(--caption-text-size);line-height:16px;font-weight:700;color:var(--catalog-teal)}
 .entry h2 {font-size: var(--card-title-size);line-height:28px;font-weight:700;color:var(--catalog-title)}
 .entry>p {flex:1;font-size: var(--label-text-size);line-height:18px;color:var(--catalog-copy)}
-.entryButton {min-width:148px;height:34px;min-height:34px;padding:0 14px;border:1px solid var(--catalog-teal);border-radius: var(--control-radius);background:var(--catalog-teal-button);color:var(--catalog-teal);font-size: var(--label-text-size);font-weight:700;line-height:18px}
+.entryButton {min-width:148px;height:var(--control-height-sm);min-height:var(--control-height-sm);padding:0 14px;border:1px solid var(--primary);border-radius: var(--control-radius);background:var(--catalog-teal-button);color:var(--primary-foreground);font-size: var(--label-text-size);font-weight:700;line-height:18px}
 .entryButton:hover {background:var(--catalog-teal-button);filter:brightness(1.12)}
 .connectionEntry .kicker {color:var(--catalog-blue)}
-.connectionEntry .entryButton {background:var(--catalog-blue-button);border-color:var(--catalog-blue);color:var(--catalog-blue)}
+.connectionEntry .entryButton {background:var(--catalog-blue-button);border-color:var(--primary);color:var(--primary-foreground)}
 .processes {display:grid;grid-template-columns:minmax(0,720fr) minmax(0,396fr);gap:20px;margin-top:40px}
 .process {min-height:340px;padding:18px}
 .process h2 {font-size: var(--section-title-size);line-height:26px;font-weight:700;color:var(--catalog-title)}

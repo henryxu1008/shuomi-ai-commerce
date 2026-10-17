@@ -17,7 +17,7 @@
 .page :global(.console-page-header h1){font-size: var(--page-title-size);line-height:36px;letter-spacing:0;margin-bottom:4px;color:var(--project-text);}
 .page :global(.console-description){color:var(--project-muted);font-size: var(--body-text-size);}
 .newButton,.searchButton{height:40px;border-radius: var(--control-radius);padding:0 20px;font-size: var(--body-text-size);}
-.newButton{background:var(--project-accent);color:var(--foreground);box-shadow:none;}
+.newButton{background:var(--project-accent);color:var(--primary-foreground);box-shadow:none;}
 :global(.light) .newButton{color:var(--primary-foreground);}
 .searchButton{background:var(--project-bg);border-color:var(--project-border);color:var(--project-text);}
 .summaryHeader{display:flex;align-items:center;justify-content:space-between;color:var(--project-muted);font-size: var(--caption-text-size);gap:12px;margin-bottom:6px;}
