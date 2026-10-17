@@ -158,7 +158,7 @@ export function OfficialAuthorizationCallback({platform}:{platform:"shein"|"tikt
   }
   return (
     <main className="mx-auto max-w-xl space-y-5 p-8">
-      <h1 className="text-2xl font-semibold">{platform==="walmart"?"Walmart 美国站":platform==="tiktokshop"?"TikTok Shop":"SHEIN"} 官方授权返回</h1>
+      <h1 className="text-3xl font-semibold">{platform==="walmart"?"Walmart 美国站":platform==="tiktokshop"?"TikTok Shop":"SHEIN"} 官方授权返回</h1>
       <p role="status">{message}</p>
       {pending && !matches ? (
         <p role="alert">

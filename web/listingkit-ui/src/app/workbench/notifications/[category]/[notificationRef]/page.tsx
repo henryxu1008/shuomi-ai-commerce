@@ -7,5 +7,5 @@ export default async function Page({ params }: { params: Promise<{ category: str
   const { category, notificationRef } = await params;
   if (category !== "official" && category !== "business" || !reference.safeParse(notificationRef).success) notFound();
   const expectedUserId = await requireAccountUserId(`/workbench/notifications/${category}/${notificationRef}`);
-  return isNotificationCenterAvailable() ? <NotificationDetailPage expectedUserId={expectedUserId} category={category} notificationRef={notificationRef} /> : <section className="p-8"><h1 className="text-2xl font-semibold">通知中心</h1><p className="mt-4 text-muted-foreground">当前环境尚未启用通知中心。</p></section>;
+  return isNotificationCenterAvailable() ? <NotificationDetailPage expectedUserId={expectedUserId} category={category} notificationRef={notificationRef} /> : <section className="console-page"><h1 className="text-3xl font-semibold">通知中心</h1><p className="mt-4 text-muted-foreground">当前环境尚未启用通知中心。</p></section>;
 }

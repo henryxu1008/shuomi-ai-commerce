@@ -103,12 +103,14 @@
 .console-global-actions > button:disabled { opacity: 1; color: var(--muted-foreground); cursor: not-allowed; }
 .console-theme-toggle { display: flex; gap: 12px; align-items: center; cursor: pointer; }
 .console-theme-toggle > span { display: inline-block; width: 32px; height: 18px; padding: 3px; background: var(--sidebar-accent); border-radius: 12px; }
-.console-theme-toggle > span::after { content: ""; display: block; width: 12px; height: 12px; border-radius: 50%; background: #b9d7ff; }
+.console-theme-toggle > span::after { content: ""; display: block; width: 12px; height: 12px; border-radius: 50%; background: var(--primary); }
 .console-theme-toggle[aria-checked="true"] > span::after { margin-left: 14px; }
 .console-user { position: relative; }
 .console-user > summary { display: flex; align-items: center; cursor: pointer; list-style: none; white-space: nowrap; }
-.console-user > div { position: absolute; top: 44px; right: 0; z-index: 50; width: 250px; padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--popover); box-shadow: 0 12px 24px #0005; }
-.console-user a { display: block; margin-top: 12px; color: var(--destructive); }
+.console-user > div { position: absolute; top: 44px; right: 0; z-index: 50; width: 250px; padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--popover); box-shadow: 0 12px 24px var(--shadow-color); }
+.console-user a { display: block; margin-top: 12px; color: var(--foreground); }
+.console-user a:hover { color: var(--primary); }
+.console-user a[href="/api/zitadel-auth/logout"] { color: var(--destructive); }
 .console-delegation { padding: 8px 28px; border-bottom: 1px solid var(--border); background: var(--warning); color: var(--warning-foreground); }
 .console-delegation p { text-align: left; color: inherit; }
 .console-delegation span { display: inline; color: inherit; margin-right: 16px; }

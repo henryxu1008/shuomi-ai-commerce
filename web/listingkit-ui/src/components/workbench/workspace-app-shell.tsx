@@ -80,7 +80,7 @@ export function WorkspaceAppShell({ children, dataServicesAvailable = false, rep
 
   if (context.isLoading && !hasIndependentIdentityRoute) {
     return (
-      <main className="flex min-h-svh items-center justify-center bg-background px-6">
+      <main className="console-theme flex min-h-svh items-center justify-center bg-background px-6">
         <p className="text-sm text-muted-foreground" role="status">
           正在加载工作台...
         </p>
@@ -116,7 +116,7 @@ export function WorkspaceAppShell({ children, dataServicesAvailable = false, rep
 
   if (shouldRedirectToNoOrganization || shouldLeaveNoOrganization) {
     return (
-      <main className="flex min-h-svh items-center justify-center bg-background px-6">
+      <main className="console-theme flex min-h-svh items-center justify-center bg-background px-6">
         <p className="text-sm text-muted-foreground" role="status">
           正在打开企业访问说明...
         </p>
@@ -132,7 +132,7 @@ export function WorkspaceAppShell({ children, dataServicesAvailable = false, rep
           role="status"
         >
           <div>
-            <h1 className="text-xl font-semibold">请选择企业以继续</h1>
+            <h1 className="text-3xl font-semibold">请选择企业以继续</h1>
             <p className="mt-2 text-sm text-muted-foreground">
               选择后才会加载该企业的工作台数据。
             </p>
@@ -221,9 +221,9 @@ function DelegatedOperationIndicator({
 
 function AccessState({ action, code, browserRecovery = false }: { action: () => void; code: string; browserRecovery?: boolean }) {
   return (
-    <main className="flex min-h-svh items-center justify-center bg-background px-6">
+    <main className="console-theme flex min-h-svh items-center justify-center bg-background px-6">
       <section className="max-w-md rounded-xl border border-border bg-card p-6 text-center shadow-sm">
-        <h1 className="text-lg font-semibold" role="alert">
+        <h1 className="text-xl font-semibold" role="alert">
           {workbenchErrorMessage(code)}
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
