@@ -80,7 +80,7 @@ export function WorkspaceAppShell({ children, dataServicesAvailable = false, rep
 
   if (context.isLoading && !hasIndependentIdentityRoute) {
     return (
-      <main className="console-theme flex min-h-svh items-center justify-center bg-background px-6">
+      <main className="flex min-h-svh items-center justify-center bg-background px-6">
         <p className="text-sm text-muted-foreground" role="status">
           正在加载工作台...
         </p>
@@ -116,7 +116,7 @@ export function WorkspaceAppShell({ children, dataServicesAvailable = false, rep
 
   if (shouldRedirectToNoOrganization || shouldLeaveNoOrganization) {
     return (
-      <main className="console-theme flex min-h-svh items-center justify-center bg-background px-6">
+      <main className="flex min-h-svh items-center justify-center bg-background px-6">
         <p className="text-sm text-muted-foreground" role="status">
           正在打开企业访问说明...
         </p>
@@ -221,7 +221,7 @@ function DelegatedOperationIndicator({
 
 function AccessState({ action, code, browserRecovery = false }: { action: () => void; code: string; browserRecovery?: boolean }) {
   return (
-    <main className="console-theme flex min-h-svh items-center justify-center bg-background px-6">
+    <main className="flex min-h-svh items-center justify-center bg-background px-6">
       <section className="max-w-md rounded-xl border border-border bg-card p-6 text-center shadow-sm">
         <h1 className="text-xl font-semibold" role="alert">
           {workbenchErrorMessage(code)}
