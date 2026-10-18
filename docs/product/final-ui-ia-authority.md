@@ -131,6 +131,8 @@ M5 提现申请还必须消费现有 canonical payout-method owner 的有效收�
 
 2026-10-18 用户批准 [#798](https://github.com/qq550723504/task-processor/issues/798)：按既有任务中心 Figma 组织统一列表与详情，标题/内容审核收回待确认流程，撤去 AI 工作台并列二级“标题审核”入口。复用现有 Task/Review owner 与授权，未接入的经营诊断/运营计划、全局或今日统计、店铺筛选和步骤百分比不随布局开放。详见 [统一任务中心](../engineering/unified-task-center.md)。
 
+同日后续明确决定：任务不限定采集商品和标题优化，先明确设计再实现，保留已有数据与其它会话。当前续作沿同一任务中心读取原目录 `canReadRuns` 所允许的多来源、多能力运行，包括已有内容、图片、上架资料、选品、经营诊断、POD 等现有消费者；不因 Chat planner 未启用而隐藏这些读取入口。BusinessTask、原生运行、待确认提案保留原身份和 owner，不互相伪装；采集仅是一种来源，未知上下文不能默认路由到采集。该增量只消费现有授权读取，不启用新的模型/执行能力或修改 Chat 创建合同。范围与阶段语义见 [原生运行投影](../architecture/task-center-native-run-projection-v1.md)，先于生产代码明确设计准入。
+
 AI工作台当前产品结构至少包括：
 
 - 硕米Chat
