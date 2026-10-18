@@ -37,11 +37,6 @@ type PublishState struct {
 	PriceQueryResponse *api.PriceQueryResponse
 }
 
-type AssetState struct {
-	PaddedImages     map[string][]byte
-	PaddedImageSizes map[string][2]int
-}
-
 type VariantState struct {
 	AsinSkuMap         map[string]string
 	VariantAsins       []string
@@ -60,7 +55,6 @@ type TemuTaskContext struct {
 	ProductState
 	TemplateState
 	PublishState
-	AssetState
 	VariantState
 	RuleState
 	AISkuMapping *AISkuMappingResponse
@@ -69,10 +63,6 @@ type TemuTaskContext struct {
 func NewTemuTaskContext(ctx context.Context, task *model.Task) *TemuTaskContext {
 	return &TemuTaskContext{
 		DefaultTaskContext: pipeline.NewTaskContext(ctx, task),
-		AssetState: AssetState{
-			PaddedImages:     make(map[string][]byte),
-			PaddedImageSizes: make(map[string][2]int),
-		},
 		VariantState: VariantState{
 			AsinSkuMap: make(map[string]string),
 		},

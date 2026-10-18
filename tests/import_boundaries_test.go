@@ -3054,8 +3054,6 @@ func TestTEMUOpenAIImportsStayAllowlisted(t *testing.T) {
 		filepath.Clean(filepath.Join(root, "ai", "content_rewriter.go")):             {},
 		filepath.Clean(filepath.Join(root, "ai", "property_mapper_core.go")):         {},
 		filepath.Clean(filepath.Join(root, "ai", "service.go")):                      {},
-		filepath.Clean(filepath.Join(root, "image", "dimension_annotator.go")):       {},
-		filepath.Clean(filepath.Join(root, "image", "vision_detector.go")):           {},
 		filepath.Clean(filepath.Join(root, "pipeline_registry.go")):                  {},
 		filepath.Clean(filepath.Join(root, "sku", "ai_mapping_single_processor.go")): {},
 		filepath.Clean(filepath.Join(root, "sku", "variant_processor.go")):           {},
@@ -3073,7 +3071,7 @@ func TestTEMUOpenAIImportsStayAllowlisted(t *testing.T) {
 		for quotedImport := range facts.imports {
 			importPath := strings.Trim(quotedImport, `"`)
 			if importMatchesPrefix(importPath, "task-processor/internal/integration/openai") {
-				t.Errorf("%s imports %s; keep TEMU concrete OpenAI client dependencies limited to current AI, image, SKU, product, and pipeline seams", path, importPath)
+				t.Errorf("%s imports %s; keep TEMU concrete OpenAI client dependencies limited to current AI, SKU, product, and pipeline seams", path, importPath)
 			}
 		}
 	}
