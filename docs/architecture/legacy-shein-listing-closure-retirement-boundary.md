@@ -177,4 +177,3 @@ Cutover/deletion condition: 独立设计复核和用户确认→Issue IMPLEMENTA
 3. shared边的保留是当前合同证据，不是新增compatibility类别；新代码不依赖退休owner。不新建包装/别名/双事实源/新修复调度器维持旧链，不因维护/理论hardening扩Threat Model或要求先建设工具。
 4. 独立复核按AGENTS先分类Finding、绑定当前Must与阻塞层级，正常架构复核最多两轮；非Blocker不无限设计版本。未满足本批Must仍阻止合并。
 5. 实施完成进入In Review，交准确HEAD原CI和最终独立检查；合并另需准确HEAD授权，部署/配置凭据/真实API与数据/已有Prompt覆盖记录/关单均未授权。#29/#301保持OPEN，运行/平台/provider/用户验收NOT_RUN，不增加内部试用前置。
-
