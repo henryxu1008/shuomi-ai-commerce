@@ -63,6 +63,18 @@ Legacy decision: N/A；消费当前已保存事实及其准确策略，不恢复
 
 ## 独立设计检查
 
+### 用户模型调整：Qwen Image 3.0 Pro（2026-10-18）
+
+增量准入：**PENDING_REVIEW**；不改变上文已经冻结并实现的 visual brief 合同。用户在标准模型返回 HTTP403 AllocationQuota.FreeTierOnly 后明确决定“换 qwen-image-3.0-pro，其他不变”。本决定仅替代新试用计划的模型选择；不关闭任何云端免费额度/计费开关，不更改北京空间、凭据、1 点/图价格及 priceVersion、素材/提示词/Skill 版本、权限、UNKNOWN 或历史事实。已成功的详情图和标准模型失败的 1 点 UNKNOWN 保留；后续标准/场景各一新计划一次调用，本轮最多 4 点（含该 UNKNOWN），不重发原 Run。
+
+当前适配器在领域 route、factory、SourceEdit 和 HTTP payload 四处只接受/硬编码标准版，单改运行配置无法完成用户操作。最小增量是在同一显式百炼同步合同中增加准确元组 `bailian/qwen-image-3.0-pro/dashscope-image-sync-v1`；原标准元组继续作为当前有效模型，不做默认值或自动 fallback。Client.Config 必须显式传入 Model，并仅接受这两个准确模型；请求模型必须等于该 client 绑定模型，payload/GetDefaultModel 使用同一值。Factory 从原企业配置 owner 读取模型，进入原 quote/intent/config digest，并传给 Client 和 SourceEdit；未知或混配模型派发前拒绝。
+
+权威依据：[阿里云同步接口](https://help.aliyun.com/zh/model-studio/qwen-image-generation-and-editing-api-reference) 与 [Pro 模型信息](https://help.aliyun.com/zh/model-studio/qwen-image-3-0-pro)，2026-10-18 核对。Pro 与标准版均支持当前同步 endpoint、1–3 原图、1024*1024 与同一响应结构。保留 n=1、prompt_extend=false、enable_thinking=false、无水印、字节/时限/观察后下载/单次 POST/UNKNOWN 合同；不新增协议、状态、持久化 owner、预算或恢复机制。公开供方原价约 0.02 元参考图 + 0.25 元 1K 输出，实际云端费用以原账户配置为准；内部每张 1 点不随该价格更改。若 Pro 同样受额度限制，停止调用并报告，不改计费设置。
+
+运行配置沿原 enterprise credential owner 仅更新图片槽的 model，保留 API key/base/style/timeout 和宿主/标题配置；保留更新前私密备份与安全字段比较，不输出密钥。原配置版本和冻结计划不重写；新计划必须冻结 Pro 准确 quote/config version，旧未确认标准计划不改绑、不确认。仍在原 Writer/worktree/PR805，UI 不变，保留 #806 Compose 链。
+
+验证：先以既有受控 factory→SourceEdit→HTTP、quote/intent 与适配器测试捕获 Pro 被拒绝或错误发送标准模型的 RED；最小实现后证明两模型的报价/实际 payload 完全一致、跨模型请求及未知模型零 POST、配置模型变化拒绝原 metadata。再只检查该增量，构建/更新必要后端和配置，按原正常 UI 对标准/场景新 Pro 计划各确认一次并查看实际画面；原 UNKNOWN、旧图片/版本/Run 保留。不重建整套验收矩阵或宣称用户验收。
+
 Round1：独立只读 Reviewer 核对候选 46cb9db0662a1367df705ba967b5a644cc63ea82 及实际 Skill Store、ImageSet、Generation、Temporal recovery、Asset 消费链，结论 IMPLEMENTATION_READY，无 BLOCKER。没有生产修改或真实调用。
 
 三项均分类 IMPLEMENTATION_TEST（当前 Must 为历史准确事实不变、新派发受控、旧版本保留）：(1) 旧同键按存储 policy 计算 digest，v1读取/确认回执恢复与指纹不变；(2) v1空材料+lease仍可被历史/采用消费，Generation/route/直接tools新生成拒绝，旧success/UNKNOWN恢复零POST；(3) PG并发追加/冲突回滚/旧行保留及三个真实包生产adapter→组合器→factory/SourceEdit完整受控HTTP。上文已明确两处易漏调用细节；这些是冻结方案的实现验证，不扩大 owner/状态/权限边界，不需要重开设计。最终交付复核只检查本次实际增量。
