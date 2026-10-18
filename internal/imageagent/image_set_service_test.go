@@ -98,6 +98,25 @@ func TestPrepareImageSetQuotesOnlyExplicitlySelectedTasks(t *testing.T) {
 	require.Zero(t, workflows.starts)
 }
 
+func TestNewImageSetPromptContainsVisualFactsWithoutInternalIdentityFields(t *testing.T) {
+	s, _, _, _, source, _, ctx, input := imageSetServiceFixture(t)
+	prepared, err := s.PrepareImageSet(ctx, input)
+	require.NoError(t, err)
+	for _, slot := range prepared.Projection.Plan.Slots {
+		prompt := slot.Recipe.Prompt
+		require.NotContains(t, prompt, `"ProductID":`, "internal identity belongs in the frozen plan, not the image content")
+		require.NotContains(t, prompt, `"SourceSnapshotVersion":`)
+		require.Contains(t, prompt, source.preparation.Catalog.ProductContext.Title)
+		require.Contains(t, prompt, slot.Recipe.Purpose)
+		require.Contains(t, prompt, slot.Recipe.Background)
+		require.Contains(t, prompt, slot.Recipe.Language)
+	}
+	source.preparation.Catalog.ProductContext.Title = "changed later"
+	replay, err := s.PrepareImageSet(ctx, input)
+	require.NoError(t, err)
+	require.Equal(t, prepared.Projection.Plan, replay.Projection.Plan, "a replay must preserve the original frozen prompt")
+}
+
 func TestRegenerationRequiresTheOriginalRunToHaveKnownClosedEffects(t *testing.T) {
 	s, _, _, _, _, _, ctx, input := imageSetServiceFixture(t)
 	first, err := s.PrepareImageSet(ctx, input)
