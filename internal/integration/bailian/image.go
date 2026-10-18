@@ -27,6 +27,7 @@ import (
 )
 
 const Model = "qwen-image-3.0"
+const ModelPro = "qwen-image-3.0-pro"
 const Protocol = "dashscope-image-sync-v1"
 const imagePath = "/api/v1/services/aigc/multimodal-generation/generation"
 
@@ -35,9 +36,10 @@ var errInput = errors.New("Bailian image input or route unavailable")
 var errUnknown = errors.New("Bailian image outcome unknown")
 
 type Config struct {
-	BaseURL, APIKey, CredentialReference, ConfigurationVersion string
-	Timeout                                                    time.Duration
-	HTTPClient                                                 *http.Client // Explicit in-process test transports; production uses net/http.
+	BaseURL, APIKey, CredentialReference, ConfigurationVersion, Model string
+	Timeout                                                           time.Duration
+	HTTPClient                                                        *http.Client // Explicit in-process test transports; production uses net/http.
+	Diagnose                                                          func(Diagnostic)
 }
 type Observation struct{ RequestID, ResultURL, ResultDigest string }
 type Observer func(context.Context, Observation) error
@@ -69,7 +71,7 @@ func Endpoint(base string) (string, error) {
 
 func NewClient(cfg Config, observe Observer) (*Client, error) {
 	endpoint, err := Endpoint(cfg.BaseURL)
-	if err != nil || observe == nil || strings.TrimSpace(cfg.APIKey) == "" || cfg.Timeout <= 0 || cfg.Timeout > 5*time.Minute || !canonical(cfg.CredentialReference) || !canonical(cfg.ConfigurationVersion) {
+	if err != nil || !SupportsModel(cfg.Model) || observe == nil || strings.TrimSpace(cfg.APIKey) == "" || cfg.Timeout <= 0 || cfg.Timeout > 5*time.Minute || !canonical(cfg.CredentialReference) || !canonical(cfg.ConfigurationVersion) {
 		return nil, errInput
 	}
 	h := http.Client{}
@@ -83,7 +85,9 @@ func NewClient(cfg Config, observe Observer) (*Client, error) {
 func canonical(s string) bool {
 	return s != "" && strings.TrimSpace(s) == s && len(s) <= 192 && !strings.ContainsAny(s, "\r\n\x00")
 }
-func (*Client) GetDefaultModel() string            { return Model }
+func SupportsModel(model string) bool { return model == Model || model == ModelPro }
+
+func (c *Client) GetDefaultModel() string          { return c.cfg.Model }
 func (*Client) SupportsAsyncImageGeneration() bool { return false }
 func (*Client) GenerateImage(context.Context, *ai.ImageGenerateRequest) (*ai.ImageResponse, error) {
 	return nil, errInput
@@ -105,13 +109,13 @@ func (c *Client) matches(route ai.ImageRouteSelection) bool {
 	return c != nil && route.CredentialReference == c.cfg.CredentialReference && route.ConfigurationVersion == c.cfg.ConfigurationVersion
 }
 func (c *Client) GenerateImageWithRoute(ctx context.Context, r *ai.ImageGenerateRequest, route ai.ImageRouteSelection) (*ai.ImageResponse, error) {
-	if !c.matches(route) || r == nil || r.Model != Model || r.N != 0 && r.N != 1 || r.Size != "" && r.Size != "auto" && r.Size != "1024x1024" || r.Quality != "" && r.Quality != "auto" {
+	if !c.matches(route) || r == nil || r.Model != c.cfg.Model || r.N != 0 && r.N != 1 || r.Size != "" && r.Size != "auto" && r.Size != "1024x1024" || r.Quality != "" && r.Quality != "auto" {
 		return nil, errInput
 	}
 	return c.submit(ctx, r.Prompt, nil)
 }
 func (c *Client) EditImageWithRoute(ctx context.Context, r *ai.ImageEditRequest, route ai.ImageRouteSelection) (*ai.ImageResponse, error) {
-	if !c.matches(route) || r == nil || r.Model != Model || r.ImageURL != "" || len(r.ImageURLs) > 0 || len(r.Mask) > 0 || r.N != 0 && r.N != 1 || r.Size != "" && r.Size != "auto" && r.Size != "1024x1024" || r.Quality != "" && r.Quality != "auto" || len(r.ReferenceImages) > 2 {
+	if !c.matches(route) || r == nil || r.Model != c.cfg.Model || r.ImageURL != "" || len(r.ImageURLs) > 0 || len(r.Mask) > 0 || r.N != 0 && r.N != 1 || r.Size != "" && r.Size != "auto" && r.Size != "1024x1024" || r.Quality != "" && r.Quality != "auto" || len(r.ReferenceImages) > 2 {
 		return nil, errInput
 	}
 	refs := append([]ai.ImageInlineReference{{Bytes: r.Image, MediaType: r.ImageContentType}}, r.ReferenceImages...)
@@ -140,12 +144,14 @@ func (c *Client) submit(ctx context.Context, prompt string, images []string) (*a
 		content = append(content, map[string]string{"image": source})
 	}
 	content = append(content, map[string]string{"text": prompt})
-	payload, err := json.Marshal(map[string]any{"model": Model, "input": map[string]any{"messages": []any{map[string]any{"role": "user", "content": content}}}, "parameters": map[string]any{"n": 1, "size": "1024*1024", "watermark": false, "prompt_extend": false, "enable_thinking": false}})
+	payload, err := json.Marshal(map[string]any{"model": c.cfg.Model, "input": map[string]any{"messages": []any{map[string]any{"role": "user", "content": content}}}, "parameters": map[string]any{"n": 1, "size": "1024*1024", "watermark": false, "prompt_extend": false, "enable_thinking": false}})
 	if err != nil {
 		return nil, errInput
 	}
 	defer clear(payload)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint, bytes.NewReader(payload))
+	requestCtx, cancelRequest := context.WithCancel(ctx)
+	defer cancelRequest()
+	req, err := http.NewRequestWithContext(requestCtx, http.MethodPost, c.endpoint, bytes.NewReader(payload))
 	if err != nil {
 		return nil, errInput
 	}
@@ -154,17 +160,25 @@ func (c *Client) submit(ctx context.Context, prompt string, images []string) (*a
 	req.Header.Set("Authorization", "Bearer "+c.cfg.APIKey)
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return nil, errUnknown
+		return nil, c.unknown("transport", 0, nil, "", transportReason(err))
 	}
 	defer resp.Body.Close()
+	limit := 1 << 20
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, errUnknown
+		// Optional failure metadata must not wait for the image-generation
+		// deadline. Cancel this request only; it grants no replay permission.
+		limit = 64 << 10
+		stopRead := time.AfterFunc(time.Second, cancelRequest)
+		defer stopRead.Stop()
 	}
-	data, err := io.ReadAll(io.LimitReader(resp.Body, (1<<20)+1))
-	if err != nil || len(data) > 1<<20 {
-		return nil, errUnknown
-	}
+	data, err := io.ReadAll(io.LimitReader(resp.Body, int64(limit)+1))
 	defer clear(data)
+	if err != nil || len(data) > limit {
+		return nil, c.unknown("response_read", resp.StatusCode, nil, resp.Header.Get("X-Request-Id"), "")
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, c.unknown("http_status", resp.StatusCode, data, resp.Header.Get("X-Request-Id"), "")
+	}
 	var result struct {
 		RequestID string `json:"request_id"`
 		Code      string `json:"code"`
@@ -192,24 +206,27 @@ func (c *Client) submit(ctx context.Context, prompt string, images []string) (*a
 		} `json:"usage"`
 	}
 	strict, err := strictjson.UnmarshalStrict(data, &result, strictjson.DisallowDuplicateFields)
-	if err != nil || len(strict) > 0 || !canonical(result.RequestID) || result.Code != "" || result.Output.Finished != nil && !*result.Output.Finished || result.Output.TaskID != "" || result.Output.TaskStatus != "" || len(result.Output.Choices) != 1 || result.Usage.Input == nil || *result.Usage.Input != len(images) || result.Usage.Count == nil || *result.Usage.Count != 1 || result.Usage.Width == nil || *result.Usage.Width != 1024 || result.Usage.Height == nil || *result.Usage.Height != 1024 {
-		return nil, errUnknown
+	if err != nil || len(strict) > 0 {
+		return nil, c.unknown("response_json", resp.StatusCode, nil, resp.Header.Get("X-Request-Id"), "")
+	}
+	if !canonical(result.RequestID) || result.Code != "" || result.Output.Finished != nil && !*result.Output.Finished || result.Output.TaskID != "" || result.Output.TaskStatus != "" || len(result.Output.Choices) != 1 || result.Usage.Input == nil || *result.Usage.Input != len(images) || result.Usage.Count == nil || *result.Usage.Count != 1 || result.Usage.Width == nil || *result.Usage.Width != 1024 || result.Usage.Height == nil || *result.Usage.Height != 1024 {
+		return nil, c.unknown("response_contract", resp.StatusCode, data, resp.Header.Get("X-Request-Id"), "")
 	}
 	choice := result.Output.Choices[0]
 	if choice.Finish != "stop" || choice.Message.Role != "assistant" || len(choice.Message.Content) != 1 {
-		return nil, errUnknown
+		return nil, c.unknown("response_choice", resp.StatusCode, data, resp.Header.Get("X-Request-Id"), "")
 	}
 	item := choice.Message.Content[0]
 	_, publicErr := httpimage.ValidatePublicHTTPSURL(item.Image)
 	u, err := url.Parse(item.Image)
 	if err != nil || publicErr != nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil || u.Fragment != "" || len(item.Image) > 4096 || item.Text != "" || item.Type != "" && item.Type != "image" {
-		return nil, errUnknown
+		return nil, c.unknown("response_locator", resp.StatusCode, data, resp.Header.Get("X-Request-Id"), "")
 	}
 	digest := sha256.Sum256(data)
 	final, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 	defer cancel()
 	if c.observe(final, Observation{RequestID: result.RequestID, ResultURL: item.Image, ResultDigest: hex.EncodeToString(digest[:])}) != nil {
-		return nil, errUnknown
+		return nil, c.unknown("observation", resp.StatusCode, data, resp.Header.Get("X-Request-Id"), "")
 	}
 	return &ai.ImageResponse{RequestID: result.RequestID, UpstreamJobID: result.RequestID, Data: []ai.ImageData{{URL: item.Image}}, UsageKnown: false}, nil
 }

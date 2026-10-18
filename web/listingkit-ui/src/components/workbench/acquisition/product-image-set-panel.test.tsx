@@ -69,17 +69,17 @@ it("does not mount image readers or show an unavailable card without image read 
  expect(calls.mode).not.toHaveBeenCalled();
 });
 
-it("binds the selected image skill to preparation and displays the exact plan version",async()=>{
+it.each([["image-method-prompt-v1",1],["image-method-visual-brief-v2",2]] as const)("displays the exact selected image method under %s",async(policy,version)=>{
  const skillId="2bb819bd-af13-4e68-95e0-1cc86130fb1f",skillDigest="f".repeat(64),date="2026-10-18T00:00:00Z";
- const method={skill:{id:skillId,owner:{kind:"PLATFORM",id:"official"},creator:"maintainer",headVersion:1,revision:3,createdAt:date,updatedAt:date},version:1,package:{name:"product-image-standard",displayName:"标准商品套图",description:"围绕已选任务组织表达",target:"product-image",digest:skillDigest,files:null},state:"ENABLED",visibility:"SHARED",allowCopy:true,allowExport:true,createdAt:date};
- const binding={Skill:{kind:"skill-version-v1",id:skillId,ownerKind:"PLATFORM",ownerId:"official",version:1,digest:skillDigest,policyVersion:"skill-method-v1"},PolicyVersion:"image-method-prompt-v1"};
+ const method={skill:{id:skillId,owner:{kind:"PLATFORM",id:"official"},creator:"maintainer",headVersion:version,revision:3,createdAt:date,updatedAt:date},version,package:{name:"product-image-standard",displayName:"标准商品套图",description:"围绕已选任务组织表达",target:"product-image",digest:skillDigest,files:null},state:"ENABLED",visibility:"SHARED",allowCopy:true,allowExport:true,createdAt:date};
+ const binding={Skill:{kind:"skill-version-v1",id:skillId,ownerKind:"PLATFORM",ownerId:"official",version,digest:skillDigest,policyVersion:"skill-method-v1"},PolicyVersion:policy};
  const real=fetch.getMockImplementation()!;
  fetch.mockImplementation((url,init)=>String(url).endsWith("/skills/organization/image-candidates")?Promise.resolve(Response.json({items:[method]})):String(url).endsWith("/prepare")?Promise.resolve(Response.json({...state,plan:{...state.plan,Method:binding}},{status:201})):real(url,init));
  render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
- await screen.findByRole("option",{name:/标准商品套图/});fireEvent.change(screen.getByLabelText("使用的方法/技能（可选）"),{target:{value:`${skillId}:1`}});
+ await screen.findByRole("option",{name:/标准商品套图/});fireEvent.change(screen.getByLabelText("使用的方法/技能（可选）"),{target:{value:`${skillId}:${version}`}});
  await prepare();await screen.findByText(/计划使用的方法：标准商品套图/);
- const request=fetch.mock.calls.find(([url])=>String(url).endsWith("/prepare"));expect(JSON.parse(String(request?.[1]?.body)).skill).toEqual({skillId,version:1,digest:skillDigest});
- expect(screen.getByRole("button",{name:"确认点数并生成"})).toBeEnabled();
+ const request=fetch.mock.calls.find(([url])=>String(url).endsWith("/prepare"));expect(JSON.parse(String(request?.[1]?.body)).skill).toEqual({skillId,version,digest:skillDigest});
+ if(policy==="image-method-prompt-v1"){expect(screen.getByRole("button",{name:"确认点数并生成"})).toBeDisabled();expect(screen.getByText(/该计划保留历史图片方法/)).toBeInTheDocument()}else expect(screen.getByRole("button",{name:"确认点数并生成"})).toBeEnabled();
 });
 it.each(["prepare","regenerate"] as const)("refreshes the mode after a definite %s rejection before creating a new intent",async action=>{
  const initial=await calls.mode();calls.mode.mockClear();let complete!:(value:unknown)=>void;

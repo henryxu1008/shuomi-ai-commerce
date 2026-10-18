@@ -96,7 +96,7 @@ func TestImageMethodMaterialReachesOnlyProviderRequestAfterProductPolicy(t *test
 	_, err = executor.GenerateQuotedSlot(context.Background(), input, quote)
 	require.NoError(t, err)
 	require.True(t, strings.HasPrefix(editor.request.Prompt, input.Slot.Recipe.Prompt))
-	require.Contains(t, editor.request.Prompt, "BEGIN UNTRUSTED METHOD")
+	require.NotContains(t, editor.request.Prompt, "BEGIN UNTRUSTED METHOD")
 	require.Contains(t, editor.request.Prompt, input.ImageMethodText)
 	require.Equal(t, "approved product overview", input.Slot.Recipe.Prompt, "persisted recipe must not acquire method plaintext")
 	input.ImageMethodText = ""

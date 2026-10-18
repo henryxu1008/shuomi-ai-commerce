@@ -83,6 +83,11 @@ type quotedSlotExecution struct {
 }
 
 func (e *ProductImageSlotExecutor) QuoteSlot(ctx context.Context, input imageagent.SlotExecutionInput, policy imageagent.BudgetPolicy) (imageagent.SlotUsageQuote, error) {
+	if input.ImageSet != nil {
+		if err := imageagent.ValidateImageMethodDispatch(input.ImageSet.Method); err != nil {
+			return imageagent.SlotUsageQuote{}, err
+		}
+	}
 	quoted, err := e.quoteSlot(ctx, input, policy)
 	if err != nil {
 		return imageagent.SlotUsageQuote{}, err
@@ -178,6 +183,11 @@ func (e *ProductImageSlotExecutor) GenerateSlot(ctx context.Context, input image
 }
 
 func (e *ProductImageSlotExecutor) generateSlot(ctx context.Context, input imageagent.SlotExecutionInput, quoted *quotedSlotExecution) (imageagent.SlotGeneratedOutput, error) {
+	if input.ImageSet != nil {
+		if err := imageagent.ValidateImageMethodDispatch(input.ImageSet.Method); err != nil {
+			return imageagent.SlotGeneratedOutput{}, providerError(imageagent.ProviderRejectedBeforeEffect, err)
+		}
+	}
 	resolved, err := e.resolveInput(input)
 	if err != nil {
 		return imageagent.SlotGeneratedOutput{}, err
