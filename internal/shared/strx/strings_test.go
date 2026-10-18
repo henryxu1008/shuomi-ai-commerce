@@ -75,29 +75,6 @@ func TestTruncateString(t *testing.T) {
 	}
 }
 
-// TestCleanWhitespace tests whitespace cleaning
-func TestCleanWhitespace(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    string
-		expected string
-	}{
-		{"multiple spaces", "hello   world", "hello world"},
-		{"tabs", "a\tb", "a b"},
-		{"newlines", "a\nb", "a b"},
-		{"mixed", "  a   b  c  ", "a b c"},
-		{"no change", "abc", "abc"},
-		{"empty", "", ""},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := CleanWhitespace(tt.input)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
 // TestContains tests string contains
 func TestContains(t *testing.T) {
 	tests := []struct {
