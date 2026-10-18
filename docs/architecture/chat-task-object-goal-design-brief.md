@@ -1,6 +1,6 @@
 # Chat 通用任务创建与首批内容执行
 
-Status: DESIGN_REVIEW / NOT_IMPLEMENTATION_READY。Design Basis: Independent Architecture。
+Status: IMPLEMENTATION_READY。Design Basis: Independent Architecture。独立 Round 1 审核绑定设计 SHA `24c30d11be7adbd5b27c22e80e00c58c27a6d869`，无设计 BLOCKER；以下范围冻结后进入实现。
 Execution Issue: [#808](https://github.com/qq550723504/task-processor/issues/808)，Parent #298；一个 Delivery Batch、一个 Writer、一个主要 PR。本文先于生产代码；独立检查明确 IMPLEMENTATION_READY 后才开始实现。
 
 ## 1. 产品结果、范围和权威
@@ -50,7 +50,7 @@ aiworkbench仍独占Conversation、消息、PlanningCommand、ExecutionProposal�
 {
   "content":"把描述与卖点整理成英文",
   "taskSelection":{
-    "subject":{"kind":"own_product","id":"<item UUID>","catalogVersion":"3","publicationId":"<original ref>"},
+    "subject":{"kind":"own_product","id":"<item UUID>","catalogVersion":"3","publicationId":"<effective publication ref>"},
     "capability":"product.content.localize",
     "parameters":{"targetLanguage":"en-US","description":true,"sellingPoints":true}
   },
@@ -149,6 +149,8 @@ TDD只针对实际变化：subject/版本/语言/字段严格组合、未授权/
 
 ## 11. 评审状态与Legacy
 
-当前Round0：待第一次独立Architecture Review。Must、Out of Scope和Accepted Risk以上述范围为准。findings先分类；仅符合AGENTS明确后果的BLOCKER重开设计，最多两轮正常检查后冻结，不扩通用平台。
+独立 Round 1：IMPLEMENTATION_READY，准确设计 SHA `24c30d11be7adbd5b27c22e80e00c58c27a6d869`，无设计 BLOCKER。Reviewer 为只读 task_center_final_review。Must、Out of Scope和Accepted Risk以上述范围冻结；仅符合AGENTS明确后果的新BLOCKER重开设计。
+
+两项 IMPLEMENTATION_TEST（合并前收敛）：手动 Review 动作沿原内容 route 赋完整 ContentSelection；自有商品 subject 使用 source DTO 的当前有效 catalogVersion/publicationId，不能误用 originalVersion/originalPublicationId。覆盖非标题多字段审核、Apply 后新任务冻结当前有效 head、陈旧 tuple 拒绝。
 
 Legacy decision: N/A（当前合格Workbench/Content owner演进）。没有Legacy Compatibility、Task-first Product、旧Dashboard/平台Workbench、fallback/双写/ID映射或数据迁移；触及登记旧代码仅EXTRACT/RETIRE。
