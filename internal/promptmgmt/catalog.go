@@ -34,7 +34,6 @@ var promptTemplateCatalogKeys = []string{
 	prompt.KTemuAttributeMappingSystem,
 	prompt.KTemuContentRewriterSystem,
 	prompt.KTemuSkuVariantMappingSystem,
-	prompt.KTemuVisionDetectorDetect,
 	prompt.KProductEnrichLlmScorerTextScoring,
 	prompt.KProductEnrichLlmScorerImageScoring,
 	prompt.KProductEnrichUnderstandingAnalyzeImage,

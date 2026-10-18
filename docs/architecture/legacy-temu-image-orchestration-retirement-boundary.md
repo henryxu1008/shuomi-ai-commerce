@@ -1,5 +1,7 @@
 # 旧 TEMU 图片初始化、校验与并发上传编排退休边界设计
 
+> #807 [图片 API / vision prompt 退休矩阵](legacy-temu-image-api-prompt-retirement-boundary.md)进一步窄替代本文旧 image API/re-export、vision key/default/catalog/专属变量元数据的当批保留；这些对象已 source-retired。其它保留能力、通用 Prompt 语义、已有记录与历史证据不变。
+
 > 后续窄替代：用户确认 #801 [剩余图片执行包退休边界](legacy-temu-image-processing-retirement-boundary.md)后，剩余15文件、孤立 handlerbase.ImageRequirement 与专属 AssetState/两 padded map 闭包也已 source-retired。本文当批保留陈述与检查处置仅对上述对象被新矩阵替代；原取证/批准保留为历史。旧 image API/re-export、vision prompt、DimensionInfo/TextRenderer、共享基础层与此前其它保留能力不变；不授权运行或数据操作。
 
 ## 1. 状态、用户结果与范围

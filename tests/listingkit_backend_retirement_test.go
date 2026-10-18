@@ -12,7 +12,7 @@ import (
 )
 
 func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
-	for _, relative := range []string{"internal/temu/image", "internal/temu/handlerbase/types.go"} {
+	for _, relative := range []string{"internal/temu/image", "internal/temu/handlerbase/types.go", "internal/temu/api/image", "prompts/temu/vision_detector.yaml"} {
 		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
 			t.Errorf("retired image artifact remains: %s (stat: %v)", relative, err)
 		}
@@ -162,8 +162,6 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			"CategoryAPI", "category.API", "NewCategoryAPI", "category.NewAPI",
 			"QueryAPIInterface", "query.QueryAPI", "NewQueryAPI", "query.NewAPI",
 			"query.CostTemplateRequest", "query.CostTemplateResponse",
-			"ImageAPI", "image.API", "NewImageAPI", "image.NewAPI",
-			"image.UploadSignature", "image.UploadResult", "image.ValidationResult",
 		},
 		"internal/temu/api/category/category.go": {
 			"type API struct", "func NewAPI(", "func (a *API) Recommend(", "func (a *API) GetDisclaimer(",
@@ -194,10 +192,6 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			"RuntimeState", "ProductState", "TemplateState", "VariantState", "RuleState", "AISkuMapping",
 			"SetAPIClients", "AttachRuntime", "SetAmazonProduct", "SetVariants", "SetTemuProduct",
 			"type TemplateState struct", "TemplateInfo", "UserInputParentSpecList", "InputMaxSpecNum", "SingleSpecValueNum", "QueryAPI",
-		},
-		"internal/temu/api/image/image.go": {
-			"type API struct", "type ValidationResult struct", "type UploadResult struct", "type UploadSignature struct",
-			"func (a *API) GetUploadSignature(", "func (a *API) UploadWithSignature(", "func (a *API) Upload(",
 		},
 		"internal/temu/handlerbase/property_types.go": {"type DimensionInfo struct"},
 		"internal/temu/rules/text_renderer.go":        {"type TextRenderer struct", "func (r *TextRenderer) DrawSummaryInfo(", "dimensions handlerbase.DimensionInfo"},
@@ -884,6 +878,65 @@ func TestRetiredListingCLIsHaveNoBuildOrDeploymentEntrypoints(t *testing.T) {
 			if strings.Contains(string(content), retired) {
 				t.Errorf("%s still declares or loads retired auto-shard configuration %s", relative, retired)
 			}
+		}
+	}
+}
+
+func TestTemuImageAPIAndVisionResourcesAreRetired(t *testing.T) {
+	apiPaths, err := filepath.Glob(filepath.Join("..", "internal", "temu", "api", "*.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	retiredNames := map[string]bool{
+		"ImageAPI": true, "NewImageAPI": true, "UploadSignature": true,
+		"SignatureResponse": true, "UploadResult": true, "ValidationResult": true,
+	}
+	for _, path := range apiPaths {
+		if strings.HasSuffix(path, "_test.go") {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// Only package declarations recreate the retired root API contract;
+		// selectors, fields, methods and local names can belong to retained APIs.
+		for _, declaration := range file.Decls {
+			var names []*ast.Ident
+			switch declaration := declaration.(type) {
+			case *ast.FuncDecl:
+				if declaration.Recv == nil {
+					names = append(names, declaration.Name)
+				}
+			case *ast.GenDecl:
+				for _, spec := range declaration.Specs {
+					switch spec := spec.(type) {
+					case *ast.TypeSpec:
+						names = append(names, spec.Name)
+					case *ast.ValueSpec:
+						names = append(names, spec.Names...)
+					}
+				}
+			}
+			for _, name := range names {
+				if retiredNames[name.Name] {
+					t.Errorf("%s recreates retired TEMU root API declaration %s", path, name.Name)
+				}
+			}
+		}
+	}
+	for _, relative := range []string{"internal/prompt/keys.go", "internal/promptmgmt/catalog.go", "internal/promptmgmt/catalog_manifest.go"} {
+		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, retired := range []string{"KTemuVisionDetectorDetect", "temu.vision_detector.detect"} {
+			if strings.Contains(string(content), retired) {
+				t.Errorf("%s retains retired vision resource %s", relative, retired)
+			}
+		}
+		if relative == "internal/promptmgmt/catalog_manifest.go" && strings.Contains(string(content), `"Base64Image"`) {
+			t.Errorf("%s retains exclusive vision variable metadata", relative)
 		}
 	}
 }

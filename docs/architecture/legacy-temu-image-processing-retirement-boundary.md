@@ -1,5 +1,7 @@
 # 剩余旧 TEMU 图片构建、标注与上传子链退休边界设计
 
+> 后续窄替代：用户确认 #807 [图片 API / vision prompt 退休矩阵](legacy-temu-image-api-prompt-retirement-boundary.md)后，本文当批保留的旧 image API/re-export、vision key/default/catalog/专属变量元数据也已 source-retired。§3.1/§5 对这些对象的保留仅是 #801 历史边界；其它合同、通用 Prompt 管理/存储和全部保留能力不变，不操作已有覆盖记录、实例或数据。
+
 ## 1. 状态、用户结果与范围
 
 - 日期：2026-10-18；执行依据：#29 / #301 与用户本轮明确授权“先设计、确认后实施”。

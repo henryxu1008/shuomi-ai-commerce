@@ -72,7 +72,6 @@ var promptVariableGlossary = map[string]TemplateVariableDefinition{
 	"SourceValuesBlock":      {Key: "SourceValuesBlock", Label: "来源值集合", Description: "来源规格值集合。"},
 	"AttributeName":          {Key: "AttributeName", Label: "属性名", Description: "当前目标属性名称。"},
 	"ProductTitle":           {Key: "ProductTitle", Label: "商品标题", Description: "当前商品标题。"},
-	"Base64Image":            {Key: "Base64Image", Label: "Base64 图片", Description: "待识别图片的 Base64 编码内容。"},
 }
 
 var promptCatalogMetadata = map[string]promptMetadata{
@@ -205,12 +204,6 @@ var promptCatalogMetadata = map[string]promptMetadata{
 		Label:       "变体映射 / 系统提示词",
 		Description: "Temu SKU 变体映射链路的系统提示词。",
 		Scopes:      tenantOnlyScopes,
-	},
-	prompt.KTemuVisionDetectorDetect: {
-		Label:       "视觉检测 / 系统提示词",
-		Description: "Temu 视觉检测链路的系统提示词。",
-		Scopes:      tenantOnlyScopes,
-		Variables:   promptVars("Base64Image"),
 	},
 	prompt.KProductEnrichLlmScorerTextScoring: {
 		Label:       "文本评分",

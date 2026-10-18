@@ -122,11 +122,12 @@ func TestServiceGetsTemplateSchema(t *testing.T) {
 }
 
 type stubPromptStore struct {
-	list   []prompt.TenantPromptTemplate
-	get    *prompt.TenantPromptTemplate
-	getErr error
-	last   prompt.TenantPromptTemplate
-	status struct {
+	list     []prompt.TenantPromptTemplate
+	get      *prompt.TenantPromptTemplate
+	getErr   error
+	getCalls int
+	last     prompt.TenantPromptTemplate
+	status   struct {
 		tenantID string
 		key      string
 		enabled  bool
@@ -134,6 +135,7 @@ type stubPromptStore struct {
 }
 
 func (s *stubPromptStore) GetEnabled(_ context.Context, tenantID string, key string) (*prompt.TenantPromptTemplate, error) {
+	s.getCalls++
 	if s.getErr != nil {
 		return nil, s.getErr
 	}
@@ -215,5 +217,55 @@ func TestServiceSetStatusReturnsNormalizedPayload(t *testing.T) {
 	}
 	if status.TenantID != "tenant-a" || status.Key != "tmpl.key" || status.Enabled {
 		t.Fatalf("status = %+v", status)
+	}
+}
+
+func TestServiceRetiresTemuVisionCatalog(t *testing.T) {
+	const retiredKey = "temu.vision_detector.detect"
+	originalRegistry := prompt.GlobalRegistry
+	prompt.GlobalRegistry = stubPromptRegistry{contentByKey: map[string]string{retiredKey: "cached content"}}
+	t.Cleanup(func() { prompt.GlobalRegistry = originalRegistry })
+	store := &stubPromptStore{getErr: prompt.ErrTenantPromptNotFound}
+	svc := NewService(store)
+	for _, item := range svc.ListTemplateCatalog() {
+		if item.Key == retiredKey {
+			t.Errorf("catalog still exposes retired key %s", retiredKey)
+		}
+	}
+	if _, err := svc.GetTemplateSchema(retiredKey); !errors.Is(err, ErrTemplateNotFound) {
+		t.Errorf("GetTemplateSchema error = %v, want ErrTemplateNotFound", err)
+	}
+	if _, err := svc.UpsertTenantTemplate(context.Background(), UpsertTemplateInput{
+		TenantID: "tenant-a", Key: retiredKey, Content: "content", Enabled: true,
+	}); !errors.Is(err, ErrTemplateNotFound) {
+		t.Errorf("UpsertTenantTemplate error = %v, want ErrTemplateNotFound", err)
+	}
+	if store.last.Key != "" || store.getCalls != 0 {
+		t.Errorf("retired key reached store: upsert=%+v, getCalls=%d", store.last, store.getCalls)
+	}
+	if _, err := NewService(nil).UpsertTenantTemplate(context.Background(), UpsertTemplateInput{Key: retiredKey}); !errors.Is(err, ErrServiceUnavailable) {
+		t.Errorf("unconfigured store error = %v, want ErrServiceUnavailable", err)
+	}
+}
+
+func TestServicePreservesRowsOutsideCatalog(t *testing.T) {
+	const retiredKey = "temu.vision_detector.detect"
+	store := &stubPromptStore{list: []prompt.TenantPromptTemplate{{
+		TenantID: "tenant-a", Key: retiredKey, Content: "saved override", Enabled: true,
+	}}}
+	svc := NewService(store)
+	items, err := svc.ListTenantTemplates(context.Background(), "tenant-a")
+	if err != nil || len(items) != 1 || items[0].Key != retiredKey || items[0].Content != "saved override" || !items[0].Enabled {
+		t.Fatalf("raw tenant list = %+v, error = %v", items, err)
+	}
+	status, err := svc.SetTenantTemplateStatus(context.Background(), " tenant-a ", " "+retiredKey+" ", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status.TenantID != "tenant-a" || status.Key != retiredKey || status.Enabled || store.status.tenantID != "tenant-a" || store.status.key != retiredKey || store.status.enabled {
+		t.Fatalf("raw row status changed semantics: payload=%+v store=%+v", status, store.status)
+	}
+	if store.last.Key != "" || store.getCalls != 0 {
+		t.Fatal("raw row management must not upsert or render the override")
 	}
 }

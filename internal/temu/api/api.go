@@ -4,7 +4,6 @@ package api
 import (
 	"task-processor/internal/temu/api/category"
 	"task-processor/internal/temu/api/client"
-	"task-processor/internal/temu/api/image"
 	"task-processor/internal/temu/api/inventory"
 	"task-processor/internal/temu/api/pricing"
 	"task-processor/internal/temu/api/product"
@@ -26,7 +25,6 @@ type (
 type (
 	ProductAPI        = product.API
 	CategoryAPI       = category.API
-	ImageAPI          = image.API
 	InventoryAPI      = inventory.API
 	PricingAPI        = pricing.API
 	QueryAPI          = query.API
@@ -90,14 +88,6 @@ type (
 	SearchResponse    = inventory.SearchResponse
 )
 
-// 重新导出图片相关类型
-type (
-	UploadSignature   = image.UploadSignature
-	SignatureResponse = image.SignatureResponse
-	UploadResult      = image.UploadResult
-	ValidationResult  = image.ValidationResult
-)
-
 // 重新导出分类相关类型
 type (
 	CategoryDisclaimResponse  = category.DisclaimResponse
@@ -146,7 +136,6 @@ var (
 	NewProductAPI         = product.NewAPI
 	NewSubmitAPI          = product.NewAPI // Submit/Save/CreateCommit 均在 product.API
 	NewCategoryAPI        = category.NewAPI
-	NewImageAPI           = image.NewAPI
 	NewInventoryAPI       = inventory.NewAPI
 	NewPricingAPI         = pricing.NewAPI
 	NewQueryAPI           = query.NewAPI

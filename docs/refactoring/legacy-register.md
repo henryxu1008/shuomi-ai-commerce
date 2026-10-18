@@ -2,6 +2,19 @@
 
 > Status: Active legacy handling register
 
+> #29 / #301 [TEMU image API / vision prompt retirement](../architecture/legacy-temu-image-api-prompt-retirement-boundary.md)
+> follows user-confirmed design `aa21423ac` in #807. The orphan image API package,
+> its six root re-exports and vision key/default/catalog/exclusive variable metadata
+> are source-retired. This narrowly supersedes their preservation in #801/#797.
+> Current image/platform/shared contracts and standalone SHEIN login/Store sync
+> remain. Generic Prompt Service/Store/Registry/HTTP semantics are unchanged:
+> catalog/schema/Upsert no longer admit the key, while existing rows can retain
+> their original generic list/status/read/render behavior. No row/cache cleanup,
+> workflow/ceiling change, runtime action or new trial prerequisite is authorized.
+>
+> Historical #801 batch boundary below; only its image API/prompt preservation
+> is superseded above. Original evidence and all other retained boundaries remain.
+
 > #29 / #301 [remaining TEMU image execution retirement](../architecture/legacy-temu-image-processing-retirement-boundary.md)
 > follows user-confirmed design `348ec6b6e` in #801. The complete remaining
 > 15-file image package, orphan handlerbase.ImageRequirement and exclusive
