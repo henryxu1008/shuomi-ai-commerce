@@ -38,11 +38,8 @@ type PublishState struct {
 }
 
 type AssetState struct {
-	PaddedImages        map[string][]byte
-	PaddedImageSizes    map[string][2]int
-	CurrentSkuContext   string
-	RequiresImageUpload bool
-	TotalImageCount     int
+	PaddedImages     map[string][]byte
+	PaddedImageSizes map[string][2]int
 }
 
 type VariantState struct {
