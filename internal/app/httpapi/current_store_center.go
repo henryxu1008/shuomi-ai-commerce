@@ -145,6 +145,7 @@ var currentStoreCenterRoutes = []struct{ method, path, permission string }{
 	{http.MethodPost, "/api/v1/workbench/stores/:store_id/connection/complete", authz.PermissionWorkbenchStoreUpdate},
 	{http.MethodPost, "/api/v1/workbench/stores/:store_id/connection/token", authz.PermissionWorkbenchStoreUpdate},
 	{http.MethodPost, "/api/v1/workbench/stores/:store_id/connection/query", authz.PermissionWorkbenchStoreUpdate},
+	{http.MethodPost, "/api/v1/workbench/stores/:store_id/connection/refresh", authz.PermissionWorkbenchStoreUpdate},
 	{http.MethodPost, "/api/v1/workbench/stores/:store_id/connection/disconnect", authz.PermissionWorkbenchStoreUpdate},
 }
 

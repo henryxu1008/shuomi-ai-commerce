@@ -30,6 +30,7 @@ import (
 )
 
 const workbenchChatBase = "/api/v1/workbench/chat/conversations"
+const workbenchSubjectBase = "/api/v1/workbench/chat/subjects"
 const workbenchTaskBase = "/api/v1/workbench/tasks"
 
 type aiWorkbenchModule struct {
@@ -321,7 +322,7 @@ func aiWorkbenchRoutes(a *aiWorkbenchApplication) []httproute.Descriptor {
 		timeout                          time.Duration
 	}
 	specs := []routeSpec{
-		{"GET", "/api/v1/workbench/chat/subjects/:context_kind/:context_id", authz.PermissionWorkbenchChatUse, "subject-read", 15 * time.Second},
+		{"GET", workbenchSubjectBase + "/:context_kind/:context_id", authz.PermissionWorkbenchChatUse, "subject-read", 15 * time.Second},
 		{"GET", workbenchChatBase, authz.PermissionWorkbenchChatRead, "list-conversations", 15 * time.Second},
 		{"POST", workbenchChatBase, authz.PermissionWorkbenchChatUse, "create", 15 * time.Second},
 		{"GET", workbenchChatBase + "/:conversation_id", authz.PermissionWorkbenchChatRead, "get-conversation", 15 * time.Second},
