@@ -330,7 +330,11 @@ func (a *productAgentApplication) freshWorkbenchIdentity(ctx context.Context, pe
 
 func (a *aiWorkbenchApplication) freshWorkbenchIdentity(ctx context.Context, permission string) (authidentity.AuthenticatedIdentity, error) {
 	if a.agent != nil {
-		return a.agent.freshWorkbenchIdentity(ctx, permission)
+		i, err := a.agent.freshWorkbenchIdentity(ctx, permission)
+		if err == nil && !a.admittedOrganization(i.TenantID) {
+			return authidentity.AuthenticatedIdentity{}, agent.ErrUnavailable
+		}
+		return i, err
 	}
 	return freshWorkbenchIdentity(ctx, a.resolver, a.authorizer, a.allowedOrganizationIDs, permission)
 }

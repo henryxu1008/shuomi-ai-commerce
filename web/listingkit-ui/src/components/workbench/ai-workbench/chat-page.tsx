@@ -278,7 +278,7 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
       confirmedTaskId={confirmReceipts[activeProposal.id]?.taskId} onConfirm={() => void confirm(activeProposal)} /> : null}
     {error ? <ConsoleState kind="error" title="操作状态">{error} <Button variant="outline" onClick={() => void detail.refetch()}>刷新收据</Button></ConsoleState> : null}
     {!current.Archived && canUse && (canPlan || pendingMessage) ? <Card className={styles.composer}><h2>{contentTasks?"讨论内容任务":"讨论标题建议"}</h2><p>{contentTasks?"选择商品及待处理内容，确认方案后启动内容 Agent。":"选择原标题任务对象，确认方案后启动标题 Agent。"}</p>
-      {contentTasks?<ChatTaskSelection scope={scope} subject={subject} parameters={parameters} onSubject={setSubject} onParameters={setParameters} disabled={pending||Boolean(pendingMessage)}/>:null}
+      {contentTasks?<ChatTaskSelection authorizationKey={authorizationKey} scope={scope} subject={subject} parameters={parameters} onSubject={setSubject} onParameters={setParameters} disabled={pending||Boolean(pendingMessage)}/>:null}
       <div className={styles.formGrid}>{!contentTasks?<><label>采集操作 ID<input disabled={Boolean(pendingMessage)} value={operationId} onChange={e => setOperationId(e.target.value.trim())} placeholder="从已保存商品采集结果复制操作 ID" /></label>
         <label>目标平台<select disabled={Boolean(pendingMessage)} value={platform} onChange={e => setPlatform(e.target.value as typeof platform)}><option value="shein">SHEIN</option><option value="temu">Temu</option><option value="amazon">Amazon</option></select></label></>:null}
         <label>模板 ID（可选）<input disabled={Boolean(pendingMessage)} value={templateId} onChange={e => setTemplateId(e.target.value.trim())} /></label>

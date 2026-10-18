@@ -32,14 +32,14 @@ import (
 )
 
 func TestChatContentTasksUseOriginalOwnersForMultipleSources(t *testing.T) {
-	for _, mode := range []string{"content flow chat", "own content chat"} {
+	for _, mode := range []string{"content flow chat", "own content chat", "own content chat full_access"} {
 		t.Run(mode, func(t *testing.T) { testProductAgentOwners(t, mode) })
 	}
 }
 
 // Uses the existing domain/HTTP fixture, task-owned PostgreSQL and local model;
 // no serving instance, real credentials or provider are involved.
-func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m productAgentModule, deps routeAuthDependencies, auth *authz.ListingKitAuthorizer, configuration *configstore.Store, operationID string, calls *atomic.Int32, own bool) {
+func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m productAgentModule, deps routeAuthDependencies, auth *authz.ListingKitAuthorizer, configuration *configstore.Store, operationID string, calls *atomic.Int32, own, automatic bool) {
 	ctx := context.Background()
 	a := m.application.content
 	require.NotNil(t, a)
@@ -47,6 +47,10 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 	require.Nil(t, m.application.assets)
 	_, err := configuration.Execute(ctx, agentconfig.Command{Scope: agent.Scope{OrganizationID: "B", ActorID: "admin"}, Key: uuid.NewString(), AgentID: agentconfig.ContentAgentID, Operation: "enable", Absent: true})
 	require.NoError(t, err)
+	if automatic {
+		_, e := configuration.ExecuteMode(ctx, agentconfig.ModeCommand{Identity: agent.ExecutionIdentity{OrganizationID: "B", ActorID: "admin", MemberID: "member-B-admin"}, Subject: a.modeSubject(), Key: uuid.NewString(), Mode: agent.ModeFullAccess})
+		require.NoError(t, e)
+	}
 	actor := authidentity.WithAuthenticatedIdentity(ctx, authidentity.AuthenticatedIdentity{TenantID: "B", EffectiveOrganizationID: "B", UserID: "admin", EffectiveMemberID: "member-B-admin", Roles: []string{"listingkit_admin"}, TokenExpiresAt: time.Now().Add(time.Hour)})
 	actor, err = (productReviewCapabilityBinder{}).Bind(actor, "Bearer admin")
 	require.NoError(t, err)
@@ -141,6 +145,12 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 		require.Equal(t, status, code, string(raw))
 		return raw
 	}
+	// Chat's explicit allowlist may be narrower than the shared content owner.
+	a.config.AllowedOrganizationIDs = []string{"A", "B"}
+	deniedStatus, _, deniedErr := acquisitionHTTPRequest(server, "POST", workbenchChatBase, "admin", "A", uuid.NewString(), `{}`)
+	require.NoError(t, deniedErr)
+	require.NotEqual(t, 200, deniedStatus, "Chat must enforce its own admitted organizations")
+	a.config.AllowedOrganizationIDs = []string{"B"}
 	var sourcePreview struct {
 		Subject    aiworkbench.Subject
 		ProductKey string
@@ -176,6 +186,20 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 	require.EqualValues(t, 3, calls.Load())
 	call("POST", confirmPath, key, nil, 200)
 	require.EqualValues(t, 3, calls.Load())
+	if automatic {
+		require.Equal(t, aiworkbench.TaskCompleted, confirmed.Task.State)
+		require.NotNil(t, confirmed.Task.PolicyAdoption)
+		require.Equal(t, "product.content.policy-adopt-v1", confirmed.Task.PolicyAdoption.ActionVersion)
+		var read struct{ Task workbenchTaskView }
+		require.NoError(t, json.Unmarshal(call("GET", workbenchTaskBase+"/"+confirmed.Task.ID, "", nil, 200), &read))
+		require.Equal(t, confirmed.Task.PolicyAdoption, read.Task.PolicyAdoption)
+		var listed struct{ Tasks []workbenchTaskView }
+		require.NoError(t, json.Unmarshal(call("GET", workbenchTaskBase, "", nil, 200), &listed))
+		require.Len(t, listed.Tasks, 1)
+		require.Equal(t, read.Task.PolicyAdoption, listed.Tasks[0].PolicyAdoption)
+		require.Equal(t, selection, read.Task.PolicyAdoption.Execution.ContentSelection)
+		return
+	}
 	raw := call("POST", workbenchTaskBase+"/"+confirmed.Task.ID+"/review", uuid.NewString(), nil, 200)
 	var reviewed struct{ Task workbenchTaskView }
 	require.NoError(t, json.Unmarshal(raw, &reviewed))

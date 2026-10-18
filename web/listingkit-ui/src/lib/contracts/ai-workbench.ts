@@ -1,15 +1,14 @@
 import { z } from "zod";
-import {contentSelectionSchema} from "./content-selection";
+import {sameContentSelection,contentSelectionSchema} from "./content-selection";
 import {collectionVersion} from "./product-collection";
 import { isAcquisitionUUID } from "./product-acquisition";
 import { productKnowledgeSchema } from "./product-knowledge";
-import {executionModeSchema,modeRevisionSchema,modeSnapshotRefSchema,titlePolicyAdoptionSchema} from "./execution-mode";
+import {executionModeSchema,modeRevisionSchema,modeSnapshotRefSchema,titlePolicyAdoptionSchema,contentPolicyAdoptionSchema} from "./execution-mode";
 
 const id = z.string().refine(isAcquisitionUUID);
-export const aiTaskSubject = z.strictObject({kind:z.enum(["own_product","acquisition"]),id,catalogVersion:collectionVersion,publicationId:z.string().min(1).max(128).regex(/^[A-Za-z0-9][A-Za-z0-9._:-]*$/)});
+const aiTaskSubject = z.strictObject({kind:z.enum(["own_product","acquisition"]),id,catalogVersion:collectionVersion,publicationId:z.string().min(1).max(128).regex(/^[A-Za-z0-9][A-Za-z0-9._:-]*$/)});
 export const aiTaskSelection = z.strictObject({subject:aiTaskSubject,capability:z.literal("product.content.localize"),parameters:contentSelectionSchema});
 export type AITaskSubject=z.infer<typeof aiTaskSubject>;
-export type AITaskSelection=z.infer<typeof aiTaskSelection>;
 const timestamp = z.string().datetime({ offset: true });
 const scope = z.object({ OrganizationID: z.string(), ActorID: z.string() });
 const conversation = z.object({
@@ -34,7 +33,7 @@ const proposal = z.object({
 });
 const task = z.object({
  kind:z.enum(["product.title.optimize","product.content.localize"]).optional(),taskSelection:aiTaskSelection.optional(),
-  executionMode:executionModeSchema.optional(),modeRevision:modeRevisionSchema.optional(),modeSnapshotRef:modeSnapshotRefSchema.optional(),policyAdoption:titlePolicyAdoptionSchema.optional(),
+  executionMode:executionModeSchema.optional(),modeRevision:modeRevisionSchema.optional(),modeSnapshotRef:modeSnapshotRefSchema.optional(),policyAdoption:z.union([titlePolicyAdoptionSchema,contentPolicyAdoptionSchema]).optional(),
   id, conversationId: id, proposalId: id, title: z.string(), goalSummary: z.string(), createdAt: timestamp,
   projectionAvailable: z.boolean(), state: z.enum(["RUNNING", "WAITING_CONFIRMATION", "COMPLETED", "ERROR", "PAUSED"]).optional(),
   reason: z.string().optional(), canStart: z.boolean(), canReconcile: z.boolean(), canResume: z.boolean(), canReview: z.boolean(),
@@ -44,6 +43,13 @@ const task = z.object({
   tokens: z.number().int().optional(), estimatedCostMicros: z.number().int().optional(), currency: z.string().optional(),
   usageStatus: z.string().optional(), reviewId: z.string().optional(), reviewState: z.string().optional(),
   knowledge: productKnowledgeSchema.optional(),
+}).superRefine((value,context)=>{
+ const proof=value.policyAdoption;
+ if(!proof)return;
+ const content=proof.actionVersion==="product.content.policy-adopt-v1";
+ if(content!==(value.kind==="product.content.localize"))context.addIssue({code:"custom",message:"Policy proof must match exact task kind"});
+ if(content&&value.taskSelection){const {subject,parameters}=value.taskSelection,binding=proof.execution.binding;
+ if(subject.kind!==binding.ContextKind||subject.id!==binding.ContextID||subject.catalogVersion!==binding.CatalogVersion||subject.publicationId!==binding.PublicationID||!sameContentSelection(parameters,proof.execution.ContentSelection))context.addIssue({code:"custom",message:"Policy proof must match frozen content intent"});}
 });
 export const aiCreateBody = z.strictObject({ favorite: z.boolean().optional() });
 const aiTitleMessageBody = z.strictObject({

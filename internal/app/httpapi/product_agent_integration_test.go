@@ -159,7 +159,7 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	mode = strings.TrimPrefix(mode, "title-only ")
 	withSkill := strings.Contains(mode, "skill ")
 	mode = strings.Replace(mode, "skill ", "", 1)
-	chatTasks := mode == "content flow chat" || mode == "own content chat"
+	chatTasks := mode == "content flow chat" || strings.HasPrefix(mode, "own content chat")
 	f := newAcquisitionHTTPFixture(t)
 	if withSkill {
 		pool, e := f.owner.DB()
@@ -548,7 +548,7 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		return
 	}
 	if chatTasks {
-		testChatContentThroughOwners(t, f, module.(productAgentModule), deps, auth, configuration, op.OperationID, &calls, mode == "own content chat")
+		testChatContentThroughOwners(t, f, module.(productAgentModule), deps, auth, configuration, op.OperationID, &calls, strings.HasPrefix(mode, "own content chat"), strings.Contains(mode, "full_access"))
 		return
 	}
 	if strings.HasPrefix(mode, "own content ") {
