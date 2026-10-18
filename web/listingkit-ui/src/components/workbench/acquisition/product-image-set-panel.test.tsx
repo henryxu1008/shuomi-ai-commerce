@@ -76,6 +76,38 @@ it.each(["unknown","partial","unsettled","executing"])("does not accept a contra
  expect(imageSetRunSchema.safeParse(released).success).toBe(false);
 });
 
+it.each(["recover","cancel","restart","confirm","resume"] as const)("retains a settled task's saved %s intent with GET-only verification",async action=>{
+ state=projection("blocked",templateId);
+ Object.assign(state,{settledPoints:0,resultDigest:"",releaseSummary:{releasedPoints:20},approvalAvailable:false,candidateSelectionAvailable:false,regenerationAvailable:false,block:{Code:"slot_provider_outcome_unknown"},recoverableEffects:[{SlotID:"main",Attempt:1,Code:"slot_provider_outcome_unknown"}]});
+ state.slots=state.slots.map(slot=>({...slot,status:"blocked",candidates:[],closure:null,errorCode:"slot_provider_outcome_unknown"}));
+ const body=action==="restart"?{planRevision:1,planDigest:sha,quoteDigest:digest}:action==="recover"?{actionId:templateId,planRevision:1,slotId:"main",attempt:1}:action==="confirm"?{actionId:templateId,planRevision:1,planDigest:sha,quoteDigest:digest}:action==="cancel"?{actionId:templateId,planRevision:1}:{actionId:templateId};
+ const key=`product-image-set:actor:org:acquisition:${operation}:intent`,saved=JSON.stringify({action,runId,body});
+ localStorage.setItem(key,saved);
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialRunId={runId}/>);
+ await screen.findByRole("heading",{name:"未生成，点数已释放"});
+ expect(screen.queryByRole("button",{name:/继续原操作|继续原确认/})).toBeNull();
+ expect(screen.getByText(/原请求和编号保留，仅支持只读核实/)).toBeVisible();
+ fireEvent.click(screen.getByRole("button",{name:"核实原请求"}));
+ await waitFor(()=>expect(screen.getByRole("button",{name:"核实原请求"})).toBeEnabled());
+ expect(localStorage.getItem(key)).toBe(saved);
+ expect(fetch.mock.calls.some(([,init])=>init?.method==="POST")).toBe(false);
+ expect(screen.queryByRole("button",{name:/继续原操作|继续原确认/})).toBeNull();
+});
+
+it.each(["another_run","new_regeneration"])("does not suppress an independent pending %s because the selected run was released",async scenario=>{
+ state=projection("blocked",templateId);
+ Object.assign(state,{settledPoints:0,resultDigest:"",releaseSummary:{releasedPoints:20},approvalAvailable:false,candidateSelectionAvailable:false,regenerationAvailable:false});
+ state.slots=state.slots.map(slot=>({...slot,status:"blocked",candidates:[],closure:null}));
+ const intent=scenario==="another_run"?{action:"cancel",runId:operation,body:{actionId:templateId,planRevision:1}}:{action:"regenerate",runId,requestKey:operation,body:{expectedModeRevision:"0",target:{Platform:"product"}}};
+ const key=`product-image-set:actor:org:acquisition:${operation}:intent`,saved=JSON.stringify(intent);
+ localStorage.setItem(key,saved);
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialRunId={runId}/>);
+ await screen.findByRole("heading",{name:"未生成，点数已释放"});
+ expect(screen.getByRole("button",{name:"继续原操作"})).toBeVisible();
+ expect(localStorage.getItem(key)).toBe(saved);
+ expect(fetch.mock.calls.some(([,init])=>init?.method==="POST")).toBe(false);
+});
+
 it("allows method inspection with an authorized empty source while model readiness keeps preparation closed",async()=>{
  const real=fetch.getMockImplementation()!;
  fetch.mockImplementation((url,init)=>String(url).endsWith("/agents/product.image.agent")?Promise.resolve(Response.json({...entry,canUse:false,capabilities:[{...entry.capabilities[0],readiness:"UNAVAILABLE",reason:"模型配置尚未就绪"}]})):String(url).endsWith("/images/sources")?Promise.resolve(Response.json({contextKind:"acquisition",contextId:operation,source,manualReplacementAvailable:false,originals:[],evidence:{}})):real(url,init));

@@ -69,6 +69,7 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
  const {userId,organizationId,kind,contextId}=scope;
  const stableScope=useMemo(()=>({userId,organizationId,kind,contextId}),[userId,organizationId,kind,contextId]);
  const locked=busy||!!intent||mediaBlocked;
+ const releasedIntent=!!intent&&imageIntentTargetsReleasedRun(intent,run);
  useEffect(()=>context.registerOrganizationSwitchGuard(()=>!flight.current),[context]);
  useEffect(()=>{active.current=true;return()=>{active.current=false;abort.current?.abort()}},[]);
  const fail=useCallback((value:unknown)=>{setError(value instanceof ImageSetError?value.code:value instanceof Error?value.message:"IMAGE_UNAVAILABLE")},[]);
@@ -180,8 +181,9 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
    if(intent.action==="prepare"||intent.action==="regenerate"){
     const p=await imageSetRequest(stableScope,"verify-prepare",imageSetRunSchema,{requestKey:intent.requestKey,signal:controller.signal});if(controller.signal.aborted)return;acceptPreparation(p);
    }else{
-    if(intent.action==="approve"){const body=intent.body as ImageSetSelection;const receipt=await imageSetRequest(stableScope,"approval",imageSetApprovalSchema,{runId:intent.runId,approvalId:body.actionId,signal:controller.signal});if(controller.signal.aborted)return;if(receipt.selectionDigest!==body.selectionDigest)throw new ImageSetError("IMAGE_SELECTION_CHANGED",409);clearIntent();setMessage("原批准已核实，正在读取任务状态。");await readRun(intent.runId!,controller.signal);return}
+    if(intent.action==="approve"&&!releasedIntent){const body=intent.body as ImageSetSelection;const receipt=await imageSetRequest(stableScope,"approval",imageSetApprovalSchema,{runId:intent.runId,approvalId:body.actionId,signal:controller.signal});if(controller.signal.aborted)return;if(receipt.selectionDigest!==body.selectionDigest)throw new ImageSetError("IMAGE_SELECTION_CHANGED",409);clearIntent();setMessage("原批准已核实，正在读取任务状态。");await readRun(intent.runId!,controller.signal);return}
     const p=await readRun(intent.runId!,controller.signal);if(!p||controller.signal.aborted)return;
+    if(imageIntentTargetsReleasedRun(intent,p)){setMessage("核实结果：未生成，点数已释放。原请求和编号保留，仅支持只读核实。");return}
     const body=intent.body as {actionId:string;planRevision?:number;slotId?:string;attempt?:number;planDigest?:string;quoteDigest?:string};
     if(intent.action==="resume"&&p.status==="completed"){
      await imageSetRequest(stableScope,"approval",imageSetApprovalSchema,{runId:intent.runId,approvalId:body.actionId,signal:controller.signal});if(controller.signal.aborted)return;clearIntent();setMessage("原保存动作已由不可变批准回执核实。");return;
@@ -268,7 +270,7 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
   <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-lg font-semibold">商品图片智能体</h2><p className="mt-1 text-sm text-muted-foreground">整套主图与详情图 · 真实素材 · 逐图人工审核</p></div><Button asChild variant="outline" size="sm"><Link href="/workbench/agents/mine/product.image.agent">配置与模板</Link></Button></div>
   {error?<p role="alert" className="rounded-lg bg-warning p-3 text-sm">{reasons[error]??error}</p>:null}{message?<p role="status" className="text-sm text-success-foreground">{message}</p>:null}
   {loading?<p className="text-sm text-muted-foreground">正在读取企业配置与真实商品素材…</p>:!available?<p className="text-sm text-muted-foreground">{entry?.agent.activation==="DISABLED"?"智能体已停用，已有任务仍可核实与审核。":entry?.capabilities.find(c=>c.id==="image.generate")?.reason||"当前完整图片流程不可用。"}</p>:null}
-  {intent?<div className="rounded-lg border border-warning-foreground bg-warning p-4 text-sm"><p>保留原请求：{intent.requestKey??(intent.action==="restart"?intent.runId:(intent.body as {actionId:string}).actionId)}</p><p className="mt-1 text-xs">继续操作沿用原编号与参数；暂未找到不能视为未执行。</p><Button className="mt-3" variant="outline" disabled={busy} onClick={()=>void verify()}>核实原请求</Button>{intent.action==="confirm"&&run&&run.runId===intent.runId&&(!run.confirmationActionId||run.confirmationActionId===(intent.body as {actionId:string}).actionId)&&run.status!=="completed"&&run.status!=="cancelled"?<Button className="ml-2" variant="outline" disabled={busy} onClick={()=>void send(intent,true)}>继续原确认</Button>:null}{intent.action!=="confirm"?<Button className="ml-2" variant="outline" disabled={busy} onClick={()=>void send(intent,true)}>继续原操作</Button>:null}</div>:null}
+  {intent?<div className={releasedIntent?"rounded-lg border border-border bg-muted p-4 text-sm":"rounded-lg border border-warning-foreground bg-warning p-4 text-sm"}><p>保留原请求：{intent.requestKey??(intent.action==="restart"?intent.runId:(intent.body as {actionId:string}).actionId)}</p><p className="mt-1 text-xs">{releasedIntent?"该任务未生成，点数已释放。原请求和编号保留，仅支持只读核实。":"继续操作沿用原编号与参数；暂未找到不能视为未执行。"}</p><Button className="mt-3" variant="outline" disabled={busy} onClick={()=>void verify()}>核实原请求</Button>{!releasedIntent&&intent.action==="confirm"&&run&&run.runId===intent.runId&&(!run.confirmationActionId||run.confirmationActionId===(intent.body as {actionId:string}).actionId)&&run.status!=="completed"&&run.status!=="cancelled"?<Button className="ml-2" variant="outline" disabled={busy} onClick={()=>void send(intent,true)}>继续原确认</Button>:null}{!releasedIntent&&intent.action!=="confirm"?<Button className="ml-2" variant="outline" disabled={busy} onClick={()=>void send(intent,true)}>继续原操作</Button>:null}</div>:null}
   {!loading&&sources&&context.permissions.includes("listingkit.image_agent.write")?<SkillPicker scope={stableScope} target="product-image" disabled={locked} onChange={onMethodChange}/>:null}
   {!loading&&sources&&!sources.originals.length?<p className="text-sm text-muted-foreground">当前商品没有原始图片，补充真实素材后才能准备生成计划。</p>:null}
   {available&&sources?<>
@@ -308,6 +310,8 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
 }
 
 function imageResultLabel(run:Pick<ImageSetRun,"status"|"releaseSummary">){return run.releaseSummary?"未生成，点数已释放":stateNames[run.status]??run.status}
+
+function imageIntentTargetsReleasedRun(intent:Intent,run:ImageSetRun|undefined){return !!run?.releaseSummary&&intent.runId===run.runId&&intent.action!=="regenerate"&&intent.action!=="prepare"}
 
 function ReleasedImageResult({run,scope,busy,onRefresh}:{run:ImageSetRun;scope:ImageSetScope;busy:boolean;onRefresh:()=>void}){
  return <>
