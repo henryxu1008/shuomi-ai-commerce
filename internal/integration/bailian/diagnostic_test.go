@@ -15,13 +15,13 @@ import (
 	"task-processor/internal/ai"
 )
 
-func TestUnknownDiagnosticIsBoundedAndNeverChangesDispatch(t *testing.T) {
+func TestOutcomeDiagnosticIsBoundedAndNeverReplaysDispatch(t *testing.T) {
 	const requestID = "12345678-1234-1234-1234-123456789012"
 	for _, tc := range []struct {
 		name, body, code, stage string
 		status                  int
 	}{
-		{"quota", `{"code":"AllocationQuota.FreeTierOnly","message":"secret-key private-prompt private-url","request_id":"` + requestID + `"}`, "AllocationQuota.FreeTierOnly", "http_status", 403},
+		{"quota", `{"code":"AllocationQuota.FreeTierOnly","message":"secret-key private-prompt private-url","request_id":"` + requestID + `"}`, "AllocationQuota.FreeTierOnly", "request_rejected", 403},
 		{"untrusted_fields", `{"code":"secret-key","message":"private-prompt","request_id":"private-url"}`, "unrecognized", "http_status", 400},
 		{"invalid_json", `{`, "", "response_json", 200},
 		{"contract", strings.Replace(successBody(), `"output_image_count":1`, `"output_image_count":2`, 1), "", "response_contract", 200},
@@ -38,7 +38,12 @@ func TestUnknownDiagnosticIsBoundedAndNeverChangesDispatch(t *testing.T) {
 			client, err := NewClient(cfg, func(context.Context, Observation) error { observed++; return nil })
 			require.NoError(t, err)
 			_, err = client.EditImageWithRoute(context.Background(), &ai.ImageEditRequest{Model: Model, Prompt: "private-prompt", Image: sourcePNG(t), ImageContentType: "image/png"}, fixtureRoute())
-			require.ErrorIs(t, err, errUnknown)
+			if tc.name == "quota" {
+				var rejection *QuotaRejection
+				require.ErrorAs(t, err, &rejection)
+			} else {
+				require.ErrorIs(t, err, errUnknown)
+			}
 			require.Equal(t, 1, calls)
 			require.Zero(t, observed)
 			require.Len(t, diagnostics, 1)

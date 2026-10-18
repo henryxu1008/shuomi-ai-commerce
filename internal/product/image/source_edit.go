@@ -2,10 +2,23 @@ package image
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"strings"
 )
 
 const SourceEditOperation = "render_source_edit"
+
+// SourceEditPreflightError proves validation returned before the backend call.
+// The digest binds the exact attempted prompt without retaining its contents.
+type SourceEditPreflightError struct {
+	Digest string
+	cause  error
+}
+
+func (e *SourceEditPreflightError) Error() string        { return e.cause.Error() }
+func (e *SourceEditPreflightError) Unwrap() error        { return e.cause }
+func (*SourceEditPreflightError) NoExternalEffect() bool { return true }
 
 // SourceEditRequest edits exact original references into one candidate. Sources
 // carry provenance; the separate in-process bytes never enter public metadata.
@@ -36,7 +49,8 @@ func (c *sourceEditCapability) EditSources(ctx context.Context, request SourceEd
 	}
 	cloned, err := CloneSourceEditRequest(request)
 	if err != nil {
-		return Candidate{}, err
+		sum := sha256.Sum256([]byte(request.Prompt))
+		return Candidate{}, &SourceEditPreflightError{Digest: hex.EncodeToString(sum[:]), cause: err}
 	}
 	candidate, err := c.backend.EditSources(ctx, cloned)
 	if contextErr := contextError(ctx); contextErr != nil {

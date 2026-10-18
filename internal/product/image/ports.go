@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"math"
 	"net"
 	"net/url"
@@ -814,6 +815,12 @@ func contextError(ctx context.Context) error {
 }
 
 func capabilityError(err error) error {
+	// Preserve bounded typed refusal evidence for the enclosing generation
+	// owner. Generic backend errors must continue to lose provider details.
+	var refused interface{ NoExternalEffect() bool }
+	if errors.As(err, &refused) && refused.NoExternalEffect() {
+		return fmt.Errorf("%w: %w", ErrExternalCapabilityUnavailable, err)
+	}
 	if err == nil {
 		return nil
 	}

@@ -55,6 +55,7 @@ func TestRepositoryContract(t *testing.T) {
 			testSlotResultRetryAndAttemptOrdering(t, tt.new(t))
 			testAppendedEventIsVisibleInCursorOrder(t, tt.new(t))
 			testProjectionEventsAllocateOneDurableCursorPerChange(t, tt.new(t))
+			testProjectionCommitAfterIndependentEvidenceEvent(t, tt.new(t))
 			testAuthorizedAssetCatalogRoundTripsAndCannotBeReplaced(t, tt.new(t))
 			testMissingCatalogManifestDiffersFromLegitimateEmptyCatalog(t, tt.new(t))
 			testProjectionCommitRollbackHidesEventSnapshotAndNormalizedWrites(t, tt.new(t))
@@ -68,6 +69,35 @@ func TestRepositoryContract(t *testing.T) {
 			testPublicationUnknownActionsSurviveProjectionRefresh(t, tt.new(t))
 		})
 	}
+}
+
+func testProjectionCommitAfterIndependentEvidenceEvent(t *testing.T, repo repositoryContract) {
+	t.Helper()
+	ctx := context.Background()
+	scope := initializeSlotEffectRun(t, repo, "run-evidence-cursor")
+	before, err := repo.GetProjection(ctx, scope)
+	require.NoError(t, err)
+	evidence, err := repo.AppendProjectionEvent(ctx, imageagent.RunEvent{TenantID: scope.TenantID, OwnerUserID: scope.OwnerUserID, RunID: scope.RunID, Type: "generation.no_generation", Payload: []byte(`{}`)})
+	require.NoError(t, err)
+	unchanged, err := repo.GetProjection(ctx, scope)
+	require.NoError(t, err)
+	require.Equal(t, before, unchanged, "evidence must not rewrite the historical business snapshot")
+	commit := imageagent.ProjectionCommit{Scope: scope, CommitID: "after-evidence", ExpectedProjectionVersion: before.ProjectionVersion, Snapshot: before, EventType: "command.receipt.updated", EventPayload: []byte(`{}`)}
+	after, err := repo.CommitProjection(ctx, commit)
+	require.NoError(t, err)
+	require.Equal(t, evidence.Cursor+1, after.LastEventID)
+	require.Equal(t, after.LastEventID, after.ProjectionVersion)
+	replayed, err := repo.CommitProjection(ctx, commit)
+	require.NoError(t, err)
+	require.Equal(t, after, replayed)
+	events, err := repo.ListEvents(ctx, scope, before.LastEventID, 10)
+	require.NoError(t, err)
+	require.Len(t, events, 2)
+	require.Equal(t, []int64{evidence.Cursor, after.LastEventID}, []int64{events[0].Cursor, events[1].Cursor})
+	stale := commit
+	stale.CommitID = "stale-after-evidence"
+	_, err = repo.CommitProjection(ctx, stale)
+	require.ErrorIs(t, err, imageagent.ErrRevisionConflict)
 }
 
 func testProjectionCommitAtomicallyPersistsRecoveryRegistryAndOrderedSlotMutations(t *testing.T, repo repositoryContract) {

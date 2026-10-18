@@ -47,7 +47,11 @@ func TestGenerationProviderFactoryUsesBoundQwenAdapterAndOriginalObservation(t *
 	}
 }
 
-func testGenerationProviderFactoryUsesBoundQwenAdapter(t *testing.T, model string) {
+func TestGenerationProviderRefusalSurvivesCapabilityAndToolBoundaries(t *testing.T) {
+	testGenerationProviderFactoryUsesBoundQwenAdapter(t, "qwen-image-3.0-pro", true)
+}
+
+func testGenerationProviderFactoryUsesBoundQwenAdapter(t *testing.T, model string, refused ...bool) {
 	var pngBytes bytes.Buffer
 	require.NoError(t, png.Encode(&pngBytes, image.NewRGBA(image.Rect(0, 0, 1024, 1024))))
 	dispatches, observed, downloads := 0, 0, 0
@@ -63,6 +67,9 @@ func testGenerationProviderFactoryUsesBoundQwenAdapter(t *testing.T, model strin
 		messages := payload["input"].(map[string]any)["messages"].([]any)
 		content := messages[0].(map[string]any)["content"].([]any)
 		require.Equal(t, expectedPrompt, content[len(content)-1].(map[string]any)["text"], "prompt bytes must remain exact")
+		if len(refused) > 0 && refused[0] {
+			return &http.Response{StatusCode: 403, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(`{"code":"AllocationQuota.FreeTierOnly","message":"quota exhausted","request_id":"070f62f5-244a-9703-85c5-a5f0c0d039e0"}`))}, nil
+		}
 		return &http.Response{StatusCode: 200, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(`{"request_id":"qwen-receipt","output":{"choices":[{"finish_reason":"stop","message":{"role":"assistant","content":[{"image":"https://output.example/result.png"}]}}]},"usage":{"input_image_count":1,"output_image_count":1,"output_width":1024,"output_height":1024}}`))}, nil
 	})}, generatedFetcher: func(context.Context, string) ([]byte, error) {
 		downloads++
@@ -91,6 +98,17 @@ func testGenerationProviderFactoryUsesBoundQwenAdapter(t *testing.T, model strin
 	require.Equal(t, "bailian", quote.Operations[0].Provider)
 	require.Equal(t, model, quote.Operations[0].Model)
 	result, err := prepared.Executor.GenerateQuotedSlot(context.Background(), input, quote)
+	if len(refused) > 0 && refused[0] {
+		require.Error(t, err)
+		proof, known := prepared.Rejection(err)
+		require.True(t, known, "capability/tool wrapping must retain typed refusal evidence")
+		require.Equal(t, "bailian_free_tier", proof.Kind)
+		require.Equal(t, "070f62f5-244a-9703-85c5-a5f0c0d039e0", proof.RequestID)
+		require.Zero(t, observed)
+		require.Zero(t, downloads)
+		require.Equal(t, 1, dispatches)
+		return
+	}
 	require.NoError(t, err)
 	require.Len(t, result.Assets, 1)
 	require.Equal(t, 1, dispatches)

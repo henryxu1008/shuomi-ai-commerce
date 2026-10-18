@@ -23,8 +23,9 @@ type GenerationProviderMetadata struct {
 	Points                                                                                 int64
 }
 type PreparedGenerationProvider struct {
-	Metadata GenerationProviderMetadata
-	Executor BudgetedStagedSlotExecutor
+	Metadata  GenerationProviderMetadata
+	Executor  BudgetedStagedSlotExecutor
+	Rejection func(error) (GenerationRejection, bool)
 }
 type GenerationExecutionDependencies struct {
 	Methods            ImageMethodContext
@@ -81,7 +82,10 @@ func (e *GenerationExecution) GenerateQuotedSlot(ctx context.Context, input Slot
 	id := SlotExternalEffectIdentity{RunScope: RunScope{TenantID: input.TenantID, OwnerUserID: input.UserID, RunID: input.RunID}, PlanRevision: input.PlanRevision, SlotID: input.Slot.ID, Attempt: input.Attempt}
 	// Existing attempts are exclusively reconciled by the effect recovery owner.
 	// A readback (including a prepared row) can never grant a new POST permit.
-	if _, err := e.dependencies.Facts.ReadGenerationFact(ctx, id); err == nil {
+	if fact, err := e.dependencies.Facts.ReadGenerationFact(ctx, id); err == nil {
+		if fact.State == GenerationNoEffect {
+			return reject(ErrCommandBlocked)
+		}
 		return generationUnknown(ErrRevisionConflict)
 	} else if !errors.Is(err, ErrRunNotFound) {
 		return generationUnknown(err)
@@ -235,6 +239,19 @@ func (e *GenerationExecution) GenerateQuotedSlot(ctx context.Context, input Slot
 		return generationUnknown(readErr)
 	}
 	if fact.State != GenerationSucceeded {
+		if provider.Rejection != nil && dispatchErr != nil {
+			if proof, known := provider.Rejection(dispatchErr); known {
+				if recorder, ok := e.dependencies.Facts.(GenerationRejectionRecorder); ok {
+					if _, err := recorder.RecordGenerationRejection(finalCtx, intent, proof); err != nil {
+						return generationUnknown(err)
+					}
+					if err := e.finalize(finalCtx, intent); err != nil {
+						return generationUnknown(err)
+					}
+					return reject(dispatchErr)
+				}
+			}
+		}
 		if _, err := e.dependencies.Facts.MarkGenerationUnknown(finalCtx, intent); err != nil {
 			return generationUnknown(err)
 		}

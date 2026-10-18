@@ -33,7 +33,10 @@ func (a *Activities) reconcileGenerationBeforeExecution(ctx context.Context, run
 	// still requires the complete live authorization and catalog boundary.
 	finalization, cancel := providerFinalizationContext(ctx)
 	defer cancel()
-	_, err := a.generationRecovery.ReconcileExistingGeneration(finalization, imageagent.SlotExternalEffectIdentity{RunScope: imageagent.RunScope{TenantID: identity.TenantID, OwnerUserID: identity.UserID, RunID: runID}, PlanRevision: revision, SlotID: slotID, Attempt: attempt})
+	state, err := a.generationRecovery.ReconcileExistingGeneration(finalization, imageagent.SlotExternalEffectIdentity{RunScope: imageagent.RunScope{TenantID: identity.TenantID, OwnerUserID: identity.UserID, RunID: runID}, PlanRevision: revision, SlotID: slotID, Attempt: attempt})
+	if err == nil && state == imageagent.GenerationNoEffect {
+		return &imageagent.ProviderDispatchError{State: imageagent.ProviderRejectedBeforeEffect, Err: imageagent.ErrCommandBlocked}
+	}
 	return err
 }
 
