@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -181,11 +182,54 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 		Task   workbenchTaskView
 		Replay bool
 	}
-	require.NoError(t, json.Unmarshal(call("POST", confirmPath, key, nil, 200), &confirmed))
+	var competing [2]struct {
+		key  string
+		code int
+		body []byte
+		err  error
+	}
+	var confirmations sync.WaitGroup
+	for index := range competing {
+		competing[index].key = uuid.NewString()
+		confirmations.Add(1)
+		go func(index int) {
+			defer confirmations.Done()
+			result := &competing[index]
+			result.code, result.body, result.err = acquisitionHTTPRequest(server, "POST", confirmPath, "admin", "B", result.key, "")
+		}(index)
+	}
+	confirmations.Wait()
+	createdCount := 0
+	for _, result := range competing {
+		require.NoError(t, result.err)
+		if result.code == http.StatusOK {
+			createdCount++
+			key = result.key
+			require.NoError(t, json.Unmarshal(result.body, &confirmed))
+		} else {
+			require.Equal(t, http.StatusConflict, result.code, string(result.body))
+		}
+	}
+	require.Equal(t, 1, createdCount, "different confirmation keys for one proposal must share the original T1 fence")
 	require.NotEmpty(t, confirmed.Task.ID)
 	require.EqualValues(t, 3, calls.Load())
 	call("POST", confirmPath, key, nil, 200)
 	require.EqualValues(t, 3, calls.Load())
+	call("POST", confirmPath, uuid.NewString(), nil, 409)
+	require.EqualValues(t, 3, calls.Load(), "a new browser key cannot execute the same confirmed proposal twice")
+	// A different browser has no sessionStorage confirmation key. The owner
+	// must still return its durable receipt, even if execution readiness changes.
+	var reopened struct {
+		Proposals []struct {
+			ConfirmedTaskID string `json:"confirmedTaskId"`
+		}
+	}
+	require.NoError(t, json.Unmarshal(call("GET", workbenchChatBase+"/"+created.Conversation.ID, "", nil, 200), &reopened))
+	require.Len(t, reopened.Proposals, 1)
+	require.Equal(t, confirmed.Task.ID, reopened.Proposals[0].ConfirmedTaskID)
+	require.NoError(t, json.Unmarshal(call("POST", messagePath, messageKey, body, 200), &planned))
+	require.Equal(t, confirmed.Task.ID, planned.Proposal.ConfirmedTaskID)
+	require.EqualValues(t, 1, planningCalls.Load())
 	if automatic {
 		require.Equal(t, aiworkbench.TaskCompleted, confirmed.Task.State)
 		require.NotNil(t, confirmed.Task.PolicyAdoption)
@@ -212,6 +256,8 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 	var completed struct{ Task workbenchTaskView }
 	require.NoError(t, json.Unmarshal(call("GET", workbenchTaskBase+"/"+confirmed.Task.ID, "", nil, 200), &completed))
 	require.Equal(t, aiworkbench.TaskCompleted, completed.Task.State)
+	require.NoError(t, json.Unmarshal(call("GET", workbenchChatBase+"/"+created.Conversation.ID, "", nil, 200), &reopened))
+	require.Equal(t, confirmed.Task.ID, reopened.Proposals[0].ConfirmedTaskID, "a newer adopted product version does not erase the prior task receipt")
 	call("POST", confirmPath, key, nil, 200)
 	require.EqualValues(t, 3, calls.Load(), "receipt-first replay after Apply cannot dispatch again")
 	stale := call("POST", messagePath, uuid.NewString(), body, 409)
@@ -243,6 +289,9 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 	require.Error(t, workstore.VerifySchema(ctx, db), "a same-named weakened check must stop serving")
 	for _, who := range [][2]string{{"admin", "A"}, {"reviewer", "B"}} {
 		code, _, e := acquisitionHTTPRequest(server, "GET", workbenchTaskBase+"/"+stored.ID, who[0], who[1], "", "")
+		require.NoError(t, e)
+		require.NotEqual(t, 200, code)
+		code, _, e = acquisitionHTTPRequest(server, "GET", workbenchChatBase+"/"+created.Conversation.ID, who[0], who[1], "", "")
 		require.NoError(t, e)
 		require.NotEqual(t, 200, code)
 	}

@@ -21,8 +21,6 @@ import (
 	k "task-processor/internal/knowledge"
 	"task-processor/internal/product/enrichment"
 	skill "task-processor/internal/skill"
-
-	sigjson "sigs.k8s.io/json"
 )
 
 type SnapshotReader interface {
@@ -295,27 +293,30 @@ func (m *AgentTextModel) Decide(ctx context.Context, in agent.ModelInput) (agent
 	var action agent.Action
 	var citations []agent.ContextCitationRef
 	validate := func(raw string) error {
-		if len(raw) > agent.MaxModelOutputBytes {
-			return governed.ErrInvalid
+		reject := func(code, field string) error {
+			err := &actionOutputError{Code: code, Field: field}
+			reportActionOutputFailure(p.ctx, in.InvocationID, raw, err)
+			return err
 		}
-		strict, decodeErr := sigjson.UnmarshalStrict([]byte(raw), &action)
-		if decodeErr != nil || len(strict) != 0 ||
-			(action.Kind != "tool" && action.Kind != "propose" && action.Kind != "interrupt") {
-			return governed.ErrInvalid
+		var decodeErr error
+		action, decodeErr = decodeModelAction(raw)
+		if decodeErr != nil {
+			reportActionOutputFailure(p.ctx, in.InvocationID, raw, decodeErr)
+			return decodeErr
 		}
 		if m.materials && m.materialsAdmission.ValidateAction(action) != nil {
-			return governed.ErrInvalid
+			return reject("domain_action", "DomainProposal")
 		}
 		if m.diagnosis && m.diagnosisAdmission.ValidateAction(action) != nil {
-			return governed.ErrInvalid
+			return reject("domain_action", "DomainProposal")
 		}
 		if m.selection && m.selectionAdmission.ValidateAction(action) != nil {
-			return governed.ErrInvalid
+			return reject("domain_action", "DomainProposal")
 		}
 		var valid bool
 		citations, valid = validatedKnowledgeCitations(p.knowledge, in.ContextSnapshotRef, action)
 		if !valid {
-			return governed.ErrInvalid
+			return reject("context_citation", "ContextCitationIDs")
 		}
 		action.ContextCitationIDs = nil
 		return nil

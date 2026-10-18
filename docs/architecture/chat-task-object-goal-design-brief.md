@@ -164,3 +164,12 @@ Legacy decision: N/A（当前合格Workbench/Content owner演进）。没有Lega
 操作入口 `/workbench/ai/chat/new`：创建会话 → 从我的数据选商品 → 选语言与字段 → 填需求 → 核对对象版本、内容、执行权限与任务总上限 → 确认 → `/workbench/ai/tasks` 查看原运行/审核。描述与卖点等非标题字段可选；图片及尚未接入的对象类型不伪造可用入口。原 UNKNOWN 和未核实消息继续使用原键恢复。
 
 现有保留实例仍使用其原 schema/程序。本 PR 不切换运行、不执行真实 DDL、不生成新业务数据，也不调用真实 provider。当前模型需要的三列和两个组合 CHECK 尚未授权应用到保留库；直接把新程序指向缺少该模型的库会启动失败。这一部署前置不能通过自动迁移或清空数据规避。受控 HTTP/模型 fixture 与前端组件测试仅是开发证据，浏览器实测、真实 provider 和用户验收须如实保留 NOT_RUN。
+
+## 13. 冻结合同内的实现修正
+
+本节说明原合同的准确消费方式，不改变上面的事实 owner、状态、事务、权限、预算或 UNKNOWN 协议；实际运行授权及结果维护于 Issue #808。
+
+- 原 `FieldChange.Value` 始终为字符串。`selling_points` / `seo_keywords` 的完整 JSON 字符串数组须编码在该字符串内；模型不能直接返回数组类型。固定提示提供可严格解析的完整多字段示例，显式映射 ContentSelection 的 camelCase 与内容字段名。仍使用原严格 JSON 解码，未知字段、重复键、错误类型及不合法引用不做兼容转换。
+- 结构失败的本地诊断只记录封闭错误类别、已知合同字段路径、调用及输出摘要；不记录模型正文、未知键名、商品文本或凭据，不改变原失败及用量结算。
+- 会话读取与原消息收据读取通过当前 scope + conversation + proposal 查找原 BusinessTask，返回 `confirmedTaskId`。该值来自原 T1 事实，不能以 sessionStorage 的 taskId 替代；浏览器只恢复未结束操作键。当前商品/配置已变化或执行 consumer 不可用不抹去已确认任务链接，详情仍按原权限读取。
+- 一提案只确认一个 BusinessTask：原 scoped-key 回放优先；不同确认键在原 Conversation 锁内检查已存在提案任务并拒绝再次创建，不增加新事务、锁、表或恢复 owner。历史冲突事实如被发现须 fail closed 并报告，不自动合并或删除。
