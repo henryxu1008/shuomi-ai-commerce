@@ -64,6 +64,19 @@ func TestGenerationRejectionSettlesOriginalReservationOnceAndRetainsFence(t *tes
 	require.Zero(t, bucket.Consumed)
 	require.NoError(t, owner.db.Model(&eventRecord{}).Where("type = ?", "generation.no_generation").Count(&count).Error)
 	require.EqualValues(t, 1, count)
+	// A retained parent conversation must be able to save after the evidence
+	// event, without rewriting the blocked historical snapshot or its receipt.
+	current, err := owner.GetProjection(context.Background(), intent.Identity.RunScope)
+	require.NoError(t, err)
+	var evidence eventRecord
+	require.NoError(t, owner.db.Where("type = ?", "generation.no_generation").First(&evidence).Error)
+	commit := imageagent.ProjectionCommit{Scope: intent.Identity.RunScope, CommitID: "parent:after-rejection", ExpectedProjectionVersion: current.ProjectionVersion, Snapshot: current, EventType: "command.receipt.updated", EventPayload: []byte(`{}`)}
+	next, err := owner.CommitProjection(context.Background(), commit)
+	require.NoError(t, err)
+	require.Equal(t, evidence.Cursor+1, next.ProjectionVersion)
+	replayed, err := owner.CommitProjection(context.Background(), commit)
+	require.NoError(t, err)
+	require.Equal(t, next, replayed)
 	changed := proof
 	changed.Digest = strings.Repeat("b", 64)
 	_, err = owner.RecordGenerationRejection(context.Background(), intent, changed)
