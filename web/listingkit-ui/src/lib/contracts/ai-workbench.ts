@@ -23,7 +23,7 @@ const message = z.object({
 const proposal = z.object({
  kind:z.enum(["product.title.optimize","product.content.localize"]).optional(),taskSelection:aiTaskSelection.optional(),executionProfileReady:z.boolean().optional(),maximumSteps:z.number().int().positive().optional(),maximumModelCalls:z.number().int().positive().optional(),maximumRuntimeSeconds:z.number().int().positive().optional(),
   executionMode:executionModeSchema.optional(),modeRevision:modeRevisionSchema.optional(),modeUnavailableReason:z.string().optional(),
-  id, digest: z.string().length(64), sourceSequence: z.number().int().positive(),
+  id, confirmedTaskId: id.optional(), digest: z.string().length(64), sourceSequence: z.number().int().positive(),
   goalSummary: z.string(), operationId: z.string().optional(), productKey: z.string().optional(),
   targetPlatform: z.enum(["shein", "temu", "amazon","product"]).optional(),
   templateId: z.string().optional(), templateRevision: z.string().optional(), knowledgeBaseId: z.string().optional(),

@@ -238,6 +238,7 @@ type workbenchProposalCard struct {
 	ModeRevision          string                     `json:"modeRevision,omitempty"`
 	ModeUnavailableReason string                     `json:"modeUnavailableReason,omitempty"`
 	ID                    string                     `json:"id"`
+	ConfirmedTaskID       string                     `json:"confirmedTaskId,omitempty"`
 	Digest                string                     `json:"digest"`
 	SourceSequence        uint64                     `json:"sourceSequence"`
 	GoalSummary           string                     `json:"goalSummary"`

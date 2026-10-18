@@ -193,8 +193,9 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
       for (const [proposalId, receipt] of Object.entries(values).slice(-50)) {
         if (!isAcquisitionUUID(proposalId) || !receipt || typeof receipt !== "object" || !("key" in receipt) ||
           typeof receipt.key !== "string" || !isAcquisitionUUID(receipt.key)) continue;
-        const taskId = "taskId" in receipt && typeof receipt.taskId === "string" && isAcquisitionUUID(receipt.taskId) ? receipt.taskId : undefined;
-        safe[proposalId] = { key: receipt.key, ...(taskId ? { taskId } : {}) };
+        // Browser storage only recovers an unfinished operation key. A saved
+        // task ID is not the owner's durable confirmation receipt.
+        safe[proposalId] = { key: receipt.key };
       }
       setConfirmReceipts(safe);
       } catch { /* a missing browser store cannot authorize an operation */ }
@@ -275,7 +276,7 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
       <small>{item.Author === "USER" ? "我" : "硕米"} · {new Date(item.CreatedAt).toLocaleString("zh-CN")}</small><p>{item.Content}</p></Card>) : <ConsoleState kind="empty" title="开始讨论">先选定已有商品，再描述任务目标。</ConsoleState>}
       {detail.hasNextPage ? <Button variant="outline" disabled={detail.isFetchingNextPage} onClick={() => void detail.fetchNextPage()}>{detail.isFetchingNextPage ? "正在加载…" : "加载更早消息"}</Button> : null}</div>
     {activeProposal ? <ProposalCard proposal={activeProposal} scope={scope} canUse={canUse} titleReadiness={titleReadiness} disabled={pending || current.Archived}
-      confirmedTaskId={confirmReceipts[activeProposal.id]?.taskId} onConfirm={() => void confirm(activeProposal)} /> : null}
+      confirmedTaskId={activeProposal.confirmedTaskId ?? confirmReceipts[activeProposal.id]?.taskId} onConfirm={() => void confirm(activeProposal)} /> : null}
     {error ? <ConsoleState kind="error" title="操作状态">{error} <Button variant="outline" onClick={() => void detail.refetch()}>刷新收据</Button></ConsoleState> : null}
     {!current.Archived && canUse && (canPlan || pendingMessage) ? <Card className={styles.composer}><h2>{contentTasks?"讨论内容任务":"讨论标题建议"}</h2><p>{contentTasks?"选择商品及待处理内容，确认方案后启动内容 Agent。":"选择原标题任务对象，确认方案后启动标题 Agent。"}</p>
       {contentTasks?<ChatTaskSelection authorizationKey={authorizationKey} scope={scope} subject={subject} parameters={parameters} onSubject={setSubject} onParameters={setParameters} disabled={pending||Boolean(pendingMessage)}/>:null}
@@ -297,7 +298,7 @@ function ProposalCard({ proposal, scope, canUse, titleReadiness, disabled, confi
   const content=proposal.kind==="product.content.localize";
   const readiness=content?(execution.aiWorkbenchExecutionKind===proposal.kind?execution.aiWorkbenchExecutionReadiness:"UNAVAILABLE"):titleReadiness;
   const ready=content?proposal.executionProfileReady:proposal.titleProfileReady;
-  return <Card className={styles.proposal}><div className={styles.proposalHead}><span>待确认的执行方案</span><strong>{content?"商品内容建议":"标题建议"}</strong></div>
+  return <Card className={styles.proposal}><div className={styles.proposalHead}><span>{confirmedTaskId?"已确认的执行方案":"待确认的执行方案"}</span><strong>{content?"商品内容建议":"标题建议"}</strong></div>
     <p>{proposal.goalSummary}</p><dl><dt>企业</dt><dd>{scope.organizationId}</dd><dt>商品</dt><dd>{proposal.detailsAvailable ? proposal.productKey : "当前无权查看"}</dd>
       {content?<><dt>任务对象</dt><dd>{proposal.taskSelection?`${proposal.taskSelection.subject.kind==="own_product"?"自有商品":"源商品"} · ${proposal.taskSelection.subject.id} · 版本 ${proposal.taskSelection.subject.catalogVersion}`:"不可用"}</dd><dt>语言与字段</dt><dd>{proposal.taskSelection?contentSelectionLabel(proposal.taskSelection.parameters):"不可用"}</dd></>:<><dt>目标平台</dt><dd>{proposal.targetPlatform ?? "不可用"}</dd></>}<dt>模板</dt><dd>{proposal.templateId ? `${proposal.templateId} · 修订 ${proposal.templateRevision}` : "未选择"}</dd>
       <dt>知识库</dt><dd>{proposal.knowledgeBaseId || "未选择"}</dd><dt>执行模型</dt><dd>{proposal.providerId && proposal.modelId ? `${proposal.providerId} / ${proposal.modelId}` : "不可用"}</dd>
