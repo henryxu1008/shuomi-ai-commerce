@@ -29,6 +29,7 @@ Design Basis: **Reuse Existing Architecture / IMPLEMENTATION_READY**。用户于
 - 提案与 Task 分页继续分别使用现有游标；部分来源失败不伪装成空集合或 0。
 - 精确修订、人工编辑撤销旧批准、接受与 Apply 分开、只读模式、权限拒绝后重新读取、CAS/UNKNOWN 和原幂等键完全复用原审核实现。
 - 嵌入审核会话与任务详情的读取生命周期分开，任务刷新/读取失败不能丢失待核实写意图。提交中或结果未知时，新页面的行选择、搜索、分页、刷新及状态切换锁定；不会自动重放写操作。
+- Task 启动、继续和提交审核同样锁定列表。结果未知后，只能显式“核实原操作结果”，沿现有 Task API 重放原幂等键及冻结输入；Resume 的修订变化不替换原反馈/修订，也不因一次 GET 就认定未提交。复用原 scope 内的 sessionStorage 操作键，不新增恢复服务或事实 owner。
 - 用户/企业/角色/权限变化按原 scope 重挂载并清理详情；早期 URL 选择不会在切回企业后自动复活。迟到响应不能流入新 scope。
 - 本地资料准备历史继续由原 Listing 只读入口读取，不被伪装成 BusinessTask。旧 Task-first Dashboard 不恢复。
 

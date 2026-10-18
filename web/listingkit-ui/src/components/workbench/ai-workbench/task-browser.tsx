@@ -28,7 +28,9 @@ export function TaskBrowser({ scope, authorizationKey, mode, tasksAvailable, pro
   const [search, setSearch] = useState("");
   const [reviewRef, setReviewRef] = useState<string>();
   const [pausedOnly, setPausedOnly] = useState(false);
-  const [locked, setLocked] = useState(false);
+  const [reviewLocked, setReviewLocked] = useState(false);
+  const [taskLocked, setTaskLocked] = useState(false);
+  const locked = reviewLocked || taskLocked;
   const [generation, setGeneration] = useState(0);
   const [reviewPosition, setReviewPosition] = useState({ cursors:[undefined] as (string | undefined)[], page:1 });
   const [accessError, setAccessError] = useState<unknown>();
@@ -48,7 +50,8 @@ export function TaskBrowser({ scope, authorizationKey, mode, tasksAvailable, pro
     queryFn: ({signal}) => fetchProductTitleProposals({organizationId:scope.organizationId,limit:20,cursor:reviewPosition.cursors.at(-1),signal}),
   });
   if (reviewAccessDenied(reviews.error) && accessError !== reviews.error) {
-    setAccessError(reviews.error); setSelection(undefined); setLocked(false);
+    setAccessError(reviews.error); setReviewLocked(false);
+    if (!taskLocked) setSelection(undefined);
   }
   const page = Array.from(new Map(tasks.data?.pages.flatMap(part => part.tasks ?? []).map(item => [item.id, item]) ?? []).values());
   const matchesMode = (state?: string) => pausedOnly ? state === "PAUSED" : mode === "all" ||
@@ -95,8 +98,8 @@ export function TaskBrowser({ scope, authorizationKey, mode, tasksAvailable, pro
     select(); setGeneration(value=>value+1); setReviewPosition({cursors:[undefined],page:1}); setAccessError(undefined);
   }
   const renderReview = (id: string) => <ProposalSession key={id} proposalId={id} organizationId={scope.organizationId} scope={JSON.stringify([scope,authorizationKey])}
-    userId={scope.userId} roles={context.roles} permissions={context.permissions} onLocked={setLocked}
-    onDenied={error=>{setLocked(false);setAccessError(error);setSelection(undefined);}} onChanged={reviewChanged} />;
+    userId={scope.userId} roles={context.roles} permissions={context.permissions} onLocked={setReviewLocked} interactionLocked={taskLocked}
+    onDenied={error=>{setReviewLocked(false);setAccessError(error);if(!taskLocked)setSelection(undefined);}} onChanged={reviewChanged} />;
   const canChat = tasksAvailable && context.effectiveOrganization?.capabilities?.["workbench.chat.use"] === true && context.aiWorkbenchPlanningReadiness === "AVAILABLE";
   const tasksReady = !tasksAvailable || tasks.isSuccess && !tasks.isFetching && !tasks.isError && page.every(item=>item.projectionAvailable && item.state);
   const reviewsReady = !showReviews || reviews.isSuccess && !reviews.isFetching && !reviews.isError && !accessError;
@@ -110,7 +113,7 @@ export function TaskBrowser({ scope, authorizationKey, mode, tasksAvailable, pro
   ];
   const available = tasksAvailable || showReviews || sheinRecordsAvailable && (mode === "all" || mode === "completed");
   let detail: ReactNode = <ConsoleState kind="empty" title="选择一条任务或待确认事项">查看当前状态、建议与依据，再决定下一步操作。</ConsoleState>;
-  if (selection?.kind === "task" && tasksAvailable) detail = <><TaskDetail key={selection.id} scope={scope} authorizationKey={authorizationKey} taskId={selection.id} embedded interactionLocked={locked} onReviewReference={productReviewAvailable ? observeReview : undefined} />{productReviewAvailable && reviewRef ? renderReview(reviewRef) : null}</>;
+  if (selection?.kind === "task" && tasksAvailable) detail = <><TaskDetail key={selection.id} scope={scope} authorizationKey={authorizationKey} taskId={selection.id} embedded interactionLocked={reviewLocked} onLocked={setTaskLocked} onReviewReference={productReviewAvailable ? observeReview : undefined} />{productReviewAvailable && reviewRef ? renderReview(reviewRef) : null}</>;
   if (selection?.kind === "review" && productReviewAvailable) detail = renderReview(selection.id);
   return <ConsolePage title="任务中心" description="查看正在执行、等待确认和已经完成的业务任务。" breadcrumbs={findConsoleRoute(filters.find(item=>item.mode===mode)!.href)?.trail}
     actions={<>{<input className={styles.search} type="search" aria-label="搜索已加载记录" placeholder="搜索任务或商品" value={search} disabled={locked} onChange={event=>setSearch(event.target.value)} />}

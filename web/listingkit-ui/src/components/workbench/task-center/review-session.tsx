@@ -16,9 +16,10 @@ const errorCode = (error: unknown) => error instanceof ProductTitleReviewError ?
 const denied = (error: unknown) => error instanceof ProductTitleReviewError && (error.status === 401 || error.status === 403 || error.code.startsWith("ORGANIZATION_"));
 
 type Intent = { kind: "decision"; request: Omit<Parameters<typeof decideProductTitleProposal>[0], "signal"> } | { kind: "apply"; request: Omit<Parameters<typeof applyProductTitleProposal>[0], "signal"> };
-export function ProposalSession({ proposalId, organizationId, scope, userId, roles, permissions, onLocked, onDenied, onChanged }: {
+export function ProposalSession({ proposalId, organizationId, scope, userId, roles, permissions, onLocked, onDenied, onChanged, interactionLocked = false }: {
   proposalId: string; organizationId: string; scope: string; userId: string; roles: string[]; permissions:string[];
   onLocked: (locked: boolean) => void; onDenied: (error: unknown) => void; onChanged: () => void;
+  interactionLocked?: boolean;
 }) {
   const [read, setRead] = useState(0);
   const queryClient = useQueryClient();
@@ -36,7 +37,7 @@ export function ProposalSession({ proposalId, organizationId, scope, userId, rol
   const data = query.data;
   function reread() { if (writing.current) return; if (!uncertain) setWriteError(undefined); setRead((old) => old + 1); }
   async function submit(intent: Intent) {
-    if (writing.current) return;
+    if (writing.current || interactionLocked) return;
     writing.current = true; operation.current = intent; setPending(true); onLocked(true); setWriteError(undefined);
     const controller = new AbortController(); abort.current = controller;
     try {
@@ -60,11 +61,11 @@ export function ProposalSession({ proposalId, organizationId, scope, userId, rol
     } finally { if (mounted.current) { writing.current = false; setPending(false); } }
   }
   function decide(action: "accept" | "edit" | "reject", title?: string, content?: ContentValue[]) {
-    if (!data || uncertain || writing.current || query.isFetching) return;
+    if (!data || interactionLocked || uncertain || writing.current || query.isFetching) return;
     void submit({ kind: "decision", request: { organizationId, proposalId, idempotencyKey: crypto.randomUUID(), input: action === "edit" ? data.policy === "product-content-review-v1" ? {action,expected_revision:data.revision,content:content??[]} : { action, expected_revision: data.revision, title: title ?? "" } : { action, expected_revision: data.revision } } });
   }
   function apply() {
-    if (!data || data.state !== "accepted" || uncertain || writing.current || query.isFetching) return;
+    if (!data || interactionLocked || data.state !== "accepted" || uncertain || writing.current || query.isFetching) return;
     void submit({ kind: "apply", request: { organizationId, proposalId, idempotencyKey: crypto.randomUUID(), input: { expected_revision: data.revision } } });
   }
   const conflict = writeError && ["stale_product_version", "operation_conflict"].includes(errorCode(writeError)) && !uncertain;
@@ -77,7 +78,7 @@ export function ProposalSession({ proposalId, organizationId, scope, userId, rol
       : conflict ? <ReviewError error={writeError} recover={reread} />
       : data ? <>
         {writeError && !uncertain ? <ReviewError error={writeError} /> : null}
-        {!uncertain ? <TitleReviewControls key={`${data.revision}:${read}`} proposal={data} roles={roles} permissions={permissions} userId={userId} pending={pending} decide={decide} apply={apply} /> : null}
+        {!uncertain ? <TitleReviewControls key={`${data.revision}:${read}`} proposal={data} roles={roles} permissions={permissions} userId={userId} pending={pending || interactionLocked} decide={decide} apply={apply} /> : null}
         <TitleReviewDetail proposal={data} />
         {!uncertain && !pending && !writeError ? <OwnProductApplyReturn proposal={data} organizationId={organizationId} userId={userId} /> : null}
       </> : null}

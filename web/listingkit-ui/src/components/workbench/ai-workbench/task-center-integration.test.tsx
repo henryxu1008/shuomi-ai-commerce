@@ -1,10 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { BusinessTaskPage } from "./task-page";
 import { ConsoleNavigation } from "../console/console-navigation";
 import { titleProposalFixture } from "@/test/product-title-review-fixture";
 import { ProductTitleReviewError } from "@/lib/api/product-title-review-client";
+import { AIWorkbenchError } from "@/lib/api/ai-workbench";
 
 const calls = vi.hoisted(() => ({ tasks: vi.fn(), list: vi.fn(), get: vi.fn(), decide: vi.fn(), apply: vi.fn(), context: {} as Record<string, unknown> }));
 vi.mock("@/components/providers/workbench-context-provider", () => ({ useWorkbenchContext: () => calls.context }));
@@ -116,4 +117,81 @@ it.each(["failed", "redacted"])("retains an uncertain Review session when its li
   expect(screen.getByText("结果待核实")).toBeVisible();
   expect(screen.getByRole("button",{name:"刷新状态"})).toBeDisabled();
   expect(calls.decide).toHaveBeenCalledOnce();
+});
+
+it.each([
+  ["start", "启动原任务", {canStart:true}],
+  ["start", "核实超期执行结果", {canReconcile:true}],
+  ["resume", "继续原任务", {canResume:true,agentRevision:"2"}],
+  ["review", "提交标题供人工审核", {canReview:true}],
+] as const)("locks browsing throughout %s (%s), including an unknown result", async (action, label, flags) => {
+  calls.context.aiWorkbenchAvailable = true;
+  const item = {...task,reviewId:undefined,...flags};
+  let reject!: (error: Error) => void;
+  calls.tasks.mockImplementation(({route}) => route === `task-${action}` ? new Promise((_, rejectWrite) => {reject = rejectWrite;}) : Promise.resolve(route === "task-read" ? {task:item} : {tasks:[item],next:"more"}));
+  render(tree());
+  fireEvent.click(await screen.findByRole("button",{name:/蓝色水杯标题优化.*查看详情/}));
+  const command = await screen.findByRole("button",{name:label});
+  if(action === "resume") fireEvent.change(screen.getByRole("textbox",{name:"继续执行的反馈"}),{target:{value:"保持原商品事实"}});
+  fireEvent.click(command);
+  await waitFor(()=>expect(calls.tasks).toHaveBeenCalledWith(expect.objectContaining({route:`task-${action}`})));
+  const expectLocked = () => {
+    expect(screen.getByRole("searchbox",{name:"搜索已加载记录"})).toBeDisabled();
+    expect(screen.getByRole("button",{name:/蓝色水杯标题优化.*查看详情/})).toBeDisabled();
+    expect(screen.getByRole("button",{name:"返回列表"})).toBeDisabled();
+    expect(screen.getByRole("button",{name:"刷新状态"})).toBeDisabled();
+    expect(screen.getByRole("button",{name:"加载更早任务"})).toBeDisabled();
+    expect(screen.getByRole("link",{name:"执行中"})).toHaveAttribute("aria-disabled","true");
+  };
+  expectLocked();
+  await act(async()=>reject(new AIWorkbenchError("TASK_OUTCOME_UNKNOWN")));
+  await screen.findByText("操作未完成");
+  expectLocked();
+  expect(command).toBeDisabled();
+  expect(screen.getByRole("button",{name:"核实原操作结果"})).toBeEnabled();
+});
+
+it("replays the original Resume key and frozen inputs after the task revision advances", async () => {
+  calls.context.aiWorkbenchAvailable = true;
+  let item = {...task,reviewId:undefined,canResume:true,agentRevision:"2"};
+  let writes = 0;
+  calls.tasks.mockImplementation(({route}) => route === "task-resume" ? ++writes === 1 ? Promise.reject(new AIWorkbenchError("OUTCOME_UNKNOWN")) : Promise.resolve({}) : Promise.resolve(route === "task-read" ? {task:item} : {tasks:[item],next:""}));
+  render(tree());
+  fireEvent.click(await screen.findByRole("button",{name:/蓝色水杯标题优化.*查看详情/}));
+  await screen.findByRole("button",{name:"继续原任务"});
+  fireEvent.change(screen.getByRole("textbox",{name:"继续执行的反馈"}),{target:{value:"保持原商品事实"}});
+  fireEvent.click(screen.getByRole("button",{name:"继续原任务"}));
+  await screen.findByText("操作未完成");
+  item = {...item,agentRevision:"3",canResume:false};
+  await act(async()=>{await client.invalidateQueries({queryKey:["ai-task"]});});
+  fireEvent.click(screen.getByRole("button",{name:"核实原操作结果"}));
+  await waitFor(()=>expect(screen.getByRole("button",{name:"刷新状态"})).toBeEnabled());
+  const sent = calls.tasks.mock.calls.map(([input])=>input).filter(input=>input.route === "task-resume");
+  expect(sent).toHaveLength(2);
+  expect(sent[1].key).toBe(sent[0].key);
+  expect(sent[1].body).toEqual({revision:"2",feedback:"保持原商品事实"});
+});
+
+it("recovers a saved Resume intent after reload with a newer task revision", async () => {
+  calls.context.aiWorkbenchAvailable = true;
+  let item = {...task,reviewId:undefined,canResume:true,agentRevision:"2"};
+  const sent: {key:string;body:unknown}[] = [];
+  calls.tasks.mockImplementation(({route,key,body}) => {
+    if(route === "task-resume") {sent.push({key,body});return sent.length === 1 ? Promise.reject(new AIWorkbenchError("OUTCOME_UNKNOWN")) : Promise.resolve({});}
+    return Promise.resolve(route === "task-read" ? {task:item} : {tasks:[item],next:""});
+  });
+  const first = render(tree());
+  fireEvent.click(await screen.findByRole("button",{name:/蓝色水杯标题优化.*查看详情/}));
+  await screen.findByRole("button",{name:"继续原任务"});
+  fireEvent.change(screen.getByRole("textbox",{name:"继续执行的反馈"}),{target:{value:"原反馈"}});
+  fireEvent.click(screen.getByRole("button",{name:"继续原任务"}));
+  await screen.findByText("操作未完成"); first.unmount();
+  item = {...item,agentRevision:"3"};
+  client.clear(); render(tree());
+  fireEvent.click(await screen.findByRole("button",{name:/蓝色水杯标题优化.*查看详情/}));
+  fireEvent.click(await screen.findByRole("button",{name:"继续原任务"}));
+  expect(sent).toHaveLength(1);
+  fireEvent.click(await screen.findByRole("button",{name:"核实原操作结果"}));
+  await waitFor(()=>expect(sent).toHaveLength(2));
+  expect(sent[1]).toEqual(sent[0]);
 });

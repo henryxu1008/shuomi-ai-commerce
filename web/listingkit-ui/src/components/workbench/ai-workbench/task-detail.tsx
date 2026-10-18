@@ -13,6 +13,7 @@ import styles from "./task-page.module.css";
 
 type TaskAction = "start" | "resume" | "review";
 type PendingTaskAction = { key: string; revision: string; feedback: string };
+type UncertainCommand = { action: TaskAction; attempt: PendingTaskAction };
 const taskActionStorageKey = (scope: AIScope, taskId: string, action: TaskAction) =>
   `ai-workbench-task-action:${scope.userId}:${scope.organizationId}:${taskId}:${action}`;
 function savedResumeFeedback(scope: AIScope, taskId: string): string {
@@ -26,33 +27,39 @@ function savedResumeFeedback(scope: AIScope, taskId: string): string {
   return "";
 }
 
-export function TaskDetail({ scope, authorizationKey, taskId, onReviewReference, embedded = false, interactionLocked = false }: { scope: AIScope; authorizationKey: string; taskId: string; onReviewReference?: (id?: string) => void; embedded?: boolean; interactionLocked?: boolean }) {
+export function TaskDetail({ scope, authorizationKey, taskId, onReviewReference, onLocked, embedded = false, interactionLocked = false }: { scope: AIScope; authorizationKey: string; taskId: string; onReviewReference?: (id?: string) => void; onLocked?: (locked: boolean) => void; embedded?: boolean; interactionLocked?: boolean }) {
   const [pending, setPending] = useState(false);
+  const [uncertain, setUncertain] = useState<UncertainCommand>();
   const [feedback, setFeedback] = useState(() => savedResumeFeedback(scope, taskId));
   const [error, setError] = useState("");
   const abort = useRef<AbortController | null>(null);
   useEffect(() => () => abort.current?.abort(), []);
+  useEffect(() => { onLocked?.(pending || !!uncertain); }, [pending, uncertain, onLocked]);
   const task = useQuery({ queryKey: ["ai-task", scope.userId, scope.organizationId, authorizationKey, taskId],
     queryFn: ({ signal }) => requestAIWorkbench({ route: "task-read", method: "GET", path: `tasks/${taskId}`, scope, signal }),
     retry: false, staleTime: 0, refetchOnWindowFocus: false });
   const item = task.data?.task;
   useEffect(() => { if (task.isSuccess) onReviewReference?.(item?.reviewId); }, [task.isSuccess, item?.reviewId, onReviewReference]);
   const feedbackTooLarge = new TextEncoder().encode(feedback).byteLength > 8 * 1024;
-  async function act(action: TaskAction) {
-    if (!item) return; setPending(true); setError("");
-    if (action === "resume" && feedbackTooLarge) {
+  async function act(action: TaskAction, original?: PendingTaskAction) {
+    if (pending || interactionLocked || !original && (!item || uncertain)) return;
+    setPending(true); setError("");
+    if (!original && action === "resume" && feedbackTooLarge) {
       setError("反馈不能超过 8 KiB UTF-8 字节"); setPending(false); return;
     }
     const storageKey = taskActionStorageKey(scope, taskId, action);
-    const revision = action === "resume" ? item.agentRevision ?? "" : "";
-    const currentFeedback = action === "resume" ? feedback : "";
+    const revision = original?.revision ?? (action === "resume" ? item?.agentRevision ?? "" : "");
+    const currentFeedback = original?.feedback ?? (action === "resume" ? feedback : "");
     let attempt: PendingTaskAction;
     try {
       const saved = sessionStorage.getItem(storageKey);
-      attempt = saved ? JSON.parse(saved) as PendingTaskAction : { key: crypto.randomUUID(), revision, feedback: currentFeedback };
+      attempt = original ?? (saved ? JSON.parse(saved) as PendingTaskAction : { key: crypto.randomUUID(), revision, feedback: currentFeedback });
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(attempt.key) ||
-          attempt.revision !== revision || attempt.feedback !== currentFeedback) {
-        setError("上次操作的输入仍待核实；请先刷新原任务并用原输入重试"); setPending(false); return;
+          typeof attempt.revision !== "string" || typeof attempt.feedback !== "string") {
+        setError("上次操作键不可用，暂不能安全提交"); setPending(false); return;
+      }
+      if (attempt.revision !== revision || attempt.feedback !== currentFeedback) {
+        setUncertain({action,attempt}); setError("上次操作的输入仍待核实；请使用原操作键和原输入核实"); setPending(false); return;
       }
       sessionStorage.setItem(storageKey, JSON.stringify(attempt));
     } catch { setError("无法保存操作键，暂不能安全提交"); setPending(false); return; }
@@ -61,17 +68,23 @@ export function TaskDetail({ scope, authorizationKey, taskId, onReviewReference,
       await requestAIWorkbench({ route: `task-${action}`, method: "POST", path: `tasks/${taskId}/${action}`, scope,
         key: attempt.key, signal: controller.signal, ...(action === "resume" ? { body: { revision, feedback: currentFeedback } } : {}) });
       try { sessionStorage.removeItem(storageKey); } catch { /* The server receipt is terminal. */ }
-      if (!controller.signal.aborted) await task.refetch();
+      if (!controller.signal.aborted) { setUncertain(undefined); await task.refetch(); }
     } catch (cause) {
       if (cause instanceof AIWorkbenchError && cause.code !== "TASK_OUTCOME_UNKNOWN" && cause.code !== "OUTCOME_UNKNOWN") {
         try { sessionStorage.removeItem(storageKey); } catch { /* The next request may replay the known result. */ }
+        if (!controller.signal.aborted) setUncertain(undefined);
+      } else if (!controller.signal.aborted) {
+        setUncertain({action,attempt});
       }
       if (!controller.signal.aborted) setError(errorText(cause));
     }
     finally { if (!controller.signal.aborted) setPending(false); abort.current = null; }
   }
-  if (task.isPending) return <ConsoleState kind="loading" title="正在读取任务" />;
-  if (task.isError || !item) return <ConsoleState kind="error" title="任务不可用">{errorText(task.error)} <Button variant="outline" onClick={() => void task.refetch()}>重试</Button></ConsoleState>;
+  const result = error || uncertain ? <ConsoleState kind="error" title="操作未完成">{error || "原操作结果仍待核实"}。请核实原操作，不要新建任务。
+    {uncertain ? <Button variant="outline" disabled={pending || interactionLocked} onClick={() => void act(uncertain.action, uncertain.attempt)}>核实原操作结果</Button> : null}</ConsoleState> : null;
+  if (task.isPending) return <>{result}<ConsoleState kind="loading" title="正在读取任务" /></>;
+  if (task.isError || !item) return <>{result}<ConsoleState kind="error" title="任务不可用">{errorText(task.error)} <Button variant="outline" disabled={pending || interactionLocked} onClick={() => void task.refetch()}>重试</Button></ConsoleState></>;
+  const disabled = pending || interactionLocked || !!uncertain;
   return <div className={styles.detail}>
     {!embedded ? <div className={styles.toolbar}><Button asChild variant="outline"><Link href="/workbench/ai/tasks" prefetch={false}>返回任务中心</Link></Button><Button variant="outline" onClick={() => void task.refetch()}>刷新状态</Button></div> : null}
     <Card className={styles.detailCard}><div className={styles.heading}><h2>{item.title}</h2><span className={styles.badge}>{item.projectionAvailable ? taskState[item.state ?? ""] ?? "状态未知" : "状态暂不可用"}</span></div>
@@ -85,14 +98,14 @@ export function TaskDetail({ scope, authorizationKey, taskId, onReviewReference,
       <KnowledgeCitations knowledge={item.knowledge} />
       {item.productDetailsAvailable && item.operationId ? <Button asChild variant="outline"><Link href={`/workbench/supply/acquisition/operation/${item.operationId}`} prefetch={false}>查看来源商品</Link></Button> : null}
     </Card>
-    {error ? <ConsoleState kind="error" title="操作未完成">{error}。请刷新原任务查看状态，不要新建任务。</ConsoleState> : null}
+    {result}
     <div className={styles.actions}>
-      {item.canStart ? <Button disabled={pending || interactionLocked} onClick={() => void act("start")}>启动原任务</Button> : null}
-      {item.canReconcile ? <Button variant="outline" disabled={pending || interactionLocked} onClick={() => void act("start")}>核实超期执行结果</Button> : null}
-      {item.canResume ? <Card className={styles.actionCard}><label>继续执行的反馈<textarea rows={3} value={feedback} onChange={event => setFeedback(event.target.value)} /></label>
+      {item.canStart ? <Button disabled={disabled} onClick={() => void act("start")}>启动原任务</Button> : null}
+      {item.canReconcile ? <Button variant="outline" disabled={disabled} onClick={() => void act("start")}>核实超期执行结果</Button> : null}
+      {item.canResume ? <Card className={styles.actionCard}><label>继续执行的反馈<textarea rows={3} disabled={disabled} value={feedback} onChange={event => setFeedback(event.target.value)} /></label>
         {feedbackTooLarge ? <small>反馈不能超过 8 KiB UTF-8 字节。</small> : null}
-        <Button disabled={pending || interactionLocked || !feedback.trim() || feedbackTooLarge} onClick={() => void act("resume")}>继续原任务</Button></Card> : null}
-      {item.canReview && !item.reviewId ? <Button disabled={pending || interactionLocked} onClick={() => void act("review")}>提交标题供人工审核</Button> : null}
+        <Button disabled={disabled || !feedback.trim() || feedbackTooLarge} onClick={() => void act("resume")}>继续原任务</Button></Card> : null}
+      {item.canReview && !item.reviewId ? <Button disabled={disabled} onClick={() => void act("review")}>提交标题供人工审核</Button> : null}
       {item.reviewId && !onReviewReference ? <Button asChild><Link href={`/workbench/ai/tasks/pending/other?proposal_id=${item.reviewId}`} prefetch={false}>查看并处理标题提案</Link></Button> : null}
     </div>
   </div>;
