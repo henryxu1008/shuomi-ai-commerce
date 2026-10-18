@@ -11,7 +11,7 @@ export function NativeRunDetail({record,locked}:{record:NativeRunRecord;locked:b
    {record.productKey?<><dt>商品</dt><dd>{record.productKey}</dd></>:null}<dt>目标范围</dt><dd>{nativePlatformLabel(record.targetPlatform)}</dd>
    <dt>发起时间</dt><dd>{new Date(record.at).toLocaleString()}</dd><dt>运行编号</dt><dd>{record.runId}</dd></dl>
   <p>这是原智能体的运行记录；建议是否采用、素材是否保存或商品是否发布，以原业务结果为准。</p>
-  {!record.direct?<p>该上下文暂无直达入口。请在原智能体的任务历史中，按运行编号选择记录。</p>:null}
+  {!record.direct?<p>该上下文暂无直达入口。可在原智能体历史中按运行编号核对；支持详情选择的历史可打开原记录，其余上下文暂不能重新打开。</p>:null}
   <Button asChild variant="outline"><Link href={record.href} prefetch={false} aria-disabled={locked||undefined} tabIndex={locked?-1:undefined} onClick={event=>{if(locked)event.preventDefault();}}>打开原业务工作区</Link></Button>
  </section>;
 }

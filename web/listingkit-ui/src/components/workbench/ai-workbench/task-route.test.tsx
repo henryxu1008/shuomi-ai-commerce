@@ -8,7 +8,7 @@ import ErrorsPage from "@/app/workbench/ai/tasks/errors/page";
 vi.mock("next/server", () => ({connection: vi.fn()}));
 vi.mock("@/lib/server/product-title-review-request", () => ({configuredProductReviewOrigin: () => "http://review.invalid"}));
 vi.mock("@/lib/server/shein-records-availability", () => ({isSheinRecordsAvailable: () => true}));
-vi.mock("@/lib/server/agent-configuration-origin",()=>({configuredAgentConfigurationOrigin:()=>"http://backend.invalid"}));
+vi.mock("@/lib/server/agent-configuration-origin",()=>({isAgentConfigurationAvailable:()=>true}));
 vi.mock("./task-page", () => ({BusinessTaskPage: () => null}));
 
 it.each([RootPage, PendingPage])("restores the exact proposal selected in a Task Center URL", async Page => {

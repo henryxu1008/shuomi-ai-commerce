@@ -554,3 +554,13 @@ it("shows the required acquisition permission in configuration when title execut
   expect(screen.getByRole("heading",{name:"采集证据读取 · 必需"})).toBeInTheDocument();
   expect(screen.queryByRole("link",{name:"选择商品并进入使用 →"})).toBeNull();
 });
+
+it("exposes unknown-context run references without inventing an acquisition destination",async()=>{
+ const runId="550e8400-e29b-41d4-a716-446655440009";
+ const entry={...marketEntries()[1],canReadRuns:true};
+ vi.stubGlobal("fetch",vi.fn(async(url:unknown)=>Response.json(String(url).includes("execution-mode")?modeFixture("product.content.agent"):String(url).includes("recent-runs")?{items:[{runId,operationId:runId,requestKey:runId,contextKind:"future_source",productKey:"test product",targetPlatform:"product",phase:"stopped",revision:"1",startedAt:"2026-10-18T00:00:00Z"}],nextCursor:""}:entry)));
+ render(<AgentPage mode="mine" id="product.content.agent"/>);
+ expect(await screen.findByText(runId,{exact:false})).toBeVisible();
+ expect(screen.queryByRole("link",{name:"查看任务 →"})).toBeNull();
+ expect(screen.getByText(/该上下文暂无详情入口/)).toBeVisible();
+});

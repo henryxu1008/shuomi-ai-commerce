@@ -338,7 +338,7 @@ it("resumes historical analysis with its stored goal after reload", async () => 
     return baseFetch(url,init);
   }));
   show({...entry,canReadRuns:true});
-  fireEvent.click(await screen.findByRole("button",{name:/interrupted/}));
+  fireEvent.click(await screen.findByRole("button",{name:new RegExp(`interrupted.*${id}`)}));
   fireEvent.click(await screen.findByRole("button",{name:"按原请求继续分析"}));
   await waitFor(()=>expect(writes).toHaveLength(1));
   expect((writes[0].body as {feedback:string}).feedback).toBe("保留的自定义诊断目标");

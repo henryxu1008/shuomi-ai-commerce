@@ -1,4 +1,6 @@
 import {z} from "zod";
+import {nativeRunDestination} from "@/lib/agent-run-destination";
+export {nativeRunDestination} from "@/lib/agent-run-destination";
 import {configurationRequest,type ConfigurationScope} from "@/lib/api/agent-configuration";
 import {recentRunsSchema,type CatalogEntry} from "@/lib/contracts/agent-configuration";
 import {imageSetRecentSchema} from "@/lib/contracts/product-image-set";
@@ -16,18 +18,7 @@ export type NativeRunRecord={
 export type NativeRunPage={items:NativeRunRecord[];nextCursor:string};
 const contexts:Record<string,string>={own_product:"自有商品",acquisition:"源商品",collection:"商品集合",supply:"供应链商品","pod-artwork-v1":"POD 图案","product-selection-v1":"选品范围","shop-operations-diagnosis-v1":"经营诊断范围","listing-target-record":"上架资料"};
 const platforms:Record<string,string>={product:"通用商品",business:"业务范围",sds:"SDS"};
-export function nativeRunDestination(scope:ConfigurationScope,agentId:string,contextKind:string,contextId:string,requestKey?:string,targetPlatform?:string){
- const fallback={href:`/workbench/agents/mine/${encodeURIComponent(agentId)}`,direct:false};
- if(!requestKey)return fallback;
- const query=new URLSearchParams({agent_key:requestKey,agent_actor:scope.userId,agent_org:scope.organizationId});
- if(agentId==="product.content.agent"&&contextKind==="own_product")return {href:`/workbench/data/mine/own/${contextId}/optimize?${query}`,direct:true};
- if(agentId==="listing.materials.agent"&&contextKind==="listing-target-record")return {href:`/workbench/supply/materials/${contextId}?${query}`,direct:true};
- if(["product.content.agent","product.title.agent"].includes(agentId)&&contextKind==="acquisition"){
-  query.set("agent_platform",targetPlatform??"product");if(agentId==="product.content.agent")query.set("agent_kind","content");
-  return {href:`/workbench/supply/acquisition/operation/${contextId}?${query}`,direct:true};
- }
- return fallback;
-}
+
 type TextRun=z.infer<typeof recentRunsSchema>["items"][number]|z.infer<typeof selectionRecentSchema>["items"][number]|z.infer<typeof diagnosisRecentSchema>["items"][number];
 function textRecord(scope:ConfigurationScope,entry:CatalogEntry,run:TextRun):NativeRunRecord{
  const id=entry.agent.agentId;

@@ -1,4 +1,5 @@
 "use client";
+import {nativeRunDestination} from "@/lib/agent-run-destination";
 import {ShopDiagnosisFlow} from "./shop-diagnosis-flow";
 import Link from "next/link";
 import { AgentMarket } from "./agent-market";
@@ -600,18 +601,16 @@ function ScopedPage({
               <p>{configurationError(recent.error)}</p>
             ) : recent.data?.items.length ? (
               <ul className={styles.recent}>
-                {recent.data.items.map((run) => (
+                {recent.data.items.map((run) => {
+                  const destination=nativeRunDestination(scope,agentId,run.contextKind,run.operationId,run.requestKey,run.targetPlatform);
+                  return (
                   <li key={run.runId}>
                     <span>
-                      {run.productKey} · {labels[run.phase]}
+                      {run.productKey} · {labels[run.phase]} · {run.runId}
                     </span>
-                    <Link
-                      href={run.contextKind==="own_product"?`/workbench/data/mine/own/${run.operationId}/optimize?agent_key=${run.requestKey}&agent_actor=${encodeURIComponent(scope.userId)}&agent_org=${encodeURIComponent(scope.organizationId)}`:agentId==="listing.materials.agent"?`/workbench/supply/materials/${run.operationId}?agent_key=${run.requestKey}&agent_actor=${encodeURIComponent(scope.userId)}&agent_org=${encodeURIComponent(scope.organizationId)}`:`/workbench/supply/acquisition/operation/${run.operationId}?agent_key=${run.requestKey}&agent_actor=${encodeURIComponent(scope.userId)}&agent_org=${encodeURIComponent(scope.organizationId)}&agent_platform=${run.targetPlatform}${agentId === "product.content.agent" ? "&agent_kind=content" : ""}`}
-                    >
-                      查看任务 →
-                    </Link>
+                    {destination.direct?<Link href={destination.href}>查看任务 →</Link>:<p>该上下文暂无详情入口，暂不能重新打开；可按运行编号核对原记录。</p>}
                   </li>
-                ))}
+                );})}
               </ul>
             ) : recent.data ? (
               <p>暂无本人已领取执行的任务。</p>

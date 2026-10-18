@@ -14,7 +14,7 @@ vi.mock("@/lib/server/knowledge-availability", () => ({isKnowledgeAvailable: () 
 vi.mock("@/lib/server/report-center-availability", () => ({isReportCenterAvailable: () => fixture.reports}));
 vi.mock("@/lib/server/product-title-review-request", () => ({configuredProductReviewOrigin: () => fixture.review ? "https://review.test" : null}));
 vi.mock("@/lib/server/shein-records-availability", () => ({isSheinRecordsAvailable: () => fixture.history}));
-vi.mock("@/lib/server/agent-configuration-origin",()=>({configuredAgentConfigurationOrigin:()=>fixture.native?"https://backend.invalid":null}));
+vi.mock("@/lib/server/agent-configuration-origin",()=>({isAgentConfigurationAvailable:()=>fixture.native}));
 beforeEach(() => {
   fixture.redirect.mockReset();
   fixture.knowledge = fixture.reports = fixture.review = fixture.history = fixture.native = false;
