@@ -155,6 +155,8 @@ func TestGormPostgresProjectionCommitRechecksReceiptAfterConcurrentLockAcquisiti
 		WillReturnRows(sqlmock.NewRows([]string{"tenant_id", "owner_user_id", "run_id", "commit_id", "fingerprint", "version", "snapshot_json", "created_at"}).
 			AddRow(scope.TenantID, scope.OwnerUserID, scope.RunID, commit.CommitID, fingerprint, 2, nextJSON, time.Unix(0, 0)))
 	mock.ExpectExec(`UPDATE .*image_agent_v2_runs.*`).WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectQuery(`SELECT .*image_agent_v2_events.*ORDER BY cursor DESC.*`).
+		WillReturnRows(sqlmock.NewRows([]string{"cursor"}).AddRow(1))
 	mock.ExpectExec(`UPDATE .*image_agent_v2_projection_snapshots.*`).WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec(`INSERT INTO .*image_agent_v2_events.*`).WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectExec(`INSERT INTO .*image_agent_v2_projection_commits.*`).WillReturnResult(sqlmock.NewResult(1, 1))

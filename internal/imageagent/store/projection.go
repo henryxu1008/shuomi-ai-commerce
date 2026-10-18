@@ -119,13 +119,17 @@ func (r *memoryRepository) CommitProjection(_ context.Context, input imageagent.
 	if err := validateProjectionMutation(current, input); err != nil {
 		return imageagent.RunProjection{}, err
 	}
+	cursor := nextCursor(r.events[key])
+	if cursor <= current.ProjectionVersion {
+		return imageagent.RunProjection{}, imageagent.ErrRevisionConflict
+	}
 	rollback := r.captureMemoryProjectionState()
 	if err := r.applyMemoryProjectionMutation(input); err != nil {
 		r.restoreMemoryProjectionState(rollback)
 		return imageagent.RunProjection{}, err
 	}
 	next := cloneProjection(input.Snapshot)
-	next.LastEventID = current.ProjectionVersion + 1
+	next.LastEventID = cursor
 	next.ProjectionVersion = next.LastEventID
 	next.Actions = imageagent.AllowedActions(next.Run)
 	if err := imageagent.ValidateProjectionSnapshot(input.Scope, next); err != nil {
@@ -443,11 +447,20 @@ func (r *gormRepository) CommitProjection(ctx context.Context, input imageagent.
 		if err := validateProjectionMutation(currentSnapshot, input); err != nil {
 			return err
 		}
+		// Evidence events share this log without rewriting the business snapshot.
+		// Allocate under the same run lock, retaining the snapshot CAS above.
+		cursor, err := nextEventCursor(ctx, tx, input.Scope)
+		if err != nil {
+			return err
+		}
+		if cursor <= current.Version {
+			return imageagent.ErrRevisionConflict
+		}
 		if err := r.applyGormProjectionMutation(ctx, tx, input); err != nil {
 			return err
 		}
 		next := input.Snapshot
-		next.LastEventID = current.Version + 1
+		next.LastEventID = cursor
 		next.ProjectionVersion = next.LastEventID
 		next.Actions = imageagent.AllowedActions(next.Run)
 		if err := imageagent.ValidateProjectionSnapshot(input.Scope, next); err != nil {
