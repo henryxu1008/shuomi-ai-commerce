@@ -4,7 +4,7 @@ Execution: [#774](https://github.com/qq550723504/task-processor/issues/774)。De
 
 ## 产品结果与依据
 
-2026-10-18，用户要求查清保留实例图片执行未接入的原因，补齐必要接线，验证三个官方图片方法的选择入口、权限和明暗主题，保留已有数据与配置、不重复派工；随后明确“先使用百炼”。服务商选择替代原运行接入对 GRSAI 的假设，但不撤销点数、权限、人工确认、UNKNOWN 恢复或素材保存合同。
+2026-10-18，用户要求查清保留实例图片执行未接入的原因，补齐必要接线，验证三个官方图片方法的选择入口、权限和明暗主题，保留已有数据与配置、不重复派工；随后明确“先使用百炼”，最终指定 `qwen-image-3.0`，并授权本会话决定地域与试用点数。服务商选择替代原运行接入对 GRSAI 的假设，但不撤销点数、权限、人工确认、UNKNOWN 恢复或素材保存合同。
 
 继续沿用 [完整图片 V1](product-image-agent-v1.md)、[官方方法 V1](official-skills-and-image-method-v1.md)、[企业智能体配置](organization-agent-configuration-v1.md) 及其 Figma `tg48P46SSXl6TBy9lZwg63` / `31:463` / 图片方法节点 `6861:1826`、`6861:1864`。不新增页面、技能类别或付费调用入口；本增量改变 provider 接线，选择器仍使用已批准设计。
 
@@ -35,15 +35,21 @@ Out of Scope：真实模型调用、另设点数账本或默认价格、跨企�
 
 当前实例只有已保存集合/Preparation 来源，没有单商品采集 operation。运行前须确认现有 full image source reader 能消费其合法原来源；若需把通用 Preparation 来源从完整平台 Supply worker 中拆出，只提取既有来源读取/当前 IAM 端口，保留现有 `supply` context、原 source ID/固定版本与来源权限，不创建假采集 operation、重复商品或第二事实源。若无法在这些现有合同内完成，保持该入口 NOT_RUN 并报告，不临时新增 source kind/发布或授权模型。
 
+运行接线明确采用现有 Preparation source reader：从 Product DB 读取 `preparation.SourceService` 的原来源，配合现有 `supplychain.OrganizationExecutionAuthorizer` 的来源权限检查和 EffectiveImageProductReader，直接注入 `ImageSetSourceRouter.Supply`；读取模式用原 `preparation.PermissionRead`，新的准备/执行仍用原 execution-source 权限。平台 rule/target ports 仍只在完整 SupplyChain 已配置时提供，通用 `product` target 不要求 Supply worker。不能新增来源ID、假operation或改变actor/tenant/store权限。
+
+现有本地待补全详情消费同一 ProductImageSetPanel（已有 Figma 方法选择组件），使用真实 `kind=supply` / 原 sourceId。只有当前可读合法来源且具备原 image write 的用户能选择方法；方法候选读取独立于图片模型 readiness，准备按钮仍要求原 AVAILABLE、有效模板、真实素材、模式和报价。缺少凭据时可核对方法准确版本，界面明确“模型配置尚未就绪”，不能生成/准备Run。切企业清空选择；不新增默认方法或持久化设置。
+
+冻结路由元组：`provider=bailian`、`model=qwen-image-3.0`、`protocol=dashscope-image-sync-v1`，分辨率 `1024x1024`、quality `auto`。由受信 factory 同时提供给 ImageGenerationQuote、GenerationProviderMetadata、新 GenerationIntent/fingerprint、operation provider/model 比较和派发前 revalidate。领域只允许该完整元组与当前已批准的 `grsai/gpt-image-2.5/grsai-json-sync-v1`，交叉混配和未知值均拒绝；不按URL猜provider。未改变旧意图的准确字段/回执。
+
 ## 百炼协议边界
 
-依据阿里云[万相2.7同步图像接口](https://help.aliyun.com/zh/model-studio/wan-image-generation-and-editing-api-reference) 和本地实际原文 `bailian-docs-llm-wiki/raw/model-api-reference/image-generation/wan-image-api-reference/wan-image-generation-and-editing-api-reference.md`（2026-10-18核对）。先采用 `wan2.7-image` 的同步图像编辑，固定每次 `n=1`、关闭组图、请求 `1024*1024`、无水印；不接入异步查询/重试协议。候选模型仅此一个，变更须明确更新受信路由配置与校验。
+依据阿里云[千问图像生成与编辑接口](https://help.aliyun.com/zh/model-studio/qwen-image-generation-and-editing-api-reference) 和本地实际原文 `bailian-docs-llm-wiki/raw/model-api-reference/image-generation/qwen-image-api-reference/qwen-image-generation-and-editing-api-reference.md`（2026-10-18核对）。按用户最终选择采用 `qwen-image-3.0` 的 DashScope 同步图像编辑，固定每次 `n=1`、请求 `1024*1024`、无水印，显式关闭 `prompt_extend` 及 `enable_thinking`；不接入异步查询/重试协议，不使用 multipart 或假定 OpenAI edits。候选模型仅此一个；已放弃的万相和图片翻译模型不进入执行路由。
 
 百炼 region 与 credential 必须来自同一获准业务空间。只允许官方 HTTPS host：`dashscope.aliyuncs.com`、`dashscope-intl.aliyuncs.com`，或精确业务空间的 `*.cn-beijing.maas.aliyuncs.com` / `*.ap-southeast-1.maas.aliyuncs.com`；不接受用户信息、query、fragment、非默认端口、模糊后缀或转发到另一 host。POST 路径固定 `/api/v1/services/aigc/multimodal-generation/generation`。重定向禁用、transport 不自动重发 POST、timeout 最多5分钟；不使用 CLI 子进程代替应用 provider。
 
-将已授权并冻结 hash 的真实 JPEG/PNG 字节按 data URL 传入 `input.messages[].content`，与冻结 prompt 同请求。参考图数量、尺寸和媒体类型先按官方限制校验；提示词超过5000个 Unicode 字符时在派发前明确拒绝，不能让 provider 截断准确方法或静默丢参考图。请求体/响应体有界，不把正文、base64、Authorization 写入日志/错误/API/checkpoint。
+将已授权并冻结 hash 的真实 JPEG/PNG 字节按 data URL 传入 `input.messages[].content`，与冻结 prompt 同请求。参考图最多3张，单张不超过10MiB、宽高1–8000且宽高比不超过10:1；沿当前素材总字节上限取更严格值。提示词按当前完整输入的有界合同校验，超过本地限制时派发前明确拒绝，不静默截断方法或丢参考图。官方推荐4500Token以内；本轮不额外调用模型估算token、不声称字节/字符数等于token数。请求体/响应体有界，不把正文、base64、Authorization 写入日志/错误/API/checkpoint。
 
-响应先有界解码并检查 request_id、精确一张结果、公开 HTTPS 输出 URL；沿原观察回调持久化 request ID、结果摘要与私有结果定位，再使用原下载/媒体/1024尺寸验证和不可变存储。provider 对尺寸允许误差，应用仍按现有实际输出尺寸合同拒绝不符结果，不伪造1024元数据或暗中调用放大模型。
+响应先有界解码，成功必须同时满足：HTTP 2xx、没有错误code、有效request_id、恰一个choice且finish_reason=stop、assistant消息恰一张image结果、usage.output_image_count=1且输出尺寸为1024×1024、公开HTTPS输出URL。Qwen3同步协议没有output.finished；若响应额外给出明确false或异步task状态，拒绝当成功。使用Qwen3的output_image_count而非旧模型的image_count；缺失/矛盾/非终态保留UNKNOWN。随后沿原观察回调持久化 request ID、结果摘要与私有结果定位，再使用原下载/媒体/1024尺寸验证和不可变存储。provider 对尺寸允许误差，应用仍按现有实际输出尺寸合同拒绝不符结果，不伪造1024元数据或暗中调用放大模型。
 
 百炼按张计费，token usage 缺失不能伪造0 token；Generation 的固定每张点数与实际 provider usage 两种事实继续分开。适配器向原 receipt 传递可证实的调用/图片数量和 request ID，token 字段无证据则维持未知。价格/credential reference/route reference/配置版本变化使原新派发 revalidate 失败，不能把新凭据用于旧已冻结意图。
 
@@ -57,9 +63,9 @@ POST 交给 transport 后的超时、连接断开、响应丢失、不完整 JSO
 
 ## 保留实例与停止条件
 
-本设计和隔离实现不授权重跑 retained initializer。原 Compose/.env/私有文件不覆盖；有配置值后采用新的受保护配置文件与最小 override，保留原回退。当前空 Image owner 的显式 schema/窄角色准备、对象存储和企业凭据录入要分别记录真实授权、空库条件和前后证据；现有业务 DB 不跑迁移/DDL，也不重装官方技能。缺少这些前置时不能让 current application 启动时补表或自动启用企业。
+本设计和隔离实现不授权重跑 retained initializer。原 Compose/.env/私有文件不覆盖；有配置值后采用新的受保护配置文件与最小 override，保留原回退。当前 Image DB 已有当前 `ai_invocations`（0行），因此不能通过删除表满足原 empty-schema initializer。新增显式、有界的 ledger-only owner 准备入口：仅允许确认同一当前 Image owner、除该当前表外无其它业务表/状态、ledger当前结构验证通过；原ledger逐行保留且不alter/迁移，事务内仅创建缺少的当前ImageSet/Asset/企业图片凭据表。已有完整schema使用Verify路径、不重装；混合/未知表或结构拒绝。该入口不在普通启动执行，也不运行宽迁移器或清理。窄HTTP/worker/Asset角色沿原grant命令，数据库凭据仅私有文件。对象存储与企业凭据录入分别记录具体配置、授权和前后证据，不重装官方技能或修改其它业务DB。缺少这些前置时不能让 current application 启动时补表或自动启用企业。
 
-**仍待用户确定每张 AI 点数；百炼地域/业务空间与现有授权凭据须在原配置入口确认。** 未给出前保持新生成关闭，不写入样例价格、不把供应商单价当产品点数。保留实例实际三方法执行选择/计划/生成/采用如未真实执行，一律 NOT_RUN。不得通过新造商品或伪 Run 提供验收截图。
+**按用户“你决定”的授权，使用北京地域、每张1 AI点的内部试用价格 `bailian-qwen-image-3-trial-20261018-v1`。** 该价格是明确的产品试用配置，不代表百炼人民币成本，也不更改标题价格或现有余额。业务空间与现有授权凭据须在原配置入口确认；缺少前置则保持生成关闭，不复制宿主CLI/标题密钥。保留实例实际三方法执行选择/计划/生成/采用如未真实执行，一律 NOT_RUN。不得通过新造商品或伪 Run 提供验收截图。
 
 Legacy decision: N/A；本次消费当前 ImageSet/Generation/Skill/Resource/Asset 合同，不依赖或恢复 legacy task/worker、旧试验 overlay、历史迁移或第二事实源。
 
@@ -72,3 +78,9 @@ TDD：先以受控 HTTP fixture 捕获百炼 route 被拒、元组错配、n/siz
 实际实例验证三个兼容官方版本可选且保留 ID/version/digest；个人图片、跨企业、失权/停用版本拒绝；两种主题和不使用方法路径；停在准备/确认前，不调用真实模型、不产生真实点数预留或新 Run。若准备需要写 Run 则本轮不点击准备，只验选择入口与权限。缺少合法当前上下文或配置则如实记录具体阻碍。
 
 本批一个主要 PR，原会话/owned worktree 一个 Writer。设计检查、隔离测试、PR CI、retained runtime 和用户验收分别记录；不自动合并/关闭 Issue，不把旧 #795 CI 冒充本增量证据。
+
+## 独立检查处理
+
+Round1 reviewed 703f8615dd。路由元组未冻结 finding 分类 BLOCKER（核心准备/派发身份可能互拒，实施层）：已在上方冻结准确三元组和所有消费位置。百炼成功终态 finding 分类 IMPLEMENTATION_TEST：按用户最终Qwen3协议明确finish_reason、output_image_count和尺寸成功谓词，fixture覆盖缺失/矛盾/非终态；不要求不存在的Wan finished字段。
+
+用户最终模型变更为qwen-image-3.0、北京及试用每张1点已纳入本候选。Round2只复核上述合同修订及必要Preparation/受保护当前ledger准备/UI只读选择边界，不重复#795未变设计。尚未达到IMPLEMENTATION_READY前仍无生产代码。
