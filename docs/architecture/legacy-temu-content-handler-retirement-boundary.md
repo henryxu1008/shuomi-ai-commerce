@@ -2,8 +2,8 @@
 
 ## 1. 状态、用户结果与范围
 
-- 日期：2026-10-18；Refs #29 / #301。用户授权先做名称校验、描述评分/增强、品牌清理编排退休设计，确认后再实施。
-- **DESIGN_ONLY / AWAITING_USER_CONFIRMATION；Design Basis: N/A**：当前仅只读调查及本文/架构索引，不改生产、测试、guard、模板或 workflow。未来实施不是 N/A，拟采用 §2 的 Reuse Existing Architecture，当前未开工。
+- 日期：2026-10-18；Refs #29 / #301。用户已确认 #810 冻结设计 `13db7447139aa4767ebf89588c2d7fe7b16901d1` 的 §5、§6、§6.1 和 §7，并授权同一 PR 实施。
+- **USER_CONFIRMED / SOURCE_RETIRED；Design Basis: Reuse Existing Architecture**：生产修改前已在 #29/#301 登记并读回 Ready；§5 文件与孤立声明已源码退休，保留规则沿原 owner。原设计 N/A/CI/review 为历史，不替代实施证据；准确实施 HEAD、CI 和最终独立检查维护于 #810，合并另授权。
 - 取证 actual main：`2dcbd80e3ea19448b1ec9c0d3d4dccb5b683e8e5`，含 #807 已退休图片 API/prompt。唯一 Writer 会话01a133ef-757c-73e3-b8f6-76958c642397，复用附属独占 worktree issue29-temu-image-retirement/task-processor；新分支 codex/issue29-temu-content-handler-retirement-design。已核对接单/关联 PR，无同范围 owner，不接管 #809/#805/#692。
 
 使用者为当前内部试用、采集/Store/文案维护者。交付是三个旧 handler、专属 optimizer/描述 helper/结果 DTO 的消费者、有效规则、进程内与持久化/平台副作用 owner、测试及删除矩阵。当前没有用户操作被此维护阻塞，**不增加内部试用前置**。无新页面或交互，Figma N/A。
@@ -14,7 +14,7 @@
 
 ## 2. Design Basis、authority 与不变量
 
-未来实施拟 **Reuse Existing Architecture**。依据：
+本次实施采用 **Reuse Existing Architecture**。依据：
 
 - [Greenfield 产品决定](../product/greenfield-no-legacy-migration.md)、[Hard-Cut Policy](../refactoring/legacy-hard-cut-policy.md)、[Legacy Register](../refactoring/legacy-register.md)、[Project Boundaries](project-boundaries.md) §3.5：旧 owner 仅 EXTRACT / RETIRE，不新增 wrapper/fallback/双读双写/旧 ID 映射/第二事实源。
 - [#749 保存/提交退休](legacy-temu-listing-submit-retirement-boundary.md) 与 [#768 SPU/价格查询退休](legacy-temu-spu-price-query-retirement-boundary.md)：混合 product 包和旧名称/品牌/描述当批保留，不是永久保留权；用户确认本文后，只窄替代 §5 指定的旧对象，不重写历史证据。
@@ -45,7 +45,7 @@ Should：原退休guard和当前清单准确反映范围。Out of Scope 如 §1�
 
 ## 4. 最后消费者、有效行为与持久化 owner
 
-首轮25c241c63的P2指出三policy会失去最后生产consumer。分类 **BACKLOG（当前内部试用非Blocker）**：不命中任何AGENTS列举的BLOCKER后果；但本轮尚在设计阶段，现一次纳入同根因闭包，避免机械派生下一小批。原稿“已抽取即保留”不充分，以下修订仍须用户明确确认，未扩大实施授权。
+首轮25c241c63的P2指出三policy会失去最后生产consumer。分类 **BACKLOG（当前内部试用非Blocker）**：不命中任何AGENTS列举的BLOCKER后果；设计阶段一次纳入同根因闭包，避免机械派生下一小批。原稿“已抽取即保留”不充分，修订已在冻结13db74471完成复核并获用户明确确认，实施授权仅覆盖本矩阵。
 
 | 行为 / 边界 | 当前消费者与requirement证据 | 处置 |
 | --- | --- | --- |
@@ -61,9 +61,9 @@ Should：原退休guard和当前清单准确反映范围。Out of Scope 如 §1�
 
 本批**无新增EXTRACT生产代码**。保留NormalizeProductSubmissionName及其确有消费的共享定义；其它三个policy、孤立格式函数、旧优化/营销推断/评分不因namespace或测试存在被认作有效requirement。保留当前official goods/rules/productpolicy/其它纯规则，不新接任何caller。“无当前需求”仅指本仓库已批准合同与源码消费者中未找到要求，不是对外部平台全部规范的断言；当前官方规则快照校验不变。
 
-## 5. 精确删除与保留矩阵（修订后待用户确认）
+## 5. 精确删除与保留矩阵（用户已确认并源码退休）
 
-前九文件相对internal/temu/product/；后续publishing行的生产及同目录测试均相对internal/marketplace/temu/publishing/。本节提议10整生产文件、6整测试文件和1 mixed生产文件；当前仅文档，尚未删除任何源码。
+前九文件相对internal/temu/product/；后续publishing行的生产及同目录测试均相对internal/marketplace/temu/publishing/。本节10整生产文件、6整测试文件已删除，1 mixed生产文件仅删除孤立声明；下列行数保留为冻结设计的删除前取证。
 
 | 文件 / 对象 | 决定 | 边界 |
 | --- | --- | --- |
@@ -92,9 +92,9 @@ Cutover/deletion condition: 用户明确确认本次修订§5/§6/§6.1/§7 → 
 
 ## 6. 验证与验收边界
 
-当前只做源码/静态依赖/owner与最后消费者/旧测试映射，交本文及索引；文档diff/相对链接和原PR CI/最终独立检查绑定设计HEAD。生产/测试/guard/模板不改；真实平台/模型/运行/用户验收均 **NOT_RUN**。设计阶段不制造TDD RED。
+设计阶段只做源码/静态依赖/owner与最后消费者/旧测试映射，交本文及索引；原设计CI/最终检查绑定设计HEAD。用户确认后按本节实施，原guard先准确捕获16文件及15包级声明的RED，再精确退休；三个原格式例在既有formatter测试表承接。稳定实施候选的GREEN/相关回归、准确HEAD原CI及最终检查在#810记录。真实平台/模型/运行/用户验收均 **NOT_RUN**，不把源码检查当作用户验收。
 
-用户确认后的必要验证：
+必要验证：
 
 1. 开工同步actual main，刷新全部拟删文件/声明的构造/实例/注册/类型/helper、formatter/left regexp/PriceHandler/AI/prompt消费者及31命令依赖。新真实consumer或当前契约冲突，停对应项报告。
 2. 在原退休guard加16整文件缺席、product及publishing精确包级声明禁令/保留断言，旧文件/孤立声明还在时确认RED。原格式三例由既有submission_name_policy_test承接，行为已存在时先GREEN，不伪造业务修复RED；再精确退休并确认原guard GREEN。
@@ -103,7 +103,7 @@ Cutover/deletion condition: 用户明确确认本次修订§5/§6/§6.1/§7 → 
 
 ### 6.1 原检查、清单与文档的精确处置
 
-| 原位置 | 未来实施最小变更 | 不得削弱 / 扩大 |
+| 原位置 | 本次实施最小变更 | 不得削弱 / 扩大 |
 | --- | --- | --- |
 | tests/listingkit_backend_retirement_test.go | 原严格缺席列表加16整文件；原product mixed walk以局部AST只禁9包级owner/ctor/DTO名（四receiver/四New/DescriptionValidationResult），publishing局部AST禁SanitizeProductName/ProductNameSanitizationResult、SanitizeProductDescription/ProductDescriptionSanitizationResult、TEMU RemoveBrandFromText、NormalizeParenthesesSpacing六声明，覆盖alias/var重建 | 补/保留PriceHandler、NormalizeProductSubmissionName、left regexp与当前测试精确存在断言；不全局禁generic helper/其它包同名type、field、selector、local。原五mixed包、SKU fixtures、#807及更早退休/安全/身份/采集/Store断言保持，不建通用扫描器 |
 | publishing/submission_name_policy_test.go | 原表承接name_format_policy_test三准确格式例（重复则复用），保留已有Unicode/括号/标点测试；另外六旧测试整退 | 不迁移孤立sanitizer/brand/评分fixture，不重写规则/formatter，不强造RED或新测试框架 |
@@ -113,8 +113,8 @@ Cutover/deletion condition: 用户明确确认本次修订§5/§6/§6.1/§7 → 
 
 ## 7. 确认、实施与停止条件
 
-1. 本PR仅设计，等用户明确确认§5/§6/§6.1/§7后才在同一主要PR实施；当前N/A不授权改生产/测试/guard。
-2. 确认后在执行Issue登记并读回Reuse Existing Architecture / Ready、冻结设计HEAD、用户结果、调用路径/owner/不变量/验证，再按矩阵精确退休；不以实现倒推Design Basis。
+1. 用户已明确确认冻结13db74471的§5/§6/§6.1/§7并授权同一主要PR实施；原设计N/A只覆盖此前设计阶段。
+2. 已在执行Issue登记并读回Reuse Existing Architecture / Ready、冻结设计HEAD、用户结果、调用路径/owner/不变量/验证，然后按矩阵精确退休；未以实现倒推Design Basis。
 3. 新真实consumer、具体当前外部可观察兼容义务、有效行为缺owner或必须改变保留的身份/tenant/事实/状态/事务/规则/管理/恢复/副作用边界时，停受影响部分报告并补适用准入；不临时造adapter、fallback、双写或清理数据。
 4. 实施候选In Review并交准确HEAD原CI/最终独立检查，finding先分类；只复核修复相关增量，非Blocker不自动扩大范围/重开全局架构。实现者/CI/AI不签发用户验收。
 5. 合并仍需准确最终HEAD另授权，正常expected-head且不绕过保护。#29/#301保持OPEN；无部署/实例/凭据/已有覆盖行/业务数据授权，不增加内部试用前置。

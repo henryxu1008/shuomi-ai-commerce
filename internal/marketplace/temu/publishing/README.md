@@ -2,8 +2,17 @@
 
 Owns TEMU publishing rules and payload shaping for TEMU as a listing target.
 
-Product-name and description sanitization, brand-text removal, and final
-submission formatting live here. Private value-only submission validations check
+Final submission formatting remains here: `NormalizeProductSubmissionName` is
+consumed by the retained bullet-point validator and shares the original left
+parenthesis regexp. Under [#810's confirmed boundary](../../../../docs/architecture/legacy-temu-content-handler-retirement-boundary.md),
+the unused name/description/brand Task handlers, their three final-consumer
+policies/results/tests and the orphan parenthesis formatter are source-retired.
+Their former location here and old tests do not establish current requirements;
+no sanitizer, brand mutation, default marketing text or score is connected to a
+new caller. Three valid format cases remain in the existing formatter test table.
+PriceHandler, AI/SKU/content prompt and all other retained owners are unchanged.
+
+Private value-only submission validations check
 used specification coverage/nonzero VID and Multiple Sets packaging counts.
 They do not mutate inputs, repair products, call platforms, or depend on legacy
 Task/context/client/state ownership. There is no new submission entrypoint.

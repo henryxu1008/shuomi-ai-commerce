@@ -8,6 +8,9 @@ func TestNormalizeProductSubmissionName(t *testing.T) {
 		input string
 		want  string
 	}{
+		{name: "spaces around words", input: "Widget(Blue)Size", want: "Widget (Blue) Size"},
+		{name: "collapses whitespace", input: "  Widget   (Blue)   Size  ", want: "Widget (Blue) Size"},
+		{name: "preserves punctuation adjacency", input: "Widget(Blue),Size", want: "Widget (Blue),Size"},
 		{name: "parentheses and whitespace", input: "  Widget(Blue)   Size  ", want: "Widget (Blue) Size"},
 		{name: "comma and punctuation spacing", input: "Widget(Blue) , Size . Next", want: "Widget (Blue), Size. Next"},
 		{name: "unicode whitespace", input: "  Widget\u00a0(Blue)\u00a0,\u00a0Size  ", want: "Widget (Blue), Size"},

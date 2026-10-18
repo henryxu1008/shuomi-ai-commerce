@@ -2,6 +2,8 @@
 
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
+后续用户确认的 [#810 文案边界](legacy-temu-content-handler-retirement-boundary.md) 已退休本文当批保留的旧名称/描述/品牌编排、三个失去最后消费者的 publishing policy/result/test 与孤立格式 helper。PriceHandler 仍消费 core/logger，因此 import guard/logger 行与日期化 inventory 不改；下文原消费者/计数保留为历史。有效 formatter/left regexp、AI/prompt、平台规则和其它共享合同不变。
+
 后续用户确认的 [#773 类目/模板边界](legacy-temu-category-template-retirement-boundary.md) 已退休本文当批保留的五个 category/template handler 与两个专属 DTO 文件。下文消费者与删除前矩阵保留为历史取证；平台 API/DTO、四个 TemplateState 字段、有效规则和其它共享能力仍保留，仅这七文件由后续矩阵窄替代。
 
 后续用户确认的 [#771 SKU/SKC 边界](legacy-temu-sku-skc-retirement-boundary.md) 已退休本文当批保留的旧 SKU 构建 caller。本文消费者与删除前矩阵保留为历史取证；当前 PriceHandler 全部实现、SKU AI/映射、平台/规格/图像和其它共享 owner 仍保留，不据此恢复旧构建链。
