@@ -2,9 +2,9 @@
 
 ## 1. 状态、用户结果与范围
 
-- 日期：2026-10-18；Refs #29 / #301。用户要求减少机械切片、按完整退休闭包和一个主要 PR 推进，已授权本设计；设计确认后再实施。
-- **DESIGN_ONLY / AWAITING_USER_CONFIRMATION；Design Basis: N/A**。当前只读调查并提交本文/架构索引，生产、测试、guard、模板及 workflow 均不修改。未来实施拟按 §2 的 Reuse Existing Architecture 登记 Ready 后在同一 PR 连续交付，不逐文件/提交重复请示。
-- 取证 actual main：**f8274448d0c8ff80cd6a55be60338e3d34029632**（含 #809/#810）。唯一 Writer 会话01a133ef-757c-73e3-b8f6-76958c642397；复用附属独占 worktree issue29-temu-image-retirement/task-processor，新分支 codex/issue29-temu-text-bullet-retirement-design。已核对接单/关联 PR，无同范围 owner；#692 安装工作保持原 owner。
+- 日期：2026-10-18；Refs #29 / #301。用户要求减少机械切片、按完整退休闭包和一个主要 PR 推进，已确认 #812 冻结设计 b09ed052b8fb652b2c4cc9c9194bc111fd07040c 的 §5、§6、§6.1、§7，并授权同一 PR 实施。
+- **USER_CONFIRMED / SOURCE_RETIRED；Design Basis: Reuse Existing Architecture**。生产修改前已在 #29/#301 登记并读回 Ready；§5 的完整闭包已源码退休，原 guard 按 §6.1 校准。设计阶段 N/A、CI/review 为历史，不替代实施验证；准确实施 HEAD、CI 和最终独立检查维护于 #812，合并另授权。
+- 取证 actual main：**f8274448d0c8ff80cd6a55be60338e3d34029632**（含 #809/#810）；实施开工同步 actual main b161243b891540802a7f35ced8938ca69e66bb42，#811 的 Store/Chat 路由修复与本闭包无交集。唯一 Writer 会话01a133ef-757c-73e3-b8f6-76958c642397；复用附属独占 worktree issue29-temu-image-retirement/task-processor，新分支 codex/issue29-temu-text-bullet-retirement-design。已核对接单/关联 PR，无同范围 owner；#692 安装工作保持原 owner。
 
 使用者为内部试用、采集/Store/内容维护者。本批结果是一次退出无装配的旧文本检查、文本预处理、要点优化/校验和所有失去最后消费者的专属文本策略；不把调用方与孤立依赖拆成后续小批。当前没有用户操作被此维护阻塞，**不增加内部试用前置**。无 UI 变化，Figma N/A。
 
@@ -14,7 +14,7 @@
 
 ## 2. Design Basis、authority 与不变量
 
-未来实施采用 **Reuse Existing Architecture**，不以本轮 N/A 代替生产准入。依据：
+实施采用 **Reuse Existing Architecture**；设计阶段 N/A 不代替生产准入。依据：
 
 - [Greenfield 产品决定](../product/greenfield-no-legacy-migration.md)、[Hard-Cut Policy](../refactoring/legacy-hard-cut-policy.md)、[Legacy Register](../refactoring/legacy-register.md)、[Project Boundaries](project-boundaries.md)：先核对当前 requirement/owner，旧实现和测试只有 EXTRACT / RETIRE；无 wrapper、fallback、双读双写、旧 ID 映射或第二事实源。
 - [#810 文案边界](legacy-temu-content-handler-retirement-boundary.md)、[#751 variant 边界](legacy-temu-variant-retirement-boundary.md)、[#749 保存/提交边界](legacy-temu-listing-submit-retirement-boundary.md)：当批有消费者的 formatter、TextProcessor/CleanProductTitle 保留属于当批边界。本设计以最后 caller 退出及当前 requirement 复核为依据，提议窄替代这些对象的保留，不恢复已退休对象或重写历史批准/计数。
@@ -57,9 +57,9 @@ Threat Model 限于误删有效消费者/规则/同名方法，把旧猜测/默�
 | shared/strx其它声明 | CleanProductText及其filterAllowedRunes/isAllowedRune/collapseSpaces/collapseNewlines、ContainsIgnoreCase/FindSubstring/TruncateString/Contains/ToLower/ToUpper等不在旧root可达的最后消费者闭包 | 本轮不对它们作新的永久保留/当前装配判断，不增加caller或新guard保留权；保持原实现/其它测试，不整包做无关dead-code清扫 |
 | TextRenderer/DimensionInfo、其它TEMU规则/定价/AI | 保留原owner；TextRenderer继续消费core/logger，PriceHandler也继续消费core/logger；AI/SKU/content prompt原调用保留 | 不整删rules/publishing/product/shared，logger/AI consumer行与guard/loader/ceilings不改 |
 
-本设计提议仅窄替代 #751/#749 对 TextProcessor/CleanProductTitle 和 #810 对 formatter/left regexp/fixture 的当批保留。用户确认 §5、§6、§6.1、§7 后才成为这些具体对象的删除依据；此前实现与 CI/批准保留为历史，其它有效能力不受影响。
+本次用户确认仅窄替代 #751/#749 对 TextProcessor/CleanProductTitle 和 #810 对 formatter/left regexp/fixture 的当批保留。用户确认的 §5、§6、§6.1、§7 是这些具体对象的删除依据；此前实现与 CI/批准保留为历史，其它有效能力不受影响。
 
-## 5. 完整删除与保留矩阵（待用户确认）
+## 5. 完整删除与保留矩阵（用户已确认，源码已退休）
 
 以下六整生产文件共976行，两整测试共52行；mixed文件仅按准确声明删减，不把整文件行数算成删除量。
 
@@ -85,9 +85,9 @@ Cutover/deletion condition: 用户确认本文§5/§6/§6.1/§7 → 执行Issue�
 
 ## 6. 验证与交付
 
-本轮只做源码/静态依赖/requirement/副作用映射和两份文档。文档diff/相对链接、准确设计HEAD原CI与一次集中独立检查在PR记录；不为设计制造业务TDD RED。运行/平台/provider/用户验收 **NOT_RUN**。
+设计阶段仅做源码/静态依赖/requirement/副作用映射和两份文档，原设计 CI/评审保留为历史。实施在生产修改前完成 Ready 读回，并执行原 guard RED→GREEN 与下列适用检查；准确候选和结果维护于 PR。运行/平台/provider/用户验收 **NOT_RUN**。
 
-确认后在同一主要PR连续实施全部闭包：
+用户确认后在同一主要 PR 按以下方法实施全部闭包：
 
 1. 开工同步actual main，刷新6整生产/2整测试、三个mixed文件和全部导出/私有声明引用、31命令依赖与保留合同。新真实consumer/具体当前兼容义务停相关项，不隐式扩大授权。
 2. 在原退休guard先增加8整文件准确缺席与13个局部包级声明禁令，精确退出下表旧保留断言，并新增明确的平台文本检查合同断言。新增保留断言在删除前即应满足，完整guard因待退文件/声明尚在而RED；再一次精确退休确认GREEN，不伪造孤立formatter测试搬家或新规则修复。
@@ -97,7 +97,7 @@ Cutover/deletion condition: 用户确认本文§5/§6/§6.1/§7 → 执行Issue�
 
 ### 6.1 原检查与文档的精确处置
 
-| 原位置 | 未来实施变更 | 不得削弱 / 扩大 |
+| 原位置 | 已确认实施变更 | 不得削弱 / 扩大 |
 | --- | --- | --- |
 | tests/listingkit_backend_retirement_test.go缺席列表 | 增8整文件路径（6生产+2测试） | 原退休文件、5 mixed包、SKU fixture、#810/#807及此前安全/身份/采集/Store断言保持 |
 | 原rules混合AST walk | 只加10包级声明：TextCheckHandler/NewTextCheckHandler、TextProcessor/NewTextProcessor、BulletPointsValidator/NewBulletPointsValidator、BulletPointsOptimizer/NewBulletPointsOptimizer、BulletPointValidationResult、OptimizationStrategy | 覆盖type alias/var重建；不禁止其它包或field/selector/local/方法上的通用同名，不建新扫描器/验证平台 |
@@ -106,12 +106,12 @@ Cutover/deletion condition: 用户确认本文§5/§6/§6.1/§7 → 执行Issue�
 | 同一token map中的平台文本检查保留断言（首轮IMPLEMENTATION_TEST补齐） | api/api.go精确断言QueryAPI=query.API、QueryAPIInterface=query.QueryAPI、NewQueryAPI=query.NewAPI及TextCheckRequest/Response指向query同名类型；query/query.go断言QueryAPI接口中CheckText的请求/响应签名、实际API.CheckText方法签名及POST端点/mms/marigold/query/commit/check_text；query/query_types.go断言两DTO声明及原Content/Type、Success/ErrorCode/Result JSON合同；client/interfaces.go断言ClientAPI.SendTEMURequest原签名 | 使用当前源码准确声明/目标/签名，不能只匹配名字或注释。这些保留合同删除前已存在，应GREEN；实施交付另核对整个api/client保留源码相对基线零diff。只补原guard，不新增测试框架、真实HTTP调用或平台准入要求 |
 | 原两整测试与shared mixed测试 | 两旧wrapper/formatter测试整退，shared只退TestCleanWhitespace | 不移动孤立fixture到新owner维持无当前需求的策略；保留SHEIN同名方法和strx其余测试 |
 | tests/import_boundaries_test.go / phase2-runtime-inventory.md | **零变更**：core/logger→temu/rules仍由TextRenderer消费，→temu/product仍由PriceHandler消费；目标无OpenAI豁免 | 不改loader/root/deny/ignore/ceilings、dated inventory或AI/logger准入；不把当批静态图冒充部署证据 |
-| Legacy Register、code-health rules行、publishing README、本文/索引、#751/#749/#810直接冲突说明 | 批准实施后标记完整闭包source-retired，并窄替代对应保留；code-health rules行纠正旧“configured runtime reachable”表述，只列本次四文件退休，其余包保留。原声明数/报告为历史 | 设计阶段只有本文/索引；不整删rules/publishing/shared，不给无关预存函数新增永久保留权，不重写原批次证据 |
+| Legacy Register、code-health rules行、publishing README、本文/索引、#751/#749/#810直接冲突说明 | 批准实施后标记完整闭包source-retired，并窄替代对应保留；code-health rules行纠正旧“configured runtime reachable”表述，只列本次四文件退休，其余包保留。原声明数/报告为历史 | 原设计阶段只有本文/索引；实施按本矩阵更新，不整删rules/publishing/shared，不给无关预存函数新增永久保留权，不重写原批次证据 |
 | 两套及其它workflow、依赖/保护 | **零变更** | 必需/安全检查、编译目标、触发/权限/并发与全部ceilings保持；不新增试用或发布前置 |
 
 ## 7. 确认与停止条件
 
-1. 本设计一次交付完整调用/最后消费者/共享helper/测试/guard/文档闭包。用户明确确认§5、§6、§6.1和§7后，在同PR登记并读回Reuse Existing Architecture / Ready才修改生产；当前N/A只授权设计。
+1. 本设计一次交付完整调用/最后消费者/共享helper/测试/guard/文档闭包。用户明确确认§5、§6、§6.1和§7后，在同PR登记并读回Reuse Existing Architecture / Ready才修改生产；原设计阶段N/A仅覆盖设计；本次确认后已按Reuse Existing Architecture登记并读回Ready。
 2. 冻结后范围内实现、finding分类与修复、开发自检、commit/push、PR维护连续完成，不逐项请示。只有出现新的真实保留consumer/具体当前兼容义务，或必须改变身份/tenant/权限/事实/schema/状态/事务/恢复/副作用边界，才停受影响部分并报告/补准入；不能以推测无限重开设计。
 3. 不新增caller、wrapper/fallback、双写或新事实源来维持旧代码/测试；已抽取namespace和历史保留不是永久authority。未变有效代码/证据可引用，仅验证真实组合风险。
 4. 实施完成In Review，交准确HEAD原CI/最终检查。finding先按AGENTS分类；非Blocker不自动扩大Threat Model或新增工具/前置，实现者/CI/AI不签发用户验收。

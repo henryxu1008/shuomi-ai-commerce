@@ -1,5 +1,7 @@
 # 旧 TEMU 名称、描述与品牌清理编排退休边界设计
 
+后续用户确认的 [#812 完整文本与要点闭包边界](legacy-temu-text-bullet-retirement-boundary.md) 已退休 TextProcessor/CleanProductTitle/专属空白 helper、旧文本与要点编排，以及失去最后消费者的 NormalizeProductSubmissionName/全部专属 regexp/测试。下文当批保留、消费者和计数为历史证据；仅这些具体对象被窄替代，平台 CheckText API/DTO、PriceHandler、AI/prompt 和其它有效能力保持，不据旧措辞恢复已退休代码。
+
 ## 1. 状态、用户结果与范围
 
 - 日期：2026-10-18；Refs #29 / #301。用户已确认 #810 冻结设计 `13db7447139aa4767ebf89588c2d7fe7b16901d1` 的 §5、§6、§6.1 和 §7，并授权同一 PR 实施。
