@@ -38,7 +38,7 @@ Skill owner（internal/skill、persistence/skill）仍唯一拥有包、不可�
 合同 → 实现 → 注入 → 消费者：
 
 1. 原 Skill HTTP/BFF 候选/准确选择调用 Store 检查合格资源；现 SkillPicker 只显示这些准确版本。历史 Run API 的 policy 枚举接受 v1/v2，准确版本摘要沿原展示。
-2. 原 PrepareImageSet 用新 policy + exact SkillVersionRef，取得原 Skill fence；在原 ImageSet 构造器中将商品标题/类型/排序属性、所选任务画面说明、背景/文字语言、已确认 evidence 组成确定性的自然语言视觉指令。无 JSON/YAML 序列化块，无原图 URL、ID、版本、内部字段名称或文件标记。保留真实参考图、事实优先与只允许明确请求的顾客文字的约束。无方法路径仍按当前旧构造器，不追溯影响已有计划。
+2. 原 PrepareImageSet 用新 policy + exact SkillVersionRef，取得原 Skill fence；在原 ImageSet 构造器中将商品标题/类型/排序属性、所选任务画面说明、背景/文字语言、已确认 evidence 组成确定性的自然语言视觉指令。无 JSON/YAML 序列化块，无原图 URL、ID、版本、内部字段名称或文件标记。保留真实参考图、事实优先与只允许明确请求的顾客文字的约束。无方法路径仍按当前旧构造器，不追溯影响已有计划。这里的当前基线为本设计准入前已获准并实现的 20fe0a8068 视觉 frame；不是撤回同一 Delivery Batch 的前序修复，v2 自身仅在非空 Method 分支覆盖它。
 3. recipe.Prompt 冻结事实/任务指令，binding 冻结策略与完整包 ref/digest。最终提示词字节**确定性地等于冻结 recipe.Prompt + 固定视觉过渡句 + 准确包中的 brief**；准备、报价、派发复用同一组合器，每处校验最终 ≤16KiB，不截断。既有 slot/input/plan/quote fingerprint 已包含 recipe 和 binding，因此完整冻结视觉输入，不在 checkpoint/API 复制方法全文或新增摘要事实。
 4. 原 skillimage adapter 在准确包/权限栅栏内按传入 policy 返回仅 brief；旧 policy 只校验准确包/可用性并返回空视觉材料，不再返回原文。ImageMethodContext 接收 policy，所有实际准备/派发/采用装配显式传递，不用默认猜测。
 5. Generation 的报价和**不存在旧 fact 的新派发**在 PrepareProvider / reserve / intent / transport 前拒绝 v1 policy；route 和直接 tools 生成也明确拒绝 v1，不容许绕过上层。新确认在原 admission receipt 恢复分支之后、写新准入之前同样拒绝 v1。原未选技能路径保持。任何旧新派发候选均需要重新准备新版本计划，不修改旧计划；新 request key 与不同 payload 按原冲突合同处理。已有准备请求按已存 binding.PolicyVersion 计算并比较唯一 input digest，返回其原冻结计划；仅不存在的请求使用 v2，不尝试多个策略或改写旧 digest。

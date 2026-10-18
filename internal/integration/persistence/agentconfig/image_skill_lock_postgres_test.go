@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"task-processor/internal/agentconfig"
 )
 
@@ -130,4 +131,55 @@ func commandForImageDisable(start agentconfig.ImageStartCommand) agentconfig.Com
 	value := command(start.Scope, "disable", 1)
 	value.AgentID = agentconfig.ImageAgentID
 	return value
+}
+
+func TestVisualSkillFenceCompletesWithQueuedActivationWriter(t *testing.T) {
+	for _, operation := range []string{"prepare", "admit"} {
+		t.Run(operation, func(t *testing.T) {
+			db, store, _ := fixture(t)
+			start := imageStartFixture(t, store)
+			var snapshot agentconfig.ImageConfigurationSnapshot
+			if operation == "admit" {
+				var err error
+				snapshot, err = store.PrepareImageConfiguration(context.Background(), start)
+				require.NoError(t, err)
+			}
+			guard := holdImageSkillFence(t, db, start.Scope.OrganizationID)
+			writer := db.Begin()
+			require.NoError(t, writer.Error)
+			var writerPID int
+			require.NoError(t, writer.Raw("SELECT pg_backend_pid()").Scan(&writerPID).Error)
+			written := make(chan error, 1)
+			go func() {
+				var row agentRow
+				written <- writer.Clauses(clause.Locking{Strength: "UPDATE"}).Where("organization_id=? AND agent_id=?", start.Scope.OrganizationID, agentconfig.ImageAgentID).Take(&row).Error
+			}()
+			defer func() {
+				_ = guard.Rollback().Error
+				select {
+				case <-written:
+				case <-time.After(3 * time.Second):
+				}
+				_ = writer.Rollback().Error
+			}()
+			require.Eventually(t, func() bool {
+				var waiting bool
+				return db.Raw("SELECT wait_event_type='Lock' FROM pg_stat_activity WHERE pid=?", writerPID).Scan(&waiting).Error == nil && waiting
+			}, 3*time.Second, 10*time.Millisecond, "activation writer must already be waiting behind the Skill lease")
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			if operation == "prepare" {
+				_, err := store.PrepareImageConfiguration(ctx, start)
+				require.NoError(t, err, "already-fenced preparation must complete while activation writer waits")
+			} else {
+				_, err := store.AdmitImageRun(ctx, imageSkillAdmission(start, snapshot), start.HardLimits)
+				require.NoError(t, err, "already-fenced admission must complete while activation writer waits")
+			}
+			select {
+			case err := <-written:
+				t.Fatalf("activation writer crossed the held fence: %v", err)
+			default:
+			}
+		})
+	}
 }
