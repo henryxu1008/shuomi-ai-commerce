@@ -111,3 +111,23 @@ func TestContentPromptActionExamplesAreUnambiguous(t *testing.T) {
 	require.Empty(t, missing.Candidate.Changes)
 	require.NotEmpty(t, missing.Unresolved)
 }
+
+func TestContentPromptExampleUsesTheActualMultiFieldWireContract(t *testing.T) {
+	var proposal agent.Action
+	for _, line := range strings.Split(contentTextSystem, "\n") {
+		if strings.HasPrefix(line, `{"Kind":"propose"`) {
+			require.NoError(t, json.Unmarshal([]byte(line), &proposal))
+		}
+	}
+	fields := map[string]string{}
+	for _, change := range proposal.Candidate.Changes {
+		fields[change.Field] = change.Value
+	}
+	require.NotEmpty(t, fields["description"], "the model needs an executable description example")
+	for _, field := range []string{"selling_points", "seo_keywords"} {
+		var values []string
+		require.NoError(t, json.Unmarshal([]byte(fields[field]), &values), "FieldChange.Value is a string containing the complete JSON array for %s", field)
+		require.NotEmpty(t, values)
+	}
+	require.Contains(t, contentTextSystem, "Value is always a JSON string")
+}

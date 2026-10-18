@@ -359,6 +359,27 @@ it("unmounts the old organization view and never sends its pending draft to the 
   expect(screen.getByRole("button", { name: "发送消息" })).toBeDisabled();
 });
 
+it.each(["product.title.optimize", "product.content.localize"])("reads the committed %s task from the owner after browser storage is lost", async kind => {
+  const taskId = "5892474d-1c8a-47e4-9550-45ed946e8197";
+  fixture.context.aiWorkbenchExecutionKind = kind as "product.title.optimize" | "product.content.localize";
+  sessionStorage.setItem(`ai-workbench:confirm:user-a:org-a:${conversationId}`, JSON.stringify({[operationId]:{
+    key:operationId,taskId:"11111111-1111-4111-8111-111111111111",
+  }}));
+  fixture.request.mockImplementation(async ({ route }) => {
+    if (route === "conversation-read") return { conversation, messages: [{ ID: operationId, ConversationID: conversationId, Sequence: 1,
+      Author: "USER", Content: "生成商品内容", CreatedAt: "2026-10-03T00:00:00Z" }], proposals: [{
+      kind, id: operationId, digest: "a".repeat(64), sourceSequence: 1, goalSummary: "生成商品内容", confirmedTaskId: taskId,
+      humanReviewRequired: true, detailsAvailable: false, titleProfileReady: false, executionAuthorized: false,
+    }], before: "" };
+    throw new AIWorkbenchError("INVALID_REQUEST");
+  });
+  render(tree());
+  expect(await screen.findByRole("link", { name: "查看已确认任务" })).toHaveAttribute("href", `/workbench/ai/tasks/${taskId}`);
+  expect(screen.getByText("已确认的执行方案")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "确认并创建任务" })).toBeNull();
+  expect(fixture.request.mock.calls.every(([call]) => call.route === "conversation-read")).toBe(true);
+});
+
 it("reuses the confirmation key after a lost response and links to the committed task", async () => {
   const proposalId = "d5d9d1ca-1db3-43af-9649-dcdf3663745b";
   const taskId = "5892474d-1c8a-47e4-9550-45ed946e8197";
