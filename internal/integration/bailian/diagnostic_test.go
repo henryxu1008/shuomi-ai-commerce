@@ -6,8 +6,10 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"task-processor/internal/ai"
@@ -64,4 +66,33 @@ func TestTransportDiagnosticDoesNotExposeWrappedError(t *testing.T) {
 	_, err = client.GenerateImageWithRoute(context.Background(), &ai.ImageGenerateRequest{Model: Model, Prompt: "private-prompt"}, fixtureRoute())
 	require.ErrorIs(t, err, errUnknown)
 	require.Equal(t, []Diagnostic{{Stage: "transport", Reason: "network_other"}}, diagnostics)
+}
+
+func TestErrorBodyDiagnosticsCannotDelayRejectionUntilGenerationTimeout(t *testing.T) {
+	const requestID = "12345678-1234-1234-1234-123456789012"
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Request-Id", requestID)
+		w.WriteHeader(http.StatusForbidden)
+		w.(http.Flusher).Flush()
+		<-r.Context().Done() // A failed response may never complete its body.
+	}))
+	defer server.Close()
+	var diagnostics []Diagnostic
+	calls := 0
+	cfg := fixtureConfig(imageTransport(func(r *http.Request) (*http.Response, error) {
+		calls++
+		forward, err := http.NewRequestWithContext(r.Context(), r.Method, server.URL, r.Body)
+		require.NoError(t, err)
+		return server.Client().Transport.RoundTrip(forward)
+	}))
+	cfg.Timeout = 3 * time.Second
+	cfg.Diagnose = func(d Diagnostic) { diagnostics = append(diagnostics, d) }
+	client, err := NewClient(cfg, func(context.Context, Observation) error { t.Fatal("must not observe success"); return nil })
+	require.NoError(t, err)
+	started := time.Now()
+	_, err = client.GenerateImageWithRoute(context.Background(), &ai.ImageGenerateRequest{Model: Model, Prompt: "fixture-only"}, fixtureRoute())
+	require.ErrorIs(t, err, errUnknown)
+	require.Less(t, time.Since(started), 2*time.Second, "diagnostic reads must not wait for the generation timeout")
+	require.Equal(t, 1, calls)
+	require.Equal(t, []Diagnostic{{Stage: "response_read", HTTPStatus: http.StatusForbidden, RequestID: requestID}}, diagnostics)
 }

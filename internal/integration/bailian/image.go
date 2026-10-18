@@ -146,7 +146,9 @@ func (c *Client) submit(ctx context.Context, prompt string, images []string) (*a
 		return nil, errInput
 	}
 	defer clear(payload)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint, bytes.NewReader(payload))
+	requestCtx, cancelRequest := context.WithCancel(ctx)
+	defer cancelRequest()
+	req, err := http.NewRequestWithContext(requestCtx, http.MethodPost, c.endpoint, bytes.NewReader(payload))
 	if err != nil {
 		return nil, errInput
 	}
@@ -158,9 +160,17 @@ func (c *Client) submit(ctx context.Context, prompt string, images []string) (*a
 		return nil, c.unknown("transport", 0, nil, "", transportReason(err))
 	}
 	defer resp.Body.Close()
-	data, err := io.ReadAll(io.LimitReader(resp.Body, (1<<20)+1))
+	limit := 1 << 20
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		// Optional failure metadata must not wait for the image-generation
+		// deadline. Cancel this request only; it grants no replay permission.
+		limit = 64 << 10
+		stopRead := time.AfterFunc(time.Second, cancelRequest)
+		defer stopRead.Stop()
+	}
+	data, err := io.ReadAll(io.LimitReader(resp.Body, int64(limit)+1))
 	defer clear(data)
-	if err != nil || len(data) > 1<<20 {
+	if err != nil || len(data) > limit {
 		return nil, c.unknown("response_read", resp.StatusCode, nil, resp.Header.Get("X-Request-Id"), "")
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
