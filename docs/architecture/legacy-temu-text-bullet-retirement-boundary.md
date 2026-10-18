@@ -90,7 +90,7 @@ Cutover/deletion condition: 用户确认本文§5/§6/§6.1/§7 → 执行Issue�
 确认后在同一主要PR连续实施全部闭包：
 
 1. 开工同步actual main，刷新6整生产/2整测试、三个mixed文件和全部导出/私有声明引用、31命令依赖与保留合同。新真实consumer/具体当前兼容义务停相关项，不隐式扩大授权。
-2. 在原退休guard先增加8整文件准确缺席与13个局部包级声明禁令，精确退出下表旧保留断言；文件/声明尚在时确认RED。再一次精确退休，原guard GREEN，不伪造孤立formatter测试搬家或新规则修复。
+2. 在原退休guard先增加8整文件准确缺席与13个局部包级声明禁令，精确退出下表旧保留断言，并新增明确的平台文本检查合同断言。新增保留断言在删除前即应满足，完整guard因待退文件/声明尚在而RED；再一次精确退休确认GREEN，不伪造孤立formatter测试搬家或新规则修复。
 3. 运行现有publishing/temu rules/shared strx与受影响product/sku/ai/context/API、当前TEMU goods/rules/productpolicy和SHEIN content/submitprep回归；原consumer/import/命令/独立worker/ceiling检查、current-application与shein-login-worker build。不运行main/constructor/provider/API；共享测试保留其它有效行为。
 4. 稳定候选才运行完整原PR CI和最终独立检查；修复只复核真实增量，不重复全局架构审核/同SHA检查。实际scope保持单PR，不以formatter/shared helper再拆下一批；合并仍另取准确HEAD授权，main CI随后独立核验。
 5. 若本地旧source残留目录导致原guard与干净checkout不同，使用准确候选的干净源码快照验证并分别报告，不改弱检查或操作运行资产，不把本地残留说成测试通过。
@@ -102,7 +102,8 @@ Cutover/deletion condition: 用户确认本文§5/§6/§6.1/§7 → 执行Issue�
 | tests/listingkit_backend_retirement_test.go缺席列表 | 增8整文件路径（6生产+2测试） | 原退休文件、5 mixed包、SKU fixture、#810/#807及此前安全/身份/采集/Store断言保持 |
 | 原rules混合AST walk | 只加10包级声明：TextCheckHandler/NewTextCheckHandler、TextProcessor/NewTextProcessor、BulletPointsValidator/NewBulletPointsValidator、BulletPointsOptimizer/NewBulletPointsOptimizer、BulletPointValidationResult、OptimizationStrategy | 覆盖type alias/var重建；不禁止其它包或field/selector/local/方法上的通用同名，不建新扫描器/验证平台 |
 | 原publishing局部AST与shared/strx局部包级检查 | publishing加NormalizeProductSubmissionName；shared/strx只禁CleanProductTitle/CleanWhitespace包级声明，共3项，和rules合计13项 | 私有三helper/四regexp通过准确文件/混合diff核对退出，不全局禁generic名字；SHEIN TextCleaner.CleanWhitespace保持 |
-| 原保留token map及CurrentCommands保留路径 | 只去掉四个token-map条目：submission_name_policy.go/name_format_policy.go、cleaner.go的CleanProductTitle、text_processor.go；只去掉三formatter保留路径（两个生产+一个测试） | 旧guard保留断言按最后consumer变更校准，不代表删检查目标/放宽通用安全；精确保留CheckText/QueryAPI/DTO/re-export/client、PriceHandler/TextRenderer/其它有效owner及原worker/命令检查 |
+| 原保留token map及CurrentCommands保留路径 | 退出四个旧token-map条目：submission_name_policy.go/name_format_policy.go、cleaner.go的CleanProductTitle、text_processor.go；去掉三formatter保留路径（两个生产+一个测试），并按下一行新增平台合同断言 | 旧保留断言按最后consumer变更校准；PriceHandler/TextRenderer/其它有效owner及原worker/命令检查保持，不删检查目标或放宽通用安全 |
+| 同一token map中的平台文本检查保留断言（首轮IMPLEMENTATION_TEST补齐） | api/api.go精确断言QueryAPI=query.API、QueryAPIInterface=query.QueryAPI、NewQueryAPI=query.NewAPI及TextCheckRequest/Response指向query同名类型；query/query.go断言QueryAPI接口中CheckText的请求/响应签名、实际API.CheckText方法签名及POST端点/mms/marigold/query/commit/check_text；query/query_types.go断言两DTO声明及原Content/Type、Success/ErrorCode/Result JSON合同；client/interfaces.go断言ClientAPI.SendTEMURequest原签名 | 使用当前源码准确声明/目标/签名，不能只匹配名字或注释。这些保留合同删除前已存在，应GREEN；实施交付另核对整个api/client保留源码相对基线零diff。只补原guard，不新增测试框架、真实HTTP调用或平台准入要求 |
 | 原两整测试与shared mixed测试 | 两旧wrapper/formatter测试整退，shared只退TestCleanWhitespace | 不移动孤立fixture到新owner维持无当前需求的策略；保留SHEIN同名方法和strx其余测试 |
 | tests/import_boundaries_test.go / phase2-runtime-inventory.md | **零变更**：core/logger→temu/rules仍由TextRenderer消费，→temu/product仍由PriceHandler消费；目标无OpenAI豁免 | 不改loader/root/deny/ignore/ceilings、dated inventory或AI/logger准入；不把当批静态图冒充部署证据 |
 | Legacy Register、code-health rules行、publishing README、本文/索引、#751/#749/#810直接冲突说明 | 批准实施后标记完整闭包source-retired，并窄替代对应保留；code-health rules行纠正旧“configured runtime reachable”表述，只列本次四文件退休，其余包保留。原声明数/报告为历史 | 设计阶段只有本文/索引；不整删rules/publishing/shared，不给无关预存函数新增永久保留权，不重写原批次证据 |
