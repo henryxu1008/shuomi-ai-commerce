@@ -193,7 +193,7 @@ it("ignores a late historical source response after switching back to another ru
 it.each(["disabled","unavailable","read-only"])("keeps admitted runs visible and refreshable when generation is %s",async(mode)=>{
  state=projection("awaiting_final_approval",templateId);const real=fetch.getMockImplementation()!;
  const unavailable={...entry,canUse:false,agent:{...entry.agent,activation:mode==="disabled"?"DISABLED":"ENABLED"},capabilities:entry.capabilities.map(c=>({...c,readiness:mode==="unavailable"?"UNAVAILABLE":c.readiness}))};
- if(mode==="read-only")calls.context.permissions=["listingkit.image_agent.read"];
+ if(mode==="read-only")calls.context.permissions=["imageagent.read"];
  fetch.mockImplementation((url,init)=>String(url).endsWith("/product.image.agent")?Promise.resolve(Response.json(unavailable)):String(url).endsWith("/images/runs")?Promise.resolve(Response.json({items:[{runId,contextKind:"acquisition",contextId:operation,status:state.status,targetPlatform:"product",createdAt:now}],nextCursor:""})):real(url,init));
  render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialRunId={runId}/>);
  expect(await screen.findByRole("heading",{name:"商品识别主图"})).toBeInTheDocument();
