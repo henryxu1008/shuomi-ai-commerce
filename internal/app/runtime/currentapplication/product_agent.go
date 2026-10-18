@@ -14,6 +14,7 @@ import (
 // in the existing Organization AI credential owner, never in this option.
 type ProductAgentConfig struct {
 	Enabled                bool                            `json:"enabled"`
+	ContentOnly            bool                            `json:"contentOnly,omitempty"`
 	ContentTitleOnly       bool                            `json:"contentTitleOnly,omitempty"`
 	Database               DatabaseConfig                  `json:"database"`
 	ReviewDatabase         DatabaseConfig                  `json:"reviewDatabase"`
@@ -43,14 +44,17 @@ func (p *ProductAgentConfig) validate(cfg *Config) error {
 	if cfg.ProductAcquisitionDatabase == nil || cfg.CommercialOwnerDatabase == nil {
 		return errors.New("product agent requires acquisition and current commercial owner")
 	}
+	if p.ContentOnly && p.ContentTitleOnly {
+		return errors.New("contentOnly and contentTitleOnly are mutually exclusive")
+	}
 	databases := map[string]DatabaseConfig{"database": p.Database, "reviewDatabase": p.ReviewDatabase}
-	if p.ContentTitleOnly {
+	if p.ContentOnly || p.ContentTitleOnly {
 		if p.Database.User != "product_agent_runtime" || p.ReviewDatabase.User != "product_review_runtime" {
 			return errors.New("content-title-only requires the prepared Run and Review runtime identities")
 		}
 		if p.AssetDatabase != (DatabaseConfig{}) || len(p.ContentTextPolicies) == 0 || len(p.TextPolicies) != 0 ||
 			len(p.MaterialsTextPolicies) != 0 || len(p.SelectionTextPolicies) != 0 || len(p.DiagnosisTextPolicies) != 0 ||
-			cfg.AIWorkbench != nil && (len(cfg.AIWorkbench.PlanningTextPolicies) != 0 || cfg.AIWorkbench.Enabled && !cfg.AIWorkbench.ConversationOnly) {
+			p.ContentTitleOnly && cfg.AIWorkbench != nil && (len(cfg.AIWorkbench.PlanningTextPolicies) != 0 || cfg.AIWorkbench.Enabled && !cfg.AIWorkbench.ConversationOnly) {
 			return errors.New("content-title-only requires only content policies and no Asset or Chat execution")
 		}
 	} else {
@@ -68,7 +72,7 @@ func (p *ProductAgentConfig) validate(cfg *Config) error {
 	if p.ReviewDatabase.Host != product.Host || p.ReviewDatabase.Port != product.Port || p.ReviewDatabase.Database != product.Database {
 		return errors.New("product agent review must use the current Product database")
 	}
-	if p.ContentTitleOnly && sameDatabaseTarget(p.Database, p.ReviewDatabase) {
+	if (p.ContentTitleOnly || p.ContentOnly) && sameDatabaseTarget(p.Database, p.ReviewDatabase) {
 		return errors.New("content-title-only requires separate Run and Product/Review databases")
 	}
 	if !p.Limits().Valid() || p.RuntimeSeconds > 120 || p.RuntimeSeconds < 1 || p.Steps > 16 || p.ModelCalls > 8 {

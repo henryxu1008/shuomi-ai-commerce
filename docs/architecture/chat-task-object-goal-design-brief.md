@@ -154,3 +154,13 @@ TDD只针对实际变化：subject/版本/语言/字段严格组合、未授权/
 两项 IMPLEMENTATION_TEST（合并前收敛）：手动 Review 动作沿原内容 route 赋完整 ContentSelection；自有商品 subject 使用 source DTO 的当前有效 catalogVersion/publicationId，不能误用 originalVersion/originalPublicationId。覆盖非标题多字段审核、Apply 后新任务冻结当前有效 head、陈旧 tuple 拒绝。
 
 Legacy decision: N/A（当前合格Workbench/Content owner演进）。没有Legacy Compatibility、Task-first Product、旧Dashboard/平台Workbench、fallback/双写/ID映射或数据迁移；触及登记旧代码仅EXTRACT/RETIRE。
+
+## 12. 实现接线与交接入口
+
+商品选择复用 CollectionPicker 和原 Collection 列表。只读 `GET /api/v1/workbench/chat/subjects/:context_kind/:context_id` 将显式 own_product/acquisition 身份交回原 ownSource/currentAcquisitionBinding，返回当前有效 subject tuple；无副作用、无新持久化，不能接受浏览器 ProductKey。BFF 继续核对当前账号/企业和严格响应，未知 kind 拒绝。
+
+在获准的当前 schema 与凭据/预算已由各原 owner 准备的独立环境，正常启动命令为 `go run ./cmd/current-application -config <absolute-private-manifest.json>`，前端沿原 `web/listingkit-ui` 启动命令。manifest 需显式启用 productCollections、productAgent.contentOnly=true、contentTitleOnly=false、aiWorkbench.contentTasks=true、conversationOnly=false；产品/Review与Run库分离、Chat为同一逻辑Run库的独立 ai_workbench_runtime 池，限定组织 allowlist。内容 policies 仍用原 content prompt/action 版本，独立规划 policy 使用 ai-workbench-chat-plan-v2 / ai-workbench-plan-decision-v1。不能复制测试凭据/定价至真实环境。
+
+操作入口 `/workbench/ai/chat/new`：创建会话 → 从我的数据选商品 → 选语言与字段 → 填需求 → 核对对象版本、内容、执行权限与任务总上限 → 确认 → `/workbench/ai/tasks` 查看原运行/审核。描述与卖点等非标题字段可选；图片及尚未接入的对象类型不伪造可用入口。原 UNKNOWN 和未核实消息继续使用原键恢复。
+
+现有保留实例仍使用其原 schema/程序。本 PR 不切换运行、不执行真实 DDL、不生成新业务数据，也不调用真实 provider。当前模型需要的三列和两个组合 CHECK 尚未授权应用到保留库；直接把新程序指向缺少该模型的库会启动失败。这一部署前置不能通过自动迁移或清空数据规避。受控 HTTP/模型 fixture 与前端组件测试仅是开发证据，浏览器实测、真实 provider 和用户验收须如实保留 NOT_RUN。

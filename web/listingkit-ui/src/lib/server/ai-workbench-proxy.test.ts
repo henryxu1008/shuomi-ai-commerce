@@ -101,3 +101,26 @@ describe("AI Workbench BFF boundary", () => {
     }
   });
 });
+
+it("resolves only the explicit scoped subject namespace without mutation semantics",async()=>{
+ vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL","http://localhost");
+ const path=["chat","subjects","own_product",id];
+ const request=new Request(`http://localhost/api/workbench/${path.join("/")}`,{headers:scope});
+ const mapped=await buildWorkbenchUpstreamRequest(request,path,"token","user-a");
+ expect(mapped).not.toBeInstanceOf(Response);if(mapped instanceof Response)return;
+ expect(mapped.sourceMutation).toBe(false);expect(mapped.expectedStoreId).toBe(`own_product:${id}`);
+ const payload={subject:{kind:"own_product",id,catalogVersion:"2",publicationId:"current-publication"},productKey:"product"};
+ expect((await buildWorkbenchBrowserResponse(Response.json(payload),"ai-subject-read",mapped.expectedStoreId)).status).toBe(200);
+ expect((await buildWorkbenchBrowserResponse(Response.json({...payload,subject:{...payload.subject,kind:"acquisition"}}),"ai-subject-read",mapped.expectedStoreId)).status).toBe(502);
+ expect(await buildWorkbenchUpstreamRequest(new Request(request.url+"?version=1",{headers:scope}),path,"token","user-a")).toBeInstanceOf(Response);
+});
+it("forwards full content selection without accepting acquisition/title or identity claims",async()=>{
+ vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL","http://localhost");
+ const taskSelection={subject:{kind:"own_product",id,catalogVersion:"3",publicationId:"effective-publication"},capability:"product.content.localize",parameters:{targetLanguage:"en-US",description:true,sellingPoints:true}};
+ const path=["chat","conversations",id,"messages"];
+ const make=(body:unknown)=>new Request(`http://localhost/api/workbench/${path.join("/")}`,{method:"POST",headers:{...scope,Origin:"http://localhost","Content-Type":"application/json","Idempotency-Key":id},body:JSON.stringify(body)});
+ const body={content:"Localize",taskSelection};
+ const mapped=await buildWorkbenchUpstreamRequest(make(body),path,"token","user-a");
+ expect(mapped).not.toBeInstanceOf(Response);if(!(mapped instanceof Response))expect(JSON.parse(mapped.init.body as string)).toEqual(body);
+ for(const invalid of [{...body,operationId:id,targetPlatform:"shein"},{...body,taskSelection:{...taskSelection,subject:{...taskSelection.subject,organizationId:"other"}}}])expect(await buildWorkbenchUpstreamRequest(make(invalid),path,"token","user-a")).toBeInstanceOf(Response);
+});

@@ -63,7 +63,7 @@ func ProjectTask(task BusinessTask, run *agent.Record, reviewState string, now t
 	}
 	switch s.Phase {
 	case agent.HumanReviewRequired:
-		if s.StopReason != "" || s.Validation == nil || !s.Validation.Valid || len(s.Candidate.Changes) != 1 ||
+		if s.StopReason != "" || s.Validation == nil || !s.Validation.Valid || !reviewableFields(s.Request, s.Candidate) ||
 			!agent.ValidContextCitations(s.Request.ContextSnapshotRef, s.ContextCitationRefs) {
 			return TaskProjection{State: TaskWaitingConfirmation, Reason: "AGENT_RESULT_NOT_REVIEWABLE"}, nil
 		}

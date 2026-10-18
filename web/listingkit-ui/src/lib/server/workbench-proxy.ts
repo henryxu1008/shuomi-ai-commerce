@@ -335,7 +335,7 @@ const workbenchRouteAllowlist = [
     return routeDefinition(method, `collection-${name}`, `collection-${name}`, path => collectionPath(method, path) === name ? path.join("/") : null);
   }),
   ...([
-    ["GET", "conversation-list"], ["POST", "conversation-create"],
+    ["GET","subject-read"], ["GET", "conversation-list"], ["POST", "conversation-create"],
     ["GET", "conversation-read"], ["PATCH", "conversation-metadata"],
     ["POST", "message"], ["POST", "confirm"],
     ["GET", "task-list"], ["GET", "task-read"],
@@ -633,7 +633,7 @@ export async function buildWorkbenchUpstreamRequest(
         query = selected.size ? `?${selected.toString()}` : "";
       } else {
         if (!hasExactNoQuery(request)) return protocolError(400, "INVALID_REQUEST", "Query is not allowed");
-        if (action === "task-read") {
+        if (action === "task-read" || action === "subject-read") {
           if (!(await requestHasNoBody(request))) return protocolError(400, "INVALID_REQUEST", "Body is not allowed");
         } else {
           const assertion = validateSourceMutationBoundary(request, authenticatedActorSubject);
@@ -1017,7 +1017,7 @@ export async function buildWorkbenchUpstreamRequest(
       cache: "no-store",
     },
     responseContract: route.responseContract,
-    expectedStoreId: imageSetContract ? JSON.stringify(imageSetResponseBinding(path,route.requestContract.slice(10) as ImageSetRoute)) : expectedCollectionMedia ?? (
+    expectedStoreId:route.requestContract==="ai-subject-read"?`${path[2]}:${path[3]}`: imageSetContract ? JSON.stringify(imageSetResponseBinding(path,route.requestContract.slice(10) as ImageSetRoute)) : expectedCollectionMedia ?? (
       route.requestContract==="supply-shein-completion-preview"&&typeof body==="string"?body:
       route.requestContract.startsWith("supply-materials-")?`${path[2]}:${path[5]??request.headers.get("Idempotency-Key")??(typeof body==="string"?JSON.parse(body).requestKey:"")}`:
       route.requestContract==="product-acquisition-plan-read"||route.requestContract==="product-acquisition-plan-advance"?path[3]:
@@ -1045,7 +1045,7 @@ export async function buildWorkbenchUpstreamRequest(
       (imageSetContract && request.method==="POST" && route.requestContract!=="image-set-preview" && route.requestContract!=="image-set-requirements") ||
       (supplyContract && supplyMutates(route.requestContract.slice(7) as SupplyRoute)) ||
       route.requestContract === "collection-command" || route.requestContract === "collection-media-upload" ||
-      (route.requestContract.startsWith("ai-") && !["ai-conversation-list", "ai-conversation-read", "ai-task-list", "ai-task-read"].includes(route.requestContract)) ||
+      (route.requestContract.startsWith("ai-") && !["ai-conversation-list", "ai-conversation-read", "ai-task-list", "ai-task-read","ai-subject-read"].includes(route.requestContract)) ||
       (route.requestContract.startsWith("store-connection-") && route.requestContract !== "store-connection-read" && route.requestContract !== "store-connection-applications") ||
       route.requestContract.startsWith("store-service-") ||
       (route.requestContract.startsWith("product-agent-") && route.requestContract!=="product-agent-read") ||
@@ -1156,6 +1156,7 @@ export async function buildWorkbenchBrowserResponse(
     if (!parsedBody || !payload) return unavailable();
     if (upstream.ok) {
       const checked = parseAIWorkbenchResponse(contract.slice(3) as AIWorkbenchRoute, upstream.status, payload);
+      if(contract==="ai-subject-read"&&expectedStoreId&&checked&&("subject" in checked)&&`${checked.subject.kind}:${checked.subject.id}`!==expectedStoreId)return unavailable();
       return checked ? new NextResponse(JSON.stringify(checked), { status: upstream.status, headers: safeJSONHeaders() }) : unavailable();
     }
     const standard = parseWorkbenchErrorEnvelopePayload(payload);

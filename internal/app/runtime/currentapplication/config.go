@@ -515,7 +515,7 @@ func (cfg *Config) validate() error {
 			if cfg.SupplyChain != nil && cfg.SupplyChain.AssetDatabase != image.AssetDatabase {
 				return errors.New("full image and Supply must share the same explicit Asset pool configuration")
 			}
-			if cfg.ProductAgent.Enabled && !cfg.ProductAgent.ContentTitleOnly && !sameDatabaseTarget(image.AssetDatabase, cfg.ProductAgent.AssetDatabase) {
+			if cfg.ProductAgent.Enabled && !cfg.ProductAgent.ContentTitleOnly && !cfg.ProductAgent.ContentOnly && !sameDatabaseTarget(image.AssetDatabase, cfg.ProductAgent.AssetDatabase) {
 				return errors.New("full image and title must use the current canonical Asset owner")
 			}
 		}

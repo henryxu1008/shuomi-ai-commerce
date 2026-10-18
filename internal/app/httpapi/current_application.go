@@ -504,8 +504,9 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		if chat.DB == nil || chat.DB == sourceAccountDB || chat.DB == supplied.commercialOwnerDB || chat.DB == supplied.productAcquisitionDB ||
 			supplied.productAgent != nil && chat.DB == supplied.productAgent.RunDB ||
 			chat.ConversationOnly && len(chat.PlanningTextPolicies) != 0 ||
-			chat.ConversationOnly && supplied.productAgent != nil && !supplied.productAgent.ContentTitleOnly ||
-			!chat.ConversationOnly && (supplied.productAgent == nil || supplied.productAgent.ContentTitleOnly) {
+			chat.ConversationOnly && supplied.productAgent != nil && !supplied.productAgent.ContentTitleOnly && !supplied.productAgent.ContentOnly ||
+			!chat.ConversationOnly && (supplied.productAgent == nil || supplied.productAgent.ContentTitleOnly || chat.ContentTasks != supplied.productAgent.ContentOnly) ||
+			chat.ContentTasks && (chat.ConversationOnly || supplied.productCollections != 1) {
 			return nil, errors.New("AI Workbench requires distinct bounded pool and explicit execution mode")
 		}
 	}
@@ -1066,6 +1067,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			workbench.handler.SetAIWorkbenchAdmission(module.(aiWorkbenchModule).AdmittedOrganization)
 			workbench.handler.SetAIWorkbenchPlanningReadiness(module.(aiWorkbenchModule).PlanningReadiness)
 			workbench.handler.SetAIWorkbenchTitleReadiness(module.(aiWorkbenchModule).TitleReadiness)
+			workbench.handler.SetAIWorkbenchExecution(module.(aiWorkbenchModule).ExecutionKind(), module.(aiWorkbenchModule).ExecutionReadiness)
 		}
 	}
 	if supplied.projectCenterDB != nil {
@@ -1210,6 +1212,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		FullImageSet:        imageRuntime != nil,
 		ProductAgent:        supplied.productAgent != nil,
 		ContentTitleOnly:    supplied.productAgent != nil && supplied.productAgent.ContentTitleOnly,
+		ContentOnly:         supplied.productAgent != nil && supplied.productAgent.ContentOnly,
 		AIWorkbench:         supplied.aiWorkbench != nil,
 		ProjectCenter:       supplied.projectCenterDB != nil,
 		AgentConfiguration:  supplied.agentConfigurationDB != nil,
@@ -1340,6 +1343,7 @@ type currentApplicationOptionalRoutes struct {
 	FullImageSet        bool
 	ProductAgent        bool
 	ContentTitleOnly    bool
+	ContentOnly         bool
 	AIWorkbench         bool
 	ProjectCenter       bool
 	MemberPoints        bool
@@ -1347,7 +1351,7 @@ type currentApplicationOptionalRoutes struct {
 }
 
 func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, includeAudit, includeAcquisition, includeReferrals, includeMembership, includeAccountProfile, includeAllocation, includeBrowser bool, optional currentApplicationOptionalRoutes) error {
-	if optional.ContentTitleOnly && !optional.ProductAgent {
+	if (optional.ContentTitleOnly || optional.ContentOnly) && !optional.ProductAgent {
 		return errors.New("title-only routes require the current product agent")
 	}
 	if optional.PrivateDraftTrial && (optional.SupplyMarket || optional.POD) {
@@ -1576,7 +1580,7 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 		}
 	}
 	if optional.ProductAgent {
-		for _, r := range productAgentProfileRoutes(nil, optional.ContentTitleOnly) {
+		for _, r := range productAgentProfileRoutes(nil, optional.ContentTitleOnly || optional.ContentOnly) {
 			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
 		}
 		if optional.Collections {

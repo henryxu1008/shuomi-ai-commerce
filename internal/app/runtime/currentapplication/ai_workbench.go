@@ -12,6 +12,7 @@ import (
 // least-privilege role. Planning policies never borrow title admission.
 type AIWorkbenchConfig struct {
 	Enabled                bool                            `json:"enabled"`
+	ContentTasks           bool                            `json:"contentTasks,omitempty"`
 	ConversationOnly       bool                            `json:"conversationOnly"`
 	AllowedOrganizationIDs []string                        `json:"allowedOrganizationIds,omitempty"`
 	Database               DatabaseConfig                  `json:"database"`
@@ -29,8 +30,11 @@ func (w *AIWorkbenchConfig) validate(cfg *Config) error {
 	if !w.Enabled {
 		return w.Database.validate("aiWorkbench.database")
 	}
+	if w.ContentTasks && (!cfg.ProductCollections || w.ConversationOnly || cfg.ProductAgent == nil || !cfg.ProductAgent.Enabled || !cfg.ProductAgent.ContentOnly) || !w.ContentTasks && cfg.ProductAgent != nil && cfg.ProductAgent.ContentOnly && !w.ConversationOnly {
+		return errors.New("content tasks require explicit content-only execution")
+	}
 	if w.ConversationOnly {
-		if cfg.ProductAgent == nil || cfg.ProductAgent.Enabled && !cfg.ProductAgent.ContentTitleOnly || len(w.PlanningTextPolicies) != 0 ||
+		if cfg.ProductAgent == nil || cfg.ProductAgent.Enabled && !cfg.ProductAgent.ContentTitleOnly && !cfg.ProductAgent.ContentOnly || len(w.PlanningTextPolicies) != 0 ||
 			w.Database.validate("aiWorkbench.database") != nil || w.Database.User != "ai_workbench_runtime" ||
 			w.Database.User == cfg.ProductAgent.Database.User || w.Database.Host != cfg.ProductAgent.Database.Host ||
 			w.Database.Port != cfg.ProductAgent.Database.Port || w.Database.Database != cfg.ProductAgent.Database.Database ||
@@ -58,9 +62,24 @@ func (w *AIWorkbenchConfig) validate(cfg *Config) error {
 	for _, id := range cfg.ProductAgent.AllowedOrganizationIDs {
 		allowed[id] = true
 	}
+	promptVersion := "ai-workbench-chat-plan-v1"
+	if w.ContentTasks {
+		promptVersion = "ai-workbench-chat-plan-v2"
+		if len(w.AllowedOrganizationIDs) == 0 || len(w.AllowedOrganizationIDs) > 64 {
+			return errors.New("content tasks require organization admission")
+		}
+		seen := map[string]bool{}
+		for _, id := range w.AllowedOrganizationIDs {
+			if !agent.ValidID(id) || seen[id] || !allowed[id] {
+				return errors.New("invalid content task admission")
+			}
+			seen[id] = true
+		}
+		allowed = seen
+	}
 	for org, policy := range w.PlanningTextPolicies {
 		profile := policy.ShapeProfile()
-		if !allowed[org] || !governed.ValidRouteProfile(profile, aicapability.OperationAIWorkbenchChatPlan) || profile.PromptVersion != "ai-workbench-chat-plan-v1" ||
+		if !allowed[org] || !governed.ValidRouteProfile(profile, aicapability.OperationAIWorkbenchChatPlan) || profile.PromptVersion != promptVersion ||
 			profile.OutputSchemaVersion != "ai-workbench-plan-decision-v1" ||
 			profile.Currency != cfg.ProductAgent.Currency ||
 			profile.MaximumPromptTokens+profile.MaximumCompletionTokens > cfg.ProductAgent.Tokens ||

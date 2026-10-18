@@ -40,6 +40,8 @@ type WorkbenchContextValue = {
   storeObservationsAvailable: boolean;
   operationsCockpitAvailable: boolean;
   aiWorkbenchPlanningReadiness: "AVAILABLE" | "NEEDS_CONFIGURATION" | "UNAVAILABLE";
+  aiWorkbenchExecutionKind?:"product.content.localize"|"product.title.optimize";
+  aiWorkbenchExecutionReadiness?:"AVAILABLE"|"NEEDS_CONFIGURATION"|"UNAVAILABLE";
   aiWorkbenchTitleReadiness: "AVAILABLE" | "NEEDS_CONFIGURATION" | "UNAVAILABLE";
   selectionRequired: boolean;
   isLoading: boolean;
@@ -232,6 +234,8 @@ export function WorkbenchContextProvider({ children }: PropsWithChildren) {
       storeObservationsAvailable: currentContext?.storeObservationsAvailable === true,
       operationsCockpitAvailable: currentContext?.operationsCockpitAvailable === true,
       aiWorkbenchPlanningReadiness: currentContext?.aiWorkbenchPlanningReadiness ?? "UNAVAILABLE",
+      aiWorkbenchExecutionKind:currentContext?.aiWorkbenchExecutionKind,
+      aiWorkbenchExecutionReadiness:currentContext?.aiWorkbenchExecutionReadiness,
       aiWorkbenchTitleReadiness: currentContext?.aiWorkbenchTitleReadiness ?? "UNAVAILABLE",
       selectionRequired: currentContext?.selectionRequired ?? false,
       isLoading: !blockingError && contextQuery.isPending,

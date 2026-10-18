@@ -60,6 +60,7 @@ type ProductAgentDependencies struct {
 	DiagnosisTextPolicies    map[string]governed.RoutePolicy
 	SelectionTextPolicies    map[string]governed.RoutePolicy
 	Enabled                  bool
+	ContentOnly              bool
 	ContentTitleOnly         bool
 	AllowedOrganizationIDs   []string
 	Limits                   agent.Limits
@@ -111,10 +112,13 @@ type productAgentApplication struct {
 }
 
 func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, receipts sourcing.PublishedAcquisitionReader, resolver organizationIdentityResolver, auth *authz.ListingKitAuthorizer, cfg ProductAgentDependencies) (*productAgentApplication, error) {
-	if !cfg.Enabled || len(cfg.AllowedOrganizationIDs) == 0 || !cfg.Limits.Valid() || cfg.Limits.Runtime > 2*time.Minute || cfg.Limits.Steps > 16 || cfg.Limits.ModelCalls > 8 || productDB == nil || !cfg.ContentTitleOnly && cfg.AssetDB == nil || receipts == nil || resolver == nil || auth == nil {
+	if !cfg.Enabled || len(cfg.AllowedOrganizationIDs) == 0 || !cfg.Limits.Valid() || cfg.Limits.Runtime > 2*time.Minute || cfg.Limits.Steps > 16 || cfg.Limits.ModelCalls > 8 || productDB == nil || !cfg.ContentTitleOnly && !cfg.ContentOnly && cfg.AssetDB == nil || receipts == nil || resolver == nil || auth == nil {
 		return nil, agent.ErrUnavailable
 	}
-	if cfg.ContentTitleOnly && (cfg.AssetDB != nil || len(cfg.ContentTextPolicies) == 0 || len(cfg.TextPolicies) != 0 || len(cfg.MaterialsTextPolicies) != 0 || len(cfg.SelectionTextPolicies) != 0 || len(cfg.DiagnosisTextPolicies) != 0) {
+	if cfg.ContentTitleOnly && cfg.ContentOnly {
+		return nil, agent.ErrUnavailable
+	}
+	if (cfg.ContentTitleOnly || cfg.ContentOnly) && (cfg.AssetDB != nil || len(cfg.ContentTextPolicies) == 0 || len(cfg.TextPolicies) != 0 || len(cfg.MaterialsTextPolicies) != 0 || len(cfg.SelectionTextPolicies) != 0 || len(cfg.DiagnosisTextPolicies) != 0) {
 		return nil, agent.ErrUnavailable
 	}
 	allowedOrganizations := make(map[string]bool, len(cfg.AllowedOrganizationIDs))
@@ -265,7 +269,7 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 	principal := productAgentPrincipal{application: a, request: fresh}
 	deps := commercetool.InvocationDependencies{PrincipalResolver: principal, Authorizer: permissions, Recorder: a.store, Tracer: otel.Tracer("product-agent"), Now: time.Now, AuditTimeout: 2 * time.Second}
 	a.textAdmission = governed.NewBoundedAdmission()
-	if cfg.ContentTitleOnly {
+	if cfg.ContentTitleOnly || cfg.ContentOnly {
 		a.content, err = buildContentProductApplication(ctx, a, reader, sources, repo, deps, contexts)
 		if err != nil {
 			return nil, err

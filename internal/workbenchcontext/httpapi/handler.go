@@ -20,16 +20,18 @@ const switchOrganizationRequestBodyMaxBytes = 4096
 
 // Handler exposes only the verified, resolved workbench identity projection.
 type Handler struct {
-	workbenchAuthorizer          *authz.ListingKitAuthorizer
-	profileReader                authidentity.SelfProfileReader
-	storeObservationsReadiness   func() bool
-	operationsCockpitAvailable   bool
-	aiWorkbenchAvailable         bool
-	projectCenterAvailable       bool
-	storageCapacityAvailable     bool
-	aiWorkbenchAdmission         func(string) bool
-	aiWorkbenchPlanningReadiness func(context.Context, string) string
-	aiWorkbenchTitleReadiness    func(context.Context, string) string
+	workbenchAuthorizer           *authz.ListingKitAuthorizer
+	profileReader                 authidentity.SelfProfileReader
+	storeObservationsReadiness    func() bool
+	operationsCockpitAvailable    bool
+	aiWorkbenchAvailable          bool
+	projectCenterAvailable        bool
+	storageCapacityAvailable      bool
+	aiWorkbenchAdmission          func(string) bool
+	aiWorkbenchPlanningReadiness  func(context.Context, string) string
+	aiWorkbenchTitleReadiness     func(context.Context, string) string
+	aiWorkbenchExecutionKind      string
+	aiWorkbenchExecutionReadiness func(context.Context, string) string
 }
 
 func (h *Handler) SetStorageCapacityAvailable(v bool) {
@@ -200,6 +202,7 @@ func (h *Handler) writeContext(c *gin.Context) {
 	if effective := strings.TrimSpace(identity.EffectiveOrganizationID); effective != "" {
 		effectiveOrganizationID = &effective
 	}
+	executionKind, executionReadiness := "", ""
 	planningReadiness := ""
 	titleReadiness := ""
 	available := false
@@ -209,6 +212,14 @@ func (h *Handler) writeContext(c *gin.Context) {
 				available = h.aiWorkbenchAdmission != nil && h.aiWorkbenchAdmission(organization.ID)
 				if !available {
 					break
+				}
+				executionKind = h.aiWorkbenchExecutionKind
+				executionReadiness = "UNAVAILABLE"
+				if h.aiWorkbenchExecutionReadiness != nil {
+					v := h.aiWorkbenchExecutionReadiness(c.Request.Context(), organization.ID)
+					if v == "AVAILABLE" || v == "NEEDS_CONFIGURATION" {
+						executionReadiness = v
+					}
 				}
 				planningReadiness = "UNAVAILABLE"
 				titleReadiness = "UNAVAILABLE"
@@ -250,6 +261,7 @@ func (h *Handler) writeContext(c *gin.Context) {
 		StorageCapacityAvailable:     h.storageCapacityAvailable && effectiveOrganizationID != nil,
 		AIWorkbenchPlanningReadiness: planningReadiness,
 		AIWorkbenchTitleReadiness:    titleReadiness,
+		AIWorkbenchExecutionKind:     executionKind, AIWorkbenchExecutionReadiness: executionReadiness,
 	})
 }
 
@@ -263,18 +275,20 @@ func containsRole(roles []string, want string) bool {
 }
 
 type contextResponse struct {
-	OperationsCockpitAvailable   bool                   `json:"operationsCockpitAvailable,omitempty"`
-	StoreObservationsAvailable   bool                   `json:"storeObservationsAvailable,omitempty"`
-	User                         userResponse           `json:"user"`
-	HomeOrganizationID           string                 `json:"homeOrganizationId"`
-	EffectiveOrganizationID      *string                `json:"effectiveOrganizationId"`
-	SelectionRequired            bool                   `json:"selectionRequired"`
-	Organizations                []organizationResponse `json:"organizations"`
-	ProjectCenterAvailable       bool                   `json:"projectCenterAvailable,omitempty"`
-	StorageCapacityAvailable     bool                   `json:"storageCapacityAvailable,omitempty"`
-	AIWorkbenchAvailable         bool                   `json:"aiWorkbenchAvailable,omitempty"`
-	AIWorkbenchPlanningReadiness string                 `json:"aiWorkbenchPlanningReadiness,omitempty"`
-	AIWorkbenchTitleReadiness    string                 `json:"aiWorkbenchTitleReadiness,omitempty"`
+	AIWorkbenchExecutionKind      string                 `json:"aiWorkbenchExecutionKind,omitempty"`
+	AIWorkbenchExecutionReadiness string                 `json:"aiWorkbenchExecutionReadiness,omitempty"`
+	OperationsCockpitAvailable    bool                   `json:"operationsCockpitAvailable,omitempty"`
+	StoreObservationsAvailable    bool                   `json:"storeObservationsAvailable,omitempty"`
+	User                          userResponse           `json:"user"`
+	HomeOrganizationID            string                 `json:"homeOrganizationId"`
+	EffectiveOrganizationID       *string                `json:"effectiveOrganizationId"`
+	SelectionRequired             bool                   `json:"selectionRequired"`
+	Organizations                 []organizationResponse `json:"organizations"`
+	ProjectCenterAvailable        bool                   `json:"projectCenterAvailable,omitempty"`
+	StorageCapacityAvailable      bool                   `json:"storageCapacityAvailable,omitempty"`
+	AIWorkbenchAvailable          bool                   `json:"aiWorkbenchAvailable,omitempty"`
+	AIWorkbenchPlanningReadiness  string                 `json:"aiWorkbenchPlanningReadiness,omitempty"`
+	AIWorkbenchTitleReadiness     string                 `json:"aiWorkbenchTitleReadiness,omitempty"`
 }
 
 type userResponse struct {
@@ -301,4 +315,11 @@ func writeProtocolError(c *gin.Context, status int, code string, message string)
 		"requestId":   strings.TrimSpace(c.GetHeader("X-Request-ID")),
 		"fieldErrors": []any{},
 	})
+}
+
+func (h *Handler) SetAIWorkbenchExecution(kind string, read func(context.Context, string) string) {
+	if h != nil {
+		h.aiWorkbenchExecutionKind = kind
+		h.aiWorkbenchExecutionReadiness = read
+	}
 }

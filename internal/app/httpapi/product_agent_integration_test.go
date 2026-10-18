@@ -159,6 +159,7 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	mode = strings.TrimPrefix(mode, "title-only ")
 	withSkill := strings.Contains(mode, "skill ")
 	mode = strings.Replace(mode, "skill ", "", 1)
+	chatTasks := mode == "content flow chat" || mode == "own content chat"
 	f := newAcquisitionHTTPFixture(t)
 	if withSkill {
 		pool, e := f.owner.DB()
@@ -187,7 +188,7 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	require.NoError(t, configErr)
 	_, configErr = configuration.Execute(context.Background(), agentconfig.Command{Scope: agent.Scope{OrganizationID: "B", ActorID: "admin"}, Key: uuid.NewString(), AgentID: "product.title.agent", Operation: "enable", Absent: true})
 	require.NoError(t, configErr)
-	if !contentTitleOnly {
+	if !contentTitleOnly && !chatTasks {
 		require.NoError(t, assetstore.AutoMigrate(f.owner))
 		assets, err := assetstore.NewRepository(f.owner)
 		require.NoError(t, err)
@@ -358,7 +359,11 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		case (strings.HasPrefix(mode, "content flow") || strings.HasPrefix(mode, "own content ") || mode == "supply content") && (step-1)%3 == 1:
 			content = `{"Kind":"tool","Tool":{"ID":"product.source-evidence.inspect","Version":"v2.0.0"}}`
 		case strings.HasPrefix(mode, "own content "):
-			content = ownContentFixtureProposal(t, r)
+			if chatTasks {
+				content = ownContentFixtureProposal(t, r, "description", "selling_points")
+			} else {
+				content = ownContentFixtureProposal(t, r)
+			}
 		case strings.HasPrefix(mode, "content flow") || mode == "supply content":
 			content = `{"Kind":"propose","Candidate":{"Changes":[{"Field":"title","Value":"Localized bottle title","EvidenceIDs":["981645030344"]},{"Field":"description","Value":"Localized bottle description","EvidenceIDs":["981645030344"]},{"Field":"selling_points","Value":"[\"Reusable bottle\"]","EvidenceIDs":["981645030344"]},{"Field":"seo_keywords","Value":"[\"bottle\"]","EvidenceIDs":["981645030344"]}]}}`
 			if withSkill {
@@ -442,6 +447,11 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		policy := settings.TextPolicies["B"]
 		policy.Profile.PromptVersion, policy.Profile.OutputSchemaVersion = agentconfig.ContentPromptVersion, agentconfig.ContentActionVersion
 		settings.ContentTextPolicies = map[string]governed.RoutePolicy{"B": policy}
+	}
+	if chatTasks {
+		settings.ContentOnly = true
+		settings.AssetDB = nil
+		settings.TextPolicies = nil
 	}
 	if contentTitleOnly {
 		settings.ContentTitleOnly, settings.AssetDB, settings.TextPolicies = true, nil, nil
@@ -535,6 +545,10 @@ func testProductAgentOwners(t *testing.T, mode string) {
 	}
 	if mode == "selection" {
 		testSelectionHTTPThroughNativeOwners(t, f, module.(productAgentModule).application, deps, auth, &calls)
+		return
+	}
+	if chatTasks {
+		testChatContentThroughOwners(t, f, module.(productAgentModule), deps, auth, configuration, op.OperationID, &calls, mode == "own content chat")
 		return
 	}
 	if strings.HasPrefix(mode, "own content ") {

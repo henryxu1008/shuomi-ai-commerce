@@ -1,9 +1,15 @@
 import { z } from "zod";
+import {contentSelectionSchema} from "./content-selection";
+import {collectionVersion} from "./product-collection";
 import { isAcquisitionUUID } from "./product-acquisition";
 import { productKnowledgeSchema } from "./product-knowledge";
 import {executionModeSchema,modeRevisionSchema,modeSnapshotRefSchema,titlePolicyAdoptionSchema} from "./execution-mode";
 
 const id = z.string().refine(isAcquisitionUUID);
+export const aiTaskSubject = z.strictObject({kind:z.enum(["own_product","acquisition"]),id,catalogVersion:collectionVersion,publicationId:z.string().min(1).max(128).regex(/^[A-Za-z0-9][A-Za-z0-9._:-]*$/)});
+export const aiTaskSelection = z.strictObject({subject:aiTaskSubject,capability:z.literal("product.content.localize"),parameters:contentSelectionSchema});
+export type AITaskSubject=z.infer<typeof aiTaskSubject>;
+export type AITaskSelection=z.infer<typeof aiTaskSelection>;
 const timestamp = z.string().datetime({ offset: true });
 const scope = z.object({ OrganizationID: z.string(), ActorID: z.string() });
 const conversation = z.object({
@@ -16,16 +22,18 @@ const message = z.object({
   Author: z.enum(["USER", "ASSISTANT"]), Content: z.string(), CreatedAt: timestamp,
 });
 const proposal = z.object({
+ kind:z.enum(["product.title.optimize","product.content.localize"]).optional(),taskSelection:aiTaskSelection.optional(),executionProfileReady:z.boolean().optional(),maximumSteps:z.number().int().positive().optional(),maximumModelCalls:z.number().int().positive().optional(),maximumRuntimeSeconds:z.number().int().positive().optional(),
   executionMode:executionModeSchema.optional(),modeRevision:modeRevisionSchema.optional(),modeUnavailableReason:z.string().optional(),
   id, digest: z.string().length(64), sourceSequence: z.number().int().positive(),
   goalSummary: z.string(), operationId: z.string().optional(), productKey: z.string().optional(),
-  targetPlatform: z.enum(["shein", "temu", "amazon"]).optional(),
+  targetPlatform: z.enum(["shein", "temu", "amazon","product"]).optional(),
   templateId: z.string().optional(), templateRevision: z.string().optional(), knowledgeBaseId: z.string().optional(),
   providerId: z.string().optional(), modelId: z.string().optional(), maximumTokens: z.number().int().optional(),
   maximumCostMicros: z.number().int().optional(), currency: z.string().optional(),
   humanReviewRequired: z.literal(true), detailsAvailable: z.boolean(), titleProfileReady: z.boolean(), executionAuthorized: z.boolean(),
 });
 const task = z.object({
+ kind:z.enum(["product.title.optimize","product.content.localize"]).optional(),taskSelection:aiTaskSelection.optional(),
   executionMode:executionModeSchema.optional(),modeRevision:modeRevisionSchema.optional(),modeSnapshotRef:modeSnapshotRefSchema.optional(),policyAdoption:titlePolicyAdoptionSchema.optional(),
   id, conversationId: id, proposalId: id, title: z.string(), goalSummary: z.string(), createdAt: timestamp,
   projectionAvailable: z.boolean(), state: z.enum(["RUNNING", "WAITING_CONFIRMATION", "COMPLETED", "ERROR", "PAUSED"]).optional(),
@@ -38,11 +46,12 @@ const task = z.object({
   knowledge: productKnowledgeSchema.optional(),
 });
 export const aiCreateBody = z.strictObject({ favorite: z.boolean().optional() });
-export const aiMessageBody = z.strictObject({
+const aiTitleMessageBody = z.strictObject({
   content: z.string().min(1).refine(v => new TextEncoder().encode(v).length <= 8192), operationId: id,
   targetPlatform: z.enum(["shein", "temu", "amazon"]), templateId: id.optional(),
   templateRevision: z.string().regex(/^[1-9][0-9]*$/).optional(), knowledgeBaseId: id.optional(),
 });
+export const aiMessageBody=z.union([aiTitleMessageBody,z.strictObject({content:aiTitleMessageBody.shape.content,taskSelection:aiTaskSelection,templateId:id.optional(),templateRevision:aiTitleMessageBody.shape.templateRevision,knowledgeBaseId:id.optional()})]).refine(value=>Boolean(value.templateId)===Boolean(value.templateRevision));
 export const aiMetadataBody = z.strictObject({ title: z.string().max(256).optional(), favorite: z.boolean().optional(), archived: z.boolean().optional() });
 export const aiResumeBody = z.strictObject({ revision: z.string().regex(/^[1-9][0-9]*$/),
   feedback: z.string().refine(v => new TextEncoder().encode(v).byteLength <= 8192) });
@@ -51,9 +60,10 @@ export type AIConversation = z.infer<typeof conversation>;
 export type AIProposal = z.infer<typeof proposal>;
 
 export type AIWorkbenchRoute = "conversation-list" | "conversation-create" | "conversation-read" | "conversation-metadata" |
-  "message" | "confirm" | "task-list" | "task-read" | "task-start" | "task-resume" | "task-review";
+  "subject-read" | "message" | "confirm" | "task-list" | "task-read" | "task-start" | "task-resume" | "task-review";
 
 export function aiWorkbenchPath(method: string, path: string[]): AIWorkbenchRoute | null {
+  if(method==="GET"&&path.length===4&&path[0]==="chat"&&path[1]==="subjects"&&["own_product","acquisition"].includes(path[2]??"")&&isAcquisitionUUID(path[3]??""))return "subject-read";
   if (path[0] === "chat" && path[1] === "conversations") {
     if (path.length === 2) return method === "GET" ? "conversation-list" : method === "POST" ? "conversation-create" : null;
     if (!isAcquisitionUUID(path[2] ?? "")) return null;
@@ -75,6 +85,7 @@ export function aiWorkbenchPath(method: string, path: string[]): AIWorkbenchRout
 }
 
 export const aiResponseSchemas = {
+ "subject-read":z.strictObject({subject:aiTaskSubject,productKey:z.string().min(1).max(128)}),
     "conversation-list": z.object({ conversations: z.array(conversation), next: z.string() }),
     "conversation-create": z.object({ conversation, replay: z.boolean() }),
     "conversation-read": z.object({ conversation, messages: z.array(message), proposals: z.array(proposal), before: z.string() }),

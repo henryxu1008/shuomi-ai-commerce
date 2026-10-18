@@ -9,6 +9,7 @@ import { requestAIWorkbench, AIWorkbenchError, type AIScope } from "@/lib/api/ai
 import { KnowledgeCitations } from "../task-center/knowledge-citations";
 import { executionModeLabels } from "../agents/execution-mode-settings";
 import { taskState, reasonText, errorText } from "./task-presentation";
+import {contentSelectionLabel} from "@/lib/contracts/content-selection";
 import styles from "./task-page.module.css";
 
 type TaskAction = "start" | "resume" | "review";
@@ -111,13 +112,13 @@ export function TaskDetail({ scope, authorizationKey, taskId, onReviewReference,
     <Card className={styles.detailCard}><div className={styles.heading}><h2>{item.title}</h2><span className={styles.badge}>{item.projectionAvailable ? taskState[item.state ?? ""] ?? "状态未知" : "状态暂不可用"}</span></div>
       <p>{item.goalSummary}</p><dl><dt>当前状态</dt><dd>{item.projectionAvailable ? reasonText[item.reason ?? ""] ?? item.reason ?? "" : "Owner 暂不可用，无法确认当前状态"}</dd>
         <dt>企业</dt><dd>{scope.organizationId}</dd><dt>商品</dt><dd>{item.productDetailsAvailable ? item.productKey : "当前无权查看"}</dd>
-        <dt>目标平台</dt><dd>{item.productDetailsAvailable ? item.targetPlatform : "不可用"}</dd>
+        {item.taskSelection?<><dt>任务对象</dt><dd>{item.taskSelection.subject.kind==="own_product"?"自有商品":"源商品"} · 版本 {item.taskSelection.subject.catalogVersion}</dd><dt>语言与字段</dt><dd>{contentSelectionLabel(item.taskSelection.parameters)}</dd></>:<><dt>目标平台</dt><dd>{item.productDetailsAvailable ? item.targetPlatform : "不可用"}</dd></>}
         <dt>执行模型</dt><dd>{item.providerId && item.modelId ? `${item.providerId} / ${item.modelId}` : "尚无可用执行记录"}</dd>
         <dt>用量</dt><dd>{item.usageStatus === "unknown_reserved" ? "结果未知，额度仍保留" : item.usageStatus === "observed" ? `${item.tokens ?? 0} tokens · ${item.estimatedCostMicros ?? 0} μ${item.currency ?? ""}` : "尚无可用用量"}</dd>
         <dt>执行权限</dt><dd>{item.executionMode?`${executionModeLabels[item.executionMode]} · 版本 ${item.modeRevision}`:"权限模式不可用"}</dd><dt>审核</dt><dd>{item.policyAdoption?"按策略采用，未经逐项人工审阅":item.reviewState || "尚未生成"}</dd>
         <dt>创建时间</dt><dd>{new Date(item.createdAt).toLocaleString("zh-CN")}</dd></dl>
       <KnowledgeCitations knowledge={item.knowledge} />
-      {item.productDetailsAvailable && item.operationId ? <Button asChild variant="outline"><Link href={`/workbench/supply/acquisition/operation/${item.operationId}`} prefetch={false}>查看来源商品</Link></Button> : null}
+      {item.productDetailsAvailable && item.operationId ? <Button asChild variant="outline"><Link href={item.taskSelection?.subject.kind==="own_product"?`/workbench/data/mine/own/${item.taskSelection.subject.id}`:`/workbench/supply/acquisition/operation/${item.operationId}`} prefetch={false}>查看来源商品</Link></Button> : null}
     </Card>
     {result}
     <div className={styles.actions}>
@@ -126,8 +127,8 @@ export function TaskDetail({ scope, authorizationKey, taskId, onReviewReference,
       {item.canResume ? <Card className={styles.actionCard}><label>继续执行的反馈<textarea rows={3} disabled={disabled} value={feedback} onChange={event => setFeedback(event.target.value)} /></label>
         {feedbackTooLarge ? <small>反馈不能超过 8 KiB UTF-8 字节。</small> : null}
         <Button disabled={disabled || !feedback.trim() || feedbackTooLarge} onClick={() => void act("resume")}>继续原任务</Button></Card> : null}
-      {item.canReview && !item.reviewId ? <Button disabled={disabled} onClick={() => void act("review")}>提交标题供人工审核</Button> : null}
-      {item.reviewId && !onReviewReference ? <Button asChild><Link href={`/workbench/ai/tasks/pending/other?proposal_id=${item.reviewId}`} prefetch={false}>查看并处理标题提案</Link></Button> : null}
+      {item.canReview && !item.reviewId ? <Button disabled={disabled} onClick={() => void act("review")}>提交建议供人工审核</Button> : null}
+      {item.reviewId && !onReviewReference ? <Button asChild><Link href={`/workbench/ai/tasks/pending/other?proposal_id=${item.reviewId}`} prefetch={false}>查看并处理建议</Link></Button> : null}
     </div>
   </div>;
 }
