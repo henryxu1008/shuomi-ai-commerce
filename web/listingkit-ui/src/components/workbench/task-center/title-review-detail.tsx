@@ -10,7 +10,7 @@ import { KnowledgeCitations } from "./knowledge-citations";
 import {executionModeLabels} from "../agents/execution-mode-settings";
 import {SkillMethodSummary} from "../skills/skill-method-summary";
 
-export const titleReviewStateLabel = { pending: "待审核", accepted: "已接受，待应用", rejected: "已拒绝", applied: "已应用" };
+const titleReviewStateLabel = { pending: "待审核", accepted: "已接受，待应用", rejected: "已拒绝", applied: "已应用" };
 
 export function TitleReviewDetail({ proposal: p }: { proposal: ProductTitleProposal }) {
   return <div className={styles.detailContent}>

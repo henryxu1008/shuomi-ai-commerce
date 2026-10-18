@@ -1,5 +1,7 @@
 # 任务中心标题提案待确认（#345）
 
+> 当前入口组织已由 [统一任务中心 #798](unified-task-center.md) 收敛：审核在任务中心待确认详情内完成，原审核/版本/权限/幂等/Apply 合同继续复用。下文保留 #345 原交付证据；历史“仅标题”及独立页面布局不能覆盖当前内容审核与统一导航范围。
+
 Authority: Issue #345 当前正文及 N1-C 启动评论、#343/#344、#36、#298、
 `docs/product/final-ui-ia-authority.md`。同任务窄准入第一轮独立只读
 review_ui_admission：纯展示/布局/无 wire 依赖交互 IMPLEMENTATION_READY。

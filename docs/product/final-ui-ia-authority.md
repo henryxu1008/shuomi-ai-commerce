@@ -129,6 +129,8 @@ M5 提现申请还必须消费现有 canonical payout-method owner 的有效收�
 
 ## 4. AI工作台的产品对象
 
+2026-10-18 用户批准 [#798](https://github.com/qq550723504/task-processor/issues/798)：按既有任务中心 Figma 组织统一列表与详情，标题/内容审核收回待确认流程，撤去 AI 工作台并列二级“标题审核”入口。复用现有 Task/Review owner 与授权，未接入的经营诊断/运营计划、全局或今日统计、店铺筛选和步骤百分比不随布局开放。详见 [统一任务中心](../engineering/unified-task-center.md)。
+
 AI工作台当前产品结构至少包括：
 
 - 硕米Chat

@@ -3,7 +3,9 @@ import { configuredProductReviewOrigin } from "@/lib/server/product-title-review
 import { isSheinRecordsAvailable } from "@/lib/server/shein-records-availability";
 import { connection } from "next/server";
 
-export default async function Page() {
+export default async function Page({ searchParams }: { searchParams: Promise<{ proposal_id?: string | string[] }> }) {
   await connection();
-  return <BusinessTaskPage productReviewAvailable={configuredProductReviewOrigin() !== null} sheinRecordsAvailable={isSheinRecordsAvailable()} />;
+  const query = await searchParams;
+  return <BusinessTaskPage productReviewAvailable={configuredProductReviewOrigin() !== null} sheinRecordsAvailable={isSheinRecordsAvailable()}
+    initialProposalId={typeof query.proposal_id === "string" ? query.proposal_id : undefined} />;
 }

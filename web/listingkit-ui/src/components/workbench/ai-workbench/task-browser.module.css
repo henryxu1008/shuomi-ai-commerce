@@ -1,0 +1,22 @@
+.search { width: 200px; min-height: 40px; padding: 8px 12px; background: var(--card); color: var(--foreground); border: 1px solid var(--border); border-radius: var(--control-radius); font-size: var(--body-text-size); }
+.search:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 20px 0 12px; }
+.toolbar a[aria-disabled="true"] { opacity: .5; cursor: not-allowed; }
+.metricNumber { margin-left: auto; font-size: 24px; font-weight: 700; color: var(--primary); }
+.metricNumber[data-state="WAITING_CONFIRMATION"] { color: var(--warning-foreground); }
+.metricNumber[data-state="COMPLETED"] { color: var(--console-purple); }
+.marker[data-state="WAITING_CONFIRMATION"] { background: var(--warning-foreground); }
+.marker[data-state="RUNNING"] { background: var(--primary); }
+.marker[data-state="ERROR"] { background: var(--destructive); }
+.marker[data-state="PAUSED"] { background: var(--muted-foreground); }
+.rowStatus { display: grid; flex-shrink: 0; gap: 12px; text-align: right; }
+.badge { padding: 6px 12px; border-radius: var(--control-radius); color: var(--foreground); background: var(--secondary); font-size: var(--caption-text-size); }
+.badge[data-state="WAITING_CONFIRMATION"] { color: var(--warning-foreground); background: color-mix(in srgb,var(--warning) 20%,var(--card)); }
+.badge[data-state="RUNNING"] { color: var(--primary); background: color-mix(in srgb,var(--primary) 15%,var(--card)); }
+.badge[data-state="COMPLETED"] { color: var(--console-purple); background: color-mix(in srgb,var(--console-purple) 18%,var(--card)); }
+.pagination { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 16px; color: var(--muted-foreground); font-size: var(--label-text-size); }
+.pagination p { width: 100%; line-height: 1.6; }
+.history { margin-top: 20px; padding: 16px; }
+.history h2 { font-weight: 700; }
+.history p { margin: 8px 0 12px; color: var(--muted-foreground); font-size: var(--body-text-size); }
+@media (max-width: 767px) { .search { width: 100%; } .rowStatus { margin-left: auto; } }

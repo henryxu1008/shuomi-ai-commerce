@@ -149,7 +149,7 @@ it("restores an initial URL selection after context loading, but never resurrect
   await screen.findByText("Original title");
   calls.context.isSwitching = true; view.rerender(tree(true, proposal().proposal_id));
   calls.context.isSwitching = false; view.rerender(tree(true, proposal().proposal_id));
-  await screen.findByText("选择一条标题提案");
+  await screen.findByText("选择一条任务或待确认事项");
   expect(calls.get).toHaveBeenCalledOnce();
 });
 
@@ -189,7 +189,7 @@ it("a rejected proposal leaves the actionable list but keeps its authorized term
   calls.decide.mockResolvedValue(proposal("rejected", "2")); await open();
   calls.list.mockResolvedValue({ ...collection(), items: [] });
   await userEvent.click(screen.getByRole("button", { name: "拒绝提案" }));
-  await screen.findByText("当前授权范围内暂无待处理标题提案");
+  await screen.findByText("当前筛选无任务");
   expect(screen.getByText("Original title")).toBeVisible();
   expect(screen.getByText("已拒绝")).toBeVisible();
   expect(calls.decide.mock.calls[0][0].input).toEqual({ action: "reject", expected_revision: "1" });
@@ -215,7 +215,7 @@ it("a late write failure cannot replace a new organization's review page", async
   await act(async () => late.reject(failure("PERMISSION_DENIED", "rejected", 403)));
   expect(screen.queryByText("当前身份没有标题审核权限")).not.toBeInTheDocument();
   expect(screen.queryByText("结果待核实")).not.toBeInTheDocument();
-  expect(await screen.findByText("选择一条标题提案")).toBeVisible();
+  expect(await screen.findByText("选择一条任务或待确认事项")).toBeVisible();
 });
 
 it("a late collection read failure preserves an unknown write and its exact verification intent", async () => {
