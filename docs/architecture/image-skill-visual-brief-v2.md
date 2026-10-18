@@ -66,3 +66,5 @@ Legacy decision: N/A；消费当前已保存事实及其准确策略，不恢复
 Round1：独立只读 Reviewer 核对候选 46cb9db0662a1367df705ba967b5a644cc63ea82 及实际 Skill Store、ImageSet、Generation、Temporal recovery、Asset 消费链，结论 IMPLEMENTATION_READY，无 BLOCKER。没有生产修改或真实调用。
 
 三项均分类 IMPLEMENTATION_TEST（当前 Must 为历史准确事实不变、新派发受控、旧版本保留）：(1) 旧同键按存储 policy 计算 digest，v1读取/确认回执恢复与指纹不变；(2) v1空材料+lease仍可被历史/采用消费，Generation/route/直接tools新生成拒绝，旧success/UNKNOWN恢复零POST；(3) PG并发追加/冲突回滚/旧行保留及三个真实包生产adapter→组合器→factory/SourceEdit完整受控HTTP。上文已明确两处易漏调用细节；这些是冻结方案的实现验证，不扩大 owner/状态/权限边界，不需要重开设计。最终交付复核只检查本次实际增量。
+
+真实试用增量：6ba39cbea 的首张 v2 Run0e8ea735-f5ce-5c66-abac-27c4ba5d9631仍夹资料文字；后续调用停止。准确资源和原图 SHA 已确认，原文 SKILL 已排除，但构造器错误地加入整个 source.Evidence（含来源描述、内部试用说明/URL）。分类 IMPLEMENTATION_TEST，属于上述只发送当前视觉任务/真实事实的实现遗漏；新 recipe 只消费 RequiredTaskEvidence 当前指定键，不加入其它来源说明。所需规格/使用/配件证据检查及 digest 保持，旧 recipe/policy/版本/事实均不重算，不改 composer/provider 参数或增加模型调用。RED 已捕获两个任务的来源描述泄露，最小修复及增量复核沿同一 PR；真实视觉效果不因开发检查而转为 PASS。

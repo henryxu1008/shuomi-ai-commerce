@@ -28,6 +28,32 @@ func TestImageMethodVisualPlanUsesNaturalFactsWithoutDocumentBlocks(t *testing.T
 	}
 }
 
+func TestVisualMethodIncludesOnlyEvidenceRequiredByTheCurrentTask(t *testing.T) {
+	for _, purpose := range []string{"product_identity", "purchase_specs"} {
+		t.Run(purpose, func(t *testing.T) {
+			m := &methodFixture{text: "A clean product picture."}
+			s, _, _, cfg, contexts, _, ctx, input := imageSetServiceFixture(t, imageagent.WithImageMethodContext(m))
+			cfg.template.Carousel[0].Purpose = purpose
+			contexts.preparation.Evidence = map[string]string{"description": "INTERNAL_SOURCE_NOTE https://source.example/trace?internal=note", "brand": "UNRELATED_EVIDENCE", "specifications": "24 cl; feldspar porcelain"}
+			ref := imageMethodRef()
+			input.Method = &ref
+			prepared, err := s.PrepareImageSet(ctx, input)
+			require.NoError(t, err)
+			for _, slot := range prepared.Projection.Plan.Slots {
+				require.NotContains(t, slot.Recipe.Prompt, "INTERNAL_SOURCE_NOTE")
+				require.NotContains(t, slot.Recipe.Prompt, "https://source.example")
+				require.NotContains(t, slot.Recipe.Prompt, "UNRELATED_EVIDENCE")
+				if slot.Recipe.Purpose == "purchase_specs" {
+					require.Contains(t, slot.Recipe.Prompt, "24 cl; feldspar porcelain")
+					require.NotEmpty(t, slot.Recipe.EvidenceDigest)
+				} else {
+					require.NotContains(t, slot.Recipe.Prompt, "24 cl; feldspar porcelain")
+				}
+			}
+		})
+	}
+}
+
 type historicalMethodRepository struct {
 	imageagent.Repository
 	input      imageagent.PrepareImageSetInput

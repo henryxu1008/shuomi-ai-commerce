@@ -34,15 +34,10 @@ func visualImagePrompt(product ProductContextRef, task agentconfig.ContentTask, 
 		}
 	}
 	fmt.Fprintf(&b, "For this picture, follow this visual task: %s. Use the selected background: %s. ", visualTask, background)
-	keys = keys[:0]
-	for key := range evidence {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	for _, key := range keys {
-		if evidence[key] != "" {
-			fmt.Fprintf(&b, "Additional confirmed product information: %s. ", evidence[key])
-		}
+	// Source evidence also contains free-form descriptions and provenance.
+	// Only the current task's required evidence belongs in its picture.
+	if key := agentconfig.RequiredTaskEvidence(task.Purpose); key != "" && evidence[key] != "" {
+		fmt.Fprintf(&b, "Additional confirmed product information for this task: %s. ", evidence[key])
 	}
 	if language == "en" {
 		language = "English"
