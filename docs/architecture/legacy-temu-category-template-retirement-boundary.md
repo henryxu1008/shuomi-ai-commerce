@@ -1,5 +1,7 @@
 # 旧 TEMU 类目与模板查询编排退休边界设计
 
+> 当前图片状态以用户确认的 #801 [剩余执行包退休边界](legacy-temu-image-processing-retirement-boundary.md)为准：旧 image 包、孤立 ImageRequirement、AssetState/两 padded map 已 source-retired。下方 #797 当批保留说明属于历史；四 TemplateState 字段、平台合同、有效共享能力及其它保留边界保持。
+
 > 后续窄替代：用户确认 #797 [图片编排退休边界](legacy-temu-image-orchestration-retirement-boundary.md) 后，仅其中七文件及专属 helper/alias/三个 AssetState 字段退出；本文当批图像/混合上下文全保留陈述按该矩阵收窄。其余图像处理/填充/上传、两 padded map、四 TemplateState 字段、平台合同和历史取证保持。
 
 ## 1. 状态、用户结果与范围

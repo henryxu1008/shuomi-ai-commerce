@@ -3,13 +3,13 @@
 ## 1. 状态、用户结果与范围
 
 - 日期：2026-10-18；执行依据：#29 / #301 与用户本轮明确授权“先设计、确认后实施”。
-- 状态：**DESIGN_ONLY / AWAITING_USER_CONFIRMATION**。本 PR 只提交本文与架构索引，生产代码、guard、workflow、模板或运行数据均未修改。
-- 当前 **Design Basis: N/A**：仅文档和只读映射，不改变产品/领域/权限/持久化/外部副作用语义。未来有界实施拟采用 §2 的 Reuse Existing Architecture；当前不是 Ready 或实施授权。
+- 状态：用户已确认冻结设计 `348ec6b6e` 的 §5/§6/§6.1/§7，并授权在 #801 继续实施。旧执行包、孤立类型与专属 context 状态已 source-retired；原检查和必要清单按矩阵校准，最终 HEAD/CI/独立检查写 PR。
+- 当前 **Design Basis: Reuse Existing Architecture / Ready**：生产修改前已在 #29/#301 登记并读回，按 §2 复用现有 owner/合同。设计阶段 N/A、CI/review 保留为历史，不替代实施证据；workflow、旧 image API、vision prompt 和运行数据均不改。
 - 取证基线：actual main `4faf6f471699da44f763872cc9e98c16f105fe40`，含 #797 已合并的七文件退休。唯一 Writer 复用独占附属 worktree `issue29-temu-image-retirement/task-processor`，新分支 `codex/issue29-temu-image-closure-retirement-design`；已核对父 Issue 接单/关联 PR，无重复 owner，不接管 #799/#800/#692。
 
 使用者是当前内部试用、采集、Store 与图像能力维护者。交付为剩余旧图片构建、并发处理、标注/填充/vision/上传闭包的实际消费者、有效行为处置、持久化及平台副作用 owner 和精确删除/保留矩阵。当前没有用户操作被本维护阻塞，**不增加内部试用前置，也不作为 #799 当前图片接线的前置**。没有新页面/交互，Figma N/A。
 
-拟退休 `internal/temu/image` 剩余 15 个完整 Go 文件（基线 1,952 行）及 `handlerbase/types.go` 的孤立 ImageRequirement；mixed context 只移除两项 padded map 和因此完全无成员/消费者的 AssetState 定义、嵌入与初始化。有效规则复用现有 owner，**无新增 EXTRACT 代码**；不保留空壳或复制无当前需求的图像算法。
+已退休 `internal/temu/image` 剩余 15 个完整 Go 文件（基线 1,952 行）及 `handlerbase/types.go` 的孤立 ImageRequirement；mixed context 只移除两项 padded map 和因此完全无成员/消费者的 AssetState 定义、嵌入与初始化。有效规则复用现有 owner，**无新增 EXTRACT 代码**；不保留空壳或复制无当前需求的图像算法。
 
 非目标：新图像/标注产品、provider 接线、重接旧 Task/上传/vision、额外 IAM/恢复/验收工具；修改保留规则、API/DTO/Prompt Management；运行 constructor/main、真实下载、模型/API/平台上传、Preview/DryRun；读取运行配置、凭据、DB/Redis/Profile/历史日志；部署、重放、迁移、远端/本地业务资产清理与 Issue 关闭。只读取跟踪中的 Go/文档/prompt 源码，不读取私密运行配置。
 
@@ -20,11 +20,11 @@ Architecture / Contract：
 - [Greenfield 产品决定](../product/greenfield-no-legacy-migration.md)、[Hard-Cut Policy](../refactoring/legacy-hard-cut-policy.md)、[Legacy Register](../refactoring/legacy-register.md)、[Project Boundaries](project-boundaries.md)：只允许 EXTRACT / RETIRE，不新增 wrapper、fallback、双读双写、旧 ID 映射或第二事实源。
 - [当前 TEMU 平台设计](temu-platform-v1.md) §8/§8.1、现有 marketplace TEMU goods/rules/model：资产批准、内容 hash、当次店铺/模式/类目/usage、几何/位置、官方上传效果及 receipt/UNKNOWN 各守原 owner；旧网页默认值不能成为当前规格权威。
 - [Product ImageAgent](product-image-agent-v1.md)、[官方标题与图片方法](official-skills-and-image-method-v1.md)：当前资产/图片方法选择、生成/审查/采用、预算与产物合同保留。#799 的 Bailian 接线由原 owner 实施；其未合并实现不是本设计的批准依据或验收证据。
-- [前批图片编排](legacy-temu-image-orchestration-retirement-boundary.md)、[SKU/SKC](legacy-temu-sku-skc-retirement-boundary.md)、[类目/模板](legacy-temu-category-template-retirement-boundary.md) 退休：历史取证和批准保持；用户确认本文后，只用 §5 替代本批 16 文件及专属 context 闭包的旧保留陈述，不覆盖其它保留能力。
+- [前批图片编排](legacy-temu-image-orchestration-retirement-boundary.md)、[SKU/SKC](legacy-temu-sku-skc-retirement-boundary.md)、[类目/模板](legacy-temu-category-template-retirement-boundary.md) 退休：历史取证和批准保持；用户已确认本文，只用 §5 替代本批 16 文件及专属 context 闭包的旧保留陈述，不覆盖其它保留能力。
 - [Prompt Management](zitadel-tenant-prompt-management.md)：catalog metadata、tenant override、管理 API 与 runtime rendering 分别有原 owner。vision prompt 有目录引用但没有独立运行消费者，见 §3/§3.1；目录引用不证明该 prompt 是当前有效产品能力。
 - [Store current application](store-center-current-application-v1.md)、[Store observations](store-center-platform-observations-v1.md)、[独立 SHEIN 身份持久化](shein-worker-identity-persistence-boundary.md)：当前及保留运行链不借旧 Cookie/Profile 补当前身份，不操作运行资产。
 
-未来有界实施拟 **Reuse Existing Architecture**：只退出无装配的旧单域图片编排及专属内存值，当前正确能力/合同沿原 owner 保持，没有新产品流程、领域合同、事实/schema、身份/权限/tenant、状态机/事务、幂等/retry/UNKNOWN/recovery、AI 准入/预算/计量或平台副作用 owner。16 个完整生产文件共 1,964 行，加一个 mixed context 的专属删除；原两 guard 与必要清单/直接冲突文档预计不超过 30 个范围相关文件，生产删除量低于 2,500 行。不通过机械拆 PR 规避阈值；若实际超线且既有批准不足，或必须改变上述边界，停止受影响部分补适用 Independent Architecture 准入。
+本次有界实施采用 **Reuse Existing Architecture**：只退出无装配的旧单域图片编排及专属内存值，当前正确能力/合同沿原 owner 保持，没有新产品流程、领域合同、事实/schema、身份/权限/tenant、状态机/事务、幂等/retry/UNKNOWN/recovery、AI 准入/预算/计量或平台副作用 owner。16 个完整生产文件共 1,964 行，加一个 mixed context 的专属删除；原两 guard 与必要清单/直接冲突文档预计不超过 30 个范围相关文件，生产删除量低于 2,500 行。不通过机械拆 PR 规避阈值；若实际超线且既有批准不足，或必须改变上述边界，停止受影响部分补适用 Independent Architecture 准入。
 
 Must：保留当前 Product/ImageAgent/ApprovedAsset、有效图像规则与原官方上传/receipt/UNKNOWN，平台 API/DTO/re-export、共享 imagex/downloader/goroutine/perf/timeout/prompt/logging/ptr、原 DimensionInfo/TextRenderer、AI/SKU/AIBatchInput、PriceHandler/ProfitRuleAPI、PriceManager/PriceCalculator、两种 SHEIN 属性、Reader/Cache/Mapping、四 TemplateState 字段、当前采集/Store 观察与独立 SHEIN 登录 worker/Store sync。两套及其它 workflows、必需/安全检查、保护/ceiling、依赖不改。
 
@@ -61,7 +61,7 @@ Should：原 guard、当前清单及直接冲突说明与源码一致。Out of S
 | --- | --- | --- |
 | 当前 Product/ImageAgent/ApprovedAsset 与 generation/asset publication | 当前版本、源选择、授权、预算/计量、产物字节和采用均由原 owner 负责 | 原源码/合同/测试保持；不将 raw Product URL、旧 map 或自报尺寸作为第二事实源 |
 | 当前 marketplace TEMU goods/rules/model、storecenter 官方 mutation 与 supplychain/Submission 原执行合同 | TEMU 图片观察/批准内容/用途/几何/slot、原 merchant access；当前跨平台官方效果/receipt/UNKNOWN 各走原平台 owner | 不改平台路径或将 SHEIN ImageSet requirements 冒称 TEMU 实现；当前 ImageSet source/target 和 #799 接线整体由原 owner 保留 |
-| AssetState 两项 map | 只有旧 image 包读写 PaddedImages/PaddedImageSizes；context 的定义/嵌入/构造分配为其专属进程载体 | 拟一起 RETIRE 两字段、初始化、空载体及嵌入；不迁移/读取/删除任何运行字节或历史payload，其余 context 保持 |
+| AssetState 两项 map | 只有旧 image 包读写 PaddedImages/PaddedImageSizes；context 的定义/嵌入/构造分配为其专属进程载体 | 已一起 RETIRE 两字段、初始化、空载体及嵌入；不迁移/读取/删除任何运行字节或历史payload，其余 context 保持 |
 | handlerbase.ImageRequirement | #797 后仅余定义，无生产消费者；不等于当前 official image requirements | RETIRE 此唯一类型文件；当前各平台 OfficialImageRequirements、handlerbase.DimensionInfo 等不同合同保持 |
 | download/signature/upload | 旧 service 经借用 SendTEMURequest；POST /mms/marigold/edit/commit/get_signature、/api/galerie/v3/store_image?sdk_version=js-1.0.6&tag_name=local-goods-image；GET 由共享 downloader 负责 | 只退出 caller/局部服务，不调用端点，不转移 signature/网络/tenant/Cookie/结果不确定性 owner。端点只是仓库源码映射，不是外部平台支持性确认 |
 | vision/provider | 旧 detector 可借用 OpenAI ChatCompleter；prompt key/template 管理另有 consumer/owner，可能持有 tenant override | 只退 detector。provider客户端/当前图像方法/Prompt Registry/目录/override仓库全部保持；不读写配置、覆盖记录或发请求 |
@@ -75,13 +75,13 @@ Should：原 guard、当前清单及直接冲突说明与源码一致。Out of S
 | 行为 | 正确 owner / 现状 | 处置 |
 | --- | --- | --- |
 | 批准资产/内容hash、店铺/类目/usage、格式/体积/实际尺寸与精确槽位 | Product/ApprovedAsset、marketplace TEMU goods 的 ValidImageObservation/resolveImages、supplier_images/image_artifact、原官方平台模型/规则 | 原位保留，不用 URL 子串、默认宽高、ASIN/切片索引或 metadata 修正替代当前事实 |
-| 解码/编码/图像检查、下载/请求边界 | pkg/imagex、pkg/downloader；当前 ImageAgent generation/objectstore、SHEIN API 等仍有生产消费者 | 原位保留标准库与已有组件；不抽新下载器/格式库，不移植旧网络入口 |
+| 解码/编码/图像检查、下载/请求边界 | internal/pkg/imagex、internal/pkg/downloader；当前 ImageAgent generation/objectstore、SHEIN API 等仍有生产消费者 | 原位保留标准库与已有组件；不抽新下载器/格式库，不移植旧网络入口 |
 | 尺寸值、文本渲染 | handlerbase/property_types.go 的 DimensionInfo 仍被 rules.TextRenderer.DrawSummaryInfo 消费 | 原类型/单位语义、TextRenderer/字体实现与其它规则保持；只退 image/dimension_models.go alias，不能删共享 owner |
 | 白边、绘线、旧位置选图/最大9或10图/尺寸优先、AI尺寸转标注 | 候选包内专属设计；当前图像生成/已批准资产选择/原平台规则不依赖它；当前 scope 没有新增“自动尺寸标注/自动白边”产品要求 | RETIRE 包内算法/默认值/Task搬运，不新增同名 helper 或恢复旧刊登能力；保留其它包已有实际图像能力 |
 | 批量失败后逐项重试、CDN跳过、上传metadata与进度统计、context缓存 | 旧 Task/网页端编排，无当前持久化receipt/UNKNOWN依据 | RETIRE，不复制到当前效果/恢复协议；不增加“先完善通用上传系统”前置 |
 | vision模板/管理schema及旧 image API/DTO | 仅余目录或 re-export 静态引用，无独立运行消费者；不是当前有效能力依据 | 本批范围外不改，按 §3.1 登记后续 RETIRE 候选；不新增 consumer、不承诺效果、不将暂留源码解释为兼容或永久权利 |
 
-## 5. 精确删除与保留矩阵（待用户确认）
+## 5. 精确删除与保留矩阵（用户已确认）
 
 短文件名相对 `internal/temu/image/`。完整包退休覆盖其现存15文件及包内全部 receiver/constructor/私有值，不通过改名或搬目录继续保留旧实现。
 
@@ -108,9 +108,9 @@ Cutover/deletion condition: 用户确认 §5/§6/§6.1/§7，登记/读回 Reuse
 
 ## 6. 验证与验收边界
 
-设计阶段只读核对16完整文件、mixed状态与真实共享消费者、31命令静态依赖、Prompt/平台/当前owner及 #799 边界；只交本文与索引，做 diff/相对链接检查和原 PR CI/最终独立检查。真实下载、生成/provider、平台上传/运行/用户验收均 **NOT_RUN**。设计CI/review不替代实施验证。
+设计阶段已只读核对16完整文件、mixed状态与真实共享消费者、31命令静态依赖、Prompt/平台/当前owner及 #799 边界；历史设计只交本文与索引。当前实施按下列边界验证，原guard已在旧源码尚在时准确RED，精确退休后GREEN；最终CI/独立检查与准确HEAD见PR。真实下载、生成/provider、平台上传/运行/用户验收均 **NOT_RUN**。设计CI/review不替代实施验证。
 
-未来实施的必要验证：
+实施的必要验证与验收约束（结果与准确 HEAD 写 #801）：
 
 1. 开工同步一次 actual main，复核整个 image 包外部导入/构造器/注册、ImageRequirement、两map/AssetState与16文件闭包，确认未与#799当前owner重叠。发现真实新consumer、具体兼容义务或有效行为缺owner，停止对应项报告。
 2. 在原退休测试先改准确guard并确认源码尚在时RED，再删除/GREEN；检查原当前规则、平台/Prompt/DimensionInfo及其它保留能力。无新业务规则，不为删除算法制造新测试平台。
@@ -120,7 +120,7 @@ Cutover/deletion condition: 用户确认 §5/§6/§6.1/§7，登记/读回 Reuse
 
 ### 6.1 原检查、清单与文档的精确处置
 
-| 现有位置 | 未来实施的最小变更 | 不得扩大 / 削弱 |
+| 现有位置 | 按确认设计实施的最小变更 | 不得扩大 / 削弱 |
 | --- | --- | --- |
 | tests/listingkit_backend_retirement_test.go 缺席/保留map | 用整个 internal/temu/image 目录缺席覆盖包括#797七路径在内的全部Go文件，增加 handlerbase/types.go 缺席；移除已退休15文件、ImageRequirement、AssetState/两map/其初始化的旧保留token；新增原 DimensionInfo/TextRenderer及当前有效规则/平台保留断言，共享Prompt合同复用原检查 | 原root/product/CLI/运行/身份/安全断言与有效保留map保持；整目录缺席比旧准确文件/包级名字检查更强，不为同名平台/其它包做全局禁令，不为§3.1残留新增保留断言 |
 | 同一测试原mixed AST与image专属fixture | 仅从必存遍历移除将消失的image项，保留原sku/filter/product/rules/handlerbase五包；image专属helper/十fixture随整目录禁令替代而退出，不留空调用；复用原AST局部检查防handlerbase.ImageRequirement alias/type及context.AssetState/两字段/初始化重建，保持其它领域同名值 | 原SKU九fixture和五mixed扫描不得删；旧三Asset字段/Publish禁令保持。不得使用遇缺就广泛skip、改root/ignore或新扫描框架。context仍有其余合同，不能把其检查整体删除 |
@@ -131,8 +131,8 @@ Cutover/deletion condition: 用户确认 §5/§6/§6.1/§7，登记/读回 Reuse
 
 ## 7. 确认、实施与停止条件
 
-1. 本PR仅设计交付；用户明确确认 §5/§6/§6.1/§7 后，才在同一主要PR继续实施。当前N/A不授权修改生产/guard。
-2. 确认后先在执行Issue登记Reuse Existing Architecture / Ready、冻结设计HEAD、用户结果/owner/路径/不变量/验证并读回，再按矩阵退出完整旧包/孤立类型/专属状态、校准原检查与清单；两套workflow保持不变。
+1. 用户已确认冻结设计 `348ec6b6e` 的 §5/§6/§6.1/§7，当前在同一主要 PR 实施；原 DESIGN_ONLY/N/A 只是历史设计阶段，不再限制已获授权的矩阵内修改。
+2. 已在生产修改前于执行 Issue 登记并读回 Reuse Existing Architecture / Ready、冻结设计及用户结果/owner/路径/不变量/验证；随后退出完整旧包/孤立类型/专属状态、校准原检查与清单，两套 workflow 保持不变。
 3. 新真实消费者、当前外部可观察兼容义务、有效行为缺owner或必须改变身份/tenant/事实/状态/事务/恢复/平台效果时，停止受影响部分报告；不临时造adapter/fallback或扩成图像/IAM/恢复平台，不接管#799。
 4. 实施完成交准确HEAD原CI/最终检查进入In Review；未变有效证据可明确复用，非Blocker不自动扩范围或重开全局设计。设计/源码/AI检查不能签发用户验收。
 5. 合并需准确最终HEAD单独授权并正常expected-head；不授权Issue关闭、部署、真实实例/API/provider/凭据/业务数据操作。保留当前采集/Store观察、图像/平台/共享合同及独立SHEIN登录/Store sync，不增加内部试用前置。

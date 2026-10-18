@@ -12,6 +12,11 @@ import (
 )
 
 func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
+	for _, relative := range []string{"internal/temu/image", "internal/temu/handlerbase/types.go"} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Errorf("retired image artifact remains: %s (stat: %v)", relative, err)
+		}
+	}
 	rootFiles, err := filepath.Glob(filepath.Join("..", "internal", "listingkit", "*.go"))
 	if err != nil {
 		t.Fatal(err)
@@ -39,10 +44,6 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/temu/sync/inventory_sync_factory.go",
 		"internal/shein/inventory", "internal/temu/sync", "internal/temu/bulkrelist",
 		"internal/temu/category", "internal/temu/template",
-		"internal/temu/image/init_handler.go", "internal/temu/image/validator.go",
-		"internal/temu/image/upload_worker.go", "internal/temu/image/main_validator.go",
-		"internal/temu/image/sku_validator.go", "internal/temu/image/parallel_validator.go",
-		"internal/temu/image/single_validator.go",
 		"internal/temu/product/save_handler.go", "internal/temu/product/submit_handler.go",
 		"internal/temu/product/commit_create_handler.go", "internal/temu/product/commit_detail_handler.go",
 		"internal/temu/product/save_publish_result_handler.go", "internal/temu/product/publish_result_steps.go",
@@ -190,31 +191,16 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		},
 		"internal/temu/context/temu_context.go": {
 			"type TemuTaskContext struct", "type PublishState struct", "PriceQueryResponse", "TemuProduct", "StoreInfo",
-			"RuntimeState", "ProductState", "TemplateState", "AssetState", "VariantState", "RuleState", "AISkuMapping",
+			"RuntimeState", "ProductState", "TemplateState", "VariantState", "RuleState", "AISkuMapping",
 			"SetAPIClients", "AttachRuntime", "SetAmazonProduct", "SetVariants", "SetTemuProduct",
 			"type TemplateState struct", "TemplateInfo", "UserInputParentSpecList", "InputMaxSpecNum", "SingleSpecValueNum", "QueryAPI",
-			"PaddedImages", "PaddedImageSizes", "make(map[string][]byte)", "make(map[string][2]int)",
 		},
-		"internal/temu/image/config.go":              {"type imageConfig struct", "var defaultImageConfig", "func isCDNImage(", "func needsUpload("},
-		"internal/temu/image/processor.go":           {"type ImageProcessor struct", "func NewImageProcessor("},
-		"internal/temu/image/parallel_processor.go":  {"type ParallelImageProcessor struct", "func (pip *ParallelImageProcessor) ApplyImageResults("},
-		"internal/temu/image/carousel_builder.go":    {"type ImageCarouselBuilder struct"},
-		"internal/temu/image/dimension_builder.go":   {"type ImageDimensionBuilder struct", "PaddedImages"},
-		"internal/temu/image/dimension_models.go":    {"type DimensionInfo = handlerbase.DimensionInfo"},
-		"internal/temu/image/dimension_annotator.go": {"type ImageDimensionAnnotator struct", "func NewImageDimensionAnnotatorWithOpenAI("},
-		"internal/temu/image/dimension_drawer.go":    {"type DimensionDrawer struct"},
-		"internal/temu/image/drawing_utils.go":       {"type DrawingUtils struct"},
-		"internal/temu/image/padding_processor.go":   {"type ImagePaddingProcessor struct", "func (p *ImagePaddingProcessor) PadImageToAspectRatio("},
-		"internal/temu/image/vision_detector.go":     {"type VisionDetector struct", "openaiClient.ChatCompleter"},
-		"internal/temu/image/upload_processor.go":    {"type ImageUploadProcessor struct", "func (h *ImageUploadProcessor) UploadSingleImage(", "uploadResult, err :=", "PaddedImages", "PaddedImageSizes"},
-		"internal/temu/image/upload_utils.go":        {"type ImageUploadUtils struct", "func (iuu *ImageUploadUtils) padImagesIfNeeded("},
-		"internal/temu/image/upload_helpers.go":      {"type ImageUploadHelpers struct"},
-		"internal/temu/image/upload_service.go":      {"type TemuAPIClient interface", "func getUploadSignature(", "func uploadImageWithSignature("},
 		"internal/temu/api/image/image.go": {
 			"type API struct", "type ValidationResult struct", "type UploadResult struct", "type UploadSignature struct",
 			"func (a *API) GetUploadSignature(", "func (a *API) UploadWithSignature(", "func (a *API) Upload(",
 		},
-		"internal/temu/handlerbase/types.go": {"type ImageRequirement struct"},
+		"internal/temu/handlerbase/property_types.go": {"type DimensionInfo struct"},
+		"internal/temu/rules/text_renderer.go":        {"type TextRenderer struct", "func (r *TextRenderer) DrawSummaryInfo(", "dimensions handlerbase.DimensionInfo"},
 		"internal/marketplace/temu/goods/images.go": {
 			"func ValidImageObservation(", "func resolveImages(", "inventory asset.ApprovedAssetInventory",
 		},
@@ -414,7 +400,7 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"SpuValidator": true, "NewSpuValidator": true,
 		"PriceQueryHandler": true, "NewPriceQueryHandler": true,
 	}
-	for _, pkg := range []string{"sku", "filter", "product", "rules", "handlerbase", "image"} {
+	for _, pkg := range []string{"sku", "filter", "product", "rules", "handlerbase"} {
 		if err := filepath.WalkDir(filepath.Join("..", "internal", "temu", pkg), func(path string, entry os.DirEntry, err error) error {
 			if err != nil {
 				return err
@@ -431,9 +417,15 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 					t.Errorf("%s: %s", path, violation)
 				}
 			}
-			if pkg == "image" {
-				for _, violation := range retiredImageOrchestrationViolations(file) {
-					t.Errorf("%s: %s", path, violation)
+			if pkg == "handlerbase" {
+				for _, declaration := range file.Decls {
+					if group, ok := declaration.(*ast.GenDecl); ok {
+						for _, spec := range group.Specs {
+							if typ, ok := spec.(*ast.TypeSpec); ok && typ.Name.Name == "ImageRequirement" {
+								t.Errorf("%s must not recreate retired handlerbase.ImageRequirement", path)
+							}
+						}
+					}
 				}
 			}
 			ast.Inspect(file, func(node ast.Node) bool {
@@ -453,8 +445,7 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	contextPath := filepath.Join("..", "internal", "temu", "context", "temu_context.go")
-	contextFile, err := parser.ParseFile(token.NewFileSet(), contextPath, nil, 0)
+	contextPaths, err := filepath.Glob(filepath.Join("..", "internal", "temu", "context", "*.go"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -468,32 +459,78 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 	}
 	retiredAssetFields := map[string]bool{
 		"CurrentSkuContext": true, "RequiresImageUpload": true, "TotalImageCount": true,
+		"PaddedImages": true, "PaddedImageSizes": true,
 	}
-	ast.Inspect(contextFile, func(node ast.Node) bool {
-		switch node := node.(type) {
-		case *ast.TypeSpec:
-			if node.Name.Name != "PublishState" && node.Name.Name != "TemuTaskContext" && node.Name.Name != "AssetState" {
-				return false
-			}
-			if state, ok := node.Type.(*ast.StructType); ok {
-				for _, field := range state.Fields.List {
-					for _, name := range field.Names {
-						if retiredFields[name.Name] {
-							t.Errorf("TEMU %s must not retain exclusive publish field %s", node.Name, name)
+	for _, contextPath := range contextPaths {
+		if strings.HasSuffix(contextPath, "_test.go") {
+			continue
+		}
+		contextFile, err := parser.ParseFile(token.NewFileSet(), contextPath, nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// Inspect package owners, including aliases in new context files, without
+		// banning unrelated selectors or local names in other domains.
+		for _, declaration := range contextFile.Decls {
+			switch declaration := declaration.(type) {
+			case *ast.GenDecl:
+				for _, spec := range declaration.Specs {
+					typ, ok := spec.(*ast.TypeSpec)
+					if !ok {
+						continue
+					}
+					if typ.Name.Name == "AssetState" {
+						t.Errorf("%s must not recreate retired context.AssetState", contextPath)
+					}
+					state, ok := typ.Type.(*ast.StructType)
+					if !ok {
+						continue
+					}
+					for _, field := range state.Fields.List {
+						if len(field.Names) == 0 {
+							embedded := field.Type
+							if pointer, ok := embedded.(*ast.StarExpr); ok {
+								embedded = pointer.X
+							}
+							if name, ok := embedded.(*ast.Ident); ok && name.Name == "AssetState" {
+								t.Errorf("%s must not embed retired context.AssetState", contextPath)
+							}
 						}
-						if (node.Name.Name == "AssetState" || node.Name.Name == "TemuTaskContext") && retiredAssetFields[name.Name] {
-							t.Errorf("TEMU %s must not retain exclusive image field %s", node.Name, name)
+						for _, name := range field.Names {
+							if (typ.Name.Name == "PublishState" || typ.Name.Name == "TemuTaskContext") && retiredFields[name.Name] {
+								t.Errorf("TEMU %s must not retain exclusive publish field %s", typ.Name, name)
+							}
+							if retiredAssetFields[name.Name] || name.Name == "AssetState" {
+								t.Errorf("TEMU %s must not retain exclusive image field %s", typ.Name, name)
+							}
 						}
 					}
 				}
-			}
-		case *ast.FuncDecl:
-			if node.Recv != nil && retiredMethods[node.Name.Name] {
-				t.Errorf("TEMU context must not retain exclusive publish method %s", node.Name)
+			case *ast.FuncDecl:
+				if declaration.Recv != nil && retiredMethods[declaration.Name.Name] {
+					t.Errorf("TEMU context must not retain exclusive publish method %s", declaration.Name)
+				}
 			}
 		}
-		return true
-	})
+		ast.Inspect(contextFile, func(node ast.Node) bool {
+			literal, ok := node.(*ast.CompositeLit)
+			if !ok {
+				return true
+			}
+			owner, ok := literal.Type.(*ast.Ident)
+			if !ok || (owner.Name != "TemuTaskContext" && owner.Name != "AssetState") {
+				return true
+			}
+			for _, element := range literal.Elts {
+				if entry, ok := element.(*ast.KeyValueExpr); ok {
+					if key, ok := entry.Key.(*ast.Ident); ok && (key.Name == "AssetState" || retiredAssetFields[key.Name]) {
+						t.Errorf("%s must not initialize exclusive image field %s", contextPath, key.Name)
+					}
+				}
+			}
+			return true
+		})
+	}
 	for _, policyName := range []string{"submission_validation_policy.go", "sku_value_policy.go"} {
 		policyPath := filepath.Join("..", "internal", "marketplace", "temu", "publishing", policyName)
 		policyFile, err := parser.ParseFile(token.NewFileSet(), policyPath, nil, 0)
@@ -849,77 +886,6 @@ func TestRetiredListingCLIsHaveNoBuildOrDeploymentEntrypoints(t *testing.T) {
 			}
 		}
 	}
-}
-
-func TestImageRetirementGuardPreservesSharedNames(t *testing.T) {
-	for _, tt := range []struct {
-		name, source string
-		wantRetired  bool
-	}{
-		{name: "retained platform selector", source: `package image; import api "task-processor/internal/temu/api/image"; var _ api.UploadResult`},
-		{name: "retained shared requirement", source: `package image; import handlerbase "task-processor/internal/temu/handlerbase"; type CurrentRequirement = handlerbase.ImageRequirement`},
-		{name: "local upload result and field", source: `package image; type Metadata struct { uploadResult int }; func retained() { uploadResult := 1; _ = uploadResult; type ImageValidator struct{}; _ = ImageValidator{} }`},
-		{name: "receiver method with shared name", source: `package image; func (*ImageUploadProcessor) getImageRequirement() {}`},
-		{name: "retired validator", source: `package image; type SingleImageValidator struct{}`, wantRetired: true},
-		{name: "retired result DTO", source: `package image; type uploadResult struct{}`, wantRetired: true},
-		{name: "retired requirement alias", source: `package image; type ImageRequirement = CurrentRequirement`, wantRetired: true},
-		{name: "retired constructor", source: `package image; func NewImageUploadWorker() {}`, wantRetired: true},
-		{name: "retired constructor binding", source: `package image; var NewImageInitHandler = factory`, wantRetired: true},
-		{name: "retired config helper", source: `package image; func getImageRequirement() {}`, wantRetired: true},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			file, err := parser.ParseFile(token.NewFileSet(), "image.go", tt.source, 0)
-			if err != nil {
-				t.Fatal(err)
-			}
-			violations := retiredImageOrchestrationViolations(file)
-			if (len(violations) != 0) != tt.wantRetired {
-				t.Fatalf("retirement violations = %v, wantRetired=%v", violations, tt.wantRetired)
-			}
-		})
-	}
-}
-
-func retiredImageOrchestrationViolations(file *ast.File) []string {
-	retired := map[string]bool{
-		"ImageInitHandler": true, "NewImageInitHandler": true,
-		"ImageValidator": true, "NewImageValidator": true,
-		"ImageUploadWorker": true, "NewImageUploadWorker": true,
-		"MainImageValidator": true, "NewMainImageValidator": true,
-		"SkuImageValidator": true, "NewSkuImageValidator": true,
-		"ParallelImageValidator": true, "NewParallelImageValidator": true,
-		"SingleImageValidator": true, "NewSingleImageValidator": true,
-		"uploadResult": true, "uploadSkuResult": true,
-		"getImageRequirement": true, "ImageRequirement": true,
-	}
-	var violations []string
-	checkName := func(name string) {
-		if retired[name] {
-			violations = append(violations, "retired image declaration "+name)
-		}
-	}
-	// Package declarations recreate an owner; selectors, fields and local
-	// names (including UploadSingleImage's uploadResult) do not.
-	for _, declaration := range file.Decls {
-		switch declaration := declaration.(type) {
-		case *ast.FuncDecl:
-			if declaration.Recv == nil {
-				checkName(declaration.Name.Name)
-			}
-		case *ast.GenDecl:
-			for _, spec := range declaration.Specs {
-				switch spec := spec.(type) {
-				case *ast.TypeSpec:
-					checkName(spec.Name.Name)
-				case *ast.ValueSpec:
-					for _, name := range spec.Names {
-						checkName(name.Name)
-					}
-				}
-			}
-		}
-	}
-	return violations
 }
 
 func TestSKURetirementGuardPreservesSharedNames(t *testing.T) {

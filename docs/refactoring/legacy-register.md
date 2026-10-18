@@ -2,6 +2,22 @@
 
 > Status: Active legacy handling register
 
+> #29 / #301 [remaining TEMU image execution retirement](../architecture/legacy-temu-image-processing-retirement-boundary.md)
+> follows user-confirmed design `348ec6b6e` in #801. The complete remaining
+> 15-file image package, orphan handlerbase.ImageRequirement and exclusive
+> AssetState/two padded-map definition, embedding and initialization are
+> source-retired. Valid image/asset/platform rules reuse their current owners,
+> without new extraction or consumers. DimensionInfo/TextRenderer, shared
+> imagex/downloader, current capabilities and independent SHEIN login with
+> Store sync remain. Old image API/re-exports and vision prompt are unchanged
+> this batch and remain scoped RETIRE candidates. This narrowly supersedes
+> earlier preservation of these 16 files and context closure only; workflows,
+> ceilings, all other retained boundaries and historical evidence are unchanged.
+> No runtime/data action or new internal-trial prerequisite is authorized.
+
+> Historical #797 batch boundary below; its remaining execution-package,
+> ImageRequirement and padded-map preservation is superseded only as above.
+>
 > #29 / #301 [TEMU image orchestration retirement](../architecture/legacy-temu-image-orchestration-retirement-boundary.md)
 > follows user-confirmed design `1fb470269` in #797. Seven unused image
 > initialization/validation/parallel-upload files and their exclusive config
