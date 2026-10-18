@@ -1,7 +1,7 @@
 # 图片技能视觉 brief V2
 
 Execution: [#774](https://github.com/qq550723504/task-processor/issues/774)，同一 Writer / [PR #805](https://github.com/qq550723504/task-processor/pull/805)。
-Design Basis: **Independent Architecture**；Admission: **DESIGN_IN_REVIEW**，未准入前不修改本合同的生产路径。
+Design Basis: **Independent Architecture**；Admission: **IMPLEMENTATION_READY**。候选 46cb9db0662a1367df705ba967b5a644cc63ea82 已完成适用只读独立检查，无架构 BLOCKER；本准入提交先于生产实现。
 
 ## 产品决定、范围及依据
 
@@ -41,7 +41,7 @@ Skill owner（internal/skill、persistence/skill）仍唯一拥有包、不可�
 2. 原 PrepareImageSet 用新 policy + exact SkillVersionRef，取得原 Skill fence；在原 ImageSet 构造器中将商品标题/类型/排序属性、所选任务画面说明、背景/文字语言、已确认 evidence 组成确定性的自然语言视觉指令。无 JSON/YAML 序列化块，无原图 URL、ID、版本、内部字段名称或文件标记。保留真实参考图、事实优先与只允许明确请求的顾客文字的约束。无方法路径仍按当前旧构造器，不追溯影响已有计划。
 3. recipe.Prompt 冻结事实/任务指令，binding 冻结策略与完整包 ref/digest。最终提示词字节**确定性地等于冻结 recipe.Prompt + 固定视觉过渡句 + 准确包中的 brief**；准备、报价、派发复用同一组合器，每处校验最终 ≤16KiB，不截断。既有 slot/input/plan/quote fingerprint 已包含 recipe 和 binding，因此完整冻结视觉输入，不在 checkpoint/API 复制方法全文或新增摘要事实。
 4. 原 skillimage adapter 在准确包/权限栅栏内按传入 policy 返回仅 brief；旧 policy 只校验准确包/可用性并返回空视觉材料，不再返回原文。ImageMethodContext 接收 policy，所有实际准备/派发/采用装配显式传递，不用默认猜测。
-5. Generation 的报价和**不存在旧 fact 的新派发**在 PrepareProvider / reserve / intent / transport 前拒绝 v1 policy；新确认在原 admission receipt 恢复分支之后、写新准入之前同样拒绝 v1。原未选技能路径保持。任何旧新派发候选均需要重新准备新版本计划，不修改旧计划；新 request key 与不同 payload 按原冲突合同处理。
+5. Generation 的报价和**不存在旧 fact 的新派发**在 PrepareProvider / reserve / intent / transport 前拒绝 v1 policy；route 和直接 tools 生成也明确拒绝 v1，不容许绕过上层。新确认在原 admission receipt 恢复分支之后、写新准入之前同样拒绝 v1。原未选技能路径保持。任何旧新派发候选均需要重新准备新版本计划，不修改旧计划；新 request key 与不同 payload 按原冲突合同处理。已有准备请求按已存 binding.PolicyVersion 计算并比较唯一 input digest，返回其原冻结计划；仅不存在的请求使用 v2，不尝试多个策略或改写旧 digest。
 6. 已存在 admission/confirm/Asset receipt 按原准确回执优先恢复；已有 prepared/UNKNOWN/success effect 的恢复只由原 owner 读取/结算/下载物化，不重新报价或 POST。原结果的新人工采用仍可经 v1 准确包与当前权限/可用性 fence 检查，既不需要 brief 也不获得新 POST 许可。Regenerate/新增 slot 属新派发，v1 必须拒绝。原历史 Run 读取与 UI 展示不因旧 policy 失效。
 7. 最后沿既有 ProductImage SourceEdit → 已冻结百炼 route → 单次 HTTP；只有此一个图像模型调用。固定北京/qwen-image-3.0/同步协议、1点价格、凭据 reference、source byte/digest、request deadline、观察/结算/下载顺序不变。不改 provider 参数或新增 text model。
 
@@ -63,4 +63,6 @@ Legacy decision: N/A；消费当前已保存事实及其准确策略，不恢复
 
 ## 独立设计检查
 
-候选提交与 findings 分类、处置及准入状态在本节及 Issue/PR 记录；最多两轮正常设计检查，只对真正 BLOCKER 重开边界。
+Round1：独立只读 Reviewer 核对候选 46cb9db0662a1367df705ba967b5a644cc63ea82 及实际 Skill Store、ImageSet、Generation、Temporal recovery、Asset 消费链，结论 IMPLEMENTATION_READY，无 BLOCKER。没有生产修改或真实调用。
+
+三项均分类 IMPLEMENTATION_TEST（当前 Must 为历史准确事实不变、新派发受控、旧版本保留）：(1) 旧同键按存储 policy 计算 digest，v1读取/确认回执恢复与指纹不变；(2) v1空材料+lease仍可被历史/采用消费，Generation/route/直接tools新生成拒绝，旧success/UNKNOWN恢复零POST；(3) PG并发追加/冲突回滚/旧行保留及三个真实包生产adapter→组合器→factory/SourceEdit完整受控HTTP。上文已明确两处易漏调用细节；这些是冻结方案的实现验证，不扩大 owner/状态/权限边界，不需要重开设计。最终交付复核只检查本次实际增量。
