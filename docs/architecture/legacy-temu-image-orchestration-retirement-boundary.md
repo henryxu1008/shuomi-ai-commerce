@@ -131,4 +131,3 @@ Cutover/deletion condition: 用户明确确认 §5/§6/§6.1/§7；实施前登�
 3. 发现新增实际消费者、具体外部兼容义务、有效行为缺 owner，或需要改变身份/tenant/事实/状态/事务/恢复/平台副作用，停止受影响部分报告；不临时补 fallback/adapter，不自行建通用上传/恢复/IAM 系统。
 4. 实施后以准确实现 HEAD 的保留验证、原 CI 和一次最终交付检查进入 In Review；未变化证据可明确复用，finding 先分类，修复只复核对应增量。设计通过不冒充实施完成或用户验收。
 5. 合并须另有准确最终 HEAD 授权并正常 expected-head/保护；不授权 Issue 关闭、部署、真实实例/provider/凭据/数据操作。当前采集、Store 观察及独立 SHEIN 登录/Store sync 保留，本项不增加内部试用前置。
-
