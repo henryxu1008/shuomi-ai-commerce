@@ -61,6 +61,14 @@ it("does not offer image method selection without image write permission",async(
  expect(fetch.mock.calls.some(([url])=>String(url).endsWith("/skills/organization/image-candidates"))).toBe(false);
 });
 
+it("does not mount image readers or show an unavailable card without image read permission",async()=>{
+ calls.context={...calls.context,permissions:["workbench.supply.read"]};
+ render(<ProductImageSetPanel kind="supply" contextId={operation}/>);
+ expect(screen.queryByText("商品图片智能体")).toBeNull();
+ expect(fetch).not.toHaveBeenCalled();
+ expect(calls.mode).not.toHaveBeenCalled();
+});
+
 it("binds the selected image skill to preparation and displays the exact plan version",async()=>{
  const skillId="2bb819bd-af13-4e68-95e0-1cc86130fb1f",skillDigest="f".repeat(64),date="2026-10-18T00:00:00Z";
  const method={skill:{id:skillId,owner:{kind:"PLATFORM",id:"official"},creator:"maintainer",headVersion:1,revision:3,createdAt:date,updatedAt:date},version:1,package:{name:"product-image-standard",displayName:"标准商品套图",description:"围绕已选任务组织表达",target:"product-image",digest:skillDigest,files:null},state:"ENABLED",visibility:"SHARED",allowCopy:true,allowExport:true,createdAt:date};

@@ -33,6 +33,7 @@ export function ProductImageSetPanel(props:Props){
  const context=useWorkbenchContext(),userId=context.user?.id,organizationId=context.effectiveOrganization?.id;
  if(!userId||!organizationId||context.isSwitching||context.isLoading||context.error||context.blockingError||context.selectionRequired)return null;
  const permissions=context.permissions??[];
+ if(!permissions.includes("imageagent.read"))return null;
  return <ScopedImageSetPanel key={`${userId}:${organizationId}:${props.kind}:${props.contextId}:${permissions.join(",")}`} {...props} scope={{userId,organizationId,kind:props.kind,contextId:props.contextId}}/>;
 }
 
