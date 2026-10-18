@@ -60,7 +60,8 @@ func task(row taskRow) (aiworkbench.BusinessTask, error) {
 		json.Unmarshal(row.ContextSnapshotRef, &contextRef) != nil ||
 		!config.ValidOrAbsent() || config.Absent() || !contextRef.ValidOrAbsent() ||
 		!validDigest(row.ExecutionRequestDigest) || digest(json.RawMessage(requestJSON)) != row.ExecutionRequestDigest ||
-		request.GoalSummary != row.GoalSummary {
+		request.ConfigurationSnapshotRef != config || request.ContextSnapshotRef != contextRef ||
+		request.GoalSummary != row.GoalSummary || !taskRequestMatchesRow(row, request) {
 		return aiworkbench.BusinessTask{}, aiworkbench.ErrUnavailable
 	}
 	return aiworkbench.BusinessTask{ID: row.ID,
@@ -110,7 +111,7 @@ func validatePreparedTask(p aiworkbench.PreparedTask, proposal proposalRow, key 
 	}
 	canonical, request, err := canonicalRequest(p.ExecutionRequest)
 	if err != nil ||
-		request.Key != key || !request.Binding.Valid() || !request.Limits.Valid() ||
+		!proposalDomainMatchesRequest(proposal, request) || request.Key != key || !request.Binding.Valid() || !request.Limits.Valid() ||
 		request.GoalSummary != proposal.GoalSummary || !agent.ValidGoalSummary(request.GoalSummary) ||
 		request.ConfigurationSnapshotRef != p.ConfigurationSnapshotRef ||
 		request.ContextSnapshotRef != p.ContextSnapshotRef ||
@@ -267,4 +268,22 @@ func (s *Store) ReplayOrFail(ctx context.Context, scope aiworkbench.Scope, conve
 		return result, true, nil
 	}
 	return aiworkbench.BusinessTask{}, false, preflightErr
+}
+
+func proposalDomainMatchesRequest(row proposalRow, r agent.Request) bool {
+	p := proposal(row)
+	return p.MatchesRequest(r)
+}
+
+func taskRequestMatchesRow(row taskRow, r agent.Request) bool {
+	if !r.Binding.Valid() || !r.ValidContentSelection() || r.Key != row.ExecutionRequestKey || r.Binding.ContextID != row.OperationID || r.Binding.ProductKey != row.ProductKey || r.Binding.TargetPlatform != row.TargetPlatform {
+		return false
+	}
+	p := aiworkbench.ExecutionProposal{Kind: row.Kind, OperationID: row.OperationID, ProductKey: row.ProductKey, CatalogVersion: r.Binding.CatalogVersion, PublicationID: r.Binding.PublicationID, TargetPlatform: row.TargetPlatform, AgentID: row.AgentID, AgentVersion: row.AgentVersion}
+	if row.Kind == aiworkbench.ContentTaskKind {
+		p.ContextKind = r.Binding.ContextKind
+		p.ContentSelection = r.ContentSelection
+		p.ExecutionLimits = r.Limits
+	}
+	return p.MatchesRequest(r)
 }

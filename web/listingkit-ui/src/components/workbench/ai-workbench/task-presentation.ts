@@ -10,6 +10,7 @@ export const filters: { mode: TaskMode; label: string; href: string }[] = [
 ];
 export const taskState: Record<string, string> = { RUNNING: "执行中", WAITING_CONFIRMATION: "待确认", COMPLETED: "已完成", ERROR: "异常", PAUSED: "已暂停" };
 export const reasonText: Record<string, string> = { EXECUTION_MODE_CHANGED:"权限模式或准入已变化，保留原任务并重新确认新运行", START_NOT_CLAIMED: "执行尚未启动，可使用原任务启动", EXECUTION_OUTCOME_UNKNOWN: "执行结果无法确认，不会自动重发模型请求",
+  EXECUTION_PROFILE_UNAVAILABLE:"当前执行模型配置不可用，请检查配置。",
   TITLE_PROFILE_UNAVAILABLE: "原任务使用的标题模型配置已不可用，请检查企业配置",
   HUMAN_REVIEW_REQUIRED: "需要人工审核标题建议", AGENT_RESULT_NOT_REVIEWABLE: "标题建议未通过验证，无法提交审核",
   AGENT_INTERRUPTED_DEADLINE_EXPIRED: "原执行期限已过，不能继续此中断任务", invalid_model_output: "模型返回格式不符合要求，已记录实际用量",

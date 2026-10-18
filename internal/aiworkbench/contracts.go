@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"task-processor/internal/agent"
+	"task-processor/internal/product/enrichment"
 )
 
 var (
@@ -64,6 +65,7 @@ type Message struct {
 }
 
 type MessageInput struct {
+	TaskSelection    *TaskSelection `json:",omitempty"`
 	Content          string
 	OperationID      string
 	TargetPlatform   string
@@ -75,16 +77,18 @@ type MessageInput struct {
 // WorkScope is the exact server-authorized selection frozen with a planning
 // command. It contains no mutable provider or model-selected execution facts.
 type WorkScope struct {
-	OperationID      string `json:"operation_id"`
-	TargetPlatform   string `json:"target_platform"`
-	TemplateID       string `json:"template_id,omitempty"`
-	TemplateRevision string `json:"template_revision,omitempty"`
-	KnowledgeBaseID  string `json:"knowledge_base_id,omitempty"`
+	OperationID      string         `json:"operation_id,omitempty"`
+	TargetPlatform   string         `json:"target_platform,omitempty"`
+	TaskSelection    *TaskSelection `json:"task_selection,omitempty"`
+	TemplateID       string         `json:"template_id,omitempty"`
+	TemplateRevision string         `json:"template_revision,omitempty"`
+	KnowledgeBaseID  string         `json:"knowledge_base_id,omitempty"`
 }
 
 func (m MessageInput) WorkScope() WorkScope {
 	return WorkScope{OperationID: m.OperationID, TargetPlatform: m.TargetPlatform,
-		TemplateID: m.TemplateID, TemplateRevision: m.TemplateRevision, KnowledgeBaseID: m.KnowledgeBaseID}
+		TaskSelection: m.TaskSelection,
+		TemplateID:    m.TemplateID, TemplateRevision: m.TemplateRevision, KnowledgeBaseID: m.KnowledgeBaseID}
 }
 
 type PreparedPlan struct {
@@ -150,6 +154,9 @@ type PlanTerminal struct {
 // suggestion. The planning model supplies only GoalSummary; all remaining
 // facts come from freshly authorized Product, AgentConfig and Knowledge owners.
 type ExecutionProposal struct {
+	ContextKind                string
+	ContentSelection           enrichment.ContentSelection
+	ExecutionLimits            agent.Limits
 	ID                         string
 	Digest                     string
 	Scope                      Scope

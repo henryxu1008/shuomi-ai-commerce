@@ -337,7 +337,7 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 				cfg  DatabaseConfig
 				dest **gorm.DB
 			}{cfg.ProductAgent.ReviewDatabase, &agentReviewDB})
-			if !cfg.ProductAgent.ContentTitleOnly {
+			if !cfg.ProductAgent.ContentTitleOnly && !cfg.ProductAgent.ContentOnly {
 				targets = append(targets, struct {
 					cfg  DatabaseConfig
 					dest **gorm.DB

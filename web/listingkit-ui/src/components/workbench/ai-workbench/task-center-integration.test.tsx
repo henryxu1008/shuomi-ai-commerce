@@ -136,7 +136,7 @@ it.each([
   ["start", "启动原任务", {canStart:true}],
   ["start", "核实超期执行结果", {canReconcile:true}],
   ["resume", "继续原任务", {canResume:true,agentRevision:"2"}],
-  ["review", "提交标题供人工审核", {canReview:true}],
+  ["review", "提交建议供人工审核", {canReview:true}],
 ] as const)("locks browsing throughout %s (%s), including an unknown result", async (action, label, flags) => {
   calls.context.aiWorkbenchAvailable = true;
   const item = {...task,reviewId:undefined,...flags};

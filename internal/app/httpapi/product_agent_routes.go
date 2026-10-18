@@ -82,7 +82,7 @@ func buildProductAgentModule(ctx context.Context, productDB *gorm.DB, deps route
 	if a.content != nil {
 		a.content.originExecution = a.originExecution
 	}
-	routes := productAgentProfileRoutes(a, agentCfg.ContentTitleOnly)
+	routes := productAgentProfileRoutes(a, agentCfg.ContentTitleOnly || agentCfg.ContentOnly)
 	// Candidate intake returns an ID understood by the existing review UI.
 	// Its original decision/Apply handlers retain their current permission checks.
 	binder := productReviewCapabilityBinder{now: time.Now}

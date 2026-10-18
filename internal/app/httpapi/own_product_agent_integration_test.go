@@ -41,7 +41,7 @@ func TestOwnContentTitleOnlyRunsThroughRealReviewApplyAndChoiceWithoutShop(t *te
 
 // The controlled provider cites only evidence that the real canonical tool
 // disclosed. It does not fabricate an acquisition receipt for an own product.
-func ownContentFixtureProposal(t *testing.T, r *http.Request) string {
+func ownContentFixtureProposal(t *testing.T, r *http.Request, fields ...string) string {
 	t.Helper()
 	var wire struct {
 		Messages []struct {
@@ -71,7 +71,21 @@ func ownContentFixtureProposal(t *testing.T, r *http.Request) string {
 		}
 	}
 	require.NotEmpty(t, evidence)
-	encoded, err := json.Marshal(agent.Action{Kind: "propose", Candidate: enrichment.Candidate{Changes: []enrichment.FieldChange{{Field: "title", Value: "Reviewed own product title", EvidenceIDs: []string{evidence}}}}})
+	if len(fields) == 0 {
+		fields = []string{"title"}
+	}
+	changes := []enrichment.FieldChange{}
+	for _, field := range fields {
+		value := "Reviewed own product title"
+		if field == "description" {
+			value = "Saved own product description"
+		}
+		if field == "selling_points" {
+			value = `["Saved own product"]`
+		}
+		changes = append(changes, enrichment.FieldChange{Field: field, Value: value, EvidenceIDs: []string{evidence}})
+	}
+	encoded, err := json.Marshal(agent.Action{Kind: "propose", Candidate: enrichment.Candidate{Changes: changes}})
 	require.NoError(t, err)
 	return string(encoded)
 }
