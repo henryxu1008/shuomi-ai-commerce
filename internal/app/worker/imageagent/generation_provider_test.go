@@ -21,6 +21,7 @@ import (
 	"task-processor/internal/core/config"
 	"task-processor/internal/imageagent"
 	openai "task-processor/internal/integration/openai"
+	"task-processor/internal/skill"
 )
 
 type qwenFactoryTransport func(*http.Request) (*http.Response, error)
@@ -31,6 +32,8 @@ func TestGenerationProviderFactoryUsesBoundQwenAdapterAndOriginalObservation(t *
 	var pngBytes bytes.Buffer
 	require.NoError(t, png.Encode(&pngBytes, image.NewRGBA(image.Rect(0, 0, 1024, 1024))))
 	dispatches, observed, downloads := 0, 0, 0
+	expectedObservations := 1
+	expectedPrompt := "approved exact product and method"
 	resolver := &generationConfigTestResolver{resolved: &openai.ResolvedClientConfig{CacheKey: "org-image-v1", Config: &openai.ClientConfig{APIKey: "fixture-only", APIStyle: "dashscope", Model: "qwen-image-3.0", BaseURL: "https://workspace.cn-beijing.maas.aliyuncs.com", Timeout: time.Second}}}
 	factory := generationProviderFactory{resolver: resolver, price: config.ImageAgentGenerationConfig{PriceVersion: "trial-price", PointsPerImage: 1}, profile: synchronousEditProfile{}, providerHTTPClient: &http.Client{Transport: qwenFactoryTransport(func(r *http.Request) (*http.Response, error) {
 		dispatches++
@@ -38,10 +41,13 @@ func TestGenerationProviderFactoryUsesBoundQwenAdapterAndOriginalObservation(t *
 		var payload map[string]any
 		require.NoError(t, json.NewDecoder(r.Body).Decode(&payload))
 		require.Equal(t, "qwen-image-3.0", payload["model"])
+		messages := payload["input"].(map[string]any)["messages"].([]any)
+		content := messages[0].(map[string]any)["content"].([]any)
+		require.Equal(t, expectedPrompt, content[len(content)-1].(map[string]any)["text"], "prompt bytes must remain exact")
 		return &http.Response{StatusCode: 200, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(`{"request_id":"qwen-receipt","output":{"choices":[{"finish_reason":"stop","message":{"role":"assistant","content":[{"image":"https://output.example/result.png"}]}}]},"usage":{"input_image_count":1,"output_image_count":1,"output_width":1024,"output_height":1024}}`))}, nil
 	})}, generatedFetcher: func(context.Context, string) ([]byte, error) {
 		downloads++
-		require.Equal(t, 1, observed, "durable success precedes output materialization")
+		require.Equal(t, expectedObservations, observed, "durable success precedes output materialization")
 		return pngBytes.Bytes(), nil
 	}}
 	prepared, err := factory.prepare(context.Background(), func(_ context.Context, proof imageagent.GenerationSuccess) error {
@@ -72,6 +78,30 @@ func TestGenerationProviderFactoryUsesBoundQwenAdapterAndOriginalObservation(t *
 	require.Equal(t, 1, observed)
 	require.Equal(t, 1, downloads)
 	require.NoError(t, factory.revalidate(context.Background(), prepared.Metadata))
+	packages, err := skill.OfficialPackages()
+	require.NoError(t, err)
+	imageMethods := 0
+	for _, official := range packages {
+		if !strings.HasPrefix(official.Key, "official-method-v1:image-") {
+			continue
+		}
+		imageMethods++
+		t.Run(official.Key, func(t *testing.T) {
+			input.ImageSet.Method = &imageagent.ImageMethodBinding{PolicyVersion: imageagent.ImageMethodPolicyVersion, Skill: agent.SkillVersionRef{Kind: "skill-version-v1", ID: "2bb819bd-af13-4e68-95e0-1cc86130fb1f", OwnerKind: "PLATFORM", OwnerID: "official", Version: 1, Digest: official.Package.Digest, PolicyVersion: "skill-method-v1"}}
+			input.ImageMethodText = official.Package.Files[0].Text
+			expectedPrompt, err = imageagent.ComposeImageMethodPrompt(input.Slot.Recipe.Prompt, input.ImageMethodText)
+			require.NoError(t, err)
+			require.True(t, strings.HasSuffix(expectedPrompt, "\n"), "keep the approved method composition bytes")
+			expectedObservations = observed + 1
+			before := dispatches
+			methodQuote, err := prepared.Executor.QuoteSlot(context.Background(), input, imageagent.BudgetPolicy{})
+			require.NoError(t, err)
+			_, err = prepared.Executor.GenerateQuotedSlot(context.Background(), input, methodQuote)
+			require.Equal(t, before+1, dispatches, "each official image method must reach exactly one provider POST")
+			require.NoError(t, err)
+		})
+	}
+	require.Equal(t, 3, imageMethods)
 	resolver.resolved.Config.Model = "qwen-mt-image-2.0"
 	require.Error(t, factory.revalidate(context.Background(), prepared.Metadata))
 }
