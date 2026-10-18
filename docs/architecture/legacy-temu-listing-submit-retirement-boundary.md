@@ -1,5 +1,7 @@
 # 旧 TEMU 刊登保存、提交与结果落库链退休边界
 
+后续用户确认的 [#812 完整文本与要点闭包边界](legacy-temu-text-bullet-retirement-boundary.md) 已退休 TextProcessor/CleanProductTitle/专属空白 helper、旧文本与要点编排，以及失去最后消费者的 NormalizeProductSubmissionName/全部专属 regexp/测试。下文当批保留、消费者和计数为历史证据；仅这些具体对象被窄替代，平台 CheckText API/DTO、PriceHandler、AI/prompt 和其它有效能力保持，不据旧措辞恢复已退休代码。
+
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
 后续用户确认的 [#810 文案边界](legacy-temu-content-handler-retirement-boundary.md) 已退休本文当批保留的旧名称/描述/品牌编排、三个失去最后消费者的 publishing policy/result/test 与孤立格式 helper。下文消费者与矩阵保留为历史；仍有消费者的 NormalizeProductSubmissionName/left regexp、PriceHandler、AI/prompt 和其它有效规则/API/合同保持，不据旧保留措辞恢复已退休对象。

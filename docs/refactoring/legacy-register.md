@@ -2,6 +2,21 @@
 
 > Status: Active legacy handling register
 
+> #29 / #301 [complete TEMU text/bullet closure retirement](../architecture/legacy-temu-text-bullet-retirement-boundary.md)
+> follows user-confirmed frozen design b09ed052b in #812. Four old rules owners,
+> the final-consumer submission formatter/shared regexp, exclusive strx title/
+> whitespace declarations and obsolete tests are source-retired. No replacement
+> formatter, caller or EXTRACT business code is added. This narrowly supersedes
+> #751/#749 title-helper preservation and #810 formatter/fixture preservation;
+> their dated evidence below remains historical. CheckText platform APIs/DTOs/
+> aliases/client, TextRenderer/DimensionInfo, PriceHandler, AI/SKU/prompt, current
+> image/acquisition/Store observations, effective shared contracts and independent
+> SHEIN login/Store sync remain. Workflows, import guards and ceilings are unchanged;
+> no runtime/data action or new trial prerequisite is authorized.
+>
+> Historical #810 boundary below; only its formatter/regexp/fixture preservation
+> is superseded above. All other retained boundaries and original evidence remain.
+
 > #29 / #301 [TEMU content retirement](../architecture/legacy-temu-content-handler-retirement-boundary.md)
 > follows user-confirmed design `13db74471` in #810. Ten exclusive production
 > files and six obsolete tests are source-retired, including three policies that
