@@ -1912,7 +1912,7 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 				return e
 			}
 		}
-		if strings.HasPrefix(descriptor.Path, workbenchChatBase) || strings.HasPrefix(descriptor.Path, workbenchTaskBase) {
+		if strings.HasPrefix(descriptor.Path, workbenchChatBase) || strings.HasPrefix(descriptor.Path, workbenchSubjectBase+"/") || strings.HasPrefix(descriptor.Path, workbenchTaskBase) {
 			if !optional.AIWorkbench || descriptor.Module != "ai-workbench" || descriptor.AuthPolicy != httproute.AuthPolicyVerifiedIdentity || descriptor.OrganizationAccessPolicy != httproute.OrganizationAccessPolicyLiveWrite || descriptor.Handler == nil {
 				return errors.New("AI Workbench loses scoped permission boundary")
 			}
