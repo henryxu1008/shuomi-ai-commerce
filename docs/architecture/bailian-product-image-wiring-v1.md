@@ -35,7 +35,7 @@ Out of Scope：真实模型调用、另设点数账本或默认价格、跨企�
 
 当前实例只有已保存集合/Preparation 来源，没有单商品采集 operation。运行前须确认现有 full image source reader 能消费其合法原来源；若需把通用 Preparation 来源从完整平台 Supply worker 中拆出，只提取既有来源读取/当前 IAM 端口，保留现有 `supply` context、原 source ID/固定版本与来源权限，不创建假采集 operation、重复商品或第二事实源。若无法在这些现有合同内完成，保持该入口 NOT_RUN 并报告，不临时新增 source kind/发布或授权模型。
 
-运行接线明确采用现有 Preparation source reader：从 Product DB 读取 `preparation.SourceService` 的原来源，配合现有 `supplychain.OrganizationExecutionAuthorizer` 的来源权限检查和 EffectiveImageProductReader，直接注入 `ImageSetSourceRouter.Supply`；读取模式用原 `preparation.PermissionRead`，新的准备/执行仍用原 execution-source 权限。平台 rule/target ports 仍只在完整 SupplyChain 已配置时提供，通用 `product` target 不要求 Supply worker。不能新增来源ID、假operation或改变actor/tenant/store权限。
+运行接线明确采用现有 Preparation source reader：从 Product DB 读取 `preparation.SourceSelector` 的原来源，配合现有 `supplychain.OrganizationExecutionAuthorizer` 的来源权限检查和 EffectiveImageProductReader，先显式执行 `sources.WithExecution(executionAuth, collection.ExecutionOwnerAuthority{Authorization: executionAuth})`，再把该 selector 的 `SelectForExecution` 与相同executionAuth注入 `ImageSetSourceRouter.Supply`；不得只传ExecutionAuthorization而保留未装配selector。读取模式用原 `preparation.PermissionRead`，新的准备/执行仍用原 execution-source 权限。平台 rule/target ports 仍只在完整 SupplyChain 已配置时提供，通用 `product` target 不要求 Supply worker。不能新增来源ID、假operation或改变actor/tenant/store权限。
 
 现有本地待补全详情消费同一 ProductImageSetPanel（已有 Figma 方法选择组件），使用真实 `kind=supply` / 原 sourceId。只有当前可读合法来源且具备原 image write 的用户能选择方法；方法候选读取独立于图片模型 readiness，准备按钮仍要求原 AVAILABLE、有效模板、真实素材、模式和报价。缺少凭据时可核对方法准确版本，界面明确“模型配置尚未就绪”，不能生成/准备Run。切企业清空选择；不新增默认方法或持久化设置。
 
@@ -45,11 +45,11 @@ Out of Scope：真实模型调用、另设点数账本或默认价格、跨企�
 
 依据阿里云[千问图像生成与编辑接口](https://help.aliyun.com/zh/model-studio/qwen-image-generation-and-editing-api-reference) 和本地实际原文 `bailian-docs-llm-wiki/raw/model-api-reference/image-generation/qwen-image-api-reference/qwen-image-generation-and-editing-api-reference.md`（2026-10-18核对）。按用户最终选择采用 `qwen-image-3.0` 的 DashScope 同步图像编辑，固定每次 `n=1`、请求 `1024*1024`、无水印，显式关闭 `prompt_extend` 及 `enable_thinking`；不接入异步查询/重试协议，不使用 multipart 或假定 OpenAI edits。候选模型仅此一个；已放弃的万相和图片翻译模型不进入执行路由。
 
-百炼 region 与 credential 必须来自同一获准业务空间。只允许官方 HTTPS host：`dashscope.aliyuncs.com`、`dashscope-intl.aliyuncs.com`，或精确业务空间的 `*.cn-beijing.maas.aliyuncs.com` / `*.ap-southeast-1.maas.aliyuncs.com`；不接受用户信息、query、fragment、非默认端口、模糊后缀或转发到另一 host。POST 路径固定 `/api/v1/services/aigc/multimodal-generation/generation`。重定向禁用、transport 不自动重发 POST、timeout 最多5分钟；不使用 CLI 子进程代替应用 provider。
+百炼 region 与 credential 必须来自同一获准业务空间。只允许官方 HTTPS host：北京通用域名 `dashscope.aliyuncs.com` 或单段业务空间ID的 `<workspace>.cn-beijing.maas.aliyuncs.com`；当前路线拒绝intl、新加坡及其它地域；不接受用户信息、query、fragment、非默认端口、模糊后缀或转发到另一 host。POST 路径固定 `/api/v1/services/aigc/multimodal-generation/generation`。重定向禁用、transport 不自动重发 POST、timeout 最多5分钟；不使用 CLI 子进程代替应用 provider。
 
 将已授权并冻结 hash 的真实 JPEG/PNG 字节按 data URL 传入 `input.messages[].content`，与冻结 prompt 同请求。参考图最多3张，单张不超过10MiB、宽高1–8000且宽高比不超过10:1；沿当前素材总字节上限取更严格值。提示词按当前完整输入的有界合同校验，超过本地限制时派发前明确拒绝，不静默截断方法或丢参考图。官方推荐4500Token以内；本轮不额外调用模型估算token、不声称字节/字符数等于token数。请求体/响应体有界，不把正文、base64、Authorization 写入日志/错误/API/checkpoint。
 
-响应先有界解码，成功必须同时满足：HTTP 2xx、没有错误code、有效request_id、恰一个choice且finish_reason=stop、assistant消息恰一张image结果、usage.output_image_count=1且输出尺寸为1024×1024、公开HTTPS输出URL。Qwen3同步协议没有output.finished；若响应额外给出明确false或异步task状态，拒绝当成功。使用Qwen3的output_image_count而非旧模型的image_count；缺失/矛盾/非终态保留UNKNOWN。随后沿原观察回调持久化 request ID、结果摘要与私有结果定位，再使用原下载/媒体/1024尺寸验证和不可变存储。provider 对尺寸允许误差，应用仍按现有实际输出尺寸合同拒绝不符结果，不伪造1024元数据或暗中调用放大模型。
+响应先有界解码，成功必须同时满足：HTTP 2xx、没有错误code、有效request_id、恰一个choice且finish_reason=stop、assistant消息恰一张image结果、usage.input_image_count等于实际发送参考图数、output_image_count=1且输出尺寸为1024×1024、公开HTTPS输出URL。Qwen3同步协议没有output.finished；若响应额外给出明确false或异步task状态，拒绝当成功。使用Qwen3的output_image_count而非旧模型的image_count；缺失/矛盾/非终态保留UNKNOWN。随后沿原观察回调持久化 request ID、结果摘要与私有结果定位，再使用原下载/媒体/1024尺寸验证和不可变存储。provider 对尺寸允许误差，应用仍按现有实际输出尺寸合同拒绝不符结果，不伪造1024元数据或暗中调用放大模型。
 
 百炼按张计费，token usage 缺失不能伪造0 token；Generation 的固定每张点数与实际 provider usage 两种事实继续分开。适配器向原 receipt 传递可证实的调用/图片数量和 request ID，token 字段无证据则维持未知。价格/credential reference/route reference/配置版本变化使原新派发 revalidate 失败，不能把新凭据用于旧已冻结意图。
 
@@ -84,3 +84,4 @@ TDD：先以受控 HTTP fixture 捕获百炼 route 被拒、元组错配、n/siz
 Round1 reviewed 703f8615dd。路由元组未冻结 finding 分类 BLOCKER（核心准备/派发身份可能互拒，实施层）：已在上方冻结准确三元组和所有消费位置。百炼成功终态 finding 分类 IMPLEMENTATION_TEST：按用户最终Qwen3协议明确finish_reason、output_image_count和尺寸成功谓词，fixture覆盖缺失/矛盾/非终态；不要求不存在的Wan finished字段。
 
 用户最终模型变更为qwen-image-3.0、北京及试用每张1点已纳入本候选。Round2只复核上述合同修订及必要Preparation/受保护当前ledger准备/UI只读选择边界，不重复#795未变设计。尚未达到IMPLEMENTATION_READY前仍无生产代码。
+Round2 finding处置：selector未WithExecution为BLOCKER（通用Preparation核心路径失败，实施层），明确同原Supply装配一致的WithExecution和owner authority后再注入；北京路线仍容许intl为BLOCKER（偏离当前地域配置，实施层），冻结北京host并拒绝intl/其它region；input_image_count一致性为IMPLEMENTATION_TEST，加入实际发送数量成功谓词及fixture。两轮设计已完成，仅对两项新BLOCKER的最小修订请求增量复核，不新增设计版本链或全局评审。
