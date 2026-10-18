@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/url"
 	"strings"
@@ -94,7 +95,17 @@ func (f generationProviderFactory) prepare(ctx context.Context, observe func(con
 		return imageagent.PreparedGenerationProvider{}, err
 	}
 	executor := tools.NewProductImageSlotExecutor(tools.Dependencies{SourceEditor: editor, WhiteBackgroundRenderer: white, UsageQuoter: provider, ProfileResolver: f.profile})
-	return imageagent.PreparedGenerationProvider{Metadata: metadata, Executor: scopedGenerationExecutor{product: executor, artwork: tools.NewArtworkSlotExecutor(artworkCreator{generate: generate, model: cfg.Model, fetch: f.generatedFetcher})}}, nil
+	return imageagent.PreparedGenerationProvider{Metadata: metadata, Executor: scopedGenerationExecutor{product: executor, artwork: tools.NewArtworkSlotExecutor(artworkCreator{generate: generate, model: cfg.Model, fetch: f.generatedFetcher})}, Rejection: func(err error) (imageagent.GenerationRejection, bool) {
+		var quota *bailian.QuotaRejection
+		if metadata.Provider == "bailian" && errors.As(err, &quota) {
+			return imageagent.GenerationRejection{Kind: "bailian_free_tier", Digest: quota.ResponseDigest, RequestID: quota.RequestID, HTTPStatus: 403, ProviderCode: "AllocationQuota.FreeTierOnly"}, true
+		}
+		var preflight *productimage.SourceEditPreflightError
+		if errors.As(err, &preflight) {
+			return imageagent.GenerationRejection{Kind: "source_edit_preflight", Digest: preflight.Digest}, true
+		}
+		return imageagent.GenerationRejection{}, false
+	}}, nil
 }
 
 type synchronousImageProvider interface {

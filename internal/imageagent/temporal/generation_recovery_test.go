@@ -13,6 +13,7 @@ type recordingGenerationFinalizer struct {
 	calls    int
 	identity imageagent.SlotExternalEffectIdentity
 	err      error
+	state    imageagent.GenerationState
 }
 
 type generationScopedProjectionRepository struct {
@@ -82,7 +83,45 @@ func TestGenerationFinalizationPrecedesV3TerminalPhaseShortcuts(t *testing.T) {
 func (r *recordingGenerationFinalizer) ReconcileExistingGeneration(ctx context.Context, id imageagent.SlotExternalEffectIdentity) (imageagent.GenerationState, error) {
 	r.calls++
 	r.identity = id
+	if r.state != "" {
+		return r.state, r.err
+	}
 	return imageagent.GenerationSucceeded, r.err
+}
+
+type noGenerationReserveCounter struct {
+	imageagent.SlotExternalEffectV3Repository
+	calls int
+}
+
+func (r *noGenerationReserveCounter) ReserveSlotProviderV3(ctx context.Context, input imageagent.SlotEffectV3Reservation) (imageagent.SlotEffectV3Attempt, bool, error) {
+	r.calls++
+	return r.SlotExternalEffectV3Repository.ReserveSlotProviderV3(ctx, input)
+}
+func TestTerminalNoGenerationGuardsExecutionAndRecoveryBeforeAnyReserve(t *testing.T) {
+	for _, entry := range []string{"execute", "recover"} {
+		t.Run(entry, func(t *testing.T) {
+			repo, input := initializedSlotEffectV3Activity(t, "run-terminal-no-generation")
+			input.Identity = imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: input.RunID, TenantID: input.Identity.TenantID, UserID: input.Identity.UserID, MemberID: "grant-1", BusinessTaskID: "task-1"}
+			effects := &noGenerationReserveCounter{SlotExternalEffectV3Repository: repo.(imageagent.SlotExternalEffectV3Repository)}
+			executor := &recordingStagedExecutor{}
+			artifacts := &recordingArtifactStore{}
+			a := newV3Activities(t, repo, effects, executor, artifacts)
+			a.generationRecovery = &recordingGenerationFinalizer{state: imageagent.GenerationNoEffect}
+			var err error
+			if entry == "execute" {
+				_, err = a.ExecuteSlotV3(context.Background(), input)
+			} else {
+				_, err = a.RecoverEffectV3(context.Background(), EffectRecoveryWorkflowInput{RunID: input.RunID, Identity: input.Identity, PlanRevision: input.PlanRevision, Slot: input.Slot, Attempt: input.Attempt, AssetCatalog: input.AssetCatalog})
+			}
+			var known *imageagent.ProviderDispatchError
+			require.ErrorAs(t, err, &known)
+			require.Equal(t, imageagent.ProviderRejectedBeforeEffect, known.State)
+			require.Zero(t, effects.calls)
+			require.Zero(t, executor.GenerateCalls())
+			require.Zero(t, artifacts.PrepareCalls())
+		})
+	}
 }
 
 func TestGenerationFinalizationPrecedesRevokedExecutionAndRecovery(t *testing.T) {
