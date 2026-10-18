@@ -1,13 +1,7 @@
 // Package image 提供TEMU平台图片处理相关功能
 package image
 
-import (
-	"strings"
-	"task-processor/internal/temu/handlerbase"
-)
-
-// ImageRequirement 图片要求配置（类型别名，来自 handlers/common）
-type ImageRequirement = handlerbase.ImageRequirement
+import "strings"
 
 // imageConfig TEMU图片配置
 type imageConfig struct {
@@ -54,26 +48,4 @@ func isCDNImage(imageURL string) bool {
 // needsUpload 判断图片是否需要上传
 func needsUpload(imageURL string) bool {
 	return !isCDNImage(imageURL)
-}
-
-// getImageRequirement 根据产品分类获取图片要求
-func getImageRequirement(isClothes bool) ImageRequirement {
-	if isClothes {
-		return ImageRequirement{
-			MaxSizeMB:     3.0,
-			MinWidth:      1340,
-			MinHeight:     1785,
-			AspectRatio:   0.75,
-			MinImageCount: 1,
-			MaxImageCount: 10,
-		}
-	}
-	return ImageRequirement{
-		MaxSizeMB:     3.0,
-		MinWidth:      800,
-		MinHeight:     800,
-		AspectRatio:   1.0,
-		MinImageCount: 1,
-		MaxImageCount: 10,
-	}
 }
