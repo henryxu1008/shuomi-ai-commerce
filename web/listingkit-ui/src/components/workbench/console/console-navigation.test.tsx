@@ -7,6 +7,12 @@ import { ConsoleNavigation } from "./console-navigation";
 import { findConsoleRoute } from "@/lib/workbench/console-navigation";
 
 const query=vi.hoisted(()=>({value:""}));
+it("shows task status navigation independently of Chat using the existing run read permissions",()=>{
+ render(<ConsoleNavigation pathname="/workbench/ai/tasks" ariaLabel="主导航" nativeRunsAvailable cockpitPermissions={["workbench.agent.read","workbench.agent.use"]}/>);
+ expect(screen.getByRole("link",{name:"任务中心"})).toBeVisible();
+ for(const name of ["进行中","待确认","已完成","异常任务"])expect(screen.getByRole("link",{name})).toBeVisible();
+ expect(screen.queryByRole("link",{name:"硕米Chat"})).not.toBeInTheDocument();
+});
 it("keeps the selected platform context on the supply introduction parent",()=>{
  const id="11111111-1111-4111-8111-111111111111";query.value=`preparation=${id}&store=${id}&operation=${id}&mode=platform`;
  render(<ConsoleNavigation pathname="/workbench/supply/mine/missing" ariaLabel="主导航" supplyChainAvailable supplyCompletionDraftsAvailable/>);

@@ -680,7 +680,7 @@ export function ShopDiagnosisFlow({
                     {new Date(r.startedAt).toLocaleString("zh-CN")} ·{" "}
                     {r.phase === "human_review_required"
                       ? "查看分析结果"
-                      : r.phase}
+                      : r.phase} · {r.runId}
                   </Button>
                 </li>
               ))}

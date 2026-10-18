@@ -201,6 +201,7 @@ export const selectionRecentSchema = z.strictObject({
     .array(
       z.strictObject({
         runId: collectionID,
+        contextKind: z.literal("product-selection-v1"),
         operationId: collectionID,
         requestKey: collectionID,
         productKey: z.literal(""),

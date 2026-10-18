@@ -7,10 +7,11 @@ import { titleProposalFixture } from "@/test/product-title-review-fixture";
 import { ProductTitleReviewError } from "@/lib/api/product-title-review-client";
 import { AIWorkbenchError } from "@/lib/api/ai-workbench";
 
-const calls = vi.hoisted(() => ({ tasks: vi.fn(), list: vi.fn(), get: vi.fn(), decide: vi.fn(), apply: vi.fn(), context: {} as Record<string, unknown> }));
+const calls = vi.hoisted(() => ({ native:vi.fn(), tasks: vi.fn(), list: vi.fn(), get: vi.fn(), decide: vi.fn(), apply: vi.fn(), context: {} as Record<string, unknown> }));
 vi.mock("@/components/providers/workbench-context-provider", () => ({ useWorkbenchContext: () => calls.context }));
 vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams() }));
 vi.mock("@/lib/api/ai-workbench", async original => ({ ...await original<object>(), requestAIWorkbench: calls.tasks }));
+vi.mock("@/lib/api/agent-configuration",async original=>({...await original<object>(),configurationRequest:calls.native}));
 vi.mock("@/lib/api/product-title-review-client", async original => ({ ...await original<object>(), fetchProductTitleProposals: calls.list, fetchProductTitleProposal: calls.get, decideProductTitleProposal: calls.decide, applyProductTitleProposal: calls.apply }));
 const proposal = titleProposalFixture();
 const task = { id: "550e8400-e29b-41d4-a716-446655440001", conversationId: "550e8400-e29b-41d4-a716-446655440002", proposalId: "550e8400-e29b-41d4-a716-446655440003",
@@ -54,6 +55,18 @@ it("keeps selection locked after an uncertain Review write", async () => {
   expect(screen.getByRole("button",{name:"刷新状态"})).toBeDisabled();
   expect(screen.getByRole("button",{name:/调整标准商品标题.*blue-cup/})).toBeDisabled();
   expect(calls.decide).toHaveBeenCalledOnce(); expect(calls.apply).not.toHaveBeenCalled();
+});
+it("keeps native rows and source pagination locked while a Review result is unknown",async()=>{
+ calls.context.permissions=["workbench.agent.read","workbench.agent.use","listingkit.admin.read","listingkit.admin.write"];
+ calls.native.mockImplementation(async(_scope,path:string)=>path.startsWith("market")?{items:[{agent:{agentId:"product.content.agent"},name:"商品内容",parameterSchema:"content-config-v1",canReadRuns:true}],nextCursor:""}:{items:[{runId:task.id,operationId:task.id,requestKey:task.id,contextKind:"own_product",productKey:"自有杯子",targetPlatform:"product",phase:"running",startedAt:"2026-10-18T00:00:00Z"}],nextCursor:task.id});
+ calls.decide.mockRejectedValue(new ProductTitleReviewError(502,"RESULT_UNVERIFIED",{code:"RESULT_UNVERIFIED",message:"",requestId:"",fieldErrors:[]},"unknown"));
+ render(<QueryClientProvider client={client}><BusinessTaskPage productReviewAvailable nativeRunsAvailable/></QueryClientProvider>);
+ const native=await screen.findByRole("button",{name:/商品内容.*自有杯子/});
+ fireEvent.click(await screen.findByRole("button",{name:/调整标准商品标题.*blue-cup/}));
+ fireEvent.click(await screen.findByRole("button",{name:"接受提案"}));await screen.findByText("结果待核实");
+ expect(native).toBeDisabled();expect(screen.getByRole("button",{name:"加载更多商品内容"})).toBeDisabled();
+ expect(screen.getByRole("link",{name:"执行中"})).toHaveAttribute("aria-disabled","true");
+ expect(calls.decide).toHaveBeenCalledOnce();
 });
 it("clears the selected authorized result when enterprise changes", async () => {
   const view = render(tree());
