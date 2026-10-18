@@ -22,9 +22,6 @@ export function ConsoleNavigation({ pathname, ariaLabel, onNavigate, dataService
   }
   const supplyQuery=selection.size?`?${selection}`:"";
   const navigation = productAcquisitionAvailable ? consoleNavigation : consoleNavigation.map(node => node.href === "/workbench/supply" ? { ...node, children: node.children?.filter(child => child.href !== "/workbench/supply/acquisition") } : node);
-  const independentAIEntries: ConsoleNavNode[] = [];
-  if (productReviewAvailable) independentAIEntries.push({ label: "标题审核", href: "/workbench/ai/tasks/pending/other", availability: "connected" });
-  if (sheinRecordsAvailable) independentAIEntries.push({ label: "历史工作记录", href: "/workbench/ai/tasks/completed/history", availability: "connected" });
   const independentTaskAvailable = productReviewAvailable || sheinRecordsAvailable;
   const entryCapabilities = { operationsCockpitAvailable, cockpitPermissions, productAcquisitionAvailable, supplyMarketAvailable, supplyChainAvailable, supplyPreparationAvailable, supplyCompletionDraftsAvailable, dataServicesAvailable, productCollectionsAvailable, toolMarketAvailable, ecoservicesAvailable, aiWorkbenchAvailable, projectCenterAvailable, knowledgeAvailable, reportCenterAvailable, productReviewAvailable, sheinRecordsAvailable };
   const nodes = navigation.map(entry => {
@@ -46,7 +43,7 @@ export function ConsoleNavigation({ pathname, ariaLabel, onNavigate, dataService
         ...child,
         children: child.children?.filter(entry => entry.href === "/workbench/ai/tasks/pending" && productReviewAvailable || entry.href === "/workbench/ai/tasks/completed" && sheinRecordsAvailable),
       } : child.href === "/workbench/ai/knowledge" ? { ...child, availability: "connected" as const, children:child.children?.map(entry => ({...entry, availability:entry.href === "/workbench/ai/knowledge/official" || knowledgeAvailable ? "connected" as const : "unavailable" as const})) } : child);
-    return { ...node, availability: connected ? "connected" as const : "unavailable" as const, children: [...children, ...independentAIEntries] };
+    return { ...node, availability: connected ? "connected" as const : "unavailable" as const, children };
   });
   return <nav aria-label={ariaLabel} className="console-nav"><ul>{nodes.map(node => supplyMarketAvailable && userId && node.href==="/workbench/supply" ? <MarketBranch key={`${pathname}:${node.href}`} node={node} pathname={pathname} trail={trail.map(item=>item.href)} onNavigate={onNavigate} userId={userId} supplyQuery={supplyQuery}/> : ecoservicesAvailable && userId && node.href === "/workbench/services" ? <EcoservicesBranch key={`${pathname}:${node.href}`} node={node} pathname={pathname} trail={trail.map(item => item.href)} onNavigate={onNavigate} userId={userId} /> : <NavBranch key={`${pathname}:${node.href}`} node={node} pathname={pathname} trail={trail.map((item) => item.href)} depth={1} onNavigate={onNavigate} supplyQuery={supplyQuery} />)}</ul></nav>;
 }

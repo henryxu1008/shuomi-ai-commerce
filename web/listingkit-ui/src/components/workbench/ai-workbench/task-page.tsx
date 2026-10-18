@@ -1,198 +1,29 @@
 "use client";
 
-import Link from "next/link";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useWorkbenchContext } from "@/components/providers/workbench-context-provider";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { ConsolePage, ConsoleState } from "../console/console-page";
-import { requestAIWorkbench, AIWorkbenchError, type AIScope } from "@/lib/api/ai-workbench";
-import type { AITask } from "@/lib/contracts/ai-workbench";
 import { findConsoleRoute } from "@/lib/workbench/console-navigation";
-import { KnowledgeCitations } from "../task-center/knowledge-citations";
-import {executionModeLabels} from "../agents/execution-mode-settings";
-import styles from "./task-page.module.css";
+import { TaskDetail } from "./task-detail";
+import { TaskBrowser } from "./task-browser";
+import type { TaskMode } from "./task-presentation";
 
-type TaskMode = "all" | "running" | "pending" | "completed" | "errors";
-const taskTitles: Record<TaskMode, string> = { all: "任务中心", running: "进行中任务", pending: "待确认任务", completed: "已完成任务", errors: "异常任务" };
-const filters: { mode: TaskMode; label: string; href: string }[] = [
-  { mode: "all", label: "全部", href: "/workbench/ai/tasks" },
-  { mode: "pending", label: "待确认", href: "/workbench/ai/tasks/pending" },
-  { mode: "running", label: "执行中", href: "/workbench/ai/tasks/running" },
-  { mode: "completed", label: "已完成", href: "/workbench/ai/tasks/completed" },
-  { mode: "errors", label: "异常任务", href: "/workbench/ai/tasks/errors" },
-];
-const taskState: Record<string, string> = { RUNNING: "执行中", WAITING_CONFIRMATION: "待确认", COMPLETED: "已完成", ERROR: "异常", PAUSED: "已暂停" };
-const reasonText: Record<string, string> = { EXECUTION_MODE_CHANGED:"权限模式或准入已变化，保留原任务并重新确认新运行", START_NOT_CLAIMED: "执行尚未启动，可使用原任务启动", EXECUTION_OUTCOME_UNKNOWN: "执行结果无法确认，不会自动重发模型请求",
-  TITLE_PROFILE_UNAVAILABLE: "原任务使用的标题模型配置已不可用，请检查企业配置",
-  HUMAN_REVIEW_REQUIRED: "需要人工审核标题建议", AGENT_RESULT_NOT_REVIEWABLE: "标题建议未通过验证，无法提交审核",
-  AGENT_INTERRUPTED_DEADLINE_EXPIRED: "原执行期限已过，不能继续此中断任务", invalid_model_output: "模型返回格式不符合要求，已记录实际用量",
-  pending: "提案待审核", accepted: "提案已接受，待应用", applied: "提案已应用", rejected: "提案已拒绝" };
-const errorText = (error: unknown) => error instanceof AIWorkbenchError ? ({
-  TASK_OUTCOME_UNKNOWN: "操作结果暂无法确认。刷新原任务状态后，可用同一操作键重试查询原收据",
-  OUTCOME_UNKNOWN: "网络结果暂无法确认。刷新原任务状态后，可用同一操作键重试查询原收据",
-  REVISION_MISMATCH: "原任务状态已变化，请刷新后再操作",
-} as Record<string, string>)[error.code] ?? `请求未完成：${error.code}` : "任务服务暂不可用";
-
-type TaskAction = "start" | "resume" | "review";
-type PendingTaskAction = { key: string; revision: string; feedback: string };
-const taskActionStorageKey = (scope: AIScope, taskId: string, action: TaskAction) =>
-  `ai-workbench-task-action:${scope.userId}:${scope.organizationId}:${taskId}:${action}`;
-function savedResumeFeedback(scope: AIScope, taskId: string): string {
-  try {
-    const saved = sessionStorage.getItem(taskActionStorageKey(scope, taskId, "resume"));
-    if (saved) {
-      const attempt = JSON.parse(saved) as PendingTaskAction;
-      if (typeof attempt.feedback === "string") return attempt.feedback;
-    }
-  } catch { /* The request guard reports unavailable storage before dispatch. */ }
-  return "";
-}
-
-export function BusinessTaskPage({ mode = "all", taskId, productReviewAvailable = false, sheinRecordsAvailable = false }: { mode?: TaskMode; taskId?: string; productReviewAvailable?: boolean; sheinRecordsAvailable?: boolean }) {
+export function BusinessTaskPage({ mode = "all", taskId, productReviewAvailable = false, sheinRecordsAvailable = false, initialProposalId }: {
+  mode?: TaskMode; taskId?: string; productReviewAvailable?: boolean; sheinRecordsAvailable?: boolean; initialProposalId?: string;
+}) {
   const context = useWorkbenchContext();
-  const scope = context.user && context.effectiveOrganization && !context.selectionRequired && !context.isSwitching && !context.error && !context.blockingError
+  const scope = context.user && context.effectiveOrganization && !context.isLoading && !context.selectionRequired && !context.isSwitching && !context.error && !context.blockingError
     ? { userId: context.user.id, organizationId: context.effectiveOrganization.id } : null;
   const authorizationKey = JSON.stringify([context.roles, context.permissions]);
-  const canUseChat = context.effectiveOrganization?.capabilities?.["workbench.chat.use"] === true && context.aiWorkbenchPlanningReadiness === "AVAILABLE";
-  const path = taskId ? "/workbench/ai/tasks" : filters.find(item => item.mode === mode)?.href ?? "/workbench/ai/tasks";
-  return <ConsolePage title={taskId ? "任务详情" : taskTitles[mode]} breadcrumbs={findConsoleRoute(path)?.trail}
-    description={context.aiWorkbenchAvailable ? "查看已确认任务的执行、待确认和完成状态。" : productReviewAvailable || sheinRecordsAvailable ? "查看当前应用已接入的标题审核与历史工作记录。" : "当前应用未启用业务任务。"}>
-    {!scope ? <ConsoleState kind={context.isLoading || context.isSwitching ? "loading" : "unavailable"} title="企业上下文不可用">请选择可访问的企业并登录。</ConsoleState> :
-      !context.aiWorkbenchAvailable ? <IndependentTaskEntries mode={mode} taskId={taskId} productReviewAvailable={productReviewAvailable} sheinRecordsAvailable={sheinRecordsAvailable} /> :
-      <ScopedTasks key={`${scope.userId}:${scope.organizationId}:${authorizationKey}`} scope={scope} authorizationKey={authorizationKey} canUseChat={canUseChat} mode={mode} taskId={taskId} productReviewAvailable={productReviewAvailable} sheinRecordsAvailable={sheinRecordsAvailable} />}
+  const identity = scope ? JSON.stringify([scope, authorizationKey]) : "unavailable";
+  const [entry, setEntry] = useState({ scope: scope ? identity : null as string | null, id: initialProposalId });
+  if (scope && entry.scope !== identity) setEntry({ scope: identity, id: entry.scope === null ? entry.id : undefined });
+  if (!scope && entry.scope !== null && entry.scope !== "unavailable") setEntry({ scope: "unavailable", id: undefined });
+  if (!scope) return <ConsolePage title="任务中心"><ConsoleState kind={context.isLoading || context.isSwitching ? "loading" : "unavailable"} title="企业上下文不可用">请选择可访问的企业并登录。</ConsoleState></ConsolePage>;
+  if (taskId) return <ConsolePage title="任务详情" breadcrumbs={findConsoleRoute("/workbench/ai/tasks")?.trail}>
+    {context.aiWorkbenchAvailable ? <TaskDetail key={identity} scope={scope} authorizationKey={authorizationKey} taskId={taskId} /> : <ConsoleState kind="unavailable" title="暂未启用">当前应用未启用硕米 Chat 与业务任务。</ConsoleState>}
   </ConsolePage>;
-}
-
-function IndependentTaskEntries({ mode, taskId, productReviewAvailable, sheinRecordsAvailable }: { mode: TaskMode; taskId?: string; productReviewAvailable: boolean; sheinRecordsAvailable: boolean }) {
-  const review = !taskId && productReviewAvailable && (mode === "all" || mode === "pending");
-  const history = !taskId && sheinRecordsAvailable && (mode === "all" || mode === "completed");
-  if (!review && !history) return <ConsoleState kind="unavailable" title="暂未启用">当前应用未启用硕米 Chat 与业务任务。</ConsoleState>;
-  return <>
-    {review ? <Card className={styles.secondary}><h2>标准商品标题审核</h2><p>查看当前 Product Review 的标题提案。接受或编辑后仍需单独应用。</p><Button asChild variant="outline"><Link href="/workbench/ai/tasks/pending/other" prefetch={false}>打开标题审核</Link></Button></Card> : null}
-    {history ? <Card className={styles.secondary}><h2>历史已完成工作记录</h2><p>查看本地资料准备记录和离线诊断，不代表平台发布。</p><Button asChild variant="outline"><Link href="/workbench/ai/tasks/completed/history" prefetch={false}>查看历史记录</Link></Button></Card> : null}
-  </>;
-}
-
-function ScopedTasks({ scope, authorizationKey, canUseChat, mode, taskId, productReviewAvailable, sheinRecordsAvailable }: { scope: AIScope; authorizationKey: string; canUseChat: boolean; mode: TaskMode; taskId?: string; productReviewAvailable: boolean; sheinRecordsAvailable: boolean }) {
-  if (taskId) return <TaskDetail scope={scope} authorizationKey={authorizationKey} taskId={taskId} />;
-  return <TaskList key={mode} scope={scope} authorizationKey={authorizationKey} canUseChat={canUseChat} mode={mode} productReviewAvailable={productReviewAvailable} sheinRecordsAvailable={sheinRecordsAvailable} />;
-}
-
-function TaskList({ scope, authorizationKey, canUseChat, mode, productReviewAvailable, sheinRecordsAvailable }: { scope: AIScope; authorizationKey: string; canUseChat: boolean; mode: TaskMode; productReviewAvailable: boolean; sheinRecordsAvailable: boolean }) {
-  const [refreshGeneration, setRefreshGeneration] = useState(0);
-  const tasks = useInfiniteQuery({ queryKey: ["ai-tasks", scope.userId, scope.organizationId, authorizationKey, mode, refreshGeneration], initialPageParam: "",
-    queryFn: ({ signal, pageParam }) => requestAIWorkbench({ route: "task-list", method: "GET", path: `tasks?limit=50${pageParam ? `&after=${pageParam}` : ""}`, scope, signal }),
-    getNextPageParam: (last, _pages, lastParam) => last.next && last.next !== lastParam ? last.next : undefined,
-    retry: false, staleTime: 0, refetchOnWindowFocus: false });
-  const page = Array.from(new Map(tasks.data?.pages.flatMap(part => part.tasks).map(item => [item.id, item]) ?? []).values());
-  const visible = page.filter(item => mode === "all" || mode === "pending" && item.state === "WAITING_CONFIRMATION" ||
-    mode === "running" && item.state === "RUNNING" || mode === "completed" && item.state === "COMPLETED" ||
-    mode === "errors" && (item.state === "ERROR" || item.state === "PAUSED"));
-  const searching = mode !== "all" && !tasks.isPending && !tasks.isFetching && !tasks.isError && visible.length === 0 && tasks.hasNextPage;
-  const fetchNextPage = tasks.fetchNextPage;
-  const loadedPageCount = tasks.data?.pages.length ?? 0;
-  useEffect(() => {
-    if (searching) void fetchNextPage();
-  }, [searching, fetchNextPage, loadedPageCount]);
-  function refresh() { setRefreshGeneration(value => value + 1); }
-  return <>
-    <div className={styles.metrics}>
-      {[["待确认", "WAITING_CONFIRMATION"], ["执行中", "RUNNING"], ["已完成", "COMPLETED"]].map(([label, state]) => <Card key={state} className={styles.metric}>
-        <span>{label}</span><strong>{tasks.isPending || tasks.isFetching || tasks.isError ? "—" : page.filter(item => item.state === state).length}</strong><small>已加载</small></Card>)}
-    </div>
-    <div className={styles.toolbar}><nav aria-label="任务状态" className={styles.filters}>{filters.map(item => <Link key={item.mode} href={item.href} aria-current={mode === item.mode ? "page" : undefined} prefetch={false}>{item.label}</Link>)}</nav>
-      <Button variant="outline" onClick={refresh}>刷新状态</Button>{canUseChat ? <Button asChild><Link href="/workbench/ai/chat/new" prefetch={false}>向硕米发起任务</Link></Button> : null}</div>
-    {tasks.isPending ? <ConsoleState kind="loading" title={mode === "all" ? "正在读取任务" : "正在查找符合筛选的任务"} /> : tasks.isError && !tasks.data ?
-      <ConsoleState kind="error" title="任务读取失败">{errorText(tasks.error)} <Button variant="outline" onClick={() => void tasks.refetch()}>重试</Button></ConsoleState> :
-      <div className={styles.list}>
-        {visible.map(item => <TaskRow key={item.id} task={item} />)}
-        {tasks.isError ? <ConsoleState kind="error" title="部分任务读取失败">{errorText(tasks.error)} <Button variant="outline" onClick={() => void (tasks.isFetchNextPageError ? tasks.fetchNextPage() : tasks.refetch())}>重试</Button></ConsoleState> : null}
-        {!visible.length && !tasks.isError ? searching || tasks.isFetchingNextPage ?
-          <ConsoleState kind="loading" title="正在查找符合筛选的任务" /> :
-          <ConsoleState kind="empty" title="当前筛选无任务">确认会话中的方案后，对应任务会显示在这里。</ConsoleState> : null}
-        {tasks.hasNextPage && !searching ? <Button variant="outline" disabled={tasks.isFetchingNextPage} onClick={() => void tasks.fetchNextPage()}>加载更早任务</Button> : null}
-      </div>}
-    {mode === "pending" && productReviewAvailable ? <Card className={styles.secondary}><h2>标准商品标题审核</h2><p>查看已生成的标题提案。接受或编辑后仍需单独应用。</p><Button asChild variant="outline"><Link href="/workbench/ai/tasks/pending/other" prefetch={false}>打开标题审核</Link></Button></Card> : null}
-    {mode === "completed" && sheinRecordsAvailable ? <Card className={styles.secondary}><h2>历史已完成工作记录</h2><p>查看本地资料准备记录和离线诊断，不代表平台发布。</p><Button asChild variant="outline"><Link href="/workbench/ai/tasks/completed/history" prefetch={false}>查看历史记录</Link></Button></Card> : null}
-  </>;
-}
-
-function TaskRow({ task }: { task: AITask }) {
-  return <Link className={styles.row} href={`/workbench/ai/tasks/${task.id}`} prefetch={false}>
-    <span className={styles.rowAccent} data-state={task.state ?? "unknown"} /><span><strong>{task.title}</strong><small>{task.productDetailsAvailable ? `${task.productKey} · ${task.targetPlatform}` : "商品详情暂不可用"}</small><small>{task.projectionAvailable ? reasonText[task.reason ?? ""] ?? task.reason ?? "" : "状态暂不可用"}</small></span>
-    <span className={styles.badge}>{task.projectionAvailable ? taskState[task.state ?? ""] ?? "状态未知" : "状态暂不可用"}</span><span className={styles.rowLink}>查看详情 →</span>
-  </Link>;
-}
-
-function TaskDetail({ scope, authorizationKey, taskId }: { scope: AIScope; authorizationKey: string; taskId: string }) {
-  const [pending, setPending] = useState(false);
-  const [feedback, setFeedback] = useState(() => savedResumeFeedback(scope, taskId));
-  const [error, setError] = useState("");
-  const abort = useRef<AbortController | null>(null);
-  useEffect(() => () => abort.current?.abort(), []);
-  const task = useQuery({ queryKey: ["ai-task", scope.userId, scope.organizationId, authorizationKey, taskId],
-    queryFn: ({ signal }) => requestAIWorkbench({ route: "task-read", method: "GET", path: `tasks/${taskId}`, scope, signal }),
-    retry: false, staleTime: 0, refetchOnWindowFocus: false });
-  const item = task.data?.task;
-  const feedbackTooLarge = new TextEncoder().encode(feedback).byteLength > 8 * 1024;
-  async function act(action: TaskAction) {
-    if (!item) return; setPending(true); setError("");
-    if (action === "resume" && feedbackTooLarge) {
-      setError("反馈不能超过 8 KiB UTF-8 字节"); setPending(false); return;
-    }
-    const storageKey = taskActionStorageKey(scope, taskId, action);
-    const revision = action === "resume" ? item.agentRevision ?? "" : "";
-    const currentFeedback = action === "resume" ? feedback : "";
-    let attempt: PendingTaskAction;
-    try {
-      const saved = sessionStorage.getItem(storageKey);
-      attempt = saved ? JSON.parse(saved) as PendingTaskAction : { key: crypto.randomUUID(), revision, feedback: currentFeedback };
-      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(attempt.key) ||
-          attempt.revision !== revision || attempt.feedback !== currentFeedback) {
-        setError("上次操作的输入仍待核实；请先刷新原任务并用原输入重试"); setPending(false); return;
-      }
-      sessionStorage.setItem(storageKey, JSON.stringify(attempt));
-    } catch { setError("无法保存操作键，暂不能安全提交"); setPending(false); return; }
-    const controller = new AbortController(); abort.current = controller;
-    try {
-      await requestAIWorkbench({ route: `task-${action}`, method: "POST", path: `tasks/${taskId}/${action}`, scope,
-        key: attempt.key, signal: controller.signal, ...(action === "resume" ? { body: { revision, feedback: currentFeedback } } : {}) });
-      try { sessionStorage.removeItem(storageKey); } catch { /* The server receipt is terminal. */ }
-      if (!controller.signal.aborted) await task.refetch();
-    } catch (cause) {
-      if (cause instanceof AIWorkbenchError && cause.code !== "TASK_OUTCOME_UNKNOWN" && cause.code !== "OUTCOME_UNKNOWN") {
-        try { sessionStorage.removeItem(storageKey); } catch { /* The next request may replay the known result. */ }
-      }
-      if (!controller.signal.aborted) setError(errorText(cause));
-    }
-    finally { if (!controller.signal.aborted) setPending(false); abort.current = null; }
-  }
-  if (task.isPending) return <ConsoleState kind="loading" title="正在读取任务" />;
-  if (task.isError || !item) return <ConsoleState kind="error" title="任务不可用">{errorText(task.error)} <Button variant="outline" onClick={() => void task.refetch()}>重试</Button></ConsoleState>;
-  return <div className={styles.detail}>
-    <div className={styles.toolbar}><Button asChild variant="outline"><Link href="/workbench/ai/tasks" prefetch={false}>返回任务中心</Link></Button><Button variant="outline" onClick={() => void task.refetch()}>刷新状态</Button></div>
-    <Card className={styles.detailCard}><div className={styles.heading}><h2>{item.title}</h2><span className={styles.badge}>{item.projectionAvailable ? taskState[item.state ?? ""] ?? "状态未知" : "状态暂不可用"}</span></div>
-      <p>{item.goalSummary}</p><dl><dt>当前状态</dt><dd>{item.projectionAvailable ? reasonText[item.reason ?? ""] ?? item.reason ?? "" : "Owner 暂不可用，无法确认当前状态"}</dd>
-        <dt>企业</dt><dd>{scope.organizationId}</dd><dt>商品</dt><dd>{item.productDetailsAvailable ? item.productKey : "当前无权查看"}</dd>
-        <dt>目标平台</dt><dd>{item.productDetailsAvailable ? item.targetPlatform : "不可用"}</dd>
-        <dt>执行模型</dt><dd>{item.providerId && item.modelId ? `${item.providerId} / ${item.modelId}` : "尚无可用执行记录"}</dd>
-        <dt>用量</dt><dd>{item.usageStatus === "unknown_reserved" ? "结果未知，额度仍保留" : item.usageStatus === "observed" ? `${item.tokens ?? 0} tokens · ${item.estimatedCostMicros ?? 0} μ${item.currency ?? ""}` : "尚无可用用量"}</dd>
-        <dt>执行权限</dt><dd>{item.executionMode?`${executionModeLabels[item.executionMode]} · 版本 ${item.modeRevision}`:"权限模式不可用"}</dd><dt>审核</dt><dd>{item.policyAdoption?"按策略采用，未经逐项人工审阅":item.reviewState || "尚未生成"}</dd>
-        <dt>创建时间</dt><dd>{new Date(item.createdAt).toLocaleString("zh-CN")}</dd></dl>
-      <KnowledgeCitations knowledge={item.knowledge} />
-      {item.productDetailsAvailable && item.operationId ? <Button asChild variant="outline"><Link href={`/workbench/supply/acquisition/operation/${item.operationId}`} prefetch={false}>查看来源商品</Link></Button> : null}
-    </Card>
-    {error ? <ConsoleState kind="error" title="操作未完成">{error}。请刷新原任务查看状态，不要新建任务。</ConsoleState> : null}
-    <div className={styles.actions}>
-      {item.canStart ? <Button disabled={pending} onClick={() => void act("start")}>启动原任务</Button> : null}
-      {item.canReconcile ? <Button variant="outline" disabled={pending} onClick={() => void act("start")}>核实超期执行结果</Button> : null}
-      {item.canResume ? <Card className={styles.actionCard}><label>继续执行的反馈<textarea rows={3} value={feedback} onChange={event => setFeedback(event.target.value)} /></label>
-        {feedbackTooLarge ? <small>反馈不能超过 8 KiB UTF-8 字节。</small> : null}
-        <Button disabled={pending || !feedback.trim() || feedbackTooLarge} onClick={() => void act("resume")}>继续原任务</Button></Card> : null}
-      {item.canReview && !item.reviewId ? <Button disabled={pending} onClick={() => void act("review")}>提交标题供人工审核</Button> : null}
-      {item.reviewId ? <Button asChild><Link href={`/workbench/ai/tasks/pending/other?proposal_id=${item.reviewId}`} prefetch={false}>查看并处理标题提案</Link></Button> : null}
-    </div>
-  </div>;
+  return <TaskBrowser key={identity + mode} scope={scope} authorizationKey={authorizationKey} mode={mode}
+    tasksAvailable={context.aiWorkbenchAvailable} productReviewAvailable={productReviewAvailable} sheinRecordsAvailable={sheinRecordsAvailable}
+    initialProposalId={entry.scope === identity ? entry.id : undefined} />;
 }

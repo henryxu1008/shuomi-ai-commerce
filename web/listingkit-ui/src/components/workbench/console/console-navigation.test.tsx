@@ -177,8 +177,8 @@ it("keeps independently available Review and history pages discoverable without 
   expect(screen.getByRole("link", { name: "已完成" })).toBeVisible();
   expect(screen.queryByRole("link", { name: "进行中" })).not.toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "异常任务" })).not.toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "标题审核" })).toHaveAttribute("href", "/workbench/ai/tasks/pending/other");
-  expect(screen.getByRole("link", { name: "历史工作记录" })).toHaveAttribute("href", "/workbench/ai/tasks/completed/history");
+  expect(screen.queryByRole("link", { name: "标题审核" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "历史工作记录" })).not.toBeInTheDocument();
 });
 
 it("shows only the configured Task Center branch without AI Workbench", async () => {

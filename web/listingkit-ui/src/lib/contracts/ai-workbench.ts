@@ -49,7 +49,6 @@ export const aiResumeBody = z.strictObject({ revision: z.string().regex(/^[1-9][
 
 export type AIConversation = z.infer<typeof conversation>;
 export type AIProposal = z.infer<typeof proposal>;
-export type AITask = z.infer<typeof task>;
 
 export type AIWorkbenchRoute = "conversation-list" | "conversation-create" | "conversation-read" | "conversation-metadata" |
   "message" | "confirm" | "task-list" | "task-read" | "task-start" | "task-resume" | "task-review";

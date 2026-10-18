@@ -103,8 +103,8 @@ export function findConsoleRoute(pathname: string): ConsoleRoute | undefined {
     return { node, trail: [...parent.trail, node] };
   }
   if (pathname === "/workbench/ai/tasks/pending/other" || pathname === "/workbench/ai/tasks/completed/history") {
-    const parent = findConsoleRoute("/workbench/ai")!;
-    const node: ConsoleNavNode = { label: pathname.endsWith("/other") ? "标题审核" : "历史工作记录", href: pathname, availability: "connected" };
+    const parent = findConsoleRoute(pathname.endsWith("/other") ? "/workbench/ai/tasks/pending" : "/workbench/ai/tasks/completed")!;
+    const node: ConsoleNavNode = { label: pathname.endsWith("/other") ? "审核详情" : "历史工作记录", href: pathname, availability: "connected" };
     return { node, trail: [...parent.trail, node] };
   }
   if (/^\/workbench\/ai\/chat\/[0-9a-f-]{36}$/.test(pathname)) {

@@ -35,3 +35,9 @@ it("keeps colon-containing actor and enterprise scopes independent", () => {
   expect(readReportIntent(first)).toEqual(intent);
 });
 it("refuses corrupt recovery data instead of inventing a new key", () => { writeReportIntent(scope, intent); sessionStorage.setItem(sessionStorage.key(0)!, "{}"); expect(() => readReportIntent(scope)).toThrow("INTENT_STORAGE_UNAVAILABLE"); });
+it.each(["/workbench/ai/tasks", "/workbench/ai/tasks/pending"])("reads an exact Review ID from the unified Task Center URL %s", path => {
+  const id = "550e8400-e29b-41d4-a716-446655440000";
+  expect(reviewLocator(`${path}?proposal_id=${id}`, "http://localhost:3000")).toBe(id);
+  expect(reviewLocator(`https://other.invalid${path}?proposal_id=${id}`, "http://localhost:3000")).toBeNull();
+  expect(reviewLocator(`${path}?proposal_id=${id}&proposal_id=${id}`, "http://localhost:3000")).toBeNull();
+});

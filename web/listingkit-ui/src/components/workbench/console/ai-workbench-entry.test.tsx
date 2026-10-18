@@ -31,7 +31,7 @@ it('keeps all four introduction cards and gates each business capability', () =>
   expect(screen.getByRole('link', { name: /进入我的报告/ })).toHaveAttribute('href', '/workbench/ai/reports');
   expect(screen.queryByRole('link', { name: /进入硕米Chat/ })).not.toBeInTheDocument();
 });
-it.each([['review', '/workbench/ai/tasks/pending/other'], ['history', '/workbench/ai/tasks/completed/history']] as const)('retains independent %s task access', (capability, destination) => {
+it.each([['review', '/workbench/ai/tasks'], ['history', '/workbench/ai/tasks']] as const)('retains independent %s task access', (capability, destination) => {
   fixture[capability] = true;
   render(<Page />);
   expect(fixture.redirect).not.toHaveBeenCalled();
