@@ -108,7 +108,12 @@ func TestFullImageRecentPageChecksEveryLiveSourceWithinOneDeadline(t *testing.T)
 	for i := range expected {
 		expected[i].Status = imageagent.RunStatusCompleted
 	}
-	require.Equal(t, expected, got, "omit inaccessible items while preserving the original pagination order")
+	actual := make([]imageagent.ImageSetRunSummary, len(got))
+	for i, item := range got {
+		actual[i] = item.ImageSetRunSummary
+		require.Nil(t, item.ReleaseSummary)
+	}
+	require.Equal(t, expected, actual, "omit inaccessible items while preserving the original pagination order")
 }
 
 func TestFullImageRecentPageCancellationNeverReturnsPartialSuccess(t *testing.T) {
