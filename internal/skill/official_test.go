@@ -27,6 +27,13 @@ func TestOfficialReleaseHasSixUsableBoundedMethodsAndExplicitExamples(t *testing
 		if p.Target == ImageTarget {
 			require.Contains(t, text, "不增加任务")
 			require.False(t, p.Supports(TitleTarget))
+			var brief string
+			for _, f := range p.Files {
+				if f.Path == "references/visual-brief.md" {
+					brief = f.Text
+				}
+			}
+			require.NotEmpty(t, brief, "each current official image release needs its own visual resource")
 		}
 		require.False(t, strings.Contains(text, "TODO"))
 	}

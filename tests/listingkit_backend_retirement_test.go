@@ -56,6 +56,15 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/temu/product/raw_json_data_handler.go", "internal/temu/product/cache_handler.go",
 		"internal/temu/product/build_spu_handler.go", "internal/temu/product/spu_builder.go",
 		"internal/temu/product/spu_validator.go", "internal/temu/product/price_query_handler.go",
+		"internal/temu/product/name_validator.go", "internal/temu/product/name_optimizer.go",
+		"internal/temu/product/description_validator.go", "internal/temu/product/description_validator_rules.go",
+		"internal/temu/product/description_validator_enhance.go", "internal/temu/product/description_validator_score.go",
+		"internal/temu/product/brand_clear_handler.go", "internal/temu/product/name_validator_test.go",
+		"internal/temu/product/brand_clear_handler_test.go",
+		"internal/marketplace/temu/publishing/name_validation_policy.go", "internal/marketplace/temu/publishing/name_validation_policy_test.go",
+		"internal/marketplace/temu/publishing/description_sanitization_policy.go", "internal/marketplace/temu/publishing/description_sanitization_policy_test.go",
+		"internal/marketplace/temu/publishing/brand_text_policy.go", "internal/marketplace/temu/publishing/brand_text_policy_test.go",
+		"internal/marketplace/temu/publishing/name_format_policy_test.go",
 		"internal/temu/sku/variant_json_data_handler.go", "internal/temu/sku/parallel_variant_handler.go",
 		"internal/temu/sku/cache_variants_handler.go", "internal/temu/sku/variant_data_processor.go",
 		"internal/temu/sku/variant_filter_handler.go", "internal/temu/sku/ai_mapping_handler.go",
@@ -236,7 +245,9 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/marketplace/temu/publishing/submission_validation_policy.go": {
 			"type submissionSpec struct", "func validateSubmissionSpecs(", "func validateSubmissionPackaging(",
 		},
-		"internal/marketplace/temu/publishing/spu_validation_policy.go": {"func validateSPUStructure("},
+		"internal/marketplace/temu/publishing/spu_validation_policy.go":  {"func validateSPUStructure("},
+		"internal/marketplace/temu/publishing/submission_name_policy.go": {"func NormalizeProductSubmissionName(", "leftParenthesisSpacingPattern.ReplaceAllString("},
+		"internal/marketplace/temu/publishing/name_format_policy.go":     {"leftParenthesisSpacingPattern", "regexp.MustCompile(`(\\S)\\(`)"},
 		"internal/marketplace/temu/goods/builder.go": {
 			"func Build(", "snapshot.SelectableLeaf", "func checkLocal(",
 			"p.ServicePromise.ShipmentLimitDay", "value.ID == p.ServicePromise.CostTemplateID",
@@ -394,6 +405,13 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"SpuValidator": true, "NewSpuValidator": true,
 		"PriceQueryHandler": true, "NewPriceQueryHandler": true,
 	}
+	retiredProductContentSymbols := map[string]bool{
+		"ProductNameValidator": true, "NewProductNameValidator": true,
+		"ProductNameOptimizer": true, "NewProductNameOptimizer": true,
+		"ProductDescriptionValidator": true, "NewProductDescriptionValidator": true,
+		"BrandClearHandler": true, "NewBrandClearHandler": true,
+		"DescriptionValidationResult": true,
+	}
 	for _, pkg := range []string{"sku", "filter", "product", "rules", "handlerbase"} {
 		if err := filepath.WalkDir(filepath.Join("..", "internal", "temu", pkg), func(path string, entry os.DirEntry, err error) error {
 			if err != nil {
@@ -409,6 +427,31 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			if pkg == "sku" {
 				for _, violation := range retiredSKUConstructionViolations(file) {
 					t.Errorf("%s: %s", path, violation)
+				}
+			}
+			if pkg == "product" {
+				for _, declaration := range file.Decls {
+					var names []*ast.Ident
+					switch declaration := declaration.(type) {
+					case *ast.FuncDecl:
+						if declaration.Recv == nil {
+							names = append(names, declaration.Name)
+						}
+					case *ast.GenDecl:
+						for _, spec := range declaration.Specs {
+							switch spec := spec.(type) {
+							case *ast.TypeSpec:
+								names = append(names, spec.Name)
+							case *ast.ValueSpec:
+								names = append(names, spec.Names...)
+							}
+						}
+					}
+					for _, name := range names {
+						if retiredProductContentSymbols[name.Name] {
+							t.Errorf("%s recreates retired TEMU content declaration %s", path, name.Name)
+						}
+					}
 				}
 			}
 			if pkg == "handlerbase" {
@@ -437,6 +480,47 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			return nil
 		}); err != nil {
 			t.Fatal(err)
+		}
+	}
+	publishingPaths, err := filepath.Glob(filepath.Join("..", "internal", "marketplace", "temu", "publishing", "*.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	retiredPublishingContentSymbols := map[string]bool{
+		"SanitizeProductName": true, "ProductNameSanitizationResult": true,
+		"SanitizeProductDescription": true, "ProductDescriptionSanitizationResult": true,
+		"RemoveBrandFromText": true, "NormalizeParenthesesSpacing": true,
+	}
+	for _, path := range publishingPaths {
+		if strings.HasSuffix(path, "_test.go") {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, declaration := range file.Decls {
+			var names []*ast.Ident
+			switch declaration := declaration.(type) {
+			case *ast.FuncDecl:
+				if declaration.Recv == nil {
+					names = append(names, declaration.Name)
+				}
+			case *ast.GenDecl:
+				for _, spec := range declaration.Specs {
+					switch spec := spec.(type) {
+					case *ast.TypeSpec:
+						names = append(names, spec.Name)
+					case *ast.ValueSpec:
+						names = append(names, spec.Names...)
+					}
+				}
+			}
+			for _, name := range names {
+				if retiredPublishingContentSymbols[name.Name] {
+					t.Errorf("%s recreates retired TEMU publishing content declaration %s", path, name.Name)
+				}
+			}
 		}
 	}
 	contextPaths, err := filepath.Glob(filepath.Join("..", "internal", "temu", "context", "*.go"))
@@ -651,6 +735,9 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 		"internal/temu/context/temu_context.go",
 		"internal/marketplace/temu/publishing/submission_validation_policy.go",
 		"internal/marketplace/temu/publishing/submission_validation_policy_test.go",
+		"internal/marketplace/temu/publishing/submission_name_policy.go",
+		"internal/marketplace/temu/publishing/submission_name_policy_test.go",
+		"internal/marketplace/temu/publishing/name_format_policy.go",
 		"internal/marketplace/temu/publishing/sku_sn_validation_policy.go",
 		"internal/marketplace/temu/publishing/sku_sn_validation_policy_test.go",
 		"internal/shein/productsync/product_sync_types.go", "internal/shein/productsync/marketing_client_boundary_test.go",

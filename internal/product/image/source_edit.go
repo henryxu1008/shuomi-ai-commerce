@@ -51,7 +51,7 @@ func (c *sourceEditCapability) EditSources(ctx context.Context, request SourceEd
 // CloneSourceEditRequest is also used at concrete adapter boundaries so callers
 // cannot bypass the exact-reference bounds by invoking an adapter directly.
 func CloneSourceEditRequest(request SourceEditRequest) (SourceEditRequest, error) {
-	if len(request.Sources) < 1 || len(request.Sources) > 8 || len(request.Sources) != len(request.ReferenceBytes) || request.Prompt == "" || strings.TrimSpace(request.Prompt) != request.Prompt || len(request.Prompt) > 64<<10 || !isCanonicalRequired(request.PromptVersion) || len(request.PromptVersion) > 128 {
+	if len(request.Sources) < 1 || len(request.Sources) > 8 || len(request.Sources) != len(request.ReferenceBytes) || strings.TrimSpace(request.Prompt) == "" || len(request.Prompt) > 64<<10 || !isCanonicalRequired(request.PromptVersion) || len(request.PromptVersion) > 128 {
 		return SourceEditRequest{}, ErrInputInvalid
 	}
 	product, err := validateProductContext(request.Product)

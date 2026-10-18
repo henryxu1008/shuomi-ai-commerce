@@ -18,7 +18,7 @@ export function SkillPicker({scope,onChange,target="product-title",disabled=fals
   try{
    const r=await skillRequest({userId,organizationId},image?"organization/image-candidates":"organization/candidates",skillCandidatesSchema,{signal:c.signal});if(c.signal.aborted)return;
    setItems(r.items);const valid=!!current&&r.items.some(v=>v.skill.id===current.skillId&&v.version===current.version&&v.package.digest===current.digest);
-   if(current&&!valid)setFailure("所选版本已不可用，请重新选择或明确取消使用技能。");
+   if(current&&!valid)setFailure(image?"所选版本不可用或缺少视觉 brief，请重新选择或明确不使用技能。":"所选版本已不可用，请重新选择或明确取消使用技能。");
    notify.current(current,valid||image&&!current);
   }catch(e){if(!c.signal.aborted){setItems([]);setFailure(skillError(e));notify.current(current,image&&!current)}}finally{if(!c.signal.aborted)setLoading(false)}
  },[userId,organizationId,image]);
@@ -34,7 +34,7 @@ export function SkillPicker({scope,onChange,target="product-title",disabled=fals
     {selected&&!value&&<option value={`${selected.skillId}:${selected.version}`} disabled>原选版本（不可用） · v{selected.version}</option>}
     {items.map(v=><option key={`${v.skill.id}:${v.version}`} value={`${v.skill.id}:${v.version}`}>{name(v)} · {publisher(v)} · v{v.version}</option>)}
    </select>
-   {image&&<p className="text-sm text-muted-foreground">仅列出当前企业可用的官方与团队图片版本。此设置用于新计划，原任务保留其准确版本。</p>}
+   {image&&<p className="text-sm text-muted-foreground">仅列当前企业可执行的官方与团队图片版本。此设置用于新计划，原任务保留其准确版本。</p>}
    <Button variant="outline" disabled={disabled||loading} onClick={()=>void load()}>刷新技能版本</Button>
    {loading&&<p role="status">正在读取当前可用版本…</p>}{failure&&<p role="alert">{failure}</p>}
    {!loading&&!items.length&&!failure&&<p className="text-sm text-muted-foreground">{image?"暂无可用图片技能，可以选择不使用技能。":"没有已启用且获准使用的技能；个人技能需当前企业明确准入。"}</p>}

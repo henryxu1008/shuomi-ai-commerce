@@ -2,6 +2,8 @@
 
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
+后续用户确认的 [#810 文案边界](legacy-temu-content-handler-retirement-boundary.md) 已退休本文当批保留的旧名称/描述/品牌编排、三个失去最后消费者的 publishing policy/result/test 与孤立格式 helper。下文消费者与矩阵保留为历史；仍有消费者的 NormalizeProductSubmissionName/left regexp、PriceHandler、AI/prompt 和其它有效规则/API/合同保持，不据旧保留措辞恢复已退休对象。
+
 - Status: **USER_CONFIRMED / SOURCE_RETIRED**。用户已确认 #749 冻结设计 `e0003f1969d28b4a34f52af50d0f70843b791cf4` 的 §5、§6、§6.1、§7 并授权同一 PR 实施；最终交付检查/CI 证据在 PR，未授权合并或真实操作。
 - 设计调查基线：`main @ 5063d3245069f5cdcf5d77a0876c731aab4919eb`；实施开工同步 `main @ 88a462c4e1695c1b241e615905bc9016bccc698e`。原 #747/设计 CI 仅为历史，不作为实现候选验证；最终 HEAD、CI 和复核证据维护于 PR。
 - 当前 Design Basis: **Reuse Existing Architecture；Admission: Ready**。复用本节批准的 owner/合同，生产修改前已记录于 #29/#301。此前 N/A 仅覆盖文档调查，不作为本次实施准入；本次不新增公共合同、事实/权限/tenant/事务/状态机或恢复边界。

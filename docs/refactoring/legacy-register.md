@@ -2,6 +2,18 @@
 
 > Status: Active legacy handling register
 
+> #29 / #301 [TEMU content retirement](../architecture/legacy-temu-content-handler-retirement-boundary.md)
+> follows user-confirmed design `13db74471` in #810. Ten exclusive production
+> files and six obsolete tests are source-retired, including three policies that
+> lose their final consumers. The mixed format file retains only the original
+> left-parenthesis regexp consumed by the unchanged submission formatter;
+> three valid format cases live in that formatter's existing test table.
+> This narrowly supersedes #749/#768 preservation of these old content objects.
+> PriceHandler, AI/SKU/content prompt, valid rules/platform/shared contracts,
+> current image/acquisition/Store observations and standalone SHEIN login/Store
+> sync remain. Workflows, import/logger exceptions and dated counts are unchanged;
+> no runtime/data action or new trial prerequisite is authorized.
+
 > #29 / #301 [TEMU image API / vision prompt retirement](../architecture/legacy-temu-image-api-prompt-retirement-boundary.md)
 > follows user-confirmed design `aa21423ac` in #807. The orphan image API package,
 > its six root re-exports and vision key/default/catalog/exclusive variable metadata
