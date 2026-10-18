@@ -42,7 +42,14 @@ func (f *titleBrowserIdentity) Load(ctx context.Context, source workbenchcontext
 	} else {
 		f.cached.Add(1)
 	}
-	return f.browserFixtureIdentity.Load(ctx, source, r)
+	result, err := f.browserFixtureIdentity.Load(ctx, source, r)
+	for i := range result.Grants {
+		grant := &result.Grants[i]
+		if len(grant.Roles) == 1 && grant.Roles[0] == "listingkit_operator" {
+			grant.Roles = []string{authz.EnterpriseRoleKey(grant.OrganizationID, 2)}
+		}
+	}
+	return result, err
 }
 
 // Separate from the Listing read-only fixture: only this admitted application
@@ -69,7 +76,7 @@ func TestProductTitleReviewBrowserFixture(t *testing.T) {
 		tokens[name] = token
 		identity.actors[token] = browserFixtureActor{Subject: name, Role: role, Revoked: name == "revoked"}
 	}
-	authorizer, err := authz.NewListingKitAuthorizer(nil, nil)
+	authorizer, err := newCurrentRoleTestAuthorizer(nil, nil)
 	require.NoError(t, err)
 	resolver := workbenchcontext.NewResolver(identity, "project", "v1", nil)
 	bases := []catalog.PublishedSnapshot{f.base}
@@ -124,8 +131,10 @@ func TestProductTitleReviewBrowserFixture(t *testing.T) {
 	server.Config.WriteTimeout = current.Load().WriteTimeout
 	server.Start()
 	t.Cleanup(server.Close)
-	status, raw := recordPostForOrganization(t, server, tokens["owner"], "listing-original", "200", recordBody)
-	require.Equal(t, 201, status)
+	// The current Listing create route requires admin write; Review owners
+	// retain their current enterprise role grants, without this permission.
+	status, raw := recordPostForOrganization(t, server, tokens["admin"], "listing-original", "200", recordBody)
+	require.Equal(t, 201, status, string(raw))
 	var listingResult struct {
 		RecordID string `json:"record_id"`
 	}
@@ -135,7 +144,7 @@ func TestProductTitleReviewBrowserFixture(t *testing.T) {
 	create := func(name, org, key, label string) {
 		code, body, e := titleRequest(server, "POST", titleBasePath, tokens[name], org, "create-"+label, fmt.Sprintf(`{"product_key":%q,"base_version":1}`, key))
 		require.NoError(t, e)
-		require.Equal(t, 200, code)
+		require.Equal(t, 200, code, string(body))
 		var result struct {
 			ID string `json:"proposal_id"`
 		}

@@ -47,7 +47,7 @@ export function reviewLocator(value: string, origin: string): string | null {
   if (input.length > 2048) return null;
   try {
     const url = new URL(input, origin);
-    if (url.origin !== origin || url.username || url.password || url.hash || url.pathname !== "/workbench/ai/tasks/pending/other" || [...url.searchParams.keys()].length !== 1) return null;
+    if (url.origin !== origin || url.username || url.password || url.hash || !["/workbench/ai/tasks", "/workbench/ai/tasks/pending", "/workbench/ai/tasks/pending/other"].includes(url.pathname) || [...url.searchParams.keys()].length !== 1) return null;
     const id = url.searchParams.get("proposal_id"); return reportID.safeParse(id).success ? id : null;
   } catch { return null; }
 }
