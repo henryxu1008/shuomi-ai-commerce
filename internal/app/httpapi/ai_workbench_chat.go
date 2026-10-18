@@ -106,7 +106,12 @@ func (a *aiWorkbenchApplication) getConversation(c *gin.Context, ctx context.Con
 	}
 	cards := make([]workbenchProposalCard, 0, len(proposals))
 	for _, proposal := range proposals {
-		cards = append(cards, a.proposalCard(ctx, proposal))
+		card, cardErr := a.proposalReceiptCard(ctx, scope, proposal)
+		if cardErr != nil {
+			writeAIWorkbenchError(c, cardErr)
+			return
+		}
+		cards = append(cards, card)
 	}
 	for {
 		page := gin.H{"conversation": conversation, "messages": messages, "proposals": cards, "before": next}
@@ -130,6 +135,21 @@ func (a *aiWorkbenchApplication) getConversation(c *gin.Context, ctx context.Con
 		messages = messages[1:]
 		next = strconv.FormatUint(messages[0].Sequence, 10)
 	}
+}
+
+func (a *aiWorkbenchApplication) proposalReceiptCard(ctx context.Context, scope aiworkbench.Scope, proposal aiworkbench.ExecutionProposal) (workbenchProposalCard, error) {
+	if proposal.Scope != scope {
+		return workbenchProposalCard{}, aiworkbench.ErrNotFound
+	}
+	card := a.proposalCard(ctx, proposal)
+	task, found, err := a.store.LookupProposalTask(ctx, scope, proposal.ConversationID, proposal.ID)
+	if err != nil || found && task.ProposalDigest != proposal.Digest {
+		return workbenchProposalCard{}, aiworkbench.ErrUnavailable
+	}
+	if found {
+		card.ConfirmedTaskID = task.ID
+	}
+	return card, nil
 }
 
 func (a *aiWorkbenchApplication) changeConversation(c *gin.Context, ctx context.Context, scope aiworkbench.Scope) {
@@ -191,7 +211,12 @@ func (a *aiWorkbenchApplication) postMessage(c *gin.Context, ctx context.Context
 			writeAIWorkbenchError(c, err)
 			return
 		}
-		response["proposal"] = a.proposalCard(ctx, proposal)
+		card, cardErr := a.proposalReceiptCard(ctx, scope, proposal)
+		if cardErr != nil {
+			writeAIWorkbenchError(c, cardErr)
+			return
+		}
+		response["proposal"] = card
 	}
 	if accessErr := a.plan.AuthorizeReceipt(ctx, scope); accessErr != nil {
 		writeAIWorkbenchError(c, accessErr)

@@ -155,6 +155,13 @@ func (s *Store) Confirm(ctx context.Context, scope aiworkbench.Scope, conversati
 		if err != nil {
 			return err
 		}
+		// The existing Conversation lock serializes different confirmation
+		// keys for the same proposal. A new key is not a new execution intent.
+		if _, found, err := s.lookupProposalTask(tx, scope, conversationID, proposalID); err != nil {
+			return err
+		} else if found {
+			return aiworkbench.ErrRevisionMismatch
+		}
 		if conversation.Lifecycle != "ACTIVE" {
 			return aiworkbench.ErrConversationArchived
 		}
@@ -221,6 +228,31 @@ func (s *Store) GetTask(ctx context.Context, scope aiworkbench.Scope, id string)
 	return task(row)
 }
 
+func (s *Store) lookupProposalTask(db *gorm.DB, scope aiworkbench.Scope, conversationID, proposalID string) (aiworkbench.BusinessTask, bool, error) {
+	var rows []taskRow
+	if err := db.Where("organization_id = ? AND owner_user_id = ? AND conversation_id = ? AND proposal_id = ?",
+		scope.OrganizationID, scope.ActorID, conversationID, proposalID).Limit(2).Find(&rows).Error; err != nil {
+		return aiworkbench.BusinessTask{}, false, unavailable(err)
+	}
+	if len(rows) == 0 {
+		return aiworkbench.BusinessTask{}, false, nil
+	}
+	if len(rows) != 1 {
+		return aiworkbench.BusinessTask{}, false, aiworkbench.ErrUnavailable
+	}
+	result, err := task(rows[0])
+	return result, true, err
+}
+
+// LookupProposalTask reads an existing T1 fact without a browser operation key
+// or current execution preflight. It never starts or recreates a task.
+func (s *Store) LookupProposalTask(ctx context.Context, scope aiworkbench.Scope, conversationID, proposalID string) (aiworkbench.BusinessTask, bool, error) {
+	if s == nil || s.db == nil || ctx == nil || !validScope(scope) || !validKey(conversationID) || !validKey(proposalID) {
+		return aiworkbench.BusinessTask{}, false, aiworkbench.ErrInvalid
+	}
+	return s.lookupProposalTask(s.db.WithContext(ctx), scope, conversationID, proposalID)
+}
+
 // LookupTask is the receipt-first read for a confirm replay. The key is
 // scoped to the original organization and actor before any mutable Product,
 // AgentConfig, Knowledge or provider preflight is consulted.
@@ -235,6 +267,13 @@ func (s *Store) LookupTask(ctx context.Context, scope aiworkbench.Scope, convers
 			return aiworkbench.BusinessTask{}, false, err
 		}
 		return aiworkbench.BusinessTask{}, false, unavailable(err)
+	}
+	if !found {
+		if _, confirmed, lookupErr := s.LookupProposalTask(ctx, scope, conversationID, proposalID); lookupErr != nil {
+			return aiworkbench.BusinessTask{}, false, lookupErr
+		} else if confirmed {
+			return aiworkbench.BusinessTask{}, false, aiworkbench.ErrRevisionMismatch
+		}
 	}
 	return result, found, nil
 }
