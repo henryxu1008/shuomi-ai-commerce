@@ -30,13 +30,19 @@ func successBody() string {
 	return `{"request_id":"actual-request","output":{"choices":[{"finish_reason":"stop","message":{"role":"assistant","content":[{"image":"https://images.example/result.png?Expires=123"}]}}]},"usage":{"input_image_count":1,"output_image_count":1,"output_width":1024,"output_height":1024}}`
 }
 func fixtureConfig(transport http.RoundTripper) Config {
-	return Config{BaseURL: "https://workspace-1.cn-beijing.maas.aliyuncs.com", APIKey: "fixture-only", CredentialReference: "db:1:1:image_gpt_image_2", ConfigurationVersion: "config-1", Timeout: time.Minute, HTTPClient: &http.Client{Transport: transport}}
+	return Config{Model: Model, BaseURL: "https://workspace-1.cn-beijing.maas.aliyuncs.com", APIKey: "fixture-only", CredentialReference: "db:1:1:image_gpt_image_2", ConfigurationVersion: "config-1", Timeout: time.Minute, HTTPClient: &http.Client{Transport: transport}}
 }
 func fixtureRoute() ai.ImageRouteSelection {
 	return ai.ImageRouteSelection{CredentialReference: "db:1:1:image_gpt_image_2", ConfigurationVersion: "config-1"}
 }
 
 func TestQwenImageEditSendsFrozenBytesOnceAndObservesBeforeReturning(t *testing.T) {
+	for _, model := range []string{Model, ModelPro} {
+		t.Run(model, func(t *testing.T) { testQwenImageEditSendsFrozenBytes(t, model) })
+	}
+}
+
+func testQwenImageEditSendsFrozenBytes(t *testing.T, model string) {
 	count, observations := 0, 0
 	cfg := fixtureConfig(imageTransport(func(r *http.Request) (*http.Response, error) {
 		count++
@@ -59,7 +65,7 @@ func TestQwenImageEditSendsFrozenBytesOnceAndObservesBeforeReturning(t *testing.
 			} `json:"parameters"`
 		}
 		require.NoError(t, json.NewDecoder(r.Body).Decode(&payload))
-		require.Equal(t, "qwen-image-3.0", payload.Model)
+		require.Equal(t, model, payload.Model)
 		require.Equal(t, 1, payload.Parameters.N)
 		require.Equal(t, "1024*1024", payload.Parameters.Size)
 		require.False(t, payload.Parameters.Extend)
@@ -70,6 +76,7 @@ func TestQwenImageEditSendsFrozenBytesOnceAndObservesBeforeReturning(t *testing.
 		require.Equal(t, "preserve exact product and method", payload.Input.Messages[0].Content[1]["text"])
 		return &http.Response{StatusCode: 200, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(successBody()))}, nil
 	}))
+	cfg.Model = model
 	c, err := NewClient(cfg, func(_ context.Context, o Observation) error {
 		observations++
 		require.Equal(t, "actual-request", o.RequestID)
@@ -78,7 +85,8 @@ func TestQwenImageEditSendsFrozenBytesOnceAndObservesBeforeReturning(t *testing.
 		return nil
 	})
 	require.NoError(t, err)
-	r, err := c.EditImageWithRoute(context.Background(), &ai.ImageEditRequest{Model: Model, Prompt: "preserve exact product and method", Image: sourcePNG(t), ImageContentType: "image/png", N: 1}, fixtureRoute())
+	require.Equal(t, model, c.GetDefaultModel())
+	r, err := c.EditImageWithRoute(context.Background(), &ai.ImageEditRequest{Model: model, Prompt: "preserve exact product and method", Image: sourcePNG(t), ImageContentType: "image/png", N: 1}, fixtureRoute())
 	require.NoError(t, err)
 	require.Len(t, r.Data, 1)
 	require.Equal(t, 1, count)
@@ -101,6 +109,34 @@ func TestQwenUnknownAndContradictoryResultsNeverObserveOrRetry(t *testing.T) {
 			require.Zero(t, observed)
 		})
 	}
+}
+
+func TestQwenModelAdmissionRejectsMissingUnknownAndCrossModelBeforeHTTP(t *testing.T) {
+	calls := 0
+	cfg := fixtureConfig(imageTransport(func(*http.Request) (*http.Response, error) {
+		calls++
+		panic("mismatched model must not dispatch")
+	}))
+	observe := func(context.Context, Observation) error { return nil }
+	for _, invalid := range []string{"", "qwen-image", "qwen-image-3.0-pro ", "qwen-image-2.1-pro"} {
+		cfg.Model = invalid
+		_, err := NewClient(cfg, observe)
+		require.Error(t, err, invalid)
+	}
+	for _, model := range []string{Model, ModelPro} {
+		cfg.Model = model
+		c, err := NewClient(cfg, observe)
+		require.NoError(t, err)
+		other := Model
+		if model == Model {
+			other = ModelPro
+		}
+		_, err = c.EditImageWithRoute(context.Background(), &ai.ImageEditRequest{Model: other, Prompt: "exact", Image: sourcePNG(t), ImageContentType: "image/png"}, fixtureRoute())
+		require.Error(t, err)
+		_, err = c.GenerateImageWithRoute(context.Background(), &ai.ImageGenerateRequest{Model: other, Prompt: "exact"}, fixtureRoute())
+		require.Error(t, err)
+	}
+	require.Zero(t, calls)
 }
 
 func TestQwenRejectsWrongRegionRouteOrOversizedReferencesBeforeHTTP(t *testing.T) {

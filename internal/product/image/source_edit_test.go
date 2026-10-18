@@ -3,6 +3,7 @@ package image
 import (
 	"context"
 	"github.com/stretchr/testify/require"
+	"strings"
 	"testing"
 )
 
@@ -71,4 +72,17 @@ func TestSourceEditRejectsPassThroughOfAnyOriginal(t *testing.T) {
 	require.NoError(t, err)
 	_, err = capability.EditSources(context.Background(), request)
 	require.ErrorIs(t, err, ErrOutputValidation)
+}
+
+func TestSourceEditPreservesBoundedPromptTextIncludingMethodNewlines(t *testing.T) {
+	request := validSourceEditRequest()
+	request.Prompt = "\n" + request.Prompt + "\n"
+	cloned, err := CloneSourceEditRequest(request)
+	require.NoError(t, err)
+	require.Equal(t, request.Prompt, cloned.Prompt, "text must not be trimmed or re-fingerprinted")
+	for _, invalid := range []string{"", " \t\r\n", strings.Repeat("x", (64<<10)+1)} {
+		request.Prompt = invalid
+		_, err := CloneSourceEditRequest(request)
+		require.ErrorIs(t, err, ErrInputInvalid)
+	}
 }

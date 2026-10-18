@@ -15,7 +15,7 @@ type selectionMethodFixture struct {
 	ref  agent.SkillVersionRef
 }
 
-func (m *selectionMethodFixture) AcquireImageMethod(_ context.Context, _ imageagent.ExecutionIdentity, ref agent.SkillVersionRef) (string, func(), error) {
+func (m *selectionMethodFixture) AcquireImageMethod(_ context.Context, _ imageagent.ExecutionIdentity, ref agent.SkillVersionRef, _ string) (string, func(), error) {
 	m.held = true
 	m.ref = ref
 	return "bounded method", func() { m.held = false }, nil
