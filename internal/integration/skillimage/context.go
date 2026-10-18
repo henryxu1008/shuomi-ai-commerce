@@ -4,7 +4,6 @@ package skillimage
 
 import (
 	"context"
-	"strings"
 	"task-processor/internal/agent"
 	"task-processor/internal/imageagent"
 	d "task-processor/internal/skill"
@@ -26,7 +25,10 @@ func New(store UseStore, authorizer imageagent.ExecutionAuthorizer) (*Context, e
 	return &Context{store: store, authorizer: authorizer}, nil
 }
 
-func (c *Context) AcquireImageMethod(ctx context.Context, id imageagent.ExecutionIdentity, ref agent.SkillVersionRef) (string, func(), error) {
+func (c *Context) AcquireImageMethod(ctx context.Context, id imageagent.ExecutionIdentity, ref agent.SkillVersionRef, policy string) (string, func(), error) {
+	if !(imageagent.ImageMethodBinding{Skill: ref, PolicyVersion: policy}).Valid() {
+		return "", nil, imageagent.ErrCommandBlocked
+	}
 	if imageagent.ValidateOrganizationExecution(id, id.RunID) != nil || id.MemberID == "" {
 		return "", nil, imageagent.ErrIdentityRequired
 	}
@@ -46,11 +48,13 @@ func (c *Context) AcquireImageMethod(ctx context.Context, id imageagent.Executio
 		release()
 		return "", nil, d.ErrConflict
 	}
-	var text strings.Builder
-	for _, file := range canonical.Files {
-		text.WriteString("Method file: " + file.Path + "\n")
-		text.WriteString(file.Text)
-		text.WriteString("\n")
+	if policy == imageagent.HistoricalImageMethodPolicyVersion {
+		return "", release, nil
 	}
-	return text.String(), release, nil
+	brief, err := d.ImageVisualBrief(canonical)
+	if err != nil {
+		release()
+		return "", nil, err
+	}
+	return brief, release, nil
 }

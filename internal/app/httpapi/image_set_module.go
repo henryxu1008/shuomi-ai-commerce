@@ -319,18 +319,37 @@ func (m fullImageModule) handle(c *gin.Context, kind imageagent.ImageSourceConte
 		}
 		input.ExpectedModeRevision = body.ExpectedModeRevision
 		if body.Skill != nil {
-			if a.skills == nil {
-				writeFullImageError(c, imageagent.ErrCommandBlocked, false)
+			// A frozen preparation is a readback, not a new Skill selection.
+			// Its stored publisher/policy determines the original input hash;
+			// PrepareImageSet still checks every submitted input and live source.
+			prior, readErr := a.service.GetPreparedImageSet(ctx, kind, contextID, keys[0])
+			if readErr == nil {
+				if prior.Plan.Set == nil || prior.Plan.Set.Method == nil {
+					writeFullImageError(c, imageagent.ErrRevisionConflict, false)
+					return
+				}
+				ref := prior.Plan.Set.Method.Skill
+				if ref.ID != body.Skill.ID || ref.Version != body.Skill.Version || ref.Digest != body.Skill.Digest {
+					writeFullImageError(c, imageagent.ErrRevisionConflict, false)
+					return
+				}
+				input.Method = &ref
+			} else if errors.Is(readErr, imageagent.ErrRunNotFound) {
+				if a.skills == nil {
+					writeFullImageError(c, imageagent.ErrCommandBlocked, false)
+					return
+				}
+				// Derive the publisher from storage, never browser owner fields.
+				ref, selectionErr := a.skills.ResolveSelectionForTarget(ctx, skillcap.Principal{UserID: identity.UserID, OrganizationID: identity.TenantID, MemberID: identity.EffectiveMemberID, UseOrganization: true}, body.Skill.ID, body.Skill.Version, body.Skill.Digest, skillcap.ImageTarget)
+				if selectionErr != nil {
+					writeFullImageError(c, selectionErr, false)
+					return
+				}
+				input.Method = &ref
+			} else {
+				writeFullImageError(c, readErr, false)
 				return
 			}
-			// The route and bound live organization have already checked image
-			// write. Derive the publisher from storage, never browser owner fields.
-			ref, err := a.skills.ResolveSelectionForTarget(ctx, skillcap.Principal{UserID: identity.UserID, OrganizationID: identity.TenantID, MemberID: identity.EffectiveMemberID, UseOrganization: true}, body.Skill.ID, body.Skill.Version, body.Skill.Digest, skillcap.ImageTarget)
-			if err != nil {
-				writeFullImageError(c, err, false)
-				return
-			}
-			input.Method = &ref
 		}
 		prepared, e := a.service.PrepareImageSet(ctx, input)
 		if e != nil {

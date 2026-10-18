@@ -21,8 +21,21 @@ import (
 	"task-processor/internal/core/config"
 	"task-processor/internal/imageagent"
 	openai "task-processor/internal/integration/openai"
+	"task-processor/internal/integration/skillimage"
 	"task-processor/internal/skill"
 )
+
+type officialImageUseStore struct{ material skill.Package }
+
+func (s officialImageUseStore) AcquireUseForTarget(context.Context, skill.Principal, agent.SkillVersionRef, string) (skill.Package, func(), error) {
+	return s.material, func() {}, nil
+}
+
+type officialImageUseAuthority struct{}
+
+func (officialImageUseAuthority) AuthorizeExecution(context.Context, imageagent.ExecutionIdentity) error {
+	return nil
+}
 
 type qwenFactoryTransport func(*http.Request) (*http.Response, error)
 
@@ -87,15 +100,32 @@ func TestGenerationProviderFactoryUsesBoundQwenAdapterAndOriginalObservation(t *
 		}
 		imageMethods++
 		t.Run(official.Key, func(t *testing.T) {
-			input.ImageSet.Method = &imageagent.ImageMethodBinding{PolicyVersion: imageagent.ImageMethodPolicyVersion, Skill: agent.SkillVersionRef{Kind: "skill-version-v1", ID: "2bb819bd-af13-4e68-95e0-1cc86130fb1f", OwnerKind: "PLATFORM", OwnerID: "official", Version: 1, Digest: official.Package.Digest, PolicyVersion: "skill-method-v1"}}
-			input.ImageMethodText = official.Package.Files[0].Text
+			input.ImageSet.Method = &imageagent.ImageMethodBinding{PolicyVersion: imageagent.ImageMethodPolicyVersion, Skill: agent.SkillVersionRef{Kind: "skill-version-v1", ID: "2bb819bd-af13-4e68-95e0-1cc86130fb1f", OwnerKind: "PLATFORM", OwnerID: "official", Version: official.Version, Digest: official.Package.Digest, PolicyVersion: "skill-method-v1"}}
+			adapter, err := skillimage.New(officialImageUseStore{official.Package}, officialImageUseAuthority{})
+			require.NoError(t, err)
+			id := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-1", TenantID: "org-1", UserID: "user-1", MemberID: "member-1", BusinessTaskID: "product-1"}
+			brief, release, err := imageagent.AcquireImageMethod(context.Background(), adapter, id, input.ImageSet.Method)
+			require.NoError(t, err)
+			defer release()
+			input.ImageMethodText = brief
 			expectedPrompt, err = imageagent.ComposeImageMethodPrompt(input.Slot.Recipe.Prompt, input.ImageMethodText)
 			require.NoError(t, err)
-			require.True(t, strings.HasSuffix(expectedPrompt, "\n"), "keep the approved method composition bytes")
+			require.Contains(t, expectedPrompt, brief)
+			for _, forbidden := range []string{"SKILL.md", "Method file:", "BEGIN UNTRUSTED METHOD", "listingkit-method-v1", "仅用于说明"} {
+				require.NotContains(t, expectedPrompt, forbidden)
+			}
 			expectedObservations = observed + 1
 			before := dispatches
 			methodQuote, err := prepared.Executor.QuoteSlot(context.Background(), input, imageagent.BudgetPolicy{})
 			require.NoError(t, err)
+			input.ImageSet.Method.PolicyVersion = imageagent.HistoricalImageMethodPolicyVersion
+			before = dispatches
+			_, err = prepared.Executor.QuoteSlot(context.Background(), input, imageagent.BudgetPolicy{})
+			require.Error(t, err)
+			_, err = prepared.Executor.GenerateQuotedSlot(context.Background(), input, methodQuote)
+			require.Error(t, err)
+			require.Equal(t, before, dispatches, "historical policy cannot grant a provider POST")
+			input.ImageSet.Method.PolicyVersion = imageagent.ImageMethodPolicyVersion
 			_, err = prepared.Executor.GenerateQuotedSlot(context.Background(), input, methodQuote)
 			require.Equal(t, before+1, dispatches, "each official image method must reach exactly one provider POST")
 			require.NoError(t, err)

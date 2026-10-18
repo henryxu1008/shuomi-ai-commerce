@@ -132,6 +132,11 @@ func (s *Store) ResolveSelectionForTarget(ctx context.Context, p d.Principal, id
 	if v.Package.Digest != digest {
 		return agent.SkillVersionRef{}, d.ErrConflict
 	}
+	if target == d.ImageTarget {
+		if _, e = d.ImageVisualBrief(v.Package); e != nil {
+			return agent.SkillVersionRef{}, e
+		}
+	}
 	ref := v.Ref()
 	_, release, e := s.AcquireUseForTarget(ctx, p, ref, target)
 	if e != nil {
@@ -182,6 +187,11 @@ func (s *Store) CandidatesForTarget(ctx context.Context, p d.Principal, target s
 			}
 			if !d.Authorized(p, v, d.Use) || !v.Package.Supports(target) {
 				continue
+			}
+			if target == d.ImageTarget {
+				if _, e = d.ImageVisualBrief(v.Package); e != nil {
+					continue
+				}
 			}
 			v.Package.Files = nil
 			out = append(out, v)

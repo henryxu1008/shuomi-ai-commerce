@@ -339,6 +339,9 @@ func (e *GenerationExecution) prepareImageMethod(ctx context.Context, input Slot
 	if input.ImageSet == nil || input.ImageSet.Method == nil {
 		return input, func() {}, nil
 	}
+	if err := ValidateImageMethodDispatch(input.ImageSet.Method); err != nil {
+		return input, nil, err
+	}
 	text, release, err := AcquireImageMethod(ctx, e.dependencies.Methods, input.OrganizationIdentity, input.ImageSet.Method)
 	if err != nil {
 		return input, nil, err

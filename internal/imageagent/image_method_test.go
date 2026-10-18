@@ -2,6 +2,8 @@ package imageagent_test
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -10,6 +12,65 @@ import (
 	"task-processor/internal/agent"
 	"task-processor/internal/imageagent"
 )
+
+func TestImageMethodVisualPlanUsesNaturalFactsWithoutDocumentBlocks(t *testing.T) {
+	m := &methodFixture{text: "Soft photographic light and balanced negative space."}
+	s, _, _, _, _, _, ctx, input := imageSetServiceFixture(t, imageagent.WithImageMethodContext(m))
+	ref := imageMethodRef()
+	input.Method = &ref
+	prepared, err := s.PrepareImageSet(ctx, input)
+	require.NoError(t, err)
+	require.Equal(t, "image-method-visual-brief-v2", prepared.Projection.Plan.Set.Method.PolicyVersion)
+	for _, slot := range prepared.Projection.Plan.Slots {
+		require.NotContains(t, slot.Recipe.Prompt, `{"Product":`)
+		require.NotContains(t, slot.Recipe.Prompt, "ProductID")
+		require.NotContains(t, slot.Recipe.Prompt, "SKILL.md")
+	}
+}
+
+type historicalMethodRepository struct {
+	imageagent.Repository
+	input      imageagent.PrepareImageSetInput
+	historical bool
+}
+
+func (r *historicalMethodRepository) GetProjection(ctx context.Context, scope imageagent.RunScope) (imageagent.RunProjection, error) {
+	p, err := r.Repository.GetProjection(ctx, scope)
+	if err == nil && r.historical {
+		p.Plan.Set.Method.PolicyVersion = "image-method-prompt-v1"
+		raw, _ := json.Marshal(struct {
+			Input        imageagent.PrepareImageSetInput
+			MethodPolicy string
+		}{r.input, "image-method-prompt-v1"})
+		sum := sha256.Sum256(raw)
+		p.Plan.Set.InputDigest = hex.EncodeToString(sum[:])
+		p.Plan.Set.QuoteDigest, err = imageagent.ImageSetQuoteDigest(p.Plan)
+	}
+	return p, err
+}
+func TestHistoricalMethodSameKeyReadSurvivesPolicyChangeButNewConfirmIsBlocked(t *testing.T) {
+	var original *historicalMethodRepository
+	wrap := func(repo imageagent.Repository) imageagent.Repository {
+		original = &historicalMethodRepository{Repository: repo}
+		return original
+	}
+	m := &methodFixture{text: "A product photograph."}
+	s, _, _, cfg, _, _, ctx, input := imageSetServiceFixtureWithRepository(t, wrap, imageagent.WithImageMethodContext(m))
+	ref := imageMethodRef()
+	input.Method = &ref
+	original.input = input
+	_, err := s.PrepareImageSet(ctx, input)
+	require.NoError(t, err)
+	original.historical = true
+	calls := m.calls
+	old, err := s.PrepareImageSet(ctx, input)
+	require.NoError(t, err, "same stored v1 policy must determine its original hash")
+	require.Equal(t, "image-method-prompt-v1", old.Projection.Plan.Set.Method.PolicyVersion)
+	require.Equal(t, calls, m.calls)
+	_, err = s.ConfirmImagePlan(ctx, confirmSetInput(old))
+	require.ErrorIs(t, err, imageagent.ErrCommandBlocked)
+	require.Zero(t, cfg.admissions)
+}
 
 func imageMethodRef() agent.SkillVersionRef {
 	return agent.SkillVersionRef{Kind: "skill-version-v1", ID: "2bb819bd-af13-4e68-95e0-1cc86130fb1f", OwnerKind: "PLATFORM", OwnerID: "official", Version: 1, Digest: strings.Repeat("f", 64), PolicyVersion: "skill-method-v1"}
@@ -21,7 +82,7 @@ type methodFixture struct {
 	calls             int
 }
 
-func (m *methodFixture) AcquireImageMethod(context.Context, imageagent.ExecutionIdentity, agent.SkillVersionRef) (string, func(), error) {
+func (m *methodFixture) AcquireImageMethod(context.Context, imageagent.ExecutionIdentity, agent.SkillVersionRef, string) (string, func(), error) {
 	m.calls++
 	if m.unavailable {
 		return "", nil, imageagent.ErrCommandBlocked

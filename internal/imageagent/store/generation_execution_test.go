@@ -129,6 +129,21 @@ func TestSetGenerationExecutionUsesFrozenInputAndOriginalEconomicOwner(t *testin
 						return imageagent.PreparedGenerationProvider{Executor: provider, Metadata: imageagent.GenerationProviderMetadata{Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1", PromptVersion: "old-white-prompt", PriceVersion: "price-1", Points: 12}}, nil
 					}, RevalidateProvider: func(context.Context, imageagent.GenerationProviderMetadata) error { return nil }})
 					require.NoError(t, err)
+					if useMethod {
+						input.ImageSet.Method.PolicyVersion = imageagent.HistoricalImageMethodPolicyVersion
+						_, oldErr := executor.QuoteSlot(ctx, input, imageagent.BudgetPolicy{})
+						require.ErrorIs(t, oldErr, imageagent.ErrCommandBlocked)
+						_, oldErr = executor.GenerateQuotedSlot(ctx, input, imageagent.SlotUsageQuote{})
+						require.ErrorIs(t, oldErr, imageagent.ErrCommandBlocked)
+						_, oldErr = owner.ReadGenerationFact(ctx, identity.Identity)
+						require.ErrorIs(t, oldErr, imageagent.ErrRunNotFound)
+						var reservations int64
+						require.NoError(t, commercial.Table("saas_organization_resource_reservations").Count(&reservations).Error)
+						require.Zero(t, reservations)
+						require.Zero(t, provider.dispatches)
+						require.Zero(t, method.calls)
+						input.ImageSet.Method.PolicyVersion = imageagent.ImageMethodPolicyVersion
+					}
 					quote, err := executor.QuoteSlot(ctx, input, imageagent.BudgetPolicy{})
 					require.NoError(t, err)
 					_, err = executor.GenerateQuotedSlot(ctx, input, quote)
@@ -154,6 +169,9 @@ func TestSetGenerationExecutionUsesFrozenInputAndOriginalEconomicOwner(t *testin
 					require.EqualValues(t, 12, read.Consumed)
 					calls := method.calls
 					method.unavailable = true
+					if useMethod {
+						input.ImageSet.Method.PolicyVersion = imageagent.HistoricalImageMethodPolicyVersion
+					}
 					_, err = executor.GenerateQuotedSlot(ctx, input, quote)
 					require.Error(t, err)
 					require.Equal(t, calls, method.calls, "existing effect readback precedes the new-method gate")
@@ -170,7 +188,7 @@ type generationMethodFixture struct {
 	calls             int
 }
 
-func (m *generationMethodFixture) AcquireImageMethod(context.Context, imageagent.ExecutionIdentity, agent.SkillVersionRef) (string, func(), error) {
+func (m *generationMethodFixture) AcquireImageMethod(context.Context, imageagent.ExecutionIdentity, agent.SkillVersionRef, string) (string, func(), error) {
 	m.calls++
 	if m.unavailable {
 		return "", nil, imageagent.ErrCommandBlocked

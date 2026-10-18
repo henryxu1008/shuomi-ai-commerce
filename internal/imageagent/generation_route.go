@@ -7,6 +7,11 @@ func validGenerationRoute(provider, model, protocol string) bool {
 }
 
 func validateGenerationRouteInput(m GenerationProviderMetadata, input SlotExecutionInput) error {
+	if input.ImageSet != nil {
+		if err := ValidateImageMethodDispatch(input.ImageSet.Method); err != nil {
+			return err
+		}
+	}
 	if m.Provider != "bailian" {
 		return nil
 	}

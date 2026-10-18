@@ -32,6 +32,16 @@ func TestImageMethodsRequireTheirOwnActivationTargetAndSharedOwner(t *testing.T)
 		for _, v := range items {
 			require.True(t, v.Package.Supports(target))
 			require.Empty(t, v.Package.Files)
+			if target == d.ImageTarget {
+				require.EqualValues(t, 2, v.Number)
+				old, err := s.Read(ctx, admin, d.Owner{Kind: d.PlatformOwner, ID: d.PlatformID}, v.Metadata.ID, 1)
+				require.NoError(t, err)
+				_, err = s.ResolveSelectionForTarget(ctx, p, old.Metadata.ID, 1, old.Package.Digest, d.ImageTarget)
+				require.ErrorIs(t, err, d.ErrInvalid)
+				_, held, err := s.AcquireUseForTarget(ctx, p, old.Ref(), d.ImageTarget)
+				require.NoError(t, err)
+				held()
+			}
 		}
 	}
 	var image agent.SkillVersionRef

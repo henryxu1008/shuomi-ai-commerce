@@ -4,11 +4,76 @@ import (
 	"context"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	d "task-processor/internal/skill"
 )
+
+func seedOfficialV1(t *testing.T) (*Store, []versionRow) {
+	t.Helper()
+	db, s := fixture(t)
+	releases, err := d.OfficialPackages()
+	require.NoError(t, err)
+	for _, release := range releases {
+		pkg := release.Package
+		if release.Previous != nil {
+			pkg = *release.Previous
+		}
+		id := uuid.NewSHA1(uuid.NameSpaceOID, []byte("skill:"+release.Key)).String()
+		now := time.Now().UTC()
+		require.NoError(t, db.Create(&skillRow{ID: id, OwnerKind: d.PlatformOwner, OwnerID: d.PlatformID, Creator: "original-maintainer", HeadVersion: 1, Revision: 3, CreatedAt: now, UpdatedAt: now}).Error)
+		require.NoError(t, insertVersion(db, d.Version{Metadata: d.Metadata{ID: id}, Number: 1, Package: pkg, State: d.Enabled, Visibility: d.Shared, AllowCopy: true, AllowExport: true, CreatedAt: now}))
+	}
+	var old []versionRow
+	require.NoError(t, db.Order("skill_id").Find(&old).Error)
+	return s, old
+}
+
+func TestOfficialVisualReleaseAppendsOnlyThreeVersionsAndPreservesAllOriginalRows(t *testing.T) {
+	s, old := seedOfficialV1(t)
+	ctx := context.Background()
+	p := d.Principal{UserID: "admin", PlatformMaintainer: true}
+	resolve := func(context.Context) (d.Principal, error) { return p, nil }
+	r, err := s.InstallOfficial(ctx, p, resolve)
+	require.NoError(t, err)
+	require.Len(t, r.Installed, 3)
+	require.Len(t, r.Existing, 3)
+	for _, ref := range r.Installed {
+		require.EqualValues(t, 2, ref.Version)
+	}
+	var after []versionRow
+	require.NoError(t, s.db.Where("version=1").Order("skill_id").Find(&after).Error)
+	require.Equal(t, old, after)
+	r, err = s.InstallOfficial(ctx, p, resolve)
+	require.NoError(t, err)
+	require.Empty(t, r.Installed)
+	require.Len(t, r.Existing, 6)
+	var count int64
+	require.NoError(t, s.db.Model(&versionRow{}).Count(&count).Error)
+	require.EqualValues(t, 9, count)
+}
+
+func TestOfficialVisualReleaseNeverOverridesDisabledOrManuallyAdvancedHead(t *testing.T) {
+	for _, mode := range []string{"disabled", "head"} {
+		t.Run(mode, func(t *testing.T) {
+			s, old := seedOfficialV1(t)
+			id := uuid.NewSHA1(uuid.NameSpaceOID, []byte("skill:official-method-v1:image-standard")).String()
+			if mode == "disabled" {
+				require.NoError(t, s.db.Exec("UPDATE skill_capability.versions SET state='DISABLED' WHERE skill_id=?", id).Error)
+			} else {
+				require.NoError(t, s.db.Exec("UPDATE skill_capability.skills SET head_version=3 WHERE id=?", id).Error)
+			}
+			p := d.Principal{UserID: "admin", PlatformMaintainer: true}
+			_, err := s.InstallOfficial(context.Background(), p, func(context.Context) (d.Principal, error) { return p, nil })
+			require.ErrorIs(t, err, d.ErrConflict)
+			var count int64
+			require.NoError(t, s.db.Model(&versionRow{}).Count(&count).Error)
+			require.EqualValues(t, len(old), count, "all earlier appends must roll back")
+		})
+	}
+}
 
 func TestOfficialInstallKeepsExistingVersionsAndStatesAcrossMaintainers(t *testing.T) {
 	db, s := fixture(t)
@@ -36,7 +101,7 @@ func TestOfficialInstallKeepsExistingVersionsAndStatesAcrossMaintainers(t *testi
 	require.Equal(t, v.Package, unchanged.Package)
 	var count int64
 	require.NoError(t, db.Raw("SELECT count(*) FROM skill_capability.versions").Scan(&count).Error)
-	require.EqualValues(t, 6, count)
+	require.EqualValues(t, 9, count)
 	_, err = s.InstallOfficial(ctx, d.Principal{UserID: "ordinary-user"}, resolve)
 	require.ErrorIs(t, err, d.ErrForbidden)
 }
