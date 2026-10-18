@@ -1,5 +1,7 @@
 # 旧 TEMU SKU/SKC 构建链退休边界
 
+> 后续窄替代：用户确认 #797 [图片编排退休边界](legacy-temu-image-orchestration-retirement-boundary.md) 后，仅其中七文件及专属 helper/alias/三个 AssetState 字段退出；本批保留的 ImageProcessor/ParallelImageProcessor、构建/填充/上传/vision 与平台合同不变，历史消费者和批准证据保留。
+
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
 后续用户确认的 [#773 类目/模板边界](legacy-temu-category-template-retirement-boundary.md) 已退休本文当批保留的五个 category/template handler 与两个专属 DTO 文件。下文消费者与删除前矩阵保留为历史取证；平台 API/DTO、四个 TemplateState 字段、有效规则和其它共享能力仍保留，仅这七文件由后续矩阵窄替代。

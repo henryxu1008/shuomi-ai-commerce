@@ -2,6 +2,21 @@
 
 > Status: Active legacy handling register
 
+> #29 / #301 [TEMU image orchestration retirement](../architecture/legacy-temu-image-orchestration-retirement-boundary.md)
+> follows user-confirmed design `1fb470269` in #797. Seven unused image
+> initialization/validation/parallel-upload files and their exclusive config
+> helper/local alias/import and three AssetState fields are source-retired.
+> Effective rules retain current Product/ApprovedAsset/TEMU goods owners;
+> no new extraction or entrypoint is introduced. Other image processing,
+> padding, vision, upload/API contracts, two padded maps and all four
+> TemplateState fields remain within this batch's preservation boundary.
+> The remaining unconsumed image subgraph is RETIRE debt, not compatibility,
+> a new requirement or authority to add consumers; whole-package retirement
+> is Backlog. Earlier preservation claims are superseded only for the seven
+> files and exclusive declarations/fields. Acquisition/Store observations,
+> independent SHEIN login/Store sync, workflows and ceilings remain unchanged;
+> no runtime/data action or new trial prerequisite is authorized.
+
 > #29 / #301 [TEMU category/template orchestration retirement](../architecture/legacy-temu-category-template-retirement-boundary.md)
 > follows user-confirmed design `a451f0cbd` in #773. Five unused handlers and two
 > exclusive input/output DTO files are source-retired. Valid category, template,
