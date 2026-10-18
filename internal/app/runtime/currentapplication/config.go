@@ -125,7 +125,11 @@ func (a *AccountAuditUsageConfig) validate(cfg *Config) error {
 		{"product", "product_agent", "account_audit_product_reader", a.Product, nil},
 	} {
 		if target.name == "image" && cfg.ImageAgent != nil {
-			target.execution = &cfg.ImageAgent.Database
+			if cfg.ImageAgent.WorkerConfigFile == "" {
+				target.execution = &cfg.ImageAgent.Database
+			} else if !sameDatabaseTarget(target.value, cfg.ImageAgent.Database) {
+				return errors.New("full image audit reader must use the same current Image owner")
+			}
 		}
 		if target.name == "product" && cfg.ProductAgent != nil && cfg.ProductAgent.Enabled {
 			target.execution = &cfg.ProductAgent.Database

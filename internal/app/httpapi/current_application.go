@@ -281,7 +281,13 @@ func WithAccountAuditUsageSources(image, product *gorm.DB) CurrentApplicationOpt
 
 func currentInvocationAuditSources(options currentApplicationOptions) (invocationAuditSources, error) {
 	sources := invocationAuditSources{}
-	if options.imageAgentDB != nil {
+	// Full Image HTTP has no ledger SELECT. Bind the existing dedicated reader
+	// once, rather than broadening execution privileges or querying two sources.
+	if options.fullImages != nil {
+		if options.accountAuditSources != 1 || options.accountAuditImageDB == nil || options.accountAuditImageDB == options.imageAgentDB {
+			return nil, errors.New("full image requires its independent current invocation audit reader")
+		}
+	} else if options.imageAgentDB != nil {
 		sources["image"] = options.imageAgentDB
 	}
 	if options.productAgent != nil && options.productAgent.RunDB != nil {

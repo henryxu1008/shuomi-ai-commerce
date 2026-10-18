@@ -43,6 +43,8 @@ Out of Scope：真实模型调用、另设点数账本或默认价格、跨企�
 
 运行实测细化：新增本地 MinIO bucket 的 GetBucketAcl 成功但 Owner 为空，原图片 storage capacity 接线无法确认物理归属。复用仓库已批准的 `s3.ClientConfig.CapacityIdentityProvider/CapacityMinIODeploymentID` 与 `ResolveCapacityNamespace` 的明确 MinIO 部署身份路径（认证读取 `/minio/admin/v3/info`、准确 pin、一致 endpoint/bucket），从图片 worker 私有 S3 配置显式传入；不从空 ACL 猜身份、不修改既有 namespace、不关闭计量、无 fallback 或新 owner。属已有合同的遗漏注入，在实现测试收敛；没有新增存储/资金语义。
 
+启动配置实测细化：原 `accountAuditUsage.image` 是同一 Image 账本的专用只读 pool；完整图片 HTTP 角色不具备该账本 SELECT，不能替代审计连接。完整模式必须保留明确、独立、有界的 `account_audit_image_reader` pool，校验其物理数据库与 Image owner 相同；账户审计只绑定此一个 image reader，不把执行 pool 当第二来源，不扩大 HTTP 角色权限。旧单图/标题的重复来源拒绝保持。此为既有账本 owner 与窄读角色的装配修复，原配置、账本和审计功能保留，无双读/fallback或新事实源。
+
 冻结路由元组：`provider=bailian`、`model=qwen-image-3.0`、`protocol=dashscope-image-sync-v1`，分辨率 `1024x1024`、quality `auto`。由受信 factory 同时提供给 ImageGenerationQuote、GenerationProviderMetadata、新 GenerationIntent/fingerprint、operation provider/model 比较和派发前 revalidate。领域只允许该完整元组与当前已批准的 `grsai/gpt-image-2.5/grsai-json-sync-v1`，交叉混配和未知值均拒绝；不按URL猜provider。未改变旧意图的准确字段/回执。
 
 ## 百炼协议边界

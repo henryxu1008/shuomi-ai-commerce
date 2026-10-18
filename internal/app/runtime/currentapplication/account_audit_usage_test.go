@@ -25,6 +25,18 @@ func auditUsageTestConfig() *Config {
 	return cfg
 }
 
+func TestFullImageAuditConfigurationRetainsTheExistingLedgerReader(t *testing.T) {
+	cfg := auditUsageTestConfig()
+	cfg.ImageAgent = &ImageAgentConfig{WorkerConfigFile: "/private/image/worker.yaml", Database: DatabaseConfig{Host: "127.0.0.1", Port: 15432, Database: "image_agent", User: "image_agent_runtime", MaxConnections: 2}}
+	if err := cfg.AccountAuditUsage.validate(cfg); err != nil {
+		t.Fatalf("full image must retain its bounded current-owner reader: %v", err)
+	}
+	cfg.AccountAuditUsage.Image.Port++
+	if cfg.AccountAuditUsage.validate(cfg) == nil {
+		t.Fatal("a reader from another physical owner must be rejected")
+	}
+}
+
 func TestAccountAuditUsageCombinesProductExecutionWithImageReader(t *testing.T) {
 	cfg := agentRuntimeConfig()
 	cfg.ProductAgent.Database.Database = "product_agent"
