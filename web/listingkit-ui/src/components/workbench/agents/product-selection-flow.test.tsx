@@ -214,7 +214,7 @@ it("can explicitly abandon only an uncertain free preparation and choose new fac
   await waitFor(() => expect(screen.getByRole("button", {name:"准备分析"})).toBeEnabled());
   fireEvent.click(screen.getByRole("button", {name:"准备分析"}));
   fireEvent.click(await screen.findByRole("button", {name:"放弃本页准备"}));
-  expect(await screen.findByRole("status")).toHaveTextContent(original);
+  await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(original));
   expect(screen.queryByRole("button", {name:"核实原请求"})).toBeNull();
   expect(screen.queryByRole("heading", {name:"已保存原始事实"})).toBeNull();
   choose();

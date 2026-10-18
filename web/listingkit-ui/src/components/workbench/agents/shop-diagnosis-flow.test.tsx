@@ -200,7 +200,7 @@ it("can explicitly abandon an uncertain free diagnosis preparation without start
   await waitFor(() => expect(screen.getByRole("button", {name:"准备分析"})).toBeEnabled());
   fireEvent.click(screen.getByRole("button", {name:"准备分析"}));
   fireEvent.click(await screen.findByRole("button", {name:"放弃本页准备"}));
-  expect(await screen.findByRole("status")).toHaveTextContent(original);
+  await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(original));
   expect(screen.queryByRole("button", {name:"核实原请求"})).toBeNull();
   expect(screen.queryByRole("heading", {name:"已保存经营事实"})).toBeNull();
   await choose();

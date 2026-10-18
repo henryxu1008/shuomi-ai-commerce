@@ -1,5 +1,7 @@
 # Architecture Documentation
 
+- [`task-center-native-run-projection-v1.md`](task-center-native-run-projection-v1.md): #798 Reuse Existing Architecture; source-neutral, read-only Task Center consumption of current authorized Agent/configuration recent-run contracts, independent of Chat execution readiness. Preserves native identities, source contexts, Review/UNKNOWN boundaries and retained runtime/data; no new execution or persistent Task owner.
+
 - [`own-product-rich-description-v1.md`](own-product-rich-description-v1.md): versioned safe rich descriptions in current Product/CompletionDraft, existing image pool, history/restore, and explicit text-only platform projection; no schema/runtime/provider action.
 - [`rich-description-simple-editor-images-v1.md`](rich-description-simple-editor-images-v1.md): official Simple Editor UI and direct description uploads; CompletionDraft versions candidate image references while fixed source/SKU images, existing upload permissions, capacity, CAS and recovery owners remain unchanged.
 
