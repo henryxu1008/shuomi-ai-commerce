@@ -21,7 +21,7 @@ Architecture / Contract：
 - [当前 TEMU 平台设计](temu-platform-v1.md) §8/§8.1、现有 marketplace TEMU goods/rules/model：资产批准、内容 hash、当次店铺/模式/类目/usage、几何/位置、官方上传效果及 receipt/UNKNOWN 各守原 owner；旧网页默认值不能成为当前规格权威。
 - [Product ImageAgent](product-image-agent-v1.md)、[官方标题与图片方法](official-skills-and-image-method-v1.md)：当前资产/图片方法选择、生成/审查/采用、预算与产物合同保留。#799 的 Bailian 接线由原 owner 实施；其未合并实现不是本设计的批准依据或验收证据。
 - [前批图片编排](legacy-temu-image-orchestration-retirement-boundary.md)、[SKU/SKC](legacy-temu-sku-skc-retirement-boundary.md)、[类目/模板](legacy-temu-category-template-retirement-boundary.md) 退休：历史取证和批准保持；用户确认本文后，只用 §5 替代本批 16 文件及专属 context 闭包的旧保留陈述，不覆盖其它保留能力。
-- [Prompt Management](zitadel-tenant-prompt-management.md)：catalog metadata、tenant override、管理 API 与 runtime rendering 分别有原 owner。vision prompt 的独立目录消费者见 §3，不能按唯一执行 caller 推定整个 key/模板闭包独占。
+- [Prompt Management](zitadel-tenant-prompt-management.md)：catalog metadata、tenant override、管理 API 与 runtime rendering 分别有原 owner。vision prompt 有目录引用但没有独立运行消费者，见 §3/§3.1；目录引用不证明该 prompt 是当前有效产品能力。
 - [Store current application](store-center-current-application-v1.md)、[Store observations](store-center-platform-observations-v1.md)、[独立 SHEIN 身份持久化](shein-worker-identity-persistence-boundary.md)：当前及保留运行链不借旧 Cookie/Profile 补当前身份，不操作运行资产。
 
 未来有界实施拟 **Reuse Existing Architecture**：只退出无装配的旧单域图片编排及专属内存值，当前正确能力/合同沿原 owner 保持，没有新产品流程、领域合同、事实/schema、身份/权限/tenant、状态机/事务、幂等/retry/UNKNOWN/recovery、AI 准入/预算/计量或平台副作用 owner。16 个完整生产文件共 1,964 行，加一个 mixed context 的专属删除；原两 guard 与必要清单/直接冲突文档预计不超过 30 个范围相关文件，生产删除量低于 2,500 行。不通过机械拆 PR 规避阈值；若实际超线且既有批准不足，或必须改变上述边界，停止受影响部分补适用 Independent Architecture 准入。
@@ -42,9 +42,18 @@ Should：原 guard、当前清单及直接冲突说明与源码一致。Out of S
 | Annotator → DimensionDrawer/DrawingUtils、rules.TextRenderer、imagex/downloader | 解码、白边、箭头/文本和编码；默认构造 NewVisionDetector(nil)，内部标注直接跳过检测 | RETIRE 包内实现及 DimensionInfo 本地 alias；保留原 TextRenderer/handlerbase.DimensionInfo、共享解码/编码/下载 |
 | VisionDetector → prompt.GlobalRegistry → 借用 ChatCompleter | 可显式传入客户端时构造 base64 文本请求，按 YES/NO 解析；基线没有包外或当前构造器注入 | RETIRE detector 及其包内 fallback 文本；不把此处提示词/YES分支复制成当前 vision 准入 |
 | UploadProcessor/Utils/Helpers → download/signature/upload service → 借用 APIClient | 旧 CDN 子串跳过、部分失败继续、批量不全时逐项再上传；填充字节/尺寸map、原URL、响应和默认尺寸共同组raw ImageInfo | RETIRE 编排/局部 TemuAPIClient 接口/helper；平台 api/image、APIClient/DTO/鉴权 owner 保留 |
-| prompt.KTemuVisionDetectorDetect → promptmgmt catalog/manifest + prompts/temu/vision_detector.yaml | **存在独立目录/模板管理源码消费者**；目录可生成 schema，并参与 Upsert 的 known-key 检查。promptmgmt 本身在31命令依赖中也为0，不能宣称当前运行入口已开放 | 保留 key/默认模板/catalog/manifest 与原管理/存储合同；不是该 image 包的专属下游，不按 runtime caller 唯一推定删除 |
+| prompt.KTemuVisionDetectorDetect → promptmgmt catalog/manifest + prompts/temu/vision_detector.yaml | 有目录/schema/Upsert known-key 源码引用，但 **没有独立运行消费者**；promptmgmt 本身在31命令依赖中也为0，不能宣称管理入口已开放或该 key 有执行效果 | 本批范围外保持源码，列入 §3.1 后续 RETIRE 候选；目录引用不构成有效能力/兼容性依据，不新增消费者 |
 
 架构问题：旧上传按“压缩后的成功切片索引”写回原 galleries，前项失败时后项可能覆盖前项 metadata；批量部分成功后再逐项尝试可能重复上传已成功项；adjustImageDimensions 只改 metadata 而不对应改远端像素；共享 padded map 在并发处理下没有明确隔离，子任务未消费传入取消 context；CDN strings.Contains 不证明 URL 授权、资产归属或上传成功。以上是可见源码风险，不是已发生的运行事故。当前没有装配用户路径，分类 **NOT_APPLICABLE（当前内部试用阻塞）**；通过退休旧编排收敛，不修旧链、不新增锁/上传账本/恢复平台或试用前置。
+
+### 3.1 独立检查指出的范围外残留
+
+准确范围是完整 `internal/temu/image` **执行包**、孤立 ImageRequirement 与专属 context 闭包；不是所有旧 image API/Prompt 残留已经清零。两项事实成立，均分类 **BACKLOG**：
+
+- `internal/temu/api/image` 在执行包退出后只剩 `api/api.go` re-export 与 guard 引用，没有当前生产行为消费者。旧 Cookie/MALL_ID API 不属于当前官方 `internal/integration/temu` 接入依据；本批按既定平台 API/DTO 范围边界不改它，不将 re-export 称为有效需求。
+- vision prompt 删除 detector 后只剩 key/默认模板/catalog metadata，目录管理也不能带来执行效果。其 key/default/catalog/known-key 是后续精确退休对象；不将目录引用称为独立语义消费者或保留能力证明。
+
+两项登记为后续 **RETIRE 候选**，并非新增 compatibility 类别或永久保留权利；不新增入口、消费者、包装或运行效果承诺。没有当前命令用户路径受阻或项目列明的 BLOCKER 后果，不扩大本轮16文件设计，也不增加内部试用前置。后续需确认各自精确 API/re-export/Prompt 删除边界；不因此访问、迁移或删除任何运行覆盖记录/资产。
 
 ## 4. 持久化、身份与平台副作用 owner
 
@@ -70,7 +79,7 @@ Should：原 guard、当前清单及直接冲突说明与源码一致。Out of S
 | 尺寸值、文本渲染 | handlerbase/property_types.go 的 DimensionInfo 仍被 rules.TextRenderer.DrawSummaryInfo 消费 | 原类型/单位语义、TextRenderer/字体实现与其它规则保持；只退 image/dimension_models.go alias，不能删共享 owner |
 | 白边、绘线、旧位置选图/最大9或10图/尺寸优先、AI尺寸转标注 | 候选包内专属设计；当前图像生成/已批准资产选择/原平台规则不依赖它；当前 scope 没有新增“自动尺寸标注/自动白边”产品要求 | RETIRE 包内算法/默认值/Task搬运，不新增同名 helper 或恢复旧刊登能力；保留其它包已有实际图像能力 |
 | 批量失败后逐项重试、CDN跳过、上传metadata与进度统计、context缓存 | 旧 Task/网页端编排，无当前持久化receipt/UNKNOWN依据 | RETIRE，不复制到当前效果/恢复协议；不增加“先完善通用上传系统”前置 |
-| vision模板/管理schema及其它保留平台API/DTO | 独立 promptmgmt、prompt registry 和原 api/image/re-export owner | 保持原合同；不声称这些都已由当前命令消费，不新增consumer、不将保留解释为永久权利；独立 owner 后续退休另定范围 |
+| vision模板/管理schema及旧 image API/DTO | 仅余目录或 re-export 静态引用，无独立运行消费者；不是当前有效能力依据 | 本批范围外不改，按 §3.1 登记后续 RETIRE 候选；不新增 consumer、不承诺效果、不将暂留源码解释为兼容或永久权利 |
 
 ## 5. 精确删除与保留矩阵（待用户确认）
 
@@ -86,8 +95,8 @@ Should：原 guard、当前清单及直接冲突说明与源码一致。Out of S
 | internal/temu/handlerbase/types.go（12） | RETIRE 整文件 | 只有孤立 ImageRequirement，无保留consumer，不保留空文件/type alias |
 | internal/temu/context/temu_context.go | RETIRE 专属两字段及载体 | 只删 PaddedImages/PaddedImageSizes、其map初始化、AssetState struct/匿名嵌入/构造literal；不留下空 AssetState 或新缓存/bytes owner |
 | handlerbase/property_types.go、rules/text_renderer.go、其它 handlerbase/rules/context | 原样保留 | DimensionInfo、TextRenderer及字体/单位、Runtime/Product/Template/Publish/Variant/RuleState、四TemplateState字段、API/Store/AI SKU合同全部保持 |
-| internal/temu/api/image、api/api.go、平台 product/models | 原样保留 | API/Upload/Signature/ValidationResult/ProcessingOptions/PaddingResult 等平台DTO及re-export原样，不按相同名称跟删 |
-| internal/prompt/keys.go、prompts/temu/vision_detector.yaml、promptmgmt catalog/manifest/service/store | 原样保留 | KTemuVisionDetectorDetect及目录元数据有独立consumer；原所有key/override/schema/管理行为保持，不清理可能的持久化覆盖 |
+| internal/temu/api/image、api/api.go、平台 product/models | 本批原样保留 | image API/Upload/Signature/ValidationResult/ProcessingOptions/PaddingResult/re-export 不因同名跟删；其中旧 image API/re-export 无当前行为 consumer，后续 RETIRE 候选见 §3.1，不冒称当前官方 API |
+| internal/prompt/keys.go、prompts/temu/vision_detector.yaml、promptmgmt catalog/manifest/service/store | 本批原样保留 | vision key/default/catalog 无独立执行 consumer，后续 RETIRE 候选见 §3.1；本批不改变 known-key 或管理行为，不访问/清理可能的持久化覆盖 |
 | shared imagex/downloader/goroutine/perf/timeout/logging/ptr、integration/openai/provider | 原样保留 | 当前图像/其它SHEIN消费者仍使用这些原能力；只退出两个旧OpenAI caller，不删共享包或更换客户端 |
 | 当前 Product/ImageAgent/ApprovedAsset、TEMU goods/rules/model、app supplychain/storecenter、#799候选 | 原样保留/不接管 | 当前图片/官方效果/权限/资产/预算/UNKNOWN/恢复保持；#799未合并实现不作为本批前置 |
 | AI/SKU、定价、两SHEIN属性、Reader/Cache/Mapping、采集/Store观察、独立SHEIN登录/Store sync | 原样保留 | 此前全部保留能力按原owner保持，不扩大到其它平台同名目录或真实资产 |
@@ -113,7 +122,7 @@ Cutover/deletion condition: 用户确认 §5/§6/§6.1/§7，登记/读回 Reuse
 
 | 现有位置 | 未来实施的最小变更 | 不得扩大 / 削弱 |
 | --- | --- | --- |
-| tests/listingkit_backend_retirement_test.go 缺席/保留map | 用整个 internal/temu/image 目录缺席覆盖包括#797七路径在内的全部Go文件，增加 handlerbase/types.go 缺席；移除已退休15文件、ImageRequirement、AssetState/两map/其初始化的旧保留token；新增原 DimensionInfo/TextRenderer/Prompt及当前规则/平台保留断言 | 原root/product/CLI/运行/身份/安全断言与有效保留map保持；整目录缺席比旧准确文件/包级名字检查更强，不为同名平台/其它包做全局禁令 |
+| tests/listingkit_backend_retirement_test.go 缺席/保留map | 用整个 internal/temu/image 目录缺席覆盖包括#797七路径在内的全部Go文件，增加 handlerbase/types.go 缺席；移除已退休15文件、ImageRequirement、AssetState/两map/其初始化的旧保留token；新增原 DimensionInfo/TextRenderer及当前有效规则/平台保留断言，共享Prompt合同复用原检查 | 原root/product/CLI/运行/身份/安全断言与有效保留map保持；整目录缺席比旧准确文件/包级名字检查更强，不为同名平台/其它包做全局禁令，不为§3.1残留新增保留断言 |
 | 同一测试原mixed AST与image专属fixture | 仅从必存遍历移除将消失的image项，保留原sku/filter/product/rules/handlerbase五包；image专属helper/十fixture随整目录禁令替代而退出，不留空调用；复用原AST局部检查防handlerbase.ImageRequirement alias/type及context.AssetState/两字段/初始化重建，保持其它领域同名值 | 原SKU九fixture和五mixed扫描不得删；旧三Asset字段/Publish禁令保持。不得使用遇缺就广泛skip、改root/ignore或新扫描框架。context仍有其余合同，不能把其检查整体删除 |
 | tests/import_boundaries_test.go TestTEMUOpenAIImportsStayAllowlisted | 仅删 image/dimension_annotator.go、image/vision_detector.go 两条失去的豁免 | 其它AI/SKU等条目、root/loader/deny/alias检查及scope原样；不顺带清理无关历史条目或修改provider准入 |
 | docs/refactoring/phase2-runtime-inventory.md 当前consumer register | 仅移除 core/logger → temu/image 与 integration/openai → temu/image 两行，因为完整包无源码consumer | 日期化inventory/历史debt list、其它consumer和全部closure ceiling保持，不误报logger/OpenAI或其它平台全部退休 |
