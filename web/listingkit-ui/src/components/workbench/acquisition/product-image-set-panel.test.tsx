@@ -42,6 +42,25 @@ async function prepare(){
  const button=screen.getByRole("button",{name:"准备整套图片计划（2 项）"});await waitFor(()=>expect(button).toBeEnabled());fireEvent.click(button);
 }
 
+it("allows method inspection with an authorized empty source while model readiness keeps preparation closed",async()=>{
+ const real=fetch.getMockImplementation()!;
+ fetch.mockImplementation((url,init)=>String(url).endsWith("/agents/product.image.agent")?Promise.resolve(Response.json({...entry,canUse:false,capabilities:[{...entry.capabilities[0],readiness:"UNAVAILABLE",reason:"模型配置尚未就绪"}]})):String(url).endsWith("/images/sources")?Promise.resolve(Response.json({contextKind:"acquisition",contextId:operation,source,manualReplacementAvailable:false,originals:[],evidence:{}})):real(url,init));
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ await screen.findByLabelText("使用的方法/技能（可选）");
+ expect(screen.getByText("模型配置尚未就绪")).toBeVisible();
+ expect(screen.getByText("当前商品没有原始图片，补充真实素材后才能准备生成计划。")).toBeVisible();
+ expect(fetch.mock.calls.some(([url,init])=>String(url).endsWith("/prepare")||init?.method==="POST")).toBe(false);
+});
+
+it("does not offer image method selection without image write permission",async()=>{
+ calls.context={...calls.context,permissions:["imageagent.read"]};
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ await screen.findByText("商品图片智能体");
+ await waitFor(()=>expect(screen.queryByText("正在读取企业配置与真实商品素材…")).toBeNull());
+ expect(screen.queryByLabelText("使用的方法/技能（可选）")).toBeNull();
+ expect(fetch.mock.calls.some(([url])=>String(url).endsWith("/skills/organization/image-candidates"))).toBe(false);
+});
+
 it("binds the selected image skill to preparation and displays the exact plan version",async()=>{
  const skillId="2bb819bd-af13-4e68-95e0-1cc86130fb1f",skillDigest="f".repeat(64),date="2026-10-18T00:00:00Z";
  const method={skill:{id:skillId,owner:{kind:"PLATFORM",id:"official"},creator:"maintainer",headVersion:1,revision:3,createdAt:date,updatedAt:date},version:1,package:{name:"product-image-standard",displayName:"标准商品套图",description:"围绕已选任务组织表达",target:"product-image",digest:skillDigest,files:null},state:"ENABLED",visibility:"SHARED",allowCopy:true,allowExport:true,createdAt:date};

@@ -12,7 +12,16 @@ import (
 // Source IDs are supplied by each existing source owner. Acquisition keeps
 // Catalog indexes; Supply keeps its publication-scoped source-image IDs.
 func PrepareImageProduct(contextID string, original, effective catalog.PublishedSnapshot, applyID string, assets []imageagent.AuthorizedAsset) (imageagent.ImageSetPreparation, error) {
-	if original.Identity != effective.Identity || original.Version == 0 || effective.Version < original.Version || original.PublicationID == "" || contextID == "" || len(assets) == 0 || (effective.Version > original.Version) != (applyID != "") {
+	if len(assets) == 0 {
+		return imageagent.ImageSetPreparation{}, imageagent.ErrRevisionConflict
+	}
+	return DescribeImageProduct(contextID, original, effective, applyID, assets)
+}
+
+// DescribeImageProduct exposes an authorized source truthfully, including an
+// empty original-image list. Generation still requires PrepareImageProduct.
+func DescribeImageProduct(contextID string, original, effective catalog.PublishedSnapshot, applyID string, assets []imageagent.AuthorizedAsset) (imageagent.ImageSetPreparation, error) {
+	if original.Identity != effective.Identity || original.Version == 0 || effective.Version < original.Version || original.PublicationID == "" || contextID == "" || (effective.Version > original.Version) != (applyID != "") {
 		return imageagent.ImageSetPreparation{}, imageagent.ErrRevisionConflict
 	}
 	attributes := map[string]string{}

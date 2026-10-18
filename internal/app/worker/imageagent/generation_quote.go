@@ -32,5 +32,5 @@ func (r imageGenerationQuoteReader) ReadImageGenerationQuote(ctx context.Context
 	if err != nil {
 		return imageagent.ImageGenerationQuote{}, err
 	}
-	return imageagent.ImageGenerationQuote{Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", PriceVersion: metadata.PriceVersion, Points: metadata.Points, RouteReference: metadata.RouteReference, CredentialReference: metadata.CredentialReference, ConfigurationVersion: metadata.ConfigurationVersion}, nil
+	return imageagent.ImageGenerationQuote{Provider: metadata.Provider, Model: metadata.Model, Protocol: metadata.Protocol, Resolution: "1024x1024", Quality: "auto", PriceVersion: metadata.PriceVersion, Points: metadata.Points, RouteReference: metadata.RouteReference, CredentialReference: metadata.CredentialReference, ConfigurationVersion: metadata.ConfigurationVersion}, nil
 }

@@ -39,6 +39,8 @@ Out of Scope：真实模型调用、另设点数账本或默认价格、跨企�
 
 现有本地待补全详情消费同一 ProductImageSetPanel（已有 Figma 方法选择组件），使用真实 `kind=supply` / 原 sourceId。只有当前可读合法来源且具备原 image write 的用户能选择方法；方法候选读取独立于图片模型 readiness，准备按钮仍要求原 AVAILABLE、有效模板、真实素材、模式和报价。缺少凭据时可核对方法准确版本，界面明确“模型配置尚未就绪”，不能生成/准备Run。切企业清空选择；不新增默认方法或持久化设置。
 
+实现细化：现存合法 Preparation 来源没有原图时，read-only description 如实返回空 originals 与原来源绑定；PrepareImageProduct 仍拒绝空原图，不改变生成素材合同。`SourceSelector.WithExecution` 会修改 receiver，装配须复制 selector 后调用，以保留既有浏览器来源端口。
+
 冻结路由元组：`provider=bailian`、`model=qwen-image-3.0`、`protocol=dashscope-image-sync-v1`，分辨率 `1024x1024`、quality `auto`。由受信 factory 同时提供给 ImageGenerationQuote、GenerationProviderMetadata、新 GenerationIntent/fingerprint、operation provider/model 比较和派发前 revalidate。领域只允许该完整元组与当前已批准的 `grsai/gpt-image-2.5/grsai-json-sync-v1`，交叉混配和未知值均拒绝；不按URL猜provider。未改变旧意图的准确字段/回执。
 
 ## 百炼协议边界

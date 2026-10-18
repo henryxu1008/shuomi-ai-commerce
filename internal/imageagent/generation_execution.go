@@ -18,6 +18,7 @@ type GenerationMemberLimit struct {
 	MonthStart time.Time
 }
 type GenerationProviderMetadata struct {
+	Provider, Model, Protocol                                                              string
 	RouteReference, CredentialReference, ConfigurationVersion, PromptVersion, PriceVersion string
 	Points                                                                                 int64
 }
@@ -154,7 +155,7 @@ func (e *GenerationExecution) GenerateQuotedSlot(ctx context.Context, input Slot
 		return reject(err)
 	}
 	m := provider.Metadata
-	intent = GenerationIntent{Identity: id, MemberID: input.OrganizationIdentity.MemberID, CatalogHash: input.AssetCatalog.Manifest.Hash, SourceDigest: sourceDigest, PromptVersion: m.PromptVersion, RouteReference: m.RouteReference, CredentialReference: m.CredentialReference, ConfigurationVersion: m.ConfigurationVersion, Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", PriceVersion: m.PriceVersion, Points: m.Points, LimitVersion: limit.Version, MonthStart: limit.MonthStart}
+	intent = GenerationIntent{Identity: id, MemberID: input.OrganizationIdentity.MemberID, CatalogHash: input.AssetCatalog.Manifest.Hash, SourceDigest: sourceDigest, PromptVersion: m.PromptVersion, RouteReference: m.RouteReference, CredentialReference: m.CredentialReference, ConfigurationVersion: m.ConfigurationVersion, Provider: m.Provider, Model: m.Model, Protocol: m.Protocol, Resolution: "1024x1024", Quality: "auto", PriceVersion: m.PriceVersion, Points: m.Points, LimitVersion: limit.Version, MonthStart: limit.MonthStart}
 	if input.Artwork != nil {
 		intent.InputProtocol, intent.InputDigest, intent.PromptVersion = ArtworkSchema, sourceDigest, input.Artwork.PromptVersion
 	} else if input.ImageSet != nil {
@@ -288,8 +289,11 @@ func (e *GenerationExecution) authorize(ctx context.Context, input SlotExecution
 }
 func quoteGenerationProvider(ctx context.Context, p PreparedGenerationProvider, input SlotExecutionInput, policy BudgetPolicy) (SlotUsageQuote, SlotUsageQuote, error) {
 	m := p.Metadata
-	if p.Executor == nil || m.Points <= 0 || m.PriceVersion == "" || m.RouteReference == "" || m.CredentialReference == "" || m.ConfigurationVersion == "" || m.PromptVersion == "" {
+	if p.Executor == nil || !validGenerationRoute(m.Provider, m.Model, m.Protocol) || m.Points <= 0 || m.PriceVersion == "" || m.RouteReference == "" || m.CredentialReference == "" || m.ConfigurationVersion == "" || m.PromptVersion == "" {
 		return SlotUsageQuote{}, SlotUsageQuote{}, ErrBudgetQuoteUnavailable
+	}
+	if err := validateGenerationRouteInput(m, input); err != nil {
+		return SlotUsageQuote{}, SlotUsageQuote{}, err
 	}
 	base, err := p.Executor.QuoteSlot(ctx, input, policy)
 	if err != nil {
@@ -310,11 +314,11 @@ func quoteGenerationProvider(ctx context.Context, p PreparedGenerationProvider, 
 	}
 	if inputQuote != nil {
 		q := *inputQuote
-		if q.PriceVersion != m.PriceVersion || q.Points != m.Points || q.RouteReference != m.RouteReference || q.CredentialReference != m.CredentialReference || q.ConfigurationVersion != m.ConfigurationVersion {
+		if !q.Valid() || q.Provider != m.Provider || q.Model != m.Model || q.Protocol != m.Protocol || q.PriceVersion != m.PriceVersion || q.Points != m.Points || q.RouteReference != m.RouteReference || q.CredentialReference != m.CredentialReference || q.ConfigurationVersion != m.ConfigurationVersion {
 			return SlotUsageQuote{}, SlotUsageQuote{}, ErrRevisionConflict
 		}
 	}
-	if op.Name != operation || op.Provider != "grsai" || op.Model != "gpt-image-2.5" || op.MaximumOutputs != 1 {
+	if op.Name != operation || op.Provider != m.Provider || op.Model != m.Model || op.MaximumOutputs != 1 {
 		return SlotUsageQuote{}, SlotUsageQuote{}, ErrBudgetQuoteUnavailable
 	}
 	quote := base

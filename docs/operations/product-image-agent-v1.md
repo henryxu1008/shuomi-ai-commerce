@@ -70,3 +70,13 @@ pnpm.cmd exec next start --hostname 127.0.0.1 --port 3000
 原图与集合/Apply 在 Product DB，模板与准入回执在 ProductAgentDB，Run/Plan/effect 与批准图片在各自同一物理 Image/Asset owner 的事实表，点数在 orgresource owner，图片字节在既有不可变 object storage，workflow 在原 Temporal namespace。停止或重启沿用原私有配置和数据；不重新初始化，不使用 `down -v`。
 
 本批次开发自检覆盖真实领域/持久化测试、原 effect 收束、配置准入和原动作恢复，以及 Console/BFF 的完整交互。具体最终 HEAD、CI、独立检查和可运行实例情况记录在 PR #616；此说明不声称已经启动含真实付费模型和正式平台的实例。
+
+## 百炼接线增量（#774 / PR #799）
+
+依据[百炼图片接线设计](../architecture/bailian-product-image-wiring-v1.md)，企业图片凭据槽仍为 `image_gpt_image_2`；显式使用 `api_style=dashscope`、`model=qwen-image-3.0`，北京 `https://dashscope.aliyuncs.com` 或准确业务空间域名。不使用图片翻译模型、不复用标题密钥或宿主 CLI 配置。本地试用由用户委托选择每张1点，价格版本 `bailian-qwen-image-3-trial-20261018-v1`；沿原点数确认与 UNKNOWN 恢复。
+
+本地待补全详情使用原 Preparation 来源打开同一整套图片面板，完整平台 Supply 开关仍可关闭。来源读取使用原 read 权限，方法选择要求原 image write；没有原图时如实返回空列表，仍能核对方法版本，Prepare 保持拒绝。缺少模型配置或智能体未启用时不能准备或生成。
+
+专用 Image 库若只存在**当前完整** `ai_invocations`，可在保留备份后显式运行 `product-listing-api-schema-migrate -prepare-ledger-only-organization-image-agent -config <private-owner.yaml> -current-application-manifest <private-current.json>`。入口核实准确数据库、原 ledger owner/列/索引/约束和单表状态，事务只创建缺失的当前 Image、Asset、credential 表，不迁移或改写账本；未知、混合或已安装状态拒绝。原空库初始化保持严格；普通 API/worker 启动不执行 DDL。随后沿现有独立窄角色 grant / verify 维护入口装配，不能把 owner pool 用于 HTTP 或 worker。
+
+PR 的受控 HTTP/隔离 PostgreSQL 测试不等于真实百炼调用。运行实例、凭据准入、实际生图与用户验收分别记录在 #774 / #799。

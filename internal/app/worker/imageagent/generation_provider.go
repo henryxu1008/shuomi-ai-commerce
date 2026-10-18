@@ -16,12 +16,13 @@ import (
 	"task-processor/internal/core/config"
 	"task-processor/internal/imageagent"
 	"task-processor/internal/imageagent/tools"
+	"task-processor/internal/integration/bailian"
 	"task-processor/internal/integration/grsai"
 	openai "task-processor/internal/integration/openai"
 	productimage "task-processor/internal/product/image"
 )
 
-// This factory binds the current synchronous GRSAI consumer explicitly. It
+// This factory binds an admitted synchronous image consumer explicitly. It
 // never asks the OpenAI manager to guess a provider from a compatible URL.
 type generationProviderFactory struct {
 	resolver openai.ClientConfigResolver
@@ -41,17 +42,38 @@ func (f generationProviderFactory) prepare(ctx context.Context, observe func(con
 	if err != nil {
 		return imageagent.PreparedGenerationProvider{}, err
 	}
-	client := grsai.NewClient(grsai.Config{APIKey: cfg.APIKey, Model: cfg.Model, SubmitURL: cfg.BaseURL, Timeout: cfg.Timeout, HTTPClient: f.providerHTTPClient, MaxAttempts: 1, Logger: grsai.AdaptLogrus(f.logger)})
-	observer := func(ctx context.Context, observation grsai.GenerationObservation) error {
-		proof := imageagent.GenerationSuccess{ResponseID: observation.ResponseID, RequestID: observation.RequestID, ResultDigest: observation.ResultDigest, UsageKnown: observation.UsageKnown, InputTokens: int64(observation.Usage.PromptTokens), OutputTokens: int64(observation.Usage.CompletionTokens), TotalTokens: int64(observation.Usage.TotalTokens)}
-		return observe(ctx, proof.WithResultLocator(observation.ResultURL, observation.ResultUnavailable))
+	build := func(bound ai.RouteBoundImageGenerator) (*openai.ProductImageAdapter, error) {
+		return openai.NewProductImageAdapter(openai.ProductImageAdapterConfig{ImageClient: bound, Provider: metadata.Provider, ImageModel: cfg.Model, RouteReference: metadata.RouteReference, CredentialReference: metadata.CredentialReference, ConfigurationVersion: metadata.ConfigurationVersion, Prompts: openai.DefaultProductImagePrompts(), PricingVersion: metadata.PriceVersion, MaximumSceneOutputs: 1, GeneratedImageFetcher: f.generatedFetcher})
 	}
-	provider, err := grsai.NewSynchronousProductImageAdapter(grsai.ProductImageAdapterConfig{
-		Client: client, ImageModel: cfg.Model, RouteReference: metadata.RouteReference, CredentialReference: metadata.CredentialReference, ConfigurationVersion: metadata.ConfigurationVersion,
-		Build: func(bound ai.RouteBoundImageGenerator) (grsai.ProductImageProvider, error) {
-			return openai.NewProductImageAdapter(openai.ProductImageAdapterConfig{ImageClient: bound, Provider: "grsai", ImageModel: cfg.Model, RouteReference: metadata.RouteReference, CredentialReference: metadata.CredentialReference, ConfigurationVersion: metadata.ConfigurationVersion, Prompts: openai.DefaultProductImagePrompts(), PricingVersion: metadata.PriceVersion, MaximumSceneOutputs: 1, GeneratedImageFetcher: f.generatedFetcher})
-		},
-	}, observer)
+	var provider synchronousImageProvider
+	var generate func(context.Context, *ai.ImageGenerateRequest) (*ai.ImageResponse, error)
+	if metadata.Provider == "bailian" {
+		client, clientErr := bailian.NewClient(bailian.Config{APIKey: cfg.APIKey, BaseURL: cfg.BaseURL, Timeout: cfg.Timeout, CredentialReference: metadata.CredentialReference, ConfigurationVersion: metadata.ConfigurationVersion, HTTPClient: f.providerHTTPClient}, func(ctx context.Context, observation bailian.Observation) error {
+			return observe(ctx, imageagent.GenerationSuccess{ResponseID: observation.RequestID, RequestID: observation.RequestID, ResultDigest: observation.ResultDigest}.WithResultLocator(observation.ResultURL, ""))
+		})
+		if clientErr != nil {
+			return imageagent.PreparedGenerationProvider{}, imageagent.ErrBudgetQuoteUnavailable
+		}
+		provider, err = build(client)
+		generate = func(ctx context.Context, req *ai.ImageGenerateRequest) (*ai.ImageResponse, error) {
+			return client.GenerateImageWithRoute(ctx, req, ai.ImageRouteSelection{CredentialReference: metadata.CredentialReference, ConfigurationVersion: metadata.ConfigurationVersion})
+		}
+	} else {
+		client := grsai.NewClient(grsai.Config{APIKey: cfg.APIKey, Model: cfg.Model, SubmitURL: cfg.BaseURL, Timeout: cfg.Timeout, HTTPClient: f.providerHTTPClient, MaxAttempts: 1, Logger: grsai.AdaptLogrus(f.logger)})
+		observer := func(ctx context.Context, observation grsai.GenerationObservation) error {
+			proof := imageagent.GenerationSuccess{ResponseID: observation.ResponseID, RequestID: observation.RequestID, ResultDigest: observation.ResultDigest, UsageKnown: observation.UsageKnown, InputTokens: int64(observation.Usage.PromptTokens), OutputTokens: int64(observation.Usage.CompletionTokens), TotalTokens: int64(observation.Usage.TotalTokens)}
+			return observe(ctx, proof.WithResultLocator(observation.ResultURL, observation.ResultUnavailable))
+		}
+		provider, err = grsai.NewSynchronousProductImageAdapter(grsai.ProductImageAdapterConfig{
+			Client: client, ImageModel: cfg.Model, RouteReference: metadata.RouteReference, CredentialReference: metadata.CredentialReference, ConfigurationVersion: metadata.ConfigurationVersion,
+			Build: func(bound ai.RouteBoundImageGenerator) (grsai.ProductImageProvider, error) {
+				return build(bound)
+			},
+		}, observer)
+		generate = func(ctx context.Context, req *ai.ImageGenerateRequest) (*ai.ImageResponse, error) {
+			return client.GenerateImageOnce(ctx, req, observer)
+		}
+	}
 	if err != nil {
 		return imageagent.PreparedGenerationProvider{}, imageagent.ErrBudgetQuoteUnavailable
 	}
@@ -68,7 +90,15 @@ func (f generationProviderFactory) prepare(ctx context.Context, observe func(con
 		return imageagent.PreparedGenerationProvider{}, err
 	}
 	executor := tools.NewProductImageSlotExecutor(tools.Dependencies{SourceEditor: editor, WhiteBackgroundRenderer: white, UsageQuoter: provider, ProfileResolver: f.profile})
-	return imageagent.PreparedGenerationProvider{Metadata: metadata, Executor: scopedGenerationExecutor{product: executor, artwork: tools.NewArtworkSlotExecutor(artworkCreator{client: client, observe: observer, fetch: f.generatedFetcher})}}, nil
+	return imageagent.PreparedGenerationProvider{Metadata: metadata, Executor: scopedGenerationExecutor{product: executor, artwork: tools.NewArtworkSlotExecutor(artworkCreator{generate: generate, model: cfg.Model, fetch: f.generatedFetcher})}}, nil
+}
+
+type synchronousImageProvider interface {
+	productimage.SubjectExtractor
+	productimage.WhiteBackgroundRenderer
+	productimage.SceneRenderer
+	productimage.Reviewer
+	productimage.UsageQuoter
 }
 
 func (f generationProviderFactory) revalidate(ctx context.Context, expected imageagent.GenerationProviderMetadata) error {
@@ -97,16 +127,29 @@ func (f generationProviderFactory) resolve(ctx context.Context) (*openai.ClientC
 	}
 	cfg := *resolved.Config
 	u, err := url.Parse(cfg.BaseURL)
-	if err != nil || u == nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || cfg.APIStyle != "grsai" || cfg.Model != "gpt-image-2.5" || cfg.APIKey == "" || cfg.Timeout <= 0 || cfg.Timeout > 5*time.Minute {
+	if err != nil || u == nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || cfg.APIKey == "" || cfg.Timeout <= 0 || cfg.Timeout > 5*time.Minute {
 		return invalid()
 	}
-	switch strings.TrimSuffix(u.Path, "/") {
-	case "", "/v1", "/v1/api/generate":
+	provider, protocol, route := "", "", ""
+	switch {
+	case cfg.APIStyle == "dashscope" && cfg.Model == bailian.Model:
+		endpoint, endpointErr := bailian.Endpoint(cfg.BaseURL)
+		if endpointErr != nil {
+			return invalid()
+		}
+		provider, protocol, route = "bailian", bailian.Protocol, "bailian-sync:"+generationConfigDigest(endpoint)
+	case cfg.APIStyle == "grsai" && cfg.Model == "gpt-image-2.5":
+		switch strings.TrimSuffix(u.Path, "/") {
+		case "", "/v1", "/v1/api/generate":
+		default:
+			return invalid()
+		}
+		provider, protocol, route = "grsai", "grsai-json-sync-v1", "grsai-sync:"+generationConfigDigest(cfg.BaseURL)
 	default:
 		return invalid()
 	}
 	prompts := openai.DefaultProductImagePrompts()
-	metadata := imageagent.GenerationProviderMetadata{RouteReference: "grsai-sync:" + generationConfigDigest(cfg.BaseURL), CredentialReference: resolved.CacheKey, ConfigurationVersion: generationConfigDigest(struct {
+	metadata := imageagent.GenerationProviderMetadata{Provider: provider, Model: cfg.Model, Protocol: protocol, RouteReference: route, CredentialReference: resolved.CacheKey, ConfigurationVersion: generationConfigDigest(struct {
 		Version, Model, Style, URL string
 		Timeout                    time.Duration
 	}{resolved.CacheKey, cfg.Model, cfg.APIStyle, cfg.BaseURL, cfg.Timeout}), PromptVersion: prompts.Version, PriceVersion: f.price.PriceVersion, Points: f.price.PointsPerImage}

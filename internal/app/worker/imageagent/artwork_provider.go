@@ -7,20 +7,19 @@ import (
 	"task-processor/internal/ai"
 	"task-processor/internal/imageagent"
 	"task-processor/internal/imageagent/tools"
-	"task-processor/internal/integration/grsai"
 	"task-processor/internal/integration/httpimage"
 )
 
 // This adapter reuses the fixed single-dispatch SDK transport and the same
 // generation observer. It never constructs an original-image placeholder.
 type artworkCreator struct {
-	client  *grsai.Client
-	observe grsai.GenerationObserver
-	fetch   func(context.Context, string) ([]byte, error)
+	generate func(context.Context, *ai.ImageGenerateRequest) (*ai.ImageResponse, error)
+	model    string
+	fetch    func(context.Context, string) ([]byte, error)
 }
 
 func (a artworkCreator) CreateArtwork(ctx context.Context, prompt string) (imageagent.GeneratedAsset, error) {
-	response, err := a.client.GenerateImageOnce(ctx, &ai.ImageGenerateRequest{Model: "gpt-image-2.5", Prompt: prompt, N: 1, Size: "1024x1024", Quality: "auto"}, a.observe)
+	response, err := a.generate(ctx, &ai.ImageGenerateRequest{Model: a.model, Prompt: prompt, N: 1, Size: "1024x1024", Quality: "auto"})
 	if err != nil {
 		return imageagent.GeneratedAsset{}, err
 	}

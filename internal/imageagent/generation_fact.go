@@ -111,7 +111,7 @@ func NewGenerationFact(intent GenerationIntent) (GenerationFact, error) {
 	}
 	if intent.Identity.PlanRevision <= 0 || intent.Identity.Attempt <= 0 || intent.Points <= 0 || intent.LimitVersion <= 0 ||
 		!validGenerationCatalogHash(intent.CatalogHash) || !generationDigest(intent.SourceDigest) ||
-		intent.Provider != "grsai" || intent.Model != "gpt-image-2.5" || intent.Protocol != "grsai-json-sync-v1" || intent.Resolution != "1024x1024" || intent.Quality != "auto" ||
+		!validGenerationRoute(intent.Provider, intent.Model, intent.Protocol) || intent.Resolution != "1024x1024" || intent.Quality != "auto" ||
 		intent.MonthStart.IsZero() || intent.MonthStart != time.Date(intent.MonthStart.UTC().Year(), intent.MonthStart.UTC().Month(), 1, 0, 0, 0, 0, time.UTC) {
 		return GenerationFact{}, ErrValidation
 	}

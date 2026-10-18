@@ -7,7 +7,7 @@ import (
 )
 
 func (a *ProductImageAdapter) EditSources(ctx context.Context, request productimage.SourceEditRequest) (productimage.Candidate, error) {
-	if a == nil || a.config.Provider != "grsai" || a.config.ImageModel != "gpt-image-2.5" {
+	if a == nil || !a.supportsSourceEdit() {
 		return productimage.Candidate{}, productimage.ErrCapabilityUnsupported
 	}
 	cloned, err := productimage.CloneSourceEditRequest(request)
@@ -39,4 +39,8 @@ func (a *ProductImageAdapter) EditSources(ctx context.Context, request productim
 	}
 	candidate.Metadata.PromptVersion = cloned.PromptVersion
 	return candidate, nil
+}
+
+func (a *ProductImageAdapter) supportsSourceEdit() bool {
+	return a.config.Provider == "grsai" && a.config.ImageModel == "gpt-image-2.5" || a.config.Provider == "bailian" && a.config.ImageModel == "qwen-image-3.0"
 }

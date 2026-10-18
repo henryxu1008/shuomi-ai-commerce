@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	aistore "task-processor/internal/aicapability/store"
 )
 
 var trialDBNamePattern = regexp.MustCompile(`(?:^|\s)dbname=([^\s]+)`)
@@ -48,7 +49,22 @@ func TestOrganizationImageAgentInitCreatesOnlyCurrentOwnerTablesPostgres(t *test
 	trialPool, err = gorm.Open(postgres.Open(trialDSN), &gorm.Config{})
 	require.NoError(t, err)
 	ctx := context.Background()
-	require.NoError(t, migrateEmptyOrganizationImageAgent(ctx, trialPool))
+	require.NoError(t, aistore.AutoMigrateInvocationLedger(trialPool))
+	require.NoError(t, trialPool.Exec(`INSERT INTO ai_invocations(invocation_id,tenant_id,outcome) VALUES('retained-receipt','retained-org','unknown')`).Error)
+	require.Error(t, migrateEmptyOrganizationImageAgent(ctx, trialPool), "the original empty initializer must stay strict")
+	require.NoError(t, trialPool.Exec("CREATE TABLE unrelated(id text)").Error)
+	require.Error(t, prepareLedgerOnlyOrganizationImageAgent(ctx, trialPool))
+	require.False(t, trialPool.Migrator().HasTable("image_agent_v2_runs"))
+	require.NoError(t, trialPool.Exec("DROP TABLE unrelated").Error)
+	require.NoError(t, trialPool.Exec("ALTER TABLE ai_invocations RENAME COLUMN invocation_id TO wrong_id").Error)
+	require.Error(t, prepareLedgerOnlyOrganizationImageAgent(ctx, trialPool))
+	require.False(t, trialPool.Migrator().HasTable("image_agent_v2_runs"))
+	require.NoError(t, trialPool.Exec("ALTER TABLE ai_invocations RENAME COLUMN wrong_id TO invocation_id").Error)
+	require.NoError(t, prepareLedgerOnlyOrganizationImageAgent(ctx, trialPool))
+	var retained string
+	require.NoError(t, trialPool.Raw(`SELECT outcome FROM ai_invocations WHERE invocation_id='retained-receipt' AND tenant_id='retained-org'`).Scan(&retained).Error)
+	require.Equal(t, "unknown", retained)
+	require.Error(t, prepareLedgerOnlyOrganizationImageAgent(ctx, trialPool), "mixed or installed databases require verification, not another initialization")
 	var names []string
 	require.NoError(t, trialPool.Raw(`SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename`).Scan(&names).Error)
 	want := []string{
