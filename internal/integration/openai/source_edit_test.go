@@ -10,8 +10,8 @@ import (
 )
 
 func TestSourceEditAdapterSendsExactBundleAndApprovedPromptOnce(t *testing.T) {
-	for _, route := range [][2]string{{"grsai", "gpt-image-2.5"}, {"bailian", "qwen-image-3.0"}} {
-		t.Run(route[0], func(t *testing.T) { testSourceEditAdapter(t, route[0], route[1]) })
+	for _, route := range [][2]string{{"grsai", "gpt-image-2.5"}, {"bailian", "qwen-image-3.0"}, {"bailian", "qwen-image-3.0-pro"}} {
+		t.Run(route[1], func(t *testing.T) { testSourceEditAdapter(t, route[0], route[1]) })
 	}
 }
 

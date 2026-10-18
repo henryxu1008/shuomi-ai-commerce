@@ -3,6 +3,7 @@ package openai
 import (
 	"context"
 	"task-processor/internal/ai"
+	"task-processor/internal/integration/bailian"
 	productimage "task-processor/internal/product/image"
 )
 
@@ -42,5 +43,5 @@ func (a *ProductImageAdapter) EditSources(ctx context.Context, request productim
 }
 
 func (a *ProductImageAdapter) supportsSourceEdit() bool {
-	return a.config.Provider == "grsai" && a.config.ImageModel == "gpt-image-2.5" || a.config.Provider == "bailian" && a.config.ImageModel == "qwen-image-3.0"
+	return a.config.Provider == "grsai" && a.config.ImageModel == "gpt-image-2.5" || a.config.Provider == "bailian" && bailian.SupportsModel(a.config.ImageModel)
 }

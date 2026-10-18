@@ -6,9 +6,15 @@ import (
 )
 
 func TestQwenRouteIsBoundAcrossQuoteAndIntent(t *testing.T) {
+	for _, model := range []string{"qwen-image-3.0", "qwen-image-3.0-pro"} {
+		t.Run(model, func(t *testing.T) { testQwenRouteIsBoundAcrossQuoteAndIntent(t, model) })
+	}
+}
+
+func testQwenRouteIsBoundAcrossQuoteAndIntent(t *testing.T, model string) {
 	i := generationTestIntent()
 	i.Provider = "bailian"
-	i.Model = "qwen-image-3.0"
+	i.Model = model
 	i.Protocol = "dashscope-image-sync-v1"
 	_, err := NewGenerationFact(i)
 	require.NoError(t, err)

@@ -3,7 +3,7 @@ package imageagent
 // Only complete, explicitly admitted routes may enter an immutable quote or intent.
 func validGenerationRoute(provider, model, protocol string) bool {
 	return provider == "grsai" && model == "gpt-image-2.5" && protocol == "grsai-json-sync-v1" ||
-		provider == "bailian" && model == "qwen-image-3.0" && protocol == "dashscope-image-sync-v1"
+		provider == "bailian" && (model == "qwen-image-3.0" || model == "qwen-image-3.0-pro") && protocol == "dashscope-image-sync-v1"
 }
 
 func validateGenerationRouteInput(m GenerationProviderMetadata, input SlotExecutionInput) error {

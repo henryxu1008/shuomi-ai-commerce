@@ -27,6 +27,7 @@ import (
 )
 
 const Model = "qwen-image-3.0"
+const ModelPro = "qwen-image-3.0-pro"
 const Protocol = "dashscope-image-sync-v1"
 const imagePath = "/api/v1/services/aigc/multimodal-generation/generation"
 
@@ -35,10 +36,10 @@ var errInput = errors.New("Bailian image input or route unavailable")
 var errUnknown = errors.New("Bailian image outcome unknown")
 
 type Config struct {
-	BaseURL, APIKey, CredentialReference, ConfigurationVersion string
-	Timeout                                                    time.Duration
-	HTTPClient                                                 *http.Client // Explicit in-process test transports; production uses net/http.
-	Diagnose                                                   func(Diagnostic)
+	BaseURL, APIKey, CredentialReference, ConfigurationVersion, Model string
+	Timeout                                                           time.Duration
+	HTTPClient                                                        *http.Client // Explicit in-process test transports; production uses net/http.
+	Diagnose                                                          func(Diagnostic)
 }
 type Observation struct{ RequestID, ResultURL, ResultDigest string }
 type Observer func(context.Context, Observation) error
@@ -70,7 +71,7 @@ func Endpoint(base string) (string, error) {
 
 func NewClient(cfg Config, observe Observer) (*Client, error) {
 	endpoint, err := Endpoint(cfg.BaseURL)
-	if err != nil || observe == nil || strings.TrimSpace(cfg.APIKey) == "" || cfg.Timeout <= 0 || cfg.Timeout > 5*time.Minute || !canonical(cfg.CredentialReference) || !canonical(cfg.ConfigurationVersion) {
+	if err != nil || !SupportsModel(cfg.Model) || observe == nil || strings.TrimSpace(cfg.APIKey) == "" || cfg.Timeout <= 0 || cfg.Timeout > 5*time.Minute || !canonical(cfg.CredentialReference) || !canonical(cfg.ConfigurationVersion) {
 		return nil, errInput
 	}
 	h := http.Client{}
@@ -84,7 +85,9 @@ func NewClient(cfg Config, observe Observer) (*Client, error) {
 func canonical(s string) bool {
 	return s != "" && strings.TrimSpace(s) == s && len(s) <= 192 && !strings.ContainsAny(s, "\r\n\x00")
 }
-func (*Client) GetDefaultModel() string            { return Model }
+func SupportsModel(model string) bool { return model == Model || model == ModelPro }
+
+func (c *Client) GetDefaultModel() string          { return c.cfg.Model }
 func (*Client) SupportsAsyncImageGeneration() bool { return false }
 func (*Client) GenerateImage(context.Context, *ai.ImageGenerateRequest) (*ai.ImageResponse, error) {
 	return nil, errInput
@@ -106,13 +109,13 @@ func (c *Client) matches(route ai.ImageRouteSelection) bool {
 	return c != nil && route.CredentialReference == c.cfg.CredentialReference && route.ConfigurationVersion == c.cfg.ConfigurationVersion
 }
 func (c *Client) GenerateImageWithRoute(ctx context.Context, r *ai.ImageGenerateRequest, route ai.ImageRouteSelection) (*ai.ImageResponse, error) {
-	if !c.matches(route) || r == nil || r.Model != Model || r.N != 0 && r.N != 1 || r.Size != "" && r.Size != "auto" && r.Size != "1024x1024" || r.Quality != "" && r.Quality != "auto" {
+	if !c.matches(route) || r == nil || r.Model != c.cfg.Model || r.N != 0 && r.N != 1 || r.Size != "" && r.Size != "auto" && r.Size != "1024x1024" || r.Quality != "" && r.Quality != "auto" {
 		return nil, errInput
 	}
 	return c.submit(ctx, r.Prompt, nil)
 }
 func (c *Client) EditImageWithRoute(ctx context.Context, r *ai.ImageEditRequest, route ai.ImageRouteSelection) (*ai.ImageResponse, error) {
-	if !c.matches(route) || r == nil || r.Model != Model || r.ImageURL != "" || len(r.ImageURLs) > 0 || len(r.Mask) > 0 || r.N != 0 && r.N != 1 || r.Size != "" && r.Size != "auto" && r.Size != "1024x1024" || r.Quality != "" && r.Quality != "auto" || len(r.ReferenceImages) > 2 {
+	if !c.matches(route) || r == nil || r.Model != c.cfg.Model || r.ImageURL != "" || len(r.ImageURLs) > 0 || len(r.Mask) > 0 || r.N != 0 && r.N != 1 || r.Size != "" && r.Size != "auto" && r.Size != "1024x1024" || r.Quality != "" && r.Quality != "auto" || len(r.ReferenceImages) > 2 {
 		return nil, errInput
 	}
 	refs := append([]ai.ImageInlineReference{{Bytes: r.Image, MediaType: r.ImageContentType}}, r.ReferenceImages...)
@@ -141,7 +144,7 @@ func (c *Client) submit(ctx context.Context, prompt string, images []string) (*a
 		content = append(content, map[string]string{"image": source})
 	}
 	content = append(content, map[string]string{"text": prompt})
-	payload, err := json.Marshal(map[string]any{"model": Model, "input": map[string]any{"messages": []any{map[string]any{"role": "user", "content": content}}}, "parameters": map[string]any{"n": 1, "size": "1024*1024", "watermark": false, "prompt_extend": false, "enable_thinking": false}})
+	payload, err := json.Marshal(map[string]any{"model": c.cfg.Model, "input": map[string]any{"messages": []any{map[string]any{"role": "user", "content": content}}}, "parameters": map[string]any{"n": 1, "size": "1024*1024", "watermark": false, "prompt_extend": false, "enable_thinking": false}})
 	if err != nil {
 		return nil, errInput
 	}

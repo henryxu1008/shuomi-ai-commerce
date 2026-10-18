@@ -42,18 +42,24 @@ type qwenFactoryTransport func(*http.Request) (*http.Response, error)
 func (f qwenFactoryTransport) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
 func TestGenerationProviderFactoryUsesBoundQwenAdapterAndOriginalObservation(t *testing.T) {
+	for _, model := range []string{"qwen-image-3.0", "qwen-image-3.0-pro"} {
+		t.Run(model, func(t *testing.T) { testGenerationProviderFactoryUsesBoundQwenAdapter(t, model) })
+	}
+}
+
+func testGenerationProviderFactoryUsesBoundQwenAdapter(t *testing.T, model string) {
 	var pngBytes bytes.Buffer
 	require.NoError(t, png.Encode(&pngBytes, image.NewRGBA(image.Rect(0, 0, 1024, 1024))))
 	dispatches, observed, downloads := 0, 0, 0
 	expectedObservations := 1
 	expectedPrompt := "approved exact product and method"
-	resolver := &generationConfigTestResolver{resolved: &openai.ResolvedClientConfig{CacheKey: "org-image-v1", Config: &openai.ClientConfig{APIKey: "fixture-only", APIStyle: "dashscope", Model: "qwen-image-3.0", BaseURL: "https://workspace.cn-beijing.maas.aliyuncs.com", Timeout: time.Second}}}
+	resolver := &generationConfigTestResolver{resolved: &openai.ResolvedClientConfig{CacheKey: "org-image-v1", Config: &openai.ClientConfig{APIKey: "fixture-only", APIStyle: "dashscope", Model: model, BaseURL: "https://workspace.cn-beijing.maas.aliyuncs.com", Timeout: time.Second}}}
 	factory := generationProviderFactory{resolver: resolver, price: config.ImageAgentGenerationConfig{PriceVersion: "trial-price", PointsPerImage: 1}, profile: synchronousEditProfile{}, providerHTTPClient: &http.Client{Transport: qwenFactoryTransport(func(r *http.Request) (*http.Response, error) {
 		dispatches++
 		require.Equal(t, "/api/v1/services/aigc/multimodal-generation/generation", r.URL.Path)
 		var payload map[string]any
 		require.NoError(t, json.NewDecoder(r.Body).Decode(&payload))
-		require.Equal(t, "qwen-image-3.0", payload["model"])
+		require.Equal(t, model, payload["model"])
 		messages := payload["input"].(map[string]any)["messages"].([]any)
 		content := messages[0].(map[string]any)["content"].([]any)
 		require.Equal(t, expectedPrompt, content[len(content)-1].(map[string]any)["text"], "prompt bytes must remain exact")
@@ -83,7 +89,7 @@ func TestGenerationProviderFactoryUsesBoundQwenAdapterAndOriginalObservation(t *
 	quote, err := prepared.Executor.QuoteSlot(context.Background(), input, imageagent.BudgetPolicy{})
 	require.NoError(t, err)
 	require.Equal(t, "bailian", quote.Operations[0].Provider)
-	require.Equal(t, "qwen-image-3.0", quote.Operations[0].Model)
+	require.Equal(t, model, quote.Operations[0].Model)
 	result, err := prepared.Executor.GenerateQuotedSlot(context.Background(), input, quote)
 	require.NoError(t, err)
 	require.Len(t, result.Assets, 1)
@@ -91,6 +97,12 @@ func TestGenerationProviderFactoryUsesBoundQwenAdapterAndOriginalObservation(t *
 	require.Equal(t, 1, observed)
 	require.Equal(t, 1, downloads)
 	require.NoError(t, factory.revalidate(context.Background(), prepared.Metadata))
+	resolver.resolved.Config.Model = "qwen-image-3.0"
+	if model == "qwen-image-3.0" {
+		resolver.resolved.Config.Model = "qwen-image-3.0-pro"
+	}
+	require.ErrorIs(t, factory.revalidate(context.Background(), prepared.Metadata), imageagent.ErrRevisionConflict)
+	resolver.resolved.Config.Model = model
 	packages, err := skill.OfficialPackages()
 	require.NoError(t, err)
 	imageMethods := 0

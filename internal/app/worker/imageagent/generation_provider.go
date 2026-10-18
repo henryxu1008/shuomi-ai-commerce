@@ -48,7 +48,7 @@ func (f generationProviderFactory) prepare(ctx context.Context, observe func(con
 	var provider synchronousImageProvider
 	var generate func(context.Context, *ai.ImageGenerateRequest) (*ai.ImageResponse, error)
 	if metadata.Provider == "bailian" {
-		client, clientErr := bailian.NewClient(bailian.Config{APIKey: cfg.APIKey, BaseURL: cfg.BaseURL, Timeout: cfg.Timeout, CredentialReference: metadata.CredentialReference, ConfigurationVersion: metadata.ConfigurationVersion, HTTPClient: f.providerHTTPClient, Diagnose: func(d bailian.Diagnostic) {
+		client, clientErr := bailian.NewClient(bailian.Config{Model: cfg.Model, APIKey: cfg.APIKey, BaseURL: cfg.BaseURL, Timeout: cfg.Timeout, CredentialReference: metadata.CredentialReference, ConfigurationVersion: metadata.ConfigurationVersion, HTTPClient: f.providerHTTPClient, Diagnose: func(d bailian.Diagnostic) {
 			if f.logger != nil {
 				f.logger.WithFields(logrus.Fields{"provider": metadata.Provider, "model": metadata.Model, "stage": d.Stage, "reason": d.Reason, "http_status": d.HTTPStatus, "provider_code": d.ProviderCode, "request_id": d.RequestID}).Warn("Bailian image outcome diagnostic")
 			}
@@ -136,7 +136,7 @@ func (f generationProviderFactory) resolve(ctx context.Context) (*openai.ClientC
 	}
 	provider, protocol, route := "", "", ""
 	switch {
-	case cfg.APIStyle == "dashscope" && cfg.Model == bailian.Model:
+	case cfg.APIStyle == "dashscope" && bailian.SupportsModel(cfg.Model):
 		endpoint, endpointErr := bailian.Endpoint(cfg.BaseURL)
 		if endpointErr != nil {
 			return invalid()
