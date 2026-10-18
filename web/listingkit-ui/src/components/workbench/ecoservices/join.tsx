@@ -22,7 +22,7 @@ function Join({scope,nonPaymentOnly}:{scope:EcoScope;nonPaymentOnly:boolean}){
  const providerQualified=!nonPaymentOnly&&canManage&&!listings.isPending&&!listings.error&&listings.data?.providerQualified===true;
  const application=query.error?undefined:query.data?.applications?.[0],active=application?.state==="ACTIVE",rejected=application?.state==="REJECTED"&&application.onboardingState==="NOT_STARTED";
  function openApplication(){setFormVersion(rejected?application?.version:undefined);setCompany(application?.companyName??"");setRegistration(application?.registrationNumber??"");setSelected(application?.categories??[]);setRegions(application?.regions.join("\n")??"");setFiles(application?.fileIds??[]);setForm(true)}
- return <ConsolePage className="eco-page" title="申请加入" description="完善机构资料与服务能力，成为生态服务合作伙伴。" breadcrumbs={[{label:"生态服务"},{label:"申请加入"}]} actions={<Link href="/workbench/services/mine">查看我提供的服务 →</Link>}>
+ return <ConsolePage className="eco-page" title="申请加入" description="完善机构资料与服务能力，成为生态服务合作伙伴。" breadcrumbs={[{label:"生态服务"},{label:"申请加入"}]} actions={<Link href="/workbench/services/mine?side=provider">查看我提供的服务 →</Link>}>
   {commands.notice}{nonPaymentOnly?<NonPaymentNotice/>:null}
   <Card className="eco-join-hero"><div><small>专业服务商合作</small><h2>加入生态服务，拓展业务合作</h2><p>围绕公司注册、商标注册、店铺开通和店铺代运营提供服务，按照约定报价、交付和售后。</p></div><aside><span>当前申请状态</span><strong>{query.isPending&&canJoin?"读取中":application?applicationStates[application.state]:canJoin?"尚未提交":"无申请权限"}</strong><p>资料审核、协议确认与渠道准入分别核实。</p></aside></Card>
   <div className="eco-join-grid"><Card><section><h2>入驻流程</h2><p>按原申请逐步完成，每一步显示真实状态。</p><div className="eco-steps">{[

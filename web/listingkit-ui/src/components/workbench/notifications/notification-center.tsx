@@ -107,7 +107,7 @@ function NotificationFeed({ scope, tab, setTab, companyUnavailable, compact = fa
   const [filtered, setFiltered] = useState(false);
   const [cursors, setCursors] = useState([""]);
   const filter = filtered ? tab === "official" ? "unread" : "pending" : "all";
-  const query = useQuery({ ...policy, queryKey: ["notifications", scope, filter, cursors.at(-1)], queryFn: ({ signal }) => notificationRequest(scope, `?filter=${filter}&limit=${compact ? 4 : 20}${cursors.at(-1) ? "&after=" + cursors.at(-1) : ""}`, notificationListSchema, { signal }) });
+  const query = useQuery({ ...policy, queryKey: ["notifications", scope, filter, cursors.at(-1), compact ? 4 : 20], queryFn: ({ signal }) => notificationRequest(scope, `?filter=${filter}&limit=${compact ? 4 : 20}${cursors.at(-1) ? "&after=" + cursors.at(-1) : ""}`, notificationListSchema, { signal }) });
   const reading = useReading(scope, () => { setCursors([""]); void client.invalidateQueries({ queryKey: ["notifications"] }); });
   const data = query.error ? undefined : query.data;
   return <>

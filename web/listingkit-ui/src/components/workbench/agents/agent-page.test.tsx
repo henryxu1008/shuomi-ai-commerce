@@ -88,6 +88,12 @@ afterEach(() => {
 function modeFixture(agentId:string, canConfigure=true) {
   return {subject:{kind:"registered_agent",id:agentId},definition:{id:agentId,version:"v1.0.0"},mode:"default",revision:"0",policyVersion:"agent-execution-policy-v1",canConfigure,updatedAt:"2026-10-17T00:00:00Z",updatedBy:""};
 }
+it("keeps content kind on the configuration use entry",async()=>{
+ const entry={...marketEntries()[1],agent:{...marketEntries()[1].agent,activation:"ENABLED",revision:"1",activationEpoch:"1"},canUse:true};
+ vi.stubGlobal("fetch",vi.fn(async(url:unknown)=>Response.json(String(url).includes("execution-mode")?modeFixture("product.content.agent"):String(url).includes("/runs")?{items:[],nextCursor:""}:entry)));
+ render(<AgentPage mode="mine" id="product.content.agent"/>);
+ expect(await screen.findByRole("link",{name:"选择商品并进入使用 →"})).toHaveAttribute("href","/workbench/supply/acquisition?agent_kind=content");
+});
 function installDialogMethods() {
   Object.defineProperty(HTMLDialogElement.prototype, "showModal", {configurable:true,value:function(this:HTMLDialogElement){this.open=true;}});
   Object.defineProperty(HTMLDialogElement.prototype, "close", {configurable:true,value:function(this:HTMLDialogElement){this.open=false;}});

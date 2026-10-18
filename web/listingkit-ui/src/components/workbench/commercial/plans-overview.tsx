@@ -16,7 +16,7 @@ export function PlansOverview({ data }: { data: CommercialOverview }) {
   const stores = data.store_services.state === "available" ? data.store_services.value : null;
   const balance = (type: string) => {
     const value = data.resources.state === "available" ? data.resources.value.resources.find(r => r.resource_type === type) : null;
-    return value?.state === "recorded" ? BigInt(value.available).toLocaleString("zh-CN") : value?.state === "not_recorded" ? "尚无余额记录" : "暂不可用";
+    return value?.state === "recorded" ? (BigInt(value.available)+BigInt(value.allocated)).toLocaleString("zh-CN") : value?.state === "not_recorded" ? "尚无余额记录" : "暂不可用";
   };
   return <div className={`${styles.stack} ${styles.plans}`}>
     <Card className={`${styles.panel} ${styles.plan}`}><div className={styles.heroHeader}><div><p className={styles.label}>当前计费方式</p><h2>{data.base_plan.name}</h2><p className={styles.description}>按需使用 · 店铺服务按30天周期订购；AI点数与数据资源预付使用。</p></div><div className={styles.actions}><Button asChild variant="outline" size="sm"><Link href="/workbench/plans/entitlements" prefetch={false}>查看我的权益</Link></Button><Button asChild size="sm"><Link href="/workbench/plans/top-up" prefetch={false}>进入钱包</Link></Button></div></div>

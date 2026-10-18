@@ -52,6 +52,8 @@ function TitleOnlyReviewControls({ proposal, permissions, userId, pending, decid
   const admin = permissions.includes("listingkit.admin.write");
   const editor = admin || (permissions.includes("local_agent.write") && proposal.owner === userId);
   if (proposal.state === "applied" || proposal.state === "rejected") return null;
+  if(proposal.execution&&!proposal.execution_mode)return <p role="status">无法读取本次冻结权限，采用不可用；请重新读取。</p>;
+  if(proposal.execution_mode?.mode==="read_only")return <p role="status">本次为只读权限，已保存建议，不能编辑、接受或采用。</p>;
   return <section className={styles.controls} aria-label="人工审核操作"><h3>等待你确认</h3>
     <p>{admin ? "接受仅表示批准此修订，之后仍需单独应用。操作时将重新校验权限。" : "仅当前企业具备读写权限的管理员可最终接受、拒绝和应用。"}</p>
     {mode === "edit" ? <TitleEditor title={proposal.after} pending={pending} onCancel={() => setMode("view")} onSave={(title) => decide("edit", title)} /> : <div className={styles.actions}>

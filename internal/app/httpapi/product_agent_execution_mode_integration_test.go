@@ -150,6 +150,13 @@ func testTitlePermissionMode(t *testing.T, value string, f *acquisitionHTTPFixtu
 	}
 	require.NoError(t, json.Unmarshal(raw, &link))
 	view := titleCall(t, server, "GET", titleBasePath+"/"+link.ProposalID, "admin", "B", "", "", 200)
+	code, raw, err = acquisitionHTTPRequest(server, "GET", titleBasePath+"/"+link.ProposalID, "admin", "B", "", "")
+	require.NoError(t, err)
+	require.Equal(t, 200, code)
+	var projected productReviewViewDTO
+	require.NoError(t, json.Unmarshal(raw, &projected))
+	require.NotNil(t, projected.ExecutionMode)
+	require.Equal(t, agent.ExecutionMode(value), projected.ExecutionMode.Mode)
 	if value == "auto_approve" || value == "full_access" {
 		require.Equal(t, "applied", view.State)
 		require.NotNil(t, view.PolicyAdoption)
@@ -172,6 +179,14 @@ func testTitlePermissionMode(t *testing.T, value string, f *acquisitionHTTPFixtu
 	before := calls.Load()
 	_, err = configuration.ExecuteMode(context.Background(), agentconfig.ModeCommand{Identity: identity, Subject: a.modeSubject(), Key: uuid.NewString(), Mode: agent.ModeReadOnly, ExpectedRevision: 1})
 	require.NoError(t, err)
+	code, raw, err = acquisitionHTTPRequest(server, "GET", titleBasePath+"/"+link.ProposalID, "admin", "B", "", "")
+	require.NoError(t, err)
+	require.Equal(t, 200, code)
+	projected = productReviewViewDTO{}
+	require.NoError(t, json.Unmarshal(raw, &projected))
+	require.NotNil(t, projected.ExecutionMode)
+	require.Equal(t, agent.ExecutionMode(value), projected.ExecutionMode.Mode)
+	require.Equal(t, receipt.Revision, projected.ExecutionMode.Revision, "current mode head cannot replace the original frozen mode")
 	code, raw, err = acquisitionHTTPRequest(server, "POST", path, "admin", "B", key, body)
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))

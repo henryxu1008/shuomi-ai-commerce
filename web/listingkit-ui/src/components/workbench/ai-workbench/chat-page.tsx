@@ -218,7 +218,13 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
       if (result.state === "PLANNER_UNKNOWN") setError("模型结果无法确认；本轮不会自动重发。请刷新查看收据。");
       if (result.state === "READY_TO_DISPATCH") setError("本轮仍在处理，请使用相同操作键重试读取结果。");
       await detail.refetch();
-    } catch (cause) { if (!controller.signal.aborted) setError(errorText(cause)); }
+    } catch (cause) { if (!controller.signal.aborted) {
+      if(cause instanceof AIWorkbenchError&&cause.messageAccepted===false&&["INVALID_REQUEST","PROPOSAL_STALE"].includes(cause.code)){
+        setPendingMessage(null);
+        try{sessionStorage.removeItem(messageStorageKey)}catch{/* retain the editable input in memory */}
+      }
+      setError(errorText(cause));
+    } }
     finally { setPending(false); abort.current = null; }
   }
   async function confirm(proposal: AIProposal) {

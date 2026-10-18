@@ -89,7 +89,7 @@ func buildProductAgentModule(ctx context.Context, productDB *gorm.DB, deps route
 	for _, route := range productReviewOnlyRoutes(a.reviews, binder.Bind, a.projectKnowledge) {
 		previous := route.Handler
 		route.Handler = func(c *gin.Context) {
-			c.Set(productReviewModeProjectorKey, productReviewModeProjector(a.projectContentReviewMode))
+			c.Set(productReviewModeProjectorKey, productReviewModeProjector(a.projectReviewMode))
 			previous(c)
 		}
 		routes = append(routes, route)

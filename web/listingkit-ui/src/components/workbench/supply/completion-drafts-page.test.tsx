@@ -10,6 +10,12 @@ const source={id,preparationId:other,collectionItemId:other,collectionRevision:1
 const record={id,draftId:other,revision:1,source,content:{title:"候选 R1",description:"描述"},status:"pending_completion",createdAt:"2026-10-12T00:00:00Z"};
 afterEach(()=>{cleanup();vi.clearAllMocks();f.context.pendingSupplyIntent=null;f.context.effectiveOrganization.id="org"});
 function ready(){f.context.setPendingSupplyIntent.mockImplementation(value=>{f.context.pendingSupplyIntent=value;return true});f.batches.mockResolvedValue({items:[{id:other,name:"真实批次",count:1}],total:1});f.list.mockResolvedValue({items:[record],total:1});f.source.mockResolvedValue({source,product:{title:"原始标题",description:"原始描述",variants:[],images:[]},images:[]});f.read.mockResolvedValue(record)}
+it("preserves the SHEIN import gate through the query-source alias",async()=>{
+ ready();const view=render(<CompletionDraftsPage initialPreparation={other} initialSource={id} fullAvailable/>);
+ expect(await screen.findByRole("link",{name:/SHEIN 带入预览/})).toBeInTheDocument();
+ view.rerender(<CompletionDraftsPage initialPreparation={other} initialSource={id}/>);
+ expect(screen.queryByRole("link",{name:/SHEIN 带入预览/})).not.toBeInTheDocument();
+});
 it("shows actual saved drafts with unknown official fields and no fabricated AI actions",async()=>{
  ready();render(<CompletionDraftsPage initialPreparation={other}/>);
  expect(await screen.findByText("商品列表（共 1 个）")).toBeVisible();expect(screen.getByText("候选 R1")).toBeVisible();expect(screen.getByText("未绑定店铺，平台规则待配置")).toBeVisible();

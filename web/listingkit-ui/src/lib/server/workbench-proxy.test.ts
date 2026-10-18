@@ -16,6 +16,12 @@ const contextPayload = {
 
 const storeId = "11111111-1111-4111-8111-11111111111a";
 const operationKey = "22222222-2222-4222-8222-22222222222b";
+it("preserves unaccepted-message evidence only on the message error contract",async()=>{
+ for(const contract of ["ai-message","ai-confirm"] as const){
+  const response=await buildWorkbenchBrowserResponse(Response.json({code:"INVALID_REQUEST",messageAccepted:false},{status:400}),contract);
+  expect((await response.json()).messageAccepted).toBe(contract==="ai-message"?false:undefined);
+ }
+});
 
 it("routes a manual TEMU token only to the captured enterprise and original attempt",async()=>{
  vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL","http://localhost");

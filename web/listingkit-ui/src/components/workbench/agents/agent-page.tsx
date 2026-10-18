@@ -318,7 +318,7 @@ function ScopedPage({
             </div>
             <div className={styles.actions}>
               {detail.canUse && !["pod.design.agent","product.selection.agent","shop.operations-diagnosis.agent"].includes(agentId) && (
-                <Link href="/workbench/supply/acquisition">
+                <Link href={agentId==="product.content.agent"?"/workbench/supply/acquisition?agent_kind=content":"/workbench/supply/acquisition"}>
                   选择商品并进入使用 →
                 </Link>
               )}

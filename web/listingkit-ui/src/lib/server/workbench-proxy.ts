@@ -1168,7 +1168,10 @@ export async function buildWorkbenchBrowserResponse(
       ORGANIZATION_CONTEXT_CHANGED: 409, IDENTITY_CONTEXT_CHANGED: 409, OUTCOME_UNKNOWN: 503,
       INPUT_TOO_LARGE: 413, DEADLINE_EXCEEDED: 504 };
     if (statuses[code] !== upstream.status) return unavailable();
-    const response = protocolError(upstream.status, code, "AI Workbench request could not be completed", options.requestId ?? "");
+    let response = protocolError(upstream.status, code, "AI Workbench request could not be completed", options.requestId ?? "");
+    if(contract==="ai-message"&&payload.messageAccepted===false&&["INVALID_REQUEST","PROPOSAL_STALE"].includes(code)){
+      response=new NextResponse(JSON.stringify({...await response.json(),messageAccepted:false}),{status:response.status,headers:response.headers});
+    }
     if (code === "ORGANIZATION_ACCESS_REVOKED" || code === "ORGANIZATION_ACCESS_DENIED") clearSelectionCookie(response);
     return response;
   }

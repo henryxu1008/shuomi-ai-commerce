@@ -100,7 +100,13 @@ function ProposalSession({ proposalId, organizationId, scope, userId, roles, per
       onChanged();
     } catch (error) {
       if (!mounted.current) return;
-      if (denied(error)) { operation.current = undefined; onDenied(error); return; }
+      if (denied(error)) {
+        operation.current = undefined;
+        if(error instanceof ProductTitleReviewError&&error.status===403&&["permission_denied","PERMISSION_DENIED"].includes(error.code)){
+          setUncertain(false);onLocked(false);setWriteError(error);void query.refetch();return;
+        }
+        onDenied(error); return;
+      }
       const unknown = uncertain || !(error instanceof ProductTitleReviewError) || error.outcome === "unknown";
       setUncertain(unknown); setWriteError(error); onLocked(unknown);
       if (!unknown) operation.current = undefined;
