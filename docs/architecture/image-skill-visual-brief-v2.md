@@ -65,7 +65,7 @@ Legacy decision: N/A；消费当前已保存事实及其准确策略，不恢复
 
 ### 用户模型调整：Qwen Image 3.0 Pro（2026-10-18）
 
-增量准入：**PENDING_REVIEW**；不改变上文已经冻结并实现的 visual brief 合同。用户在标准模型返回 HTTP403 AllocationQuota.FreeTierOnly 后明确决定“换 qwen-image-3.0-pro，其他不变”。本决定仅替代新试用计划的模型选择；不关闭任何云端免费额度/计费开关，不更改北京空间、凭据、1 点/图价格及 priceVersion、素材/提示词/Skill 版本、权限、UNKNOWN 或历史事实。已成功的详情图和标准模型失败的 1 点 UNKNOWN 保留；后续标准/场景各一新计划一次调用，本轮最多 4 点（含该 UNKNOWN），不重发原 Run。
+增量准入：**IMPLEMENTATION_READY**；独立 Reviewer 已核对设计候选 48da5b552f2548d83141d6635a5d50fc5f1cd925、官方同步合同和实际四处消费链，无新增 BLOCKER。不改变上文已经冻结并实现的 visual brief 合同。用户在标准模型返回 HTTP403 AllocationQuota.FreeTierOnly 后明确决定“换 qwen-image-3.0-pro，其他不变”。本决定仅替代新试用计划的模型选择；不关闭任何云端免费额度/计费开关，不更改北京空间、凭据、1 点/图价格及 priceVersion、素材/提示词/Skill 版本、权限、UNKNOWN 或历史事实。已成功的详情图和标准模型失败的 1 点 UNKNOWN 保留；后续标准/场景各一新计划一次调用，本轮最多 4 点（含该 UNKNOWN），不重发原 Run。
 
 当前适配器在领域 route、factory、SourceEdit 和 HTTP payload 四处只接受/硬编码标准版，单改运行配置无法完成用户操作。最小增量是在同一显式百炼同步合同中增加准确元组 `bailian/qwen-image-3.0-pro/dashscope-image-sync-v1`；原标准元组继续作为当前有效模型，不做默认值或自动 fallback。Client.Config 必须显式传入 Model，并仅接受这两个准确模型；请求模型必须等于该 client 绑定模型，payload/GetDefaultModel 使用同一值。Factory 从原企业配置 owner 读取模型，进入原 quote/intent/config digest，并传给 Client 和 SourceEdit；未知或混配模型派发前拒绝。
 
