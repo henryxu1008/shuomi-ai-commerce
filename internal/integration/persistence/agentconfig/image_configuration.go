@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/commercetool"
@@ -92,6 +93,16 @@ func visualSnapshotView(tx *gorm.DB, row snapshotRow, profile visualConfiguratio
 	return value, nil
 }
 
+// Keep activation fenced against enable/disable while coexisting with the
+// caller's Skill availability lease. The existing mode-subject lock serializes
+// snapshot/admission receipts before their first read, including equal-key races.
+func lockVisualConfigurationAgent(tx *gorm.DB, org string, profile visualConfigurationProfile) (agentRow, error) {
+	if err := lockModeSubject(tx, org, agentconfig.ModeSubject{Kind: agentconfig.RegisteredAgentSubject, ID: profile.agentID}); err != nil {
+		return agentRow{}, err
+	}
+	return findAgent(tx.Clauses(clause.Locking{Strength: "SHARE"}), org, profile.agentID, false)
+}
+
 func (s *Store) PrepareImageConfiguration(ctx context.Context, c agentconfig.ImageStartCommand) (agentconfig.ImageConfigurationSnapshot, error) {
 	value, err := s.prepareVisualConfiguration(ctx, c, productImageProfile)
 	return value.ImageConfigurationSnapshot, err
@@ -113,7 +124,7 @@ func (s *Store) prepareVisualConfiguration(ctx context.Context, c agentconfig.Im
 	}
 	var result visualConfigurationSnapshot
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		a, agentErr := findAgent(tx, c.Scope.OrganizationID, profile.agentID, true)
+		a, agentErr := lockVisualConfigurationAgent(tx, c.Scope.OrganizationID, profile)
 		var old snapshotRow
 		err := tx.Where("organization_id=? AND actor_id=? AND context_kind=? AND context_id=? AND request_key=?", c.Scope.OrganizationID, c.Scope.ActorID, profile.context, c.ContextID, c.RequestKey).Take(&old).Error
 		if err == nil {
@@ -260,9 +271,9 @@ func (s *Store) admitVisualRun(ctx context.Context, c agentconfig.ImageRunAdmiss
 	}
 	var result agentconfig.ImageRunAdmissionReceipt
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// This is the same lock held by Execute(enable/disable). The committed
+		// Activation changes still wait for the shared fence. The committed
 		// write-once receipt is the whole-run admission point across ImageDB.
-		a, agentErr := findAgent(tx, c.Scope.OrganizationID, profile.agentID, true)
+		a, agentErr := lockVisualConfigurationAgent(tx, c.Scope.OrganizationID, profile)
 		var rows []imageAdmissionRow
 		if err := tx.Where("organization_id=? AND (snapshot_id=? OR run_id=? OR (actor_id=? AND action_id=?))", c.Scope.OrganizationID, c.Snapshot.ID, c.RunID, c.Scope.ActorID, c.ConfirmActionID).Limit(2).Find(&rows).Error; err != nil {
 			return err
