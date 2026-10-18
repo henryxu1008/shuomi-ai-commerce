@@ -7,9 +7,10 @@ import { findConsoleRoute } from "@/lib/workbench/console-navigation";
 import { TaskDetail } from "./task-detail";
 import { TaskBrowser } from "./task-browser";
 import type { TaskMode } from "./task-presentation";
+import {canDiscoverNativeRuns} from "./native-run-records";
 
-export function BusinessTaskPage({ mode = "all", taskId, productReviewAvailable = false, sheinRecordsAvailable = false, initialProposalId }: {
-  mode?: TaskMode; taskId?: string; productReviewAvailable?: boolean; sheinRecordsAvailable?: boolean; initialProposalId?: string;
+export function BusinessTaskPage({ mode = "all", taskId, productReviewAvailable = false, sheinRecordsAvailable = false, nativeRunsAvailable = false, initialProposalId }: {
+  mode?: TaskMode; taskId?: string; productReviewAvailable?: boolean; sheinRecordsAvailable?: boolean; nativeRunsAvailable?: boolean; initialProposalId?: string;
 }) {
   const context = useWorkbenchContext();
   const scope = context.user && context.effectiveOrganization && !context.isLoading && !context.selectionRequired && !context.isSwitching && !context.error && !context.blockingError
@@ -24,6 +25,7 @@ export function BusinessTaskPage({ mode = "all", taskId, productReviewAvailable 
     {context.aiWorkbenchAvailable ? <TaskDetail key={identity} scope={scope} authorizationKey={authorizationKey} taskId={taskId} /> : <ConsoleState kind="unavailable" title="暂未启用">当前应用未启用硕米 Chat 与业务任务。</ConsoleState>}
   </ConsolePage>;
   return <TaskBrowser key={identity + mode} scope={scope} authorizationKey={authorizationKey} mode={mode}
+    nativeRunsAvailable={nativeRunsAvailable && canDiscoverNativeRuns(context.permissions)}
     tasksAvailable={context.aiWorkbenchAvailable} productReviewAvailable={productReviewAvailable} sheinRecordsAvailable={sheinRecordsAvailable}
     initialProposalId={entry.scope === identity ? entry.id : undefined} />;
 }

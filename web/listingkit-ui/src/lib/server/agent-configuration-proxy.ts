@@ -1,4 +1,5 @@
 import {diagnosisRecentSchema} from "../contracts/shop-diagnosis";
+import {configuredAgentConfigurationOrigin} from "./agent-configuration-origin";
 import {selectionRecentSchema} from "../contracts/product-selection";
 import {artworkTemplateSchema,artworkTemplateInputSchema,artworkTemplatesPageSchema} from "../contracts/agent-configuration";
 import {artworkRecentSchema} from "../contracts/pod-artwork";
@@ -211,20 +212,8 @@ export async function proxyAgentConfiguration(
       headers.set("Content-Type", "application/json");
     } else if (!(await hasEmptyBody(request, controller.signal)))
       return configFailure(400, "INVALID_REQUEST");
-    let origin: string;
-    try {
-      const u = new URL(process.env.LISTINGKIT_SERVICE_API_BASE ?? "");
-      if (
-        !["http:", "https:"].includes(u.protocol) ||
-        u.username ||
-        u.password ||
-        u.search ||
-        u.hash ||
-        !["/api/v1", "/api/v1/"].includes(u.pathname)
-      )
-        throw new Error();
-      origin = u.origin;
-    } catch {
+    const origin=configuredAgentConfigurationOrigin();
+    if(!origin){
       return configFailure(503, "DEPENDENCY_UNAVAILABLE");
     }
     controller.signal.throwIfAborted();
