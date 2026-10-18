@@ -33,7 +33,7 @@ export function ProductImageSetPanel(props:Props){
  const context=useWorkbenchContext(),userId=context.user?.id,organizationId=context.effectiveOrganization?.id;
  if(!userId||!organizationId||context.isSwitching||context.isLoading||context.error||context.blockingError||context.selectionRequired)return null;
  const permissions=context.permissions??[];
- if(!permissions.includes("imageagent.read"))return null;
+ if(!permissions.includes("listingkit.image_agent.read"))return null;
  return <ScopedImageSetPanel key={`${userId}:${organizationId}:${props.kind}:${props.contextId}:${permissions.join(",")}`} {...props} scope={{userId,organizationId,kind:props.kind,contextId:props.contextId}}/>;
 }
 
@@ -269,7 +269,7 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
   {error?<p role="alert" className="rounded-lg bg-warning p-3 text-sm">{reasons[error]??error}</p>:null}{message?<p role="status" className="text-sm text-success-foreground">{message}</p>:null}
   {loading?<p className="text-sm text-muted-foreground">正在读取企业配置与真实商品素材…</p>:!available?<p className="text-sm text-muted-foreground">{entry?.agent.activation==="DISABLED"?"智能体已停用，已有任务仍可核实与审核。":entry?.capabilities.find(c=>c.id==="image.generate")?.reason||"当前完整图片流程不可用。"}</p>:null}
   {intent?<div className="rounded-lg border border-warning-foreground bg-warning p-4 text-sm"><p>保留原请求：{intent.requestKey??(intent.action==="restart"?intent.runId:(intent.body as {actionId:string}).actionId)}</p><p className="mt-1 text-xs">继续操作沿用原编号与参数；暂未找到不能视为未执行。</p><Button className="mt-3" variant="outline" disabled={busy} onClick={()=>void verify()}>核实原请求</Button>{intent.action==="confirm"&&run&&run.runId===intent.runId&&(!run.confirmationActionId||run.confirmationActionId===(intent.body as {actionId:string}).actionId)&&run.status!=="completed"&&run.status!=="cancelled"?<Button className="ml-2" variant="outline" disabled={busy} onClick={()=>void send(intent,true)}>继续原确认</Button>:null}{intent.action!=="confirm"?<Button className="ml-2" variant="outline" disabled={busy} onClick={()=>void send(intent,true)}>继续原操作</Button>:null}</div>:null}
-  {!loading&&sources&&context.permissions.includes("imageagent.write")?<SkillPicker scope={stableScope} target="product-image" disabled={locked} onChange={onMethodChange}/>:null}
+  {!loading&&sources&&context.permissions.includes("listingkit.image_agent.write")?<SkillPicker scope={stableScope} target="product-image" disabled={locked} onChange={onMethodChange}/>:null}
   {!loading&&sources&&!sources.originals.length?<p className="text-sm text-muted-foreground">当前商品没有原始图片，补充真实素材后才能准备生成计划。</p>:null}
   {available&&sources?<>
    {template&&!compatibleImageTemplate(template,platform)?<p className="text-sm text-warning-foreground">当前模板不适用于此素材目标，请选择匹配的模板或切换目标。</p>:null}

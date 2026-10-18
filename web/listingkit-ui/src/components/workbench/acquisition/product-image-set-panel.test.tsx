@@ -18,7 +18,7 @@ let state:ReturnType<typeof projection>,approved:boolean,fetch:ReturnType<typeof
 beforeEach(()=>{
  calls.mode.mockReset();calls.mode.mockResolvedValue({subject:{kind:"registered_agent",id:"product.image.agent"},definition:{id:"product.image.agent",version:"v1.0.0"},mode:"default",revision:"0",policyVersion:"agent-execution-policy-v1",canConfigure:false,updatedAt:"2026-10-12T00:00:00Z",updatedBy:""});
  localStorage.clear();approved=false;state=projection();
- calls.context={user:{id:"actor"},effectiveOrganization:{id:"org"},permissions:["imageagent.read","imageagent.write"],registerOrganizationSwitchGuard:vi.fn(()=>vi.fn())};
+ calls.context={user:{id:"actor"},effectiveOrganization:{id:"org"},permissions:["listingkit.image_agent.read","listingkit.image_agent.write"],registerOrganizationSwitchGuard:vi.fn(()=>vi.fn())};
  fetch=vi.fn(async(input:unknown,init?:RequestInit)=>{
   const url=String(input),body=init?.body?JSON.parse(String(init.body)):undefined;
   if(url.endsWith("/skills/organization/image-candidates"))return Response.json({items:[]});
@@ -53,7 +53,7 @@ it("allows method inspection with an authorized empty source while model readine
 });
 
 it("does not offer image method selection without image write permission",async()=>{
- calls.context={...calls.context,permissions:["imageagent.read"]};
+ calls.context={...calls.context,permissions:["listingkit.image_agent.read"]};
  render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
  await screen.findByText("商品图片智能体");
  await waitFor(()=>expect(screen.queryByText("正在读取企业配置与真实商品素材…")).toBeNull());
@@ -193,7 +193,7 @@ it("ignores a late historical source response after switching back to another ru
 it.each(["disabled","unavailable","read-only"])("keeps admitted runs visible and refreshable when generation is %s",async(mode)=>{
  state=projection("awaiting_final_approval",templateId);const real=fetch.getMockImplementation()!;
  const unavailable={...entry,canUse:false,agent:{...entry.agent,activation:mode==="disabled"?"DISABLED":"ENABLED"},capabilities:entry.capabilities.map(c=>({...c,readiness:mode==="unavailable"?"UNAVAILABLE":c.readiness}))};
- if(mode==="read-only")calls.context.permissions=["imageagent.read"];
+ if(mode==="read-only")calls.context.permissions=["listingkit.image_agent.read"];
  fetch.mockImplementation((url,init)=>String(url).endsWith("/product.image.agent")?Promise.resolve(Response.json(unavailable)):String(url).endsWith("/images/runs")?Promise.resolve(Response.json({items:[{runId,contextKind:"acquisition",contextId:operation,status:state.status,targetPlatform:"product",createdAt:now}],nextCursor:""})):real(url,init));
  render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialRunId={runId}/>);
  expect(await screen.findByRole("heading",{name:"商品识别主图"})).toBeInTheDocument();
