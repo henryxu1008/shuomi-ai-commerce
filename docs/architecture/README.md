@@ -520,3 +520,6 @@ Every stable or development boundary document must have a document test before
 it is treated as a long-lived review entrypoint.
 
 - [`own-product-existing-drafts-v1.md`](./own-product-existing-drafts-v1.md): #699 按准确自有商品有界查询已保存草稿、固定来源与保存版本、独立继续编辑及返回上下文；IMPLEMENTATION_READY，独立R1限定新读合同准入。
+
+- [Chat 通用任务创建设计草案](chat-task-object-goal-design-brief.md) — DESIGN_REVIEW / NOT_IMPLEMENTATION_READY；#808，多来源对象、任务目标与执行能力分离。
+
