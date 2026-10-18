@@ -177,7 +177,7 @@ func (c *Client) submit(ctx context.Context, prompt string, images []string) (*a
 		return nil, c.unknown("response_read", resp.StatusCode, nil, resp.Header.Get("X-Request-Id"), "")
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		if rejection, ok := ParseQuotaRejection(resp.StatusCode, data, resp.Header.Get("X-Request-Id")); ok {
+		if rejection, ok := ParseQuotaRejection(resp.StatusCode, data, resp.Header.Get("X-Request-Id")); ok && rejection.RequestID != c.cfg.APIKey {
 			if c.cfg.Diagnose != nil {
 				c.cfg.Diagnose(Diagnostic{Stage: "request_rejected", HTTPStatus: resp.StatusCode, ProviderCode: "AllocationQuota.FreeTierOnly", RequestID: rejection.RequestID})
 			}
