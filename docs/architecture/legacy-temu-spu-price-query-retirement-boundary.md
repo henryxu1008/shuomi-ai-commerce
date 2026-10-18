@@ -1,5 +1,7 @@
 # 旧 TEMU SPU 构建与最高零售价查询编排退休边界
 
+后续用户确认的 [#815 完整默认属性管线边界](legacy-temu-property-pipeline-retirement-boundary.md) 已退休旧 PropertyMapper→Orchestrator→Pipeline→四stage及专属context/cache/stat/config/阶段DTO/alias共11文件。仅此具体闭包被窄替代；13个被保留AI/SKU/spec消费的property文件、rules/handlerbase原合同与四TemplateState字段保持。下文当批保留/consumer/计数是历史证据，不据旧措辞恢复已退休编排。
+
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
 后续用户确认的 [#810 文案边界](legacy-temu-content-handler-retirement-boundary.md) 已退休本文当批保留的旧名称/描述/品牌编排、三个失去最后消费者的 publishing policy/result/test 与孤立格式 helper。PriceHandler 仍消费 core/logger，因此 import guard/logger 行与日期化 inventory 不改；下文原消费者/计数保留为历史。有效 formatter/left regexp、AI/prompt、平台规则和其它共享合同不变。

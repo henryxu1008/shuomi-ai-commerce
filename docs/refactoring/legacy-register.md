@@ -2,6 +2,20 @@
 
 > Status: Active legacy handling register
 
+> #29 / #301 [complete TEMU default-property pipeline retirement](../architecture/legacy-temu-property-pipeline-retirement-boundary.md)
+> follows user-confirmed frozen design c8653f2c9 in #815. The 11-file default
+> PropertyMapper/orchestrator/pipeline/four-stage closure and exclusive
+> context/cache cleanup/config/stat/stage DTO/feature aliases are source-retired.
+> All 13 property files consumed by retained AI/SKU/spec, rules/handlerbase
+> canonical features and DimensionInfo retain their original code and owners;
+> no replacement pipeline, new consumer or EXTRACT business code is added.
+> This narrowly supersedes #768's old PropertyMapper preservation and #773's
+> old property-orchestration consumer description only. Original evidence/counts
+> remain historical. Current platform/shared rules, AI/SKU/prompt, pricing,
+> image/acquisition/Store observations and independent SHEIN login/Store sync remain.
+> Workflows, import guards, dated inventory, dependencies and ceilings are unchanged;
+> no runtime/data action or new trial prerequisite is authorized.
+
 > #29 / #301 [complete TEMU text/bullet closure retirement](../architecture/legacy-temu-text-bullet-retirement-boundary.md)
 > follows user-confirmed frozen design b09ed052b in #812. Four old rules owners,
 > the final-consumer submission formatter/shared regexp, exclusive strx title/
