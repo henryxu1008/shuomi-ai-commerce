@@ -1,5 +1,5 @@
 import {QueryClient,QueryClientProvider} from "@tanstack/react-query";
-import {cleanup,render,screen,waitFor} from "@testing-library/react";
+import {cleanup,fireEvent,render,screen,waitFor} from "@testing-library/react";
 import {afterEach,expect,it,vi} from "vitest";
 import {ChatTaskSelection} from "./chat-task-selection";
 const read=vi.hoisted(()=>vi.fn());
@@ -16,4 +16,17 @@ it("does not expose cached product names after permissions change for the same a
  await screen.findByText("无法读取我的数据");
  expect(screen.queryByRole("option",{name:/Private imported products/})).toBeNull();
  await waitFor(()=>expect(read).toHaveBeenCalled());client.clear();
+});
+it("offers only supported content subjects while keeping later item pages reachable",async()=>{
+ const client=new QueryClient({defaultOptions:{queries:{retry:false}}});
+ const item=(id:string,kind:string,operationId?:string)=>({id,title:id,source:{kind,productKey:id,operationId}});
+ read.mockImplementation((_scope:unknown,batch:unknown)=>Promise.resolve(typeof batch==="string"?{items:[item("Own product","own"),item("Saved source","acquisition","operation"),item("Missing operation","acquisition"),...(["market","sds_template","sds_artwork","amazon_data","custom_dataset"].map(kind=>item(kind,kind)))],nextCursor:"page2"}:{items:[{id:"batch",name:"Mixed batch",count:8}]}));
+ render(<QueryClientProvider client={client}><ChatTaskSelection scope={{userId:"actor",organizationId:"org"}} authorizationKey="current" subject={null} parameters={{targetLanguage:"en-US",description:true}} onSubject={vi.fn()} onParameters={vi.fn()} disabled={false}/></QueryClientProvider>);
+ await screen.findByRole("option",{name:/Mixed batch/});
+ fireEvent.change(screen.getByRole("combobox",{name:"我的数据批次"}),{target:{value:"batch"}});
+ await screen.findByRole("button",{name:"Own product"});
+ expect(screen.getByRole("button",{name:"Saved source"})).toBeTruthy();
+ for(const name of ["Missing operation","market","sds_template","sds_artwork","amazon_data","custom_dataset"])expect(screen.queryByRole("button",{name})).toBeNull();
+ expect(screen.getByRole("button",{name:"下一页商品"})).toBeTruthy();
+ client.clear();
 });
