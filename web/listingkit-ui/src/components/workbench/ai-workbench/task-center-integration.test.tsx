@@ -195,3 +195,27 @@ it("recovers a saved Resume intent after reload with a newer task revision", asy
   await waitFor(()=>expect(sent).toHaveLength(2));
   expect(sent[1]).toEqual(sent[0]);
 });
+
+it.each(["start", "resume", "review"] as const)("restores %s verification without current task capabilities or a readable task", async action => {
+  calls.context.aiWorkbenchAvailable = true;
+  const key = "550e8400-e29b-41d4-a716-446655440099";
+  const original = {key,revision:action === "resume" ? "2" : "",feedback:action === "resume" ? "原反馈" : ""};
+  sessionStorage.setItem(`ai-workbench-task-action:owner:200:${task.id}:${action}`,JSON.stringify(original));
+  let unreadable = false;
+  calls.tasks.mockImplementation(({route}) => route === `task-${action}` ? Promise.resolve({}) : route === "task-read" && unreadable ? Promise.reject(new Error("offline")) : Promise.resolve(route === "task-read" ? {task:{...task,reviewId:undefined}} : {tasks:[{...task,reviewId:undefined}],next:""}));
+  const first = render(tree());
+  fireEvent.click(await screen.findByRole("button",{name:/蓝色水杯标题优化.*查看详情/}));
+  expect(await screen.findByRole("button",{name:"核实原操作结果"})).toBeEnabled();
+  expect(calls.tasks.mock.calls.some(([input])=>input.method === "POST")).toBe(false);
+  first.unmount(); client.clear(); unreadable = true;
+  render(tree());
+  fireEvent.click(await screen.findByRole("button",{name:/蓝色水杯标题优化.*查看详情/}));
+  await screen.findByText("任务不可用");
+  expect(screen.getByRole("button",{name:"刷新状态"})).toBeDisabled();
+  fireEvent.click(screen.getByRole("button",{name:"核实原操作结果"}));
+  await waitFor(()=>expect(screen.getByRole("button",{name:"刷新状态"})).toBeEnabled());
+  const sent = calls.tasks.mock.calls.map(([input])=>input).filter(input=>input.method === "POST");
+  expect(sent).toHaveLength(1);
+  expect(sent[0]).toMatchObject({route:`task-${action}`,key,...(action === "resume" ? {body:{revision:"2",feedback:"原反馈"}} : {})});
+  expect(sessionStorage.getItem(`ai-workbench-task-action:owner:200:${task.id}:${action}`)).toBeNull();
+});

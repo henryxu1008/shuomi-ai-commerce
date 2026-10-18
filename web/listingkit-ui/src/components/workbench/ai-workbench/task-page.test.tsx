@@ -96,7 +96,7 @@ it("keeps the exact Task action key after an unknown response and page reload", 
   await screen.findByText(/操作未完成/);
   first.unmount();
   render(<QueryClientProvider client={client}><BusinessTaskPage taskId={taskId} /></QueryClientProvider>);
-  fireEvent.click(await screen.findByRole("button", { name: "启动原任务" }));
+  fireEvent.click(await screen.findByRole("button", { name: "核实原操作结果" }));
   await waitFor(() => expect(sentKeys).toHaveLength(2));
   expect(sentKeys[1]).toBe(sentKeys[0]);
   client.clear();

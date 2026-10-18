@@ -16,6 +16,20 @@ type PendingTaskAction = { key: string; revision: string; feedback: string };
 type UncertainCommand = { action: TaskAction; attempt: PendingTaskAction };
 const taskActionStorageKey = (scope: AIScope, taskId: string, action: TaskAction) =>
   `ai-workbench-task-action:${scope.userId}:${scope.organizationId}:${taskId}:${action}`;
+function validAttempt(value: unknown): value is PendingTaskAction {
+  return !!value && typeof value === "object" && "key" in value && typeof value.key === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.key) &&
+    "revision" in value && typeof value.revision === "string" && "feedback" in value && typeof value.feedback === "string";
+}
+function savedCommand(scope: AIScope, taskId: string): UncertainCommand | undefined {
+  try {
+    for (const action of ["start", "resume", "review"] as const) {
+      const saved = sessionStorage.getItem(taskActionStorageKey(scope, taskId, action));
+      const attempt: unknown = saved ? JSON.parse(saved) : undefined;
+      if (validAttempt(attempt)) return {action,attempt};
+    }
+  } catch { /* The request guard still requires storage before any dispatch. */ }
+}
 function savedResumeFeedback(scope: AIScope, taskId: string): string {
   try {
     const saved = sessionStorage.getItem(taskActionStorageKey(scope, taskId, "resume"));
@@ -30,11 +44,19 @@ function savedResumeFeedback(scope: AIScope, taskId: string): string {
 export function TaskDetail({ scope, authorizationKey, taskId, onReviewReference, onLocked, embedded = false, interactionLocked = false }: { scope: AIScope; authorizationKey: string; taskId: string; onReviewReference?: (id?: string) => void; onLocked?: (locked: boolean) => void; embedded?: boolean; interactionLocked?: boolean }) {
   const [pending, setPending] = useState(false);
   const [uncertain, setUncertain] = useState<UncertainCommand>();
+  const [restored, setRestored] = useState(false);
   const [feedback, setFeedback] = useState(() => savedResumeFeedback(scope, taskId));
   const [error, setError] = useState("");
   const abort = useRef<AbortController | null>(null);
+  const {userId, organizationId} = scope;
   useEffect(() => () => abort.current?.abort(), []);
-  useEffect(() => { onLocked?.(pending || !!uncertain); }, [pending, uncertain, onLocked]);
+  useEffect(() => {
+    let active = true;
+    // Match Chat's browser-storage restoration: hydrate before opening controls.
+    queueMicrotask(() => { if (active) { setUncertain(savedCommand({userId,organizationId}, taskId)); setRestored(true); } });
+    return () => { active = false; };
+  }, [userId, organizationId, taskId]);
+  useEffect(() => { onLocked?.(!restored || pending || !!uncertain); }, [restored, pending, uncertain, onLocked]);
   const task = useQuery({ queryKey: ["ai-task", scope.userId, scope.organizationId, authorizationKey, taskId],
     queryFn: ({ signal }) => requestAIWorkbench({ route: "task-read", method: "GET", path: `tasks/${taskId}`, scope, signal }),
     retry: false, staleTime: 0, refetchOnWindowFocus: false });
@@ -42,7 +64,7 @@ export function TaskDetail({ scope, authorizationKey, taskId, onReviewReference,
   useEffect(() => { if (task.isSuccess) onReviewReference?.(item?.reviewId); }, [task.isSuccess, item?.reviewId, onReviewReference]);
   const feedbackTooLarge = new TextEncoder().encode(feedback).byteLength > 8 * 1024;
   async function act(action: TaskAction, original?: PendingTaskAction) {
-    if (pending || interactionLocked || !original && (!item || uncertain)) return;
+    if (!restored || pending || interactionLocked || !original && (!item || uncertain)) return;
     setPending(true); setError("");
     if (!original && action === "resume" && feedbackTooLarge) {
       setError("反馈不能超过 8 KiB UTF-8 字节"); setPending(false); return;
@@ -54,8 +76,7 @@ export function TaskDetail({ scope, authorizationKey, taskId, onReviewReference,
     try {
       const saved = sessionStorage.getItem(storageKey);
       attempt = original ?? (saved ? JSON.parse(saved) as PendingTaskAction : { key: crypto.randomUUID(), revision, feedback: currentFeedback });
-      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(attempt.key) ||
-          typeof attempt.revision !== "string" || typeof attempt.feedback !== "string") {
+      if (!validAttempt(attempt)) {
         setError("上次操作键不可用，暂不能安全提交"); setPending(false); return;
       }
       if (attempt.revision !== revision || attempt.feedback !== currentFeedback) {
@@ -82,7 +103,7 @@ export function TaskDetail({ scope, authorizationKey, taskId, onReviewReference,
   }
   const result = error || uncertain ? <ConsoleState kind="error" title="操作未完成">{error || "原操作结果仍待核实"}。请核实原操作，不要新建任务。
     {uncertain ? <Button variant="outline" disabled={pending || interactionLocked} onClick={() => void act(uncertain.action, uncertain.attempt)}>核实原操作结果</Button> : null}</ConsoleState> : null;
-  if (task.isPending) return <>{result}<ConsoleState kind="loading" title="正在读取任务" /></>;
+  if (!restored || task.isPending) return <>{result}<ConsoleState kind="loading" title="正在读取任务" /></>;
   if (task.isError || !item) return <>{result}<ConsoleState kind="error" title="任务不可用">{errorText(task.error)} <Button variant="outline" disabled={pending || interactionLocked} onClick={() => void task.refetch()}>重试</Button></ConsoleState></>;
   const disabled = pending || interactionLocked || !!uncertain;
   return <div className={styles.detail}>
