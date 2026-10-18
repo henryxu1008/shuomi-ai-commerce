@@ -240,7 +240,7 @@ func (m fullImageModule) handle(c *gin.Context, kind imageagent.ImageSourceConte
 			writeFullImageError(c, e, false)
 			return
 		}
-		visible := make([]imageagent.ImageSetRunSummary, 0, len(items))
+		visible := make([]fullImageRecentRun, 0, len(items))
 		for _, item := range items {
 			if item.ContextKind == kind {
 				visible = append(visible, item)
@@ -533,7 +533,7 @@ func (m fullImageModule) handle(c *gin.Context, kind imageagent.ImageSourceConte
 	c.JSON(http.StatusAccepted, gin.H{"runId": runID, "status": "accepted"})
 }
 
-func (a *fullImageApplication) readRecent(ctx context.Context, contextID, cursor string, size int) ([]imageagent.ImageSetRunSummary, string, error) {
+func (a *fullImageApplication) readRecent(ctx context.Context, contextID, cursor string, size int) ([]fullImageRecentRun, string, error) {
 	id, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
 	if !ok || a == nil || a.recent == nil {
 		return nil, "", imageagent.ErrIdentityRequired
@@ -550,6 +550,7 @@ func (a *fullImageApplication) readRecent(ctx context.Context, contextID, cursor
 		return nil, "", imageagent.ErrValidation
 	}
 	inputs := make([]imageagent.PrepareImageSetInput, len(items))
+	projections := make([]imageagent.RunProjection, len(items))
 	for index, item := range items {
 		p, e := a.service.Get(ctx, item.RunID)
 		if e != nil {
@@ -561,6 +562,7 @@ func (a *fullImageApplication) readRecent(ctx context.Context, contextID, cursor
 		source := p.Plan.Set.Source
 		inputs[index] = imageagent.PrepareImageSetInput{ContextKind: item.ContextKind, ContextID: item.ContextID, EffectiveCatalogVersion: source.EffectiveVersion, ApplyReceiptID: source.ApplyReceiptID, Target: imageagent.ImageTargetSelection{Platform: p.Plan.Set.Target.Platform}}
 		items[index].Status = p.Run.Status
+		projections[index] = p
 	}
 	// Each bounded page item still gets its own live source/permission check.
 	// Validate every stored scope first, and preserve pagination order below.
@@ -588,10 +590,14 @@ func (a *fullImageApplication) readRecent(ctx context.Context, contextID, cursor
 	if err := ctx.Err(); err != nil {
 		return nil, "", err
 	}
-	result := make([]imageagent.ImageSetRunSummary, 0, len(items))
+	result := make([]fullImageRecentRun, 0, len(items))
 	for index, item := range items {
 		if visible[index] {
-			result = append(result, item)
+			release, err := a.releaseSummary(ctx, projections[index])
+			if err != nil {
+				return nil, "", err
+			}
+			result = append(result, fullImageRecentRun{ImageSetRunSummary: item, ReleaseSummary: release})
 		}
 	}
 	return result, next, nil
@@ -690,6 +696,13 @@ func (a *fullImageApplication) response(ctx context.Context, p imageagent.RunPro
 	}
 	if p.Run.ImageAdmission != nil {
 		response["confirmationActionId"] = p.Run.ImageAdmission.Command.ConfirmActionID
+	}
+	release, err := a.releaseSummary(ctx, p)
+	if err != nil {
+		return nil, err
+	}
+	if release != nil {
+		response["releaseSummary"] = release
 	}
 	return response, nil
 }
