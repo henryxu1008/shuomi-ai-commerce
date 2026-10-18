@@ -22,7 +22,7 @@ beforeAll(() => {
 beforeEach(() => {
   Object.assign(context, {user: {id: "alice"}, effectiveOrganization: null, permissions: [], selectionRequired: true, isLoading: false, isSwitching: false, error: null, blockingError: null});
   vi.mocked(skillRequest).mockImplementation(async (_scope, path) => path.endsWith("/info")
-    ? {available: true, canCreate: !path.startsWith("official"), reason: ""}
+    ? {available: true, canInstallOfficial: false, canCreate: !path.startsWith("official"), reason: ""}
     : path.endsWith("/admission") ? {policy: {allowPersonal: false, revision: "0"}, canConfigure: false}
     : {items: [], nextCursor: ""});
 });
@@ -39,7 +39,8 @@ it("manages personal skills without an organization or a modal", async () => {
 
 it("reads official templates without an organization and shows an honest empty state", async () => {
   render(<SkillLibraryPage expectedUserId="alice" category="official"/>);
-  expect(await screen.findByText(/官方模板由获授权维护者/)).toBeInTheDocument();
+  expect(await screen.findByText("当前暂无可读取的官方模板")).toBeInTheDocument();
+  expect(screen.getByText(/安装不会覆盖已有版本或状态/)).toBeInTheDocument();
   expect(screen.queryByRole("button", {name: "新建技能"})).not.toBeInTheDocument();
   expect(vi.mocked(skillRequest).mock.calls.every(([, path]) => path.startsWith("official"))).toBe(true);
 });
@@ -53,7 +54,7 @@ it("keeps the team category closed without a current organization", () => {
 it.each([['official', '官方模板', '模板目录'], ['mine', '我的技能', '个人技能列表'], ['team', '团队技能', '团队技能列表']] as const)("identifies %s and keeps its toolbar subject to service permissions", async (category, title, directory) => {
   Object.assign(context, {effectiveOrganization: {id: 'org-a', name: '企业 A'}, selectionRequired: false});
   vi.mocked(skillRequest).mockImplementation(async (_scope, path) => path.endsWith('/info')
-    ? {available: true, canCreate: false, reason: ''}
+    ? {available: true, canInstallOfficial: false, canCreate: false, reason: ''}
     : path.endsWith('/admission') ? {policy: {allowPersonal: true, revision: '7'}, canConfigure: false}
     : {items: [], nextCursor: ''});
   render(<SkillLibraryPage expectedUserId="alice" category={category}/>);
@@ -125,7 +126,7 @@ it.each([["复制到本人", "personal/copy"], ["复制到当前企业", "organi
       package: {name: "official-method", description: "Official method", digest: "a".repeat(64), files: []}, state: "ENABLED", visibility: "SHARED", allowCopy: true, allowExport: true, createdAt: "2026-10-17T00:00:00Z"},
     canEdit: false, canPublish: false, canUse: true, canCopy: true, canExport: true,
   };
-  vi.mocked(skillRequest).mockImplementation(async (_scope, requestPath) => requestPath.endsWith("/info") ? {available: true, canCreate: requestPath === "organization/info", reason: ""}
+  vi.mocked(skillRequest).mockImplementation(async (_scope, requestPath) => requestPath.endsWith("/info") ? {available: true, canInstallOfficial: false, canCreate: requestPath === "organization/info", reason: ""}
     : requestPath.endsWith("/versions/2") ? item : requestPath.endsWith("/versions") ? {items: [item.version]}
     : requestPath.endsWith("/copy") ? {} : {items: [item], nextCursor: ""});
   render(<SkillLibraryPage expectedUserId="alice" category="official"/>);
@@ -148,7 +149,7 @@ it.each([[false, "page"], ["unavailable", "page"], [false, "dialog"], ["unavaila
   };
   vi.mocked(skillRequest).mockImplementation(async (_scope, path) => {
     if (path === "organization/info" && allowed === "unavailable") throw new Error("organization unavailable");
-    return path.endsWith("/info") ? {available: true, canCreate: false, reason: ""}
+    return path.endsWith("/info") ? {available: true, canInstallOfficial: false, canCreate: false, reason: ""}
       : path === "organization/admission" ? {policy: {allowPersonal: false, revision: "0"}, canConfigure: false}
       : path.startsWith("organization") ? {items: [], nextCursor: ""}
       : path.endsWith("/versions/1") ? item : path.endsWith("/versions") ? {items: [item.version]}

@@ -28,6 +28,7 @@ import (
 	"task-processor/internal/product/asset"
 	"task-processor/internal/product/collection"
 	"task-processor/internal/product/review"
+	skillcap "task-processor/internal/skill"
 )
 
 const acquisitionImageSetBase = productAcquisitionBase + "/:operation_id/images"
@@ -49,6 +50,11 @@ func (m fullImageModule) Register(reg *kernelmodule.Registry) error {
 }
 
 type fullImagePrepareBody struct {
+	Skill *struct {
+		ID      string `json:"skillId"`
+		Version uint64 `json:"version"`
+		Digest  string `json:"digest"`
+	} `json:"skill,omitempty"`
 	ExpectedModeRevision    string                                       `json:"expectedModeRevision"`
 	Template                *agentconfig.TemplateRef                     `json:"template,omitempty"`
 	Target                  imageagent.ImageTargetSelection              `json:"target"`
@@ -312,6 +318,20 @@ func (m fullImageModule) handle(c *gin.Context, kind imageagent.ImageSourceConte
 			input.RegenerateFromRunID = p.Run.ID
 		}
 		input.ExpectedModeRevision = body.ExpectedModeRevision
+		if body.Skill != nil {
+			if a.skills == nil {
+				writeFullImageError(c, imageagent.ErrCommandBlocked, false)
+				return
+			}
+			// The route and bound live organization have already checked image
+			// write. Derive the publisher from storage, never browser owner fields.
+			ref, err := a.skills.ResolveSelectionForTarget(ctx, skillcap.Principal{UserID: identity.UserID, OrganizationID: identity.TenantID, MemberID: identity.EffectiveMemberID, UseOrganization: true}, body.Skill.ID, body.Skill.Version, body.Skill.Digest, skillcap.ImageTarget)
+			if err != nil {
+				writeFullImageError(c, err, false)
+				return
+			}
+			input.Method = &ref
+		}
 		prepared, e := a.service.PrepareImageSet(ctx, input)
 		if e != nil {
 			writeFullImageError(c, e, true)
@@ -680,6 +700,14 @@ func readFullImageJSON(request *http.Request, target any) error {
 
 func writeFullImageError(c *gin.Context, err error, mutation bool) {
 	switch {
+	case errors.Is(err, skillcap.ErrForbidden):
+		c.JSON(http.StatusForbidden, gin.H{"code": "FORBIDDEN"})
+	case errors.Is(err, skillcap.ErrInvalid), errors.Is(err, skillcap.ErrUnsupported):
+		c.JSON(http.StatusBadRequest, gin.H{"code": "INVALID_IMAGE_REQUEST"})
+	case errors.Is(err, skillcap.ErrNotEnabled), errors.Is(err, skillcap.ErrNotFound), errors.Is(err, skillcap.ErrConflict):
+		c.JSON(http.StatusConflict, gin.H{"code": "IMAGE_METHOD_UNAVAILABLE"})
+	case errors.Is(err, skillcap.ErrUnavailable):
+		c.JSON(http.StatusServiceUnavailable, gin.H{"code": "IMAGE_UNAVAILABLE"})
 	case errors.Is(err, review.ErrForbidden), errors.Is(err, collection.ErrForbidden), errors.Is(err, record.ErrForbidden), errors.Is(err, asset.ErrSourceApprovalForbidden):
 		c.JSON(http.StatusForbidden, gin.H{"code": "FORBIDDEN"})
 	case errors.Is(err, collection.ErrInvalid), errors.Is(err, record.ErrInvalid), errors.Is(err, record.ErrTooLarge):

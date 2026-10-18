@@ -21,6 +21,7 @@ beforeEach(()=>{
  calls.context={user:{id:"actor"},effectiveOrganization:{id:"org"},permissions:["imageagent.read","imageagent.write"],registerOrganizationSwitchGuard:vi.fn(()=>vi.fn())};
  fetch=vi.fn(async(input:unknown,init?:RequestInit)=>{
   const url=String(input),body=init?.body?JSON.parse(String(init.body)):undefined;
+  if(url.endsWith("/skills/organization/image-candidates"))return Response.json({items:[]});
   if(url.includes("/agents/"))return Response.json(url.includes("/revisions/")?template:url.includes("/templates")?{items:[template],nextCursor:""}:entry);
   const parsed=new URL(url,"http://localhost");
   if(parsed.pathname.endsWith("/images/sources"))return Response.json({contextKind:"acquisition",contextId:operation,source:{...source,EffectiveVersion:parsed.searchParams.get("effectiveCatalogVersion")??source.EffectiveVersion,...parsed.searchParams.get("applyReceiptId")?{ApplyReceiptID:parsed.searchParams.get("applyReceiptId")}:{}},manualReplacementAvailable:false,originals:[{id:"original",displayUrl:"https://images.test/original.png",width:1024,height:1024}],evidence:{}});
@@ -40,6 +41,19 @@ async function prepare(){
  fireEvent.click(await screen.findByRole("checkbox",{name:"共用原始素材 素材 1"}));
  const button=screen.getByRole("button",{name:"准备整套图片计划（2 项）"});await waitFor(()=>expect(button).toBeEnabled());fireEvent.click(button);
 }
+
+it("binds the selected image skill to preparation and displays the exact plan version",async()=>{
+ const skillId="2bb819bd-af13-4e68-95e0-1cc86130fb1f",skillDigest="f".repeat(64),date="2026-10-18T00:00:00Z";
+ const method={skill:{id:skillId,owner:{kind:"PLATFORM",id:"official"},creator:"maintainer",headVersion:1,revision:3,createdAt:date,updatedAt:date},version:1,package:{name:"product-image-standard",displayName:"标准商品套图",description:"围绕已选任务组织表达",target:"product-image",digest:skillDigest,files:null},state:"ENABLED",visibility:"SHARED",allowCopy:true,allowExport:true,createdAt:date};
+ const binding={Skill:{kind:"skill-version-v1",id:skillId,ownerKind:"PLATFORM",ownerId:"official",version:1,digest:skillDigest,policyVersion:"skill-method-v1"},PolicyVersion:"image-method-prompt-v1"};
+ const real=fetch.getMockImplementation()!;
+ fetch.mockImplementation((url,init)=>String(url).endsWith("/skills/organization/image-candidates")?Promise.resolve(Response.json({items:[method]})):String(url).endsWith("/prepare")?Promise.resolve(Response.json({...state,plan:{...state.plan,Method:binding}},{status:201})):real(url,init));
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ await screen.findByRole("option",{name:/标准商品套图/});fireEvent.change(screen.getByLabelText("使用的方法/技能（可选）"),{target:{value:`${skillId}:1`}});
+ await prepare();await screen.findByText(/计划使用的方法：标准商品套图/);
+ const request=fetch.mock.calls.find(([url])=>String(url).endsWith("/prepare"));expect(JSON.parse(String(request?.[1]?.body)).skill).toEqual({skillId,version:1,digest:skillDigest});
+ expect(screen.getByRole("button",{name:"确认点数并生成"})).toBeEnabled();
+});
 it.each(["prepare","regenerate"] as const)("refreshes the mode after a definite %s rejection before creating a new intent",async action=>{
  const initial=await calls.mode();calls.mode.mockClear();let complete!:(value:unknown)=>void;
  calls.mode.mockResolvedValueOnce(initial).mockImplementationOnce(()=>new Promise(resolve=>{complete=resolve}));

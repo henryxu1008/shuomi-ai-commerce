@@ -1029,6 +1029,10 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			if e != nil {
 				return nil, e
 			}
+			h.ImageService, e = skill.NewService(repo, access.ResolveImage)
+			if e != nil {
+				return nil, e
+			}
 			h.Policy, e = configstore.New(supplied.agentConfigurationDB)
 			if e != nil {
 				return nil, e

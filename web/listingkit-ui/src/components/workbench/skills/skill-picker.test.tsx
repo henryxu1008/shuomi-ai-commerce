@@ -14,3 +14,10 @@ it("retains the selected exact version and blocks confirmation after it disappea
  expect(changed).toHaveBeenLastCalledWith({skillId:version.skill.id,version:1,digest:"a".repeat(64)},false);
  fireEvent.click(screen.getByLabelText("使用技能 / 方法"));expect(changed).toHaveBeenLastCalledWith(undefined,true);
 });
+
+it("uses the image permission endpoint and leaves no-method preparation available",async()=>{
+ vi.mocked(skillRequest).mockResolvedValue({items:[]});const changed=vi.fn();
+ render(<SkillPicker scope={{userId:"alice",organizationId:"org"}} target="product-image" onChange={changed}/>);
+ await waitFor(()=>expect(vi.mocked(skillRequest).mock.calls.some(([,path])=>path==="organization/image-candidates")).toBe(true));
+ expect(screen.getByRole("option",{name:"不使用技能"})).toBeInTheDocument();expect(changed).toHaveBeenLastCalledWith(undefined,true);
+});

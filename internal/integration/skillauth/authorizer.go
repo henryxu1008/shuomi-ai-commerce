@@ -51,6 +51,14 @@ func (a *Authorizer) Bind(ctx context.Context, header string, organization bool)
 	return context.WithValue(ctx, requestKey{}, requestCapability{identity: identity, bearer: parts[1], organization: identity.EffectiveOrganizationID}), nil
 }
 func (a *Authorizer) Resolve(ctx context.Context) (d.Principal, error) {
+	return a.resolve(ctx, authz.PermissionWorkbenchAgentUse)
+}
+
+func (a *Authorizer) ResolveImage(ctx context.Context) (d.Principal, error) {
+	return a.resolve(ctx, authz.PermissionImageAgentWrite)
+}
+
+func (a *Authorizer) resolve(ctx context.Context, usePermission string) (d.Principal, error) {
 	identity, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
 	if a == nil || ctx.Err() != nil || !ok || !agent.ValidID(identity.UserID) || !identity.TokenExpiresAt.After(time.Now()) {
 		return d.Principal{}, d.ErrForbidden
@@ -71,7 +79,7 @@ func (a *Authorizer) Resolve(ctx context.Context) (d.Principal, error) {
 	}
 	p.OrganizationID, p.MemberID = fresh.EffectiveOrganizationID, fresh.EffectiveMemberID
 	p.ReadOrganization = authz.AllowedOrganization(ctx, a.policy, p.UserID, p.OrganizationID, fresh.Roles, authz.PermissionWorkbenchAgentRead)
-	p.UseOrganization = authz.AllowedOrganization(ctx, a.policy, p.UserID, p.OrganizationID, fresh.Roles, authz.PermissionWorkbenchAgentUse)
+	p.UseOrganization = authz.AllowedOrganization(ctx, a.policy, p.UserID, p.OrganizationID, fresh.Roles, usePermission)
 	p.ConfigureOrganization = authz.AllowedOrganization(ctx, a.policy, p.UserID, p.OrganizationID, fresh.Roles, authz.PermissionWorkbenchAgentConfigure)
 	return p, nil
 }
