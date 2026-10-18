@@ -1,6 +1,6 @@
 # 百炼商品图片接线 V1
 
-Execution: [#774](https://github.com/qq550723504/task-processor/issues/774)。Design Basis: **Independent Architecture**；Admission: **DESIGNING，等待适用独立检查**。本设计先于正式生产代码。
+Execution: [#774](https://github.com/qq550723504/task-processor/issues/774)。Design Basis: **Independent Architecture**；Admission: **IMPLEMENTATION_READY**（冻结设计33fd719640df2fc5e519892f9f25dd718f493fb8，独立增量复核已完成）。本设计先于正式生产代码。
 
 ## 产品结果与依据
 
@@ -83,5 +83,7 @@ TDD：先以受控 HTTP fixture 捕获百炼 route 被拒、元组错配、n/siz
 
 Round1 reviewed 703f8615dd。路由元组未冻结 finding 分类 BLOCKER（核心准备/派发身份可能互拒，实施层）：已在上方冻结准确三元组和所有消费位置。百炼成功终态 finding 分类 IMPLEMENTATION_TEST：按用户最终Qwen3协议明确finish_reason、output_image_count和尺寸成功谓词，fixture覆盖缺失/矛盾/非终态；不要求不存在的Wan finished字段。
 
-用户最终模型变更为qwen-image-3.0、北京及试用每张1点已纳入本候选。Round2只复核上述合同修订及必要Preparation/受保护当前ledger准备/UI只读选择边界，不重复#795未变设计。尚未达到IMPLEMENTATION_READY前仍无生产代码。
+用户最终模型变更为qwen-image-3.0、北京及试用每张1点已纳入本候选。Round2只复核上述合同修订及必要Preparation/受保护当前ledger准备/UI只读选择边界，不重复#795未变设计。此历史候选当时尚未达到IMPLEMENTATION_READY，未写生产代码。
 Round2 finding处置：selector未WithExecution为BLOCKER（通用Preparation核心路径失败，实施层），明确同原Supply装配一致的WithExecution和owner authority后再注入；北京路线仍容许intl为BLOCKER（偏离当前地域配置，实施层），冻结北京host并拒绝intl/其它region；input_image_count一致性为IMPLEMENTATION_TEST，加入实际发送数量成功谓词及fixture。两轮设计已完成，仅对两项新BLOCKER的最小修订请求增量复核，不新增设计版本链或全局评审。
+
+当前准入：两轮及两项BLOCKER最小增量复核已完成，33fd71964未发现新问题，达到IMPLEMENTATION_READY；复核摘要见[PR #799](https://github.com/qq550723504/task-processor/pull/799#issuecomment-6246256153)。冻结上述范围；非Blocker转实现测试，后续正式实现沿本PR继续。
