@@ -3,13 +3,13 @@
 ## 1. 状态、用户结果与范围
 
 - 日期：2026-10-18；执行依据：#29 / #301，用户授权“先做退休设计，确认后再实施”。
-- 状态：**DESIGN_ONLY / AWAITING_USER_CONFIRMATION**。当前 **Design Basis: N/A**：仅文档与只读映射；本 PR 只交本文及架构索引，不修改生产、测试、模板、workflow 或运行数据。
+- 状态：**USER_CONFIRMED / SOURCE_RETIRED**。用户已确认 #807 冻结设计 `aa21423ac8583d510dca334365c82623b0d3d750` §5/§6/§6.1/§7；六源文件矩阵中的旧 API/re-export、vision key/default/catalog/专属变量元数据已退出。原设计 N/A 仅覆盖当时文档调查，不替代实施证据；准确实施 HEAD、CI/独立检查维护于 PR。
 - 取证基线：actual main `23d4d501d21d831ad0fda80278b443473c453b8c`，含 #799 当前图片接线与 #801 已合并的旧 image 执行包退休。唯一 Writer 复用附属独占 worktree `issue29-temu-image-retirement/task-processor`，新分支 `codex/issue29-temu-image-contract-retirement-design`；已核对父 Issue/接单/关联 PR，无同范围 owner，不接管 #692。
-- 未来有界实施拟采用 §2 的 Reuse Existing Architecture；当前不是 Ready，未经确认不得修改正式代码或 guard。
+- 当前 **Design Basis: Reuse Existing Architecture / Ready**：修改生产前已在 #29/#301 登记并读回用户结果、冻结依据、owner/路径、不变量与验证。通用 Prompt 实现、workflow 与运行数据不改；用户验收仍待独立确认。
 
 使用者是当前内部试用、采集/Store/图像能力维护者。本批交付为 #801 §3.1 两项 BACKLOG 的精确收尾设计：旧 image API/re-export、vision key/default/catalog/专属变量元数据的实际消费者、有效行为处置、持久化/平台副作用 owner 和删除/保留/验证矩阵。当前无用户操作被此维护阻塞，**不增加内部试用前置**。没有新页面/交互，Figma N/A。
 
-拟覆盖六个源文件：两个整文件（旧 API 233 行、YAML 16 行）和四个 mixed 文件中的专属声明/词条；无新增 EXTRACT 代码。保留其它 API/DTO、当前图像/平台/规则与全部此前保留能力。源码退休不等于历史数据库记录或远端图片不存在。
+本批覆盖六个源文件：两个整文件（旧 API 233 行、YAML 16 行）和四个 mixed 文件中的专属声明/词条；无新增 EXTRACT 代码。保留其它 API/DTO、当前图像/平台/规则与全部此前保留能力。源码退休不等于历史数据库记录或远端图片不存在。
 
 非目标：重接旧上传/vision，新增产品/IAM/目录状态机/黑名单/墓碑/迁移/恢复/验收工具；修改共享 Service/Store/Registry/HTTP 行为、其它 prompt 或其它平台同名类型；执行 main/constructor、真实下载/模型/API/上传/Preview/DryRun；读取私密配置、凭据、DB/Redis、tenant override 或历史运行日志；部署、重放、资产/数据清理和 Issue 关闭。
 
@@ -24,7 +24,7 @@ Architecture / Contract：
 - [Prompt Management](zitadel-tenant-prompt-management.md)：catalog/schema 与 Service Upsert 已有 known-key 语义；原 tenant Store/Registry 与通用记录读取/状态操作不因此退休。须按 §4 区分目录与持久化记录，不能把目录引用当成执行需求。
 - [Store current application](store-center-current-application-v1.md)、[Store observations](store-center-platform-observations-v1.md)、[独立 SHEIN 身份持久化](shein-worker-identity-persistence-boundary.md)：原身份、事实/持久化、官方效果/receipt/UNKNOWN 与 worker/Store sync 不变。
 
-未来实施拟 **Reuse Existing Architecture**：删除无执行消费者的旧 API 与目录资源，使用原 unknown-key/schema/Upsert 错误语义；不改 Service/Store/HTTP 接口形状、认证/tenant、事实/schema、状态/事务、幂等/retry/UNKNOWN/recovery 或平台/provider 副作用 owner。目录不再提供旧 key 是本次明确的有界变化，**不是把未来实施冒称 N/A**。六源文件加原检查/直接冲突文档预计低于30文件，生产删除量低于400行；不通过机械拆 PR 规避阈值。若发现必须改变保留边界或既有批准不足，停止受影响部分补适用 Independent Architecture 准入。
+本次实施采用 **Reuse Existing Architecture**：删除无执行消费者的旧 API 与目录资源，使用原 unknown-key/schema/Upsert 错误语义；不改 Service/Store/HTTP 接口形状、认证/tenant、事实/schema、状态/事务、幂等/retry/UNKNOWN/recovery 或平台/provider 副作用 owner。目录不再提供旧 key 是本次明确的有界变化，**不是把实施冒称 N/A**。六源文件加原检查/直接冲突文档预计低于30文件，生产删除量低于400行；不通过机械拆 PR 规避阈值。若发现必须改变保留边界或既有批准不足，停止受影响部分补适用 Independent Architecture 准入。
 
 Must：当前图像（含 #799）、有效 API/DTO/平台规则/共享基础层、DimensionInfo/TextRenderer、AI/SKU/AIBatchInput、PriceHandler/ProfitRuleAPI、PriceManager/PriceCalculator、两种 SHEIN 属性、Reader/Cache/Mapping、四 TemplateState 字段、当前采集/Store 观察及独立 SHEIN 登录/Store sync 全部保持。其它 prompt key/template/catalog/glossary、tenant Store/Registry/HTTP 合同本批不动；不据此宣称其它旧入口全部已开放。两套及其它 workflow、必需/安全检查、保护/ceiling/依赖零变更。
 
@@ -66,7 +66,7 @@ Should：原检查与当前清单准确反映退休对象。Out of Scope 如 §1
 
 本批**无新增 EXTRACT 代码**。有效的图像下载/格式与像素检查、当前资产/平台规则、通用 Prompt 渲染/tenant 存储/目录校验已有 owner，全部原位保留；旧 CDN 猜测、上传搬运、无执行者的 prompt 及仅服务它的 metadata 不复制为闲置工具。
 
-## 5. 精确删除与保留矩阵（待用户确认）
+## 5. 精确删除与保留矩阵（用户已确认并实施）
 
 | 路径 / 对象 | 决定 | 边界 |
 | --- | --- | --- |
@@ -87,9 +87,9 @@ Cutover/deletion condition: 用户确认 §5/§6/§6.1/§7 → 执行Issue登记
 
 ## 6. 验证与验收边界
 
-本设计只读映射六文件、原 guard、实际 root API 消费者、目录/Store/Registry/HTTP 合同与31命令依赖；只交本文/索引，做文档 diff/相对链接和原 PR CI/最终独立检查。真实下载、平台上传、模型/provider、运行实例与用户验收均 **NOT_RUN**；静态未见 caller 不等于外部消费者或数据不存在。
+设计阶段只读映射六文件、原 guard、实际 root API 消费者、目录/Store/Registry/HTTP 合同与31命令依赖；当时只交本文/索引；实施按下列冻结要求验证并校准原清单。真实下载、平台上传、模型/provider、运行实例与用户验收均 **NOT_RUN**；静态未见 caller 不等于外部消费者或数据不存在。
 
-未来实施的必要验证：
+实施的必要验证（冻结设计要求）：
 
 1. 开工同步一次 actual main；刷新 image子包/六重导出、旧key/literal/template/Base64Image 所有消费者及31命令依赖。出现新真实consumer、有效行为缺owner或具体兼容义务，停止对应项报告。
 2. 原退休 guard 在旧 API/YAML 尚在时准确RED；原 promptmgmt 测试使用已有 stub store，针对旧 literal 验证 catalog/schema/Upsert 不可用与写 store 前拒绝，在 metadata 尚在时确认RED。再精确删除/GREEN；无新runner/专项环境。
@@ -99,7 +99,7 @@ Cutover/deletion condition: 用户确认 §5/§6/§6.1/§7 → 执行Issue登记
 
 ### 6.1 原检查、清单与文档的精确处置
 
-| 原位置 | 未来实施的最小变更 | 不得削弱 / 扩大 |
+| 原位置 | 实施的最小变更 | 不得削弱 / 扩大 |
 | --- | --- | --- |
 | tests/listingkit_backend_retirement_test.go | 原严格缺席列表增加整个 internal/temu/api/image 与 vision YAML；原root API保留token仅退出上述image专属token，移除旧image.go保留项；复用原局部AST声明做法防root api六声明/constructor var或alias重建，keys/catalog/manifest精确禁止旧key资源重建 | 保留原image/孤立ImageRequirement/AssetState缺席、五mixed包/SKU九fixture、Publish/身份/采集/Store/当前图像/安全断言与其它API/DTO保留。root api 名字检查只约束包级声明，不禁其它包同名type/field/selector/local，不新建通用扫描器或广泛skip |
 | internal/promptmgmt/service_test.go、必要原api/handler测试 | 在已有stub/unknown-key路径补旧literal的catalog缺席/schema ErrTemplateNotFound/Upsert无store写入；保留无store503和已有raw-list/status/其它key测试 | 不用真实DB/接口，不删tenant隔离/通用store/renderer测试，不把catalog移除写成已有行消失或所有generic rendering被禁 |
@@ -109,8 +109,8 @@ Cutover/deletion condition: 用户确认 §5/§6/§6.1/§7 → 执行Issue登记
 
 ## 7. 确认、实施与停止条件
 
-1. 本PR仅设计；用户明确确认 §5/§6/§6.1/§7 后，才在同一主要PR继续实施。当前N/A不授权修改生产/测试/模板。
-2. 确认后在执行Issue记录并读回 Reuse Existing Architecture / Ready、冻结设计HEAD、用户结果/owner/调用路径/不变量/验证，再按矩阵精确退休及校准原检查与清单。
+1. 用户已确认冻结设计 §5/§6/§6.1/§7，授权在同一主要 PR #807 继续实施；本次只执行已确认矩阵，不从原设计 N/A 推定其它业务修改权限。
+2. 实施前已在执行 Issue 记录并读回 Reuse Existing Architecture / Ready、冻结设计 HEAD、用户结果/owner/调用路径/不变量/验证，再按矩阵精确退休及校准原检查与清单。
 3. 新真实consumer、具体外部可观察兼容义务、有效行为缺owner或必须改变身份/tenant/事实/状态/事务/管理/恢复/副作用边界时，停止受影响部分报告，补适用准入；不临时造adapter/fallback、清理覆盖数据或扩成目录治理/IAM平台。
 4. 实施完成交准确HEAD原CI/最终独立检查，finding先分类；未变有效证据明确复用，非Blocker不自动扩范围或重开全局设计。实现者/CI/AI检查不签发用户验收。
 5. 合并需准确最终HEAD另授权并正常expected-head；#29/#301保持OPEN，不授权部署、真实API/provider/实例/凭据/业务数据操作。保留当前图像/共享/采集/Store与独立SHEIN登录/Store sync，不增加内部试用前置。

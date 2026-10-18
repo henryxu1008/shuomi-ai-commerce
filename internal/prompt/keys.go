@@ -46,9 +46,6 @@ const (
 	// ── temu/sku_variant_mapping.yaml ──────────────────────────────────────
 	KTemuSkuVariantMappingSystem = "temu.sku_variant_mapping.system"
 
-	// ── temu/vision_detector.yaml ──────────────────────────────────────────
-	KTemuVisionDetectorDetect = "temu.vision_detector.detect"
-
 	// ── productenrich/llm_scorer.yaml ──────────────────────────────────────
 	KProductEnrichLlmScorerTextScoring  = "productenrich.llm_scorer.text_scoring"
 	KProductEnrichLlmScorerImageScoring = "productenrich.llm_scorer.image_scoring"

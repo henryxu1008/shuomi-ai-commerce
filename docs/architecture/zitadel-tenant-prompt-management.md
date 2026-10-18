@@ -122,7 +122,8 @@ Important design rules:
 - `variables` come from the manifest first, then fall back to prompt-content
   extraction only when the manifest does not define them
 - `supported_scopes` come from the manifest
-- tenant overrides are only valid for catalog keys
+- tenant override Upsert requires a catalog key; generic stored-row operations
+  retain the original tenant/key semantics even when a key leaves the catalog
 
 ## API Contract
 
@@ -166,11 +167,19 @@ Current service-level rules:
 1. prompt store must be configured
 2. tenant ids are normalized
 3. keys are trimmed
-4. writes are allowed only for catalog keys
-5. unknown keys are rejected before touching the store
+4. Upsert is allowed only for catalog keys
+5. unknown Upsert keys are rejected before touching the store
 
 This closes the old gap where UI restrictions could be bypassed by writing
 arbitrary prompt keys through the API.
+
+Catalog removal does not delete or disable existing tenant rows. List/status
+operations and the generic Store/Registry do not validate catalog membership;
+an existing enabled row can still be read/rendered by an explicit generic caller.
+The retired TEMU vision key/default/metadata have no execution caller and are
+removed under [#807](legacy-temu-image-api-prompt-retirement-boundary.md).
+This is a source boundary clarification, not a record cleanup, global key ban,
+new runtime entrypoint or change to Service/Store/HTTP behavior.
 
 ## Runtime Resolution Rule
 
