@@ -41,6 +41,8 @@ Out of Scope：真实模型调用、另设点数账本或默认价格、跨企�
 
 实现细化：现存合法 Preparation 来源没有原图时，read-only description 如实返回空 originals 与原来源绑定；PrepareImageProduct 仍拒绝空原图，不改变生成素材合同。`SourceSelector.WithExecution` 会修改 receiver，装配须复制 selector 后调用，以保留既有浏览器来源端口。
 
+运行实测细化：新增本地 MinIO bucket 的 GetBucketAcl 成功但 Owner 为空，原图片 storage capacity 接线无法确认物理归属。复用仓库已批准的 `s3.ClientConfig.CapacityIdentityProvider/CapacityMinIODeploymentID` 与 `ResolveCapacityNamespace` 的明确 MinIO 部署身份路径（认证读取 `/minio/admin/v3/info`、准确 pin、一致 endpoint/bucket），从图片 worker 私有 S3 配置显式传入；不从空 ACL 猜身份、不修改既有 namespace、不关闭计量、无 fallback 或新 owner。属已有合同的遗漏注入，在实现测试收敛；没有新增存储/资金语义。
+
 冻结路由元组：`provider=bailian`、`model=qwen-image-3.0`、`protocol=dashscope-image-sync-v1`，分辨率 `1024x1024`、quality `auto`。由受信 factory 同时提供给 ImageGenerationQuote、GenerationProviderMetadata、新 GenerationIntent/fingerprint、operation provider/model 比较和派发前 revalidate。领域只允许该完整元组与当前已批准的 `grsai/gpt-image-2.5/grsai-json-sync-v1`，交叉混配和未知值均拒绝；不按URL猜provider。未改变旧意图的准确字段/回执。
 
 ## 百炼协议边界
