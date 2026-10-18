@@ -48,6 +48,7 @@ type fullImageApplication struct {
 	trial           *imageagent.IsolatedTrialGeneratedURLPolicy
 	configuration   *configstore.Store
 	recent          imageagent.ImageSetRunReader
+	generationFacts imageGenerationFactReader
 	gate            imageagent.TenantAllowlistStartGate
 	rules           supplyapp.ImageSetTargetRules
 	manualAvailable bool
@@ -195,6 +196,10 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 	if !ok {
 		return nil, empty, imageagent.ErrCommandBlocked
 	}
+	generationFacts, ok := apiRepository.(imageGenerationFactReader)
+	if !ok {
+		return nil, empty, imageagent.ErrCommandBlocked
+	}
 	assetRepository, err := assetstore.NewRepository(assetDB)
 	if err != nil {
 		return nil, empty, err
@@ -273,7 +278,7 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 	if artwork != nil {
 		dependencies.ArtworkPublisher = artwork
 	}
-	return &fullImageApplication{skills: skills, artwork: artwork, service: service, readSources: readSources, contexts: contexts, quotes: quotes, selections: selections, inventories: inventories, approvals: approvals, publicURLs: publicURLs, trial: trial, configuration: configuration, recent: recent, gate: gate, rules: rules, manualAvailable: manual != nil}, dependencies, nil
+	return &fullImageApplication{skills: skills, artwork: artwork, service: service, readSources: readSources, contexts: contexts, quotes: quotes, selections: selections, inventories: inventories, approvals: approvals, publicURLs: publicURLs, trial: trial, configuration: configuration, recent: recent, generationFacts: generationFacts, gate: gate, rules: rules, manualAvailable: manual != nil}, dependencies, nil
 }
 
 type imagePreparationProductReader struct {

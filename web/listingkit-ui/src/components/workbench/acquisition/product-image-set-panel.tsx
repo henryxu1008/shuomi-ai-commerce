@@ -282,9 +282,9 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
     return <div key={task.id} className="space-y-2"><label className="flex items-start gap-2 text-sm"><input type="checkbox" disabled={locked||!!missing} checked={tasks.includes(task.id)} onChange={e=>setTasks(old=>e.target.checked?[...old,task.id]:old.filter(id=>id!==task.id))}/><span>{labels.get(task.purpose)??task.brief??"自定义任务"}{missing?<small className="block text-warning-foreground">缺少真实依据，请补充商品资料或取消该项</small>:null}</span></label>{platform==="shein"&&tasks.includes(task.id)?<OfficialPosition value={positions[task.id]} requirements={requirements} disabled={locked} generated onChange={value=>setPositions(old=>({...old,[task.id]:value}))}/>:null}</div>
    })}</section>)}</div><p className="text-xs text-muted-foreground">背景：{template.image.background} · 文字：{template.image.language} · {template.image.shareOriginals?"两组共用原始素材，分别生成与计费":"两组分别选择原始素材，分别生成与计费"}</p>{template.image.shareOriginals?originalChoices("共用原始素材",shared,setShared):<div className="grid gap-4 md:grid-cols-2">{originalChoices("主图素材",carousel,setCarousel)}{originalChoices("详情素材",detail,setDetail)}</div>}<Button disabled={locked||!canPrepare} onClick={()=>newPreparation()}>准备整套图片计划（{tasks.length} 项）</Button></>:<p className="text-sm">请在智能体配置中创建图片模板并设为默认，或选择已有模板。</p>}
   </>:null}
-  {recent.length?<label className="block space-y-2 text-sm">本商品最近任务<Select disabled={locked} value={run?.runId??""} onChange={e=>{if(e.target.value){setPreview(null);setSelected([]);void readRun(e.target.value).catch(fail)}}}><option value="">选择原任务</option>{recent.map(item=><option key={item.runId} value={item.runId}>{stateNames[item.status]??item.status} · {new Date(item.createdAt).toLocaleString()}</option>)}</Select></label>:null}
+  {recent.length?<label className="block space-y-2 text-sm">本商品最近任务<Select disabled={locked} value={run?.runId??""} onChange={e=>{if(e.target.value){setPreview(null);setSelected([]);void readRun(e.target.value).catch(fail)}}}><option value="">选择原任务</option>{recent.map(item=><option key={item.runId} value={item.runId}>{imageResultLabel(item.runId===run?.runId?run:item)} · {new Date(item.createdAt).toLocaleString()}</option>)}</Select></label>:null}
   {recentCursor?<Button variant="outline" disabled={locked} onClick={()=>void loadMoreRuns()}>加载更多图片任务</Button>:null}
-  {run?<section className="space-y-4 border-t border-border pt-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-semibold">{stateNames[run.status]??run.status}</h3><p className="text-xs text-muted-foreground">任务 {run.runId} · {run.slots.filter(s=>s.status==="accepted").length}/{run.images} 张已生成 · 已确认用量 {run.settledPoints} 点</p></div><Button variant="outline" disabled={busy} onClick={()=>void readRun(run.runId).catch(fail)}>刷新原任务</Button></div>
+  {run?<section className="space-y-4 border-t border-border pt-5">{run.releaseSummary?<ReleasedImageResult run={run} scope={stableScope} busy={busy} onRefresh={()=>void readRun(run.runId).catch(fail)}/>:<><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-semibold">{stateNames[run.status]??run.status}</h3><p className="text-xs text-muted-foreground">任务 {run.runId} · {run.slots.filter(s=>s.status==="accepted").length}/{run.images} 张已生成 · 已确认用量 {run.settledPoints} 点</p></div><Button variant="outline" disabled={busy} onClick={()=>void readRun(run.runId).catch(fail)}>刷新原任务</Button></div>
    {run.executionMode?<p className="text-sm">本次权限：{executionModeLabels[run.executionMode]} · 模式版本 {run.modeRevision}</p>:<p className="text-sm text-warning-foreground">本次权限模式不可用，只能查看原记录。</p>}
    {run.plan.Method?<ImageMethodSummary scope={stableScope} method={run.plan.Method} refresh={run}/>:<p className="text-sm text-muted-foreground">计划使用的方法：不使用技能</p>}
    {run.modeUnavailableReason==="EXECUTION_MODE_CHANGED"?<p className="text-sm text-warning-foreground">权限配置已变化，本次运行不能获得新权限；请保留原请求，重新确认新运行。</p>:null}
@@ -303,8 +303,34 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
     {runSources?.manualReplacementAvailable?<div className="space-y-2"><h4 className="text-sm font-medium">人工文件替换</h4><SourceImageUploader scope={stableScope} disabled={busy||!!intent} onBlocked={blockMedia} onImage={()=>undefined} onMedia={image=>{if(busy||intent)return;setPreview(null);const view:ChoiceView={key:`manual:${image.hash}`,url:image.url,label:"人工上传图片",choice:{kind:"manual",manual_media:{hash:image.hash,bytes:image.bytes},presentation:{group:"carousel",order:1}}};setSelected(old=>old.some(v=>v.key===view.key)?old:old.length<40?[...old,view]:old)}}/><p className="text-xs text-muted-foreground">上传后的图片仍需加入完整选择并人工批准，替换不会调用生成模型。</p></div>:null}<ol className="space-y-3">{selected.map((item,index)=><li key={item.key} className="grid gap-3 rounded-lg border border-border p-3 sm:grid-cols-[80px_1fr]"><Image src={item.url} width={80} height={80} unoptimized alt={`拟采用：${item.label}`} className="h-20 w-20 object-contain"/><div className="space-y-2"><p className="text-sm">{index+1}. {item.label}</p><div className="flex flex-wrap gap-2"><Select aria-label={`${item.label} 素材组`} disabled={locked} value={item.choice.presentation.group} onChange={e=>updateChoice(index,c=>{c.presentation.group=e.target.value as "carousel"|"detail"})}><option value="carousel">主图 / 轮播</option><option value="detail">详情图</option></Select><Button size="sm" variant="ghost" disabled={locked||index===0} onClick={()=>{setPreview(null);setSelected(old=>{const next=[...old];[next[index-1],next[index]]=[next[index]!,next[index-1]!];return next})}}>上移</Button><Button size="sm" variant="ghost" disabled={locked||index===selected.length-1} onClick={()=>{setPreview(null);setSelected(old=>{const next=[...old];[next[index+1],next[index]]=[next[index]!,next[index+1]!];return next})}}>下移</Button><Button size="sm" variant="ghost" disabled={locked} onClick={()=>choose(item)}>移除</Button></div>{official?<OfficialPosition value={item.choice.official_placement?fromPosition(item.choice.official_placement):undefined} requirements={requirements} generated={false} disabled={locked} onChange={value=>updateChoice(index,c=>{c.official_placement=toPosition(value)})}/>:null}</div></li>)}</ol><Button variant="outline" disabled={locked||!selected.length||!selectedPositionsReady} onClick={()=>void previewSelection()}>预览完整选择</Button>{preview?<div className="rounded-xl bg-success p-4 text-sm"><p>将按以上顺序保存 {preview.command.choices.length} 张图片，更新当前正式素材集合。</p><Button className="mt-3" disabled={locked} onClick={()=>void send({action:"approve",runId:run.runId,body:{...preview.command,selectionDigest:preview.digest}})}>人工批准并保存素材</Button></div>:null}
    </section>:null}
    {run.status==="completed"&&inventory?<div className="grid grid-cols-3 gap-3">{inventory.target.assets.map((image,i)=><figure key={image.id}><Image src={image.url} width={160} height={160} unoptimized alt={`正式素材 ${i+1}`} className="h-32 w-full object-contain"/><figcaption className="mt-2 text-xs text-muted-foreground">{image.presentation?.group==="detail"?"详情":"主图 / 轮播"} · {image.presentation?.order??i+1}</figcaption></figure>)}</div>:null}
-  </section>:null}
+  </>}</section>:null}
  </Card>;
+}
+
+function imageResultLabel(run:Pick<ImageSetRun,"status"|"releaseSummary">){return run.releaseSummary?"未生成，点数已释放":stateNames[run.status]??run.status}
+
+function ReleasedImageResult({run,scope,busy,onRefresh}:{run:ImageSetRun;scope:ImageSetScope;busy:boolean;onRefresh:()=>void}){
+ return <>
+  <div className="space-y-3 rounded-lg bg-accent p-4 text-sm">
+   <h3 className="text-xl font-semibold text-primary">未生成，点数已释放</h3>
+   <p>本次未生成图片，原预留 {run.releaseSummary!.releasedPoints} 点已释放。</p>
+   <p className="break-all text-xs text-muted-foreground">任务 {run.runId} · 已确认用量 {run.settledPoints} 点</p>
+   <p className="text-muted-foreground">原商品与素材保持不变，本次没有重新发起生成。</p>
+   <Button size="sm" disabled={busy} onClick={onRefresh}>刷新原任务</Button>
+  </div>
+  <details className="rounded-lg border border-border p-4 text-sm">
+   <summary className="cursor-pointer font-medium focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">原始失败记录与核实依据</summary>
+   <div className="mt-3 space-y-2 text-muted-foreground">
+    <p>原始状态：{stateNames[run.status]??run.status}</p>
+    {run.block?<p className="break-all">原始阻止代码：{run.block.Code}</p>:null}
+    {run.slots.map(slot=><div key={slot.slotId} className="space-y-1 break-all"><p>原始图片项：{slot.slotId} · 计划版本 {run.planRevision} · 尝试 {slot.attempt}</p><p>原始错误代码：{slot.errorCode||"无"}</p></div>)}
+    {run.recoverableEffects?.map(effect=><p key={`${effect.SlotID}:${effect.Attempt}`} className="break-all">原始核实记录：{effect.SlotID} · 尝试 {effect.Attempt} · {effect.Code}</p>)}
+    <p>核实结果：未生成图片，原预留点数已释放。</p>
+    <p>原始失败记录与审计证据均保留，原请求未被重试。</p>
+    {run.plan.Method?<ImageMethodSummary scope={scope} method={run.plan.Method} refresh={run}/>:<p>计划使用的方法：不使用技能</p>}
+   </div>
+  </details>
+ </>;
 }
 
 function sourceIdentity(source:ImageSetRun["plan"]["Source"]){return JSON.stringify([source.ContextKind,source.ProductID,source.OperationID,source.OriginalPublicationID,source.OriginalVersion,source.EffectiveVersion,source.ApplyReceiptID??""])}

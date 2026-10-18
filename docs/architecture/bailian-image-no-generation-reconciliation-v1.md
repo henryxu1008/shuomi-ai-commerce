@@ -43,6 +43,18 @@ EXTRACT existing single-source GenerationFact, OrgResource/Storage settlement an
 
 ## Validation and delivery
 
+### Read-only historical result display (2026-10-18)
+
+This bounded display covers original first-attempt plans only. Later attempts or plan revisions retain the existing display: a last-attempt release alone cannot establish that the full task history generated nothing.
+
+New human product decision: show the four proved historical tasks as “未生成，点数已释放”, retaining the original failure and audit evidence. This supersedes the prior slice's unchanged blocked-display limitation only for presentation. Figma authority was updated before implementation: tg48P46SSXl6TBy9lZwg63 / 31:463 / dark7149:1830, light7149:1849. Design Basis: Reuse Existing Architecture; Issue774 records Ready, owner, scope and validation before production edits.
+
+The existing authorized ImageSet HTTP read/recent consumers receive a bounded optional releaseSummary, derived through the original API repository's ReadGenerationFact port. It is not another run state, persistent projection, billing owner, public domain contract or recovery protocol. The original status, slot error codes, generation JSON, immutable refusal events and Resource receipts remain unchanged. No hardcoded incident IDs, schema/data migration, backfill, reserve/finalize/provider call or new action permission.
+
+Only a blocked/failed admitted run whose entire current plan is covered by exact scoped slot/attempt facts may receive the aggregate. Each fact must validate, match tenant/actor/member/run/revision/slot/attempt and the original slot quote, be no_generation with a bound released settlement receipt, and have no success or candidates. Missing/UNKNOWN, partial or unfinished settlement, successful/mixed results and absent reservations must not be labeled released. Identity/corruption failures fail closed; all existing source, organization/member and revoked-grant checks run before exposing this read-only information. Existing request context/deadlines apply.
+
+Recent labels and the selected original task show the same derived result and released point count. The expanded original record retains its prior status/error and explains that existing failure/audit evidence is retained. Obsolete “reservation held” presentation and recovery controls are not shown as current actions for this fully settled result; backend command authorization and all persisted workflow/effect fences are unchanged. Other runs keep their current UI. The original source, method/version and saved results remain available under the same identity. No merge/deployment permission is inferred from this implementation request.
+
 ### Shared event cursor blocker amendment (2026-10-18, IMPLEMENTATION_READY)
 
 Independent incremental admission: existing visual_brief_arch_review, 2026-10-18, before production correction. Evidence-before-commit, exact replay, stale CAS, real rejection and concurrent receipts are IMPLEMENTATION_TEST. No new writer or full architecture review.
