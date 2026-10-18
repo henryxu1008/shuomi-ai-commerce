@@ -38,6 +38,7 @@ type Config struct {
 	BaseURL, APIKey, CredentialReference, ConfigurationVersion string
 	Timeout                                                    time.Duration
 	HTTPClient                                                 *http.Client // Explicit in-process test transports; production uses net/http.
+	Diagnose                                                   func(Diagnostic)
 }
 type Observation struct{ RequestID, ResultURL, ResultDigest string }
 type Observer func(context.Context, Observation) error
@@ -154,17 +155,17 @@ func (c *Client) submit(ctx context.Context, prompt string, images []string) (*a
 	req.Header.Set("Authorization", "Bearer "+c.cfg.APIKey)
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return nil, errUnknown
+		return nil, c.unknown("transport", 0, nil, "", transportReason(err))
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, errUnknown
-	}
 	data, err := io.ReadAll(io.LimitReader(resp.Body, (1<<20)+1))
-	if err != nil || len(data) > 1<<20 {
-		return nil, errUnknown
-	}
 	defer clear(data)
+	if err != nil || len(data) > 1<<20 {
+		return nil, c.unknown("response_read", resp.StatusCode, nil, resp.Header.Get("X-Request-Id"), "")
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, c.unknown("http_status", resp.StatusCode, data, resp.Header.Get("X-Request-Id"), "")
+	}
 	var result struct {
 		RequestID string `json:"request_id"`
 		Code      string `json:"code"`
@@ -192,24 +193,27 @@ func (c *Client) submit(ctx context.Context, prompt string, images []string) (*a
 		} `json:"usage"`
 	}
 	strict, err := strictjson.UnmarshalStrict(data, &result, strictjson.DisallowDuplicateFields)
-	if err != nil || len(strict) > 0 || !canonical(result.RequestID) || result.Code != "" || result.Output.Finished != nil && !*result.Output.Finished || result.Output.TaskID != "" || result.Output.TaskStatus != "" || len(result.Output.Choices) != 1 || result.Usage.Input == nil || *result.Usage.Input != len(images) || result.Usage.Count == nil || *result.Usage.Count != 1 || result.Usage.Width == nil || *result.Usage.Width != 1024 || result.Usage.Height == nil || *result.Usage.Height != 1024 {
-		return nil, errUnknown
+	if err != nil || len(strict) > 0 {
+		return nil, c.unknown("response_json", resp.StatusCode, nil, resp.Header.Get("X-Request-Id"), "")
+	}
+	if !canonical(result.RequestID) || result.Code != "" || result.Output.Finished != nil && !*result.Output.Finished || result.Output.TaskID != "" || result.Output.TaskStatus != "" || len(result.Output.Choices) != 1 || result.Usage.Input == nil || *result.Usage.Input != len(images) || result.Usage.Count == nil || *result.Usage.Count != 1 || result.Usage.Width == nil || *result.Usage.Width != 1024 || result.Usage.Height == nil || *result.Usage.Height != 1024 {
+		return nil, c.unknown("response_contract", resp.StatusCode, data, resp.Header.Get("X-Request-Id"), "")
 	}
 	choice := result.Output.Choices[0]
 	if choice.Finish != "stop" || choice.Message.Role != "assistant" || len(choice.Message.Content) != 1 {
-		return nil, errUnknown
+		return nil, c.unknown("response_choice", resp.StatusCode, data, resp.Header.Get("X-Request-Id"), "")
 	}
 	item := choice.Message.Content[0]
 	_, publicErr := httpimage.ValidatePublicHTTPSURL(item.Image)
 	u, err := url.Parse(item.Image)
 	if err != nil || publicErr != nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil || u.Fragment != "" || len(item.Image) > 4096 || item.Text != "" || item.Type != "" && item.Type != "image" {
-		return nil, errUnknown
+		return nil, c.unknown("response_locator", resp.StatusCode, data, resp.Header.Get("X-Request-Id"), "")
 	}
 	digest := sha256.Sum256(data)
 	final, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 	defer cancel()
 	if c.observe(final, Observation{RequestID: result.RequestID, ResultURL: item.Image, ResultDigest: hex.EncodeToString(digest[:])}) != nil {
-		return nil, errUnknown
+		return nil, c.unknown("observation", resp.StatusCode, data, resp.Header.Get("X-Request-Id"), "")
 	}
 	return &ai.ImageResponse{RequestID: result.RequestID, UpstreamJobID: result.RequestID, Data: []ai.ImageData{{URL: item.Image}}, UsageKnown: false}, nil
 }
