@@ -1,5 +1,7 @@
 # 旧 TEMU 类目与模板查询编排退休边界设计
 
+后续用户确认的 [#815 完整默认属性管线边界](legacy-temu-property-pipeline-retirement-boundary.md) 已退休旧 PropertyMapper→Orchestrator→Pipeline→四stage及专属context/cache/stat/config/阶段DTO/alias共11文件。仅此具体闭包被窄替代；13个被保留AI/SKU/spec消费的property文件、rules/handlerbase原合同与四TemplateState字段保持。下文当批保留/consumer/计数是历史证据，不据旧措辞恢复已退休编排。
+
 > 当前图片状态以用户确认的 #801 [剩余执行包退休边界](legacy-temu-image-processing-retirement-boundary.md)为准：旧 image 包、孤立 ImageRequirement、AssetState/两 padded map 已 source-retired。下方 #797 当批保留说明属于历史；四 TemplateState 字段、平台合同、有效共享能力及其它保留边界保持。
 
 > 后续窄替代：用户确认 #797 [图片编排退休边界](legacy-temu-image-orchestration-retirement-boundary.md) 后，仅其中七文件及专属 helper/alias/三个 AssetState 字段退出；本文当批图像/混合上下文全保留陈述按该矩阵收窄。其余图像处理/填充/上传、两 padded map、四 TemplateState 字段、平台合同和历史取证保持。

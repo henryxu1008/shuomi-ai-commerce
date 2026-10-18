@@ -68,6 +68,12 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/temu/rules/text_check_handler.go", "internal/temu/rules/text_processor.go",
 		"internal/temu/rules/bullet_points_validator.go", "internal/temu/rules/bullet_points_optimizer.go",
 		"internal/temu/rules/bullet_points_validator_test.go",
+		"internal/temu/property/mapper_adapter.go", "internal/temu/property/orchestrator.go",
+		"internal/temu/property/pipeline.go", "internal/temu/property/mapping_stage.go",
+		"internal/temu/property/validation_stage.go", "internal/temu/property/fixing_stage.go",
+		"internal/temu/property/finalization_stage.go", "internal/temu/property/stage.go",
+		"internal/temu/property/context.go", "internal/temu/property/cache.go",
+		"internal/temu/property/feature_detector.go",
 		"internal/marketplace/temu/publishing/submission_name_policy.go",
 		"internal/marketplace/temu/publishing/submission_name_policy_test.go",
 		"internal/marketplace/temu/publishing/name_format_policy.go",
@@ -218,8 +224,11 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			"SetAPIClients", "AttachRuntime", "SetAmazonProduct", "SetVariants", "SetTemuProduct",
 			"type TemplateState struct", "TemplateInfo", "UserInputParentSpecList", "InputMaxSpecNum", "SingleSpecValueNum", "QueryAPI",
 		},
-		"internal/temu/handlerbase/property_types.go": {"type DimensionInfo struct"},
-		"internal/temu/rules/text_renderer.go":        {"type TextRenderer struct", "func (r *TextRenderer) DrawSummaryInfo(", "dimensions handlerbase.DimensionInfo"},
+		"internal/temu/handlerbase/property_types.go": {
+			"type DimensionInfo struct", "type PropertyFeature struct", "type PropertyFeatureDetector struct",
+			"func NewPropertyFeatureDetector(logger *logrus.Entry) *PropertyFeatureDetector",
+		},
+		"internal/temu/rules/text_renderer.go": {"type TextRenderer struct", "func (r *TextRenderer) DrawSummaryInfo(", "dimensions handlerbase.DimensionInfo"},
 		"internal/marketplace/temu/goods/images.go": {
 			"func ValidImageObservation(", "func resolveImages(", "inventory asset.ApprovedAssetInventory",
 		},
@@ -235,11 +244,101 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			"type SkuSpecHandler struct", "func NewSkuSpecHandler(", "func (sh *SkuSpecHandler) ValidateSpecs(",
 			"func (sh *SkuSpecHandler) IsSizeSpec(", "func (sh *SkuSpecHandler) convertUserInputSpecsToGoodsSpecProperties(", "func (sh *SkuSpecHandler) CreateDefaultSpec(",
 		},
-		"internal/temu/sku/convert.go":             {"func convertSpecInfos(", "ParentSpecName: s.ParentSpecName", "ParentID:       s.ParentID"},
-		"internal/temu/spec/resolver_service.go":   {"type SpecResolverService struct", "func (s *SpecResolverService) HasTemporaryIDs("},
-		"internal/temu/property/mapper_adapter.go": {"type PropertyMapper struct", "func (m *PropertyMapper) BuildGoodsProperties("},
-		"internal/temu/ai/content_rewriter.go":     {"type AIContentRewriter struct", "func NewAIContentRewriterHandler("},
-		"internal/shein/product/build/spu.go":      {"type BuildSpuHandler struct", "func NewBuildSpuHandler("},
+		"internal/temu/sku/convert.go":           {"func convertSpecInfos(", "ParentSpecName: s.ParentSpecName", "ParentID:       s.ParentID"},
+		"internal/temu/spec/resolver_service.go": {"type SpecResolverService struct", "func (s *SpecResolverService) HasTemporaryIDs("},
+		"internal/temu/property/attribute_extractor.go": {
+			"type AttributeExtractionManager struct",
+			"func NewAttributeExtractionManager(logger *logrus.Entry) *AttributeExtractionManager",
+		},
+		"internal/temu/property/mixed_attributes_processor.go": {
+			"type MixedAttributesProcessor struct",
+			"func NewMixedAttributesProcessor() *MixedAttributesProcessor",
+		},
+		"internal/temu/property/validator.go": {
+			"type PropertyValidator struct",
+			"func NewPropertyValidator(logger *logrus.Entry) *PropertyValidator",
+		},
+		"internal/temu/property/validator_condition.go": {
+			"func (v *PropertyValidator) filterByPropertyRelations(properties []models.PropertyItem, data temucontext.PropertyMappingData) []models.PropertyItem",
+			"func (v *PropertyValidator) checkShowCondition(templateProp temutemplate.TemplateRespGoodsProperty, refPidToSelectedVids map[int]map[int]bool) bool",
+		},
+		"internal/temu/property/conditional_validator.go": {
+			"type ConditionalPropertyValidator struct",
+			"func NewConditionalPropertyValidator(logger *logrus.Entry) *ConditionalPropertyValidator",
+		},
+		"internal/temu/property/value_validator.go": {
+			"type PropertyValueValidator struct",
+			"func NewPropertyValueValidator(logger *logrus.Entry) *PropertyValueValidator",
+		},
+		"internal/temu/property/value_fixer.go": {
+			"type PropertyValueFixer struct",
+			"func NewPropertyValueFixer(logger *logrus.Entry) *PropertyValueFixer",
+		},
+		"internal/temu/property/validation_config.go": {
+			"type PropertyValidationConfig struct",
+			"func DefaultPropertyValidationConfig() PropertyValidationConfig",
+		},
+		"internal/temu/property/required_guardian.go": {
+			"type RequiredPropertyGuardian struct",
+			"func NewRequiredPropertyGuardian(logger *logrus.Entry) *RequiredPropertyGuardian",
+			"func (g *RequiredPropertyGuardian) GetDefaultFiller() *DefaultPropertyFiller",
+		},
+		"internal/temu/property/default_filler.go": {
+			"type DefaultPropertyFiller struct",
+			"func NewDefaultPropertyFiller(logger *logrus.Entry) *DefaultPropertyFiller",
+			"rules.NewValidationRuleEngine(logger)",
+			"f.validationEngine.ValidateAndFixAll(templateProps, ext)",
+		},
+		"internal/temu/property/deduplicator.go": {
+			"type PropertyDeduplicator struct",
+			"func NewPropertyDeduplicator(logger *logrus.Entry) *PropertyDeduplicator",
+		},
+		"internal/temu/property/selection_validator.go": {
+			"type PropertySelectionValidator struct",
+			"func NewPropertySelectionValidator(logger *logrus.Entry) *PropertySelectionValidator",
+		},
+		"internal/temu/property/validation_stats.go": {
+			"type PropertyValidationStatsCollector struct",
+			"func NewPropertyValidationStatsCollector(logger *logrus.Entry) *PropertyValidationStatsCollector",
+			"type PropertyValidationStats struct",
+			"type PropertyTypeStats struct",
+			"type PropertyFixDetail struct",
+		},
+		"internal/temu/ai/service.go": {
+			"property.NewPropertyValidator(s.logger)",
+		},
+		"internal/temu/ai/property_mapper_core.go": {
+			"property.NewPropertyValidator(logger)",
+			"property.NewPropertyValueValidator(logger)",
+			"property.NewPropertyValueFixer(logger)",
+			"property.NewPropertyValidationStatsCollector(logger)",
+			"property.NewPropertyDeduplicator(logger)",
+			"property.NewPropertySelectionValidator(logger)",
+			"property.NewRequiredPropertyGuardian(logger)",
+			"propertyGuardian.GetDefaultFiller()",
+			"property.NewConditionalPropertyValidator(m.logger)",
+		},
+		"internal/temu/spec/dimension_unifier.go": {
+			"property.NewMixedAttributesProcessor()",
+		},
+		"internal/temu/rules/rule_interface.go": {
+			"type ValidationRule interface",
+			"type RuleValidationResult struct",
+		},
+		"internal/temu/rules/rule_engine.go": {
+			"type ValidationRuleEngine struct",
+			"func NewValidationRuleEngine(logger *logrus.Entry) *ValidationRuleEngine",
+			"func (e *ValidationRuleEngine) RegisterRule(rule ValidationRule)",
+			"func (e *ValidationRuleEngine) ValidateAndFixAll(templateProps []temutemplate.TemplateRespGoodsProperty, ext *models.ExtensionInfo) error",
+		},
+		"internal/temu/rules/percentage_sum_rule.go": {
+			"type PercentageSumRule struct",
+			"func NewPercentageSumRule(logger *logrus.Entry) *PercentageSumRule",
+			"func (r *PercentageSumRule) Validate(props []*models.PropertyItem, templateProp temutemplate.TemplateRespGoodsProperty) RuleValidationResult",
+			"func (r *PercentageSumRule) Fix(props []*models.PropertyItem, templateProp temutemplate.TemplateRespGoodsProperty) error",
+		},
+		"internal/temu/ai/content_rewriter.go": {"type AIContentRewriter struct", "func NewAIContentRewriterHandler("},
+		"internal/shein/product/build/spu.go":  {"type BuildSpuHandler struct", "func NewBuildSpuHandler("},
 		"internal/temu/api/client/client.go": {
 			"func NewAPIClient(", "func (c *APIClient) initializeMallID(",
 			"func (c *APIClient) GetMallID(", "func (c *APIClient) SetMallID(", ".UpdateStoreId(",
@@ -319,7 +418,7 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			"func (vp *SkuVariantProcessor) getProductDetailField(", "func (vp *SkuVariantProcessor) marshalWithoutHTMLEscape(",
 			"func (vp *SkuVariantProcessor) buildAIVariant(",
 		},
-		"internal/temu/sku/ai_mapping_single_processor.go": {"vp.getProductDimensions(", "vp.getItemWeight(", "vp.buildAIVariant("},
+		"internal/temu/sku/ai_mapping_single_processor.go": {"vp.getProductDimensions(", "vp.getItemWeight(", "vp.buildAIVariant(", "property.NewAttributeExtractionManager(vp.logger)"},
 		"internal/shein/productdata/variant_data.go": {
 			"type VariantJsonDataHandler struct", "func NewVariantJsonDataHandler(", "func GetVariantByAsinFromVariants(",
 		},
@@ -431,7 +530,24 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"BulletPointsOptimizer": true, "NewBulletPointsOptimizer": true,
 		"BulletPointValidationResult": true, "OptimizationStrategy": true,
 	}
-	for _, pkg := range []string{"sku", "filter", "product", "rules", "handlerbase"} {
+	retiredPropertyPipelineSymbols := map[string]bool{
+		"PropertyMapper": true, "NewPropertyMapper": true,
+		"PropertyMappingOrchestrator": true, "NewPropertyMappingOrchestrator": true,
+		"PropertyProcessingPipeline": true, "DefaultPropertyProcessingPipeline": true, "NewPropertyProcessingPipeline": true,
+		"PropertyMappingStage": true, "NewPropertyMappingStage": true,
+		"PropertyValidationStage": true, "NewPropertyValidationStage": true, "NewPropertyValidationStageWithEngine": true,
+		"PropertyFixingStage": true, "NewPropertyFixingStage": true,
+		"PropertyFinalizationStage": true, "NewPropertyFinalizationStage": true,
+		"PropertyStage": true, "BasePropertyStage": true, "NewBasePropertyStage": true,
+		"StageError": true, "NewStageError": true, "StageResult": true, "NewStageResult": true,
+		"PropertyStageChain": true, "NewPropertyStageChain": true,
+		"PropertyContext": true, "PropertyFeature": true, "ProcessingStats": true, "StageStats": true,
+		"ProcessingConfig": true, "NewPropertyContext": true, "NewProcessingStats": true, "NewDefaultProcessingConfig": true,
+		"PropertyCache": true, "InMemoryPropertyCache": true, "CacheItem": true,
+		"NewPropertyCache": true, "NewPropertyCacheWithTTL": true, "GenerateFeatureCacheKey": true, "CacheStats": true,
+		"PropertyFeatureDetector": true, "NewPropertyFeatureDetector": true,
+	}
+	for _, pkg := range []string{"sku", "filter", "product", "rules", "handlerbase", "property"} {
 		if err := filepath.WalkDir(filepath.Join("..", "internal", "temu", pkg), func(path string, entry os.DirEntry, err error) error {
 			if err != nil {
 				return err
@@ -448,7 +564,7 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 					t.Errorf("%s: %s", path, violation)
 				}
 			}
-			if pkg == "product" || pkg == "rules" {
+			if pkg == "product" || pkg == "rules" || pkg == "property" {
 				for _, declaration := range file.Decls {
 					var names []*ast.Ident
 					switch declaration := declaration.(type) {
@@ -468,7 +584,8 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 					}
 					for _, name := range names {
 						if (pkg == "product" && retiredProductContentSymbols[name.Name]) ||
-							(pkg == "rules" && retiredRulesTextSymbols[name.Name]) {
+							(pkg == "rules" && retiredRulesTextSymbols[name.Name]) ||
+							(pkg == "property" && retiredPropertyPipelineSymbols[name.Name]) {
 							t.Errorf("%s recreates retired TEMU content declaration %s", path, name.Name)
 						}
 					}
