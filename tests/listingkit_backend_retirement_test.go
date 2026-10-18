@@ -65,6 +65,12 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/marketplace/temu/publishing/description_sanitization_policy.go", "internal/marketplace/temu/publishing/description_sanitization_policy_test.go",
 		"internal/marketplace/temu/publishing/brand_text_policy.go", "internal/marketplace/temu/publishing/brand_text_policy_test.go",
 		"internal/marketplace/temu/publishing/name_format_policy_test.go",
+		"internal/temu/rules/text_check_handler.go", "internal/temu/rules/text_processor.go",
+		"internal/temu/rules/bullet_points_validator.go", "internal/temu/rules/bullet_points_optimizer.go",
+		"internal/temu/rules/bullet_points_validator_test.go",
+		"internal/marketplace/temu/publishing/submission_name_policy.go",
+		"internal/marketplace/temu/publishing/submission_name_policy_test.go",
+		"internal/marketplace/temu/publishing/name_format_policy.go",
 		"internal/temu/sku/variant_json_data_handler.go", "internal/temu/sku/parallel_variant_handler.go",
 		"internal/temu/sku/cache_variants_handler.go", "internal/temu/sku/variant_data_processor.go",
 		"internal/temu/sku/variant_filter_handler.go", "internal/temu/sku/ai_mapping_handler.go",
@@ -171,6 +177,9 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			"CategoryAPI", "category.API", "NewCategoryAPI", "category.NewAPI",
 			"QueryAPIInterface", "query.QueryAPI", "NewQueryAPI", "query.NewAPI",
 			"query.CostTemplateRequest", "query.CostTemplateResponse",
+			"QueryAPI          = query.API", "QueryAPIInterface = query.QueryAPI",
+			"NewQueryAPI           = query.NewAPI",
+			"TextCheckRequest               = query.TextCheckRequest", "TextCheckResponse              = query.TextCheckResponse",
 		},
 		"internal/temu/api/category/category.go": {
 			"type API struct", "func NewAPI(", "func (a *API) Recommend(", "func (a *API) GetDisclaimer(",
@@ -184,6 +193,11 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/temu/api/query/query.go": {
 			"func (a *API) QueryCommitDetail(", "func (a *API) CheckSkuSn(", "func (a *API) QuerySpec(",
 			"func (a *API) QueryTemplate(", "func (a *API) QueryTemplateAdvanced(", "func (a *API) QueryCostTemplate(",
+			"type QueryAPI interface {\n\tCheckText(request *TextCheckRequest) (*TextCheckResponse, error)",
+			"func (a *API) CheckText(request *TextCheckRequest) (*TextCheckResponse, error)",
+			"a.postQuery(\"/mms/marigold/query/commit/check_text\", request, a.defaultHeaders(), &result)",
+			"func (a *API) postQuery(url string, body any, headers map[string]string, result any) error {",
+			"\"method\": \"POST\"", "return a.client.SendTEMURequest(req, result)",
 		},
 		"internal/temu/api/query/query_types.go": {
 			"type CommitDetailRequest struct", "type CommitDetailResponse struct", "type CommitDetailResult struct", "type CommitDetailCategoryTree struct",
@@ -191,6 +205,8 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			"type OutGoodsSnCheckResult struct", "type OutSkuSnFailItem struct",
 			"type TemplateQueryRequest struct", "type TemplateQueryResponse struct", "type TemplateInfo struct",
 			"type CostTemplateRequest struct", "type CostTemplateResponse struct", "type CostTemplateResult struct", "type CostTemplateItem struct",
+			"type TextCheckRequest struct {\n\tContent string `json:\"content\"`\n\tType    int    `json:\"type\"`\n}",
+			"type TextCheckResponse struct {\n\tSuccess   bool `json:\"success\"`\n\tErrorCode int  `json:\"error_code\"`\n\tResult    struct {\n\t\tSuccess bool `json:\"success\"`\n\t} `json:\"result\"`\n}",
 		},
 		"internal/temu/api/template/types.go": {
 			"type TemplateQueryRequest struct", "type TemplateQueryResponse struct", "type TemplateQueryResult struct",
@@ -228,7 +244,7 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			"func NewAPIClient(", "func (c *APIClient) initializeMallID(",
 			"func (c *APIClient) GetMallID(", "func (c *APIClient) SetMallID(", ".UpdateStoreId(",
 		},
-		"internal/temu/api/client/interfaces.go":     {"type StoreRuntime interface", "GetStoreAPI("},
+		"internal/temu/api/client/interfaces.go":     {"type StoreRuntime interface", "GetStoreAPI(", "type ClientAPI interface {", "SendTEMURequest(request map[string]any, result any) error"},
 		"internal/temu/api/client/cookie_manager.go": {"type CookieManager struct"},
 		"internal/temu/api/product/goods_types.go": {
 			"type Product struct", "type GoodsBasicInfo struct", "type ServicePromise struct", "type ExtraInfo struct",
@@ -245,9 +261,7 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/marketplace/temu/publishing/submission_validation_policy.go": {
 			"type submissionSpec struct", "func validateSubmissionSpecs(", "func validateSubmissionPackaging(",
 		},
-		"internal/marketplace/temu/publishing/spu_validation_policy.go":  {"func validateSPUStructure("},
-		"internal/marketplace/temu/publishing/submission_name_policy.go": {"func NormalizeProductSubmissionName(", "leftParenthesisSpacingPattern.ReplaceAllString("},
-		"internal/marketplace/temu/publishing/name_format_policy.go":     {"leftParenthesisSpacingPattern", "regexp.MustCompile(`(\\S)\\(`)"},
+		"internal/marketplace/temu/publishing/spu_validation_policy.go": {"func validateSPUStructure("},
 		"internal/marketplace/temu/goods/builder.go": {
 			"func Build(", "snapshot.SelectableLeaf", "func checkLocal(",
 			"p.ServicePromise.ShipmentLimitDay", "value.ID == p.ServicePromise.CostTemplateID",
@@ -306,8 +320,6 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			"func (vp *SkuVariantProcessor) buildAIVariant(",
 		},
 		"internal/temu/sku/ai_mapping_single_processor.go": {"vp.getProductDimensions(", "vp.getItemWeight(", "vp.buildAIVariant("},
-		"internal/shared/strx/cleaner.go":                  {"func CleanProductTitle("},
-		"internal/temu/rules/text_processor.go":            {"strx.CleanProductTitle(", "type TextProcessor struct", "func (tp *TextProcessor) ProcessProductTitle("},
 		"internal/shein/productdata/variant_data.go": {
 			"type VariantJsonDataHandler struct", "func NewVariantJsonDataHandler(", "func GetVariantByAsinFromVariants(",
 		},
@@ -353,7 +365,7 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			t.Fatal(err)
 		}
 		for _, token := range required {
-			if !strings.Contains(string(content), token) {
+			if !strings.Contains(strings.ReplaceAll(string(content), "\r\n", "\n"), token) {
 				t.Errorf("%s must preserve retained platform/shared contract %q", relative, token)
 			}
 		}
@@ -412,6 +424,13 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"BrandClearHandler": true, "NewBrandClearHandler": true,
 		"DescriptionValidationResult": true,
 	}
+	retiredRulesTextSymbols := map[string]bool{
+		"TextCheckHandler": true, "NewTextCheckHandler": true,
+		"TextProcessor": true, "NewTextProcessor": true,
+		"BulletPointsValidator": true, "NewBulletPointsValidator": true,
+		"BulletPointsOptimizer": true, "NewBulletPointsOptimizer": true,
+		"BulletPointValidationResult": true, "OptimizationStrategy": true,
+	}
 	for _, pkg := range []string{"sku", "filter", "product", "rules", "handlerbase"} {
 		if err := filepath.WalkDir(filepath.Join("..", "internal", "temu", pkg), func(path string, entry os.DirEntry, err error) error {
 			if err != nil {
@@ -429,7 +448,7 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 					t.Errorf("%s: %s", path, violation)
 				}
 			}
-			if pkg == "product" {
+			if pkg == "product" || pkg == "rules" {
 				for _, declaration := range file.Decls {
 					var names []*ast.Ident
 					switch declaration := declaration.(type) {
@@ -448,7 +467,8 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 						}
 					}
 					for _, name := range names {
-						if retiredProductContentSymbols[name.Name] {
+						if (pkg == "product" && retiredProductContentSymbols[name.Name]) ||
+							(pkg == "rules" && retiredRulesTextSymbols[name.Name]) {
 							t.Errorf("%s recreates retired TEMU content declaration %s", path, name.Name)
 						}
 					}
@@ -490,6 +510,7 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"SanitizeProductName": true, "ProductNameSanitizationResult": true,
 		"SanitizeProductDescription": true, "ProductDescriptionSanitizationResult": true,
 		"RemoveBrandFromText": true, "NormalizeParenthesesSpacing": true,
+		"NormalizeProductSubmissionName": true,
 	}
 	for _, path := range publishingPaths {
 		if strings.HasSuffix(path, "_test.go") {
@@ -519,6 +540,44 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			for _, name := range names {
 				if retiredPublishingContentSymbols[name.Name] {
 					t.Errorf("%s recreates retired TEMU publishing content declaration %s", path, name.Name)
+				}
+			}
+		}
+	}
+	strxPaths, err := filepath.Glob(filepath.Join("..", "internal", "shared", "strx", "*.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range strxPaths {
+		if strings.HasSuffix(path, "_test.go") {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// Only package declarations recreate the retired shared contract.
+		// SHEIN receiver methods, fields, selectors and local names are unrelated.
+		for _, declaration := range file.Decls {
+			var names []*ast.Ident
+			switch declaration := declaration.(type) {
+			case *ast.FuncDecl:
+				if declaration.Recv == nil {
+					names = append(names, declaration.Name)
+				}
+			case *ast.GenDecl:
+				for _, spec := range declaration.Specs {
+					switch spec := spec.(type) {
+					case *ast.TypeSpec:
+						names = append(names, spec.Name)
+					case *ast.ValueSpec:
+						names = append(names, spec.Names...)
+					}
+				}
+			}
+			for _, name := range names {
+				if name.Name == "CleanProductTitle" || name.Name == "CleanWhitespace" {
+					t.Errorf("%s recreates retired shared text declaration %s", path, name.Name)
 				}
 			}
 		}
@@ -735,9 +794,6 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 		"internal/temu/context/temu_context.go",
 		"internal/marketplace/temu/publishing/submission_validation_policy.go",
 		"internal/marketplace/temu/publishing/submission_validation_policy_test.go",
-		"internal/marketplace/temu/publishing/submission_name_policy.go",
-		"internal/marketplace/temu/publishing/submission_name_policy_test.go",
-		"internal/marketplace/temu/publishing/name_format_policy.go",
 		"internal/marketplace/temu/publishing/sku_sn_validation_policy.go",
 		"internal/marketplace/temu/publishing/sku_sn_validation_policy_test.go",
 		"internal/shein/productsync/product_sync_types.go", "internal/shein/productsync/marketing_client_boundary_test.go",
