@@ -8,13 +8,13 @@ it.each([
  ["product.title.agent","title-config-v1","acquisition","shein"],
  ["product.content.agent","content-config-v1","own_product","product"],
  ["listing.materials.agent","listing-materials-config-v1","listing-target-record","shein"],
- ["product.selection.agent","product-selection-config-v1",undefined,"product"],
- ["shop.operations-diagnosis.agent","shop-operations-diagnosis-config-v1",undefined,"business"],
+ ["product.selection.agent","product-selection-config-v1","product-selection-v1","product"],
+ ["shop.operations-diagnosis.agent","shop-operations-diagnosis-config-v1","shop-operations-diagnosis-v1","business"],
  ["product.image.agent","image-config-v1","supply","product"],
  ["pod.design.agent","pod-artwork-config-v1","pod-artwork-v1","sds"],
 ] as const)("uses the original %s read contract",async(agentId,parameterSchema,contextKind,targetPlatform)=>{
  const image=parameterSchema==="image-config-v1"||parameterSchema==="pod-artwork-config-v1";
- const row=image?{runId:id,contextKind,contextId:id,targetPlatform,status:"completed",createdAt:time}:{runId:id,operationId:id,requestKey:id,productKey:contextKind?"product-key":"",...(contextKind?{contextKind}:{}),targetPlatform,phase:"running",revision:"1",startedAt:time};
+ const row=image?{runId:id,contextKind,contextId:id,targetPlatform,status:"completed",createdAt:time}:{runId:id,operationId:id,requestKey:id,productKey:["product-selection-v1","shop-operations-diagnosis-v1"].includes(contextKind)?"":"product-key",contextKind,targetPlatform,phase:"running",revision:"1",startedAt:time};
  vi.mocked(configurationRequest).mockImplementation(async(_scope,_path,schema)=>schema.parse({items:[row],nextCursor:""}));
  const entry={agent:{agentId},name:agentId,parameterSchema} as CatalogEntry;
  const page=await readNativeRunPage(scope,entry,"",new AbortController().signal);

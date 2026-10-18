@@ -93,3 +93,17 @@ it("does not attempt discovery without the existing use permission",async()=>{
  f.context={...f.context,permissions:["workbench.agent.read"]};render(tree());
  expect(screen.getByText("暂未启用")).toBeVisible();expect(f.request).not.toHaveBeenCalled();
 });
+it("reauthorizes every loaded page before restoring a source after an access denial",async()=>{
+ const cursor="550e8400-e29b-41d4-a716-446655440099";
+ const original=f.request.getMockImplementation()!;let denied=true,firstReads=0;
+ f.request.mockImplementation((scope,path:string,schema,init)=>{
+  if(!path.startsWith("product.content"))return original(scope,path,schema,init);
+  if(path.includes("cursor="))return denied?Promise.reject(new ConfigurationError("FORBIDDEN",403)):Promise.resolve(schema.parse({items:[],nextCursor:""}));
+  firstReads++;return Promise.resolve(schema.parse({items:firstReads===1?[content]:[],nextCursor:cursor}));
+ });
+ render(tree());await screen.findByRole("button",{name:/商品内容与本地化.*我的水杯/});
+ fireEvent.click(screen.getByRole("button",{name:"加载更多商品内容与本地化"}));
+ const retry=await screen.findByRole("button",{name:"重试商品内容与本地化"});denied=false;fireEvent.click(retry);
+ await waitFor(()=>expect(screen.queryByRole("button",{name:"重试商品内容与本地化"})).not.toBeInTheDocument());
+ expect(firstReads).toBe(2);expect(screen.queryByRole("button",{name:/我的水杯/})).not.toBeInTheDocument();
+});

@@ -14,7 +14,7 @@ export type NativeRunRecord={
  contextKind:string;contextId:string;productKey?:string;targetPlatform:string;at:string;href:string;direct:boolean;
 };
 export type NativeRunPage={items:NativeRunRecord[];nextCursor:string};
-const contexts:Record<string,string>={own_product:"自有商品",acquisition:"源商品",collection:"商品集合",supply:"供应链商品","pod-artwork-v1":"POD 图案",selection:"选品范围",diagnosis:"经营诊断范围","listing-target-record":"上架资料"};
+const contexts:Record<string,string>={own_product:"自有商品",acquisition:"源商品",collection:"商品集合",supply:"供应链商品","pod-artwork-v1":"POD 图案","product-selection-v1":"选品范围","shop-operations-diagnosis-v1":"经营诊断范围","listing-target-record":"上架资料"};
 const platforms:Record<string,string>={product:"通用商品",business:"业务范围",sds:"SDS"};
 export function nativeRunDestination(scope:ConfigurationScope,agentId:string,contextKind:string,contextId:string,requestKey?:string,targetPlatform?:string){
  const fallback={href:`/workbench/agents/mine/${encodeURIComponent(agentId)}`,direct:false};
@@ -31,7 +31,7 @@ export function nativeRunDestination(scope:ConfigurationScope,agentId:string,con
 type TextRun=z.infer<typeof recentRunsSchema>["items"][number]|z.infer<typeof selectionRecentSchema>["items"][number]|z.infer<typeof diagnosisRecentSchema>["items"][number];
 function textRecord(scope:ConfigurationScope,entry:CatalogEntry,run:TextRun):NativeRunRecord{
  const id=entry.agent.agentId;
- const kind="contextKind" in run?run.contextKind:id==="product.selection.agent"?"selection":"diagnosis";
+ const kind=run.contextKind;
  const label={running:"执行中",interrupted:"已暂停",human_review_required:"建议已生成",stopped:"运行已停止"}[run.phase];
  const state=({running:"RUNNING",interrupted:"PAUSED",stopped:"ERROR"} as Record<string,string>)[run.phase];
  return {key:`${id}:${run.runId}`,runId:run.runId,agentId:id,title:entry.name,caption:run.productKey||contexts[kind]||"原业务上下文",summary:label,label,state,contextKind:kind,contextId:run.operationId,productKey:run.productKey,targetPlatform:run.targetPlatform,at:run.startedAt,...nativeRunDestination(scope,id,kind,run.operationId,run.requestKey,run.targetPlatform)};

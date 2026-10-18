@@ -333,7 +333,7 @@ it("resumes historical analysis with its stored goal after reload", async () => 
   const baseFetch = fetch;
   vi.stubGlobal("fetch", vi.fn((url, init) => {
     const path = String(url);
-    if(path.includes("/recent-runs")) return Promise.resolve(Response.json({items:[{runId:id,operationId:id,requestKey:other,productKey:"",targetPlatform:"business",phase:"interrupted",revision:"1",startedAt:"2026-10-14T00:00:00Z"}],nextCursor:""}));
+    if(path.includes("/recent-runs")) return Promise.resolve(Response.json({items:[{runId:id,operationId:id,requestKey:other,contextKind:"shop-operations-diagnosis-v1",productKey:"",targetPlatform:"business",phase:"interrupted",revision:"1",startedAt:"2026-10-14T00:00:00Z"}],nextCursor:""}));
     if(init?.method === "GET" && path.endsWith(`/contexts/${id}/runs/${other}`)) return Promise.resolve(Response.json({runId:id,contextId:id,requestKey:other,phase:"interrupted",revision:"1",configurationSnapshotRef:{Kind:"agent-configuration-v1",ID:id,Digest:"a".repeat(64)},modeSnapshotRef:{Kind:"agent-execution-mode-v1",ID:other,Digest:"b".repeat(64)},executionMode:"read_only",modeRevision:"0",goalSummary:"保留的自定义诊断目标",validated:false,unresolved:[],tokens:0,costMicros:0,currency:"CNY",usageStatus:"observed"}));
     return baseFetch(url,init);
   }));
@@ -400,7 +400,7 @@ it("switches from viewed history to the newly prepared exact comparison", async 
                 runId: id,
                 operationId: oldContext,
                 requestKey: other,
-                productKey: "",
+                contextKind: "shop-operations-diagnosis-v1", productKey: "",
                 targetPlatform: "business",
                 phase: "stopped",
                 revision: "1",
@@ -486,7 +486,7 @@ it("keeps an outstanding historical run from starting a new paid diagnosis", asy
                 runId: id,
                 operationId: oldContext,
                 requestKey: other,
-                productKey: "",
+                contextKind: "shop-operations-diagnosis-v1", productKey: "",
                 targetPlatform: "business",
                 phase: "running",
                 revision: "1",

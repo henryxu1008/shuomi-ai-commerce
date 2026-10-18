@@ -146,6 +146,7 @@ export const diagnosisRecentSchema = z.strictObject({
     .array(
       z.strictObject({
         runId: collectionID,
+        contextKind: z.literal("shop-operations-diagnosis-v1"),
         operationId: collectionID,
         requestKey: collectionID,
         productKey: z.literal(""),

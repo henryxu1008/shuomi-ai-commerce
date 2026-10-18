@@ -334,7 +334,7 @@ it("rechecks the same prepared candidates after reload without creating a new pr
 
 it("never shows standalone facts under a historical run that has no inspection",async()=>{
  const contextId="33333333-3333-4333-8333-333333333333",baseFetch=fetch;
- vi.stubGlobal("fetch",vi.fn((url,init)=>{const path=String(url);if(path.includes("/recent-runs"))return Promise.resolve(Response.json({items:[{runId:id,operationId:contextId,requestKey:other,productKey:"",targetPlatform:"product",phase:"stopped",revision:"1",startedAt:"2026-10-14T00:00:00Z"}],nextCursor:""}));if(path.endsWith(`/contexts/${contextId}/runs/${other}`))return Promise.resolve(Response.json({runId:id,contextId,requestKey:other,phase:"stopped",revision:"1",configurationSnapshotRef:{Kind:"agent-configuration-v1",ID:id,Digest:"a".repeat(64)},modeSnapshotRef:{Kind:"agent-execution-mode-v1",ID:other,Digest:"b".repeat(64)},executionMode:"read_only",modeRevision:"0",goalSummary:"未读取事实的历史目标",validated:false,unresolved:[],tokens:0,costMicros:0,currency:"CNY",usageStatus:"observed"}));return baseFetch(url,init)}));
+ vi.stubGlobal("fetch",vi.fn((url,init)=>{const path=String(url);if(path.includes("/recent-runs"))return Promise.resolve(Response.json({items:[{runId:id,operationId:contextId,requestKey:other,contextKind:"product-selection-v1",productKey:"",targetPlatform:"product",phase:"stopped",revision:"1",startedAt:"2026-10-14T00:00:00Z"}],nextCursor:""}));if(path.endsWith(`/contexts/${contextId}/runs/${other}`))return Promise.resolve(Response.json({runId:id,contextId,requestKey:other,phase:"stopped",revision:"1",configurationSnapshotRef:{Kind:"agent-configuration-v1",ID:id,Digest:"a".repeat(64)},modeSnapshotRef:{Kind:"agent-execution-mode-v1",ID:other,Digest:"b".repeat(64)},executionMode:"read_only",modeRevision:"0",goalSummary:"未读取事实的历史目标",validated:false,unresolved:[],tokens:0,costMicros:0,currency:"CNY",usageStatus:"observed"}));return baseFetch(url,init)}));
  show({...entry,canReadRuns:true});choose();await viewFacts();fireEvent.click(await screen.findByRole("button",{name:/stopped/}));await screen.findByText(/未读取事实的历史目标/);expect(screen.queryByRole("heading",{name:"已保存原始事实"})).toBeNull();expect(writes).toHaveLength(1);
 });
 
@@ -353,7 +353,7 @@ it("switches from viewed history to the newly prepared exact comparison", async 
                 runId: id,
                 operationId: oldContext,
                 requestKey: other,
-                productKey: "",
+                contextKind: "product-selection-v1", productKey: "",
                 targetPlatform: "product",
                 phase: "stopped",
                 revision: "1",
@@ -427,7 +427,7 @@ it("resumes a reloaded interrupted run with its persisted custom goal", async ()
   const baseFetch = fetch;
   vi.stubGlobal("fetch", vi.fn((url, init) => {
     const path = String(url);
-    if (path.includes("/recent-runs")) return Promise.resolve(Response.json({items: [{runId: id, operationId: contextId, requestKey: other, productKey: "", targetPlatform: "product", phase: "interrupted", revision: "3", startedAt: "2026-10-14T00:00:00Z"}], nextCursor: ""}));
+    if (path.includes("/recent-runs")) return Promise.resolve(Response.json({items: [{runId: id, operationId: contextId, requestKey: other, contextKind: "product-selection-v1", productKey: "", targetPlatform: "product", phase: "interrupted", revision: "3", startedAt: "2026-10-14T00:00:00Z"}], nextCursor: ""}));
     if (path.endsWith(`/contexts/${contextId}/runs/${other}`)) return Promise.resolve(Response.json({runId: id, contextId, requestKey: other, phase: "interrupted", revision: "3", configurationSnapshotRef: {Kind: "agent-configuration-v1", ID: id, Digest: "a".repeat(64)}, modeSnapshotRef: {Kind: "agent-execution-mode-v1", ID: other, Digest: "b".repeat(64)}, executionMode: "read_only", modeRevision: "0", goalSummary: "优先比较棉质候选的规格", validated: false, unresolved: [], tokens: 0, costMicros: 0, currency: "CNY", usageStatus: "observed"}));
     return baseFetch(url, init);
   }));

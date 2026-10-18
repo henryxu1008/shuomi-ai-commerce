@@ -27,7 +27,8 @@ export function useNativeRuns(scope:ConfigurationScope,authorizationKey:string,e
   const cursors=positions[entry.agent.agentId]??[""];
   const repeated=!!next&&cursors.includes(next);
   return {entry,error,loading,repeated,next:repeated?"":next,items:error||loading?[]:Array.from(new Map(pages.flatMap(p=>p.data?.items??[]).map(r=>[r.key,r])).values()),
-   retry:()=>Promise.all(pages.filter(p=>p.isError).map(p=>p.refetch())),
+   // After an access denial, all retained pages must pass the owner again.
+   retry:()=>Promise.all(pages.map(p=>p.refetch())),
    more:()=>{if(next&&!repeated&&!loading&&!error)setPaging(old=>({identity,cursors:{...(old.identity===identity?old.cursors:{}),[entry.agent.agentId]:[...cursors,next]}}));},
   };
  });
