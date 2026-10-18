@@ -2504,15 +2504,21 @@ func TestAmazonExternalClientImportsStayAllowlisted(t *testing.T) {
 }
 
 func TestSheinBridgeExternalClientImportsStayAllowlisted(t *testing.T) {
-	root := filepath.Join("..", "internal", "sheinbridge")
+	parentRoot := filepath.Join("..", "internal")
+	root := filepath.Join(parentRoot, "sheinbridge")
 	allowedFiles := map[string]struct{}{}
 
-	index, err := loadGoFileIndex(root, "")
+	// The retired bridge has no files in a clean checkout. Index its retained
+	// parent so missing roots still fail, then keep the original bridge scope.
+	index, err := loadGoFileIndex(parentRoot, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	for path, facts := range index.files {
+		if !strings.HasPrefix(path, filepath.Clean(root)+string(filepath.Separator)) {
+			continue
+		}
 		if pathAllowed(path, allowedFiles) {
 			continue
 		}
