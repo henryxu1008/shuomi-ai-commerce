@@ -2,9 +2,9 @@
 
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
-- Status: **DESIGN / 用户确认前不得实施**。本轮只交付本设计和索引；生产、测试、配置、workflow 均未修改。设计 CI/复核不是实施证据。
+- Status: **SOURCE IMPLEMENTED / In Review**。用户已确认冻结设计 `a7c29d4b14a277782ca7218ceca7267bcd92c113` §5/§6/§6.1/§7；独立设计复核已完成，#29/#301 在生产改动前已登记并读回 **Independent Architecture / IMPLEMENTATION_READY / Ready**。三项 EXTRACT 与当前消费者切换、§5.2 的 207 Go 文件和 3 YAML、§5.3 mixed 退休已完成；准确实现 HEAD、原 CI 与最终独立复核结果记录在 [#817](https://github.com/qq550723504/task-processor/pull/817)，不以设计 CI 代替。
 - 调查基线：`main @ ea959a5c08fc43e07fa19aef28bd274275a66fba`（#815 之后）。
-- 本轮 Design Basis: **N/A**，仅只读调查/文档；拟实施 Design Basis: **Independent Architecture**。完整闭包跨读取、构建、平台发送和结果持久化，超过30文件/2500行提示线，且需将当前敏感词调用从旧 TaskContext 切到窄输入合同。独立设计和适用独立复核、用户确认完成后，才可在 Issue 登记 **IMPLEMENTATION_READY / Ready**；本稿不授予实施权限。
+- Design Basis: **Independent Architecture / IMPLEMENTATION_READY**；用户确认与独立设计复核绑定上述冻结版本；开工时同步 `main @ ca4332aef6e4f98a203ca196dc3ccedce649e31c`。原设计分类/准入前置已满足，范围与停止条件保持冻结；本文不授权合并、部署、运行实例或数据操作。
 - 用户决定：整批设计、确认后整批实施，不再按 handler/builder/DTO 拆 PR；保留当前能力、独立 SHEIN 登录 worker 及其 Store 同步；两套 workflow 不改，不操作实例或数据，不增加内部试用前置。
 
 ## 1. 用户结果、范围与非目标

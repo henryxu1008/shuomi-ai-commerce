@@ -12,7 +12,6 @@ import (
 	"task-processor/internal/pkg/jsonx"
 	"task-processor/internal/pkg/timeout"
 	"task-processor/internal/prompt"
-	"task-processor/internal/shein"
 	"task-processor/internal/shein/aicache"
 	"task-processor/internal/shein/api/category"
 )
@@ -266,36 +265,6 @@ func NewCategoryManager(aiSelector AISelector) *CategoryManager {
 	return &CategoryManager{
 		aiSelector: aiSelector,
 	}
-}
-
-// GetCategoryIDListWithTree 通过SHEIN接口获取分类ID列表
-func (m *CategoryManager) GetCategoryIDListWithTree(ctx *shein.TaskContext, categoryID int) ([]int, int, int, error) {
-	// 调用API获取分类信息
-	categoryInfo, err := ctx.CategoryAPI.GetCategory(categoryID)
-	if err != nil {
-		return nil, 0, 0, fmt.Errorf("获取分类信息失败: %w", err)
-	}
-
-	// 按层级顺序组装
-	var idList []int
-
-	if categoryInfo.LevelOneCategoryID > 0 {
-		idList = append(idList, categoryInfo.LevelOneCategoryID)
-	}
-
-	if categoryInfo.LevelTwoCategoryID > 0 {
-		idList = append(idList, categoryInfo.LevelTwoCategoryID)
-	}
-
-	if categoryInfo.LevelThreeCategoryID > 0 {
-		idList = append(idList, categoryInfo.LevelThreeCategoryID)
-	}
-
-	if categoryInfo.LevelFourCategoryID != nil && *categoryInfo.LevelFourCategoryID > 0 {
-		idList = append(idList, *categoryInfo.LevelFourCategoryID)
-	}
-
-	return idList, categoryInfo.LevelOneCategoryID, categoryInfo.ProductTypeID, nil
 }
 
 // GetCategoryIDByTitleWithTree 用产品标题获取分类ID，优先读 AI 缓存。

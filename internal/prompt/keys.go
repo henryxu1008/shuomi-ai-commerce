@@ -3,11 +3,6 @@ package prompt
 // Prompt key 常量，与 prompts/ 目录下 YAML 文件的展平路径对应。
 // 命名规则：K + 大驼峰路径，例如 shein.category_selector.select_category_system → KSheinCategorySelectorSelectCategorySystem
 const (
-	// ── shein/attribute_selector.yaml ──────────────────────────────────────
-	KSheinAttributeSelectorSystem      = "shein.attribute_selector.system"
-	KSheinAttributeValueFallbackSystem = "shein.attribute_value_fallback.system"
-	KSheinAttributeValueFallbackUser   = "shein.attribute_value_fallback.user"
-
 	// ── shein/category_selector.yaml ───────────────────────────────────────
 	KSheinCategorySelectorSelectCategorySystem  = "shein.category_selector.select_category_system"
 	KSheinCategorySelectorSelectCategoryUser    = "shein.category_selector.select_category_user"
@@ -33,9 +28,6 @@ const (
 	KSheinSaleAttributeSourceDimension       = "shein.sale_attribute.source_dimension"
 	KSheinSaleAttributeValueBatchMapping     = "shein.sale_attribute.value_batch_mapping"
 	KSheinSaleAttributePromptValueExtraction = "shein.sale_attribute.prompt_value_extraction"
-
-	// ── shein/translation.yaml ─────────────────────────────────────────────
-	KSheinTranslationBatchOptimizeSystem = "shein.translation.batch_optimize_system"
 
 	// ── temu/attribute_mapping.yaml ────────────────────────────────────────
 	KTemuAttributeMappingSystem = "temu.attribute_mapping.system"

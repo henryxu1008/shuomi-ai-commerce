@@ -1,5 +1,7 @@
 # 旧 TEMU 店铺上下文与商品初始化链退休边界
 
+> 后续用户已确认 [#817 整链退休边界](legacy-shein-listing-closure-retirement-boundary.md) §5–§7。仅替代下文旧 SHEIN store/init handler、缓存与身份 helper 的保留描述；当前 Store Center、平台 API、共享基础层及独立登录/Store 同步仍保留。 原调查与验证证据保持历史属性；不据其复活旧 owner，不授权运行或数据操作。
+
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
 后续用户确认的 [#773 类目/模板边界](legacy-temu-category-template-retirement-boundary.md) 已退休本文当批保留的五个 category/template handler 与两个专属 DTO 文件。下文消费者与删除前矩阵保留为历史取证；平台 API/DTO、四个 TemplateState 字段、有效规则和其它共享能力仍保留，仅这七文件由后续矩阵窄替代。

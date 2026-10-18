@@ -13,7 +13,6 @@ import (
 	sheinproduct "task-processor/internal/shein/api/product"
 	"task-processor/internal/shein/authorizedbrand"
 	sheincontent "task-processor/internal/shein/content"
-	sheinctx "task-processor/internal/shein/context"
 	generationtopics "task-processor/internal/shein/generationtopics"
 )
 
@@ -35,10 +34,10 @@ func CleanSensitiveWordsWithContext(ctx context.Context, product *sheinproduct.P
 		return nil
 	}
 	service := NewSensitiveWordServiceForContext(ctx)
-	taskCtx := &sheinctx.TaskContext{}
-	applyAuthorizedBrandFromRuntime(taskCtx, ctx)
-	taskCtx.ProductData = product
-	return service.ProcessProductData(taskCtx)
+	cleanupCtx := &sheincontent.CleanupContext{}
+	applyAuthorizedBrandFromRuntime(cleanupCtx, ctx)
+	cleanupCtx.ProductData = product
+	return service.ProcessProductData(cleanupCtx)
 }
 
 func NewSensitiveWordService() *sheincontent.SensitiveWordService {
@@ -62,23 +61,23 @@ func RetrySensitiveWordCleanupWithContext(ctx context.Context, product *sheinpro
 	}
 	service := NewSensitiveWordServiceForContext(ctx)
 	persistValidationSensitiveWords(ctx, service, validationNotes)
-	taskCtx := &sheinctx.TaskContext{}
-	applyAuthorizedBrandFromRuntime(taskCtx, ctx)
-	taskCtx.ProductData = product
-	results := []sheinctx.PreValidResult{{Messages: append([]string(nil), validationNotes...)}}
-	return service.HandleValidationErrors(taskCtx, results)
+	cleanupCtx := &sheincontent.CleanupContext{}
+	applyAuthorizedBrandFromRuntime(cleanupCtx, ctx)
+	cleanupCtx.ProductData = product
+	results := []sheincontent.ValidationResult{{Messages: append([]string(nil), validationNotes...)}}
+	return service.HandleValidationErrors(cleanupCtx, results)
 }
 
-func applyAuthorizedBrandFromRuntime(taskCtx *sheinctx.TaskContext, runtimeCtx context.Context) {
-	if taskCtx == nil {
+func applyAuthorizedBrandFromRuntime(cleanupCtx *sheincontent.CleanupContext, runtimeCtx context.Context) {
+	if cleanupCtx == nil {
 		return
 	}
-	taskCtx.Context = runtimeCtx
-	if taskCtx.AuthorizedBrand != nil {
+	cleanupCtx.Context = runtimeCtx
+	if cleanupCtx.AuthorizedBrand != nil {
 		return
 	}
 	if resolved, ok := authorizedbrand.FromContext(runtimeCtx); ok {
-		taskCtx.AuthorizedBrand = resolved
+		cleanupCtx.AuthorizedBrand = resolved
 	}
 }
 

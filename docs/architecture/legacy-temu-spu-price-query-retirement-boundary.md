@@ -1,5 +1,7 @@
 # 旧 TEMU SPU 构建与最高零售价查询编排退休边界
 
+> 后续用户已确认 [#817 整链退休边界](legacy-shein-listing-closure-retirement-boundary.md) §5–§7。仅替代下文同名 SHEIN BuildSpuHandler 及专属构建链的保留描述；平台 API/DTO、PriceHandler/PriceManager/PriceCalculator 与其余保留合同仍保留。 原调查与验证证据保持历史属性；不据其复活旧 owner，不授权运行或数据操作。
+
 后续用户确认的 [#815 完整默认属性管线边界](legacy-temu-property-pipeline-retirement-boundary.md) 已退休旧 PropertyMapper→Orchestrator→Pipeline→四stage及专属context/cache/stat/config/阶段DTO/alias共11文件。仅此具体闭包被窄替代；13个被保留AI/SKU/spec消费的property文件、rules/handlerbase原合同与四TemplateState字段保持。下文当批保留/consumer/计数是历史证据，不据旧措辞恢复已退休编排。
 
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。

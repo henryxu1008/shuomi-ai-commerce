@@ -7,7 +7,6 @@ import (
 	"unicode"
 
 	"task-processor/internal/shein/api/product"
-	sheinctx "task-processor/internal/shein/context"
 )
 
 // removeSensitiveWords 移除文本中的敏感词
@@ -36,7 +35,7 @@ func (s *SensitiveWordService) removeSensitiveWordsExcept(text string, allowed [
 }
 
 // removeSensitiveWordsAndBrandsWithContext 移除文本中的敏感词、Amazon品牌词和上下文中的品牌词
-func (s *SensitiveWordService) removeSensitiveWordsAndBrandsWithContext(ctx *sheinctx.TaskContext, text string) string {
+func (s *SensitiveWordService) removeSensitiveWordsAndBrandsWithContext(ctx *CleanupContext, text string) string {
 	if text == "" {
 		return text
 	}
@@ -58,13 +57,13 @@ func (s *SensitiveWordService) removeSensitiveWordsAndBrandsWithContext(ctx *she
 }
 
 // SanitizeTextWithContext applies the full SHEIN-sensitive cleanup pipeline to a single text field.
-func (s *SensitiveWordService) SanitizeTextWithContext(ctx *sheinctx.TaskContext, text string) string {
+func (s *SensitiveWordService) SanitizeTextWithContext(ctx *CleanupContext, text string) string {
 	return s.removeSensitiveWordsAndBrandsWithContext(ctx, text)
 }
 
 // SanitizeDisplayTextWithContext removes sensitive and brand words while preserving
 // the source text's case and punctuation as much as possible for preview/draft copy.
-func (s *SensitiveWordService) SanitizeDisplayTextWithContext(ctx *sheinctx.TaskContext, text string) string {
+func (s *SensitiveWordService) SanitizeDisplayTextWithContext(ctx *CleanupContext, text string) string {
 	if text == "" {
 		return text
 	}
@@ -76,7 +75,7 @@ func (s *SensitiveWordService) SanitizeDisplayTextWithContext(ctx *sheinctx.Task
 	return s.cleanupText(text)
 }
 
-func (s *SensitiveWordService) authorizedBrandAllowlist(ctx *sheinctx.TaskContext) []string {
+func (s *SensitiveWordService) authorizedBrandAllowlist(ctx *CleanupContext) []string {
 	if ctx == nil || ctx.AuthorizedBrand == nil || !ctx.AuthorizedBrand.Enabled {
 		return nil
 	}
@@ -115,7 +114,7 @@ func (s *SensitiveWordService) processMultiLanguageNames(nameList []product.Lang
 }
 
 // processMultiLanguageNamesWithBrandsAndContext 处理多语言名称（包含Amazon品牌词和上下文品牌词移除）
-func (s *SensitiveWordService) processMultiLanguageNamesWithBrandsAndContext(ctx *sheinctx.TaskContext, nameList []product.LanguageContent) int {
+func (s *SensitiveWordService) processMultiLanguageNamesWithBrandsAndContext(ctx *CleanupContext, nameList []product.LanguageContent) int {
 	if nameList == nil {
 		return 0
 	}
@@ -147,7 +146,7 @@ func (s *SensitiveWordService) processMultiLanguageDescs(descList []product.Lang
 }
 
 // processSKCData 处理SKC数据
-func (s *SensitiveWordService) processSKCData(ctx *sheinctx.TaskContext, skcList []product.SKC) int {
+func (s *SensitiveWordService) processSKCData(ctx *CleanupContext, skcList []product.SKC) int {
 	if skcList == nil {
 		return 0
 	}
@@ -169,7 +168,7 @@ func (s *SensitiveWordService) processSKCData(ctx *sheinctx.TaskContext, skcList
 }
 
 // processProductAttributes cleans only free-text attribute extra values and leaves structured values intact.
-func (s *SensitiveWordService) processProductAttributes(ctx *sheinctx.TaskContext, attrs []product.ProductAttribute) int {
+func (s *SensitiveWordService) processProductAttributes(ctx *CleanupContext, attrs []product.ProductAttribute) int {
 	if attrs == nil {
 		return 0
 	}
@@ -289,17 +288,17 @@ func (s *SensitiveWordService) removeAmazonBrandWordsExcept(text string, allowed
 	return cleanedText
 }
 
-// removeContextBrandWords 移除上下文中的品牌词（从AmazonProduct.Brand字段）
-func (s *SensitiveWordService) removeContextBrandWords(ctx *sheinctx.TaskContext, text string) string {
+// removeContextBrandWords 移除上下文中的品牌词（从SourceBrand值）
+func (s *SensitiveWordService) removeContextBrandWords(ctx *CleanupContext, text string) string {
 	return s.removeContextBrandWordsExcept(ctx, text, nil)
 }
 
-func (s *SensitiveWordService) removeContextBrandWordsExcept(ctx *sheinctx.TaskContext, text string, allowed []string) string {
-	if text == "" || ctx == nil || ctx.AmazonProduct == nil {
+func (s *SensitiveWordService) removeContextBrandWordsExcept(ctx *CleanupContext, text string, allowed []string) string {
+	if text == "" || ctx == nil {
 		return text
 	}
 
-	brandWord := strings.TrimSpace(ctx.AmazonProduct.Brand)
+	brandWord := strings.TrimSpace(ctx.SourceBrand)
 	if brandWord == "" || containsFoldedText(allowed, brandWord) {
 		return text
 	}

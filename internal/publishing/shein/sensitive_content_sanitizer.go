@@ -7,14 +7,14 @@ import (
 
 	common "task-processor/internal/publishing/common"
 	"task-processor/internal/shein/authorizedbrand"
-	sheinctx "task-processor/internal/shein/context"
+	"task-processor/internal/shein/content"
 )
 
-func sanitizeSheinListingCopy(copy *listingCopy, runtimeCtx context.Context, ctx *sheinctx.TaskContext) bool {
+func sanitizeSheinListingCopy(copy *listingCopy, runtimeCtx context.Context, ctx *content.CleanupContext) bool {
 	if copy == nil {
 		return false
 	}
-	ctx = ensureSanitizerTaskContext(runtimeCtx, ctx)
+	ctx = ensureSanitizerContext(runtimeCtx, ctx)
 	service := newSheinSensitiveWordSanitizer(runtimeCtx)
 	changed := false
 	changed = sanitizeStringField(service, ctx, &copy.Title) || changed
@@ -26,12 +26,12 @@ func sanitizeSheinListingCopy(copy *listingCopy, runtimeCtx context.Context, ctx
 	return changed
 }
 
-func SanitizeDraftPayloadSensitiveContent(pkg *Package, runtimeCtx context.Context, ctx *sheinctx.TaskContext) bool {
+func SanitizeDraftPayloadSensitiveContent(pkg *Package, runtimeCtx context.Context, ctx *content.CleanupContext) bool {
 	pkg = NormalizePackageSemanticFields(pkg)
 	if pkg == nil || pkg.DraftPayload == nil {
 		return false
 	}
-	ctx = ensureSanitizerTaskContext(runtimeCtx, ctx)
+	ctx = ensureSanitizerContext(runtimeCtx, ctx)
 	service := newSheinSensitiveWordSanitizer(runtimeCtx)
 	changed := false
 
@@ -50,14 +50,12 @@ func SanitizeDraftPayloadSensitiveContent(pkg *Package, runtimeCtx context.Conte
 	return changed
 }
 
-func ensureSanitizerTaskContext(runtimeCtx context.Context, ctx *sheinctx.TaskContext) *sheinctx.TaskContext {
+func ensureSanitizerContext(runtimeCtx context.Context, ctx *content.CleanupContext) *content.CleanupContext {
 	if ctx == nil {
 		if resolved, ok := authorizedbrand.FromContext(runtimeCtx); ok {
-			return &sheinctx.TaskContext{
-				RuntimeState: sheinctx.RuntimeState{
-					Context:         runtimeCtx,
-					AuthorizedBrand: resolved,
-				},
+			return &content.CleanupContext{
+				Context:         runtimeCtx,
+				AuthorizedBrand: resolved,
 			}
 		}
 		return nil
@@ -73,7 +71,7 @@ func ensureSanitizerTaskContext(runtimeCtx context.Context, ctx *sheinctx.TaskCo
 	return ctx
 }
 
-func sanitizeResolvedAttributes(service sheinSensitiveWordSanitizer, ctx *sheinctx.TaskContext, attrs []ResolvedAttribute) bool {
+func sanitizeResolvedAttributes(service sheinSensitiveWordSanitizer, ctx *content.CleanupContext, attrs []ResolvedAttribute) bool {
 	changed := false
 	for i := range attrs {
 		if attrs[i].AttributeValueID == nil && shouldSanitizeDraftAttributeValue(attrs[i].Value) {
@@ -86,7 +84,7 @@ func sanitizeResolvedAttributes(service sheinSensitiveWordSanitizer, ctx *sheinc
 	return changed
 }
 
-func sanitizeLocalizedTexts(service sheinSensitiveWordSanitizer, ctx *sheinctx.TaskContext, items []LocalizedText) bool {
+func sanitizeLocalizedTexts(service sheinSensitiveWordSanitizer, ctx *content.CleanupContext, items []LocalizedText) bool {
 	changed := false
 	for i := range items {
 		changed = sanitizeStringField(service, ctx, &items[i].Name) || changed
@@ -94,7 +92,7 @@ func sanitizeLocalizedTexts(service sheinSensitiveWordSanitizer, ctx *sheinctx.T
 	return changed
 }
 
-func sanitizeCommonAttributes(service sheinSensitiveWordSanitizer, ctx *sheinctx.TaskContext, attrs []common.Attribute) bool {
+func sanitizeCommonAttributes(service sheinSensitiveWordSanitizer, ctx *content.CleanupContext, attrs []common.Attribute) bool {
 	changed := false
 	for i := range attrs {
 		if !shouldSanitizeDraftAttributeValue(attrs[i].Value) {
@@ -105,7 +103,7 @@ func sanitizeCommonAttributes(service sheinSensitiveWordSanitizer, ctx *sheinctx
 	return changed
 }
 
-func sanitizeStringField(service sheinSensitiveWordSanitizer, ctx *sheinctx.TaskContext, value *string) bool {
+func sanitizeStringField(service sheinSensitiveWordSanitizer, ctx *content.CleanupContext, value *string) bool {
 	if service == nil || value == nil {
 		return false
 	}

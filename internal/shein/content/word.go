@@ -5,7 +5,6 @@ import (
 	"context"
 	corelogger "task-processor/internal/core/logger"
 	"task-processor/internal/pkg/recovery"
-	sheinctx "task-processor/internal/shein/context"
 )
 
 // NewSensitiveWordService 创建敏感词服务
@@ -107,7 +106,7 @@ func (s *SensitiveWordService) initDefaultConfig() {
 }
 
 // ProcessProductData 处理产品数据中的敏感词
-func (s *SensitiveWordService) ProcessProductData(ctx *sheinctx.TaskContext) error {
+func (s *SensitiveWordService) ProcessProductData(ctx *CleanupContext) error {
 	s.logger.Info("🔍 开始敏感词处理（删除模式）...")
 
 	if ctx == nil || ctx.ProductData == nil {
@@ -136,7 +135,7 @@ func (s *SensitiveWordService) ProcessProductData(ctx *sheinctx.TaskContext) err
 }
 
 // HandleValidationErrors 处理验证错误中的敏感词
-func (s *SensitiveWordService) HandleValidationErrors(ctx *sheinctx.TaskContext, validationResults []sheinctx.PreValidResult) bool {
+func (s *SensitiveWordService) HandleValidationErrors(ctx *CleanupContext, validationResults []ValidationResult) bool {
 	s.logger.Info("🔍 开始处理验证错误中的敏感词（按语言分类模式）...")
 
 	extractedWords := s.extractSensitiveWordsFromValidation(validationResults)

@@ -1,5 +1,7 @@
 # 旧 SHEIN/TEMU 自动核价链退休边界
 
+> 后续用户已确认 [#817 整链退休边界](legacy-shein-listing-closure-retirement-boundary.md) §5–§7。仅替代下文旧 shein/product/product_repo.go 及其 ProductAPI 包装接线的保留描述；PriceManager/PriceCalculator、productsync 两属性和其余保留边界继续有效。 原调查与验证证据保持历史属性；不据其复活旧 owner，不授权运行或数据操作。
+
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
 - Status: **用户已确认冻结设计3d59dc60b §5、§6、§7，按 Reuse Existing Architecture / Ready 在 #743 实施源码退休**；准确候选、CI和独立检查以PR为准。

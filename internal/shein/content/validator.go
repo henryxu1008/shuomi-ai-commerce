@@ -4,12 +4,10 @@ package content
 import (
 	"regexp"
 	"strings"
-
-	sheinctx "task-processor/internal/shein/context"
 )
 
 // extractSensitiveWordsFromValidation 从验证结果中提取敏感词
-func (s *SensitiveWordService) extractSensitiveWordsFromValidation(results []sheinctx.PreValidResult) []string {
+func (s *SensitiveWordService) extractSensitiveWordsFromValidation(results []ValidationResult) []string {
 	var sensitiveWords []string
 
 	for _, result := range results {
