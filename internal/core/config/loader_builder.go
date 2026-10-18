@@ -24,7 +24,8 @@ func BuildConfig(v *viper.Viper) *Config {
 	}
 
 	cfg := &Config{
-		FeatureFlags: buildFeatureFlagsConfig(v),
+		StorageCapacity: v.GetBool("storageCapacity"),
+		FeatureFlags:    buildFeatureFlagsConfig(v),
 		Observability: ObservabilityConfig{
 			Tracing: TracingConfig{
 				Enabled:     v.GetBool("observability.tracing.enabled"),
@@ -164,10 +165,13 @@ func BuildConfig(v *viper.Viper) *Config {
 				AllowedTenantIDs: getStringSlice(v, "imageagent.admission.allowedTenantIDs"),
 			},
 			ArtifactStore: ImageAgentArtifactStoreConfig{
-				Enabled:    v.GetBool("imageagent.artifactStore.enabled"),
-				Provider:   v.GetString("imageagent.artifactStore.provider"),
-				PublicBase: v.GetString("imageagent.artifactStore.publicBase"),
+				IsolatedTrialGeneratedURLs: v.GetBool("imageagent.artifactStore.isolatedTrialGeneratedURLs"),
+				Enabled:                    v.GetBool("imageagent.artifactStore.enabled"),
+				Provider:                   v.GetString("imageagent.artifactStore.provider"),
+				PublicBase:                 v.GetString("imageagent.artifactStore.publicBase"),
 				S3: ImageAgentArtifactStoreS3Config{
+					CapacityIdentityProvider:             v.GetString("imageagent.artifactStore.s3.capacityIdentityProvider"),
+					CapacityMinIODeploymentID:            v.GetString("imageagent.artifactStore.s3.capacityMinIODeploymentID"),
 					Bucket:                               v.GetString("imageagent.artifactStore.s3.bucket"),
 					Region:                               v.GetString("imageagent.artifactStore.s3.region"),
 					Endpoint:                             v.GetString("imageagent.artifactStore.s3.endpoint"),

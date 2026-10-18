@@ -76,7 +76,7 @@ func buildOrganizationGeneration(cfg config.ImageAgentGenerationConfig, db, comm
 	}
 	var componentLogger *logrus.Entry
 	if logger != nil {
-		componentLogger = logrus.NewEntry(logger).WithField("component", "image-agent-grsai")
+		componentLogger = logrus.NewEntry(logger).WithField("component", "image-agent-generation")
 	}
 	factory := generationProviderFactory{resolver: organizationCredentialAdmission{resolver: openai.NewOrganizationCredentialResolver(db)}, price: cfg, profile: profile, logger: componentLogger}
 	executor, err := imageagent.NewGenerationExecution(imageagent.GenerationExecutionDependencies{Facts: facts, Resources: resources, Authorizer: executionAuthorizer, MaxSourceBytes: productimage.MaxInlineArtifactBytes,

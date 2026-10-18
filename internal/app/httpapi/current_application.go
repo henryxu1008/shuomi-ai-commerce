@@ -51,6 +51,7 @@ import (
 	officialhttp "task-processor/internal/knowledge/httpapi/official"
 	"task-processor/internal/ledger/orgresource"
 	"task-processor/internal/ledger/storagecapacity"
+	"task-processor/internal/listing/preparation"
 	notificationhttp "task-processor/internal/notificationcenter/httpapi"
 	cockpithttp "task-processor/internal/operationscockpit/httpapi"
 	"task-processor/internal/product/asset"
@@ -280,7 +281,13 @@ func WithAccountAuditUsageSources(image, product *gorm.DB) CurrentApplicationOpt
 
 func currentInvocationAuditSources(options currentApplicationOptions) (invocationAuditSources, error) {
 	sources := invocationAuditSources{}
-	if options.imageAgentDB != nil {
+	// Full Image HTTP has no ledger SELECT. Bind the existing dedicated reader
+	// once, rather than broadening execution privileges or querying two sources.
+	if options.fullImages != nil {
+		if options.accountAuditSources != 1 || options.accountAuditImageDB == nil || options.accountAuditImageDB == options.imageAgentDB {
+			return nil, errors.New("full image requires its independent current invocation audit reader")
+		}
+	} else if options.imageAgentDB != nil {
 		sources["image"] = options.imageAgentDB
 	}
 	if options.productAgent != nil && options.productAgent.RunDB != nil {
@@ -994,7 +1001,11 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			if supplied.collectionSourceMedia != nil && cfg.ProductCollectionSourceMedia.Enabled {
 				sourceMedia = newImageSetManualMedia(supplied.collectionSourceMedia, imageMediaScopeAuthority{current: live})
 			}
-			full, dependencies, e := buildFullImageApplication(ctx, supplied.productAcquisitionDB, supplied.imageAgentDB, supplied.fullImages.WorkerDB, supplied.agentConfigurationDB, supplied.commercialOwnerDB, supplied.fullImages.AssetDB, supplied.imageAgentWorkflows, products, live, supplyRuntime, cfg, supplied.fullImages.WorkerConfig, supplied.productCollections == 1, logger, sourceMedia)
+			var imagePreparationSources *preparation.SourceSelector
+			if completionRuntime != nil && completionRuntime.app != nil {
+				imagePreparationSources = completionRuntime.app.Sources
+			}
+			full, dependencies, e := buildFullImageApplication(ctx, supplied.productAcquisitionDB, supplied.imageAgentDB, supplied.fullImages.WorkerDB, supplied.agentConfigurationDB, supplied.commercialOwnerDB, supplied.fullImages.AssetDB, supplied.imageAgentWorkflows, products, live, supplyRuntime, imagePreparationSources, cfg, supplied.fullImages.WorkerConfig, supplied.productCollections == 1, logger, sourceMedia)
 			if e != nil {
 				return nil, fmt.Errorf("build full image application: %w", e)
 			}

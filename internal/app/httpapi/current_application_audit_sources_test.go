@@ -68,3 +68,20 @@ func TestCurrentInvocationAuditSourcesBindEachNamespaceExactlyOnce(t *testing.T)
 		})
 	}
 }
+
+func TestFullImageAuditKeepsItsDedicatedReadOnlyLedgerPool(t *testing.T) {
+	imageHTTP, imageAudit, product := &gorm.DB{}, &gorm.DB{}, &gorm.DB{}
+	options := currentApplicationOptions{imageAgentDB: imageHTTP, fullImages: &FullImageSetDependencies{}, accountAuditSources: 1, accountAuditImageDB: imageAudit, productAgent: &ProductAgentDependencies{RunDB: product}}
+	sources, err := currentInvocationAuditSources(options)
+	if err != nil || len(sources) != 2 || sources["image"] != imageAudit || sources["product"] != product {
+		t.Fatalf("full image must keep the original narrow audit reader: %v", err)
+	}
+	options.accountAuditImageDB = nil
+	if _, err = currentInvocationAuditSources(options); err == nil {
+		t.Fatal("the HTTP execution pool must not replace a missing ledger reader")
+	}
+	options.accountAuditImageDB = imageHTTP
+	if _, err = currentInvocationAuditSources(options); err == nil {
+		t.Fatal("audit and execution pools must be separate")
+	}
+}

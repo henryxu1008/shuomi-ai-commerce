@@ -1,6 +1,7 @@
 package productagentruntime
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -12,6 +13,20 @@ import (
 	catalogstore "task-processor/internal/integration/persistence/product/catalog"
 	sourcestore "task-processor/internal/integration/persistence/product/sourcing"
 )
+
+// VerifyInvocationRelation reuses the current invocation owner's native
+// qualification for explicit maintenance. It performs no DDL or row writes.
+func VerifyInvocationRelation(ctx context.Context, db *gorm.DB, owner string) error {
+	if ctx == nil || db == nil || owner == "" {
+		return fmt.Errorf("invocation owner unavailable")
+	}
+	spec, err := invocationContract(db)
+	if err != nil {
+		return err
+	}
+	spec.Owner = owner
+	return verifyRelation(db.WithContext(ctx), spec)
+}
 
 type columnContract struct {
 	Name, Type, Default string

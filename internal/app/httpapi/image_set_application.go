@@ -27,6 +27,7 @@ import (
 	"task-processor/internal/integration/skillimage"
 	"task-processor/internal/listing/preparation"
 	"task-processor/internal/product/asset"
+	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/collection"
 	productimage "task-processor/internal/product/image"
 	"task-processor/internal/workbenchcontext"
@@ -95,7 +96,7 @@ func (a imageSourceScopeAuthority) AuthorizeImageExecution(ctx context.Context, 
 
 // The caller owns the API/worker, configuration, source, resource and Asset
 // pools. This assembly installs no schema and starts no provider or worker.
-func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB, configurationDB, resourceDB, assetDB *gorm.DB, workflows imageagent.WorkflowClient, products imageapp.EffectiveImageProductReader, live supplyapp.OrganizationExecutionAuthorizer, supply *supplyChainModule, current, workerConfig *config.Config, collectionsEnabled bool, logger *logrus.Logger, mediaReaders ...asset.ManualImageReader) (*fullImageApplication, appruntime.ImageAgentTemporalDependencies, error) {
+func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB, configurationDB, resourceDB, assetDB *gorm.DB, workflows imageagent.WorkflowClient, products imageapp.EffectiveImageProductReader, live supplyapp.OrganizationExecutionAuthorizer, supply *supplyChainModule, preparationSources *preparation.SourceSelector, current, workerConfig *config.Config, collectionsEnabled bool, logger *logrus.Logger, mediaReaders ...asset.ManualImageReader) (*fullImageApplication, appruntime.ImageAgentTemporalDependencies, error) {
 	var empty appruntime.ImageAgentTemporalDependencies
 	if len(mediaReaders) > 1 {
 		return nil, empty, imageagent.ErrValidation
@@ -144,6 +145,16 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 		return nil, empty, err
 	}
 	sources := imageapp.ImageSetSourceRouter{Acquisition: imageapp.AcquisitionImageSetSources{Receipts: receipts, Authorization: sourceAuth, Products: products}}
+	var genericSource *preparation.SourceSelector
+	if preparationSources != nil {
+		// WithExecution configures its receiver; keep the browser owner untouched.
+		copy := *preparationSources
+		genericSource, err = copy.WithExecution(live, collection.ExecutionOwnerAuthority{Authorization: live})
+		if err != nil {
+			return nil, empty, err
+		}
+		sources.Supply = supplyapp.ImageSetSources{ExecutionSources: genericSource, ExecutionAuthorization: live, Products: imagePreparationProductReader{products}}
+	}
 	if supply != nil {
 		if supply.app == nil {
 			return nil, empty, imageagent.ErrCommandBlocked
@@ -151,6 +162,9 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 		sources.Supply = supplyapp.ImageSetSources{ExecutionSources: supply.app.Sources, ExecutionAuthorization: live, Products: supply.app.Products}
 	}
 	readSources := sources
+	if genericSource != nil {
+		readSources.Supply = supplyapp.ImageSetSources{Permission: preparation.PermissionRead, ExecutionSources: genericSource, ExecutionAuthorization: live, Products: imagePreparationProductReader{products}}
+	}
 	sourceSelections := imageapp.ImageSetSourceSelectionReader{Sources: sources}
 	rules := supplyapp.ImageSetTargetRules{}
 	if supply != nil {
@@ -260,6 +274,18 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 		dependencies.ArtworkPublisher = artwork
 	}
 	return &fullImageApplication{skills: skills, artwork: artwork, service: service, readSources: readSources, contexts: contexts, quotes: quotes, selections: selections, inventories: inventories, approvals: approvals, publicURLs: publicURLs, trial: trial, configuration: configuration, recent: recent, gate: gate, rules: rules, manualAvailable: manual != nil}, dependencies, nil
+}
+
+type imagePreparationProductReader struct {
+	products imageapp.EffectiveImageProductReader
+}
+
+func (r imagePreparationProductReader) ReadEffectiveTargetProduct(ctx context.Context, selected preparation.AuthorizedSource, version uint64, applyID string) (catalog.PublishedSnapshot, error) {
+	scope, _, original, err := selected.Read(ctx)
+	if err != nil {
+		return catalog.PublishedSnapshot{}, err
+	}
+	return r.products.ReadEffectiveImageProduct(ctx, imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, TenantID: scope.OrganizationID, UserID: scope.ActorID, MemberID: scope.MemberID}, original, version, applyID)
 }
 
 func artworkConfigurationReady(ctx context.Context, configurationDB, productDB *gorm.DB, collectionsEnabled bool) bool {
