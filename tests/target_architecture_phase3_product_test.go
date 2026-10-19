@@ -132,7 +132,7 @@ func phase3BannedImportDeclarationViolations(sources []listingKitImageBoundarySo
 
 func TestPhase3ConsumersCannotOrchestrateProductImage(t *testing.T) {
 	for _, root := range []string{"listingkit", "sds", "amazonlisting"} {
-		assertNoBannedImportPrefixes(t, filepath.Join("..", "internal", root), []string{
+		assertNoBannedImportPrefixesBelow(t, filepath.Join("..", "internal"), filepath.Join("..", "internal", root), []string{
 			"task-processor/internal/product/image",
 			"task-processor/internal/imageagent/store",
 			"task-processor/internal/imageagent/temporal",

@@ -96,6 +96,23 @@ func loadGoFileIndex(root, skipRoot string) (*goFileIndex, error) {
 	return index, nil
 }
 
+// loadGoFileSubtreeIndex scans a retained ancestor even when an approved legacy
+// subtree has been deleted. Read and parse errors remain fatal to the caller.
+func loadGoFileSubtreeIndex(parentRoot, root string) (*goFileIndex, error) {
+	index, err := loadGoFileIndex(parentRoot, "")
+	if err != nil {
+		return nil, err
+	}
+	root = filepath.Clean(root)
+	subtree := &goFileIndex{files: make(map[string]goFileFacts)}
+	for path, facts := range index.files {
+		if path == root || strings.HasPrefix(path, root+string(os.PathSeparator)) {
+			subtree.files[path] = facts
+		}
+	}
+	return subtree, nil
+}
+
 func pathAllowed(path string, allowed map[string]struct{}) bool {
 	if len(allowed) == 0 {
 		return false

@@ -6,7 +6,6 @@ import (
 	"gorm.io/gorm"
 
 	aicapabilitystore "task-processor/internal/aicapability/store"
-	"task-processor/internal/amazonlisting"
 	imageagentstore "task-processor/internal/imageagent/store"
 	openaiclient "task-processor/internal/integration/openai"
 	assetpersistence "task-processor/internal/integration/persistence/product/asset"
@@ -36,9 +35,6 @@ func AutoMigrateRuntime(db *gorm.DB) error {
 	}
 	if err := db.AutoMigrate(&prompt.TenantPromptTemplate{}); err != nil {
 		return fmt.Errorf("tenant prompt auto-migrate failed: %w", err)
-	}
-	if err := db.AutoMigrate(&amazonlisting.Task{}); err != nil {
-		return fmt.Errorf("amazonlisting auto-migrate failed: %w", err)
 	}
 	return nil
 }

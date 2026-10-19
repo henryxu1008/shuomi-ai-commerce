@@ -1,5 +1,12 @@
 # Phase 2 runtime convergence inventory
 
+> #822 current calibration: the user-confirmed complete legacy Amazon listing
+> closure is source-retired under frozen design 3a344153e and Independent
+> Architecture admission. Only its ten logger/workerpool/OpenAI consumer rows
+> leave the live register. Current Amazon API/source acquisition, shared contracts,
+> Store observations and standalone SHEIN login/Store sync retain their owners;
+> dated evidence/counts, ceilings, workflows and real runtime/data remain unchanged.
+
 > #819 current calibration: the user-confirmed complete remaining numeric TEMU
 > listing closure and its exclusive pipeline/policies are source-retired. Only
 > its 10 logger/OpenAI rows leave the live consumer register. Older retention
@@ -265,6 +272,12 @@ marketplace vertical slices.
 
 ## Mixed persistence adapters
 
+> #822 supersedes only the `internal/amazonlisting/store` entry below: that
+> adapter and its Task owner are source-retired, so the entry is retained solely
+> as the original Phase 2 snapshot, **not a current adapter or Phase 4 work item**.
+> The original table and its other entries are preserved; current retained
+> persistence owners follow the [Amazon closure boundary](../architecture/legacy-amazon-listing-closure-retirement-boundary.md).
+
 GORM use remains mixed with domain models, services, HTTP assembly, and schema
 startup. These are recorded and frozen rather than renamed into `integration`:
 
@@ -312,11 +325,6 @@ internal wiring is intentionally excluded; no other package class is excluded.
 | Target import path | Exact consumer package | Class | Explicit later owner / phase |
 | --- | --- | --- | --- |
 | `task-processor/internal/core/logger` | `task-processor/internal/amazon/api` | marketplace business consumer | marketplace owner / Phase 4 |
-| `task-processor/internal/core/logger` | `task-processor/internal/amazon/image` | marketplace business consumer | marketplace owner / Phase 4 |
-| `task-processor/internal/core/logger` | `task-processor/internal/amazon/listing` | marketplace business consumer | marketplace owner / Phase 4 |
-| `task-processor/internal/core/logger` | `task-processor/internal/amazon/llm` | marketplace business consumer | marketplace owner / Phase 4 |
-| `task-processor/internal/core/logger` | `task-processor/internal/amazon/pipeline` | marketplace business consumer | marketplace owner / Phase 4 |
-| `task-processor/internal/core/logger` | `task-processor/internal/amazon/schema` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/core/logger` | `task-processor/internal/core/metrics` | business metrics | marketplace + listing / Phases 4-5 |
 | `task-processor/internal/core/logger` | `task-processor/internal/crawler/alibaba1688` | crawler business consumer | product + marketplace / Phases 3-4 |
 | `task-processor/internal/core/logger` | `task-processor/internal/crawler/alibaba1688/extractor` | crawler business consumer | product + marketplace / Phases 3-4 |
@@ -340,7 +348,6 @@ internal wiring is intentionally excluded; no other package class is excluded.
 | `task-processor/internal/core/logger` | `task-processor/internal/shein/client` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/core/logger` | `task-processor/internal/shein/content` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/core/logger` | `task-processor/internal/sheinlogin` | marketplace business consumer | marketplace owner / Phase 4 |
-| `task-processor/internal/core/logger` | `task-processor/internal/state` | runtime-support debt | app retirement / Phase 8 |
 | `task-processor/internal/core/logger` | `task-processor/internal/temu/api/client` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/platform/logging` | `task-processor/internal/core/config` | application schema | owning domains / Phases 3-7 |
 | `task-processor/internal/platform/logging` | `task-processor/internal/core/logger` | compatibility facade | owning domains / Phases 3-8 |
@@ -348,13 +355,9 @@ internal wiring is intentionally excluded; no other package class is excluded.
 | `task-processor/internal/platform/redis` | `task-processor/internal/crawler/shared` | crawler business consumer | product + marketplace / Phases 3-4 |
 | `task-processor/internal/platform/queue/rabbitmq` | `task-processor/internal/crawler/fetcher` | crawler business consumer | product + marketplace / Phases 3-4 |
 | `task-processor/internal/platform/queue/rabbitmq` | `task-processor/internal/platformbase` | runtime-support debt | app retirement / Phase 8 |
-| `task-processor/internal/platform/workerpool` | `task-processor/internal/amazonlisting` | marketplace business consumer | marketplace owner / Phase 4 |
-| `task-processor/internal/platform/workerpool` | `task-processor/internal/amazonlisting/httpapi` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/platform/workerpool` | `task-processor/internal/crawler/amazon` | crawler business consumer | product + marketplace / Phases 3-4 |
 | `task-processor/internal/platform/workerpool` | `task-processor/internal/crawler/shared` | crawler business consumer | product + marketplace / Phases 3-4 |
-| `task-processor/internal/platform/workerpool` | `task-processor/internal/httpbootstrap` | runtime-support debt | app retirement / Phase 8 |
 | `task-processor/internal/platform/workerpool` | `task-processor/internal/kernel/module` | runtime-support debt | app retirement / Phase 8 |
-| `task-processor/internal/integration/openai` | `task-processor/internal/amazon/llm` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/integration/openai` | `task-processor/internal/core/config` | application schema | owning domains / Phases 3-7 |
 | `task-processor/internal/integration/openai` | `task-processor/internal/listingadmin` | listing business consumer | listing owner / Phase 5 |
 | `task-processor/internal/integration/openai` | `task-processor/internal/publishing/sheinmanaged` | marketplace business consumer | marketplace owner / Phase 4 |

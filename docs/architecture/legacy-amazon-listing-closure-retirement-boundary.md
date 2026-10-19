@@ -2,7 +2,7 @@
 
 > Execution：[#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)
 >
-> 状态：DESIGN PROPOSAL / IMPLEMENTATION_NOT_READY。当前交付仅设计文档与索引，Design Basis: N/A（不改变正式代码或合同）；未来实施必须采用 Independent Architecture，完成适用独立设计检查、用户确认 §5/§6/§6.1/§7，并在执行 Issue 登记 IMPLEMENTATION_READY / Ready 后才能修改生产代码。
+> Design Basis：Independent Architecture / IMPLEMENTATION_READY；状态：SOURCE IMPLEMENTED / In Review。用户已确认冻结设计 `3a344153edefeaaab61433a686482d92d0d4310f` §5/§6/§6.1/§7；适用独立设计检查及唯一 IMPLEMENTATION_TEST 分类、Ready-before-production 记录见[#822 准入](https://github.com/qq550723504/task-processor/pull/822#issuecomment-6259806207)。118Go/20非Go与精确 mixed/schema/守卫已源码实施；准确实现HEAD、原CI与最终独立检查写同一PR，不用设计证据代替。
 >
 > 调查基线：main `e2f4a2f8b20ffce7530e6962038b9b04a0e76348`，2026-10-19。#819 按用户授权的 `ca9ca2cfc` 合入此 SHA，对应 push/main CI [39197893597](https://github.com/qq550723504/task-processor/actions/runs/39197893597) 成功；该授权和证据不覆盖本批。
 
@@ -149,7 +149,7 @@ Legacy decision: RETIRE。Reusable behavior：有效平台/共享规则及基础
 
 ## 7. 确认、准入与停止条件
 
-1. 本文是尚未实施的完整提案；确认范围必须包含 §5、§6、§6.1、§7，明确撤销旧 Amazon Workbench 内部合同、新安装旧表注册、旧 state/timex 保留及10条当前边，而保留真实平台API/来源采集/共享能力。用户确认与适用独立设计检查准确绑定冻结SHA，执行Issue记录并读回 Independent Architecture / IMPLEMENTATION_READY / Ready 后才开工。
+1. 用户已确认冻结设计3a344153e的 §5、§6、§6.1、§7；适用独立设计检查已完成，无BLOCKER，一条当前adapter文档问题按IMPLEMENTATION_TEST以窄来源注记收敛（原表保留，不扩大10条边删除）。#29/#301在生产修改前已登记并读回 Independent Architecture / IMPLEMENTATION_READY / Ready；当前源码已实施。保留真实平台API/来源采集/共享能力，后续限制不变。
 2. 确认后同一Writer在同一PR整批实施、修复finding与CI、提交推送。不再拆机械小批；仅发生真正独立main Blocker或独立交付价值时按AGENTS处理，不把工程阈值当拆分目标。
 3. 新当前消费者/外部可观察兼容义务、真实Must BLOCKER、必须改变当前身份/tenant/事实/状态/事务/恢复/平台副作用/AI预算边界时停止受影响项报告。静态证据不能推定运行态不存在，也不能以之取得实例/数据调查授权。
 4. Finding先按AGENTS分类并指出当前Must、具体后果与阻塞层级；正常设计检查最多两轮，无新BLOCKER不无限追加设计版本，非阻塞项在实现测试/Backlog收敛。不得加wrapper/fallback/双事实源保留旧owner，也不得删有效守卫或保留空stub。
