@@ -878,7 +878,7 @@ func TestPublishingSheinOpenAIImportsStayAllowlisted(t *testing.T) {
 	}
 }
 
-func TestPublishingSheinSensitiveAdapterUsesCurrentContentFactory(t *testing.T) {
+func TestPublishingSheinSubmitPrepUsesOnlySensitiveWordAdapter(t *testing.T) {
 	filePath := filepath.Join("..", "internal", "publishing", "shein", "submit_prep_sensitive_adapter.go")
 	file, err := parser.ParseFile(token.NewFileSet(), filePath, nil, 0)
 	if err != nil {
