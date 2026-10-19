@@ -213,7 +213,43 @@ func TestWorkbenchContextExposesConfiguredPlatformAdminToBrowserRoleChecks(t *te
 	require.Equal(t, []string{"custom-role"}, result.Organizations[0].Roles)
 	require.Contains(t, result.Organizations[0].Permissions, authz.PermissionWorkbenchStoreDelete)
 	require.Contains(t, result.Organizations[0].Permissions, authz.PermissionWorkbenchKnowledgeManage)
+	require.Contains(t, result.Organizations[0].Permissions, authz.PermissionListingKitPlatformAdm)
 
+}
+
+func TestPlatformMaintenancePermissionProjectionUsesInjectedAuthorityPerOrganization(t *testing.T) {
+	authorizer, err := authz.NewListingKitAuthorizer([]string{"configured-user"}, []string{"configured-role"})
+	require.NoError(t, err)
+	for _, tc := range []struct {
+		name, user, homeRole, selectedRole string
+		wantHome, wantSelected             bool
+	}{
+		{"platform role in home only", "member", "platform_admin", "listingkit_admin", true, false},
+		{"configured role in selected only", "member", "listingkit_admin", "configured-role", false, true},
+		{"configured user", "configured-user", "listingkit_admin", "listingkit_admin", true, true},
+		{"ordinary enterprise admin", "member", "listingkit_admin", "listingkit_admin", false, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			identity := authidentity.AuthenticatedIdentity{
+				UserID: tc.user, HomeOrganizationID: "org-a", EffectiveOrganizationID: "org-b",
+				Roles: []string{"platform_admin"}, // Global claims must not replace each verified enterprise grant.
+				OrganizationGrants: []authidentity.OrganizationGrant{
+					{OrganizationID: "org-a", Roles: []string{tc.homeRole}},
+					{OrganizationID: "org-b", Roles: []string{tc.selectedRole}},
+				},
+			}
+			response := serveHandler(t, http.MethodGet, "/api/v1/workbench/context", "", identity, NewHandlerWithWorkbenchAuthorizer(authorizer).GetContext)
+			require.Equal(t, http.StatusOK, response.Code)
+			var result contextResponse
+			require.NoError(t, json.Unmarshal(response.Body.Bytes(), &result))
+			require.Len(t, result.Organizations, 2)
+			for i, want := range []bool{tc.wantHome, tc.wantSelected} {
+				require.Equal(t, identity.OrganizationGrants[i].OrganizationID, result.Organizations[i].ID)
+				require.Equal(t, want, slices.Contains(result.Organizations[i].Permissions, authz.PermissionListingKitPlatformAdm))
+				require.Equal(t, identity.OrganizationGrants[i].Roles, result.Organizations[i].Roles, "permission projection must not rewrite roles")
+			}
+		})
+	}
 }
 
 func TestKnowledgeManagementRoleProjectionMatchesAuthorityPerOrganization(t *testing.T) {

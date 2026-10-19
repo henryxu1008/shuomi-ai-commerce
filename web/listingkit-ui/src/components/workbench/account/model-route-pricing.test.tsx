@@ -34,6 +34,15 @@ it("persists original key on unknown, restores after remount and only queries it
  const key=new Headers(fetch.mock.calls.find(([u])=>u.endsWith("/publish"))![1]!.headers).get("Idempotency-Key");expect(key).toBeTruthy();expect(screen.getByRole("button",{name:"确认发布"})).toBeDisabled();view.unmount();mount();await screen.findByRole("heading",{name:"发布结果待核实"});await user.click(screen.getByRole("button",{name:"查询本次发布结果"}));await screen.findByRole("heading",{name:"发布回执"});expect(fetch.mock.calls.some(([u])=>u.endsWith("/receipts/"+key))).toBe(true);expect(fetch.mock.calls.filter(([u])=>u.endsWith("/publish"))).toHaveLength(1);
 });
 it("denies ordinary enterprise admins before management reads",async()=>{state.context.permissions=["listingkit.admin.write"];const fetch=vi.fn();vi.stubGlobal("fetch",fetch);mount(true);await screen.findByText("无平台维护权限或当前企业不可用");await waitFor(()=>expect(fetch).not.toHaveBeenCalled())});
+it("keeps an unconfigured service unavailable after platform permission passes",async()=>{
+ const fetch=vi.fn(async(url:string)=>{expect(url).toBe("/api/model-route-pricing");return Response.json({code:"UNAVAILABLE"},{status:503})});vi.stubGlobal("fetch",fetch);mount(true);
+ await screen.findByRole("heading",{name:"配置服务未接线或暂不可用"});expect(screen.queryByText("无平台维护权限或当前企业不可用")).not.toBeInTheDocument();
+ expect(fetch).toHaveBeenCalledTimes(1);expect(fetch.mock.calls[0]?.[0]).toBe("/api/model-route-pricing");expect(screen.queryByRole("button",{name:"确认发布"})).not.toBeInTheDocument();
+});
+it("does not advertise configured uses when the authorized capability list is empty",async()=>{
+ const fetch=vi.fn(async()=>Response.json({organizationId:"org-a",capabilities:[]}));vi.stubGlobal("fetch",fetch);mount(true);
+ await screen.findByRole("heading",{name:"当前企业暂无已接线用途"});expect(fetch).toHaveBeenCalledTimes(1);expect(screen.queryByRole("button",{name:"确认发布"})).not.toBeInTheDocument();
+});
 it("rejects zero rate without sending validation and keeps edits",async()=>{const user=userEvent.setup(),fetch=fixtures(async()=>Response.json({}));vi.stubGlobal("fetch",fetch);mount();const rate=await screen.findByLabelText(/每张图片 AI 点数/);await user.clear(rate);await user.type(rate,"0");await user.click(screen.getByRole("button",{name:"校验配置并预览"}));expect(await screen.findByRole("alert")).toHaveTextContent("费率");expect(rate).toHaveValue("0");expect(fetch.mock.calls.some(([u])=>u.endsWith("/validate"))).toBe(false)});
 it("keeps edits while a failed refresh clears authority to publish stale current",async()=>{
  const user=userEvent.setup(),fetch=fixtures(async()=>Response.json({}));vi.stubGlobal("fetch",fetch);mount();const rate=await screen.findByLabelText(/每张图片 AI 点数/);await user.clear(rate);await user.type(rate,"12");
