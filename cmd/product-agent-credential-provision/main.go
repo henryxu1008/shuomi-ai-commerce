@@ -14,7 +14,7 @@ import (
 
 func main() {
 	manifestPath := flag.String("config", "", "absolute private current-application manifest path")
-	inputPath := flag.String("input", "", "absolute private credential input path (consumer: title, planning, or content)")
+	inputPath := flag.String("input", "", "absolute private credential input path (consumer: title, planning, content, materials, selection, diagnosis; admitted binding only)")
 	flag.Parse()
 	if *manifestPath == "" || *inputPath == "" {
 		fmt.Fprintln(os.Stderr, "-config and -input are required")

@@ -11,7 +11,6 @@ import (
 	einoruntime "task-processor/internal/integration/agent/eino"
 	texteino "task-processor/internal/integration/agent/einomodel"
 	governed "task-processor/internal/integration/aicapability/einomodel"
-	"task-processor/internal/integration/openai"
 	configstore "task-processor/internal/integration/persistence/agentconfig"
 	skillstore "task-processor/internal/integration/persistence/skill"
 	"task-processor/internal/product/catalog"
@@ -59,7 +58,7 @@ func buildContentProductApplication(ctx context.Context, parent *productAgentApp
 	for org, policy := range a.config.ContentTextPolicies {
 		policies[governed.RouteKey{OrganizationID: org, Operation: aicapability.OperationProductContentDecision}] = policy
 	}
-	routes, err := governed.NewOrganizationRouteResolver(openai.NewGormCredentialResolver(a.config.RunDB), policies)
+	routes, err := newProductTextRouteResolver(a.config, policies)
 	if err != nil {
 		return nil, err
 	}

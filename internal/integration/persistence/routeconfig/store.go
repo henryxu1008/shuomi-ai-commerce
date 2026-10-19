@@ -11,12 +11,13 @@ import (
 	"fmt"
 	"time"
 
+	d "task-processor/internal/aicapability/routeconfig"
+	"task-processor/internal/integration/openai"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
-	d "task-processor/internal/aicapability/routeconfig"
-	"task-processor/internal/integration/openai"
 )
 
 //go:embed schema.sql
@@ -30,7 +31,10 @@ func InstallSchema(ctx context.Context, db *gorm.DB) error {
 		if e := openai.InstallCredentialMetadataProjection(ctx, tx); e != nil {
 			return e
 		}
-		return tx.Exec(SchemaSQL).Error
+		if e := tx.Exec(SchemaSQL).Error; e != nil {
+			return e
+		}
+		return VerifySchema(ctx, tx)
 	})
 }
 func VerifySchema(ctx context.Context, db *gorm.DB) error {
@@ -48,6 +52,32 @@ func VerifySchema(ctx context.Context, db *gorm.DB) error {
 		}
 		_ = rows.Close()
 	}
+	// A partial/drifted schema must not silently bypass scoped CAS or history
+	// identity. Installation remains the only DDL path; startup only inspects.
+	for _, constraint := range []struct{ table, name, definition string }{
+		{"ai_route_config_revisions", "ai_route_config_revision_scope", "PRIMARY KEY (organization_id, capability, revision_id)"},
+		{"ai_route_config_revisions", "ai_route_config_request_scope", "UNIQUE (organization_id, capability, idempotency_key)"},
+		{"ai_route_config_current", "ai_route_config_current_scope", "PRIMARY KEY (organization_id, capability)"},
+		{"ai_route_config_current", "ai_route_config_current_revision", "FOREIGN KEY (organization_id, capability, revision_id) REFERENCES ai_route_config_revisions(organization_id, capability, revision_id)"},
+	} {
+		var definition string
+		e := db.WithContext(ctx).Raw(`SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid=to_regclass(?) AND conname=? AND convalidated`, "public."+constraint.table, constraint.name).Scan(&definition).Error
+		if e != nil || definition != constraint.definition {
+			return d.ErrUnavailable
+		}
+	}
+	return nil
+}
+
+func VerifyReader(ctx context.Context, db *gorm.DB) error {
+	if e := VerifySchema(ctx, db); e != nil {
+		return e
+	}
+	var writes bool
+	e := db.WithContext(ctx).Raw(`SELECT has_table_privilege(current_user,'public.ai_route_config_revisions','INSERT,UPDATE,DELETE,TRUNCATE') OR has_table_privilege(current_user,'public.ai_route_config_current','INSERT,UPDATE,DELETE,TRUNCATE')`).Scan(&writes).Error
+	if e != nil || writes {
+		return d.ErrUnavailable
+	}
 	return nil
 }
 
@@ -58,14 +88,16 @@ func VerifyWriter(ctx context.Context, db *gorm.DB) error {
 		return e
 	}
 	var ok bool
-	e := db.WithContext(ctx).Raw(`SELECT NOT (r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolbypassrls)
+	e := db.WithContext(ctx).Raw(`SELECT NOT (r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolbypassrls OR r.rolreplication)
  AND current_user<>pg_get_userbyid(c.relowner)
  AND has_table_privilege(current_user,'public.ai_route_config_revisions','INSERT')
  AND NOT has_table_privilege(current_user,'public.ai_route_config_revisions','UPDATE')
  AND NOT has_table_privilege(current_user,'public.ai_route_config_revisions','DELETE')
+ AND NOT has_table_privilege(current_user,'public.ai_route_config_revisions','TRUNCATE')
  AND has_table_privilege(current_user,'public.ai_route_config_current','INSERT')
  AND has_table_privilege(current_user,'public.ai_route_config_current','UPDATE')
  AND NOT has_table_privilege(current_user,'public.ai_route_config_current','DELETE')
+ AND NOT has_table_privilege(current_user,'public.ai_route_config_current','TRUNCATE')
  AND NOT has_column_privilege(current_user,'public.ai_client_credentials','api_key','SELECT')
  AND NOT has_any_column_privilege(current_user,'public.ai_client_credentials','UPDATE')
  AND NOT has_table_privilege(current_user,'public.ai_client_credentials','INSERT')
@@ -78,7 +110,10 @@ func VerifyWriter(ctx context.Context, db *gorm.DB) error {
 	return nil
 }
 
-type Store struct{ db *gorm.DB }
+type Store struct {
+	db                *gorm.DB
+	commitTransaction func(*gorm.DB) error
+}
 
 func New(db *gorm.DB) (*Store, error) {
 	if db == nil || db.Dialector == nil || db.Dialector.Name() != "postgres" {
@@ -129,7 +164,7 @@ func decode(row record) (d.Revision, error) {
 	if row.SchemaVersion != 1 || json.Unmarshal([]byte(row.Payload), &p) != nil {
 		return d.Revision{}, d.ErrUnavailable
 	}
-	return d.Revision{ID: row.RevisionID, Scope: d.Scope{OrganizationID: row.OrganizationID, Capability: row.Capability}, Parent: row.ParentRevision, SchemaVersion: row.SchemaVersion, Payload: p, Digest: row.PayloadDigest, ActorID: row.ActorID, PublishedAt: row.PublishedAt, Key: row.IdempotencyKey, Fingerprint: row.RequestFingerprint, RollbackFrom: row.RollbackFrom}, nil
+	return d.Revision{ID: row.RevisionID, Scope: d.Scope{OrganizationID: row.OrganizationID, Capability: row.Capability}, Parent: row.ParentRevision, SchemaVersion: row.SchemaVersion, Payload: p, Digest: row.PayloadDigest, ActorID: row.ActorID, PublishedAt: row.PublishedAt.UTC(), Key: row.IdempotencyKey, Fingerprint: row.RequestFingerprint, RollbackFrom: row.RollbackFrom}, nil
 }
 func (s *Store) Receipt(ctx context.Context, scope d.Scope, key string) (d.Revision, error) {
 	return read(s.db.WithContext(ctx), scope, "idempotency_key=?", key)
@@ -230,7 +265,11 @@ func (s *Store) Publish(ctx context.Context, cmd d.Command, build func(d.Credent
 	if res.Error != nil || res.RowsAffected != 1 {
 		return s.conflict(ctx, tx, cmd, res.Error)
 	}
-	if tx.Commit().Error != nil {
+	commit := s.commitTransaction
+	if commit == nil {
+		commit = func(tx *gorm.DB) error { return tx.Commit().Error }
+	}
+	if commit(tx) != nil {
 		return d.Revision{}, d.ErrOutcomeUnknown
 	}
 	return r, nil

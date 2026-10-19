@@ -2,11 +2,7 @@ package routeconfigstore
 
 import (
 	"context"
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/require"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
+	"errors"
 	"net/url"
 	"os"
 	"strings"
@@ -15,16 +11,101 @@ import (
 	qualified "task-processor/internal/integration/aicapability/routeconfig"
 	"task-processor/internal/integration/openai"
 	"testing"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
+	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
+
+func TestCommitAcknowledgementLossRecoversOriginalReceipt(t *testing.T) {
+	db, s := fixture(t)
+	ctx := context.Background()
+	scope := d.Scope{OrganizationID: "org-a", Capability: d.ImageCapability}
+	s.commitTransaction = func(tx *gorm.DB) error {
+		require.NoError(t, tx.Commit().Error)
+		return errors.New("fixture acknowledgement lost after durable commit")
+	}
+	_, e := s.Publish(ctx, command(scope, "unknown", d.NoRevision), build)
+	require.ErrorIs(t, e, d.ErrOutcomeUnknown)
+	restarted, e := New(db)
+	require.NoError(t, e)
+	receipt, e := restarted.Receipt(ctx, scope, "unknown")
+	require.NoError(t, e)
+	replay, e := restarted.Publish(ctx, command(scope, "unknown", d.NoRevision), func(d.CredentialReader, string) (d.Payload, error) {
+		t.Fatal("must not rebuild/re-publish")
+		return d.Payload{}, nil
+	})
+	require.NoError(t, e)
+	require.Equal(t, receipt.ID, replay.ID)
+	history, e := restarted.History(ctx, scope, "", 50)
+	require.NoError(t, e)
+	require.Len(t, history, 1)
+}
+
+type rotatingPublication struct {
+	*Store
+	rotate func()
+}
+
+func (s rotatingPublication) Publish(ctx context.Context, cmd d.Command, build func(d.CredentialReader, string) (d.Payload, error)) (d.Revision, error) {
+	return s.Store.Publish(ctx, cmd, func(reader d.CredentialReader, id string) (d.Payload, error) {
+		p, e := build(reader, id)
+		if e == nil {
+			s.rotate()
+		}
+		return p, e
+	})
+}
+func TestCredentialDisabledAfterProjectionBeforeCommitFailsCurrentClosed(t *testing.T) {
+	db, repo := fixture(t)
+	ctx := context.Background()
+	sc := d.Scope{OrganizationID: "org-a", Capability: d.ImageCapability}
+	owner := openai.NewGormCredentialResolver(db)
+	require.NoError(t, owner.SaveCredential(ctx, openai.AIClientCredential{TenantID: sc.OrganizationID, ClientName: "image-a", APIKey: "fixture", BaseURL: "https://provider.example.test/v1", Model: "gpt-image-2.5", APIStyle: "grsai", TimeoutSecond: 30, Enabled: true}))
+	row, e := owner.GetCredential(ctx, sc.OrganizationID, "", "image-a")
+	require.NoError(t, e)
+	catalog, e := qualified.NewCatalog([]qualified.Definition{{Scope: sc, Image: &qualified.ImageAdmission{ClientName: row.ClientName, Provider: "grsai", Model: row.Model, Endpoint: row.BaseURL, CredentialVersion: openai.CredentialVersion(*row), MaximumPointsPerImage: 10}}})
+	require.NoError(t, e)
+	interleaved := rotatingPublication{Store: repo, rotate: func() { row.Enabled = false; require.NoError(t, owner.SaveCredential(ctx, *row)) }}
+	service := &d.Service{Repository: interleaved, Catalog: catalog}
+	in := d.Input{ExpectedRevision: d.NoRevision, BindingID: row.ClientName, CredentialVersion: openai.CredentialVersion(*row), Rates: d.Rates{PointsPerImage: "5"}}
+	r, e := service.Publish(ctx, sc, "maintainer", "race", in)
+	require.NoError(t, e)
+	current, e := service.Current(ctx, sc)
+	require.ErrorIs(t, e, d.ErrNeedsConfiguration)
+	require.Equal(t, r.ID, current.ID)
+	receipt, e := repo.Receipt(ctx, sc, "race")
+	require.NoError(t, e)
+	require.Equal(t, r.ID, receipt.ID)
+	_, e = service.Validate(ctx, sc, d.Input{ExpectedRevision: r.ID, BindingID: in.BindingID, CredentialVersion: in.CredentialVersion, Rates: in.Rates})
+	require.ErrorIs(t, e, d.ErrNeedsConfiguration)
+}
 
 func fixture(t *testing.T) (*gorm.DB, *Store) {
 	t.Helper()
 	dsn := os.Getenv("ISSUE830_TEST_DSN")
 	if dsn == "" {
-		t.Skip("requires task-isolated PostgreSQL ISSUE830_TEST_DSN")
+		if os.Getenv("CI") == "" {
+			t.Skip("requires task-isolated PostgreSQL ISSUE830_TEST_DSN; CI uses an owned testcontainer")
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+		container, e := tcpostgres.Run(ctx, "postgres:16-alpine", tcpostgres.WithDatabase("postgres"), tcpostgres.WithUsername("postgres"), tcpostgres.WithPassword("fixture830"), tcpostgres.BasicWaitStrategies())
+		require.NoError(t, e)
+		t.Cleanup(func() { require.NoError(t, container.Terminate(context.Background())) })
+		dsn, e = container.ConnectionString(ctx, "sslmode=disable")
+		require.NoError(t, e)
 	}
 	u, e := url.Parse(dsn)
 	require.NoError(t, e)
+	if u.Hostname() == "localhost" {
+		u.Host = "127.0.0.1:" + u.Port()
+		dsn = u.String()
+	}
 	require.Equal(t, "127.0.0.1", u.Hostname())
 	root, e := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	require.NoError(t, e)
@@ -48,6 +129,12 @@ func fixture(t *testing.T) (*gorm.DB, *Store) {
 }
 func command(scope d.Scope, key, expected string) d.Command {
 	return d.Command{Scope: scope, ActorID: "maintainer", Key: key, Fingerprint: key, Input: d.Input{ExpectedRevision: expected}}
+}
+func TestSchemaRejectsMissingCurrentRevisionConstraint(t *testing.T) {
+	db, _ := fixture(t)
+	require.NoError(t, VerifySchema(context.Background(), db))
+	require.NoError(t, db.Exec("ALTER TABLE public.ai_route_config_current DROP CONSTRAINT ai_route_config_current_revision").Error)
+	require.Error(t, VerifySchema(context.Background(), db))
 }
 func build(_ d.CredentialReader, id string) (d.Payload, error) {
 	return d.Payload{BindingID: "candidate-a", CredentialVersion: "credential-a", Rates: d.Rates{PointsPerImage: "10"}, Image: &d.ImageProfile{ConfigurationVersion: id, PriceVersion: id, Points: 10}}, nil
@@ -183,7 +270,8 @@ func TestRestrictedWriterPublicationRotationRollbackAndLostResponse(t *testing.T
 	require.NoError(t, db.Exec(GrantSQL(role, true)).Error)
 	var name string
 	require.NoError(t, db.Raw("SELECT current_database()").Scan(&name).Error)
-	u, e := url.Parse(os.Getenv("ISSUE830_TEST_DSN"))
+	originalDSN := db.Dialector.(*postgres.Dialector).Config.DSN
+	u, e := url.Parse(originalDSN)
 	require.NoError(t, e)
 	u.Path = "/" + name
 	u.User = url.UserPassword(role, "fixture830")
@@ -191,6 +279,7 @@ func TestRestrictedWriterPublicationRotationRollbackAndLostResponse(t *testing.T
 	require.NoError(t, e)
 	t.Cleanup(func() { raw, _ := writer.DB(); _ = raw.Close() })
 	require.NoError(t, VerifyWriter(ctx, writer))
+	require.Error(t, VerifyReader(ctx, writer), "configuration writer must never be injected as serving reader")
 	require.Error(t, writer.Exec("UPDATE public.ai_client_credentials SET enabled=false").Error)
 	var secret string
 	require.Error(t, writer.Raw("SELECT api_key FROM public.ai_client_credentials LIMIT 1").Scan(&secret).Error)

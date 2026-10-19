@@ -2,8 +2,6 @@ package httpapi
 
 import (
 	"context"
-	"go.opentelemetry.io/otel"
-	"gorm.io/gorm"
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/aicapability"
@@ -14,13 +12,15 @@ import (
 	texteino "task-processor/internal/integration/agent/einomodel"
 	governed "task-processor/internal/integration/aicapability/einomodel"
 	"task-processor/internal/integration/commercetoolauth"
-	"task-processor/internal/integration/openai"
 	runstore "task-processor/internal/integration/persistence/agent"
 	configstore "task-processor/internal/integration/persistence/agentconfig"
 	c "task-processor/internal/operationscockpit"
 	"task-processor/internal/shopdiagnosis"
 	"task-processor/internal/shopdiagnosis/tools/diagnosisinspect"
 	"time"
+
+	"go.opentelemetry.io/otel"
+	"gorm.io/gorm"
 )
 
 type diagnosisExecutionContextKey struct{}
@@ -71,7 +71,7 @@ func buildShopDiagnosisApplication(ctx context.Context, parent *productAgentAppl
 	for org, p := range parent.config.DiagnosisTextPolicies {
 		policies[governed.RouteKey{OrganizationID: org, Operation: aicapability.OperationShopDiagnosisDecision}] = p
 	}
-	routes, err := governed.NewOrganizationRouteResolver(openai.NewGormCredentialResolver(parent.config.RunDB), policies)
+	routes, err := newProductTextRouteResolver(parent.config, policies)
 	if err != nil {
 		return nil, err
 	}

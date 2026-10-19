@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"go.temporal.io/sdk/client"
 	"net"
 	"net/http"
 	dataservicesapp "task-processor/internal/app/dataservices"
@@ -18,19 +17,25 @@ import (
 	"task-processor/internal/product/supplymarket"
 	"time"
 
+	"go.temporal.io/sdk/client"
+
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
+	d "task-processor/internal/aicapability/routeconfig"
 	aistore "task-processor/internal/aicapability/store"
 	appruntime "task-processor/internal/app/runtime"
 	storeapp "task-processor/internal/app/storecenter"
 	coreconfig "task-processor/internal/core/config"
 	"task-processor/internal/imageagent"
 	imagetemporal "task-processor/internal/imageagent/temporal"
+	governed "task-processor/internal/integration/aicapability/einomodel"
+	qualified "task-processor/internal/integration/aicapability/routeconfig"
 	"task-processor/internal/knowledge"
 )
 
 type Dependencies struct {
+	OpenModelRouteWriter          func(context.Context, DatabaseConfig) (*gorm.DB, error)
 	OpenDataServices              func(context.Context, DatabaseConfig) (*gorm.DB, error)
 	DialDataServicesWorkflow      func(context.Context, string, string) (client.Client, func() error, error)
 	OpenReportCenter              func(context.Context, DatabaseConfig) (*gorm.DB, error)
@@ -75,6 +80,9 @@ type Dependencies struct {
 // ApplicationFeatures keeps separately owned, opt-in current modules together
 // only at the serving composition boundary.
 type ApplicationFeatures struct {
+	ModelRouteText, ModelRouteImage                      *d.Service
+	CurrentTextPolicies                                  governed.RoutePolicyReader
+	CurrentImagePolicies                                 d.CurrentReader
 	DataServicesDB                                       *gorm.DB
 	DataServices                                         *DataServicesConfig
 	DataServicesProvider                                 dataservicesapp.RuntimeProvider
@@ -779,8 +787,53 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 			}
 		}
 	}
+	var textManager, imageManager *d.Service
+	var imageReader d.CurrentReader
+	var textReader governed.RoutePolicyReader
+	if cfg.ModelRoutePricing != nil {
+		if dependencies.OpenModelRouteWriter == nil || dependencies.NewApplicationWithFeatures == nil {
+			return errors.New("model route writer/application lifecycle unavailable")
+		}
+		defs, e := cfg.modelRouteDefinitions()
+		if e != nil {
+			return e
+		}
+		for _, family := range []string{"text", "image"} {
+			writerConfig := cfg.ModelRoutePricing.TextWriter
+			reader := agentDB
+			if family == "image" {
+				writerConfig = cfg.ModelRoutePricing.ImageWriter
+				reader = imageWorkerDB
+			}
+			if writerConfig == nil {
+				continue
+			}
+			writer, e := dependencies.OpenModelRouteWriter(startupContext, *writerConfig)
+			if e != nil || writer == nil {
+				return errors.New("model route writer unavailable")
+			}
+			defer func() { resultErr = errors.Join(resultErr, dependencies.CloseDatabase(writer)) }()
+			selected := []qualified.Definition{}
+			for _, def := range defs {
+				if (def.Scope.Capability == d.ImageCapability) == (family == "image") {
+					selected = append(selected, def)
+				}
+			}
+			read, manage, e := prepareModelRouteServices(startupContext, reader, writer, selected)
+			if e != nil {
+				return e
+			}
+			if family == "text" {
+				textManager = manage
+				textReader = qualified.TextReader{Service: read}
+			} else {
+				imageManager = manage
+				imageReader = read
+			}
+		}
+	}
 	if dependencies.NewApplicationWithFeatures != nil {
-		server, err = dependencies.NewApplicationWithFeatures(startupContext, sourceAccountDB, ApplicationFeatures{DataServicesDB: dataDB, DataServices: cfg.DataServices, DataServicesProvider: dataProvider, DataServicesWorkflow: dataWorkflow, DataServicesWorker: &dataWorker, ReportCenterDB: reportDB, MarketStorage: marketStorage, POD: cfg.POD, PODCredentials: podCredentials, PODAssetDB: podAssetDB, PODWorkflow: podWorkflow, PODWorker: &podWorker, AgentCustomizationDB: customizationDB, ProjectCenterDB: projectDB, OperationsCockpit: cfg.StoreCenter != nil && cfg.StoreCenter.Enabled && cfg.StoreCenter.OperationsCockpit, ToolMarketDB: toolMarketDB, ToolMarket: cfg.ToolMarket, Ecoservices: ecoservicesRuntime, NotificationCenterDB: notificationDB, Knowledge: knowledgeService, OfficialStoreApplications: officialApplications, StoreCenterDB: storeDB, LocalTrialDB: trialDB, MoneyOwnerDB: moneyOwnerDB, ProductAgentDB: agentDB, ProductReviewDB: agentReviewDB, ProductAgentAssetDB: agentAssetDB, ProductAgent: cfg.ProductAgent, AIWorkbenchDB: workbenchDB, AIWorkbench: cfg.AIWorkbench, CommercialOwnerDB: commercialOwnerDB, ProductAcquisitionDB: productDB, ProductCollections: cfg.ProductCollections, AcquisitionPlans: cfg.AcquisitionPlans, SupplyCompletionDrafts: cfg.SupplyCompletionDrafts, PrivateDraftTrial: cfg.PrivateDraftTrial, SourceMediaStorage: sourceMediaStorage, SupplyAssetDB: supplyAssetDB, StoreObservationsWorkflow: observationWorkflow, StoreObservationsLifecycle: &observationLifecycle, StoreObservationsPreparationOnly: cfg.StoreCenter != nil && cfg.StoreCenter.Observations != nil && cfg.StoreCenter.Observations.PreparationOnly, SupplyWorkflow: supplyWorkflow, SupplyWorker: &supplyWorker, ImageAgentDB: imageDB, ImageSetAssetDB: imageAssetDB, ImageSetWorkerDB: imageWorkerDB, ImageSetWorkerConfig: imageWorkerConfig, ImageSetTemporal: imageTemporal, ImageSetWorker: &imageWorker, AccountAuditImageDB: auditImageDB, AccountAuditProductDB: auditProductDB, ImageAgentWorkflow: imageWorkflow, ReferralDB: referralDB, MembershipDB: membershipDB, Membership: cfg.Membership, RuntimeContext: ctx}, core, logger)
+		server, err = dependencies.NewApplicationWithFeatures(startupContext, sourceAccountDB, ApplicationFeatures{ModelRouteText: textManager, ModelRouteImage: imageManager, CurrentTextPolicies: textReader, CurrentImagePolicies: imageReader, DataServicesDB: dataDB, DataServices: cfg.DataServices, DataServicesProvider: dataProvider, DataServicesWorkflow: dataWorkflow, DataServicesWorker: &dataWorker, ReportCenterDB: reportDB, MarketStorage: marketStorage, POD: cfg.POD, PODCredentials: podCredentials, PODAssetDB: podAssetDB, PODWorkflow: podWorkflow, PODWorker: &podWorker, AgentCustomizationDB: customizationDB, ProjectCenterDB: projectDB, OperationsCockpit: cfg.StoreCenter != nil && cfg.StoreCenter.Enabled && cfg.StoreCenter.OperationsCockpit, ToolMarketDB: toolMarketDB, ToolMarket: cfg.ToolMarket, Ecoservices: ecoservicesRuntime, NotificationCenterDB: notificationDB, Knowledge: knowledgeService, OfficialStoreApplications: officialApplications, StoreCenterDB: storeDB, LocalTrialDB: trialDB, MoneyOwnerDB: moneyOwnerDB, ProductAgentDB: agentDB, ProductReviewDB: agentReviewDB, ProductAgentAssetDB: agentAssetDB, ProductAgent: cfg.ProductAgent, AIWorkbenchDB: workbenchDB, AIWorkbench: cfg.AIWorkbench, CommercialOwnerDB: commercialOwnerDB, ProductAcquisitionDB: productDB, ProductCollections: cfg.ProductCollections, AcquisitionPlans: cfg.AcquisitionPlans, SupplyCompletionDrafts: cfg.SupplyCompletionDrafts, PrivateDraftTrial: cfg.PrivateDraftTrial, SourceMediaStorage: sourceMediaStorage, SupplyAssetDB: supplyAssetDB, StoreObservationsWorkflow: observationWorkflow, StoreObservationsLifecycle: &observationLifecycle, StoreObservationsPreparationOnly: cfg.StoreCenter != nil && cfg.StoreCenter.Observations != nil && cfg.StoreCenter.Observations.PreparationOnly, SupplyWorkflow: supplyWorkflow, SupplyWorker: &supplyWorker, ImageAgentDB: imageDB, ImageSetAssetDB: imageAssetDB, ImageSetWorkerDB: imageWorkerDB, ImageSetWorkerConfig: imageWorkerConfig, ImageSetTemporal: imageTemporal, ImageSetWorker: &imageWorker, AccountAuditImageDB: auditImageDB, AccountAuditProductDB: auditProductDB, ImageAgentWorkflow: imageWorkflow, ReferralDB: referralDB, MembershipDB: membershipDB, Membership: cfg.Membership, RuntimeContext: ctx}, core, logger)
 	} else if membershipDB != nil {
 		server, err = dependencies.NewApplicationWithMembership(startupContext, sourceAccountDB, membershipDB, core, cfg.Membership, logger)
 	} else if referralDB != nil {

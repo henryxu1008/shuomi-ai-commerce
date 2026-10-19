@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"time"
 
-	"go.opentelemetry.io/otel"
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/aicapability"
@@ -16,13 +15,14 @@ import (
 	texteino "task-processor/internal/integration/agent/einomodel"
 	governed "task-processor/internal/integration/aicapability/einomodel"
 	"task-processor/internal/integration/commercetoolauth"
-	"task-processor/internal/integration/openai"
 	configstore "task-processor/internal/integration/persistence/agentconfig"
 	"task-processor/internal/listing/materials"
 	"task-processor/internal/listing/materials/tools/materialsinspect"
 	"task-processor/internal/listing/preparation"
 	record "task-processor/internal/listing/record/target"
 	"task-processor/internal/product/collection"
+
+	"go.opentelemetry.io/otel"
 )
 
 type listingMaterialsApplication struct {
@@ -48,7 +48,7 @@ func buildListingMaterialsApplication(ctx context.Context, parent *productAgentA
 	for org, p := range parent.config.MaterialsTextPolicies {
 		policies[governed.RouteKey{OrganizationID: org, Operation: aicapability.OperationListingMaterialsDecision}] = p
 	}
-	routes, err := governed.NewOrganizationRouteResolver(openai.NewGormCredentialResolver(parent.config.RunDB), policies)
+	routes, err := newProductTextRouteResolver(parent.config, policies)
 	if err != nil {
 		return nil, err
 	}

@@ -10,7 +10,6 @@ import (
 	einoruntime "task-processor/internal/integration/agent/eino"
 	texteino "task-processor/internal/integration/agent/einomodel"
 	governed "task-processor/internal/integration/aicapability/einomodel"
-	"task-processor/internal/integration/openai"
 	configstore "task-processor/internal/integration/persistence/agentconfig"
 	assetstore "task-processor/internal/integration/persistence/product/asset"
 	"task-processor/internal/listing/readiness/tools/readinessinspect"
@@ -57,7 +56,7 @@ func buildTitleProductRuntime(ctx context.Context, a *productAgentApplication, r
 	for organizationID, policy := range a.config.TextPolicies {
 		routes[governed.RouteKey{OrganizationID: organizationID, Operation: aicapability.OperationProductAgentDecision}] = policy
 	}
-	routeResolver, err := governed.NewOrganizationRouteResolver(openai.NewGormCredentialResolver(a.config.RunDB), routes)
+	routeResolver, err := newProductTextRouteResolver(a.config, routes)
 	if err != nil {
 		return err
 	}

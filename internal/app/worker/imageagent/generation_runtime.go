@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	d "task-processor/internal/aicapability/routeconfig"
 
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
@@ -35,6 +36,9 @@ func (a generationResourceAuthorizer) AuthorizeImageGeneration(ctx context.Conte
 }
 
 func buildOrganizationGeneration(cfg config.ImageAgentGenerationConfig, db, commercial *gorm.DB, repository imageagent.Repository, authorizer imageagent.ExecutionAuthorizer, logger *logrus.Logger, sourceContexts ...imageagent.ImageSetContextReader) (*imageagent.GenerationExecution, imageagent.GenerationRecovery, error) {
+	return buildOrganizationGenerationWithCurrent(cfg, db, commercial, repository, authorizer, logger, nil, sourceContexts...)
+}
+func buildOrganizationGenerationWithCurrent(cfg config.ImageAgentGenerationConfig, db, commercial *gorm.DB, repository imageagent.Repository, authorizer imageagent.ExecutionAuthorizer, logger *logrus.Logger, current d.CurrentReader, sourceContexts ...imageagent.ImageSetContextReader) (*imageagent.GenerationExecution, imageagent.GenerationRecovery, error) {
 	if len(sourceContexts) > 1 {
 		return nil, nil, imageagent.ErrValidation
 	}
@@ -78,7 +82,11 @@ func buildOrganizationGeneration(cfg config.ImageAgentGenerationConfig, db, comm
 	if logger != nil {
 		componentLogger = logrus.NewEntry(logger).WithField("component", "image-agent-generation")
 	}
-	factory := generationProviderFactory{resolver: organizationCredentialAdmission{resolver: openai.NewOrganizationCredentialResolver(db)}, price: cfg, profile: profile, logger: componentLogger}
+	resolver := openai.NewOrganizationCredentialResolver(db)
+	if current != nil {
+		resolver = openai.NewOrganizationOnlyCredentialResolver(db)
+	}
+	factory := generationProviderFactory{current: current, resolver: organizationCredentialAdmission{resolver: resolver}, price: cfg, profile: profile, logger: componentLogger}
 	executor, err := imageagent.NewGenerationExecution(imageagent.GenerationExecutionDependencies{Facts: facts, Resources: resources, Authorizer: executionAuthorizer, MaxSourceBytes: productimage.MaxInlineArtifactBytes,
 		PrepareProvider: factory.prepare, RevalidateProvider: factory.revalidate,
 		ReadMemberLimit: func(ctx context.Context, org, member string) (imageagent.GenerationMemberLimit, error) {

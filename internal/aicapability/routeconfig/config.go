@@ -236,6 +236,10 @@ type Repository interface {
 	History(context.Context, Scope, string, int) ([]Revision, error)
 	Publish(context.Context, Command, func(CredentialReader, string) (Payload, error)) (Revision, error)
 }
+type CurrentReader interface {
+	Current(context.Context, Scope) (Revision, error)
+}
+
 type Service struct {
 	Repository Repository
 	Catalog    Catalog

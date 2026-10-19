@@ -17,7 +17,6 @@ import (
 	"task-processor/internal/authz"
 	governed "task-processor/internal/integration/aicapability/einomodel"
 	"task-processor/internal/integration/aiworkbench/einoplanner"
-	"task-processor/internal/integration/openai"
 	workstore "task-processor/internal/integration/persistence/aiworkbench"
 	"task-processor/internal/knowledge"
 	"task-processor/internal/product/review"
@@ -163,7 +162,7 @@ func buildAIWorkbenchApplication(ctx context.Context, cfg AIWorkbenchDependencie
 		}
 		routes[governed.RouteKey{OrganizationID: org, Operation: aicapability.OperationAIWorkbenchChatPlan}] = policy
 	}
-	resolver, err := governed.NewOrganizationRouteResolver(openai.NewGormCredentialResolver(a.config.RunDB), routes)
+	resolver, err := newProductTextRouteResolver(a.config, routes)
 	if err != nil {
 		return nil, err
 	}

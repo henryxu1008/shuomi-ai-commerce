@@ -14,9 +14,12 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"task-processor/internal/ai"
+	d "task-processor/internal/aicapability/routeconfig"
+	"task-processor/internal/authidentity"
 	"task-processor/internal/core/config"
 	"task-processor/internal/imageagent"
 	"task-processor/internal/imageagent/tools"
+	governed "task-processor/internal/integration/aicapability/einomodel"
 	"task-processor/internal/integration/bailian"
 	"task-processor/internal/integration/grsai"
 	openai "task-processor/internal/integration/openai"
@@ -26,6 +29,7 @@ import (
 // This factory binds an admitted synchronous image consumer explicitly. It
 // never asks the OpenAI manager to guess a provider from a compatible URL.
 type generationProviderFactory struct {
+	current  d.CurrentReader
 	resolver openai.ClientConfigResolver
 	price    config.ImageAgentGenerationConfig
 	profile  ProfileResolver
@@ -131,12 +135,26 @@ func (f generationProviderFactory) resolve(ctx context.Context) (*openai.ClientC
 	invalid := func() (*openai.ClientConfig, imageagent.GenerationProviderMetadata, error) {
 		return nil, imageagent.GenerationProviderMetadata{}, imageagent.ErrBudgetQuoteUnavailable
 	}
-	if f.resolver == nil || !f.price.Configured() {
+	if f.resolver == nil || f.current == nil && !f.price.Configured() {
 		return invalid()
 	}
 	// No process-wide key/model fallback: the organization credential owner
 	// must return an enabled, scoped configuration of the selected provider.
-	resolved, err := f.resolver.ResolveClientConfig(ctx, imageAgentOpenAIClientName, nil)
+	name := imageAgentOpenAIClientName
+	var published *d.ImageProfile
+	if f.current != nil {
+		identity, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
+		if !ok || identity.TenantID == "" || identity.EffectiveOrganizationID != identity.TenantID {
+			return invalid()
+		}
+		revision, e := f.current.Current(ctx, d.Scope{OrganizationID: identity.TenantID, Capability: d.ImageCapability})
+		if e != nil || revision.Payload.Image == nil {
+			return invalid()
+		}
+		published = revision.Payload.Image
+		name = revision.Payload.BindingID
+	}
+	resolved, err := f.resolver.ResolveClientConfig(ctx, name, nil)
 	if err != nil || resolved == nil || resolved.Config == nil || resolved.CacheKey == "" || len(resolved.CacheKey) > 192 {
 		return invalid()
 	}
@@ -168,6 +186,14 @@ func (f generationProviderFactory) resolve(ctx context.Context) (*openai.ClientC
 		Version, Model, Style, URL string
 		Timeout                    time.Duration
 	}{resolved.CacheKey, cfg.Model, cfg.APIStyle, cfg.BaseURL, cfg.Timeout}), PromptVersion: prompts.Version, PriceVersion: f.price.PriceVersion, Points: f.price.PointsPerImage}
+	if published != nil {
+		if published.Provider != metadata.Provider || published.Model != metadata.Model || published.Protocol != metadata.Protocol || published.CredentialReference != resolved.CacheKey || published.EndpointDigest != governed.EndpointIdentityDigest(cfg.BaseURL) || published.Points <= 0 || published.PriceVersion == "" || published.ConfigurationVersion == "" {
+			return invalid()
+		}
+		metadata.PriceVersion = published.PriceVersion
+		metadata.ConfigurationVersion = published.ConfigurationVersion
+		metadata.Points = published.Points
+	}
 	return &cfg, metadata, nil
 }
 

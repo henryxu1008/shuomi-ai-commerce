@@ -6,14 +6,16 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 	"os"
 	"regexp"
 	store "task-processor/internal/integration/persistence/agentconfig"
+	routestore "task-processor/internal/integration/persistence/routeconfig"
 	skillstore "task-processor/internal/integration/persistence/skill"
 	"time"
+
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 func main() {
@@ -23,14 +25,16 @@ func main() {
 	materialsOnly := flag.Bool("materials-configuration-only", false, "add only exact registered platform materials checks; retain existing facts, activations and grants")
 	skillsOnly := flag.Bool("skills-only", false, "add bounded Skill storage and content personal-Skill admission; do not enable agents or import templates")
 	artworkOnly := flag.Bool("artwork-configuration-only", false, "add only exact POD creative configuration checks; retain existing facts, activations and grants")
+	modelRoutesOnly := flag.Bool("model-route-pricing-only", false, "install only route revision/current and credential metadata projection; no current config or credential changes")
+	writerRole := flag.String("model-route-writer-role", "", "existing dedicated bounded model route writer")
 	flag.Parse()
 	selected := 0
-	for _, v := range []bool{*modesOnly, *contentOnly, *materialsOnly, *skillsOnly, *artworkOnly} {
+	for _, v := range []bool{*modesOnly, *contentOnly, *materialsOnly, *skillsOnly, *artworkOnly, *modelRoutesOnly} {
 		if v {
 			selected++
 		}
 	}
-	if flag.NArg() != 0 || selected > 1 || !regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`).MatchString(*role) {
+	if (*modelRoutesOnly && *writerRole != "model_route_config_writer") || (!*modelRoutesOnly && *writerRole != "") || *writerRole == *role || flag.NArg() != 0 || selected > 1 || !regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`).MatchString(*role) {
 		fmt.Fprintln(os.Stderr, "requires --runtime-role with an existing role")
 		os.Exit(2)
 	}
@@ -52,6 +56,12 @@ func main() {
 	}
 	defer raw.Close()
 	e = db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if *modelRoutesOnly {
+			if e := routestore.InstallSchema(ctx, tx); e != nil {
+				return e
+			}
+			return tx.Exec(routestore.GrantSQL(*role, false) + routestore.GrantSQL(*writerRole, true)).Error
+		}
 		if *skillsOnly {
 			if e := skillstore.InstallSchema(ctx, tx); e != nil {
 				return e
