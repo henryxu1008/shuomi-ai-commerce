@@ -1,6 +1,6 @@
 # 模型与费率管理 V1
 
-> Status: **DESIGNING / NOT_READY**；Design Basis: **Independent Architecture**。
+> Status: **IMPLEMENTATION_READY**（2026-10-19 独立架构评审收敛）；Design Basis: **Independent Architecture**。
 > Execution: [#830](https://github.com/qq550723504/task-processor/issues/830)。
 > Product decision: **PD-MODEL-ROUTE-PRICING-MANAGEMENT-2026-10-19**，用户批准本会话最小方案并要求设计、Figma、独立架构评审先行。
 > Source baseline: `main@48e15a7f9f9c3e32e76a742fe1581ea547461e9a`。本文是设计合同，不宣称已实现或运行可用。
@@ -168,4 +168,6 @@ Cutover/deletion condition: 对本管理范围，原启动 map/固定 client/费
 
 候选完整后由一名独立只读 Reviewer 检查本增量的真实 source/contracts、Figma 和全部上述边界。先分类 finding：BLOCKER 必须对应 AGENTS 的明确类别/受影响 Must/阻塞层；非 Blocker 进入 IMPLEMENTATION_TEST 或 Backlog，不扩大 Threat Model。最多两轮正常评审，后续只复核实际修订增量。
 
-当前状态 **NOT_READY**，等待候选独立评审。达到 IMPLEMENTATION_READY 后冻结本设计；生产代码实施、合并、安装、切模型、真实模型调用及运行验收仍需各自后续授权。滚动 HEAD、CI、评审原文和 disposition 维护在 #830/同一设计 PR，不在此文伪造执行 PASS。
+独立评审已按两轮停止规则收敛：[R1](https://github.com/qq550723504/task-processor/pull/832#issuecomment-6267091507) 的凭据行锁/只读权限 BLOCKER 已通过本合同的无凭据锁读取、并发轮换后真实不可用投影解决；图片绑定文案同步与 Figma 对齐。[R2 定向复核](https://github.com/qq550723504/task-processor/pull/832#issuecomment-6267123604) 明确结论 **IMPLEMENTATION_READY**、无未关闭架构 BLOCKER。
+
+本设计冻结；V1–V4 仍为实施验证要求，当前全部 NOT_RUN。生产代码实施、合并、安装、切模型、真实模型调用及运行验收仍需各自后续授权，不能从设计 Ready 推定。滚动 HEAD、CI、评审原文和 disposition 维护在 #830/同一设计 PR；本次收口仅更新 admission 与评审引用，不改变已评审合同。
