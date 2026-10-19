@@ -1,5 +1,7 @@
 # Architecture Documentation
 
+- [`legacy-temu-listing-closure-retirement-boundary.md`](legacy-temu-listing-closure-retirement-boundary.md): #29/#301 proposed complete retirement of the remaining numeric TEMU AI/property/spec/SKU/price chain and its exclusive pipeline, value policies, generators, management projections and prompt/static resources. Three shared DTO value helpers stay in listingadmin; current official TEMU contracts, acquisition/images/Store observations and independent SHEIN login/Store sync remain. Design only, pending independent review and user confirmation; workflows/ceilings and real runtime/data remain outside scope.
+
 - [`task-center-native-run-projection-v1.md`](task-center-native-run-projection-v1.md): #798 Reuse Existing Architecture; source-neutral, read-only Task Center consumption of current authorized Agent/configuration recent-run contracts, independent of Chat execution readiness. Preserves native identities, source contexts, Review/UNKNOWN boundaries and retained runtime/data; no new execution or persistent Task owner.
 
 - [`own-product-rich-description-v1.md`](own-product-rich-description-v1.md): versioned safe rich descriptions in current Product/CompletionDraft, existing image pool, history/restore, and explicit text-only platform projection; no schema/runtime/provider action.
