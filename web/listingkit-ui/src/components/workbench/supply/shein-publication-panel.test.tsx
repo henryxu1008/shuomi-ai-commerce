@@ -7,6 +7,25 @@ import type {SupplyCommandState} from "./use-supply-command";
 vi.mock("@/lib/api/supply-chain",()=>({readSheinPublicationStatus:vi.fn(),prepareSheinShelf:vi.fn()}));
 afterEach(()=>{cleanup();vi.resetAllMocks()});
 
+it.each([0,7])("shows fully managed PI %s only as a reference and keeps usability unknown",async(quantity)=>{
+ const value=make("fully_managed");value.stockType="PI";value.stockComplete=false;value.stockError="全托管履约库存类型未核实，PI库存仅供参考";value.skcs[0].skus[0].reportedUsable=quantity;
+ vi.mocked(readSheinPublicationStatus).mockResolvedValue(value);
+ render(<SheinPublicationPanel scope={{organizationId:"org-a",userId:"actor-a"}} sourceId={id} storeId={other} receiptId={id} storeName="美国店" command={command()} canSubmit/>);
+ fireEvent.click(screen.getByRole("button",{name:"查询平台结果"}));await screen.findByText("SKU 可售条件 · PI 参考库存");
+ expect(screen.getByText("库存未知（履约库存类型未核实）")).toBeVisible();
+ expect(screen.getByText("PI 参考库存汇总："+quantity+"，履约库存类型未核实。")).toBeVisible();
+ expect(screen.queryByText("美国可用库存为 0")).toBeNull();expect(screen.queryByText("美国可用库存："+quantity)).toBeNull();
+ expect(screen.queryByText(/本商品库存条件已完整读取/)).toBeNull();expect(screen.queryByRole("button",{name:"上架到美国站"})).toBeNull();
+});
+it.each(["self_operated","semi_managed"])("retains qualified VI stock for %s",async(mode)=>{
+ const value=make(mode);value.skcs[0].skus[0]={...value.skcs[0].skus[0],usable:0,reportedUsable:0,inventoryScopeKnown:true};
+ vi.mocked(readSheinPublicationStatus).mockResolvedValue(value);
+ render(<SheinPublicationPanel scope={{organizationId:"org-a",userId:"actor-a"}} sourceId={id} storeId={other} receiptId={id} storeName="美国店" command={command()} canSubmit/>);
+ fireEvent.click(screen.getByRole("button",{name:"查询平台结果"}));await screen.findByText("美国可用库存为 0");
+ expect(screen.queryByText(/PI 参考库存/)).toBeNull();expect(screen.getByText(/本商品库存条件已完整读取/)).toBeVisible();
+});
+
+
 it("shows the original fully managed scheduled plan without adding an action",async()=>{
  const value=make("fully_managed");value.skcs[0].shelfWay="2";value.skcs[0].hopeOnSaleDate="2026-10-20 08:00:00";
  vi.mocked(readSheinPublicationStatus).mockResolvedValue(value);

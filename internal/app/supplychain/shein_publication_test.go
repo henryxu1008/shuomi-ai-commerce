@@ -46,6 +46,7 @@ type shelfMerchantFixture struct {
 	forbid        bool
 	stockOverride *model.InventorySnapshot
 	stockCodes    []string
+	stockTypes    []string
 	auditCalls    int
 	delayAudit    int
 	afterDelay    func()
@@ -109,8 +110,9 @@ func (m *shelfMerchantFixture) QueryShelfProduct(_ context.Context, spu string) 
 func (m *shelfMerchantFixture) Warehouses(context.Context) ([]model.Warehouse, error) {
 	return []model.Warehouse{{Code: "us-w", SaleCountries: []string{"US"}}}, nil
 }
-func (m *shelfMerchantFixture) QuerySKUInventory(_ context.Context, ids []string, _ string) (model.InventorySnapshot, error) {
+func (m *shelfMerchantFixture) QuerySKUInventory(_ context.Context, ids []string, invType string) (model.InventorySnapshot, error) {
 	m.stockCodes = ids
+	m.stockTypes = append(m.stockTypes, invType)
 	if m.stockOverride != nil {
 		return *m.stockOverride, nil
 	}
@@ -258,6 +260,50 @@ func TestSheinShelfModesUseOriginalPlanAndNoHead(t *testing.T) {
 			}
 			require.Zero(t, m.calls)
 		})
+	}
+}
+
+func TestSheinFullyManagedPIIsReferenceUntilFulfillmentTypeIsKnown(t *testing.T) {
+	for _, mode := range []storecenter.OfficialApplicationType{storecenter.ApplicationSelfOperated, storecenter.ApplicationSemiManaged, storecenter.ApplicationFullyManaged} {
+		for _, arrival := range []string{"0", "1"} {
+			for _, quantity := range []int64{0, 7} {
+				t.Run(fmt.Sprintf("%s/arrival%s/stock%d", mode, arrival, quantity), func(t *testing.T) {
+					svc, ctx, in, m, _, official, records, _ := shelfFixture(t)
+					m.binding.ApplicationType = mode
+					m.binding.ApplicationRevision = "v1:" + string(mode)
+					original := official.receipts[in.ReceiptID]
+					original.Binding = m.binding
+					official.receipts[in.ReceiptID] = original
+					records.saved.Merchant = m.binding
+					records.saved.Result.Product.SKCs[0].ShelfWay = "1"
+					records.saved.Result.Product.SKCs[0].ShelfRequire = arrival
+					invType := "VI"
+					if mode == storecenter.ApplicationFullyManaged {
+						invType = "PI"
+					}
+					m.stockOverride = &model.InventorySnapshot{Type: invType, Goods: []model.GoodsInventory{{SPU: "spu-a", SKC: "skc-a", SKUs: []model.SKUInventory{{Code: "sku-code-a", Usable: &quantity, Warehouses: []model.WarehouseInventory{{Code: "us-w", Usable: &quantity}}}}}}}
+					got, e := svc.Status(ctx, in.SourceID, in.StoreID, in.ReceiptID, 0)
+					require.NoError(t, e)
+					require.Equal(t, []string{invType}, m.stockTypes, "no speculative JI query")
+					require.Equal(t, invType, got.StockType)
+					require.Zero(t, m.calls)
+					sku := got.SKCs[0].SKUs[0]
+					require.Equal(t, &quantity, sku.ReportedUsable)
+					if mode == storecenter.ApplicationFullyManaged {
+						require.Nil(t, sku.Usable)
+						require.False(t, sku.InventoryScopeKnown)
+						require.False(t, got.StockComplete)
+						require.Contains(t, got.StockError, "履约库存类型未核实")
+						require.False(t, got.SKCs[0].CanShelf)
+					} else {
+						require.Equal(t, &quantity, sku.Usable)
+						require.True(t, sku.InventoryScopeKnown)
+						require.True(t, got.StockComplete)
+						require.Empty(t, got.StockError)
+					}
+				})
+			}
+		}
 	}
 }
 

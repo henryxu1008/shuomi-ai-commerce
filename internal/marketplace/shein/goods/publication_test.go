@@ -1,11 +1,45 @@
 package goods
 
 import (
+	"fmt"
 	"github.com/stretchr/testify/require"
 	"task-processor/internal/marketplace/shein/model"
 	"testing"
 	"time"
 )
+
+func TestPublicationInventoryRequiresApplicableFulfillmentType(t *testing.T) {
+	published := model.PublishResult{SPUName: "spu-a", Version: "v1", SKCs: []model.PublishedSKC{{SKCName: "skc-a", SKUs: []model.PublishedSKU{{SKUCode: "sku-a", SupplierSKU: "supplier-a"}}}}}
+	for _, mode := range []model.ApplicationMode{model.ModeSelfOperated, model.ModeSemiManaged, model.ModeFullyManaged} {
+		for _, requireArrival := range []string{"0", "1"} {
+			for _, quantity := range []int64{0, 7} {
+				for _, spotFlag := range []int{1, 2} {
+					t.Run(fmt.Sprintf("%s/arrival%s/stock%d/sample%d", mode, requireArrival, quantity, spotFlag), func(t *testing.T) {
+						payload := model.PublishProduct{Sample: &model.SampleInfo{SpotFlag: spotFlag}, SKCs: []model.ProductSKC{{ShelfWay: "1", ShelfRequire: requireArrival, SKUs: []model.ProductSKU{{SupplierSKU: "supplier-a"}}}}}
+						invType := "VI"
+						if mode == model.ModeFullyManaged {
+							invType = "PI"
+						}
+						stock := model.InventorySnapshot{Type: invType, Goods: []model.GoodsInventory{{SPU: "spu-a", SKC: "skc-a", SKUs: []model.SKUInventory{{Code: "sku-a", Usable: &quantity, Warehouses: []model.WarehouseInventory{{Code: "us-w", Usable: &quantity}}}}}}}
+						got := ObservePublication(published, payload, mode, model.DocumentAudit{}, model.ShelfProduct{}, stock, []model.Warehouse{{Code: "us-w", SaleCountries: []string{"US"}}}, time.Now(), map[string]bool{"sku-a": true})
+						require.Len(t, got, 1)
+						require.Len(t, got[0].SKUs, 1)
+						sku := got[0].SKUs[0]
+						require.Equal(t, &quantity, sku.ReportedUsable)
+						if mode == model.ModeFullyManaged {
+							require.Nil(t, sku.Usable, "PI and US warehouse do not prove the applicable fulfillment inventory type")
+							require.False(t, sku.InventoryScopeKnown)
+							require.False(t, got[0].CanShelf)
+						} else {
+							require.Equal(t, &quantity, sku.Usable)
+							require.True(t, sku.InventoryScopeKnown)
+						}
+					})
+				}
+			}
+		}
+	}
+}
 
 func TestUSUsableInventoryNeverSubstitutesTotalsOrAnotherType(t *testing.T) {
 	zero, three, seven := int64(0), int64(3), int64(7)

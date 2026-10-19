@@ -131,7 +131,11 @@ func ObservePublication(published model.PublishResult, payload model.PublishProd
 				for _, inv := range group.SKUs {
 					if inv.Code == remoteSKU.SKUCode {
 						sku.ReportedUsable = inv.Usable
-						sku.Usable, sku.InventoryScopeKnown = UsableInUS(inv, warehouses)
+						// The original fully managed record does not prove whether PI
+						// or JI applies. Arrival and sample flags cannot establish it.
+						if (mode == model.ModeSelfOperated || mode == model.ModeSemiManaged) && stock.Type == "VI" {
+							sku.Usable, sku.InventoryScopeKnown = UsableInUS(inv, warehouses)
+						}
 					}
 				}
 			}

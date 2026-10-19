@@ -264,6 +264,15 @@ func (s *SheinPublicationService) observe(ctx context.Context, p loadedSheinPubl
 			v.StockError = "本次仅查询部分SKU，可继续查询下一组"
 		}
 	}
+	if inventory && v.Mode == model.ModeFullyManaged {
+		v.StockComplete = false
+		reason := "全托管履约库存类型未核实，PI库存仅供参考"
+		if v.StockError != "" {
+			v.StockError += "；" + reason
+		} else {
+			v.StockError = reason
+		}
+	}
 	for _, row := range goods.ObservePublication(p.receipt.Product, p.record.Result.Product, v.Mode, audit, live, stock, warehouses, s.now(), page) {
 		for _, sku := range row.SKUs {
 			if !sku.InventoryScopeKnown {
