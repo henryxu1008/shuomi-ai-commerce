@@ -6,48 +6,30 @@ import (
 
 // StoreRespDTO 店铺信息响应DTO
 type StoreRespDTO struct {
-	ID                       int64               `json:"id"`
-	TenantID                 int64               `json:"tenantId"`
-	OwnerUserID              string              `json:"ownerUserId,omitempty"`
-	StoreID                  string              `json:"storeId"`
-	Name                     string              `json:"name"`
-	Username                 string              `json:"username"`
-	Password                 string              `json:"password"`
-	LoginUrl                 string              `json:"loginUrl"`
-	ShopType                 string              `json:"shopType"`
-	Region                   string              `json:"region"`
-	Platform                 string              `json:"platform"`
-	DailyLimit               *int                `json:"dailyLimit,omitempty"`
-	DailyLimitType           string              `json:"dailyLimitType,omitempty"`
-	FixedStockCount          *int                `json:"fixedStockCount,omitempty"`
-	SkuGenerateStrategy      string              `json:"skuGenerateStrategy"`
-	Prefix                   string              `json:"prefix"`
-	Suffix                   string              `json:"suffix"`
-	Proxy                    string              `json:"proxy"`
-	EnableAutoListing        *bool               `json:"enableAutoListing,omitempty"`
-	DedicatedQueueEnabled    *bool               `json:"dedicatedQueueEnabled,omitempty"`
-	EnableAutoLogin          *bool               `json:"enableAutoLogin,omitempty"`
-	EnableDraft              *bool               `json:"enableDraft,omitempty"`
-	EnableAutoPrice          *bool               `json:"enableAutoPrice,omitempty"`
-	EnableRebargain          *bool               `json:"enableRebargain,omitempty"`
-	EnableBrandAuthorization *bool               `json:"enableBrandAuthorization,omitempty"`
-	AuthorizedBrandCode      string              `json:"authorizedBrandCode,omitempty"`
-	AuthorizedBrandName      string              `json:"authorizedBrandName,omitempty"`
-	TemuPriceRejectStrategy  string              `json:"temuPriceRejectStrategy,omitempty"`
-	PriceType                string              `json:"priceType,omitempty"`
-	Remark                   string              `json:"remark"`
-	Status                   int16               `json:"status"`
-	CreateTime               *types.FlexibleTime `json:"createTime"`
-	Creator                  string              `json:"creator"`
+	ID          int64               `json:"id"`
+	TenantID    int64               `json:"tenantId"`
+	OwnerUserID string              `json:"ownerUserId,omitempty"`
+	StoreID     string              `json:"storeId"`
+	Name        string              `json:"name"`
+	Username    string              `json:"username"`
+	Password    string              `json:"password"`
+	LoginUrl    string              `json:"loginUrl"`
+	ShopType    string              `json:"shopType"`
+	Region      string              `json:"region"`
+	Platform    string              `json:"platform"`
+	Proxy       string              `json:"proxy"`
+	Remark      string              `json:"remark"`
+	Status      int16               `json:"status"`
+	CreateTime  *types.FlexibleTime `json:"createTime"`
+	Creator     string              `json:"creator"`
 }
 
 // StorePageReqDTO 分页查询店铺请求
 type StorePageReqDTO struct {
-	Platform        string `json:"platform,omitempty"`
-	TenantID        int64  `json:"tenantId,omitempty"`
-	PageNo          int    `json:"pageNo"`
-	PageSize        int    `json:"pageSize"`
-	EnableAutoPrice *bool  `json:"enableAutoPrice,omitempty"`
+	Platform string `json:"platform,omitempty"`
+	TenantID int64  `json:"tenantId,omitempty"`
+	PageNo   int    `json:"pageNo"`
+	PageSize int    `json:"pageSize"`
 }
 
 // StoreStatusUpdateReqDTO 店铺状态更新请求DTO

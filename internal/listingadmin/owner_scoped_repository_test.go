@@ -36,31 +36,6 @@ func assertOwnerlessWriteRejected(t *testing.T, db *gorm.DB, table string, err e
 	}
 }
 
-func TestCreateStoreRejectsOwnerlessWrite(t *testing.T) {
-	db := newOwnerScopedSQLiteDB(t, &listingStore{})
-	_, err := NewGormStoreRepository(db).CreateStore(context.Background(), &Store{
-		TenantID: 101,
-		StoreID:  "store-1",
-		Name:     "Store",
-	})
-	assertOwnerlessWriteRejected(t, db, "listing_store", err)
-}
-
-func TestCreateStorePersistsTrustedInternalOwner(t *testing.T) {
-	db := newOwnerScopedSQLiteDB(t, &listingStore{})
-	created, err := NewGormStoreRepository(db).CreateStore(WithOwnerUserID(context.Background(), " internal-sub "), &Store{
-		TenantID: 101,
-		StoreID:  "store-1",
-		Name:     "Store",
-	})
-	if err != nil {
-		t.Fatalf("CreateStore() error = %v", err)
-	}
-	if created.OwnerUserID != "internal-sub" {
-		t.Fatalf("created owner = %q, want internal-sub", created.OwnerUserID)
-	}
-}
-
 func TestCreateGenerationTopicPolicyRejectsOwnerlessWrite(t *testing.T) {
 	db := newOwnerScopedSQLiteDB(t, &listingGenerationTopicPolicy{})
 	_, err := NewGormGenerationTopicPolicyRepository(db).CreateGenerationTopicPolicy(context.Background(), &GenerationTopicPolicy{

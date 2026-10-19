@@ -2,7 +2,7 @@
 
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
-> Status: **设计提案，待独立检查与用户确认；不授权生产实现。** Design Basis: **Independent Architecture**。只交付本设计与索引；适用独立检查、用户确认及 Issue 的 IMPLEMENTATION_READY / Ready 均满足后，才在同一主要 PR 实施。调查基线为 main `e360069e067489c87754f2699e79eb0cde3fbc67`，2026-10-19；#827 已合并，准确 push/main CI 已通过，后续 #829 图片模板变更与本矩阵无交叉。
+> Status: **CONFIRMED / SOURCE_IMPLEMENTED，待最终独立交付检查与合并决定。** Design Basis: **Independent Architecture / IMPLEMENTATION_READY**。用户已确认冻结设计 `fa4bf075847bbc1ef66d37ee05e7f7ebea5be0fb`；独立设计检查无 BLOCKER，Issue 的 Ready 已先于正式生产修改写入并读回。本 PR 依 §5、§6、§6.1、§7 整批实施，合并和真实操作另行授权；准确 HEAD/CI/review 留在 PR。调查基线为 main `e360069e067489c87754f2699e79eb0cde3fbc67`，2026-10-19；#827 已合并，准确 push/main CI 已通过，后续 #829 图片模板变更与本矩阵无交叉。
 
 ## 1. 用户结果与一个 Delivery Batch
 

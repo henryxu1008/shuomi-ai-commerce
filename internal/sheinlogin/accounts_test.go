@@ -96,29 +96,8 @@ func (s *stubListingAdminAccountStore) GetStore(_ context.Context, tenantID, id 
 	return nil, listingadmin.ErrStoreNotFound
 }
 
-func (s *stubListingAdminAccountStore) CreateStore(context.Context, *listingadmin.Store) (*listingadmin.Store, error) {
-	panic("unexpected CreateStore")
-}
-func (s *stubListingAdminAccountStore) UpdateStore(context.Context, *listingadmin.Store) (*listingadmin.Store, error) {
-	panic("unexpected UpdateStore")
-}
 func (s *stubListingAdminAccountStore) UpdateStoreStatus(context.Context, int64, int64, int16, string) (*listingadmin.Store, error) {
 	panic("unexpected UpdateStoreStatus")
-}
-func (s *stubListingAdminAccountStore) DeleteStore(context.Context, int64, int64) error {
-	panic("unexpected DeleteStore")
-}
-func (s *stubListingAdminAccountStore) ListDeletedStores(context.Context, int64) ([]listingadmin.Store, error) {
-	panic("unexpected ListDeletedStores")
-}
-func (s *stubListingAdminAccountStore) RestoreStore(context.Context, int64, int64) (*listingadmin.Store, error) {
-	panic("unexpected RestoreStore")
-}
-func (s *stubListingAdminAccountStore) PermanentlyDeleteStore(context.Context, int64, int64) error {
-	panic("unexpected PermanentlyDeleteStore")
-}
-func (s *stubListingAdminAccountStore) ExtendStoreValidity(context.Context, int64, int64, int) (*listingadmin.Store, error) {
-	panic("unexpected ExtendStoreValidity")
 }
 
 func TestListingAdminAccountProviderLoadsSheinAccountsFromRepository(t *testing.T) {

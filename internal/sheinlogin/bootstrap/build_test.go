@@ -40,40 +40,12 @@ func (s *stubStoreRepository) GetStore(_ context.Context, tenantID, id int64) (*
 	return nil, listingadmin.ErrStoreNotFound
 }
 
-func (s *stubStoreRepository) CreateStore(context.Context, *listingadmin.Store) (*listingadmin.Store, error) {
-	panic("unexpected CreateStore")
-}
-
-func (s *stubStoreRepository) UpdateStore(context.Context, *listingadmin.Store) (*listingadmin.Store, error) {
-	panic("unexpected UpdateStore")
-}
-
 func (s *stubStoreRepository) UpdateStoreID(context.Context, int64, string) (*listingadmin.Store, error) {
 	panic("unexpected UpdateStoreID")
 }
 
 func (s *stubStoreRepository) UpdateStoreStatus(context.Context, int64, int64, int16, string) (*listingadmin.Store, error) {
 	panic("unexpected UpdateStoreStatus")
-}
-
-func (s *stubStoreRepository) DeleteStore(context.Context, int64, int64) error {
-	panic("unexpected DeleteStore")
-}
-
-func (s *stubStoreRepository) ListDeletedStores(context.Context, int64) ([]listingadmin.Store, error) {
-	panic("unexpected ListDeletedStores")
-}
-
-func (s *stubStoreRepository) RestoreStore(context.Context, int64, int64) (*listingadmin.Store, error) {
-	panic("unexpected RestoreStore")
-}
-
-func (s *stubStoreRepository) PermanentlyDeleteStore(context.Context, int64, int64) error {
-	panic("unexpected PermanentlyDeleteStore")
-}
-
-func (s *stubStoreRepository) ExtendStoreValidity(context.Context, int64, int64, int) (*listingadmin.Store, error) {
-	panic("unexpected ExtendStoreValidity")
 }
 
 func TestBuildServiceReturnsNilWithoutLocalStoreRepository(t *testing.T) {
