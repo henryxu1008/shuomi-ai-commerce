@@ -8,31 +8,22 @@ import (
 )
 
 type Validator struct {
-	processor *ProcessorConfig
-	worker    *WorkerConfig
 	openai    *OpenAIConfig
 	browser   *BrowserConfig
 	amazon    *AmazonConfig
-	rabbitmq  *RabbitMQConfig
 	platforms *PlatformsConfig
 }
 
 func NewValidator(
-	processor *ProcessorConfig,
-	worker *WorkerConfig,
 	openai *OpenAIConfig,
 	browser *BrowserConfig,
 	amazon *AmazonConfig,
-	rabbitmq *RabbitMQConfig,
 	platforms *PlatformsConfig,
 ) *Validator {
 	return &Validator{
-		processor: processor,
-		worker:    worker,
 		openai:    openai,
 		browser:   browser,
 		amazon:    amazon,
-		rabbitmq:  rabbitmq,
 		platforms: platforms,
 	}
 }
@@ -40,11 +31,9 @@ func NewValidator(
 func (v *Validator) Validate() []error {
 	var errors []error
 
-	errors = append(errors, ValidateWorkerConfig(v.worker)...)
 	errors = append(errors, ValidateOpenAIConfig(v.openai)...)
 	errors = append(errors, ValidateBrowserConfig(v.browser)...)
 	errors = append(errors, ValidateAmazonConfig(v.amazon)...)
-	errors = append(errors, ValidateRabbitMQConfig(v.rabbitmq)...)
 	errors = append(errors, ValidatePlatformsConfig(v.platforms)...)
 	return errors
 }

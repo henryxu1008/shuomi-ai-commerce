@@ -9,7 +9,124 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
+
+func TestRetiredTaskAndListingRuntimeConfigClosure(t *testing.T) {
+	for _, relative := range []string{
+		"internal/core/config/type_listing_control_plane.go", "internal/core/config/type_processor.go",
+		"internal/core/config/type_worker.go", "internal/core/config/validator_worker.go",
+		"internal/core/config/loader_rabbitmq.go", "internal/core/config/validator_rabbitmq.go",
+		"internal/core/config/platform_config_registry.go", "internal/app/configadapter/workerpool.go",
+		"internal/app/configadapter/queue.go", "internal/core/config/processor_config_test.go",
+		"internal/core/config/platform_legacy_sync_test.go", "internal/app/configadapter/workerpool_test.go",
+		"internal/app/configadapter/queue_test.go",
+	} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Errorf("retired config artifact %s must be absent: %v", relative, err)
+		}
+	}
+	retiredRoots := []string{"processor", "worker", "listingControlPlane", "rabbitmq"}
+	retiredPlatform := []string{"enabled", "schedulerEnabled", "autoPricing", "listingPricing", "productSync", "inventorySync", "activityRegistration", "sync", "monitor", "configPaths"}
+	for _, relative := range []string{
+		"config/config-dev.yaml", "config/config-prod.yaml", "config/config-test.yaml",
+		"deployments/kubernetes/amazon-crawler-api/base/configmap-lite.yaml",
+		"deployments/kubernetes/amazon-crawler-api/base/configmap-heavy.yaml",
+		"deployments/kubernetes/shein-listing/base/configmap.yaml",
+		"deployments/kubernetes/temu-listing/base/configmap.yaml",
+	} {
+		t.Run(relative, func(t *testing.T) {
+			content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var document map[string]any
+			if err := yaml.Unmarshal(content, &document); err != nil {
+				t.Fatal(err)
+			}
+			configs := []map[string]any{document}
+			if document["kind"] == "ConfigMap" {
+				configs = nil
+				data, ok := document["data"].(map[string]any)
+				if !ok || len(data) == 0 {
+					t.Fatal("missing ConfigMap data")
+				}
+				for key, value := range data {
+					if !strings.HasSuffix(key, ".yaml") {
+						continue
+					}
+					text, ok := value.(string)
+					if !ok {
+						t.Fatalf("embedded config %s must be text", key)
+					}
+					var embedded map[string]any
+					if err := yaml.Unmarshal([]byte(text), &embedded); err != nil {
+						t.Fatal(err)
+					}
+					configs = append(configs, embedded)
+				}
+				if len(configs) == 0 {
+					t.Fatal("missing embedded config YAML")
+				}
+			}
+			for _, cfg := range configs {
+				for _, key := range retiredRoots {
+					if _, exists := cfg[key]; exists {
+						t.Errorf("retired root %s remains", key)
+					}
+				}
+				if debug, ok := cfg["debug"].(map[string]any); ok {
+					if _, exists := debug["save_publish_json"]; exists {
+						t.Error("retired debug input remains")
+					}
+				}
+				if listing, ok := cfg["listingkit"].(map[string]any); ok {
+					for _, key := range []string{"sheinSubmitDebugDumpDir", "generationUsageLedgerEnabled", "generationUsageLedgerTenantIDs"} {
+						if _, exists := listing[key]; exists {
+							t.Errorf("retired listingkit.%s remains", key)
+						}
+					}
+				}
+				platforms, hasPlatforms := cfg["platforms"].(map[string]any)
+				if strings.Contains(relative, "amazon-crawler-api") && !hasPlatforms {
+					t.Fatal("current Alibaba1688 platform configuration must remain")
+				}
+				if hasPlatforms {
+					for _, name := range []string{"temu", "shein"} {
+						if platform, ok := platforms[name].(map[string]any); ok {
+							for _, key := range retiredPlatform {
+								if _, exists := platform[key]; exists {
+									t.Errorf("retired platforms.%s.%s remains", name, key)
+								}
+							}
+						}
+					}
+					if strings.Contains(relative, "amazon-crawler-api") {
+						alibaba, ok := platforms["alibaba1688"].(map[string]any)
+						if !ok || alibaba["enabled"] != false || alibaba["timeout"] != 120 || alibaba["poolSize"] != 2 {
+							t.Error("current Alibaba1688 crawler config must remain")
+						}
+					}
+				}
+			}
+		})
+	}
+	for _, relative := range []string{
+		"listingkit-workbench/base/secret.example.yaml", "shein-listing/base/secret.example.yaml",
+		"shein-listing/overlays/prod/secret.example.yaml", "shein-listing/overlays/prod-store-shards-example/secret.example.yaml",
+		"shein-listing/overlays/prod/external-secret.yaml", "temu-listing/base/secret.example.yaml",
+		"temu-listing/overlays/prod/external-secret.yaml",
+	} {
+		content, err := os.ReadFile(filepath.Join("..", "deployments", "kubernetes", filepath.FromSlash(relative)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(content), "TASK_PROCESSOR_RABBITMQ_URL") {
+			t.Errorf("%s declares retired queue input", relative)
+		}
+	}
+}
 
 var retiredNumericListingSupportFiles = []string{
 	"internal/listing/submission/action_record.go",
@@ -2071,8 +2188,8 @@ func TestRetiredListingCLIsHaveNoBuildOrDeploymentEntrypoints(t *testing.T) {
 		}
 	}
 	for _, relative := range []string{
-		"internal/core/config/type_rabbitmq.go", "internal/core/config/loader_rabbitmq.go",
-		"internal/core/config/config.go", "internal/core/config/validator_rabbitmq.go",
+		"internal/core/config/type_rabbitmq.go",
+		"internal/core/config/config.go",
 	} {
 		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
 		if err != nil {

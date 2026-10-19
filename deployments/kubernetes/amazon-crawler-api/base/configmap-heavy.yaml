@@ -85,9 +85,6 @@ data:
         ca: "M5V2T6"
         jp: "1000001"
 
-    rabbitmq:
-      enabled: false
-
     redis:
       host: "redis-master.default.svc.cluster.local"
       port: 6379
@@ -96,12 +93,6 @@ data:
       pool_size: 10
 
     platforms:
-      temu:
-        enabled: false
-        schedulerEnabled: false
-      shein:
-        enabled: false
-        schedulerEnabled: false
       alibaba1688:
         enabled: false
         timeout: 120

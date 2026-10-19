@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -43,10 +42,6 @@ func LoadConfigWithFallback(configPath string, logger *logrus.Logger) (*Config, 
 
 	if logger != nil {
 		logger.Infof("config loaded successfully")
-		logger.Debugf("   - RabbitMQ.Enabled: %v", cfg.RabbitMQ != nil && cfg.RabbitMQ.Enabled)
-		if cfg.RabbitMQ != nil {
-			logger.Debugf("   - RabbitMQ.URL: %s", cfg.RabbitMQ.URL)
-		}
 	}
 
 	return cfg, nil
@@ -111,22 +106,6 @@ func NewDefaultConfig() *Config {
 				Endpoint:    "",
 				Insecure:    false,
 			},
-		},
-		Processor: ProcessorConfig{
-			MaxRetries:       3,
-			Timeout:          300,
-			SchedulerEnabled: true,
-		},
-		Worker: WorkerConfig{
-			Concurrency:        10,
-			BufferSize:         100,
-			TaskInterval:       60,
-			MaxFetchPerCycle:   5,
-			QueueThreshold:     75,
-			CleanupInterval:    120,
-			TaskTimeout:        900,
-			StuckTaskThreshold: 300,
-			ForceCleanupAfter:  1800,
 		},
 		OpenAI: OpenAIConfig{
 			APIKey:  "",
@@ -216,69 +195,18 @@ func NewDefaultConfig() *Config {
 			CheckInterval:      300,
 			InsecureSkipVerify: false,
 		},
-		Debug: DebugConfig{
-			SavePublishJSON: false,
-		},
 		ListingKit: ListingKitConfig{
-			GenerationUsageLedgerEnabled: false,
-			ImageUpload:                  ListingKitImageUploadConfig{},
-			Zitadel:                      ListingKitZitadelConfig{},
-		},
-		ListingControlPlane: ListingControlPlaneConfig{
-			Enabled:                    false,
-			Platform:                   "shein",
-			LeaderLockKey:              "listing:control-plane:leader:shein",
-			LeaderLockTTL:              30 * time.Second,
-			CycleTimeout:               30 * time.Second,
-			ScanInterval:               5 * time.Second,
-			BatchSize:                  500,
-			PerStoreBurst:              1,
-			MaxQueuedPerStore:          0,
-			DryRun:                     false,
-			EnableLegacyQuotaKeys:      false,
-			QuotaKeyTTLGrace:           0,
-			PausedTaskRecoveryInterval: time.Hour,
+			ImageUpload: ListingKitImageUploadConfig{},
+			Zitadel:     ListingKitZitadelConfig{},
 		},
 		Platforms: PlatformsConfig{
 			Temu: PlatformConfig{
-				Enabled:          false,
-				SchedulerEnabled: false,
-				FetchMode:        "auto",
-				HTTPClient:       *DefaultHTTPClientConfig(),
-				AutoPricing: AutoPricingConfig{
-					Enabled:        false,
-					Interval:       300,
-					BatchSize:      100,
-					UseAmazonPrice: false,
-				},
-				ProductSync: ScheduledTaskConfig{
-					Enabled:  false,
-					Interval: 3600,
-				},
-				InventorySync: ScheduledTaskConfig{
-					Enabled:  false,
-					Interval: 1800,
-				},
-				ActivityRegistration: ScheduledTaskConfig{
-					Enabled:  false,
-					Interval: 7200,
-				},
-				Monitor: MonitorConfig{
-					Enabled:              false,
-					StoreIDs:             []int64{},
-					CheckInterval:        1440,
-					BatchSize:            100,
-					EnablePriceAlert:     true,
-					EnableStockAlert:     true,
-					PriceChangeThreshold: 10.0,
-					StockChangeThreshold: 5,
-				},
+				FetchMode:  "auto",
+				HTTPClient: *DefaultHTTPClientConfig(),
 			},
 			Shein: PlatformConfig{
-				Enabled:          false,
-				SchedulerEnabled: false,
-				FetchMode:        "auto",
-				HTTPClient:       *DefaultHTTPClientConfig(),
+				FetchMode:  "auto",
+				HTTPClient: *DefaultHTTPClientConfig(),
 				LoginService: LoginServiceConfig{
 					MaxConcurrentLogins: 3,
 					ProfileRootDir:      "./.local/tmp/shein-login/profiles",
@@ -286,76 +214,12 @@ func NewDefaultConfig() *Config {
 					DefaultHeadless:     true,
 					ExecutionMode:       "inline",
 				},
-				AutoPricing: AutoPricingConfig{
-					Enabled:   false,
-					Interval:  300,
-					BatchSize: 100,
-				},
-				ProductSync: ScheduledTaskConfig{
-					Enabled:  false,
-					Interval: 3600,
-				},
-				InventorySync: ScheduledTaskConfig{
-					Enabled:  false,
-					Interval: 1800,
-				},
-				ActivityRegistration: ScheduledTaskConfig{
-					Enabled:  false,
-					Interval: 7200,
-				},
-				Monitor: MonitorConfig{
-					Enabled:              false,
-					StoreIDs:             []int64{},
-					CheckInterval:        1440,
-					BatchSize:            100,
-					EnablePriceAlert:     true,
-					EnableStockAlert:     true,
-					PriceChangeThreshold: 10.0,
-					StockChangeThreshold: 5,
-				},
 			},
 			Alibaba1688: Alibaba1688Config{
 				Enabled:        false,
 				Timeout:        120,
 				PoolSize:       2,
 				ProfileRootDir: "./.local/tmp/browser-profiles/1688-accounts",
-			},
-		},
-		RabbitMQ: &RabbitMQConfig{
-			Enabled:           false,
-			URL:               "amqp://guest:guest@localhost:5672/",
-			ReconnectInterval: 5 * time.Second,
-			MaxReconnectTries: 10,
-			Consumer: RabbitMQConsumerConfig{
-				PrefetchCount: 5,
-				PrefetchSize:  0,
-				RetryDelay:    5 * time.Second,
-				MaxRetries:    3,
-				Queues:        []QueueConfig{},
-			},
-			Node: NodeConfig{
-				Role:            NodeRoleHybrid,
-				MaxConcurrency:  10,
-				HealthCheckPort: 8081,
-				MetricsPort:     8082,
-				LogLevel:        "info",
-				ShutdownTimeout: 30 * time.Second,
-			},
-			DeadLetter: DeadLetterConfig{
-				Enabled:   false,
-				QueueName: "tasks.dlq",
-			},
-			ProcessingTimeout: ProcessingTimeoutConfig{
-				Enabled:        false,
-				Interval:       5 * time.Minute,
-				TimeoutMinutes: 30,
-				RecoveryLimit:  100,
-			},
-			StaleQueued: StaleQueuedConfig{
-				Enabled:        false,
-				Interval:       5 * time.Minute,
-				TimeoutMinutes: 120,
-				RecoveryLimit:  500,
 			},
 		},
 	}

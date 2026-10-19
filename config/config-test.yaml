@@ -18,22 +18,6 @@ logging:
   format: "text"  # text 或 json
   file: ".local/logs/app.log"
 
-# 处理器配置
-processor:
-  maxRetries: 3
-  timeout: 1800  # 增加到30分钟，给复杂处理器足够时间
-
-# Worker配置
-worker:
-  concurrency: 1           # 并发worker数量
-  bufferSize: 30          # 进一步增加队列大小，提供更多缓冲空间
-  taskInterval: 50         # 60秒获取一次任务，减少获取频率
-  maxFetchPerCycle: 2      # 单次只获取1个任务，更保守的策略
-  queueThreshold: 75       # 降低队列使用率阈值，更早触发保护
-  cleanupInterval: 1800    # 清理间隔30分钟
-  taskTimeout: 2400        # 任务超时40分钟
-  stuckTaskThreshold: 1200 # 任务卡住阈值20分钟（之前硬编码5分钟导致过早清理）
-  forceCleanupAfter: 3600  # 60分钟强制清理阈值
 
 # OpenAI配置
 openai:
@@ -48,7 +32,6 @@ openai:
 
 
 listingkit:
-  sheinSubmitDebugDumpDir: ""
   platformAdminUsers: []
   platformAdminRoles: []
   imageUpload:
@@ -73,50 +56,6 @@ listingkit:
     allowedRoles: []
 
 platforms:
-  # TEMU 平台配置
-  temu:
-    enabled: false          # 是否启用TEMU处理器（处理上架任务）
-    schedulerEnabled: false  # 是否启用TEMU调度任务（核价、同步等）
-    # 自动核价配置
-    autoPricing:
-      enabled: false         # 启用自动核价
-      interval: 12         # 执行间隔（秒），默认5分钟
-      batchSize: 100
-    # 产品同步配置
-    productSync:
-      enabled: false        # 启用产品同步
-      interval: 3600        # 执行间隔（秒），默认1小时
-    # 库存同步配置
-    inventorySync:
-      enabled: false        # 启用库存同步
-      interval: 1800        # 执行间隔（秒），默认30分钟
-    # 活动报名配置
-    activityRegistration:
-      enabled: false        # 启用活动报名
-      interval: 7200        # 执行间隔（秒），默认2小时
-
-  # SHEIN 平台配置
-  shein:
-    enabled: false            # 是否启用SHEIN处理器（处理上架任务）
-    schedulerEnabled: false   # 是否启用SHEIN调度任务（核价、同步等）
-    # 自动核价配置
-    autoPricing:
-      enabled: false        # 启用自动核价
-      interval: 300         # 执行间隔（秒），默认30分钟
-      batchSize: 100
-    # 产品同步配置
-    productSync:
-      enabled: false         # 启用产品同步
-      interval: 86400        # 执行间隔（秒），默认24小时
-    # 库存同步配置
-    inventorySync:
-      enabled: false        # 启用库存同步
-      interval: 43200        # 执行间隔（秒），默认12小时
-    # 活动报名配置
-    activityRegistration:
-      enabled: false        # 启用活动报名
-      interval: 86400        # 执行间隔（秒），默认24小时
-
   # 1688 平台配置
   alibaba1688:
     enabled: false   # 是否启用1688处理器
@@ -140,74 +79,6 @@ browser:
     healthCheckEnabled: true
     maxRetries: 3
     maxUsesPerInstance: 8
-
-# RabbitMQ配置（分布式爬虫）
-rabbitmq:
-  enabled: false  # 启用RabbitMQ连接
-  url: "amqp://admin:admin123@localhost:5672/"  # 连接到unified的RabbitMQ
-  reconnectInterval: 5s   # 重连间隔（秒）
-  maxReconnectTries: 10  # 最大重连次数
-
-  # 消费者配置
-  consumer:
-    prefetchCount: 5      # 预取消息数量（允许同时处理5条消息）
-    prefetchSize: 0       # 预取大小（0表示不限制）
-    retryDelay: 5s         # 重试延迟（秒）
-    maxRetries: 3         # 最大重试次数
-
-    # 队列配置（可为不同队列设置不同的并发度）
-    queues:
-      # 上架任务队列 - 高优先级
-      - name: "amazon.tasks.high"
-        priority: 10
-        prefetch: 5
-      - name: "temu.tasks.high"
-        priority: 10
-        prefetch: 3
-      - name: "shein.tasks.high"
-        priority: 10
-        prefetch: 3
-      # 上架任务队列 - 普通优先级
-      - name: "amazon.tasks.normal"
-        priority: 8
-        prefetch: 3
-      - name: "temu.tasks.normal"
-        priority: 8
-        prefetch: 2
-      - name: "shein.tasks.normal"
-        priority: 8
-        prefetch: 2
-      # 上架任务队列 - 低优先级
-      - name: "amazon.tasks.low"
-        priority: 5
-        prefetch: 2
-      - name: "temu.tasks.low"
-        priority: 5
-        prefetch: 1
-      - name: "shein.tasks.low"
-        priority: 5
-        prefetch: 1
-      # 爬虫任务队列 - 高优先级
-      - name: "amazon.crawler.high"
-        priority: 10
-        prefetch: 3
-      - name: "1688.crawler.high"
-        priority: 10
-        prefetch: 3
-      # 爬虫任务队列 - 普通优先级
-      - name: "amazon.crawler.normal"
-        priority: 8
-        prefetch: 2
-      - name: "1688.crawler.normal"
-        priority: 8
-        prefetch: 2
-      # 爬虫任务队列 - 低优先级
-      - name: "amazon.crawler.low"
-        priority: 5
-        prefetch: 1
-      - name: "1688.crawler.low"
-        priority: 5
-        prefetch: 1
 
 # Amazon配置
 amazon:

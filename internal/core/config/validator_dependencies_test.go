@@ -57,36 +57,8 @@ func TestValidateAmazonConfig_SPAPIRequiresCredentials(t *testing.T) {
 	assert.NotEmpty(t, errors)
 }
 
-func TestValidatePlatformConfig_SchedulerNeedsTask(t *testing.T) {
-	cfg := PlatformConfig{
-		SchedulerEnabled: true,
-	}
-
-	errors := ValidatePlatformConfig("temu", &cfg)
-	assert.NotEmpty(t, errors)
-	assert.Contains(t, errors[0].Error(), "platforms.temu.schedulerEnabled")
-}
-
-func TestValidateRabbitMQConfig_EnabledRequiresCoreFields(t *testing.T) {
-	cfg := RabbitMQConfig{
-		Enabled: true,
-		Node: NodeConfig{
-			MaxConcurrency: 0,
-		},
-	}
-
-	errors := ValidateRabbitMQConfig(&cfg)
-	assert.NotEmpty(t, errors)
-}
-
 func TestValidateConfig_CatchesDependencyErrors(t *testing.T) {
 	cfg := &Config{
-		Worker: WorkerConfig{
-			Concurrency:      1,
-			BufferSize:       1,
-			TaskInterval:     1,
-			MaxFetchPerCycle: 1,
-		},
 		OpenAI: OpenAIConfig{
 			APIKey:  "key",
 			Model:   "model",
@@ -127,23 +99,6 @@ func TestValidateConfig_CatchesDependencyErrors(t *testing.T) {
 			SPAPI: SPAPIConfig{
 				Enabled: true,
 				Region:  "us-east-1",
-			},
-		},
-		RabbitMQ: &RabbitMQConfig{
-			Enabled: true,
-			URL:     "",
-			Consumer: RabbitMQConsumerConfig{
-				PrefetchCount: 1,
-			},
-			Node: NodeConfig{
-				MaxConcurrency:  1,
-				HealthCheckPort: 1,
-				MetricsPort:     1,
-			},
-		},
-		Platforms: PlatformsConfig{
-			Temu: PlatformConfig{
-				SchedulerEnabled: true,
 			},
 		},
 	}

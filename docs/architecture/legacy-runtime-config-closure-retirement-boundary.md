@@ -2,7 +2,7 @@
 
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
-> Status: **DESIGNING；仅设计，待准确 HEAD 独立设计检查与用户确认；未 IMPLEMENTATION_READY / Ready，不授权实施。** Design Basis: **Independent Architecture**。调查基线 main `cb211d5072b6268fc846be346dacc9fa9e19f981`（2026-10-19），包含 #833/#834/#835；主要 PR 记录准确 HEAD/CI/review。一个 Writer、一个完整配置闭包，不按字段、配置组或文件数拆 PR。本轮只新增本文和索引。
+> Status: **IMPLEMENTATION_READY；用户已确认冻结设计 `209b40f54` 并明确授权按§5/§6/§6.1/§7在 #836 整批实施；源码退休已完成，待最终独立检查/合并授权。** Design Basis: **Independent Architecture**。调查基线 main `cb211d5072b6268fc846be346dacc9fa9e19f981`（2026-10-19），包含 #833/#834/#835；主要 PR 记录准确 HEAD/CI/review。一个 Writer、一个完整配置闭包，不按字段、配置组或文件数拆 PR。设计阶段只新增本文和索引；独立设计检查完成、用户确认及 Issue Ready 记录读回之后，才实施以下矩阵。准确实施 HEAD/测试/CI/review 与权限记录在 #836，不把源码完成记作运行或用户验收。
 
 ## 1. Product Outcome 与范围
 
