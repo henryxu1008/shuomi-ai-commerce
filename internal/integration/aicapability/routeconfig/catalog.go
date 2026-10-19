@@ -124,7 +124,7 @@ func (c *Catalog) Qualify(sc d.Scope, id string, row d.Credential) (d.Binding, e
 		} else if style != p.AdapterKind {
 			return d.Binding{}, d.ErrNeedsConfiguration
 		}
-		return d.Binding{ID: id, CredentialVersion: row.Version, Provider: p.ProviderID, Model: p.ModelID, Protocol: p.AdapterKind, Currency: p.Currency, MaximumCostMicros: def.MaximumCostMicros, MaximumInputBytes: p.MaximumInputBytes, MaximumOutputBytes: p.MaximumOutputBytes, MaximumPromptTokens: p.MaximumPromptTokens, MaximumCompletionTokens: p.MaximumCompletionTokens, DeadlineSeconds: int64(p.DeadlineBound.Seconds()), Text: &p}, nil
+		return d.Binding{ID: id, CredentialVersion: row.Version, Provider: p.ProviderID, Model: p.ModelID, Protocol: p.AdapterKind, UsageMappingVersion: p.UsageMappingVersion, Currency: p.Currency, MaximumCostMicros: def.MaximumCostMicros, MaximumInputBytes: p.MaximumInputBytes, MaximumOutputBytes: p.MaximumOutputBytes, MaximumPromptTokens: p.MaximumPromptTokens, MaximumCompletionTokens: p.MaximumCompletionTokens, DeadlineSeconds: int64(p.DeadlineBound.Seconds()), Text: &p}, nil
 	}
 	i := def.Image
 	if i.CredentialVersion == "" || row.Version != i.CredentialVersion || row.Model != i.Model || row.EndpointDigest != governed.EndpointIdentityDigest(i.Endpoint) || row.TimeoutSeconds > 300 {

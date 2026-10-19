@@ -133,6 +133,7 @@ type Binding struct {
 	Provider                string                     `json:"provider"`
 	Model                   string                     `json:"model"`
 	Protocol                string                     `json:"protocol"`
+	UsageMappingVersion     string                     `json:"usageMappingVersion,omitempty"`
 	Currency                string                     `json:"currency,omitempty"`
 	MaximumCostMicros       int64                      `json:"maximumCostMicros,omitempty"`
 	MaximumInputBytes       int                        `json:"maximumInputBytes,omitempty"`
