@@ -46,10 +46,10 @@ Accepted boundary：平台查询不是原子跨接口快照；平台可能最终
 | 模式 | 原上传计划 | 审核通过后的操作 | 未满足条件时 |
 | --- | --- | --- | --- |
 | 自运营 | 原始提交回执/资料 | 精确 SKC 原版本审核通过、当前未在架、授权及冷却满足后，用户确认「上架到美国站」 | 审核待定/驳回/未知只查询；已在架只回读 |
-| 半托管 | 保留原 `shelf_way`、`hope_on_sale_date` | 自动/定时计划先等平台；仅原计划为人工或定时时间已到、且原版本通过并满足同一前置时允许用户明确确认 | 不提供提前覆盖未来定时计划的按钮；未知计划关闭人工入口 |
+| 半托管 | 原 `shelf_way=1` 自动 / `2` 定时及 `hope_on_sale_date` | 默认等待原计划；原自动计划或定时时间已到、当前仍未在架且满足全部前置时，才允许用户另行明确确认人工请求；平台仍可能按商家/商品政策拒绝 | 不发明第三种「人工 shelf_way」；未来定时/未知计划关闭人工入口，平台禁止自主上架时不绕过 |
 | 全托管 | 保留原 `shelf_way`、`hope_on_sale_date`、`shelf_require` | 不调用人工上下架接口、不显示人工上架按钮；只读平台审核/在架/SKU/库存 | 显示「等待平台安排」及已提交计划；未返回原因时不编造缺货/质检/未入仓原因 |
 
-Store 的当前经营模式与原回执模式不一致时，保留原事实并停止 mutation，提示重新核实店铺；不能用 UI 切换模式解锁。半托管时间按官方北京时间语义解析为明确时刻，展示用户时区及原时区；格式/时区缺失视为未知。
+Store 的当前经营模式与原回执模式不一致时，保留原事实并停止 mutation，提示重新核实店铺；不能用 UI 切换模式解锁。半托管时间按官方北京时间语义解析为明确时刻，展示用户时区及原时区；格式/时区缺失视为未知。[当前发布合同](https://open.sheincorp.com/documents/apidoc/detail/3001707-1000001) 只定义以上两种 shelf_way。时间已到只解除本地计划限制，不证明平台已允许自主上架；尊重平台失败结果。
 
 ## 4. 官方合同与保守解释
 
@@ -97,7 +97,9 @@ Store 的当前经营模式与原回执模式不一致时，保留原事实并�
 
 状态读取要求既有当前店铺读权限和对应官方服务；上架要求既有当前店铺提交权限、有效服务/连接、可用官方 scope。延续现有短时 MerchantHandle 与 mutationSent one-call 约束；准备、获取 permit 后发送前都验证当前授权。等待确认期间撤权/换店/换应用/模式变化，确认失效，无发送。上架作用于相同商家身份，不允许因重新连接同一商家绕过目标 fence。
 
-确认摘要显示企业、店铺、模式、美国站、SKC、原 SPU/version、原计划和动作；token 绑定这些事实及预检摘要，5 分钟有效。服务器消费 token 时再次读取审计和在架状态；任何变化要求重新查询确认。原计划未来定时、审核未通过/缺失、当前在架、权限未知都不能获得发送准入。读到已在架时直接展示当前事实并不创建发送。
+Store 执行目的明确区分拟新增的 `product_status`（既有读权限，CanWrite=false）和 `product_shelf_on`（既有提交/写权限，CanWrite=true）。`internal/app/supplychain/authorization.go` 当前以非 Rules 目的推导 CanWrite，实施必须改为显式目的枚举映射，未知目的拒绝；不能将新增只读目的误变写权。read adapter 的 POST 查询仍属读操作，不消费 mutation permit；只有固定上架方法消费唯一 mutationSent。
+
+确认摘要显示企业、店铺、模式、美国站、SKC、原 SPU/version、原计划和动作；token 绑定这些事实及预检摘要，5 分钟有效。服务器消费 token 时再次读取审计和在架状态；相关业务事实变化要求重新查询确认。摘要只包含精确身份、原计划、审核版本/结果、在架状态，不包含每次变化的 observedAt/traceId，避免重复只读查询误令确认失效。原计划未来定时、审核未通过/缺失、当前在架、权限未知都不能获得发送准入。读到已在架时直接展示当前事实并不创建发送。
 
 ## 7. 幂等与首次上架身份
 
@@ -111,7 +113,9 @@ intent key 是一次用户确认的稳定身份；payload hash 包含原 receipt
 
 只扩展现有 official intents/receipts 的 kind 约束为 shelf_on、窄 owner 合同及现有 Submission target 成功策略；不新增 observation 表/定时器/通用恢复平台。正式 schema 初始化/grants/readiness 在后续实施中显式更新；不在 serving startup 自动迁移，本轮不执行任何 schema。
 
-同一 Product/Listing 数据库 transaction/既有 Unit of Work 保存原子事实：已验证 shelf intent + 现有 attempt/target 取得；发送前 durable claim/permit 唯一；成功响应时 shelf success receipt 与 attempt succeeded 原子提交。原上传 receipt 永不改写。若现有 UoW 无法原子覆盖所需步骤，实施须先证明最小 repository transaction，可复用既有事务，不另造 Saga。
+沿现有提交边界使用同一 Product/Listing 数据库的**两段事务**，不把 Kernel Acquire 塞入外层未提交事务：T1 的 `PrepareShelfIntent` 验证原回执/不可变 record/确认摘要并提交 durable shelf intent，**不产生发送权**；T2 在现有 Acquire 的目标锁/事务内核对该 durable intent/hash、稳定远端 target、既有成功/UNKNOWN fence及历史操作冷却，原子取得 attempt/claim。只有 T2 成功提交后 Kernel 才发出唯一 SendPermit。Acquire 提交结果不明时不发 permit，只按原键核实；准备成功而未取得 attempt 可重新取得，但不能直接发送。
+
+T3 复用 `CompleteOfficial` + `NewTransactionFinalizer`：完整成功响应的 shelf success receipt 与 attempt succeeded 原子提交。现有 transaction finalizer 只做完成/核实，明确不能 Acquire。原上传 receipt 永不改写；实施在原 repository/Kernel 的窄 shelf 分支实现以上校验，不另建事务管理器、Saga或第二状态机。
 
 失败证据保存在现有 attempt 的 EvidenceProviderResponse；**不写永久唯一 success receipt**，防止明确无效果失败占住成功唯一键。只有经过官方合同/确定性 fixture 资格认定的完整 no-effect 业务错误才能 failed_definitive；默认错误映射是 UNKNOWN。初版 no-effect allowlist 可以为空，不能为提高成功率猜错误码。发送前本地拒绝可安全取消且无外部效果。
 
@@ -126,9 +130,11 @@ intent key 是一次用户确认的稳定身份；payload hash 包含原 receipt
 | 完整且获资格认定的 no-effect 响应 | failed_definitive；保留错误/操作时间；新的显式确认仍需重新预检与冷却 |
 | 进程退出/刷新页面/客户端取消 | 不删除 durable attempt，不释放 UNKNOWN，不消费第二张 permit |
 
-冷却从本系统最近一次发送边界的保守时间记起，同目标必须**超过** 20 分钟（等于不准入）；无法确定发送边界时以 claim/保守较晚时间计。明确失败也不能绕过平台操作间隔。时钟用服务端 UTC，平台时间仅做证据。本系统无法覆盖卖家后台外部操作，平台拒绝如实展示；不承诺跨外部操作者的全局节流。20 分钟经过仅解除冷却，不解除 UNKNOWN，也不是 retry 授权。
+冷却从本系统最近一次发送边界的**已持久化保守上界**记起，同目标必须**超过** 20 分钟（等于不准入）：有明确响应时可用其 FinishedAt，无明确完成证据时取原 LeaseExpiresAt 或更晚可证实上界；claim起点可能早于实际HTTP发送，不能单独用它提前解锁。明确失败也不能绕过平台操作间隔。时钟用服务端 UTC，平台时间仅做证据。本系统无法覆盖卖家后台外部操作，平台拒绝如实展示；不承诺跨外部操作者的全局节流。20 分钟经过仅解除冷却，不解除 UNKNOWN，也不是 retry 授权。
 
-恢复唯一 owner 是既有 Submission 的显式 readback/manual resolution 入口，沿既有授权及 evidence 合同；不新建允许任意“强制重试”的 API。平台当前在架只能证明当前状态，不能在缺少因果关联时将原 UNKNOWN 写成 succeeded。可显示「当前已上架，原请求结果待核实」，继续保留 fence。原请求可关联的确切响应或有权人工提供的可核实 no-effect/成功证据才可按原 Kernel resolution 处理；单纯“没查到/还是下架/已过20分钟”不能清除 UNKNOWN。
+恢复唯一 owner 是 Submission。现有 Kernel 有 provider readback/manual resolution 合同，但当前 Supply 只接入封印的 publish readback，**没有注入 manual resolution authorizer**。本期不新增人工解除/强制重试 API，也不声称现有 Supply 已能人工解锁 shelf。新增的 shelf 只读状态查询不能自动完成原 attempt；仅在原执行保存链能恢复确切关联响应时，才通过同 owner 的封印 completion/readback 证据完成原 intent。
+
+平台当前在架只能证明当前状态，不能在缺少因果关联时将原 UNKNOWN 写成 succeeded。可显示「当前已上架，原请求结果待核实」，继续保留 fence；没有确切关联证据时本期就保留 UNKNOWN，不要求用户执行未开放的人工作业。未来若要开放人工 resolution，需要另行有界产品授权并注入现有 authorizer，不能由本期顺手开放。单纯“没查到/还是下架/已过20分钟”不能清除 UNKNOWN。
 
 ## 9. 实时投影与库存判定
 
@@ -171,10 +177,10 @@ Legacy decision: **EXTRACT | RETIRE**。
 1. 精确原 receipt/version/SKC/SKU、跨企业/Store拒绝；本地新草稿不改变原目标；模式漂移/撤权/确认过期在发送前拒绝。
 2. 三模式/未来定时/审核各枚举/缺失值；全托管与未来定时半托管无手动发送；已在架只读。
 3. 相同键回放/异载荷冲突、并发不同键、不同原record/连接不能绕 fence；单 SKC/site body与单次调用。
-4. 20分钟严格边界、UNKNOWN经过冷却仍禁止；超时/取消/提交响应丢失/重启不重复发送；成功 receipt+attempt原子性、失败不占成功唯一约束。
+4. 以持久化保守发送上界测试20分钟严格边界，claim早于HTTP不能提前解锁；UNKNOWN经过冷却仍禁止；T1无发送权、T2提交不明无permit，T3成功receipt+attempt原子性、失败不占成功唯一约束；超时/取消/提交响应丢失/重启不重复发送。
 5. code0但失败/矛盾计数不能成功；未知错误码不归 no-effect；readback在架但无因果关联保留UNKNOWN。
 6. US shelf、mallState、库存类型/范围、显式0、缺SKU/部分失败/超限、PI/JI不相加；前端只展示证据支持文案。
-7. composition/API/Console真实consumer形成一条fixture用户路径；现有未绑定草稿与上传语义不回归。普通文档检查不能替代实现验证。
+7. composition/API/Console真实consumer形成一条fixture用户路径；新增status目的只有读权、shelf目的须提交权、未知目的拒绝；没有manual authorizer时无人工解除入口，现有未绑定草稿与上传语义不回归。普通文档检查不能替代实现验证。
 
 后续另获实施授权后，同一 Delivery Batch/主要 PR 连续完成；最终交付保留「实现完成，待独立验证/用户试用」。真实官方 scope、模式/品类和库存映射、店铺路径均为 **NOT_RUN**，须按用户另行授权核实；CI/AI评审/Figma均不等于店铺或产品验收。
 
@@ -183,3 +189,14 @@ Legacy decision: **EXTRACT | RETIRE**。
 当前 **DRAFT / NOT_READY**。评审仅针对本增量的 Must、owner、上架副作用、权限、幂等、事务、UNKNOWN/recovery及UI语义，不重新打开无关历史架构。Reviewer按AGENTS分类 finding：BLOCKER / IMPLEMENTATION_TEST / BACKLOG / ACCEPTED_RISK / NOT_APPLICABLE，并指出具体用户后果。最多两轮正常评审；只在真实BLOCKER时重开已冻结边界。
 
 待补：独立 reviewer 身份、评审绑定 commit/Figma节点、findings分类及处置、增量复核、最终 IMPLEMENTATION_READY 结论。达到Ready也仍为**设计交付；实施NOT_AUTHORIZED；真实店铺NOT_AUTHORIZED**。
+
+R1 独立 Reviewer `/root/shein_architecture_review` 已直接核对当前 official repository、Kernel、Store权限及 Figma 主要状态。以下均分类为 **IMPLEMENTATION_TEST**，无新增平台或设计BLOCKER；说明先分类后修正，并只做对应增量复核：
+
+| Finding / 受影响 Must / 后果 | 处置与验证归属 |
+| --- | --- |
+| 准备与Acquire当前独立提交，finalizer不能Acquire；含糊外层事务可能提前发送 | §8明确T1/T2/T3，提交后permit及成功原子完成；§12实现验证，阻塞未满足的实现切片合并 |
+| Supply没有manual authorizer；声称已有人工恢复入口会令运营无法完成核实 | §8准确区分Kernel合同与Supply接线，本期不开放人工解锁，无因果证据保持UNKNOWN；§12负向入口测试 |
+| claim早于实际发送，可能提前解除严格冷却 | §8使用持久化FinishedAt/LeaseExpiresAt等保守上界，§12边界测试 |
+| 当前非Rules目的推导CanWrite；新增status可能误获写权；原receipt与head/版本SKU完整性需覆盖 | §6显式只读/写目的映射，§5窄原receipt入口、§9/12精确关联及权限测试；不得等同已测通过 |
+
+半托管 shelf_way 仅1/2的官方澄清已纳入 §3（未增加第三种计划）。设计准入不豁免以上实现 Must；真实接口/店铺验证仍为NOT_RUN。
