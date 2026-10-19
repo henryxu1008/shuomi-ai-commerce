@@ -15,6 +15,8 @@
 > observations and standalone SHEIN login/Store sync remain under their owners.
 > Only the exact retired-file import exemptions and old retention assertions are
 > removed; original guards gain precise absence/current-contract checks.
+> The user authorized removal of only 23 stale current consumer-register edges
+> (17 logger / 6 OpenAI); the exact-edge guard and all historical evidence remain.
 > Workflows, dependencies, dated inventory and ceilings are unchanged. No runtime,
 > data, existing Prompt override action or new trial prerequisite is authorized.
 

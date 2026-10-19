@@ -28,7 +28,10 @@
 
 The user-confirmed [frozen closure design](../architecture/legacy-shein-listing-closure-retirement-boundary.md)
 supersedes only old numeric SHEIN listing retention. Earlier report counts and
-command observations below remain dated evidence; no ceiling or inventory changes.
+command observations below remain dated evidence; ceilings and historical inventory
+remain unchanged. The user authorized only removal of this batch's 23 stale
+current consumer-register rows (17 logger / 6 OpenAI); the original exact-edge
+guard remains unchanged.
 
 | Finding | Current owner | Decision | Verification |
 | --- | --- | --- | --- |

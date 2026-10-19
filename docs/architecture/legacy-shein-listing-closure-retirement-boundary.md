@@ -164,7 +164,7 @@ Cutover/deletion condition: 独立设计复核和用户确认→Issue IMPLEMENTA
 | tests/import_boundaries_test.go 中SheinRetiredManagement/OpenAI原allowlist | 仅移除§5整退文件的准确行；OpenAI保留category/manager、content/optimizer、submitprep/localized_content等现用行；models.go仍允许其共享合同 | 原loader/读错失败、platform/shared/provider禁入和root coverage不变；以前批次已不存在的无关旧行不顺手扫 |
 | 同文件PublishingSheinNonAPISheinImports守卫 | 对context/product/store/managedclient等已退包保持或加入empty allowlist；原managedclient→api_factory旧豁免精确移除但禁止项保留；content只允许本批E1/E3的attribute_value_matcher、sensitive_content_sanitizer、submit_prep_sensitive_adapter准确文件 | category两个当前adapter和platform client/API准入保持，不改为空禁入或泛化whole-directory许可；其它所有禁令不放宽 |
 | prompt keys/YAML/catalog | 原guard校验4key/3YAML缺席、两catalog条目退出及其余current keys保持；适用Prompt catalog/service测试沿原框架 | Store/Registry/HTTP已有覆盖记录语义不变，不对已有行执行删除、禁用、重写/迁移或读真实覆盖 |
-| .golangci.yml、phase2-runtime-inventory/dated counts/ceilings | **零变更**，原禁入退休路径继续有效；历史数字只作历史，不伪装当前计数 | 不降阈值来制造不同门禁，不扩大豁免/取消安全检查 |
+| .golangci.yml、phase2-runtime-inventory/dated counts/ceilings | 用户于2026-10-19明确准许的唯一校准：仅删除Legacy consumer register中本批退出的23条当前消费者边（logger17、OpenAI6）；其余当前行、全部历史记录/计数、.golangci.yml与ceilings不改，原禁入退休路径继续有效 | 原必需守卫不放宽；不降阈值、不扩大豁免/取消安全检查，不改workflow；[授权与处置](https://github.com/qq550723504/task-processor/pull/817#issuecomment-6258036066) |
 | 必要文档 | 本文/索引、Legacy Register、code-health中本批直接相关owner行、历史设计中与§5直接冲突的保留表述作窄superseded注记，原证据/数据保持 | 不批量改写旧Issue/PR、不将“设计”写成“源码已退休” |
 | 两套及其它workflow、依赖/保护 | **零变更** | 原mandatory/security/PG/race/release/command步骤、触发/权限/并发和保护规则保持，不追加验收平台/runner/试用前置 |
 
@@ -172,7 +172,7 @@ Cutover/deletion condition: 独立设计复核和用户确认→Issue IMPLEMENTA
 
 ## 7. 确认、准入与停止条件
 
-1. 用户确认本设计§5、§6、§6.1和§7，以及适用独立设计复核完成后，在同一PR登记/读回 Independent Architecture / IMPLEMENTATION_READY / Ready，才改正式生产。当前只授权设计，不能把本文的未来步骤当已经实施。
+1. 用户已确认冻结设计§5、§6、§6.1和§7，适用独立设计复核已完成；正式生产改动前已在同一PR登记/读回 Independent Architecture / IMPLEMENTATION_READY / Ready。用户后续仅准许§6.1所列23条当前消费者行校准，不扩大生产边界或运行/数据权限；准入历史与准确验证证据记录在#817。
 2. 确认后范围内EXTRACT、切换、完整删除、finding分类/修复、必要自检、commit/push和同一PR维护可连续完成；同一Writer、一个主要PR，不机械拆批。只有真实新当前consumer/兼容契约、必须改变事实/身份/租户/权限/状态/事务/恢复/平台副作用边界或新的BLOCKER才停对应项反馈。
 3. shared边的保留是当前合同证据，不是新增compatibility类别；新代码不依赖退休owner。不新建包装/别名/双事实源/新修复调度器维持旧链，不因维护/理论hardening扩Threat Model或要求先建设工具。
 4. 独立复核按AGENTS先分类Finding、绑定当前Must与阻塞层级，正常架构复核最多两轮；非Blocker不无限设计版本。未满足本批Must仍阻止合并。
