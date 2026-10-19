@@ -93,7 +93,7 @@ internal/app/configadapter/queue.go
 | 准确资源 | 允许删除 | 必须保留 |
 | --- | --- | --- |
 | config/config-dev.yaml、config-prod.yaml、config-test.yaml | 上述已出现的精确键/专属注释；无其它业务键变化 | logging/tracing、browser/Amazon/1688、完整登录/Redis/DB/身份/图像/计费/其余字段 |
-| deployments/kubernetes/amazon-crawler-api/base/configmap-lite.yaml、configmap-heavy.yaml | data内嵌 YAML 的旧 rabbitmq 节点 | 当前采集的其余配置、metadata/data键及Deployment引用 |
+| deployments/kubernetes/amazon-crawler-api/base/configmap-lite.yaml、configmap-heavy.yaml | data内嵌 YAML 的旧 rabbitmq 节点，及 platforms.temu.enabled/schedulerEnabled、platforms.shein.enabled/schedulerEnabled 四旧键；若两平台节点因此变空则移除空节点 | platforms.alibaba1688 全部原字段、当前采集的其余配置、metadata/data键及Deployment引用；不删其它平台的 enabled |
 | deployments/kubernetes/shein-listing/base/configmap.yaml、temu-listing/base/configmap.yaml | data内嵌 YAML 的旧根/平台键 | 有效采集/HTTP/登录/Redis等；不整删ConfigMap/overlay或目录 |
 | deployments/kubernetes/listingkit-workbench/base/configmap.yaml | 仅两个 TASK_PROCESSOR_LISTINGKIT_GENERATION_USAGE_LEDGER_* 和紧邻专属 PAY-042 legacy tenant1038 注释 | 其它全部值，尤其ImageAgent admission、身份/登录/browser/图像持久化与canonical owner |
 | 下方七个 Secret.example/ExternalSecret | 仅 TASK_PROCESSOR_RABBITMQ_URL 的 stringData项或对应 secretKey/remoteRef完整条目 | metadata/secretStoreRef/其它全部字段，不删真实密钥或外部存储 |
@@ -123,7 +123,7 @@ Legacy decision: **RETIRE**。Reusable behavior：当前 workerpool/queue、Retr
 | core/config/validator_dependencies_test.go | 退 TestValidatePlatformConfig_SchedulerNeedsTask、TestValidateRabbitMQConfig_EnabledRequiresCoreFields；CatchesDependencyErrors只去Worker/RabbitMQ/旧平台fixture | OpenAI client完整性和Amazon凭据拒绝、聚合拒绝当前无效配置保持 |
 | core/config/validator_format_test.go | GroupsByModule的旧RabbitMQ样例换原Browser错误；UsesGroupedFormat用当前无效OpenAI/Browser字段替换Worker | 分组顺序、hint、General/plain error、错误返回和非Management断言保持 |
 | tests/commercial_readiness_workflow_test.go | **只替换** TestListingKitGenerationUsageLedgerCanaryIsRestrictedToBillingTenant1038 为精确旧两env键及旧canary注释缺席检查（可准确更名）；不再要求无消费者配置强制开启 | 其余所有schema、credential/API分域、readiness、当前计费/原发布与安全检查完整不变；不重建tenant1038映射 |
-| tests/listingkit_backend_retirement_test.go | 增强§5整退文件/声明/字段/绑定/示例缺席及保留owner断言；原auto-shard检查的四路径表仅去已整退loader_rabbitmq/validator_rabbitmq两项，另以准确文件absence守卫承接 | 其余auto-shard禁复活、所有旧闭包absence、当前命令/worker/Store/字段/平台/安全断言不变；不skip/泛化ENOENT |
+| tests/listingkit_backend_retirement_test.go | 增强§5整退文件/声明/字段/绑定/示例缺席及保留owner断言；原auto-shard检查的四路径表仅去已整退loader_rabbitmq/validator_rabbitmq两项，另以准确文件absence守卫承接；对§5.3全部列出YAML/内嵌YAML逐项断言退休键集合缺席，明确覆盖两个Amazon ConfigMap的四平台旧键，同时对照Alibaba1688与所有当前叶值保持 | 其余auto-shard禁复活、所有旧闭包absence、当前命令/worker/Store/字段/平台/安全断言不变；不skip/泛化ENOENT |
 
 新增测试只允许在原 core/config 混合测试和原 retirement guard 内补有意义断言：新schema/known defaults/bindings无旧组，当前有效配置无需Worker/旧队列就可验证；两条load入口/原Manager与同名真实WorkerPool/Retry/平台配置的保留行为明确。复用原 viper、bytes、t.TempDir 和stub；不新增验证工具/生产配置探测，不在设计阶段运行这些实施检查。
 
