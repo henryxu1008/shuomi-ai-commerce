@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { AccountReadError, getAccountBusinessProfile, getAccountOrganization, getAccountProfile } from "@/lib/api/account";
 import { ConsoleState } from "../console/console-page";
 import { AccountShell } from "./account-shell";
+import {ModelRoutePricingEntry} from "./model-route-pricing";
 import { AccountOverviewView, OrganizationView, ProfileView } from "./account-views";
 import styles from "./account.module.css";
 import { accountPagePath, type AccountPageKind } from "./account-page-route";
@@ -76,7 +77,7 @@ function AccountRequest({ page, scope, expectedUserId, organizationId, sequence,
   }, gcTime: 0, staleTime: 0, retry: false, refetchOnWindowFocus: true, refetchOnReconnect: true });
   if (response.isPending || response.isFetching) return <ConsoleState kind="loading" title="正在读取资料">正在确认当前身份和访问权限。</ConsoleState>;
   if (response.isError) return <ReadError code={response.error instanceof AccountReadError ? response.error.code : "UNKNOWN"} page={page} />;
-  if (response.data.kind === "organization") return <OrganizationView data={response.data.organization} scope={scope} />;
+  if (response.data.kind === "organization") return <OrganizationView data={response.data.organization} scope={scope} platformMaintenance={<ModelRoutePricingEntry scope={{userId:expectedUserId,organizationId:response.data.organization.effectiveOrganizationId}}/>} />;
   if (response.data.kind === "overview") return <AccountOverviewView profile={response.data.profile} business={response.data.business} organization={response.data.organization} />;
   return <ProfileView data={response.data.profile} business={response.data.business} organization={response.data.organization} organizationId={organizationId} section={profileSection(page)} identityVerificationOutcomeUnknown={identityVerificationOutcomeUnknown} onIdentityVerificationOutcomeUnknown={onIdentityVerificationOutcomeUnknown} identityContactOutcomeUnknown={identityContactOutcomeUnknown} onIdentityContactOutcomeUnknown={onIdentityContactOutcomeUnknown} />;
 }
