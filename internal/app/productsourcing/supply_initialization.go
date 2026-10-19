@@ -21,12 +21,14 @@ var supplyFeatureBaseTables = []string{
 	"listing_completion_draft_records", "listing_completion_draft_heads", "listing_completion_draft_commands",
 }
 
+var supplyFeatureReviewTables = []string{"product_title_proposals", "product_title_operations"}
+
 func supplyFeatureNewTables() []string {
 	tables := append([]string{}, recordstore.Tables...)
 	tables = append(tables, prepstore.OperationTables...)
 	tables = append(tables, submissionstore.AttemptTable, submissionstore.TargetFenceTable)
 	tables = append(tables, officialstore.OfficialTables...)
-	return append(tables, "product_title_proposals", "product_title_operations")
+	return tables
 }
 
 // EnableSupplyChain is an explicit owner operation on the confirmed nonempty
@@ -57,10 +59,29 @@ func EnableSupplyChain(ctx context.Context, manifest, confirmedDatabase string) 
 		if tx.Raw("SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname IN ?", tables).Scan(&present).Error != nil {
 			return refused
 		}
-		capabilities := acquisitionstore.RuntimeCapabilities{Collections: true, CompletionDrafts: true}
+		var reviewPresent int64
+		if tx.Raw("SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname IN ?", supplyFeatureReviewTables).Scan(&reviewPresent).Error != nil {
+			return refused
+		}
+		switch reviewPresent {
+		case 0:
+			// Missing Review is valid only for a first Supply installation.
+			if present != 0 {
+				return refused
+			}
+		case int64(len(supplyFeatureReviewTables)):
+			if verifySupplyTableOwner(tx, supplyFeatureReviewTables) != nil || reviewstore.VerifySchema(ctx, tx) != nil {
+				return refused
+			}
+		default:
+			return refused
+		}
 		switch present {
 		case 0:
-			if acquisitionstore.VerifyOwnerRuntimePermissions(ctx, tx, capabilities) != nil || installSupplyExecutionSchema(tx) != nil || verifySupplyTableOwner(tx, tables) != nil || acquisitionstore.GrantSupplyChainPermissions(ctx, tx) != nil {
+			if reviewPresent == 0 && reviewstore.InstallSchema(tx) != nil {
+				return refused
+			}
+			if installSupplyExecutionSchema(tx) != nil || verifySupplyTableOwner(tx, tables) != nil || verifySupplyTableOwner(tx, supplyFeatureReviewTables) != nil || acquisitionstore.GrantSupplyChainPermissions(ctx, tx) != nil {
 				return refused
 			}
 		case int64(len(tables)):
@@ -70,7 +91,10 @@ func EnableSupplyChain(ctx context.Context, manifest, confirmedDatabase string) 
 		default:
 			return refused
 		}
-		capabilities.SupplyChain = true
+		// Check the complete unchanged allow/deny contract before commit. This
+		// also admits an existing Review SELECT without revoking/regranting it;
+		// any old or new schema/permission drift rolls back all installation.
+		capabilities := acquisitionstore.RuntimeCapabilities{Collections: true, CompletionDrafts: true, SupplyChain: true}
 		if reviewstore.VerifySchema(ctx, tx) != nil || acquisitionstore.VerifyOwnerRuntimePermissions(ctx, tx, capabilities) != nil {
 			return refused
 		}
