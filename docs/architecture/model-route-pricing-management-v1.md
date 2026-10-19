@@ -1,8 +1,8 @@
 # 模型与费率管理 V1
 
-> Status: **DESIGNING / NOT_READY**；Design Basis: **Independent Architecture**。  
-> Execution: [#830](https://github.com/qq550723504/task-processor/issues/830)。  
-> Product decision: **PD-MODEL-ROUTE-PRICING-MANAGEMENT-2026-10-19**，用户批准本会话最小方案并要求设计、Figma、独立架构评审先行。  
+> Status: **DESIGNING / NOT_READY**；Design Basis: **Independent Architecture**。
+> Execution: [#830](https://github.com/qq550723504/task-processor/issues/830)。
+> Product decision: **PD-MODEL-ROUTE-PRICING-MANAGEMENT-2026-10-19**，用户批准本会话最小方案并要求设计、Figma、独立架构评审先行。
 > Source baseline: `main@48e15a7f9f9c3e32e76a742fe1581ea547461e9a`。本文是设计合同，不宣称已实现或运行可用。
 
 ## 1. 用户结果、Authority 与范围
@@ -96,7 +96,7 @@ revision 同时是发布回执/历史，不另建 command ledger、persistent dr
 
 1. 每次重新验证当前身份、有效企业/成员及平台资格，拒绝 unknown fields、任意 org/member/endpoint/Key/上界参数。
 2. 在所选原 owner DB 事务内先查该作用域幂等记录；相同 key+fingerprint 返回原回执，不同 payload 返回 conflict。fingerprint 覆盖 verified org、capability、actor、expected revision、规范化请求（含目标 binding/version、费率及 rollback 来源）。
-3. 以原凭据行锁/同事务读取保证本次提交所核验的 credential 元数据和版本一致，重新检查准入描述、权限上下文和预算；外部验证不放进事务。锁顺序固定为凭据行 → current 行；不调用保存凭据路径、不读写 Commercial 库。
+3. 在同一 owner 事务内用一个去密投影查询读取并核验精确 credential 身份、企业、Enabled、model/协议、版本和 endpoint digest，重新检查准入描述、权限上下文和预算。使用原 PostgreSQL READ COMMITTED 事务即可；**不锁凭据行、不授凭据 UPDATE 权限**，不调用保存凭据路径、不读写 Commercial 库，外部验证不放进事务。该读取不是提交时凭据仍有效的承诺：并发轮换/禁用可让刚发布版本立即成为 NEEDS_CONFIGURATION；发布回执保持，current 投影与实际执行各自 fresh 核验并如实拒绝失效绑定，不回落另一绑定。无需改变原凭据 writer 的锁/隔离协议。
 4. 锁定 current、比较 expected revision。无当前版本的首次发布使用显式 `NONE`，并依靠唯一约束收敛并发。匹配才插入新 revision 并 CAS current，同事务提交。重复幂等键竞争导致唯一冲突时回滚整个事务再读取原回执并比较指纹；不部分提交。
 5. COMMIT 成功返回 revision 回执；提交结果无法确认则返回「发布结果待核实」及原 key，先按原 key 读回执，不换 key 重发。已 rollback 的失败无新当前版本；客户端保留相同 key/相同 payload 可安全重试。读回执失败时继续待核实。
 
@@ -136,7 +136,7 @@ JSON 请求 ≤16KiB，未知字段拒绝；history 每页 ≤50、游标限定�
 
 页头明确当前企业与「平台维护」，用途选择只列已接线消费者；其它项给出未接入原因且不可发布。当前区展示准确 revision、provider/model、binding 非秘密引用/版本及实际配置准入状态；不显示伪造模型健康、账户余额或供应商成本。
 
-文本编辑：选择已准入绑定；协议、usage mapping、token/bytes/deadline、预算币种与硬上限只读；input/output 估算成本每百万 Token、input/output 产品 AI 点数每百万 Token 分组，币种不混算。图片编辑：一个共享图片消费者、points/image、price version，只读已准入绑定与限制；供应商成本标尚未接入。充值点数零售价链接到原 Commercial 入口但不在本页编辑。
+文本编辑：选择已准入绑定；协议、usage mapping、token/bytes/deadline、预算币种与硬上限只读；input/output 估算成本每百万 Token、input/output 产品 AI 点数每百万 Token 分组，币种不混算。图片编辑：一个共享图片消费者、points/image、服务端 price version，**可选择已有合格绑定，协议与限制只读**；供应商成本标尚未接入。充值点数零售价链接到原 Commercial 入口但不在本页编辑。
 
 编辑未生效 →「校验配置」→ old/new diff、单一配置单元、旧任务影响 →「确认发布」→ 回执及当前版本。页面清楚说明校验不调用模型、发布不会自动恢复任务。校验/预览 token 不能绕过发布时重查。待核实时只提供「查询本次发布结果」；新编辑必须先消除原发布歧义。历史恢复走同一预览与确认。
 
@@ -157,8 +157,8 @@ Cutover/deletion condition: 对本管理范围，原启动 map/固定 client/费
 
 | 组 | 必要证据（本设计阶段均 **NOT_RUN**） |
 | --- | --- |
-| V1 权限与准入 | 注入平台用户/角色自定义配置、企业成员/企业切换/撤销、跨企业绑定拒绝、无 Key 泄漏；受支持 model/adapter/用途/usage/exact credential；保存不能打开关闭功能 |
-| V2 原子发布与费率 | 整数精度/取整/最大预算、并发 CAS/首次发布、同键同载荷/异载荷、事务中断/COMMIT 不明回执、重启/多进程同一 current、rollback 新身份防 ABA、无 manifest fallback |
+| V1 权限与准入 | 注入平台用户/角色自定义配置、企业成员/企业切换/撤销、跨企业绑定拒绝、无 Key 泄漏；受支持 model/adapter/用途/usage/exact credential；真实只读凭据角色可发布但不能 UPDATE 凭据；保存不能打开关闭功能 |
+| V2 原子发布与费率 | 整数精度/取整/最大预算、并发 CAS/首次发布、同键同载荷/异载荷、事务中断/COMMIT 不明回执、重启/多进程同一 current、rollback 新身份防 ABA、无 manifest fallback；凭据轮换/禁用与发布交错后 current 如实 NEEDS_CONFIGURATION，运行拒绝失效版本 |
 | V3 执行与历史 | 上表所有原任务状态；切换在 prepare/最后 gate 前后、多个 step/图片 slot；旧费用结算、UNKNOWN/预留与已生成 Review 保留；不增加第二发送或伪造免费 |
 | V4 页面与接线 | 文本/图片 edit→validate→preview→publish→receipt/history；空/无权限/冲突/待核实；两 owner DB/角色 startup verify；fake transport 断言所有管理动作零模型请求；390px 和明暗主题 |
 
