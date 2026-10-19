@@ -1,5 +1,7 @@
 # Module Target Mapping
 
+> #822 已完整退休旧 internal/amazon 非API刊登子包、amazonlisting、marketplace/amazon、state、httpbootstrap 与 shared/timex；下文涉及这些对象的旧迁移目标仅保留历史映射，不是当前抽取/重建任务。当前 Amazon API/来源采集、httproute、其他共享能力与独立 SHEIN worker 保持，详见[本批边界](../architecture/legacy-amazon-listing-closure-retirement-boundary.md)。
+
 > Status: active current-owner and retirement mapping.<br>
 > Legacy policy: `docs/refactoring/legacy-hard-cut-policy.md`  
 > Product baseline: `PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08`

@@ -81,27 +81,12 @@ func TestMigrateRecordsBaselineAndDoesNotRunTwice(t *testing.T) {
 	}
 }
 
-func TestAutoMigrateRuntimeCreatesExecutionEnvelopeColumns(t *testing.T) {
+func TestAutoMigrateRuntimeCreatesCurrentOwnerSchemas(t *testing.T) {
 	db := openProductListingSchemaTestDB(t)
 	if err := AutoMigrateRuntime(db); err != nil {
 		t.Fatalf("AutoMigrateRuntime: %v", err)
 	}
 
-	for _, table := range []string{"amazon_listing_tasks"} {
-		columns, err := db.Migrator().ColumnTypes(table)
-		if err != nil {
-			t.Fatalf("ColumnTypes(%s): %v", table, err)
-		}
-		seen := map[string]bool{}
-		for _, column := range columns {
-			seen[column.Name()] = true
-		}
-		for _, column := range []string{"execution_identity_version", "execution_tenant_id", "execution_user_id", "execution_trace_id", "execution_source_platform", "execution_source_task_type"} {
-			if !seen[column] {
-				t.Fatalf("table %s missing column %s", table, column)
-			}
-		}
-	}
 	for _, table := range []string{"image_agent_v2_runs", "image_agent_v2_plans", "image_agent_v2_slots", "image_agent_v2_attempts", "image_agent_v2_events", "image_agent_v2_asset_catalog", "image_agent_v2_asset_catalog_manifests", "image_agent_v2_projection_snapshots", "image_agent_v2_projection_commits", "image_agent_v2_slot_external_effects", "image_agent_v3_slot_external_effects"} {
 		if !db.Migrator().HasTable(table) {
 			t.Fatalf("missing table %s", table)
@@ -144,10 +129,38 @@ func TestAutoMigrateRuntimeLeavesLegacyProductTaskTablesRetired(t *testing.T) {
 		t.Fatalf("AutoMigrateRuntime: %v", err)
 	}
 
-	for _, table := range []string{"product_enrich_tasks", "product_image_tasks"} {
+	for _, table := range []string{"product_enrich_tasks", "product_image_tasks", "amazon_listing_tasks"} {
 		if db.Migrator().HasTable(table) {
 			t.Errorf("AutoMigrateRuntime created retired table %s", table)
 		}
+	}
+}
+
+func TestAutoMigrateRuntimeLeavesExistingAmazonTaskTableUntouched(t *testing.T) {
+	db := openProductListingSchemaTestDB(t)
+	const originalSchema = `CREATE TABLE amazon_listing_tasks (id TEXT PRIMARY KEY, sentinel TEXT NOT NULL)`
+	if err := db.Exec(originalSchema).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Exec(`INSERT INTO amazon_listing_tasks (id, sentinel) VALUES (?, ?)`, "existing-task", "preserved").Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := AutoMigrateRuntime(db); err != nil {
+		t.Fatalf("AutoMigrateRuntime: %v", err)
+	}
+	var schema string
+	if err := db.Raw(`SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'amazon_listing_tasks'`).Scan(&schema).Error; err != nil {
+		t.Fatal(err)
+	}
+	if schema != originalSchema {
+		t.Fatalf("retired table schema changed: %s", schema)
+	}
+	var sentinel string
+	if err := db.Raw(`SELECT sentinel FROM amazon_listing_tasks WHERE id = ?`, "existing-task").Scan(&sentinel).Error; err != nil {
+		t.Fatal(err)
+	}
+	if sentinel != "preserved" {
+		t.Fatalf("retired table row changed: %q", sentinel)
 	}
 }
 

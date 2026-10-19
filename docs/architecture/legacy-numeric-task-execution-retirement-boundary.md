@@ -1,5 +1,7 @@
 # 旧数字任务执行链：退休设计与持久化边界
 
+> #822 用户确认的[完整 Amazon 刊登闭包](legacy-amazon-listing-closure-retirement-boundary.md)已源码退休；本文原保留 Amazon 非 API 子包、internal/state 及专属 helper 的叙述，仅对新边界 §5 列明对象被窄替代。原证据与当时消费者事实保持；Amazon API、当前来源采集/共享合同、Store 观察及独立 SHEIN worker/Store 同步继续保留。
+
 后续校准：本文件记录 #729 当时的删除/保留边界。原保留的 ownership-controller
 及专属 auto-shard 配置，随后已按 [#738 已确认范围](legacy-ownership-controller-retirement-boundary.md)
 源码退休；旧表/运行态、有效共享合同和独立登录仍保留，历史矩阵不回写为当时已删。

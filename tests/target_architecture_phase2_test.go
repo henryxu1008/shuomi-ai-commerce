@@ -82,16 +82,18 @@ func TestProductListingRepositoryBuildersDoNotCallDirectAutoMigrate(t *testing.T
 		filepath.Join("..", "internal", "amazonlisting", "httpapi"),
 		filepath.Join("..", "internal", "app", "httpapi"),
 	} {
-		err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
-			if err != nil {
-				return err
+		index, err := loadGoFileSubtreeIndex(filepath.Join("..", "internal"), root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for path, facts := range index.files {
+			if strings.HasSuffix(path, "_test.go") {
+				continue
 			}
-			if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
-				return nil
-			}
-			file, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
+
+			file, err := parser.ParseFile(token.NewFileSet(), path, facts.source, 0)
 			if err != nil {
-				return err
+				t.Fatal(err)
 			}
 			ast.Inspect(file, func(node ast.Node) bool {
 				call, ok := node.(*ast.CallExpr)
@@ -110,10 +112,6 @@ func TestProductListingRepositoryBuildersDoNotCallDirectAutoMigrate(t *testing.T
 				}
 				return true
 			})
-			return nil
-		})
-		if err != nil {
-			t.Fatalf("scan %s: %v", root, err)
 		}
 	}
 }
@@ -688,7 +686,7 @@ func TestSharedResilienceDoesNotImportInternalPackages(t *testing.T) {
 }
 
 func TestSharedPackageTargetsExist(t *testing.T) {
-	for _, name := range []string{"hashx", "mathx", "ptr", "resilience", "strx", "timex"} {
+	for _, name := range []string{"hashx", "mathx", "ptr", "resilience", "strx"} {
 		info, err := os.Stat(filepath.Join("..", "internal", "shared", name))
 		if err != nil || !info.IsDir() {
 			t.Errorf("internal/shared/%s must exist as a directory: %v", name, err)

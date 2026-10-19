@@ -1,5 +1,7 @@
 # Architecture Documentation
 
+- [`legacy-amazon-listing-closure-retirement-boundary.md`](legacy-amazon-listing-closure-retirement-boundary.md): #29/#301 user-confirmed complete Amazon closure source implementation in #822 under frozen design 3a344153e and Independent Architecture admission. The old numeric pipeline, unregistered Task/Workbench and exclusive state/pool/time/DTO/schema/debug/deployment sources retire together; current Amazon API/source acquisition, shared rules/contracts, Store observations and independent SHEIN login/Store sync remain. Exact implementation HEAD/CI/review live in the PR; workflows, ceilings and real runtime/data are unchanged.
+
 - [`legacy-temu-listing-closure-retirement-boundary.md`](legacy-temu-listing-closure-retirement-boundary.md): #29/#301 user-confirmed complete retirement of the remaining numeric TEMU AI/property/spec/SKU/price chain and its exclusive pipeline, value policies, generators, management projections and prompt/static resources. Three shared DTO value helpers stay in listingadmin; current official TEMU contracts, acquisition/images/Store observations and independent SHEIN login/Store sync remain. Frozen design a253ca05f; source implementation under review in #819, workflows/ceilings and real runtime/data unchanged.
 
 > #819 supersedes only the historical numeric TEMU implementation-retention statements in earlier retirement entries below; their original evidence and all current platform/shared/worker capability boundaries remain.

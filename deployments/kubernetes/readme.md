@@ -1,5 +1,7 @@
 # Kubernetes 部署清单
 
+> #822 已退休旧 Amazon 刊登部署源码；该清单不再提供 Amazon Listing 部署入口。当前 Amazon 来源采集声明保持；本批未操作集群或已有资源。
+
 当前仓库内提供这些 K8s 清单：
 
 - `cert-manager/letsencrypt-prod`
@@ -10,7 +12,6 @@
 - `zitadel/local`
 - `shein-listing`
 - `temu-listing`
-- `amazon-listing`
 
 ## ZITADEL 生产说明
 
@@ -46,14 +47,12 @@
 4. `amazon-crawler-api`（如果 Amazon 上架依赖远程爬虫）
 5. `shein-listing`
 6. `temu-listing`
-7. `amazon-listing`
 
 示例：
 
 ```bash
 kubectl apply -k deployments/kubernetes/shein-listing/overlays/staging
 kubectl apply -k deployments/kubernetes/temu-listing/overlays/staging
-kubectl apply -k deployments/kubernetes/amazon-listing/overlays/staging
 ```
 
 ## Amazon Crawler 节点分层

@@ -1,5 +1,7 @@
 # 旧 TEMU 数字刊登剩余整链退休边界
 
+> 后续 #822 已按用户确认整退旧 Amazon 刊登及专属 state/timex/httpbootstrap 闭包；本文关于这些对象的保留仅为 #819 当时消费者证据，新状态见[Amazon 边界](legacy-amazon-listing-closure-retirement-boundary.md)。其他当前平台/共享/worker 能力保留不变，原数字与执行证据不重写。
+
 > Execution：[#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)
 >
 > Design Basis：Independent Architecture / IMPLEMENTATION_READY；状态：SOURCE IMPLEMENTED / In Review。用户已确认冻结设计 `a253ca05ff285bc29fc03fe52521ee1bc4924db8` §5/§6/§6.1/§7；三项值helper已在原owner脱钩，88个Go/6个非Go源文件与精确mixed声明已退休。准确HEAD、原CI与最终独立检查证据记录于同一[#819](https://github.com/qq550723504/task-processor/pull/819)，不以设计证据代替。
