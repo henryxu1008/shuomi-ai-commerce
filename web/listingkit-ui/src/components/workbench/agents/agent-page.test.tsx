@@ -88,11 +88,20 @@ afterEach(() => {
 function modeFixture(agentId:string, canConfigure=true) {
   return {subject:{kind:"registered_agent",id:agentId},definition:{id:agentId,version:"v1.0.0"},mode:"default",revision:"0",policyVersion:"agent-execution-policy-v1",canConfigure,updatedAt:"2026-10-17T00:00:00Z",updatedBy:""};
 }
-it("keeps content kind on the configuration use entry",async()=>{
+it("opens saved own products from the content configuration use entry",async()=>{
  const entry={...marketEntries()[1],agent:{...marketEntries()[1].agent,activation:"ENABLED",revision:"1",activationEpoch:"1"},canUse:true};
  vi.stubGlobal("fetch",vi.fn(async(url:unknown)=>Response.json(String(url).includes("execution-mode")?modeFixture("product.content.agent"):String(url).includes("/runs")?{items:[],nextCursor:""}:entry)));
  render(<AgentPage mode="mine" id="product.content.agent"/>);
- expect(await screen.findByRole("link",{name:"选择商品并进入使用 →"})).toHaveAttribute("href","/workbench/supply/acquisition?agent_kind=content");
+ expect(await screen.findByRole("link",{name:"选择商品并进入使用 →"})).toHaveAttribute("href","/workbench/data/mine?view=own");
+ expect(screen.getByText(/打开商品资料，选择“优化商品内容”/)).toBeInTheDocument();
+});
+it("keeps the title-only operation entry when content is unavailable",async()=>{
+ const title={...item,agent:{...item.agent,activation:"ENABLED",revision:"1",activationEpoch:"1"},canUse:true};
+ vi.stubGlobal("fetch",vi.fn(async(url:unknown)=>Response.json({items:String(url).includes("/agents/mine?")?[title]:[],nextCursor:""})));
+ render(<AgentPage mode="mine"/>);
+ const card=await screen.findByRole("article",{name:"商品内容与本地化"});
+ expect(within(card).getByRole("link",{name:"进入使用"})).toHaveAttribute("href","/workbench/supply/acquisition?agent_kind=title");
+ expect(within(card).queryByText(/打开商品资料，选择“优化商品内容”/)).toBeNull();
 });
 function installDialogMethods() {
   Object.defineProperty(HTMLDialogElement.prototype, "showModal", {configurable:true,value:function(this:HTMLDialogElement){this.open=true;}});
@@ -229,7 +238,8 @@ it("organizes mine into responsibility cards with honest activation filters and 
   const content = await screen.findByRole("article",{name:"商品内容与本地化"});
   expect(within(content).getByText("部分已启用")).toBeInTheDocument();
   expect(within(content).getByRole("button",{name:"能力配置"})).toHaveAttribute("aria-haspopup","dialog");
-  expect(within(content).getByRole("link",{name:"进入使用"})).toHaveAttribute("href","/workbench/supply/acquisition?agent_kind=content");
+  expect(within(content).getByRole("link",{name:"进入使用"})).toHaveAttribute("href","/workbench/data/mine?view=own");
+  expect(within(content).getByText(/打开商品资料，选择“优化商品内容”/)).toBeInTheDocument();
   expect(screen.getByRole("complementary",{name:"使用流程"})).toBeInTheDocument();
   expect(screen.queryByText("不应在管理卡片展开的模型路由长说明")).toBeNull();
   const filters = within(screen.getByRole("group",{name:"企业智能体状态"}));
@@ -463,7 +473,7 @@ it("presents one content responsibility and uses only the actually available ope
   expect(screen.getAllByRole("heading", { name: "商品内容与本地化" })).toHaveLength(1);
   expect(within(card).getByText("部分已启用")).toBeInTheDocument();
   expect(within(card).getByRole("button", {name:"能力配置"})).toHaveAttribute("aria-haspopup","dialog");
-  expect(within(card).getByRole("link", {name:"进入使用"})).toHaveAttribute("href","/workbench/supply/acquisition?agent_kind=content");
+  expect(within(card).getByRole("link", {name:"进入使用"})).toHaveAttribute("href","/workbench/data/mine?view=own");
   expect(within(card).queryByRole("button", {name:/停用|启用到当前企业/})).toBeNull();
   expect(fetch.mock.calls.every(call => !call[1]?.method || call[1]?.method === "GET")).toBe(true);
 });

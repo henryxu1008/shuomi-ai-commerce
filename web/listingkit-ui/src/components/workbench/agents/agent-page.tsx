@@ -309,6 +309,7 @@ function ScopedPage({
             <div>
               <h2>{agentId === "product.title.agent" ? "商品内容与本地化 · 标题优化配置" : detail.name}</h2>
               <p>{detail.description}</p>
+              {agentId === "product.content.agent" && detail.canUse && <p>打开商品资料，选择“优化商品内容”；确认时可选标题技能，建议人工审核后单独确认采用。</p>}
               <p>
                 {labels[detail.agent.activation]} · {detail.definitionVersion}
               </p>
@@ -319,7 +320,7 @@ function ScopedPage({
             </div>
             <div className={styles.actions}>
               {detail.canUse && !["pod.design.agent","product.selection.agent","shop.operations-diagnosis.agent"].includes(agentId) && (
-                <Link href={agentId==="product.content.agent"?"/workbench/supply/acquisition?agent_kind=content":"/workbench/supply/acquisition"}>
+                <Link href={agentId==="product.content.agent"?"/workbench/data/mine?view=own":"/workbench/supply/acquisition"}>
                   选择商品并进入使用 →
                 </Link>
               )}
