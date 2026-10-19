@@ -2,7 +2,7 @@ package workspace
 
 import "testing"
 
-func TestBuildSubmitReadinessAndChecklist(t *testing.T) {
+func TestBuildSubmitReadinessPreservesBlockingAction(t *testing.T) {
 	readiness := BuildSubmitReadiness(
 		[]ReadinessCheckSpec{
 			{Key: "category", Label: "类目", OK: false, SuggestedAction: "确认类目"},
@@ -17,13 +17,8 @@ func TestBuildSubmitReadinessAndChecklist(t *testing.T) {
 	if readiness == nil || readiness.Status != "blocked" || readiness.Ready {
 		t.Fatalf("readiness = %#v", readiness)
 	}
-	checklist := BuildSubmitChecklist(readiness, SubmitChecklistGroupForKey)
-	if checklist == nil || len(checklist.Required) != 1 || len(checklist.Recommended) != 1 {
-		t.Fatalf("checklist = %#v", checklist)
-	}
-	actions := ToActionItems(readiness.BlockingItems)
-	if len(actions) != 1 || actions[0].Key != "category" || actions[0].SuggestedAction != "确认类目" {
-		t.Fatalf("actions = %#v", actions)
+	if len(readiness.BlockingItems) != 1 || readiness.BlockingItems[0].Key != "category" || readiness.BlockingItems[0].SuggestedAction != "确认类目" {
+		t.Fatalf("blocking items = %#v", readiness.BlockingItems)
 	}
 }
 
@@ -60,12 +55,5 @@ func TestBuildSubmitReadinessCarriesBlockerTaxonomy(t *testing.T) {
 	}
 	if readiness.Checks[0].Taxonomy != taxonomy {
 		t.Fatalf("check taxonomy = %#v, want %#v", readiness.Checks[0].Taxonomy, taxonomy)
-	}
-	checklist := BuildSubmitChecklist(readiness, SubmitChecklistGroupForKey)
-	if checklist == nil || len(checklist.Required) != 1 {
-		t.Fatalf("checklist = %#v, want required item", checklist)
-	}
-	if checklist.Required[0].Taxonomy != taxonomy {
-		t.Fatalf("checklist taxonomy = %#v, want %#v", checklist.Required[0].Taxonomy, taxonomy)
 	}
 }

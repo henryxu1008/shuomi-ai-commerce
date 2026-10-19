@@ -1497,23 +1497,12 @@ func TestListingAdminUsesManagementAPIPortAliases(t *testing.T) {
 }
 
 func TestStateAndTaskRPCUseManagementAPIPortAliases(t *testing.T) {
-	paths := []string{
-		filepath.Join("..", "internal", "taskrpcapi", "handler.go"),
+	root := filepath.Join("..", "internal")
+	retired := filepath.Join(root, "taskrpcapi")
+	if _, err := os.Stat(retired); !os.IsNotExist(err) {
+		t.Fatalf("retired Task RPC assembly must stay absent: %v", err)
 	}
-	for _, path := range paths {
-		path = filepath.Clean(path)
-		index, err := loadGoFileIndex(filepath.Dir(path), "")
-		if err != nil {
-			t.Fatalf("load %s: %v", path, err)
-		}
-		facts, ok := index.files[path]
-		if !ok {
-			t.Fatalf("load %s: file facts missing", path)
-		}
-		if _, ok := facts.imports[`"task-processor/internal/infra/clients/management/api"`]; ok {
-			t.Fatalf("%s imports concrete management API DTOs; use listingadmin/local runtime types", path)
-		}
-	}
+	assertNoBannedImportPrefixesBelow(t, root, retired, []string{"task-processor/internal/infra/clients/management/api"}, nil)
 }
 
 func TestAmazonServicesUseStoreAPIPort(t *testing.T) {
@@ -1975,6 +1964,12 @@ func TestProjectBoundaryDomainsDoNotImportListingKitFacade(t *testing.T) {
 		filepath.Join("..", "internal", "workspace"),
 	} {
 		t.Run(filepath.ToSlash(domainRoot), func(t *testing.T) {
+			if domainRoot == filepath.Join("..", "internal", "workspace") {
+				assertNoBannedImportPrefixesBelow(t, filepath.Join("..", "internal"), domainRoot, []string{
+					"task-processor/internal/listingkit",
+				}, nil)
+				return
+			}
 			assertNoBannedImportPrefixes(t, domainRoot, []string{
 				"task-processor/internal/listingkit",
 			}, nil)
@@ -2688,51 +2683,23 @@ func TestPlatformBaseRetiredManagementImportsStayBlocked(t *testing.T) {
 }
 
 func TestTaskRPCAPIRetiredManagementImportsStayBlocked(t *testing.T) {
-	root := filepath.Join("..", "internal", "taskrpcapi")
-	allowedFiles := map[string]struct{}{}
+	root := filepath.Join("..", "internal")
+	assertNoBannedImportPrefixesBelow(t, root, filepath.Join(root, "taskrpcapi"), []string{"task-processor/internal/infra/clients/management"}, nil)
+	assertNoBannedImportPrefixes(t, root, []string{"task-processor/internal/taskrpcapi"}, nil)
+}
 
+func TestTaskRPCAPIRetiredActionRoutesStayRetired(t *testing.T) {
+	root := filepath.Join("..", "internal")
 	index, err := loadGoFileIndex(root, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	for path, facts := range index.files {
-		if pathAllowed(path, allowedFiles) {
-			continue
+	retiredPrefix := filepath.Join(root, "taskrpcapi") + string(os.PathSeparator)
+	routesCore := filepath.Join(root, "app", "httpapi", "routes_core.go")
+	for path := range index.files {
+		if strings.HasPrefix(path, retiredPrefix) || path == routesCore {
+			assertNoRetiredTaskRPCActionSurface(t, path)
 		}
-		for quotedImport := range facts.imports {
-			importPath := strings.Trim(quotedImport, `"`)
-			if importMatchesPrefix(importPath, "task-processor/internal/infra/clients/management") {
-				t.Errorf("%s imports %s; keep taskrpcapi management dependencies limited to current RPC assembly retirement seams and prefer in-repository database/repository access for new task RPC data", path, importPath)
-			}
-		}
-	}
-}
-
-func TestTaskRPCAPIRetiredActionRoutesStayRetired(t *testing.T) {
-	paths := []string{
-		filepath.Join("..", "internal", "taskrpcapi"),
-		filepath.Join("..", "internal", "app", "httpapi", "routes_core.go"),
-	}
-	for _, path := range paths {
-		info, err := os.Stat(path)
-		if err != nil {
-			if os.IsNotExist(err) && filepath.Base(path) == "routes_core.go" {
-				continue
-			}
-			t.Fatalf("stat %s: %v", path, err)
-		}
-		if info.IsDir() {
-			index, err := loadGoFileIndex(path, "")
-			if err != nil {
-				t.Fatal(err)
-			}
-			for filePath := range index.files {
-				assertNoRetiredTaskRPCActionSurface(t, filePath)
-			}
-			continue
-		}
-		assertNoRetiredTaskRPCActionSurface(t, path)
 	}
 }
 
@@ -2748,6 +2715,9 @@ func assertNoRetiredTaskRPCActionSurface(t *testing.T, path string) {
 		"CancelTask",
 		"/api/v1/management/tasks/:task_id/retry",
 		"/api/v1/management/tasks/:task_id/cancel",
+		"/api/v1/management/tasks/health",
+		"/api/v1/management/tasks/:task_id/status",
+		"/api/v1/management/tasks/queue-stats",
 		"retiredTaskAction",
 	} {
 		if strings.Contains(string(content), phrase) {

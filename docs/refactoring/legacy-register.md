@@ -1,5 +1,7 @@
 # Legacy Register
 
+> #824: user-confirmed [numeric listing support closure](../architecture/legacy-numeric-listing-support-closure-retirement-boundary.md) source retirement removes the eight unused listingadmin management families, Task RPC, old Workspace wrapper and orphan marketplace editor/repair/history/Task projections, numeric Task/status/retry, metrics/hook and TaskHandledError. Store/sensitive-word/topic repositories, four shared value types, the exact offline-validator readiness closure and standalone SHEIN login/Store sync remain. Historical observations below retain their original evidence; no table/data/runtime action or workflow/ceiling change is implied.
+
 > #29 / #301 [complete Amazon listing closure](../architecture/legacy-amazon-listing-closure-retirement-boundary.md)
 > follows user-confirmed frozen design 3a344153e and Independent Architecture /
 > IMPLEMENTATION_READY admission before production edits in #822. The 118-Go-file

@@ -325,7 +325,6 @@ internal wiring is intentionally excluded; no other package class is excluded.
 | Target import path | Exact consumer package | Class | Explicit later owner / phase |
 | --- | --- | --- | --- |
 | `task-processor/internal/core/logger` | `task-processor/internal/amazon/api` | marketplace business consumer | marketplace owner / Phase 4 |
-| `task-processor/internal/core/logger` | `task-processor/internal/core/metrics` | business metrics | marketplace + listing / Phases 4-5 |
 | `task-processor/internal/core/logger` | `task-processor/internal/crawler/alibaba1688` | crawler business consumer | product + marketplace / Phases 3-4 |
 | `task-processor/internal/core/logger` | `task-processor/internal/crawler/alibaba1688/extractor` | crawler business consumer | product + marketplace / Phases 3-4 |
 | `task-processor/internal/core/logger` | `task-processor/internal/crawler/amazon` | crawler business consumer | product + marketplace / Phases 3-4 |
