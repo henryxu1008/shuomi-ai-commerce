@@ -525,7 +525,3 @@ func testCanonicalProduct() *canonical.Product {
 		},
 	}
 }
-
-func boolPointer(value bool) *bool {
-	return &value
-}

@@ -1,34 +1,11 @@
 package shein
 
 import (
-	"context"
 	"encoding/json"
 	"testing"
 
-	openaiclient "task-processor/internal/integration/openai"
 	common "task-processor/internal/publishing/common"
 )
-
-type stubSaleAttributeLLM struct {
-	response string
-	err      error
-}
-
-func (s stubSaleAttributeLLM) CreateChatCompletion(context.Context, *openaiclient.ChatCompletionRequest) (*openaiclient.ChatCompletionResponse, error) {
-	return nil, s.err
-}
-
-func (s stubSaleAttributeLLM) Generate(context.Context, string) (string, error) {
-	return s.response, s.err
-}
-
-func (s stubSaleAttributeLLM) AnalyzeImage(context.Context, string, string) (string, error) {
-	return "", s.err
-}
-
-func (s stubSaleAttributeLLM) GetDefaultModel() string {
-	return "test"
-}
 
 func TestApplySaleAttributeResolutionDoesNotFallbackToAttributeOnlyPlaceholder(t *testing.T) {
 	pkg := &Package{

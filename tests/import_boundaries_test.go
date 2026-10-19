@@ -860,7 +860,6 @@ func TestPublishingSheinOpenAIImportsStayAllowlisted(t *testing.T) {
 	allowedFiles := map[string]struct{}{
 		filepath.Clean(filepath.Join(root, "generation_topic_policy_integration_test.go")): {},
 		filepath.Clean(filepath.Join(root, "listing_copy_test.go")):                        {},
-		filepath.Clean(filepath.Join(root, "sale_attribute_value_matcher_test.go")):        {},
 		filepath.Clean(filepath.Join(root, "submit_prep_test.go")):                         {},
 	}
 
