@@ -5,6 +5,21 @@ import {skillRequest} from "@/lib/api/skill";
 vi.mock("@/lib/api/skill",()=>({skillRequest:vi.fn(),skillError:()=>"版本不可用"}));
 afterEach(()=>{cleanup();vi.clearAllMocks()});
 const version={skill:{id:"11111111-1111-4111-8111-111111111111",owner:{kind:"USER",id:"alice"}},version:1,package:{name:"title-method",digest:"a".repeat(64)}};
+it("preselects the exact library reference and requires candidate verification",async()=>{
+ const selected={skillId:version.skill.id,version:1,digest:version.package.digest};
+ vi.mocked(skillRequest).mockResolvedValue({items:[version,{...version,version:2,package:{...version.package,digest:"b".repeat(64)}}]});const changed=vi.fn();
+ render(<SkillPicker scope={{userId:"alice",organizationId:"org"}} initialSelection={selected} onChange={changed}/>);
+ expect(screen.getByLabelText("使用技能 / 方法")).toBeChecked();
+ await waitFor(()=>expect(changed).toHaveBeenLastCalledWith(selected,true));
+ expect(screen.getByLabelText("准确技能版本")).toHaveValue(`${version.skill.id}:1`);
+});
+it("retains an unavailable incoming image version instead of choosing its newer replacement",async()=>{
+ const selected={skillId:version.skill.id,version:1,digest:version.package.digest};
+ vi.mocked(skillRequest).mockResolvedValue({items:[{...version,version:2}]});const changed=vi.fn();
+ render(<SkillPicker scope={{userId:"alice",organizationId:"org"}} target="product-image" initialSelection={selected} onChange={changed}/>);
+ await screen.findByText(/所选版本不可用/);expect(changed).toHaveBeenLastCalledWith(selected,false);
+ expect(screen.getByLabelText("使用的方法/技能（可选）")).toHaveValue(`${version.skill.id}:1`);
+});
 it("retains the selected exact version and blocks confirmation after it disappears",async()=>{
  vi.mocked(skillRequest).mockResolvedValueOnce({items:[version]}).mockResolvedValueOnce({items:[]});
  const changed=vi.fn();render(<SkillPicker scope={{userId:"alice",organizationId:"org"}} onChange={changed}/>);

@@ -7,9 +7,11 @@ const publisher=(v:SkillVersion)=>v.skill.owner.kind==="USER"?"本人":v.skill.o
 const name=(v:SkillVersion)=>v.package.displayName||v.package.name;
 type Changed=(selection:SkillSelection|undefined,ready:boolean)=>void;
 
-export function SkillPicker({scope,onChange,target="product-title",disabled=false}:{scope:SkillScope;onChange:Changed;target?:"product-title"|"product-image";disabled?:boolean}){
- const id=useId(),request=useRef<AbortController|null>(null),notify=useRef(onChange),selection=useRef<SkillSelection|undefined>(undefined);
- const [use,setUse]=useState(false),[items,setItems]=useState<SkillVersion[]>([]),[selected,setSelected]=useState<SkillSelection|undefined>(),[loading,setLoading]=useState(false),[failure,setFailure]=useState("");
+type PickerProps={scope:SkillScope;onChange:Changed;target?:"product-title"|"product-image";disabled?:boolean;initialSelection?:SkillSelection};
+export function SkillPicker(props:PickerProps){return <ScopedSkillPicker key={JSON.stringify([props.scope.userId,props.scope.organizationId,props.target,props.initialSelection])} {...props}/>}
+function ScopedSkillPicker({scope,onChange,target="product-title",disabled=false,initialSelection}:PickerProps){
+ const id=useId(),request=useRef<AbortController|null>(null),notify=useRef(onChange),selection=useRef<SkillSelection|undefined>(initialSelection);
+ const [use,setUse]=useState(!!initialSelection),[items,setItems]=useState<SkillVersion[]>([]),[selected,setSelected]=useState<SkillSelection|undefined>(initialSelection),[loading,setLoading]=useState(!!initialSelection),[failure,setFailure]=useState("");
  const image=target==="product-image",userId=scope.userId,organizationId=scope.organizationId;
  useEffect(()=>{notify.current=onChange},[onChange]);
  const load=useCallback(async()=>{
@@ -22,7 +24,7 @@ export function SkillPicker({scope,onChange,target="product-title",disabled=fals
    notify.current(current,valid||image&&!current);
   }catch(e){if(!c.signal.aborted){setItems([]);setFailure(skillError(e));notify.current(current,image&&!current)}}finally{if(!c.signal.aborted)setLoading(false)}
  },[userId,organizationId,image]);
- useEffect(()=>{let cancelled=false;if(image)queueMicrotask(()=>{if(!cancelled)void load()});return()=>{cancelled=true;request.current?.abort()}},[image,load]);
+ useEffect(()=>{let cancelled=false;if(image||initialSelection)queueMicrotask(()=>{if(!cancelled)void load()});return()=>{cancelled=true;request.current?.abort()}},[image,load,initialSelection]);
  function choose(value:SkillSelection|undefined){selection.current=value;setSelected(value);setFailure("");notify.current(value,image||!!value)}
  const value=items.find(v=>v.skill.id===selected?.skillId&&v.version===selected.version&&v.package.digest===selected.digest);
  return <div className="my-4 space-y-3">

@@ -348,6 +348,17 @@ it.each([["image-method-prompt-v1",1],["image-method-visual-brief-v2",2]] as con
  const request=fetch.mock.calls.find(([url])=>String(url).endsWith("/prepare"));expect(JSON.parse(String(request?.[1]?.body)).skill).toEqual({skillId,version,digest:skillDigest});
  if(policy==="image-method-prompt-v1"){expect(screen.getByRole("button",{name:"确认点数并生成"})).toBeDisabled();expect(screen.getByText(/该计划保留历史图片方法/)).toBeInTheDocument()}else expect(screen.getByRole("button",{name:"确认点数并生成"})).toBeEnabled();
 });
+it("preselects the library image version and passes it with explicitly selected existing originals",async()=>{
+ const skillId="2bb819bd-af13-4e68-95e0-1cc86130fb1f",date="2026-10-18T00:00:00Z",selection={skillId,version:2,digest:"f".repeat(64)};
+ const method={skill:{id:skillId,owner:{kind:"PLATFORM",id:"official"},creator:"maintainer",headVersion:3,revision:3,createdAt:date,updatedAt:date},version:2,package:{name:"product-image-standard",displayName:"标准商品套图",description:"原图方法",target:"product-image",digest:selection.digest,files:null},state:"ENABLED",visibility:"SHARED",allowCopy:true,allowExport:true,createdAt:date};
+ const real=fetch.getMockImplementation()!;fetch.mockImplementation((url,init)=>String(url).endsWith("/skills/organization/image-candidates")?Promise.resolve(Response.json({items:[method]})):real(url,init));
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialSkill={selection}/>);await screen.findByRole("option",{name:/标准商品套图/});expect(screen.getByLabelText("使用的方法/技能（可选）")).toHaveValue(`${skillId}:2`);expect(fetch.mock.calls.some(([,init])=>init?.method==="POST")).toBe(false);await prepare();await screen.findByRole("button",{name:"确认点数并生成"});const request=fetch.mock.calls.find(([url])=>String(url).endsWith("/prepare"))!;expect(JSON.parse(String(request[1]!.body))).toMatchObject({skill:selection,sharedOriginalIds:["original"]});
+});
+it("does not unlock or overwrite an uncertain original request when a library skill arrives",async()=>{
+ const selection={skillId:templateId,version:2,digest:sha},storage=`product-image-set:actor:org:acquisition:${operation}:intent`;
+ const raw=JSON.stringify({action:"confirm",runId,body:{actionId:operation,planRevision:1,planDigest:sha,quoteDigest:digest}});localStorage.setItem(storage,raw);state=projection("executing",operation);
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialSkill={selection}/>);await screen.findByRole("button",{name:"核实原请求"});expect(screen.getByRole("button",{name:"准备整套图片计划（2 项）"})).toBeDisabled();expect(localStorage.getItem(storage)).toBe(raw);expect(fetch.mock.calls.some(([,init])=>init?.method==="POST")).toBe(false);
+});
 it.each(["prepare","regenerate"] as const)("refreshes the mode after a definite %s rejection before creating a new intent",async action=>{
  const initial=await calls.mode();calls.mode.mockClear();let complete!:(value:unknown)=>void;
  calls.mode.mockResolvedValueOnce(initial).mockImplementationOnce(()=>new Promise(resolve=>{complete=resolve}));

@@ -23,7 +23,7 @@ import {ImageSetError,imageSetRequest,type ImageSetScope} from "@/lib/api/produc
 import {isAcquisitionUUID} from "@/lib/contracts/product-acquisition";
 import {imageSetApprovalSchema,imageSetRunSchema,imageSetSourcesSchema,imageSetRecentSchema,imageSetInventorySchema,imageSetPreviewSchema,imageSetAcceptedSchema,imageSetRequirementsSchema,imageSetRequestSchema,type ImageSetRun,type ImageSetPrepare,type ImageSetChoice,type ImageSetSelection,type ImageSetRequirements,type ImageSetInventory,type ImageSetRoute} from "@/lib/contracts/product-image-set";
 
-type Props={kind:ImageSetScope["kind"];contextId:string;target?:ImageSetPrepare["target"];effectiveVersion?:string;applyReceiptId?:string;onSaved?:()=>void;initialRunId?:string};
+type Props={kind:ImageSetScope["kind"];contextId:string;target?:ImageSetPrepare["target"];effectiveVersion?:string;applyReceiptId?:string;onSaved?:()=>void;initialRunId?:string;initialSkill?:SkillSelection};
 type Intent={action:ImageSetRoute;runId?:string;requestKey?:string;body:unknown};
 type RetainedRequest={key:string;raw:string;intent:Intent};
 type PhotoView={url:string;label:string;width?:number;height?:number};
@@ -40,7 +40,7 @@ export function ProductImageSetPanel(props:Props){
  return <ScopedImageSetPanel key={`${userId}:${organizationId}:${props.kind}:${props.contextId}:${permissions.join(",")}`} {...props} scope={{userId,organizationId,kind:props.kind,contextId:props.contextId}}/>;
 }
 
-function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSaved,initialRunId}:Props&{scope:ImageSetScope}){
+function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSaved,initialRunId,initialSkill}:Props&{scope:ImageSetScope}){
  const context=useWorkbenchContext();
  const [modeNonce,setModeNonce]=useState(0);
  const executionMode=useConfigurationRead(scope,"execution-modes/registered_agent/product.image.agent",executionModeViewSchema,modeNonce);
@@ -54,7 +54,7 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
  const [template,setTemplate]=useState<ImageAgentTemplate>(),[sources,setSources]=useState<z.infer<typeof imageSetSourcesSchema>>(),[run,setRun]=useState<ImageSetRun>();
  const [runTemplate,setRunTemplate]=useState<ImageAgentTemplate>();
  const [runSources,setRunSources]=useState<z.infer<typeof imageSetSourcesSchema>>();
- const [method,setMethod]=useState<SkillSelection>(),[methodReady,setMethodReady]=useState(true);
+ const [method,setMethod]=useState<SkillSelection|undefined>(initialSkill),[methodReady,setMethodReady]=useState(!initialSkill);
  const onMethodChange=useCallback((value:SkillSelection|undefined,ready:boolean)=>{setMethod(value);setMethodReady(ready)},[]);
  const [priorRuns,setPriorRuns]=useState<ImageSetRun[]>([]);
  const [recent,setRecent]=useState<z.infer<typeof imageSetRecentSchema>["items"]>([]),[inventory,setInventory]=useState<ImageSetInventory>();
@@ -300,7 +300,7 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
    <p className="text-muted-foreground">本次核实仅读取原任务，原请求不会再次发送。</p>
    {retainedRequests.map(record=><details key={record.key} className="break-all text-muted-foreground"><summary className="cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">原请求编号：{imageIntentRequestId(record.intent)}</summary><div className="mt-2 space-y-2"><p>原任务：{record.intent.runId} · 操作：{({recover:"核实原调用",cancel:"取消剩余工作",restart:"恢复原失败任务",confirm:"确认点数并生成",resume:"核实原保存"} as Partial<Record<ImageSetRoute,string>>)[record.intent.action]}</p><pre className="max-h-80 overflow-auto whitespace-pre-wrap break-all text-xs">{record.raw}</pre></div></details>)}
   </section>:null}
-  {!loading&&sources&&context.permissions.includes("listingkit.image_agent.write")?<SkillPicker scope={stableScope} target="product-image" disabled={locked} onChange={onMethodChange}/>:null}
+  {!loading&&sources&&context.permissions.includes("listingkit.image_agent.write")?<SkillPicker scope={stableScope} target="product-image" initialSelection={initialSkill} disabled={locked} onChange={onMethodChange}/>:null}
   {!loading&&sources&&!sources.originals.length?<p className="text-sm text-muted-foreground">当前商品没有原始图片，补充真实素材后才能准备生成计划。</p>:null}
   {available&&sources?<>
    {template&&!compatibleImageTemplate(template,platform)?<p className="text-sm text-warning-foreground">当前模板不适用于此素材目标，请选择匹配的模板或切换目标。</p>:null}

@@ -37,13 +37,14 @@ function restoredStart(params:{get:(name:string)=>string|null},userId:string,org
     return parsed.success?parsed.data:null;
 }
 const intentParams=["agent_key","agent_platform","agent_knowledge_base","agent_actor","agent_org","agent_template","agent_template_version","agent_mode_revision","agent_kind","agent_content","agent_skill","agent_own_version","agent_own_publication"];
-export function ProductAgentPanel({ enabled, knowledgeAvailable=false, operationId, productKey, catalogVersion,ownSource }: {
+export function ProductAgentPanel({ enabled, knowledgeAvailable=false, operationId, productKey, catalogVersion,ownSource,initialSkill }: {
     enabled: boolean;
     knowledgeAvailable?:boolean;
     operationId: string;
     productKey: string;
     catalogVersion: string;
     ownSource?:OwnSourceSelection;
+    initialSkill?:SkillSelection;
 }) {
     const context = useWorkbenchContext();
     const params = useSearchParams();
@@ -54,9 +55,9 @@ export function ProductAgentPanel({ enabled, knowledgeAvailable=false, operation
         return <Card><h2>标题诊断</h2><p>当前环境尚未开放 Product Agent。</p></Card>;
     if (!userId || !organizationId || context.isSwitching || context.isLoading || context.error || context.blockingError || context.selectionRequired)
         return null;
-    return <ScopedAgentPanel key={`${userId}:${organizationId}:${operationId}:${kind}`} ownSource={ownSource} kind={kind} onKindChange={setKind} knowledgeAvailable={knowledgeAvailable} userId={userId} organizationId={organizationId} operationId={operationId} productKey={productKey} catalogVersion={catalogVersion} initialKey={ownSource&&(params.get("agent_actor")!==userId||params.get("agent_org")!==organizationId)?"":params.get("agent_key")??""} initialStart={restoredStart(params,userId,organizationId,kind==="content",!!ownSource)}/>;
+    return <ScopedAgentPanel key={`${userId}:${organizationId}:${operationId}:${kind}`} ownSource={ownSource} kind={kind} onKindChange={setKind} knowledgeAvailable={knowledgeAvailable} userId={userId} organizationId={organizationId} operationId={operationId} productKey={productKey} catalogVersion={catalogVersion} initialKey={ownSource&&(params.get("agent_actor")!==userId||params.get("agent_org")!==organizationId)?"":params.get("agent_key")??""} initialSkill={initialSkill} initialStart={restoredStart(params,userId,organizationId,kind==="content",!!ownSource)}/>;
 }
-function ScopedAgentPanel({ userId, organizationId, operationId, productKey, initialKey,initialStart,knowledgeAvailable,kind,onKindChange,ownSource }: {
+function ScopedAgentPanel({ userId, organizationId, operationId, productKey, initialKey,initialStart,knowledgeAvailable,kind,onKindChange,ownSource,initialSkill }: {
     ownSource?:OwnSourceSelection;
     kind:"title"|"content";onKindChange:(kind:"title"|"content")=>void;
     knowledgeAvailable:boolean;
@@ -67,6 +68,7 @@ function ScopedAgentPanel({ userId, organizationId, operationId, productKey, ini
     catalogVersion: string;
     initialKey: string;
     initialStart:StartIntent|null;
+    initialSkill?:SkillSelection;
 }) {
     const context = useWorkbenchContext();
     const content=kind==="content",agentId=content?"product.content.agent":"product.title.agent";
@@ -173,7 +175,7 @@ function ScopedAgentPanel({ userId, organizationId, operationId, productKey, ini
   {ownSource?<p>自有商品标题优化 · 无需绑定店铺</p>:<label className="block">处理内容<select className="block rounded-lg border p-2" value={kind} disabled={!!key||busy||confirming} onChange={event=>onKindChange(event.target.value as "title"|"content")}><option value="title">标题优化</option><option value="content">内容完善与本地化</option></select></label>}
   <p>从当前已保存版本读取证据，生成{content?"选中内容":"标题"}建议。最多修复两次；按本次确认的权限模式处理本地采用。</p>
   {!key ? <><TitleAgentTemplates key={authorizationKey} agentId={agentId} scope={{userId,organizationId}} onReady={setTemplateReady} onChoose={value=>{setTemplate(value);if(value){if(!ownSource)setPlatform(value.targetPlatform);if(value.agentId==="product.content.agent"&&!ownSource)setSelection(value.content.selection)}}}/><label htmlFor="agent-platform">素材查询平台</label><select id="agent-platform" className="block rounded-lg border p-2" value={platform} onChange={event => setPlatform(event.target.value)} disabled={!!ownSource||busy||confirming}><option value="">请选择平台</option>{content&&<option value="product">标准商品（不指定平台）</option>}<option value="shein">SHEIN</option><option value="temu">Temu</option><option value="amazon">Amazon</option></select>{content&&(ownSource?<label className="block">目标语言<Input value={selection.targetLanguage} disabled={busy||confirming} onChange={event=>setSelection({targetLanguage:event.target.value,title:true})}/><span className="text-sm">本入口仅优化标题，其他商品资料保持原样。</span></label>:<ContentSelectionFields value={selection} onChange={setSelection} disabled={busy||confirming}/>)}<p className="text-sm">{ownSource?"读取已保存的自有商品证据；请选择标准商品、仅标题模板，或不使用模板。":"用于读取已批准的素材；本次不评估平台发布规则。"}</p><Button disabled={busy || !platform || !templateReady || !!ownSource&&!!template&&(template.targetPlatform!=="product"||template.agentId!=="product.content.agent"||!template.content.selection.title||!!template.content.selection.description||!!template.content.selection.sellingPoints||!!template.content.selection.seoKeywords) || content&&!contentSelectionSchema.safeParse(selection).success} onClick={() => setConfirming(true)}>{content?"生成内容建议":"生成标题建议"}</Button></> : <><p className="break-all text-sm">本次编号：{key}</p><Button variant="outline" disabled={busy} onClick={() => void execute("read")}>读取当前结果</Button>{intent&&!result&&<><p className="text-sm">原请求平台：{intent.targetPlatform}；{intent.knowledgeSelection?`知识库编号：${intent.knowledgeSelection.knowledgeBaseId}`:"未选择企业知识"}。恢复将沿用同一编号和选择；服务端已有运行时只返回该运行，不会重新生成。</p>{"contentSelection" in intent&&<p>{contentSelectionLabel(intent.contentSelection)}</p>}<Button variant="outline" disabled={busy} onClick={()=>void execute("start")}>使用原请求核实启动</Button></>}</>}
-  {confirming&&!key&&<TitleAgentConfirmation key={authorizationKey} executionMode={executionMode.data?.subject.id===agentId?executionMode.data:undefined} contentSelection={content?selection:undefined} scope={{userId,organizationId}} organization={context.effectiveOrganization?.name||organizationId} platform={platform} template={template??undefined} knowledgeAvailable={knowledgeAvailable} knowledgeReadable={knowledgeReadable} onCancel={()=>setConfirming(false)} onConfirm={(baseId,method)=>{setConfirming(false);void execute("start",baseId,method)}}/>}
+  {confirming&&!key&&<TitleAgentConfirmation initialSkill={initialSkill} key={authorizationKey} executionMode={executionMode.data?.subject.id===agentId?executionMode.data:undefined} contentSelection={content?selection:undefined} scope={{userId,organizationId}} organization={context.effectiveOrganization?.name||organizationId} platform={platform} template={template??undefined} knowledgeAvailable={knowledgeAvailable} knowledgeReadable={knowledgeReadable} onCancel={()=>setConfirming(false)} onConfirm={(baseId,method)=>{setConfirming(false);void execute("start",baseId,method)}}/>}
   {result?<p>本次权限：{result.executionMode?`${executionModeLabels[result.executionMode]} · 模式版本 ${result.modeRevision}`:"历史记录未冻结权限模式，新采用不可用"}{result.policyAdoption?" · 已按策略采用，未逐项人工审阅":""}</p>:null}
   {busy && <p role="status">正在处理，请保持页面打开。离开页面可能使已发送的调用结果未知；返回后请用本次编号读取，勿重新生成。</p>}
   {failure && <p role="alert">{reconfirmable?`${errors[failure]??"所选技能准入已变化。"} 本次未领取执行。请明确重新确认配置，再使用新编号生成。`:key&&knowledgeStartErrors[failure]?"知识当前不可用，已保留原编号；已有运行结果尚需核实，请勿换编号重新生成。":knowledgeStartErrors[failure] ?? errors[failure] ?? "请求未完成，请核对当前身份和企业。"}</p>}
