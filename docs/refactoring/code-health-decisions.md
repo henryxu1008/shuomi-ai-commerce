@@ -24,6 +24,21 @@
 | `internal/core/config/config.go` (`dotEnvCandidates`, `dotEnvCandidatesForConfig`) | `internal/core/config` | The normalized jscpd report `.local/code-health/20260813-021101268/jscpd.txt` found two identical path-cleaning/deduplication tails in one package. Both callers require first-occurrence order and platform-native `filepath.Clean`; extraction preserves those semantics and adds a characterization test. | consolidated | `go test ./internal/core/config -count=1`; post-edit jscpd `.local/code-health/20260813-021313565/jscpd.txt` (425 clones, target pair absent) |
 | `internal/core/config/config.go` (`LoadConfigFromFile` lines 799-813 and `LoadConfigFromFileWithoutValidation` lines 816-830) | `internal/core/config` | The post-edit jscpd report `.local/code-health/20260813-021313565/jscpd.txt` still reports this same-owner pair. The shared Viper setup/read/error path is intentional, but the return boundary is different: `LoadConfigFromFile` calls `loadWithViper` and enforces validation, while `LoadConfigFromFileWithoutValidation` calls `loadWithViperWithoutValidation` for migration/partial-config callers. `internal/core/config/config_env_test.go` covers both loading contracts; extracting the shared tail would obscure the validation distinction without reducing behavior risk. | detector-limitation | `go test ./internal/core/config -count=1`; exact function/line references above; retain as an explicitly classified clone |
 
+## Complete SHEIN listing closure decision (#817)
+
+The user-confirmed [frozen closure design](../architecture/legacy-shein-listing-closure-retirement-boundary.md)
+supersedes only old numeric SHEIN listing retention. Earlier report counts and
+command observations below remain dated evidence; ceilings and historical inventory
+remain unchanged. The user authorized only removal of this batch's 23 stale
+current consumer-register rows (17 logger / 6 OpenAI); the original exact-edge
+guard remains unchanged.
+
+| Finding | Current owner | Decision | Verification |
+| --- | --- | --- | --- |
+| 207 old SHEIN listing Go files (149 production / 58 tests), three Prompt defaults and exact mixed declarations | Unconstructed old numeric Task, provider wrappers, attribute/SKU/SKC/publish/result/mapping closure | RETIRE complete approved source closure; no replacement caller, Task wrapper or migration | Original retirement/import/command/worker guards, exact §5 matrix |
+| Current attribute matching, region sites and sensitive-content inputs inherited old owners | marketplace/shein/publishing value rules; content cleanup contract; current publishing/submitprep callers | EXTRACT only E1/E2/E3, preserving lookup order, sites, brand/case and language/SKC JSON behavior | Current owner regression tests and command builds; exact results in #817 |
+| Canonical SHEIN APIs/DTOs, root AmazonMonitorData, productsync enriched types, category/content/submitprep, pricing and independent login/Store sync | Existing platform, persistence and worker owners | RETAIN code and contracts except approved narrow cuts; no instance/data/override operations | Retained API/goods/content/submitprep/category/pricing/owner/worker checks |
+
 ## Deferred and compatibility subgraph classifications
 
 The following rows classify the Task 8 four-way intersection from

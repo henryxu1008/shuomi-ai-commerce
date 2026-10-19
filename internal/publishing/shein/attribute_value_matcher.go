@@ -7,11 +7,12 @@ import (
 	"strings"
 	"time"
 
+	sheinmarketpub "task-processor/internal/marketplace/shein/publishing"
 	"task-processor/internal/pkg/jsonx"
 	"task-processor/internal/prompt"
 	common "task-processor/internal/publishing/common"
 	sheinattribute "task-processor/internal/shein/api/attribute"
-	sheinproductattribute "task-processor/internal/shein/product/attribute"
+	"task-processor/internal/shein/content"
 )
 
 type templateAttributeValueSelection struct {
@@ -114,12 +115,11 @@ func matchTemplateAttributeValueWithLegacyMatcher(
 	attr sheinattribute.AttributeInfo,
 	sourceValue string,
 ) (ResolvedAttribute, []string, bool) {
-	matcher := sheinproductattribute.NewAttributeValueMatcher()
 	platformValues := buildLegacyPlatformValues(attr)
 	if len(platformValues) == 0 {
 		return ResolvedAttribute{}, nil, false
 	}
-	matchedID := matcher.FindMatchingPlatformValue(sourceValue, platformValues)
+	matchedID := sheinmarketpub.MatchPlatformAttributeValue(sourceValue, content.SanitizeForSheinAttribute(sourceValue), platformValues)
 	if matchedID <= 0 {
 		return ResolvedAttribute{}, nil, false
 	}

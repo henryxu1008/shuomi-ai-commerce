@@ -1,5 +1,7 @@
 # 旧 TEMU 刊登前置查重、原始数据读取与缓存编排退休边界
 
+> 后续用户已确认 [#817 整链退休边界](legacy-shein-listing-closure-retirement-boundary.md) §5–§7。仅替代下文 SHEIN SPU record、productdata handler 与 publish 查重/结果链的保留描述；共享 Reader/Cache/Mapping、当前 Store/采集和独立登录仍保留。 原调查与验证证据保持历史属性；不据其复活旧 owner，不授权运行或数据操作。
+
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
 - Status: **USER_CONFIRMED / SOURCE_RETIRED**。用户已确认 #750 冻结设计 `ca7a6e2ea19314898b024a8d50b31913ce191265` 的 §5、§6、§6.1、§7，授权在同一 PR 实施；准确实现 HEAD、CI 与独立最终检查维护于 PR，合并/真实操作仍未授权。

@@ -1,5 +1,7 @@
 # 旧 TEMU 变体读取、后处理与缓存编排退休边界
 
+> 后续用户已确认 [#817 整链退休边界](legacy-shein-listing-closure-retirement-boundary.md) §5–§7。仅替代下文 SHEIN productdata 的 handler/lookup 与 publish mapping_helper 消费/保留描述；共享 Reader/Cache、FetchVariants/CacheVariants、perf 与其余当前消费者仍保留。 原调查与验证证据保持历史属性；不据其复活旧 owner，不授权运行或数据操作。
+
 后续用户确认的 [#812 完整文本与要点闭包边界](legacy-temu-text-bullet-retirement-boundary.md) 已退休 TextProcessor/CleanProductTitle/专属空白 helper、旧文本与要点编排，以及失去最后消费者的 NormalizeProductSubmissionName/全部专属 regexp/测试。下文当批保留、消费者和计数为历史证据；仅这些具体对象被窄替代，平台 CheckText API/DTO、PriceHandler、AI/prompt 和其它有效能力保持，不据旧措辞恢复已退休代码。
 
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。

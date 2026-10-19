@@ -2,6 +2,24 @@
 
 > Status: Active legacy handling register
 
+> #29 / #301 [complete SHEIN numeric listing closure retirement](../architecture/legacy-shein-listing-closure-retirement-boundary.md)
+> follows user-confirmed frozen design a7c29d4b1 in #817 after Independent
+> Architecture / IMPLEMENTATION_READY admission. The 207-file old preparation,
+> source/filter, attribute/SKU/SKC/image/translation, publish/retry and result/
+> mapping/repair closure, three defaults and exact mixed declarations are retired.
+> EXTRACT preserves attribute-value matching and regional sites under marketplace
+> publishing, and narrow content CleanupContext/ValidationResult inputs; current
+> callers no longer import the retired Task/context/product/store owners.
+> Root AmazonMonitorData and both complete productsync enriched types, canonical
+> APIs/DTOs, current category/content/submitprep, pricing, acquisition/Store
+> observations and standalone SHEIN login/Store sync remain under their owners.
+> Only the exact retired-file import exemptions and old retention assertions are
+> removed; original guards gain precise absence/current-contract checks.
+> The user authorized removal of only 23 stale current consumer-register edges
+> (17 logger / 6 OpenAI); the exact-edge guard and all historical evidence remain.
+> Workflows, dependencies, dated inventory and ceilings are unchanged. No runtime,
+> data, existing Prompt override action or new trial prerequisite is authorized.
+
 > #29 / #301 [complete TEMU default-property pipeline retirement](../architecture/legacy-temu-property-pipeline-retirement-boundary.md)
 > follows user-confirmed frozen design c8653f2c9 in #815. The 11-file default
 > PropertyMapper/orchestrator/pipeline/four-stage closure and exclusive

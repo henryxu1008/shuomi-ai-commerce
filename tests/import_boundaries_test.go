@@ -733,7 +733,14 @@ func TestPublishingSheinNonAPISheinImportsStayAllowlisted(t *testing.T) {
 			filepath.Clean(filepath.Join(root, "managed_api_factory.go")): {},
 			filepath.Clean(filepath.Join(root, "runtime_base_client.go")): {},
 		},
-		`"task-processor/internal/shein/content"`: {},
+		`"task-processor/internal/shein/content"`: {
+			filepath.Clean(filepath.Join(root, "attribute_value_matcher.go")):       {},
+			filepath.Clean(filepath.Join(root, "sensitive_content_sanitizer.go")):   {},
+			filepath.Clean(filepath.Join(root, "submit_prep_sensitive_adapter.go")): {},
+		},
+		`"task-processor/internal/shein/context"`: {},
+		`"task-processor/internal/shein/product"`: {},
+		`"task-processor/internal/shein/store"`:   {},
 		`"task-processor/internal/shein/category"`: {
 			filepath.Clean(filepath.Join(root, "category_legacy_selector_adapter.go")): {},
 		},
@@ -766,9 +773,7 @@ func TestPublishingSheinNonAPISheinImportsStayAllowlisted(t *testing.T) {
 		`"task-processor/internal/shein/client"`: {
 			filepath.Clean(filepath.Join(managedRoot, "api_factory.go")): {},
 		},
-		`"task-processor/internal/shein/managedclient"`: {
-			filepath.Clean(filepath.Join(managedRoot, "api_factory.go")): {},
-		},
+		`"task-processor/internal/shein/managedclient"`: {},
 	}
 	managedIndex, err := loadGoFileIndex(managedRoot, "")
 	if err != nil {
@@ -1703,8 +1708,6 @@ func TestTemuAPIClientUsesManagementAPIPortAliases(t *testing.T) {
 func TestRetiredManagementServiceHotspotsUseCapabilityNames(t *testing.T) {
 	paths := []string{
 		filepath.Join("..", "internal", "sheinloginmanaged", "bridge.go"),
-		filepath.Join("..", "internal", "shein", "publish", "exists_check.go"),
-		filepath.Join("..", "internal", "shein", "publish", "variant_success.go"),
 		filepath.Join("..", "internal", "shein", "client", "cookie_manager_local_test.go"),
 	}
 
@@ -2499,18 +2502,21 @@ func TestAmazonExternalClientImportsStayAllowlisted(t *testing.T) {
 }
 
 func TestSheinBridgeExternalClientImportsStayAllowlisted(t *testing.T) {
-	root := filepath.Join("..", "internal", "sheinbridge")
-	allowedFiles := map[string]struct{}{
-		filepath.Clean(filepath.Join(root, "saleattribute", "handler.go")):      {},
-		filepath.Clean(filepath.Join(root, "saleattribute", "handler_test.go")): {},
-	}
+	parentRoot := filepath.Join("..", "internal")
+	root := filepath.Join(parentRoot, "sheinbridge")
+	allowedFiles := map[string]struct{}{}
 
-	index, err := loadGoFileIndex(root, "")
+	// The retired bridge has no files in a clean checkout. Index its retained
+	// parent so missing roots still fail, then keep the original bridge scope.
+	index, err := loadGoFileIndex(parentRoot, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	for path, facts := range index.files {
+		if !strings.HasPrefix(path, filepath.Clean(root)+string(filepath.Separator)) {
+			continue
+		}
 		if pathAllowed(path, allowedFiles) {
 			continue
 		}
@@ -2527,36 +2533,16 @@ func TestSheinBridgeExternalClientImportsStayAllowlisted(t *testing.T) {
 func TestSheinRetiredManagementImportsStayBlocked(t *testing.T) {
 	root := filepath.Join("..", "internal", "shein")
 	allowedFiles := map[string]struct{}{
-		filepath.Clean(filepath.Join(root, "addresscopy", "service.go")):                   {},
 		filepath.Clean(filepath.Join(root, "api", "image", "client.go")):                   {},
 		filepath.Clean(filepath.Join(root, "authorizedbrand", "context_test.go")):          {},
 		filepath.Clean(filepath.Join(root, "authorizedbrand", "types.go")):                 {},
-		filepath.Clean(filepath.Join(root, "context", "context.go")):                       {},
-		filepath.Clean(filepath.Join(root, "managedclient", "api_client_test.go")):         {},
-		filepath.Clean(filepath.Join(root, "managedclient", "bridge.go")):                  {},
-		filepath.Clean(filepath.Join(root, "managedclient", "manager.go")):                 {},
-		filepath.Clean(filepath.Join(root, "mapping", "builder.go")):                       {},
-		filepath.Clean(filepath.Join(root, "mapping", "service.go")):                       {},
-		filepath.Clean(filepath.Join(root, "mapping", "strategies.go")):                    {},
-		filepath.Clean(filepath.Join(root, "mapping", "strategies_test.go")):               {},
-		filepath.Clean(filepath.Join(root, "mapping", "types.go")):                         {},
 		filepath.Clean(filepath.Join(root, "models.go")):                                   {},
 		filepath.Clean(filepath.Join(root, "pipeline", "processor.go")):                    {},
 		filepath.Clean(filepath.Join(root, "pipeline", "task.go")):                         {},
 		filepath.Clean(filepath.Join(root, "pipeline", "task_authorized_brand_test.go")):   {},
 		filepath.Clean(filepath.Join(root, "pricing", "calculator.go")):                    {},
 		filepath.Clean(filepath.Join(root, "pricing", "calculator_test.go")):               {},
-		filepath.Clean(filepath.Join(root, "product", "skc", "skc_build_input.go")):        {},
-		filepath.Clean(filepath.Join(root, "product", "skc", "variant_runtime_test.go")):   {},
-		filepath.Clean(filepath.Join(root, "product", "sku", "sku_runtime_input.go")):      {},
-		filepath.Clean(filepath.Join(root, "product", "sku", "strategy_test.go")):          {},
 		filepath.Clean(filepath.Join(root, "productsync", "product_sync_types.go")):        {},
-		filepath.Clean(filepath.Join(root, "publish", "checker.go")):                       {},
-		filepath.Clean(filepath.Join(root, "publish", "exists_check.go")):                  {},
-		filepath.Clean(filepath.Join(root, "publish", "handler.go")):                       {},
-		filepath.Clean(filepath.Join(root, "publish", "handler_test.go")):                  {},
-		filepath.Clean(filepath.Join(root, "publish", "mapping_helper.go")):                {},
-		filepath.Clean(filepath.Join(root, "publish", "publish_input.go")):                 {},
 		filepath.Clean(filepath.Join(root, "scheduler", "activity_task.go")):               {},
 		filepath.Clean(filepath.Join(root, "scheduler", "factory.go")):                     {},
 		filepath.Clean(filepath.Join(root, "scheduler", "inventory_sync_adapter.go")):      {},
@@ -2566,11 +2552,6 @@ func TestSheinRetiredManagementImportsStayBlocked(t *testing.T) {
 		filepath.Clean(filepath.Join(root, "scheduler", "product_sync_adapter.go")):        {},
 		filepath.Clean(filepath.Join(root, "scheduler", "product_sync_adapter_test.go")):   {},
 		filepath.Clean(filepath.Join(root, "scheduler", "product_task.go")):                {},
-		filepath.Clean(filepath.Join(root, "store", "store_id.go")):                        {},
-		filepath.Clean(filepath.Join(root, "store", "store_info.go")):                      {},
-		filepath.Clean(filepath.Join(root, "store", "store_info_test.go")):                 {},
-		filepath.Clean(filepath.Join(root, "validation", "get_rule.go")):                   {},
-		filepath.Clean(filepath.Join(root, "validation", "reapply_filter.go")):             {},
 	}
 
 	index, err := loadGoFileIndex(root, "")
@@ -2594,25 +2575,10 @@ func TestSheinRetiredManagementImportsStayBlocked(t *testing.T) {
 func TestSheinOpenAIImportsStayAllowlisted(t *testing.T) {
 	root := filepath.Join("..", "internal", "shein")
 	allowedFiles := map[string]struct{}{
-		filepath.Clean(filepath.Join(root, "category", "ai_selector.go")):                                  {},
-		filepath.Clean(filepath.Join(root, "category", "manager.go")):                                      {},
-		filepath.Clean(filepath.Join(root, "content", "optimizer.go")):                                     {},
-		filepath.Clean(filepath.Join(root, "pipeline", "pipeline.go")):                                     {},
-		filepath.Clean(filepath.Join(root, "product", "attribute", "input.go")):                            {},
-		filepath.Clean(filepath.Join(root, "product", "attribute", "platform_value_fallback_llm.go")):      {},
-		filepath.Clean(filepath.Join(root, "product", "attribute", "platform_value_fallback_llm_test.go")): {},
-		filepath.Clean(filepath.Join(root, "product", "attribute", "sale", "batch_processor_test.go")):     {},
-		filepath.Clean(filepath.Join(root, "product", "attribute", "sale", "handler.go")):                  {},
-		filepath.Clean(filepath.Join(root, "product", "attribute", "sale", "single_processor.go")):         {},
-		filepath.Clean(filepath.Join(root, "product", "attribute", "sale", "single_processor_test.go")):    {},
-		filepath.Clean(filepath.Join(root, "product", "attribute", "selector.go")):                         {},
-		filepath.Clean(filepath.Join(root, "product", "build", "skc_list.go")):                             {},
-		filepath.Clean(filepath.Join(root, "product", "skc", "builder.go")):                                {},
-		filepath.Clean(filepath.Join(root, "product", "skc", "translation.go")):                            {},
-		filepath.Clean(filepath.Join(root, "product", "skc", "translation_test.go")):                       {},
-		filepath.Clean(filepath.Join(root, "product", "skc", "variant.go")):                                {},
-		filepath.Clean(filepath.Join(root, "submitprep", "localized_content.go")):                          {},
-		filepath.Clean(filepath.Join(root, "translate", "translate.go")):                                   {},
+		filepath.Clean(filepath.Join(root, "category", "manager.go")):             {},
+		filepath.Clean(filepath.Join(root, "content", "optimizer.go")):            {},
+		filepath.Clean(filepath.Join(root, "pipeline", "pipeline.go")):            {},
+		filepath.Clean(filepath.Join(root, "submitprep", "localized_content.go")): {},
 	}
 
 	index, err := loadGoFileIndex(root, "")

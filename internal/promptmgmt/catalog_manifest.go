@@ -75,11 +75,6 @@ var promptVariableGlossary = map[string]TemplateVariableDefinition{
 }
 
 var promptCatalogMetadata = map[string]promptMetadata{
-	prompt.KSheinAttributeSelectorSystem: {
-		Label:       "属性选择 / 系统提示词",
-		Description: "SHEIN 属性选择链路的系统提示词。",
-		Scopes:      tenantOnlyScopes,
-	},
 	prompt.KSheinCategorySelectorSelectCategorySystem: {
 		Label:       "类目选择 / 系统提示词",
 		Description: "SHEIN 类目选择阶段的系统提示词。",
@@ -184,11 +179,6 @@ var promptCatalogMetadata = map[string]promptMetadata{
 		Description: "SHEIN 销售属性值抽取提示词。",
 		Scopes:      tenantOnlyScopes,
 		Variables:   promptVars("AttributeName", "SourceDimension", "ProductTitle", "SourceValue"),
-	},
-	prompt.KSheinTranslationBatchOptimizeSystem: {
-		Label:       "翻译优化 / 系统提示词",
-		Description: "SHEIN 批量翻译优化系统提示词。",
-		Scopes:      tenantOnlyScopes,
 	},
 	prompt.KTemuAttributeMappingSystem: {
 		Label:       "属性映射 / 系统提示词",

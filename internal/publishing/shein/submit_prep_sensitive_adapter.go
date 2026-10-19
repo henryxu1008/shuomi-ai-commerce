@@ -5,7 +5,7 @@ import (
 
 	"task-processor/internal/listingadmin"
 	sheinproduct "task-processor/internal/shein/api/product"
-	sheinctx "task-processor/internal/shein/context"
+	"task-processor/internal/shein/content"
 	"task-processor/internal/shein/submitprep"
 )
 
@@ -18,7 +18,7 @@ func RetrySensitiveWordCleanup(ctx context.Context, product *sheinproduct.Produc
 }
 
 type sheinSensitiveWordSanitizer interface {
-	SanitizeDisplayTextWithContext(ctx *sheinctx.TaskContext, text string) string
+	SanitizeDisplayTextWithContext(ctx *content.CleanupContext, text string) string
 }
 
 func newSheinSensitiveWordSanitizer(ctx context.Context) sheinSensitiveWordSanitizer {

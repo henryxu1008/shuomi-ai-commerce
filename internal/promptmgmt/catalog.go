@@ -11,7 +11,6 @@ import (
 var templateVariablePattern = regexp.MustCompile(`\{\{\s*\.(\w+)\s*\}\}`)
 
 var promptTemplateCatalogKeys = []string{
-	prompt.KSheinAttributeSelectorSystem,
 	prompt.KSheinCategorySelectorSelectCategorySystem,
 	prompt.KSheinCategorySelectorSelectCategoryUser,
 	prompt.KSheinCategorySelectorExtractCoreItemSystem,
@@ -30,7 +29,6 @@ var promptTemplateCatalogKeys = []string{
 	prompt.KSheinSaleAttributeSourceDimension,
 	prompt.KSheinSaleAttributeValueBatchMapping,
 	prompt.KSheinSaleAttributePromptValueExtraction,
-	prompt.KSheinTranslationBatchOptimizeSystem,
 	prompt.KTemuAttributeMappingSystem,
 	prompt.KTemuContentRewriterSystem,
 	prompt.KTemuSkuVariantMappingSystem,

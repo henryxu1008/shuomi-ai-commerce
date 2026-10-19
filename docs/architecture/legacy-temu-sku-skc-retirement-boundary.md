@@ -1,5 +1,7 @@
 # 旧 TEMU SKU/SKC 构建链退休边界
 
+> 后续用户已确认 [#817 整链退休边界](legacy-shein-listing-closure-retirement-boundary.md) §5–§7。仅替代下文旧 SHEIN 同名 SKU/SKC 构建实现的保留描述；AI/SKU/spec、平台 API/DTO、共享规则及其余保留合同仍保留。 原调查与验证证据保持历史属性；不据其复活旧 owner，不授权运行或数据操作。
+
 > 后续窄替代：用户确认 #797 [图片编排退休边界](legacy-temu-image-orchestration-retirement-boundary.md) 后，仅其中七文件及专属 helper/alias/三个 AssetState 字段退出；本批保留的 ImageProcessor/ParallelImageProcessor、构建/填充/上传/vision 与平台合同不变，历史消费者和批准证据保留。
 
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。

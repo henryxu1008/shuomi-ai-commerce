@@ -12,7 +12,7 @@ import (
 )
 
 func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
-	for _, relative := range []string{"internal/temu/image", "internal/temu/handlerbase/types.go", "internal/temu/api/image", "prompts/temu/vision_detector.yaml"} {
+	for _, relative := range []string{"internal/temu/image", "internal/temu/handlerbase/types.go", "internal/temu/api/image", "prompts/temu/vision_detector.yaml", "prompts/shein/attribute_selector.yaml", "prompts/shein/attribute_value_fallback.yaml", "prompts/shein/translation.yaml"} {
 		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
 			t.Errorf("retired image artifact remains: %s (stat: %v)", relative, err)
 		}
@@ -32,6 +32,226 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		t.Errorf("retired TEMU task processor root remains: %v", rootProcessorFiles)
 	}
 	for _, relative := range []string{
+		"internal/shein/addresscopy/helpers.go",
+		"internal/shein/addresscopy/helpers_test.go",
+		"internal/shein/addresscopy/models.go",
+		"internal/shein/addresscopy/service.go",
+		"internal/shein/attribute.go",
+		"internal/shein/error_exports.go",
+		"internal/shein/product.go",
+		"internal/shein/sensitive_words_filter.go",
+		"internal/shein/task_reason.go",
+		"internal/shein/types.go",
+		"internal/shein/category/ai_selector.go",
+		"internal/shein/category/category_repo.go",
+		"internal/shein/category/tree.go",
+		"internal/shein/content/words_processor.go",
+		"internal/shein/context/attribute.go",
+		"internal/shein/context/context.go",
+		"internal/shein/context/context_test.go",
+		"internal/shein/context/sale_attribute_selection_state.go",
+		"internal/shein/languageconfig/languages.go",
+		"internal/shein/languageconfig/languages_test.go",
+		"internal/shein/managedclient/api_client_test.go",
+		"internal/shein/managedclient/bridge.go",
+		"internal/shein/managedclient/manager.go",
+		"internal/shein/managedclient/runtime_adapters.go",
+		"internal/shein/mapping/builder.go",
+		"internal/shein/mapping/builder_owner_test.go",
+		"internal/shein/mapping/handler.go",
+		"internal/shein/mapping/service.go",
+		"internal/shein/mapping/strategies.go",
+		"internal/shein/mapping/strategies_test.go",
+		"internal/shein/mapping/types.go",
+		"internal/shein/product/attribute/apparel_size_resolver.go",
+		"internal/shein/product/attribute/custom_processor.go",
+		"internal/shein/product/attribute/custom_processor_test.go",
+		"internal/shein/product/attribute/fill.go",
+		"internal/shein/product/attribute/importance.go",
+		"internal/shein/product/attribute/importance_test.go",
+		"internal/shein/product/attribute/input.go",
+		"internal/shein/product/attribute/mapper.go",
+		"internal/shein/product/attribute/mapper_runtime_input.go",
+		"internal/shein/product/attribute/mapper_test.go",
+		"internal/shein/product/attribute/matcher.go",
+		"internal/shein/product/attribute/matcher_test.go",
+		"internal/shein/product/attribute/platform_value_domain.go",
+		"internal/shein/product/attribute/platform_value_fallback.go",
+		"internal/shein/product/attribute/platform_value_fallback_llm.go",
+		"internal/shein/product/attribute/platform_value_fallback_llm_test.go",
+		"internal/shein/product/attribute/platform_value_resolver.go",
+		"internal/shein/product/attribute/prompt.go",
+		"internal/shein/product/attribute/selector.go",
+		"internal/shein/product/attribute/size_chart_resolver.go",
+		"internal/shein/product/attribute/size_rules.go",
+		"internal/shein/product/attribute/size_system.go",
+		"internal/shein/product/attribute/structured_size_resolver.go",
+		"internal/shein/product/attribute/task_context_sale_attribute_selection_test.go",
+		"internal/shein/product/attribute/template.go",
+		"internal/shein/product/attribute/types.go",
+		"internal/shein/product/attribute/utils.go",
+		"internal/shein/product/attribute/validate_repair.go",
+		"internal/shein/product/attribute/validate_repair_test.go",
+		"internal/shein/product/attribute/validator.go",
+		"internal/shein/product/attribute/sale/batch_processor.go",
+		"internal/shein/product/attribute/sale/batch_processor_test.go",
+		"internal/shein/product/attribute/sale/cache_consistency.go",
+		"internal/shein/product/attribute/sale/cache_consistency_test.go",
+		"internal/shein/product/attribute/sale/comparison.go",
+		"internal/shein/product/attribute/sale/context.go",
+		"internal/shein/product/attribute/sale/context_test.go",
+		"internal/shein/product/attribute/sale/debug.go",
+		"internal/shein/product/attribute/sale/file_saver.go",
+		"internal/shein/product/attribute/sale/filter.go",
+		"internal/shein/product/attribute/sale/gpt.go",
+		"internal/shein/product/attribute/sale/gpt_test.go",
+		"internal/shein/product/attribute/sale/handler.go",
+		"internal/shein/product/attribute/sale/json_parser.go",
+		"internal/shein/product/attribute/sale/json_parser_test.go",
+		"internal/shein/product/attribute/sale/metadata.go",
+		"internal/shein/product/attribute/sale/metadata_test.go",
+		"internal/shein/product/attribute/sale/preparation.go",
+		"internal/shein/product/attribute/sale/product_data.go",
+		"internal/shein/product/attribute/sale/prompt_generator.go",
+		"internal/shein/product/attribute/sale/request.go",
+		"internal/shein/product/attribute/sale/request_test.go",
+		"internal/shein/product/attribute/sale/sale_attribute_input.go",
+		"internal/shein/product/attribute/sale/sale_attribute_output.go",
+		"internal/shein/product/attribute/sale/single_processor.go",
+		"internal/shein/product/attribute/sale/single_processor_test.go",
+		"internal/shein/product/attribute/sale/smart_filter.go",
+		"internal/shein/product/attribute/sale/smart_filter_input.go",
+		"internal/shein/product/attribute/sale/smart_filter_test.go",
+		"internal/shein/product/attribute/sale/utils.go",
+		"internal/shein/product/attribute/sale/utils_test.go",
+		"internal/shein/product/attribute/sale/validation.go",
+		"internal/shein/product/attribute/sale/validation_test.go",
+		"internal/shein/product/attribute/sale/value_filter.go",
+		"internal/shein/product/attribute/sale/value_filter_test.go",
+		"internal/shein/product/attribute_repo.go",
+		"internal/shein/product/init_data.go",
+		"internal/shein/product/init_data_test.go",
+		"internal/shein/product/inventory_repo.go",
+		"internal/shein/product/product_manager.go",
+		"internal/shein/product/product_repo.go",
+		"internal/shein/product/result_merger.go",
+		"internal/shein/product/shelf_quota.go",
+		"internal/shein/product/shelf_quota_test.go",
+		"internal/shein/product/spu_limit.go",
+		"internal/shein/product/spu_record.go",
+		"internal/shein/product/spu_record_test.go",
+		"internal/shein/product/build/attribute_builder.go",
+		"internal/shein/product/build/attribute_builder_test.go",
+		"internal/shein/product/build/attribute_classifier.go",
+		"internal/shein/product/build/build_attribute.go",
+		"internal/shein/product/build/build_input.go",
+		"internal/shein/product/build/skc_list.go",
+		"internal/shein/product/build/spu.go",
+		"internal/shein/product/image/processor.go",
+		"internal/shein/product/image/validation.go",
+		"internal/shein/product/size/chart.go",
+		"internal/shein/product/size/chart_test.go",
+		"internal/shein/product/size/normalizer.go",
+		"internal/shein/product/size/normalizer_test.go",
+		"internal/shein/product/skc/attribute_strategy.go",
+		"internal/shein/product/skc/builder.go",
+		"internal/shein/product/skc/image.go",
+		"internal/shein/product/skc/selection_strategy.go",
+		"internal/shein/product/skc/selection_strategy_test.go",
+		"internal/shein/product/skc/skc_build_input.go",
+		"internal/shein/product/skc/skc_build_output.go",
+		"internal/shein/product/skc/translation.go",
+		"internal/shein/product/skc/translation_test.go",
+		"internal/shein/product/skc/validation.go",
+		"internal/shein/product/skc/validation_test.go",
+		"internal/shein/product/skc/variant.go",
+		"internal/shein/product/skc/variant_runtime_test.go",
+		"internal/shein/product/sku/builder.go",
+		"internal/shein/product/sku/creator.go",
+		"internal/shein/product/sku/generator.go",
+		"internal/shein/product/sku/image_fixer.go",
+		"internal/shein/product/sku/image_processor.go",
+		"internal/shein/product/sku/sku_runtime_input.go",
+		"internal/shein/product/sku/strategy.go",
+		"internal/shein/product/sku/strategy_test.go",
+		"internal/shein/product/sku/utils.go",
+		"internal/shein/product/sku/utils_test.go",
+		"internal/shein/product/variant/composite_matcher.go",
+		"internal/shein/product/variant/exact_matcher.go",
+		"internal/shein/product/variant/exact_matcher_test.go",
+		"internal/shein/product/variant/fuzzy_matcher.go",
+		"internal/shein/product/variant/match_helpers.go",
+		"internal/shein/product/variant/matcher.go",
+		"internal/shein/product/variant/matcher_helpers.go",
+		"internal/shein/productdata/fetch_and_cache.go",
+		"internal/shein/productdata/fetch_and_cache_variants.go",
+		"internal/shein/productdata/raw_json.go",
+		"internal/shein/productdata/raw_json_test.go",
+		"internal/shein/productdata/variant_data.go",
+		"internal/shein/productdata/variant_limit.go",
+		"internal/shein/productdata/variant_limit_test.go",
+		"internal/shein/publish/checker.go",
+		"internal/shein/publish/error_handler.go",
+		"internal/shein/publish/exists_check.go",
+		"internal/shein/publish/handler.go",
+		"internal/shein/publish/handler_test.go",
+		"internal/shein/publish/mapping_helper.go",
+		"internal/shein/publish/publish_input.go",
+		"internal/shein/publish/publish_input_test.go",
+		"internal/shein/publish/repository_helpers.go",
+		"internal/shein/publish/repository_helpers_test.go",
+		"internal/shein/publish/result.go",
+		"internal/shein/publish/result_test.go",
+		"internal/shein/publish/sale_attribute_policy.go",
+		"internal/shein/publish/saver.go",
+		"internal/shein/publish/validator.go",
+		"internal/shein/publish/validator_attributes.go",
+		"internal/shein/publish/validator_duplicate_test.go",
+		"internal/shein/publish/validator_test.go",
+		"internal/shein/publish/variant_success.go",
+		"internal/shein/siteconfig/sites.go",
+		"internal/shein/siteconfig/sites_test.go",
+		"internal/shein/store/region.go",
+		"internal/shein/store/region_test.go",
+		"internal/shein/store/site.go",
+		"internal/shein/store/site_test.go",
+		"internal/shein/store/store_id.go",
+		"internal/shein/store/store_id_test.go",
+		"internal/shein/store/store_info.go",
+		"internal/shein/store/store_info_test.go",
+		"internal/shein/store/supplier.go",
+		"internal/shein/store/warehouse.go",
+		"internal/shein/store/warehouse_repo.go",
+		"internal/shein/translate/translate.go",
+		"internal/shein/translate/translate_repo.go",
+		"internal/shein/translate/translate_test.go",
+		"internal/shein/validation/build_attribute.go",
+		"internal/shein/validation/build_attribute_test.go",
+		"internal/shein/validation/daily_limit.go",
+		"internal/shein/validation/daily_limit_test.go",
+		"internal/shein/validation/filter_rule.go",
+		"internal/shein/validation/filter_rule_test.go",
+		"internal/shein/validation/get_rule.go",
+		"internal/shein/validation/get_rule_test.go",
+		"internal/shein/validation/quantity.go",
+		"internal/shein/validation/quantity_test.go",
+		"internal/shein/validation/reapply_filter.go",
+		"internal/shein/validation/rule_checker.go",
+		"internal/sheinbridge/saleattribute/handler.go",
+		"internal/sheinbridge/saleattribute/handler_test.go",
+		"internal/shein/product",
+		"internal/shein/productdata",
+		"internal/shein/publish",
+		"internal/shein/mapping",
+		"internal/shein/validation",
+		"internal/shein/translate",
+		"internal/shein/addresscopy",
+		"internal/shein/managedclient",
+		"internal/shein/store",
+		"internal/shein/context",
+		"internal/shein/languageconfig",
+		"internal/shein/siteconfig",
+		"internal/sheinbridge/saleattribute",
 		"internal/listingkit/api", "internal/listingkit/httpapi", "internal/listingkit/core",
 		"internal/listingkit/temporal", "internal/listingkit/workflow", "internal/listingkit/workspace",
 		"internal/listingkit/sheinadapter",
@@ -338,7 +558,6 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			"func (r *PercentageSumRule) Fix(props []*models.PropertyItem, templateProp temutemplate.TemplateRespGoodsProperty) error",
 		},
 		"internal/temu/ai/content_rewriter.go": {"type AIContentRewriter struct", "func NewAIContentRewriterHandler("},
-		"internal/shein/product/build/spu.go":  {"type BuildSpuHandler struct", "func NewBuildSpuHandler("},
 		"internal/temu/api/client/client.go": {
 			"func NewAPIClient(", "func (c *APIClient) initializeMallID(",
 			"func (c *APIClient) GetMallID(", "func (c *APIClient) SetMallID(", ".UpdateStoreId(",
@@ -353,8 +572,6 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/listingadmin/gorm_store_api.go":   {"func NewGormStoreAPI(", "func (a gormStoreAPI) GetStore(", "func (a gormStoreAPI) UpdateStoreId(", "func (a gormStoreAPI) UpdateStoreStatus("},
 		"internal/listingadmin/store_repository.go": {"type GormStoreRepository struct", "func (r *GormStoreRepository) GetStore("},
 		"internal/storecenter/gorm_repository.go":   {"type GormStoreRepository struct"},
-		"internal/shein/store/store_info.go":        {"type StoreInfoHandler struct", "func NewStoreInfoHandler(", "func GetStoreCacheStats("},
-		"internal/shein/store/store_id.go":          {"type StoreIDHandler struct", "func NewStoreIDHandler(", "func GetInstanceID("},
 		"internal/amazon/pipeline/store_info.go":    {"type StoreInfoHandler struct", "func NewStoreInfoHandler("},
 		"internal/pkg/appenv/apputil.go":            {"func GetInstanceID("},
 		"internal/marketplace/temu/publishing/submission_validation_policy.go": {
@@ -410,29 +627,18 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		},
 		"internal/listingadmin/gorm_filter_rule_api.go":   {"func NewGormFilterRuleAPI(", ".ResolveFilterRules("},
 		"internal/listingadmin/filter_rule_repository.go": {"func (r *GormFilterRuleRepository) ResolveFilterRules("},
-		"internal/shein/validation/rule_checker.go":       {"productpolicy.RuleChecker", "productpolicy.NewRuleChecker("},
-		"internal/shein/validation/filter_rule.go":        {"NewFilterRuleChecker(", ".ToFilterRule(", ".CheckPriceRange(", ".CheckInventory("},
-		"internal/shein/validation/reapply_filter.go":     {"NewFilterRuleChecker(", ".ToFilterRule(", ".CheckPriceRange(", ".CheckInventory("},
 		"internal/temu/sku/ai_mapping_utils_helper.go": {
 			"func (vp *SkuVariantProcessor) getProductDimensions(", "func (vp *SkuVariantProcessor) getItemWeight(",
 			"func (vp *SkuVariantProcessor) getProductDetailField(", "func (vp *SkuVariantProcessor) marshalWithoutHTMLEscape(",
 			"func (vp *SkuVariantProcessor) buildAIVariant(",
 		},
 		"internal/temu/sku/ai_mapping_single_processor.go": {"vp.getProductDimensions(", "vp.getItemWeight(", "vp.buildAIVariant(", "property.NewAttributeExtractionManager(vp.logger)"},
-		"internal/shein/productdata/variant_data.go": {
-			"type VariantJsonDataHandler struct", "func NewVariantJsonDataHandler(", "func GetVariantByAsinFromVariants(",
-		},
-		"internal/shein/productdata/fetch_and_cache_variants.go": {
-			"type FetchAndCacheVariantsHandler struct", "h.reader.FetchVariants(", "h.cache.CacheVariants(",
-		},
-		"internal/shein/publish/mapping_helper.go": {"productdata.GetVariantByAsinFromVariants("},
 		"internal/listingadmin/management_api_types.go": {
 			"type ProductImportMappingAPI interface", "CheckProductExists(",
 			"type FilterRuleAPI interface", "type FilterRuleReqDTO struct", "type FilterRuleRespDTO struct", "ToFilterRule(",
 			"type StoreAPI interface", "type StoreRespDTO struct", "type StoreIdUpdateReqDTO struct", "type StoreStatusUpdateReqDTO struct",
 			"type ProfitRuleAPI interface", "type ProfitRuleReqDTO struct", "type ProfitRuleRespDTO struct",
 		},
-		"internal/shein/publish/exists_check.go": {"type ProductExistsCheckHandler struct", "func NewProductExistsCheckHandler("},
 		"internal/temu/api/inventory/inventory.go": {
 			"type RelistRequest struct", "type RelistResponse struct", "type SearchRequest struct", "type SearchResponse struct",
 			"func (a *API) Relist(", "func (a *API) SearchOffline(",
@@ -458,6 +664,15 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			"GetDefaultPricingRules(originCostPrice float64, rules *[]listingadmin.PricingRuleRespDTO) *listingadmin.PricingRuleRespDTO",
 			"CalculateMinAcceptablePrice(originCostPrice float64, rule *listingadmin.PricingRuleRespDTO) float64",
 		},
+		"internal/shein/models.go":                                              {"type AmazonMonitorData struct", "ASIN", "LastCheckTime", "json:\"asin\"", "json:\"last_check_time\""},
+		"internal/shein/productsync/product_sync_types.go":                      {"type EnrichedSkuInfo struct", "type EnrichedSkcInfo struct", "AmazonMonitorData"},
+		"internal/marketplace/shein/publishing/attribute_value_match_policy.go": {"func MatchPlatformAttributeValue("},
+		"internal/marketplace/shein/publishing/site_policy.go":                  {"func DefaultSiteListByRegion("},
+		"internal/shein/content/cleanup_context.go":                             {"type CleanupContext struct", "type ValidationResult struct", "type SKCValidationMessages struct", "SourceBrand", "other_language_message_map", "otherLanguageMessageMap"},
+		"internal/publishing/shein/attribute_value_matcher.go":                  {"sheinmarketpub.MatchPlatformAttributeValue(", "content.SanitizeForSheinAttribute(", "\"attribute_value_legacy_matcher\""},
+		"internal/publishing/shein/submit_site_sku_policy.go":                   {"sheinmarketpub.DefaultSiteListByRegion("},
+		"internal/publishing/shein/sensitive_content_sanitizer.go":              {"content.CleanupContext", "ensureSanitizerContext", "authorizedbrand.FromContext"},
+		"internal/shein/submitprep/sensitive_words.go":                          {"sheincontent.CleanupContext", "sheincontent.ValidationResult", "applyAuthorizedBrandFromRuntime"},
 	} {
 		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
 		if err != nil {
@@ -923,7 +1138,6 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 		"internal/shein/pricing/price_manager.go", "internal/shein/pricing/pricing_repo.go",
 		"internal/shein/pricing/calculator.go", "internal/shein/pricing/calculator_test.go",
 		"internal/shein/pricing/cost_profit_calculator.go", "internal/shein/pricing/cost_profit_calculator_test.go",
-		"internal/shein/product/product_repo.go",
 		"internal/temu/pricing/interfaces.go", "internal/temu/pricing/pricing_rule_calculator.go",
 		"internal/temu/pricing/pricing_rule_calculator_test.go",
 		"internal/marketplace/temu/publishing/pricing_policy.go", "internal/marketplace/temu/publishing/pricing_policy_test.go",
@@ -959,7 +1173,7 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 				t.Fatalf("go list current command: %v\n%s", err, output)
 			}
 			for _, dependency := range strings.Fields(string(output)) {
-				for _, retired := range []string{"task-processor/internal/shein/inventory", "task-processor/internal/temu/sync", "task-processor/internal/temu/bulkrelist", "task-processor/internal/temu/store", "task-processor/internal/app/bootstrap", "task-processor/internal/app/consumer", "task-processor/internal/app/runner", "task-processor/internal/app/scheduler", "task-processor/internal/app/runtime/listingcontrol", "task-processor/internal/app/runtime/sheinplatformrecovery", "task-processor/internal/listingcontrol", "task-processor/internal/app/task", "task-processor/internal/app/taskstatus", "task-processor/internal/processor", "task-processor/internal/app/crawler/distributed", "task-processor/internal/listingruntime/local", "task-processor/internal/platforms", "task-processor/internal/listingkit", "task-processor/internal/tenantbridge", "task-processor/internal/compatibility", "task-processor/internal/sourceaccount", "task-processor/internal/integration/persistence/sourceaccount/ownershipmigration"} {
+				for _, retired := range []string{"task-processor/internal/shein/product", "task-processor/internal/shein/productdata", "task-processor/internal/shein/publish", "task-processor/internal/shein/mapping", "task-processor/internal/shein/validation", "task-processor/internal/shein/translate", "task-processor/internal/shein/addresscopy", "task-processor/internal/shein/managedclient", "task-processor/internal/shein/store", "task-processor/internal/shein/context", "task-processor/internal/shein/languageconfig", "task-processor/internal/shein/siteconfig", "task-processor/internal/sheinbridge/saleattribute", "task-processor/internal/shein/inventory", "task-processor/internal/temu/sync", "task-processor/internal/temu/bulkrelist", "task-processor/internal/temu/store", "task-processor/internal/app/bootstrap", "task-processor/internal/app/consumer", "task-processor/internal/app/runner", "task-processor/internal/app/scheduler", "task-processor/internal/app/runtime/listingcontrol", "task-processor/internal/app/runtime/sheinplatformrecovery", "task-processor/internal/listingcontrol", "task-processor/internal/app/task", "task-processor/internal/app/taskstatus", "task-processor/internal/processor", "task-processor/internal/app/crawler/distributed", "task-processor/internal/listingruntime/local", "task-processor/internal/platforms", "task-processor/internal/listingkit", "task-processor/internal/tenantbridge", "task-processor/internal/compatibility", "task-processor/internal/sourceaccount", "task-processor/internal/integration/persistence/sourceaccount/ownershipmigration"} {
 					if dependency == retired || strings.HasPrefix(dependency, retired+"/") {
 						t.Errorf("%s still compiles retired business dependency %s", command, dependency)
 					}
@@ -1190,7 +1404,7 @@ func TestTemuImageAPIAndVisionResourcesAreRetired(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, retired := range []string{"KTemuVisionDetectorDetect", "temu.vision_detector.detect"} {
+		for _, retired := range []string{"KTemuVisionDetectorDetect", "temu.vision_detector.detect", "KSheinAttributeSelectorSystem", "KSheinAttributeValueFallbackSystem", "KSheinAttributeValueFallbackUser", "KSheinTranslationBatchOptimizeSystem", "shein.attribute_selector.system", "shein.attribute_value_fallback.system", "shein.attribute_value_fallback.user", "shein.translation.batch_optimize_system"} {
 			if strings.Contains(string(content), retired) {
 				t.Errorf("%s retains retired vision resource %s", relative, retired)
 			}
@@ -1303,4 +1517,84 @@ func retiredSKUConstructionViolations(file *ast.File) []string {
 		}
 	}
 	return violations
+}
+
+func TestSheinListingMixedDeclarationsAreRetired(t *testing.T) {
+	for relative, retired := range map[string][]string{
+		"internal/shein":          {"ImageUploadResult", "AttributeImportance", "EnrichedSkuInfo", "EnrichedSkcInfo", "InventoryInfo", "SkuInfo", "MappingInfo", "CostPriceInfo", "Task", "TaskContext", "StepHandler", "VariantFilterInfo", "PreValidResult", "SkcErrorMessage", "NewTaskContext", "AttributeValue", "AttributePriorityConfig", "AttributeValueIDManager", "ResultSaleAttribute", "VariantInfo", "Variant", "AttributeImportanceCalculator", "AttributeMetadata", "AttributeConfig", "ImportanceRules", "ResultAttribute", "SaleAttribute", "AttributeData", "AttributeImportanceResult", "GenerationRequest", "AttributeNameMapping", "ProductVariantData", "GenerateAttributeValue", "GenerateAttribute", "BuildAttributeInfo", "EnhancedGenerateAttribute", "AttributeStrategy", "CustomAttributeResult", "NewAttributeValueIDManager", "NewAttributeImportanceCalculator", "NewAttributeImportanceCalculatorWithRules", "RetryableError", "CookieLoadError", "FilteredError", "TaskHandledError", "NewRetryableError", "NewNonRetryableError", "NewFilteredError", "NewTaskHandledError", "AsTaskHandledError", "IsFilteredError", "IsTaskHandledError", "IsRetryableError", "IsAuthenticationExpiredError", "NewCookieLoadError", "IsCookieLoadError", "SheinProductResponse", "SkcInfo", "ParseTime", "SKUCreationParams", "SKCCreationParams", "SKUBuildRequest", "SensitiveWordsFilter", "NewSensitiveWordsFilterWithDefaults", "NewSensitiveWordsFilter", "initHardcodedWords", "FormatTaskReasonMessage", "FormatTaskStageMessage"},
+		"internal/shein/category": {"AICategorySelectorHandler", "NewAICategorySelectorHandler", "CategoryAPI", "NewCategoryAPI", "GetCategoryTreeHandler", "NewGetCategoryTreeHandler"},
+		"internal/shein/content":  {"SensitiveWordsFilter", "SensitiveWordsMode", "ModeBlock", "ModeClean", "ModeWarn", "SensitiveWordsProcessor", "NewSensitiveWordsProcessor", "NewSensitiveWordsBlockHandler", "NewSensitiveWordsCleanHandler", "NewSensitiveWordsWarnHandler"},
+		"internal/shein/aicache":  {"TypeAttribute", "TypeSaleAttr", "TypeSKCTranslate", "TypeAttrValueFallback"},
+	} {
+		paths, err := filepath.Glob(filepath.Join("..", filepath.FromSlash(relative), "*.go"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(paths) == 0 {
+			t.Fatalf("retained mixed package is absent: %s", relative)
+		}
+		for _, path := range paths {
+			if strings.HasSuffix(path, "_test.go") {
+				continue
+			}
+			file, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, declaration := range file.Decls {
+				var names []*ast.Ident
+				switch declaration := declaration.(type) {
+				case *ast.FuncDecl:
+					if declaration.Recv == nil || (relative == "internal/shein/category" && declaration.Name.Name == "GetCategoryIDListWithTree") {
+						names = append(names, declaration.Name)
+					}
+				case *ast.GenDecl:
+					for _, spec := range declaration.Specs {
+						switch spec := spec.(type) {
+						case *ast.TypeSpec:
+							names = append(names, spec.Name)
+						case *ast.ValueSpec:
+							names = append(names, spec.Names...)
+						}
+					}
+				}
+				for _, name := range names {
+					for _, symbol := range retired {
+						if name.Name == symbol {
+							t.Errorf("%s recreates retired SHEIN declaration %s", path, symbol)
+						}
+					}
+					if relative == "internal/shein/category" && name.Name == "GetCategoryIDListWithTree" {
+						t.Errorf("%s retains old category Task method", path)
+					}
+				}
+			}
+		}
+	}
+	file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", "internal", "shein", "content", "cleanup_context.go"), nil, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ast.Inspect(file, func(node ast.Node) bool {
+		typ, ok := node.(*ast.TypeSpec)
+		if !ok || typ.Name.Name != "CleanupContext" {
+			return true
+		}
+		shape, ok := typ.Type.(*ast.StructType)
+		if !ok {
+			t.Fatal("CleanupContext must be a narrow value struct")
+		}
+		expected := map[string]bool{"Context": true, "AuthorizedBrand": true, "SourceBrand": true, "ProductData": true}
+		for _, field := range shape.Fields.List {
+			if len(field.Names) != 1 || !expected[field.Names[0].Name] {
+				t.Errorf("CleanupContext must not embed or add old Task state: %v", field.Names)
+				continue
+			}
+			delete(expected, field.Names[0].Name)
+		}
+		if len(expected) != 0 {
+			t.Errorf("missing cleanup inputs: %v", expected)
+		}
+		return false
+	})
 }

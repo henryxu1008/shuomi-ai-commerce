@@ -5,7 +5,6 @@ import (
 
 	sheinmarketpub "task-processor/internal/marketplace/shein/publishing"
 	sheinproduct "task-processor/internal/shein/api/product"
-	sheinstore "task-processor/internal/shein/store"
 )
 
 const (
@@ -114,7 +113,7 @@ func submitDefaultSites(settings SubmitPayloadSettings) []sheinproduct.SiteInfo 
 	if region == "" {
 		region = "US"
 	}
-	return sheinstore.GetSiteListByRegion(region)
+	return sheinmarketpub.DefaultSiteListByRegion(region)
 }
 
 func ensureSubmitStockInfo(sku *sheinproduct.SKU, preferredWarehouseCode string) {
