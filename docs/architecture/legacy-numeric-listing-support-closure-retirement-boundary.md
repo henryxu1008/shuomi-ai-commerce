@@ -10,9 +10,9 @@
 
 使用者是维护内部试用、当前采集、商品/图像/平台草稿、Store 观察及独立 SHEIN 登录 worker 的操作者。交付结果是：三条旧平台数字刊登执行链退出后，其无当前消费者的共享管理持久化、Task RPC、Workspace 转发层、数字 Task/状态/重试及专属指标/hook 一次收口。当前用户继续沿原入口操作，维护本身不作为内部试用的新前置，不宣称新增发布能力或完成父 Issue 全部目标。
 
-这是同一个旧数字刊登架构的剩余支撑闭包，不按仓库、DTO、wrapper、目录、文件数或实现提交机械拆 PR。闭包在真实当前消费者处停止：Store、敏感词、话题、定价值规则、两种 SHEIN 属性、当前 marketplace workspace/validator、平台 API、来源采集、Store observations 和独立登录 worker 不能被一起删除。
+这是同一个旧数字刊登架构的剩余支撑闭包，不按仓库、DTO、wrapper、目录、文件数或实现提交机械拆 PR。闭包在真实当前消费者处停止：Store、敏感词、话题、定价值规则、两种 SHEIN 属性、离线 validator 实际使用的 marketplace readiness 规则、平台 API、来源采集、Store observations 和独立登录 worker 不能被一起删除。marketplace workspace 的旧编辑/修复/历史/Task 投影同属闭包，不能因包内仍有 validator 消费者而全包保留。
 
-本批拟整退 **119 个 tracked Go 文件（84 生产 / 35 测试，基线生产 6041 行）**，另精确清理四个 mixed 生产文件和一个 mixed 测试文件。没有整退的非 Go 运行工件。完整清单见附录 A；生产文件数/行数命中风险提示线，因此先形成独立设计，不通过拆批规避准入。
+本批拟整退 **200 个 tracked Go 文件（131 生产 / 69 测试，基线生产 13996 行）**，另精确清理七个 mixed 生产文件和三个 mixed 测试文件。没有整退的非 Go 运行工件。完整清单见附录 A；生产文件数/行数命中风险提示线，因此先形成独立设计，不通过拆批规避准入。
 
 非目标：修复或重启旧数字刊登、续跑旧 Task、保留兼容 shell、建替代管理服务/Task RPC/状态机/指标平台/迁移或验收框架、移动旧表/数据、接管旧 owner、扩张官方平台或 AI 能力、改运行装配/部署/CI/workflow/依赖/保护。不访问实例、DB、Redis、队列、Profile、凭据、平台、模型或历史 Prompt 覆盖记录。
 
@@ -32,7 +32,7 @@ Threat Model 仅覆盖误删共享消费者或有效安全检查、把代码退�
 
 ## 3. 实际消费者、调用路径与根因
 
-调查覆盖 tracked Go imports/限定名、构造器与 schema 方法调用、共享 helper 和原守卫；`go list ./cmd/...` 为 **31 个命令**。`go list -deps ./cmd/...` 仍包含 listingadmin/listingruntime 及当前 `app/worker/imageagent`，但不含 taskrpcapi、workspace/shein、core/metrics 或 app/worker 根包。命令元数据不执行 main/constructor，也不证明运行实例或外部调用方不存在。
+调查覆盖 tracked Go imports/限定名、构造器与 schema 方法调用、共享 helper 和原守卫；最终以标准Go AST解析全部 **4158 个 tracked Go 文件**，覆盖单行/分组/alias import，避免单纯文本限定名扫描漏掉编译边。`go list ./cmd/...` 为 **31 个命令**。`go list -deps ./cmd/...` 仍包含 listingadmin/listingruntime 及当前 `app/worker/imageagent`，但不含 taskrpcapi、workspace/shein、core/metrics 或 app/worker 根包。命令元数据不执行 main/constructor，也不证明运行实例或外部调用方不存在。
 
 | contract → implementation → injection → consumer | 当前证据与根因 | 决定 |
 | --- | --- | --- |
@@ -41,11 +41,11 @@ Threat Model 仅覆盖误删共享消费者或有效安全检查、把代码退�
 | listingadmin.SensitiveWord/GenerationTopic* → shein/submitprep 与 publishing/shein | 当前敏感词清理和话题策略/覆盖仍消费 repository/DTO/owner 上下文 | 全部原样保留；schema/owner/tenant/查询顺序与当前语义不变 |
 | listingruntime → pricing、SHEIN pricing/activity/authorizedbrand/productsync | OperationStrategy、PricingRule、StoreInfo、ProductImportMapping 四种值合同有真实消费者；另五种声明没有消费者 | 保留四种合同的全部字段/类型/方法；只退五种孤立声明，不搬定价规则或压缩保留字段 |
 | Task RPC DTO/Client → localTaskRPCClient/handler → BuildModule/HTTP module | 包外生产 importer/注册均为零；status 已固定返回 retirement unavailable，queue-stats/health 只剩未装配表面 | 六文件整退，连同三条 `/api/v1/management/tasks/...` 只读路由，不创建新的状态/队列/BusinessTask facade |
-| workspace/shein → marketplace/shein/workspace/publishing | 45 文件是 alias/forwarder 及自身重复测试，没有包外生产 importer | 整退旧 wrapper；保留 marketplace 下当前实现及 validator 消费者，不为包装层改当前规则 |
-| model.Task/TaskStatus/RetryDecision → app/worker.TaskJobHandler + core/metrics | Task hook 无构造/包外 importer；core/metrics 无生产 importer；重试函数只剩自身 fixture | 六个 Task 文件、一个 hook 和两个指标文件整退；model.amazon_product 与通用 workerpool/当前业务任务/Temporal 不动 |
+| workspace/shein → marketplace/shein/workspace/publishing | 45 文件是 alias/forwarder 及自身测试，没有包外生产 importer；删除后 marketplace workspace 的唯一包外生产消费者是离线 validator | wrapper 与失去最后消费者的80个 marketplace编辑/修复/历史/Task文件同批整退；保留 validator 的11生产/10测试文件闭包，mixed按§5.2收口，不新增包装层 |
+| model.Task/TaskStatus/RetryDecision → app/worker.TaskJobHandler + core/metrics + sherr.TaskHandledError | Task hook无构造/包外importer；core/metrics无生产importer；重试函数只剩自身fixture；handled_errors.go仍形成同包编译边，但该Task错误无创建/断言消费者 | 六个Task文件、一个hook、两个指标和handled_errors.go整退；sherr当前Retryable/NonRetryable及authorizedbrand消费者、model.amazon_product、通用workerpool/当前BusinessTask/Temporal不动 |
 | import_task_owner / DTO 值 helper / numeric helper / ensureTextColumn | store owner 锁 helper 只供本批 product-data/mapping；三项 DTO 值 helper 只供本批 facade；numeric helper 只供本批模型；ensureTextColumn 只供旧 operation strategy schema | 同闭包退休，不制造新 helper owner 或原 Service wrapper；其余 owner/schema/paging helper 保留 |
 
-根因是“同包仍被当前代码 import”或“历史上作为共享合同保留”被误当成所有内部管理链仍有当前消费者的证据。只删顶层执行器会留下可再次误装配的旧仓库/Task shell；反向整删 listingadmin/listingruntime 又会破坏 worker 和当前内容/规则能力。本批按实际声明及注入边分界，一次完成余下无消费者支撑图。
+根因是“同包仍被当前代码 import”或“历史上作为共享合同保留”被误当成所有内部管理链仍有当前消费者的证据。只删顶层执行器或 Workspace wrapper 会留下可再次误装配的旧仓库/Task/编辑/修复图；反向整删 listingadmin/listingruntime/marketplace workspace 又会破坏 worker 和当前内容/规则能力。本批按实际声明及注入边分界，一次完成余下无消费者支撑图。#821 当前58文件差异无本闭包重叠，原owner保持。
 
 ## 4. 持久化与平台副作用 owner
 
@@ -70,10 +70,12 @@ Threat Model 仅覆盖误删共享消费者或有效安全检查、把代码退�
 | listingadmin 专属补充 | 14 / 9 / 5 | 七个 GORM facade/fixture，import_task_owner 两文件，numeric_helpers/dto_value_helpers/rule_status，owner_scoped_batch_test 和失去全部调用的 owner_test_helpers_test |
 | internal/taskrpcapi | 6 / 4 / 2 | DTO/Client/local status adapter/handler/module/两 fixture |
 | internal/workspace/shein | 45 / 35 / 10 | 所有旧 alias/forwarder/自身 fixture/doc，不涉及 marketplace 下同名 workspace |
+| internal/marketplace/shein/workspace 精确子集 | 80 / 46 / 34 | editor/inspection/preview/repair/revision/history/Task队列等旧投影及专属fixture；保留11生产/10测试规则闭包与§5.2准确声明 |
 | internal/model 精确六文件 | 6 / 3 / 3 | task、task_retry、task_status 及对应测试；amazon_product.go 保留 |
+| internal/shein/sherr/handled_errors.go | 1 / 1 / 0 | TaskHandledError、TargetStatus/ErrorMessage与New/As/IsTaskHandledError整退；errors_test.go已无此类型fixture，整文件保留 |
 | internal/core/metrics | 2 / 2 / 0 | task_metrics.go、shein_metrics.go；platform workerpool Metrics 保留 |
 | internal/app/worker/job_handler.go | 1 / 1 / 0 | TaskJobHandler 与完成通知/Task JSON hook；**不删 app/worker/imageagent** |
-| 合计 | **119 / 84 / 35** | 附录 A 精确文件清单；不按泛名或整个 shared/core/app/model 根删除 |
+| 合计 | **200 / 131 / 69** | 附录 A 精确文件清单；不按泛名或整个 shared/core/app/model 根删除 |
 
 ### 5.2 mixed 精确删除
 
@@ -84,6 +86,10 @@ Threat Model 仅覆盖误删共享消费者或有效安全检查、把代码退�
 | listingruntime/types.go | StorePauseStatusDetail、ProductImportMappingUpsert、StoreService 三声明 | StoreInfo、ProductImportMapping **原完整字段/tag/类型**，含历史命名字段，不把字段清理混入此次退休 |
 | listingruntime/rules.go | FilterRule、ProfitRule、FilterRule.ToFilterRule；清失去使用的 productpolicy import | PricingRule 原完整声明；operation_strategy.go 与 OperationStrategy.IsEnabled 全部不动 |
 | listingadmin/owner_scoped_repository_test.go | 只退 TestCreateCategoryRejectsOwnerlessWrite、TestCreateFilterRuleRejectsOwnerlessWrite、TestCreateOperationStrategyRejectsOwnerlessWrite、TestCreatePricingRuleRejectsOwnerlessWrite、TestCreateProfitRuleRejectsOwnerlessWrite 五旧模型 fixture | Store 两项、GenerationTopicPolicy/Override、SensitiveWord 的拒绝空 owner 断言、两个共享 SQLite/assert helper及原错误/零写语义 |
+| marketplace/shein/workspace/helpers.go | filterNonEmptyStrings、normalizeText 及失去使用的strings import | uniqueStrings、firstNonEmpty 原值规则，不加trim/normalize或改变去重/顺序 |
+| marketplace/shein/workspace/state.go | IsSaleAttributeResolved、hasResolvedSaleAttributeDraft | AutoReviewNotes、FilterManualReviewNotes、IsCategoryResolved、IsAttributeResolved，供现用模板与人工备注检查 |
+| marketplace/shein/workspace/readiness.go | SubmitChecklist/ChecklistGroupItem两类型；BuildSubmitChecklist、ChecklistItemCount、SubmitChecklistGroupForKey、FindLabels、FindKeys、CloneReadinessItems、ToActionItems、findReadinessItem、JoinReadinessLabels 九函数及strings import | Guidance/ReadinessCheckSpec/ReadinessTaxonomy/SubmitReadiness/ReadinessItem/ReadinessCheck六类型与BuildSubmitReadiness完整实现，原状态、taxonomy、复制/顺序/JSON合同不变 |
+| marketplace/shein/workspace/state_test.go、readiness_test.go | state仅退TestBuildEditorDirtyHintsCollectsUniqueFields、TestIsSaleAttributeResolvedRequiresResolvedDraftValues；readiness首个TestBuildSubmitReadinessAndChecklist仅退checklist部分/对应fixture | 原人工备注过滤断言；readiness原blocking/warning/ready/复制及taxonomy断言，必要时仅重命名首测试以表达仍测的行为；不删整个文件 |
 
 management_api_types 的29个退休 type：
 
@@ -107,13 +113,36 @@ ImageDownloader ImageInfo OperationStrategyAPI OperationStrategyDTO
 | listingadmin Store/SensitiveWord/GenerationTopic 全文件族，gorm_store_api | worker runtime/bootstrap、sheinlogin/managed、TEMU API、当前 submitprep/publishing；原表、schema、数字 tenant/owner/角色/错误/Store ID 同步保留 |
 | listingadmin access_scope、owner_constraint、repo_paging、schema 其余行为与有效测试 | 上述 retained repo 的身份上下文、owner/tenant、分页/约束/错误底线；不放宽测试开关或请求权限 |
 | listingruntime 四种有效值类型 | OperationStrategy/PricingRule/StoreInfo/ProductImportMapping；保留全部字段/方法及其真实 consumers，非整包退休 |
-| marketplace/shein/workspace、validator、publishing；publishing/shein | 当前规则、readiness/来源/图片/模板/草稿等现有 owner；45文件转发层不再保留，不把当前 workspace 实现作为旧产品导航复活 |
+| marketplace/shein/workspace 的11生产/10测试文件，validator、marketplace publishing与publishing/shein | 保留 §5.4 真实readiness规则依赖；旧编辑/修复/回滚/历史/Task投影同批退出，不保留孤立编排，也不改变当前Product/CompletionDraft自己的编辑与历史能力 |
 | 当前采集/图像/Reader/Cache/Mapping | sourceproduct 的 RawJsonDataClient 是其自有输入，不依赖本批 listingadmin.RawJsonDataAPI；crawler/fetcher、model.Product、来源证据与通用数据/图像能力不动 |
 | 平台 API/DTO/规则、SHEIN 两种属性/AmazonMonitorData、PriceManager/PriceCalculator 与共享 pricing | 全部保持原 owner、类型身份与语义，不因管理库退出删除纯规则或改价格默认行为 |
 | Store current application/observations、独立 SHEIN 登录 worker/Store 同步 | 当前 Organization/Store 与独立数字 worker 边界均保持，不把二者混成单一身份或新增桥接 |
 | core/config/logger、platform/logging/workerpool、app/worker/imageagent、当前 BusinessTask/Agent/Temporal/Submission | 只删旧 core/metrics 和根 Task hook；基础层、当前观测、资源/AI 计量/恢复及用户任务不动 |
+| shein/sherr 的auth_errors/classification/cookie_errors/filtered_errors/retryable_errors/errors_test | 仅handled_errors.go退出；其余错误/分类与全部原fixture保留，authorizedbrand的当前错误/重试语义不变，不把旧Task完成状态改成新错误协议 |
 
 Legacy decision: **RETIRE**。Reusable behavior：本轮无须新 EXTRACT；实际有效行为与合同已在 §5.3 原 owner 保留，wrapper 重复测试不生成新实现。Current owner：上述当前 Domain/Capability/persistence 与独立 worker 原 owner。Cutover/deletion condition：用户确认、适用独立设计检查与 Issue Ready 后，原防复活 RED→完整源码/mixed 删除→保留回归 GREEN→准确实现 CI/最终独立检查；无运行迁移或清理。
+
+### 5.4 validator 的完整保留闭包
+
+当前 `marketplace/shein/validator.evaluatePackage` 实际调用 BuildPackageTemplateValidation、BuildSubmitTemplateReadinessChecks、BuildSubmitPayloadReadinessChecks、BuildSubmitPayloadValidationReadinessChecks、BuildSubmitReadiness 及其输入/结果/Guidance类型。其传递依赖只保留下列文件，另按§5.2移除无消费者声明：
+
+```text
+helpers.go
+package_template_validation.go
+readiness.go
+readiness_taxonomy.go
+source_facts.go
+state.go
+submit_payload_readiness_checks.go
+submit_payload_validation_readiness_checks.go
+submit_readiness_check.go
+submit_readiness_review_checks.go
+submit_template_readiness_checks.go
+```
+
+以validator九个实际selector为根，对生产Go AST声明/identifier闭包逐项核对，结果为上述11文件的30个声明；其余声明不因包级可达而保留。同目录保留10测试：package_template_validation_test、readiness_test、readiness_taxonomy_test、source_facts_test、state_test、submit_payload_readiness_checks_test、submit_payload_validation_readiness_checks_test、submit_readiness_check_test、submit_readiness_review_checks_test、submit_template_readiness_checks_test（均.go）。原fixture helper位于这些保留文件内。validator两种输入合同、Snapshot/error、纯离线/无副作用保证和 **RuleVersion `shein.offline_package.v1.1`** 保持；本批不改实际被调用的任何值规则，因此不借退休调整版本、返回状态/顺序、code/path/message或阻塞分类。
+
+原 Task/Workspace editor/revision/store resolution/freshness/repair 的 fixture 不成为当前规则 authority；它们只随无消费者编排退休。当前 validator、publishing 的类目/属性/图片/SKU/来源/价格等规则及上述有效断言仍运行，不从旧 shell 复制一套新规则。
 
 ## 6. 实施与验证
 
@@ -131,8 +160,8 @@ Legacy decision: **RETIRE**。Reusable behavior：本轮无须新 EXTRACT；实�
 
 | 原位置 | 实施处置 | 不能改变 |
 | --- | --- | --- |
-| 35个整退 fixture / §5.2 五个 mixed test | 只退退出模型、旧 wrapper、Task/status/retry/RPC/批量持久化形状；当前 Store/SensitiveWord/Topic、身份/owner/tenant/事务/约束错误测试保留 | 不把旧安全测试“全保留”变成复活仓库，也不因旧 repo 退休删仍有效 owner 的检查 |
-| tests/listingkit_backend_retirement_test.go | absence/import 原 guard 增加四个精确包（taskrpcapi、workspace/shein、core/metrics、app/worker 根文件）与附录文件/声明/路由；原 retained-token/file 表仅移本批退出项；StoreAPI/gorm_store/schema其余、四值合同/平台/worker 与所有既有 absence 保持 | 不禁 app/worker 子树、model 全包、listingadmin/listingruntime 全包、marketplace workspace，不 skip 或留空 stub |
+| 69个整退 fixture / §5.2 mixed tests | 只退退出模型、旧 wrapper及无消费者编辑/修复/历史、Task/status/retry/RPC/批量持久化形状；当前Store/SensitiveWord/Topic、身份/owner/tenant/事务/约束错误及§5.4 validator有效测试保留 | 不把旧安全测试“全保留”变成复活仓库，也不因旧repo/投影退休删仍有效owner的检查 |
+| tests/listingkit_backend_retirement_test.go | absence/import原guard增加三个整退包（taskrpcapi、workspace/shein、core/metrics）、app/worker根文件及附录其余文件/声明/路由；mixed marketplace只禁止退出声明/文件、保持§5.4真实consumer闭包；原retained-token/file表仅移本批退出项 | 不禁 app/worker 子树、model 全包、listingadmin/listingruntime 全包、marketplace workspace，不skip或留空stub；StoreAPI/gorm_store/schema其余、四值合同/平台/worker及既有absence保持 |
 | tests/import_boundaries_test.go 原 Task RPC 三检查 | TestStateAndTaskRPCUseManagementAPIPortAliases、TestTaskRPCAPIRetiredManagementImportsStayBlocked、TestTaskRPCAPIRetiredActionRoutesStayRetired 从“读取旧包证明有限用法”改为“准确旧包/模块/三条路由缺席及 import 禁入” | 读取/parse 错误仍 fail；扫描改用保留祖先的原 loader，并精确匹配子树，不全局忽略 ENOENT；原 app route-helper/old action/management/平台禁令不放宽 |
 | 原 owner-scoped/Store/worker/marketing/schema/current command guard | 使用保留 owner 的原 fixture 与断言；原 retained 文件表只移 import_task_owner 两文件、product-data/mapping repo 等本批项 | 两套 workflow 原 `go test -race ./internal/listingadmin -count=1` 与日志 artifact 均保留；不能以本轮少了旧 fixture 删除 race step |
 | phase2-runtime-inventory.md | **仅删除一条 CURRENT consumer 行：core/logger → core/metrics**；该包最后生产边本轮退出。其它 current 行与全部历史 debt/阶段计数/dated表保持；顶部可加窄 superseded 注记 | 保留 OpenAI→listingadmin（access_scope真实消费）、logger其它消费者；不改ceilings、.golangci或检查器，不继承 #817/#822 的其它清单删除权限 |
@@ -149,7 +178,7 @@ Legacy decision: **RETIRE**。Reusable behavior：本轮无须新 EXTRACT；实�
 
 ## 附录 A：完整 tracked 文件清单
 
-以下119文件是同一退休集合；不按 glob 外推其它文件，实际新消费者应触发 §7，而不是静默扩大删除。
+以下200文件是同一退休集合；不按 glob 外推其它文件，实际新消费者应触发 §7，而不是静默扩大删除。
 
 ```text
 internal/app/worker/job_handler.go
@@ -214,12 +243,93 @@ internal/listingadmin/raw_json_data.go
 internal/listingadmin/raw_json_data_query_test.go
 internal/listingadmin/raw_json_data_repository.go
 internal/listingadmin/rule_status.go
+internal/marketplace/shein/workspace/category_search.go
+internal/marketplace/shein/workspace/category_search_test.go
+internal/marketplace/shein/workspace/display_title_policy.go
+internal/marketplace/shein/workspace/display_title_policy_test.go
+internal/marketplace/shein/workspace/editor_context_builder.go
+internal/marketplace/shein/workspace/editor_context_builder_test.go
+internal/marketplace/shein/workspace/editor_context_model.go
+internal/marketplace/shein/workspace/editor_dirty_hints.go
+internal/marketplace/shein/workspace/editor_effects.go
+internal/marketplace/shein/workspace/editor_effects_test.go
+internal/marketplace/shein/workspace/editor_model.go
+internal/marketplace/shein/workspace/editor_progress.go
+internal/marketplace/shein/workspace/editor_progress_test.go
+internal/marketplace/shein/workspace/editor_recommendations.go
+internal/marketplace/shein/workspace/editor_recommendations_test.go
+internal/marketplace/shein/workspace/editor_revision_from_context.go
+internal/marketplace/shein/workspace/editor_revision_from_context_test.go
+internal/marketplace/shein/workspace/editor_revision_minimal.go
+internal/marketplace/shein/workspace/editor_revision_minimal_test.go
+internal/marketplace/shein/workspace/editor_revision_model.go
+internal/marketplace/shein/workspace/editor_revision_skeleton.go
+internal/marketplace/shein/workspace/history_detail.go
+internal/marketplace/shein/workspace/history_detail_test.go
+internal/marketplace/shein/workspace/inspection.go
+internal/marketplace/shein/workspace/inspection_test.go
+internal/marketplace/shein/workspace/overview.go
+internal/marketplace/shein/workspace/overview_test.go
+internal/marketplace/shein/workspace/preview_card.go
+internal/marketplace/shein/workspace/preview_card_test.go
+internal/marketplace/shein/workspace/preview_projection.go
+internal/marketplace/shein/workspace/preview_projection_test.go
+internal/marketplace/shein/workspace/preview_support.go
+internal/marketplace/shein/workspace/preview_support_test.go
+internal/marketplace/shein/workspace/readiness_guidance.go
+internal/marketplace/shein/workspace/readiness_guidance_test.go
+internal/marketplace/shein/workspace/repair.go
+internal/marketplace/shein/workspace/repair_center_from_readiness.go
+internal/marketplace/shein/workspace/repair_center_from_readiness_test.go
+internal/marketplace/shein/workspace/repair_revision.go
+internal/marketplace/shein/workspace/repair_revision_test.go
+internal/marketplace/shein/workspace/repair_test.go
+internal/marketplace/shein/workspace/review_state.go
+internal/marketplace/shein/workspace/review_state_test.go
+internal/marketplace/shein/workspace/revision_apply_changes.go
+internal/marketplace/shein/workspace/revision_apply_patch.go
+internal/marketplace/shein/workspace/revision_apply_patch_test.go
+internal/marketplace/shein/workspace/revision_diff.go
+internal/marketplace/shein/workspace/revision_diff_model.go
+internal/marketplace/shein/workspace/revision_diff_test.go
+internal/marketplace/shein/workspace/revision_field_validation.go
+internal/marketplace/shein/workspace/revision_field_validation_test.go
+internal/marketplace/shein/workspace/revision_history_compare.go
+internal/marketplace/shein/workspace/revision_history_compare_test.go
+internal/marketplace/shein/workspace/revision_history_detail_builder.go
+internal/marketplace/shein/workspace/revision_history_restore_detail.go
+internal/marketplace/shein/workspace/revision_history_restore_detail_test.go
+internal/marketplace/shein/workspace/revision_restore_draft.go
+internal/marketplace/shein/workspace/revision_restore_draft_test.go
+internal/marketplace/shein/workspace/revision_restore_presentation.go
+internal/marketplace/shein/workspace/revision_restore_preview.go
+internal/marketplace/shein/workspace/revision_restore_preview_builder.go
+internal/marketplace/shein/workspace/revision_restore_preview_test.go
+internal/marketplace/shein/workspace/revision_restore_request.go
+internal/marketplace/shein/workspace/revision_success.go
+internal/marketplace/shein/workspace/revision_success_model.go
+internal/marketplace/shein/workspace/revision_success_test.go
+internal/marketplace/shein/workspace/revision_validation.go
+internal/marketplace/shein/workspace/revision_validation_test.go
+internal/marketplace/shein/workspace/source_product.go
+internal/marketplace/shein/workspace/source_product_test.go
+internal/marketplace/shein/workspace/store_resolution.go
+internal/marketplace/shein/workspace/store_resolution_test.go
+internal/marketplace/shein/workspace/submit_freshness.go
+internal/marketplace/shein/workspace/submit_freshness_readiness.go
+internal/marketplace/shein/workspace/submit_freshness_readiness_test.go
+internal/marketplace/shein/workspace/submit_freshness_test.go
+internal/marketplace/shein/workspace/task_queue.go
+internal/marketplace/shein/workspace/task_queue_test.go
+internal/marketplace/shein/workspace/task_taxonomy.go
+internal/marketplace/shein/workspace/task_taxonomy_test.go
 internal/model/task.go
 internal/model/task_retry.go
 internal/model/task_retry_test.go
 internal/model/task_status.go
 internal/model/task_status_test.go
 internal/model/task_test.go
+internal/shein/sherr/handled_errors.go
 internal/taskrpcapi/build.go
 internal/taskrpcapi/build_test.go
 internal/taskrpcapi/handler.go
