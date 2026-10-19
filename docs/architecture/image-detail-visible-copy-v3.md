@@ -1,6 +1,6 @@
 # Detail image literal copy assembly v3
 
-Design Basis: **Independent Architecture / NOT_READY** (2026-10-20).
+Design Basis: **Independent Architecture / IMPLEMENTATION_READY** (2026-10-20).
 Execution Issue: [#774](https://github.com/qq550723504/task-processor/issues/774).
 
 ## Product authority and outcome
@@ -103,3 +103,10 @@ No new verification framework or runtime mutation. Real output readability is
 NOT_RUN until a fresh explicit bounded trial is authorized, then anomaly stops
 without retry/adoption. Independent review by the existing Reviewer is required
 before production edits; final review covers the completed diff.
+
+Existing Reviewer `/root/visual_brief_arch_review` reviewed design candidate
+`4d77f4d90` plus the explicit builder/catalog/dispatch validation placement and
+returned IMPLEMENTATION_READY, no architecture BLOCKER. Unicode parity,
+pre-effect validation, historical bytes/recovery and read-only UI are classified
+IMPLEMENTATION_TEST and must be resolved in this delivery. Writer implementation
+starts only after this admission record.
