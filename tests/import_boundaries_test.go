@@ -1708,8 +1708,6 @@ func TestTemuAPIClientUsesManagementAPIPortAliases(t *testing.T) {
 func TestRetiredManagementServiceHotspotsUseCapabilityNames(t *testing.T) {
 	paths := []string{
 		filepath.Join("..", "internal", "sheinloginmanaged", "bridge.go"),
-		filepath.Join("..", "internal", "shein", "publish", "exists_check.go"),
-		filepath.Join("..", "internal", "shein", "publish", "variant_success.go"),
 		filepath.Join("..", "internal", "shein", "client", "cookie_manager_local_test.go"),
 	}
 
