@@ -75,13 +75,18 @@ func TestTransportDiagnosticDoesNotExposeWrappedError(t *testing.T) {
 
 func TestErrorBodyDiagnosticsCannotDelayRejectionUntilGenerationTimeout(t *testing.T) {
 	const requestID = "12345678-1234-1234-1234-123456789012"
+	finishHandler := make(chan struct{})
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Request-Id", requestID)
 		w.WriteHeader(http.StatusForbidden)
 		w.(http.Flusher).Flush()
 		<-r.Context().Done() // A failed response may never complete its body.
+		// Do not race cancellation with a normal empty EOF from this fixture.
+		// The body must remain unfinished until the client read has returned.
+		<-finishHandler
 	}))
 	defer server.Close()
+	defer close(finishHandler)
 	var diagnostics []Diagnostic
 	calls := 0
 	cfg := fixtureConfig(imageTransport(func(r *http.Request) (*http.Response, error) {

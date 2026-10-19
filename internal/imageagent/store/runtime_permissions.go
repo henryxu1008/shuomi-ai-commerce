@@ -17,11 +17,13 @@ var organizationRuntimeRoleName = regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`)
 // API Prepare/Confirm/Cancel uses this role. Only the confirmation/status
 // columns are writable. Candidate verification reads original provider facts
 // and materialization; their writes stay with the worker and existing owners.
+// Projection commits read the scoped event log to allocate its shared cursor;
+// existing events remain append-only for this role.
 var organizationRuntimeTables = []struct{ name, privileges string }{
 	{"image_agent_v2_runs", "SELECT,INSERT"},
 	{"image_agent_v2_plans", "INSERT"},
 	{"image_agent_v2_slots", "INSERT"},
-	{"image_agent_v2_events", "INSERT"},
+	{"image_agent_v2_events", "SELECT,INSERT"},
 	{"image_agent_v2_asset_catalog", "INSERT"},
 	{"image_agent_v2_asset_catalog_manifests", "INSERT"},
 	{"image_agent_v2_projection_snapshots", "SELECT,INSERT"},
@@ -40,7 +42,7 @@ const organizationRuntimePermissionQuery = `WITH admitted(table_name,privilege) 
  ('image_agent_v2_runs','SELECT'),('image_agent_v2_runs','INSERT'),
  ('image_agent_v2_plans','INSERT'),
  ('image_agent_v2_slots','INSERT'),
- ('image_agent_v2_events','INSERT'),
+ ('image_agent_v2_events','SELECT'),('image_agent_v2_events','INSERT'),
  ('image_agent_v2_asset_catalog','INSERT'),
  ('image_agent_v2_asset_catalog_manifests','INSERT'),
  ('image_agent_v2_projection_snapshots','SELECT'),('image_agent_v2_projection_snapshots','INSERT'),
