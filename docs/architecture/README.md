@@ -1,5 +1,7 @@
 # Architecture Documentation
 
+- [`model-route-pricing-management-v1.md`](model-route-pricing-management-v1.md): #830 bounded platform-maintainer UI for per-organization admitted text/image bindings and execution rates. Reuses Credential, AI capability, ProductAgent, ImageAgent and Commercial owners; versioned atomic publication and original task/UNKNOWN impact. See the document for admission; no runtime/model action is authorized.
+
 - [`generic-image-template-entry.md`](generic-image-template-entry.md): #774 generic image presets saved through current enterprise template commands, with default-preserving exact template discovery from official skill entry. Reuses configuration, ImageSet and Asset owners; no new schema, permission, accounting or recovery contract.
 
 - [`official-skill-product-entry.md`](official-skill-product-entry.md): #774 bounded navigation from an exact official skill version to an existing own product and its fixed original images. Reuses current Collection, explicit single-item Supply transfer, Content confirmation and ImageSet owners; scope-bound URL hints never replace original requests, UNKNOWN or frozen execution references. No backend, permission, accounting or recovery contract changes.
