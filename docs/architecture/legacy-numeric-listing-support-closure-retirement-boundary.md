@@ -2,7 +2,7 @@
 
 > Execution：[#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)
 >
-> Design Basis：**Independent Architecture**；状态：**DESIGN_REVIEW / AWAITING_USER_CONFIRMATION**，尚未达到 IMPLEMENTATION_READY。当前只交付设计，不修改生产源码或测试；用户确认与适用独立设计检查完成后，先在执行 Issue 登记 Ready，再实施。
+> Design Basis：**Independent Architecture / IMPLEMENTATION_READY / FROZEN**；状态：**SOURCE IMPLEMENTED / 开发验证中**。用户已确认冻结设计 `c971bb9e734adc16fa0fdda9955ef0f7d0513e91` §5/§6/§6.1/§7；两轮独立设计检查完成、无架构BLOCKER，两个IMPLEMENTATION_TEST按原范围收敛。#29/#301在生产修改前已登记并读回Ready，[准入6260858740](https://github.com/qq550723504/task-processor/pull/824#issuecomment-6260858740)。准确实现HEAD、CI与最终独立检查写同一PR，不用设计证据代替。
 >
 > 调查基线：main `3ca37b2951c605ea22c96ea0e0274df6ee4f2527`，2026-10-19。上批 #822 已合入此提交，[对应 push/main CI 39202883365](https://github.com/qq550723504/task-processor/actions/runs/39202883365) SUCCESS；其授权与证据不覆盖本批。唯一 Writer 复用原独占 worktree 和分支 `codex/issue29-numeric-listing-admin-closure-retirement-design`；#821/#692 仍归原 owner。
 
@@ -89,7 +89,7 @@ Threat Model 仅覆盖误删共享消费者或有效安全检查、把代码退�
 | marketplace/shein/workspace/helpers.go | filterNonEmptyStrings、normalizeText 及失去使用的strings import | uniqueStrings、firstNonEmpty 原值规则，不加trim/normalize或改变去重/顺序 |
 | marketplace/shein/workspace/state.go | IsSaleAttributeResolved、hasResolvedSaleAttributeDraft | AutoReviewNotes、FilterManualReviewNotes、IsCategoryResolved、IsAttributeResolved，供现用模板与人工备注检查 |
 | marketplace/shein/workspace/readiness.go | SubmitChecklist/ChecklistGroupItem两类型；BuildSubmitChecklist、ChecklistItemCount、SubmitChecklistGroupForKey、FindLabels、FindKeys、CloneReadinessItems、ToActionItems、findReadinessItem、JoinReadinessLabels 九函数及strings import | Guidance/ReadinessCheckSpec/ReadinessTaxonomy/SubmitReadiness/ReadinessItem/ReadinessCheck六类型与BuildSubmitReadiness完整实现，原状态、taxonomy、复制/顺序/JSON合同不变 |
-| marketplace/shein/workspace/state_test.go、readiness_test.go | state仅退TestBuildEditorDirtyHintsCollectsUniqueFields、TestIsSaleAttributeResolvedRequiresResolvedDraftValues；readiness首个TestBuildSubmitReadinessAndChecklist仅退checklist部分/对应fixture | 原人工备注过滤断言；readiness原blocking/warning/ready/复制及taxonomy断言，必要时仅重命名首测试以表达仍测的行为；不删整个文件 |
+| marketplace/shein/workspace/state_test.go、readiness_test.go | state仅退TestBuildEditorDirtyHintsCollectsUniqueFields、TestIsSaleAttributeResolvedRequiresResolvedDraftValues；readiness两个测试均只退checklist专属部分/fixture，首测试原ToActionItems投影改直接检查保留BlockingItems的Key/SuggestedAction | 原人工备注过滤断言；readiness原blocked与BlockingItems/Checks的全部taxonomy断言保留；首测试重命名表达仍测行为。第二测试同根因遗漏按IMPLEMENTATION_TEST收敛，不改当前规则/版本或扩大文件范围 |
 
 management_api_types 的29个退休 type：
 
@@ -170,7 +170,7 @@ submit_template_readiness_checks.go
 
 ## 7. 确认、准入与停止条件
 
-1. 当前只交付设计。用户确认 §5、§6、§6.1、§7，且适用独立设计检查没有当前 Must BLOCKER 后，才将当前 Issue 登记/读回 IMPLEMENTATION_READY / Ready 并修改正式源码；设计不默认授予实施、合并或真实环境操作权。
+1. 用户已确认冻结设计c971bb9e7的 §5、§6、§6.1、§7；适用两轮独立设计检查完成，无当前Must架构BLOCKER，原Issue Ready在生产改动前已登记/读回。TaskHandledError闭包与第二checklist fixture两项IMPLEMENTATION_TEST按原边界补齐；实施授权不包括合并或真实环境操作。
 2. 确认后由原唯一 Writer 在同一分支/主要 PR 整批实现、必要自检、finding/CI 修复、提交推送，不机械拆下一轮 helper/DTO/fixture 小批。真正独立 main Blocker 或独立用户结果才另行处置。
 3. 若出现新当前消费者、具体外部可观察契约、durable business asset 处置、当前 Must BLOCKER，或必须改变身份/tenant/权限/事实/事务/状态/恢复/平台或 AI 副作用边界，停止对应部分并报告；静态证据不授权运行调查或数据清理，不自行加兼容路径。
 4. Finding 先按 AGENTS 分类并说明当前 Must、用户/安全后果与阻塞层级；正常设计检查最多两轮，非 Blocker 在实现测试/Backlog 收敛，不无限追加设计版本。未变化代码与证据复用，CI/AI review 不代替用户验收。

@@ -1,5 +1,7 @@
 # 旧 Amazon 刊登整链与专属闭包退休边界
 
+> #824 后续按用户确认的[共享支撑边界](legacy-numeric-listing-support-closure-retirement-boundary.md)退休八类闲置 listingadmin 管理链、孤立 listingruntime 声明与旧 Task/Workspace 尾部。本文对这些准确对象的保留仅为历史；Store/敏感词/话题、四种有效值合同、Amazon API/来源采集、有效共享能力及独立 SHEIN worker/Store 同步仍保留，不操作运行态或数据。
+
 > Execution：[#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)
 >
 > Design Basis：Independent Architecture / IMPLEMENTATION_READY；状态：SOURCE IMPLEMENTED / In Review。用户已确认冻结设计 `3a344153edefeaaab61433a686482d92d0d4310f` §5/§6/§6.1/§7；适用独立设计检查及唯一 IMPLEMENTATION_TEST 分类、Ready-before-production 记录见[#822 准入](https://github.com/qq550723504/task-processor/pull/822#issuecomment-6259806207)。118Go/20非Go与精确 mixed/schema/守卫已源码实施；准确实现HEAD、原CI与最终独立检查写同一PR，不用设计证据代替。

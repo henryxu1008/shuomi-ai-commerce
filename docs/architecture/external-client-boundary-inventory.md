@@ -1,5 +1,7 @@
 # External Client Boundary Inventory
 
+> #824: the [confirmed support closure](legacy-numeric-listing-support-closure-retirement-boundary.md) source-retires the remaining unregistered taskrpcapi module, DTO/client/handler and three read-only management Task routes. Dated assembly/seam descriptions below are historical; no replacement Task RPC or BusinessTask facade is introduced. The Local Interface Rule and all current platform/Store/worker boundaries remain.
+
 > **Classification: MIXED.** The **Local Interface Rule**, management-client retirement direction, guardrail/review rules, and the requirement to keep concrete external adapters behind owning boundaries remain `CURRENT CONTRACT`. Dated hotspot/file inventories and dated migration notes are `DATED EVIDENCE` and must be rechecked against the actual HEAD before acting on them.
 >
 > “Legacy” or “compatibility” wording in the historical hotspot notes records seams to retire; it does not grant permission to add a new compatibility layer, old-data migration, fallback, dual read/write, or a second fact source. Current legacy handling is [EXTRACT | RETIRE](../refactoring/legacy-hard-cut-policy.md) under [PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08](../product/greenfield-no-legacy-migration.md).

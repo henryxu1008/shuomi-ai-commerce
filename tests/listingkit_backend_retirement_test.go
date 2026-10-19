@@ -11,6 +11,483 @@ import (
 	"testing"
 )
 
+var retiredNumericListingSupportFiles = []string{
+	"internal/app/worker/job_handler.go",
+	"internal/core/metrics/shein_metrics.go",
+	"internal/core/metrics/task_metrics.go",
+	"internal/listingadmin/category.go",
+	"internal/listingadmin/category_model.go",
+	"internal/listingadmin/category_model_test.go",
+	"internal/listingadmin/category_query.go",
+	"internal/listingadmin/category_query_test.go",
+	"internal/listingadmin/category_repository.go",
+	"internal/listingadmin/dto_value_helpers.go",
+	"internal/listingadmin/filter_rule.go",
+	"internal/listingadmin/filter_rule_model.go",
+	"internal/listingadmin/filter_rule_model_test.go",
+	"internal/listingadmin/filter_rule_query.go",
+	"internal/listingadmin/filter_rule_query_test.go",
+	"internal/listingadmin/filter_rule_repository.go",
+	"internal/listingadmin/gorm_filter_rule_api.go",
+	"internal/listingadmin/gorm_operation_strategy_api.go",
+	"internal/listingadmin/gorm_product_data_api.go",
+	"internal/listingadmin/gorm_product_data_api_test.go",
+	"internal/listingadmin/gorm_product_import_mapping_api.go",
+	"internal/listingadmin/gorm_product_import_mapping_api_test.go",
+	"internal/listingadmin/gorm_raw_json_data_api.go",
+	"internal/listingadmin/import_task_owner.go",
+	"internal/listingadmin/import_task_owner_test.go",
+	"internal/listingadmin/numeric_helpers.go",
+	"internal/listingadmin/operation_strategy.go",
+	"internal/listingadmin/operation_strategy_model.go",
+	"internal/listingadmin/operation_strategy_model_test.go",
+	"internal/listingadmin/operation_strategy_query.go",
+	"internal/listingadmin/operation_strategy_query_test.go",
+	"internal/listingadmin/operation_strategy_repository.go",
+	"internal/listingadmin/owner_scoped_batch_test.go",
+	"internal/listingadmin/owner_test_helpers_test.go",
+	"internal/listingadmin/pricing_rule.go",
+	"internal/listingadmin/pricing_rule_model.go",
+	"internal/listingadmin/pricing_rule_model_test.go",
+	"internal/listingadmin/pricing_rule_query.go",
+	"internal/listingadmin/pricing_rule_query_test.go",
+	"internal/listingadmin/pricing_rule_repository.go",
+	"internal/listingadmin/product_data.go",
+	"internal/listingadmin/product_data_model.go",
+	"internal/listingadmin/product_data_model_test.go",
+	"internal/listingadmin/product_data_query.go",
+	"internal/listingadmin/product_data_query_test.go",
+	"internal/listingadmin/product_data_repository.go",
+	"internal/listingadmin/product_import_mapping.go",
+	"internal/listingadmin/product_import_mapping_model.go",
+	"internal/listingadmin/product_import_mapping_model_test.go",
+	"internal/listingadmin/product_import_mapping_query.go",
+	"internal/listingadmin/product_import_mapping_query_test.go",
+	"internal/listingadmin/product_import_mapping_repository.go",
+	"internal/listingadmin/profit_rule.go",
+	"internal/listingadmin/profit_rule_model.go",
+	"internal/listingadmin/profit_rule_model_test.go",
+	"internal/listingadmin/profit_rule_query.go",
+	"internal/listingadmin/profit_rule_query_test.go",
+	"internal/listingadmin/profit_rule_repository.go",
+	"internal/listingadmin/raw_json_data.go",
+	"internal/listingadmin/raw_json_data_query_test.go",
+	"internal/listingadmin/raw_json_data_repository.go",
+	"internal/listingadmin/rule_status.go",
+	"internal/marketplace/shein/workspace/category_search.go",
+	"internal/marketplace/shein/workspace/category_search_test.go",
+	"internal/marketplace/shein/workspace/display_title_policy.go",
+	"internal/marketplace/shein/workspace/display_title_policy_test.go",
+	"internal/marketplace/shein/workspace/editor_context_builder.go",
+	"internal/marketplace/shein/workspace/editor_context_builder_test.go",
+	"internal/marketplace/shein/workspace/editor_context_model.go",
+	"internal/marketplace/shein/workspace/editor_dirty_hints.go",
+	"internal/marketplace/shein/workspace/editor_effects.go",
+	"internal/marketplace/shein/workspace/editor_effects_test.go",
+	"internal/marketplace/shein/workspace/editor_model.go",
+	"internal/marketplace/shein/workspace/editor_progress.go",
+	"internal/marketplace/shein/workspace/editor_progress_test.go",
+	"internal/marketplace/shein/workspace/editor_recommendations.go",
+	"internal/marketplace/shein/workspace/editor_recommendations_test.go",
+	"internal/marketplace/shein/workspace/editor_revision_from_context.go",
+	"internal/marketplace/shein/workspace/editor_revision_from_context_test.go",
+	"internal/marketplace/shein/workspace/editor_revision_minimal.go",
+	"internal/marketplace/shein/workspace/editor_revision_minimal_test.go",
+	"internal/marketplace/shein/workspace/editor_revision_model.go",
+	"internal/marketplace/shein/workspace/editor_revision_skeleton.go",
+	"internal/marketplace/shein/workspace/history_detail.go",
+	"internal/marketplace/shein/workspace/history_detail_test.go",
+	"internal/marketplace/shein/workspace/inspection.go",
+	"internal/marketplace/shein/workspace/inspection_test.go",
+	"internal/marketplace/shein/workspace/overview.go",
+	"internal/marketplace/shein/workspace/overview_test.go",
+	"internal/marketplace/shein/workspace/preview_card.go",
+	"internal/marketplace/shein/workspace/preview_card_test.go",
+	"internal/marketplace/shein/workspace/preview_projection.go",
+	"internal/marketplace/shein/workspace/preview_projection_test.go",
+	"internal/marketplace/shein/workspace/preview_support.go",
+	"internal/marketplace/shein/workspace/preview_support_test.go",
+	"internal/marketplace/shein/workspace/readiness_guidance.go",
+	"internal/marketplace/shein/workspace/readiness_guidance_test.go",
+	"internal/marketplace/shein/workspace/repair.go",
+	"internal/marketplace/shein/workspace/repair_center_from_readiness.go",
+	"internal/marketplace/shein/workspace/repair_center_from_readiness_test.go",
+	"internal/marketplace/shein/workspace/repair_revision.go",
+	"internal/marketplace/shein/workspace/repair_revision_test.go",
+	"internal/marketplace/shein/workspace/repair_test.go",
+	"internal/marketplace/shein/workspace/review_state.go",
+	"internal/marketplace/shein/workspace/review_state_test.go",
+	"internal/marketplace/shein/workspace/revision_apply_changes.go",
+	"internal/marketplace/shein/workspace/revision_apply_patch.go",
+	"internal/marketplace/shein/workspace/revision_apply_patch_test.go",
+	"internal/marketplace/shein/workspace/revision_diff.go",
+	"internal/marketplace/shein/workspace/revision_diff_model.go",
+	"internal/marketplace/shein/workspace/revision_diff_test.go",
+	"internal/marketplace/shein/workspace/revision_field_validation.go",
+	"internal/marketplace/shein/workspace/revision_field_validation_test.go",
+	"internal/marketplace/shein/workspace/revision_history_compare.go",
+	"internal/marketplace/shein/workspace/revision_history_compare_test.go",
+	"internal/marketplace/shein/workspace/revision_history_detail_builder.go",
+	"internal/marketplace/shein/workspace/revision_history_restore_detail.go",
+	"internal/marketplace/shein/workspace/revision_history_restore_detail_test.go",
+	"internal/marketplace/shein/workspace/revision_restore_draft.go",
+	"internal/marketplace/shein/workspace/revision_restore_draft_test.go",
+	"internal/marketplace/shein/workspace/revision_restore_presentation.go",
+	"internal/marketplace/shein/workspace/revision_restore_preview.go",
+	"internal/marketplace/shein/workspace/revision_restore_preview_builder.go",
+	"internal/marketplace/shein/workspace/revision_restore_preview_test.go",
+	"internal/marketplace/shein/workspace/revision_restore_request.go",
+	"internal/marketplace/shein/workspace/revision_success.go",
+	"internal/marketplace/shein/workspace/revision_success_model.go",
+	"internal/marketplace/shein/workspace/revision_success_test.go",
+	"internal/marketplace/shein/workspace/revision_validation.go",
+	"internal/marketplace/shein/workspace/revision_validation_test.go",
+	"internal/marketplace/shein/workspace/source_product.go",
+	"internal/marketplace/shein/workspace/source_product_test.go",
+	"internal/marketplace/shein/workspace/store_resolution.go",
+	"internal/marketplace/shein/workspace/store_resolution_test.go",
+	"internal/marketplace/shein/workspace/submit_freshness.go",
+	"internal/marketplace/shein/workspace/submit_freshness_readiness.go",
+	"internal/marketplace/shein/workspace/submit_freshness_readiness_test.go",
+	"internal/marketplace/shein/workspace/submit_freshness_test.go",
+	"internal/marketplace/shein/workspace/task_queue.go",
+	"internal/marketplace/shein/workspace/task_queue_test.go",
+	"internal/marketplace/shein/workspace/task_taxonomy.go",
+	"internal/marketplace/shein/workspace/task_taxonomy_test.go",
+	"internal/model/task.go",
+	"internal/model/task_retry.go",
+	"internal/model/task_retry_test.go",
+	"internal/model/task_status.go",
+	"internal/model/task_status_test.go",
+	"internal/model/task_test.go",
+	"internal/shein/sherr/handled_errors.go",
+	"internal/taskrpcapi/build.go",
+	"internal/taskrpcapi/build_test.go",
+	"internal/taskrpcapi/handler.go",
+	"internal/taskrpcapi/http_module.go",
+	"internal/taskrpcapi/http_module_test.go",
+	"internal/taskrpcapi/types.go",
+	"internal/workspace/shein/compatibility_guard_test.go",
+	"internal/workspace/shein/doc.go",
+	"internal/workspace/shein/editor_context_builder.go",
+	"internal/workspace/shein/editor_context_builder_test.go",
+	"internal/workspace/shein/editor_context_model.go",
+	"internal/workspace/shein/editor_dirty_hints.go",
+	"internal/workspace/shein/editor_effects.go",
+	"internal/workspace/shein/editor_model.go",
+	"internal/workspace/shein/editor_progress.go",
+	"internal/workspace/shein/editor_recommendations.go",
+	"internal/workspace/shein/editor_revision_from_context.go",
+	"internal/workspace/shein/editor_revision_minimal.go",
+	"internal/workspace/shein/editor_revision_minimal_test.go",
+	"internal/workspace/shein/editor_revision_model.go",
+	"internal/workspace/shein/editor_revision_skeleton.go",
+	"internal/workspace/shein/history_detail.go",
+	"internal/workspace/shein/inspection.go",
+	"internal/workspace/shein/inspection_payloads.go",
+	"internal/workspace/shein/inspection_test.go",
+	"internal/workspace/shein/overview.go",
+	"internal/workspace/shein/overview_test.go",
+	"internal/workspace/shein/readiness.go",
+	"internal/workspace/shein/readiness_guidance.go",
+	"internal/workspace/shein/readiness_guidance_test.go",
+	"internal/workspace/shein/readiness_test.go",
+	"internal/workspace/shein/repair.go",
+	"internal/workspace/shein/repair_test.go",
+	"internal/workspace/shein/revision_apply_changes.go",
+	"internal/workspace/shein/revision_diff.go",
+	"internal/workspace/shein/revision_diff_model.go",
+	"internal/workspace/shein/revision_field_validation.go",
+	"internal/workspace/shein/revision_field_validation_test.go",
+	"internal/workspace/shein/revision_history_compare.go",
+	"internal/workspace/shein/revision_history_detail_builder.go",
+	"internal/workspace/shein/revision_history_restore_detail.go",
+	"internal/workspace/shein/revision_restore_draft.go",
+	"internal/workspace/shein/revision_restore_presentation.go",
+	"internal/workspace/shein/revision_restore_preview.go",
+	"internal/workspace/shein/revision_restore_preview_builder.go",
+	"internal/workspace/shein/revision_restore_request.go",
+	"internal/workspace/shein/revision_success.go",
+	"internal/workspace/shein/revision_success_model.go",
+	"internal/workspace/shein/revision_success_test.go",
+	"internal/workspace/shein/revision_validation.go",
+	"internal/workspace/shein/state.go",
+}
+
+var retiredNumericListingSupportDeclarations = map[string][]string{
+	"internal/app/worker": strings.Fields(`
+NewTaskJobHandler TaskCompletionNotifier TaskJobHandler
+`),
+	"internal/listingadmin": strings.Fields(`
+AutoMigrateCategoryRepository AutoMigrateFilterRuleRepository AutoMigrateOperationStrategyRepository
+AutoMigratePricingRuleRepository AutoMigrateProductDataRepository AutoMigrateProductImportMappingRepository
+AutoMigrateProfitRuleRepository Category CategoryQuery CategoryRepository CommonResult ErrCategoryHasChildren
+ErrCategoryNotFound ErrFilterRuleNotFound ErrOperationStrategyNotFound ErrPricingRuleNotFound
+ErrProductDataNotFound ErrProductImportMappingNotFound ErrProductImportMappingOwnerRequired
+ErrProfitRuleNotFound ErrRawJSONDataNotFound FilterRule FilterRuleAPI FilterRulePage FilterRuleQuery
+FilterRuleRepository FilterRuleReqDTO FilterRuleRespDTO FilterRuleToRespDTO GormCategoryRepository
+GormFilterRuleRepository GormOperationStrategyRepository GormPricingRuleRepository GormProductDataRepository
+GormProductImportMappingRepository GormProfitRuleRepository GormRawJSONDataRepository ImageDownloader ImageInfo
+IsRuleStatusEnabled NewGormCategoryRepository NewGormFilterRuleAPI NewGormFilterRuleRepository
+NewGormOperationStrategyAPI NewGormOperationStrategyRepository NewGormPricingRuleRepository
+NewGormProductDataAPI NewGormProductDataRepository NewGormProductImportMappingAPI
+NewGormProductImportMappingRepository NewGormProfitRuleRepository NewGormRawJSONDataRepository
+NewGormRawJsonDataAPI NewProductDataBatchSaveReqDTO NewProductDataItemDTO OperationStrategy
+OperationStrategyAPI OperationStrategyDTO OperationStrategyPage OperationStrategyQuery
+OperationStrategyRepository OperationStrategyToDTO PricingRule PricingRulePage PricingRuleQuery
+PricingRuleRepository ProductAttributesItemDTO ProductData ProductDataAPI ProductDataBatchSaveReqDTO
+ProductDataBatchUpdateAttributesReqDTO ProductDataDTO ProductDataFromAttributesBatchReq
+ProductDataFromBatchSaveReq ProductDataItemDTO ProductDataListByStorePageReqDTO ProductDataPage
+ProductDataQuery ProductDataRepository ProductDataRespDTO ProductDataToDTO ProductImportMapping
+ProductImportMappingAPI ProductImportMappingCheckReqDTO ProductImportMappingCreateReqDTO
+ProductImportMappingFromCreateReq ProductImportMappingGetByPlatformProductIdAndStoreReqDTO
+ProductImportMappingGetBySkuReqDTO ProductImportMappingGetByTaskAndSkuReqDTO ProductImportMappingGetReqDTO
+ProductImportMappingPage ProductImportMappingQuery ProductImportMappingRepository ProductImportMappingRespDTO
+ProductImportMappingToRespDTO ProductVariantConfirmationReqDTO ProfitRule ProfitRulePage ProfitRuleQuery
+ProfitRuleRepository RawJSONData RawJSONDataRepository RawJSONDataToRespDTO RawJsonDataAPI
+RawJsonDataCreateReqDTO RawJsonDataReqDTO RawJsonDataRespDTO ResolveStoreOwnerUserID RuleStatusDisabled
+RuleStatusEnabled ShelfStatusDeleted ShelfStatusOffShelf ShelfStatusOnShelf ShelfStatusPending
+ShelfStatusRejected ShelfStatusReviewing activityProfitRatePtr applyCategoryAuditFields applyCategoryDefaults
+applyCategoryQuery applyFilterRuleAuditFields applyFilterRuleDefaults applyFilterRuleQuery
+applyOperationStrategyAuditFields applyOperationStrategyQuery applyPricingRuleAuditFields
+applyPricingRuleDefaults applyPricingRuleQuery applyProductDataAuditFields applyProductDataQuery
+applyProductImportMappingAuditFields applyProductImportMappingDefaults applyProductImportMappingQuery
+applyProfitRuleAuditFields applyProfitRuleDefaults applyProfitRuleQuery boolToInt16 defaultActivityPartakeType
+ensureOperationStrategyActivityColumns ensureTextColumn findCategoryRows findFilterRuleRows
+findOperationStrategyRows findPricingRuleRows findProductDataRows findProductImportMappingRows
+findProfitRuleRows flexibleStringToFloat64 flexibleTimeValue floatPtrIfPositive floatValue gormFilterRuleAPI
+gormOperationStrategyAPI gormProductDataAPI gormProductImportMappingAPI gormRawJsonDataAPI int64Ptr
+int64PtrIfPositive int64Value intPtrIfPositive intValue listingCategory listingCategoryFromCategory
+listingFilterRule listingFilterRuleFromFilterRule listingOperationStrategy
+listingOperationStrategyFromOperationStrategy listingPricingRule listingPricingRuleFromPricingRule
+listingProductData listingProductDataFromProductData listingProductImportMapping
+listingProductImportMappingFromProductImportMapping listingProfitRule listingProfitRuleFromProfitRule
+listingRawJSONData nullableFloat64 operationStrategyFlexibleString operationStrategyFloat64Value
+operationStrategyIntValue parseOptionalMultiplier ptrFloat64 ptrInt ptrString rawJSONBytes rawJSONOrString
+resolveStoreOwnerUserID resolveStoreOwnerUserIDForUpdate
+`),
+	"internal/listingruntime": strings.Fields(`
+FilterRule ProductImportMappingUpsert ProfitRule StorePauseStatusDetail StoreService
+`),
+	"internal/marketplace/shein/workspace": strings.Fields(`
+ActionItem ActionQueueAttributes ActionQueueClassification ActionQueueDescriptors ActionQueueFinalReview
+ActionQueueManualReview ActionQueueMedia ActionQueuePayloadRebuild ActionQueuePricing ActionQueueSourceReview
+ActionQueueStoreAuth ActionQueueSubmitReady ActionQueueVariant ApplyAttributeResolutionPatch
+ApplyCategoryResolutionPatch ApplySKCRevisionPatches ApplySKURevisionPatches ApplySaleAttributeResolutionPatch
+AttachSubmissionEventStoreResolution AttributeResolutionPatch BuildAppliedChangesPreview BuildAttributeEffects
+BuildAttributePayload BuildAttributeRecommendationMeta BuildAttributeResolutionPatch BuildAttributeSuggestions
+BuildCategoryEffects BuildCategoryPayload BuildCategoryRecommendationMeta BuildCategoryResolutionPatch
+BuildCurrentHistoryComparePreview BuildEditorContext BuildEditorDirtyHints BuildEditorProgress
+BuildEditorRevisionSkeleton BuildEditorSKCPatches BuildFinalReviewImages BuildFinalReviewSKU
+BuildFinalReviewSKUs BuildFreshnessAttributeCheck BuildFreshnessAuthFailureCheck BuildFreshnessAuthSuccessCheck
+BuildFreshnessCategoryCheck BuildFreshnessSaleAttributeCheck BuildHistoryComparePreview BuildHistoryDetail
+BuildHistoryNavigation BuildHistoryRestoreContext BuildHistoryRestoreDetailData BuildHistoryRestoreMessages
+BuildHistoryRestoreNextActions BuildHistoryRestoreOverview BuildHistoryRestorePresentationData
+BuildHistoryRestoreSafety BuildImageUploadPreflight BuildInspection BuildMinimalRevisionSkeleton
+BuildPreviewCardStatus BuildPreviewCardSummary BuildPreviewReviewSummary BuildReadinessGuidanceSpec
+BuildReadinessPatchPayload BuildReadinessReason BuildRepairApplyQueue BuildRepairCenter
+BuildRepairCenterFromReadiness BuildRepairCenterStatus BuildRepairCenterSummary BuildRepairPlan
+BuildRepairReason BuildRepairRevisionInput BuildRepairRevisionSeed BuildRepairSession BuildRepairStateInput
+BuildRepairValidationPreview BuildResolutionCacheSummary BuildRestoreDraftFromSkeleton
+BuildRestorePreviewPayload BuildRestoreRequestSeed BuildRevisionDiffBetweenRevisions BuildRevisionDiffPreview
+BuildRevisionDiffPreviewFromInput BuildRevisionInputFromEditorContext BuildSaleAttributeEffects
+BuildSaleAttributePayload BuildSaleAttributeResolutionPatch BuildSaleCandidateSuggestions
+BuildSaleRecommendationMeta BuildSourceProductSummary BuildStatusOverview BuildStoreResolutionSummary
+BuildSubmissionStoreResolution BuildSubmitChecklist BuildSubmitStateInput BuildSuccessFollowUpChecklist
+BuildSuccessFollowUpOverview BuildSuccessMessages BuildSuccessNextActions BuildSuccessPayload
+BuildSuccessPresentation BuildSuccessRecommendedView BuildSuccessStatusSummary
+BuildSuccessSuggestedFollowUpRevision BuildSuccessSummaryCard BuildTaskActionQueue BuildTaskWorkQueue
+BuildValidationPayload BuildWorkspaceOverview CategoryResolutionPatch CategorySearchCandidate
+ChecklistGroupItem ChecklistItemCount CloneAttributeResolutionPatch CloneCategoryResolutionPatch
+CloneEditorRevisionSkeleton CloneReadinessItems CloneReadinessReason CloneRepairPatchPayload
+CloneRepairValidationPreview CloneRevisionDiffPreview CloneRevisionInput CloneSKCRevisionPatches
+CloneSaleAttributeResolutionPatch CookieUnavailableReviewNotes DisplayTitleInput EditorAttributeContext
+EditorAttributeSuggestion EditorBasicsContext EditorCategoryContext EditorContext EditorDirtyHintSection
+EditorDirtyHints EditorEffect EditorProgress EditorProgressSection EditorRecommendationMeta
+EditorRevisionSkeleton EditorSaleAttributeContext EditorSaleCandidateSuggestion EvaluateAttributeFreshness
+EvaluateCategoryFreshness EvaluateSaleAttributeFreshness EvaluateSaleAttributeFreshnessWithCustomValidation
+FacetDescriptor FieldError FilterOutCookieUnavailableReviewNotes FinalReviewImage FinalReviewSKU FindKeys
+FindLabels FreshnessAttributeKey FreshnessAuthKey FreshnessCategoryKey FreshnessSaleAttributeKey
+HasCookieUnavailableReviewNotes HistoryComparePreview HistoryCompareRecord HistoryDetail HistoryNavigation
+HistoryRestoreCompareInput HistoryRestoreContext HistoryRestoreDetailData HistoryRestoreMessages
+HistoryRestoreOverview HistoryRestorePresentationData HistoryRestoreRecommendedView HistoryRestoreRecordInput
+HistoryRestoreSafety HistoryRestoreStateInput HistoryRestoreTimeline ImageUploadCacheHit ImageUploadClassifier
+ImageUploadPreflight InspectionReviewReasons IsCookieUnavailableText IsEmptyRevisionInput
+IsSaleAttributeResolved JoinReadinessLabels NewFieldError PreviewCardNeedsReview PruneAttributeResolutionPatch
+PruneCategoryResolutionPatch PruneRevisionInput PruneSaleAttributeResolutionPatch ReadinessGuidanceSpec
+ReadinessHintSpec ReadinessReason ReadinessReasonSpec RebuildRestorePreviewPayload RepairApplyQueue
+RepairApplyQueueItem RepairArtifacts RepairCenter RepairCenterAction RepairCenterActionCount
+RepairCenterDirectApplyCount RepairCenterFromReadinessOptions RepairCenterPrimaryPlanStatus RepairCenterSection
+RepairCenterSeedAction RepairCenterSessionStatus RepairCenterStats RepairCompletionSnapshot RepairHint
+RepairHintAccessors RepairPatchPayload RepairPlan RepairPlanStep RepairResumeState RepairRevisionSeed
+RepairRunbookStep RepairSession RepairSessionActionInfo RepairStateInput RepairValidationPreview
+ResolutionCacheSummary ResolveDisplayTitle ResolveHistoryCompareTarget RestorePreviewCoreData
+RestorePreviewPayload RestoreRequestSeed RevisionDiffPreview RevisionFieldChange RevisionInput SKCRevisionPatch
+SKURevisionPatch SaleAttributeResolutionPatch SceneApplySuccess SceneRestoreSuccess SearchCategoryCandidates
+SessionInput SourceProductSummary StatusOverview StoreResolutionSummary StripCookieUnavailableReviewNotes
+SubmitChecklist SubmitChecklistGroupForKey SubmitStateInput SuccessCoreData SuccessFollowUpChecklist
+SuccessFollowUpOverview SuccessInteractionPresentation SuccessMessages SuccessModeApply SuccessModeRestore
+SuccessPayload SuccessRecommendedView SuccessStatusSummary SuccessSummaryCard ToActionItems
+ValidateRevisionInput ValidationPayload WorkQueueDescriptors WorkQueueDraft WorkQueueGeneration
+WorkQueueGenerationFailed WorkQueuePublished WorkQueueRepair WorkQueueReview WorkQueueSubmitFailed
+WorkQueueSubmitReady WorkflowStatusDescriptors WorkflowStatusDraftSaved WorkflowStatusPendingConfirmation
+WorkflowStatusPublishFailed WorkflowStatusPublished WorkflowStatusReadyToSubmit WorkspaceOverview
+WorkspaceRepairState WorkspaceSessionEntry WorkspaceSubmitState actionQueueDescriptors actionQueueForKey
+addPreviewImageInfo addPreviewProductImages appendAppliedSaleAttributeReviewChanges appendAttributesChange
+appendCompareAttributesChange appendCompareImageChange appendCompareIntChange appendCompareIntPtrChange
+appendCompareIntSliceChange appendCompareResolvedAttributesChange appendCompareSalePatchChange
+appendCompareStringChange appendImageChange appendImageInfoURLs appendIntChange appendIntPtrChange
+appendIntSliceChange appendResolvedAttributesChange appendSalePatchChange appendStringChange
+applyPrimaryActionFromItems attributeConfidence attributeFreshnessIssueState attributeFreshnessTemplateContext
+attributeReason attributeSuggestionConfidence attributeSuggestionReason buildApplyHighlights
+buildApplyPrimaryAction buildApplySubtitle buildAttributeActions buildAttributeFreshnessOutcome
+buildAttributeFreshnessTemplateContext buildAttributeInspectionSection buildAttributePayload
+buildAttributePayloadMap buildAttributeProgressSection buildBasicProgressSection buildCategoryActions
+buildCategoryInspectionSection buildCategoryPayload buildCategoryPayloadMap buildCategoryProgressSection
+buildEditorSKUPatches buildFreshnessSaleTemplateOptions buildHistoryRestoreRecommendedView
+buildImageUploadPreflightSummary buildNextActions buildNextActionsFromReadiness buildPendingAttributeCandidates
+buildPendingAttributes buildRepairAffectedSections buildRepairCompletionRule buildRepairCompletionSnapshot
+buildRepairPlanCopy buildRepairPlanStatus buildRepairResumeState buildRepairSessionCopy
+buildRepairSessionStatus buildRepairSkippedSteps buildRepairStepHighlights buildRepairStepReason
+buildResolvedAttributeTemplateCandidates buildResolvedAttributeTemplateDriftDetails buildSKCPatchSuggestions
+buildSKUPatchSuggestions buildSaleAttributeActions buildSaleAttributeFreshnessResolutionOutcome
+buildSaleAttributeFreshnessTemplateContext buildSaleAttributeInspectionSection buildSaleAttributePayload
+buildSaleAttributePayloadMap buildSaleProgressSection buildStatusHighlights buildSuccessFollowUpHeadline
+categoryConfidence categoryMatchScore categoryReason categorySearchMatch checklistItemAsReadinessItem
+cloneAttributePatch cloneBoolPointer cloneCategoryPatch cloneFacetDescriptors cloneImageSet cloneIntPointer
+cloneMap cloneNonNegativeIntPointer clonePendingAttributeCandidates clonePositiveIntPointer
+cloneRepairArtifacts cloneRepairReason cloneRepairSKCPatches cloneRepairSKUPatches cloneRequestSKCs
+cloneRequestSKUs cloneResolvedSaleAttributeMap cloneRevisionDiffPreview cloneSKCPatches cloneSKUPatches
+cloneSalePatch cloneSourceDimensionsForInspection cloneStringPointer cloneSuccessFollowUpChecklist
+cloneSuccessFollowUpOverview cloneSuccessMessages cloneSuccessRecommendedView cloneSuccessStatusSummary
+cloneSuccessSummaryCard cloneTemplateOptionsForInspection collectAttributeDirtyFields collectBasicDirtyFields
+collectCategoryDirtyFields collectInvalidSaleAttributes collectProductImageURLs collectRepairCandidates
+collectSaleDirtyFields compareRepairActions conditionalOtherAttribute containsNormalized
+dedupeCustomAttributeRelations defaultInspectionReviewReason defaultSuccessEditorReason
+defaultSuccessInspectionReason defaultSuccessLabel defaultSuccessSubmitReason defaultSuccessTitle
+defaultSuccessWarningTitle dependencyIsActive diffResolvedAttributes enrichAttributeResolutionCacheInfo
+enrichCategoryResolutionCacheInfo enrichPricingResolutionCacheInfo enrichSaleAttributeResolutionCacheInfo
+enrichSizeAttributeResolutionCacheInfo ensureImageDraft equalIntSlices equalPlatformAttributes
+equalResolvedAttributes evaluateAttributeFreshnessIssueState evaluateResolvedAttributeFreshness
+evaluateSaleAttributeFreshnessInvalidState evaluateSaleAttributeFreshnessResolution
+filterFreshnessDisplayAttributes filterFreshnessSaleScopeAttributes filterNonEmptyStrings findPackageSKC
+findPackageSKU findReadinessItem findRequestSKC findRequestSKU findSKCPackageBySupplierCode firstAction
+firstNonEmptyString firstNonEmptyValue firstSummaryLine flattenAttributeTemplatesByID
+formatFreshnessAttributeName formatResolvedAttributeDiffItem formatResolvedSaleAttributeDiffItem
+freshnessCustomAttributeValueIDs hasHistoryRestoreWarning hasImageContent hasResolvedSaleAttributeDraft
+indexNormalized intPointer isEmptyAttributePatch isEmptyCategoryPatch isEmptySalePatch isFinalReviewSwatchRole
+isTemplateRequired maxCategorySearchResults maxInt mergeFinalReviewImage messageDescription messageTitle
+messageWarnings normalizeFinalReviewAttributeName normalizeRepairSection normalizeReviewReasons normalizeText
+orderFreshnessSaleScopeAttributes parseCascadeValueIDs parseMoney previewImageDetailRole progressSection
+pruneSKCRevisionPatches pruneSKURevisionPatches readinessSummary recommendedViewValue repairActionCandidate
+repairActionID repairExecutionMode repairFreshnessSaleAttributes repairPriorityRank repairSectionLabel
+repairSectionRank repairStatusRank resolveFinalReviewImageRole resolvedAttributeStillLegal
+saleAttributeCategoryReviewReason saleAttributeFreshnessInvalidState saleAttributeFreshnessTemplateContext
+saleAttributeRecommendCategoryReview saleCandidateConfidence saleCandidateReason saleConfidence saleReason
+stringPointerOrNil stringsContainsNormalized stringsTrim summaryHighlights summaryStatus summarySubheadline
+toSubmitStateInput tryRepairFreshnessSaleAttribute workQueueDescriptors workflowStatusDescriptors
+workspaceHeadlineFromReadiness workspacePrimaryView
+`),
+	"internal/model": strings.Fields(`
+ApplyRetryFailure ParseTaskStatus ResolveTaskMaxRetries RetryDecision Task TaskStatus TaskStatusCancelled
+TaskStatusCrawlFailed TaskStatusCrawled TaskStatusDraft TaskStatusPaused TaskStatusPending
+TaskStatusPendingRetry TaskStatusProcessing TaskStatusPublished TaskStatusQueued TaskStatusRepublishing
+TaskStatusResumed TaskStatusResuming TaskStatusTerminated ValidateTaskStatusTransition
+ValidateTaskStatusTransitionCode defaultTaskMaxRetries retryPriorityPenalty taskStatusNames
+taskStatusTransitions
+`),
+	"internal/shein/sherr": strings.Fields(`
+AsTaskHandledError IsTaskHandledError NewTaskHandledError TaskHandledError
+`),
+}
+
+func TestNumericListingSupportClosureSourcesAreRetired(t *testing.T) {
+	for _, relative := range retiredNumericListingSupportFiles {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Errorf("retired numeric listing support source remains: %s (stat: %v)", relative, err)
+		}
+	}
+	for _, relative := range []string{"internal/taskrpcapi", "internal/workspace/shein", "internal/core/metrics"} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Errorf("retired numeric listing support package remains: %s (stat: %v)", relative, err)
+		}
+	}
+	sources := trackedProductionTextSources(t, []string{"."}, func(path string) bool {
+		return strings.HasSuffix(path, ".go")
+	})
+	violations, err := phase3BannedImportDeclarationViolations(sources, []string{
+		"task-processor/internal/taskrpcapi",
+		"task-processor/internal/workspace/shein",
+		"task-processor/internal/core/metrics",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, violation := range violations {
+		t.Errorf("retired numeric listing support import remains: %s", violation)
+	}
+	banned := make(map[string]map[string]bool)
+	for relative, names := range retiredNumericListingSupportDeclarations {
+		banned[relative] = make(map[string]bool)
+		for _, name := range names {
+			banned[relative][name] = true
+		}
+	}
+	for _, source := range sources {
+		file, err := parser.ParseFile(token.NewFileSet(), source.path, source.text, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, spec := range file.Imports {
+			imported, err := decodeGoImportPath(spec.Path.Value)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// Only the old root hook is retired; imageagent remains current.
+			if imported == "task-processor/internal/app/worker" {
+				t.Errorf("%s imports retired root Task worker hook", source.path)
+			}
+		}
+		if strings.HasSuffix(source.path, "_test.go") || strings.HasPrefix(source.path, "tests/") {
+			continue
+		}
+		for _, route := range []string{
+			"/api/v1/management/tasks/health",
+			"/api/v1/management/tasks/:task_id/status",
+			"/api/v1/management/tasks/queue-stats",
+		} {
+			if strings.Contains(source.text, route) {
+				t.Errorf("%s recreates retired Task RPC route %s", source.path, route)
+			}
+		}
+		names := banned[filepath.ToSlash(filepath.Dir(source.path))]
+		checkName := func(name string) {
+			if names[name] {
+				t.Errorf("%s recreates retired numeric listing support declaration %s", source.path, name)
+			}
+		}
+		for _, declaration := range file.Decls {
+			switch declaration := declaration.(type) {
+			case *ast.FuncDecl:
+				if declaration.Recv == nil {
+					checkName(declaration.Name.Name)
+				}
+			case *ast.GenDecl:
+				for _, spec := range declaration.Specs {
+					switch spec := spec.(type) {
+					case *ast.TypeSpec:
+						checkName(spec.Name.Name)
+					case *ast.ValueSpec:
+						for _, name := range spec.Names {
+							checkName(name.Name)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 var retiredTEMUListingPackages = []string{
 	"internal/temu/ai", "internal/temu/context", "internal/temu/filter",
 	"internal/temu/handlerbase", "internal/temu/pricing", "internal/temu/product",
@@ -568,22 +1045,14 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			"type RuleChecker struct", "func NewRuleChecker(", "CheckPriceRange(", "CheckInventory(", "CheckRating(",
 			"CheckReviewCount(", "CheckDeliveryTime(", "CheckFulfillmentType(", "CheckAllRules(",
 		},
-		"internal/marketplace/productpolicy/filter_rule.go":  {"type FilterRule struct"},
-		"internal/marketplace/productpolicy/price_helper.go": {"func GetProductPrice(", "func GetInventory("},
-		"internal/marketplace/productpolicy/fulfillment.go":  {"func IsFBAFulfillment(", "func IsAMZSeller("},
-		"internal/listingadmin/rule_status.go": {
-			"RuleStatusEnabled int16 = 0", "RuleStatusDisabled int16 = 1", "func IsRuleStatusEnabled(",
-		},
-		"internal/listingadmin/dto_value_helpers.go":             {"func ptrFloat64(", "func ptrString(", "func flexibleTimeValue("},
+		"internal/marketplace/productpolicy/filter_rule.go":      {"type FilterRule struct"},
+		"internal/marketplace/productpolicy/price_helper.go":     {"func GetProductPrice(", "func GetInventory("},
+		"internal/marketplace/productpolicy/fulfillment.go":      {"func IsFBAFulfillment(", "func IsAMZSeller("},
 		"internal/marketplace/temu/goods/local_properties.go":    {"func CheckLocalProperties("},
 		"internal/marketplace/temu/goods/supplier_properties.go": {"func CheckSupplierProperties("},
 		"internal/marketplace/temu/goods/supplier_specs.go":      {"func checkSupplierSpecifications("},
 		"internal/marketplace/temu/rules/local_numbers.go":       {"func (c *Catalog) CheckLocalNumbers("},
-		"internal/listingadmin/gorm_filter_rule_api.go":          {"func NewGormFilterRuleAPI(", ".ResolveFilterRules("},
-		"internal/listingadmin/filter_rule_repository.go":        {"func (r *GormFilterRuleRepository) ResolveFilterRules("},
 		"internal/listingadmin/management_api_types.go": {
-			"type ProductImportMappingAPI interface", "CheckProductExists(",
-			"type FilterRuleAPI interface", "type FilterRuleReqDTO struct", "type FilterRuleRespDTO struct", "ToFilterRule(",
 			"type StoreAPI interface", "type StoreRespDTO struct", "type StoreIdUpdateReqDTO struct", "type StoreStatusUpdateReqDTO struct",
 		},
 		"internal/temu/api/inventory/inventory.go": {
@@ -1071,9 +1540,7 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 		"internal/crawler/fetcher/contracts.go", "internal/crawler/fetcher/remote_fetcher.go",
 		"internal/platformbase/fetcher_mode.go", "internal/platformbase/fetcher_builder.go",
 		"internal/amazon/api/client.go",
-		"internal/listingruntime/types.go", "internal/listingadmin/import_task_owner.go",
-		"internal/listingadmin/import_task_owner_test.go", "internal/listingadmin/schema_migrate.go",
-		"internal/listingadmin/product_data_repository.go", "internal/listingadmin/product_import_mapping_repository.go",
+		"internal/listingruntime/types.go", "internal/listingadmin/schema_migrate.go",
 		"internal/core/config/type_platform.go",
 		"internal/temu/api/api.go", "internal/temu/api/client/interfaces.go",
 		"internal/temu/api/client/client.go", "internal/temu/api/client/cookie_manager.go",
@@ -1128,7 +1595,7 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 						t.Errorf("%s still compiles retired listing dependency %s", command, dependency)
 					}
 				}
-				for _, retired := range []string{"task-processor/internal/shein/product", "task-processor/internal/shein/productdata", "task-processor/internal/shein/publish", "task-processor/internal/shein/mapping", "task-processor/internal/shein/validation", "task-processor/internal/shein/translate", "task-processor/internal/shein/addresscopy", "task-processor/internal/shein/managedclient", "task-processor/internal/shein/store", "task-processor/internal/shein/context", "task-processor/internal/shein/languageconfig", "task-processor/internal/shein/siteconfig", "task-processor/internal/sheinbridge/saleattribute", "task-processor/internal/shein/inventory", "task-processor/internal/temu/sync", "task-processor/internal/temu/bulkrelist", "task-processor/internal/temu/store", "task-processor/internal/app/bootstrap", "task-processor/internal/app/consumer", "task-processor/internal/app/runner", "task-processor/internal/app/scheduler", "task-processor/internal/app/runtime/listingcontrol", "task-processor/internal/app/runtime/sheinplatformrecovery", "task-processor/internal/listingcontrol", "task-processor/internal/app/task", "task-processor/internal/app/taskstatus", "task-processor/internal/processor", "task-processor/internal/app/crawler/distributed", "task-processor/internal/listingruntime/local", "task-processor/internal/platforms", "task-processor/internal/listingkit", "task-processor/internal/tenantbridge", "task-processor/internal/compatibility", "task-processor/internal/sourceaccount", "task-processor/internal/integration/persistence/sourceaccount/ownershipmigration"} {
+				for _, retired := range []string{"task-processor/internal/shein/product", "task-processor/internal/shein/productdata", "task-processor/internal/shein/publish", "task-processor/internal/shein/mapping", "task-processor/internal/shein/validation", "task-processor/internal/shein/translate", "task-processor/internal/shein/addresscopy", "task-processor/internal/shein/managedclient", "task-processor/internal/shein/store", "task-processor/internal/shein/context", "task-processor/internal/shein/languageconfig", "task-processor/internal/shein/siteconfig", "task-processor/internal/sheinbridge/saleattribute", "task-processor/internal/shein/inventory", "task-processor/internal/temu/sync", "task-processor/internal/temu/bulkrelist", "task-processor/internal/temu/store", "task-processor/internal/app/bootstrap", "task-processor/internal/app/consumer", "task-processor/internal/app/runner", "task-processor/internal/app/scheduler", "task-processor/internal/app/runtime/listingcontrol", "task-processor/internal/app/runtime/sheinplatformrecovery", "task-processor/internal/listingcontrol", "task-processor/internal/app/task", "task-processor/internal/app/taskstatus", "task-processor/internal/processor", "task-processor/internal/app/crawler/distributed", "task-processor/internal/listingruntime/local", "task-processor/internal/platforms", "task-processor/internal/listingkit", "task-processor/internal/tenantbridge", "task-processor/internal/compatibility", "task-processor/internal/sourceaccount", "task-processor/internal/integration/persistence/sourceaccount/ownershipmigration", "task-processor/internal/taskrpcapi", "task-processor/internal/workspace/shein", "task-processor/internal/core/metrics"} {
 					if dependency == retired || strings.HasPrefix(dependency, retired+"/") {
 						t.Errorf("%s still compiles retired business dependency %s", command, dependency)
 					}

@@ -26,13 +26,6 @@ type StoreInfo struct {
 	AuthorizedBrandName      string
 }
 
-type StorePauseStatusDetail struct {
-	Paused     bool
-	PauseType  string
-	Reason     string
-	TTLSeconds int64
-}
-
 type ProductImportMapping struct {
 	ID                      int64
 	ImportTaskID            int64
@@ -54,34 +47,4 @@ type ProductImportMapping struct {
 	Status                  int16
 	Remark                  *string
 	TenantID                int64
-}
-
-type ProductImportMappingUpsert struct {
-	ID                      *int64
-	TenantID                int64
-	OwnerUserID             string
-	ImportTaskID            int64
-	StoreID                 int64
-	Platform                string
-	Region                  string
-	ProductID               string
-	ParentProductID         *string
-	SKU                     *string
-	PlatformProductID       *string
-	PlatformParentProductID *string
-	CostPrice               *float64
-	FilterRuleID            *int64
-	FilterRuleRange         *string
-	ProfitRuleID            *int64
-	SalePriceMultiplier     *float64
-	DiscountPriceMultiplier *float64
-	Status                  *int16
-	Remark                  *string
-}
-
-type StoreService interface {
-	GetStore(storeID int64) (*StoreInfo, error)
-	GetStorePauseStatus(storeID int64) (bool, error)
-	GetStorePauseStatusDetail(storeID int64) (*StorePauseStatusDetail, error)
-	SetStorePauseStatus(storeID int64, pause bool, pauseType string) (bool, error)
 }

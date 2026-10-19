@@ -1,5 +1,7 @@
 # ListingKit Boundary Checkpoint
 
+> #824 supersedes the historical permission below for internal/workspace/shein to remain a compatibility shell: the wrapper and orphan marketplace editor/repair/history/Task projections are source-retired under the [confirmed support boundary](../architecture/legacy-numeric-listing-support-closure-retirement-boundary.md). The offline validator retains its exact readiness rule closure in the existing marketplace owner. The old exception text is historical, not permission to revive a shell; current Product/CompletionDraft editing and history are unchanged.
+
 > Status: **SUPERSEDED FOR GREENFIELD**. This is historical boundary evidence, not a current implementation authority. [PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08](../product/greenfield-no-legacy-migration.md) requires current owners and `EXTRACT | RETIRE`; do not follow this checkpoint's legacy compatibility directions for new work.
 >
 > Last reviewed: 2026-07-11.

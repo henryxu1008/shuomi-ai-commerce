@@ -1,5 +1,7 @@
 # Code Health Decisions
 
+> #824: the [confirmed support closure](../architecture/legacy-numeric-listing-support-closure-retirement-boundary.md) retires the unused numeric management/Task/Workspace sources together. The dated raw_json_data converter row below preserves its old evidence; its then-retained listingadmin read path now retires with the last consumer. Current acquisition/cache ports, Store/sensitive-word/topic repositories, pricing, offline validator rules and independent SHEIN login/Store sync remain. Only core/logger -> core/metrics leaves the CURRENT consumer table; dated counts, ceilings, workflows and real data are unchanged.
+
 > #822: the user-confirmed complete Amazon listing closure is source-retired
 > under [the frozen boundary](../architecture/legacy-amazon-listing-closure-retirement-boundary.md).
 > The old numeric pipeline/Task Workbench and exclusive state, pool/time helpers,

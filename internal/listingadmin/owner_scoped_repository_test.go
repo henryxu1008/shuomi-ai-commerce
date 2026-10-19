@@ -61,26 +61,6 @@ func TestCreateStorePersistsTrustedInternalOwner(t *testing.T) {
 	}
 }
 
-func TestCreateCategoryRejectsOwnerlessWrite(t *testing.T) {
-	db := newOwnerScopedSQLiteDB(t, &listingCategory{})
-	_, err := NewGormCategoryRepository(db).CreateCategory(context.Background(), &Category{
-		TenantID: 101,
-		Name:     "Category",
-		Code:     "category-1",
-	})
-	assertOwnerlessWriteRejected(t, db, "listing_category", err)
-}
-
-func TestCreateFilterRuleRejectsOwnerlessWrite(t *testing.T) {
-	db := newOwnerScopedSQLiteDB(t, &listingFilterRule{})
-	_, err := NewGormFilterRuleRepository(db).CreateFilterRule(context.Background(), &FilterRule{
-		TenantID: 101,
-		Name:     "Rule",
-		RuleCode: "rule-1",
-	})
-	assertOwnerlessWriteRejected(t, db, "listing_filter_rule", err)
-}
-
 func TestCreateGenerationTopicPolicyRejectsOwnerlessWrite(t *testing.T) {
 	db := newOwnerScopedSQLiteDB(t, &listingGenerationTopicPolicy{})
 	_, err := NewGormGenerationTopicPolicyRepository(db).CreateGenerationTopicPolicy(context.Background(), &GenerationTopicPolicy{
@@ -99,37 +79,6 @@ func TestCreateGenerationTopicOverrideRejectsOwnerlessWrite(t *testing.T) {
 		TopicKey: "title",
 	})
 	assertOwnerlessWriteRejected(t, db, "listing_generation_topic_override", err)
-}
-
-func TestCreateOperationStrategyRejectsOwnerlessWrite(t *testing.T) {
-	db := newOwnerScopedSQLiteDB(t, &listingOperationStrategy{})
-	_, err := NewGormOperationStrategyRepository(db).CreateOperationStrategy(context.Background(), &OperationStrategy{
-		TenantID: 101,
-		StoreID:  1,
-		Name:     "Strategy",
-	})
-	assertOwnerlessWriteRejected(t, db, "listing_operation_strategy", err)
-}
-
-func TestCreatePricingRuleRejectsOwnerlessWrite(t *testing.T) {
-	db := newOwnerScopedSQLiteDB(t, &listingPricingRule{})
-	_, err := NewGormPricingRuleRepository(db).CreatePricingRule(context.Background(), &PricingRule{
-		TenantID: 101,
-		Name:     "Rule",
-		RuleCode: "rule-1",
-		RuleType: "fixed",
-	})
-	assertOwnerlessWriteRejected(t, db, "listing_pricing_rule", err)
-}
-
-func TestCreateProfitRuleRejectsOwnerlessWrite(t *testing.T) {
-	db := newOwnerScopedSQLiteDB(t, &listingProfitRule{})
-	_, err := NewGormProfitRuleRepository(db).CreateProfitRule(context.Background(), &ProfitRule{
-		TenantID: 101,
-		Name:     "Rule",
-		RuleCode: "rule-1",
-	})
-	assertOwnerlessWriteRejected(t, db, "listing_profit_rule", err)
 }
 
 func TestCreateSensitiveWordRejectsOwnerlessWrite(t *testing.T) {

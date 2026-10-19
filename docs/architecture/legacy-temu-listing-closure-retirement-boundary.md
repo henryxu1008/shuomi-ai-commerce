@@ -1,5 +1,7 @@
 # 旧 TEMU 数字刊登剩余整链退休边界
 
+> #824 后续按用户确认的[共享支撑边界](legacy-numeric-listing-support-closure-retirement-boundary.md)退休失去最后消费者的八类 listingadmin 管理链及专属 DTO 值 helper、孤立 listingruntime 声明与旧 Task/Workspace 尾部。本文对这些对象的保留仅为历史；Store/敏感词/话题、四种有效值合同、当前平台/采集/图像/Store 与独立 SHEIN worker 保留。原证据和历史数据不处理。
+
 > 后续 #822 已按用户确认整退旧 Amazon 刊登及专属 state/timex/httpbootstrap 闭包；本文关于这些对象的保留仅为 #819 当时消费者证据，新状态见[Amazon 边界](legacy-amazon-listing-closure-retirement-boundary.md)。其他当前平台/共享/worker 能力保留不变，原数字与执行证据不重写。
 
 > Execution：[#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)
