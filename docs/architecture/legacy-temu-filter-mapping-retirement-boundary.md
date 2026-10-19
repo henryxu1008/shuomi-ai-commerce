@@ -1,5 +1,7 @@
 # 旧 TEMU 变体筛选与 AI SKU 映射前置编排退休边界
 
+> 后续用户已确认 [#819 TEMU剩余整链边界](legacy-temu-listing-closure-retirement-boundary.md) §5/§6/§6.1/§7。本文件对该闭包内旧 TEMU AI/SKU/spec、PriceHandler/PriceCalculator、property/context/TemplateState、pipeline/skugen及专属纯规则/管理投影/prompt的保留描述仅为历史边界，现由#819精确替代；当前平台API/规则、共享合同、SHEIN价格/两属性、采集/图像/Store观察与独立SHEIN登录/Store同步继续保留。原证据不改，不授权实例或数据操作。
+
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
 - Status: **USER_CONFIRMED / SOURCE_RETIRED**。用户在当前会话确认 #754 冻结设计 `0d8bc37850e949048e6de6fd33a2ea473eb44e65` 的 §5、§6、§6.1、§7；九个专属生产文件、一个旧测试和 mixed input 专属部分已按矩阵退出。合并和真实操作仍须单独授权。

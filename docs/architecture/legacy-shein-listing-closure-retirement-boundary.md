@@ -1,5 +1,7 @@
 # 旧 SHEIN 数字刊登整链：完整退休边界设计
 
+> 后续用户已确认 [#819 TEMU剩余整链边界](legacy-temu-listing-closure-retirement-boundary.md) §5/§6/§6.1/§7。本文件对该闭包内旧 TEMU AI/SKU/spec、PriceHandler/PriceCalculator、property/context/TemplateState、pipeline/skugen及专属纯规则/管理投影/prompt的保留描述仅为历史边界，现由#819精确替代；当前平台API/规则、共享合同、SHEIN价格/两属性、采集/图像/Store观察与独立SHEIN登录/Store同步继续保留。原证据不改，不授权实例或数据操作。
+
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
 - Status: **SOURCE IMPLEMENTED / In Review**。用户已确认冻结设计 `a7c29d4b14a277782ca7218ceca7267bcd92c113` §5/§6/§6.1/§7；独立设计复核已完成，#29/#301 在生产改动前已登记并读回 **Independent Architecture / IMPLEMENTATION_READY / Ready**。三项 EXTRACT 与当前消费者切换、§5.2 的 207 Go 文件和 3 YAML、§5.3 mixed 退休已完成；准确实现 HEAD、原 CI 与最终独立复核结果记录在 [#817](https://github.com/qq550723504/task-processor/pull/817)，不以设计 CI 代替。

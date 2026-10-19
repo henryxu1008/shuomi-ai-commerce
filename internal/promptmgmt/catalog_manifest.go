@@ -180,21 +180,6 @@ var promptCatalogMetadata = map[string]promptMetadata{
 		Scopes:      tenantOnlyScopes,
 		Variables:   promptVars("AttributeName", "SourceDimension", "ProductTitle", "SourceValue"),
 	},
-	prompt.KTemuAttributeMappingSystem: {
-		Label:       "属性映射 / 系统提示词",
-		Description: "Temu 属性映射链路的系统提示词。",
-		Scopes:      tenantOnlyScopes,
-	},
-	prompt.KTemuContentRewriterSystem: {
-		Label:       "文案改写 / 系统提示词",
-		Description: "Temu 文案改写链路的系统提示词。",
-		Scopes:      tenantOnlyScopes,
-	},
-	prompt.KTemuSkuVariantMappingSystem: {
-		Label:       "变体映射 / 系统提示词",
-		Description: "Temu SKU 变体映射链路的系统提示词。",
-		Scopes:      tenantOnlyScopes,
-	},
 	prompt.KProductEnrichLlmScorerTextScoring: {
 		Label:       "文本评分",
 		Description: "商品信息生成链路的文本质量评分提示词。",

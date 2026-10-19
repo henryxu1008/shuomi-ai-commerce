@@ -1,5 +1,18 @@
 # Legacy Register
 
+> #29 / #301 [complete remaining TEMU numeric listing closure](../architecture/legacy-temu-listing-closure-retirement-boundary.md)
+> follows user-confirmed frozen design a253ca05f in #819, with Independent
+> Architecture / IMPLEMENTATION_READY admission before production edits. The
+> 88-Go-file AI/property/spec/SKU/price and exclusive pipeline/policies/skugen/GORM
+> projection closure, six source resources and exact mixed declarations are retired.
+> Three DTO value helpers stay in listingadmin for mapping/filter consumers. Only
+> this batch's ten live consumer-register rows leave; historical counts, ceilings,
+> workflows and dependencies remain. Earlier numeric TEMU retention statements
+> below are superseded only for that exact closure. Current APIs/official rules,
+> shared Reader/Cache/Mapping, acquisition/images/Store observations, SHEIN pricing/
+> both attribute types and independent SHEIN login/Store sync remain. No runtime,
+> provider, existing Prompt override or data operation and no new trial prerequisite.
+
 > Status: Active legacy handling register
 
 > #29 / #301 [complete SHEIN numeric listing closure retirement](../architecture/legacy-shein-listing-closure-retirement-boundary.md)

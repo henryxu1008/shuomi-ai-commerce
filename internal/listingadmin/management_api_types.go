@@ -199,68 +199,6 @@ func (r *FilterRuleRespDTO) ToFilterRule() *productpolicy.FilterRule {
 	}
 }
 
-// ProfitRuleRespDTO 利润规则响应DTO
-type ProfitRuleRespDTO struct {
-	ID                      int64              `json:"id"`
-	Name                    string             `json:"name"`
-	RuleCode                string             `json:"ruleCode"`
-	Description             string             `json:"description"`
-	StoreID                 *int64             `json:"storeId,omitempty"`
-	CategoryID              *int64             `json:"categoryId,omitempty"`
-	SalePriceMultiplier     float64            `json:"salePriceMultiplier"`
-	DiscountPriceMultiplier float64            `json:"discountPriceMultiplier,omitempty"`
-	Status                  int16              `json:"status"`
-	Remark                  string             `json:"remark"`
-	CreateTime              types.FlexibleTime `json:"createTime"`
-	TenantID                int64              `json:"tenantId"`
-}
-
-// ProfitRuleReqDTO 利润规则请求DTO
-type ProfitRuleReqDTO struct {
-	TenantID int64 `json:"tenantId" binding:"required"`
-	StoreID  int64 `json:"storeId" binding:"omitemtp"`
-}
-
-// ProfitRuleAPI 利润规则API接口定义
-type ProfitRuleAPI interface {
-	GetProfitRule(req *ProfitRuleReqDTO) (*ProfitRuleRespDTO, error)
-}
-
-// PricingRuleRespDTO 自动核价规则响应DTO
-type PricingRuleRespDTO struct {
-	ID                 int64              `json:"id"`
-	Name               string             `json:"name"`
-	RuleCode           string             `json:"ruleCode"`
-	Description        *string            `json:"description"`
-	StoreID            *int64             `json:"storeId"`
-	CategoryID         *int64             `json:"categoryId"`
-	PriceMin           *float64           `json:"priceMin"`
-	PriceMax           *float64           `json:"priceMax"`
-	RuleType           string             `json:"ruleType"`
-	RuleValue          *float64           `json:"ruleValue"`
-	FixedValue         *float64           `json:"fixedValue"`
-	AcceptCondition    *string            `json:"acceptCondition"`
-	RejectCondition    *string            `json:"rejectCondition"`
-	Status             int                `json:"status"`
-	Remark             *string            `json:"remark"`
-	CreateTime         types.FlexibleTime `json:"createTime"`
-	TenantID           int64              `json:"tenantId"`
-	TargetProfitMargin float64            `json:"targetProfitMargin"`
-	MinProfitMargin    float64            `json:"minProfitMargin"`
-	AcceptBelowTarget  bool               `json:"acceptBelowTarget"`
-	ReappealBelowMin   bool               `json:"reappealBelowMin"`
-}
-
-// PricingRuleReqDTO 自动核价规则请求DTO
-type PricingRuleReqDTO struct {
-	StoreID *int64 `json:"storeId,omitempty"`
-}
-
-// PricingRuleAPI 自动核价规则API接口定义
-type PricingRuleAPI interface {
-	GetPricingRule(req *PricingRuleReqDTO) ([]PricingRuleRespDTO, error)
-}
-
 // ProductImportMappingCreateReqDTO 产品导入映射关系创建请求DTO
 type ProductImportMappingCreateReqDTO struct {
 	ID                      *int64   `json:"id,omitempty"`

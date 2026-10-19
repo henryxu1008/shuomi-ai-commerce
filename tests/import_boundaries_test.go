@@ -1587,11 +1587,14 @@ func TestTemuRuntimeErrorsUseCapabilityNames(t *testing.T) {
 
 func TestTemuContextUsesManagementAPIPortAliases(t *testing.T) {
 	root := filepath.Join("..", "internal", "temu", "context")
-	index, err := loadGoFileIndex(root, "")
+	index, err := loadGoFileIndex(filepath.Dir(root), "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	for path, facts := range index.files {
+		if !strings.HasPrefix(path, root+string(os.PathSeparator)) {
+			continue
+		}
 		if _, ok := facts.imports[`"task-processor/internal/infra/clients/management/api"`]; ok {
 			t.Fatalf("%s imports concrete management API DTOs; use listingadmin/local runtime types", path)
 		}
@@ -1600,11 +1603,14 @@ func TestTemuContextUsesManagementAPIPortAliases(t *testing.T) {
 
 func TestTemuFilterUsesManagementAPIPortAliases(t *testing.T) {
 	root := filepath.Join("..", "internal", "temu", "filter")
-	index, err := loadGoFileIndex(root, "")
+	index, err := loadGoFileIndex(filepath.Dir(root), "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	for path, facts := range index.files {
+		if !strings.HasPrefix(path, root+string(os.PathSeparator)) {
+			continue
+		}
 		if _, ok := facts.imports[`"task-processor/internal/infra/clients/management/api"`]; ok {
 			t.Fatalf("%s imports concrete management API DTOs; use listingadmin/local runtime types", path)
 		}
@@ -1613,11 +1619,14 @@ func TestTemuFilterUsesManagementAPIPortAliases(t *testing.T) {
 
 func TestTemuRulesUsesManagementAPIPortAliases(t *testing.T) {
 	root := filepath.Join("..", "internal", "temu", "rules")
-	index, err := loadGoFileIndex(root, "")
+	index, err := loadGoFileIndex(filepath.Dir(root), "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	for path, facts := range index.files {
+		if !strings.HasPrefix(path, root+string(os.PathSeparator)) {
+			continue
+		}
 		if _, ok := facts.imports[`"task-processor/internal/infra/clients/management/api"`]; ok {
 			t.Fatalf("%s imports concrete management API DTOs; use listingadmin/local runtime types", path)
 		}
@@ -1626,11 +1635,14 @@ func TestTemuRulesUsesManagementAPIPortAliases(t *testing.T) {
 
 func TestTemuHandlerBaseUsesManagementAPIPortAliases(t *testing.T) {
 	root := filepath.Join("..", "internal", "temu", "handlerbase")
-	index, err := loadGoFileIndex(root, "")
+	index, err := loadGoFileIndex(filepath.Dir(root), "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	for path, facts := range index.files {
+		if !strings.HasPrefix(path, root+string(os.PathSeparator)) {
+			continue
+		}
 		if _, ok := facts.imports[`"task-processor/internal/infra/clients/management/api"`]; ok {
 			t.Fatalf("%s imports concrete management API DTOs; use listingadmin/local runtime types", path)
 		}
@@ -1655,11 +1667,14 @@ func TestTemuStoreUsesManagementAPIPortAliases(t *testing.T) {
 
 func TestTemuSkuUsesManagementAPIPortAliases(t *testing.T) {
 	root := filepath.Join("..", "internal", "temu", "sku")
-	index, err := loadGoFileIndex(root, "")
+	index, err := loadGoFileIndex(filepath.Dir(root), "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	for path, facts := range index.files {
+		if !strings.HasPrefix(path, root+string(os.PathSeparator)) {
+			continue
+		}
 		if _, ok := facts.imports[`"task-processor/internal/infra/clients/management/api"`]; ok {
 			t.Fatalf("%s imports concrete management API DTOs; use listingadmin/local runtime types", path)
 		}
@@ -1668,11 +1683,14 @@ func TestTemuSkuUsesManagementAPIPortAliases(t *testing.T) {
 
 func TestTemuProductUsesManagementAPIPortAliases(t *testing.T) {
 	root := filepath.Join("..", "internal", "temu", "product")
-	index, err := loadGoFileIndex(root, "")
+	index, err := loadGoFileIndex(filepath.Dir(root), "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	for path, facts := range index.files {
+		if !strings.HasPrefix(path, root+string(os.PathSeparator)) {
+			continue
+		}
 		if _, ok := facts.imports[`"task-processor/internal/infra/clients/management/api"`]; ok {
 			t.Fatalf("%s imports concrete management API DTOs; use listingadmin/local runtime types", path)
 		}
@@ -1681,11 +1699,14 @@ func TestTemuProductUsesManagementAPIPortAliases(t *testing.T) {
 
 func TestTemuPricingUsesManagementAPIPortAliases(t *testing.T) {
 	root := filepath.Join("..", "internal", "temu", "pricing")
-	index, err := loadGoFileIndex(root, "")
+	index, err := loadGoFileIndex(filepath.Dir(root), "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	for path, facts := range index.files {
+		if !strings.HasPrefix(path, root+string(os.PathSeparator)) {
+			continue
+		}
 		if _, ok := facts.imports[`"task-processor/internal/infra/clients/management/api"`]; ok {
 			t.Fatalf("%s imports concrete management API DTOs; use listingadmin/local runtime types", path)
 		}
@@ -2896,21 +2917,21 @@ func TestSharedPricingRetiredManagementImportsStayBlocked(t *testing.T) {
 }
 
 func TestTEMUSyncAndPricingRetiredManagementImportsStayBlocked(t *testing.T) {
-	allowedFiles := map[string]struct{}{
-		filepath.Clean(filepath.Join("..", "internal", "temu", "pricing", "interfaces.go")):              {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "pricing", "pricing_rule_calculator.go")): {},
-	}
+	allowedFiles := map[string]struct{}{}
 
 	for _, root := range []string{
 		filepath.Join("..", "internal", "temu", "pricing"),
 	} {
 		t.Run(filepath.ToSlash(root), func(t *testing.T) {
-			index, err := loadGoFileIndex(root, "")
+			index, err := loadGoFileIndex(filepath.Join("..", "internal", "temu"), "")
 			if err != nil {
 				t.Fatal(err)
 			}
 
 			for path, facts := range index.files {
+				if !strings.HasPrefix(path, root+string(os.PathSeparator)) {
+					continue
+				}
 				if pathAllowed(path, allowedFiles) {
 					continue
 				}
@@ -2926,9 +2947,7 @@ func TestTEMUSyncAndPricingRetiredManagementImportsStayBlocked(t *testing.T) {
 }
 
 func TestTEMUProductStoreAndSchedulerRetiredManagementImportsStayBlocked(t *testing.T) {
-	allowedFiles := map[string]struct{}{
-		filepath.Clean(filepath.Join("..", "internal", "temu", "product", "price_handler.go")): {},
-	}
+	allowedFiles := map[string]struct{}{}
 
 	// Index the stable parent so the retired store directory can stay absent,
 	// while both original subtrees remain covered if sources are reintroduced.
@@ -2975,12 +2994,15 @@ func TestTEMURuntimeAndBridgeRetiredManagementImportsStayBlocked(t *testing.T) {
 		filepath.Join("..", "internal", "temu", "rules"),
 	} {
 		t.Run(filepath.ToSlash(root), func(t *testing.T) {
-			index, err := loadGoFileIndex(root, "")
+			index, err := loadGoFileIndex(filepath.Join("..", "internal", "temu"), "")
 			if err != nil {
 				t.Fatal(err)
 			}
 
 			for path, facts := range index.files {
+				if !strings.HasPrefix(path, root+string(os.PathSeparator)) {
+					continue
+				}
 				if pathAllowed(path, allowedFiles) {
 					continue
 				}
@@ -3017,12 +3039,7 @@ func TestTEMURuntimeAndBridgeRetiredManagementImportsStayBlocked(t *testing.T) {
 func TestTEMUOpenAIImportsStayAllowlisted(t *testing.T) {
 	root := filepath.Join("..", "internal", "temu")
 	allowedFiles := map[string]struct{}{
-		filepath.Clean(filepath.Join(root, "ai", "content_rewriter.go")):             {},
-		filepath.Clean(filepath.Join(root, "ai", "property_mapper_core.go")):         {},
-		filepath.Clean(filepath.Join(root, "ai", "service.go")):                      {},
-		filepath.Clean(filepath.Join(root, "pipeline_registry.go")):                  {},
-		filepath.Clean(filepath.Join(root, "sku", "ai_mapping_single_processor.go")): {},
-		filepath.Clean(filepath.Join(root, "sku", "variant_processor.go")):           {},
+		filepath.Clean(filepath.Join(root, "pipeline_registry.go")): {},
 	}
 
 	index, err := loadGoFileIndex(root, "")

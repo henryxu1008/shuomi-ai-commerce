@@ -29,9 +29,6 @@ var promptTemplateCatalogKeys = []string{
 	prompt.KSheinSaleAttributeSourceDimension,
 	prompt.KSheinSaleAttributeValueBatchMapping,
 	prompt.KSheinSaleAttributePromptValueExtraction,
-	prompt.KTemuAttributeMappingSystem,
-	prompt.KTemuContentRewriterSystem,
-	prompt.KTemuSkuVariantMappingSystem,
 	prompt.KProductEnrichLlmScorerTextScoring,
 	prompt.KProductEnrichLlmScorerImageScoring,
 	prompt.KProductEnrichUnderstandingAnalyzeImage,
@@ -56,7 +53,6 @@ var promptTemplateCatalogKeys = []string{
 
 var promptCategoryLabels = map[string]string{
 	"shein":         "SHEIN",
-	"temu":          "Temu",
 	"productenrich": "商品信息生成",
 	"productimage":  "商品图片",
 }
@@ -132,7 +128,7 @@ func promptCategoryLabel(category string) string {
 
 func promptGroup(category string) string {
 	switch category {
-	case "shein", "temu":
+	case "shein":
 		return "marketplace"
 	case "productenrich":
 		return "enrichment"
