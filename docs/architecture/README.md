@@ -1,5 +1,7 @@
 # Architecture Documentation
 
+- [`image-api-event-read-permissions.md`](image-api-event-read-permissions.md): #774 bounded correction of the current API role's shared event-log SELECT grant and startup allowlist, with real PostgreSQL confirmation/replay and denial tests. Preserves original admission, UNKNOWN, request identity, deadlines and all retained data; see the document for independent admission.
+
 - [`model-route-pricing-management-v1.md`](model-route-pricing-management-v1.md): #830 bounded platform-maintainer UI for per-organization admitted text/image bindings and execution rates. Reuses Credential, AI capability, ProductAgent, ImageAgent and Commercial owners; versioned atomic publication and original task/UNKNOWN impact. See the document for admission; no runtime/model action is authorized.
 
 - [`generic-image-template-entry.md`](generic-image-template-entry.md): #774 generic image presets saved through current enterprise template commands, with default-preserving exact template discovery from official skill entry. Reuses configuration, ImageSet and Asset owners; no new schema, permission, accounting or recovery contract.
