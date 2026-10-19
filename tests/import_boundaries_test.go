@@ -1964,6 +1964,12 @@ func TestProjectBoundaryDomainsDoNotImportListingKitFacade(t *testing.T) {
 		filepath.Join("..", "internal", "workspace"),
 	} {
 		t.Run(filepath.ToSlash(domainRoot), func(t *testing.T) {
+			if domainRoot == filepath.Join("..", "internal", "workspace") {
+				assertNoBannedImportPrefixesBelow(t, filepath.Join("..", "internal"), domainRoot, []string{
+					"task-processor/internal/listingkit",
+				}, nil)
+				return
+			}
 			assertNoBannedImportPrefixes(t, domainRoot, []string{
 				"task-processor/internal/listingkit",
 			}, nil)
