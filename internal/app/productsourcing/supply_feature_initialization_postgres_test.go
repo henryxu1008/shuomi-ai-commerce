@@ -19,6 +19,8 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	acquisitionstore "task-processor/internal/integration/persistence/product/acquisition"
+	reviewstore "task-processor/internal/integration/persistence/product/review"
+	"task-processor/internal/product/review"
 )
 
 type supplyFeatureFixture struct {
@@ -99,6 +101,80 @@ CREATE ROLE retained_reader NOLOGIN`).Error)
 		require.True(t, denied)
 	})
 
+	for _, alreadyReadable := range []bool{false, true} {
+		name := "existing Review without Supply"
+		if alreadyReadable {
+			name += " with proposal read grant"
+		}
+		t.Run(name, func(t *testing.T) {
+			f := newFixture(t)
+			seedSupplyFeatureReview(t, f.owner)
+			if alreadyReadable {
+				require.NoError(t, f.owner.Exec("GRANT SELECT ON product_title_proposals TO source_acquisition_runtime").Error)
+			}
+			retained := append(append([]string{}, f.baseTables...), "product_title_operations")
+			before := supplyFeatureSnapshot(t, f.owner, retained)
+			// The only admitted Review ACL addition is the existing Supply SELECT.
+			// Keep the original proposal snapshot except for that exact ACL delta.
+			require.NoError(t, f.owner.Exec("GRANT SELECT ON product_title_proposals TO source_acquisition_runtime").Error)
+			wantProposal := supplyFeatureSnapshot(t, f.owner, []string{"product_title_proposals"})
+			if !alreadyReadable {
+				require.NoError(t, f.owner.Exec("REVOKE SELECT ON product_title_proposals FROM source_acquisition_runtime").Error)
+			}
+			require.NoError(t, EnableSupplyChain(ctx, f.manifest, f.database))
+			require.Equal(t, before, supplyFeatureSnapshot(t, f.owner, retained))
+			require.Equal(t, wantProposal, supplyFeatureSnapshot(t, f.owner, []string{"product_title_proposals"}))
+			require.NoError(t, acquisitionstore.VerifyRuntimePermissions(ctx, f.runtime, acquisitionstore.RuntimeCapabilities{Collections: true, CompletionDrafts: true, SupplyChain: true}))
+			var tables []string
+			require.NoError(t, f.owner.Raw("SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename").Scan(&tables).Error)
+			require.Len(t, tables, 27)
+			installed := supplyFeatureSnapshot(t, f.owner, tables)
+			require.NoError(t, EnableSupplyChain(ctx, f.manifest, f.database))
+			require.Equal(t, installed, supplyFeatureSnapshot(t, f.owner, tables))
+		})
+	}
+
+	for _, tc := range []struct {
+		name, change string
+		installed    bool
+	}{
+		{"Review proposals alone", "DROP TABLE product_title_operations", false},
+		{"Review operations alone", "DROP TABLE product_title_proposals", false},
+		{"retained Review column drift", "ALTER TABLE product_title_operations ALTER COLUMN fingerprint TYPE varchar(16)", false},
+		{"retained Review constraint drift", "ALTER TABLE product_title_proposals DROP CONSTRAINT ck_product_title_proposals_state_payload", false},
+		{"retained Review index drift", "DROP INDEX ix_product_title_proposals_actionable_owner", false},
+		{"retained Review wrong owner", "ALTER TABLE product_title_proposals OWNER TO retained_reader", false},
+		{"retained Review unexpected write", "GRANT UPDATE ON product_title_proposals TO source_acquisition_runtime", false},
+		{"retained Review operation read", "GRANT SELECT ON product_title_operations TO source_acquisition_runtime", false},
+		{"retained Review column write", "GRANT UPDATE(payload) ON product_title_proposals TO source_acquisition_runtime", false},
+		{"retained Review grant option", "GRANT SELECT ON product_title_proposals TO source_acquisition_runtime WITH GRANT OPTION", false},
+		{"retained Review with partial Supply", "CREATE TABLE listing_target_records(id integer)", false},
+		{"installed Supply cannot replace missing Review", "DROP TABLE product_title_operations; DROP TABLE product_title_proposals", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFixture(t)
+			seedSupplyFeatureReview(t, f.owner)
+			if tc.installed {
+				require.NoError(t, EnableSupplyChain(ctx, f.manifest, f.database))
+			}
+			parsed, err := url.Parse(dsn)
+			require.NoError(t, err)
+			parsed.Path = "/" + f.database
+			// The fixture administrator can model a foreign owner without
+			// granting the maintenance role membership or adoption rights.
+			inspect := openSupplyFeatureTestDB(t, parsed.String())
+			require.NoError(t, inspect.Exec(tc.change).Error)
+			var tables []string
+			require.NoError(t, inspect.Raw("SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename").Scan(&tables).Error)
+			before := supplyFeatureSnapshot(t, inspect, tables)
+			require.Error(t, EnableSupplyChain(ctx, f.manifest, f.database))
+			require.Equal(t, before, supplyFeatureSnapshot(t, inspect, tables))
+			var count int64
+			require.NoError(t, f.owner.Raw("SELECT count(*) FROM pg_tables WHERE schemaname='public'").Scan(&count).Error)
+			require.Len(t, tables, int(count), "refusal must not leave new tables")
+		})
+	}
+
 	for _, tc := range []struct {
 		name, change string
 		installed    bool
@@ -175,18 +251,29 @@ CREATE ROLE retained_reader NOLOGIN`).Error)
 		require.Equal(t, before, supplyFeatureSnapshot(t, f.owner, f.baseTables))
 	})
 
-	t.Run("late permission refusal rolls back every new table and grant", func(t *testing.T) {
-		f := newFixture(t)
-		require.NoError(t, f.owner.Exec("ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT UPDATE ON TABLES TO source_acquisition_runtime").Error)
-		before := supplyFeatureSnapshot(t, f.owner, f.baseTables)
-		require.Error(t, EnableSupplyChain(ctx, f.manifest, f.database))
-		require.Equal(t, before, supplyFeatureSnapshot(t, f.owner, f.baseTables))
-		var count int64
-		require.NoError(t, f.owner.Raw("SELECT count(*) FROM pg_tables WHERE schemaname='public'").Scan(&count).Error)
-		require.EqualValues(t, 14, count)
-		require.NoError(t, f.owner.Exec("ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE UPDATE ON TABLES FROM source_acquisition_runtime").Error)
-		require.NoError(t, EnableSupplyChain(ctx, f.manifest, f.database), "a rolled-back attempt can be safely retried")
-	})
+	for _, retainedReview := range []bool{false, true} {
+		name := "late permission refusal rolls back every new table and grant"
+		if retainedReview {
+			name += " with retained Review"
+		}
+		t.Run(name, func(t *testing.T) {
+			f := newFixture(t)
+			retained := append([]string{}, f.baseTables...)
+			if retainedReview {
+				seedSupplyFeatureReview(t, f.owner)
+				retained = append(retained, "product_title_proposals", "product_title_operations")
+			}
+			require.NoError(t, f.owner.Exec("ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT UPDATE ON TABLES TO source_acquisition_runtime").Error)
+			before := supplyFeatureSnapshot(t, f.owner, retained)
+			require.Error(t, EnableSupplyChain(ctx, f.manifest, f.database))
+			require.Equal(t, before, supplyFeatureSnapshot(t, f.owner, retained))
+			var count int64
+			require.NoError(t, f.owner.Raw("SELECT count(*) FROM pg_tables WHERE schemaname='public'").Scan(&count).Error)
+			require.EqualValues(t, len(retained), count)
+			require.NoError(t, f.owner.Exec("ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE UPDATE ON TABLES FROM source_acquisition_runtime").Error)
+			require.NoError(t, EnableSupplyChain(ctx, f.manifest, f.database), "a rolled-back attempt can be safely retried")
+		})
+	}
 
 	t.Run("cancelled lock wait has no persisted effect", func(t *testing.T) {
 		f := newFixture(t)
@@ -200,6 +287,21 @@ CREATE ROLE retained_reader NOLOGIN`).Error)
 		require.Error(t, EnableSupplyChain(short, f.manifest, f.database))
 		require.Equal(t, before, supplyFeatureSnapshot(t, f.owner, f.baseTables))
 	})
+}
+
+func seedSupplyFeatureReview(t *testing.T, db *gorm.DB) {
+	t.Helper()
+	require.NoError(t, reviewstore.InstallSchema(db))
+	record := review.Record{ID: "99999999-9999-4999-8999-999999999999", Org: "org", Owner: "actor", State: "pending", Revision: 1,
+		Input: review.CreateInput{ProductKey: "own-product", BaseVersion: 1}, BasePublicationID: "publication", Policy: "retained-policy", Before: "original title", Title: "reviewed title"}
+	payload, err := json.Marshal(record)
+	require.NoError(t, err)
+	response, err := json.Marshal(record.View())
+	require.NoError(t, err)
+	require.NoError(t, db.Exec("INSERT INTO product_title_proposals VALUES (?,?,?,?,?)", record.Org, record.ID, record.Owner, record.State, payload).Error)
+	require.NoError(t, db.Exec("INSERT INTO product_title_operations VALUES (?,?,?,?,?)", record.Org, record.Owner, "retained-command", "fingerprint", response).Error)
+	require.NoError(t, db.Exec(`GRANT SELECT,INSERT,UPDATE ON product_title_proposals TO retained_reader;
+GRANT SELECT,INSERT ON product_title_operations TO retained_reader`).Error)
 }
 
 func openSupplyFeatureTestDB(t *testing.T, dsn string) *gorm.DB {

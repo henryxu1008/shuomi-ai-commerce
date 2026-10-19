@@ -172,15 +172,15 @@ Temporal 复用仓库已固定的官方镜像 `temporalio/temporal@sha256:cf8670
 
 维护连接沿现有私有文件、literal loopback、准确数据库名和 30 秒 context；不接受 runtime 身份。数据库中现有 14 张 public 基线表必须归同一当前维护 owner、满足现有 owner schema/keys 与当前 runtime allow/deny 合同，不能用其他同名表/角色继承或凭据轮换取得准入。
 
-同一个 Product 事务与既有 advisory lock 串行首次安装和重入。首次只对新 13 表执行现有 owner 安装器，新增授权只覆盖上表的 12 张 runtime 表，既有 14 表 ACL、表 owner 和数据不改。全部 13 表已存在时只读核实 owner、schema、约束和完整权限，不再次安装或补授权。缺失部分表（包括仅存在原 11 表）或任一不匹配即拒绝。事务失败或超时不留下部分 DDL/GRANT，提交响应不确定时原命令重入核实已完成结果，不建新的安装事实源。
+同一个 Product 事务与既有 advisory lock 串行首次安装和重入。13 张依赖表分为 11 张 Supply 执行表和 2 张共享 Product Review 表。11 张 Supply 表全缺时，只安装缺失的当前能力：Review 两表也全缺则调用既有 Review 安装器；Review 已成组存在则先验证同一维护 owner 和当前 Review schema，复用而不重建、修复或改写数据/owner/索引。新增授权仍限现有权限矩阵：11 张 Supply 表的原精确权限，以及 Review proposal 的 SELECT（已有时保留）；不授予 Review 写权限或 operation 读写权限，不改变既有 Review 授权及原 14 表 ACL。全部 13 表已存在时只读核实 owner、schema、约束和完整权限，不再次安装或补授权。Supply 部分安装（包括历史 11 表总集）、Review 仅有一表/漂移/异 owner，或已安装 Supply 缺少 Review，均拒绝。事务失败或超时不留下部分 DDL/GRANT，提交响应不确定时原命令重入核实已完成结果，不建新的安装事实源。
 
-维护核对复用现有 runtime 权限查询中的同一 allow/deny 清单，以固定 `source_acquisition_runtime` 为 catalog 检查对象；普通运行连接仍检查实际 session/current user，维护检查不能变成 serving 准入。没有 `SET ROLE`、运行凭据读取、role 创建/继承、全库 REVOKE 或默认授权变更。新表的 Review 校验归既有 Review owner，不能只凭表名把漂移误认成完成。
+维护核对复用现有 runtime 权限查询中的同一 allow/deny 清单，以固定 `source_acquisition_runtime` 为 catalog 检查对象；普通运行连接仍检查实际 session/current user，维护检查不能变成 serving 准入。完整权限在同一事务提交前核对，允许原本已有的 proposal SELECT；原权限缺失或额外表/列权限、grant option 等漂移仍拒绝并回滚，不通过撤权/重授来修复。没有 `SET ROLE`、运行凭据读取、role 创建/继承、全库 REVOKE 或默认授权变更。Review 校验归既有 Review owner，不能只凭表名把漂移误认成完成。
 
 验证：CLI 互斥/准确确认/严格 manifest；隔离 PostgreSQL 中的真实非空基线保留、精确新增权限、重入及并发、非 owner/部分安装/结构或权限漂移拒绝、事务后段失败回滚与有界取消。复用现有测试依赖，不建安装/验收平台；不访问 own675、对象存储或真实 SHEIN。
 
-增量入口采用既有 owner manifest、精确数据库名确认、`source-acquisition-init` 事务锁及 bounded context 的模式。安装目标仅 `product_acquisition`，要求维护身份为既有 owner、原 14 表和能力仍有效；DDL 与**新增表的精确 grant 增量**在同一 Product 事务内提交。与 `InstallSupplyChainSchema` 共用只安装新表的内部 helper 和现有 owner 安装器；不重跑原 Preparation 安装器，先只读核对其 schema 和来源分页索引。不得调用空库初始化或全局 `GrantRuntimePermissions` 清空后重授原权限。
+增量入口采用既有 owner manifest、精确数据库名确认、`source-acquisition-init` 事务锁及 bounded context 的模式。安装目标仅 `product_acquisition`，要求维护身份为既有 owner、原 14 表和能力仍有效；DDL 与上述精确 grant 增量在同一 Product 事务内提交。与 `InstallSupplyChainSchema` 共用 Supply 执行表内部 helper 和现有 owner 安装器；共享 Review 的首次安装/只读复用分开判断。不重跑原 Preparation 安装器，先只读核对其 schema 和来源分页索引。不得调用空库初始化或全局 `GrantRuntimePermissions` 清空后重授原权限。
 
-只接受两个清晰结果：新增 13 表均不存在时安装；全部存在且当前 schema/约束/ACL 完整匹配时核实已完成。部分存在、同名漂移、原表/授权变化均停止并报告，不 DROP/ALTER/修复旧对象。响应丢失后先核实原事务结果，不盲目重建；最终以 `RuntimeCapabilities{Collections:true, CompletionDrafts:true, SupplyChain:true}` 的现有只读检查核对。
+只接受两个清晰结果：11 张 Supply 执行表全缺且共享 Review 全缺或成组合格时安装缺失部分；全部依赖存在且当前 schema/约束/ACL 完整匹配时核实已完成。不合格的部分存在、同名漂移、原表/授权变化均停止并报告，不 DROP/ALTER/修复旧对象。响应丢失后先核实原事务结果，不盲目重建；最终以 `RuntimeCapabilities{Collections:true, CompletionDrafts:true, SupplyChain:true}` 的现有只读检查核对。本次安装器修复不授权执行任何保留实例安装、启用 SHEIN 或真实店铺操作。
 
 ### 命令准备（当前不执行）
 
