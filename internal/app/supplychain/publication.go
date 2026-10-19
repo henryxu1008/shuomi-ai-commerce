@@ -16,6 +16,7 @@ import (
 // PublicationView retains confirmed creation facts. A separately timestamped
 // TikTokStatus may contain a manual read; neither grants authority to send.
 type PublicationView struct {
+	SheinStatus    *SheinPublicationStatus          `json:"sheinStatus,omitempty"`
 	Walmart        *submission.WalmartFeedReceipt   `json:"walmart,omitempty"`
 	WalmartResults []submission.WalmartResultRecord `json:"walmartResults,omitempty"`
 	binding        storecenter.ProductMerchantBinding

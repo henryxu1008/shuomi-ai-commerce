@@ -19,6 +19,7 @@ import (
 )
 
 type Application struct {
+	SheinPublication      *SheinPublicationService
 	WalmartCatalog        WalmartRuleReader
 	Preparations          *preparation.Service
 	Sources               *preparation.SourceSelector

@@ -161,6 +161,10 @@ func buildSupplyChainModule(ctx context.Context, productDB, storeDB *gorm.DB, d 
 	var optimizer supplyapp.OperationOptimizer
 	app.StageProjection = stageProjection
 	app.Uploader = uploader
+	app.SheinPublication, err = supplyapp.NewSheinPublicationService(supplyapp.SheinPublicationDependencies{Sources: sources, Records: records, Authorization: auth, ExecutionAuthorization: executionAuth, Receipts: official, Intents: official, Kernel: kernel, Attempts: effects, Stores: supplyapp.OfficialSheinPublicationStore{Access: access}})
+	if err != nil {
+		return empty, err
+	}
 	if productAgent != nil {
 		bridge, e := connectSupplyProductAgent(ctx, productAgent.config.ReviewDB, app, productAgent, executionAuth)
 		if e != nil {

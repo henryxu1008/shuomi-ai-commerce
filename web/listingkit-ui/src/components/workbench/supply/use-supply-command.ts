@@ -34,9 +34,9 @@ export function useSupplyCommand(scope:SupplyScope,onSaved:(result:unknown,inten
    setError(code);
   }finally{active.current=false;if(abort.current===controller)abort.current=null;if(alive.current)setBusy(false)}
  }
- function execute(route:SupplyIntent["route"],command:unknown){
+ function execute(route:SupplyIntent["route"],command:unknown,preparedKey?:string){
   if(pending||active.current||!context.supplyIntentReady)return;
-  const intent=parseSupplyIntent(JSON.stringify({...scope,key:crypto.randomUUID(),route,command}));
+  const intent=parseSupplyIntent(JSON.stringify({...scope,key:preparedKey??crypto.randomUUID(),route,command}));
   if(!intent){setError("INVALID_REQUEST");return}return dispatch(intent,false);
  }
  return {execute,pending,busy,error,foreign,ready:context.supplyIntentReady,verify:()=>{if(pending)void dispatch(pending,true)},retry:()=>{if(pending)void dispatch(pending,false)}};

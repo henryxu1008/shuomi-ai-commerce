@@ -80,6 +80,10 @@ func SupplyRoutes(app *supplyapp.Application, bind func(context.Context, string)
 		{"GET", "/sources/:source_id/publications/:store_id", "publication", preparation.PermissionRead},
 		{"GET", "/sources/:source_id/publications/:store_id/status/:receipt_id", "publication-status", preparation.PermissionRead},
 		{"GET", "/sources/:source_id/publications/:store_id/status", "publication-status", preparation.PermissionRead},
+		{"POST", "/shein-publication/status", "shein-status", preparation.PermissionRead},
+		{"POST", "/shein-publication/prepare", "shein-shelf-prepare", preparation.PermissionSubmit},
+		{"POST", "/shein-publication/confirm", "shein-shelf-confirm", preparation.PermissionSubmit},
+		{"POST", "/shein-publication/result", "shein-shelf-result", preparation.PermissionRead},
 		{"GET", "/sources/:source_id/targets/:store_id", "target", preparation.PermissionRead}, {"POST", "/targets", "save-target", preparation.PermissionManage}, {"POST", "/target-rules", "rules", preparation.PermissionRead}, {"GET", "/target-commands/:key", "target-command", preparation.PermissionRead}, {"GET", "/records/:record_id", "record", preparation.PermissionRead},
 		{"POST", "/uploads/resolve", "resolve-upload", preparation.PermissionManage},
 		{"GET", "/uploads/:record_id/:attempt_id", "upload-attempt", preparation.PermissionRead},
@@ -111,6 +115,27 @@ func SupplyRoutes(app *supplyapp.Application, bind func(context.Context, string)
 				return
 			}
 			switch spec.action {
+			case "shein-status", "shein-shelf-prepare", "shein-shelf-confirm", "shein-shelf-result":
+				var in supplyapp.SheinShelfInput
+				key, e := supplyBody(c.Request, &in, spec.action == "shein-shelf-prepare" || spec.action == "shein-shelf-confirm")
+				if e != nil {
+					supplyError(c, e)
+					return
+				}
+				if app.SheinPublication == nil {
+					supplyError(c, preparation.ErrUnavailable)
+					return
+				}
+				switch spec.action {
+				case "shein-status":
+					output, err = app.SheinPublication.Status(ctx, in.SourceID, in.StoreID, in.ReceiptID, in.StockOffset)
+				case "shein-shelf-prepare":
+					output, err = app.SheinPublication.Prepare(ctx, key, in)
+				case "shein-shelf-confirm":
+					output, err = app.SheinPublication.Confirm(ctx, key, in)
+				case "shein-shelf-result":
+					output, err = app.SheinPublication.Read(ctx, in.Key, in)
+				}
 			case "shein-completion-preview":
 				var in record.SheinImportRequest
 				_, e := supplyBody(c.Request, &in, false)

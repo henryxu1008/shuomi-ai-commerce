@@ -2,6 +2,8 @@
 
 Refs [#605](https://github.com/qq550723504/task-processor/issues/605)。
 
+> 2026-10-19 后续实施授权：用户已明确批准原 owner 按本冻结设计实施、落实四组必要验证并维护同一 PR #821。以下「本轮只设计/实施未授权」是冻结时的历史停止点，已由该最新阶段决定替代；不改变冻结的业务合同。合并、部署、真实店铺、现有运行实例和数据操作仍未授权。
+
 - Product Decision: **PD-SHEIN-PUBLICATION-CLOSURE-2026-10-19**，用户批准先更新 Issue、正式架构文档和 Figma，完成新增上架副作用的独立架构评审；**不改生产代码、不操作真实店铺**。
 - Design Basis: **Independent Architecture**，原因是新增官方上架副作用、执行合同与恢复准入。
 - Status: **IMPLEMENTATION_READY / FROZEN**；独立评审结论与最终准入见 §13，实施仍未授权。

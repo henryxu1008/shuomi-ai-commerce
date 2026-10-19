@@ -1018,6 +1018,7 @@ export async function buildWorkbenchUpstreamRequest(
     },
     responseContract: route.responseContract,
     expectedStoreId:route.requestContract==="ai-subject-read"?`${path[2]}:${path[3]}`: imageSetContract ? JSON.stringify(imageSetResponseBinding(path,route.requestContract.slice(10) as ImageSetRoute)) : expectedCollectionMedia ?? (
+      route.requestContract.startsWith("supply-shein-")&&route.requestContract!=="supply-shein-completion-preview"&&typeof body==="string"?JSON.stringify({...JSON.parse(body),key:headers.get("Idempotency-Key")??JSON.parse(body).key}):
       route.requestContract==="supply-shein-completion-preview"&&typeof body==="string"?body:
       route.requestContract.startsWith("supply-materials-")?`${path[2]}:${path[5]??request.headers.get("Idempotency-Key")??(typeof body==="string"?JSON.parse(body).requestKey:"")}`:
       route.requestContract==="product-acquisition-plan-read"||route.requestContract==="product-acquisition-plan-advance"?path[3]:

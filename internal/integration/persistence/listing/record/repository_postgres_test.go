@@ -420,7 +420,7 @@ func TestPostgresTargetImmutableRevisionsCommandReplayAndConcurrentCAS(t *testin
 		_, err = kernel.ReadIntent(ctx, submission.ExecutionScope{OrganizationID: "org-b"}, intent.Key)
 		require.ErrorIs(t, err, submission.ErrExecutionNotFound)
 		claim := submission.ExecutionClaim{Scope: command.Scope, AttemptID: acquired.Attempt.AttemptID, FenceEpoch: acquired.Permit.FenceEpoch, OwnerID: acquired.Permit.ClaimOwnerID, Token: acquired.Permit.ClaimToken}
-		result := model.PublishResult{SPUName: "spu-a", SKCs: []model.PublishedSKC{{SKCName: "skc-a", SKUs: []model.PublishedSKU{{SupplierSKU: "merchant-sku", SKUCode: "code-a"}}}}, ResponseHash: collection.Digest("full matched official response")}
+		result := model.PublishResult{SPUName: "spu-a", Version: "v1", SKCs: []model.PublishedSKC{{SKCName: "skc-a", SKUs: []model.PublishedSKU{{SupplierSKU: "merchant-sku", SKUCode: "code-a"}}}}, ResponseHash: collection.Digest("full matched official response")}
 		proof, err := submission.NewPublishCompletion(scope, completed.Record.ID, productKey, completed.Record.Merchant, acquired.Attempt, claim, wire.Product, result)
 		require.NoError(t, err)
 		require.NoError(t, db.Exec("CREATE FUNCTION skip_official_receipt() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$").Error)
@@ -461,6 +461,51 @@ func TestPostgresTargetImmutableRevisionsCommandReplayAndConcurrentCAS(t *testin
 		require.NoError(t, err)
 		require.Equal(t, submission.ExecutionSucceeded, actual.Status)
 		require.Equal(t, saved.ID, actual.Evidence.Reference)
+		t.Run("SHEIN shelf binds original receipt after a newer local head and completes atomically", func(t *testing.T) {
+			changed := input
+			changed.ExpectedRevision = completed.Record.Revision
+			newer, e := ready.CreateForExecution(ctx, scope, uuid.NewString(), changed)
+			require.NoError(t, e)
+			require.NotEqual(t, completed.Record.ID, newer.Record.ID)
+			prepare, e := submission.NewShelfIntent(ctx, sourceProof, completed.Record, saved, completed.Record.Merchant, uuid.NewString(), "skc-a", uuid.NewString(), collection.Digest("audit2:off"), time.Now())
+			require.NoError(t, e)
+			shelf, e := official.PrepareShelfIntent(ctx, prepare)
+			require.NoError(t, e)
+			_, e = kernel.ReadIntent(ctx, command.Scope, shelf.Key)
+			require.ErrorIs(t, e, submission.ErrExecutionNotFound, "T1 has no attempt or send permit")
+			send := submission.AcquireExecutionCommand{Scope: command.Scope, IntentKey: shelf.Key, Target: shelf.Target, Action: submission.SheinShelfAction, Payload: submission.ShelfPayload(shelf), ClaimOwnerID: "shelf-worker", Lease: time.Minute}
+			first, e := kernel.Acquire(ctx, send)
+			require.NoError(t, e)
+			require.NotNil(t, first.Permit)
+			replay, e := kernel.Acquire(ctx, send)
+			require.NoError(t, e)
+			require.Nil(t, replay.Permit)
+			secondProof, e := submission.NewShelfIntent(ctx, sourceProof, completed.Record, saved, completed.Record.Merchant, uuid.NewString(), "skc-a", uuid.NewString(), collection.Digest("audit2:off"), time.Now())
+			require.NoError(t, e)
+			second, e := official.PrepareShelfIntent(ctx, secondProof)
+			require.NoError(t, e)
+			duplicate := send
+			duplicate.IntentKey = second.Key
+			duplicate.Payload = submission.ShelfPayload(second)
+			_, e = kernel.Acquire(ctx, duplicate)
+			require.ErrorIs(t, e, submission.ErrExecutionTargetClaimed)
+			shelfClaim := submission.ExecutionClaim{Scope: send.Scope, AttemptID: first.Attempt.AttemptID, FenceEpoch: first.Permit.FenceEpoch, OwnerID: first.Permit.ClaimOwnerID, Token: first.Permit.ClaimToken}
+			completion, e := submission.NewShelfCompletion(shelf, first.Attempt, shelfClaim, model.ShelfResult{SKC: "skc-a", Site: "shein-us", ResponseHash: collection.Digest("shelf response")})
+			require.NoError(t, e)
+			require.NoError(t, db.Exec("CREATE FUNCTION skip_official_shelf_receipt() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$").Error)
+			require.NoError(t, db.Exec("CREATE TRIGGER skip_receipt BEFORE INSERT ON listing_submission_official_receipts FOR EACH ROW EXECUTE FUNCTION skip_official_shelf_receipt()").Error)
+			_, e = official.CompleteOfficial(ctx, completion)
+			require.Error(t, e)
+			kept, e := kernel.Get(ctx, send.Scope, first.Attempt.AttemptID)
+			require.NoError(t, e)
+			require.Equal(t, submission.ExecutionClaimed, kept.Status)
+			require.NoError(t, db.Exec("DROP TRIGGER skip_receipt ON listing_submission_official_receipts").Error)
+			require.NoError(t, db.Exec("DROP FUNCTION skip_official_shelf_receipt()").Error)
+			_, e = official.CompleteOfficial(ctx, completion)
+			require.NoError(t, e)
+			_, e = kernel.Acquire(ctx, duplicate)
+			require.ErrorIs(t, e, submission.ErrExecutionTargetSucceeded)
+		})
 		retained, err := official.ReadOfficial(ctx, scope, saved.ID)
 		require.NoError(t, err)
 		require.Equal(t, saved, retained)

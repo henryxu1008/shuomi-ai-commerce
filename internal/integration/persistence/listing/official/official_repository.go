@@ -154,6 +154,9 @@ func receiptMatchesIntent(body submission.OfficialReceipt, intent submission.Off
 	if body.Owner != intent.Owner || body.Kind != intent.Kind || body.Target != intent.Target || body.IntentKey != intent.Key || body.PayloadFingerprint != intent.PayloadFingerprint || body.Binding != intent.Binding {
 		return false
 	}
+	if body.Kind == "shelf_on" {
+		return body.Shelf != nil && intent.Shelf != nil && body.RecordID == intent.RecordID && body.Shelf.SKC == intent.Shelf.SKC && body.Shelf.Site == "shein-us"
+	}
 	if body.Target.Platform == "walmart" {
 		return submission.WalmartReceiptMatchesIntent(body, intent)
 	}

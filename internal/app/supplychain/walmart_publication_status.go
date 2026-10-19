@@ -15,6 +15,20 @@ func (a *Application) PublicationStatus(ctx context.Context, sourceID, storeID s
 	if e != nil {
 		return view, e
 	}
+	if view.Product != nil {
+		if a.SheinPublication == nil {
+			return view, record.ErrNotReady
+		}
+		if len(receiptIDs) > 1 || len(receiptIDs) == 1 && receiptIDs[0] != "" && receiptIDs[0] != view.ReceiptID {
+			return view, record.ErrForbidden
+		}
+		status, err := a.SheinPublication.Status(ctx, sourceID, storeID, view.ReceiptID, 0)
+		if err != nil {
+			return view, err
+		}
+		view.SheinStatus = &status
+		return view, nil
+	}
 	if view.Walmart == nil {
 		return a.TikTokPublicationStatus(ctx, sourceID, storeID)
 	}
