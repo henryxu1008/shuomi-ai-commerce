@@ -1,5 +1,7 @@
 # 旧 SHEIN Publishing 运行适配、解析器与提交恢复完整闭包退休边界
 
+> #833 [旧数字内容配置完整闭包](legacy-numeric-content-management-closure-retirement-boundary.md)：冻结设计 d139bcccc 已确认并整批实施，三族无生产注入的词库/话题配置仓库读写、DTO、全局 setter、专属 schema/迁移和调用尾部源码退出；此前整体保留表述仅在该设计 §5/§6.1 的准确对象上被替代。当前默认清理直接复用原 content 内存工厂，品牌/字段/runtimeCtx、generationtopics 纯规则、Store/API/schema/权限与独立登录/Store 同步保持。物理对象 UNKNOWN、不操作；原历史矩阵/计数保留，全部 workflow/inventory 不改，无新试用前置。
+
 > #831 [Store 管理闭包校准](legacy-numeric-store-management-closure-retirement-boundary.md)只在其 §5 七项无入口 Store 管理方法、五 helper 与 67 配置/查询字段上进一步收窄此前 Store 保留范围。当前账号读/同步、schema 辅助、词库/话题、九方法 StoreAPI、共享值类型及独立 worker 保持原 owner；本设计其余保留和历史证据不变，无数据/运行操作。
 
 Refs #29 / #301。调查基线：`8add3a4455123c04871677bf2c1a3b1366307703`。

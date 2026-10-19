@@ -1,5 +1,7 @@
 # 旧数字 Store 管理与刊登配置：完整退休闭包
 
+> #833 [旧数字内容配置完整闭包](legacy-numeric-content-management-closure-retirement-boundary.md)：冻结设计 d139bcccc 已确认并整批实施，三族无生产注入的词库/话题配置仓库读写、DTO、全局 setter、专属 schema/迁移和调用尾部源码退出；此前整体保留表述仅在该设计 §5/§6.1 的准确对象上被替代。当前默认清理直接复用原 content 内存工厂，品牌/字段/runtimeCtx、generationtopics 纯规则、Store/API/schema/权限与独立登录/Store 同步保持。物理对象 UNKNOWN、不操作；原历史矩阵/计数保留，全部 workflow/inventory 不改，无新试用前置。
+
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
 > Status: **CONFIRMED / SOURCE_IMPLEMENTED，待最终独立交付检查与合并决定。** Design Basis: **Independent Architecture / IMPLEMENTATION_READY**。用户已确认冻结设计 `fa4bf075847bbc1ef66d37ee05e7f7ebea5be0fb`；独立设计检查无 BLOCKER，Issue 的 Ready 已先于正式生产修改写入并读回。本 PR 依 §5、§6、§6.1、§7 整批实施，合并和真实操作另行授权；准确 HEAD/CI/review 留在 PR。调查基线为 main `e360069e067489c87754f2699e79eb0cde3fbc67`，2026-10-19；#827 已合并，准确 push/main CI 已通过，后续 #829 图片模板变更与本矩阵无交叉。

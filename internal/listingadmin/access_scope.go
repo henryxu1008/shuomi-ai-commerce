@@ -2,7 +2,6 @@ package listingadmin
 
 import (
 	"context"
-	"errors"
 	"slices"
 	"strings"
 	"sync"
@@ -92,22 +91,10 @@ func requestUserIDFromContext(ctx context.Context) string {
 	return requestUserIDHeader(openaiclient.IdentityFromContext(ctx).UserID)
 }
 
-var ErrOwnerUserIDRequired = errors.New("owner user id is required")
-
-// WithOwnerUserID supplies a trusted owner identity to internal write paths
+// WithOwnerUserID supplies a trusted identity context for internal operations
 // that do not originate from an HTTP request.
 func WithOwnerUserID(ctx context.Context, ownerUserID string) context.Context {
 	return withRequestUserID(ctx, ownerUserID)
-}
-
-func requireOwnerUserID(ctx context.Context, explicitOwner string) (string, error) {
-	if owner := strings.TrimSpace(requestUserIDFromContext(ctx)); owner != "" {
-		return owner, nil
-	}
-	if owner := strings.TrimSpace(explicitOwner); owner != "" {
-		return owner, nil
-	}
-	return "", ErrOwnerUserIDRequired
 }
 
 func withRequestIdentity(ctx context.Context, userID string, roles []string) context.Context {
