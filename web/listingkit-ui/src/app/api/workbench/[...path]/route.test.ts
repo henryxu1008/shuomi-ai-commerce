@@ -47,6 +47,31 @@ import * as workbenchRoute from "@/app/api/workbench/[...path]/route";
 
 const { GET, PUT, POST, DELETE } = workbenchRoute;
 
+it.each(["status","prepare","confirm","result"])("gives the exact SHEIN %s route its 32s budget before authentication",async(action)=>{
+ vi.useFakeTimers();let release=()=>{};authState.gate=new Promise<void>(resolve=>{release=resolve});
+ const fetcher=vi.fn<typeof fetch>();vi.stubGlobal("fetch",fetcher);let done=false;
+ const path=["supply-preparations","shein-publication",action];
+ const pending=call(POST,new NextRequest("http://localhost/api/workbench/"+path.join("/"),{method:"POST"}),path).then(r=>{done=true;return r});
+ await vi.advanceTimersByTimeAsync(31999);expect(done).toBe(false);
+ await vi.advanceTimersByTimeAsync(1);expect((await pending).status).toBeGreaterThanOrEqual(500);release();await vi.advanceTimersByTimeAsync(0);
+ expect(fetcher).not.toHaveBeenCalled();expect(vi.getTimerCount()).toBe(0);
+});
+it("retains a dispatched SHEIN timeout as UNKNOWN and reads the original result without resending",async()=>{
+ vi.useFakeTimers();authState.session={accessToken:"fixture"};authState.token="fixture";authState.identity={userId:"user-a"};
+ vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL","http://localhost");
+ const fetcher=vi.fn<typeof fetch>((_url,init)=>new Promise((_resolve,reject)=>init?.signal?.addEventListener("abort",()=>reject(new DOMException("aborted","AbortError")),{once:true})));vi.stubGlobal("fetch",fetcher);
+ const path=["supply-preparations","shein-publication","confirm"],command={sourceId:operationKey,storeId,receiptId:operationKey,skc:"skc",token:operationKey};
+ const headers={cookie:"shuomi_effective_organization=org-b",Origin:"http://localhost","Content-Type":"application/json","X-Expected-Organization-ID":"org-b","X-Expected-User-ID":"user-a"};
+ const pending=call(POST,new NextRequest("http://localhost/api/workbench/"+path.join("/"),{method:"POST",headers:{...headers,"Idempotency-Key":operationKey},body:JSON.stringify(command)}),path);
+ await vi.advanceTimersByTimeAsync(31999);expect(fetcher).toHaveBeenCalledOnce();expect(fetcher.mock.calls[0][1]?.signal?.aborted).toBe(false);
+ await vi.advanceTimersByTimeAsync(1);expect((await(await pending).json()).code).toBe("OUTCOME_UNKNOWN");expect(fetcher).toHaveBeenCalledOnce();
+ fetcher.mockResolvedValueOnce(Response.json({key:operationKey,attemptId:operationKey,sourceId:operationKey,storeId,receiptId:operationKey,skc:"skc",status:"outcome_unknown",message:"待核实"}));
+ const readPath=["supply-preparations","shein-publication","result"];
+ const read=await call(POST,new NextRequest("http://localhost/api/workbench/"+readPath.join("/"),{method:"POST",headers,body:JSON.stringify({...command,key:operationKey})}),readPath);
+ expect(read.status).toBe(200);expect(fetcher).toHaveBeenCalledTimes(2);expect(String(fetcher.mock.calls[1][0])).toMatch(/shein-publication\/result$/);expect(vi.getTimerCount()).toBe(0);
+});
+
+
 const storeId = "11111111-1111-4111-8111-11111111111a";
 const operationKey = "22222222-2222-4222-8222-22222222222b";
 const sourceAccountId = "018f1f0e-7b5d-7c3a-8a11-1234567890ab";
@@ -103,8 +128,7 @@ async function listen(handler: RequestListener) {
   };
 }
 
-describe("/api/workbench BFF", () => {
-  afterEach(() => {
+afterEach(() => {
     authState.session = null;
     authState.token = "";
     authState.identity = null;
@@ -115,6 +139,7 @@ describe("/api/workbench BFF", () => {
     vi.useRealTimers();
   });
 
+describe("/api/workbench BFF", () => {
   it.each([
     { method: "POST", path: `supply-preparations/records/${operationKey}/materials-agent/runs`, budget: 125_000 },
     { method: "POST", path: `supply-preparations/records/${operationKey}/materials-agent/runs/${storeId}/resume`, budget: 125_000 },

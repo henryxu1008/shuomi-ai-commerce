@@ -6,6 +6,15 @@ import {sheinPublicationStatusSchema} from "@/lib/contracts/shein-publication";
 import type {SupplyCommandState} from "./use-supply-command";
 vi.mock("@/lib/api/supply-chain",()=>({readSheinPublicationStatus:vi.fn(),prepareSheinShelf:vi.fn()}));
 afterEach(()=>{cleanup();vi.resetAllMocks()});
+
+it("shows the original fully managed scheduled plan without adding an action",async()=>{
+ const value=make("fully_managed");value.skcs[0].shelfWay="2";value.skcs[0].hopeOnSaleDate="2026-10-20 08:00:00";
+ vi.mocked(readSheinPublicationStatus).mockResolvedValue(value);
+ render(<SheinPublicationPanel scope={{organizationId:"org-a",userId:"actor-a"}} sourceId={id} storeId={other} receiptId={id} storeName="美国店" command={command()} canSubmit/>);
+ fireEvent.click(screen.getByRole("button",{name:"查询平台结果"}));await screen.findByText(/预约上架（北京时间）：2026-10-20 08:00:00/);
+ expect(screen.queryByRole("button",{name:"上架到美国站"})).toBeNull();
+});
+
 const id="11111111-1111-4111-8111-111111111111",other="22222222-2222-4222-8222-222222222222";
 const make=(mode="self_operated",unknown=false)=>sheinPublicationStatusSchema.parse({sourceId:id,storeId:other,receiptId:id,spu:"spu-a",version:"v1",mode,observedAt:"2026-10-19T00:00:00Z",stockType:"VI",stockOffset:0,stockTotal:1,stockComplete:true,skcs:[{skc:"skc-a",auditState:2,auditLabel:"审核通过",reasons:[],shelfState:unknown?1:0,shelfWay:mode==="semi_managed"?"2":"1",hopeOnSaleDate:mode==="semi_managed"?"2099-01-01 08:00:00":"",shelfRequire:"0",canShelf:mode==="self_operated"&&!unknown,blockingReason:unknown?"原请求待核实":"等待平台",attempt:unknown?{id,key:id,status:"outcome_unknown"}:undefined,skus:[{code:"sku-a",mallState:1,usable:null,reportedUsable:12,inventoryScopeKnown:false}]}]});
 const command=(execute=vi.fn())=>({execute,busy:false,pending:null,ready:true,error:null,foreign:false,verify:vi.fn(),retry:vi.fn()}) as unknown as SupplyCommandState;

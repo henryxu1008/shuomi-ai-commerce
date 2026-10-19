@@ -90,7 +90,11 @@ func (s *SheinPublicationService) Prepare(ctx context.Context, key string, in Sh
 		if !errors.Is(e, submission.ErrExecutionNotFound) {
 			return out, record.ErrUnavailable
 		}
-		proof, e := submission.NewShelfIntent(ctx, p.source, p.record, p.receipt, p.binding, key, in.SKC, uuid.NewString(), hash, s.now())
+		currentSource, e := s.freshSource(ctx, p)
+		if e != nil {
+			return out, e
+		}
+		proof, e := submission.NewShelfIntent(ctx, currentSource, p.record, p.receipt, p.binding, key, in.SKC, uuid.NewString(), hash, s.now())
 		if e != nil {
 			return out, e
 		}

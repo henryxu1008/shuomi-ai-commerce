@@ -46,12 +46,62 @@ type shelfMerchantFixture struct {
 	forbid        bool
 	stockOverride *model.InventorySnapshot
 	stockCodes    []string
+	auditCalls    int
+	delayAudit    int
+	afterDelay    func()
 }
 
 func (m *shelfMerchantFixture) Binding() storecenter.ProductMerchantBinding { return m.binding }
 func (m *shelfMerchantFixture) QueryDocumentState(_ context.Context, spu, version string) (model.DocumentAudit, error) {
+	m.auditCalls++
+	if m.delayAudit == m.auditCalls {
+		time.Sleep(5100 * time.Millisecond)
+		if m.afterDelay != nil {
+			m.afterDelay()
+		}
+	}
 	return model.DocumentAudit{SPU: spu, Version: version, SKCs: []model.AuditSKC{{Name: "skc-a", State: &m.audit}}}, nil
 }
+
+func TestSheinLongReadsRefreshShortSourceProofWithoutExtendingIt(t *testing.T) {
+	for _, phase := range []string{"status", "prepare", "confirm", "revoked during confirmation"} {
+		t.Run(phase, func(t *testing.T) {
+			t.Parallel()
+			svc, ctx, in, m, _, _, _, auth := shelfFixture(t)
+			m.delayAudit = 1
+			if phase == "status" {
+				_, e := svc.Status(ctx, in.SourceID, in.StoreID, in.ReceiptID, 0)
+				require.NoError(t, e)
+				return
+			}
+			key := uuid.NewString()
+			if phase == "prepare" {
+				_, e := svc.Prepare(ctx, key, in)
+				require.NoError(t, e)
+				require.Zero(t, m.calls)
+				return
+			}
+			m.delayAudit = 0
+			c, e := svc.Prepare(ctx, key, in)
+			require.NoError(t, e)
+			in.Token = c.Token
+			m.delayAudit = m.auditCalls + 2
+			if phase == "revoked during confirmation" {
+				m.afterDelay = func() { auth.scope.ActorID = "revoked-actor" }
+			}
+			got, e := svc.Confirm(ctx, key, in)
+			require.NoError(t, e)
+			if phase == "confirm" {
+				require.Equal(t, submission.ExecutionSucceeded, got.Status)
+				require.Equal(t, 1, m.calls)
+			} else {
+				require.Equal(t, submission.ExecutionOutcomeUnknown, got.Status)
+				require.Zero(t, m.calls)
+			}
+		})
+	}
+}
+
 func (m *shelfMerchantFixture) QueryShelfProduct(_ context.Context, spu string) (model.ShelfProduct, error) {
 	one := 1
 	return model.ShelfProduct{SPU: spu, SKCs: []model.ShelfSKC{{Name: "skc-a", Sites: []model.ShelfSite{{Site: "shein-us", State: &m.state}}, SKUs: []model.SaleSKU{{Code: "sku-code-a", State: &one}}}}}, nil

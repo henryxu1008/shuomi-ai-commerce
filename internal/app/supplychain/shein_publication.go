@@ -104,7 +104,6 @@ type SheinPublicationStatus struct {
 }
 type loadedSheinPublication struct {
 	scope   collection.Scope
-	source  preparation.AuthorizedSource
 	record  record.TargetRecord
 	receipt submission.OfficialReceipt
 	binding storecenter.ProductMerchantBinding
@@ -152,10 +151,24 @@ func (s *SheinPublicationService) load(ctx context.Context, sourceID, storeID, r
 	if !submission.CompatibleShelfBinding(original.Binding, binding) {
 		return out, record.ErrConflict
 	}
-	return loadedSheinPublication{scope, selected, saved, original, binding}, nil
+	return loadedSheinPublication{scope, saved, original, binding}, nil
+}
+
+// Source proofs are short lived. Reauthorize the same immutable source at each
+// later boundary instead of carrying its five-second authority across HTTP reads.
+func (s *SheinPublicationService) freshSource(ctx context.Context, p loadedSheinPublication) (preparation.AuthorizedSource, error) {
+	selected, e := s.d.Sources.Select(ctx, p.record.Source.ID)
+	if e != nil {
+		return preparation.AuthorizedSource{}, e
+	}
+	owner, item, _, e := selected.Read(ctx)
+	if e != nil || owner != p.scope || item != p.record.Source {
+		return preparation.AuthorizedSource{}, record.ErrForbidden
+	}
+	return selected, nil
 }
 func (s *SheinPublicationService) merchant(ctx context.Context, p loadedSheinPublication, purpose string) (SheinPublicationMerchant, error) {
-	if _, _, _, e := p.source.Read(ctx); e != nil {
+	if _, e := s.freshSource(ctx, p); e != nil {
 		return nil, e
 	}
 	return s.d.Stores.PublicationMerchant(ctx, p.scope, p.binding.StoreID, purpose, &p.binding)
@@ -280,7 +293,7 @@ func (s *SheinPublicationService) observe(ctx context.Context, p loadedSheinPubl
 		}
 		v.SKCs = append(v.SKCs, skc)
 	}
-	if _, _, _, e = p.source.Read(ctx); e != nil {
+	if _, e = s.freshSource(ctx, p); e != nil {
 		return v, e
 	}
 	if _, e = s.merchant(ctx, p, storecenter.ProductPurposeStatus); e != nil {
