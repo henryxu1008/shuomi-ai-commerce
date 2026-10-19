@@ -1,5 +1,7 @@
 # 旧数字刊登共享管理与 Task/Workspace 尾部：完整退休边界
 
+> #827 [confirmed Publishing runtime closure](legacy-shein-publishing-runtime-closure-retirement-boundary.md): Supersedes only then-retained unused Publishing execution/cache/remote submission/recovery and exclusive helpers/Prompt resources. The exact #824 offline validator/readiness closure, Store/content/topic tables and independent worker contracts remain current; original #824 evidence below is preserved. Workflows, dependencies, ceilings, runtime/data and trial prerequisites are unchanged.
+
 > Execution：[#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)
 >
 > Design Basis：**Independent Architecture / IMPLEMENTATION_READY / FROZEN**；状态：**SOURCE IMPLEMENTED / 开发验证中**。用户已确认冻结设计 `c971bb9e734adc16fa0fdda9955ef0f7d0513e91` §5/§6/§6.1/§7；两轮独立设计检查完成、无架构BLOCKER，两个IMPLEMENTATION_TEST按原范围收敛。#29/#301在生产修改前已登记并读回Ready，[准入6260858740](https://github.com/qq550723504/task-processor/pull/824#issuecomment-6260858740)。准确实现HEAD、CI与最终独立检查写同一PR，不用设计证据代替。

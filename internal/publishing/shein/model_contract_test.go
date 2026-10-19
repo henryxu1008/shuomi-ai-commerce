@@ -31,21 +31,6 @@ func TestSetDraftPayloadMirrorsLegacyCompatibilityAlias(t *testing.T) {
 	}
 }
 
-func TestEnsureDraftPayloadCreatesSemanticDraftAndAliasesIt(t *testing.T) {
-	pkg := &Package{}
-
-	draft := EnsureDraftPayload(pkg)
-	if draft == nil {
-		t.Fatal("EnsureDraftPayload() returned nil")
-	}
-	if pkg.DraftPayload != draft || pkg.RequestDraft != draft {
-		t.Fatalf("draft aliases = semantic %p, legacy %p; want both %p", pkg.DraftPayload, pkg.RequestDraft, draft)
-	}
-	if EnsureDraftPayload(pkg) != draft {
-		t.Fatal("EnsureDraftPayload() replaced an existing draft")
-	}
-}
-
 func TestValidateDraftPayloadReportsStructuralIssues(t *testing.T) {
 	issues := ValidateDraftPayload(&RequestDraft{
 		SKCList: []SKCRequestDraft{{SupplierCode: "SKC-1"}},

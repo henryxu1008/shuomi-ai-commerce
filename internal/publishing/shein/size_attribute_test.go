@@ -1,10 +1,10 @@
 package shein
 
 import (
+	"strings"
 	"testing"
 
 	"task-processor/internal/product/catalog/canonical"
-	sheinattribute "task-processor/internal/shein/api/attribute"
 	sheinproduct "task-processor/internal/shein/api/product"
 )
 
@@ -99,32 +99,7 @@ func TestAssemblerBuildUsesTemplateSizeChartAttributeIDs(t *testing.T) {
 
 	sizeMValueID := 417
 	assembler := NewAssembler(AssemblerConfig{
-		AttributeResolver: NewAttributeResolver(stubAttributeAPI{
-			templates: &sheinattribute.AttributeTemplateInfo{Data: []sheinattribute.AttributeTemplate{{
-				AttributeInfos: []sheinattribute.AttributeInfo{
-					{
-						AttributeID:        20,
-						AttributeName:      "胸围 (cm)",
-						AttributeNameEn:    "Bust (cm)",
-						AttributeType:      2,
-						AttributeMode:      0,
-						DataDimension:      2,
-						AttributeStatus:    3,
-						SourceSystemIDList: []int{1, 2, 6, 7},
-					},
-					{
-						AttributeID:        55,
-						AttributeName:      "长度 (cm)",
-						AttributeNameEn:    "Length (cm)",
-						AttributeType:      2,
-						AttributeMode:      0,
-						DataDimension:      2,
-						AttributeStatus:    3,
-						SourceSystemIDList: []int{1, 2, 6, 7},
-					},
-				},
-			}}},
-		}, nil),
+		AttributeResolver: assemblerStubAttributeResolver{resolution: &AttributeResolution{SizeChartAttributes: []PendingAttributeCandidate{{AttributeID: 20, AttributeName: "胸围 (cm)", AttributeNameEn: "Bust (cm)", SourceSystemIDList: []int{1, 2, 6, 7}}, {AttributeID: 55, AttributeName: "长度 (cm)", AttributeNameEn: "Length (cm)", SourceSystemIDList: []int{1, 2, 6, 7}}}}},
 		CategoryResolver: assemblerStubCategoryResolver{
 			resolution: &CategoryResolution{Status: "resolved", CategoryID: 1727},
 		},
@@ -187,20 +162,7 @@ func TestAssemblerBuildUsesSizeAttributeHeaderResolverForUnknownSDSHeader(t *tes
 		},
 	}
 	assembler := NewAssembler(AssemblerConfig{
-		AttributeResolver: NewAttributeResolver(stubAttributeAPI{
-			templates: &sheinattribute.AttributeTemplateInfo{Data: []sheinattribute.AttributeTemplate{{
-				AttributeInfos: []sheinattribute.AttributeInfo{{
-					AttributeID:        58,
-					AttributeName:      "摆围 (cm)",
-					AttributeNameEn:    "Hem (cm)",
-					AttributeType:      2,
-					AttributeMode:      0,
-					DataDimension:      2,
-					AttributeStatus:    3,
-					SourceSystemIDList: []int{1, 2, 6, 7},
-				}},
-			}}},
-		}, nil),
+		AttributeResolver: assemblerStubAttributeResolver{resolution: &AttributeResolution{SizeChartAttributes: []PendingAttributeCandidate{{AttributeID: 58, AttributeName: "摆围 (cm)", AttributeNameEn: "Hem (cm)", SourceSystemIDList: []int{1, 2, 6, 7}}}}},
 		CategoryResolver: assemblerStubCategoryResolver{
 			resolution: &CategoryResolution{Status: "resolved", CategoryID: 1727},
 		},
@@ -264,30 +226,7 @@ func TestAssemblerBuildSkipsOptionalTemplateSizeChartAttributes(t *testing.T) {
 		},
 	}
 	assembler := NewAssembler(AssemblerConfig{
-		AttributeResolver: NewAttributeResolver(stubAttributeAPI{
-			templates: &sheinattribute.AttributeTemplateInfo{Data: []sheinattribute.AttributeTemplate{{
-				AttributeInfos: []sheinattribute.AttributeInfo{
-					{
-						AttributeID:        20,
-						AttributeName:      "胸围 (cm)",
-						AttributeNameEn:    "Bust (cm)",
-						AttributeType:      2,
-						AttributeMode:      0,
-						DataDimension:      2,
-						SourceSystemIDList: []int{1, 2, 6, 7},
-					},
-					{
-						AttributeID:        58,
-						AttributeName:      "摆围 (cm)",
-						AttributeNameEn:    "Hem (cm)",
-						AttributeType:      2,
-						AttributeMode:      0,
-						DataDimension:      2,
-						SourceSystemIDList: []int{1, 2, 6, 7},
-					},
-				},
-			}}},
-		}, nil),
+		AttributeResolver: assemblerStubAttributeResolver{resolution: &AttributeResolution{SizeChartAttributes: []PendingAttributeCandidate{}}},
 		CategoryResolver: assemblerStubCategoryResolver{
 			resolution: &CategoryResolution{Status: "resolved", CategoryID: 1727},
 		},
@@ -346,20 +285,7 @@ func TestAssemblerBuildSkipsSizeHeaderResolverWhenNoSizeSaleAttributeExists(t *t
 		},
 	}
 	assembler := NewAssembler(AssemblerConfig{
-		AttributeResolver: NewAttributeResolver(stubAttributeAPI{
-			templates: &sheinattribute.AttributeTemplateInfo{Data: []sheinattribute.AttributeTemplate{{
-				AttributeInfos: []sheinattribute.AttributeInfo{{
-					AttributeID:        55,
-					AttributeName:      "长度 (cm)",
-					AttributeNameEn:    "Length (cm)",
-					AttributeType:      2,
-					AttributeMode:      0,
-					DataDimension:      2,
-					AttributeStatus:    3,
-					SourceSystemIDList: []int{1, 2, 6, 7},
-				}},
-			}}},
-		}, nil),
+		AttributeResolver: assemblerStubAttributeResolver{resolution: &AttributeResolution{SizeChartAttributes: []PendingAttributeCandidate{{AttributeID: 55, AttributeName: "长度 (cm)", AttributeNameEn: "Length (cm)", SourceSystemIDList: []int{1, 2, 6, 7}}}}},
 		CategoryResolver: assemblerStubCategoryResolver{
 			resolution: &CategoryResolution{Status: "resolved", CategoryID: 8218},
 		},
@@ -411,5 +337,20 @@ type stubSizeAttributeHeaderResolver struct {
 func (s *stubSizeAttributeHeaderResolver) ResolveSizeAttributeHeaders(input SizeAttributeHeaderResolutionInput) SizeAttributeHeaderResolution {
 	s.calls++
 	s.lastInput = input
+	return s.resolution
+}
+
+func containsReviewNote(notes []string, needle string) bool {
+	for _, note := range notes {
+		if strings.Contains(note, needle) {
+			return true
+		}
+	}
+	return false
+}
+
+type assemblerStubAttributeResolver struct{ resolution *AttributeResolution }
+
+func (s assemblerStubAttributeResolver) Resolve(_ *BuildRequest, _ *canonical.Product, _ *Package) *AttributeResolution {
 	return s.resolution
 }

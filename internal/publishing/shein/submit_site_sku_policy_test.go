@@ -101,7 +101,7 @@ func TestNormalizeSubmitWeightClampsAndConvertsUnits(t *testing.T) {
 
 	sku = &sheinproduct.SKU{Weight: 0, WeightUnit: "g"}
 	NormalizeSubmitWeight(sku)
-	if sku.Weight != minSubmitWeightGrams || sku.WeightUnit != "g" {
-		t.Fatalf("min weight = %.2f %s, want %.2f g", sku.Weight, sku.WeightUnit, minSubmitWeightGrams)
+	if sku.Weight != 0.01 || sku.WeightUnit != "g" {
+		t.Fatalf("min weight = %.2f %s, want %.2f g", sku.Weight, sku.WeightUnit, 0.01)
 	}
 }

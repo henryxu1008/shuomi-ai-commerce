@@ -5,13 +5,9 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
-	"unicode"
 
 	"task-processor/internal/listingadmin"
 	"task-processor/internal/shared/tenantctx"
-	sheinproduct "task-processor/internal/shein/api/product"
-	"task-processor/internal/shein/authorizedbrand"
 	sheincontent "task-processor/internal/shein/content"
 	generationtopics "task-processor/internal/shein/generationtopics"
 )
@@ -25,21 +21,6 @@ var (
 	generationTopicOverrideRepo   listingadmin.GenerationTopicOverrideRepository
 )
 
-func CleanSensitiveWords(product *sheinproduct.Product) error {
-	return CleanSensitiveWordsWithContext(context.Background(), product)
-}
-
-func CleanSensitiveWordsWithContext(ctx context.Context, product *sheinproduct.Product) error {
-	if product == nil {
-		return nil
-	}
-	service := NewSensitiveWordServiceForContext(ctx)
-	cleanupCtx := &sheincontent.CleanupContext{}
-	applyAuthorizedBrandFromRuntime(cleanupCtx, ctx)
-	cleanupCtx.ProductData = product
-	return service.ProcessProductData(cleanupCtx)
-}
-
 func NewSensitiveWordService() *sheincontent.SensitiveWordService {
 	return NewSensitiveWordServiceForContext(context.Background())
 }
@@ -49,36 +30,6 @@ func NewSensitiveWordServiceForContext(ctx context.Context) *sheincontent.Sensit
 	overlaySensitiveWordsFromRepository(ctx, service)
 	overlayGenerationTopicLexicons(ctx, service)
 	return service
-}
-
-func RetrySensitiveWordCleanup(product *sheinproduct.Product, validationNotes []string) bool {
-	return RetrySensitiveWordCleanupWithContext(context.Background(), product, validationNotes)
-}
-
-func RetrySensitiveWordCleanupWithContext(ctx context.Context, product *sheinproduct.Product, validationNotes []string) bool {
-	if product == nil || len(validationNotes) == 0 {
-		return false
-	}
-	service := NewSensitiveWordServiceForContext(ctx)
-	persistValidationSensitiveWords(ctx, service, validationNotes)
-	cleanupCtx := &sheincontent.CleanupContext{}
-	applyAuthorizedBrandFromRuntime(cleanupCtx, ctx)
-	cleanupCtx.ProductData = product
-	results := []sheincontent.ValidationResult{{Messages: append([]string(nil), validationNotes...)}}
-	return service.HandleValidationErrors(cleanupCtx, results)
-}
-
-func applyAuthorizedBrandFromRuntime(cleanupCtx *sheincontent.CleanupContext, runtimeCtx context.Context) {
-	if cleanupCtx == nil {
-		return
-	}
-	cleanupCtx.Context = runtimeCtx
-	if cleanupCtx.AuthorizedBrand != nil {
-		return
-	}
-	if resolved, ok := authorizedbrand.FromContext(runtimeCtx); ok {
-		cleanupCtx.AuthorizedBrand = resolved
-	}
 }
 
 func SetSensitiveWordRepository(repo listingadmin.SensitiveWordRepository) func() {
@@ -266,141 +217,6 @@ func loadTenantSensitiveWordRecords(ctx context.Context, repo listingadmin.Sensi
 		}
 		page++
 	}
-}
-
-func persistValidationSensitiveWords(ctx context.Context, service *sheincontent.SensitiveWordService, validationNotes []string) {
-	if ctx == nil || service == nil || len(validationNotes) == 0 {
-		return
-	}
-	repo := currentSensitiveWordRepository()
-	if repo == nil {
-		return
-	}
-	tenantID, ok := tenantIDFromContext(ctx)
-	if !ok {
-		return
-	}
-	words := service.ExtractSensitiveWordsFromValidationNotes(validationNotes)
-	if len(words) == 0 {
-		return
-	}
-	existingRecords, err := loadTenantSensitiveWordRecords(ctx, repo, tenantID, nil)
-	if err != nil {
-		return
-	}
-	existingByKey := make(map[string]listingadmin.SensitiveWord, len(existingRecords))
-	for _, record := range existingRecords {
-		key := sensitiveWordRecordKey(record.Language, record.Word)
-		if key == "" {
-			continue
-		}
-		existingByKey[key] = record
-	}
-	for _, word := range words {
-		word = strings.TrimSpace(word)
-		if word == "" {
-			continue
-		}
-		language := detectSensitiveWordLanguage(word)
-		key := sensitiveWordRecordKey(language, word)
-		if key == "" {
-			continue
-		}
-		if existing, ok := existingByKey[key]; ok {
-			if existing.Status == 1 {
-				continue
-			}
-			existing.Status = 1
-			existing.Tags = mergeSensitiveWordTags(existing.Tags, "shein,auto-discovered,validation-retry")
-			existing.Remark = mergeSensitiveWordRemark(existing.Remark, autoDiscoveredSensitiveWordRemark())
-			if updated, updateErr := repo.UpdateSensitiveWord(ctx, &existing); updateErr == nil && updated != nil {
-				existingByKey[key] = *updated
-			}
-			continue
-		}
-		created, createErr := repo.CreateSensitiveWord(ctx, &listingadmin.SensitiveWord{
-			TenantID: tenantID,
-			Word:     word,
-			Language: language,
-			Tags:     "shein,auto-discovered,validation-retry",
-			Level:    2,
-			Remark:   autoDiscoveredSensitiveWordRemark(),
-			Status:   1,
-		})
-		if createErr == nil && created != nil {
-			existingByKey[key] = *created
-		}
-	}
-}
-
-func detectSensitiveWordLanguage(word string) string {
-	for _, r := range word {
-		switch {
-		case unicode.Is(unicode.Han, r):
-			return "zh"
-		case unicode.In(r, unicode.Hiragana, unicode.Katakana):
-			return "ja"
-		case unicode.In(r, unicode.Hangul):
-			return "ko"
-		case unicode.IsLetter(r):
-			return "en"
-		}
-	}
-	return "en"
-}
-
-func sensitiveWordRecordKey(language, word string) string {
-	language = strings.TrimSpace(strings.ToLower(language))
-	word = strings.TrimSpace(strings.ToLower(word))
-	if language == "" || word == "" {
-		return ""
-	}
-	return language + "\x00" + word
-}
-
-func mergeSensitiveWordTags(existing, added string) string {
-	parts := append(splitCSV(existing), splitCSV(added)...)
-	seen := make(map[string]struct{}, len(parts))
-	merged := make([]string, 0, len(parts))
-	for _, part := range parts {
-		part = strings.TrimSpace(part)
-		if part == "" {
-			continue
-		}
-		key := strings.ToLower(part)
-		if _, ok := seen[key]; ok {
-			continue
-		}
-		seen[key] = struct{}{}
-		merged = append(merged, part)
-	}
-	return strings.Join(merged, ",")
-}
-
-func mergeSensitiveWordRemark(existing, added string) string {
-	existing = strings.TrimSpace(existing)
-	added = strings.TrimSpace(added)
-	switch {
-	case existing == "":
-		return added
-	case added == "":
-		return existing
-	case strings.Contains(strings.ToLower(existing), strings.ToLower(added)):
-		return existing
-	default:
-		return existing + "; " + added
-	}
-}
-
-func splitCSV(value string) []string {
-	if strings.TrimSpace(value) == "" {
-		return nil
-	}
-	return strings.Split(value, ",")
-}
-
-func autoDiscoveredSensitiveWordRemark() string {
-	return "auto discovered from SHEIN validation retry on " + time.Now().Format("2006-01-02")
 }
 
 func int16Ptr(value int16) *int16 {

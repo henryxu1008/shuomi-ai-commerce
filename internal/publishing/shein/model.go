@@ -12,10 +12,8 @@ import (
 type BuildRequest struct {
 	Country            string
 	Language           string
-	Text               string
 	BrandHint          string
 	TargetCategoryHint string
-	SheinStoreID       int64
 	ProductSize        string
 	Context            context.Context `json:"-"`
 }
@@ -35,7 +33,6 @@ type Package struct {
 	CategoryResolution      *CategoryResolution      `json:"category_resolution,omitempty"`
 	AttributeResolution     *AttributeResolution     `json:"attribute_resolution,omitempty"`
 	SaleAttributeResolution *SaleAttributeResolution `json:"sale_attribute_resolution,omitempty"`
-	Inspection              *Inspection              `json:"inspection,omitempty"`
 	Description             string                   `json:"description,omitempty"`
 	SellingPoints           []string                 `json:"selling_points,omitempty"`
 	Attributes              map[string]string        `json:"attributes,omitempty"`
@@ -58,17 +55,12 @@ type Package struct {
 	PreviewProduct *sheinproduct.Product `json:"preview_product,omitempty"`
 	// PreviewPayload is the canonical SHEIN preview payload used by current business logic.
 	PreviewPayload *sheinproduct.Product `json:"preview_payload,omitempty"`
-	// Deprecated: kept only for JSON/history compatibility. New business code should use SubmissionState.
-	Submission *SubmissionReport `json:"submission,omitempty"`
-	// SubmissionState is the canonical SHEIN submission state used by current business logic.
-	SubmissionState *SubmissionReport    `json:"submission_state,omitempty"`
-	Pricing         *PricingReview       `json:"pricing,omitempty"`
-	SizeAttributes  *SizeAttributeReview `json:"size_attributes,omitempty"`
+	Pricing        *PricingReview        `json:"pricing,omitempty"`
+	SizeAttributes *SizeAttributeReview  `json:"size_attributes,omitempty"`
 	// Deprecated: kept only for JSON/history compatibility. New business code should use FinalSubmissionDraft.
 	FinalDraft *FinalDraft `json:"final_draft,omitempty"`
 	// FinalSubmissionDraft is the canonical SHEIN final submission draft used by current business logic.
 	FinalSubmissionDraft    *FinalDraft                              `json:"final_submission_draft,omitempty"`
-	SubmissionEvents        []SubmissionEvent                        `json:"submission_events,omitempty"`
 	CustomAttributeRelation []sheinattribute.CustomAttributeRelation `json:"custom_attribute_relation,omitempty"`
 	Metadata                map[string]string                        `json:"metadata,omitempty"`
 	ReviewNotes             []string                                 `json:"review_notes,omitempty"`
@@ -365,112 +357,4 @@ type SaleAttributeTemplateOption struct {
 	Required           bool                      `json:"required,omitempty"`
 	Important          bool                      `json:"important,omitempty"`
 	AttributeValueList []AttributeValueCandidate `json:"attribute_value_list,omitempty"`
-}
-
-type Inspection struct {
-	NeedsReview bool                `json:"needs_review"`
-	Summary     []string            `json:"summary,omitempty"`
-	Sections    []InspectionSection `json:"sections,omitempty"`
-}
-
-type InspectionSection struct {
-	Key         string             `json:"key,omitempty"`
-	Title       string             `json:"title,omitempty"`
-	Status      string             `json:"status,omitempty"`
-	Summary     string             `json:"summary,omitempty"`
-	Highlights  []string           `json:"highlights,omitempty"`
-	ActionItems []string           `json:"action_items,omitempty"`
-	Actions     []InspectionAction `json:"actions,omitempty"`
-}
-
-type InspectionAction struct {
-	Key         string                          `json:"key,omitempty"`
-	Label       string                          `json:"label,omitempty"`
-	Target      string                          `json:"target,omitempty"`
-	ActionType  string                          `json:"action_type,omitempty"`
-	Description string                          `json:"description,omitempty"`
-	Payload     map[string]any                  `json:"payload,omitempty"`
-	Category    *InspectionCategoryPayload      `json:"category,omitempty"`
-	Attributes  *InspectionAttributePayload     `json:"attributes,omitempty"`
-	Sale        *InspectionSaleAttributePayload `json:"sale,omitempty"`
-}
-
-type InspectionCategoryPayload struct {
-	Platform          string              `json:"platform,omitempty"`
-	Target            string              `json:"target,omitempty"`
-	Status            string              `json:"status,omitempty"`
-	Source            string              `json:"source,omitempty"`
-	CategoryName      string              `json:"category_name,omitempty"`
-	CategoryPath      []string            `json:"category_path,omitempty"`
-	CategoryID        int                 `json:"category_id,omitempty"`
-	CategoryIDList    []int               `json:"category_id_list,omitempty"`
-	ProductTypeID     *int                `json:"product_type_id,omitempty"`
-	TopCategoryID     int                 `json:"top_category_id,omitempty"`
-	SuggestedCategory *CategorySuggestion `json:"suggested_category,omitempty"`
-	ReviewNotes       []string            `json:"review_notes,omitempty"`
-}
-
-type InspectionAttributePayload struct {
-	Platform                       string                      `json:"platform,omitempty"`
-	Target                         string                      `json:"target,omitempty"`
-	Status                         string                      `json:"status,omitempty"`
-	Source                         string                      `json:"source,omitempty"`
-	TemplateCount                  int                         `json:"template_count,omitempty"`
-	ResolvedCount                  int                         `json:"resolved_count,omitempty"`
-	UnresolvedCount                int                         `json:"unresolved_count,omitempty"`
-	ProductAttributes              []common.Attribute          `json:"product_attributes,omitempty"`
-	ResolvedAttributes             []ResolvedAttribute         `json:"resolved_attributes,omitempty"`
-	SizeChartAttributes            []PendingAttributeCandidate `json:"size_chart_attributes,omitempty"`
-	PendingAttributes              []common.Attribute          `json:"pending_attributes,omitempty"`
-	PendingAttributeCandidates     []PendingAttributeCandidate `json:"pending_attribute_candidates,omitempty"`
-	RecommendedAttributeCandidates []PendingAttributeCandidate `json:"recommended_attribute_candidates,omitempty"`
-	ReviewNotes                    []string                    `json:"review_notes,omitempty"`
-}
-
-type InspectionSaleAttributePayload struct {
-	Platform                 string                           `json:"platform,omitempty"`
-	Target                   string                           `json:"target,omitempty"`
-	Status                   string                           `json:"status,omitempty"`
-	Source                   string                           `json:"source,omitempty"`
-	RecommendCategoryReview  bool                             `json:"recommend_category_review,omitempty"`
-	CategoryReviewReason     string                           `json:"category_review_reason,omitempty"`
-	PrimaryAttributeID       int                              `json:"primary_attribute_id,omitempty"`
-	SecondaryAttributeID     int                              `json:"secondary_attribute_id,omitempty"`
-	PrimarySourceDimension   string                           `json:"primary_source_dimension,omitempty"`
-	SecondarySourceDimension string                           `json:"secondary_source_dimension,omitempty"`
-	SKCValueAssignments      map[string]ResolvedSaleAttribute `json:"skc_value_assignments,omitempty"`
-	SKUValueAssignments      map[string]ResolvedSaleAttribute `json:"sku_value_assignments,omitempty"`
-	SourceDimensions         []SourceVariantDimension         `json:"source_dimensions,omitempty"`
-	TemplateOptions          []SaleAttributeTemplateOption    `json:"template_options,omitempty"`
-	SelectionSummary         []string                         `json:"selection_summary,omitempty"`
-	SKCAttributes            []ResolvedSaleAttribute          `json:"skc_attributes,omitempty"`
-	SKUAttributes            []ResolvedSaleAttribute          `json:"sku_attributes,omitempty"`
-	CandidateCount           int                              `json:"candidate_count,omitempty"`
-	Candidates               []SaleAttributeCandidateInfo     `json:"candidates,omitempty"`
-	SKCPatches               []InspectionSKCPatchPayload      `json:"skc_patches,omitempty"`
-	ReviewNotes              []string                         `json:"review_notes,omitempty"`
-}
-
-type InspectionSKCPatchPayload struct {
-	SupplierCode  string                      `json:"supplier_code,omitempty"`
-	SkcName       string                      `json:"skc_name,omitempty"`
-	SaleName      string                      `json:"sale_name,omitempty"`
-	MainImageURL  string                      `json:"main_image_url,omitempty"`
-	Attributes    map[string]string           `json:"attributes,omitempty"`
-	SaleAttribute *ResolvedSaleAttribute      `json:"sale_attribute,omitempty"`
-	SKUPatches    []InspectionSKUPatchPayload `json:"sku_patches,omitempty"`
-}
-
-type InspectionSKUPatchPayload struct {
-	SupplierSKU    string                  `json:"supplier_sku,omitempty"`
-	Attributes     map[string]string       `json:"attributes,omitempty"`
-	BasePrice      string                  `json:"base_price,omitempty"`
-	CostPrice      string                  `json:"cost_price,omitempty"`
-	Currency       string                  `json:"currency,omitempty"`
-	StockCount     int                     `json:"stock_count,omitempty"`
-	MainImage      string                  `json:"main_image,omitempty"`
-	Barcode        string                  `json:"barcode,omitempty"`
-	SaleAttributes []ResolvedSaleAttribute `json:"sale_attributes,omitempty"`
-	SitePriceList  []SitePrice             `json:"site_price_list,omitempty"`
-	StockInfoList  []StockInfo             `json:"stock_info_list,omitempty"`
 }

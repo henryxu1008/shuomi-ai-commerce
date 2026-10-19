@@ -24,10 +24,6 @@ type SizeAttributeHeaderResolution struct {
 	ReviewNotes          []string
 }
 
-func applyProductSizeAttributes(pkg *Package, productSize string) bool {
-	return applyProductSizeAttributesWithResolver(pkg, productSize, nil, context.Background())
-}
-
 func applyProductSizeAttributesWithResolver(pkg *Package, productSize string, resolver SizeAttributeHeaderResolver, ctx context.Context) bool {
 	pkg = NormalizePackageSemanticFields(pkg)
 	if pkg == nil || pkg.DraftPayload == nil {

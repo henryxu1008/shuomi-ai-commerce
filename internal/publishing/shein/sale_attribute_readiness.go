@@ -122,11 +122,6 @@ func SaleDimensionMatches(left, right string) bool {
 	return sheinmarketpub.SaleDimensionMatches(left, right)
 }
 
-// NormalizeSaleDimension normalizes common source dimension labels.
-func NormalizeSaleDimension(value string) string {
-	return sheinmarketpub.NormalizeSaleDimension(value)
-}
-
 // HasBlockingPendingAttributes reports whether required or manually pending attributes still block submit.
 func HasBlockingPendingAttributes(pkg *Package) bool {
 	if pkg == nil || pkg.AttributeResolution == nil {

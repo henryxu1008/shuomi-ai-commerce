@@ -1,5 +1,7 @@
 # Legacy Register
 
+> #827 [confirmed Publishing runtime closure](../architecture/legacy-shein-publishing-runtime-closure-retirement-boundary.md): The uninstantiated SHEIN Publishing managed/runtime/resolver/cache and remote submission/recovery closure is source-retired under user-confirmed frozen design a88ceb527, Independent Architecture / IMPLEMENTATION_READY. Only its exact source declarations, legacy Package execution fields, 18 static Prompt keys/defaults and six CURRENT consumer rows leave. Current draft/strict codec/validator, official Submission Kernel, platform rules, Store/content/topic owners and independent login/Store sync remain. Workflows, dependencies, ceilings, runtime/data and trial prerequisites are unchanged.
+
 > #824: user-confirmed [numeric listing support closure](../architecture/legacy-numeric-listing-support-closure-retirement-boundary.md) source retirement removes the eight unused listingadmin management families, Task RPC, old Workspace wrapper and orphan marketplace editor/repair/history/Task projections, numeric Task/status/retry, metrics/hook and TaskHandledError. Store/sensitive-word/topic repositories, four shared value types, the exact offline-validator readiness closure and standalone SHEIN login/Store sync remain. Historical observations below retain their original evidence; no table/data/runtime action or workflow/ceiling change is implied.
 
 > #29 / #301 [complete Amazon listing closure](../architecture/legacy-amazon-listing-closure-retirement-boundary.md)

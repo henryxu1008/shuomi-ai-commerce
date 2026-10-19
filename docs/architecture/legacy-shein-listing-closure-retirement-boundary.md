@@ -1,5 +1,7 @@
 # 旧 SHEIN 数字刊登整链：完整退休边界设计
 
+> #827 [confirmed Publishing runtime closure](legacy-shein-publishing-runtime-closure-retirement-boundary.md): Supersedes only the earlier retention of the then-consumed Publishing runtime/managed/resolver/cache/remote submission helper closure. Exact mixed current pure values/assembly/strict codec and platform/Store/independent worker preservation still apply. Original #817 evidence below is unchanged. Workflows, dependencies, ceilings, runtime/data and trial prerequisites are unchanged.
+
 > #824 后续按用户确认的[共享支撑边界](legacy-numeric-listing-support-closure-retirement-boundary.md)退休八类闲置 listingadmin 管理链、旧 Task/Workspace 尾部及 sherr/handled_errors.go。本文对这些准确对象的保留仅为历史；Store/敏感词/话题、四种共享值合同、现用 sherr、定价/属性/API、当前采集/图像/Store 与独立 worker 能力继续保持。原证据不改，不授权运行或数据清理。
 
 > 后续用户已确认 [#819 TEMU剩余整链边界](legacy-temu-listing-closure-retirement-boundary.md) §5/§6/§6.1/§7。本文件对该闭包内旧 TEMU AI/SKU/spec、PriceHandler/PriceCalculator、property/context/TemplateState、pipeline/skugen及专属纯规则/管理投影/prompt的保留描述仅为历史边界，现由#819精确替代；当前平台API/规则、共享合同、SHEIN价格/两属性、采集/图像/Store观察与独立SHEIN登录/Store同步继续保留。原证据不改，不授权实例或数据操作。

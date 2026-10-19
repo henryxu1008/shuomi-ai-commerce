@@ -11,7 +11,6 @@ import (
 func TestClonePackageForPersistencePreservesSemanticAliasesAndPrivateAssignmentsWithoutSharingState(t *testing.T) {
 	draft := &RequestDraft{SpuName: "original-draft"}
 	preview := &sheinproduct.Product{SPUName: "original-preview"}
-	submission := &SubmissionReport{LastStatus: "original-submission"}
 	finalDraft := &FinalDraft{MainImageURL: "https://img.example/original.jpg"}
 	valueID := 701
 	privateValueID := 702
@@ -28,8 +27,6 @@ func TestClonePackageForPersistencePreservesSemanticAliasesAndPrivateAssignments
 		DraftPayload:            draft,
 		PreviewProduct:          preview,
 		PreviewPayload:          preview,
-		Submission:              submission,
-		SubmissionState:         submission,
 		FinalDraft:              finalDraft,
 		FinalSubmissionDraft:    finalDraft,
 		SaleAttributeResolution: resolution,
@@ -45,9 +42,6 @@ func TestClonePackageForPersistencePreservesSemanticAliasesAndPrivateAssignments
 	}
 	if cloned.PreviewProduct != cloned.PreviewPayload || cloned.PreviewProduct == pkg.PreviewProduct {
 		t.Fatal("preview semantic aliases were split or still share source state")
-	}
-	if cloned.Submission != cloned.SubmissionState || cloned.Submission == pkg.Submission {
-		t.Fatal("submission semantic aliases were split or still share source state")
 	}
 	if cloned.FinalDraft != cloned.FinalSubmissionDraft || cloned.FinalDraft == pkg.FinalDraft {
 		t.Fatal("final-draft semantic aliases were split or still share source state")

@@ -731,21 +731,20 @@ func TestPublishingSheinNonAPISheinImportsStayAllowlisted(t *testing.T) {
 	allowedImports := map[string]map[string]struct{}{
 		`"task-processor/internal/shein/client"`: {
 			filepath.Clean(filepath.Join(root, "managed_api_factory.go")): {},
-			filepath.Clean(filepath.Join(root, "runtime_base_client.go")): {},
 		},
 		`"task-processor/internal/shein/content"`: {
-			filepath.Clean(filepath.Join(root, "attribute_value_matcher.go")):       {},
 			filepath.Clean(filepath.Join(root, "sensitive_content_sanitizer.go")):   {},
 			filepath.Clean(filepath.Join(root, "submit_prep_sensitive_adapter.go")): {},
 		},
-		`"task-processor/internal/shein/context"`: {},
-		`"task-processor/internal/shein/product"`: {},
-		`"task-processor/internal/shein/store"`:   {},
-		`"task-processor/internal/shein/category"`: {
-			filepath.Clean(filepath.Join(root, "category_legacy_selector_adapter.go")): {},
-		},
+		`"task-processor/internal/shein/context"`:  {},
+		`"task-processor/internal/shein/product"`:  {},
+		`"task-processor/internal/shein/store"`:    {},
+		`"task-processor/internal/shein/category"`: {},
 		`"task-processor/internal/shein/submitprep"`: {
-			filepath.Clean(filepath.Join(root, "submit_prep_sensitive_adapter.go")): {},
+			filepath.Clean(filepath.Join(root, "submit_prep_sensitive_adapter.go")):            {},
+			filepath.Clean(filepath.Join(root, "listing_copy_test.go")):                        {},
+			filepath.Clean(filepath.Join(root, "generation_topic_policy_integration_test.go")): {},
+			filepath.Clean(filepath.Join(root, "submit_prep_test.go")):                         {},
 		},
 		`"task-processor/internal/shein/publish"`: {},
 	}
@@ -767,19 +766,18 @@ func TestPublishingSheinNonAPISheinImportsStayAllowlisted(t *testing.T) {
 
 	managedRoot := filepath.Join("..", "internal", "publishing", "sheinmanaged")
 	managedAllowedImports := map[string]map[string]struct{}{
-		`"task-processor/internal/shein/category"`: {
-			filepath.Clean(filepath.Join(managedRoot, "category_selector_adapter.go")): {},
-		},
-		`"task-processor/internal/shein/client"`: {
-			filepath.Clean(filepath.Join(managedRoot, "api_factory.go")): {},
-		},
+		`"task-processor/internal/shein/category"`:      {},
+		`"task-processor/internal/shein/client"`:        {},
 		`"task-processor/internal/shein/managedclient"`: {},
 	}
-	managedIndex, err := loadGoFileIndex(managedRoot, "")
+	managedIndex, err := loadGoFileIndex(filepath.Dir(managedRoot), "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	for path, facts := range managedIndex.files {
+		if !strings.HasPrefix(path, managedRoot+string(os.PathSeparator)) {
+			continue
+		}
 		for bannedImport, allowedFiles := range managedAllowedImports {
 			if _, ok := facts.imports[bannedImport]; !ok {
 				continue
@@ -793,17 +791,16 @@ func TestPublishingSheinNonAPISheinImportsStayAllowlisted(t *testing.T) {
 
 func TestPublishingSheinManagedAPIImportsStayAllowlisted(t *testing.T) {
 	managedRoot := filepath.Join("..", "internal", "publishing", "sheinmanaged")
-	allowedFiles := map[string]struct{}{
-		filepath.Clean(filepath.Join(managedRoot, "api_builders.go")):          {},
-		filepath.Clean(filepath.Join(managedRoot, "attribute_api_factory.go")): {},
-		filepath.Clean(filepath.Join(managedRoot, "category_api_factory.go")):  {},
-	}
+	allowedFiles := map[string]struct{}{}
 
-	index, err := loadGoFileIndex(managedRoot, "")
+	index, err := loadGoFileIndex(filepath.Dir(managedRoot), "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	for path, facts := range index.files {
+		if !strings.HasPrefix(path, managedRoot+string(os.PathSeparator)) {
+			continue
+		}
 		if strings.HasSuffix(filepath.Base(path), "_test.go") || pathAllowed(path, allowedFiles) {
 			continue
 		}
@@ -820,12 +817,15 @@ func TestPublishingSheinManagedRetiredManagementImportsStayBlocked(t *testing.T)
 	root := filepath.Join("..", "internal", "publishing", "sheinmanaged")
 	allowedFiles := map[string]struct{}{}
 
-	index, err := loadGoFileIndex(root, "")
+	index, err := loadGoFileIndex(filepath.Dir(root), "")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	for path, facts := range index.files {
+		if !strings.HasPrefix(path, root+string(os.PathSeparator)) {
+			continue
+		}
 		if pathAllowed(path, allowedFiles) {
 			continue
 		}
@@ -858,14 +858,8 @@ func TestPublishingSheinRuntimeBaseAPIClientAliasStaysRetired(t *testing.T) {
 func TestPublishingSheinOpenAIImportsStayAllowlisted(t *testing.T) {
 	root := filepath.Join("..", "internal", "publishing", "shein")
 	allowedFiles := map[string]struct{}{
-		filepath.Clean(filepath.Join(root, "attribute_resolver_test.go")):                  {},
-		filepath.Clean(filepath.Join(root, "category_semantic_verifier_test.go")):          {},
-		filepath.Clean(filepath.Join(root, "display_attribute_resolution_flow_test.go")):   {},
 		filepath.Clean(filepath.Join(root, "generation_topic_policy_integration_test.go")): {},
 		filepath.Clean(filepath.Join(root, "listing_copy_test.go")):                        {},
-		filepath.Clean(filepath.Join(root, "review_content_test.go")):                      {},
-		filepath.Clean(filepath.Join(root, "sale_attribute_resolver_test.go")):             {},
-		filepath.Clean(filepath.Join(root, "sale_attribute_value_matcher_test.go")):        {},
 		filepath.Clean(filepath.Join(root, "submit_prep_test.go")):                         {},
 	}
 
@@ -885,7 +879,7 @@ func TestPublishingSheinOpenAIImportsStayAllowlisted(t *testing.T) {
 }
 
 func TestPublishingSheinSubmitPrepUsesOnlySensitiveWordAdapter(t *testing.T) {
-	filePath := filepath.Join("..", "internal", "publishing", "shein", "submit_prep.go")
+	filePath := filepath.Join("..", "internal", "publishing", "shein", "submit_prep_sensitive_adapter.go")
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, filePath, nil, 0)
 	if err != nil {
@@ -893,8 +887,6 @@ func TestPublishingSheinSubmitPrepUsesOnlySensitiveWordAdapter(t *testing.T) {
 	}
 
 	allowedSelectors := map[string]struct{}{
-		"CleanSensitiveWordsWithContext":       {},
-		"RetrySensitiveWordCleanupWithContext": {},
 		"NewSensitiveWordServiceForContext":    {},
 		"SetSensitiveWordRepository":           {},
 		"SetGenerationTopicPolicyRepository":   {},
@@ -2559,10 +2551,7 @@ func TestSheinRetiredManagementImportsStayBlocked(t *testing.T) {
 func TestSheinOpenAIImportsStayAllowlisted(t *testing.T) {
 	root := filepath.Join("..", "internal", "shein")
 	allowedFiles := map[string]struct{}{
-		filepath.Clean(filepath.Join(root, "category", "manager.go")):             {},
-		filepath.Clean(filepath.Join(root, "content", "optimizer.go")):            {},
-		filepath.Clean(filepath.Join(root, "pipeline", "pipeline.go")):            {},
-		filepath.Clean(filepath.Join(root, "submitprep", "localized_content.go")): {},
+		filepath.Clean(filepath.Join(root, "pipeline", "pipeline.go")): {},
 	}
 
 	index, err := loadGoFileIndex(root, "")
@@ -3803,8 +3792,8 @@ func currentOwnerLegacyListingKitRootViolations(sources []listingKitImageBoundar
 func supplyAdapterBusinessPorts() map[string][]string {
 	base := filepath.Join("..", "internal", "integration")
 	return map[string][]string{
-		filepath.Join(base, "shein", "official_publication.go"): {"task-processor/internal/marketplace/shein/model"},
-		filepath.Join(base, "persistence", "listing", "submission", "shein_shelf_policy.go"): {"task-processor/internal/listing/submission", "task-processor/internal/product/collection"},
+		filepath.Join(base, "shein", "official_publication.go"):                                     {"task-processor/internal/marketplace/shein/model"},
+		filepath.Join(base, "persistence", "listing", "submission", "shein_shelf_policy.go"):        {"task-processor/internal/listing/submission", "task-processor/internal/product/collection"},
 		filepath.Join(base, "walmart", "client.go"):                                                 {"task-processor/internal/marketplace/walmart"},
 		filepath.Join(base, "walmart", "products.go"):                                               {"task-processor/internal/marketplace/walmart"},
 		filepath.Join(base, "persistence", "listing", "official", "walmart_results.go"):             {"task-processor/internal/marketplace/walmart"},

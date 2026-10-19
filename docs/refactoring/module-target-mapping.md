@@ -1,5 +1,7 @@
 # Module Target Mapping
 
+> #827 [confirmed Publishing runtime closure](../architecture/legacy-shein-publishing-runtime-closure-retirement-boundary.md): The old Publishing runtime/factories/resolvers, persistence cache and remote submission/recovery helpers have no replacement owner or relocation target. Current Publishing values/assembly/strict validation and the 13 official ExecutionKernel files keep their current owners. Old mappings for only the exact closure are historical; no new facade or runtime/data migration. Workflows, dependencies, ceilings, runtime/data and trial prerequisites are unchanged.
+
 > #824 supersedes only the old numeric listing support mappings: taskrpcapi, workspace/shein, core/metrics and the eight unused listingadmin management families are source-retired under the [confirmed boundary](../architecture/legacy-numeric-listing-support-closure-retirement-boundary.md). No replacement transport, compatibility shell or persistence owner is introduced. Retained Store/content/topic contracts and the offline validator's exact readiness rules keep their existing owners; historical rows below are not new relocation work.
 
 > #822 已完整退休旧 internal/amazon 非API刊登子包、amazonlisting、marketplace/amazon、state、httpbootstrap 与 shared/timex；下文涉及这些对象的旧迁移目标仅保留历史映射，不是当前抽取/重建任务。当前 Amazon API/来源采集、httproute、其他共享能力与独立 SHEIN worker 保持，详见[本批边界](../architecture/legacy-amazon-listing-closure-retirement-boundary.md)。

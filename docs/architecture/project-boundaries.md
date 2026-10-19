@@ -1,5 +1,7 @@
 # Project Boundary Rules
 
+> #827 [confirmed Publishing runtime closure](legacy-shein-publishing-runtime-closure-retirement-boundary.md): The complete unused SHEIN Publishing runtime/cache/remote-submit closure is source-retired. publishing/shein remains the current pure draft/value/strict-codec owner; listing/submission retains the 13 official Kernel/intent/receipt/effects files, not the retired attempt/lease/recovery helpers. Current platform rules, Store/tenant/content/worker owners remain; no new compatibility or persistence boundary. Workflows, dependencies, ceilings, runtime/data and trial prerequisites are unchanged.
+
 > #824 supersedes the historical core/metrics relocation debt below: unused Task/SHEIN singleton metrics and their numeric Task/hook consumers are source-retired under the [confirmed support boundary](legacy-numeric-listing-support-closure-retirement-boundary.md). Current platform workerpool metrics, ImageAgent/Temporal, BusinessTask and resource/AI accounting stay with their original owners; this is not a new shared metrics facade or a ceiling change.
 
 This document defines the default package and dependency boundaries for the Task Processor / ListingKit codebase.
