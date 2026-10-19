@@ -3,7 +3,8 @@ import {afterEach,beforeEach,expect,it,vi} from "vitest";
 import {RecentImageSets} from "./recent-image-sets";
 import {imageSetRecentSchema} from "@/lib/contracts/product-image-set";
 
-vi.mock("../acquisition/product-image-set-panel",()=>({ProductImageSetPanel:()=>null}));
+vi.mock("../acquisition/product-image-set-panel",()=>({ProductImageSetPanel:({onSaved}:{onSaved?:()=>void})=><button onClick={onSaved}>已核实保存结果</button>}));
+vi.mock("@/lib/api/product-image-set",async original=>({...await original<typeof import("@/lib/api/product-image-set")>(),imageSetRequest:async(_scope:unknown,_action:unknown,_schema:unknown,options:{runId:string})=>({runId:options.runId,plan:{Source:{ContextKind:"supply",OperationID:"11111111-1111-4111-8111-111111111111",EffectiveVersion:"1"},Target:{Platform:"product"}}})}));
 const scope={userId:"actor",organizationId:"org"};
 const ids=Array.from({length:7},(_,i)=>"22222222-2222-4222-8222-"+String(i+1).padStart(12,"0"));
 function item(index:number,status="blocked",released=false){
@@ -64,4 +65,23 @@ it("rejects a malformed release summary instead of presenting it as released",as
  expect(await screen.findByRole("alert")).toHaveTextContent("当前能力或依赖不可用");
  expect(screen.queryByRole("listitem")).toBeNull();
  expect(screen.queryByText(/未生成，点数已释放/)).toBeNull();
+});
+
+it("refreshes the current page from the server after a verified save without changing an unproved result",async()=>{
+ let saved=false;
+ fetch.mockImplementation(async input=>Response.json(String(input).includes("&cursor=next")?{items:[item(4,saved?"completed":"awaiting_final_approval"),item(5)],nextCursor:""}:{items:[item(0,"awaiting_final_approval")],nextCursor:"next"}));
+ render(<RecentImageSets scope={scope} nonce={0}/>);
+ fireEvent.click(await screen.findByRole("button",{name:"下一页"}));
+ await screen.findByText(new RegExp(ids[4]));
+ fireEvent.click(within(screen.getAllByRole("listitem")[0]).getByRole("button",{name:"查看原任务"}));
+ const callback=await screen.findByRole("button",{name:"已核实保存结果"});
+ expect(fetch).toHaveBeenCalledTimes(2);
+ expect(screen.queryByText("已保存素材 · 供应链商品 · 通用素材")).toBeNull();
+ saved=true;fireEvent.click(callback);
+ expect(await screen.findByText("已保存素材 · 供应链商品 · 通用素材")).toBeVisible();
+ expect(screen.getByText("已停止 · 供应链商品 · 通用素材")).toBeVisible();
+ expect(screen.queryByText(/未生成，点数已释放/)).toBeNull();
+ expect(fetch).toHaveBeenCalledTimes(3);
+ expect(fetch.mock.calls.at(-1)?.[0]).toBe("/api/workbench/agents/product.image.agent/recent-runs?pageSize=20&cursor=next");
+ expect(fetch.mock.calls.every(([,init])=>!init?.method||init.method==="GET")).toBe(true);
 });

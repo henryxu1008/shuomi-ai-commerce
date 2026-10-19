@@ -17,6 +17,8 @@ function projection(status="awaiting_plan_approval",confirmationActionId=""){
 }
 let state:ReturnType<typeof projection>,approved:boolean,fetch:ReturnType<typeof vi.fn<(input:unknown,init?:RequestInit)=>Promise<Response>>>;
 beforeEach(()=>{
+ Object.defineProperty(HTMLDialogElement.prototype,"showModal",{configurable:true,value:function(this:HTMLDialogElement){this.open=true}});
+ Object.defineProperty(HTMLDialogElement.prototype,"close",{configurable:true,value:function(this:HTMLDialogElement){this.open=false}});
  calls.mode.mockReset();calls.mode.mockResolvedValue({subject:{kind:"registered_agent",id:"product.image.agent"},definition:{id:"product.image.agent",version:"v1.0.0"},mode:"default",revision:"0",policyVersion:"agent-execution-policy-v1",canConfigure:false,updatedAt:"2026-10-12T00:00:00Z",updatedBy:""});
  localStorage.clear();approved=false;state=projection();
  calls.context={user:{id:"actor"},effectiveOrganization:{id:"org"},permissions:["listingkit.image_agent.read","listingkit.image_agent.write"],registerOrganizationSwitchGuard:vi.fn(()=>vi.fn())};
@@ -42,6 +44,46 @@ async function prepare(){
  fireEvent.click(await screen.findByRole("checkbox",{name:"共用原始素材 素材 1"}));
  const button=screen.getByRole("button",{name:"准备整套图片计划（2 项）"});await waitFor(()=>expect(button).toBeEnabled());fireEvent.click(button);
 }
+
+it("opens the original and generated full images without losing an explicit selection or mutating a task",async()=>{
+ state=projection("awaiting_final_approval",templateId);
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialRunId={runId}/>);
+ const choices=await screen.findAllByRole("button",{name:"选择采用"});
+ fireEvent.click(choices[0]);
+ await waitFor(()=>expect(screen.getByRole("button",{name:"预览完整选择"})).toBeEnabled());
+ fireEvent.click(screen.getAllByRole("button",{name:/查看.*生成结果.*大图/})[0]);
+ const dialog=await screen.findByRole("dialog",{name:"图片预览"});
+ expect(within(dialog).getByRole("img")).toHaveAttribute("src","https://images.test/generated-0.png");
+ fireEvent.click(within(dialog).getByRole("button",{name:"关闭"}));
+ expect(screen.queryByRole("dialog")).toBeNull();
+ expect(screen.getByRole("button",{name:"预览完整选择"})).toBeEnabled();
+ fireEvent.click(screen.getAllByRole("button",{name:/查看原图.*大图/})[0]);
+ const originalDialog=await screen.findByRole("dialog",{name:"图片预览"});
+ expect(within(originalDialog).getByRole("img")).toHaveAttribute("src","https://images.test/original.png");
+ fireEvent(originalDialog,new Event("cancel",{cancelable:true}));
+ expect(screen.queryByRole("dialog")).toBeNull();
+ expect(screen.getByRole("img",{name:/拟采用：/})).toHaveAttribute("src","https://images.test/generated-0.png");
+ expect(fetch.mock.calls.some(([,init])=>init?.method==="POST")).toBe(false);
+});
+
+it("labels custom results by their image group and order while preserving exact approval identities",async()=>{
+ state=projection("awaiting_final_approval",templateId);
+ state.slots=state.slots.map((slot,i)=>({...slot,slotId:`custom-${i}`,recipe:{...slot.recipe,Purpose:"custom"}}));
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialRunId={runId}/>);
+ expect(await screen.findByRole("heading",{name:"主图 / 轮播 1"})).toBeVisible();
+ expect(screen.getByRole("heading",{name:"详情图 1"})).toBeVisible();
+ const choices=screen.getAllByRole("button",{name:"选择采用"});choices.forEach(button=>fireEvent.click(button));
+ expect(screen.getByRole("combobox",{name:"主图 / 轮播 1 素材组"})).toHaveValue("carousel");
+ expect(screen.getByRole("combobox",{name:"详情图 1 素材组"})).toHaveValue("detail");
+ fireEvent.click(screen.getByRole("button",{name:"预览完整选择"}));
+ fireEvent.click(await screen.findByRole("button",{name:"人工批准并保存素材"}));
+ await screen.findByRole("heading",{name:"已保存正式素材"});
+ const command=JSON.parse(String(fetch.mock.calls.find(([url])=>String(url).endsWith("/approve"))![1]!.body));
+ expect(command.choices.map((v:{slot_id:string;asset_id:string})=>[v.slot_id,v.asset_id])).toEqual([["custom-0","generated-0"],["custom-1","generated-1"]]);
+ expect(command.choices.map((v:{presentation:unknown})=>v.presentation)).toEqual([{group:"carousel",order:1},{group:"detail",order:1}]);
+ fireEvent.click(screen.getByRole("button",{name:"查看正式素材 1大图"}));
+ expect(within(await screen.findByRole("dialog",{name:"图片预览"})).getByRole("img")).toHaveAttribute("src","https://images.test/generated-0.png");
+});
 
 it("shows a fully released no-generation result while retaining the original failure without recovery actions",async()=>{
  state=projection("blocked",templateId);
