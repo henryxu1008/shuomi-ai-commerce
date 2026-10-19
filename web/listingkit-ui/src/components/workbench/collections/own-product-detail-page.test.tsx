@@ -14,9 +14,12 @@ it("offers content optimization only for an available runtime and current permis
  state.read.mockResolvedValue({item:{id:itemId,source:{kind:"own",version:"1",productKey:"own-test"}},product:{title:"商品"}});
  const view=render(<OwnProductDetailPage itemId={itemId} optimizationAvailable/>);
  expect(await screen.findByRole("link",{name:"优化商品内容"})).toHaveAttribute("href",`/workbench/data/mine/own/${itemId}/optimize`);
+ expect(screen.getByText(/在“优化商品内容”中查看当前已采用标题与版本/)).toBeInTheDocument();
+ expect(screen.getByRole("heading",{name:"商品",level:1})).toBeInTheDocument();
  state.context.permissions=["workbench.collection.read"];
  view.rerender(<OwnProductDetailPage itemId={itemId} optimizationAvailable/>);
  expect(screen.queryByRole("link",{name:"优化商品内容"})).toBeNull();
+ expect(screen.queryByText(/在“优化商品内容”中查看当前已采用标题与版本/)).toBeNull();
 });
 it("opens the independent draft entry only when completion and current permissions are available",async()=>{
  state.context.permissions=["workbench.collection.read","workbench.collection.manage","workbench.supply.read","workbench.supply.manage"];
