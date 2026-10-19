@@ -12,6 +12,9 @@ afterEach(cleanup);
 let client:QueryClient;
 function render(ui:ReactElement){client=new QueryClient({defaultOptions:{queries:{staleTime:30000}}});return renderView(ui,{wrapper:({children})=><QueryClientProvider client={client}>{children}</QueryClientProvider>})}
 const itemId="550e8400-e29b-41d4-a716-446655440002";
+it("hands the exact library reference to the existing content panel and rejects another enterprise",async()=>{
+ const launch={userId:"actor",organizationId:"org",target:"product-title" as const,selection:{skillId:itemId,version:1,digest:"a".repeat(64)}};state.read.mockResolvedValue({itemId,productKey:"own",originalVersion:1,catalogVersion:"2",publicationId:"pub",title:"商品"});const view=render(<OwnProductOptimizePage itemId={itemId} enabled launch={launch}/>);await screen.findByText("优化面板");expect(state.panel).toHaveBeenLastCalledWith(expect.objectContaining({initialSkill:launch.selection}));state.context={user:{id:"actor"},effectiveOrganization:{id:"other"}};view.rerender(<OwnProductOptimizePage itemId={itemId} enabled launch={launch}/>);expect(screen.getByText("技能入口已失效或身份、企业已变化")).toBeVisible();expect(state.read).toHaveBeenCalledTimes(1);
+});
 it("reads exact own facts without starting a model and links back to fresh choice",async()=>{
  state.read.mockResolvedValue({itemId,productKey:"own",originalVersion:2,catalogVersion:"3",publicationId:"applied",title:"已保存商品"});
  render(<OwnProductOptimizePage itemId={itemId} enabled/>);
