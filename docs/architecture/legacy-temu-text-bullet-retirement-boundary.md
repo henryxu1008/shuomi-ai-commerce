@@ -1,5 +1,7 @@
 # 完整旧 TEMU 文本检查与要点闭包退休边界
 
+> 后续用户已确认 [#819 TEMU剩余整链边界](legacy-temu-listing-closure-retirement-boundary.md) §5/§6/§6.1/§7。本文件对该闭包内旧 TEMU AI/SKU/spec、PriceHandler/PriceCalculator、property/context/TemplateState、pipeline/skugen及专属纯规则/管理投影/prompt的保留描述仅为历史边界，现由#819精确替代；当前平台API/规则、共享合同、SHEIN价格/两属性、采集/图像/Store观察与独立SHEIN登录/Store同步继续保留。原证据不改，不授权实例或数据操作。
+
 ## 1. 状态、用户结果与范围
 
 - 日期：2026-10-18；Refs #29 / #301。用户要求减少机械切片、按完整退休闭包和一个主要 PR 推进，已确认 #812 冻结设计 b09ed052b8fb652b2c4cc9c9194bc111fd07040c 的 §5、§6、§6.1、§7，并授权同一 PR 实施。

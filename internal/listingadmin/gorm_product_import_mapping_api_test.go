@@ -2,11 +2,41 @@ package listingadmin
 
 import (
 	"testing"
+	"time"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	_ "modernc.org/sqlite"
 )
+
+func TestSharedDTOValueHelpersPreserveExplicitValues(t *testing.T) {
+	for _, value := range []float64{0, -1.25, 2.5} {
+		filter := FilterRuleToRespDTO(FilterRule{PriceMin: value, RatingMin: value})
+		mapping := ProductImportMappingToRespDTO(&ProductImportMapping{SalePriceMultiplier: value, DiscountPriceMultiplier: value})
+		for _, got := range []*float64{filter.PriceMin, filter.RatingMin, mapping.SalePriceMultiplier, mapping.DiscountPriceMultiplier} {
+			if got == nil || *got != value {
+				t.Fatalf("explicit value %v lost in DTO projection: %v", value, got)
+			}
+		}
+	}
+	for _, value := range []string{"", "SKU-123"} {
+		got := ptrString(value)
+		if got == nil || *got != value {
+			t.Fatalf("explicit string %q lost: %v", value, got)
+		}
+	}
+	when := time.Date(2026, 10, 19, 11, 0, 0, 123, time.FixedZone("store", 8*60*60))
+	for _, value := range []*time.Time{nil, &when} {
+		got := FilterRuleToRespDTO(FilterRule{CreateTime: value}).CreateTime
+		if value == nil && !got.Time.IsZero() || value != nil && got.Time != *value {
+			t.Fatalf("time projection = %#v, want %#v", got.Time, value)
+		}
+	}
+	mapping := ProductImportMappingToRespDTO(&ProductImportMapping{SKU: "SKU-123"})
+	if mapping.Sku == nil || *mapping.Sku != "SKU-123" || mapping.ParentProductId != nil {
+		t.Fatalf("optional mapping strings changed: %+v", mapping)
+	}
+}
 
 func TestGormProductImportMappingAPIKeepsExplicitZeroLookupScope(t *testing.T) {
 	db, err := gorm.Open(sqlite.Dialector{DriverName: "sqlite", DSN: ":memory:"}, &gorm.Config{})

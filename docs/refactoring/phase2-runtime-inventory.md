@@ -1,5 +1,12 @@
 # Phase 2 runtime convergence inventory
 
+> #819 current calibration: the user-confirmed complete remaining numeric TEMU
+> listing closure and its exclusive pipeline/policies are source-retired. Only
+> its 10 logger/OpenAI rows leave the live consumer register. Older retention
+> statements below remain dated evidence; original counts, ceilings, all other
+> current rows and workflows stay unchanged. Current APIs/rules/shared owners,
+> acquisition/images/Store observations and standalone SHEIN login/Store sync remain.
+
 > #771 bounded calibration: the user-confirmed SKU/SKC construction closure is
 > source-retired after three private value rules move to existing TEMU publishing.
 > Only core/logger -> temu/sku leaves the current consumer register, because its
@@ -320,7 +327,6 @@ internal wiring is intentionally excluded; no other package class is excluded.
 | `task-processor/internal/core/logger` | `task-processor/internal/crawler/fetcher` | crawler business consumer | product + marketplace / Phases 3-4 |
 | `task-processor/internal/core/logger` | `task-processor/internal/crawler/shared/browser` | crawler business consumer | product + marketplace / Phases 3-4 |
 | `task-processor/internal/core/logger` | `task-processor/internal/localagent` | agent business consumer | agent owner / Phase 6 |
-| `task-processor/internal/core/logger` | `task-processor/internal/pipeline` | mixed product pipeline | product owner / Phase 3 |
 | `task-processor/internal/core/logger` | `task-processor/internal/pkg/appenv` | runtime-support debt | app retirement / Phase 8 |
 | `task-processor/internal/core/logger` | `task-processor/internal/pkg/downloader` | mixed business helper | product + marketplace / Phases 3-4 |
 | `task-processor/internal/core/logger` | `task-processor/internal/pkg/fileio` | runtime-support debt | shared primitive + app policy / Phase 8 |
@@ -335,14 +341,7 @@ internal wiring is intentionally excluded; no other package class is excluded.
 | `task-processor/internal/core/logger` | `task-processor/internal/shein/content` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/core/logger` | `task-processor/internal/sheinlogin` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/core/logger` | `task-processor/internal/state` | runtime-support debt | app retirement / Phase 8 |
-| `task-processor/internal/core/logger` | `task-processor/internal/temu/ai` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/core/logger` | `task-processor/internal/temu/api/client` | marketplace business consumer | marketplace owner / Phase 4 |
-| `task-processor/internal/core/logger` | `task-processor/internal/temu/filter` | marketplace business consumer | marketplace owner / Phase 4 |
-| `task-processor/internal/core/logger` | `task-processor/internal/temu/handlerbase` | marketplace business consumer | marketplace owner / Phase 4 |
-| `task-processor/internal/core/logger` | `task-processor/internal/temu/product` | marketplace business consumer | marketplace owner / Phase 4 |
-| `task-processor/internal/core/logger` | `task-processor/internal/temu/property` | marketplace business consumer | marketplace owner / Phase 4 |
-| `task-processor/internal/core/logger` | `task-processor/internal/temu/rules` | marketplace business consumer | marketplace owner / Phase 4 |
-| `task-processor/internal/core/logger` | `task-processor/internal/temu/spec` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/platform/logging` | `task-processor/internal/core/config` | application schema | owning domains / Phases 3-7 |
 | `task-processor/internal/platform/logging` | `task-processor/internal/core/logger` | compatibility facade | owning domains / Phases 3-8 |
 | `task-processor/internal/platform/redis` | `task-processor/internal/crawler/amazon` | crawler business consumer | product + marketplace / Phases 3-4 |
@@ -362,8 +361,6 @@ internal wiring is intentionally excluded; no other package class is excluded.
 | `task-processor/internal/integration/openai` | `task-processor/internal/shein/category` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/integration/openai` | `task-processor/internal/shein/content` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/integration/openai` | `task-processor/internal/shein/submitprep` | marketplace business consumer | marketplace owner / Phase 4 |
-| `task-processor/internal/integration/openai` | `task-processor/internal/temu/ai` | marketplace business consumer | marketplace owner / Phase 4 |
-| `task-processor/internal/integration/openai` | `task-processor/internal/temu/sku` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/integration/httpimage` | `task-processor/internal/imageagent` | agent business consumer | agent owner / Phase 6 |
 | `task-processor/internal/integration/httpimage` | `task-processor/internal/sds/design` | marketplace business consumer | marketplace owner / Phase 4 |
 

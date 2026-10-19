@@ -29,15 +29,6 @@ const (
 	KSheinSaleAttributeValueBatchMapping     = "shein.sale_attribute.value_batch_mapping"
 	KSheinSaleAttributePromptValueExtraction = "shein.sale_attribute.prompt_value_extraction"
 
-	// ── temu/attribute_mapping.yaml ────────────────────────────────────────
-	KTemuAttributeMappingSystem = "temu.attribute_mapping.system"
-
-	// ── temu/content_rewriter.yaml ─────────────────────────────────────────
-	KTemuContentRewriterSystem = "temu.content_rewriter.system"
-
-	// ── temu/sku_variant_mapping.yaml ──────────────────────────────────────
-	KTemuSkuVariantMappingSystem = "temu.sku_variant_mapping.system"
-
 	// ── productenrich/llm_scorer.yaml ──────────────────────────────────────
 	KProductEnrichLlmScorerTextScoring  = "productenrich.llm_scorer.text_scoring"
 	KProductEnrichLlmScorerImageScoring = "productenrich.llm_scorer.image_scoring"

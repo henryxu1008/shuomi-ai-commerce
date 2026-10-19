@@ -1,5 +1,7 @@
 # 剩余旧 TEMU 图片构建、标注与上传子链退休边界设计
 
+> 后续用户已确认 [#819 TEMU剩余整链边界](legacy-temu-listing-closure-retirement-boundary.md) §5/§6/§6.1/§7。本文件对该闭包内旧 TEMU AI/SKU/spec、PriceHandler/PriceCalculator、property/context/TemplateState、pipeline/skugen及专属纯规则/管理投影/prompt的保留描述仅为历史边界，现由#819精确替代；当前平台API/规则、共享合同、SHEIN价格/两属性、采集/图像/Store观察与独立SHEIN登录/Store同步继续保留。原证据不改，不授权实例或数据操作。
+
 > 后续窄替代：用户确认 #807 [图片 API / vision prompt 退休矩阵](legacy-temu-image-api-prompt-retirement-boundary.md)后，本文当批保留的旧 image API/re-export、vision key/default/catalog/专属变量元数据也已 source-retired。§3.1/§5 对这些对象的保留仅是 #801 历史边界；其它合同、通用 Prompt 管理/存储和全部保留能力不变，不操作已有覆盖记录、实例或数据。
 
 ## 1. 状态、用户结果与范围

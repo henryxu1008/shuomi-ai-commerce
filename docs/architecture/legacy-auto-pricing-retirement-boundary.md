@@ -1,5 +1,7 @@
 # 旧 SHEIN/TEMU 自动核价链退休边界
 
+> 后续用户已确认 [#819 TEMU剩余整链边界](legacy-temu-listing-closure-retirement-boundary.md) §5/§6/§6.1/§7。本文件对该闭包内旧 TEMU AI/SKU/spec、PriceHandler/PriceCalculator、property/context/TemplateState、pipeline/skugen及专属纯规则/管理投影/prompt的保留描述仅为历史边界，现由#819精确替代；当前平台API/规则、共享合同、SHEIN价格/两属性、采集/图像/Store观察与独立SHEIN登录/Store同步继续保留。原证据不改，不授权实例或数据操作。
+
 > 后续用户已确认 [#817 整链退休边界](legacy-shein-listing-closure-retirement-boundary.md) §5–§7。仅替代下文旧 shein/product/product_repo.go 及其 ProductAPI 包装接线的保留描述；PriceManager/PriceCalculator、productsync 两属性和其余保留边界继续有效。 原调查与验证证据保持历史属性；不据其复活旧 owner，不授权运行或数据操作。
 
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。

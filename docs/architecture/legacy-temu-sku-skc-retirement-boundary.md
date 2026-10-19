@@ -1,5 +1,7 @@
 # 旧 TEMU SKU/SKC 构建链退休边界
 
+> 后续用户已确认 [#819 TEMU剩余整链边界](legacy-temu-listing-closure-retirement-boundary.md) §5/§6/§6.1/§7。本文件对该闭包内旧 TEMU AI/SKU/spec、PriceHandler/PriceCalculator、property/context/TemplateState、pipeline/skugen及专属纯规则/管理投影/prompt的保留描述仅为历史边界，现由#819精确替代；当前平台API/规则、共享合同、SHEIN价格/两属性、采集/图像/Store观察与独立SHEIN登录/Store同步继续保留。原证据不改，不授权实例或数据操作。
+
 > 后续用户已确认 [#817 整链退休边界](legacy-shein-listing-closure-retirement-boundary.md) §5–§7。仅替代下文旧 SHEIN 同名 SKU/SKC 构建实现的保留描述；AI/SKU/spec、平台 API/DTO、共享规则及其余保留合同仍保留。 原调查与验证证据保持历史属性；不据其复活旧 owner，不授权运行或数据操作。
 
 > 后续窄替代：用户确认 #797 [图片编排退休边界](legacy-temu-image-orchestration-retirement-boundary.md) 后，仅其中七文件及专属 helper/alias/三个 AssetState 字段退出；本批保留的 ImageProcessor/ParallelImageProcessor、构建/填充/上传/vision 与平台合同不变，历史消费者和批准证据保留。

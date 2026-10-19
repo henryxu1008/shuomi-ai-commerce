@@ -214,7 +214,7 @@ func TestSDSLoginRuntimeStateStaysOutOfInternalPackages(t *testing.T) {
 
 func TestHistoricalTemuFormattingFacadeStaysRetired(t *testing.T) {
 	if files := trackedFiles(t, "internal/temu/format"); len(files) > 0 {
-		t.Fatalf("internal/temu/format is a retired compatibility facade; keep TEMU numeric formatting in internal/marketplace/temu/publishing: %v", files)
+		t.Fatalf("internal/temu/format is a retired compatibility facade; use the current explicit-value TEMU goods/rules owners: %v", files)
 	}
 }
 

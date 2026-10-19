@@ -11,6 +11,70 @@ import (
 	"testing"
 )
 
+var retiredTEMUListingPackages = []string{
+	"internal/temu/ai", "internal/temu/context", "internal/temu/filter",
+	"internal/temu/handlerbase", "internal/temu/pricing", "internal/temu/product",
+	"internal/temu/property", "internal/temu/rules", "internal/temu/sku", "internal/temu/spec",
+	"internal/pipeline", "internal/pipeline/handlers", "internal/pkg/skugen",
+	"internal/marketplace/temu/publishing",
+}
+
+func TestTemuListingClosureSourcesAreRetired(t *testing.T) {
+	paths := append([]string{}, retiredTEMUListingPackages...)
+	paths = append(paths,
+		"internal/listingadmin/gorm_profit_rule_api.go", "internal/listingadmin/gorm_pricing_rule_api.go",
+		"prompts/temu/attribute_mapping.yaml", "prompts/temu/content_rewriter.yaml", "prompts/temu/sku_variant_mapping.yaml",
+		"data/prohibited_items_temu.json", "data/sensitive_words_temu.json",
+	)
+	for _, relative := range paths {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Errorf("retired TEMU listing source remains: %s (stat: %v)", relative, err)
+		}
+	}
+	for relative, retired := range map[string][]string{
+		"internal/listingadmin": {"ProfitRuleAPI", "ProfitRuleReqDTO", "ProfitRuleRespDTO", "PricingRuleAPI", "PricingRuleReqDTO", "PricingRuleRespDTO", "NewGormProfitRuleAPI", "gormProfitRuleAPI", "ProfitRuleToRespDTO", "NewGormPricingRuleAPI", "gormPricingRuleAPI", "PricingRuleToRespDTO"},
+		"internal/core/config":  {"SensitiveWordsConfig", "DefaultSensitiveWordsConfig", "GetWordsForLanguage", "AddStaticWords", "AddDynamicWords"},
+	} {
+		root := filepath.Join("..", filepath.FromSlash(relative))
+		index, err := loadGoFileIndex(root, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		for path := range index.files {
+			if filepath.Dir(path) != root || strings.HasSuffix(path, "_test.go") {
+				continue
+			}
+			file, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, declaration := range file.Decls {
+				var names []*ast.Ident
+				switch declaration := declaration.(type) {
+				case *ast.FuncDecl:
+					names = append(names, declaration.Name)
+				case *ast.GenDecl:
+					for _, spec := range declaration.Specs {
+						switch spec := spec.(type) {
+						case *ast.TypeSpec:
+							names = append(names, spec.Name)
+						case *ast.ValueSpec:
+							names = append(names, spec.Names...)
+						}
+					}
+				}
+				for _, name := range names {
+					for _, symbol := range retired {
+						if name.Name == symbol {
+							t.Errorf("%s recreates retired TEMU listing declaration %s", path, symbol)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 	for _, relative := range []string{"internal/temu/image", "internal/temu/handlerbase/types.go", "internal/temu/api/image", "prompts/temu/vision_detector.yaml", "prompts/shein/attribute_selector.yaml", "prompts/shein/attribute_value_fallback.yaml", "prompts/shein/translation.yaml"} {
 		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
@@ -373,10 +437,6 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/listingadmin/management_api_types.go": {
 			"type InventoryRecordCreateReqDTO struct", "type InventoryRecordRespDTO struct", "type InventoryRecordAPI interface",
 		},
-		"internal/temu/pricing/interfaces.go": {
-			"type StoreConfigProvider interface", "type ProductDataProvider interface", "type ProductFetcher interface",
-			"type DecisionMaker interface", "type PricingProcessor interface",
-		},
 		"internal/app/runtime/listingkitschemamigrate/runtime_test.go": {
 			"func openRuntimeSchemaTestDB(", "\"listing_product_import_task\"",
 		},
@@ -438,126 +498,9 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			"type TemplateQueryRequest struct", "type TemplateQueryResponse struct", "type TemplateQueryResult struct",
 			"type TemplateInfo struct", "type UserInputParentSpec struct",
 		},
-		"internal/temu/context/temu_context.go": {
-			"type TemuTaskContext struct", "type PublishState struct", "PriceQueryResponse", "TemuProduct", "StoreInfo",
-			"RuntimeState", "ProductState", "TemplateState", "VariantState", "RuleState", "AISkuMapping",
-			"SetAPIClients", "AttachRuntime", "SetAmazonProduct", "SetVariants", "SetTemuProduct",
-			"type TemplateState struct", "TemplateInfo", "UserInputParentSpecList", "InputMaxSpecNum", "SingleSpecValueNum", "QueryAPI",
-		},
-		"internal/temu/handlerbase/property_types.go": {
-			"type DimensionInfo struct", "type PropertyFeature struct", "type PropertyFeatureDetector struct",
-			"func NewPropertyFeatureDetector(logger *logrus.Entry) *PropertyFeatureDetector",
-		},
-		"internal/temu/rules/text_renderer.go": {"type TextRenderer struct", "func (r *TextRenderer) DrawSummaryInfo(", "dimensions handlerbase.DimensionInfo"},
 		"internal/marketplace/temu/goods/images.go": {
 			"func ValidImageObservation(", "func resolveImages(", "inventory asset.ApprovedAssetInventory",
 		},
-		"internal/temu/context/sku_runtime_input.go":         {"type SKUBuildRuntime struct", "func BuildSKUBuildRuntime(", "StoreInfo"},
-		"internal/temu/handlerbase/base_handler.go":          {"type BaseTemuHandler struct", "func NewBaseTemuHandler(", "func (h *BaseTemuHandler) GetTemuContext("},
-		"internal/temu/handlerbase/temu_handler.go":          {"type TemuHandler interface"},
-		"internal/temu/handlerbase/sku_builder_interface.go": {"type SkuBuilder interface", "type SpecHandler interface"},
-		"internal/temu/product/price_handler.go": {
-			"type PriceHandler struct", "func NewPriceHandler(", "func (ph *PriceHandler) CalculateVariantPriceWithRuntime(",
-			"func (ph *PriceHandler) GetDefaultStockWithRuntime(", "func (ph *PriceHandler) GetPriceMultiplierWithRuntime(",
-		},
-		"internal/temu/sku/spec_handler.go": {
-			"type SkuSpecHandler struct", "func NewSkuSpecHandler(", "func (sh *SkuSpecHandler) ValidateSpecs(",
-			"func (sh *SkuSpecHandler) IsSizeSpec(", "func (sh *SkuSpecHandler) convertUserInputSpecsToGoodsSpecProperties(", "func (sh *SkuSpecHandler) CreateDefaultSpec(",
-		},
-		"internal/temu/sku/convert.go":           {"func convertSpecInfos(", "ParentSpecName: s.ParentSpecName", "ParentID:       s.ParentID"},
-		"internal/temu/spec/resolver_service.go": {"type SpecResolverService struct", "func (s *SpecResolverService) HasTemporaryIDs("},
-		"internal/temu/property/attribute_extractor.go": {
-			"type AttributeExtractionManager struct",
-			"func NewAttributeExtractionManager(logger *logrus.Entry) *AttributeExtractionManager",
-		},
-		"internal/temu/property/mixed_attributes_processor.go": {
-			"type MixedAttributesProcessor struct",
-			"func NewMixedAttributesProcessor() *MixedAttributesProcessor",
-		},
-		"internal/temu/property/validator.go": {
-			"type PropertyValidator struct",
-			"func NewPropertyValidator(logger *logrus.Entry) *PropertyValidator",
-		},
-		"internal/temu/property/validator_condition.go": {
-			"func (v *PropertyValidator) filterByPropertyRelations(properties []models.PropertyItem, data temucontext.PropertyMappingData) []models.PropertyItem",
-			"func (v *PropertyValidator) checkShowCondition(templateProp temutemplate.TemplateRespGoodsProperty, refPidToSelectedVids map[int]map[int]bool) bool",
-		},
-		"internal/temu/property/conditional_validator.go": {
-			"type ConditionalPropertyValidator struct",
-			"func NewConditionalPropertyValidator(logger *logrus.Entry) *ConditionalPropertyValidator",
-		},
-		"internal/temu/property/value_validator.go": {
-			"type PropertyValueValidator struct",
-			"func NewPropertyValueValidator(logger *logrus.Entry) *PropertyValueValidator",
-		},
-		"internal/temu/property/value_fixer.go": {
-			"type PropertyValueFixer struct",
-			"func NewPropertyValueFixer(logger *logrus.Entry) *PropertyValueFixer",
-		},
-		"internal/temu/property/validation_config.go": {
-			"type PropertyValidationConfig struct",
-			"func DefaultPropertyValidationConfig() PropertyValidationConfig",
-		},
-		"internal/temu/property/required_guardian.go": {
-			"type RequiredPropertyGuardian struct",
-			"func NewRequiredPropertyGuardian(logger *logrus.Entry) *RequiredPropertyGuardian",
-			"func (g *RequiredPropertyGuardian) GetDefaultFiller() *DefaultPropertyFiller",
-		},
-		"internal/temu/property/default_filler.go": {
-			"type DefaultPropertyFiller struct",
-			"func NewDefaultPropertyFiller(logger *logrus.Entry) *DefaultPropertyFiller",
-			"rules.NewValidationRuleEngine(logger)",
-			"f.validationEngine.ValidateAndFixAll(templateProps, ext)",
-		},
-		"internal/temu/property/deduplicator.go": {
-			"type PropertyDeduplicator struct",
-			"func NewPropertyDeduplicator(logger *logrus.Entry) *PropertyDeduplicator",
-		},
-		"internal/temu/property/selection_validator.go": {
-			"type PropertySelectionValidator struct",
-			"func NewPropertySelectionValidator(logger *logrus.Entry) *PropertySelectionValidator",
-		},
-		"internal/temu/property/validation_stats.go": {
-			"type PropertyValidationStatsCollector struct",
-			"func NewPropertyValidationStatsCollector(logger *logrus.Entry) *PropertyValidationStatsCollector",
-			"type PropertyValidationStats struct",
-			"type PropertyTypeStats struct",
-			"type PropertyFixDetail struct",
-		},
-		"internal/temu/ai/service.go": {
-			"property.NewPropertyValidator(s.logger)",
-		},
-		"internal/temu/ai/property_mapper_core.go": {
-			"property.NewPropertyValidator(logger)",
-			"property.NewPropertyValueValidator(logger)",
-			"property.NewPropertyValueFixer(logger)",
-			"property.NewPropertyValidationStatsCollector(logger)",
-			"property.NewPropertyDeduplicator(logger)",
-			"property.NewPropertySelectionValidator(logger)",
-			"property.NewRequiredPropertyGuardian(logger)",
-			"propertyGuardian.GetDefaultFiller()",
-			"property.NewConditionalPropertyValidator(m.logger)",
-		},
-		"internal/temu/spec/dimension_unifier.go": {
-			"property.NewMixedAttributesProcessor()",
-		},
-		"internal/temu/rules/rule_interface.go": {
-			"type ValidationRule interface",
-			"type RuleValidationResult struct",
-		},
-		"internal/temu/rules/rule_engine.go": {
-			"type ValidationRuleEngine struct",
-			"func NewValidationRuleEngine(logger *logrus.Entry) *ValidationRuleEngine",
-			"func (e *ValidationRuleEngine) RegisterRule(rule ValidationRule)",
-			"func (e *ValidationRuleEngine) ValidateAndFixAll(templateProps []temutemplate.TemplateRespGoodsProperty, ext *models.ExtensionInfo) error",
-		},
-		"internal/temu/rules/percentage_sum_rule.go": {
-			"type PercentageSumRule struct",
-			"func NewPercentageSumRule(logger *logrus.Entry) *PercentageSumRule",
-			"func (r *PercentageSumRule) Validate(props []*models.PropertyItem, templateProp temutemplate.TemplateRespGoodsProperty) RuleValidationResult",
-			"func (r *PercentageSumRule) Fix(props []*models.PropertyItem, templateProp temutemplate.TemplateRespGoodsProperty) error",
-		},
-		"internal/temu/ai/content_rewriter.go": {"type AIContentRewriter struct", "func NewAIContentRewriterHandler("},
 		"internal/temu/api/client/client.go": {
 			"func NewAPIClient(", "func (c *APIClient) initializeMallID(",
 			"func (c *APIClient) GetMallID(", "func (c *APIClient) SetMallID(", ".UpdateStoreId(",
@@ -574,23 +517,12 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/storecenter/gorm_repository.go":   {"type GormStoreRepository struct"},
 		"internal/amazon/pipeline/store_info.go":    {"type StoreInfoHandler struct", "func NewStoreInfoHandler("},
 		"internal/pkg/appenv/apputil.go":            {"func GetInstanceID("},
-		"internal/marketplace/temu/publishing/submission_validation_policy.go": {
-			"type submissionSpec struct", "func validateSubmissionSpecs(", "func validateSubmissionPackaging(",
-		},
-		"internal/marketplace/temu/publishing/spu_validation_policy.go": {"func validateSPUStructure("},
 		"internal/marketplace/temu/goods/builder.go": {
 			"func Build(", "snapshot.SelectableLeaf", "func checkLocal(",
 			"p.ServicePromise.ShipmentLimitDay", "value.ID == p.ServicePromise.CostTemplateID",
 		},
 		"internal/marketplace/temu/goods/supplier_category.go": {"func checkSupplierCategory(", "SelectableLeaf()"},
 		"internal/marketplace/temu/rules/local_variations.go":  {"func CheckLocalVariations("},
-		"internal/marketplace/temu/publishing/sku_value_policy.go": {
-			"func deduplicateSKUSpecs(", "func hasUnresolvedSKUSpecs(", "func normalizeSingleItemPackaging(",
-		},
-		"internal/marketplace/temu/publishing/sku_sn_validation_policy.go": {
-			"func buildUniqueSKUSNs(", "func validateSKUSNFailures(", "type skuSNFailure struct",
-		},
-		"internal/pkg/skugen/skugen.go": {"func Generate(", "StrategyASINOnly"},
 		"internal/crawler/fetcher/contracts.go": {
 			"type ProductReader interface", "type ProductCache interface", "type ProductFetcherStats interface",
 			"FetchVariants(", "CacheVariants(",
@@ -602,19 +534,6 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/crawler/fetcher/remote_fetcher.go": {
 			"func (f *RemoteAPIProductFetcher) FetchVariants(", "func (f *RemoteAPIProductFetcher) CacheVariants(",
 		},
-		"internal/temu/sku/variant_processor.go": {
-			"type SkuVariantProcessor struct", "func NewSkuVariantProcessor(", "NewSkuMappingProcessor(",
-			"func (vp *SkuVariantProcessor) GenerateAISkuMapping(", "func (vp *SkuVariantProcessor) validateAIMappingSpecs(",
-			"func (vp *SkuVariantProcessor) prepareAIMappingForBuild(", "func (vp *SkuVariantProcessor) resolveAIMappingSpecIDs(",
-			"func (vp *SkuVariantProcessor) ensureAIMappingMatchesVariants(", "func (vp *SkuVariantProcessor) normalizeAIMappingForBuild(",
-			"func (vp *SkuVariantProcessor) unifyAIMappingSpecDimensions(",
-		},
-		"internal/temu/sku/ai_mapping_handler_input.go": {
-			"type AIBatchInput struct", "func buildAIBatchInput(",
-			"func (input *AIBatchInput) TotalBatches(", "func (input *AIBatchInput) BatchVariants(",
-		},
-		"internal/temu/sku/ai_mapping_batch_processor.go": {"buildAIBatchInput(", ".TotalBatches(", ".BatchVariants("},
-		"internal/temu/sku/ai_mapping_input.go":           {"type AIMappingInput struct", "func BuildAIMappingInput("},
 		"internal/marketplace/productpolicy/rule_checker.go": {
 			"type RuleChecker struct", "func NewRuleChecker(", "CheckPriceRange(", "CheckInventory(", "CheckRating(",
 			"CheckReviewCount(", "CheckDeliveryTime(", "CheckFulfillmentType(", "CheckAllRules(",
@@ -625,19 +544,17 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/listingadmin/rule_status.go": {
 			"RuleStatusEnabled int16 = 0", "RuleStatusDisabled int16 = 1", "func IsRuleStatusEnabled(",
 		},
-		"internal/listingadmin/gorm_filter_rule_api.go":   {"func NewGormFilterRuleAPI(", ".ResolveFilterRules("},
-		"internal/listingadmin/filter_rule_repository.go": {"func (r *GormFilterRuleRepository) ResolveFilterRules("},
-		"internal/temu/sku/ai_mapping_utils_helper.go": {
-			"func (vp *SkuVariantProcessor) getProductDimensions(", "func (vp *SkuVariantProcessor) getItemWeight(",
-			"func (vp *SkuVariantProcessor) getProductDetailField(", "func (vp *SkuVariantProcessor) marshalWithoutHTMLEscape(",
-			"func (vp *SkuVariantProcessor) buildAIVariant(",
-		},
-		"internal/temu/sku/ai_mapping_single_processor.go": {"vp.getProductDimensions(", "vp.getItemWeight(", "vp.buildAIVariant(", "property.NewAttributeExtractionManager(vp.logger)"},
+		"internal/listingadmin/dto_value_helpers.go":             {"func ptrFloat64(", "func ptrString(", "func flexibleTimeValue("},
+		"internal/marketplace/temu/goods/local_properties.go":    {"func CheckLocalProperties("},
+		"internal/marketplace/temu/goods/supplier_properties.go": {"func CheckSupplierProperties("},
+		"internal/marketplace/temu/goods/supplier_specs.go":      {"func checkSupplierSpecifications("},
+		"internal/marketplace/temu/rules/local_numbers.go":       {"func (c *Catalog) CheckLocalNumbers("},
+		"internal/listingadmin/gorm_filter_rule_api.go":          {"func NewGormFilterRuleAPI(", ".ResolveFilterRules("},
+		"internal/listingadmin/filter_rule_repository.go":        {"func (r *GormFilterRuleRepository) ResolveFilterRules("},
 		"internal/listingadmin/management_api_types.go": {
 			"type ProductImportMappingAPI interface", "CheckProductExists(",
 			"type FilterRuleAPI interface", "type FilterRuleReqDTO struct", "type FilterRuleRespDTO struct", "ToFilterRule(",
 			"type StoreAPI interface", "type StoreRespDTO struct", "type StoreIdUpdateReqDTO struct", "type StoreStatusUpdateReqDTO struct",
-			"type ProfitRuleAPI interface", "type ProfitRuleReqDTO struct", "type ProfitRuleRespDTO struct",
 		},
 		"internal/temu/api/inventory/inventory.go": {
 			"type RelistRequest struct", "type RelistResponse struct", "type SearchRequest struct", "type SearchResponse struct",
@@ -654,16 +571,11 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			"type activityRuleInputs struct", "func minimumPromotionSKUDiscountRate(", "func calculateActivityStock(",
 			"func buildActivityConfigsFromProvidedProducts(", "func ensureLimitedPromotionDropRatesGreater(", "func promotionConfigListForActivityType(",
 		},
-		"internal/shein/activity/promotion_create_products.go": {"func buildCalculateRequestForPromotionProducts(", "func promotionSKUPriceInputs("},
-		"internal/shein/activity/time_limited.go":              {"func buildCreateActivityRequest(", "func isTimeLimitedDiscountValid(", "func validatePriceRisk("},
-		"internal/shein/activity/validation_utils.go":          {"func ValidateDropRate(", "func CalculateDropRateFromDiscount("},
-		"internal/shein/activity/errors.go":                    {"ErrProductPriceRisk"},
-		"internal/shein/pricing/price_manager.go":              {"type PriceManager struct", "func NewPriceManager(", "type CostPriceRequest struct"},
-		"internal/temu/pricing/interfaces.go": {
-			"type PriceCalculator interface",
-			"GetDefaultPricingRules(originCostPrice float64, rules *[]listingadmin.PricingRuleRespDTO) *listingadmin.PricingRuleRespDTO",
-			"CalculateMinAcceptablePrice(originCostPrice float64, rule *listingadmin.PricingRuleRespDTO) float64",
-		},
+		"internal/shein/activity/promotion_create_products.go":                  {"func buildCalculateRequestForPromotionProducts(", "func promotionSKUPriceInputs("},
+		"internal/shein/activity/time_limited.go":                               {"func buildCreateActivityRequest(", "func isTimeLimitedDiscountValid(", "func validatePriceRisk("},
+		"internal/shein/activity/validation_utils.go":                           {"func ValidateDropRate(", "func CalculateDropRateFromDiscount("},
+		"internal/shein/activity/errors.go":                                     {"ErrProductPriceRisk"},
+		"internal/shein/pricing/price_manager.go":                               {"type PriceManager struct", "func NewPriceManager(", "type CostPriceRequest struct"},
 		"internal/shein/models.go":                                              {"type AmazonMonitorData struct", "ASIN", "LastCheckTime", "json:\"asin\"", "json:\"last_check_time\""},
 		"internal/shein/productsync/product_sync_types.go":                      {"type EnrichedSkuInfo struct", "type EnrichedSkcInfo struct", "AmazonMonitorData"},
 		"internal/marketplace/shein/publishing/attribute_value_match_policy.go": {"func MatchPlatformAttributeValue("},
@@ -685,9 +597,12 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		}
 	}
 	productRoot := filepath.Join("..", "internal", "temu", "product")
-	if err := filepath.WalkDir(productRoot, func(path string, entry os.DirEntry, err error) error {
+	if err := filepath.WalkDir(filepath.Dir(productRoot), func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
 			return err
+		}
+		if !strings.HasPrefix(path, productRoot+string(os.PathSeparator)) {
+			return nil
 		}
 		if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
 			return nil
@@ -763,9 +678,13 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"PropertyFeatureDetector": true, "NewPropertyFeatureDetector": true,
 	}
 	for _, pkg := range []string{"sku", "filter", "product", "rules", "handlerbase", "property"} {
-		if err := filepath.WalkDir(filepath.Join("..", "internal", "temu", pkg), func(path string, entry os.DirEntry, err error) error {
+		root := filepath.Join("..", "internal", "temu", pkg)
+		if err := filepath.WalkDir(filepath.Dir(root), func(path string, entry os.DirEntry, err error) error {
 			if err != nil {
 				return err
+			}
+			if !strings.HasPrefix(path, root+string(os.PathSeparator)) {
+				return nil
 			}
 			if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
 				return nil
@@ -1000,25 +919,33 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			return true
 		})
 	}
+	policyIndex, err := loadGoFileIndex(filepath.Join("..", "internal", "marketplace", "temu"), "")
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, policyName := range []string{"submission_validation_policy.go", "sku_value_policy.go"} {
-		policyPath := filepath.Join("..", "internal", "marketplace", "temu", "publishing", policyName)
-		policyFile, err := parser.ParseFile(token.NewFileSet(), policyPath, nil, 0)
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, imported := range policyFile.Imports {
-			if imported.Path.Value != "\"fmt\"" && imported.Path.Value != "\"strings\"" {
-				t.Errorf("submission validation must remain a value-only rule, found import %s", imported.Path.Value)
+		for policyPath := range policyIndex.files {
+			if policyPath != filepath.Join("..", "internal", "marketplace", "temu", "publishing", policyName) {
+				continue
 			}
-		}
-		for _, declaration := range policyFile.Decls {
-			if function, ok := declaration.(*ast.FuncDecl); ok && function.Name.IsExported() {
-				t.Errorf("submission extraction must not add exported contract %s", function.Name)
+			policyFile, err := parser.ParseFile(token.NewFileSet(), policyPath, nil, 0)
+			if err != nil {
+				t.Fatal(err)
 			}
-			if group, ok := declaration.(*ast.GenDecl); ok {
-				for _, spec := range group.Specs {
-					if typ, ok := spec.(*ast.TypeSpec); ok && typ.Name.IsExported() {
-						t.Errorf("submission extraction must not add exported type %s", typ.Name)
+			for _, imported := range policyFile.Imports {
+				if imported.Path.Value != "\"fmt\"" && imported.Path.Value != "\"strings\"" {
+					t.Errorf("submission validation must remain a value-only rule, found import %s", imported.Path.Value)
+				}
+			}
+			for _, declaration := range policyFile.Decls {
+				if function, ok := declaration.(*ast.FuncDecl); ok && function.Name.IsExported() {
+					t.Errorf("submission extraction must not add exported contract %s", function.Name)
+				}
+				if group, ok := declaration.(*ast.GenDecl); ok {
+					for _, spec := range group.Specs {
+						if typ, ok := spec.(*ast.TypeSpec); ok && typ.Name.IsExported() {
+							t.Errorf("submission extraction must not add exported type %s", typ.Name)
+						}
 					}
 				}
 			}
@@ -1026,15 +953,15 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 	}
 	for _, platform := range []string{"shein", "temu"} {
 		root := filepath.Join("..", "internal", platform, "pricing")
-		entries, err := os.ReadDir(root)
+		index, err := loadGoFileIndex(filepath.Dir(root), "")
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, entry := range entries {
-			if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") || strings.HasSuffix(entry.Name(), "_test.go") {
+		for path := range index.files {
+			if filepath.Dir(path) != root || strings.HasSuffix(path, "_test.go") {
 				continue
 			}
-			content, err := os.ReadFile(filepath.Join(root, entry.Name()))
+			content, err := os.ReadFile(path)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1046,7 +973,7 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 				"type DecisionMaker interface", "type PricingProcessor interface",
 			} {
 				if strings.Contains(string(content), retired) {
-					t.Errorf("%s must not recreate retired automatic pricing %q", filepath.Join(root, entry.Name()), retired)
+					t.Errorf("%s must not recreate retired automatic pricing %q", path, retired)
 				}
 			}
 		}
@@ -1123,11 +1050,6 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 		"internal/temu/api/client/auth_pause_handler.go", "internal/temu/api/inventory/inventory.go",
 		"internal/temu/api/product/request_types.go",
 		"internal/temu/api/product/api.go", "internal/temu/api/query/query.go", "internal/temu/api/query/query_types.go",
-		"internal/temu/context/temu_context.go",
-		"internal/marketplace/temu/publishing/submission_validation_policy.go",
-		"internal/marketplace/temu/publishing/submission_validation_policy_test.go",
-		"internal/marketplace/temu/publishing/sku_sn_validation_policy.go",
-		"internal/marketplace/temu/publishing/sku_sn_validation_policy_test.go",
 		"internal/shein/productsync/product_sync_types.go", "internal/shein/productsync/marketing_client_boundary_test.go",
 		"internal/shein/api/marketing/client.go", "internal/shein/api/marketing/client_test.go",
 		"internal/shein/api/marketing/interface.go", "internal/shein/api/marketing/activity_types.go",
@@ -1138,9 +1060,6 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 		"internal/shein/pricing/price_manager.go", "internal/shein/pricing/pricing_repo.go",
 		"internal/shein/pricing/calculator.go", "internal/shein/pricing/calculator_test.go",
 		"internal/shein/pricing/cost_profit_calculator.go", "internal/shein/pricing/cost_profit_calculator_test.go",
-		"internal/temu/pricing/interfaces.go", "internal/temu/pricing/pricing_rule_calculator.go",
-		"internal/temu/pricing/pricing_rule_calculator_test.go",
-		"internal/marketplace/temu/publishing/pricing_policy.go", "internal/marketplace/temu/publishing/pricing_policy_test.go",
 	} {
 		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); err != nil {
 			t.Errorf("retained platform/shared contract %s must remain: %v", relative, err)
@@ -1173,6 +1092,12 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 				t.Fatalf("go list current command: %v\n%s", err, output)
 			}
 			for _, dependency := range strings.Fields(string(output)) {
+				for _, relative := range retiredTEMUListingPackages {
+					retired := "task-processor/" + relative
+					if dependency == retired || strings.HasPrefix(dependency, retired+"/") {
+						t.Errorf("%s still compiles retired TEMU listing dependency %s", command, dependency)
+					}
+				}
 				for _, retired := range []string{"task-processor/internal/shein/product", "task-processor/internal/shein/productdata", "task-processor/internal/shein/publish", "task-processor/internal/shein/mapping", "task-processor/internal/shein/validation", "task-processor/internal/shein/translate", "task-processor/internal/shein/addresscopy", "task-processor/internal/shein/managedclient", "task-processor/internal/shein/store", "task-processor/internal/shein/context", "task-processor/internal/shein/languageconfig", "task-processor/internal/shein/siteconfig", "task-processor/internal/sheinbridge/saleattribute", "task-processor/internal/shein/inventory", "task-processor/internal/temu/sync", "task-processor/internal/temu/bulkrelist", "task-processor/internal/temu/store", "task-processor/internal/app/bootstrap", "task-processor/internal/app/consumer", "task-processor/internal/app/runner", "task-processor/internal/app/scheduler", "task-processor/internal/app/runtime/listingcontrol", "task-processor/internal/app/runtime/sheinplatformrecovery", "task-processor/internal/listingcontrol", "task-processor/internal/app/task", "task-processor/internal/app/taskstatus", "task-processor/internal/processor", "task-processor/internal/app/crawler/distributed", "task-processor/internal/listingruntime/local", "task-processor/internal/platforms", "task-processor/internal/listingkit", "task-processor/internal/tenantbridge", "task-processor/internal/compatibility", "task-processor/internal/sourceaccount", "task-processor/internal/integration/persistence/sourceaccount/ownershipmigration"} {
 					if dependency == retired || strings.HasPrefix(dependency, retired+"/") {
 						t.Errorf("%s still compiles retired business dependency %s", command, dependency)
@@ -1404,7 +1329,7 @@ func TestTemuImageAPIAndVisionResourcesAreRetired(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, retired := range []string{"KTemuVisionDetectorDetect", "temu.vision_detector.detect", "KSheinAttributeSelectorSystem", "KSheinAttributeValueFallbackSystem", "KSheinAttributeValueFallbackUser", "KSheinTranslationBatchOptimizeSystem", "shein.attribute_selector.system", "shein.attribute_value_fallback.system", "shein.attribute_value_fallback.user", "shein.translation.batch_optimize_system"} {
+		for _, retired := range []string{"KTemuAttributeMappingSystem", "KTemuContentRewriterSystem", "KTemuSkuVariantMappingSystem", "temu.attribute_mapping.system", "temu.content_rewriter.system", "temu.sku_variant_mapping.system", "KTemuVisionDetectorDetect", "temu.vision_detector.detect", "KSheinAttributeSelectorSystem", "KSheinAttributeValueFallbackSystem", "KSheinAttributeValueFallbackUser", "KSheinTranslationBatchOptimizeSystem", "shein.attribute_selector.system", "shein.attribute_value_fallback.system", "shein.attribute_value_fallback.user", "shein.translation.batch_optimize_system"} {
 			if strings.Contains(string(content), retired) {
 				t.Errorf("%s retains retired vision resource %s", relative, retired)
 			}

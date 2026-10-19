@@ -296,7 +296,18 @@ func phase3ProductProductionFiles(root string) ([]string, error) {
 
 func TestPhase3PipelineDoesNotGrow(t *testing.T) {
 	const baselineMax = 10
-	if got := productionGoFileCount(t, filepath.Join("..", "internal", "pipeline")); got > baselineMax {
+	root := filepath.Join("..", "internal", "pipeline")
+	index, err := loadGoFileIndex(filepath.Dir(root), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := 0
+	for path := range index.files {
+		if strings.HasPrefix(path, root+string(os.PathSeparator)) && !strings.HasSuffix(path, "_test.go") {
+			got++
+		}
+	}
+	if got > baselineMax {
 		t.Errorf("internal/pipeline production files = %d, baseline max = %d", got, baselineMax)
 	}
 }

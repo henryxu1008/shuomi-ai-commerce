@@ -2,9 +2,9 @@
 
 > Execution：[#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)
 >
-> 当前交付：设计文档与调查；Design Basis：N/A（不修改生产路径、测试或运行配置）。
+> Design Basis：Independent Architecture / IMPLEMENTATION_READY；状态：SOURCE IMPLEMENTED / In Review。用户已确认冻结设计 `a253ca05ff285bc29fc03fe52521ee1bc4924db8` §5/§6/§6.1/§7；三项值helper已在原owner脱钩，88个Go/6个非Go源文件与精确mixed声明已退休。准确HEAD、原CI与最终独立检查证据记录于同一[#819](https://github.com/qq550723504/task-processor/pull/819)，不以设计证据代替。
 >
-> 后续实施 Design Basis：Independent Architecture；状态：DESIGN_PROPOSED / IMPLEMENTATION_NOT_READY。适用独立设计检查和用户确认须在生产改动前完成，准确 SHA / 评审 / 准入记录写同一 PR 与 Issue，本文不能自行授予开工权。
+> [实施准入与接单](https://github.com/qq550723504/task-processor/pull/819#issuecomment-6259036226)：适用独立设计检查准确绑定冻结SHA已完成、无finding；#29/#301在生产改动前已登记并读回Independent Architecture / IMPLEMENTATION_READY / Ready。设计CI不代替实现CI、用户验收或合并授权。
 >
 > 调查基线：main `fd31fa9513e7b49ad25049874dc006f9e218c6a3`，2026-10-19。#817 已合入 `0ea035c7855c9cb1f6fe35047e7d663b3ebf9156`，对应 push/main CI [39190495226](https://github.com/qq550723504/task-processor/actions/runs/39190495226) 成功；本批不继承其合并或23行校准授权。
 
@@ -173,7 +173,7 @@ core/logger → temu/api/client 等保留行不动；不能据这10条授权顺�
 
 ## 7. 确认、准入与停止条件
 
-1. 当前仅设计，未修改生产/测试。适用独立设计检查完成并记录准确版本，用户确认§5、§6、§6.1、§7后，Issue/同一PR须明确 Independent Architecture / IMPLEMENTATION_READY / Ready，才可正式实施。确认同时仅窄替代上述旧TEMU实现保留决定，不改变当前能力/实例/数据边界。
+1. 用户已确认冻结设计a253ca05f的§5、§6、§6.1、§7；适用独立设计检查完成、准确版本与准入记录已写同一PR，#29/#301在生产改动前已明确并读回Independent Architecture / IMPLEMENTATION_READY / Ready。此次确认仅窄替代上述旧TEMU实现保留决定，不改变当前能力/实例/数据边界。
 2. 确认后同一Writer按完整闭包连续完成EXTRACT、删除、必要自检、finding分类/修复、提交推送和同PR维护，不机械拆小批。发现真实新当前consumer/兼容义务、新BLOCKER，或必须改变身份/tenant/事实/状态/事务/恢复/AI预算/平台副作用时，停止受影响项反馈；不从理论场景推导额外平台建设。
 3. Reviewer按AGENTS先分类Finding、绑定当前Must/具体后果/阻塞层级。正常架构复核最多两轮；无新BLOCKER不无限加设计版本，非阻塞项转实现测试或Backlog。真正的Must缺口不能因到达两轮而豁免。
 4. 禁止为了保留旧能力新增wrapper/alias/fallback/双事实源/同步器，禁止用删除测试代替当前owner有效约束。保留API、当前goods/rules、SHEIN价格/属性/worker、Reader/Cache/Mapping及所有未列mixed声明。
