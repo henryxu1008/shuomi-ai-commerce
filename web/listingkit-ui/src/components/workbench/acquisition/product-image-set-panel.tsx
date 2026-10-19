@@ -19,6 +19,7 @@ import {executionModeLabels} from "../agents/execution-mode-settings";
 import {executionModeViewSchema} from "@/lib/contracts/execution-mode";
 import {useConfigurationRead} from "../agents/agent-configuration-hooks";
 import {imageTemplatesPageSchema,imageTemplateSchema,carouselTasks,detailTasks,type ImageAgentTemplate} from "@/lib/contracts/image-set-configuration";
+import {genericImagePresetForSkill,matchesGenericImagePreset} from "@/lib/image-template-presets";
 import {ImageSetError,imageSetRequest,type ImageSetScope} from "@/lib/api/product-image-set";
 import {isAcquisitionUUID} from "@/lib/contracts/product-acquisition";
 import {imageSetApprovalSchema,imageSetRunSchema,imageSetSourcesSchema,imageSetRecentSchema,imageSetInventorySchema,imageSetPreviewSchema,imageSetAcceptedSchema,imageSetRequirementsSchema,imageSetRequestSchema,type ImageSetRun,type ImageSetPrepare,type ImageSetChoice,type ImageSetSelection,type ImageSetRequirements,type ImageSetInventory,type ImageSetRoute} from "@/lib/contracts/product-image-set";
@@ -49,12 +50,15 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
  const savedCallback=useRef(onSaved),notified=useRef("");
  const restoredRun=useRef(""),rulesBinding=useRef(""),readVersion=useRef(0);
  const runTemplateBinding=useRef(""),runSourceBinding=useRef("");
+ const templateEdited=useRef(false);
+ const [templateNotice,setTemplateNotice]=useState("");
  useEffect(()=>{savedCallback.current=onSaved},[onSaved]);
  const [entry,setEntry]=useState<z.infer<typeof catalogEntrySchema>>(),[templates,setTemplates]=useState<ImageAgentTemplate[]>([]),[cursor,setCursor]=useState("");
  const [template,setTemplate]=useState<ImageAgentTemplate>(),[sources,setSources]=useState<z.infer<typeof imageSetSourcesSchema>>(),[run,setRun]=useState<ImageSetRun>();
  const [runTemplate,setRunTemplate]=useState<ImageAgentTemplate>();
  const [runSources,setRunSources]=useState<z.infer<typeof imageSetSourcesSchema>>();
  const [method,setMethod]=useState<SkillSelection|undefined>(initialSkill),[methodReady,setMethodReady]=useState(!initialSkill);
+ const initialPreset=genericImagePresetForSkill(initialSkill),hasInitialSkill=!!initialSkill;
  const onMethodChange=useCallback((value:SkillSelection|undefined,ready:boolean)=>{setMethod(value);setMethodReady(ready)},[]);
  const [priorRuns,setPriorRuns]=useState<ImageSetRun[]>([]);
  const [recent,setRecent]=useState<z.infer<typeof imageSetRecentSchema>["items"]>([]),[inventory,setInventory]=useState<ImageSetInventory>();
@@ -160,18 +164,36 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
     const id=initialRunId??localStorage.getItem(storageKey+":run");
     if(id){try{await readRun(id,controller.signal)}catch(e){if(!controller.signal.aborted)fail(e)}}
     if(controller.signal.aborted)return;
+    const defaultRef=agent.agent.defaultTemplate;
+    const preset=!defaultRef&&!id&&!saved?initialPreset:undefined;
     if(agent.agent.activation!=="NOT_ENABLED"){
      // Each image template may contain 64 KiB; a single row fits the 128 KiB response cap.
-     try{const page=await configurationRequest(stableScope,"product.image.agent/templates?pageSize=1",imageTemplatesPageSchema,{signal:controller.signal});if(controller.signal.aborted)return;setTemplates(page.items);setCursor(page.nextCursor)}catch(e){if(!controller.signal.aborted)fail(e)}
+     try{
+      let page=await configurationRequest(stableScope,"product.image.agent/templates?pageSize=1",imageTemplatesPageSchema,{signal:controller.signal});if(controller.signal.aborted)return;
+      const rows=[...page.items],seen=new Set<string>();let pages=1;
+      setTemplates(rows);setCursor(page.nextCursor);
+      // Discovery reads existing enterprise facts only. Never create a template
+      // during navigation, replace a default, or touch a restored run/request.
+      while(preset&&!rows.some(t=>matchesGenericImagePreset(t,preset))&&page.nextCursor&&pages<20&&!templateEdited.current){
+       if(seen.has(page.nextCursor))break;seen.add(page.nextCursor);
+       page=await configurationRequest(stableScope,`product.image.agent/templates?pageSize=1&cursor=${encodeURIComponent(page.nextCursor)}`,imageTemplatesPageSchema,{signal:controller.signal});if(controller.signal.aborted)return;
+       rows.push(...page.items.filter(t=>!rows.some(v=>v.templateId===t.templateId&&v.version===t.version)));pages++;
+       setTemplates([...rows]);setCursor(page.nextCursor);
+      }
+      if(preset&&!templateEdited.current){const match=rows.find(t=>matchesGenericImagePreset(t,preset));if(match){installTemplate(match,source?.evidence);setTemplateNotice(`已带入通用模板：${match.name} · v${match.version}。仅用于本次新计划，不改企业默认配置。`)}else setTemplateNotice(`未找到已保存的“${preset.name}”。可读取更多模板并手动选择，或请管理员从通用方案新建并保存；此入口不会自动写配置。`)}
+     }catch(e){if(!controller.signal.aborted)fail(e)}
      }
     if(controller.signal.aborted)return;
-    const defaultRef=agent.agent.defaultTemplate;
-    if(defaultRef){try{const pinned=await configurationRequest(stableScope,`product.image.agent/templates/${defaultRef.templateId}/revisions/${defaultRef.revision}`,imageTemplateSchema,{signal:controller.signal});if(controller.signal.aborted)return;installTemplate(pinned,source?.evidence)}catch(e){if(!controller.signal.aborted)fail(e)}}
+    if(defaultRef){try{
+     const pinned=await configurationRequest(stableScope,`product.image.agent/templates/${defaultRef.templateId}/revisions/${defaultRef.revision}`,imageTemplateSchema,{signal:controller.signal});if(controller.signal.aborted)return;
+     if(pinned.templateId!==defaultRef.templateId||pinned.version!==defaultRef.revision||pinned.lifecycle!=="ACTIVE")throw new ImageSetError("IMAGE_CONFIGURATION_CHANGED",409);
+     if(!templateEdited.current){installTemplate(pinned,source?.evidence);if(hasInitialSkill&&!id&&!saved)setTemplateNotice("已保留企业默认模板的准确版本、任务和数量；可以为本次计划显式改选，默认配置不会改变。")}
+    }catch(e){if(!controller.signal.aborted)fail(e)}}
     if(controller.signal.aborted)return;
     const pageRuns=await imageSetRequest(stableScope,"recent",imageSetRecentSchema,{signal:controller.signal});if(controller.signal.aborted)return;setRecent(pageRuns.items);setRecentCursor(pageRuns.nextCursor);
    }catch(e){if(!controller.signal.aborted)fail(e)}finally{if(!controller.signal.aborted)setLoading(false)}
   })();return()=>controller.abort();
- },[stableScope,storageKey,effectiveVersion,applyReceiptId,initialRunId,readRun,fail]);
+ },[stableScope,storageKey,effectiveVersion,applyReceiptId,initialRunId,initialPreset,hasInitialSkill,readRun,fail]);
  const running=run&&["executing","evaluating","repairing"].includes(run.status);
  useEffect(()=>{
   if(!running||locked||!run)return;
@@ -305,7 +327,8 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
   {available&&sources?<>
    {template&&!compatibleImageTemplate(template,platform)?<p className="text-sm text-warning-foreground">当前模板不适用于此素材目标，请选择匹配的模板或切换目标。</p>:null}
    {platform==="shein"&&requirements&&tasks.length>0&&!preparePositionsReady?<p className="text-sm text-warning-foreground">{positionHint}</p>:null}
-   <div className="grid gap-4 sm:grid-cols-2"><label className="space-y-2 text-sm">图片模板<Select disabled={locked} value={template?`${template.templateId}:${template.version}`:""} onChange={e=>{const t=templates.find(v=>`${v.templateId}:${v.version}`===e.target.value);if(t&&compatibleImageTemplate(t,platform))installTemplate(t,sources.evidence)}}><option value="">选择模板</option>{template&&!templates.some(t=>t.templateId===template.templateId&&t.version===template.version)?<option disabled={!compatibleImageTemplate(template,platform)} value={`${template.templateId}:${template.version}`}>{template.name} v{template.version}</option>:null}{templates.filter(t=>t.lifecycle==="ACTIVE").map(t=><option key={`${t.templateId}:${t.version}`} disabled={!compatibleImageTemplate(t,platform)} value={`${t.templateId}:${t.version}`}>{t.name} v{t.version}</option>)}</Select></label><label className="space-y-2 text-sm">素材目标<Select disabled={locked} value={platform} onChange={e=>{setPlatform(e.target.value as typeof platform);setRequirements(undefined);setPositions({});setPreview(null)}}><option value="product">通用商品素材</option>{editorTarget?<option value="shein">当前 SHEIN 店铺与类目</option>:null}</Select></label></div>
+   {templateNotice?<p role="status" className="rounded-lg bg-accent/40 p-4 text-sm">{templateNotice}</p>:null}
+   <div className="grid gap-4 sm:grid-cols-2"><label className="space-y-2 text-sm">图片模板<Select disabled={locked} value={template?`${template.templateId}:${template.version}`:""} onChange={e=>{const t=templates.find(v=>`${v.templateId}:${v.version}`===e.target.value);if(t&&compatibleImageTemplate(t,platform)){templateEdited.current=true;setTemplateNotice("");installTemplate(t,sources.evidence)}}}><option value="">选择模板</option>{template&&!templates.some(t=>t.templateId===template.templateId&&t.version===template.version)?<option disabled={!compatibleImageTemplate(template,platform)} value={`${template.templateId}:${template.version}`}>{template.name} v{template.version}</option>:null}{templates.filter(t=>t.lifecycle==="ACTIVE").map(t=><option key={`${t.templateId}:${t.version}`} disabled={!compatibleImageTemplate(t,platform)} value={`${t.templateId}:${t.version}`}>{t.name} v{t.version}</option>)}</Select></label><label className="space-y-2 text-sm">素材目标<Select disabled={locked} value={platform} onChange={e=>{setPlatform(e.target.value as typeof platform);setRequirements(undefined);setPositions({});setPreview(null)}}><option value="product">通用商品素材</option>{editorTarget?<option value="shein">当前 SHEIN 店铺与类目</option>:null}</Select></label></div>
    {cursor?<Button size="sm" variant="outline" disabled={locked} onClick={()=>{void configurationRequest(stableScope,`product.image.agent/templates?pageSize=1&cursor=${encodeURIComponent(cursor)}`,imageTemplatesPageSchema).then(page=>{if(active.current){setTemplates(old=>[...old,...page.items.filter(t=>!old.some(v=>v.templateId===t.templateId))]);setCursor(page.nextCursor)}}).catch(fail)}}>读取更多模板</Button>:null}
    {platform==="shein"?<section className="rounded-lg bg-muted p-4 text-sm"><p>店铺 {editorTarget?.StoreID} · 站点 {editorTarget?.Site} · 类目 {editorTarget?.CategoryID}</p><Button variant="outline" size="sm" className="mt-2" disabled={locked} onClick={()=>void loadRules()}>读取当前图片规则</Button>{restoredTarget&&target&&JSON.stringify(restoredTarget)!==JSON.stringify(target)?<Button variant="outline" size="sm" className="ml-2 mt-2" disabled={locked} onClick={useCurrentTarget}>使用当前页面目标准备新计划</Button>:null}{requirements?<><p className="mt-2">规则 {requirements.version} · 当前生成尺寸 {requirements.nativeWidth} × {requirements.nativeHeight}</p>{requirements.groups.map(g=><p key={`${g.group}:${g.skc}:${g.sku}`} className="mt-1 text-xs">{g.group} / SKC {g.skc+1}{g.group==="sku"?` / SKU ${g.sku+1}`:""}：{g.types.map(t=>`类型 ${t.type}，${t.minimum}–${t.maximum} 张${t.nativeCompatible?"":"（当前生成尺寸不适用）"}`).join("；")}</p>)}</>:null}</section>:null}
    {template?<><div className="grid gap-4 md:grid-cols-2">{(["carousel","detail"] as const).map(group=><section key={group} className="space-y-3 rounded-xl border border-border p-4"><h3 className="font-semibold">{group==="carousel"?"主图 / 轮播图":"详情图"}</h3>{allTasks.filter(t=>t.group===group).map(task=>{
