@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -24,7 +25,19 @@ import (
 func TestOrganizationImageRuntimeRoleHasOnlyCurrentAPIGrants(t *testing.T) {
 	dsn := os.Getenv("ISSUE487_TEST_DSN")
 	if dsn == "" {
-		t.Skip("result=SKIP: requires isolated ISSUE487_TEST_DSN")
+		if os.Getenv("CI") == "" {
+			t.Skip("result=SKIP: requires isolated ISSUE487_TEST_DSN or CI PostgreSQL container")
+		}
+		// The normal backend CI must exercise the real role, not silently skip
+		// this confirmation path. Reuse the repository's PostgreSQL dependency.
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		container, err := tcpostgres.Run(ctx, "postgres:16-alpine", tcpostgres.WithDatabase("postgres"), tcpostgres.WithUsername("issue487_owner"), tcpostgres.WithPassword("controlled-image-api-test"), tcpostgres.BasicWaitStrategies())
+		require.NoError(t, err)
+		t.Cleanup(func() { require.NoError(t, container.Terminate(context.Background())) })
+		port, err := container.MappedPort(ctx, "5432/tcp")
+		require.NoError(t, err)
+		dsn = "host=127.0.0.1 port=" + port.Port() + " user=issue487_owner password=controlled-image-api-test dbname=postgres sslmode=disable"
 	}
 	require.Contains(t, dsn, "host=127.0.0.1")
 	require.Contains(t, dsn, "user=issue487_owner")
@@ -87,6 +100,12 @@ func TestOrganizationImageRuntimeRoleHasOnlyCurrentAPIGrants(t *testing.T) {
 	require.NoError(t, err, "current API Start must initialize only its admitted tables")
 	current, err := repository.GetProjection(ctx, scope)
 	require.NoError(t, err, "current API GET/Approve must read its projection")
+	ownerRepository := NewOrganizationRepository(owner)
+	evidence, err := ownerRepository.(repositoryContract).AppendProjectionEvent(ctx, imageagent.RunEvent{TenantID: scope.TenantID, OwnerUserID: scope.OwnerUserID, RunID: scope.RunID, Type: "generation.no_generation", Payload: json.RawMessage(`{}`)})
+	require.NoError(t, err)
+	unchanged, err := repository.GetProjection(ctx, scope)
+	require.NoError(t, err)
+	require.Equal(t, current, unchanged, "an independent evidence event must preserve the business snapshot")
 	now := time.Now().UTC().Truncate(time.Microsecond)
 	planDigest, err := imageagent.ImageSetPlanDigest(plan)
 	require.NoError(t, err)
@@ -96,9 +115,23 @@ func TestOrganizationImageRuntimeRoleHasOnlyCurrentAPIGrants(t *testing.T) {
 	next := current
 	next.Run.ImageAdmission, next.Run.StartedAt = &receipt, receipt.AdmittedAt
 	next.Run.Status, next.Run.CurrentNode, next.Run.Version = imageagent.RunStatusExecuting, "execute_slots", current.Run.Version+1
-	_, err = repository.CommitProjection(ctx, imageagent.ProjectionCommit{Scope: scope, CommitID: "confirm:" + receipt.Command.ConfirmActionID, ExpectedProjectionVersion: current.ProjectionVersion, ExpectedRunVersion: current.Run.Version, Snapshot: next, RunMutation: &imageagent.RunMutation{ImageAdmission: &receipt, Status: next.Run.Status, CurrentNode: next.Run.CurrentNode, ActivePlanRevision: 1}, EventType: "run.confirmed", EventPayload: json.RawMessage(`{}`)})
+	confirmation := imageagent.ProjectionCommit{Scope: scope, CommitID: "confirm:" + receipt.Command.ConfirmActionID, ExpectedProjectionVersion: current.ProjectionVersion, ExpectedRunVersion: current.Run.Version, Snapshot: next, RunMutation: &imageagent.RunMutation{ImageAdmission: &receipt, Status: next.Run.Status, CurrentNode: next.Run.CurrentNode, ActivePlanRevision: 1}, EventType: "run.confirmed", EventPayload: json.RawMessage(`{}`)}
+	confirmed, err := repository.CommitProjection(ctx, confirmation)
 	require.NoError(t, err, "current API confirms the set with the original receipt in its existing transaction")
-	ownerRepository := NewOrganizationRepository(owner)
+	require.Equal(t, evidence.Cursor+1, confirmed.LastEventID)
+	require.Equal(t, confirmed.LastEventID, confirmed.ProjectionVersion)
+	require.Equal(t, &receipt, confirmed.Run.ImageAdmission)
+	replayed, err := repository.CommitProjection(ctx, confirmation)
+	require.NoError(t, err)
+	require.Equal(t, confirmed, replayed, "the same confirmation preserves its original receipt and event cursor")
+	events, err := repository.ListEvents(ctx, scope, current.LastEventID, 10)
+	require.NoError(t, err)
+	require.Len(t, events, 2, "one evidence event and one confirmation, with no duplicate on replay")
+	require.Equal(t, []int64{evidence.Cursor, confirmed.LastEventID}, []int64{events[0].Cursor, events[1].Cursor})
+	wrongScope := scope
+	wrongScope.TenantID = "another-org"
+	_, err = repository.GetProjection(ctx, wrongScope)
+	require.ErrorIs(t, err, imageagent.ErrRunNotFound)
 	identity := imageagent.SlotExternalEffectIdentity{RunScope: scope, PlanRevision: 1, SlotID: plan.Slots[0].ID, Attempt: 1}
 	reservation := imageagent.SlotEffectV3Reservation{Identity: identity, IdempotencyKey: "original-attempt", InputFingerprint: strings.Repeat("b", 64)}
 	originalEffect, won, err := ownerRepository.(imageagent.SlotExternalEffectV3Repository).ReserveSlotProviderV3(ctx, reservation)
@@ -131,6 +164,10 @@ func TestOrganizationImageRuntimeRoleHasOnlyCurrentAPIGrants(t *testing.T) {
 	_, err = repository.(imageagent.SlotExternalEffectV3Repository).GetSlotExternalEffectV3(ctx, wrongIdentity)
 	require.ErrorIs(t, err, imageagent.ErrRunNotFound)
 	for _, tc := range []struct{ name, grant, revoke string }{
+		{"missing_event_read", "REVOKE SELECT ON image_agent_v2_events FROM " + role, "GRANT SELECT ON image_agent_v2_events TO " + role},
+		{"event_update", "GRANT UPDATE ON image_agent_v2_events TO " + role, "REVOKE UPDATE ON image_agent_v2_events FROM " + role},
+		{"event_delete", "GRANT DELETE ON image_agent_v2_events TO " + role, "REVOKE DELETE ON image_agent_v2_events FROM " + role},
+		{"event_truncate", "GRANT TRUNCATE ON image_agent_v2_events TO " + role, "REVOKE TRUNCATE ON image_agent_v2_events FROM " + role},
 		{"delete_run", "GRANT DELETE ON image_agent_v2_runs TO " + role, "REVOKE DELETE ON image_agent_v2_runs FROM " + role},
 		{"write_attempt", "GRANT INSERT ON image_agent_v2_attempts TO " + role, "REVOKE INSERT ON image_agent_v2_attempts FROM " + role},
 		{"other_table", "GRANT SELECT ON unrelated_secret TO " + role, "REVOKE SELECT ON unrelated_secret FROM " + role},
@@ -157,6 +194,9 @@ func TestOrganizationImageRuntimeRoleHasOnlyCurrentAPIGrants(t *testing.T) {
 		})
 	}
 	require.Error(t, runtimeDB.Exec("DELETE FROM image_agent_v2_runs").Error)
+	require.Error(t, runtimeDB.Exec("UPDATE image_agent_v2_events SET type='changed' WHERE false").Error)
+	require.Error(t, runtimeDB.Exec("DELETE FROM image_agent_v2_events WHERE false").Error)
+	require.Error(t, runtimeDB.Exec("TRUNCATE image_agent_v2_events").Error)
 	require.Error(t, runtimeDB.Exec("SELECT value FROM unrelated_secret").Error)
 	require.Error(t, runtimeDB.Exec("SELECT id FROM image_agent_v2_asset_catalog").Error)
 	require.Error(t, runtimeDB.Exec("UPDATE image_agent_v2_runs SET budget_json='{}'").Error)
