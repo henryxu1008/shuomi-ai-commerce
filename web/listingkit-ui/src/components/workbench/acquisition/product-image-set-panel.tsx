@@ -94,7 +94,7 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
  function installTemplate(t:ImageAgentTemplate,evidence?:Record<string,string>){
   setTemplate(t);setPreview(null);setTasks([...t.image.carousel,...t.image.detail].filter(task=>{const definition=[...carouselTasks,...detailTasks].find(v=>v.purpose===task.purpose);return !definition||!("evidence" in definition)||!!evidence?.[definition.evidence]}).map(task=>task.id));
  }
- const readRun=useCallback(async(id:string,signal?:AbortSignal)=>{
+ const readRun=useCallback(async(id:string,signal?:AbortSignal,onVerifiedRead?:(p:ImageSetRun)=>boolean)=>{
   const version=++readVersion.current,isCurrent=()=>active.current&&!signal?.aborted&&version===readVersion.current;
   const p=await imageSetRequest(stableScope,"read",imageSetRunSchema,{runId:id,signal});if(!isCurrent())return;remember(p);
   if(restoredRun.current!==p.runId){
@@ -103,6 +103,7 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
    setPositions(Object.fromEntries(p.slots.flatMap(slot=>slot.recipe.OfficialPlacement?[[slot.slotId,slot.recipe.OfficialPlacement]]:[])));
    setRunTemplate(undefined);runTemplateBinding.current="";
   }
+  if(onVerifiedRead?.(p))return p;
   const sourceBinding=JSON.stringify([p.runId,sourceIdentity(p.plan.Source)]);
   if(runSourceBinding.current!==sourceBinding){
    runSourceBinding.current="";setRunSources(undefined);setPreview(null);setSelected([]);
@@ -195,10 +196,12 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
     const p=await imageSetRequest(stableScope,"verify-prepare",imageSetRunSchema,{requestKey:intent.requestKey,signal:controller.signal});if(controller.signal.aborted)return;acceptPreparation(p);
    }else{
     if(intent.action==="approve"&&!releasedIntent){const body=intent.body as ImageSetSelection;const receipt=await imageSetRequest(stableScope,"approval",imageSetApprovalSchema,{runId:intent.runId,approvalId:body.actionId,signal:controller.signal});if(controller.signal.aborted)return;if(receipt.selectionDigest!==body.selectionDigest)throw new ImageSetError("IMAGE_SELECTION_CHANGED",409);clearIntent();setMessage("原批准已核实，正在读取任务状态。");await readRun(intent.runId!,controller.signal);return}
-    const p=await readRun(intent.runId!,controller.signal);if(!p||controller.signal.aborted)return;
+    const p=await readRun(intent.runId!,controller.signal,current=>{
+     if(!imageIntentTargetsReleasedRun(intent,current)||!isRetainableImageIntent(intent))return false;
+     retainReleasedRequest(intent);setMessage("核实结果：未生成，点数已释放。原请求与编号已保留，可切换任务或准备新计划。");return true;
+    });if(!p||controller.signal.aborted)return;
     if(imageIntentTargetsReleasedRun(intent,p)){
-     if(isRetainableImageIntent(intent)){retainReleasedRequest(intent);setMessage("核实结果：未生成，点数已释放。原请求与编号已保留，可切换任务或准备新计划。")}
-     else setMessage("核实结果：未生成，点数已释放。原请求和编号保留，仅支持只读核实。");
+     if(!isRetainableImageIntent(intent))setMessage("核实结果：未生成，点数已释放。原请求和编号保留，仅支持只读核实。");
      return;
     }
     const body=intent.body as {actionId:string;planRevision?:number;slotId?:string;attempt?:number;planDigest?:string;quoteDigest?:string};

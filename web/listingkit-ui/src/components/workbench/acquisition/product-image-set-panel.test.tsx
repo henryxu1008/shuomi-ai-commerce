@@ -251,6 +251,22 @@ it("keeps a saved approval pending rather than inferring its receipt from the ru
  expect(fetch.mock.calls.some(([,init])=>init?.method==="POST")).toBe(false);
 });
 
+it("unlocks a confirmed released request without depending on optional inventory hydration",async()=>{
+ const {key,raw}=savedReleasedRequest();
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialRunId={runId}/>);
+ await screen.findByRole("heading",{name:"未生成，点数已释放"});
+ await waitFor(()=>expect(screen.getByRole("button",{name:"核实原请求"})).toBeEnabled());
+ const inventoryReads=fetch.mock.calls.filter(([url])=>String(url).endsWith("/inventory")).length;
+ const real=fetch.getMockImplementation()!;
+ fetch.mockImplementation((url,init)=>String(url).endsWith("/inventory")?Promise.resolve(Response.json({code:"IMAGE_UNAVAILABLE"},{status:503})):real(url,init));
+ fireEvent.click(screen.getByRole("button",{name:"核实原请求"}));
+ await waitFor(()=>expect(localStorage.getItem(key)).toBeNull());
+ expect(screen.getByRole("combobox",{name:"图片模板"})).toBeEnabled();
+ expect(Object.keys(localStorage).filter(k=>k.includes(":verified-intent:")).map(k=>localStorage.getItem(k))).toEqual([raw]);
+ expect(fetch.mock.calls.filter(([url])=>String(url).endsWith("/inventory"))).toHaveLength(inventoryReads);
+ expect(fetch.mock.calls.some(([,init])=>init?.method==="POST")).toBe(false);
+});
+
 it("allows method inspection with an authorized empty source while model readiness keeps preparation closed",async()=>{
  const real=fetch.getMockImplementation()!;
  fetch.mockImplementation((url,init)=>String(url).endsWith("/agents/product.image.agent")?Promise.resolve(Response.json({...entry,canUse:false,capabilities:[{...entry.capabilities[0],readiness:"UNAVAILABLE",reason:"模型配置尚未就绪"}]})):String(url).endsWith("/images/sources")?Promise.resolve(Response.json({contextKind:"acquisition",contextId:operation,source,manualReplacementAvailable:false,originals:[],evidence:{}})):real(url,init));
