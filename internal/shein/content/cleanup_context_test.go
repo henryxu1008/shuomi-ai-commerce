@@ -66,3 +66,23 @@ func TestCleanupValidationResultPreservesLanguageAndSKCJSON(t *testing.T) {
 		t.Fatalf("payload not cleaned: %+v", payload)
 	}
 }
+
+func TestInMemoryCleanupUsesExplicitCustomPhrasesWithoutChangingDefaults(t *testing.T) {
+	service := NewSensitiveWordServiceInMemory()
+	defer service.Close()
+	ctx := &CleanupContext{Context: context.Background()}
+	input := "Whimsy BPA Free Office curtain"
+	if got := service.SanitizeDisplayTextWithContext(ctx, input); got != input {
+		t.Fatalf("default cleanup = %q, want custom phrases retained before explicit configuration", got)
+	}
+	service.AddStaticSensitiveWordsByLanguage("en", []string{"bpa free", "whimsy"})
+	got := service.SanitizeDisplayTextWithContext(ctx, input)
+	for _, phrase := range []string{"bpa free", "whimsy"} {
+		if strings.Contains(strings.ToLower(got), phrase) {
+			t.Fatalf("explicit custom cleanup = %q, want %q removed", got, phrase)
+		}
+	}
+	if !strings.Contains(got, "Office curtain") {
+		t.Fatalf("custom cleanup lost ordinary display content: %q", got)
+	}
+}

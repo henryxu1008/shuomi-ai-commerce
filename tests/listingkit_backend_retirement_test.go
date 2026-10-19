@@ -1390,7 +1390,8 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/shein/content/cleanup_context.go":                             {"type CleanupContext struct", "type ValidationResult struct", "type SKCValidationMessages struct", "SourceBrand", "other_language_message_map", "otherLanguageMessageMap"},
 		"internal/publishing/shein/submit_site_sku_policy.go":                   {"sheinmarketpub.DefaultSiteListByRegion("},
 		"internal/publishing/shein/sensitive_content_sanitizer.go":              {"content.CleanupContext", "ensureSanitizerContext", "authorizedbrand.FromContext"},
-		"internal/shein/submitprep/sensitive_words.go":                          {"func NewSensitiveWordServiceForContext(", "overlaySensitiveWordsFromRepository", "overlayGenerationTopicLexicons", "tenantctx.TenantScopeFromContext"},
+
+		"internal/publishing/shein/submit_prep_sensitive_adapter.go": {"content.NewSensitiveWordServiceInMemory()"},
 	} {
 		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
 		if err != nil {
@@ -2456,4 +2457,97 @@ func TestSheinListingMixedDeclarationsAreRetired(t *testing.T) {
 		}
 		return false
 	})
+}
+
+func TestNumericContentConfigurationClosureIsRetired(t *testing.T) {
+	for _, relative := range []string{
+		"internal/listingadmin/sensitive_word.go",
+		"internal/listingadmin/sensitive_word_repository.go",
+		"internal/listingadmin/sensitive_word_model.go",
+		"internal/listingadmin/sensitive_word_query.go",
+		"internal/listingadmin/generation_topic_policy.go",
+		"internal/listingadmin/generation_topic_policy_repository.go",
+		"internal/listingadmin/generation_topic_override.go",
+		"internal/listingadmin/generation_topic_override_repository.go",
+		"internal/publishing/shein/generation_topic_runtime.go",
+		"internal/shein/submitprep/sensitive_words.go",
+		"internal/listingadmin/sensitive_word_model_test.go",
+		"internal/listingadmin/sensitive_word_query_test.go",
+		"internal/listingadmin/generation_topic_policy_test.go",
+		"internal/listingadmin/generation_topic_policy_query_test.go",
+		"internal/listingadmin/owner_scoped_repository_test.go",
+		"internal/publishing/shein/generation_topic_runtime_test.go",
+		"internal/publishing/shein/generation_topic_policy_integration_test.go",
+		"internal/shein/submitprep/generation_topic_overlay_test.go",
+	} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Errorf("retired numeric content source remains: %s (%v)", relative, err)
+		}
+	}
+	if paths, err := filepath.Glob(filepath.Join("..", "internal", "shein", "submitprep", "*.go")); err != nil || len(paths) != 0 {
+		t.Errorf("retired submitprep package remains: %v (%v)", paths, err)
+	}
+	retired := strings.Fields(`SensitiveWord SensitiveWordQuery SensitiveWordPage SensitiveWordPageReqDTO SensitiveWordRespDTO SensitiveWordRepository GormSensitiveWordRepository listingSensitiveWord NewGormSensitiveWordRepository AutoMigrateSensitiveWords
+		GenerationTopicPolicy GenerationTopicPolicyQuery GenerationTopicPolicyPage GenerationTopicPolicyRepository GormGenerationTopicPolicyRepository listingGenerationTopicPolicy NewGormGenerationTopicPolicyRepository AutoMigrateGenerationTopicPolicies
+		GenerationTopicOverride GenerationTopicOverrideQuery GenerationTopicOverridePage GenerationTopicOverrideRepository GormGenerationTopicOverrideRepository listingGenerationTopicOverride NewGormGenerationTopicOverrideRepository AutoMigrateGenerationTopicOverrides
+		requireOwnerUserID ErrOwnerUserIDRequired takeOwnedTenantRow updateOwnedTenantRow postgresColumnDefinition postgresColumnTypeMigration sensitiveWordLegacyColumnMigrations ensurePostgresColumnTypeMigrations lookupPostgresColumnDefinition postgresColumnDefinitionNeedsTypeMigration normalizePostgresColumnTypeName normalizeExpectedPostgresType ensureUniqueIndex
+		SetSensitiveWordRepository SetGenerationTopicPolicyRepository SetGenerationTopicOverrideRepository tenantGenerationTopicPolicyPromptBlock NewSensitiveWordServiceForContext`)
+	for _, relative := range []string{"internal/listingadmin", "internal/publishing/shein"} {
+		paths, err := filepath.Glob(filepath.Join("..", filepath.FromSlash(relative), "*.go"))
+		if err != nil || len(paths) == 0 {
+			t.Fatalf("retained package is absent: %s (%v)", relative, err)
+		}
+		for _, path := range paths {
+			if strings.HasSuffix(path, "_test.go") {
+				continue
+			}
+			file, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, declaration := range file.Decls {
+				var names []*ast.Ident
+				switch declaration := declaration.(type) {
+				case *ast.FuncDecl:
+					if declaration.Recv == nil {
+						names = append(names, declaration.Name)
+					}
+				case *ast.GenDecl:
+					for _, spec := range declaration.Specs {
+						switch spec := spec.(type) {
+						case *ast.TypeSpec:
+							names = append(names, spec.Name)
+						case *ast.ValueSpec:
+							names = append(names, spec.Names...)
+						}
+					}
+				}
+				for _, name := range names {
+					for _, symbol := range retired {
+						if name.Name == symbol {
+							t.Errorf("%s recreates retired numeric content declaration %s", path, symbol)
+						}
+					}
+				}
+			}
+		}
+	}
+	for relative, required := range map[string][]string{
+		"internal/publishing/shein/submit_prep_sensitive_adapter.go": {"content.NewSensitiveWordServiceInMemory()"},
+		"internal/listingadmin/schema_migrate.go":                    {"func ensureOwnerAuditColumns("},
+		"internal/listingadmin/repo_paging.go":                       {"func applyOwnedTenantQuery(", "func normalizePage(", "func findPagedRows["},
+		"internal/listingadmin/access_scope.go":                      {"func WithOwnerUserID(", "func applyOwnerScopeForUser(", "func requestHasTenantAdminAccess("},
+		"internal/shein/content/cleanup_context.go":                  {"type CleanupContext struct"},
+		"internal/shein/generationtopics/registry.go":                {"func ResolveSheinTopicKeys(", "func ResolveSheinTopicDefinitionsWithOverlay(", "func AssembleSheinPolicySummary(", "func CollectLexiconsFromDefinitions("},
+	} {
+		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, symbol := range required {
+			if !strings.Contains(string(content), symbol) {
+				t.Errorf("%s is missing retained content/Store rule %s", relative, symbol)
+			}
+		}
+	}
 }

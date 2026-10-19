@@ -1,5 +1,7 @@
 # 旧数字刊登共享管理与 Task/Workspace 尾部：完整退休边界
 
+> #833 [旧数字内容配置完整闭包](legacy-numeric-content-management-closure-retirement-boundary.md)：冻结设计 d139bcccc 已确认并整批实施，三族无生产注入的词库/话题配置仓库读写、DTO、全局 setter、专属 schema/迁移和调用尾部源码退出；此前整体保留表述仅在该设计 §5/§6.1 的准确对象上被替代。当前默认清理直接复用原 content 内存工厂，品牌/字段/runtimeCtx、generationtopics 纯规则、Store/API/schema/权限与独立登录/Store 同步保持。物理对象 UNKNOWN、不操作；原历史矩阵/计数保留，全部 workflow/inventory 不改，无新试用前置。
+
 > #831 [Store 管理闭包校准](legacy-numeric-store-management-closure-retirement-boundary.md)仅进一步退休其 §5 明列的无入口 Store 管理/配置声明与专属测试；本文当时的 Store 整体保留结论仅在这些准确对象上被替代。活跃账号读/同步、九方法 StoreAPI、四共享值类型、词库/话题、安全与独立 worker 保留；原冻结设计/历史证据不重写，无数据或运行动作。
 
 > #827 [confirmed Publishing runtime closure](legacy-shein-publishing-runtime-closure-retirement-boundary.md): Supersedes only then-retained unused Publishing execution/cache/remote submission/recovery and exclusive helpers/Prompt resources. The exact #824 offline validator/readiness closure, Store/content/topic tables and independent worker contracts remain current; original #824 evidence below is preserved. Workflows, dependencies, ceilings, runtime/data and trial prerequisites are unchanged.

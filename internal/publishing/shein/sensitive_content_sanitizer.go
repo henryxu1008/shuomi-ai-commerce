@@ -15,7 +15,7 @@ func sanitizeSheinListingCopy(copy *listingCopy, runtimeCtx context.Context, ctx
 		return false
 	}
 	ctx = ensureSanitizerContext(runtimeCtx, ctx)
-	service := newSheinSensitiveWordSanitizer(runtimeCtx)
+	service := newSheinSensitiveWordSanitizer()
 	changed := false
 	changed = sanitizeStringField(service, ctx, &copy.Title) || changed
 	changed = sanitizeStringField(service, ctx, &copy.Description) || changed
@@ -32,7 +32,7 @@ func SanitizeDraftPayloadSensitiveContent(pkg *Package, runtimeCtx context.Conte
 		return false
 	}
 	ctx = ensureSanitizerContext(runtimeCtx, ctx)
-	service := newSheinSensitiveWordSanitizer(runtimeCtx)
+	service := newSheinSensitiveWordSanitizer()
 	changed := false
 
 	changed = sanitizeCommonAttributes(service, ctx, pkg.ProductAttributes) || changed

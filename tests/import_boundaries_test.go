@@ -878,34 +878,60 @@ func TestPublishingSheinOpenAIImportsStayAllowlisted(t *testing.T) {
 	}
 }
 
-func TestPublishingSheinSubmitPrepUsesOnlySensitiveWordAdapter(t *testing.T) {
+func TestPublishingSheinSensitiveAdapterUsesCurrentContentFactory(t *testing.T) {
 	filePath := filepath.Join("..", "internal", "publishing", "shein", "submit_prep_sensitive_adapter.go")
-	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, filePath, nil, 0)
+	file, err := parser.ParseFile(token.NewFileSet(), filePath, nil, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	allowedSelectors := map[string]struct{}{
-		"NewSensitiveWordServiceForContext":    {},
-		"SetSensitiveWordRepository":           {},
-		"SetGenerationTopicPolicyRepository":   {},
-		"SetGenerationTopicOverrideRepository": {},
+	contentAlias := ""
+	for _, imp := range file.Imports {
+		if imp.Path.Value != `"task-processor/internal/shein/content"` {
+			t.Errorf("%s imports %s; current sensitive adapter must only depend on content", filePath, imp.Path.Value)
+			continue
+		}
+		contentAlias = "content"
+		if imp.Name != nil {
+			contentAlias = imp.Name.Name
+		}
 	}
-	ast.Inspect(file, func(node ast.Node) bool {
-		selector, ok := node.(*ast.SelectorExpr)
+	if contentAlias == "" || contentAlias == "." || contentAlias == "_" {
+		t.Fatal("current content owner import is missing or obscured")
+	}
+	factoryFound := false
+	for _, declaration := range file.Decls {
+		factory, ok := declaration.(*ast.FuncDecl)
 		if !ok {
-			return true
+			continue
 		}
-		ident, ok := selector.X.(*ast.Ident)
-		if !ok || ident.Name != "submitprep" {
-			return true
+		if factory.Name.Name != "newSheinSensitiveWordSanitizer" {
+			t.Errorf("unexpected adapter function %s", factory.Name.Name)
+			continue
 		}
-		if _, ok := allowedSelectors[selector.Sel.Name]; !ok {
-			t.Errorf("%s uses submitprep.%s; keep submitprep dependency limited to sensitive-word repository adapters and move pure submit content helpers into publishing/shein", filePath, selector.Sel.Name)
+		factoryFound = true
+		if factory.Recv != nil || factory.Type.Params.NumFields() != 0 || factory.Body == nil || len(factory.Body.List) != 1 {
+			t.Fatal("current sensitive factory must directly return the existing in-memory content service without injection")
 		}
-		return true
-	})
+		ret, ok := factory.Body.List[0].(*ast.ReturnStmt)
+		if !ok || len(ret.Results) != 1 {
+			t.Fatal("sensitive factory must directly return content service")
+		}
+		call, ok := ret.Results[0].(*ast.CallExpr)
+		if !ok || len(call.Args) != 0 {
+			t.Fatal("sensitive factory must use the original no-argument content factory")
+		}
+		selector, ok := call.Fun.(*ast.SelectorExpr)
+		if !ok {
+			t.Fatal("sensitive factory must call the content owner")
+		}
+		owner, ok := selector.X.(*ast.Ident)
+		if !ok || owner.Name != contentAlias || selector.Sel.Name != "NewSensitiveWordServiceInMemory" {
+			t.Fatal("sensitive adapter must use content.NewSensitiveWordServiceInMemory")
+		}
+	}
+	if !factoryFound {
+		t.Fatal("current sensitive adapter factory is absent")
+	}
 }
 
 func TestProductEnrichCanonicalImportsStayRetiredAcrossBuildTargets(t *testing.T) {
