@@ -1,6 +1,11 @@
 # Image API event-read permission correction
 
-Design Basis: Independent Architecture. Admission: DESIGN_REVIEW_PENDING.
+Design Basis: Independent Architecture. Admission: IMPLEMENTATION_READY.
+
+The original independent visual_brief_arch_review approved design commit
+47e2a3155a757a992bbaaaba7ce6deb4c46ef6fc on 2026-10-19, before production
+implementation. No BLOCKER; the bounded PostgreSQL cases below are
+IMPLEMENTATION_TEST, not new architecture. No merge or runtime authority implied.
 
 ## Product outcome and authority
 
