@@ -198,25 +198,6 @@ func commonAttributes(variants []common.Variant) map[string]string {
 	return result
 }
 
-func resolveSKCName(baseTitle string, groupingKey string, attributes map[string]string, representative common.Variant) string {
-	baseTitle = strings.TrimSpace(baseTitle)
-	if baseTitle != "" {
-		baseTitle = trimShortTitle(buildSKCBaseTitle(baseTitle, nil, baseTitle), 70, 8)
-	}
-	groupName := ""
-	if groupingKey != "" {
-		groupName = resolveSKCGroupName(groupingKey, attributes, representative, nil)
-	}
-	if groupName != "" {
-		baseTitle = strings.TrimSpace(baseTitle)
-		if baseTitle != "" && !strings.EqualFold(normalizeText(baseTitle), normalizeText(groupName)) {
-			return baseTitle + " - " + groupName
-		}
-		return groupName
-	}
-	return common.FirstNonEmpty(representative.SKU, "DEFAULT-001")
-}
-
 func resolveSKCGroupName(groupingKey string, attributes map[string]string, representative common.Variant, resolution *SaleAttributeResolution) string {
 	if groupingKey == "" {
 		return ""

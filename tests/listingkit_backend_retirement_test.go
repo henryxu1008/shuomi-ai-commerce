@@ -12,6 +12,266 @@ import (
 )
 
 var retiredNumericListingSupportFiles = []string{
+	"internal/listing/submission/action_record.go",
+	"internal/listing/submission/action_record_test.go",
+	"internal/listing/submission/attempt_finalize.go",
+	"internal/listing/submission/attempt_finalize_test.go",
+	"internal/listing/submission/attempt_record.go",
+	"internal/listing/submission/attempt_record_test.go",
+	"internal/listing/submission/confirm_remote_state.go",
+	"internal/listing/submission/confirm_remote_state_test.go",
+	"internal/listing/submission/direct_submit_service.go",
+	"internal/listing/submission/direct_submit_service_test.go",
+	"internal/listing/submission/enqueue_retry.go",
+	"internal/listing/submission/enqueue_retry_test.go",
+	"internal/listing/submission/event_draft.go",
+	"internal/listing/submission/event_draft_test.go",
+	"internal/listing/submission/event_history.go",
+	"internal/listing/submission/event_history_test.go",
+	"internal/listing/submission/event_outcome.go",
+	"internal/listing/submission/event_outcome_test.go",
+	"internal/listing/submission/failure_persistence_service.go",
+	"internal/listing/submission/failure_persistence_service_test.go",
+	"internal/listing/submission/failure_state.go",
+	"internal/listing/submission/failure_state_test.go",
+	"internal/listing/submission/inflight_state.go",
+	"internal/listing/submission/inflight_state_test.go",
+	"internal/listing/submission/lease_acquire_service.go",
+	"internal/listing/submission/lease_acquire_service_test.go",
+	"internal/listing/submission/payload_stage_service.go",
+	"internal/listing/submission/payload_stage_service_test.go",
+	"internal/listing/submission/phase_detail.go",
+	"internal/listing/submission/phase_detail_test.go",
+	"internal/listing/submission/phase_event.go",
+	"internal/listing/submission/phase_event_test.go",
+	"internal/listing/submission/projection.go",
+	"internal/listing/submission/projection_test.go",
+	"internal/listing/submission/readiness_gate.go",
+	"internal/listing/submission/readiness_gate_test.go",
+	"internal/listing/submission/readiness_projection.go",
+	"internal/listing/submission/readiness_projection_test.go",
+	"internal/listing/submission/record_draft.go",
+	"internal/listing/submission/record_draft_test.go",
+	"internal/listing/submission/recovered_submit_persistence.go",
+	"internal/listing/submission/recovered_submit_persistence_test.go",
+	"internal/listing/submission/recovery_batch_service.go",
+	"internal/listing/submission/recovery_batch_service_test.go",
+	"internal/listing/submission/recovery_lease.go",
+	"internal/listing/submission/recovery_lease_test.go",
+	"internal/listing/submission/recovery_now_service.go",
+	"internal/listing/submission/recovery_now_service_test.go",
+	"internal/listing/submission/recovery_route_service.go",
+	"internal/listing/submission/recovery_route_service_test.go",
+	"internal/listing/submission/refresh_guard.go",
+	"internal/listing/submission/refresh_guard_test.go",
+	"internal/listing/submission/refresh_request.go",
+	"internal/listing/submission/refresh_request_test.go",
+	"internal/listing/submission/refresh_selection.go",
+	"internal/listing/submission/refresh_selection_test.go",
+	"internal/listing/submission/refresh_service.go",
+	"internal/listing/submission/refresh_service_test.go",
+	"internal/listing/submission/remote_completion_state.go",
+	"internal/listing/submission/remote_completion_state_test.go",
+	"internal/listing/submission/remote_record_id.go",
+	"internal/listing/submission/remote_record_id_test.go",
+	"internal/listing/submission/remote_refresh_service.go",
+	"internal/listing/submission/remote_refresh_service_test.go",
+	"internal/listing/submission/remote_refresh_state.go",
+	"internal/listing/submission/remote_refresh_state_test.go",
+	"internal/listing/submission/remote_submit_service.go",
+	"internal/listing/submission/remote_submit_service_test.go",
+	"internal/listing/submission/remote_sync.go",
+	"internal/listing/submission/remote_sync_test.go",
+	"internal/listing/submission/requeue_service.go",
+	"internal/listing/submission/requeue_service_test.go",
+	"internal/listing/submission/response_outcome.go",
+	"internal/listing/submission/response_outcome_test.go",
+	"internal/listing/submission/result_persistence_service.go",
+	"internal/listing/submission/result_persistence_service_test.go",
+	"internal/listing/submission/result_state.go",
+	"internal/listing/submission/result_state_test.go",
+	"internal/listing/submission/retryable_backfill_service.go",
+	"internal/listing/submission/retryable_backfill_service_test.go",
+	"internal/listing/submission/retryable_block.go",
+	"internal/listing/submission/retryable_block_test.go",
+	"internal/listing/submission/source_facts.go",
+	"internal/listing/submission/source_facts_test.go",
+	"internal/listing/submission/start_failure_service.go",
+	"internal/listing/submission/start_failure_service_test.go",
+	"internal/listing/submission/submit_action.go",
+	"internal/listing/submission/submit_action_test.go",
+	"internal/listing/submission/submit_attempt.go",
+	"internal/listing/submission/submit_attempt_plan.go",
+	"internal/listing/submission/submit_attempt_plan_test.go",
+	"internal/listing/submission/submit_attempt_test.go",
+	"internal/listing/submission/submit_error.go",
+	"internal/listing/submission/submit_error_test.go",
+	"internal/listing/submission/submit_lock.go",
+	"internal/listing/submission/submit_lock_test.go",
+	"internal/listing/submission/submit_request_id.go",
+	"internal/listing/submission/submit_request_id_test.go",
+	"internal/listing/submission/submit_target.go",
+	"internal/listing/submission/submit_target_test.go",
+	"internal/listing/submission/success_persistence_service.go",
+	"internal/listing/submission/success_persistence_service_test.go",
+	"internal/marketplace/shein/publishing/phase_detail_policy.go",
+	"internal/marketplace/shein/publishing/phase_detail_policy_test.go",
+	"internal/marketplace/shein/publishing/projection_policy.go",
+	"internal/marketplace/shein/publishing/projection_policy_test.go",
+	"internal/marketplace/shein/publishing/remote_record_policy.go",
+	"internal/marketplace/shein/publishing/remote_record_policy_test.go",
+	"internal/marketplace/shein/publishing/sensitive_retry_policy.go",
+	"internal/marketplace/shein/publishing/sensitive_retry_policy_test.go",
+	"internal/publishing/shein/api_builders.go",
+	"internal/publishing/shein/attribute_cache_freshness.go",
+	"internal/publishing/shein/attribute_resolver.go",
+	"internal/publishing/shein/attribute_resolver_test.go",
+	"internal/publishing/shein/attribute_value_matcher.go",
+	"internal/publishing/shein/attribute_value_matcher_test.go",
+	"internal/publishing/shein/cache_identity.go",
+	"internal/publishing/shein/category_ai_contract.go",
+	"internal/publishing/shein/category_legacy_selector_adapter.go",
+	"internal/publishing/shein/category_path_helpers.go",
+	"internal/publishing/shein/category_query.go",
+	"internal/publishing/shein/category_reselection_signals.go",
+	"internal/publishing/shein/category_resolver.go",
+	"internal/publishing/shein/category_resolver_ai.go",
+	"internal/publishing/shein/category_resolver_test.go",
+	"internal/publishing/shein/category_review_signals.go",
+	"internal/publishing/shein/category_review_signals_test.go",
+	"internal/publishing/shein/category_semantic_verifier.go",
+	"internal/publishing/shein/category_semantic_verifier_test.go",
+	"internal/publishing/shein/category_suggest_fallback.go",
+	"internal/publishing/shein/category_tree_fallback.go",
+	"internal/publishing/shein/derived_refresh.go",
+	"internal/publishing/shein/derived_refresh_test.go",
+	"internal/publishing/shein/display_attribute_batch_inference.go",
+	"internal/publishing/shein/display_attribute_candidate_set.go",
+	"internal/publishing/shein/display_attribute_candidate_set_test.go",
+	"internal/publishing/shein/display_attribute_dependency.go",
+	"internal/publishing/shein/display_attribute_evidence.go",
+	"internal/publishing/shein/display_attribute_evidence_test.go",
+	"internal/publishing/shein/display_attribute_field_selector.go",
+	"internal/publishing/shein/display_attribute_inputs.go",
+	"internal/publishing/shein/display_attribute_missing_inference.go",
+	"internal/publishing/shein/display_attribute_prompt.go",
+	"internal/publishing/shein/display_attribute_required_repair.go",
+	"internal/publishing/shein/display_attribute_required_repair_test.go",
+	"internal/publishing/shein/display_attribute_resolution_flow.go",
+	"internal/publishing/shein/display_attribute_resolution_flow_test.go",
+	"internal/publishing/shein/display_attribute_static_matcher.go",
+	"internal/publishing/shein/display_attribute_static_matcher_test.go",
+	"internal/publishing/shein/display_attribute_template.go",
+	"internal/publishing/shein/display_attribute_template_test.go",
+	"internal/publishing/shein/final_draft_images.go",
+	"internal/publishing/shein/final_draft_images_test.go",
+	"internal/publishing/shein/final_draft_submit.go",
+	"internal/publishing/shein/final_draft_submit_test.go",
+	"internal/publishing/shein/generation_topics.go",
+	"internal/publishing/shein/generation_topics_test.go",
+	"internal/publishing/shein/pricing_cache_identity.go",
+	"internal/publishing/shein/pricing_cache_identity_test.go",
+	"internal/publishing/shein/pricing_cache_reconcile.go",
+	"internal/publishing/shein/pricing_cache_reconcile_test.go",
+	"internal/publishing/shein/resolution_cache_store_test.go",
+	"internal/publishing/shein/resolver_cache.go",
+	"internal/publishing/shein/resolver_cache_codec.go",
+	"internal/publishing/shein/resolver_cache_key.go",
+	"internal/publishing/shein/resolver_cache_test.go",
+	"internal/publishing/shein/review_content.go",
+	"internal/publishing/shein/review_content_test.go",
+	"internal/publishing/shein/runtime_api_factory.go",
+	"internal/publishing/shein/runtime_attribute_resolver.go",
+	"internal/publishing/shein/runtime_base_client.go",
+	"internal/publishing/shein/runtime_category_resolver.go",
+	"internal/publishing/shein/runtime_image_api.go",
+	"internal/publishing/shein/runtime_product_api.go",
+	"internal/publishing/shein/runtime_resolver_fail_closed_test.go",
+	"internal/publishing/shein/runtime_sale_attribute_resolver.go",
+	"internal/publishing/shein/runtime_translate_api.go",
+	"internal/publishing/shein/sale_attribute_ai.go",
+	"internal/publishing/shein/sale_attribute_cache_reconcile.go",
+	"internal/publishing/shein/sale_attribute_cache_reconcile_test.go",
+	"internal/publishing/shein/sale_attribute_candidates.go",
+	"internal/publishing/shein/sale_attribute_mapping_llm.go",
+	"internal/publishing/shein/sale_attribute_prompt.go",
+	"internal/publishing/shein/sale_attribute_resolution_result.go",
+	"internal/publishing/shein/sale_attribute_resolver.go",
+	"internal/publishing/shein/sale_attribute_resolver_test.go",
+	"internal/publishing/shein/sale_attribute_selection_rules.go",
+	"internal/publishing/shein/sale_attribute_template_rules.go",
+	"internal/publishing/shein/sale_attribute_value_helpers.go",
+	"internal/publishing/shein/sale_attribute_value_llm.go",
+	"internal/publishing/shein/sale_attribute_value_resolution.go",
+	"internal/publishing/shein/sale_attribute_value_resolution_test.go",
+	"internal/publishing/shein/sale_attribute_value_segments.go",
+	"internal/publishing/shein/sds_images.go",
+	"internal/publishing/shein/sds_images_test.go",
+	"internal/publishing/shein/size_attribute_cache_reconcile.go",
+	"internal/publishing/shein/size_attribute_cache_reconcile_test.go",
+	"internal/publishing/shein/size_attribute_header_resolver.go",
+	"internal/publishing/shein/size_attribute_header_resolver_test.go",
+	"internal/publishing/shein/source_dimension_heuristics.go",
+	"internal/publishing/shein/source_dimension_selection.go",
+	"internal/publishing/shein/source_dimension_selection_test.go",
+	"internal/publishing/shein/studio_ai_images.go",
+	"internal/publishing/shein/studio_ai_images_test.go",
+	"internal/publishing/shein/submission.go",
+	"internal/publishing/shein/submission_persistence_input.go",
+	"internal/publishing/shein/submission_persistence_input_test.go",
+	"internal/publishing/shein/submission_projection.go",
+	"internal/publishing/shein/submission_remote.go",
+	"internal/publishing/shein/submission_remote_test.go",
+	"internal/publishing/shein/submission_state.go",
+	"internal/publishing/shein/submission_state_test.go",
+	"internal/publishing/shein/submission_test.go",
+	"internal/publishing/shein/submit_image_upload.go",
+	"internal/publishing/shein/submit_image_upload_cache.go",
+	"internal/publishing/shein/submit_image_upload_cache_test.go",
+	"internal/publishing/shein/submit_image_upload_test.go",
+	"internal/publishing/shein/submit_localization.go",
+	"internal/publishing/shein/submit_payload_prepare_test.go",
+	"internal/publishing/shein/submit_prep.go",
+	"internal/publishing/shein/submit_readiness_action_policy.go",
+	"internal/publishing/shein/submit_remote_action.go",
+	"internal/publishing/shein/submit_remote_action_test.go",
+	"internal/publishing/shein/submit_sensitive_retry.go",
+	"internal/publishing/shein/submit_sensitive_retry_test.go",
+	"internal/publishing/shein/submit_validation.go",
+	"internal/publishing/shein/template_matcher_test.go",
+	"internal/publishing/shein/text_normalization.go",
+	"internal/publishing/shein/text_normalization_test.go",
+	"internal/publishing/shein/variant_image_sets.go",
+	"internal/publishing/shein/variant_image_sets_test.go",
+	"internal/publishing/sheinmanaged/api_builders.go",
+	"internal/publishing/sheinmanaged/api_factory.go",
+	"internal/publishing/sheinmanaged/attribute_api_factory.go",
+	"internal/publishing/sheinmanaged/attribute_resolver.go",
+	"internal/publishing/sheinmanaged/bridge.go",
+	"internal/publishing/sheinmanaged/bridge_test.go",
+	"internal/publishing/sheinmanaged/category_api_factory.go",
+	"internal/publishing/sheinmanaged/category_resolver.go",
+	"internal/publishing/sheinmanaged/category_selector_adapter.go",
+	"internal/publishing/sheinmanaged/sale_attribute_resolver.go",
+	"internal/shein/aicache/cache.go",
+	"internal/shein/category/manager.go",
+	"internal/shein/category/manager_test.go",
+	"internal/shein/content/optimizer.go",
+	"internal/shein/content/string_sanitizer.go",
+	"internal/shein/content/string_sanitizer_test.go",
+	"internal/shein/content/text_cleaner.go",
+	"internal/shein/content/text_cleaner_test.go",
+	"internal/shein/submitprep/language.go",
+	"internal/shein/submitprep/language_test.go",
+	"internal/shein/submitprep/localized_content.go",
+	"internal/shein/submitprep/localized_content_test.go",
+	"internal/shein/submitprep/localized_list.go",
+	"internal/shein/submitprep/localized_list_test.go",
+	"prompts/shein/category_selector.yaml",
+	"prompts/shein/content_optimizer.yaml",
+	"prompts/shein/display_attribute.yaml",
+	"prompts/shein/sale_attribute.yaml",
+
 	"internal/app/worker/job_handler.go",
 	"internal/core/metrics/shein_metrics.go",
 	"internal/core/metrics/task_metrics.go",
@@ -215,6 +475,36 @@ var retiredNumericListingSupportFiles = []string{
 }
 
 var retiredNumericListingSupportDeclarations = map[string][]string{
+	"internal/publishing/shein": strings.Fields(`
+AttributeAPI BuildRequest.SheinStoreID BuildRequest.Text CategoryAPI CleanSubmitProductSensitiveWords CloneImageUploadCache
+CloneResolutionCacheInfo ConfigureSubmitPrepRepositories DistinctSKCMainImageCount EnforceVariantImageCoverage EnsureDraftPayload GormResolutionCacheStore
+GormResolutionCacheStore.DeleteResolutionCache GormResolutionCacheStore.DeleteResolutionCacheByShortKey GormResolutionCacheStore.GetManualResolutionCacheByProductIdentity GormResolutionCacheStore.GetManualResolutionCacheBySourceIdentity GormResolutionCacheStore.GetResolutionCache GormResolutionCacheStore.SaveResolutionCache
+ImageInfoPendingUploadCount ImageInfoURLCount Inspection InspectionAction InspectionAttributePayload InspectionCategoryPayload
+InspectionSKCPatchPayload InspectionSKUPatchPayload InspectionSaleAttributePayload InspectionSection IsSDSImageURL IsUploadedImageURL
+MultimodalTextGenerator NewGormResolutionCacheStore NormalizeSaleDimension Package.Inspection Package.Submission Package.SubmissionEvents
+Package.SubmissionState PrepareProductForNewSubmit PrepareProductForSubmit ProductAttributesReadyForSubmit ProductImageURLCount ProductPendingImageUploadCount
+RepairSubmitSaleAttributes ResolutionCacheHitSourceMemoryCache ResolutionCacheHitSourcePersistentHistoryCache ResolutionCacheHitSourcePersistentManualCache ResolutionCacheHitSourcePublishRemembered ResolutionCacheKindAttribute
+ResolutionCacheKindCategory ResolutionCacheKindPricing ResolutionCacheKindSaleAttribute ResolutionCacheKindSaleAttributeCustomDenied ResolutionCacheKindSizeAttribute ResolutionCacheShortKeyDeleter
+ResolutionCacheSourceIdentityGetter ResolutionCacheStore ResolveSingleManualSaleAttributeValue ResolveSingleSaleAttributeValue RetrySensitiveWordCleanup SKCMainImageURL
+SetSensitiveWordRepository SetVariantImageCoverageMetadata SheinResolutionCacheEntry ValidateProductPublishPayload VariantImageCoverageInput VariantImageCoverageMessageKey
+VariantImageCoverageStatusKey VariantImageGroupCount VariantImageGroupKey applyProductSizeAttributes buildCustomAttributeValueNameMultis buildResolvedSaleAttribute
+buildSKCAssignments buildSKUAssignments buildSourceVariantDimensions buildValueAssignments buildValueAssignmentsPreservingSourceValues buildValueAssignmentsWithDeniedStore
+buildValueAssignmentsWithPreparationPolicy cloneAttributeResolution cloneAttributeResolutionWithCacheNote cloneCategoryResolution cloneCategoryResolutionWithCacheNote cloneCategorySuggestion
+clonePendingAttributeCandidates cloneResolutionCacheInfo cloneSaleAttributeCandidateInfos cloneSaleAttributeResolution cloneSaleAttributeResolutionWithCacheNote cloneSaleAttributeTemplateOptions
+cloneSourceVariantDimensions collectAttributeNames collectVariantAttributeKeys comparableAttributeValueForms comparableOptionScore compareComparableForm
+compositionAttributeNotes containsNumericToken customSaleAttributePermissionDeniedCache customSaleAttributePermissionDeniedCacheKey customSaleAttributePermissionDeniedKey isCustomSaleAttributePermissionDenied
+isCustomSaleAttributePermissionDeniedError isLikelySaleAttributeCodePrefix isTemplateImportant isTemplateRequired matchSaleAttributeValueByComparableScore matchSaleAttributeValueDeterministic
+matchSaleAttributeValueExact matchSaleAttributeValueNormalized maxSubmitWeightGrams minSubmitWeightGrams newTemplateIndex normalizeEnglishMaterial
+normalizeNumericDisplayAttributeValue normalizeSaleAttributeValue normalizeSizeText numericAttributeNotes rememberCustomSaleAttributePermissionDenied resetCustomSaleAttributePermissionDeniedCache
+resolveCustomSaleAttributeValues resolveSKCName resolveSingleSaleAttributeValue saleAttributeLeadingScalePattern saleAttributeNoisePattern saleAttributeParenContentPattern
+saleAttributeSourceDimensions stripComparableSizeAnnotations submitSaleAttributesNeedRepair synthesizeEnglishTitle templateIndex templateIndex.FindAttribute
+templateIndex.Match trimSaleAttributeCodePrefix uniqueDimensionValues uniqueNonEmpty
+`),
+	"internal/shein/submitprep": strings.Fields(`
+CleanSensitiveWords CleanSensitiveWordsWithContext RetrySensitiveWordCleanup RetrySensitiveWordCleanupWithContext applyAuthorizedBrandFromRuntime autoDiscoveredSensitiveWordRemark
+detectSensitiveWordLanguage mergeSensitiveWordRemark mergeSensitiveWordTags persistValidationSensitiveWords sensitiveWordRecordKey splitCSV
+`),
+
 	"internal/app/worker": strings.Fields(`
 NewTaskJobHandler TaskCompletionNotifier TaskJobHandler
 `),
@@ -407,7 +697,7 @@ func TestNumericListingSupportClosureSourcesAreRetired(t *testing.T) {
 			t.Errorf("retired numeric listing support source remains: %s (stat: %v)", relative, err)
 		}
 	}
-	for _, relative := range []string{"internal/taskrpcapi", "internal/workspace/shein", "internal/core/metrics"} {
+	for _, relative := range []string{"internal/taskrpcapi", "internal/workspace/shein", "internal/core/metrics", "internal/publishing/sheinmanaged", "internal/shein/category", "internal/shein/aicache"} {
 		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
 			t.Errorf("retired numeric listing support package remains: %s (stat: %v)", relative, err)
 		}
@@ -419,6 +709,9 @@ func TestNumericListingSupportClosureSourcesAreRetired(t *testing.T) {
 		"task-processor/internal/taskrpcapi",
 		"task-processor/internal/workspace/shein",
 		"task-processor/internal/core/metrics",
+		"task-processor/internal/publishing/sheinmanaged",
+		"task-processor/internal/shein/category",
+		"task-processor/internal/shein/aicache",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -471,12 +764,27 @@ func TestNumericListingSupportClosureSourcesAreRetired(t *testing.T) {
 			case *ast.FuncDecl:
 				if declaration.Recv == nil {
 					checkName(declaration.Name.Name)
+				} else if len(declaration.Recv.List) == 1 {
+					receiver := declaration.Recv.List[0].Type
+					if pointer, ok := receiver.(*ast.StarExpr); ok {
+						receiver = pointer.X
+					}
+					if owner, ok := receiver.(*ast.Ident); ok {
+						checkName(owner.Name + "." + declaration.Name.Name)
+					}
 				}
 			case *ast.GenDecl:
 				for _, spec := range declaration.Specs {
 					switch spec := spec.(type) {
 					case *ast.TypeSpec:
 						checkName(spec.Name.Name)
+						if shape, ok := spec.Type.(*ast.StructType); ok {
+							for _, field := range shape.Fields.List {
+								for _, name := range field.Names {
+									checkName(spec.Name.Name + "." + name.Name)
+								}
+							}
+						}
 					case *ast.ValueSpec:
 						for _, name := range spec.Names {
 							checkName(name.Name)
@@ -1080,10 +1388,9 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/marketplace/shein/publishing/attribute_value_match_policy.go": {"func MatchPlatformAttributeValue("},
 		"internal/marketplace/shein/publishing/site_policy.go":                  {"func DefaultSiteListByRegion("},
 		"internal/shein/content/cleanup_context.go":                             {"type CleanupContext struct", "type ValidationResult struct", "type SKCValidationMessages struct", "SourceBrand", "other_language_message_map", "otherLanguageMessageMap"},
-		"internal/publishing/shein/attribute_value_matcher.go":                  {"sheinmarketpub.MatchPlatformAttributeValue(", "content.SanitizeForSheinAttribute(", "\"attribute_value_legacy_matcher\""},
 		"internal/publishing/shein/submit_site_sku_policy.go":                   {"sheinmarketpub.DefaultSiteListByRegion("},
 		"internal/publishing/shein/sensitive_content_sanitizer.go":              {"content.CleanupContext", "ensureSanitizerContext", "authorizedbrand.FromContext"},
-		"internal/shein/submitprep/sensitive_words.go":                          {"sheincontent.CleanupContext", "sheincontent.ValidationResult", "applyAuthorizedBrandFromRuntime"},
+		"internal/shein/submitprep/sensitive_words.go":                          {"func NewSensitiveWordServiceForContext(", "overlaySensitiveWordsFromRepository", "overlayGenerationTopicLexicons", "tenantctx.TenantScopeFromContext"},
 	} {
 		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
 		if err != nil {
@@ -1595,7 +1902,7 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 						t.Errorf("%s still compiles retired listing dependency %s", command, dependency)
 					}
 				}
-				for _, retired := range []string{"task-processor/internal/shein/product", "task-processor/internal/shein/productdata", "task-processor/internal/shein/publish", "task-processor/internal/shein/mapping", "task-processor/internal/shein/validation", "task-processor/internal/shein/translate", "task-processor/internal/shein/addresscopy", "task-processor/internal/shein/managedclient", "task-processor/internal/shein/store", "task-processor/internal/shein/context", "task-processor/internal/shein/languageconfig", "task-processor/internal/shein/siteconfig", "task-processor/internal/sheinbridge/saleattribute", "task-processor/internal/shein/inventory", "task-processor/internal/temu/sync", "task-processor/internal/temu/bulkrelist", "task-processor/internal/temu/store", "task-processor/internal/app/bootstrap", "task-processor/internal/app/consumer", "task-processor/internal/app/runner", "task-processor/internal/app/scheduler", "task-processor/internal/app/runtime/listingcontrol", "task-processor/internal/app/runtime/sheinplatformrecovery", "task-processor/internal/listingcontrol", "task-processor/internal/app/task", "task-processor/internal/app/taskstatus", "task-processor/internal/processor", "task-processor/internal/app/crawler/distributed", "task-processor/internal/listingruntime/local", "task-processor/internal/platforms", "task-processor/internal/listingkit", "task-processor/internal/tenantbridge", "task-processor/internal/compatibility", "task-processor/internal/sourceaccount", "task-processor/internal/integration/persistence/sourceaccount/ownershipmigration", "task-processor/internal/taskrpcapi", "task-processor/internal/workspace/shein", "task-processor/internal/core/metrics"} {
+				for _, retired := range []string{"task-processor/internal/shein/product", "task-processor/internal/shein/productdata", "task-processor/internal/shein/publish", "task-processor/internal/shein/mapping", "task-processor/internal/shein/validation", "task-processor/internal/shein/translate", "task-processor/internal/shein/addresscopy", "task-processor/internal/shein/managedclient", "task-processor/internal/shein/store", "task-processor/internal/shein/context", "task-processor/internal/shein/languageconfig", "task-processor/internal/shein/siteconfig", "task-processor/internal/sheinbridge/saleattribute", "task-processor/internal/shein/inventory", "task-processor/internal/temu/sync", "task-processor/internal/temu/bulkrelist", "task-processor/internal/temu/store", "task-processor/internal/app/bootstrap", "task-processor/internal/app/consumer", "task-processor/internal/app/runner", "task-processor/internal/app/scheduler", "task-processor/internal/app/runtime/listingcontrol", "task-processor/internal/app/runtime/sheinplatformrecovery", "task-processor/internal/listingcontrol", "task-processor/internal/app/task", "task-processor/internal/app/taskstatus", "task-processor/internal/processor", "task-processor/internal/app/crawler/distributed", "task-processor/internal/listingruntime/local", "task-processor/internal/platforms", "task-processor/internal/listingkit", "task-processor/internal/tenantbridge", "task-processor/internal/compatibility", "task-processor/internal/sourceaccount", "task-processor/internal/integration/persistence/sourceaccount/ownershipmigration", "task-processor/internal/taskrpcapi", "task-processor/internal/workspace/shein", "task-processor/internal/core/metrics", "task-processor/internal/publishing/sheinmanaged", "task-processor/internal/shein/category", "task-processor/internal/shein/aicache"} {
 					if dependency == retired || strings.HasPrefix(dependency, retired+"/") {
 						t.Errorf("%s still compiles retired business dependency %s", command, dependency)
 					}
@@ -1826,7 +2133,7 @@ func TestTemuImageAPIAndVisionResourcesAreRetired(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, retired := range []string{"KTemuAttributeMappingSystem", "KTemuContentRewriterSystem", "KTemuSkuVariantMappingSystem", "temu.attribute_mapping.system", "temu.content_rewriter.system", "temu.sku_variant_mapping.system", "KTemuVisionDetectorDetect", "temu.vision_detector.detect", "KSheinAttributeSelectorSystem", "KSheinAttributeValueFallbackSystem", "KSheinAttributeValueFallbackUser", "KSheinTranslationBatchOptimizeSystem", "shein.attribute_selector.system", "shein.attribute_value_fallback.system", "shein.attribute_value_fallback.user", "shein.translation.batch_optimize_system"} {
+		for _, retired := range []string{"KSheinCategorySelectorExtractCoreItemSystem", "shein.category_selector.extract_core_item_system", "KSheinCategorySelectorSelectCategorySystem", "shein.category_selector.select_category_system", "KSheinCategorySelectorSelectCategoryUser", "shein.category_selector.select_category_user", "KSheinCategorySelectorSemanticValidation", "shein.category_selector.semantic_validation", "KSheinContentOptimizerOptimizeTitleDescriptionSystem", "shein.content_optimizer.optimize_title_description_system", "KSheinContentOptimizerOptimizeTitleDescriptionUser", "shein.content_optimizer.optimize_title_description_user", "KSheinDisplayAttributeBatchInference", "shein.display_attribute.batch_inference", "KSheinDisplayAttributeFieldSelection", "shein.display_attribute.field_selection", "KSheinDisplayAttributeFieldSelectionBatch", "shein.display_attribute.field_selection_batch", "KSheinDisplayAttributeMissingText", "shein.display_attribute.missing_text", "KSheinDisplayAttributeMissingValue", "shein.display_attribute.missing_value", "KSheinDisplayAttributeRequiredRepair", "shein.display_attribute.required_repair", "KSheinDisplayAttributeValueMapping", "shein.display_attribute.value_mapping", "KSheinDisplayAttributeValueMappingBatch", "shein.display_attribute.value_mapping_batch", "KSheinSaleAttributeMapping", "shein.sale_attribute.mapping", "KSheinSaleAttributePromptValueExtraction", "shein.sale_attribute.prompt_value_extraction", "KSheinSaleAttributeSourceDimension", "shein.sale_attribute.source_dimension", "KSheinSaleAttributeValueBatchMapping", "shein.sale_attribute.value_batch_mapping", "KTemuAttributeMappingSystem", "KTemuContentRewriterSystem", "KTemuSkuVariantMappingSystem", "temu.attribute_mapping.system", "temu.content_rewriter.system", "temu.sku_variant_mapping.system", "KTemuVisionDetectorDetect", "temu.vision_detector.detect", "KSheinAttributeSelectorSystem", "KSheinAttributeValueFallbackSystem", "KSheinAttributeValueFallbackUser", "KSheinTranslationBatchOptimizeSystem", "shein.attribute_selector.system", "shein.attribute_value_fallback.system", "shein.attribute_value_fallback.user", "shein.translation.batch_optimize_system"} {
 			if strings.Contains(string(content), retired) {
 				t.Errorf("%s retains retired vision resource %s", relative, retired)
 			}
@@ -1948,6 +2255,13 @@ func TestSheinListingMixedDeclarationsAreRetired(t *testing.T) {
 		"internal/shein/content":  {"SensitiveWordsFilter", "SensitiveWordsMode", "ModeBlock", "ModeClean", "ModeWarn", "SensitiveWordsProcessor", "NewSensitiveWordsProcessor", "NewSensitiveWordsBlockHandler", "NewSensitiveWordsCleanHandler", "NewSensitiveWordsWarnHandler"},
 		"internal/shein/aicache":  {"TypeAttribute", "TypeSaleAttr", "TypeSKCTranslate", "TypeAttrValueFallback"},
 	} {
+		if relative == "internal/shein/category" || relative == "internal/shein/aicache" {
+			if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+				t.Errorf("retired SHEIN implementation root remains: %s (%v)", relative, err)
+			}
+			continue
+		}
+
 		paths, err := filepath.Glob(filepath.Join("..", filepath.FromSlash(relative), "*.go"))
 		if err != nil {
 			t.Fatal(err)

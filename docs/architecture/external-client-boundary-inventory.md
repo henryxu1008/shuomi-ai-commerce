@@ -1,5 +1,7 @@
 # External Client Boundary Inventory
 
+> #827 [confirmed Publishing runtime closure](legacy-shein-publishing-runtime-closure-retirement-boundary.md): Old publishing/sheinmanaged, uninstantiated Publishing runtime and remote resolver/submit/recovery adapters are source-retired. Historical adapter/hotspot retention below is superseded only for this exact closure. Current API/DTO clients, official execution, pure interfaces, tenant/content/Store and standalone SHEIN login adapters retain their existing contracts. Workflows, dependencies, ceilings, runtime/data and trial prerequisites are unchanged.
+
 > #824: the [confirmed support closure](legacy-numeric-listing-support-closure-retirement-boundary.md) source-retires the remaining unregistered taskrpcapi module, DTO/client/handler and three read-only management Task routes. Dated assembly/seam descriptions below are historical; no replacement Task RPC or BusinessTask facade is introduced. The Local Interface Rule and all current platform/Store/worker boundaries remain.
 
 > **Classification: MIXED.** The **Local Interface Rule**, management-client retirement direction, guardrail/review rules, and the requirement to keep concrete external adapters behind owning boundaries remain `CURRENT CONTRACT`. Dated hotspot/file inventories and dated migration notes are `DATED EVIDENCE` and must be rechecked against the actual HEAD before acting on them.

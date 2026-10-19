@@ -21,10 +21,6 @@ func DeriveSubmitProductSupplierCode(product *sheinproduct.Product) string {
 	return sheinmarketpub.DeriveSubmitSupplierCode(product.SupplierCode, supplierSKUs)
 }
 
-func ValidateProductPublishPayload(product *sheinproduct.Product) error {
-	return sheinmarketpub.ValidateProductPublishPayload(product)
-}
-
 // ValidatePreparedProductPublishPayload validates a submit product after submit normalization has run.
 func ValidatePreparedProductPublishPayload(product *sheinproduct.Product) error {
 	return sheinmarketpub.ValidatePreparedProductPublishPayload(product)

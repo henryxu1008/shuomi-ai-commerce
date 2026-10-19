@@ -1,12 +1,9 @@
 package shein
 
 import (
-	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
-
-	sheinattribute "task-processor/internal/shein/api/attribute"
 )
 
 var (
@@ -17,29 +14,6 @@ var (
 type compositionItem struct {
 	Name    string
 	Percent float64
-}
-
-func compositionAttributeNotes(attr sheinattribute.AttributeInfo, sourceValue string) []string {
-	notes := []string{
-		fmt.Sprintf("SHEIN 成分类属性待确认: 属性 %q 当前保留原始值 %q，后续需补成分拆解与合计校验", firstNonEmpty(attr.AttributeNameEn, attr.AttributeName), sourceValue),
-	}
-	items := parseCompositionItems(sourceValue)
-	switch {
-	case len(items) == 0:
-		notes = append(notes, fmt.Sprintf("SHEIN 成分类属性缺少可计算百分比: 属性 %q 当前未识别出成分占比", firstNonEmpty(attr.AttributeNameEn, attr.AttributeName)))
-	default:
-		total := 0.0
-		for _, item := range items {
-			total += item.Percent
-		}
-		if total < 99.5 || total > 100.5 {
-			notes = append(notes, fmt.Sprintf("SHEIN 成分类属性比例不自洽: 属性 %q 当前识别占比合计 %.1f%%，需人工校正到 100%%", firstNonEmpty(attr.AttributeNameEn, attr.AttributeName), total))
-		}
-	}
-	if attr.CascadeAttributeID > 0 {
-		notes = append(notes, fmt.Sprintf("SHEIN 成分类属性存在联动约束: 属性 %q 依赖上游属性 %d", firstNonEmpty(attr.AttributeNameEn, attr.AttributeName), attr.CascadeAttributeID))
-	}
-	return notes
 }
 
 func parseCompositionItems(value string) []compositionItem {

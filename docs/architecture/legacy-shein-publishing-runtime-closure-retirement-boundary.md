@@ -2,7 +2,7 @@
 
 Refs #29 / #301。调查基线：`8add3a4455123c04871677bf2c1a3b1366307703`。
 
-> Design Basis：**Independent Architecture**。状态：**DESIGN_REVIEW_PENDING / NOT_IMPLEMENTATION_READY**。用户目前只授权完整闭包设计；本文及索引是设计交付，不是生产代码、实施或合并授权。独立检查、确认和后续准入以同一主要 PR / Issue 当前正文为准。
+> Design Basis：**Independent Architecture**。状态：**IMPLEMENTATION_READY / SOURCE_IMPLEMENTED_IN_REVIEW**。用户已确认冻结设计 `a88ceb527` 的 §5/§6/§6.1/§7；独立设计检查完成无 findings，#29/#301 Ready 后在同一 #827 实施。准确实现 HEAD、CI、最终独立检查写 PR；合并/部署/实例/数据操作未授权。
 
 ## 1. 用户结果与一个 Delivery Batch
 
@@ -42,7 +42,7 @@ Threat Model：误删纯值/安全规则；把 Package 旧状态误当当前 Sub
 | `marketplace/shein/validator` → Publishing 严格 clone/prepare/validate → retained workspace readiness | 七个包外生产文件只消费值、纯组装/编解码和 readiness/规则 | 保留规则、错误分类、版本、大小/深度/重复/未知字段限制及原拒绝语义 |
 | `publishing/sheinmanaged` → 原 BaseAPIClient/StoreID factory → 旧 Publishing resolver/API ports | 全部 tracked Go 无包外生产 importer，无当前 composition 注入 | 9 生产/1 测试文件整退；**不是** `sheinloginmanaged` |
 | Publishing `runtime_*` / resolver / cache / remote submit → 旧 API/AI/缓存/lease/recovery | 构造器和执行声明的消费者在本批闭包内部；当前草稿/validator 不消费这些实现 | 旧实现及专属输入/输出、helper/fixture 整退，不迁移 owner 或造替代入口 |
-| 旧 Publishing → `listing/submission` 旧通用 attempt/event/lock/回读恢复 helper | 原数字 caller 已退，剩余消费者同属本批；与当前 ExecutionKernel 不同协议 | 精确退休 51 生产文件；保留当前 Kernel/官方协议 13 生产文件及全部有效测试 |
+| 旧 Publishing → `listing/submission` 旧通用 attempt/event/lock/回读恢复 helper | 原数字 caller 已退，剩余消费者同属本批；与当前 ExecutionKernel 不同协议 | 精确退休 51 生产文件；保留当前 Kernel/官方协议 13 个业务源码文件、原 doc.go 及全部有效测试 |
 | 旧解析/优化 → `shein/category`、`aicache`、旧 content/submitprep → 18 Prompt keys | 只余本批执行消费者及静态目录引用；目录不是执行需求 | 专属代码和四份 YAML/18 key 元数据同批退；不改变通用 Prompt owner |
 | 当前文本清理/话题 → content/submitprep 原服务 → listingadmin 原仓库 | 当前纯组装/清理仍消费租户词库/话题及授权品牌规则 | 保留当前读取、配置/隔离和四张现用表；只退旧提交错误驱动的自动词条写回/重试 |
 
@@ -72,7 +72,7 @@ Threat Model：误删纯值/安全规则；把 Package 旧状态误当当前 Sub
 | --- | ---: | --- | --- |
 | publishing/shein | 80 | 旧 API builders、解析/AI/cache/runtime、上传/翻译、submission/回读/lease/retry 及专属 helper | 原当前 Package/纯组装/规则/严格 codec 的 40 生产文件按 mixed 或原样保留 |
 | publishing/sheinmanaged | 9 | 全部旧 managed publishing factory/adapter，包括仅 package 声明的 bridge.go | sheinloginmanaged 及独立登录/同步全部保留 |
-| listing/submission | 51 | 旧 attempt/event/lock/direct-submit/refresh/backfill/projection/phase-detail 等专属协议 | 当前 13 Kernel/official/平台 effect 文件、当前持久化和测试注入 API不改 |
+| listing/submission | 51 | 旧 attempt/event/lock/direct-submit/refresh/backfill/projection/phase-detail 等专属协议 | 当前 13 Kernel/official/平台 effect 文件及原 doc.go、当前持久化和测试注入 API不改 |
 | shein/category、aicache、content、submitprep | 8 | 旧 category manager/cache、optimizer/string_sanitizer/text_cleaner、language/localized_content/localized_list | 当前词库/品牌/话题服务与规则保留，不整包删 content/submitprep |
 | marketplace/shein/publishing | 4 | projection_policy、phase_detail_policy、remote_record_policy、sensitive_retry_policy | 其余纯平台规则，包括文本/价格/图像/模板/属性/重量/站点/POD 等原位保留 |
 
@@ -121,7 +121,7 @@ Cutover/deletion condition: 用户确认 + 独立准入 + Issue Ready → 原 gu
 
 ## 6. 实施、验证与验收
 
-当前仅设计：不跑实际应用、真实 provider、DB/队列/浏览器或旧 recovery 工具。Go AST/类型调查是静态证据，不写成测试用例 PASS、运行验收或产品验收。
+设计阶段的 Go AST/类型调查是静态证据，不写成测试用例 PASS。实施使用原隔离测试和必要构建；不运行实际应用、真实 provider、既有 DB/队列/浏览器或旧 recovery 工具，不把源码/CI 当运行或产品验收。
 
 后续获明确实施授权并登记 Ready 后，在同一主要 PR：
 
@@ -147,7 +147,7 @@ Cutover/deletion condition: 用户确认 + 独立准入 + Issue Ready → 原 gu
 | sale_attribute_value_matcher_test.go | 旧 resolver/matcher facade 专属 11 项退休 | 两项 `ApplySaleAttributeResolution` 当前序列化/无虚构 placeholder 断言；canonical platform matcher/policy 原测试保持 |
 | submit_image_policy_test.go、submit_payload_policy_test.go | 退出旧计数/上传/repair/facade 专属测试 | CloneProductForSubmit 深拷贝、当前 supplier code、prepared SKU/尺寸模板拒绝等原断言 |
 | submit_payload_validation_prepare_test.go | 不再以退休 PrepareProductForSubmit 为 reference，直接验证现用 PrepareProductForValidation 的预期 | 不生成身份、保留给定身份、规范化/transport 清理的确定性规则 |
-| submit_site_sku_policy_test.go | 重量边界 fixture 改引用原 canonical policy 常量，去旧私有 alias | 全部三项 SKU/stock/site/weight 原有效断言 |
+| submit_site_sku_policy_test.go | 重量边界 fixture 明确断言原 canonical policy 的 0.01g 下限（原常量未导出，不新增生产 export），去旧私有 alias | 全部三项 SKU/stock/site/weight 原有效断言 |
 | variant_image_coverage_test.go | 退休旧执行 enforcement 两项；metadata fixture 直接使用原 canonical policy key/值 | 当前 VariantImageCoverageStatus 的消息/阻塞读取及原 canonical policy 图像规则测试 |
 | Prompt 的四个原测试文件 | known-key 正例 fixture 换现有未退休 key；保留 literal generic store/renderer 测试；原 service stub 增加 18 key 的 schema/Upsert 未触 Store 拒绝 | tenant 隔离/权限、其它 key、loader/render、列表/status/已有行通用语义、错误码和 Store 写入前拒绝 |
 | tests/listingkit_backend_retirement_test.go | 原精确缺席列表加入附录，原 scoped AST 声明/字段和实际 cmd 依赖守卫覆盖退出根/字段/18 key；旧 retained-file 项仅退出本矩阵文件 | 现有 task/RPC/各平台/身份/采集/Store/worker/当前 schema/安全断言，不禁其它包同名 selector/local/field |
@@ -160,7 +160,7 @@ Cutover/deletion condition: 用户确认 + 独立准入 + Issue Ready → 原 gu
 
 ## 7. 确认、准入与停止条件
 
-1. 本轮仅文档/只读设计，Independent Architecture 尚待适用独立检查；未明确 IMPLEMENTATION_READY 且未获用户确认/实施授权前，不修改生产、测试、schema 或状态机。
+1. 设计阶段仅文档/只读调查；用户已确认冻结设计，原独立检查完成、Issue 已记录 IMPLEMENTATION_READY / Ready 后实施。该准入不构成合并/运行/数据授权。
 2. 用户确认范围并获准后，由原唯一 Writer 在同一 PR 先把 #29/#301 当前 Design Basis/Ready 记录读回，再执行原 guard RED→完整源码/有效测试 GREEN。小提交是实现/回滚边界，不另开机械小 PR。
 3. 原设计审查最多两轮正常检查。finding 先分类并指出当前 Must/影响/阻塞层级；非 Blocker 走实现测试或 Backlog，不无限补架构版本。
 4. 若发现新的当前生产消费者、当前外部可观察兼容义务，或需要改变当前权限/事实/schema/事务/状态/预算/副作用/UNKNOWN owner，停止相应部分并报告具体证据；不得自行新增迁移/fallback、扩大生产文件矩阵或降低原准入。

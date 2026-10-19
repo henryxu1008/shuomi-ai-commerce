@@ -12,7 +12,6 @@ import (
 func conflictingPersistedAliases(pkg *Package) bool {
 	return (pkg.DraftPayload != nil && pkg.RequestDraft != nil && !equalPersistedAliases(pkg.DraftPayload, pkg.RequestDraft)) ||
 		(pkg.PreviewPayload != nil && pkg.PreviewProduct != nil && !equalPersistedAliases(pkg.PreviewPayload, pkg.PreviewProduct)) ||
-		(pkg.SubmissionState != nil && pkg.Submission != nil && !equalPersistedAliases(pkg.SubmissionState, pkg.Submission)) ||
 		(pkg.FinalSubmissionDraft != nil && pkg.FinalDraft != nil && !equalPersistedAliases(pkg.FinalSubmissionDraft, pkg.FinalDraft))
 }
 
@@ -32,10 +31,6 @@ func NormalizePackageSemanticFields(pkg *Package) *Package {
 		pkg.PreviewPayload = pkg.PreviewProduct
 	}
 	pkg.PreviewProduct = pkg.PreviewPayload
-	if pkg.SubmissionState == nil {
-		pkg.SubmissionState = pkg.Submission
-	}
-	pkg.Submission = pkg.SubmissionState
 	if pkg.FinalSubmissionDraft == nil {
 		pkg.FinalSubmissionDraft = pkg.FinalDraft
 	}

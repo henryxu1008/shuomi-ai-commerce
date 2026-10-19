@@ -53,7 +53,7 @@ func TestServiceListsTemplateCatalog(t *testing.T) {
 	originalRegistry := prompt.GlobalRegistry
 	prompt.GlobalRegistry = stubPromptRegistry{
 		contentByKey: map[string]string{
-			prompt.KSheinContentOptimizerOptimizeTitleDescriptionUser: "Title: {{.title}}\nDescription: {{.description}}",
+			prompt.KProductEnrichLlmScorerTextScoring: "Text: {{.Text}}\nScore: {{.BaseScore}}",
 		},
 	}
 	defer func() {
@@ -68,22 +68,22 @@ func TestServiceListsTemplateCatalog(t *testing.T) {
 
 	var matched *TemplateSchema
 	for i := range items {
-		if items[i].Key == prompt.KSheinContentOptimizerOptimizeTitleDescriptionUser {
+		if items[i].Key == prompt.KProductEnrichLlmScorerTextScoring {
 			matched = &items[i]
 			break
 		}
 	}
 	if matched == nil {
-		t.Fatalf("catalog missing key %s", prompt.KSheinContentOptimizerOptimizeTitleDescriptionUser)
+		t.Fatalf("catalog missing key %s", prompt.KProductEnrichLlmScorerTextScoring)
 	}
 	if !matched.HasDefaultContent {
 		t.Fatalf("catalog item %+v should report default content", *matched)
 	}
-	if matched.Label != "文案优化 / 用户提示词" {
+	if matched.Label != "文本评分" {
 		t.Fatalf("catalog label = %q, want explicit label", matched.Label)
 	}
-	if len(matched.Variables) != 3 {
-		t.Fatalf("variables = %+v, want 3 items", matched.Variables)
+	if len(matched.Variables) != 2 {
+		t.Fatalf("variables = %+v, want 2 items", matched.Variables)
 	}
 	if matched.Variables[0].Description == "" {
 		t.Fatalf("variables = %+v, want glossary-backed descriptions", matched.Variables)
@@ -162,7 +162,7 @@ func TestServiceUpsertNormalizesTemplate(t *testing.T) {
 	store := &stubPromptStore{
 		get: &prompt.TenantPromptTemplate{
 			TenantID: "tenant-a",
-			Key:      prompt.KSheinContentOptimizerOptimizeTitleDescriptionSystem,
+			Key:      prompt.KProductEnrichLlmScorerImageScoring,
 			Content:  "hello",
 			Version:  "v1",
 			Enabled:  true,
@@ -171,7 +171,7 @@ func TestServiceUpsertNormalizesTemplate(t *testing.T) {
 	svc := NewService(store)
 	saved, err := svc.UpsertTenantTemplate(context.Background(), UpsertTemplateInput{
 		TenantID: " tenant-a ",
-		Key:      " " + prompt.KSheinContentOptimizerOptimizeTitleDescriptionSystem + " ",
+		Key:      " " + prompt.KProductEnrichLlmScorerImageScoring + " ",
 		Content:  " hello ",
 		Version:  " v1 ",
 		Enabled:  true,
@@ -179,10 +179,10 @@ func TestServiceUpsertNormalizesTemplate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpsertTenantTemplate error = %v", err)
 	}
-	if store.last.TenantID != "tenant-a" || store.last.Key != prompt.KSheinContentOptimizerOptimizeTitleDescriptionSystem || store.last.Content != "hello" || store.last.Version != "v1" {
+	if store.last.TenantID != "tenant-a" || store.last.Key != prompt.KProductEnrichLlmScorerImageScoring || store.last.Content != "hello" || store.last.Version != "v1" {
 		t.Fatalf("normalized template = %+v", store.last)
 	}
-	if saved.Key != prompt.KSheinContentOptimizerOptimizeTitleDescriptionSystem || saved.TenantID != "tenant-a" {
+	if saved.Key != prompt.KProductEnrichLlmScorerImageScoring || saved.TenantID != "tenant-a" {
 		t.Fatalf("saved = %+v", saved)
 	}
 }
@@ -221,7 +221,7 @@ func TestServiceSetStatusReturnsNormalizedPayload(t *testing.T) {
 }
 
 func TestServiceRetiresTemuVisionCatalog(t *testing.T) {
-	for _, retiredKey := range []string{"temu.vision_detector.detect", "temu.attribute_mapping.system", "temu.content_rewriter.system", "temu.sku_variant_mapping.system"} {
+	for _, retiredKey := range []string{"temu.vision_detector.detect", "temu.attribute_mapping.system", "temu.content_rewriter.system", "temu.sku_variant_mapping.system", "shein.category_selector.extract_core_item_system", "shein.category_selector.select_category_system", "shein.category_selector.select_category_user", "shein.category_selector.semantic_validation", "shein.content_optimizer.optimize_title_description_system", "shein.content_optimizer.optimize_title_description_user", "shein.display_attribute.batch_inference", "shein.display_attribute.field_selection", "shein.display_attribute.field_selection_batch", "shein.display_attribute.missing_text", "shein.display_attribute.missing_value", "shein.display_attribute.required_repair", "shein.display_attribute.value_mapping", "shein.display_attribute.value_mapping_batch", "shein.sale_attribute.mapping", "shein.sale_attribute.prompt_value_extraction", "shein.sale_attribute.source_dimension", "shein.sale_attribute.value_batch_mapping"} {
 		t.Run(retiredKey, func(t *testing.T) {
 			originalRegistry := prompt.GlobalRegistry
 			prompt.GlobalRegistry = stubPromptRegistry{contentByKey: map[string]string{retiredKey: "cached content"}}
@@ -252,7 +252,7 @@ func TestServiceRetiresTemuVisionCatalog(t *testing.T) {
 }
 
 func TestServicePreservesRowsOutsideCatalog(t *testing.T) {
-	for _, retiredKey := range []string{"temu.vision_detector.detect", "temu.attribute_mapping.system", "temu.content_rewriter.system", "temu.sku_variant_mapping.system"} {
+	for _, retiredKey := range []string{"temu.vision_detector.detect", "temu.attribute_mapping.system", "temu.content_rewriter.system", "temu.sku_variant_mapping.system", "shein.category_selector.extract_core_item_system", "shein.category_selector.select_category_system", "shein.category_selector.select_category_user", "shein.category_selector.semantic_validation", "shein.content_optimizer.optimize_title_description_system", "shein.content_optimizer.optimize_title_description_user", "shein.display_attribute.batch_inference", "shein.display_attribute.field_selection", "shein.display_attribute.field_selection_batch", "shein.display_attribute.missing_text", "shein.display_attribute.missing_value", "shein.display_attribute.required_repair", "shein.display_attribute.value_mapping", "shein.display_attribute.value_mapping_batch", "shein.sale_attribute.mapping", "shein.sale_attribute.prompt_value_extraction", "shein.sale_attribute.source_dimension", "shein.sale_attribute.value_batch_mapping"} {
 		t.Run(retiredKey, func(t *testing.T) {
 			store := &stubPromptStore{list: []prompt.TenantPromptTemplate{{
 				TenantID: "tenant-a", Key: retiredKey, Content: "saved override", Enabled: true,
