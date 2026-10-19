@@ -41,58 +41,6 @@ func TestListingStoreToStoreUsesAuditFallbacks(t *testing.T) {
 	}
 }
 
-func TestApplyStoreCreateDefaultsFillsRegionDailyLimitTypeAndAuditNames(t *testing.T) {
-	t.Parallel()
-
-	row := listingStore{
-		OwnerUserID: "owner-1",
-		CreatedBy:   "created-1",
-		UpdatedBy:   "updated-1",
-	}
-
-	applyStoreCreateDefaults(&row)
-
-	if row.DailyLimitType != "SPU" {
-		t.Fatalf("dailyLimitType = %q, want SPU", row.DailyLimitType)
-	}
-	if row.Region != "US" {
-		t.Fatalf("region = %q, want US", row.Region)
-	}
-	if row.Creator != "created-1" {
-		t.Fatalf("creator = %q, want created-1", row.Creator)
-	}
-	if row.Updater != "updated-1" {
-		t.Fatalf("updater = %q, want updated-1", row.Updater)
-	}
-}
-
-func TestListingStoreToStoreIncludesAuthorizedBrandFields(t *testing.T) {
-	t.Parallel()
-
-	enabled := true
-	row := listingStore{
-		ID:                       99,
-		TenantID:                 101,
-		Name:                     "Demo Store",
-		Username:                 "demo-user",
-		Password:                 "secret",
-		Platform:                 "SHEIN",
-		ShopType:                 "semi",
-		Region:                   "US",
-		EnableBrandAuthorization: &enabled,
-		AuthorizedBrandCode:      "2fd1n",
-		AuthorizedBrandName:      "Logitech",
-	}
-
-	store := row.toStore()
-	if store.EnableBrandAuthorization == nil || !*store.EnableBrandAuthorization {
-		t.Fatalf("EnableBrandAuthorization = %#v, want true", store.EnableBrandAuthorization)
-	}
-	if store.AuthorizedBrandCode != "2fd1n" || store.AuthorizedBrandName != "Logitech" {
-		t.Fatalf("authorized brand = %q/%q, want 2fd1n/Logitech", store.AuthorizedBrandCode, store.AuthorizedBrandName)
-	}
-}
-
 func TestApplyStoreAccessScopeHonorsTenantAndOwnerWithoutDeletedFilter(t *testing.T) {
 	t.Parallel()
 
@@ -128,9 +76,8 @@ func TestApplyStoreAccessScopeHonorsTenantAndOwnerWithoutDeletedFilter(t *testin
 	}
 }
 
-func TestTakeStoreAccessRowRespectsDeletedState(t *testing.T) {
+func TestGormStoreRepositoryRejectsDeletedStoreReadsAndSyncWrites(t *testing.T) {
 	t.Parallel()
-
 	db, err := gorm.Open(sqlite.Dialector{DriverName: "sqlite", DSN: ":memory:"}, &gorm.Config{})
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
@@ -138,21 +85,28 @@ func TestTakeStoreAccessRowRespectsDeletedState(t *testing.T) {
 	if err := db.AutoMigrate(&listingStore{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	row := listingStore{TenantID: 101, OwnerUserID: "user-a", Name: "deleted", Username: "deleted", Password: "secret", Platform: "SHEIN", ShopType: "semi", Deleted: 1}
+	row := listingStore{TenantID: 101, OwnerUserID: "user-a", Name: "deleted", Username: "deleted", Password: "secret", Platform: "SHEIN", ShopType: "semi", StoreID: "original", Remark: "original", Deleted: 1}
 	if err := db.Table("listing_store").Create(&row).Error; err != nil {
 		t.Fatalf("seed row: %v", err)
 	}
-
 	t.Cleanup(SetOwnerScopeRequiredForTesting(true))
 	ctx := withRequestIdentity(context.TODO(), "user-a", nil)
-
-	var loaded listingStore
-	err = takeStoreAccessRow(ctx, db.Table("listing_store"), 101, row.ID, 1, &loaded)
-	if err != nil {
-		t.Fatalf("takeStoreAccessRow: %v", err)
+	repo := NewGormStoreRepository(db)
+	if _, err := repo.GetStore(ctx, 101, row.ID); !errors.Is(err, ErrStoreNotFound) {
+		t.Fatalf("GetStore deleted row error = %v, want ErrStoreNotFound", err)
 	}
-	if loaded.Name != "deleted" {
-		t.Fatalf("loaded = %+v, want deleted row", loaded)
+	if _, err := repo.UpdateStoreID(ctx, row.ID, "changed"); !errors.Is(err, ErrStoreNotFound) {
+		t.Fatalf("UpdateStoreID deleted row error = %v, want ErrStoreNotFound", err)
+	}
+	if _, err := repo.UpdateStoreStatus(ctx, 101, row.ID, 1, "changed"); !errors.Is(err, ErrStoreNotFound) {
+		t.Fatalf("UpdateStoreStatus deleted row error = %v, want ErrStoreNotFound", err)
+	}
+	var loaded listingStore
+	if err := db.Table("listing_store").Where("id = ?", row.ID).Take(&loaded).Error; err != nil {
+		t.Fatalf("read fixture: %v", err)
+	}
+	if loaded.StoreID != "original" || loaded.Status != 0 || loaded.Remark != "original" || loaded.Deleted != 1 {
+		t.Fatalf("deleted fixture changed: %+v", loaded)
 	}
 }
 
@@ -248,9 +202,8 @@ func TestGormStoreRepositoryGetStoreAllowsLegacyUnownedStoreRead(t *testing.T) {
 	}
 }
 
-func TestFindStoreRowsSupportsDeletedListingScope(t *testing.T) {
+func TestGormStoreRepositoryListStoresExcludesDeletedAndForeignScopes(t *testing.T) {
 	t.Parallel()
-
 	db, err := gorm.Open(sqlite.Dialector{DriverName: "sqlite", DSN: ":memory:"}, &gorm.Config{})
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
@@ -262,22 +215,21 @@ func TestFindStoreRowsSupportsDeletedListingScope(t *testing.T) {
 		{TenantID: 101, OwnerUserID: "user-a", Name: "deleted-a", Username: "deleted-a", Password: "secret", Platform: "SHEIN", ShopType: "semi", Deleted: 1},
 		{TenantID: 101, OwnerUserID: "user-b", Name: "deleted-b", Username: "deleted-b", Password: "secret", Platform: "SHEIN", ShopType: "semi", Deleted: 1},
 		{TenantID: 101, OwnerUserID: "user-a", Name: "active-a", Username: "active-a", Password: "secret", Platform: "SHEIN", ShopType: "semi", Deleted: 0},
+		{TenantID: 202, OwnerUserID: "user-a", Name: "foreign-tenant", Username: "foreign-tenant", Password: "secret", Platform: "SHEIN", ShopType: "semi", Deleted: 0},
+		{TenantID: 101, OwnerUserID: "user-b", Name: "foreign-owner", Username: "foreign-owner", Password: "secret", Platform: "SHEIN", ShopType: "semi", Deleted: 0},
 	} {
 		if err := db.Table("listing_store").Create(&row).Error; err != nil {
 			t.Fatalf("seed row: %v", err)
 		}
 	}
-
 	t.Cleanup(SetOwnerScopeRequiredForTesting(true))
 	ctx := withRequestIdentity(context.TODO(), "user-a", nil)
-
-	deleted := int16(1)
-	rows, err := findStoreRows(ctx, db.Table("listing_store"), StoreQuery{TenantID: 101, Deleted: &deleted})
+	page, err := NewGormStoreRepository(db).ListStores(ctx, StoreQuery{TenantID: 101, OwnerUserID: "user-a"})
 	if err != nil {
-		t.Fatalf("findStoreRows: %v", err)
+		t.Fatalf("ListStores: %v", err)
 	}
-	if len(rows) != 1 || rows[0].Name != "deleted-a" {
-		t.Fatalf("rows = %+v, want deleted row for user-a only", rows)
+	if page.Total != 1 || len(page.Items) != 1 || page.Items[0].Name != "active-a" {
+		t.Fatalf("page = %+v, want only active row for same tenant/owner", page)
 	}
 }
 
@@ -304,16 +256,26 @@ func TestApplyStoreQuerySupportsSharedReadAccess(t *testing.T) {
 
 	t.Cleanup(SetOwnerScopeRequiredForTesting(true))
 	ctx := withRequestIdentity(context.Background(), "user-a", nil)
-	rows, err := findStoreRows(ctx, db.WithContext(ctx).Table("listing_store"), StoreQuery{
+	page, err := NewGormStoreRepository(db).ListStores(ctx, StoreQuery{
 		TenantID:   101,
 		Platform:   "SHEIN",
 		ReadAccess: true,
 	})
 	if err != nil {
-		t.Fatalf("findStoreRows: %v", err)
+		t.Fatalf("ListStores: %v", err)
 	}
-	if len(rows) != 3 {
-		t.Fatalf("rows = %+v, want owned plus shared stores", rows)
+	if len(page.Items) != 3 || page.Total != 3 {
+		t.Fatalf("page = %+v, want owned plus shared stores", page)
+	}
+	expected := map[string]bool{"owned": true, "shared-null": true, "shared-empty": true}
+	for _, row := range page.Items {
+		if !expected[row.Name] {
+			t.Fatalf("unexpected shared-read row: %+v", row)
+		}
+		delete(expected, row.Name)
+	}
+	if len(expected) != 0 {
+		t.Fatalf("missing shared-read rows: %v", expected)
 	}
 }
 
@@ -341,15 +303,15 @@ func TestApplyStoreQueryMatchesPlatformCaseInsensitively(t *testing.T) {
 		t.Fatalf("seed row: %v", err)
 	}
 
-	rows, err := findStoreRows(context.Background(), db.WithContext(context.Background()).Table("listing_store"), StoreQuery{
+	page, err := NewGormStoreRepository(db).ListStores(context.Background(), StoreQuery{
 		TenantID:   101,
 		Platform:   "SHEIN",
 		ReadAccess: true,
 	})
 	if err != nil {
-		t.Fatalf("findStoreRows: %v", err)
+		t.Fatalf("ListStores: %v", err)
 	}
-	if len(rows) != 1 || rows[0].Platform != "shein" {
-		t.Fatalf("rows = %+v, want lowercase shein store", rows)
+	if len(page.Items) != 1 || page.Items[0].Platform != "shein" {
+		t.Fatalf("page = %+v, want lowercase shein store", page)
 	}
 }

@@ -1,5 +1,7 @@
 # 旧 SHEIN Publishing 运行适配、解析器与提交恢复完整闭包退休边界
 
+> #831 [Store 管理闭包校准](legacy-numeric-store-management-closure-retirement-boundary.md)只在其 §5 七项无入口 Store 管理方法、五 helper 与 67 配置/查询字段上进一步收窄此前 Store 保留范围。当前账号读/同步、schema 辅助、词库/话题、九方法 StoreAPI、共享值类型及独立 worker 保持原 owner；本设计其余保留和历史证据不变，无数据/运行操作。
+
 Refs #29 / #301。调查基线：`8add3a4455123c04871677bf2c1a3b1366307703`。
 
 > Design Basis：**Independent Architecture**。状态：**IMPLEMENTATION_READY / SOURCE_IMPLEMENTED_IN_REVIEW**。用户已确认冻结设计 `a88ceb527` 的 §5/§6/§6.1/§7；独立设计检查完成无 findings，#29/#301 Ready 后在同一 #827 实施。准确实现 HEAD、CI、最终独立检查写 PR；合并/部署/实例/数据操作未授权。

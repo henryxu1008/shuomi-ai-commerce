@@ -2144,6 +2144,129 @@ func TestTemuImageAPIAndVisionResourcesAreRetired(t *testing.T) {
 	}
 }
 
+func TestNumericStoreManagementClosureIsRetired(t *testing.T) {
+	retiredMethods := strings.Fields("CreateStore UpdateStore DeleteStore ListDeletedStores RestoreStore PermanentlyDeleteStore ExtendStoreValidity")
+	retiredHelpers := strings.Fields("listingStoreFromStore applyStoreCreateDefaults findStoreRows parseTenantID deleteStoreAccessRow")
+	configurationFields := strings.Fields("DailyLimit DailyLimitType FixedStockCount SKUGenerateStrategy Prefix Suffix EnableAutoListing EnableAutoLogin EnableDraft EnableAutoPrice EnableRebargain EnableBrandAuthorization AuthorizedBrandCode AuthorizedBrandName TemuPriceRejectStrategy PriceType DedicatedQueueEnabled")
+	retiredFields := map[string][]string{
+		"Store": configurationFields, "listingStore": configurationFields,
+		"StoreRespDTO":    append([]string{"SkuGenerateStrategy"}, append(append([]string{}, configurationFields[:3]...), configurationFields[4:]...)...),
+		"StoreQuery":      strings.Fields("StoreID Name Username ShopType Region SKUGenerate EnableAutoListing EnableAutoLogin EnableDraft EnableAutoPrice EnableRebargain PriceType Status Expired Deleted"),
+		"StorePageReqDTO": {"EnableAutoPrice"},
+	}
+	seen := map[string]bool{}
+	paths, err := filepath.Glob(filepath.Join("..", "internal", "listingadmin", "*.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(paths) == 0 {
+		t.Fatal("retained listingadmin package is absent")
+	}
+	contains := func(names []string, name string) bool {
+		for _, candidate := range names {
+			if candidate == name {
+				return true
+			}
+		}
+		return false
+	}
+	for _, path := range paths {
+		if strings.HasSuffix(path, "_test.go") {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, declaration := range file.Decls {
+			switch declaration := declaration.(type) {
+			case *ast.FuncDecl:
+				if declaration.Recv == nil {
+					if contains(retiredHelpers, declaration.Name.Name) {
+						t.Errorf("%s retains retired Store helper %s", path, declaration.Name.Name)
+					}
+					if declaration.Name.Name == "takeStoreAccessRow" || declaration.Name.Name == "updateStoreAccessRow" {
+						seen[declaration.Name.Name] = true
+						for _, parameter := range declaration.Type.Params.List {
+							for _, name := range parameter.Names {
+								if name.Name == "deleted" {
+									t.Errorf("%s retains recyclable-row parameter on %s", path, declaration.Name.Name)
+								}
+							}
+						}
+					}
+					continue
+				}
+				if len(declaration.Recv.List) != 1 {
+					continue
+				}
+				receiver := declaration.Recv.List[0].Type
+				if pointer, ok := receiver.(*ast.StarExpr); ok {
+					receiver = pointer.X
+				}
+				if owner, ok := receiver.(*ast.Ident); ok && owner.Name == "GormStoreRepository" && contains(retiredMethods, declaration.Name.Name) {
+					t.Errorf("%s retains retired Store method %s.%s", path, owner.Name, declaration.Name.Name)
+				}
+			case *ast.GenDecl:
+				for _, spec := range declaration.Specs {
+					if binding, ok := spec.(*ast.ValueSpec); ok {
+						for _, name := range binding.Names {
+							if contains(retiredHelpers, name.Name) {
+								t.Errorf("%s recreates retired Store helper binding %s", path, name.Name)
+							}
+						}
+					}
+					typ, ok := spec.(*ast.TypeSpec)
+					if !ok {
+						continue
+					}
+					if typ.Name.Name == "StoreRepository" {
+						seen[typ.Name.Name] = true
+						contract, ok := typ.Type.(*ast.InterfaceType)
+						if !ok {
+							t.Fatal("StoreRepository must remain an explicit interface")
+						}
+						for _, method := range contract.Methods.List {
+							for _, name := range method.Names {
+								if contains(retiredMethods, name.Name) {
+									t.Errorf("StoreRepository retains retired management method %s", name.Name)
+								}
+							}
+							if len(method.Names) == 0 {
+								t.Error("StoreRepository must not embed a second management contract")
+							}
+						}
+					}
+					fields, scoped := retiredFields[typ.Name.Name]
+					if !scoped {
+						continue
+					}
+					seen[typ.Name.Name] = true
+					shape, ok := typ.Type.(*ast.StructType)
+					if !ok {
+						t.Fatalf("%s must remain an explicit value struct", typ.Name.Name)
+					}
+					for _, field := range shape.Fields.List {
+						for _, name := range field.Names {
+							if contains(fields, name.Name) {
+								t.Errorf("%s retains retired Store field %s.%s", path, typ.Name.Name, name.Name)
+							}
+						}
+						if len(field.Names) == 0 {
+							t.Errorf("%s must not embed retired configuration", typ.Name.Name)
+						}
+					}
+				}
+			}
+		}
+	}
+	for _, name := range []string{"StoreRepository", "Store", "listingStore", "StoreRespDTO", "StoreQuery", "StorePageReqDTO", "takeStoreAccessRow", "updateStoreAccessRow"} {
+		if !seen[name] {
+			t.Errorf("retained Store declaration %s is absent", name)
+		}
+	}
+}
+
 func TestSKURetirementGuardPreservesSharedNames(t *testing.T) {
 	for _, tt := range []struct {
 		name, source string
