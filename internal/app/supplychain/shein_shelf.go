@@ -30,15 +30,16 @@ type SheinShelfConfirmation struct {
 	HopeOnSaleDate string                `json:"hopeOnSaleDate"`
 }
 type SheinShelfActionResult struct {
-	Key         string                     `json:"key"`
-	AttemptID   string                     `json:"attemptId"`
-	SourceID    string                     `json:"sourceId"`
-	StoreID     string                     `json:"storeId"`
-	ReceiptID   string                     `json:"receiptId"`
-	SKC         string                     `json:"skc"`
-	Status      submission.ExecutionStatus `json:"status"`
-	Message     string                     `json:"message"`
-	Observation *SheinPublicationStatus    `json:"observation,omitempty"`
+	Key         string                      `json:"key"`
+	AttemptID   string                      `json:"attemptId"`
+	SourceID    string                      `json:"sourceId"`
+	StoreID     string                      `json:"storeId"`
+	ReceiptID   string                      `json:"receiptId"`
+	SKC         string                      `json:"skc"`
+	Status      submission.ExecutionStatus  `json:"status"`
+	Message     string                      `json:"message"`
+	Observation *SheinPublicationStatus     `json:"observation,omitempty"`
+	Response    *model.ShelfResponseSummary `json:"response,omitempty"`
 }
 
 func (s *SheinPublicationService) preflight(ctx context.Context, p loadedSheinPublication, skc string) (SheinSKCStatus, string, error) {
@@ -108,6 +109,11 @@ func (s *SheinPublicationService) matchesIntent(p loadedSheinPublication, v subm
 	return submission.ValidateOfficialIntent(v) == nil && v.Shelf != nil && v.Owner == p.scope && v.RecordID == p.record.ID && v.RecordHash == collection.Digest(p.record) && v.Binding == p.binding && v.Shelf.OriginalReceiptID == p.receipt.ID && v.Shelf.OriginalReceiptHash == collection.Digest(p.receipt) && v.Shelf.SKC == in.SKC
 }
 func (s *SheinPublicationService) Read(ctx context.Context, key string, in SheinShelfInput) (SheinShelfActionResult, error) {
+	if ctx == nil || !collection.ValidID(key) || in.StockOffset != 0 {
+		return SheinShelfActionResult{}, record.ErrInvalid
+	}
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
 	p, e := s.load(ctx, in.SourceID, in.StoreID, in.ReceiptID, false)
 	if e != nil {
 		return SheinShelfActionResult{}, e
@@ -200,7 +206,9 @@ func (s *SheinPublicationService) Confirm(ctx context.Context, key string, in Sh
 	result, e := m.ShelfOn(call, in.SKC)
 	cancelCall()
 	if e != nil {
-		return unknown()
+		out, e := unknown()
+		out.Response = result.Response
+		return out, e
 	}
 	proof, e := submission.NewShelfCompletion(intent, acquired.Attempt, claim, result)
 	if e != nil {

@@ -16,8 +16,10 @@ import (
 	"task-processor/internal/httproute"
 	"task-processor/internal/listing/preparation"
 	record "task-processor/internal/listing/record/target"
+	"task-processor/internal/listing/submission"
 	"task-processor/internal/product/asset"
 	"task-processor/internal/product/collection"
+	"time"
 	"unicode/utf8"
 )
 
@@ -92,7 +94,11 @@ func SupplyRoutes(app *supplyapp.Application, bind func(context.Context, string)
 	}
 	result := []httproute.Descriptor{}
 	for _, spec := range specs {
-		result = append(result, httproute.Descriptor{Method: spec.method, Path: SupplyBasePath + spec.path, Module: "supply-chain", Permission: spec.permission, AuthPolicy: httproute.AuthPolicyVerifiedIdentity, OrganizationAccessPolicy: httproute.OrganizationAccessPolicyLiveWrite, RequestTimeout: 20e9, Handler: httproute.WithRequestBodyReadTimeout(3e9, func(c *gin.Context) {
+		budget := 20 * time.Second
+		if strings.HasPrefix(spec.path, "/shein-publication/") || strings.Contains(spec.path, "/status") {
+			budget = 30 * time.Second
+		}
+		result = append(result, httproute.Descriptor{Method: spec.method, Path: SupplyBasePath + spec.path, Module: "supply-chain", Permission: spec.permission, AuthPolicy: httproute.AuthPolicyVerifiedIdentity, OrganizationAccessPolicy: httproute.OrganizationAccessPolicyLiveWrite, RequestTimeout: budget, Handler: httproute.WithRequestBodyReadTimeout(3e9, func(c *gin.Context) {
 			c.Header("Cache-Control", "no-store")
 			if app == nil || bind == nil {
 				supplyError(c, preparation.ErrUnavailable)
@@ -416,17 +422,17 @@ func supplyEmptyBody(r *http.Request) error {
 func supplyError(c *gin.Context, err error) {
 	status, code := http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE"
 	switch {
-	case errors.Is(err, collection.ErrInvalid), errors.Is(err, preparation.ErrInvalid), errors.Is(err, record.ErrInvalid), errors.Is(err, asset.ErrInvalidApproval):
+	case errors.Is(err, submission.ErrExecutionInvalid), errors.Is(err, submission.ErrExecutionEvidenceRequired), errors.Is(err, collection.ErrInvalid), errors.Is(err, preparation.ErrInvalid), errors.Is(err, record.ErrInvalid), errors.Is(err, asset.ErrInvalidApproval):
 		status, code = http.StatusBadRequest, "INVALID_REQUEST"
 	case errors.Is(err, collection.ErrForbidden), errors.Is(err, preparation.ErrForbidden), errors.Is(err, record.ErrForbidden), errors.Is(err, asset.ErrSourceApprovalForbidden):
 		status, code = http.StatusForbidden, "PERMISSION_DENIED"
-	case errors.Is(err, collection.ErrNotFound), errors.Is(err, preparation.ErrNotFound), errors.Is(err, record.ErrNotFound):
+	case errors.Is(err, submission.ErrExecutionNotFound), errors.Is(err, collection.ErrNotFound), errors.Is(err, preparation.ErrNotFound), errors.Is(err, record.ErrNotFound):
 		status, code = http.StatusNotFound, "NOT_FOUND"
-	case errors.Is(err, preparation.ErrConflict), errors.Is(err, record.ErrConflict), errors.Is(err, asset.ErrApprovalConflict):
+	case errors.Is(err, submission.ErrExecutionIntentConflict), errors.Is(err, preparation.ErrConflict), errors.Is(err, record.ErrConflict), errors.Is(err, asset.ErrApprovalConflict):
 		status, code = http.StatusConflict, "REVISION_CONFLICT"
-	case errors.Is(err, record.ErrNotReady):
+	case errors.Is(err, submission.ErrExecutionTargetClaimed), errors.Is(err, submission.ErrExecutionTargetSucceeded), errors.Is(err, record.ErrNotReady):
 		status, code = http.StatusConflict, "NOT_READY"
-	case errors.Is(err, preparation.ErrUnknown), errors.Is(err, record.ErrTargetUnknown), errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
+	case errors.Is(err, submission.ErrExecutionOutcomeUnknown), errors.Is(err, preparation.ErrUnknown), errors.Is(err, record.ErrTargetUnknown), errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
 		status, code = http.StatusConflict, "OUTCOME_UNKNOWN"
 	}
 	c.JSON(status, gin.H{"code": code})

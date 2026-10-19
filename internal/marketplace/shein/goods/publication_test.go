@@ -7,6 +7,30 @@ import (
 	"time"
 )
 
+func TestUSUsableInventoryNeverSubstitutesTotalsOrAnotherType(t *testing.T) {
+	zero, three, seven := int64(0), int64(3), int64(7)
+	us := []model.Warehouse{{Code: "us", SaleCountries: []string{"US"}}, {Code: "cn", SaleCountries: []string{"CN"}}}
+	for _, tc := range []struct {
+		name       string
+		stock      model.SKUInventory
+		warehouses []model.Warehouse
+		want       *int64
+	}{
+		{"explicit zero", model.SKUInventory{Usable: &seven, Warehouses: []model.WarehouseInventory{{Code: "us", Usable: &zero}, {Code: "cn", Usable: &seven}}}, us, &zero},
+		{"US only", model.SKUInventory{Usable: &seven, Warehouses: []model.WarehouseInventory{{Code: "us", Usable: &three}, {Code: "cn", Usable: &seven}}}, us, &three},
+		{"provider total only", model.SKUInventory{Usable: &seven}, us, nil},
+		{"missing warehouse", model.SKUInventory{Warehouses: []model.WarehouseInventory{{Code: "cn", Usable: &seven}}}, us, nil},
+		{"unqualified warehouses", model.SKUInventory{Usable: &seven}, nil, nil},
+		{"missing one US warehouse", model.SKUInventory{Warehouses: []model.WarehouseInventory{{Code: "us", Usable: &three}}}, append(us, model.Warehouse{Code: "us2", SaleCountries: []string{"US"}}), nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, known := UsableInUS(tc.stock, tc.warehouses)
+			require.Equal(t, tc.want, got)
+			require.Equal(t, tc.want != nil, known)
+		})
+	}
+}
+
 func TestShelfEligibilityUsesOriginalAuditAndManagedPlan(t *testing.T) {
 	now := time.Date(2026, 10, 19, 0, 0, 0, 0, time.UTC)
 	approved, off, on, rejected, appeal := 2, 0, 1, 3, 5

@@ -191,6 +191,13 @@ func (s *SheinPublicationService) observe(ctx context.Context, p loadedSheinPubl
 	var live model.ShelfProduct
 	var stock model.InventorySnapshot
 	var warehouses []model.Warehouse
+	end := min(offset+100, len(ids))
+	page := map[string]bool{}
+	if inventory {
+		for _, id := range ids[offset:end] {
+			page[id] = true
+		}
+	}
 	if !authidentity.IsBoundedIdentifier(v.Version) {
 		v.AuditError = "原上传回执缺少审核版本，不能借用最新版本"
 	} else {
@@ -230,7 +237,6 @@ func (s *SheinPublicationService) observe(ctx context.Context, p loadedSheinPubl
 		if e != nil {
 			return v, record.ErrForbidden
 		}
-		end := min(offset+100, len(ids))
 		stock, e = m.QuerySKUInventory(ctx, ids[offset:end], v.StockType)
 		at := s.now().UTC()
 		v.StockAt = &at
@@ -245,7 +251,15 @@ func (s *SheinPublicationService) observe(ctx context.Context, p loadedSheinPubl
 			v.StockError = "本次仅查询部分SKU，可继续查询下一组"
 		}
 	}
-	for _, row := range goods.ObservePublication(p.receipt.Product, p.record.Result.Product, v.Mode, audit, live, stock, warehouses, s.now()) {
+	for _, row := range goods.ObservePublication(p.receipt.Product, p.record.Result.Product, v.Mode, audit, live, stock, warehouses, s.now(), page) {
+		for _, sku := range row.SKUs {
+			if !sku.InventoryScopeKnown {
+				v.StockComplete = false
+				if inventory && v.StockError == "" {
+					v.StockError = "部分SKU的美国可用库存缺失或仓库归属不明"
+				}
+			}
+		}
 		skc := SheinSKCStatus{PublicationSKCObservation: row}
 		target, _ := submission.ShelfSubjectID(row.SKC, "shein-us")
 		attempt, e := s.d.Attempts.ReadShelfAttempt(ctx, submission.ExecutionScope{OrganizationID: p.scope.OrganizationID}, submission.ExecutionTarget{Platform: "shein", StoreID: p.binding.StoreID, SubjectID: target})

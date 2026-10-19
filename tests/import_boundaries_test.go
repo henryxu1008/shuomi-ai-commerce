@@ -2067,6 +2067,7 @@ func TestListingSubmissionPersistenceAdapterImplementsOnlySubmissionPort(t *test
 	policy := filepath.Join(adapterRoot, "temu_effects_policy.go")
 	tiktokPolicy := filepath.Join(adapterRoot, "tiktok_effects_policy.go")
 	walmartPolicy := filepath.Join(adapterRoot, "walmart_effects_policy.go")
+	sheinPolicy := filepath.Join(adapterRoot, "shein_shelf_policy.go")
 	assertNoBannedImportPrefixes(t, adapterRoot, []string{
 		"task-processor/internal/amazon",
 		"task-processor/internal/amazonlisting",
@@ -2082,7 +2083,7 @@ func TestListingSubmissionPersistenceAdapterImplementsOnlySubmissionPort(t *test
 		"task-processor/internal/shein",
 		"task-processor/internal/temu",
 		"task-processor/internal/workspace",
-	}, map[string]struct{}{policy: {}, tiktokPolicy: {}, walmartPolicy: {}})
+	}, map[string]struct{}{policy: {}, tiktokPolicy: {}, walmartPolicy: {}, sheinPolicy: {}})
 
 	index, err := loadGoFileIndex(adapterRoot, "")
 	if err != nil {
@@ -2098,7 +2099,7 @@ func TestListingSubmissionPersistenceAdapterImplementsOnlySubmissionPort(t *test
 			if !importMatchesPrefix(importPath, "task-processor/internal/listing") {
 				continue
 			}
-			if importPath != "task-processor/internal/listing/submission" && !((path == policy || path == tiktokPolicy || path == walmartPolicy) && importPath == "task-processor/internal/listing/record/target") {
+			if importPath != "task-processor/internal/listing/submission" && !((path == policy || path == tiktokPolicy || path == walmartPolicy || path == sheinPolicy) && importPath == "task-processor/internal/listing/record/target") {
 				t.Errorf("%s imports Listing sibling %s; the adapter may implement only Listing Submission-owned ports", path, importPath)
 			}
 			foundSubmissionPort = true
@@ -3813,6 +3814,8 @@ func currentOwnerLegacyListingKitRootViolations(sources []listingKitImageBoundar
 func supplyAdapterBusinessPorts() map[string][]string {
 	base := filepath.Join("..", "internal", "integration")
 	return map[string][]string{
+		filepath.Join(base, "shein", "official_publication.go"): {"task-processor/internal/marketplace/shein/model"},
+		filepath.Join(base, "persistence", "listing", "submission", "shein_shelf_policy.go"): {"task-processor/internal/listing/submission", "task-processor/internal/product/collection"},
 		filepath.Join(base, "walmart", "client.go"):                                                 {"task-processor/internal/marketplace/walmart"},
 		filepath.Join(base, "walmart", "products.go"):                                               {"task-processor/internal/marketplace/walmart"},
 		filepath.Join(base, "persistence", "listing", "official", "walmart_results.go"):             {"task-processor/internal/marketplace/walmart"},

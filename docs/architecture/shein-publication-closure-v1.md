@@ -4,9 +4,9 @@ Refs [#605](https://github.com/qq550723504/task-processor/issues/605)。
 
 > 2026-10-19 后续实施授权：用户已明确批准原 owner 按本冻结设计实施、落实四组必要验证并维护同一 PR #821。以下「本轮只设计/实施未授权」是冻结时的历史停止点，已由该最新阶段决定替代；不改变冻结的业务合同。合并、部署、真实店铺、现有运行实例和数据操作仍未授权。
 
-- Product Decision: **PD-SHEIN-PUBLICATION-CLOSURE-2026-10-19**，用户批准先更新 Issue、正式架构文档和 Figma，完成新增上架副作用的独立架构评审；**不改生产代码、不操作真实店铺**。
+- Product Decision: **PD-SHEIN-PUBLICATION-CLOSURE-2026-10-19**，用户先批准设计、Figma和独立评审，冻结后进一步明确授权按本方案实施并落实四组验证、维护同一 PR #821；不合并、部署或操作真实店铺。
 - Design Basis: **Independent Architecture**，原因是新增官方上架副作用、执行合同与恢复准入。
-- Status: **IMPLEMENTATION_READY / FROZEN**；独立评审结论与最终准入见 §13，实施仍未授权。
+- Status: **IMPLEMENTATION_READY / FROZEN**；独立评审结论与最终准入见 §13，后续实施已获授权，业务合同保持冻结。
 - Investigation baseline: `origin/main @ e2f4a2f8b20ffce7530e6962038b9b04a0e76348`。
 - Design branch: `codex/shein-shelf-closure-design`；本文件为设计依据，签发实施准入不等于获得实施、合并、部署或真实店铺授权。
 
@@ -22,7 +22,7 @@ Out of Scope：重复上下架循环、下架、编辑重发、自动改价/改�
 
 Accepted boundary：平台查询不是原子跨接口快照；平台可能最终一致，外部控制台也能改变在架状态。显示各项来源/时间与未知，不把当前在架倒推为原请求成功，不为这一边界建设通用对账系统。
 
-本决定是对 [完整供应链设计](my-supply-chain-shein-v1.md) 的有界增量。2026-10-12 未绑定店铺的补全草稿及已有交付继续有效；其暂缓真实上传的阶段限制不能推导为本轮实施授权。当前仅完成设计。
+本决定是对 [完整供应链设计](my-supply-chain-shein-v1.md) 的有界增量。2026-10-12 未绑定店铺的补全草稿及已有交付继续有效；本轮实施来源于用户后续明确授权，不从历史阶段推定运行授权。
 
 ## 2. Product / Figma Authority
 

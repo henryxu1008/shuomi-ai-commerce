@@ -124,7 +124,7 @@ func ShelfCooldownReady(prior ExecutionAttempt, now time.Time) bool {
 	return !upper.IsZero() && now.After(upper.Add(20*time.Minute))
 }
 func NewShelfCompletion(intent OfficialIntent, attempt ExecutionAttempt, claim ExecutionClaim, result model.ShelfResult) (OfficialCompletion, error) {
-	if ValidateOfficialIntent(intent) != nil || intent.Shelf == nil || result.SKC != intent.Shelf.SKC || result.Site != "shein-us" || !isExecutionDigest(result.ResponseHash) || attempt.IntentKey != intent.Key {
+	if ValidateOfficialIntent(intent) != nil || intent.Shelf == nil || result.Response != nil || result.SKC != intent.Shelf.SKC || result.Site != "shein-us" || !isExecutionDigest(result.ResponseHash) || attempt.IntentKey != intent.Key {
 		return OfficialCompletion{}, ErrExecutionEvidenceRequired
 	}
 	body, e := completionBase(intent.Owner, intent.Binding, attempt, claim, ShelfPayload(intent), SheinShelfAction)
@@ -138,7 +138,7 @@ func NewShelfCompletion(intent OfficialIntent, attempt ExecutionAttempt, claim E
 	return sealOfficialCompletion(claim, body)
 }
 func validateShelfReceipt(v OfficialReceipt) error {
-	if v.Shelf == nil || v.Kind != "shelf_on" || v.Target.Platform != "shein" || !collection.ValidID(v.RecordID) || v.ProductKey != "" || v.Image != nil || v.Product.SPUName != "" || len(v.Product.SKCs) > 0 || v.Shelf.ResponseHash != v.ResponseHash {
+	if v.Shelf == nil || v.Shelf.Response != nil || v.TemuProduct != nil || v.TemuImage != nil || v.TikTok != nil || v.Walmart != nil || v.Kind != "shelf_on" || v.Target.Platform != "shein" || !collection.ValidID(v.RecordID) || v.ProductKey != "" || v.Image != nil || v.Product.SPUName != "" || len(v.Product.SKCs) > 0 || v.Shelf.ResponseHash != v.ResponseHash {
 		return ErrExecutionEvidenceRequired
 	}
 	s, e := ShelfSubjectID(v.Shelf.SKC, v.Shelf.Site)

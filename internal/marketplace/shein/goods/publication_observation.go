@@ -80,7 +80,7 @@ func UsableInUS(sku model.SKUInventory, warehouses []model.Warehouse) (*int64, b
 	}
 	return &total, true
 }
-func ObservePublication(published model.PublishResult, payload model.PublishProduct, mode model.ApplicationMode, audit model.DocumentAudit, live model.ShelfProduct, stock model.InventorySnapshot, warehouses []model.Warehouse, now time.Time) []PublicationSKCObservation {
+func ObservePublication(published model.PublishResult, payload model.PublishProduct, mode model.ApplicationMode, audit model.DocumentAudit, live model.ShelfProduct, stock model.InventorySnapshot, warehouses []model.Warehouse, now time.Time, skuPage map[string]bool) []PublicationSKCObservation {
 	out := []PublicationSKCObservation{}
 	for _, remote := range published.SKCs {
 		plan, matched := PublishedSKCPlan(payload, remote)
@@ -109,6 +109,9 @@ func ObservePublication(published model.PublishResult, payload model.PublishProd
 		s.CanShelf, s.BlockingReason = ShelfEligibility(mode, plan, s.AuditState, s.ShelfState, now)
 		s.CanShelf = s.CanShelf && matched
 		for _, remoteSKU := range remote.SKUs {
+			if !skuPage[remoteSKU.SKUCode] {
+				continue
+			}
 			sku := PublicationSKUObservation{Code: remoteSKU.SKUCode}
 			if live.SPU == published.SPUName {
 				for _, group := range live.SKCs {

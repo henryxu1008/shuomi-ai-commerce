@@ -3,6 +3,7 @@ package shein
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"task-processor/internal/marketplace/shein/model"
 	"task-processor/internal/storecenter"
 )
@@ -146,16 +147,46 @@ func (c *OfficialClient) ShelfOn(ctx context.Context, k storecenter.OfficialMerc
 		return model.ShelfResult{}, ErrGoodsOutcomeUnknown
 	}
 	var response struct {
-		Code string `json:"code"`
-		Info *struct {
-			Total    *int              `json:"total_count"`
-			Success  *int              `json:"success_count"`
-			Failure  *int              `json:"failure_count"`
-			Failures []json.RawMessage `json:"failure_results"`
+		Code    string `json:"code"`
+		Message string `json:"msg"`
+		Info    *struct {
+			Total    *int `json:"total_count"`
+			Success  *int `json:"success_count"`
+			Failure  *int `json:"failure_count"`
+			Failures []struct {
+				Identity string `json:"identity"`
+				Code     string `json:"code"`
+				Message  string `json:"msg"`
+			} `json:"failure_results"`
 		} `json:"info"`
 	}
-	if decodeGoods(raw, &response) != nil || response.Code != "0" || response.Info == nil || response.Info.Total == nil || *response.Info.Total != 1 || response.Info.Success == nil || *response.Info.Success != 1 || response.Info.Failure == nil || *response.Info.Failure != 0 || len(response.Info.Failures) > 0 {
+	if decodeGoods(raw, &response) != nil {
 		return model.ShelfResult{}, ErrGoodsOutcomeUnknown
+	}
+	if response.Code != "0" || response.Info == nil || response.Info.Total == nil || *response.Info.Total != 1 || response.Info.Success == nil || *response.Info.Success != 1 || response.Info.Failure == nil || *response.Info.Failure != 0 || len(response.Info.Failures) > 0 {
+		clean := func(s string, n int) string {
+			for _, secret := range []string{k.SecretKey, k.OpenKeyID} {
+				if secret != "" {
+					s = strings.ReplaceAll(s, secret, "[redacted]")
+				}
+			}
+			s = strings.ReplaceAll(s, "\x00", "")
+			r := []rune(s)
+			if len(r) > n {
+				r = r[:n]
+			}
+			return string(r)
+		}
+		summary := &model.ShelfResponseSummary{Code: clean(response.Code, 128), Message: clean(response.Message, 512), ResponseHash: goodsHash(raw), Failures: []model.ShelfFailure{}}
+		if response.Info != nil {
+			for i, f := range response.Info.Failures {
+				if i >= 20 {
+					break
+				}
+				summary.Failures = append(summary.Failures, model.ShelfFailure{Identity: clean(f.Identity, 128), Code: clean(f.Code, 128), Message: clean(f.Message, 512)})
+			}
+		}
+		return model.ShelfResult{SKC: skc, Site: "shein-us", Response: summary}, ErrGoodsOutcomeUnknown
 	}
 	return model.ShelfResult{SKC: skc, Site: "shein-us", ResponseHash: goodsHash(raw)}, nil
 }

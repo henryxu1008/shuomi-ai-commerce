@@ -31,7 +31,7 @@ func TestOfficialPublishAcceptsManagedSiteLessPayloadAndRejectsOtherSites(t *tes
 		require.NoError(t, err)
 		require.NotContains(t, string(raw), "site_list")
 		require.Contains(t, string(raw), "cost_info")
-		response := `{"code":"0","info":{"success":true,"spu_name":"spu-managed","skc_list":[{"skc_name":"skc-managed","sku_list":[{"sku_code":"remote-sku","supplier_sku":"sku-a"}]}]}}`
+		response := `{"code":"0","info":{"success":true,"spu_name":"spu-managed","version":"v1","skc_list":[{"skc_name":"skc-managed","sku_list":[{"sku_code":"remote-sku","supplier_sku":"sku-a"}]}]}}`
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(response)), Header: http.Header{"Content-Type": []string{"application/json"}}}, nil
 	}))
 	product := goodsProduct()

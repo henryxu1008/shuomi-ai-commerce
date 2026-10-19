@@ -11,6 +11,27 @@ import (
 	"testing"
 )
 
+func TestOfficialShelfRetainsBoundedFailureWithoutClaimingSuccess(t *testing.T) {
+	body := `{"code":"0","msg":"partial","info":{"total_count":1,"success_count":0,"failure_count":1,"failure_results":[{"identity":"skc-1","code":"0","msg":"商品无库存无法上架"}]}}`
+	client := testClient(t, roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(body))}, nil
+	}))
+	got, e := client.ShelfOn(context.Background(), goodsCredential(), "skc-1")
+	require.ErrorIs(t, e, ErrGoodsOutcomeUnknown)
+	require.Equal(t, goodsHash([]byte(body)), got.Response.ResponseHash)
+	require.Equal(t, "skc-1", got.Response.Failures[0].Identity)
+	require.Equal(t, "0", got.Response.Failures[0].Code)
+	require.Equal(t, "商品无库存无法上架", got.Response.Failures[0].Message)
+}
+func TestNewOfficialPublishCannotSucceedWithoutExactVersion(t *testing.T) {
+	body := `{"code":"0","info":{"success":true,"spu_name":"spu-a","skc_list":[{"skc_name":"skc-a","sku_list":[{"sku_code":"code-a","supplier_sku":"sku-a"}]}]}}`
+	client := testClient(t, roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(body))}, nil
+	}))
+	_, e := client.PublishProduct(context.Background(), goodsCredential(), goodsProduct())
+	require.ErrorIs(t, e, ErrGoodsOutcomeUnknown)
+}
+
 func TestOfficialShelfRequiresExactCountersAndNeverRetries(t *testing.T) {
 	body := `{"code":"0","info":{"total_count":1,"success_count":1,"failure_count":0,"failure_results":[]}}`
 	calls := 0

@@ -9,9 +9,39 @@ import (
 	"strings"
 	supplyapp "task-processor/internal/app/supplychain"
 	"task-processor/internal/listing/preparation"
+	"task-processor/internal/listing/submission"
 	"task-processor/internal/product/collection"
 	"testing"
+	"time"
 )
+
+func TestSheinRoutesBudgetsAndKernelErrors(t *testing.T) {
+	for _, r := range SupplyRoutes(&supplyapp.Application{}, func(ctx context.Context, _ string) (context.Context, error) { return ctx, nil }) {
+		if strings.Contains(r.Path, "/shein-publication/") || strings.Contains(r.Path, "/publications/") && strings.Contains(r.Path, "/status") {
+			require.Equal(t, 30*time.Second, r.RequestTimeout)
+		}
+	}
+	for _, tc := range []struct {
+		err    error
+		status int
+		code   string
+	}{
+		{submission.ErrExecutionInvalid, 400, "INVALID_REQUEST"},
+		{submission.ErrExecutionNotFound, 404, "NOT_FOUND"},
+		{submission.ErrExecutionIntentConflict, 409, "REVISION_CONFLICT"},
+		{submission.ErrExecutionTargetClaimed, 409, "NOT_READY"},
+		{submission.ErrExecutionTargetSucceeded, 409, "NOT_READY"},
+		{submission.ErrExecutionOutcomeUnknown, 409, "OUTCOME_UNKNOWN"},
+	} {
+		t.Run(tc.code+tc.err.Error(), func(t *testing.T) {
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			supplyError(c, tc.err)
+			require.Equal(t, tc.status, w.Code)
+			require.Contains(t, w.Body.String(), tc.code)
+		})
+	}
+}
 
 func TestSupplyOptimizationRequiresConfiguredAdmission(t *testing.T) {
 	gin.SetMode(gin.TestMode)

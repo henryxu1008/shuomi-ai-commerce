@@ -229,7 +229,7 @@ func (c *OfficialClient) PublishProduct(ctx context.Context, credential storecen
 			PreValidationResults []json.RawMessage `json:"pre_valid_result"`
 		} `json:"info"`
 	}
-	if decodeGoods(raw, &response) != nil || response.Code != "0" || response.Info == nil || response.Info.Success == nil || !*response.Info.Success || !boundedParameter(response.Info.SPUName, 128) || len(response.Info.SKCs) != len(input.SKCs) {
+	if decodeGoods(raw, &response) != nil || response.Code != "0" || response.Info == nil || response.Info.Success == nil || !*response.Info.Success || !boundedParameter(response.Info.SPUName, 128) || !boundedParameter(response.Info.Version, 128) || len(response.Info.SKCs) != len(input.SKCs) {
 		return sheinmodel.PublishResult{}, ErrGoodsOutcomeUnknown
 	}
 	if len(response.Info.FilteredResults) > 0 || len(response.Info.PreValidationResults) > 0 {

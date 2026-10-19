@@ -91,7 +91,7 @@ func completionBase(owner collection.Scope, binding storecenter.ProductMerchantB
 }
 func NewPublishCompletion(owner collection.Scope, recordID, productKey string, binding storecenter.ProductMerchantBinding, attempt ExecutionAttempt, claim ExecutionClaim, payload model.PublishProduct, result model.PublishResult) (OfficialCompletion, error) {
 	raw, err := json.Marshal(payload)
-	if err != nil || len(raw) > MaxExecutionPayloadBytes || !goods.CorrelatesPublishedMembership(payload, result) || !isExecutionDigest(result.ResponseHash) {
+	if err != nil || len(raw) > MaxExecutionPayloadBytes || !authidentity.IsBoundedIdentifier(result.Version) || !goods.CorrelatesPublishedMembership(payload, result) || !isExecutionDigest(result.ResponseHash) {
 		return OfficialCompletion{}, ErrExecutionEvidenceRequired
 	}
 	body, err := completionBase(owner, binding, attempt, claim, raw, OfficialPublishAction)
