@@ -9,7 +9,7 @@ const status=z.enum(["claimed","outcome_unknown","succeeded","failed_definitive"
 export const sheinShelfInputSchema=z.object({sourceId:collectionID,storeId:collectionID,receiptId:collectionID,skc:bounded(128).min(1)}).strict();
 export const sheinStatusInputSchema=sheinShelfInputSchema.omit({skc:true}).extend({stockOffset:count.max(15900).multipleOf(100).optional()});
 export const sheinShelfConfirmInputSchema=sheinShelfInputSchema.extend({token:collectionID});
-export const sheinShelfResultInputSchema=sheinShelfConfirmInputSchema.extend({key:collectionID});
+const sheinShelfResultInputSchema=sheinShelfConfirmInputSchema.extend({key:collectionID});
 export const sheinPublicationStatusSchema=z.object({
  sourceId:collectionID,storeId:collectionID,receiptId:collectionID,spu:bounded(128).min(1),version:bounded(128),mode,observedAt:time,
  auditAt:time.optional(),liveAt:time.optional(),stockAt:time.optional(),auditError:bounded(512).optional(),liveError:bounded(512).optional(),stockError:bounded(512).optional(),
@@ -20,7 +20,7 @@ export const sheinPublicationStatusSchema=z.object({
  })).max(40)
 }).refine(v=>v.mode!=="fully_managed"||v.skcs.every(s=>!s.canShelf));
 export const sheinShelfConfirmationSchema=z.object({key:collectionID,sourceId:collectionID,storeId:collectionID,receiptId:collectionID,skc:bounded(128).min(1),spu:bounded(128).min(1),version:bounded(128).min(1),site:z.literal("shein-us"),mode:mode.exclude(["fully_managed"]),token:collectionID,expiresAt:time,shelfWay:bounded(16),hopeOnSaleDate:bounded(64)}).strict();
-export const sheinShelfResponseSchema=z.object({code:bounded(128),message:bounded(512),responseHash:z.string().regex(/^[a-f0-9]{64}$/),failures:z.array(z.object({identity:bounded(128),code:bounded(128),message:bounded(512)})).max(20)});
+const sheinShelfResponseSchema=z.object({code:bounded(128),message:bounded(512),responseHash:z.string().regex(/^[a-f0-9]{64}$/),failures:z.array(z.object({identity:bounded(128),code:bounded(128),message:bounded(512)})).max(20)});
 export const sheinShelfActionSchema=z.object({key:collectionID,attemptId:collectionID,sourceId:collectionID,storeId:collectionID,receiptId:collectionID,skc:bounded(128).min(1),status,message:bounded(512),response:sheinShelfResponseSchema.optional(),observation:sheinPublicationStatusSchema.optional()}).refine(v=>!v.observation||v.observation.receiptId===v.receiptId&&v.observation.sourceId===v.sourceId&&v.observation.storeId===v.storeId);
 export function sheinRequestSchema(route:string){
  return route==="shein-status"?sheinStatusInputSchema:route==="shein-shelf-prepare"?sheinShelfInputSchema:route==="shein-shelf-confirm"?sheinShelfConfirmInputSchema:route==="shein-shelf-result"?sheinShelfResultInputSchema:null;
