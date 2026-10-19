@@ -50,6 +50,7 @@ import (
 // and the manager are caller-owned. Construction never installs schema, creates
 // entitlements, calls the model or edits a Product.
 type ProductAgentDependencies struct {
+	CurrentTextPolicies      governed.RoutePolicyReader
 	Knowledge                *knowledge.Service
 	RunDB, AssetDB, ReviewDB *gorm.DB
 	PointAccountingDB        *gorm.DB

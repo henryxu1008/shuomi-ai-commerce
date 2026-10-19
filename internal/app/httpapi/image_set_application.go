@@ -2,12 +2,11 @@ package httpapi
 
 import (
 	"context"
-	"github.com/sirupsen/logrus"
-	"gorm.io/gorm"
 	"math"
 	"net/http"
 	"reflect"
 	"task-processor/internal/agentconfig"
+	d "task-processor/internal/aicapability/routeconfig"
 	imageapp "task-processor/internal/app/imageagent"
 	appruntime "task-processor/internal/app/runtime"
 	supplyapp "task-processor/internal/app/supplychain"
@@ -32,6 +31,9 @@ import (
 	productimage "task-processor/internal/product/image"
 	"task-processor/internal/workbenchcontext"
 	"time"
+
+	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
 type fullImageApplication struct {
@@ -97,7 +99,7 @@ func (a imageSourceScopeAuthority) AuthorizeImageExecution(ctx context.Context, 
 
 // The caller owns the API/worker, configuration, source, resource and Asset
 // pools. This assembly installs no schema and starts no provider or worker.
-func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB, configurationDB, resourceDB, assetDB *gorm.DB, workflows imageagent.WorkflowClient, products imageapp.EffectiveImageProductReader, live supplyapp.OrganizationExecutionAuthorizer, supply *supplyChainModule, preparationSources *preparation.SourceSelector, current, workerConfig *config.Config, collectionsEnabled bool, logger *logrus.Logger, mediaReaders ...asset.ManualImageReader) (*fullImageApplication, appruntime.ImageAgentTemporalDependencies, error) {
+func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB, configurationDB, resourceDB, assetDB *gorm.DB, workflows imageagent.WorkflowClient, products imageapp.EffectiveImageProductReader, live supplyapp.OrganizationExecutionAuthorizer, supply *supplyChainModule, preparationSources *preparation.SourceSelector, current, workerConfig *config.Config, collectionsEnabled bool, logger *logrus.Logger, currentPolicies d.CurrentReader, mediaReaders ...asset.ManualImageReader) (*fullImageApplication, appruntime.ImageAgentTemporalDependencies, error) {
 	var empty appruntime.ImageAgentTemporalDependencies
 	if len(mediaReaders) > 1 {
 		return nil, empty, imageagent.ErrValidation
@@ -176,7 +178,7 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 	if err != nil {
 		return nil, empty, err
 	}
-	quotes, err := imageworker.NewImageGenerationQuoteReader(workerDB, current.ImageAgent.Generation)
+	quotes, err := imageworker.NewImageGenerationQuoteReader(workerDB, current.ImageAgent.Generation, currentPolicies)
 	if err != nil {
 		return nil, empty, err
 	}
@@ -270,7 +272,7 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 	if err != nil {
 		return nil, empty, err
 	}
-	dependencies, err := imageworker.NewImageSetTemporalDependencies(workerConfig, workerDB, resourceDB, imageAuth, modeContexts, publisher, approvals, logger, methods)
+	dependencies, err := imageworker.NewManagedImageSetTemporalDependencies(workerConfig, workerDB, resourceDB, imageAuth, modeContexts, publisher, approvals, logger, currentPolicies, methods)
 	if err != nil {
 		return nil, empty, err
 	}

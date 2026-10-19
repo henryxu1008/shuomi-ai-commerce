@@ -98,7 +98,7 @@ func ValidateTitleCredentialProvision(cfg *Config, input TitleCredentialProvisio
 	if !allowed {
 		return errors.New("title credential organization is not admitted")
 	}
-	policy, found := credentialProvisionPolicy(cfg, input.Consumer, input.OrganizationID)
+	policy, found := credentialProvisionPolicy(cfg, input.Consumer, input.OrganizationID, input.ClientName)
 	if !found || policy.Profile.ClientName != input.ClientName {
 		return errors.New("title credential client is not admitted")
 	}
@@ -126,7 +126,7 @@ func ValidateTitleCredentialProvision(cfg *Config, input TitleCredentialProvisio
 	return nil
 }
 
-func credentialProvisionPolicy(cfg *Config, consumer, organizationID string) (governed.RoutePolicy, bool) {
+func credentialProvisionPolicy(cfg *Config, consumer, organizationID string, clientNames ...string) (governed.RoutePolicy, bool) {
 	var policy governed.RoutePolicy
 	var found bool
 	switch consumer {
@@ -134,15 +134,50 @@ func credentialProvisionPolicy(cfg *Config, consumer, organizationID string) (go
 		policy, found = cfg.ProductAgent.TextPolicies[organizationID]
 	case "content":
 		policy, found = cfg.ProductAgent.ContentTextPolicies[organizationID]
+	case "materials":
+		policy, found = cfg.ProductAgent.MaterialsTextPolicies[organizationID]
+	case "selection":
+		policy, found = cfg.ProductAgent.SelectionTextPolicies[organizationID]
+	case "diagnosis":
+		policy, found = cfg.ProductAgent.DiagnosisTextPolicies[organizationID]
 	case "planning":
 		if cfg.AIWorkbench != nil {
 			policy, found = cfg.AIWorkbench.PlanningTextPolicies[organizationID]
+		}
+	}
+	if len(clientNames) == 1 && (!found || policy.Profile.ClientName != clientNames[0]) && cfg.ModelRoutePricing != nil {
+		defs, e := cfg.modelRouteDefinitions()
+		if e != nil {
+			return governed.RoutePolicy{}, false
+		}
+		op, ok := provisionOperation(consumer)
+		if !ok {
+			return governed.RoutePolicy{}, false
+		}
+		for _, def := range defs {
+			if def.Text != nil && def.Scope.OrganizationID == organizationID && def.Scope.Capability == string(op) && def.Text.Profile.ClientName == clientNames[0] {
+				return *def.Text, true
+			}
 		}
 	}
 	return policy, found
 }
 
 func sharedProvisionClient(cfg *Config, organizationID, clientName string) bool {
+	if cfg.ModelRoutePricing != nil {
+		defs, e := cfg.modelRouteDefinitions()
+		if e != nil {
+			return true
+		}
+		count := 0
+		for _, def := range defs {
+			if def.Text != nil && def.Scope.OrganizationID == organizationID && def.Text.Profile.ClientName == clientName {
+				count++
+			}
+		}
+		return count > 1
+	}
+
 	policies := []map[string]governed.RoutePolicy{cfg.ProductAgent.TextPolicies, cfg.ProductAgent.ContentTextPolicies,
 		cfg.ProductAgent.MaterialsTextPolicies, cfg.ProductAgent.SelectionTextPolicies, cfg.ProductAgent.DiagnosisTextPolicies}
 	if cfg.AIWorkbench != nil {
@@ -176,6 +211,12 @@ func validProvisionPolicy(cfg *Config, consumer string, policy governed.RoutePol
 	case "title":
 	case "content":
 		operation = aicapability.OperationProductContentDecision
+	case "materials":
+		operation = aicapability.OperationListingMaterialsDecision
+	case "selection":
+		operation = aicapability.OperationProductSelectionDecision
+	case "diagnosis":
+		operation = aicapability.OperationShopDiagnosisDecision
 	case "planning":
 		operation = aicapability.OperationAIWorkbenchChatPlan
 	default:
@@ -186,10 +227,16 @@ func validProvisionPolicy(cfg *Config, consumer string, policy governed.RoutePol
 		return false
 	}
 	maximumCost, err := profile.MaximumCost()
-	if err != nil || maximumCost > cfg.ProductAgent.CostMicros {
+	if err != nil || maximumCost > cfg.modelRouteCostCeiling(string(operation)) {
 		return false
 	}
 	switch consumer {
+	case "materials":
+		return profile.PromptVersion == agentconfig.MaterialsPromptVersion && profile.OutputSchemaVersion == agentconfig.MaterialsActionVersion
+	case "selection":
+		return profile.PromptVersion == agentconfig.SelectionPromptVersion && profile.OutputSchemaVersion == agentconfig.SelectionActionVersion
+	case "diagnosis":
+		return profile.PromptVersion == agentconfig.DiagnosisPromptVersion && profile.OutputSchemaVersion == agentconfig.DiagnosisActionVersion
 	case "title":
 		return profile.PromptVersion == "product-title-agent-v1" && profile.OutputSchemaVersion == "product-title-action-v1"
 	case "content":
@@ -209,7 +256,7 @@ func SaveTitleCredential(ctx context.Context, cfg *Config, input TitleCredential
 	if ctx == nil || ctx.Err() != nil || db == nil || ValidateTitleCredentialProvision(cfg, input) != nil {
 		return result, errors.New("title credential provision is unavailable")
 	}
-	policy, _ := credentialProvisionPolicy(cfg, input.Consumer, input.OrganizationID)
+	policy, _ := credentialProvisionPolicy(cfg, input.Consumer, input.OrganizationID, input.ClientName)
 	safeDB := db.Session(&gorm.Session{Logger: logger.Default.LogMode(logger.Silent)})
 	err := safeDB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		store := openai.NewGormCredentialResolver(tx)
@@ -246,4 +293,22 @@ func SaveTitleCredential(ctx context.Context, cfg *Config, input TitleCredential
 		return TitleCredentialProvisionResult{}, errors.New("title credential transaction failed")
 	}
 	return result, nil
+}
+
+func provisionOperation(consumer string) (aicapability.Operation, bool) {
+	switch consumer {
+	case "title":
+		return aicapability.OperationProductAgentDecision, true
+	case "content":
+		return aicapability.OperationProductContentDecision, true
+	case "materials":
+		return aicapability.OperationListingMaterialsDecision, true
+	case "selection":
+		return aicapability.OperationProductSelectionDecision, true
+	case "diagnosis":
+		return aicapability.OperationShopDiagnosisDecision, true
+	case "planning":
+		return aicapability.OperationAIWorkbenchChatPlan, true
+	}
+	return "", false
 }

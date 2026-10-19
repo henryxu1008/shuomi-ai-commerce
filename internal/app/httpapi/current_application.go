@@ -146,6 +146,7 @@ type currentApplicationFactories struct {
 
 type CurrentApplicationOption func(*currentApplicationOptions)
 type currentApplicationOptions struct {
+	modelRoutePricing            *ModelRoutePricingDependencies
 	dataServicesConfigs          int
 	dataServices                 *DataServicesDependencies
 	reportCenters                int
@@ -721,6 +722,9 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		return nil, err
 	}
 	modules = append(modules, sms)
+	if supplied.modelRoutePricing != nil {
+		modules = append(modules, modelRoutePricingModule{services: *supplied.modelRoutePricing, authorizer: authorizer})
+	}
 	var resourceRecovery func(context.Context) error
 	includeResources := supplied.commercialOwnerDB != nil && factories.buildCommercialResources != nil
 	if includeResources {
@@ -1006,7 +1010,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			if completionRuntime != nil && completionRuntime.app != nil {
 				imagePreparationSources = completionRuntime.app.Sources
 			}
-			full, dependencies, e := buildFullImageApplication(ctx, supplied.productAcquisitionDB, supplied.imageAgentDB, supplied.fullImages.WorkerDB, supplied.agentConfigurationDB, supplied.commercialOwnerDB, supplied.fullImages.AssetDB, supplied.imageAgentWorkflows, products, live, supplyRuntime, imagePreparationSources, cfg, supplied.fullImages.WorkerConfig, supplied.productCollections == 1, logger, sourceMedia)
+			full, dependencies, e := buildFullImageApplication(ctx, supplied.productAcquisitionDB, supplied.imageAgentDB, supplied.fullImages.WorkerDB, supplied.agentConfigurationDB, supplied.commercialOwnerDB, supplied.fullImages.AssetDB, supplied.imageAgentWorkflows, products, live, supplyRuntime, imagePreparationSources, cfg, supplied.fullImages.WorkerConfig, supplied.productCollections == 1, logger, supplied.fullImages.CurrentImagePolicies, sourceMedia)
 			if e != nil {
 				return nil, fmt.Errorf("build full image application: %w", e)
 			}
@@ -1216,6 +1220,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		AIWorkbench:         supplied.aiWorkbench != nil,
 		ProjectCenter:       supplied.projectCenterDB != nil,
 		AgentConfiguration:  supplied.agentConfigurationDB != nil,
+		ModelRoutePricing:   supplied.modelRoutePricing != nil,
 		MemberPoints:        includeMemberPoints,
 		MemberResources:     includeMemberResources,
 		Resources:           includeResources,
@@ -1330,6 +1335,7 @@ type currentApplicationOptionalRoutes struct {
 	ShopDiagnosis       bool
 	NotificationCenter  bool
 	AgentConfiguration  bool
+	ModelRoutePricing   bool
 	Knowledge           bool
 	OfficialKnowledge   bool
 	StoreCenter         bool
@@ -1469,6 +1475,11 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 	}
 	if optional.NotificationCenter {
 		for _, r := range notificationhttp.Routes(nil) {
+			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
+		}
+	}
+	if optional.ModelRoutePricing {
+		for _, r := range (modelRoutePricingModule{}).routes() {
 			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
 		}
 	}
@@ -1772,6 +1783,14 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 				return e
 			}
 		}
+		if descriptor.Path == modelRouteBase || strings.HasPrefix(descriptor.Path, modelRouteBase+"/") {
+			if !optional.ModelRoutePricing {
+				return errors.New("model route pricing not admitted")
+			}
+			if err := validateModelRouteDescriptor(descriptor); err != nil {
+				return err
+			}
+		}
 		if strings.HasPrefix(descriptor.Path, confighttp.Base+"/") {
 			if !optional.AgentConfiguration {
 				return errors.New("agent configuration not admitted")
@@ -1863,6 +1882,14 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 			}
 			if e := skillhttp.ValidateDescriptor(descriptor); e != nil {
 				return e
+			}
+		}
+		if descriptor.Path == modelRouteBase || strings.HasPrefix(descriptor.Path, modelRouteBase+"/") {
+			if !optional.ModelRoutePricing {
+				return errors.New("model route pricing not admitted")
+			}
+			if err := validateModelRouteDescriptor(descriptor); err != nil {
+				return err
 			}
 		}
 		if strings.HasPrefix(descriptor.Path, confighttp.Base+"/") {

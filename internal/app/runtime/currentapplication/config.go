@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
 	"io"
 	"net"
 	"net/url"
@@ -17,6 +16,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 
 	coreconfig "task-processor/internal/core/config"
 	"task-processor/internal/imageagent"
@@ -33,6 +34,7 @@ const (
 var databaseNamePattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_-]{0,62}$`)
 
 type Config struct {
+	ModelRoutePricing                    *ModelRoutePricingConfig                  `json:"modelRoutePricing,omitempty"`
 	SourceMediaIsolatedTrialDeploymentID string                                    `json:"sourceMediaIsolatedTrialDeploymentID,omitempty"`
 	StorageCapacity                      bool                                      `json:"storageCapacity,omitempty"`
 	ReportCenter                         *ReportCenterConfig                       `json:"reportCenter,omitempty"`
@@ -307,6 +309,9 @@ func ensureJSONEOF(decoder *json.Decoder) error {
 }
 
 func (cfg *Config) validate() error {
+	if _, err := cfg.modelRouteDefinitions(); err != nil {
+		return err
+	}
 	if cfg == nil || cfg.SchemaVersion != manifestSchemaVersion {
 		return fmt.Errorf("unsupported current application manifest schema version")
 	}

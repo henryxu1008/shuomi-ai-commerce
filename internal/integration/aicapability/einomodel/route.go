@@ -2,9 +2,6 @@ package einomodel
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"fmt"
 	"strings"
 
 	"task-processor/internal/aicapability"
@@ -53,15 +50,26 @@ func (p RoutePolicy) ShapeProfile() aicapability.ModelProfile {
 type OrganizationRouteResolver struct {
 	credentials OrganizationCredentialReader
 	policies    map[RouteKey]RoutePolicy
+	current     RoutePolicyReader
+}
+
+type RoutePolicyReader interface {
+	ReadPolicy(context.Context, RouteKey) (RoutePolicy, error)
+}
+
+// Managed mode has a single durable policy source. An unavailable reader must
+// never borrow a deployment policy, member credential, or process default.
+func NewManagedOrganizationRouteResolver(credentials OrganizationCredentialReader, current RoutePolicyReader) (*OrganizationRouteResolver, error) {
+	if credentials == nil || current == nil {
+		return nil, ErrInvalid
+	}
+	return &OrganizationRouteResolver{credentials: credentials, current: current}, nil
 }
 
 // CredentialVersion is a non-secret row/version identity. The credential
 // writer changes UpdatedAt on rotation; no key material enters the version.
 func CredentialVersion(row openai.AIClientCredential) string {
-	identity := fmt.Sprintf("v1|%d|%d|%s|%s|%s|%s|%d", row.ID, row.UpdatedAt.UTC().UnixNano(),
-		row.ClientName, row.BaseURL, row.Model, row.APIStyle, row.TimeoutSecond)
-	sum := sha256.Sum256([]byte(identity))
-	return "org-credential:v1:" + hex.EncodeToString(sum[:])
+	return openai.CredentialVersion(row)
 }
 
 func EndpointIdentityDigest(endpoint string) string { return endpointDigest(endpoint) }
@@ -104,6 +112,14 @@ func (r *OrganizationRouteResolver) resolve(ctx context.Context, input aicapabil
 		return QualifiedRoute{}, RouteUnavailable, ErrNotDispatched
 	}
 	policy, ok := r.policies[RouteKey{OrganizationID: input.OrganizationID, Operation: input.Operation}]
+	if r.current != nil {
+		var err error
+		policy, err = r.current.ReadPolicy(ctx, RouteKey{OrganizationID: input.OrganizationID, Operation: input.Operation})
+		if err != nil {
+			return QualifiedRoute{}, RouteUnavailable, ErrNotDispatched
+		}
+		ok = true
+	}
 	if !ok {
 		return QualifiedRoute{}, RouteUnavailable, ErrNotDispatched
 	}

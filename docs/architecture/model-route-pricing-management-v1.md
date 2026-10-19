@@ -171,3 +171,8 @@ Cutover/deletion condition: 对本管理范围，原启动 map/固定 client/费
 独立评审已按两轮停止规则收敛：[R1](https://github.com/qq550723504/task-processor/pull/832#issuecomment-6267091507) 的凭据行锁/只读权限 BLOCKER 已通过本合同的无凭据锁读取、并发轮换后真实不可用投影解决；图片绑定文案同步与 Figma 对齐。[R2 定向复核](https://github.com/qq550723504/task-processor/pull/832#issuecomment-6267123604) 明确结论 **IMPLEMENTATION_READY**、无未关闭架构 BLOCKER。
 
 本设计冻结；V1–V4 仍为实施验证要求，当前全部 NOT_RUN。生产代码实施、合并、安装、切模型、真实模型调用及运行验收仍需各自后续授权，不能从设计 Ready 推定。滚动 HEAD、CI、评审原文和 disposition 维护在 #830/同一设计 PR；本次收口仅更新 admission 与评审引用，不改变已评审合同。
+
+
+## 实现定位
+
+冻结合同保持不变；#830 的实现入口为 `internal/aicapability/routeconfig`（确定性发布合同）、`internal/integration/persistence/routeconfig`（同 owner PG 事务）、`internal/integration/aicapability/routeconfig`（准入交集及 fresh text reader）、`currentapplication/model_route_pricing.go`（显式部署接线）和原 HTTP/图片 factory。Console 复用账户中心入口、BFF、上下文与未完成命令存储模式。安装、私密候选准备、管理入口及任务影响见[运行说明](../operations/model-route-pricing-v1.md)。当前实现 HEAD、四组验证、独立复核与环境授权仍只维护在 #830/实现 PR，不以本文的设计阶段 NOT_RUN 记录替代新的实施证据。
