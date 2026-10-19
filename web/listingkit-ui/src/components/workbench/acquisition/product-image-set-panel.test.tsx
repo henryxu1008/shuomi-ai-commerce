@@ -37,7 +37,7 @@ beforeEach(()=>{
   throw new Error(`unexpected ${url}`);
  });vi.stubGlobal("fetch",fetch);
 });
-afterEach(()=>{cleanup();vi.unstubAllGlobals();localStorage.clear()});
+afterEach(()=>{cleanup();vi.restoreAllMocks();vi.unstubAllGlobals();localStorage.clear()});
 async function prepare(){
  fireEvent.click(await screen.findByRole("checkbox",{name:"共用原始素材 素材 1"}));
  const button=screen.getByRole("button",{name:"准备整套图片计划（2 项）"});await waitFor(()=>expect(button).toBeEnabled());fireEvent.click(button);
@@ -76,22 +76,37 @@ it.each(["unknown","partial","unsettled","executing"])("does not accept a contra
  expect(imageSetRunSchema.safeParse(released).success).toBe(false);
 });
 
-it.each(["recover","cancel","restart","confirm","resume"] as const)("retains a settled task's saved %s intent with GET-only verification",async action=>{
+it.each(["recover","cancel","restart","confirm","resume"] as const)("archives the settled %s request and unlocks task switching and a new plan after GET verification",async action=>{
  state=projection("blocked",templateId);
  Object.assign(state,{settledPoints:0,resultDigest:"",releaseSummary:{releasedPoints:20},approvalAvailable:false,candidateSelectionAvailable:false,regenerationAvailable:false,block:{Code:"slot_provider_outcome_unknown"},recoverableEffects:[{SlotID:"main",Attempt:1,Code:"slot_provider_outcome_unknown"}]});
  state.slots=state.slots.map(slot=>({...slot,status:"blocked",candidates:[],closure:null,errorCode:"slot_provider_outcome_unknown"}));
  const body=action==="restart"?{planRevision:1,planDigest:sha,quoteDigest:digest}:action==="recover"?{actionId:templateId,planRevision:1,slotId:"main",attempt:1}:action==="confirm"?{actionId:templateId,planRevision:1,planDigest:sha,quoteDigest:digest}:action==="cancel"?{actionId:templateId,planRevision:1}:{actionId:templateId};
  const key=`product-image-set:actor:org:acquisition:${operation}:intent`,saved=JSON.stringify({action,runId,body});
  localStorage.setItem(key,saved);
+ const real=fetch.getMockImplementation()!;
+ fetch.mockImplementation((url,init)=>new URL(String(url),"https://app.test").pathname.endsWith("/images/runs")?Promise.resolve(Response.json({items:[runId,operation].map(id=>({runId:id,contextKind:"acquisition",contextId:operation,status:"blocked",targetPlatform:"product",createdAt:now})),nextCursor:String(url).includes("cursor=")?"":"older"})):String(url).endsWith(`/runs/${operation}`)?Promise.resolve(Response.json({...projection("awaiting_final_approval",templateId),runId:operation})):String(url).endsWith("/prepare")?Promise.resolve(Response.json({...projection(),runId:templateId},{status:201})):real(url,init));
  render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialRunId={runId}/>);
  await screen.findByRole("heading",{name:"未生成，点数已释放"});
+ await waitFor(()=>expect(screen.getByRole("combobox",{name:"本商品最近任务"})).toBeDisabled());
  expect(screen.queryByRole("button",{name:/继续原操作|继续原确认/})).toBeNull();
  expect(screen.getByText(/原请求和编号保留，仅支持只读核实/)).toBeVisible();
  fireEvent.click(screen.getByRole("button",{name:"核实原请求"}));
- await waitFor(()=>expect(screen.getByRole("button",{name:"核实原请求"})).toBeEnabled());
- expect(localStorage.getItem(key)).toBe(saved);
+ await waitFor(()=>expect(screen.getByRole("combobox",{name:"本商品最近任务"})).toBeEnabled());
+ expect(localStorage.getItem(key)).toBeNull();
+ expect(Object.keys(localStorage).some(record=>record.startsWith(key.replace(/:intent$/,":verified-intent:"))&&localStorage.getItem(record)===saved)).toBe(true);
+ expect(screen.getByRole("button",{name:"加载更多图片任务"})).toBeEnabled();
+ fireEvent.click(screen.getByRole("button",{name:"加载更多图片任务"}));
+ await waitFor(()=>expect(screen.queryByRole("button",{name:"加载更多图片任务"})).toBeNull());
+ const retained=screen.getByText("已核实的原请求").closest("section")!;
+ expect(within(retained).getByText(saved)).toBeInTheDocument();
  expect(fetch.mock.calls.some(([,init])=>init?.method==="POST")).toBe(false);
  expect(screen.queryByRole("button",{name:/继续原操作|继续原确认/})).toBeNull();
+ fireEvent.change(screen.getByRole("combobox",{name:"本商品最近任务"}),{target:{value:operation}});
+ await waitFor(()=>expect(screen.getByRole("combobox",{name:"本商品最近任务"})).toHaveValue(operation));
+ await prepare();
+ const posts=fetch.mock.calls.filter(([,init])=>init?.method==="POST");
+ expect(posts).toHaveLength(1);expect(String(posts[0][0])).toMatch(/\/prepare$/);
+ expect(within(retained).getByText(saved)).toBeInTheDocument();
 });
 
 it.each(["another_run","new_regeneration"])("does not suppress an independent pending %s because the selected run was released",async scenario=>{
@@ -105,6 +120,134 @@ it.each(["another_run","new_regeneration"])("does not suppress an independent pe
  await screen.findByRole("heading",{name:"未生成，点数已释放"});
  expect(screen.getByRole("button",{name:"继续原操作"})).toBeVisible();
  expect(localStorage.getItem(key)).toBe(saved);
+ expect(fetch.mock.calls.some(([,init])=>init?.method==="POST")).toBe(false);
+});
+
+function savedReleasedRequest(){
+ const released=projection("blocked",templateId);
+ Object.assign(released,{settledPoints:0,resultDigest:"",releaseSummary:{releasedPoints:20},approvalAvailable:false,candidateSelectionAvailable:false,regenerationAvailable:false,block:{Code:"slot_provider_outcome_unknown"},recoverableEffects:[{SlotID:"main",Attempt:1,Code:"slot_provider_outcome_unknown"}]});
+ released.slots=released.slots.map(slot=>({...slot,status:"blocked",candidates:[],closure:null,errorCode:"slot_provider_outcome_unknown"}));
+ state=released;
+ const key=`product-image-set:actor:org:acquisition:${operation}:intent`;
+ const raw=JSON.stringify({action:"recover",runId,body:{actionId:templateId,planRevision:1,slotId:"main",attempt:1}},null,2)+"\n";
+ localStorage.setItem(key,raw);return {key,raw};
+}
+
+it("retains the exact request across remount and a later uncertain preparation without unlocking that new request",async()=>{
+ const {key,raw}=savedReleasedRequest();
+ let view=render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialRunId={runId}/>);
+ fireEvent.click(await screen.findByRole("button",{name:"核实原请求"}));
+ await waitFor(()=>expect(localStorage.getItem(key)).toBeNull());
+ const archive=Object.keys(localStorage).find(k=>k.includes(":verified-intent:"))!;
+ expect(localStorage.getItem(archive)).toBe(raw);
+ view.unmount();view=render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialRunId={runId}/>);
+ const retained=await screen.findByText("已核实的原请求");
+ expect(retained.closest("section")!.querySelector("pre")!.textContent).toBe(raw);
+ const real=fetch.getMockImplementation()!;
+ fetch.mockImplementation((url,init)=>String(url).endsWith("/prepare")?Promise.resolve(Response.json({code:"OUTCOME_UNKNOWN"},{status:503})):real(url,init));
+ await prepare();
+ await screen.findByText("本次请求结果尚未确认，请核实原请求。");
+ const newPending=localStorage.getItem(key)!;expect(JSON.parse(newPending).action).toBe("prepare");
+ expect(localStorage.getItem(archive)).toBe(raw);
+ view.unmount();render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialRunId={runId}/>);
+ await screen.findByText("已核实的原请求");
+ expect(screen.getByRole("combobox",{name:"图片模板"})).toBeDisabled();
+ expect(screen.getByRole("button",{name:"继续原操作"})).toBeVisible();
+ expect(localStorage.getItem(key)).toBe(newPending);
+ expect(localStorage.getItem(archive)).toBe(raw);
+ expect(fetch.mock.calls.filter(([,init])=>init?.method==="POST")).toHaveLength(1);
+});
+
+it.each(["quota","collision"])("preserves the pending request and operation lock when archive %s fails",async failure=>{
+ const {key,raw}=savedReleasedRequest();
+ if(failure==="collision")localStorage.setItem(key.replace(/:intent$/,`:verified-intent:${runId}:recover:${templateId}`),raw.replace('"main"','"detail"'));
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialRunId={runId}/>);
+ await screen.findByRole("heading",{name:"未生成，点数已释放"});
+ if(failure==="quota"){
+  const set=Storage.prototype.setItem;
+  vi.spyOn(Storage.prototype,"setItem").mockImplementation(function(this:Storage,k:string,v:string){if(k.includes(":verified-intent:"))throw new DOMException("full","QuotaExceededError");set.call(this,k,v)});
+ }
+ fireEvent.click(screen.getByRole("button",{name:"核实原请求"}));
+ await screen.findByText("原请求未能完整保留，请继续核实；任务切换和新计划暂未解锁。");
+ expect(localStorage.getItem(key)).toBe(raw);
+ expect(screen.getByRole("combobox",{name:"图片模板"})).toBeDisabled();
+ if(failure==="collision")expect(Object.keys(localStorage).filter(k=>k.includes(":verified-intent:")).map(k=>localStorage.getItem(k))).toEqual([raw.replace('"main"','"detail"')]);
+ expect(fetch.mock.calls.some(([,init])=>init?.method==="POST")).toBe(false);
+});
+
+it.each([403,404,"unknown"] as const)("does not detach a pending request after unsuccessful or unknown read verification: %s",async response=>{
+ const {key,raw}=savedReleasedRequest();
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialRunId={runId}/>);
+ await screen.findByRole("heading",{name:"未生成，点数已释放"});
+ const real=fetch.getMockImplementation()!;
+ fetch.mockImplementation((url,init)=>String(url).endsWith(`/runs/${runId}`)?Promise.resolve(response==="unknown"?Response.json({...state,releaseSummary:undefined}):Response.json({code:response===403?"FORBIDDEN":"IMAGE_NOT_FOUND"},{status:response})):real(url,init));
+ fireEvent.click(screen.getByRole("button",{name:"核实原请求"}));
+ await waitFor(()=>expect(screen.getByRole("button",{name:"核实原请求"})).toBeEnabled());
+ expect(localStorage.getItem(key)).toBe(raw);
+ expect(Object.keys(localStorage).some(k=>k.includes(":verified-intent:"))).toBe(false);
+ expect(screen.getByRole("combobox",{name:"图片模板"})).toBeDisabled();
+ expect(fetch.mock.calls.some(([,init])=>init?.method==="POST")).toBe(false);
+});
+
+it("does not display another enterprise's archived request or let it unlock a pending request",async()=>{
+ const {key,raw}=savedReleasedRequest();
+ const view=render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialRunId={runId}/>);
+ fireEvent.click(await screen.findByRole("button",{name:"核实原请求"}));
+ await waitFor(()=>expect(localStorage.getItem(key)).toBeNull());
+ const otherKey=key.replace(":org:",":other-org:");localStorage.setItem(otherKey,raw);
+ calls.context={...calls.context,effectiveOrganization:{id:"other-org"}};
+ view.rerender(<ProductImageSetPanel kind="acquisition" contextId={operation} initialRunId={runId}/>);
+ await screen.findByRole("heading",{name:"未生成，点数已释放"});
+ expect(screen.queryByText("已核实的原请求")).toBeNull();
+ expect(screen.getByRole("combobox",{name:"图片模板"})).toBeDisabled();
+ expect(localStorage.getItem(otherKey)).toBe(raw);
+ expect(Object.keys(localStorage).filter(k=>k.includes(":verified-intent:")).map(k=>localStorage.getItem(k))).toEqual([raw]);
+});
+
+it("can retry an interrupted detach without duplicating or losing the retained request",async()=>{
+ const {key,raw}=savedReleasedRequest();
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialRunId={runId}/>);
+ await screen.findByRole("heading",{name:"未生成，点数已释放"});
+ const remove=Storage.prototype.removeItem;let interrupted=true;
+ vi.spyOn(Storage.prototype,"removeItem").mockImplementation(function(this:Storage,k:string){if(k===key&&interrupted)throw new Error("interrupted");remove.call(this,k)});
+ fireEvent.click(screen.getByRole("button",{name:"核实原请求"}));
+ await screen.findByText("原请求未能完整保留，请继续核实；任务切换和新计划暂未解锁。");
+ expect(localStorage.getItem(key)).toBe(raw);
+ expect(Object.keys(localStorage).filter(k=>k.includes(":verified-intent:")).map(k=>localStorage.getItem(k))).toEqual([raw]);
+ interrupted=false;fireEvent.click(screen.getByRole("button",{name:"核实原请求"}));
+ await waitFor(()=>expect(localStorage.getItem(key)).toBeNull());
+ expect(Object.keys(localStorage).filter(k=>k.includes(":verified-intent:")).map(k=>localStorage.getItem(k))).toEqual([raw]);
+ expect(screen.getByRole("combobox",{name:"图片模板"})).toBeEnabled();
+});
+
+it("ignores a released verification response after switching enterprise",async()=>{
+ const {key,raw}=savedReleasedRequest();
+ const view=render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialRunId={runId}/>);
+ await screen.findByRole("heading",{name:"未生成，点数已释放"});
+ let finish!:(response:Response)=>void;const late=new Promise<Response>(resolve=>{finish=resolve});
+ const real=fetch.getMockImplementation()!;
+ fetch.mockImplementation((url,init)=>String(url).endsWith(`/runs/${runId}`)?late:real(url,init));
+ fireEvent.click(screen.getByRole("button",{name:"核实原请求"}));
+ calls.context={...calls.context,effectiveOrganization:{id:"other-org"}};
+ view.rerender(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ await screen.findByRole("combobox",{name:"图片模板"});
+ await act(async()=>finish(Response.json(state)));
+ expect(localStorage.getItem(key)).toBe(raw);
+ expect(Object.keys(localStorage).some(k=>k.includes(":verified-intent:"))).toBe(false);
+ expect(screen.queryByText("已核实的原请求")).toBeNull();
+});
+
+it("keeps a saved approval pending rather than inferring its receipt from the run release",async()=>{
+ const {key}=savedReleasedRequest();
+ const raw=JSON.stringify({action:"approve",runId,body:{actionId:templateId,planRevision:1,selectionDigest:digest,expectedHead:{action_id:"",payload_hash:""},resultDigest:sha,choices:[{kind:"source",source_id:"original",presentation:{group:"carousel",order:1}}]}});
+ localStorage.setItem(key,raw);
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialRunId={runId}/>);
+ await screen.findByRole("heading",{name:"未生成，点数已释放"});
+ fireEvent.click(screen.getByRole("button",{name:"核实原请求"}));
+ await waitFor(()=>expect(screen.getByRole("button",{name:"核实原请求"})).toBeEnabled());
+ expect(localStorage.getItem(key)).toBe(raw);
+ expect(Object.keys(localStorage).some(k=>k.includes(":verified-intent:"))).toBe(false);
+ expect(screen.getByRole("combobox",{name:"图片模板"})).toBeDisabled();
  expect(fetch.mock.calls.some(([,init])=>init?.method==="POST")).toBe(false);
 });
 
