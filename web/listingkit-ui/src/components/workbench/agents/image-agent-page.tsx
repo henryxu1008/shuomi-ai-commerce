@@ -20,6 +20,7 @@ import { ExecutionModeSettings } from "./execution-mode-settings";
 import { AgentCapabilityPanel } from "./agent-capability-panel";
 import styles from "./agents.module.css";
 import {RecentImageSets} from "./recent-image-sets";
+import {genericImagePresets} from "@/lib/image-template-presets";
 
 const agentId = "product.image.agent";
 const activationNames = { ENABLED: "已启用", DISABLED: "已停用", NOT_ENABLED: "尚未启用" };
@@ -114,6 +115,10 @@ export function ImageAgentPage({ scope, organization }: { scope: ConfigurationSc
       {entry.agent.activation !== "NOT_ENABLED" ? <ExecutionModeSettings scope={scope} subject={{kind:"registered_agent",id:agentId}}/> : null}
       <Card className={styles.panel}><AgentCapabilityPanel entry={entry}/><p>使用时先选择真实原图与平台类目，再核对整套计划和点数。主图与详情图分别生成，共用素材时仅共用原图。</p>{entry.canUse && <Link href="/workbench/supply/acquisition">进入采集商品选择素材 →</Link>}</Card>
       <Card className={styles.panel}><h2>企业默认模板</h2>{defaultRef ? <><p>{defaultTemplate.data ? `${defaultTemplate.data.name} · v${defaultTemplate.data.version}` : defaultTemplate.error ? configurationError(defaultTemplate.error) : "正在读取默认模板"}</p>{entry.canConfigure && <Button variant="outline" disabled={locked} onClick={() => mutate({ path: `${agentId}/default-template`, payload: { templateId: null, revision: null }, method: "PUT", operation: "default", revision: entry.agent.revision })}>清除默认模板</Button>}</> : <p>尚未设置默认模板，生成时需要显式选择模板。</p>}</Card>
+      <Card className={styles.panel}><h2>通用图片模板</h2><p>不绑定具体商品。管理员可查看方案并保存为当前企业模板。新增模板不会自动设为默认，原模板、版本和历史任务完整保留。</p>
+        <div className="mt-5 space-y-5">{genericImagePresets.map((preset,index)=><section key={preset.skillId} className={index===0?"space-y-3 rounded-lg bg-accent/40 p-4":"space-y-3"}><h3 className="font-semibold">{preset.name}</h3><p>{preset.description}</p>{entry.canConfigure&&entry.agent.activation!=="NOT_ENABLED"&&<Button className="w-full" aria-label={`从${preset.name}方案新建`} disabled={locked||!!draft} onClick={()=>{setDraft({name:preset.name,targetPlatform:"product",image:structuredClone(preset.image) as ImageSetTemplate});setFormError("");}}>从此方案新建</Button>}</section>)}</div>
+        {!entry.canConfigure&&<p>请由有配置权限的管理员保存所需方案；技能入口只会带入已保存的准确模板。</p>}<p>生成前继续确认张数、点数和准确版本；历史计划保持原版本。</p>
+      </Card>
       <Card className={styles.panel}><div className={styles.cardActions}><h2>图片模板</h2>{entry.canConfigure && entry.agent.activation !== "NOT_ENABLED" && <Button disabled={locked || !!draft} onClick={() => { setDraft(initialDraft()); setFormError(""); }}>新建图片模板</Button>}</div>
         {templates.error ? <p role="alert">{configurationError(templates.error)}</p> : templates.data?.items.length ? <div className={styles.templateList}>{templates.data.items.map(template => <section key={template.templateId} className={styles.templateRow}><div><h3>{template.name} · v{template.version}</h3><p>{template.targetPlatform === "product" ? "通用商品素材" : template.targetPlatform.toUpperCase()} · 主图 {template.image.carousel.length} 张 · 详情图 {template.image.detail.length} 张 · {template.lifecycle === "ACTIVE" ? "可选用" : "已归档"}</p><p>{template.image.shareOriginals ? "共用原始素材，两组独立生成" : "两组分别选择素材并生成"}</p></div><div className={styles.actions}>
           <Button variant="outline" onClick={() => { setChosen(template); setHistory(template.version); }}>查看版本</Button>

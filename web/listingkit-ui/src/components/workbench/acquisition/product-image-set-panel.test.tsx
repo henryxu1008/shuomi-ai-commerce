@@ -4,6 +4,7 @@ import {afterEach,beforeEach,expect,it,vi} from "vitest";
 import {ProductImageSetPanel} from "./product-image-set-panel";
 import {imageTemplateSchema} from "@/lib/contracts/image-set-configuration";
 import {imageSetRunSchema} from "@/lib/contracts/product-image-set";
+import {genericImagePresets} from "@/lib/image-template-presets";
 const calls=vi.hoisted(()=>({context:{} as Record<string,unknown>,mode:vi.fn()}));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>calls.context}));
 vi.mock("@/lib/api/agent-configuration",async original=>{const actual=await original<typeof import("@/lib/api/agent-configuration")>();return {...actual,configurationRequest:(...args:Parameters<typeof actual.configurationRequest>)=>args[1].startsWith("execution-modes/")?calls.mode(...args):actual.configurationRequest(...args)}});
@@ -12,6 +13,26 @@ const sha="a".repeat(64),digest="b".repeat(64),now="2026-10-09T00:00:00Z";
 const template={templateId,agentId:"product.image.agent",lifecycle:"ACTIVE",revision:"1",version:"1",schemaVersion:"image-config-v1",name:"Two groups",targetPlatform:"product",createdAt:now,image:{schema:"image-config-v1",mode:"standard",shareOriginals:true,background:"white",language:"en",carousel:[{id:"main",purpose:"product_identity"}],detail:[{id:"detail",purpose:"detail_closeup"}]}};
 const entry={agent:{agentId:"product.image.agent",activation:"ENABLED",revision:"1",activationEpoch:"1",defaultTemplate:{templateId,revision:"1"},updatedAt:now},name:"Images",description:"Full images",definitionVersion:"v1.0.0",parameterSchema:"image-config-v1",canConfigure:true,canUse:true,canReadRuns:true,capabilities:[{id:"image.generate",support:"REQUIRED",readiness:"AVAILABLE",reason:"",observedAt:now}]};
 const source={ContextKind:"acquisition",ProductID:"p",OperationID:operation,OriginalPublicationID:"publication",OriginalVersion:"1",EffectiveVersion:"1"};
+
+function genericEntry(index:number,{hasDefault=false,failDefault=false,pending=false}={}){
+ const preset=genericImagePresets[index]!,selection={skillId:preset.skillId,version:2,digest:"f".repeat(64)};
+ const date="2026-10-18T00:00:00Z";
+ const method={skill:{id:selection.skillId,owner:{kind:"PLATFORM",id:"official"},creator:"maintainer",headVersion:3,revision:3,createdAt:date,updatedAt:date},version:2,package:{name:"product-image-method",displayName:"已选图片方法",description:"保持商品真实事实",target:"product-image",digest:selection.digest,files:null},state:"ENABLED",visibility:"SHARED",allowCopy:true,allowExport:true,createdAt:date};
+ const exact=imageTemplateSchema.parse({...template,templateId:"44444444-4444-4444-8444-444444444444",name:"企业自定义名称",revision:"8",version:"7",image:structuredClone(preset.image)});
+ const real=fetch.getMockImplementation()!;
+ fetch.mockImplementation((input,init)=>{
+  const url=new URL(String(input),"https://app.test");
+  if(url.pathname.endsWith("/skills/organization/image-candidates"))return Promise.resolve(Response.json({items:[method]}));
+  if(url.pathname.endsWith("/agents/product.image.agent"))return Promise.resolve(Response.json({...entry,agent:{...entry.agent,defaultTemplate:hasDefault?entry.agent.defaultTemplate:null}}));
+  if(url.pathname.endsWith("/templates"))return Promise.resolve(Response.json(url.searchParams.has("cursor")?{items:[exact],nextCursor:""}:{items:[{...template,name:preset.name}],nextCursor:"exact-next"}));
+  if(failDefault&&url.pathname.includes("/revisions/"))return Promise.resolve(Response.json({code:"DEPENDENCY_UNAVAILABLE"},{status:503}));
+  return real(input,init);
+ });
+ const storage=`product-image-set:actor:org:acquisition:${operation}:intent`;
+ const raw=JSON.stringify({action:"confirm",runId,body:{actionId:operation,planRevision:1,planDigest:sha,quoteDigest:digest}});
+ if(pending)localStorage.setItem(storage,raw);
+ return {selection,exact,storage,raw};
+}
 function projection(status="awaiting_plan_approval",confirmationActionId=""){
  return {executionModeAvailable:true,generationAllowed:true,executionMode:"default",modeRevision:"0",modeSnapshotRef:{Kind:"agent-execution-mode-v1",ID:runId,Digest:sha},runId,status,template:{templateId,revision:"1"},confirmationActionId,generationAdmitted:!!confirmationActionId,planRevision:1,planDigest:sha,quoteDigest:digest,images:2,points:20,settledPoints:status==="awaiting_plan_approval"?0:20,resultDigest:status==="awaiting_plan_approval"?"":sha,approvalAvailable:status==="awaiting_final_approval",candidateSelectionAvailable:["awaiting_final_approval","completed","failed","blocked","cancelled"].includes(status),regenerationAvailable:status==="awaiting_final_approval",plan:{Source:source,Target:{Platform:"product",StoreID:"",Site:"",CategoryID:0}},slots:["main","detail"].map((slotId,i)=>({slotId,status:status==="awaiting_plan_approval"?"pending":"accepted",attempt:status==="awaiting_plan_approval"?0:1,errorCode:"",recipe:{Purpose:i?"detail_closeup":"product_identity",Background:"white",Language:"en",Placement:{Group:i?"detail":"carousel",Order:1},References:[{AssetID:"original"}],Quote:{Points:10}},candidates:status==="awaiting_plan_approval"?[]:[{assetId:`generated-${i}`,url:`https://images.test/generated-${i}.png`,width:1024,height:1024}],closure:status==="awaiting_plan_approval"?null:{Kind:"generated",Points:10}})),originals:[{ID:"original",DisplayURL:"https://images.test/original.png",Width:1024,Height:1024}],recoverableEffects:null,pendingCommand:null,block:null};
 }
@@ -353,6 +374,75 @@ it("preselects the library image version and passes it with explicitly selected 
  const method={skill:{id:skillId,owner:{kind:"PLATFORM",id:"official"},creator:"maintainer",headVersion:3,revision:3,createdAt:date,updatedAt:date},version:2,package:{name:"product-image-standard",displayName:"标准商品套图",description:"原图方法",target:"product-image",digest:selection.digest,files:null},state:"ENABLED",visibility:"SHARED",allowCopy:true,allowExport:true,createdAt:date};
  const real=fetch.getMockImplementation()!;fetch.mockImplementation((url,init)=>String(url).endsWith("/skills/organization/image-candidates")?Promise.resolve(Response.json({items:[method]})):real(url,init));
  render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialSkill={selection}/>);await screen.findByRole("option",{name:/标准商品套图/});expect(screen.getByLabelText("使用的方法/技能（可选）")).toHaveValue(`${skillId}:2`);expect(fetch.mock.calls.some(([,init])=>init?.method==="POST")).toBe(false);await prepare();await screen.findByRole("button",{name:"确认点数并生成"});const request=fetch.mock.calls.find(([url])=>String(url).endsWith("/prepare"))!;expect(JSON.parse(String(request[1]!.body))).toMatchObject({skill:selection,sharedOriginalIds:["original"]});
+});
+it.each([0,1,2])("discovers preset %s beyond a same-name mismatch and prepares its exact persisted version with the original skill",async index=>{
+ const {selection,exact}=genericEntry(index);
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialSkill={selection}/>);
+ await waitFor(()=>expect(screen.getByRole("combobox",{name:"图片模板"})).toHaveValue(`${exact.templateId}:7`));
+ expect(screen.getByLabelText("使用的方法/技能（可选）")).toHaveValue(`${selection.skillId}:2`);
+ expect(fetch.mock.calls.some(([,init])=>init?.method==="POST")).toBe(false);
+ fireEvent.click(await screen.findByRole("checkbox",{name:"共用原始素材 素材 1"}));
+ const prepare=screen.getByRole("button",{name:"准备整套图片计划（1 项）"});await waitFor(()=>expect(prepare).toBeEnabled());fireEvent.click(prepare);
+ await screen.findByRole("button",{name:"确认点数并生成"});
+ const request=fetch.mock.calls.find(([url])=>String(url).endsWith("/prepare"))!;
+ expect(JSON.parse(String(request[1]!.body))).toMatchObject({template:{templateId:exact.templateId,revision:"7"},skill:selection,sharedOriginalIds:["original"],selectedTaskIds:[...exact.image.carousel,...exact.image.detail].map(t=>t.id)});
+ expect(fetch.mock.calls.filter(([,init])=>init?.method==="POST")).toHaveLength(1);
+});
+it("preserves the enterprise default's pinned version and tasks instead of a skill preset",async()=>{
+ const {selection}=genericEntry(0,{hasDefault:true});
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialSkill={selection}/>);
+ await waitFor(()=>expect(screen.getByRole("combobox",{name:"图片模板"})).toHaveValue(`${templateId}:1`));
+ expect(screen.getByRole("button",{name:"准备整套图片计划（2 项）"})).toBeInTheDocument();
+ expect(fetch.mock.calls.some(([url])=>String(url).includes("cursor=exact-next"))).toBe(false);
+});
+it("does not hide an unreadable configured default by selecting a generic template",async()=>{
+ const {selection}=genericEntry(0,{hasDefault:true,failDefault:true});
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialSkill={selection}/>);
+ const select=await screen.findByRole("combobox",{name:"图片模板"});expect(select).toHaveValue("");
+ expect(fetch.mock.calls.some(([url])=>String(url).includes("cursor=exact-next"))).toBe(false);
+});
+it.each(["archived","wrong-version"])("keeps an %s default unavailable without substituting a generic version",async mismatch=>{
+ const {selection}=genericEntry(0,{hasDefault:true});const real=fetch.getMockImplementation()!;
+ fetch.mockImplementation((url,init)=>String(url).includes("/revisions/")?Promise.resolve(Response.json({...template,...(mismatch==="archived"?{lifecycle:"ARCHIVED"}:{version:"2"})})):real(url,init));
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialSkill={selection}/>);
+ await screen.findByText(/配置已变化/);
+ expect(screen.getByRole("combobox",{name:"图片模板"})).toHaveValue("");
+ expect(fetch.mock.calls.some(([url])=>String(url).includes("cursor=exact-next"))).toBe(false);
+});
+it("keeps the original pending request byte-for-byte and skips generic discovery",async()=>{
+ const {selection,storage,raw}=genericEntry(0,{pending:true});
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialSkill={selection}/>);
+ await screen.findByRole("button",{name:"核实原请求"});
+ expect(localStorage.getItem(storage)).toBe(raw);
+ expect(fetch.mock.calls.some(([url])=>String(url).includes("cursor=exact-next"))).toBe(false);
+ expect(fetch.mock.calls.some(([,init])=>init?.method==="POST")).toBe(false);
+});
+it("does not overwrite a manual template choice with delayed generic discovery",async()=>{
+ const {selection,exact}=genericEntry(0);
+ const real=fetch.getMockImplementation()!;let release!:(response:Response)=>void;
+ fetch.mockImplementation((url,init)=>String(url).includes("cursor=exact-next")?new Promise(resolve=>{release=resolve}):real(url,init));
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialSkill={selection}/>);
+ await waitFor(()=>expect(release).toBeTypeOf("function"));
+ fireEvent.change(screen.getByRole("combobox",{name:"图片模板"}),{target:{value:`${templateId}:1`}});
+ await act(async()=>release(Response.json({items:[exact],nextCursor:""})));
+ await screen.findByLabelText("使用的方法/技能（可选）");
+ expect(screen.getByRole("combobox",{name:"图片模板"})).toHaveValue(`${templateId}:1`);
+ expect(screen.queryByText(/已带入通用模板/)).toBeNull();
+});
+it("does not rediscover a template when restoring an existing frozen run",async()=>{
+ const {selection}=genericEntry(0);localStorage.setItem(`product-image-set:actor:org:acquisition:${operation}:run`,runId);
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialSkill={selection}/>);
+ await screen.findByRole("button",{name:"确认点数并生成"});
+ expect(fetch.mock.calls.some(([url])=>String(url).includes("cursor=exact-next"))).toBe(false);
+ expect(fetch.mock.calls.some(([,init])=>init?.method==="POST")).toBe(false);
+});
+it("bounds automatic template discovery and leaves manual pagination available",async()=>{
+ const {selection}=genericEntry(0);const real=fetch.getMockImplementation()!;let pages=0;
+ fetch.mockImplementation((url,init)=>new URL(String(url),"https://app.test").pathname.endsWith("/templates")?Promise.resolve(Response.json({items:[],nextCursor:`next-${++pages}`})):real(url,init));
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialSkill={selection}/>);
+ await screen.findByText(/未找到已保存的“通用商品主图”/);
+ expect(pages).toBe(20);expect(screen.getByRole("button",{name:"读取更多模板"})).toBeEnabled();
+ expect(fetch.mock.calls.some(([,init])=>init?.method==="POST")).toBe(false);
 });
 it("does not unlock or overwrite an uncertain original request when a library skill arrives",async()=>{
  const selection={skillId:templateId,version:2,digest:sha},storage=`product-image-set:actor:org:acquisition:${operation}:intent`;
