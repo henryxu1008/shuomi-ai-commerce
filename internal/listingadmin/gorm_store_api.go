@@ -55,7 +55,6 @@ func (a gormStoreAPI) PageStores(req *StorePageReqDTO) (*PageResult[*StoreRespDT
 		query.Platform = req.Platform
 		query.Page = req.PageNo
 		query.PageSize = req.PageSize
-		query.EnableAutoPrice = req.EnableAutoPrice
 	}
 	page, err := a.repository.ListStores(context.Background(), query)
 	if err != nil || page == nil {
@@ -108,38 +107,21 @@ func StoreToRespDTO(store *Store) *StoreRespDTO {
 		return nil
 	}
 	return &StoreRespDTO{
-		ID:                       store.ID,
-		TenantID:                 store.TenantID,
-		OwnerUserID:              store.OwnerUserID,
-		StoreID:                  store.StoreID,
-		Name:                     store.Name,
-		Username:                 store.Username,
-		Password:                 store.Password,
-		LoginUrl:                 store.LoginURL,
-		ShopType:                 store.ShopType,
-		Region:                   store.Region,
-		Platform:                 store.Platform,
-		DailyLimit:               store.DailyLimit,
-		DailyLimitType:           store.DailyLimitType,
-		FixedStockCount:          store.FixedStockCount,
-		SkuGenerateStrategy:      store.SKUGenerateStrategy,
-		Prefix:                   store.Prefix,
-		Suffix:                   store.Suffix,
-		Proxy:                    store.Proxy,
-		EnableAutoListing:        store.EnableAutoListing,
-		EnableAutoLogin:          store.EnableAutoLogin,
-		EnableDraft:              store.EnableDraft,
-		EnableAutoPrice:          store.EnableAutoPrice,
-		DedicatedQueueEnabled:    store.DedicatedQueueEnabled,
-		EnableRebargain:          store.EnableRebargain,
-		EnableBrandAuthorization: store.EnableBrandAuthorization,
-		AuthorizedBrandCode:      store.AuthorizedBrandCode,
-		AuthorizedBrandName:      store.AuthorizedBrandName,
-		TemuPriceRejectStrategy:  store.TemuPriceRejectStrategy,
-		PriceType:                store.PriceType,
-		Remark:                   store.Remark,
-		Status:                   store.Status,
-		CreateTime:               types.ToFlexibleTime(store.CreateTime),
-		Creator:                  store.CreatedBy,
+		ID:          store.ID,
+		TenantID:    store.TenantID,
+		OwnerUserID: store.OwnerUserID,
+		StoreID:     store.StoreID,
+		Name:        store.Name,
+		Username:    store.Username,
+		Password:    store.Password,
+		LoginUrl:    store.LoginURL,
+		ShopType:    store.ShopType,
+		Region:      store.Region,
+		Platform:    store.Platform,
+		Proxy:       store.Proxy,
+		Remark:      store.Remark,
+		Status:      store.Status,
+		CreateTime:  types.ToFlexibleTime(store.CreateTime),
+		Creator:     store.CreatedBy,
 	}
 }

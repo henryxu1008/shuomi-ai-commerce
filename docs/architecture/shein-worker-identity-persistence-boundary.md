@@ -1,5 +1,7 @@
 # 独立 SHEIN worker：身份与持久化边界设计
 
+> #831 [Store 管理闭包校准](legacy-numeric-store-management-closure-retirement-boundary.md)仅替代本文对其 §5 七项无入口管理方法、五 helper 和 67 旧配置/查询字段的保留表述。原 worker/provider/查重/Store 同步、活跃行读写、九方法 StoreAPI、schema 辅助与全部身份/持久化 owner 保留；历史设计证据不变，不执行数据/运行操作，不新增当前 Organization/Store 接线。
+
 Refs [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
 - Status: **CONFIRMED / §7 有界实施**。用户已确认本设计并授权在 #722 退休闲置工件、最小修复查重 tenant 隔离；最终检查与合并权限另记 Issue/PR。

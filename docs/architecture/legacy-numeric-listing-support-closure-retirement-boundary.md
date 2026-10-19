@@ -1,5 +1,7 @@
 # 旧数字刊登共享管理与 Task/Workspace 尾部：完整退休边界
 
+> #831 [Store 管理闭包校准](legacy-numeric-store-management-closure-retirement-boundary.md)仅进一步退休其 §5 明列的无入口 Store 管理/配置声明与专属测试；本文当时的 Store 整体保留结论仅在这些准确对象上被替代。活跃账号读/同步、九方法 StoreAPI、四共享值类型、词库/话题、安全与独立 worker 保留；原冻结设计/历史证据不重写，无数据或运行动作。
+
 > #827 [confirmed Publishing runtime closure](legacy-shein-publishing-runtime-closure-retirement-boundary.md): Supersedes only then-retained unused Publishing execution/cache/remote submission/recovery and exclusive helpers/Prompt resources. The exact #824 offline validator/readiness closure, Store/content/topic tables and independent worker contracts remain current; original #824 evidence below is preserved. Workflows, dependencies, ceilings, runtime/data and trial prerequisites are unchanged.
 
 > Execution：[#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)
