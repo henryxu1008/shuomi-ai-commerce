@@ -14,6 +14,37 @@ const detail={agent:{agentId:id,activation:"ENABLED",revision:"1",activationEpoc
 beforeEach(()=>{localStorage.clear();configurationContext.guards.clear();});
 afterEach(()=>{cleanup();vi.unstubAllGlobals();vi.restoreAllMocks();localStorage.clear();});
 
+it.each([["通用商品主图","carousel","product_identity"],["通用使用场景","carousel","usage_scene"],["通用卖点详情","detail","key_benefits"]])("saves %s only after explicit confirmation without changing the enterprise default",async(name,group,purpose)=>{
+  const retainedDefault={templateId:"45a227bb-b572-4138-8e2a-5f1a0be98617",revision:"7"};
+  const read={...detail,agent:{...detail.agent,defaultTemplate:retainedDefault}};
+  const fetch=vi.fn(async(url:unknown,init?:RequestInit)=>{
+    if(init?.method==="POST")return Response.json({commandId:"8fc227bb-b572-4138-8e2a-5f1a0be98617",operation:"create-template",agentId:id,templateId:retainedDefault.templateId,revision:"1",version:"1",noop:false,committedAt:"2026-10-19T00:00:00Z"});
+    return Response.json(String(url).includes("/templates")?{items:[],nextCursor:""}:read);
+  });vi.stubGlobal("fetch",fetch);
+  render(<ImageAgentPage scope={{userId:"actor",organizationId:"org-a"}} organization="企业A"/>);
+  fireEvent.click(await screen.findByRole("button",{name:`从${name}方案新建`}));
+  expect(screen.getByLabelText("模板名称")).toHaveValue(name);
+  expect(fetch.mock.calls.some(([,init])=>init?.method==="POST"||init?.method==="PUT")).toBe(false);
+  fireEvent.click(screen.getByRole("button",{name:"保存图片模板"}));
+  await waitFor(()=>expect(fetch.mock.calls.some(([,init])=>init?.method==="POST")).toBe(true));
+  const writes=fetch.mock.calls.filter(([,init])=>init?.method==="POST"||init?.method==="PUT");expect(writes).toHaveLength(1);
+  const body=JSON.parse(String(writes[0][1]!.body));
+  expect(body).toMatchObject({name,targetPlatform:"product",image:{schema:"image-config-v1",mode:"standard",language:"zh",shareOriginals:true}});
+  expect(body.image.carousel.length+body.image.detail.length).toBe(1);
+  expect(body.image[group][0].purpose).toBe(purpose);
+  expect(JSON.stringify(body)).not.toMatch(/IKEA|马克杯|24 cl|202\.829/);
+  expect(writes[0][0]).not.toContain("default-template");
+  expect(read.agent.defaultTemplate).toEqual(retainedDefault);
+});
+
+it("shows generic plans to members without granting configuration writes",async()=>{
+  vi.stubGlobal("fetch",vi.fn(async(url:unknown)=>Response.json(String(url).includes("/templates")?{items:[],nextCursor:""}:{...detail,canConfigure:false})));
+  render(<ImageAgentPage scope={{userId:"member",organizationId:"org-a"}} organization="企业A"/>);
+  await screen.findByRole("heading",{name:"通用图片模板"});
+  expect(screen.getByRole("heading",{name:"通用使用场景"})).toBeVisible();
+  expect(screen.queryByRole("button",{name:/从通用.*方案新建/})).toBeNull();
+});
+
 it("keeps image readiness and unsupported platform capabilities honest in the shared panel",async()=>{
   const entry={...detail,canConfigure:false,capabilities:[
     {id:"image.generate",support:"REQUIRED",readiness:"NEEDS_CONFIGURATION",reason:"本企业图片路由尚未配置",observedAt:"2026-10-17T00:00:00Z"},
