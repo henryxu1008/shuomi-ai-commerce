@@ -13,6 +13,8 @@
 
 可编辑设计区域 [7658:2087](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=7658-2087)：文本深/浅 `7660:2088` / `7660:2221`，图片 `7660:2143` / `7660:2276`，预览 `7660:2167` / `7660:2300`，回执与历史 `7660:2186` / `7660:2319`，不可用/待核实 `7660:2196` / `7660:2329`。企业空间 `432:4483` 的管理入口 `7663:2225` 仅为平台维护者投影，不改变企业角色权限。复用现有 Console token、Noto Sans SC、Action/说明卡，缺失字段组件为 `7658:2118`；没有完整 UI 栅格图片。
 
+图片专用预览深/浅 `7666:2226` / `7666:2259`、回执 `7666:2245` / `7666:2278`，按 points/image 表达差异，不能跳用文本 Token 费率预览。原型状态链接只打开相应 Figma 设计节点，绝不连接实际发布 API。
+
 继承而非重做：
 
 - [文本供应商中立合同](product-agent-text-provider-neutral-v1.md)、[Product Agent runtime](product-agent-runtime-contract.md)：原 quote、claim、一次发送、完整 usage、UNKNOWN、预算、Review/Apply。
