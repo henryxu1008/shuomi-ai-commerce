@@ -1,9 +1,11 @@
 "use client";
 import {useCallback,useEffect,useId,useMemo,useRef,useState} from "react";
 import {z} from "zod";
+import Link from "next/link";
 import {Button} from "@/components/ui/button";
 import {skillRequest,skillError,SkillError,type SkillScope} from "@/lib/api/skill";
 import * as s from "@/lib/contracts/skill";
+import {skillLaunchHref} from "@/lib/contracts/skill-launch";
 import styles from "./skills.module.css";
 const example="---\nname: product-title-normalization\ndescription: Normalize and translate product titles using saved product facts.\n---\n# Product title normalization\nUse only saved product facts. Keep supported brand, model, material and measurements.\nTranslate to the selected language and remove repeated promotional words.\nDo not invent brands, certifications, sales, profit or missing specifications.\nWhen required facts are missing, return unresolved questions instead of a usable title.\nReturn the original required structured candidate; change only the selected title.\n";
 type Intent={path:string;payload:unknown;key:string;revision?:string;method:"POST"|"PUT"};
@@ -73,6 +75,7 @@ export function SkillManager({scope:receivedScope,home,canConfigure=false,open=t
   {selected&&!editing&&<section className={styles.detail}>
    <h3>{skillName(selected.version)} · v{selected.version.version}</h3><p>{selected.version.package.description}</p><p>归属：{selected.version.skill.owner.kind} · {selected.version.skill.owner.id}；创建者：{selected.version.skill.creator}</p><p className={styles.digest}>摘要：{selected.version.package.digest}</p>
    <label>已保存版本<select value={selected.version.version} disabled={disabled} onChange={e=>{const v=versions.find(v=>v.version===Number(e.target.value));if(v)void readVersion(v)}}>{versions.map(v=><option key={v.version} value={v.version}>v{v.version} · {states[v.state]}</option>)}</select></label>
+   {space==="official"&&selected.canUse&&scope.organizationId&&<Button asChild disabled={disabled}><Link prefetch={false} aria-disabled={disabled} onClick={event=>{if(disabled)event.preventDefault()}} href={skillLaunchHref("/workbench/agents/skills/official/use",{userId:scope.userId,organizationId:scope.organizationId,target:selected.version.package.target??"product-title",selection:{skillId:selected.version.skill.id,version:selected.version.version,digest:selected.version.package.digest}})}>处理已有商品</Link></Button>}
    {selected.version.package.files?.map(f=><details key={f.path}><summary>{f.path}</summary><pre>{f.text}</pre></details>)}
    <div className={styles.actions}>{selected.canEdit&&<Button disabled={disabled} onClick={()=>edit(selected)}>保存为新版本</Button>}{selected.canExport&&<Button variant="outline" disabled={disabled} onClick={()=>void exportPackage(selected.version)}>导出准确版本</Button>}{selected.canCopy&&space==="official"&&<>{(home==="personal"||organizationCanCreate)&&<Button disabled={disabled} onClick={()=>command(`${home}/copy`,{source:s.skillRef(selected.version),allowCopy:false,allowExport:false})}>复制到{home==="personal"?"本人":"当前企业"}</Button>}{presentation==="page"&&home==="personal"&&organizationCanCreate&&<Button variant="outline" disabled={disabled} onClick={()=>command("organization/copy",{source:s.skillRef(selected.version),allowCopy:false,allowExport:false})}>复制到当前企业</Button>}</>}
    {selected.canPublish&&selected.version.state!=="REVOKED"&&<><Button disabled={disabled} onClick={()=>command(`${space}/${selected.version.skill.id}/versions/${selected.version.version}/${selected.version.state==="DRAFT"?"publish":selected.version.state==="ENABLED"?"disable":"enable"}`,{},selected.version.skill.revision)}>{selected.version.state==="DRAFT"?"发布该版本":selected.version.state==="ENABLED"?"停用该版本":"启用该版本"}</Button><Button variant="outline" disabled={disabled} onClick={()=>command(`${space}/${selected.version.skill.id}/versions/${selected.version.version}/revoke`,{},selected.version.skill.revision)}>撤销该版本</Button></>}
