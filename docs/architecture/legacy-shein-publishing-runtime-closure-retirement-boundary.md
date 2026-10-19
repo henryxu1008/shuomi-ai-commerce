@@ -158,6 +158,8 @@ Cutover/deletion condition: 用户确认 + 独立准入 + Issue Ready → 原 gu
 
 共享测试 fixture 的审计结果：`newResolutionCacheTestStore` 与三个 counting cache resolver 仅服务被退休的缓存测试，不迁移；`containsReviewNote` 是唯一需要保留到当前尺寸测试的中立 helper。fixture 细化可在上述 mixed 测试范围内收敛，不能据此扩张生产边界或恢复旧类。
 
+最终检查的文档一致性校准：`internal/publishing/shein/doc.go` 只更新包注释，删除已退出的 compatibility/远端提交恢复职责描述，准确指向当前草稿/值/codec 与原 API/Submission owner。此注释增量不改变生产声明、字段、合同或行为；同根因核对的 `internal/listing/submission/doc.go` 仍准确描述当前 Kernel 协调，原样保留。
+
 ## 7. 确认、准入与停止条件
 
 1. 设计阶段仅文档/只读调查；用户已确认冻结设计，原独立检查完成、Issue 已记录 IMPLEMENTATION_READY / Ready 后实施。该准入不构成合并/运行/数据授权。
