@@ -19,6 +19,37 @@ var retiredTEMUListingPackages = []string{
 	"internal/marketplace/temu/publishing",
 }
 
+var retiredAmazonListingPackages = []string{
+	"internal/amazon/attribute", "internal/amazon/image", "internal/amazon/listing",
+	"internal/amazon/llm", "internal/amazon/model", "internal/amazon/pipeline", "internal/amazon/schema",
+	"internal/amazonlisting", "internal/marketplace/amazon", "internal/state",
+	"internal/httpbootstrap", "internal/shared/timex",
+}
+
+func TestAmazonListingClosureSourcesAreRetired(t *testing.T) {
+	paths := append([]string{}, retiredAmazonListingPackages...)
+	paths = append(paths, "hack/debug/test-amazon-listing", "deployments/kubernetes/amazon-listing")
+	for _, relative := range paths {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Errorf("retired Amazon listing source remains: %s (stat: %v)", relative, err)
+		}
+	}
+	var banned []string
+	for _, relative := range retiredAmazonListingPackages {
+		banned = append(banned, "task-processor/"+relative)
+	}
+	sources := trackedProductionTextSources(t, []string{"."}, func(path string) bool {
+		return strings.HasSuffix(path, ".go")
+	})
+	violations, err := phase3BannedImportDeclarationViolations(sources, banned)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, violation := range violations {
+		t.Errorf("retired Amazon listing import remains: %s", violation)
+	}
+}
+
 func TestTemuListingClosureSourcesAreRetired(t *testing.T) {
 	paths := append([]string{}, retiredTEMUListingPackages...)
 	paths = append(paths,
@@ -32,7 +63,7 @@ func TestTemuListingClosureSourcesAreRetired(t *testing.T) {
 		}
 	}
 	for relative, retired := range map[string][]string{
-		"internal/listingadmin": {"ProfitRuleAPI", "ProfitRuleReqDTO", "ProfitRuleRespDTO", "PricingRuleAPI", "PricingRuleReqDTO", "PricingRuleRespDTO", "NewGormProfitRuleAPI", "gormProfitRuleAPI", "ProfitRuleToRespDTO", "NewGormPricingRuleAPI", "gormPricingRuleAPI", "PricingRuleToRespDTO"},
+		"internal/listingadmin": {"ProfitRuleAPI", "ProfitRuleReqDTO", "ProfitRuleRespDTO", "PricingRuleAPI", "PricingRuleReqDTO", "PricingRuleRespDTO", "NewGormProfitRuleAPI", "gormProfitRuleAPI", "ProfitRuleToRespDTO", "NewGormPricingRuleAPI", "gormPricingRuleAPI", "PricingRuleToRespDTO", "DailyListingCountGetReqDTO", "DailyListingCountSetReqDTO", "DailyListingCountRespDTO", "TryConsumeDailyQuotaReqDTO", "TryConsumeDailyQuotaRespDTO", "RollbackDailyQuotaReqDTO", "DailyListingCountAPI"},
 		"internal/core/config":  {"SensitiveWordsConfig", "DefaultSensitiveWordsConfig", "GetWordsForLanguage", "AddStaticWords", "AddDynamicWords"},
 	} {
 		root := filepath.Join("..", filepath.FromSlash(relative))
@@ -515,7 +546,6 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/listingadmin/gorm_store_api.go":   {"func NewGormStoreAPI(", "func (a gormStoreAPI) GetStore(", "func (a gormStoreAPI) UpdateStoreId(", "func (a gormStoreAPI) UpdateStoreStatus("},
 		"internal/listingadmin/store_repository.go": {"type GormStoreRepository struct", "func (r *GormStoreRepository) GetStore("},
 		"internal/storecenter/gorm_repository.go":   {"type GormStoreRepository struct"},
-		"internal/amazon/pipeline/store_info.go":    {"type StoreInfoHandler struct", "func NewStoreInfoHandler("},
 		"internal/pkg/appenv/apputil.go":            {"func GetInstanceID("},
 		"internal/marketplace/temu/goods/builder.go": {
 			"func Build(", "snapshot.SelectableLeaf", "func checkLocal(",
@@ -1040,7 +1070,7 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 	for _, relative := range []string{
 		"internal/crawler/fetcher/contracts.go", "internal/crawler/fetcher/remote_fetcher.go",
 		"internal/platformbase/fetcher_mode.go", "internal/platformbase/fetcher_builder.go",
-		"internal/amazon/api/client.go", "internal/amazon/pipeline/manager.go",
+		"internal/amazon/api/client.go",
 		"internal/listingruntime/types.go", "internal/listingadmin/import_task_owner.go",
 		"internal/listingadmin/import_task_owner_test.go", "internal/listingadmin/schema_migrate.go",
 		"internal/listingadmin/product_data_repository.go", "internal/listingadmin/product_import_mapping_repository.go",
@@ -1083,7 +1113,7 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 			}
 		}
 	}
-	for _, command := range []string{"current-application", "shein-login-worker", "image-agent-temporal-worker", "source-account-registry-schema-init", "1688-local-agent", "1688-batch-import", "1688-public-browser-collector"} {
+	for _, command := range []string{"current-application", "shein-login-worker", "image-agent-temporal-worker", "source-account-registry-schema-init", "product-listing-api-schema-migrate", "1688-local-agent", "1688-batch-import", "1688-public-browser-collector"} {
 		t.Run(command, func(t *testing.T) {
 			cmd := exec.Command("go", "list", "-deps", "./cmd/"+command)
 			cmd.Dir = ".."
@@ -1092,10 +1122,10 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 				t.Fatalf("go list current command: %v\n%s", err, output)
 			}
 			for _, dependency := range strings.Fields(string(output)) {
-				for _, relative := range retiredTEMUListingPackages {
+				for _, relative := range append(append([]string{}, retiredTEMUListingPackages...), retiredAmazonListingPackages...) {
 					retired := "task-processor/" + relative
 					if dependency == retired || strings.HasPrefix(dependency, retired+"/") {
-						t.Errorf("%s still compiles retired TEMU listing dependency %s", command, dependency)
+						t.Errorf("%s still compiles retired listing dependency %s", command, dependency)
 					}
 				}
 				for _, retired := range []string{"task-processor/internal/shein/product", "task-processor/internal/shein/productdata", "task-processor/internal/shein/publish", "task-processor/internal/shein/mapping", "task-processor/internal/shein/validation", "task-processor/internal/shein/translate", "task-processor/internal/shein/addresscopy", "task-processor/internal/shein/managedclient", "task-processor/internal/shein/store", "task-processor/internal/shein/context", "task-processor/internal/shein/languageconfig", "task-processor/internal/shein/siteconfig", "task-processor/internal/sheinbridge/saleattribute", "task-processor/internal/shein/inventory", "task-processor/internal/temu/sync", "task-processor/internal/temu/bulkrelist", "task-processor/internal/temu/store", "task-processor/internal/app/bootstrap", "task-processor/internal/app/consumer", "task-processor/internal/app/runner", "task-processor/internal/app/scheduler", "task-processor/internal/app/runtime/listingcontrol", "task-processor/internal/app/runtime/sheinplatformrecovery", "task-processor/internal/listingcontrol", "task-processor/internal/app/task", "task-processor/internal/app/taskstatus", "task-processor/internal/processor", "task-processor/internal/app/crawler/distributed", "task-processor/internal/listingruntime/local", "task-processor/internal/platforms", "task-processor/internal/listingkit", "task-processor/internal/tenantbridge", "task-processor/internal/compatibility", "task-processor/internal/sourceaccount", "task-processor/internal/integration/persistence/sourceaccount/ownershipmigration"} {

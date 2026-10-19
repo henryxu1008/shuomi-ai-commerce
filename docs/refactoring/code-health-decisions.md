@@ -1,5 +1,14 @@
 # Code Health Decisions
 
+> #822: the user-confirmed complete Amazon listing closure is source-retired
+> under [the frozen boundary](../architecture/legacy-amazon-listing-closure-retirement-boundary.md).
+> The old numeric pipeline/Task Workbench and exclusive state, pool/time helpers,
+> DTO/schema registration, debug/deployment sources leave together. Retained API,
+> source acquisition, shared rules/contracts, Store observations and independent
+> SHEIN login/Store sync keep their owners. Only ten exact live consumer rows
+> leave; old adapter metadata is marked historical without rewriting the snapshot.
+> Original counts/ceilings, workflows/dependencies and runtime/data are unchanged.
+
 > Dated report/commit/manifest rows preserve their then-executed evidence, including
 > commands retired later. Current ownership and command availability follow the
 > user-confirmed retirement register and repository structure; historical evidence

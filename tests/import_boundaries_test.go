@@ -1498,7 +1498,6 @@ func TestListingAdminUsesManagementAPIPortAliases(t *testing.T) {
 
 func TestStateAndTaskRPCUseManagementAPIPortAliases(t *testing.T) {
 	paths := []string{
-		filepath.Join("..", "internal", "state", "daily_count_manager.go"),
 		filepath.Join("..", "internal", "taskrpcapi", "handler.go"),
 	}
 	for _, path := range paths {
@@ -1518,38 +1517,10 @@ func TestStateAndTaskRPCUseManagementAPIPortAliases(t *testing.T) {
 }
 
 func TestAmazonServicesUseStoreAPIPort(t *testing.T) {
-	path := filepath.Join("..", "internal", "amazon", "model", "context.go")
-	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, path, nil, 0)
-	if err != nil {
-		t.Fatalf("parse %s: %v", path, err)
-	}
-
-	for _, decl := range file.Decls {
-		switch typed := decl.(type) {
-		case *ast.GenDecl:
-			for _, spec := range typed.Specs {
-				typeSpec, ok := spec.(*ast.TypeSpec)
-				if !ok || typeSpec.Name == nil || typeSpec.Name.Name != "Services" {
-					continue
-				}
-				structType, ok := typeSpec.Type.(*ast.StructType)
-				if !ok || structType.Fields == nil {
-					continue
-				}
-				for _, field := range structType.Fields.List {
-					for _, name := range field.Names {
-						if name.Name == "ManagementClient" {
-							t.Fatalf("%s Services exposes ManagementClient; expose StoreAPI for store reads and pause updates", path)
-						}
-					}
-				}
-			}
-		case *ast.FuncDecl:
-			if typed.Name != nil && typed.Name.Name == "SetManagementClient" {
-				t.Fatalf("%s exposes SetManagementClient; use SetStoreAPI so Amazon services depend on the store port", path)
-			}
-		}
+	// The old Services owner has retired; it must not return as a store wrapper.
+	path := filepath.Join("..", "internal", "amazon", "model")
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("retired Amazon Services/context owner must stay absent: %v", err)
 	}
 }
 
@@ -1934,7 +1905,7 @@ func TestDomainHTTPPackagesDoNotImportAppHTTPAPI(t *testing.T) {
 		filepath.Join("..", "internal", "sourceaccountregistry", "httpapi"),
 	} {
 		t.Run(filepath.Base(domainRoot), func(t *testing.T) {
-			assertNoBannedImports(t, domainRoot, []string{
+			assertNoBannedImportsBelow(t, filepath.Join("..", "internal"), domainRoot, []string{
 				`"task-processor/internal/app/httpapi"`,
 			}, nil)
 		})
@@ -1958,7 +1929,7 @@ func TestBusinessDomainsDoNotImportAppHTTPAPI(t *testing.T) {
 		filepath.Join("..", "internal", "temu"),
 	} {
 		t.Run(filepath.Base(domainRoot), func(t *testing.T) {
-			assertNoBannedImports(t, domainRoot, []string{
+			assertNoBannedImportsBelow(t, filepath.Join("..", "internal"), domainRoot, []string{
 				`"task-processor/internal/app/httpapi"`,
 			}, nil)
 		})
@@ -2227,7 +2198,7 @@ func TestBusinessDomainsDoNotImportAppRuntimeAssembly(t *testing.T) {
 		filepath.Join("..", "internal", "temu"),
 	} {
 		t.Run(filepath.Base(domainRoot), func(t *testing.T) {
-			assertNoBannedImportPrefixes(t, domainRoot, []string{
+			assertNoBannedImportPrefixesBelow(t, filepath.Join("..", "internal"), domainRoot, []string{
 				"task-processor/internal/app/bootstrap",
 				"task-processor/internal/app/consumer",
 				"task-processor/internal/app/runner",
@@ -2242,8 +2213,6 @@ func businessHTTPPackages(root string) map[string]struct{} {
 		filepath.Clean(filepath.Join(root, "authz", "httpapi")) + string(os.PathSeparator):                 {},
 		filepath.Clean(filepath.Join(root, "authruntime", "zitadel")) + string(os.PathSeparator):           {},
 		filepath.Clean(filepath.Join(root, "app", "httpapi")) + string(os.PathSeparator):                   {},
-		filepath.Clean(filepath.Join(root, "amazonlisting", "api")) + string(os.PathSeparator):             {},
-		filepath.Clean(filepath.Join(root, "amazonlisting", "httpapi")) + string(os.PathSeparator):         {},
 		filepath.Clean(filepath.Join(root, "httproute")) + string(os.PathSeparator):                        {},
 		filepath.Clean(filepath.Join(root, "imageagent", "httpapi")) + string(os.PathSeparator):            {},
 		filepath.Clean(filepath.Join(root, "kernel", "module")) + string(os.PathSeparator):                 {},
@@ -2253,7 +2222,6 @@ func businessHTTPPackages(root string) map[string]struct{} {
 		filepath.Clean(filepath.Join(root, "sdslogin")) + string(os.PathSeparator):                         {},
 		filepath.Clean(filepath.Join(root, "sheinlogin")) + string(os.PathSeparator):                       {},
 		filepath.Clean(filepath.Join(root, "taskrpcapi")) + string(os.PathSeparator):                       {},
-		filepath.Clean(filepath.Join(root, "amazonlisting", "interfaces.go")):                              {},
 		filepath.Clean(filepath.Join(root, "listingkit", "studio_session_handler.go")):                     {},
 		filepath.Clean(filepath.Join(root, "listingsubscription", "handler.go")):                           {},
 	}
@@ -2499,8 +2467,7 @@ func TestSkillHTTPBoundaryRegistration(t *testing.T) {
 func TestAmazonExternalClientImportsStayAllowlisted(t *testing.T) {
 	root := filepath.Join("..", "internal", "amazon")
 	allowedFiles := map[string]struct{}{
-		filepath.Clean(filepath.Join(root, "llm", "openai_llm_client.go")): {},
-		filepath.Clean(filepath.Join(root, "processor.go")):                {},
+		filepath.Clean(filepath.Join(root, "processor.go")): {},
 	}
 
 	index, err := loadGoFileIndex(root, "")
@@ -2677,7 +2644,7 @@ func TestStateRetiredManagementImportsStayBlocked(t *testing.T) {
 	root := filepath.Join("..", "internal", "state")
 	allowedFiles := map[string]struct{}{}
 
-	index, err := loadGoFileIndex(root, "")
+	index, err := loadGoFileSubtreeIndex(filepath.Join("..", "internal"), root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3657,6 +3624,58 @@ func imageAgentEffectPolicyInboundImportViolations(root string) ([]string, error
 	}
 	sort.Strings(violations)
 	return violations, nil
+}
+
+func assertNoBannedImportsBelow(t *testing.T, parentRoot, root string, bannedImports []string, allowedFiles map[string]struct{}) {
+	t.Helper()
+	index, err := loadGoFileSubtreeIndex(parentRoot, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for path, facts := range index.files {
+		if pathAllowed(path, allowedFiles) {
+			continue
+		}
+		for quoted := range facts.imports {
+			imported, err := decodeGoImportPath(quoted)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, literal := range bannedImports {
+				banned, err := decodeGoImportPath(literal)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if imported == banned {
+					t.Errorf("%s imports banned boundary package %q", path, imported)
+				}
+			}
+		}
+	}
+}
+
+func assertNoBannedImportPrefixesBelow(t *testing.T, parentRoot, root string, bannedPrefixes []string, allowedFiles map[string]struct{}) {
+	t.Helper()
+	index, err := loadGoFileSubtreeIndex(parentRoot, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for path, facts := range index.files {
+		if strings.HasSuffix(filepath.Base(path), "_test.go") || pathAllowed(path, allowedFiles) {
+			continue
+		}
+		for quoted := range facts.imports {
+			imported, err := decodeGoImportPath(quoted)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, banned := range bannedPrefixes {
+				if importMatchesPrefix(imported, banned) {
+					t.Errorf("%s imports banned boundary package prefix %s via %s", path, banned, imported)
+				}
+			}
+		}
+	}
 }
 
 func assertNoBannedImports(t *testing.T, root string, bannedImports []string, allowedFiles map[string]struct{}) {

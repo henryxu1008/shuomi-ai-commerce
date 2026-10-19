@@ -1,5 +1,18 @@
 # Legacy Register
 
+> #29 / #301 [complete Amazon listing closure](../architecture/legacy-amazon-listing-closure-retirement-boundary.md)
+> follows user-confirmed frozen design 3a344153e and Independent Architecture /
+> IMPLEMENTATION_READY admission before production edits in #822. The 118-Go-file
+> old numeric pipeline, unregistered Task/Workbench, exclusive state/pool/time
+> helpers and debug source plus 20 non-Go resources are source-retired. Seven
+> private quota declarations and only the old Task schema registration leave;
+> existing tables/rows are not operated. Ten exact live consumer edges leave;
+> the old adapter table entry receives a narrow superseded note and remains
+> historical. Current Amazon API/source acquisition, valid rules/shared contracts,
+> Store observations and independent SHEIN login/Store sync retain their owners.
+> Workflows, dependencies, protections, dated counts/ceilings and real runtime/data
+> are unchanged. Earlier retention statements are superseded only for this closure.
+
 > #29 / #301 [complete remaining TEMU numeric listing closure](../architecture/legacy-temu-listing-closure-retirement-boundary.md)
 > follows user-confirmed frozen design a253ca05f in #819, with Independent
 > Architecture / IMPLEMENTATION_READY admission before production edits. The

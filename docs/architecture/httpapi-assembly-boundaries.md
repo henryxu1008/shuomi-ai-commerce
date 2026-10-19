@@ -1,5 +1,7 @@
 # HTTP API Assembly Boundaries
 
+> #822 当前校准：旧 internal/amazonlisting（含 api/httpapi/store）及专属 internal/httpbootstrap 已完整源码退休。下文对它们的 builder/route/repo/pool 说明只保留为历史边界证据，不是当前装配、目标 owner 或恢复入口；当前 HTTP 与独立 SHEIN worker 保持原 owner。见[Amazon 退休边界](legacy-amazon-listing-closure-retirement-boundary.md)。
+
 ## Goal
 
 这份说明记录当前 `ListingKit` HTTP API 的稳定装配边界，避免后续新增功能时又把业务逻辑回流到 `internal/app/httpapi`。
