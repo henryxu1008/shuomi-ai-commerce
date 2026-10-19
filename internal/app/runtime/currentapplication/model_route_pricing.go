@@ -50,9 +50,15 @@ func (c *Config) modelRouteDefinitions() ([]qualified.Definition, error) {
 		}
 		add(aicapability.OperationProductAgentDecision, p.TextPolicies)
 		add(aicapability.OperationProductContentDecision, p.ContentTextPolicies)
-		add(aicapability.OperationListingMaterialsDecision, p.MaterialsTextPolicies)
-		add(aicapability.OperationProductSelectionDecision, p.SelectionTextPolicies)
-		add(aicapability.OperationShopDiagnosisDecision, p.DiagnosisTextPolicies)
+		if c.SupplyChain != nil {
+			add(aicapability.OperationListingMaterialsDecision, p.MaterialsTextPolicies)
+		}
+		if c.ProductCollections {
+			add(aicapability.OperationProductSelectionDecision, p.SelectionTextPolicies)
+		}
+		if c.StoreCenter != nil && c.StoreCenter.Enabled && c.StoreCenter.OperationsCockpit {
+			add(aicapability.OperationShopDiagnosisDecision, p.DiagnosisTextPolicies)
+		}
 		if c.AIWorkbench != nil && c.AIWorkbench.Enabled && !c.AIWorkbench.ConversationOnly {
 			add(aicapability.OperationAIWorkbenchChatPlan, c.AIWorkbench.PlanningTextPolicies)
 		}
