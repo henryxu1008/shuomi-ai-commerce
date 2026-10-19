@@ -45,7 +45,7 @@ func (c *OfficialClient) goodsRequest(ctx context.Context, method, path, query s
 		return nil, ErrGoodsInvalid
 	}
 	switch path {
-	case "/open-api/goods/searchProduct", "/open-api/order/order-list", "/open-api/order/order-detail", "/open-api/goods/spu-info", "/open-api/goods/product/publishOrEdit", "/open-api/goods/transform-pic", "/open-api/goods/query-site-list", "/open-api/goods/query-publish-fill-in-standard", "/open-api/goods/query-category-tree", "/open-api/goods/query-attribute-template", "/open-api/goods/get-associated-attribute-rules", "/open-api/goods/query-brand-list":
+	case "/open-api/goods/query-document-state", "/open-api/goods/modify-skc-shelf", "/open-api/stock/stock-query", "/open-api/goods/searchProduct", "/open-api/order/order-list", "/open-api/order/order-detail", "/open-api/goods/spu-info", "/open-api/goods/product/publishOrEdit", "/open-api/goods/transform-pic", "/open-api/goods/query-site-list", "/open-api/goods/query-publish-fill-in-standard", "/open-api/goods/query-category-tree", "/open-api/goods/query-attribute-template", "/open-api/goods/get-associated-attribute-rules", "/open-api/goods/query-brand-list":
 		if method != http.MethodPost || query != "" {
 			return nil, ErrGoodsInvalid
 		}
@@ -229,7 +229,7 @@ func (c *OfficialClient) PublishProduct(ctx context.Context, credential storecen
 			PreValidationResults []json.RawMessage `json:"pre_valid_result"`
 		} `json:"info"`
 	}
-	if decodeGoods(raw, &response) != nil || response.Code != "0" || response.Info == nil || response.Info.Success == nil || !*response.Info.Success || !boundedParameter(response.Info.SPUName, 128) || len(response.Info.SKCs) != len(input.SKCs) {
+	if decodeGoods(raw, &response) != nil || response.Code != "0" || response.Info == nil || response.Info.Success == nil || !*response.Info.Success || !boundedParameter(response.Info.SPUName, 128) || !boundedParameter(response.Info.Version, 128) || len(response.Info.SKCs) != len(input.SKCs) {
 		return sheinmodel.PublishResult{}, ErrGoodsOutcomeUnknown
 	}
 	if len(response.Info.FilteredResults) > 0 || len(response.Info.PreValidationResults) > 0 {

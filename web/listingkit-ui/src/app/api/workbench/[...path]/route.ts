@@ -1,6 +1,7 @@
 import { isBrowserCapturePath, isBrowserCaptureRequestURL } from "@/lib/contracts/browser-capture";
 import {agentPath,ownAgentPath} from "@/lib/contracts/product-agent";
 import {materialsPath} from "@/lib/contracts/listing-materials";
+import {supplyPath} from "@/lib/contracts/supply-chain";
 import { aiWorkbenchPath } from "@/lib/contracts/ai-workbench";
 import { collectionPath } from "@/lib/contracts/product-collection";
 import {planPath} from "@/lib/contracts/acquisition-plan";
@@ -22,6 +23,7 @@ const UPSTREAM_TIMEOUT_MS = 15_000;
 const ACQUISITION_TIMEOUT_MS = 22_000;
 // Preserve the backend's 30s image window plus bounded proxy transport time.
 const IMAGE_SET_TIMEOUT_MS = 32_000;
+const SHEIN_PUBLICATION_TIMEOUT_MS = 32_000;
 
 type AuthenticatedWorkbenchRequest = NextRequest & { auth?: unknown };
 type WorkbenchDispatchState = {
@@ -143,7 +145,8 @@ async function handleWorkbenchRequest(
   const ownAgentRunRequest = path[4] === "runs" && ownAgentPath(path) !== null &&
     (request.method === "GET" && path.length === 6 || request.method === "POST" && (path.length === 5 || path.length === 7));
   const agentRequest=agentPath(path)!==null || ownAgentRunRequest || ["materials-start","materials-resume","materials-adopt"].includes(materialsPath(request.method,path)??"") || ["message", "confirm", "task-start", "task-resume", "task-review"].includes(aiWorkbenchPath(request.method, path) ?? "");
-  const timeout = setTimeout(abort, planPath(request.method,path)?52000:imageSetRequest ? IMAGE_SET_TIMEOUT_MS : agentRequest?125000:dispatchState.acquisitionRequest ? ACQUISITION_TIMEOUT_MS : UPSTREAM_TIMEOUT_MS);
+  const sheinPublicationRequest=["shein-status","shein-shelf-prepare","shein-shelf-confirm","shein-shelf-result"].includes(supplyPath(request.method,path)??"");
+  const timeout = setTimeout(abort, sheinPublicationRequest?SHEIN_PUBLICATION_TIMEOUT_MS:planPath(request.method,path)?52000:imageSetRequest ? IMAGE_SET_TIMEOUT_MS : agentRequest?125000:dispatchState.acquisitionRequest ? ACQUISITION_TIMEOUT_MS : UPSTREAM_TIMEOUT_MS);
   try {
     const scopedRequest = new NextRequest(request, { signal: controller.signal });
     const result = await Promise.race([

@@ -24,6 +24,8 @@ const (
 	ProductPurposeRules   = "product_rules"
 	ProductPurposePublish = "product_publish"
 	ProductPurposeImage   = "supply_image_transform"
+	ProductPurposeStatus  = "product_status"
+	ProductPurposeShelfOn = "product_shelf_on"
 )
 
 type ProductExecutionAuthorization struct {
@@ -134,7 +136,7 @@ type ProductExecutionReader interface {
 }
 
 func (r *MemberScopedStoreRepository) ReadProductExecution(ctx context.Context, subject ProductExecutionSubject, storeID string, authorization ProductExecutionAuthorizer, now time.Time) (ProductExecutionMaterial, error) {
-	if isNilDependency(authorization) || (subject.Purpose != ProductPurposeRules && subject.Purpose != ProductPurposePublish && subject.Purpose != ProductPurposeImage) {
+	if isNilDependency(authorization) || (subject.Purpose != ProductPurposeRules && subject.Purpose != ProductPurposePublish && subject.Purpose != ProductPurposeImage && subject.Purpose != ProductPurposeStatus && subject.Purpose != ProductPurposeShelfOn) {
 		return ProductExecutionMaterial{}, ErrNotFound
 	}
 	material, err := r.readOfficialMaterial(ctx, StoreMemberAccess{OrganizationID: subject.OrganizationID, ActorID: subject.ActorID, MemberID: subject.MemberID}, storeID, now, func(ctx context.Context) (ProductExecutionAuthorization, error) {

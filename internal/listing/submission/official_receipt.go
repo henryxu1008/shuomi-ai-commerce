@@ -37,6 +37,7 @@ type OfficialReceipt struct {
 	ID                 string                             `json:"id"`
 	Owner              collection.Scope                   `json:"owner"`
 	Kind               string                             `json:"kind"`
+	Shelf              *model.ShelfResult                 `json:"shelf,omitempty"`
 	RecordID           string                             `json:"record_id,omitempty"`
 	ProductKey         string                             `json:"product_key,omitempty"`
 	Target             ExecutionTarget                    `json:"target"`
@@ -90,7 +91,7 @@ func completionBase(owner collection.Scope, binding storecenter.ProductMerchantB
 }
 func NewPublishCompletion(owner collection.Scope, recordID, productKey string, binding storecenter.ProductMerchantBinding, attempt ExecutionAttempt, claim ExecutionClaim, payload model.PublishProduct, result model.PublishResult) (OfficialCompletion, error) {
 	raw, err := json.Marshal(payload)
-	if err != nil || len(raw) > MaxExecutionPayloadBytes || !goods.CorrelatesPublishedMembership(payload, result) || !isExecutionDigest(result.ResponseHash) {
+	if err != nil || len(raw) > MaxExecutionPayloadBytes || !authidentity.IsBoundedIdentifier(result.Version) || !goods.CorrelatesPublishedMembership(payload, result) || !isExecutionDigest(result.ResponseHash) {
 		return OfficialCompletion{}, ErrExecutionEvidenceRequired
 	}
 	body, err := completionBase(owner, binding, attempt, claim, raw, OfficialPublishAction)
@@ -136,6 +137,9 @@ func ValidateOfficialReceipt(value OfficialReceipt) error {
 		!isExecutionDigest(value.PayloadFingerprint) || !isExecutionDigest(value.ResponseHash) || value.Binding.OrganizationID != value.Owner.OrganizationID ||
 		value.Binding.StoreVersion < 1 || value.Binding.ConnectionRevision < 1 || !value.Binding.ValidApplication() || !isExecutionDigest(value.Binding.SupplierIdentityHash) || value.Binding.ServiceExpiresAt.IsZero() || value.ObservedAt.IsZero() {
 		return ErrExecutionEvidenceRequired
+	}
+	if value.Shelf != nil || value.Kind == "shelf_on" {
+		return validateShelfReceipt(value)
 	}
 	if value.Target.Platform == "walmart" {
 		return validateWalmartReceipt(value)

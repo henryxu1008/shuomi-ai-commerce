@@ -140,8 +140,8 @@ func (a OrganizationExecutionAuthorizer) AuthorizeProductExecution(ctx context.C
 	scope := collection.Scope{OrganizationID: subject.OrganizationID, ActorID: subject.ActorID, MemberID: subject.MemberID}
 	permissions := []string{preparation.PermissionRead, authz.PermissionWorkbenchStoreRead}
 	switch subject.Purpose {
-	case storecenter.ProductPurposeRules:
-	case storecenter.ProductPurposePublish, storecenter.ProductPurposeImage:
+	case storecenter.ProductPurposeRules, storecenter.ProductPurposeStatus:
+	case storecenter.ProductPurposePublish, storecenter.ProductPurposeImage, storecenter.ProductPurposeShelfOn:
 		permissions = append(permissions, collection.PermissionRead, preparation.PermissionManage, preparation.PermissionSubmit)
 	default:
 		return storecenter.ProductExecutionAuthorization{}, storecenter.ErrNotFound
@@ -162,7 +162,8 @@ func (a OrganizationExecutionAuthorizer) AuthorizeProductExecution(ctx context.C
 			return storecenter.ProductExecutionAuthorization{}, storecenter.ErrNotFound
 		}
 	}
-	return storecenter.ProductExecutionAuthorization{Allowed: true, Access: storecenter.StoreMemberAccess{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, MemberID: scope.MemberID, Administrator: a.Permissions.IsTenantAdmin("", roles), CanWrite: subject.Purpose != storecenter.ProductPurposeRules}}, nil
+	canWrite := subject.Purpose == storecenter.ProductPurposePublish || subject.Purpose == storecenter.ProductPurposeImage || subject.Purpose == storecenter.ProductPurposeShelfOn
+	return storecenter.ProductExecutionAuthorization{Allowed: true, Access: storecenter.StoreMemberAccess{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, MemberID: scope.MemberID, Administrator: a.Permissions.IsTenantAdmin("", roles), CanWrite: canWrite}}, nil
 }
 
 type OperationExecutionAuthorization struct {

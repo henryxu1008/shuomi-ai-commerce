@@ -156,7 +156,7 @@ func (m *uploadMerchant) Publish(_ context.Context, input model.PublishProduct) 
 	if m.loseResponse {
 		return model.PublishResult{}, errors.New("response lost")
 	}
-	return model.PublishResult{SPUName: "spu-a", SKCs: []model.PublishedSKC{{SKCName: "skc-a", SKUs: []model.PublishedSKU{{SupplierSKU: input.SKCs[0].SKUs[0].SupplierSKU, SKUCode: "sku-code-a"}}}}, ResponseHash: collection.Digest(input)}, nil
+	return model.PublishResult{Version: "v1", SPUName: "spu-a", SKCs: []model.PublishedSKC{{SKCName: "skc-a", SKUs: []model.PublishedSKU{{SupplierSKU: input.SKCs[0].SKUs[0].SupplierSKU, SKUCode: "sku-code-a"}}}}, ResponseHash: collection.Digest(input)}, nil
 }
 
 type uploadStore struct {

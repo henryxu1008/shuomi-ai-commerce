@@ -6,6 +6,20 @@ const intent:SupplyIntent={userId:"actor",organizationId:"org",key:id,route:"cre
 const operation={id,input:intent.command,count:205,completed:0,status:"pending",execution:"pending",createdAt:"2026-10-08T00:00:00Z"};
 const reply=(v:unknown)=>new Response(JSON.stringify(v),{headers:{"Content-Type":"application/json"}});
 afterEach(()=>vi.unstubAllGlobals());
+
+it("confirms once with the prepared SHEIN key and recovers through a read-only original result",async()=>{
+ const input={sourceId:id,storeId:other,receiptId:id,skc:"skc",token:other};
+ const prepared:SupplyIntent={...intent,route:"shein-shelf-confirm",command:input};
+ const fetcher=vi.fn().mockImplementation(()=>Promise.resolve(reply({key:id,attemptId:id,sourceId:id,storeId:other,receiptId:id,skc:"skc",status:"outcome_unknown",message:"待核实"})));vi.stubGlobal("fetch",fetcher);
+ await expect(supplyCommand(prepared)).resolves.toMatchObject({status:"outcome_unknown"});
+ await expect(readSupplyCommand(prepared)).resolves.toMatchObject({status:"outcome_unknown"});
+ expect(fetcher.mock.calls[0][0]).toMatch(/shein-publication\/confirm$/);
+ expect(fetcher.mock.calls[0][1].headers.get("Idempotency-Key")).toBe(id);
+ expect(fetcher.mock.calls[1][0]).toMatch(/shein-publication\/result$/);
+ expect(fetcher.mock.calls[1][1].headers.get("Idempotency-Key")).toBeNull();
+ expect(JSON.parse(fetcher.mock.calls[1][1].body)).toEqual({...input,key:id});
+});
+
 it("checks structured receipt values before confirming or recovering the original save",async()=>{
  const structured={attributes:[],variants:[{sourceIndex:0,price:{currency:"CNY",amount:0},stock:0}]};
  const content={title:"候选",description:"",structured};

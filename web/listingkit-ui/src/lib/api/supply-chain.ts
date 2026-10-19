@@ -8,7 +8,7 @@ import { supplyReviewCommand,supplyReviewApplyCommandSchema,supplyReviewDecision
 import { SupplyAPIError } from "./supply-error";
 
 export type SupplyScope=CollectionScope;
-export type SupplyIntent=Readonly<SupplyScope & { key:string; route:"save-completion-draft"|"transfer"|"save-target"|"approve"|"create-operation"|"resolve-upload"|"review-decision"|"review-apply"; command:unknown }>;
+export type SupplyIntent=Readonly<SupplyScope & { key:string; route:"shein-shelf-confirm"|"save-completion-draft"|"transfer"|"save-target"|"approve"|"create-operation"|"resolve-upload"|"review-decision"|"review-apply"; command:unknown }>;
 export function supplyIntentRequestSchema(route:SupplyIntent["route"]){
  if(route==="review-decision")return supplyReviewDecisionCommandSchema;
  if(route==="review-apply")return supplyReviewApplyCommandSchema;
@@ -65,7 +65,7 @@ export const readSupplyPublication=async(scope:SupplyScope,source:string,store:s
  const value=await send(`${base}/sources/${collectionID.parse(source)}/publications/${collectionID.parse(store)}`,scope,c.publicationSchema,signal);if(value.sourceId!==source||value.storeId!==store)throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
 };
 export const readSupplyPublicationStatus=async(scope:SupplyScope,source:string,store:string,signal?:AbortSignal,receiptId?:string)=>{
- const value=await send(`${base}/sources/${collectionID.parse(source)}/publications/${collectionID.parse(store)}/status${receiptId?`/${collectionID.parse(receiptId)}`:""}`,scope,c.publicationSchema,signal);if(value.sourceId!==source||value.storeId!==store||!value.tiktokStatus&&!value.walmart)throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
+ const value=await send(`${base}/sources/${collectionID.parse(source)}/publications/${collectionID.parse(store)}/status${receiptId?`/${collectionID.parse(receiptId)}`:""}`,scope,c.publicationSchema,signal);if(value.sourceId!==source||value.storeId!==store||!value.tiktokStatus&&!value.walmart&&!value.sheinStatus)throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
 };
 export const readSupplyRecord=async(scope:SupplyScope,id:string,signal?:AbortSignal)=>{
 	const value=await send(`${base}/records/${collectionID.parse(id)}`,scope,c.sheinTargetRecordSchema,signal);if(value.id!==id)throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
@@ -79,7 +79,16 @@ export const temuSupplyRules=(scope:SupplyScope,input:z.infer<typeof c.temuRules
 export const walmartSupplyRules=(scope:SupplyScope,input:z.infer<typeof c.walmartRulesQuerySchema>,signal?:AbortSignal)=>send(`${base}/target-rules`,scope,c.walmartRulesResponseSchema,signal,{method:"POST",command:c.walmartRulesQuerySchema.parse(input)});
 export const tiktokSupplyRules=(scope:SupplyScope,input:z.infer<typeof c.tiktokRulesQuerySchema>,signal?:AbortSignal)=>send(`${base}/target-rules`,scope,c.tiktokRulesSchema,signal,{method:"POST",command:c.tiktokRulesQuerySchema.parse(input)});
 export const supplyInventory=(scope:SupplyScope,input:z.infer<typeof c.sourceSelectionSchema>,signal?:AbortSignal)=>send(`${base}/images/inventory`,scope,c.inventorySchema,signal,{method:"POST",command:c.sourceSelectionSchema.parse(input)});
+export async function readSheinPublicationStatus(scope:SupplyScope,input:z.input<typeof c.sheinStatusInputSchema>,signal?:AbortSignal){
+ const command=c.sheinStatusInputSchema.parse(input),value=await send(base+"/shein-publication/status",scope,c.sheinPublicationStatusSchema,signal,{method:"POST",command});
+ if(!c.matchesSheinResponse("shein-status",value,JSON.stringify(command)))throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
+}
+export async function prepareSheinShelf(scope:SupplyScope,input:c.SheinShelfInput,signal?:AbortSignal){
+ const command=c.sheinShelfInputSchema.parse(input),key=crypto.randomUUID(),value=await send(base+"/shein-publication/prepare",scope,c.sheinShelfConfirmationSchema,signal,{method:"POST",command,key});
+ if(!c.matchesSheinResponse("shein-shelf-prepare",value,JSON.stringify({...command,key})))throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
+}
 export async function supplyCommand(intent:SupplyIntent,signal?:AbortSignal){
+ if(intent.route==="shein-shelf-confirm"){const input=c.sheinShelfConfirmInputSchema.parse(intent.command),value=await send(base+"/shein-publication/confirm",intent,c.sheinShelfActionSchema,signal,{method:"POST",command:input,key:intent.key,mutates:true});if(!c.matchesSheinResponse(intent.route,value,JSON.stringify({...input,key:intent.key})))throw new SupplyAPIError("OUTCOME_UNKNOWN",503);return value;}
  if(intent.route==="resolve-upload"){
   const input=c.resolveUploadSchema.parse(intent.command);
   const result=await send(`${base}/uploads/resolve`,intent,c.uploadResolutionSchema,signal,{method:"POST",command:input,mutates:true});
@@ -93,6 +102,7 @@ export async function supplyCommand(intent:SupplyIntent,signal?:AbortSignal){
 }
 export async function readSupplyCommand(intent:SupplyIntent,signal?:AbortSignal){
  const key=collectionID.parse(intent.key);
+ if(intent.route==="shein-shelf-confirm"){const input={...c.sheinShelfConfirmInputSchema.parse(intent.command),key},value=await send(base+"/shein-publication/result",intent,c.sheinShelfActionSchema,signal,{method:"POST",command:input});if(!c.matchesSheinResponse("shein-shelf-result",value,JSON.stringify(input)))throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;}
  // Approval is a safely repeatable local fact commit. Replaying the exact full
  // set with the same key reads its immutable receipt without a platform send.
  if(intent.route==="approve"||intent.route==="resolve-upload"||intent.route==="review-decision"||intent.route==="review-apply")return supplyCommand(intent,signal);
@@ -112,7 +122,7 @@ async function send<T extends z.ZodType>(path:string,scope:SupplyScope,schema:T,
  const bounded=/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
  if(!bounded.test(scope.userId)||!bounded.test(scope.organizationId))throw new SupplyAPIError("INVALID_REQUEST",400);
  const controller=new AbortController();const abort=()=>controller.abort();signal?.addEventListener("abort",abort,{once:true});if(signal?.aborted)abort();
- const timeout=setTimeout(abort,27_000);const unavailable=()=>new SupplyAPIError(input?.mutates?"OUTCOME_UNKNOWN":"DEPENDENCY_UNAVAILABLE",input?.mutates?503:502);
+ const timeout=setTimeout(abort,path.includes("/shein-publication/")?32_000:27_000);const unavailable=()=>new SupplyAPIError(input?.mutates?"OUTCOME_UNKNOWN":"DEPENDENCY_UNAVAILABLE",input?.mutates?503:502);
  try{
   const headers=new Headers({Accept:"application/json","X-Expected-Organization-ID":scope.organizationId,"X-Expected-User-ID":scope.userId});
   if(input?.command!==undefined)headers.set("Content-Type","application/json");if(input?.key)headers.set("Idempotency-Key",input.key);
