@@ -1,8 +1,0 @@
-package submission
-
-import "task-processor/internal/listing/sourcefacts"
-
-// SourceFactsReady evaluates whether source-derived facts are ready for submit.
-func SourceFactsReady(metadata map[string]string) (bool, string) {
-	return sourcefacts.Ready(metadata)
-}

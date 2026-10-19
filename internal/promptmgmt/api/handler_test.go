@@ -32,11 +32,11 @@ func TestPromptTemplateHandlersManageCurrentTenantPrompts(t *testing.T) {
 	if resp.Code != http.StatusOK {
 		t.Fatalf("GET catalog status = %d body=%s", resp.Code, resp.Body.String())
 	}
-	if !strings.Contains(resp.Body.String(), `"key":"shein.content_optimizer.optimize_title_description_system"`) {
+	if !strings.Contains(resp.Body.String(), `"key":"productenrich.llm_scorer.image_scoring"`) {
 		t.Fatalf("GET catalog body missing schema key: %s", resp.Body.String())
 	}
 
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/listing-kits/prompts/schema/shein.content_optimizer.optimize_title_description_system", nil)
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/listing-kits/prompts/schema/productenrich.llm_scorer.image_scoring", nil)
 	resp = httptest.NewRecorder()
 	router.ServeHTTP(resp, req)
 	if resp.Code != http.StatusOK {
@@ -46,7 +46,7 @@ func TestPromptTemplateHandlersManageCurrentTenantPrompts(t *testing.T) {
 		t.Fatalf("GET schema body missing tenant override: %s", resp.Body.String())
 	}
 
-	body := `{"key":"shein.content_optimizer.optimize_title_description_system","content":"Tenant prompt","version":"v1","enabled":true}`
+	body := `{"key":"productenrich.llm_scorer.image_scoring","content":"Tenant prompt","version":"v1","enabled":true}`
 	req = httptest.NewRequest(http.MethodPut, "/api/v1/listing-kits/prompts", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Tenant-ID", "tenant-a")
@@ -67,7 +67,7 @@ func TestPromptTemplateHandlersManageCurrentTenantPrompts(t *testing.T) {
 		t.Fatalf("GET body missing tenant prompt: %s", resp.Body.String())
 	}
 
-	req = httptest.NewRequest(http.MethodPatch, "/api/v1/listing-kits/prompts/shein.content_optimizer.optimize_title_description_system/status", strings.NewReader(`{"enabled":false}`))
+	req = httptest.NewRequest(http.MethodPatch, "/api/v1/listing-kits/prompts/productenrich.llm_scorer.image_scoring/status", strings.NewReader(`{"enabled":false}`))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Tenant-ID", "tenant-a")
 	resp = httptest.NewRecorder()
@@ -76,7 +76,7 @@ func TestPromptTemplateHandlersManageCurrentTenantPrompts(t *testing.T) {
 		t.Fatalf("PATCH status = %d body=%s", resp.Code, resp.Body.String())
 	}
 
-	_, err := store.GetEnabled(req.Context(), "tenant-a", "shein.content_optimizer.optimize_title_description_system")
+	_, err := store.GetEnabled(req.Context(), "tenant-a", "productenrich.llm_scorer.image_scoring")
 	if err == nil {
 		t.Fatalf("disabled prompt should not be enabled")
 	}

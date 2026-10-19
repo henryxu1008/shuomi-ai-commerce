@@ -78,36 +78,6 @@ func firstEnglishCandidate(values ...string) string {
 	return ""
 }
 
-func synthesizeEnglishTitle(canonical *canonical.Product, fallbackTitle string) string {
-	productType := inferEnglishProductType(canonical, fallbackTitle)
-	style := lookupVariantAttribute(canonical, "ai_style")
-	size := firstNonEmpty(
-		lookupVariantAttribute(canonical, "Size"),
-		lookupVariantAttribute(canonical, "size"),
-		lookupTechnicalSpec(canonical, "size"),
-	)
-	material := normalizeEnglishMaterial(firstNonEmpty(
-		lookupCanonicalAttribute(canonical, "material"),
-		lookupTechnicalSpec(canonical, "material"),
-	))
-	parts := []string{"Custom"}
-	if style != "" &&
-		!containsCJK(style) &&
-		!strings.HasPrefix(normalizeText(style), "style ") &&
-		!isPromptLikeTitle(style) &&
-		!isPromptLikeSaleAttributeValue(style) {
-		parts = append(parts, style)
-	}
-	if material != "" {
-		parts = append(parts, material)
-	}
-	parts = append(parts, productType)
-	if size != "" && !containsCJK(size) {
-		parts = append(parts, normalizeSizeText(size))
-	}
-	return strings.Join(uniqueNonEmpty(parts), " ")
-}
-
 func inferEnglishProductType(canonical *canonical.Product, fallback string) string {
 	signals := []string{
 		lookupCanonicalAttribute(canonical, "product_english_name"),
@@ -129,26 +99,6 @@ func inferEnglishProductType(canonical *canonical.Product, fallback string) stri
 		return ""
 	}
 	return titleCaseWords(fallback)
-}
-
-func normalizeEnglishMaterial(value string) string {
-	value = cleanListingText(value)
-	if value == "" {
-		return ""
-	}
-	normalized := normalizeText(value)
-	switch {
-	case strings.Contains(normalized, "wood") || strings.Contains(normalized, "木"):
-		return "wood"
-	case strings.Contains(normalized, "polyester") || strings.Contains(normalized, "涤纶"):
-		return "polyester"
-	case strings.Contains(normalized, "cotton") || strings.Contains(normalized, "棉"):
-		return "cotton"
-	case containsCJK(value):
-		return ""
-	default:
-		return value
-	}
 }
 
 func lookupCanonicalAttribute(canonical *canonical.Product, key string) string {
@@ -199,13 +149,6 @@ func canonicalDescription(canonical *canonical.Product) string {
 	return canonical.Description
 }
 
-func normalizeSizeText(value string) string {
-	value = cleanListingText(value)
-	value = strings.ReplaceAll(value, "×", " x ")
-	value = strings.ReplaceAll(value, "*", " x ")
-	return strings.Join(strings.Fields(value), " ")
-}
-
 func cleanListingText(value string) string {
 	value = strings.TrimSpace(strings.Join(strings.Fields(value), " "))
 	return value
@@ -231,24 +174,6 @@ func containsCJK(value string) bool {
 		}
 	}
 	return false
-}
-
-func uniqueNonEmpty(values []string) []string {
-	seen := map[string]struct{}{}
-	result := make([]string, 0, len(values))
-	for _, value := range values {
-		value = cleanListingText(value)
-		if value == "" {
-			continue
-		}
-		key := normalizeText(value)
-		if _, ok := seen[key]; ok {
-			continue
-		}
-		seen[key] = struct{}{}
-		result = append(result, value)
-	}
-	return result
 }
 
 var listingUnsafeChars = regexp.MustCompile(`[^\p{L}\p{N}\s.,'"/+\-xX()]`)

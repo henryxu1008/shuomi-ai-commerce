@@ -1,16 +1,12 @@
-// Package shein builds ListingKit SHEIN publishing packages from canonical
+// Package shein assembles SHEIN draft packages from canonical
 // products and processed image assets.
 //
-// This package owns the canonical-to-SHEIN draft contract. canonical.Product is
-// the platform-neutral product fact input, Package is the SHEIN workflow
-// container, and DraftPayload is the SHEIN draft payload used for new writes.
-// Low-level SHEIN API
-// calls stay in internal/shein/api, and legacy runtime flows stay outside this
-// package. It also remains the compatibility/model layer for SHEIN submission
-// state helpers that interpret submission responses, including action-aware
-// acceptance rules, derive remote lookup identities, and own normalized
-// submission report/record queries, mutations, event history updates,
-// event DTO construction, confirm-remote update construction/application,
-// active-attempt checks, and remote-recovery checks used by higher-level
-// ListingKit adapters.
+// This package owns the current canonical-to-SHEIN draft/value contract, local
+// assembly, offline validation preparation, and strict package codecs.
+// canonical.Product is the platform-neutral product fact input, Package is the
+// SHEIN draft/value container, and DraftPayload is the payload for current writes.
+//
+// Low-level SHEIN API calls stay in internal/shein/api. Official submission
+// intents, receipts, and execution coordination belong to internal/listing/submission
+// and its current application and persistence adapters.
 package shein

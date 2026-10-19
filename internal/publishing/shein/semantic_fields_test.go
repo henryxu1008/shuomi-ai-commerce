@@ -15,7 +15,6 @@ func TestPackageSemanticFieldNamesRemainUsable(t *testing.T) {
 
 	pkg.PreviewPayload = BuildPreviewProduct(pkg)
 	pkg.FinalSubmissionDraft = &FinalDraft{Confirmed: true}
-	pkg.SubmissionState = &SubmissionReport{LastStatus: SubmissionStatusSuccess}
 
 	if pkg.DraftPayload == nil || pkg.DraftPayload.SpuName != "Semantic Field Product" {
 		t.Fatalf("draft payload = %+v", pkg.DraftPayload)
@@ -26,16 +25,12 @@ func TestPackageSemanticFieldNamesRemainUsable(t *testing.T) {
 	if pkg.FinalSubmissionDraft == nil || !pkg.FinalSubmissionDraft.Confirmed {
 		t.Fatalf("final submission draft = %+v", pkg.FinalSubmissionDraft)
 	}
-	if pkg.SubmissionState == nil || pkg.SubmissionState.LastStatus != SubmissionStatusSuccess {
-		t.Fatalf("submission state = %+v", pkg.SubmissionState)
-	}
 }
 
 func TestPackageJSONIncludesLegacyAndSemanticFieldNames(t *testing.T) {
 	pkg := NormalizePackageSemanticFields(&Package{
 		DraftPayload:         &RequestDraft{SpuName: "Semantic Field Product"},
 		FinalSubmissionDraft: &FinalDraft{Confirmed: true},
-		SubmissionState:      &SubmissionReport{LastStatus: SubmissionStatusSuccess},
 	})
 	SetPreviewPayload(pkg, BuildPreviewProduct(pkg))
 
@@ -49,13 +44,21 @@ func TestPackageJSONIncludesLegacyAndSemanticFieldNames(t *testing.T) {
 		`"draft_payload"`,
 		`"preview_product"`,
 		`"preview_payload"`,
-		`"submission"`,
-		`"submission_state"`,
 		`"final_draft"`,
 		`"final_submission_draft"`,
 	} {
 		if !strings.Contains(text, key) {
 			t.Fatalf("json output missing %s: %s", key, text)
 		}
+	}
+}
+
+func TestPackageRejectsRetiredExecutionFields(t *testing.T) {
+	for _, key := range []string{"inspection", "submission", "submission_state", "submission_events"} {
+		t.Run(key, func(t *testing.T) {
+			if _, err := DecodePersistedPackageStrict([]byte(`{"` + key + `":{}}`)); err == nil {
+				t.Fatal("retired execution field accepted")
+			}
+		})
 	}
 }

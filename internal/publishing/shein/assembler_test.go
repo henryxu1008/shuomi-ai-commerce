@@ -6,19 +6,7 @@ import (
 
 	"task-processor/internal/product/catalog/canonical"
 	common "task-processor/internal/publishing/common"
-	sheinattribute "task-processor/internal/shein/api/attribute"
-	sheincategory "task-processor/internal/shein/api/category"
 )
-
-type stubAttributeAPI struct {
-	templates      *sheinattribute.AttributeTemplateInfo
-	validateCustom func(attributeID int, attributeValue string, categoryID int, spuName string) (*sheinattribute.ValidateAttributeResponse, error)
-	addCustom      func(req *sheinattribute.AddCustomAttributeValueRequest) (*sheinattribute.AddCustomAttributeValueResponse, error)
-}
-
-type assemblerStubCategoryAPI struct {
-	info *sheincategory.CategoryInfo
-}
 
 type assemblerStubCategoryResolver struct {
 	resolution *CategoryResolution
@@ -49,41 +37,6 @@ func (s assemblerStubSaleAttributeResolver) Resolve(req *BuildRequest, canonical
 	cloned := *s.resolution
 	cloned.ReviewNotes = append([]string(nil), s.resolution.ReviewNotes...)
 	return &cloned
-}
-
-func (s assemblerStubCategoryAPI) GetCategory(categoryID int) (*sheincategory.CategoryInfo, error) {
-	if s.info == nil {
-		return nil, nil
-	}
-	info := *s.info
-	info.CategoryID = categoryID
-	return &info, nil
-}
-
-func (assemblerStubCategoryAPI) GetCategoryTree() (*sheincategory.CategoryTreeResponse, error) {
-	return nil, nil
-}
-
-func (assemblerStubCategoryAPI) SuggestCategoryByText(string) (*sheincategory.SuggestCategoryResponse, error) {
-	return nil, nil
-}
-
-func (s stubAttributeAPI) GetAttributeTemplates(categoryID int) (*sheinattribute.AttributeTemplateInfo, error) {
-	return s.templates, nil
-}
-
-func (s stubAttributeAPI) ValidateCustomAttributeValue(attributeID int, attributeValue string, categoryID int, spuName string) (*sheinattribute.ValidateAttributeResponse, error) {
-	if s.validateCustom != nil {
-		return s.validateCustom(attributeID, attributeValue, categoryID, spuName)
-	}
-	return nil, nil
-}
-
-func (s stubAttributeAPI) AddCustomAttributeValue(req *sheinattribute.AddCustomAttributeValueRequest) (*sheinattribute.AddCustomAttributeValueResponse, error) {
-	if s.addCustom != nil {
-		return s.addCustom(req)
-	}
-	return nil, nil
 }
 
 func TestBuildRequestSKCsGroupsVariantsByColor(t *testing.T) {
@@ -119,6 +72,7 @@ func TestBuildRequestSKCsGroupsVariantsByColor(t *testing.T) {
 }
 
 func TestSaleAttributeResolutionAppliesAssignmentsAcrossGroupedSKCs(t *testing.T) {
+	red, blue, size42, size43 := 11, 12, 21, 22
 	canonical := testCanonicalProduct()
 	variants := common.BuildVariants(canonical)
 	images := &common.ImageSet{MainImage: "main.jpg"}
@@ -133,36 +87,9 @@ func TestSaleAttributeResolutionAppliesAssignmentsAcrossGroupedSKCs(t *testing.T
 		},
 	}
 
-	resolver := NewSaleAttributeResolver(stubAttributeAPI{
-		templates: &sheinattribute.AttributeTemplateInfo{
-			Data: []sheinattribute.AttributeTemplate{{
-				AttributeInfos: []sheinattribute.AttributeInfo{
-					{
-						AttributeID:       501,
-						AttributeName:     "颜色",
-						AttributeNameEn:   "Color",
-						AttributeType:     1,
-						SKCScope:          boolPointer(true),
-						AttributeInputNum: 1,
-						AttributeValueInfoList: []sheinattribute.AttributeValue{
-							{AttributeValueID: 11, AttributeValue: "红色", AttributeValueEn: "Red"},
-							{AttributeValueID: 12, AttributeValue: "蓝色", AttributeValueEn: "Blue"},
-						},
-					},
-					{
-						AttributeID:       502,
-						AttributeName:     "尺码",
-						AttributeNameEn:   "Size",
-						AttributeInputNum: 1,
-						AttributeValueInfoList: []sheinattribute.AttributeValue{
-							{AttributeValueID: 21, AttributeValue: "42", AttributeValueEn: "42"},
-							{AttributeValueID: 22, AttributeValue: "43", AttributeValueEn: "43"},
-						},
-					},
-				},
-			}},
-		},
-	}, nil)
+	resolver := assemblerStubSaleAttributeResolver{resolution: &SaleAttributeResolution{Status: "resolved", PrimarySourceDimension: "color", SecondarySourceDimension: "size", PrimaryAttributeID: 501, SecondaryAttributeID: 502,
+		SKCValueAssignments: map[string]ResolvedSaleAttribute{"red": {Value: "Red", AttributeID: 501, AttributeValueID: &red}, "blue": {Value: "Blue", AttributeID: 501, AttributeValueID: &blue}},
+		SKUValueAssignments: map[string]ResolvedSaleAttribute{"42": {Value: "42", AttributeID: 502, AttributeValueID: &size42}, "43": {Value: "43", AttributeID: 502, AttributeValueID: &size43}}}}
 
 	resolution := resolver.Resolve(&BuildRequest{}, canonical, pkg)
 	ApplySaleAttributeResolution(pkg, resolution)
@@ -373,43 +300,12 @@ func TestBuildRequestSKCsKeepsGroupedSKUsWhenSecondaryAttributeIsAvailable(t *te
 }
 
 func TestAssemblerBuildCreatesGroupedSKCsWhenSaleAttributeResolverMapsSourceDimensions(t *testing.T) {
+	red, blue, size42, size43 := 11, 12, 21, 22
 	assembler := NewAssembler(AssemblerConfig{
-		CategoryResolver: NewCategoryResolver(assemblerStubCategoryAPI{
-			info: &sheincategory.CategoryInfo{
-				LevelOneCategoryID:   1001,
-				LevelOneCategoryName: "Shoes",
-			},
-		}),
-		SaleAttributeResolver: NewSaleAttributeResolver(stubAttributeAPI{
-			templates: &sheinattribute.AttributeTemplateInfo{
-				Data: []sheinattribute.AttributeTemplate{{
-					AttributeInfos: []sheinattribute.AttributeInfo{
-						{
-							AttributeID:       501,
-							AttributeName:     "颜色",
-							AttributeNameEn:   "Color",
-							AttributeType:     1,
-							SKCScope:          boolPointer(true),
-							AttributeInputNum: 1,
-							AttributeValueInfoList: []sheinattribute.AttributeValue{
-								{AttributeValueID: 11, AttributeValue: "红色", AttributeValueEn: "Red"},
-								{AttributeValueID: 12, AttributeValue: "蓝色", AttributeValueEn: "Blue"},
-							},
-						},
-						{
-							AttributeID:       502,
-							AttributeName:     "尺码",
-							AttributeNameEn:   "Size",
-							AttributeInputNum: 1,
-							AttributeValueInfoList: []sheinattribute.AttributeValue{
-								{AttributeValueID: 21, AttributeValue: "42", AttributeValueEn: "42"},
-								{AttributeValueID: 22, AttributeValue: "43", AttributeValueEn: "43"},
-							},
-						},
-					},
-				}},
-			},
-		}, nil),
+		CategoryResolver: assemblerStubCategoryResolver{resolution: &CategoryResolution{Status: "resolved", CategoryID: 1001, MatchedPath: []string{"Shoes"}}},
+		SaleAttributeResolver: assemblerStubSaleAttributeResolver{resolution: &SaleAttributeResolution{Status: "resolved", PrimarySourceDimension: "color", SecondarySourceDimension: "size", PrimaryAttributeID: 501, SecondaryAttributeID: 502,
+			SKCValueAssignments: map[string]ResolvedSaleAttribute{"red": {Value: "Red", AttributeID: 501, AttributeValueID: &red}, "blue": {Value: "Blue", AttributeID: 501, AttributeValueID: &blue}},
+			SKUValueAssignments: map[string]ResolvedSaleAttribute{"42": {Value: "42", AttributeID: 502, AttributeValueID: &size42}, "43": {Value: "43", AttributeID: 502, AttributeValueID: &size43}}}},
 	})
 	canonical := &canonical.Product{
 		Title:       "Fallback Matrix Product",
@@ -442,23 +338,7 @@ func TestAssemblerBuildCreatesGroupedSKCsWhenSaleAttributeResolverMapsSourceDime
 
 func TestAssemblerBuildDoesNotPropagatePromptTextIntoSKCNames(t *testing.T) {
 	assembler := NewAssembler(AssemblerConfig{
-		SaleAttributeResolver: NewSaleAttributeResolver(stubAttributeAPI{
-			templates: &sheinattribute.AttributeTemplateInfo{
-				Data: []sheinattribute.AttributeTemplate{{
-					AttributeInfos: []sheinattribute.AttributeInfo{{
-						AttributeID:       27,
-						AttributeName:     "颜色",
-						AttributeNameEn:   "Color",
-						AttributeType:     1,
-						SKCScope:          boolPointer(true),
-						AttributeInputNum: 1,
-						AttributeValueInfoList: []sheinattribute.AttributeValue{
-							{AttributeValueID: 11, AttributeValue: "Black", AttributeValueEn: "Black"},
-						},
-					}},
-				}},
-			},
-		}, nil),
+		SaleAttributeResolver: assemblerStubSaleAttributeResolver{resolution: &SaleAttributeResolution{Status: "resolved", PrimarySourceDimension: "color", PrimaryAttributeID: 27, SKCValueAssignments: map[string]ResolvedSaleAttribute{"black": {Value: "Black", AttributeID: 27}}}},
 	})
 	canonical := &canonical.Product{
 		Title: "Flannel non-slip floor mat",
@@ -531,25 +411,7 @@ func TestAssemblerBuildDoesNotTriggerRuleBasedCategoryReview(t *testing.T) {
 				MatchedPath: []string{"家居&生活", "家庭用品", "鞋用品", "鞋配饰"},
 			},
 		},
-		SaleAttributeResolver: NewSaleAttributeResolver(stubAttributeAPI{
-			templates: &sheinattribute.AttributeTemplateInfo{
-				Data: []sheinattribute.AttributeTemplate{{
-					AttributeInfos: []sheinattribute.AttributeInfo{
-						{
-							AttributeID:       27,
-							AttributeName:     "颜色",
-							AttributeNameEn:   "Color",
-							AttributeType:     1,
-							SKCScope:          boolPointer(true),
-							AttributeInputNum: 1,
-							AttributeValueInfoList: []sheinattribute.AttributeValue{
-								{AttributeValueID: 11, AttributeValue: "黑色", AttributeValueEn: "Black"},
-							},
-						},
-					},
-				}},
-			},
-		}, nil),
+		SaleAttributeResolver: assemblerStubSaleAttributeResolver{resolution: &SaleAttributeResolution{Status: "resolved", PrimarySourceDimension: "color", PrimaryAttributeID: 27, SKCValueAssignments: map[string]ResolvedSaleAttribute{"black": {Value: "Black", AttributeID: 27}}}},
 	})
 
 	canonical := &canonical.Product{
@@ -572,7 +434,7 @@ func TestAssemblerBuildDoesNotTriggerRuleBasedCategoryReview(t *testing.T) {
 		},
 	}
 
-	pkg := assembler.Build(&BuildRequest{Country: "US", Language: "en", SheinStoreID: 869, TargetCategoryHint: "12143"}, canonical)
+	pkg := assembler.Build(&BuildRequest{Country: "US", Language: "en", TargetCategoryHint: "12143"}, canonical)
 	if pkg.SaleAttributeResolution == nil {
 		t.Fatal("expected sale attribute resolution")
 	}
@@ -609,7 +471,7 @@ func TestAssemblerBuildDoesNotRequestAlternativeCategoryOnSaleReview(t *testing.
 
 	product := testCanonicalProduct()
 	product.Images = []canonical.Image{{URL: "main.jpg"}}
-	pkg := assembler.Build(&BuildRequest{Country: "US", Language: "en", SheinStoreID: 869, TargetCategoryHint: "12143"}, product)
+	pkg := assembler.Build(&BuildRequest{Country: "US", Language: "en", TargetCategoryHint: "12143"}, product)
 	if pkg.CategoryResolution == nil {
 		t.Fatal("expected category resolution")
 	}
@@ -620,133 +482,6 @@ func TestAssemblerBuildDoesNotRequestAlternativeCategoryOnSaleReview(t *testing.
 		if strings.Contains(note, "可尝试候选类目") {
 			t.Fatalf("expected no secondary category review note, got %v", pkg.ReviewNotes)
 		}
-	}
-}
-
-func TestAssemblerBuildReusesPublishedResolutionCacheOnSecondBuild(t *testing.T) {
-	store := newResolutionCacheTestStore(t)
-	req := &BuildRequest{Country: "US", Language: "en", SheinStoreID: 42}
-	product := &canonical.Product{
-		Title:       "抱枕套 MG8014192",
-		Description: "中文描述",
-		CategoryPath: []string{
-			"家居",
-			"装饰",
-			"抱枕套",
-		},
-		Attributes: map[string]canonical.Attribute{
-			"material": {Value: "涤纶"},
-			"color":    {Value: "White"},
-		},
-		Variants: []canonical.Variant{{
-			SKU: "MG8014192",
-			Attributes: map[string]canonical.Attribute{
-				"Color": {Value: "White"},
-				"Size":  {Value: "45x45cm"},
-			},
-			Dimensions: &canonical.Dimensions{Length: 45, Width: 45, Height: 1, Unit: "cm"},
-			Stock:      5,
-			IsDefault:  true,
-		}},
-		Images: []canonical.Image{{URL: "main.jpg"}},
-	}
-	categoryInner := &countingCategoryResolver{
-		out: &CategoryResolution{
-			Status:         "resolved",
-			Source:         "test",
-			CategoryID:     8218,
-			CategoryIDList: []int{2030, 6012, 8218},
-			MatchedPath:    []string{"Home", "Decor", "Cushion Covers"},
-		},
-	}
-	valueID := 2001
-	attributeInner := &countingAttributeResolver{
-		out: &AttributeResolution{
-			Status:        "resolved",
-			Source:        "attribute_templates",
-			CategoryID:    8218,
-			TemplateCount: 1,
-			ResolvedCount: 1,
-			ResolvedAttributes: []ResolvedAttribute{{
-				Name:             "Material",
-				Value:            "Polyester",
-				AttributeID:      160,
-				AttributeValueID: &valueID,
-			}},
-		},
-	}
-	saleValueID := 103
-	saleInner := &countingSaleAttributeResolver{
-		out: &SaleAttributeResolution{
-			Status:                 "resolved",
-			Source:                 "sale_attribute_templates",
-			CategoryID:             8218,
-			PrimaryAttributeID:     27,
-			PrimarySourceDimension: "Color",
-			SKCAttributes: []ResolvedSaleAttribute{{
-				Scope:            "skc",
-				Name:             "Color",
-				Value:            "White",
-				AttributeID:      27,
-				AttributeValueID: &saleValueID,
-			}},
-			skcValueAssignments: map[string]ResolvedSaleAttribute{
-				"white": {
-					Scope:            "skc",
-					Name:             "Color",
-					Value:            "White",
-					AttributeID:      27,
-					AttributeValueID: &saleValueID,
-				},
-			},
-		},
-	}
-	firstCategory := NewCachedCategoryResolver(categoryInner, store)
-	firstAttribute := NewCachedAttributeResolver(attributeInner, store)
-	firstSale := NewCachedSaleAttributeResolver(saleInner, store)
-	firstAssembler := NewAssembler(AssemblerConfig{
-		CategoryResolver:      firstCategory,
-		AttributeResolver:     firstAttribute,
-		SaleAttributeResolver: firstSale,
-	})
-
-	first := firstAssembler.Build(req, product)
-	if categoryInner.calls != 1 || attributeInner.calls != 1 || saleInner.calls != 1 {
-		t.Fatalf("first build resolver calls = category:%d attribute:%d sale:%d, want 1/1/1", categoryInner.calls, attributeInner.calls, saleInner.calls)
-	}
-	firstCategory.(CategoryResolutionCache).RememberCategoryResolution(req, product, first, first.CategoryResolution)
-	firstAttribute.(AttributeResolutionCache).RememberAttributeResolution(req, product, first, first.AttributeResolution)
-	firstSale.(SaleAttributeResolutionCache).RememberSaleAttributeResolution(req, product, first, first.SaleAttributeResolution)
-
-	secondCategoryInner := &countingCategoryResolver{out: categoryInner.out}
-	secondAttributeInner := &countingAttributeResolver{out: attributeInner.out}
-	secondSaleInner := &countingSaleAttributeResolver{out: saleInner.out}
-	second := NewAssembler(AssemblerConfig{
-		CategoryResolver:      NewCachedCategoryResolver(secondCategoryInner, store),
-		AttributeResolver:     NewCachedAttributeResolver(secondAttributeInner, store),
-		SaleAttributeResolver: NewCachedSaleAttributeResolver(secondSaleInner, store),
-	}).Build(req, product)
-
-	if secondCategoryInner.calls != 0 || secondAttributeInner.calls != 0 || secondSaleInner.calls != 0 {
-		t.Fatalf("second build resolver calls = category:%d attribute:%d sale:%d, want 0/0/0", secondCategoryInner.calls, secondAttributeInner.calls, secondSaleInner.calls)
-	}
-	if second.CategoryResolution == nil || second.CategoryResolution.Cache == nil || second.CategoryResolution.Cache.Source != "manual_cache" {
-		t.Fatalf("second category cache = %+v, want manual_cache hit", second.CategoryResolution)
-	}
-	if second.CategoryResolution.Cache.HitSource != ResolutionCacheHitSourcePersistentManualCache {
-		t.Fatalf("second category hit source = %q, want %q", second.CategoryResolution.Cache.HitSource, ResolutionCacheHitSourcePersistentManualCache)
-	}
-	if second.AttributeResolution == nil || second.AttributeResolution.Cache == nil || second.AttributeResolution.Cache.Source != "manual_cache" {
-		t.Fatalf("second attribute cache = %+v, want manual_cache hit", second.AttributeResolution)
-	}
-	if second.AttributeResolution.Cache.HitSource != ResolutionCacheHitSourcePersistentManualCache {
-		t.Fatalf("second attribute hit source = %q, want %q", second.AttributeResolution.Cache.HitSource, ResolutionCacheHitSourcePersistentManualCache)
-	}
-	if second.SaleAttributeResolution == nil || second.SaleAttributeResolution.Cache == nil || second.SaleAttributeResolution.Cache.Source != "manual_cache" {
-		t.Fatalf("second sale attribute cache = %+v, want manual_cache hit", second.SaleAttributeResolution)
-	}
-	if second.SaleAttributeResolution.Cache.HitSource != ResolutionCacheHitSourcePersistentManualCache {
-		t.Fatalf("second sale attribute hit source = %q, want %q", second.SaleAttributeResolution.Cache.HitSource, ResolutionCacheHitSourcePersistentManualCache)
 	}
 }
 
@@ -788,25 +523,5 @@ func testCanonicalProduct() *canonical.Product {
 				},
 			},
 		},
-	}
-}
-
-func boolPointer(value bool) *bool {
-	return &value
-}
-
-func TestFilterSaleScopeAttributesIncludesChineseSaleAttributeNames(t *testing.T) {
-	attributes := []sheinattribute.AttributeInfo{
-		{AttributeID: 27, AttributeName: "颜色分类"},
-		{AttributeID: 28, AttributeName: "尺码"},
-		{AttributeID: 29, AttributeName: "材质"},
-	}
-
-	filtered := filterSaleScopeAttributes(attributes)
-	if len(filtered) != 2 {
-		t.Fatalf("filtered count = %d, want 2", len(filtered))
-	}
-	if filtered[0].AttributeID != 27 || filtered[1].AttributeID != 28 {
-		t.Fatalf("filtered attribute ids = %d,%d, want 27,28", filtered[0].AttributeID, filtered[1].AttributeID)
 	}
 }

@@ -15,6 +15,7 @@ import (
 	"task-processor/internal/listingadmin"
 	"task-processor/internal/product/catalog/canonical"
 	sharedtenantctx "task-processor/internal/shared/tenantctx"
+	"task-processor/internal/shein/submitprep"
 )
 
 func TestAdminGenerationTopicPolicyPersistenceFlowsIntoPromptAndPreviewSanitizer(t *testing.T) {
@@ -24,8 +25,12 @@ func TestAdminGenerationTopicPolicyPersistenceFlowsIntoPromptAndPreviewSanitizer
 
 	restorePromptRepo := SetGenerationTopicPolicyRepository(repo)
 	defer restorePromptRepo()
-	restoreSanitizerRepo := ConfigureSubmitPrepRepositories(nil, repo, nil)
-	defer restoreSanitizerRepo()
+	restoreSanitizerRepoWords := submitprep.SetSensitiveWordRepository(nil)
+	defer restoreSanitizerRepoWords()
+	restoreSanitizerRepoTopics := submitprep.SetGenerationTopicPolicyRepository(repo)
+	defer restoreSanitizerRepoTopics()
+	restoreSanitizerRepoOverrides := submitprep.SetGenerationTopicOverrideRepository(nil)
+	defer restoreSanitizerRepoOverrides()
 
 	ai := &recordingChatCompleter{
 		response: &openaiclient.ChatCompletionResponse{
@@ -37,20 +42,11 @@ func TestAdminGenerationTopicPolicyPersistenceFlowsIntoPromptAndPreviewSanitizer
 		},
 	}
 
-	if _, _, err := optimizeSubmitContentWithGenerator(
-		sharedtenantctx.WithTenantID(context.Background(), "101"),
-		ai,
-		"Kids room curtain",
-		"Decor for children bedroom",
-		"",
-		nil,
-	); err != nil {
-		t.Fatalf("optimizeSubmitContentWithGenerator returned error: %v", err)
-	}
-	if ai.lastSystemPrompt == "" {
+	_ = extractPromptTitleWithLLM(sharedtenantctx.WithTenantID(context.Background(), "101"), "Please design a curtain print with text and graphics, 3000px", nil, "Door curtain", ai)
+	if ai.lastPrompt == "" {
 		t.Fatal("system prompt is empty")
 	}
-	systemPrompt := ai.lastSystemPrompt
+	systemPrompt := ai.lastPrompt
 	if !strings.Contains(systemPrompt, "Do not mention children, babies, or age-specific users.") {
 		t.Fatalf("system prompt = %q, want children directive from repository-created policy", systemPrompt)
 	}
@@ -96,8 +92,12 @@ func TestAdminGenerationTopicOverrideFlowsIntoPromptAndPreviewSanitizer(t *testi
 	defer restorePromptPolicyRepo()
 	restorePromptOverrideRepo := SetGenerationTopicOverrideRepository(overrideRepo)
 	defer restorePromptOverrideRepo()
-	restoreSanitizerRepos := ConfigureSubmitPrepRepositories(nil, policyRepo, overrideRepo)
-	defer restoreSanitizerRepos()
+	restoreSanitizerReposWords := submitprep.SetSensitiveWordRepository(nil)
+	defer restoreSanitizerReposWords()
+	restoreSanitizerReposTopics := submitprep.SetGenerationTopicPolicyRepository(policyRepo)
+	defer restoreSanitizerReposTopics()
+	restoreSanitizerReposOverrides := submitprep.SetGenerationTopicOverrideRepository(overrideRepo)
+	defer restoreSanitizerReposOverrides()
 
 	ai := &recordingChatCompleter{
 		response: &openaiclient.ChatCompletionResponse{
@@ -109,20 +109,11 @@ func TestAdminGenerationTopicOverrideFlowsIntoPromptAndPreviewSanitizer(t *testi
 		},
 	}
 
-	if _, _, err := optimizeSubmitContentWithGenerator(
-		sharedtenantctx.WithTenantID(context.Background(), "101"),
-		ai,
-		"Toddler room curtain",
-		"Decor for toddler bedroom",
-		"",
-		nil,
-	); err != nil {
-		t.Fatalf("optimizeSubmitContentWithGenerator returned error: %v", err)
-	}
-	if ai.lastSystemPrompt == "" {
+	_ = extractPromptTitleWithLLM(sharedtenantctx.WithTenantID(context.Background(), "101"), "Please design a curtain print with text and graphics, 3000px", nil, "Door curtain", ai)
+	if ai.lastPrompt == "" {
 		t.Fatal("system prompt is empty")
 	}
-	systemPrompt := ai.lastSystemPrompt
+	systemPrompt := ai.lastPrompt
 	if !strings.Contains(systemPrompt, "Do not mention children, babies, or age-specific users.") {
 		t.Fatalf("system prompt = %q, want default directive retained", systemPrompt)
 	}

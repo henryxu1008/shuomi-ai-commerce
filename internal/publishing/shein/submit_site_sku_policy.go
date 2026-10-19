@@ -10,8 +10,6 @@ import (
 const (
 	defaultSubmitSubSite       = "shein-us"
 	defaultSubmitSKCShelfWay   = 1
-	minSubmitWeightGrams       = 0.01
-	maxSubmitWeightGrams       = 50000000
 	defaultSubmitInventory     = 1000
 	defaultSubmitWarehouseCode = "DEFAULT"
 )
