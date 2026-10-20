@@ -27,22 +27,6 @@ logging:
     - levels: [debug, trace]
       file: .local/logs/debug.log
 
-# 处理器配置
-processor:
-  maxRetries: 3
-  timeout: 1800  # 增加到30分钟，给复杂处理器足够时间
-
-# Worker配置
-worker:
-  concurrency: 1           # 并发worker数量
-  bufferSize: 30          # 进一步增加队列大小，提供更多缓冲空间
-  taskInterval: 50         # 60秒获取一次任务，减少获取频率
-  maxFetchPerCycle: 2      # 单次只获取1个任务，更保守的策略
-  queueThreshold: 75       # 降低队列使用率阈值，更早触发保护
-  cleanupInterval: 1800    # 清理间隔30分钟
-  taskTimeout: 2400        # 任务超时40分钟
-  stuckTaskThreshold: 1200 # 任务卡住阈值20分钟（之前硬编码5分钟导致过早清理）
-  forceCleanupAfter: 3600  # 60分钟强制清理阈值
 
 # OpenAI配置
 openai:
@@ -78,7 +62,6 @@ openai:
 
 
 listingkit:
-  sheinSubmitDebugDumpDir: ""
   platformAdminUsers: []
   platformAdminRoles: []
   imageUpload:
@@ -103,32 +86,8 @@ listingkit:
     allowedRoles: []
 
 platforms:
-  # TEMU 平台配置
-  temu:
-    enabled: false          # 是否启用TEMU处理器（处理上架任务）
-    schedulerEnabled: false  # 是否启用TEMU调度任务（核价、同步等）
-    # 自动核价配置
-    autoPricing:
-      enabled: false         # 启用自动核价
-      interval: 12         # 执行间隔（秒），默认5分钟
-      batchSize: 100
-    # 产品同步配置
-    productSync:
-      enabled: false        # 启用产品同步
-      interval: 3600        # 执行间隔（秒），默认1小时
-    # 库存同步配置
-    inventorySync:
-      enabled: true        # 启用库存同步
-      interval: 1800        # 执行间隔（秒），默认30分钟
-    # 活动报名配置
-    activityRegistration:
-      enabled: false        # 启用活动报名
-      interval: 7200        # 执行间隔（秒），默认2小时
-
   # SHEIN 平台配置
   shein:
-    enabled: true            # 是否启用SHEIN处理器（处理上架任务·）
-    schedulerEnabled: false   # 是否启用SHEIN调度任务（核价、同步等）
     fetchMode: "local"       # 本地开发默认直接走本地浏览器抓取，避免误走 shared distributed 配置
     # SHEIN 登录态刷新配置；cookie 失效时调用 login 服务重新登录并回写 Redis
     loginService:
@@ -141,33 +100,10 @@ platforms:
       port: 6379
       password: ""
       db: 9
-    # 自动核价配置
-    autoPricing:
-      enabled: false        # 启用自动核价
-      interval: 300         # 执行间隔（秒），默认30分钟
-      batchSize: 100
+
     # ListingKit 上架资料定价配置；关闭时沿用 SDS 成本/价格
-    listingPricing:
-      enabled: false
-      currency: USD
-      shippingCost: 0
-      fixedMarkup: 0
-      markupRate: 0
-      commissionRate: 0
-      minimumPrice: 0
-      roundTo: 0.01
-    # 产品同步配置
-    productSync:
-      enabled: false         # 启用产品同步
-      interval: 86400        # 执行间隔（秒），默认24小时
-    # 库存同步配置
-    inventorySync:
-      enabled: false        # 启用库存同步
-      interval: 43200        # 执行间隔（秒），默认12小时
-    # 活动报名配置
-    activityRegistration:
-      enabled: false        # 启用活动报名
-      interval: 86400        # 执行间隔（秒），默认24小时
+
+
 
   # SDS 登录态刷新配置；cookie/token 失效时会调用 login 服务自动恢复后重试
   sds:
@@ -202,55 +138,6 @@ browser:
     maxRetries: 3
     maxUsesPerInstance: 10  # 本地调试环境更保守，便于尽早回收问题实例
 
-# RabbitMQ配置（分布式爬虫）
-rabbitmq:
-  enabled: false  # 本地调试默认关闭，避免误连分布式爬虫/RabbitMQ
-  #url: "amqp://admin:admin123@localhost:5672/"  # 连接到unified的RabbitMQ
-  url: "amqp://task-processor:replace-me@rabbitmq.example.internal:5672/"  # 示例值，生产凭据请通过部署环境注入
-  reconnectInterval: "5s"   # 重连间隔
-  maxReconnectTries: 10  # 最大重连次数
-  
-  # 消费者配置
-  consumer:
-    prefetchCount: 5      # 预取消息数量（允许同时处理5条消息）
-    prefetchSize: 0       # 预取大小（0表示不限制）
-    retryDelay: "5s"         # 重试延迟
-    maxRetries: 3         # 最大重试次数
-    
-    # 队列配置（可为不同队列设置不同的并发度）
-    queues:
-      # 上架任务队列，默认走平台共享队列；只有启用 useStoreQueues 时才消费 *.store.* 队列
-      - name: "amazon.tasks"
-        priority: 8
-        prefetch: 1
-      - name: "temu.tasks"
-        priority: 8
-        prefetch: 1
-      - name: "shein.tasks"
-        priority: 8
-        prefetch: 1
-      - name: "amazon.tasks.store.*"
-        priority: 8
-        prefetch: 1
-      - name: "temu.tasks.store.*"
-        priority: 8
-        prefetch: 1
-      - name: "shein.tasks.store.*"
-        priority: 8
-        prefetch: 1
-      # 爬虫任务队列
-      # prefetch = poolSize-1，保留1个实例作为缓冲，避免池耗尽导致饥饿
-      - name: "amazon.crawler"
-        priority: 8
-        prefetch: 4
-      - name: "1688.crawler"
-        priority: 8
-        prefetch: 0
-  node:
-    role: "hybrid" # task | crawler | hybrid
-    useStoreQueues: false
-    ownedStores: [836] # 仅在 useStoreQueues=true 时生效
-    regions: [US]  # 该节点只处理这三个 region 的爬虫任务
 # Amazon配置
 amazon:
   # Amazon 爬虫配置

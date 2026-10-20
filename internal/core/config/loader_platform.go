@@ -4,9 +4,7 @@ import "github.com/spf13/viper"
 
 func BuildPlatformConfig(v *viper.Viper, prefix string) PlatformConfig {
 	cfg := PlatformConfig{
-		Enabled:          v.GetBool(prefix + ".enabled"),
-		SchedulerEnabled: v.GetBool(prefix + ".schedulerEnabled"),
-		FetchMode:        v.GetString(prefix + ".fetchMode"),
+		FetchMode: v.GetString(prefix + ".fetchMode"),
 		CookieRedis: RedisConfig{
 			Host:     v.GetString(prefix + ".cookieRedis.host"),
 			Port:     v.GetInt(prefix + ".cookieRedis.port"),
@@ -14,58 +12,11 @@ func BuildPlatformConfig(v *viper.Viper, prefix string) PlatformConfig {
 			DB:       v.GetInt(prefix + ".cookieRedis.db"),
 			PoolSize: v.GetInt(prefix + ".cookieRedis.pool_size"),
 		},
-		AutoPricing: AutoPricingConfig{
-			Enabled:        v.GetBool(prefix + ".autoPricing.enabled"),
-			Interval:       v.GetInt(prefix + ".autoPricing.interval"),
-			BatchSize:      v.GetInt(prefix + ".autoPricing.batchSize"),
-			UseAmazonPrice: v.GetBool(prefix + ".autoPricing.useAmazonPrice"),
-		},
-		ListingPricing: ListingPricingConfig{
-			Enabled:        v.GetBool(prefix + ".listingPricing.enabled"),
-			Currency:       v.GetString(prefix + ".listingPricing.currency"),
-			MarkupRate:     v.GetFloat64(prefix + ".listingPricing.markupRate"),
-			FixedMarkup:    v.GetFloat64(prefix + ".listingPricing.fixedMarkup"),
-			ShippingCost:   v.GetFloat64(prefix + ".listingPricing.shippingCost"),
-			CommissionRate: v.GetFloat64(prefix + ".listingPricing.commissionRate"),
-			MinimumPrice:   v.GetFloat64(prefix + ".listingPricing.minimumPrice"),
-			RoundTo:        v.GetFloat64(prefix + ".listingPricing.roundTo"),
-		},
-		ProductSync: ScheduledTaskConfig{
-			Enabled:  v.GetBool(prefix + ".productSync.enabled"),
-			Interval: v.GetInt(prefix + ".productSync.interval"),
-			StoreIDs: getInt64Slice(v, prefix+".productSync.storeIDs"),
-		},
-		InventorySync: ScheduledTaskConfig{
-			Enabled:  v.GetBool(prefix + ".inventorySync.enabled"),
-			Interval: v.GetInt(prefix + ".inventorySync.interval"),
-			StoreIDs: getInt64Slice(v, prefix+".inventorySync.storeIDs"),
-		},
-		ActivityRegistration: ScheduledTaskConfig{
-			Enabled:  v.GetBool(prefix + ".activityRegistration.enabled"),
-			Interval: v.GetInt(prefix + ".activityRegistration.interval"),
-			StoreIDs: getInt64Slice(v, prefix+".activityRegistration.storeIDs"),
-		},
-		SyncProduct: SyncProductConfig{
-			Enabled:   v.GetBool(prefix + ".sync.enabled"),
-			StoreIDs:  getInt64Slice(v, prefix+".sync.storeIDs"),
-			Interval:  v.GetInt(prefix + ".sync.interval"),
-			BatchSize: v.GetInt(prefix + ".sync.batchSize"),
-		},
-		Monitor: MonitorConfig{
-			Enabled:              v.GetBool(prefix + ".monitor.enabled"),
-			StoreIDs:             getInt64Slice(v, prefix+".monitor.storeIDs"),
-			CheckInterval:        v.GetInt(prefix + ".monitor.checkInterval"),
-			BatchSize:            v.GetInt(prefix + ".monitor.batchSize"),
-			EnablePriceAlert:     v.GetBool(prefix + ".monitor.enablePriceAlert"),
-			EnableStockAlert:     v.GetBool(prefix + ".monitor.enableStockAlert"),
-			PriceChangeThreshold: v.GetFloat64(prefix + ".monitor.priceChangeThreshold"),
-			StockChangeThreshold: v.GetInt(prefix + ".monitor.stockChangeThreshold"),
-		},
 		LoginService: BuildLoginServiceConfig(v, prefix+".loginService"),
 		HTTPClient:   BuildHTTPClientConfig(v, prefix+".httpClient"),
 	}
 
-	return normalizePlatformConfig(cfg)
+	return cfg
 }
 
 func BuildLoginServiceConfig(v *viper.Viper, prefix string) LoginServiceConfig {
@@ -96,15 +47,4 @@ func BuildSDSAuthBootstrapConfig(v *viper.Viper, prefix string) SDSAuthBootstrap
 		LoginVerifyCaptchaParam: v.GetString(prefix + ".loginVerifyCaptchaParam"),
 		LoginExtraInfo:          v.GetString(prefix + ".loginExtraInfo"),
 	}
-}
-
-func normalizePlatformConfig(cfg PlatformConfig) PlatformConfig {
-	if !cfg.ProductSync.Enabled && cfg.SyncProduct.Enabled {
-		cfg.ProductSync.Enabled = true
-	}
-	if cfg.ProductSync.Interval == 0 && cfg.SyncProduct.Interval > 0 {
-		cfg.ProductSync.Interval = cfg.SyncProduct.Interval
-	}
-
-	return cfg
 }

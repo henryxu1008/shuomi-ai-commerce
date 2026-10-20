@@ -30,15 +30,12 @@ type Config struct {
 	FeatureFlags    FeatureFlagsConfig  `yaml:"featureFlags"`
 	Observability   ObservabilityConfig `yaml:"observability"`
 	Logging         LoggingConfig       `yaml:"logging"`
-	Processor       ProcessorConfig     `yaml:"processor"`
-	Worker          WorkerConfig        `yaml:"worker"`
 	OpenAI          OpenAIConfig        `yaml:"openai"`
 	Browser         BrowserConfig       `yaml:"browser"`
 	// BrowserCollector is the opt-in wiring to the standalone anonymous public
 	// 1688 browser collector process (design D13).
 	BrowserCollector                                      BrowserCollectorConfig        `yaml:"browserCollector"`
 	Amazon                                                AmazonConfig                  `yaml:"amazon"`
-	RabbitMQ                                              *RabbitMQConfig               `yaml:"rabbitmq"`
 	Updater                                               UpdaterConfig                 `yaml:"updater"`
 	Platforms                                             PlatformsConfig               `yaml:"platforms"`
 	Watermark                                             *watermark.Config             `yaml:"watermark"`
@@ -52,14 +49,12 @@ type Config struct {
 	CommercialDatabase *DatabaseConfig `yaml:"commercialDatabase"`
 	// CommercialOwnerDatabase is the explicit resource-balance owner pool;
 	// it must not borrow the Token usage runtime role.
-	CommercialOwnerDatabase *DatabaseConfig           `yaml:"commercialOwnerDatabase"`
-	Redis                   *RedisConfig              `yaml:"redis"`
-	Prompts                 PromptsConfig             `yaml:"prompts"`
-	Debug                   DebugConfig               `yaml:"debug"`
-	ListingKit              ListingKitConfig          `yaml:"listingkit"`
-	ListingControlPlane     ListingControlPlaneConfig `yaml:"listingControlPlane"`
-	Workbench               WorkbenchConfig           `yaml:"workbench"`
-	WalletTopUp             topupconfig.Config        `yaml:"walletTopUp"`
+	CommercialOwnerDatabase *DatabaseConfig    `yaml:"commercialOwnerDatabase"`
+	Redis                   *RedisConfig       `yaml:"redis"`
+	Prompts                 PromptsConfig      `yaml:"prompts"`
+	ListingKit              ListingKitConfig   `yaml:"listingkit"`
+	Workbench               WorkbenchConfig    `yaml:"workbench"`
+	WalletTopUp             topupconfig.Config `yaml:"walletTopUp"`
 }
 
 type FeatureFlagsConfig struct {
@@ -75,10 +70,6 @@ type TracingConfig struct {
 	ServiceName string `yaml:"serviceName"`
 	Endpoint    string `yaml:"endpoint"`
 	Insecure    bool   `yaml:"insecure"`
-}
-
-type DebugConfig struct {
-	SavePublishJSON bool `yaml:"save_publish_json"`
 }
 
 type PromptsConfig struct {
@@ -376,122 +367,6 @@ func knownEnvBindings() map[string]envBinding {
 			Primary:    "TASK_PROCESSOR_AMAZON_REMOTE_API_TIMEOUT",
 			Deprecated: []string{"AMAZON_REMOTE_API_TIMEOUT"},
 		},
-		"rabbitmq.enabled": {
-			Primary:    "TASK_PROCESSOR_RABBITMQ_ENABLED",
-			Deprecated: []string{"RABBITMQ_ENABLED"},
-		},
-		"rabbitmq.url": {
-			Primary:    "TASK_PROCESSOR_RABBITMQ_URL",
-			Deprecated: []string{"RABBITMQ_URL"},
-		},
-		"rabbitmq.node.maxConcurrency": {
-			Primary:    "TASK_PROCESSOR_RABBITMQ_NODE_MAX_CONCURRENCY",
-			Deprecated: []string{"RABBITMQ_NODE_MAX_CONCURRENCY"},
-		},
-		"rabbitmq.node.role": {
-			Primary:    "TASK_PROCESSOR_RABBITMQ_NODE_ROLE",
-			Deprecated: []string{"RABBITMQ_NODE_ROLE"},
-		},
-		"rabbitmq.node.nodeID": {
-			Primary:    "TASK_PROCESSOR_RABBITMQ_NODE_NODE_ID",
-			Deprecated: []string{"TASK_PROCESSOR_RABBITMQ_NODEID", "RABBITMQ_NODE_NODE_ID", "RABBITMQ_NODEID"},
-		},
-		"rabbitmq.node.ownedStores": {
-			Primary:    "TASK_PROCESSOR_RABBITMQ_NODE_OWNED_STORES",
-			Deprecated: []string{"RABBITMQ_NODE_OWNED_STORES"},
-		},
-		"rabbitmq.node.ownedBuckets": {
-			Primary:    "TASK_PROCESSOR_RABBITMQ_NODE_OWNED_BUCKETS",
-			Deprecated: []string{"RABBITMQ_NODE_OWNED_BUCKETS"},
-		},
-		"rabbitmq.node.useStoreQueues": {
-			Primary:    "TASK_PROCESSOR_RABBITMQ_NODE_USE_STORE_QUEUES",
-			Deprecated: []string{"RABBITMQ_NODE_USE_STORE_QUEUES"},
-		},
-		"rabbitmq.deadLetter.enabled": {
-			Primary:    "TASK_PROCESSOR_RABBITMQ_DEAD_LETTER_ENABLED",
-			Deprecated: []string{"RABBITMQ_DEAD_LETTER_ENABLED"},
-		},
-		"rabbitmq.deadLetter.queueName": {
-			Primary:    "TASK_PROCESSOR_RABBITMQ_DEAD_LETTER_QUEUE_NAME",
-			Deprecated: []string{"RABBITMQ_DEAD_LETTER_QUEUE_NAME"},
-		},
-		"rabbitmq.processingTimeoutWatchdog.enabled": {
-			Primary:    "TASK_PROCESSOR_RABBITMQ_PROCESSING_TIMEOUT_WATCHDOG_ENABLED",
-			Deprecated: []string{"RABBITMQ_PROCESSING_TIMEOUT_WATCHDOG_ENABLED"},
-		},
-		"rabbitmq.processingTimeoutWatchdog.intervalSeconds": {
-			Primary:    "TASK_PROCESSOR_RABBITMQ_PROCESSING_TIMEOUT_WATCHDOG_INTERVAL_SECONDS",
-			Deprecated: []string{"RABBITMQ_PROCESSING_TIMEOUT_WATCHDOG_INTERVAL_SECONDS"},
-		},
-		"rabbitmq.processingTimeoutWatchdog.timeoutMinutes": {
-			Primary:    "TASK_PROCESSOR_RABBITMQ_PROCESSING_TIMEOUT_WATCHDOG_TIMEOUT_MINUTES",
-			Deprecated: []string{"RABBITMQ_PROCESSING_TIMEOUT_WATCHDOG_TIMEOUT_MINUTES"},
-		},
-		"rabbitmq.processingTimeoutWatchdog.recoveryLimit": {
-			Primary:    "TASK_PROCESSOR_RABBITMQ_PROCESSING_TIMEOUT_WATCHDOG_RECOVERY_LIMIT",
-			Deprecated: []string{"RABBITMQ_PROCESSING_TIMEOUT_WATCHDOG_RECOVERY_LIMIT"},
-		},
-		"listingControlPlane.enabled": {
-			Primary: "TASK_PROCESSOR_LISTING_CONTROL_PLANE_ENABLED",
-		},
-		"listingControlPlane.platform": {
-			Primary: "TASK_PROCESSOR_LISTING_CONTROL_PLANE_PLATFORM",
-		},
-		"listingControlPlane.leaderLockKey": {
-			Primary: "TASK_PROCESSOR_LISTING_CONTROL_PLANE_LEADER_LOCK_KEY",
-		},
-		"listingControlPlane.leaderLockTTL": {
-			Primary: "TASK_PROCESSOR_LISTING_CONTROL_PLANE_LEADER_LOCK_TTL",
-		},
-		"listingControlPlane.cycleTimeout": {
-			Primary: "TASK_PROCESSOR_LISTING_CONTROL_PLANE_CYCLE_TIMEOUT",
-		},
-		"listingControlPlane.scanInterval": {
-			Primary: "TASK_PROCESSOR_LISTING_CONTROL_PLANE_SCAN_INTERVAL",
-		},
-		"listingControlPlane.batchSize": {
-			Primary: "TASK_PROCESSOR_LISTING_CONTROL_PLANE_BATCH_SIZE",
-		},
-		"listingControlPlane.perStoreBurst": {
-			Primary: "TASK_PROCESSOR_LISTING_CONTROL_PLANE_PER_STORE_BURST",
-		},
-		"listingControlPlane.maxQueuedPerStore": {
-			Primary: "TASK_PROCESSOR_LISTING_CONTROL_PLANE_MAX_QUEUED_PER_STORE",
-		},
-		"listingControlPlane.dryRun": {
-			Primary: "TASK_PROCESSOR_LISTING_CONTROL_PLANE_DRY_RUN",
-		},
-		"listingControlPlane.enableLegacyQuotaKeys": {
-			Primary: "TASK_PROCESSOR_LISTING_CONTROL_PLANE_ENABLE_LEGACY_QUOTA_KEYS",
-		},
-		"listingControlPlane.pausedTaskRecoveryInterval": {
-			Primary: "TASK_PROCESSOR_LISTING_CONTROL_PLANE_PAUSED_TASK_RECOVERY_INTERVAL",
-		},
-		"rabbitmq.staleQueuedWatchdog.enabled": {
-			Primary:    "TASK_PROCESSOR_RABBITMQ_STALE_QUEUED_WATCHDOG_ENABLED",
-			Deprecated: []string{"RABBITMQ_STALE_QUEUED_WATCHDOG_ENABLED"},
-		},
-		"rabbitmq.staleQueuedWatchdog.intervalSeconds": {
-			Primary:    "TASK_PROCESSOR_RABBITMQ_STALE_QUEUED_WATCHDOG_INTERVAL_SECONDS",
-			Deprecated: []string{"RABBITMQ_STALE_QUEUED_WATCHDOG_INTERVAL_SECONDS"},
-		},
-		"rabbitmq.staleQueuedWatchdog.timeoutMinutes": {
-			Primary:    "TASK_PROCESSOR_RABBITMQ_STALE_QUEUED_WATCHDOG_TIMEOUT_MINUTES",
-			Deprecated: []string{"RABBITMQ_STALE_QUEUED_WATCHDOG_TIMEOUT_MINUTES"},
-		},
-		"rabbitmq.staleQueuedWatchdog.recoveryLimit": {
-			Primary:    "TASK_PROCESSOR_RABBITMQ_STALE_QUEUED_WATCHDOG_RECOVERY_LIMIT",
-			Deprecated: []string{"RABBITMQ_STALE_QUEUED_WATCHDOG_RECOVERY_LIMIT"},
-		},
-		"rabbitmq.node.healthCheckPort": {
-			Primary:    "TASK_PROCESSOR_RABBITMQ_NODE_HEALTH_CHECK_PORT",
-			Deprecated: []string{"RABBITMQ_NODE_HEALTH_CHECK_PORT", "HEALTH_CHECK_PORT"},
-		},
-		"rabbitmq.node.metricsPort": {
-			Primary:    "TASK_PROCESSOR_RABBITMQ_NODE_METRICS_PORT",
-			Deprecated: []string{"RABBITMQ_NODE_METRICS_PORT", "METRICS_PORT"},
-		},
 		"browser.browserPath": {
 			Primary:    "TASK_PROCESSOR_BROWSER_PATH",
 			Deprecated: []string{"BROWSER_PATH"},
@@ -507,26 +382,6 @@ func knownEnvBindings() map[string]envBinding {
 		"browser.poolSize": {
 			Primary:    "TASK_PROCESSOR_BROWSER_POOL_SIZE",
 			Deprecated: []string{"BROWSER_POOL_SIZE"},
-		},
-		"worker.concurrency": {
-			Primary:    "TASK_PROCESSOR_WORKER_CONCURRENCY",
-			Deprecated: []string{"WORKER_CONCURRENCY"},
-		},
-		"worker.bufferSize": {
-			Primary:    "TASK_PROCESSOR_WORKER_BUFFER_SIZE",
-			Deprecated: []string{"WORKER_BUFFER_SIZE"},
-		},
-		"worker.taskInterval": {
-			Primary:    "TASK_PROCESSOR_WORKER_TASK_INTERVAL",
-			Deprecated: []string{"WORKER_TASK_INTERVAL"},
-		},
-		"platforms.temu.enabled": {
-			Primary:    "TASK_PROCESSOR_PLATFORM_TEMU_ENABLED",
-			Deprecated: []string{"PLATFORM_TEMU_ENABLED"},
-		},
-		"platforms.shein.enabled": {
-			Primary:    "TASK_PROCESSOR_PLATFORM_SHEIN_ENABLED",
-			Deprecated: []string{"PLATFORM_SHEIN_ENABLED"},
 		},
 		"platforms.alibaba1688.enabled": {
 			Primary:    "TASK_PROCESSOR_PLATFORM_1688_ENABLED",
@@ -723,15 +578,6 @@ func knownEnvBindings() map[string]envBinding {
 		},
 		"listingkit.imageUpload.s3.publicBase": {
 			Primary: "TASK_PROCESSOR_LISTINGKIT_IMAGE_UPLOAD_S3_PUBLIC_BASE",
-		},
-		"listingkit.sheinSubmitDebugDumpDir": {
-			Primary: "LISTINGKIT_DEBUG_SUBMIT_DUMP_DIR",
-		},
-		"listingkit.generationUsageLedgerEnabled": {
-			Primary: "TASK_PROCESSOR_LISTINGKIT_GENERATION_USAGE_LEDGER_ENABLED",
-		},
-		"listingkit.generationUsageLedgerTenantIDs": {
-			Primary: "TASK_PROCESSOR_LISTINGKIT_GENERATION_USAGE_LEDGER_TENANT_IDS",
 		},
 		"listingkit.platformAdminUsers": {
 			Primary: "LISTINGKIT_PLATFORM_ADMIN_USERS",

@@ -252,24 +252,25 @@ func TestListingKitAPIManifestUsesDependencyReadinessProbe(t *testing.T) {
 	}
 }
 
-func TestListingKitGenerationUsageLedgerCanaryIsRestrictedToBillingTenant1038(t *testing.T) {
+func TestRetiredListingGenerationUsageCanaryIsAbsent(t *testing.T) {
 	path := filepath.Join("..", "deployments", "kubernetes", "listingkit-workbench", "base", "configmap.yaml")
 	content, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read ListingKit ConfigMap: %v", err)
 	}
-
 	var configMap struct {
 		Data map[string]string `yaml:"data"`
 	}
 	if err := yaml.Unmarshal(content, &configMap); err != nil {
 		t.Fatalf("parse ListingKit ConfigMap: %v", err)
 	}
-	if got := configMap.Data["TASK_PROCESSOR_LISTINGKIT_GENERATION_USAGE_LEDGER_ENABLED"]; got != "true" {
-		t.Errorf("ListingKit generation usage ledger must be enabled, got %q", got)
+	for _, key := range []string{"TASK_PROCESSOR_LISTINGKIT_GENERATION_USAGE_LEDGER_ENABLED", "TASK_PROCESSOR_LISTINGKIT_GENERATION_USAGE_LEDGER_TENANT_IDS"} {
+		if _, exists := configMap.Data[key]; exists {
+			t.Errorf("retired generation usage input remains: %s", key)
+		}
 	}
-	if got := configMap.Data["TASK_PROCESSOR_LISTINGKIT_GENERATION_USAGE_LEDGER_TENANT_IDS"]; got != "1038" {
-		t.Errorf("ListingKit generation usage ledger canary must contain only billing tenant 1038, got %q", got)
+	if strings.Contains(string(content), "PAY-042") {
+		t.Error("retired generation usage canary instruction remains")
 	}
 }
 

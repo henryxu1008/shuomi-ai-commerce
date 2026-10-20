@@ -1,5 +1,7 @@
 # Module Target Mapping
 
+> #836 [旧数字任务与刊登专属配置完整闭包](../architecture/legacy-runtime-config-closure-retirement-boundary.md)：冻结设计 `209b40f54` 已确认并整批实施，旧 Processor/Worker/control-plane、全局 RabbitMQ 任务 schema、平台旧调度/核价/同步/监控、debug/usage 及其默认/加载/env/校验/示例/专属测试尾部一起退出；仅替代§5/§6.1准确对象的旧保留表述。真实采集 workerpool、独立通用 queue/Retry、当前身份/计费/图像/平台/Store 与独立 SHEIN 登录/同步 owner 保持；原 Viper/Manager/合并算法不变。历史矩阵/计数保留，全部 workflow/inventory 不改，无真实配置/实例/数据操作或新试用前置。
+
 > #833 [旧数字内容配置完整闭包](../architecture/legacy-numeric-content-management-closure-retirement-boundary.md)：冻结设计 d139bcccc 已确认并整批实施，三族无生产注入的词库/话题配置仓库读写、DTO、全局 setter、专属 schema/迁移和调用尾部源码退出；此前整体保留表述仅在该设计 §5/§6.1 的准确对象上被替代。当前默认清理直接复用原 content 内存工厂，品牌/字段/runtimeCtx、generationtopics 纯规则、Store/API/schema/权限与独立登录/Store 同步保持。物理对象 UNKNOWN、不操作；原历史矩阵/计数保留，全部 workflow/inventory 不改，无新试用前置。
 
 > #831 [confirmed numeric Store closure](../architecture/legacy-numeric-store-management-closure-retirement-boundary.md) retires only the unused Store management/configuration declarations listed in §5, without relocating them or adding an owner/adapter. The original account repository's current reads/sync writes, nine-method StoreAPI, worker/TEMU consumers, shared values and current Store/Organization boundary remain. Earlier broad Store retention is narrowed only for this exact closure; no persistence/runtime operation, workflow or inventory-row change.

@@ -1,14 +1,11 @@
 package config
 
 type ListingKitConfig struct {
-	RolePolicyDatabase             *DatabaseConfig             `mapstructure:"rolePolicyDatabase" yaml:"rolePolicyDatabase"`
-	SheinSubmitDebugDumpDir        string                      `mapstructure:"sheinSubmitDebugDumpDir" yaml:"sheinSubmitDebugDumpDir"`
-	GenerationUsageLedgerEnabled   bool                        `mapstructure:"generationUsageLedgerEnabled" yaml:"generationUsageLedgerEnabled"`
-	GenerationUsageLedgerTenantIDs []string                    `mapstructure:"generationUsageLedgerTenantIDs" yaml:"generationUsageLedgerTenantIDs"`
-	PlatformAdminUsers             []string                    `mapstructure:"platformAdminUsers" yaml:"platformAdminUsers"`
-	PlatformAdminRoles             []string                    `mapstructure:"platformAdminRoles" yaml:"platformAdminRoles"`
-	ImageUpload                    ListingKitImageUploadConfig `mapstructure:"imageUpload" yaml:"imageUpload"`
-	Zitadel                        ListingKitZitadelConfig     `mapstructure:"zitadel" yaml:"zitadel"`
+	RolePolicyDatabase *DatabaseConfig             `mapstructure:"rolePolicyDatabase" yaml:"rolePolicyDatabase"`
+	PlatformAdminUsers []string                    `mapstructure:"platformAdminUsers" yaml:"platformAdminUsers"`
+	PlatformAdminRoles []string                    `mapstructure:"platformAdminRoles" yaml:"platformAdminRoles"`
+	ImageUpload        ListingKitImageUploadConfig `mapstructure:"imageUpload" yaml:"imageUpload"`
+	Zitadel            ListingKitZitadelConfig     `mapstructure:"zitadel" yaml:"zitadel"`
 }
 
 type ListingKitImageUploadConfig struct {

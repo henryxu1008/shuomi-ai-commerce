@@ -1,5 +1,7 @@
 # 旧 Listing control-plane 与数字任务派发/恢复链退休设计
 
+> 本文原保留的未消费 `ListingControlPlaneConfig` 及其默认/加载/env/校验尾部，随后已按 [#836 完整配置闭包](legacy-runtime-config-closure-retirement-boundary.md) 的用户确认§5/§6.1整批源码退休。此说明仅接续该准确配置债务，不改写下方历史矩阵，不改变当前采集、独立登录/Store同步或真实资源边界。
+
 后续校准：本文件保留 #726 当时的范围/证据。原保留的 ownership-controller
 声明和无保留消费者的专属 auto-shard 配置 overlay，随后按 [#738 确认矩阵](legacy-ownership-controller-retirement-boundary.md)
 退出源码；不删除其它有效配置/Secret/监控或操作真实资源，原历史矩阵不回写。

@@ -27,38 +27,7 @@ data:
       viewportHeight: 1080
       proxyServer: ""
 
-    rabbitmq:
-      enabled: true
-      url: "amqp://guest:guest@rabbitmq.default.svc.cluster.local:5672/"
-      reconnectInterval: "5s"
-      maxReconnectTries: 10
-      consumer:
-        prefetchCount: 1
-        prefetchSize: 0
-        retryDelay: "5s"
-        maxRetries: 3
-        queues:
-          - name: "temu.tasks"
-            priority: 8
-            prefetch: 1
-          - name: "temu.tasks.store.*"
-            priority: 8
-            prefetch: 1
-      node:
-        role: "task"
-        useStoreQueues: false
-        ownedStores: []
-        regions: [US]
-        healthCheckPort: 8081
-        metricsPort: 8082
-
     platforms:
-      temu:
-        enabled: true
-        schedulerEnabled: false
-      shein:
-        enabled: false
-        schedulerEnabled: false
       alibaba1688:
         enabled: false
         timeout: 120

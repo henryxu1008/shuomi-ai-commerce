@@ -1,6 +1,8 @@
 package config
 
 import (
+	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -8,6 +10,79 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestCurrentConfigDoesNotRequireRetiredTaskInputs(t *testing.T) {
+	for _, name := range []string{"Processor", "Worker", "RabbitMQ", "Debug", "ListingControlPlane"} {
+		_, exists := reflect.TypeOf(Config{}).FieldByName(name)
+		assert.False(t, exists, "retired root %s", name)
+	}
+	for _, name := range []string{"SheinSubmitDebugDumpDir", "GenerationUsageLedgerEnabled", "GenerationUsageLedgerTenantIDs"} {
+		_, exists := reflect.TypeOf(ListingKitConfig{}).FieldByName(name)
+		assert.False(t, exists, "retired ListingKit field %s", name)
+	}
+	platformType := reflect.TypeOf(PlatformConfig{})
+	var names []string
+	for i := 0; i < platformType.NumField(); i++ {
+		names = append(names, platformType.Field(i).Name)
+	}
+	assert.ElementsMatch(t, []string{"FetchMode", "CookieRedis", "LoginService", "HTTPClient"}, names)
+	v := viper.New()
+	setDefaults(v)
+	keys := v.AllKeys()
+	for key := range knownEnvBindings() {
+		keys = append(keys, key)
+	}
+	for _, key := range keys {
+		normalized := strings.ToLower(key)
+		for _, prefix := range []string{"processor.", "worker.", "rabbitmq.", "listingControlPlane.", "debug.save_publish_json", "listingkit.sheinSubmitDebugDumpDir", "listingkit.generationUsageLedger"} {
+			assert.False(t, strings.HasPrefix(normalized, strings.ToLower(prefix)), "retired default/env %s", key)
+		}
+		for _, platform := range []string{"temu", "shein"} {
+			for _, field := range []string{"enabled", "schedulerEnabled", "autoPricing", "listingPricing", "productSync", "inventorySync", "activityRegistration", "sync", "monitor", "configPaths"} {
+				prefix := strings.ToLower("platforms." + platform + "." + field)
+				assert.False(t, normalized == prefix || strings.HasPrefix(normalized, prefix+"."), "retired platform default/env %s", key)
+			}
+		}
+	}
+	for _, cfg := range []*Config{NewDefaultConfig(), BuildConfig(v)} {
+		cfg.OpenAI.APIKey = "fixture-key"
+		require.Empty(t, cfg.Validate(), "current defaults must not require retired worker/task inputs")
+	}
+}
+
+func TestLoadFromBytesRetainsPlatformTransportLoginAndRetry(t *testing.T) {
+	cfg, err := LoadFromBytes([]byte(`
+openai:
+  apiKey: fixture-key
+platforms:
+  shein:
+    fetchMode: local
+    cookieRedis:
+      host: cookie.fixture
+      port: 6381
+      db: 7
+    loginService:
+      baseURL: http://login.fixture:8000
+      sharedKey: fixture-shared-key
+      executionMode: worker
+      maxConcurrentLogins: 4
+    httpClient:
+      timeout: 42
+      insecureSkipVerify: true
+`))
+	require.NoError(t, err)
+	assert.Equal(t, "local", cfg.Platforms.Shein.FetchMode)
+	assert.Equal(t, "cookie.fixture", cfg.EffectiveSheinCookieRedis().Host)
+	assert.Equal(t, 6381, cfg.EffectiveSheinCookieRedis().Port)
+	assert.Equal(t, 7, cfg.EffectiveSheinCookieRedis().DB)
+	assert.Equal(t, "http://login.fixture:8000", cfg.Platforms.Shein.LoginService.BaseURL)
+	assert.Equal(t, "fixture-shared-key", cfg.Platforms.Shein.LoginService.SharedKey)
+	assert.Equal(t, "worker", cfg.Platforms.Shein.LoginService.ExecutionMode)
+	assert.Equal(t, 4, cfg.Platforms.Shein.LoginService.MaxConcurrentLogins)
+	assert.Equal(t, 42*time.Second, cfg.Platforms.Shein.HTTPClient.Timeout)
+	assert.True(t, cfg.Platforms.Shein.HTTPClient.InsecureSkipVerify)
+	assert.Equal(t, 3, DefaultRetryConfig().MaxRetries)
+}
 
 func TestBrowserConfigDefaults(t *testing.T) {
 	v := viper.New()
@@ -53,21 +128,6 @@ func TestAmazonConfigDefaults(t *testing.T) {
 	assert.Equal(t, "New", v.GetString("amazon.spapi.defaultCondition"))
 }
 
-func TestRabbitMQConfigDefaults(t *testing.T) {
-	v := viper.New()
-	setDefaults(v)
-
-	assert.False(t, v.GetBool("rabbitmq.enabled"))
-	assert.Equal(t, "amqp://guest:guest@localhost:5672/", v.GetString("rabbitmq.url"))
-	assert.Equal(t, 10, v.GetInt("rabbitmq.maxReconnectTries"))
-	assert.Equal(t, 5, v.GetInt("rabbitmq.consumer.prefetchCount"))
-	assert.Equal(t, 3, v.GetInt("rabbitmq.consumer.maxRetries"))
-	assert.Equal(t, 10, v.GetInt("rabbitmq.node.maxConcurrency"))
-	assert.Equal(t, 8081, v.GetInt("rabbitmq.node.healthCheckPort"))
-	assert.Equal(t, 8082, v.GetInt("rabbitmq.node.metricsPort"))
-	assert.Equal(t, "info", v.GetString("rabbitmq.node.logLevel"))
-}
-
 func TestAlibaba1688ConfigDefaults(t *testing.T) {
 	v := viper.New()
 	setDefaults(v)
@@ -84,35 +144,6 @@ func TestPlatformFetchModeDefaults(t *testing.T) {
 
 	assert.Equal(t, "auto", v.GetString("platforms.temu.fetchMode"))
 	assert.Equal(t, "auto", v.GetString("platforms.shein.fetchMode"))
-}
-
-func TestListingControlPlaneConfigDefaults(t *testing.T) {
-	v := viper.New()
-	setDefaults(v)
-
-	assert.False(t, v.GetBool("listingControlPlane.enabled"))
-	assert.Equal(t, "shein", v.GetString("listingControlPlane.platform"))
-	assert.Equal(t, "listing:control-plane:leader:shein", v.GetString("listingControlPlane.leaderLockKey"))
-	assert.Equal(t, 30*time.Second, v.GetDuration("listingControlPlane.leaderLockTTL"))
-	assert.Equal(t, 30*time.Second, v.GetDuration("listingControlPlane.cycleTimeout"))
-	assert.Equal(t, 5*time.Second, v.GetDuration("listingControlPlane.scanInterval"))
-	assert.Equal(t, 500, v.GetInt("listingControlPlane.batchSize"))
-	assert.Equal(t, 1, v.GetInt("listingControlPlane.perStoreBurst"))
-	assert.Equal(t, 0, v.GetInt("listingControlPlane.maxQueuedPerStore"))
-	assert.False(t, v.GetBool("listingControlPlane.dryRun"))
-	assert.False(t, v.GetBool("listingControlPlane.enableLegacyQuotaKeys"))
-	assert.Equal(t, time.Duration(0), v.GetDuration("listingControlPlane.quotaKeyTTLGrace"))
-	assert.Equal(t, time.Hour, v.GetDuration("listingControlPlane.pausedTaskRecoveryInterval"))
-}
-
-func TestListingKitGenerationUsageLedgerDefaultsDisabled(t *testing.T) {
-	v := viper.New()
-	setDefaults(v)
-
-	assert.False(t, v.GetBool("listingkit.generationUsageLedgerEnabled"))
-	assert.Empty(t, getStringSlice(v, "listingkit.generationUsageLedgerTenantIDs"))
-	assert.False(t, NewDefaultConfig().ListingKit.GenerationUsageLedgerEnabled)
-	assert.Empty(t, NewDefaultConfig().ListingKit.GenerationUsageLedgerTenantIDs)
 }
 
 func TestConfigBuild(t *testing.T) {
@@ -174,20 +205,8 @@ func TestConfigBuild(t *testing.T) {
 	assert.Equal(t, "nanobanana", cfg.OpenAI.Clients["image"].APIStyle)
 }
 
-func TestConfigBuildIncludesDebugConfig(t *testing.T) {
-	v := viper.New()
-	v.Set("debug.save_publish_json", true)
-
-	cfg := BuildConfig(v)
-
-	assert.True(t, cfg.Debug.SavePublishJSON)
-}
-
 func TestConfigBuildIncludesListingKitConfig(t *testing.T) {
 	v := viper.New()
-	v.Set("listingkit.sheinSubmitDebugDumpDir", "./.local/tmp/shein-submit-dumps")
-	v.Set("listingkit.generationUsageLedgerEnabled", true)
-	v.Set("listingkit.generationUsageLedgerTenantIDs", []string{"tenant-17", "tenant-18"})
 	v.Set("listingkit.platformAdminUsers", []string{"user-a", "user-b"})
 	v.Set("listingkit.platformAdminRoles", []string{"role-a", "role-b"})
 	v.Set("listingkit.zitadel.issuerURL", "https://issuer.example")
@@ -203,9 +222,6 @@ func TestConfigBuildIncludesListingKitConfig(t *testing.T) {
 
 	cfg := BuildConfig(v)
 
-	assert.Equal(t, "./.local/tmp/shein-submit-dumps", cfg.ListingKit.SheinSubmitDebugDumpDir)
-	assert.True(t, cfg.ListingKit.GenerationUsageLedgerEnabled)
-	assert.Equal(t, []string{"tenant-17", "tenant-18"}, cfg.ListingKit.GenerationUsageLedgerTenantIDs)
 	assert.Equal(t, []string{"user-a", "user-b"}, cfg.ListingKit.PlatformAdminUsers)
 	assert.Equal(t, []string{"role-a", "role-b"}, cfg.ListingKit.PlatformAdminRoles)
 	assert.Equal(t, "https://issuer.example", cfg.ListingKit.Zitadel.IssuerURL)
@@ -220,80 +236,8 @@ func TestConfigBuildIncludesListingKitConfig(t *testing.T) {
 	assert.Equal(t, []string{"tenant-image-a", "tenant-image-b"}, cfg.ImageAgent.Admission.AllowedTenantIDs)
 }
 
-func TestLoadFromBytesIncludesListingControlPlaneConfig(t *testing.T) {
-	cfg, err := LoadFromBytes([]byte(`
-openai:
-  apiKey: "test-key"
-listingControlPlane:
-  enabled: true
-  platform: temu
-  leaderLockKey: "listing:control-plane:leader:temu"
-  leaderLockTTL: 45s
-  cycleTimeout: 40s
-  scanInterval: 10s
-  batchSize: 250
-  perStoreBurst: 2
-  maxQueuedPerStore: 8
-  dryRun: true
-  enableLegacyQuotaKeys: true
-  quotaKeyTTLGrace: 1m
-  pausedTaskRecoveryInterval: 2h
-`))
-	require.NoError(t, err)
-
-	assert.True(t, cfg.ListingControlPlane.Enabled)
-	assert.Equal(t, "temu", cfg.ListingControlPlane.Platform)
-	assert.Equal(t, "listing:control-plane:leader:temu", cfg.ListingControlPlane.LeaderLockKey)
-	assert.Equal(t, 45*time.Second, cfg.ListingControlPlane.LeaderLockTTL)
-	assert.Equal(t, 40*time.Second, cfg.ListingControlPlane.CycleTimeout)
-	assert.Equal(t, 10*time.Second, cfg.ListingControlPlane.ScanInterval)
-	assert.Equal(t, 250, cfg.ListingControlPlane.BatchSize)
-	assert.Equal(t, 2, cfg.ListingControlPlane.PerStoreBurst)
-	assert.Equal(t, 8, cfg.ListingControlPlane.MaxQueuedPerStore)
-	assert.True(t, cfg.ListingControlPlane.DryRun)
-	assert.True(t, cfg.ListingControlPlane.EnableLegacyQuotaKeys)
-	assert.Equal(t, time.Minute, cfg.ListingControlPlane.QuotaKeyTTLGrace)
-	assert.Equal(t, 2*time.Hour, cfg.ListingControlPlane.PausedTaskRecoveryInterval)
-}
-
-func TestLoadFromBytesAppliesListingControlPlaneEnvOverrides(t *testing.T) {
-	t.Setenv("TASK_PROCESSOR_OPENAI_API_KEY", "test-key")
-	t.Setenv("TASK_PROCESSOR_LISTING_CONTROL_PLANE_ENABLED", "true")
-	t.Setenv("TASK_PROCESSOR_LISTING_CONTROL_PLANE_PLATFORM", "temu")
-	t.Setenv("TASK_PROCESSOR_LISTING_CONTROL_PLANE_LEADER_LOCK_KEY", "listing:control-plane:leader:temu")
-	t.Setenv("TASK_PROCESSOR_LISTING_CONTROL_PLANE_LEADER_LOCK_TTL", "45s")
-	t.Setenv("TASK_PROCESSOR_LISTING_CONTROL_PLANE_SCAN_INTERVAL", "12s")
-	t.Setenv("TASK_PROCESSOR_LISTING_CONTROL_PLANE_BATCH_SIZE", "75")
-	t.Setenv("TASK_PROCESSOR_LISTING_CONTROL_PLANE_PER_STORE_BURST", "3")
-	t.Setenv("TASK_PROCESSOR_LISTING_CONTROL_PLANE_MAX_QUEUED_PER_STORE", "9")
-	t.Setenv("TASK_PROCESSOR_LISTING_CONTROL_PLANE_DRY_RUN", "true")
-	t.Setenv("TASK_PROCESSOR_LISTING_CONTROL_PLANE_ENABLE_LEGACY_QUOTA_KEYS", "true")
-	t.Setenv("TASK_PROCESSOR_LISTING_CONTROL_PLANE_PAUSED_TASK_RECOVERY_INTERVAL", "3h")
-
-	cfg, err := LoadFromBytes(nil)
-	require.NoError(t, err)
-
-	assert.True(t, cfg.ListingControlPlane.Enabled)
-	assert.Equal(t, "temu", cfg.ListingControlPlane.Platform)
-	assert.Equal(t, "listing:control-plane:leader:temu", cfg.ListingControlPlane.LeaderLockKey)
-	assert.Equal(t, 45*time.Second, cfg.ListingControlPlane.LeaderLockTTL)
-	assert.Equal(t, 12*time.Second, cfg.ListingControlPlane.ScanInterval)
-	assert.Equal(t, 75, cfg.ListingControlPlane.BatchSize)
-	assert.Equal(t, 3, cfg.ListingControlPlane.PerStoreBurst)
-	assert.Equal(t, 9, cfg.ListingControlPlane.MaxQueuedPerStore)
-	assert.True(t, cfg.ListingControlPlane.DryRun)
-	assert.True(t, cfg.ListingControlPlane.EnableLegacyQuotaKeys)
-	assert.Equal(t, 3*time.Hour, cfg.ListingControlPlane.PausedTaskRecoveryInterval)
-}
-
 func TestConfigValidation(t *testing.T) {
 	validConfig := &Config{
-		Worker: WorkerConfig{
-			Concurrency:      5,
-			BufferSize:       100,
-			TaskInterval:     60,
-			MaxFetchPerCycle: 5,
-		},
 		OpenAI: OpenAIConfig{
 			APIKey:  "test-key",
 			Model:   "test-model",
@@ -335,44 +279,6 @@ func TestConfigValidation(t *testing.T) {
 			QualityControl: AmazonQualityControlConfig{
 				RetryOnValidationFailure:   true,
 				ValidationRetryMaxAttempts: 2,
-			},
-		},
-		Platforms: PlatformsConfig{
-			Temu: PlatformConfig{
-				Enabled: true,
-				AutoPricing: AutoPricingConfig{
-					Enabled:   false,
-					Interval:  300,
-					BatchSize: 100,
-				},
-				ProductSync: ScheduledTaskConfig{
-					Enabled:  true,
-					Interval: 60,
-				},
-				Monitor: MonitorConfig{
-					Enabled:              true,
-					CheckInterval:        1440,
-					BatchSize:            100,
-					PriceChangeThreshold: 10.0,
-				},
-			},
-			Shein: PlatformConfig{
-				Enabled: true,
-				AutoPricing: AutoPricingConfig{
-					Enabled:   false,
-					Interval:  300,
-					BatchSize: 100,
-				},
-				ProductSync: ScheduledTaskConfig{
-					Enabled:  false,
-					Interval: 60,
-				},
-				Monitor: MonitorConfig{
-					Enabled:              false,
-					CheckInterval:        1440,
-					BatchSize:            100,
-					PriceChangeThreshold: 10.0,
-				},
 			},
 		},
 	}
@@ -444,22 +350,4 @@ func TestBrowserConfigValidation(t *testing.T) {
 	errors = ValidateBrowserConfig(&invalidConfig.Browser)
 	assert.NotEmpty(t, errors)
 	assert.True(t, len(errors) >= 3)
-}
-
-func TestLoadFromBytesAppliesRabbitMQDefaultsWhenSectionMissing(t *testing.T) {
-	cfg, err := LoadFromBytes([]byte(`
-openai:
-  apiKey: "test-key"
-  model: "test-model"
-  baseURL: "http://example.com/v1"
-  timeout: 30
-`))
-	require.NoError(t, err)
-	require.NotNil(t, cfg.RabbitMQ)
-
-	assert.False(t, cfg.RabbitMQ.Enabled)
-	assert.Equal(t, 5, cfg.RabbitMQ.Consumer.PrefetchCount)
-	assert.Equal(t, 10, cfg.RabbitMQ.Node.MaxConcurrency)
-	assert.Equal(t, 8081, cfg.RabbitMQ.Node.HealthCheckPort)
-	assert.Equal(t, 8082, cfg.RabbitMQ.Node.MetricsPort)
 }

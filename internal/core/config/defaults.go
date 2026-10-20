@@ -1,8 +1,6 @@
 package config
 
 import (
-	"time"
-
 	"github.com/spf13/viper"
 )
 
@@ -14,29 +12,11 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("observability.tracing.endpoint", defaults.Observability.Tracing.Endpoint)
 	v.SetDefault("observability.tracing.insecure", defaults.Observability.Tracing.Insecure)
 
-	v.SetDefault("processor.maxRetries", defaults.Processor.MaxRetries)
-	v.SetDefault("processor.timeout", defaults.Processor.Timeout)
-	v.SetDefault("processor.schedulerEnabled", defaults.Processor.SchedulerEnabled)
-
-	v.SetDefault("worker.concurrency", defaults.Worker.Concurrency)
-	v.SetDefault("worker.bufferSize", defaults.Worker.BufferSize)
-	v.SetDefault("worker.taskInterval", defaults.Worker.TaskInterval)
-	v.SetDefault("worker.maxFetchPerCycle", defaults.Worker.MaxFetchPerCycle)
-	v.SetDefault("worker.queueThreshold", defaults.Worker.QueueThreshold)
-	v.SetDefault("worker.cleanupInterval", defaults.Worker.CleanupInterval)
-	v.SetDefault("worker.taskTimeout", defaults.Worker.TaskTimeout)
-	v.SetDefault("worker.stuckTaskThreshold", defaults.Worker.StuckTaskThreshold)
-	v.SetDefault("worker.forceCleanupAfter", defaults.Worker.ForceCleanupAfter)
-
 	v.SetDefault("openai.apiKey", defaults.OpenAI.APIKey)
 	v.SetDefault("openai.model", defaults.OpenAI.Model)
 	v.SetDefault("openai.baseURL", defaults.OpenAI.BaseURL)
 	v.SetDefault("openai.timeout", defaults.OpenAI.Timeout)
 
-	v.SetDefault("debug.save_publish_json", defaults.Debug.SavePublishJSON)
-	v.SetDefault("listingkit.sheinSubmitDebugDumpDir", defaults.ListingKit.SheinSubmitDebugDumpDir)
-	v.SetDefault("listingkit.generationUsageLedgerEnabled", defaults.ListingKit.GenerationUsageLedgerEnabled)
-	v.SetDefault("listingkit.generationUsageLedgerTenantIDs", defaults.ListingKit.GenerationUsageLedgerTenantIDs)
 	v.SetDefault("listingkit.platformAdminUsers", defaults.ListingKit.PlatformAdminUsers)
 	v.SetDefault("listingkit.platformAdminRoles", defaults.ListingKit.PlatformAdminRoles)
 	v.SetDefault("listingkit.imageUpload.provider", defaults.ListingKit.ImageUpload.Provider)
@@ -66,31 +46,11 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("listingkit.zitadel.sms.phoneVerificationExpiryMinutes", defaults.ListingKit.Zitadel.SMS.PhoneVerificationExpiryMinutes)
 	v.SetDefault("workbench.enabled", defaults.Workbench.Enabled)
 
-	setListingControlPlaneDefaults(v, defaults)
 	setBrowserDefaults(v, defaults)
 	setAmazonDefaults(v, defaults)
 	setImageAgentDefaults(v, defaults)
 	setUpdaterDefaults(v, defaults)
 	setPlatformDefaults(v, defaults)
-	setRabbitMQDefaults(v, defaults)
-}
-
-func setListingControlPlaneDefaults(v *viper.Viper, defaults *Config) {
-	lcp := defaults.ListingControlPlane
-
-	v.SetDefault("listingControlPlane.enabled", lcp.Enabled)
-	v.SetDefault("listingControlPlane.platform", lcp.Platform)
-	v.SetDefault("listingControlPlane.leaderLockKey", lcp.LeaderLockKey)
-	v.SetDefault("listingControlPlane.leaderLockTTL", lcp.LeaderLockTTL)
-	v.SetDefault("listingControlPlane.cycleTimeout", lcp.CycleTimeout)
-	v.SetDefault("listingControlPlane.scanInterval", lcp.ScanInterval)
-	v.SetDefault("listingControlPlane.batchSize", lcp.BatchSize)
-	v.SetDefault("listingControlPlane.perStoreBurst", lcp.PerStoreBurst)
-	v.SetDefault("listingControlPlane.maxQueuedPerStore", lcp.MaxQueuedPerStore)
-	v.SetDefault("listingControlPlane.dryRun", lcp.DryRun)
-	v.SetDefault("listingControlPlane.enableLegacyQuotaKeys", lcp.EnableLegacyQuotaKeys)
-	v.SetDefault("listingControlPlane.quotaKeyTTLGrace", lcp.QuotaKeyTTLGrace)
-	v.SetDefault("listingControlPlane.pausedTaskRecoveryInterval", lcp.PausedTaskRecoveryInterval)
 }
 
 func setImageAgentDefaults(v *viper.Viper, defaults *Config) {
@@ -188,62 +148,6 @@ func setUpdaterDefaults(v *viper.Viper, defaults *Config) {
 	v.SetDefault("updater.insecureSkipVerify", u.InsecureSkipVerify)
 }
 
-func setRabbitMQDefaults(v *viper.Viper, defaults *Config) {
-	if defaults.RabbitMQ == nil {
-		return
-	}
-
-	r := defaults.RabbitMQ
-	v.SetDefault("rabbitmq.enabled", r.Enabled)
-	v.SetDefault("rabbitmq.url", r.URL)
-	v.SetDefault("rabbitmq.maxReconnectTries", r.MaxReconnectTries)
-	v.SetDefault("rabbitmq.consumer.prefetchCount", r.Consumer.PrefetchCount)
-	v.SetDefault("rabbitmq.consumer.prefetchSize", r.Consumer.PrefetchSize)
-	v.SetDefault("rabbitmq.consumer.maxRetries", r.Consumer.MaxRetries)
-	v.SetDefault("rabbitmq.node.maxConcurrency", r.Node.MaxConcurrency)
-	v.SetDefault("rabbitmq.node.role", r.Node.Role)
-	v.SetDefault("rabbitmq.node.healthCheckPort", r.Node.HealthCheckPort)
-	v.SetDefault("rabbitmq.node.metricsPort", r.Node.MetricsPort)
-	v.SetDefault("rabbitmq.node.logLevel", r.Node.LogLevel)
-	v.SetDefault("rabbitmq.deadLetter.enabled", r.DeadLetter.Enabled)
-	v.SetDefault("rabbitmq.deadLetter.queueName", firstNonEmptyString(r.DeadLetter.QueueName, "tasks.dlq"))
-	v.SetDefault("rabbitmq.processingTimeoutWatchdog.enabled", r.ProcessingTimeout.Enabled)
-	v.SetDefault("rabbitmq.processingTimeoutWatchdog.intervalSeconds", int(firstPositiveDuration(r.ProcessingTimeout.Interval, 5*time.Minute).Seconds()))
-	v.SetDefault("rabbitmq.processingTimeoutWatchdog.timeoutMinutes", firstPositiveInt(r.ProcessingTimeout.TimeoutMinutes, 30))
-	v.SetDefault("rabbitmq.processingTimeoutWatchdog.recoveryLimit", firstPositiveInt(r.ProcessingTimeout.RecoveryLimit, 100))
-	v.SetDefault("rabbitmq.staleQueuedWatchdog.enabled", r.StaleQueued.Enabled)
-	v.SetDefault("rabbitmq.staleQueuedWatchdog.intervalSeconds", int(firstPositiveDuration(r.StaleQueued.Interval, 5*time.Minute).Seconds()))
-	v.SetDefault("rabbitmq.staleQueuedWatchdog.timeoutMinutes", firstPositiveInt(r.StaleQueued.TimeoutMinutes, 120))
-	v.SetDefault("rabbitmq.staleQueuedWatchdog.recoveryLimit", firstPositiveInt(r.StaleQueued.RecoveryLimit, 500))
-}
-
-func firstNonEmptyString(values ...string) string {
-	for _, value := range values {
-		if value != "" {
-			return value
-		}
-	}
-	return ""
-}
-
-func firstPositiveInt(values ...int) int {
-	for _, value := range values {
-		if value > 0 {
-			return value
-		}
-	}
-	return 0
-}
-
-func firstPositiveDuration(values ...time.Duration) time.Duration {
-	for _, value := range values {
-		if value > 0 {
-			return value
-		}
-	}
-	return 0
-}
-
 func setPlatformDefaults(v *viper.Viper, defaults *Config) {
 	setTemuDefaults(v, &defaults.Platforms.Temu)
 	setSheinDefaults(v, &defaults.Platforms.Shein)
@@ -278,56 +182,12 @@ func setSDSDefaults(v *viper.Viper, p *SDSPlatformConfig) {
 }
 
 func setTemuDefaults(v *viper.Viper, p *PlatformConfig) {
-	v.SetDefault("platforms.temu.enabled", p.Enabled)
-	v.SetDefault("platforms.temu.schedulerEnabled", p.SchedulerEnabled)
 	v.SetDefault("platforms.temu.fetchMode", p.FetchMode)
 	v.SetDefault("platforms.temu.httpClient.insecureSkipVerify", p.HTTPClient.InsecureSkipVerify)
 
-	ap := p.AutoPricing
-	v.SetDefault("platforms.temu.autoPricing.enabled", ap.Enabled)
-	v.SetDefault("platforms.temu.autoPricing.interval", ap.Interval)
-	v.SetDefault("platforms.temu.autoPricing.batchSize", ap.BatchSize)
-	v.SetDefault("platforms.temu.autoPricing.useAmazonPrice", ap.UseAmazonPrice)
-
-	lp := p.ListingPricing
-	v.SetDefault("platforms.temu.listingPricing.enabled", lp.Enabled)
-	v.SetDefault("platforms.temu.listingPricing.currency", lp.Currency)
-	v.SetDefault("platforms.temu.listingPricing.markupRate", lp.MarkupRate)
-	v.SetDefault("platforms.temu.listingPricing.fixedMarkup", lp.FixedMarkup)
-	v.SetDefault("platforms.temu.listingPricing.shippingCost", lp.ShippingCost)
-	v.SetDefault("platforms.temu.listingPricing.commissionRate", lp.CommissionRate)
-	v.SetDefault("platforms.temu.listingPricing.minimumPrice", lp.MinimumPrice)
-	v.SetDefault("platforms.temu.listingPricing.roundTo", lp.RoundTo)
-
-	ps := p.ProductSync
-	v.SetDefault("platforms.temu.productSync.enabled", ps.Enabled)
-	v.SetDefault("platforms.temu.productSync.interval", ps.Interval)
-	v.SetDefault("platforms.temu.productSync.storeIDs", ps.StoreIDs)
-
-	is := p.InventorySync
-	v.SetDefault("platforms.temu.inventorySync.enabled", is.Enabled)
-	v.SetDefault("platforms.temu.inventorySync.interval", is.Interval)
-	v.SetDefault("platforms.temu.inventorySync.storeIDs", is.StoreIDs)
-
-	ar := p.ActivityRegistration
-	v.SetDefault("platforms.temu.activityRegistration.enabled", ar.Enabled)
-	v.SetDefault("platforms.temu.activityRegistration.interval", ar.Interval)
-	v.SetDefault("platforms.temu.activityRegistration.storeIDs", ar.StoreIDs)
-
-	m := p.Monitor
-	v.SetDefault("platforms.temu.monitor.enabled", m.Enabled)
-	v.SetDefault("platforms.temu.monitor.storeIDs", m.StoreIDs)
-	v.SetDefault("platforms.temu.monitor.checkInterval", m.CheckInterval)
-	v.SetDefault("platforms.temu.monitor.batchSize", m.BatchSize)
-	v.SetDefault("platforms.temu.monitor.enablePriceAlert", m.EnablePriceAlert)
-	v.SetDefault("platforms.temu.monitor.enableStockAlert", m.EnableStockAlert)
-	v.SetDefault("platforms.temu.monitor.priceChangeThreshold", m.PriceChangeThreshold)
-	v.SetDefault("platforms.temu.monitor.stockChangeThreshold", m.StockChangeThreshold)
 }
 
 func setSheinDefaults(v *viper.Viper, p *PlatformConfig) {
-	v.SetDefault("platforms.shein.enabled", p.Enabled)
-	v.SetDefault("platforms.shein.schedulerEnabled", p.SchedulerEnabled)
 	v.SetDefault("platforms.shein.fetchMode", p.FetchMode)
 	v.SetDefault("platforms.shein.httpClient.insecureSkipVerify", p.HTTPClient.InsecureSkipVerify)
 	v.SetDefault("platforms.shein.cookieRedis.host", p.CookieRedis.Host)
@@ -347,45 +207,6 @@ func setSheinDefaults(v *viper.Viper, p *PlatformConfig) {
 	v.SetDefault("platforms.shein.loginService.forceHeadless", p.LoginService.ForceHeadless)
 	v.SetDefault("platforms.shein.loginService.executionMode", p.LoginService.ExecutionMode)
 
-	ap := p.AutoPricing
-	v.SetDefault("platforms.shein.autoPricing.enabled", ap.Enabled)
-	v.SetDefault("platforms.shein.autoPricing.interval", ap.Interval)
-	v.SetDefault("platforms.shein.autoPricing.batchSize", ap.BatchSize)
-
-	lp := p.ListingPricing
-	v.SetDefault("platforms.shein.listingPricing.enabled", lp.Enabled)
-	v.SetDefault("platforms.shein.listingPricing.currency", lp.Currency)
-	v.SetDefault("platforms.shein.listingPricing.markupRate", lp.MarkupRate)
-	v.SetDefault("platforms.shein.listingPricing.fixedMarkup", lp.FixedMarkup)
-	v.SetDefault("platforms.shein.listingPricing.shippingCost", lp.ShippingCost)
-	v.SetDefault("platforms.shein.listingPricing.commissionRate", lp.CommissionRate)
-	v.SetDefault("platforms.shein.listingPricing.minimumPrice", lp.MinimumPrice)
-	v.SetDefault("platforms.shein.listingPricing.roundTo", lp.RoundTo)
-
-	ps := p.ProductSync
-	v.SetDefault("platforms.shein.productSync.enabled", ps.Enabled)
-	v.SetDefault("platforms.shein.productSync.interval", ps.Interval)
-	v.SetDefault("platforms.shein.productSync.storeIDs", ps.StoreIDs)
-
-	is := p.InventorySync
-	v.SetDefault("platforms.shein.inventorySync.enabled", is.Enabled)
-	v.SetDefault("platforms.shein.inventorySync.interval", is.Interval)
-	v.SetDefault("platforms.shein.inventorySync.storeIDs", is.StoreIDs)
-
-	ar := p.ActivityRegistration
-	v.SetDefault("platforms.shein.activityRegistration.enabled", ar.Enabled)
-	v.SetDefault("platforms.shein.activityRegistration.interval", ar.Interval)
-	v.SetDefault("platforms.shein.activityRegistration.storeIDs", ar.StoreIDs)
-
-	m := p.Monitor
-	v.SetDefault("platforms.shein.monitor.enabled", m.Enabled)
-	v.SetDefault("platforms.shein.monitor.storeIDs", m.StoreIDs)
-	v.SetDefault("platforms.shein.monitor.checkInterval", m.CheckInterval)
-	v.SetDefault("platforms.shein.monitor.batchSize", m.BatchSize)
-	v.SetDefault("platforms.shein.monitor.enablePriceAlert", m.EnablePriceAlert)
-	v.SetDefault("platforms.shein.monitor.enableStockAlert", m.EnableStockAlert)
-	v.SetDefault("platforms.shein.monitor.priceChangeThreshold", m.PriceChangeThreshold)
-	v.SetDefault("platforms.shein.monitor.stockChangeThreshold", m.StockChangeThreshold)
 }
 
 func setAlibaba1688Defaults(v *viper.Viper, p *Alibaba1688Config) {
