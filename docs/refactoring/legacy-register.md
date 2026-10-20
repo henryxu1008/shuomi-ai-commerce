@@ -1,5 +1,7 @@
 # Legacy Register
 
+> #29 / #301 [旧 Task 诊断与回归验收完整闭包提案](../architecture/legacy-task-diagnostics-retirement-boundary.md)：Design Basis Reuse Existing Architecture，DESIGNING / 待独立复核及用户确认，尚未实施、Ready=false。拟整批 RETIRE inspector、preview 清单校验器及专属测试/样例、旧查询帮助和直接验收说明尾部；无新抽取/替代 Task/cache owner。当前定价/API/规则、通用 DB/prompt replay、采集/Store/独立 SHEIN 登录与同步保留；历史记录/计数、商业门禁、全部 workflow/inventory 不改，无运行/数据操作或新试用前置。准确删除与保留矩阵见 §5/§6.1；旧结论在确认实施前保持原状态。
+
 > #529 / #301 用户确认[旧 Yudao 身份运维完整闭包](../architecture/legacy-yudao-identity-operations-retirement-boundary.md)冻结设计 `370695e82` 后，在 #842 按§5/§6/§6.1/§7整批 RETIRE：三个历史用户导入入口、owner恢复dry-run、内联helper/报告生成及直接说明尾部源码退出。复用当前Greenfield/Hard-Cut，仅替代两个local脚本及support-candidate行中其迁移保留结论，历史行/计数保持；无旧ID映射/替代恢复owner。当前认证/Organization/手机号、ZITADEL共享基础设施、采集/Store与独立SHEIN登录/同步原样；全部workflow/inventory零改，无运行/数据/既有报告操作或新试用前置。
 
 > #839 用户确认冻结设计 `0871cb591` 后按[完整运维源码闭包](../architecture/legacy-listing-operations-closure-retirement-boundary.md)整批实施，Independent Architecture / IMPLEMENTATION_READY。旧部署配置/装配、专属监控、rollout helper/test及恢复SQL的23准确源与当前文档/help/guard尾部已退休；唯一有效Prometheus存储规则及同namespace窄路由抽取到现有monitoring。四份SHEIN共享Secret源/Namespace/prod、Store代理同步、独立登录/Store同步、通用诊断和Amazon监控保持。旧广泛保留表述仅在§5/§6.1准确对象上被替代；历史记录/计数及全部workflow/inventory不改，无运行/数据操作或新试用前置。
