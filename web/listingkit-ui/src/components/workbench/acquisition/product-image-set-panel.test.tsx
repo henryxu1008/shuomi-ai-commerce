@@ -66,6 +66,52 @@ async function prepare(){
  const button=screen.getByRole("button",{name:"准备整套图片计划（2 项）"});await waitFor(()=>expect(button).toBeEnabled());fireEvent.click(button);
 }
 
+it("shows frozen literal detail copy before confirmation without allowing edits or generation",async()=>{
+ Object.assign(state.plan,{Method:{Skill:{kind:"skill-version-v1",id:operation,ownerKind:"PLATFORM",ownerId:"official",version:2,digest:sha,policyVersion:"skill-method-v1"},PolicyVersion:"image-method-visual-brief-v3"}});
+ state.slots[1].recipe.Purpose="key_benefits";
+ Object.assign(state.slots[1].recipe,{VisibleText:["IKEA DRÖNA 深灰色布艺收纳盒","产品尺寸：宽33厘米，深38厘米，高33厘米"]});
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialRunId={runId}/>);
+ const copy=await screen.findByRole("region",{name:"本次详情图文案"});
+ expect(within(copy).getByText("IKEA DRÖNA 深灰色布艺收纳盒")).toBeVisible();
+ expect(within(copy).getByText("产品尺寸：宽33厘米，深38厘米，高33厘米")).toBeVisible();
+ expect(within(copy).queryByRole("textbox")).toBeNull();
+ expect(screen.getByRole("button",{name:"确认点数并生成"})).toBeEnabled();
+ expect(fetch.mock.calls.some(([,init])=>init?.method==="POST")).toBe(false);
+});
+
+it("explains a text-free detail plan when no whole short fact is available",async()=>{
+ Object.assign(state.plan,{Method:{Skill:{kind:"skill-version-v1",id:operation,ownerKind:"PLATFORM",ownerId:"official",version:2,digest:sha,policyVersion:"skill-method-v1"},PolicyVersion:"image-method-visual-brief-v3"}});
+ state.slots[1].recipe.Purpose="key_benefits";
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialRunId={runId}/>);
+ const copy=await screen.findByRole("region",{name:"本次详情图文案"});
+ expect(within(copy).getByText("没有合适的已确认短文案，本图不加字。")).toBeVisible();
+});
+
+it("retains literal copy in read-only historical details without an execution or adoption action",async()=>{
+ state=projection("awaiting_final_approval",templateId);
+ Object.assign(state,{generationAllowed:false,approvalAvailable:false,candidateSelectionAvailable:false,regenerationAvailable:false});
+ Object.assign(state.plan,{Method:{Skill:{kind:"skill-version-v1",id:operation,ownerKind:"PLATFORM",ownerId:"official",version:2,digest:sha,policyVersion:"skill-method-v1"},PolicyVersion:"image-method-visual-brief-v3"}});
+ state.slots[1].recipe.Purpose="key_benefits";
+ Object.assign(state.slots[1].recipe,{VisibleText:["已确认原文"]});
+ calls.context={...calls.context,permissions:["listingkit.image_agent.read"]};
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialRunId={runId}/>);
+ expect(within(await screen.findByRole("region",{name:"本次详情图文案"})).getByText("已确认原文")).toBeVisible();
+ expect(screen.queryByRole("button",{name:"确认点数并生成"})).toBeNull();
+ expect(screen.queryByRole("button",{name:"人工批准并保存素材"})).toBeNull();
+ expect(fetch.mock.calls.some(([,init])=>init?.method==="POST")).toBe(false);
+});
+
+it("bounds literal copy by two labels and Unicode code points while parsing old omitted fields",()=>{
+ const p=projection();
+ expect(imageSetRunSchema.safeParse(p).success).toBe(true);
+ Object.assign(p.slots[1].recipe,{VisibleText:["🟢".repeat(32)]});
+ expect(imageSetRunSchema.safeParse(p).success).toBe(true);
+ Object.assign(p.slots[1].recipe,{VisibleText:["🟢".repeat(33)]});
+ expect(imageSetRunSchema.safeParse(p).success).toBe(false);
+ Object.assign(p.slots[1].recipe,{VisibleText:["一","二","三"]});
+ expect(imageSetRunSchema.safeParse(p).success).toBe(false);
+});
+
 it("opens the original and generated full images without losing an explicit selection or mutating a task",async()=>{
  state=projection("awaiting_final_approval",templateId);
  render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialRunId={runId}/>);
@@ -357,7 +403,7 @@ it("does not mount image readers or show an unavailable card without image read 
  expect(calls.mode).not.toHaveBeenCalled();
 });
 
-it.each([["image-method-prompt-v1",1],["image-method-visual-brief-v2",2]] as const)("displays the exact selected image method under %s",async(policy,version)=>{
+it.each([["image-method-prompt-v1",1],["image-method-visual-brief-v2",2],["image-method-visual-brief-v3",2]] as const)("displays the exact selected image method under %s",async(policy,version)=>{
  const skillId="2bb819bd-af13-4e68-95e0-1cc86130fb1f",skillDigest="f".repeat(64),date="2026-10-18T00:00:00Z";
  const method={skill:{id:skillId,owner:{kind:"PLATFORM",id:"official"},creator:"maintainer",headVersion:version,revision:3,createdAt:date,updatedAt:date},version,package:{name:"product-image-standard",displayName:"标准商品套图",description:"围绕已选任务组织表达",target:"product-image",digest:skillDigest,files:null},state:"ENABLED",visibility:"SHARED",allowCopy:true,allowExport:true,createdAt:date};
  const binding={Skill:{kind:"skill-version-v1",id:skillId,ownerKind:"PLATFORM",ownerId:"official",version,digest:skillDigest,policyVersion:"skill-method-v1"},PolicyVersion:policy};

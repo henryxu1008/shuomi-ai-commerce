@@ -20,12 +20,49 @@ func TestImageMethodVisualPlanUsesNaturalFactsWithoutDocumentBlocks(t *testing.T
 	input.Method = &ref
 	prepared, err := s.PrepareImageSet(ctx, input)
 	require.NoError(t, err)
-	require.Equal(t, "image-method-visual-brief-v2", prepared.Projection.Plan.Set.Method.PolicyVersion)
+	require.Equal(t, "image-method-visual-brief-v3", prepared.Projection.Plan.Set.Method.PolicyVersion)
 	for _, slot := range prepared.Projection.Plan.Slots {
 		require.NotContains(t, slot.Recipe.Prompt, `{"Product":`)
 		require.NotContains(t, slot.Recipe.Prompt, "ProductID")
 		require.NotContains(t, slot.Recipe.Prompt, "SKILL.md")
 	}
+}
+
+func TestDetailMethodFreezesLiteralCopyInsteadOfDelegatingCopywriting(t *testing.T) {
+	m := &methodFixture{text: "A refined product detail graphic with a small number of supported labels."}
+	s, _, _, cfg, source, _, ctx, input := imageSetServiceFixture(t, imageagent.WithImageMethodContext(m))
+	cfg.template.Detail[0].Purpose = "key_benefits"
+	cfg.template.Detail[0].Brief = "围绕商品事实编排详情图，可使用至多两条有依据的简短中文标签。"
+	source.preparation.Catalog.ProductContext.Title = "IKEA DRÖNA 深灰色布艺收纳盒"
+	source.preparation.Catalog.ProductContext.Attributes = map[string]string{"产品尺寸": "宽33厘米，深38厘米，高33厘米", "internal_note": "Do not render source notes"}
+	source.preparation.Catalog.Manifest = imageagent.CatalogManifest{}
+	var err error
+	source.preparation.Catalog, err = imageagent.NormalizeAssetCatalog(source.preparation.Catalog)
+	require.NoError(t, err)
+	source.preparation.Source.CatalogHash = source.preparation.Catalog.Manifest.Hash
+	ref := imageMethodRef()
+	input.Method = &ref
+	prepared, err := s.PrepareImageSet(ctx, input)
+	require.NoError(t, err)
+	raw, err := json.Marshal(prepared.Projection.Plan.Slots[1].Recipe)
+	require.NoError(t, err)
+	var recipe struct{ VisibleText []string }
+	require.NoError(t, json.Unmarshal(raw, &recipe))
+	require.Equal(t, []string{"IKEA DRÖNA 深灰色布艺收纳盒", "产品尺寸：宽33厘米，深38厘米，高33厘米"}, recipe.VisibleText)
+	require.Contains(t, prepared.Projection.Plan.Slots[1].Recipe.Prompt, "No table")
+	require.NotContains(t, prepared.Projection.Plan.Slots[1].Recipe.Prompt, "Do not render source notes")
+	require.Equal(t, ref, prepared.Projection.Plan.Set.Method.Skill)
+	confirmed, err := s.ConfirmImagePlan(ctx, confirmSetInput(prepared))
+	require.NoError(t, err)
+	execution, err := imageagent.ImageSetSlotExecutionInput(confirmed, "overview", 1)
+	require.NoError(t, err)
+	require.NoError(t, imageagent.ValidateImageSetExecution(execution))
+	execution.Slot.Recipe.VisibleText[0] = "unsupported text"
+	require.ErrorIs(t, imageagent.ValidateImageSetExecution(execution), imageagent.ErrRevisionConflict)
+	execution, err = imageagent.ImageSetSlotExecutionInput(confirmed, "overview", 1)
+	require.NoError(t, err)
+	execution.ProductContext.Title = "different product"
+	require.ErrorIs(t, imageagent.ValidateImageSetExecution(execution), imageagent.ErrRevisionConflict)
 }
 
 func TestVisualMethodIncludesOnlyEvidenceRequiredByTheCurrentTask(t *testing.T) {
@@ -73,6 +110,69 @@ func (r *historicalMethodRepository) GetProjection(ctx context.Context, scope im
 		p.Plan.Set.QuoteDigest, err = imageagent.ImageSetQuoteDigest(p.Plan)
 	}
 	return p, err
+}
+
+// Install an original v2 snapshot in the isolated repository, rather than
+// changing a read view of an immutable v3 plan during confirmation.
+type frozenVisualV2Repository struct {
+	imageagent.Repository
+	input imageagent.PrepareImageSetInput
+}
+
+func (r *frozenVisualV2Repository) InitializeRun(ctx context.Context, p imageagent.ProjectionInitialization) (imageagent.RunProjection, error) {
+	p.Plan.Set.Method.PolicyVersion = "image-method-visual-brief-v2"
+	raw, _ := json.Marshal(struct {
+		Input        imageagent.PrepareImageSetInput
+		MethodPolicy string
+	}{r.input, "image-method-visual-brief-v2"})
+	sum := sha256.Sum256(raw)
+	p.Plan.Set.InputDigest = hex.EncodeToString(sum[:])
+	var err error
+	p.Plan.Set.QuoteDigest, err = imageagent.ImageSetQuoteDigest(p.Plan)
+	if err != nil {
+		return imageagent.RunProjection{}, err
+	}
+	p.Snapshot.Plan = p.Plan
+	return r.Repository.InitializeRun(ctx, p)
+}
+
+func TestFrozenVisualV2SameKeyAndOriginalConfirmationKeepTheirBytes(t *testing.T) {
+	var original *frozenVisualV2Repository
+	wrap := func(repo imageagent.Repository) imageagent.Repository {
+		original = &frozenVisualV2Repository{Repository: repo}
+		return original
+	}
+	m := &methodFixture{text: "Original immutable visual brief."}
+	s, _, _, cfg, _, _, ctx, input := imageSetServiceFixtureWithRepository(t, wrap, imageagent.WithImageMethodContext(m))
+	ref := imageMethodRef()
+	input.Method = &ref
+	original.input = input
+	first, err := s.PrepareImageSet(ctx, input)
+	require.NoError(t, err)
+	old, err := s.PrepareImageSet(ctx, input)
+	require.NoError(t, err)
+	before, err := json.Marshal(old.Projection.Plan.Slots)
+	require.NoError(t, err)
+	initial, err := json.Marshal(first.Projection.Plan.Slots)
+	require.NoError(t, err)
+	require.Equal(t, initial, before, "non-detail recipes retain their exact v2 prompt bytes")
+	require.Equal(t, ref, old.Projection.Plan.Set.Method.Skill)
+	require.NoError(t, imageagent.ValidateImageMethodDispatch(old.Projection.Plan.Set.Method))
+	_, err = s.ConfirmImagePlan(ctx, confirmSetInput(old))
+	require.NoError(t, err)
+	calls := m.calls
+	m.unavailable = true
+	_, err = s.ConfirmImagePlan(ctx, confirmSetInput(old))
+	require.NoError(t, err, "original confirmation receipt recovery keeps its prior admission")
+	require.Equal(t, 1, cfg.admissions)
+	require.Equal(t, calls, m.calls)
+	read, err := s.PrepareImageSet(ctx, input)
+	require.NoError(t, err)
+	after, err := json.Marshal(read.Projection.Plan.Slots)
+	require.NoError(t, err)
+	require.Equal(t, before, after)
+	require.Equal(t, old.PlanDigest, read.PlanDigest)
+	require.Equal(t, old.QuoteDigest, read.QuoteDigest)
 }
 func TestHistoricalMethodSameKeyReadSurvivesPolicyChangeButNewConfirmIsBlocked(t *testing.T) {
 	var original *historicalMethodRepository

@@ -8,7 +8,7 @@ import (
 )
 
 // visualImagePrompt describes a picture, not a serialized execution envelope.
-// Only a new v2 plan uses it; previously frozen recipes remain untouched.
+// V2 and non-literal v3 tasks use it; previously frozen recipes remain untouched.
 func visualImagePrompt(product ProductContextRef, task agentconfig.ContentTask, background, language string, evidence map[string]string) string {
 	var b strings.Builder
 	b.WriteString("Create exactly one finished 1024x1024 commercial product image from the supplied original reference photos. Keep the actual product's shape, color, material, proportions and visible parts. Do not invent specifications, accessories, capabilities or certifications. Make the product the visual subject, with no document, screenshot or instruction sheet. ")

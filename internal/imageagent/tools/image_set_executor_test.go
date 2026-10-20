@@ -104,3 +104,19 @@ func TestImageMethodMaterialReachesOnlyProviderRequestAfterProductPolicy(t *test
 	require.Error(t, err)
 	require.Equal(t, 1, editor.calls)
 }
+
+func TestLiteralDetailCopyMismatchIsRejectedBeforeDirectToolsDispatch(t *testing.T) {
+	input := setExecutionInput(t)
+	input.ImageSet.Method = &imageagent.ImageMethodBinding{Skill: agent.SkillVersionRef{Kind: "skill-version-v1", ID: "2bb819bd-af13-4e68-95e0-1cc86130fb1f", OwnerKind: "PLATFORM", OwnerID: "official", Version: 2, Digest: strings.Repeat("f", 64), PolicyVersion: "skill-method-v1"}, PolicyVersion: imageagent.ImageMethodPolicyVersion}
+	input.Slot.Role = imageagent.SlotRoleSellingPoint
+	input.Slot.Recipe.Purpose = "key_benefits"
+	input.Slot.Recipe.VisibleText = []string{"unsupported claim"}
+	input.ImageMethodText = "Original exact Skill v2 visual brief."
+	editor := &recordingSourceEditor{}
+	executor := NewProductImageSlotExecutor(Dependencies{SourceEditor: editor, UsageQuoter: testProductUsageQuoter{}})
+	_, err := executor.QuoteSlot(context.Background(), input, imageagent.BudgetPolicy{})
+	require.ErrorIs(t, err, imageagent.ErrRevisionConflict)
+	_, err = executor.GenerateSlot(context.Background(), input)
+	require.ErrorIs(t, err, imageagent.ErrRevisionConflict)
+	require.Zero(t, editor.calls)
+}

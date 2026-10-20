@@ -94,6 +94,14 @@ func (r *gormRepository) RecoverGenerationStaging(ctx context.Context, reservati
 				return imageagent.ErrRevisionConflict
 			}
 			stored := imageagent.SlotExecutionInput{ImageSet: set, TargetPlatform: set.Target.Platform, Slot: imageagent.Slot{ID: slot.ID, Role: imageagent.SlotRole(slot.Role), SourceAssetIDs: sources, StyleReferenceIDs: styles, Brief: slot.Brief, IdempotencyKey: slot.IdempotencyKey, Recipe: recipe}}
+			if set.Method != nil && set.Method.PolicyVersion == imageagent.ImageMethodPolicyVersion && recipe.Purpose == "key_benefits" {
+				// Validate the original literal copy with its immutable catalog facts,
+				// never current product data or a newly assembled recovery recipe.
+				if json.Unmarshal(catalog.ProductContextJSON, &stored.ProductContext) != nil {
+					return imageagent.ErrRevisionConflict
+				}
+				stored.AssetCatalog.ProductContext = stored.ProductContext
+			}
 			if imageagent.ValidateImageSetExecution(stored) != nil || set.Source.CatalogHash != intent.CatalogHash || imageagent.ImageSourceBundleDigest(recipe.References) != intent.SourceDigest || intent.InputDigest != imageagent.ImageGenerationInputDigestFromFingerprint(row.InputFingerprint) {
 				return imageagent.ErrRevisionConflict
 			}

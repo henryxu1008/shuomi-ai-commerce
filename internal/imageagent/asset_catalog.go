@@ -143,6 +143,9 @@ func ValidatePlanAgainstCatalog(plan Plan, catalog AssetCatalog) error {
 		}
 	}
 	for _, slot := range plan.Slots {
+		if err := validateLiteralDetailRecipe(plan.Set, slot, catalog.ProductContext); err != nil {
+			return err
+		}
 		for _, id := range slot.SourceAssetIDs {
 			if _, ok := allowedSources[strings.TrimSpace(id)]; !ok {
 				return fmt.Errorf("slot %q source asset %q is not authorized", slot.ID, id)

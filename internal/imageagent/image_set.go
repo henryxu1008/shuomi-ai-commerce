@@ -88,7 +88,8 @@ type ImageSlotRecipe struct {
 	Placement                     ImagePlacement
 	OfficialPlacement             *OfficialImagePlacement `json:",omitempty"`
 	PromptVersion, Prompt         string
-	EvidenceDigest                string `json:",omitempty"`
+	EvidenceDigest                string   `json:",omitempty"`
+	VisibleText                   []string `json:",omitempty"`
 	References                    []ImageSourceObservation
 	Quote                         ImageGenerationQuote
 }
@@ -173,6 +174,14 @@ func ValidateImageSetPlan(plan Plan) error {
 		r := slot.Recipe
 		if r == nil || !r.Quote.Valid() || r.PromptVersion != ImageSetSchema || strings.TrimSpace(r.Prompt) == "" || !agentconfig.ValidSetText(r.Prompt, 16<<10) || !agentconfig.ValidSetText(r.Background, agentconfig.MaxSetBackgroundBytes) || strings.TrimSpace(r.Background) == "" || !agentconfig.ValidSetText(slot.Brief, agentconfig.MaxSetBriefBytes) || len(slot.StyleReferenceIDs) > 0 || len(r.References) < 1 || len(r.References) > agentconfig.MaxSetSourceReferences || len(r.References) != len(slot.SourceAssetIDs) {
 			return fmt.Errorf("%w: invalid image slot recipe", ErrValidation)
+		}
+		if len(r.VisibleText) > 2 || len(r.VisibleText) > 0 && !usesLiteralDetailCopy(s, r) {
+			return ErrValidation
+		}
+		for _, label := range r.VisibleText {
+			if !validDetailLabel(label) {
+				return ErrValidation
+			}
 		}
 		if r.Placement.Group != "carousel" && r.Placement.Group != "detail" || r.Placement.Order < 1 || r.Placement.Order > MaxPlanSlots || r.Placement.VariantID != "" && !canonicalImageValue(r.Placement.VariantID) {
 			return fmt.Errorf("%w: invalid image presentation position", ErrValidation)
@@ -272,6 +281,7 @@ func CloneImageSlotRecipe(recipe *ImageSlotRecipe) *ImageSlotRecipe {
 		return nil
 	}
 	clone := *recipe
+	clone.VisibleText = append([]string(nil), recipe.VisibleText...)
 	clone.References = append([]ImageSourceObservation(nil), recipe.References...)
 	if recipe.OfficialPlacement != nil {
 		position := *recipe.OfficialPlacement
