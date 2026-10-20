@@ -1,5 +1,7 @@
 # Image Agent 本地 Manual Runtime 验收
 
+> **SUPERSEDED — #846 / #29 / #301：** 按[已确认退休边界 §5/§6.1](../architecture/legacy-local-acceptance-closure-retirement-boundary.md)，旧六-mode orchestrator、Task API/seed 与专属 Compose 源已整批删除。下文运行/测试/stop/Reset 指引仅为历史证据，不可执行，也不构成当前试用前置；本轮不提供替代验收。原生 multi-org CLI 的独立授权与角色边界、token handoff、当前 ImageAgent/Temporal 和 UI 能力继续归原 owner，未随旧编排退休。原正文及真实验证的 NOT_RUN 条件保留；源码退出不表示任何实例、卷、文件、身份或数据已清理。
+
 这条链路用于验证本地 ZITADEL 身份、ListingKit 任务归属和 Image Agent
 Temporal 接收边界。它不声称远程图片生成成功，也不配置或调用生产 COS、远程
 模型或真实平台凭据。
