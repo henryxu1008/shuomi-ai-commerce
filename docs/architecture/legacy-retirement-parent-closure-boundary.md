@@ -2,7 +2,7 @@
 
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
-> Status: **DESIGNING / 待用户确认，正式实施 Ready=false**。Design Basis: **N/A**，仅现状、已有证据与关闭边界文档，不改变产品范围或运行合同。核对基线为 main **`dde52b79bcd80ec0a36290db62c450d1562a3f40`**（2026-10-20）。本轮只读源码调查和五份设计文档；确认后才按 §5/§6/§6.1/§7 校准现有记录。不修改生产源码、测试、workflow 或原验收勾选，不合并、不关单、不执行实例/数据/凭据操作。
+> Status: **DESIGNING / 待用户确认，正式实施 Ready=false**。Design Basis: **N/A**，仅现状、已有证据与关闭边界文档，不改变产品范围或运行合同。核对基线为 main **`6cb487bfeebae1a0daeecbd3b80ce7a4df329a03`**（2026-10-20）。本轮只读源码调查和五份设计文档；确认后才按 §5/§6/§6.1/§7 校准现有记录。不修改生产源码、测试、workflow 或原验收勾选，不合并、不关单、不执行实例/数据/凭据操作。
 
 ## 1. 用户结果、Authority 与判断范围
 
@@ -22,10 +22,12 @@ Must：一次覆盖 #29 原 10 项剩余工作/7 条验收和 #301 原 6 条验�
 
 | 证据 | 实际绑定 | 支持的结论 / 不能推导的结论 |
 | --- | --- | --- |
-| [#852](https://github.com/qq550723504/task-processor/pull/852) 源 HEAD `64c225eb02ede3bb2fa4cce91071232d7661bb1d`，实际 merge 为本文 main 基线 | merge parents=`b04459eab2366b5389d3219d2c242a04f63bccc4` + 该源 HEAD；tree=`cda2c74d51fd26af60a7d554c121b0df3c26e895`，与已检 PR 组合一致 | 旧 token 三源闭包和保留矩阵已合并；不证明任何现存 token/服务已撤销或停止 |
-| [实际 push/main CI39415470994](https://github.com/qq550723504/task-processor/actions/runs/39415470994) completed/SUCCESS，headSha 精确等于基线 | Backend `go test ./... -count=1`、原 PostgreSQL 权限/商业读库绑定/启动 schema context、listingadmin race；Frontend（含 browser/accessibility）、Capture、Code Health、Release Authority、Admission、Classification、Required Gate 均成功 | 既有自动化合同在基线通过；Architecture/Windows job 依原 workflow 为 SKIPPED，不写 PASS。Backend 全套仍覆盖根 `tests` 包；不是生产/人类/真实平台验收 |
+| [#852](https://github.com/qq550723504/task-processor/pull/852) 源 HEAD `64c225eb02ede3bb2fa4cce91071232d7661bb1d`，实际 merge 为历史源码退出基线 `dde52b79bcd80ec0a36290db62c450d1562a3f40` | merge parents=`b04459eab2366b5389d3219d2c242a04f63bccc4` + 该源 HEAD；tree=`cda2c74d51fd26af60a7d554c121b0df3c26e895`，与已检 PR 组合一致 | 旧 token 三源闭包和保留矩阵已合并；不证明任何现存 token/服务已撤销或停止 |
+| [历史源码退出 push/main CI39415470994](https://github.com/qq550723504/task-processor/actions/runs/39415470994) completed/SUCCESS，headSha 精确等于历史源码退出基线 `dde52b79bcd80ec0a36290db62c450d1562a3f40` | Backend `go test ./... -count=1`、原 PostgreSQL 权限/商业读库绑定/启动 schema context、listingadmin race；Frontend（含 browser/accessibility）、Capture、Code Health、Release Authority、Admission、Classification、Required Gate 均成功 | 既有自动化合同在基线通过；Architecture/Windows job 依原 workflow 为 SKIPPED，不写 PASS。Backend 全套仍覆盖根 `tests` 包；不是生产/人类/真实平台验收 |
 | [#852 准确源 HEAD 独立复核](https://github.com/qq550723504/task-processor/pull/852#issuecomment-6289028935) Completed，无 finding | 仅绑定 #852 的实际 diff；三项历史设计 P2 已在该 PR 分类修正 | 可复用未变化实现证据；不等于本文整个父目标结论已获复核或用户验收 |
-| 本轮基线 `go list -deps`，八个既有命令均成功，无 forbidden dependency | 见下表；只读取编译依赖，不调用 main/constructor、数据库、浏览器或 provider | 当前 Windows/default tags 编译图没有旧根依赖；所有 build tags/nested modules 的导入边界另由既有 tracked-source AST guard 保护，不把本次 Go list 冒充跨平台执行 |
+| [当前基线 push/main CI39418897983](https://github.com/qq550723504/task-processor/actions/runs/39418897983) completed/SUCCESS | event=push/branch=main/headSha=`6cb487bfeebae1a0daeecbd3b80ce7a4df329a03`；Required Gate、Backend、Frontend、Capture、Code Health、Release Authority、Admission、Classification 成功，Architecture/Windows 依原 workflow SKIPPED | 已包括 #853 图像尺寸诊断组合；旧 CI 单独保留为历史证据，不能代替此基线；仍不是生产或用户验收 |
+| 本轮在当前基线重新读取 `go list -deps`，八个既有命令均成功，无 forbidden dependency | 见下表；执行于 `6cb487bfe` 加本轮纯文档，生产树相同；不调用 main/constructor、数据库、浏览器或 provider | Windows/default tags 编译图无旧根依赖，不冒充跨平台运行；不是只从 #853 文件名推断组合没有风险 |
+| 当前组合原导入守卫 `go test ./tests -run '^TestLegacyConsumersStayWithinDrainBaseline$' -count=1` **PASS 17.808s** | `6cb487bfe` 加本轮纯文档；tracked Go AST/legacy baseline 代码与当前候选一致 | 对同步 main 的组合做窄核对，覆盖 build tags/nested modules 的声明导入，不重复全套 CI或新建检查器 |
 | `tests/legacy_hard_cut_test.go` 的 `legacyConsumerBaseline` 为空；`TestLegacyConsumersStayWithinDrainBaseline` | 解析 tracked Go（含 tests/build tags/nested modules，排除 testdata），拒绝新增 compatibility/tenantbridge import 及漂移 baseline；depguard 原规则保持 | 旧桥消费者归零与防复活证据，不是“全仓无任何数字字段/旧名字”的证明 |
 
 ### 2.2 当前依赖与 owner
@@ -135,7 +137,7 @@ Cutover/deletion condition: 本轮无新生产删除；父目标完成与关闭�
 
 ## 6. 必要核对与证据复用
 
-基线 Backend 全套及原 AST/absence/导入/依赖/UI/授权/schema/race 合同已经有准确 main CI，复用未变代码证据；不人工重跑完整 CI或执行工具来补“新鲜度”。本轮只做源码/Go list/消费者映射、文档/新增链接/原历史正文保护和适用的 Greenfield/Architecture README 文档检查，稳定设计候选走原未修改 PR CI。
+当前基线 Backend 全套及原 AST/absence/导入/依赖/UI/授权/schema/race 合同已有准确 main CI；同步 #853 后补做八命令依赖和原导入守卫窄核对，明确绑定当前生产树。旧 CI 仅复用未变代码证据，不人工重跑完整 CI或执行工具来补“新鲜度”。本轮只做源码/Go list/消费者映射、文档/新增链接/原历史正文保护和适用的 Greenfield/Architecture README 文档检查，稳定设计候选走原未修改 PR CI。
 
 没有新测试、checker、runner、故障矩阵、人工 session 或验收平台；不执行 PowerShell 验收/取 token 脚本，不读真实凭据/进程环境/私密配置/运行报告，不使用 Docker/Compose/kubectl、SQL、SMS/provider、浏览器或当前实例。源码静态证据、既有自动化 fixture、真实用户操作严格分列。
 
