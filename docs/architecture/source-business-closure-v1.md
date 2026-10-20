@@ -17,7 +17,7 @@ Authority：
 - 用户本轮明确的 #30/#307 设计授权；[Greenfield](../product/greenfield-no-legacy-migration.md)、[Hard-Cut](../refactoring/legacy-hard-cut-policy.md)、[项目边界](project-boundaries.md)、[Issue 规则](../engineering/issue-driven-development.md)。
 - #30 的 [2026-09-11 决定](https://github.com/qq550723504/task-processor/issues/30#issuecomment-5637305932)：匿名公开获取不依赖账号；#307 正文中“正常授权源账号/店铺”仅适用于实际消费该能力的路径，不能恢复为匿名采集前置。
 - [1688 产品决定](../product/pd-1688-acquisition-figma-2026-10-11.md)、[已冻结采集/规则/转入合同](1688-acquisition-figma-v1.md)、[公开浏览器采集](2026-09-26-1688-server-public-browser-acquisition-design.md)、[既有计费](2026-10-03-acquisition-channel-pricing.md)。
-- [当前 Figma Authority](../product/final-ui-ia-authority.md)、[我的供应链及人工来源图批准 §7.3](my-supply-chain-shein-v1.md)。复用文件 `tg48P46SSXl6TBy9lZwg63` / 页面 `31:463` 已批准节点：采集 `1905:359`、`3792:1353`、`3792:1390`；我的数据批次 `430:2067`、详情 `3395:389`；转入 `3342:359`；待适配 `3507:1965` / `3507:3143`。本轮未重新读取或编辑 Figma，不宣称视觉验收。
+- [当前 Figma Authority](../product/final-ui-ia-authority.md)、[我的供应链及人工来源图批准 §7.3](my-supply-chain-shein-v1.md)。复用文件 `tg48P46SSXl6TBy9lZwg63` / 页面 `31:463` 已批准节点：采集 `1905:359`、`3792:1353`、`3792:1390`；我的数据批次 `430:2067`、详情 `3395:389`；转入 `3342:359`；待适配 `3507:1965` / `3507:3143`。本轮实际读取详情/待适配的字体、结构及 tokens，新增 §4.3.1 的独立待确认提案，不修改这些原稿或宣称产品视觉验收。
 
 Must：准确持久化及 lineage、当前 verified Effective Organization/actor/member、原幂等/UNKNOWN、真实警告、来源图默认未批准、明确人工批准与精确 Asset inventory、刷新后仍可读取及诊断。readiness 仅表示 `product.inputs`，不代表平台规则通过、图片远端字节已验证、可上传或已发布。
 
@@ -79,9 +79,23 @@ Out of Scope：1688 登录/账号池、其它来源或采集模式、AI/图片�
 
 直接复用 `readiness.ProductInputs` 与已有 `readinessinspect.Project` 的 bounded exact DTO，不调用 Agent invoker/模型、Tool execution audit/预算或 provider。返回原 publication/version、inventory scope/count/digest、warnings/review reasons、`ready|blocked|not_evaluated`；依赖失败不得伪造成空 inventory 或 ready。`marketplace.status` 固定 `not_evaluated`。
 
-在已有“查看商品/待适配来源详情”显示来源信息，并在已有图片区域复用完整选择集/角色和明确确认按钮。窄资料面板与平台 TargetEditor 的图片选择交互复用组件，不新增顶层导航、账号页或平台 Workbench；批准前显示候选及缺失，批准后重新读取精确 inventory/diagnostic。ProductInputs 有 source_review_required 时仍 blocked，不自动做标题 Review/Apply、不清除 warning。页面可显示有权限但未配置/不可用，不能用开关或隐藏按钮代替后端授权。
+“我的数据 → 查看商品”只补来源信息展示，继续只读，原下载/明确转入动作不变。新增写入口仅放在“我的供应链 → 待适配 → 来源条目”的 **来源素材** 操作，打开独立“来源素材与资料检查”面板。该面板复用原图片选择集/角色与明确确认交互，不挪用原只读详情为写入口，也不进入平台 TargetEditor 的店铺/规则/保存上传路径。
 
-UI 命名/布局沿 §1 当前节点和原 Console 组件；新区域只表达已有来源查看、显式确认与缺失说明。若实施发现必须改变已批准页面归属或引入新的用户交互语义，先提交准确 Figma/Product 增量，不在实现中臆造页面。当前设计不修改 Figma。
+批准前显示候选及缺失，批准后重新读取精确 inventory/diagnostic。ProductInputs 有 source_review_required 时仍 blocked，不自动做标题 Review/Apply、不清除 warning。无权限/未配置/依赖故障如实表达，不能用开关或隐藏按钮代替后端授权。新面板与原平台图片交互复用组件；不新增顶层导航、账号页或平台 Workbench，现有深浅主题保留。
+
+### 4.3.1 Product/Figma 增量提案（待用户确认，不是已批准 Authority）
+
+可编辑提案：[来源素材与资料检查 `8130:2280`](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=8130-2280)，位于同文件/页面的独立新区域，名称明确标注 `#859 / 设计提案`。字体复用当前文件的 Noto Sans SC/Console styles，色彩/间距/圆角绑定原 SUMI tokens；全部为可编辑 Frame/Text/组件实例，没有整页截图底图。该图是深色交互示意，不取消既有浅色主题。商品、图片引用、版本、确认记录和状态均明示为设计示例，不是运行数据。
+
+| 提案节点 / 状态 | 用户操作及可观察结果 |
+| --- | --- |
+| `8131:2291` 未批准 | 显示固定来源版本、候选图片及用途；用户明确选择完整集合后点击“确认采用所选图片”。不提供替换 URL/自报批准或店铺选择 |
+| `8131:2309` 确认并重读 | 仅在原 action 回执确认后显示采用集合/作用版本，再读 Product inputs。刷新恢复当前服务端事实；“重新选择图片”是新的明确动作，不自动改变旧回执 |
+| `8131:2324` 结果待核实 | 保留原 scope/action/选择，冻结新确认；“核实原确认”只沿原 key/载荷核实/重放。无法确认时保持该状态，不显示成功或换新 key |
+| `8131:2330` 批准成功但资料受阻 | 真实显示 source warnings/缺失；允许重新读取诊断，不把图片批准写成整份资料通过 |
+| `8131:2336` 无权限/未配置/依赖不可用 | 明确区分权限拒绝与无法读取；禁止确认，切换企业后清除上一身份资料，不以读取失败推导未批准/就绪 |
+
+关闭面板不取消已提交 action，也不清理未确认意图；回到原 scope 后核实原操作。原始资料只读、待适配操作位置、完整选择/确认、结果核实与错误表达是本次请求用户确认的产品增量。**用户确认该增量之前，生产实施仍 NOT_READY；不得将旧详情/待适配节点或这张提案自行标记为已批准的新写入口。** 确认后将准确节点/语义同步到原 Product Authority，沿同一设计 PR 实施，不新开一轮 UI 产品需求。
 
 ## 5. 权限、事务、幂等与失败边界
 
@@ -126,6 +140,8 @@ Legacy decision: **EXTRACT | RETIRE**（仅遇到已登记旧 owner 时适用）
 ## 7. 交付、准入与停止点
 
 本轮交付本设计、索引及 #30/#307 当前段；历史正文/验收项保留，#301 不关闭。一个 design PR 后可在同一主要 PR 连续实施本用户结果，前提是用户明确确认设计和实施范围、完成 §2 的适用独立准入。设计阶段不派额外 Writer，不重复触发同 SHA 复核，不扩展全局架构。
+
+首轮独立检查在设计 `57af1f5d3` 提出新面板缺少准确 Product/Figma 增量；已先分类 **BLOCKER（生产实施准入层：核心人工批准操作尚无获准入口合同）**。本轮已补 §4.3.1 的具体提案和状态；设计交付继续，但用户确认前不宣称该产品门槛已清除或 IMPLEMENTATION_READY。未变化的业务合同不重开，后续只核对此增量。
 
 独立检查重点是新增可达路径是否只获得原 Preparation/Collection/Asset 权限、只读诊断是否确实无副作用、Product/Asset exact binding/原 action 重放是否成立、窄能力是否与 full execution 隔离。finding 先按 AGENTS 分类；真实跨租户/错误授权、错误批准/数据损坏、重复计费或核心路径无法完成才重新打开相应设计；其它实现细节进 IMPLEMENTATION_TEST，非当前需求进 BACKLOG。
 
