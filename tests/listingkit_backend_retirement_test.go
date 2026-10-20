@@ -59,6 +59,34 @@ func TestLegacyKubernetesReleaseExecutionClosureIsRetired(t *testing.T) {
 			t.Errorf("retired Kubernetes release artifact %s must be absent: %v", relative, err)
 		}
 	}
+	// Scan the complete governed source directory: an unregistered or nested
+	// manifest must not evade the explicit Conftest input bundle.
+	authorityRoot := filepath.Join("..", "deployments", "kubernetes", "listingkit-workbench", "release-authority")
+	retainedYAML := map[string]bool{
+		"kustomization.yaml":                   true,
+		"release-policy.yaml":                  true,
+		"listingkit-release-gate-runners.yaml": true,
+	}
+	if err := filepath.WalkDir(authorityRoot, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		ext := strings.ToLower(filepath.Ext(path))
+		if entry.IsDir() || (ext != ".yaml" && ext != ".yml") {
+			return nil
+		}
+		relative, err := filepath.Rel(authorityRoot, path)
+		if err != nil {
+			return err
+		}
+		if !retainedYAML[relative] {
+			t.Errorf("unexpected release-authority YAML source %s; only the three retained inputs are allowed", relative)
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("scan governed release-authority inventory: %v", err)
+	}
+
 	for relative, retired := range map[string][]string{
 		"deployments/kubernetes/listingkit-workbench/release-authority/kustomization.yaml": {"listingkit-api-release-role.yaml", "listingkit-api-release-rolebinding.yaml", "listingkit-ui-release-role.yaml", "listingkit-ui-release-rolebinding.yaml", "kubernetes-authentication-config.example.yaml", "listingkit-configure-github-oidc-kubeconfig.sh", "listingkit-refresh-github-oidc-kubeconfig.sh"},
 		"scripts/verify-listingkit-release-authority-policy.sh":                            {"listingkit-api-release-role.yaml", "listingkit-api-release-rolebinding.yaml", "listingkit-ui-release-role.yaml", "listingkit-ui-release-rolebinding.yaml", "kubernetes-authentication-config.example.yaml", "listingkit-configure-github-oidc-kubeconfig.sh", "listingkit-refresh-github-oidc-kubeconfig.sh"},
