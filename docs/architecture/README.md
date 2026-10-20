@@ -1,5 +1,7 @@
 # Architecture Documentation
 
+- [`legacy-listing-operations-closure-retirement-boundary.md`](legacy-listing-operations-closure-retirement-boundary.md): #29/#301 complete old numeric listing operational-source closure design in #839. Independent Architecture / DESIGNING, pending independent design review and user confirmation before implementation. Exact deployment/config/monitoring/rollout/SQL and direct-runbook tails retire together; one valid Prometheus storage alert is extracted with a narrow routing configuration in its namespace. Retains shared SHEIN secrets/namespace/Store proxy sync, standalone login/Store sync, current capabilities, generic diagnostics and Amazon monitoring. Workflows, inventories, runtime/data and trial prerequisites remain unchanged.
+
 - [`image-api-event-read-permissions.md`](image-api-event-read-permissions.md): #774 bounded correction of the current API role's shared event-log SELECT grant and startup allowlist, with real PostgreSQL confirmation/replay and denial tests. Preserves original admission, UNKNOWN, request identity, deadlines and all retained data; see the document for independent admission.
 
 - [`model-route-pricing-management-v1.md`](model-route-pricing-management-v1.md): #830 bounded platform-maintainer UI for per-organization admitted text/image bindings and execution rates. Reuses Credential, AI capability, ProductAgent, ImageAgent and Commercial owners; versioned atomic publication and original task/UNKNOWN impact. See the document for admission; no runtime/model action is authorized.

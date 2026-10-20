@@ -48,7 +48,7 @@ Authority：[Greenfield 决定](../product/greenfield-no-legacy-migration.md)、
 - 本批不增加业务事实或表。旧任务脚本无继任 owner；`listing_kit_tasks` 物理表/数据的存在与归属 UNKNOWN，不接管/迁移/重放/清理。
 - 当前 Store 事实、账号读取/同步、Redis/Profile/Cookie/attempt、DB 事务/幂等/恢复/UNKNOWN 保留原 owner；特别是 Store 代理同步及其窄 RBAC 完全不改，不改动任何 tenant/身份/平台副作用。
 - SHEIN 共享 Secret 源继续由原 Store 代理同步装配消费；四文件的字段/远端映射及 namespace 原样。真实凭据与平台密码不读取、不展示、不验证、不轮换。TEMU 源退出只停止仓库提供旧装配；没有实际资源删除/ExternalSecret 同步或 provider mutation。
-- 通用 Prometheus 存储保护属于现有 `deployments/kubernetes/monitoring`；按§5.3作两份最小 CRD/Kustomize 源抽取。Prometheus/Grafana/Alertmanager/PVC/保留期、版本、存储类和当前 Amazon 监控 owner 不变；不宣称告警已安装或实际送达。
+- 通用 Prometheus 存储保护属于现有 `deployments/kubernetes/monitoring`；按§5.3作三份最小 CRD/Kustomize 源抽取，包含同 namespace 的窄 AlertmanagerConfig。Prometheus/Grafana/Alertmanager/PVC/保留期、版本、存储类和当前 Amazon 监控 owner 不变；不宣称告警已安装或实际送达。
 - 全部为仓库提案；不调用 apply、delete、prune、rollout、helm、port-forward、停止进程或操作旧/保留实例。运行清理/发布须另外明确授权，不能由本设计的删除条件推导。
 
 ## 5. 删除 / 保留 / 抽取矩阵
@@ -93,20 +93,23 @@ scripts/fix-missing-shein-tasks.sql
 | `shein-listing/README.md`、`temu-listing/README.md` | 写明源退休、准确保留资源、当前入口与无运行操作 | 不保留旧 apply/分片/兼容承诺；不恢复旧链 |
 | SHEIN overlays 的 `prod-auto-shard-statefulset/README.md`、`prod-store-auto-shard/README.md`、`prod-store-shards-example/README.md` | 校准剩余源与共享 Secret 边界，引用本文 | 历史只作历史；example Secret 模板不变，不新增部署步骤 |
 | `deployments/kubernetes/readme.md` | 退出 SHEIN/TEMU 部署顺序/apply 示例及旧三平台任务队列说明，指向当前入口与本设计 | Amazon/身份/基础设施等其余独立内容不扩改，不执行其中命令 |
+| `docs/database-connection-optimization.md` | 顶部标为历史方案且非当前runbook；原实施/数量/效果只留历史。退出“直接应用（推荐）”、旧apply/rollout/logs/exec验证等现行操作建议，指向当前入口及本文 | 不更改当前数据库/连接池实现或配置，不把历史优化/部署记作本轮实测；不执行任何DB/集群命令 |
 | `deployments/kubernetes/monitoring/README.md` | 退出旧监控 apply/覆盖和当前态14天兼容窗口要求；说明§5.3当前共享保护源及已授权运维才可应用 | 原 Chart/版本/容量/存储、Amazon、适配器/Ingress 的独立授权边界；不把窗口历史记成PASS |
-| `monitoring/alertmanager-wecom/alertmanagerconfig.yaml`（相对 deployments/kubernetes） | 仅将 service matcher 值 `amazon-crawler-api|shein-listing` 校准为 `amazon-crawler-api|monitoring`，供已抽取的共享规则使用 | matchType、namespace、groupBy/interval、receiver/url/timeout/Secret/权限及其它结构原样；不是运行投递验收 |
-| `monitoring/alertmanager-wecom/README.md` | 只同步 service 范围说明 | 原操作/凭据保护，不增加实际发送测试 |
+| `monitoring/alertmanager-wecom/alertmanagerconfig.yaml`（相对 deployments/kubernetes） | 仅将 service matcher 值 `amazon-crawler-api|shein-listing` 收窄为 `amazon-crawler-api`，退出旧分支 | matchType、task-processor namespace、groupBy/interval、receiver/url/timeout/Secret/权限及其它结构原样；通用存储告警用§5.3独立窄配置，不能伪称只改service就可跨namespace匹配 |
+| `monitoring/alertmanager-wecom/README.md` | 只同步原task-processor配置的Amazon范围及monitoring中唯一共享存储规则的窄装配说明 | 原操作/凭据保护，不增加实际发送测试 |
 | `scripts/db-query.ps1` | 只移除 help 中三条 `listing_kit_tasks` 示例，改为显式当前 owner 表的中性用法 | 参数、连接/执行与 tools/db-query 原样，不执行它 |
 | `tests/listingkit_backend_retirement_test.go` | 按§6.1校准精确输入列表与原 guard | 所有仍有效的配置/安全/退休断言，不能skip整测试或降低 gate |
-| `docs/refactoring/legacy-register.md`、`module-target-mapping.md`、`code-health-decisions.md` | 只加当前窄 superseded 注记/索引 | 历史表/阶段计数/原证据；通用诊断工具的保留决定不变 |
+| `docs/architecture/README.md`；`docs/refactoring/legacy-register.md`、`module-target-mapping.md`、`code-health-decisions.md` | 只加当前窄 superseded 注记/索引 | 历史表/阶段计数/原证据；通用诊断工具的保留决定不变 |
 
 ### 5.3 先抽取一条已有共享保护
 
-新增且仅新增运行源：`deployments/kubernetes/monitoring/prometheus-storage/prometheusrule.yaml` 与同目录 `kustomization.yaml`。复用当前 Prometheus Operator `monitoring.coreos.com/v1` / Kustomize；资源 namespace 为 `monitoring`，资源及 group 名为 `prometheus-storage`。不新建程序、SDK、监控平台或安装流程。
+新增且仅新增运行源：`deployments/kubernetes/monitoring/prometheus-storage/prometheusrule.yaml`、同目录 `alertmanagerconfig.yaml` 和 `kustomization.yaml`。复用当前 Prometheus Operator PrometheusRule `monitoring.coreos.com/v1`、AlertmanagerConfig `monitoring.coreos.com/v1alpha1` / Kustomize；三者明确装配在 `monitoring` namespace，Rule资源及group名为 `prometheus-storage`。不新建程序、SDK、监控平台或安装流程。
 
 只把旧 `TaskEventV2PrometheusStorageAtRisk` 的**原表达式**（monitoring 的 available/capacity `< 0.20`，与 `prometheus-.*` PVC info 以 namespace/persistentvolumeclaim join）、`for: 15m`、`namespace: monitoring`、`severity: warning` 抽出，保持这些值与条件完全相同；alert 名为 `PrometheusStorageAtRisk`、service 为 `monitoring`，summary/description/action 只描述通用存储风险，删除“TaskEvent迁移证据/批准删除decoder”的过期依赖。不引入新阈值、重试或状态协议。
 
-原 namespace/AlertmanagerConfig 的选择及投递语义保持，§5.2只调整 service matcher 的退出/保留对象；真实跨 namespace 选择、安装和收信均 NOT_RUN，不在本批修订告警路由架构。不得为了宣称投递PASS额外访问集群或发企业微信。Amazon 原 alert/PodMonitor/dashboard、通用 stack values、WeCom 程序/Deployment/Service/Secret 与 Grafana Ingress 均零改。
+原规则标签为 `namespace=monitoring`，原 AlertmanagerConfig 位于 `task-processor`；默认 `OnNamespace` 强制匹配两者一致，因此仅改service不能正确保留路由。最小修复：新增 `AlertmanagerConfig/prometheus-storage-wecom` 位于 `monitoring`，顶层route只匹配 **`service=monitoring` 与 `alertname=PrometheusStorageAtRisk`**（两者matchType `=`），接受隐式 `namespace=monitoring` 约束；groupBy、groupWait/groupInterval/repeatInterval、receiver及webhook/url/sendResolved/maxAlerts/timeout值完全复用原WeCom配置。Kustomization仅引用本规则和该窄配置。原task-processor配置只保留Amazon service，不混入monitoring；不全局禁用namespace enforcement，不扩其它服务或权限。
+
+选择依据：[Operator API 的 OnNamespace 合同](https://prometheus-operator.dev/docs/api-reference/api/#alertmanagerconfigmatcherstrategytype)；仓库固定Chart [88.3.0 values](https://github.com/prometheus-community/helm-charts/blob/kube-prometheus-stack-88.3.0/charts/kube-prometheus-stack/values.yaml) 与 [Alertmanager模板](https://github.com/prometheus-community/helm-charts/blob/kube-prometheus-stack-88.3.0/charts/kube-prometheus-stack/templates/alertmanager/alertmanager.yaml)。静态核对：该版本默认 `alertmanagerConfigSelector: {}`、`alertmanagerConfigNamespaceSelector: {}`，模板输出两selector，默认matcher strategy为OnNamespace；仓库values未覆盖这些选择，新增同namespace配置无需改stack values、全局selector或RBAC。实施以相同固定版本的本地模板/静态对照及YAML断言验证选择关系，配置只匹配上述唯一规则，不构建路由模拟平台。真实安装/发送/收信仍NOT_RUN；不能用它掩盖静态错配，也不得为取得PASS访问集群或发企业微信。Amazon 原 alert/PodMonitor/dashboard、通用 stack values、WeCom 程序/Deployment/Service/Secret 与 Grafana Ingress 均零改。
 
 ### 5.4 严格保留清单
 
@@ -126,15 +129,15 @@ Cutover/deletion condition: 用户确认本文，精确共享规则抽取/保留
 
 设计交付：独立检查须看真实源码消费者、八条 alert 的拆分、共享 Secret/namespace/登录清单、§5准确矩阵及§7停止点；不能只采信无引用搜索。准确设计 HEAD 与 findings 分类/结论写 PR，不把 CI 绿色当设计批准。设计文档/索引检查即可，不运行 app/构造器/操作脚本或补正式测试。
 
-确认后的同批实施仅作适用必要验证：原 guard 的定点 RED→最小实施→GREEN；Kustomize 使用本地 render/build（若现有工具可用，无集群）验证保留的 SHEIN base/prod 与新共享规则，不 render 已退休入口；YAML 对照原 alert 表达式/for/保留标签及四 Secret/其它保留文件原文，确认 matcher 只替换唯一 service 分支；原依赖/架构/商业检查与原 CI。没有 Go 业务改动，不为了退休源重复运行采集/provider/运行验收或新建工具。原 CI 自动执行的验证如实记录。
+确认后的同批实施仅作适用必要验证：原 guard 的定点 RED→最小实施→GREEN；Kustomize 使用本地 render/build（若现有工具可用，无集群）验证保留的 SHEIN base/prod 与新共享规则/窄路由，不 render 已退休入口；YAML 对照原 alert 表达式/for/保留标签及四 Secret/其它保留文件原文，确认原matcher只退出旧分支、新配置同namespace且只匹配唯一存储规则、receiver设置保持；原依赖/架构/商业检查与原 CI。没有 Go 业务改动，不为了退休源重复运行采集/provider/运行验收或新建工具。原 CI 自动执行的验证如实记录。
 
 ### 6.1 原 guard / CI 的准确处置
 
 - `TestRetiredTaskAndListingRuntimeConfigClosure` 的配置输入表只退出两个已删除 ConfigMap 行；保留三个 config YAML、两个 Amazon lite/heavy ConfigMap 及其全部旧键缺席/Alibaba1688保留断言。Secret 输入表只退出 TEMU base/prod 两行；保留 Workbench 与四 SHEIN Secret 输入的完整旧 RabbitMQ env 缺席断言。
-- 在同一既有退休测试文件补§5.1准确缺席清单；校验保留 SHEIN base 不再引用 configmap、prod仍引用base/external-secret、四 Secret/namespace 与 Store代理/登录引用不丢失。校验新 PrometheusRule 只有一条有效规则、原条件/for/namespace/severity保持；旧七条及 PodMonitor/dashboard 缺席，当前 Amazon source 保留；原 Alertmanager matcher 精确为上述两当前 service，其余路由不改。复用 YAML 解析，不新建框架或泛化扫描工具。
+- 在同一既有退休测试文件补§5.1准确缺席清单；校验保留 SHEIN base 不再引用 configmap、prod仍引用base/external-secret、四 Secret/namespace 与 Store代理/登录引用不丢失。校验新 PrometheusRule 只有一条有效规则、原条件/for/namespace/severity保持；旧七条及 PodMonitor/dashboard 缺席，当前 Amazon source 保留；原 Alertmanager matcher 只保留Amazon，其余原路由不改。新窄配置namespace等于规则namespace标签、两个精确matcher等于规则service/alertname、receiver值与原配置一致、Kustomization覆盖两资源；固定Chart默认选择合同支持发现该对象，不变更全局matcher strategy。复用 YAML 解析，不新建框架或泛化扫描工具。
 - 原有 CLI/TaskEvent/control-plane/ownership/config 等缺席断言全部保持。Pester 仅退出那个无运行消费者 helper 的专属测试，不误删其它 PowerShell 测试；通用工具不因无自动调用而删除。
 - `.github/workflows` **全部零改**（含两套 CI/Required Gate、安全、发布和独立workerworkflow）；依赖、inventory current/历史行、计数、ceilings、lint/depguard 配置和保护规则零改。这里没有 Go import edge 删除，不需要inventory校准。若原CI暴露矩阵外真实当前Must问题，先分类并报告，不自动放松检查/扩范围。
-- 文档仅校准§5.2当前入口与索引；历史设计、归档方案/观察窗口/证据不重写为当前PASS。不按裸字符串清空所有旧名称，仍有效的 Secret 和历史/guard引用合法。
+- 文档仅校准§5.2当前入口与索引，覆盖数据库优化runbook的推荐apply/rollout/验证尾部，并将其标为历史；同根因现行入口检索没有其它非历史运行文档漏项。历史设计、归档方案/观察窗口/证据不重写为当前PASS。不按裸字符串清空所有旧名称，仍有效的 Secret 和历史/guard引用合法。新增设计必须在原 `docs/architecture/README.md` 显式索引，不绕过原 `TestArchitectureReadmeCoversEveryArchitectureDocument`。
 
 ## 7. 执行与停止点
 
