@@ -1,5 +1,7 @@
 # Legacy ListingKit K3S Deployment Reference
 
+> **Historical source retirement — #847 / #29 / #301.** The old API workload, three publishing Jobs/schema wrappers, API-bound drain/attestation/invitation preflight and API-only invitation/Tencent SMS Secret templates have retired from source under the [confirmed boundary](../../../docs/architecture/legacy-kubernetes-release-execution-closure-retirement-boundary.md). Legacy operational, SQL, provisioning, drain, receipt and rollback examples below remain historical evidence: **not current execution, rollback, credential provisioning or worker-stop authority**. Current ImageAgent Go worker/store/Temporal recovery remains unchanged; current UI, schema CLIs, shared safety, Store and standalone SHEIN login/sync keep their owners. Current SMS retains the Account Compose `ZITADEL_SMS_CONFIG_FILE` path. Retained source OIDC/RBAC contracts do not establish an active publisher. Source retirement does not prove live objects/permissions or durable histories/assets have exited; any physical stop/revocation needs separate authorization and an applicable plan. No new trial prerequisite.
+
 > #529 / #301 retire the old identity preflight and API/UI release/rollback
 > source entrypoints. Both workflows and the PowerShell wrapper now only fail;
 > historical instructions and receipts below cannot re-enable them.

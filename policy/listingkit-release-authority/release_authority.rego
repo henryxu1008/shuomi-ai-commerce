@@ -187,28 +187,6 @@ deny contains "machine policy must pin Conftest and OPA" if {
   policy.tools.conftestVersion != "0.68.2"
 }
 
-deny contains "producer routing policy drifted" if {
-  policy.producerRouting != {
-    "imageLabel": "org.opencontainers.image.listingkit.image-agent-routing",
-    "annotation": "listingkit.sh/image-agent-routing-contract",
-    "contract": "image-agent-v3-new-starts-v1",
-  }
-}
-
-deny contains "release identity policy drifted" if {
-  policy.releaseIdentity != {
-    "owner": "api",
-    "deployment": "product-listing-api",
-    "step": "Stamp API release identity and restart Pods",
-    "annotations": {
-      "runId": "listingkit.sh/api-release-run-id",
-      "runAttempt": "listingkit.sh/api-release-run-attempt",
-      "image": "listingkit.sh/api-release-image",
-      "routingContract": "listingkit.sh/image-agent-routing-contract",
-    },
-  }
-}
-
 deny contains "UI authorization ownership policy drifted" if {
   policy.uiAuthorization != {
     "owner": "ui",
@@ -271,15 +249,6 @@ deny contains "machine policy must pin Conftest and OPA" if {
 
 deny contains msg if {
   owner := ["api", "ui"][_]
-  identity := policy.oidc.identities[owner]
-  some step in workflow_steps(owner)
-  step.name == identity.oidcTokenStep
-  not contains(step.run, sprintf("--audience %v", [identity.audience]))
-  msg := sprintf("%v OIDC audience drifted", [owner])
-}
-
-deny contains msg if {
-  owner := ["api", "ui"][_]
   contains(json.marshal(workflow(owner)), "KUBE_CONFIG")
   msg := sprintf("%v workflow retains a long-lived kubeconfig credential", [owner])
 }
@@ -334,25 +303,6 @@ deny contains msg if {
   action := step.uses
   not regex.match("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+@[0-9a-f]{40}$", action)
   msg := sprintf("%v release action is not pinned to a full commit SHA", [owner])
-}
-
-deny contains msg if {
-  owner := ["api", "ui"][_]
-  identity := policy.oidc.identities[owner]
-  some group in identity.protectedGroups
-  count(group.operationSteps) == 0
-  msg := sprintf("%v fresh OIDC protected group has no operations", [owner])
-}
-
-deny contains msg if {
-  owner := ["api", "ui"][_]
-  identity := policy.oidc.identities[owner]
-  operations := [name |
-    some group in identity.protectedGroups
-    some name in group.operationSteps
-  ]
-  count(operations) != count({name | some name in operations})
-  msg := sprintf("%v protected operation belongs to multiple fresh OIDC groups", [owner])
 }
 
 # Owner overlap would allow the UI identity to alter API or worker state.

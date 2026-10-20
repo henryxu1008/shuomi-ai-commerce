@@ -14,6 +14,70 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+func TestLegacyKubernetesReleaseExecutionClosureIsRetired(t *testing.T) {
+	for _, relative := range []string{
+		"deployments/kubernetes/listingkit-workbench/base/product-listing-api-deployment.yaml",
+		"deployments/kubernetes/listingkit-workbench/base/product-listing-api-service.yaml",
+		"deployments/kubernetes/listingkit-workbench/jobs/listingkit-schema-migrate-job.yaml",
+		"deployments/kubernetes/listingkit-workbench/jobs/product-listing-api-schema-migrate-job.yaml",
+		"deployments/kubernetes/listingkit-workbench/jobs/pod-image-index-backfill-job.yaml",
+		"scripts/listingkit-schema-migrate-job.sh",
+		"scripts/tests/listingkit-schema-migrate-job-test.sh",
+		"scripts/listingkit-image-agent-v2-drain-check.sh",
+		"scripts/verify-listingkit-api-release-attestation.sh",
+		"tests/listingkit_v2_drain_script_test.go",
+		"policy/listingkit-release-authority/fixtures/negative/release-identity-owner-drift.yaml",
+		"scripts/validate-listingkit-invitation-secret.sh",
+		"tests/listingkit_invitation_secret_preflight_test.go",
+		"deployments/kubernetes/listingkit-workbench/base/member-invitation-secret.example.yaml",
+		"deployments/kubernetes/listingkit-workbench/base/tencent-sms-secret.example.yaml",
+	} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Errorf("retired Kubernetes release artifact %s must be absent: %v", relative, err)
+		}
+	}
+	for relative, retired := range map[string][]string{
+		"deployments/kubernetes/listingkit-workbench/base/kustomization.yaml":          {"product-listing-api-deployment.yaml", "product-listing-api-service.yaml"},
+		"deployments/kubernetes/listingkit-workbench/base/configmap.yaml":              {"http://product-listing-api:8085"},
+		"deployments/kubernetes/listingkit-workbench/base/ingress.yaml":                {"product-listing-api", "/api/v1/listing-kits/integrations/zitadel/sms"},
+		"deployments/kubernetes/listingkit-workbench/overlays/prod/patch-ingress.yaml": {"product-listing-api", "/api/v1/listing-kits/integrations/zitadel/sms"},
+		"deployments/kubernetes/listingkit-workbench/base/secret.example.yaml":         {"listingkit-member-invitation-secret", "release-scoped identity preflight"},
+	} {
+		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, value := range retired {
+			if strings.Contains(string(content), value) {
+				t.Errorf("%s retains retired wiring %q", relative, value)
+			}
+		}
+	}
+	content, err := os.ReadFile(filepath.Join("..", "deployments", "kubernetes", "listingkit-workbench", "release-authority", "release-policy.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var bundle map[string]any
+	if err := yaml.Unmarshal(content, &bundle); err != nil {
+		t.Fatal(err)
+	}
+	authority := bundle["releaseAuthority"].(map[string]any)
+	for _, key := range []string{"producerRouting", "releaseAttestation", "releaseIdentity"} {
+		if _, exists := authority[key]; exists {
+			t.Errorf("retired producer policy %s remains", key)
+		}
+	}
+	identities := authority["oidc"].(map[string]any)["identities"].(map[string]any)
+	for _, owner := range []string{"api", "ui"} {
+		identity := identities[owner].(map[string]any)
+		for _, key := range []string{"job", "oidcTokenStep", "kubeconfigStep", "protectedGroups", "allowedSteps", "allowedActions"} {
+			if _, exists := identity[key]; exists {
+				t.Errorf("%s retains retired execution metadata %s", owner, key)
+			}
+		}
+	}
+}
+
 func TestRetiredListingOperationsClosure(t *testing.T) {
 	for _, relative := range []string{
 		"tools/listingkit-pricing-cache-inspector/main.go",

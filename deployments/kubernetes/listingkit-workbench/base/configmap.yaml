@@ -3,8 +3,6 @@ kind: ConfigMap
 metadata:
   name: listingkit-workbench-config
 data:
-  LISTINGKIT_API_BASE: "http://product-listing-api:8085/api/v1/listing-kits"
-  LISTINGKIT_SERVICE_API_BASE: "http://product-listing-api:8085/api/v1"
   NEXT_TELEMETRY_DISABLED: "1"
   # Public Auth.js origin and callback proxy. Keep these in version-controlled
   # configuration so an OIDC login never falls back to a Pod-local address.

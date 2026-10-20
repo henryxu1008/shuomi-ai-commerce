@@ -77,8 +77,6 @@ func TestListingKitWorkloadsUseLeastPrivilegeSharedSecretKeys(t *testing.T) {
 			"AWS_ACCESS_KEY_ID":     "TASK_PROCESSOR_LISTINGKIT_IMAGE_UPLOAD_S3_ACCESS_KEY_ID",
 			"AWS_SECRET_ACCESS_KEY": "TASK_PROCESSOR_LISTINGKIT_IMAGE_UPLOAD_S3_SECRET_ACCESS_KEY",
 		},
-		"jobs/product-listing-api-schema-migrate-job.yaml": databaseSecretKeys(),
-		"jobs/listingkit-schema-migrate-job.yaml":          listingKitSchemaMigrationSecretKeys(),
 	}
 
 	for relativePath, expected := range want {
@@ -113,20 +111,6 @@ func TestListingKitWorkloadsUseLeastPrivilegeSharedSecretKeys(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestListingKitAPIKeepsRequiredSharedSecret(t *testing.T) {
-	container := loadOnlyContainer(t, "base/product-listing-api-deployment.yaml")
-	for _, source := range container.EnvFrom {
-		if source.SecretRef == nil || source.SecretRef.Name != listingKitSharedSecret {
-			continue
-		}
-		if source.SecretRef.Optional != nil && *source.SecretRef.Optional {
-			t.Fatalf("product API must require %s", listingKitSharedSecret)
-		}
-		return
-	}
-	t.Fatalf("product API must import required shared Secret %s", listingKitSharedSecret)
 }
 
 func TestListingKitSecretExamplesDefineCanonicalUIAllowlists(t *testing.T) {
@@ -166,30 +150,6 @@ func TestListingKitSecretExamplesDefineCanonicalUIAllowlists(t *testing.T) {
 			}
 		})
 	}
-}
-
-func databaseSecretKeys() map[string]string {
-	return map[string]string{
-		"TASK_PROCESSOR_DATABASE_HOST":     "TASK_PROCESSOR_DATABASE_HOST",
-		"TASK_PROCESSOR_DATABASE_PORT":     "TASK_PROCESSOR_DATABASE_PORT",
-		"TASK_PROCESSOR_DATABASE_USER":     "TASK_PROCESSOR_DATABASE_USER",
-		"TASK_PROCESSOR_DATABASE_PASSWORD": "TASK_PROCESSOR_DATABASE_PASSWORD",
-		"TASK_PROCESSOR_DATABASE_NAME":     "TASK_PROCESSOR_DATABASE_NAME",
-	}
-}
-
-func listingKitSchemaMigrationSecretKeys() map[string]string {
-	keys := databaseSecretKeys()
-	for _, name := range []string{
-		"TASK_PROCESSOR_COMMERCIAL_DATABASE_HOST",
-		"TASK_PROCESSOR_COMMERCIAL_DATABASE_PORT",
-		"TASK_PROCESSOR_COMMERCIAL_DATABASE_USER",
-		"TASK_PROCESSOR_COMMERCIAL_DATABASE_PASSWORD",
-		"TASK_PROCESSOR_COMMERCIAL_DATABASE_NAME",
-	} {
-		keys[name] = name
-	}
-	return keys
 }
 
 func loadOnlyContainer(t *testing.T, relativePath string) workloadContainer {

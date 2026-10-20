@@ -2,7 +2,7 @@
 
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
-> Status: **DESIGNING / 待独立设计检查与用户确认，Ready=false；未实施。** Design Basis: **Independent Architecture**。调查与开工基线 main `d255feb7f1349108a466530353d2637080a911be`（2026-10-20）。本阶段只交付本文与四索引的提案说明；准确设计 HEAD、CI、复核及授权维护在同一主要 PR。未经用户确认与准入，不改声明、脚本、策略、测试或运行指南，不执行发布/诊断/验收工具。
+> Status: **用户确认设计 / IMPLEMENTATION_READY；本批源码已实施，In Review，待独立交付检查。** Design Basis: **Independent Architecture**。冻结设计 `a73f441442b8593d88f52fd776fbbb1b8123d733`，调查与开工 main `d255feb7f1349108a466530353d2637080a911be`（2026-10-20）；双Issue在正式源修改前已写回并读回Ready。§5/§6/§6.1/§7为本次冻结边界，准确实现HEAD、CI、复核与权限在同一主要PR；无合并、部署或真实环境操作授权。
 
 ## 1. 产品结果、Authority 与阶段
 
