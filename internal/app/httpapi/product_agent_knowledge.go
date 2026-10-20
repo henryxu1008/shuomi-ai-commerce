@@ -22,6 +22,7 @@ import (
 )
 
 type productAgentRequestBody struct {
+	ManualReviewOnly     bool                         `json:"manualReviewOnly,omitempty"`
 	OwnSource            *ownSourceSelection          `json:"ownSource,omitempty"`
 	ContentSelection     *enrichment.ContentSelection `json:"contentSelection,omitempty"`
 	TemplateSelection    json.RawMessage              `json:"templateSelection,omitempty"`
@@ -111,7 +112,10 @@ func (a *productAgentApplication) startRequestWithProfile(ctx context.Context, b
 func (a *productAgentApplication) startTextRequest(ctx context.Context, binding agent.Binding, key, baseID, expectedRevisionSet string, template *agentconfig.TemplateRef, expectedProfile aicapability.ModelProfile, goalSummary, expectedModeRevision string, selection enrichment.ContentSelection) (agent.Request, error) {
 	return a.startTextRequestWithSkill(ctx, binding, key, baseID, expectedRevisionSet, template, expectedProfile, goalSummary, expectedModeRevision, selection, nil)
 }
-func (a *productAgentApplication) startTextRequestWithSkill(ctx context.Context, binding agent.Binding, key, baseID, expectedRevisionSet string, template *agentconfig.TemplateRef, expectedProfile aicapability.ModelProfile, goalSummary, expectedModeRevision string, selection enrichment.ContentSelection, method *productSkillSelection) (agent.Request, error) {
+func (a *productAgentApplication) startTextRequestWithSkill(ctx context.Context, binding agent.Binding, key, baseID, expectedRevisionSet string, template *agentconfig.TemplateRef, expectedProfile aicapability.ModelProfile, goalSummary, expectedModeRevision string, selection enrichment.ContentSelection, method *productSkillSelection, manualOnly ...bool) (agent.Request, error) {
+	if len(manualOnly) > 1 || len(manualOnly) == 1 && manualOnly[0] && (a.definition.ID != agentconfig.ContentAgentID || goalSummary != "") {
+		return agent.Request{}, agent.ErrInvalid
+	}
 	if err := a.checkContentTitleSelection(selection); err != nil {
 		return agent.Request{}, err
 	}
@@ -119,6 +123,7 @@ func (a *productAgentApplication) startTextRequestWithSkill(ctx context.Context,
 		return agent.Request{}, agent.ErrInvalid
 	}
 	request := agent.Request{Key: key, Binding: binding, GoalSummary: goalSummary, PolicyVersion: "title-review-v1", PromptVersion: "product-title-agent-v1", Limits: a.config.Limits}
+	request.ManualReviewOnly = len(manualOnly) == 1 && manualOnly[0]
 	content := a.definition.ID == agentconfig.ContentAgentID
 	if method != nil && (!content || !selection.TitleOnly()) {
 		return agent.Request{}, agent.ErrInvalid
@@ -178,6 +183,9 @@ func (a *productAgentApplication) startTextRequestWithSkill(ctx context.Context,
 				return agent.Request{}, err
 			}
 		}
+		if err := a.checkManualReviewMode(ctx, identity, existing.State.Request); err != nil {
+			return agent.Request{}, err
+		}
 		return existing.State.Request, nil
 	}
 	if method != nil {
@@ -208,6 +216,9 @@ func (a *productAgentApplication) startTextRequestWithSkill(ctx context.Context,
 	}
 	request = snapshot.Request
 	request.ConfigurationSnapshotRef = agent.ConfigurationSnapshotRef{Kind: agentconfig.SnapshotKind, ID: snapshot.ID, Digest: snapshot.Digest}
+	if err := a.checkManualReviewMode(ctx, identity, request); err != nil {
+		return agent.Request{}, err
+	}
 	if baseID != "" {
 		if a.context == nil {
 			return agent.Request{}, knowledge.ErrUnavailable

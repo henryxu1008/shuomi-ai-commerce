@@ -9,7 +9,7 @@ const props={itemId:"item",sourceId:"source",preparationId:"preparation",launch:
 beforeEach(()=>{vi.clearAllMocks();f.context.effectiveOrganization.id="org";f.context.permissions=["workbench.supply.read","listingkit.image_agent.read","listingkit.image_agent.write"];f.read.mockResolvedValue({source:{id:"source",preparationId:"preparation",collectionItemId:"item",source:{kind:"own",version:"1"}},product:{title:"原商品"}})});
 afterEach(cleanup);
 it("opens the same supply image consumer with exact version after source identity validation",async()=>{
- render(<OwnProductImagesPage {...props}/>);await screen.findByText("原图片面板");expect(f.panel).toHaveBeenLastCalledWith({kind:"supply",contextId:"source",initialSkill:props.launch.selection});expect(f.read).toHaveBeenCalledWith({userId:"actor",organizationId:"org"},"source",expect.any(AbortSignal));
+ render(<OwnProductImagesPage {...props}/>);await screen.findByText("原图片面板");expect(f.panel).toHaveBeenLastCalledWith({kind:"supply",contextId:"source",translationItemId:"item",initialSkill:props.launch.selection});expect(f.read).toHaveBeenCalledWith({userId:"actor",organizationId:"org"},"source",expect.any(AbortSignal));
 });
 it.each(["id","preparationId","collectionItemId","kind"])("does not expose image operations for mismatched %s",async field=>{
  f.read.mockResolvedValue({source:{id:field==="id"?"other":"source",preparationId:field==="preparationId"?"other":"preparation",collectionItemId:field==="collectionItemId"?"other":"item",source:{kind:field==="kind"?"acquisition":"own"}},product:{title:"foreign"}});

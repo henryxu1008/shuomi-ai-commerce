@@ -60,8 +60,22 @@ func (c *setConfigurationFixture) AdmitImageRun(_ context.Context, command agent
 }
 
 type setContextFixture struct {
+	copy            *imageagent.ImageTextReviewCopy
+	copyReads       int
+	copyErr         error
 	preparation     imageagent.ImageSetPreparation
 	revalidationErr error
+}
+
+func (c *setContextFixture) ReadConfirmedImageText(context.Context, imageagent.ExecutionIdentity, imageagent.ImageTextReviewReference) (imageagent.ImageTextReviewCopy, error) {
+	c.copyReads++
+	if c.copyErr != nil {
+		return imageagent.ImageTextReviewCopy{}, c.copyErr
+	}
+	if c.copy == nil {
+		return imageagent.ImageTextReviewCopy{}, imageagent.ErrCommandBlocked
+	}
+	return *c.copy, nil
 }
 
 func (c *setContextFixture) ResolveImageSet(context.Context, imageagent.ExecutionIdentity, imageagent.PrepareImageSetInput) (imageagent.ImageSetPreparation, error) {
@@ -182,11 +196,11 @@ func imageSetServiceFixtureWithRepository(t *testing.T, wrap func(imageagent.Rep
 		repository = wrap(repository)
 	}
 	workflows := &recordingWorkflowClient{}
-	options = append([]imageagent.ServiceOption{imageagent.WithOrganizationScope(), imageagent.WithImageSetDependencies(imageagent.ImageSetDependencies{Configuration: config, Contexts: contexts, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{Images: 32, Points: 10000, ElapsedSeconds: 3600}})}, options...)
+	options = append([]imageagent.ServiceOption{imageagent.WithOrganizationScope(), imageagent.WithImageSetDependencies(imageagent.ImageSetDependencies{ConfirmedCopy: contexts, Configuration: config, Contexts: contexts, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{Images: 32, Points: 10000, ElapsedSeconds: 3600}})}, options...)
 	service, err := imageagent.NewService(repository, workflows, staticCatalogResolver{catalog: catalog}, options...)
 	require.NoError(t, err)
 	ctx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{TenantID: "org", EffectiveOrganizationID: "org", UserID: "actor", EffectiveMemberID: "member"})
-	input := imageagent.PrepareImageSetInput{ExpectedModeRevision: "0", ContextKind: imageagent.ImageSourceAcquisition, RequestID: "c5fd7c43-138c-43dc-8dfb-6f9be74a5e9e", ContextID: "operation", Target: imageagent.ImageTargetSelection{Platform: "product"}, SharedOriginalIDs: []string{"source-1"}}
+	input := imageagent.PrepareImageSetInput{Text: &imageagent.ImageTextSelection{Mode: "none"}, ExpectedModeRevision: "0", ContextKind: imageagent.ImageSourceAcquisition, RequestID: "c5fd7c43-138c-43dc-8dfb-6f9be74a5e9e", ContextID: "operation", Target: imageagent.ImageTargetSelection{Platform: "product"}, SharedOriginalIDs: []string{"source-1"}}
 	return service, repository, workflows, config, contexts, quotes, ctx, input
 }
 

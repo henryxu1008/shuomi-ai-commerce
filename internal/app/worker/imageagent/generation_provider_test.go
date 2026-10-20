@@ -130,7 +130,7 @@ func testGenerationProviderFactoryUsesBoundQwenAdapter(t *testing.T, model strin
 		}
 		imageMethods++
 		t.Run(official.Key, func(t *testing.T) {
-			input.ImageSet.Method = &imageagent.ImageMethodBinding{PolicyVersion: imageagent.ImageMethodPolicyVersion, Skill: agent.SkillVersionRef{Kind: "skill-version-v1", ID: "2bb819bd-af13-4e68-95e0-1cc86130fb1f", OwnerKind: "PLATFORM", OwnerID: "official", Version: official.Version, Digest: official.Package.Digest, PolicyVersion: "skill-method-v1"}}
+			input.ImageSet.Method = &imageagent.ImageMethodBinding{PolicyVersion: imageagent.FrozenVisualBriefPolicyVersion, Skill: agent.SkillVersionRef{Kind: "skill-version-v1", ID: "2bb819bd-af13-4e68-95e0-1cc86130fb1f", OwnerKind: "PLATFORM", OwnerID: "official", Version: official.Version, Digest: official.Package.Digest, PolicyVersion: "skill-method-v1"}}
 			adapter, err := skillimage.New(officialImageUseStore{official.Package}, officialImageUseAuthority{})
 			require.NoError(t, err)
 			id := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: "run-1", TenantID: "org-1", UserID: "user-1", MemberID: "member-1", BusinessTaskID: "product-1"}
@@ -155,7 +155,7 @@ func testGenerationProviderFactoryUsesBoundQwenAdapter(t *testing.T, model strin
 			_, err = prepared.Executor.GenerateQuotedSlot(context.Background(), input, methodQuote)
 			require.Error(t, err)
 			require.Equal(t, before, dispatches, "historical policy cannot grant a provider POST")
-			input.ImageSet.Method.PolicyVersion = imageagent.ImageMethodPolicyVersion
+			input.ImageSet.Method.PolicyVersion = imageagent.FrozenVisualBriefPolicyVersion
 			_, err = prepared.Executor.GenerateQuotedSlot(context.Background(), input, methodQuote)
 			require.Equal(t, before+1, dispatches, "each official image method must reach exactly one provider POST")
 			require.NoError(t, err)

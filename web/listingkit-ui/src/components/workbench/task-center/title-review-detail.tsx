@@ -41,6 +41,7 @@ export function TitleReviewDetail({ proposal: p }: { proposal: ProductTitlePropo
 
 type ReviewControlProps = {
   proposal: ProductTitleProposal; roles: readonly string[]; permissions:readonly string[]; userId: string; pending: boolean;
+  allowApply?:boolean;
   decide: (action: "accept" | "edit" | "reject", title?: string, content?: ContentValue[]) => void; apply: () => void;
 };
 export function TitleReviewControls(props: ReviewControlProps) {
@@ -65,19 +66,19 @@ function TitleOnlyReviewControls({ proposal, permissions, userId, pending, decid
     {mode === "confirm" && admin && proposal.state === "accepted" ? <TitleApplyConfirmation productKey={proposal.input.product_key} baseVersion={proposal.input.base_version} revision={proposal.revision} pending={pending} onCancel={() => setMode("view")} onConfirm={() => { setMode("view"); apply(); }} /> : null}
   </section>;
 }
-function ContentReviewControls({ proposal: p, permissions, userId, pending, decide, apply }: ReviewControlProps & { proposal: ProductContentProposal }) {
+function ContentReviewControls({ proposal: p, permissions, userId, pending, decide, apply,allowApply=true }: ReviewControlProps & { proposal: ProductContentProposal }) {
   const [mode, setMode] = useState<"view"|"edit"|"confirm">("view");
   if (p.state === "applied" || p.state === "rejected") return null;
   if (!p.execution_mode) return <p role="status">无法读取本次冻结权限，采用不可用；请重新读取。</p>;
   if (p.execution_mode.mode === "read_only") return <p role="status">本次为只读权限，已保存建议，不能编辑、接受或采用。</p>;
   const admin = permissions.includes("listingkit.admin.write"), editor = admin || permissions.includes("local_agent.write") && p.owner === userId;
-  return <section className={styles.controls} aria-label="内容审核操作"><h3>等待你确认</h3><p>接受完整内容后，再确认采用到标准商品；操作时会重新检查当前权限与版本。</p>
+  return <section className={styles.controls} aria-label="内容审核操作"><h3>等待你确认</h3><p>{allowApply?"接受完整内容后，再确认采用到标准商品；操作时会重新检查当前权限与版本。":"接受后可将译文用于图片计划，本入口不应用商品。"}</p>
     {mode === "edit" ? <ContentEditor values={p.content.after} pending={pending} onCancel={()=>setMode("view")} onSave={values=>decide("edit",undefined,values)} /> : <div className={styles.actions}>
       {admin && p.state === "pending" && <Button disabled={pending} onClick={()=>decide("accept")}>接受提案</Button>}
       {editor && <Button variant="outline" disabled={pending} onClick={()=>setMode("edit")}>编辑内容</Button>}
       {admin && <Button variant="outline" disabled={pending} onClick={()=>decide("reject")}>拒绝提案</Button>}
-      {admin && p.state === "accepted" && <Button disabled={pending} onClick={()=>setMode("confirm")}>应用到标准商品</Button>}
+      {allowApply && admin && p.state === "accepted" && <Button disabled={pending} onClick={()=>setMode("confirm")}>应用到标准商品</Button>}
     </div>}
-    {mode === "confirm" && admin && p.state === "accepted" && <TitleApplyConfirmation productKey={p.input.product_key} baseVersion={p.input.base_version} revision={p.revision} contentSelection={p.content.selection} pending={pending} onCancel={()=>setMode("view")} onConfirm={()=>{setMode("view");apply()}} />}
+    {allowApply && mode === "confirm" && admin && p.state === "accepted" && <TitleApplyConfirmation productKey={p.input.product_key} baseVersion={p.input.base_version} revision={p.revision} contentSelection={p.content.selection} pending={pending} onCancel={()=>setMode("view")} onConfirm={()=>{setMode("view");apply()}} />}
   </section>;
 }

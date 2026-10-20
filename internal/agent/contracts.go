@@ -23,6 +23,7 @@ const MaxModelOutputBytes = 64 << 10
 var ErrConflict = errors.New("agent run conflict")
 var ErrInvalid = errors.New("invalid agent request")
 var ErrUnavailable = errors.New("agent dependency unavailable")
+var ErrManualReviewRequired = errors.New("manual review execution mode required")
 
 type StopReason string
 
@@ -90,6 +91,7 @@ func ValidID(s string) bool {
 // Scope comes from the current authorizer, never model or browser payload.
 type Scope struct{ OrganizationID, ActorID string }
 type Request struct {
+	ManualReviewOnly             bool                        `json:",omitempty"`
 	SkillVersionRef              SkillVersionRef             `json:",omitzero"`
 	ContentSelection             enrichment.ContentSelection `json:",omitzero"`
 	ModeSnapshotRef              ModeSnapshotRef             `json:",omitzero"`
@@ -103,10 +105,18 @@ type Request struct {
 }
 
 func (r Request) ValidContentSelection() bool {
+	if r.ManualReviewOnly && r.PolicyVersion != enrichment.ContentPolicyVersion {
+		return false
+	}
 	if r.PolicyVersion == enrichment.ContentPolicyVersion {
 		return r.ContentSelection.Valid()
 	}
 	return r.ContentSelection.Absent()
+}
+
+// The caller can narrow automation, never replace the frozen permission mode.
+func (r Request) AllowsManualReviewMode(mode ExecutionMode) bool {
+	return !r.ManualReviewOnly || r.ValidContentSelection() && mode == ModeDefault
 }
 
 // Direct Product Agent requests have no Chat goal. Confirmed Chat requests

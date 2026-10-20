@@ -18,6 +18,7 @@ import (
 // The transport supplies identities only. URLs, dimensions, prompt, quote and
 // requirement claims are resolved by the existing source/config/rule owners.
 type PrepareImageSetInput struct {
+	Text                                                      *ImageTextSelection    `json:",omitempty"`
 	Method                                                    *agent.SkillVersionRef `json:",omitempty"`
 	ExpectedModeRevision                                      string
 	ContextKind                                               ImageSourceContextKind `json:"-"`
@@ -39,13 +40,14 @@ type ImageTargetSelection struct {
 }
 
 type ImageSetPreparation struct {
-	GeneratedArtwork   bool `json:"-"`
-	Source             ImageSourceBinding
-	Target             ImageTarget
-	Catalog            AssetCatalog
-	Observations       []ImageSourceObservation
-	Evidence           map[string]string
-	OfficialPlacements map[string]OfficialImagePlacement
+	EffectivePublicationID string `json:"-"`
+	GeneratedArtwork       bool   `json:"-"`
+	Source                 ImageSourceBinding
+	Target                 ImageTarget
+	Catalog                AssetCatalog
+	Observations           []ImageSourceObservation
+	Evidence               map[string]string
+	OfficialPlacements     map[string]OfficialImagePlacement
 }
 
 type ImageSetContextReader interface {
@@ -64,6 +66,7 @@ type ImageSetQuoteReader interface {
 }
 
 type ImageSetDependencies struct {
+	ConfirmedCopy ImageTextReviewReader
 	Configuration agentconfig.ImageConfigurationRepository
 	Contexts      ImageSetContextReader
 	Quotes        ImageSetQuoteReader
@@ -113,6 +116,9 @@ func (s *Service) GetPreparedImageSet(ctx context.Context, kind ImageSourceConte
 }
 
 func validPrepareImageSetInput(input PrepareImageSetInput) bool {
+	if input.Text != nil && !input.Text.Valid() {
+		return false
+	}
 	if input.Method != nil && !(ImageMethodBinding{Skill: *input.Method, PolicyVersion: ImageMethodPolicyVersion}).Valid() {
 		return false
 	}
@@ -219,6 +225,9 @@ func (s *Service) PrepareImageSet(ctx context.Context, input PrepareImageSetInpu
 	if !s.tenantStartAllowed(ctx, identity.TenantID) {
 		return PreparedImageSet{}, ErrCommandBlocked
 	}
+	if input.Text == nil {
+		return PreparedImageSet{}, ErrValidation
+	}
 	resolved, err := s.imageSets.Contexts.ResolveImageSet(ctx, identity, input)
 	if err != nil {
 		return PreparedImageSet{}, err
@@ -279,15 +288,29 @@ func (s *Service) PrepareImageSet(ctx context.Context, input PrepareImageSetInpu
 	if snapshot.Scope != (agent.Scope{OrganizationID: identity.TenantID, ActorID: identity.UserID}) || snapshot.RunID != runID || snapshot.MemberID != identity.MemberID || snapshot.SourceDigest != sourceDigest || snapshot.InputDigest != inputDigest || snapshot.TargetPlatform != input.Target.Platform || snapshot.Parameters.Validate() != nil || !snapshot.HardLimits.Valid() {
 		return PreparedImageSet{}, ErrRevisionConflict
 	}
+	textBinding, err := s.resolveImageText(ctx, identity, input.Text, resolved, snapshot.Parameters.Language)
+	if err != nil {
+		return PreparedImageSet{}, err
+	}
 	quote, err := s.imageSets.Quotes.ReadImageGenerationQuote(ctx, identity)
 	if err != nil {
 		return PreparedImageSet{}, err
 	}
-	plan, err := buildImageSetPlan(input, resolved, snapshot, quote, selected, byID, identity.UserID, method)
+	plan, err := buildImageSetPlan(input, resolved, snapshot, quote, selected, byID, identity.UserID, method, textBinding)
 	if err != nil {
 		return PreparedImageSet{}, err
 	}
 	plan.Set.Regeneration = regeneration
+	matchedTextTasks := map[string]bool{}
+	for i := range plan.Slots {
+		slot := &plan.Slots[i]
+		matchedTextTasks[slot.ID] = true
+	}
+	for _, id := range textBinding.TaskIDs {
+		if !matchedTextTasks[id] {
+			return PreparedImageSet{}, ErrValidation
+		}
+	}
 	if method != nil {
 		for _, slot := range plan.Slots {
 			if _, err = ComposeImageMethodPrompt(slot.Recipe.Prompt, methodText); err != nil {
@@ -337,7 +360,7 @@ func selectedImageOriginals(input PrepareImageSetInput) []string {
 	return ids
 }
 
-func buildImageSetPlan(input PrepareImageSetInput, resolved ImageSetPreparation, snapshot agentconfig.ImageConfigurationSnapshot, quote ImageGenerationQuote, sources []string, observations map[string]ImageSourceObservation, actor string, method *ImageMethodBinding) (Plan, error) {
+func buildImageSetPlan(input PrepareImageSetInput, resolved ImageSetPreparation, snapshot agentconfig.ImageConfigurationSnapshot, quote ImageGenerationQuote, sources []string, observations map[string]ImageSourceObservation, actor string, method *ImageMethodBinding, text *ImageTextBinding) (Plan, error) {
 	template := snapshot.Parameters
 	if len(input.SelectedTaskIDs) > 0 {
 		selected := map[string]bool{}
@@ -367,6 +390,7 @@ func buildImageSetPlan(input PrepareImageSetInput, resolved ImageSetPreparation,
 		return Plan{}, fmt.Errorf("%w: choose originals matching the template sharing mode", ErrValidation)
 	}
 	plan := Plan{Revision: 1, IdempotencyKey: input.RequestID, CreatedBy: actor, SourceAssetIDs: sources, Set: &ImageSetPlan{Method: method, Schema: ImageSetSchema, Source: resolved.Source, Target: resolved.Target, Configuration: snapshot.Ref(), ConfigurationEpoch: snapshot.Epoch, ParametersDigest: snapshot.ParametersDigest, InputDigest: snapshot.InputDigest}}
+	plan.Set.Text = CloneImageTextBinding(text)
 	// Identity and snapshot version remain in the frozen source/catalog. They
 	// are operational bindings, never content to place on a product image.
 	type visualProductFacts struct {
@@ -427,6 +451,11 @@ func buildImageSetPlan(input PrepareImageSetInput, resolved ImageSetPreparation,
 					recipe.VisibleText = detailVisibleText(resolved.Catalog.ProductContext)
 					recipe.Prompt = literalDetailPrompt(resolved.Catalog.ProductContext, task.Brief, recipe)
 				}
+			}
+			if text != nil {
+				recipe.TaskEvidence = resolved.Evidence[agentconfig.RequiredTaskEvidence(task.Purpose)]
+				recipe.VisibleText = imageTextLines(text, task.ID)
+				recipe.Prompt = imageTextPrompt(resolved.Catalog.ProductContext, task.Brief, recipe)
 			}
 			plan.Slots = append(plan.Slots, Slot{ID: task.ID, Role: SlotRoleForImagePurpose(task.Purpose), SourceAssetIDs: append([]string(nil), ids...), Brief: task.Brief, IdempotencyKey: task.ID, Status: SlotStatusPending, Recipe: recipe})
 		}

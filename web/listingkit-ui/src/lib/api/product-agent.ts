@@ -8,9 +8,9 @@ import { readBoundedStrictJSON } from "./strict-json-response";
 export class ProductAgentError extends Error {
     constructor(public code: string) { super(code); }
 }
-export async function requestProductAgent(action: "start" | "read" | "resume" | "review", operationId: string, key: string, scope: AcquisitionContext, signal: AbortSignal, revision?: string, feedback?: string, targetPlatform?: string, knowledgeBaseId?: string,templateSelection?:TemplateRef,expectedModeRevision?:string,contentSelection?:ContentSelection,kind:"title"|"content"="title",skillSelection?:SkillSelection,ownContext?:{source?:OwnSourceSelection}) {
+export async function requestProductAgent(action: "start" | "read" | "resume" | "review", operationId: string, key: string, scope: AcquisitionContext, signal: AbortSignal, revision?: string, feedback?: string, targetPlatform?: string, knowledgeBaseId?: string,templateSelection?:TemplateRef,expectedModeRevision?:string,contentSelection?:ContentSelection,kind:"title"|"content"="title",skillSelection?:SkillSelection,ownContext?:{source?:OwnSourceSelection},manualReviewOnly=false) {
     const content=kind==="content";
-    const start={expectedModeRevision,targetPlatform,...(ownContext?.source?{ownSource:ownContext.source}:{}),...(templateSelection?{templateSelection}:{}),...(knowledgeBaseId?{knowledgeSelection:{knowledgeBaseId}}:{}),...(contentSelection?{contentSelection}:{}),...(skillSelection?{skillSelection}:{})};
+    const start={expectedModeRevision,targetPlatform,...(manualReviewOnly?{manualReviewOnly:true}:{}),...(ownContext?.source?{ownSource:ownContext.source}:{}),...(templateSelection?{templateSelection}:{}),...(knowledgeBaseId?{knowledgeSelection:{knowledgeBaseId}}:{}),...(contentSelection?{contentSelection}:{}),...(skillSelection?{skillSelection}:{})};
     if (!isAcquisitionUUID(operationId) || !isAcquisitionUUID(key) || ownContext&&!content || action === "start" && !(ownContext?ownContentStartRequestSchema:content?contentAgentStartRequestSchema:agentStartRequestSchema).safeParse(start).success)
         throw new ProductAgentError("INVALID_AGENT_REQUEST");
     const base = ownContext?`/api/workbench/collections/items/${operationId}/content-agent/runs`:`/api/workbench/sourcing/1688/acquisitions/${operationId}/${content?"content-agent":"product-agent"}/runs`;

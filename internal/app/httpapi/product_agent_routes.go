@@ -225,7 +225,7 @@ func productAgentRoutesForSource(a *productAgentApplication, content, own bool) 
 					return
 				}
 			}
-			if content && spec.action == "start" && (body.ContentSelection == nil || !body.ContentSelection.Valid()) || (!content || spec.action != "start") && body.ContentSelection != nil {
+			if body.ManualReviewOnly && (!content || spec.action != "start") || content && spec.action == "start" && (body.ContentSelection == nil || !body.ContentSelection.Valid()) || (!content || spec.action != "start") && body.ContentSelection != nil {
 				writeProductAgentError(c, agent.ErrInvalid)
 				return
 			}
@@ -274,7 +274,7 @@ func productAgentRoutesForSource(a *productAgentApplication, content, own bool) 
 				if err == nil {
 					var request agent.Request
 					if content {
-						request, err = a.startTextRequestWithSkill(ctx, binding, key, selection, "", template, aicapability.ModelProfile{}, "", body.ExpectedModeRevision, *body.ContentSelection, method)
+						request, err = a.startTextRequestWithSkill(ctx, binding, key, selection, "", template, aicapability.ModelProfile{}, "", body.ExpectedModeRevision, *body.ContentSelection, method, body.ManualReviewOnly)
 					} else {
 						request, err = a.startRequest(ctx, binding, key, selection, template, body.ExpectedModeRevision)
 					}
@@ -466,6 +466,8 @@ func writeProductAgentError(c *gin.Context, err error) {
 	}
 	status, code := http.StatusServiceUnavailable, "PRODUCT_AGENT_UNAVAILABLE"
 	switch {
+	case errors.Is(err, agent.ErrManualReviewRequired):
+		status, code = 409, "MANUAL_REVIEW_REQUIRED"
 	case errors.Is(err, skill.ErrInvalid), errors.Is(err, skill.ErrUnsupported):
 		status, code = 400, err.Error()
 	case errors.Is(err, skill.ErrForbidden):

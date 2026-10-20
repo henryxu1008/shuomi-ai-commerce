@@ -66,6 +66,16 @@ async function prepare(){
  const button=screen.getByRole("button",{name:"准备整套图片计划（2 项）"});await waitFor(()=>expect(button).toBeEnabled());fireEvent.click(button);
 }
 
+it("shows frozen translated copy and language on restored plans without translation or model writes",async()=>{
+ Object.assign(state.plan,{Method:{Skill:{kind:"skill-version-v1",id:operation,ownerKind:"PLATFORM",ownerId:"official",version:2,digest:sha,policyVersion:"skill-method-v1"},PolicyVersion:"image-method-visual-brief-v4"},Text:{PolicyVersion:"image-reviewed-text-v1",Mode:"reviewed",Language:"en",TaskIDs:["detail"],Copy:{Review:{proposalId:operation,revision:"2"},ProductID:"p",PublicationID:"publication",Version:"1",Language:"en",OriginRunID:runId,ModeSnapshot:{Kind:"agent-execution-mode-v1",ID:runId,Digest:sha},Lines:["Fabric storage box","Holds everyday items"]}}});
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialRunId={runId}/>);
+ const text=await screen.findByRole("region",{name:"已固定的图片文案"});
+ expect(within(text).getByText("目标语言：英语（en）")).toBeVisible();
+ expect(within(text).getByText("Fabric storage box")).toBeVisible();
+ expect(within(text).queryByRole("textbox")).toBeNull();
+ expect(fetch.mock.calls.some(([,init])=>init?.method==="POST")).toBe(false);
+});
+
 it("shows frozen literal detail copy before confirmation without allowing edits or generation",async()=>{
  Object.assign(state.plan,{Method:{Skill:{kind:"skill-version-v1",id:operation,ownerKind:"PLATFORM",ownerId:"official",version:2,digest:sha,policyVersion:"skill-method-v1"},PolicyVersion:"image-method-visual-brief-v3"}});
  state.slots[1].recipe.Purpose="key_benefits";
