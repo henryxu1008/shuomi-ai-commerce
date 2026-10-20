@@ -18,7 +18,6 @@ deny contains "excess RBAC resource names" if input.rbac.resourceNames[_] == inp
 deny contains "Pod RBAC is forbidden" if input.rbac.resources[_] == input.forbiddenResource
 deny contains "release-gate Pod query is forbidden" if contains(input.releaseGateCommand, "get pods")
 deny contains "machine policy drift" if input.policy.repository != "qq550723504/task-processor"
-deny contains "release identity owner drift" if input.releaseIdentity.owner != "api"
 deny contains "untrusted workflow ref" if input.token.workflowRef != input.identity.workflowRef
 deny contains "missing workflow ref" if not input.token.workflowRef
 deny contains "trusted workflow-ref policy drift" if input.policy.workflowRef != input.expectedWorkflowRef

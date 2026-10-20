@@ -1,5 +1,7 @@
 # 发布身份预检与旧发布入口退休设计
 
+> **Narrow supersession — #847 / #29 / #301.** The [user-confirmed Kubernetes execution closure](legacy-kubernetes-release-execution-closure-retirement-boundary.md) supersedes only this historical design's retained two schema runners/three old publishing Jobs and schema wrapper, old API producer-bound drain/attestation/invitation-preflight consumers, exclusive credential templates and invitation-Secret source get grant. Those sources now retire together; the frozen body below remains historical evidence and grants no current execution/credential-provisioning/rollback/worker-stop authority. Normal schema CLIs, current ImageAgent canary/Go recovery, retained source OIDC/RBAC and valid safety rules, UI/Store/SHEIN owners and the fixed-fail publishing entrypoints keep their contracts. This is source-only, with no live resource/data/IAM operation or new trial prerequisite.
+
 Status: **IMPLEMENTATION_READY / FROZEN DESIGN**。用户于 2026-10-15 确认开始实施，适用独立 Architecture Review 已完成；生产发布保持 **NOT_READY**。评审、批准与准确 HEAD 的滚动证据只记在 #529 / #301 和同一主要 PR。
 
 ## 1. 产品决定与用户结果

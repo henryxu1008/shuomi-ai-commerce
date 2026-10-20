@@ -230,28 +230,6 @@ func TestCommercialReadinessWorkflowCollectsPinnedReleaseEvidence(t *testing.T) 
 	}
 }
 
-func TestListingKitAPIManifestUsesDependencyReadinessProbe(t *testing.T) {
-	path := filepath.Join("..", "deployments", "kubernetes", "listingkit-workbench", "base", "product-listing-api-deployment.yaml")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read ListingKit API deployment manifest: %v", err)
-	}
-
-	manifest := string(content)
-	readinessStart := strings.Index(manifest, "          readinessProbe:")
-	livenessStart := strings.Index(manifest, "          livenessProbe:")
-	startupStart := strings.Index(manifest, "          startupProbe:")
-	if readinessStart < 0 || livenessStart < 0 || startupStart < 0 {
-		t.Fatal("expected readiness, liveness, and startup probes in ListingKit API deployment manifest")
-	}
-	if !strings.Contains(manifest[readinessStart:livenessStart], "path: /readyz") {
-		t.Fatal("ListingKit API readiness probe must use /readyz")
-	}
-	if !strings.Contains(manifest[livenessStart:startupStart], "path: /health") {
-		t.Fatal("ListingKit API liveness probe must use /health")
-	}
-}
-
 func TestRetiredListingGenerationUsageCanaryIsAbsent(t *testing.T) {
 	path := filepath.Join("..", "deployments", "kubernetes", "listingkit-workbench", "base", "configmap.yaml")
 	content, err := os.ReadFile(path)
@@ -274,7 +252,7 @@ func TestRetiredListingGenerationUsageCanaryIsAbsent(t *testing.T) {
 	}
 }
 
-func TestListingKitMemberInvitationTokenIsAPIScoped(t *testing.T) {
+func TestListingKitRetainedWorkloadsExcludeInvitationCredentials(t *testing.T) {
 	base := filepath.Join("..", "deployments", "kubernetes", "listingkit-workbench", "base")
 	sharedSecret, err := os.ReadFile(filepath.Join(base, "secret.example.yaml"))
 	if err != nil {
@@ -289,44 +267,12 @@ func TestListingKitMemberInvitationTokenIsAPIScoped(t *testing.T) {
 		}
 	}
 
-	invitationSecret, err := os.ReadFile(filepath.Join(base, "member-invitation-secret.example.yaml"))
-	if err != nil {
-		t.Fatalf("read member invitation Secret: %v", err)
-	}
-	for _, required := range []string{
-		"name: listingkit-member-invitation-secret",
-		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_MEMBER_INVITATION_TOKEN",
-		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_PROJECT_ID",
-	} {
-		if !strings.Contains(string(invitationSecret), required) {
-			t.Errorf("member invitation Secret must contain %q", required)
-		}
-	}
-
-	apiManifest, err := os.ReadFile(filepath.Join(base, "product-listing-api-deployment.yaml"))
-	if err != nil {
-		t.Fatalf("read ListingKit API deployment: %v", err)
-	}
-	for _, required := range []string{
-		"name: TASK_PROCESSOR_LISTINGKIT_ZITADEL_MEMBER_INVITATION_TOKEN",
-		"name: listingkit-member-invitation-secret",
-		"key: TASK_PROCESSOR_LISTINGKIT_ZITADEL_MEMBER_INVITATION_TOKEN",
-	} {
-		if !strings.Contains(string(apiManifest), required) {
-			t.Errorf("ListingKit API deployment must contain %q", required)
-		}
-	}
-	if strings.Contains(string(apiManifest), "key: TASK_PROCESSOR_LISTINGKIT_ZITADEL_MEMBER_INVITATION_TOKEN\n                  optional: true") {
-		t.Fatal("ListingKit API must require the dedicated member invitation Secret to prevent fallback to a legacy shared token")
-	}
-
 	for _, name := range []string{
 		"listingkit-ui-deployment.yaml",
 		"imgproxy-deployment.yaml",
 		"shein-login-worker-deployment.yaml",
-		filepath.Join("..", "jobs", "product-listing-api-schema-migrate-job.yaml"),
-		filepath.Join("..", "jobs", "listingkit-schema-migrate-job.yaml"),
-		filepath.Join("..", "jobs", "pod-image-index-backfill-job.yaml"),
+		"image-agent-temporal-worker-deployment.yaml",
+		"image-agent-temporal-worker-v3-deployment.yaml",
 	} {
 		manifest, err := os.ReadFile(filepath.Join(base, name))
 		if err != nil {
@@ -344,9 +290,6 @@ func TestListingKitMemberInvitationTokenIsAPIScoped(t *testing.T) {
 	if strings.Contains(string(configMap), "TASK_PROCESSOR_LISTINGKIT_ZITADEL_PROJECT_ID") {
 		t.Fatal("ListingKit base ConfigMap must not overwrite the manually provisioned invitation project id during deploy")
 	}
-	if !strings.Contains(string(apiManifest), "key: TASK_PROCESSOR_LISTINGKIT_ZITADEL_PROJECT_ID") {
-		t.Fatal("ListingKit API deployment must read the invitation project id from the API-only Secret")
-	}
 
 	deployWorkflow, err := os.ReadFile(filepath.Join("..", ".github", "workflows", "listingkit-deploy.yml"))
 	if err != nil {
@@ -361,7 +304,7 @@ func TestListingKitMemberInvitationTokenIsAPIScoped(t *testing.T) {
 	}
 }
 
-func TestTencentSMSSecretIsAPIScopedAndWebhookIngressIsExact(t *testing.T) {
+func TestRetiredTencentSMSCredentialsAndRouteAreAbsent(t *testing.T) {
 	base := filepath.Join("..", "deployments", "kubernetes", "listingkit-workbench", "base")
 	const secretName = "listingkit-tencent-sms-secret"
 	requiredKeys := []string{
@@ -371,21 +314,6 @@ func TestTencentSMSSecretIsAPIScopedAndWebhookIngressIsExact(t *testing.T) {
 		"TASK_PROCESSOR_LISTINGKIT_TENCENT_SMS_APP_ID",
 		"TASK_PROCESSOR_LISTINGKIT_TENCENT_SMS_SIGN_NAME",
 		"TASK_PROCESSOR_LISTINGKIT_TENCENT_SMS_TEMPLATE_ID",
-	}
-
-	example, err := os.ReadFile(filepath.Join(base, "tencent-sms-secret.example.yaml"))
-	if err != nil {
-		t.Fatalf("read Tencent SMS Secret example: %v", err)
-	}
-	for _, required := range append([]string{"name: " + secretName}, requiredKeys...) {
-		if !strings.Contains(string(example), required) {
-			t.Errorf("Tencent SMS Secret example must contain %q", required)
-		}
-	}
-	for _, key := range requiredKeys {
-		if !strings.Contains(string(example), key+`: ""`) {
-			t.Errorf("Tencent SMS Secret example must keep %s blank", key)
-		}
 	}
 
 	sharedSecret, err := os.ReadFile(filepath.Join(base, "secret.example.yaml"))
@@ -407,37 +335,12 @@ func TestTencentSMSSecretIsAPIScopedAndWebhookIngressIsExact(t *testing.T) {
 		}
 	}
 
-	apiContainer := loadOnlyContainer(t, "base/product-listing-api-deployment.yaml")
-	for _, key := range requiredKeys {
-		found := false
-		for _, variable := range apiContainer.Env {
-			if variable.Name != key || variable.ValueFrom == nil || variable.ValueFrom.SecretKeyRef == nil {
-				continue
-			}
-			found = true
-			ref := variable.ValueFrom.SecretKeyRef
-			if ref.Name != secretName {
-				t.Errorf("ListingKit API must require %s from %s, got %s", key, secretName, ref.Name)
-			}
-			if ref.Key != key {
-				t.Errorf("ListingKit API must map %s to its same Secret key, got %s", key, ref.Key)
-			}
-			if ref.Optional != nil && *ref.Optional {
-				t.Errorf("ListingKit API must not make %s optional", key)
-			}
-		}
-		if !found {
-			t.Errorf("ListingKit API deployment must require %s from %s", key, secretName)
-		}
-	}
-
 	for _, name := range []string{
 		"listingkit-ui-deployment.yaml",
 		"imgproxy-deployment.yaml",
 		"shein-login-worker-deployment.yaml",
-		filepath.Join("..", "jobs", "product-listing-api-schema-migrate-job.yaml"),
-		filepath.Join("..", "jobs", "listingkit-schema-migrate-job.yaml"),
-		filepath.Join("..", "jobs", "pod-image-index-backfill-job.yaml"),
+		"image-agent-temporal-worker-deployment.yaml",
+		"image-agent-temporal-worker-v3-deployment.yaml",
 	} {
 		manifest, err := os.ReadFile(filepath.Join(base, name))
 		if err != nil {
@@ -449,7 +352,6 @@ func TestTencentSMSSecretIsAPIScopedAndWebhookIngressIsExact(t *testing.T) {
 	}
 
 	const webhookPath = "/api/v1/listing-kits/integrations/zitadel/sms"
-	webhookRoute := "- path: " + webhookPath + "\n            pathType: Prefix\n            backend:\n              service:\n                name: product-listing-api\n                port:\n                  name: http"
 	for _, ingressPath := range []string{
 		filepath.Join(base, "ingress.yaml"),
 		filepath.Join(base, "..", "overlays", "prod", "patch-ingress.yaml"),
@@ -459,16 +361,13 @@ func TestTencentSMSSecretIsAPIScopedAndWebhookIngressIsExact(t *testing.T) {
 			t.Fatalf("read ListingKit Ingress %s: %v", ingressPath, err)
 		}
 		manifest := strings.ReplaceAll(string(ingress), "\r\n", "\n")
-		if !strings.Contains(manifest, webhookRoute) {
-			t.Fatalf("Ingress %s must route only the signed Zitadel SMS webhook to product-listing-api", ingressPath)
-		}
-		if strings.Index(manifest, webhookRoute) > strings.Index(manifest, "- path: /\n            pathType: Prefix") {
-			t.Fatalf("Ingress %s must route the SMS webhook before the UI catch-all", ingressPath)
+		if strings.Contains(manifest, webhookPath) || strings.Contains(manifest, "product-listing-api") {
+			t.Fatalf("Ingress %s must not route to the retired API/SMS endpoint", ingressPath)
 		}
 	}
 }
 
-func TestListingKitSchemaMigrationJobUsesTheReleaseImage(t *testing.T) {
+func TestListingKitReleaseImageRetainsNormalSchemaCLI(t *testing.T) {
 	dockerfilePath := filepath.Join("..", "deployments", "docker", "Dockerfile.product-listing-api")
 	dockerfile, err := os.ReadFile(dockerfilePath)
 	if err != nil {
@@ -484,21 +383,4 @@ func TestListingKitSchemaMigrationJobUsesTheReleaseImage(t *testing.T) {
 		}
 	}
 
-	jobPath := filepath.Join("..", "deployments", "kubernetes", "listingkit-workbench", "jobs", "listingkit-schema-migrate-job.yaml")
-	job, err := os.ReadFile(jobPath)
-	if err != nil {
-		t.Fatalf("read ListingKit schema migration Job: %v", err)
-	}
-	for _, required := range []string{
-		"kind: Job",
-		"REPLACE_WITH_API_IMAGE",
-		"/app/listingkit-schema-migrate",
-		"listingkit-workbench-config",
-		"listingkit-workbench-secret",
-		"-scope", "all",
-	} {
-		if !strings.Contains(string(job), required) {
-			t.Errorf("schema migration Job must contain %q", required)
-		}
-	}
 }

@@ -1,5 +1,7 @@
 # Legacy Register
 
+> #29 / #301 用户确认[旧 Kubernetes API/Task 发布执行完整闭包](../architecture/legacy-kubernetes-release-execution-closure-retirement-boundary.md)冻结设计 `a73f44144`；Independent Architecture / IMPLEMENTATION_READY，开工前双Issue Ready已读回。在 #847 同批源码RETIRE十五专属源、十二混合源及准确测试/文档尾部；仅EXTRACT三个当前共享测试utility到已有安全测试owner。仅取代这些准确源的旧保留含义，不机械拆批。当前UI/schema/ImageAgent两worker/canary/Go恢复、共享执行器与有效安全合同、采集/Store/独立SHEIN登录同步及此前能力保留。原历史行/计数、workflow/inventory/依赖、实际运行数据不改，无新试用前置；准确实现HEAD/CI/最终复核留PR。
+
 > #29 / #301 用户确认[旧本地启动与 ImageAgent 验收完整闭包](../architecture/legacy-local-acceptance-closure-retirement-boundary.md)冻结设计 `6a654c04f` 后，在 #846 按 §5/§6/§6.1/§7 整批源码 RETIRE：八个 API/dev launcher、旧验收编排/内联 helper、专属测试/Compose 及准确说明尾部一起退出，原 guard 改为源缺席。Reuse Existing Architecture，无新增抽取/替代验收。仅取代这些准确源的旧保留结论；当前 UI/测试、token handoff、原生身份 CLI/库、issue357、通用工具、ImageAgent/Temporal、采集/Store/独立 SHEIN 登录与同步原样。历史记录/计数、全部 workflow/inventory/依赖不改，无运行/数据/凭据/清理或新试用前置；准确 HEAD/CI/最终复核留 PR。
 
 > #29 / #301 用户确认[旧 Task 诊断与回归验收完整闭包](../architecture/legacy-task-diagnostics-retirement-boundary.md)冻结设计 `ddc6414b0` 后，在 #844 按 §5/§6/§6.1/§7 整批源码 RETIRE：inspector、preview 清单校验器及专属测试/样例/内联 helper、旧查询帮助和准确验收/Temporal PoC 说明尾部。Reuse Existing Architecture；无新抽取、替代 Task/cache owner 或兼容层。当前定价/API/规则、Temporal、通用 DB/prompt replay、采集/Store/独立 SHEIN 登录与同步保留。仅替代 inspector 当前工具保留结论及旧清单 Pester 的追修含义；历史行/计数、商业门禁、全部 workflow/inventory 不改，无运行/数据操作或新试用前置。

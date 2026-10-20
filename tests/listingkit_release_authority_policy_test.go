@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -41,43 +42,16 @@ func TestListingKitReleaseAuthorityMachinePolicyOwnsAllSecurityInputs(t *testing
 				UsernamePrefix string `yaml:"usernamePrefix"`
 				RefreshHelper  string `yaml:"refreshHelper"`
 				Identities     map[string]struct {
-					Environment     string `yaml:"environment"`
-					Audience        string `yaml:"audience"`
-					Subject         string `yaml:"subject"`
-					WorkflowRef     string `yaml:"workflowRef"`
-					Job             string `yaml:"job"`
-					ProtectedGroups []struct {
-						RefreshStep    string   `yaml:"refreshStep"`
-						OperationSteps []string `yaml:"operationSteps"`
-					} `yaml:"protectedGroups"`
+					Environment string `yaml:"environment"`
+					Audience    string `yaml:"audience"`
+					Subject     string `yaml:"subject"`
+					WorkflowRef string `yaml:"workflowRef"`
 				} `yaml:"identities"`
 			} `yaml:"oidc"`
 			Tools struct {
 				ConftestVersion string `yaml:"conftestVersion"`
 				OPAVersion      string `yaml:"opaVersion"`
 			} `yaml:"tools"`
-			ProducerRouting struct {
-				ImageLabel string `yaml:"imageLabel"`
-				Annotation string `yaml:"annotation"`
-				Contract   string `yaml:"contract"`
-			} `yaml:"producerRouting"`
-			ReleaseAttestation struct {
-				Version              string `yaml:"version"`
-				WorkerWireContract   string `yaml:"workerWireContract"`
-				WorkerReplayContract string `yaml:"workerReplayContract"`
-				SchemaContract       string `yaml:"schemaContract"`
-			} `yaml:"releaseAttestation"`
-			ReleaseIdentity struct {
-				Owner       string `yaml:"owner"`
-				Deployment  string `yaml:"deployment"`
-				Step        string `yaml:"step"`
-				Annotations struct {
-					RunID      string `yaml:"runId"`
-					RunAttempt string `yaml:"runAttempt"`
-					Image      string `yaml:"image"`
-					Routing    string `yaml:"routingContract"`
-				} `yaml:"annotations"`
-			} `yaml:"releaseIdentity"`
 			UIAuthorization struct {
 				Owner           string `yaml:"owner"`
 				SharedConfigMap string `yaml:"sharedConfigMap"`
@@ -126,33 +100,11 @@ func TestListingKitReleaseAuthorityMachinePolicyOwnsAllSecurityInputs(t *testing
 	if api.Environment != listingKitAPIOIDCEnvironment || ui.Environment != listingKitUIOIDCEnvironment ||
 		api.Audience != listingKitAPIOIDCAudience || ui.Audience != listingKitUIOIDCAudience ||
 		api.Subject == "" || ui.Subject == "" || api.Subject == ui.Subject ||
-		api.WorkflowRef != listingKitAPIWorkflowRef || ui.WorkflowRef != listingKitUIWorkflowRef || api.Job == ui.Job {
+		api.WorkflowRef != listingKitAPIWorkflowRef || ui.WorkflowRef != listingKitUIWorkflowRef {
 		t.Fatalf("release policy must own distinct API/UI identities: api=%#v ui=%#v", api, ui)
-	}
-	if len(api.ProtectedGroups) != 8 || len(ui.ProtectedGroups) != 1 {
-		t.Fatalf("release policy must own every fresh-OIDC protected group: api=%#v ui=%#v", api.ProtectedGroups, ui.ProtectedGroups)
 	}
 	if authority.Tools.ConftestVersion == "" || authority.Tools.OPAVersion == "" || strings.Contains(authority.Tools.ConftestVersion, "latest") || strings.Contains(authority.Tools.OPAVersion, "latest") {
 		t.Fatalf("release policy must pin Conftest and embedded OPA versions: %#v", authority.Tools)
-	}
-	if authority.ProducerRouting.ImageLabel != "org.opencontainers.image.listingkit.image-agent-routing" ||
-		authority.ProducerRouting.Annotation != "listingkit.sh/image-agent-routing-contract" ||
-		authority.ProducerRouting.Contract != "image-agent-v3-new-starts-v1" {
-		t.Fatalf("release policy must own the immutable v3 producer-routing contract: %#v", authority.ProducerRouting)
-	}
-	if authority.ReleaseAttestation.Version != "listingkit-api-release-gate/v2" ||
-		authority.ReleaseAttestation.WorkerWireContract != "image-agent-workers-v2-v3" ||
-		authority.ReleaseAttestation.WorkerReplayContract != "image-agent-replay-v2-v3" ||
-		authority.ReleaseAttestation.SchemaContract != "listingkit-schema-additive-v1" {
-		t.Fatalf("release policy must own the exact rollback attestation contracts: %#v", authority.ReleaseAttestation)
-	}
-	if authority.ReleaseIdentity.Owner != "api" || authority.ReleaseIdentity.Deployment != "product-listing-api" ||
-		authority.ReleaseIdentity.Step != "Stamp API release identity and restart Pods" ||
-		authority.ReleaseIdentity.Annotations.RunID != "listingkit.sh/api-release-run-id" ||
-		authority.ReleaseIdentity.Annotations.RunAttempt != "listingkit.sh/api-release-run-attempt" ||
-		authority.ReleaseIdentity.Annotations.Image != "listingkit.sh/api-release-image" ||
-		authority.ReleaseIdentity.Annotations.Routing != "listingkit.sh/image-agent-routing-contract" {
-		t.Fatalf("release policy must own the exact API release identity stamp: %#v", authority.ReleaseIdentity)
 	}
 	if authority.UIAuthorization.Owner != "ui" || authority.UIAuthorization.SharedConfigMap != "listingkit-workbench-config" ||
 		authority.UIAuthorization.ConfigMap != "listingkit-ui-auth-config" || authority.UIAuthorization.Deployment != "listingkit-ui" ||
@@ -163,8 +115,22 @@ func TestListingKitReleaseAuthorityMachinePolicyOwnsAllSecurityInputs(t *testing
 		t.Fatalf("release policy must own RBAC paths and protected resources: %#v", authority.RBAC)
 	}
 	if authority.ReleaseGateRunners.Manifest != "deployments/kubernetes/listingkit-workbench/release-authority/listingkit-release-gate-runners.yaml" ||
-		authority.ReleaseGateRunners.HoldImage != releaseGateHoldImage || len(authority.ReleaseGateRunners.Names) != 3 {
+		authority.ReleaseGateRunners.HoldImage != releaseGateHoldImage || len(authority.ReleaseGateRunners.Names) != 1 || authority.ReleaseGateRunners.Names[0] != "image-agent-temporal-v3-canary-runner" {
 		t.Fatalf("release policy must own the aggregate runner manifest and exact inventory: %#v", authority.ReleaseGateRunners)
+	}
+	if len(authority.ProtectedResources) != 6 {
+		t.Fatalf("retained API/UI protected resource inventory drifted: %#v", authority.ProtectedResources)
+	}
+	for _, protected := range authority.ProtectedResources {
+		for _, name := range protected.ResourceNames {
+			switch name {
+			case "product-listing-api", "product-listing-api-schema-migrate-runner", "listingkit-schema-migrate-runner", "listingkit-member-invitation-secret":
+				t.Errorf("retired source permission remains: %s", name)
+			}
+		}
+		if protected.Owner == "api" && protected.Resource == "deployments" && strings.Join(protected.ResourceNames, ",") != "image-agent-temporal-worker,image-agent-temporal-worker-v3,image-agent-temporal-v3-canary-runner" {
+			t.Errorf("retained worker/canary deployment permissions drifted: %#v", protected)
+		}
 	}
 	if len(authority.Documentation.Paths) == 0 || len(authority.Documentation.CanonicalWorkflows) != 2 {
 		t.Fatalf("release policy must own supported release docs and canonical workflow links: %#v", authority.Documentation)
@@ -414,7 +380,6 @@ func TestListingKitReleaseAuthorityNegativeFixturesAreCheckedIn(t *testing.T) {
 		"excess-rbac-resources.yaml",
 		"excess-rbac-resource-names.yaml",
 		"policy-drift.yaml",
-		"release-identity-owner-drift.yaml",
 		"workflow-ref-feature-branch.yaml",
 		"workflow-ref-tag.yaml",
 		"workflow-ref-path-prefix-lookalike.yaml",
@@ -582,4 +547,52 @@ func runReleaseAuthorityCrossFilePolicy(t *testing.T, mutatedWorkflow, mutatedUI
 	command.Dir = repoRoot
 	output, runErr := command.CombinedOutput()
 	return string(output), runErr
+}
+
+func preflightBash(t *testing.T) string {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		path := `C:\Program Files\Git\bin\bash.exe`
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+	}
+	if path, err := exec.LookPath("bash"); err == nil {
+		return path
+	}
+	t.Fatal("bash is required to execute the ListingKit invitation Secret preflight")
+	return ""
+}
+
+func writeBashPreflightFake(t *testing.T, path, content string) {
+	t.Helper()
+	writeExecutablePreflightFake(t, path, content)
+	output, err := exec.Command(preflightBash(t), "-n", path).CombinedOutput()
+	if err != nil {
+		t.Fatalf("validate Bash fake %s: %v\n%s", filepath.Base(path), err, output)
+	}
+}
+
+func writeExecutablePreflightFake(t *testing.T, path, content string) {
+	t.Helper()
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".preflight-fake-*")
+	if err != nil {
+		t.Fatalf("create fake %s: %v", filepath.Base(path), err)
+	}
+	tmpPath := tmp.Name()
+	defer os.Remove(tmpPath)
+	if _, err := tmp.WriteString(content); err != nil {
+		_ = tmp.Close()
+		t.Fatalf("write fake %s: %v", filepath.Base(path), err)
+	}
+	if err := tmp.Chmod(0o700); err != nil {
+		_ = tmp.Close()
+		t.Fatalf("chmod fake %s: %v", filepath.Base(path), err)
+	}
+	if err := tmp.Close(); err != nil {
+		t.Fatalf("close fake %s: %v", filepath.Base(path), err)
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		t.Fatalf("publish fake %s: %v", filepath.Base(path), err)
+	}
 }

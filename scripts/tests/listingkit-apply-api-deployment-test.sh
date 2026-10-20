@@ -4,7 +4,7 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 driver="$repo_root/scripts/listingkit-apply-api-deployment.sh"
-manifest="$repo_root/deployments/kubernetes/listingkit-workbench/base/product-listing-api-deployment.yaml"
+manifest="$repo_root/deployments/kubernetes/listingkit-workbench/base/image-agent-temporal-worker-deployment.yaml"
 ui_driver="$repo_root/scripts/listingkit-apply-ui-deployment.sh"
 ui_manifest="$repo_root/deployments/kubernetes/listingkit-workbench/base/listingkit-ui-deployment.yaml"
 
@@ -113,6 +113,7 @@ run_success_case() {
     "$driver" \
       --manifest "$manifest" \
       --namespace test-namespace \
+      --container image-agent-temporal-worker \
       --image "$immutable_image"
 
   assert_file_equals '-n|test-namespace|apply|-f|<rendered-manifest>' "$command_log"
@@ -158,6 +159,7 @@ run_apply_failure_case() {
     "$driver" \
       --manifest "$manifest" \
       --namespace test-namespace \
+      --container image-agent-temporal-worker \
       --image docker.io/xuwei190/task-processor-product-listing-api@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
       >/dev/null 2>&1
   status=$?
@@ -188,6 +190,7 @@ run_invalid_image_case() {
       "$driver" \
         --manifest "$manifest" \
         --namespace test-namespace \
+        --container image-agent-temporal-worker \
         --image "$image"
   } 2>&1)"
   status=$?
@@ -205,6 +208,39 @@ run_invalid_image_case() {
   fi
 }
 
+run_missing_container_case() {
+  local command_log="$test_root/missing-container.commands"
+  local fixture="$test_root/missing-container.yaml"
+  local status
+  cat >"$fixture" <<'EOF'
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: negative-fixture
+spec:
+  template:
+    spec:
+      containers:
+        - name: product-listing-api
+          image: example.invalid/fixture:old
+EOF
+  set +e
+  PATH="$fake_bin:$PATH" \
+    FAKE_KUBECTL_LOG="$command_log" \
+    FAKE_RENDERED_MANIFEST="$test_root/missing-container.rendered.yaml" \
+    FAKE_RENDERED_PATH_LOG="$test_root/missing-container.rendered-path" \
+    "$driver" --manifest "$fixture" --namespace test-namespace \
+      --image 'example.invalid/fixture@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' \
+      >"$test_root/missing-container.output" 2>&1
+  status=$?
+  set -e
+  if [[ "$status" -eq 0 || -s "$command_log" ]]; then
+    printf 'missing explicit container must fail before any kubectl invocation\n' >&2
+    exit 1
+  fi
+}
+
+run_missing_container_case
 run_success_case
 run_ui_success_case
 run_apply_failure_case
