@@ -78,7 +78,12 @@ it("archives a definite image-review rejection and unlocks correction without ge
  expect(localStorage.getItem(key)).toBeNull();
  expect(Object.keys(localStorage).some(k=>k.includes(":verified-intent:")&&JSON.parse(localStorage.getItem(k)!).requestKey===requestKey)).toBe(true);
  expect(screen.queryByRole("button",{name:"核实原请求"})).toBeNull();
+ expect(screen.getByRole("button",{name:"准备整套图片计划（2 项）"})).toBeDisabled();
+ fireEvent.change(screen.getByRole("combobox",{name:"图片文字方式"}),{target:{value:"none"}});
  expect(screen.getByRole("button",{name:"准备整套图片计划（2 项）"})).toBeEnabled();
+ fireEvent.click(screen.getByRole("checkbox",{name:"商品识别主图"}));expect(screen.getByRole("button",{name:"准备整套图片计划（1 项）"})).toBeDisabled();
+ fireEvent.click(screen.getByRole("checkbox",{name:"商品识别主图"}));expect(screen.getByRole("button",{name:"准备整套图片计划（2 项）"})).toBeDisabled();
+ fireEvent.change(screen.getByRole("combobox",{name:"图片文字方式"}),{target:{value:"none"}});expect(screen.getByRole("button",{name:"准备整套图片计划（2 项）"})).toBeEnabled();
  expect(fetch.mock.calls.filter(([,init])=>init?.method==="POST")).toHaveLength(1);
 });
 
@@ -97,7 +102,36 @@ it.each(["prepare","regenerate"])("preserves restored %s bytes when the original
  view.unmount();render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
  const history=await screen.findByText("已核实的原请求");
  expect(history.closest("section")!.querySelector("pre")!.textContent).toBe(raw);
+ if(action==="prepare"){
+  fireEvent.click(screen.getByRole("checkbox",{name:"共用原始素材 素材 1"}));
+  expect(screen.getByRole("button",{name:"准备整套图片计划（2 项）"})).toBeDisabled();
+  fireEvent.change(screen.getByRole("combobox",{name:"图片文字方式"}),{target:{value:"none"}});
+  expect(screen.getByRole("button",{name:"准备整套图片计划（2 项）"})).toBeEnabled();
+ }
  expect(fetch.mock.calls.filter(([,init])=>init?.method==="POST")).toHaveLength(1);
+});
+
+it("requires a freshly confirmed Review after a definite initial preparation rejection",async()=>{
+ const fixture=contentProposalFixture(),reviewId=fixture.proposal_id,selection={targetLanguage:"en",title:true,sellingPoints:true},values=[{field:"title",value:"Women's organizer"},{field:"selling_points",value:'["Size: 13\\\" × 15\\\""]'}];
+ const accepted={...fixture,input:{product_key:"p",base_version:"1"},state:"accepted",content:{...fixture.content,selection,before:values,after:values},execution:{...fixture.execution,binding:{...fixture.execution.binding,ProductKey:"p"},ContentSelection:selection}};
+ let reviewRevision="2",preparations=0;const real=fetch.getMockImplementation()!;
+ fetch.mockImplementation((url,init)=>String(url).endsWith(`/text-proposals/${reviewId}`)?Promise.resolve(Response.json({...accepted,revision:reviewRevision})):String(url).endsWith("/prepare")?Promise.resolve(++preparations===1?Response.json({code:"IMAGE_TEXT_REVIEW_CHANGED"},{status:409}):Response.json(state,{status:201})):real(url,init));
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ const initialCopy=within(await screen.findByRole("region",{name:"图片文字语言"}));
+ fireEvent.change(initialCopy.getByRole("combobox",{name:"图片文字方式"}),{target:{value:"reviewed"}});
+ fireEvent.change(initialCopy.getByLabelText("文案审核编号"),{target:{value:reviewId}});fireEvent.click(initialCopy.getByRole("button",{name:"读取审核译文"}));await initialCopy.findByText("本次图片文案 · 最多两条");
+ fireEvent.click(initialCopy.getByRole("checkbox",{name:"确认目标语言图片文案"}));await prepare();
+ await screen.findByText(/审核译文已变化/);
+ const button=screen.getByRole("button",{name:"准备整套图片计划（2 项）"}),archived=Object.keys(localStorage).find(key=>key.includes(":verified-intent:"))!,raw=localStorage.getItem(archived)!;
+ expect(JSON.parse(raw).body.text.review).toEqual({proposalId:reviewId,revision:"2"});expect(button).toBeDisabled();expect(preparations).toBe(1);
+ reviewRevision="3";
+ const copy=within(screen.getByRole("region",{name:"图片文字语言"}));
+ const read=copy.getByRole("button",{name:"读取审核译文"});await waitFor(()=>expect(read).toBeEnabled());fireEvent.click(read);await copy.findByText("本次图片文案 · 最多两条");expect(button).toBeDisabled();
+ fireEvent.click(copy.getByRole("checkbox",{name:"确认目标语言图片文案"}));await waitFor(()=>expect(button).toBeEnabled());fireEvent.click(button);
+ await waitFor(()=>expect(preparations).toBe(2));
+ const request=fetch.mock.calls.filter(([url])=>String(url).endsWith("/prepare"))[1]!;
+ expect(JSON.parse(String(request[1]!.body)).text).toEqual({mode:"reviewed",review:{proposalId:reviewId,revision:"3"},taskIds:["main","detail"]});
+ expect(localStorage.getItem(archived)).toBe(raw);expect(fetch.mock.calls.filter(([,init])=>init?.method==="POST")).toHaveLength(2);
 });
 
 it("keeps a rejected preparation locked if its original request cannot be archived",async()=>{

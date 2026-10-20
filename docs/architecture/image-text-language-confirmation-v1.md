@@ -151,6 +151,10 @@ and a newly confirmed request. This also applies when verifying a retained
 original request. UNKNOWN, timeouts and not-found reads remain locked and do not
 authorize a new request or a model call. Reuse the existing retained-request
 history; do not change backend recovery, admission or settlement owners.
+After a definite initial preparation rejection, invalidate its prior copy
+confirmation too. The existing archived request keeps the requirement across
+reload; a new reviewed or explicit no-text choice is required before preparing
+again, including after template or slot changes.
 For a rejected regeneration, explicitly re-read and confirm copy against its
 parent's frozen source, template language and selected slots (or explicitly
 choose no text), while preserving the parent's exact Skill and original assets.
