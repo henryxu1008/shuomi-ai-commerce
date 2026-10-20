@@ -1,3 +1,7 @@
+> **状态：SUPERSEDED — 旧数字 Task 验收指引（2026-10-20，#844）**
+> 按[用户确认的 #844 冻结设计](https://github.com/qq550723504/task-processor/blob/ddc6414b0b93964d4de47d34d002ba990257efa1/docs/architecture/legacy-task-diagnostics-retirement-boundary.md)，旧 Task/Workspace、preview/readiness/submit 链及其专属诊断/回归工具已源码退休。后文使用方式、run 类型和最低验收集保留为旧路径历史说明，不是当前仓库或内部试用准入，也不要求新建等价模板或替代流程。
+> 已有 dated runs、失败/阻塞/关闭证据保留；远端旧实例、任务和私有清单状态 UNKNOWN，本文不确认其停止，也不授权重放、删除或清理。当前商业收费/外部准入/生产发布门禁及实际旧环境恢复 SOP 保持；不能以源码退休宣称这些验收已通过。
+
 # ListingKit 真实接口验收记录
 
 本目录用于保存每轮真实接口联调和端到端验收报告。
@@ -42,27 +46,12 @@ YYYY-MM-DD-<platform>-<source>-<scenario>.md
 - 1 条可恢复失败路径。
 - 1 条 readiness blocked 修复路径。
 
-## 可重复回归数据集
+## 已退休的回归数据集工具（历史）
 
-将受控生产 fixture 的 task ID 保存在仓库外的 JSON 文件中，并以
-[`../listingkit-production-regression-dataset.example.json`](../listingkit-production-regression-dataset.example.json)
-为结构模板。该文件不能包含 bearer token、Cookie、店铺密钥或客户商品原始数据。
-
-校验器只读取任务 preview/readiness，不创建任务、不保存草稿也不发布商品：
-
-```powershell
-.\scripts\listingkit-regression-dataset-check.ps1 -DatasetPath C:\secure\listingkit-regression-dataset.json
-```
-
-运行前通过 `LISTINGKIT_API_TOKEN` 或 `.local\listingkit-api-token.txt` 提供短期
-operator token。每次 RC 验收都应保留校验结果及对应的 validation run 记录。
-
-在接触受控生产环境前，先在本地或 CI 中校验仓库外清单的结构；该模式不读取
-token，也不发起网络请求：
-
-```powershell
-.\scripts\listingkit-regression-dataset-check.ps1 -DatasetPath C:\secure\listingkit-regression-dataset.json -ValidateOnly
-```
+旧 preview/readiness 清单校验器、专属 Pester 测试与占位示例已按 #844 退出源码。
+其[历史脚本](https://github.com/qq550723504/task-processor/blob/4c5f5b16fa1a3afc05566b0f80538a05f99ab4e2/scripts/listingkit-regression-dataset-check.ps1)和
+[历史示例](https://github.com/qq550723504/task-processor/blob/4c5f5b16fa1a3afc05566b0f80538a05f99ab4e2/docs/product/validation/listingkit-production-regression-dataset.example.json)
+只供追溯，不是活动命令或当前验收入口。仓库外清单、token、既有校验结果和报告保持原 owner；本批未定位、读取或清理，不要求操作员补跑或迁移。
 
 ## 不能忽略的问题
 

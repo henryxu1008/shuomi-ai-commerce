@@ -1,3 +1,6 @@
+> **状态：HISTORICAL EVALUATION — 旧 submit PoC（2026-10-20，#844）**
+> 按[用户确认的 #844 冻结设计](https://github.com/qq550723504/task-processor/blob/ddc6414b0b93964d4de47d34d002ba990257efa1/docs/architecture/legacy-task-diagnostics-retirement-boundary.md)，本文 2026-05-18 旧 ListingKit SHEIN submit PoC 的落地结果，以及“保留当前状态机/下一步迁入”建议，只描述当时源码与评估，不再声明当前源能力或形成派工/试用前置。日期、评估/恢复/幂等事实与正文原样保留；有效 durable execution 原理复用当前 Temporal owner，不改变当前合同/基础设施/SDK/worker。实际旧 workflow 状态 UNKNOWN，本文不证明其退出，也不授权运行或数据操作。
+
 # Temporal 工作流编排评估
 
 ## 结论

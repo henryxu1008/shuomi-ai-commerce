@@ -1,7 +1,7 @@
-> **状态：CURRENT VALIDATION TEMPLATE FOR LIVE PATH / NOT PRODUCT AUTHORITY（2026-09-26 校准）**  
-> 在 `docs/product/validation/runs/` 仍要求复制本模板记录真实集成与回归证据期间，本文继续作为该**现有运行路径**的当前验收记录模板；不能在未提供并切换到替代模板前把它降级为仅历史材料。  
-> 本文不决定产品 UI / IA、页面命名、长期架构或近期派工。产品投影以 [最终 Figma UI / IA Authority](../final-ui-ia-authority.md) 为准，旧 ListingKit / Task-first 架构按 [Legacy Register](../../refactoring/legacy-register.md) EXTRACT → RETIRE。  
-> 模板中的旧 Task / Workspace 字段只用于准确记录仍存活路径的事实；当对应运行路径完成 cutover，validation run 指引必须先切换到当前 owner 的等价模板，再退休这些旧字段。
+> **状态：SUPERSEDED FOR CURRENT SOURCE / HISTORICAL TASK TEMPLATE（2026-10-20，#844）**
+> 按[用户确认的 #844 冻结设计](https://github.com/qq550723504/task-processor/blob/ddc6414b0b93964d4de47d34d002ba990257efa1/docs/architecture/legacy-task-diagnostics-retirement-boundary.md)，旧数字 Task/Workspace 源码链已取消，本文不再是当前仓库或内部试用的 CURRENT 验收门禁。用户明确确认取消该旧流程，准确取代原 2026-09-26“必须切换等价模板才能历史化”的前置；不为已取消流程新建替代模板，也不将旧字段带入当前 BusinessTask。
+> 以下模板字段/正文原样保留，用于追溯既有旧路径事实；远端旧实例是否仍存活为 UNKNOWN，不宣布服务停用、不撤销其证据或实际恢复责任。当前商业收费/外部准入/生产发布门禁及恢复 SOP 保持；历史记录/NOT_RUN 不等于当前验收通过。
+> 本文不拥有产品 UI/IA 或长期架构权威；当前产品/领域 owner 与原安全合同保持。
 
 # ListingKit 真实接口验收报告模板
 
