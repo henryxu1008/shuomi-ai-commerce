@@ -1,3 +1,6 @@
+> **状态：SUPERSEDED — 旧 Task tracker 的当前必填要求（2026-10-20，#844）**
+> 按[用户确认的 #844 冻结设计](https://github.com/qq550723504/task-processor/blob/ddc6414b0b93964d4de47d34d002ba990257efa1/docs/architecture/legacy-task-diagnostics-retirement-boundary.md)，旧 Task/preview/readiness 链已源码退休，本文不再是当前仓库或内部试用的必填 tracker。以下全部日期、表行、状态、接口、关闭标准和历史证据原样保留；源码退休不代表 open/unknown 已解决，不将失败/未执行改写为成功。远端旧运行事实 UNKNOWN，当前 owner 的安全/恢复责任及商业/生产门禁保持，无真实环境或数据操作授权。
+
 # ListingKit unknown 状态和 blocker 待关闭清单
 
 本文件集中记录真实接口验收中出现的未知任务状态、未知 readiness blocker、空错误响应和 UI 无下一步动作问题。

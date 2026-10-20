@@ -36,7 +36,6 @@ ListingKit 是需要退休的旧产品投影与混合架构，不是硕米的长
 - [付费试点产品目录与用量政策](./listingkit-paid-pilot-product-catalog.md) — `paid_pilot`、capability / entitlement、metering 与 `shein_publish` 默认关闭等仍是当前商业政策依据；产品投影部分服从 Figma。
 - [付费商业试点上线执行计划](./listingkit-paid-pilot-execution-plan.md) — 外部准入、收费前置、PAY-041～044 / PAY-070～073、Go/No-Go 与回滚等商业 rollout 门禁在新 owner 承接前继续有效；不再作为 ListingKit 产品路线图或通用开发队列。
 - [错误恢复 SOP](./ops/listingkit-error-recovery-sop.md) — 对仍存活的旧 ListingKit / SHEIN 商业路径继续提供操作员恢复与升级指导；不拥有产品/IA 权威。
-- [真实接口验收报告模板](./validation/listingkit-real-api-validation-report-template.md) — 在现有真实集成/回归流程完成 cutover 前，继续作为该运行路径的验收记录模板；不拥有产品/IA 权威。
 
 这些文档的“当前”仅限各自商业政策、运维或验收职责。它们不能据此恢复旧 Workspace、Task-first 产品模型、永久 ListingKit facade 或新的 legacy consumer；当对应当前 owner/runbook/template 接管后，再单独退休其旧路径部分。
 
@@ -50,6 +49,7 @@ ListingKit 是需要退休的旧产品投影与混合架构，不是硕米的长
 - [ListingKit 产品路线图](./listingkit-product-roadmap.md)
 - [ListingKit 下一阶段执行计划](./listingkit-next-execution-plan.md)
 - [ListingKit 错误恢复手册](./listingkit-error-recovery.md)
+- [旧 Task 真实接口验收报告模板](./validation/listingkit-real-api-validation-report-template.md) — #844 用户确认取消旧数字 Task 源码流程后的历史模板；不作为当前仓库/内部试用门禁，不要求等价替代模板。正文/既有证据保留，远端旧运行事实 UNKNOWN，商业门禁与实际恢复责任保持。
 
 读取这些历史文档时，只抽取仍被当前 owner 明确承接的业务、安全、幂等、恢复或平台规则。出现与 Figma Authority、全新系统基线、Legacy Register、当前领域合同或具体 Issue 冲突的内容时，以后者为准。
 

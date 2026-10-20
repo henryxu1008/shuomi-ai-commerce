@@ -2,7 +2,7 @@
 
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
-> Status: **DESIGNING / 待独立设计复核及用户确认；未实施，Ready=false。** Design Basis: **Reuse Existing Architecture**。调查基线 main `4c5f5b16fa1a3afc05566b0f80538a05f99ab4e2`（2026-10-20）。本文只提出 §5 / §6 / §6.1 / §7 的完整闭包；用户确认前不修改可执行源、测试、样例或当前验收说明。准确设计 HEAD、CI、独立检查及确认记录维护在主要 PR。
+> Status: **用户已确认冻结设计 `ddc6414b0` 并授权按 §5/§6/§6.1/§7 在 #844 整批实施；准确源与专属尾部已退出，待原 CI、最终独立交付检查及合并授权。** Design Basis: **Reuse Existing Architecture**。调查/实施开工基线 main `4c5f5b16fa1a3afc05566b0f80538a05f99ab4e2`（2026-10-20）。#29/#301 Ready 均读回后才修改可执行源；本文矩阵为用户确认的冻结设计，准确实施 HEAD、CI、检查和授权证据维护在主要 PR，源码退休不等于运行或数据退出。
 
 ## 1. 用户结果、范围与停止点
 
@@ -122,7 +122,7 @@ Cutover/deletion condition: 用户确认本设计，#29/#301 Ready 均记录并�
 
 设计检查只读真实源/消费者、持久化与平台副作用 owner、§5/§6/§6.1/§7、原保留边界及模板 CURRENT 冲突的准确取代范围。使用原 GitHub 独立复核；同 SHA 已 Running 不重复触发，不常驻增加实现者/评审线程。finding 先分类，BLOCKER 要命中 AGENTS.md 的具体后果；非 Blocker 不无限重开设计。设计复核和 CI 不是用户设计确认。
 
-设计确认后在同一主要 PR 整批实施，形成稳定候选时再同步实际 main；不持续追 main。一次最终独立交付检查验证实际 diff、原 guard 有效断言、当前能力和历史记录保留及现有证据。修复只复核相关增量。当前阶段无实现或最终验收结论。
+设计确认后在同一主要 PR 整批实施，形成稳定候选时再同步实际 main；不持续追 main。一次最终独立交付检查验证实际 diff、原 guard 有效断言、当前能力和历史记录保留及现有证据。修复只复核相关增量。本批已按冻结矩阵完成源码实施，待原 CI 与最终独立交付检查；无运行/数据或用户验收结论。
 
 实施交付以“当前操作者不再被引向已退 Task 诊断/回归；通用查询/当前定价及所有保留能力维持原入口”交接，精确 HEAD、CI、review 写 PR。无新运行入口或要求用户操作旧环境；真实 DB/HTTP/token/provider/用户验收 **NOT_RUN**。实现后待独立检查/用户决定，不能自行签发产品验收、上线或关闭 #29/#301。
 

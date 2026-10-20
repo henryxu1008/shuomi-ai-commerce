@@ -16,6 +16,10 @@ import (
 
 func TestRetiredListingOperationsClosure(t *testing.T) {
 	for _, relative := range []string{
+		"tools/listingkit-pricing-cache-inspector/main.go",
+		"scripts/listingkit-regression-dataset-check.ps1",
+		"scripts/listingkit-regression-dataset-check.Tests.ps1",
+		"docs/product/validation/listingkit-production-regression-dataset.example.json",
 		"deployments/kubernetes/shein-listing/base/configmap.yaml",
 		"deployments/kubernetes/shein-listing/overlays/staging/kustomization.yaml",
 		"deployments/kubernetes/shein-listing/overlays/prod-single-store-181/kustomization.yaml",
