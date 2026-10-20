@@ -7,11 +7,164 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
 	"gopkg.in/yaml.v3"
 )
+
+func TestRetiredListingOperationsClosure(t *testing.T) {
+	for _, relative := range []string{
+		"deployments/kubernetes/shein-listing/base/configmap.yaml",
+		"deployments/kubernetes/shein-listing/overlays/staging/kustomization.yaml",
+		"deployments/kubernetes/shein-listing/overlays/prod-single-store-181/kustomization.yaml",
+		"deployments/kubernetes/shein-listing/overlays/prod-single-store-976/kustomization.yaml",
+		"deployments/kubernetes/shein-listing/overlays/prod-store-shards-gray/kustomization.yaml",
+		"deployments/kubernetes/shein-listing/overlays/prod-store-shards-example/kustomization.yaml",
+		"deployments/kubernetes/temu-listing/base/configmap.yaml",
+		"deployments/kubernetes/temu-listing/base/kustomization.yaml",
+		"deployments/kubernetes/temu-listing/base/namespace.yaml",
+		"deployments/kubernetes/temu-listing/base/secret.example.yaml",
+		"deployments/kubernetes/temu-listing/overlays/prod/external-secret.yaml",
+		"deployments/kubernetes/temu-listing/overlays/prod/kustomization.yaml",
+		"deployments/kubernetes/temu-listing/overlays/staging/kustomization.yaml",
+		"deployments/kubernetes/monitoring/shein-listing/README.md",
+		"deployments/kubernetes/monitoring/shein-listing/kustomization.yaml",
+		"deployments/kubernetes/monitoring/shein-listing/podmonitor.yaml",
+		"deployments/kubernetes/monitoring/shein-listing/podmonitor-store-883.yaml",
+		"deployments/kubernetes/monitoring/shein-listing/grafana-dashboard-configmap.yaml",
+		"deployments/kubernetes/monitoring/shein-listing/grafana-dashboard-business-configmap.yaml",
+		"deployments/kubernetes/monitoring/shein-listing/prometheusrule.yaml",
+		"scripts/lib/shein-rollout-batches.ps1",
+		"scripts/rollout-shein-shard-statefulset.Tests.ps1",
+		"scripts/fix-missing-shein-tasks.sql",
+	} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Errorf("retired listing operations artifact %s must be absent: %v", relative, err)
+		}
+	}
+	readYAML := func(relative string, target any) {
+		t.Helper()
+		content, err := os.ReadFile(filepath.Join("..", "deployments", "kubernetes", filepath.FromSlash(relative)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := yaml.Unmarshal(content, target); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for relative, resources := range map[string][]string{
+		"shein-listing/base/kustomization.yaml":            {"namespace.yaml"},
+		"shein-listing/overlays/prod/kustomization.yaml":   {"../../base", "external-secret.yaml"},
+		"monitoring/prometheus-storage/kustomization.yaml": {"prometheusrule.yaml", "alertmanagerconfig.yaml"},
+	} {
+		var assembly struct {
+			Namespace string   `yaml:"namespace"`
+			Resources []string `yaml:"resources"`
+		}
+		readYAML(relative, &assembly)
+		if !reflect.DeepEqual(assembly.Resources, resources) {
+			t.Errorf("%s resources = %v, want %v", relative, assembly.Resources, resources)
+		}
+		if strings.Contains(relative, "prometheus-storage") && assembly.Namespace != "monitoring" {
+			t.Error("shared storage assembly must use the monitoring namespace")
+		}
+	}
+	for _, relative := range []string{
+		"shein-listing/base/namespace.yaml", "shein-listing/base/secret.example.yaml",
+		"shein-listing/overlays/prod/secret.example.yaml", "shein-listing/overlays/prod/external-secret.yaml",
+		"shein-listing/overlays/prod-store-shards-example/secret.example.yaml",
+		"monitoring/amazon-crawler-api/podmonitor.yaml", "monitoring/amazon-crawler-api/prometheusrule.yaml",
+		"monitoring/amazon-crawler-api/grafana-dashboard-configmap.yaml",
+	} {
+		var resource struct {
+			Kind     string                `yaml:"kind"`
+			Metadata struct{ Name string } `yaml:"metadata"`
+		}
+		readYAML(relative, &resource)
+		if strings.Contains(relative, "secret") && resource.Metadata.Name != "shein-listing-secret" {
+			t.Errorf("%s must retain the Store proxy sync credential name", relative)
+		}
+		if resource.Kind == "Namespace" && resource.Metadata.Name != "task-processor" {
+			t.Error("shared task-processor namespace must remain")
+		}
+	}
+	for relative, tokens := range map[string][]string{
+		"deployments/kubernetes/shein-proxy-sync/shein-proxy-sync.yaml":                       {"shein-listing-secret", "DATABASE_SECRET"},
+		"scripts/sync-shein-store-proxies.ps1":                                                {"shein-listing-secret"},
+		"deployments/kubernetes/listingkit-workbench/base/shein-login-worker-deployment.yaml": {"listingkit-workbench-secret", "app: shein-login-worker", "/healthz"},
+	} {
+		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, token := range tokens {
+			if !strings.Contains(string(content), token) {
+				t.Errorf("%s must retain %q", relative, token)
+			}
+		}
+	}
+	var rule struct {
+		APIVersion string                           `yaml:"apiVersion"`
+		Kind       string                           `yaml:"kind"`
+		Metadata   struct{ Name, Namespace string } `yaml:"metadata"`
+		Spec       struct {
+			Groups []struct {
+				Name  string
+				Rules []struct {
+					Alert, Expr, For string
+					Labels           map[string]string
+				}
+			}
+		}
+	}
+	readYAML("monitoring/prometheus-storage/prometheusrule.yaml", &rule)
+	if rule.APIVersion != "monitoring.coreos.com/v1" || rule.Kind != "PrometheusRule" || rule.Metadata.Name != "prometheus-storage" || rule.Metadata.Namespace != "monitoring" {
+		t.Fatal("shared storage rule must belong to the monitoring owner")
+	}
+	if len(rule.Spec.Groups) != 1 || rule.Spec.Groups[0].Name != "prometheus-storage" || len(rule.Spec.Groups[0].Rules) != 1 {
+		t.Fatal("shared storage rule must contain only the retained PVC protection")
+	}
+	alert := rule.Spec.Groups[0].Rules[0]
+	const expression = `(\n  kubelet_volume_stats_available_bytes{namespace="monitoring"}\n  /\n  kubelet_volume_stats_capacity_bytes{namespace="monitoring"}\n) < 0.20\nand on (namespace, persistentvolumeclaim)\nkube_persistentvolumeclaim_info{namespace="monitoring",persistentvolumeclaim=~"prometheus-.*"}`
+	if strings.TrimSpace(alert.Expr) != strings.ReplaceAll(expression, `\n`, "\n") || alert.For != "15m" || alert.Alert != "PrometheusStorageAtRisk" || !reflect.DeepEqual(alert.Labels, map[string]string{"namespace": "monitoring", "severity": "warning", "service": "monitoring"}) {
+		t.Error("retained storage expression, timing and scope must remain intact")
+	}
+	type alertmanagerConfig struct {
+		APIVersion string                           `yaml:"apiVersion"`
+		Kind       string                           `yaml:"kind"`
+		Metadata   struct{ Name, Namespace string } `yaml:"metadata"`
+		Spec       struct {
+			Route     map[string]any `yaml:"route"`
+			Receivers []any          `yaml:"receivers"`
+		}
+	}
+	var original, shared alertmanagerConfig
+	readYAML("monitoring/alertmanager-wecom/alertmanagerconfig.yaml", &original)
+	readYAML("monitoring/prometheus-storage/alertmanagerconfig.yaml", &shared)
+	if original.Metadata.Namespace != "task-processor" || !reflect.DeepEqual(original.Spec.Route["matchers"], []any{map[string]any{"name": "service", "value": "amazon-crawler-api", "matchType": "=~"}}) {
+		t.Error("original route must retain only the Amazon branch in its namespace")
+	}
+	if shared.APIVersion != "monitoring.coreos.com/v1alpha1" || shared.Kind != "AlertmanagerConfig" || shared.Metadata.Name != "prometheus-storage-wecom" || shared.Metadata.Namespace != alert.Labels["namespace"] {
+		t.Error("storage route must share the rule namespace under OnNamespace enforcement")
+	}
+	original.Spec.Route["matchers"] = []any{
+		map[string]any{"name": "service", "value": alert.Labels["service"], "matchType": "="},
+		map[string]any{"name": "alertname", "value": alert.Alert, "matchType": "="},
+	}
+	if !reflect.DeepEqual(shared.Spec, original.Spec) {
+		t.Error("storage route must match only its alert and retain original grouping/receiver settings")
+	}
+	var stack map[string]any
+	readYAML("monitoring/kube-prometheus-stack-values.yaml", &stack)
+	alertmanager := stack["alertmanager"].(map[string]any)["alertmanagerSpec"].(map[string]any)
+	for _, key := range []string{"alertmanagerConfigSelector", "alertmanagerConfigNamespaceSelector", "alertmanagerConfigMatcherStrategy"} {
+		if _, changed := alertmanager[key]; changed {
+			t.Errorf("%s must keep the fixed chart's existing selection/namespace default", key)
+		}
+	}
+}
 
 func TestRetiredTaskAndListingRuntimeConfigClosure(t *testing.T) {
 	for _, relative := range []string{
@@ -33,8 +186,6 @@ func TestRetiredTaskAndListingRuntimeConfigClosure(t *testing.T) {
 		"config/config-dev.yaml", "config/config-prod.yaml", "config/config-test.yaml",
 		"deployments/kubernetes/amazon-crawler-api/base/configmap-lite.yaml",
 		"deployments/kubernetes/amazon-crawler-api/base/configmap-heavy.yaml",
-		"deployments/kubernetes/shein-listing/base/configmap.yaml",
-		"deployments/kubernetes/temu-listing/base/configmap.yaml",
 	} {
 		t.Run(relative, func(t *testing.T) {
 			content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
@@ -115,8 +266,7 @@ func TestRetiredTaskAndListingRuntimeConfigClosure(t *testing.T) {
 	for _, relative := range []string{
 		"listingkit-workbench/base/secret.example.yaml", "shein-listing/base/secret.example.yaml",
 		"shein-listing/overlays/prod/secret.example.yaml", "shein-listing/overlays/prod-store-shards-example/secret.example.yaml",
-		"shein-listing/overlays/prod/external-secret.yaml", "temu-listing/base/secret.example.yaml",
-		"temu-listing/overlays/prod/external-secret.yaml",
+		"shein-listing/overlays/prod/external-secret.yaml",
 	} {
 		content, err := os.ReadFile(filepath.Join("..", "deployments", "kubernetes", filepath.FromSlash(relative)))
 		if err != nil {

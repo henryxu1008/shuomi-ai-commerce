@@ -18,7 +18,7 @@ spec:
     receiver: wecom-webhook
     matchers:
       - name: service
-        value: amazon-crawler-api|shein-listing
+        value: amazon-crawler-api
         matchType: "=~"
   receivers:
     - name: wecom-webhook
