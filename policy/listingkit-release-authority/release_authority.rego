@@ -67,6 +67,39 @@ assembly_documents := [entry.contents |
   endswith(sprintf("%v", [entry.path]), assembly_path)
 ]
 
+# The other two governed YAML files are inputs, not extra manifest envelopes.
+# Assembly documents already have an exact singleton shape below.
+policy_path := "deployments/kubernetes/listingkit-workbench/release-authority/release-policy.yaml"
+policy_documents := [entry.contents |
+  some entry in documents
+  endswith(sprintf("%v", [entry.path]), policy_path)
+]
+
+deny contains "machine policy input must contain exactly its policy document" if count(policy_documents) != 1
+
+deny contains "machine policy input must contain exactly its policy document" if {
+  some contents in policy_documents
+  not object.keys(contents) == {"releaseAuthority"}
+}
+
+runner_manifest_path := "deployments/kubernetes/listingkit-workbench/release-authority/listingkit-release-gate-runners.yaml"
+runner_manifest_documents := [entry.contents |
+  some entry in documents
+  endswith(sprintf("%v", [entry.path]), runner_manifest_path)
+]
+
+deny contains "release-gate manifest must contain exactly the current canary Deployment" if count(runner_manifest_documents) != 1
+
+deny contains "release-gate manifest must contain exactly the current canary Deployment" if {
+  some manifest in runner_manifest_documents
+  not manifest.kind == "Deployment"
+}
+
+deny contains "release-gate manifest must contain exactly the current canary Deployment" if {
+  some manifest in runner_manifest_documents
+  not manifest.metadata.name == "image-agent-temporal-v3-canary-runner"
+}
+
 deny contains "machine policy must be an object" if not is_object(policy)
 
 deny contains msg if {

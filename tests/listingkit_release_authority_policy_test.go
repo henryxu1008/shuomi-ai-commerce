@@ -248,6 +248,39 @@ func TestListingKitReleaseAuthorityRejectsRetiredAuthorityAndMissingInputs(t *te
 			check(t, authorityRoot+"forbidden.yaml", "apiVersion: v1\nkind: "+kind+"\nmetadata: {name: retired}\n", "must not contain retired authority object "+kind)
 		})
 	}
+	t.Run("machine policy document inventory", func(t *testing.T) {
+		policy := readRepositoryText(t, "..", filepath.FromSlash(policyPath))
+		check(t, policyPath, policy+"\n---\nkind: ClusterRole\nmetadata: {name: unrelated}\n", "machine policy input must contain exactly its policy document")
+		check(t, policyPath, "kind: ClusterRole\n"+policy, "machine policy input must contain exactly its policy document")
+	})
+
+	t.Run("runner document inventory", func(t *testing.T) {
+		runner := readRepositoryText(t, "..", filepath.FromSlash(authorityRoot+"listingkit-release-gate-runners.yaml"))
+		for _, kind := range []string{"ClusterRole", "ClusterRoleBinding", "Job", "Deployment"} {
+			t.Run("extra/"+kind, func(t *testing.T) {
+				mutated := runner + "\n---\napiVersion: v1\nkind: " + kind + "\nmetadata: {name: unrelated}\n"
+				output, err := runReleaseAuthorityCrossFilePolicy(t, api, "", mutated)
+				if err == nil || !strings.Contains(output, "release-gate manifest must contain exactly the current canary Deployment") {
+					t.Fatalf("extra runner-manifest document must fail at its inventory boundary: err=%v\n%s", err, output)
+				}
+			})
+		}
+		for _, test := range []struct{ name, content string }{
+			{"List", "apiVersion: v1\nkind: List\nitems: []\n"},
+			{"alternate deployment", strings.Replace(runner, "name: image-agent-temporal-v3-canary-runner", "name: unrelated", 1)},
+		} {
+			t.Run(test.name, func(t *testing.T) {
+				if test.content == runner {
+					t.Fatal("runner fixture mutation did not change its input")
+				}
+				output, err := runReleaseAuthorityCrossFilePolicy(t, api, "", test.content)
+				if err == nil || !strings.Contains(output, "release-gate manifest must contain exactly the current canary Deployment") {
+					t.Fatalf("only the current Deployment document is allowed: err=%v\n%s", err, output)
+				}
+			})
+		}
+	})
+
 	t.Run("extra assembly resource", func(t *testing.T) {
 		assembly := readRepositoryText(t, "..", filepath.FromSlash(assemblyPath))
 		check(t, assemblyPath, assembly+"  - unowned.yaml\n", "release assembly must contain only the current canary manifest")
