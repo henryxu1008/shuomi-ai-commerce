@@ -35,6 +35,9 @@ func (a *ProductImageAdapter) EditSources(ctx context.Context, request productim
 	}
 	candidate := candidates[0]
 	if candidate.Asset.Width != 1024 || candidate.Asset.Height != 1024 {
+		if a.config.DiagnoseOutputDimensions != nil {
+			a.config.DiagnoseOutputDimensions(1024, 1024, candidate.Asset.Width, candidate.Asset.Height)
+		}
 		return productimage.Candidate{}, productimage.ErrOutputValidation
 	}
 	candidate.Metadata.PromptVersion = cloned.PromptVersion

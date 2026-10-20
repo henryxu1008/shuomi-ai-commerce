@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sirupsen/logrus"
+	logtest "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 
 	"task-processor/internal/agent"
@@ -37,6 +39,8 @@ func TestGenerationOutputRecoveryOnlyFetchesBoundOriginalResult(t *testing.T) {
 	require.NoError(t, png.Encode(&encoded, image.NewRGBA(image.Rect(0, 0, 2, 2))))
 	var setEncoded bytes.Buffer
 	require.NoError(t, png.Encode(&setEncoded, image.NewRGBA(image.Rect(0, 0, 1024, 1024))))
+	var mismatched bytes.Buffer
+	require.NoError(t, png.Encode(&mismatched, image.NewRGBA(image.Rect(0, 0, 1254, 1254))))
 	input := imageagent.SlotExecutionInput{RunID: "run-1", TenantID: "org-1", UserID: "actor-1", PlanRevision: 1, Attempt: 1, OrganizationIdentity: imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, MemberID: "member-1"}, Slot: imageagent.Slot{ID: "main", Role: imageagent.SlotRoleMain, SourceAssetIDs: []string{"source-1"}}, AssetCatalog: imageagent.AssetCatalog{Assets: []imageagent.AuthorizedAsset{{ID: "source-1", Type: imageagent.AuthorizedAssetSource, URL: "https://source.example/original.png"}}}}
 	catalog, err := imageagent.NormalizeAssetCatalog(input.AssetCatalog)
 	require.NoError(t, err)
@@ -56,6 +60,7 @@ func TestGenerationOutputRecoveryOnlyFetchesBoundOriginalResult(t *testing.T) {
 	for _, mode := range []string{"valid", "image_set", "changed_set", "bad_set", "truncated_pixels", "wrong_size", "empty_set", "oversized_declared", "oversized_streamed", "fetch_failure_set", "forbidden_set", "gone_set", "not_found_set", "timeout_set", "throttle_set", "unavailable_set", "canceled_set", "unavailable_locator_set", "malformed_locator_set", "private_locator_set", "oversized_locator_set", "changed_unavailable_set", "private", "oversized_locator", "member", "catalog", "unknown", "bad_image", "fetch_failure"} {
 		t.Run(mode, func(t *testing.T) {
 			calls := 0
+			logger, hook := logtest.NewNullLogger()
 			in, current := input, fact
 			switch mode {
 			case "image_set", "changed_set", "bad_set", "truncated_pixels", "wrong_size", "empty_set", "oversized_declared", "oversized_streamed", "fetch_failure_set", "forbidden_set", "gone_set", "not_found_set", "timeout_set", "throttle_set", "unavailable_set", "canceled_set", "unavailable_locator_set", "malformed_locator_set", "private_locator_set", "oversized_locator_set", "changed_unavailable_set":
@@ -143,9 +148,19 @@ func TestGenerationOutputRecoveryOnlyFetchesBoundOriginalResult(t *testing.T) {
 				if mode == "image_set" {
 					return setEncoded.Bytes(), nil
 				}
+				if mode == "wrong_size" {
+					return mismatched.Bytes(), nil
+				}
 				return encoded.Bytes(), nil
-			})
+			}, logger)
 			got, err := materialize(context.Background(), in, current)
+			if mode == "wrong_size" {
+				require.Len(t, hook.AllEntries(), 1)
+				require.Equal(t, logrus.Fields{"provider": "grsai", "model": "gpt-image-2.5", "expected_width": 1024, "expected_height": 1024, "actual_width": 1254, "actual_height": 1254}, hook.LastEntry().Data)
+				require.Equal(t, imageagent.GenerationSucceeded, current.State)
+			} else {
+				require.Empty(t, hook.AllEntries())
+			}
 			if mode == "valid" || mode == "image_set" {
 				require.NoError(t, err)
 				if mode == "image_set" {

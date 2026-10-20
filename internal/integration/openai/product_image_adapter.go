@@ -69,6 +69,9 @@ type ProductImageAdapterConfig struct {
 	CostUpperBoundKnown      bool
 
 	GeneratedImageFetcher func(context.Context, string) ([]byte, error)
+	// DiagnoseOutputDimensions observes measured pixel counts only. It must not
+	// turn the requested size into output metadata or alter validation.
+	DiagnoseOutputDimensions func(expectedWidth, expectedHeight, actualWidth, actualHeight int)
 }
 
 // ProductImageReviewObservation carries metadata only, never prompt or image content.

@@ -41,7 +41,7 @@ func NewManagedImageSetTemporalDependencies(cfg *config.Config, imageDB, resourc
 		return empty, err
 	}
 	slots := imageSetSlotExecutor{generation: executor, builder: imagetools.NewImageSetResultBuilder()}
-	return appruntime.ImageAgentTemporalDependencies{Repository: repository, ExecutionAuthorizer: authorizer, SlotExecutor: slots, StagedSlotExecutor: slots, ArtifactStore: artifacts, ImageSetPublisher: publisher, ImageSetApprovals: approvals, GenerationRecovery: recovery, GenerationOutputRecovery: generationOutputRecovery(nil), PublicationLeaseDuration: defaultImageAgentArtifactTiming.PublicationLeaseDuration}, nil
+	return appruntime.ImageAgentTemporalDependencies{Repository: repository, ExecutionAuthorizer: authorizer, SlotExecutor: slots, StagedSlotExecutor: slots, ArtifactStore: artifacts, ImageSetPublisher: publisher, ImageSetApprovals: approvals, GenerationRecovery: recovery, GenerationOutputRecovery: generationOutputRecovery(nil, logger), PublicationLeaseDuration: defaultImageAgentArtifactTiming.PublicationLeaseDuration}, nil
 }
 
 type imageSetSlotExecutor struct {

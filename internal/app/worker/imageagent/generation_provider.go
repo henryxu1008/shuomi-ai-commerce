@@ -48,7 +48,7 @@ func (f generationProviderFactory) prepare(ctx context.Context, observe func(con
 		return imageagent.PreparedGenerationProvider{}, err
 	}
 	build := func(bound ai.RouteBoundImageGenerator) (*openai.ProductImageAdapter, error) {
-		return openai.NewProductImageAdapter(openai.ProductImageAdapterConfig{ImageClient: bound, Provider: metadata.Provider, ImageModel: cfg.Model, RouteReference: metadata.RouteReference, CredentialReference: metadata.CredentialReference, ConfigurationVersion: metadata.ConfigurationVersion, Prompts: openai.DefaultProductImagePrompts(), PricingVersion: metadata.PriceVersion, MaximumSceneOutputs: 1, GeneratedImageFetcher: f.generatedFetcher})
+		return openai.NewProductImageAdapter(openai.ProductImageAdapterConfig{ImageClient: bound, Provider: metadata.Provider, ImageModel: cfg.Model, RouteReference: metadata.RouteReference, CredentialReference: metadata.CredentialReference, ConfigurationVersion: metadata.ConfigurationVersion, Prompts: openai.DefaultProductImagePrompts(), PricingVersion: metadata.PriceVersion, MaximumSceneOutputs: 1, GeneratedImageFetcher: f.generatedFetcher, DiagnoseOutputDimensions: imageDimensionsDiagnostic(f.logger, metadata.Provider, cfg.Model)})
 	}
 	var provider synchronousImageProvider
 	var generate func(context.Context, *ai.ImageGenerateRequest) (*ai.ImageResponse, error)
