@@ -130,7 +130,6 @@ Cutover/deletion condition: 用户确认冻结设计、双 Issue Ready 读回后
 | `docs/development/listingkit-local-debug.md` | 零改 | 仅加窄顶注，明确三个 token 脚本及旧 API 文件/环境约定已退出、以下命令为历史；保留 Auth.js handoff/原生身份和原全部正文，不改写旧示例为新命令 |
 | Aug12 旧 1688 runtime acceptance plan/spec（§5.2 两个准确路径） | 零改 | 仅加窄顶注，说明旧验收源和 token 约定不再是当前执行/试用要求，不能按旧步骤恢复接口/脚本；保留原模式/安全限制/历史正文与结果。当前采集能力不因旧验收工具退出而退休 |
 | `docs/product/validation/2026-08-08-1688-controlled-replay.md` | 零改 | 仅加窄顶注，取代 Runtime acceptance tool 段仍称 maintained operator tool 及当前 token 文件/验收路径的适用表述；原 replay 结果、限制、模式/安全说明与全文历史证据不改，不重跑或补造 PASS |
-
 | `docs/product/validation/runs/2026-06-21-shein-sds-batch-production-closure-auth-blocked.md` | 零改 | 仅加窄顶注，明确末段取 token/保存/诊断的推荐流程、未来验收文件复用与机器调试建议已失效；保留原始 run 证据、失败/UNKNOWN、所有正文及占位示例，不改变当前浏览器用户/机器身份语义 |
 
 历史保留不授权执行旧命令。除上列精确顶注外，其它旧设计、dated 验证记录、issue357 文档和通用 Prompt/凭据/存储语义不改；不重写历史结论为 PASS、不改源码引用数量来制造全仓清零。
