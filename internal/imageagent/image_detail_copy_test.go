@@ -28,7 +28,7 @@ func TestDetailRecipeCopyAndPromptMustMatchFrozenFacts(t *testing.T) {
 	p := ProductContextRef{Title: "真实商品"}
 	r := &ImageSlotRecipe{Purpose: "key_benefits", Background: "white", VisibleText: detailVisibleText(p)}
 	slot := Slot{Brief: "details", Recipe: r}
-	set := &ImageSetPlan{Method: &ImageMethodBinding{PolicyVersion: ImageMethodPolicyVersion}}
+	set := &ImageSetPlan{Method: &ImageMethodBinding{PolicyVersion: FrozenLiteralCopyPolicyVersion}}
 	r.Prompt = literalDetailPrompt(p, slot.Brief, r)
 	require.NoError(t, validateLiteralDetailRecipe(set, slot, p))
 	clone := CloneImageSlotRecipe(r)

@@ -44,7 +44,7 @@ func DescribeImageProduct(contextID string, original, effective catalog.Publishe
 			generated = true
 		}
 	}
-	return imageagent.ImageSetPreparation{GeneratedArtwork: generated, Source: imageagent.ImageSourceBinding{ProductID: original.Identity.ProductKey, OperationID: contextID, OriginalPublicationID: original.PublicationID, OriginalVersion: original.Version, EffectiveVersion: effective.Version, ApplyReceiptID: applyID, CatalogHash: resolved.Manifest.Hash}, Catalog: resolved, Evidence: facts}, nil
+	return imageagent.ImageSetPreparation{EffectivePublicationID: effective.PublicationID, GeneratedArtwork: generated, Source: imageagent.ImageSourceBinding{ProductID: original.Identity.ProductKey, OperationID: contextID, OriginalPublicationID: original.PublicationID, OriginalVersion: original.Version, EffectiveVersion: effective.Version, ApplyReceiptID: applyID, CatalogHash: resolved.Manifest.Hash}, Catalog: resolved, Evidence: facts}, nil
 }
 
 func ImageProductEvidence(product catalog.ProductSnapshot) (map[string]string, error) {

@@ -24,7 +24,7 @@ func (m *selectionMethodFixture) AcquireImageMethod(_ context.Context, _ imageag
 func TestCandidateMethodFenceUsesExactLineageAndLeavesReleaseToAssetOwner(t *testing.T) {
 	p, facts, source, choice := imageSetCandidateFixture(t)
 	ref := agent.SkillVersionRef{Kind: "skill-version-v1", ID: "2bb819bd-af13-4e68-95e0-1cc86130fb1f", OwnerKind: "PLATFORM", OwnerID: "official", Version: 1, Digest: strings.Repeat("f", 64), PolicyVersion: "skill-method-v1"}
-	p.Plan.Set.Method = &imageagent.ImageMethodBinding{Skill: ref, PolicyVersion: imageagent.ImageMethodPolicyVersion}
+	p.Plan.Set.Method = &imageagent.ImageMethodBinding{Skill: ref, PolicyVersion: imageagent.FrozenVisualBriefPolicyVersion}
 	var err error
 	p.Plan.Set.QuoteDigest, err = imageagent.ImageSetQuoteDigest(p.Plan)
 	require.NoError(t, err)

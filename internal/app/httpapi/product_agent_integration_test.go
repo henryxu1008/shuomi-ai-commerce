@@ -401,6 +401,9 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		if frozenTitleOnly && step == 3 {
 			content = `{"Kind":"interrupt","Unresolved":["confirm the original fields"]}`
 		}
+		if strings.HasPrefix(mode, "content flow imagecopy ") && strings.Contains(content, `"Kind":"propose"`) {
+			content = `{"Kind":"propose","Candidate":{"Changes":[{"Field":"title","Value":"Bottle","EvidenceIDs":["981645030344"]},{"Field":"selling_points","Value":"[\"Bottle\"]","EvidenceIDs":["981645030344"]}]}}`
+		}
 		if strings.HasPrefix(mode, "content flow unresolved ") && strings.Contains(content, `"Kind":"propose"`) {
 			content = strings.TrimSuffix(content, "}") + `,"Unresolved":["missing material specification"]}`
 		}
@@ -562,6 +565,9 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		require.NoError(t, err)
 		modeRevision := "0"
 		selectedMode := strings.TrimPrefix(mode, "content flow ")
+		if strings.HasPrefix(mode, "content flow imagecopy ") {
+			selectedMode = strings.TrimPrefix(mode, "content flow imagecopy ")
+		}
 		if withSkill && mode == "content flow bff" {
 			selectedMode = "default"
 		}
@@ -592,6 +598,30 @@ func testProductAgentOwners(t *testing.T, mode string) {
 		app := buildIsolatedApplicationHTTPServer(routes, deps, 2*time.Minute)
 		server := httptest.NewServer(app.Handler)
 		defer server.Close()
+		if strings.HasPrefix(mode, "content flow imagecopy ") {
+			key := uuid.NewString()
+			path := productAcquisitionBase + "/" + op.OperationID + "/content-agent/runs"
+			before := calls.Load()
+			code, raw, e := acquisitionHTTPRequest(server, "POST", path, "admin", "B", key, `{"expectedModeRevision":"`+modeRevision+`","targetPlatform":"product","manualReviewOnly":true,"contentSelection":{"targetLanguage":"en","title":true,"sellingPoints":true}}`)
+			require.NoError(t, e)
+			if selectedMode != "default" {
+				require.Contains(t, []int{403, 409}, code, string(raw))
+				require.Equal(t, before, calls.Load(), "manual-only mode denial must precede all paid calls")
+				_, found, err := contentApp.store.LookupContext(context.Background(), agent.Scope{OrganizationID: "B", ActorID: "admin"}, "acquisition", op.OperationID, key)
+				require.NoError(t, err)
+				require.False(t, found, "must not claim an executable run")
+			} else {
+				require.Equal(t, 200, code, string(raw))
+				var result map[string]any
+				require.NoError(t, json.Unmarshal(raw, &result))
+				require.Equal(t, "human_review_required", result["phase"])
+				require.Nil(t, result["policyAdoption"])
+				require.Nil(t, result["reviewId"], "manual result must not auto-create/adopt a Review")
+				require.Greater(t, calls.Load(), before)
+				testConfirmedImageTextOwner(t, contentApp, server, path, key, &calls)
+			}
+			return
+		}
 		if contentTitleOnly {
 			path := productAcquisitionBase + "/" + op.OperationID + "/content-agent/runs"
 			code, raw, e := acquisitionHTTPRequest(server, "POST", path, "admin", "B", uuid.NewString(), `{"expectedModeRevision":"`+modeRevision+`","targetPlatform":"product","contentSelection":{"targetLanguage":"en-US","title":true,"description":true}}`)

@@ -24,6 +24,12 @@ func TestWorkbenchExistingTitleRunFinishesPolicyAdoption(t *testing.T) {
 	}
 }
 
+func TestImageCopyTextStartsRequireManualMode(t *testing.T) {
+	for _, mode := range []string{"default", "auto_approve", "full_access", "read_only"} {
+		t.Run(mode, func(t *testing.T) { testProductAgentOwners(t, "content flow imagecopy "+mode) })
+	}
+}
+
 func TestWorkbenchExistingRunConfigurationChangeKeepsOriginalKey(t *testing.T) {
 	for _, mode := range []string{"auto_approve", "full_access"} {
 		t.Run(mode, func(t *testing.T) { testProductAgentOwners(t, "permission recovery changed "+mode) })

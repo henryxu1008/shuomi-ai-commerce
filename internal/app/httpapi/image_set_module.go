@@ -50,6 +50,7 @@ func (m fullImageModule) Register(reg *kernelmodule.Registry) error {
 }
 
 type fullImagePrepareBody struct {
+	Text  *imageagent.ImageTextSelection `json:"text,omitempty"`
 	Skill *struct {
 		ID      string `json:"skillId"`
 		Version uint64 `json:"version"`
@@ -305,7 +306,7 @@ func (m fullImageModule) handle(c *gin.Context, kind imageagent.ImageSourceConte
 			writeFullImageError(c, e, false)
 			return
 		}
-		input := imageagent.PrepareImageSetInput{ContextKind: kind, RequestID: keys[0], ContextID: contextID, Template: body.Template, Target: body.Target, SharedOriginalIDs: body.SharedOriginalIDs, CarouselOriginalIDs: body.CarouselOriginalIDs, DetailOriginalIDs: body.DetailOriginalIDs, SelectedTaskIDs: body.SelectedTaskIDs, OfficialPlacements: body.OfficialPlacements, EffectiveCatalogVersion: version, ApplyReceiptID: body.ApplyReceiptID}
+		input := imageagent.PrepareImageSetInput{Text: body.Text, ContextKind: kind, RequestID: keys[0], ContextID: contextID, Template: body.Template, Target: body.Target, SharedOriginalIDs: body.SharedOriginalIDs, CarouselOriginalIDs: body.CarouselOriginalIDs, DetailOriginalIDs: body.DetailOriginalIDs, SelectedTaskIDs: body.SelectedTaskIDs, OfficialPlacements: body.OfficialPlacements, EffectiveCatalogVersion: version, ApplyReceiptID: body.ApplyReceiptID}
 		if action == "regenerate" {
 			p, e := a.service.Get(ctx, c.Param("run_id"))
 			if e == nil {
@@ -742,6 +743,8 @@ func writeFullImageError(c *gin.Context, err error, mutation bool) {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"code": "IMAGE_UNAVAILABLE"})
 	case errors.Is(err, review.ErrForbidden), errors.Is(err, collection.ErrForbidden), errors.Is(err, record.ErrForbidden), errors.Is(err, asset.ErrSourceApprovalForbidden):
 		c.JSON(http.StatusForbidden, gin.H{"code": "FORBIDDEN"})
+	case errors.Is(err, review.ErrNotFound), errors.Is(err, review.ErrConflict), errors.Is(err, agent.ErrManualReviewRequired):
+		c.JSON(http.StatusConflict, gin.H{"code": "IMAGE_TEXT_REVIEW_CHANGED"})
 	case errors.Is(err, collection.ErrInvalid), errors.Is(err, record.ErrInvalid), errors.Is(err, record.ErrTooLarge):
 		c.JSON(http.StatusBadRequest, gin.H{"code": "INVALID_IMAGE_REQUEST"})
 	case errors.Is(err, collection.ErrNotFound), errors.Is(err, record.ErrNotFound):

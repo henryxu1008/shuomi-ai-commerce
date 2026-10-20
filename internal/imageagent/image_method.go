@@ -9,7 +9,8 @@ import (
 
 const HistoricalImageMethodPolicyVersion = "image-method-prompt-v1"
 const FrozenVisualBriefPolicyVersion = "image-method-visual-brief-v2"
-const ImageMethodPolicyVersion = "image-method-visual-brief-v3"
+const FrozenLiteralCopyPolicyVersion = "image-method-visual-brief-v3"
+const ImageMethodPolicyVersion = "image-method-visual-brief-v4"
 
 type ImageMethodBinding struct {
 	Skill         agent.SkillVersionRef
@@ -17,7 +18,7 @@ type ImageMethodBinding struct {
 }
 
 func (m ImageMethodBinding) Valid() bool {
-	return (m.PolicyVersion == ImageMethodPolicyVersion || m.PolicyVersion == FrozenVisualBriefPolicyVersion || m.PolicyVersion == HistoricalImageMethodPolicyVersion) && m.Skill.Valid() && (m.Skill.OwnerKind == "PLATFORM" || m.Skill.OwnerKind == "ORGANIZATION")
+	return (m.PolicyVersion == ImageMethodPolicyVersion || m.PolicyVersion == FrozenLiteralCopyPolicyVersion || m.PolicyVersion == FrozenVisualBriefPolicyVersion || m.PolicyVersion == HistoricalImageMethodPolicyVersion) && m.Skill.Valid() && (m.Skill.OwnerKind == "PLATFORM" || m.Skill.OwnerKind == "ORGANIZATION")
 }
 
 func (m ImageMethodBinding) Executable() bool {

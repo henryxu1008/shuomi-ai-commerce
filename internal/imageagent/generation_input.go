@@ -10,7 +10,7 @@ func ValidateImageSetExecution(input SlotExecutionInput) error {
 	if input.ImageSet == nil || input.Slot.Recipe == nil || input.ImageSet.Target.Platform != input.TargetPlatform || input.ImageSet.MaxPoints < input.Slot.Recipe.Quote.Points || !generationDigest(input.ImageSet.QuoteDigest) {
 		return ErrValidation
 	}
-	if usesLiteralDetailCopy(input.ImageSet, input.Slot.Recipe) {
+	if input.ImageSet.Text != nil || usesLiteralDetailCopy(input.ImageSet, input.Slot.Recipe) {
 		if !reflect.DeepEqual(input.ProductContext, input.AssetCatalog.ProductContext) {
 			return ErrRevisionConflict
 		}

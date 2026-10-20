@@ -83,7 +83,7 @@ func TestImageSetExecutorUsesSingleEditForDetailAndBindsEverySource(t *testing.T
 
 func TestImageMethodMaterialReachesOnlyProviderRequestAfterProductPolicy(t *testing.T) {
 	input := setExecutionInput(t)
-	input.ImageSet.Method = &imageagent.ImageMethodBinding{Skill: agent.SkillVersionRef{Kind: "skill-version-v1", ID: "2bb819bd-af13-4e68-95e0-1cc86130fb1f", OwnerKind: "PLATFORM", OwnerID: "official", Version: 1, Digest: strings.Repeat("f", 64), PolicyVersion: "skill-method-v1"}, PolicyVersion: imageagent.ImageMethodPolicyVersion}
+	input.ImageSet.Method = &imageagent.ImageMethodBinding{Skill: agent.SkillVersionRef{Kind: "skill-version-v1", ID: "2bb819bd-af13-4e68-95e0-1cc86130fb1f", OwnerKind: "PLATFORM", OwnerID: "official", Version: 1, Digest: strings.Repeat("f", 64), PolicyVersion: "skill-method-v1"}, PolicyVersion: imageagent.FrozenVisualBriefPolicyVersion}
 	input.ImageMethodText = "Bounded method text that must reach the image provider."
 	var err error
 	input.ImageSet.QuoteDigest, err = imageagent.ImageSetQuoteDigest(imageagent.Plan{Set: input.ImageSet, Slots: []imageagent.Slot{input.Slot}})
@@ -107,7 +107,7 @@ func TestImageMethodMaterialReachesOnlyProviderRequestAfterProductPolicy(t *test
 
 func TestLiteralDetailCopyMismatchIsRejectedBeforeDirectToolsDispatch(t *testing.T) {
 	input := setExecutionInput(t)
-	input.ImageSet.Method = &imageagent.ImageMethodBinding{Skill: agent.SkillVersionRef{Kind: "skill-version-v1", ID: "2bb819bd-af13-4e68-95e0-1cc86130fb1f", OwnerKind: "PLATFORM", OwnerID: "official", Version: 2, Digest: strings.Repeat("f", 64), PolicyVersion: "skill-method-v1"}, PolicyVersion: imageagent.ImageMethodPolicyVersion}
+	input.ImageSet.Method = &imageagent.ImageMethodBinding{Skill: agent.SkillVersionRef{Kind: "skill-version-v1", ID: "2bb819bd-af13-4e68-95e0-1cc86130fb1f", OwnerKind: "PLATFORM", OwnerID: "official", Version: 2, Digest: strings.Repeat("f", 64), PolicyVersion: "skill-method-v1"}, PolicyVersion: imageagent.FrozenLiteralCopyPolicyVersion}
 	input.Slot.Role = imageagent.SlotRoleSellingPoint
 	input.Slot.Recipe.Purpose = "key_benefits"
 	input.Slot.Recipe.VisibleText = []string{"unsupported claim"}

@@ -20,7 +20,7 @@ func TestImageMethodVisualPlanUsesNaturalFactsWithoutDocumentBlocks(t *testing.T
 	input.Method = &ref
 	prepared, err := s.PrepareImageSet(ctx, input)
 	require.NoError(t, err)
-	require.Equal(t, "image-method-visual-brief-v3", prepared.Projection.Plan.Set.Method.PolicyVersion)
+	require.Equal(t, "image-method-visual-brief-v4", prepared.Projection.Plan.Set.Method.PolicyVersion)
 	for _, slot := range prepared.Projection.Plan.Slots {
 		require.NotContains(t, slot.Recipe.Prompt, `{"Product":`)
 		require.NotContains(t, slot.Recipe.Prompt, "ProductID")
@@ -28,7 +28,7 @@ func TestImageMethodVisualPlanUsesNaturalFactsWithoutDocumentBlocks(t *testing.T
 	}
 }
 
-func TestDetailMethodFreezesLiteralCopyInsteadOfDelegatingCopywriting(t *testing.T) {
+func TestNewDetailMethodDoesNotSilentlyUseSourceLanguageCopy(t *testing.T) {
 	m := &methodFixture{text: "A refined product detail graphic with a small number of supported labels."}
 	s, _, _, cfg, source, _, ctx, input := imageSetServiceFixture(t, imageagent.WithImageMethodContext(m))
 	cfg.template.Detail[0].Purpose = "key_benefits"
@@ -48,7 +48,8 @@ func TestDetailMethodFreezesLiteralCopyInsteadOfDelegatingCopywriting(t *testing
 	require.NoError(t, err)
 	var recipe struct{ VisibleText []string }
 	require.NoError(t, json.Unmarshal(raw, &recipe))
-	require.Equal(t, []string{"IKEA DRÖNA 深灰色布艺收纳盒", "产品尺寸：宽33厘米，深38厘米，高33厘米"}, recipe.VisibleText)
+	require.Empty(t, recipe.VisibleText, "source facts cannot replace confirmed target-language copy")
+	require.Contains(t, prepared.Projection.Plan.Slots[1].Recipe.Prompt, "No visible text")
 	require.Contains(t, prepared.Projection.Plan.Slots[1].Recipe.Prompt, "No table")
 	require.NotContains(t, prepared.Projection.Plan.Slots[1].Recipe.Prompt, "Do not render source notes")
 	require.Equal(t, ref, prepared.Projection.Plan.Set.Method.Skill)
@@ -57,7 +58,7 @@ func TestDetailMethodFreezesLiteralCopyInsteadOfDelegatingCopywriting(t *testing
 	execution, err := imageagent.ImageSetSlotExecutionInput(confirmed, "overview", 1)
 	require.NoError(t, err)
 	require.NoError(t, imageagent.ValidateImageSetExecution(execution))
-	execution.Slot.Recipe.VisibleText[0] = "unsupported text"
+	execution.Slot.Recipe.VisibleText = []string{"unsupported text"}
 	require.ErrorIs(t, imageagent.ValidateImageSetExecution(execution), imageagent.ErrRevisionConflict)
 	execution, err = imageagent.ImageSetSlotExecutionInput(confirmed, "overview", 1)
 	require.NoError(t, err)

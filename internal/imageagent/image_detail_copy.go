@@ -13,7 +13,7 @@ import (
 )
 
 func usesLiteralDetailCopy(set *ImageSetPlan, recipe *ImageSlotRecipe) bool {
-	return set != nil && set.Method != nil && set.Method.PolicyVersion == ImageMethodPolicyVersion && recipe != nil && recipe.Purpose == "key_benefits"
+	return set != nil && set.Text == nil && set.Method != nil && set.Method.PolicyVersion == FrozenLiteralCopyPolicyVersion && recipe != nil && recipe.Purpose == "key_benefits"
 }
 
 func validDetailLabel(value string) bool {
@@ -67,6 +67,9 @@ func literalDetailPrompt(product ProductContextRef, brief string, recipe *ImageS
 }
 
 func validateLiteralDetailRecipe(set *ImageSetPlan, slot Slot, product ProductContextRef) error {
+	if set != nil && set.Text != nil {
+		return validateReviewedImageText(set, slot, &product)
+	}
 	if !usesLiteralDetailCopy(set, slot.Recipe) {
 		return nil
 	}
