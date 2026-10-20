@@ -1,5 +1,16 @@
 # ListingKit Owner Reconciliation Implementation Plan
 
+> **SUPERSEDED - historical owner migration plan, not current instructions.**
+> [PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08](../../product/greenfield-no-legacy-migration.md)
+> cancels the restore/backfill, old metadata mapping and owner-recovery direction below.
+> [#698](https://github.com/qq550723504/task-processor/pull/698) retired the old
+> identity preflight; the user-confirmed [#842 boundary](../../architecture/legacy-yudao-identity-operations-retirement-boundary.md)
+> source-retires the three historical Yudao importers and owner-recovery dry-run.
+> Do not restore or execute these commands, optional updates or agent steps.
+> The body is historical evidence only, not a current recovery policy or trial gate.
+> Current authentication, Organization and standalone SHEIN login/Store sync remain;
+> no IAM, data or runtime operation is authorized.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Restore a safe ListingKit owner reconciliation command that defaults to a redacted dry-run, reports unresolved ownership, and only applies uniquely verified canonical-subject backfills after an explicit report confirmation.

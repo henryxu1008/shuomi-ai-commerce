@@ -2,7 +2,7 @@
 
 Refs [#529](https://github.com/qq550723504/task-processor/issues/529) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
-> Status: **DESIGNING / 待独立设计检查及用户确认，尚未实施、未进入 Ready。** Design Basis: **Reuse Existing Architecture**。调查基线 main `4fdc30b0c0d6c4535279f3fe103d9453e28cfdfc`（2026-10-20，#839 合并后）。用户已同意先设计这一完整闭包；本次授权仅覆盖静态调查、设计和 PR 维护。准确设计 HEAD、检查结论与确认记录写主要 PR。一个 Writer、一个主要设计/实施 PR，不按本地/远端、脚本个数或证据拆批。
+> Status: **用户已确认冻结设计 `370695e82` 并授权按§5/§6/§6.1/§7在 #842 整批实施；四入口及专属尾部已源码退休，待原CI与最终独立交付检查/合并授权。** Design Basis: **Reuse Existing Architecture**。调查基线 main `4fdc30b0c0d6c4535279f3fe103d9453e28cfdfc`（2026-10-20，#839 合并后）；实施开工 main `896a73737e95437a0530501d4f15c69cea372585`。用户确认和两Issue Ready读回均先于正式源修改（PR记录6282196114）。以下现状/矩阵保留冻结设计的调查依据；准确实施HEAD、CI和最终检查写主要PR。一个Writer、一个完整闭包，不按本地/远端、脚本个数或证据拆批；无运行/数据操作或新试用前置。
 
 ## 1. Product Outcome / Scope
 

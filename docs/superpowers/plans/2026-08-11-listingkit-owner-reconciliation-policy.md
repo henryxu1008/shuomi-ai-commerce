@@ -1,11 +1,21 @@
 # ListingKit Owner Reconciliation Policy Implementation Plan
 
-> HISTORICAL PLAN. Migration-preparation steps below are SUPERSEDED by
-> PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08. Under #529,
-> `scripts/yudao-zitadel-migration-dry-run.ps1` is source-retired alongside the
-> earlier owner-scope migration/seed tools. These old commands are unavailable
-> and are not current execution instructions. The existing read-only preflight
-> policies and release protection are unchanged; historical evidence is retained.
+> **SUPERSEDED - historical owner migration policy plan, not current instructions.**
+> [PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08](../../product/greenfield-no-legacy-migration.md)
+> cancels legacy user import, old-ID mapping and owner recovery. Under #529/#301,
+> the user-confirmed [#842 boundary](../../architecture/legacy-yudao-identity-operations-retirement-boundary.md)
+> source-retires `scripts/migrate-yudao-users-to-zitadel.ps1`,
+> `scripts/migrate-yudao-users-to-local-zitadel.ps1`,
+> `scripts/migrate-yudao-all-users-to-local-zitadel.ps1` and
+> `scripts/yudao-zitadel-owner-recovery-dry-run.ps1`, including inline helpers/report
+> generators; existing report files are untouched.
+> The earlier migration dry-run, owner-scope/seed tools and identity preflight
+> are already retired; [#698](https://github.com/qq550723504/task-processor/pull/698)
+> retired the old preflight and disabled the old release entrypoints.
+> Do not execute the migration/recovery steps or agent instructions below,
+> or restore the removed commands. Historical body/evidence stays unchanged.
+> Current authentication, Organization, shared infrastructure and standalone
+> SHEIN login/Store sync remain; no IAM, data or runtime action is authorized.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

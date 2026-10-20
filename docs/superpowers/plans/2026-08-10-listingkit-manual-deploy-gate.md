@@ -1,5 +1,15 @@
 # ListingKit Manual Deploy Gate Implementation Plan
 
+> **SUPERSEDED - historical release plan, not current execution instructions.**
+> [#698](https://github.com/qq550723504/task-processor/pull/698) retired the old
+> identity preflight and made the old API/UI release/rollback entrypoints fail closed.
+> Do not follow this plan to restore or run those commands. Production remains NOT_READY;
+> current delivery follows its existing internal-trial entrypoints, without a new gate.
+> The [#842 boundary](../../architecture/legacy-yudao-identity-operations-retirement-boundary.md)
+> records the related identity import/recovery source closure. Historical body/receipts
+> remain unchanged. Standalone SHEIN login/Store sync, original OIDC/RBAC and safety
+> checks remain; no workflow/driver/permission change or live operation is authorized.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make the documented manual ListingKit production deploy path enforce the same identity-preflight and immutable API-image gate as CI.
