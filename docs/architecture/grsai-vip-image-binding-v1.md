@@ -1,6 +1,11 @@
 # GRSAI VIP 图片可选绑定 V1
 
-Status: DRAFT / NOT_IMPLEMENTATION_READY. Execution: #840.
+Status: IMPLEMENTATION_READY. Execution: #840.
+Original independent Reviewer admitted design HEAD
+2538d3be3775b0a98cda3661b7b23b6c744388ab with no BLOCKER before production edits.
+Implementation must verify fixed medium through edit/artwork, unchanged old
+serialization and recovery, strict original dimensions with paid facts retained,
+and existing credential qualification/revalidation without publishing a binding.
 Design Basis: Independent Architecture, limited to an additional admitted image model.
 Source baseline: main f8f7853677765337986cd2673422c59fae65f94e.
 

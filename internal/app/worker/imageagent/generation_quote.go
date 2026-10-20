@@ -42,5 +42,5 @@ func (r imageGenerationQuoteReader) ReadImageGenerationQuote(ctx context.Context
 	if err != nil {
 		return imageagent.ImageGenerationQuote{}, err
 	}
-	return imageagent.ImageGenerationQuote{Provider: metadata.Provider, Model: metadata.Model, Protocol: metadata.Protocol, Resolution: "1024x1024", Quality: "auto", PriceVersion: metadata.PriceVersion, Points: metadata.Points, RouteReference: metadata.RouteReference, CredentialReference: metadata.CredentialReference, ConfigurationVersion: metadata.ConfigurationVersion}, nil
+	return imageagent.ImageGenerationQuote{Provider: metadata.Provider, Model: metadata.Model, Protocol: metadata.Protocol, Resolution: "1024x1024", Quality: imageagent.GenerationRouteQuality(metadata.Provider, metadata.Model, metadata.Protocol), PriceVersion: metadata.PriceVersion, Points: metadata.Points, RouteReference: metadata.RouteReference, CredentialReference: metadata.CredentialReference, ConfigurationVersion: metadata.ConfigurationVersion}, nil
 }

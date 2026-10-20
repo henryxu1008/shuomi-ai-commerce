@@ -10,7 +10,7 @@ import (
 )
 
 func TestSourceEditAdapterSendsExactBundleAndApprovedPromptOnce(t *testing.T) {
-	for _, route := range [][2]string{{"grsai", "gpt-image-2.5"}, {"bailian", "qwen-image-3.0"}, {"bailian", "qwen-image-3.0-pro"}} {
+	for _, route := range [][2]string{{"grsai", "gpt-image-2.5"}, {"grsai", "gpt-image-2-vip"}, {"bailian", "qwen-image-3.0"}, {"bailian", "qwen-image-3.0-pro"}} {
 		t.Run(route[1], func(t *testing.T) { testSourceEditAdapter(t, route[0], route[1]) })
 	}
 }
@@ -42,6 +42,11 @@ func testSourceEditAdapter(t *testing.T, provider, model string) {
 	require.NotNil(t, images.lastEdit.MaxRetries)
 	require.Zero(t, *images.lastEdit.MaxRetries)
 	require.Equal(t, 1, images.lastEdit.N)
+	quality := "auto"
+	if model == "gpt-image-2-vip" {
+		quality = "medium"
+	}
+	require.Equal(t, quality, images.lastEdit.Quality)
 	require.Equal(t, request.PromptVersion, candidate.Metadata.PromptVersion)
 	require.Equal(t, []string{productimage.SourceEditOperation}, candidate.Asset.Operations)
 	require.Empty(t, dimensions, "matching pixels must not report a mismatch")

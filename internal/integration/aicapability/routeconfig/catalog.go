@@ -86,7 +86,7 @@ func validImage(i ImageAdmission) bool {
 		_, e = bailian.Endpoint(i.Endpoint)
 		return e == nil && bailian.SupportsModel(i.Model)
 	}
-	return i.Provider == "grsai" && i.Model == "gpt-image-2.5" && (strings.TrimSuffix(u.Path, "/") == "" || strings.TrimSuffix(u.Path, "/") == "/v1" || strings.TrimSuffix(u.Path, "/") == "/v1/api/generate")
+	return i.Provider == "grsai" && (i.Model == "gpt-image-2.5" || i.Model == "gpt-image-2-vip") && (strings.TrimSuffix(u.Path, "/") == "" || strings.TrimSuffix(u.Path, "/") == "/v1" || strings.TrimSuffix(u.Path, "/") == "/v1/api/generate")
 }
 func (c *Catalog) Scopes(org string) []d.Scope {
 	out := []d.Scope{}

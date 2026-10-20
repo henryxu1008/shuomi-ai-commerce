@@ -15,11 +15,12 @@ import (
 type artworkCreator struct {
 	generate func(context.Context, *ai.ImageGenerateRequest) (*ai.ImageResponse, error)
 	model    string
+	quality  string
 	fetch    func(context.Context, string) ([]byte, error)
 }
 
 func (a artworkCreator) CreateArtwork(ctx context.Context, prompt string) (imageagent.GeneratedAsset, error) {
-	response, err := a.generate(ctx, &ai.ImageGenerateRequest{Model: a.model, Prompt: prompt, N: 1, Size: "1024x1024", Quality: "auto"})
+	response, err := a.generate(ctx, &ai.ImageGenerateRequest{Model: a.model, Prompt: prompt, N: 1, Size: "1024x1024", Quality: a.quality})
 	if err != nil {
 		return imageagent.GeneratedAsset{}, err
 	}

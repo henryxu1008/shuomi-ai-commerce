@@ -34,7 +34,7 @@ type GenerationObserver func(context.Context, GenerationObservation) error
 // client cannot fall back to the polling/retrying EditImage implementation.
 func NewSynchronousProductImageAdapter(config ProductImageAdapterConfig, observe GenerationObserver) (ProductImageProvider, error) {
 	client, ok := config.Client.(*Client)
-	if !ok || client == nil || observe == nil || config.ImageModel != "gpt-image-2.5" {
+	if !ok || client == nil || observe == nil || synchronousImageQuality(config.ImageModel) == "" {
 		return nil, errors.New("synchronous product image dependencies unavailable")
 	}
 	config.Client = &synchronousProductImageClient{ImageGenerator: client, client: client, observe: observe}
@@ -54,7 +54,7 @@ func (c *synchronousProductImageClient) EditImage(ctx context.Context, request *
 // GenerateImageOnce consumes the same bounded effect observation protocol as
 // EditImageOnce. It generates actual new artwork without a source-image input.
 func (c *Client) GenerateImageOnce(ctx context.Context, req *ai.ImageGenerateRequest, observe GenerationObserver) (*ai.ImageResponse, error) {
-	if c == nil || ctx == nil || req == nil || observe == nil || req.Model != "gpt-image-2.5" || c.cfg.Model != req.Model || strings.TrimSpace(req.Prompt) == "" || !utf8.ValidString(req.Prompt) || len(req.Prompt) > 16<<10 || (req.N != 0 && req.N != 1) || (req.Size != "" && req.Size != "auto" && req.Size != "1024x1024") || (req.Quality != "" && req.Quality != "auto") {
+	if c == nil || ctx == nil || req == nil || observe == nil || !validSynchronousImageQuality(req.Model, req.Quality) || c.cfg.Model != req.Model || strings.TrimSpace(req.Prompt) == "" || !utf8.ValidString(req.Prompt) || len(req.Prompt) > 16<<10 || (req.N != 0 && req.N != 1) || (req.Size != "" && req.Size != "auto" && req.Size != "1024x1024") {
 		return nil, errors.New("synchronous artwork input is unavailable")
 	}
 	if c.cfg.Timeout > 0 {
@@ -68,12 +68,11 @@ func (c *Client) GenerateImageOnce(ctx context.Context, req *ai.ImageGenerateReq
 // EditImageOnce is the explicit synchronous GPT-image protocol. Its observer
 // must persist the provider effect before any output materialization.
 func (c *Client) EditImageOnce(ctx context.Context, req *ai.ImageEditRequest, observe GenerationObserver) (*ai.ImageResponse, error) {
-	if c == nil || ctx == nil || req == nil || observe == nil || req.Model != "gpt-image-2.5" ||
+	if c == nil || ctx == nil || req == nil || observe == nil || !validSynchronousImageQuality(req.Model, req.Quality) ||
 		c.cfg.Model != req.Model || strings.TrimSpace(req.Prompt) == "" || len(req.Image) == 0 ||
 		int64(len(req.Image)) > maxImageReferenceBytes || req.ImageURL != "" || len(req.ImageURLs) != 0 ||
 		len(req.Mask) != 0 || (req.N != 0 && req.N != 1) ||
-		(req.Size != "" && req.Size != "auto" && req.Size != "1024x1024") ||
-		(req.Quality != "" && req.Quality != "auto") {
+		(req.Size != "" && req.Size != "auto" && req.Size != "1024x1024") {
 		return nil, errors.New("synchronous image edit input is unavailable")
 	}
 	if c.cfg.Timeout > 0 {
@@ -124,7 +123,7 @@ func (c *Client) submitSynchronousImageOnce(ctx context.Context, model, prompt s
 	local.disableSubmitReplay = true
 	payload, err := local.submitGenerationRequestNoPoll(ctx, submitURL, submitRequest{
 		Model: model, Prompt: prompt, Images: images, AspectRatio: "1024x1024",
-		Quality: "auto", ReplyType: "json", UnifiedSync: true,
+		Quality: synchronousImageQuality(model), ReplyType: "json", UnifiedSync: true,
 	})
 	if err != nil {
 		return nil, errors.New("synchronous image generation outcome unknown")
@@ -162,6 +161,21 @@ func (c *Client) submitSynchronousImageOnce(ctx context.Context, model, prompt s
 }
 
 func base64EncodedSize(size int) int { return (size + 2) / 3 * 4 }
+
+func synchronousImageQuality(model string) string {
+	switch model {
+	case "gpt-image-2-vip":
+		return "medium"
+	case "gpt-image-2.5":
+		return "auto"
+	}
+	return ""
+}
+
+func validSynchronousImageQuality(model, quality string) bool {
+	want := synchronousImageQuality(model)
+	return want != "" && (quality == "" || quality == want)
+}
 
 func supportedExactImageType(mediaType string) bool {
 	return mediaType == "image/png" || mediaType == "image/jpeg" || mediaType == "image/webp"
