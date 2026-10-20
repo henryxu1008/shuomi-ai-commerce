@@ -2,7 +2,7 @@
 
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。承接 [#847 的发布身份留债](https://github.com/qq550723504/task-processor/pull/847#discussion_r4322622300)。
 
-> Status: **DESIGNING / 待独立设计检查与用户确认，Ready=false；未实施。** Design Basis: **Independent Architecture**。调查/设计基线 main `571744cec29160b3be6382a1b9402e242f433297`（2026-10-20）。当前只修改本文及四索引的提案说明；准确 HEAD、CI、复核与授权在同一主要 PR。未经设计确认与准入，不修改声明、脚本、策略、测试或运行指南。
+> Status: **用户确认设计 / IMPLEMENTATION_READY；本批源码已实施，In Review，待最终独立交付检查。** Design Basis: **Independent Architecture**。冻结设计 `da4ac7d161b14f590b4854a77728d5223b7163b8`，开工 main `571744cec29160b3be6382a1b9402e242f433297`（2026-10-20）；独立设计检查完成、用户确认且双Issue Ready已写回/读回后才改正式源。§5/§6/§6.1/§7为冻结边界；准确HEAD、CI、复核及权限留同一PR。
 
 ## 1. 产品结果、Authority 与阶段
 
@@ -129,7 +129,7 @@ Cutover/deletion condition: 独立设计检查、用户确认、IMPLEMENTATION_R
 | `docs/architecture/release-identity-preflight-retirement.md` | 只加窄superseded顶注，取代其保留旧发布principal/Role/Binding/OIDC helper及输入库存的含义；原冻结设计/历史正文保持 |
 | `docs/architecture/legacy-kubernetes-release-execution-closure-retirement-boundary.md` | 只追加窄顶注：本新确认设计取代#847中§5.3保留的准确旧身份/输入部分；原42文件矩阵、历史执行边界、当前canary/原恢复owner与全部历史正文保持 |
 
-当前设计阶段仅本文/四索引 **5文档**，不提前取代原保留结论；其它37个准确文件零改。全批42文件，不修改其它dated spec/plan/报告或issue357，不为历史路径和样本建立兼容decoder。旧identity名字在历史正文或禁止输入中出现，不等于当前执行消费者。
+设计阶段仅本文/四索引 **5文档**，未提前取代原保留结论；用户确认后现按本矩阵实施。全批42文件，不修改其它dated spec/plan/报告或issue357，不为历史路径和样本建立兼容decoder。旧identity名字在历史正文或禁止输入中出现，不等于当前执行消费者。
 
 ## 7. 独立检查、准入和交付权限
 
@@ -139,4 +139,4 @@ Cutover/deletion condition: 独立设计检查、用户确认、IMPLEMENTATION_R
 4. 独立设计准入和用户确认后，在#29/#301写明冻结设计IMPLEMENTATION_READY及范围，分别读回Ready后才改正式源。一个Writer/分支/PR整批实施；形成稳定候选前同步实际main，只处理真实组合风险。
 5. 完整闭包完成后，一次最终独立交付检查实际diff/保留行为与证据；修复只复核增量。CI/评审不是用户或真实环境验收，不自行签发生产可用。用户另行授权最终准确HEAD后正常expected-head合并，再核对实际merge SHA的push/main CI，不强推/管理员绕过/改保护。
 
-交付是“旧发布身份及错误配置指引从源码退出，当前能力沿原入口与原owner继续”，没有新的操作/验收前置。当前授权仅设计、必要文档检查、提交/推送与PR维护；正式实施、合并、部署、实际实例/业务数据/私密凭据/IAM/已有报告操作和Issue关闭未授权。#29/#301保持OPEN，生产NOT_READY。
+交付是“旧发布身份及错误配置指引从源码退出，当前能力沿原入口与原owner继续”，没有新的操作/验收前置。当前授权包括冻结范围内整批实施、必要自检、提交/推送及PR维护；合并、部署、实际实例/业务数据/私密凭据/IAM/已有报告操作和Issue关闭未授权。#29/#301保持OPEN，生产NOT_READY。

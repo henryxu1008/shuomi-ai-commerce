@@ -24,47 +24,6 @@ workflow(owner) := contents if {
 	contents := workflow_documents(owner)[0]
 }
 
-role(owner) := contents if {
-  identity := policy.oidc.identities[owner]
-  some entry in documents
-  entry.contents.kind == "Role"
-  entry.contents.metadata.name == identity.role
-  contents := entry.contents
-}
-
-role_binding(owner) := contents if {
-  identity := policy.oidc.identities[owner]
-  some entry in documents
-  entry.contents.kind == "RoleBinding"
-  entry.contents.roleRef.name == identity.role
-  contents := entry.contents
-}
-
-authentication_config := contents if {
-  some entry in documents
-  entry.contents.kind == "AuthenticationConfiguration"
-  contents := entry.contents
-}
-
-role_documents(owner) := [entry.contents |
-  identity := policy.oidc.identities[owner]
-  some entry in documents
-  entry.contents.kind == "Role"
-  entry.contents.metadata.name == identity.role
-]
-
-role_binding_documents(owner) := [entry.contents |
-  identity := policy.oidc.identities[owner]
-  some entry in documents
-  entry.contents.kind == "RoleBinding"
-  entry.contents.roleRef.name == identity.role
-]
-
-authentication_configs := [entry.contents |
-  some entry in documents
-  entry.contents.kind == "AuthenticationConfiguration"
-]
-
 configmap_documents(name) := [entry.contents |
   some entry in documents
   entry.contents.kind == "ConfigMap"
@@ -92,18 +51,6 @@ workflow_steps(owner) := [step |
   some step in job.steps
 ]
 
-rule_signatures(owner) := {signature |
-  some rule in role(owner).rules
-  some resource in rule.resources
-  signature := sprintf("%v|%v|%v|%v", [sort(rule.apiGroups), resource, sort(rule.resourceNames), sort(rule.verbs)])
-}
-
-expected_rule_signatures(owner) := {signature |
-  some protected in policy.protectedResources
-  protected.owner == owner
-  signature := sprintf("%v|%v|%v|%v", [sort(protected.apiGroups), protected.resource, sort(protected.resourceNames), sort(protected.verbs)])
-}
-
 deny contains "release bundle must contain exactly one machine policy" if count(release_policies) != 1
 
 deny contains msg if {
@@ -112,33 +59,61 @@ deny contains msg if {
   msg := sprintf("release bundle must contain exactly one %v workflow", [owner])
 }
 
+# This source bundle retains static safety checks, never publisher identities.
+# Paths are fixed here so a policy pointer cannot hide a missing required input.
+assembly_path := "deployments/kubernetes/listingkit-workbench/release-authority/kustomization.yaml"
+assembly_documents := [entry.contents |
+  some entry in documents
+  endswith(sprintf("%v", [entry.path]), assembly_path)
+]
+
+deny contains "machine policy must be an object" if not is_object(policy)
+
 deny contains msg if {
-  owner := ["api", "ui"][_]
-  count(role_documents(owner)) != 1
-  msg := sprintf("release bundle must contain exactly one %v Role", [owner])
+  field := ["repository", "namespace", "tools", "assembly", "uiAuthorization", "releaseGateRunners", "documentation"][_]
+  not field in object.keys(policy)
+  msg := sprintf("machine policy is missing required field %v", [field])
 }
 
 deny contains msg if {
-  owner := ["api", "ui"][_]
-  count(role_binding_documents(owner)) != 1
-  msg := sprintf("release bundle must contain exactly one %v RoleBinding", [owner])
+  field := ["oidc", "rbac", "protectedResources"][_]
+  field in object.keys(policy)
+  msg := sprintf("retired machine policy field %v must be absent", [field])
 }
 
-deny contains "release bundle must contain exactly one AuthenticationConfiguration" if count(authentication_configs) != 1
-
 deny contains msg if {
-  owner := ["api", "ui"][_]
-  identity := policy.oidc.identities[owner]
-  identity.workflowRef != sprintf("%v/%v@refs/heads/main", [policy.repository, workflow_path(owner)])
-  msg := sprintf("%v trusted workflow ref drifted", [owner])
+  some entry in documents
+  entry.contents.kind in {"Role", "RoleBinding", "AuthenticationConfiguration"}
+  msg := sprintf("release bundle must not contain retired authority object %v", [entry.contents.kind])
+}
+
+deny contains "machine policy assembly path drifted" if not policy.assembly == {"kustomization": assembly_path}
+
+deny contains "release bundle must contain exactly one governed assembly" if count(assembly_documents) != 1
+
+deny contains "release assembly must contain only the current canary manifest" if {
+  some assembly in assembly_documents
+  assembly != {
+    "apiVersion": "kustomize.config.k8s.io/v1beta1",
+    "kind": "Kustomization",
+    "namespace": "task-processor",
+    "resources": ["listingkit-release-gate-runners.yaml"],
+  }
+}
+
+deny contains "machine policy must pin Conftest and OPA" if {
+  not policy.tools.conftestImage == "openpolicyagent/conftest@sha256:5fd81e332d7e4bc01daf3ef35371800a9a9720a30c0c37a78de0c5fbe4b6d622"
+}
+
+deny contains "release-gate runner policy drifted" if {
+  not policy.releaseGateRunners == {
+    "manifest": "deployments/kubernetes/listingkit-workbench/release-authority/listingkit-release-gate-runners.yaml",
+    "holdImage": "registry.k8s.io/pause@sha256:ee6521f290b2168b6e0935a181d4cff9be1ac3f505666ef0e3c98fae8199917a",
+    "names": ["image-agent-temporal-v3-canary-runner"],
+  }
 }
 
 deny contains "release-gate runner inventory drifted" if runner_names != expected_runner_names
-
-deny contains "API release Role must not grant Pod permissions" if {
-  some rule in role("api").rules
-  startswith(rule.resources[_], "pods")
-}
 
 deny contains msg if {
   some runner in runner_deployments
@@ -174,21 +149,21 @@ deny contains msg if {
 
 deny contains "machine policy repository or namespace drifted" if {
   count(release_policies) == 1
-  policy.repository != "qq550723504/task-processor"
+  not policy.repository == "qq550723504/task-processor"
 }
 
 deny contains "machine policy repository or namespace drifted" if {
   count(release_policies) == 1
-  policy.namespace != "task-processor"
+  not policy.namespace == "task-processor"
 }
 
 deny contains "machine policy must pin Conftest and OPA" if {
   count(release_policies) == 1
-  policy.tools.conftestVersion != "0.68.2"
+  not policy.tools.conftestVersion == "0.68.2"
 }
 
 deny contains "UI authorization ownership policy drifted" if {
-  policy.uiAuthorization != {
+  not policy.uiAuthorization == {
     "owner": "ui",
     "sharedConfigMap": "listingkit-workbench-config",
     "configMap": "listingkit-ui-auth-config",
@@ -213,7 +188,7 @@ deny contains "UI authorization scopes leaked into shared runtime configuration"
 
 deny contains "UI authorization scopes are missing from the UI-owned ConfigMap" if {
   ui := configmap_documents(policy.uiAuthorization.configMap)[0]
-  object.get(ui.data, policy.uiAuthorization.scopesKey, "") == ""
+  object.get(object.get(ui, "data", {}), policy.uiAuthorization.scopesKey, "") == ""
 }
 
 deny contains "UI deployment authorization ConfigMap ownership drifted" if {
@@ -244,55 +219,13 @@ deny contains "UI deployment authorization ConfigMap ownership drifted" if {
 
 deny contains "machine policy must pin Conftest and OPA" if {
   count(release_policies) == 1
-  policy.tools.opaVersion != "1.15.2"
+  not policy.tools.opaVersion == "1.15.2"
 }
 
 deny contains msg if {
   owner := ["api", "ui"][_]
   contains(json.marshal(workflow(owner)), "KUBE_CONFIG")
   msg := sprintf("%v workflow retains a long-lived kubeconfig credential", [owner])
-}
-
-deny contains msg if {
-  owner := ["api", "ui"][_]
-  rule_signatures(owner) != expected_rule_signatures(owner)
-  msg := sprintf("%v Kubernetes Role differs from the protected-resource policy", [owner])
-}
-
-deny contains msg if {
-  owner := ["api", "ui"][_]
-  identity := policy.oidc.identities[owner]
-  binding := role_binding(owner)
-  count(binding.subjects) != 1
-  msg := sprintf("%v RoleBinding subject drifted", [owner])
-}
-
-deny contains msg if {
-  owner := ["api", "ui"][_]
-  identity := policy.oidc.identities[owner]
-  binding := role_binding(owner)
-  binding.subjects[0].kind != "User"
-  msg := sprintf("%v RoleBinding subject drifted", [owner])
-}
-
-deny contains msg if {
-  owner := ["api", "ui"][_]
-  identity := policy.oidc.identities[owner]
-  binding := role_binding(owner)
-  binding.subjects[0].name != sprintf("%v%v", [policy.oidc.usernamePrefix, identity.subject])
-  msg := sprintf("%v RoleBinding subject drifted", [owner])
-}
-
-deny contains "API and UI release identities must be distinct" if {
-  policy.oidc.identities.api.environment == policy.oidc.identities.ui.environment
-}
-
-deny contains "API and UI release identities must be distinct" if {
-  policy.oidc.identities.api.audience == policy.oidc.identities.ui.audience
-}
-
-deny contains "API and UI release identities must be distinct" if {
-  policy.oidc.identities.api.subject == policy.oidc.identities.ui.subject
 }
 
 # A tag is human-readable metadata, never executable release authority. All
@@ -304,53 +237,6 @@ deny contains msg if {
   not regex.match("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+@[0-9a-f]{40}$", action)
   msg := sprintf("%v release action is not pinned to a full commit SHA", [owner])
 }
-
-# Owner overlap would allow the UI identity to alter API or worker state.
-deny contains "API and UI protected resources overlap" if {
-  api := policy.protectedResources[_]
-  ui := policy.protectedResources[_]
-  api.owner == "api"
-  ui.owner == "ui"
-  api.apiGroups == ui.apiGroups
-  api.resource == ui.resource
-  name := api.resourceNames[_]
-  name == ui.resourceNames[_]
-}
-
-deny contains "Kubernetes authentication issuer or audience drifted" if {
-  auth := authentication_config.jwt[0]
-  auth.issuer.url != policy.oidc.issuer
-}
-
-deny contains "Kubernetes authentication issuer or audience drifted" if {
-  auth := authentication_config.jwt[0]
-  {x | some x in auth.issuer.audiences} != {policy.oidc.identities.api.audience, policy.oidc.identities.ui.audience}
-}
-
-deny contains "Kubernetes authentication claim rules do not bind both exact release identities" if {
-  encoded := json.marshal(authentication_config)
-  not contains(encoded, policy.oidc.identities.api.subject)
-}
-
-deny contains "Kubernetes authentication claim rules do not bind both exact release identities" if {
-  encoded := json.marshal(authentication_config)
-  not contains(encoded, policy.oidc.identities.ui.subject)
-}
-
-deny contains "Kubernetes authentication claim rules do not bind both exact release identities" if {
-  encoded := json.marshal(authentication_config)
-  not contains(encoded, policy.oidc.identities.api.workflowRef)
-}
-
-deny contains "Kubernetes authentication claim rules do not bind both exact release identities" if {
-  encoded := json.marshal(authentication_config)
-  not contains(encoded, policy.oidc.identities.ui.workflowRef)
-}
-
-deny contains "Kubernetes authentication claim rules use workflow-ref prefix authorization" if {
-  contains(json.marshal(authentication_config), "workflow_ref.startsWith")
-}
-
 
 # These two source entrypoints are retired under the confirmed internal-trial
 # contract. Compare the complete parsed document; no marker, skip or bypass.

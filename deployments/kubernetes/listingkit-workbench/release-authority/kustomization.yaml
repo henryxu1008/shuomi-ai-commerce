@@ -4,8 +4,4 @@ kind: Kustomization
 namespace: task-processor
 
 resources:
-  - listingkit-api-release-role.yaml
-  - listingkit-api-release-rolebinding.yaml
-  - listingkit-ui-release-role.yaml
-  - listingkit-ui-release-rolebinding.yaml
   - listingkit-release-gate-runners.yaml

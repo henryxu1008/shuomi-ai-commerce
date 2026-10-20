@@ -1,5 +1,7 @@
 # 旧 Kubernetes API/Task 发布执行与 UI 专属接线：完整退休闭包
 
+> **Narrow source supersession — #850 / #29 / #301.** The [confirmed principal closure](legacy-kubernetes-release-principal-retirement-boundary.md) supersedes only §5.3's retained old API/UI principal/Role/Binding/authentication/OIDC-helper sources and their obsolete machine-policy inputs. Current canary, valid static safety, shared tools and all current owners remain. The original 42-file matrix and historical body below are unchanged; no live IAM/resource/data operation, recovery-owner change or new trial prerequisite is implied.
+
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
 > Status: **用户确认设计 / IMPLEMENTATION_READY；本批源码已实施，In Review，待独立交付检查。** Design Basis: **Independent Architecture**。冻结设计 `a73f441442b8593d88f52fd776fbbb1b8123d733`，调查与开工 main `d255feb7f1349108a466530353d2637080a911be`（2026-10-20）；双Issue在正式源修改前已写回并读回Ready。§5/§6/§6.1/§7为本次冻结边界，准确实现HEAD、CI、复核与权限在同一主要PR；无合并、部署或真实环境操作授权。

@@ -1,24 +1,6 @@
 releaseAuthority:
   repository: qq550723504/task-processor
   namespace: task-processor
-  oidc:
-    issuer: https://token.actions.githubusercontent.com
-    usernamePrefix: "github:"
-    authenticationConfig: deployments/kubernetes/listingkit-workbench/release-authority/kubernetes-authentication-config.example.yaml
-    refreshHelper: scripts/listingkit-refresh-github-oidc-kubeconfig.sh
-    identities:
-      api:
-        environment: listingkit-api-production
-        audience: api://listingkit-api-production
-        subject: repo:qq550723504/task-processor:environment:listingkit-api-production
-        workflowRef: qq550723504/task-processor/.github/workflows/listingkit-deploy.yml@refs/heads/main
-        role: listingkit-api-release
-      ui:
-        environment: listingkit-ui-production
-        audience: api://listingkit-ui-production
-        subject: repo:qq550723504/task-processor:environment:listingkit-ui-production
-        workflowRef: qq550723504/task-processor/.github/workflows/listingkit-ui-deploy.yml@refs/heads/main
-        role: listingkit-ui-release
   tools:
     conftestVersion: 0.68.2
     conftestImage: openpolicyagent/conftest@sha256:5fd81e332d7e4bc01daf3ef35371800a9a9720a30c0c37a78de0c5fbe4b6d622
@@ -30,30 +12,12 @@ releaseAuthority:
     deployment: listingkit-ui
     container: listingkit-ui
     scopesKey: ZITADEL_SCOPES
-  rbac:
+  assembly:
     kustomization: deployments/kubernetes/listingkit-workbench/release-authority/kustomization.yaml
-    paths:
-      - deployments/kubernetes/listingkit-workbench/release-authority/kustomization.yaml
-      - deployments/kubernetes/listingkit-workbench/release-authority/kubernetes-authentication-config.example.yaml
-      - deployments/kubernetes/listingkit-workbench/release-authority/listingkit-api-release-role.yaml
-      - deployments/kubernetes/listingkit-workbench/release-authority/listingkit-api-release-rolebinding.yaml
-      - deployments/kubernetes/listingkit-workbench/release-authority/listingkit-ui-release-role.yaml
-      - deployments/kubernetes/listingkit-workbench/release-authority/listingkit-ui-release-rolebinding.yaml
   releaseGateRunners:
     manifest: deployments/kubernetes/listingkit-workbench/release-authority/listingkit-release-gate-runners.yaml
     holdImage: registry.k8s.io/pause@sha256:ee6521f290b2168b6e0935a181d4cff9be1ac3f505666ef0e3c98fae8199917a
     names: [image-agent-temporal-v3-canary-runner]
-  protectedResources:
-    - {owner: api, apiGroups: [""], resource: configmaps, resourceNames: [listingkit-workbench-config], verbs: [get, patch, update]}
-    - {owner: api, apiGroups: [""], resource: secrets, resourceNames: [listingkit-workbench-secret], verbs: [get, patch, update]}
-    - owner: api
-      apiGroups: [apps]
-      resource: deployments
-      resourceNames: [image-agent-temporal-worker, image-agent-temporal-worker-v3, image-agent-temporal-v3-canary-runner]
-      verbs: [get, patch, update, watch]
-    - {owner: api, apiGroups: [networking.k8s.io], resource: ingresses, resourceNames: [listingkit-workbench], verbs: [get, patch, update]}
-    - {owner: ui, apiGroups: [""], resource: configmaps, resourceNames: [listingkit-ui-auth-config], verbs: [get, patch, update]}
-    - {owner: ui, apiGroups: [apps], resource: deployments, resourceNames: [listingkit-ui], verbs: [get, patch, update, watch]}
   documentation:
     paths: [deployments/kubernetes/listingkit-workbench/README.md]
     canonicalWorkflows: [.github/workflows/listingkit-deploy.yml, .github/workflows/listingkit-ui-deploy.yml]

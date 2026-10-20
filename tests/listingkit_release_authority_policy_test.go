@@ -1,27 +1,15 @@
 package tests
 
 import (
-	"encoding/base64"
-	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
-	"time"
 
 	"gopkg.in/yaml.v3"
-)
-
-const (
-	listingKitRepository         = "qq550723504/task-processor"
-	listingKitAPIOIDCEnvironment = "listingkit-api-production"
-	listingKitUIOIDCEnvironment  = "listingkit-ui-production"
-	listingKitAPIOIDCAudience    = "api://listingkit-api-production"
-	listingKitUIOIDCAudience     = "api://listingkit-ui-production"
-	listingKitAPIWorkflowRef     = listingKitRepository + "/.github/workflows/listingkit-deploy.yml@refs/heads/main"
-	listingKitUIWorkflowRef      = listingKitRepository + "/.github/workflows/listingkit-ui-deploy.yml@refs/heads/main"
 )
 
 func TestListingKitReleaseAuthorityMachinePolicyOwnsAllSecurityInputs(t *testing.T) {
@@ -37,18 +25,7 @@ func TestListingKitReleaseAuthorityMachinePolicyOwnsAllSecurityInputs(t *testing
 		ReleaseAuthority struct {
 			Repository string `yaml:"repository"`
 			Namespace  string `yaml:"namespace"`
-			OIDC       struct {
-				Issuer         string `yaml:"issuer"`
-				UsernamePrefix string `yaml:"usernamePrefix"`
-				RefreshHelper  string `yaml:"refreshHelper"`
-				Identities     map[string]struct {
-					Environment string `yaml:"environment"`
-					Audience    string `yaml:"audience"`
-					Subject     string `yaml:"subject"`
-					WorkflowRef string `yaml:"workflowRef"`
-				} `yaml:"identities"`
-			} `yaml:"oidc"`
-			Tools struct {
+			Tools      struct {
 				ConftestVersion string `yaml:"conftestVersion"`
 				OPAVersion      string `yaml:"opaVersion"`
 			} `yaml:"tools"`
@@ -60,21 +37,14 @@ func TestListingKitReleaseAuthorityMachinePolicyOwnsAllSecurityInputs(t *testing
 				Container       string `yaml:"container"`
 				ScopesKey       string `yaml:"scopesKey"`
 			} `yaml:"uiAuthorization"`
-			RBAC struct {
-				Kustomization string   `yaml:"kustomization"`
-				Paths         []string `yaml:"paths"`
-			} `yaml:"rbac"`
+			Assembly struct {
+				Kustomization string `yaml:"kustomization"`
+			} `yaml:"assembly"`
 			ReleaseGateRunners struct {
 				Manifest  string   `yaml:"manifest"`
 				HoldImage string   `yaml:"holdImage"`
 				Names     []string `yaml:"names"`
 			} `yaml:"releaseGateRunners"`
-			ProtectedResources []struct {
-				Owner         string   `yaml:"owner"`
-				Resource      string   `yaml:"resource"`
-				ResourceNames []string `yaml:"resourceNames"`
-				Verbs         []string `yaml:"verbs"`
-			} `yaml:"protectedResources"`
 			Documentation struct {
 				Paths              []string `yaml:"paths"`
 				CanonicalWorkflows []string `yaml:"canonicalWorkflows"`
@@ -89,20 +59,6 @@ func TestListingKitReleaseAuthorityMachinePolicyOwnsAllSecurityInputs(t *testing
 	if authority.Repository != "qq550723504/task-processor" || authority.Namespace != "task-processor" {
 		t.Fatalf("release policy repository/namespace drifted: %#v", authority)
 	}
-	if authority.OIDC.Issuer != "https://token.actions.githubusercontent.com" || authority.OIDC.UsernamePrefix != "github:" {
-		t.Fatalf("release policy OIDC trust drifted: %#v", authority.OIDC)
-	}
-	if authority.OIDC.RefreshHelper != "scripts/listingkit-refresh-github-oidc-kubeconfig.sh" {
-		t.Fatalf("release policy must own the checked-in fresh OIDC helper, got %q", authority.OIDC.RefreshHelper)
-	}
-	api := authority.OIDC.Identities["api"]
-	ui := authority.OIDC.Identities["ui"]
-	if api.Environment != listingKitAPIOIDCEnvironment || ui.Environment != listingKitUIOIDCEnvironment ||
-		api.Audience != listingKitAPIOIDCAudience || ui.Audience != listingKitUIOIDCAudience ||
-		api.Subject == "" || ui.Subject == "" || api.Subject == ui.Subject ||
-		api.WorkflowRef != listingKitAPIWorkflowRef || ui.WorkflowRef != listingKitUIWorkflowRef {
-		t.Fatalf("release policy must own distinct API/UI identities: api=%#v ui=%#v", api, ui)
-	}
 	if authority.Tools.ConftestVersion == "" || authority.Tools.OPAVersion == "" || strings.Contains(authority.Tools.ConftestVersion, "latest") || strings.Contains(authority.Tools.OPAVersion, "latest") {
 		t.Fatalf("release policy must pin Conftest and embedded OPA versions: %#v", authority.Tools)
 	}
@@ -111,26 +67,27 @@ func TestListingKitReleaseAuthorityMachinePolicyOwnsAllSecurityInputs(t *testing
 		authority.UIAuthorization.Container != "listingkit-ui" || authority.UIAuthorization.ScopesKey != "ZITADEL_SCOPES" {
 		t.Fatalf("release policy must own the exclusive UI authorization config: %#v", authority.UIAuthorization)
 	}
-	if authority.RBAC.Kustomization == "" || len(authority.RBAC.Paths) < 6 || len(authority.ProtectedResources) == 0 {
-		t.Fatalf("release policy must own RBAC paths and protected resources: %#v", authority.RBAC)
+	if authority.Assembly.Kustomization != "deployments/kubernetes/listingkit-workbench/release-authority/kustomization.yaml" {
+		t.Fatalf("release policy must own the governed source assembly: %#v", authority.Assembly)
 	}
+	var assembly struct {
+		Namespace string   `yaml:"namespace"`
+		Resources []string `yaml:"resources"`
+	}
+	assemblyContent, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(authority.Assembly.Kustomization)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := yaml.Unmarshal(assemblyContent, &assembly); err != nil {
+		t.Fatal(err)
+	}
+	if assembly.Namespace != "task-processor" || !reflect.DeepEqual(assembly.Resources, []string{"listingkit-release-gate-runners.yaml"}) {
+		t.Fatalf("release assembly must contain only the current canary: %#v", assembly)
+	}
+
 	if authority.ReleaseGateRunners.Manifest != "deployments/kubernetes/listingkit-workbench/release-authority/listingkit-release-gate-runners.yaml" ||
 		authority.ReleaseGateRunners.HoldImage != releaseGateHoldImage || len(authority.ReleaseGateRunners.Names) != 1 || authority.ReleaseGateRunners.Names[0] != "image-agent-temporal-v3-canary-runner" {
 		t.Fatalf("release policy must own the aggregate runner manifest and exact inventory: %#v", authority.ReleaseGateRunners)
-	}
-	if len(authority.ProtectedResources) != 6 {
-		t.Fatalf("retained API/UI protected resource inventory drifted: %#v", authority.ProtectedResources)
-	}
-	for _, protected := range authority.ProtectedResources {
-		for _, name := range protected.ResourceNames {
-			switch name {
-			case "product-listing-api", "product-listing-api-schema-migrate-runner", "listingkit-schema-migrate-runner", "listingkit-member-invitation-secret":
-				t.Errorf("retired source permission remains: %s", name)
-			}
-		}
-		if protected.Owner == "api" && protected.Resource == "deployments" && strings.Join(protected.ResourceNames, ",") != "image-agent-temporal-worker,image-agent-temporal-worker-v3,image-agent-temporal-v3-canary-runner" {
-			t.Errorf("retained worker/canary deployment permissions drifted: %#v", protected)
-		}
 	}
 	if len(authority.Documentation.Paths) == 0 || len(authority.Documentation.CanonicalWorkflows) != 2 {
 		t.Fatalf("release policy must own supported release docs and canonical workflow links: %#v", authority.Documentation)
@@ -228,190 +185,34 @@ func TestListingKitReleaseAuthorityRejectsRetiredEntrypointBypasses(t *testing.T
 	}
 }
 
-func TestListingKitReleaseAuthorityOIDCConfiguratorFailsClosedOnClaimMismatch(t *testing.T) {
-	t.Parallel()
-
-	script, err := filepath.Abs(filepath.Join("..", "scripts", "listingkit-configure-github-oidc-kubeconfig.sh"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(script); err != nil {
-		t.Fatalf("OIDC kubeconfig configurator is missing: %v", err)
-	}
-
-	now := time.Now().UTC()
-	claims := map[string]interface{}{
-		"iss":          "https://token.actions.githubusercontent.com",
-		"aud":          listingKitAPIOIDCAudience,
-		"sub":          "repo:qq550723504/task-processor:environment:" + listingKitAPIOIDCEnvironment,
-		"repository":   "qq550723504/task-processor",
-		"environment":  listingKitAPIOIDCEnvironment,
-		"workflow_ref": listingKitAPIWorkflowRef,
-		"nbf":          now.Add(-time.Minute).Unix(),
-		"exp":          now.Add(10 * time.Minute).Unix(),
-	}
-
-	run := func(t *testing.T, tokenClaims map[string]interface{}, audience, workflowFlag, workflowValue string) ([]byte, string, error) {
-		t.Helper()
-		dir := t.TempDir()
-		tokenPath := filepath.Join(dir, "oidc-token")
-		kubeconfigPath := filepath.Join(dir, "kubeconfig")
-		if err := os.WriteFile(tokenPath, []byte(unsignedJWT(t, tokenClaims)), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		args := []string{filepath.ToSlash(script),
-			"--token-file", filepath.ToSlash(tokenPath),
-			"--kubeconfig", filepath.ToSlash(kubeconfigPath),
-			"--cluster-server", "https://kubernetes.example.invalid",
-			"--cluster-ca-b64", base64.StdEncoding.EncodeToString([]byte("test-ca")),
-			"--issuer", "https://token.actions.githubusercontent.com",
-			"--audience", audience,
-			"--subject", "repo:qq550723504/task-processor:environment:" + listingKitAPIOIDCEnvironment,
-			"--repository", listingKitRepository,
-			"--environment", listingKitAPIOIDCEnvironment,
-			workflowFlag, workflowValue,
-		}
-		command := exec.Command(preflightBash(t), args...)
-		output, runErr := command.CombinedOutput()
-		return output, kubeconfigPath, runErr
-	}
-
-	t.Run("wrong audience writes no kubeconfig", func(t *testing.T) {
-		output, kubeconfigPath, runErr := run(t, claims, listingKitUIOIDCAudience, "--workflow-ref", listingKitAPIWorkflowRef)
-		if runErr == nil {
-			t.Fatalf("wrong audience unexpectedly configured Kubernetes credentials: %s", output)
-		}
-		if _, statErr := os.Stat(kubeconfigPath); !os.IsNotExist(statErr) {
-			t.Fatalf("claim mismatch must fail before writing kubeconfig, statErr=%v", statErr)
-		}
-	})
-
-	for _, test := range []struct {
-		name        string
-		workflowRef interface{}
-	}{
-		{name: "feature branch", workflowRef: listingKitRepository + "/.github/workflows/listingkit-deploy.yml@refs/heads/feature/release"},
-		{name: "tag", workflowRef: listingKitRepository + "/.github/workflows/listingkit-deploy.yml@refs/tags/listingkit-api-v-test"},
-		{name: "trusted ref prefix lookalike", workflowRef: listingKitAPIWorkflowRef + "-attacker"},
-		{name: "missing ref", workflowRef: nil},
-	} {
-		t.Run(test.name+" writes no kubeconfig", func(t *testing.T) {
-			mismatched := cloneOIDCClaims(claims)
-			if test.workflowRef == nil {
-				delete(mismatched, "workflow_ref")
-			} else {
-				mismatched["workflow_ref"] = test.workflowRef
-			}
-			output, kubeconfigPath, runErr := run(t, mismatched, listingKitAPIOIDCAudience, "--workflow-ref", listingKitAPIWorkflowRef)
-			if runErr == nil {
-				t.Fatalf("untrusted workflow ref unexpectedly configured Kubernetes credentials: %s", output)
-			}
-			if _, statErr := os.Stat(kubeconfigPath); !os.IsNotExist(statErr) {
-				t.Fatalf("workflow ref mismatch must fail before writing kubeconfig, statErr=%v", statErr)
-			}
-		})
-	}
-
-	t.Run("path only configuration is rejected", func(t *testing.T) {
-		output, kubeconfigPath, runErr := run(t, claims, listingKitAPIOIDCAudience, "--workflow-path", ".github/workflows/listingkit-deploy.yml")
-		if runErr == nil {
-			t.Fatalf("path-only OIDC configuration unexpectedly created Kubernetes credentials: %s", output)
-		}
-		if _, statErr := os.Stat(kubeconfigPath); !os.IsNotExist(statErr) {
-			t.Fatalf("path-only configuration must fail before writing kubeconfig, statErr=%v", statErr)
-		}
-	})
-
-	t.Run("exact claims create ephemeral kubeconfig without logging token", func(t *testing.T) {
-		output, kubeconfigPath, runErr := run(t, claims, listingKitAPIOIDCAudience, "--workflow-ref", listingKitAPIWorkflowRef)
-		if runErr != nil {
-			t.Fatalf("exact OIDC claims failed: %v\n%s", runErr, output)
-		}
-		kubeconfig, readErr := os.ReadFile(kubeconfigPath)
-		if readErr != nil {
-			t.Fatalf("read ephemeral kubeconfig: %v", readErr)
-		}
-		token := unsignedJWT(t, claims)
-		if !strings.Contains(string(kubeconfig), token) {
-			t.Fatal("ephemeral kubeconfig is missing the short-lived OIDC token")
-		}
-		if strings.Contains(string(output), token) {
-			t.Fatal("OIDC token must never be printed")
-		}
-	})
-}
-
-func TestListingKitReleaseAuthorityBindsWorkflowRefToMain(t *testing.T) {
-	t.Parallel()
-
-	authenticationPath := filepath.Join("..", "deployments", "kubernetes", "listingkit-workbench", "release-authority", "kubernetes-authentication-config.example.yaml")
-	authentication, err := os.ReadFile(authenticationPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	authenticationText := string(authentication)
-	for _, workflowRef := range []string{listingKitAPIWorkflowRef, listingKitUIWorkflowRef} {
-		if !strings.Contains(authenticationText, workflowRef) {
-			t.Errorf("Kubernetes AuthenticationConfiguration must bind exact workflow ref %q", workflowRef)
-		}
-	}
-	if strings.Contains(authenticationText, "workflow_ref.startsWith") {
-		t.Error("Kubernetes AuthenticationConfiguration must not authorize a workflow-ref prefix")
-	}
-
-}
-
 func TestListingKitReleaseAuthorityNegativeFixturesAreCheckedIn(t *testing.T) {
 	t.Parallel()
-
 	root := filepath.Join("..", "policy", "listingkit-release-authority", "fixtures", "negative")
-	for _, name := range []string{
-		"kube-config-fallback.yaml",
-		"shared-environment.yaml",
-		"shared-subject.yaml",
-		"missing-id-token.yaml",
-		"wrong-audience.yaml",
-		"workflow-job-owner-drift.yaml",
-		"workflow-step-owner-drift.yaml",
-		"job-reusable-workflow.yaml",
-		"step-composite-action.yaml",
-		"with-target-bypass.yaml",
-		"excess-rbac-verbs.yaml",
-		"excess-rbac-resources.yaml",
-		"excess-rbac-resource-names.yaml",
-		"policy-drift.yaml",
-		"workflow-ref-feature-branch.yaml",
-		"workflow-ref-tag.yaml",
-		"workflow-ref-path-prefix-lookalike.yaml",
-		"workflow-ref-missing.yaml",
-		"trusted-workflow-ref-policy-drift.yaml",
-		"mutable-action-ref.yaml",
-	} {
-		if _, err := os.Stat(filepath.Join(root, name)); err != nil {
-			t.Errorf("missing release-authority negative fixture %s: %v", name, err)
+	expected := map[string]map[string]any{
+		"kube-config-fallback.yaml":  {"workflow": map[string]any{"credentials": []any{"KUBE_CONFIG"}}},
+		"job-reusable-workflow.yaml": {"workflow": map[string]any{"uses": "./.github/workflows/unowned-release.yml"}},
+		"step-composite-action.yaml": {"workflow": map[string]any{"stepUses": "./unowned-release-action"}},
+		"policy-drift.yaml":          {"policy": map[string]any{"repository": "attacker/example"}},
+		"mutable-action-ref.yaml":    {"workflow": map[string]any{"actionUses": "actions/checkout@v4"}},
+		"pod-rbac-and-query.yaml":    {"releaseGateCommand": "kubectl -n task-processor get pods -l app=image-agent-temporal-v3-canary-runner -o json"},
+	}
+	paths, err := filepath.Glob(filepath.Join(root, "*.yaml"))
+	if err != nil || len(paths) != len(expected) {
+		t.Fatalf("current negative fixture inventory drifted: paths=%v err=%v", paths, err)
+	}
+	for name, want := range expected {
+		content, err := os.ReadFile(filepath.Join(root, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var actual map[string]any
+		if err := yaml.Unmarshal(content, &actual); err != nil {
+			t.Fatalf("decode %s: %v", name, err)
+		}
+		if !reflect.DeepEqual(actual, want) {
+			t.Errorf("%s must cover its current safety rule without retired identity inputs: %#v", name, actual)
 		}
 	}
-}
-
-func cloneOIDCClaims(source map[string]interface{}) map[string]interface{} {
-	clone := make(map[string]interface{}, len(source))
-	for key, value := range source {
-		clone[key] = value
-	}
-	return clone
-}
-
-func unsignedJWT(t *testing.T, claims map[string]interface{}) string {
-	t.Helper()
-	header, err := json.Marshal(map[string]string{"alg": "RS256", "typ": "JWT"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	payload, err := json.Marshal(claims)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return base64.RawURLEncoding.EncodeToString(header) + "." + base64.RawURLEncoding.EncodeToString(payload) + ".test-signature"
 }
 
 func TestListingKitReleaseAuthorityHasNoLongLivedKubeconfigFallback(t *testing.T) {
@@ -428,64 +229,64 @@ func TestListingKitReleaseAuthorityHasNoLongLivedKubeconfigFallback(t *testing.T
 		}
 
 	}
-	helper, err := os.ReadFile(filepath.Join("..", "scripts", "listingkit-refresh-github-oidc-kubeconfig.sh"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, required := range []string{"ACTIONS_ID_TOKEN_REQUEST_URL", "ACTIONS_ID_TOKEN_REQUEST_TOKEN", "listingkit-configure-github-oidc-kubeconfig.sh"} {
-		if !strings.Contains(string(helper), required) {
-			t.Errorf("fresh OIDC helper is missing GitHub-issued credential contract %q", required)
-		}
-	}
 }
 
-func TestListingKitReleaseAuthorityBootstrapIsStandaloneAndCreateFree(t *testing.T) {
-	t.Parallel()
-
-	root := filepath.Join("..", "deployments", "kubernetes", "listingkit-workbench", "release-authority")
-	for _, name := range []string{
-		"kustomization.yaml",
-		"release-policy.yaml",
-		"kubernetes-authentication-config.example.yaml",
-		"listingkit-api-release-role.yaml",
-		"listingkit-api-release-rolebinding.yaml",
-		"listingkit-ui-release-role.yaml",
-		"listingkit-ui-release-rolebinding.yaml",
+func TestListingKitReleaseAuthorityRejectsRetiredAuthorityAndMissingInputs(t *testing.T) {
+	const authorityRoot = "deployments/kubernetes/listingkit-workbench/release-authority/"
+	const policyPath = authorityRoot + "release-policy.yaml"
+	const assemblyPath = authorityRoot + "kustomization.yaml"
+	api := readRepositoryText(t, "..", ".github", "workflows", "listingkit-deploy.yml")
+	check := func(t *testing.T, path, content, reason string) {
+		t.Helper()
+		output, err := runReleaseAuthorityCrossFilePolicy(t, api, "", "", map[string]string{path: content})
+		if err == nil || !strings.Contains(output, reason) {
+			t.Fatalf("policy must reject the actual bundle for %q: err=%v\n%s", reason, err, output)
+		}
+	}
+	for _, kind := range []string{"Role", "RoleBinding", "AuthenticationConfiguration"} {
+		t.Run(kind, func(t *testing.T) {
+			check(t, authorityRoot+"forbidden.yaml", "apiVersion: v1\nkind: "+kind+"\nmetadata: {name: retired}\n", "must not contain retired authority object "+kind)
+		})
+	}
+	t.Run("extra assembly resource", func(t *testing.T) {
+		assembly := readRepositoryText(t, "..", filepath.FromSlash(assemblyPath))
+		check(t, assemblyPath, assembly+"  - unowned.yaml\n", "release assembly must contain only the current canary manifest")
+	})
+	for _, field := range []string{"oidc", "rbac", "protectedResources"} {
+		t.Run("retired field/"+field, func(t *testing.T) {
+			policy := readRepositoryText(t, "..", filepath.FromSlash(policyPath))
+			check(t, policyPath, policy+"  "+field+": {}\n", "retired machine policy field "+field+" must be absent")
+		})
+	}
+	for _, field := range []string{"tools", "assembly", "uiAuthorization", "releaseGateRunners", "documentation"} {
+		t.Run("missing policy field/"+field, func(t *testing.T) {
+			var policy map[string]map[string]any
+			if err := yaml.Unmarshal([]byte(readRepositoryText(t, "..", filepath.FromSlash(policyPath))), &policy); err != nil {
+				t.Fatal(err)
+			}
+			delete(policy["releaseAuthority"], field)
+			content, err := yaml.Marshal(policy)
+			if err != nil {
+				t.Fatal(err)
+			}
+			check(t, policyPath, string(content), "machine policy is missing required field "+field)
+		})
+	}
+	for path, reason := range map[string]string{
+		policyPath:   "release bundle must contain exactly one machine policy",
+		assemblyPath: "release bundle must contain exactly one governed assembly",
+		authorityRoot + "listingkit-release-gate-runners.yaml":                            "release-gate runner inventory drifted",
+		".github/workflows/listingkit-deploy.yml":                                         "release bundle must contain exactly one api workflow",
+		".github/workflows/listingkit-ui-deploy.yml":                                      "release bundle must contain exactly one ui workflow",
+		"deployments/kubernetes/listingkit-workbench/base/configmap.yaml":                 "UI authorization ConfigMap inventory drifted",
+		"deployments/kubernetes/listingkit-workbench/base/listingkit-ui-auth-config.yaml": "UI authorization ConfigMap inventory drifted",
+		"deployments/kubernetes/listingkit-workbench/base/listingkit-ui-deployment.yaml":  "UI deployment authorization ConfigMap ownership drifted",
 	} {
-		if _, err := os.Stat(filepath.Join(root, name)); err != nil {
-			t.Errorf("release-authority bootstrap is missing %s: %v", name, err)
-		}
-	}
-
-	for _, name := range []string{"listingkit-api-release-role.yaml", "listingkit-ui-release-role.yaml"} {
-		path := filepath.Join(root, name)
-		content, err := os.ReadFile(path)
-		if err != nil {
-			continue
-		}
-		var role struct {
-			Rules []struct {
-				ResourceNames []string `yaml:"resourceNames"`
-				Verbs         []string `yaml:"verbs"`
-			} `yaml:"rules"`
-		}
-		if err := yaml.Unmarshal(content, &role); err != nil {
-			t.Fatalf("decode %s: %v", path, err)
-		}
-		for i, rule := range role.Rules {
-			if len(rule.ResourceNames) == 0 {
-				t.Errorf("%s rule %d is not constrained by resourceNames", name, i)
-			}
-			for _, verb := range rule.Verbs {
-				if verb == "create" || verb == "*" || verb == "deletecollection" {
-					t.Errorf("%s rule %d grants forbidden top-level verb %q", name, i, verb)
-				}
-			}
-		}
+		t.Run("missing input/"+filepath.Base(path), func(t *testing.T) { check(t, path, "", reason) })
 	}
 }
 
-func runReleaseAuthorityCrossFilePolicy(t *testing.T, mutatedWorkflow, mutatedUIWorkflow, mutatedRunnerManifest string) (string, error) {
+func runReleaseAuthorityCrossFilePolicy(t *testing.T, mutatedWorkflow, mutatedUIWorkflow, mutatedRunnerManifest string, mutatedInputs ...map[string]string) (string, error) {
 	t.Helper()
 
 	repoRoot, err := filepath.Abs(filepath.Join(".."))
@@ -520,6 +321,47 @@ func runReleaseAuthorityCrossFilePolicy(t *testing.T, mutatedWorkflow, mutatedUI
 		runnerManifestPath = "/fixture/deployments/kubernetes/listingkit-workbench/release-authority/listingkit-release-gate-runners.yaml"
 	}
 
+	inputs := []string{
+		"deployments/kubernetes/listingkit-workbench/release-authority/release-policy.yaml",
+		"deployments/kubernetes/listingkit-workbench/release-authority/kustomization.yaml",
+		runnerManifestPath,
+		"deployments/kubernetes/listingkit-workbench/base/configmap.yaml",
+		"deployments/kubernetes/listingkit-workbench/base/listingkit-ui-auth-config.yaml",
+		"deployments/kubernetes/listingkit-workbench/base/listingkit-ui-deployment.yaml",
+		"/fixture/.github/workflows/listingkit-deploy.yml",
+		uiWorkflowPath,
+	}
+	for _, overrides := range mutatedInputs {
+		for relative, content := range overrides {
+			index := -1
+			for i, input := range inputs {
+				if input == relative || strings.HasSuffix(input, "/"+relative) {
+					index = i
+					break
+				}
+			}
+			if content == "" {
+				if index < 0 {
+					t.Fatalf("cannot omit unknown policy input %s", relative)
+				}
+				inputs = append(inputs[:index], inputs[index+1:]...)
+				continue
+			}
+			fixturePath := filepath.Join(fixtureRoot, filepath.FromSlash(relative))
+			if err := os.MkdirAll(filepath.Dir(fixturePath), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(fixturePath, []byte(content), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			input := "/fixture/" + relative
+			if index >= 0 {
+				inputs[index] = input
+			} else {
+				inputs = append(inputs, input)
+			}
+		}
+	}
 	arguments := []string{
 		"run", "--rm",
 		"--volume", repoRoot + ":/project",
@@ -529,20 +371,9 @@ func runReleaseAuthorityCrossFilePolicy(t *testing.T, mutatedWorkflow, mutatedUI
 		"test", "--combine",
 		"--namespace", "listingkit_release_authority",
 		"--policy", "policy/listingkit-release-authority",
-		"deployments/kubernetes/listingkit-workbench/release-authority/release-policy.yaml",
-		"deployments/kubernetes/listingkit-workbench/release-authority/kubernetes-authentication-config.example.yaml",
-		"deployments/kubernetes/listingkit-workbench/release-authority/listingkit-api-release-role.yaml",
-		"deployments/kubernetes/listingkit-workbench/release-authority/listingkit-api-release-rolebinding.yaml",
-		"deployments/kubernetes/listingkit-workbench/release-authority/listingkit-ui-release-role.yaml",
-		"deployments/kubernetes/listingkit-workbench/release-authority/listingkit-ui-release-rolebinding.yaml",
-		"deployments/kubernetes/listingkit-workbench/release-authority/kustomization.yaml",
-		runnerManifestPath,
-		"deployments/kubernetes/listingkit-workbench/base/configmap.yaml",
-		"deployments/kubernetes/listingkit-workbench/base/listingkit-ui-auth-config.yaml",
-		"deployments/kubernetes/listingkit-workbench/base/listingkit-ui-deployment.yaml",
-		"/fixture/.github/workflows/listingkit-deploy.yml",
-		uiWorkflowPath,
 	}
+	arguments = append(arguments, inputs...)
+
 	command := exec.Command("docker", arguments...)
 	command.Dir = repoRoot
 	output, runErr := command.CombinedOutput()

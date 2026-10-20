@@ -1,2 +1,0 @@
-excessVerb: create
-rbac: {verbs: [get, patch, update, create]}
