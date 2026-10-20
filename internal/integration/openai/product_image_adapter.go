@@ -481,6 +481,9 @@ func (a *ProductImageAdapter) editOne(ctx context.Context, input, source product
 		ImageURL: input.URL, ImageContentType: input.MediaType,
 		ResponseFormat: "b64_json", N: 1, Size: "auto",
 	}
+	if a.isVIPImageRoute() {
+		request.Size, request.Quality = "1024x1024", "medium"
+	}
 	if operation == productimage.SourceWhiteBackgroundOperation {
 		if len(request.Image) == 0 {
 			return productimage.Candidate{}, productimage.ErrInputInvalid
@@ -531,6 +534,12 @@ func (a *ProductImageAdapter) imageCandidates(ctx context.Context, response *ai.
 		mediaType, width, height, err := httpimage.InspectGeneratedArtifact(content)
 		if err != nil {
 			return nil, err
+		}
+		if a.isVIPImageRoute() && (width != 1024 || height != 1024) {
+			if a.config.DiagnoseOutputDimensions != nil {
+				a.config.DiagnoseOutputDimensions(1024, 1024, width, height)
+			}
+			return nil, productimage.ErrOutputValidation
 		}
 		candidates[index] = productimage.Candidate{
 			Asset: productimage.Asset{

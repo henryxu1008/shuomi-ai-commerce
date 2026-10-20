@@ -86,7 +86,7 @@ func generationOutputRecovery(fetch func(context.Context, string) ([]byte, error
 		if err != nil {
 			return imageagent.SlotGeneratedOutput{}, imageagent.ErrInvalidGeneratedOutput
 		}
-		if (input.ImageSet != nil || input.Artwork != nil) && (width != 1024 || height != 1024) {
+		if (input.ImageSet != nil || input.Artwork != nil || fact.Intent.Provider == "grsai" && fact.Intent.Model == "gpt-image-2-vip") && (width != 1024 || height != 1024) {
 			if logger != nil {
 				imageDimensionsDiagnostic(logrus.NewEntry(logger), fact.Intent.Provider, fact.Intent.Model)(1024, 1024, width, height)
 			}
