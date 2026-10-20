@@ -2278,16 +2278,18 @@ func TestCurrentBuildDoesNotPackageRetiredTaskEntrypoints(t *testing.T) {
 }
 
 func TestRetiredLocalLaunchersRejectBeforeOperations(t *testing.T) {
-	for _, name := range []string{"start-listingkit-local-api.ps1", "start-listingkit-local-dev.ps1"} {
-		content, err := os.ReadFile(filepath.Join("..", "scripts", name))
-		if err != nil {
-			t.Fatal(err)
-		}
-		source := string(content)
-		retired := strings.Index(source, "throw \"Legacy ListingKit")
-		firstFunction := strings.Index(source, "function ")
-		if retired < 0 || firstFunction < 0 || retired > firstFunction {
-			t.Errorf("%s must reject the retired entry before process, config or connection operations", name)
+	for _, relative := range []string{
+		"scripts/start-listingkit-local-api.ps1",
+		"scripts/start-listingkit-local-api.Tests.ps1",
+		"scripts/start-listingkit-local-dev.ps1",
+		"scripts/start-listingkit-local-dev.Tests.ps1",
+		"scripts/image-agent-local-acceptance.ps1",
+		"scripts/image-agent-local-acceptance.Tests.ps1",
+		"scripts/tests/image-agent-local-acceptance-script-test.ps1",
+		"deployments/docker/image-agent-acceptance/docker-compose.yml",
+	} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Errorf("retired local launch/acceptance source must be absent: %s (stat: %v)", relative, err)
 		}
 	}
 	if _, err := os.Stat(filepath.Join("..", "scripts", "start-listingkit-api-local-replay.ps1")); !os.IsNotExist(err) {

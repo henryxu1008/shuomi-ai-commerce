@@ -1,5 +1,7 @@
 # Legacy Register
 
+> #29 / #301 用户确认[旧本地启动与 ImageAgent 验收完整闭包](../architecture/legacy-local-acceptance-closure-retirement-boundary.md)冻结设计 `6a654c04f` 后，在 #846 按 §5/§6/§6.1/§7 整批源码 RETIRE：八个 API/dev launcher、旧验收编排/内联 helper、专属测试/Compose 及准确说明尾部一起退出，原 guard 改为源缺席。Reuse Existing Architecture，无新增抽取/替代验收。仅取代这些准确源的旧保留结论；当前 UI/测试、token handoff、原生身份 CLI/库、issue357、通用工具、ImageAgent/Temporal、采集/Store/独立 SHEIN 登录与同步原样。历史记录/计数、全部 workflow/inventory/依赖不改，无运行/数据/凭据/清理或新试用前置；准确 HEAD/CI/最终复核留 PR。
+
 > #29 / #301 用户确认[旧 Task 诊断与回归验收完整闭包](../architecture/legacy-task-diagnostics-retirement-boundary.md)冻结设计 `ddc6414b0` 后，在 #844 按 §5/§6/§6.1/§7 整批源码 RETIRE：inspector、preview 清单校验器及专属测试/样例/内联 helper、旧查询帮助和准确验收/Temporal PoC 说明尾部。Reuse Existing Architecture；无新抽取、替代 Task/cache owner 或兼容层。当前定价/API/规则、Temporal、通用 DB/prompt replay、采集/Store/独立 SHEIN 登录与同步保留。仅替代 inspector 当前工具保留结论及旧清单 Pester 的追修含义；历史行/计数、商业门禁、全部 workflow/inventory 不改，无运行/数据操作或新试用前置。
 
 > #529 / #301 用户确认[旧 Yudao 身份运维完整闭包](../architecture/legacy-yudao-identity-operations-retirement-boundary.md)冻结设计 `370695e82` 后，在 #842 按§5/§6/§6.1/§7整批 RETIRE：三个历史用户导入入口、owner恢复dry-run、内联helper/报告生成及直接说明尾部源码退出。复用当前Greenfield/Hard-Cut，仅替代两个local脚本及support-candidate行中其迁移保留结论，历史行/计数保持；无旧ID映射/替代恢复owner。当前认证/Organization/手机号、ZITADEL共享基础设施、采集/Store与独立SHEIN登录/同步原样；全部workflow/inventory零改，无运行/数据/既有报告操作或新试用前置。
