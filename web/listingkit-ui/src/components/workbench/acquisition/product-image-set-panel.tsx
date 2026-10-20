@@ -32,7 +32,7 @@ type RetainedRequest={key:string;raw:string;intent:Intent};
 type PhotoView={url:string;label:string;width?:number;height?:number};
 type ChoiceView={key:string;url:string;label:string;choice:ImageSetChoice};
 const stateNames:Record<string,string>={awaiting_plan_approval:"等待点数确认",executing:"生成中",evaluating:"处理结果中",repairing:"处理结果中",awaiting_final_approval:"等待人工选择",blocked:"已阻止",completed:"已保存正式素材",failed:"生成失败",cancelled:"已取消",pending:"等待执行",accepted:"已生成",rejected:"失败"};
-const reasons:Record<string,string>={IMAGE_METHOD_UNAVAILABLE:"所选图片技能版本已不可用，请重新选择或明确不使用技能，再准备新计划。原请求仍可核实。",OUTCOME_UNKNOWN:"本次请求结果尚未确认，请核实原请求。",IMAGE_UNAVAILABLE:"当前图片执行或依赖不可用。",IMAGE_AGENT_DISABLED:"请先由管理员启用商品图片智能体。",IMAGE_BLOCKED:"当前素材、任务依据或平台位置不满足要求，请核实后重新准备。",IMAGE_CONFIGURATION_CHANGED:"配置已变化，请重新读取并准备计划。",IMAGE_CONFLICT:"原任务或版本已变化，请读取当前结果。",IMAGE_SELECTION_CHANGED:"正式图片集合或规则已变化，请刷新后重新选择。",FORBIDDEN:"当前身份没有这项操作的权限。",IMAGE_ASSETS_NOT_READY:"图片或结算依据尚未收束，请继续核实原任务。",IMAGE_NOT_FOUND:"原请求暂未找到，请保留原编号继续核实。"};
+const reasons:Record<string,string>={IMAGE_TEXT_REVIEW_CHANGED:"审核译文已变化或不可用于本次图片，请重新读取并确认文案后准备计划；原请求和准确技能版本已保留。",IMAGE_METHOD_UNAVAILABLE:"所选图片技能版本已不可用，请重新选择或明确不使用技能，再准备新计划。原请求仍可核实。",OUTCOME_UNKNOWN:"本次请求结果尚未确认，请核实原请求。",IMAGE_UNAVAILABLE:"当前图片执行或依赖不可用。",IMAGE_AGENT_DISABLED:"请先由管理员启用商品图片智能体。",IMAGE_BLOCKED:"当前素材、任务依据或平台位置不满足要求，请核实后重新准备。",IMAGE_CONFIGURATION_CHANGED:"配置已变化，请重新读取并准备计划。",IMAGE_CONFLICT:"原任务或版本已变化，请读取当前结果。",IMAGE_SELECTION_CHANGED:"正式图片集合或规则已变化，请刷新后重新选择。",FORBIDDEN:"当前身份没有这项操作的权限。",IMAGE_ASSETS_NOT_READY:"图片或结算依据尚未收束，请继续核实原任务。",IMAGE_NOT_FOUND:"原请求暂未找到，请保留原编号继续核实。"};
 const labels=new Map<string,string>([...carouselTasks,...detailTasks].map(task=>[task.purpose,task.label]));
 
 export function ProductImageSetPanel(props:Props){
@@ -90,7 +90,7 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
  const fail=useCallback((value:unknown)=>{setError(value instanceof ImageSetError?value.code:value instanceof Error?value.message:"IMAGE_UNAVAILABLE")},[]);
  const remember=useCallback((p:ImageSetRun)=>{if(!active.current)return;setRun(p);localStorage.setItem(storageKey+":run",p.runId)},[storageKey]);
  const clearIntent=useCallback(()=>{localStorage.removeItem(storageKey+":intent");savedIntentRaw.current=null;setIntent(null)},[storageKey]);
- function retainReleasedRequest(command:Intent){
+ function retainOriginalRequest(command:Intent){
   const raw=savedIntentRaw.current;
   try{
    if(!raw||localStorage.getItem(storageKey+":intent")!==raw)throw new Error("changed");
@@ -98,7 +98,7 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
    if(existing!==null&&existing!==raw)throw new Error("conflict");
    localStorage.setItem(key,raw);
    if(localStorage.getItem(key)!==raw)throw new Error("not retained");
-   // Retain the exact request before releasing its pending slot for a new command.
+   // Retain the exact verified request before releasing its pending slot.
    const retained=readRetainedImageRequests(storageKey);
    clearIntent();setRetainedRequests(retained);
   }catch{throw new Error("原请求未能完整保留，请继续核实；任务切换和新计划暂未解锁。")}
@@ -210,13 +210,20 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
   if(flight.current||!active.current)return;
   const controller=new AbortController();abort.current=controller;flight.current=true;setBusy(true);setError("");setMessage("");
   try{
-   const raw=JSON.stringify(command);localStorage.setItem(storageKey+":intent",raw);savedIntentRaw.current=raw;setIntent(command);
+   const raw=replay&&savedIntentRaw.current?savedIntentRaw.current:JSON.stringify(command);localStorage.setItem(storageKey+":intent",raw);savedIntentRaw.current=raw;setIntent(command);
    if(command.action==="prepare"||command.action==="regenerate"){
     const p=await imageSetRequest(stableScope,command.action,imageSetRunSchema,{...command,signal:controller.signal});if(controller.signal.aborted)return;acceptPreparation(p);
    }else{
     await imageSetRequest(stableScope,command.action,imageSetAcceptedSchema,{...command,signal:controller.signal});if(controller.signal.aborted)return;clearIntent();setPreview(null);await readRun(command.runId!,controller.signal);
    }
-  }catch(e){if(!controller.signal.aborted){fail(e);if(!replay&&e instanceof ImageSetError&&e.code!=="OUTCOME_UNKNOWN"){clearIntent();if((command.action==="prepare"||command.action==="regenerate")&&e.code==="IMAGE_CONFIGURATION_CHANGED")setModeNonce(v=>v+1)}}}
+  }catch(e){if(!controller.signal.aborted){
+   fail(e);
+   if(e instanceof ImageSetError&&e.status===409&&e.code==="IMAGE_TEXT_REVIEW_CHANGED"&&(command.action==="prepare"||command.action==="regenerate")){
+    try{retainOriginalRequest(command)}catch(retentionError){fail(retentionError)}
+   }else if(!replay&&e instanceof ImageSetError&&e.code!=="OUTCOME_UNKNOWN"){
+    clearIntent();if((command.action==="prepare"||command.action==="regenerate")&&e.code==="IMAGE_CONFIGURATION_CHANGED")setModeNonce(v=>v+1);
+   }
+  }}
   finally{flight.current=false;if(!controller.signal.aborted)setBusy(false)}
  }
  async function verify(){
@@ -228,7 +235,7 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
     if(intent.action==="approve"&&!releasedIntent){const body=intent.body as ImageSetSelection;const receipt=await imageSetRequest(stableScope,"approval",imageSetApprovalSchema,{runId:intent.runId,approvalId:body.actionId,signal:controller.signal});if(controller.signal.aborted)return;if(receipt.selectionDigest!==body.selectionDigest)throw new ImageSetError("IMAGE_SELECTION_CHANGED",409);clearIntent();setMessage("原批准已核实，正在读取任务状态。");await readRun(intent.runId!,controller.signal);return}
     const p=await readRun(intent.runId!,controller.signal,current=>{
      if(!imageIntentTargetsReleasedRun(intent,current)||!isRetainableImageIntent(intent))return false;
-     retainReleasedRequest(intent);setMessage("核实结果：未生成，点数已释放。原请求与编号已保留，可切换任务或准备新计划。");return true;
+     retainOriginalRequest(intent);setMessage("核实结果：未生成，点数已释放。原请求与编号已保留，可切换任务或准备新计划。");return true;
     });if(!p||controller.signal.aborted)return;
     if(imageIntentTargetsReleasedRun(intent,p)){
      if(!isRetainableImageIntent(intent))setMessage("核实结果：未生成，点数已释放。原请求和编号保留，仅支持只读核实。");
@@ -328,8 +335,8 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
   {!loading&&sources&&retainedRequests.length?<section className="space-y-2 rounded-lg border border-border p-4 text-sm">
    <h3 className="font-semibold">已核实的原请求</h3>
    <p>{intent?"原请求与编号已保留。请先核实当前待处理请求。":"原请求与编号已保留，可切换任务或准备新计划。"}</p>
-   <p className="text-muted-foreground">本次核实仅读取原任务，原请求不会再次发送。</p>
-   {retainedRequests.map(record=><details key={record.key} className="break-all text-muted-foreground"><summary className="cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">原请求编号：{imageIntentRequestId(record.intent)}</summary><div className="mt-2 space-y-2"><p>原任务：{record.intent.runId} · 操作：{({recover:"核实原调用",cancel:"取消剩余工作",restart:"恢复原失败任务",confirm:"确认点数并生成",resume:"核实原保存"} as Partial<Record<ImageSetRoute,string>>)[record.intent.action]}</p><pre className="max-h-80 overflow-auto whitespace-pre-wrap break-all text-xs">{record.raw}</pre></div></details>)}
+   <p className="text-muted-foreground">此处仅读取保留记录，原请求不会再次发送。</p>
+   {retainedRequests.map(record=><details key={record.key} className="break-all text-muted-foreground"><summary className="cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">原请求编号：{imageIntentRequestId(record.intent)}</summary><div className="mt-2 space-y-2"><p>原任务：{record.intent.runId??"尚未创建"} · 操作：{({prepare:"准备图片计划",regenerate:"重新准备图片计划",recover:"核实原调用",cancel:"取消剩余工作",restart:"恢复原失败任务",confirm:"确认点数并生成",resume:"核实原保存"} as Partial<Record<ImageSetRoute,string>>)[record.intent.action]}</p><pre className="max-h-80 overflow-auto whitespace-pre-wrap break-all text-xs">{record.raw}</pre></div></details>)}
   </section>:null}
   {!loading&&sources&&context.permissions.includes("listingkit.image_agent.write")?<SkillPicker scope={stableScope} target="product-image" initialSelection={initialSkill} disabled={locked} onChange={onMethodChange}/>:null}
   {!loading&&sources&&!sources.originals.length?<p className="text-sm text-muted-foreground">当前商品没有原始图片，补充真实素材后才能准备生成计划。</p>:null}
@@ -392,7 +399,7 @@ function parseImageIntent(raw:string):Intent|undefined{
  const parsed=z.object({action:z.enum(["prepare","regenerate","confirm","approve","cancel","recover","resume","restart"]),runId:uuid.optional(),requestKey:uuid.optional(),body:z.unknown()}).strict().refine(command=>(command.action==="prepare"||!!command.runId)&&(!(command.action==="prepare"||command.action==="regenerate")||!!command.requestKey)).safeParse(decoded);
  if(parsed.success&&imageSetRequestSchema(parsed.data.action).safeParse(parsed.data.body).success)return parsed.data;
 }
-function isRetainableImageIntent(intent:Intent){return ["recover","cancel","restart","confirm","resume"].includes(intent.action)}
+function isRetainableImageIntent(intent:Intent){return ["prepare","regenerate","recover","cancel","restart","confirm","resume"].includes(intent.action)}
 function imageIntentRequestId(intent:Intent){return intent.requestKey??(intent.action==="restart"?intent.runId:(intent.body as {actionId:string}).actionId)}
 function retainedImageRequestKey(storageKey:string,intent:Intent){return `${storageKey}:verified-intent:${intent.runId}:${intent.action}:${imageIntentRequestId(intent)}`}
 function readRetainedImageRequests(storageKey:string):RetainedRequest[]{

@@ -1,5 +1,5 @@
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
-import {cleanup,fireEvent,render,screen,waitFor} from "@testing-library/react";
+import {act,cleanup,fireEvent,render,screen,waitFor} from "@testing-library/react";
 import {ImageTextCopy} from "./image-text-copy";
 import {contentProposalFixture} from "@/test/product-content-review-fixture";
 import {parseProductTitleProposal} from "@/lib/api/product-title-review";
@@ -65,4 +65,18 @@ it("retains the original review command on UNKNOWN and permits only same-key ver
  await waitFor(()=>expect(f.decide).toHaveBeenCalledTimes(2));
  expect(f.decide.mock.calls[1]).toEqual(f.decide.mock.calls[0]);expect(localStorage.getItem(storage+":review")).toBe(raw);
  expect(screen.getByRole("combobox",{name:"图片文字方式"})).toBeDisabled();
+});
+
+it("archives the exact rejected translation before allowing an explicit new confirmation",async()=>{
+ render(<ImageTextCopy {...base} onChange={vi.fn()}/>);
+ fireEvent.change(screen.getByRole("combobox",{name:"图片文字方式"}),{target:{value:"reviewed"}});
+ fireEvent.click(await screen.findByRole("button",{name:"翻译商品文案（先确认文本预算）"}));
+ await waitFor(()=>expect(f.panel).toHaveBeenCalled());
+ const start={expectedModeRevision:"0",targetPlatform:"product",manualReviewOnly:true,contentSelection:{targetLanguage:"en",title:true,sellingPoints:true}};
+ await act(async()=>f.panel.mock.lastCall![0].imageTranslation.persist(p.proposal_id,start));
+ const raw=localStorage.getItem(storage+":request");expect(raw).toBeTruthy();
+ await act(async()=>f.panel.mock.lastCall![0].imageTranslation.reset());
+ expect(localStorage.getItem(storage+":request")).toBeNull();
+ expect(localStorage.getItem(storage+":request-history:"+p.proposal_id)).toBe(raw);
+ expect(f.decide).not.toHaveBeenCalled();
 });

@@ -184,7 +184,11 @@ func ValidateImageSetPlan(plan Plan) error {
 			return ErrValidation
 		}
 		for _, label := range r.VisibleText {
-			if !validDetailLabel(label) {
+			valid := validDetailLabel(label)
+			if s.Text != nil {
+				valid = validReviewedImageText(label)
+			}
+			if !valid {
 				return ErrValidation
 			}
 		}

@@ -14,6 +14,17 @@ beforeEach(() => { fixture.context.roles=["listingkit_operator"];fixture.request
 afterEach(cleanup);
 const op = "11111111-1111-4111-8111-111111111111";
 const props = { enabled: true, operationId: op, productKey: "product", catalogVersion: "1" };
+it("reconfirms a restored manual-only rejection only after preserving the original request",async()=>{
+ const start={expectedModeRevision:"0",targetPlatform:"product" as const,manualReviewOnly:true as const,contentSelection:{targetLanguage:"en",title:true,sellingPoints:true}};
+ const reset=vi.fn(),persist=vi.fn();fixture.request.mockRejectedValue(new ProductAgentError("MANUAL_REVIEW_REQUIRED"));
+ render(<ProductAgentPanel {...props} imageTranslation={{language:"en",original:{key:op,start},reset,persist,onReview:vi.fn()}}/>);
+ fireEvent.click(screen.getByRole("button",{name:"使用原请求核实启动"}));
+ await screen.findByText(/本次没有开始模型调用/);
+ expect(fixture.request.mock.calls[0][2]).toBe(op);expect(fixture.request.mock.calls[0][11]).toEqual(start.contentSelection);expect(fixture.request.mock.calls[0][15]).toBe(true);
+ fireEvent.click(screen.getByRole("button",{name:"重新确认配置"}));
+ expect(reset).toHaveBeenCalledOnce();expect(persist).not.toHaveBeenCalled();expect(fixture.request).toHaveBeenCalledOnce();
+ expect(screen.getByRole("button",{name:"生成内容建议"})).toBeEnabled();
+});
 it("restores an image translation with its exact language and manual-only flag, preserving general Agent URL intent",async()=>{
  fixture.params=new URLSearchParams({agent_key:"22222222-2222-4222-8222-222222222222",agent_platform:"shein"});
  window.history.replaceState(null,"","/?agent_key=22222222-2222-4222-8222-222222222222&agent_platform=shein");

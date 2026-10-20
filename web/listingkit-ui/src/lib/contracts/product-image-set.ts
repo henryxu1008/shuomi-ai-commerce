@@ -70,7 +70,7 @@ export function imageSetResponseSchema(action:ImageSetRoute):z.ZodType {
  return imageSetAcceptedSchema;
 }
 export const imageSetSuccessStatus=(action:ImageSetRoute)=>action==="prepare"||action==="regenerate"?201:action==="preview"||action==="requirements"||imageSetMethods[action]==="GET"?200:202;
-export const imageSetErrorStatuses:Record<string,number>={INVALID_IMAGE_REQUEST:400,INVALID_IMAGE_SELECTION:400,INVALID_REQUEST:400,FORBIDDEN:403,IMAGE_NOT_FOUND:404,IMAGE_CONFLICT:409,IMAGE_BLOCKED:409,IMAGE_SELECTION_CHANGED:409,IMAGE_ASSETS_NOT_READY:409,IMAGE_AGENT_DISABLED:409,IMAGE_CONFIGURATION_CHANGED:409,IMAGE_UNAVAILABLE:503,OUTCOME_UNKNOWN:503,IDENTITY_CONTEXT_CHANGED:409,ORGANIZATION_CONTEXT_CHANGED:409};
+export const imageSetErrorStatuses:Record<string,number>={INVALID_IMAGE_REQUEST:400,INVALID_IMAGE_SELECTION:400,INVALID_REQUEST:400,FORBIDDEN:403,IMAGE_NOT_FOUND:404,IMAGE_CONFLICT:409,IMAGE_BLOCKED:409,IMAGE_SELECTION_CHANGED:409,IMAGE_ASSETS_NOT_READY:409,IMAGE_AGENT_DISABLED:409,IMAGE_CONFIGURATION_CHANGED:409,IMAGE_TEXT_REVIEW_CHANGED:409,IMAGE_UNAVAILABLE:503,OUTCOME_UNKNOWN:503,IDENTITY_CONTEXT_CHANGED:409,ORGANIZATION_CONTEXT_CHANGED:409};
 
 export const imageSetRequirementsSchema=z.object({groups:z.array(z.object({group:z.enum(["spu","skc","sku","detail"]),skc:integer,sku:integer,types:z.array(z.object({type:positive,minimum:integer,maximum:integer,nativeCompatible:z.boolean()})).max(20)})).max(10000),platform:z.enum(["product","shein"]),site:z.string(),categoryId:integer,version:z.string(),nativeWidth:positive,nativeHeight:positive});
 export type ImageSetRequirements=z.infer<typeof imageSetRequirementsSchema>;

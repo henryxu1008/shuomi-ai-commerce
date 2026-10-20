@@ -80,7 +80,7 @@ func TestNewImagePreparationRequiresExplicitTextChoice(t *testing.T) {
 }
 
 func TestReviewedCopyFreezesTargetLanguageWithoutChangingCatalog(t *testing.T) {
-	for _, bad := range []string{"", "language", "source", "publication", "revision", "too_long", "unknown"} {
+	for _, bad := range []string{"", "language", "source", "publication", "revision", "too_long", "control", "format", "markup", "url", "unknown"} {
 		t.Run(bad, func(t *testing.T) {
 			s, _, _, config, contexts, _, ctx, input := imageSetServiceFixture(t)
 			config.template.Language = "en"
@@ -99,6 +99,14 @@ func TestReviewedCopyFreezesTargetLanguageWithoutChangingCatalog(t *testing.T) {
 				contexts.copy.Review.Revision = 3
 			case "too_long":
 				contexts.copy.Lines[0] = strings.Repeat("x", 33)
+			case "control":
+				contexts.copy.Lines[0] = "one\ntwo"
+			case "format":
+				contexts.copy.Lines[0] = "hidden\u202ecopy"
+			case "markup":
+				contexts.copy.Lines[0] = "<b>copy</b>"
+			case "url":
+				contexts.copy.Lines[0] = "https://example.com"
 			case "unknown":
 				contexts.copyErr = imageagent.ErrCommandBlocked
 			}
@@ -134,6 +142,31 @@ func TestReviewedImageTextFailsClosedWithoutConfirmedCopyOwner(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(`{"Text":{"mode":"reviewed","review":{"proposalId":"a3ce4c41-745a-47bf-a418-c940d3ba4b84","revision":"2"},"taskIds":["overview"]}}`), &input))
 	_, err := s.PrepareImageSet(ctx, input)
 	require.Error(t, err, "a Review identity is not translated-copy authority without its owner")
+}
+
+func TestReviewedCopyPreservesOrdinaryPunctuationAndFrozenReplay(t *testing.T) {
+	for _, title := range []string{"Women's organizer", `Fits a 13" shelf`, "Box — fabric, grey.", "收纳盒（灰色）· 33厘米"} {
+		t.Run(title, func(t *testing.T) {
+			s, _, _, config, owner, _, ctx, input := imageSetServiceFixture(t)
+			config.template.Language = "en"
+			ref := imageagent.ImageTextReviewReference{ID: "a3ce4c41-745a-47bf-a418-c940d3ba4b84", Revision: 2}
+			owner.preparation.EffectivePublicationID = "publication"
+			owner.copy = &imageagent.ImageTextReviewCopy{Review: ref, ProductID: "product", PublicationID: "publication", Version: 1, Language: "en", OriginRunID: "71288b77-f3e0-4cb6-a9ad-c4bf3a7d21e3", ModeSnapshot: agent.ModeSnapshotRef{Kind: agent.ExecutionModeSnapshotKind, ID: ref.ID, Digest: strings.Repeat("c", 64)}, Lines: []string{title, `Size: 13" × 15"`}}
+			input.Text = &imageagent.ImageTextSelection{Mode: "reviewed", Review: &ref, TaskIDs: []string{"overview"}}
+			prepared, err := s.PrepareImageSet(ctx, input)
+			require.NoError(t, err)
+			require.Equal(t, owner.copy.Lines, prepared.Projection.Plan.Slots[1].Recipe.VisibleText)
+			before, err := json.Marshal(prepared.Projection)
+			require.NoError(t, err)
+			owner.copy.Lines[0] = "later edit"
+			replayed, err := s.PrepareImageSet(ctx, input)
+			require.NoError(t, err)
+			after, err := json.Marshal(replayed.Projection)
+			require.NoError(t, err)
+			require.Equal(t, string(before), string(after))
+			require.Equal(t, 1, owner.copyReads)
+		})
+	}
 }
 
 func TestExplicitNoTextDoesNotDelegateLanguageToImageModel(t *testing.T) {

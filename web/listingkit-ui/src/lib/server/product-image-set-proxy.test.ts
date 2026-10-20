@@ -3,6 +3,12 @@ import {buildWorkbenchBrowserResponse,buildWorkbenchUpstreamRequest} from "./wor
 const context="11111111-1111-4111-8111-111111111111",run="22222222-2222-4222-8222-222222222222",action="33333333-3333-4333-8333-333333333333";
 const path=["sourcing","1688","acquisitions",context,"images"];
 const expected=JSON.stringify({kind:"acquisition",contextId:context,runId:run});
+it.each(["prepare","regenerate"] as const)("preserves a definite review rejection for %s without changing UNKNOWN handling",async action=>{
+ const response=await buildWorkbenchBrowserResponse(Response.json({code:"IMAGE_TEXT_REVIEW_CHANGED"},{status:409}),`image-set-${action}`,expected,{sourceMutation:true});
+ expect(response.status).toBe(409);expect((await response.json()).code).toBe("IMAGE_TEXT_REVIEW_CHANGED");
+ const uncertain=await buildWorkbenchBrowserResponse(Response.json({code:"OUTCOME_UNKNOWN"},{status:503}),`image-set-${action}`,expected,{sourceMutation:true});
+ expect(uncertain.status).toBe(503);expect((await uncertain.json()).code).toBe("OUTCOME_UNKNOWN");
+});
 
 it("preserves signed-64-bit catalog versions through image source reads and preparation bodies",async()=>{
  const version="9223372036854775807";

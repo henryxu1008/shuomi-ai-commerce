@@ -163,7 +163,7 @@ function ScopedAgentPanel({ userId, organizationId, operationId, productKey, ini
         catch (error) {
             if (active.current) {
                 setFailure(error instanceof ProductAgentError ? error.code : "OUTCOME_UNKNOWN");
-                setReconfirmable(action==="start"&&!result&&error instanceof ProductAgentError&&["CONFIGURATION_CHANGED","TEMPLATE_ARCHIVED","AGENT_NOT_ENABLED","AGENT_DEFINITION_UNAVAILABLE","SKILL_NOT_ENABLED","SKILL_FORBIDDEN","SKILL_NOT_FOUND","SKILL_IDEMPOTENCY_CONFLICT"].includes(error.code));
+                setReconfirmable(action==="start"&&!result&&error instanceof ProductAgentError&&["CONFIGURATION_CHANGED","TEMPLATE_ARCHIVED","AGENT_NOT_ENABLED","AGENT_DEFINITION_UNAVAILABLE","SKILL_NOT_ENABLED","SKILL_FORBIDDEN","SKILL_NOT_FOUND","SKILL_IDEMPOTENCY_CONFLICT","MANUAL_REVIEW_REQUIRED"].includes(error.code));
                 if(freshStart&&error instanceof ProductAgentError&&knowledgeStartErrors[error.code]){
                     setKey("");setIntent(null);const url=new URL(window.location.href);for(const name of intentParams)url.searchParams.delete(name);window.history.replaceState(null,"",url);
                 }

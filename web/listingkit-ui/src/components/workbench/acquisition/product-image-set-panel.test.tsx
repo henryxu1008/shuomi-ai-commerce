@@ -66,6 +66,51 @@ async function prepare(){
  const button=screen.getByRole("button",{name:"准备整套图片计划（2 项）"});await waitFor(()=>expect(button).toBeEnabled());fireEvent.click(button);
 }
 
+it("archives a definite image-review rejection and unlocks correction without generating",async()=>{
+ const real=fetch.getMockImplementation()!;
+ fetch.mockImplementation((url,init)=>String(url).endsWith("/prepare")?Promise.resolve(Response.json({code:"IMAGE_TEXT_REVIEW_CHANGED"},{status:409})):real(url,init));
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);await prepare();
+ await screen.findByText(/审核译文已变化/);
+ const key=`product-image-set:actor:org:acquisition:${operation}:intent`;
+ const sent=fetch.mock.calls.find(([url])=>String(url).endsWith("/prepare"))!;
+ const requestKey=new Headers(sent[1]!.headers).get("Idempotency-Key");
+ expect(localStorage.getItem(key)).toBeNull();
+ expect(Object.keys(localStorage).some(k=>k.includes(":verified-intent:")&&JSON.parse(localStorage.getItem(k)!).requestKey===requestKey)).toBe(true);
+ expect(screen.queryByRole("button",{name:"核实原请求"})).toBeNull();
+ expect(screen.getByRole("button",{name:"准备整套图片计划（2 项）"})).toBeEnabled();
+ expect(fetch.mock.calls.filter(([,init])=>init?.method==="POST")).toHaveLength(1);
+});
+
+it.each(["prepare","regenerate"])("preserves restored %s bytes when the original replay gets a definite review rejection",async action=>{
+ const key=`product-image-set:actor:org:acquisition:${operation}:intent`;
+ const raw=JSON.stringify({action,...action==="regenerate"?{runId}:{},requestKey:templateId,body:{expectedModeRevision:"0",target:{Platform:"product"},skill:{skillId:operation,version:2,digest:sha},text:{mode:"none"}}},null,2);
+ localStorage.setItem(key,raw);const real=fetch.getMockImplementation()!;
+ fetch.mockImplementation((url,init)=>String(url).endsWith(`/${action}`)?Promise.resolve(Response.json({code:"IMAGE_TEXT_REVIEW_CHANGED"},{status:409})):real(url,init));
+ const view=render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ fireEvent.click(await screen.findByRole("button",{name:"继续原操作"}));
+ await screen.findByText(/审核译文已变化/);
+ expect(localStorage.getItem(key)).toBeNull();
+ expect(Object.keys(localStorage).some(k=>k.includes(":verified-intent:")&&localStorage.getItem(k)===raw)).toBe(true);
+ const sent=fetch.mock.calls.find(([url])=>String(url).endsWith(`/${action}`))!;
+ expect(new Headers(sent[1]!.headers).get("Idempotency-Key")).toBe(templateId);expect(JSON.parse(String(sent[1]!.body))).toEqual(JSON.parse(raw).body);
+ view.unmount();render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ const history=await screen.findByText("已核实的原请求");
+ expect(history.closest("section")!.querySelector("pre")!.textContent).toBe(raw);
+ expect(fetch.mock.calls.filter(([,init])=>init?.method==="POST")).toHaveLength(1);
+});
+
+it("keeps a rejected preparation locked if its original request cannot be archived",async()=>{
+ const key=`product-image-set:actor:org:acquisition:${operation}:intent`,real=fetch.getMockImplementation()!;
+ const write=Storage.prototype.setItem;
+ vi.spyOn(Storage.prototype,"setItem").mockImplementation(function(this:Storage,k,v){if(k.includes(":verified-intent:"))throw new Error("storage full");return write.call(this,k,v)});
+ fetch.mockImplementation((url,init)=>String(url).endsWith("/prepare")?Promise.resolve(Response.json({code:"IMAGE_TEXT_REVIEW_CHANGED"},{status:409})):real(url,init));
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);await prepare();
+ await screen.findByText(/原请求未能完整保留/);
+ expect(localStorage.getItem(key)).toBeTruthy();
+ expect(screen.getByRole("button",{name:"准备整套图片计划（2 项）"})).toBeDisabled();
+ expect(fetch.mock.calls.filter(([,init])=>init?.method==="POST")).toHaveLength(1);
+});
+
 it("shows frozen translated copy and language on restored plans without translation or model writes",async()=>{
  Object.assign(state.plan,{Method:{Skill:{kind:"skill-version-v1",id:operation,ownerKind:"PLATFORM",ownerId:"official",version:2,digest:sha,policyVersion:"skill-method-v1"},PolicyVersion:"image-method-visual-brief-v4"},Text:{PolicyVersion:"image-reviewed-text-v1",Mode:"reviewed",Language:"en",TaskIDs:["detail"],Copy:{Review:{proposalId:operation,revision:"2"},ProductID:"p",PublicationID:"publication",Version:"1",Language:"en",OriginRunID:runId,ModeSnapshot:{Kind:"agent-execution-mode-v1",ID:runId,Digest:sha},Lines:["Fabric storage box","Holds everyday items"]}}});
  render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialRunId={runId}/>);
