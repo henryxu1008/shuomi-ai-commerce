@@ -1,6 +1,6 @@
 # Legacy Register
 
-> #29 / #301 [拟议源码收口与关闭边界设计](../architecture/legacy-retirement-parent-closure-boundary.md)：Design Basis N/A / DESIGNING / Ready=false，待用户确认。逐项核对两父目标、已有准确main CI与当前owner，区分旧根退出、有效共享能力和独立SHEIN数字账号/Profile/Store保留债务；本轮不宣称全仓数字身份清零或父Issue Done。仅五文档设计，原正文/历史计数及source/tests/workflow/inventory/依赖零改，不操作凭据/实例/数据，不增加试用前置。
+> #29 / #301 [用户确认的源码收口与关闭边界](../architecture/legacy-retirement-parent-closure-boundary.md)：冻结设计 `5fb20f877` / Design Basis N/A，已在 #854 实施五文档与两父 Issue 当前段校准。旧 root/bridge/数字执行及刊登热点按 R1–R10/A1–A7 的当前 owner/准确证据映射收口，#29 准备源级关单依据，合并及关单另行授权。#301 继续 OPEN：当前应用已退出旧桥，但独立 SHEIN 数字账号/Profile/Store 持久化 owner 按原决定保留，O1–O6 未完成的运行验收仍为 NOT_RUN，不能宣称全仓清零。原正文/历史计数/失败不改，不按旧名称误退有效当前能力；source/tests/workflow/inventory/依赖及真实凭据/实例/数据零改，不增加试用前置。
 
 > #29 / #301 [用户确认的 API token 三脚本完整退休](../architecture/legacy-api-token-tools-retirement-boundary.md)，冻结设计 `e6ac780d7` / Reuse Existing Architecture，双Issue Ready读回后在 #852 整批实施。旧取 token、保存、settings-health 诊断及内联 helper 删除，原absence guard覆盖三路径；五份直接操作说明只加窄失效顶注，无业务 EXTRACT或替代token owner。当前 Auth.js handoff、Login V2、采集、Store与独立SHEIN登录/同步保留；原历史正文/计数、workflow/inventory/依赖及真实凭据/实例/数据不改，无新试用前置。准确HEAD/CI/最终检查留PR。
 
