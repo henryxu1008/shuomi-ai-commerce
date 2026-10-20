@@ -2,7 +2,7 @@
 
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
-> Status: **DESIGNING / 待独立设计复核及用户确认；未实施，Ready=false。** Design Basis: **Reuse Existing Architecture**。调查基线 main `da2467230a4455a98586868e9fbfd0200661c2d3`（2026-10-20，#844 已合并且对应 push/main CI 通过）。本阶段只改本文和四个索引/清单的提案说明；准确设计 HEAD、CI、复核与用户确认维护在同一主要 PR，确认前不改生产/测试/Compose/运行指南。
+> Status: **用户已确认冻结设计并整批源码实施于 #846；待原 CI 与最终独立交付检查，未授权合并。** Design Basis: **Reuse Existing Architecture**。冻结设计 HEAD `6a654c04fe67532a55a02d50c44e6282239af19c`；调查及开工 main `da2467230a4455a98586868e9fbfd0200661c2d3`（2026-10-20，#844 已合并且对应 push/main CI 通过）。#29/#301 已分别写入并读回 Ready，按下述 §5/§6/§6.1/§7 在同一主要 PR 整退八源、原 guard 与准确说明尾部；准确实施 HEAD、原 CI、最终复核与合并授权维护在 PR。未操作实例、数据或凭据，不增加内部试用前置。
 
 ## 1. 用户结果、范围与非目标
 
@@ -100,7 +100,7 @@ Cutover/deletion condition: 用户确认本设计，#29/#301 Ready 双读回后�
 
 ### 6.1 直接说明与旧保留结论（确认后实施）
 
-本阶段只在四索引/清单写“待确认提案”；下表其余文件与原 guard 均未修改。历史正文保留，不执行旧计划中的 agent/sub-skill/部署/验收步骤。
+设计阶段仅在四索引/清单写待确认提案；用户确认冻结设计后，按下表窄校准八份指南/spec/plan 及四索引，原 guard 按 §6 适配。历史正文保留，不执行旧计划中的 agent/sub-skill/部署/验收步骤。
 
 | 准确文件 | 实施时处置 |
 | --- | --- |
