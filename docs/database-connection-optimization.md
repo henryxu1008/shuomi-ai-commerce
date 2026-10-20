@@ -1,4 +1,6 @@
-# 数据库连接池优化 - 方案7实施总结
+# 数据库连接池优化 - 方案7实施总结（历史）
+
+> Status: HISTORICAL / 非当前运维 runbook。本文保留旧数字刊登方案的工程记录、数量及效果描述，不是本轮实测或当前配置合同。旧 SHEIN workload、推荐 apply/rollout 和验证步骤已按 [#839 完整退休边界](architecture/legacy-listing-operations-closure-retirement-boundary.md)退出；不得据此操作实例、数据库或凭据。
 
 ## 问题背景
 
@@ -54,79 +56,34 @@ env:
 - 每Pod连接数: 3
 - **总连接数: 10 × 3 = 30** (减少90%)
 
-## 部署步骤
+## 当前运行入口与限制
 
-### 方式1: 直接应用（推荐）
-```bash
-# 应用K8s配置
-kubectl apply -k deployments/kubernetes/shein-listing/overlays/prod
+旧刊登 Deployment 已不在当前源码中，保留的 shein-listing prod 装配只声明共享 Namespace/凭据，不能用于启动或滚动更新旧刊登服务。原推荐 apply/rollout、修改旧刊登配置后重建部署、exec/logs/数据库连接查询等验证流程已退出，历史步骤仅见 Git 历史。
 
-# 滚动更新会自动生效
-kubectl rollout status deployment/shein-listing -n task-processor
-```
+当前采集、Store及独立 SHEIN 登录/Store 同步沿[仓库入口地图](development/repository-structure.md)使用；配置、数据库和运行 owner 不转移。本轮没有运行环境或数据库验收，不增加试用前置。
 
-### 方式2: 修改配置文件
-如果不使用环境变量，可以修改配置文件：
-```yaml
-# config/config-prod.yaml
-database:
-  max_connections: 3
-  max_idle_connections: 2
-```
-
-然后重新构建镜像并部署。
-
-## 监控验证
-
-### 检查环境变量是否生效
-```bash
-# 查看pod的环境变量
-kubectl exec -it <pod-name> -n task-processor -- env | grep DATABASE
-
-# 应该看到:
-# DATABASE_MAX_CONNECTIONS=3
-# DATABASE_MAX_IDLE_CONNECTIONS=2
-```
-
-### 检查数据库连接数
-```sql
--- 在PostgreSQL中执行
-SELECT count(*) FROM pg_stat_activity WHERE datname = 'ruoyi-vue-pro';
-
--- 优化前: ~320
--- 优化后: ~96 (或更少)
-```
-
-### 应用日志观察
-```bash
-# 查看应用启动日志
-kubectl logs -f deployment/shein-listing -n task-processor | grep -i "database\|connection"
-
-# 应该能看到连接池初始化信息
-```
-
-## 注意事项
+## 历史注意事项（不作为当前操作步骤）
 
 1. **渐进式调整**: 建议先从10降到5，观察稳定后再降到3
 2. **监控告警**: 设置数据库连接数告警阈值（如80%）
 3. **性能测试**: 调整后需要进行压力测试，确保不影响业务
 4. **回滚方案**: 如果出现问题，可以快速调整环境变量值回滚
 
-## 后续优化建议
+## 历史优化建议（不构成本轮工作）
 
 1. **引入PgBouncer**: 如果需要更多pod但保持低连接数，可以考虑部署PgBouncer连接池中间件
 2. **读写分离**: 将读操作分流到从库
 3. **缓存优化**: 加强Redis缓存使用，减少数据库查询
 4. **批量操作**: 优化代码中的N+1查询问题
 
-## 相关文件清单
+## 历史文件清单（按当时路径记录）
 
 - `internal/infra/database/connection_proxy.go` - 连接代理核心实现
 - `internal/infra/database/connection_proxy_test.go` - 单元测试
 - `internal/infra/database/postgres_db.go` - 数据库连接增强
 - `deployments/kubernetes/shein-listing/base/deployment.yaml` - K8s部署配置
 
-## 技术细节
+## 历史技术细节
 
 ### 环境变量优先级
 ```
