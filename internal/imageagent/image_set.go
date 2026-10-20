@@ -110,7 +110,7 @@ type ImageSlotClosure struct {
 }
 
 func (q ImageGenerationQuote) Valid() bool {
-	return validGenerationRoute(q.Provider, q.Model, q.Protocol) && q.Resolution == "1024x1024" && q.Quality == "auto" && q.Points > 0 && canonicalImageValue(q.PriceVersion) && canonicalImageValue(q.RouteReference) && canonicalImageValue(q.CredentialReference) && canonicalImageValue(q.ConfigurationVersion)
+	return validGenerationRoute(q.Provider, q.Model, q.Protocol) && q.Resolution == "1024x1024" && q.Quality == GenerationRouteQuality(q.Provider, q.Model, q.Protocol) && q.Points > 0 && canonicalImageValue(q.PriceVersion) && canonicalImageValue(q.RouteReference) && canonicalImageValue(q.CredentialReference) && canonicalImageValue(q.ConfigurationVersion)
 }
 
 func canonicalImageValue(value string) bool {

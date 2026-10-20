@@ -30,6 +30,44 @@ func (t outputBodyLimitTransport) RoundTrip(req *http.Request) (*http.Response, 
 
 type outputResponseTransport struct{ status int }
 
+func TestVIPSourceOnlyRecoveryRejectsWrongOriginalSizeAndRetainsPaidFact(t *testing.T) {
+	catalog, err := imageagent.NormalizeAssetCatalog(imageagent.AssetCatalog{Assets: []imageagent.AuthorizedAsset{{ID: "source", Type: imageagent.AuthorizedAssetSource, URL: "https://source.example/original.png"}}})
+	require.NoError(t, err)
+	in := imageagent.SlotExecutionInput{RunID: "run", TenantID: "org", UserID: "actor", PlanRevision: 1, Attempt: 1, OrganizationIdentity: imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, MemberID: "member"}, Slot: imageagent.Slot{ID: "main", Role: imageagent.SlotRoleMain, SourceAssetIDs: []string{"source"}}, AssetCatalog: catalog}
+	i := imageagent.GenerationIntent{Identity: imageagent.SlotExternalEffectIdentity{RunScope: imageagent.RunScope{TenantID: in.TenantID, OwnerUserID: in.UserID, RunID: in.RunID}, PlanRevision: 1, SlotID: "main", Attempt: 1}, MemberID: "member", CatalogHash: catalog.Manifest.Hash, SourceDigest: strings.Repeat("b", 64), PromptVersion: "p1", RouteReference: "r1", CredentialReference: "c1", ConfigurationVersion: "v1", Provider: "grsai", Model: "gpt-image-2-vip", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "medium", PriceVersion: "old-price", Points: 12, LimitVersion: 1, MonthStart: time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)}
+	fact, err := imageagent.NewGenerationFact(i)
+	require.NoError(t, err)
+	fact, err = fact.BindReservation(imageagent.GenerationReservationReceipt{IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, OrganizationID: in.TenantID, MemberID: i.MemberID, OperationID: "image-reserve:" + fact.IntentID, ReservationID: "reserved", ResourceType: "ai_point", Points: i.Points, PriceVersion: i.PriceVersion, LimitVersion: 1, MonthStart: i.MonthStart})
+	require.NoError(t, err)
+	fact, _, err = fact.BeginDispatch()
+	require.NoError(t, err)
+	fact, err = fact.RecordSuccess(imageagent.GenerationSuccess{ResponseID: "paid-result", ResultDigest: strings.Repeat("c", 64)}.WithResultLocator("https://output.example/original.png", ""))
+	require.NoError(t, err)
+	for _, size := range []int{1024, 1254} {
+		var original bytes.Buffer
+		require.NoError(t, png.Encode(&original, image.NewRGBA(image.Rect(0, 0, size, size))))
+		calls := 0
+		before, err := json.Marshal(fact)
+		require.NoError(t, err)
+		out, err := generationOutputRecovery(func(_ context.Context, url string) ([]byte, error) {
+			calls++
+			require.Equal(t, fact.Success.ResultURL, url)
+			return original.Bytes(), nil
+		}, nil)(context.Background(), in, fact)
+		if size == 1024 {
+			require.NoError(t, err)
+			require.Equal(t, original.Bytes(), out.Assets[0].Bytes)
+		} else {
+			require.ErrorIs(t, err, imageagent.ErrInvalidGeneratedOutput)
+			require.Empty(t, out.Assets)
+		}
+		after, marshalErr := json.Marshal(fact)
+		require.NoError(t, marshalErr)
+		require.Equal(t, before, after, "recovery never rewrites the success or its charged reservation")
+		require.Equal(t, 1, calls, "only original output GET, never provider POST")
+	}
+}
+
 func (t outputResponseTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return &http.Response{StatusCode: t.status, Body: io.NopCloser(strings.NewReader("provider artifact unavailable")), Header: make(http.Header), Request: req}, nil
 }

@@ -21,7 +21,31 @@ function fixtures(publish:(init:RequestInit)=>Promise<Response>,current="r1"){
   return Response.json({status:"READY",revision:revision(current)});
  });
 }
-afterEach(()=>{cleanup();clients.splice(0).forEach(c=>c.clear());sessionStorage.clear();vi.unstubAllGlobals();state.context.permissions=["listingkit.platform_admin","listingkit.admin.write"]});
+afterEach(()=>{document.documentElement.className="";cleanup();clients.splice(0).forEach(c=>c.clear());sessionStorage.clear();vi.unstubAllGlobals();state.context.permissions=["listingkit.platform_admin","listingkit.admin.write"]});
+it.each(["light","dark"])("shows fixed VIP constraints without publishing the existing default in %s theme",async theme=>{
+ document.documentElement.className=theme;
+ const user=userEvent.setup(),fetch=fixtures(async()=>Response.json({}));
+ const original=fetch.getMockImplementation()!;
+ fetch.mockImplementation(async(url:string,init:RequestInit={})=>{
+  if(url.endsWith("/bindings"))return Response.json({bindings:[...bindings.bindings,{...bindings.bindings[0],id:"image-vip",model:"gpt-image-2-vip"}]});
+  if(url.endsWith("/validate")){const input=JSON.parse(String(init.body));return Response.json({payload:{...payload,bindingId:"image-vip",image:{...payload.image,model:"gpt-image-2-vip"}},expectedRevision:input.expectedRevision,digest:"vip-preview"})}
+  if(url.endsWith("/imageagent.generation"))return Response.json({status:"READY",revision:{...revision(),payload:{...payload,image:{...payload.image,provider:"bailian",model:"qwen-image-3.0-pro",protocol:"dashscope-image-sync-v1"}}}});
+  return original(url,init);
+ });vi.stubGlobal("fetch",fetch);mount();
+ const select=await screen.findByLabelText(/已准入图片绑定/);
+ await user.selectOptions(select,"image-vip");
+ expect(screen.getByText(/固定质量：medium/)).toBeVisible();
+ expect(screen.getAllByText(/原图 1024×1024/).length).toBeGreaterThan(0);
+ expect(fetch.mock.calls.some(([url])=>url.endsWith("/publish")||url.endsWith("/validate"))).toBe(false);
+ expect(screen.getByRole("heading",{name:"当前已发布配置"})).toBeVisible();
+ expect(screen.getByText("bailian / qwen-image-3.0-pro / dashscope-image-sync-v1")).toBeVisible();
+ await user.click(screen.getByRole("button",{name:"校验配置并预览"}));
+ await screen.findByRole("heading",{name:"确认发布这个用途的新配置"});
+ expect(screen.getAllByText(/固定质量：medium/)).toHaveLength(2);
+ const submitted=JSON.parse(String(fetch.mock.calls.find(([url])=>url.endsWith("/validate"))![1]!.body));
+ expect(submitted).toEqual({expectedRevision:"r1",bindingId:"image-vip",credentialVersion:"credential-a",rates:{pointsPerImage:"8"}});
+ expect(fetch.mock.calls.some(([url])=>url.endsWith("/publish"))).toBe(false);
+});
 it("requires preview before publish and distinguishes receipt from actual current",async()=>{
  const user=userEvent.setup();const fetch=fixtures(async init=>Response.json({receipt:revision("r2",new Headers(init.headers).get("Idempotency-Key")!)}),"r3");vi.stubGlobal("fetch",fetch);mount();
  const rate=await screen.findByLabelText(/每张图片 AI 点数/);await user.clear(rate);await user.type(rate,"10");

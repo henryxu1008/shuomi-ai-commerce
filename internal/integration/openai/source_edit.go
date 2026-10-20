@@ -18,7 +18,7 @@ func (a *ProductImageAdapter) EditSources(ctx context.Context, request productim
 		return productimage.Candidate{}, err
 	}
 	zero := 0
-	input := &ai.ImageEditRequest{Model: a.config.ImageModel, Prompt: cloned.Prompt, Image: cloned.ReferenceBytes[0], ImageContentType: cloned.Sources[0].MediaType, MaxRetries: &zero, N: 1, Size: "1024x1024", Quality: "auto", ResponseFormat: "url"}
+	input := &ai.ImageEditRequest{Model: a.config.ImageModel, Prompt: cloned.Prompt, Image: cloned.ReferenceBytes[0], ImageContentType: cloned.Sources[0].MediaType, MaxRetries: &zero, N: 1, Size: "1024x1024", Quality: a.sourceEditQuality(), ResponseFormat: "url"}
 	for i := 1; i < len(cloned.Sources); i++ {
 		input.ReferenceImages = append(input.ReferenceImages, ai.ImageInlineReference{Bytes: cloned.ReferenceBytes[i], MediaType: cloned.Sources[i].MediaType})
 	}
@@ -45,5 +45,16 @@ func (a *ProductImageAdapter) EditSources(ctx context.Context, request productim
 }
 
 func (a *ProductImageAdapter) supportsSourceEdit() bool {
-	return a.config.Provider == "grsai" && a.config.ImageModel == "gpt-image-2.5" || a.config.Provider == "bailian" && (a.config.ImageModel == "qwen-image-3.0" || a.config.ImageModel == "qwen-image-3.0-pro")
+	return a.config.Provider == "grsai" && (a.config.ImageModel == "gpt-image-2.5" || a.config.ImageModel == "gpt-image-2-vip") || a.config.Provider == "bailian" && (a.config.ImageModel == "qwen-image-3.0" || a.config.ImageModel == "qwen-image-3.0-pro")
+}
+
+func (a *ProductImageAdapter) sourceEditQuality() string {
+	if a.isVIPImageRoute() {
+		return "medium"
+	}
+	return "auto"
+}
+
+func (a *ProductImageAdapter) isVIPImageRoute() bool {
+	return a.config.Provider == "grsai" && a.config.ImageModel == "gpt-image-2-vip"
 }
