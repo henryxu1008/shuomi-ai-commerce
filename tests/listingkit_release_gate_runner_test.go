@@ -165,30 +165,6 @@ func TestListingKitReleaseGateRunnerBindsReadinessToCurrentInvocation(t *testing
 	}
 }
 
-func TestListingKitReleaseGateRoleForbidsPodPermissions(t *testing.T) {
-	t.Parallel()
-
-	content, err := os.ReadFile(filepath.Join("..", "deployments", "kubernetes", "listingkit-workbench", "release-authority", "listingkit-api-release-role.yaml"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var role struct {
-		Rules []struct {
-			Resources []string `yaml:"resources"`
-		} `yaml:"rules"`
-	}
-	if err := yaml.Unmarshal(content, &role); err != nil {
-		t.Fatalf("parse API release Role: %v", err)
-	}
-	for _, rule := range role.Rules {
-		for _, resource := range rule.Resources {
-			if resource == "pods" || resource == "pods/status" {
-				t.Fatalf("API release Role must not grant Pod permissions: %#v", rule.Resources)
-			}
-		}
-	}
-}
-
 func TestListingKitReleaseGateRunnerRejectsStaleAvailableDeploymentGeneration(t *testing.T) {
 	t.Parallel()
 

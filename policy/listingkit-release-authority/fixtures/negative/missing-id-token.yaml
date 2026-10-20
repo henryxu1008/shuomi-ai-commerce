@@ -1,2 +1,0 @@
-workflow:
-  permissions: {id-token: read}

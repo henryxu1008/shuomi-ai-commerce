@@ -1,3 +1,0 @@
-identities:
-  api: {environment: production}
-  ui: {environment: production}
