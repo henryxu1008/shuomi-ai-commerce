@@ -33,9 +33,23 @@ Threat Model 覆盖误删当前认证/同步能力、旧命令被误当当前入
 | `scripts/listingkit-save-token.ps1` | 安全输入 → 去 Bearer 前缀 → 同一旧 TokenFile；打印 auth-check 操作提示 | 是旧 API token 文件写入器，不是 Auth.js handoff；没有当前生产/CI 注入 |
 | `scripts/listingkit-auth-check.ps1` | `LISTINGKIT_API_TOKEN` 优先，否则读取显式/默认旧 token 文件；BaseUrl 参数/`LISTINGKIT_API_BASE_URL`，默认 localhost:8085 → Bearer GET `/api/v1/listing-kits/settings-health` | 路由无当前生产注册，成功/失败打印与退出码只解释旧 API 认证；不改指向当前 API，不恢复 settings-health |
 
-完整图为 `fetch → issuer POST → 旧 token 文件 → auth-check → 旧 settings-health`，以及 `save → 同一文件 → auth-check 指引`。在上述准确基线，tracked 非 docs 范围搜索三个文件名、`listingkit-api-token`、`LISTINGKIT_MACHINE_`、`LISTINGKIT_API_TOKEN`、旧 settings-health，只有这三个脚本；没有当前源码、workflow 或构造器消费者。这是仓库静态证据，不证明没有外部人工消费者。搜索仅限 Git tracked 源，不读取真实 `.env`、token 文件、进程环境或现存运行资料。
+完整图为 `fetch → issuer POST → 旧 token 文件 → auth-check → 旧 settings-health`，以及 `save → 同一文件 → auth-check 指引`。统一采用下面的宽名称查询（包含 `settings-health`，不只完整 API 路径）：
 
-基线 tracked 文档命中恰为六份：local-debug、两份 Aug12 旧验收计划/spec、旧 Task 诊断设计及两份历史验证记录。§6.1 对 local-debug、两份 Aug12 指引及仍称 maintained operator tool 的 Aug8 回放说明加窄适用标注，全部原历史正文/结果保留；旧 Task 设计与 June 执行记录完全不改。脚本没有专属 Pester、配置 schema、部署声明、workflow、跨文件 helper 或依赖需要连带删除。
+```sh
+git grep -l -I -E 'listingkit-(auth-check|fetch-machine-token|save-token)|listingkit-api-token|LISTINGKIT_MACHINE_|LISTINGKIT_API_TOKEN|settings-health' b04459eab2366b5389d3219d2c242a04f63bccc4 -- docs
+git grep -l -I -E 'listingkit-(auth-check|fetch-machine-token|save-token)|listingkit-api-token|LISTINGKIT_MACHINE_|LISTINGKIT_API_TOKEN|settings-health' b04459eab2366b5389d3219d2c242a04f63bccc4 -- . ':!docs/**'
+```
+
+该基线结果为 **10 份 docs、非 docs 仅上述三个脚本**，没有当前源码、workflow 或构造器消费者。完整 API 路径的窄查询只命中6份 docs，不能用此数代替宽查询。§6.1 对 local-debug、两份 Aug12 指引及仍称 maintained operator tool 的 Aug8 回放说明共4份加窄适用标注，原正文/结果全部保留；旧 Task 设计与 June auth-blocked 执行记录原样，另4份分类如下：
+
+| 宽名称额外命中 | KEEP / 零改依据 |
+| --- | --- |
+| `docs/operations/listingkit-release-candidate-runbook.md` | 已有 #529/#301 HISTORICAL 顶注，明确旧 release/preflight/步骤不是当前准入；token 要求属于被覆盖的历史协议，不重复加顶注 |
+| `docs/product/validation/runs/2026-06-21-shein-sds-batch-production-closure-regression.md` | settings-health-card.tsx 只出现在旧 npm lint 修复结果，无取 token/保存/认证工具操作路径；保留原 partial pass 与 BLOCKED |
+| `docs/refactoring/httpapi-runtime-inventory.md` | 已有 DATED EVIDENCE 顶注，settings-health 是旧装配盘点，不是当前owner或执行入口；inventory及原计数完全不改 |
+| `docs/superpowers/plans/2026-08-13-remove-default-shein-store.md` | 旧数字Task/默认Store feature计划里的端点消费列表，无本批三脚本或token约定；属于旧设计历史引用，不扩大为当前Store合同或执行授权 |
+
+这是仓库静态证据，不证明没有外部人工消费者。搜索仅限 Git tracked 源，不读取真实 `.env`、token 文件、进程环境或现存运行资料。脚本没有专属 Pester、配置 schema、部署声明、workflow、跨文件 helper 或依赖需要连带删除。
 
 **架构问题与根因**：旧 API 和启动/验收 owner 已退休，源工具和指引仍将旧本地 token 文件与 settings-health 绑定，形成误导性的“认证诊断”路径。根治是退出全部三个入口及直接适用声明，不修补旧 URL、不复用旧文件给当前 session，也不新建认证工具。
 
@@ -91,6 +105,7 @@ docs/product/validation/2026-08-08-1688-controlled-replay.md
 | Store 观察同步、`internal/listingadmin` 有效仓库、`internal/listingruntime` 共享值及独立 SHEIN 登录 worker 和 Store 同步 | 当前 owner、登录/健康/关闭、数据、账户/Profile/Cookie、Store 仓库与同步合同保持；不引入 Organization bridge 或第二事实源 |
 | `docs/architecture/legacy-task-diagnostics-retirement-boundary.md` | §4 旧 token/清单行描述已退出 #844 的历史消费者，不是当前脚本保留要求；全文不改 |
 | `docs/product/validation/runs/2026-06-21-shein-sds-batch-production-closure-auth-blocked.md` | 原历史执行/失败/阻塞和 token 用法证据全文不改，不读取其引用的真实工件或重新执行；Aug8 混合历史/操作说明的正文同样保留，只按 §6.1 窄加适用顶注 |
+| §3 宽查询的另外四份历史/偶然文档命中 | 逐项 KEEP / 零改，理由见 §3；不按端点名称批改文档，不修改原运行证据或 inventory |
 | 全部 workflow、必需和安全检查、inventory/历史计数/ceilings、依赖/锁、保护规则与其它当前能力 | 零改；通用 DB/Temporal/prompt replay/port-forward、共享存储与凭据保留，不按名称批删 |
 
 ```text
