@@ -1,6 +1,6 @@
 # Legacy Register
 
-> #29 / #301 [旧 ListingKit API token 三脚本完整退休拟议设计](../architecture/legacy-api-token-tools-retirement-boundary.md)：Reuse Existing Architecture / DESIGNING / Ready=false，待用户确认。拟按同一完整闭包退休取 token、保存与旧 settings-health 诊断及专属尾部，无业务 EXTRACT；当前 Auth.js handoff、Login V2 探针、采集、Store 与独立 SHEIN 登录/同步保留。此轮仅设计五文档，源/guard/操作指引尚未改；历史正文/计数、workflow/inventory/依赖与真实凭据/实例/数据不改，不增加试用前置。
+> #29 / #301 [用户确认的 API token 三脚本完整退休](../architecture/legacy-api-token-tools-retirement-boundary.md)，冻结设计 `e6ac780d7` / Reuse Existing Architecture，双Issue Ready读回后在 #852 整批实施。旧取 token、保存、settings-health 诊断及内联 helper 删除，原absence guard覆盖三路径；五份直接操作说明只加窄失效顶注，无业务 EXTRACT或替代token owner。当前 Auth.js handoff、Login V2、采集、Store与独立SHEIN登录/同步保留；原历史正文/计数、workflow/inventory/依赖及真实凭据/实例/数据不改，无新试用前置。准确HEAD/CI/最终检查留PR。
 
 > #29 / #301 用户确认[旧 Kubernetes API/UI 发布身份与策略完整闭包](../architecture/legacy-kubernetes-release-principal-retirement-boundary.md)，冻结设计 `da4ac7d16` / Independent Architecture / IMPLEMENTATION_READY，双Issue Ready读回后在 #850 同批实施23删除源、7混合源、4原测试、8文档。仅取代这些源的旧principal/Role/Binding/auth/OIDC helper及专属协议正例保留含义；有效固定失败、canary/Pod拒绝、UI隔离、pin及AST检查留原owner，原bundle拒绝旧授权复活与必要输入缺失。当前全部保留能力含独立SHEIN登录与Store同步不变；历史正文/计数、workflow/inventory/依赖及真实实例/数据/IAM不改，无新试用前置。准确HEAD/CI/最终复核留PR。
 

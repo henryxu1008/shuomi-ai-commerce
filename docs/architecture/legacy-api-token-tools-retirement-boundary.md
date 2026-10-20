@@ -2,7 +2,7 @@
 
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
-> Status: **DESIGNING / 待用户确认，Ready=false；仅设计，三个脚本和所有正式源码未修改。** Design Basis: **Reuse Existing Architecture**。调查基线为 main `b04459eab2366b5389d3219d2c242a04f63bccc4`（2026-10-20）。用户确认后，按 §5、§6、§6.1、§7 在同一主要 PR 整批实施；准确设计/实施 HEAD、原 CI、独立检查和授权证据维护在 PR，不把历史证据当本轮批准。
+> Status: **用户已确认冻结设计 `e6ac780d7` 并授权按 §5/§6/§6.1/§7 在 #852 整批实施；三个旧脚本及专属操作说明尾部已退出，待原 CI、最终独立交付检查及合并授权。** Design Basis: **Reuse Existing Architecture**。调查/实施开工 main 为 `b04459eab2366b5389d3219d2c242a04f63bccc4`（2026-10-20）。#29/#301 Ready 均读回后才修改源；本文矩阵为用户确认的冻结设计，准确 HEAD、CI、检查及授权证据维护在 PR。源码退休不等于实际凭据或运行状态退出。
 
 ## 1. 用户结果、Authority 与范围
 
@@ -138,6 +138,6 @@ Cutover/deletion condition: 用户确认冻结设计、双 Issue Ready 读回后
 
 设计提交后按原 GitHub 检查核对三个根入口、完整引用、§5/§6/§6.1/§7 与当前保留能力；不增加 Writer，不重复触发同 SHA Running 复核，不新建验收工具。finding 先按 AGENTS.md 分类，BLOCKER 必须指出具体当前 Must 与阻塞后果；非 Blocker hardening 不扩架构或内部试用前置。当前为 Reuse Existing Architecture，不为形式引入全局架构评审。
 
-**本轮只交设计**。用户确认后，把当前设计分类、冻结依据和范围写入 #29/#301，并读回两处 Ready，再在同一 PR 实施 §5/§6/§6.1 的完整 14 路径。实现结束交一次最终独立交付检查，核对真实 diff、保留路径与现有证据；不能以作者自检/绿色 CI 代替用户实际验收。用户未确认前不得修改/删除三脚本、guard 或五份操作说明。
+**用户已确认冻结设计并授权整批实施**。当前设计分类、冻结依据与范围已写入 #29/#301，两处 Ready 读回后，才在同一 PR 实施 §5/§6/§6.1 的完整 14 路径。实现结束交一次最终独立交付检查，核对真实 diff、保留路径与现有证据；不能以作者自检/绿色 CI 代替用户实际验收。用户未确认前不得修改/删除三脚本、guard 或五份操作说明。
 
-合并仍须用户单独按最终准确 HEAD 授权并使用 expected-head 正常保护语义；获准合并后核对实际 merge SHA 的 `push/main` CI，不能用 PR CI 或上一批 main CI 代替。当前无合并、部署、Issue 关闭、凭据/实例/数据/IAM/真实平台操作授权。父目标保持 OPEN，生产 NOT_READY，真实运行/用户验收 NOT_RUN；本设计及未来源码退休不增加试用前置。
+合并仍须用户单独按最终准确 HEAD 授权并使用 expected-head 正常保护语义；获准合并后核对实际 merge SHA 的 `push/main` CI，不能用 PR CI 或上一批 main CI 代替。当前实施、必要隔离开发自检、提交/推送与 PR 维护已授权；合并、部署、Issue 关闭、凭据/实例/数据/IAM/真实平台操作未授权。父目标保持 OPEN，生产 NOT_READY，真实运行/用户验收 NOT_RUN；本设计及未来源码退休不增加试用前置。

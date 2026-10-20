@@ -2397,6 +2397,9 @@ func TestRetiredLocalLaunchersRejectBeforeOperations(t *testing.T) {
 		"scripts/image-agent-local-acceptance.Tests.ps1",
 		"scripts/tests/image-agent-local-acceptance-script-test.ps1",
 		"deployments/docker/image-agent-acceptance/docker-compose.yml",
+		"scripts/listingkit-fetch-machine-token.ps1",
+		"scripts/listingkit-save-token.ps1",
+		"scripts/listingkit-auth-check.ps1",
 	} {
 		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
 			t.Errorf("retired local launch/acceptance source must be absent: %s (stat: %v)", relative, err)
