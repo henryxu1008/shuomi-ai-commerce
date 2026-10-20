@@ -46,6 +46,11 @@ unavailable for this entry. The existing finish path therefore cannot auto-adopt
 the candidate into Catalog. The confirmed-copy reader also requires default
 provenance and rejects PolicyAdoption. Hiding Apply is only UI containment, not
 this enforcement. Existing unrelated content requests retain their behavior.
+This entry directly uses the existing Content Agent start, without an AIWorkbench
+planner call before that guard. Finish/read/resume retain the same frozen mode;
+they do not replace it with the current mode. The copy reader resolves the original
+run/config snapshot from their existing owners and verifies actual default mode,
+not a UI flag or an unverified projection of the provenance.
 
 Product Review remains the owner of the accepted content, its source binding,
 language, revision, original candidate and decisions. Imageagent consumes a
@@ -75,7 +80,7 @@ New preparations require an explicit text choice after replay lookup. The
 none choice applies an exclusive no-text instruction. Reviewed mode uses a
 bounded server reader for the existing Review and its ordinary live access
 checks. It requires manual state `accepted`, exact revision, no automatic policy
-adoption, no pending Apply, the same product key, exact source catalog version and
+adoption and no Apply Receipt, the same product key, exact source catalog version and
 publication, and the same canonical target language as the selected template.
 For an effective source version newer than the original, the existing source
 reader supplies the exact effective PublishedSnapshot publication ID as transient
@@ -116,8 +121,12 @@ new binding is omitted on old JSON, including prepare input and fingerprints.
 This is current immutable execution-history handling explicitly requested by the
 user, not a retired-service compatibility adapter or a data migration.
 
-The new binding is included in the existing plan/catalog/recipe digests and
-generation input/effect fingerprints. All source/plan/catalog/Tools dispatch and
+The new binding is included in the existing plan/recipe digests and generation
+input/effect fingerprints. Original Catalog/source hashes continue to prove only
+the original product/materials; translated text does not change their hash. The
+reader requires the current accepted revision and no Receipt/PolicyAdoption;
+it does not claim to detect an in-flight Apply in another browser/database, and
+adds no cross-database write or global lock. All source/plan/catalog/Tools dispatch and
 successful-output recovery consumers validate the same frozen binding and literal
 copy before side effects or settlement. Do not re-run translation on dispatch,
 GET, recovery, timeout, repeat prepare or model/image retry. No new table,
