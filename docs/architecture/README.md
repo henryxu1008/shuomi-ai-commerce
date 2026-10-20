@@ -39,8 +39,6 @@
 - [`own-product-rich-description-v1.md`](own-product-rich-description-v1.md): versioned safe rich descriptions in current Product/CompletionDraft, existing image pool, history/restore, and explicit text-only platform projection; no schema/runtime/provider action.
 - [`rich-description-simple-editor-images-v1.md`](rich-description-simple-editor-images-v1.md): official Simple Editor UI and direct description uploads; CompletionDraft versions candidate image references while fixed source/SKU images, existing upload permissions, capacity, CAS and recovery owners remain unchanged.
 
-- [`source-business-closure-v1.md`](source-business-closure-v1.md): #30/#307 design-only proposal for the complete current source-input, SRC/Catalog/Collection persistence and lineage, refresh, explicit human source-image approval and Product-input readiness path. Reuses existing owners; proposes a bounded source-material composition independent of AI/store/upload execution. Implementation requires user design confirmation and applicable independent admission. No workflow, retained runtime/data/credentials or new trial prerequisite; #301 and standalone SHEIN login/Store sync remain unchanged.
-
 ## Goal
 
 This index separates stable architecture rules from plans, runbooks, and
@@ -49,6 +47,8 @@ implementation decisions. Use plans and runbooks for context, not as newer
 boundary rules unless they explicitly supersede a stable document.
 
 ## Boundary Designs Awaiting Confirmation
+
+- [`source-business-closure-v1.md`](source-business-closure-v1.md): #30/#307 design-only proposal for the complete current source-input, SRC/Catalog/Collection persistence and lineage, refresh, explicit human source-image approval and Product-input readiness path. Reuses existing owners; proposes a bounded source-material composition independent of AI/store/upload execution. Implementation requires user design confirmation and applicable independent admission. No workflow, retained runtime/data/credentials or new trial prerequisite; #301 and standalone SHEIN login/Store sync remain unchanged.
 
 - [`legacy-runtime-config-closure-retirement-boundary.md`](legacy-runtime-config-closure-retirement-boundary.md): #29/#301 complete retired task/listing configuration closure, source-implemented in #836 after user confirmation of frozen design 209b40f54 and Independent Architecture / IMPLEMENTATION_READY admission. Retires unused schema/default/load/env/validation/example and exclusive test tails together. Real crawler workerpool, independent queue/Retry, current identity/billing/images/Store and standalone SHEIN login/Store sync retain their owners. Original checks transfer only obsolete assertions; workflows/inventory/runtime/data and trial prerequisites remain unchanged. Exact implementation HEAD/CI/final review stay in the PR.
 
