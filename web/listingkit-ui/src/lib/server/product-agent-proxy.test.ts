@@ -3,6 +3,13 @@ import { buildWorkbenchUpstreamRequest, buildWorkbenchBrowserResponse } from "./
 const op = "11111111-1111-4111-8111-111111111111", key = "22222222-2222-4222-8222-222222222222";
 const path = ["sourcing", "1688", "acquisitions", op, "product-agent", "runs"];
 const contentPath = ["sourcing", "1688", "acquisitions", op, "content-agent", "runs"];
+it("preserves a definite manual-only rejection without converting it to UNKNOWN",async()=>{
+ const response=await buildWorkbenchBrowserResponse(Response.json({code:"MANUAL_REVIEW_REQUIRED"},{status:409}),"product-agent-content-result",key,{sourceMutation:true});
+ expect(response.status).toBe(409);
+ expect((await response.json()).code).toBe("MANUAL_REVIEW_REQUIRED");
+ const uncertain=await buildWorkbenchBrowserResponse(Response.json({code:"UNRECOGNIZED"},{status:409}),"product-agent-content-result",key,{sourceMutation:true});
+ expect(uncertain.status).toBe(503);expect((await uncertain.json()).code).toBe("OUTCOME_UNKNOWN");
+});
 afterEach(() => vi.unstubAllEnvs());
 it("seals an own-product source in its own namespace and keeps mutation checks",async()=>{
  vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL","http://localhost:3000");

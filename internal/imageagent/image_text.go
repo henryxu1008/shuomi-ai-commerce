@@ -7,6 +7,8 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
@@ -72,6 +74,19 @@ func imageTextLanguageValid(language string) bool {
 	return slices.Contains([]string{"en", "zh", "es", "fr", "de", "ja"}, language)
 }
 
+// Human-reviewed copy is rendered as JSON literal strings, so ordinary quote
+// punctuation is valid. Keep the historical v3 label predicate unchanged.
+func validReviewedImageText(value string) bool {
+	if value == "" || value != strings.TrimSpace(value) || utf8.RuneCountInString(value) > 32 || !agentconfig.ValidSetText(value, 128) {
+		return false
+	}
+	if strings.IndexFunc(value, func(r rune) bool { return unicode.IsControl(r) || unicode.Is(unicode.Cf, r) }) >= 0 || strings.ContainsAny(value, "<>`\\[]{}") {
+		return false
+	}
+	lower := strings.ToLower(value)
+	return !strings.Contains(lower, "://") && !strings.Contains(lower, "www.") && !strings.Contains(lower, "data:")
+}
+
 func (b *ImageTextBinding) Valid(source ImageSourceBinding) bool {
 	if b == nil || b.PolicyVersion != ImageTextPolicyVersion || !imageTextLanguageValid(b.Language) {
 		return false
@@ -84,7 +99,7 @@ func (b *ImageTextBinding) Valid(source ImageSourceBinding) bool {
 		return false
 	}
 	for _, line := range c.Lines {
-		if !validDetailLabel(line) {
+		if !validReviewedImageText(line) {
 			return false
 		}
 	}

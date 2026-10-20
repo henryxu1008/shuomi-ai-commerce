@@ -94,7 +94,10 @@ or cross-tenant lookup is introduced.
 The accepted title and at most the first accepted selling point are eligible
 literal lines, in that order. The user previews these exact lines before preparing
 the image plan. Lines retain the existing two-line / 32 Unicode-code-point bounds,
-valid UTF-8 and no controls/markup/URLs. Do not truncate or silently skip an
+valid UTF-8 and no controls/markup/URLs. Ordinary punctuation, including apostrophes
+and inch quotation marks, stays literal in both the Review binding and plan
+validation; the historical v3 label predicate and frozen prompt bytes stay unchanged.
+Do not truncate or silently skip an
 oversize translation: show the reason and use the existing Review edit/accept
 flow to confirm a suitable short version. Empty or unsupported accepted fields
 cannot silently restore source-language text. Human confirmation establishes
@@ -139,6 +142,30 @@ deadline/reservation/owner; no new key or admission is synthesized by recovery.
 New missing/stale/cross-source/cross-language Review rejects before a new image
 execution is admitted. Read-only bounded Review consumption and image preparation
 use ordinary request deadlines; existing payload/slot/response limits remain.
+
+The existing pre-invocation `MANUAL_REVIEW_REQUIRED` and pre-preparation
+`IMAGE_TEXT_REVIEW_CHANGED` responses are definite HTTP 409 rejections. The BFF
+must preserve both code and status. After the original rejection is verified,
+retain the exact translation/image request before permitting explicit correction
+and a newly confirmed request. This also applies when verifying a retained
+original request. UNKNOWN, timeouts and not-found reads remain locked and do not
+authorize a new request or a model call. Reuse the existing retained-request
+history; do not change backend recovery, admission or settlement owners.
+After a definite initial preparation rejection, invalidate its prior copy
+confirmation too. The existing archived request keeps the requirement across
+reload; a new reviewed or explicit no-text choice is required before preparing
+again, including after template or slot changes.
+For a rejected regeneration, explicitly re-read and confirm copy against its
+parent's frozen source, template language and selected slots (or explicitly
+choose no text), while preserving the parent's exact Skill and original assets.
+Do not silently inherit the rejected Review or substitute the current default
+template's copy. Reloading retains this correction requirement via the existing
+archived request; changing the slot subset requires confirmation again.
+
+The bounded error/punctuation UI correction is shown in Figma
+[dark 7912:2254](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=7912-2254)
+and [light 7912:2294](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=7912-2294).
+Original 7811 screens remain historical evidence.
 
 Translation has its own original request, budget, quota and accounting; image
 generation retains its separate plan/quote/confirmation and accounting. A paid
