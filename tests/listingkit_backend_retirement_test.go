@@ -2219,6 +2219,10 @@ func TestLegacyReleaseIdentityPreflightIsRetired(t *testing.T) {
 		"deployments/kubernetes/listingkit-workbench/jobs/listingkit-identity-preflight-job.yaml",
 		"scripts/listingkit-identity-preflight-job.sh", "scripts/tests/listingkit-identity-preflight-job-test.sh",
 		"scripts/listingkit-clean-legacy-identity-secret.sh", "scripts/tests/listingkit-clean-legacy-identity-secret-test.sh",
+		"scripts/migrate-yudao-users-to-zitadel.ps1",
+		"scripts/migrate-yudao-users-to-local-zitadel.ps1",
+		"scripts/migrate-yudao-all-users-to-local-zitadel.ps1",
+		"scripts/yudao-zitadel-owner-recovery-dry-run.ps1",
 	} {
 		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
 			t.Errorf("retired identity-preflight artifact remains: %s (stat: %v)", relative, err)
