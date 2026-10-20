@@ -20,6 +20,7 @@ import (
 	"task-processor/internal/aicapability"
 	coreconfig "task-processor/internal/core/config"
 	governed "task-processor/internal/integration/aicapability/einomodel"
+	"task-processor/internal/integration/aiworkbench/einoplanner"
 	"task-processor/internal/integration/openai"
 )
 
@@ -242,7 +243,11 @@ func validProvisionPolicy(cfg *Config, consumer string, policy governed.RoutePol
 	case "content":
 		return profile.PromptVersion == agentconfig.ContentPromptVersion && profile.OutputSchemaVersion == agentconfig.ContentActionVersion
 	case "planning":
-		return profile.PromptVersion == "ai-workbench-chat-plan-v1" && profile.OutputSchemaVersion == "ai-workbench-plan-decision-v1" &&
+		promptVersion := "ai-workbench-chat-plan-v1"
+		if cfg.AIWorkbench != nil && cfg.AIWorkbench.ContentTasks {
+			promptVersion = einoplanner.ContentPromptVersion
+		}
+		return profile.PromptVersion == promptVersion && profile.OutputSchemaVersion == "ai-workbench-plan-decision-v1" &&
 			profile.MaximumCompletionTokens <= 4096 && profile.MaximumInputBytes <= 128<<10 && profile.MaximumOutputBytes <= 16<<10
 	default:
 		return false
