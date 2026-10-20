@@ -151,6 +151,12 @@ and a newly confirmed request. This also applies when verifying a retained
 original request. UNKNOWN, timeouts and not-found reads remain locked and do not
 authorize a new request or a model call. Reuse the existing retained-request
 history; do not change backend recovery, admission or settlement owners.
+For a rejected regeneration, explicitly re-read and confirm copy against its
+parent's frozen source, template language and selected slots (or explicitly
+choose no text), while preserving the parent's exact Skill and original assets.
+Do not silently inherit the rejected Review or substitute the current default
+template's copy. Reloading retains this correction requirement via the existing
+archived request; changing the slot subset requires confirmation again.
 
 The bounded error/punctuation UI correction is shown in Figma
 [dark 7912:2254](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=7912-2254)

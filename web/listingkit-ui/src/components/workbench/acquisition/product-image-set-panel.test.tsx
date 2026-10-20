@@ -5,6 +5,7 @@ import {ProductImageSetPanel} from "./product-image-set-panel";
 import {imageTemplateSchema} from "@/lib/contracts/image-set-configuration";
 import {imageSetRunSchema} from "@/lib/contracts/product-image-set";
 import {genericImagePresets} from "@/lib/image-template-presets";
+import {contentProposalFixture} from "@/test/product-content-review-fixture";
 const calls=vi.hoisted(()=>({context:{} as Record<string,unknown>,mode:vi.fn()}));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>calls.context}));
 vi.mock("@/lib/api/agent-configuration",async original=>{const actual=await original<typeof import("@/lib/api/agent-configuration")>();return {...actual,configurationRequest:(...args:Parameters<typeof actual.configurationRequest>)=>args[1].startsWith("execution-modes/")?calls.mode(...args):actual.configurationRequest(...args)}});
@@ -108,6 +109,68 @@ it("keeps a rejected preparation locked if its original request cannot be archiv
  await screen.findByText(/原请求未能完整保留/);
  expect(localStorage.getItem(key)).toBeTruthy();
  expect(screen.getByRole("button",{name:"准备整套图片计划（2 项）"})).toBeDisabled();
+ expect(fetch.mock.calls.filter(([,init])=>init?.method==="POST")).toHaveLength(1);
+});
+
+it.each(["fresh","restored","no-text"])("uses explicitly corrected copy for %s rejected regeneration while preserving its parent and original request",async scenario=>{
+ const parentTemplateId="55555555-5555-4555-8555-555555555555",reviewId="12345678-1234-4234-8234-123456789abc";
+ const parentTemplate={...template,templateId:parentTemplateId,version:"2",revision:"2",name:"Frozen French",image:{...template.image,language:"fr"}};
+ const skill={skillId:operation,version:2,digest:sha},oldText={mode:"reviewed",review:{proposalId:reviewId,revision:"2"},taskIds:["detail"]};
+ state=projection("awaiting_final_approval",operation);
+ state.template={templateId:parentTemplateId,revision:"2"};
+ Object.assign(state.plan,{Method:{Skill:{kind:"skill-version-v1",id:skill.skillId,ownerKind:"PLATFORM",ownerId:"official",version:skill.version,digest:skill.digest,policyVersion:"skill-method-v1"},PolicyVersion:"image-method-visual-brief-v4"},Text:{PolicyVersion:"image-reviewed-text-v1",Mode:"reviewed",Language:"fr",TaskIDs:["detail"],Copy:{Review:oldText.review,ProductID:"p",PublicationID:"publication",Version:"1",Language:"fr",OriginRunID:runId,ModeSnapshot:{Kind:"agent-execution-mode-v1",ID:runId,Digest:sha},Lines:["Ancien texte"]}}});
+ const frozenParent=JSON.stringify(state.plan),storage=`product-image-set:actor:org:acquisition:${operation}`,real=fetch.getMockImplementation()!;
+ const rejected={action:"regenerate",runId,requestKey:templateId,body:{expectedModeRevision:"0",template:{templateId:parentTemplateId,revision:"2"},target:{Platform:"product"},effectiveCatalogVersion:"1",sharedOriginalIds:["original"],selectedTaskIds:["detail"],skill,text:oldText}};
+ const restoredRaw=JSON.stringify(rejected,null,2);
+ localStorage.setItem(storage+":run",runId);if(scenario==="restored")localStorage.setItem(storage+":intent",restoredRaw);
+ const fixture=contentProposalFixture(),selection={targetLanguage:"fr",title:true,sellingPoints:true},values=[{field:"title",value:"Boîte de rangement"},{field:"selling_points",value:'["Pour les objets du quotidien"]'}];
+ const reviewed={...fixture,proposal_id:reviewId,input:{product_key:"p",base_version:"1"},state:"accepted",revision:"3",content:{...fixture.content,selection,before:values,after:values},execution:{...fixture.execution,binding:{...fixture.execution.binding,ProductKey:"p"},ContentSelection:selection}};
+ let regenerations=0;
+ fetch.mockImplementation((url,init)=>String(url).includes(`/templates/${parentTemplateId}/revisions/2`)?Promise.resolve(Response.json(parentTemplate)):String(url).endsWith(`/text-proposals/${reviewId}`)?Promise.resolve(Response.json(reviewed)):String(url).endsWith("/regenerate")?Promise.resolve(++regenerations===1?Response.json({code:"IMAGE_TEXT_REVIEW_CHANGED"},{status:409}):Response.json(projection(),{status:201})):real(url,init));
+ let view=render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ if(scenario==="restored")fireEvent.click(await screen.findByRole("button",{name:"继续原操作"}));
+ else{fireEvent.click((await screen.findAllByRole("checkbox",{name:"重新生成此项，另行确认点数"}))[1]);const button=screen.getByRole("button",{name:"准备所选 1 项的新计划"});await waitFor(()=>expect(button).toBeEnabled());fireEvent.click(button)}
+ await screen.findByText(/审核译文已变化/);
+ const archived=Object.keys(localStorage).find(key=>key.includes(":verified-intent:"))!,raw=localStorage.getItem(archived)!;
+ expect(JSON.parse(raw).body).toMatchObject(rejected.body);
+ expect(localStorage.getItem(storage+":intent")).toBeNull();if(scenario==="restored")expect(raw).toBe(restoredRaw);
+ // Correction must also survive a reload, without replaying or rewriting the rejected request.
+ view.unmount();view=render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ fireEvent.click((await screen.findAllByRole("checkbox",{name:"重新生成此项，另行确认点数"}))[1]);
+ const correction=within(await screen.findByRole("region",{name:"重新生成文案纠正"}));
+ expect(correction.getByText("目标语言：法语（fr）")).toBeVisible();
+ const button=screen.getByRole("button",{name:"准备所选 1 项的新计划"});expect(button).toBeDisabled();expect(regenerations).toBe(1);
+ if(scenario==="no-text")fireEvent.change(correction.getByRole("combobox",{name:"图片文字方式"}),{target:{value:"none"}});
+ else{
+  fireEvent.change(correction.getByLabelText("文案审核编号"),{target:{value:reviewId}});fireEvent.click(correction.getByRole("button",{name:"读取审核译文"}));
+  await correction.findByText("本次图片文案 · 最多两条");expect(button).toBeDisabled();
+  fireEvent.click(correction.getByRole("checkbox",{name:"确认目标语言图片文案"}));
+ }
+ await waitFor(()=>expect(button).toBeEnabled());
+ if(scenario==="no-text"){
+  // A different slot subset requires a fresh explicit text choice.
+  fireEvent.click(screen.getAllByRole("checkbox",{name:"重新生成此项，另行确认点数"})[0]);expect(screen.getByRole("button",{name:"准备所选 2 项的新计划"})).toBeDisabled();
+  fireEvent.click(screen.getAllByRole("checkbox",{name:"重新生成此项，另行确认点数"})[0]);expect(button).toBeDisabled();
+  fireEvent.change(within(screen.getByRole("region",{name:"重新生成文案纠正"})).getByRole("combobox",{name:"图片文字方式"}),{target:{value:"none"}});
+ }
+ fireEvent.click(button);
+ await waitFor(()=>expect(regenerations).toBe(2));
+ const request=fetch.mock.calls.filter(([url])=>String(url).endsWith("/regenerate"))[1]!;
+ expect(JSON.parse(String(request[1]!.body))).toMatchObject({...rejected.body,text:scenario==="no-text"?{mode:"none"}:{...oldText,review:{proposalId:reviewId,revision:"3"}}});
+ expect(new Headers(request[1]!.headers).get("Idempotency-Key")).not.toBe(JSON.parse(raw).requestKey);
+ expect(JSON.stringify(state.plan)).toBe(frozenParent);expect(localStorage.getItem(archived)).toBe(raw);
+ expect(fetch.mock.calls.filter(([,init])=>init?.method==="POST")).toHaveLength(2);
+});
+
+it.each(["OUTCOME_UNKNOWN","IMAGE_NOT_FOUND"])("does not offer correction for an unresolved regeneration returning %s",async code=>{
+ state=projection("awaiting_final_approval",operation);
+ const storage=`product-image-set:actor:org:acquisition:${operation}`,raw=JSON.stringify({action:"regenerate",runId,requestKey:templateId,body:{expectedModeRevision:"0",target:{Platform:"product"},text:{mode:"reviewed",review:{proposalId:operation,revision:"2"},taskIds:["detail"]}}});
+ localStorage.setItem(storage+":run",runId);localStorage.setItem(storage+":intent",raw);const real=fetch.getMockImplementation()!;
+ fetch.mockImplementation((url,init)=>String(url).endsWith("/regenerate")?Promise.resolve(Response.json({code},{status:code==="OUTCOME_UNKNOWN"?503:404})):real(url,init));
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ fireEvent.click(await screen.findByRole("button",{name:"继续原操作"}));await screen.findByRole("alert");
+ expect(localStorage.getItem(storage+":intent")).toBe(raw);expect(Object.keys(localStorage).some(key=>key.includes(":verified-intent:"))).toBe(false);
+ expect(screen.queryByRole("region",{name:"重新生成文案纠正"})).toBeNull();expect(screen.getByRole("button",{name:"准备所选 0 项的新计划"})).toBeDisabled();
  expect(fetch.mock.calls.filter(([,init])=>init?.method==="POST")).toHaveLength(1);
 });
 
