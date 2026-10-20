@@ -37,6 +37,16 @@ being passed as a text Skill. Existing text-budget confirmation remains mandator
 Existing Product Review supports preview, editing and manual accept. This image
 flow never calls Apply or changes the product's canonical content.
 
+This entry submits `manualReviewOnly=true` through the existing Content Agent
+start contract. This optional/omitted-on-old-requests field is part of the frozen
+Request and request fingerprint, not a browser-only hint. After freezing the
+exact existing mode snapshot, and before any text invocation, the server requires
+that snapshot to be `default`; auto_approve, full_access and read_only are
+unavailable for this entry. The existing finish path therefore cannot auto-adopt
+the candidate into Catalog. The confirmed-copy reader also requires default
+provenance and rejects PolicyAdoption. Hiding Apply is only UI containment, not
+this enforcement. Existing unrelated content requests retain their behavior.
+
 Product Review remains the owner of the accepted content, its source binding,
 language, revision, original candidate and decisions. Imageagent consumes a
 snapshot as execution input, not as a second product fact source. Its original
@@ -67,6 +77,10 @@ bounded server reader for the existing Review and its ordinary live access
 checks. It requires manual state `accepted`, exact revision, no automatic policy
 adoption, no pending Apply, the same product key, exact source catalog version and
 publication, and the same canonical target language as the selected template.
+For an effective source version newer than the original, the existing source
+reader supplies the exact effective PublishedSnapshot publication ID as transient
+preparation context; the original publication ID must not be substituted. The
+copy proof freezes that actual publication alongside the version.
 Review source must match the source reader's actual publication, not a browser
 item ID or an unrelated current product head. Execution source/tenant/actor and
 review access are checked through existing capabilities; no admin impersonation
@@ -146,12 +160,18 @@ read/write uses existing image permissions. No grants, entitlement modifications
 or new broad access are added. Members who lack text permission see why text
 preparation is unavailable, can read only what existing access allows, and may
 still explicitly prepare no-text images where image permission permits.
+Existing Product Review accept/reject remains an administrator operation; this
+work does not silently give ordinary image users that permission. A permitted
+member can translate/edit as currently authorized and consume a Review accepted
+by an authorized reviewer. The UI states that dependency; ordinary image users
+can still choose no text. Inline image-copy Review hides product Apply controls.
 
 ## Verification and admission
 
 TDD first: reproduce English-template/Chinese-copy mismatch; prove translated
 accepted copy is used instead of source copy. Exercise pending/automatic/stale
 Review, wrong source/version/publication/language/tenant, invalid/oversize lines,
+automatic-mode text starts rejected before any model call or Catalog write,
 different payload same key, exact Skill/plan/digest, no-text sibling tasks, no
 Skill, old v2/v3 JSON/prompt/replay and successful-result recovery. Use existing
 fixtures/integration tests; do not build a separate acceptance platform.
