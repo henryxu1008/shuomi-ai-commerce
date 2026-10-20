@@ -1,6 +1,6 @@
 # Image target language, localization and confirmed copy
 
-Design Basis: **Independent Architecture / DESIGN_REVIEW_PENDING**.
+Design Basis: **Independent Architecture / IMPLEMENTATION_READY** (2026-10-20).
 Execution: [#840](https://github.com/qq550723504/task-processor/issues/840),
 parent [#774](https://github.com/qq550723504/task-processor/issues/774).
 
@@ -196,5 +196,10 @@ Legacy decision: N/A. Only current capability owners are consumed; no legacy
 fallback, duplicate facts/queue/service or migration. One original Writer and
 the original independent Reviewer, one Delivery Batch and one main PR.
 
-Architecture Review: pending original Reviewer. No production edits are permitted
-until the Issue and this design record IMPLEMENTATION_READY.
+Architecture Review: original `/root/visual_brief_arch_review`, round 1 identified
+the pre-invocation automatic-Apply consent BLOCKER. Candidate `909b8a9c7` closes
+it with the frozen manual-only/default-mode guard and exact owner validation.
+Round 2 returned IMPLEMENTATION_READY, no remaining architecture BLOCKER. Mode
+fencing, exact Review/source/language, immutable old bytes and successful recovery
+remain IMPLEMENTATION_TEST obligations. Production implementation starts only
+after this admission and Issue Ready are recorded. No real-call authority follows.
