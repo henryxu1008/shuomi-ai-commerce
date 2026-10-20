@@ -36,6 +36,8 @@ type ImageAgentArtifactStoreConfig struct {
 }
 
 type ImageAgentArtifactStoreS3Config struct {
+	CapacityIdentityProvider             string `mapstructure:"capacityIdentityProvider" yaml:"capacityIdentityProvider"`
+	CapacityMinIODeploymentID            string `mapstructure:"capacityMinIODeploymentID" yaml:"capacityMinIODeploymentID"`
 	Bucket                               string `mapstructure:"bucket" yaml:"bucket"`
 	Region                               string `mapstructure:"region" yaml:"region"`
 	Endpoint                             string `mapstructure:"endpoint" yaml:"endpoint"`

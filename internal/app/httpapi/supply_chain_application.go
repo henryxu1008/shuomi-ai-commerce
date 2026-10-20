@@ -64,7 +64,7 @@ func buildSupplyChainModule(ctx context.Context, productDB, storeDB *gorm.DB, d 
 	if err := assetstore.VerifySourceRuntimePermissions(ctx, d.AssetDB); err != nil {
 		return empty, err
 	}
-	if err := storecenter.VerifyCurrentSchema(ctx, storeDB); err != nil {
+	if err := storecenter.VerifyCurrentSchemaForCapabilities(ctx, storeDB, capabilities); err != nil {
 		return empty, err
 	}
 	if err := storecenter.VerifyRuntimePermissionsForCapabilities(ctx, storeDB, capabilities); err != nil {
@@ -108,6 +108,8 @@ func buildSupplyChainModule(ctx context.Context, productDB, storeDB *gorm.DB, d 
 	}
 	temuRules := supplyapp.TemuRuleReader{Stores: supplyapp.OfficialTemuRuleStore{Access: access}, Catalog: temuCatalog}
 	tiktokRules := supplyapp.TikTokRuleReader{Stores: supplyapp.OfficialTikTokRuleStore{Access: access}}
+	walmartStores := supplyapp.OfficialWalmartRuleStore{Access: access}
+	walmartRules := supplyapp.WalmartRuleReader{Stores: walmartStores}
 	assets, err := assetstore.NewBoundedApprovedInventoryReader(d.AssetDB, record.MaxPayloadBytes)
 	if err != nil {
 		return empty, err
@@ -134,7 +136,7 @@ func buildSupplyChainModule(ctx context.Context, productDB, storeDB *gorm.DB, d 
 		}
 		completionVersions = versions
 	}
-	targets, err := record.NewTargetService(record.TargetDependencies{Sources: sources, Products: effective, Assets: assets, Rules: rules, TemuRules: temuRules, TemuImages: imageProbe, TikTokRules: tiktokRules, TikTokImages: imageProbe, CompletionVersions: completionVersions, Records: records, Images: imageProbe, Authorizer: auth, ExecutionSources: sources, ExecutionAuthorization: executionAuth})
+	targets, err := record.NewTargetService(record.TargetDependencies{Sources: sources, Products: effective, Assets: assets, Rules: rules, TemuRules: temuRules, TemuImages: imageProbe, TikTokRules: tiktokRules, TikTokImages: imageProbe, WalmartRules: walmartRules, WalmartImages: imageProbe, CompletionVersions: completionVersions, Records: records, Images: imageProbe, Authorizer: auth, ExecutionSources: sources, ExecutionAuthorization: executionAuth})
 	if err != nil {
 		return empty, err
 	}
@@ -151,22 +153,28 @@ func buildSupplyChainModule(ctx context.Context, productDB, storeDB *gorm.DB, d 
 		return empty, err
 	}
 	stageProjection := core.app.StageProjection
-	uploader, err := supplyapp.NewUploadService(supplyapp.UploadDependencies{Sources: sources, Products: effective, Assets: assets, Rules: rules, TemuRules: temuRules, TemuImages: imageProbe, TikTokRules: tiktokRules, TikTokImages: imageProbe, TikTokStores: supplyapp.OfficialTikTokExecutionStore{Access: access}, Records: records, Authorization: executionAuth, Stores: supplyapp.OfficialExecutionStore{Access: access}, TemuStores: supplyapp.OfficialTemuExecutionStore{Access: access}, Images: imageProbe, Kernel: kernel, Intents: official, Receipts: official, ReviewGate: stageProjection.RequireUploadReady})
+	uploader, err := supplyapp.NewUploadService(supplyapp.UploadDependencies{Sources: sources, Products: effective, Assets: assets, Rules: rules, TemuRules: temuRules, TemuImages: imageProbe, TikTokRules: tiktokRules, TikTokImages: imageProbe, WalmartRules: walmartRules, WalmartImages: imageProbe, TikTokStores: supplyapp.OfficialTikTokExecutionStore{Access: access}, WalmartStores: supplyapp.OfficialWalmartExecutionStore{Access: access}, WalmartReadStores: walmartStores, Records: records, Authorization: executionAuth, Stores: supplyapp.OfficialExecutionStore{Access: access}, TemuStores: supplyapp.OfficialTemuExecutionStore{Access: access}, Images: imageProbe, Kernel: kernel, Intents: official, Receipts: official, ReviewGate: stageProjection.RequireUploadReady})
 	if err != nil {
 		return empty, err
 	}
-	app := &supplyapp.Application{Preparations: preparations, Sources: sources, Operations: operations, Execution: supplyapp.OperationApplication{Service: operations, Repository: operationsRepo, Starter: d.Starter}, Targets: targets, Records: records, Products: effective, Rules: rules, TemuRules: temuRules, TikTokRules: tiktokRules, TikTokCatalog: tiktokRules, TikTokStatusStores: supplyapp.OfficialTikTokRuleStore{Access: access}, Assets: assets, Approvals: approvals, Authorization: auth, PublicationReceipts: official, PublicationStores: supplyapp.OfficialRuleStore{Access: access}, TargetMerchants: supplyapp.OfficialTargetMerchantStore{Access: access}}
+	app := &supplyapp.Application{Preparations: preparations, Sources: sources, Operations: operations, Execution: supplyapp.OperationApplication{Service: operations, Repository: operationsRepo, Starter: d.Starter}, Targets: targets, Records: records, Products: effective, Rules: rules, TemuRules: temuRules, TikTokRules: tiktokRules, TikTokCatalog: tiktokRules, TikTokStatusStores: supplyapp.OfficialTikTokRuleStore{Access: access}, WalmartRules: walmartRules, WalmartCatalog: walmartRules, WalmartStatusStores: walmartStores, WalmartResults: official, Assets: assets, Approvals: approvals, Authorization: auth, PublicationReceipts: official, PublicationStores: supplyapp.OfficialRuleStore{Access: access}, TargetMerchants: supplyapp.OfficialTargetMerchantStore{Access: access}}
 	var optimizer supplyapp.OperationOptimizer
 	app.StageProjection = stageProjection
 	app.Uploader = uploader
+	app.SheinPublication, err = supplyapp.NewSheinPublicationService(supplyapp.SheinPublicationDependencies{Sources: sources, Records: records, Authorization: auth, ExecutionAuthorization: executionAuth, Receipts: official, Intents: official, Kernel: kernel, Attempts: effects, Stores: supplyapp.OfficialSheinPublicationStore{Access: access}})
+	if err != nil {
+		return empty, err
+	}
 	if productAgent != nil {
 		bridge, e := connectSupplyProductAgent(ctx, productAgent.config.ReviewDB, app, productAgent, executionAuth)
 		if e != nil {
 			return empty, e
 		}
-		optimizer = bridge
-		app.AuthorizeOptimization = bridge.authorizeRequest
-		app.OptimizationOptions = bridge.options
+		if bridge != nil {
+			optimizer = bridge
+			app.AuthorizeOptimization = bridge.authorizeRequest
+			app.OptimizationOptions = bridge.options
+		}
 	}
 	currentWorker, err := d.NewWorker(&supplyapp.OperationActivities{Operations: operations, Repository: operationsRepo, Sources: sources, Products: effective, TargetMerchants: supplyapp.OfficialTargetMerchantStore{Access: access}, Targets: records, Creator: targets, Uploader: uploader, Optimizer: optimizer})
 	if err != nil {

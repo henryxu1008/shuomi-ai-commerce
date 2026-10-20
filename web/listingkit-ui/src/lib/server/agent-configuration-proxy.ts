@@ -1,3 +1,8 @@
+import {diagnosisRecentSchema} from "../contracts/shop-diagnosis";
+import {configuredAgentConfigurationOrigin} from "./agent-configuration-origin";
+import {selectionRecentSchema} from "../contracts/product-selection";
+import {artworkTemplateSchema,artworkTemplateInputSchema,artworkTemplatesPageSchema} from "../contracts/agent-configuration";
+import {artworkRecentSchema} from "../contracts/pod-artwork";
 import { z } from "zod";
 import {imageTemplateInputSchema,imageTemplateSchema,imageTemplatesPageSchema} from "@/lib/contracts/image-set-configuration";
 import {imageSetRecentSchema} from "@/lib/contracts/product-image-set";
@@ -5,6 +10,7 @@ import {
   catalogEntrySchema,
   catalogPageSchema,
   contentTemplateInputSchema, contentTemplateSchema, contentTemplatesPageSchema,
+  materialsTemplateInputSchema,materialsTemplateSchema,materialsTemplatesPageSchema,
   configReceiptSchema,
   configVersion,
   recentRunsSchema,
@@ -35,12 +41,17 @@ function endpoint(url: URL, method: string) {
     input = method === "PUT" ? executionModeInputSchema : undefined;
   } else if (p.length === 1 && ["market", "mine"].includes(p[0]) && method === "GET")
     output = catalogPageSchema;
-  else if (["product.title.agent","product.image.agent","product.content.agent"].includes(p[0])) {
+  else if (["product.title.agent","product.image.agent","product.content.agent","listing.materials.agent","pod.design.agent","product.selection.agent","shop.operations-diagnosis.agent"].includes(p[0])) {
+    const diagnosis=p[0]==="shop.operations-diagnosis.agent";
+ const selection=p[0]==="product.selection.agent";
+    if((selection||diagnosis)&&p.length>1&&!["enable","disable","recent-runs"].includes(p[1]))return null;
+    const artwork=p[0]==="pod.design.agent";
     const image=p[0]==="product.image.agent";
     const content=p[0]==="product.content.agent";
-    const typedTemplates=image?imageTemplatesPageSchema:content?contentTemplatesPageSchema:titleTemplatesPageSchema;
-    const typedTemplate=image?imageTemplateSchema:content?contentTemplateSchema:titleTemplateSchema;
-    const typedInput=image?imageTemplateInputSchema:content?contentTemplateInputSchema:templateInputSchema;
+    const materials=p[0]==="listing.materials.agent";
+    const typedTemplates=artwork?artworkTemplatesPageSchema:image?imageTemplatesPageSchema:content?contentTemplatesPageSchema:materials?materialsTemplatesPageSchema:titleTemplatesPageSchema;
+    const typedTemplate=artwork?artworkTemplateSchema:image?imageTemplateSchema:content?contentTemplateSchema:materials?materialsTemplateSchema:titleTemplateSchema;
+    const typedInput=artwork?artworkTemplateInputSchema:image?imageTemplateInputSchema:content?contentTemplateInputSchema:materials?materialsTemplateInputSchema:templateInputSchema;
     if (p.length === 1 && method === "GET") output = catalogEntrySchema;
     else if (
       p.length === 2 &&
@@ -82,27 +93,27 @@ function endpoint(url: URL, method: string) {
         output = typedTemplate;
       else return null;
     } else if (p.length === 2 && p[1] === "recent-runs" && method === "GET")
-      output = image?imageSetRecentSchema:recentRunsSchema;
+      output = diagnosis?diagnosisRecentSchema:selection?selectionRecentSchema:artwork?artworkRecentSchema:image?imageSetRecentSchema:recentRunsSchema;
     else return null;
   } else return null;
   const list =
     output === catalogPageSchema ||
-    output === titleTemplatesPageSchema || output === contentTemplatesPageSchema ||
-    output === recentRunsSchema || output === imageSetRecentSchema || output === imageTemplatesPageSchema;
+    output === titleTemplatesPageSchema || output === contentTemplatesPageSchema || output===materialsTemplatesPageSchema ||
+    output === recentRunsSchema || output === selectionRecentSchema || output === diagnosisRecentSchema || output === imageSetRecentSchema || output === imageTemplatesPageSchema || output === artworkRecentSchema || output === artworkTemplatesPageSchema;
   if (url.search.length > 512 || (url.search && !list)) return null;
   for (const [k, v] of url.searchParams) {
     if (url.searchParams.getAll(k).length !== 1) return null;
     if (k === "pageSize") {
       if (
         !/^[1-9][0-9]*$/.test(v) ||
-        Number(v) > ((output === recentRunsSchema || output === imageSetRecentSchema) ? 20 : 100)
+        Number(v) > ((output === recentRunsSchema || output === selectionRecentSchema || output === diagnosisRecentSchema || output === imageSetRecentSchema || output === artworkRecentSchema) ? 20 : 100)
       )
         return null;
     } else if (k === "cursor") {
       if (!/^[A-Za-z0-9_-]{1,180}$/.test(v)) return null;
     } else if (k === "activation" && p[0] === "mine") {
       if (!["ENABLED", "DISABLED"].includes(v)) return null;
-    } else if (k === "lifecycle" && (output === titleTemplatesPageSchema || output === contentTemplatesPageSchema || output === imageTemplatesPageSchema)) {
+    } else if (k === "lifecycle" && (output === titleTemplatesPageSchema || output === contentTemplatesPageSchema || output === materialsTemplatesPageSchema || output === imageTemplatesPageSchema || output === artworkTemplatesPageSchema)) {
       if (!["ACTIVE", "ARCHIVED"].includes(v)) return null;
     } else return null;
   }
@@ -201,20 +212,8 @@ export async function proxyAgentConfiguration(
       headers.set("Content-Type", "application/json");
     } else if (!(await hasEmptyBody(request, controller.signal)))
       return configFailure(400, "INVALID_REQUEST");
-    let origin: string;
-    try {
-      const u = new URL(process.env.LISTINGKIT_SERVICE_API_BASE ?? "");
-      if (
-        !["http:", "https:"].includes(u.protocol) ||
-        u.username ||
-        u.password ||
-        u.search ||
-        u.hash ||
-        !["/api/v1", "/api/v1/"].includes(u.pathname)
-      )
-        throw new Error();
-      origin = u.origin;
-    } catch {
+    const origin=configuredAgentConfigurationOrigin();
+    if(!origin){
       return configFailure(503, "DEPENDENCY_UNAVAILABLE");
     }
     controller.signal.throwIfAborted();
@@ -265,7 +264,7 @@ export async function proxyAgentConfiguration(
       } else if (view.receipt) throw new Error();
     }
     if (
-      (route.output === titleTemplateSchema || route.output === contentTemplateSchema || route.output === imageTemplateSchema) &&
+      (route.output === titleTemplateSchema || route.output === contentTemplateSchema || route.output === imageTemplateSchema || route.output === artworkTemplateSchema) &&
       (value.agentId !== parts[0] || value.templateId !== parts[2] ||
         (parts[3] === "revisions" && value.version !== parts[4]))
     )

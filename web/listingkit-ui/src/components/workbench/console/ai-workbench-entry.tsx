@@ -6,14 +6,15 @@ import {useWorkbenchContext} from "@/components/providers/workbench-context-prov
 import {type AIWorkbenchEntryCapabilities} from "@/lib/workbench/ai-workbench-entry";
 import styles from "./ai-workbench-home.module.css";
 import {ConsoleState} from "./console-page";
+import {canDiscoverNativeRuns} from "../ai-workbench/native-run-records";
 
 export function AIWorkbenchEntry(props: Omit<AIWorkbenchEntryCapabilities, "aiWorkbenchAvailable" | "projectCenterAvailable">) {
   const context = useWorkbenchContext();
   if (context.isLoading || context.isSwitching || context.selectionRequired || !context.effectiveOrganization || context.error || context.blockingError) {
     return <ConsoleState kind="loading" title="正在读取工作台..." />;
   }
-  const tasks = context.aiWorkbenchAvailable || props.productReviewAvailable || props.sheinRecordsAvailable;
-  const taskHref = context.aiWorkbenchAvailable ? "/workbench/ai/tasks" : props.productReviewAvailable ? "/workbench/ai/tasks/pending/other" : "/workbench/ai/tasks/completed/history";
+  const tasks = context.aiWorkbenchAvailable || props.productReviewAvailable || props.sheinRecordsAvailable || props.nativeRunsAvailable && canDiscoverNativeRuns(context.permissions);
+  const taskHref = "/workbench/ai/tasks";
   const entries = [
     { title: "硕米Chat", subtitle: "统一的AI业务入口", description: "管理真实会话、历史和收藏。模型、计价和预算配置就绪后，才可发送AI业务需求。", audience: "适用：选品分析、市场调研、店铺诊断和内容生成。", example: "分析Amazon美国站宠物市场，推荐5个适合现有供应链的商品。", href: "/workbench/ai/chat", available: context.aiWorkbenchAvailable, tone: "teal" },
     { title: "任务中心", subtitle: "复杂业务的执行管理", description: "追踪业务执行进度，在需要人工确认的节点查看并处理当前已开放任务。", audience: "适用：批量优化、竞品分析和资料处理。", example: "将商品优化拆成关键词分析、内容生成和人工确认。", href: taskHref, available: tasks, tone: "blue" },

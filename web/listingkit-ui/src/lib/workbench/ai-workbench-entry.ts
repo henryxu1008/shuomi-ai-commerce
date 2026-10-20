@@ -5,4 +5,5 @@ export type AIWorkbenchEntryCapabilities = {
   reportCenterAvailable?: boolean;
   productReviewAvailable?: boolean;
   sheinRecordsAvailable?: boolean;
+  nativeRunsAvailable?: boolean;
 };

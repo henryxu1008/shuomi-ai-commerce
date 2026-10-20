@@ -7,11 +7,13 @@ import (
 	"encoding/json"
 	"math"
 	"strings"
+	"task-processor/internal/product/description"
 	"time"
 	"unicode/utf8"
 
 	"task-processor/internal/authidentity"
 	"task-processor/internal/listing/preparation"
+	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/collection"
 )
 
@@ -19,8 +21,11 @@ const StatusPending = "pending_completion"
 const MaxPayloadBytes = 64 << 10
 
 type Content struct {
-	Title       string `json:"title"`
-	Description string `json:"description"`
+	Title             string             `json:"title"`
+	Description       string             `json:"description"`
+	DescriptionFormat string             `json:"descriptionFormat,omitempty"`
+	DescriptionImages []string           `json:"descriptionImages,omitempty"`
+	Structured        *StructuredContent `json:"structured,omitempty"`
 }
 type SaveInput struct {
 	SourceID         string  `json:"sourceId"`
@@ -29,6 +34,9 @@ type SaveInput struct {
 }
 
 func (in SaveInput) Validate() error {
+	if in.Content.Structured.validate() != nil || description.Validate(in.Content.Description, in.Content.DescriptionFormat, nil) != nil || !in.Content.validDescriptionImages() {
+		return preparation.ErrInvalid
+	}
 	if !collection.ValidID(in.SourceID) || in.ExpectedRevision < 0 || in.ExpectedRevision == math.MaxInt64 || len(in.Content.Title) > 1024 || len(in.Content.Description) > 32768 || !utf8.ValidString(in.Content.Title) || !utf8.ValidString(in.Content.Description) || strings.ContainsRune(in.Content.Title, 0) || strings.ContainsRune(in.Content.Description, 0) {
 		return preparation.ErrInvalid
 	}
@@ -38,7 +46,14 @@ func (in SaveInput) Validate() error {
 	}
 	return nil
 }
-func InputHash(in SaveInput) string { b, _ := json.Marshal(in); return collection.Digest(string(b)) }
+func InputHash(in SaveInput) string {
+	copy, err := cloneInput(in)
+	if err != nil {
+		return ""
+	}
+	b, _ := json.Marshal(copy)
+	return collection.Digest(string(b))
+}
 
 type Record struct {
 	ID        string                 `json:"id"`
@@ -53,21 +68,32 @@ type Receipt struct {
 	Record   Record `json:"record"`
 	Replayed bool   `json:"replayed"`
 }
+type ItemPage struct {
+	CollectionItemID string `json:"collectionItemId"`
+	collection.Page[Record]
+}
+type CollectionOwner interface {
+	preparation.CollectionOwnerAuthority
+	ReadItem(context.Context, string) (collection.ItemDetail, error)
+}
 type Repository interface {
 	Save(context.Context, Prepared) (Receipt, error)
 	Read(context.Context, collection.Scope, string) (Record, error)
 	ReadCommand(context.Context, collection.Scope, string) (Receipt, error)
 	List(context.Context, collection.Scope, string, collection.Query) (collection.Page[Record], error)
+	ListForCollectionItem(context.Context, collection.Scope, string, collection.Query) (collection.Page[Record], error)
+	ListHistory(context.Context, collection.Scope, string, HistoryQuery) (HistoryPage, error)
+	ReadRevision(context.Context, collection.Scope, string, int64) (Record, error)
 }
 type Service struct {
 	sources      *preparation.SourceSelector
-	owners       preparation.CollectionOwnerAuthority
+	owners       CollectionOwner
 	preparations *preparation.Service
 	auth         preparation.Authorizer
 	repo         Repository
 }
 
-func NewService(sources *preparation.SourceSelector, owners preparation.CollectionOwnerAuthority, preparations *preparation.Service, auth preparation.Authorizer, repo Repository) (*Service, error) {
+func NewService(sources *preparation.SourceSelector, owners CollectionOwner, preparations *preparation.Service, auth preparation.Authorizer, repo Repository) (*Service, error) {
 	if sources == nil || owners == nil || preparations == nil || auth == nil || repo == nil {
 		return nil, preparation.ErrUnavailable
 	}
@@ -99,15 +125,19 @@ func (s *Service) authorize(ctx context.Context, purpose string) (collection.Sco
 	return scope, nil
 }
 func (s *Service) source(ctx context.Context, scope collection.Scope, id string) (preparation.SourceItem, error) {
+	source, _, err := s.sourceContent(ctx, scope, id)
+	return source, err
+}
+func (s *Service) sourceContent(ctx context.Context, scope collection.Scope, id string) (preparation.SourceItem, catalog.ProductSnapshot, error) {
 	selected, err := s.sources.Select(ctx, id)
 	if err != nil {
-		return preparation.SourceItem{}, err
+		return preparation.SourceItem{}, catalog.ProductSnapshot{}, err
 	}
-	current, source, _, err := selected.Read(ctx)
+	current, source, snapshot, err := selected.Read(ctx)
 	if err != nil || current != scope {
-		return preparation.SourceItem{}, preparation.ErrForbidden
+		return preparation.SourceItem{}, catalog.ProductSnapshot{}, preparation.ErrForbidden
 	}
-	return source, nil
+	return source, snapshot.Snapshot, nil
 }
 
 // Prepared is minted only after current owner and exact original source checks.
@@ -129,7 +159,8 @@ func (p Prepared) Read(ctx context.Context) (collection.Scope, string, string, S
 	if err := p.refresh(ctx); err != nil {
 		return collection.Scope{}, "", "", SaveInput{}, preparation.SourceItem{}, err
 	}
-	return p.scope, p.key, p.hash, p.input, p.source, nil
+	input, err := cloneInput(p.input)
+	return p.scope, p.key, p.hash, input, p.source, err
 }
 
 // ValidateCommit does not query Product through a second pool connection. The
@@ -150,9 +181,16 @@ func (s *Service) Save(ctx context.Context, key string, in SaveInput) (Receipt, 
 	if !collection.ValidID(key) || in.Validate() != nil {
 		return Receipt{}, preparation.ErrInvalid
 	}
-	source, err := s.source(ctx, scope, in.SourceID)
+	in, err = cloneInput(in)
 	if err != nil {
 		return Receipt{}, err
+	}
+	source, product, err := s.sourceContent(ctx, scope, in.SourceID)
+	if err != nil {
+		return Receipt{}, err
+	}
+	if !in.Content.matchesSnapshot(product) {
+		return Receipt{}, preparation.ErrInvalid
 	}
 	authority := func(ctx context.Context) error {
 		for _, purpose := range []string{preparation.PermissionManage, preparation.PermissionRead} {
@@ -189,12 +227,15 @@ func (s *Service) validateRead(ctx context.Context, scope collection.Scope, r Re
 	if current != scope {
 		return preparation.ErrForbidden
 	}
-	source, err := s.source(ctx, scope, r.Source.ID)
+	source, product, err := s.sourceContent(ctx, scope, r.Source.ID)
 	if err != nil {
 		return err
 	}
 	if source != r.Source {
 		return preparation.ErrForbidden
+	}
+	if !r.Content.matchesSnapshot(product) {
+		return preparation.ErrUnavailable
 	}
 	return nil
 }
@@ -272,4 +313,51 @@ func (s *Service) List(ctx context.Context, preparationID string, q collection.Q
 		return collection.Page[Record]{}, preparation.ErrForbidden
 	}
 	return page, nil
+}
+
+// ListForCollectionItem reads saved heads across preparations. Current item
+// authority gates discovery; each retained source keeps its original version.
+func (s *Service) ListForCollectionItem(ctx context.Context, itemID string, q collection.Query) (ItemPage, error) {
+	ctx, cancel := context.WithTimeout(ctx, preparation.Timeout)
+	defer cancel()
+	scope, err := s.authorize(ctx, preparation.PermissionRead)
+	if err != nil {
+		return ItemPage{}, err
+	}
+	if !collection.ValidID(itemID) || q.Validate() != nil {
+		return ItemPage{}, preparation.ErrInvalid
+	}
+	readItem := func() error {
+		detail, err := s.owners.ReadItem(ctx, itemID)
+		if err != nil {
+			return err
+		}
+		if detail.Item.ID != itemID || detail.Item.Source.Kind != "own" || detail.Item.ArchivedAt != nil {
+			return preparation.ErrNotFound
+		}
+		return nil
+	}
+	if err = readItem(); err != nil {
+		return ItemPage{}, err
+	}
+	page, err := s.repo.ListForCollectionItem(ctx, scope, itemID, q)
+	if err != nil {
+		return ItemPage{}, err
+	}
+	for _, r := range page.Items {
+		if r.Source.CollectionItemID != itemID || r.Source.Source.Kind != "own" || !collection.ValidID(r.Source.ID) || ctx.Err() != nil {
+			return ItemPage{}, preparation.ErrUnavailable
+		}
+	}
+	if err = readItem(); err != nil {
+		return ItemPage{}, err
+	}
+	current, err := s.authorize(ctx, preparation.PermissionRead)
+	if err != nil {
+		return ItemPage{}, err
+	}
+	if current != scope {
+		return ItemPage{}, preparation.ErrForbidden
+	}
+	return ItemPage{CollectionItemID: itemID, Page: page}, nil
 }

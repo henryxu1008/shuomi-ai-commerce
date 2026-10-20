@@ -30,14 +30,13 @@ func maintainedOperationalCommands() map[string]struct{} {
 		"knowledge-schema-init":               {},
 		"notification-center-schema-init":     {},
 		"issue36-local-trial-init":            {},
-		"listing-scheduler":                   {},
-		"listingkit-identity-preflight":       {},
 		"listingkit-schema-migrate":           {},
 		"playwright-installer":                {},
 		"product-listing-api-schema-migrate":  {},
 		"product-agent-credential-provision":  {},
+		"product-agent-runtime-prepare":       {},
+		"local-ai-trial-grant":                {},
 		"product-acquisition-init":            {},
-		"shein-import-platform-recovery":      {},
 		"shein-login-worker":                  {},
 		"store-center-schema-init":            {},
 		"source-account-registry-schema-init": {},
@@ -51,9 +50,6 @@ func TestCmdContainsOnlyOfficialEntrypoints(t *testing.T) {
 		"1688-public-browser-collector": {},
 		"current-application":           {},
 		"image-agent-temporal-worker":   {},
-		"listing-control-plane":         {},
-		"shein-listing":                 {},
-		"temu-listing":                  {},
 	}
 	operationalCommands := maintainedOperationalCommands()
 	document, err := os.ReadFile(filepath.Join("..", "docs", "development", "repository-structure.md"))
@@ -216,31 +212,9 @@ func TestSDSLoginRuntimeStateStaysOutOfInternalPackages(t *testing.T) {
 	}
 }
 
-func TestPlatformRegistrationPackagesStayThin(t *testing.T) {
-	allowedFiles := map[string]struct{}{
-		"internal/platforms/modules.go":           {},
-		"internal/platforms/amazon/module.go":     {},
-		"internal/platforms/shein/doc.go":         {},
-		"internal/platforms/shein/module.go":      {},
-		"internal/platforms/shein/module_test.go": {},
-		"internal/platforms/temu/module.go":       {},
-	}
-
-	for _, line := range trackedFiles(t, "internal/platforms") {
-		path := filepath.ToSlash(line)
-		if _, ok := allowedFiles[path]; !ok {
-			t.Errorf("%s is a new platform registration file; keep internal/platforms limited to module descriptors and put platform business rules in marketplace or publishing packages", path)
-		}
-	}
-}
-
-func TestPlatformRegistrationPackagesContainNoLocalArtifacts(t *testing.T) {
-	assertNoLocalArtifactPaths(t, filepath.Join("..", "internal", "platforms"))
-}
-
 func TestHistoricalTemuFormattingFacadeStaysRetired(t *testing.T) {
 	if files := trackedFiles(t, "internal/temu/format"); len(files) > 0 {
-		t.Fatalf("internal/temu/format is a retired compatibility facade; keep TEMU numeric formatting in internal/marketplace/temu/publishing: %v", files)
+		t.Fatalf("internal/temu/format is a retired compatibility facade; use the current explicit-value TEMU goods/rules owners: %v", files)
 	}
 }
 

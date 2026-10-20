@@ -17,39 +17,41 @@ import (
 )
 
 type workbenchTaskView struct {
-	ExecutionMode           agent.ExecutionMode      `json:"executionMode,omitempty"`
-	ModeRevision            string                   `json:"modeRevision,omitempty"`
-	ModeSnapshotRef         *agent.ModeSnapshotRef   `json:"modeSnapshotRef,omitempty"`
-	PolicyAdoption          *review.PolicyProvenance `json:"policyAdoption,omitempty"`
-	ID                      string                   `json:"id"`
-	ConversationID          string                   `json:"conversationId"`
-	ProposalID              string                   `json:"proposalId"`
-	Title                   string                   `json:"title"`
-	GoalSummary             string                   `json:"goalSummary"`
-	CreatedAt               time.Time                `json:"createdAt"`
-	ProjectionAvailable     bool                     `json:"projectionAvailable"`
-	State                   aiworkbench.TaskState    `json:"state,omitempty"`
-	Reason                  string                   `json:"reason,omitempty"`
-	CanStart                bool                     `json:"canStart"`
-	CanReconcile            bool                     `json:"canReconcile"`
-	CanResume               bool                     `json:"canResume"`
-	CanReview               bool                     `json:"canReview"`
-	ProductDetailsAvailable bool                     `json:"productDetailsAvailable"`
-	OperationID             string                   `json:"operationId,omitempty"`
-	ProductKey              string                   `json:"productKey,omitempty"`
-	TargetPlatform          string                   `json:"targetPlatform,omitempty"`
-	AgentRunID              string                   `json:"agentRunId,omitempty"`
-	AgentPhase              agent.Phase              `json:"agentPhase,omitempty"`
-	AgentRevision           string                   `json:"agentRevision,omitempty"`
-	ProviderID              string                   `json:"providerId,omitempty"`
-	ModelID                 string                   `json:"modelId,omitempty"`
-	Tokens                  int64                    `json:"tokens,omitempty"`
-	EstimatedCostMicros     int64                    `json:"estimatedCostMicros,omitempty"`
-	Currency                string                   `json:"currency,omitempty"`
-	UsageStatus             string                   `json:"usageStatus,omitempty"`
-	ReviewID                string                   `json:"reviewId,omitempty"`
-	ReviewState             string                   `json:"reviewState,omitempty"`
-	Knowledge               *productKnowledgeDTO     `json:"knowledge,omitempty"`
+	Kind                    string                     `json:"kind"`
+	TaskSelection           *aiworkbench.TaskSelection `json:"taskSelection,omitempty"`
+	ExecutionMode           agent.ExecutionMode        `json:"executionMode,omitempty"`
+	ModeRevision            string                     `json:"modeRevision,omitempty"`
+	ModeSnapshotRef         *agent.ModeSnapshotRef     `json:"modeSnapshotRef,omitempty"`
+	PolicyAdoption          *review.PolicyProvenance   `json:"policyAdoption,omitempty"`
+	ID                      string                     `json:"id"`
+	ConversationID          string                     `json:"conversationId"`
+	ProposalID              string                     `json:"proposalId"`
+	Title                   string                     `json:"title"`
+	GoalSummary             string                     `json:"goalSummary"`
+	CreatedAt               time.Time                  `json:"createdAt"`
+	ProjectionAvailable     bool                       `json:"projectionAvailable"`
+	State                   aiworkbench.TaskState      `json:"state,omitempty"`
+	Reason                  string                     `json:"reason,omitempty"`
+	CanStart                bool                       `json:"canStart"`
+	CanReconcile            bool                       `json:"canReconcile"`
+	CanResume               bool                       `json:"canResume"`
+	CanReview               bool                       `json:"canReview"`
+	ProductDetailsAvailable bool                       `json:"productDetailsAvailable"`
+	OperationID             string                     `json:"operationId,omitempty"`
+	ProductKey              string                     `json:"productKey,omitempty"`
+	TargetPlatform          string                     `json:"targetPlatform,omitempty"`
+	AgentRunID              string                     `json:"agentRunId,omitempty"`
+	AgentPhase              agent.Phase                `json:"agentPhase,omitempty"`
+	AgentRevision           string                     `json:"agentRevision,omitempty"`
+	ProviderID              string                     `json:"providerId,omitempty"`
+	ModelID                 string                     `json:"modelId,omitempty"`
+	Tokens                  int64                      `json:"tokens,omitempty"`
+	EstimatedCostMicros     int64                      `json:"estimatedCostMicros,omitempty"`
+	Currency                string                     `json:"currency,omitempty"`
+	UsageStatus             string                     `json:"usageStatus,omitempty"`
+	ReviewID                string                     `json:"reviewId,omitempty"`
+	ReviewState             string                     `json:"reviewState,omitempty"`
+	Knowledge               *productKnowledgeDTO       `json:"knowledge,omitempty"`
 }
 
 // A Task may execute only with the title route frozen at T1. Route resolution
@@ -67,22 +69,25 @@ func (a *productAgentApplication) frozenTitleProfileReady(ctx context.Context, s
 }
 
 func (a *aiWorkbenchApplication) taskView(ctx context.Context, scope aiworkbench.Scope, task aiworkbench.BusinessTask, includeKnowledge bool) (workbenchTaskView, error) {
-	view := workbenchTaskView{ID: task.ID, ConversationID: task.ConversationID, ProposalID: task.ProposalID,
+	view := workbenchTaskView{Kind: task.Kind, ID: task.ID, ConversationID: task.ConversationID, ProposalID: task.ProposalID,
 		Title: task.Title, GoalSummary: task.GoalSummary, CreatedAt: task.CreatedAt}
 	identity, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
 	if !ok || identity.TenantID != scope.OrganizationID || identity.UserID != scope.ActorID || task.Scope != scope {
 		return workbenchTaskView{}, aiworkbench.ErrNotFound
 	}
-	if a.agent == nil {
+	if a.agent == nil || !a.agent.workbenchKind(task.Kind) {
 		return view, nil
 	}
 	var request agent.Request
 	if json.Unmarshal(task.ExecutionRequest, &request) != nil || request.Key != task.ExecutionRequestKey {
 		return workbenchTaskView{}, aiworkbench.ErrUnavailable
 	}
-	binding, productErr := a.agent.bindingForIdentity(ctx, identity, task.OperationID, task.TargetPlatform)
-	if productErr == nil && binding == request.Binding {
+	productErr := a.agent.workbenchAuthorizeBinding(ctx, identity, request.Binding)
+	if productErr == nil {
 		view.ProductDetailsAvailable = true
+		if task.Kind == aiworkbench.ContentTaskKind {
+			view.TaskSelection = &aiworkbench.TaskSelection{Subject: aiworkbench.Subject{Kind: request.Binding.ContextKind, ID: request.Binding.ContextID, CatalogVersion: request.Binding.CatalogVersion, PublicationID: request.Binding.PublicationID}, Capability: task.Kind, Parameters: request.ContentSelection}
+		}
 		view.OperationID, view.ProductKey, view.TargetPlatform = task.OperationID, task.ProductKey, task.TargetPlatform
 	}
 	projection, err := a.taskProjectionReader().Read(ctx, scope, task)
@@ -115,6 +120,9 @@ func (a *aiWorkbenchApplication) taskView(ctx context.Context, scope aiworkbench
 			titleReady = a.agent.frozenTitleProfileReady(ctx, agent.Scope{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID}, request)
 			if !titleReady {
 				view.Reason = "TITLE_PROFILE_UNAVAILABLE"
+				if task.Kind == aiworkbench.ContentTaskKind {
+					view.Reason = "EXECUTION_PROFILE_UNAVAILABLE"
+				}
 			}
 		}
 		view.CanStart = projection.CanStart && view.ProductDetailsAvailable && titleReady
@@ -318,6 +326,9 @@ func (a *aiWorkbenchApplication) taskAction(c *gin.Context, ctx context.Context,
 // after that point cannot authorize automatic same-key redispatch.
 func (a *aiWorkbenchApplication) performTaskAction(ctx context.Context, scope aiworkbench.Scope,
 	task aiworkbench.BusinessTask, input aiworkbench.TaskActionInput) (crossedOwner bool, err error) {
+	if a.agent == nil || !a.agent.workbenchKind(task.Kind) {
+		return false, aiworkbench.ErrUnavailable
+	}
 	if input.Action == aiworkbench.TaskActionStart {
 		return (workbenchExecution{agent: a.agent}).startTask(ctx, task)
 	}
@@ -325,7 +336,11 @@ func (a *aiWorkbenchApplication) performTaskAction(ctx context.Context, scope ai
 	if json.Unmarshal(task.ExecutionRequest, &request) != nil || request.Key != task.ExecutionRequestKey {
 		return false, aiworkbench.ErrUnavailable
 	}
-	binding, err := a.agent.binding(ctx, task.OperationID, task.TargetPlatform)
+	identity, identityErr := a.agent.freshIdentity(ctx)
+	if identityErr != nil {
+		return false, identityErr
+	}
+	binding, err := a.agent.workbenchCurrentBinding(ctx, identity, request.Binding)
 	if err != nil || binding != request.Binding {
 		return false, aiworkbench.ErrRevisionMismatch
 	}
@@ -358,6 +373,7 @@ func (a *aiWorkbenchApplication) performTaskAction(ctx context.Context, scope ai
 	}
 	reviewInput := agentReviewInput(binding, run.State.Request.PolicyVersion, run.State.Candidate)
 	reviewInput.Execution = agentExecutionProvenance(run.State)
+	reviewInput.ContentSelection = run.State.Request.ContentSelection
 	reviewInput.ContextProvenance, err = agentContextProvenance(run.State)
 	if err != nil {
 		return false, err

@@ -28,6 +28,7 @@ import (
 	"task-processor/internal/product/asset"
 	"task-processor/internal/product/collection"
 	"task-processor/internal/product/review"
+	skillcap "task-processor/internal/skill"
 )
 
 const acquisitionImageSetBase = productAcquisitionBase + "/:operation_id/images"
@@ -49,6 +50,12 @@ func (m fullImageModule) Register(reg *kernelmodule.Registry) error {
 }
 
 type fullImagePrepareBody struct {
+	Text  *imageagent.ImageTextSelection `json:"text,omitempty"`
+	Skill *struct {
+		ID      string `json:"skillId"`
+		Version uint64 `json:"version"`
+		Digest  string `json:"digest"`
+	} `json:"skill,omitempty"`
 	ExpectedModeRevision    string                                       `json:"expectedModeRevision"`
 	Template                *agentconfig.TemplateRef                     `json:"template,omitempty"`
 	Target                  imageagent.ImageTargetSelection              `json:"target"`
@@ -124,7 +131,7 @@ func (m fullImageModule) routes() []httproute.Descriptor {
 			routes = append(routes, httproute.Descriptor{Method: action.method, Path: owner.base + action.suffix, Module: m.Name(), Permission: permission, AuthPolicy: httproute.AuthPolicyVerifiedIdentity, OrganizationAccessPolicy: httproute.OrganizationAccessPolicyLiveWrite, RequestTimeout: 30 * time.Second, Handler: func(c *gin.Context) { m.handle(c, owner.kind, c.Param(owner.param), action.name) }})
 		}
 	}
-	return routes
+	return append(routes, m.artworkRoutes()...)
 }
 
 func validateFullImageRun(identity authidentity.AuthenticatedIdentity, kind imageagent.ImageSourceContextKind, contextID, runID string, p imageagent.RunProjection) error {
@@ -234,7 +241,7 @@ func (m fullImageModule) handle(c *gin.Context, kind imageagent.ImageSourceConte
 			writeFullImageError(c, e, false)
 			return
 		}
-		visible := make([]imageagent.ImageSetRunSummary, 0, len(items))
+		visible := make([]fullImageRecentRun, 0, len(items))
 		for _, item := range items {
 			if item.ContextKind == kind {
 				visible = append(visible, item)
@@ -299,7 +306,7 @@ func (m fullImageModule) handle(c *gin.Context, kind imageagent.ImageSourceConte
 			writeFullImageError(c, e, false)
 			return
 		}
-		input := imageagent.PrepareImageSetInput{ContextKind: kind, RequestID: keys[0], ContextID: contextID, Template: body.Template, Target: body.Target, SharedOriginalIDs: body.SharedOriginalIDs, CarouselOriginalIDs: body.CarouselOriginalIDs, DetailOriginalIDs: body.DetailOriginalIDs, SelectedTaskIDs: body.SelectedTaskIDs, OfficialPlacements: body.OfficialPlacements, EffectiveCatalogVersion: version, ApplyReceiptID: body.ApplyReceiptID}
+		input := imageagent.PrepareImageSetInput{Text: body.Text, ContextKind: kind, RequestID: keys[0], ContextID: contextID, Template: body.Template, Target: body.Target, SharedOriginalIDs: body.SharedOriginalIDs, CarouselOriginalIDs: body.CarouselOriginalIDs, DetailOriginalIDs: body.DetailOriginalIDs, SelectedTaskIDs: body.SelectedTaskIDs, OfficialPlacements: body.OfficialPlacements, EffectiveCatalogVersion: version, ApplyReceiptID: body.ApplyReceiptID}
 		if action == "regenerate" {
 			p, e := a.service.Get(ctx, c.Param("run_id"))
 			if e == nil {
@@ -312,6 +319,39 @@ func (m fullImageModule) handle(c *gin.Context, kind imageagent.ImageSourceConte
 			input.RegenerateFromRunID = p.Run.ID
 		}
 		input.ExpectedModeRevision = body.ExpectedModeRevision
+		if body.Skill != nil {
+			// A frozen preparation is a readback, not a new Skill selection.
+			// Its stored publisher/policy determines the original input hash;
+			// PrepareImageSet still checks every submitted input and live source.
+			prior, readErr := a.service.GetPreparedImageSet(ctx, kind, contextID, keys[0])
+			if readErr == nil {
+				if prior.Plan.Set == nil || prior.Plan.Set.Method == nil {
+					writeFullImageError(c, imageagent.ErrRevisionConflict, false)
+					return
+				}
+				ref := prior.Plan.Set.Method.Skill
+				if ref.ID != body.Skill.ID || ref.Version != body.Skill.Version || ref.Digest != body.Skill.Digest {
+					writeFullImageError(c, imageagent.ErrRevisionConflict, false)
+					return
+				}
+				input.Method = &ref
+			} else if errors.Is(readErr, imageagent.ErrRunNotFound) {
+				if a.skills == nil {
+					writeFullImageError(c, imageagent.ErrCommandBlocked, false)
+					return
+				}
+				// Derive the publisher from storage, never browser owner fields.
+				ref, selectionErr := a.skills.ResolveSelectionForTarget(ctx, skillcap.Principal{UserID: identity.UserID, OrganizationID: identity.TenantID, MemberID: identity.EffectiveMemberID, UseOrganization: true}, body.Skill.ID, body.Skill.Version, body.Skill.Digest, skillcap.ImageTarget)
+				if selectionErr != nil {
+					writeFullImageError(c, selectionErr, false)
+					return
+				}
+				input.Method = &ref
+			} else {
+				writeFullImageError(c, readErr, false)
+				return
+			}
+		}
 		prepared, e := a.service.PrepareImageSet(ctx, input)
 		if e != nil {
 			writeFullImageError(c, e, true)
@@ -494,7 +534,7 @@ func (m fullImageModule) handle(c *gin.Context, kind imageagent.ImageSourceConte
 	c.JSON(http.StatusAccepted, gin.H{"runId": runID, "status": "accepted"})
 }
 
-func (a *fullImageApplication) readRecent(ctx context.Context, contextID, cursor string, size int) ([]imageagent.ImageSetRunSummary, string, error) {
+func (a *fullImageApplication) readRecent(ctx context.Context, contextID, cursor string, size int) ([]fullImageRecentRun, string, error) {
 	id, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
 	if !ok || a == nil || a.recent == nil {
 		return nil, "", imageagent.ErrIdentityRequired
@@ -511,6 +551,7 @@ func (a *fullImageApplication) readRecent(ctx context.Context, contextID, cursor
 		return nil, "", imageagent.ErrValidation
 	}
 	inputs := make([]imageagent.PrepareImageSetInput, len(items))
+	projections := make([]imageagent.RunProjection, len(items))
 	for index, item := range items {
 		p, e := a.service.Get(ctx, item.RunID)
 		if e != nil {
@@ -522,6 +563,7 @@ func (a *fullImageApplication) readRecent(ctx context.Context, contextID, cursor
 		source := p.Plan.Set.Source
 		inputs[index] = imageagent.PrepareImageSetInput{ContextKind: item.ContextKind, ContextID: item.ContextID, EffectiveCatalogVersion: source.EffectiveVersion, ApplyReceiptID: source.ApplyReceiptID, Target: imageagent.ImageTargetSelection{Platform: p.Plan.Set.Target.Platform}}
 		items[index].Status = p.Run.Status
+		projections[index] = p
 	}
 	// Each bounded page item still gets its own live source/permission check.
 	// Validate every stored scope first, and preserve pagination order below.
@@ -549,10 +591,14 @@ func (a *fullImageApplication) readRecent(ctx context.Context, contextID, cursor
 	if err := ctx.Err(); err != nil {
 		return nil, "", err
 	}
-	result := make([]imageagent.ImageSetRunSummary, 0, len(items))
+	result := make([]fullImageRecentRun, 0, len(items))
 	for index, item := range items {
 		if visible[index] {
-			result = append(result, item)
+			release, err := a.releaseSummary(ctx, projections[index])
+			if err != nil {
+				return nil, "", err
+			}
+			result = append(result, fullImageRecentRun{ImageSetRunSummary: item, ReleaseSummary: release})
 		}
 	}
 	return result, next, nil
@@ -652,6 +698,13 @@ func (a *fullImageApplication) response(ctx context.Context, p imageagent.RunPro
 	if p.Run.ImageAdmission != nil {
 		response["confirmationActionId"] = p.Run.ImageAdmission.Command.ConfirmActionID
 	}
+	release, err := a.releaseSummary(ctx, p)
+	if err != nil {
+		return nil, err
+	}
+	if release != nil {
+		response["releaseSummary"] = release
+	}
 	return response, nil
 }
 
@@ -680,8 +733,18 @@ func readFullImageJSON(request *http.Request, target any) error {
 
 func writeFullImageError(c *gin.Context, err error, mutation bool) {
 	switch {
+	case errors.Is(err, skillcap.ErrForbidden):
+		c.JSON(http.StatusForbidden, gin.H{"code": "FORBIDDEN"})
+	case errors.Is(err, skillcap.ErrInvalid), errors.Is(err, skillcap.ErrUnsupported):
+		c.JSON(http.StatusBadRequest, gin.H{"code": "INVALID_IMAGE_REQUEST"})
+	case errors.Is(err, skillcap.ErrNotEnabled), errors.Is(err, skillcap.ErrNotFound), errors.Is(err, skillcap.ErrConflict):
+		c.JSON(http.StatusConflict, gin.H{"code": "IMAGE_METHOD_UNAVAILABLE"})
+	case errors.Is(err, skillcap.ErrUnavailable):
+		c.JSON(http.StatusServiceUnavailable, gin.H{"code": "IMAGE_UNAVAILABLE"})
 	case errors.Is(err, review.ErrForbidden), errors.Is(err, collection.ErrForbidden), errors.Is(err, record.ErrForbidden), errors.Is(err, asset.ErrSourceApprovalForbidden):
 		c.JSON(http.StatusForbidden, gin.H{"code": "FORBIDDEN"})
+	case errors.Is(err, review.ErrNotFound), errors.Is(err, review.ErrConflict), errors.Is(err, agent.ErrManualReviewRequired):
+		c.JSON(http.StatusConflict, gin.H{"code": "IMAGE_TEXT_REVIEW_CHANGED"})
 	case errors.Is(err, collection.ErrInvalid), errors.Is(err, record.ErrInvalid), errors.Is(err, record.ErrTooLarge):
 		c.JSON(http.StatusBadRequest, gin.H{"code": "INVALID_IMAGE_REQUEST"})
 	case errors.Is(err, collection.ErrNotFound), errors.Is(err, record.ErrNotFound):

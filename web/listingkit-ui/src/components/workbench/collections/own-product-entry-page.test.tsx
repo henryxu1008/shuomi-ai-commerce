@@ -69,12 +69,12 @@ it("merges delayed upload callbacks into current images and locks image editing 
  await userEvent.click(screen.getByRole("button",{name:"移除图片 1"}));
  act(()=>state.block!(true));expect(screen.getByLabelText("图片链接")).toBeDisabled();expect(screen.getByRole("button",{name:"移除图片 1"})).toBeDisabled();
  act(()=>delayed("https://images.example.org/c.png"));
- expect(screen.getAllByRole("img")).toHaveLength(2);expect(screen.getAllByRole("img")[0]).toHaveAttribute("src",expect.stringContaining("b.png"));
+ expect(screen.getAllByAltText(/商品图片 \d/)).toHaveLength(2);expect(screen.getByAltText("商品图片 1")).toHaveAttribute("src",expect.stringContaining("b.png"));
  act(()=>state.block!(false));expect(screen.getByLabelText("图片链接")).toBeEnabled();
 });
 it("blocks new uploads at 40 public images without replacing the existing recovery component",()=>{
  render(<OwnProductEntryPage/>);for(let i=0;i<40;i++)act(()=>state.upload!(`https://images.example.org/${i}.png`));
- expect(state.allowUpload).toBe(false);expect(screen.getAllByRole("img")).toHaveLength(40);
+ expect(state.allowUpload).toBe(false);expect(screen.getAllByAltText(/商品图片 \d/)).toHaveLength(40);
 });
 it("blocks save for a pending supply command but still allows scoped read-only recovery after write permission revocation",async()=>{
  const pending={userId:"actor-a",organizationId:"org-a",key:itemId,command:{action:"create_product" as const,product:{title:"已发请求",description:"",images:[]}}};
@@ -145,4 +145,13 @@ it("submits common attributes through the original product request and blocks du
  await userEvent.click(screen.getByRole("button",{name:"保存商品"}));expect(await screen.findByRole("alert")).toHaveTextContent("属性名称不能重复");expect(state.mutate).not.toHaveBeenCalled();
  await userEvent.click(screen.getByRole("button",{name:"删除商品属性 2"}));await userEvent.click(screen.getByRole("button",{name:"保存商品"}));
  await waitFor(()=>expect(state.mutate).toHaveBeenCalledOnce());expect(state.mutate.mock.calls[0][0].command.product.attributes).toEqual({材质:"棉"});
+});
+
+it("preserves a saved rich description byte-for-byte while editing only its title",async()=>{
+ const detail={...savedDetail,product:{...savedDetail.product,description:'<h2>材质</h2><p><strong>棉</strong><img src="https://images.example.org/public.png"></p>',description_format:"html-v1" as const}};
+ state.item.mockResolvedValue(detail);state.mutate.mockResolvedValue({operationId:itemId,itemId,revision:4,replayed:false});
+ render(<OwnProductEditPage itemId={itemId}/>);expect(await screen.findByRole("textbox",{name:"商品描述"})).toHaveTextContent("材质棉");
+ await userEvent.clear(screen.getByLabelText("商品名称"));await userEvent.type(screen.getByLabelText("商品名称"),"只改名称");await userEvent.click(screen.getByRole("button",{name:"保存新版本"}));
+ await waitFor(()=>expect(state.mutate).toHaveBeenCalledOnce());
+ expect(state.mutate.mock.calls[0][0].command.product).toMatchObject({description:detail.product.description,descriptionFormat:"html-v1"});
 });

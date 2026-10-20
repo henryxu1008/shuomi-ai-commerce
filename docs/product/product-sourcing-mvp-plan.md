@@ -31,7 +31,7 @@ enable an unvalidated capability.
 | Source adapters | Amazon/1688 mappings are adapter-owned under `internal/integration/crawler/*`; SDS remains specialized | Does not open Amazon target listing or new source expansion |
 | Canonical facts | `sourcing.Publisher` → `catalog.Publisher` and durable Catalog composition exist | New-system replay/conflict, immutable history and authorized publication |
 | Old 1688 route | Historical compatibility task handoff is legacy evidence | RETIRE it; it is not a current acceptance gate or a source for new dependencies |
-| New import HTTP | `internal/app/productsourcing/httpapi` is merged, prepared and unregistered | Current-owner application access/orchestration and approved wiring; no production acceptance claimed |
+| Current import entrypoints | #301 retires the unregistered numeric-account `internal/app/productsourcing/httpapi` contract; current acquisition, Browser Capture and local-agent owners remain | Use their admitted authorization/orchestration contracts; retirement does not establish deployment or provider acceptance |
 | Source-account ownership | #303 preflight is historical evidence | New source access must use current authorization; legacy profile reuse is not a prerequisite |
 | Asset/readiness | Product Asset and ImageAgent approval contracts exist | Source images remain candidates; demonstrate explicit approval and readiness |
 | Overall #30 closeout | Not complete | Fresh-install new import, current authorization and explicit approvals are the remaining acceptance evidence |
@@ -67,7 +67,7 @@ outcomes and skipped dependencies in its PR. Representative isolated checks:
 
 ```powershell
 go test ./internal/product/sourcing/... ./internal/product/catalog/... ./internal/product/asset/... -count=1
-go test ./internal/integration/crawler/a1688/... ./internal/app/productsourcing/httpapi/... -count=1
+go test ./internal/integration/crawler/a1688/... ./internal/app/productsourcing/... -count=1
 go test ./tests/... -count=1
 ```
 

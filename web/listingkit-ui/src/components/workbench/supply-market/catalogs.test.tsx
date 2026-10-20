@@ -3,6 +3,9 @@ import userEvent from "@testing-library/user-event";
 import {afterEach, beforeEach, expect, it, vi} from "vitest";
 import {useMarketCommands} from "./shared";
 import {SupplyCatalogsPage} from "./catalogs";
+it.each([undefined,"apply"] as const)("provides a normal connection history entry on %s",view=>{
+ page(view);expect(screen.getByRole("link",{name:"查看对接进度与记录"})).toHaveAttribute("href","/workbench/supply/catalogs/apply?view=progress");
+});
 
 const context=vi.hoisted(()=>({user:{id:"member-a"},effectiveOrganization:{id:"org-a"},isLoading:false,isSwitching:false,error:null,blockingError:null}));
 const commands=vi.hoisted(()=>({execute:vi.fn(),saved:null as {recordId:string}|null,notice:null,locked:false}));

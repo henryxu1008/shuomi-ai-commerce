@@ -87,6 +87,10 @@ func (e *execution) model(ctx context.Context, s *flowState) {
 		s.stop(agent.StopInvalidOutput)
 		return
 	}
+	if result.Action.DomainProposal != nil && result.Action.Kind != "propose" {
+		s.stop(agent.StopInvalidOutput)
+		return
+	}
 	next := *s
 	next.Action = clone(result.Action)
 	next.State.Unresolved = append([]string(nil), result.Action.Unresolved...)
@@ -95,12 +99,13 @@ func (e *execution) model(ctx context.Context, s *flowState) {
 		next.Next = "tool"
 	case "propose":
 		next.State.ContextCitationRefs = clone(result.ContextCitationRefs)
-		confidence, ok := fieldConfidence(result.Action)
+		confidence, ok := e.proposalConfidence(result.Action)
 		if !ok {
 			s.stop(agent.StopInvalidOutput)
 			return
 		}
 		next.State.Candidate = clone(result.Action.Candidate)
+		next.State.DomainProposal = clone(result.Action.DomainProposal)
 		next.State.Confidence = confidence
 		next.State.Validation = nil
 		next.Next = "validate"
@@ -168,12 +173,23 @@ func (e *execution) validate(ctx context.Context, s *flowState) {
 		s.stop(stop)
 		return
 	}
-	hash, err := digest(s.State.Candidate)
+	var hash string
+	var result agent.Validation
+	var err error
+	if e.runtime.config.DomainProposalKind == "" {
+		hash, err = digest(s.State.Candidate)
+	} else {
+		hash, err = digest(s.State.DomainProposal)
+	}
 	if err != nil {
 		s.stop(agent.StopInvalidOutput)
 		return
 	}
-	result, err := e.runtime.config.Validator.Validate(ctx, s.State.Request, clone(s.State.Candidate), clone(s.State.History))
+	if e.runtime.config.DomainProposalKind == "" {
+		result, err = e.runtime.config.Validator.Validate(ctx, s.State.Request, clone(s.State.Candidate), clone(s.State.History))
+	} else {
+		result, err = e.runtime.config.DomainValidator.ValidateDomain(ctx, s.State.Request, clone(*s.State.DomainProposal), clone(s.State.History))
+	}
 	if err != nil {
 		s.stop(agent.StopDependency)
 		return
@@ -243,4 +259,20 @@ func fieldConfidence(action agent.Action) ([]agent.FieldConfidence, bool) {
 		delete(provided, change.Field)
 	}
 	return result, len(provided) == 0
+}
+
+func (e *execution) proposalConfidence(action agent.Action) ([]agent.FieldConfidence, bool) {
+	if e.runtime.config.DomainProposalKind == "" {
+		if action.DomainProposal != nil {
+			return nil, false
+		}
+		return fieldConfidence(action)
+	}
+	proposal := action.DomainProposal
+	if proposal == nil || proposal.Kind != e.runtime.config.DomainProposalKind ||
+		len(action.Candidate.Changes) != 0 || len(action.Candidate.Warnings) != 0 || len(action.Candidate.Rejections) != 0 ||
+		len(action.Confidence) != 0 || !json.Valid(proposal.Payload) {
+		return nil, false
+	}
+	return nil, true
 }

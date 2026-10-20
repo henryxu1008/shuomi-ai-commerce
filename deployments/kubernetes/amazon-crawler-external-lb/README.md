@@ -1,6 +1,6 @@
 # Amazon Crawler External LB 部署说明
 
-这套清单用于在 K8s 集群内暴露一组集群外部的 Amazon crawler API 节点，供 `amazon-listing` 通过集群内稳定地址访问。
+这套清单用于在 K8s 集群内暴露一组集群外部的 Amazon crawler API 节点，供获准的 crawler 消费者通过集群内稳定地址访问。
 
 对应 Service 名称：
 
@@ -16,7 +16,7 @@
 
 `http://amazon-crawler-external-lb.task-processor.svc.cluster.local:8080`
 
-`amazon-listing` 现在也已经默认指向这个地址。
+旧 `amazon-listing` 消费者及其专属部署源码已随 #822 退休；本清单的 Service/EndpointSlice 和当前来源采集能力保持，本文不授权部署或运行操作。
 
 ## 部署前要改的只有一件事
 
@@ -60,19 +60,6 @@ kubectl -n task-processor run curl-test --rm -it --image=curlimages/curl -- \
 
 如果 crawler API 没有 `/health`，就改成你当前可用的探测接口。
 
-## 和 amazon-listing 的关系
+## 已退休的旧 Amazon 刊登消费者
 
-`amazon-listing` 现在默认配置的是：
-
-- [configmap.yaml](D:/code/task-processor/deployments/kubernetes/amazon-listing/base/configmap.yaml)
-- [secret.example.yaml](D:/code/task-processor/deployments/kubernetes/amazon-listing/base/secret.example.yaml)
-
-对应地址已经改成：
-
-`http://amazon-crawler-external-lb.task-processor.svc.cluster.local:8080`
-
-所以推荐顺序就是：
-
-1. 先部署 `amazon-crawler-external-lb`
-2. 验证集群内能通外部 crawler
-3. 再部署 `amazon-listing`
+#822 已删除旧 `amazon-listing` 配置/Secret 模板与部署入口，不再作为本 LB 的当前消费者或部署顺序。历史关联不能成为复活旧消费者的依据；本轮没有访问、修改或删除任何实际 Service、EndpointSlice、Secret、namespace 或外部 crawler。

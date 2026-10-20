@@ -126,7 +126,7 @@ func (a *Activities) PersistSlotResultV3(ctx context.Context, input PersistSlotR
 		for _, candidate := range normalized.Candidates {
 			candidateIDs = append(candidateIDs, candidate.AssetID)
 			candidates = append(candidates, imageagent.AssetCandidate{
-				AssetID: candidate.AssetID, SourceAssetID: candidate.SourceAssetID, DurableAsset: candidate.DurableAsset,
+				AssetID: candidate.AssetID, SourceAssetID: candidate.SourceAssetID, DurableAsset: candidate.DurableAsset, Artwork: candidate.Artwork,
 				Width: candidate.Width, Height: candidate.Height, Operations: append([]string(nil), candidate.Operations...),
 			})
 		}
@@ -138,7 +138,7 @@ func (a *Activities) PersistSlotResultV3(ctx context.Context, input PersistSlotR
 	attempt := imageagent.StepAttempt{TenantID: input.Identity.TenantID, OwnerUserID: input.Identity.UserID, RunID: input.RunID, PlanRevision: input.PlanRevision, SlotID: result.Published.SlotID, Node: "execute_slot_v3", IdempotencyKey: input.AttemptKey, Attempt: result.Published.Attempt, Outcome: outcome, ErrorCategory: result.ErrorCode}
 	nextSlot := imageagent.SlotProjection{Slot: current.Slots[slotIndex].Slot, Attempt: result.Published.Attempt, Candidates: candidates, ErrorCode: result.ErrorCode}
 	nextSlot.Slot.Status = result.Status
-	if current.Plan.Set != nil {
+	if current.Plan.Set != nil || current.Plan.Artwork != nil {
 		nextSlot, err = a.deriveImageSetSlotProjection(ctx, current, input, nextSlot)
 		if err != nil {
 			return err
@@ -146,7 +146,7 @@ func (a *Activities) PersistSlotResultV3(ctx context.Context, input PersistSlotR
 		attempt.Attempt = nextSlot.Attempt
 		attempt.ErrorCategory = nextSlot.ErrorCode
 	}
-	if reflect.DeepEqual(current.Slots[slotIndex], nextSlot) || current.Plan.Set == nil && slotProjectionAlreadyPersisted(current.Slots, result.Published.SlotID, result.Published.Attempt, result.Status, candidates, result.ErrorCode) {
+	if reflect.DeepEqual(current.Slots[slotIndex], nextSlot) || current.Plan.Set == nil && current.Plan.Artwork == nil && slotProjectionAlreadyPersisted(current.Slots, result.Published.SlotID, result.Published.Attempt, result.Status, candidates, result.ErrorCode) {
 		return nil
 	}
 	storedResult := imageagent.SlotResult{Closure: nextSlot.Closure, SlotID: result.Published.SlotID, Attempt: nextSlot.Attempt, Status: result.Status, CandidateAssetIDs: candidateIDs, ErrorCode: nextSlot.ErrorCode}

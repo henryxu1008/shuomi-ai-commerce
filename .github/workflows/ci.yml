@@ -188,13 +188,12 @@ jobs:
 
       - name: Run listing concurrency race tests
         run: |
-          go test -race ./internal/app/runtime/listingcontrol -run TestControlPlaneService -count=1
-          go test -race ./internal/listingadmin -run "TestConcurrentClaimForDispatchOnlyOneWorkerWins|TestConcurrentRollbackDispatchOnlyOriginalQueuedClaimIsRestoredOnce|TestConcurrentRecoveryOnlyUpdatesStillEligibleRowsOnce" -count=1
+          go test -race ./internal/listingadmin -count=1
 
       - name: Build runtime commands
         run: |
-          go build ./cmd/listing-control-plane
-          go build ./cmd/shein-listing
+          go build ./cmd/current-application
+          go build ./cmd/shein-login-worker
 
   frontend:
     name: Frontend Checks

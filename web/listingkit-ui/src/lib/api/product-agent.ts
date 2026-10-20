@@ -1,18 +1,19 @@
-import { agentResultSchema, contentAgentResultSchema, agentReviewLinkSchema, agentStartRequestSchema, contentAgentStartRequestSchema } from "../contracts/product-agent";
+import { agentResultSchema, contentAgentResultSchema, agentReviewLinkSchema, agentStartRequestSchema, contentAgentStartRequestSchema,ownContentStartRequestSchema,ownContentSourceSchema,type OwnSourceSelection } from "../contracts/product-agent";
 import { sameContentSelection, type ContentSelection } from "../contracts/content-selection";
 import { isAcquisitionUUID } from "../contracts/product-acquisition";
 import type {TemplateRef} from "../contracts/agent-configuration";
+import {sameSkill,type SkillSelection} from "../contracts/skill";
 import type { AcquisitionContext } from "./product-acquisition";
 import { readBoundedStrictJSON } from "./strict-json-response";
 export class ProductAgentError extends Error {
     constructor(public code: string) { super(code); }
 }
-export async function requestProductAgent(action: "start" | "read" | "resume" | "review", operationId: string, key: string, scope: AcquisitionContext, signal: AbortSignal, revision?: string, feedback?: string, targetPlatform?: string, knowledgeBaseId?: string,templateSelection?:TemplateRef,expectedModeRevision?:string,contentSelection?:ContentSelection,kind:"title"|"content"="title") {
+export async function requestProductAgent(action: "start" | "read" | "resume" | "review", operationId: string, key: string, scope: AcquisitionContext, signal: AbortSignal, revision?: string, feedback?: string, targetPlatform?: string, knowledgeBaseId?: string,templateSelection?:TemplateRef,expectedModeRevision?:string,contentSelection?:ContentSelection,kind:"title"|"content"="title",skillSelection?:SkillSelection,ownContext?:{source?:OwnSourceSelection},manualReviewOnly=false) {
     const content=kind==="content";
-    const start={expectedModeRevision,targetPlatform,...(templateSelection?{templateSelection}:{}),...(knowledgeBaseId?{knowledgeSelection:{knowledgeBaseId}}:{}),...(contentSelection?{contentSelection}:{})};
-    if (!isAcquisitionUUID(operationId) || !isAcquisitionUUID(key) || action === "start" && !(content?contentAgentStartRequestSchema:agentStartRequestSchema).safeParse(start).success)
+    const start={expectedModeRevision,targetPlatform,...(manualReviewOnly?{manualReviewOnly:true}:{}),...(ownContext?.source?{ownSource:ownContext.source}:{}),...(templateSelection?{templateSelection}:{}),...(knowledgeBaseId?{knowledgeSelection:{knowledgeBaseId}}:{}),...(contentSelection?{contentSelection}:{}),...(skillSelection?{skillSelection}:{})};
+    if (!isAcquisitionUUID(operationId) || !isAcquisitionUUID(key) || ownContext&&!content || action === "start" && !(ownContext?ownContentStartRequestSchema:content?contentAgentStartRequestSchema:agentStartRequestSchema).safeParse(start).success)
         throw new ProductAgentError("INVALID_AGENT_REQUEST");
-    const base = `/api/workbench/sourcing/1688/acquisitions/${operationId}/${content?"content-agent":"product-agent"}/runs`;
+    const base = ownContext?`/api/workbench/collections/items/${operationId}/content-agent/runs`:`/api/workbench/sourcing/1688/acquisitions/${operationId}/${content?"content-agent":"product-agent"}/runs`;
     const path = action === "start" ? base : `${base}/${key}${action === "read" ? "" : `/${action}`}`;
     const controller = new AbortController();
     const abort = () => controller.abort();
@@ -36,9 +37,13 @@ export async function requestProductAgent(action: "start" | "read" | "resume" | 
         const result = (action === "review" ? agentReviewLinkSchema : content?contentAgentResultSchema:agentResultSchema).safeParse(payload);
         if (response.status !== 200 || !result.success || result.data.operationId !== operationId || result.data.requestKey !== key)
             throw new ProductAgentError("OUTCOME_UNKNOWN");
+        if(ownContext && action!=="review" && !("contextKind" in result.data && result.data.contextKind==="own_product"))throw new ProductAgentError("OUTCOME_UNKNOWN");
+        if(!ownContext&&"contextKind" in result.data&&result.data.contextKind==="own_product")throw new ProductAgentError("OUTCOME_UNKNOWN");
+        if(action==="start"&&ownContext?.source&&"catalogVersion" in result.data&&(result.data.catalogVersion!==ownContext.source.catalogVersion||result.data.publicationId!==ownContext.source.publicationId))throw new ProductAgentError("OUTCOME_UNKNOWN");
         if (action === "start" && "targetPlatform" in result.data && result.data.targetPlatform !== targetPlatform)
             throw new ProductAgentError("OUTCOME_UNKNOWN");
         if (action === "start" && contentSelection && "contentSelection" in result.data && !sameContentSelection(contentSelection,result.data.contentSelection)) throw new ProductAgentError("OUTCOME_UNKNOWN");
+        if(action==="start"&&content&&"contentSelection" in result.data){const ref=result.data.skillVersionRef;if(!sameSkill(skillSelection,ref?{skillId:ref.id,version:ref.version,digest:ref.digest}:undefined))throw new ProductAgentError("OUTCOME_UNKNOWN")}
         if ("policyAdoption" in result.data && result.data.policyAdoption && (result.data.policyAdoption.identity.ActorID!==scope.userId || result.data.policyAdoption.identity.OrganizationID!==scope.organizationId)) throw new ProductAgentError("OUTCOME_UNKNOWN");
         return result.data;
     }
@@ -51,4 +56,14 @@ export async function requestProductAgent(action: "start" | "read" | "resume" | 
         clearTimeout(timeout);
         signal.removeEventListener("abort", abort);
     }
+}
+
+export async function readOwnContentSource(itemId:string,scope:AcquisitionContext,signal:AbortSignal){
+ if(!isAcquisitionUUID(itemId))throw new ProductAgentError("INVALID_AGENT_REQUEST");
+ const response=await fetch(`/api/workbench/collections/items/${itemId}/content-agent/source`,{headers:{"X-Expected-User-ID":scope.userId,"X-Expected-Organization-ID":scope.organizationId,Accept:"application/json"},cache:"no-store",credentials:"same-origin",redirect:"error",signal});
+ const payload=await readBoundedStrictJSON(response,128*1024,signal);
+ if(!response.ok)throw new ProductAgentError(payload&&typeof payload==="object"&&"code" in payload&&typeof payload.code==="string"?payload.code:"DEPENDENCY_UNAVAILABLE");
+ const parsed=ownContentSourceSchema.safeParse(payload);
+ if(response.status!==200||!parsed.success||parsed.data.itemId!==itemId)throw new ProductAgentError("DEPENDENCY_UNAVAILABLE");
+ return parsed.data;
 }

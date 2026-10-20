@@ -92,7 +92,7 @@ var workbenchCommercialPermissions = []string{
 
 // WorkbenchPermissions is a bounded display contract, never a policy source.
 func WorkbenchPermissions() []string {
-	result := []string{PermissionListingKitAdminRead, PermissionListingKitAdminWrite, PermissionProductSourcingWrite, PermissionLocalAgentWrite, PermissionImageAgentRead, PermissionImageAgentWrite, PermissionWorkbenchAgentRead, PermissionWorkbenchAgentUse, PermissionWorkbenchAgentConfigure}
+	result := []string{PermissionListingKitAdminRead, PermissionListingKitAdminWrite, PermissionListingKitPlatformAdm, PermissionProductSourcingWrite, PermissionLocalAgentWrite, PermissionImageAgentRead, PermissionImageAgentWrite, PermissionWorkbenchAgentRead, PermissionWorkbenchAgentUse, PermissionWorkbenchAgentConfigure}
 	result = append(result, workbenchReportPermissions...)
 	result = append(result, supplyMarketPermissions...)
 	for _, group := range [][]string{cockpitPermissions, []string{"workbench.project.read", "workbench.project.manage"}, workbenchToolPermissions, workbenchChatPermissions, workbenchKnowledgePermissions, workbenchEcoservicesPermissions, workbenchSupplyPermissions, workbenchStorePermissions, workbenchStoreObservationPermissions, workbenchSourceAccountPermissions, workbenchOrganizationMemberPermissions, workbenchCommercialPermissions} {

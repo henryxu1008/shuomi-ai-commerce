@@ -13,6 +13,9 @@ import { isAcquisitionUUID } from "@/lib/contracts/product-acquisition";
 import { aiMessageBody, type AIConversation, type AIProposal } from "@/lib/contracts/ai-workbench";
 import { findConsoleRoute } from "@/lib/workbench/console-navigation";
 import {executionModeLabels,executionModeAdoptionText} from "../agents/execution-mode-settings";
+import {ChatTaskSelection} from "./chat-task-selection";
+import {aiTaskSelection,type AITaskSubject} from "@/lib/contracts/ai-workbench";
+import {contentSelectionLabel,type ContentSelection} from "@/lib/contracts/content-selection";
 import styles from "./chat-page.module.css";
 
 type ChatMode = "home" | "new" | "recent" | "saved" | "archived";
@@ -41,10 +44,10 @@ export function ChatPage({ mode, conversationId }: { mode: ChatMode | "detail"; 
   const planningReadiness = context.aiWorkbenchPlanningReadiness;
   const titleReadiness = context.aiWorkbenchTitleReadiness;
   const canPlan = canUse && planningReadiness === "AVAILABLE";
-  const authorizationKey = `${JSON.stringify([context.roles, context.permissions])}:${canUse}:${planningReadiness}:${titleReadiness}`;
+  const authorizationKey = `${context.aiWorkbenchExecutionKind}:${context.aiWorkbenchExecutionReadiness}:${JSON.stringify([context.roles, context.permissions])}:${canUse}:${planningReadiness}:${titleReadiness}`;
   const title = mode === "home" ? "硕米Chat" : mode === "new" ? "新建会话" : mode === "recent" ? "最近会话" : mode === "saved" ? "收藏会话" : mode === "archived" ? "归档会话" : "业务会话";
   return <ConsolePage className="console-chat" title={title} breadcrumbs={route?.trail}
-    description="围绕已保存商品讨论标题建议；确认方案和预算后执行，按本次权限模式处理本地采用。">
+    description="选择已保存对象，提出内容目标；核对方案和预算后执行，按本次权限模式处理本地采用。">
     {!scope ? <ConsoleState kind={context.isSwitching || context.isLoading ? "loading" : "unavailable"} title="企业上下文不可用">请先选择可访问的企业并登录。</ConsoleState> :
       !context.aiWorkbenchAvailable ? <ConsoleState kind="unavailable" title="暂未启用">当前应用未启用硕米 Chat 与业务任务。</ConsoleState> :
       <ScopedChat key={`${scope.userId}:${scope.organizationId}:${authorizationKey}`} scope={scope} authorizationKey={authorizationKey} canUse={canUse} canPlan={canPlan} planningReadiness={planningReadiness} titleReadiness={titleReadiness} mode={mode} conversationId={conversationId} />}
@@ -57,7 +60,7 @@ function ScopedChat({ scope, authorizationKey, canUse, canPlan, planningReadines
 }
 
 function planningStatus(readiness: "AVAILABLE" | "NEEDS_CONFIGURATION" | "UNAVAILABLE") {
-  return readiness === "NEEDS_CONFIGURATION" ? "当前企业的规划模型需要配置；可管理会话，模型发送待配置。" : "当前企业的标题规划尚未开放；可管理会话，模型发送待配置。";
+  return readiness === "NEEDS_CONFIGURATION" ? "当前企业的规划模型需要配置；可管理会话，模型发送待配置。" : "当前企业的任务规划尚未开放；可管理会话，模型发送待配置。";
 }
 
 function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningReadiness, mode }: { scope: AIScope; authorizationKey: string; canUse: boolean; canPlan: boolean; planningReadiness: "AVAILABLE" | "NEEDS_CONFIGURATION" | "UNAVAILABLE"; mode: ChatMode }) {
@@ -104,9 +107,9 @@ function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningRead
   return <>
     {canUse && !canPlan ? <ConsoleState kind="unavailable" title="规划暂不可用">{planningStatus(planningReadiness)}</ConsoleState> : null}
     {mode === "home" ? <>
-      <Card className={styles.summary}>当前企业：{scope.organizationId} · 实际会话按当前账号读取。执行标题建议会消耗已配置的 AI 额度。</Card>
+      <Card className={styles.summary}>当前企业：{scope.organizationId} · 实际会话按当前账号读取。规划和执行任务会消耗已配置的 AI 额度。</Card>
       <div className={styles.landingGrid}>
-        <Card className={`${styles.landingCard} ${styles.newCard}`}><span className={styles.accent} /><h2>新建会话</h2><h3>开始一项新需求</h3><p>选择已有商品采集结果，描述标题优化目标，再查看并确认方案。</p>{canUse ? <Button onClick={create} disabled={creating}>{creating ? "正在创建…" : "进入新建会话 →"}</Button> : <p>{canUse ? "当前企业的规划模型尚未就绪。" : "当前企业仅可查看已有会话。"}</p>}</Card>
+        <Card className={`${styles.landingCard} ${styles.newCard}`}><span className={styles.accent} /><h2>新建会话</h2><h3>开始一项新需求</h3><p>选择我的数据中的商品，明确内容目标、语言和字段，再查看并确认方案。</p>{canUse ? <Button onClick={create} disabled={creating}>{creating ? "正在创建…" : "进入新建会话 →"}</Button> : <p>{canUse ? "当前企业的规划模型尚未就绪。" : "当前企业仅可查看已有会话。"}</p>}</Card>
         <Card className={`${styles.landingCard} ${styles.recentCard}`}><span className={styles.accent} /><h2>最近会话</h2><h3>继续之前的工作</h3><p>查看当前账号的对话与提案，从上次讨论的位置继续。</p><Button asChild variant="outline"><Link href="/workbench/ai/chat/recent" prefetch={false}>查看最近会话 →</Link></Button></Card>
         <Card className={`${styles.landingCard} ${styles.savedCard}`}><span className={styles.accent} /><h2>收藏会话</h2><h3>沉淀重要内容</h3><p>收藏仍在使用的会话，随时继续查看已保存的内容。</p><Button asChild variant="outline"><Link href="/workbench/ai/chat/saved" prefetch={false}>进入收藏会话 →</Link></Button></Card>
       </div>
@@ -133,6 +136,10 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
   const router = useRouter();
   const search = useSearchParams();
   const [operationId, setOperationId] = useState(search.get("operationId") ?? "");
+  const execution=useWorkbenchContext();
+  const contentTasks=execution.aiWorkbenchExecutionKind==="product.content.localize";
+  const [subject,setSubject]=useState<AITaskSubject|null>(null);
+  const [parameters,setParameters]=useState<ContentSelection>({targetLanguage:"en-US",description:true});
   const [platform, setPlatform] = useState<"shein" | "temu" | "amazon">("shein");
   const [content, setContent] = useState("");
   const [editingTitle, setEditingTitle] = useState(false);
@@ -167,7 +174,8 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
       const checked = aiMessageBody.safeParse(value.body);
       if (!checked.success) throw new Error("invalid pending body");
       setPendingMessage({ key: value.key, body: checked.data });
-      setContent(checked.data.content); setOperationId(checked.data.operationId); setPlatform(checked.data.targetPlatform);
+      setContent(checked.data.content);
+      if("taskSelection" in checked.data){setSubject(checked.data.taskSelection.subject);setParameters(checked.data.taskSelection.parameters)}else{setOperationId(checked.data.operationId);setPlatform(checked.data.targetPlatform)}
       setTemplateId(checked.data.templateId ?? ""); setTemplateRevision(checked.data.templateRevision ?? ""); setKnowledgeBaseId(checked.data.knowledgeBaseId ?? "");
       } catch { try { sessionStorage.removeItem(messageStorageKey); } catch { /* storage may be unavailable */ } }
     });
@@ -185,8 +193,9 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
       for (const [proposalId, receipt] of Object.entries(values).slice(-50)) {
         if (!isAcquisitionUUID(proposalId) || !receipt || typeof receipt !== "object" || !("key" in receipt) ||
           typeof receipt.key !== "string" || !isAcquisitionUUID(receipt.key)) continue;
-        const taskId = "taskId" in receipt && typeof receipt.taskId === "string" && isAcquisitionUUID(receipt.taskId) ? receipt.taskId : undefined;
-        safe[proposalId] = { key: receipt.key, ...(taskId ? { taskId } : {}) };
+        // Browser storage only recovers an unfinished operation key. A saved
+        // task ID is not the owner's durable confirmation receipt.
+        safe[proposalId] = { key: receipt.key };
       }
       setConfirmReceipts(safe);
       } catch { /* a missing browser store cannot authorize an operation */ }
@@ -196,11 +205,11 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
   useEffect(() => () => abort.current?.abort(), []);
   async function send() {
     const draft = pendingMessage ?? { key: crypto.randomUUID(), body: {
-      content, operationId, targetPlatform: platform,
+      content, ...(contentTasks?{taskSelection:{subject,capability:"product.content.localize",parameters}}:{operationId,targetPlatform:platform}),
       ...(knowledgeBaseId ? { knowledgeBaseId } : {}), ...(templateId ? { templateId, templateRevision } : {}),
     } };
     const checked = aiMessageBody.safeParse(draft.body);
-    if (!checked.success) { setError("请输入有效的商品操作 ID、需求和模板修订号。"); return; }
+    if (!checked.success) { setError("请选择有效商品、语言和字段，填写需求及模板修订号。"); return; }
     const saved = { key: draft.key, body: checked.data };
     setPendingMessage(saved); setPending(true); setError("");
     try { sessionStorage.setItem(pendingMessageStorageKey(scope, id), JSON.stringify(saved)); } catch { /* retain the in-memory receipt */ }
@@ -218,7 +227,13 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
       if (result.state === "PLANNER_UNKNOWN") setError("模型结果无法确认；本轮不会自动重发。请刷新查看收据。");
       if (result.state === "READY_TO_DISPATCH") setError("本轮仍在处理，请使用相同操作键重试读取结果。");
       await detail.refetch();
-    } catch (cause) { if (!controller.signal.aborted) setError(errorText(cause)); }
+    } catch (cause) { if (!controller.signal.aborted) {
+      if(cause instanceof AIWorkbenchError&&cause.messageAccepted===false&&["INVALID_REQUEST","PROPOSAL_STALE"].includes(cause.code)){
+        setPendingMessage(null);
+        try{sessionStorage.removeItem(messageStorageKey)}catch{/* retain the editable input in memory */}
+      }
+      setError(errorText(cause));
+    } }
     finally { setPending(false); abort.current = null; }
   }
   async function confirm(proposal: AIProposal) {
@@ -258,36 +273,41 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
       <Button variant="outline" disabled={pending} onClick={() => setEditingTitle(false)}>取消</Button>
       {new TextEncoder().encode(titleDraft).length > 256 ? <span>标题不能超过 256 字节。</span> : null}</div> : null}
     <div className={styles.messages} aria-label="会话消息">{messages.length ? messages.map(item => <Card key={item.ID} className={item.Author === "USER" ? styles.userMessage : styles.assistantMessage}>
-      <small>{item.Author === "USER" ? "我" : "硕米"} · {new Date(item.CreatedAt).toLocaleString("zh-CN")}</small><p>{item.Content}</p></Card>) : <ConsoleState kind="empty" title="开始讨论">先选定已有商品，再描述标题优化目标。</ConsoleState>}
+      <small>{item.Author === "USER" ? "我" : "硕米"} · {new Date(item.CreatedAt).toLocaleString("zh-CN")}</small><p>{item.Content}</p></Card>) : <ConsoleState kind="empty" title="开始讨论">先选定已有商品，再描述任务目标。</ConsoleState>}
       {detail.hasNextPage ? <Button variant="outline" disabled={detail.isFetchingNextPage} onClick={() => void detail.fetchNextPage()}>{detail.isFetchingNextPage ? "正在加载…" : "加载更早消息"}</Button> : null}</div>
     {activeProposal ? <ProposalCard proposal={activeProposal} scope={scope} canUse={canUse} titleReadiness={titleReadiness} disabled={pending || current.Archived}
-      confirmedTaskId={confirmReceipts[activeProposal.id]?.taskId} onConfirm={() => void confirm(activeProposal)} /> : null}
+      confirmedTaskId={activeProposal.confirmedTaskId ?? confirmReceipts[activeProposal.id]?.taskId} onConfirm={() => void confirm(activeProposal)} /> : null}
     {error ? <ConsoleState kind="error" title="操作状态">{error} <Button variant="outline" onClick={() => void detail.refetch()}>刷新收据</Button></ConsoleState> : null}
-    {!current.Archived && canUse && (canPlan || pendingMessage) ? <Card className={styles.composer}><h2>讨论标题建议</h2><p>只针对已保存的采集商品生成标题建议。确认提案后才会启动 Product Agent。</p>
-      <div className={styles.formGrid}><label>采集操作 ID<input disabled={Boolean(pendingMessage)} value={operationId} onChange={e => setOperationId(e.target.value.trim())} placeholder="从已保存商品采集结果复制操作 ID" /></label>
-        <label>目标平台<select disabled={Boolean(pendingMessage)} value={platform} onChange={e => setPlatform(e.target.value as typeof platform)}><option value="shein">SHEIN</option><option value="temu">Temu</option><option value="amazon">Amazon</option></select></label>
+    {!current.Archived && canUse && (canPlan || pendingMessage) ? <Card className={styles.composer}><h2>{contentTasks?"讨论内容任务":"讨论标题建议"}</h2><p>{contentTasks?"选择商品及待处理内容，确认方案后启动内容 Agent。":"选择原标题任务对象，确认方案后启动标题 Agent。"}</p>
+      {contentTasks?<ChatTaskSelection authorizationKey={authorizationKey} scope={scope} subject={subject} parameters={parameters} onSubject={setSubject} onParameters={setParameters} disabled={pending||Boolean(pendingMessage)}/>:null}
+      <div className={styles.formGrid}>{!contentTasks?<><label>采集操作 ID<input disabled={Boolean(pendingMessage)} value={operationId} onChange={e => setOperationId(e.target.value.trim())} placeholder="从已保存商品采集结果复制操作 ID" /></label>
+        <label>目标平台<select disabled={Boolean(pendingMessage)} value={platform} onChange={e => setPlatform(e.target.value as typeof platform)}><option value="shein">SHEIN</option><option value="temu">Temu</option><option value="amazon">Amazon</option></select></label></>:null}
         <label>模板 ID（可选）<input disabled={Boolean(pendingMessage)} value={templateId} onChange={e => setTemplateId(e.target.value.trim())} /></label>
         <label>模板修订号{templateId ? "" : "（可选）"}<input disabled={Boolean(pendingMessage)} value={templateRevision} onChange={e => setTemplateRevision(e.target.value.trim())} /></label>
         <label>知识库 ID（可选）<input disabled={Boolean(pendingMessage)} value={knowledgeBaseId} onChange={e => setKnowledgeBaseId(e.target.value.trim())} /></label></div>
-      <label className={styles.promptLabel}>需求<textarea disabled={Boolean(pendingMessage)} rows={4} value={content} onChange={e => setContent(e.target.value)} placeholder="例如：请优化这个商品在 SHEIN 的标题，突出已有证据支持的卖点。" /></label>
+      <label className={styles.promptLabel}>需求<textarea disabled={Boolean(pendingMessage)} rows={4} value={content} onChange={e => setContent(e.target.value)} placeholder={contentTasks?"例如：请根据已保存资料，将描述和卖点整理成英文。":"例如：请优化这个商品的标题，突出已有证据支持的卖点。"} /></label>
       {pendingMessage ? <p>原消息结果待确认，字段已锁定；同键重试先核对收据，尚未受理的请求可能在配置就绪后首次发送。</p> : null}
-      <div className={styles.toolbar}><Button disabled={pending || !isAcquisitionUUID(operationId) || !content.trim() || Boolean(templateId) !== Boolean(templateRevision)} onClick={() => void send()}>{pending ? "处理中…" : pendingMessage ? "重试同一消息" : "发送消息"}</Button>
+      <div className={styles.toolbar}><Button disabled={pending || (!pendingMessage&&(contentTasks?!aiTaskSelection.safeParse({subject,capability:"product.content.localize",parameters}).success:!isAcquisitionUUID(operationId))) || !content.trim() || Boolean(templateId) !== Boolean(templateRevision)} onClick={() => void send()}>{pending ? "处理中…" : pendingMessage ? "重试同一消息" : "发送消息"}</Button>
         <span>模型规划可能消耗 AI 额度；不会直接修改商品。</span></div></Card> : current.Archived ? <ConsoleState kind="unavailable" title="会话已归档">已保存的任务仍可从任务中心查看。</ConsoleState> :
       <ConsoleState kind="unavailable" title="只读会话">{canUse ? planningStatus(planningReadiness) : "当前企业没有发送或确认权限，可查看已有对话和提案。"}</ConsoleState>}
   </div>;
 }
 
 function ProposalCard({ proposal, scope, canUse, titleReadiness, disabled, confirmedTaskId, onConfirm }: { proposal: AIProposal; scope: AIScope; canUse: boolean; titleReadiness: "AVAILABLE" | "NEEDS_CONFIGURATION" | "UNAVAILABLE"; disabled: boolean; confirmedTaskId?: string; onConfirm: () => void }) {
-  return <Card className={styles.proposal}><div className={styles.proposalHead}><span>待确认的执行方案</span><strong>仅生成标题建议</strong></div>
+  const execution=useWorkbenchContext();
+  const content=proposal.kind==="product.content.localize";
+  const readiness=content?(execution.aiWorkbenchExecutionKind===proposal.kind?execution.aiWorkbenchExecutionReadiness:"UNAVAILABLE"):titleReadiness;
+  const ready=content?proposal.executionProfileReady:proposal.titleProfileReady;
+  return <Card className={styles.proposal}><div className={styles.proposalHead}><span>{confirmedTaskId?"已确认的执行方案":"待确认的执行方案"}</span><strong>{content?"商品内容建议":"标题建议"}</strong></div>
     <p>{proposal.goalSummary}</p><dl><dt>企业</dt><dd>{scope.organizationId}</dd><dt>商品</dt><dd>{proposal.detailsAvailable ? proposal.productKey : "当前无权查看"}</dd>
-      <dt>目标平台</dt><dd>{proposal.targetPlatform ?? "不可用"}</dd><dt>模板</dt><dd>{proposal.templateId ? `${proposal.templateId} · 修订 ${proposal.templateRevision}` : "未选择"}</dd>
+      {content?<><dt>任务对象</dt><dd>{proposal.taskSelection?`${proposal.taskSelection.subject.kind==="own_product"?"自有商品":"源商品"} · ${proposal.taskSelection.subject.id} · 版本 ${proposal.taskSelection.subject.catalogVersion}`:"不可用"}</dd><dt>语言与字段</dt><dd>{proposal.taskSelection?contentSelectionLabel(proposal.taskSelection.parameters):"不可用"}</dd></>:<><dt>目标平台</dt><dd>{proposal.targetPlatform ?? "不可用"}</dd></>}<dt>模板</dt><dd>{proposal.templateId ? `${proposal.templateId} · 修订 ${proposal.templateRevision}` : "未选择"}</dd>
       <dt>知识库</dt><dd>{proposal.knowledgeBaseId || "未选择"}</dd><dt>执行模型</dt><dd>{proposal.providerId && proposal.modelId ? `${proposal.providerId} / ${proposal.modelId}` : "不可用"}</dd>
-      <dt>最大额度</dt><dd>{proposal.maximumTokens !== undefined ? `${proposal.maximumTokens} tokens` : "不可用"}{proposal.maximumCostMicros !== undefined ? ` · ${proposal.maximumCostMicros} μ${proposal.currency ?? ""}` : ""}</dd>
-      <dt>执行权限</dt><dd>{proposal.executionMode?`${executionModeLabels[proposal.executionMode]} · 版本 ${proposal.modeRevision}`:"权限模式不可用，请重新提出方案"}</dd><dt>结果处理</dt><dd>{proposal.executionMode?executionModeAdoptionText[proposal.executionMode]:"原提案仍可查看，暂不能执行"}</dd></dl>
-    {!confirmedTaskId && canUse && proposal.detailsAvailable && titleReadiness !== "AVAILABLE" ? <p>标题执行模型需要配置；当前方案暂不能确认。</p> : null}
-    {!confirmedTaskId && canUse && proposal.detailsAvailable && titleReadiness === "AVAILABLE" && !proposal.titleProfileReady ? <p>提案的标题模型配置已变化，请重新提出方案。</p> : null}
-    {!confirmedTaskId && canUse && proposal.detailsAvailable && !proposal.executionAuthorized ? <p>需要当前企业的标题执行权限；已有方案仍可查看。</p> : null}
+      <dt>{content?"任务执行上限":"单次模型上限"}</dt><dd>{proposal.maximumTokens !== undefined ? `${proposal.maximumTokens} tokens` : "不可用"}{proposal.maximumCostMicros !== undefined ? ` · ${proposal.maximumCostMicros} μ${proposal.currency ?? ""}` : ""}</dd>
+      {content?<><dt>执行限制</dt><dd>{proposal.maximumSteps} 步 · 最多 {proposal.maximumModelCalls} 次模型调用 · {proposal.maximumRuntimeSeconds} 秒</dd></>:null}<dt>执行权限</dt><dd>{proposal.executionMode?`${executionModeLabels[proposal.executionMode]} · 版本 ${proposal.modeRevision}`:"权限模式不可用，请重新提出方案"}</dd><dt>结果处理</dt><dd>{proposal.executionMode?executionModeAdoptionText[proposal.executionMode]:"原提案仍可查看，暂不能执行"}</dd></dl>
+    {!confirmedTaskId && canUse && proposal.detailsAvailable && readiness !== "AVAILABLE" ? <p>执行模型需要配置；当前方案暂不能确认。</p> : null}
+    {!confirmedTaskId && canUse && proposal.detailsAvailable && readiness === "AVAILABLE" && !ready ? <p>提案的执行配置已变化，请重新提出方案。</p> : null}
+    {!confirmedTaskId && canUse && proposal.detailsAvailable && !proposal.executionAuthorized ? <p>{proposal.modeUnavailableReason==="EXECUTION_LIMITS_CHANGED"?"任务执行上限已变化，请重新提出方案。":"需要当前企业的执行权限；已有方案仍可查看。"}</p> : null}
     {confirmedTaskId ? <Button asChild><Link href={`/workbench/ai/tasks/${confirmedTaskId}`} prefetch={false}>查看已确认任务</Link></Button> :
-      canUse ? <Button disabled={disabled || !proposal.detailsAvailable || titleReadiness !== "AVAILABLE" || !proposal.titleProfileReady || !proposal.executionAuthorized} onClick={onConfirm}>确认并创建任务</Button> : null}
+      canUse ? <Button disabled={disabled || !proposal.detailsAvailable || readiness !== "AVAILABLE" || !ready || !proposal.executionAuthorized} onClick={onConfirm}>确认并创建任务</Button> : null}
   </Card>;
 }

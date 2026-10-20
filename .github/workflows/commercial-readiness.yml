@@ -133,8 +133,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          go test -race ./internal/app/runtime/listingcontrol -run TestControlPlaneService -count=1 2>&1 | tee evidence/listingcontrol-race.log
-          go test -race ./internal/listingadmin -run "TestConcurrentClaimForDispatchOnlyOneWorkerWins|TestConcurrentRollbackDispatchOnlyOriginalQueuedClaimIsRestoredOnce|TestConcurrentRecoveryOnlyUpdatesStillEligibleRowsOnce" -count=1 2>&1 | tee evidence/listingadmin-race.log
+          go test -race ./internal/listingadmin -count=1 2>&1 | tee evidence/listingadmin-race.log
 
       - name: Build maintained runtime commands
         id: build

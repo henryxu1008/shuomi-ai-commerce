@@ -1,5 +1,5 @@
 import { afterEach,expect,it,vi } from "vitest";
-import { supplyCommand,readSupplyCommand,readSupplyCompletionDraft,type SupplyIntent } from "./supply-chain";
+import { supplyCommand,readSupplyCommand,readSupplyCompletionDraft,listItemCompletionDrafts,type SupplyIntent } from "./supply-chain";
 import { parseSupplyIntent } from "./supply-intent";
 import { completionInputSchema,completionRecordSchema,supplyPath } from "../contracts/supply-chain";
 const id="11111111-1111-4111-8111-111111111111",other="22222222-2222-4222-8222-222222222222";
@@ -30,10 +30,16 @@ it("keeps UNKNOWN when a valid receipt has different text, source or revision",a
   await expect(readSupplyCommand(intent)).rejects.toMatchObject({code:"DEPENDENCY_UNAVAILABLE"});
  }
 });
-it("recognizes only the four bounded native routes",()=>{
+it("reads item heads across preparations and rejects mismatched discovery scope",async()=>{
+ const fetcher=vi.fn().mockResolvedValue(reply({collectionItemId:id,items:[record],total:1}));vi.stubGlobal("fetch",fetcher);
+ await expect(listItemCompletionDrafts(intent,id)).resolves.toMatchObject({items:[record]});expect(fetcher.mock.calls[0][0]).toBe(`/api/workbench/supply-preparations/collection-items/${id}/completion-drafts?limit=20`);
+ for(const page of [{collectionItemId:other,items:[record],total:1},{collectionItemId:id,items:[{...record,source:{...record.source,collectionItemId:other}}],total:1},{collectionItemId:id,items:[{...record,source:{...record.source,source:{...record.source.source,kind:"acquisition"}}}],total:1}]){fetcher.mockResolvedValue(reply(page));await expect(listItemCompletionDrafts(intent,id)).rejects.toMatchObject({code:"DEPENDENCY_UNAVAILABLE"})}
+});
+it("recognizes the bounded native routes",()=>{
  expect(supplyPath("POST",["supply-preparations","completion-drafts"])).toBe("save-completion-draft");
  expect(supplyPath("GET",["supply-preparations","sources",id,"completion-draft"])).toBe("completion-draft");
  expect(supplyPath("GET",["supply-preparations",id,"completion-drafts"])).toBe("completion-drafts");
+ expect(supplyPath("GET",["supply-preparations","collection-items",id,"completion-drafts"])).toBe("item-completion-drafts");
  expect(supplyPath("GET",["supply-preparations","completion-drafts","commands",id])).toBe("completion-command");
  expect(supplyPath("POST",["supply-preparations","sources",id,"completion-draft"])).toBeNull();
 });

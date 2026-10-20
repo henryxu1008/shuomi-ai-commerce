@@ -78,7 +78,7 @@ it("states bounded coverage and does not fabricate global metrics or lifecycle a
   expect(screen.getByRole("heading", { level: 1, name: "任务中心" })).toBeVisible();
   expect(screen.getByText(/仅覆盖本地资料准备完成记录/)).toBeVisible();
   expect(screen.getByText(/不代表诊断通过或可发布/)).toBeVisible();
-  expect(screen.getByRole("link", { name: "已完成" })).toHaveAttribute("aria-current", "page");
+  expect(within(screen.getByRole("navigation", { name: "任务状态" })).getByRole("link", { name: "已完成" })).toHaveAttribute("aria-current", "page");
   expect(screen.getByRole("heading", { name: "当前企业" })).toBeVisible();
   expect(screen.getByText("已完成记录按条目标注所属店铺 · 店铺筛选暂未接入")).toBeVisible();
   expect(screen.queryByText("通用业务")).not.toBeInTheDocument();

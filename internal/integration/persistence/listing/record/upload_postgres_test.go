@@ -49,7 +49,7 @@ func (m *uploadExecutionMerchant) Publish(_ context.Context, input model.Publish
 	if m.loseResponse {
 		return model.PublishResult{}, errors.New("fixture lost response")
 	}
-	return model.PublishResult{SPUName: "fixture-spu", SKCs: []model.PublishedSKC{{SKCName: "fixture-skc", SKUs: []model.PublishedSKU{{SupplierSKU: input.SKCs[0].SKUs[0].SupplierSKU, SKUCode: "fixture-sku"}}}}, ResponseHash: collection.Digest(input)}, nil
+	return model.PublishResult{Version: "v1", SPUName: "fixture-spu", SKCs: []model.PublishedSKC{{SKCName: "fixture-skc", SKUs: []model.PublishedSKU{{SupplierSKU: input.SKCs[0].SKUs[0].SupplierSKU, SKUCode: "fixture-sku"}}}}, ResponseHash: collection.Digest(input)}, nil
 }
 
 type uploadExecutionStore struct{ merchant *uploadExecutionMerchant }

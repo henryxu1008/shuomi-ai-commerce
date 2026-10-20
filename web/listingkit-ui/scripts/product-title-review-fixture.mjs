@@ -1,6 +1,6 @@
 // Task-only launcher following the existing SHEIN fixture lifecycle/session pattern.
 import { spawn } from "node:child_process";
-import { randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { createWriteStream } from "node:fs";
 import { mkdtemp, readFile, writeFile, access, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -102,11 +102,15 @@ try {
       PRODUCT_REVIEW_API_ORIGIN: seed.goOrigin, SHEIN_RECORDS_API_ORIGIN: seed.goOrigin, LISTINGKIT_SERVICE_API_BASE: `${seed.contextOrigin}/api/v1` },
   });
   const sessions = {};
+  // Mirror the current native Auth.js origin/issuer/client namespace. The
+  // fixture must not mint a shared legacy cookie across local applications.
+  const cookieNamespace = createHash("sha256").update(JSON.stringify([origin, "http://127.0.0.1:1/fixture-external-identity", "fixture-client"])).digest("hex").slice(0, 32);
+  const sessionCookie = `shuomi.${cookieNamespace}.session-token`;
   for (const [name, accessToken] of Object.entries(seed.tokens)) {
     const role = name === "admin" || name === "revoked" ? "listingkit_admin" : name === "readonly" ? "admin" : "listingkit_operator";
-    const value = await encode({ secret, salt: "authjs.session-token", maxAge: 1800, token: { sub: name, name: `Fixture ${name}`, accessToken,
+    const value = await encode({ secret, salt: sessionCookie, maxAge: 1800, token: { sub: name, name: `Fixture ${name}`, accessToken,
       expiresAt: Math.floor(Date.now() / 1000) + 1800, identityVersion: 3, identity: { tenantId: "200", userId: name, roles: [role], userType: "zitadel" } } });
-    sessions[name] = [{ name: "authjs.session-token", value, url: origin, httpOnly: true, sameSite: "Lax" }, { name: "shuomi_effective_organization", value: "200", url: origin, httpOnly: true, sameSite: "Lax" }];
+    sessions[name] = [{ name: sessionCookie, value, url: origin, httpOnly: true, sameSite: "Lax" }, { name: "shuomi_effective_organization", value: "200", url: origin, httpOnly: true, sameSite: "Lax" }];
   }
   const head = await run("git", ["rev-parse", "HEAD"], { cwd: sourceRepo });
   const goHead = await run("git", ["rev-parse", "HEAD"]);

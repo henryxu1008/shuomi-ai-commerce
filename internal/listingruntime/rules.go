@@ -1,50 +1,5 @@
 package listingruntime
 
-import "task-processor/internal/marketplace/productpolicy"
-
-type FilterRule struct {
-	ID              int64
-	Name            string
-	TenantID        int64
-	StoreID         int64
-	CategoryID      int64
-	PriceType       string
-	PriceMin        *float64
-	PriceMax        *float64
-	StockMin        *int
-	RatingMin       *float64
-	ReviewCountMin  *int
-	DeliveryTimeMax *int
-	FulfillmentType string
-	Status          int16
-}
-
-func (r *FilterRule) ToFilterRule() *productpolicy.FilterRule {
-	if r == nil {
-		return nil
-	}
-	return &productpolicy.FilterRule{
-		PriceMin:        r.PriceMin,
-		PriceMax:        r.PriceMax,
-		StockMin:        r.StockMin,
-		RatingMin:       r.RatingMin,
-		ReviewCountMin:  r.ReviewCountMin,
-		DeliveryTimeMax: r.DeliveryTimeMax,
-		FulfillmentType: r.FulfillmentType,
-	}
-}
-
-type ProfitRule struct {
-	ID                      int64
-	Name                    string
-	TenantID                int64
-	StoreID                 *int64
-	CategoryID              *int64
-	SalePriceMultiplier     float64
-	DiscountPriceMultiplier float64
-	Status                  int16
-}
-
 type PricingRule struct {
 	ID                 int64
 	Name               string

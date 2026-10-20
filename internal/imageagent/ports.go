@@ -113,9 +113,11 @@ type SlotExecutionInput struct {
 	AssetCatalog       AssetCatalog
 	ProductContext     ProductContextRef
 	ImageSet           *ImageSetPlan `json:",omitempty"`
+	Artwork            *ArtworkPlan  `json:",omitempty"`
 	// Populated only in-process after the organization generation intent binds
 	// these exact bytes. Never transport source bytes in workflow history.
 	SourceBytes          []byte            `json:"-"`
+	ImageMethodText      string            `json:"-"`
 	SourceDigest         string            `json:"-"`
 	SourceReferences     [][]byte          `json:"-"`
 	OrganizationIdentity ExecutionIdentity `json:"-"`

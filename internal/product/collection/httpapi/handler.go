@@ -23,6 +23,7 @@ const BasePath = "/api/v1/workbench/collections"
 type Service interface {
 	Mutate(context.Context, string, collection.Mutation) (collection.Receipt, error)
 	ListBatches(context.Context, collection.Query) (collection.Page[collection.Batch], error)
+	ReadBatch(context.Context, string) (collection.Batch, error)
 	ListItems(context.Context, string, collection.Query) (collection.Page[collection.Item], error)
 	ReadItem(context.Context, string) (collection.ItemDetail, error)
 	ListOwnHistory(context.Context, string, uint64, int) (collection.OwnHistoryPage, error)
@@ -33,6 +34,7 @@ type Service interface {
 func Routes(service Service, bind func(context.Context, string) (context.Context, error)) []httproute.Descriptor {
 	specs := []struct{ method, path, action string }{
 		{http.MethodGet, BasePath + "/batches", "batches"},
+		{http.MethodGet, BasePath + "/batches/:batch_id", "batch"},
 		{http.MethodGet, BasePath + "/own-products", "own"},
 		{http.MethodGet, BasePath + "/batches/:batch_id/items", "items"},
 		{http.MethodGet, BasePath + "/items/:item_id", "detail"},
@@ -166,6 +168,12 @@ func Routes(service Service, bind func(context.Context, string) (context.Context
 				} else {
 					value, err = service.ListItems(ctx, c.Param("batch_id"), query)
 				}
+			case "batch":
+				if c.Request.URL.RawQuery != "" || c.Request.ContentLength != 0 || len(c.Request.TransferEncoding) != 0 || len(c.Request.Header.Values("Idempotency-Key")) != 0 || c.GetHeader("Content-Encoding") != "" {
+					writeError(c, collection.ErrInvalid)
+					return
+				}
+				value, err = service.ReadBatch(ctx, c.Param("batch_id"))
 			case "detail", "operation":
 				if c.Request.URL.RawQuery != "" {
 					writeError(c, collection.ErrInvalid)

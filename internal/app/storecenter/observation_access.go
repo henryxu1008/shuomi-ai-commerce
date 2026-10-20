@@ -24,6 +24,7 @@ type OfficialObservationAccess struct {
 // Credentials and authorization are private process-local fields. In
 // particular this type has no method for any product or fulfillment mutation.
 type ObservationHandle struct {
+	walmartGrant                  *storecenter.WalmartGrant
 	owner                         *OfficialObservationAccess
 	entry                         officialApplicationEntry
 	subject                       storecenter.ObservationSubject
@@ -57,6 +58,9 @@ func (a *OfficialObservationAccess) Authorize(ctx context.Context, s storecenter
 	m, e := a.reader.ReadObservation(ctx, s, store, a.authorization, a.now())
 	if e != nil {
 		return nil, observationError(e)
+	}
+	if m.Platform == storecenter.PlatformWalmart {
+		return a.authorizeWalmartObservation(callerCtx, startedAt, s, store, expected, m)
 	}
 	entry, e := a.applications.resolve(m.Attempt.AppID, m.Attempt.AppVersion, m.Platform, m.Attempt.IdentityPartition)
 	if e != nil {
@@ -121,7 +125,14 @@ func (h *ObservationHandle) credential(ctx context.Context) (storecenter.Officia
 	}
 	return k, nil
 }
-func (h *ObservationHandle) Check(ctx context.Context) error { _, e := h.credential(ctx); return e }
+func (h *ObservationHandle) Check(ctx context.Context) error {
+	if h != nil && h.walmartGrant != nil {
+		_, e := h.walmartCredential(ctx)
+		return e
+	}
+	_, e := h.credential(ctx)
+	return e
+}
 func observationCall[T any](ctx context.Context, h *ObservationHandle, purpose string, call func(context.Context, storecenter.OfficialMerchantCredential) (T, error)) (T, error) {
 	var zero T
 	if h == nil || h.subject.Purpose != purpose {
@@ -143,6 +154,9 @@ func observationCall[T any](ctx context.Context, h *ObservationHandle, purpose s
 	return result, nil
 }
 func (h *ObservationHandle) Products(ctx context.Context, page int) (o.ProductPage, error) {
+	if h != nil && h.walmartGrant != nil {
+		return h.walmartProducts(ctx, page)
+	}
 	if h == nil || h.binding.Platform == storecenter.PlatformTemu {
 		return o.ProductPage{}, o.ErrUnsupported
 	}

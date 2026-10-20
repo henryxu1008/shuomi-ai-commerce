@@ -11,6 +11,10 @@ const fixture = vi.hoisted(() => ({
     isLoading: false, isSwitching: false, selectionRequired: false,
     effectiveOrganization: { id: "org-a" } as { id: string } | null, error: null, blockingError: null },
 }));
+it("links the intelligent market introduction to the skill library", () => {
+  render(<AgentsPage/>);
+  expect(screen.getByRole("link", {name: /进入技能库/})).toHaveAttribute("href", "/workbench/agents/skills");
+});
 vi.mock("next/navigation", () => ({ redirect: fixture.redirect }));
 vi.mock("@/components/providers/workbench-context-provider", () => ({ useWorkbenchContext: () => fixture.context }));
 beforeEach(() => {

@@ -1,11 +1,16 @@
 # ListingKit Owner Reconciliation Design
 
-> **SUPERSEDED — historical migration design.**
+> **SUPERSEDED - historical owner migration design, not current authority.**
 > [PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08](../../product/greenfield-no-legacy-migration.md)
-> cancels the legacy owner-backfill direction. Under #529 the dry-run cmd,
-> its execute mode, dedicated assembly and write API are retired. This document
-> preserves historical rationale and evidence, not permission to run old-data
-> migration. The existing identity-preflight read contract remains unchanged.
+> cancels the legacy owner-backfill direction. Under #529 the dry-run command,
+> execute mode, dedicated assembly and write API were already source-retired.
+> [#698](https://github.com/qq550723504/task-processor/pull/698) subsequently retired
+> the identity-preflight reads; their earlier preservation is no longer current.
+> The user-confirmed [#842 boundary](../../architecture/legacy-yudao-identity-operations-retirement-boundary.md)
+> source-retires the three Yudao user importers and owner-recovery dry-run.
+> The body preserves historical rationale/evidence only; do not restore or execute
+> old mapping, migration, recovery or preflight. Current authentication and SHEIN
+> login/Store sync remain; no IAM, data or runtime operation is authorized.
 
 ## Goal
 

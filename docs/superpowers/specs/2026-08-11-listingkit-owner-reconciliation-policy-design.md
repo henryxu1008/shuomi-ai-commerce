@@ -1,5 +1,16 @@
 # ListingKit owner reconciliation policy
 
+> **SUPERSEDED - historical owner migration policy, not current authority.**
+> [PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08](../../product/greenfield-no-legacy-migration.md)
+> cancels old-ID metadata mapping, backfill and explicit migration recovery below.
+> The former Approved policy describes its historical design, not current requirements.
+> [#698](https://github.com/qq550723504/task-processor/pull/698) retired the old
+> identity preflight; the user-confirmed [#842 boundary](../../architecture/legacy-yudao-identity-operations-retirement-boundary.md)
+> source-retires all three Yudao user importers and the owner-recovery dry-run.
+> Do not restore/execute those entries or treat migration as an internal-trial prerequisite.
+> Historical policy/evidence stays unchanged. Current authentication, Organization
+> and standalone SHEIN login/Store sync remain; no IAM/data operation is authorized.
+
 ## Goal
 
 Make the production identity preflight reflect the approved ownership rules

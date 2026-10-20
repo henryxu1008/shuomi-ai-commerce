@@ -2,12 +2,11 @@ package httpapi
 
 import (
 	"context"
-	"github.com/sirupsen/logrus"
-	"gorm.io/gorm"
 	"math"
 	"net/http"
 	"reflect"
 	"task-processor/internal/agentconfig"
+	d "task-processor/internal/aicapability/routeconfig"
 	imageapp "task-processor/internal/app/imageagent"
 	appruntime "task-processor/internal/app/runtime"
 	supplyapp "task-processor/internal/app/supplychain"
@@ -22,15 +21,24 @@ import (
 	configstore "task-processor/internal/integration/persistence/agentconfig"
 	assetstore "task-processor/internal/integration/persistence/product/asset"
 	catalogstore "task-processor/internal/integration/persistence/product/catalog"
+	collectionstore "task-processor/internal/integration/persistence/product/collection"
+	skillstore "task-processor/internal/integration/persistence/skill"
+	"task-processor/internal/integration/skillimage"
 	"task-processor/internal/listing/preparation"
 	"task-processor/internal/product/asset"
+	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/collection"
 	productimage "task-processor/internal/product/image"
 	"task-processor/internal/workbenchcontext"
 	"time"
+
+	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
 type fullImageApplication struct {
+	skills          *skillstore.Store
+	artwork         imageagent.ArtworkPublisher
 	service         *imageagent.Service
 	readSources     imageapp.ImageSetSourceReader
 	contexts        *imageapp.ImageSetContextReader
@@ -42,6 +50,7 @@ type fullImageApplication struct {
 	trial           *imageagent.IsolatedTrialGeneratedURLPolicy
 	configuration   *configstore.Store
 	recent          imageagent.ImageSetRunReader
+	generationFacts imageGenerationFactReader
 	gate            imageagent.TenantAllowlistStartGate
 	rules           supplyapp.ImageSetTargetRules
 	manualAvailable bool
@@ -90,7 +99,7 @@ func (a imageSourceScopeAuthority) AuthorizeImageExecution(ctx context.Context, 
 
 // The caller owns the API/worker, configuration, source, resource and Asset
 // pools. This assembly installs no schema and starts no provider or worker.
-func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB, configurationDB, resourceDB, assetDB *gorm.DB, workflows imageagent.WorkflowClient, products imageapp.EffectiveImageProductReader, live supplyapp.OrganizationExecutionAuthorizer, supply *supplyChainModule, current, workerConfig *config.Config, logger *logrus.Logger, mediaReaders ...asset.ManualImageReader) (*fullImageApplication, appruntime.ImageAgentTemporalDependencies, error) {
+func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB, configurationDB, resourceDB, assetDB *gorm.DB, workflows imageagent.WorkflowClient, products imageapp.EffectiveImageProductReader, live supplyapp.OrganizationExecutionAuthorizer, supply *supplyChainModule, preparationSources *preparation.SourceSelector, current, workerConfig *config.Config, collectionsEnabled bool, logger *logrus.Logger, currentPolicies d.CurrentReader, confirmedCopy imageagent.ImageTextReviewReader, mediaReaders ...asset.ManualImageReader) (*fullImageApplication, appruntime.ImageAgentTemporalDependencies, error) {
 	var empty appruntime.ImageAgentTemporalDependencies
 	if len(mediaReaders) > 1 {
 		return nil, empty, imageagent.ErrValidation
@@ -125,12 +134,30 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 	}
 	sourceLive := imageSourceScopeAuthority{current: live}
 	imageAuth := newFullImageWorkerAuthorizer(live)
+	skills, err := skillstore.New(configurationDB)
+	if err != nil {
+		return nil, empty, err
+	}
+	methods, err := skillimage.New(skills, imageAuth)
+	if err != nil {
+		return nil, empty, err
+	}
 	sourceAuth := imageapp.ScopedImageAuthorizer{Live: sourceLive}
 	receipts, err := newImageSetAcquisitionReceipts(startup, productDB, imageapp.ImagePublicationScopeAuthorizer{Live: sourceLive})
 	if err != nil {
 		return nil, empty, err
 	}
 	sources := imageapp.ImageSetSourceRouter{Acquisition: imageapp.AcquisitionImageSetSources{Receipts: receipts, Authorization: sourceAuth, Products: products}}
+	var genericSource *preparation.SourceSelector
+	if preparationSources != nil {
+		// WithExecution configures its receiver; keep the browser owner untouched.
+		copy := *preparationSources
+		genericSource, err = copy.WithExecution(live, collection.ExecutionOwnerAuthority{Authorization: live})
+		if err != nil {
+			return nil, empty, err
+		}
+		sources.Supply = supplyapp.ImageSetSources{ExecutionSources: genericSource, ExecutionAuthorization: live, Products: imagePreparationProductReader{products}}
+	}
 	if supply != nil {
 		if supply.app == nil {
 			return nil, empty, imageagent.ErrCommandBlocked
@@ -138,6 +165,9 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 		sources.Supply = supplyapp.ImageSetSources{ExecutionSources: supply.app.Sources, ExecutionAuthorization: live, Products: supply.app.Products}
 	}
 	readSources := sources
+	if genericSource != nil {
+		readSources.Supply = supplyapp.ImageSetSources{Permission: preparation.PermissionRead, ExecutionSources: genericSource, ExecutionAuthorization: live, Products: imagePreparationProductReader{products}}
+	}
 	sourceSelections := imageapp.ImageSetSourceSelectionReader{Sources: sources}
 	rules := supplyapp.ImageSetTargetRules{}
 	if supply != nil {
@@ -148,7 +178,7 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 	if err != nil {
 		return nil, empty, err
 	}
-	quotes, err := imageworker.NewImageGenerationQuoteReader(workerDB, current.ImageAgent.Generation)
+	quotes, err := imageworker.NewImageGenerationQuoteReader(workerDB, current.ImageAgent.Generation, currentPolicies)
 	if err != nil {
 		return nil, empty, err
 	}
@@ -165,6 +195,10 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 	}
 	apiRepository, workerRepository := imagestore.NewOrganizationRepository(imageDB), imagestore.NewOrganizationRepository(workerDB)
 	recent, ok := apiRepository.(imageagent.ImageSetRunReader)
+	if !ok {
+		return nil, empty, imageagent.ErrCommandBlocked
+	}
+	generationFacts, ok := apiRepository.(imageGenerationFactReader)
 	if !ok {
 		return nil, empty, imageagent.ErrCommandBlocked
 	}
@@ -197,6 +231,7 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 		if err != nil {
 			return nil, err
 		}
+		candidates.WithImageMethods(methods)
 		images := supplyapp.NewPublicImageProbe()
 		targets := imageapp.ImageSetMaterialTargetResolver{ReadBytes: newImageSetSourceByteReader(), ReadGeneratedBytes: generatedMaterials.Read, Official: supplyapp.ImageSetAssetTargetResolver{Rules: rules, Images: images, ReadGeneratedBytes: generatedMaterials.Read}}
 		service, err := asset.NewImageSetService(sourceSelections, assetRepository, inventories, approvals, candidates, targets)
@@ -223,16 +258,45 @@ func buildFullImageApplication(ctx context.Context, productDB, imageDB, workerDB
 	}
 	gate := imageagent.TenantAllowlistStartGate{Enabled: current.ImageAgent.Admission.Enabled, AllowedTenantIDs: append([]string(nil), current.ImageAgent.Admission.AllowedTenantIDs...)}
 	modeContexts := modeBoundImageContexts{ImageSetContextReader: contexts, source: contexts, configuration: configuration}
-	service, err := imageagent.NewService(apiRepository, workflows, closedImageSetCatalog{}, imageagent.WithOrganizationScope(), imageagent.WithTenantStartGate(gate), imageagent.WithImageSetDependencies(imageagent.ImageSetDependencies{Configuration: configuration, Contexts: modeContexts, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{Images: 32, Points: 32 * current.ImageAgent.Generation.PointsPerImage, ElapsedSeconds: 3600}}))
+	options := []imageagent.ServiceOption{imageagent.WithOrganizationScope(), imageagent.WithTenantStartGate(gate), imageagent.WithImageSetDependencies(imageagent.ImageSetDependencies{ConfirmedCopy: confirmedCopy, Configuration: configuration, Contexts: modeContexts, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{Images: 32, Points: 32 * current.ImageAgent.Generation.PointsPerImage, ElapsedSeconds: 3600}})}
+	options = append(options, imageagent.WithImageMethodContext(methods))
+	var artwork imageagent.ArtworkPublisher
+	if artworkConfigurationReady(startup, configurationDB, productDB, collectionsEnabled) {
+		artwork, err = buildPODArtworkPublisher(startup, productDB, workerRepository, publicURLs, configuration, imageMediaScopeAuthority{current: live}, trial)
+		if err != nil {
+			return nil, empty, err
+		}
+		options = append(options, imageagent.WithArtworkDependencies(imageagent.ArtworkDependencies{Configuration: configuration, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{Images: 1, Points: current.ImageAgent.Generation.PointsPerImage, ElapsedSeconds: 3600}}))
+	}
+	service, err := imageagent.NewService(apiRepository, workflows, closedImageSetCatalog{}, options...)
 	if err != nil {
 		return nil, empty, err
 	}
-	dependencies, err := imageworker.NewImageSetTemporalDependencies(workerConfig, workerDB, resourceDB, imageAuth, modeContexts, publisher, approvals, logger)
+	dependencies, err := imageworker.NewManagedImageSetTemporalDependencies(workerConfig, workerDB, resourceDB, imageAuth, modeContexts, publisher, approvals, logger, currentPolicies, methods)
 	if err != nil {
 		return nil, empty, err
 	}
 	dependencies.ImageSetPolicyAdopter = imageSetPolicyAdopter{repository: workerRepository, configuration: configuration, selections: workerSelections, inventories: inventories}
-	return &fullImageApplication{service: service, readSources: readSources, contexts: contexts, quotes: quotes, selections: selections, inventories: inventories, approvals: approvals, publicURLs: publicURLs, trial: trial, configuration: configuration, recent: recent, gate: gate, rules: rules, manualAvailable: manual != nil}, dependencies, nil
+	if artwork != nil {
+		dependencies.ArtworkPublisher = artwork
+	}
+	return &fullImageApplication{skills: skills, artwork: artwork, service: service, readSources: readSources, contexts: contexts, quotes: quotes, selections: selections, inventories: inventories, approvals: approvals, publicURLs: publicURLs, trial: trial, configuration: configuration, recent: recent, generationFacts: generationFacts, gate: gate, rules: rules, manualAvailable: manual != nil}, dependencies, nil
+}
+
+type imagePreparationProductReader struct {
+	products imageapp.EffectiveImageProductReader
+}
+
+func (r imagePreparationProductReader) ReadEffectiveTargetProduct(ctx context.Context, selected preparation.AuthorizedSource, version uint64, applyID string) (catalog.PublishedSnapshot, error) {
+	scope, _, original, err := selected.Read(ctx)
+	if err != nil {
+		return catalog.PublishedSnapshot{}, err
+	}
+	return r.products.ReadEffectiveImageProduct(ctx, imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, TenantID: scope.OrganizationID, UserID: scope.ActorID, MemberID: scope.MemberID}, original, version, applyID)
+}
+
+func artworkConfigurationReady(ctx context.Context, configurationDB, productDB *gorm.DB, collectionsEnabled bool) bool {
+	return collectionsEnabled && collectionstore.VerifySchema(ctx, productDB) == nil && configstore.VerifyArtworkConfigurationSchema(ctx, configurationDB) == nil
 }
 
 // Generic Acquisition consumes the existing Product/Review and live IAM ports

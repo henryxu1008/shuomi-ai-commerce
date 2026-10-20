@@ -92,3 +92,23 @@ func TestProjectionSchemaFixtureIncludesAllSnapshotShapes(t *testing.T) {
 	}
 	validateOutputAgainstRegistry(t, raw)
 }
+
+func TestInspectionProjectsRichDescriptionToExistingTextContract(t *testing.T) {
+	published := validPublished(1)
+	published.Snapshot.Description = "<p><strong>Safe &amp; sound</strong></p>"
+	published.Snapshot.DescriptionFormat = "html-v1"
+	raw, err := Project(published)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got Output
+	if err = json.Unmarshal(raw, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Snapshot.Description != "Safe & sound" || got.Snapshot.DescriptionFormat != "" {
+		t.Fatalf("text projection: %+v", got.Snapshot)
+	}
+	if published.Snapshot.DescriptionFormat != "html-v1" {
+		t.Fatal("projection mutated original")
+	}
+}

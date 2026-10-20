@@ -60,7 +60,8 @@ func task(row taskRow) (aiworkbench.BusinessTask, error) {
 		json.Unmarshal(row.ContextSnapshotRef, &contextRef) != nil ||
 		!config.ValidOrAbsent() || config.Absent() || !contextRef.ValidOrAbsent() ||
 		!validDigest(row.ExecutionRequestDigest) || digest(json.RawMessage(requestJSON)) != row.ExecutionRequestDigest ||
-		request.GoalSummary != row.GoalSummary {
+		request.ConfigurationSnapshotRef != config || request.ContextSnapshotRef != contextRef ||
+		request.GoalSummary != row.GoalSummary || !taskRequestMatchesRow(row, request) {
 		return aiworkbench.BusinessTask{}, aiworkbench.ErrUnavailable
 	}
 	return aiworkbench.BusinessTask{ID: row.ID,
@@ -110,7 +111,7 @@ func validatePreparedTask(p aiworkbench.PreparedTask, proposal proposalRow, key 
 	}
 	canonical, request, err := canonicalRequest(p.ExecutionRequest)
 	if err != nil ||
-		request.Key != key || !request.Binding.Valid() || !request.Limits.Valid() ||
+		!proposalDomainMatchesRequest(proposal, request) || request.Key != key || !request.Binding.Valid() || !request.Limits.Valid() ||
 		request.GoalSummary != proposal.GoalSummary || !agent.ValidGoalSummary(request.GoalSummary) ||
 		request.ConfigurationSnapshotRef != p.ConfigurationSnapshotRef ||
 		request.ContextSnapshotRef != p.ContextSnapshotRef ||
@@ -153,6 +154,13 @@ func (s *Store) Confirm(ctx context.Context, scope aiworkbench.Scope, conversati
 		conversation, err := s.lookupConversation(tx, scope, conversationID, true)
 		if err != nil {
 			return err
+		}
+		// The existing Conversation lock serializes different confirmation
+		// keys for the same proposal. A new key is not a new execution intent.
+		if _, found, err := s.lookupProposalTask(tx, scope, conversationID, proposalID); err != nil {
+			return err
+		} else if found {
+			return aiworkbench.ErrRevisionMismatch
 		}
 		if conversation.Lifecycle != "ACTIVE" {
 			return aiworkbench.ErrConversationArchived
@@ -220,6 +228,31 @@ func (s *Store) GetTask(ctx context.Context, scope aiworkbench.Scope, id string)
 	return task(row)
 }
 
+func (s *Store) lookupProposalTask(db *gorm.DB, scope aiworkbench.Scope, conversationID, proposalID string) (aiworkbench.BusinessTask, bool, error) {
+	var rows []taskRow
+	if err := db.Where("organization_id = ? AND owner_user_id = ? AND conversation_id = ? AND proposal_id = ?",
+		scope.OrganizationID, scope.ActorID, conversationID, proposalID).Limit(2).Find(&rows).Error; err != nil {
+		return aiworkbench.BusinessTask{}, false, unavailable(err)
+	}
+	if len(rows) == 0 {
+		return aiworkbench.BusinessTask{}, false, nil
+	}
+	if len(rows) != 1 {
+		return aiworkbench.BusinessTask{}, false, aiworkbench.ErrUnavailable
+	}
+	result, err := task(rows[0])
+	return result, true, err
+}
+
+// LookupProposalTask reads an existing T1 fact without a browser operation key
+// or current execution preflight. It never starts or recreates a task.
+func (s *Store) LookupProposalTask(ctx context.Context, scope aiworkbench.Scope, conversationID, proposalID string) (aiworkbench.BusinessTask, bool, error) {
+	if s == nil || s.db == nil || ctx == nil || !validScope(scope) || !validKey(conversationID) || !validKey(proposalID) {
+		return aiworkbench.BusinessTask{}, false, aiworkbench.ErrInvalid
+	}
+	return s.lookupProposalTask(s.db.WithContext(ctx), scope, conversationID, proposalID)
+}
+
 // LookupTask is the receipt-first read for a confirm replay. The key is
 // scoped to the original organization and actor before any mutable Product,
 // AgentConfig, Knowledge or provider preflight is consulted.
@@ -234,6 +267,13 @@ func (s *Store) LookupTask(ctx context.Context, scope aiworkbench.Scope, convers
 			return aiworkbench.BusinessTask{}, false, err
 		}
 		return aiworkbench.BusinessTask{}, false, unavailable(err)
+	}
+	if !found {
+		if _, confirmed, lookupErr := s.LookupProposalTask(ctx, scope, conversationID, proposalID); lookupErr != nil {
+			return aiworkbench.BusinessTask{}, false, lookupErr
+		} else if confirmed {
+			return aiworkbench.BusinessTask{}, false, aiworkbench.ErrRevisionMismatch
+		}
 	}
 	return result, found, nil
 }
@@ -267,4 +307,22 @@ func (s *Store) ReplayOrFail(ctx context.Context, scope aiworkbench.Scope, conve
 		return result, true, nil
 	}
 	return aiworkbench.BusinessTask{}, false, preflightErr
+}
+
+func proposalDomainMatchesRequest(row proposalRow, r agent.Request) bool {
+	p := proposal(row)
+	return p.MatchesRequest(r)
+}
+
+func taskRequestMatchesRow(row taskRow, r agent.Request) bool {
+	if !r.Binding.Valid() || !r.ValidContentSelection() || r.Key != row.ExecutionRequestKey || r.Binding.ContextID != row.OperationID || r.Binding.ProductKey != row.ProductKey || r.Binding.TargetPlatform != row.TargetPlatform {
+		return false
+	}
+	p := aiworkbench.ExecutionProposal{Kind: row.Kind, OperationID: row.OperationID, ProductKey: row.ProductKey, CatalogVersion: r.Binding.CatalogVersion, PublicationID: r.Binding.PublicationID, TargetPlatform: row.TargetPlatform, AgentID: row.AgentID, AgentVersion: row.AgentVersion}
+	if row.Kind == aiworkbench.ContentTaskKind {
+		p.ContextKind = r.Binding.ContextKind
+		p.ContentSelection = r.ContentSelection
+		p.ExecutionLimits = r.Limits
+	}
+	return p.MatchesRequest(r)
 }

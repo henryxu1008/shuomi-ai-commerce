@@ -6,7 +6,9 @@ import (
 	"task-processor/internal/marketplace/shein/goods"
 	temugoods "task-processor/internal/marketplace/temu/goods"
 	tiktok "task-processor/internal/marketplace/tiktokshop"
+	walmart "task-processor/internal/marketplace/walmart"
 	"task-processor/internal/product/asset"
+	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/collection"
 	"task-processor/internal/storecenter"
 	"time"
@@ -15,6 +17,15 @@ import (
 // ValidPlatformRecord rejects ambiguous payloads at persistence boundaries.
 // The current qualified SHEIN path and the TEMU variant stay explicit.
 func ValidPlatformRecord(value TargetRecord) bool {
+	if value.Input.WalmartRules != nil {
+		return false
+	}
+	if value.Input.Walmart != nil {
+		return value.Walmart != nil && value.WalmartRuleSnapshot != nil && value.Input.TikTok == nil && value.Input.Temu == nil && value.Input.TikTokRules == nil && value.Input.TemuRules == nil && value.TikTok == nil && value.TikTokRuleSnapshot == nil && value.Temu == nil && value.TemuRuleSnapshot == nil && len(value.TikTokImageObservations) == 0 && len(value.TemuImageObservations) == 0 && len(value.ImageObservations) == 0 && len(value.ProofObservations) == 0 && reflect.DeepEqual(value.Input.Draft, goods.OfficialDraftInput{}) && reflect.DeepEqual(value.Result, goods.OfficialDraft{}) && value.Merchant.ValidWalmartApplication() && value.Walmart.Selection == value.Input.Walmart.Selection && value.WalmartRuleSnapshot.Selection == value.Input.Walmart.Selection && value.RulesHash == value.WalmartRuleSnapshot.Hash() && value.Walmart.RulesHash == value.RulesHash && value.Walmart.ValidateWire() == nil
+	}
+	if value.Walmart != nil || value.WalmartRuleSnapshot != nil || len(value.WalmartImageObservations) > 0 || value.Merchant.Platform == storecenter.PlatformWalmart {
+		return false
+	}
 	if value.Input.TikTokRules != nil {
 		return false
 	}
@@ -39,6 +50,9 @@ func PublicationReady(value TargetRecord) bool {
 	if !ValidPlatformRecord(value) {
 		return false
 	}
+	if value.Merchant.Platform == storecenter.PlatformWalmart {
+		return value.Walmart.ValidateWire() == nil
+	}
 	if value.Merchant.Platform == storecenter.PlatformTikTokShop {
 		return value.TikTok.ReadyForUpload
 	}
@@ -49,20 +63,45 @@ func PublicationReady(value TargetRecord) bool {
 }
 
 type preparedPlatform struct {
-	merchant     storecenter.ProductMerchantBinding
-	rulesHash    string
-	shein        goods.OfficialDraft
-	images       []goods.OfficialImageObservation
-	proofs       []goods.OfficialStockProofObservation
-	temu         *temugoods.Draft
-	temuRules    *temugoods.RuleSnapshot
-	temuImages   []temugoods.ImageObservation
-	tiktok       *tiktok.Draft
-	tiktokRules  *tiktok.RuleSnapshot
-	tiktokImages []tiktok.ImageObservation
+	walmart       *walmart.Draft
+	walmartRules  *walmart.RuleSnapshot
+	walmartImages []walmart.ImageObservation
+	merchant      storecenter.ProductMerchantBinding
+	rulesHash     string
+	shein         goods.OfficialDraft
+	images        []goods.OfficialImageObservation
+	proofs        []goods.OfficialStockProofObservation
+	temu          *temugoods.Draft
+	temuRules     *temugoods.RuleSnapshot
+	temuImages    []temugoods.ImageObservation
+	tiktok        *tiktok.Draft
+	tiktokRules   *tiktok.RuleSnapshot
+	tiktokImages  []tiktok.ImageObservation
+	sheinRules    goods.OfficialRuleSnapshot
 }
 
-func (s *TargetService) preparePlatform(ctx context.Context, scope collection.Scope, input TargetInput, inventory asset.ApprovedAssetInventory) (preparedPlatform, error) {
+func (s *TargetService) preparePlatform(ctx context.Context, scope collection.Scope, input TargetInput, inventory asset.ApprovedAssetInventory, product catalog.PublishedSnapshot) (preparedPlatform, error) {
+	if input.Walmart != nil {
+		if s.dependencies.WalmartRules == nil {
+			return preparedPlatform{}, ErrUnavailable
+		}
+		merchant, rules, e := s.dependencies.WalmartRules.ReadWalmartTargetRules(ctx, scope, input.StoreID, input.Walmart.Selection)
+		if e != nil {
+			return preparedPlatform{}, e
+		}
+		if merchant.OrganizationID != scope.OrganizationID || merchant.StoreID != input.StoreID || !merchant.ValidWalmartApplication() || !time.Now().Before(merchant.ServiceExpiresAt) || !time.Now().Before(merchant.CredentialExpiresAt) {
+			return preparedPlatform{}, ErrNotReady
+		}
+		images, e := ProbeWalmartTargetImages(ctx, s.dependencies.WalmartImages, *input.Walmart, inventory)
+		if e != nil {
+			return preparedPlatform{}, e
+		}
+		result, e := walmart.BuildDraft(*input.Walmart, rules, walmart.SKUNamespace(merchant.SupplierIdentityHash, merchant.Walmart.GrantID), product.Identity.ProductKey, WalmartSourceSKUKeys(product.Snapshot))
+		if e != nil {
+			return preparedPlatform{}, ErrNotReady
+		}
+		return preparedPlatform{merchant: merchant, rulesHash: rules.Hash(), walmart: &result, walmartRules: &rules, walmartImages: images}, nil
+	}
 	if input.TikTok != nil {
 		if s.dependencies.TikTokRules == nil {
 			return preparedPlatform{}, ErrUnavailable
@@ -122,5 +161,5 @@ func (s *TargetService) preparePlatform(ctx context.Context, scope collection.Sc
 		return preparedPlatform{}, err
 	}
 	result := goods.BuildOfficial(input.Draft, rules, inventory, observations, proofs)
-	return preparedPlatform{merchant: merchant, rulesHash: collection.Digest(rules), shein: result, images: observations, proofs: proofs}, nil
+	return preparedPlatform{merchant: merchant, rulesHash: collection.Digest(rules), shein: result, sheinRules: rules, images: observations, proofs: proofs}, nil
 }

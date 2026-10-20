@@ -93,6 +93,34 @@ func TestPostgresCollectionAtomicReplayOwnershipMoveAndCommitUnknown(t *testing.
 	require.NoError(t, err)
 	require.True(t, replay.Replayed)
 	require.Equal(t, receipt.ItemID, replay.ItemID)
+	t.Run("artwork adoption gates only new writes and replays the original receipt", func(t *testing.T) {
+		art := testCommand(scope, uuid.NewString(), collection.Mutation{Action: "adopt_artwork", Product: &collection.OwnProduct{Title: "原创图案", Images: []string{"https://cdn.example/artwork.png"}}})
+		art.Envelope.Identity.SourceType, art.Envelope.Identity.SourcePlatform = "agent_generated", "pod_artwork"
+		art.Envelope.RawReference.ReferenceType = "pod-artwork-v1"
+		calls := 0
+		allowed := false
+		art.ArtworkWriteGuard = func(context.Context) error {
+			calls++
+			if !allowed {
+				return collection.ErrForbidden
+			}
+			return nil
+		}
+		_, err := repository.Execute(ctx, art)
+		require.ErrorIs(t, err, collection.ErrForbidden)
+		allowed = true
+		first, err := repository.Execute(ctx, art)
+		require.NoError(t, err)
+		allowed = false
+		second, err := repository.Execute(ctx, art)
+		require.NoError(t, err)
+		require.True(t, second.Replayed)
+		require.Equal(t, first.ItemID, second.ItemID)
+		require.Equal(t, 2, calls, "a committed replay does not acquire new write permission")
+		art.InputHash = collection.Digest("changed")
+		_, err = repository.Execute(ctx, art)
+		require.ErrorIs(t, err, collection.ErrConflict)
+	})
 	changed := command
 	changed.InputHash = collection.Digest("different payload")
 	_, err = repository.Execute(ctx, changed)
@@ -233,7 +261,7 @@ func TestPostgresCollectionAtomicReplayOwnershipMoveAndCommitUnknown(t *testing.
 		require.NoError(t, err)
 		original, err := repository.ReadItem(ctx, owner, created.ItemID)
 		require.NoError(t, err)
-		base := collection.Mutation{Action: "revise_product", ItemID: original.ID, ExpectedRevision: original.Revision, ExpectedSourceVersion: original.Source.Version, ExpectedPublicationID: original.Source.PublicationID, Product: &collection.OwnProduct{Title: "v2"}}
+		base := collection.Mutation{Action: "revise_product", ItemID: original.ID, ExpectedRevision: original.Revision, ExpectedSourceVersion: original.Source.Version, ExpectedPublicationID: original.Source.PublicationID, Product: &collection.OwnProduct{Title: "v2", Description: `<p><strong>Version two</strong><img src="https://images.example.org/a.png"></p>`, DescriptionFormat: "html-v1", Images: []string{"https://images.example.org/a.png"}}}
 		commands := []collection.Command{testCommand(owner, uuid.NewString(), base), testCommand(owner, uuid.NewString(), base)}
 		type outcome struct {
 			index int
@@ -257,6 +285,13 @@ func TestPostgresCollectionAtomicReplayOwnershipMoveAndCommitUnknown(t *testing.
 		current, err := repository.ReadItem(ctx, owner, created.ItemID)
 		require.NoError(t, err)
 		require.EqualValues(t, 2, current.Source.Version)
+		rich, err := snapshots.GetSnapshot(ctx, catalog.SnapshotIdentity{TenantID: owner.OrganizationID, ProductKey: current.Source.ProductKey}, current.Source.Version)
+		require.NoError(t, err)
+		require.Equal(t, base.Product.Description, rich.Snapshot.Description)
+		require.Equal(t, "html-v1", rich.Snapshot.DescriptionFormat)
+		originalSnapshot, err := snapshots.GetSnapshot(ctx, rich.Identity, 1)
+		require.NoError(t, err)
+		require.Empty(t, originalSnapshot.Snapshot.DescriptionFormat)
 		require.EqualValues(t, 2, current.Revision)
 		replay, err := repository.Execute(ctx, commands[winner])
 		require.NoError(t, err)

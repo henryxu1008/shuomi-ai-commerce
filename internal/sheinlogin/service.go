@@ -1034,6 +1034,10 @@ func (s *Service) clearSession(tenantID int64, storeID int64) {
 }
 
 func (s *Service) syncStoreIDAfterLogin(ctx context.Context, account Account) {
+	if account.TenantID <= 0 || account.StoreID <= 0 {
+		sheinLoginServiceLogger.WithField("failure", "invalid_account_scope").Warn("skip SHEIN store sync")
+		return
+	}
 	actualStoreID, err := s.resolveActualStoreID(ctx, account)
 	if err != nil {
 		sheinLoginServiceLogger.WithError(err).WithFields(map[string]any{
@@ -1055,12 +1059,18 @@ func (s *Service) syncStoreIDAfterLogin(ctx context.Context, account Account) {
 	actualStoreIDText := strconv.FormatInt(actualStoreID, 10)
 	duplicateStore, err := s.lookupDuplicateStore(ctx, account, actualStoreIDText)
 	if err != nil {
-		sheinLoginServiceLogger.WithError(err).WithFields(map[string]any{
-			"tenant_id":       account.TenantID,
-			"store_id":        account.StoreID,
-			"actual_store_id": actualStoreIDText,
-		}).Warn("lookup duplicate SHEIN store id failed")
+		// An incomplete lookup cannot authorize either Store write. Do not log
+		// arbitrary provider errors that may include another tenant's metadata.
+		sheinLoginServiceLogger.WithField("failure", "duplicate_lookup_failed").Warn("skip SHEIN store sync")
+		return
 	} else if duplicateStore != nil {
+		if duplicateStore.TenantID != account.TenantID || duplicateStore.ID <= 0 ||
+			duplicateStore.ID == account.StoreID || duplicateStore.Status != 0 ||
+			!strings.EqualFold(strings.TrimSpace(duplicateStore.Platform), "SHEIN") ||
+			strings.TrimSpace(duplicateStore.StoreID) != actualStoreIDText {
+			sheinLoginServiceLogger.WithField("failure", "invalid_duplicate_scope").Warn("skip SHEIN store sync")
+			return
+		}
 		duplicateStoreName := strings.TrimSpace(duplicateStore.Name)
 		if duplicateStoreName == "" {
 			duplicateStoreName = "-"
@@ -1173,7 +1183,7 @@ func (s *Service) lookupDuplicateStore(ctx context.Context, account Account, act
 	if s != nil && s.findDuplicateStore != nil {
 		return s.findDuplicateStore(ctx, account, actualStoreID)
 	}
-	return nil, nil
+	return nil, fmt.Errorf("SHEIN duplicate lookup is not configured")
 }
 
 func (s *Service) ConfigureRuntimeSheinAPIClients() {

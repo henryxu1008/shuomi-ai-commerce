@@ -46,6 +46,7 @@ func applyContentPatch(base catalog.ProductSnapshot, selection enrichment.Conten
 				return catalog.ProductSnapshot{}, ErrInvalid
 			}
 			snapshot.Description = change.Value
+			snapshot.DescriptionFormat = ""
 		case "selling_points", "seo_keywords":
 			values, err := contentArray(change.Value)
 			if err != nil {

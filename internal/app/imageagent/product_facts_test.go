@@ -9,6 +9,21 @@ import (
 	"task-processor/internal/product/catalog"
 )
 
+func TestImageSourceDescriptionAllowsMissingOriginalsButPreparationDoesNot(t *testing.T) {
+	snapshot := catalog.PublishedSnapshot{Identity: catalog.SnapshotIdentity{TenantID: "org", ProductKey: "product"}, Version: 1, PublicationID: "original", Snapshot: catalog.ProductSnapshot{Title: "Saved product"}}
+	read, err := DescribeImageProduct("source", snapshot, snapshot, "", nil)
+	require.NoError(t, err)
+	require.Empty(t, read.Catalog.Assets)
+	require.Equal(t, "product", read.Source.ProductID)
+	require.NotEmpty(t, read.Source.CatalogHash)
+	_, err = PrepareImageProduct("source", snapshot, snapshot, "", nil)
+	require.Error(t, err, "zero images must never enter a generation preparation")
+	other := snapshot
+	other.Identity.TenantID = "other"
+	_, err = DescribeImageProduct("source", snapshot, other, "", nil)
+	require.Error(t, err)
+}
+
 func TestImageProductEvidenceReadsExplicitCapturedAttributesWithoutInference(t *testing.T) {
 	product := catalog.ProductSnapshot{Attributes: []catalog.Attribute{
 		{Name: "规格尺寸", Value: "1024 × 1024 像素的虚拟测试卡"},

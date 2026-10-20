@@ -20,6 +20,25 @@ func TestSupplyCompletionDraftDocumentPreservesOriginalAuthorityAndExplicitRollo
 	})
 }
 
+func TestSheinImportDocumentBindsExistingOwnersAndExplicitConfirmation(t *testing.T) {
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "completion-shein-import-v1.md"), []string{"Independent Architecture", "IMPLEMENTATION_READY", "SourceItem", "baseRecordId", "rulesHash", "merchantHash", "selection", "supply.manage", "expectedRevision=Rm", "FindTargetCommand", "409", "UNKNOWN", "不发布", "不在 SQL 事务内重复官方网络请求"})
+}
+
+func TestOwnProductDraftEntryReusesFixedSourceAndExplicitSaveContracts(t *testing.T) {
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "own-product-draft-entry-v1.md"), []string{
+		"Reuse Existing Architecture", "BatchSelectionInput.ItemIDs", "expectedRevision", "先于确认资料",
+		"不自动执行Save", "UNKNOWN", "retained-source", "原owner安装合同", "不引入新的能力开关",
+	})
+}
+
+func TestOwnProductExistingDraftsDocumentKeepsBoundedReadAndNavigationAuthority(t *testing.T) {
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "own-product-existing-drafts-v1.md"), []string{
+		"Independent Architecture", "ListForCollectionItem", "org/actor/member", "2MiB", "keyset",
+		"不建反向映射或第二事实源", "不新增每行IAM", "导航按钮不能授权", "不是“自动过期/不可用”",
+		"原sourceID", "不接受完整return URL", "只列已明确保存", "UNKNOWN", "不代签用户/生产验收",
+	})
+}
+
 func TestStoreObservationsPreparationDocumentKeepsExecutionClosed(t *testing.T) {
 	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "store-observations-preparation-runtime.md"), []string{
 		"IMPLEMENTATION_READY", "preparationOnly=true", "zero", "configured official applications",
@@ -365,7 +384,6 @@ func TestProjectBoundaryDocumentTracksCurrentEnforcementTests(t *testing.T) {
 		"depguard: shein_submitprep_legacy_tenantctx",
 		"depguard: listingruntime_local_legacy_management",
 		"TestListingRuntimeLocalManagementImportsStayRetiredAcrossBuildTargets",
-		"depguard: app_taskstatus_legacy_management",
 		"TestListingKitRootSheinHelpersStayAllowlisted",
 		"TestListingKitRootServiceSubmitFilesStayAllowlisted",
 		"TestListingKitRootTaskSubmissionFilesStayAllowlisted",
@@ -452,18 +470,13 @@ func TestProjectBoundaryDocumentTracksCurrentEnforcementTests(t *testing.T) {
 		"TestPlatformRegistrationPackagesContainNoLocalArtifacts",
 		"TestBusinessDomainsDoNotImportAppRuntimeAssembly",
 		"TestAppBootstrapRetiredManagementImportsStayBlocked",
-		"TestAppTaskRetiredManagementImportsStayBlocked",
-		"TestAppTaskRuntimeStoreAliasesStayRetired",
 		"TestAppRunnerRetiredManagementImportsStayBlocked",
 		"TestAppConsumerRetiredManagementImportsStayBlocked",
 		"TestAppHTTPAPIRetiredManagementImportsStayBlocked",
 		"TestAppRuntimeListingRetiredManagementImportsStayBlocked",
-		"depguard: app_taskstatus_legacy_management",
-		"TestAppTaskStatusRetiredManagementImportsStayBlocked",
 		"TestPlatformTaskRetiredManagementImportsStayBlocked",
 		"TestStateRetiredManagementImportsStayBlocked",
 		"TestPlatformBaseRetiredManagementImportsStayBlocked",
-		"TestProcessorRetiredManagementImportsStayBlocked",
 		"TestTaskRPCAPIRetiredManagementImportsStayBlocked",
 		"TestSDSClientRetiredManagementImportsStayBlocked",
 		"TestSheinLoginBootstrapRetiredManagementImportsStayBlocked",
@@ -706,8 +719,6 @@ func TestArchitectureReviewChecklistCoversBoundaryRegressionRisks(t *testing.T) 
 		"TestSheinRetiredManagementImportsStayBlocked",
 		"TestSheinOpenAIImportsStayAllowlisted",
 		"TestPublishingSheinManagedRetiredManagementImportsStayBlocked",
-		"TestAppTaskRetiredManagementImportsStayBlocked",
-		"TestAppTaskRuntimeStoreAliasesStayRetired",
 		"TestAppRunnerRetiredManagementImportsStayBlocked",
 		"TestAppConsumerRetiredManagementImportsStayBlocked",
 		"TestAppBootstrapRetiredManagementImportsStayBlocked",
@@ -715,12 +726,9 @@ func TestArchitectureReviewChecklistCoversBoundaryRegressionRisks(t *testing.T) 
 		"TestListingRuntimeLocalManagementImportsStayRetiredAcrossBuildTargets",
 		"TestAppHTTPAPIRetiredManagementImportsStayBlocked",
 		"TestAppRuntimeListingRetiredManagementImportsStayBlocked",
-		"depguard: app_taskstatus_legacy_management",
-		"TestAppTaskStatusRetiredManagementImportsStayBlocked",
 		"TestPlatformTaskRetiredManagementImportsStayBlocked",
 		"TestStateRetiredManagementImportsStayBlocked",
 		"TestPlatformBaseRetiredManagementImportsStayBlocked",
-		"TestProcessorRetiredManagementImportsStayBlocked",
 		"TestTaskRPCAPIRetiredManagementImportsStayBlocked",
 		"TestSDSClientRetiredManagementImportsStayBlocked",
 		"TestSheinLoginBootstrapRetiredManagementImportsStayBlocked",
@@ -1478,8 +1486,6 @@ func TestExternalClientBoundaryInventoryDefinesCouplingHotspots(t *testing.T) {
 		"TestListingKitHTTPAPIRetiredManagementImportsStayBlocked",
 		"TestListingKitSheinSyncLegacyPromotionImportsStayAllowlisted",
 		"TestListingKitRootOpenAIImportsStayAllowlisted",
-		"TestAppTaskRetiredManagementImportsStayBlocked",
-		"TestAppTaskRuntimeStoreAliasesStayRetired",
 		"TestAppRunnerRetiredManagementImportsStayBlocked",
 		"TestAppConsumerRetiredManagementImportsStayBlocked",
 		"TestAppBootstrapRetiredManagementImportsStayBlocked",
@@ -1487,12 +1493,9 @@ func TestExternalClientBoundaryInventoryDefinesCouplingHotspots(t *testing.T) {
 		"TestListingRuntimeLocalManagementImportsStayRetiredAcrossBuildTargets",
 		"TestAppHTTPAPIRetiredManagementImportsStayBlocked",
 		"TestAppRuntimeListingRetiredManagementImportsStayBlocked",
-		"depguard: app_taskstatus_legacy_management",
-		"TestAppTaskStatusRetiredManagementImportsStayBlocked",
 		"TestPlatformTaskRetiredManagementImportsStayBlocked",
 		"TestStateRetiredManagementImportsStayBlocked",
 		"TestPlatformBaseRetiredManagementImportsStayBlocked",
-		"TestProcessorRetiredManagementImportsStayBlocked",
 		"TestTaskRPCAPIRetiredManagementImportsStayBlocked",
 		"TestSDSClientRetiredManagementImportsStayBlocked",
 		"TestSheinLoginBootstrapRetiredManagementImportsStayBlocked",
@@ -1747,6 +1750,24 @@ func TestSelectedApplicationOverviewDocumentPreservesReadOnlyOwnerBoundaries(t *
 	})
 }
 
+func TestSelectedApplicationMultiProductDocumentPreservesIndependentOwnersAndOriginalIntentRecovery(t *testing.T) {
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "selected-application-multi-product-v1.md"), []string{
+		"Independent Architecture", "IMPLEMENTATION_READY / FROZEN", "SupplyMarket", "submit_selected",
+		"useResourcePending", "navigator.locks", "1 MiB", "journal 在整批处理期间不可变",
+		"每件仍提交一个 submit_selected", "每件 Repository.Execute 仍在自己的同库事务",
+		"不新增后端批次 API/表", "刷新/重启页面：不自动 POST", "404 仅表示未读到回执，不证明未执行",
+		"完全相同键/载荷", "同一 member navigator lock", "无新公开URL", "不使用保留实例真实上传/提交/审批/发布",
+	})
+}
+
+func TestSupplyMarketChoiceEligibilityDocumentPreservesQualificationBoundaries(t *testing.T) {
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "supply-market-choice-eligibility.md"), []string{
+		"IMPLEMENTATION_READY", "not_optimized", "incomplete_product", "sealed selection",
+		"ReadEffective", "PublicProjection", "create_official_draft", "submit_selected",
+		"不提交申请", "正向流程仍为 NOT_RUN",
+	})
+}
+
 func TestArchitectureReadmeReferencesExistingDocuments(t *testing.T) {
 	readmePath := filepath.Join("..", "docs", "architecture", "README.md")
 	readmeContent, err := os.ReadFile(readmePath)
@@ -1864,19 +1885,15 @@ func TestAppAssemblyBoundaryDocumentDefinesStableAssemblyVocabulary(t *testing.T
 		"`consumer` assembles and coordinates",
 		"TestBusinessDomainsDoNotImportAppRuntimeAssembly",
 		"TestAppBootstrapRetiredManagementImportsStayBlocked",
-		"TestAppTaskRetiredManagementImportsStayBlocked",
-		"TestAppTaskRuntimeStoreAliasesStayRetired",
 		"TestAppRunnerRetiredManagementImportsStayBlocked",
 		"TestAppConsumerRetiredManagementImportsStayBlocked",
 		"TestAppHTTPAPIRetiredManagementImportsStayBlocked",
 		"TestAppRuntimeListingRetiredManagementImportsStayBlocked",
-		"TestAppTaskStatusRetiredManagementImportsStayBlocked",
 		"TestAppHTTPAPIProductImageExternalClientImportsStayAllowlisted",
 		"TestHTTPAPITypesKeepExternalClientRuntimeDepsDedicated",
 		"TestHTTPAPIAdaptersKeepOpenAIAssemblyDedicated",
 		"TestHTTPAPIRuntimeKeepsOpenAIRuntimeAssemblyDedicated",
 		"TestHTTPAPIRuntimeKeepsSharedResourceAssemblyDedicated",
-		"depguard: app_taskstatus_legacy_management",
 		"Review Questions",
 	}
 	for _, phrase := range required {

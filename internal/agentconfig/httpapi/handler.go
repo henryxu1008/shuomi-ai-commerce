@@ -292,7 +292,7 @@ func (h *Handler) project(ctx context.Context, scope agent.Scope, e agentconfig.
 	}
 	domainPermission := authz.PermissionLocalAgentWrite
 	readPermission := domainPermission
-	if e.Definition.ID == agentconfig.ImageAgentID {
+	if e.Definition.ID == agentconfig.ImageAgentID || e.Definition.ID == agentconfig.ArtworkAgentID {
 		domainPermission = authz.PermissionImageAgentWrite
 		readPermission = authz.PermissionImageAgentRead
 	}

@@ -132,7 +132,7 @@ func NewService(executor WelcomeGrantExecutor, verifier EligibilityVerifier, aut
 	return &Service{executor: executor, verifier: verifier, authorizer: authorizer}, nil
 }
 
-// GrantWelcomeStoreRenewalPeriod exposes the only Phase 1 positive-mint use
+// GrantWelcomeStoreRenewalPeriod exposes the onboarding positive-mint use
 // case. Resource type, quantity, and source identity are fixed here so neither
 // a browser nor a generic tenant caller can turn this into an arbitrary grant.
 func (s *Service) GrantWelcomeStoreRenewalPeriod(ctx context.Context, input GrantWelcomeStoreRenewalPeriodInput) (WelcomeGrantResult, error) {

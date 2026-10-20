@@ -113,18 +113,18 @@ func printUsage() {
   --format <格式>      输出格式: table, json, csv (默认: table)
   --help, -h           显示帮助信息
 
-示例:
-  # 查询批次的所有任务ID
-  db-query --table listing_kit_tasks --where "task_id='task-id'" --fields task_id,status
+示例 (尖括号内为占位内容):
+  # 按条件查询选定字段
+  db-query --table <table> --where "<condition>" --fields "<columns>"
 
-  # 查询待处理的任务
-  db-query --table listing_kit_tasks --where "status='pending'" --fields task_id,status --limit 50
+  # 限制返回记录数
+  db-query --table <table> --where "<condition>" --fields "<columns>" --limit 50
 
   # 以 JSON 格式输出
-  db-query --table listing_kit_tasks --where "status='completed'" --format json
+  db-query --table <table> --where "<condition>" --format json
 
   # 查询所有字段
-  db-query --table listing_kit_tasks --where "task_id='xxx'" --fields "*"
+  db-query --table <table> --where "<condition>" --fields "*"
 `)
 }
 

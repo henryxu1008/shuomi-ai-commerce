@@ -1,5 +1,12 @@
 "use client";
+import {nativeRunDestination} from "@/lib/agent-run-destination";
+import {ShopDiagnosisFlow} from "./shop-diagnosis-flow";
 import Link from "next/link";
+import { AgentMarket } from "./agent-market";
+import { AgentMine } from "./agent-mine";
+import { AgentCapabilityPanel } from "./agent-capability-panel";
+import {ProductSelectionFlow} from "./product-selection-flow";
+import {PODArtworkFlow} from "./pod-artwork-flow";
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { useWorkbenchContext } from "@/components/providers/workbench-context-provider";
@@ -26,6 +33,7 @@ import {
 import { basesSchema, knowledgeRequest } from "@/lib/api/knowledge";
 import styles from "./agents.module.css";
 import { ExecutionModeSettings } from "./execution-mode-settings";
+import { SkillManagerTrigger } from "../skills/skill-manager";
 import { ImageAgentPage } from "./image-agent-page";
 import { configurationError, useConfigurationRead as useRead } from "./agent-configuration-hooks";
 import { PrivateAgentCards } from "./private-agent-page";
@@ -48,13 +56,6 @@ const labels: Record<string, string> = {
   human_review_required: "待人工审核",
   stopped: "已停止",
 };
-const capabilityNames: Record<string, string> = {
-  "text.generate": "文本生成",
-  "product.source-evidence": "采集证据读取",
-  "knowledge.context": "企业知识引用",
-  "image.generate": "图片生成",
-  "platform.write": "平台写入",
-};
 type Intent = {
   path: string;
   payload: unknown;
@@ -66,9 +67,11 @@ type Intent = {
 export function AgentPage({
   mode,
   id,
+  podAvailable = false,
 }: {
   mode: "market" | "mine";
   id?: string;
+  podAvailable?: boolean;
 }) {
   const ctx = useWorkbenchContext();
   if (ctx.error || ctx.blockingError)
@@ -96,6 +99,7 @@ export function AgentPage({
       organization={ctx.effectiveOrganization.name}
       mode={mode}
       id={id}
+      podAvailable={podAvailable}
     />
   );
 }
@@ -104,15 +108,16 @@ function ScopedPage({
   organization,
   mode,
   id,
+  podAvailable = false,
 }: {
   scope: ConfigurationScope;
   organization: string;
   mode: "market" | "mine";
   id?: string;
+  podAvailable?: boolean;
 }) {
   const agentId = id ?? "product.title.agent";
-  const [filter, setFilter] = useState(""),
-    [after, setAfter] = useState(""),
+  const [after, setAfter] = useState(""),
     [nonce, setNonce] = useState(0),
     [intent, setIntent] = useState<Intent | null>(null),
     [busy, setBusy] = useState(false),
@@ -136,7 +141,7 @@ function ScopedPage({
   }, []);
   const path = id
     ? agentId
-    : `${mode}?pageSize=20${filter ? "&activation=" + filter : ""}${after ? "&cursor=" + after : ""}`;
+    : `${mode}?pageSize=20${after ? "&cursor=" + after : ""}`;
   const list = useRead<CatalogEntry | z.infer<typeof catalogPageSchema>>(
     scope,
     path,
@@ -152,14 +157,14 @@ function ScopedPage({
     `${agentId}/templates?pageSize=100${templateAfter ? "&cursor=" + templateAfter : ""}`,
     templatesPageSchema,
     nonce,
-    !!detail && detail.agent.activation !== "NOT_ENABLED",
+    !!detail && detail.agent.activation !== "NOT_ENABLED" && !["product.selection.agent","shop.operations-diagnosis.agent"].includes(agentId),
   );
   const recent = useRead(
     scope,
     `${agentId}/recent-runs?pageSize=20${recentAfter ? "&cursor=" + recentAfter : ""}`,
     recentRunsSchema,
     nonce,
-    !!detail?.canReadRuns,
+    !!detail?.canReadRuns && agentId!=="pod.design.agent" && !["product.selection.agent","shop.operations-diagnosis.agent"].includes(agentId),
   );
   const defaultRef = detail?.agent.defaultTemplate;
   const defaultTemplate = useRead(
@@ -241,90 +246,6 @@ function ScopedPage({
     });
   }
   const mutationDisabled = busy || !!intent;
-  const contentOperations = entries.filter(entry => ["product.title.agent", "product.content.agent"].includes(entry.agent.agentId));
-  function contentCard() {
-    return <Card key="product-content" className={styles.agentCard}>
-      <h2>商品内容与本地化</h2>
-      <p>完善标准商品的标题、描述、卖点与关键词，按明确目标语言处理内容。</p>
-      {contentOperations.map(entry => {
-        const title = entry.agent.agentId === "product.title.agent";
-        const operation = title ? "标题优化" : "内容完善与本地化";
-        const configuration = title ? "标题优化配置与历史" : "内容本地化配置与历史";
-        return <section key={entry.agent.agentId} aria-label={operation} className="space-y-2 pt-3">
-          <h3>{operation}</h3>
-          <div className={styles.cardActions}>
-            <span className={styles.status} data-active={entry.agent.activation === "ENABLED"}>{labels[entry.agent.activation]}</span>
-            <Link href={`/workbench/agents/mine/${entry.agent.agentId}`}>{configuration}</Link>
-            {entry.canConfigure && entry.agent.activation !== "ENABLED" ? <Button disabled={mutationDisabled} onClick={() => mutate(`${entry.agent.agentId}/enable`, {}, entry.agent.revision || undefined, entry.agent.activation === "NOT_ENABLED")}>启用到当前企业</Button> : null}
-            {mode === "mine" && entry.canUse ? <Link href={`/workbench/supply/acquisition?agent_kind=${title ? "title" : "content"}`}>进入{operation} →</Link> : null}
-            {mode === "mine" && entry.canConfigure && entry.agent.activation === "ENABLED" ? <Button variant="outline" disabled={mutationDisabled} onClick={() => setDisable(entry)}>停用{operation}</Button> : null}
-          </div>
-          {!entry.canUse ? <p className="text-muted-foreground">当前不能执行{operation}</p> : null}
-          {!entry.canUse && entry.capabilities.filter(cap => cap.support === "REQUIRED" && cap.readiness !== "AVAILABLE").map(cap => <p key={cap.id} className="text-muted-foreground"><strong>{capabilityNames[cap.id]}</strong>：<span>{cap.reason}</span></p>)}
-        </section>;
-      })}
-    </Card>;
-  }
-  function card(entry: CatalogEntry) {
-    return (
-      <Card key={entry.agent.agentId} className={styles.agentCard}>
-        <h2>{entry.name}</h2>
-        <p>{entry.description}</p>
-        <p className={styles.support}>{entry.agent.agentId === "product.image.agent" ? "主图与详情图 · 人工选择批准" : entry.agent.agentId === "product.content.agent" ? "标题、描述、卖点、SEO关键词 · 内容本地化" : "标题优化 · 人工审核"}</p>
-        <div className={styles.cardActions}>
-          <span
-            className={styles.status}
-            data-active={entry.agent.activation === "ENABLED"}
-          >
-            {labels[entry.agent.activation]}
-          </span>
-          {entry.canConfigure && entry.agent.activation !== "ENABLED" ? (
-            <Button
-              disabled={mutationDisabled}
-              onClick={() =>
-                mutate(
-                  `${entry.agent.agentId}/enable`,
-                  {},
-                  entry.agent.revision || undefined,
-                  entry.agent.activation === "NOT_ENABLED",
-                )
-              }
-            >
-              启用到当前企业
-            </Button>
-          ) : (
-            <Link href={`/workbench/agents/mine/${entry.agent.agentId}`}>
-              查看配置 →
-            </Link>
-          )}
-        </div>
-        {mode === "mine" && (
-          <div className={styles.cardActions}>
-            <Link href={`/workbench/agents/mine/${entry.agent.agentId}`}>
-              能力与模板
-            </Link>
-            {entry.canUse ? (
-              <Link href="/workbench/supply/acquisition">进入使用 →</Link>
-            ) : (
-              <span className="text-muted-foreground">当前不能执行</span>
-            )}
-          </div>
-        )}
-        {!entry.canUse &&
-          entry.capabilities
-            .filter(
-              (cap) =>
-                cap.support === "REQUIRED" && cap.readiness !== "AVAILABLE",
-            )
-            .map((cap) => (
-              <p key={cap.id} className="text-muted-foreground">
-                <strong>{capabilityNames[cap.id]}</strong>：
-                <span>{cap.reason}</span>
-              </p>
-            ))}
-      </Card>
-    );
-  }
   return (
     <ConsolePage
       title={
@@ -334,8 +255,8 @@ function ScopedPage({
         <>
           当前企业 · {organization}。
           {mode === "mine"
-            ? "管理企业智能体，查看配置状态和本人最近任务。"
-            : "选择适合业务场景的智能体，显式启用到当前企业。"}
+            ? "管理当前企业的智能体，在这里启用、配置并进入使用。"
+            : "按业务分类查找智能体，在我的智能体中启用与配置。"}
         </>
       }
       breadcrumbs={[
@@ -350,19 +271,9 @@ function ScopedPage({
         },
         ...(id ? [{ label: "智能体配置" }] : []),
       ]}
-      actions={
-        <Link
-          href={
-            mode === "market"
-              ? "/workbench/agents/mine"
-              : "/workbench/agents/market"
-          }
-        >
-          {mode === "market" ? "我的智能体 →" : "前往智能体市场 →"}
-        </Link>
-      }
+      actions={mode === "mine" ? <Button asChild variant="outline" size="sm"><Link href={id ? "/workbench/agents/mine" : "/workbench/agents/market"} prefetch={false}>{id ? "返回我的智能体" : "前往智能体市场"}</Link></Button> : <Link href="/workbench/agents/mine">我的智能体 →</Link>}
     >
-      {mode === "mine" && !id ? <PrivateAgentCards scope={scope}/> : null}
+
       {failure != null && (
         <div role="alert" className={styles.notice}>
           {configurationError(failure)}
@@ -393,10 +304,12 @@ function ScopedPage({
         </ConsoleState>
       ) : id && detail ? (
         <>
+          {agentId==="product.content.agent"&&<SkillManagerTrigger key={`${scope.userId}:${scope.organizationId}:${detail.canConfigure}`} scope={scope} space="organization" canConfigure={detail.canConfigure}/>}
           <Card className={styles.detailHead}>
             <div>
               <h2>{agentId === "product.title.agent" ? "商品内容与本地化 · 标题优化配置" : detail.name}</h2>
               <p>{detail.description}</p>
+              {agentId === "product.content.agent" && detail.canUse && <p>打开商品资料，选择“优化商品内容”；确认时可选标题技能，建议人工审核后单独确认采用。</p>}
               <p>
                 {labels[detail.agent.activation]} · {detail.definitionVersion}
               </p>
@@ -406,8 +319,8 @@ function ScopedPage({
               </nav> : null}
             </div>
             <div className={styles.actions}>
-              {detail.canUse && (
-                <Link href="/workbench/supply/acquisition">
+              {detail.canUse && !["pod.design.agent","product.selection.agent","shop.operations-diagnosis.agent"].includes(agentId) && (
+                <Link href={agentId==="product.content.agent"?"/workbench/data/mine?view=own":"/workbench/supply/acquisition"}>
                   选择商品并进入使用 →
                 </Link>
               )}
@@ -439,31 +352,11 @@ function ScopedPage({
           </Card>
           <div className={styles.detailGrid}>
             <Card className={styles.panel}>
-              <h2>当前能力</h2>
-              <p>配置状态不代表执行许可，执行时重新确认当前权限与预算。</p>
-              {detail.capabilities.map((cap) => (
-                <section key={cap.id} className={styles.capability}>
-                  <div>
-                    <h3>
-                      {capabilityNames[cap.id]} · {labels[cap.support]}
-                    </h3>
-                    <p>{cap.reason}</p>
-                  </div>
-                  <span className={styles.capabilityStatus} data-readiness={cap.support === "NOT_SUPPORTED" ? cap.support : cap.readiness}>
-                    {
-                      labels[
-                        cap.support === "NOT_SUPPORTED"
-                          ? cap.support
-                          : cap.readiness
-                      ]
-                    }
-                  </span>
-                </section>
-              ))}
+              <AgentCapabilityPanel entry={detail}/>
             </Card>
             <div className={styles.detailSidebar}>
-            {detail.agent.activation !== "NOT_ENABLED" ? <ExecutionModeSettings scope={scope} subject={{kind:"registered_agent",id:detail.agent.agentId}}/> : null}
-            <Card className={styles.panel}>
+            {detail.agent.activation !== "NOT_ENABLED" ? <ExecutionModeSettings scope={scope} subject={{kind:"registered_agent",id:detail.agent.agentId}} onSaved={()=>setNonce(n=>n+1)} onRefresh={()=>setNonce(n=>n+1)}/> : null}
+          <Card className={styles.panel}>
               <div className={styles.cardActions}>
                 <h2>默认模板</h2>
                 {detail.canConfigure && defaultRef && (
@@ -485,7 +378,7 @@ function ScopedPage({
                 )}
               </div>
               {!defaultRef ? (
-                <p>暂无默认模板；执行时仍可显式选择平台和是否引用知识。</p>
+                <p>{["product.selection.agent","shop.operations-diagnosis.agent"].includes(agentId)?"分析使用本次明确目标，不使用内容、刊登或图片模板。":"暂无默认模板；执行时仍可显式选择平台和是否引用知识。"}</p>
               ) : defaultTemplate.error ? (
                 <p role="alert">
                   默认模板当前不可用。执行前须明确选择其他模板或不使用模板。
@@ -497,6 +390,7 @@ function ScopedPage({
                     {defaultTemplate.data.version}
                   </h3>
                   <p>素材平台：{defaultTemplate.data.targetPlatform}</p>
+                  {defaultTemplate.data.agentId==="pod.design.agent"&&<p>创作风格：{defaultTemplate.data.artwork.style||"未指定"} · 约束：{defaultTemplate.data.artwork.constraints||"未指定"}</p>}
                   {defaultTemplate.data.agentId === "product.content.agent" && <p>{contentSelectionLabel(defaultTemplate.data.content.selection)}</p>}
                   <p>
                     {defaultTemplate.data.knowledgeAvailability ===
@@ -514,10 +408,13 @@ function ScopedPage({
             </Card>
             </div>
           </div>
+            {agentId==="shop.operations-diagnosis.agent"&&<ShopDiagnosisFlow scope={scope} entry={detail} nonce={nonce}/>}
+            {agentId==="product.selection.agent"&&<ProductSelectionFlow scope={scope} entry={detail} nonce={nonce}/>}
+            {agentId==="pod.design.agent"&&<PODArtworkFlow scope={scope} entry={detail} templates={templates.data?.items.filter(t=>t.agentId==="pod.design.agent")??[]} nonce={nonce} podAvailable={podAvailable}/>}
           <Card className={styles.panel}>
             <div className={styles.cardActions}>
-              <h2>版本化模板</h2>
-              {detail.canConfigure && (
+              <h2>{["product.selection.agent","shop.operations-diagnosis.agent"].includes(agentId)?"本次分析参数":"版本化模板"}</h2>
+              {detail.canConfigure && !["product.selection.agent","shop.operations-diagnosis.agent"].includes(agentId) && (
                 <Button
                   disabled={
                     mutationDisabled ||
@@ -529,7 +426,7 @@ function ScopedPage({
                 </Button>
               )}
             </div>
-            {templates.error ? (
+            {["product.selection.agent","shop.operations-diagnosis.agent"].includes(agentId)?<p>商品、店铺与本次分析目标在相应操作面板选择，第一版不开放命名模板。</p>:templates.error ? (
               <p role="alert">{configurationError(templates.error)}</p>
             ) : templates.data?.items.length ? (
               <div className={styles.templateList}>
@@ -651,6 +548,7 @@ function ScopedPage({
                     <h3>
                       {old.data.name} · v{old.data.version}
                     </h3>
+                    {old.data.agentId==="pod.design.agent"&&<p>创作风格：{old.data.artwork.style||"未指定"} · 约束：{old.data.artwork.constraints||"未指定"}</p>}
                     {old.data.agentId === "product.content.agent" && <p>{contentSelectionLabel(old.data.content.selection)}</p>}
                     <p>
                       素材平台 {old.data.targetPlatform} ·{" "}
@@ -693,7 +591,7 @@ function ScopedPage({
               </section>
             )}
           </Card>
-          <Card className={styles.panel}>
+          {!["product.selection.agent","shop.operations-diagnosis.agent"].includes(agentId)&&<Card className={styles.panel}>
             <h2>本人最近发起的任务</h2>
             <p>
               仅展示当前企业中你有商品访问权限的任务；采用方式以本次冻结权限为准。
@@ -704,18 +602,16 @@ function ScopedPage({
               <p>{configurationError(recent.error)}</p>
             ) : recent.data?.items.length ? (
               <ul className={styles.recent}>
-                {recent.data.items.map((run) => (
+                {recent.data.items.map((run) => {
+                  const destination=nativeRunDestination(scope,agentId,run.contextKind,run.operationId,run.requestKey,run.targetPlatform);
+                  return (
                   <li key={run.runId}>
                     <span>
-                      {run.productKey} · {labels[run.phase]}
+                      {run.productKey} · {labels[run.phase]} · {run.runId}
                     </span>
-                    <Link
-                      href={`/workbench/supply/acquisition/operation/${run.operationId}?agent_key=${run.requestKey}&agent_actor=${encodeURIComponent(scope.userId)}&agent_org=${encodeURIComponent(scope.organizationId)}&agent_platform=${run.targetPlatform}${agentId === "product.content.agent" ? "&agent_kind=content" : ""}`}
-                    >
-                      查看任务 →
-                    </Link>
+                    {destination.direct?<Link href={destination.href}>查看任务 →</Link>:<p>该上下文暂无详情入口，暂不能重新打开；可按运行编号核对原记录。</p>}
                   </li>
-                ))}
+                );})}
               </ul>
             ) : recent.data ? (
               <p>暂无本人已领取执行的任务。</p>
@@ -739,72 +635,23 @@ function ScopedPage({
                 )}
               </nav>
             )}
-          </Card>
+          </Card>}
         </>
+      ) : mode === "market" ? (
+        <AgentMarket entries={entries} />
       ) : (
-        <>
-          {mode === "mine" && (
-            <div className={styles.filters}>
-              {[
-                ["", "全部"],
-                ["ENABLED", "已启用"],
-                ["DISABLED", "已停用"],
-              ].map(([value, label]) => (
-                <Button
-                  key={value}
-                  variant="outline"
-                  aria-pressed={filter === value}
-                  onClick={() => {
-                    setFilter(value);
-                    setAfter("");
-                  }}
-                >
-                  {label}
-                </Button>
-              ))}
-            </div>
-          )}
-          <div
-            className={mode === "market" ? styles.marketGrid : styles.mineGrid}
-          >
-            <div
-              className={mode === "market" ? styles.cards : styles.mineCards}
-            >
-              {entries.length ? (
-                entries.map(entry => ["product.title.agent", "product.content.agent"].includes(entry.agent.agentId)
-                  ? entry.agent.agentId === contentOperations[0]?.agent.agentId ? contentCard() : null : card(entry))
-              ) : (
-                <ConsoleState kind="empty" title="当前企业尚无符合条件的智能体">
-                  <Link href="/workbench/agents/market">前往市场启用</Link>
-                </ConsoleState>
-              )}
-            </div>
-            {mode === "mine" && (
-              <Card className={styles.panel}>
-                <h2>使用流程</h2>
-                <ol className={styles.steps}>
-                  <li>选择企业已启用的智能体</li>
-                  <li>从 1688 采集已保存商品中选择商品</li>
-                  <li>确认精确模板版本、平台和企业知识选择</li>
-                  <li>查看生成建议，按本次权限确认或查看策略采用回执</li>
-                </ol>
-                <p>启用智能体不会创建执行任务，也不会自动使用知识。</p>
-              </Card>
-            )}
-          </div>
-          {!id && data && "nextCursor" in data && data.nextCursor && (
-            <Button variant="outline" onClick={() => setAfter(data.nextCursor)}>
-              下一页
-            </Button>
-          )}
-        </>
+        <AgentMine scope={scope} entries={entries} pageScoped={Boolean(after || (!id && data && "nextCursor" in data && data.nextCursor))} pagination={after || (data && "nextCursor" in data && data.nextCursor) ? <nav aria-label="智能体分页" className={styles.actions}>
+          {after ? <Button variant="outline" onClick={()=>setAfter("")}>返回智能体首页</Button> : null}
+          {data && "nextCursor" in data && data.nextCursor ? <Button variant="outline" onClick={()=>setAfter(data.nextCursor)}>下一页</Button> : null}
+        </nav> : null}/>
       )}
+      {mode === "mine" && !id ? <PrivateAgentCards scope={scope}/> : null}
       {disable && (
         <ConfirmDisable
           busy={busy}
           onCancel={() => setDisable(null)}
           onConfirm={() =>
-            mutate(`${agentId}/disable`, {}, disable.agent.revision)
+            mutate(`${disable.agent.agentId}/disable`, {}, disable.agent.revision)
           }
         />
       )}
@@ -887,9 +734,11 @@ function TemplateEditor({
   onCancel: () => void;
 }) {
   const content = agentId === "product.content.agent";
+  const materials=agentId==="listing.materials.agent";
+  const artwork=agentId==="pod.design.agent";
   const dialog = useRef<HTMLDialogElement>(null);
   const [name, setName] = useState(template?.name ?? ""),
-    [platform, setPlatform] = useState(template?.targetPlatform ?? (content ? "product" : "shein")),
+    [platform, setPlatform] = useState(template?.targetPlatform ?? (artwork ? "sds" : content ? "product" : "shein")),
     [base, setBase] = useState(
       template?.knowledgeAvailability === "UNAVAILABLE"
         ? "unresolved"
@@ -900,11 +749,13 @@ function TemplateEditor({
     [basePage, setBasePage] = useState(1),
     [baseTotal, setBaseTotal] = useState(0);
   const [selection, setSelection] = useState<ContentSelection>(template?.agentId === "product.content.agent" ? template.content.selection : { targetLanguage: "", title: true, description: true, sellingPoints: true, seoKeywords: true });
+  const [artStyle,setArtStyle]=useState(template?.agentId==="pod.design.agent"?template.artwork.style:""),[artConstraints,setArtConstraints]=useState(template?.agentId==="pod.design.agent"?template.artwork.constraints:"");
   const validSelection = !content || contentSelectionSchema.safeParse(selection).success;
   useEffect(() => {
     const e = dialog.current;
     e?.showModal();
     const controller = new AbortController();
+    if(materials||artwork) return ()=>{e?.close();controller.abort()};
     knowledgeRequest(
       scope,
       `knowledge-bases?pageSize=100&page=${basePage}`,
@@ -925,7 +776,7 @@ function TemplateEditor({
       e?.close();
       controller.abort();
     };
-  }, [scope, basePage]);
+  }, [scope, basePage,materials,artwork]);
   return (
     <dialog
       ref={dialog}
@@ -937,9 +788,9 @@ function TemplateEditor({
       }}
     >
       <h2 id="template-editor-title">
-        {template ? "保存模板新版本" : content ? "保存内容模板" : "保存标题模板"}
+        {template ? "保存模板新版本" : artwork ? "保存原创图案模板" : materials ? "保存平台资料模板" : content ? "保存内容模板" : "保存标题模板"}
       </h2>
-      <p>模板保存默认配置，执行前仍需确认当前企业权限、预算和知识版本。</p>
+      <p>{materials?"模板保存目标平台；执行前仍核对当前企业权限、预算、标准商品和店铺规则。":"模板保存默认配置，执行前仍需确认当前企业权限、预算和知识版本。"}</p>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -947,7 +798,8 @@ function TemplateEditor({
             onSave({
               name,
               targetPlatform: platform,
-              defaultKnowledgeBaseId: base || null,
+              ...(!materials&&!artwork?{defaultKnowledgeBaseId:base||null}:{}),
+              ...(artwork?{artwork:{schema:"pod-artwork-config-v1",style:artStyle,constraints:artConstraints}}:{}),
               ...(content ? { content: { schema: "content-config-v1", selection } } : {}),
             });
         }}
@@ -959,23 +811,24 @@ function TemplateEditor({
             maxLength={120}
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder={content ? "例如：英文商品内容" : "例如：品牌标题优化"}
+            placeholder={materials ? "例如：SHEIN 美国站资料" : content ? "例如：英文商品内容" : "例如：品牌标题优化"}
           />
         </label>
         <label>
-          素材平台
+          {materials?"目标平台":"素材平台"}
           <select
             value={platform}
             onChange={(e) => setPlatform(e.target.value as typeof platform)}
           >
             {content && <option value="product">标准商品（不指定平台）</option>}
-            <option value="shein">SHEIN</option>
-            <option value="temu">TEMU</option>
-            <option value="amazon">Amazon</option>
+            {artwork?<option value="sds">POD 原创图案</option>:<option value="shein">SHEIN</option>}
+            {!materials&&!artwork&&<option value="temu">TEMU</option>}
+            {!materials&&!artwork&&<option value="amazon">Amazon</option>}
           </select>
         </label>
+        {artwork&&<><label>默认创作风格<Input maxLength={512} value={artStyle} disabled={busy} onChange={e=>setArtStyle(e.target.value)}/></label><label>创作约束<textarea className="min-h-24 rounded-md border bg-background p-3" maxLength={4096} value={artConstraints} disabled={busy} onChange={e=>setArtConstraints(e.target.value)}/></label></>}
         {content && <ContentSelectionFields value={selection} onChange={setSelection} disabled={busy} />}
-        <label>
+        {!materials&&!artwork&&<label>
           默认企业知识
           <select value={base} onChange={(e) => setBase(e.target.value)}>
             {base === "unresolved" && (
@@ -996,8 +849,8 @@ function TemplateEditor({
               </option>
             ))}
           </select>
-        </label>
-        {baseTotal > 100 && (
+        </label>}
+        {!materials&&baseTotal > 100 && (
           <nav aria-label="模板知识库分页" className={styles.actions}>
             <Button
               type="button"

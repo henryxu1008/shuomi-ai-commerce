@@ -117,13 +117,7 @@ func TestLegacyDrainDepguardRules(t *testing.T) {
 
 // Drain-only baseline at main 2fd42cc06. Remove entries as callers drain; never regenerate upward.
 // Includes test callers and intra-legacy edges so neither can hide new consumers.
-var legacyConsumerBaseline = map[string]struct{}{
-	"internal/app/httpapi/server_test.go -> task-processor/internal/tenantbridge":                              {},
-	"internal/app/runtime/listingkitidentitypreflight/runtime.go -> task-processor/internal/tenantbridge":      {},
-	"internal/app/runtime/listingkitidentitypreflight/runtime_test.go -> task-processor/internal/tenantbridge": {},
-	"internal/sheinlogin/tenant_context.go -> task-processor/internal/tenantbridge":                            {},
-	"internal/sheinlogin/tenant_context_test.go -> task-processor/internal/tenantbridge":                       {},
-}
+var legacyConsumerBaseline = map[string]struct{}{}
 
 func legacyConsumerViolations(sources []listingKitImageBoundarySource, baseline map[string]struct{}) ([]string, error) {
 	edges, err := phase3BannedImportDeclarationViolations(sources, []string{
@@ -170,6 +164,43 @@ func TestLegacyImportParserRejectsMalformedSources(t *testing.T) {
 // The old source-to-ListingKit task route and handoff are retired, not hidden.
 // Protect the production composition without banning current Product Sourcing.
 func TestLegacy1688TaskHandoffAndRouteStayRetired(t *testing.T) {
+	for _, relative := range []string{
+		"internal/sourceaccount",
+		"internal/app/productsourcing/httpapi",
+		"internal/infra/httpx/crawler_1688_handler.go",
+		"internal/infra/httpx/crawler_1688_handler_test.go",
+		"internal/crawler/alibaba1688/crawler_service.go",
+		"internal/crawler/alibaba1688/crawler_service_test.go",
+		"internal/crawler/alibaba1688/worker_processor.go",
+		"internal/crawler/alibaba1688/worker_processor_test.go",
+		"internal/crawler/alibaba1688/account_profile.go",
+		"internal/crawler/alibaba1688/account_profile_test.go",
+	} {
+		_, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative)))
+		require.True(t, os.IsNotExist(err), "retired numeric source-account artifact must remain absent: %s (%v)", relative, err)
+	}
+	for _, relative := range []string{"internal/crawler/alibaba1688", "internal/infra/httpx"} {
+		assertNoBannedImportPrefixes(t, filepath.Join("..", filepath.FromSlash(relative)), []string{"task-processor/internal/sourceaccount"}, nil)
+	}
+	assertNoBannedImportPrefixes(t, filepath.Join("..", "internal", "crawler", "alibaba1688"), []string{
+		"task-processor/internal/platform/workerpool",
+		"task-processor/internal/infra/httpx",
+	}, nil)
+	for _, source := range trackedProductionTextSources(t, []string{"internal/crawler/alibaba1688"}, func(path string) bool {
+		return strings.HasSuffix(path, ".go")
+	}) {
+		file, err := parser.ParseFile(token.NewFileSet(), source.path, source.text, 0)
+		require.NoError(t, err)
+		ast.Inspect(file, func(node ast.Node) bool {
+			switch declaration := node.(type) {
+			case *ast.TypeSpec:
+				require.NotContains(t, []string{"AccountProfile", "AccountProfileResolver", "Crawler1688Processor"}, declaration.Name.Name, source.path)
+			case *ast.FuncDecl:
+				require.NotContains(t, []string{"ProcessWithAccountProfile", "NewBrowserManagerForAccountProfile", "IsAccountFallbackEligible"}, declaration.Name.Name, source.path)
+			}
+			return true
+		})
+	}
 	legacyRoot := filepath.Join("..", "internal", "compatibility", "listingkit", "sourcehandoff")
 	_, err := os.Stat(legacyRoot)
 	require.True(t, os.IsNotExist(err), "retired 1688 Task handoff package must remain absent: %v", err)
@@ -184,5 +215,51 @@ func TestLegacy1688TaskHandoffAndRouteStayRetired(t *testing.T) {
 		path := filepath.Join("..", "internal", "app", "httpapi", name)
 		_, err := os.Stat(path)
 		require.True(t, os.IsNotExist(err), "retired Task assembly must remain absent: %s (%v)", name, err)
+	}
+}
+
+func TestLegacy1688SharedAccountDTOStaysRetired(t *testing.T) {
+	for _, source := range trackedProductionTextSources(t, []string{"internal/crawler/shared"}, func(path string) bool {
+		return strings.HasSuffix(path, ".go")
+	}) {
+		file, err := parser.ParseFile(token.NewFileSet(), source.path, source.text, 0)
+		require.NoError(t, err)
+		ast.Inspect(file, func(node ast.Node) bool {
+			switch declaration := node.(type) {
+			case *ast.Field:
+				for _, name := range declaration.Names {
+					require.NotContains(t, []string{"SourceAccountID", "SourceAccessMode", "SourceFallbackReason"}, name.Name, source.path)
+				}
+			case *ast.FuncDecl:
+				require.NotEqual(t, "EffectiveSourceAccessMode", declaration.Name.Name, source.path)
+			}
+			return true
+		})
+	}
+}
+
+func TestUnusedSheinManagedProviderAndVerifyDTOStayRetired(t *testing.T) {
+	for _, scope := range []string{"internal/sheinloginmanaged", "internal/sheinlogin"} {
+		for _, source := range trackedProductionTextSources(t, []string{scope}, func(path string) bool {
+			return strings.HasSuffix(path, ".go") && !strings.HasSuffix(path, "_test.go")
+		}) {
+			file, err := parser.ParseFile(token.NewFileSet(), source.path, source.text, 0)
+			require.NoError(t, err)
+			ast.Inspect(file, func(node ast.Node) bool {
+				switch declaration := node.(type) {
+				case *ast.TypeSpec:
+					if scope == "internal/sheinloginmanaged" {
+						require.NotContains(t, []string{"AccountProvider", "storeClientFactory", "tenantAccountCache"}, declaration.Name.Name, source.path)
+					} else {
+						require.NotEqual(t, "VerifyCodeRequest", declaration.Name.Name, source.path)
+					}
+				case *ast.FuncDecl:
+					if scope == "internal/sheinloginmanaged" {
+						require.NotContains(t, []string{"NewAccountProviderWithStoreClientFactory", "mapStoreToAccount", "MapStoreToAccountForTest", "normalizeLoginURL"}, declaration.Name.Name, source.path)
+					}
+				}
+				return true
+			})
+		}
 	}
 }

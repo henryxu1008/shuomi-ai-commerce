@@ -20,6 +20,7 @@ type OfficialIntent struct {
 	Key                string                             `json:"key"`
 	Owner              collection.Scope                   `json:"owner"`
 	Kind               string                             `json:"kind"`
+	Shelf              *SheinShelfIntent                  `json:"shelf,omitempty"`
 	RecordID           string                             `json:"record_id"`
 	RecordHash         string                             `json:"record_hash"`
 	Source             preparation.SourceItem             `json:"source"`
@@ -32,6 +33,7 @@ type OfficialIntent struct {
 	TemuImages         []TemuImageReference               `json:"temuImages,omitempty"`
 	TemuRenewalFrom    string                             `json:"temuRenewalFrom,omitempty"`
 	TikTok             *TikTokStageIntent                 `json:"tiktok,omitempty"`
+	Walmart            *WalmartFeedIntent                 `json:"walmart,omitempty"`
 	CreatedAt          time.Time                          `json:"created_at"`
 }
 type OfficialIntentCommit struct {
@@ -100,6 +102,12 @@ func PrepareOfficialIntent(ctx context.Context, sourceProof preparation.Authoriz
 	return OfficialIntentCommit{source: sourceProof, intent: body, hash: collection.Digest(body)}, nil
 }
 func OfficialIntentInputHash(value OfficialIntent) string {
+	if value.Shelf != nil {
+		return collection.Digest(ShelfPayload(value))
+	}
+	if value.Target.Platform == "walmart" {
+		return collection.Digest([]any{value.Kind, value.Owner, value.RecordID, value.RecordHash, value.Source, value.Target, value.Binding, value.PayloadFingerprint, value.Walmart})
+	}
 	if value.Target.Platform == "tiktokshop" {
 		return collection.Digest([]any{value.Kind, value.Owner, value.RecordID, value.RecordHash, value.Source, value.Target, value.Binding, value.PayloadFingerprint, value.TikTok})
 	}
@@ -118,6 +126,15 @@ func ValidateOfficialIntent(value OfficialIntent) error {
 		!validOfficialBindingForTarget(value.Binding, value.Target) || !collection.ValidID(value.Target.StoreID) || value.Binding.OrganizationID != value.Owner.OrganizationID ||
 		value.Binding.StoreVersion < 1 || value.Binding.ConnectionRevision < 1 || !value.Binding.ValidApplication() || !isExecutionDigest(value.Binding.SupplierIdentityHash) || value.Binding.ServiceExpiresAt.IsZero() ||
 		!isExecutionDigest(value.PayloadFingerprint) || value.CreatedAt.IsZero() || OfficialIntentInputHash(value) != value.InputHash {
+		return ErrExecutionEvidenceRequired
+	}
+	if value.Shelf != nil || value.Kind == "shelf_on" {
+		return validateShelfIntent(value)
+	}
+	if value.Target.Platform == "walmart" {
+		return validateWalmartIntent(value)
+	}
+	if value.Walmart != nil {
 		return ErrExecutionEvidenceRequired
 	}
 	if value.Target.Platform == "temu" {

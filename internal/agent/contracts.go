@@ -23,6 +23,7 @@ const MaxModelOutputBytes = 64 << 10
 var ErrConflict = errors.New("agent run conflict")
 var ErrInvalid = errors.New("invalid agent request")
 var ErrUnavailable = errors.New("agent dependency unavailable")
+var ErrManualReviewRequired = errors.New("manual review execution mode required")
 
 type StopReason string
 
@@ -57,9 +58,23 @@ const (
 type Binding struct {
 	ContextKind, ContextID                                    string
 	ProductKey, CatalogVersion, PublicationID, TargetPlatform string
+	Selection                                                 [MaxSelectionProducts]SelectionProductRef `json:",omitzero"`
+	StoreDiagnosis                                            StoreDiagnosisRef                         `json:",omitzero"`
 }
 
 func (b Binding) Valid() bool {
+	if b.ContextKind == StoreDiagnosisContextKind {
+		return b.validStoreDiagnosis()
+	}
+	if b.StoreDiagnosis != (StoreDiagnosisRef{}) {
+		return false
+	}
+	if b.ContextKind == SelectionContextKind {
+		return b.validSelection()
+	}
+	if b.Selection != ([MaxSelectionProducts]SelectionProductRef{}) {
+		return false
+	}
 	for _, s := range []string{b.ContextKind, b.ContextID, b.ProductKey, b.PublicationID, b.TargetPlatform} {
 		if !ValidID(s) {
 			return false
@@ -76,6 +91,8 @@ func ValidID(s string) bool {
 // Scope comes from the current authorizer, never model or browser payload.
 type Scope struct{ OrganizationID, ActorID string }
 type Request struct {
+	ManualReviewOnly             bool                        `json:",omitempty"`
+	SkillVersionRef              SkillVersionRef             `json:",omitzero"`
 	ContentSelection             enrichment.ContentSelection `json:",omitzero"`
 	ModeSnapshotRef              ModeSnapshotRef             `json:",omitzero"`
 	ConfigurationSnapshotRef     ConfigurationSnapshotRef    `json:",omitzero"`
@@ -88,10 +105,18 @@ type Request struct {
 }
 
 func (r Request) ValidContentSelection() bool {
+	if r.ManualReviewOnly && r.PolicyVersion != enrichment.ContentPolicyVersion {
+		return false
+	}
 	if r.PolicyVersion == enrichment.ContentPolicyVersion {
 		return r.ContentSelection.Valid()
 	}
 	return r.ContentSelection.Absent()
+}
+
+// The caller can narrow automation, never replace the frozen permission mode.
+func (r Request) AllowsManualReviewMode(mode ExecutionMode) bool {
+	return !r.ManualReviewOnly || r.ValidContentSelection() && mode == ModeDefault
 }
 
 // Direct Product Agent requests have no Chat goal. Confirmed Chat requests
@@ -124,11 +149,21 @@ type Action struct {
 	// before handing validated ContextCitationRefs to the runtime.
 	ContextCitationIDs []string `json:",omitempty"`
 	// Kind is tool, propose or interrupt. No arbitrary next-node name is accepted.
-	Kind       string
-	Tool       commercetool.ToolRef
-	Candidate  enrichment.Candidate
-	Unresolved []string
-	Confidence []FieldConfidence
+	Kind      string
+	Tool      commercetool.ToolRef
+	Candidate enrichment.Candidate
+	// DomainProposal is a bounded suggestion for the consumer selected by the
+	// trusted runtime configuration. It is mutually exclusive with Candidate.
+	DomainProposal *DomainProposal `json:",omitempty"`
+	Unresolved     []string
+	Confidence     []FieldConfidence
+}
+
+// DomainProposal transports domain-owned suggestions, never durable business
+// facts. Only the configured domain validator interprets the strict payload.
+type DomainProposal struct {
+	Kind    string
+	Payload json.RawMessage
 }
 
 // FieldConfidence is model-reported, never an approval or truth score. Missing
@@ -157,6 +192,7 @@ var ErrModelNotDispatched = errors.New("model was not dispatched; reservation re
 var ErrModelInvalidOutput = errors.New("model returned invalid output with observed usage")
 
 type ModelInput struct {
+	SkillVersionRef                            SkillVersionRef             `json:",omitzero"`
 	ContentSelection                           enrichment.ContentSelection `json:",omitzero"`
 	ModeSnapshotRef                            ModeSnapshotRef             `json:",omitzero"`
 	ConfigurationSnapshotRef                   ConfigurationSnapshotRef    `json:",omitzero"`
@@ -175,6 +211,7 @@ type ModelInput struct {
 // validation. The caller owns isolation/cloning and all authorization.
 func (s State) ModelInput(definition commercetool.AgentDefinition) ModelInput {
 	return ModelInput{
+		SkillVersionRef:          s.Request.SkillVersionRef,
 		ContentSelection:         s.Request.ContentSelection,
 		ModeSnapshotRef:          s.Request.ModeSnapshotRef,
 		ConfigurationSnapshotRef: s.Request.ConfigurationSnapshotRef,
@@ -211,6 +248,12 @@ type Validation struct {
 type Validator interface {
 	Validate(context.Context, Request, enrichment.Candidate, []Observation) (Validation, error)
 }
+
+// DomainValidator is the alternative to Product validation for an explicitly
+// registered consumer. The runtime computes the complete proposal hash.
+type DomainValidator interface {
+	ValidateDomain(context.Context, Request, DomainProposal, []Observation) (Validation, error)
+}
 type Observation struct {
 	Step                 int
 	Tool                 commercetool.ToolRef
@@ -239,6 +282,7 @@ type State struct {
 	Repairs               int
 	History               []Observation
 	Candidate             enrichment.Candidate
+	DomainProposal        *DomainProposal `json:",omitempty"`
 	Validation            *Validation
 	Unresolved            []string
 	StopReason            StopReason

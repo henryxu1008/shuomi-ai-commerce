@@ -213,7 +213,7 @@ export function StoreForm(props: StoreFormProps) {
   return (
     <section className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-6">
       <p className="text-sm text-muted-foreground">店铺中心 · {organizationName}</p>
-      <h1 className="mt-1 text-2xl font-semibold tracking-tight">
+      <h1 className="mt-1 text-3xl font-semibold tracking-tight">
         {props.mode === "create" ? `在${organizationName} 新建店铺` : `编辑${props.store.name}`}
       </h1>
       <p className="mt-2 text-sm text-muted-foreground">
@@ -253,12 +253,12 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
 
 function PlatformField({control,disabled}:{control:ReturnType<typeof useForm<WorkbenchStoreCreateInput | WorkbenchStoreUpdateInput>>;disabled:boolean}) {
   const id=useId();
-  return <div className="grid gap-2"><Label htmlFor={id}>平台</Label><Select id={id} disabled={disabled} {...control.register("platform")}><option value="shein">SHEIN</option><option value="temu">TEMU</option><option value="tiktokshop">TikTok Shop（美国跨境）</option></Select>{control.watch("platform")==="tiktokshop"?<p className="text-sm">区域填写 US，外部店铺 ID 填写 Seller Center 的店铺编号（code）。</p>:null}</div>;
+  return <div className="grid gap-2"><Label htmlFor={id}>平台</Label><Select id={id} disabled={disabled} {...control.register("platform")}><option value="shein">SHEIN</option><option value="temu">TEMU</option><option value="walmart">Walmart（美国站）</option><option value="tiktokshop">TikTok Shop（美国跨境）</option></Select>{control.watch("platform")==="walmart"?<p className="text-sm">区域填写 US；真实商家编号在官方授权后核实，无需手填。</p>:null}{control.watch("platform")==="tiktokshop"?<p className="text-sm">区域填写 US，外部店铺 ID 填写 Seller Center 的店铺编号（code）。</p>:null}</div>;
 }
 
 function ConflictNotice({ conflict, onRetry, pending }: { conflict: Conflict; onRetry: () => void; pending: boolean }) {
   const fields = conflict.changedFields.map(editableFieldLabel).join("、") || "店铺信息";
-  return <section className="mt-5 rounded-xl border border-amber-500/40 bg-amber-50 p-4 text-sm dark:bg-amber-950/20" role="alert"><p>最新版本中{fields}已被其他人修改。你的草稿仍被保留，请确认后再保存。</p><Button className="mt-3" disabled={pending} onClick={onRetry} type="button" variant="outline">使用最新版本重新保存</Button></section>;
+  return <section className="mt-5 rounded-xl border border-warning-foreground/40 bg-warning p-4 text-sm dark:bg-warning/20" role="alert"><p>最新版本中{fields}已被其他人修改。你的草稿仍被保留，请确认后再保存。</p><Button className="mt-3" disabled={pending} onClick={onRetry} type="button" variant="outline">使用最新版本重新保存</Button></section>;
 }
 
 function editableFieldLabel(field: EditableField) { return field === "name" ? "名称" : "区域"; }

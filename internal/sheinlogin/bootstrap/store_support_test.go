@@ -62,7 +62,7 @@ func TestBuildRedisStoreReturnsStoreWhenRedisConfigured(t *testing.T) {
 	require.NoError(t, store.Close())
 }
 
-func TestBuildHandlerUsesRedisStoreConfigHelper(t *testing.T) {
+func TestBuildServiceUsesRedisStoreConfigHelper(t *testing.T) {
 	t.Parallel()
 
 	src := mustReadFile(t, "build.go")

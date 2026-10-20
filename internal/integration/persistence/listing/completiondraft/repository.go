@@ -105,7 +105,7 @@ func readCommand(db *gorm.DB, scope collection.Scope, key string) (completiondra
 	if err != nil {
 		return completiondraft.Receipt{}, "", err
 	}
-	if r.Source.ID != cmd.SourceID || r.DraftID != cmd.DraftID || r.Revision != cmd.Revision || r.Content != in.Content {
+	if r.Source.ID != cmd.SourceID || r.DraftID != cmd.DraftID || r.Revision != cmd.Revision || !completiondraft.EqualContent(r.Content, in.Content) {
 		return completiondraft.Receipt{}, "", preparation.ErrUnavailable
 	}
 	return completiondraft.Receipt{Record: r, Replayed: true}, cmd.InputHash, nil
@@ -229,14 +229,25 @@ func (r *Repository) Save(ctx context.Context, proof completiondraft.Prepared) (
 	return completiondraft.Receipt{Record: v}, err
 }
 func (r *Repository) List(ctx context.Context, scope collection.Scope, preparationID string, q collection.Query) (collection.Page[completiondraft.Record], error) {
+	return r.list(ctx, scope, preparationID, q, false)
+}
+func (r *Repository) ListForCollectionItem(ctx context.Context, scope collection.Scope, itemID string, q collection.Query) (collection.Page[completiondraft.Record], error) {
+	return r.list(ctx, scope, itemID, q, true)
+}
+func (r *Repository) list(ctx context.Context, scope collection.Scope, id string, q collection.Query, byItem bool) (collection.Page[completiondraft.Record], error) {
 	page := collection.Page[completiondraft.Record]{Items: []completiondraft.Record{}}
-	if scope.Validate() != nil || !collection.ValidID(preparationID) || q.Validate() != nil {
+	if scope.Validate() != nil || !collection.ValidID(id) || q.Validate() != nil {
 		return page, preparation.ErrInvalid
 	}
-	base := r.db.WithContext(ctx).Table("listing_completion_draft_heads h").Joins("JOIN listing_completion_draft_records r ON (r.organization_id,r.actor_id,r.member_id,r.id)=(h.organization_id,h.actor_id,h.member_id,h.record_id)").Joins("JOIN listing_preparation_sources s ON (s.organization_id,s.actor_id,s.member_id,s.id)=(h.organization_id,h.actor_id,h.member_id,h.source_id)").Where("h.organization_id=? AND h.actor_id=? AND h.member_id=? AND s.preparation_id=?", scope.OrganizationID, scope.ActorID, scope.MemberID, preparationID)
+	base := r.db.WithContext(ctx).Table("listing_completion_draft_heads h").Joins("JOIN listing_completion_draft_records r ON (r.organization_id,r.actor_id,r.member_id,r.id)=(h.organization_id,h.actor_id,h.member_id,h.record_id)").Joins("JOIN listing_preparation_sources s ON (s.organization_id,s.actor_id,s.member_id,s.id)=(h.organization_id,h.actor_id,h.member_id,h.source_id)").Where("h.organization_id=? AND h.actor_id=? AND h.member_id=?", scope.OrganizationID, scope.ActorID, scope.MemberID)
+	if byItem {
+		base = base.Where("s.collection_item_id=? AND s.source_kind='own'", id)
+	} else {
+		base = base.Where("s.preparation_id=?", id)
+	}
 	if q.Keyword != "" {
 		keyword := strings.NewReplacer("\\", "\\\\", "%", "\\%", "_", "\\_").Replace(q.Keyword)
-		base = base.Where("r.content_json->>'title' ILIKE ? ESCAPE '\\' OR s.product_key ILIKE ? ESCAPE '\\'", "%"+keyword+"%", "%"+keyword+"%")
+		base = base.Where("(r.content_json->>'title' ILIKE ? ESCAPE '\\' OR s.product_key ILIKE ? ESCAPE '\\')", "%"+keyword+"%", "%"+keyword+"%")
 	}
 	if base.Count(&page.Total).Error != nil {
 		return page, preparation.ErrUnavailable
@@ -258,7 +269,11 @@ func (r *Repository) List(ctx context.Context, scope collection.Scope, preparati
 		if err != nil {
 			return page, err
 		}
-		if row.RetainedSource.OrganizationID != scope.OrganizationID || row.RetainedSource.ActorID != scope.ActorID || row.RetainedSource.MemberID != scope.MemberID || row.RetainedSource.PreparationID != preparationID || row.RetainedSource.value() != v.Source {
+		matches := row.RetainedSource.PreparationID == id
+		if byItem {
+			matches = row.RetainedSource.CollectionItemID == id && row.RetainedSource.SourceKind == "own"
+		}
+		if row.RetainedSource.OrganizationID != scope.OrganizationID || row.RetainedSource.ActorID != scope.ActorID || row.RetainedSource.MemberID != scope.MemberID || !matches || row.RetainedSource.value() != v.Source {
 			return page, preparation.ErrUnavailable
 		}
 		raw, err := json.Marshal(v)

@@ -16,10 +16,45 @@ const text = (max: number, multiline = false) =>
             : /[\u0000-\u001f\u007f-\u009f]/
         ).test(v),
     );
-export const demandInput = z.strictObject({
+export const maxToolFileBytes = 2 * 1024 * 1024;
+export const maxToolCreateBytes = 9 * 1024 * 1024;
+const demandFields = z.strictObject({
   kind: z.enum(["DATA", "CONNECTION", "AUTOMATION", "OUTPUT"]),
   title: text(120).refine((v) => !!v.trim()),
   description: text(4000, true).refine((v) => !!v.trim()),
+  scenario: text(240).refine((v) => !!v.trim()),
+  contactName: text(80).refine((v) => !!v.trim()),
+  contactMethod: text(160).refine((v) => !!v.trim()),
+  consent: z.literal(true),
+});
+export const demandInput = demandFields.extend({
+  files: z
+    .array(
+      z.strictObject({
+        name: text(200).refine((v) => !!v.trim() && !/[\\/]/.test(v)),
+        data: z
+          .string()
+          .min(4)
+          .max(2796204)
+          .regex(
+            /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/,
+          ),
+      }),
+    )
+    .max(3)
+    .optional(),
+});
+export const toolAttachment = z.strictObject({
+  id: z.uuid(),
+  name: text(200).refine((v) => !!v.trim() && !/[\\/]/.test(v)),
+  contentType: z.enum([
+    "application/pdf",
+    "image/png",
+    "image/jpeg",
+    "text/plain; charset=utf-8",
+  ]),
+  size: z.number().int().min(1).max(maxToolFileBytes),
+  sha256: z.string().regex(/^[a-f0-9]{64}$/),
 });
 const toolStage = z.enum([
   "SUBMITTED",
@@ -58,16 +93,32 @@ export const marketSchema = z.strictObject({
   canManage: z.boolean(),
   canCustomize: z.boolean(),
 });
-const requestSchema = demandInput.extend({
+const requestSchema = demandFields.extend({
   id: z.uuid(),
   organizationId: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/),
   stage: toolStage,
   revision: toolVersion,
   createdAt: date,
   updatedAt: date,
+  createdBy: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/),
+  consentVersion: z.literal("tool-customization-contact-v1"),
+  attachments: z.array(toolAttachment).max(3),
 });
 export const requestsSchema = z.strictObject({
-  items: z.array(requestSchema.omit({ description: true })).max(50),
+  items: z
+    .array(
+      requestSchema.pick({
+        id: true,
+        organizationId: true,
+        kind: true,
+        title: true,
+        stage: true,
+        revision: true,
+        createdAt: true,
+        updatedAt: true,
+      }),
+    )
+    .max(50),
   nextCursor: z.union([z.literal(""), z.uuid()]),
 });
 export const detailSchema = z.strictObject({
@@ -101,6 +152,7 @@ export function toolEndpoint(url: URL, method: string) {
   let output: z.ZodType,
     input: z.ZodType | undefined,
     operation: "activation" | "create" | "progress" | undefined;
+  let fileDownload = false;
   if (
     !admin &&
     p.length === 1 &&
@@ -111,6 +163,16 @@ export function toolEndpoint(url: URL, method: string) {
   else if (!admin && p.length === 1 && p[0] === "plugin" && method === "GET")
     output = z.never();
   else if (
+    p[0] === "requests" &&
+    p.length === 4 &&
+    z.uuid().safeParse(p[1]).success &&
+    p[2] === "files" &&
+    z.uuid().safeParse(p[3]).success &&
+    method === "GET"
+  ) {
+    output = z.never();
+    fileDownload = true;
+  } else if (
     !admin &&
     p.length === 2 &&
     p[0] === "activations" &&
@@ -172,6 +234,7 @@ export function toolEndpoint(url: URL, method: string) {
     output,
     input,
     operation,
-    download: p[0] === "plugin",
+    download: p[0] === "plugin" || fileDownload,
+    fileDownload,
   };
 }

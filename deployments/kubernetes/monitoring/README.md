@@ -6,19 +6,19 @@
 
 - `kube-prometheus-stack`
 - `amazon-crawler-api` 指标、告警和 Grafana 看板
-- `shein-listing` 指标、告警和 Grafana 看板
+- Prometheus PVC 低空间告警及其同 namespace 窄路由
 - 企业微信告警适配器
 - Grafana 域名入口
 
 ## 访问与凭证
 
-本次 TaskEvent V2 发布不创建公网 Grafana 或 Alertmanager Ingress。安装后仅通过已获授权的内部访问方式或临时 `kubectl -n monitoring port-forward service/monitoring-grafana 3000:80` 访问 Grafana。管理员凭证只保留在 Kubernetes Secret 中，不在 Git、终端记录或发布证据中输出。
+旧 TaskEvent/数字刊登专属监控源已按 [#839 完整闭包](../../../docs/architecture/legacy-listing-operations-closure-retirement-boundary.md)退休，不恢复旧兼容观察窗口。此源码交付不创建公网 Grafana 或 Alertmanager Ingress。安装后仅通过已获授权的内部访问方式或临时 `kubectl -n monitoring port-forward service/monitoring-grafana 3000:80` 访问 Grafana。管理员凭证只保留在 Kubernetes Secret 中，不在 Git、终端记录或发布证据中输出。
 
 ## 当前部署清单
 
 - `deployments/kubernetes/monitoring/kube-prometheus-stack-values.yaml`
 - `deployments/kubernetes/monitoring/amazon-crawler-api`
-- `deployments/kubernetes/monitoring/shein-listing`
+- `deployments/kubernetes/monitoring/prometheus-storage`
 - `deployments/kubernetes/monitoring/alertmanager-wecom`
 - `deployments/kubernetes/monitoring/grafana-ingress`
 - `deployments/kubernetes/cert-manager/letsencrypt-prod`
@@ -49,10 +49,10 @@ helm upgrade --install monitoring oci://ghcr.io/prometheus-community/charts/kube
   -f deployments/kubernetes/monitoring/kube-prometheus-stack-values.yaml
 
 kubectl apply -k deployments/kubernetes/monitoring/amazon-crawler-api
-kubectl apply -k deployments/kubernetes/monitoring/shein-listing
+kubectl apply -k deployments/kubernetes/monitoring/prometheus-storage
 ```
 
-企业微信告警和公网 Grafana Ingress 是独立的既有运维决策，不属于 TaskEvent V2 发布；需要时应另行审批和应用对应清单。
+企业微信告警和公网 Grafana Ingress 是独立的既有运维决策；上面只列源码装配供已获授权的运维使用，本批没有执行。安装/实际投递/收信均 NOT_RUN，需要时另行授权应用对应清单，不成为内部试用前置。
 
 ## 企业微信告警
 
@@ -68,7 +68,9 @@ kubectl -n monitoring create secret generic alertmanager-wecom-secret \
 当前默认只转发：
 
 - `service=amazon-crawler-api`
-- `service=shein-listing`
+- `monitoring` namespace 中唯一 `service=monitoring`、`alertname=PrometheusStorageAtRisk` 的共享存储告警
+
+原 task-processor namespace 的配置只匹配 Amazon；存储规则及窄 AlertmanagerConfig 位于 monitoring，沿默认 OnNamespace 隔离匹配，复用原接收器/分组/时长设置。固定 Chart 88.3.0 的原 selector 默认值保持；没有禁用全局 namespace enforcement。
 
 ## 当前监控覆盖
 
@@ -80,9 +82,7 @@ kubectl -n monitoring create secret generic alertmanager-wecom-secret \
 - 浏览器池初始化失败、实例重建成功/失败、活跃重建数量
 - 浏览器池当前实例数与配置池大小对比、`processor_unavailable` 快速定位
 - 任务提交失败和 `dedupe` 等待超时
-- 每个 `shein-listing` pod 的上架成功、失败、重试
-- `shein-listing` 的认证过期、Cookie 加载失败、每日限额、上架额度耗尽、SKU 重复
-- `shein-listing` 的平均等待时长、平均处理时长
+- Prometheus PVC 可用空间低于 20% 持续 15 分钟；不依赖旧 TaskEvent 迁移/decoder
 - 企业微信中文告警
 
 ## Amazon Crawler 当前分层部署
@@ -98,4 +98,4 @@ kubectl -n monitoring create secret generic alertmanager-wecom-secret \
 
 - Grafana 使用 `local-path` 持久卷，因此 values 里关闭了 `initChownData`，避免滚动升级时权限修复失败
 - `amazon-crawler-api` 监控依赖 Prometheus Operator CRD 和 Grafana dashboard sidecar
-- TaskEvent V2 兼容性移除前，必须同时满足两个消费者发布周期完成、所有活跃消费者均为 V2 镜像，并且 `increase(task_event_decoded_total{schema_version="legacy",kubernetes_namespace="task-processor"}[14d]) == 0` 持续完整 14 天；任一抓取中断、legacy 事件或回滚都会重置窗口。
+- 旧 TaskEvent 兼容观察、两个发布周期及14天窗口属于历史方案，不是已完成的运行验收，也不是当前试用前置。此前七条旧告警、两个 PodMonitor 和两份 dashboard 源已退休；通用存储规则及当前 Amazon/适配器/stack 保留。

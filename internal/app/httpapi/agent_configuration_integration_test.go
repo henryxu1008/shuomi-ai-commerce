@@ -30,7 +30,7 @@ func TestAgentConfigurationUsesCurrentEnterpriseWithoutTextRuntime(t *testing.T)
 	deps.workbenchVerifier = titleVerifier{}
 	deps.organizationResolver = workbenchcontext.NewResolver(agentFixtureGrants{base: f.grants}, "project", "v1", nil)
 	deps.authorizer = auth
-	module, e := buildAgentConfigurationModule(context.Background(), f.owner, deps.organizationResolver, auth, nil, nil, nil)
+	module, e := buildAgentConfigurationModule(context.Background(), f.owner, deps.organizationResolver, auth, nil, nil, nil, nil, nil)
 	require.NoError(t, e)
 	reg := kernelmodule.NewRegistry()
 	require.NoError(t, module.Register(reg))
@@ -137,7 +137,7 @@ func TestAgentConfigurationUsesCurrentEnterpriseWithoutTextRuntime(t *testing.T)
 	require.Equal(t, 403, code, string(raw))
 }
 func TestAgentConfigurationRejectsDifferentServingPools(t *testing.T) {
-	_, e := buildAgentConfigurationModule(context.Background(), &gorm.DB{}, nil, nil, nil, &productAgentApplication{config: ProductAgentDependencies{RunDB: &gorm.DB{}}}, nil)
+	_, e := buildAgentConfigurationModule(context.Background(), &gorm.DB{}, nil, nil, nil, &productAgentApplication{config: ProductAgentDependencies{RunDB: &gorm.DB{}}}, nil, nil, nil)
 	require.ErrorIs(t, e, agentconfig.ErrUnavailable)
 }
 

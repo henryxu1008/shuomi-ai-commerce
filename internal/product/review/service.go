@@ -24,6 +24,7 @@ type Service struct {
 	auth              Authorizer
 	executionResolver func(context.Context) (CandidateExecutionScope, error)
 	executionPolicy   ExecutionPolicyResolver
+	executionGate     ExecutionGate
 }
 
 func NewService(reader catalog.VersionedSnapshotReader, sourceReader SourcePublicationGateway, store Store, proposer enrichment.Proposer, auth Authorizer) (*Service, error) {
@@ -231,6 +232,11 @@ func (s *Service) create(ctx context.Context, key string, in CreateInput, suppli
 	if err = r.ValidateStorage(); err != nil {
 		return View{}, false, err
 	}
+	release, err := s.acquireExecutionGate(ctx, r.Execution)
+	if err != nil {
+		return View{}, false, err
+	}
+	defer release()
 	view, err := s.store.Run(ctx, op, func(tx Tx) (View, error) {
 		if v, found, e := tx.Replay(); e != nil || found {
 			return v, e
@@ -431,6 +437,22 @@ func (s *Service) change(ctx context.Context, key, id, kind string, input any, a
 	if v, found, e := s.store.Preflight(ctx, op); e != nil || found {
 		return v, e
 	}
+	var gated *ExecutionProvenance
+	if s.executionGate != nil {
+		before, err := s.store.Read(ctx, a, id)
+		if err != nil {
+			return View{}, err
+		}
+		if before.Execution != nil {
+			copy := *before.Execution
+			gated = &copy
+		}
+		release, err := s.acquireExecutionGate(ctx, gated)
+		if err != nil {
+			return View{}, err
+		}
+		defer release()
+	}
 	return s.store.Run(ctx, op, func(tx Tx) (View, error) {
 		if v, found, e := tx.Replay(); e != nil || found {
 			return v, e
@@ -438,6 +460,12 @@ func (s *Service) change(ctx context.Context, key, id, kind string, input any, a
 		r, e := tx.Load(id)
 		if e != nil {
 			return View{}, e
+		}
+		if s.executionGate != nil && !sameExecution(gated, r.Execution) {
+			return View{}, ErrConflict
+		}
+		if r.Execution != nil && !r.Execution.SkillVersionRef.Absent() && s.executionGate == nil {
+			return View{}, ErrUnavailable
 		}
 		if r.Execution != nil || s.executionPolicy != nil {
 			proof, e := s.resolveRecordExecutionPolicy(ctx, r)

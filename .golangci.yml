@@ -53,11 +53,6 @@ linters-settings:
         # Exact drain caller exclusions; import-boundary tests freeze each edge.
         files:
           - "**/*.go"
-          - "!**/internal/app/httpapi/server_test.go"
-          - "!**/internal/app/runtime/listingkitidentitypreflight/runtime.go"
-          - "!**/internal/app/runtime/listingkitidentitypreflight/runtime_test.go"
-          - "!**/internal/sheinlogin/tenant_context.go"
-          - "!**/internal/sheinlogin/tenant_context_test.go"
         deny:
           - pkg: "task-processor/internal/tenantbridge$"
           - pkg: "task-processor/internal/tenantbridge/"
@@ -497,12 +492,15 @@ linters-settings:
           - "!**/internal/integration/persistence/listing/official/**/*.go"
           - "!**/internal/integration/shein/official_goods.go"
           - "!**/internal/integration/shein/official_goods_rules.go"
+          - "!**/internal/integration/shein/official_publication.go"
           - "!**/internal/integration/temu/official_categories.go"
           - "!**/internal/integration/temu/official_category_rules.go"
           - "!**/internal/integration/temu/official_supplier_size.go"
           - "!**/internal/integration/temu/official_goods.go"
           - "!**/internal/integration/tiktokshop/goods_read.go"
           - "!**/internal/integration/tiktokshop/goods_write.go"
+          - "!**/internal/integration/walmart/client.go"
+          - "!**/internal/integration/walmart/products.go"
           - "!**/internal/integration/temu/official_observations.go"
           - "!**/internal/integration/shein/official_readback.go"
           - "!**/internal/integration/shein/official_observations.go"
@@ -634,6 +632,8 @@ linters-settings:
           - "**/internal/integration/persistence/listing/submission/**/*.go"
           - "!**/internal/integration/persistence/listing/submission/temu_effects_policy.go"
           - "!**/internal/integration/persistence/listing/submission/tiktok_effects_policy.go"
+          - "!**/internal/integration/persistence/listing/submission/walmart_effects_policy.go"
+          - "!**/internal/integration/persistence/listing/submission/shein_shelf_policy.go"
         deny:
           - pkg: "task-processor/internal/amazon$"
           - pkg: "task-processor/internal/amazon/"
@@ -942,16 +942,6 @@ linters-settings:
           - pkg: "task-processor/internal/infra/clients/management$"
             desc: "Local runtime must not depend on the retired management client package"
 
-      app_taskstatus_legacy_management:
-        # Task-status runtime code must stay on task-status ports, not the retired management client.
-        # The repository-wide issues.exclude-files excludes _test.go; semantic build-target coverage remains in tests/import_boundaries_test.go.
-        files:
-          - "**/internal/app/taskstatus/*.go"
-          - "**/internal/app/taskstatus/**/*.go"
-        deny:
-          - pkg: "task-processor/internal/infra/clients/management"
-            desc: "Task-status runtime code must not depend on the retired management client"
-
       internal_legacy_app_compatibility:
         # Retired app compatibility packages must not regain production consumers.
         # The repository-wide issues.exclude-files excludes _test.go; semantic build-target coverage remains in tests/import_boundaries_test.go.
@@ -1136,6 +1126,7 @@ linters-settings:
           - "**/internal/integration/persistence/listing/official/*.go"
           - "**/internal/integration/persistence/listing/official/**/*.go"
           - "!**/*_test.go"
+          - "!**/internal/integration/persistence/listing/official/walmart_results.go"
         allow:
           - "$gostd"
           - "gorm.io/gorm$"
@@ -1152,6 +1143,7 @@ linters-settings:
         files:
           - "**/internal/integration/shein/official_goods.go"
           - "**/internal/integration/shein/official_goods_rules.go"
+          - "**/internal/integration/shein/official_publication.go"
           - "**/internal/integration/shein/official_readback.go"
           - "!**/*_test.go"
         allow:
@@ -1173,6 +1165,18 @@ linters-settings:
           - "$gostd"
           - "task-processor/internal/marketplace/temu/model$"
           - "task-processor/internal/storecenter$"
+
+      shein_original_shelf_policy:
+        # #605 frozen: original receipt/record checks in the existing claim UoW.
+        list-mode: strict
+        files:
+          - "**/internal/integration/persistence/listing/submission/shein_shelf_policy.go"
+        allow:
+          - "$gostd"
+          - "gorm.io/gorm$"
+          - "task-processor/internal/integration/persistence/listing/record$"
+          - "task-processor/internal/listing/submission$"
+          - "task-processor/internal/product/collection$"
 
       temu_original_effect_policy:
         # #31 G4 frozen: atomic current target/image receipt checks in the original ProductDB claim transaction.
@@ -1223,6 +1227,7 @@ linters-settings:
           - "gorm.io/gorm$"
           - "task-processor/internal/authidentity$"
           - "task-processor/internal/marketplace/temu/observations$"
+          - "task-processor/internal/marketplace/walmart$"
           - "task-processor/internal/storecenter$"
           - "task-processor/internal/storecenter/observations$"
 
@@ -1235,6 +1240,35 @@ linters-settings:
           - "$gostd"
           - "task-processor/internal/storecenter/observations$"
           - "task-processor/internal/storecenter$"
+
+      walmart_official_transport:
+        # #733 frozen design: exact transport files consume only current Walmart ports.
+        list-mode: strict
+        files:
+          - "**/internal/integration/walmart/client.go"
+          - "**/internal/integration/walmart/products.go"
+        allow:
+          - "$gostd"
+          - "github.com/google/uuid$"
+          - "task-processor/internal/marketplace/walmart$"
+          - "task-processor/internal/storecenter/walmart$"
+
+      walmart_effects_persistence:
+        # #733 frozen design: original Submission UoW and append-only readback adapters.
+        list-mode: strict
+        files:
+          - "**/internal/integration/persistence/listing/submission/walmart_effects_policy.go"
+          - "**/internal/integration/persistence/listing/official/walmart_results.go"
+        allow:
+          - "$gostd"
+          - "github.com/google/uuid$"
+          - "gorm.io/gorm$"
+          - "gorm.io/gorm/clause$"
+          - "task-processor/internal/integration/persistence/listing/record$"
+          - "task-processor/internal/integration/persistence/listing/submission$"
+          - "task-processor/internal/listing/submission$"
+          - "task-processor/internal/marketplace/walmart$"
+          - "task-processor/internal/product/collection$"
 
   govet:
     disable:

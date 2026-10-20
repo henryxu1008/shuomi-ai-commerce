@@ -8,6 +8,7 @@ import (
 	productasset "task-processor/internal/product/asset"
 	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/catalog/canonical"
+	"task-processor/internal/product/description"
 	"task-processor/internal/publishing/shein"
 )
 
@@ -18,6 +19,8 @@ func (Builder) Build(ctx context.Context, snapshot catalog.ProductSnapshot, inve
 		return nil, err
 	}
 	product := catalog.ProjectCanonical(snapshot)
+	product.Description = description.PlainText(product.Description, product.DescriptionFormat)
+	product.DescriptionFormat = ""
 	// Source imagery is not ApprovedAsset. Replace it completely with the exact
 	// version-bound approved inventory supplied by Product/Asset.
 	product.Images = make([]canonical.Image, 0, len(inventory.Assets))

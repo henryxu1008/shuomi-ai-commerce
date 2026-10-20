@@ -16,8 +16,10 @@ import (
 	"task-processor/internal/httproute"
 	"task-processor/internal/listing/preparation"
 	record "task-processor/internal/listing/record/target"
+	"task-processor/internal/listing/submission"
 	"task-processor/internal/product/asset"
 	"task-processor/internal/product/collection"
+	"time"
 	"unicode/utf8"
 )
 
@@ -75,9 +77,15 @@ func SupplyRoutes(app *supplyapp.Application, bind func(context.Context, string)
 		{"GET", "", "list", preparation.PermissionRead}, {"POST", "/transfer", "transfer", preparation.PermissionManage}, {"GET", "/transfers/by-key/:key", "transfer-read", preparation.PermissionRead},
 		{"GET", "/:preparation_id/sources", "sources", preparation.PermissionRead}, {"GET", "/sources/:source_id", "source", preparation.PermissionRead},
 		{"GET", "/:preparation_id/stages", "stages", preparation.PermissionRead},
+		{"POST", "/shein-completion-preview", "shein-completion-preview", preparation.PermissionManage},
 		{"GET", "/:preparation_id", "preparation", preparation.PermissionRead}, {"GET", "/:preparation_id/operations", "operations", preparation.PermissionRead},
 		{"GET", "/sources/:source_id/publications/:store_id", "publication", preparation.PermissionRead},
+		{"GET", "/sources/:source_id/publications/:store_id/status/:receipt_id", "publication-status", preparation.PermissionRead},
 		{"GET", "/sources/:source_id/publications/:store_id/status", "publication-status", preparation.PermissionRead},
+		{"POST", "/shein-publication/status", "shein-status", preparation.PermissionRead},
+		{"POST", "/shein-publication/prepare", "shein-shelf-prepare", preparation.PermissionSubmit},
+		{"POST", "/shein-publication/confirm", "shein-shelf-confirm", preparation.PermissionSubmit},
+		{"POST", "/shein-publication/result", "shein-shelf-result", preparation.PermissionRead},
 		{"GET", "/sources/:source_id/targets/:store_id", "target", preparation.PermissionRead}, {"POST", "/targets", "save-target", preparation.PermissionManage}, {"POST", "/target-rules", "rules", preparation.PermissionRead}, {"GET", "/target-commands/:key", "target-command", preparation.PermissionRead}, {"GET", "/records/:record_id", "record", preparation.PermissionRead},
 		{"POST", "/uploads/resolve", "resolve-upload", preparation.PermissionManage},
 		{"GET", "/uploads/:record_id/:attempt_id", "upload-attempt", preparation.PermissionRead},
@@ -86,7 +94,11 @@ func SupplyRoutes(app *supplyapp.Application, bind func(context.Context, string)
 	}
 	result := []httproute.Descriptor{}
 	for _, spec := range specs {
-		result = append(result, httproute.Descriptor{Method: spec.method, Path: SupplyBasePath + spec.path, Module: "supply-chain", Permission: spec.permission, AuthPolicy: httproute.AuthPolicyVerifiedIdentity, OrganizationAccessPolicy: httproute.OrganizationAccessPolicyLiveWrite, RequestTimeout: 20e9, Handler: httproute.WithRequestBodyReadTimeout(3e9, func(c *gin.Context) {
+		budget := 20 * time.Second
+		if strings.HasPrefix(spec.path, "/shein-publication/") || strings.Contains(spec.path, "/status") {
+			budget = 30 * time.Second
+		}
+		result = append(result, httproute.Descriptor{Method: spec.method, Path: SupplyBasePath + spec.path, Module: "supply-chain", Permission: spec.permission, AuthPolicy: httproute.AuthPolicyVerifiedIdentity, OrganizationAccessPolicy: httproute.OrganizationAccessPolicyLiveWrite, RequestTimeout: budget, Handler: httproute.WithRequestBodyReadTimeout(3e9, func(c *gin.Context) {
 			c.Header("Cache-Control", "no-store")
 			if app == nil || bind == nil {
 				supplyError(c, preparation.ErrUnavailable)
@@ -109,6 +121,43 @@ func SupplyRoutes(app *supplyapp.Application, bind func(context.Context, string)
 				return
 			}
 			switch spec.action {
+			case "shein-status", "shein-shelf-prepare", "shein-shelf-confirm", "shein-shelf-result":
+				var in supplyapp.SheinShelfInput
+				key, e := supplyBody(c.Request, &in, spec.action == "shein-shelf-prepare" || spec.action == "shein-shelf-confirm")
+				if e != nil {
+					supplyError(c, e)
+					return
+				}
+				if app.SheinPublication == nil {
+					supplyError(c, preparation.ErrUnavailable)
+					return
+				}
+				switch spec.action {
+				case "shein-status":
+					output, err = app.SheinPublication.Status(ctx, in.SourceID, in.StoreID, in.ReceiptID, in.StockOffset)
+				case "shein-shelf-prepare":
+					output, err = app.SheinPublication.Prepare(ctx, key, in)
+				case "shein-shelf-confirm":
+					output, err = app.SheinPublication.Confirm(ctx, key, in)
+				case "shein-shelf-result":
+					output, err = app.SheinPublication.Read(ctx, in.Key, in)
+				}
+			case "shein-completion-preview":
+				var in record.SheinImportRequest
+				_, e := supplyBody(c.Request, &in, false)
+				if e != nil {
+					supplyError(c, e)
+					return
+				}
+				if !collection.ValidID(in.SourceID) || !collection.ValidID(in.BaseRecordID) || !collection.ValidID(in.CompletionDraft.RecordID) || in.CompletionDraft.Revision < 1 {
+					supplyError(c, preparation.ErrInvalid)
+					return
+				}
+				if app.Targets == nil {
+					supplyError(c, preparation.ErrUnavailable)
+					return
+				}
+				output, err = app.Targets.PreviewSheinImport(ctx, in)
 			case "upload-attempt":
 				if c.Request.URL.RawQuery != "" {
 					supplyError(c, preparation.ErrInvalid)
@@ -193,7 +242,7 @@ func SupplyRoutes(app *supplyapp.Application, bind func(context.Context, string)
 			case "publication":
 				output, err = app.Publication(ctx, c.Param("source_id"), c.Param("store_id"))
 			case "publication-status":
-				output, err = app.TikTokPublicationStatus(ctx, c.Param("source_id"), c.Param("store_id"))
+				output, err = app.PublicationStatus(ctx, c.Param("source_id"), c.Param("store_id"), c.Param("receipt_id"))
 			case "record":
 				output, err = app.ReadRecord(ctx, c.Param("record_id"))
 			case "target-command":
@@ -373,17 +422,17 @@ func supplyEmptyBody(r *http.Request) error {
 func supplyError(c *gin.Context, err error) {
 	status, code := http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE"
 	switch {
-	case errors.Is(err, preparation.ErrInvalid), errors.Is(err, record.ErrInvalid), errors.Is(err, asset.ErrInvalidApproval):
+	case errors.Is(err, submission.ErrExecutionInvalid), errors.Is(err, submission.ErrExecutionEvidenceRequired), errors.Is(err, collection.ErrInvalid), errors.Is(err, preparation.ErrInvalid), errors.Is(err, record.ErrInvalid), errors.Is(err, asset.ErrInvalidApproval):
 		status, code = http.StatusBadRequest, "INVALID_REQUEST"
-	case errors.Is(err, preparation.ErrForbidden), errors.Is(err, record.ErrForbidden), errors.Is(err, asset.ErrSourceApprovalForbidden):
+	case errors.Is(err, collection.ErrForbidden), errors.Is(err, preparation.ErrForbidden), errors.Is(err, record.ErrForbidden), errors.Is(err, asset.ErrSourceApprovalForbidden):
 		status, code = http.StatusForbidden, "PERMISSION_DENIED"
-	case errors.Is(err, preparation.ErrNotFound), errors.Is(err, record.ErrNotFound):
+	case errors.Is(err, submission.ErrExecutionNotFound), errors.Is(err, collection.ErrNotFound), errors.Is(err, preparation.ErrNotFound), errors.Is(err, record.ErrNotFound):
 		status, code = http.StatusNotFound, "NOT_FOUND"
-	case errors.Is(err, preparation.ErrConflict), errors.Is(err, record.ErrConflict), errors.Is(err, asset.ErrApprovalConflict):
+	case errors.Is(err, submission.ErrExecutionIntentConflict), errors.Is(err, preparation.ErrConflict), errors.Is(err, record.ErrConflict), errors.Is(err, asset.ErrApprovalConflict):
 		status, code = http.StatusConflict, "REVISION_CONFLICT"
-	case errors.Is(err, record.ErrNotReady):
+	case errors.Is(err, submission.ErrExecutionTargetClaimed), errors.Is(err, submission.ErrExecutionTargetSucceeded), errors.Is(err, record.ErrNotReady):
 		status, code = http.StatusConflict, "NOT_READY"
-	case errors.Is(err, preparation.ErrUnknown), errors.Is(err, record.ErrTargetUnknown), errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
+	case errors.Is(err, submission.ErrExecutionOutcomeUnknown), errors.Is(err, preparation.ErrUnknown), errors.Is(err, record.ErrTargetUnknown), errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
 		status, code = http.StatusConflict, "OUTCOME_UNKNOWN"
 	}
 	c.JSON(status, gin.H{"code": code})

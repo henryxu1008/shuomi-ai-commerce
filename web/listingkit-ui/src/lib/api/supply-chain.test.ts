@@ -7,6 +7,31 @@ const operation={id,input:intent.command,count:205,completed:0,status:"pending",
 const reply=(v:unknown)=>new Response(JSON.stringify(v),{headers:{"Content-Type":"application/json"}});
 afterEach(()=>vi.unstubAllGlobals());
 
+it("confirms once with the prepared SHEIN key and recovers through a read-only original result",async()=>{
+ const input={sourceId:id,storeId:other,receiptId:id,skc:"skc",token:other};
+ const prepared:SupplyIntent={...intent,route:"shein-shelf-confirm",command:input};
+ const fetcher=vi.fn().mockImplementation(()=>Promise.resolve(reply({key:id,attemptId:id,sourceId:id,storeId:other,receiptId:id,skc:"skc",status:"outcome_unknown",message:"待核实"})));vi.stubGlobal("fetch",fetcher);
+ await expect(supplyCommand(prepared)).resolves.toMatchObject({status:"outcome_unknown"});
+ await expect(readSupplyCommand(prepared)).resolves.toMatchObject({status:"outcome_unknown"});
+ expect(fetcher.mock.calls[0][0]).toMatch(/shein-publication\/confirm$/);
+ expect(fetcher.mock.calls[0][1].headers.get("Idempotency-Key")).toBe(id);
+ expect(fetcher.mock.calls[1][0]).toMatch(/shein-publication\/result$/);
+ expect(fetcher.mock.calls[1][1].headers.get("Idempotency-Key")).toBeNull();
+ expect(JSON.parse(fetcher.mock.calls[1][1].body)).toEqual({...input,key:id});
+});
+
+it("checks structured receipt values before confirming or recovering the original save",async()=>{
+ const structured={attributes:[],variants:[{sourceIndex:0,price:{currency:"CNY",amount:0},stock:0}]};
+ const content={title:"候选",description:"",structured};
+ const saveIntent:SupplyIntent={...intent,route:"save-completion-draft",command:{sourceId:id,expectedRevision:2,content}};
+ const record={id,draftId:other,revision:3,source:{id,preparationId:other,collectionItemId:other,collectionRevision:1,source:{kind:"own",productKey:"product",publicationId:other,version:"1"}},content,status:"pending_completion",createdAt:"2026-10-15T00:00:00Z"};
+ const fetcher=vi.fn().mockImplementation(()=>Promise.resolve(reply({record,replayed:false})));vi.stubGlobal("fetch",fetcher);
+ await expect(supplyCommand(saveIntent)).resolves.toMatchObject({record:{content}});
+ fetcher.mockImplementation(()=>Promise.resolve(reply({record:{...record,content:{...content,structured:{...structured,variants:[{...structured.variants[0],stock:null}]}}},replayed:false})));
+ await expect(supplyCommand(saveIntent)).rejects.toMatchObject({code:"OUTCOME_UNKNOWN"});
+ await expect(readSupplyCommand(saveIntent)).rejects.toMatchObject({code:"DEPENDENCY_UNAVAILABLE"});
+});
+
 it("reads approved inventory for the exact signed-64-bit catalog version",async()=>{
  const version="9223372036854775807";
  const fetch=vi.fn().mockResolvedValue(reply({scope:{tenant_id:"org",product_key:"product",target_platform:"shein",source_snapshot_version:version},assets:[{id:"approved",role:"main",url:"https://images.test/approved.png"}]}));vi.stubGlobal("fetch",fetch);

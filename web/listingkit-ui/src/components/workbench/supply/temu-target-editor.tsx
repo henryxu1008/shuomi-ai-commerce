@@ -1,4 +1,6 @@
 "use client";
+import {DescriptionProjectionNote} from "../description-view";
+import {descriptionPlainText} from "@/lib/contracts/product-description";
 import {TemuLocalAttributes} from "./temu-local-attributes";
 import {TemuSupplierFields} from "./temu-supplier-fields";
 import {useEffect,useRef,useState,type ReactNode} from "react";
@@ -41,7 +43,7 @@ export function TemuTargetEditor({scope,source,storeId,existing,command,disabled
   void temuSupplyRules(scope,{sourceId:source.source.id,storeId,expectedRevision:existing?.revision??0,effectiveVersion:version,...applied?{applyReceiptId:applied}:{},temuRules:requestedSelection},c.signal).then(value=>{if(!live)return;setRules(value);const mode=value.temu.mode;
    if(current.current&&current.current.mode!==mode){setError("店铺模式已变化。请按当前模式重新准备，共同资料将保留为待校验草稿，价格、币种、站点、库存和半托承诺需重新填写。");return}
    setModeChecked(true);
-   setDraft(old=>old??initialTemuDraft({title:source.product.title,description:source.product.description},mode));setError(undefined);
+   setDraft(old=>old??initialTemuDraft({title:source.product.title,description:source.product.description,description_format:source.product.description_format},mode));setError(undefined);
   }).catch(e=>{if(live)setError(code(e))}).finally(()=>{if(live)setLoadedRequest(requestKey)});
   return()=>{live=false;c.abort()};
  },[scope,source,storeId,existing,version,applied,requestedSelection,refresh,requestKey]);
@@ -89,13 +91,14 @@ export function TemuTargetEditor({scope,source,storeId,existing,command,disabled
  function save(){const parsed=temuTargetInputSchema.safeParse({sourceId:source.source.id,storeId,expectedRevision:existing?.revision??0,effectiveVersion:version,...applied?{applyReceiptId:applied}:{},temu:draft});if(!parsed.success){setError("请检查编号、数字格式与资料数量；未填数值请留空。");return}command.execute("save-target",parsed.data)}
  const target=rules?.temu.localTarget,spec=target?.specification,categories=draft?.mode==="local"?rules?.temu.localCategories:rules?.temu.supplierCategories;
  const unavailable=!!target?.issues?.length||rules?.temu.issues.includes("site_specification_unverified");
- return <div className="space-y-6">
-  {error?<p role="alert" className="text-sm text-red-700">{error}</p>:null}
+ return <div className="space-y-6"><DescriptionProjectionNote format={completion?.content.descriptionFormat??source.product.description_format}/>
+  {error?<p role="alert" className="text-sm text-destructive">{error}</p>:null}
   {rules&&draft&&rules.temu.mode!==draft.mode?<Button variant="outline" disabled={disabled||loading} onClick={resetCurrentMode}>按当前模式重新准备</Button>:null}
   <div className="flex flex-wrap items-center gap-3"><p className="font-semibold">TEMU · {draft?modes[draft.mode]:"正在核实店铺"}{target?.region?.label?` · ${target.region.label}`:""}</p><Button size="sm" variant="outline" disabled={loading} onClick={()=>{setModeChecked(false);setRefresh(n=>n+1)}}>刷新官方规则</Button></div>
-  {unavailable?<p className="rounded-lg bg-amber-50 p-3 text-sm">站点规格尚未核实。可以保存商品资料，发布入口保持关闭。</p>:null}
-  {draft?.mode!=="local"&&draft?<p className="text-sm text-amber-700">全托管与半托管使用各自的供货价和站点规则。资料或规则缺失时会显示原因，并保持待补全。</p>:null}
-  {completion&&draft?<Button variant="outline" disabled={disabled} onClick={()=>change(v=>{if(v.local){v.local.goodsBasic.goodsName=completion.content.title;v.local.goodsBasic.goodsDesc=completion.content.description??""}if(v.supplier)v.supplier.productName=completion.content.title})}>带入待补全草稿 R{completion.revision}</Button>:null}
+  {unavailable?<p className="rounded-lg bg-warning p-3 text-sm">站点规格尚未核实。可以保存商品资料，发布入口保持关闭。</p>:null}
+  {draft?.mode!=="local"&&draft?<p className="text-sm text-warning-foreground">全托管与半托管使用各自的供货价和站点规则。资料或规则缺失时会显示原因，并保持待补全。</p>:null}
+  {completion&&draft?<p className="text-sm text-muted-foreground">仅带入标题和描述，候选属性、价格和库存尚未带入。</p>:null}
+  {completion&&draft?<Button variant="outline" disabled={disabled} onClick={()=>change(v=>{if(v.local){v.local.goodsBasic.goodsName=completion.content.title;v.local.goodsBasic.goodsDesc=descriptionPlainText(completion.content.description??"",completion.content.descriptionFormat)}if(v.supplier)v.supplier.productName=completion.content.title})}>带入待补全草稿 R{completion.revision}</Button>:null}
   {draft?<><Field label="商品标题"><Input disabled={disabled} value={draft.local?.goodsBasic.goodsName??draft.supplier?.productName??""} onChange={e=>change(v=>{if(v.local)v.local.goodsBasic.goodsName=e.target.value;if(v.supplier)v.supplier.productName=e.target.value})}/></Field>
    {draft.local?<Field label="商品描述"><Textarea disabled={disabled} value={draft.local.goodsBasic.goodsDesc??""} onChange={e=>local(v=>{v.goodsBasic.goodsDesc=e.target.value})}/></Field>:null}
    <section className="space-y-3"><h3 className="font-semibold">官方类目</h3><p className="text-xs text-muted-foreground">{parents.map(p=>p.name).join(" / ")||"顶级类目"}{selection.catId!=="0"?` · 已选 ${categories?.find(c=>c.catId===selection.catId)?.catName??selection.catId}`:""}</p><Select aria-label="官方类目" value={selection.catId==="0"?"":selection.catId} disabled={disabled||loading} onChange={e=>pickCategory(e.target.value)}><option value="">选择类目</option>{categories?.map(c=><option key={c.catId} value={c.catId}>{c.catName}{("leaf" in c?c.leaf:c.isLeaf)?"":" /"}</option>)}</Select>{parents.length?<Button size="sm" variant="outline" disabled={disabled||loading} onClick={backCategory}>返回上一级</Button>:selection.parentCatId!=="0"?<Button size="sm" variant="outline" disabled={disabled||loading} onClick={backCategory}>返回顶级类目</Button>:null}</section>
@@ -109,7 +112,7 @@ export function TemuTargetEditor({scope,source,storeId,existing,command,disabled
    <section className="space-y-3"><h3 className="font-semibold">来源图片与批准素材</h3><p className="text-sm text-muted-foreground">先确认本次完整来源图选择，再为商品或 SKU 选择已批准的素材。</p><div className="grid gap-3 sm:grid-cols-3">{source.images.map((image,i)=><label key={image.id} className="space-y-2 rounded-lg border p-3"><Image src={image.url} alt="" width={120} height={120} unoptimized/><span className="flex gap-2 text-sm"><input type="checkbox" aria-label={`使用来源图 ${i+1}`} checked={selectedImages.has(image.id)} disabled={disabled} onChange={e=>setSelectedImages(old=>{const n=new Set(old);if(e.target.checked)n.add(image.id);else n.delete(image.id);return n})}/>来源图 {i+1}</span></label>)}</div><Button variant="outline" disabled={disabled||!selectedImages.size} onClick={()=>command.execute("approve",{selection:provenance,images:Array.from(selectedImages).map(id=>({id,role:"gallery"})),approved:[]})}>确认完整图片选择</Button>
     <TemuImages draft={draft} inventory={inventory} disabled={disabled} onChange={images=>change(v=>{v.images=images})}/>
    </section>
-   {existing?.temu.issues.length?<ul className="space-y-1 rounded-lg bg-amber-50 p-3 text-sm">{existing.temu.issues.map((issue,i)=><li key={i}>{issue.message}</li>)}</ul>:null}
+   {existing?.temu.issues.length?<ul className="space-y-1 rounded-lg bg-warning p-3 text-sm">{existing.temu.issues.map((issue,i)=><li key={i}>{issue.message}</li>)}</ul>:null}
    <p className="text-xs text-muted-foreground">保存后重新读取当前官方要求并校验。创建回执、审核结果和上架状态分别显示。</p><Button disabled={disabled||loading||draft.mode!==rules?.temu.mode} onClick={save}>保存并校验平台资料</Button>
   </>:<p role="status" className="text-sm">正在读取当前店铺的官方资料要求…</p>}
  </div>;

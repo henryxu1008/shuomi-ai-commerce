@@ -193,7 +193,7 @@ func (c AIClientCredential) toResolvedClientConfig(fallback *ClientConfig) *Reso
 		cfg.RetryDelay = fallback.RetryDelay
 	}
 	return &ResolvedClientConfig{
-		CacheKey: fmt.Sprintf("db:%d:%d:%s", c.ID, c.UpdatedAt.UnixNano(), c.ClientName),
+		CacheKey: CredentialReference(c),
 		Config:   cfg,
 	}
 }

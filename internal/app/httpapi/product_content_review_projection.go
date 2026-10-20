@@ -18,8 +18,8 @@ type productReviewModeDTO struct {
 
 // Display the original immutable mode, never the current head or an inferred
 // title grant. This read projection is not a permission to perform a new effect.
-func (a *productAgentApplication) projectContentReviewMode(ctx context.Context, p *review.ExecutionProvenance) *productReviewModeDTO {
-	if a == nil || a.configuration == nil || a.store == nil || p == nil || !p.Valid() || !p.ContentSelection.Valid() {
+func (a *productAgentApplication) projectReviewMode(ctx context.Context, p *review.ExecutionProvenance) *productReviewModeDTO {
+	if a == nil || a.configuration == nil || a.store == nil || p == nil || !p.Valid() {
 		return nil
 	}
 	run, found, err := a.store.Lookup(ctx, p.Scope, p.Binding, p.RequestKey)
@@ -27,11 +27,20 @@ func (a *productAgentApplication) projectContentReviewMode(ctx context.Context, 
 		return nil
 	}
 	config, err := a.configuration.LoadSnapshot(ctx, p.Scope, p.Configuration)
-	if err != nil || config.AgentID != agentconfig.ContentAgentID || config.AgentVersion != agentconfig.ContentAgentVersion || config.Request.ContentSelection != p.ContentSelection {
+	if err != nil || config.Request.ContentSelection != p.ContentSelection {
+		return nil
+	}
+	subject := a.modeSubject()
+	if p.ContentSelection.Valid() {
+		if config.AgentID != agentconfig.ContentAgentID || config.AgentVersion != agentconfig.ContentAgentVersion {
+			return nil
+		}
+		subject = a.contentModeSubject()
+	} else if !p.ContentSelection.Absent() || config.AgentID != "product.title.agent" || config.AgentID != a.definition.ID || config.AgentVersion != a.definition.Version {
 		return nil
 	}
 	mode, err := a.configuration.LoadModeSnapshot(ctx, agent.ExecutionIdentity{OrganizationID: p.Scope.OrganizationID, ActorID: p.Scope.ActorID, MemberID: config.MemberID}, p.Mode)
-	if err != nil || mode.Subject != a.contentModeSubject() || mode.Binding.ContextKind != p.Binding.ContextKind || mode.Binding.ContextID != p.Binding.ContextID || mode.Binding.RequestKey != p.RequestKey {
+	if err != nil || mode.Subject != subject || mode.Binding.ContextKind != p.Binding.ContextKind || mode.Binding.ContextID != p.Binding.ContextID || mode.Binding.RequestKey != p.RequestKey {
 		return nil
 	}
 	return &productReviewModeDTO{Mode: mode.Mode, Revision: mode.Revision, Snapshot: mode.Ref()}

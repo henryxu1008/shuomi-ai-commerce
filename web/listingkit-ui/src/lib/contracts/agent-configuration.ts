@@ -1,4 +1,6 @@
+import { artworkParametersSchema } from "./artwork-parameters";
 import { z } from "zod";
+import {skillRefSchema} from "./skill";
 import { knowledgeId } from "../api/knowledge";
 import { contentParametersSchema } from "./content-selection";
 export const configVersion = z
@@ -14,7 +16,7 @@ export const templateRefSchema = z.strictObject({
   templateId: knowledgeId,
   revision: configVersion,
 });
-export const registeredAgentIdSchema = z.enum(["product.title.agent","product.image.agent","product.content.agent"]);
+export const registeredAgentIdSchema = z.enum(["product.title.agent","product.image.agent","product.content.agent","listing.materials.agent","pod.design.agent","product.selection.agent","shop.operations-diagnosis.agent"]);
 const agentId = registeredAgentIdSchema,
   timestamp = z.string().datetime({ offset: true }),
   platform = z.enum(["shein", "temu", "amazon"]);
@@ -36,6 +38,7 @@ export const contentTemplateInputSchema = templateInputSchema.extend({
   targetPlatform: z.enum(["product", "shein", "temu", "amazon"]),
   content: contentParametersSchema,
 });
+export const materialsTemplateInputSchema=templateInputSchema.omit({defaultKnowledgeBaseId:true}).extend({targetPlatform:z.literal("shein")});
 export const configReceiptSchema = z.strictObject({
   commandId: knowledgeId,
   operation: z.enum([
@@ -73,7 +76,11 @@ export const contentTemplateSchema = titleTemplateSchema.extend({
   targetPlatform: z.enum(["product", "shein", "temu", "amazon"]),
   content: contentParametersSchema,
 });
-export const templateSchema = z.discriminatedUnion("agentId", [titleTemplateSchema, contentTemplateSchema]);
+export const materialsTemplateSchema=titleTemplateSchema.extend({agentId:z.literal("listing.materials.agent"),schemaVersion:z.literal("listing-materials-config-v1"),targetPlatform:z.literal("shein"),defaultKnowledgeBaseId:z.never().optional(),knowledgeAvailability:z.never().optional()});
+export const artworkTemplateInputSchema=templateInputSchema.omit({defaultKnowledgeBaseId:true}).extend({targetPlatform:z.literal("sds"),artwork:artworkParametersSchema});
+export const artworkTemplateSchema=titleTemplateSchema.extend({agentId:z.literal("pod.design.agent"),schemaVersion:z.literal("pod-artwork-config-v1"),targetPlatform:z.literal("sds"),artwork:artworkParametersSchema,defaultKnowledgeBaseId:z.never().optional(),knowledgeAvailability:z.never().optional()});
+export const artworkTemplatesPageSchema=z.strictObject({items:z.array(artworkTemplateSchema).max(100),nextCursor:z.string().max(180)});
+export const templateSchema = z.discriminatedUnion("agentId", [titleTemplateSchema, contentTemplateSchema,materialsTemplateSchema,artworkTemplateSchema]);
 const configuration = z.strictObject({
   agentId,
   activation: z.enum(["NOT_ENABLED", "ENABLED", "DISABLED"]),
@@ -87,7 +94,7 @@ export const catalogEntrySchema = z.strictObject({
   name: z.string().min(1).max(512),
   description: z.string().max(2048),
   definitionVersion: z.string().max(128),
-  parameterSchema: z.enum(["title-config-v1","image-config-v1","content-config-v1"]),
+	parameterSchema: z.enum(["title-config-v1","image-config-v1","content-config-v1","listing-materials-config-v1","pod-artwork-config-v1","product-selection-config-v1","shop-operations-diagnosis-config-v1"]),
   canConfigure: z.boolean(),
   canUse: z.boolean(),
   canReadRuns: z.boolean(),
@@ -97,6 +104,9 @@ export const catalogEntrySchema = z.strictObject({
         id: z.enum([
           "text.generate",
           "product.source-evidence",
+          "listing.materials.inspect",
+          "product.selection.inspect",
+ "shop.operations-diagnosis.inspect",
           "knowledge.context",
           "image.generate",
           "platform.write",
@@ -113,7 +123,7 @@ export const catalogEntrySchema = z.strictObject({
       }),
     )
     .max(5),
-}).refine(entry=>({"product.title.agent":"title-config-v1","product.image.agent":"image-config-v1","product.content.agent":"content-config-v1"})[entry.agent.agentId]===entry.parameterSchema,{message:"智能体与参数类型不一致"});
+}).refine(entry=>({"product.title.agent":"title-config-v1","product.image.agent":"image-config-v1","product.content.agent":"content-config-v1","listing.materials.agent":"listing-materials-config-v1","pod.design.agent":"pod-artwork-config-v1","product.selection.agent":"product-selection-config-v1","shop.operations-diagnosis.agent":"shop-operations-diagnosis-config-v1"})[entry.agent.agentId]===entry.parameterSchema,{message:"智能体与参数类型不一致"});
 const page = <T extends z.ZodType>(schema: T, max = 100) =>
   z.strictObject({
     items: z.array(schema).max(max),
@@ -123,10 +133,12 @@ export const catalogPageSchema = page(catalogEntrySchema);
 export const templatesPageSchema = page(templateSchema);
 export const titleTemplatesPageSchema = page(titleTemplateSchema);
 export const contentTemplatesPageSchema = page(contentTemplateSchema);
+export const materialsTemplatesPageSchema=page(materialsTemplateSchema);
 export const recentRunsSchema = page(
   z.strictObject({
     runId: knowledgeId,
     operationId: knowledgeId,
+    contextKind:z.string().min(1).max(128),
     requestKey: knowledgeId,
     productKey: z.string().min(1).max(128),
     targetPlatform: z.enum(["product", "shein", "temu", "amazon"]),
@@ -138,6 +150,7 @@ export const recentRunsSchema = page(
     ]),
     revision: configVersion,
     startedAt: timestamp,
+    skillVersionRef:skillRefSchema.optional(),
   }),
   20,
 );

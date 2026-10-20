@@ -8,13 +8,30 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/commercetool"
 )
 
+type visualConfigurationProfile struct {
+	agentID, version, context string
+	artwork                   bool
+}
+
+var productImageProfile = visualConfigurationProfile{agentconfig.ImageAgentID, agentconfig.ImageAgentVersion, agentconfig.ImageSnapshotContext, false}
+var artworkProfile = visualConfigurationProfile{agentconfig.ArtworkAgentID, agentconfig.ArtworkAgentVersion, agentconfig.ArtworkSnapshotContext, true}
+
+type visualConfigurationSnapshot struct {
+	agentconfig.ImageConfigurationSnapshot
+	ArtworkParameters agentconfig.ArtworkTemplate `json:"-"`
+}
+
 func validImageStart(c agentconfig.ImageStartCommand) bool {
-	if !scopeOK(c.Scope) || !agent.ValidID(c.MemberID) || !agentconfig.UUID(c.RequestKey) || !agentconfig.UUID(c.RunID) || !agent.ValidID(c.ContextID) || (c.TargetPlatform != "product" && !agentconfig.Platform(c.TargetPlatform)) || !agentconfig.ImageDigest(c.SourceDigest) || !agentconfig.ImageDigest(c.InputDigest) || !c.HardLimits.Valid() {
+	return validVisualStart(c, productImageProfile)
+}
+func validVisualStart(c agentconfig.ImageStartCommand, profile visualConfigurationProfile) bool {
+	if !scopeOK(c.Scope) || !agent.ValidID(c.MemberID) || !agentconfig.UUID(c.RequestKey) || !agentconfig.UUID(c.RunID) || !agent.ValidID(c.ContextID) || (!profile.artwork && c.TargetPlatform != "product" && !agentconfig.Platform(c.TargetPlatform) || profile.artwork && (c.TargetPlatform != "sds" || c.SourceDigest != c.InputDigest || c.HardLimits.Images != 1)) || !agentconfig.ImageDigest(c.SourceDigest) || !agentconfig.ImageDigest(c.InputDigest) || !c.HardLimits.Valid() {
 		return false
 	}
 	if c.Template != nil {
@@ -29,58 +46,92 @@ func validImageStart(c agentconfig.ImageStartCommand) bool {
 }
 
 func imageSnapshotView(tx *gorm.DB, row snapshotRow) (agentconfig.ImageConfigurationSnapshot, error) {
-	var value agentconfig.ImageConfigurationSnapshot
-	if len(row.Payload) > 8192 || row.AgentID != agentconfig.ImageAgentID || row.ContextKind != agentconfig.ImageSnapshotContext || row.Digest != digest(row.Payload) || json.Unmarshal(row.Payload, &value) != nil {
+	value, err := visualSnapshotView(tx, row, productImageProfile)
+	return value.ImageConfigurationSnapshot, err
+}
+func visualParameters(t agentconfig.Template, profile visualConfigurationProfile) ([]byte, error) {
+	if profile.artwork {
+		if t.Artwork == nil || t.Image != nil || t.Content != nil || t.TargetPlatform != "sds" {
+			return nil, agentconfig.ErrInvalid
+		}
+		return json.Marshal(t.Artwork)
+	}
+	if t.Image == nil || t.Artwork != nil {
+		return nil, agentconfig.ErrInvalid
+	}
+	return json.Marshal(t.Image)
+}
+func visualSnapshotView(tx *gorm.DB, row snapshotRow, profile visualConfigurationProfile) (visualConfigurationSnapshot, error) {
+	var value visualConfigurationSnapshot
+	if len(row.Payload) > 8192 || row.AgentID != profile.agentID || row.ContextKind != profile.context || row.Digest != digest(row.Payload) || json.Unmarshal(row.Payload, &value) != nil {
 		return value, agentconfig.ErrUnavailable
 	}
-	if row.ID != value.ID || row.OrganizationID != value.Scope.OrganizationID || row.ActorID != value.Scope.ActorID || row.ContextID != value.ContextID || row.RequestKey != value.RequestKey || row.AgentVersion != agentconfig.ImageAgentVersion || value.AgentVersion != row.AgentVersion || value.Epoch != decimal(row.ActivationEpoch) || value.AgentRevision != decimal(row.AgentRevision) || text(row.TemplateID) != value.Template.TemplateID || row.TemplateRevision == nil || decimal(*row.TemplateRevision) != value.Template.Revision {
+	if row.ID != value.ID || row.OrganizationID != value.Scope.OrganizationID || row.ActorID != value.Scope.ActorID || row.ContextID != value.ContextID || row.RequestKey != value.RequestKey || row.AgentVersion != profile.version || value.AgentVersion != row.AgentVersion || value.Epoch != decimal(row.ActivationEpoch) || value.AgentRevision != decimal(row.AgentRevision) || text(row.TemplateID) != value.Template.TemplateID || row.TemplateRevision == nil || decimal(*row.TemplateRevision) != value.Template.Revision {
 		return value, agentconfig.ErrUnavailable
 	}
-	if !validImageStart(agentconfig.ImageStartCommand{Scope: value.Scope, MemberID: value.MemberID, RequestKey: value.RequestKey, ContextID: value.ContextID, RunID: value.RunID, TargetPlatform: value.TargetPlatform, SourceDigest: value.SourceDigest, InputDigest: value.InputDigest, Template: &value.Template, HardLimits: value.HardLimits}) {
+	if !validVisualStart(agentconfig.ImageStartCommand{Scope: value.Scope, MemberID: value.MemberID, RequestKey: value.RequestKey, ContextID: value.ContextID, RunID: value.RunID, TargetPlatform: value.TargetPlatform, SourceDigest: value.SourceDigest, InputDigest: value.InputDigest, Template: &value.Template, HardLimits: value.HardLimits}, profile) {
 		return value, agentconfig.ErrUnavailable
 	}
-	t, err := findTemplate(tx, value.Scope.OrganizationID, agentconfig.ImageAgentID, value.Template.TemplateID, false)
+	t, err := findTemplate(tx, value.Scope.OrganizationID, profile.agentID, value.Template.TemplateID, false)
 	if err != nil {
 		return value, err
 	}
 	parameters, err := templateView(tx, t, *row.TemplateRevision)
-	if err != nil || parameters.Image == nil || (parameters.TargetPlatform != "product" && parameters.TargetPlatform != value.TargetPlatform) {
+	if err != nil || (parameters.TargetPlatform != "product" && parameters.TargetPlatform != value.TargetPlatform) {
 		return value, agentconfig.ErrUnavailable
 	}
-	raw, err := json.Marshal(parameters.Image)
+	raw, err := visualParameters(parameters, profile)
 	if err != nil || digest(raw) != value.ParametersDigest {
 		return value, agentconfig.ErrUnavailable
 	}
 	value.Digest = row.Digest
-	value.Parameters = agentconfig.CloneSetTemplate(*parameters.Image)
+	if profile.artwork {
+		value.ArtworkParameters = *parameters.Artwork
+	} else {
+		value.Parameters = agentconfig.CloneSetTemplate(*parameters.Image)
+	}
 	return value, nil
 }
 
+// Keep activation fenced against enable/disable while coexisting with the
+// caller's Skill availability lease. The existing mode-subject lock serializes
+// snapshot/admission receipts before their first read, including equal-key races.
+func lockVisualConfigurationAgent(tx *gorm.DB, org string, profile visualConfigurationProfile) (agentRow, error) {
+	if err := lockModeSubject(tx, org, agentconfig.ModeSubject{Kind: agentconfig.RegisteredAgentSubject, ID: profile.agentID}); err != nil {
+		return agentRow{}, err
+	}
+	return findAgent(tx.Clauses(clause.Locking{Strength: "SHARE"}), org, profile.agentID, false)
+}
+
 func (s *Store) PrepareImageConfiguration(ctx context.Context, c agentconfig.ImageStartCommand) (agentconfig.ImageConfigurationSnapshot, error) {
+	value, err := s.prepareVisualConfiguration(ctx, c, productImageProfile)
+	return value.ImageConfigurationSnapshot, err
+}
+func (s *Store) prepareVisualConfiguration(ctx context.Context, c agentconfig.ImageStartCommand, profile visualConfigurationProfile) (visualConfigurationSnapshot, error) {
 	modeRevision, modeErr := agentconfig.ParseModeRevision(c.ExpectedModeRevision)
 	if modeErr != nil {
-		return agentconfig.ImageConfigurationSnapshot{}, agentconfig.ErrInvalid
+		return visualConfigurationSnapshot{}, agentconfig.ErrInvalid
 	}
-	if !validImageStart(c) {
-		return agentconfig.ImageConfigurationSnapshot{}, agentconfig.ErrInvalid
+	if !validVisualStart(c, profile) {
+		return visualConfigurationSnapshot{}, agentconfig.ErrInvalid
 	}
 	// Deployment ceilings are frozen output, not a retry input that rewrites it.
 	public := c
 	public.HardLimits = agentconfig.ImageRunLimits{}
 	fingerprint, err := hash(public)
 	if err != nil {
-		return agentconfig.ImageConfigurationSnapshot{}, err
+		return visualConfigurationSnapshot{}, err
 	}
-	var result agentconfig.ImageConfigurationSnapshot
+	var result visualConfigurationSnapshot
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		a, agentErr := findAgent(tx, c.Scope.OrganizationID, agentconfig.ImageAgentID, true)
+		a, agentErr := lockVisualConfigurationAgent(tx, c.Scope.OrganizationID, profile)
 		var old snapshotRow
-		err := tx.Where("organization_id=? AND actor_id=? AND context_kind=? AND context_id=? AND request_key=?", c.Scope.OrganizationID, c.Scope.ActorID, agentconfig.ImageSnapshotContext, c.ContextID, c.RequestKey).Take(&old).Error
+		err := tx.Where("organization_id=? AND actor_id=? AND context_kind=? AND context_id=? AND request_key=?", c.Scope.OrganizationID, c.Scope.ActorID, profile.context, c.ContextID, c.RequestKey).Take(&old).Error
 		if err == nil {
 			if old.Fingerprint != fingerprint {
 				return agentconfig.ErrConflict
 			}
-			result, err = imageSnapshotView(tx, old)
+			result, err = visualSnapshotView(tx, old, profile)
 			return err
 		}
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -99,7 +150,7 @@ func (s *Store) PrepareImageConfiguration(ctx context.Context, c agentconfig.Ima
 		if ref == nil {
 			return agentconfig.ErrNotFound
 		}
-		t, err := findTemplate(tx, c.Scope.OrganizationID, agentconfig.ImageAgentID, ref.TemplateID, true)
+		t, err := findTemplate(tx, c.Scope.OrganizationID, profile.agentID, ref.TemplateID, true)
 		if err != nil {
 			return err
 		}
@@ -114,15 +165,15 @@ func (s *Store) PrepareImageConfiguration(ctx context.Context, c agentconfig.Ima
 		if err != nil {
 			return err
 		}
-		if parameters.Image == nil || parameters.TargetPlatform != "product" && parameters.TargetPlatform != c.TargetPlatform {
+		if parameters.TargetPlatform != "product" && parameters.TargetPlatform != c.TargetPlatform {
 			return agentconfig.ErrInvalid
 		}
-		parameterBytes, err := json.Marshal(parameters.Image)
+		parameterBytes, err := visualParameters(parameters, profile)
 		if err != nil {
 			return err
 		}
-		result = agentconfig.ImageConfigurationSnapshot{ID: uuid.NewString(), Scope: c.Scope, MemberID: c.MemberID, RequestKey: c.RequestKey, ContextID: c.ContextID, RunID: c.RunID, TargetPlatform: c.TargetPlatform, AgentVersion: agentconfig.ImageAgentVersion, Epoch: decimal(a.ActivationEpoch), AgentRevision: decimal(a.Revision), SourceDigest: c.SourceDigest, InputDigest: c.InputDigest, ParametersDigest: digest(parameterBytes), Template: *ref, HardLimits: c.HardLimits}
-		mode, err := prepareModeInTransaction(tx, agentconfig.ModeStartCommand{Identity: agent.ExecutionIdentity{OrganizationID: c.Scope.OrganizationID, ActorID: c.Scope.ActorID, MemberID: c.MemberID}, Subject: agentconfig.ResolvedModeSubject{Subject: agentconfig.ModeSubject{Kind: agentconfig.RegisteredAgentSubject, ID: agentconfig.ImageAgentID}, Definition: commercetool.AgentRef{ID: agentconfig.ImageAgentID, Version: agentconfig.ImageAgentVersion}}, Binding: agentconfig.ModeBinding{ContextKind: agentconfig.ImageSnapshotContext, ContextID: c.ContextID, RequestKey: c.RequestKey, IntentDigest: fingerprint}, ExpectedRevision: modeRevision})
+		result.ImageConfigurationSnapshot = agentconfig.ImageConfigurationSnapshot{ID: uuid.NewString(), Scope: c.Scope, MemberID: c.MemberID, RequestKey: c.RequestKey, ContextID: c.ContextID, RunID: c.RunID, TargetPlatform: c.TargetPlatform, AgentVersion: profile.version, Epoch: decimal(a.ActivationEpoch), AgentRevision: decimal(a.Revision), SourceDigest: c.SourceDigest, InputDigest: c.InputDigest, ParametersDigest: digest(parameterBytes), Template: *ref, HardLimits: c.HardLimits}
+		mode, err := prepareModeInTransaction(tx, agentconfig.ModeStartCommand{Identity: agent.ExecutionIdentity{OrganizationID: c.Scope.OrganizationID, ActorID: c.Scope.ActorID, MemberID: c.MemberID}, Subject: agentconfig.ResolvedModeSubject{Subject: agentconfig.ModeSubject{Kind: agentconfig.RegisteredAgentSubject, ID: profile.agentID}, Definition: commercetool.AgentRef{ID: profile.agentID, Version: profile.version}}, Binding: agentconfig.ModeBinding{ContextKind: profile.context, ContextID: c.ContextID, RequestKey: c.RequestKey, IntentDigest: fingerprint}, ExpectedRevision: modeRevision})
 		if err != nil {
 			return err
 		}
@@ -131,32 +182,40 @@ func (s *Store) PrepareImageConfiguration(ctx context.Context, c agentconfig.Ima
 		if err != nil || len(raw) > 8192 {
 			return agentconfig.ErrInvalid
 		}
-		row := snapshotRow{ID: result.ID, OrganizationID: c.Scope.OrganizationID, ActorID: c.Scope.ActorID, ContextKind: agentconfig.ImageSnapshotContext, ContextID: c.ContextID, RequestKey: c.RequestKey, AgentID: agentconfig.ImageAgentID, AgentVersion: agentconfig.ImageAgentVersion, Fingerprint: fingerprint, Payload: raw, Digest: digest(raw), ActivationEpoch: a.ActivationEpoch, AgentRevision: a.Revision, TemplateID: &ref.TemplateID, TemplateRevision: &revision, CreatedAt: time.Now().UTC()}
+		row := snapshotRow{ID: result.ID, OrganizationID: c.Scope.OrganizationID, ActorID: c.Scope.ActorID, ContextKind: profile.context, ContextID: c.ContextID, RequestKey: c.RequestKey, AgentID: profile.agentID, AgentVersion: profile.version, Fingerprint: fingerprint, Payload: raw, Digest: digest(raw), ActivationEpoch: a.ActivationEpoch, AgentRevision: a.Revision, TemplateID: &ref.TemplateID, TemplateRevision: &revision, CreatedAt: time.Now().UTC()}
 		if err := tx.Create(&row).Error; err != nil {
 			return err
 		}
 		result.Digest = row.Digest
-		result.Parameters = agentconfig.CloneSetTemplate(*parameters.Image)
+		if profile.artwork {
+			result.ArtworkParameters = *parameters.Artwork
+		} else {
+			result.Parameters = agentconfig.CloneSetTemplate(*parameters.Image)
+		}
 		return nil
 	})
 	return result, err
 }
 
 func (s *Store) LoadImageConfiguration(ctx context.Context, scope agent.Scope, ref agent.ConfigurationSnapshotRef) (agentconfig.ImageConfigurationSnapshot, error) {
+	value, err := s.loadVisualConfiguration(ctx, scope, ref, productImageProfile)
+	return value.ImageConfigurationSnapshot, err
+}
+func (s *Store) loadVisualConfiguration(ctx context.Context, scope agent.Scope, ref agent.ConfigurationSnapshotRef, profile visualConfigurationProfile) (visualConfigurationSnapshot, error) {
 	if !scopeOK(scope) || ref.Kind != agentconfig.SnapshotKind || !agentconfig.UUID(ref.ID) || !agentconfig.ImageDigest(ref.Digest) {
-		return agentconfig.ImageConfigurationSnapshot{}, agentconfig.ErrInvalid
+		return visualConfigurationSnapshot{}, agentconfig.ErrInvalid
 	}
 	var row snapshotRow
 	if err := s.db.WithContext(ctx).Where("id=? AND organization_id=? AND actor_id=?", ref.ID, scope.OrganizationID, scope.ActorID).Take(&row).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return agentconfig.ImageConfigurationSnapshot{}, agentconfig.ErrNotFound
+			return visualConfigurationSnapshot{}, agentconfig.ErrNotFound
 		}
-		return agentconfig.ImageConfigurationSnapshot{}, err
+		return visualConfigurationSnapshot{}, err
 	}
 	if row.Digest != ref.Digest {
-		return agentconfig.ImageConfigurationSnapshot{}, agentconfig.ErrConflict
+		return visualConfigurationSnapshot{}, agentconfig.ErrConflict
 	}
-	return imageSnapshotView(s.db.WithContext(ctx), row)
+	return visualSnapshotView(s.db.WithContext(ctx), row, profile)
 }
 
 type imageAdmissionRow struct {
@@ -186,10 +245,13 @@ func validImageAdmission(c agentconfig.ImageRunAdmissionCommand) bool {
 }
 
 func (s *Store) AdmitImageRun(ctx context.Context, c agentconfig.ImageRunAdmissionCommand, ceiling agentconfig.ImageRunLimits) (agentconfig.ImageRunAdmissionReceipt, error) {
+	return s.admitVisualRun(ctx, c, ceiling, productImageProfile)
+}
+func (s *Store) admitVisualRun(ctx context.Context, c agentconfig.ImageRunAdmissionCommand, ceiling agentconfig.ImageRunLimits, profile visualConfigurationProfile) (agentconfig.ImageRunAdmissionReceipt, error) {
 	if !validImageAdmission(c) {
 		return agentconfig.ImageRunAdmissionReceipt{}, agentconfig.ErrInvalid
 	}
-	snapshot, err := s.LoadImageConfiguration(ctx, c.Scope, c.Snapshot)
+	snapshot, err := s.loadVisualConfiguration(ctx, c.Scope, c.Snapshot, profile)
 	if err != nil {
 		return agentconfig.ImageRunAdmissionReceipt{}, err
 	}
@@ -200,7 +262,7 @@ func (s *Store) AdmitImageRun(ctx context.Context, c agentconfig.ImageRunAdmissi
 	if err != nil {
 		return agentconfig.ImageRunAdmissionReceipt{}, err
 	}
-	if mode.Subject.Subject.Kind != agentconfig.RegisteredAgentSubject || mode.Subject.Subject.ID != agentconfig.ImageAgentID || mode.Subject.Definition.Version != snapshot.AgentVersion || mode.Binding.ContextKind != agentconfig.ImageSnapshotContext || mode.Binding.ContextID != snapshot.ContextID || mode.Binding.RequestKey != snapshot.RequestKey {
+	if mode.Subject.Subject.Kind != agentconfig.RegisteredAgentSubject || mode.Subject.Subject.ID != profile.agentID || mode.Subject.Definition.Version != snapshot.AgentVersion || mode.Binding.ContextKind != profile.context || mode.Binding.ContextID != snapshot.ContextID || mode.Binding.RequestKey != snapshot.RequestKey {
 		return agentconfig.ImageRunAdmissionReceipt{}, agentconfig.ErrConflict
 	}
 	fingerprint, err := hash(c)
@@ -209,9 +271,9 @@ func (s *Store) AdmitImageRun(ctx context.Context, c agentconfig.ImageRunAdmissi
 	}
 	var result agentconfig.ImageRunAdmissionReceipt
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// This is the same lock held by Execute(enable/disable). The committed
+		// Activation changes still wait for the shared fence. The committed
 		// write-once receipt is the whole-run admission point across ImageDB.
-		a, agentErr := findAgent(tx, c.Scope.OrganizationID, agentconfig.ImageAgentID, true)
+		a, agentErr := lockVisualConfigurationAgent(tx, c.Scope.OrganizationID, profile)
 		var rows []imageAdmissionRow
 		if err := tx.Where("organization_id=? AND (snapshot_id=? OR run_id=? OR (actor_id=? AND action_id=?))", c.Scope.OrganizationID, c.Snapshot.ID, c.RunID, c.Scope.ActorID, c.ConfirmActionID).Limit(2).Find(&rows).Error; err != nil {
 			return err
@@ -256,7 +318,10 @@ func (s *Store) AdmitImageRun(ctx context.Context, c agentconfig.ImageRunAdmissi
 }
 
 func (s *Store) ReadImageRunAdmission(ctx context.Context, scope agent.Scope, ref agent.ConfigurationSnapshotRef) (agentconfig.ImageRunAdmissionReceipt, error) {
-	if _, err := s.LoadImageConfiguration(ctx, scope, ref); err != nil {
+	return s.readVisualAdmission(ctx, scope, ref, productImageProfile)
+}
+func (s *Store) readVisualAdmission(ctx context.Context, scope agent.Scope, ref agent.ConfigurationSnapshotRef, profile visualConfigurationProfile) (agentconfig.ImageRunAdmissionReceipt, error) {
+	if _, err := s.loadVisualConfiguration(ctx, scope, ref, profile); err != nil {
 		return agentconfig.ImageRunAdmissionReceipt{}, err
 	}
 	var row imageAdmissionRow

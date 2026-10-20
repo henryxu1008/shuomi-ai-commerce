@@ -81,7 +81,7 @@ export async function proxyProductTitleReview(request: Request, accessToken: str
     if (upstream.status === 200) {
       const result = collection ? parseProductTitleProposalList(payload) : parseProductTitleProposal(payload);
       if (!result || (!collection && (!("proposal_id" in result) || result.proposal_id !== id))) return invalidResponse();
-      if ("execution" in result && result.execution.scope.OrganizationID !== org) return invalidResponse();
+      if ("execution" in result && result.execution && result.execution.scope.OrganizationID !== org) return invalidResponse();
       return productReviewJSON(result);
     }
     const failure = parseProductTitleReviewFailure(payload, upstream.status);

@@ -18,6 +18,9 @@ type CompletionDraftApplication interface {
 	Read(context.Context, string) (completiondraft.Record, error)
 	ReadCommand(context.Context, string) (completiondraft.Receipt, error)
 	List(context.Context, string, collection.Query) (collection.Page[completiondraft.Record], error)
+	ListForCollectionItem(context.Context, string, collection.Query) (completiondraft.ItemPage, error)
+	ListHistory(context.Context, string, completiondraft.HistoryQuery) (completiondraft.HistoryPage, error)
+	ReadRevision(context.Context, string, int64) (completiondraft.Record, error)
 }
 
 func CompletionDraftRoutes(app CompletionDraftApplication, bind func(context.Context, string) (context.Context, error)) []httproute.Descriptor {
@@ -25,7 +28,10 @@ func CompletionDraftRoutes(app CompletionDraftApplication, bind func(context.Con
 		{http.MethodPost, "/completion-drafts", "save", preparation.PermissionManage},
 		{http.MethodGet, "/completion-drafts/commands/:key", "command", preparation.PermissionRead},
 		{http.MethodGet, "/sources/:source_id/completion-draft", "read", preparation.PermissionRead},
+		{http.MethodGet, "/sources/:source_id/completion-draft/history", "history", preparation.PermissionRead},
+		{http.MethodGet, "/sources/:source_id/completion-draft/history/:revision", "history-detail", preparation.PermissionRead},
 		{http.MethodGet, "/:preparation_id/completion-drafts", "list", preparation.PermissionRead},
+		{http.MethodGet, "/collection-items/:item_id/completion-drafts", "item-list", preparation.PermissionRead},
 	}
 	routes := []httproute.Descriptor{}
 	for _, spec := range specs {
@@ -40,11 +46,15 @@ func CompletionDraftRoutes(app CompletionDraftApplication, bind func(context.Con
 				supplyError(c, preparation.ErrForbidden)
 				return
 			}
-			if spec.action != "list" && c.Request.URL.RawQuery != "" {
+			if spec.action != "list" && spec.action != "item-list" && spec.action != "history" && c.Request.URL.RawQuery != "" {
 				supplyError(c, preparation.ErrInvalid)
 				return
 			}
 			if spec.method == http.MethodGet {
+				if (spec.action == "history" || spec.action == "history-detail") && len(c.Request.Header.Values("Content-Encoding")) > 0 {
+					supplyError(c, preparation.ErrInvalid)
+					return
+				}
 				if err := supplyEmptyBody(c.Request); err != nil {
 					supplyError(c, err)
 					return
@@ -52,6 +62,26 @@ func CompletionDraftRoutes(app CompletionDraftApplication, bind func(context.Con
 			}
 			var output any
 			switch spec.action {
+			case "history":
+				var q completiondraft.HistoryQuery
+				q, err = completionHistoryQuery(c.Request)
+				if err == nil {
+					if !collection.ValidID(c.Param("source_id")) {
+						err = preparation.ErrInvalid
+					} else {
+						output, err = app.ListHistory(ctx, c.Param("source_id"), q)
+					}
+				}
+			case "history-detail":
+				var revision int64
+				revision, err = completiondraft.ParseRevision(c.Param("revision"))
+				if err == nil {
+					if !collection.ValidID(c.Param("source_id")) {
+						err = preparation.ErrInvalid
+					} else {
+						output, err = app.ReadRevision(ctx, c.Param("source_id"), revision)
+					}
+				}
 			case "save":
 				var in completiondraft.SaveInput
 				var key string
@@ -81,6 +111,19 @@ func CompletionDraftRoutes(app CompletionDraftApplication, bind func(context.Con
 						err = preparation.ErrInvalid
 					} else {
 						output, err = app.List(ctx, c.Param("preparation_id"), q)
+					}
+				}
+			case "item-list":
+				var q collection.Query
+				q, err = supplyQuery(c.Request)
+				if err == nil {
+					if !c.Request.URL.Query().Has("limit") {
+						q.Limit = 20
+					}
+					if !collection.ValidID(c.Param("item_id")) {
+						err = preparation.ErrInvalid
+					} else {
+						output, err = app.ListForCollectionItem(ctx, c.Param("item_id"), q)
 					}
 				}
 			}

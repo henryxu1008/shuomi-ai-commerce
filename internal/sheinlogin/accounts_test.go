@@ -96,29 +96,8 @@ func (s *stubListingAdminAccountStore) GetStore(_ context.Context, tenantID, id 
 	return nil, listingadmin.ErrStoreNotFound
 }
 
-func (s *stubListingAdminAccountStore) CreateStore(context.Context, *listingadmin.Store) (*listingadmin.Store, error) {
-	panic("unexpected CreateStore")
-}
-func (s *stubListingAdminAccountStore) UpdateStore(context.Context, *listingadmin.Store) (*listingadmin.Store, error) {
-	panic("unexpected UpdateStore")
-}
 func (s *stubListingAdminAccountStore) UpdateStoreStatus(context.Context, int64, int64, int16, string) (*listingadmin.Store, error) {
 	panic("unexpected UpdateStoreStatus")
-}
-func (s *stubListingAdminAccountStore) DeleteStore(context.Context, int64, int64) error {
-	panic("unexpected DeleteStore")
-}
-func (s *stubListingAdminAccountStore) ListDeletedStores(context.Context, int64) ([]listingadmin.Store, error) {
-	panic("unexpected ListDeletedStores")
-}
-func (s *stubListingAdminAccountStore) RestoreStore(context.Context, int64, int64) (*listingadmin.Store, error) {
-	panic("unexpected RestoreStore")
-}
-func (s *stubListingAdminAccountStore) PermanentlyDeleteStore(context.Context, int64, int64) error {
-	panic("unexpected PermanentlyDeleteStore")
-}
-func (s *stubListingAdminAccountStore) ExtendStoreValidity(context.Context, int64, int64, int) (*listingadmin.Store, error) {
-	panic("unexpected ExtendStoreValidity")
 }
 
 func TestListingAdminAccountProviderLoadsSheinAccountsFromRepository(t *testing.T) {
@@ -157,6 +136,10 @@ func TestListingAdminAccountProviderLoadsSheinAccountsFromRepository(t *testing.
 	}
 	if accounts[0].LoginURL != "https://sellerhub.shein.com" {
 		t.Fatalf("expected normalized login url, got %q", accounts[0].LoginURL)
+	}
+	if accounts[0].Username != "demo-user" || accounts[0].Password != "secret" ||
+		accounts[0].Proxy != "http://127.0.0.1:8080" || accounts[0].ShopName != "Demo Shop" || accounts[0].StoreName != "SHEIN-12" {
+		t.Fatal("expected worker account credentials, proxy and store metadata from the repository owner")
 	}
 	if !provider.repo.(*stubListingAdminAccountStore).query.ReadAccess {
 		t.Fatal("ListAccounts query ReadAccess = false, want shared-store read access")

@@ -13,15 +13,13 @@ func TestNewGormStoreAPISupportsSheinWorkerStoreOperations(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(&listingStore{}))
 
-	autoLogin := true
 	row := listingStore{
-		TenantID:        246,
-		StoreID:         "SHEIN-ORIGINAL",
-		Name:            "SHEIN Store",
-		Username:        "merchant",
-		Password:        "secret",
-		Platform:        "SHEIN",
-		EnableAutoLogin: &autoLogin,
+		TenantID: 246,
+		StoreID:  "SHEIN-ORIGINAL",
+		Name:     "SHEIN Store",
+		Username: "merchant",
+		Password: "secret",
+		Platform: "SHEIN",
 	}
 	require.NoError(t, db.Create(&row).Error)
 

@@ -44,9 +44,10 @@ type SelectedProduct struct {
 	Product PublicProduct
 }
 type ProductChoice struct {
-	Selection SelectionInput `json:"selection"`
-	Product   PublicProduct  `json:"product"`
-	Optimized bool           `json:"optimized"`
+	Selection        SelectionInput `json:"selection"`
+	Product          *PublicProduct `json:"product,omitempty"`
+	Optimized        bool           `json:"optimized"`
+	IneligibleReason string         `json:"ineligibleReason,omitempty"`
 }
 type ChoiceReader interface {
 	ReadChoice(context.Context, collection.Scope, collection.ItemDetail) (ProductChoice, error)

@@ -28,9 +28,8 @@ func (r *gormRepository) RecoverGenerationStaging(ctx context.Context, reservati
 	if !strings.HasPrefix(ref.ObjectKey, "image-agent/staging/") {
 		return result, imageagent.ErrValidation
 	}
-	input := imageagent.SlotExecutionInput{TenantID: intent.Identity.TenantID, UserID: intent.Identity.OwnerUserID, RunID: intent.Identity.RunID, PlanRevision: intent.Identity.PlanRevision, Slot: imageagent.Slot{ID: intent.Identity.SlotID}, Attempt: intent.Identity.Attempt}
-	public := imageagent.PublishedAssetRef{ObjectKey: strings.Replace(ref.ObjectKey, "image-agent/staging/", imageagent.PublishedArtifactPrefix+"/", 1), SHA256: ref.SHA256, SizeBytes: ref.SizeBytes, ContentType: ref.ContentType, Width: ref.Width, Height: ref.Height, SourceAssetID: ref.SourceAssetID, Operations: ref.Operations, ProviderReceiptID: ref.ProviderReceiptID}
-	if imageagent.ValidatePublishedAssetRefForSlot(input, public, 0) != nil {
+	public := imageagent.PublishedAssetRef{ObjectKey: strings.Replace(ref.ObjectKey, "image-agent/staging/", imageagent.PublishedArtifactPrefix+"/", 1), SHA256: ref.SHA256, SizeBytes: ref.SizeBytes, ContentType: ref.ContentType, Width: ref.Width, Height: ref.Height, SourceAssetID: ref.SourceAssetID, Operations: ref.Operations, ProviderReceiptID: ref.ProviderReceiptID, Artwork: ref.Artwork}
+	if imageagent.ValidatePublishedAssetRefForEffect(intent.Identity, public, 0) != nil {
 		return result, imageagent.ErrValidation
 	}
 	err = withProjectionTransaction(ctx, r.db, func(tx *gorm.DB) error {
@@ -64,10 +63,26 @@ func (r *gormRepository) RecoverGenerationStaging(ctx context.Context, reservati
 			return err
 		}
 		var sources []string
-		if json.Unmarshal(slot.SourceAssetIDs, &sources) != nil || len(sources) == 0 || ref.SourceAssetID != sources[0] {
+		if json.Unmarshal(slot.SourceAssetIDs, &sources) != nil || intent.InputProtocol != imageagent.ArtworkSchema && (len(sources) == 0 || ref.SourceAssetID != sources[0]) {
 			return imageagent.ErrRevisionConflict
 		}
-		if intent.InputProtocol == imageagent.ImageSetSchema {
+		if intent.InputProtocol == imageagent.ArtworkSchema {
+			var plan planRecord
+			if err := tx.Where("tenant_id=? AND owner_user_id=? AND run_id=? AND revision=?", intent.Identity.TenantID, intent.Identity.OwnerUserID, intent.Identity.RunID, intent.Identity.PlanRevision).Take(&plan).Error; err != nil {
+				return err
+			}
+			var artwork *imageagent.ArtworkPlan
+			var declaredSources, styles []string
+			if json.Unmarshal(plan.SetJSON, &artwork) != nil || artwork == nil || json.Unmarshal(plan.SourceAssetIDs, &declaredSources) != nil || json.Unmarshal(plan.StyleReferenceIDs, &styles) != nil || len(styles) != 0 || len(sources) != 0 || len(declaredSources) != 0 || ref.Artwork == nil || ref.SourceAssetID != "" || ref.Width != 1024 || ref.Height != 1024 || len(slot.RecipeJSON) != 0 {
+				return imageagent.ErrRevisionConflict
+			}
+			declared := imageagent.Plan{Revision: plan.Revision, ParentRevision: plan.ParentRevision, IdempotencyKey: plan.IdempotencyKey, CreatedBy: plan.CreatedBy, Artwork: artwork, Slots: []imageagent.Slot{{ID: slot.ID, Role: imageagent.SlotRole(slot.Role), Brief: slot.Brief, IdempotencyKey: slot.IdempotencyKey, Status: imageagent.SlotStatusPending}}}
+			if imageagent.ValidateArtworkPlan(declared) != nil || !artwork.Quote.MatchesGenerationIntent(intent) || ref.Artwork.InputDigest != intent.InputDigest || ref.Artwork.IntentID != fact.IntentID || ref.Artwork.Fingerprint != fact.Fingerprint || intent.InputDigest != imageagent.ArtworkGenerationInputDigestFromFingerprint(row.InputFingerprint) {
+				return imageagent.ErrRevisionConflict
+			}
+		} else if ref.Artwork != nil {
+			return imageagent.ErrRevisionConflict
+		} else if intent.InputProtocol == imageagent.ImageSetSchema {
 			var plan planRecord
 			if err := tx.Where("tenant_id = ? AND owner_user_id = ? AND run_id = ? AND revision = ?", intent.Identity.TenantID, intent.Identity.OwnerUserID, intent.Identity.RunID, intent.Identity.PlanRevision).Take(&plan).Error; err != nil {
 				return err
@@ -79,6 +94,14 @@ func (r *gormRepository) RecoverGenerationStaging(ctx context.Context, reservati
 				return imageagent.ErrRevisionConflict
 			}
 			stored := imageagent.SlotExecutionInput{ImageSet: set, TargetPlatform: set.Target.Platform, Slot: imageagent.Slot{ID: slot.ID, Role: imageagent.SlotRole(slot.Role), SourceAssetIDs: sources, StyleReferenceIDs: styles, Brief: slot.Brief, IdempotencyKey: slot.IdempotencyKey, Recipe: recipe}}
+			if set.Text != nil || set.Method != nil && set.Method.PolicyVersion == imageagent.FrozenLiteralCopyPolicyVersion && recipe.Purpose == "key_benefits" {
+				// Validate the original literal copy with its immutable catalog facts,
+				// never current product data or a newly assembled recovery recipe.
+				if json.Unmarshal(catalog.ProductContextJSON, &stored.ProductContext) != nil {
+					return imageagent.ErrRevisionConflict
+				}
+				stored.AssetCatalog.ProductContext = stored.ProductContext
+			}
 			if imageagent.ValidateImageSetExecution(stored) != nil || set.Source.CatalogHash != intent.CatalogHash || imageagent.ImageSourceBundleDigest(recipe.References) != intent.SourceDigest || intent.InputDigest != imageagent.ImageGenerationInputDigestFromFingerprint(row.InputFingerprint) {
 				return imageagent.ErrRevisionConflict
 			}

@@ -15,8 +15,8 @@ import (
 	"task-processor/internal/httproute"
 	observationstore "task-processor/internal/integration/persistence/storeobservations"
 	kernelmodule "task-processor/internal/kernel/module"
-	o "task-processor/internal/storecenter/observations"
 	"task-processor/internal/storecenter"
+	o "task-processor/internal/storecenter/observations"
 	"task-processor/internal/workbenchcontext"
 	"time"
 )
@@ -53,7 +53,7 @@ func buildCurrentStoreObservations(ctx context.Context, db *gorm.DB, d StoreObse
 	if !ok || resolver == nil || permissions == nil || db == nil || d.Starter == nil || d.NewWorker == nil || d.Lifecycle == nil || cfg == nil || cfg.ListingKit.Zitadel.TenantDirectoryToken == "" || d.PreparationOnly && applications != nil || !d.PreparationOnly && applications == nil {
 		return empty, o.ErrUnavailable
 	}
-	if err := storecenter.VerifyCurrentSchema(ctx, db); err != nil {
+	if err := storecenter.VerifyCurrentSchemaForCapabilities(ctx, db, capabilities); err != nil {
 		return empty, err
 	}
 	if !capabilities.Observations {

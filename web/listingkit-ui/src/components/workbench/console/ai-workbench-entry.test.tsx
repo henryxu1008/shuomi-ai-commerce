@@ -3,10 +3,10 @@ import {afterEach, beforeEach, expect, it, vi} from "vitest";
 import Page from "@/app/workbench/ai/page";
 
 const fixture = vi.hoisted(() => ({
-  redirect: vi.fn(), knowledge: false, reports: false, review: false, history: false,
+  redirect: vi.fn(), knowledge: false, reports: false, review: false, history: false, native:false,
   context: {aiWorkbenchAvailable: false, projectCenterAvailable: false, isLoading: false,
     isSwitching: false, selectionRequired: false, error: null, blockingError: null,
-    effectiveOrganization: {id: "org-a"}},
+    effectiveOrganization: {id: "org-a"},permissions:["workbench.agent.read","workbench.agent.use"]},
 }));
 vi.mock("next/navigation", () => ({redirect: fixture.redirect}));
 vi.mock("@/components/providers/workbench-context-provider", () => ({useWorkbenchContext: () => fixture.context}));
@@ -14,9 +14,10 @@ vi.mock("@/lib/server/knowledge-availability", () => ({isKnowledgeAvailable: () 
 vi.mock("@/lib/server/report-center-availability", () => ({isReportCenterAvailable: () => fixture.reports}));
 vi.mock("@/lib/server/product-title-review-request", () => ({configuredProductReviewOrigin: () => fixture.review ? "https://review.test" : null}));
 vi.mock("@/lib/server/shein-records-availability", () => ({isSheinRecordsAvailable: () => fixture.history}));
+vi.mock("@/lib/server/agent-configuration-origin",()=>({isAgentConfigurationAvailable:()=>fixture.native}));
 beforeEach(() => {
   fixture.redirect.mockReset();
-  fixture.knowledge = fixture.reports = fixture.review = fixture.history = false;
+  fixture.knowledge = fixture.reports = fixture.review = fixture.history = fixture.native = false;
   fixture.context.aiWorkbenchAvailable = fixture.context.projectCenterAvailable = fixture.context.isLoading = fixture.context.isSwitching = false;
   fixture.context.selectionRequired = false;
 });
@@ -31,7 +32,7 @@ it('keeps all four introduction cards and gates each business capability', () =>
   expect(screen.getByRole('link', { name: /进入我的报告/ })).toHaveAttribute('href', '/workbench/ai/reports');
   expect(screen.queryByRole('link', { name: /进入硕米Chat/ })).not.toBeInTheDocument();
 });
-it.each([['review', '/workbench/ai/tasks/pending/other'], ['history', '/workbench/ai/tasks/completed/history']] as const)('retains independent %s task access', (capability, destination) => {
+it.each([['review', '/workbench/ai/tasks'], ['history', '/workbench/ai/tasks'],['native','/workbench/ai/tasks']] as const)('retains independent %s task access', (capability, destination) => {
   fixture[capability] = true;
   render(<Page />);
   expect(fixture.redirect).not.toHaveBeenCalled();

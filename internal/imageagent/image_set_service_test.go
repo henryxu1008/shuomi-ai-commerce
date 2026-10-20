@@ -60,8 +60,22 @@ func (c *setConfigurationFixture) AdmitImageRun(_ context.Context, command agent
 }
 
 type setContextFixture struct {
+	copy            *imageagent.ImageTextReviewCopy
+	copyReads       int
+	copyErr         error
 	preparation     imageagent.ImageSetPreparation
 	revalidationErr error
+}
+
+func (c *setContextFixture) ReadConfirmedImageText(context.Context, imageagent.ExecutionIdentity, imageagent.ImageTextReviewReference) (imageagent.ImageTextReviewCopy, error) {
+	c.copyReads++
+	if c.copyErr != nil {
+		return imageagent.ImageTextReviewCopy{}, c.copyErr
+	}
+	if c.copy == nil {
+		return imageagent.ImageTextReviewCopy{}, imageagent.ErrCommandBlocked
+	}
+	return *c.copy, nil
 }
 
 func (c *setContextFixture) ResolveImageSet(context.Context, imageagent.ExecutionIdentity, imageagent.PrepareImageSetInput) (imageagent.ImageSetPreparation, error) {
@@ -96,6 +110,25 @@ func TestPrepareImageSetQuotesOnlyExplicitlySelectedTasks(t *testing.T) {
 	require.Equal(t, "overview", prepared.Projection.Plan.Slots[0].ID)
 	require.EqualValues(t, 12, prepared.Points)
 	require.Zero(t, workflows.starts)
+}
+
+func TestNewImageSetPromptContainsVisualFactsWithoutInternalIdentityFields(t *testing.T) {
+	s, _, _, _, source, _, ctx, input := imageSetServiceFixture(t)
+	prepared, err := s.PrepareImageSet(ctx, input)
+	require.NoError(t, err)
+	for _, slot := range prepared.Projection.Plan.Slots {
+		prompt := slot.Recipe.Prompt
+		require.NotContains(t, prompt, `"ProductID":`, "internal identity belongs in the frozen plan, not the image content")
+		require.NotContains(t, prompt, `"SourceSnapshotVersion":`)
+		require.Contains(t, prompt, source.preparation.Catalog.ProductContext.Title)
+		require.Contains(t, prompt, slot.Recipe.Purpose)
+		require.Contains(t, prompt, slot.Recipe.Background)
+		require.Contains(t, prompt, slot.Recipe.Language)
+	}
+	source.preparation.Catalog.ProductContext.Title = "changed later"
+	replay, err := s.PrepareImageSet(ctx, input)
+	require.NoError(t, err)
+	require.Equal(t, prepared.Projection.Plan, replay.Projection.Plan, "a replay must preserve the original frozen prompt")
 }
 
 func TestRegenerationRequiresTheOriginalRunToHaveKnownClosedEffects(t *testing.T) {
@@ -148,10 +181,10 @@ func TestKnownClosedSubsetRegenerationCreatesANewAwaitingConfirmationRun(t *test
 	require.Equal(t, parent.ResultDigest, stored.ResultDigest, "original effects and receipts remain untouched")
 }
 
-func imageSetServiceFixture(t *testing.T) (*imageagent.Service, imageagent.Repository, *recordingWorkflowClient, *setConfigurationFixture, *setContextFixture, *setQuoteFixture, context.Context, imageagent.PrepareImageSetInput) {
-	return imageSetServiceFixtureWithRepository(t, nil)
+func imageSetServiceFixture(t *testing.T, options ...imageagent.ServiceOption) (*imageagent.Service, imageagent.Repository, *recordingWorkflowClient, *setConfigurationFixture, *setContextFixture, *setQuoteFixture, context.Context, imageagent.PrepareImageSetInput) {
+	return imageSetServiceFixtureWithRepository(t, nil, options...)
 }
-func imageSetServiceFixtureWithRepository(t *testing.T, wrap func(imageagent.Repository) imageagent.Repository) (*imageagent.Service, imageagent.Repository, *recordingWorkflowClient, *setConfigurationFixture, *setContextFixture, *setQuoteFixture, context.Context, imageagent.PrepareImageSetInput) {
+func imageSetServiceFixtureWithRepository(t *testing.T, wrap func(imageagent.Repository) imageagent.Repository, options ...imageagent.ServiceOption) (*imageagent.Service, imageagent.Repository, *recordingWorkflowClient, *setConfigurationFixture, *setContextFixture, *setQuoteFixture, context.Context, imageagent.PrepareImageSetInput) {
 	t.Helper()
 	config := &setConfigurationFixture{enabled: true, template: agentconfig.SetTemplate{Schema: agentconfig.ImageConfigurationSchema, Mode: "standard", ShareOriginals: true, Background: "white", Language: "zh", Carousel: []agentconfig.ContentTask{{ID: "identity", Purpose: "product_identity"}}, Detail: []agentconfig.ContentTask{{ID: "overview", Purpose: "product_overview"}}}}
 	catalog, err := imageagent.NormalizeAssetCatalog(imageagent.AssetCatalog{ProductContext: imageagent.ProductContextRef{ProductID: "product", Title: "Test product", SourceSnapshotVersion: 1}, Assets: []imageagent.AuthorizedAsset{{ID: "source-1", Type: imageagent.AuthorizedAssetSource, URL: "https://images.example.org/source.png", Width: 1024, Height: 1024}}})
@@ -163,10 +196,11 @@ func imageSetServiceFixtureWithRepository(t *testing.T, wrap func(imageagent.Rep
 		repository = wrap(repository)
 	}
 	workflows := &recordingWorkflowClient{}
-	service, err := imageagent.NewService(repository, workflows, staticCatalogResolver{catalog: catalog}, imageagent.WithOrganizationScope(), imageagent.WithImageSetDependencies(imageagent.ImageSetDependencies{Configuration: config, Contexts: contexts, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{Images: 32, Points: 10000, ElapsedSeconds: 3600}}))
+	options = append([]imageagent.ServiceOption{imageagent.WithOrganizationScope(), imageagent.WithImageSetDependencies(imageagent.ImageSetDependencies{ConfirmedCopy: contexts, Configuration: config, Contexts: contexts, Quotes: quotes, HardLimits: agentconfig.ImageRunLimits{Images: 32, Points: 10000, ElapsedSeconds: 3600}})}, options...)
+	service, err := imageagent.NewService(repository, workflows, staticCatalogResolver{catalog: catalog}, options...)
 	require.NoError(t, err)
 	ctx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{TenantID: "org", EffectiveOrganizationID: "org", UserID: "actor", EffectiveMemberID: "member"})
-	input := imageagent.PrepareImageSetInput{ExpectedModeRevision: "0", ContextKind: imageagent.ImageSourceAcquisition, RequestID: "c5fd7c43-138c-43dc-8dfb-6f9be74a5e9e", ContextID: "operation", Target: imageagent.ImageTargetSelection{Platform: "product"}, SharedOriginalIDs: []string{"source-1"}}
+	input := imageagent.PrepareImageSetInput{Text: &imageagent.ImageTextSelection{Mode: "none"}, ExpectedModeRevision: "0", ContextKind: imageagent.ImageSourceAcquisition, RequestID: "c5fd7c43-138c-43dc-8dfb-6f9be74a5e9e", ContextID: "operation", Target: imageagent.ImageTargetSelection{Platform: "product"}, SharedOriginalIDs: []string{"source-1"}}
 	return service, repository, workflows, config, contexts, quotes, ctx, input
 }
 

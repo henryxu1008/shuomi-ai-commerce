@@ -272,11 +272,10 @@ function ScopedPurchase({
     setSelected(null);
     if (result.status === "FULFILLED") {
       try {
-        const readback = await getCommercialResources(
-          userId,
-          organizationId,
-          signal,
-        );
+        const [readback,walletReadback] = await Promise.all([
+          getCommercialResources(userId,organizationId,signal),
+          getCommercialWallet(userId,organizationId,signal),
+        ]);
         signal.throwIfAborted();
         const type = resourceDefinitions.find(
           (d) =>
@@ -291,16 +290,18 @@ function ScopedPurchase({
         );
         if (
           readback.organization_id !== organizationId ||
+          walletReadback.organization_id !== organizationId ||
           !type ||
           readback.resources.find((r) => r.resource_type === type.type)
             ?.state !== "recorded"
         )
           throw new Error("unconfirmed");
         setBalances(readback);
+        client.setQueryData(["workbench",organizationId,"commercial-wallet",userId,"resource-purchase"],walletReadback);
         if (persist(null)) setMessage("资源已到账，余额已重新读取。");
         void client.invalidateQueries({
           queryKey: ["workbench", organizationId],
-          refetchType: "none",
+          refetchType: "active",
         });
       } catch {
         signal.throwIfAborted();

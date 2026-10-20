@@ -18,14 +18,17 @@ type GenerationMemberLimit struct {
 	MonthStart time.Time
 }
 type GenerationProviderMetadata struct {
+	Provider, Model, Protocol                                                              string
 	RouteReference, CredentialReference, ConfigurationVersion, PromptVersion, PriceVersion string
 	Points                                                                                 int64
 }
 type PreparedGenerationProvider struct {
-	Metadata GenerationProviderMetadata
-	Executor BudgetedStagedSlotExecutor
+	Metadata  GenerationProviderMetadata
+	Executor  BudgetedStagedSlotExecutor
+	Rejection func(error) (GenerationRejection, bool)
 }
 type GenerationExecutionDependencies struct {
+	Methods            ImageMethodContext
 	StorageCapacity    storagecapacity.Writer
 	MaxStorageBytes    int64
 	Facts              GenerationFactRepository
@@ -41,6 +44,11 @@ type GenerationExecution struct {
 	dependencies GenerationExecutionDependencies
 }
 
+func (e *GenerationExecution) WithImageMethodContext(methods ImageMethodContext) *GenerationExecution {
+	e.dependencies.Methods = methods
+	return e
+}
+
 func NewGenerationExecution(d GenerationExecutionDependencies) (*GenerationExecution, error) {
 	if d.Facts == nil || d.Resources == nil || d.Authorizer == nil || d.ReadMemberLimit == nil || d.ReadSourceBytes == nil || d.PrepareProvider == nil || d.RevalidateProvider == nil || d.MaxSourceBytes <= 0 {
 		return nil, ErrValidation
@@ -51,6 +59,12 @@ func (e *GenerationExecution) QuoteSlot(ctx context.Context, input SlotExecution
 	if err := e.authorize(ctx, input); err != nil {
 		return SlotUsageQuote{}, err
 	}
+	preparedInput, release, methodErr := e.prepareImageMethod(ctx, input)
+	if methodErr != nil {
+		return SlotUsageQuote{}, methodErr
+	}
+	defer release()
+	input = preparedInput
 	provider, err := e.dependencies.PrepareProvider(ctx, func(context.Context, GenerationSuccess) error { return ErrProviderContractViolation })
 	if err != nil {
 		return SlotUsageQuote{}, err
@@ -68,11 +82,20 @@ func (e *GenerationExecution) GenerateQuotedSlot(ctx context.Context, input Slot
 	id := SlotExternalEffectIdentity{RunScope: RunScope{TenantID: input.TenantID, OwnerUserID: input.UserID, RunID: input.RunID}, PlanRevision: input.PlanRevision, SlotID: input.Slot.ID, Attempt: input.Attempt}
 	// Existing attempts are exclusively reconciled by the effect recovery owner.
 	// A readback (including a prepared row) can never grant a new POST permit.
-	if _, err := e.dependencies.Facts.ReadGenerationFact(ctx, id); err == nil {
+	if fact, err := e.dependencies.Facts.ReadGenerationFact(ctx, id); err == nil {
+		if fact.State == GenerationNoEffect {
+			return reject(ErrCommandBlocked)
+		}
 		return generationUnknown(ErrRevisionConflict)
 	} else if !errors.Is(err, ErrRunNotFound) {
 		return generationUnknown(err)
 	}
+	preparedInput, release, methodErr := e.prepareImageMethod(ctx, input)
+	if methodErr != nil {
+		return reject(methodErr)
+	}
+	defer release()
+	input = preparedInput
 	var intent GenerationIntent
 	provider, err := e.dependencies.PrepareProvider(ctx, func(observeCtx context.Context, success GenerationSuccess) error {
 		finalCtx, cancel := generationFinalizationContext(observeCtx)
@@ -95,7 +118,12 @@ func (e *GenerationExecution) GenerateQuotedSlot(ctx context.Context, input Slot
 	var data []byte
 	var references [][]byte
 	var sourceDigest string
-	if input.ImageSet != nil {
+	if input.Artwork != nil {
+		sourceDigest, err = ArtworkGenerationInputDigest(input)
+		if err != nil {
+			return reject(err)
+		}
+	} else if input.ImageSet != nil {
 		for _, id := range input.Slot.SourceAssetIDs {
 			sourceInput := input
 			sourceInput.Slot = input.Slot
@@ -131,8 +159,10 @@ func (e *GenerationExecution) GenerateQuotedSlot(ctx context.Context, input Slot
 		return reject(err)
 	}
 	m := provider.Metadata
-	intent = GenerationIntent{Identity: id, MemberID: input.OrganizationIdentity.MemberID, CatalogHash: input.AssetCatalog.Manifest.Hash, SourceDigest: sourceDigest, PromptVersion: m.PromptVersion, RouteReference: m.RouteReference, CredentialReference: m.CredentialReference, ConfigurationVersion: m.ConfigurationVersion, Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", PriceVersion: m.PriceVersion, Points: m.Points, LimitVersion: limit.Version, MonthStart: limit.MonthStart}
-	if input.ImageSet != nil {
+	intent = GenerationIntent{Identity: id, MemberID: input.OrganizationIdentity.MemberID, CatalogHash: input.AssetCatalog.Manifest.Hash, SourceDigest: sourceDigest, PromptVersion: m.PromptVersion, RouteReference: m.RouteReference, CredentialReference: m.CredentialReference, ConfigurationVersion: m.ConfigurationVersion, Provider: m.Provider, Model: m.Model, Protocol: m.Protocol, Resolution: "1024x1024", Quality: "auto", PriceVersion: m.PriceVersion, Points: m.Points, LimitVersion: limit.Version, MonthStart: limit.MonthStart}
+	if input.Artwork != nil {
+		intent.InputProtocol, intent.InputDigest, intent.PromptVersion = ArtworkSchema, sourceDigest, input.Artwork.PromptVersion
+	} else if input.ImageSet != nil {
 		intent.InputDigest, err = ImageSlotGenerationInputDigest(input)
 		if err != nil {
 			return reject(err)
@@ -209,6 +239,19 @@ func (e *GenerationExecution) GenerateQuotedSlot(ctx context.Context, input Slot
 		return generationUnknown(readErr)
 	}
 	if fact.State != GenerationSucceeded {
+		if provider.Rejection != nil && dispatchErr != nil {
+			if proof, known := provider.Rejection(dispatchErr); known {
+				if recorder, ok := e.dependencies.Facts.(GenerationRejectionRecorder); ok {
+					if _, err := recorder.RecordGenerationRejection(finalCtx, intent, proof); err != nil {
+						return generationUnknown(err)
+					}
+					if err := e.finalize(finalCtx, intent); err != nil {
+						return generationUnknown(err)
+					}
+					return reject(dispatchErr)
+				}
+			}
+		}
 		if _, err := e.dependencies.Facts.MarkGenerationUnknown(finalCtx, intent); err != nil {
 			return generationUnknown(err)
 		}
@@ -225,6 +268,18 @@ func (e *GenerationExecution) GenerateQuotedSlot(ctx context.Context, input Slot
 	if dispatchErr != nil {
 		return generationUnknown(dispatchErr)
 	}
+	if input.Artwork != nil {
+		if output.SlotID != input.Slot.ID || output.Attempt != input.Attempt || output.SourceAssetID != "" || len(output.Assets) != 1 || !reflect.DeepEqual(output.Assets[0].Operations, []string{"generate_artwork"}) {
+			return generationUnknown(ErrProviderContractViolation)
+		}
+		provenance, err := NewArtworkProvenance(input, fact)
+		if err != nil {
+			return generationUnknown(err)
+		}
+		// Source-free provenance is minted by this fact owner, never accepted
+		// as provider-supplied authority or substituted for an original image.
+		output.Assets[0].Artwork = &provenance
+	}
 	return output, nil
 }
 
@@ -236,7 +291,11 @@ func (e *GenerationExecution) authorize(ctx context.Context, input SlotExecution
 	if input.PlanRevision <= 0 || input.Attempt <= 0 || input.Slot.ID == "" {
 		return ErrValidation
 	}
-	if input.ImageSet != nil || input.Slot.Recipe != nil {
+	if input.Artwork != nil {
+		if err := ValidateArtworkExecution(input); err != nil {
+			return err
+		}
+	} else if input.ImageSet != nil || input.Slot.Recipe != nil {
 		if err := ValidateImageSetExecution(input); err != nil {
 			return err
 		}
@@ -247,8 +306,11 @@ func (e *GenerationExecution) authorize(ctx context.Context, input SlotExecution
 }
 func quoteGenerationProvider(ctx context.Context, p PreparedGenerationProvider, input SlotExecutionInput, policy BudgetPolicy) (SlotUsageQuote, SlotUsageQuote, error) {
 	m := p.Metadata
-	if p.Executor == nil || m.Points <= 0 || m.PriceVersion == "" || m.RouteReference == "" || m.CredentialReference == "" || m.ConfigurationVersion == "" || m.PromptVersion == "" {
+	if p.Executor == nil || !validGenerationRoute(m.Provider, m.Model, m.Protocol) || m.Points <= 0 || m.PriceVersion == "" || m.RouteReference == "" || m.CredentialReference == "" || m.ConfigurationVersion == "" || m.PromptVersion == "" {
 		return SlotUsageQuote{}, SlotUsageQuote{}, ErrBudgetQuoteUnavailable
+	}
+	if err := validateGenerationRouteInput(m, input); err != nil {
+		return SlotUsageQuote{}, SlotUsageQuote{}, err
 	}
 	base, err := p.Executor.QuoteSlot(ctx, input, policy)
 	if err != nil {
@@ -259,22 +321,54 @@ func quoteGenerationProvider(ctx context.Context, p PreparedGenerationProvider, 
 	}
 	op := base.Operations[0]
 	operation := "render_source_white_background"
-	if input.ImageSet != nil {
+	var inputQuote *ImageGenerationQuote
+	if input.Artwork != nil {
+		operation = "generate_artwork"
+		inputQuote = &input.Artwork.Quote
+	} else if input.ImageSet != nil {
 		operation = "render_source_edit"
-		q := input.Slot.Recipe.Quote
-		if q.PriceVersion != m.PriceVersion || q.Points != m.Points || q.RouteReference != m.RouteReference || q.CredentialReference != m.CredentialReference || q.ConfigurationVersion != m.ConfigurationVersion {
+		inputQuote = &input.Slot.Recipe.Quote
+	}
+	if inputQuote != nil {
+		q := *inputQuote
+		if !q.Valid() || q.Provider != m.Provider || q.Model != m.Model || q.Protocol != m.Protocol || q.PriceVersion != m.PriceVersion || q.Points != m.Points || q.RouteReference != m.RouteReference || q.CredentialReference != m.CredentialReference || q.ConfigurationVersion != m.ConfigurationVersion {
 			return SlotUsageQuote{}, SlotUsageQuote{}, ErrRevisionConflict
 		}
 	}
-	if op.Name != operation || op.Provider != "grsai" || op.Model != "gpt-image-2.5" || op.MaximumOutputs != 1 {
+	if op.Name != operation || op.Provider != m.Provider || op.Model != m.Model || op.MaximumOutputs != 1 {
 		return SlotUsageQuote{}, SlotUsageQuote{}, ErrBudgetQuoteUnavailable
 	}
 	quote := base
 	quote.Fingerprint = generationHash(struct {
 		Quote    SlotUsageQuote
 		Metadata GenerationProviderMetadata
-	}{base, m})
+		Method   *ImageMethodBinding `json:",omitempty"`
+	}{Quote: base, Metadata: m, Method: func() *ImageMethodBinding {
+		if input.ImageSet != nil {
+			return input.ImageSet.Method
+		}
+		return nil
+	}()})
 	return base, quote, nil
+}
+
+func (e *GenerationExecution) prepareImageMethod(ctx context.Context, input SlotExecutionInput) (SlotExecutionInput, func(), error) {
+	if input.ImageSet == nil || input.ImageSet.Method == nil {
+		return input, func() {}, nil
+	}
+	if err := ValidateImageMethodDispatch(input.ImageSet.Method); err != nil {
+		return input, nil, err
+	}
+	text, release, err := AcquireImageMethod(ctx, e.dependencies.Methods, input.OrganizationIdentity, input.ImageSet.Method)
+	if err != nil {
+		return input, nil, err
+	}
+	if _, err = ComposeImageMethodPrompt(input.Slot.Recipe.Prompt, text); err != nil {
+		release()
+		return input, nil, err
+	}
+	input.ImageMethodText = text
+	return input, release, nil
 }
 func (e *GenerationExecution) finalize(ctx context.Context, intent GenerationIntent) error {
 	receipt, err := e.dependencies.Resources.FinalizeImageGeneration(ctx, intent.Identity)

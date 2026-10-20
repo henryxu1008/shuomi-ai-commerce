@@ -24,7 +24,8 @@ func BuildConfig(v *viper.Viper) *Config {
 	}
 
 	cfg := &Config{
-		FeatureFlags: buildFeatureFlagsConfig(v),
+		StorageCapacity: v.GetBool("storageCapacity"),
+		FeatureFlags:    buildFeatureFlagsConfig(v),
 		Observability: ObservabilityConfig{
 			Tracing: TracingConfig{
 				Enabled:     v.GetBool("observability.tracing.enabled"),
@@ -32,22 +33,6 @@ func BuildConfig(v *viper.Viper) *Config {
 				Endpoint:    v.GetString("observability.tracing.endpoint"),
 				Insecure:    v.GetBool("observability.tracing.insecure"),
 			},
-		},
-		Processor: ProcessorConfig{
-			MaxRetries:       v.GetInt("processor.maxRetries"),
-			Timeout:          v.GetInt("processor.timeout"),
-			SchedulerEnabled: v.GetBool("processor.schedulerEnabled"),
-		},
-		Worker: WorkerConfig{
-			Concurrency:        v.GetInt("worker.concurrency"),
-			BufferSize:         v.GetInt("worker.bufferSize"),
-			TaskInterval:       v.GetInt("worker.taskInterval"),
-			MaxFetchPerCycle:   v.GetInt("worker.maxFetchPerCycle"),
-			QueueThreshold:     v.GetInt("worker.queueThreshold"),
-			CleanupInterval:    v.GetInt("worker.cleanupInterval"),
-			TaskTimeout:        v.GetInt("worker.taskTimeout"),
-			StuckTaskThreshold: v.GetInt("worker.stuckTaskThreshold"),
-			ForceCleanupAfter:  v.GetInt("worker.forceCleanupAfter"),
 		},
 		OpenAI: OpenAIConfig{
 			APIKey:  v.GetString("openai.apiKey"),
@@ -164,10 +149,13 @@ func BuildConfig(v *viper.Viper) *Config {
 				AllowedTenantIDs: getStringSlice(v, "imageagent.admission.allowedTenantIDs"),
 			},
 			ArtifactStore: ImageAgentArtifactStoreConfig{
-				Enabled:    v.GetBool("imageagent.artifactStore.enabled"),
-				Provider:   v.GetString("imageagent.artifactStore.provider"),
-				PublicBase: v.GetString("imageagent.artifactStore.publicBase"),
+				IsolatedTrialGeneratedURLs: v.GetBool("imageagent.artifactStore.isolatedTrialGeneratedURLs"),
+				Enabled:                    v.GetBool("imageagent.artifactStore.enabled"),
+				Provider:                   v.GetString("imageagent.artifactStore.provider"),
+				PublicBase:                 v.GetString("imageagent.artifactStore.publicBase"),
 				S3: ImageAgentArtifactStoreS3Config{
+					CapacityIdentityProvider:             v.GetString("imageagent.artifactStore.s3.capacityIdentityProvider"),
+					CapacityMinIODeploymentID:            v.GetString("imageagent.artifactStore.s3.capacityMinIODeploymentID"),
 					Bucket:                               v.GetString("imageagent.artifactStore.s3.bucket"),
 					Region:                               v.GetString("imageagent.artifactStore.s3.region"),
 					Endpoint:                             v.GetString("imageagent.artifactStore.s3.endpoint"),
@@ -185,31 +173,10 @@ func BuildConfig(v *viper.Viper) *Config {
 			CheckInterval:      v.GetInt("updater.checkInterval"),
 			InsecureSkipVerify: v.GetBool("updater.insecureSkipVerify"),
 		},
-		Debug: DebugConfig{
-			SavePublishJSON: v.GetBool("debug.save_publish_json"),
-		},
-		ListingControlPlane: ListingControlPlaneConfig{
-			Enabled:                    v.GetBool("listingControlPlane.enabled"),
-			Platform:                   v.GetString("listingControlPlane.platform"),
-			LeaderLockKey:              v.GetString("listingControlPlane.leaderLockKey"),
-			LeaderLockTTL:              v.GetDuration("listingControlPlane.leaderLockTTL"),
-			CycleTimeout:               v.GetDuration("listingControlPlane.cycleTimeout"),
-			ScanInterval:               v.GetDuration("listingControlPlane.scanInterval"),
-			BatchSize:                  v.GetInt("listingControlPlane.batchSize"),
-			PerStoreBurst:              v.GetInt("listingControlPlane.perStoreBurst"),
-			MaxQueuedPerStore:          v.GetInt("listingControlPlane.maxQueuedPerStore"),
-			DryRun:                     v.GetBool("listingControlPlane.dryRun"),
-			EnableLegacyQuotaKeys:      v.GetBool("listingControlPlane.enableLegacyQuotaKeys"),
-			QuotaKeyTTLGrace:           v.GetDuration("listingControlPlane.quotaKeyTTLGrace"),
-			PausedTaskRecoveryInterval: v.GetDuration("listingControlPlane.pausedTaskRecoveryInterval"),
-		},
 		ListingKit: ListingKitConfig{
-			RolePolicyDatabase:             rolePolicyDatabase(v),
-			SheinSubmitDebugDumpDir:        v.GetString("listingkit.sheinSubmitDebugDumpDir"),
-			GenerationUsageLedgerEnabled:   v.GetBool("listingkit.generationUsageLedgerEnabled"),
-			GenerationUsageLedgerTenantIDs: getStringSlice(v, "listingkit.generationUsageLedgerTenantIDs"),
-			PlatformAdminUsers:             getStringSlice(v, "listingkit.platformAdminUsers"),
-			PlatformAdminRoles:             getStringSlice(v, "listingkit.platformAdminRoles"),
+			RolePolicyDatabase: rolePolicyDatabase(v),
+			PlatformAdminUsers: getStringSlice(v, "listingkit.platformAdminUsers"),
+			PlatformAdminRoles: getStringSlice(v, "listingkit.platformAdminRoles"),
 			ImageUpload: ListingKitImageUploadConfig{
 				Provider: v.GetString("listingkit.imageUpload.provider"),
 				Local:    ListingKitImageUploadLocalConfig{RootDir: v.GetString("listingkit.imageUpload.local.rootDir")},
@@ -250,8 +217,6 @@ func BuildConfig(v *viper.Viper) *Config {
 		},
 		WalletTopUp: topupconfig.Load(v),
 	}
-
-	cfg.RabbitMQ = BuildRabbitMQConfig(v)
 
 	cfg.Database = databaseConfigFromViper(v, "database")
 	cfg.CommercialDatabase = databaseConfigFromViper(v, "commercialDatabase")

@@ -2,21 +2,31 @@ package imageagentworker
 
 import (
 	"context"
-	"gorm.io/gorm"
+	d "task-processor/internal/aicapability/routeconfig"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/core/config"
 	"task-processor/internal/imageagent"
 	openai "task-processor/internal/integration/openai"
 	"task-processor/internal/shared/aiidentity"
+
+	"gorm.io/gorm"
 )
 
 type imageGenerationQuoteReader struct{ factory generationProviderFactory }
 
-func NewImageGenerationQuoteReader(db *gorm.DB, price config.ImageAgentGenerationConfig) (imageagent.ImageSetQuoteReader, error) {
-	if db == nil || !price.Configured() {
+func NewImageGenerationQuoteReader(db *gorm.DB, price config.ImageAgentGenerationConfig, current ...d.CurrentReader) (imageagent.ImageSetQuoteReader, error) {
+	if len(current) > 1 || db == nil || !price.Configured() {
 		return nil, imageagent.ErrBudgetQuoteUnavailable
 	}
-	return imageGenerationQuoteReader{factory: generationProviderFactory{resolver: organizationCredentialAdmission{resolver: openai.NewOrganizationCredentialResolver(db)}, price: price}}, nil
+	var reader d.CurrentReader
+	if len(current) == 1 {
+		reader = current[0]
+	}
+	resolver := openai.NewOrganizationCredentialResolver(db)
+	if reader != nil {
+		resolver = openai.NewOrganizationOnlyCredentialResolver(db)
+	}
+	return imageGenerationQuoteReader{factory: generationProviderFactory{current: reader, resolver: organizationCredentialAdmission{resolver: resolver}, price: price}}, nil
 }
 
 func (r imageGenerationQuoteReader) ReadImageGenerationQuote(ctx context.Context, identity imageagent.ExecutionIdentity) (imageagent.ImageGenerationQuote, error) {
@@ -32,5 +42,5 @@ func (r imageGenerationQuoteReader) ReadImageGenerationQuote(ctx context.Context
 	if err != nil {
 		return imageagent.ImageGenerationQuote{}, err
 	}
-	return imageagent.ImageGenerationQuote{Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", PriceVersion: metadata.PriceVersion, Points: metadata.Points, RouteReference: metadata.RouteReference, CredentialReference: metadata.CredentialReference, ConfigurationVersion: metadata.ConfigurationVersion}, nil
+	return imageagent.ImageGenerationQuote{Provider: metadata.Provider, Model: metadata.Model, Protocol: metadata.Protocol, Resolution: "1024x1024", Quality: "auto", PriceVersion: metadata.PriceVersion, Points: metadata.Points, RouteReference: metadata.RouteReference, CredentialReference: metadata.CredentialReference, ConfigurationVersion: metadata.ConfigurationVersion}, nil
 }

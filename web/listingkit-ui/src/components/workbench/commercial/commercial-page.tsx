@@ -31,6 +31,7 @@ import {
 import {
   OrderDetailView,
   OrdersView,
+  type OrderFilterForm,
   WalletView,
 } from "./commercial-billing-views";
 import styles from "./commercial.module.css";
@@ -333,6 +334,7 @@ function BillingRequest({
   permissions: string[];
 }) {
   const [filters, setFilters] = useState<CommercialOrderFilters>({});
+  const [orderForm,setOrderForm]=useState<OrderFilterForm>({query:"",kind:"",status:"",from:"",until:""});
   const [cursor, setCursor] = useState("");
   const [walletCursor, setWalletCursor] = useState("");
   const wallet = useQuery({
@@ -460,6 +462,8 @@ function BillingRequest({
       );
     return (
       <OrdersView
+        form={orderForm}
+        onFormChange={setOrderForm}
         summary={summary.data}
         page={orders.data}
         onFilter={(value) => {

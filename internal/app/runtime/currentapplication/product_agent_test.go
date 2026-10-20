@@ -37,6 +37,101 @@ func TestContentTextPolicyIsOptionalAndCannotBorrowTheTitleRoute(t *testing.T) {
 	require.Error(t, cfg.validate(), "content cannot increase the current token/cost ceiling")
 }
 
+func TestMaterialsTextPolicyIsIndependentOptionalAndBounded(t *testing.T) {
+	cfg := agentRuntimeConfig()
+	require.NoError(t, cfg.validate())
+	policy := cfg.ProductAgent.TextPolicies["org"]
+	cfg.ProductAgent.MaterialsTextPolicies = map[string]governed.RoutePolicy{"org": policy}
+	require.Error(t, cfg.validate(), "the title policy cannot advertise platform materials")
+	policy.Profile.PromptVersion = agentconfig.MaterialsPromptVersion
+	policy.Profile.OutputSchemaVersion = agentconfig.MaterialsActionVersion
+	cfg.ProductAgent.MaterialsTextPolicies["org"] = policy
+	require.NoError(t, cfg.validate())
+	cfg.ProductAgent.MaterialsTextPolicies["outside"] = policy
+	require.Error(t, cfg.validate())
+	delete(cfg.ProductAgent.MaterialsTextPolicies, "outside")
+	policy.Profile.MaximumCompletionTokens = cfg.ProductAgent.Tokens
+	cfg.ProductAgent.MaterialsTextPolicies["org"] = policy
+	require.Error(t, cfg.validate())
+}
+
+func TestSelectionPolicyCannotBorrowAnotherAgentOrExpandCurrentBudget(t *testing.T) {
+	cfg := agentRuntimeConfig()
+	policy := cfg.ProductAgent.TextPolicies["org"]
+	cfg.ProductAgent.SelectionTextPolicies = map[string]governed.RoutePolicy{"org": policy}
+	require.Error(t, cfg.validate())
+	policy.Profile.PromptVersion = agentconfig.SelectionPromptVersion
+	policy.Profile.OutputSchemaVersion = agentconfig.SelectionActionVersion
+	cfg.ProductAgent.SelectionTextPolicies["org"] = policy
+	require.NoError(t, cfg.validate())
+	cfg.ProductAgent.SelectionTextPolicies["foreign"] = policy
+	require.Error(t, cfg.validate())
+	delete(cfg.ProductAgent.SelectionTextPolicies, "foreign")
+	policy.Profile.MaximumCompletionTokens = cfg.ProductAgent.Tokens
+	cfg.ProductAgent.SelectionTextPolicies["org"] = policy
+	require.Error(t, cfg.validate())
+}
+
+func TestSelectionPolicyRequiresTheMandatoryFlowBudget(t *testing.T) {
+	for _, limits := range [][2]int{{1, 2}, {2, 2}, {3, 2}, {4, 1}, {4, 2}} {
+		cfg := agentRuntimeConfig()
+		policy := cfg.ProductAgent.TextPolicies["org"]
+		policy.Profile.PromptVersion, policy.Profile.OutputSchemaVersion = agentconfig.SelectionPromptVersion, agentconfig.SelectionActionVersion
+		cfg.ProductAgent.SelectionTextPolicies = map[string]governed.RoutePolicy{"org": policy}
+		cfg.ProductAgent.TextPolicies = nil
+		cfg.ProductAgent.Steps, cfg.ProductAgent.ModelCalls = limits[0], limits[1]
+		if limits == [2]int{4, 2} {
+			require.NoError(t, cfg.validate())
+		} else {
+			require.Error(t, cfg.validate(), "insufficient mandatory flow budget must fail before serving")
+		}
+	}
+}
+
+func TestSelectionOnlyPolicyDoesNotRequireASecondTitleModel(t *testing.T) {
+	cfg := agentRuntimeConfig()
+	policy := cfg.ProductAgent.TextPolicies["org"]
+	policy.Profile.PromptVersion = agentconfig.SelectionPromptVersion
+	policy.Profile.OutputSchemaVersion = agentconfig.SelectionActionVersion
+	cfg.ProductAgent.SelectionTextPolicies = map[string]governed.RoutePolicy{"org": policy}
+	cfg.ProductAgent.TextPolicies = nil
+	require.NoError(t, cfg.validate())
+	profile := policy.ShapeProfile()
+	cost, err := profile.MaximumCost()
+	require.NoError(t, err)
+	for _, short := range []string{"tokens", "cost"} {
+		limited := *cfg.ProductAgent
+		limited.Tokens = 2 * (profile.MaximumPromptTokens + profile.MaximumCompletionTokens)
+		limited.CostMicros = 2 * cost
+		if short == "tokens" {
+			limited.Tokens--
+		} else {
+			limited.CostMicros--
+		}
+		cfg.ProductAgent = &limited
+		require.Error(t, cfg.validate(), "the two mandatory calls must fit before serving")
+	}
+	cfg.ProductAgent.Tokens = 2 * (profile.MaximumPromptTokens + profile.MaximumCompletionTokens)
+	cfg.ProductAgent.CostMicros = 2 * cost
+	require.NoError(t, cfg.validate())
+	require.Empty(t, cfg.ProductAgent.TextPolicies, "selection policy is never copied to title")
+	cfg.ProductAgent.SelectionTextPolicies = nil
+	require.Error(t, cfg.validate(), "enabled execution still needs an explicitly admitted consumer")
+}
+
+func TestContentDeepSeekConfigRequiresFixedNonThinkingPolicy(t *testing.T) {
+	cfg := agentRuntimeConfig()
+	policy := cfg.ProductAgent.TextPolicies["org"]
+	policy.Profile.ProviderID, policy.Profile.ModelID = "DASHSCOPE", "deepseek-v4.1-flash"
+	policy.Profile.PromptVersion, policy.Profile.OutputSchemaVersion = agentconfig.ContentPromptVersion, agentconfig.ContentActionVersion
+	cfg.ProductAgent.TextPolicies = nil
+	cfg.ProductAgent.ContentTextPolicies = map[string]governed.RoutePolicy{"org": policy}
+	require.Error(t, cfg.validate(), "an old generic policy must not inherit the thinking default")
+	policy.Profile.AdapterPolicyVersion = governed.DashScopeDeepSeekV41FlashNonThinkingPolicy
+	cfg.ProductAgent.ContentTextPolicies["org"] = policy
+	require.NoError(t, cfg.validate(), "the fixed policy uses existing content configuration fields")
+}
+
 func agentRuntimeConfig() *Config {
 	cfg := runtimeTestConfig()
 	owner := cfg.SourceAccountDatabase

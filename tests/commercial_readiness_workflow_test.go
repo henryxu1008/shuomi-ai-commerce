@@ -192,8 +192,10 @@ func TestCommercialReadinessWorkflowCollectsPinnedReleaseEvidence(t *testing.T) 
 		"^[0-9a-fA-F]{40}$",
 		"ref: ${{ inputs.commit_sha }}",
 		"go test ./... -count=1",
-		"go test -race ./internal/app/runtime/listingcontrol -run TestControlPlaneService -count=1",
-		"go test -race ./internal/listingadmin -run \"TestConcurrentClaimForDispatchOnlyOneWorkerWins|TestConcurrentRollbackDispatchOnlyOriginalQueuedClaimIsRestoredOnce|TestConcurrentRecoveryOnlyUpdatesStillEligibleRowsOnce\" -count=1",
+		"id: race_tests",
+		"set -o pipefail",
+		"tee evidence/listingadmin-race.log",
+		"go test -race ./internal/listingadmin -count=1",
 		"make build-all",
 		"cache: " + packageManager,
 		"cache-dependency-path: web/listingkit-ui/" + lockfile,
@@ -215,6 +217,16 @@ func TestCommercialReadinessWorkflowCollectsPinnedReleaseEvidence(t *testing.T) 
 
 	if strings.Contains(workflow, "continue-on-error: true") {
 		t.Fatal("commercial-readiness workflow must not hide failed validation steps")
+	}
+	for _, retired := range []string{
+		"./internal/app/runtime/listingcontrol", "evidence/listingcontrol-race.log",
+		"TestConcurrentClaimForDispatchOnlyOneWorkerWins",
+		"TestConcurrentRollbackDispatchOnlyOriginalQueuedClaimIsRestoredOnce",
+		"TestConcurrentRecoveryOnlyUpdatesStillEligibleRowsOnce",
+	} {
+		if strings.Contains(workflow, retired) {
+			t.Errorf("commercial-readiness workflow must not reference retired runtime evidence %q", retired)
+		}
 	}
 }
 
@@ -240,24 +252,25 @@ func TestListingKitAPIManifestUsesDependencyReadinessProbe(t *testing.T) {
 	}
 }
 
-func TestListingKitGenerationUsageLedgerCanaryIsRestrictedToBillingTenant1038(t *testing.T) {
+func TestRetiredListingGenerationUsageCanaryIsAbsent(t *testing.T) {
 	path := filepath.Join("..", "deployments", "kubernetes", "listingkit-workbench", "base", "configmap.yaml")
 	content, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read ListingKit ConfigMap: %v", err)
 	}
-
 	var configMap struct {
 		Data map[string]string `yaml:"data"`
 	}
 	if err := yaml.Unmarshal(content, &configMap); err != nil {
 		t.Fatalf("parse ListingKit ConfigMap: %v", err)
 	}
-	if got := configMap.Data["TASK_PROCESSOR_LISTINGKIT_GENERATION_USAGE_LEDGER_ENABLED"]; got != "true" {
-		t.Errorf("ListingKit generation usage ledger must be enabled, got %q", got)
+	for _, key := range []string{"TASK_PROCESSOR_LISTINGKIT_GENERATION_USAGE_LEDGER_ENABLED", "TASK_PROCESSOR_LISTINGKIT_GENERATION_USAGE_LEDGER_TENANT_IDS"} {
+		if _, exists := configMap.Data[key]; exists {
+			t.Errorf("retired generation usage input remains: %s", key)
+		}
 	}
-	if got := configMap.Data["TASK_PROCESSOR_LISTINGKIT_GENERATION_USAGE_LEDGER_TENANT_IDS"]; got != "1038" {
-		t.Errorf("ListingKit generation usage ledger canary must contain only billing tenant 1038, got %q", got)
+	if strings.Contains(string(content), "PAY-042") {
+		t.Error("retired generation usage canary instruction remains")
 	}
 }
 
@@ -339,48 +352,13 @@ func TestListingKitMemberInvitationTokenIsAPIScoped(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read ListingKit deploy workflow: %v", err)
 	}
-	deployAPIJob := listingKitDeployAPIJob(t, string(deployWorkflow))
-	for _, required := range []string{
-		"Reject legacy invitation credentials in shared Secret",
-		"Validate dedicated member invitation Secret",
-		"path: .workflow-tools",
-		"ref: ${{ github.workflow_sha }}",
-		"scripts/validate-listingkit-invitation-secret.sh",
-		"bash .workflow-tools/scripts/validate-listingkit-invitation-secret.sh",
-		"listingkit-workbench-secret",
-		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_MEMBER_INVITATION_TOKEN",
-		"TASK_PROCESSOR_LISTINGKIT_ZITADEL_PROJECT_ID",
-		"NotFound",
-		"jq -e --arg key \"$key\"",
-	} {
-		if !strings.Contains(deployAPIJob, required) {
-			t.Errorf("ListingKit deploy workflow must contain %q", required)
-		}
+	var workflow map[string]any
+	if err := yaml.Unmarshal(deployWorkflow, &workflow); err != nil {
+		t.Fatal(err)
 	}
-	preflight := strings.Index(deployAPIJob, "Validate dedicated member invitation Secret")
-	deploymentUpdate := strings.Index(deployAPIJob, ".workflow-tools/scripts/listingkit-apply-api-deployment.sh")
-	if preflight == -1 || deploymentUpdate == -1 || preflight > deploymentUpdate {
-		t.Fatal("ListingKit invitation Secret preflight must run before the API Deployment is updated")
+	if !reflect.DeepEqual(workflow, expectedRetiredListingKitWorkflow("API")) {
+		t.Fatal("retired release source must reject before reading or mutating invitation credentials")
 	}
-}
-
-func listingKitDeployAPIJob(t *testing.T, workflow string) string {
-	t.Helper()
-	workflow = strings.ReplaceAll(workflow, "\r\n", "\n")
-	const marker = "\n  deploy-api:\n"
-	start := strings.Index(workflow, marker)
-	if start == -1 {
-		t.Fatal("ListingKit deploy workflow must define deploy-api job")
-	}
-	job := workflow[start+len(marker):]
-	offset := 0
-	for _, line := range strings.SplitAfter(job, "\n") {
-		if strings.HasPrefix(line, "  ") && !strings.HasPrefix(line, "   ") && strings.HasSuffix(strings.TrimSpace(line), ":") {
-			return job[:offset]
-		}
-		offset += len(line)
-	}
-	return job
 }
 
 func TestTencentSMSSecretIsAPIScopedAndWebhookIngressIsExact(t *testing.T) {

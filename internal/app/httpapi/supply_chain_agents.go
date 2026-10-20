@@ -224,17 +224,26 @@ func (r productAgentSourceGateway) ReadEffectiveSource(ctx context.Context, prin
 	} else {
 		var ok bool
 		binding, ok = ctx.Value(productAgentSourceBindingKey{}).(agent.Binding)
-		if !ok || binding.ContextKind != "acquisition" {
+		if !ok || binding.ContextKind != "acquisition" && binding.ContextKind != "own_product" {
 			return out, sourcing.ErrPublicationForbidden
 		}
 		identity, err := r.application.freshIdentity(ctx)
 		if err != nil || identity.TenantID != principal.TenantID || identity.UserID != principal.UserID {
 			return out, sourcing.ErrPublicationForbidden
 		}
-		if err = r.application.authorizeAcquisitionBinding(ctx, identity, binding); err != nil {
-			return out, err
+		var base catalog.PublishedSnapshot
+		if binding.ContextKind == "own_product" {
+			if err = r.application.authorizeOwnBinding(ctx, identity, binding); err != nil {
+				return out, err
+			}
+			own, ownErr := r.application.ownSource(ctx, identity, binding.ContextID, &ownSourceSelection{binding.CatalogVersion, binding.PublicationID})
+			base, err = own.Original, ownErr
+		} else {
+			if err = r.application.authorizeAcquisitionBinding(ctx, identity, binding); err != nil {
+				return out, err
+			}
+			base, err = r.application.acquisitionSnapshot(ctx, identity, binding.ContextID)
 		}
-		base, err := r.application.acquisitionSnapshot(ctx, identity, binding.ContextID)
 		if err != nil {
 			return out, err
 		}
@@ -278,7 +287,7 @@ func (a *productAgentApplication) validateSupplyCandidate(ctx context.Context, b
 	return agent.Validation{Valid: proposal.Validation.Valid, PolicyVersion: policy}, nil
 }
 func connectSupplyProductAgent(ctx context.Context, db *gorm.DB, application *supplyapp.Application, a *productAgentApplication, authority supplyapp.OrganizationExecutionAuthorizer) (*supplyProductAgent, error) {
-	if a == nil {
+	if a == nil || a.config.ContentTitleOnly || a.config.ContentOnly {
 		return nil, nil
 	}
 	bridge := &supplyProductAgent{agent: a, app: application, authorization: authority}

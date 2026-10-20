@@ -222,7 +222,7 @@ func templateView(db *gorm.DB, r templateRow, v int64) (agentconfig.Template, er
 	// Select the current agent's carrier explicitly. Title/image reads keep
 	// their original result shape while an installer adds the content column.
 	columns := []string{"organization_id", "agent_id", "template_id", "version", "name", "schema_version", "target_platform", "default_knowledge_base_id", "image_parameters", "created_by", "created_at"}
-	if r.AgentID == agentconfig.ContentAgentID {
+	if r.AgentID == agentconfig.ContentAgentID || r.AgentID == agentconfig.MaterialsAgentID || r.AgentID == agentconfig.ArtworkAgentID {
 		columns = append(columns, "content_parameters")
 	}
 	e := db.Select(columns).Where("organization_id=? AND agent_id=? AND template_id=? AND version=?", r.OrganizationID, r.AgentID, r.TemplateID, v).Take(&p).Error
@@ -249,7 +249,17 @@ func templateView(db *gorm.DB, r templateRow, v int64) (agentconfig.Template, er
 			return agentconfig.Template{}, agentconfig.ErrUnavailable
 		}
 		input.Content = &parameters
-	} else if p.SchemaVersion != agentconfig.ParameterSchema || len(p.ImageParameters) != 0 || len(p.ContentParameters) != 0 {
+	} else if p.SchemaVersion == agentconfig.ArtworkParameterSchema {
+		var parameters agentconfig.ArtworkTemplate
+		if len(p.ImageParameters) > 8192 || len(p.ContentParameters) != 0 || json.Unmarshal(p.ImageParameters, &parameters) != nil {
+			return agentconfig.Template{}, agentconfig.ErrUnavailable
+		}
+		canonical, err := json.Marshal(parameters)
+		if err != nil || !bytes.Equal(canonical, p.ImageParameters) {
+			return agentconfig.Template{}, agentconfig.ErrUnavailable
+		}
+		input.Artwork = &parameters
+	} else if p.SchemaVersion != agentconfig.ParameterSchemaForAgent(r.AgentID) || len(p.ImageParameters) != 0 || len(p.ContentParameters) != 0 {
 		return agentconfig.Template{}, agentconfig.ErrUnavailable
 	}
 	if !input.ValidForAgent(r.AgentID) {
@@ -367,6 +377,9 @@ func (s *Store) Execute(ctx context.Context, c agentconfig.Command, eligibility 
 		return agentconfig.Receipt{}, agentconfig.ErrPrecondition
 	}
 	if c.Default != nil {
+		if c.AgentID == agentconfig.SelectionAgentID || c.AgentID == agentconfig.DiagnosisAgentID {
+			return agentconfig.Receipt{}, agentconfig.ErrInvalid
+		}
 		if !agentconfig.UUID(c.Default.TemplateID) {
 			return agentconfig.Receipt{}, agentconfig.ErrInvalid
 		}
@@ -517,6 +530,11 @@ func (s *Store) Execute(ctx context.Context, c agentconfig.Command, eligibility 
 					}
 				}
 				if c.Operation != "archive-template" {
+					if c.AgentID == agentconfig.MaterialsAgentID {
+						if err := VerifyMaterialsConfigurationSchema(ctx, tx); err != nil {
+							return err
+						}
+					}
 					r := revisionRow{OrganizationID: t.OrganizationID, AgentID: t.AgentID, TemplateID: t.TemplateID, Version: t.HeadRevision, Name: c.Input.Name, SchemaVersion: agentconfig.ParameterSchemaForAgent(c.AgentID), TargetPlatform: c.Input.TargetPlatform, DefaultKnowledgeBaseID: nullable(c.Input.DefaultKnowledgeBaseID), CreatedBy: c.Scope.ActorID, CreatedAt: now}
 					if c.Input.Image != nil {
 						var e error
@@ -526,6 +544,16 @@ func (s *Store) Execute(ctx context.Context, c agentconfig.Command, eligibility 
 						}
 					}
 					write := tx
+					if c.Input.Artwork != nil {
+						if err := VerifyArtworkConfigurationSchema(ctx, tx); err != nil {
+							return err
+						}
+						var err error
+						r.ImageParameters, err = json.Marshal(c.Input.Artwork)
+						if err != nil || len(r.ImageParameters) > 8192 {
+							return agentconfig.ErrInvalid
+						}
+					}
 					if c.Input.Content != nil {
 						if err := VerifyContentConfigurationSchema(ctx, tx); err != nil {
 							return err

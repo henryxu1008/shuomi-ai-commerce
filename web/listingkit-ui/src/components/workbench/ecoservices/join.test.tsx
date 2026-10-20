@@ -10,7 +10,7 @@ vi.mock("./shared",async original=>({...await original<typeof import("./shared")
 vi.mock("@/components/workbench/resources/resource-dialog",()=>({ResourceDialog:({children}:{children:React.ReactNode})=><div>{children}</div>}));
 vi.mock("./files",()=>({FileLinks:()=>null,FileUpload:()=>null}));
 vi.mock("./merchant",()=>({MerchantOnboarding:()=> <p>商户执行入口</p>}));
-vi.mock("@/components/workbench/console/console-page",()=>({ConsolePage:({children}:{children:React.ReactNode})=><div>{children}</div>,ConsoleState:()=>null}));
+vi.mock("@/components/workbench/console/console-page",()=>({ConsolePage:({children,actions}:{children:React.ReactNode;actions?:React.ReactNode})=><div>{actions}{children}</div>,ConsoleState:()=>null}));
 afterEach(()=>{cleanup();vi.clearAllMocks();state.permissions=["workbench.ecoservices.join"]});
 it("allows original business rejection correction and marks the unopened channel re-review rejection unavailable",async()=>{
  const id="4841d296-ef14-4c16-8d25-a7667e534feb";
@@ -22,6 +22,10 @@ it("allows original business rejection correction and marks the unopened channel
 const id="4841d296-ef14-4c16-8d25-a7667e534feb";
 const listing={id,providerName:"原企业",category:"COMPANY_REGISTRATION",title:"原服务",description:"原服务说明",items:["企业登记"],regions:["上海"],platforms:[],priceMinor:"101",deliveryDays:7,state:"DRAFT",version:"3"};
 function renderOperator(page:unknown){state.permissions=["workbench.ecoservices.read","workbench.ecoservices.manage"];vi.mocked(ecoRequest).mockImplementation(async(_scope,path)=>{if(!path.startsWith("provider/listings?"))throw new Error("operator requested join-only data");return page});const client=new QueryClient({defaultOptions:{queries:{retry:false}}});return {...render(<QueryClientProvider client={client}><EcoservicesJoin/></QueryClientProvider>),client}}
+it("links the provided services entry to the provider view",()=>{
+ renderOperator({providerQualified:true,listings:[],total:"0"});
+ expect(screen.getByRole("link",{name:"查看我提供的服务 →"})).toHaveAttribute("href","/workbench/services/mine?side=provider");
+});
 it("lets a manage-only operator create, edit and publish using the original managed listing commands",async()=>{
  renderOperator({providerQualified:true,listings:[listing],total:"1"});
  await screen.findByText("原服务");

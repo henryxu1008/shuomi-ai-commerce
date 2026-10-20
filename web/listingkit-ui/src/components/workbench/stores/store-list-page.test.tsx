@@ -12,6 +12,18 @@ import {StoreListPage} from "./store-list-page";
 const metric={value:null,unknown:0,complete:false,reason:"unavailable"};
 const item={id:"11111111-1111-4111-8111-111111111111",name:"A 店铺",platform:"shein",region:"US",externalStoreId:"",recordStatus:"active",serviceStatus:"pending_activation",connectionStatus:"disconnected",version:1,profile:{storeId:"11111111-1111-4111-8111-111111111111",groupId:null,responsibleMemberId:null,lowStockThreshold:null,profileVersion:0,updatedAt:null},attention:"attention",signals:{applicationType:"",products:metric,orders:metric,inventory:{...metric,reason:"threshold_not_set"},syncHealthy:false,productSync:"",orderSync:"",observedAt:null}};
 const data={items:[item],pagination:{page:1,pageSize:20,total:1},metrics:{total:1,normal:null,attention:null,syncHealthy:null,unknown:1,complete:false},facets:{regions:["US"],groups:[],applicationTypes:[],canManageGroups:false}};
+it("accepts the detail deletion notice without weakening business filters",()=>{
+ state.search="notice=store-deleted";state.query={data:{...data,items:[]},isPending:false,isError:false};render(<StoreListPage/>);
+ expect(state.filters).toHaveBeenLastCalledWith({page:1,pageSize:20},true);
+ expect(screen.getByText("店铺已删除")).toBeInTheDocument();
+ expect(screen.queryByText("筛选参数无效")).not.toBeInTheDocument();
+});
+it("offers Walmart and applies its existing filter",async()=>{
+ state.query={data,isPending:false,isError:false};render(<StoreListPage/>);
+ await userEvent.selectOptions(screen.getByRole("combobox",{name:"平台"}),"walmart");
+ await userEvent.click(screen.getByRole("button",{name:"筛选"}));
+ expect(state.push.mock.lastCall![0]).toContain("platform=walmart");
+});
 afterEach(()=>{state.query={};state.search="";state.switching=false;state.org="org-a";state.permissions=["workbench.store.read"];state.push.mockReset();state.filters.mockReset();state.retry.mockReset()});
 it("uses server count and shows unknown facts without fake zero or write controls",()=>{
  state.query={data,isPending:false,isError:false};render(<StoreListPage/>);

@@ -11,8 +11,8 @@ import (
 	einoruntime "task-processor/internal/integration/agent/eino"
 	texteino "task-processor/internal/integration/agent/einomodel"
 	governed "task-processor/internal/integration/aicapability/einomodel"
-	"task-processor/internal/integration/openai"
 	configstore "task-processor/internal/integration/persistence/agentconfig"
+	skillstore "task-processor/internal/integration/persistence/skill"
 	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/catalog/tools/canonicalinspect"
 	"task-processor/internal/product/contentagent"
@@ -30,6 +30,13 @@ func buildContentProductApplication(ctx context.Context, parent *productAgentApp
 	copy := *parent
 	a := &copy
 	a.content = nil
+	if skillstore.VerifySchema(ctx, parent.config.RunDB) == nil {
+		var err error
+		a.skills, err = skillstore.New(parent.config.RunDB)
+		if err != nil {
+			return nil, err
+		}
+	}
 	definition, definitions := contentagent.Registration()
 	a.definition = definition
 	principal, ok := deps.PrincipalResolver.(productAgentPrincipal)
@@ -51,7 +58,7 @@ func buildContentProductApplication(ctx context.Context, parent *productAgentApp
 	for org, policy := range a.config.ContentTextPolicies {
 		policies[governed.RouteKey{OrganizationID: org, Operation: aicapability.OperationProductContentDecision}] = policy
 	}
-	routes, err := governed.NewOrganizationRouteResolver(openai.NewGormCredentialResolver(a.config.RunDB), policies)
+	routes, err := newProductTextRouteResolver(a.config, policies)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +67,7 @@ func buildContentProductApplication(ctx context.Context, parent *productAgentApp
 		route, err := routes.Resolve(ctx, aicapability.TextInputIdentity{OrganizationID: org, Operation: aicapability.OperationProductContentDecision})
 		return route.Profile, err
 	}
-	executor := &governed.Executor{Ledger: a.config.Ledger, Admission: a.textAdmission, Resolve: routes.Resolve, BaseTransport: a.config.TextTransport, Authorize: func(ctx context.Context, input aicapability.TextInputIdentity) error {
+	executor := &governed.Executor{Ledger: a.config.Ledger, Logger: a.config.TextLogger, Admission: a.textAdmission, Resolve: routes.Resolve, BaseTransport: a.config.TextTransport, Authorize: func(ctx context.Context, input aicapability.TextInputIdentity) error {
 		if supplyAgentContext(ctx) {
 			return a.authorizeSupplyModel(ctx, input.OrganizationID, input.ActorID, input.MemberID)
 		}
@@ -80,11 +87,18 @@ func buildContentProductApplication(ctx context.Context, parent *productAgentApp
 	if err != nil {
 		return nil, err
 	}
+	if a.skills != nil {
+		model, err = model.WithSkillContext(productSkillContext{application: a})
+		if err != nil {
+			return nil, err
+		}
+	}
 	a.model = model
 	a.policyAdoption, err = review.NewPolicyAdoptionService(reader, source, repository, a.authorizer, a.titlePolicyScope, a.resolveTitlePolicy)
 	if err != nil {
 		return nil, err
 	}
+	a.policyAdoption.WithExecutionGate(a.acquireSkillReview)
 	guard, err := configstore.NewGuard(a.config.RunDB, a.configuration, a.store, func(id, version string) (agent.Limits, error) {
 		if id != definition.ID || version != definition.Version {
 			return agent.Limits{}, agentconfig.ErrDefinition
@@ -93,6 +107,12 @@ func buildContentProductApplication(ctx context.Context, parent *productAgentApp
 	}, a.currentModeIdentity)
 	if err != nil {
 		return nil, err
+	}
+	if a.skills != nil {
+		guard, err = guard.WithSkillGuard(a.checkSkillClaim)
+		if err != nil {
+			return nil, err
+		}
 	}
 	validator := contentagent.Validator{Authorization: a, Configuration: a.configuration, Identity: a.currentModeIdentity, Observed: contentCandidateEvidenceObserved, Review: func(ctx context.Context, input review.ContentValidationInput) (enrichment.Proposal, error) {
 		if supplyAgentContext(ctx) {

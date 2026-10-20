@@ -1,7 +1,7 @@
 # 企业存储容量 V1 试用入口与启动条件
 
 设计依据：[企业存储容量 V1](../architecture/enterprise-storage-capacity-v1.md)。
-容量启用适用于新安装和空的计量 namespace；不迁移、回填或清理旧文件。
+容量启用要求首次计量 namespace 为空；保留业务库的本地35444启用须满足用户2026-10-15决定及 [本地 MinIO 身份准入](../architecture/minio-capacity-admission-v1.md)。不迁移、回填或清理旧文件。
 
 ## 保留实例、容量关闭时的必要 schema 补齐
 
@@ -20,6 +20,28 @@ go run ./cmd/commercial-owner-schema-migrate -config <原commercial-schema-owner
 由原安装 owner 在已获准安装窗口使用私密备份和原事实/ACL/卷/worker基线执行；新 DDL/授权与程序合并仍需各自明确人类授权。正常启动沿既有 runtime identity 的 `VerifyStorageCapacityDisabled` 核实六表和订单；确认候选程序操作入口、原事实与 worker 后交接。本入口不执行新程序部署，也不签发用户验收。
 
 事务失败回滚本次 DDL/新增 SELECT。事务提交应答不明时先核实原 schema/ACL，可用同一入口对完整匹配安装重读；不换空库或执行全量初始化。已提交而候选程序失败时，在确认仍无容量事实/购买订单后，仅恢复原 backend7058/UI9c 镜像和私密配置，保留新增空 schema、原数据、命名 volumes 与 worker。出现容量事实后不得切回未计量程序，不删除表/列、恢复旧备份覆盖新数据或用 false 绕过；交原 owner 沿当前恢复合同处理。
+
+## 已有完整空容量 schema 的最小启用安装
+
+在已获准的本地启用窗口，先备份原 Commercial 和配置、保存原业务/IAM/对象/卷基线。原六张容量表、四张商业表及七个容量字段必须已经完整存在、匹配原模型，容量六表及容量订单均为空。沿原 Commercial schema-owner 执行：
+
+```sh
+go run ./cmd/commercial-owner-schema-migrate -config <原commercial-schema-owner私密JSON绝对路径> -storage-enable-empty-only
+```
+
+此 mode 只接受原 `-config`；money-config（含显式空值）、disabled-additive mode（含显式false）和位置参数均拒绝，不打开 Money。一个有界事务锁定上述原表并复用原 schema 核对，只给既有 commercial_owner_runtime 六容量表 SELECT/INSERT/UPDATE，沿原 `CreateOfferIfAbsent(InitialStorageOffer())` 安装扩容商品。不建表/补列/创建角色、不覆盖既有价格或禁用状态、不初始化其它 owner、不重置旧 ACL。缺表/缺列/不同模型/任何容量事实或容量订单均拒绝，不能自动落入 additive 修补。
+
+锁等待5秒、语句30秒、整次1分钟；失败整事务回滚。提交应答不明时先读回同一原 offer/授权；仍为空时可重放同一入口，已有容量事实后不再执行安装 mode，正常启动只消费原 runtime 权限。
+
+## 本地 MinIO 的显式身份配置
+
+当前固定 MinIO 不提供 AWS canonical bucket Owner.ID。Knowledge/Ecoservices 原私密 `storage` 对象可显式配置 `capacityIdentityProvider: "minio-deployment"` 与 `capacityMinIODeploymentID: "<原部署canonical UUID>"`；必须成对且通过配置检查。先沿原 trusted operator 的 mc/SDK 只读 ServerInfo 核实原部署 UUID，不把 root 凭据交给运行应用。不设置时仍严格走 AWS/COS GetBucketAcl，不探测或自动 fallback。
+
+仅允许 aws/path-style 与明确端口的 canonical loopback IP、knowledge-objects 或 ecoservices-objects endpoint；不支持其它 MinIO/远程 host、localhost别名、user/path/query/fragment。运行时以原窄凭据签名只读 ServerInfo，部署 UUID 必须与 pin 相同，10秒内/1MiB上限/不跟redirect、不走代理或cookie。失败拒绝启动；同一部署换凭据不换namespace，部署变化不静默接受。原41444/42444 source-only trial 的配置、URL/身份hash与云 provider 规则保持。
+
+保留原 GetObject/PutObject policy，另按对应 [Knowledge](../../deployments/docker/account-compose/knowledge-capacity-read-policy.json) 或 [Ecoservices](../../deployments/docker/account-compose/ecoservices-capacity-read-policy.json) 容量只读 policy 给同一 runtime 用户增补 ServerInfo、原 bucket versioning 和限定原计量 prefix 的 listing。`admin:ServerInfo` 的 `Resource:*` 仅是该只读供应商 API 的资源语义，不授予 admin:* 或任何管理写入/对象删除/跨bucket对象访问。不要运行会重建 bucket/用户/价格的旧全量初始化脚本。
+
+先用实际窄 runtime 凭据复核两个部署及空 prefix/版本条件。短暂停止原应用及其内置processor、确认没有其它未计量 writer，再复查为空并原位启用 true 配置，保留其它配置/密钥/实例。只更新本轮已授权本地主程序，不能用 Compose init 或更新无关UI/worker。任一未计量文件先反馈，不清理/换桶绕过；一旦 namespace/容量事实已写入，不切回 false 或旧未计量程序，保留 true 原身份修复前进。
 
 ## 容量功能的新安装启用
 

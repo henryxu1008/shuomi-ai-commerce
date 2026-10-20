@@ -2,6 +2,7 @@ import { z } from "zod";
 import { knowledgeId } from "../api/knowledge";
 import { configVersion } from "./agent-configuration";
 import { contentSelectionSchema } from "./content-selection";
+import {skillRefSchema} from "./skill";
 
 export const executionModeSchema = z.enum(["default", "auto_approve", "read_only", "full_access"]);
 export const modeRevisionSchema = z.union([z.literal("0"), configVersion]);
@@ -56,7 +57,7 @@ const digest = z.string().regex(/^[0-9a-f]{64}$/);
 const identifier = z.string().min(1).max(128);
 const scopeSchema = z.strictObject({OrganizationID:identifier,ActorID:identifier});
 export const modeSnapshotRefSchema = z.strictObject({Kind:z.literal("agent-execution-mode-v1"),ID:knowledgeId,Digest:digest});
-const titleExecutionProvenanceSchema = z.strictObject({
+export const titleExecutionProvenanceSchema = z.strictObject({
  scope:scopeSchema,runId:knowledgeId,requestKey:knowledgeId,
  binding:z.strictObject({ContextKind:identifier,ContextID:identifier,ProductKey:identifier,CatalogVersion:configVersion,PublicationID:identifier,TargetPlatform:z.enum(["shein","temu","amazon"])}),
  configuration:z.strictObject({Kind:z.literal("agent-configuration-v1"),ID:knowledgeId,Digest:digest}),mode:modeSnapshotRefSchema,
@@ -69,9 +70,10 @@ const policyAdoptionBaseSchema = z.strictObject({
 });
 export const titlePolicyAdoptionSchema = policyAdoptionBaseSchema.refine(v=>v.identity.OrganizationID===v.execution.scope.OrganizationID&&v.identity.ActorID===v.execution.scope.ActorID&&!(v.mode==="auto_approve"&&v.requiresHuman));
 export const contentExecutionProvenanceSchema = titleExecutionProvenanceSchema.extend({
+ skillVersionRef:skillRefSchema.optional(),
  ContentSelection: contentSelectionSchema,
  binding: titleExecutionProvenanceSchema.shape.binding.extend({TargetPlatform:z.enum(["product","shein","temu","amazon"])}),
-});
+}).refine(v=>!v.skillVersionRef||v.ContentSelection.title&&!v.ContentSelection.description&&!v.ContentSelection.sellingPoints&&!v.ContentSelection.seoKeywords);
 export const contentPolicyAdoptionSchema = policyAdoptionBaseSchema.extend({
  execution: contentExecutionProvenanceSchema,
  actionVersion: z.literal("product.content.policy-adopt-v1"),

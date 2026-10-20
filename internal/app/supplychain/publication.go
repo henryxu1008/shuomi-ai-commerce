@@ -16,16 +16,19 @@ import (
 // PublicationView retains confirmed creation facts. A separately timestamped
 // TikTokStatus may contain a manual read; neither grants authority to send.
 type PublicationView struct {
-	binding      storecenter.ProductMerchantBinding
-	SourceID     string                          `json:"sourceId"`
-	StoreID      string                          `json:"storeId"`
-	RecordID     string                          `json:"recordId,omitempty"`
-	ReceiptID    string                          `json:"receiptId,omitempty"`
-	Product      *model.PublishResult            `json:"product,omitempty"`
-	TemuProduct  *temugoods.CreatedGoods         `json:"temuProduct,omitempty"`
-	TikTok       *submission.TikTokEffectReceipt `json:"tiktok,omitempty"`
-	TikTokStatus *TikTokStatusObservation        `json:"tiktokStatus,omitempty"`
-	ObservedAt   *time.Time                      `json:"observedAt,omitempty"`
+	SheinStatus    *SheinPublicationStatus          `json:"sheinStatus,omitempty"`
+	Walmart        *submission.WalmartFeedReceipt   `json:"walmart,omitempty"`
+	WalmartResults []submission.WalmartResultRecord `json:"walmartResults,omitempty"`
+	binding        storecenter.ProductMerchantBinding
+	SourceID       string                          `json:"sourceId"`
+	StoreID        string                          `json:"storeId"`
+	RecordID       string                          `json:"recordId,omitempty"`
+	ReceiptID      string                          `json:"receiptId,omitempty"`
+	Product        *model.PublishResult            `json:"product,omitempty"`
+	TemuProduct    *temugoods.CreatedGoods         `json:"temuProduct,omitempty"`
+	TikTok         *submission.TikTokEffectReceipt `json:"tiktok,omitempty"`
+	TikTokStatus   *TikTokStatusObservation        `json:"tiktokStatus,omitempty"`
+	ObservedAt     *time.Time                      `json:"observedAt,omitempty"`
 }
 
 func (a *Application) Publication(ctx context.Context, sourceID, storeID string) (PublicationView, error) {
@@ -65,6 +68,10 @@ func (a *Application) Publication(ctx context.Context, sourceID, storeID string)
 		platform = "tiktokshop"
 		subject, err = submission.TikTokProductSubjectID(source.Source.ProductKey, submission.TikTokPublishStage)
 	}
+	if binding.Platform == storecenter.PlatformWalmart {
+		platform = "walmart"
+		subject, err = submission.WalmartSubjectID(source.Source.ProductKey, binding.SupplierIdentityHash)
+	}
 	if err != nil {
 		return value, err
 	}
@@ -85,7 +92,18 @@ func (a *Application) Publication(ctx context.Context, sourceID, storeID string)
 	if err != nil || current != binding {
 		return value, record.ErrForbidden
 	}
-	if receipt.Target.Platform == "tiktokshop" {
+	if receipt.Target.Platform == "walmart" {
+		if !submission.WalmartCompatibleBinding(receipt.Binding, binding) || receipt.Walmart == nil {
+			return value, record.ErrConflict
+		}
+		value.Walmart = receipt.Walmart
+		if a.WalmartResults != nil {
+			value.WalmartResults, err = a.WalmartResults.ReadWalmartResults(ctx, scope, receipt.Target)
+			if err != nil {
+				return value, err
+			}
+		}
+	} else if receipt.Target.Platform == "tiktokshop" {
 		if !submission.TikTokCompatibleBinding(receipt.Binding, binding) {
 			return value, record.ErrConflict
 		}

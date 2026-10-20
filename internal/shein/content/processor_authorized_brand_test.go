@@ -4,27 +4,23 @@ import (
 	"strings"
 	"testing"
 
-	"task-processor/internal/model"
 	"task-processor/internal/shein/authorizedbrand"
 	"task-processor/internal/shein/content"
-	sheinctx "task-processor/internal/shein/context"
 )
 
 func TestSanitizeDisplayTextWithContext_PreservesAuthorizedAmazonBrand(t *testing.T) {
 	t.Parallel()
 
 	service := content.NewSensitiveWordServiceInMemory()
-	taskCtx := &sheinctx.TaskContext{
-		RuntimeState: sheinctx.RuntimeState{
-			AuthorizedBrand: &authorizedbrand.Resolved{
-				Enabled: true,
-				Name:    "Amazon Basics",
-				NameEn:  "Amazon Basics",
-			},
+	cleanupCtx := &content.CleanupContext{
+		AuthorizedBrand: &authorizedbrand.Resolved{
+			Enabled: true,
+			Name:    "Amazon Basics",
+			NameEn:  "Amazon Basics",
 		},
 	}
 
-	got := service.SanitizeDisplayTextWithContext(taskCtx, "Amazon Basics wireless mouse")
+	got := service.SanitizeDisplayTextWithContext(cleanupCtx, "Amazon Basics wireless mouse")
 	if !strings.Contains(got, "Amazon Basics") {
 		t.Fatalf("sanitized text = %q, want authorized brand preserved", got)
 	}
@@ -34,20 +30,16 @@ func TestSanitizeDisplayTextWithContext_RemovesContextBrandButKeepsAuthorizedBra
 	t.Parallel()
 
 	service := content.NewSensitiveWordServiceInMemory()
-	taskCtx := &sheinctx.TaskContext{
-		RuntimeState: sheinctx.RuntimeState{
-			AuthorizedBrand: &authorizedbrand.Resolved{
-				Enabled: true,
-				Name:    "Logitech",
-				NameEn:  "Logitech",
-			},
+	cleanupCtx := &content.CleanupContext{
+		AuthorizedBrand: &authorizedbrand.Resolved{
+			Enabled: true,
+			Name:    "Logitech",
+			NameEn:  "Logitech",
 		},
-		ProductState: sheinctx.ProductState{
-			AmazonProduct: &model.Product{Brand: "Sony"},
-		},
+		SourceBrand: "Sony",
 	}
 
-	got := service.SanitizeDisplayTextWithContext(taskCtx, "Logitech mouse by Sony for office")
+	got := service.SanitizeDisplayTextWithContext(cleanupCtx, "Logitech mouse by Sony for office")
 	if !strings.Contains(got, "Logitech") {
 		t.Fatalf("sanitized text = %q, want authorized brand preserved", got)
 	}

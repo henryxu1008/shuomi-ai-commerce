@@ -18,7 +18,7 @@ import {
 export function SheinAuthorizationCallback() {
   return <OfficialAuthorizationCallback platform="shein"/>;
 }
-export function OfficialAuthorizationCallback({platform}:{platform:"shein"|"tiktokshop"}) {
+export function OfficialAuthorizationCallback({platform}:{platform:"shein"|"tiktokshop"|"walmart"}) {
   const context = useWorkbenchContext();
   const captured = useRef(false);
   const busy = useRef(false);
@@ -29,6 +29,7 @@ export function OfficialAuthorizationCallback({platform}:{platform:"shein"|"tikt
   const [working, setWorking] = useState(false);
   const [canQuery, setCanQuery] = useState(false);
   const [done, setDone] = useState(false);
+  const [merchant,setMerchant]=useState<{partnerId:string;name:string}>();
   const [hasCallback, setHasCallback] = useState(false);
   const mounted = useRef(false);
   useEffect(() => {
@@ -46,10 +47,10 @@ export function OfficialAuthorizationCallback({platform}:{platform:"shein"|"tikt
     const original = readStoreAuthorization(platform);
     const validKeys = [...query.keys()].every(
       (key) =>
-        (platform==="tiktokshop" ? ["code","state","error"] : ["appid", "tempToken", "state"]).includes(key) &&
+        (platform==="walmart"?["code","state","clientId","sellerId","type"]:platform==="tiktokshop" ? ["code","state","error"] : ["appid", "tempToken", "state"]).includes(key) &&
         query.getAll(key).length === 1,
     );
-    const input = officialConnectionCompleteSchema.safeParse(platform==="tiktokshop" ? {
+    const input = officialConnectionCompleteSchema.safeParse(platform==="walmart"?{attemptId:original?.attemptId,appId:query.get("clientId"),state:query.get("state"),authCode:query.get("code"),sellerId:query.get("sellerId"),type:query.get("type")}:platform==="tiktokshop" ? {
       attemptId:original?.attemptId,appId:original?.appId,state:query.get("state"),authCode:query.get("code"),
     } : {
       attemptId: original?.attemptId,
@@ -58,7 +59,7 @@ export function OfficialAuthorizationCallback({platform}:{platform:"shein"|"tikt
       tempToken: query.get("tempToken"),
     });
     const valid = !(
-      !original ||
+      !original || platform==="walmart" && original.appId!==query.get("clientId") ||
       !validKeys ||
       !input.success ||
       Date.parse(original.expiresAt) <= Date.now() || platform==="tiktokshop" && query.has("error") && query.get("error")!=="auth_denied"
@@ -99,14 +100,14 @@ export function OfficialAuthorizationCallback({platform}:{platform:"shein"|"tikt
       current.alive = false;
     };
   }, [scopeRevision]);
-  async function finish(queryOnly = false) {
+  async function finish(queryOnly = false,confirmMerchant=false) {
     const current = active.current;
     if (
       busy.current ||
       !current?.alive ||
       !matches ||
       !pending ||
-      (!queryOnly && !callback.current)
+      (!queryOnly && !confirmMerchant && !callback.current) || confirmMerchant && !merchant
     )
       return;
     busy.current = true;
@@ -123,7 +124,7 @@ export function OfficialAuthorizationCallback({platform}:{platform:"shein"|"tikt
             pending.storeId,
             pending.attemptId,
           )
-        : await completeStoreConnection(pending, pending.storeId, body!);
+        : await completeStoreConnection(pending, pending.storeId, confirmMerchant?{attemptId:pending.attemptId,appId:pending.appId!,merchantConfirmation:merchant!.partnerId}:body!);
       if (!current.alive) return;
       if (result.connectionStatus === "connected") {
         callback.current = null;
@@ -131,6 +132,8 @@ export function OfficialAuthorizationCallback({platform}:{platform:"shein"|"tikt
         clearStoreAuthorization(pending,platform);
         setDone(true);
         setMessage("官方连接已完成。可以回到店铺开通服务。");
+      } else if(result.state==="merchant_confirmation_required" && result.walmart?.partnerId){
+        setMerchant({partnerId:result.walmart.partnerId,name:result.walmart.merchantName??""});setCanQuery(false);setMessage("已核实 Walmart 商家身份，请确认连接的商家。");
       } else {
         setCanQuery(
           result.state === "credential_received" || result.state === "verified",
@@ -155,7 +158,7 @@ export function OfficialAuthorizationCallback({platform}:{platform:"shein"|"tikt
   }
   return (
     <main className="mx-auto max-w-xl space-y-5 p-8">
-      <h1 className="text-2xl font-semibold">{platform==="tiktokshop"?"TikTok Shop":"SHEIN"} 官方授权返回</h1>
+      <h1 className="text-3xl font-semibold">{platform==="walmart"?"Walmart 美国站":platform==="tiktokshop"?"TikTok Shop":"SHEIN"} 官方授权返回</h1>
       <p role="status">{message}</p>
       {pending && !matches ? (
         <p role="alert">
@@ -167,6 +170,7 @@ export function OfficialAuthorizationCallback({platform}:{platform:"shein"|"tikt
           完成官方连接
         </Button>
       ) : null}
+      {!done&&merchant?<section className="space-y-3 rounded-xl border p-4"><p>商家：{merchant.name||"平台未返回名称"}</p><p>Walmart Partner ID：{merchant.partnerId}</p><Button disabled={!matches||working} onClick={()=>void finish(false,true)}>确认连接此商家</Button></section>:null}
       {!done && canQuery ? (
         <Button
           variant="outline"

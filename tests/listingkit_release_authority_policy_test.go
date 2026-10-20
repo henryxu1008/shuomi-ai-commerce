@@ -23,20 +23,6 @@ const (
 	listingKitUIWorkflowRef      = listingKitRepository + "/.github/workflows/listingkit-ui-deploy.yml@refs/heads/main"
 )
 
-func TestListingKitReleaseAuthorityUsesDistinctOIDCIdentities(t *testing.T) {
-	t.Parallel()
-
-	api := loadReleaseAuthorityWorkflow(t, "listingkit-deploy.yml")
-	ui := loadReleaseAuthorityWorkflow(t, "listingkit-ui-deploy.yml")
-
-	assertOIDCDeployJob(t, api, "deploy-api", listingKitAPIOIDCEnvironment, listingKitAPIOIDCAudience)
-	assertOIDCDeployJob(t, ui, "deploy-ui", listingKitUIOIDCEnvironment, listingKitUIOIDCAudience)
-
-	if listingKitAPIOIDCEnvironment == listingKitUIOIDCEnvironment || listingKitAPIOIDCAudience == listingKitUIOIDCAudience {
-		t.Fatal("API and UI release identities must not share an environment or audience")
-	}
-}
-
 func TestListingKitReleaseAuthorityMachinePolicyOwnsAllSecurityInputs(t *testing.T) {
 	t.Parallel()
 
@@ -143,7 +129,7 @@ func TestListingKitReleaseAuthorityMachinePolicyOwnsAllSecurityInputs(t *testing
 		api.WorkflowRef != listingKitAPIWorkflowRef || ui.WorkflowRef != listingKitUIWorkflowRef || api.Job == ui.Job {
 		t.Fatalf("release policy must own distinct API/UI identities: api=%#v ui=%#v", api, ui)
 	}
-	if len(api.ProtectedGroups) != 9 || len(ui.ProtectedGroups) != 1 {
+	if len(api.ProtectedGroups) != 8 || len(ui.ProtectedGroups) != 1 {
 		t.Fatalf("release policy must own every fresh-OIDC protected group: api=%#v ui=%#v", api.ProtectedGroups, ui.ProtectedGroups)
 	}
 	if authority.Tools.ConftestVersion == "" || authority.Tools.OPAVersion == "" || strings.Contains(authority.Tools.ConftestVersion, "latest") || strings.Contains(authority.Tools.OPAVersion, "latest") {
@@ -177,125 +163,11 @@ func TestListingKitReleaseAuthorityMachinePolicyOwnsAllSecurityInputs(t *testing
 		t.Fatalf("release policy must own RBAC paths and protected resources: %#v", authority.RBAC)
 	}
 	if authority.ReleaseGateRunners.Manifest != "deployments/kubernetes/listingkit-workbench/release-authority/listingkit-release-gate-runners.yaml" ||
-		authority.ReleaseGateRunners.HoldImage != releaseGateHoldImage || len(authority.ReleaseGateRunners.Names) != 4 {
+		authority.ReleaseGateRunners.HoldImage != releaseGateHoldImage || len(authority.ReleaseGateRunners.Names) != 3 {
 		t.Fatalf("release policy must own the aggregate runner manifest and exact inventory: %#v", authority.ReleaseGateRunners)
 	}
 	if len(authority.Documentation.Paths) == 0 || len(authority.Documentation.CanonicalWorkflows) != 2 {
 		t.Fatalf("release policy must own supported release docs and canonical workflow links: %#v", authority.Documentation)
-	}
-}
-
-func TestListingKitReleaseAuthorityCrossFilePolicyRejectsReleaseGateInvocationOverrides(t *testing.T) {
-	t.Parallel()
-
-	workflow := readRepositoryText(t, "..", ".github", "workflows", "listingkit-deploy.yml")
-	for _, test := range []struct {
-		name string
-		from string
-		to   string
-	}{
-		{name: "missing run ID", from: "            --run-id \"$GITHUB_RUN_ID\" \\\n", to: ""},
-		{name: "static run ID override", from: "            --run-id \"$GITHUB_RUN_ID\" \\\n", to: "            --run-id \"$GITHUB_RUN_ID\" \\\n            --run-id \"424242\" \\\n"},
-		{name: "duplicate run attempt", from: "            --run-attempt \"$GITHUB_RUN_ATTEMPT\" \\\n", to: "            --run-attempt \"$GITHUB_RUN_ATTEMPT\" \\\n            --run-attempt \"$GITHUB_RUN_ATTEMPT\" \\\n"},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			mutated := strings.Replace(workflow, test.from, test.to, 1)
-			if mutated == workflow {
-				t.Fatalf("test fixture did not mutate %q", test.name)
-			}
-			output, runErr := runReleaseAuthorityCrossFilePolicy(t, mutated, "", "")
-			if runErr == nil {
-				t.Fatalf("cross-file release-authority policy accepted %s:\n%s", test.name, output)
-			}
-		})
-	}
-}
-
-func TestListingKitReleaseAuthorityCrossFilePolicyRejectsStaleOIDCAdjacency(t *testing.T) {
-	t.Parallel()
-
-	text := readRepositoryText(t, "..", ".github", "workflows", "listingkit-deploy.yml")
-	refreshName := "      - name: Refresh API OIDC for Product Listing schema gate\n"
-	protectedName := "      - name: Migrate Product Listing API schema before ListingKit rollout\n"
-	refreshStart := strings.Index(text, refreshName)
-	protectedStart := strings.Index(text, protectedName)
-	if refreshStart < 0 || protectedStart <= refreshStart {
-		t.Fatalf("test fixture cannot locate protected OIDC pair: refresh=%d protected=%d", refreshStart, protectedStart)
-	}
-	nextRelative := strings.Index(text[protectedStart+len(protectedName):], "\n      - name: ")
-	if nextRelative < 0 {
-		t.Fatal("test fixture cannot locate the step after the protected schema gate")
-	}
-	nextStart := protectedStart + len(protectedName) + nextRelative + 1
-	refreshBlock := text[refreshStart:protectedStart]
-	protectedBlock := text[protectedStart:nextStart]
-	mutated := text[:refreshStart] + protectedBlock + refreshBlock + text[nextStart:]
-
-	output, runErr := runReleaseAuthorityCrossFilePolicy(t, mutated, "", "")
-	if runErr == nil {
-		t.Fatalf("cross-file release-authority policy accepted a protected gate before its fresh OIDC step:\n%s", output)
-	}
-	if !strings.Contains(output, "fresh OIDC group order drifted") {
-		t.Fatalf("cross-file policy rejected the mutation for the wrong reason:\n%s", output)
-	}
-}
-
-func TestListingKitReleaseAuthorityCrossFilePolicyRejectsLaterMutationBeforeRefresh(t *testing.T) {
-	t.Parallel()
-
-	text := readRepositoryText(t, "..", ".github", "workflows", "listingkit-deploy.yml")
-	refreshName := "      - name: Refresh API OIDC for identity cleanup and v2 worker mutation group\n"
-	mutationName := "      - name: Apply immutable image agent v2 compatibility worker deployment\n"
-	refreshStart := strings.Index(text, refreshName)
-	mutationStart := strings.Index(text, mutationName)
-	if refreshStart < 0 || mutationStart <= refreshStart {
-		t.Fatalf("test fixture cannot locate v2 protected group: refresh=%d mutation=%d", refreshStart, mutationStart)
-	}
-	nextRelative := strings.Index(text[mutationStart+len(mutationName):], "\n      - name: ")
-	if nextRelative < 0 {
-		t.Fatal("test fixture cannot locate the step after the v2 worker mutation")
-	}
-	mutationEnd := mutationStart + len(mutationName) + nextRelative + 1
-	mutationBlock := text[mutationStart:mutationEnd]
-	withoutMutation := text[:mutationStart] + text[mutationEnd:]
-	mutated := withoutMutation[:refreshStart] + mutationBlock + withoutMutation[refreshStart:]
-
-	output, runErr := runReleaseAuthorityCrossFilePolicy(t, mutated, "", "")
-	if runErr == nil {
-		t.Fatalf("cross-file release-authority policy accepted a later mutation before its fresh OIDC step:\n%s", output)
-	}
-	if !strings.Contains(output, "fresh OIDC group order drifted") {
-		t.Fatalf("cross-file policy rejected the mutation for the wrong reason:\n%s", output)
-	}
-}
-
-func TestListingKitReleaseAuthorityCrossFilePolicyRejectsLaterUIMutationBeforeRefresh(t *testing.T) {
-	t.Parallel()
-
-	apiWorkflow := readRepositoryText(t, "..", ".github", "workflows", "listingkit-deploy.yml")
-	text := readRepositoryText(t, "..", ".github", "workflows", "listingkit-ui-deploy.yml")
-	refreshName := "      - name: Refresh UI OIDC for authorization and rollout mutation group\n"
-	mutationName := "      - name: Update UI deployment image\n"
-	refreshStart := strings.Index(text, refreshName)
-	mutationStart := strings.Index(text, mutationName)
-	if refreshStart < 0 || mutationStart <= refreshStart {
-		t.Fatalf("test fixture cannot locate UI protected group: refresh=%d mutation=%d", refreshStart, mutationStart)
-	}
-	nextRelative := strings.Index(text[mutationStart+len(mutationName):], "\n      - name: ")
-	if nextRelative < 0 {
-		t.Fatal("test fixture cannot locate the step after the UI image mutation")
-	}
-	mutationEnd := mutationStart + len(mutationName) + nextRelative + 1
-	mutationBlock := text[mutationStart:mutationEnd]
-	withoutMutation := text[:mutationStart] + text[mutationEnd:]
-	mutatedUI := withoutMutation[:refreshStart] + mutationBlock + withoutMutation[refreshStart:]
-
-	output, runErr := runReleaseAuthorityCrossFilePolicy(t, apiWorkflow, mutatedUI, "")
-	if runErr == nil {
-		t.Fatalf("cross-file release-authority policy accepted a later UI mutation before its fresh OIDC step:\n%s", output)
-	}
-	if !strings.Contains(output, "ui fresh OIDC group order drifted") {
-		t.Fatalf("cross-file policy rejected the UI mutation for the wrong reason:\n%s", output)
 	}
 }
 
@@ -312,6 +184,81 @@ func TestListingKitReleaseAuthorityCrossFilePolicyRejectsNativeSidecarRunner(t *
 	output, runErr := runReleaseAuthorityCrossFilePolicy(t, workflow, "", mutatedRunners)
 	if runErr == nil {
 		t.Fatalf("cross-file release-authority policy accepted a native-sidecar release-gate runner:\n%s", output)
+	}
+}
+
+func TestListingKitReleaseAuthorityAcceptsActualRetiredEntrypoints(t *testing.T) {
+	api := readRepositoryText(t, "..", ".github", "workflows", "listingkit-deploy.yml")
+	ui := readRepositoryText(t, "..", ".github", "workflows", "listingkit-ui-deploy.yml")
+	output, err := runReleaseAuthorityCrossFilePolicy(t, api, ui, "")
+	if err != nil {
+		t.Fatalf("actual retired source bundle rejected: %v\n%s", err, output)
+	}
+}
+
+func TestListingKitReleaseAuthorityRejectsRetiredEntrypointBypasses(t *testing.T) {
+	for _, owner := range []string{"API", "UI"} {
+		for _, test := range []struct {
+			name   string
+			mutate func(map[string]any, map[string]any)
+		}{
+			{"publish", func(w, j map[string]any) {
+				j["steps"] = []any{map[string]any{"run": "docker push example/image:latest\nexit 1\n"}}
+			}},
+			{"mutation", func(w, j map[string]any) {
+				j["steps"] = []any{map[string]any{"run": "kubectl apply -f production.yaml\nexit 1\n"}}
+			}},
+			{"success", func(w, j map[string]any) { j["steps"] = []any{map[string]any{"run": "exit 0\n"}} }},
+			{"id-token", func(w, j map[string]any) { w["permissions"] = map[string]any{"id-token": "write"} }},
+			{"job-permissions", func(w, j map[string]any) { j["permissions"] = map[string]any{"contents": "write"} }},
+			{"environment", func(w, j map[string]any) { j["environment"] = "listingkit-api-production" }},
+			{"secrets", func(w, j map[string]any) { j["env"] = map[string]any{"TOKEN": "${{ secrets.RELEASE_TOKEN }}"} }},
+			{"reusable-job", func(w, j map[string]any) { j["uses"] = "./.github/workflows/another.yml" }},
+			{"action-step", func(w, j map[string]any) {
+				j["steps"] = []any{map[string]any{"uses": "actions/checkout@" + strings.Repeat("a", 40)}}
+			}},
+			{"second-step", func(w, j map[string]any) {
+				j["steps"] = append(j["steps"].([]any), map[string]any{"run": "echo success"})
+			}},
+			{"second-job", func(w, j map[string]any) {
+				w["jobs"].(map[string]any)["publish"] = map[string]any{"runs-on": "ubuntu-latest", "steps": []any{map[string]any{"run": "echo success"}}}
+			}},
+			{"condition", func(w, j map[string]any) { j["if"] = "false" }},
+			{"continue-on-error", func(w, j map[string]any) { j["continue-on-error"] = true }},
+			{"automatic-push", func(w, j map[string]any) {
+				w["on"].(map[string]any)["push"] = map[string]any{"tags": []any{"listingkit-ui-v*"}}
+			}},
+			{"automatic-receipt", func(w, j map[string]any) {
+				w["on"].(map[string]any)["workflow_run"] = map[string]any{"workflows": []any{"ListingKit API Deploy"}, "types": []any{"completed"}}
+			}},
+			{"rollback-input", func(w, j map[string]any) {
+				w["on"].(map[string]any)["workflow_dispatch"] = map[string]any{"inputs": map[string]any{"rollback_run_id": map[string]any{"type": "string"}}}
+			}},
+			{"shell-expression", func(w, j map[string]any) {
+				j["steps"] = []any{map[string]any{"run": "echo $(kubectl get secrets)\nexit 1\n"}}
+			}},
+		} {
+			t.Run(owner+"/"+test.name, func(t *testing.T) {
+				workflow := expectedRetiredListingKitWorkflow(owner)
+				job := workflow["jobs"].(map[string]any)["retired"].(map[string]any)
+				test.mutate(workflow, job)
+				mutated, err := yaml.Marshal(workflow)
+				if err != nil {
+					t.Fatal(err)
+				}
+				api := readRepositoryText(t, "..", ".github", "workflows", "listingkit-deploy.yml")
+				ui := readRepositoryText(t, "..", ".github", "workflows", "listingkit-ui-deploy.yml")
+				if owner == "API" {
+					api = string(mutated)
+				} else {
+					ui = string(mutated)
+				}
+				output, err := runReleaseAuthorityCrossFilePolicy(t, api, ui, "")
+				if err == nil || !strings.Contains(output, strings.ToLower(owner)+" retired release entry must be exactly") {
+					t.Fatalf("policy must reject this actual workflow bypass at the retired boundary: err=%v\n%s", err, output)
+				}
+			})
+		}
 	}
 }
 
@@ -446,37 +393,6 @@ func TestListingKitReleaseAuthorityBindsWorkflowRefToMain(t *testing.T) {
 		t.Error("Kubernetes AuthenticationConfiguration must not authorize a workflow-ref prefix")
 	}
 
-	for workflow, workflowRef := range map[string]string{
-		"listingkit-deploy.yml":    listingKitAPIWorkflowRef,
-		"listingkit-ui-deploy.yml": listingKitUIWorkflowRef,
-	} {
-		parsed := loadReleaseAuthorityWorkflow(t, workflow)
-		jobName := "deploy-api"
-		if workflow == "listingkit-ui-deploy.yml" {
-			jobName = "deploy-ui"
-		}
-		job := parsed.Jobs[jobName]
-		var kubeconfigRun string
-		for _, step := range job.Steps {
-			if strings.Contains(step.Run, "listingkit-refresh-github-oidc-kubeconfig.sh") {
-				kubeconfigRun = step.Run
-				break
-			}
-		}
-		if !strings.Contains(kubeconfigRun, "--workflow-ref \"$CANONICAL_WORKFLOW_REF\"") {
-			t.Errorf("%s must pass exact trusted workflow ref %q", workflow, workflowRef)
-		}
-		workflowBytes, err := os.ReadFile(filepath.Join("..", ".github", "workflows", workflow))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !strings.Contains(string(workflowBytes), "CANONICAL_WORKFLOW_REF: "+workflowRef) {
-			t.Errorf("%s must define exact trusted workflow ref %q", workflow, workflowRef)
-		}
-		if strings.Contains(kubeconfigRun, "--workflow-path") {
-			t.Errorf("%s must not configure path-only OIDC trust", workflow)
-		}
-	}
 }
 
 func TestListingKitReleaseAuthorityNegativeFixturesAreCheckedIn(t *testing.T) {
@@ -545,11 +461,7 @@ func TestListingKitReleaseAuthorityHasNoLongLivedKubeconfigFallback(t *testing.T
 		if strings.Contains(string(content), "KUBE_CONFIG") {
 			t.Errorf("%s retains a long-lived KUBE_CONFIG credential path", name)
 		}
-		for _, required := range []string{"listingkit-refresh-github-oidc-kubeconfig.sh", "K8S_CLUSTER_SERVER", "K8S_CLUSTER_CA_B64"} {
-			if !strings.Contains(string(content), required) {
-				t.Errorf("%s is missing fail-closed OIDC kubeconfig input %q", name, required)
-			}
-		}
+
 	}
 	helper, err := os.ReadFile(filepath.Join("..", "scripts", "listingkit-refresh-github-oidc-kubeconfig.sh"))
 	if err != nil {
@@ -560,28 +472,6 @@ func TestListingKitReleaseAuthorityHasNoLongLivedKubeconfigFallback(t *testing.T
 			t.Errorf("fresh OIDC helper is missing GitHub-issued credential contract %q", required)
 		}
 	}
-}
-
-func TestListingKitReleaseAuthorityRefreshesOIDCImmediatelyBeforeProtectedGroups(t *testing.T) {
-	t.Parallel()
-
-	api := loadReleaseAuthorityWorkflow(t, "listingkit-deploy.yml")
-	assertFreshOIDCStepPairs(t, "deploy-api", api.Jobs["deploy-api"].Steps, listingKitAPIOIDCAudience, [][2]string{
-		{"Refresh API OIDC for credential preflight", "Reject legacy invitation credentials in shared Secret"},
-		{"Refresh API OIDC for Product Listing schema gate", "Migrate Product Listing API schema before ListingKit rollout"},
-		{"Refresh API OIDC for ListingKit schema gate", "Migrate ListingKit schema before owner exception seeding and preflight"},
-		{"Refresh API OIDC for identity preflight gate", "Run identity preflight release gate"},
-		{"Refresh API OIDC for identity cleanup and v2 worker mutation group", "Remove deprecated ListingKit identity keys from shared Secret"},
-		{"Refresh API OIDC for v3 worker mutation group", "Apply immutable image agent v3 recovery worker deployment"},
-		{"Refresh API OIDC for finite v3 canary gate", "Run finite image agent v3 compatibility canary"},
-		{"Refresh API OIDC for API mutation group", "Apply immutable API deployment after image agent compatibility gates"},
-		{"Refresh API OIDC for ingress mutation group", "Apply production ListingKit SMS webhook ingress"},
-	})
-
-	ui := loadReleaseAuthorityWorkflow(t, "listingkit-ui-deploy.yml")
-	assertFreshOIDCStepPairs(t, "deploy-ui", ui.Jobs["deploy-ui"].Steps, listingKitUIOIDCAudience, [][2]string{
-		{"Refresh UI OIDC for authorization and rollout mutation group", "Apply ListingKit UI authorization scopes"},
-	})
 }
 
 func TestListingKitReleaseAuthorityBootstrapIsStandaloneAndCreateFree(t *testing.T) {
@@ -628,21 +518,6 @@ func TestListingKitReleaseAuthorityBootstrapIsStandaloneAndCreateFree(t *testing
 			}
 		}
 	}
-}
-
-type releaseAuthorityWorkflow struct {
-	Jobs map[string]struct {
-		Environment struct {
-			Name string `yaml:"name"`
-		} `yaml:"environment"`
-		Permissions map[string]string `yaml:"permissions"`
-		Steps       []struct {
-			Name string            `yaml:"name"`
-			Uses string            `yaml:"uses"`
-			Run  string            `yaml:"run"`
-			Env  map[string]string `yaml:"env"`
-		} `yaml:"steps"`
-	} `yaml:"jobs"`
 }
 
 func runReleaseAuthorityCrossFilePolicy(t *testing.T, mutatedWorkflow, mutatedUIWorkflow, mutatedRunnerManifest string) (string, error) {
@@ -707,74 +582,4 @@ func runReleaseAuthorityCrossFilePolicy(t *testing.T, mutatedWorkflow, mutatedUI
 	command.Dir = repoRoot
 	output, runErr := command.CombinedOutput()
 	return string(output), runErr
-}
-
-func loadReleaseAuthorityWorkflow(t *testing.T, name string) releaseAuthorityWorkflow {
-	t.Helper()
-	path := filepath.Join("..", ".github", "workflows", name)
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	var workflow releaseAuthorityWorkflow
-	if err := yaml.Unmarshal(content, &workflow); err != nil {
-		t.Fatalf("decode %s: %v", path, err)
-	}
-	return workflow
-}
-
-func assertOIDCDeployJob(t *testing.T, workflow releaseAuthorityWorkflow, jobName, environment, audience string) {
-	t.Helper()
-	job, ok := workflow.Jobs[jobName]
-	if !ok {
-		t.Fatalf("workflow is missing %s", jobName)
-	}
-	if job.Environment.Name != environment {
-		t.Errorf("%s environment=%q want %q", jobName, job.Environment.Name, environment)
-	}
-	if got := job.Permissions["id-token"]; got != "write" {
-		t.Errorf("%s id-token permission=%q want write", jobName, got)
-	}
-
-	var tokenStepFound bool
-	for _, step := range job.Steps {
-		if !strings.Contains(step.Run, "listingkit-refresh-github-oidc-kubeconfig.sh") {
-			continue
-		}
-		tokenStepFound = true
-		if !strings.Contains(step.Run, "--audience "+audience) {
-			t.Errorf("%s OIDC refresh must bind audience %q", jobName, audience)
-		}
-	}
-	if !tokenStepFound {
-		t.Errorf("%s has no official GitHub OIDC token step", jobName)
-	}
-}
-
-func assertFreshOIDCStepPairs(t *testing.T, jobName string, steps []struct {
-	Name string            `yaml:"name"`
-	Uses string            `yaml:"uses"`
-	Run  string            `yaml:"run"`
-	Env  map[string]string `yaml:"env"`
-}, audience string, pairs [][2]string) {
-	t.Helper()
-
-	indexes := make(map[string]int, len(steps))
-	for index, step := range steps {
-		indexes[step.Name] = index
-	}
-	for _, pair := range pairs {
-		refreshIndex, refreshOK := indexes[pair[0]]
-		protectedIndex, protectedOK := indexes[pair[1]]
-		if !refreshOK || !protectedOK || protectedIndex != refreshIndex+1 {
-			t.Errorf("%s must place %q immediately before %q, refresh=%d protected=%d", jobName, pair[0], pair[1], refreshIndex, protectedIndex)
-			continue
-		}
-		run := steps[refreshIndex].Run
-		for _, required := range []string{"listingkit-refresh-github-oidc-kubeconfig.sh", "--audience " + audience, "--workflow-ref \"$CANONICAL_WORKFLOW_REF\"", "KUBECONFIG="} {
-			if !strings.Contains(run, required) {
-				t.Errorf("%s refresh step %q is missing %q", jobName, pair[0], required)
-			}
-		}
-	}
 }

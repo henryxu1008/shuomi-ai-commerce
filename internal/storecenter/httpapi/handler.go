@@ -507,7 +507,7 @@ func parseListRequest(rawQuery string) (storecenter.ListStoresRequest, string, e
 }
 
 func isPublicStorePlatform(value string) bool {
-	return value == string(storecenter.PlatformShein) || value == string(storecenter.PlatformTemu)
+	return value == string(storecenter.PlatformShein) || value == string(storecenter.PlatformTemu) || value == string(storecenter.PlatformWalmart)
 }
 
 func parseStringObject(body io.Reader, fields map[string]bool) (map[string]string, string, error) {

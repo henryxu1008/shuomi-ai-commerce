@@ -11,9 +11,11 @@ import (
 	podhttp "task-processor/internal/app/pod/httpapi"
 	supplyapp "task-processor/internal/app/supplychain"
 	supplyhttp "task-processor/internal/app/supplychain/httpapi"
+	imageworker "task-processor/internal/app/worker/imageagent"
 	billinghttp "task-processor/internal/commercial/billing/httpapi"
 	"task-processor/internal/product/collection"
 	markethttp "task-processor/internal/product/supplymarket/httpapi"
+	"task-processor/internal/shopdiagnosis"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -33,12 +35,15 @@ import (
 	ehttp "task-processor/internal/ecoservices/httpapi"
 	"task-processor/internal/httproute"
 	"task-processor/internal/imageagent"
+	configstore "task-processor/internal/integration/persistence/agentconfig"
 	commercialstore "task-processor/internal/integration/persistence/commercialbilling"
 	moneystore "task-processor/internal/integration/persistence/money"
 	referralstore "task-processor/internal/integration/persistence/referral"
+	skillstore "task-processor/internal/integration/persistence/skill"
 	sourceaccountstore "task-processor/internal/integration/persistence/sourceaccountregistry"
 	capacitystore "task-processor/internal/integration/persistence/storagecapacity"
 	s3integration "task-processor/internal/integration/s3"
+	"task-processor/internal/integration/skillauth"
 	"task-processor/internal/integration/zitadelregistration"
 	kernelmodule "task-processor/internal/kernel/module"
 	"task-processor/internal/knowledge"
@@ -46,12 +51,15 @@ import (
 	officialhttp "task-processor/internal/knowledge/httpapi/official"
 	"task-processor/internal/ledger/orgresource"
 	"task-processor/internal/ledger/storagecapacity"
+	"task-processor/internal/listing/preparation"
 	notificationhttp "task-processor/internal/notificationcenter/httpapi"
 	cockpithttp "task-processor/internal/operationscockpit/httpapi"
 	"task-processor/internal/product/asset"
 	collectionhttp "task-processor/internal/product/collection/httpapi"
 	"task-processor/internal/product/sourcing"
 	reporthttp "task-processor/internal/reportcenter/httpapi"
+	"task-processor/internal/skill"
+	skillhttp "task-processor/internal/skill/httpapi"
 	"task-processor/internal/storecenter"
 	storehttp "task-processor/internal/storecenter/httpapi"
 	o "task-processor/internal/storecenter/observations"
@@ -138,6 +146,7 @@ type currentApplicationFactories struct {
 
 type CurrentApplicationOption func(*currentApplicationOptions)
 type currentApplicationOptions struct {
+	modelRoutePricing            *ModelRoutePricingDependencies
 	dataServicesConfigs          int
 	dataServices                 *DataServicesDependencies
 	reportCenters                int
@@ -273,7 +282,13 @@ func WithAccountAuditUsageSources(image, product *gorm.DB) CurrentApplicationOpt
 
 func currentInvocationAuditSources(options currentApplicationOptions) (invocationAuditSources, error) {
 	sources := invocationAuditSources{}
-	if options.imageAgentDB != nil {
+	// Full Image HTTP has no ledger SELECT. Bind the existing dedicated reader
+	// once, rather than broadening execution privileges or querying two sources.
+	if options.fullImages != nil {
+		if options.accountAuditSources != 1 || options.accountAuditImageDB == nil || options.accountAuditImageDB == options.imageAgentDB {
+			return nil, errors.New("full image requires its independent current invocation audit reader")
+		}
+	} else if options.imageAgentDB != nil {
 		sources["image"] = options.imageAgentDB
 	}
 	if options.productAgent != nil && options.productAgent.RunDB != nil {
@@ -396,7 +411,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	if supplied.operationsCockpits > 0 && (supplied.storeCenters != 1 || supplied.storeCenterDB == nil) {
 		return nil, errors.New("operations cockpit requires current Store owner")
 	}
-	storeCapabilities := storecenter.RuntimeCapabilities{Observations: supplied.storeObservations == 1, OperationsCockpit: supplied.operationsCockpits == 1, TikTokShop: supplied.officialStoreApplications.TikTokConfigured()}
+	storeCapabilities := storecenter.RuntimeCapabilities{Observations: supplied.storeObservations == 1, OperationsCockpit: supplied.operationsCockpits == 1, TikTokShop: supplied.officialStoreApplications.TikTokConfigured(), WalmartUS: supplied.officialStoreApplications.WalmartConfigured()}
 	if err := validateDataServicesDependencies(supplied, sourceAccountDB, cfg); err != nil {
 		return nil, err
 	}
@@ -488,7 +503,11 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	}
 	if chat := supplied.aiWorkbench; chat != nil {
 		if chat.DB == nil || chat.DB == sourceAccountDB || chat.DB == supplied.commercialOwnerDB || chat.DB == supplied.productAcquisitionDB ||
-			chat.ConversationOnly && supplied.productAgent != nil || !chat.ConversationOnly && (supplied.productAgent == nil || chat.DB == supplied.productAgent.RunDB) {
+			supplied.productAgent != nil && chat.DB == supplied.productAgent.RunDB ||
+			chat.ConversationOnly && len(chat.PlanningTextPolicies) != 0 ||
+			chat.ConversationOnly && supplied.productAgent != nil && !supplied.productAgent.ContentTitleOnly && !supplied.productAgent.ContentOnly ||
+			!chat.ConversationOnly && (supplied.productAgent == nil || supplied.productAgent.ContentTitleOnly || chat.ContentTasks != supplied.productAgent.ContentOnly) ||
+			chat.ContentTasks && (chat.ConversationOnly || supplied.productCollections != 1) {
 			return nil, errors.New("AI Workbench requires distinct bounded pool and explicit execution mode")
 		}
 	}
@@ -684,11 +703,15 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		}
 		modules = append(modules, trial)
 	}
+	var cockpitReads *shopdiagnosis.NativeReader
+	var cockpitBind func(context.Context, string) (context.Context, error)
 	if supplied.operationsCockpits > 0 {
 		module, err := buildOperationsCockpit(ctx, supplied.storeCenterDB, *workbench.authDependencies, authorizer, storeCapabilities, savedObservations)
 		if err != nil {
 			return nil, fmt.Errorf("build operations cockpit: %w", err)
 		}
+		native := module.(operationsCockpitModule)
+		cockpitReads, cockpitBind = native.diagnosisReads, native.bind
 		modules = append(modules, module)
 		if workbench.handler != nil {
 			workbench.handler.SetOperationsCockpitAvailable(true)
@@ -699,6 +722,9 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		return nil, err
 	}
 	modules = append(modules, sms)
+	if supplied.modelRoutePricing != nil {
+		modules = append(modules, modelRoutePricingModule{services: *supplied.modelRoutePricing, authorizer: authorizer})
+	}
 	var resourceRecovery func(context.Context) error
 	includeResources := supplied.commercialOwnerDB != nil && factories.buildCommercialResources != nil
 	if includeResources {
@@ -826,6 +852,21 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	var supplyRuntime *supplyChainModule
 	var imageRuntime *fullImageApplication
 	var marketRuntime *supplyMarketModule
+	if supplied.pod != nil && supplied.fullImages != nil {
+		guard, err := buildArtworkOriginGuard(supplied.productAcquisitionDB, supplied.imageAgentDB, supplied.agentConfigurationDB)
+		if err != nil {
+			return nil, err
+		}
+		materials, err := imageworker.NewImageSetMaterialReader(supplied.fullImages.WorkerConfig, logger)
+		if err != nil {
+			return nil, err
+		}
+		guard.URLs = imageAgentDurableAssetPublicURLResolver(supplied.fullImages.WorkerConfig)
+		guard.ReadGeneratedBytes = materials.Read
+		supplied.pod.GeneratedArtworkBytes = guard.ReadArtworkSourceBytes
+		supplied.pod.ArtworkOriginGuard = guard
+		supplied.pod.SourceApprovalGuard = guard.AuthorizeSourceApproval
+	}
 	if supplied.supplyMarket != nil {
 		module, e := buildSupplyMarketModule(ctx, supplied.productAcquisitionDB, *supplied.supplyMarket, supplied.pod, *workbench.authDependencies, authorizer, cfg, supplied.supplyChains > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.supplyCompletionDrafts > 0)
 		if e != nil {
@@ -836,15 +877,43 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	}
 	if supplied.productAgent != nil {
 		agentConfig := *supplied.productAgent
+		agentConfig.TextLogger = logrus.NewEntry(logger).WithField("component", "governed-text")
 		agentConfig.Knowledge = supplied.knowledge
 		agentConfig.PointAccountingDB = supplied.commercialOwnerDB
 		agentModule, agentErr := buildProductAgentModule(ctx, supplied.productAcquisitionDB, *workbench.authDependencies, authorizer, agentConfig, cfg)
 		if agentErr != nil {
 			return nil, fmt.Errorf("build current product agent: %w", agentErr)
 		}
+		if planCollections != nil {
+			m := agentModule.(productAgentModule)
+			m.application.ownProducts = planCollections
+			if m.application.content != nil {
+				m.application.content.ownProducts = planCollections
+			}
+			m.routes = append(m.routes, ownContentAgentRoutes(m.application.content)...)
+			agentModule = m
+		}
 		modules = append(modules, agentModule)
 		modelPointRecovery = agentModule.(productAgentModule).recoverPoints
 		productRuntime = agentModule.(productAgentModule).application
+	}
+	var diagnosisRuntime *shopDiagnosisApplication
+	if cockpitReads != nil {
+		var e error
+		diagnosisRuntime, e = buildShopDiagnosisApplication(ctx, productRuntime, cockpitReads, cockpitBind, supplied.agentConfigurationDB, workbench.authDependencies.organizationResolver, authorizer)
+		if e != nil {
+			return nil, fmt.Errorf("build current shop diagnosis: %w", e)
+		}
+		modules = append(modules, shopDiagnosisModule{app: diagnosisRuntime})
+	}
+	var selectionRuntime *productSelectionApplication
+	if planCollections != nil {
+		var e error
+		selectionRuntime, e = buildProductSelectionApplication(ctx, productRuntime, planCollections, supplied.agentConfigurationDB, workbench.authDependencies.organizationResolver, authorizer)
+		if e != nil {
+			return nil, fmt.Errorf("build current product selection: %w", e)
+		}
+		modules = append(modules, productSelectionModule{app: selectionRuntime})
 	}
 	if supplied.supplyChain != nil {
 		module, e := buildSupplyChainModule(ctx, supplied.productAcquisitionDB, supplied.storeCenterDB, *supplied.supplyChain, *workbench.authDependencies, authorizer, supplied.officialStoreApplications, cfg, productRuntime, storeCapabilities, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.supplyCompletionDrafts > 0)
@@ -853,6 +922,14 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		}
 		modules = append(modules, module)
 		supplyRuntime = &module
+	}
+	if supplied.supplyChain != nil && productRuntime != nil {
+		materials, e := buildListingMaterialsApplication(ctx, productRuntime, supplyRuntime.app)
+		if e != nil {
+			return nil, fmt.Errorf("build current listing materials agent: %w", e)
+		}
+		productRuntime.materials = materials
+		modules = append(modules, listingMaterialsModule{app: materials})
 	}
 	if supplied.privateDraftTrial != nil {
 		// Private draft trial is intentionally separate from normal plan composition.
@@ -929,7 +1006,15 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			if supplied.collectionSourceMedia != nil && cfg.ProductCollectionSourceMedia.Enabled {
 				sourceMedia = newImageSetManualMedia(supplied.collectionSourceMedia, imageMediaScopeAuthority{current: live})
 			}
-			full, dependencies, e := buildFullImageApplication(ctx, supplied.productAcquisitionDB, supplied.imageAgentDB, supplied.fullImages.WorkerDB, supplied.agentConfigurationDB, supplied.commercialOwnerDB, supplied.fullImages.AssetDB, supplied.imageAgentWorkflows, products, live, supplyRuntime, cfg, supplied.fullImages.WorkerConfig, logger, sourceMedia)
+			var imagePreparationSources *preparation.SourceSelector
+			if completionRuntime != nil && completionRuntime.app != nil {
+				imagePreparationSources = completionRuntime.app.Sources
+			}
+			var confirmedCopy imageagent.ImageTextReviewReader
+			if productRuntime != nil && productRuntime.content != nil {
+				confirmedCopy = imageTextReviewReader{content: productRuntime.content}
+			}
+			full, dependencies, e := buildFullImageApplication(ctx, supplied.productAcquisitionDB, supplied.imageAgentDB, supplied.fullImages.WorkerDB, supplied.agentConfigurationDB, supplied.commercialOwnerDB, supplied.fullImages.AssetDB, supplied.imageAgentWorkflows, products, live, supplyRuntime, imagePreparationSources, cfg, supplied.fullImages.WorkerConfig, supplied.productCollections == 1, logger, supplied.fullImages.CurrentImagePolicies, confirmedCopy, sourceMedia)
 			if e != nil {
 				return nil, fmt.Errorf("build full image application: %w", e)
 			}
@@ -941,11 +1026,39 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			imageRuntime = full
 			modules = append(modules, fullImageModule{application: full, bind: (productReviewCapabilityBinder{now: time.Now}).Bind})
 		}
-		m, e := buildAgentConfigurationModule(ctx, supplied.agentConfigurationDB, workbench.authDependencies.organizationResolver, authorizer, supplied.knowledge, productRuntime, modePrivateDeliveries, imageRuntime)
+		m, e := buildAgentConfigurationModule(ctx, supplied.agentConfigurationDB, workbench.authDependencies.organizationResolver, authorizer, supplied.knowledge, productRuntime, modePrivateDeliveries, selectionRuntime, diagnosisRuntime, imageRuntime)
 		if e != nil {
 			return nil, fmt.Errorf("build current agent configuration: %w", e)
 		}
 		modules = append(modules, m)
+	}
+	if supplied.agentConfigurationDB != nil {
+		access, e := skillauth.New(workbench.authDependencies.organizationResolver, authorizer)
+		if e != nil {
+			return nil, e
+		}
+		h := &skillhttp.Handler{Bind: access.Bind}
+		// Optional capability: verification performs no DDL. An uninstalled
+		// Skill schema reports unavailable without changing existing Agent paths.
+		if skillstore.VerifySchema(ctx, supplied.agentConfigurationDB) == nil {
+			repo, e := skillstore.New(supplied.agentConfigurationDB)
+			if e != nil {
+				return nil, e
+			}
+			h.Service, e = skill.NewService(repo, access.Resolve)
+			if e != nil {
+				return nil, e
+			}
+			h.ImageService, e = skill.NewService(repo, access.ResolveImage)
+			if e != nil {
+				return nil, e
+			}
+			h.Policy, e = configstore.New(supplied.agentConfigurationDB)
+			if e != nil {
+				return nil, e
+			}
+		}
+		modules = append(modules, skillhttp.Module{Handler: h})
 	}
 	var projectChat *aiWorkbenchApplication
 	if supplied.aiWorkbench != nil {
@@ -962,6 +1075,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			workbench.handler.SetAIWorkbenchAdmission(module.(aiWorkbenchModule).AdmittedOrganization)
 			workbench.handler.SetAIWorkbenchPlanningReadiness(module.(aiWorkbenchModule).PlanningReadiness)
 			workbench.handler.SetAIWorkbenchTitleReadiness(module.(aiWorkbenchModule).TitleReadiness)
+			workbench.handler.SetAIWorkbenchExecution(module.(aiWorkbenchModule).ExecutionKind(), module.(aiWorkbenchModule).ExecutionReadiness)
 		}
 	}
 	if supplied.projectCenterDB != nil {
@@ -1092,6 +1206,8 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		SupplyMarket:        supplied.supplyMarkets > 0,
 		POD:                 supplied.pods > 0,
 		Collections:         supplied.productCollections > 0,
+		ProductSelection:    selectionRuntime != nil,
+		ShopDiagnosis:       diagnosisRuntime != nil,
 		NotificationCenter:  supplied.notifications > 0,
 		ZitadelSMS:          true,
 		StoreCenter:         supplied.storeCenters > 0,
@@ -1103,9 +1219,12 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		AcquisitionImage:    factories.buildAcquisitionImage != nil,
 		FullImageSet:        imageRuntime != nil,
 		ProductAgent:        supplied.productAgent != nil,
+		ContentTitleOnly:    supplied.productAgent != nil && supplied.productAgent.ContentTitleOnly,
+		ContentOnly:         supplied.productAgent != nil && supplied.productAgent.ContentOnly,
 		AIWorkbench:         supplied.aiWorkbench != nil,
 		ProjectCenter:       supplied.projectCenterDB != nil,
 		AgentConfiguration:  supplied.agentConfigurationDB != nil,
+		ModelRoutePricing:   supplied.modelRoutePricing != nil,
 		MemberPoints:        includeMemberPoints,
 		MemberResources:     includeMemberResources,
 		Resources:           includeResources,
@@ -1216,8 +1335,11 @@ type currentApplicationOptionalRoutes struct {
 	AcquisitionPlans    bool
 	CompletionDrafts    bool
 	Collections         bool
+	ProductSelection    bool
+	ShopDiagnosis       bool
 	NotificationCenter  bool
 	AgentConfiguration  bool
+	ModelRoutePricing   bool
 	Knowledge           bool
 	OfficialKnowledge   bool
 	StoreCenter         bool
@@ -1230,6 +1352,8 @@ type currentApplicationOptionalRoutes struct {
 	AcquisitionImage    bool
 	FullImageSet        bool
 	ProductAgent        bool
+	ContentTitleOnly    bool
+	ContentOnly         bool
 	AIWorkbench         bool
 	ProjectCenter       bool
 	MemberPoints        bool
@@ -1237,6 +1361,9 @@ type currentApplicationOptionalRoutes struct {
 }
 
 func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, includeAudit, includeAcquisition, includeReferrals, includeMembership, includeAccountProfile, includeAllocation, includeBrowser bool, optional currentApplicationOptionalRoutes) error {
+	if (optional.ContentTitleOnly || optional.ContentOnly) && !optional.ProductAgent {
+		return errors.New("title-only routes require the current product agent")
+	}
 	if optional.PrivateDraftTrial && (optional.SupplyMarket || optional.POD) {
 		return errors.New("private draft trial excludes market/POD services")
 	}
@@ -1294,6 +1421,11 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
 		}
 	}
+	if optional.SupplyChain && optional.ProductAgent {
+		for _, r := range listingMaterialsRoutes(nil, nil) {
+			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
+		}
+	}
 	if optional.CompletionDrafts {
 		if !optional.Collections || optional.PrivateDraftTrial {
 			return errors.New("completion drafts require current collections and exclude synthetic trial")
@@ -1329,13 +1461,37 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 			}
 		}
 	}
+	if optional.ShopDiagnosis {
+		if !optional.OperationsCockpit || !optional.StoreCenter {
+			return errors.New("shop diagnosis requires native cockpit and stores")
+		}
+		for _, r := range shopDiagnosisRoutes(nil, nil) {
+			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
+		}
+	}
+	if optional.ProductSelection {
+		if !optional.Collections {
+			return errors.New("product selection requires current private collections")
+		}
+		for _, r := range productSelectionRoutes(nil, nil) {
+			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
+		}
+	}
 	if optional.NotificationCenter {
 		for _, r := range notificationhttp.Routes(nil) {
 			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
 		}
 	}
+	if optional.ModelRoutePricing {
+		for _, r := range (modelRoutePricingModule{}).routes() {
+			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
+		}
+	}
 	if optional.AgentConfiguration {
 		for _, r := range confighttp.Routes(nil) {
+			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
+		}
+		for _, r := range skillhttp.Routes(nil) {
 			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
 		}
 	}
@@ -1439,8 +1595,13 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 		}
 	}
 	if optional.ProductAgent {
-		for _, r := range productAgentRoutes(nil) {
+		for _, r := range productAgentProfileRoutes(nil, optional.ContentTitleOnly || optional.ContentOnly) {
 			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
+		}
+		if optional.Collections {
+			for _, r := range ownContentAgentRoutes(nil) {
+				admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
+			}
 		}
 		for _, r := range productReviewRoutes(nil, nil) {
 			if r.Method == http.MethodPost && r.Path == "/api/product/text-proposals" {
@@ -1493,6 +1654,22 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 	}
 	includeCommercialBilling := false
 	for _, descriptor := range routes {
+		if strings.HasPrefix(descriptor.Path, shopDiagnosisBase+"/") {
+			if !optional.ShopDiagnosis || !optional.OperationsCockpit || !optional.StoreCenter {
+				return errors.New("shop diagnosis requires native cockpit and stores")
+			}
+			if e := validateShopDiagnosisDescriptor(descriptor); e != nil {
+				return e
+			}
+		}
+		if strings.HasPrefix(descriptor.Path, productSelectionBase+"/") {
+			if !optional.Collections || !optional.ProductSelection {
+				return errors.New("product selection requires current private collections")
+			}
+			if e := validateProductSelectionDescriptor(descriptor); e != nil {
+				return e
+			}
+		}
 		if descriptor.Path == billinghttp.StorageSummaryPath || descriptor.Path == billinghttp.StorageOffersPath || descriptor.Path == billinghttp.PublicStorageOffersPath {
 			if !optional.StorageCapacity || !billinghttp.ValidateStorageDescriptor(descriptor) {
 				return errors.New("storage capacity route loses its current enterprise read boundary")
@@ -1556,6 +1733,15 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 			}
 		}
 		if (descriptor.Path == supplyhttp.SupplyBasePath || strings.HasPrefix(descriptor.Path, supplyhttp.SupplyBasePath+"/")) && !strings.HasPrefix(descriptor.Path, supplyImageSetBase) {
+			if strings.HasPrefix(descriptor.Path, listingMaterialsBase+"/") {
+				if !optional.SupplyChain || !optional.ProductAgent || optional.PrivateDraftTrial {
+					return errors.New("listing materials requires normal supply and product agent owners")
+				}
+				if e := validateListingMaterialsDescriptor(descriptor); e != nil {
+					return e
+				}
+				continue
+			}
 			if supplyhttp.IsCompletionDraftRoute(descriptor.Method, descriptor.Path) {
 				if !optional.CompletionDrafts {
 					return errors.New("completion drafts not admitted")
@@ -1593,6 +1779,22 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 				return errors.New("#36 local trial route loses admitted permission or deadline")
 			}
 		}
+		if strings.HasPrefix(descriptor.Path, skillhttp.Base+"/") {
+			if !optional.AgentConfiguration {
+				return errors.New("skills not admitted")
+			}
+			if e := skillhttp.ValidateDescriptor(descriptor); e != nil {
+				return e
+			}
+		}
+		if descriptor.Path == modelRouteBase || strings.HasPrefix(descriptor.Path, modelRouteBase+"/") {
+			if !optional.ModelRoutePricing {
+				return errors.New("model route pricing not admitted")
+			}
+			if err := validateModelRouteDescriptor(descriptor); err != nil {
+				return err
+			}
+		}
 		if strings.HasPrefix(descriptor.Path, confighttp.Base+"/") {
 			if !optional.AgentConfiguration {
 				return errors.New("agent configuration not admitted")
@@ -1619,6 +1821,20 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 		}
 		if strings.HasPrefix(descriptor.Path, acquisitionImageBase) && (descriptor.Module != "acquisition-main-image" || descriptor.AuthPolicy != httproute.AuthPolicyVerifiedIdentity || descriptor.OrganizationAccessPolicy != httproute.OrganizationAccessPolicyLiveWrite || descriptor.RequestTimeout != 30*time.Second || descriptor.Permission != map[bool]string{true: authz.PermissionImageAgentRead, false: authz.PermissionImageAgentWrite}[descriptor.Method == http.MethodGet]) {
 			return errors.New("current acquisition image route loses live permission boundary")
+		}
+		if strings.HasPrefix(descriptor.Path, artworkAgentBase) {
+			if !optional.FullImageSet {
+				return errors.New("POD artwork application not admitted")
+			}
+			admitted := false
+			for _, route := range (fullImageModule{}).artworkRoutes() {
+				if descriptor.Method == route.Method && descriptor.Path == route.Path {
+					admitted = descriptor.Module == route.Module && descriptor.AuthPolicy == route.AuthPolicy && descriptor.OrganizationAccessPolicy == route.OrganizationAccessPolicy && descriptor.Permission == route.Permission && descriptor.RequestTimeout == route.RequestTimeout && descriptor.OrganizationTargetResolver == nil
+				}
+			}
+			if !admitted {
+				return errors.New("POD artwork route loses exact live permission boundary")
+			}
 		}
 		if strings.HasPrefix(descriptor.Path, acquisitionImageSetBase) || strings.HasPrefix(descriptor.Path, supplyImageSetBase) {
 			if !optional.FullImageSet {
@@ -1664,6 +1880,22 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 	}
 	seen := make(map[currentApplicationRoute]struct{}, len(routes))
 	for _, descriptor := range routes {
+		if strings.HasPrefix(descriptor.Path, skillhttp.Base+"/") {
+			if !optional.AgentConfiguration {
+				return errors.New("skills not admitted")
+			}
+			if e := skillhttp.ValidateDescriptor(descriptor); e != nil {
+				return e
+			}
+		}
+		if descriptor.Path == modelRouteBase || strings.HasPrefix(descriptor.Path, modelRouteBase+"/") {
+			if !optional.ModelRoutePricing {
+				return errors.New("model route pricing not admitted")
+			}
+			if err := validateModelRouteDescriptor(descriptor); err != nil {
+				return err
+			}
+		}
 		if strings.HasPrefix(descriptor.Path, confighttp.Base+"/") {
 			if !optional.AgentConfiguration {
 				return errors.New("agent configuration not admitted")
@@ -1700,7 +1932,7 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 		if (descriptor.Path == commercialResourcesPath || descriptor.Path == commercialResourceEventsPath) && (descriptor.Module != commercialResourcesModuleName || descriptor.Method != http.MethodGet || descriptor.AuthPolicy != httproute.AuthPolicyCurrentIdentity || descriptor.OrganizationAccessPolicy != httproute.OrganizationAccessPolicyLiveWrite || descriptor.OrganizationTargetResolver != nil || descriptor.Permission != authz.PermissionWorkbenchCommercialRead || descriptor.RequestTimeout != 15*time.Second || !descriptor.RejectUnreadRequestBody || descriptor.Handler == nil) {
 			return errors.New("commercial resources route loses live read boundary")
 		}
-		if strings.HasPrefix(descriptor.Path, productAgentBase) && (descriptor.Module != "product-agent" || descriptor.AuthPolicy != httproute.AuthPolicyVerifiedIdentity || descriptor.OrganizationAccessPolicy != httproute.OrganizationAccessPolicyLiveWrite || descriptor.Permission != authz.PermissionLocalAgentWrite || descriptor.RequestTimeout != 2*time.Minute) {
+		if (strings.HasPrefix(descriptor.Path, productAgentBase) || strings.HasPrefix(descriptor.Path, productContentAgentBase) || strings.HasPrefix(descriptor.Path, ownContentAgentBase)) && (descriptor.Module != "product-agent" || descriptor.AuthPolicy != httproute.AuthPolicyVerifiedIdentity || descriptor.OrganizationAccessPolicy != httproute.OrganizationAccessPolicyLiveWrite || descriptor.Permission != authz.PermissionLocalAgentWrite || descriptor.RequestTimeout != 2*time.Minute) {
 			return errors.New("product agent loses fresh permission boundary")
 		}
 		if strings.HasPrefix(descriptor.Path, ph.Base) {
@@ -1711,7 +1943,7 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 				return e
 			}
 		}
-		if strings.HasPrefix(descriptor.Path, workbenchChatBase) || strings.HasPrefix(descriptor.Path, workbenchTaskBase) {
+		if strings.HasPrefix(descriptor.Path, workbenchChatBase) || strings.HasPrefix(descriptor.Path, workbenchSubjectBase+"/") || strings.HasPrefix(descriptor.Path, workbenchTaskBase) {
 			if !optional.AIWorkbench || descriptor.Module != "ai-workbench" || descriptor.AuthPolicy != httproute.AuthPolicyVerifiedIdentity || descriptor.OrganizationAccessPolicy != httproute.OrganizationAccessPolicyLiveWrite || descriptor.Handler == nil {
 				return errors.New("AI Workbench loses scoped permission boundary")
 			}
@@ -1826,8 +2058,8 @@ func buildCurrentApplicationHTTPServer(routes []httproute.Descriptor, dependenci
 	server.IdleTimeout = 60 * time.Second
 	inner := server.Handler
 	server.Handler = http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		if isProductAgentHTTPPath(request.URL.Path) {
-			// Only this bounded synchronous model path needs a longer response.
+		if isProductAgentHTTPPath(request.URL.Path) || request.Method == http.MethodPost && (isListingMaterialsHTTPPath(request.URL.Path) || isContextAgentRunHTTPPath(request.URL.Path, productSelectionBase) || isContextAgentRunHTTPPath(request.URL.Path, shopDiagnosisBase)) {
+			// Bounded synchronous model and materials commit paths need a longer response.
 			// Header/body read timeouts and all other route deadlines stay intact.
 			if err := http.NewResponseController(writer).SetWriteDeadline(time.Now().Add(125 * time.Second)); err != nil && !errors.Is(err, http.ErrNotSupported) {
 				http.Error(writer, "response deadline unavailable", http.StatusServiceUnavailable)

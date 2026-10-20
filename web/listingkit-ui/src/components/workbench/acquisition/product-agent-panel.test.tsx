@@ -14,6 +14,35 @@ beforeEach(() => { fixture.context.roles=["listingkit_operator"];fixture.request
 afterEach(cleanup);
 const op = "11111111-1111-4111-8111-111111111111";
 const props = { enabled: true, operationId: op, productKey: "product", catalogVersion: "1" };
+it("restores an image translation with its exact language and manual-only flag, preserving general Agent URL intent",async()=>{
+ fixture.params=new URLSearchParams({agent_key:"22222222-2222-4222-8222-222222222222",agent_platform:"shein"});
+ window.history.replaceState(null,"","/?agent_key=22222222-2222-4222-8222-222222222222&agent_platform=shein");
+ fixture.request.mockRejectedValue(new ProductAgentError("OUTCOME_UNKNOWN"));
+ const start={expectedModeRevision:"0",targetPlatform:"product" as const,manualReviewOnly:true as const,contentSelection:{targetLanguage:"en",title:true,sellingPoints:true}};
+ render(<ProductAgentPanel {...props} imageTranslation={{language:"en",original:{key:op,start},persist:vi.fn(),onReview:vi.fn()}}/>);
+ fireEvent.click(screen.getByText("使用原请求核实启动"));await screen.findByRole("alert");
+ expect(fixture.request.mock.calls[0][2]).toBe(op);
+ expect(fixture.request.mock.calls[0][11]).toEqual(start.contentSelection);
+ expect(fixture.request.mock.calls[0][15]).toBe(true);
+ expect(new URL(window.location.href).searchParams.get("agent_platform")).toBe("shein");
+ expect(screen.queryByRole("button",{name:"重新确认配置"})).toBeNull();
+});
+it("restores an own run's original sealed version instead of the latest preview",async()=>{
+ fixture.params=new URLSearchParams({agent_key:op,agent_actor:"actor",agent_org:"org",agent_kind:"content",agent_mode_revision:"0",agent_platform:"product",agent_content:JSON.stringify({targetLanguage:"zh-CN",title:true}),agent_own_version:"1",agent_own_publication:"original-publication"});
+ fixture.request.mockRejectedValue(new ProductAgentError("OUTCOME_UNKNOWN"));
+ render(<ProductAgentPanel {...props} catalogVersion="3" ownSource={{catalogVersion:"3",publicationId:"later-apply"}}/>);
+ fireEvent.click(screen.getByText("使用原请求核实启动"));
+ await screen.findByRole("alert");
+ expect(fixture.request.mock.calls[0][14]).toEqual({source:{catalogVersion:"1",publicationId:"original-publication"}});
+ expect(fixture.request.mock.calls[0][13]).toBeUndefined();
+ expect(screen.queryByRole("option",{name:"标题优化"})).toBeNull();
+});
+it("does not restore another organization's own request",()=>{
+ fixture.params=new URLSearchParams({agent_key:op,agent_actor:"actor",agent_org:"other"});
+ render(<ProductAgentPanel {...props} ownSource={{catalogVersion:"1",publicationId:"original"}}/>);
+ expect(screen.queryByText("读取当前结果")).toBeNull();
+ expect(fixture.request).not.toHaveBeenCalled();
+});
 it("keeps a closed capability explicit and never dispatches on mount", () => {
     render(<ProductAgentPanel {...props} enabled={false}/>);
     expect(screen.getByText("当前环境尚未开放 Product Agent。")).toBeInTheDocument();

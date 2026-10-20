@@ -1,7 +1,7 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { NotificationCenterPage, NotificationDetailPage } from "./notification-center";
+import { NotificationCenterPage, NotificationDetailPage, NotificationPopover } from "./notification-center";
 const fixture = vi.hoisted(() => ({ context: { user: { id: "actor" } as { id: string } | null, effectiveOrganization: { id: "org-a" } as { id: string } | null, selectionRequired: false, isLoading: false, isSwitching: false, error: null as { code: string } | null, blockingError: null as { code: string } | null } }));
 vi.mock("@/components/providers/workbench-context-provider", () => ({ useWorkbenchContext: () => fixture.context }));
 const id = "4841d296-ef14-4c16-8d25-a7667e534feb", snapshotID = "4f5e1184-83c7-45b0-9dd9-c61242c9fb25";
@@ -15,6 +15,18 @@ function receipt(key: string, operation: string) { return Response.json({ key, o
 const clients: QueryClient[] = [];
 function mount(child: React.ReactNode) { const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } }); clients.push(client); return render(<QueryClientProvider client={client}>{child}</QueryClientProvider>); }
 beforeEach(() => { fixture.context = { user: { id: "actor" }, effectiveOrganization: { id: "org-a" }, selectionRequired: false, isLoading: false, isSwitching: false, error: null, blockingError: null }; });
+it("keeps full and compact pagination separate in the same query client",async()=>{
+ const fetch=vi.fn(async(url:unknown)=>{
+  if(String(url).endsWith("/identity"))return Response.json({userId:"actor"});
+  const size=Number(new URL(String(url),"http://localhost").searchParams.get("limit")||20);
+  return Response.json({...list(),items:Array.from({length:size},(_,index)=>({...item(),title:`Notice ${index}`,id:btoa(JSON.stringify({source:"official",entityId:`4841d296-ef14-4c16-8d25-${String(index).padStart(12,"0")}`,type:"PRODUCT",revision:"1",organizationId:""}))})),next:`cursor-${size}`});
+ });vi.stubGlobal("fetch",fetch);
+ mount(<><NotificationCenterPage expectedUserId="actor"/><NotificationPopover/></>);
+ await waitFor(()=>expect(screen.getAllByRole("link",{name:/Notice/})).toHaveLength(20));
+ fireEvent.click(screen.getByRole("button",{name:"通知"}));
+ await waitFor(()=>expect(screen.getAllByRole("region",{name:"官方消息列表"})).toHaveLength(2));
+ await waitFor(()=>expect(screen.getAllByRole("region",{name:"官方消息列表"}).map(panel=>within(panel).getAllByRole("link").length)).toEqual([20,4]));
+});
 afterEach(() => { cleanup(); clients.splice(0).forEach(c => c.clear()); vi.unstubAllGlobals(); });
 it("keeps official and personal messages available when the organization read fails", async () => {
   fixture.context.error = { code: "DEPENDENCY_UNAVAILABLE" }; fixture.context.user = null;

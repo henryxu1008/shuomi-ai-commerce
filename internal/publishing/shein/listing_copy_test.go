@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	openaiclient "task-processor/internal/integration/openai"
-	"task-processor/internal/listingadmin"
 	"task-processor/internal/product/catalog/canonical"
 	sharedtenantctx "task-processor/internal/shared/tenantctx"
 )
@@ -248,21 +247,11 @@ func TestBuildSheinListingCopyEnrichesRealDoorCurtainTaskTitle(t *testing.T) {
 }
 
 func TestBuildSheinListingCopyCleansSensitiveWords(t *testing.T) {
-	restoreRepo := SetSensitiveWordRepository(&stubSensitiveWordRepository{
-		pages: map[int64][]listingadmin.SensitiveWord{
-			101: {
-				{TenantID: 101, Language: "en", Word: "amazon", Status: 1},
-				{TenantID: 101, Language: "en", Word: "bpa free", Status: 1},
-			},
-		},
-	})
-	defer restoreRepo()
-
 	canonical := &canonical.Product{
-		Title:       "Amazon BPA Free Vase",
-		Description: "Amazon BPA Free vase for home decor.",
+		Title:       "Amazon Trademark Vase",
+		Description: "Amazon Trademark vase for home decor.",
 		Attributes: map[string]canonical.Attribute{
-			"product_english_name": {Value: "Amazon BPA Free Vase"},
+			"product_english_name": {Value: "Amazon Trademark Vase"},
 		},
 	}
 
@@ -291,113 +280,13 @@ func TestBuildSheinListingCopyDoesNotFallbackToSyntheticCustomTitle(t *testing.T
 	}
 }
 
-func TestBuildSheinListingCopyLoadsTenantSensitiveWordsFromRepository(t *testing.T) {
-	restoreRepo := SetSensitiveWordRepository(&stubSensitiveWordRepository{
-		pages: map[int64][]listingadmin.SensitiveWord{
-			101: {{
-				TenantID: 101,
-				Language: "en",
-				Word:     "whimsy",
-				Status:   1,
-			}},
-		},
-	})
-	defer restoreRepo()
-
-	runtimeCtx := sharedtenantctx.WithTenantID(context.Background(), "101")
-	canonical := &canonical.Product{
-		Title:       "Whimsy Door Curtain",
-		Description: "Whimsy curtain for home decor.",
-		Attributes: map[string]canonical.Attribute{
-			"product_english_name": {Value: "Whimsy Door Curtain"},
-		},
-	}
-
-	copy := buildSheinListingCopy(runtimeCtx, canonical, canonical.Title, nil)
-
-	if strings.Contains(strings.ToLower(copy.Title), "whimsy") {
-		t.Fatalf("title = %q, want tenant sensitive word removed", copy.Title)
-	}
-	if strings.Contains(strings.ToLower(copy.Description), "whimsy") {
-		t.Fatalf("description = %q, want tenant sensitive word removed", copy.Description)
-	}
-	if strings.Contains(strings.ToLower(copy.SKCTitleBase), "whimsy") {
-		t.Fatalf("skc base = %q, want tenant sensitive word removed", copy.SKCTitleBase)
-	}
-}
-
-func TestDifferentTenantsLoadDifferentGenerationTopicLexicons(t *testing.T) {
-	restoreRepo := ConfigureSubmitPrepRepositories(nil, &stubGenerationTopicPolicyRepository{
-		keys: map[int64][]string{
-			101: {"children"},
-			202: {"meals"},
-		},
-	}, nil)
-	defer restoreRepo()
-
-	copyA := buildSheinListingCopy(sharedtenantctx.WithTenantID(context.Background(), "101"), &canonical.Product{
-		Title:       "Kids Room Curtain",
-		Description: "Decor for children bedroom",
-		Attributes: map[string]canonical.Attribute{
-			"product_english_name": {Value: "Kids Room Curtain"},
-		},
-	}, "Kids Room Curtain", nil)
-	copyB := buildSheinListingCopy(sharedtenantctx.WithTenantID(context.Background(), "202"), &canonical.Product{
-		Title:       "Breakfast Table Curtain",
-		Description: "Meal-themed decor",
-		Attributes: map[string]canonical.Attribute{
-			"product_english_name": {Value: "Breakfast Table Curtain"},
-		},
-	}, "Breakfast Table Curtain", nil)
-
-	if strings.Contains(strings.ToLower(copyA.Title), "kids") || strings.Contains(strings.ToLower(copyA.Description), "children") {
-		t.Fatalf("tenant 101 copy = %+v, want children terms removed", copyA)
-	}
-	if strings.Contains(strings.ToLower(copyB.Title), "breakfast") || strings.Contains(strings.ToLower(copyB.Description), "meal") {
-		t.Fatalf("tenant 202 copy = %+v, want meal terms removed", copyB)
-	}
-}
-
-func TestBuildSheinListingCopyLoadsTenantGenerationTopicOverrideLexicon(t *testing.T) {
-	restoreRepos := ConfigureSubmitPrepRepositories(nil, &stubGenerationTopicPolicyRepository{
-		keys: map[int64][]string{
-			101: {"children"},
-		},
-	}, &stubGenerationTopicOverrideRepository{
-		items: map[string]listingadmin.GenerationTopicOverride{
-			overrideRepoKey(101, "shein", "children"): {
-				TenantID: 101,
-				Platform: "shein",
-				TopicKey: "children",
-				AdditionalLexiconByLanguage: map[string][]string{
-					"en": {"toddler"},
-				},
-				Status: 1,
-			},
-		},
-	})
-	defer restoreRepos()
-
-	copy := buildSheinListingCopy(sharedtenantctx.WithTenantID(context.Background(), "101"), &canonical.Product{
-		Title:       "Toddler Room Curtain",
-		Description: "Toddler-themed decor for a kids room",
-		Attributes: map[string]canonical.Attribute{
-			"product_english_name": {Value: "Toddler Room Curtain"},
-		},
-	}, "Toddler Room Curtain", nil)
-
-	if strings.Contains(strings.ToLower(copy.Title), "toddler") {
-		t.Fatalf("title = %q, want override lexicon removed", copy.Title)
-	}
-	if strings.Contains(strings.ToLower(copy.Description), "toddler") {
-		t.Fatalf("description = %q, want override lexicon removed", copy.Description)
-	}
-}
-
 func assertNoSensitivePhrase(t *testing.T, value string, field string) {
 	t.Helper()
+	if strings.TrimSpace(value) == "" {
+		t.Fatalf("%s is empty after cleanup", field)
+	}
 	normalized := strings.ToLower(value)
-	for _, phrase := range []string{"amazon", "bpa free"} {
+	for _, phrase := range []string{"amazon", "trademark"} {
 		if strings.Contains(normalized, phrase) {
 			t.Fatalf("%s = %q, want %q removed", field, value, phrase)
 		}

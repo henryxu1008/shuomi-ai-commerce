@@ -39,3 +39,19 @@ func TestImageSetQuoteUsesOriginalProviderResolutionWithoutCallingProvider(t *te
 	_, err = NewImageGenerationQuoteReader(nil, reader.factory.price)
 	require.Error(t, err)
 }
+
+func TestImageSetQuoteAdmitsExplicitBeijingQwenRouteWithoutDispatch(t *testing.T) {
+	resolver := &generationConfigTestResolver{resolved: &openai.ResolvedClientConfig{CacheKey: "db:1:1:image_gpt_image_2", Config: &openai.ClientConfig{APIKey: "fixture-only", APIStyle: "dashscope", Model: "qwen-image-3.0", BaseURL: "https://workspace.cn-beijing.maas.aliyuncs.com", Timeout: time.Minute}}}
+	reader := imageGenerationQuoteReader{factory: generationProviderFactory{resolver: resolver, price: config.ImageAgentGenerationConfig{PriceVersion: "trial-qwen3-v1", PointsPerImage: 1}}}
+	id := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, TenantID: "org", UserID: "actor", MemberID: "member"}
+	ctx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{TenantID: "org", EffectiveOrganizationID: "org", UserID: "actor", EffectiveMemberID: "member"})
+	q, err := reader.ReadImageGenerationQuote(ctx, id)
+	require.NoError(t, err)
+	require.True(t, q.Valid())
+	require.Equal(t, "bailian", q.Provider)
+	require.Equal(t, "qwen-image-3.0", q.Model)
+	require.Equal(t, "dashscope-image-sync-v1", q.Protocol)
+	resolver.resolved.Config.BaseURL = "https://dashscope-intl.aliyuncs.com"
+	_, err = reader.ReadImageGenerationQuote(ctx, id)
+	require.Error(t, err)
+}

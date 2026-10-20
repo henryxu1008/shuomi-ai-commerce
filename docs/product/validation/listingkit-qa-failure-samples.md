@@ -1,3 +1,6 @@
+> **状态：SUPERSEDED — 旧 Task QA 样例的当前适用性（2026-10-20，#844）**
+> 按[用户确认的 #844 冻结设计](https://github.com/qq550723504/task-processor/blob/ddc6414b0b93964d4de47d34d002ba990257efa1/docs/architecture/legacy-task-diagnostics-retirement-boundary.md)，本文旧 Task/Workspace/readiness 样例及每主要版本执行/填写要求仅保留为历史，不作为当前源码或内部试用的新前置，不据此新增验收矩阵。正文、已有证据与仍有效的安全/幂等原则原样保留；当前安全合同、商业门禁和实际旧环境恢复责任保持，不把历史或 NOT_RUN 写成当前 PASS。
+
 # ListingKit QA 失败样例手册
 
 本手册把错误恢复 SOP 中的 QA 样例拆成可执行检查项。每次主要版本验收至少选择一个样例执行，并把结果写入 `validation/runs/`。

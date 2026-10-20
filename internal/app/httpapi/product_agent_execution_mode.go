@@ -16,8 +16,25 @@ func (a *productAgentApplication) modeSubject() agentconfig.ResolvedModeSubject 
 	return agentconfig.ResolvedModeSubject{Subject: agentconfig.ModeSubject{Kind: agentconfig.RegisteredAgentSubject, ID: a.definition.ID}, Definition: commercetool.AgentRef{ID: a.definition.ID, Version: a.definition.Version}}
 }
 
+func (a *productAgentApplication) checkManualReviewMode(ctx context.Context, identity agent.ExecutionIdentity, request agent.Request) error {
+	if !request.ManualReviewOnly {
+		return nil
+	}
+	if a.configuration == nil {
+		return agent.ErrUnavailable
+	}
+	mode, err := a.configuration.LoadModeSnapshot(ctx, identity, request.ModeSnapshotRef)
+	if err != nil {
+		return err
+	}
+	if !request.AllowsManualReviewMode(mode.Mode) {
+		return agent.ErrManualReviewRequired
+	}
+	return nil
+}
+
 func agentExecutionProvenance(state agent.State) *review.ExecutionProvenance {
-	return &review.ExecutionProvenance{ContentSelection: state.Request.ContentSelection, Scope: state.Scope, RunID: state.RunID, RequestKey: state.Request.Key, Binding: state.Request.Binding, Configuration: state.Request.ConfigurationSnapshotRef, Mode: state.Request.ModeSnapshotRef}
+	return &review.ExecutionProvenance{SkillVersionRef: state.Request.SkillVersionRef, ContentSelection: state.Request.ContentSelection, Scope: state.Scope, RunID: state.RunID, RequestKey: state.Request.Key, Binding: state.Request.Binding, Configuration: state.Request.ConfigurationSnapshotRef, Mode: state.Request.ModeSnapshotRef}
 }
 func (a *productAgentApplication) titlePolicyScope(ctx context.Context) (review.CandidateExecutionScope, error) {
 	identity, err := a.currentModeIdentity(ctx)
@@ -129,6 +146,9 @@ func (a *productAgentApplication) finishTitleCandidate(ctx context.Context, run 
 	}
 	if mode.Mode != agent.ModeAutoApprove && mode.Mode != agent.ModeFullAccess {
 		return nil, nil
+	}
+	if run.State.Request.ManualReviewOnly {
+		return nil, agent.ErrManualReviewRequired
 	}
 	input := agentReviewInput(run.State.Request.Binding, run.State.Request.PolicyVersion, run.State.Candidate)
 	input.ContentSelection = run.State.Request.ContentSelection

@@ -49,6 +49,7 @@ type TemplateInput struct {
 	DefaultKnowledgeBaseID string           `json:"defaultKnowledgeBaseId,omitempty"`
 	Image                  *SetTemplate     `json:"image,omitempty"`
 	Content                *ContentTemplate `json:"content,omitempty"`
+	Artwork                *ArtworkTemplate `json:"artwork,omitempty"`
 }
 
 func (p TemplateInput) Valid() bool {
@@ -57,15 +58,30 @@ func (p TemplateInput) Valid() bool {
 		return false
 	}
 	if p.Image != nil {
-		return p.Content == nil && p.DefaultKnowledgeBaseID == "" && (p.TargetPlatform == "product" || Platform(p.TargetPlatform)) && p.Image.Validate() == nil
+		return p.Artwork == nil && p.Content == nil && p.DefaultKnowledgeBaseID == "" && (p.TargetPlatform == "product" || Platform(p.TargetPlatform)) && p.Image.Validate() == nil
 	}
 	if p.Content != nil {
-		return (p.TargetPlatform == "product" || Platform(p.TargetPlatform)) && (p.DefaultKnowledgeBaseID == "" || UUID(p.DefaultKnowledgeBaseID)) && p.Content.Valid()
+		return p.Artwork == nil && (p.TargetPlatform == "product" || Platform(p.TargetPlatform)) && (p.DefaultKnowledgeBaseID == "" || UUID(p.DefaultKnowledgeBaseID)) && p.Content.Valid()
+	}
+	if p.Artwork != nil {
+		return p.TargetPlatform == "sds" && p.DefaultKnowledgeBaseID == "" && p.Artwork.Valid()
 	}
 	return Platform(p.TargetPlatform) && (p.DefaultKnowledgeBaseID == "" || UUID(p.DefaultKnowledgeBaseID))
 }
 
 func ParameterSchemaForAgent(id string) string {
+	if id == DiagnosisAgentID {
+		return DiagnosisParameterSchema
+	}
+	if id == SelectionAgentID {
+		return SelectionParameterSchema
+	}
+	if id == ArtworkAgentID {
+		return ArtworkParameterSchema
+	}
+	if id == MaterialsAgentID {
+		return MaterialsParameterSchema
+	}
 	if id == ContentAgentID {
 		return ContentParameterSchema
 	}
@@ -76,7 +92,15 @@ func ParameterSchemaForAgent(id string) string {
 }
 
 func (p TemplateInput) ValidForAgent(id string) bool {
-	return p.Valid() && (id == ImageAgentID) == (p.Image != nil) && (id == ContentAgentID) == (p.Content != nil)
+	// Selection v1 uses its explicit per-run objective; no other Agent's
+	// template schema or default may become its execution configuration.
+	if id == SelectionAgentID || id == DiagnosisAgentID {
+		return false
+	}
+	if id == MaterialsAgentID {
+		return p.Valid() && p.TargetPlatform == "shein" && p.DefaultKnowledgeBaseID == "" && p.Image == nil && p.Content == nil && p.Artwork == nil
+	}
+	return p.Valid() && (id == ImageAgentID) == (p.Image != nil) && (id == ContentAgentID) == (p.Content != nil) && (id == ArtworkAgentID) == (p.Artwork != nil)
 }
 
 type TemplateRef struct {

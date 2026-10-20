@@ -1,0 +1,221 @@
+package productsourcing
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
+	"strings"
+	"task-processor/internal/agent"
+	"task-processor/internal/agentconfig"
+	"task-processor/internal/imageagent"
+	"task-processor/internal/product/asset"
+	"task-processor/internal/product/catalog"
+	"task-processor/internal/product/collection"
+	"task-processor/internal/product/pod"
+	"task-processor/internal/product/sourcing"
+	"testing"
+	"time"
+)
+
+type artworkSnapshotFixture struct{ snapshot catalog.PublishedSnapshot }
+
+func (f artworkSnapshotFixture) GetSnapshot(context.Context, catalog.SnapshotIdentity, uint64) (catalog.PublishedSnapshot, error) {
+	return f.snapshot, nil
+}
+
+func TestArtworkSourceBytesRetainOriginalGenerationAndApprovalAuthority(t *testing.T) {
+	scope := collection.Scope{"org", "actor", "member"}
+	facts := completedArtworkFixture(t, scope)
+	base := "https://localhost:33644/image-agent-assets/images"
+	urls := artworkTrialURLFixture{base}
+	published := facts.effect.FinalManifest.Assets[0]
+	origin := artworkOriginFromRun(facts.p, published)
+	envelope, err := artworkEnvelope("publication", facts.p.Plan.Artwork, origin, published, urls.PublicURL(published.ObjectKey))
+	require.NoError(t, err)
+	snapshot, err := sourcing.ToSnapshot(envelope)
+	require.NoError(t, err)
+	ref := pod.ArtworkReference{Input: pod.InputReference{Source: collection.Source{ProductKey: "product", PublicationID: "publication", Version: 1}}}
+	mode := &artworkModeFixture{}
+	reads := 0
+	guard := ArtworkOriginGuard{Snapshots: artworkSnapshotFixture{catalog.PublishedSnapshot{Identity: catalog.SnapshotIdentity{TenantID: scope.OrganizationID, ProductKey: "product"}, PublicationID: "publication", Version: 1, Snapshot: snapshot}}, Images: facts, Facts: facts, Configuration: mode, URLs: urls, ReadGeneratedBytes: func(_ context.Context, selection asset.SourceSelection, approved asset.ApprovedAsset, maximum int64) ([]byte, error) {
+		reads++
+		require.Equal(t, scope.OrganizationID, selection.TenantID)
+		require.Equal(t, facts.p.Run.ID, approved.RunID)
+		require.Equal(t, published.SHA256, approved.GenerationEvidence.ArtifactHash)
+		require.Nil(t, approved.SourceApproval)
+		require.EqualValues(t, pod.MaxArtworkBytes, maximum)
+		return []byte("original owner bytes"), nil
+	}}
+	approved := asset.ApprovedAsset{URL: urls.PublicURL(published.ObjectKey)}
+	raw, generated, err := guard.ReadArtworkSourceBytes(context.Background(), scope, ref, approved, pod.MaxArtworkBytes)
+	require.NoError(t, err)
+	require.True(t, generated)
+	require.Equal(t, "original owner bytes", string(raw))
+	require.Equal(t, 1, reads)
+	approved.URL = "https://localhost:33645/image-agent-assets/images/changed.png"
+	_, _, err = guard.ReadArtworkSourceBytes(context.Background(), scope, ref, approved, pod.MaxArtworkBytes)
+	require.Error(t, err)
+	require.Equal(t, 1, reads)
+	mode.denied = true
+	approved.URL = urls.PublicURL(published.ObjectKey)
+	_, _, err = guard.ReadArtworkSourceBytes(context.Background(), scope, ref, approved, pod.MaxArtworkBytes)
+	require.Error(t, err)
+	require.Equal(t, 1, reads, "revocation prevents any private object read")
+}
+
+type artworkFactsFixture struct {
+	imageagent.Repository
+	imageagent.GenerationFactRepository
+	imageagent.SlotExternalEffectV3Repository
+	p      imageagent.RunProjection
+	fact   imageagent.GenerationFact
+	effect imageagent.SlotEffectV3Attempt
+}
+
+func (f *artworkFactsFixture) GetProjection(_ context.Context, s imageagent.RunScope) (imageagent.RunProjection, error) {
+	if s != imageagent.ScopeForRun(f.p.Run) {
+		return imageagent.RunProjection{}, imageagent.ErrRunNotFound
+	}
+	return f.p, nil
+}
+func (f *artworkFactsFixture) ReadGenerationFact(_ context.Context, id imageagent.SlotExternalEffectIdentity) (imageagent.GenerationFact, error) {
+	if id != f.fact.Intent.Identity {
+		return imageagent.GenerationFact{}, imageagent.ErrRevisionConflict
+	}
+	return f.fact, nil
+}
+func (f *artworkFactsFixture) GetSlotExternalEffectV3(_ context.Context, id imageagent.SlotExternalEffectIdentity) (imageagent.SlotEffectV3Attempt, error) {
+	if id != f.effect.Identity {
+		return imageagent.SlotEffectV3Attempt{}, imageagent.ErrRevisionConflict
+	}
+	return f.effect, nil
+}
+
+type artworkModeFixture struct {
+	agentconfig.ArtworkConfigurationRepository
+	denied bool
+	calls  int
+}
+
+func (m *artworkModeFixture) CheckArtworkExecutionMode(context.Context, agent.ExecutionIdentity, agent.ConfigurationSnapshotRef, agent.ModeSnapshotRef) (agentconfig.ModeSnapshot, error) {
+	m.calls++
+	if m.denied {
+		return agentconfig.ModeSnapshot{}, agentconfig.ErrChanged
+	}
+	return agentconfig.ModeSnapshot{Mode: agent.ModeDefault}, nil
+}
+
+type artworkURLFixture struct{}
+
+type artworkTrialURLFixture struct{ base string }
+
+func (r artworkTrialURLFixture) PublicURL(key string) string { return r.base + "/" + key }
+
+type artworkCollectionFixture struct {
+	collection.Repository
+	command collection.Command
+}
+
+func (r *artworkCollectionFixture) Execute(ctx context.Context, command collection.Command) (collection.Receipt, error) {
+	if err := command.ArtworkWriteGuard(ctx); err != nil {
+		return collection.Receipt{}, err
+	}
+	r.command = command
+	return collection.Receipt{OperationID: command.OperationID, ItemID: collection.StableID("artwork-item")}, nil
+}
+func (r *artworkCollectionFixture) ReadItem(context.Context, collection.Scope, string) (collection.Item, error) {
+	return collection.Item{Source: collection.Source{Kind: "own", ProductKey: collection.StableID("artwork-product"), PublicationID: r.command.OperationID, Version: 1}}, nil
+}
+
+type artworkScopeFixture struct{ scope collection.Scope }
+
+func (a artworkScopeFixture) Authorize(context.Context, string) (collection.Scope, error) {
+	return a.scope, nil
+}
+
+func TestArtworkReceiverKeepsConfiguredTrialArtifactPolicy(t *testing.T) {
+	const base = "https://localhost:19444/image-agent-assets/issue487-images"
+	scope := collection.Scope{OrganizationID: "org-a", ActorID: "actor-a", MemberID: "member-a"}
+	facts := completedArtworkFixture(t, scope)
+	repository := &artworkCollectionFixture{}
+	receiver := &ArtworkReceiver{Images: facts, Facts: facts, Artifacts: facts, URLs: artworkTrialURLFixture{base}, Configuration: &artworkModeFixture{}, Collections: repository, Authorize: artworkScopeFixture{scope}}
+	policy, err := imageagent.NewIsolatedTrialGeneratedURLPolicy(base, "issue487-images")
+	require.NoError(t, err)
+	receiver.TrialURLs = policy
+	p := facts.p
+	input := imageagent.PublishArtworkInput{Identity: imageagent.ExecutionIdentity{ScopeProtocol: p.Run.ScopeProtocol, RunID: p.Run.ID, TenantID: scope.OrganizationID, UserID: scope.ActorID, MemberID: scope.MemberID, BusinessTaskID: p.Run.BusinessTaskID}, PlanRevision: p.Plan.Revision, ResultDigest: p.ResultDigest, ActionID: p.PendingCommand.ActionID}
+	_, err = receiver.PublishArtwork(context.Background(), input)
+	require.NoError(t, err)
+	require.Equal(t, base+"/"+p.Slots[0].Candidates[0].DurableAsset.ObjectKey, repository.command.Envelope.AssetCandidates[0].URL)
+	receiver.URLs = artworkTrialURLFixture{"https://localhost:19445/image-agent-assets/issue487-images"}
+	_, err = receiver.PublishArtwork(context.Background(), input)
+	require.Error(t, err, "a different trial origin must not be admitted")
+	receiver.URLs = artworkTrialURLFixture{base}
+	receiver.TrialURLs = nil
+	_, err = receiver.PublishArtwork(context.Background(), input)
+	require.Error(t, err, "default runtime never admits a loopback artifact")
+}
+
+func (artworkURLFixture) PublicURL(string) string {
+	return "https://cdn.example.org/original-artwork.png"
+}
+func artworkFixtureHash(v any) string {
+	b, _ := json.Marshal(v)
+	h := sha256.Sum256(b)
+	return hex.EncodeToString(h[:])
+}
+func completedArtworkFixture(t *testing.T, scope collection.Scope) *artworkFactsFixture {
+	t.Helper()
+	runID := uuid.NewString()
+	identity := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, TenantID: scope.OrganizationID, UserID: scope.ActorID, MemberID: scope.MemberID, RunID: runID, BusinessTaskID: uuid.NewString()}
+	catalog, err := imageagent.NormalizeAssetCatalog(imageagent.AssetCatalog{})
+	require.NoError(t, err)
+	quote := imageagent.ImageGenerationQuote{Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", Points: 12, PriceVersion: "price-1", RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1"}
+	art := &imageagent.ArtworkPlan{Schema: imageagent.ArtworkSchema, Theme: "原创水彩狐狸", Requirements: "独立图案", PromptVersion: imageagent.ArtworkSchema, Prompt: "Create original fox artwork", Configuration: agent.ConfigurationSnapshotRef{Kind: agentconfig.SnapshotKind, ID: uuid.NewString(), Digest: strings.Repeat("a", 64)}, ModeSnapshotRef: agent.ModeSnapshotRef{Kind: agent.ExecutionModeSnapshotKind, ID: uuid.NewString(), Digest: strings.Repeat("b", 64)}, ConfigurationEpoch: "1", ParametersDigest: strings.Repeat("c", 64), InputDigest: strings.Repeat("d", 64), MaxPoints: 12, Quote: quote, QuoteDigest: imageagent.ArtworkQuoteDigest(quote)}
+	plan := imageagent.Plan{Revision: 1, Artwork: art, CreatedBy: scope.ActorID, IdempotencyKey: uuid.NewString(), Slots: []imageagent.Slot{{ID: "artwork", Role: imageagent.SlotRoleMain, Brief: art.Theme, IdempotencyKey: "artwork", Status: imageagent.SlotStatusPending}}}
+	limits := agentconfig.ImageRunLimits{Images: 1, Points: 12, ElapsedSeconds: 300}
+	digest, err := imageagent.ArtworkPlanDigest(plan)
+	require.NoError(t, err)
+	now := time.Now().UTC()
+	admission := agentconfig.ImageRunAdmissionReceipt{ID: uuid.NewString(), Command: agentconfig.ImageRunAdmissionCommand{Scope: agent.Scope{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID}, Snapshot: art.Configuration, MemberID: scope.MemberID, RunID: runID, ConfirmActionID: uuid.NewString(), SourceDigest: art.InputDigest, InputDigest: art.InputDigest, PlanDigest: digest, QuoteDigest: art.QuoteDigest, Limits: limits}, AdmittedAt: now, Deadline: now.Add(300 * time.Second)}
+	admission.Digest = artworkFixtureHash(admission)
+	run := imageagent.Run{ID: runID, ScopeProtocol: identity.ScopeProtocol, TenantID: identity.TenantID, UserID: identity.UserID, MemberID: identity.MemberID, BusinessTaskID: identity.BusinessTaskID, TargetPlatform: "sds", Status: imageagent.RunStatusAwaitingFinalApproval, Mode: imageagent.RunModeManual, ActivePlanRevision: 1, ImageAdmission: &admission, StartedAt: now, Budget: imageagent.ImageSetBudget(limits), IdempotencyKey: plan.IdempotencyKey}
+	require.NoError(t, imageagent.ValidateArtworkAdmission(run, plan))
+	input := imageagent.SlotExecutionInput{RunID: runID, TenantID: scope.OrganizationID, UserID: scope.ActorID, TargetPlatform: "sds", PlanRevision: 1, Slot: plan.Slots[0], Attempt: 1, IdempotencyKey: "artwork-attempt", AssetCatalog: catalog, Artwork: art, OrganizationIdentity: identity}
+	executionDigest, err := imageagent.ArtworkGenerationInputDigest(input)
+	require.NoError(t, err)
+	id := imageagent.SlotExternalEffectIdentity{RunScope: imageagent.ScopeForRun(run), PlanRevision: 1, SlotID: "artwork", Attempt: 1}
+	intent := imageagent.GenerationIntent{Identity: id, MemberID: scope.MemberID, CatalogHash: catalog.Manifest.Hash, SourceDigest: executionDigest, PromptVersion: imageagent.ArtworkSchema, RouteReference: quote.RouteReference, CredentialReference: quote.CredentialReference, ConfigurationVersion: quote.ConfigurationVersion, Provider: quote.Provider, Model: quote.Model, Protocol: quote.Protocol, Resolution: quote.Resolution, Quality: quote.Quality, PriceVersion: quote.PriceVersion, Points: quote.Points, LimitVersion: 1, MonthStart: time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC), InputProtocol: imageagent.ArtworkSchema, InputDigest: executionDigest}
+	fact, err := imageagent.NewGenerationFact(intent)
+	require.NoError(t, err)
+	fact, err = fact.BindReservation(imageagent.GenerationReservationReceipt{IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, OrganizationID: scope.OrganizationID, MemberID: scope.MemberID, OperationID: "image-reserve:" + fact.IntentID, ReservationID: "original-reservation", ResourceType: "ai_point", Points: 12, PriceVersion: intent.PriceVersion, LimitVersion: 1, MonthStart: intent.MonthStart})
+	require.NoError(t, err)
+	fact, _, err = fact.BeginDispatch()
+	require.NoError(t, err)
+	fact, err = fact.RecordSuccess(imageagent.GenerationSuccess{ResponseID: "original-response", ResultDigest: strings.Repeat("e", 64), ResultURL: "https://provider.example/result.png"})
+	require.NoError(t, err)
+	fact, err = fact.BindSettlement(imageagent.GenerationSettlementReceipt{IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, OperationID: "image-finalize:" + fact.IntentID, ReservationID: fact.Reservation.ReservationID, State: "committed", ProofDigest: fact.TerminalProofDigest(), Points: 12})
+	require.NoError(t, err)
+	provenance, err := imageagent.NewArtworkProvenance(input, fact)
+	require.NoError(t, err)
+	owner, err := imageagent.ArtifactOwnerKey(scope.ActorID)
+	require.NoError(t, err)
+	ref := imageagent.PublishedAssetRef{ObjectKey: "image-agent/public/" + scope.OrganizationID + "/" + owner + "/" + runID + "/1/artwork/1/0-" + strings.Repeat("f", 64) + ".png", SHA256: strings.Repeat("f", 64), SizeBytes: 512, Width: 1024, Height: 1024, ContentType: "image/png", Operations: []string{"generate_artwork"}, Artwork: &provenance}
+	candidate := imageagent.AssetCandidate{AssetID: "original-artwork", DurableAsset: imageagent.DurableAssetIdentity{ObjectKey: ref.ObjectKey, SHA256: ref.SHA256}, Width: 1024, Height: 1024, Artwork: &provenance, Operations: ref.Operations, GenerationProof: &imageagent.ImageGenerationProof{IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, SettlementProofDigest: fact.TerminalProofDigest(), Points: 12}}
+	result, err := imageagent.NewSlotEffectV3PublishedResult(imageagent.SlotExecutionResult{SlotID: "artwork", Attempt: 1, Candidates: []imageagent.AssetCandidate{candidate}})
+	require.NoError(t, err)
+	fingerprint, err := imageagent.SlotEffectV3PublishedResultFingerprint(result)
+	require.NoError(t, err)
+	closure, err := imageagent.ImageGenerationClosure(fact)
+	require.NoError(t, err)
+	slot := imageagent.SlotProjection{Slot: plan.Slots[0], Attempt: 1, Candidates: []imageagent.AssetCandidate{candidate}, Closure: closure}
+	slot.Slot.Status = imageagent.SlotStatusAccepted
+	p := imageagent.RunProjection{Run: run, Plan: plan, AssetCatalog: catalog, Slots: []imageagent.SlotProjection{slot}}
+	p.ResultDigest, err = imageagent.ArtworkResultDigest(plan, p.Slots, nil)
+	require.NoError(t, err)
+	p.PendingCommand = &imageagent.PendingCommandReceipt{ActionID: uuid.NewString(), Kind: "approve_results", Phase: imageagent.ImageSetApprovalPublicationStarted, PlanRevision: 1, ResultDigest: p.ResultDigest}
+	return &artworkFactsFixture{p: p, fact: fact, effect: imageagent.SlotEffectV3Attempt{Identity: id, IdempotencyKey: input.IdempotencyKey, InputFingerprint: imageagent.SlotExecutionFingerprint(input), Phase: imageagent.SlotEffectV3PublicationComplete, FinalManifest: imageagent.FinalManifest{Assets: []imageagent.PublishedAssetRef{ref}}, Published: result, ResultFingerprint: fingerprint}}
+}

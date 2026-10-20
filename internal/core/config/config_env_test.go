@@ -34,16 +34,6 @@ func TestNewViper_BindsPrimaryEnvironmentVariables(t *testing.T) {
 	t.Setenv("TASK_PROCESSOR_AMAZON_SPAPI_CLIENT_ID", "amzn-client")
 	t.Setenv("TASK_PROCESSOR_AMAZON_SPAPI_DEFAULT_MARKETPLACE", "ATVPDKIKX0DER")
 	t.Setenv("TASK_PROCESSOR_AMAZON_REMOTE_API_BASE_URL", "http://crawler.internal:8080")
-	t.Setenv("TASK_PROCESSOR_RABBITMQ_NODE_HEALTH_CHECK_PORT", "18081")
-	t.Setenv("TASK_PROCESSOR_RABBITMQ_NODE_METRICS_PORT", "19090")
-	t.Setenv("TASK_PROCESSOR_RABBITMQ_NODE_NODE_ID", "shein-store-a")
-	t.Setenv("TASK_PROCESSOR_RABBITMQ_NODE_OWNED_STORES", "101, 202")
-	t.Setenv("TASK_PROCESSOR_RABBITMQ_NODE_OWNED_BUCKETS", "0, 3")
-	t.Setenv("TASK_PROCESSOR_RABBITMQ_NODE_USE_STORE_QUEUES", "true")
-	t.Setenv("TASK_PROCESSOR_RABBITMQ_AUTO_SHARD_ENABLED", "true")
-	t.Setenv("TASK_PROCESSOR_RABBITMQ_AUTO_SHARD_PLATFORM", "shein")
-	t.Setenv("TASK_PROCESSOR_RABBITMQ_AUTO_SHARD_CANDIDATE_NODES", "shein-store-a, shein-store-b")
-	t.Setenv("TASK_PROCESSOR_RABBITMQ_AUTO_SHARD_TARGET_STORES_PER_NODE", "3")
 	t.Setenv("TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_API_KEY", "image-key")
 	t.Setenv("TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_BASE_URL", "https://image.example.test/v1")
 	t.Setenv("TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_API_STYLE", "nanobanana")
@@ -56,16 +46,6 @@ func TestNewViper_BindsPrimaryEnvironmentVariables(t *testing.T) {
 	assert.Equal(t, "amzn-client", v.GetString("amazon.spapi.clientID"))
 	assert.Equal(t, "ATVPDKIKX0DER", v.GetString("amazon.spapi.defaultMarketplace"))
 	assert.Equal(t, "http://crawler.internal:8080", v.GetString("amazon.remoteAPI.baseURL"))
-	assert.Equal(t, "shein-store-a", v.GetString("rabbitmq.node.nodeID"))
-	assert.Equal(t, []int64{101, 202}, getInt64Slice(v, "rabbitmq.node.ownedStores"))
-	assert.Equal(t, []int{0, 3}, getIntSlice(v, "rabbitmq.node.ownedBuckets"))
-	assert.True(t, v.GetBool("rabbitmq.node.useStoreQueues"))
-	assert.True(t, v.GetBool("rabbitmq.autoShard.enabled"))
-	assert.Equal(t, "shein", v.GetString("rabbitmq.autoShard.platform"))
-	assert.Equal(t, []string{"shein-store-a", "shein-store-b"}, getStringSlice(v, "rabbitmq.autoShard.candidateNodes"))
-	assert.Equal(t, 3, v.GetInt("rabbitmq.autoShard.targetStoresPerNode"))
-	assert.Equal(t, 18081, v.GetInt("rabbitmq.node.healthCheckPort"))
-	assert.Equal(t, 19090, v.GetInt("rabbitmq.node.metricsPort"))
 	assert.Equal(t, "image-key", v.GetString("openai.clients.image.apiKey"))
 	assert.Equal(t, "https://image.example.test/v1", v.GetString("openai.clients.image.baseURL"))
 	assert.Equal(t, "nanobanana", v.GetString("openai.clients.image.apiStyle"))
@@ -151,21 +131,19 @@ func TestCommittedConfigArtifactsDeclareEveryTracingField(t *testing.T) {
 }
 
 func TestGetStringSlice_SplitsCommaSeparatedSingleEntry(t *testing.T) {
-	t.Setenv("TASK_PROCESSOR_RABBITMQ_AUTO_SHARD_CANDIDATE_NODES", "shein-store-a,shein-store-b,shein-store-c,shein-store-d")
+	t.Setenv("LISTINGKIT_PLATFORM_ADMIN_USERS", "user-a,user-b,user-c,user-d")
 
 	v := newViper()
 
 	assert.Equal(t,
-		[]string{"shein-store-a", "shein-store-b", "shein-store-c", "shein-store-d"},
-		getStringSlice(v, "rabbitmq.autoShard.candidateNodes"),
+		[]string{"user-a", "user-b", "user-c", "user-d"},
+		getStringSlice(v, "listingkit.platformAdminUsers"),
 	)
 }
 
 func TestNewViper_BindsLegacyEnvironmentAliases(t *testing.T) {
 	t.Setenv("AMAZON_SPAPI_CLIENT_SECRET", "legacy-secret")
 	t.Setenv("AMAZON_SPAPI_MARKETPLACE_ID", "LEGACY-MARKET")
-	t.Setenv("HEALTH_CHECK_PORT", "28081")
-	t.Setenv("METRICS_PORT", "29090")
 	t.Setenv("TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_APIKEY", "legacy-image-key")
 	t.Setenv("TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_BASEURL", "https://legacy-image.example.test/v1")
 	t.Setenv("TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_APISTYLE", "legacy-style")
@@ -174,8 +152,6 @@ func TestNewViper_BindsLegacyEnvironmentAliases(t *testing.T) {
 
 	assert.Equal(t, "legacy-secret", v.GetString("amazon.spapi.clientSecret"))
 	assert.Equal(t, "LEGACY-MARKET", v.GetString("amazon.spapi.defaultMarketplace"))
-	assert.Equal(t, 28081, v.GetInt("rabbitmq.node.healthCheckPort"))
-	assert.Equal(t, 29090, v.GetInt("rabbitmq.node.metricsPort"))
 	assert.Equal(t, "legacy-image-key", v.GetString("openai.clients.image.apiKey"))
 	assert.Equal(t, "https://legacy-image.example.test/v1", v.GetString("openai.clients.image.baseURL"))
 	assert.Equal(t, "legacy-style", v.GetString("openai.clients.image.apiStyle"))
@@ -275,34 +251,6 @@ func TestCommittedFeatureFlagConfigArtifactsEnableProductListingRuntimeAutoMigra
 			assert.Equal(t, true, flags["product-listing-runtime-auto-migrate"])
 		})
 	}
-}
-
-func TestNewViperBindsProcessingTimeoutWatchdogEnvironmentVariables(t *testing.T) {
-	t.Setenv("TASK_PROCESSOR_RABBITMQ_PROCESSING_TIMEOUT_WATCHDOG_ENABLED", "true")
-	t.Setenv("TASK_PROCESSOR_RABBITMQ_PROCESSING_TIMEOUT_WATCHDOG_INTERVAL_SECONDS", "300")
-	t.Setenv("TASK_PROCESSOR_RABBITMQ_PROCESSING_TIMEOUT_WATCHDOG_TIMEOUT_MINUTES", "30")
-	t.Setenv("TASK_PROCESSOR_RABBITMQ_PROCESSING_TIMEOUT_WATCHDOG_RECOVERY_LIMIT", "100")
-
-	v := newViper()
-
-	assert.True(t, v.GetBool("rabbitmq.processingTimeoutWatchdog.enabled"))
-	assert.Equal(t, 300, v.GetInt("rabbitmq.processingTimeoutWatchdog.intervalSeconds"))
-	assert.Equal(t, 30, v.GetInt("rabbitmq.processingTimeoutWatchdog.timeoutMinutes"))
-	assert.Equal(t, 100, v.GetInt("rabbitmq.processingTimeoutWatchdog.recoveryLimit"))
-}
-
-func TestNewViperBindsStaleQueuedWatchdogEnvironmentVariables(t *testing.T) {
-	t.Setenv("TASK_PROCESSOR_RABBITMQ_STALE_QUEUED_WATCHDOG_ENABLED", "true")
-	t.Setenv("TASK_PROCESSOR_RABBITMQ_STALE_QUEUED_WATCHDOG_INTERVAL_SECONDS", "300")
-	t.Setenv("TASK_PROCESSOR_RABBITMQ_STALE_QUEUED_WATCHDOG_TIMEOUT_MINUTES", "120")
-	t.Setenv("TASK_PROCESSOR_RABBITMQ_STALE_QUEUED_WATCHDOG_RECOVERY_LIMIT", "500")
-
-	v := newViper()
-
-	assert.True(t, v.GetBool("rabbitmq.staleQueuedWatchdog.enabled"))
-	assert.Equal(t, 300, v.GetInt("rabbitmq.staleQueuedWatchdog.intervalSeconds"))
-	assert.Equal(t, 120, v.GetInt("rabbitmq.staleQueuedWatchdog.timeoutMinutes"))
-	assert.Equal(t, 500, v.GetInt("rabbitmq.staleQueuedWatchdog.recoveryLimit"))
 }
 
 func TestNewViper_BindsRedisEnvironmentVariables(t *testing.T) {
@@ -410,9 +358,7 @@ func TestNewViper_BindsSDSAuthBootstrapEnvironmentVariables(t *testing.T) {
 }
 
 func TestNewViper_BindsListingKitEnvironmentVariables(t *testing.T) {
-	t.Setenv("TASK_PROCESSOR_LISTINGKIT_GENERATION_USAGE_LEDGER_ENABLED", "true")
 	t.Setenv("LISTINGKIT_DEBUG_SUBMIT_DUMP_DIR", "D:/tmp/shein-submit-dumps")
-	t.Setenv("TASK_PROCESSOR_LISTINGKIT_GENERATION_USAGE_LEDGER_TENANT_IDS", "tenant-17, tenant-18")
 	t.Setenv("LISTINGKIT_PLATFORM_ADMIN_USERS", "user-a,user-b")
 	t.Setenv("LISTINGKIT_PLATFORM_ADMIN_ROLES", "role-a,role-b")
 	t.Setenv("ZITADEL_ISSUER_URL", "https://issuer.example")
@@ -427,9 +373,6 @@ func TestNewViper_BindsListingKitEnvironmentVariables(t *testing.T) {
 
 	v := newViper()
 
-	assert.Equal(t, "D:/tmp/shein-submit-dumps", v.GetString("listingkit.sheinSubmitDebugDumpDir"))
-	assert.True(t, v.GetBool("listingkit.generationUsageLedgerEnabled"))
-	assert.Equal(t, []string{"tenant-17", "tenant-18"}, getStringSlice(v, "listingkit.generationUsageLedgerTenantIDs"))
 	assert.Equal(t, []string{"user-a", "user-b"}, getStringSlice(v, "listingkit.platformAdminUsers"))
 	assert.Equal(t, []string{"role-a", "role-b"}, getStringSlice(v, "listingkit.platformAdminRoles"))
 	assert.Equal(t, "https://issuer.example", v.GetString("listingkit.zitadel.issuerURL"))
@@ -624,13 +567,11 @@ func TestBuildConfigPreservesValidPhoneVerificationExpiry(t *testing.T) {
 }
 
 func TestDeprecatedEnvWarnings_ReportsLegacyAliases(t *testing.T) {
-	t.Setenv("RABBITMQ_URL", "amqp://legacy")
 	t.Setenv("OPENAI_API_KEY", "legacy")
 
 	warnings := deprecatedEnvWarnings()
 
 	assert.NotEmpty(t, warnings)
-	assert.Contains(t, strings.Join(warnings, "\n"), "RABBITMQ_URL is deprecated")
 	assert.Contains(t, strings.Join(warnings, "\n"), "OPENAI_API_KEY is deprecated")
 }
 
@@ -684,67 +625,48 @@ func TestLoadDotEnvFile_DoesNotOverrideExistingEnvironmentVariables(t *testing.T
 
 func TestLoadFromBytes_AppliesEnvironmentOverrides(t *testing.T) {
 	t.Setenv("TASK_PROCESSOR_OPENAI_API_KEY", "env-openai-key")
-	t.Setenv("TASK_PROCESSOR_RABBITMQ_NODE_NODE_ID", "store-shard-a")
-	t.Setenv("TASK_PROCESSOR_RABBITMQ_NODE_OWNED_STORES", "3001,3002")
-	t.Setenv("TASK_PROCESSOR_RABBITMQ_NODE_USE_STORE_QUEUES", "true")
-
-	cfg, err := LoadFromBytes([]byte(strings.Join([]string{
-		"openai:",
-		"  apiKey: \"\"",
-		"  model: \"gemini-2.5-flash\"",
-		"  baseURL: \"https://api.example.test/v1\"",
-		"  timeout: 30",
-		"  clients:",
-		"    vision:",
-		"      model: \"gemini-2.5-flash\"",
-		"      timeout: 30",
-		"rabbitmq:",
-		"  enabled: true",
-		"  node:",
-		"    maxConcurrency: 1",
-		"    healthCheckPort: 8081",
-		"    metricsPort: 8082",
-	}, "\n")))
+	t.Setenv("TASK_PROCESSOR_REDIS_HOST", "redis.env.local")
+	cfg, err := LoadFromBytes([]byte(`
+openai:
+  apiKey: file-key
+  model: gemini-2.5-flash
+  baseURL: https://api.example.test/v1
+  timeout: 30
+  clients:
+    vision:
+      model: gemini-2.5-flash
+      timeout: 30
+redis:
+  host: redis.file.local
+`))
 	require.NoError(t, err)
-
 	assert.Equal(t, "env-openai-key", cfg.OpenAI.APIKey)
 	assert.Equal(t, "env-openai-key", cfg.OpenAI.ToClientConfigs()["vision"].APIKey)
-	assert.Equal(t, "store-shard-a", cfg.RabbitMQ.Node.NodeID)
-	assert.Equal(t, []int64{3001, 3002}, cfg.RabbitMQ.Node.OwnedStores)
-	assert.True(t, cfg.RabbitMQ.Node.UseStoreQueues)
+	require.NotNil(t, cfg.Redis)
+	assert.Equal(t, "redis.env.local", cfg.Redis.Host)
 }
 
 func TestLoadFromBytes_AppliesViperManagedEnvironmentOverrides(t *testing.T) {
 	t.Setenv("TASK_PROCESSOR_BROWSER_HEADLESS", "false")
 	t.Setenv("TASK_PROCESSOR_BROWSER_POOL_SIZE", "7")
-	t.Setenv("TASK_PROCESSOR_WORKER_CONCURRENCY", "22")
-	t.Setenv("TASK_PROCESSOR_PLATFORM_TEMU_ENABLED", "true")
 	t.Setenv("TASK_PROCESSOR_REDIS_HOST", "redis.env.local")
 	t.Setenv("TASK_PROCESSOR_REDIS_PORT", "6381")
-
-	cfg, err := LoadFromBytes([]byte(strings.Join([]string{
-		"openai:",
-		"  apiKey: \"test-openai-key\"",
-		"  model: \"gemini-2.5-flash\"",
-		"  baseURL: \"https://api.example.test/v1\"",
-		"  timeout: 30",
-		"browser:",
-		"  headless: true",
-		"  poolSize: 1",
-		"worker:",
-		"  concurrency: 1",
-		"  bufferSize: 10",
-		"  taskInterval: 60",
-		"platforms:",
-		"  temu:",
-		"    enabled: false",
-	}, "\n")))
+	cfg, err := LoadFromBytes([]byte(`
+openai:
+  apiKey: test-openai-key
+  model: gemini-2.5-flash
+  baseURL: https://api.example.test/v1
+  timeout: 30
+browser:
+  headless: true
+  poolSize: 1
+redis:
+  host: redis.file.local
+  port: 6379
+`))
 	require.NoError(t, err)
-
 	assert.False(t, cfg.Browser.Headless)
 	assert.Equal(t, 7, cfg.Browser.PoolSize)
-	assert.Equal(t, 22, cfg.Worker.Concurrency)
-	assert.True(t, cfg.Platforms.Temu.Enabled)
 	require.NotNil(t, cfg.Redis)
 	assert.Equal(t, "redis.env.local", cfg.Redis.Host)
 	assert.Equal(t, 6381, cfg.Redis.Port)
@@ -752,36 +674,22 @@ func TestLoadFromBytes_AppliesViperManagedEnvironmentOverrides(t *testing.T) {
 
 func TestConfigManagerLoad_UsesSameEnvironmentOverrideBehavior(t *testing.T) {
 	t.Setenv("TASK_PROCESSOR_BROWSER_HEADLESS", "false")
-	t.Setenv("TASK_PROCESSOR_WORKER_CONCURRENCY", "19")
-	t.Setenv("TASK_PROCESSOR_PLATFORM_TEMU_ENABLED", "true")
-
+	t.Setenv("TASK_PROCESSOR_BROWSER_POOL_SIZE", "19")
 	mgr := NewConfigManager(logrus.New())
-	source := stubConfigSource{
-		name: "memory",
-		data: []byte(strings.Join([]string{
-			"openai:",
-			"  apiKey: \"test-openai-key\"",
-			"  model: \"gemini-2.5-flash\"",
-			"  baseURL: \"https://api.example.test/v1\"",
-			"  timeout: 30",
-			"browser:",
-			"  headless: true",
-			"worker:",
-			"  concurrency: 1",
-			"  bufferSize: 10",
-			"  taskInterval: 60",
-			"platforms:",
-			"  temu:",
-			"    enabled: false",
-		}, "\n")),
-	}
-
+	source := stubConfigSource{name: "memory", data: []byte(`
+openai:
+  apiKey: test-openai-key
+  model: gemini-2.5-flash
+  baseURL: https://api.example.test/v1
+  timeout: 30
+browser:
+  headless: true
+  poolSize: 1
+`)}
 	cfg, err := mgr.Load(source)
 	require.NoError(t, err)
-
 	assert.False(t, cfg.Browser.Headless)
-	assert.Equal(t, 19, cfg.Worker.Concurrency)
-	assert.True(t, cfg.Platforms.Temu.Enabled)
+	assert.Equal(t, 19, cfg.Browser.PoolSize)
 }
 
 func TestConfigFixturesDoNotCarryRetiredManagementConfig(t *testing.T) {
@@ -842,7 +750,6 @@ func TestLoadConfigFromFile_AssemblesListingKitAndZitadelConfig(t *testing.T) {
 		"  baseURL: \"https://api.example.test/v1\"",
 		"  timeout: 30",
 		"listingkit:",
-		"  sheinSubmitDebugDumpDir: \"./.local/tmp/shein-dumps\"",
 		"  platformAdminUsers: [\"user-a\"]",
 		"  platformAdminRoles: [\"platform_admin\"]",
 		"  zitadel:",
@@ -860,7 +767,6 @@ func TestLoadConfigFromFile_AssemblesListingKitAndZitadelConfig(t *testing.T) {
 	cfg, err := LoadConfigFromFile(configPath)
 	require.NoError(t, err)
 
-	assert.Equal(t, "./.local/tmp/shein-dumps", cfg.ListingKit.SheinSubmitDebugDumpDir)
 	assert.Equal(t, []string{"user-b", "user-c"}, cfg.ListingKit.PlatformAdminUsers)
 	assert.Equal(t, []string{"platform_admin"}, cfg.ListingKit.PlatformAdminRoles)
 	assert.True(t, cfg.ListingKit.Zitadel.AuthorizationRequired)

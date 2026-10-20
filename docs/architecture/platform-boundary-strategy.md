@@ -1,5 +1,7 @@
 # Platform Boundary Strategy
 
+> #822 对下文 AmazonListing 的旧归属说明作窄替代：旧 Task/Workbench 与 marketplace/amazon 专属闭包已退休，不把独立平台工作台搬迁成目标 owner。internal/amazon/api、Amazon 来源采集与其他有效当前平台/共享合同保持；见[完整边界](legacy-amazon-listing-closure-retirement-boundary.md)。
+
 ## Goal
 
 This document defines the near-term convergence strategy for platform-related

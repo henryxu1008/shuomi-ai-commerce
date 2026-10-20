@@ -6,6 +6,8 @@ import { parseAIWorkbenchResponse } from "@/lib/contracts/ai-workbench";
 
 import { BusinessTaskPage } from "./task-page";
 
+vi.mock("@/lib/api/product-title-review-client", async original => ({ ...await original<object>(), fetchProductTitleProposals: vi.fn().mockResolvedValue({schema_version:1,coverage:"product-title-proposals-only",items:[],next_cursor:null}) }));
+
 const fixture = vi.hoisted(() => ({
   request: vi.fn(),
   context: { user: { id: "user-a" }, effectiveOrganization: { id: "org-a", capabilities: { "workbench.chat.use": true } }, roles: ["listingkit_operator"], permissions: ["product_sourcing.write","local_agent.write","listingkit.image_agent.read","listingkit.image_agent.write","workbench.agent.read","workbench.agent.use","workbench.chat.read","workbench.chat.use","workbench.task.read","workbench.knowledge.read","workbench.store.read","workbench.store.create","workbench.store.update","workbench.store.lifecycle","workbench.source_account.read","workbench.source_account.manage","workbench.organization_member.read","workbench.commercial.read"],
@@ -94,7 +96,7 @@ it("keeps the exact Task action key after an unknown response and page reload", 
   await screen.findByText(/操作未完成/);
   first.unmount();
   render(<QueryClientProvider client={client}><BusinessTaskPage taskId={taskId} /></QueryClientProvider>);
-  fireEvent.click(await screen.findByRole("button", { name: "启动原任务" }));
+  fireEvent.click(await screen.findByRole("button", { name: "核实原操作结果" }));
   await waitFor(() => expect(sentKeys).toHaveLength(2));
   expect(sentKeys[1]).toBe(sentKeys[0]);
   client.clear();
@@ -147,26 +149,17 @@ it("does not request BusinessTask data when AI Workbench is not mounted", () => 
   client.clear();
 });
 
-it("opens only configured Review and history entries from Task Center without AI Workbench", () => {
+it("reads configured Review in Task Center and keeps the original history source without AI Workbench", async () => {
   fixture.context.aiWorkbenchAvailable = false;
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const all = render(<QueryClientProvider client={client}><BusinessTaskPage productReviewAvailable sheinRecordsAvailable /></QueryClientProvider>);
-  expect(screen.getByRole("link", { name: "打开标题审核" })).toHaveAttribute("href", "/workbench/ai/tasks/pending/other");
+  expect(await screen.findByText("当前筛选无任务")).toBeVisible();
+  expect(screen.queryByRole("link", { name: "打开标题审核" })).not.toBeInTheDocument();
   expect(screen.getByRole("link", { name: "查看历史记录" })).toHaveAttribute("href", "/workbench/ai/tasks/completed/history");
-  expect(screen.queryByText("已加载")).not.toBeInTheDocument();
-  expect(fixture.request).not.toHaveBeenCalled();
-  all.unmount();
-
-  const pending = render(<QueryClientProvider client={client}><BusinessTaskPage mode="pending" productReviewAvailable /></QueryClientProvider>);
-  expect(screen.getByRole("link", { name: "打开标题审核" })).toBeVisible();
-  expect(screen.queryByRole("link", { name: "查看历史记录" })).not.toBeInTheDocument();
-  pending.unmount();
-
+  expect(fixture.request).not.toHaveBeenCalled(); all.unmount();
   render(<QueryClientProvider client={client}><BusinessTaskPage mode="completed" sheinRecordsAvailable /></QueryClientProvider>);
   expect(screen.getByRole("link", { name: "查看历史记录" })).toBeVisible();
-  expect(screen.queryByRole("link", { name: "打开标题审核" })).not.toBeInTheDocument();
-  expect(fixture.request).not.toHaveBeenCalled();
-  client.clear();
+  expect(fixture.request).not.toHaveBeenCalled(); client.clear();
 });
 
 it("offers reconciliation, without a restart claim, for an expired running execution", async () => {
@@ -200,7 +193,7 @@ it("continues across unrelated Task pages before declaring a state view empty", 
   });
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(<QueryClientProvider client={client}><BusinessTaskPage mode="pending" /></QueryClientProvider>);
-  expect(await screen.findByRole("link", { name: /Older pending/ })).toBeVisible();
+  expect(await screen.findByRole("button", { name: /Older pending/ })).toBeVisible();
   expect(fixture.request).toHaveBeenCalledTimes(3);
   expect(screen.queryByText("当前筛选无任务")).toBeNull();
   client.clear();
@@ -216,10 +209,10 @@ it("keeps newer Tasks visible when loading another page", async () => {
   });
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(<QueryClientProvider client={client}><BusinessTaskPage /></QueryClientProvider>);
-  expect(await screen.findByRole("link", { name: /Newer Task/ })).toBeVisible();
+  expect(await screen.findByRole("button", { name: /Newer Task/ })).toBeVisible();
   fireEvent.click(screen.getByRole("button", { name: "加载更早任务" }));
-  expect(await screen.findByRole("link", { name: /Older Task/ })).toBeVisible();
-  expect(screen.getByRole("link", { name: /Newer Task/ })).toBeVisible();
+  expect(await screen.findByRole("button", { name: /Older Task/ })).toBeVisible();
+  expect(screen.getByRole("button", { name: /Newer Task/ })).toBeVisible();
   client.clear();
 });
 
@@ -251,12 +244,12 @@ it("waits for the refreshed first page before following its old cursor", async (
   });
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(<QueryClientProvider client={client}><BusinessTaskPage mode="pending" /></QueryClientProvider>);
-  expect(await screen.findByRole("link", { name: /Older pending/ })).toBeVisible();
+  expect(await screen.findByRole("button", { name: /Older pending/ })).toBeVisible();
   fireEvent.click(screen.getByRole("button", { name: "刷新状态" }));
   await waitFor(() => expect(firstReads).toBe(2));
   expect(screen.getByText("正在查找符合筛选的任务")).toBeVisible();
   resolveRefresh({ tasks: [task(cursor, "WAITING_CONFIRMATION", "New pending")], next: cursor });
-  expect(await screen.findByRole("link", { name: /New pending/ })).toBeVisible();
-  expect(screen.queryByRole("link", { name: /Older pending/ })).toBeNull();
+  expect(await screen.findByRole("button", { name: /New pending/ })).toBeVisible();
+  expect(screen.queryByRole("button", { name: /Older pending/ })).toBeNull();
   client.clear();
 });

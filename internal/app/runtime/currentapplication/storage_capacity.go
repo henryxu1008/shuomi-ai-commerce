@@ -12,6 +12,14 @@ import (
 	"task-processor/internal/ledger/storagecapacity"
 )
 
+func (s KnowledgeStorageConfig) capacityClientConfig() s3.ClientConfig {
+	return s3.ClientConfig{Region: s.Region, Endpoint: s.Endpoint, AccessKeyID: s.AccessKeyID, SecretAccessKey: s.SecretAccessKey, UsePathStyle: true, CapacityIdentityProvider: s.CapacityIdentityProvider, CapacityMinIODeploymentID: s.CapacityMinIODeploymentID}
+}
+
+func (s KnowledgeStorageConfig) validateCapacityIdentity() error {
+	return s.capacityClientConfig().ValidateCapacityIdentity(s.Bucket, s.Mode)
+}
+
 func prepareStorageCapacity(ctx context.Context, c *Config, db *gorm.DB, service *knowledge.Service, processor *knowledge.Processor, imageWorker *coreconfig.Config, ecoservices *EcoservicesRuntime) error {
 	if !c.StorageCapacity {
 		if db == nil && c.CommercialOwnerDatabase == nil && c.SourceMedia == nil && (c.Knowledge == nil || !c.Knowledge.Enabled) && (c.Ecoservices == nil || !c.Ecoservices.Enabled) && c.ImageAgent == nil {
@@ -40,12 +48,13 @@ func prepareStorageCapacity(ctx context.Context, c *Config, db *gorm.DB, service
 	}
 	if c.Ecoservices != nil && c.Ecoservices.Enabled {
 		s := c.Ecoservices.Storage
-		ns, err := s3.ResolveCapacityNamespace(ctx, s3.ClientConfig{Region: s.Region, Endpoint: s.Endpoint, AccessKeyID: s.AccessKeyID, SecretAccessKey: s.SecretAccessKey, UsePathStyle: true}, s.Bucket, s.Mode)
+		client := s.capacityClientConfig()
+		ns, err := s3.ResolveCapacityNamespace(ctx, client, s.Bucket, s.Mode)
 		if err != nil {
 			return errors.New("service-request attachment account admission failed")
 		}
 		if e = repo.EnsureNamespace(ctx, ns, "ecoservices/files/", func(check context.Context) error {
-			return s3.VerifyEmptyCapacityPrefix(check, s3.ClientConfig{Region: s.Region, Endpoint: s.Endpoint, AccessKeyID: s.AccessKeyID, SecretAccessKey: s.SecretAccessKey, UsePathStyle: true}, s.Bucket, "ecoservices/files/", s.Mode)
+			return s3.VerifyEmptyCapacityPrefix(check, client, s.Bucket, "ecoservices/files/", s.Mode)
 		}); e != nil {
 			return errors.New("service-request attachment namespace admission failed")
 		}
@@ -69,12 +78,13 @@ func prepareStorageCapacity(ctx context.Context, c *Config, db *gorm.DB, service
 	}
 	if c.Knowledge != nil && c.Knowledge.Enabled {
 		s := c.Knowledge.Storage
-		ns, err := s3.ResolveCapacityNamespace(ctx, s3.ClientConfig{Region: s.Region, Endpoint: s.Endpoint, AccessKeyID: s.AccessKeyID, SecretAccessKey: s.SecretAccessKey, UsePathStyle: true}, s.Bucket, s.Mode)
+		client := s.capacityClientConfig()
+		ns, err := s3.ResolveCapacityNamespace(ctx, client, s.Bucket, s.Mode)
 		if err != nil {
 			return errors.New("knowledge storage account admission failed")
 		}
 		e = repo.EnsureNamespace(ctx, ns, "knowledge/", func(check context.Context) error {
-			return s3.VerifyEmptyCapacityPrefix(check, s3.ClientConfig{Region: s.Region, Endpoint: s.Endpoint, AccessKeyID: s.AccessKeyID, SecretAccessKey: s.SecretAccessKey, UsePathStyle: true}, s.Bucket, "knowledge/", s.Mode)
+			return s3.VerifyEmptyCapacityPrefix(check, client, s.Bucket, "knowledge/", s.Mode)
 		})
 		if e != nil {
 			return errors.New("knowledge storage capacity namespace admission failed")

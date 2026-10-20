@@ -43,13 +43,14 @@ func configureStorageCapacity(cfg *config.Config, commercial *gorm.DB, repositor
 		return errors.New("storage capacity requires immutable durable artifacts")
 	}
 	s := cfg.ImageAgent.ArtifactStore.S3
-	ns, e := s3.ResolveCapacityNamespace(ctx, s3.ClientConfig{Region: s.Region, Endpoint: s.Endpoint, AccessKeyID: s.AccessKeyID, SecretAccessKey: s.SecretAccessKey, UsePathStyle: s.UsePathStyle}, s.Bucket, s.ArtifactMode)
+	client := imageStorageCapacityClientConfig(s)
+	ns, e := s3.ResolveCapacityNamespace(ctx, client, s.Bucket, s.ArtifactMode)
 	if e != nil {
 		return errors.New("image storage account admission failed")
 	}
 	prefix := imageagent.PublishedArtifactPrefix + "/"
 	if e = capacity.EnsureNamespace(ctx, ns, prefix, func(check context.Context) error {
-		return s3.VerifyEmptyCapacityPrefix(check, s3.ClientConfig{Region: s.Region, Endpoint: s.Endpoint, AccessKeyID: s.AccessKeyID, SecretAccessKey: s.SecretAccessKey, UsePathStyle: s.UsePathStyle}, s.Bucket, prefix, s.ArtifactMode)
+		return s3.VerifyEmptyCapacityPrefix(check, client, s.Bucket, prefix, s.ArtifactMode)
 	}); e != nil {
 		return errors.New("image storage capacity namespace admission failed")
 	}
@@ -59,4 +60,8 @@ func configureStorageCapacity(cfg *config.Config, commercial *gorm.DB, repositor
 	imageagent.ConfigureGenerationRecoveryStorage(recovery, capacity)
 	artifactStore.ConfigureStorageCapacity(capacity, ns, facts)
 	return nil
+}
+
+func imageStorageCapacityClientConfig(s config.ImageAgentArtifactStoreS3Config) s3.ClientConfig {
+	return s3.ClientConfig{Region: s.Region, Endpoint: s.Endpoint, AccessKeyID: s.AccessKeyID, SecretAccessKey: s.SecretAccessKey, UsePathStyle: s.UsePathStyle, CapacityIdentityProvider: s.CapacityIdentityProvider, CapacityMinIODeploymentID: s.CapacityMinIODeploymentID}
 }

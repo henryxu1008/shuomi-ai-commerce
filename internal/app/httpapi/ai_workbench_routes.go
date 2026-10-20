@@ -30,6 +30,7 @@ import (
 )
 
 const workbenchChatBase = "/api/v1/workbench/chat/conversations"
+const workbenchSubjectBase = "/api/v1/workbench/chat/subjects"
 const workbenchTaskBase = "/api/v1/workbench/tasks"
 
 type aiWorkbenchModule struct {
@@ -56,7 +57,7 @@ func (a *aiWorkbenchApplication) admittedOrganization(organizationID string) boo
 		return false
 	}
 	allowed := a.allowedOrganizationIDs
-	if a.agent != nil {
+	if a.agent != nil && len(allowed) == 0 {
 		allowed = a.agent.config.AllowedOrganizationIDs
 	}
 	for _, admitted := range allowed {
@@ -75,7 +76,7 @@ func (m aiWorkbenchModule) PlanningReadiness(ctx context.Context, organizationID
 	planning := m.application.plan.routes.Readiness(ctx, aicapability.TextInputIdentity{
 		OrganizationID: organizationID, Operation: aicapability.OperationAIWorkbenchChatPlan,
 	})
-	title := governed.RouteReadiness(m.TitleReadiness(ctx, organizationID))
+	title := governed.RouteReadiness(m.ExecutionReadiness(ctx, organizationID))
 	if planning == governed.RouteUnavailable || title == governed.RouteUnavailable {
 		return string(governed.RouteUnavailable)
 	}
@@ -88,7 +89,7 @@ func (m aiWorkbenchModule) PlanningReadiness(ctx context.Context, organizationID
 // TitleReadiness is the current execution route projection for an existing
 // proposal. It is independent of whether a new Chat plan may be started.
 func (m aiWorkbenchModule) TitleReadiness(ctx context.Context, organizationID string) string {
-	if m.application == nil || m.application.agent == nil || m.application.agent.titleRoutes == nil {
+	if m.application == nil || m.application.agent == nil || m.application.agent.definition.ID != "product.title.agent" || m.application.agent.titleRoutes == nil {
 		return string(governed.RouteUnavailable)
 	}
 	return string(m.application.agent.titleRoutes.Readiness(ctx, aicapability.TextInputIdentity{
@@ -190,7 +191,12 @@ func writeAIWorkbenchError(c *gin.Context, err error) {
 		status, code = http.StatusForbidden, "FORBIDDEN"
 	}
 	c.Header("Cache-Control", "private, no-store")
-	c.JSON(status, gin.H{"code": code})
+	body := gin.H{"code": code}
+	var notAccepted *aiworkbench.MessageNotAcceptedError
+	if errors.As(err, &notAccepted) {
+		body["messageAccepted"] = false
+	}
+	c.JSON(status, body)
 }
 
 const workbenchResponseMaxBytes = 256 << 10
@@ -206,57 +212,66 @@ func workbenchReply(c *gin.Context, status int, value any) {
 }
 
 type workbenchMessageBody struct {
-	Content          string `json:"content"`
-	OperationID      string `json:"operationId"`
-	TargetPlatform   string `json:"targetPlatform"`
-	TemplateID       string `json:"templateId,omitempty"`
-	TemplateRevision string `json:"templateRevision,omitempty"`
-	KnowledgeBaseID  string `json:"knowledgeBaseId,omitempty"`
+	TaskSelection    *aiworkbench.TaskSelection `json:"taskSelection,omitempty"`
+	Content          string                     `json:"content"`
+	OperationID      string                     `json:"operationId"`
+	TargetPlatform   string                     `json:"targetPlatform"`
+	TemplateID       string                     `json:"templateId,omitempty"`
+	TemplateRevision string                     `json:"templateRevision,omitempty"`
+	KnowledgeBaseID  string                     `json:"knowledgeBaseId,omitempty"`
 }
 
 func (b workbenchMessageBody) input() aiworkbench.MessageInput {
-	return aiworkbench.MessageInput{Content: b.Content, OperationID: b.OperationID,
+	return aiworkbench.MessageInput{TaskSelection: b.TaskSelection, Content: b.Content, OperationID: b.OperationID,
 		TargetPlatform: b.TargetPlatform, TemplateID: b.TemplateID,
 		TemplateRevision: b.TemplateRevision, KnowledgeBaseID: b.KnowledgeBaseID}
 }
 
 type workbenchProposalCard struct {
-	ExecutionMode         agent.ExecutionMode `json:"executionMode,omitempty"`
-	ModeRevision          string              `json:"modeRevision,omitempty"`
-	ModeUnavailableReason string              `json:"modeUnavailableReason,omitempty"`
-	ID                    string              `json:"id"`
-	Digest                string              `json:"digest"`
-	SourceSequence        uint64              `json:"sourceSequence"`
-	GoalSummary           string              `json:"goalSummary"`
-	OperationID           string              `json:"operationId,omitempty"`
-	ProductKey            string              `json:"productKey,omitempty"`
-	TargetPlatform        string              `json:"targetPlatform,omitempty"`
-	TemplateID            string              `json:"templateId,omitempty"`
-	TemplateRevision      string              `json:"templateRevision,omitempty"`
-	KnowledgeBaseID       string              `json:"knowledgeBaseId,omitempty"`
-	ProviderID            string              `json:"providerId,omitempty"`
-	ModelID               string              `json:"modelId,omitempty"`
-	MaximumTokens         int64               `json:"maximumTokens,omitempty"`
-	MaximumCostMicros     int64               `json:"maximumCostMicros,omitempty"`
-	Currency              string              `json:"currency,omitempty"`
-	HumanReviewRequired   bool                `json:"humanReviewRequired"`
-	DetailsAvailable      bool                `json:"detailsAvailable"`
-	TitleProfileReady     bool                `json:"titleProfileReady"`
-	ExecutionAuthorized   bool                `json:"executionAuthorized"`
+	Kind                  string                     `json:"kind"`
+	TaskSelection         *aiworkbench.TaskSelection `json:"taskSelection,omitempty"`
+	ExecutionProfileReady bool                       `json:"executionProfileReady"`
+	MaximumSteps          int                        `json:"maximumSteps,omitempty"`
+	MaximumModelCalls     int                        `json:"maximumModelCalls,omitempty"`
+	MaximumRuntimeSeconds int64                      `json:"maximumRuntimeSeconds,omitempty"`
+	ExecutionMode         agent.ExecutionMode        `json:"executionMode,omitempty"`
+	ModeRevision          string                     `json:"modeRevision,omitempty"`
+	ModeUnavailableReason string                     `json:"modeUnavailableReason,omitempty"`
+	ID                    string                     `json:"id"`
+	ConfirmedTaskID       string                     `json:"confirmedTaskId,omitempty"`
+	Digest                string                     `json:"digest"`
+	SourceSequence        uint64                     `json:"sourceSequence"`
+	GoalSummary           string                     `json:"goalSummary"`
+	OperationID           string                     `json:"operationId,omitempty"`
+	ProductKey            string                     `json:"productKey,omitempty"`
+	TargetPlatform        string                     `json:"targetPlatform,omitempty"`
+	TemplateID            string                     `json:"templateId,omitempty"`
+	TemplateRevision      string                     `json:"templateRevision,omitempty"`
+	KnowledgeBaseID       string                     `json:"knowledgeBaseId,omitempty"`
+	ProviderID            string                     `json:"providerId,omitempty"`
+	ModelID               string                     `json:"modelId,omitempty"`
+	MaximumTokens         int64                      `json:"maximumTokens,omitempty"`
+	MaximumCostMicros     int64                      `json:"maximumCostMicros,omitempty"`
+	Currency              string                     `json:"currency,omitempty"`
+	HumanReviewRequired   bool                       `json:"humanReviewRequired"`
+	DetailsAvailable      bool                       `json:"detailsAvailable"`
+	TitleProfileReady     bool                       `json:"titleProfileReady"`
+	ExecutionAuthorized   bool                       `json:"executionAuthorized"`
 }
 
 func (a *aiWorkbenchApplication) proposalCard(ctx context.Context, p aiworkbench.ExecutionProposal) workbenchProposalCard {
 	card := workbenchProposalCard{ID: p.ID, Digest: p.Digest, SourceSequence: p.SourceSequence,
-		GoalSummary: p.GoalSummary, HumanReviewRequired: true}
+		Kind: p.Kind, GoalSummary: p.GoalSummary, HumanReviewRequired: true}
 	i, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
-	if !ok || a.agent == nil {
+	if !ok || a.agent == nil || !a.agent.workbenchKind(p.Kind) {
 		return card
 	}
-	binding, err := a.agent.bindingForIdentity(ctx, i, p.OperationID, p.TargetPlatform)
+	binding, err := a.agent.workbenchProposalBinding(ctx, i, p)
 	if err != nil || binding.ProductKey != p.ProductKey || binding.CatalogVersion != p.CatalogVersion || binding.PublicationID != p.PublicationID {
 		return card
 	}
 	card.DetailsAvailable = true
+	card.TaskSelection = p.Selection()
 	_, executionErr := a.agent.freshIdentity(ctx)
 	card.ExecutionAuthorized = executionErr == nil
 	card.ModeUnavailableReason = "EXECUTION_MODE_NOT_FROZEN"
@@ -283,7 +298,20 @@ func (a *aiWorkbenchApplication) proposalCard(ctx context.Context, p aiworkbench
 		card.MaximumCostMicros = cost
 		if a.agent.selectTitleProfile != nil && i.TenantID == p.Scope.OrganizationID && i.UserID == p.Scope.ActorID {
 			current, currentErr := a.agent.selectTitleProfile(ctx, p.Scope.OrganizationID)
-			card.TitleProfileReady = currentErr == nil && current.Validate() == nil && current == profile
+			card.ExecutionProfileReady = currentErr == nil && current.Validate() == nil && current == profile
+			card.TitleProfileReady = p.Kind == aiworkbench.TitleTaskKind && card.ExecutionProfileReady
+		}
+	}
+	if p.Kind == aiworkbench.ContentTaskKind {
+		card.MaximumTokens = p.ExecutionLimits.Tokens
+		card.MaximumCostMicros = p.ExecutionLimits.CostMicros
+		card.Currency = p.ExecutionLimits.Currency
+		card.MaximumSteps = p.ExecutionLimits.Steps
+		card.MaximumModelCalls = p.ExecutionLimits.ModelCalls
+		card.MaximumRuntimeSeconds = int64(p.ExecutionLimits.Runtime / time.Second)
+		if p.ExecutionLimits != a.agent.config.Limits {
+			card.ExecutionAuthorized = false
+			card.ModeUnavailableReason = "EXECUTION_LIMITS_CHANGED"
 		}
 	}
 	return card
@@ -295,6 +323,7 @@ func aiWorkbenchRoutes(a *aiWorkbenchApplication) []httproute.Descriptor {
 		timeout                          time.Duration
 	}
 	specs := []routeSpec{
+		{"GET", workbenchSubjectBase + "/:context_kind/:context_id", authz.PermissionWorkbenchChatUse, "subject-read", 15 * time.Second},
 		{"GET", workbenchChatBase, authz.PermissionWorkbenchChatRead, "list-conversations", 15 * time.Second},
 		{"POST", workbenchChatBase, authz.PermissionWorkbenchChatUse, "create", 15 * time.Second},
 		{"GET", workbenchChatBase + "/:conversation_id", authz.PermissionWorkbenchChatRead, "get-conversation", 15 * time.Second},
@@ -332,6 +361,8 @@ func aiWorkbenchRoutes(a *aiWorkbenchApplication) []httproute.Descriptor {
 					return
 				}
 				switch spec.action {
+				case "subject-read":
+					a.readTaskSubject(c, ctx)
 				case "list-conversations":
 					a.listConversations(c, ctx, scope)
 				case "create":
@@ -354,4 +385,23 @@ func aiWorkbenchRoutes(a *aiWorkbenchApplication) []httproute.Descriptor {
 			}})
 	}
 	return routes
+}
+
+func (m aiWorkbenchModule) ExecutionKind() string {
+	if m.application == nil || m.application.agent == nil {
+		return ""
+	}
+	if m.application.agent.workbenchKind(aiworkbench.ContentTaskKind) {
+		return aiworkbench.ContentTaskKind
+	}
+	if m.application.agent.workbenchKind(aiworkbench.TitleTaskKind) {
+		return aiworkbench.TitleTaskKind
+	}
+	return ""
+}
+func (m aiWorkbenchModule) ExecutionReadiness(ctx context.Context, org string) string {
+	if m.ExecutionKind() == aiworkbench.ContentTaskKind && m.application.agent.titleRoutes != nil {
+		return string(m.application.agent.titleRoutes.Readiness(ctx, aicapability.TextInputIdentity{OrganizationID: org, Operation: aicapability.OperationProductContentDecision}))
+	}
+	return m.TitleReadiness(ctx, org)
 }

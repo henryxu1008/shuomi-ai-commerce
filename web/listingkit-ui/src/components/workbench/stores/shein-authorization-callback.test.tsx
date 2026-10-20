@@ -134,3 +134,14 @@ it("rejects duplicate provider fields before any exchange", async () => {
   expect(state.complete).not.toHaveBeenCalled();
   expect(window.location.search).toBe("");
 });
+
+it("scrubs Walmart credentials and requires confirmation of the verified merchant",async()=>{
+ state.pending.mockReturnValue({...pending,appId:"walmart-app"});window.history.replaceState(null,"","/workbench/stores/walmart/callback?code=private-code&state=private-state&sellerId=partner-a&type=auth&clientId=walmart-app");
+ state.complete.mockResolvedValueOnce({state:"merchant_confirmation_required",connectionStatus:"disconnected",walmart:{partnerId:"partner-a",merchantName:"Verified merchant"}}).mockResolvedValueOnce({connectionStatus:"connected"});
+ render(<OfficialAuthorizationCallback platform="walmart"/>);expect(window.location.search).toBe("");expect(state.complete).not.toHaveBeenCalled();
+ await userEvent.click(await screen.findByRole("button",{name:"完成官方连接"}));await screen.findByText("Walmart Partner ID：partner-a");expect(state.clear).not.toHaveBeenCalled();expect(document.body.textContent).not.toContain("private-code");
+ await userEvent.click(screen.getByRole("button",{name:"确认连接此商家"}));expect(state.complete).toHaveBeenLastCalledWith({...pending,appId:"walmart-app"},pending.storeId,{attemptId:pending.attemptId,appId:"walmart-app",merchantConfirmation:"partner-a"});await screen.findByText(/官方连接已完成/);expect(state.clear).toHaveBeenCalledTimes(1)
+});
+it("Walmart callback cannot exchange under another organization or duplicated state",async()=>{
+ state.pending.mockReturnValue({...pending,appId:"walmart-app"});window.history.replaceState(null,"","/workbench/stores/walmart/callback?code=secret&state=a&state=b&sellerId=partner-a&type=auth");render(<OfficialAuthorizationCallback platform="walmart"/>);await screen.findByText(/本次授权返回无法确认或已过期/);expect(state.complete).not.toHaveBeenCalled();expect(window.location.search).toBe("")
+});

@@ -107,5 +107,5 @@ function changedFields(oldStore: WorkbenchStore, latest: WorkbenchStore): ("name
 
 function DetailError({ code, retry }: { code?: string; retry: () => void }) {
   const message = code === "STORE_NOT_FOUND" || code === "ORGANIZATION_ACCESS_DENIED" || code === "ORGANIZATION_ACCESS_REVOKED" ? "店铺不存在或已不可访问" : code === "PERMISSION_DENIED" ? "没有查看当前企业店铺的权限" : "店铺服务暂时不可用，请稍后重试";
-  return <section className="mx-auto mt-8 max-w-2xl rounded-xl border bg-card p-6" role="alert"><h1 className="font-semibold">{message}</h1><Button className="mt-4" onClick={retry} variant="outline">重试</Button></section>;
+  return <section className="mx-auto mt-8 max-w-2xl rounded-xl border bg-card p-6" role="alert"><h1 className="text-xl font-semibold">{message}</h1><Button className="mt-4" onClick={retry} variant="outline">重试</Button></section>;
 }

@@ -2,6 +2,8 @@ import { afterEach,beforeEach,expect,it,vi } from "vitest";
 import { cleanup,fireEvent,render,screen,waitFor } from "@testing-library/react";
 import { TitleAgentConfirmation } from "./title-agent-confirmation";
 import { KnowledgeError } from "@/lib/api/knowledge";
+import {skillRequest} from "@/lib/api/skill";
+vi.mock("@/lib/api/skill",()=>({skillRequest:vi.fn(),skillError:()=>"技能不可用"}));
 const fixture=vi.hoisted(()=>({request:vi.fn()}));
 vi.mock("@/lib/api/knowledge",async original=>({...await original<typeof import("@/lib/api/knowledge")>(),knowledgeRequest:fixture.request}));
 const base="11111111-1111-4111-8111-111111111111",revision="22222222-2222-4222-8222-222222222222";
@@ -9,6 +11,11 @@ const props={scope:{userId:"actor",organizationId:"B"},organization:"企业 B",p
 const executionMode={subject:{kind:"registered_agent" as const,id:"product.title.agent"},definition:{id:"product.title.agent",version:"v1.0.0"},mode:"default" as const,revision:"0",policyVersion:"agent-execution-policy-v1" as const,canConfigure:false,updatedAt:"2026-10-12T00:00:00Z",updatedBy:""};
 beforeEach(()=>{vi.clearAllMocks();fixture.request.mockReset();Object.defineProperty(HTMLDialogElement.prototype,"showModal",{configurable:true,value:function(this:HTMLDialogElement){this.open=true}});Object.defineProperty(HTMLDialogElement.prototype,"close",{configurable:true,value:function(this:HTMLDialogElement){this.open=false}})});
 afterEach(cleanup);
+it("carries the library exact version through the existing explicit confirmation",async()=>{
+ const selection={skillId:base,version:1,digest:"a".repeat(64)};vi.mocked(skillRequest).mockResolvedValue({items:[{skill:{id:base,owner:{kind:"PLATFORM"}},version:1,package:{name:"商品标题整理",digest:selection.digest}}]});
+ render(<TitleAgentConfirmation {...props} initialSkill={selection} contentSelection={{targetLanguage:"zh-CN",title:true}} executionMode={executionMode}/>);
+ expect(screen.getByText("确认生成")).toBeDisabled();expect(props.onConfirm).not.toHaveBeenCalled();await waitFor(()=>expect(screen.getByText("确认生成")).toBeEnabled());fireEvent.click(screen.getByText("确认生成"));expect(props.onConfirm).toHaveBeenCalledExactlyOnceWith(undefined,selection);
+});
 it("requires a readable mode revision before confirming and exposes full policy semantics",()=>{
  const view=render(<TitleAgentConfirmation {...props} executionMode={undefined}/>);
  expect(screen.getByText("确认生成")).toBeDisabled();expect(props.onConfirm).not.toHaveBeenCalled();

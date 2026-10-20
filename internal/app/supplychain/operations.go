@@ -9,6 +9,7 @@ import (
 	"task-processor/internal/marketplace/shein/goods"
 	model "task-processor/internal/marketplace/shein/model"
 	"task-processor/internal/product/collection"
+	"task-processor/internal/product/description"
 	"task-processor/internal/storecenter"
 	"time"
 )
@@ -227,6 +228,9 @@ func (a *OperationActivities) adapt(ctx context.Context, op preparation.Operatio
 	if e == nil {
 		input = head.Input
 		input.ExpectedRevision = head.Revision
+		// Re-adaptation is a new command; retain imported values, not the
+		// previous operation's candidate/baseline binding.
+		input.SheinImport = nil
 	} else if errors.Is(e, record.ErrNotFound) {
 		if a.TargetMerchants == nil {
 			return record.TargetReceipt{}, preparation.ErrUnavailable
@@ -243,7 +247,7 @@ func (a *OperationActivities) adapt(ctx context.Context, op preparation.Operatio
 			return record.TargetReceipt{}, record.ErrNotReady
 		}
 		input.Draft.Product.Names = []model.LanguageContent{{Language: "en", Name: original.Snapshot.Title}}
-		input.Draft.Product.Descriptions = []model.LanguageContent{{Language: "en", Name: original.Snapshot.Description}}
+		input.Draft.Product.Descriptions = []model.LanguageContent{{Language: "en", Name: description.PlainText(original.Snapshot.Description, original.Snapshot.DescriptionFormat)}}
 		skc := model.ProductSKC{SKUs: []model.ProductSKU{}}
 		for _, variant := range original.Snapshot.Variants {
 			skc.SKUs = append(skc.SKUs, model.ProductSKU{SupplierSKU: variant.SKU, SaleAttributes: []model.AttributeValue{}})

@@ -11,30 +11,6 @@ import (
 var templateVariablePattern = regexp.MustCompile(`\{\{\s*\.(\w+)\s*\}\}`)
 
 var promptTemplateCatalogKeys = []string{
-	prompt.KSheinAttributeSelectorSystem,
-	prompt.KSheinCategorySelectorSelectCategorySystem,
-	prompt.KSheinCategorySelectorSelectCategoryUser,
-	prompt.KSheinCategorySelectorExtractCoreItemSystem,
-	prompt.KSheinCategorySelectorSemanticValidation,
-	prompt.KSheinContentOptimizerOptimizeTitleDescriptionSystem,
-	prompt.KSheinContentOptimizerOptimizeTitleDescriptionUser,
-	prompt.KSheinDisplayAttributeFieldSelection,
-	prompt.KSheinDisplayAttributeValueMapping,
-	prompt.KSheinDisplayAttributeValueMappingBatch,
-	prompt.KSheinDisplayAttributeMissingText,
-	prompt.KSheinDisplayAttributeMissingValue,
-	prompt.KSheinDisplayAttributeFieldSelectionBatch,
-	prompt.KSheinDisplayAttributeBatchInference,
-	prompt.KSheinDisplayAttributeRequiredRepair,
-	prompt.KSheinSaleAttributeMapping,
-	prompt.KSheinSaleAttributeSourceDimension,
-	prompt.KSheinSaleAttributeValueBatchMapping,
-	prompt.KSheinSaleAttributePromptValueExtraction,
-	prompt.KSheinTranslationBatchOptimizeSystem,
-	prompt.KTemuAttributeMappingSystem,
-	prompt.KTemuContentRewriterSystem,
-	prompt.KTemuSkuVariantMappingSystem,
-	prompt.KTemuVisionDetectorDetect,
 	prompt.KProductEnrichLlmScorerTextScoring,
 	prompt.KProductEnrichLlmScorerImageScoring,
 	prompt.KProductEnrichUnderstandingAnalyzeImage,
@@ -59,7 +35,6 @@ var promptTemplateCatalogKeys = []string{
 
 var promptCategoryLabels = map[string]string{
 	"shein":         "SHEIN",
-	"temu":          "Temu",
 	"productenrich": "商品信息生成",
 	"productimage":  "商品图片",
 }
@@ -135,7 +110,7 @@ func promptCategoryLabel(category string) string {
 
 func promptGroup(category string) string {
 	switch category {
-	case "shein", "temu":
+	case "shein":
 		return "marketplace"
 	case "productenrich":
 		return "enrichment"

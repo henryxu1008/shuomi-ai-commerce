@@ -25,10 +25,12 @@ func (a *generationExecutionAuth) AuthorizeExecution(context.Context, imageagent
 }
 
 type generationExecutionProvider struct {
+	method     *generationMethodFixture
 	observer   func(context.Context, imageagent.GenerationSuccess) error
 	dispatches int
 	unknown    bool
 	imageSet   bool
+	bailian    bool
 	input      imageagent.SlotExecutionInput
 }
 
@@ -67,9 +69,16 @@ func (p *generationExecutionProvider) QuoteSlot(context.Context, imageagent.Slot
 	if p.imageSet {
 		operation = "render_source_edit"
 	}
-	return imageagent.SlotUsageQuote{Maximum: maximum, Fingerprint: "provider-quote", Operations: []imageagent.SlotUsageOperation{{Name: operation, Provider: "grsai", Model: "gpt-image-2.5", Fingerprint: "provider-op", Maximum: maximum, MaximumOutputs: 1}}}, nil
+	provider, model := "grsai", "gpt-image-2.5"
+	if p.bailian {
+		provider, model = "bailian", "qwen-image-3.0-pro"
+	}
+	return imageagent.SlotUsageQuote{Maximum: maximum, Fingerprint: "provider-quote", Operations: []imageagent.SlotUsageOperation{{Name: operation, Provider: provider, Model: model, Fingerprint: "provider-op", Maximum: maximum, MaximumOutputs: 1}}}, nil
 }
 func (p *generationExecutionProvider) GenerateQuotedSlot(ctx context.Context, input imageagent.SlotExecutionInput, quote imageagent.SlotUsageQuote) (imageagent.SlotGeneratedOutput, error) {
+	if p.method != nil && (!p.method.held || input.ImageMethodText != p.method.text) {
+		return imageagent.SlotGeneratedOutput{}, imageagent.ErrCommandBlocked
+	}
 	p.dispatches++
 	p.input = input
 	if quote.Fingerprint != "provider-quote" || string(input.SourceBytes) != "exact-source-bytes" {
@@ -85,64 +94,112 @@ func (p *generationExecutionProvider) GenerateQuotedSlot(ctx context.Context, in
 }
 
 func TestSetGenerationExecutionUsesFrozenInputAndOriginalEconomicOwner(t *testing.T) {
-	for _, drift := range []bool{false, true} {
-		t.Run(map[bool]string{false: "settled", true: "source_changed"}[drift], func(t *testing.T) {
-			owner, commercial, limits, identity := generationPointDatabases(t, true)
-			ctx := context.Background()
-			catalog, err := owner.GetAssetCatalog(ctx, identity.Identity.RunScope)
-			require.NoError(t, err)
-			hash := strings.Repeat("a", 64)
-			data := []byte("exact-source-bytes")
-			sum := sha256.Sum256(data)
-			set := &imageagent.ImageSetPlan{Schema: imageagent.ImageSetSchema, Source: imageagent.ImageSourceBinding{ContextKind: imageagent.ImageSourceAcquisition, ProductID: "product-1", OperationID: "source-operation", OriginalPublicationID: "publication-1", OriginalVersion: 1, EffectiveVersion: 1, CatalogHash: "catalog-v2:" + hash}, Target: imageagent.ImageTarget{Platform: "product"}, Configuration: agent.ConfigurationSnapshotRef{Kind: "agent-configuration-v1", ID: "9e7afaa9-a9f9-48ba-a11a-b5bb377f08e9", Digest: hash}, ConfigurationEpoch: "1", ParametersDigest: hash, InputDigest: hash, MaxPoints: 12}
-			slot := imageagent.Slot{ID: identity.Identity.SlotID, Role: imageagent.SlotRoleDetail, SourceAssetIDs: []string{"source-1"}, IdempotencyKey: "slot", Recipe: &imageagent.ImageSlotRecipe{Purpose: "product_overview", Background: "white", Language: "en", Placement: imageagent.ImagePlacement{Group: "detail", Order: 1}, PromptVersion: imageagent.ImageSetSchema, Prompt: "approved overview", References: []imageagent.ImageSourceObservation{{AssetID: "source-1", SHA256: hex.EncodeToString(sum[:]), MediaType: "image/png", Bytes: int64(len(data)), Width: 1024, Height: 1024}}, Quote: imageagent.ImageGenerationQuote{Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", PriceVersion: "price-1", Points: 12, RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1"}}}
-			set.QuoteDigest, err = imageagent.ImageSetQuoteDigest(imageagent.Plan{Set: set, Slots: []imageagent.Slot{slot}})
-			require.NoError(t, err)
-			input := imageagent.SlotExecutionInput{RunID: identity.Identity.RunID, TenantID: identity.Identity.TenantID, UserID: identity.Identity.OwnerUserID, PlanRevision: 1, Attempt: 1, IdempotencyKey: "attempt", TargetPlatform: "product", Slot: slot, ImageSet: set, AssetCatalog: catalog, OrganizationIdentity: imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: identity.Identity.RunID, TenantID: identity.Identity.TenantID, UserID: identity.Identity.OwnerUserID, MemberID: identity.MemberID, BusinessTaskID: "task-" + identity.Identity.RunID}}
-			// Fixture binds the V3 reservation to the exact set activity input.
-			require.NoError(t, slotEffectV3IdentityWhere(owner.db.Model(&slotExternalEffectV3Record{}), identity.Identity).Update("input_fingerprint", imageagent.SlotExecutionFingerprint(input)).Error)
-			resources, err := resourceadapter.NewGormImageGenerationRepository(commercial, resourceadapter.TransactionConfig{}, owner, generationPointTestAuth{})
-			require.NoError(t, err)
-			provider := &generationExecutionProvider{imageSet: true}
-			executor, err := imageagent.NewGenerationExecution(imageagent.GenerationExecutionDependencies{Facts: owner, Resources: resources, Authorizer: &generationExecutionAuth{}, MaxSourceBytes: 1024, ReadMemberLimit: func(context.Context, string, string) (imageagent.GenerationMemberLimit, error) {
-				return imageagent.GenerationMemberLimit{Version: 1, MonthStart: identity.MonthStart}, nil
-			}, ReadSourceBytes: func(context.Context, imageagent.SlotExecutionInput) ([]byte, error) {
-				if drift {
-					return []byte("different bytes"), nil
-				}
-				return data, nil
-			}, PrepareProvider: func(_ context.Context, observe func(context.Context, imageagent.GenerationSuccess) error) (imageagent.PreparedGenerationProvider, error) {
-				provider.observer = observe
-				return imageagent.PreparedGenerationProvider{Executor: provider, Metadata: imageagent.GenerationProviderMetadata{RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1", PromptVersion: "old-white-prompt", PriceVersion: "price-1", Points: 12}}, nil
-			}, RevalidateProvider: func(context.Context, imageagent.GenerationProviderMetadata) error { return nil }})
-			require.NoError(t, err)
-			quote, err := executor.QuoteSlot(ctx, input, imageagent.BudgetPolicy{})
-			require.NoError(t, err)
-			_, err = executor.GenerateQuotedSlot(ctx, input, quote)
-			require.Error(t, err)
-			read, err := limits.ReadMonthlyLimit(ctx, identity.Identity.TenantID, identity.MemberID)
-			require.NoError(t, err)
-			if drift {
-				require.Zero(t, provider.dispatches)
-				require.Zero(t, read.Consumed)
-				return
+	for _, useMethod := range []bool{false, true} {
+		t.Run(map[bool]string{false: "without_method", true: "with_method"}[useMethod], func(t *testing.T) {
+			for _, drift := range []bool{false, true} {
+				t.Run(map[bool]string{false: "settled", true: "source_changed"}[drift], func(t *testing.T) {
+					owner, commercial, limits, identity := generationPointDatabases(t, true)
+					ctx := context.Background()
+					catalog, err := owner.GetAssetCatalog(ctx, identity.Identity.RunScope)
+					require.NoError(t, err)
+					hash := strings.Repeat("a", 64)
+					data := []byte("exact-source-bytes")
+					sum := sha256.Sum256(data)
+					set := &imageagent.ImageSetPlan{Schema: imageagent.ImageSetSchema, Source: imageagent.ImageSourceBinding{ContextKind: imageagent.ImageSourceAcquisition, ProductID: "product-1", OperationID: "source-operation", OriginalPublicationID: "publication-1", OriginalVersion: 1, EffectiveVersion: 1, CatalogHash: "catalog-v2:" + hash}, Target: imageagent.ImageTarget{Platform: "product"}, Configuration: agent.ConfigurationSnapshotRef{Kind: "agent-configuration-v1", ID: "9e7afaa9-a9f9-48ba-a11a-b5bb377f08e9", Digest: hash}, ConfigurationEpoch: "1", ParametersDigest: hash, InputDigest: hash, MaxPoints: 12}
+					method := &generationMethodFixture{text: "exact image method"}
+					if useMethod {
+						set.Method = &imageagent.ImageMethodBinding{Skill: agent.SkillVersionRef{Kind: "skill-version-v1", ID: "2bb819bd-af13-4e68-95e0-1cc86130fb1f", OwnerKind: "PLATFORM", OwnerID: "official", Version: 1, Digest: strings.Repeat("f", 64), PolicyVersion: "skill-method-v1"}, PolicyVersion: imageagent.FrozenVisualBriefPolicyVersion}
+					}
+					slot := imageagent.Slot{ID: identity.Identity.SlotID, Role: imageagent.SlotRoleDetail, SourceAssetIDs: []string{"source-1"}, IdempotencyKey: "slot", Recipe: &imageagent.ImageSlotRecipe{Purpose: "product_overview", Background: "white", Language: "en", Placement: imageagent.ImagePlacement{Group: "detail", Order: 1}, PromptVersion: imageagent.ImageSetSchema, Prompt: "approved overview", References: []imageagent.ImageSourceObservation{{AssetID: "source-1", SHA256: hex.EncodeToString(sum[:]), MediaType: "image/png", Bytes: int64(len(data)), Width: 1024, Height: 1024}}, Quote: imageagent.ImageGenerationQuote{Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", PriceVersion: "price-1", Points: 12, RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1"}}}
+					set.QuoteDigest, err = imageagent.ImageSetQuoteDigest(imageagent.Plan{Set: set, Slots: []imageagent.Slot{slot}})
+					require.NoError(t, err)
+					input := imageagent.SlotExecutionInput{RunID: identity.Identity.RunID, TenantID: identity.Identity.TenantID, UserID: identity.Identity.OwnerUserID, PlanRevision: 1, Attempt: 1, IdempotencyKey: "attempt", TargetPlatform: "product", Slot: slot, ImageSet: set, AssetCatalog: catalog, OrganizationIdentity: imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: identity.Identity.RunID, TenantID: identity.Identity.TenantID, UserID: identity.Identity.OwnerUserID, MemberID: identity.MemberID, BusinessTaskID: "task-" + identity.Identity.RunID}}
+					// Fixture binds the V3 reservation to the exact set activity input.
+					require.NoError(t, slotEffectV3IdentityWhere(owner.db.Model(&slotExternalEffectV3Record{}), identity.Identity).Update("input_fingerprint", imageagent.SlotExecutionFingerprint(input)).Error)
+					resources, err := resourceadapter.NewGormImageGenerationRepository(commercial, resourceadapter.TransactionConfig{}, owner, generationPointTestAuth{})
+					require.NoError(t, err)
+					provider := &generationExecutionProvider{imageSet: true}
+					if useMethod {
+						provider.method = method
+					}
+					executor, err := imageagent.NewGenerationExecution(imageagent.GenerationExecutionDependencies{Methods: method, Facts: owner, Resources: resources, Authorizer: &generationExecutionAuth{}, MaxSourceBytes: 1024, ReadMemberLimit: func(context.Context, string, string) (imageagent.GenerationMemberLimit, error) {
+						return imageagent.GenerationMemberLimit{Version: 1, MonthStart: identity.MonthStart}, nil
+					}, ReadSourceBytes: func(context.Context, imageagent.SlotExecutionInput) ([]byte, error) {
+						if drift {
+							return []byte("different bytes"), nil
+						}
+						return data, nil
+					}, PrepareProvider: func(_ context.Context, observe func(context.Context, imageagent.GenerationSuccess) error) (imageagent.PreparedGenerationProvider, error) {
+						provider.observer = observe
+						return imageagent.PreparedGenerationProvider{Executor: provider, Metadata: imageagent.GenerationProviderMetadata{Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1", PromptVersion: "old-white-prompt", PriceVersion: "price-1", Points: 12}}, nil
+					}, RevalidateProvider: func(context.Context, imageagent.GenerationProviderMetadata) error { return nil }})
+					require.NoError(t, err)
+					if useMethod {
+						input.ImageSet.Method.PolicyVersion = imageagent.HistoricalImageMethodPolicyVersion
+						_, oldErr := executor.QuoteSlot(ctx, input, imageagent.BudgetPolicy{})
+						require.ErrorIs(t, oldErr, imageagent.ErrCommandBlocked)
+						_, oldErr = executor.GenerateQuotedSlot(ctx, input, imageagent.SlotUsageQuote{})
+						require.ErrorIs(t, oldErr, imageagent.ErrCommandBlocked)
+						_, oldErr = owner.ReadGenerationFact(ctx, identity.Identity)
+						require.ErrorIs(t, oldErr, imageagent.ErrRunNotFound)
+						var reservations int64
+						require.NoError(t, commercial.Table("saas_organization_resource_reservations").Count(&reservations).Error)
+						require.Zero(t, reservations)
+						require.Zero(t, provider.dispatches)
+						require.Zero(t, method.calls)
+						input.ImageSet.Method.PolicyVersion = imageagent.FrozenVisualBriefPolicyVersion
+					}
+					quote, err := executor.QuoteSlot(ctx, input, imageagent.BudgetPolicy{})
+					require.NoError(t, err)
+					_, err = executor.GenerateQuotedSlot(ctx, input, quote)
+					require.Error(t, err)
+					require.False(t, method.held, "the fence must release even after UNKNOWN or output loss")
+					read, err := limits.ReadMonthlyLimit(ctx, identity.Identity.TenantID, identity.MemberID)
+					require.NoError(t, err)
+					if drift {
+						require.Zero(t, provider.dispatches)
+						require.Zero(t, read.Consumed)
+						return
+					}
+					require.Equal(t, 1, provider.dispatches)
+					require.Equal(t, [][]byte{data}, provider.input.SourceReferences)
+					fact, err := owner.ReadGenerationFact(ctx, identity.Identity)
+					require.NoError(t, err)
+					digest, err := imageagent.ImageSlotGenerationInputDigest(input)
+					require.NoError(t, err)
+					require.Equal(t, digest, fact.Intent.InputDigest)
+					require.Equal(t, imageagent.ImageSetSchema, fact.Intent.PromptVersion)
+					require.Equal(t, 2, fact.Version)
+					require.Equal(t, "committed", fact.Settlement.State)
+					require.EqualValues(t, 12, read.Consumed)
+					calls := method.calls
+					method.unavailable = true
+					if useMethod {
+						input.ImageSet.Method.PolicyVersion = imageagent.HistoricalImageMethodPolicyVersion
+					}
+					_, err = executor.GenerateQuotedSlot(ctx, input, quote)
+					require.Error(t, err)
+					require.Equal(t, calls, method.calls, "existing effect readback precedes the new-method gate")
+					require.Equal(t, 1, provider.dispatches)
+				})
 			}
-			require.Equal(t, 1, provider.dispatches)
-			require.Equal(t, [][]byte{data}, provider.input.SourceReferences)
-			fact, err := owner.ReadGenerationFact(ctx, identity.Identity)
-			require.NoError(t, err)
-			digest, err := imageagent.ImageSlotGenerationInputDigest(input)
-			require.NoError(t, err)
-			require.Equal(t, digest, fact.Intent.InputDigest)
-			require.Equal(t, imageagent.ImageSetSchema, fact.Intent.PromptVersion)
-			require.Equal(t, 2, fact.Version)
-			require.Equal(t, "committed", fact.Settlement.State)
-			require.EqualValues(t, 12, read.Consumed)
-			_, err = executor.GenerateQuotedSlot(ctx, input, quote)
-			require.Error(t, err)
-			require.Equal(t, 1, provider.dispatches)
 		})
 	}
+}
+
+type generationMethodFixture struct {
+	text              string
+	held, unavailable bool
+	calls             int
+}
+
+func (m *generationMethodFixture) AcquireImageMethod(context.Context, imageagent.ExecutionIdentity, agent.SkillVersionRef, string) (string, func(), error) {
+	m.calls++
+	if m.unavailable {
+		return "", nil, imageagent.ErrCommandBlocked
+	}
+	m.held = true
+	return m.text, func() { m.held = false }, nil
 }
 func (*generationExecutionProvider) GenerateSlot(context.Context, imageagent.SlotExecutionInput) (imageagent.SlotGeneratedOutput, error) {
 	panic("uncapped generation")
@@ -152,10 +209,11 @@ func (*generationExecutionProvider) BuildSlotResult(context.Context, imageagent.
 }
 
 func TestGenerationExecutionPreservesProviderOutcomeAndNeverRedispatches(t *testing.T) {
-	for _, unknown := range []bool{false, true} {
+	for _, outcome := range []string{"success", "unknown", "quota_rejected"} {
+		unknown := outcome != "success"
 		name := "success_then_download_failure"
 		if unknown {
-			name = "response_lost"
+			name = outcome
 		}
 		t.Run(name, func(t *testing.T) {
 			owner, commercial, limits, intent := generationPointDatabases(t, true)
@@ -166,7 +224,7 @@ func TestGenerationExecutionPreservesProviderOutcomeAndNeverRedispatches(t *test
 			require.NoError(t, err)
 			input := imageagent.SlotExecutionInput{RunID: intent.Identity.RunID, TenantID: intent.Identity.TenantID, UserID: intent.Identity.OwnerUserID, PlanRevision: 1, Attempt: 1, TargetPlatform: "product", ImagePolicyContext: &imageagent.ImagePolicyContext{Country: "zz", Family: "default", SceneCategory: "general"}, Slot: imageagent.Slot{ID: "slot-1", Role: imageagent.SlotRoleMain, SourceAssetIDs: []string{"source-1"}}, AssetCatalog: catalog,
 				OrganizationIdentity: imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: intent.Identity.RunID, TenantID: intent.Identity.TenantID, UserID: intent.Identity.OwnerUserID, MemberID: intent.MemberID, BusinessTaskID: "task-" + intent.Identity.RunID}}
-			provider := &generationExecutionProvider{unknown: unknown}
+			provider := &generationExecutionProvider{unknown: unknown, bailian: outcome == "quota_rejected"}
 			auth := &generationExecutionAuth{}
 			executor, err := imageagent.NewGenerationExecution(imageagent.GenerationExecutionDependencies{Facts: owner, Resources: resources, Authorizer: auth, MaxSourceBytes: 1024,
 				ReadMemberLimit: func(context.Context, string, string) (imageagent.GenerationMemberLimit, error) {
@@ -177,7 +235,16 @@ func TestGenerationExecutionPreservesProviderOutcomeAndNeverRedispatches(t *test
 				},
 				PrepareProvider: func(_ context.Context, observer func(context.Context, imageagent.GenerationSuccess) error) (imageagent.PreparedGenerationProvider, error) {
 					provider.observer = observer
-					return imageagent.PreparedGenerationProvider{Executor: provider, Metadata: imageagent.GenerationProviderMetadata{RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1", PromptVersion: "prompt-1", PriceVersion: "price-1", Points: 12}}, nil
+					prepared := imageagent.PreparedGenerationProvider{Executor: provider, Metadata: imageagent.GenerationProviderMetadata{Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1", PromptVersion: "prompt-1", PriceVersion: "price-1", Points: 12}}
+					if provider.bailian {
+						prepared.Metadata.Provider = "bailian"
+						prepared.Metadata.Model = "qwen-image-3.0-pro"
+						prepared.Metadata.Protocol = "dashscope-image-sync-v1"
+						prepared.Rejection = func(error) (imageagent.GenerationRejection, bool) {
+							return imageagent.GenerationRejection{Kind: "bailian_free_tier", Digest: strings.Repeat("a", 64), RequestID: "070f62f5-244a-9703-85c5-a5f0c0d039e0", HTTPStatus: 403, ProviderCode: "AllocationQuota.FreeTierOnly"}, true
+						}
+					}
+					return prepared, nil
 				},
 				RevalidateProvider: func(context.Context, imageagent.GenerationProviderMetadata) error { return nil },
 			})
@@ -193,7 +260,12 @@ func TestGenerationExecutionPreservesProviderOutcomeAndNeverRedispatches(t *test
 			require.Equal(t, hex.EncodeToString(sum[:]), fact.Intent.SourceDigest)
 			read, err := limits.ReadMonthlyLimit(ctx, intent.Identity.TenantID, intent.MemberID)
 			require.NoError(t, err)
-			if unknown {
+			if provider.bailian {
+				require.Equal(t, imageagent.GenerationNoEffect, fact.State)
+				require.Equal(t, "released", fact.Settlement.State)
+				require.Zero(t, read.Reserved)
+				require.Zero(t, read.Consumed)
+			} else if unknown {
 				require.Equal(t, imageagent.GenerationUnknown, fact.State)
 				require.EqualValues(t, 12, read.Reserved)
 				require.Zero(t, read.Consumed)
@@ -244,7 +316,7 @@ func TestGenerationExecutionPreDispatchFencesAndLostACK(t *testing.T) {
 				},
 				PrepareProvider: func(_ context.Context, observer func(context.Context, imageagent.GenerationSuccess) error) (imageagent.PreparedGenerationProvider, error) {
 					provider.observer = observer
-					return imageagent.PreparedGenerationProvider{Executor: provider, Metadata: imageagent.GenerationProviderMetadata{RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1", PromptVersion: "prompt-1", PriceVersion: priceVersion, Points: 12}}, nil
+					return imageagent.PreparedGenerationProvider{Executor: provider, Metadata: imageagent.GenerationProviderMetadata{Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1", PromptVersion: "prompt-1", PriceVersion: priceVersion, Points: 12}}, nil
 				},
 				RevalidateProvider: func(context.Context, imageagent.GenerationProviderMetadata) error {
 					if mode == "route_drift" {

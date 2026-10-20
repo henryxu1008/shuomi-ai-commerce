@@ -2,12 +2,33 @@ import {cleanup,render,screen,within} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
 import {OwnProductDetailPage} from "./own-product-detail-page";
-const state=vi.hoisted(()=>({read:vi.fn(),context:{} as Record<string,unknown>}));
+const state=vi.hoisted(()=>({read:vi.fn(),drafts:vi.fn(),context:{} as Record<string,unknown>}));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>state.context}));
 vi.mock("@/lib/api/product-collection",async original=>({...await original<object>(),readCollectionItem:state.read}));
+vi.mock("@/lib/api/supply-chain",async original=>({...await original<object>(),listItemCompletionDrafts:state.drafts}));
 const itemId="550e8400-e29b-41d4-a716-446655440002";
-beforeEach(()=>{state.read.mockReset();state.context={user:{id:"actor-a"},effectiveOrganization:{id:"org-a"},permissions:["workbench.collection.manage"]}});
+beforeEach(()=>{state.read.mockReset();state.drafts.mockResolvedValue({items:[],total:0});state.context={user:{id:"actor-a"},effectiveOrganization:{id:"org-a"},permissions:["workbench.collection.manage"]}});
 afterEach(cleanup);
+it("offers content optimization only for an available runtime and current permissions",async()=>{
+ state.context.permissions=["workbench.collection.read","local_agent.write","workbench.agent.use"];
+ state.read.mockResolvedValue({item:{id:itemId,source:{kind:"own",version:"1",productKey:"own-test"}},product:{title:"商品"}});
+ const view=render(<OwnProductDetailPage itemId={itemId} optimizationAvailable/>);
+ expect(await screen.findByRole("link",{name:"优化商品内容"})).toHaveAttribute("href",`/workbench/data/mine/own/${itemId}/optimize`);
+ expect(screen.getByText(/在“优化商品内容”中查看当前已采用标题与版本/)).toBeInTheDocument();
+ expect(screen.getByRole("heading",{name:"商品",level:1})).toBeInTheDocument();
+ state.context.permissions=["workbench.collection.read"];
+ view.rerender(<OwnProductDetailPage itemId={itemId} optimizationAvailable/>);
+ expect(screen.queryByRole("link",{name:"优化商品内容"})).toBeNull();
+ expect(screen.queryByText(/在“优化商品内容”中查看当前已采用标题与版本/)).toBeNull();
+});
+it("opens the independent draft entry only when completion and current permissions are available",async()=>{
+ state.context.permissions=["workbench.collection.read","workbench.collection.manage","workbench.supply.read","workbench.supply.manage"];
+ state.read.mockResolvedValue({item:{id:itemId,source:{kind:"own",version:"1",productKey:"own-test"}},product:{title:"商品",variants:[],images:[]}});
+ const view=render(<OwnProductDetailPage itemId={itemId} completionAvailable/>);
+ expect(await screen.findByRole("link",{name:"创建待补全草稿"})).toHaveAttribute("href",`/workbench/data/mine/own/${itemId}/prepare`);
+ expect(await screen.findByRole("region",{name:"已有待补全草稿"})).toBeVisible();
+ view.rerender(<OwnProductDetailPage itemId={itemId}/>);expect(screen.queryByRole("region",{name:"已有待补全草稿"})).not.toBeInTheDocument();expect(screen.queryByRole("link",{name:"创建待补全草稿"})).not.toBeInTheDocument();
+});
 it("shows a saved SKU name even when it also has sales specifications",async()=>{
  state.read.mockResolvedValue({item:{id:itemId,source:{kind:"own",version:"1",productKey:"own-test"}},product:{title:"商品",variants:[{source_id:"red",sku:"RED",title:"红色常规款",attributes:[{name:"颜色",value:"红色"}],price:{currency:"CNY",amount:0},stock:0}]}});
  render(<OwnProductDetailPage itemId={itemId}/>);

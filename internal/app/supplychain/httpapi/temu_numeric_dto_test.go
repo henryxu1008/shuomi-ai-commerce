@@ -8,6 +8,7 @@ import (
 	record "task-processor/internal/listing/record/target"
 	temugoods "task-processor/internal/marketplace/temu/goods"
 	"task-processor/internal/marketplace/temu/model"
+	walmart "task-processor/internal/marketplace/walmart"
 	"task-processor/internal/product/collection"
 	"testing"
 )
@@ -60,4 +61,20 @@ func TestTemuConfirmedPublicViewsKeepNativeLongIdentifiers(t *testing.T) {
 		require.NotContains(t, string(raw), `"product":`)
 		require.NotContains(t, string(raw), `"confirmedProduct":`)
 	}
+}
+
+func TestWalmartBrowserBoundaryKeepsExactWireAndTypedNumbers(t *testing.T) {
+	var body supplyTargetBody
+	require.NoError(t, json.Unmarshal([]byte(`{"sourceId":"source","storeId":"store","effectiveVersion":"1","walmart":{"selection":{"feedType":"MP_ITEM_MATCH","version":"5","productType":""},"skus":[{"sourceSKUKey":"a","identifier":{"productIdType":"GTIN","productId":"12345678901234"},"condition":"New","price":"12.50","shippingWeight":"1"}]}}`), &body))
+	in, e := body.domain()
+	require.NoError(t, e)
+	require.Equal(t, json.Number("12.50"), in.Walmart.SKUs[0].Price)
+	exact := []byte(`{"price":12.50}`)
+	raw, e := json.Marshal(supplyPublicResponse(record.TargetRecord{Input: in, Walmart: &walmart.Draft{Payload: exact}}))
+	require.NoError(t, e)
+	require.NotContains(t, string(raw), `"draft":`)
+	require.NotContains(t, string(raw), `"result":`)
+	var result struct{ Walmart struct{ Payload []byte } }
+	require.NoError(t, json.Unmarshal(raw, &result))
+	require.Equal(t, exact, result.Walmart.Payload)
 }

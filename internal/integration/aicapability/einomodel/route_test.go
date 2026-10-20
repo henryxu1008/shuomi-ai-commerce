@@ -56,3 +56,31 @@ func TestOrganizationRouteNeverBorrowsMemberCredential(t *testing.T) {
 	require.Equal(t, RouteNeedsConfiguration, resolver.Readiness(ctx, input), "disabled credential cannot advertise Chat planning")
 	require.Equal(t, RouteUnavailable, resolver.Readiness(ctx, aicapability.TextInputIdentity{OrganizationID: "org-2", Operation: aicapability.OperationAIWorkbenchChatPlan}))
 }
+
+func TestListingMaterialsRouteDoesNotBorrowContentOrTitlePolicy(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:materials-route?mode=memory&cache=shared"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&openai.AIClientCredential{}))
+	writer := openai.NewGormCredentialResolver(db)
+	profile := testTextProfile("https://example.org/v1")
+	policy := RoutePolicy{Profile: profile, AdmittedCredentialVersion: "version", AdmittedEndpointIdentityDigest: endpointDigest("https://example.org/v1")}
+	resolver, err := NewOrganizationRouteResolver(writer, map[RouteKey]RoutePolicy{{OrganizationID: "org", Operation: aicapability.OperationListingMaterialsDecision}: policy})
+	require.NoError(t, err)
+	require.Equal(t, RouteNeedsConfiguration, resolver.Readiness(context.Background(), aicapability.TextInputIdentity{OrganizationID: "org", Operation: aicapability.OperationListingMaterialsDecision}))
+	for _, operation := range []aicapability.Operation{aicapability.OperationProductAgentDecision, aicapability.OperationProductContentDecision} {
+		require.Equal(t, RouteUnavailable, resolver.Readiness(context.Background(), aicapability.TextInputIdentity{OrganizationID: "org", Operation: operation}))
+	}
+}
+
+func TestEmptyRegistryCannotDispatchOrBorrowAConsumerPolicy(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:empty-text-registry?mode=memory&cache=shared"), &gorm.Config{})
+	require.NoError(t, err)
+	resolver, err := NewOrganizationRouteResolver(openai.NewGormCredentialResolver(db), nil)
+	require.NoError(t, err)
+	for _, op := range []aicapability.Operation{aicapability.OperationProductAgentDecision, aicapability.OperationProductSelectionDecision} {
+		in := aicapability.TextInputIdentity{OrganizationID: "org", Operation: op}
+		_, err = resolver.Resolve(context.Background(), in)
+		require.ErrorIs(t, err, ErrNotDispatched)
+		require.Equal(t, RouteUnavailable, resolver.Readiness(context.Background(), in))
+	}
+}

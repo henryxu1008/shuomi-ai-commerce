@@ -123,7 +123,10 @@ func TestPostgresUnboundDraftAtomicCASReplayAndUnknownRecovery(t *testing.T) {
 	ps, err := preparation.NewService(pr, cs, auth)
 	require.NoError(t, err)
 	batch, item, product, publication := uuid.NewString(), uuid.NewString(), uuid.NewString(), uuid.NewString()
-	raw := json.RawMessage(`{"title":"Original product"}`)
+	raw := json.RawMessage(`{"title":"Original product","description":"<p>Original rich source</p>","description_format":"html-v1","images":[{"url":"https://images.example.org/a.png"}],"variants":[{"sku":"","price":{"currency":"CNY","amount":0},"stock":0},{"sku":"","stock":3}]}`)
+	// Match the Catalog encoder: its hash covers the exact HTML-escaped JSON bytes.
+	raw, err = json.Marshal(raw)
+	require.NoError(t, err)
 	require.NoError(t, db.Create(&catalogstore.SnapshotVersionRecord{TenantID: scope.OrganizationID, ProductKey: product, Version: 1, PublicationID: publication, PayloadHash: collection.Digest(raw), SnapshotJSON: raw}).Error)
 	require.NoError(t, db.Exec("INSERT INTO product_collection_batches(organization_id,actor_id,member_id,id,name,kind,revision,created_at) VALUES(?,?,?,?,?,'manual',1,now())", scope.OrganizationID, scope.ActorID, scope.MemberID, batch, "真实原始批次").Error)
 	require.NoError(t, db.Exec("INSERT INTO product_collection_items(organization_id,actor_id,member_id,id,batch_id,product_key,publication_id,original_version,source_kind,source_operation_id,revision,created_at) VALUES(?,?,?,?,?,?,?,1,'own','',1,now())", scope.OrganizationID, scope.ActorID, scope.MemberID, item, batch, product, publication).Error)
@@ -134,6 +137,7 @@ func TestPostgresUnboundDraftAtomicCASReplayAndUnknownRecovery(t *testing.T) {
 	require.NoError(t, err)
 	snapshots, err := catalogstore.NewBoundedSnapshotReader(runtimeDB, sourcing.MaxEncodedSnapshotBytes)
 	require.NoError(t, err)
+	cs.WithSnapshots(snapshots)
 	selector, err := preparation.NewSourceSelector(ps, cs, pr, snapshots)
 	require.NoError(t, err)
 	service, err := completiondraft.NewService(selector, cs, ps, auth, repo)
@@ -146,10 +150,19 @@ func TestPostgresUnboundDraftAtomicCASReplayAndUnknownRecovery(t *testing.T) {
 	require.EqualValues(t, 1, first.Record.Revision)
 	input2 := input
 	input2.ExpectedRevision = 1
-	input2.Content.Description = "Candidate R2"
-	second, err := service.Save(actor, uuid.NewString(), input2)
+	input2.Content.Description = `<p><strong>Candidate R2</strong><img src="https://images.example.org/candidate.png"></p>`
+	input2.Content.DescriptionFormat = "html-v1"
+	input2.Content.DescriptionImages = []string{"https://images.example.org/candidate.png"}
+	richKey := uuid.NewString()
+	second, err := service.Save(actor, richKey, input2)
 	require.NoError(t, err)
 	require.EqualValues(t, 2, second.Record.Revision)
+	require.Equal(t, input2.Content, second.Record.Content)
+	differentFormat := input2
+	differentFormat.Content.DescriptionFormat = ""
+	differentFormat.Content.DescriptionImages = nil
+	_, err = service.Save(actor, richKey, differentFormat)
+	require.ErrorIs(t, err, preparation.ErrConflict)
 	replay, err := service.Save(actor, key, input)
 	require.NoError(t, err)
 	require.True(t, replay.Replayed)
@@ -222,7 +235,119 @@ func TestPostgresUnboundDraftAtomicCASReplayAndUnknownRecovery(t *testing.T) {
 	var original string
 	require.NoError(t, db.Raw("SELECT snapshot_json->>'title' FROM product_snapshot_versions WHERE product_key=?", product).Scan(&original).Error)
 	require.Equal(t, "Original product", original)
+	t.Run("history reads exact committed records within retained source scope", func(t *testing.T) {
+		history, e := service.ListHistory(actor, input2.SourceID, completiondraft.HistoryQuery{Limit: 2})
+		require.NoError(t, e)
+		require.EqualValues(t, 4, history.CurrentRevision)
+		require.EqualValues(t, 3, history.NextBefore)
+		require.Equal(t, []int64{4, 3}, []int64{history.Items[0].Revision, history.Items[1].Revision})
+		rest, e := service.ListHistory(actor, input2.SourceID, completiondraft.HistoryQuery{Limit: 2, Before: history.NextBefore})
+		require.NoError(t, e)
+		require.Equal(t, []completiondraft.Record{second.Record, first.Record}, rest.Items)
+		require.Zero(t, rest.NextBefore)
+		rich, e := service.ReadRevision(actor, input2.SourceID, 2)
+		require.NoError(t, e)
+		require.Equal(t, second.Record, rich)
+		old, e := service.ReadRevision(actor, input2.SourceID, 1)
+		require.NoError(t, e)
+		require.Equal(t, first.Record, old)
+		_, e = service.ReadRevision(actor, input2.SourceID, 5)
+		require.ErrorIs(t, e, preparation.ErrNotFound)
+		for _, other := range []collection.Scope{{OrganizationID: "org-b", ActorID: scope.ActorID, MemberID: scope.MemberID}, {OrganizationID: scope.OrganizationID, ActorID: "actor-b", MemberID: scope.MemberID}, {OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, MemberID: "member-b"}} {
+			_, e = repo.ListHistory(ctx, other, input2.SourceID, completiondraft.HistoryQuery{Limit: 20})
+			require.ErrorIs(t, e, preparation.ErrNotFound)
+			_, e = repo.ReadRevision(ctx, other, input2.SourceID, 1)
+			require.ErrorIs(t, e, preparation.ErrNotFound)
+		}
+		_, e = repo.ReadRevision(ctx, scope, uuid.NewString(), 1)
+		require.ErrorIs(t, e, preparation.ErrNotFound)
+		require.NoError(t, db.Exec("UPDATE listing_completion_draft_records SET source_json=jsonb_set(source_json,'{collectionRevision}','999') WHERE id=?", first.Record.ID).Error)
+		_, e = service.ReadRevision(actor, input2.SourceID, 1)
+		require.ErrorIs(t, e, preparation.ErrUnavailable)
+		_, e = service.ListHistory(actor, input2.SourceID, completiondraft.HistoryQuery{Limit: 20})
+		require.ErrorIs(t, e, preparation.ErrUnavailable)
+		sourceJSON, e := json.Marshal(first.Record.Source)
+		require.NoError(t, e)
+		require.NoError(t, db.Exec("UPDATE listing_completion_draft_records SET source_json=? WHERE id=?", sourceJSON, first.Record.ID).Error)
+	})
+	t.Run("item heads span preparations and keep original version", func(t *testing.T) {
+		publication2 := uuid.NewString()
+		require.NoError(t, db.Create(&catalogstore.SnapshotVersionRecord{TenantID: scope.OrganizationID, ProductKey: product, Version: 2, PublicationID: publication2, PayloadHash: collection.Digest(raw), SnapshotJSON: raw}).Error)
+		require.NoError(t, db.Exec("UPDATE product_collection_items SET original_version=2,publication_id=?,revision=2 WHERE id=?", publication2, item).Error)
+		transfer2, e := ps.Transfer(actor, uuid.NewString(), preparation.TransferInput{BatchID: batch, ExpectedRevision: 1})
+		require.NoError(t, e)
+		sources2, e := ps.ListSources(actor, transfer2.Preparation.ID, collection.Query{Limit: 20})
+		require.NoError(t, e)
+		// An explicit transfer without a saved head is absent from the list.
+		emptyHistory, e := service.ListHistory(actor, sources2.Items[0].ID, completiondraft.HistoryQuery{})
+		require.NoError(t, e)
+		require.Empty(t, emptyHistory.Items)
+		require.Zero(t, emptyHistory.CurrentRevision)
+		before, e := service.ListForCollectionItem(actor, item, collection.Query{Limit: 20})
+		require.NoError(t, e)
+		require.EqualValues(t, 1, before.Total)
+		saved, e := service.Save(actor, uuid.NewString(), completiondraft.SaveInput{SourceID: sources2.Items[0].ID, Content: completiondraft.Content{Title: "Candidate V2"}})
+		require.NoError(t, e)
+		page, e := service.ListForCollectionItem(actor, item, collection.Query{Limit: 1, Keyword: "Candidate"})
+		require.NoError(t, e)
+		require.Equal(t, item, page.CollectionItemID)
+		require.EqualValues(t, 2, page.Total)
+		require.Len(t, page.Items, 1)
+		require.NotEmpty(t, page.NextCursor)
+		rest, e := service.ListForCollectionItem(actor, item, collection.Query{Limit: 1, Keyword: "Candidate", After: page.NextCursor})
+		require.NoError(t, e)
+		require.Len(t, rest.Items, 1)
+		require.Empty(t, rest.NextCursor)
+		got := map[string]completiondraft.Record{page.Items[0].Source.ID: page.Items[0], rest.Items[0].Source.ID: rest.Items[0]}
+		require.Equal(t, recovered.Record, got[input2.SourceID])
+		require.Equal(t, saved.Record, got[sources2.Items[0].ID])
+		require.EqualValues(t, 1, got[input2.SourceID].Source.Source.Version)
+		require.EqualValues(t, 4, got[input2.SourceID].Revision)
+		for _, other := range []collection.Scope{{OrganizationID: "org-b", ActorID: scope.ActorID, MemberID: scope.MemberID}, {OrganizationID: scope.OrganizationID, ActorID: "actor-b", MemberID: scope.MemberID}, {OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, MemberID: "member-b"}} {
+			private, e := repo.ListForCollectionItem(ctx, other, item, collection.Query{Limit: 20, Keyword: product})
+			require.NoError(t, e)
+			require.Zero(t, private.Total)
+			require.Empty(t, private.Items)
+		}
+		private, e := repo.ListForCollectionItem(ctx, scope, uuid.NewString(), collection.Query{Limit: 20, Keyword: product})
+		require.NoError(t, e)
+		require.Zero(t, private.Total)
+		require.NoError(t, db.Exec("UPDATE product_collection_items SET archived_at=now() WHERE id=?", item).Error)
+		_, e = service.ListForCollectionItem(actor, item, collection.Query{Limit: 20})
+		require.ErrorIs(t, e, collection.ErrNotFound)
+		_, e = service.Read(actor, input2.SourceID)
+		require.NoError(t, e, "retained source access keeps its existing archive contract")
+		_, e = service.ListHistory(actor, input2.SourceID, completiondraft.HistoryQuery{})
+		require.NoError(t, e, "history uses the same retained-source authority")
+		require.NoError(t, db.Exec("UPDATE product_collection_items SET archived_at=NULL WHERE id=?", item).Error)
+		require.NoError(t, db.Exec("UPDATE product_collection_items SET original_version=1,publication_id=?,revision=1 WHERE id=?", publication, item).Error)
+	})
 	// Large valid descriptions must page within the existing response budget,
+	t.Run("history budget keeps every earlier saved revision", func(t *testing.T) {
+		content := completiondraft.Content{Title: "history-budget", Description: strings.Repeat("a", 32768)}
+		contentJSON, e := json.Marshal(content)
+		require.NoError(t, e)
+		for revision := 5; revision <= 74; revision++ {
+			require.NoError(t, db.Exec(`INSERT INTO listing_completion_draft_records (organization_id,actor_id,member_id,id,source_id,draft_id,revision,source_json,content_json,content_hash,created_at) SELECT organization_id,actor_id,member_id,gen_random_uuid(),source_id,draft_id,?,source_json,?,?,now() FROM listing_completion_draft_records WHERE id=?`, revision, contentJSON, collection.Digest(content), first.Record.ID).Error)
+		}
+		require.NoError(t, db.Exec(`UPDATE listing_completion_draft_heads SET revision=74,record_id=(SELECT id FROM listing_completion_draft_records WHERE source_id=? AND revision=74) WHERE source_id=?`, input2.SourceID, input2.SourceID).Error)
+		auth.calls.Store(0)
+		history, e := service.ListHistory(actor, input2.SourceID, completiondraft.HistoryQuery{Limit: 100})
+		require.NoError(t, e)
+		require.Less(t, auth.calls.Load(), int64(30), "authorization is bounded per page, not per record")
+		require.NotZero(t, history.NextBefore)
+		encoded, e := json.Marshal(history)
+		require.NoError(t, e)
+		require.Less(t, len(encoded), 2<<20)
+		rest, e := service.ListHistory(actor, input2.SourceID, completiondraft.HistoryQuery{Limit: 100, Before: history.NextBefore})
+		require.NoError(t, e)
+		require.Zero(t, rest.NextBefore)
+		all := append(history.Items, rest.Items...)
+		require.Len(t, all, 74)
+		for index, record := range all {
+			require.EqualValues(t, 74-index, record.Revision)
+		}
+	})
 	// retaining every remaining source rather than truncating the list.
 	content := completiondraft.Content{Title: "large-page-fixture", Description: strings.Repeat("a", 32768)}
 	contentJSON, err := json.Marshal(content)
@@ -261,8 +386,104 @@ func TestPostgresUnboundDraftAtomicCASReplayAndUnknownRecovery(t *testing.T) {
 		seen[v.Source.ID] = true
 	}
 	require.Len(t, seen, 70)
+	// Reuse the large records to verify the item query has the same byte budget.
+	// Give each source a distinct preparation for the retained item uniqueness.
+	for _, v := range append(largePage.Items, rest.Items...) {
+		prepID := uuid.NewString()
+		require.NoError(t, db.Exec(`INSERT INTO listing_preparations(organization_id,actor_id,member_id,id,source_batch_id,source_revision,name,item_count,revision,created_at,command_key,input_hash,input_json) SELECT organization_id,actor_id,member_id,?,source_batch_id,source_revision,name,item_count,revision,created_at,?,input_hash,input_json FROM listing_preparations WHERE id=?`, prepID, uuid.NewString(), transfer.Preparation.ID).Error)
+		require.NoError(t, db.Exec("UPDATE listing_preparation_sources SET preparation_id=?,collection_item_id=? WHERE id=?", prepID, item, v.Source.ID).Error)
+		require.NoError(t, db.Exec(`UPDATE listing_completion_draft_records SET source_json=jsonb_set(jsonb_set(source_json,'{collectionItemId}',to_jsonb(?::text)),'{preparationId}',to_jsonb(?::text)) WHERE id=?`, item, prepID, v.ID).Error)
+	}
+	auth.calls.Store(0)
+	itemPage, err := service.ListForCollectionItem(actor, item, collection.Query{Limit: 100, Keyword: "large-page-fixture"})
+	require.NoError(t, err)
+	require.Less(t, auth.calls.Load(), int64(20))
+	require.EqualValues(t, 70, itemPage.Total)
+	require.NotEmpty(t, itemPage.NextCursor)
+	encoded, err = json.Marshal(itemPage)
+	require.NoError(t, err)
+	require.LessOrEqual(t, len(encoded), 2<<20)
+	itemRest, err := service.ListForCollectionItem(actor, item, collection.Query{Limit: 100, Keyword: "large-page-fixture", After: itemPage.NextCursor})
+	require.NoError(t, err)
+	require.Empty(t, itemRest.NextCursor)
+	seen = map[string]bool{}
+	for _, v := range append(itemPage.Items, itemRest.Items...) {
+		require.False(t, seen[v.Source.ID])
+		seen[v.Source.ID] = true
+	}
+	require.Len(t, seen, 70)
 	// A stale immutable JSON/source binding cannot be returned as a current row.
 	require.NoError(t, db.Exec("UPDATE listing_preparation_sources SET collection_revision=collection_revision+1 WHERE id=?", largePage.Items[0].Source.ID).Error)
-	_, err = repo.List(ctx, scope, transfer.Preparation.ID, collection.Query{Limit: 100, Keyword: "large-page-fixture"})
+	_, err = repo.ListForCollectionItem(ctx, scope, item, collection.Query{Limit: 100, Keyword: "large-page-fixture"})
 	require.ErrorIs(t, err, preparation.ErrUnavailable)
+
+	t.Run("structured JSONB values preserve old commands and complete snapshot CAS", func(t *testing.T) {
+		originalSource := sources.Items[0].ID
+		latest, e := service.Read(actor, originalSource)
+		require.NoError(t, e)
+		structured := completiondraft.SaveInput{SourceID: originalSource, ExpectedRevision: latest.Revision}
+		require.NoError(t, json.Unmarshal([]byte(`{"title":"structured","description":"","structured":{"attributes":[],"variants":[{"sourceIndex":0,"price":{"currency":"CNY","amount":0},"stock":0},{"sourceIndex":1,"price":null,"stock":null}]}}`), &structured.Content))
+		commandKey := uuid.NewString()
+		written, e := service.Save(actor, commandKey, structured)
+		require.NoError(t, e)
+		read, e := service.Read(actor, originalSource)
+		require.NoError(t, e)
+		require.Equal(t, written.Record, read)
+		repeated, e := service.ReadCommand(actor, commandKey)
+		require.NoError(t, e)
+		require.Equal(t, written.Record, repeated.Record)
+		old, e := service.ReadCommand(actor, key)
+		require.NoError(t, e)
+		require.Equal(t, first.Record, old.Record)
+		oldRevision, e := service.ReadRevision(actor, originalSource, 1)
+		require.NoError(t, e)
+		require.Nil(t, oldRevision.Content.Structured)
+		history, e := service.ReadRevision(actor, originalSource, written.Record.Revision)
+		require.NoError(t, e)
+		require.Equal(t, written.Record, history)
+		changed := structured
+		// A JSON copy ensures the same-key mutation does not edit the original test input.
+		encoded, e := json.Marshal(structured)
+		require.NoError(t, e)
+		require.NoError(t, json.Unmarshal(encoded, &changed))
+		*changed.Content.Structured.Variants[0].Stock = 1
+		_, e = service.Save(actor, commandKey, changed)
+		require.ErrorIs(t, e, preparation.ErrConflict)
+		structured.ExpectedRevision = written.Record.Revision
+		outcomes := make(chan error, 2)
+		var group sync.WaitGroup
+		for range 2 {
+			group.Add(1)
+			go func() {
+				defer group.Done()
+				_, failure := service.Save(actor, uuid.NewString(), structured)
+				outcomes <- failure
+			}()
+		}
+		group.Wait()
+		close(outcomes)
+		var success, conflict int
+		for failure := range outcomes {
+			if failure == nil {
+				success++
+			} else {
+				require.ErrorIs(t, failure, preparation.ErrConflict)
+				conflict++
+			}
+		}
+		require.Equal(t, 1, success)
+		require.Equal(t, 1, conflict)
+		latest, e = service.Read(actor, originalSource)
+		require.NoError(t, e)
+		require.True(t, completiondraft.EqualContent(structured.Content, latest.Content))
+		require.EqualValues(t, 1, latest.Source.Source.Version)
+		// JSONB canonicalizes numeric -0 to 0; hashes must use the same zero.
+		zeroInput := completiondraft.SaveInput{SourceID: originalSource, ExpectedRevision: latest.Revision}
+		require.NoError(t, json.Unmarshal([]byte(`{"title":"signed zero","description":"","structured":{"attributes":[],"variants":[{"sourceIndex":0,"price":{"currency":"CNY","amount":-0},"stock":0},{"sourceIndex":1,"price":null,"stock":null}]}}`), &zeroInput.Content))
+		zeroSave, e := service.Save(actor, uuid.NewString(), zeroInput)
+		require.NoError(t, e)
+		zeroRead, e := service.Read(actor, originalSource)
+		require.NoError(t, e)
+		require.Equal(t, zeroSave.Record, zeroRead)
+	})
 }

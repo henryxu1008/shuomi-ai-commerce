@@ -62,6 +62,8 @@ The `Current guard coverage` section in `docs/architecture/next-steps.md`
 points here instead of maintaining a second copy. Structural review must
 consider the applicable guards, including:
 
+- `TestListingKitTaskBackendSourcesAreRetired`
+- `TestCurrentCommandsDoNotCompileLegacyBusinessBackends`
 - `TestBusinessDomainsDoNotImportAppHTTPAPI`
 - `depguard: domain_app_httpapi_boundaries`
 - `TestProjectBoundaryDomainsDoNotImportListingKitFacade`
@@ -95,6 +97,7 @@ consider the applicable guards, including:
 - `TestProductCatalogPersistenceAdapterImplementsOnlyApprovedBusinessPort`
 - `TestListingSubmissionPersistenceAdapterImplementsOnlySubmissionPort`
 - `TestSupplyPersistenceAndOfficialTransportOnlyImportAdmittedPorts`
+- `TestWalmartAdapterBusinessPortsStayExact`
 - `TestSupplyAndCollectionHTTPRegistrationKeepsBusinessSiblingsFrameworkFree`
 - `TestCockpitHTTPBoundaryRegistration`
 - `TestProductCatalogPersistenceGuardRejectsEverySiblingProductDomainFixture`
@@ -112,6 +115,7 @@ consider the applicable guards, including:
 - `TestSupplyMarketHTTPBoundaryRegistration` — permits only the approved Supply Market and POD HTTP subtrees; rejects domain roots, siblings and similar prefixes.
 - `TestDataServiceHTTPBoundaryRegistration` — permits only the approved Data Service HTTP subtree; rejects its domain, DI assembly, siblings and similar prefixes.
 - `TestProjectCenterHTTPBoundaryRegistration` — permits only the approved Project Center HTTP subtree; rejects the domain root and similar prefixes.
+- `TestSkillHTTPBoundaryRegistration` — permits only the approved Skill HTTP subtree; rejects domain contracts, siblings and similar prefixes.
 - `depguard: source_handoff_legacy_http`
 - `TestSourceHandoffLegacyHTTPImportsStayRetiredAcrossBuildTargets`
 - `TestAlibaba1688CrawlerDoesNotImportListingKitRoot`
@@ -236,15 +240,6 @@ consider the applicable guards, including:
 - `TestSheinBridgeExternalClientImportsStayAllowlisted`
 - `TestSheinRetiredManagementImportsStayBlocked`
 - `TestSheinOpenAIImportsStayAllowlisted`
-- `TestAppTaskRetiredManagementImportsStayBlocked`
-- `TestAppTaskRuntimeStoreAliasesStayRetired`
-- `TestAppTaskPollingSourceUsesCapabilityNames`
-- `TestAppTaskLegacyTaskSourceStaysRetired`
-- `TestAppTaskFetcherDoesNotStoreRetiredManagementService`
-- `TestAppTaskInterfacesDoNotExposeLegacyClientProviders`
-- `TestAppTaskDispatchGuardUsesCapabilityNames`
-- `TestAppTaskDispatcherUsesCapabilityNames`
-- `TestAppTaskStatusUpdatesUseCapabilityNames`
 - `TestAppRunnerRetiredManagementImportsStayBlocked`
 - `TestAppConsumerRetiredManagementImportsStayBlocked`
 - `TestPlatformProcessorRegistryDoesNotExposeRetiredManagementService`
@@ -295,9 +290,6 @@ consider the applicable guards, including:
 - `TestAppConsumerDoesNotUseManagementNamedTaskStatusAdapter`
 - `TestTaskStatusAdapterCallersUseRuntimeNamedConstructor`
 - `TestTaskStatusCompatibilityPackageStaysRetired`
-- `TestTaskStatusPackageDoesNotExposeManagementNamedAdapter`
-- `TestTaskStatusRuntimeErrorsUseCapabilityNames`
-- `depguard: app_taskstatus_legacy_management`
 - `TestPortsManagementAPIPackageIsRetired`
 - `TestGlobalPortsFacadePackageStaysRetired`
 - `TestLegacyResiliencePackageStaysRetired`
@@ -308,14 +300,10 @@ consider the applicable guards, including:
 - `TestListingAdminLegacyHTTPProjectionIsRetired`
 - `TestListingRuntimeDebugTaskLoaderUsesLocalTaskModel`
 - `TestAppTaskStatusDTOAdapterIsRetired`
-- `TestAmazonTaskStatusUpdatesUseTaskStatusRuntime`
-- `TestAmazonAuthPauseUsesStoreAPIPort`
 - `TestAmazonServicesUseStoreAPIPort`
 - `TestAmazonUsesManagementAPIPortAliases`
-- `TestTemuPricingRuntimeUsesCapabilityNames`
 - `TestTemuSchedulerRuntimeUsesCapabilityNames`
 - `TestTemuProcessorRuntimeUsesCapabilityNames`
-- `TestTemuSyncRuntimeUsesCapabilityNames`
 - `TestTemuRuntimeErrorsUseCapabilityNames`
 - `TestTemuContextUsesManagementAPIPortAliases`
 - `TestTemuRootUsesManagementAPIPortAliases`
@@ -326,16 +314,12 @@ consider the applicable guards, including:
 - `TestTemuSkuUsesManagementAPIPortAliases`
 - `TestTemuProductUsesManagementAPIPortAliases`
 - `TestTemuPricingUsesManagementAPIPortAliases`
-- `TestTemuSyncUsesManagementAPIPortAliases`
 - `TestTemuAPIClientUsesManagementAPIPortAliases`
-- `TestTemuPricingFallbackLogsUseCapabilityNames`
-- `TestTemuSyncFallbackLogsUseCapabilityNames`
 - `TestRetiredManagementServiceHotspotsUseCapabilityNames`
 - `TestRetiredManagementRuntimeNamingHotspotsUseCapabilityNames`
 - `TestAppRunnerSchedulerStoreRuntimeUsesCapabilityNames`
 - `TestAppRunnerProcessorLifecycleUsesRuntimeNames`
 - `TestAppRunnerHealthChecksUseRuntimeNames`
-- `TestTaskStatusPackageDoesNotExposeBroadManagementRuntimeConstructor`
 - `TestAppAssemblyUsesManagementAPIPortAliases`
 - `TestListingAdminUsesManagementAPIPortAliases`
 - `TestAppBootstrapRetiredManagementImportsStayBlocked`
@@ -343,13 +327,10 @@ consider the applicable guards, including:
 - `TestListingRuntimeLocalManagementImportsStayRetiredAcrossBuildTargets`
 - `TestAppHTTPAPIRetiredManagementImportsStayBlocked`
 - `TestAppRuntimeListingRetiredManagementImportsStayBlocked`
-- `TestAppTaskStatusRetiredManagementImportsStayBlocked`
 - `TestPlatformTaskRetiredManagementImportsStayBlocked`
 - `TestStateRetiredManagementImportsStayBlocked`
 - `TestStateAndTaskRPCUseManagementAPIPortAliases`
 - `TestPlatformBaseRetiredManagementImportsStayBlocked`
-- `TestProcessorRetiredManagementImportsStayBlocked`
-- `TestBaseProcessorDoesNotExposeRetiredManagementService`
 - `TestTaskRPCAPIRetiredManagementImportsStayBlocked`
 - `TestTaskRPCAPIRetiredActionRoutesStayRetired`
 - `TestSDSClientRetiredManagementImportsStayBlocked`
@@ -407,6 +388,8 @@ Supporting context documents must not be listed as review references unless prom
 - `docs/architecture/self-service-subscription-purchase-contract.md`
 - `docs/architecture/store-center-current-application-v1.md`
 - `docs/architecture/supply-market-v1.md`
+- `docs/architecture/supply-market-choice-eligibility.md`
+- `docs/architecture/selected-application-multi-product-v1.md`
 - `docs/architecture/selected-application-overview-v1.md`
 - `docs/architecture/store-center-platform-observations-v1.md`
 - `docs/architecture/store-observations-preparation-runtime.md`

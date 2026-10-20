@@ -130,6 +130,11 @@ func (r *Repository) Acquire(ctx context.Context, reservation submission.Executi
 		if err := advisoryLock(tx, "target", attempt.OrganizationID, attempt.Target.Platform, attempt.Target.StoreID, attempt.Target.SubjectID); err != nil {
 			return mutation{}, err
 		}
+		if isShelfTarget(attempt) {
+			if e := r.requireSheinShelf(ctx, tx, attempt); e != nil {
+				return mutation{}, e
+			}
+		}
 		fence, found, err := r.findTarget(ctx, tx, attempt.OrganizationID, attempt.Target, true)
 		if err != nil {
 			return mutation{}, err
@@ -145,6 +150,27 @@ func (r *Repository) Acquire(ctx context.Context, reservation submission.Executi
 		}
 		if found && (fence.CurrentStatus == string(submission.ExecutionClaimed) || fence.CurrentStatus == string(submission.ExecutionOutcomeUnknown)) {
 			return mutation{}, submission.ErrExecutionTargetClaimed
+		}
+		if found && isShelfTarget(attempt) {
+			if fence.CurrentStatus == string(submission.ExecutionSucceeded) {
+				return mutation{}, submission.ErrExecutionTargetSucceeded
+			}
+			prior, ok, e := r.findByID(ctx, tx, attempt.OrganizationID, fence.CurrentAttemptID, false)
+			if e != nil || !ok || !submission.ShelfCooldownReady(prior, r.now()) {
+				return mutation{}, submission.ErrExecutionTargetClaimed
+			}
+		}
+		if attempt.Target.Platform == "walmart" {
+			if !r.immutableOfficialEffects {
+				return mutation{}, submission.ErrExecutionEvidenceRequired
+			}
+			previous := ""
+			if found && fence.CurrentStatus == string(submission.ExecutionSucceeded) {
+				previous = fence.CurrentAttemptID
+			}
+			if err := r.requireWalmartEffect(ctx, tx, attempt, previous); err != nil {
+				return mutation{}, err
+			}
 		}
 		if found && fence.CurrentStatus == string(submission.ExecutionSucceeded) && r.immutableOfficialEffects && attempt.Target.Platform == "temu" {
 			if attempt.Action == submission.TemuPublishAction {

@@ -54,6 +54,7 @@ type Product struct {
 	Brand             string                    `json:"brand,omitempty"`
 	CategoryPath      []string                  `json:"category_path,omitempty"`
 	Description       string                    `json:"description,omitempty"`
+	DescriptionFormat string                    `json:"description_format,omitempty"`
 	SellingPoints     []string                  `json:"selling_points,omitempty"`
 	SEOKeywords       []string                  `json:"seo_keywords,omitempty"`
 	Attributes        map[string]Attribute      `json:"attributes,omitempty"`

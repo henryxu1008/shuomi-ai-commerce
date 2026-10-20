@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	confighttp "task-processor/internal/agentconfig/httpapi"
 	"task-processor/internal/httproute"
+	skillhttp "task-processor/internal/skill/httpapi"
 )
 
 func agentAndPointRoutes(agent, points bool) []httproute.Descriptor {
@@ -19,6 +20,7 @@ func agentAndPointRoutes(agent, points bool) []httproute.Descriptor {
 	routes = append(routes, billingDescriptorsForTest()...)
 	if agent {
 		routes = append(routes, productAgentRoutes(nil)...)
+		routes = append(routes, registeredProductAgentRoutes(nil, true)...)
 		for _, route := range productReviewRoutes(nil, nil) {
 			if route.Method != http.MethodPost || route.Path != "/api/product/text-proposals" {
 				routes = append(routes, route)
@@ -33,12 +35,13 @@ func agentAndPointRoutes(agent, points bool) []httproute.Descriptor {
 
 func TestCurrentApplicationConfigurationMountsWithoutExecution(t *testing.T) {
 	routes := append(agentAndPointRoutes(false, false), confighttp.Routes(nil)...)
+	routes = append(routes, skillhttp.Routes(nil)...)
 	validate := func(r []httproute.Descriptor) error {
 		return validateCurrentApplicationRoutesInternal(r, false, false, false, false, false, false, false, currentApplicationOptionalRoutes{AgentConfiguration: true})
 	}
 	require.NoError(t, validate(routes))
 	for i, route := range routes {
-		if route.Module != confighttp.Module {
+		if route.Module != confighttp.Module && route.Module != "skills" {
 			continue
 		}
 		changed := append([]httproute.Descriptor(nil), routes...)
@@ -70,7 +73,7 @@ func TestCurrentApplicationAgentAndPointPermissionsSurviveComposition(t *testing
 	}
 	require.NoError(t, validate(routes))
 	for i, route := range routes {
-		if !strings.HasPrefix(route.Path, productAgentBase) && !strings.HasPrefix(route.Path, memberPointLimitBase) {
+		if !strings.HasPrefix(route.Path, productAgentBase) && !strings.HasPrefix(route.Path, productContentAgentBase) && !strings.HasPrefix(route.Path, memberPointLimitBase) {
 			continue
 		}
 		for name, mutate := range map[string]func(*httproute.Descriptor){

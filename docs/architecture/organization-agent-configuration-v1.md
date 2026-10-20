@@ -15,6 +15,8 @@
 
 ## 1. Product outcome and authority
 
+2026-10-19 bounded addition: [Model route and pricing management V1](model-route-pricing-management-v1.md), #830, owns current execution route/rate revisions within the existing AI capability/ProductAgent/ImageAgent persistence boundaries. It does not store current routing in OrganizationAgent, templates, command history or immutable start snapshots. The new management authorization does not grant enterprise template administrators model/pricing permissions. The original owner and execution snapshot contracts below remain in force.
+
 An administrator enables the existing Product title Agent for the current enterprise,
 maintains a versioned default template, and members explicitly confirm the effective
 configuration before using the existing title → Knowledge → Human Review → Apply path.

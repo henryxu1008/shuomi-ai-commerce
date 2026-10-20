@@ -53,9 +53,18 @@ func generationPointDatabases(t *testing.T, unprepared ...bool) (*gormRepository
 	t.Helper()
 	ctx := context.Background()
 	imageDB := generationTestDatabase(t)
-	initializeSlotEffectRun(t, NewGormRepository(imageDB), "run-slot-effect-v3-points")
-	require.NoError(t, imageDB.Model(&runRecord{}).Where("id = ?", "run-slot-effect-v3-points").Updates(map[string]any{"scope_protocol": imageagent.OrganizationScopeProtocol, "member_id": "grant-1"}).Error)
 	owner := NewOrganizationRepository(imageDB).(*gormRepository)
+	run := manualRun("run-slot-effect-v3-points", "tenant-a")
+	run.ScopeProtocol, run.MemberID = imageagent.OrganizationScopeProtocol, "grant-1"
+	plan := planRevision(1)
+	_, err := owner.InitializeRun(ctx, imageagent.ProjectionInitialization{
+		Scope: imageagent.ScopeForRun(*run), Run: *run, Plan: plan,
+		Catalog: imageagent.AssetCatalog{Assets: []imageagent.AuthorizedAsset{
+			{ID: "source-1", Type: imageagent.AuthorizedAssetSource, URL: "https://source.example/source.png"}, {ID: "style-1", Type: imageagent.AuthorizedAssetStyle},
+		}},
+		Snapshot: imageagent.RunProjection{Run: *run, Plan: plan}, CommitID: "start:" + run.ID, EventType: "run.initialized", EventPayload: []byte(`{}`),
+	})
+	require.NoError(t, err)
 	reservation := v3Reservation("points")
 	_, won, err := owner.ReserveSlotProviderV3(ctx, reservation)
 	require.NoError(t, err)

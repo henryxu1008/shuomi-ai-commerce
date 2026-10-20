@@ -24,21 +24,6 @@ func DraftPayloadOf(pkg *Package) *RequestDraft {
 	return pkg.DraftPayload
 }
 
-// EnsureDraftPayload returns the semantic SHEIN draft, creating it when a
-// package needs to start building one. The historical alias is kept in sync
-// for old JSON readers and writers.
-func EnsureDraftPayload(pkg *Package) *RequestDraft {
-	if pkg == nil {
-		return nil
-	}
-	NormalizePackageSemanticFields(pkg)
-	if pkg.DraftPayload == nil {
-		pkg.DraftPayload = &RequestDraft{}
-		pkg.RequestDraft = pkg.DraftPayload
-	}
-	return pkg.DraftPayload
-}
-
 // SetDraftPayload makes the semantic draft the single new write target while
 // mirroring it to the legacy JSON compatibility field.
 func SetDraftPayload(pkg *Package, draft *RequestDraft) *Package {

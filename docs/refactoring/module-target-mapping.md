@@ -1,5 +1,23 @@
 # Module Target Mapping
 
+> #29 / #301 [user-confirmed complete Task diagnostics closure](../architecture/legacy-task-diagnostics-retirement-boundary.md), frozen design ddc6414b0 / Reuse Existing Architecture, is source-implemented in #844. The old pricing-cache inspector and preview dataset checker have no relocation target or successor Task/cache owner; exclusive test/example/helpers and exact help/validation/Temporal PoC documentation tails retire together. Current pricing/API/rules, Temporal infrastructure/workers, generic DB tools, prompt replay, Store and standalone SHEIN login/sync keep their owners. Historical mappings/counts, commercial gates, workflows/inventories/runtime/data and trial prerequisites are unchanged.
+
+> #529 / #301 [confirmed Yudao identity operations closure](../architecture/legacy-yudao-identity-operations-retirement-boundary.md): three historical user importers and the owner-recovery dry-run are source-retired together in #842 under frozen design 370695e82, including inline helpers/report generators and direct documentation tails. There is no replacement or relocation target for old-ID mapping/import/recovery. Current authruntime/Organization/phone onboarding, shared ZITADEL infrastructure and standalone SHEIN login/Store sync keep their owners. Historical mappings/counts, all workflows/inventories, runtime/data and trial prerequisites are unchanged.
+
+> #839 用户确认冻结设计 `0871cb591` 后按[完整运维源码闭包](../architecture/legacy-listing-operations-closure-retirement-boundary.md)整批实施，Independent Architecture / IMPLEMENTATION_READY。旧部署/监控/rollout/恢复SQL没有替代业务owner；仅原Prometheus PVC低空间规则及同namespace窄路由由现有monitoring源owner承接。SHEIN共享凭据装配及当前Store/登录/采集/监控/通用工具保持，准确矩阵见§5/§6.1。历史映射、计数、全部workflow/inventory不改，不授权运行清理。
+
+> #836 [旧数字任务与刊登专属配置完整闭包](../architecture/legacy-runtime-config-closure-retirement-boundary.md)：冻结设计 `209b40f54` 已确认并整批实施，旧 Processor/Worker/control-plane、全局 RabbitMQ 任务 schema、平台旧调度/核价/同步/监控、debug/usage 及其默认/加载/env/校验/示例/专属测试尾部一起退出；仅替代§5/§6.1准确对象的旧保留表述。真实采集 workerpool、独立通用 queue/Retry、当前身份/计费/图像/平台/Store 与独立 SHEIN 登录/同步 owner 保持；原 Viper/Manager/合并算法不变。历史矩阵/计数保留，全部 workflow/inventory 不改，无真实配置/实例/数据操作或新试用前置。
+
+> #833 [旧数字内容配置完整闭包](../architecture/legacy-numeric-content-management-closure-retirement-boundary.md)：冻结设计 d139bcccc 已确认并整批实施，三族无生产注入的词库/话题配置仓库读写、DTO、全局 setter、专属 schema/迁移和调用尾部源码退出；此前整体保留表述仅在该设计 §5/§6.1 的准确对象上被替代。当前默认清理直接复用原 content 内存工厂，品牌/字段/runtimeCtx、generationtopics 纯规则、Store/API/schema/权限与独立登录/Store 同步保持。物理对象 UNKNOWN、不操作；原历史矩阵/计数保留，全部 workflow/inventory 不改，无新试用前置。
+
+> #831 [confirmed numeric Store closure](../architecture/legacy-numeric-store-management-closure-retirement-boundary.md) retires only the unused Store management/configuration declarations listed in §5, without relocating them or adding an owner/adapter. The original account repository's current reads/sync writes, nine-method StoreAPI, worker/TEMU consumers, shared values and current Store/Organization boundary remain. Earlier broad Store retention is narrowed only for this exact closure; no persistence/runtime operation, workflow or inventory-row change.
+
+> #827 [confirmed Publishing runtime closure](../architecture/legacy-shein-publishing-runtime-closure-retirement-boundary.md): The old Publishing runtime/factories/resolvers, persistence cache and remote submission/recovery helpers have no replacement owner or relocation target. Current Publishing values/assembly/strict validation and the 13 official ExecutionKernel files keep their current owners. Old mappings for only the exact closure are historical; no new facade or runtime/data migration. Workflows, dependencies, ceilings, runtime/data and trial prerequisites are unchanged.
+
+> #824 supersedes only the old numeric listing support mappings: taskrpcapi, workspace/shein, core/metrics and the eight unused listingadmin management families are source-retired under the [confirmed boundary](../architecture/legacy-numeric-listing-support-closure-retirement-boundary.md). No replacement transport, compatibility shell or persistence owner is introduced. Retained Store/content/topic contracts and the offline validator's exact readiness rules keep their existing owners; historical rows below are not new relocation work.
+
+> #822 已完整退休旧 internal/amazon 非API刊登子包、amazonlisting、marketplace/amazon、state、httpbootstrap 与 shared/timex；下文涉及这些对象的旧迁移目标仅保留历史映射，不是当前抽取/重建任务。当前 Amazon API/来源采集、httproute、其他共享能力与独立 SHEIN worker 保持，详见[本批边界](../architecture/legacy-amazon-listing-closure-retirement-boundary.md)。
+
 > Status: active current-owner and retirement mapping.<br>
 > Legacy policy: `docs/refactoring/legacy-hard-cut-policy.md`  
 > Product baseline: `PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08`
@@ -17,7 +35,32 @@ numeric sync leaves remain explicitly registered debt; they are not new owners
 or permission to add current consumers. Current schema evolution and worker
 contracts remain intact; source/build/review/CI and actual deployment are separate.
 
+### #529 / #301 release identity-preflight retirement
+
+The approved internal-trial boundary retires identity-preflight and its
+exclusive runtime/readers/tenantbridge packages. Current source API/UI
+release/rollback and PS entrypoints always fail before operations; production
+remains NOT_READY. The current image and source runner/RBAC inventory remove
+only the identity-preflight artifacts. Existing OIDC/RBAC/attestation security
+helpers, worker/schema contracts and required CI checks remain.
+
+Workbench current Organization/scoped roles are preserved without a legacy
+resolver hook, including valid numeric string Organization IDs. All bridge
+imports are absent. Earlier calibrations below are historical then-state;
+standalone SHEIN numeric account persistence remains separate debt. No live
+IAM, deployment, data, profile or historical executor is changed.
+
 ## 1. Purpose
+
+### #301 standalone SHEIN service assembly calibration
+
+The dedicated worker consumes only Service/Close from its original bootstrap.
+Unused SHEIN login HTTP handlers/routes/numeric header resolution are retired;
+bootstrap builds the unchanged service without a Handler/Module. Its actual
+command dependency graph no longer contains tenantbridge. The original account
+repository, worker, Redis, browser/profile, Store sync, health and cleanup remain.
+Worker numeric account persistence and release identity-preflight remain debt;
+this does not create current Organization ownership, deploy or touch stored data.
 
 ### #678 current command assembly calibration
 
@@ -26,7 +69,8 @@ The existing standalone SHEIN worker's process assembly belongs to
 `internal/app/runtime/sheinloginworker`, directly consumed by its cmd; its
 shared HTTP entrypoint is absent. Unused ListingAdmin HTTP projection/helpers
 are retired, while original repository/API behavior and current SHEIN draft
-semantics are unchanged. Remaining numeric/SHEIN transport and historical tools
+semantics are unchanged. The later #301 calibration above removes idle HTTP
+transport; remaining worker numeric account persistence and historical tools
 still require their own #301/#529 retirement; this does not create a new owner
 for their old facts or claim deployment/user acceptance.
 
@@ -36,7 +80,7 @@ The later identity-preparation batch retires the Yudao-to-ZITADEL migration
 dry-run script and unconsumed `tenantbridge/bootstrap`, without moving or
 wrapping them. Current Organization identity remains with its existing owner;
 no historical account/tenant mapping preparation is admitted. Only bootstrap's
-two real import edges and depguard exclusions disappear (seven to five).
+two real import edges and depguard exclusions disappear (then seven to five).
 The release identity-preflight, remaining resolver readers and standalone SHEIN
 worker keep their existing contracts and remain explicit retirement debt.
 
@@ -126,7 +170,7 @@ Current target ownership domains include:
 | `internal/ledger/orgresource` | Organization platform-resource balance/events/reservations | `internal/ledger/orgresource` + `internal/integration/orgresource` | CURRENT resource owner. Commercial acquisition may enter only through the narrow source-bound purchased-resource grant; no generic browser mint. |
 | `internal/commercial/billing` | sellable offer / authoritative quote / commercial order and recovery coordination | `internal/commercial/billing` | TARGET/CURRENT landing zone introduced by #457. It composes money and resource owners and must not duplicate their balances or settlement facts. |
 | `internal/platformtask` | task execution helpers | `internal/listing/task` or runtime owner such as Temporal/queue | Business task semantics and runtime execution stay separate. |
-| `internal/taskstatus` | task status helpers | owning listing/runtime domain or `internal/shared` for truly generic primitives | Do not make internal Task the user product model. |
+| retired `internal/taskstatus` / `internal/app/taskstatus` | old numeric task status helpers | current owning domains; no replacement numeric executor | **RETIRE: absent after #729; keep absent.** |
 | old `internal/catalog` | old canonical product package | `internal/product/catalog` | **RETIRE: package is already absent; keep it absent.** |
 | old `internal/asset` | old asset package | `internal/product/asset` | **RETIRE: package is already absent; keep it absent.** |
 | old `internal/imageasset` | old image/asset helpers | `internal/product/image` or `internal/product/asset` | **RETIRE: package is already absent; extract only if a still-valid behavior is rediscovered.** |
@@ -139,7 +183,7 @@ Current target ownership domains include:
 | `internal/aicapability` | current model capability/routing/policy/cost foundation | current AI Capability/Agent control-plane owner + persistence adapters | #126/#130 stabilize before Product Agent main implementation. |
 | `internal/prompt` / `internal/promptmgmt` | prompt contracts, persistence, management transport | Agent/prompt owner + integration persistence + app transport | Split domain contract, persistence, and HTTP assembly. |
 | `internal/crawler` | historical crawler implementations | `internal/integration/crawler/*` | Crawler owns extraction/runtime, not canonical Product facts. |
-| `internal/amazon` | mixed Amazon source/target logic | `internal/marketplace/amazon/*` + `internal/integration/crawler/amazon` | Keep source and target listing concepts separate. |
+| `internal/amazon/*` retained subpackages | Amazon API/rules/models/pipeline; root task executor retired by #729 | `internal/marketplace/amazon/*` + `internal/integration/crawler/amazon` | Keep source and target listing concepts separate. |
 | `internal/amazonlisting` | Amazon listing behavior | `internal/marketplace/amazon/*` / listing seams | Extract platform rules; do not copy a platform Workbench. |
 | `internal/shein` | mixed SHEIN logic | `internal/marketplace/shein/*` + `internal/integration/shein` | Separate API/client integration from platform business rules. |
 | `internal/publishing/shein` | historical SHEIN publishing shell | `internal/marketplace/shein/*` / existing submission owner | Extract valid rule/transport behavior; retire shell after callers switch. |
@@ -160,11 +204,14 @@ Current target ownership domains include:
 | `internal/kernel` / `internal/core` / `internal/pkg` | generic/cross-cutting helpers | `internal/platform/*`, `internal/shared`, or a named domain | Avoid new dumping grounds. |
 | `internal/validation` | generic validation primitives | `internal/shared/validation` or deterministic validator owner when business-specific | #34 owns readiness/validator business contract. |
 | `internal/state` | generic state handling | runtime or business state owner | State machines must have one named owner. |
-| `internal/processor` / `internal/pipeline` | mixed orchestration | app worker, Product sourcing, Listing workflow, or runtime owner | Split by business/side-effect ownership. |
+| `internal/pipeline` (numeric `internal/processor` retired by #729) | remaining orchestration | app worker, Product sourcing, Listing workflow, or runtime owner | Split by business/side-effect ownership. |
 | `internal/ports` / `internal/domain` / `internal/model` | broad aggregation packages | local owning domains | Prefer local contracts/models over global catch-alls. |
 | `internal/scheduler` | scheduling runtime | app worker / platform queue/Temporal | Runtime only. |
-| `internal/sourceaccount` | legacy source-account metadata/access/persistence still used by default ListingKit/crawler composition | `internal/sourceaccountregistry` + `internal/integration/persistence/sourceaccountregistry` for current Source Account registration; provider connection remains a separate current capability | **EXTRACT/RETIRE:** do not wrap this package or route a current registry caller through it. Source access is not Organization membership. See the bounded calibration and legacy register. |
-| `internal/tenantbridge` | active Organization ↔ legacy numeric tenant mapping | current Organization identity + each consuming domain's current persistence ownership | #301: freeze new consumers; new domains use native Organization identity; RETIRE legacy callers and package by owner; it allows no legacy numeric mapping, old-data migration/backfill or cutover. Never move it to another compatibility facade. |
+| `internal/sourceaccount` + unconstructed 1688 numeric queue/Profile chain + unregistered `app/productsourcing/httpapi` | old package, numeric import HTTP/DTO, queue Service/worker, numeric Profile/account-assisted methods and unused shared source-account metadata retired under #301 | `internal/sourceaccountregistry` + its existing persistence for current registration; current sourcing/acquisition/Browser Capture owners, original public browser/processor, local-agent and shared HTTP/result owners retain valid behavior | **RETIRE:** keep absent without wrapper, old-table/profile reuse or ID mapping. Registration is not a connected-account guarantee. Shared trusted TenantID, task/result state, scoped protections, infrastructure and the independent SHEIN worker remain unchanged. |
+| Independent `sheinlogin` worker numeric account/runtime boundary | Retained repository provider, DB/Redis/Profile/session/state and Store sync; unused alternate managed provider/helpers/verification DTO retired, duplicate lookup tenant-qualified and Store sync fails closed on incomplete/wrong-scope results (§5.1/§7) | Current Organization/Store/official business owners remain separate; valid shared contracts and independent worker capabilities stay with existing owners, without accepting cross-tenant duplicate handling | See [#301 confirmed boundary](../architecture/shein-worker-identity-persistence-boundary.md). No new current consumer, ID mapping, migration, runtime/data action or internal-trial prerequisite; code/CI does not imply real-environment acceptance. |
+| Standalone `listing-scheduler` / `shein-listing` / `temu-listing` and exclusive local/scheduler/sync graph | RETIRE: source and exclusive operation entrypoints absent under confirmed #29/#301 scope | Current acquisition, Store observations, valid shared contracts and independent login worker keep their owners; task/status/dispatch repository debt remains, control-plane subsequently retires in #726 | [Confirmed boundary](../architecture/legacy-listing-cli-retirement-boundary.md) §5/§6/§6.1 and the follow-up row below; original security/required CI retained; no runtime/data operation or trial prerequisite. |
+| `listing-control-plane` / `shein-import-platform-recovery` and exclusive orchestration | RETIRE: commands, runtime/control library, cohort helper/tests and exclusive operation packaging absent under confirmed scope | Current acquisition/observations/shared contracts and independent login worker keep original owners; task repository/races and package-external task/status consumers remain debt | [Confirmed boundary](../architecture/legacy-listing-control-plane-retirement-boundary.md) §5/§6/§6.1/§7; both workflows remove only obsolete targets, preserving required/security checks. No runtime/data actions or new trial prerequisite. |
+| `internal/tenantbridge` | package and all frozen imports absent after admitted preflight retirement | current Organization identity + each consuming domain's current persistence ownership | #301: freeze new consumers; new domains use native Organization identity; RETIRE legacy callers and package by owner; it allows no legacy numeric mapping, old-data migration/backfill or cutover. Never move it to another compatibility facade. |
 | `internal/zitadelprovision` | ZITADEL management/provisioning | integration identity provisioning + app operational entrypoint | External client stays in integration; app owns lifecycle. |
 | `web/listingkit-ui` | current Console application; #664 removes the old ListingKit/Task-first pages, default shell and dedicated request chains | final Figma Product Projection, especially #298 and Store Center surfaces; shared readonly identity transport lives in `src/lib/server/upstream-identity.ts` | Keep current Console, account, plans and review surfaces; current source/image/store surfaces and neutral primitives also remain. Retired paths stay absent without redirect, Task mapping or fallback. The directory name is not a legacy owner. Deployment and user acceptance are separate. |
 
@@ -246,7 +293,7 @@ Do not add a new internal compatibility wrapper just because retirement is incon
 
 | New work type | Preferred landing zone | Do not default to |
 | --- | --- | --- |
-| Amazon source crawler | `internal/integration/crawler/amazon` | mixed `internal/amazon`, old crawler roots |
+| Amazon source crawler | `internal/integration/crawler/amazon` | retained Amazon subpackages and old crawler roots; root numeric executor absent |
 | 1688 source crawler | `internal/integration/crawler/a1688` | `internal/crawler/alibaba1688`, compatibility handoff |
 | Source normalization / lineage | `internal/product/sourcing` | crawler DTOs, root ListingKit |
 | Product facts/assets/enrichment/image | `internal/product/{catalog,asset,enrichment,image}` | retired ProductEnrich/ProductImage/catalog/asset roots |

@@ -41,6 +41,8 @@ type ImageTarget struct {
 }
 
 type ImageSetPlan struct {
+	Text                                                           *ImageTextBinding     `json:",omitempty"`
+	Method                                                         *ImageMethodBinding   `json:",omitempty"`
 	ModeSnapshotRef                                                agent.ModeSnapshotRef `json:",omitzero"`
 	Schema                                                         string
 	Source                                                         ImageSourceBinding
@@ -87,7 +89,9 @@ type ImageSlotRecipe struct {
 	Placement                     ImagePlacement
 	OfficialPlacement             *OfficialImagePlacement `json:",omitempty"`
 	PromptVersion, Prompt         string
-	EvidenceDigest                string `json:",omitempty"`
+	EvidenceDigest                string   `json:",omitempty"`
+	TaskEvidence                  string   `json:",omitempty"`
+	VisibleText                   []string `json:",omitempty"`
 	References                    []ImageSourceObservation
 	Quote                         ImageGenerationQuote
 }
@@ -106,7 +110,7 @@ type ImageSlotClosure struct {
 }
 
 func (q ImageGenerationQuote) Valid() bool {
-	return q.Provider == "grsai" && q.Model == "gpt-image-2.5" && q.Protocol == "grsai-json-sync-v1" && q.Resolution == "1024x1024" && q.Quality == "auto" && q.Points > 0 && canonicalImageValue(q.PriceVersion) && canonicalImageValue(q.RouteReference) && canonicalImageValue(q.CredentialReference) && canonicalImageValue(q.ConfigurationVersion)
+	return validGenerationRoute(q.Provider, q.Model, q.Protocol) && q.Resolution == "1024x1024" && q.Quality == "auto" && q.Points > 0 && canonicalImageValue(q.PriceVersion) && canonicalImageValue(q.RouteReference) && canonicalImageValue(q.CredentialReference) && canonicalImageValue(q.ConfigurationVersion)
 }
 
 func canonicalImageValue(value string) bool {
@@ -138,9 +142,15 @@ func SlotRoleForImagePurpose(purpose string) SlotRole {
 }
 
 func ValidateImageSetPlan(plan Plan) error {
+	if plan.Set != nil && plan.Set.Method != nil && !plan.Set.Method.Valid() {
+		return ErrValidation
+	}
 	s := plan.Set
 	if s == nil || s.Schema != ImageSetSchema || len(plan.Slots) > MaxPlanSlots || len(plan.StyleReferenceIDs) > 0 {
 		return fmt.Errorf("%w: incomplete image set binding", ErrValidation)
+	}
+	if s.Method != nil && s.Method.PolicyVersion == ImageMethodPolicyVersion && s.Text == nil {
+		return ErrValidation
 	}
 	if s.Regeneration != nil && (!agentconfig.UUID(s.Regeneration.RunID) || !agentconfig.ImageDigest(s.Regeneration.ClosedEffectsDigest) || s.Regeneration.ResultDigest != "" && !agentconfig.ImageDigest(s.Regeneration.ResultDigest)) {
 		return ErrValidation
@@ -169,6 +179,17 @@ func ValidateImageSetPlan(plan Plan) error {
 		r := slot.Recipe
 		if r == nil || !r.Quote.Valid() || r.PromptVersion != ImageSetSchema || strings.TrimSpace(r.Prompt) == "" || !agentconfig.ValidSetText(r.Prompt, 16<<10) || !agentconfig.ValidSetText(r.Background, agentconfig.MaxSetBackgroundBytes) || strings.TrimSpace(r.Background) == "" || !agentconfig.ValidSetText(slot.Brief, agentconfig.MaxSetBriefBytes) || len(slot.StyleReferenceIDs) > 0 || len(r.References) < 1 || len(r.References) > agentconfig.MaxSetSourceReferences || len(r.References) != len(slot.SourceAssetIDs) {
 			return fmt.Errorf("%w: invalid image slot recipe", ErrValidation)
+		}
+		if len(r.VisibleText) > 2 || len(r.VisibleText) > 0 && s.Text == nil && !usesLiteralDetailCopy(s, r) {
+			return ErrValidation
+		}
+		for _, label := range r.VisibleText {
+			if !validDetailLabel(label) {
+				return ErrValidation
+			}
+		}
+		if err := validateReviewedImageText(s, slot, nil); err != nil {
+			return err
 		}
 		if r.Placement.Group != "carousel" && r.Placement.Group != "detail" || r.Placement.Order < 1 || r.Placement.Order > MaxPlanSlots || r.Placement.VariantID != "" && !canonicalImageValue(r.Placement.VariantID) {
 			return fmt.Errorf("%w: invalid image presentation position", ErrValidation)
@@ -247,6 +268,19 @@ func ImageSetQuoteDigest(plan Plan) (string, error) {
 		}
 		quotes = append(quotes, quotedSlot{slot.ID, slot.Recipe.Quote})
 	}
+	if plan.Set != nil && plan.Set.Text != nil {
+		return resultDigestSHA256(struct {
+			Quotes []quotedSlot
+			Method *ImageMethodBinding `json:",omitempty"`
+			Text   *ImageTextBinding
+		}{quotes, plan.Set.Method, plan.Set.Text})
+	}
+	if plan.Set != nil && plan.Set.Method != nil {
+		return resultDigestSHA256(struct {
+			Quotes []quotedSlot
+			Method *ImageMethodBinding
+		}{quotes, plan.Set.Method})
+	}
 	return resultDigestSHA256(quotes)
 }
 
@@ -262,6 +296,7 @@ func CloneImageSlotRecipe(recipe *ImageSlotRecipe) *ImageSlotRecipe {
 		return nil
 	}
 	clone := *recipe
+	clone.VisibleText = append([]string(nil), recipe.VisibleText...)
 	clone.References = append([]ImageSourceObservation(nil), recipe.References...)
 	if recipe.OfficialPlacement != nil {
 		position := *recipe.OfficialPlacement
@@ -275,6 +310,11 @@ func CloneImageSetPlan(set *ImageSetPlan) *ImageSetPlan {
 		return nil
 	}
 	clone := *set
+	clone.Text = CloneImageTextBinding(set.Text)
+	if set.Method != nil {
+		method := *set.Method
+		clone.Method = &method
+	}
 	if set.Regeneration != nil {
 		value := *set.Regeneration
 		clone.Regeneration = &value

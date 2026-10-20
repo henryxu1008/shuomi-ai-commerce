@@ -6,12 +6,22 @@ import (
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/imageagent"
 	"task-processor/internal/product/catalog"
+	"task-processor/internal/product/description"
 )
 
 // Source IDs are supplied by each existing source owner. Acquisition keeps
 // Catalog indexes; Supply keeps its publication-scoped source-image IDs.
 func PrepareImageProduct(contextID string, original, effective catalog.PublishedSnapshot, applyID string, assets []imageagent.AuthorizedAsset) (imageagent.ImageSetPreparation, error) {
-	if original.Identity != effective.Identity || original.Version == 0 || effective.Version < original.Version || original.PublicationID == "" || contextID == "" || len(assets) == 0 || (effective.Version > original.Version) != (applyID != "") {
+	if len(assets) == 0 {
+		return imageagent.ImageSetPreparation{}, imageagent.ErrRevisionConflict
+	}
+	return DescribeImageProduct(contextID, original, effective, applyID, assets)
+}
+
+// DescribeImageProduct exposes an authorized source truthfully, including an
+// empty original-image list. Generation still requires PrepareImageProduct.
+func DescribeImageProduct(contextID string, original, effective catalog.PublishedSnapshot, applyID string, assets []imageagent.AuthorizedAsset) (imageagent.ImageSetPreparation, error) {
+	if original.Identity != effective.Identity || original.Version == 0 || effective.Version < original.Version || original.PublicationID == "" || contextID == "" || (effective.Version > original.Version) != (applyID != "") {
 		return imageagent.ImageSetPreparation{}, imageagent.ErrRevisionConflict
 	}
 	attributes := map[string]string{}
@@ -28,7 +38,13 @@ func PrepareImageProduct(contextID string, original, effective catalog.Published
 	if err != nil {
 		return imageagent.ImageSetPreparation{}, err
 	}
-	return imageagent.ImageSetPreparation{Source: imageagent.ImageSourceBinding{ProductID: original.Identity.ProductKey, OperationID: contextID, OriginalPublicationID: original.PublicationID, OriginalVersion: original.Version, EffectiveVersion: effective.Version, ApplyReceiptID: applyID, CatalogHash: resolved.Manifest.Hash}, Catalog: resolved, Evidence: facts}, nil
+	generated := false
+	for _, source := range original.Snapshot.Sources {
+		if source.Type == "agent_generated" || source.Platform == "pod_artwork" || source.ReferenceType == imageagent.ArtworkSchema {
+			generated = true
+		}
+	}
+	return imageagent.ImageSetPreparation{EffectivePublicationID: effective.PublicationID, GeneratedArtwork: generated, Source: imageagent.ImageSourceBinding{ProductID: original.Identity.ProductKey, OperationID: contextID, OriginalPublicationID: original.PublicationID, OriginalVersion: original.Version, EffectiveVersion: effective.Version, ApplyReceiptID: applyID, CatalogHash: resolved.Manifest.Hash}, Catalog: resolved, Evidence: facts}, nil
 }
 
 func ImageProductEvidence(product catalog.ProductSnapshot) (map[string]string, error) {
@@ -45,7 +61,7 @@ func ImageProductEvidence(product catalog.ProductSnapshot) (map[string]string, e
 		evidence["brand"] = product.Brand
 	}
 	if product.Description != "" {
-		evidence["description"] = product.Description
+		evidence["description"] = description.PlainText(product.Description, product.DescriptionFormat)
 	}
 	if len(product.SellingPoints) > 0 {
 		if err := putJSON("selling_points", product.SellingPoints); err != nil {

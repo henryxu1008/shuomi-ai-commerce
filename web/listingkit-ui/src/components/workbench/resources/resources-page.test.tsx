@@ -25,6 +25,13 @@ beforeEach(() => {
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 });
 afterEach(() => { cleanup(); client.clear(); vi.unstubAllGlobals(); });
+it("uses effective member management permission for a configured administrator",async()=>{
+ state.context.roles=["configured-protected-admin"];state.context.permissions=["workbench.organization_member.read","workbench.organization_member.manage","workbench.commercial.read"];
+ state.pointLimits.mockResolvedValue({organizationId:"org-B",members:[{memberId:"grant",displayName:"成员甲",roles:[],configured:true,monthlyLimit:"25",consumed:"3",reserved:"2",remaining:"20",version:"1",monthStart:"2026-10-01T00:00:00Z",monthEnd:"2026-11-01T00:00:00Z"}]});
+ const view=render(tree());expect(await screen.findByLabelText("成员甲 AI 点数月度上限")).toBeEnabled();
+ state.context.permissions=["workbench.organization_member.read"];view.rerender(tree());
+ expect(screen.queryByLabelText("成员甲 AI 点数月度上限")).not.toBeInTheDocument();
+});
 
 it.each([false,undefined])("hides storage when the deployment does not advertise availability (%s)",async available=>{
  state.context.storageCapacityAvailable=available;render(tree());await screen.findByText("基础方案");

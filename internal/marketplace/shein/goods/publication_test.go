@@ -1,0 +1,99 @@
+package goods
+
+import (
+	"fmt"
+	"github.com/stretchr/testify/require"
+	"task-processor/internal/marketplace/shein/model"
+	"testing"
+	"time"
+)
+
+func TestPublicationInventoryRequiresApplicableFulfillmentType(t *testing.T) {
+	published := model.PublishResult{SPUName: "spu-a", Version: "v1", SKCs: []model.PublishedSKC{{SKCName: "skc-a", SKUs: []model.PublishedSKU{{SKUCode: "sku-a", SupplierSKU: "supplier-a"}}}}}
+	for _, mode := range []model.ApplicationMode{model.ModeSelfOperated, model.ModeSemiManaged, model.ModeFullyManaged} {
+		for _, requireArrival := range []string{"0", "1"} {
+			for _, quantity := range []int64{0, 7} {
+				for _, spotFlag := range []int{1, 2} {
+					t.Run(fmt.Sprintf("%s/arrival%s/stock%d/sample%d", mode, requireArrival, quantity, spotFlag), func(t *testing.T) {
+						payload := model.PublishProduct{Sample: &model.SampleInfo{SpotFlag: spotFlag}, SKCs: []model.ProductSKC{{ShelfWay: "1", ShelfRequire: requireArrival, SKUs: []model.ProductSKU{{SupplierSKU: "supplier-a"}}}}}
+						invType := "VI"
+						if mode == model.ModeFullyManaged {
+							invType = "PI"
+						}
+						stock := model.InventorySnapshot{Type: invType, Goods: []model.GoodsInventory{{SPU: "spu-a", SKC: "skc-a", SKUs: []model.SKUInventory{{Code: "sku-a", Usable: &quantity, Warehouses: []model.WarehouseInventory{{Code: "us-w", Usable: &quantity}}}}}}}
+						got := ObservePublication(published, payload, mode, model.DocumentAudit{}, model.ShelfProduct{}, stock, []model.Warehouse{{Code: "us-w", SaleCountries: []string{"US"}}}, time.Now(), map[string]bool{"sku-a": true})
+						require.Len(t, got, 1)
+						require.Len(t, got[0].SKUs, 1)
+						sku := got[0].SKUs[0]
+						require.Equal(t, &quantity, sku.ReportedUsable)
+						if mode == model.ModeFullyManaged {
+							require.Nil(t, sku.Usable, "PI and US warehouse do not prove the applicable fulfillment inventory type")
+							require.False(t, sku.InventoryScopeKnown)
+							require.False(t, got[0].CanShelf)
+						} else {
+							require.Equal(t, &quantity, sku.Usable)
+							require.True(t, sku.InventoryScopeKnown)
+						}
+					})
+				}
+			}
+		}
+	}
+}
+
+func TestUSUsableInventoryNeverSubstitutesTotalsOrAnotherType(t *testing.T) {
+	zero, three, seven := int64(0), int64(3), int64(7)
+	us := []model.Warehouse{{Code: "us", SaleCountries: []string{"US"}}, {Code: "cn", SaleCountries: []string{"CN"}}}
+	for _, tc := range []struct {
+		name       string
+		stock      model.SKUInventory
+		warehouses []model.Warehouse
+		want       *int64
+	}{
+		{"explicit zero", model.SKUInventory{Usable: &seven, Warehouses: []model.WarehouseInventory{{Code: "us", Usable: &zero}, {Code: "cn", Usable: &seven}}}, us, &zero},
+		{"US only", model.SKUInventory{Usable: &seven, Warehouses: []model.WarehouseInventory{{Code: "us", Usable: &three}, {Code: "cn", Usable: &seven}}}, us, &three},
+		{"provider total only", model.SKUInventory{Usable: &seven}, us, nil},
+		{"missing warehouse", model.SKUInventory{Warehouses: []model.WarehouseInventory{{Code: "cn", Usable: &seven}}}, us, nil},
+		{"unqualified warehouses", model.SKUInventory{Usable: &seven}, nil, nil},
+		{"missing one US warehouse", model.SKUInventory{Warehouses: []model.WarehouseInventory{{Code: "us", Usable: &three}}}, append(us, model.Warehouse{Code: "us2", SaleCountries: []string{"US"}}), nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, known := UsableInUS(tc.stock, tc.warehouses)
+			require.Equal(t, tc.want, got)
+			require.Equal(t, tc.want != nil, known)
+		})
+	}
+}
+
+func TestShelfEligibilityUsesOriginalAuditAndManagedPlan(t *testing.T) {
+	now := time.Date(2026, 10, 19, 0, 0, 0, 0, time.UTC)
+	approved, off, on, rejected, appeal := 2, 0, 1, 3, 5
+	for _, tc := range []struct {
+		name         string
+		mode         model.ApplicationMode
+		plan         model.ProductSKC
+		audit, shelf *int
+		want         bool
+	}{
+		{"self", model.ModeSelfOperated, model.ProductSKC{}, &approved, &off, true},
+		{"full", model.ModeFullyManaged, model.ProductSKC{ShelfWay: "1"}, &approved, &off, false},
+		{"future", model.ModeSemiManaged, model.ProductSKC{ShelfWay: "2", HopeOnSaleDate: "2026-10-20 08:00:00"}, &approved, &off, false},
+		{"due", model.ModeSemiManaged, model.ProductSKC{ShelfWay: "2", HopeOnSaleDate: "2026-10-19 08:00:00"}, &approved, &off, true},
+		{"auto", model.ModeSemiManaged, model.ProductSKC{ShelfWay: "1"}, &approved, &off, true},
+		{"unknown plan", model.ModeSemiManaged, model.ProductSKC{}, &approved, &off, false},
+		{"rejected", model.ModeSelfOperated, model.ProductSKC{}, &rejected, &off, false},
+		{"appeal", model.ModeSelfOperated, model.ProductSKC{}, &appeal, &off, false},
+		{"missing audit", model.ModeSelfOperated, model.ProductSKC{}, nil, &off, false},
+		{"missing shelf", model.ModeSelfOperated, model.ProductSKC{}, &approved, nil, false},
+		{"already on", model.ModeSelfOperated, model.ProductSKC{}, &approved, &on, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, _ := ShelfEligibility(tc.mode, tc.plan, tc.audit, tc.shelf, now)
+			require.Equal(t, tc.want, got)
+		})
+	}
+	require.Equal(t, "审核驳回", AuditLabel(&rejected))
+	require.Equal(t, "申诉中", AuditLabel(&appeal))
+	unknown := 99
+	require.Equal(t, "审核状态未知", AuditLabel(&unknown))
+}

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
 	"io"
 	"net"
 	"net/url"
@@ -17,6 +16,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 
 	coreconfig "task-processor/internal/core/config"
 	"task-processor/internal/imageagent"
@@ -33,6 +34,7 @@ const (
 var databaseNamePattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_-]{0,62}$`)
 
 type Config struct {
+	ModelRoutePricing                    *ModelRoutePricingConfig                  `json:"modelRoutePricing,omitempty"`
 	SourceMediaIsolatedTrialDeploymentID string                                    `json:"sourceMediaIsolatedTrialDeploymentID,omitempty"`
 	StorageCapacity                      bool                                      `json:"storageCapacity,omitempty"`
 	ReportCenter                         *ReportCenterConfig                       `json:"reportCenter,omitempty"`
@@ -125,7 +127,11 @@ func (a *AccountAuditUsageConfig) validate(cfg *Config) error {
 		{"product", "product_agent", "account_audit_product_reader", a.Product, nil},
 	} {
 		if target.name == "image" && cfg.ImageAgent != nil {
-			target.execution = &cfg.ImageAgent.Database
+			if cfg.ImageAgent.WorkerConfigFile == "" {
+				target.execution = &cfg.ImageAgent.Database
+			} else if !sameDatabaseTarget(target.value, cfg.ImageAgent.Database) {
+				return errors.New("full image audit reader must use the same current Image owner")
+			}
 		}
 		if target.name == "product" && cfg.ProductAgent != nil && cfg.ProductAgent.Enabled {
 			target.execution = &cfg.ProductAgent.Database
@@ -303,6 +309,9 @@ func ensureJSONEOF(decoder *json.Decoder) error {
 }
 
 func (cfg *Config) validate() error {
+	if _, err := cfg.modelRouteDefinitions(); err != nil {
+		return err
+	}
 	if cfg == nil || cfg.SchemaVersion != manifestSchemaVersion {
 		return fmt.Errorf("unsupported current application manifest schema version")
 	}
@@ -511,7 +520,7 @@ func (cfg *Config) validate() error {
 			if cfg.SupplyChain != nil && cfg.SupplyChain.AssetDatabase != image.AssetDatabase {
 				return errors.New("full image and Supply must share the same explicit Asset pool configuration")
 			}
-			if cfg.ProductAgent.Enabled && !sameDatabaseTarget(image.AssetDatabase, cfg.ProductAgent.AssetDatabase) {
+			if cfg.ProductAgent.Enabled && !cfg.ProductAgent.ContentTitleOnly && !cfg.ProductAgent.ContentOnly && !sameDatabaseTarget(image.AssetDatabase, cfg.ProductAgent.AssetDatabase) {
 				return errors.New("full image and title must use the current canonical Asset owner")
 			}
 		}

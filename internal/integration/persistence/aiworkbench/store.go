@@ -17,8 +17,10 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/aiworkbench"
+	"task-processor/internal/product/enrichment"
 )
 
 //go:embed schema.sql
@@ -98,6 +100,9 @@ type commandRow struct {
 func (commandRow) TableName() string { return "ai_workbench.commands" }
 
 type proposalRow struct {
+	ContextKind           *string                      `json:",omitempty"`
+	ContentSelection      *enrichment.ContentSelection `gorm:"serializer:json;type:jsonb" json:",omitempty"`
+	ExecutionLimits       *agent.Limits                `gorm:"serializer:json;type:jsonb" json:",omitempty"`
 	ID                    string
 	Digest                string
 	OrganizationID        string
@@ -177,9 +182,23 @@ func VerifySchema(ctx context.Context, db *gorm.DB) error {
 	if err := validateBoundedWorkbenchPrivileges(db.WithContext(ctx), currentRole); err != nil {
 		return aiworkbench.ErrUnavailable
 	}
-	if err := db.WithContext(ctx).Table("ai_workbench.execution_proposals").Select("observed_mode_revision").Limit(0).Find(&[]proposalRow{}).Error; err != nil {
+	if err := db.WithContext(ctx).Table("ai_workbench.execution_proposals").Select("observed_mode_revision, context_kind, content_selection, execution_limits").Limit(0).Find(&[]proposalRow{}).Error; err != nil {
 		return aiworkbench.ErrUnavailable
 	}
+	expectedChecks := map[string]string{
+		"ai_workbench_proposal_capability": `CHECK ((((kind = 'product.title.optimize'::text) AND (target_platform = ANY (ARRAY['shein'::text, 'temu'::text, 'amazon'::text])) AND (context_kind IS NULL) AND (content_selection IS NULL) AND (execution_limits IS NULL)) OR ((kind = 'product.content.localize'::text) AND (target_platform = 'product'::text) AND (context_kind IS NOT NULL) AND (context_kind = ANY (ARRAY['own_product'::text, 'acquisition'::text])) AND (content_selection IS NOT NULL) AND (jsonb_typeof(content_selection) = 'object'::text) AND (content_selection <> '{}'::jsonb) AND (execution_limits IS NOT NULL) AND (jsonb_typeof(execution_limits) = 'object'::text) AND (execution_limits <> '{}'::jsonb))))`,
+		"ai_workbench_task_capability":     `CHECK ((((kind = 'product.title.optimize'::text) AND (target_platform = ANY (ARRAY['shein'::text, 'temu'::text, 'amazon'::text]))) OR ((kind = 'product.content.localize'::text) AND (target_platform = 'product'::text))))`,
+	}
+	var checks []struct{ Name, Definition string }
+	if err := db.WithContext(ctx).Raw(`SELECT c.conname AS name,pg_get_constraintdef(c.oid) AS definition FROM pg_constraint c JOIN pg_namespace n ON n.oid=c.connamespace JOIN pg_class r ON r.oid=c.conrelid WHERE n.nspname='ai_workbench' AND c.contype='c' AND c.convalidated AND ((r.relname='execution_proposals' AND c.conname='ai_workbench_proposal_capability') OR (r.relname='business_tasks' AND c.conname='ai_workbench_task_capability'))`).Scan(&checks).Error; err != nil || len(checks) != 2 {
+		return aiworkbench.ErrUnavailable
+	}
+	for _, check := range checks {
+		if expectedChecks[check.Name] != check.Definition {
+			return aiworkbench.ErrUnavailable
+		}
+	}
+
 	return nil
 }
 
@@ -282,7 +301,7 @@ func command(row commandRow) aiworkbench.PlanningCommand {
 }
 
 func proposal(row proposalRow) aiworkbench.ExecutionProposal {
-	return aiworkbench.ExecutionProposal{ID: row.ID, Digest: row.Digest,
+	result := aiworkbench.ExecutionProposal{ID: row.ID, Digest: row.Digest,
 		Scope:          aiworkbench.Scope{OrganizationID: row.OrganizationID, ActorID: row.OwnerUserID},
 		ConversationID: row.ConversationID, SourceUserMessageID: row.SourceUserMessageID,
 		AssistantMessageID: row.AssistantMessageID, SourceSequence: row.SourceSequence,
@@ -294,6 +313,16 @@ func proposal(row proposalRow) aiworkbench.ExecutionProposal {
 		TemplateID:           row.TemplateID, TemplateRevision: row.TemplateRevision,
 		KnowledgeBaseID: row.KnowledgeBaseID, KnowledgeRevisionSetDigest: row.KnowledgeRevisionSetDigest,
 		ExecutionModelProfile: append([]byte(nil), row.ExecutionModelProfile...), CreatedAt: row.CreatedAt.UTC()}
+	if row.ContextKind != nil {
+		result.ContextKind = *row.ContextKind
+	}
+	if row.ContentSelection != nil {
+		result.ContentSelection = *row.ContentSelection
+	}
+	if row.ExecutionLimits != nil {
+		result.ExecutionLimits = *row.ExecutionLimits
+	}
+	return result
 }
 
 func proposalDigest(row proposalRow) string {
@@ -318,10 +347,9 @@ func validProposal(p *aiworkbench.ExecutionProposal) bool {
 	if _, err := agentconfig.ParseModeRevision(p.ObservedModeRevision); err != nil {
 		return false
 	}
-	if p == nil || p.Kind != "product.title.optimize" || len(p.GoalSummary) == 0 || len(p.GoalSummary) > 512 ||
+	if p == nil || !p.ValidCapability() || len(p.GoalSummary) == 0 || len(p.GoalSummary) > 512 ||
 		!utf8.ValidString(p.GoalSummary) || !validName(p.OperationID) || !validName(p.ProductKey) ||
 		!validName(p.CatalogVersion) || !validName(p.PublicationID) ||
-		(p.TargetPlatform != "shein" && p.TargetPlatform != "temu" && p.TargetPlatform != "amazon") ||
 		!validName(p.AgentID) || !validName(p.AgentVersion) || !validName(p.ObservedAgentRevision) ||
 		!validName(p.ObservedActivationEpoch) ||
 		(p.TemplateID == "") != (p.TemplateRevision == "") ||
@@ -345,7 +373,11 @@ func proposalMatchesSelection(p *aiworkbench.ExecutionProposal, raw json.RawMess
 	if json.Unmarshal(raw, &selected) != nil {
 		return false
 	}
-	return p.OperationID == selected.OperationID && p.TargetPlatform == selected.TargetPlatform &&
+	selectionMatches := p.OperationID == selected.OperationID && p.TargetPlatform == selected.TargetPlatform && selected.TaskSelection == nil && p.Kind == aiworkbench.TitleTaskKind
+	if selected.TaskSelection != nil {
+		selectionMatches = p.Selection() != nil && *p.Selection() == *selected.TaskSelection && selected.OperationID == "" && selected.TargetPlatform == ""
+	}
+	return selectionMatches &&
 		p.TemplateID == selected.TemplateID && p.TemplateRevision == selected.TemplateRevision &&
 		p.KnowledgeBaseID == selected.KnowledgeBaseID
 }
@@ -532,10 +564,10 @@ func validMessage(input aiworkbench.MessageInput) bool {
 	if len(input.Content) == 0 || len(input.Content) > 8192 || !utf8.ValidString(input.Content) {
 		return false
 	}
-	if !validName(input.OperationID) || len(input.TargetPlatform) == 0 || len(input.TargetPlatform) > 32 {
+	if !input.ValidSelection() {
 		return false
 	}
-	if input.TargetPlatform != "shein" && input.TargetPlatform != "temu" && input.TargetPlatform != "amazon" {
+	if raw, err := json.Marshal(input.WorkScope()); err != nil || len(raw) > 1024 {
 		return false
 	}
 	if len(input.TemplateID) > 128 || len(input.TemplateRevision) > 128 || len(input.KnowledgeBaseID) > 128 {
@@ -669,7 +701,7 @@ func (s *Store) AppendUser(ctx context.Context, scope aiworkbench.Scope, convers
 		}{scope.OrganizationID, scope.ActorID, conversationID, key, fingerprint})
 		prepared, err := prepare(history, invocationID)
 		if err != nil {
-			return err
+			return &aiworkbench.MessageNotAcceptedError{Cause: err}
 		}
 		if !validName(prepared.MemberID) ||
 			!prepared.Unavailable && (!validDigest(prepared.InputHash) || !json.Valid(prepared.ModelProfile) || prepared.Deadline.IsZero()) {
@@ -713,7 +745,8 @@ func (s *Store) AppendUser(ctx context.Context, scope aiworkbench.Scope, convers
 		return nil
 	})
 	if err != nil {
-		if errors.Is(err, aiworkbench.ErrInvalid) || errors.Is(err, aiworkbench.ErrNotFound) ||
+		var rejected *aiworkbench.MessageNotAcceptedError
+		if errors.As(err, &rejected) || errors.Is(err, aiworkbench.ErrInvalid) || errors.Is(err, aiworkbench.ErrNotFound) ||
 			errors.Is(err, aiworkbench.ErrConversationArchived) || errors.Is(err, aiworkbench.ErrIdempotencyConflict) {
 			return aiworkbench.PlanningCommand{}, false, err
 		}
@@ -816,6 +849,11 @@ func (s *Store) CompletePlan(ctx context.Context, scope aiworkbench.Scope, key s
 				TemplateID:           p.TemplateID, TemplateRevision: p.TemplateRevision, KnowledgeBaseID: p.KnowledgeBaseID,
 				KnowledgeRevisionSetDigest: p.KnowledgeRevisionSetDigest,
 				ExecutionModelProfile:      append([]byte(nil), p.ExecutionModelProfile...), CreatedAt: now}
+			if p.Kind == aiworkbench.ContentTaskKind {
+				proposed.ContextKind = &p.ContextKind
+				proposed.ContentSelection = &p.ContentSelection
+				proposed.ExecutionLimits = &p.ExecutionLimits
+			}
 			proposed.Digest = proposalDigest(proposed)
 			if err := tx.Create(&proposed).Error; err != nil {
 				return err

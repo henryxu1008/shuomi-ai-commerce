@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"task-processor/internal/product/description"
 
 	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/enrichment"
@@ -55,7 +56,7 @@ func snapshotContentValues(base catalog.ProductSnapshot, selection enrichment.Co
 		value := base.Title
 		switch field {
 		case "description":
-			value = base.Description
+			value = description.PlainText(base.Description, base.DescriptionFormat)
 		case "selling_points", "seo_keywords":
 			items := base.SellingPoints
 			if field == "seo_keywords" {

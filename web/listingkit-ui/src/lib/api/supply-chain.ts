@@ -1,5 +1,6 @@
 import { z } from "zod";
 import * as c from "../contracts/supply-chain";
+import {completionContentEqual} from "../contracts/completion-content";
 import { collectionID, type CollectionSourceKind } from "../contracts/product-collection";
 import type { CollectionScope } from "./product-collection";
 import { readBoundedStrictJSON } from "./strict-json-response";
@@ -7,7 +8,7 @@ import { supplyReviewCommand,supplyReviewApplyCommandSchema,supplyReviewDecision
 import { SupplyAPIError } from "./supply-error";
 
 export type SupplyScope=CollectionScope;
-export type SupplyIntent=Readonly<SupplyScope & { key:string; route:"save-completion-draft"|"transfer"|"save-target"|"approve"|"create-operation"|"resolve-upload"|"review-decision"|"review-apply"; command:unknown }>;
+export type SupplyIntent=Readonly<SupplyScope & { key:string; route:"shein-shelf-confirm"|"save-completion-draft"|"transfer"|"save-target"|"approve"|"create-operation"|"resolve-upload"|"review-decision"|"review-apply"; command:unknown }>;
 export function supplyIntentRequestSchema(route:SupplyIntent["route"]){
  if(route==="review-decision")return supplyReviewDecisionCommandSchema;
  if(route==="review-apply")return supplyReviewApplyCommandSchema;
@@ -36,8 +37,23 @@ export const readSupplySource=async(scope:SupplyScope,id:string,signal?:AbortSig
 export const readSupplyCompletionDraft=async(scope:SupplyScope,id:string,signal?:AbortSignal)=>{
  const value=await send(`${base}/sources/${collectionID.parse(id)}/completion-draft`,scope,c.completionRecordSchema,signal);if(value.source.id!==id)throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
 };
+export const listCompletionHistory=async(scope:SupplyScope,id:string,q:{before?:number;limit?:number}={},signal?:AbortSignal)=>{
+ const checked=c.completionHistoryQuerySchema.parse(q),params=new URLSearchParams({limit:String(checked.limit)});
+ if(checked.before)params.set("before",String(checked.before));
+ const value=await send(`${base}/sources/${collectionID.parse(id)}/completion-draft/history?${params}`,scope,c.completionHistorySchema,signal);
+ if(!c.parseSupplyResponse("completion-history",value,`${id}:${checked.before??0}:${checked.limit}`))throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
+};
+export const readCompletionRevision=async(scope:SupplyScope,id:string,revision:number,signal?:AbortSignal)=>{
+ const checked=c.completionHistoryQuerySchema.parse({before:revision}).before!;
+ const value=await send(`${base}/sources/${collectionID.parse(id)}/completion-draft/history/${checked}`,scope,c.completionRecordSchema,signal);
+ if(value.source.id!==id||value.revision!==checked)throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
+};
 export const listSupplyCompletionDrafts=async(scope:SupplyScope,id:string,q:Query={},signal?:AbortSignal)=>{
  const value=await send(`${base}/${collectionID.parse(id)}/completion-drafts${query(q)}`,scope,c.completionPageSchema,signal);if(value.items.some(r=>r.source.preparationId!==id))throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
+};
+export const listItemCompletionDrafts=async(scope:SupplyScope,id:string,q:Query={},signal?:AbortSignal)=>{
+ const value=await send(`${base}/collection-items/${collectionID.parse(id)}/completion-drafts${query({limit:20,...q})}`,scope,c.itemCompletionPageSchema,signal);
+ if(value.collectionItemId!==id||value.items.some(r=>r.source.collectionItemId!==id||r.source.source.kind!=="own"))throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
 };
 export const readSupplyTarget=async(scope:SupplyScope,source:string,store:string,signal?:AbortSignal)=>{
 	const value=await send(`${base}/sources/${collectionID.parse(source)}/targets/${collectionID.parse(store)}`,scope,c.sheinTargetRecordSchema,signal);if(value.source.id!==source||value.merchant.store_id!==store)throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
@@ -48,17 +64,31 @@ export const readSupplySavedTarget=async(scope:SupplyScope,source:string,store:s
 export const readSupplyPublication=async(scope:SupplyScope,source:string,store:string,signal?:AbortSignal)=>{
  const value=await send(`${base}/sources/${collectionID.parse(source)}/publications/${collectionID.parse(store)}`,scope,c.publicationSchema,signal);if(value.sourceId!==source||value.storeId!==store)throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
 };
-export const readSupplyPublicationStatus=async(scope:SupplyScope,source:string,store:string,signal?:AbortSignal)=>{
- const value=await send(`${base}/sources/${collectionID.parse(source)}/publications/${collectionID.parse(store)}/status`,scope,c.publicationSchema,signal);if(value.sourceId!==source||value.storeId!==store||!value.tiktokStatus)throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
+export const readSupplyPublicationStatus=async(scope:SupplyScope,source:string,store:string,signal?:AbortSignal,receiptId?:string)=>{
+ const value=await send(`${base}/sources/${collectionID.parse(source)}/publications/${collectionID.parse(store)}/status${receiptId?`/${collectionID.parse(receiptId)}`:""}`,scope,c.publicationSchema,signal);if(value.sourceId!==source||value.storeId!==store||!value.tiktokStatus&&!value.walmart&&!value.sheinStatus)throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
 };
 export const readSupplyRecord=async(scope:SupplyScope,id:string,signal?:AbortSignal)=>{
 	const value=await send(`${base}/records/${collectionID.parse(id)}`,scope,c.sheinTargetRecordSchema,signal);if(value.id!==id)throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
 };
 export const supplyRules=(scope:SupplyScope,input:c.SupplyTargetInput,signal?:AbortSignal)=>send(`${base}/target-rules`,scope,c.rulesSchema,signal,{method:"POST",command:c.targetInputSchema.parse(input)});
+export async function previewSheinImport(scope:SupplyScope,request:c.SheinImportRequest,signal?:AbortSignal){
+ const input=c.sheinImportRequestSchema.parse(request),result=await send(`${base}/shein-completion-preview`,scope,c.sheinImportPreviewSchema,signal,{method:"POST",command:input});
+ if(!c.matchesSheinImportPreview(result,input))throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return result;
+}
 export const temuSupplyRules=(scope:SupplyScope,input:z.infer<typeof c.temuRulesQuerySchema>,signal?:AbortSignal)=>send(`${base}/target-rules`,scope,c.temuRulesSchema,signal,{method:"POST",command:c.temuRulesQuerySchema.parse(input)});
+export const walmartSupplyRules=(scope:SupplyScope,input:z.infer<typeof c.walmartRulesQuerySchema>,signal?:AbortSignal)=>send(`${base}/target-rules`,scope,c.walmartRulesResponseSchema,signal,{method:"POST",command:c.walmartRulesQuerySchema.parse(input)});
 export const tiktokSupplyRules=(scope:SupplyScope,input:z.infer<typeof c.tiktokRulesQuerySchema>,signal?:AbortSignal)=>send(`${base}/target-rules`,scope,c.tiktokRulesSchema,signal,{method:"POST",command:c.tiktokRulesQuerySchema.parse(input)});
 export const supplyInventory=(scope:SupplyScope,input:z.infer<typeof c.sourceSelectionSchema>,signal?:AbortSignal)=>send(`${base}/images/inventory`,scope,c.inventorySchema,signal,{method:"POST",command:c.sourceSelectionSchema.parse(input)});
+export async function readSheinPublicationStatus(scope:SupplyScope,input:z.input<typeof c.sheinStatusInputSchema>,signal?:AbortSignal){
+ const command=c.sheinStatusInputSchema.parse(input),value=await send(base+"/shein-publication/status",scope,c.sheinPublicationStatusSchema,signal,{method:"POST",command});
+ if(!c.matchesSheinResponse("shein-status",value,JSON.stringify(command)))throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
+}
+export async function prepareSheinShelf(scope:SupplyScope,input:c.SheinShelfInput,signal?:AbortSignal){
+ const command=c.sheinShelfInputSchema.parse(input),key=crypto.randomUUID(),value=await send(base+"/shein-publication/prepare",scope,c.sheinShelfConfirmationSchema,signal,{method:"POST",command,key});
+ if(!c.matchesSheinResponse("shein-shelf-prepare",value,JSON.stringify({...command,key})))throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
+}
 export async function supplyCommand(intent:SupplyIntent,signal?:AbortSignal){
+ if(intent.route==="shein-shelf-confirm"){const input=c.sheinShelfConfirmInputSchema.parse(intent.command),value=await send(base+"/shein-publication/confirm",intent,c.sheinShelfActionSchema,signal,{method:"POST",command:input,key:intent.key,mutates:true});if(!c.matchesSheinResponse(intent.route,value,JSON.stringify({...input,key:intent.key})))throw new SupplyAPIError("OUTCOME_UNKNOWN",503);return value;}
  if(intent.route==="resolve-upload"){
   const input=c.resolveUploadSchema.parse(intent.command);
   const result=await send(`${base}/uploads/resolve`,intent,c.uploadResolutionSchema,signal,{method:"POST",command:input,mutates:true});
@@ -72,6 +102,7 @@ export async function supplyCommand(intent:SupplyIntent,signal?:AbortSignal){
 }
 export async function readSupplyCommand(intent:SupplyIntent,signal?:AbortSignal){
  const key=collectionID.parse(intent.key);
+ if(intent.route==="shein-shelf-confirm"){const input={...c.sheinShelfConfirmInputSchema.parse(intent.command),key},value=await send(base+"/shein-publication/result",intent,c.sheinShelfActionSchema,signal,{method:"POST",command:input});if(!c.matchesSheinResponse("shein-shelf-result",value,JSON.stringify(input)))throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;}
  // Approval is a safely repeatable local fact commit. Replaying the exact full
  // set with the same key reads its immutable receipt without a platform send.
  if(intent.route==="approve"||intent.route==="resolve-upload"||intent.route==="review-decision"||intent.route==="review-apply")return supplyCommand(intent,signal);
@@ -91,7 +122,7 @@ async function send<T extends z.ZodType>(path:string,scope:SupplyScope,schema:T,
  const bounded=/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
  if(!bounded.test(scope.userId)||!bounded.test(scope.organizationId))throw new SupplyAPIError("INVALID_REQUEST",400);
  const controller=new AbortController();const abort=()=>controller.abort();signal?.addEventListener("abort",abort,{once:true});if(signal?.aborted)abort();
- const timeout=setTimeout(abort,27_000);const unavailable=()=>new SupplyAPIError(input?.mutates?"OUTCOME_UNKNOWN":"DEPENDENCY_UNAVAILABLE",input?.mutates?503:502);
+ const timeout=setTimeout(abort,path.includes("/shein-publication/")?32_000:27_000);const unavailable=()=>new SupplyAPIError(input?.mutates?"OUTCOME_UNKNOWN":"DEPENDENCY_UNAVAILABLE",input?.mutates?503:502);
  try{
   const headers=new Headers({Accept:"application/json","X-Expected-Organization-ID":scope.organizationId,"X-Expected-User-ID":scope.userId});
   if(input?.command!==undefined)headers.set("Content-Type","application/json");if(input?.key)headers.set("Idempotency-Key",input.key);
@@ -106,7 +137,7 @@ function commandResult(value:unknown,intent:SupplyIntent,mutates:boolean){
  let valid=false;
  if(intent.route==="save-completion-draft"){
   const input=c.completionInputSchema.parse(intent.command),record=c.completionReceiptSchema.parse(value).record;
-  valid=record.source.id===input.sourceId&&record.revision===input.expectedRevision+1&&record.content.title===input.content.title&&record.content.description===input.content.description;
+  valid=record.source.id===input.sourceId&&record.revision===input.expectedRevision+1&&completionContentEqual(record.content,input.content);
  }
  if(intent.route==="approve")valid=c.imageApprovalReceiptSchema.parse(value).action_id===intent.key;
  if(intent.route==="transfer"){
@@ -116,6 +147,7 @@ function commandResult(value:unknown,intent:SupplyIntent,mutates:boolean){
  if(intent.route==="save-target"){
   const input=c.targetInputSchema.parse(intent.command),result=c.targetReceiptSchema.parse(value).record;
   valid=result.source.id===input.sourceId&&result.merchant.store_id===input.storeId&&result.input.expectedRevision===input.expectedRevision&&result.effectiveVersion===input.effectiveVersion&&(result.applyReceiptId??"")===(input.applyReceiptId??"");
+  if("sheinImport" in input&&input.sheinImport)valid=valid&&result.targetId===input.sheinImport.targetId&&result.revision===input.expectedRevision+1&&JSON.stringify(c.targetInputSchema.parse(result.input))===JSON.stringify(input);
  }
  if(intent.route==="create-operation"){
   const input=c.operationInputSchema.parse(intent.command),receipt=c.operationReceiptSchema.safeParse(value);

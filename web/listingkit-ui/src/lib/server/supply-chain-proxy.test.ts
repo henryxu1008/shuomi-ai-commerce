@@ -1,9 +1,39 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildWorkbenchUpstreamRequest, buildWorkbenchBrowserResponse } from "./workbench-proxy";
+import {sheinImportFixture} from "@/test/shein-import-fixture";
 const id="550e8400-e29b-41d4-a716-446655440000";
 const scope={cookie:"shuomi_effective_organization=org-a","X-Expected-Organization-ID":"org-a","X-Expected-User-ID":"actor-a"};
 describe("private supply chain proxy",()=>{
+ it("keeps SHEIN preview read-only and binds its entire selection echo",async()=>{
+  const f=sheinImportFixture(),path=["supply-preparations","shein-completion-preview"],url=`http://localhost/api/workbench/${path.join("/")}`;
+  const request=()=>new Request(url,{method:"POST",headers:{...scope,"content-type":"application/json"},body:JSON.stringify(f.request)});
+  const upstream=await buildWorkbenchUpstreamRequest(request(),path,"server-token","actor-a");expect(upstream).not.toBeInstanceOf(Response);if(upstream instanceof Response)return;
+  expect(upstream.sourceMutation).toBe(false);expect(upstream.expectedStoreId).toBe(JSON.stringify(f.request));
+  expect((await buildWorkbenchBrowserResponse(Response.json(f.preview),"supply-shein-completion-preview",upstream.expectedStoreId)).status).toBe(200);
+  expect((await buildWorkbenchBrowserResponse(Response.json({input:{...f.preview.input,sheinImport:{...f.preview.input.sheinImport,completionDraft:{recordId:id,revision:4}}}}),"supply-shein-completion-preview",upstream.expectedStoreId)).status).toBe(502);
+ });
  beforeEach(()=>vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL","http://localhost"));
+ it("binds history query bounds and exact saved revisions without command authority",async()=>{
+  const path=["supply-preparations","sources",id,"completion-draft","history"],url=`http://localhost/api/workbench/${path.join("/")}`;
+  const result=await buildWorkbenchUpstreamRequest(new Request(url+"?before=3&limit=2",{headers:scope}),path,"server-token","actor-a");
+  expect(result).not.toBeInstanceOf(Response);if(result instanceof Response)return;
+  expect(result.sourceMutation).toBe(false);expect(result.expectedStoreId).toBe(`${id}:3:2`);
+  for(const query of ["?before=0","?before=01","?before=9007199254740992","?before=2&before=2","?after="+id,"?actor=other","?limit=101"]){const bad=await buildWorkbenchUpstreamRequest(new Request(url+query,{headers:scope}),path,"server-token","actor-a");expect(bad).toBeInstanceOf(Response);if(bad instanceof Response)expect(bad.status).toBe(400)}
+  for(const suffix of [[],["1"]]){const bad=await buildWorkbenchUpstreamRequest(new Request(url+(suffix.length?"/1":""),{headers:{...scope,"Content-Encoding":"gzip"}}),[...path,...suffix],"server-token","actor-a");expect(bad).toBeInstanceOf(Response);if(bad instanceof Response)expect(bad.status).toBe(400)}
+  const other="550e8400-e29b-41d4-a716-446655440001",record={id,draftId:id,revision:1,source:{id,preparationId:other,collectionItemId:id,collectionRevision:1,source:{productKey:"product",publicationId:id,version:"1",kind:"own"}},content:{title:"saved",description:""},status:"pending_completion",createdAt:"2026-10-12T00:00:00Z"};
+  expect((await buildWorkbenchBrowserResponse(Response.json(record),"supply-completion-history-detail",`${id}:1`)).status).toBe(200);
+  expect((await buildWorkbenchBrowserResponse(Response.json(record),"supply-completion-history-detail",`${id}:2`)).status).toBe(502);
+  expect((await buildWorkbenchBrowserResponse(Response.json({source:record.source,draftId:id,currentRevision:1,items:[record]}),"supply-completion-history",`${other}:0:20`)).status).toBe(502);
+ });
+ it("bounds item draft discovery and validates the item echo and every fixed source",async()=>{
+  const path=["supply-preparations","collection-items",id,"completion-drafts"],url=`http://localhost/api/workbench/${path.join("/")}`;
+  const request=await buildWorkbenchUpstreamRequest(new Request(url+"?limit=20",{headers:scope}),path,"server-token","actor-a");expect(request).not.toBeInstanceOf(Response);if(request instanceof Response)return;expect(request.sourceMutation).toBe(false);expect(request.expectedStoreId).toBe(id);
+  for(const query of ["?limit=101","?memberId=other","?preparation="+id,"?limit=20&limit=20"]){const bad=await buildWorkbenchUpstreamRequest(new Request(url+query,{headers:scope}),path,"server-token","actor-a");expect(bad).toBeInstanceOf(Response);if(bad instanceof Response)expect(bad.status).toBe(400)}
+  const other="550e8400-e29b-41d4-a716-446655440001";
+  const record={id,draftId:id,revision:2,source:{id,preparationId:other,collectionItemId:id,collectionRevision:1,source:{productKey:"product",publicationId:id,version:"1",kind:"own"}},content:{title:"saved",description:""},status:"pending_completion",createdAt:"2026-10-12T00:00:00Z"};
+  const good=await buildWorkbenchBrowserResponse(Response.json({collectionItemId:id,items:[record],total:1}),"supply-item-completion-drafts",id);expect(good.status).toBe(200);
+  for(const page of [{collectionItemId:other,items:[record],total:1},{collectionItemId:id,items:[{...record,source:{...record.source,collectionItemId:other}}],total:1},{collectionItemId:id,items:[{...record,source:{...record.source,source:{...record.source.source,kind:"acquisition"}}}],total:1}]){const bad=await buildWorkbenchBrowserResponse(Response.json(page),"supply-item-completion-drafts",id);expect(bad.status).toBe(502)}
+ });
  it("keeps official status reads bound to source/store and accepts no browser product selector",async()=>{
   const path=["supply-preparations","sources",id,"publications",id,"status"],url=`http://localhost/api/workbench/${path.join("/")}`;
   const read=await buildWorkbenchUpstreamRequest(new Request(url,{headers:scope}),path,"server-token","actor-a");
@@ -63,4 +93,12 @@ describe("private supply chain proxy",()=>{
    const result=await buildWorkbenchUpstreamRequest(new Request(`http://localhost/api/workbench/supply-preparations/${id}/stages?${query}`,{headers:scope}),["supply-preparations",id,"stages"],"server-token","actor-a");expect(result).toBeInstanceOf(Response);if(result instanceof Response)expect(result.status).toBe(400);
   }
  });
+});
+
+it("Walmart historical Feed reads and refresh preserve actor and organization boundaries",async()=>{
+ vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL","http://localhost");
+ for(const path of [["supply-preparations","sources",id,"publications",id,"status",id],["stores",id,"connection","refresh"]]){
+ const refresh=path[0]==="stores";const request=new Request(`http://localhost/api/workbench/${path.join("/")}`,{method:refresh?"POST":"GET",headers:{...scope,...refresh?{Origin:"http://localhost","Content-Type":"application/json"}:{}},...refresh?{body:JSON.stringify({operationId:id,generation:"1"})}:{}});
+ const result=await buildWorkbenchUpstreamRequest(request,path,"server-private-token","actor-a");expect(result).not.toBeInstanceOf(Response);if(result instanceof Response)continue;expect(result.sourceMutation).toBe(refresh);expect(new Headers(result.init.headers).get("X-Requested-Organization-ID")).toBe("org-a");
+ }
 });

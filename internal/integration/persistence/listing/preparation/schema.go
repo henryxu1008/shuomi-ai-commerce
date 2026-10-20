@@ -8,6 +8,24 @@ import (
 
 var Tables = []string{"listing_preparations", "listing_preparation_sources"}
 
+// VerifySourcePageIndex lets explicit feature maintenance verify the original
+// Preparation installation without re-running its CREATE INDEX installer.
+func VerifySourcePageIndex(ctx context.Context, db *gorm.DB) error {
+	if ctx == nil || db == nil || db.Dialector.Name() != "postgres" {
+		return preparation.ErrUnavailable
+	}
+	var ready bool
+	err := db.WithContext(ctx).Raw(`SELECT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_index i ON i.indexrelid=c.oid
+ WHERE n.nspname='public' AND c.relname='preparation_source_page' AND i.indrelid=to_regclass('public.listing_preparation_sources')
+ AND i.indisvalid AND i.indisready AND NOT i.indisunique AND i.indpred IS NULL AND i.indexprs IS NULL AND i.indnkeyatts=4
+ AND ARRAY(SELECT a.attname::text FROM unnest(i.indkey::smallint[]) WITH ORDINALITY k(number,position)
+ JOIN pg_attribute a ON a.attrelid=i.indrelid AND a.attnum=k.number ORDER BY k.position)=ARRAY['organization_id','actor_id','preparation_id','id'])`).Scan(&ready).Error
+	if err != nil || !ready {
+		return preparation.ErrUnavailable
+	}
+	return nil
+}
+
 func InstallSchema(db *gorm.DB) error {
 	if db == nil || db.Dialector.Name() != "postgres" {
 		return preparation.ErrUnavailable

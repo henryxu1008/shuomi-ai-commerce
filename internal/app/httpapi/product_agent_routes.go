@@ -19,8 +19,11 @@ import (
 	"task-processor/internal/httproute"
 	kernelmodule "task-processor/internal/kernel/module"
 	"task-processor/internal/knowledge"
+	"task-processor/internal/product/collection"
+	"task-processor/internal/product/contentagent"
 	"task-processor/internal/product/enrichment"
 	"task-processor/internal/product/review"
+	skill "task-processor/internal/skill"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -30,6 +33,11 @@ const productAgentBase = productAcquisitionBase + "/:operation_id/product-agent/
 const productContentAgentBase = productAcquisitionBase + "/:operation_id/content-agent/runs"
 
 func isProductAgentHTTPPath(path string) bool {
+	const ownPrefix = "/api/v1/workbench/collections/items/"
+	if strings.HasPrefix(path, ownPrefix) {
+		parts := strings.Split(strings.TrimPrefix(path, ownPrefix), "/")
+		return len(parts) >= 3 && acquisitionHTTPUUID(parts[0]) && parts[1] == "content-agent" && parts[2] == "runs" && (len(parts) == 3 || len(parts) == 4 && acquisitionHTTPUUID(parts[3]) || len(parts) == 5 && acquisitionHTTPUUID(parts[3]) && (parts[4] == "resume" || parts[4] == "review"))
+	}
 	if !strings.HasPrefix(path, productAcquisitionBase+"/") {
 		return false
 	}
@@ -74,15 +82,14 @@ func buildProductAgentModule(ctx context.Context, productDB *gorm.DB, deps route
 	if a.content != nil {
 		a.content.originExecution = a.originExecution
 	}
-	routes := productAgentRoutes(a)
-	routes = append(routes, registeredProductAgentRoutes(a.content, true)...)
+	routes := productAgentProfileRoutes(a, agentCfg.ContentTitleOnly || agentCfg.ContentOnly)
 	// Candidate intake returns an ID understood by the existing review UI.
 	// Its original decision/Apply handlers retain their current permission checks.
 	binder := productReviewCapabilityBinder{now: time.Now}
 	for _, route := range productReviewOnlyRoutes(a.reviews, binder.Bind, a.projectKnowledge) {
 		previous := route.Handler
 		route.Handler = func(c *gin.Context) {
-			c.Set(productReviewModeProjectorKey, productReviewModeProjector(a.projectContentReviewMode))
+			c.Set(productReviewModeProjectorKey, productReviewModeProjector(a.projectReviewMode))
 			previous(c)
 		}
 		routes = append(routes, route)
@@ -98,6 +105,7 @@ type productAgentStepDTO struct {
 	AuditStatus  string `json:"auditStatus,omitempty"`
 }
 type productAgentResultDTO struct {
+	SkillVersionRef       agent.SkillVersionRef       `json:"skillVersionRef,omitzero"`
 	ContentSelection      enrichment.ContentSelection `json:"contentSelection,omitzero"`
 	ExecutionMode         agent.ExecutionMode         `json:"executionMode,omitempty"`
 	ModeRevision          string                      `json:"modeRevision,omitempty"`
@@ -110,6 +118,7 @@ type productAgentResultDTO struct {
 	RunID                 string                      `json:"runId"`
 	RequestKey            string                      `json:"requestKey"`
 	OperationID           string                      `json:"operationId"`
+	ContextKind           string                      `json:"contextKind,omitempty"`
 	ProductKey            string                      `json:"productKey"`
 	CatalogVersion        string                      `json:"catalogVersion"`
 	PublicationID         string                      `json:"publicationId"`
@@ -133,10 +142,30 @@ func productAgentRoutes(a *productAgentApplication) []httproute.Descriptor {
 	return registeredProductAgentRoutes(a, false)
 }
 
+// Mounting and global admission share the trusted profile's exact inventory.
+func productAgentProfileRoutes(a *productAgentApplication, titleOnly bool) []httproute.Descriptor {
+	var routes []httproute.Descriptor
+	if !titleOnly {
+		routes = productAgentRoutes(a)
+	}
+	var content *productAgentApplication
+	if a != nil {
+		content = a.content
+	}
+	return append(routes, registeredProductAgentRoutes(content, true)...)
+}
+
 func registeredProductAgentRoutes(a *productAgentApplication, content bool) []httproute.Descriptor {
+	return productAgentRoutesForSource(a, content, false)
+}
+
+func productAgentRoutesForSource(a *productAgentApplication, content, own bool) []httproute.Descriptor {
 	base := productAgentBase
 	if content {
 		base = productContentAgentBase
+	}
+	if own {
+		base = ownContentAgentBase
 	}
 	specs := []struct{ method, path, action string }{{"POST", base, "start"}, {"GET", base + "/:request_key", "read"}, {"POST", base + "/:request_key/resume", "resume"}, {"POST", base + "/:request_key/review", "review"}}
 	var routes []httproute.Descriptor
@@ -148,6 +177,9 @@ func registeredProductAgentRoutes(a *productAgentApplication, content bool) []ht
 				return
 			}
 			operationID := c.Param("operation_id")
+			if own {
+				operationID = c.Param("item_id")
+			}
 			key := c.Param("request_key")
 			if spec.action == "start" {
 				values := c.Request.Header.Values("Idempotency-Key")
@@ -193,7 +225,11 @@ func registeredProductAgentRoutes(a *productAgentApplication, content bool) []ht
 					return
 				}
 			}
-			if content && spec.action == "start" && (body.ContentSelection == nil || !body.ContentSelection.Valid()) || (!content || spec.action != "start") && body.ContentSelection != nil {
+			if body.ManualReviewOnly && (!content || spec.action != "start") || content && spec.action == "start" && (body.ContentSelection == nil || !body.ContentSelection.Valid()) || (!content || spec.action != "start") && body.ContentSelection != nil {
+				writeProductAgentError(c, agent.ErrInvalid)
+				return
+			}
+			if (own && spec.action == "start") != (body.OwnSource != nil) {
 				writeProductAgentError(c, agent.ErrInvalid)
 				return
 			}
@@ -207,12 +243,21 @@ func registeredProductAgentRoutes(a *productAgentApplication, content bool) []ht
 				writeProductAgentError(c, templateErr)
 				return
 			}
+			method, methodErr := body.skillSelection(spec.action)
+			if methodErr != nil || method != nil && (!content || body.ContentSelection == nil || !body.ContentSelection.TitleOnly()) {
+				writeProductAgentError(c, agent.ErrInvalid)
+				return
+			}
 			var record agent.Record
 			var binding agent.Binding
 			runMayExist := false
 			if spec.action == "start" {
-				binding, err = a.binding(ctx, operationID, body.TargetPlatform)
-				if err == nil {
+				if own {
+					binding, runMayExist, err = a.ownStartBinding(ctx, i, operationID, key, body)
+				} else {
+					binding, err = a.binding(ctx, operationID, body.TargetPlatform)
+				}
+				if err == nil && !own {
 					var existing agent.Record
 					var found bool
 					existing, found, err = a.store.Lookup(ctx, agent.Scope{OrganizationID: i.TenantID, ActorID: i.UserID}, binding, key)
@@ -229,7 +274,7 @@ func registeredProductAgentRoutes(a *productAgentApplication, content bool) []ht
 				if err == nil {
 					var request agent.Request
 					if content {
-						request, err = a.startTextRequest(ctx, binding, key, selection, "", template, aicapability.ModelProfile{}, "", body.ExpectedModeRevision, *body.ContentSelection)
+						request, err = a.startTextRequestWithSkill(ctx, binding, key, selection, "", template, aicapability.ModelProfile{}, "", body.ExpectedModeRevision, *body.ContentSelection, method, body.ManualReviewOnly)
 					} else {
 						request, err = a.startRequest(ctx, binding, key, selection, template, body.ExpectedModeRevision)
 					}
@@ -240,7 +285,15 @@ func registeredProductAgentRoutes(a *productAgentApplication, content bool) []ht
 					}
 				}
 			} else {
-				record, err = a.store.Read(ctx, agent.Scope{OrganizationID: i.TenantID, ActorID: i.UserID}, operationID, key)
+				if own {
+					var found bool
+					record, found, err = a.store.LookupContext(ctx, agent.Scope{OrganizationID: i.TenantID, ActorID: i.UserID}, contentagent.OwnProductContext, operationID, key)
+					if err == nil && !found {
+						err = agent.ErrConflict
+					}
+				} else {
+					record, err = a.store.Read(ctx, agent.Scope{OrganizationID: i.TenantID, ActorID: i.UserID}, operationID, key)
+				}
 				if err == nil {
 					runMayExist = true
 					binding = record.State.Request.Binding
@@ -250,6 +303,10 @@ func registeredProductAgentRoutes(a *productAgentApplication, content bool) []ht
 					err = agent.ErrConflict
 				}
 				if err == nil && spec.action == "resume" {
+					if err = a.checkContentTitleSelection(record.State.Request.ContentSelection); err != nil {
+						writeProductAgentRunError(c, err, true)
+						return
+					}
 					revision, parseErr := strconv.ParseUint(body.Revision, 10, 64)
 					if parseErr != nil || revision == 0 || strconv.FormatUint(revision, 10) != body.Revision {
 						err = agent.ErrInvalid
@@ -266,6 +323,20 @@ func registeredProductAgentRoutes(a *productAgentApplication, content bool) []ht
 				if !agentRunReviewable(record.State) {
 					writeProductAgentError(c, agent.ErrConflict)
 					return
+				}
+				if selectionErr := a.checkContentTitleSelection(record.State.Request.ContentSelection); selectionErr != nil {
+					// Existing receipts remain owned by Review. Delegate an exact
+					// replay to its normal fingerprint/auth preflight; never use
+					// the current View as a replacement for the saved receipt.
+					_, found, lookupErr := a.reviews.FindAgentReview(ctx, record.State.RunID)
+					if lookupErr != nil {
+						writeProductAgentError(c, lookupErr)
+						return
+					}
+					if !found {
+						writeProductAgentError(c, selectionErr)
+						return
+					}
 				}
 				input := agentReviewInput(binding, record.State.Request.PolicyVersion, record.State.Candidate)
 				input.Execution = agentExecutionProvenance(record.State)
@@ -296,8 +367,12 @@ func registeredProductAgentRoutes(a *productAgentApplication, content bool) []ht
 				writeProductAgentError(c, provenanceErr)
 				return
 			}
-			result := productAgentResultDTO{RunID: state.RunID, RequestKey: key, OperationID: operationID, ProductKey: binding.ProductKey, CatalogVersion: binding.CatalogVersion, PublicationID: binding.PublicationID, TargetPlatform: binding.TargetPlatform, Phase: state.Phase, Revision: strconv.FormatUint(state.Revision, 10), StopReason: state.StopReason, HumanReviewRequired: true, Candidate: state.Candidate, Confidence: state.Confidence, Unresolved: state.Unresolved, Steps: []productAgentStepDTO{}, Tokens: state.Usage.Tokens, EstimatedCostMicros: state.Usage.CostMicros, Currency: state.Request.Limits.Currency, UsageStatus: "observed", CanSubmitReview: agentRunReviewable(state)}
+			result := productAgentResultDTO{RunID: state.RunID, RequestKey: key, OperationID: operationID, ProductKey: binding.ProductKey, CatalogVersion: binding.CatalogVersion, PublicationID: binding.PublicationID, TargetPlatform: binding.TargetPlatform, Phase: state.Phase, Revision: strconv.FormatUint(state.Revision, 10), StopReason: state.StopReason, HumanReviewRequired: true, Candidate: state.Candidate, Confidence: state.Confidence, Unresolved: state.Unresolved, Steps: []productAgentStepDTO{}, Tokens: state.Usage.Tokens, EstimatedCostMicros: state.Usage.CostMicros, Currency: state.Request.Limits.Currency, UsageStatus: "observed", CanSubmitReview: agentRunReviewable(state) && a.checkContentTitleSelection(state.Request.ContentSelection) == nil}
 			result.ContentSelection = state.Request.ContentSelection
+			if own {
+				result.ContextKind = contentagent.OwnProductContext
+			}
+			result.SkillVersionRef = state.Request.SkillVersionRef
 			if content {
 				result.Unresolved = contentRunDiagnostics(state)
 			}
@@ -391,6 +466,16 @@ func writeProductAgentError(c *gin.Context, err error) {
 	}
 	status, code := http.StatusServiceUnavailable, "PRODUCT_AGENT_UNAVAILABLE"
 	switch {
+	case errors.Is(err, agent.ErrManualReviewRequired):
+		status, code = 409, "MANUAL_REVIEW_REQUIRED"
+	case errors.Is(err, skill.ErrInvalid), errors.Is(err, skill.ErrUnsupported):
+		status, code = 400, err.Error()
+	case errors.Is(err, skill.ErrForbidden):
+		status, code = 403, skill.ErrForbidden.Error()
+	case errors.Is(err, skill.ErrConflict), errors.Is(err, skill.ErrNotEnabled), errors.Is(err, skill.ErrNotFound), errors.Is(err, skill.ErrRevision):
+		status, code = 409, err.Error()
+	case errors.Is(err, skill.ErrUnavailable):
+		status, code = 503, skill.ErrUnavailable.Error()
 	case errors.Is(err, knowledge.ErrContextTooLarge):
 		status, code = 409, knowledge.ErrContextTooLarge.Error()
 	case errors.Is(err, knowledge.ErrForbidden):
@@ -401,9 +486,9 @@ func writeProductAgentError(c *gin.Context, err error) {
 		status, code = 409, "AGENT_CONFLICT"
 	case errors.Is(err, agent.ErrInvalid), errors.Is(err, review.ErrInvalid):
 		status, code = 400, "INVALID_AGENT_REQUEST"
-	case errors.Is(err, review.ErrForbidden):
+	case errors.Is(err, collection.ErrForbidden), errors.Is(err, review.ErrForbidden):
 		status, code = 403, "FORBIDDEN"
-	case errors.Is(err, agent.ErrConflict), errors.Is(err, review.ErrConflict):
+	case errors.Is(err, collection.ErrNotFound), errors.Is(err, collection.ErrConflict), errors.Is(err, agent.ErrConflict), errors.Is(err, review.ErrConflict):
 		status, code = 409, "AGENT_CONFLICT"
 	}
 	c.Header("Cache-Control", "no-store")

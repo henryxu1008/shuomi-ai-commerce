@@ -89,3 +89,16 @@ func TestSourceMediaMinIOCannotUseAnAnonymousIdentityResponse(t *testing.T) {
 	require.Error(t, err)
 	require.Zero(t, requests)
 }
+
+func TestMinIOInfoRejectsChunkedValidJSONWithOversizedTail(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.(http.Flusher).Flush() // No Content-Length: a single JSON Decode is insufficient.
+		_, _ = w.Write([]byte(`{"deploymentID":"` + trialDeploymentID + `"}`))
+		_, _ = w.Write([]byte(strings.Repeat(" ", (1<<20)+1)))
+	}))
+	defer server.Close()
+	_, err := ResolveSourceMediaCapacityNamespace(context.Background(), ClientConfig{Endpoint: server.URL, Region: "us-east-1", UsePathStyle: true, AccessKeyID: "fixture", SecretAccessKey: "fixture"}, "source-media-trial", "aws", true, trialDeploymentID)
+	require.Error(t, err, "oversized full response must fail even when its first JSON value is valid")
+}

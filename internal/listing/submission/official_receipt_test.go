@@ -35,6 +35,9 @@ func TestOfficialCompletionBindsFullResultToExactCommittedAttemptAndPayload(t *t
 	binding := storecenter.ProductMerchantBinding{OrganizationID: scope.OrganizationID, StoreID: storeID, Site: "shein-us", StoreVersion: 1, ConnectionRevision: 1, ApplicationRevision: "v1:self_operated", ApplicationID: "app-a", ApplicationType: storecenter.ApplicationSelfOperated, SupplierIdentityHash: collection.Digest("supplier"), ServiceExpiresAt: now.Add(time.Hour)}
 	result := model.PublishResult{SPUName: "spu-a", SKCs: []model.PublishedSKC{{SKCName: "skc-a", SKUs: []model.PublishedSKU{{SupplierSKU: "sku-a", SKUCode: "code-a"}}}}, ResponseHash: collection.Digest("response")}
 	proof, err := NewPublishCompletion(scope, uuid.NewString(), "product-a", binding, attempt, claim, payload, result)
+	require.ErrorIs(t, err, ErrExecutionEvidenceRequired, "new success must carry the exact audit version")
+	result.Version = "v1"
+	proof, err = NewPublishCompletion(scope, uuid.NewString(), "product-a", binding, attempt, claim, payload, result)
 	require.NoError(t, err)
 	gotClaim, receipt, err := proof.Read(context.Background())
 	require.NoError(t, err)

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"task-processor/internal/authidentity"
 	temuo "task-processor/internal/marketplace/temu/observations"
+	walmart "task-processor/internal/marketplace/walmart"
 	"task-processor/internal/storecenter"
 	"time"
 	"unicode"
@@ -93,6 +94,7 @@ type Product struct {
 	SKCs []SKC  `json:"skcs"`
 }
 type ProductPage struct {
+	WalmartItems    []walmart.Product
 	Total           int
 	Items           []Product
 	TemuItems       []temuo.Product
@@ -260,15 +262,16 @@ func ChildKey(parent, store string, kind Kind) string {
 }
 
 type Record struct {
-	StoreID     string         `json:"storeId"`
-	SyncID      string         `json:"syncId"`
-	ID          string         `json:"id"`
-	ObservedAt  time.Time      `json:"observedAt"`
-	Stale       bool           `json:"stale,omitempty"`
-	Product     *Product       `json:"product,omitempty"`
-	TemuProduct *temuo.Product `json:"temuProduct,omitempty"`
-	Order       *Order         `json:"order,omitempty"`
-	WindowKey   string         `json:"-"`
+	WalmartProduct *walmart.Product `json:"walmartProduct,omitempty"`
+	StoreID        string           `json:"storeId"`
+	SyncID         string           `json:"syncId"`
+	ID             string           `json:"id"`
+	ObservedAt     time.Time        `json:"observedAt"`
+	Stale          bool             `json:"stale,omitempty"`
+	Product        *Product         `json:"product,omitempty"`
+	TemuProduct    *temuo.Product   `json:"temuProduct,omitempty"`
+	Order          *Order           `json:"order,omitempty"`
+	WindowKey      string           `json:"-"`
 }
 type Query struct {
 	Kind       Kind

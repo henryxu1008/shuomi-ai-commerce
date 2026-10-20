@@ -1,7 +1,5 @@
 package workspace
 
-import "strings"
-
 type Guidance[R any, H any] struct {
 	Reason      *R
 	RepairHints []H
@@ -49,24 +47,6 @@ type ReadinessItem[R any, H any] struct {
 }
 
 type ReadinessCheck[R any, H any] struct {
-	Key             string            `json:"key,omitempty"`
-	Label           string            `json:"label,omitempty"`
-	Status          string            `json:"status,omitempty"`
-	Message         string            `json:"message,omitempty"`
-	FieldPaths      []string          `json:"field_paths,omitempty"`
-	SuggestedAction string            `json:"suggested_action,omitempty"`
-	Reason          *R                `json:"reason,omitempty"`
-	RepairHints     []H               `json:"repair_hints,omitempty"`
-	Taxonomy        ReadinessTaxonomy `json:"taxonomy,omitempty"`
-}
-
-type SubmitChecklist[R any, H any] struct {
-	Required    []ChecklistGroupItem[R, H] `json:"required,omitempty"`
-	Recommended []ChecklistGroupItem[R, H] `json:"recommended,omitempty"`
-	Optional    []ChecklistGroupItem[R, H] `json:"optional,omitempty"`
-}
-
-type ChecklistGroupItem[R any, H any] struct {
 	Key             string            `json:"key,omitempty"`
 	Label           string            `json:"label,omitempty"`
 	Status          string            `json:"status,omitempty"`
@@ -152,133 +132,4 @@ func BuildSubmitReadiness[R any, H any](
 		readiness.Summary = append(readiness.Summary, readySummary)
 	}
 	return readiness
-}
-
-func BuildSubmitChecklist[R any, H any](readiness *SubmitReadiness[R, H], groupForCheck func(string) string) *SubmitChecklist[R, H] {
-	if readiness == nil {
-		return nil
-	}
-
-	checklist := &SubmitChecklist[R, H]{}
-	for _, check := range readiness.Checks {
-		item := ChecklistGroupItem[R, H]{
-			Key:             check.Key,
-			Label:           check.Label,
-			Status:          check.Status,
-			Message:         check.Message,
-			FieldPaths:      append([]string(nil), check.FieldPaths...),
-			SuggestedAction: check.SuggestedAction,
-			Reason:          check.Reason,
-			RepairHints:     append([]H(nil), check.RepairHints...),
-			Taxonomy:        check.Taxonomy,
-		}
-		if source := findReadinessItem(readiness, check.Key); source != nil {
-			item.SuggestedAction = source.SuggestedAction
-			item.Reason = source.Reason
-			item.RepairHints = append([]H(nil), source.RepairHints...)
-			item.Taxonomy = source.Taxonomy
-		}
-
-		switch groupForCheck(check.Key) {
-		case "required":
-			checklist.Required = append(checklist.Required, item)
-		case "recommended":
-			checklist.Recommended = append(checklist.Recommended, item)
-		default:
-			checklist.Optional = append(checklist.Optional, item)
-		}
-	}
-
-	if len(checklist.Required) == 0 && len(checklist.Recommended) == 0 && len(checklist.Optional) == 0 {
-		return nil
-	}
-	return checklist
-}
-
-func ChecklistItemCount[R any, H any](checklist *SubmitChecklist[R, H]) int {
-	if checklist == nil {
-		return 0
-	}
-	return len(checklist.Required) + len(checklist.Recommended) + len(checklist.Optional)
-}
-
-func SubmitChecklistGroupForKey(key string) string {
-	switch key {
-	case "category", "category_review", "attributes", "attribute_review", "sale_attributes", "images", "variants":
-		return "required"
-	case "request_draft", "preview_product":
-		return "recommended"
-	default:
-		return "optional"
-	}
-}
-
-func FindLabels[R any, H any](items []ReadinessItem[R, H]) []string {
-	if len(items) == 0 {
-		return nil
-	}
-	labels := make([]string, 0, len(items))
-	for _, item := range items {
-		if item.Label != "" {
-			labels = append(labels, item.Label)
-		}
-	}
-	return labels
-}
-
-func FindKeys[R any, H any](items []ReadinessItem[R, H]) []string {
-	if len(items) == 0 {
-		return nil
-	}
-	keys := make([]string, 0, len(items))
-	for _, item := range items {
-		if item.Key != "" {
-			keys = append(keys, item.Key)
-		}
-	}
-	return keys
-}
-
-func CloneReadinessItems[R any, H any](items []ReadinessItem[R, H]) []ReadinessItem[R, H] {
-	if len(items) == 0 {
-		return nil
-	}
-	out := make([]ReadinessItem[R, H], len(items))
-	copy(out, items)
-	return out
-}
-
-func ToActionItems[R any, H any](items []ReadinessItem[R, H]) []ActionItem {
-	if len(items) == 0 {
-		return nil
-	}
-	out := make([]ActionItem, 0, len(items))
-	for _, item := range items {
-		out = append(out, ActionItem{
-			Key:             item.Key,
-			SuggestedAction: item.SuggestedAction,
-		})
-	}
-	return out
-}
-
-func findReadinessItem[R any, H any](readiness *SubmitReadiness[R, H], key string) *ReadinessItem[R, H] {
-	if readiness == nil || key == "" {
-		return nil
-	}
-	for i := range readiness.BlockingItems {
-		if readiness.BlockingItems[i].Key == key {
-			return &readiness.BlockingItems[i]
-		}
-	}
-	for i := range readiness.WarningItems {
-		if readiness.WarningItems[i].Key == key {
-			return &readiness.WarningItems[i]
-		}
-	}
-	return nil
-}
-
-func JoinReadinessLabels[R any, H any](items []ReadinessItem[R, H], sep string) string {
-	return strings.Join(FindLabels(items), sep)
 }

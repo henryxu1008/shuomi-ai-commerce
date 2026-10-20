@@ -122,6 +122,20 @@ async function confirm() {
     confirmation: await screen.findByRole("region", { name: "报价确认" }),
   };
 }
+it("reads the deducted wallet after fulfilled purchase and retains the order if wallet readback fails",async()=>{
+ const wallet={organization_id:"org-B",currency:"CNY",available_minor:"930",reserved_minor:"0",debt_minor:"0",lifetime_topup_minor:"1000",lifetime_spend_minor:"70",version:"2",observed_at:order.created_at};
+ api.wallet.mockResolvedValueOnce({...wallet,available_minor:"1000"}).mockRejectedValueOnce(new Error("read unavailable"));
+ render(tree());const {user,confirmation}=await confirm();await user.click(within(confirmation).getByRole("button",{name:"确认购买"}));
+ expect(await screen.findByText(/订单已完成，但余额回读尚未确认/)).toBeVisible();
+ expect(api.order).toHaveBeenCalledOnce();expect(sessionStorage.length).toBeGreaterThan(0);
+});
+it("updates wallet cache with the deducted owner balance",async()=>{
+ const previous=api.wallet.getMockImplementation()!;
+ api.wallet.mockImplementation(async(...args)=>({...await previous(...args),available_minor:api.wallet.mock.calls.length===1?"1000":"930"}));
+ render(tree());const {user,confirmation}=await confirm();await user.click(within(confirmation).getByRole("button",{name:"确认购买"}));
+ await screen.findByText(/资源已到账/);
+ expect(client.getQueryData<{available_minor:string}>(["workbench","org-B","commercial-wallet","actor","resource-purchase"])?.available_minor).toBe("930");
+});
 it("confirms exact server quantity, amount and remainder then reads resource balances", async () => {
   render(tree());
   const { user, confirmation } = await confirm();

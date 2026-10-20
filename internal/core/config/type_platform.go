@@ -34,27 +34,10 @@ func (c *Config) EffectiveSDSAuthRedis() RedisConfig {
 
 // PlatformConfig 单个平台的完整配置
 type PlatformConfig struct {
-	Enabled              bool                 `yaml:"enabled"`                                  // 是否启用该平台处理器（上架任务处理）
-	SchedulerEnabled     bool                 `yaml:"schedulerEnabled"`                         // 是否启用调度任务（核价、同步等）
-	FetchMode            string               `yaml:"fetchMode"`                                // 商品抓取模式：auto/local/distributed/remote-api
-	CookieRedis          RedisConfig          `yaml:"cookieRedis"`                              // 登录程序写入的 Cookie Redis 配置
-	AutoPricing          AutoPricingConfig    `yaml:"autoPricing"`                              // 自动核价配置
-	ListingPricing       ListingPricingConfig `yaml:"listingPricing"`                           // ListingKit 上架资料定价配置
-	ProductSync          ScheduledTaskConfig  `yaml:"productSync"`                              // 产品同步配置
-	InventorySync        ScheduledTaskConfig  `yaml:"inventorySync"`                            // 库存同步配置
-	ActivityRegistration ScheduledTaskConfig  `yaml:"activityRegistration"`                     // 活动报名配置
-	SyncProduct          SyncProductConfig    `yaml:"sync"`                                     // 旧版产品同步配置，仅保留兼容
-	Monitor              MonitorConfig        `yaml:"monitor"`                                  // 产品监控配置
-	ConfigPaths          PlatformConfigPaths  `yaml:"configPaths"`                              // 业务配置文件路径（统一管理）
-	LoginService         LoginServiceConfig   `mapstructure:"loginService" yaml:"loginService"` // 统一登录服务配置
-	HTTPClient           HTTPClientConfig     `yaml:"httpClient"`
-}
-
-// PlatformConfigPaths 平台业务配置文件路径
-type PlatformConfigPaths struct {
-	SensitiveWords   string `yaml:"sensitiveWords"`   // 敏感词配置文件路径
-	ProhibitedItems  string `yaml:"prohibitedItems"`  // 违禁品配置文件路径
-	AttributeMapping string `yaml:"attributeMapping"` // 属性映射配置文件路径
+	FetchMode    string             `yaml:"fetchMode"`                                // 商品抓取模式：auto/local/distributed/remote-api
+	CookieRedis  RedisConfig        `yaml:"cookieRedis"`                              // 登录程序写入的 Cookie Redis 配置
+	LoginService LoginServiceConfig `mapstructure:"loginService" yaml:"loginService"` // 统一登录服务配置
+	HTTPClient   HTTPClientConfig   `yaml:"httpClient"`
 }
 
 type SDSPlatformConfig struct {
@@ -95,52 +78,6 @@ type LoginServiceConfig struct {
 }
 
 type SDSLoginServiceConfig = LoginServiceConfig
-
-// AutoPricingConfig 自动定价配置
-type AutoPricingConfig struct {
-	Enabled        bool `yaml:"enabled"`        // 是否启用自动定价
-	Interval       int  `yaml:"interval"`       // 定价间隔（秒）
-	BatchSize      int  `yaml:"batchSize"`      // 批量处理大小
-	UseAmazonPrice bool `yaml:"useAmazonPrice"` // 是否使用Amazon价格数据进行定价决策
-}
-
-type ListingPricingConfig struct {
-	Enabled        bool    `yaml:"enabled"`        // 是否启用 ListingKit 上架资料定价规则
-	Currency       string  `yaml:"currency"`       // 上架币种，默认沿用来源价格
-	MarkupRate     float64 `yaml:"markupRate"`     // 毛利加价比例，0.3 表示加 30%
-	FixedMarkup    float64 `yaml:"fixedMarkup"`    // 固定加价
-	ShippingCost   float64 `yaml:"shippingCost"`   // 计入售价的物流/包装成本
-	CommissionRate float64 `yaml:"commissionRate"` // 平台佣金比例，0.1 表示 10%
-	MinimumPrice   float64 `yaml:"minimumPrice"`   // 最低售价
-	RoundTo        float64 `yaml:"roundTo"`        // 向上取整粒度，默认 0.01
-}
-
-// ScheduledTaskConfig 调度任务配置
-type ScheduledTaskConfig struct {
-	Enabled  bool    `yaml:"enabled"`  // 是否启用
-	Interval int     `yaml:"interval"` // 执行间隔（秒）
-	StoreIDs []int64 `yaml:"storeIDs"` // 指定要启动该调度任务的店铺ID列表
-}
-
-// SyncProductConfig 旧版产品同步配置
-type SyncProductConfig struct {
-	Enabled   bool    `yaml:"enabled"`   // 是否启用产品同步
-	StoreIDs  []int64 `yaml:"storeIDs"`  // 需要同步的店铺ID列表
-	Interval  int     `yaml:"interval"`  // 同步间隔（分钟）
-	BatchSize int     `yaml:"batchSize"` // 批量处理大小
-}
-
-// MonitorConfig 产品监控配置
-type MonitorConfig struct {
-	Enabled              bool    `yaml:"enabled"`              // 是否启用产品监控
-	StoreIDs             []int64 `yaml:"storeIDs"`             // 需要监控的店铺ID列表
-	CheckInterval        int     `yaml:"checkInterval"`        // 检查间隔（分钟）
-	BatchSize            int     `yaml:"batchSize"`            // 批量处理大小
-	EnablePriceAlert     bool    `yaml:"enablePriceAlert"`     // 启用价格告警
-	EnableStockAlert     bool    `yaml:"enableStockAlert"`     // 启用库存告警
-	PriceChangeThreshold float64 `yaml:"priceChangeThreshold"` // 价格变化阈值（百分比）
-	StockChangeThreshold int     `yaml:"stockChangeThreshold"` // 库存变化阈值
-}
 
 // Alibaba1688Config 1688平台配置
 type Alibaba1688Config struct {

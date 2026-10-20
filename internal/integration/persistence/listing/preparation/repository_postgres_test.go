@@ -159,11 +159,22 @@ func TestPostgresTransferCapturesAllPagesAndReplaysOriginalMembership(t *testing
 	require.NoError(t, err)
 	// The formal upload producer must retain every admitted platform's exact
 	// Target record, so the worker can dispatch to the native uploader.
-	for _, site := range []string{"shein-us", "temu-supplier", "temu-local", "tiktokshop-us"} {
+	for _, site := range []string{"shein-us", "temu-supplier", "temu-local", "tiktokshop-us", "walmart-us"} {
 		storeID, targetID, recordID := uuid.NewString(), uuid.NewString(), uuid.NewString()
 		require.NoError(t, db.Exec("INSERT INTO listing_target_records(organization_id,actor_id,member_id,id,target_id,source_id,store_id,site,revision,input_hash,body_hash,body_json,created_at) VALUES(?,?,?,?,?,?,?,?,3,?,?,?::jsonb,now())", scope.OrganizationID, scope.ActorID, scope.MemberID, recordID, targetID, projected[0].SourceID, storeID, site, collection.Digest("input"), collection.Digest("body"), "{}").Error)
 		require.NoError(t, db.Exec("INSERT INTO listing_preparation_targets(organization_id,actor_id,member_id,id,source_id,store_id,site,current_record_id,revision) VALUES(?,?,?,?,?,?,?,?,3)", scope.OrganizationID, scope.ActorID, scope.MemberID, targetID, projected[0].SourceID, storeID, site, recordID).Error)
-		upload, err := opService.Create(actor, uuid.NewString(), preparation.OperationInput{PreparationID: receipt.Preparation.ID, ExpectedRevision: 1, StoreID: storeID, Action: preparation.OperationUpload, SourceIDs: []string{projected[0].SourceID}})
+		input := preparation.OperationInput{PreparationID: receipt.Preparation.ID, ExpectedRevision: 1, StoreID: storeID, Action: preparation.OperationUpload, SourceIDs: []string{projected[0].SourceID}}
+		if site == "walmart-us" {
+			hash := collection.Digest("exact approved wire")
+			require.NoError(t, db.Exec("UPDATE listing_target_records SET body_json=jsonb_build_object('walmart',jsonb_build_object('wireHash',?::text)) WHERE id=?", hash, recordID).Error)
+			_, e := opService.Create(actor, uuid.NewString(), input)
+			require.ErrorIs(t, e, preparation.ErrConflict, "no implicit Walmart batch approval")
+			input.WalmartApprovals = []preparation.WalmartUploadApproval{{SourceID: projected[0].SourceID, RecordID: recordID, Revision: 2, WireHash: hash}}
+			_, e = opService.Create(actor, uuid.NewString(), input)
+			require.ErrorIs(t, e, preparation.ErrConflict, "a changed target cannot follow the old approval")
+			input.WalmartApprovals[0].Revision = 3
+		}
+		upload, err := opService.Create(actor, uuid.NewString(), input)
 		require.NoError(t, err)
 		access, err := opService.RequestAccess(actor, upload.Operation.ID)
 		require.NoError(t, err)
@@ -372,7 +383,7 @@ func TestPostgresTransferCapturesAllPagesAndReplaysOriginalMembership(t *testing
 	_, err = repository.ListSources(actor, foreign, receipt.Preparation.ID, collection.Query{Limit: 100})
 	require.ErrorIs(t, err, preparation.ErrNotFound)
 	// Constructor is read-only: it does not repair an omitted required table.
-	require.NoError(t, db.Exec("DROP TABLE listing_submission_official_receipts; DROP TABLE listing_submission_official_intents; DROP TABLE listing_target_record_commands; DROP TABLE listing_preparation_targets; DROP TABLE listing_target_records").Error)
+	require.NoError(t, db.Exec("DROP TABLE listing_walmart_feed_observations; DROP TABLE listing_walmart_sku_bindings; DROP TABLE listing_submission_official_receipts; DROP TABLE listing_submission_official_intents; DROP TABLE listing_target_record_commands; DROP TABLE listing_preparation_targets; DROP TABLE listing_target_records").Error)
 	require.NoError(t, db.Exec("DROP TABLE listing_preparation_operation_items; DROP TABLE listing_preparation_operations").Error)
 	require.NoError(t, db.Exec("DROP TABLE listing_preparation_sources").Error)
 	_, err = NewRepository(ctx, db)

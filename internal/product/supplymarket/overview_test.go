@@ -53,9 +53,10 @@ func (r *overviewCollection) ReadBatch(context.Context, string) (collection.Batc
 
 type overviewEffective struct {
 	effectiveFixture
-	optimized map[string]bool
-	fail      string
-	delay     map[string]time.Duration
+	optimized  map[string]bool
+	incomplete map[string]bool
+	fail       string
+	delay      map[string]time.Duration
 }
 
 func (r overviewEffective) ReadChoice(ctx context.Context, _ collection.Scope, item collection.ItemDetail) (ProductChoice, error) {
@@ -69,7 +70,10 @@ func (r overviewEffective) ReadChoice(ctx context.Context, _ collection.Scope, i
 	if item.Item.ID == r.fail {
 		return ProductChoice{}, ErrUnavailable
 	}
-	return ProductChoice{Selection: SelectionInput{ItemID: item.Item.ID, ExpectedRevision: item.Item.Revision}, Product: PublicProduct{Title: item.Item.ID, Images: []string{"https://images.example.org/real.png"}}, Optimized: r.optimized[item.Item.ID]}, nil
+	if r.incomplete[item.Item.ID] {
+		return ProductChoice{Selection: SelectionInput{ItemID: item.Item.ID, ExpectedRevision: item.Item.Revision}, Optimized: true, IneligibleReason: ChoiceIncompleteProduct}, nil
+	}
+	return ProductChoice{Selection: SelectionInput{ItemID: item.Item.ID, ExpectedRevision: item.Item.Revision}, Product: &PublicProduct{Title: item.Item.ID, Images: []string{"https://images.example.org/real.png"}}, Optimized: r.optimized[item.Item.ID]}, nil
 }
 
 type overviewRepository struct {
@@ -175,6 +179,19 @@ func TestApplicationOverviewNeverEmitsPartialOrRevokedFacts(t *testing.T) {
 			_ = r
 		})
 	}
+}
+func TestApplicationOverviewSkipsNormalIneligibleProducts(t *testing.T) {
+	s, _, _, repo, ctx, items := overviewFixture(t, 3)
+	eff := s.effective.(overviewEffective)
+	eff.optimized[items[0].ID] = false
+	eff.incomplete = map[string]bool{items[1].ID: true}
+	s.effective = eff
+	got, err := s.ApplicationOverview(ctx)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, got.EligibleProducts)
+	require.Equal(t, repo.counts, got.ApplicationCounts)
+	require.Len(t, got.Products, 1)
+	require.Equal(t, items[2].ID, got.Products[0].ItemID)
 }
 func TestApplicationOverviewBudgetBoundaryAndTrueEmpty(t *testing.T) {
 	for _, n := range []int{0, 2000} {

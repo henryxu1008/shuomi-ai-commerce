@@ -111,16 +111,32 @@ func NewGenerationFact(intent GenerationIntent) (GenerationFact, error) {
 	}
 	if intent.Identity.PlanRevision <= 0 || intent.Identity.Attempt <= 0 || intent.Points <= 0 || intent.LimitVersion <= 0 ||
 		!validGenerationCatalogHash(intent.CatalogHash) || !generationDigest(intent.SourceDigest) ||
-		intent.Provider != "grsai" || intent.Model != "gpt-image-2.5" || intent.Protocol != "grsai-json-sync-v1" || intent.Resolution != "1024x1024" || intent.Quality != "auto" ||
+		!validGenerationRoute(intent.Provider, intent.Model, intent.Protocol) || intent.Resolution != "1024x1024" || intent.Quality != "auto" ||
 		intent.MonthStart.IsZero() || intent.MonthStart != time.Date(intent.MonthStart.UTC().Year(), intent.MonthStart.UTC().Month(), 1, 0, 0, 0, 0, time.UTC) {
 		return GenerationFact{}, ErrValidation
 	}
 	version := 1
 	if intent.InputProtocol != "" || intent.InputDigest != "" {
-		if intent.InputProtocol != ImageSetSchema || !generationDigest(intent.InputDigest) {
+		if !generationDigest(intent.InputDigest) {
 			return GenerationFact{}, ErrValidation
 		}
-		version = 2
+		switch intent.InputProtocol {
+		case ImageSetSchema:
+			if intent.PromptVersion == ArtworkSchema {
+				return GenerationFact{}, ErrValidation
+			}
+			version = 2
+		case ArtworkSchema:
+			catalog, err := NormalizeAssetCatalog(AssetCatalog{})
+			if err != nil || intent.CatalogHash != catalog.Manifest.Hash || intent.SourceDigest != intent.InputDigest || intent.PromptVersion != ArtworkSchema {
+				return GenerationFact{}, ErrValidation
+			}
+			version = 3
+		default:
+			return GenerationFact{}, ErrValidation
+		}
+	} else if intent.PromptVersion == ArtworkSchema {
+		return GenerationFact{}, ErrValidation
 	}
 	return GenerationFact{Version: version, Intent: intent, IntentID: generationHash(intent.Identity), Fingerprint: generationHash(intent), State: GenerationPrepared}, nil
 }

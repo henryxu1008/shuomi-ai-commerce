@@ -1,9 +1,11 @@
 import { catalogVersionSchema, COMPLETION_MAX_BYTES, SUPPLY_MAX_BYTES, supplyRouteMethods, supplyPath, supplyRequestSchema, supplyUsesKey, supplyMutates, parseSupplyResponse, type SupplyRoute } from "@/lib/contracts/supply-chain";
+import {completionRevision} from "@/lib/contracts/completion-draft-navigation";
+import {materialsErrorStatuses} from "@/lib/contracts/listing-materials";
 import { hasValidStoreServiceFacts, workbenchStorePlatformSchema } from "@/lib/validation/workbench-store";
 import { planPath, planMethods, planRequestSchema, planResponseSchema, type PlanRoute } from "@/lib/contracts/acquisition-plan";
-import {officialConnectionViewSchema,officialConnectionBeginSchema,officialConnectionCompleteSchema,officialConnectionQuerySchema,officialApplicationListSchema,officialConnectionStartSchema,officialConnectionInstallSchema} from "@/lib/contracts/store-connection";
+import {officialConnectionViewSchema,officialConnectionBeginSchema,officialConnectionCompleteSchema,officialConnectionQuerySchema,officialConnectionRefreshSchema,officialApplicationListSchema,officialConnectionStartSchema,officialConnectionInstallSchema} from "@/lib/contracts/store-connection";
 import { BROWSER_CAPTURE_MAX_BYTES, browserCaptureSchema } from "@/lib/contracts/browser-capture";
-import {agentEmptyRequestSchema,agentStartRequestSchema,contentAgentStartRequestSchema,agentResumeRequestSchema,agentResultSchema,contentAgentResultSchema,agentReviewLinkSchema,agentPath} from "@/lib/contracts/product-agent";
+import {agentEmptyRequestSchema,agentStartRequestSchema,contentAgentStartRequestSchema,ownContentStartRequestSchema,ownContentSourceSchema,ownAgentPath,agentResumeRequestSchema,agentResultSchema,contentAgentResultSchema,agentReviewLinkSchema,agentPath} from "@/lib/contracts/product-agent";
 import { aiWorkbenchPath, aiCreateBody, aiMessageBody, aiMetadataBody, aiResumeBody, parseAIWorkbenchResponse, type AIWorkbenchRoute } from "@/lib/contracts/ai-workbench";
 import { NextResponse } from "next/server";
 import { COLLECTION_MAX_BYTES, collectionPath, collectionCommandSchema, collectionSourceKindSchema, collectionVersion, parseCollectionResponse, type CollectionRoute } from "@/lib/contracts/product-collection";
@@ -59,6 +61,7 @@ export type WorkbenchResponseContract =
   | `supply-${SupplyRoute}`
   | `ai-${AIWorkbenchRoute}`
   | "product-agent-result"
+  | "product-agent-source"
   | "product-agent-content-result"
   | "product-agent-review"
   | "product-acquisition"
@@ -119,6 +122,7 @@ type WorkbenchRequestContract =
   | "store-connection-read"
   | "store-connection-begin"
   | "store-connection-complete"
+  | "store-connection-refresh"
   | "store-connection-query"
   | "store-connection-token"
   | "store-connection-disconnect"
@@ -326,12 +330,12 @@ const sourceAccountErrorStatuses: Readonly<Record<string, number>> = {
 const workbenchRouteAllowlist = [
   ...imageSetRoutes.map(action=>routeDefinition(imageSetMethods[action],`image-set-${action}`,`image-set-${action}`,path=>imageSetPath(path,action))),
   ...supplyRouteMethods.map(([method,name])=>routeDefinition(method,`supply-${name}`,`supply-${name}`,path=>supplyPath(method,path)===name?path.join("/"):null)),
-  ...(["batches", "items", "own", "detail", "history", "history-detail", "operation", "command", "import-preview", "import-template", "media-upload", "media-read"] as const).map(name => {
+  ...(["batches", "batch", "items", "own", "detail", "history", "history-detail", "operation", "command", "import-preview", "import-template", "media-upload", "media-read"] as const).map(name => {
     const method = name === "command" || name === "import-preview" || name === "media-upload" ? "POST" : "GET";
     return routeDefinition(method, `collection-${name}`, `collection-${name}`, path => collectionPath(method, path) === name ? path.join("/") : null);
   }),
   ...([
-    ["GET", "conversation-list"], ["POST", "conversation-create"],
+    ["GET","subject-read"], ["GET", "conversation-list"], ["POST", "conversation-create"],
     ["GET", "conversation-read"], ["PATCH", "conversation-metadata"],
     ["POST", "message"], ["POST", "confirm"],
     ["GET", "task-list"], ["GET", "task-read"],
@@ -354,6 +358,11 @@ const workbenchRouteAllowlist = [
   routeDefinition("POST","product-agent-resume","product-agent-result",path=>path.length===8&&path[7]==="resume"?agentPath(path,"product-agent"):null),
   routeDefinition("POST","product-agent-review","product-agent-review",path=>path.length===8&&path[7]==="review"?agentPath(path,"product-agent"):null),
   routeDefinition("POST","product-agent-start","product-agent-content-result",path=>path.length===6?agentPath(path,"content-agent"):null),
+  routeDefinition("GET","product-agent-read","product-agent-source",path=>path.length===5&&path[4]==="source"?ownAgentPath(path):null),
+  routeDefinition("POST","product-agent-start","product-agent-content-result",path=>path.length===5&&path[4]==="runs"?ownAgentPath(path):null),
+  routeDefinition("GET","product-agent-read","product-agent-content-result",path=>path.length===6?ownAgentPath(path):null),
+  routeDefinition("POST","product-agent-resume","product-agent-content-result",path=>path.length===7&&path[6]==="resume"?ownAgentPath(path):null),
+  routeDefinition("POST","product-agent-review","product-agent-review",path=>path.length===7&&path[6]==="review"?ownAgentPath(path):null),
   routeDefinition("GET","product-agent-read","product-agent-content-result",path=>path.length===7?agentPath(path,"content-agent"):null),
   routeDefinition("POST","product-agent-resume","product-agent-content-result",path=>path.length===8&&path[7]==="resume"?agentPath(path,"content-agent"):null),
   routeDefinition("POST","product-agent-review","product-agent-review",path=>path.length===8&&path[7]==="review"?agentPath(path,"content-agent"):null),
@@ -399,7 +408,7 @@ const workbenchRouteAllowlist = [
   routeDefinition("POST","store-service-reactivate","store-service-lifecycle",path=>storeActionPath(path,"reactivate")),
   routeDefinition("GET","store-connection-applications","store-connection-applications",path=>path.length===4&&path[0]==="stores"&&isAcquisitionUUID(path[1]!)&&path[2]==="connection"&&path[3]==="applications" ? `stores/${path[1]}/connection/applications`:null),
   routeDefinition("GET","store-connection-read","store-connection-view",path=>path.length === 3&&path[0] === "stores"&&isAcquisitionUUID(path[1]!)&&path[2] === "connection" ? `stores/${path[1]}/connection`:null),
-  ...(["begin","complete","query","disconnect","token"] as const).map(action=>routeDefinition("POST",`store-connection-${action}`,action === "begin" ? "store-connection-begin":"store-connection-view",path=>path.length === 4&&path[0] === "stores"&&isAcquisitionUUID(path[1]!)&&path[2] === "connection"&&path[3] === action ? `stores/${path[1]}/connection/${action}`:null)),
+  ...(["begin","complete","query","disconnect","token","refresh"] as const).map(action=>routeDefinition("POST",`store-connection-${action}`,action === "begin" ? "store-connection-begin":"store-connection-view",path=>path.length === 4&&path[0] === "stores"&&isAcquisitionUUID(path[1]!)&&path[2] === "connection"&&path[3] === action ? `stores/${path[1]}/connection/${action}`:null)),
   routeDefinition("GET", "source-account-list", "source-account-list", (path) =>
     exactPath(path, "source-accounts") ? "source-accounts" : null,
   ),
@@ -537,18 +546,18 @@ export async function buildWorkbenchUpstreamRequest(
       if(schema){
         const key=readCanonicalUUIDHeader(request.headers,"Idempotency-Key");
         if(url.search || request.headers.get("content-type")!=="application/json" || request.headers.has("content-encoding") || (supplyUsesKey(action)?!key:request.headers.has("Idempotency-Key")))return protocolError(400,"INVALID_REQUEST","Supply command invalid");
-        const raw=await readRequestBody(request,action==="save-completion-draft"?COMPLETION_MAX_BYTES:SUPPLY_MAX_BYTES,"INPUT_TOO_LARGE");if(raw instanceof Response)return raw;
+        const raw=await readRequestBody(request,action.startsWith("materials-")?8192:action==="save-completion-draft"?COMPLETION_MAX_BYTES:SUPPLY_MAX_BYTES,"INPUT_TOO_LARGE");if(raw instanceof Response)return raw;
         const parsed=parseJSONBody(raw);const checked=schema.safeParse(parsed?.payload);
         if(!parsed || !checked.success)return protocolError(400,"INVALID_REQUEST","Supply command invalid");
         if(action==="approve" && "actionId" in checked.data && checked.data.actionId && checked.data.actionId!==key)return protocolError(400,"INVALID_REQUEST","Approval action differs from its original key");
         body=JSON.stringify(checked.data);headers.set("Content-Type","application/json");if(key)headers.set("Idempotency-Key",key);
       }else{
-        if(request.headers.has("Idempotency-Key") || !(await requestHasNoBody(request)))return protocolError(400,"INVALID_REQUEST","Body or command key is not allowed");
-        const allowed=["completion-drafts","list","sources","stages","operation-items","operations","optimization-options"].includes(action)?new Set(["limit","after",...action==="stages"?["storeId","stage","keyword","sourceKind"]:action==="operations"?["storeId"]:action==="optimization-options"?[]:["keyword"]]):new Set<string>();
+        if(request.headers.has("Idempotency-Key") || ((action==="item-completion-drafts"||action.startsWith("completion-history"))&&request.headers.has("content-encoding")) || !(await requestHasNoBody(request)))return protocolError(400,"INVALID_REQUEST","Body or command key is not allowed");
+        const allowed=action==="completion-history"?new Set(["before","limit"]):["item-completion-drafts","completion-drafts","list","sources","stages","operation-items","operations","optimization-options"].includes(action)?new Set(["limit","after",...action==="stages"?["storeId","stage","keyword","sourceKind"]:action==="operations"?["storeId"]:action==="optimization-options"?[]:["keyword"]]):new Set<string>();
         if(/%(?![0-9A-Fa-f]{2})/.test(url.search)||(action==="operations"||action==="stages")&&!isAcquisitionUUID(url.searchParams.get("storeId")??"")||action==="stages"&&!["all","waiting","missing","ready","review","uploaded"].includes(url.searchParams.get("stage")??""))return protocolError(400,"INVALID_REQUEST","Supply query invalid");
         for(const key of url.searchParams.keys()){
           const values=url.searchParams.getAll(key);if(!allowed.has(key)||values.length!==1||!values[0])return protocolError(400,"INVALID_REQUEST","Supply query invalid");
-          const value=values[0];if(key==="limit"&&(!/^[1-9][0-9]*$/.test(value)||Number(value)>100)||(key==="after"||key==="storeId")&&!isAcquisitionUUID(value)||key==="sourceKind"&&!collectionSourceKindSchema.safeParse(value).success||key==="keyword"&&(new TextEncoder().encode(value).length>80||/[\0\r\n]/.test(value)))return protocolError(400,"INVALID_REQUEST","Supply query invalid");
+          const value=values[0];if(key==="before"&&completionRevision(value)===null||key==="limit"&&(!/^[1-9][0-9]*$/.test(value)||Number(value)>100)||(key==="after"||key==="storeId")&&!isAcquisitionUUID(value)||key==="sourceKind"&&!collectionSourceKindSchema.safeParse(value).success||key==="keyword"&&(new TextEncoder().encode(value).length>80||/[\0\r\n]/.test(value)))return protocolError(400,"INVALID_REQUEST","Supply query invalid");
         }
         query=url.search;
       }
@@ -588,7 +597,7 @@ export async function buildWorkbenchUpstreamRequest(
         headers.set("Idempotency-Key", key);
       } else {
         if (!(await requestHasNoBody(request))) return protocolError(400, "INVALID_REQUEST", "Body is not allowed");
-        if((action==="history"||action==="history-detail")&&(request.headers.has("Idempotency-Key")||request.headers.has("content-encoding")))return protocolError(400,"INVALID_REQUEST","History read invalid");
+        if((action==="batch"||action==="history"||action==="history-detail")&&(request.headers.has("Idempotency-Key")||request.headers.has("content-encoding")))return protocolError(400,"INVALID_REQUEST","Collection read invalid");
         const allowed = action==="history"?new Set(["limit","before"]):action === "batches" || action === "items" || action === "own" ? new Set(["limit", "after", "keyword"]) : new Set<string>();
         for (const key of url.searchParams.keys()) {
           const values = url.searchParams.getAll(key);
@@ -624,7 +633,7 @@ export async function buildWorkbenchUpstreamRequest(
         query = selected.size ? `?${selected.toString()}` : "";
       } else {
         if (!hasExactNoQuery(request)) return protocolError(400, "INVALID_REQUEST", "Query is not allowed");
-        if (action === "task-read") {
+        if (action === "task-read" || action === "subject-read") {
           if (!(await requestHasNoBody(request))) return protocolError(400, "INVALID_REQUEST", "Body is not allowed");
         } else {
           const assertion = validateSourceMutationBoundary(request, authenticatedActorSubject);
@@ -660,6 +669,7 @@ export async function buildWorkbenchUpstreamRequest(
       case "store-connection-read":
       case "store-connection-begin":
       case "store-connection-complete":
+      case "store-connection-refresh":
       case "store-connection-query":
       case "store-connection-token":
       case "store-connection-disconnect": {
@@ -682,7 +692,7 @@ export async function buildWorkbenchUpstreamRequest(
         }
         if(request.headers.has("Idempotency-Key")||request.headers.has("If-Match")||request.headers.get("content-type") !== "application/json"||request.headers.has("content-encoding"))return protocolError(400,"INVALID_REQUEST","Request is invalid");
         const raw=await readRequestBody(request,8192);if(raw instanceof Response)return raw;const parsed=parseJSONBody(raw);
-        const valid=(route.requestContract === "store-connection-query" ? officialConnectionQuerySchema:route.requestContract === "store-connection-token" ? officialConnectionInstallSchema:officialConnectionCompleteSchema).safeParse(parsed?.payload);
+        const valid=(route.requestContract === "store-connection-refresh" ? officialConnectionRefreshSchema:route.requestContract === "store-connection-query" ? officialConnectionQuerySchema:route.requestContract === "store-connection-token" ? officialConnectionInstallSchema:officialConnectionCompleteSchema).safeParse(parsed?.payload);
         if(!parsed||!valid.success)return protocolError(400,"INVALID_REQUEST","Request is invalid");body=JSON.stringify(valid.data);headers.set("Content-Type","application/json");break;
       }
       case "product-agent-start":
@@ -697,7 +707,7 @@ export async function buildWorkbenchUpstreamRequest(
         if(request.headers.get("content-type")!=="application/json" || request.headers.has("content-encoding"))return protocolError(400,"INVALID_REQUEST","Invalid content type");
         const raw=await readRequestBody(request,16384,"INPUT_TOO_LARGE");if(raw instanceof Response)return raw;
         const parsed=parseJSONBody(raw);
-        const valid=(route.requestContract==="product-agent-start"?(path[4]==="content-agent"?contentAgentStartRequestSchema:agentStartRequestSchema):route.requestContract==="product-agent-resume"?agentResumeRequestSchema:agentEmptyRequestSchema).safeParse(parsed?.payload);
+        const valid=(route.requestContract==="product-agent-start"?(ownAgentPath(path)?ownContentStartRequestSchema:path[4]==="content-agent"?contentAgentStartRequestSchema:agentStartRequestSchema):route.requestContract==="product-agent-resume"?agentResumeRequestSchema:agentEmptyRequestSchema).safeParse(parsed?.payload);
         if(!parsed || !valid.success)return protocolError(400,"INVALID_REQUEST","Invalid Agent request");
         if(route.requestContract==="product-agent-start") {const key=request.headers.get("Idempotency-Key")??"";if(!isAcquisitionUUID(key))return protocolError(400,"INVALID_REQUEST","Invalid request key");headers.set("Idempotency-Key",key);}
         body=JSON.stringify(valid.data);headers.set("Content-Type","application/json");break;
@@ -1007,14 +1017,19 @@ export async function buildWorkbenchUpstreamRequest(
       cache: "no-store",
     },
     responseContract: route.responseContract,
-    expectedStoreId: imageSetContract ? JSON.stringify(imageSetResponseBinding(path,route.requestContract.slice(10) as ImageSetRoute)) : expectedCollectionMedia ?? (
+    expectedStoreId:route.requestContract==="ai-subject-read"?`${path[2]}:${path[3]}`: imageSetContract ? JSON.stringify(imageSetResponseBinding(path,route.requestContract.slice(10) as ImageSetRoute)) : expectedCollectionMedia ?? (
+      route.requestContract.startsWith("supply-shein-")&&route.requestContract!=="supply-shein-completion-preview"&&typeof body==="string"?JSON.stringify({...JSON.parse(body),key:headers.get("Idempotency-Key")??JSON.parse(body).key}):
+      route.requestContract==="supply-shein-completion-preview"&&typeof body==="string"?body:
+      route.requestContract.startsWith("supply-materials-")?`${path[2]}:${path[5]??request.headers.get("Idempotency-Key")??(typeof body==="string"?JSON.parse(body).requestKey:"")}`:
       route.requestContract==="product-acquisition-plan-read"||route.requestContract==="product-acquisition-plan-advance"?path[3]:
+      route.requestContract==="supply-completion-history"?`${path[2]}:${new URL(request.url).searchParams.get("before")??0}:${new URL(request.url).searchParams.get("limit")??20}`:
+      route.requestContract==="supply-completion-history-detail"?`${path[2]}:${path[5]}`:
       (route.requestContract==="supply-target"||route.requestContract==="supply-publication"||route.requestContract==="supply-publication-status") ? `${path[2]}:${path[4]}` :
-      ["supply-completion-draft","supply-completion-drafts","supply-source","supply-preparation","supply-record","supply-operation","supply-ensure","supply-cancel"].includes(route.requestContract) ? (["supply-preparation","supply-completion-drafts"].includes(route.requestContract)?path[1]:path[2]) :
-      route.requestContract === "collection-detail" ? path[2] :
+      ["supply-item-completion-drafts","supply-completion-draft","supply-completion-drafts","supply-source","supply-preparation","supply-record","supply-operation","supply-ensure","supply-cancel"].includes(route.requestContract) ? (["supply-preparation","supply-completion-drafts"].includes(route.requestContract)?path[1]:path[2]) :
+      route.requestContract === "collection-detail" || route.requestContract === "collection-batch" ? path[2] :
       route.requestContract === "collection-history" ? path[2] :
       route.requestContract === "collection-history-detail" ? `${path[2]}:${path[4]}` :
-      route.requestContract.startsWith("product-agent-") ? (path[6]??request.headers.get("Idempotency-Key")??undefined) :
+      route.requestContract.startsWith("product-agent-") ? (ownAgentPath(path)?path[5]??request.headers.get("Idempotency-Key")??undefined:path[6]??request.headers.get("Idempotency-Key")??undefined) :
       (route.requestContract === "acquisition-image-candidates") ? path[3] :
       (route.requestContract === "acquisition-image-read" || route.requestContract === "acquisition-image-approve") ? path[6] :
       (route.requestContract === "product-acquisition-read" || route.requestContract === "product-acquisition-product" || route.requestContract === "browser-capture-read") ? path[3] :
@@ -1031,7 +1046,7 @@ export async function buildWorkbenchUpstreamRequest(
       (imageSetContract && request.method==="POST" && route.requestContract!=="image-set-preview" && route.requestContract!=="image-set-requirements") ||
       (supplyContract && supplyMutates(route.requestContract.slice(7) as SupplyRoute)) ||
       route.requestContract === "collection-command" || route.requestContract === "collection-media-upload" ||
-      (route.requestContract.startsWith("ai-") && !["ai-conversation-list", "ai-conversation-read", "ai-task-list", "ai-task-read"].includes(route.requestContract)) ||
+      (route.requestContract.startsWith("ai-") && !["ai-conversation-list", "ai-conversation-read", "ai-task-list", "ai-task-read","ai-subject-read"].includes(route.requestContract)) ||
       (route.requestContract.startsWith("store-connection-") && route.requestContract !== "store-connection-read" && route.requestContract !== "store-connection-applications") ||
       route.requestContract.startsWith("store-service-") ||
       (route.requestContract.startsWith("product-agent-") && route.requestContract!=="product-agent-read") ||
@@ -1117,7 +1132,7 @@ export async function buildWorkbenchBrowserResponse(
     if(!parsedBody||!payload)return invalid();
     if(upstream.ok){const checked=parseSupplyResponse(contract.slice(7) as SupplyRoute,payload,expectedStoreId);return upstream.status===200 && checked?new NextResponse(JSON.stringify(checked),{status:200,headers:safeJSONHeaders()}):invalid();}
     const standard=parseWorkbenchErrorEnvelopePayload(payload);const code=typeof payload.code==="string"?payload.code:standard.success?standard.data.code:"";
-    const statuses:Record<string,number>={...acquisitionErrorStatuses,INVALID_REQUEST:400,PERMISSION_DENIED:403,NOT_FOUND:404,REVISION_CONFLICT:409,NOT_READY:409,OUTCOME_UNKNOWN:409};
+    const statuses:Record<string,number>={...acquisitionErrorStatuses,INVALID_REQUEST:400,PERMISSION_DENIED:403,NOT_FOUND:404,REVISION_CONFLICT:409,NOT_READY:409,OUTCOME_UNKNOWN:409,...(contract.startsWith("supply-materials-")?materialsErrorStatuses:{})};
     if(statuses[code]!==upstream.status)return invalid();
     const response=protocolError(upstream.status,code,"Supply request could not be completed",options.requestId??"");
     if(code==="ORGANIZATION_ACCESS_REVOKED"||code==="ORGANIZATION_ACCESS_DENIED")clearSelectionCookie(response);return response;
@@ -1131,7 +1146,7 @@ export async function buildWorkbenchBrowserResponse(
     }
     const standard = parseWorkbenchErrorEnvelopePayload(payload);
     const code = typeof payload.code === "string" ? payload.code : standard.success ? standard.data.code : "";
-    const statuses: Record<string, number> = { ...acquisitionErrorStatuses, INVALID_REQUEST: 400, PERMISSION_DENIED: 403, NOT_FOUND: 404, REVISION_CONFLICT: 409, OUTCOME_UNKNOWN: 409 };
+    const statuses: Record<string, number> = { ...acquisitionErrorStatuses, INVALID_REQUEST: 400, PERMISSION_DENIED: 403, NOT_FOUND: 404, REVISION_CONFLICT: 409, STORAGE_LIMIT_EXCEEDED: 409, OUTCOME_UNKNOWN: 409 };
     if (statuses[code] !== upstream.status) return invalid();
     const response = protocolError(upstream.status, code, "Collection request could not be completed", options.requestId ?? "");
     if (code === "ORGANIZATION_ACCESS_REVOKED" || code === "ORGANIZATION_ACCESS_DENIED") clearSelectionCookie(response);
@@ -1142,6 +1157,7 @@ export async function buildWorkbenchBrowserResponse(
     if (!parsedBody || !payload) return unavailable();
     if (upstream.ok) {
       const checked = parseAIWorkbenchResponse(contract.slice(3) as AIWorkbenchRoute, upstream.status, payload);
+      if(contract==="ai-subject-read"&&expectedStoreId&&checked&&("subject" in checked)&&`${checked.subject.kind}:${checked.subject.id}`!==expectedStoreId)return unavailable();
       return checked ? new NextResponse(JSON.stringify(checked), { status: upstream.status, headers: safeJSONHeaders() }) : unavailable();
     }
     const standard = parseWorkbenchErrorEnvelopePayload(payload);
@@ -1154,21 +1170,25 @@ export async function buildWorkbenchBrowserResponse(
       ORGANIZATION_CONTEXT_CHANGED: 409, IDENTITY_CONTEXT_CHANGED: 409, OUTCOME_UNKNOWN: 503,
       INPUT_TOO_LARGE: 413, DEADLINE_EXCEEDED: 504 };
     if (statuses[code] !== upstream.status) return unavailable();
-    const response = protocolError(upstream.status, code, "AI Workbench request could not be completed", options.requestId ?? "");
+    let response = protocolError(upstream.status, code, "AI Workbench request could not be completed", options.requestId ?? "");
+    if(contract==="ai-message"&&payload.messageAccepted===false&&["INVALID_REQUEST","PROPOSAL_STALE"].includes(code)){
+      response=new NextResponse(JSON.stringify({...await response.json(),messageAccepted:false}),{status:response.status,headers:response.headers});
+    }
     if (code === "ORGANIZATION_ACCESS_REVOKED" || code === "ORGANIZATION_ACCESS_DENIED") clearSelectionCookie(response);
     return response;
   }
   if(agentContract) {
     const invalid=()=>protocolError(options.sourceMutation?503:502,options.sourceMutation?"OUTCOME_UNKNOWN":"DEPENDENCY_UNAVAILABLE","Agent response unavailable",options.requestId??"");
     if(upstream.ok) {
-      const checked=(contract==="product-agent-review"?agentReviewLinkSchema:contract==="product-agent-content-result"?contentAgentResultSchema:agentResultSchema).safeParse(payload);
-      if(upstream.status!==200 || !checked.success || (expectedStoreId!==undefined && checked.data.requestKey!==expectedStoreId))return invalid();
+      const checked=(contract==="product-agent-source"?ownContentSourceSchema:contract==="product-agent-review"?agentReviewLinkSchema:contract==="product-agent-content-result"?contentAgentResultSchema:agentResultSchema).safeParse(payload);
+      if(upstream.status!==200 || !checked.success || (expectedStoreId!==undefined && !("requestKey" in checked.data && checked.data.requestKey===expectedStoreId)))return invalid();
       return new NextResponse(JSON.stringify(checked.data),{status:200,headers:safeJSONHeaders()});
     }
     const code=payload&&typeof payload==="object"&&"code" in payload&&typeof payload.code==="string"?payload.code:"";
     const statuses:Record<string,number>={INVALID_AGENT_REQUEST:400,FORBIDDEN:403,AGENT_CONFLICT:409,PRODUCT_AGENT_UNAVAILABLE:503,KNOWLEDGE_CONTEXT_TOO_LARGE:409,KNOWLEDGE_FORBIDDEN:403,KNOWLEDGE_DISABLED:409,KNOWLEDGE_NOT_READY:409,KNOWLEDGE_NOT_FOUND:409,...acquisitionErrorStatuses,
       CONFIGURATION_CHANGED:409,AGENT_NOT_ENABLED:409,TEMPLATE_ARCHIVED:409,AGENT_DEFINITION_UNAVAILABLE:409,
-      NOT_FOUND:404,TEMPLATE_IS_DEFAULT:409,REVISION_MISMATCH:412,PRECONDITION_REQUIRED:428};
+      NOT_FOUND:404,TEMPLATE_IS_DEFAULT:409,REVISION_MISMATCH:412,PRECONDITION_REQUIRED:428,
+      SKILL_INVALID:400,SKILL_UNSUPPORTED_FIELD:400,SKILL_FORBIDDEN:403,SKILL_NOT_FOUND:409,SKILL_NOT_ENABLED:409,SKILL_IDEMPOTENCY_CONFLICT:409,SKILL_REVISION_MISMATCH:409,SKILL_UNAVAILABLE:503};
     if(upstream.status===404 && statuses[code]===undefined)return protocolError(503,"PRODUCT_AGENT_UNAVAILABLE","Product Agent is not enabled",options.requestId??"");
     if(statuses[code]!==upstream.status)return invalid();
     const response=protocolError(upstream.status,code,"Agent request could not be completed",options.requestId??"");

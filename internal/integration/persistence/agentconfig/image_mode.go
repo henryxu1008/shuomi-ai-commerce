@@ -7,7 +7,10 @@ import (
 )
 
 func (s *Store) CheckImageExecutionMode(ctx context.Context, identity agent.ExecutionIdentity, config agent.ConfigurationSnapshotRef, ref agent.ModeSnapshotRef) (agentconfig.ModeSnapshot, error) {
-	snapshot, err := s.LoadImageConfiguration(ctx, agent.Scope{OrganizationID: identity.OrganizationID, ActorID: identity.ActorID}, config)
+	return s.checkVisualExecutionMode(ctx, identity, config, ref, productImageProfile)
+}
+func (s *Store) checkVisualExecutionMode(ctx context.Context, identity agent.ExecutionIdentity, config agent.ConfigurationSnapshotRef, ref agent.ModeSnapshotRef, profile visualConfigurationProfile) (agentconfig.ModeSnapshot, error) {
+	snapshot, err := s.loadVisualConfiguration(ctx, agent.Scope{OrganizationID: identity.OrganizationID, ActorID: identity.ActorID}, config, profile)
 	if err != nil {
 		return agentconfig.ModeSnapshot{}, err
 	}
@@ -18,10 +21,10 @@ func (s *Store) CheckImageExecutionMode(ctx context.Context, identity agent.Exec
 	if err != nil {
 		return agentconfig.ModeSnapshot{}, err
 	}
-	if mode.Subject.Subject.Kind != agentconfig.RegisteredAgentSubject || mode.Subject.Subject.ID != agentconfig.ImageAgentID || mode.Subject.Definition.Version != snapshot.AgentVersion || mode.Binding.ContextKind != agentconfig.ImageSnapshotContext || mode.Binding.ContextID != snapshot.ContextID || mode.Binding.RequestKey != snapshot.RequestKey {
+	if mode.Subject.Subject.Kind != agentconfig.RegisteredAgentSubject || mode.Subject.Subject.ID != profile.agentID || mode.Subject.Definition.Version != snapshot.AgentVersion || mode.Binding.ContextKind != profile.context || mode.Binding.ContextID != snapshot.ContextID || mode.Binding.RequestKey != snapshot.RequestKey {
 		return agentconfig.ModeSnapshot{}, agentconfig.ErrConflict
 	}
-	current, err := s.ReadAgent(ctx, snapshot.Scope, agentconfig.ImageAgentID)
+	current, err := s.ReadAgent(ctx, snapshot.Scope, profile.agentID)
 	if err != nil {
 		return agentconfig.ModeSnapshot{}, err
 	}

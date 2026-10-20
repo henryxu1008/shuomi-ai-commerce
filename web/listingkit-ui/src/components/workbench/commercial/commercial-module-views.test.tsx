@@ -1,12 +1,17 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import {useState,type ComponentProps} from "react";
 import { afterEach, expect, it, vi } from "vitest";
 import { commercialOverviewFixture } from "@/test/fixtures/commercial-overview";
 import {
   CommercialOverviewView,
   UsageDetailsView,
 } from "./commercial-module-views";
-import { OrdersView, WalletView } from "./commercial-billing-views";
+import { OrdersView as ControlledOrdersView, WalletView } from "./commercial-billing-views";
+function OrdersView(props:Omit<ComponentProps<typeof ControlledOrdersView>,"form"|"onFormChange">){
+ const [form,setForm]=useState({query:"",kind:"",status:"",from:"",until:""});
+ return <ControlledOrdersView {...props} form={form} onFormChange={setForm}/>;
+}
 vi.mock("./wallet-topup", () => ({
   WalletTopUpEntry: () => <button disabled>充值钱包</button>,
 }));

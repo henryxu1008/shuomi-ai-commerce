@@ -63,6 +63,7 @@ type Slot struct {
 }
 
 type Plan struct {
+	Artwork           *ArtworkPlan  `json:",omitempty"`
 	Set               *ImageSetPlan `json:",omitempty"`
 	Revision          int64
 	ParentRevision    int64
@@ -208,6 +209,7 @@ type ProductContextRef struct {
 }
 
 type AssetCandidate struct {
+	Artwork         *ArtworkProvenance    `json:"-"`
 	GenerationProof *ImageGenerationProof `json:"-"`
 	AssetID         string
 	URL             string

@@ -1,2 +1,80 @@
-.page.page { --intro-background:#f4f7fb; }
-:global(.dark) .page.page { --intro-background:#060b15; }
+.page.page { --intro-background: var(--background); }
+:global(.dark) .page.page { --intro-background: var(--background); }
+.tools.tools { gap:22px; }
+.tools > header { min-height:91px; gap:5px; }
+.tools > header h1 { font-size: var(--page-title-size); line-height:35px; }
+.entries.entries > a, .entries.entries > div { min-height:178px; padding:24px 20px 18px; justify-content:space-between; gap:14px; }
+.entryHeading { display:flex; align-items:center; gap:12px; }
+.entryHeading h2 { font-size: var(--card-title-size); line-height:27px; }
+.entryHeading > span { min-width:36px; padding:4px 8px; text-align:center; }
+.entries.entries p { line-height:22px; }
+.steps.steps { gap:0; border:1px solid var(--intro-border); border-radius: var(--radius); background:var(--intro-surface); padding:20px 0; }
+.steps.steps li + li { border-left:1px solid var(--intro-border); }
+.steps.steps li > div { min-height:62px; padding:0 18px; border:0; border-radius:0; background:transparent; display:grid; grid-template-columns:28px minmax(0,1fr); gap:12px; }
+.steps.steps span { background:transparent; color:var(--intro-teal); width:auto; height:auto; font-size: var(--body-text-size); }
+.steps.steps h3 { font-size: var(--card-title-size); line-height:25px; }
+.steps.steps p { grid-column:1 / -1; margin:0; line-height:22px; }
+.notes.notes { gap:0; border:1px solid var(--intro-border); border-radius: var(--radius); padding:20px 0; background:var(--intro-surface); }
+.notes.notes > div { border:0; border-radius:0; padding:0 20px; min-height:78px; background:transparent; gap:0; }
+.notes.notes > div + div { border-left:1px solid var(--intro-border); }
+.notes.notes h2 { font-size: var(--section-title-size); line-height:24px; margin:6px 0; }
+.notes.notes p { line-height:22px; }
+.notes.notes p:last-child { margin-top:0; padding:0; border:0; background:transparent; color:var(--intro-muted); font-size: var(--label-text-size); font-weight:400; }
+.skills.skills { gap:22px; --intro-text: var(--foreground); }
+:global(.dark) .skills.skills { --intro-text: var(--foreground); }
+.skills > header { min-height:100px; gap:6px; }
+.skills > header h1 { font-size: var(--page-title-size); line-height:34px; }
+.skills > header > p:first-child { font-size: var(--label-text-size); line-height:20px; }
+.skills > header > p:last-child { font-size: var(--body-text-size); line-height:24px; }
+.skills .entries { grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr)); }
+.skills .entries > a { position:relative; min-height:178px; padding:26px 23px 18px; gap:16px; }
+.skills .entryHeading { gap:10px; min-height:28px; padding-right:118px; }
+.skills .entryHeading h2 { font-size: var(--card-title-size); line-height:28px; }
+.skills .entryNumber { min-width:26px; padding:0; color:var(--tone); font-size: var(--body-text-size); line-height:28px; font-weight:700; }
+.skills .entries > a:nth-child(3) .entryNumber { color:var(--intro-green); }
+.skills .skillBadge { position:absolute; top:26px; right:26px; min-width:106px; text-align:center; font-weight:400; }
+.skills .entries p { white-space:pre-line; font-size: var(--body-text-size); line-height:22px; }
+.skills .entries > a > span:last-child { font-size: var(--body-text-size); line-height:20px; margin-top:auto; }
+.features { display:flex; flex-direction:column; gap:12px; }
+.featureHeading { display:grid; grid-template-columns:300px minmax(0,1fr); align-items:center; gap:14px; min-height:28px; }
+.featureHeading h2 { font-size: var(--section-title-size); line-height:27px; font-weight:700; }
+.featureHeading p { color:var(--intro-muted); font-size: var(--body-text-size); line-height:22px; }
+.featurePanel { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); padding:18px 0; border:1px solid var(--intro-border); border-radius: var(--radius); background:var(--intro-surface); box-shadow:none; }
+.featurePanel > div { min-width:0; padding:0 23px; display:flex; flex-direction:column; gap:10px; }
+.featurePanel > div + div { border-left:1px solid var(--intro-border); }
+.featurePanel h3 { font-size: var(--card-title-size); line-height:24px; font-weight:700; }
+.featurePanel p { color:var(--intro-muted); font-size: var(--body-text-size); line-height:22px; }
+.skills > section:not(.features) { gap:12px; }
+.skills > section:not(.features) > div:first-child { min-height:28px; }
+.skills > section:not(.features) h2 { min-width:156px; font-size: var(--section-title-size); line-height:27px; }
+.skills > section:not(.features) > div:first-child p { font-size: var(--body-text-size); line-height:22px; }
+.skills .steps { padding:0; }
+.skills .steps li + li { border-left:0; }
+.skills .steps li > div { min-height:104px; padding:24px 23px 18px; grid-template-columns:28px minmax(0,1fr); gap:10px 9px; align-content:start; }
+.skills .steps span { color:var(--tone); font-size: var(--body-text-size); line-height:26px; }
+.skills .steps h3 { font-size: var(--card-title-size); line-height:26px; }
+.skills .steps p { font-size: var(--body-text-size); line-height:22px; }
+.skills .notes { padding:0; }
+.skills .notes > div { min-height:124px; padding:24px 25px 14px; gap:14px; }
+.skills .notes h2 { font-size: var(--section-title-size); line-height:26px; margin:0; }
+.skills .notes p:last-child { white-space:pre-line; font-size: var(--body-text-size); line-height:22px; }
+@media(max-width:1050px) {
+  .featureHeading { grid-template-columns:minmax(0,1fr); gap:4px; }
+  .featurePanel { grid-template-columns:repeat(2,minmax(0,1fr)); padding:0; }
+  .featurePanel > div { padding:16px; }
+  .featurePanel > div:nth-child(odd) { border-left:0; }
+  .featurePanel > div:nth-child(n+3) { border-top:1px solid var(--intro-border); }
+}
+@media(max-width:640px) {
+  .skills .notes > div + div { padding-top:24px; }
+}
+@media(max-width:420px) {
+  .featurePanel { grid-template-columns:minmax(0,1fr); }
+  .featurePanel > div + div { border-left:0; border-top:1px solid var(--intro-border); }
+}
+@media(max-width:640px) {
+  .steps.steps { grid-template-columns:1fr; gap:16px; }
+  .steps.steps li + li { border:0; }
+  .notes.notes { gap:20px; }
+  .notes.notes > div + div { border-left:0; border-top:1px solid var(--intro-border); padding-top:20px; }
+}

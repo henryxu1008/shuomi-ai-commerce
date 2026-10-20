@@ -10,13 +10,13 @@ import (
 // known terminal failures and unstarted work without declaring them accepted.
 // Financial references must still be resolved by their owners on selection.
 func ImageSetResultDigest(plan Plan, slots []SlotProjection, recoverable []RecoverableEffect) (string, error) {
-	return imageSetEffectsDigest(plan, slots, recoverable, true)
+	return imageSetEffectsDigest(plan, slots, recoverable, true, false)
 }
 
 // Regeneration eligibility also covers a wholly failed run whose original
 // effects all closed. This does not make it eligible for result approval.
 func ImageSetClosedEffectsDigest(plan Plan, slots []SlotProjection, recoverable []RecoverableEffect) (string, error) {
-	return imageSetEffectsDigest(plan, slots, recoverable, false)
+	return imageSetEffectsDigest(plan, slots, recoverable, false, false)
 }
 
 // These statuses permit checking closed effects; the status alone never proves
@@ -45,8 +45,17 @@ func ImageSetCandidateResultDigest(projection RunProjection) (string, error) {
 	return digest, nil
 }
 
-func imageSetEffectsDigest(plan Plan, slots []SlotProjection, recoverable []RecoverableEffect, requireAccepted bool) (string, error) {
-	if plan.Set == nil || ValidateSubmittedPlan(plan) != nil || len(slots) != len(plan.Slots) || len(recoverable) != 0 {
+func ArtworkResultDigest(plan Plan, slots []SlotProjection, recoverable []RecoverableEffect) (string, error) {
+	return imageSetEffectsDigest(plan, slots, recoverable, true, true)
+}
+func VisualResultDigest(plan Plan, slots []SlotProjection, recoverable []RecoverableEffect) (string, error) {
+	if plan.Artwork != nil {
+		return ArtworkResultDigest(plan, slots, recoverable)
+	}
+	return ImageSetResultDigest(plan, slots, recoverable)
+}
+func imageSetEffectsDigest(plan Plan, slots []SlotProjection, recoverable []RecoverableEffect, requireAccepted, artwork bool) (string, error) {
+	if (artwork && plan.Artwork == nil || !artwork && (plan.Set == nil || plan.Artwork != nil)) || ValidateSubmittedPlan(plan) != nil || len(slots) != len(plan.Slots) || len(recoverable) != 0 {
 		return "", ErrRevisionConflict
 	}
 	accepted := 0
@@ -59,9 +68,15 @@ func imageSetEffectsDigest(plan Plan, slots []SlotProjection, recoverable []Reco
 			return "", ErrRevisionConflict
 		}
 		closure := actual.Closure
+		points := int64(0)
+		if artwork {
+			points = plan.Artwork.Quote.Points
+		} else {
+			points = declared.Recipe.Quote.Points
+		}
 		switch closure.Kind {
 		case "settled":
-			if !agentconfig.ImageDigest(closure.IntentID) || !agentconfig.ImageDigest(closure.Fingerprint) || !agentconfig.ImageDigest(closure.SettlementProofDigest) || closure.Points != declared.Recipe.Quote.Points || actual.Attempt <= 0 {
+			if !agentconfig.ImageDigest(closure.IntentID) || !agentconfig.ImageDigest(closure.Fingerprint) || !agentconfig.ImageDigest(closure.SettlementProofDigest) || closure.Points != points || actual.Attempt <= 0 {
 				return "", ErrRevisionConflict
 			}
 		case "no_generation":
@@ -82,7 +97,14 @@ func imageSetEffectsDigest(plan Plan, slots []SlotProjection, recoverable []Reco
 			}
 			candidate := actual.Candidates[0]
 			proof := candidate.GenerationProof
-			if ValidateProvenanceAssetID(candidate.AssetID) != nil || seen[candidate.AssetID] || candidate.SourceAssetID != declared.SourceAssetIDs[0] || candidate.Width <= 0 || candidate.Height <= 0 || len(candidate.Operations) != 1 || candidate.Operations[0] != "render_source_edit" || proof == nil || proof.IntentID != closure.IntentID || proof.Fingerprint != closure.Fingerprint || proof.SettlementProofDigest != closure.SettlementProofDigest || proof.Points != closure.Points {
+			if ValidateProvenanceAssetID(candidate.AssetID) != nil || seen[candidate.AssetID] || candidate.Width <= 0 || candidate.Height <= 0 || proof == nil || proof.IntentID != closure.IntentID || proof.Fingerprint != closure.Fingerprint || proof.SettlementProofDigest != closure.SettlementProofDigest || proof.Points != closure.Points {
+				return "", ErrRevisionConflict
+			}
+			if artwork {
+				if candidate.SourceAssetID != "" || candidate.Artwork == nil || candidate.Artwork.Validate() != nil || candidate.Artwork.PlanRevision != plan.Revision || candidate.Artwork.SlotID != declared.ID || candidate.Artwork.Attempt != actual.Attempt || candidate.Artwork.IntentID != closure.IntentID || candidate.Artwork.Fingerprint != closure.Fingerprint || !reflect.DeepEqual(candidate.Operations, []string{"generate_artwork"}) {
+					return "", ErrRevisionConflict
+				}
+			} else if candidate.Artwork != nil || candidate.SourceAssetID != declared.SourceAssetIDs[0] || !reflect.DeepEqual(candidate.Operations, []string{"render_source_edit"}) {
 				return "", ErrRevisionConflict
 			}
 			if _, err := NormalizeDurableAssetIdentity(candidate.DurableAsset); err != nil {
@@ -103,9 +125,13 @@ func imageSetEffectsDigest(plan Plan, slots []SlotProjection, recoverable []Reco
 	}
 	// SlotProjection's explicit JSON preserves durable objects, observations,
 	// original settlement references and each recipe in the ordered result.
+	schema := "product-image-set-result-v1"
+	if artwork {
+		schema = "pod-artwork-result-v1"
+	}
 	return resultDigestSHA256(struct {
 		Schema string
 		Plan   Plan
 		Slots  []SlotProjection
-	}{"product-image-set-result-v1", plan, slots})
+	}{schema, plan, slots})
 }

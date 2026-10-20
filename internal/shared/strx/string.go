@@ -1,9 +1,6 @@
 package strx
 
-import (
-	"regexp"
-	"strings"
-)
+import "strings"
 
 // ContainsIgnoreCase 不区分大小写的字符串包含检查
 func ContainsIgnoreCase(s, substr string) bool {
@@ -25,13 +22,6 @@ func TruncateString(s string, maxLen int) string {
 		return s
 	}
 	return string(runes[:maxLen])
-}
-
-// CleanWhitespace 清理多余的空白字符
-func CleanWhitespace(text string) string {
-	// 移除多余的空格
-	re := regexp.MustCompile(`\s+`)
-	return strings.TrimSpace(re.ReplaceAllString(text, " "))
 }
 
 // Contains 检查字符串是否包含子串

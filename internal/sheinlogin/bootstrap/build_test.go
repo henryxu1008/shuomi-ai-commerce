@@ -40,14 +40,6 @@ func (s *stubStoreRepository) GetStore(_ context.Context, tenantID, id int64) (*
 	return nil, listingadmin.ErrStoreNotFound
 }
 
-func (s *stubStoreRepository) CreateStore(context.Context, *listingadmin.Store) (*listingadmin.Store, error) {
-	panic("unexpected CreateStore")
-}
-
-func (s *stubStoreRepository) UpdateStore(context.Context, *listingadmin.Store) (*listingadmin.Store, error) {
-	panic("unexpected UpdateStore")
-}
-
 func (s *stubStoreRepository) UpdateStoreID(context.Context, int64, string) (*listingadmin.Store, error) {
 	panic("unexpected UpdateStoreID")
 }
@@ -56,30 +48,10 @@ func (s *stubStoreRepository) UpdateStoreStatus(context.Context, int64, int64, i
 	panic("unexpected UpdateStoreStatus")
 }
 
-func (s *stubStoreRepository) DeleteStore(context.Context, int64, int64) error {
-	panic("unexpected DeleteStore")
-}
-
-func (s *stubStoreRepository) ListDeletedStores(context.Context, int64) ([]listingadmin.Store, error) {
-	panic("unexpected ListDeletedStores")
-}
-
-func (s *stubStoreRepository) RestoreStore(context.Context, int64, int64) (*listingadmin.Store, error) {
-	panic("unexpected RestoreStore")
-}
-
-func (s *stubStoreRepository) PermanentlyDeleteStore(context.Context, int64, int64) error {
-	panic("unexpected PermanentlyDeleteStore")
-}
-
-func (s *stubStoreRepository) ExtendStoreValidity(context.Context, int64, int64, int) (*listingadmin.Store, error) {
-	panic("unexpected ExtendStoreValidity")
-}
-
-func TestBuildHandlerReturnsNilWithoutLocalStoreRepository(t *testing.T) {
+func TestBuildServiceReturnsNilWithoutLocalStoreRepository(t *testing.T) {
 	t.Parallel()
 
-	result, err := BuildHandler(BuildInput{
+	result, err := BuildService(BuildInput{
 		Config: &config.Config{
 			Platforms: config.PlatformsConfig{
 				Shein: config.PlatformConfig{
@@ -89,14 +61,14 @@ func TestBuildHandlerReturnsNilWithoutLocalStoreRepository(t *testing.T) {
 		},
 	})
 	if err != nil {
-		t.Fatalf("BuildHandler() error = %v", err)
+		t.Fatalf("BuildService() error = %v", err)
 	}
 	if result != nil {
-		t.Fatalf("BuildHandler() result = %#v, want nil", result)
+		t.Fatalf("BuildService() result = %#v, want nil", result)
 	}
 }
 
-func TestBuildHandlerReturnsHandlerAndClose(t *testing.T) {
+func TestBuildServiceReturnsServiceAndClose(t *testing.T) {
 	t.Parallel()
 
 	redisServer := miniredis.RunT(t)
@@ -109,7 +81,7 @@ func TestBuildHandlerReturnsHandlerAndClose(t *testing.T) {
 		t.Fatalf("Atoi() error = %v", err)
 	}
 
-	result, err := BuildHandler(BuildInput{
+	result, err := BuildService(BuildInput{
 		Config: &config.Config{
 			Browser: config.BrowserConfig{ViewportWidth: 1280, ViewportHeight: 720},
 			Platforms: config.PlatformsConfig{
@@ -130,16 +102,13 @@ func TestBuildHandlerReturnsHandlerAndClose(t *testing.T) {
 		},
 	})
 	if err != nil {
-		t.Fatalf("BuildHandler() error = %v", err)
+		t.Fatalf("BuildService() error = %v", err)
 	}
-	if result == nil || result.Handler == nil || result.Service == nil {
-		t.Fatalf("BuildHandler() returned incomplete result: %#v", result)
-	}
-	if result.Module == nil {
-		t.Fatal("BuildHandler() returned nil module")
+	if result == nil || result.Service == nil {
+		t.Fatalf("BuildService() returned incomplete result: %#v", result)
 	}
 	if result.Close == nil {
-		t.Fatal("BuildHandler() close func is nil")
+		t.Fatal("BuildService() close func is nil")
 	}
 	if err := result.Close(); err != nil {
 		t.Fatalf("result.Close() error = %v", err)

@@ -2,6 +2,8 @@
 
 Refs [#605](https://github.com/qq550723504/task-processor/issues/605)。
 
+> 2026-10-19 有界增量：审核结果、首次上架及当前平台/库存回读以 [SHEIN publication closure V1](shein-publication-closure-v1.md) 为本次 Design Basis；三种经营模式、上架副作用、原回执绑定及 UNKNOWN 规则由该增量细化。本文原有冻结结论不自动覆盖新增副作用；当前用户只授权设计与独立评审，不授权实施或真实店铺操作。
+
 - Product Decision: **PD-SUPPLY-CHAIN-FULL-SHEIN-FIRST-2026-10-08**。
 - Design Basis: **Independent Architecture**。
 - Status: **IMPLEMENTATION_READY / FROZEN**；独立准入结论写入 §12 与 Issue 当前正文。

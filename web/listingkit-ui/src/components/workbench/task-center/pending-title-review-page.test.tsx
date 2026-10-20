@@ -5,6 +5,8 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { ProductTitleProposal, ProductTitleProposalList } from "@/lib/api/product-title-review";
 import { ProductTitleReviewError } from "@/lib/api/product-title-review-client";
 import { titleProposalFixture } from "@/test/product-title-review-fixture";
+import { contentProposalFixture } from "@/test/product-content-review-fixture";
+import { parseProductTitleProposal } from "@/lib/api/product-title-review";
 import { PendingTitleReviewPageContent } from "./pending-title-review-page";
 
 const calls = vi.hoisted(() => ({ list: vi.fn(), get: vi.fn(), decide: vi.fn(), apply: vi.fn(), context: {} as Record<string, unknown> }));
@@ -23,6 +25,18 @@ beforeEach(() => {
   calls.decide.mockReset().mockResolvedValue(proposal("accepted", "2")); calls.apply.mockReset();
   Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value: function (this: HTMLDialogElement) { this.open = true; } });
   Object.defineProperty(HTMLDialogElement.prototype, "close", { configurable: true, value: function (this: HTMLDialogElement) { this.open = false; } });
+});
+it.each(["read_only",undefined] as const)("keeps title execution suggestions readable without writes for frozen mode %s",async(mode)=>{
+ const {ContentSelection:unused,...execution}=contentProposalFixture().execution;void unused;
+ const frozen={...titleProposalFixture(),execution:{...execution,binding:{...execution.binding,TargetPlatform:"shein"}},...(mode?{execution_mode:{mode,revision:"1",snapshot:execution.mode}}:{})};
+ calls.get.mockResolvedValue(frozen);await open();
+ expect(screen.getByText("Original title")).toBeVisible();expect(screen.queryByRole("button",{name:"接受提案"})).not.toBeInTheDocument();
+ expect(screen.queryByRole("button",{name:"编辑标题"})).not.toBeInTheDocument();expect(calls.decide).not.toHaveBeenCalled();
+ expect(()=>parseProductTitleProposal(frozen)).not.toThrow();
+});
+it("rereads access after an action denial while preserving an authorized suggestion",async()=>{
+ calls.decide.mockRejectedValue(failure("permission_denied","rejected",403));await open();await userEvent.click(screen.getByRole("button",{name:"接受提案"}));
+ expect(await screen.findByText("当前身份没有标题审核权限")).toBeVisible();expect(screen.getByText("Original title")).toBeVisible();
 });
 afterEach(() => { cleanup(); client.clear(); });
 async function open() { render(tree()); await userEvent.click(await screen.findByRole("button", { name: /product.*查看详情/ })); await screen.findByText("Original title"); }
@@ -106,6 +120,7 @@ it.each(["organization", "user", "roles", "switching", "revoked", "logout", "unm
 });
 
 it("clears sensitive data on write denial and never falls back to admin", async () => {
+  calls.get.mockResolvedValueOnce(proposal()).mockRejectedValue(failure("PERMISSION_DENIED","rejected",403));
   calls.decide.mockRejectedValue(failure("PERMISSION_DENIED", "rejected", 403)); await open();
   await userEvent.click(screen.getByRole("button", { name: "接受提案" }));
   expect(await screen.findByText("当前身份没有标题审核权限")).toBeVisible();
@@ -134,7 +149,7 @@ it("restores an initial URL selection after context loading, but never resurrect
   await screen.findByText("Original title");
   calls.context.isSwitching = true; view.rerender(tree(true, proposal().proposal_id));
   calls.context.isSwitching = false; view.rerender(tree(true, proposal().proposal_id));
-  await screen.findByText("选择一条标题提案");
+  await screen.findByText("选择一条任务或待确认事项");
   expect(calls.get).toHaveBeenCalledOnce();
 });
 
@@ -174,7 +189,7 @@ it("a rejected proposal leaves the actionable list but keeps its authorized term
   calls.decide.mockResolvedValue(proposal("rejected", "2")); await open();
   calls.list.mockResolvedValue({ ...collection(), items: [] });
   await userEvent.click(screen.getByRole("button", { name: "拒绝提案" }));
-  await screen.findByText("当前授权范围内暂无待处理标题提案");
+  await screen.findByText("当前筛选无任务");
   expect(screen.getByText("Original title")).toBeVisible();
   expect(screen.getByText("已拒绝")).toBeVisible();
   expect(calls.decide.mock.calls[0][0].input).toEqual({ action: "reject", expected_revision: "1" });
@@ -200,7 +215,7 @@ it("a late write failure cannot replace a new organization's review page", async
   await act(async () => late.reject(failure("PERMISSION_DENIED", "rejected", 403)));
   expect(screen.queryByText("当前身份没有标题审核权限")).not.toBeInTheDocument();
   expect(screen.queryByText("结果待核实")).not.toBeInTheDocument();
-  expect(await screen.findByText("选择一条标题提案")).toBeVisible();
+  expect(await screen.findByText("选择一条任务或待确认事项")).toBeVisible();
 });
 
 it("a late collection read failure preserves an unknown write and its exact verification intent", async () => {
@@ -237,4 +252,87 @@ it("shows the handed-off 413 not_sent error without an unknown-result replay", a
   expect(await screen.findByText("标题或请求内容过长")).toBeVisible();
   expect(screen.queryByText("结果待核实")).not.toBeInTheDocument();
   expect(screen.getByRole("textbox", { name: "编辑标题" })).toBeEnabled();
+});
+
+const ownItemId = "550e8400-e29b-41d4-a716-446655440022";
+function ownProposal(state: ProductTitleProposal["state"] = "applied", binding: Record<string, string> = {}, scope: Record<string, string> = {}) {
+  const original = contentProposalFixture();
+  const selection = { targetLanguage: "zh-CN", title: true };
+  const revision = state === "pending" ? "1" : state === "accepted" ? "2" : "3";
+  const value = parseProductTitleProposal({ ...original, state, revision, owner: scope.ActorID ?? original.owner,
+    content: { ...original.content, selection, before: original.content.before.slice(0, 1), after: original.content.after.slice(0, 1) },
+    execution: { ...original.execution, ContentSelection: selection, scope: { OrganizationID: "200", ActorID: "owner", ...scope },
+      binding: { ...original.execution.binding, ContextKind: "own_product", ContextID: ownItemId, ...binding } },
+    ...(state === "applied" ? { apply_receipt: { proposal_id: original.proposal_id, revision, product_version: "2", publication_id: "own-apply-receipt", actor: "owner", at: "2026-10-15T00:00:00Z" } } : {}),
+  });
+  if (!value) throw new Error("invalid own review fixture");
+  return value;
+}
+
+it("returns after a confirmed own Apply and rereads fresh eligibility instead of cached ineligible data", async () => {
+  calls.get.mockResolvedValue(ownProposal("pending")); calls.decide.mockResolvedValue(ownProposal("accepted")); calls.apply.mockResolvedValue(ownProposal());
+  const keys = ["application-products", "choice", "application-overview"].map(kind => ["supply-market", "owner", "200", kind]);
+  const other = ["supply-market", "owner", "100", "application-products"];
+  for (const key of [...keys, other]) client.setQueryData(key, { optimized: false });
+  render(tree(true, ownProposal().proposal_id));
+  await userEvent.click(await screen.findByRole("button", { name: "接受提案" }));
+  await userEvent.click(await screen.findByRole("button", { name: "应用到标准商品" }));
+  expect(screen.queryByRole("link", { name: "返回优选申请并刷新资格" })).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "确认应用" }));
+  const back = await screen.findByRole("link", { name: "返回优选申请并刷新资格" });
+  expect(back).toHaveAttribute("href", "/workbench/supply/applications/new");
+  expect(screen.getByRole("link", { name: "查看自有商品" })).toHaveAttribute("href", `/workbench/data/mine/own/${ownItemId}`);
+  const fresh = vi.fn().mockResolvedValue({ optimized: true });
+  for (const key of keys) expect(await client.fetchQuery({ queryKey: key, queryFn: fresh, staleTime: 60_000 })).toEqual({ optimized: true });
+  expect(fresh).toHaveBeenCalledTimes(3);
+  expect(await client.fetchQuery({ queryKey: other, queryFn: fresh, staleTime: 60_000 })).toEqual({ optimized: false });
+  // Returning must recheck even if the inactive cache was refreshed while reviewing the receipt.
+  back.addEventListener("click", event => event.preventDefault());
+  await userEvent.click(back);
+  await client.fetchQuery({ queryKey: keys[0], queryFn: fresh, staleTime: 60_000 });
+  expect(fresh).toHaveBeenCalledTimes(4);
+  expect(calls.apply).toHaveBeenCalledOnce(); expect(calls.decide).toHaveBeenCalledOnce();
+});
+
+it("derives the original own item from an authorized applied proposal without a return URL", async () => {
+  calls.get.mockResolvedValue(ownProposal());
+  render(tree(true, ownProposal().proposal_id));
+  expect(await screen.findByRole("link", { name: "查看自有商品" })).toHaveAttribute("href", `/workbench/data/mine/own/${ownItemId}`);
+  expect(calls.apply).not.toHaveBeenCalled(); expect(calls.decide).not.toHaveBeenCalled();
+});
+
+it.each([
+  ["acquisition", { ContextKind: "acquisition" }, {}],
+  ["invalid item", { ContextID: "https://example.invalid/return" }, {}],
+  ["other actor", {}, { ActorID: "another-member" }],
+  ["other organization", {}, { OrganizationID: "100" }],
+] as const)("does not offer an own return for %s provenance", async (_, binding, scope) => {
+  calls.get.mockResolvedValue(ownProposal("applied", binding, scope));
+  render(tree(true, ownProposal().proposal_id)); await screen.findByRole("region", { name: "应用回执" });
+  expect(screen.queryByRole("link", { name: "查看自有商品" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "返回优选申请并刷新资格" })).not.toBeInTheDocument();
+});
+
+it("keeps an own Apply unknown after GET until the original action is explicitly verified", async () => {
+  calls.get.mockResolvedValue(ownProposal("accepted")); calls.apply.mockRejectedValueOnce(failure("RESULT_UNVERIFIED", "unknown", 502));
+  render(tree(true, ownProposal().proposal_id));
+  await userEvent.click(await screen.findByRole("button", { name: "应用到标准商品" }));
+  await userEvent.click(screen.getByRole("button", { name: "确认应用" })); await screen.findByText("结果待核实");
+  calls.get.mockResolvedValue(ownProposal());
+  await userEvent.click(screen.getByRole("button", { name: "重新读取当前状态" }));
+  await screen.findByRole("region", { name: "应用回执" });
+  expect(screen.queryByRole("link", { name: "返回优选申请并刷新资格" })).not.toBeInTheDocument();
+  calls.apply.mockResolvedValue(ownProposal());
+  await userEvent.click(screen.getByRole("button", { name: "核实本次操作" }));
+  await screen.findByRole("link", { name: "返回优选申请并刷新资格" });
+  expect(calls.apply.mock.calls[1][0].idempotencyKey).toBe(calls.apply.mock.calls[0][0].idempotencyKey);
+});
+
+it("removes the product-aware return when the current organization changes", async () => {
+  calls.get.mockResolvedValue(ownProposal());
+  const view = render(tree(true, ownProposal().proposal_id));
+  await screen.findByRole("link", { name: "查看自有商品" });
+  calls.context.effectiveOrganization = { id: "100" }; view.rerender(tree(true, ownProposal().proposal_id));
+  expect(screen.queryByRole("link", { name: "查看自有商品" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "返回优选申请并刷新资格" })).not.toBeInTheDocument();
 });

@@ -8,14 +8,16 @@ import { TitleApplyConfirmation, TitleComparison, TitleEditor } from "./title-re
 import styles from "./title-review.module.css";
 import { KnowledgeCitations } from "./knowledge-citations";
 import {executionModeLabels} from "../agents/execution-mode-settings";
+import {SkillMethodSummary} from "../skills/skill-method-summary";
 
-export const titleReviewStateLabel = { pending: "待审核", accepted: "已接受，待应用", rejected: "已拒绝", applied: "已应用" };
+const titleReviewStateLabel = { pending: "待审核", accepted: "已接受，待应用", rejected: "已拒绝", applied: "已应用" };
 
 export function TitleReviewDetail({ proposal: p }: { proposal: ProductTitleProposal }) {
   return <div className={styles.detailContent}>
     <h3>{p.policy === "product-content-review-v1" ? "完善与本地化标准商品内容" : "调整标准商品标题"}</h3><p className={p.state === "pending" ? styles.pending : styles.accepted}>{titleReviewStateLabel[p.state]}</p>
     <dl><dt>目标商品</dt><dd>{p.input.product_key}</dd><dt>基线版本</dt><dd>{p.input.base_version}</dd><dt>提案修订</dt><dd>{p.revision}</dd><dt>审核策略</dt><dd>{p.policy}</dd></dl>
     {p.policy === "product-content-review-v1" ? <><ContentComparison proposal={p} /><p>本次权限：{p.execution_mode ? `${executionModeLabels[p.execution_mode.mode]} · 模式版本 ${p.execution_mode.revision}` : "无法读取本次冻结权限，新采用不可用"}</p></> : <TitleComparison before={p.before} after={p.after} originalTitle={p.original_title} />}
+    {p.policy==="product-content-review-v1"&&<SkillMethodSummary method={p.execution.skillVersionRef}/>}
     <KnowledgeCitations knowledge={p.knowledge} humanEdited={p.policy === "product-content-review-v1" ? (p.content.decisions??[]).some(d=>d.action==="edit") : p.after!==p.original_title || p.decisions.some(decision=>decision.action==="edit")}/>
     <section><h3>依据与来源</h3>{p.evidence.length ? p.evidence.map((item, index) => <details key={`${item.id}-${index}`} open={p.evidence.length === 1}>
       <summary>依据 {index + 1} · {item.reference_type}</summary>
@@ -39,6 +41,7 @@ export function TitleReviewDetail({ proposal: p }: { proposal: ProductTitlePropo
 
 type ReviewControlProps = {
   proposal: ProductTitleProposal; roles: readonly string[]; permissions:readonly string[]; userId: string; pending: boolean;
+  allowApply?:boolean;
   decide: (action: "accept" | "edit" | "reject", title?: string, content?: ContentValue[]) => void; apply: () => void;
 };
 export function TitleReviewControls(props: ReviewControlProps) {
@@ -50,6 +53,8 @@ function TitleOnlyReviewControls({ proposal, permissions, userId, pending, decid
   const admin = permissions.includes("listingkit.admin.write");
   const editor = admin || (permissions.includes("local_agent.write") && proposal.owner === userId);
   if (proposal.state === "applied" || proposal.state === "rejected") return null;
+  if(proposal.execution&&!proposal.execution_mode)return <p role="status">无法读取本次冻结权限，采用不可用；请重新读取。</p>;
+  if(proposal.execution_mode?.mode==="read_only")return <p role="status">本次为只读权限，已保存建议，不能编辑、接受或采用。</p>;
   return <section className={styles.controls} aria-label="人工审核操作"><h3>等待你确认</h3>
     <p>{admin ? "接受仅表示批准此修订，之后仍需单独应用。操作时将重新校验权限。" : "仅当前企业具备读写权限的管理员可最终接受、拒绝和应用。"}</p>
     {mode === "edit" ? <TitleEditor title={proposal.after} pending={pending} onCancel={() => setMode("view")} onSave={(title) => decide("edit", title)} /> : <div className={styles.actions}>
@@ -61,19 +66,19 @@ function TitleOnlyReviewControls({ proposal, permissions, userId, pending, decid
     {mode === "confirm" && admin && proposal.state === "accepted" ? <TitleApplyConfirmation productKey={proposal.input.product_key} baseVersion={proposal.input.base_version} revision={proposal.revision} pending={pending} onCancel={() => setMode("view")} onConfirm={() => { setMode("view"); apply(); }} /> : null}
   </section>;
 }
-function ContentReviewControls({ proposal: p, permissions, userId, pending, decide, apply }: ReviewControlProps & { proposal: ProductContentProposal }) {
+function ContentReviewControls({ proposal: p, permissions, userId, pending, decide, apply,allowApply=true }: ReviewControlProps & { proposal: ProductContentProposal }) {
   const [mode, setMode] = useState<"view"|"edit"|"confirm">("view");
   if (p.state === "applied" || p.state === "rejected") return null;
   if (!p.execution_mode) return <p role="status">无法读取本次冻结权限，采用不可用；请重新读取。</p>;
   if (p.execution_mode.mode === "read_only") return <p role="status">本次为只读权限，已保存建议，不能编辑、接受或采用。</p>;
   const admin = permissions.includes("listingkit.admin.write"), editor = admin || permissions.includes("local_agent.write") && p.owner === userId;
-  return <section className={styles.controls} aria-label="内容审核操作"><h3>等待你确认</h3><p>接受完整内容后，再确认采用到标准商品；操作时会重新检查当前权限与版本。</p>
+  return <section className={styles.controls} aria-label="内容审核操作"><h3>等待你确认</h3><p>{allowApply?"接受完整内容后，再确认采用到标准商品；操作时会重新检查当前权限与版本。":"接受后可将译文用于图片计划，本入口不应用商品。"}</p>
     {mode === "edit" ? <ContentEditor values={p.content.after} pending={pending} onCancel={()=>setMode("view")} onSave={values=>decide("edit",undefined,values)} /> : <div className={styles.actions}>
       {admin && p.state === "pending" && <Button disabled={pending} onClick={()=>decide("accept")}>接受提案</Button>}
       {editor && <Button variant="outline" disabled={pending} onClick={()=>setMode("edit")}>编辑内容</Button>}
       {admin && <Button variant="outline" disabled={pending} onClick={()=>decide("reject")}>拒绝提案</Button>}
-      {admin && p.state === "accepted" && <Button disabled={pending} onClick={()=>setMode("confirm")}>应用到标准商品</Button>}
+      {allowApply && admin && p.state === "accepted" && <Button disabled={pending} onClick={()=>setMode("confirm")}>应用到标准商品</Button>}
     </div>}
-    {mode === "confirm" && admin && p.state === "accepted" && <TitleApplyConfirmation productKey={p.input.product_key} baseVersion={p.input.base_version} revision={p.revision} contentSelection={p.content.selection} pending={pending} onCancel={()=>setMode("view")} onConfirm={()=>{setMode("view");apply()}} />}
+    {allowApply && mode === "confirm" && admin && p.state === "accepted" && <TitleApplyConfirmation productKey={p.input.product_key} baseVersion={p.input.base_version} revision={p.revision} contentSelection={p.content.selection} pending={pending} onCancel={()=>setMode("view")} onConfirm={()=>{setMode("view");apply()}} />}
   </section>;
 }

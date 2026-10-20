@@ -62,7 +62,7 @@ SET ROLE tool_market_owner;
 RESET ROLE;
 GRANT USAGE ON SCHEMA tool_market TO tool_market_runtime;
 GRANT SELECT,INSERT,UPDATE ON tool_market.activations,tool_market.requests,tool_market.commands TO tool_market_runtime;
-GRANT SELECT,INSERT ON tool_market.events TO tool_market_runtime;
+GRANT SELECT,INSERT ON tool_market.events,tool_market.attachments TO tool_market_runtime;
 SQL
 
 work=$(mktemp -d)

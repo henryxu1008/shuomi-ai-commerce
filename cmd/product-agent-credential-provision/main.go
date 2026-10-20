@@ -14,7 +14,7 @@ import (
 
 func main() {
 	manifestPath := flag.String("config", "", "absolute private current-application manifest path")
-	inputPath := flag.String("input", "", "absolute private title credential input path")
+	inputPath := flag.String("input", "", "absolute private credential input path (consumer: title, planning, content, materials, selection, diagnosis; admitted binding only)")
 	flag.Parse()
 	if *manifestPath == "" || *inputPath == "" {
 		fmt.Fprintln(os.Stderr, "-config and -input are required")
@@ -33,7 +33,7 @@ func run(manifestPath, inputPath string) error {
 	}
 	input, err := currentapplication.LoadTitleCredentialProvision(inputPath)
 	if err != nil || currentapplication.ValidateTitleCredentialProvision(cfg, input) != nil {
-		return fmt.Errorf("private title credential input or target is invalid")
+		return fmt.Errorf("private credential input or target is invalid")
 	}
 	writer := input.WriterDatabase
 	dbConfig := &platformdatabase.Config{Host: writer.Host, Port: writer.Port, User: writer.User, Password: writer.Password, Database: writer.Database, MaxConnections: writer.MaxConnections, MaxIdleConnections: writer.MaxConnections, ConnectionMaxLifetime: time.Hour}
@@ -46,7 +46,7 @@ func run(manifestPath, inputPath string) error {
 	defer platformdatabase.Close(db)
 	result, err := currentapplication.SaveTitleCredential(ctx, cfg, input, db)
 	if err != nil {
-		return fmt.Errorf("title credential provision failed")
+		return fmt.Errorf("credential provision failed")
 	}
 	if err := json.NewEncoder(os.Stdout).Encode(result); err != nil {
 		return fmt.Errorf("write non-secret route result failed")

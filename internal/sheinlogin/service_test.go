@@ -166,6 +166,18 @@ func TestServiceLoginQueuesAttemptInWorkerMode(t *testing.T) {
 	}
 }
 
+// Retain the account-isolation assertion after retiring the unused HTTP handler.
+func TestServiceStatusRejectsCrossTenantStore(t *testing.T) {
+	svc := newTestService(t, &stubAutomation{})
+	if _, err := svc.Status(context.Background(), 9, 2); err != nil {
+		t.Fatalf("own tenant status: %v", err)
+	}
+	status, err := svc.Status(context.Background(), 8, 2)
+	if err == nil || status != nil {
+		t.Fatalf("cross-tenant status = %#v, error = %v; want no account status", status, err)
+	}
+}
+
 func TestServiceStatusDoesNotLeakInFlightAcrossTenants(t *testing.T) {
 	auto := &blockingLoginAutomation{
 		started:   make(chan struct{}),
@@ -1570,8 +1582,8 @@ func TestServiceLoginDisablesCurrentStoreWhenDuplicateStoreIDExists(t *testing.T
 	svc.findDuplicateStore = func(context.Context, Account, string) (*listingadmin.StoreRespDTO, error) {
 		return &listingadmin.StoreRespDTO{
 			ID:       99,
-			TenantID: 88,
-			Name:     "跨租户重复店铺",
+			TenantID: 1,
+			Name:     "同租户重复店铺",
 			StoreID:  "1862049307",
 			Platform: "SHEIN",
 		}, nil
@@ -1592,8 +1604,8 @@ func TestServiceLoginDisablesCurrentStoreWhenDuplicateStoreIDExists(t *testing.T
 	}
 	if !strings.Contains(storeClient.updateStoreStatusReq.Remark, "store_id=1862049307") ||
 		!strings.Contains(storeClient.updateStoreStatusReq.Remark, "duplicate_store_row_id=99") ||
-		!strings.Contains(storeClient.updateStoreStatusReq.Remark, "duplicate_tenant_id=88") ||
-		!strings.Contains(storeClient.updateStoreStatusReq.Remark, "duplicate_store_name=跨租户重复店铺") {
+		!strings.Contains(storeClient.updateStoreStatusReq.Remark, "duplicate_tenant_id=1") ||
+		!strings.Contains(storeClient.updateStoreStatusReq.Remark, "duplicate_store_name=同租户重复店铺") {
 		t.Fatalf("unexpected duplicate disable remark: %s", storeClient.updateStoreStatusReq.Remark)
 	}
 }

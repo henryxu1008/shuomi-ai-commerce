@@ -2,10 +2,23 @@ package image
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"strings"
 )
 
 const SourceEditOperation = "render_source_edit"
+
+// SourceEditPreflightError proves validation returned before the backend call.
+// The digest binds the exact attempted prompt without retaining its contents.
+type SourceEditPreflightError struct {
+	Digest string
+	cause  error
+}
+
+func (e *SourceEditPreflightError) Error() string        { return e.cause.Error() }
+func (e *SourceEditPreflightError) Unwrap() error        { return e.cause }
+func (*SourceEditPreflightError) NoExternalEffect() bool { return true }
 
 // SourceEditRequest edits exact original references into one candidate. Sources
 // carry provenance; the separate in-process bytes never enter public metadata.
@@ -36,7 +49,8 @@ func (c *sourceEditCapability) EditSources(ctx context.Context, request SourceEd
 	}
 	cloned, err := CloneSourceEditRequest(request)
 	if err != nil {
-		return Candidate{}, err
+		sum := sha256.Sum256([]byte(request.Prompt))
+		return Candidate{}, &SourceEditPreflightError{Digest: hex.EncodeToString(sum[:]), cause: err}
 	}
 	candidate, err := c.backend.EditSources(ctx, cloned)
 	if contextErr := contextError(ctx); contextErr != nil {
@@ -51,7 +65,7 @@ func (c *sourceEditCapability) EditSources(ctx context.Context, request SourceEd
 // CloneSourceEditRequest is also used at concrete adapter boundaries so callers
 // cannot bypass the exact-reference bounds by invoking an adapter directly.
 func CloneSourceEditRequest(request SourceEditRequest) (SourceEditRequest, error) {
-	if len(request.Sources) < 1 || len(request.Sources) > 8 || len(request.Sources) != len(request.ReferenceBytes) || request.Prompt == "" || strings.TrimSpace(request.Prompt) != request.Prompt || len(request.Prompt) > 64<<10 || !isCanonicalRequired(request.PromptVersion) || len(request.PromptVersion) > 128 {
+	if len(request.Sources) < 1 || len(request.Sources) > 8 || len(request.Sources) != len(request.ReferenceBytes) || strings.TrimSpace(request.Prompt) == "" || len(request.Prompt) > 64<<10 || !isCanonicalRequired(request.PromptVersion) || len(request.PromptVersion) > 128 {
 		return SourceEditRequest{}, ErrInputInvalid
 	}
 	product, err := validateProductContext(request.Product)

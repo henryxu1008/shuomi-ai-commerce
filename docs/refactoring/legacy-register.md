@@ -1,6 +1,280 @@
 # Legacy Register
 
+> #29 / #301 用户确认[旧 Task 诊断与回归验收完整闭包](../architecture/legacy-task-diagnostics-retirement-boundary.md)冻结设计 `ddc6414b0` 后，在 #844 按 §5/§6/§6.1/§7 整批源码 RETIRE：inspector、preview 清单校验器及专属测试/样例/内联 helper、旧查询帮助和准确验收/Temporal PoC 说明尾部。Reuse Existing Architecture；无新抽取、替代 Task/cache owner 或兼容层。当前定价/API/规则、Temporal、通用 DB/prompt replay、采集/Store/独立 SHEIN 登录与同步保留。仅替代 inspector 当前工具保留结论及旧清单 Pester 的追修含义；历史行/计数、商业门禁、全部 workflow/inventory 不改，无运行/数据操作或新试用前置。
+
+> #529 / #301 用户确认[旧 Yudao 身份运维完整闭包](../architecture/legacy-yudao-identity-operations-retirement-boundary.md)冻结设计 `370695e82` 后，在 #842 按§5/§6/§6.1/§7整批 RETIRE：三个历史用户导入入口、owner恢复dry-run、内联helper/报告生成及直接说明尾部源码退出。复用当前Greenfield/Hard-Cut，仅替代两个local脚本及support-candidate行中其迁移保留结论，历史行/计数保持；无旧ID映射/替代恢复owner。当前认证/Organization/手机号、ZITADEL共享基础设施、采集/Store与独立SHEIN登录/同步原样；全部workflow/inventory零改，无运行/数据/既有报告操作或新试用前置。
+
+> #839 用户确认冻结设计 `0871cb591` 后按[完整运维源码闭包](../architecture/legacy-listing-operations-closure-retirement-boundary.md)整批实施，Independent Architecture / IMPLEMENTATION_READY。旧部署配置/装配、专属监控、rollout helper/test及恢复SQL的23准确源与当前文档/help/guard尾部已退休；唯一有效Prometheus存储规则及同namespace窄路由抽取到现有monitoring。四份SHEIN共享Secret源/Namespace/prod、Store代理同步、独立登录/Store同步、通用诊断和Amazon监控保持。旧广泛保留表述仅在§5/§6.1准确对象上被替代；历史记录/计数及全部workflow/inventory不改，无运行/数据操作或新试用前置。
+
+> #836 [旧数字任务与刊登专属配置完整闭包](../architecture/legacy-runtime-config-closure-retirement-boundary.md)：冻结设计 `209b40f54` 已确认并整批实施，旧 Processor/Worker/control-plane、全局 RabbitMQ 任务 schema、平台旧调度/核价/同步/监控、debug/usage 及其默认/加载/env/校验/示例/专属测试尾部一起退出；仅替代§5/§6.1准确对象的旧保留表述。真实采集 workerpool、独立通用 queue/Retry、当前身份/计费/图像/平台/Store 与独立 SHEIN 登录/同步 owner 保持；原 Viper/Manager/合并算法不变。历史矩阵/计数保留，全部 workflow/inventory 不改，无真实配置/实例/数据操作或新试用前置。
+
+> #833 [旧数字内容配置完整闭包](../architecture/legacy-numeric-content-management-closure-retirement-boundary.md)：冻结设计 d139bcccc 已确认并整批实施，三族无生产注入的词库/话题配置仓库读写、DTO、全局 setter、专属 schema/迁移和调用尾部源码退出；此前整体保留表述仅在该设计 §5/§6.1 的准确对象上被替代。当前默认清理直接复用原 content 内存工厂，品牌/字段/runtimeCtx、generationtopics 纯规则、Store/API/schema/权限与独立登录/Store 同步保持。物理对象 UNKNOWN、不操作；原历史矩阵/计数保留，全部 workflow/inventory 不改，无新试用前置。
+
+> #831 [confirmed numeric Store closure](../architecture/legacy-numeric-store-management-closure-retirement-boundary.md): Seven unused management methods, five helpers and 67 type-scoped configuration/query fields are source-retired under frozen design fa4bf0758. Current active-row reads/sync writes, all nine StoreAPI methods, worker account/duplicate/Store sync, TEMU transport and complete shared value contracts retain their original owners. This only supersedes the earlier blanket Store-retention wording for the exact §5 objects; no table/column/row, schema-helper, workflow, runtime or trial-prerequisite action is implied.
+
+> #827 [confirmed Publishing runtime closure](../architecture/legacy-shein-publishing-runtime-closure-retirement-boundary.md): The uninstantiated SHEIN Publishing managed/runtime/resolver/cache and remote submission/recovery closure is source-retired under user-confirmed frozen design a88ceb527, Independent Architecture / IMPLEMENTATION_READY. Only its exact source declarations, legacy Package execution fields, 18 static Prompt keys/defaults and six CURRENT consumer rows leave. Current draft/strict codec/validator, official Submission Kernel, platform rules, Store/content/topic owners and independent login/Store sync remain. Workflows, dependencies, ceilings, runtime/data and trial prerequisites are unchanged.
+
+> #824: user-confirmed [numeric listing support closure](../architecture/legacy-numeric-listing-support-closure-retirement-boundary.md) source retirement removes the eight unused listingadmin management families, Task RPC, old Workspace wrapper and orphan marketplace editor/repair/history/Task projections, numeric Task/status/retry, metrics/hook and TaskHandledError. Store/sensitive-word/topic repositories, four shared value types, the exact offline-validator readiness closure and standalone SHEIN login/Store sync remain. Historical observations below retain their original evidence; no table/data/runtime action or workflow/ceiling change is implied.
+
+> #29 / #301 [complete Amazon listing closure](../architecture/legacy-amazon-listing-closure-retirement-boundary.md)
+> follows user-confirmed frozen design 3a344153e and Independent Architecture /
+> IMPLEMENTATION_READY admission before production edits in #822. The 118-Go-file
+> old numeric pipeline, unregistered Task/Workbench, exclusive state/pool/time
+> helpers and debug source plus 20 non-Go resources are source-retired. Seven
+> private quota declarations and only the old Task schema registration leave;
+> existing tables/rows are not operated. Ten exact live consumer edges leave;
+> the old adapter table entry receives a narrow superseded note and remains
+> historical. Current Amazon API/source acquisition, valid rules/shared contracts,
+> Store observations and independent SHEIN login/Store sync retain their owners.
+> Workflows, dependencies, protections, dated counts/ceilings and real runtime/data
+> are unchanged. Earlier retention statements are superseded only for this closure.
+
+> #29 / #301 [complete remaining TEMU numeric listing closure](../architecture/legacy-temu-listing-closure-retirement-boundary.md)
+> follows user-confirmed frozen design a253ca05f in #819, with Independent
+> Architecture / IMPLEMENTATION_READY admission before production edits. The
+> 88-Go-file AI/property/spec/SKU/price and exclusive pipeline/policies/skugen/GORM
+> projection closure, six source resources and exact mixed declarations are retired.
+> Three DTO value helpers stay in listingadmin for mapping/filter consumers. Only
+> this batch's ten live consumer-register rows leave; historical counts, ceilings,
+> workflows and dependencies remain. Earlier numeric TEMU retention statements
+> below are superseded only for that exact closure. Current APIs/official rules,
+> shared Reader/Cache/Mapping, acquisition/images/Store observations, SHEIN pricing/
+> both attribute types and independent SHEIN login/Store sync remain. No runtime,
+> provider, existing Prompt override or data operation and no new trial prerequisite.
+
 > Status: Active legacy handling register
+
+> #29 / #301 [complete SHEIN numeric listing closure retirement](../architecture/legacy-shein-listing-closure-retirement-boundary.md)
+> follows user-confirmed frozen design a7c29d4b1 in #817 after Independent
+> Architecture / IMPLEMENTATION_READY admission. The 207-file old preparation,
+> source/filter, attribute/SKU/SKC/image/translation, publish/retry and result/
+> mapping/repair closure, three defaults and exact mixed declarations are retired.
+> EXTRACT preserves attribute-value matching and regional sites under marketplace
+> publishing, and narrow content CleanupContext/ValidationResult inputs; current
+> callers no longer import the retired Task/context/product/store owners.
+> Root AmazonMonitorData and both complete productsync enriched types, canonical
+> APIs/DTOs, current category/content/submitprep, pricing, acquisition/Store
+> observations and standalone SHEIN login/Store sync remain under their owners.
+> Only the exact retired-file import exemptions and old retention assertions are
+> removed; original guards gain precise absence/current-contract checks.
+> The user authorized removal of only 23 stale current consumer-register edges
+> (17 logger / 6 OpenAI); the exact-edge guard and all historical evidence remain.
+> Workflows, dependencies, dated inventory and ceilings are unchanged. No runtime,
+> data, existing Prompt override action or new trial prerequisite is authorized.
+
+> #29 / #301 [complete TEMU default-property pipeline retirement](../architecture/legacy-temu-property-pipeline-retirement-boundary.md)
+> follows user-confirmed frozen design c8653f2c9 in #815. The 11-file default
+> PropertyMapper/orchestrator/pipeline/four-stage closure and exclusive
+> context/cache cleanup/config/stat/stage DTO/feature aliases are source-retired.
+> All 13 property files consumed by retained AI/SKU/spec, rules/handlerbase
+> canonical features and DimensionInfo retain their original code and owners;
+> no replacement pipeline, new consumer or EXTRACT business code is added.
+> This narrowly supersedes #768's old PropertyMapper preservation and #773's
+> old property-orchestration consumer description only. Original evidence/counts
+> remain historical. Current platform/shared rules, AI/SKU/prompt, pricing,
+> image/acquisition/Store observations and independent SHEIN login/Store sync remain.
+> Workflows, import guards, dated inventory, dependencies and ceilings are unchanged;
+> no runtime/data action or new trial prerequisite is authorized.
+
+> #29 / #301 [complete TEMU text/bullet closure retirement](../architecture/legacy-temu-text-bullet-retirement-boundary.md)
+> follows user-confirmed frozen design b09ed052b in #812. Four old rules owners,
+> the final-consumer submission formatter/shared regexp, exclusive strx title/
+> whitespace declarations and obsolete tests are source-retired. No replacement
+> formatter, caller or EXTRACT business code is added. This narrowly supersedes
+> #751/#749 title-helper preservation and #810 formatter/fixture preservation;
+> their dated evidence below remains historical. CheckText platform APIs/DTOs/
+> aliases/client, TextRenderer/DimensionInfo, PriceHandler, AI/SKU/prompt, current
+> image/acquisition/Store observations, effective shared contracts and independent
+> SHEIN login/Store sync remain. Workflows, import guards and ceilings are unchanged;
+> no runtime/data action or new trial prerequisite is authorized.
+>
+> Historical #810 boundary below; only its formatter/regexp/fixture preservation
+> is superseded above. All other retained boundaries and original evidence remain.
+
+> #29 / #301 [TEMU content retirement](../architecture/legacy-temu-content-handler-retirement-boundary.md)
+> follows user-confirmed design `13db74471` in #810. Ten exclusive production
+> files and six obsolete tests are source-retired, including three policies that
+> lose their final consumers. The mixed format file retains only the original
+> left-parenthesis regexp consumed by the unchanged submission formatter;
+> three valid format cases live in that formatter's existing test table.
+> This narrowly supersedes #749/#768 preservation of these old content objects.
+> PriceHandler, AI/SKU/content prompt, valid rules/platform/shared contracts,
+> current image/acquisition/Store observations and standalone SHEIN login/Store
+> sync remain. Workflows, import/logger exceptions and dated counts are unchanged;
+> no runtime/data action or new trial prerequisite is authorized.
+
+> #29 / #301 [TEMU image API / vision prompt retirement](../architecture/legacy-temu-image-api-prompt-retirement-boundary.md)
+> follows user-confirmed design `aa21423ac` in #807. The orphan image API package,
+> its six root re-exports and vision key/default/catalog/exclusive variable metadata
+> are source-retired. This narrowly supersedes their preservation in #801/#797.
+> Current image/platform/shared contracts and standalone SHEIN login/Store sync
+> remain. Generic Prompt Service/Store/Registry/HTTP semantics are unchanged:
+> catalog/schema/Upsert no longer admit the key, while existing rows can retain
+> their original generic list/status/read/render behavior. No row/cache cleanup,
+> workflow/ceiling change, runtime action or new trial prerequisite is authorized.
+>
+> Historical #801 batch boundary below; only its image API/prompt preservation
+> is superseded above. Original evidence and all other retained boundaries remain.
+
+> #29 / #301 [remaining TEMU image execution retirement](../architecture/legacy-temu-image-processing-retirement-boundary.md)
+> follows user-confirmed design `348ec6b6e` in #801. The complete remaining
+> 15-file image package, orphan handlerbase.ImageRequirement and exclusive
+> AssetState/two padded-map definition, embedding and initialization are
+> source-retired. Valid image/asset/platform rules reuse their current owners,
+> without new extraction or consumers. DimensionInfo/TextRenderer, shared
+> imagex/downloader, current capabilities and independent SHEIN login with
+> Store sync remain. Old image API/re-exports and vision prompt are unchanged
+> this batch and remain scoped RETIRE candidates. This narrowly supersedes
+> earlier preservation of these 16 files and context closure only; workflows,
+> ceilings, all other retained boundaries and historical evidence are unchanged.
+> No runtime/data action or new internal-trial prerequisite is authorized.
+
+> Historical #797 batch boundary below; its remaining execution-package,
+> ImageRequirement and padded-map preservation is superseded only as above.
+>
+> #29 / #301 [TEMU image orchestration retirement](../architecture/legacy-temu-image-orchestration-retirement-boundary.md)
+> follows user-confirmed design `1fb470269` in #797. Seven unused image
+> initialization/validation/parallel-upload files and their exclusive config
+> helper/local alias/import and three AssetState fields are source-retired.
+> Effective rules retain current Product/ApprovedAsset/TEMU goods owners;
+> no new extraction or entrypoint is introduced. Other image processing,
+> padding, vision, upload/API contracts, two padded maps and all four
+> TemplateState fields remain within this batch's preservation boundary.
+> The remaining unconsumed image subgraph is RETIRE debt, not compatibility,
+> a new requirement or authority to add consumers; whole-package retirement
+> is Backlog. Earlier preservation claims are superseded only for the seven
+> files and exclusive declarations/fields. Acquisition/Store observations,
+> independent SHEIN login/Store sync, workflows and ceilings remain unchanged;
+> no runtime/data action or new trial prerequisite is authorized.
+
+> #29 / #301 [TEMU category/template orchestration retirement](../architecture/legacy-temu-category-template-retirement-boundary.md)
+> follows user-confirmed design `a451f0cbd` in #773. Five unused handlers and two
+> exclusive input/output DTO files are source-retired. Valid category, template,
+> shipping and specification rules retain their existing owners; no new extraction
+> or replacement entrypoint is introduced. Platform APIs/DTOs, all four shared
+> TemplateState fields, AI/SKU mapping, pricing and shared contracts remain.
+> This supersedes earlier retention of these seven callers only; acquisition/Store
+> observations and independent SHEIN login/Store sync retain their owners.
+> Workflows/ceilings are unchanged, with no runtime/data action or trial prerequisite.
+
+> #29 / #301 [TEMU SKU/SKC construction retirement](../architecture/legacy-temu-sku-skc-retirement-boundary.md)
+> follows user-confirmed design `3ceea910b` in #771. Three existing private value
+> rules live in TEMU publishing. Six unused construction files and exclusive
+> mixed-file methods/helpers are source-retired; the original AI mapping receiver
+> retains generation/batching/validation/resolution with narrowed internal wiring.
+> PriceHandler, PriceManager/PriceCalculator, platform APIs/DTOs, specification,
+> image/upload and shared contracts retain their owners. This supersedes earlier
+> retention of these construction callers only; acquisition/Store observations,
+> standalone SHEIN login/Store sync, workflows and ceilings remain unchanged.
+> No new entrypoint, fact/recovery owner, runtime/data action or trial prerequisite.
+
+> #29 / #301 [TEMU SPU/maximum-retail-price retirement](../architecture/legacy-temu-spu-price-query-retirement-boundary.md)
+> follows user-confirmed design `2b151ffec` in #768. Seven existing structural value
+> checks are extracted into the existing TEMU publishing owner using its private
+> specification snapshot. The four unused SPU/build/validation/query owners and
+> exclusive helpers are source-retired. PriceHandler/SKU and ProfitRuleAPI,
+> platform APIs/DTOs, AI/text/property/specification and mixed-context contracts,
+> acquisition/Store observations and independent SHEIN login/Store sync remain.
+> No new entrypoint, fact or recovery owner; workflows/ceilings are unchanged,
+> with no runtime/data action or new trial prerequisite.
+
+> #29 / #301 [TEMU Store/context initialization retirement](../architecture/legacy-temu-store-init-retirement-boundary.md)
+> follows user-confirmed design `fe3ce7563` in #760. The three unconstructed
+> StoreInfo/StoreID/InitData handlers and exclusive numeric cache/statistics/hostname
+> helpers are source-retired. Current Store Center, retained listingadmin Store
+> API/DTO/repository, real APIClient Cookie/MallID effects, platform Product DTOs,
+> mixed context/SKU and the other handlerbase contracts keep their original owners.
+> No replacement cache, identity/default rule or Product factory is introduced.
+> Acquisition/Store observations and independent SHEIN login/Store sync remain;
+> workflows/ceilings are unchanged, with no runtime/data action or trial prerequisite.
+
+> #29 / #301 [TEMU filter/AI preflight retirement](../architecture/legacy-temu-filter-mapping-retirement-boundary.md)
+> follows user-confirmed design `0d8bc3785` in #754. Nine exclusive orchestration,
+> rule-wrapper/result files, one obsolete source-image Task test and the mixed
+> input's AIHandlerInput/buildAIHandlerInput are source-retired. Effective rules
+> remain in marketplace/productpolicy, status=0 and FilterRule API/DTO/repository
+> retain their owners, and AIBatchInput/methods/SKU mapping remain unchanged.
+> The unused reversed-status stats path is removed, without a new stats service.
+> Shared/provider contracts, acquisition/Store observations and independent SHEIN
+> login/Store sync remain. Workflows/ceilings are unchanged; no runtime/data action
+> or new trial prerequisite. Earlier preservation claims for these wrappers are
+> historical baselines, not requirements to recreate the retired closure.
+
+> #29 / #301 [TEMU variant retirement](../architecture/legacy-temu-variant-retirement-boundary.md)
+> follows user-confirmed design `70c60af89` in #751. Four unconstructed variant
+> read/postprocess/cache components and the exclusive ASIN-map helper are
+> source-retired. Shared Reader/Cache, title rules, SkuVariantProcessor and the
+> mixed helper's other methods keep their owners; no new extraction or entrypoint.
+> Platform/shared contracts, acquisition/observations and independent SHEIN login
+> with Store sync remain. Workflows/ceilings are unchanged; no real instance/data
+> action, replay, cleanup or new trial prerequisite is authorized.
+
+> #29 / #301 [TEMU preflight retirement](../architecture/legacy-temu-preflight-retirement-boundary.md)
+> follows user-confirmed design `ca7a6e2ea` in #750. The four unconstructed Task
+> handlers for product/SKU checks, raw-data reads and caching are source-retired.
+> Stable SKU code shaping and duplicate failure validation live as private values
+> in the existing marketplace owner, reusing skugen. Shared Reader/Cache/Mapping,
+> APIs/DTOs, mixed context, valid rules and all retained capabilities keep their
+> owners, including acquisition/observations and independent SHEIN login/Store sync.
+> Workflows/ceilings are unchanged; no real instance/platform/data operation,
+> cleanup/replay or new trial prerequisite is authorized.
+
+> #29 / #301 [TEMU save/submit/result retirement](../architecture/legacy-temu-listing-submit-retirement-boundary.md)
+> follows user-confirmed design `e0003f196` in #749. Fourteen exclusive production
+> files, one Task fixture test, eight publish-context fields and eight methods are
+> source-retired. Two validations belong to existing marketplace private value
+> functions; APIs/same-named DTOs, PriceQueryResponse/mixed context, Store-qualified
+> Mapping transactions, state managers and all retained rules/contracts remain.
+> SHEIN attributes, pricing, acquisition/observations and independent login with
+> Store sync retain their owners. Workflows/ceilings are unchanged; no real
+> instance/platform/data operation, cleanup/replay or new trial prerequisite.
+
+> #29 / #301 [TEMU bulk-relist retirement](../architecture/legacy-temu-bulk-relist-retirement-boundary.md)
+> follows the user-confirmed frozen design at `47d97972d` in #747. The seven-file
+> unconstructed orchestration and exclusive DTO closure is source-retired. Platform
+> APIs and same-named API DTOs/re-exports, valid rules and shared contracts retain
+> their owners, as do SHEIN attributes, pricing, acquisition/observations and the
+> independent SHEIN login worker with Store sync. Both workflows are unchanged;
+> no real platform/instance/data operation or new trial prerequisite is authorized.
+
+> #29 / #301 [SHEIN activity retirement](../architecture/legacy-shein-activity-retirement-boundary.md)
+> is user-confirmed and implementation-admitted in #744. Unconstructed registration,
+> promotion/session/platform orchestration, exclusive readers and scheduler DTOs
+> are absent. Valid rules use private stateless inputs and the original marketing
+> request DTOs; APIs, shared attributes/contracts, current acquisition/observations,
+> pricing and standalone login with Store sync retain their owners. Both workflows
+> are unchanged; no real instance, platform state or data operation is authorized.
+
+> #29 / #301 [numeric-task persistence retirement](../architecture/legacy-numeric-task-persistence-retirement-boundary.md)
+> is user-confirmed and implementation-admitted in #740. The unconsumed ImportTask,
+> dispatch events, pause/timeout recovery, scheduled configuration, task statistics
+> and idle aggregate schema bootstrap are absent. Shared Store/owner/rule/mapping
+> contracts and the standalone login worker remain, including valid ImportTaskID
+> fields and the Store owner helper. Both workflows run the retained listingadmin
+> suite with the race detector; historical task protocol checks retire with their
+> protocol. Real tables, indexes, rows, instances and recovery ownership are untouched.
+
+> #29 / #301 [旧数字任务执行链退休设计](../architecture/legacy-numeric-task-execution-retirement-boundary.md)
+> is user-confirmed and implementation-admitted after #726. The unregistered
+> task/status/processor, root Amazon executor and exclusive distributed crawler
+> sources are absent. Mixed fetcher local/remote contracts, platform API/rules,
+> shared repositories and standalone SHEIN login remain under their original owners.
+> Source retirement has not changed runtime/data or internal-trial gates.
+
+> #29 / #301 [ownership-controller / auto-shard retirement](../architecture/legacy-ownership-controller-retirement-boundary.md)
+> is user-confirmed and implementation-admitted in #738. The old workload,
+> unconsumed heavy/lite ConfigMap overlay and exclusive configuration closure are
+> absent from this source candidate. Shared config/helpers, valid repositories,
+> current acquisition, Store observations and standalone login retain their owners.
+> Real ConfigMaps, ownership keys/locks, instances and data have not been touched.
+
+> #529 / #301 [发布身份预检退休设计](../architecture/release-identity-preflight-retirement.md)
+> is user-confirmed and implementation-admitted. The legacy API/UI and PS
+> entrypoints now fail before operations; identity-preflight, its exclusive
+> readers/resolver and packaging are absent. The exact frozen import set is
+> empty, with all three depguard exclusions removed. Standalone SHEIN worker,
+> current schema and valid security checks remain. Production stays NOT_READY;
+> no historical executor, instance, IAM or data has been changed.
 > Policy: `docs/refactoring/legacy-hard-cut-policy.md`  
 > Last reviewed: 2026-09-11 (bounded #386 calibration; full scan baseline unchanged)
 > Repository scan baseline: `main @ 6e3b87208e2c4e51039b95145a2377edfbb9b1cb`
@@ -82,7 +356,63 @@ The scan found four high-value areas that still affect production paths:
 
 These areas are drain targets. New Product, Marketplace, Agent, Tool, BusinessTask, Store, and Console work must not add new dependency on them merely because they already exist.
 
+### #301 bounded 1688 numeric source-account retirement
+
+The unused `httpx.Crawler1688Handler`, repository-backed 1688 account-profile
+resolver and entire old `internal/sourceaccount` package (including its GORM
+schema/bootstrap) are retired. Their constructors had no production consumers;
+the current build no longer pulls old numeric account persistence through the
+shared crawler/HTTP packages. No database, profile or retained runtime was changed.
+
+The current `sourceaccountregistry` remains the Organization-scoped registration
+owner; registration still means `pending_connection`, not a usable login.
+Current anonymous acquisition, Browser Capture and local-agent collection retain
+their existing owners and contracts. #719 also retired the
+unconstructed 1688 queue `Service`, `Crawler1688Processor`, numeric `AccountProfile`
+interface/resolver and account-assisted browser/fallback chain. No current
+consumer constructed that service or called the account-profile methods.
+`Alibaba1688Processor.Prepare/Process/ProcessBatch/Shutdown`, its public browser
+path, extractors, typed failure classification and cancellation/cleanup remain.
+The original configured browser factory stays available; anonymous attempts
+continue using a fresh non-persistent public manager. Shared result/worker/HTTP
+behavior, scoped protections and Amazon routes remain with their original owners.
+
+The unregistered `internal/app/productsourcing/httpapi` package is retired under
+#301: its numeric source-account/Store import DTO, unimplemented Importer,
+snapshot/receipt projections and exclusive tests/fixture had no production
+composition or consumer. Current acquisition and Browser Capture use their own
+admitted HTTP/application owners; do not mount, wrap or recreate the old import.
+The shared crawler task's `SourceAccountID`, `SourceAccessMode` and compatibility
+inference, plus the result's source-access/fallback metadata, are also retired
+after the old 1688 queue/Profile consumers disappeared. Trusted `TenantID`,
+Amazon task fields, task/result state behavior, scoped result access, Redis,
+browser, workerpool and HTTP infrastructure remain. This does not retire current
+Organization-scoped source-account registration or the current sourcing producer.
+
+The standalone SHEIN worker and its original account persistence, Store sync,
+Redis/browser/profile, health and shutdown remain unchanged. Source retirement
+does not establish provider, user, deployed-runtime or production acceptance.
+
 ### #29 bounded backend retirement
+
+The [confirmed automatic-pricing boundary](../architecture/legacy-auto-pricing-retirement-boundary.md)
+retires the unconstructed SHEIN/TEMU service, decision, reader, cache/retry and
+exclusive runtime/request/time-helper closure under #743: 16 files and five
+exclusive interfaces are absent. PriceManager with its ProductAPI wiring,
+PriceCalculator, both platforms' APIs/rules, shared formulas/contracts and the
+two SHEIN attribute types remain. Store/mapping/rule persistence, current
+acquisition/observations and independent login with Store sync retain their
+original owners. Both workflows are unchanged; no runtime/data action,
+fact/recovery transfer or new internal-trial prerequisite.
+
+The [confirmed numeric product/inventory synchronization boundary](../architecture/legacy-numeric-product-inventory-sync-retirement-boundary.md)
+retires the unconstructed SHEIN/TEMU services and exclusive InventoryRecord source
+closure under #742. The exact 63-file closure and three mixed DTO declarations
+are absent in this candidate; the two shared SHEIN attribute types and marketing
+client guard remain in productsync. Platform APIs/rules, ProductData/mapping/raw
+JSON/Store contracts, current Store observations and the standalone login worker
+with its Store sync remain under their original owners. Both workflows are
+unchanged; no runtime/data action, fact/recovery transfer or new trial prerequisite.
 
 The mixed root Go package, old Task/API/Workspace/Temporal chains and default
 HTTP assembly are absent in this checkout under #29. Valid route-role transport
@@ -102,12 +432,121 @@ removed root aliases; no new current consumer is admitted.
 
 The current image recipe requires the existing private current-application
 manifest. It does not implement the old API/YAML rollout contract. The old
-release workflow retains its OIDC/RBAC/canary protection and rejects incompatible
-candidate binaries before its mutation gates. Current worker/schema capabilities
+API/UI source workflows now have only fixed permission-free failure entries.
+The original security verifier, OIDC/RBAC negative fixtures and independent
+worker/schema/canary contracts remain under their existing owners. Current worker/schema capabilities
 are retained; legacy API deployment of this artifact is NOT_READY. No runtime,
 data, provider or user acceptance is claimed.
 
+### #29 / #301 standalone listing CLI and exclusive scheduler retirement
+
+The user-confirmed [boundary](../architecture/legacy-listing-cli-retirement-boundary.md)
+§5/§6/§6.1 admits this bounded RETIRE batch. The three CLIs, exclusive app
+bootstrap/consumer/runner/scheduler, local runtime, SHEIN sync adapters and
+platform module/scheduler/task-processor glue are physically absent. Retained
+platform clients/rules, generic infrastructure and current Store observations
+are not deleted. CI replaces only the obsolete build target with the current
+application and standalone login worker; required/security checks remain.
+Taskstatus, ListingAdmin and root ListingRuntime retain their original contracts.
+The control-plane retained in #723 subsequently exits under #726 below. Mixed
+deployment sources retained ownership-controller and configuration in that batch;
+the exclusive declaration/configuration closure subsequently retires under #738.
+Other effective configuration, Secret and monitoring objects remain; no historical
+image is rebuilt or executed.
+This is source retirement, not full numeric-task-chain closure, runtime/data
+cleanup, deployment or a new internal-trial prerequisite. Production NOT_READY.
+
+### #29 / #301 confirmed control-plane and numeric dispatch/recovery retirement
+
+The user-confirmed [follow-up design](../architecture/legacy-listing-control-plane-retirement-boundary.md)
+§5/§6/§6.1/§7 admits this bounded RETIRE batch after #723. The remaining
+control-plane and store-986 platform recovery entrypoints, their exclusive
+runtime/control library, cohort helpers/tests and operation packaging are absent.
+Current acquisition, Store observations, valid shared contracts, required/security
+checks and the independent SHEIN login worker retain their original owners.
+ImportTask repository/claim/rollback/recovery races, package-external task/status
+consumers and shared configuration were explicit debt in that bounded batch;
+the ownership declaration subsequently retires under #738, and #740 retires the
+unconsumed task persistence/recovery closure with its dedicated tests. Retained
+Store/owner/mapping/rule checks run in both original race steps. No whole-package cleanup, current
+consumer, compatibility bridge, runtime/data action or internal-trial prerequisite
+is authorized. Both workflows remove only the retired runtime race target and
+main CI removes its obsolete build line; design section 6.1 preserves all other
+steps, pinned-SHA/release evidence, required and security checks. Source retirement
+does not prove real-runtime cutover, user acceptance or production readiness.
+
 ## 2. Active register
+
+### #529 / #301 release identity-preflight retirement
+
+The old CLI/runtime, identitypreflight, ownerreconcile, userdirectory and
+tenantbridge packages are physically absent. Their sole production consumer
+was the retired preflight. No metadata owner, mapper, fallback or replacement
+identity directory is created. The current image no longer packages that
+binary; its dedicated image/Job and only the identity Deployment/resource
+items in the aggregate runner, API Role and source policy are removed. The
+exclusive old username/role Secret cleanup script and its protocol tests are
+also retired after their only publishing consumers disappear.
+
+API/UI normal, rollback and receipt-triggered publishing source paths and the
+PowerShell wrapper always reject before credential, build, push or mutation.
+Original Conftest/OPA and required CI selection continue; the actual fixed
+failure entries are checked in full, with publish/permission/trigger/bypass
+negative cases. OIDC, narrowed RBAC, immutable attestation and retained
+worker/schema safety remain with their existing helpers and tests.
+
+Workbench uses the verified effective Organization and scoped role directory;
+its valid response and role-isolation regression is preserved without the
+obsolete resolver hook. Opaque numeric Organization strings remain valid.
+The exact bridge freeze is now empty (three to zero); deny rules and parser
+logic remain. Older batch calibrations below describe their then-state only.
+The standalone SHEIN worker's original numeric account persistence remains
+separate #301 debt. No live revoke, deployment, data/profile deletion, user
+acceptance or production readiness is implied.
+
+### #301 confirmed SHEIN worker boundary and bounded retirement
+
+The [identity/persistence boundary design](../architecture/shein-worker-identity-persistence-boundary.md)
+records current owners and exact deletion conditions. It preserves the worker's
+repository-backed account provider, original DB/Redis/Profile/session/state and
+Store sync/duplicate lookup. Current Organization/Store/official business paths
+must not consume that old identity or browser login state. The unused alternate
+`sheinloginmanaged.AccountProvider` and isolated `sheinlogin.VerifyCodeRequest`
+and its exclusive helpers/tests are RETIRE and deleted under confirmed §7. Shared
+ListingAdmin/ListingRuntime contracts still used by current applications are
+not blanket retirement targets. Design section 5.1 records the confirmed
+unqualified duplicate-store lookup defect: preserving the capability requires
+tenant-qualified lookup, response-scope checks and no Store mutation on lookup
+failure. This existing tenant-isolation contract is enforced at the helper and
+service effect boundary, with RED→GREEN coverage through the real GORM adapter,
+every-page tenant scope and invalid/failed lookup handling. Successful Redis
+Cookie/attempt commits keep their original owner and are not rolled back by a
+later Store sync failure. The repository provider, verification/cancellation,
+durable attempts and independent worker remain. This adds no internal-trial
+prerequisite and authorizes no runtime, data or provider action; candidate
+checks and real-environment acceptance remain separate.
+
+
+### #301 unused SHEIN login HTTP retirement
+
+The standalone worker was the only production consumer of
+`sheinlogin/bootstrap`, and used only its Service and Close. Its unused HTTP
+Handler/Module, API routes and numeric header resolver are RETIRE, including
+tests dedicated to that retired protocol. Bootstrap now builds only the same
+service; the original repository, Redis, profile, browser, Store sync, worker,
+health endpoint and close behavior are retained. The HTTP cross-tenant account
+rejection assertion is preserved at the unchanged service boundary alongside
+the existing account/session isolation tests.
+
+The worker's actual Go dependency graph no longer contains tenantbridge.
+Only the two deleted tenant-context import edges and their exact depguard
+exclusions are removed, reducing the frozen baseline from five to three.
+Those remaining edges are the release identity-preflight runtime/test and the
+current Workbench resolver-isolation test. The preflight's shared readers,
+resolver and release protection are unchanged; they remain debt under #529/#301.
+No data, IAM, browser login, provider or deployment operation was executed.
+The worker's existing numeric account persistence is retained, not reclassified
+as current Organization ownership or declared fully retired.
 
 ### #529 / #301 obsolete identity preparation retirement
 
@@ -119,8 +558,8 @@ legacy resolver. Neither has a current production consumer. No maintained
 default command compiles bootstrap, and no replacement preparation path is added.
 
 Their two bootstrap-to-tenantbridge import edges and exact depguard exclusions
-are removed, reducing the frozen baseline from seven to five. The five remaining
-edges belong to the unchanged identity-preflight, SHEIN transport and current
+are removed, reducing that batch's frozen baseline from seven to five. Its then-five
+remaining edges belonged to the unchanged identity-preflight, SHEIN transport and current
 Workbench isolation test. The tenantbridge resolver itself, shared readers,
 current worker/schema paths and release protection remain unchanged. Historical
 plan and dated inventory entries are evidence, not callable current preparation.
@@ -182,9 +621,10 @@ fact ownership, authorization or Submission/recovery contracts.
 
 Current-application and ImageAgent worker production graphs have no tenantbridge,
 compatibility or ListingKit. The two deleted exact bridge edges/exclusions are
-removed; the other seven (including tests/self-use) remain registered debt.
-Standalone SHEIN numeric HTTP and historical preflight consumers are not current
-Organization owners and remain with #301/#529. No migration/data/provider action
+removed; its then-seven remaining edges (including tests/self-use) remained registered debt.
+The later #301 batch above retires unused standalone SHEIN numeric HTTP.
+Historical preflight consumers and worker numeric account persistence are not
+current Organization owners and remain with #301/#529. No migration/data/provider action
 or deployment is part of this source delivery.
 
 | Legacy area / abstraction | Decision | Observed state | Reusable behavior | Current owner / destination | Exit condition / related work |
@@ -199,7 +639,7 @@ or deployment is part of this source delivery.
 | `internal/compatibility/listingkit/sourcehandoff/a1688` | RETIRE | Package, old `/api/v1/product-sourcing/1688/listingkit/tasks` route, dedicated DTOs/tests and runtime runner are absent in this checkout under #663. Deployment and provider acceptance are separate. | Existing Sourcing/Catalog owners retain valid source evidence, immutable publication, access and receipt recovery; historical Task requests and identity mapping are not reused. | Product Sourcing/Catalog + current Store/Organization/Application | Keep old route/package/runner absent; no old data migration, forwarding or compatibility. Other legacy owners remain with #29/#301/#529. |
 | root `internal/listingkit` mixed ownership | RETIRE / EXTRACT valid leaves | Mixed root Go package and its Task/API/default runtime chain are absent under #29 | Unchanged current role/context/Temporal/image transport and Submission error | Existing authz/aiidentity/app runtime/image transport and Listing/Submission owners | Keep root absent. Remaining numeric sync and identity/history leaf debt is explicitly separate; source retirement is not deployment or whole-parent completion. |
 | marketplace rules still owned by root ListingKit | EXTRACT | Remaining rule/policy ownership is part of #29 hard-cut | deterministic platform rules/policies/readiness logic | `internal/marketplace/*` / stable Listing seams | Move rule to current owner and switch callers. Do not wrap the old rule owner. |
-| `internal/tenantbridge` Organization ↔ legacy Yudao numeric tenant mapping | EXTRACT | Active GORM-backed production bridge used by ListingKit, SHEIN login, 1688 crawler/admin and other legacy paths | only independently valid current-identity behavior, never numeric mapping for a new system | current Organization/identity ownership + each domain's current persistence boundary | Freeze consumer count; no new tenantbridge consumer. Future work creates current Organization-owned facts and RETIREs the bridge without old-data migration, old-ID mapping, fallback or dual authority. |
+| `internal/tenantbridge` Organization ↔ legacy Yudao numeric tenant mapping | RETIRE | Package and all three frozen imports are absent; Workbench current Organization/scoped role behavior is preserved, including opaque numeric IDs | existing current-identity behavior already belongs to its current owner; numeric mapping is not reusable for a new system | current Organization/identity ownership + each domain's current persistence boundary | The admitted old release preflight consumer and its resolver are retired. Keep absent. No new consumer, old-data migration, old-ID mapping, fallback or dual authority. |
 | `web/listingkit-ui` Task-first / CreateListingKitTask product projection | RETIRE | #664 removes old `/listing-kits/**` pages, their dedicated components/hooks/Task DTOs and Task BFF; the current frontend application and Console remain | current shared UI primitives, Auth.js/ZITADEL and independently valid readonly provider transport | #298 / final Figma Product Projection; current Store Center / AI Workbench / product pages | Keep old routes/request chains absent, without redirect, fallback or Task mapping. Source retirement does not prove deployment or user acceptance. |
 | Generic independent Listing Workspace (#27) | RETIRE | Backlog abstraction already closed | independently valid Product/Listing UI behavior only if required by current IA | final Product Projection pages defined by Figma authority | Do not revive a generic top-level Listing Workspace. |
 | Old Product Task Center / unified internal Task Dashboard (#35) | RETIRE | Old issue closed; final UI now has a different BusinessTask Center | diagnostics may be projected if useful | #298 BusinessTask Product Projection; internal execution remains with Workflow/Task owners | BusinessTask is a new user-facing object, not a renamed legacy Task. No bidirectional sync. |
@@ -217,7 +657,7 @@ This section calibrates only the exact edges below; it does not claim a new full
 
 | Exact legacy / mixed edge | Decision | Current replacement / bounded evidence | Reusable behavior | Exit condition / prohibited new work |
 | --- | --- | --- | --- | --- |
-| `internal/app/httpapi/composition_builder.go` -> old `internal/sourceaccount` repository/access validator -> crawler | EXTRACT, then RETIRE old owner | SA1 is `internal/sourceaccountregistry` + its persistence/schema/application boundary; PR #369 is merged, but its application remains isolated and the default composition still uses the old repository. | Only independently valid provider-connection/access behavior after a current owner and current external requirement are named; registration facts do not belong here. | Switch each admitted caller to its current owner, then remove this old edge. No registry wrapper, tenantbridge, old-ID migration, fallback, dual read/write or second account fact source. #301 coordinates remaining old identity consumers. |
+| Old `internal/sourceaccount`, unused 1688 HTTP/resolver and numeric queue/Profile chain | RETIRE | Old composition was removed under #29; #301 retires the old account package and remaining unconstructed queue service/worker/Profile methods. Current registration remains `sourceaccountregistry` + its existing persistence/schema/application boundary. | Anonymous browser processing, typed public failure classification and shared scoped result protection remain in their original owners. Provider connection is separate from registration. | Keep old package, queue/worker, numeric Profile and HTTP submission absent. No registry wrapper, old table/profile dependency, tenantbridge, ID migration, fallback, dual read/write or second account fact source. |
 | `composition_builder.go` -> `internal/compatibility/listingkit/sourcehandoff/a1688.NewTaskCommandService` -> legacy Task/request | RETIRE | Handoff construction, module field/accessor/registration and source-only validator removed under #663. Original unrelated source repository/crawler and ListingKit callers remain. | Current Sourcing/Catalog source normalization, identity, authorization, evidence and atomic publication are already owned by current applications. | Current admitted source applications, without old Task side effects. | No wrapper, old ID/data migration, forwarding, dual facts or new tenantbridge consumer. Remaining root ListingKit/tenantbridge debt belongs to #29/#301. |
 | `internal/app/httpapi.newImageAgentAuthorizedAssetCatalog(listingkitstore.NewTaskRepository(...))` and `imageAgentCatalogFromTask*` accepting root `listingkit.Task` | RETIRE input bridge | ImageAgent domain/workflow/store, Temporal worker, `cmd/image-agent-temporal-worker` and deployment definitions remain **CURRENT**. Organization worker governance is the separate isolated `BuildOrganizationImageCapabilities` + `OrganizationExecutionAuthorizer`; default `buildProductionImageCapabilities` does not install its `reviewGovernance`/invocation recorder, and the default Temporal activity assembly does not populate `imageagenttemporal.ActivityDependencies.ExecutionAuthorizer`. `NewImageAgentOrganizationApplication` is a separate current opt-in HTTP/catalog/service assembly, also **NOT_PRESENT** in default composition. | Deterministic asset selection/validation only when moved behind a current Product/Asset-owned catalog input; ImageAgent behavior and isolated Organization governance are not legacy. | Replace the default task catalog with an admitted authoritative current input and switch callers, then delete the Task bridge. No fallback/dual catalog, no blanket retirement of ImageAgent, and no silent default-worker installation of the isolated Organization governance. |
 | Root `internal/listingkit` Task-first submission/workspace paths beside `internal/listing/submission.ExecutionKernel`, DRAFT-S1 and other extracted leaf owners | EXTRACT by behavior; RETIRE old path after caller cutover | SUB-K1 kernel is merged in PR #385 but has no non-test application/default caller; DRAFT-S1 is merged in PR #377 but remains isolated. Their existence does not mark the whole root or whole submission chain current. | Deterministic marketplace/readiness rules and provider-neutral submission behavior only under `internal/listing/*` or `internal/marketplace/*`; `ListingKitAuthorizer` and leaf packages are not legacy merely by name. | Cut over exact callers/provider adapters under separate admission. Do not wrap root ListingKit, clone a state machine, or claim `submit_lock`/provider/default deployment complete. #29 owns the root drain. |

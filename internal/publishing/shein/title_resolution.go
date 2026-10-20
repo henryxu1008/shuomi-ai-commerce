@@ -277,7 +277,6 @@ Rules:
 4. Do not repeat the base product type, material, or size.
 5. Do not include sentences, prompt instructions, dimensions, pixels, copyright notes, or platform filler words.
 5. Leave "addition" empty if there is no safe concise addition.`
-	systemPrompt += tenantGenerationTopicPolicyPromptBlock(ctx)
 	userPrompt := fmt.Sprintf(
 		"Base title: %s\nFallback product type: %s\nPrompt-like or style signals:\n- %s\nExtract one short addition that makes the base title more suitable for e-commerce.",
 		cleanListingText(baseTitle),
@@ -347,7 +346,6 @@ Rules:
 2. Keep useful product semantics such as product type, material, style, or theme when obvious.
 3. Never include instruction phrases, copyright notes, generation requirements, size/canvas instructions, or sentence-style prompt text.
 4. Prefer 3-10 words and under 80 characters.`
-	systemPrompt += tenantGenerationTopicPolicyPromptBlock(ctx)
 	userPrompt := fmt.Sprintf("Fallback product title: %s\nPrompt-like source text: %s\nExtract a short product title.", productType, cleanListingText(promptText))
 	content, err := aiClient.Generate(ctx, systemPrompt+"\n\n"+userPrompt)
 	if err != nil {

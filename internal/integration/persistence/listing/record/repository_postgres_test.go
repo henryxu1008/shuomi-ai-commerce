@@ -21,6 +21,7 @@ import (
 	submissionstore "task-processor/internal/integration/persistence/listing/submission"
 	catalogstore "task-processor/internal/integration/persistence/product/catalog"
 	collectionstore "task-processor/internal/integration/persistence/product/collection"
+	"task-processor/internal/listing/completiondraft"
 	"task-processor/internal/listing/preparation"
 	record "task-processor/internal/listing/record/target"
 	"task-processor/internal/listing/submission"
@@ -34,6 +35,26 @@ import (
 	"task-processor/internal/product/sourcing"
 	"task-processor/internal/storecenter"
 )
+
+type importCandidateVersion struct {
+	scope collection.Scope
+	value completiondraft.Record
+}
+
+func (v importCandidateVersion) ReadVersion(_ context.Context, scope collection.Scope, id string) (completiondraft.Record, error) {
+	if scope != v.scope || id != v.value.ID {
+		return completiondraft.Record{}, record.ErrNotFound
+	}
+	return v.value, nil
+}
+
+type stableImportRules struct{ expires time.Time }
+
+func (r stableImportRules) ReadTargetRules(ctx context.Context, scope collection.Scope, store string, in goods.OfficialDraftInput) (storecenter.ProductMerchantBinding, goods.OfficialRuleSnapshot, error) {
+	m, rules, err := (currentRules{}).ReadTargetRules(ctx, scope, store, in)
+	m.ServiceExpiresAt = r.expires
+	return m, rules, err
+}
 
 type fixedAuth struct{ scope collection.Scope }
 
@@ -58,6 +79,16 @@ func (missingAssets) GetApprovedInventory(context.Context, asset.InventoryScope)
 }
 
 type currentRules struct{}
+
+type capturedTargetRepository struct {
+	record.TargetRepository
+	prepared record.TargetPrepared
+}
+
+func (r *capturedTargetRepository) SaveTarget(ctx context.Context, proof record.TargetPrepared) (record.TargetReceipt, error) {
+	r.prepared = proof
+	return r.TargetRepository.SaveTarget(ctx, proof)
+}
 
 type readyAssets struct{}
 
@@ -184,6 +215,41 @@ func TestPostgresTargetImmutableRevisionsCommandReplayAndConcurrentCAS(t *testin
 	var count int64
 	require.NoError(t, db.Table("listing_target_records").Count(&count).Error)
 	require.EqualValues(t, 2, count, "losing CAS rolls back its record and command together")
+	t.Run("SHEIN candidate import uses original record transaction CAS and replay", func(t *testing.T) {
+		candidate := completiondraft.Record{ID: uuid.NewString(), Revision: 3, Source: page.Items[0], Content: completiondraft.Content{Title: "fixed candidate", Description: ""}}
+		importService, err := record.NewTargetService(record.TargetDependencies{Sources: selector, Products: record.OriginalTargetProduct{}, Assets: missingAssets{}, Rules: stableImportRules{time.Now().Add(time.Hour)}, Records: repository, Images: recordTestImages{}, Authorizer: authority, CompletionVersions: importCandidateVersion{scope, candidate}})
+		require.NoError(t, err)
+		baseline, err := importService.Create(actor, uuid.NewString(), record.TargetInput{SourceID: candidate.Source.ID, StoreID: uuid.NewString(), EffectiveVersion: 1, Draft: input.Draft})
+		require.NoError(t, err)
+		preview, err := importService.PreviewSheinImport(actor, record.SheinImportRequest{SourceID: candidate.Source.ID, BaseRecordID: baseline.Record.ID, CompletionDraft: record.CompletionDraftSelection{RecordID: candidate.ID, Revision: 3}, Selection: record.SheinImportSelection{Title: true}})
+		require.NoError(t, err)
+		keys := [2]string{uuid.NewString(), uuid.NewString()}
+		var results [2]record.TargetReceipt
+		var failures [2]error
+		var group sync.WaitGroup
+		for i := range keys {
+			group.Add(1)
+			go func(i int) {
+				defer group.Done()
+				results[i], failures[i] = importService.Create(actor, keys[i], preview.Input)
+			}(i)
+		}
+		group.Wait()
+		winner := 0
+		if failures[0] != nil {
+			winner = 1
+		}
+		require.NoError(t, failures[winner])
+		require.ErrorIs(t, failures[1-winner], record.ErrConflict)
+		readback, err := importService.ReadCommand(actor, keys[winner])
+		require.NoError(t, err)
+		require.Equal(t, results[winner].Record, readback.Record)
+		require.Equal(t, candidate.ID, readback.Record.Input.SheinImport.CompletionDraft.RecordID)
+		replay, err := importService.Create(actor, keys[winner], preview.Input)
+		require.NoError(t, err)
+		require.True(t, replay.Replayed)
+		require.Equal(t, readback.Record, replay.Record)
+	})
 	changed.ExpectedRevision = 2
 	worker, err := service.CreateForExecution(ctx, scope, uuid.NewString(), changed)
 	require.NoError(t, err, "worker commits use live execution proof without a fabricated authenticated identity")
@@ -192,6 +258,75 @@ func TestPostgresTargetImmutableRevisionsCommandReplayAndConcurrentCAS(t *testin
 	require.False(t, authenticated)
 	_, err = service.CreateForExecution(ctx, collection.Scope{scope.OrganizationID, scope.ActorID, "replacement-member"}, uuid.NewString(), changed)
 	require.ErrorIs(t, err, record.ErrForbidden)
+	t.Run("agent adoption guard checks new writes and preserves committed replay", func(t *testing.T) {
+		captured := &capturedTargetRepository{TargetRepository: repository}
+		guarded, err := record.NewTargetService(record.TargetDependencies{Sources: selector, ExecutionSources: selector, ExecutionAuthorization: execution, Products: record.OriginalTargetProduct{}, Assets: missingAssets{}, Rules: currentRules{}, Records: captured, Images: recordTestImages{}, Authorizer: authority})
+		require.NoError(t, err)
+		candidate := record.TargetInput{SourceID: page.Items[0].ID, StoreID: uuid.NewString(), EffectiveVersion: 1}
+		_, err = guarded.CreateForAgent(actor, uuid.NewString(), candidate, nil)
+		require.ErrorIs(t, err, record.ErrForbidden)
+		_, err = guarded.CreateForExecutionForAgent(ctx, scope, uuid.NewString(), candidate, nil)
+		require.ErrorIs(t, err, record.ErrForbidden)
+		calls, deny := 0, false
+		guard := func(_ context.Context, facts record.TargetCommitFacts) error {
+			calls++
+			if deny {
+				return record.ErrForbidden
+			}
+			require.Equal(t, candidate.SourceID, facts.Record.Source.ID)
+			require.Equal(t, scope.OrganizationID, facts.Record.Merchant.OrganizationID)
+			require.Equal(t, collection.Digest(facts.Rules), facts.Record.RulesHash)
+			require.Equal(t, collection.Digest(facts.Inventory), facts.Record.InventoryHash)
+			return nil
+		}
+		command := uuid.NewString()
+		first, err := guarded.CreateForAgent(actor, command, candidate, guard)
+		require.NoError(t, err)
+		require.Equal(t, 2, calls, "Agent guard runs before mutation and again before commit")
+		deny = true // Current mode/configuration no longer permits a new write.
+		replay, err := guarded.CreateForAgent(actor, command, candidate, guard)
+		require.NoError(t, err)
+		require.Equal(t, first.Record, replay.Record)
+		require.Equal(t, 2, calls, "service replay must not reapply a write gate")
+		transactionReplay, err := repository.SaveTarget(actor, captured.prepared)
+		require.NoError(t, err, "transaction receipt replay precedes the new-write gate")
+		require.Equal(t, first.Record, transactionReplay.Record)
+		require.Equal(t, 2, calls)
+		changed := candidate
+		changed.ExpectedRevision = first.Record.Revision
+		_, err = guarded.CreateForExecutionForAgent(ctx, scope, uuid.NewString(), changed, guard)
+		require.ErrorIs(t, err, record.ErrForbidden)
+		require.Equal(t, 3, calls)
+		head, err := repository.ReadTargetHead(actor, scope, first.Record.TargetID)
+		require.NoError(t, err)
+		require.Equal(t, first.Record, head)
+		original, err := guarded.ReadCommand(actor, command)
+		require.NoError(t, err)
+		require.Equal(t, first.Record, original.Record)
+	})
+	t.Run("agent mode revoked at final commit rolls back record head and command", func(t *testing.T) {
+		candidate := record.TargetInput{SourceID: page.Items[0].ID, StoreID: uuid.NewString(), EffectiveVersion: 1}
+		calls := 0
+		guard := func(context.Context, record.TargetCommitFacts) error {
+			calls++
+			if calls == 2 {
+				return record.ErrForbidden
+			}
+			return nil
+		}
+		command := uuid.NewString()
+		_, err := service.CreateForAgent(actor, command, candidate, guard)
+		require.ErrorIs(t, err, record.ErrForbidden)
+		require.Equal(t, 2, calls)
+		var count int64
+		require.NoError(t, db.Table("listing_target_records").Where("organization_id=? AND actor_id=? AND store_id=?", scope.OrganizationID, scope.ActorID, candidate.StoreID).Count(&count).Error)
+		require.Zero(t, count, "late revocation must roll back the inserted immutable record")
+		_, err = repository.ReadTargetHead(actor, scope, record.TargetIdentity(scope, candidate.SourceID, candidate.StoreID))
+		require.ErrorIs(t, err, record.ErrNotFound)
+		_, err = repository.ReadTargetCommand(actor, scope, command)
+		require.ErrorIs(t, err, record.ErrNotFound)
+
+	})
 	t.Run("three TEMU modes share immutable source command and revision storage", func(t *testing.T) {
 		for _, mode := range []storecenter.OfficialMerchantMode{storecenter.MerchantLocal, storecenter.MerchantFullyManaged, storecenter.MerchantSemiManaged} {
 			targetService, err := record.NewTargetService(record.TargetDependencies{Sources: selector, Products: record.OriginalTargetProduct{}, Assets: missingAssets{}, Rules: currentRules{}, TemuRules: currentTemuSaveRules{mode}, Records: repository, Images: recordTestImages{}, Authorizer: authority})
@@ -285,7 +420,7 @@ func TestPostgresTargetImmutableRevisionsCommandReplayAndConcurrentCAS(t *testin
 		_, err = kernel.ReadIntent(ctx, submission.ExecutionScope{OrganizationID: "org-b"}, intent.Key)
 		require.ErrorIs(t, err, submission.ErrExecutionNotFound)
 		claim := submission.ExecutionClaim{Scope: command.Scope, AttemptID: acquired.Attempt.AttemptID, FenceEpoch: acquired.Permit.FenceEpoch, OwnerID: acquired.Permit.ClaimOwnerID, Token: acquired.Permit.ClaimToken}
-		result := model.PublishResult{SPUName: "spu-a", SKCs: []model.PublishedSKC{{SKCName: "skc-a", SKUs: []model.PublishedSKU{{SupplierSKU: "merchant-sku", SKUCode: "code-a"}}}}, ResponseHash: collection.Digest("full matched official response")}
+		result := model.PublishResult{SPUName: "spu-a", Version: "v1", SKCs: []model.PublishedSKC{{SKCName: "skc-a", SKUs: []model.PublishedSKU{{SupplierSKU: "merchant-sku", SKUCode: "code-a"}}}}, ResponseHash: collection.Digest("full matched official response")}
 		proof, err := submission.NewPublishCompletion(scope, completed.Record.ID, productKey, completed.Record.Merchant, acquired.Attempt, claim, wire.Product, result)
 		require.NoError(t, err)
 		require.NoError(t, db.Exec("CREATE FUNCTION skip_official_receipt() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$").Error)
@@ -326,6 +461,51 @@ func TestPostgresTargetImmutableRevisionsCommandReplayAndConcurrentCAS(t *testin
 		require.NoError(t, err)
 		require.Equal(t, submission.ExecutionSucceeded, actual.Status)
 		require.Equal(t, saved.ID, actual.Evidence.Reference)
+		t.Run("SHEIN shelf binds original receipt after a newer local head and completes atomically", func(t *testing.T) {
+			changed := input
+			changed.ExpectedRevision = completed.Record.Revision
+			newer, e := ready.CreateForExecution(ctx, scope, uuid.NewString(), changed)
+			require.NoError(t, e)
+			require.NotEqual(t, completed.Record.ID, newer.Record.ID)
+			prepare, e := submission.NewShelfIntent(ctx, sourceProof, completed.Record, saved, completed.Record.Merchant, uuid.NewString(), "skc-a", uuid.NewString(), collection.Digest("audit2:off"), time.Now())
+			require.NoError(t, e)
+			shelf, e := official.PrepareShelfIntent(ctx, prepare)
+			require.NoError(t, e)
+			_, e = kernel.ReadIntent(ctx, command.Scope, shelf.Key)
+			require.ErrorIs(t, e, submission.ErrExecutionNotFound, "T1 has no attempt or send permit")
+			send := submission.AcquireExecutionCommand{Scope: command.Scope, IntentKey: shelf.Key, Target: shelf.Target, Action: submission.SheinShelfAction, Payload: submission.ShelfPayload(shelf), ClaimOwnerID: "shelf-worker", Lease: time.Minute}
+			first, e := kernel.Acquire(ctx, send)
+			require.NoError(t, e)
+			require.NotNil(t, first.Permit)
+			replay, e := kernel.Acquire(ctx, send)
+			require.NoError(t, e)
+			require.Nil(t, replay.Permit)
+			secondProof, e := submission.NewShelfIntent(ctx, sourceProof, completed.Record, saved, completed.Record.Merchant, uuid.NewString(), "skc-a", uuid.NewString(), collection.Digest("audit2:off"), time.Now())
+			require.NoError(t, e)
+			second, e := official.PrepareShelfIntent(ctx, secondProof)
+			require.NoError(t, e)
+			duplicate := send
+			duplicate.IntentKey = second.Key
+			duplicate.Payload = submission.ShelfPayload(second)
+			_, e = kernel.Acquire(ctx, duplicate)
+			require.ErrorIs(t, e, submission.ErrExecutionTargetClaimed)
+			shelfClaim := submission.ExecutionClaim{Scope: send.Scope, AttemptID: first.Attempt.AttemptID, FenceEpoch: first.Permit.FenceEpoch, OwnerID: first.Permit.ClaimOwnerID, Token: first.Permit.ClaimToken}
+			completion, e := submission.NewShelfCompletion(shelf, first.Attempt, shelfClaim, model.ShelfResult{SKC: "skc-a", Site: "shein-us", ResponseHash: collection.Digest("shelf response")})
+			require.NoError(t, e)
+			require.NoError(t, db.Exec("CREATE FUNCTION skip_official_shelf_receipt() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$").Error)
+			require.NoError(t, db.Exec("CREATE TRIGGER skip_receipt BEFORE INSERT ON listing_submission_official_receipts FOR EACH ROW EXECUTE FUNCTION skip_official_shelf_receipt()").Error)
+			_, e = official.CompleteOfficial(ctx, completion)
+			require.Error(t, e)
+			kept, e := kernel.Get(ctx, send.Scope, first.Attempt.AttemptID)
+			require.NoError(t, e)
+			require.Equal(t, submission.ExecutionClaimed, kept.Status)
+			require.NoError(t, db.Exec("DROP TRIGGER skip_receipt ON listing_submission_official_receipts").Error)
+			require.NoError(t, db.Exec("DROP FUNCTION skip_official_shelf_receipt()").Error)
+			_, e = official.CompleteOfficial(ctx, completion)
+			require.NoError(t, e)
+			_, e = kernel.Acquire(ctx, duplicate)
+			require.ErrorIs(t, e, submission.ErrExecutionTargetSucceeded)
+		})
 		retained, err := official.ReadOfficial(ctx, scope, saved.ID)
 		require.NoError(t, err)
 		require.Equal(t, saved, retained)

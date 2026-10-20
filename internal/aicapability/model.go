@@ -19,6 +19,9 @@ type Operation string
 const (
 	OperationProductAgentDecision            Operation = "product_agent_decision"
 	OperationProductContentDecision          Operation = "product.content.decision"
+	OperationListingMaterialsDecision        Operation = "listing.materials.decision"
+	OperationProductSelectionDecision        Operation = "product.selection.decision"
+	OperationShopDiagnosisDecision           Operation = "shop.operations-diagnosis.decision"
 	OperationAIWorkbenchChatPlan             Operation = "aiworkbench_chat_plan"
 	OperationProductImageSceneGenerate       Operation = "productimage_scene_generate"
 	OperationProductImageSubjectExtract      Operation = "productimage_subject_extract"

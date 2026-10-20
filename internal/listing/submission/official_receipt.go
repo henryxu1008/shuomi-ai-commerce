@@ -37,6 +37,7 @@ type OfficialReceipt struct {
 	ID                 string                             `json:"id"`
 	Owner              collection.Scope                   `json:"owner"`
 	Kind               string                             `json:"kind"`
+	Shelf              *model.ShelfResult                 `json:"shelf,omitempty"`
 	RecordID           string                             `json:"record_id,omitempty"`
 	ProductKey         string                             `json:"product_key,omitempty"`
 	Target             ExecutionTarget                    `json:"target"`
@@ -49,6 +50,7 @@ type OfficialReceipt struct {
 	TemuProduct        *temugoods.CreatedGoods            `json:"temuProduct,omitempty"`
 	TemuImage          *TemuImageReceipt                  `json:"temuImage,omitempty"`
 	TikTok             *TikTokEffectReceipt               `json:"tiktok,omitempty"`
+	Walmart            *WalmartFeedReceipt                `json:"walmart,omitempty"`
 	ObservedAt         time.Time                          `json:"observed_at"`
 }
 type OfficialCompletion struct {
@@ -89,7 +91,7 @@ func completionBase(owner collection.Scope, binding storecenter.ProductMerchantB
 }
 func NewPublishCompletion(owner collection.Scope, recordID, productKey string, binding storecenter.ProductMerchantBinding, attempt ExecutionAttempt, claim ExecutionClaim, payload model.PublishProduct, result model.PublishResult) (OfficialCompletion, error) {
 	raw, err := json.Marshal(payload)
-	if err != nil || len(raw) > MaxExecutionPayloadBytes || !goods.CorrelatesPublishedMembership(payload, result) || !isExecutionDigest(result.ResponseHash) {
+	if err != nil || len(raw) > MaxExecutionPayloadBytes || !authidentity.IsBoundedIdentifier(result.Version) || !goods.CorrelatesPublishedMembership(payload, result) || !isExecutionDigest(result.ResponseHash) {
 		return OfficialCompletion{}, ErrExecutionEvidenceRequired
 	}
 	body, err := completionBase(owner, binding, attempt, claim, raw, OfficialPublishAction)
@@ -134,6 +136,15 @@ func ValidateOfficialReceipt(value OfficialReceipt) error {
 	if !validExecutionAttemptID(value.ID) || value.Owner.Validate() != nil || !validOfficialBindingForTarget(value.Binding, value.Target) || !collection.ValidID(value.Target.StoreID) || !authidentity.IsBoundedIdentifier(value.IntentKey) ||
 		!isExecutionDigest(value.PayloadFingerprint) || !isExecutionDigest(value.ResponseHash) || value.Binding.OrganizationID != value.Owner.OrganizationID ||
 		value.Binding.StoreVersion < 1 || value.Binding.ConnectionRevision < 1 || !value.Binding.ValidApplication() || !isExecutionDigest(value.Binding.SupplierIdentityHash) || value.Binding.ServiceExpiresAt.IsZero() || value.ObservedAt.IsZero() {
+		return ErrExecutionEvidenceRequired
+	}
+	if value.Shelf != nil || value.Kind == "shelf_on" {
+		return validateShelfReceipt(value)
+	}
+	if value.Target.Platform == "walmart" {
+		return validateWalmartReceipt(value)
+	}
+	if value.Walmart != nil {
 		return ErrExecutionEvidenceRequired
 	}
 	if value.Target.Platform == "temu" {

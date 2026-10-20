@@ -6,17 +6,19 @@ import (
 	"os"
 	"strings"
 	"sync"
+	d "task-processor/internal/aicapability/routeconfig"
 	"time"
 
 	"github.com/sirupsen/logrus"
 	sdkclient "go.temporal.io/sdk/client"
 
-	"gorm.io/gorm"
 	"task-processor/internal/core/config"
 	"task-processor/internal/imageagent"
 	imageagenttemporal "task-processor/internal/imageagent/temporal"
 	platformtemporal "task-processor/internal/platform/temporal"
 	productasset "task-processor/internal/product/asset"
+
+	"gorm.io/gorm"
 )
 
 const (
@@ -27,14 +29,16 @@ const (
 
 // FullImageSetDependencies keeps the SDK client at the runtime assembly boundary.
 type FullImageSetDependencies struct {
-	AssetDB      *gorm.DB
-	WorkerDB     *gorm.DB
-	WorkerConfig *config.Config
-	Client       sdkclient.Client
-	Worker       *ImageAgentWorker
+	CurrentImagePolicies d.CurrentReader
+	AssetDB              *gorm.DB
+	WorkerDB             *gorm.DB
+	WorkerConfig         *config.Config
+	Client               sdkclient.Client
+	Worker               *ImageAgentWorker
 }
 
 type ImageAgentTemporalDependencies struct {
+	ArtworkPublisher         imageagent.ArtworkPublisher
 	ImageSetPolicyAdopter    imageagent.ImageSetPolicyAdopter
 	ImageSetApprovals        productasset.ApprovalCommitReader
 	ImageSetPublisher        imageagent.ApprovedImageSetPublisher
@@ -72,6 +76,7 @@ func NewOrganizationImageSetWorker(client sdkclient.Client, d ImageAgentTemporal
 		return nil, imageagent.ErrCommandBlocked
 	}
 	activities, err := imageagenttemporal.NewActivities(imageagenttemporal.ActivityDependencies{
+		ArtworkPublisher:      d.ArtworkPublisher,
 		ImageSetApprovals:     d.ImageSetApprovals,
 		ImageSetPolicyAdopter: d.ImageSetPolicyAdopter,
 		ImageSetPublisher:     d.ImageSetPublisher, GenerationRecovery: d.GenerationRecovery, GenerationOutputRecovery: d.GenerationOutputRecovery,
@@ -194,6 +199,7 @@ func startImageAgentTemporalWorkerWithOptionsAndDependenciesContext(ctx context.
 	}
 	activities, err := imageagenttemporal.NewActivities(imageagenttemporal.ActivityDependencies{
 		ImageSetApprovals:        dependencies.ImageSetApprovals,
+		ArtworkPublisher:         dependencies.ArtworkPublisher,
 		ImageSetPolicyAdopter:    dependencies.ImageSetPolicyAdopter,
 		ImageSetPublisher:        dependencies.ImageSetPublisher,
 		GenerationRecovery:       dependencies.GenerationRecovery,

@@ -10,10 +10,16 @@ import (
 )
 
 func TestSourceEditAdapterSendsExactBundleAndApprovedPromptOnce(t *testing.T) {
+	for _, route := range [][2]string{{"grsai", "gpt-image-2.5"}, {"bailian", "qwen-image-3.0"}, {"bailian", "qwen-image-3.0-pro"}} {
+		t.Run(route[1], func(t *testing.T) { testSourceEditAdapter(t, route[0], route[1]) })
+	}
+}
+
+func testSourceEditAdapter(t *testing.T, provider, model string) {
 	images := &productImageGeneratorStub{response: &ai.ImageResponse{Data: []ai.ImageData{{B64JSON: base64.StdEncoding.EncodeToString(productImagePNG(t, 1024, 1024))}}}}
 	config := validProductImageAdapterConfig(images, nil)
-	config.Provider = "grsai"
-	config.ImageModel = "gpt-image-2.5"
+	config.Provider = provider
+	config.ImageModel = model
 	adapter, err := NewProductImageAdapter(config)
 	require.NoError(t, err)
 	capability, err := productimage.NewSourceEditCapability(adapter)

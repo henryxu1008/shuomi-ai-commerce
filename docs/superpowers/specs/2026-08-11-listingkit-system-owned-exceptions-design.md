@@ -1,12 +1,16 @@
 # ListingKit Current Orphaned Owner Exceptions Design
 
-> **Historical fixed-snapshot seed workflow — SUPERSEDED.**
+> **SUPERSEDED - historical fixed-snapshot owner exception seed design.**
 > [PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08](../../product/greenfield-no-legacy-migration.md)
-> cancels carrying these old records into new business work. The dedicated seed
-> cmd, assembly and write APIs are retired under #529. This document preserves
-> the original snapshot evidence; it does not authorize new seeding or changes
-> to existing data. Existing exception reads, exact matching and fail-closed
-> identity-preflight behavior remain unchanged until separately retired.
+> cancels carrying these old records into new business work. The seed command,
+> assembly and write APIs were already retired under #529.
+> [#698](https://github.com/qq550723504/task-processor/pull/698) subsequently retired
+> the exception readers and identity preflight; their earlier preservation is no
+> longer current. The user-confirmed [#842 boundary](../../architecture/legacy-yudao-identity-operations-retirement-boundary.md)
+> source-retires the three Yudao user importers and owner-recovery dry-run.
+> The original snapshot/body remains historical evidence, not seeding/migration or
+> recovery authority. Do not restore these entries or modify any existing rows.
+> Current schema/authentication and standalone SHEIN login/Store sync remain unchanged.
 
 ## Goal
 

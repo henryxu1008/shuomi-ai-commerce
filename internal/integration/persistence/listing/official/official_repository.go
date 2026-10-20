@@ -154,6 +154,12 @@ func receiptMatchesIntent(body submission.OfficialReceipt, intent submission.Off
 	if body.Owner != intent.Owner || body.Kind != intent.Kind || body.Target != intent.Target || body.IntentKey != intent.Key || body.PayloadFingerprint != intent.PayloadFingerprint || body.Binding != intent.Binding {
 		return false
 	}
+	if body.Kind == "shelf_on" {
+		return body.Shelf != nil && intent.Shelf != nil && body.RecordID == intent.RecordID && body.Shelf.SKC == intent.Shelf.SKC && body.Shelf.Site == "shein-us"
+	}
+	if body.Target.Platform == "walmart" {
+		return submission.WalmartReceiptMatchesIntent(body, intent)
+	}
 	if body.Target.Platform == "tiktokshop" {
 		return submission.TikTokReceiptMatchesIntent(body, intent)
 	}
@@ -261,7 +267,7 @@ func (r *OfficialRepository) ReadOfficial(ctx context.Context, scope collection.
 // This canonical Store result read is internal only. App requires the exact
 // current source owner and merchant access before projecting provider facts.
 func (r *OfficialRepository) FindOfficialTarget(ctx context.Context, org string, target submission.ExecutionTarget) (submission.OfficialReceipt, error) {
-	if ctx == nil || target.Platform != "shein" && target.Platform != "temu" && target.Platform != "tiktokshop" || !collection.ValidID(target.StoreID) {
+	if ctx == nil || target.Platform != "shein" && target.Platform != "temu" && target.Platform != "tiktokshop" && target.Platform != "walmart" || !collection.ValidID(target.StoreID) {
 		return submission.OfficialReceipt{}, submission.ErrExecutionInvalid
 	}
 	ctx, cancel := context.WithTimeout(ctx, submission.ExecutionTimeout)
@@ -275,6 +281,18 @@ func (r *OfficialRepository) FindOfficialTarget(ctx context.Context, org string,
 	}
 	if reference.AttemptID == "" {
 		return submission.OfficialReceipt{}, submission.ErrExecutionNotFound
+	}
+	if target.Platform == "walmart" && reference.Status != string(submission.ExecutionSucceeded) {
+		var prior officialReceiptRow
+		if e := r.db.WithContext(ctx).Where("organization_id=? AND store_id=? AND subject_id=? AND kind='publish'", org, target.StoreID, target.SubjectID).Order("body_json->>'observed_at' DESC,attempt_id DESC").Take(&prior).Error; e == nil {
+			body, e := readOfficialReceipt(r.db.WithContext(ctx), org, prior.AttemptID)
+			if e != nil || body.Target != target || body.Walmart == nil || r.validateCompleted(ctx, body) != nil {
+				return submission.OfficialReceipt{}, submission.ErrExecutionUnavailable
+			}
+			return body, nil
+		} else if !errors.Is(e, gorm.ErrRecordNotFound) {
+			return submission.OfficialReceipt{}, submission.ErrExecutionUnavailable
+		}
 	}
 	if reference.Status == string(submission.ExecutionClaimed) || reference.Status == string(submission.ExecutionOutcomeUnknown) {
 		return submission.OfficialReceipt{}, submission.ErrExecutionTargetClaimed

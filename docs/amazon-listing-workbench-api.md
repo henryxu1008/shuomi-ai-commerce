@@ -1,8 +1,13 @@
 # Amazon Listing Workbench API
 
-> **Classification:** `CURRENT CONTRACT` for the AmazonListing operator endpoints and request/response fields documented below. Verified against current `internal/amazonlisting/httpapi/routes.go`, `internal/marketplace/amazon/model/review_types.go`, `internal/amazonlisting/workspace_workbench.go`, `internal/amazonlisting/workspace_edit_fields.go`, `internal/amazonlisting/workspace_edit_variants.go`, and the current product HTTP E2E path.
->
-> This contract belongs to the current AmazonListing domain. It does **not** revive retired ProductEnrich/ProductImage task, queue, worker, or child-task semantics. AmazonListing consumes current Product Snapshot / Approved Asset facts; legacy product-task behavior remains retired under [PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08](product/greenfield-no-legacy-migration.md).
+> **Classification: SUPERSEDED / RETIRED** by user-confirmed #822,
+> [complete Amazon closure](architecture/legacy-amazon-listing-closure-retirement-boundary.md).
+> The old Task/Workbench routes and contract below are historical evidence only;
+> they are not registered in current-application and must not be restored through
+> a compatibility endpoint. Current Amazon platform API and source acquisition
+> retain their owners. This source retirement does not operate a deployment or
+> alter any existing database/table/row. The original protocol below is preserved.
+
 
 ## Task Queue
 

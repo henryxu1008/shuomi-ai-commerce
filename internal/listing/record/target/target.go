@@ -11,6 +11,7 @@ import (
 	temugoods "task-processor/internal/marketplace/temu/goods"
 	temumodel "task-processor/internal/marketplace/temu/model"
 	tiktok "task-processor/internal/marketplace/tiktokshop"
+	walmart "task-processor/internal/marketplace/walmart"
 	"task-processor/internal/product/asset"
 	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/collection"
@@ -23,6 +24,7 @@ var ErrTargetUnknown = errors.New("listing target command outcome is unknown; re
 // Target records use the current private source selection. They neither wrap
 // the older local draft service nor accept ProductKey as read authority.
 type TargetInput struct {
+	WalmartRules     *walmart.RuleSelection    `json:"walmartRules,omitempty"`
 	SourceID         string                    `json:"sourceId"`
 	StoreID          string                    `json:"storeId"`
 	ExpectedRevision int64                     `json:"expectedRevision"`
@@ -32,41 +34,62 @@ type TargetInput struct {
 	TemuRules        *temumodel.RuleSelection  `json:"temuRules,omitempty"`
 	Temu             *temugoods.DraftInput     `json:"temu,omitempty"`
 	TikTok           *tiktok.DraftInput        `json:"tiktok,omitempty"`
+	Walmart          *walmart.DraftInput       `json:"walmart,omitempty"`
 	TikTokRules      *tiktok.RuleSelection     `json:"tiktokRules,omitempty"`
 	CompletionDraft  *CompletionDraftSelection `json:"completionDraft,omitempty"`
+	SheinImport      *SheinImport              `json:"sheinImport,omitempty"`
 }
 type TargetRecord struct {
-	ID                      string                                `json:"id"`
-	TargetID                string                                `json:"targetId"`
-	Revision                int64                                 `json:"revision"`
-	Source                  preparation.SourceItem                `json:"source"`
-	EffectiveVersion        uint64                                `json:"effectiveVersion,string"`
-	ApplyReceiptID          string                                `json:"applyReceiptId,omitempty"`
-	ProductHash             string                                `json:"productHash"`
-	InventoryHash           string                                `json:"inventoryHash"`
-	RulesHash               string                                `json:"rulesHash"`
-	Merchant                storecenter.ProductMerchantBinding    `json:"merchant"`
-	Input                   TargetInput                           `json:"input"`
-	Result                  goods.OfficialDraft                   `json:"result"`
-	ImageObservations       []goods.OfficialImageObservation      `json:"imageObservations,omitempty"`
-	ProofObservations       []goods.OfficialStockProofObservation `json:"proofObservations,omitempty"`
-	Temu                    *temugoods.Draft                      `json:"temu,omitempty"`
-	TemuRuleSnapshot        *temugoods.RuleSnapshot               `json:"temuRuleSnapshot,omitempty"`
-	TemuImageObservations   []temugoods.ImageObservation          `json:"temuImageObservations,omitempty"`
-	TikTok                  *tiktok.Draft                         `json:"tiktok,omitempty"`
-	TikTokRuleSnapshot      *tiktok.RuleSnapshot                  `json:"tiktokRuleSnapshot,omitempty"`
-	TikTokImageObservations []tiktok.ImageObservation             `json:"tiktokImageObservations,omitempty"`
-	CreatedAt               time.Time                             `json:"createdAt"`
+	ID                       string                                `json:"id"`
+	TargetID                 string                                `json:"targetId"`
+	Revision                 int64                                 `json:"revision"`
+	Source                   preparation.SourceItem                `json:"source"`
+	EffectiveVersion         uint64                                `json:"effectiveVersion,string"`
+	ApplyReceiptID           string                                `json:"applyReceiptId,omitempty"`
+	ProductHash              string                                `json:"productHash"`
+	InventoryHash            string                                `json:"inventoryHash"`
+	RulesHash                string                                `json:"rulesHash"`
+	Merchant                 storecenter.ProductMerchantBinding    `json:"merchant"`
+	Input                    TargetInput                           `json:"input"`
+	Result                   goods.OfficialDraft                   `json:"result"`
+	ImageObservations        []goods.OfficialImageObservation      `json:"imageObservations,omitempty"`
+	ProofObservations        []goods.OfficialStockProofObservation `json:"proofObservations,omitempty"`
+	Temu                     *temugoods.Draft                      `json:"temu,omitempty"`
+	TemuRuleSnapshot         *temugoods.RuleSnapshot               `json:"temuRuleSnapshot,omitempty"`
+	TemuImageObservations    []temugoods.ImageObservation          `json:"temuImageObservations,omitempty"`
+	TikTok                   *tiktok.Draft                         `json:"tiktok,omitempty"`
+	Walmart                  *walmart.Draft                        `json:"walmart,omitempty"`
+	WalmartRuleSnapshot      *walmart.RuleSnapshot                 `json:"walmartRuleSnapshot,omitempty"`
+	WalmartImageObservations []walmart.ImageObservation            `json:"walmartImageObservations,omitempty"`
+	TikTokRuleSnapshot       *tiktok.RuleSnapshot                  `json:"tiktokRuleSnapshot,omitempty"`
+	TikTokImageObservations  []tiktok.ImageObservation             `json:"tiktokImageObservations,omitempty"`
+	CreatedAt                time.Time                             `json:"createdAt"`
 }
 type TargetReceipt struct {
 	Record   TargetRecord `json:"record"`
 	Replayed bool         `json:"replayed"`
 }
+
+// TargetCommitFacts are transient owner reads for a local Agent adoption.
+// They are not accepted from HTTP/model output or persisted as another fact.
+type TargetCommitFacts struct {
+	Record    TargetRecord
+	Rules     goods.OfficialRuleSnapshot
+	Inventory asset.ApprovedAssetInventory
+}
+
+// TargetAgentGuard rechecks the exact run/configuration/current execution mode
+// at the existing Target transaction's new-write checkpoints.
+type TargetAgentGuard func(context.Context, TargetCommitFacts) error
+
 type TargetPrepared struct {
 	scope             collection.Scope
 	key, inputHash    string
 	source            preparation.AuthorizedSource
 	record            TargetRecord
+	agentGuard        TargetAgentGuard
+	rules             goods.OfficialRuleSnapshot
+	inventory         asset.ApprovedAssetInventory
 	completionVersion func(context.Context) error
 }
 
@@ -85,6 +108,27 @@ func (p TargetPrepared) Read(ctx context.Context) (collection.Scope, string, str
 		return collection.Scope{}, "", "", TargetRecord{}, ErrUnavailable
 	}
 	return scope, p.key, p.inputHash, cloned, nil
+}
+
+// CheckAgentCommit is separate from Read so a committed command can be replayed
+// under current read authority without applying a gate for a new mutation.
+func (p TargetPrepared) CheckAgentCommit(ctx context.Context) error {
+	if p.agentGuard == nil {
+		return nil
+	}
+	_, _, _, value, err := p.Read(ctx)
+	if err != nil {
+		return err
+	}
+	raw, err := json.Marshal(TargetCommitFacts{Record: value, Rules: p.rules, Inventory: p.inventory})
+	if err != nil {
+		return ErrUnavailable
+	}
+	var copied TargetCommitFacts
+	if json.Unmarshal(raw, &copied) != nil {
+		return ErrUnavailable
+	}
+	return p.agentGuard(ctx, copied)
 }
 func cloneTarget(input TargetRecord) (TargetRecord, error) {
 	raw, err := json.Marshal(input)
@@ -130,6 +174,9 @@ type TargetTikTokImageReader interface {
 
 type TargetRepository interface {
 	FindTargetCommand(context.Context, collection.Scope, string, string) (TargetReceipt, error)
+	// SaveTarget replays an exact committed command before applying any new
+	// Agent write gate. New writes check CheckAgentCommit after CAS and again
+	// before commit, rolling back all record/head/command effects on denial.
 	SaveTarget(context.Context, TargetPrepared) (TargetReceipt, error)
 	ReadTargetHead(context.Context, collection.Scope, string) (TargetRecord, error)
 	ReadTargetRecord(context.Context, collection.Scope, string) (TargetRecord, error)
@@ -144,6 +191,8 @@ type TargetDependencies struct {
 	TemuImages             TargetTemuImageReader
 	TikTokRules            TargetTikTokRuleReader
 	TikTokImages           TargetTikTokImageReader
+	WalmartRules           TargetWalmartRuleReader
+	WalmartImages          TargetWalmartImageReader
 	CompletionVersions     TargetCompletionVersionReader
 	Records                TargetRepository
 	Images                 TargetImageReader
@@ -163,6 +212,19 @@ func TargetIdentity(scope collection.Scope, sourceID, storeID string) string {
 	return collection.StableID(scope.OrganizationID, scope.ActorID, "supply-target", sourceID, storeID)
 }
 func (s *TargetService) Create(ctx context.Context, key string, input TargetInput) (TargetReceipt, error) {
+	return s.createForRequest(ctx, key, input, nil)
+}
+
+// CreateForAgent only exposes the existing local Target owner. A nonnil guard
+// is mandatory and cannot be selected or supplied by an untrusted caller.
+func (s *TargetService) CreateForAgent(ctx context.Context, key string, input TargetInput, guard TargetAgentGuard) (TargetReceipt, error) {
+	if guard == nil {
+		return TargetReceipt{}, ErrForbidden
+	}
+	return s.createForRequest(ctx, key, input, guard)
+}
+
+func (s *TargetService) createForRequest(ctx context.Context, key string, input TargetInput, guard TargetAgentGuard) (TargetReceipt, error) {
 	if ctx == nil || s == nil {
 		return TargetReceipt{}, ErrForbidden
 	}
@@ -181,10 +243,21 @@ func (s *TargetService) Create(ctx context.Context, key string, input TargetInpu
 			return ErrForbidden
 		}
 		return nil
-	})
+	}, guard)
 }
 
 func (s *TargetService) CreateForExecution(ctx context.Context, scope collection.Scope, key string, input TargetInput) (TargetReceipt, error) {
+	return s.createForExecution(ctx, scope, key, input, nil)
+}
+
+func (s *TargetService) CreateForExecutionForAgent(ctx context.Context, scope collection.Scope, key string, input TargetInput, guard TargetAgentGuard) (TargetReceipt, error) {
+	if guard == nil {
+		return TargetReceipt{}, ErrForbidden
+	}
+	return s.createForExecution(ctx, scope, key, input, guard)
+}
+
+func (s *TargetService) createForExecution(ctx context.Context, scope collection.Scope, key string, input TargetInput, guard TargetAgentGuard) (TargetReceipt, error) {
 	if ctx == nil || s == nil || scope.Validate() != nil || s.dependencies.ExecutionSources == nil || s.dependencies.ExecutionAuthorization == nil {
 		return TargetReceipt{}, ErrForbidden
 	}
@@ -201,19 +274,25 @@ func (s *TargetService) CreateForExecution(ctx context.Context, scope collection
 	}
 	return s.create(ctx, scope, key, input, func(ctx context.Context, id string) (preparation.AuthorizedSource, error) {
 		return s.dependencies.ExecutionSources.SelectForExecution(ctx, scope, id)
-	}, reauthorize)
+	}, reauthorize, guard)
 }
 
-func (s *TargetService) create(ctx context.Context, scope collection.Scope, key string, input TargetInput, selectSource func(context.Context, string) (preparation.AuthorizedSource, error), reauthorize func(context.Context) error) (TargetReceipt, error) {
+func (s *TargetService) create(ctx context.Context, scope collection.Scope, key string, input TargetInput, selectSource func(context.Context, string) (preparation.AuthorizedSource, error), reauthorize func(context.Context) error, guard TargetAgentGuard) (TargetReceipt, error) {
+	if input.SheinImport != nil && (input.Temu != nil || input.TikTok != nil || input.Walmart != nil || input.TemuRules != nil || input.TikTokRules != nil || input.WalmartRules != nil || input.CompletionDraft != nil) {
+		return TargetReceipt{}, ErrInvalid
+	}
 	// Named TEMU metadata is query-only until the admitted TEMU record/payload
 	// variant is complete. Never save it through the qualified SHEIN builder.
-	if input.TemuRules != nil || input.TikTokRules != nil {
+	if input.TemuRules != nil || input.TikTokRules != nil || input.WalmartRules != nil {
 		return TargetReceipt{}, ErrNotReady
+	}
+	if input.Walmart != nil && (input.Temu != nil || input.TikTok != nil || !reflect.DeepEqual(input.Draft, goods.OfficialDraftInput{})) {
+		return TargetReceipt{}, ErrInvalid
 	}
 	if input.Temu != nil && input.TikTok != nil || (input.Temu != nil || input.TikTok != nil) && !reflect.DeepEqual(input.Draft, goods.OfficialDraftInput{}) {
 		return TargetReceipt{}, ErrInvalid
 	}
-	if input.CompletionDraft != nil && (input.TikTok == nil || !collection.ValidID(input.CompletionDraft.RecordID) || input.CompletionDraft.Revision < 1) {
+	if input.CompletionDraft != nil && (input.TikTok == nil && input.Walmart == nil || !collection.ValidID(input.CompletionDraft.RecordID) || input.CompletionDraft.Revision < 1) {
 		return TargetReceipt{}, ErrInvalid
 	}
 	if !collection.ValidID(key) || !collection.ValidID(input.SourceID) || !collection.ValidID(input.StoreID) || input.ExpectedRevision < 0 || input.ExpectedRevision >= 1<<63-1 || input.EffectiveVersion == 0 || input.EffectiveVersion > 1<<63-1 || input.ApplyReceiptID != "" && !authidentity.IsBoundedIdentifier(input.ApplyReceiptID) {
@@ -274,6 +353,9 @@ func (s *TargetService) create(ctx context.Context, scope collection.Scope, key 
 	if input.TikTok != nil {
 		platform = "tiktokshop"
 	}
+	if input.Walmart != nil {
+		platform = "walmart"
+	}
 	inventoryScope := asset.InventoryScope{TenantID: scope.OrganizationID, ProductKey: source.Source.ProductKey, TargetPlatform: platform, SourceSnapshotVersion: product.Version}
 	inventory, err := s.dependencies.Assets.GetApprovedInventory(ctx, inventoryScope)
 	if errors.Is(err, asset.ErrApprovedAssetsNotReady) {
@@ -284,9 +366,15 @@ func (s *TargetService) create(ctx context.Context, scope collection.Scope, key 
 	if inventory.Scope != inventoryScope {
 		return TargetReceipt{}, ErrNotReady
 	}
-	prepared, err := s.preparePlatform(ctx, scope, input, inventory)
+	prepared, err := s.preparePlatform(ctx, scope, input, inventory, product)
 	if err != nil {
 		return TargetReceipt{}, err
+	}
+	if input.SheinImport != nil {
+		completionVersion = func(ctx context.Context) error { return s.validateSheinImport(ctx, scope, input, source, prepared) }
+		if err = completionVersion(ctx); err != nil {
+			return TargetReceipt{}, err
+		}
 	}
 	value := TargetRecord{ID: collection.StableID(scope.OrganizationID, scope.ActorID, "supply-record", key), TargetID: TargetIdentity(scope, source.ID, input.StoreID), Revision: input.ExpectedRevision + 1, Source: source, EffectiveVersion: product.Version, ApplyReceiptID: input.ApplyReceiptID, ProductHash: collection.Digest(product.Snapshot), InventoryHash: collection.Digest(inventory), RulesHash: prepared.rulesHash, Merchant: prepared.merchant, Input: input, Result: prepared.shein, CreatedAt: time.Now().UTC()}
 	value.ImageObservations = prepared.images
@@ -294,6 +382,7 @@ func (s *TargetService) create(ctx context.Context, scope collection.Scope, key 
 	value.Temu, value.TemuRuleSnapshot = prepared.temu, prepared.temuRules
 	value.TemuImageObservations = prepared.temuImages
 	value.TikTok, value.TikTokRuleSnapshot, value.TikTokImageObservations = prepared.tiktok, prepared.tiktokRules, prepared.tiktokImages
+	value.Walmart, value.WalmartRuleSnapshot, value.WalmartImageObservations = prepared.walmart, prepared.walmartRules, prepared.walmartImages
 	// Merchant reads can outlast the five-second source proof. Obtain fresh
 	// current source authority before committing the same immutable reference.
 	selected, err = selectSource(ctx, input.SourceID)
@@ -307,7 +396,7 @@ func (s *TargetService) create(ctx context.Context, scope collection.Scope, key 
 	if err = reauthorize(ctx); err != nil {
 		return TargetReceipt{}, err
 	}
-	return s.dependencies.Records.SaveTarget(ctx, TargetPrepared{scope: scope, key: key, inputHash: inputHash, source: selected, record: value, completionVersion: completionVersion})
+	return s.dependencies.Records.SaveTarget(ctx, TargetPrepared{scope: scope, key: key, inputHash: inputHash, source: selected, record: value, agentGuard: guard, rules: prepared.sheinRules, inventory: inventory, completionVersion: completionVersion})
 }
 func (s *TargetService) authorizeTarget(ctx context.Context, purpose string) (collection.Scope, error) {
 	scope, err := s.dependencies.Authorizer.Authorize(ctx, purpose)

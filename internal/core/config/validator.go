@@ -14,12 +14,9 @@ func (c *Config) Validate() []error {
 
 func ValidateConfig(c *Config) []error {
 	validator := NewValidator(
-		&c.Processor,
-		&c.Worker,
 		&c.OpenAI,
 		&c.Browser,
 		&c.Amazon,
-		c.RabbitMQ,
 		&c.Platforms,
 	)
 	errors := validator.Validate()
@@ -108,18 +105,12 @@ func moduleFromField(field string) string {
 		return "Amazon SP-API"
 	case strings.HasPrefix(field, "amazon."):
 		return "Amazon"
-	case strings.HasPrefix(field, "rabbitmq."):
-		return "RabbitMQ"
 	case strings.HasPrefix(field, "platforms.temu."):
 		return "Platforms.TEMU"
 	case strings.HasPrefix(field, "platforms.shein."):
 		return "Platforms.SHEIN"
 	case strings.HasPrefix(field, "platforms.alibaba1688."):
 		return "Platforms.1688"
-	case strings.HasPrefix(field, "worker."):
-		return "Worker"
-	case strings.HasPrefix(field, "processor."):
-		return "Processor"
 	default:
 		return "General"
 	}
@@ -135,18 +126,12 @@ func validationModuleRank(module string) int {
 		return 3
 	case "Amazon":
 		return 4
-	case "RabbitMQ":
-		return 5
 	case "Platforms.TEMU":
 		return 6
 	case "Platforms.SHEIN":
 		return 7
 	case "Platforms.1688":
 		return 8
-	case "Worker":
-		return 9
-	case "Processor":
-		return 10
 	default:
 		return 99
 	}

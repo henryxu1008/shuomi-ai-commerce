@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import type { CommercialOrder, CommercialOrderPage, CommercialOrderSummary, CommercialWallet, CommercialWalletEntryPage } from "@/lib/api/commercial-billing";
@@ -59,12 +58,14 @@ export function WalletView({ wallet, entries, onNext, userId, permissions, purch
   </div>;
 }
 
-export function OrdersView({ summary, page, onFilter, onNext }: { summary: CommercialOrderSummary; page: CommercialOrderPage; onFilter: (filters: { query: string; kind: string; status: string; from: string; until: string }) => void; onNext: () => void }) {
-  const [query, setQuery] = useState("");
-  const [kind, setKind] = useState("");
-  const [status, setStatus] = useState("");
-  const [from, setFrom] = useState("");
-  const [until, setUntil] = useState("");
+export type OrderFilterForm = {query:string;kind:string;status:string;from:string;until:string};
+export function OrdersView({ summary, page, form, onFormChange, onFilter, onNext }: { summary: CommercialOrderSummary; page: CommercialOrderPage; form:OrderFilterForm; onFormChange:(form:OrderFilterForm)=>void; onFilter: (filters: OrderFilterForm) => void; onNext: () => void }) {
+  const {query,kind,status,from,until}=form;
+  const setQuery=(query:string)=>onFormChange({...form,query});
+  const setKind=(kind:string)=>onFormChange({...form,kind});
+  const setStatus=(status:string)=>onFormChange({...form,status});
+  const setFrom=(from:string)=>onFormChange({...form,from});
+  const setUntil=(until:string)=>onFormChange({...form,until});
   const submit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const fromISO = from ? shanghaiDayBoundary(from) : "";
@@ -81,7 +82,7 @@ export function OrdersView({ summary, page, onFilter, onNext }: { summary: Comme
         <label>结束日期<input aria-label="结束日期" type="date" value={until} onChange={event => setUntil(event.target.value)} /></label>
         <label>订单类型<select aria-label="订单类型" value={kind} onChange={event => setKind(event.target.value)}><option value="">全部类型</option><option value="RESOURCE_PURCHASE">资源购买</option><option value="STORAGE_CAPACITY_PURCHASE">存储扩容</option><option value="WALLET_TOP_UP">钱包充值</option></select></label>
         <label>订单状态<select aria-label="订单状态" value={status} onChange={event => setStatus(event.target.value)}><option value="">全部状态</option>{Object.entries(orderStatusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-        <Button type="submit">筛选</Button><Button type="button" variant="outline" onClick={() => { setQuery(""); setKind(""); setStatus(""); setFrom(""); setUntil(""); onFilter({ query: "", kind: "", status: "", from: "", until: "" }); }}>重置</Button>
+        <Button type="submit">筛选</Button><Button type="button" variant="outline" onClick={() => { const empty={query:"",kind:"",status:"",from:"",until:""};onFormChange(empty);onFilter(empty); }}>重置</Button>
       </form>
       <div className={styles.actions}><Button disabled variant="outline">导出暂未开放</Button><Button disabled>发票管理暂未开放</Button></div>
       {page.items.length === 0 ? <ConsoleState kind="empty" title="没有匹配的订单">调整搜索或筛选条件后重试。</ConsoleState> : <div className={styles.billingTableWrap}><table className={styles.billingTable}><caption className="sr-only">企业账单与订单</caption><thead><tr><th>时间</th><th>类型</th><th>内容</th><th>金额</th><th>状态</th><th>详情</th></tr></thead><tbody>{page.items.map(order => <tr key={order.order_id}><td>{timeLabel(order.created_at)}</td><td>{orderKindLabels[order.kind]}</td><td>{order.description}</td><td>{minorAmount(order.total_minor, order.currency)}</td><td>{orderStatusLabels[order.status]}</td><td><Button asChild variant="outline" size="sm"><Link href={`/workbench/plans/orders/${encodeURIComponent(order.order_id)}`} prefetch={false}>详情</Link></Button></td></tr>)}</tbody></table></div>}

@@ -98,6 +98,7 @@ func marshalProductReviewProjection(view review.View, projection *productKnowled
 	evidence := append([]review.Evidence{}, view.Evidence...)
 	unresolved := append([]string{}, view.Unresolved...)
 	dto := productReviewViewDTO{
+		Execution:      view.Execution,
 		PolicyAdoption: view.PolicyAdoption,
 		Knowledge:      unavailableKnowledge(view.ContextProvenance),
 		SchemaVersion:  productReviewSchemaVersion,
@@ -116,12 +117,12 @@ func marshalProductReviewProjection(view review.View, projection *productKnowled
 		Unresolved:     unresolved,
 		Decisions:      decisions,
 	}
+	if mode != nil && view.Execution != nil && mode.Snapshot == view.Execution.Mode {
+		dto.ExecutionMode = mode
+	}
 	if view.Content != nil {
 		dto.SchemaVersion, dto.Coverage = productContentReviewSchemaVersion, productContentReviewCoverage
 		dto.Content, dto.Execution = view.Content, view.Execution
-		if mode != nil && view.Execution != nil && mode.Snapshot == view.Execution.Mode {
-			dto.ExecutionMode = mode
-		}
 	}
 	if view.ContextProvenance != nil && projection != nil {
 		dto.Knowledge = projection

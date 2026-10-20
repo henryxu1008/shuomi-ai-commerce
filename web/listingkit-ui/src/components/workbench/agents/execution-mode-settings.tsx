@@ -23,11 +23,11 @@ const descriptions: Record<ExecutionMode,string> = {
 const intentSchema = z.strictObject({key:knowledgeId,payload:executionModeInputSchema});
 type Intent = z.infer<typeof intentSchema>;
 
-export function ExecutionModeSettings({scope,subject}:{scope:ConfigurationScope;subject:ModeSubject}) {
- return <BoundExecutionModeSettings key={JSON.stringify([scope.userId,scope.organizationId,subject.kind,subject.id])} scope={scope} subject={subject}/>;
+export function ExecutionModeSettings({scope,subject,onSaved,onRefresh}:{scope:ConfigurationScope;subject:ModeSubject;onSaved?:()=>void;onRefresh?:()=>void}) {
+ return <BoundExecutionModeSettings key={JSON.stringify([scope.userId,scope.organizationId,subject.kind,subject.id])} scope={scope} subject={subject} onSaved={onSaved} onRefresh={onRefresh}/>;
 }
 
-function BoundExecutionModeSettings({scope,subject}:{scope:ConfigurationScope;subject:ModeSubject}) {
+function BoundExecutionModeSettings({scope,subject,onSaved,onRefresh}:{scope:ConfigurationScope;subject:ModeSubject;onSaved?:()=>void;onRefresh?:()=>void}) {
  const path=`execution-modes/${subject.kind}/${subject.id}`;
  const pending=useResourcePending({expectedUserId:scope.userId,expectedOrganizationId:scope.organizationId},["agent-execution-mode",subject.kind,subject.id],intentSchema,{storage:"local",maxLength:2048});
  const context=useWorkbenchContext();
@@ -48,7 +48,7 @@ function BoundExecutionModeSettings({scope,subject}:{scope:ConfigurationScope;su
    const saved=await configurationRequest(scope,path,executionModeViewSchema,{method:"PUT",headers:{"Content-Type":"application/json","Idempotency-Key":intent.key},body:JSON.stringify(intent.payload),signal:controller.signal});
    if(saved.subject.kind!==subject.kind||saved.subject.id!==subject.id||saved.receipt?.requestKey!==intent.key||saved.mode!==intent.payload.mode||saved.receipt.beforeRevision!==intent.payload.expectedRevision)throw new ConfigurationError("OUTCOME_UNKNOWN");
    if(!active.current)return;
-   pending.clear(intent);setOpen(false);setNonce(n=>n+1);setMessage("权限模式已保存，下一次新运行将使用当前模式。已存在的运行不会升级权限。");
+   pending.clear(intent);setOpen(false);setNonce(n=>n+1);onSaved?.();setMessage("权限模式已保存，下一次新运行将使用当前模式。已存在的运行不会升级权限。");
   } catch(error) {
    if(!active.current)return;
    setFailure(error);
@@ -66,8 +66,8 @@ function BoundExecutionModeSettings({scope,subject}:{scope:ConfigurationScope;su
   {view?<div className={styles.summary}><p className={styles.modeLabel}>{executionModeLabels[view.mode]} · 配置版本 {view.revision}</p><p>{descriptions[view.mode]}</p></div>:read.error?<p role="alert">{configurationError(read.error)}</p>:<p role="status">正在读取权限模式…</p>}
   <div className={styles.boundary}><strong>权限范围</strong><p>范围受当前企业、成员及资源权限限制。发布、改价、下架、删除和增加付费额度需另行授权；生成前仍须确认计划和预算。</p></div>
   {!open?operationStatus:null}
-  <div className={styles.refresh}><Button variant="ghost" size="sm" disabled={busy} onClick={()=>setNonce(n=>n+1)}>刷新权限状态</Button></div>
-  {open&&view?<ResourceDialog title="智能体能力配置" onClose={()=>setOpen(false)} locked={locked} className={styles.dialog}>
+  <div className={styles.refresh}><Button variant="ghost" size="sm" disabled={busy} onClick={()=>{setNonce(n=>n+1);onRefresh?.()}}>刷新权限状态</Button></div>
+  {open&&view?<ResourceDialog title="执行权限配置" onClose={()=>setOpen(false)} locked={locked} className={styles.dialog}>
    <p className={styles.intro}>选择本地结果的处理方式。模式不会增加当前企业、成员或资源的访问权限。</p>
    <fieldset disabled={locked} className={styles.options}><legend>执行权限模式</legend>{(Object.keys(executionModeLabels) as ExecutionMode[]).map(mode=><label key={mode} className={styles.option} data-selected={selected===mode}><input type="radio" name={`execution-mode-${subject.id}`} value={mode} checked={selected===mode} onChange={()=>setSelected(mode)}/><span className={styles.optionContent}><span className={styles.optionHeading}><strong>{executionModeLabels[mode]}</strong>{selected===mode?<span className={styles.selected} aria-hidden="true">已选</span>:null}</span><span className={styles.description}>{descriptions[mode]}</span></span></label>)}</fieldset>
    <div className={styles.boundary}><p>保存后只影响新的执行准入；已运行操作变更策略后需要新运行。</p></div>

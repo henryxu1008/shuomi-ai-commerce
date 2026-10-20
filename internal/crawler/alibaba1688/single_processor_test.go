@@ -26,7 +26,7 @@ func TestSingleProcessorCreatesFreshPublicBrowserManagerPerAttempt(t *testing.T)
 	}
 }
 
-func TestClassifyProductValidationFailurePreservesAccountFallbackForMissingFields(t *testing.T) {
+func TestClassifyProductValidationFailurePreservesMissingFieldsAndValidationKinds(t *testing.T) {
 	checker := NewProductChecker()
 
 	tests := []struct {

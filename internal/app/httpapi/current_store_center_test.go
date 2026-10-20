@@ -43,6 +43,42 @@ func TestTikTokLifecycleAdmissionRequiresExplicitSignedBoundary(t *testing.T) {
 	}
 }
 
+func TestCurrentStoreAdmissionUsesRegisteredOfficialRefresh(t *testing.T) {
+	h, err := storehttp.NewHandlerWithServiceLifecycle(inertStoreService{}, &storecenter.ServiceLifecycleApplication{})
+	require.NoError(t, err)
+	require.NoError(t, h.SetOfficialConnections(&storeapp.OfficialConnections{}))
+	m := storehttp.NewModule(h)
+	m.(interface {
+		ConfigureCatalog(*storecenter.Catalog, *storecenter.MetadataRepository)
+	}).ConfigureCatalog(&storecenter.Catalog{}, &storecenter.MetadataRepository{})
+	reg := kernelmodule.NewRegistry()
+	require.NoError(t, m.Register(reg))
+	var base []httproute.Descriptor
+	for _, r := range currentWorkbenchApplicationRoutes {
+		base = append(base, httproute.Descriptor{Method: r.Method, Path: r.Path})
+	}
+	all := append(base, reg.Routes()...)
+	validate := func(routes []httproute.Descriptor) error {
+		return validateCurrentApplicationRoutesInternal(routes, false, false, false, false, false, false, false, currentApplicationOptionalRoutes{StoreCenter: true})
+	}
+	require.NoError(t, validate(all))
+	found := false
+	for i, r := range all {
+		if r.Path != "/api/v1/workbench/stores/:store_id/connection/refresh" {
+			continue
+		}
+		found = true
+		for _, mutate := range []func(*httproute.Descriptor){func(d *httproute.Descriptor) { d.AuthPolicy = httproute.AuthPolicyPublic }, func(d *httproute.Descriptor) { d.Permission = authz.PermissionWorkbenchStoreRead }, func(d *httproute.Descriptor) {
+			d.OrganizationAccessPolicy = httproute.OrganizationAccessPolicyCachedRead
+		}, func(d *httproute.Descriptor) { d.Handler = nil }} {
+			changed := append([]httproute.Descriptor(nil), all...)
+			mutate(&changed[i])
+			require.Error(t, validate(changed))
+		}
+	}
+	require.True(t, found, "test must consume the real official refresh route")
+}
+
 func currentStoreTestRoutes(t *testing.T) []httproute.Descriptor {
 	t.Helper()
 	var result []httproute.Descriptor

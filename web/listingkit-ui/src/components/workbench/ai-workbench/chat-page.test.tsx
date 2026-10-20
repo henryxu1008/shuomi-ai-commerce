@@ -8,10 +8,11 @@ import { ChatPage } from "./chat-page";
 const fixture = vi.hoisted(() => ({
   request: vi.fn(), push: vi.fn(), search: new URLSearchParams(),
   context: { user: { id: "user-a" }, effectiveOrganization: { id: "org-a", capabilities: { "workbench.chat.use": true } }, roles: ["listingkit_operator"], permissions: ["product_sourcing.write","local_agent.write","listingkit.image_agent.read","listingkit.image_agent.write","workbench.agent.read","workbench.agent.use","workbench.chat.read","workbench.chat.use","workbench.task.read","workbench.knowledge.read","workbench.store.read","workbench.store.create","workbench.store.update","workbench.store.lifecycle","workbench.source_account.read","workbench.source_account.manage","workbench.organization_member.read","workbench.commercial.read"],
-    aiWorkbenchAvailable: true, aiWorkbenchPlanningReadiness: "AVAILABLE", aiWorkbenchTitleReadiness: "AVAILABLE", isLoading: false, isSwitching: false, selectionRequired: false, error: null, blockingError: null },
+    aiWorkbenchExecutionKind:undefined as "product.title.optimize"|"product.content.localize"|undefined,aiWorkbenchExecutionReadiness:"AVAILABLE",aiWorkbenchAvailable: true, aiWorkbenchPlanningReadiness: "AVAILABLE", aiWorkbenchTitleReadiness: "AVAILABLE", isLoading: false, isSwitching: false, selectionRequired: false, error: null, blockingError: null },
 }));
 vi.mock("@/lib/api/ai-workbench", async original => ({ ...await original<typeof import("@/lib/api/ai-workbench")>(), requestAIWorkbench: fixture.request }));
 vi.mock("@/components/providers/workbench-context-provider", () => ({ useWorkbenchContext: () => fixture.context }));
+vi.mock("../pod/collection-picker",()=>({CollectionPicker:({onSelect,disabled}:{onSelect:(item:unknown)=>void;disabled:boolean})=><button disabled={disabled} onClick={()=>onSelect({id:operationId,title:"Imported own product",source:{kind:"own",productKey:"product",version:"1",publicationId:operationId}})}>选择我的商品</button>}));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: fixture.push }), useSearchParams: () => fixture.search }));
 
 const conversationId = "550e8400-e29b-41d4-a716-446655440000";
@@ -27,6 +28,7 @@ beforeEach(() => {
   fixture.context.roles = ["listingkit_operator"]; fixture.context.permissions = ["product_sourcing.write","local_agent.write","listingkit.image_agent.read","listingkit.image_agent.write","workbench.agent.read","workbench.agent.use","workbench.chat.read","workbench.chat.use","workbench.task.read","workbench.knowledge.read","workbench.store.read","workbench.store.create","workbench.store.update","workbench.store.lifecycle","workbench.source_account.read","workbench.source_account.manage","workbench.organization_member.read","workbench.commercial.read"];
   fixture.context.isSwitching = false;
   fixture.context.aiWorkbenchAvailable = true;
+  fixture.context.aiWorkbenchExecutionKind=undefined;fixture.context.aiWorkbenchExecutionReadiness="AVAILABLE";
   fixture.context.aiWorkbenchPlanningReadiness = "AVAILABLE";
   fixture.context.aiWorkbenchTitleReadiness = "AVAILABLE";
   fixture.request.mockReset(); fixture.push.mockReset(); sessionStorage.clear();
@@ -36,6 +38,25 @@ beforeEach(() => {
   });
 });
 afterEach(() => { cleanup(); client.clear(); sessionStorage.clear(); });
+it.each(["INVALID_REQUEST","PROPOSAL_STALE"])("releases a definitively rejected %s message for correction with a new key",async(code)=>{
+ fixture.request.mockImplementation(async({route})=>{if(route==="conversation-read")return {conversation,messages:[],proposals:[],before:""};throw new AIWorkbenchError(code,false)});
+ const view=render(tree());await screen.findByText("开始讨论");
+ fireEvent.change(screen.getByLabelText("采集操作 ID"),{target:{value:operationId}});fireEvent.change(screen.getByLabelText("需求"),{target:{value:"保留需求"}});
+ fireEvent.click(screen.getByRole("button",{name:"发送消息"}));
+ await waitFor(()=>expect(screen.getByLabelText("需求")).toBeEnabled());expect(screen.getByLabelText("需求")).toHaveValue("保留需求");
+ const first=fixture.request.mock.calls.find(([v])=>v.route==="message")![0];
+ view.unmount();render(tree());await screen.findByText("开始讨论");expect(screen.getByLabelText("需求")).toBeEnabled();
+ fireEvent.change(screen.getByLabelText("采集操作 ID"),{target:{value:operationId}});fireEvent.change(screen.getByLabelText("需求"),{target:{value:"修正需求"}});fireEvent.click(screen.getByRole("button",{name:"发送消息"}));
+ await waitFor(()=>expect(fixture.request.mock.calls.filter(([v])=>v.route==="message")).toHaveLength(2));
+ expect(fixture.request.mock.calls.filter(([v])=>v.route==="message")[1][0].key).not.toBe(first.key);
+});
+it.each(["INVALID_REQUEST","PROPOSAL_STALE"])("retains the original intent for %s without owner rejection evidence",async(code)=>{
+ fixture.request.mockImplementation(async({route})=>{if(route==="conversation-read")return {conversation,messages:[],proposals:[],before:""};throw new AIWorkbenchError(code)});
+ render(tree());await screen.findByText("开始讨论");fireEvent.change(screen.getByLabelText("采集操作 ID"),{target:{value:operationId}});fireEvent.change(screen.getByLabelText("需求"),{target:{value:"原需求"}});fireEvent.click(screen.getByRole("button",{name:"发送消息"}));
+ await screen.findByRole("button",{name:"重试同一消息"});expect(screen.getByLabelText("需求")).toBeDisabled();
+ const original=fixture.request.mock.calls.find(([v])=>v.route==="message")![0];fireEvent.click(screen.getByRole("button",{name:"重试同一消息"}));
+ await waitFor(()=>expect(fixture.request.mock.calls.filter(([v])=>v.route==="message")).toHaveLength(2));expect(fixture.request.mock.calls.filter(([v])=>v.route==="message")[1][0]).toMatchObject({key:original.key,body:original.body});
+});
 
 it("shows the unavailable state without sending Chat requests when the module is absent", () => {
   fixture.context.aiWorkbenchAvailable = false;
@@ -158,7 +179,7 @@ it("gates an existing proposal on title readiness independently of planning read
     : Promise.reject(new AIWorkbenchError("INVALID_REQUEST")));
   const view = render(tree());
   expect(await screen.findByRole("button", { name: "确认并创建任务" })).toBeDisabled();
-  expect(screen.getByText(/标题执行模型需要配置/)).toBeVisible();
+  expect(screen.getByText(/执行模型需要配置/)).toBeVisible();
   fixture.context.aiWorkbenchTitleReadiness = "AVAILABLE";
   view.rerender(tree());
   expect(await screen.findByRole("button", { name: "确认并创建任务" })).toBeEnabled();
@@ -174,7 +195,7 @@ it("disables confirmation when the proposal's frozen title profile no longer mat
     : Promise.reject(new AIWorkbenchError("INVALID_REQUEST")));
   render(tree());
   expect(await screen.findByRole("button", { name: "确认并创建任务" })).toBeDisabled();
-  expect(screen.getByText(/提案的标题模型配置已变化/)).toBeVisible();
+  expect(screen.getByText(/提案的执行配置已变化/)).toBeVisible();
 });
 
 it("keeps planning available but disables execution when this actor lacks the current enterprise execution role", async () => {
@@ -186,7 +207,7 @@ it("keeps planning available but disables execution when this actor lacks the cu
     : Promise.reject(new AIWorkbenchError("FORBIDDEN")));
   render(tree());
   expect(await screen.findByRole("button", { name: "确认并创建任务" })).toBeDisabled();
-  expect(screen.getByText(/需要当前企业的标题执行权限/)).toBeVisible();
+  expect(screen.getByText(/需要当前企业的执行权限/)).toBeVisible();
   expect(screen.getByRole("button", { name: "发送消息" })).toBeVisible();
   expect(fixture.request).toHaveBeenCalledTimes(1);
 });
@@ -338,6 +359,27 @@ it("unmounts the old organization view and never sends its pending draft to the 
   expect(screen.getByRole("button", { name: "发送消息" })).toBeDisabled();
 });
 
+it.each(["product.title.optimize", "product.content.localize"])("reads the committed %s task from the owner after browser storage is lost", async kind => {
+  const taskId = "5892474d-1c8a-47e4-9550-45ed946e8197";
+  fixture.context.aiWorkbenchExecutionKind = kind as "product.title.optimize" | "product.content.localize";
+  sessionStorage.setItem(`ai-workbench:confirm:user-a:org-a:${conversationId}`, JSON.stringify({[operationId]:{
+    key:operationId,taskId:"11111111-1111-4111-8111-111111111111",
+  }}));
+  fixture.request.mockImplementation(async ({ route }) => {
+    if (route === "conversation-read") return { conversation, messages: [{ ID: operationId, ConversationID: conversationId, Sequence: 1,
+      Author: "USER", Content: "生成商品内容", CreatedAt: "2026-10-03T00:00:00Z" }], proposals: [{
+      kind, id: operationId, digest: "a".repeat(64), sourceSequence: 1, goalSummary: "生成商品内容", confirmedTaskId: taskId,
+      humanReviewRequired: true, detailsAvailable: false, titleProfileReady: false, executionAuthorized: false,
+    }], before: "" };
+    throw new AIWorkbenchError("INVALID_REQUEST");
+  });
+  render(tree());
+  expect(await screen.findByRole("link", { name: "查看已确认任务" })).toHaveAttribute("href", `/workbench/ai/tasks/${taskId}`);
+  expect(screen.getByText("已确认的执行方案")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "确认并创建任务" })).toBeNull();
+  expect(fixture.request.mock.calls.every(([call]) => call.route === "conversation-read")).toBe(true);
+});
+
 it("reuses the confirmation key after a lost response and links to the committed task", async () => {
   const proposalId = "d5d9d1ca-1db3-43af-9649-dcdf3663745b";
   const taskId = "5892474d-1c8a-47e4-9550-45ed946e8197";
@@ -426,4 +468,36 @@ it("discards an A response that arrives after A to B to A context switching", as
     Author: "USER", Content: "企业甲的过期响应", CreatedAt: "2026-10-03T00:00:00Z" }], proposals: [], before: "" }));
   expect(screen.queryByText("企业甲的过期响应")).toBeNull();
   expect(screen.getByText("企业甲的当前内容")).toBeVisible();
+});
+
+it("creates content intent from a saved own product without an acquisition or title route and restores its exact unknown request",async()=>{
+ fixture.context.aiWorkbenchExecutionKind="product.content.localize";fixture.context.aiWorkbenchTitleReadiness="UNAVAILABLE";
+ const subject={kind:"own_product",id:operationId,catalogVersion:"3",publicationId:"effective-publication"};
+ fixture.request.mockImplementation(async({route})=>{
+  if(route==="conversation-read")return {conversation,messages:[],proposals:[],before:""};
+  if(route==="subject-read")return {subject,productKey:"product"};
+  throw new AIWorkbenchError("OUTCOME_UNKNOWN");
+ });
+ const view=render(tree());await screen.findByText("开始讨论");
+ expect(screen.queryByLabelText("采集操作 ID")).toBeNull();
+ fireEvent.click(screen.getByRole("button",{name:"选择我的商品"}));await screen.findByText(/版本 3/);
+ fireEvent.click(screen.getByRole("checkbox",{name:"卖点"}));
+ fireEvent.change(screen.getByLabelText("需求"),{target:{value:"整理描述与卖点"}});
+ fireEvent.click(screen.getByRole("button",{name:"发送消息"}));await screen.findByRole("button",{name:"重试同一消息"});
+ const original=fixture.request.mock.calls.find(([v])=>v.route==="message")![0];
+ expect(original.body).toEqual({content:"整理描述与卖点",taskSelection:{subject,capability:"product.content.localize",parameters:{targetLanguage:"en-US",description:true,sellingPoints:true}}});
+ expect(screen.getByLabelText("目标语言")).toBeDisabled();expect(screen.getByRole("button",{name:"选择我的商品"})).toBeDisabled();
+ view.unmount();render(tree());await screen.findByRole("button",{name:"重试同一消息"});
+ fireEvent.click(screen.getByRole("button",{name:"重试同一消息"}));
+ await waitFor(()=>expect(fixture.request.mock.calls.filter(([v])=>v.route==="message")).toHaveLength(2));
+ expect(fixture.request.mock.calls.filter(([v])=>v.route==="message")[1][0]).toMatchObject({key:original.key,body:original.body});
+});
+it("confirms a content proposal using its content readiness and complete visible task limits",async()=>{
+ fixture.context.aiWorkbenchExecutionKind="product.content.localize";fixture.context.aiWorkbenchTitleReadiness="UNAVAILABLE";
+ const proposal={id:operationId,digest:"a".repeat(64),sourceSequence:1,kind:"product.content.localize",goalSummary:"整理描述与卖点",taskSelection:{subject:{kind:"own_product",id:operationId,catalogVersion:"3",publicationId:"effective-publication"},capability:"product.content.localize",parameters:{targetLanguage:"en-US",description:true,sellingPoints:true}},detailsAvailable:true,titleProfileReady:false,executionProfileReady:true,executionAuthorized:true,humanReviewRequired:true,maximumTokens:6000,maximumCostMicros:1000,currency:"CNY",maximumSteps:8,maximumModelCalls:3,maximumRuntimeSeconds:60};
+ fixture.request.mockImplementation(async({route})=>{if(route==="conversation-read")return {conversation,messages:[{ID:operationId,Sequence:1,Author:"USER",Content:"需求",CreatedAt:conversation.CreatedAt}],proposals:[proposal],before:""};throw new AIWorkbenchError("OUTCOME_UNKNOWN")});
+ render(tree());expect(await screen.findByRole("button",{name:"确认并创建任务"})).toBeEnabled();
+ expect(screen.getByText("en-US · 描述、卖点")).toBeVisible();expect(screen.getByText("8 步 · 最多 3 次模型调用 · 60 秒")).toBeVisible();
+ fixture.context.aiWorkbenchExecutionReadiness="NEEDS_CONFIGURATION";
+ cleanup();render(tree());expect(await screen.findByRole("button",{name:"确认并创建任务"})).toBeDisabled();
 });

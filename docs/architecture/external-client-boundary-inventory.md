@@ -1,8 +1,35 @@
 # External Client Boundary Inventory
 
+> #827 [confirmed Publishing runtime closure](legacy-shein-publishing-runtime-closure-retirement-boundary.md): Old publishing/sheinmanaged, uninstantiated Publishing runtime and remote resolver/submit/recovery adapters are source-retired. Historical adapter/hotspot retention below is superseded only for this exact closure. Current API/DTO clients, official execution, pure interfaces, tenant/content/Store and standalone SHEIN login adapters retain their existing contracts. Workflows, dependencies, ceilings, runtime/data and trial prerequisites are unchanged.
+
+> #824: the [confirmed support closure](legacy-numeric-listing-support-closure-retirement-boundary.md) source-retires the remaining unregistered taskrpcapi module, DTO/client/handler and three read-only management Task routes. Dated assembly/seam descriptions below are historical; no replacement Task RPC or BusinessTask facade is introduced. The Local Interface Rule and all current platform/Store/worker boundaries remain.
+
 > **Classification: MIXED.** The **Local Interface Rule**, management-client retirement direction, guardrail/review rules, and the requirement to keep concrete external adapters behind owning boundaries remain `CURRENT CONTRACT`. Dated hotspot/file inventories and dated migration notes are `DATED EVIDENCE` and must be rechecked against the actual HEAD before acting on them.
 >
 > “Legacy” or “compatibility” wording in the historical hotspot notes records seams to retire; it does not grant permission to add a new compatibility layer, old-data migration, fallback, dual read/write, or a second fact source. Current legacy handling is [EXTRACT | RETIRE](../refactoring/legacy-hard-cut-policy.md) under [PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08](../product/greenfield-no-legacy-migration.md).
+## #723 bounded retirement calibration
+
+The user-confirmed [CLI boundary](legacy-listing-cli-retirement-boundary.md)
+retires the three listing CLIs and exclusive bootstrap/consumer/runner/scheduler,
+local/sync and platform task-processor glue. The path-level implementation guards
+for those deleted owners are NOT_APPLICABLE and replaced by the existing source
+absence and actual command-dependency guards. Dated hotspot lists below remain
+historical. Current contract checks for retained clients/rules, control-plane,
+shared ListingAdmin/ListingRuntime and independent login worker remain. No new
+compatibility owner, runtime action or internal-trial gate is introduced.
+
+## #729 bounded retirement calibration
+
+The [confirmed execution retirement](legacy-numeric-task-execution-retirement-boundary.md)
+removes app/task, app/taskstatus, processor, the root Amazon executor and the exclusive
+distributed crawler chain. The owner-specific path/name guards and the dedicated
+app-taskstatus depguard are retired with those owners; source absence and actual
+command-dependency guards remain. Earlier calibration paragraphs and dated hotspot
+lists below are historical, including their old guard names. The control-plane left
+in #723 was subsequently retired by #726. Retained platform APIs/rules, shared
+ListingAdmin/ListingRuntime and independent login contracts are unchanged; no runtime,
+data, provider or internal-trial action is authorized by this source retirement.
+
 ## Goal
 
 This inventory records the current direct coupling between business-facing
@@ -123,19 +150,43 @@ Current direct dependency hotspots are:
   - direct external client imports are guarded by
     `TestSheinBridgeExternalClientImportsStayAllowlisted`
 - `internal/temu`
-  - broad `management` coupling in sync, pricing, product, store, and scheduler
-    paths, plus `openai` coupling in AI, image, SKU, product, and pipeline helpers
+  - the unused SKU/SKC construction closure is source-retired under the
+    [confirmed SKU/SKC boundary](legacy-temu-sku-skc-retirement-boundary.md).
+    Three private value rules live in existing TEMU publishing. Only the SKU
+    builder's OpenAI exemption leaves; ai_mapping_single_processor.go and
+    variant_processor.go remain OpenAI consumers. PriceHandler, specification,
+    image/upload, platform API/DTO and shared owners remain unchanged
+  - broad `management` coupling in sync, pricing, product, and scheduler
+    paths, plus `openai` coupling in AI, image, SKU, and pipeline helpers
+  - the four unused product SPU/maximum-retail-price Task owners are source-retired
+    under the [confirmed SPU/query boundary](legacy-temu-spu-price-query-retirement-boundary.md).
+    Their direct product OpenAI imports leave; the structural value check belongs
+    to existing TEMU publishing. Product PriceHandler/SKU, platform APIs/DTOs and
+    the AI/text/property/specification implementations keep their owners
+  - the former `internal/temu/store` handlers and exclusive numeric cache are
+    source-retired under the [confirmed store/init boundary](legacy-temu-store-init-retirement-boundary.md);
+    current Store Center, retained Store API/DTO/repository and real APIClient
+    Cookie/MallID effects keep their original owners
   - `internal/temu/sync` and `internal/temu/pricing` management seams are guarded by
     `TestTEMUSyncAndPricingRetiredManagementImportsStayBlocked`
-  - `internal/temu/product`, `internal/temu/store`, and `internal/temu/scheduler`
-    management seams are guarded by
-    `TestTEMUProductStoreAndSchedulerRetiredManagementImportsStayBlocked`
+  - `TestTEMUProductStoreAndSchedulerRetiredManagementImportsStayBlocked` still
+    covers the original product/store subtrees, indexing the stable TEMU parent
+    and filtering those exact subtrees so an absent store directory needs no skip;
+    reintroduced store sources remain checked against the management deny rule.
+    The former store and SPU exemptions are absent; only the retained product
+    price_handler.go exemption remains. The original scanning scope and deny stay
+  - `TestTemuStoreUsesManagementAPIPortAliases` also indexes the stable parent
+    while filtering only its original store subtree; its concrete management DTO
+    import prohibition remains, including if store sources are reintroduced
   - `internal/temu/api/client`, `internal/temu/context`,
     `internal/temu/bulkrelist`, `internal/temu/filter`,
     `internal/temu/handlerbase`, `internal/temu/rules`, and the root
     `processor.go` runtime seam are guarded by
     `TestTEMURuntimeAndBridgeRetiredManagementImportsStayBlocked`
   - TEMU OpenAI seams are guarded by `TestTEMUOpenAIImportsStayAllowlisted`
+    with the two retired product-file exemptions and the retired SKU builder
+    exemption removed; all other entries,
+    the original root and import denial remain unchanged
   - cleanup should begin at service constructors and package-local contracts
 - `internal/app`
   - expected to construct concrete clients, but should avoid leaking concrete
