@@ -1,5 +1,7 @@
 # 1688 Runtime Acceptance Design
 
+> #852 / #29 / #301 [user-confirmed API token-tool retirement](../../architecture/legacy-api-token-tools-retirement-boundary.md), frozen design `e6ac780d7`: this specification records the historical acceptance flow. Its obsolete script, settings-health gate and API token-file/environment recipe are not current operating or trial requirements and do not authorize restoring retired interfaces. Current acquisition, Auth.js handoff, native Login V2 probe, Store and standalone SHEIN login/sync remain retained. Original modes, safety constraints and historical body remain intact; no credential/runtime/data action or new trial prerequisite.
+
 ## Goal
 
 Provide a safe operator-run PowerShell acceptance tool for the maintained 1688 crawler and ListingKit handoff runtime. The tool must make read-only infrastructure and authentication checks easy to repeat, while requiring an explicit confirmation before it creates a real crawler task or ListingKit task.

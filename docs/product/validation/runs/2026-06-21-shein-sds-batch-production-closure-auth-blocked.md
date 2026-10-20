@@ -1,5 +1,7 @@
 # ListingKit 真实接口验收报告：SHEIN SDS Batch Production Closure 认证阻塞
 
+> #852 / #29 / #301 [用户确认的 API token 工具退休](../../../architecture/legacy-api-token-tools-retirement-boundary.md)，冻结设计 `e6ac780d7`：本报告末段 §15/§16 的保存/auth-check 推荐流程、未来验收 token 文件复用和机器取 token 调试建议已失效，三个专属脚本已删除，不是当前操作或试用要求。原始 run 证据、失败/UNKNOWN、全部正文与占位示例原样保留，不补造 PASS。当前浏览器用户/机器身份语义、Auth.js handoff、Login V2、采集、Store 和独立 SHEIN 登录/Store 同步保持；未读现有凭据或操作实例/数据，不增加试用前置。
+
 ## 1. 基本信息
 
 | 字段 | 内容 |
