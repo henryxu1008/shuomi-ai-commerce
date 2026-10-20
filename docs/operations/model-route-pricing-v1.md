@@ -21,6 +21,8 @@
 3. 私密 current-application manifest 中按需增加 `modelRoutePricing.textWriter` / `imageWriter`（复用原 DatabaseConfig 形状，host/port/database 必须匹配原执行 owner，user 固定上述窄角色，maxConnections ≤ 2）。省略某个 family 使它保持原批准的未管理运行方式；纳入管理后没有 manifest/member/global-Key fallback。
 4. `modelRoutePricing.bindings` 是私密部署准入描述数组（`routeconfiguration.Definition`），不是当前选择。文本原各用途描述作为基础候选，额外候选必须属于已启用组织/用途，prompt/schema/currency 一致，token/bytes/deadline 不扩大，沿原 adapter/usage 校验。选品/诊断保留原单次半程成本上界，其它文本保留原运行成本上界。图片每个原允许组织须显式给出 `imageagent.generation` 候选，provider/model/endpoint/version 均精确绑定到原 adapter；不能推断 provider。
 5. 文本额外绑定沿原私密 `product-agent-credential-provision -config <private.json> -input <private.json>`，consumer 为 title/content/materials/selection/diagnosis/planning；clientName 必须匹配本用途候选，仍使用 `title_credential_writer`，只写组织行，返回去密 credentialVersion/endpoint digest。先固定可信 endpoint，准备独立新 clientName，取得版本后绑定准入描述；切换不用 upsert 覆盖原任务凭据。图片沿原 Image credential owner 的私密维护方式准备独立组织绑定；管理页不录入 Key。
+
+   planning 新增/轮换均按现有 `aiWorkbench.contentTasks` 核验：内容任务规划必须使用 `ai-workbench-chat-plan-v2`，其它规划仍为 `ai-workbench-chat-plan-v1`；输出 schema 保持 `ai-workbench-plan-decision-v1`，原组织、专属 client、endpoint、模型/协议及资源/预算限制不变。轮换返回新 credentialVersion，旧精确绑定随即失效；provisioning 不发布或自动重绑当前路由，须沿原管理流程显式处理。
 6. 启动仍用原 `current-application -config <private.json>`。startup 只验证 schema/角色并注入 fresh reader，不执行 DDL/seed。文本用原 Run pool，图片 API quote 与 worker 用同一原 Image worker pool/current reader。缺 current 时显示“尚未发布”并拒绝新执行，第一次管理发布用 NONE→新 revision。
 
 在 managed image 模式，原 `imageAgent.generation.pointsPerImage` 仅作为部署硬预算上界（候选最大点数不得超出），不再选择当前价格；原 `priceVersion` 不进入新 quote/intent。实际 points/price/configurationVersion 全来自已发布 current。两份原 API/worker配置的一致性检查仍保留，不能以改费率为由扩大 hard limits。
