@@ -12,14 +12,14 @@ Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](htt
 
 - Must：删除准确旧源闭包；保留 Auth.js handoff、原生 Login V2 探针及此前全部当前能力；凭据与真实副作用 owner 不变；不读现有凭据、不操作实例或数据；全部 workflow 和有效安全检查不变。
 - Should：复用现有 absence guard 和索引位置，历史正文/结果原样保留；不新建替代取 token 工具或验收框架。
-- Out of Scope：新认证/授权/租户协议、token 迁移/管理、IAM 清理、旧接口恢复、当前 UI/issue357/probe 改造、现有文件/报告/环境读取、运行或 provider 操作、部署/生产验收、workflow/inventory/依赖/保护规则调整。
+- Out of Scope：新认证/授权/租户协议、token 迁移/管理、IAM 清理、旧接口恢复、当前 UI/issue357/probe 改造、现有凭据文件/运行报告/进程环境读取、运行或 provider 操作、部署/生产验收、workflow/inventory/依赖/保护规则调整。
 - Accepted Risks：不新增接受风险；实际旧 client、token、session、本地文件及外部人工消费者是否仍存在为 **UNKNOWN**。源码删除不能证明其不存在、失效、可删除或已经停止使用。
 
 Threat Model 覆盖误删当前认证/同步能力、旧命令被误当当前入口、误触凭据/远端系统和伪造运行退出事实。理论 IAM hardening 或通用凭据治理不是本批前置；生产仍 **NOT_READY**，真实运行和用户验收 **NOT_RUN**。
 
 ## 2. Design Basis 与不变量
 
-**Reuse Existing Architecture**：本批只退出已有退休合同的操作者源码，当前身份、Organization、Auth.js session/handoff、采集及 Store owner 已存在，不新增或改变领域/公共合同、事实 owner、schema、状态机、事务、恢复、授权/租户、计费/provider 准入或外部副作用语义。完整预计矩阵 12 个文件，不新增生产代码；不是以拆片规避架构阈值。
+**Reuse Existing Architecture**：本批只退出已有退休合同的操作者源码，当前身份、Organization、Auth.js session/handoff、采集及 Store owner 已存在，不新增或改变领域/公共合同、事实 owner、schema、状态机、事务、恢复、授权/租户、计费/provider 准入或外部副作用语义。完整预计矩阵 13 个文件，不新增生产代码；不是以拆片规避架构阈值。
 
 调用关系按 §3 退出，当前调用关系按 §4/§5 保持；无业务行为需要 EXTRACT。旧脚本的 dotenv、Bearer 前缀、文件 IO 和 HTTP helper 全部内联且仅服务旧入口，不搬入当前认证，不包装、不留 fallback、双读/双写或第二 token 事实源。成熟 OAuth/Auth.js 与原生身份能力继续由已有实现承担，不重复建设。
 
@@ -35,7 +35,7 @@ Threat Model 覆盖误删当前认证/同步能力、旧命令被误当当前入
 
 完整图为 `fetch → issuer POST → 旧 token 文件 → auth-check → 旧 settings-health`，以及 `save → 同一文件 → auth-check 指引`。在上述准确基线，tracked 非 docs 范围搜索三个文件名、`listingkit-api-token`、`LISTINGKIT_MACHINE_`、`LISTINGKIT_API_TOKEN`、旧 settings-health，只有这三个脚本；没有当前源码、workflow 或构造器消费者。这是仓库静态证据，不证明没有外部人工消费者。搜索仅限 Git tracked 源，不读取真实 `.env`、token 文件、进程环境或现存运行资料。
 
-tracked 文档命中恰为六份：local-debug、两份 Aug12 旧验收计划/spec、旧 Task 诊断设计及两份历史验证记录。§6.1 只对前三份操作指引加窄适用标注；后三份是历史消费者/执行证据，完全不改。脚本没有专属 Pester、配置 schema、部署声明、workflow、跨文件 helper 或依赖需要连带删除。
+基线 tracked 文档命中恰为六份：local-debug、两份 Aug12 旧验收计划/spec、旧 Task 诊断设计及两份历史验证记录。§6.1 对 local-debug、两份 Aug12 指引及仍称 maintained operator tool 的 Aug8 回放说明加窄适用标注，全部原历史正文/结果保留；旧 Task 设计与 June 执行记录完全不改。脚本没有专属 Pester、配置 schema、部署声明、workflow、跨文件 helper 或依赖需要连带删除。
 
 **架构问题与根因**：旧 API 和启动/验收 owner 已退休，源工具和指引仍将旧本地 token 文件与 settings-health 绑定，形成误导性的“认证诊断”路径。根治是退出全部三个入口及直接适用声明，不修补旧 URL、不复用旧文件给当前 session，也不新建认证工具。
 
@@ -64,7 +64,7 @@ scripts/listingkit-auth-check.ps1
 
 三个入口和其全部内联 helper 一起删除，不留抛错壳、空文件、alias、替代取 token 命令或新 endpoint。没有业务 EXTRACT，也不删除任何实际 token/配置/数据。
 
-### 5.2 EDIT：现有守卫与八份文档
+### 5.2 EDIT：现有守卫与九份文档
 
 ```text
 tests/listingkit_backend_retirement_test.go
@@ -76,9 +76,10 @@ docs/refactoring/code-health-decisions.md
 docs/development/listingkit-local-debug.md
 docs/superpowers/plans/2026-08-12-1688-runtime-acceptance.md
 docs/superpowers/specs/2026-08-12-1688-runtime-acceptance-design.md
+docs/product/validation/2026-08-08-1688-controlled-replay.md
 ```
 
-共 12 个准确路径：3 DELETE + 1 原 test owner + 8 docs；只有这一个主要 PR。设计阶段只新设计和四索引共五文档；后三份操作说明与 test owner 留到用户确认后。变更含义与历史保护见 §6/§6.1，不能借此扩大到同目录其它源。
+共 13 个准确路径：3 DELETE + 1 原 test owner + 9 docs；只有这一个主要 PR。设计阶段只新设计和四索引共五文档；后四份操作说明与 test owner 留到用户确认后。变更含义与历史保护见 §6/§6.1，不能借此扩大到同目录其它源。
 
 ### 5.3 KEEP：当前能力和历史证据
 
@@ -89,7 +90,7 @@ docs/superpowers/specs/2026-08-12-1688-runtime-acceptance-design.md
 | 当前采集/workerpool、通用 queue/Retry、平台 API/DTO/有效规则、两种 SHEIN 属性、AI/SKU/spec/prompt/图像/定价 | 仅以当前实际消费者解释此前保留能力；不复活后续已批准退休的旧实现，当前 PriceManager/PriceCalculator 等有效 owner 与安全断言不变 |
 | Store 观察同步、`internal/listingadmin` 有效仓库、`internal/listingruntime` 共享值及独立 SHEIN 登录 worker 和 Store 同步 | 当前 owner、登录/健康/关闭、数据、账户/Profile/Cookie、Store 仓库与同步合同保持；不引入 Organization bridge 或第二事实源 |
 | `docs/architecture/legacy-task-diagnostics-retirement-boundary.md` | §4 旧 token/清单行描述已退出 #844 的历史消费者，不是当前脚本保留要求；全文不改 |
-| `docs/product/validation/2026-08-08-1688-controlled-replay.md`、`docs/product/validation/runs/2026-06-21-shein-sds-batch-production-closure-auth-blocked.md` | 原历史执行/失败/阻塞和 token 用法证据全文不改，不读取其引用的真实工件或重新执行 |
+| `docs/product/validation/runs/2026-06-21-shein-sds-batch-production-closure-auth-blocked.md` | 原历史执行/失败/阻塞和 token 用法证据全文不改，不读取其引用的真实工件或重新执行；Aug8 混合历史/操作说明的正文同样保留，只按 §6.1 窄加适用顶注 |
 | 全部 workflow、必需和安全检查、inventory/历史计数/ceilings、依赖/锁、保护规则与其它当前能力 | 零改；通用 DB/Temporal/prompt replay/port-forward、共享存储与凭据保留，不按名称批删 |
 
 ```text
@@ -112,6 +113,7 @@ Cutover/deletion condition: 用户确认冻结设计、双 Issue Ready 读回后
 | 本文、Architecture README、Legacy Register、Module Target Mapping、Code Health Decisions | 本文写拟议矩阵；四索引仅增加待确认顶注/入口，不宣称已删、Ready 或验收通过；原索引正文不动 | 更新同一新增入口/顶注及本文状态为用户确认/实际源码退出；准确滚动 HEAD/CI/检查留 PR，原历史正文/计数/失败继续不动 |
 | `docs/development/listingkit-local-debug.md` | 零改 | 仅加窄顶注，明确三个 token 脚本及旧 API 文件/环境约定已退出、以下命令为历史；保留 Auth.js handoff/原生身份和原全部正文，不改写旧示例为新命令 |
 | Aug12 旧 1688 runtime acceptance plan/spec（§5.2 两个准确路径） | 零改 | 仅加窄顶注，说明旧验收源和 token 约定不再是当前执行/试用要求，不能按旧步骤恢复接口/脚本；保留原模式/安全限制/历史正文与结果。当前采集能力不因旧验收工具退出而退休 |
+| `docs/product/validation/2026-08-08-1688-controlled-replay.md` | 零改 | 仅加窄顶注，取代 Runtime acceptance tool 段仍称 maintained operator tool 及当前 token 文件/验收路径的适用表述；原 replay 结果、限制、模式/安全说明与全文历史证据不改，不重跑或补造 PASS |
 
 历史保留不授权执行旧命令。其它旧设计、dated 验证记录、issue357 文档和通用 Prompt/凭据/存储语义不改；不重写历史结论为 PASS、不改源码引用数量来制造全仓清零。
 
@@ -119,6 +121,6 @@ Cutover/deletion condition: 用户确认冻结设计、双 Issue Ready 读回后
 
 设计提交后按原 GitHub 检查核对三个根入口、完整引用、§5/§6/§6.1/§7 与当前保留能力；不增加 Writer，不重复触发同 SHA Running 复核，不新建验收工具。finding 先按 AGENTS.md 分类，BLOCKER 必须指出具体当前 Must 与阻塞后果；非 Blocker hardening 不扩架构或内部试用前置。当前为 Reuse Existing Architecture，不为形式引入全局架构评审。
 
-**本轮只交设计**。用户确认后，把当前设计分类、冻结依据和范围写入 #29/#301，并读回两处 Ready，再在同一 PR 实施 §5/§6/§6.1 的完整 12 路径。实现结束交一次最终独立交付检查，核对真实 diff、保留路径与现有证据；不能以作者自检/绿色 CI 代替用户实际验收。用户未确认前不得修改/删除三脚本、guard 或三份操作说明。
+**本轮只交设计**。用户确认后，把当前设计分类、冻结依据和范围写入 #29/#301，并读回两处 Ready，再在同一 PR 实施 §5/§6/§6.1 的完整 13 路径。实现结束交一次最终独立交付检查，核对真实 diff、保留路径与现有证据；不能以作者自检/绿色 CI 代替用户实际验收。用户未确认前不得修改/删除三脚本、guard 或四份操作说明。
 
 合并仍须用户单独按最终准确 HEAD 授权并使用 expected-head 正常保护语义；获准合并后核对实际 merge SHA 的 `push/main` CI，不能用 PR CI 或上一批 main CI 代替。当前无合并、部署、Issue 关闭、凭据/实例/数据/IAM/真实平台操作授权。父目标保持 OPEN，生产 NOT_READY，真实运行/用户验收 NOT_RUN；本设计及未来源码退休不增加试用前置。
