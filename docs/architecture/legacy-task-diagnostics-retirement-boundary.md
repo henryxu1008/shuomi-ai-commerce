@@ -33,9 +33,11 @@ Threat Model 仅覆盖本批误删当前能力、误把旧合同重新当作当�
 | `tools/listingkit-pricing-cache-inspector/main.go` | 独立 tools 模块 CLI，显式参数/内联默认 DSN → GORM/Postgres；读 `listing_kit_tasks` 的旧 request/result、`shein_resolution_cache_entries` 的 pricing key/最近行；打印旧 SKU/定价/提交时间线 | 未找到当前生产装配、脚本或 workflow 调用；内联旧 request/result/package/pricing DTO 与 key/hash、稳定标识、SKU alias、金额/币种默认及 JSON 输出 helper 仅服务此诊断。没有独立 helper/test 文件；code-health 旧保留行是直接说明尾部 |
 | `scripts/listingkit-regression-dataset-check.ps1` | JSON schema_version=1 清单 → task_id/SHEIN/expected_preview_ready/expected_submit_mode 校验；普通模式读 token 并 GET `/api/v1/listing-kits/tasks/{task_id}/preview?platform=shein`，比较旧 readiness/final_review | 自有 Pester 测试、示例清单、validation runs README 为直接消费者；helper 全内联。`ValidateOnly` 只验证该旧清单，不构成当前产品能力；脚本及专属测试/样例一起退出 |
 | `tools/db-query/main.go` 的 `printUsage` | 四个旧 `listing_kit_tasks` 示例；实际显式表查询能力仍通用 | 只替换帮助中的旧表/Task 示例。连接、flags、过滤、字段、limit、JSON/CSV/table 与错误输出保持；`main` 可能在处理自定义 `--help` 前连接 DB，不通过运行 CLI 获取帮助 |
-| `docs/product/validation/**` 的未历史化指引 | template、runs README、QA failure samples、unknown tracker 仍要求旧 Task/Workspace/preview/readiness/submit attempt 证据 | §6.1 精确处置当前适用声明与失效命令；dated runs、tracker 各行、旧结论全部保留，不新造替代验收模板 |
+| `docs/product/validation/**` 与旧 Temporal PoC 指引 | template、runs README、QA failure samples、unknown tracker 仍要求旧 Task/Workspace/preview/readiness/submit attempt 证据；`temporal-poc-runbook.md` 仍称 current PoC，指向已删 API/worker、preview/events/refresh/publish 与旧测试；`temporal-workflow-evaluation.md` 将 2026-05-18 PoC 结果及旧 submit 的保留/下一步写为当前建议 | §6.1 精确处置当前适用声明与失效命令；dated runs、tracker 各行、PoC 结果和旧结论全部保留，不新造替代验收模板/Temporal PoC |
 
 静态搜索覆盖 tracked 的 `internal/cmd/tools/hack/scripts/tests/.github/docs/config/deployments`，查完整入口名及旧表/API/清单字段。没有把命名匹配等同“无人使用”：`internal/app/httpapi/server_test.go` 中的旧路由是拒绝已退休 API 的安全回归，必须保留；`hack/debug/replay-sale-attribute` 使用通用 debug JSON 和当前 OpenAI client，TaskID 仅为调试元数据，不依赖旧 Task 表/cache/preview，属于本批之外的独立 provider 诊断生命周期。
+
+独立复核后补查同根因的旧命令/preview/events/refresh 与“current PoC”说明：除上述 runbook，还须窄标注其 sibling evaluation 的历史身份。通用 `start/stop-temporal-dev`、当前 Temporal 合同/SDK/worker 与当前 image/agent 编排不依赖旧 Task submit，原样保留；`httpapi-assembly-boundaries.md` 的旧例子是已有装配原则的上下文，不是本批诊断/回归执行指引，不整体历史化或重写稳定边界。dated 旧 run 和离线校验 input-binding 设计中的旧 API 例子保留其历史/拒绝合同语境，不据此恢复路由。
 
 **架构问题**：旧执行/持久化 owner 已按批准闭包退休，两个可执行工具及其当前验收说明却仍消费旧合同，通用工具帮助也继续暗示旧表可用。根因是源合同退休未收口到诊断和说明尾部；修复是删除完整专属闭包并校准当前适用身份，不修补旧表查询、不恢复 preview、不复制旧缓存 key 到当前价格领域。
 
@@ -106,6 +108,8 @@ Cutover/deletion condition: 用户确认本设计，#29/#301 Ready 均记录并�
 | `docs/product/validation/listingkit-qa-failure-samples.md` | 只新增窄历史顶注：旧 Task/workspace/readiness 样例的每版本执行要求不作为当前试用门禁；正文/有效安全原则保留，不把历史样例转换为当前新增验收矩阵 |
 | `docs/product/validation/unknown-state-and-blocker-tracker.md` | 只新增窄历史顶注：停止将旧链 tracker 当当前试用必填。全部表行、日期、open/mapped/closed/不会修复、历史接口/关闭证据原样，不借退休宣称 unknown 已解决 |
 | `docs/product/README.md` | 仅将“真实接口验收报告模板”一条从当前职责清单移到历史 ListingKit 文档并注明上述准确边界。其余产品/Figma/商业 rollout/恢复 SOP 权威与两段通用职责限定不变，不把整个产品目录历史化 |
+| `docs/architecture/temporal-poc-runbook.md` | 只新增窄 SUPERSEDED 顶注：旧 ListingKit Task SHEIN publish PoC 的 API/worker/flags/preview/events/refresh/测试和人工发布恢复清单是历史操作证据，不能用作当前启动、发布或试用准入。历史正文/命令原样，不执行、不复活旧入口/迁移窗口，不新建替代 PoC。当前 Temporal 基础设施/通用 dev 脚本、SDK及当前 image/agent worker owner 不变；远端旧 workflow/实例状态 UNKNOWN，不终止或清理 |
+| `docs/architecture/temporal-workflow-evaluation.md` | 只新增窄历史顶注：2026-05-18 旧 submit PoC 的落地结果、“保留当前状态机/下一步迁入”建议不再是当前源能力或派工前置。日期、评估/恢复/幂等事实与正文保留；有效 durable execution 原理复用当前 Temporal owner，不改变当前合同，也不宣称真实旧 workflow 已退出 |
 | `docs/architecture/README.md` | 索引本文与其设计/实施状态，精确范围和保留边界；不改其它 owner/当前合同 |
 | `docs/refactoring/legacy-register.md`、`module-target-mapping.md` | 新增本批准确 RETIRE 说明，两个旧工具无迁移/替代 Task/cache owner；既有历史矩阵/计数与其它保留结论不变 |
 | `docs/refactoring/code-health-decisions.md` | 顶注只替代 inspector 在 tools 分组行中的当前 retained-configuration-specific 适用结论、旧 Pester 问题的当前追修含义。原分组行/失败事实/计数原样，db-query/json-simplifier 仍保留；不调整任何 consumer inventory |
