@@ -1,5 +1,7 @@
 # Legacy Register
 
+> 下一批[旧数字刊登运维源码完整闭包](../architecture/legacy-listing-operations-closure-retirement-boundary.md)：**DESIGNING，待独立设计检查与用户确认，未实施**。按§5精确退出无消费者的部署配置入口、专属监控、rollout helper/test与旧恢复SQL；先抽取一条有效Prometheus存储告警。SHEIN共享Secret/Namespace、Store代理同步、独立登录及Store同步、通用诊断和Amazon监控保持。旧广泛保留表述仅在用户确认后由该矩阵替代；历史记录/计数及全部workflow/inventory不改，无运行/数据操作或新试用前置。
+
 > #836 [旧数字任务与刊登专属配置完整闭包](../architecture/legacy-runtime-config-closure-retirement-boundary.md)：冻结设计 `209b40f54` 已确认并整批实施，旧 Processor/Worker/control-plane、全局 RabbitMQ 任务 schema、平台旧调度/核价/同步/监控、debug/usage 及其默认/加载/env/校验/示例/专属测试尾部一起退出；仅替代§5/§6.1准确对象的旧保留表述。真实采集 workerpool、独立通用 queue/Retry、当前身份/计费/图像/平台/Store 与独立 SHEIN 登录/同步 owner 保持；原 Viper/Manager/合并算法不变。历史矩阵/计数保留，全部 workflow/inventory 不改，无真实配置/实例/数据操作或新试用前置。
 
 > #833 [旧数字内容配置完整闭包](../architecture/legacy-numeric-content-management-closure-retirement-boundary.md)：冻结设计 d139bcccc 已确认并整批实施，三族无生产注入的词库/话题配置仓库读写、DTO、全局 setter、专属 schema/迁移和调用尾部源码退出；此前整体保留表述仅在该设计 §5/§6.1 的准确对象上被替代。当前默认清理直接复用原 content 内存工厂，品牌/字段/runtimeCtx、generationtopics 纯规则、Store/API/schema/权限与独立登录/Store 同步保持。物理对象 UNKNOWN、不操作；原历史矩阵/计数保留，全部 workflow/inventory 不改，无新试用前置。

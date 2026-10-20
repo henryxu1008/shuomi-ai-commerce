@@ -1,5 +1,7 @@
 # Code Health Decisions
 
+> [旧数字刊登运维源码完整闭包设计](../architecture/legacy-listing-operations-closure-retirement-boundary.md)（#29/#301）：**DESIGNING，未确认/未实施**。§5准确列出旧部署/监控/rollout/SQL源的退休与一条有效存储规则抽取；不因零自动调用删除下表保留的人工port-forward或通用db-query能力，只退出旧表help实例。既有SHEIN共享Secret/Store同步/独立登录和Amazon监控保持。历史证据/计数、inventory、ceilings与workflow零改，用户确认前不替代旧决定。
+
 > #827 [confirmed Publishing runtime closure](../architecture/legacy-shein-publishing-runtime-closure-retirement-boundary.md): Complete SHEIN Publishing runtime closure retirement preserves current pure contracts and removes the last-consumer helper/cache/Prompt closure in one batch. Mixed declarations are scoped to original owners; exact absence/import/command guards retain current security assertions. Dated inventories/counts/ceilings below remain historical and unchanged. Workflows, dependencies, ceilings, runtime/data and trial prerequisites are unchanged.
 
 > #824: the [confirmed support closure](../architecture/legacy-numeric-listing-support-closure-retirement-boundary.md) retires the unused numeric management/Task/Workspace sources together. The dated raw_json_data converter row below preserves its old evidence; its then-retained listingadmin read path now retires with the last consumer. Current acquisition/cache ports, Store/sensitive-word/topic repositories, pricing, offline validator rules and independent SHEIN login/Store sync remain. Only core/logger -> core/metrics leaves the CURRENT consumer table; dated counts, ceilings, workflows and real data are unchanged.
