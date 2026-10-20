@@ -20,6 +20,10 @@ func testSourceEditAdapter(t *testing.T, provider, model string) {
 	config := validProductImageAdapterConfig(images, nil)
 	config.Provider = provider
 	config.ImageModel = model
+	var dimensions [][4]int
+	config.DiagnoseOutputDimensions = func(ew, eh, aw, ah int) {
+		dimensions = append(dimensions, [4]int{ew, eh, aw, ah})
+	}
 	adapter, err := NewProductImageAdapter(config)
 	require.NoError(t, err)
 	capability, err := productimage.NewSourceEditCapability(adapter)
@@ -40,10 +44,18 @@ func testSourceEditAdapter(t *testing.T, provider, model string) {
 	require.Equal(t, 1, images.lastEdit.N)
 	require.Equal(t, request.PromptVersion, candidate.Metadata.PromptVersion)
 	require.Equal(t, []string{productimage.SourceEditOperation}, candidate.Asset.Operations)
+	require.Empty(t, dimensions, "matching pixels must not report a mismatch")
+	require.Equal(t, 1024, candidate.Asset.Width)
+	require.Equal(t, 1024, candidate.Asset.Height)
 	request.ReferenceBytes[1][0] = 'X'
 	require.Equal(t, []byte("second exact bytes"), images.lastEdit.ReferenceImages[0].Bytes)
-	images.response = &ai.ImageResponse{Data: []ai.ImageData{{B64JSON: base64.StdEncoding.EncodeToString(productImagePNG(t, 2, 2))}}}
+	original := productImagePNG(t, 1254, 1254)
+	encoded := base64.StdEncoding.EncodeToString(original)
+	images.response = &ai.ImageResponse{Data: []ai.ImageData{{B64JSON: encoded}}}
 	request.ReferenceBytes[1] = []byte("second exact bytes")
 	_, err = capability.EditSources(context.Background(), request)
 	require.ErrorIs(t, err, productimage.ErrOutputValidation, "actual output dimensions must satisfy the configured native renderer")
+	require.Equal(t, [][4]int{{1024, 1024, 1254, 1254}}, dimensions)
+	require.Equal(t, encoded, images.response.Data[0].B64JSON, "diagnostics must not resize or rewrite the original artifact")
+	require.Equal(t, 2, images.editCalls, "one dispatch per explicit operation, no mismatch retry")
 }

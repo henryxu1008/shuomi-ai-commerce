@@ -15,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sirupsen/logrus"
+	logtest "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 
 	"task-processor/internal/agent"
@@ -51,14 +53,24 @@ func TestGenerationProviderRefusalSurvivesCapabilityAndToolBoundaries(t *testing
 	testGenerationProviderFactoryUsesBoundQwenAdapter(t, "qwen-image-3.0-pro", true)
 }
 
+func TestGenerationProviderReportsMeasuredSizeMismatchWithoutRetry(t *testing.T) {
+	testGenerationProviderFactoryUsesBoundQwenAdapter(t, "qwen-image-3.0-pro", false, true)
+}
+
 func testGenerationProviderFactoryUsesBoundQwenAdapter(t *testing.T, model string, refused ...bool) {
 	var pngBytes bytes.Buffer
-	require.NoError(t, png.Encode(&pngBytes, image.NewRGBA(image.Rect(0, 0, 1024, 1024))))
+	dimension := 1024
+	mismatch := len(refused) > 1 && refused[1]
+	if mismatch {
+		dimension = 1254
+	}
+	require.NoError(t, png.Encode(&pngBytes, image.NewRGBA(image.Rect(0, 0, dimension, dimension))))
+	logger, hook := logtest.NewNullLogger()
 	dispatches, observed, downloads := 0, 0, 0
 	expectedObservations := 1
 	expectedPrompt := "approved exact product and method"
 	resolver := &generationConfigTestResolver{resolved: &openai.ResolvedClientConfig{CacheKey: "org-image-v1", Config: &openai.ClientConfig{APIKey: "fixture-only", APIStyle: "dashscope", Model: model, BaseURL: "https://workspace.cn-beijing.maas.aliyuncs.com", Timeout: time.Second}}}
-	factory := generationProviderFactory{resolver: resolver, price: config.ImageAgentGenerationConfig{PriceVersion: "trial-price", PointsPerImage: 1}, profile: synchronousEditProfile{}, providerHTTPClient: &http.Client{Transport: qwenFactoryTransport(func(r *http.Request) (*http.Response, error) {
+	factory := generationProviderFactory{logger: logrus.NewEntry(logger), resolver: resolver, price: config.ImageAgentGenerationConfig{PriceVersion: "trial-price", PointsPerImage: 1}, profile: synchronousEditProfile{}, providerHTTPClient: &http.Client{Transport: qwenFactoryTransport(func(r *http.Request) (*http.Response, error) {
 		dispatches++
 		require.Equal(t, "/api/v1/services/aigc/multimodal-generation/generation", r.URL.Path)
 		var payload map[string]any
@@ -98,6 +110,22 @@ func testGenerationProviderFactoryUsesBoundQwenAdapter(t *testing.T, model strin
 	require.Equal(t, "bailian", quote.Operations[0].Provider)
 	require.Equal(t, model, quote.Operations[0].Model)
 	result, err := prepared.Executor.GenerateQuotedSlot(context.Background(), input, quote)
+	if mismatch {
+		require.Error(t, err)
+		require.Empty(t, result.Assets)
+		require.Equal(t, 1, dispatches)
+		require.Equal(t, 1, observed, "size rejection must not erase provider success")
+		require.Equal(t, 1, downloads)
+		var entries []*logrus.Entry
+		for _, entry := range hook.AllEntries() {
+			if entry.Message == "Generated image output dimensions mismatch" {
+				entries = append(entries, entry)
+			}
+		}
+		require.Len(t, entries, 1)
+		require.Equal(t, logrus.Fields{"provider": "bailian", "model": model, "expected_width": 1024, "expected_height": 1024, "actual_width": 1254, "actual_height": 1254}, entries[0].Data)
+		return
+	}
 	if len(refused) > 0 && refused[0] {
 		require.Error(t, err)
 		proof, known := prepared.Rejection(err)

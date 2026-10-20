@@ -50,7 +50,7 @@ func TestArtworkOutputRecoveryUsesOriginalSuccessWithoutAnOriginalOrNewPost(t *t
 					return pixels.Bytes()[:pixels.Len()-16], nil
 				}
 				return pixels.Bytes(), nil
-			})
+			}, nil)
 			out, err := recover(context.Background(), input, fact)
 			if test != "valid" {
 				require.Error(t, err)
