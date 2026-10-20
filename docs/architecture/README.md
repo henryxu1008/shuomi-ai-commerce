@@ -39,6 +39,8 @@
 - [`own-product-rich-description-v1.md`](own-product-rich-description-v1.md): versioned safe rich descriptions in current Product/CompletionDraft, existing image pool, history/restore, and explicit text-only platform projection; no schema/runtime/provider action.
 - [`rich-description-simple-editor-images-v1.md`](rich-description-simple-editor-images-v1.md): official Simple Editor UI and direct description uploads; CompletionDraft versions candidate image references while fixed source/SKU images, existing upload permissions, capacity, CAS and recovery owners remain unchanged.
 
+- [`source-business-closure-v1.md`](source-business-closure-v1.md): #30/#307 design-only proposal for the complete current source-input, SRC/Catalog/Collection persistence and lineage, refresh, explicit human source-image approval and Product-input readiness path. Reuses existing owners; proposes a bounded source-material composition independent of AI/store/upload execution. Implementation requires user design confirmation and applicable independent admission. No workflow, retained runtime/data/credentials or new trial prerequisite; #301 and standalone SHEIN login/Store sync remain unchanged.
+
 ## Goal
 
 This index separates stable architecture rules from plans, runbooks, and
