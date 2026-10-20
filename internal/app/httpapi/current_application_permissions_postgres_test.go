@@ -29,8 +29,11 @@ import (
 	"task-processor/internal/app/runtime/currentapplication"
 	accountallocationSchema "task-processor/internal/app/schema/accountallocation"
 	registrySchema "task-processor/internal/app/schema/sourceaccountregistry"
+	zitadelruntime "task-processor/internal/authruntime/zitadel"
+	"task-processor/internal/core/config"
 	"task-processor/internal/listingsubscription"
 	platformdatabase "task-processor/internal/platform/database"
+	"task-processor/internal/workbenchcontext"
 )
 
 var run1AllowedPrivileges = map[string]map[string][]string{
@@ -212,6 +215,100 @@ func TestCurrentApplicationPermissionInventoryPostgres(t *testing.T) {
 	t.Run("normal_binary", func(t *testing.T) { run1PermissionBinary(t, owner, cfg) })
 	require.Equal(t, before, run1PermissionFacts(t, owner, tables))
 	t.Log("permission checks finished; fact snapshot unchanged; TRUNCATE was granted/revoked only")
+	t.Run("authenticated_source_accounts", func(t *testing.T) {
+		run1AuthenticatedSourceAccounts(t, owner, source, tables)
+	})
+}
+
+func run1AuthenticatedSourceAccounts(t *testing.T, owner, source *gorm.DB, tables []string) {
+	t.Helper()
+	ctx := context.Background()
+	identity := &sourceAccountSubjectFixture{sourceAccountAuthFixture: newSourceAccountAuthFixture()}
+	cfg := currentApplicationTestConfig()
+	cfg.ListingKit.PlatformAdminUsers = []string{"actor-1"}
+	// Even an unexpected identity request can only reach this package's synthetic
+	// loopback provider. Token verification and grant loading use the existing SA1
+	// fixture; current middleware, factories, runtime role and repositories are real.
+	cfg.ListingKit.Zitadel.IssuerURL = appHTTPTestConfig.ListingKit.Zitadel.IssuerURL
+	cfg.ListingKit.Zitadel.AuthorizationAPIURL = cfg.ListingKit.Zitadel.IssuerURL
+	authFactories := defaultWorkbenchContextFactories()
+	authFactories.newVerifier = func(zitadelruntime.Config) zitadelruntime.Verifier { return identity }
+	authFactories.newResolver = func(_ workbenchcontext.GrantLoader, project, contract string, _ workbenchcontext.OrganizationBusinessStatusChecker) *workbenchcontext.Resolver {
+		return workbenchcontext.NewResolver(identity, project, contract, identity)
+	}
+	factories := defaultCurrentApplicationFactories(ctx, cfg.ListingKit.Zitadel.ProjectID)
+	factories.buildWorkbench = func(cfg *config.Config, logger *logrus.Logger) (workbenchContextBuildResult, error) {
+		return buildWorkbenchContextModule(cfg, logger, authFactories)
+	}
+	schemaBefore := sourceAccountApplicationTables(t, owner)
+	start := func() (string, func()) {
+		var logs bytes.Buffer
+		logger := logrus.New()
+		logger.SetOutput(&logs)
+		application, err := buildCurrentApplication(ctx, source, cfg, logger, factories)
+		require.NoError(t, err)
+		require.Equal(t, schemaBefore, sourceAccountApplicationTables(t, owner), "construction changed schema")
+		return serveSourceAccountApplication(t, application)
+	}
+	baseURL, stop := start()
+	const path = "/api/v1/workbench/source-accounts"
+	const key = "0198c5c0-6666-7666-8666-666666666666"
+	const input = `{"displayName":"Current application","platform":"1688"}`
+	status, body := sourceAccountRequest(t, baseURL, "token-admin", "org-b", http.MethodPost, path, key, "", input)
+	require.Equal(t, http.StatusCreated, status, string(body))
+	var created struct {
+		Account struct {
+			ID               string `json:"id"`
+			ConnectionStatus string `json:"connectionStatus"`
+		} `json:"account"`
+	}
+	require.NoError(t, json.Unmarshal(body, &created))
+	require.NotEmpty(t, created.Account.ID)
+	require.Equal(t, "pending_connection", created.Account.ConnectionStatus)
+	var persisted struct{ OrganizationID, CreatedBy string }
+	require.NoError(t, owner.Raw(`SELECT organization_id, created_by FROM public.source_account_resources WHERE id = ?`, created.Account.ID).Scan(&persisted).Error)
+	require.Equal(t, "org-b", persisted.OrganizationID, "owner came from an untrusted header or Home Organization")
+	require.Equal(t, "actor-1", persisted.CreatedBy)
+	item := path + "/" + created.Account.ID
+	for _, readPath := range []string{path, item} {
+		status, body = sourceAccountRequest(t, baseURL, "token-admin", "org-b", http.MethodGet, readPath, "", "", "")
+		require.Equal(t, http.StatusOK, status, string(body))
+		require.Contains(t, string(body), created.Account.ID)
+	}
+	stop()
+	baseURL, stop = start()
+	defer stop()
+	before := run1PermissionFacts(t, owner, tables)
+	status, body = sourceAccountRequest(t, baseURL, "token-admin", "org-b", http.MethodGet, item, "", "", "")
+	require.Equal(t, http.StatusOK, status, string(body))
+	require.Contains(t, string(body), created.Account.ID, "reconstructed current application lost the persisted record")
+	for _, test := range []struct {
+		name, token, org, method, target, code string
+		status                                 int
+	}{
+		{"other admitted organization", "token-admin", "org-a", http.MethodGet, item, "SOURCE_ACCOUNT_NOT_FOUND", http.StatusNotFound},
+		{"missing organization grant", "token-other", "org-b", http.MethodGet, item, "ORGANIZATION_ACCESS_DENIED", http.StatusForbidden},
+		{"missing manage permission", "token-viewer", "org-b", http.MethodPost, path, "PERMISSION_DENIED", http.StatusForbidden},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			requestKey, payload := "", ""
+			if test.method == http.MethodPost {
+				requestKey, payload = key, input
+			}
+			status, body := sourceAccountRequest(t, baseURL, test.token, test.org, test.method, test.target, requestKey, "", payload)
+			assertHTTPCode(t, status, body, test.status, test.code)
+			require.Equal(t, before, run1PermissionFacts(t, owner, tables), "denied request changed facts")
+		})
+	}
+	identity.setRevoked(true)
+	status, body = sourceAccountRequest(t, baseURL, "token-admin", "org-b", http.MethodPost, path, key, "", input)
+	assertHTTPCode(t, status, body, http.StatusForbidden, "ORGANIZATION_ACCESS_DENIED")
+	identity.setRevoked(false)
+	identity.setUnavailable(true)
+	status, body = sourceAccountRequest(t, baseURL, "token-admin", "org-b", http.MethodPost, path, key, "", input)
+	assertHTTPCode(t, status, body, http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE")
+	require.Equal(t, before, run1PermissionFacts(t, owner, tables), "reads, revoked replay or dependency failure changed facts")
+	require.Equal(t, schemaBefore, sourceAccountApplicationTables(t, owner))
 }
 
 func run1PermissionFacts(t *testing.T, db *gorm.DB, tables []string) string {
