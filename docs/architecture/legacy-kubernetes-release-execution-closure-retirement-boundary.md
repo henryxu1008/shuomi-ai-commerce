@@ -20,7 +20,7 @@ Out of Scope：当前应用/身份/领域行为、生产发布替代流程、真
 
 采用 **Independent Architecture**：本轮需要准确收缩源 Role/机器策略的三个 Deployment 目标及一项邀请Secret读取权限，并退出共享工具的隐式旧 API 默认合同，涉及声明、执行器和安全策略的组合。原发布退休架构提供产品依据，但没有直接批准这些具体源对象/默认值的删除，故先补本边界设计与独立检查，不在实现中临时决定。
 
-冻结候选预计 **40 个准确实施文件**：14 删除源、11 混合源、8 原测试文件、7 设计/索引/顶注文件。旧 API producer 的 drain、receipt、邀请凭据预检和机器策略消费者一起退出，不把声明和其专属身份尾部拆批。规模超过风险提示线，仍保持一个主要 PR，只检查本轮边界。此设计不新增当前权限、领域合同、状态机、持久化事实、事务/retry/UNKNOWN/recovery 或 provider 协议。若实施必须改变这些当前边界，停止相应部分，按 AGENTS 的真实 BLOCKER 规则重新准入。
+冻结候选预计 **41 个准确实施文件**：15 删除源、11 混合源、8 原测试文件、7 设计/索引/顶注文件。旧 API producer 的 drain、receipt、邀请凭据预检和机器策略消费者一起退出，不把声明和其专属身份尾部拆批。规模超过风险提示线，仍保持一个主要 PR，只检查本轮边界。此设计不新增当前权限、领域合同、状态机、持久化事实、事务/retry/UNKNOWN/recovery 或 provider 协议。若实施必须改变这些当前边界，停止相应部分，按 AGENTS 的真实 BLOCKER 规则重新准入。
 
 Threat Model 限于旧对象被误创建、隐式旧目标被继续使用、错误扩权、误删当前共享 owner、安全断言因旧输入退出而被弱化，以及源码删除被误写成真实环境退出。既有历史 run/re-run、外部 IAM 或集群权限不在本次调查中，不新增其风险接受或生产保证。
 
@@ -39,7 +39,7 @@ Threat Model 限于旧对象被误创建、隐式旧目标被继续使用、错�
 | ImageAgent canary / 恢复 owner | 当前 worker CLI 支持 `-canary`/v2/v3；`image_agent_v2_runs` 仍由 `internal/imageagent/store` 拥有，Go worker/store/Temporal 恢复不依赖旧发布 shell | 保留 worker/canary、共享 gate executor 和当前恢复/持久化合同，不删表、history、队列或相关有效测试 |
 | 旧 producer-bound drain / attestation | drain 无条件查询 `product-listing-api` Deployment/Pods 的旧 release identity；attestation verifier 只接受旧 API workflow/receipt。非测试消费者仅旧发布历史指引，无法代表 current-application 的恢复入口 | 两脚本及专属测试/身份字段同批 RETIRE；不换一个 Deployment 名称来伪造当前恢复/发布协议 |
 | 旧机器策略执行元数据 | `releaseIdentity` 指向旧 API；`producerRouting/releaseAttestation`、job/step/group/action 清单描述已失败关闭的旧 publisher；Rego/Go 仍强制这些旧形状 | 同批退出旧形状，只保留真实的固定拒绝入口、OIDC/RBAC、UI ownership、不可变镜像及 canary 安全合同 |
-| 旧邀请凭据预检 | 旧 API 声明与 credential-preflight 步骤退出后，`validate-listingkit-invitation-secret.sh` 无剩余非文档消费者；API Role/机器策略仍给旧publisher读取高权限专用Secret | 预检/专属测试及该一项源get权限同批退休；三个仍有当前消费者的测试utility先原样抽取到已有安全测试owner，旧publisher专属K8s Secret example同时退出；当前身份/私密凭据/其它共享模板不变 |
+| 旧邀请凭据预检 | 旧 API 声明与 credential-preflight 步骤退出后，`validate-listingkit-invitation-secret.sh` 无剩余非文档消费者；API Role/机器策略仍给旧publisher读取高权限专用Secret | 预检/专属测试及该一项源get权限同批退休；三个仍有当前消费者的测试utility先原样抽取到已有安全测试owner，旧publisher专属邀请/SMS K8s Secret examples同时退出；当前身份/私密凭据/其它共享模板不变 |
 
 这是旧发布关闭后，物理声明与默认目标尚未退出的源码组合问题，不是 current-application 缺新发布平台。所有调查限 tracked 源；没有执行 kubectl、Docker/Compose、SQL、Temporal、HTTP/provider、attestation 或旧/当前启动器。
 
@@ -62,7 +62,7 @@ Threat Model 限于旧对象被误创建、隐式旧目标被继续使用、错�
 
 ## 5. 删除 / 保留 / 抽取矩阵
 
-### 5.1 十四个准确 tracked 删除源
+### 5.1 十五个准确 tracked 删除源
 
 ```text
 deployments/kubernetes/listingkit-workbench/base/product-listing-api-deployment.yaml
@@ -79,6 +79,7 @@ policy/listingkit-release-authority/fixtures/negative/release-identity-owner-dri
 scripts/validate-listingkit-invitation-secret.sh
 tests/listingkit_invitation_secret_preflight_test.go
 deployments/kubernetes/listingkit-workbench/base/member-invitation-secret.example.yaml
+deployments/kubernetes/listingkit-workbench/base/tencent-sms-secret.example.yaml
 ```
 
 只删准确源；Secret example源退出不授权删除任何实际Secret。不递归删目录、实际 Job/Pod/Deployment、SQL/table/row、卷、镜像或历史记录。正常 schema CLI 不在列表内。
@@ -116,7 +117,7 @@ deployments/kubernetes/listingkit-workbench/base/member-invitation-secret.exampl
 Legacy decision: RETIRE；EXTRACT 仅限三个仍有消费者的原测试utility
 Reusable behavior: 复用现有显式 UI/worker apply、ImageAgent canary/Go恢复、schema、OIDC/RBAC/immutable 与当前 invocation owner；测试utility原样移至既有安全测试owner
 Current owner: 当前 Console/身份/domain/schema、ImageAgent/store/Temporal、原发布安全工具及独立 SHEIN/Store owner
-Cutover/deletion condition: 本设计独立检查与用户确认、IMPLEMENTATION_READY及双Issue Ready读回后，同PR先抽取测试utility，再完成十四删除源/十一混合源及全部准确尾部；原CI和一次最终独立交付检查，合并另行准确HEAD授权
+Cutover/deletion condition: 本设计独立检查与用户确认、IMPLEMENTATION_READY及双Issue Ready读回后，同PR先抽取测试utility，再完成十五删除源/十一混合源及全部准确尾部；原CI和一次最终独立交付检查，合并另行准确HEAD授权
 ```
 
 ## 6. 原 guard 与有效安全检查的处置
@@ -125,11 +126,11 @@ Cutover/deletion condition: 本设计独立检查与用户确认、IMPLEMENTATIO
 
 | 原测试文件 | 精确处置 / 保留不变量 |
 | --- | --- |
-| `tests/listingkit_backend_retirement_test.go` | 在既有退休 guard 增补十四源缺席及旧接线/producer字段/专属Secret权限退出，先因源仍在 RED，再删除后 GREEN；所有此前退休/当前构建/HTTP/auth/worker断言保留，不全局禁用仍合法的镜像/字段名称 |
+| `tests/listingkit_backend_retirement_test.go` | 在既有退休 guard 增补十五源缺席及旧接线/producer字段/专属Secret权限退出，先因源仍在 RED，再删除后 GREEN；所有此前退休/当前构建/HTTP/auth/worker断言保留，不全局禁用仍合法的镜像/字段名称 |
 | `scripts/tests/listingkit-apply-api-deployment-test.sh` | 旧 API fixture/隐式目标正例改为现有 worker 的显式 container，新增缺 container 时非零且 fake kubectl 未调用的 RED→GREEN；保留原不可变镜像、UI envFrom、patch/apply 错误、参数/临时文件安全场景 |
 | `tests/listingkit_deploy_workflow_test.go` | 只退休两个已取消 schema Job 的 deadline-wrapper 断言；保留原 worker/canary capability 隔离及当前镜像 routing label 检查 |
 | `tests/listingkit_secret_boundary_test.go` | 只退出旧 API/已删除 Job 的正向绑定与专属 helper；保留 UI/SHEIN/imgproxy 的完整最小 Secret allowlist、禁用 envFrom Secret 与禁止身份高权 token 断言 |
-| `tests/commercial_readiness_workflow_test.go` | 仅退休旧 API readiness、旧 Job image/legacy-scope 正例；旧 API invitation/SMS 正向绑定退出，改为旧入口/路由缺席并保留所有当前 workload 的身份/SMS token 隔离、除已删旧publisher专属邀请Secret模板外的canonical Secret examples。ImageAgent scopes、当前 Docker/worker/schema/build/商业门禁与 workflow 断言保持 |
+| `tests/commercial_readiness_workflow_test.go` | 仅退休旧 API readiness、旧 Job image/legacy-scope 正例；旧 API invitation/SMS 正向绑定退出，改为旧入口/路由缺席并保留所有当前 workload 的身份/SMS token 隔离、除已删旧publisher专属邀请/SMS Secret模板外的canonical Secret examples。ImageAgent scopes、当前 Docker/worker/schema/build/商业门禁与 workflow 断言保持 |
 | `tests/listingkit_release_gate_runner_test.go` | inventory 只保留 canary；原 fixture target/相同 invocation 字符串换成真实保留 canary。canonical/current-invocation、所有 command/args/env/envFrom/volume/mount/SA/security/resources/image/sidecar/Pod拒绝等正负例及断言完整保留，不删除整个测试文件 |
 | `tests/listingkit_release_authority_policy_test.go` | 原样承接三项共享utility及标准库import；同步 runner 为单一 canary、三Deployment/一邀请Secret源权限退出与旧producer/执行字段缺席。只删除取消producer-owner fixture的必存在项及旧元数据正例。OIDC claims/ref/audience、无长效fallback、create-free bootstrap、native sidecar、固定失败旁路和其余全部安全负例保持，不能只让结构体忽略缺字段 |
 | `tests/listingkit_release_boundary_test.go` | 退休两个旧 API receipt 精确 SHA/attempt 专属测试及无其它消费者的 scenario/helper；原 drain runbook 检查改为历史证据/不得据此停 worker 的边界，不再要求旧脚本可执行。保留 steady-state 两worker/无有限canary、v2-producing rollback 禁令与 durable-history/staging安全条件。当前 canary executor 的真实 invocation/run-attempt 与其余有效测试不变 |
@@ -144,17 +145,17 @@ Cutover/deletion condition: 本设计独立检查与用户确认、IMPLEMENTATIO
 | --- | --- |
 | 本文 | 仅阶段说明反映已确认/实施；冻结矩阵保持，滚动 HEAD/CI/review留PR |
 | `docs/architecture/README.md` | 索引本文与状态，不改其它 owner |
-| `docs/refactoring/legacy-register.md`、`module-target-mapping.md` | 顶注仅替代本批十四删除源/十一混合源的旧保留含义；原矩阵、历史行与计数不重写 |
+| `docs/refactoring/legacy-register.md`、`module-target-mapping.md` | 顶注仅替代本批十五删除源/十一混合源的旧保留含义；原矩阵、历史行与计数不重写 |
 | `docs/refactoring/code-health-decisions.md` | 仅顶注取代旧 schema Job shell-test、旧producer drain/receipt与已消失回填包装的当前执行保留含义；保留历史 rows/counts/failures、通用 helper 与仍有效安全测试结论 |
-| `deployments/kubernetes/listingkit-workbench/README.md` | 仅窄历史顶注：准确源/producer身份消费者删除、旧 API URL/SMS 接线退出；历史操作/SQL/drain/attestation/rollback正文保留为证据，不可作为当前执行、回滚或可停worker许可。保留当前Go恢复/UI/worker/OIDC/RBAC/schema与durable owner，未来真实停止另行授权，不增加试用前置 |
+| `deployments/kubernetes/listingkit-workbench/README.md` | 仅窄历史顶注：准确源/producer身份消费者与邀请/SMS模板删除、旧 API URL/SMS 接线退出；当前SMS仍用原Account Compose的ZITADEL_SMS_CONFIG_FILE，旧K8s凭据provisioning片段不构成当前许可。历史操作/SQL/drain/attestation/rollback正文保留为证据，不可作为当前执行、回滚或可停worker许可。保留当前Go恢复/UI/worker/OIDC/RBAC/schema与durable owner，未来真实停止另行授权，不增加试用前置 |
 | `docs/architecture/release-identity-preflight-retirement.md` | 仅追加窄 superseded 顶注，取代其两个schema runner/旧Job及旧producer-bound drain/attestation/邀请预检消费者与专属源get权限保留含义；原冻结设计正文/历史逐字保留。正常schema CLI、当前ImageAgent canary/Go恢复、有效安全规则与失败发布入口不受取代 |
 
-不修改其它 dated spec/plan、历史验证报告、商业/生产/恢复政策或 issue357。旧源码路径/操作样本在历史正文及禁止输入中保留，不据此恢复源。全批40文件；本设计阶段只改本文/四索引共5文档，其它35准确文件确认前零改。
+不修改其它 dated spec/plan、历史验证报告、商业/生产/恢复政策或 issue357。旧源码路径/操作样本在历史正文及禁止输入中保留，不据此恢复源。全批41文件；本设计阶段只改本文/四索引共5文档，其它36准确文件确认前零改。
 
 ## 7. 独立检查、准入、交付与权限
 
 1. 当前只交设计：五文档、原 Greenfield/ArchitectureReadme guard、相对链接与 diff 检查；禁止运行相关 shell/Pester、kubectl（含dry-run/kustomize）、Docker/Compose、token/attestation/drain helper、SQL/Temporal/provider或真实状态探测。
-2. 在同一主要 PR 做适用独立设计检查：核对实际消费者、40文件矩阵、旧producer-bound消费者完整退出、source Role三Deployment/一Secret收缩、共享测试utility原样归位、当前UI/worker/Go恢复/schema及全部有效安全断言；不重新审查全局架构。同SHA Running不重复触发，不默认增加实现者或AI互验线程。
+2. 在同一主要 PR 做适用独立设计检查：核对实际消费者、41文件矩阵、旧producer-bound消费者完整退出、source Role三Deployment/一Secret收缩、共享测试utility原样归位、当前UI/worker/Go恢复/schema及全部有效安全断言；不重新审查全局架构。同SHA Running不重复触发，不默认增加实现者或AI互验线程。
 3. Finding 先分类；BLOCKER须明确 AGENTS 的具体后果、当前Must与阻塞层级。最多两轮正常设计检查；第二轮非Blocker按IMPLEMENTATION_TEST/BACKLOG收敛，只核对修复增量，不重开全局架构。专属邀请预检/权限尾部与三个共享测试utility归位属于该边界的最小增量。非Blocker hardening不变成试用前置或新平台，没有新增风险接受。
 4. 独立检查达到设计准入、用户确认后，在#29/#301写明冻结设计 **IMPLEMENTATION_READY** 与范围，分别读回Ready才改正式源/测试。同一Writer/分支/PR整批实施；稳定候选前核对实际main，只处理真实组合变化。
 5. 完整闭包形成后一次最终独立交付检查真实diff、保留路径/断言和现有证据，范围内修复只复核增量；原CI与检查不等于用户运行验收，不签发可上线或生产接受。
