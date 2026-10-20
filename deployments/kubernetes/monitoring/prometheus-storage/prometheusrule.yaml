@@ -1,0 +1,30 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: prometheus-storage
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: prometheus-storage
+    app.kubernetes.io/part-of: task-processor
+spec:
+  groups:
+    - name: prometheus-storage
+      rules:
+        - alert: PrometheusStorageAtRisk
+          expr: |
+            (
+              kubelet_volume_stats_available_bytes{namespace="monitoring"}
+              /
+              kubelet_volume_stats_capacity_bytes{namespace="monitoring"}
+            ) < 0.20
+            and on (namespace, persistentvolumeclaim)
+            kube_persistentvolumeclaim_info{namespace="monitoring",persistentvolumeclaim=~"prometheus-.*"}
+          for: 15m
+          labels:
+            namespace: monitoring
+            severity: warning
+            service: monitoring
+          annotations:
+            summary: Prometheus 存储空间不足
+            description: Prometheus PVC 可用空间持续低于 20%。
+            action: 检查 Prometheus PVC 增长和采样量，由运行 owner 按授权处置存储风险。

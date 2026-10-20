@@ -2,7 +2,7 @@
 
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
-> Status: **DESIGNING / 待独立设计检查与用户确认，未授权实施。** Design Basis: **Independent Architecture**。静态调查基线 main `dd169971651d02ea4b6d81e0b44d6c32e10c6724`（2026-10-20，#836 合并后）；准确设计 HEAD、检查结论与确认写主要 PR。一个 Writer、一个完整运维源码闭包，不按目录、平台或文件数拆 PR。设计阶段只改本文与索引；不是部署、运行清理或用户验收。
+> Status: **IMPLEMENTATION_READY；用户已确认冻结设计 `0871cb591` 并授权按§5/§6/§6.1/§7在 #839 整批实施；源码退休已完成，待原CI与最终独立检查/合并授权。** Design Basis: **Independent Architecture**。静态调查基线 main `dd169971651d02ea4b6d81e0b44d6c32e10c6724`（2026-10-20，#836 合并后）；准确设计 HEAD、检查结论与确认写主要 PR。一个 Writer、一个完整运维源码闭包，不按目录、平台或文件数拆 PR。设计先于实现；用户确认及两Issue Ready记录已读回（PR评论6281156340），再修改正式源。准确实施HEAD/测试/CI/最终检查留在PR；不是部署、运行清理或用户验收。
 
 ## 1. Product Outcome / Scope
 
@@ -141,7 +141,7 @@ Cutover/deletion condition: 用户确认本文，精确共享规则抽取/保留
 
 ## 7. 执行与停止点
 
-1. 当前仅调查与设计：两 Issue 记录 Design Basis/使用者/范围/非目标/单 Writer、主要设计 PR；生产、测试、配置、脚本、workflow 零改。当前状态 Backlog / DESIGNING，不提前派 Writer 实施。
+1. 设计阶段只调查与设计，已在两Issue/主要PR记录Design Basis/使用者/范围/非目标/单Writer；生产、测试、配置、脚本、workflow当时零改。准确设计0871cb591的独立检查完成，用户确认及Ready准入读回之后才开始本批正式实施。
 2. 一次原 GitHub 独立设计检查；findings 先分类，最多两轮正常设计检查。未变代码/证据复用；不默认创建多 Reviewer，不因理论 hardening 重开全局架构。只有达到 IMPLEMENTATION_READY 且用户明确确认§5/§6/§6.1/§7、Issue Ready读回后，原 Writer 才实施。
 3. 同一 PR 整批实施：先抽取唯一共享规则与定点 guard，再退出全部专属源及尾部；shared Secret/当前能力零改。稳定候选前核对实际 main，仅处理真实组合风险，不持续追 main、不按内部模块拆 PR。完整原 CI 留稳定候选，复核修复只看相关增量。
 4. 最终交付检查读实际完整 diff、保留能力及原证据；不是用户验收。发现当前 consumer/持久化 owner 或外部可观察义务要求本文外保留/迁移/兼容时停止相关动作，报告具体证据；没有自行批准 Exception 或真实操作权限。

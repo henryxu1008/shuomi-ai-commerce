@@ -1,6 +1,6 @@
 # Code Health Decisions
 
-> [旧数字刊登运维源码完整闭包设计](../architecture/legacy-listing-operations-closure-retirement-boundary.md)（#29/#301）：**DESIGNING，未确认/未实施**。§5准确列出旧部署/监控/rollout/SQL源的退休与一条有效存储规则抽取；不因零自动调用删除下表保留的人工port-forward或通用db-query能力，只退出旧表help实例。既有SHEIN共享Secret/Store同步/独立登录和Amazon监控保持。历史证据/计数、inventory、ceilings与workflow零改，用户确认前不替代旧决定。
+> #839 [完整运维源码闭包](../architecture/legacy-listing-operations-closure-retirement-boundary.md)在用户确认冻结设计 `0871cb591` 后已整批实施：§5准确旧部署/监控/rollout/SQL源及直接尾部退休，唯一有效存储规则及同namespace窄路由抽取到现有monitoring。下表保留的人工port-forward与通用db-query能力保持，只退出旧表help实例。SHEIN共享Secret/Store同步/独立登录和Amazon监控保持；历史证据/计数、inventory、ceilings与workflow零改，无真实资源操作。
 
 > #827 [confirmed Publishing runtime closure](../architecture/legacy-shein-publishing-runtime-closure-retirement-boundary.md): Complete SHEIN Publishing runtime closure retirement preserves current pure contracts and removes the last-consumer helper/cache/Prompt closure in one batch. Mixed declarations are scoped to original owners; exact absence/import/command guards retain current security assertions. Dated inventories/counts/ceilings below remain historical and unchanged. Workflows, dependencies, ceilings, runtime/data and trial prerequisites are unchanged.
 

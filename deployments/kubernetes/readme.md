@@ -9,9 +9,10 @@
 - `amazon-crawler-external-lb`
 - `monitoring/alertmanager-wecom`
 - `monitoring/amazon-crawler-api`
+- `monitoring/prometheus-storage`（共享 PVC 保护及同 namespace 窄路由）
 - `zitadel/local`
-- `shein-listing`
-- `temu-listing`
+
+旧 SHEIN/TEMU 刊登运维源码已按 [#839 完整闭包](../../docs/architecture/legacy-listing-operations-closure-retirement-boundary.md)退休。shein-listing 仅保留 Store 代理同步所需共享凭据/Namespace装配，temu-listing 仅保留退休说明；二者不是当前应用发布入口。当前采集、Store及独立SHEIN登录/同步见[仓库入口地图](../../docs/development/repository-structure.md)。本次仅改源码，未操作集群或资源。
 
 ## ZITADEL 生产说明
 
@@ -45,15 +46,8 @@
 2. RabbitMQ / Redis
 3. `zitadel/local`（如果本地验证 ListingKit OIDC 登录）
 4. `amazon-crawler-api`（如果 Amazon 上架依赖远程爬虫）
-5. `shein-listing`
-6. `temu-listing`
 
-示例：
-
-```bash
-kubectl apply -k deployments/kubernetes/shein-listing/overlays/staging
-kubectl apply -k deployments/kubernetes/temu-listing/overlays/staging
-```
+上述清单仅供各自已获授权的运维使用；旧刊登 staging/prod 不再提供运行部署步骤。
 
 ## Amazon Crawler 节点分层
 
@@ -114,7 +108,6 @@ kubectl label node <node-name> task-processor/crawler-tier-
 
 - `base/secret.example.yaml` 只是示例，不要直接用于生产
 - 生产前请替换镜像名、RabbitMQ 地址、管理端地址、OpenAI/SP-API 凭证
-- 三个平台默认都走平台共享队列；只有显式启用 `useStoreQueues` 才走店铺队列
 - `cert-manager/letsencrypt-prod` 用于固化 `letsencrypt-prod` 的 HTTP-01 solver 调度策略，避免 solver 被调度到和 `traefik` 不同的节点后挑战请求失败
 - `monitoring/kube-prometheus-stack-values.yaml` 里固定了 Alertmanager 到 `vm-4-17-ubuntu`，这是当前集群为绕开跨节点 Pod 网络异常和本地卷绑定问题的兼容配置
 - `monitoring/alertmanager-wecom` 需要先创建 `alertmanager-wecom-secret`

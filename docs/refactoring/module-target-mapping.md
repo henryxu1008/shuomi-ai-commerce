@@ -1,6 +1,6 @@
 # Module Target Mapping
 
-> 下一批[旧数字刊登运维源码完整闭包](../architecture/legacy-listing-operations-closure-retirement-boundary.md)：**DESIGNING，待独立设计检查与用户确认，未实施**。旧部署/监控/rollout/恢复SQL没有替代业务owner；仅原Prometheus PVC低空间规则抽取到现有monitoring源owner。SHEIN共享凭据装配及当前Store/登录/采集/监控/通用工具保持；准确删除/保留/抽取见§5/§6.1。本文历史映射、计数与全部workflow/inventory不改，不授权运行清理。
+> #839 用户确认冻结设计 `0871cb591` 后按[完整运维源码闭包](../architecture/legacy-listing-operations-closure-retirement-boundary.md)整批实施，Independent Architecture / IMPLEMENTATION_READY。旧部署/监控/rollout/恢复SQL没有替代业务owner；仅原Prometheus PVC低空间规则及同namespace窄路由由现有monitoring源owner承接。SHEIN共享凭据装配及当前Store/登录/采集/监控/通用工具保持，准确矩阵见§5/§6.1。历史映射、计数、全部workflow/inventory不改，不授权运行清理。
 
 > #836 [旧数字任务与刊登专属配置完整闭包](../architecture/legacy-runtime-config-closure-retirement-boundary.md)：冻结设计 `209b40f54` 已确认并整批实施，旧 Processor/Worker/control-plane、全局 RabbitMQ 任务 schema、平台旧调度/核价/同步/监控、debug/usage 及其默认/加载/env/校验/示例/专属测试尾部一起退出；仅替代§5/§6.1准确对象的旧保留表述。真实采集 workerpool、独立通用 queue/Retry、当前身份/计费/图像/平台/Store 与独立 SHEIN 登录/同步 owner 保持；原 Viper/Manager/合并算法不变。历史矩阵/计数保留，全部 workflow/inventory 不改，无真实配置/实例/数据操作或新试用前置。
 
