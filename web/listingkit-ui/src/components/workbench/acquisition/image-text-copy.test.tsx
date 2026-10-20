@@ -29,7 +29,7 @@ it("freezes only an exact accepted Review reference after explicit human confirm
  expect(changed).toHaveBeenLastCalledWith({mode:"reviewed",review:{proposalId:p.proposal_id,revision:"2"},taskIds:["detail"]});
  view.rerender(<ImageTextCopy {...base} taskIds={["detail","main"]} onChange={changed}/>);
  expect(screen.getByRole("checkbox",{name:"确认目标语言图片文案"})).not.toBeChecked();
- expect(changed).toHaveBeenLastCalledWith(null);expect(f.read).toHaveBeenCalledTimes(1);
+ expect(f.read).toHaveBeenCalledTimes(1);
 });
 it.each(["pending","wrong-language","too-long","automatic"])("blocks %s copy without truncation or source-language fallback",async kind=>{
  let value=proposal(kind==="pending"?"pending":"accepted",kind==="wrong-language"?"zh":"en",kind==="too-long"?"x".repeat(33):"Fabric storage box");
@@ -37,6 +37,16 @@ it.each(["pending","wrong-language","too-long","automatic"])("blocks %s copy wit
  f.read.mockResolvedValue(value);render(<ImageTextCopy {...base} onChange={vi.fn()}/>);await read();
  expect(screen.getByRole("checkbox",{name:"确认目标语言图片文案"})).toBeDisabled();
  expect(f.panel).not.toHaveBeenCalled();expect(f.decide).not.toHaveBeenCalled();
+});
+it("confirms a text-task subset while keeping the main picture text-free",async()=>{
+ const changed=vi.fn();render(<ImageTextCopy {...base} taskIds={["main","detail"]} taskLabels={{main:"标准主图",detail:"详情图"}} onChange={changed}/>);await read();
+ fireEvent.click(screen.getByRole("checkbox",{name:"使用文字 标准主图"}));
+ fireEvent.click(screen.getByRole("checkbox",{name:"确认目标语言图片文案"}));
+ expect(changed).toHaveBeenLastCalledWith({mode:"reviewed",review:{proposalId:p.proposal_id,revision:"2"},taskIds:["detail"]});
+ fireEvent.click(screen.getByRole("checkbox",{name:"使用文字 详情图"}));
+ expect(changed).toHaveBeenLastCalledWith(null);
+ expect(screen.getByRole("checkbox",{name:"确认目标语言图片文案"})).not.toBeChecked();
+ expect(screen.getByRole("checkbox",{name:"确认目标语言图片文案"})).toBeDisabled();
 });
 it("keeps ordinary member review permissions and allows explicit text-free images",async()=>{
  f.context.permissions=["local_agent.write"];f.read.mockResolvedValue(proposal("pending"));const changed=vi.fn();render(<ImageTextCopy {...base} onChange={changed}/>);await read();

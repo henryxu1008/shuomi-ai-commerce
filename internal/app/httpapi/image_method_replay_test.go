@@ -39,7 +39,7 @@ func TestFullImageOriginalPreparedMethodDoesNotRequireNewSkillSelection(t *testi
 	identity := authidentity.AuthenticatedIdentity{TenantID: "org", EffectiveOrganizationID: "org", UserID: "actor", EffectiveMemberID: "member"}
 	ctx := authidentity.WithAuthenticatedIdentity(context.Background(), identity)
 	ref := agent.SkillVersionRef{Kind: "skill-version-v1", ID: requestID, OwnerKind: "PLATFORM", OwnerID: "official", Version: 2, Digest: strings.Repeat("f", 64), PolicyVersion: "skill-method-v1"}
-	input := imageagent.PrepareImageSetInput{Method: &ref, ExpectedModeRevision: "0", ContextKind: imageagent.ImageSourceAcquisition, ContextID: sourceID, RequestID: requestID, Template: &agentconfig.TemplateRef{TemplateID: requestID, Revision: "1"}, Target: imageagent.ImageTargetSelection{Platform: "product"}, SharedOriginalIDs: []string{"source-1"}}
+	input := imageagent.PrepareImageSetInput{Text: &imageagent.ImageTextSelection{Mode: "none"}, Method: &ref, ExpectedModeRevision: "0", ContextKind: imageagent.ImageSourceAcquisition, ContextID: sourceID, RequestID: requestID, Template: &agentconfig.TemplateRef{TemplateID: requestID, Revision: "1"}, Target: imageagent.ImageTargetSelection{Platform: "product"}, SharedOriginalIDs: []string{"source-1"}}
 	_, err = service.PrepareImageSet(ctx, input)
 	require.NoError(t, err)
 	db, mock, err := sqlmock.New()
@@ -54,7 +54,7 @@ func TestFullImageOriginalPreparedMethodDoesNotRequireNewSkillSelection(t *testi
 	for _, route := range module.routes() {
 		router.Handle(route.Method, route.Path, route.Handler)
 	}
-	body, _ := json.Marshal(map[string]any{"expectedModeRevision": "0", "template": input.Template, "target": input.Target, "sharedOriginalIds": input.SharedOriginalIDs, "skill": map[string]any{"skillId": ref.ID, "version": ref.Version, "digest": ref.Digest}})
+	body, _ := json.Marshal(map[string]any{"text": input.Text, "expectedModeRevision": "0", "template": input.Template, "target": input.Target, "sharedOriginalIds": input.SharedOriginalIDs, "skill": map[string]any{"skillId": ref.ID, "version": ref.Version, "digest": ref.Digest}})
 	mock.ExpectQuery("SELECT").WillReturnError(agentconfig.ErrUnavailable)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/workbench/sourcing/1688/acquisitions/"+sourceID+"/images/prepare", strings.NewReader(string(body)))
 	req.Header.Set("Content-Type", "application/json")

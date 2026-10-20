@@ -17,11 +17,11 @@ import {ContentComparison} from "../task-center/content-review-presentation";
 import {isAcquisitionUUID} from "@/lib/contracts/product-acquisition";
 
 export const imageTextLanguageNames:Record<string,string>={en:"英语",zh:"中文",es:"西班牙语",fr:"法语",de:"德语",ja:"日语"};
-type Props={scope:ImageSetScope;source:ImageSetRun["plan"]["Source"];language:string;templateKey:string;taskIds:string[];ownItemId?:string;disabled:boolean;onChange:(value:ImageTextSelection|null)=>void};
+type Props={scope:ImageSetScope;source:ImageSetRun["plan"]["Source"];language:string;templateKey:string;taskIds:string[];taskLabels?:Record<string,string>;ownItemId?:string;disabled:boolean;onChange:(value:ImageTextSelection|null)=>void};
 type Original={key:string;start:StartIntent};
 type ReviewIntent={key:string;proposalId:string;body:ProductTitleDecisionInput};
 
-export function confirmedImageTextLines(p:ProductTitleProposal):string[]{
+function confirmedImageTextLines(p:ProductTitleProposal):string[]{
  if(p.policy!=="product-content-review-v1")return [];
  const title=p.content.after.find(v=>v.field==="title")?.value;
  const points=p.content.after.find(v=>v.field==="selling_points")?.value;
@@ -37,8 +37,10 @@ export function ImageTextCopy(props:Props){
  const [original,setOriginal]=useState<Original>(),[ownSource,setOwnSource]=useState<OwnSourceSelection>();
  const [proposalId,setProposalId]=useState(""),[proposal,setProposal]=useState<ProductTitleProposal>();
  const [pending,setPending]=useState<ReviewIntent>(),[busy,setBusy]=useState(false),[error,setError]=useState("");
+ const [textTasks,setTextTasks]=useState(taskIds);
+ const selectedTextTasks=textTasks.filter(id=>taskIds.includes(id));
  const [confirmedTasks,setConfirmed]=useState<string|null>(null);
- const taskKey=JSON.stringify(taskIds),confirmed=confirmedTasks===taskKey;
+ const taskKey=JSON.stringify([taskIds,selectedTextTasks]),confirmed=confirmedTasks===taskKey;
  useEffect(()=>{
   let active=true;queueMicrotask(()=>{if(!active)return;
   try{
@@ -84,12 +86,13 @@ export function ImageTextCopy(props:Props){
  const lines=proposal?confirmedImageTextLines(proposal):[];
  const matches=proposal?.policy==="product-content-review-v1"&&proposal.input.product_key===source.ProductID&&proposal.input.base_version===source.EffectiveVersion&&proposal.content.selection.targetLanguage===language&&proposal.execution_mode?.mode==="default"&&!proposal.policy_adoption&&!proposal.apply_receipt;
  const usable=matches&&proposal.state==="accepted"&&lines.length>0&&lines.every(line=>[...line].length<=32)&&!pending;
- function confirm(value:boolean){setConfirmed(value?taskKey:null);onChange(value&&usable&&proposal?{mode:"reviewed",review:{proposalId:proposal.proposal_id,revision:proposal.revision},taskIds}:null)}
+ function confirm(value:boolean){setConfirmed(value?taskKey:null);onChange(value&&usable&&proposal&&selectedTextTasks.length?{mode:"reviewed",review:{proposalId:proposal.proposal_id,revision:proposal.revision},taskIds:selectedTextTasks}:null)}
  return <section aria-label="图片文字语言" className="space-y-4 rounded-xl border border-border p-4">
   <h3 className="font-semibold">目标语言：{imageTextLanguageNames[language]??language}（{language}）</h3>
   <p className="text-sm text-muted-foreground">来自所选模板版本。翻译、人工审核和图片生成分别确认；旧任务保留原文案与语言。</p>
   <label className="block space-y-2 text-sm">图片文字<Select aria-label="图片文字方式" value={mode} disabled={disabled||busy||!!pending} onChange={e=>{const next=e.target.value as "none"|"reviewed";setMode(next);setConfirmed(null);onChange(next==="none"?{mode:"none"}:null)}}><option value="none">不加文字</option><option value="reviewed">自动翻译后人工确认</option></Select></label>
   {mode==="reviewed"&&<>
+   <fieldset disabled={disabled||busy||!!pending} className="space-y-2"><legend className="text-sm font-medium">哪些图片使用这些文案</legend>{taskIds.map(id=><label key={id} className="flex items-start gap-2 text-sm"><input type="checkbox" aria-label={`使用文字 ${props.taskLabels?.[id]??id}`} checked={selectedTextTasks.includes(id)} onChange={e=>{setTextTasks(old=>e.target.checked?[...old,id]:old.filter(v=>v!==id));setConfirmed(null);onChange(null)}}/>{props.taskLabels?.[id]??id}</label>)}<p className="text-xs text-muted-foreground">未勾选的图片任务不加文字；修改选择后须重新确认文案。</p></fieldset>
    <Button variant="outline" disabled={disabled||busy||!ready||!!pending||!context.permissions.includes("local_agent.write")} onClick={()=>void begin()}>翻译商品文案（先确认文本预算）</Button>
    {!context.permissions.includes("local_agent.write")&&<p>当前身份没有文本执行与审核访问权；可按现有权限选择不加文字，不会自动增加权限。</p>}
    {expanded&&(scope.kind==="acquisition"||ownSource)&&<ProductAgentPanel enabled operationId={scope.kind==="supply"?ownItemId!:scope.contextId} productKey={source.ProductID} catalogVersion={source.EffectiveVersion} ownSource={ownSource} imageTranslation={{language,original,persist:remember,reset:resetRejectedRequest,onReview:id=>{setProposalId(id);localStorage.setItem(storage+":proposal",id)}}}/>}
@@ -101,8 +104,8 @@ export function ImageTextCopy(props:Props){
     {!context.permissions.includes("listingkit.admin.write")&&proposal.state!=="accepted"&&<p>译文须由已有审核权限的成员接受后才能用于图片；本次不改变成员权限。</p>}
     {!matches&&<p role="alert">审核来源、目标语言或人工模式与本次模板不一致，不能带入图片。</p>}
     {lines.some(line=>[...line].length>32)&&<p role="alert">图片文案每条最多32个字符，请在审核中编辑并重新接受；不会截断或换回原文。</p>}
-    <div className="space-y-2 rounded-lg bg-accent/30 p-4"><h4 className="font-semibold">本次图片文案 · 最多两条</h4>{lines.map((line,i)=><p key={i} className="break-words">{line}</p>)}<p className="text-xs text-muted-foreground">审核 {proposal.proposal_id} · 修订 {proposal.revision}；将用于本次所选 {taskIds.length} 项图片任务，随计划固定。</p></div>
-    <label className="flex items-start gap-2 text-sm"><input type="checkbox" aria-label="确认目标语言图片文案" checked={confirmed} disabled={!usable||busy||disabled||taskIds.length===0} onChange={e=>confirm(e.target.checked)}/>已核对目标语言、商品事实与单位，确认使用这些文案</label>
+    <div className="space-y-2 rounded-lg bg-accent/30 p-4"><h4 className="font-semibold">本次图片文案 · 最多两条</h4>{lines.map((line,i)=><p key={i} className="break-words">{line}</p>)}<p className="text-xs text-muted-foreground">审核 {proposal.proposal_id} · 修订 {proposal.revision}；将用于本次勾选的 {selectedTextTasks.length} 项图片任务，随计划固定。</p></div>
+    <label className="flex items-start gap-2 text-sm"><input type="checkbox" aria-label="确认目标语言图片文案" checked={confirmed} disabled={!usable||busy||disabled||selectedTextTasks.length===0} onChange={e=>confirm(e.target.checked)}/>已核对目标语言、商品事实与单位，确认使用这些文案</label>
    </>}
   </>}
   {error&&<p role="alert">{error}</p>}
