@@ -39,6 +39,8 @@ Refs [#529](https://github.com/qq550723504/task-processor/issues/529) / [#301](h
 
 报告默认名为 `yudao-zitadel-import-report.json`、`yudao-zitadel-local-full-import.json`、`yudao-zitadel-owner-recovery-dry-run.json`；tracked 源中未找到消费这些生成报告的当前程序。报告不是新系统的持久化事实或当前准入回执。只退休生成合同，不查找、读取或删除现存 `.local/tmp` 等目录中的实际文件。
 
+直接文档尾部不能只按四个完整脚本名搜索：`2026-08-10-listingkit-owner-reconciliation.md` 仍要求 Restore 旧命令，`2026-08-11-listingkit-owner-reconciliation-policy-design.md` 仍把 migration script / recovery step 写成当前策略；两者目前没有 SUPERSEDED 顶注。旧 manual-deploy 计划同样仍指向已退预检。另两份已有历史顶注的 owner 设计还保留“预检 reads 不变”的过时边界。§6.1逐项列出这组同根因引用：只新增/校准窄历史顶注，不重写正文，也不执行其 agent/sub-skill 或迁移步骤。
+
 **架构问题**：当前产品已禁止旧账号迁移/ID 映射，但四个可执行源仍提供这条操作路径，清单仍称两个入口是恢复能力。根因是产品决定没有收口到完整运维入口及其当前说明。解决方法是按已批准决定关闭完整源闭包，并保留原本正确的当前 IAM/组织 owner；不是增强旧导入的幂等/补偿或新建迁移框架。
 
 ## 4. 配置、持久化与平台副作用 owner
@@ -106,9 +108,12 @@ Cutover/deletion condition: 用户确认本设计，两个 Issue 明确 Ready；
 | §5.1四脚本 | 用户确认后整文件删除 | 不复制为新 CLI/module、兼容失败入口、模板或示例恢复脚本 |
 | `tests/listingkit_backend_retirement_test.go` | 原身份预检退休 guard 的准确 absence 列表增加四路径 | 原所有路径、权限/发布/worker/current schema/安全断言；无新扫描器、subprocess 或真实运行 |
 | `docs/refactoring/code-health-decisions.md` | 顶部窄注释：用户确认后，两个 local importer 的 retained-deferred 与通用 support-candidate 行中仅其迁移保留结论被本设计取代；实施前只能标“提案/未实施” | 原历史两行、当时 detector 证据/风险/计数及其他所有候选结论原样，不伪称旧清理当时错误，也不把零调用当唯一退休依据 |
-| `docs/superpowers/plans/2026-08-11-listingkit-owner-reconciliation-policy.md` | 实施时仅校准现有 HISTORICAL/SUPERSEDED 顶注，明确新增四个退休入口及已退预检不能重建；历史迁移指令不可执行 | 原任务正文/测试/提交证据与日期原样；不按当时 sub-skill/迁移步骤重新派工或执行 |
+| `docs/superpowers/plans/2026-08-11-listingkit-owner-reconciliation-policy.md` | 实施时仅校准现有 HISTORICAL/SUPERSEDED 顶注，明确新增四个退休入口及已退预检不能重建；删去顶注中“existing read-only preflight policies unchanged”的当前含义 | 原任务正文/测试/提交证据与日期原样；不按当时 sub-skill/迁移步骤重新派工或执行 |
+| `docs/superpowers/plans/2026-08-10-listingkit-owner-reconciliation.md`、`docs/superpowers/specs/2026-08-11-listingkit-owner-reconciliation-policy-design.md` | 实施时各加窄 SUPERSEDED 顶注，链接 Greenfield、#698 及本设计；说明下方 restore/backfill、旧 metadata/migration/recovery 均非当前策略或操作、不得重建/执行四入口 | 原 Goal/Approved policy/历史任务、验收和当时 evidence 原样；不能保留一个无顶注的“当前恢复”入口 |
+| `docs/superpowers/plans/2026-08-10-listingkit-manual-deploy-gate.md` | 实施时加窄历史/SUPERSEDED 顶注，链接 #698；旧预检与发布入口已退/失败关闭，不能按计划恢复。独立 SHEIN worker、原 OIDC/RBAC/安全检查仍保留 | 历史 release plan 正文/回执不改；不改任何发布 workflow、驱动或权限，不新建当前发布链 |
+| `docs/superpowers/specs/2026-08-10-listingkit-owner-reconciliation-design.md`、`docs/superpowers/specs/2026-08-11-listingkit-system-owned-exceptions-design.md` | 实施时仅校准已有 SUPERSEDED 顶注：原“预检读取仍保留/等待另退”已由 #698 取代，本批关闭四个导入/恢复源码；其余历史决定仍为当时证据 | 正文、旧 snapshot/计数/事实与当前 schema 均不改，不恢复 seed/exception reader/preflight |
 | `docs/refactoring/legacy-register.md`、`module-target-mapping.md`、`docs/architecture/README.md`、本文 | 当前提案→用户确认/源码退休的准确状态与边界索引 | 历史矩阵/计数、既有当前 owner 与其它保留决定 |
-| 其它历史引用 | 2026-08-02 三份计划中当时“保留未提交修改”的证据原样，不能拿它当当前会话所有权；其它已有 SUPERSEDED 文档保留 | 不重写历史为新 SHA 验证，不把旧身份恢复计划重新变成当前 Authority |
+| 其它历史引用 | 2026-08-02 三份计划中当时“保留未提交修改”的证据原样，不能拿它当当前会话所有权；已有明确全篇 SUPERSEDED 的 source-account cutover/preflight 文档及 K3S 历史说明不扩写 | 不重写历史为新 SHA 验证，不把旧身份恢复计划重新变成当前 Authority；不能据此漏掉上列没有顶注或顶注边界过时的准确文档 |
 | 全部 workflow、inventory（含当前消费者表与历史计数）、ceilings、依赖/锁文件、lint/depguard/保护 | **零改**；四脚本不产生 Go logger/OpenAI/current consumer 行变化 | 不跳过/改名/删必需或安全检查，不刷新历史统计 |
 | 运行/私密资源 | **零操作** | 不执行四脚本（含 DryRun），不读/删报告、凭据、旧 DB、IAM、进程、队列、Profile、volume 或保留实例 |
 
