@@ -204,3 +204,59 @@ is unchanged. Do not switch a new binary against absent required managed schema,
 relax startup gates, reset volumes, overwrite backup or restore stale DB facts.
 Source delivery alone does not activate an option. A new real-call budget is
 required before any provider request; UNKNOWN/refusal/exception stops immediately.
+
+## Scoped rollout addendum: shared writer capacity (2026-10-21)
+
+Status: DESIGN_REVIEW_PENDING; no production changes for this addendum yet.
+The user expressly approved a bounded connection repair in the original PR.
+Normal maintainer login reproduced image management HTTP 503 while text worked.
+The retained cluster reports `model_route_config_writer` rolconnlimit=2 and two
+idle text connections; image connections fail with PostgreSQL FATAL "too many
+connections for role". Role limits apply across databases on the same cluster.
+This blocks the Must user operation of reading/publishing an image option.
+Classification: BLOCKER for rollout/core happy path, not a new product feature.
+
+Keep the existing two independent database writers and their lifecycle owner
+currentapplication. Each pool stays maxConnections <=2; no new pool, role,
+credential, grants or shared transaction owner. With both families configured at
+the same explicit host/port/user, the required role capacity is the sum of the
+two configured maxima (at most 4); database names do not partition role capacity.
+Configuration already requires exact IPv4 loopback host, fixed role and bounded
+positive maxima. Different explicit ports retain independent capacity checks;
+no DNS/cluster discovery or general connection scheduler is introduced.
+
+The existing schema installer gains an OPTIONAL explicit writer connection-limit
+argument accepting only 2 or 4. Omission makes no role alteration, including on
+reinstallation of an existing 4-connection role. Explicit provisioning acts on the
+fixed existing nonprivileged LOGIN role only, changes only CONNECTION LIMIT,
+and rejects lowering an already finite larger limit. It does not create roles,
+change passwords, CONNECT/USAGE, relation grants, model/rate facts or old tasks.
+The role setting and existing bounded schema/grants remain one installer
+transaction; failure rolls back all its changes. No DDL or role change at startup.
+
+Before opening any model-route writer, startup uses each original reader to
+inspect pg_roles for the fixed writer role and verifies a finite 2-or-4 limit
+covering the aggregate configured maxima for that endpoint. Missing, unlimited,
+insufficient or unreadable capacity fails closed with a capacity-specific error.
+This reuses the current readers and startup/closure lifecycle, not a third pool.
+Original exact writer privilege/schema checks remain required after open.
+
+Figma retains product recovery cards 8169:2345/2350 and adds an external technical
+handoff note for the authorized 4-connection budget, outside the product UI.
+The review sibling r4332620415 is IMPLEMENTATION_TEST under the frozen recovery
+contract: hydrate retained definite-refusal records independently of sources
+before restoring a run; source-read failure must not revive old confirmation.
+No new state machine, archive format, recovery or UNKNOWN owner is introduced.
+
+TDD: reproduce text holding two connections blocking image under role limit 2;
+prove explicit 4 permits two text plus two image connections on one real isolated
+PostgreSQL cluster; startup capacity check rejects 2 for a required 4 and accepts
+4 without mutation. Omitted reinstall preserves 4, invalid/unsafe limit rejected;
+original writer/reader/key protections remain. Test configured same-endpoint sum,
+different-port independence, disabled-family absence and source-failure restore.
+Use existing tests/testcontainers, no new validation platform or live providers.
+
+Actual retained role alteration waits final exact-HEAD authority, protected merge
+and successful matching push/main CI, alongside the authorized optional schema
+installation. Preserve backups, raw requests, Skill versions, all old facts,
+Bailian current and the old UNKNOWN's 5-point reservation. Model calls remain 0.
