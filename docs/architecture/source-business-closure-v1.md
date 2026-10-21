@@ -2,7 +2,7 @@
 
 Refs [#30](https://github.com/qq550723504/task-processor/issues/30)、[#307](https://github.com/qq550723504/task-processor/issues/307)；[#301](https://github.com/qq550723504/task-processor/issues/301) 保持 OPEN。
 
-Status: **PROPOSED / DESIGN_ONLY**。本轮只交付设计及 Issue/PR 记录，不修改生产代码或 workflow，不运行环境、业务测试、来源请求或凭据探测。代码调查基线为 main `9983fc6931046872004e546c6fe5b55a6c58ba02`。用户确认设计且适用独立检查明确达到 **IMPLEMENTATION_READY** 后才能实施；设计 PR 合并、业务实施、运行验收和父 Issue 关闭分别授权。
+Status: **IMPLEMENTATION_READY / FROZEN**（2026-10-21）。用户已确认 §1–§7（含 §4.3.1 产品/Figma 增量），授权在 #859 同一批次实施，并允许任务自有临时 PostgreSQL 和合成 fixture。独立设计复核 `ba833335ea3aad80aaa8d5ecfc6cf9c825642d3d` 已完成；随后 `7f4baf9e4` 仅移动索引，设计正文不变。唯一产品入口 BLOCKER 由本次用户明确批准解除，见 [准入记录](https://github.com/qq550723504/task-processor/pull/859#discussion_r4331840231)。设计调查基线 main `9983fc6931046872004e546c6fe5b55a6c58ba02`；实施开工同步 main `773389eefe2ded6027a72c9351e9b2aa50bac96b`。下文原提案/待确认措辞保留设计历史，以本段准入决定为当前状态；业务边界冻结。实现、隔离 fixture 验证已授权，合并、部署、真实来源请求/既有实例数据凭据操作及父 Issue 关闭未授权；生产与真实验收仍 NOT_READY / NOT_RUN。
 
 ## 1. 用户结果、产品依据与范围
 
