@@ -121,10 +121,6 @@ func (s *Service) processAttempt(parent context.Context, id string) error {
 		return ErrInvalidInput
 	}
 	nonce := uuid.NewString()
-	if e = s.owner.Claim(parent, a.Scope, a.ActorID, a.MemberID, a.ID, nonce); e != nil {
-		_ = s.complete(parent, *a, LoginAttemptFailed, safeCode(e))
-		return e
-	}
 	// Active ownership survives every error until this exact process has finished
 	// all browser/verification/HTTP work and can synchronously confirm closure.
 	ctx, cancel := context.WithTimeout(parent, 12*time.Minute)
@@ -141,6 +137,10 @@ func (s *Service) processAttempt(parent context.Context, id string) error {
 			_ = s.owner.ConfirmClosed(closeCtx, a.Scope, a.ID, nonce)
 		}
 	}()
+	if e = s.claimExecution(ctx, *a, nonce); e != nil {
+		_ = s.complete(context.WithoutCancel(ctx), *a, LoginAttemptFailed, safeCode(e))
+		return e
+	}
 	next := *a
 	next.OwnerNonce = nonce
 	next.Status = LoginAttemptLaunching
@@ -259,16 +259,16 @@ func (s *Service) resumePending(parent context.Context, a LoginAttempt) error {
 		return ErrInvalidInput
 	}
 	nonce := uuid.NewString()
-	if e = s.owner.Claim(parent, scope, a.ActorID, a.MemberID, a.ID, nonce); e != nil {
-		return e
-	}
+	ctx, cancel := context.WithTimeout(parent, 45*time.Second)
+	defer cancel()
 	defer func() {
 		closeCtx, done := context.WithTimeout(context.Background(), 10*time.Second)
 		defer done()
 		_ = s.owner.ConfirmClosed(closeCtx, scope, a.ID, nonce)
 	}()
-	ctx, cancel := context.WithTimeout(parent, 45*time.Second)
-	defer cancel()
+	if e = s.claimExecution(ctx, a, nonce); e != nil {
+		return e
+	}
 	next := a
 	next.OwnerNonce = nonce
 	next.SyncStatus = "pending"
@@ -292,6 +292,16 @@ func (s *Service) resumePending(parent context.Context, a LoginAttempt) error {
 	}
 	check := func() error { return s.owner.CheckOwner(ctx, scope, a.ActorID, a.MemberID, a.ID, nonce) }
 	return s.syncPending(ctx, &a, account, state, check)
+}
+
+// A lost claim response is retried only with this same executor's nonce.
+// Callers install their exact closure proof before invoking this handshake.
+func (s *Service) claimExecution(ctx context.Context, a LoginAttempt, nonce string) error {
+	err := s.owner.Claim(ctx, a.Scope, a.ActorID, a.MemberID, a.ID, nonce)
+	if err != nil {
+		err = s.owner.Claim(ctx, a.Scope, a.ActorID, a.MemberID, a.ID, nonce)
+	}
+	return err
 }
 func (s *Service) syncPending(ctx context.Context, a *LoginAttempt, account Account, state map[string]any, check func() error) error {
 	scope := a.Scope

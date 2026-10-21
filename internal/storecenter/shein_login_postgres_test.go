@@ -68,6 +68,8 @@ func TestSheinLoginPostgresPermissionsSavepointAndConcurrentFence(t *testing.T) 
 	scope.Generation = 1
 	attempt, nonce := uuid.NewString(), uuid.NewString()
 	require.NoError(t, owner.Claim(ctx, scope, "operator", "membership", attempt, nonce))
+	require.NoError(t, owner.Claim(ctx, scope, "operator", "membership", attempt, nonce), "same executor can reconcile a lost claim response")
+	require.Error(t, owner.Claim(ctx, scope, "operator", "membership", attempt, uuid.NewString()), "different executor remains fenced")
 	require.Error(t, owner.Claim(ctx, scope, "operator", "membership", uuid.NewString(), uuid.NewString()))
 	sync := storecenter.SheinIdentityCommand{Scope: scope, ActorID: "operator", MemberID: "membership", AttemptID: attempt, OwnerNonce: nonce, ExpectedStoreVersion: 1, MerchantID: "occupied"}
 	// A real unique violation aborts PostgreSQL until ROLLBACK TO SAVEPOINT.

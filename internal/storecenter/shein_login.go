@@ -270,6 +270,9 @@ func (r *SheinLoginRepository) Claim(ctx context.Context, s SheinLoginScope, act
 			return e
 		}
 		row, e := bindingRow(tx, s)
+		if e == nil && matchesBinding(row, s) && row.State == "active" && row.ActiveAttemptID == attempt && row.OwnerNonce == nonce && !row.ClosedConfirmed {
+			return nil
+		}
 		if e != nil || !matchesBinding(row, s) || row.State != "active" || row.ActiveAttemptID != "" || !row.ClosedConfirmed {
 			return ErrSheinLoginFenced
 		}

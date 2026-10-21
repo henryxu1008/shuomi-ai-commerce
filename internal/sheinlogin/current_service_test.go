@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"os/user"
@@ -218,6 +219,76 @@ func (r *syntheticReader) Warehouses(context.Context, Account, map[string]any) (
 type lostReceiptOwner struct {
 	StoreOwner
 	lost atomic.Int32
+}
+
+type lostClaimOwner struct {
+	StoreOwner
+	lost  atomic.Int32
+	calls atomic.Int32
+}
+
+func (o *lostClaimOwner) Claim(ctx context.Context, s storecenter.SheinLoginScope, actor, member, attempt, nonce string) error {
+	o.calls.Add(1)
+	err := o.StoreOwner.Claim(ctx, s, actor, member, attempt, nonce)
+	if err == nil && o.lost.Add(-1) >= 0 {
+		return ErrUnavailable
+	}
+	return err
+}
+
+func TestClaimReplyLossReconcilesExactOwnerBeforeAnyBrowser(t *testing.T) {
+	for _, lostReplies := range []int32{1, 2} {
+		t.Run(fmt.Sprint(lostReplies), func(t *testing.T) {
+			s, owner, _, automation, _ := currentService(t)
+			fault := &lostClaimOwner{StoreOwner: owner}
+			fault.lost.Store(lostReplies)
+			s.owner = fault
+			c := enqueueCurrent(t, s)
+			err := s.processAttempt(context.Background(), c.RequestKey)
+			if lostReplies == 1 && err != nil || lostReplies == 2 && !errors.Is(err, ErrUnavailable) {
+				t.Error(err)
+			}
+			b, e := owner.ReadBinding(context.Background(), s.config.Scope(s.config.Bindings[0]), "actor", "member")
+			if e != nil || b.ActiveAttemptID != "" || !b.ClosedConfirmed {
+				t.Error("claim reply loss stranded owner", b, e)
+			}
+			want := int32(1)
+			if lostReplies == 2 {
+				want = 0
+			}
+			if automation.calls.Load() != want || fault.calls.Load() != 2 {
+				t.Error("claim replay duplicated or bypassed browser", automation.calls.Load(), fault.calls.Load())
+			}
+		})
+	}
+}
+
+func TestPendingSyncClaimReplyLossUsesSameOwnerAndNoNewBrowser(t *testing.T) {
+	s, owner, _, automation, reader := currentService(t)
+	reader.unavailable.Store(true)
+	c := enqueueCurrent(t, s)
+	if err := s.processAttempt(context.Background(), c.RequestKey); !errors.Is(err, ErrUnavailable) {
+		t.Fatal(err)
+	}
+	a, err := s.store.Load(context.Background(), c.RequestKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reader.unavailable.Store(false)
+	fault := &lostClaimOwner{StoreOwner: owner}
+	fault.lost.Store(1)
+	s.owner = fault
+	if err = s.resumePending(context.Background(), *a); err != nil {
+		t.Error(err)
+	}
+	b, e := owner.ReadBinding(context.Background(), a.Scope, "actor", "member")
+	if e != nil || b.ActiveAttemptID != "" || !b.ClosedConfirmed || automation.calls.Load() != 1 {
+		t.Error("pending recovery stranded or relaunched", b, e)
+	}
+	done, e := s.store.Load(context.Background(), a.ID)
+	if e != nil || done.SyncStatus != "applied" {
+		t.Error(done, e)
+	}
 }
 
 func (o *lostReceiptOwner) RecordSheinLoginIdentity(ctx context.Context, c storecenter.SheinIdentityCommand) (storecenter.SheinIdentityReceipt, error) {

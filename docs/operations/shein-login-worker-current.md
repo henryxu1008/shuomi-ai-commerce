@@ -56,6 +56,8 @@ Explicit force-login bypasses both the cached Cookie and the ordinary persistent
 
 The consumer reserves one actual execution slot before reading one stream entry. While all slots are occupied, further requests stay undelivered rather than entering the pending list as unstarted local work; another normally available consumer can read them. This keeps stale recovery from dropping valid requests merely because a verification wait occupied the configured capacity.
 
+The executor installs its exact closure confirmation before claiming ownership. A lost claim response is retried once with the same scope/attempt/nonce; Store recognizes only that identical current owner as an idempotent claim. Before any browser or HTTP work starts, a failed handshake can confirm only its own exact unstarted owner. Other nonces remain fenced, and an unavailable closure result remains UNKNOWN rather than permitting takeover.
+
 TTL, stream ACK, terminal login status, a lost connection, heartbeat absence and stale-job reclaim do not prove a browser has stopped. A crashed/UNKNOWN owner remains fenced. There is no force-takeover, automatic process scan/kill, lock deletion or private Profile adoption. Profile busy fails closed. Any real exclusion/repair of an old executor requires separate authorization to its environment owner; this source implementation does not perform it.
 
 ## Evidence and limits
