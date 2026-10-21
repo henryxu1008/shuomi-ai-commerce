@@ -31,10 +31,6 @@ func (req SourceRequest) Identity() SourceIdentity {
 		SourceType:     SourceTypeCrawler,
 		SourcePlatform: normalized.Platform,
 		SourceID:       normalized.ProductID,
-		Platform:       normalized.Platform,
-		Region:         normalized.Region,
-		ProductID:      normalized.ProductID,
-		StoreID:        normalized.StoreID,
 	})
 }
 

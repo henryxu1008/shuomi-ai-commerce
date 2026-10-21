@@ -4,6 +4,8 @@ Status: **Independent Architecture / IMPLEMENTATION_READY / 用户已确认 / �
 
 设计调查及实施开始基线为 main `23bde99ec2a436b96085e9dc3f02748f144a67b4`（#867 实际合并），[准确 push/main CI39570885435](https://github.com/qq550723504/task-processor/actions/runs/39570885435) 已通过，仅作基线证据。#301 OPEN；#29 已源级关闭，不重开。准确设计 HEAD、原 CI 与独立复核记录在本批 PR，不把设计审核或源码退出当运行/用户验收。
 
+实施结果：§5 三组闭包已在同一 #868 整批实施。先抽取 5/8 有效规则值至原消费者，旧两类型文件、数字日志/分片闭包和来源别名赋值/互填/Key 退出；localagent summary 直接读 SourceID。MappingInfo/两属性及独立 worker/Store 源码保持零差异；四 JSON 槽位原声明、原 trim、发布层拒绝及最终清空保留。原来源合成 fixture 在生产修改前固定了精确 EnvelopeJSON/SnapshotJSON/InputHash/PublicationIdentity，空白与空串、保存/读取均维持相同结果。退休 guard/别名反例先 RED，实施后相关原日志/规则/sourcing/适配器/localagent 测试、原八命令依赖 guard 与两个当前入口构建通过；31 命令元数据可读取。原 CI 和集中最终独立复核绑定准确候选记录在 PR，未完成项不冒作 PASS；真实环境/用户验收 NOT_RUN。
+
 ## 1. 用户结果、范围与权限
 
 使用者是维护当前采集、来源保存/刷新、平台规则、Store 和独立 SHEIN worker 的维护者。当前主链已有可用 owner；本维护清除尚无生产调用的数字日志/分片 API、共享规则输入的旧数字管理表面和现役来源身份的双轨赋值，保持同一来源保存/刷新、证据读取和幂等身份稳定。没有证据证明当前核心操作因此不可用，不新增业务入口或验收平台。

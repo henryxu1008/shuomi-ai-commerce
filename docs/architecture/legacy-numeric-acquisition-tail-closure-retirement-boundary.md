@@ -1,5 +1,8 @@
 # #301 旧数字采集与平台身份尾链完整退休边界
 
+当前后续决定：#868 用户确认[数字上下文与共享值合同完整退休矩阵](legacy-numeric-value-contract-closure-retirement-boundary.md) §1–§7（含§6.1），精确替代本文 §4/§5 对完整旧 PricingRule/OperationStrategy 输入类型与 SourceIdentity 别名行为的保留结论。5/8 有效规则值归原 pricing/activity owner；MappingInfo/两属性、四 JSON 零值槽位与当前规范化/hash/拒绝合同继续保持。本文其余边界、执行和历史证据不改。
+
+
 实施准入：**用户已确认 / Design Basis: Reuse Existing Architecture / Ready → In Progress → In Review**。冻结设计为 `d3c33d86cb5edbad9a6958df9c9ba85a1259eb84` 的 §1–§7（含 §6.1）；用户在准确设计交付后回复“没问题，继续”，授权同一 #867 整批实施。下文设计阶段状态保留为准入历史，以本段及 #301 当前正文为当前实施状态。原单 Writer、分支和 PR 不变；合并、部署、关单及真实资源操作仍未授权。
 
 Status: **PROPOSED / DESIGN ONLY / 待用户确认**。调查基线为 main `8cca4a45e5c9dfacef336e61728e239247fe3bca`，即 #863 实际合并提交；其准确 push/main CI 为 [39554937146](https://github.com/qq550723504/task-processor/actions/runs/39554937146)，已成功。本文不把该证据当成本设计未来实施的 CI，也不把源码退休当作运行验收。#301 保持 OPEN，#29 已源级关闭，不重开。

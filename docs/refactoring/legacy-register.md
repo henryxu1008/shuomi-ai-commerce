@@ -1,6 +1,6 @@
 # Legacy Register
 
-> #301 [数字上下文与共享值合同完整退休提案](../architecture/legacy-numeric-value-contract-closure-retirement-boundary.md)：设计基线为#867实际main23bde99ec；当前只调查/设计，未来Independent Architecture准入及用户确认前NOT_READY。一个批次覆盖旧日志/分片API、两个旧规则输入类型的5/8有效值抽取、来源别名赋值互填/旧Key退出。ProductImportMapping/两属性完整保持；四来源JSON零值槽位与原SRC编码/hash/拒绝合同保持，不新建兼容reader/codec或迁移。仅在用户确认准确矩阵后替代#867对应类型/行为的旧保留表述；当前采集/API/规则/身份/Store/独立SHEIN登录同步保持，源码/测试/workflow/inventory/真实环境零改，无新试用前置，#301 OPEN。
+> #301 / #868 [用户确认的数字上下文与共享值合同完整退休闭包](../architecture/legacy-numeric-value-contract-closure-retirement-boundary.md)：冻结设计01d8b8a50 §1–§7（含§6.1），Independent Architecture / IMPLEMENTATION_READY；原单Writer同一PR整批实施。两规则5/8有效字段先抽取至pricing/activity，旧数字日志/分片API、两旧规则类型、来源别名赋值互填/Key同批退出。ProductImportMapping/MappingInfo、两属性、四来源JSON零值槽位和原trim/发布清空、SRC编码/hash/读取拒绝合同完整保持，无兼容reader/codec、迁移或第二owner。仅精确替代#867对应两类型/别名行为的旧保留表述；当前采集/API/规则/身份/Store/独立SHEIN登录同步保持，workflow/inventory/依赖/真实环境零改，无新试用前置，#301 OPEN。
 
 > #301 / #867 [用户确认的数字采集与平台尾链完整闭包](../architecture/legacy-numeric-acquisition-tail-closure-retirement-boundary.md)：冻结设计 d3c33d86c §1–§7（含§6.1），Reuse Existing Architecture，单批 RETIRE 无装配的 platformbase/fetcher/sourceproduct、TaskEventV2、Amazon 数字 Task/HTTP/结果与专属运维源、SHEIN 数字 Cookie providers 和孤立数字成本/StoreInfo 适配。当前 Processor/browser、平台 API/规则、两种 SHEIN 属性、SourceKey/lineage、Organization/Store、独立登录/同步保持；Cookie 值转换与质量指标的既有纯值 helper 原样留给现有消费者，无新 owner。仅删七条 CURRENT inventory 行，历史/计数/ceilings和全部workflow不改；不触碰真实资源/数据/凭据，不增加试用前置，#301 OPEN。下文旧保留结论仅在此准确矩阵上成为历史。
 

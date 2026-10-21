@@ -90,43 +90,6 @@ func TestLoggerHelper_LogRetry(t *testing.T) {
 	helper.LogRetry("fetch_data", 1, 3, err)
 }
 
-func TestLoggerHelper_LogTaskStart(t *testing.T) {
-	InitGlobalLogger(&LogConfig{
-		Level:   "info",
-		Console: false,
-	})
-
-	logger := GetGlobalLogger("test")
-	helper := NewLoggerHelper(logger)
-
-	helper.LogTaskStart(12345, "PROD-001")
-}
-
-func TestLoggerHelper_LogTaskComplete(t *testing.T) {
-	InitGlobalLogger(&LogConfig{
-		Level:   "info",
-		Console: false,
-	})
-
-	logger := GetGlobalLogger("test")
-	helper := NewLoggerHelper(logger)
-
-	helper.LogTaskComplete(12345, 1500*time.Millisecond)
-}
-
-func TestLoggerHelper_LogTaskFailed(t *testing.T) {
-	InitGlobalLogger(&LogConfig{
-		Level:   "error",
-		Console: false,
-	})
-
-	logger := GetGlobalLogger("test")
-	helper := NewLoggerHelper(logger)
-
-	err := errors.New("task processing failed")
-	helper.LogTaskFailed(12345, err)
-}
-
 func TestLoggerHelper_LogAPICall(t *testing.T) {
 	InitGlobalLogger(&LogConfig{
 		Level:   "info",
@@ -203,24 +166,6 @@ func TestWithPlatform(t *testing.T) {
 	assert.Equal(t, "temu", logger.Data[FieldPlatform])
 }
 
-func TestWithTaskContext(t *testing.T) {
-	InitGlobalLogger(nil)
-
-	logger := WithTaskContext(12345, "PROD-001")
-	assert.NotNil(t, logger)
-	assert.Equal(t, int64(12345), logger.Data[FieldTaskID])
-	assert.Equal(t, "PROD-001", logger.Data[FieldProductID])
-}
-
-func TestWithStoreContext(t *testing.T) {
-	InitGlobalLogger(nil)
-
-	logger := WithStoreContext(100, 200)
-	assert.NotNil(t, logger)
-	assert.Equal(t, int64(100), logger.Data[FieldTenantID])
-	assert.Equal(t, int64(200), logger.Data[FieldStoreID])
-}
-
 func TestShouldLog(t *testing.T) {
 	// 0% 采样率
 	assert.False(t, ShouldLog(0.0))
@@ -259,17 +204,5 @@ func BenchmarkLoggerHelper_LogOperation(b *testing.B) {
 		_ = helper.LogOperation("test_op", func() error {
 			return nil
 		})
-	}
-}
-
-func BenchmarkWithTaskContext(b *testing.B) {
-	InitGlobalLogger(&LogConfig{
-		Level:   "info",
-		Console: false,
-	})
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_ = WithTaskContext(12345, "PROD-001")
 	}
 }
