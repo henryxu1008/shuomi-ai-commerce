@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"reflect"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -173,183 +172,36 @@ func (m *countingBlockingBrowserLaunchManager) Close() {
 	m.closeSignal.Do(func() { close(m.firstClose) })
 }
 
-func TestLaunchManagerWithTimeoutDefersCleanupUntilLaunchReturns(t *testing.T) {
-	manager := newBlockingBrowserLaunchManager()
-
-	done := make(chan error, 1)
-	go func() {
-		done <- launchManagerWithTimeout(manager, 20*time.Millisecond)
-	}()
-
-	select {
-	case <-manager.launchStarted:
-	case <-time.After(time.Second):
-		t.Fatal("Launch was not started")
-	}
-
-	var err error
-	select {
-	case err = <-done:
-	case <-time.After(time.Second):
-		t.Fatal("launchManagerWithTimeout did not return promptly after timeout")
-	}
-	if err == nil {
-		t.Fatal("launchManagerWithTimeout error = nil, want timeout")
-	}
-	if !errors.Is(err, context.DeadlineExceeded) {
-		t.Fatalf("launchManagerWithTimeout error = %v, want context.DeadlineExceeded", err)
-	}
-
-	select {
-	case <-manager.closed:
-		t.Fatal("Close should wait until Launch returns")
-	default:
-	}
-
-	close(manager.releaseLaunch)
-
-	select {
-	case <-manager.launchReturned:
-	case <-time.After(time.Second):
-		t.Fatal("Launch did not return after release")
-	}
-	if !strings.Contains(err.Error(), "SHEIN browser launch timed out after 20ms") {
-		t.Fatalf("launchManagerWithTimeout error = %v", err)
-	}
-	if shouldCloseManagerAfterStageError(err) {
-		t.Fatal("timeout error should skip immediate close because stage cleanup is deferred")
-	}
-	select {
-	case <-manager.closed:
-	case <-time.After(time.Second):
-		t.Fatal("Close was not called after Launch returned")
-	}
-}
-
-func TestRunBlockingStageWithContextCancellationDefersLaunchCleanup(t *testing.T) {
+// Cancellation is not evidence that a late browser Launch has closed.
+func TestCancelledBrowserStageWaitsForClosureProof(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
 	manager := newCountingBlockingBrowserLaunchManager()
-	launchTimeout := time.Minute
-	sharedCleanup := newOnceCleanup(manager.Close)
-
 	done := make(chan error, 1)
 	go func() {
-		done <- runBlockingStageWithContext(ctx, nil, func() error {
-			return launchManagerWithTimeoutAndCleanupContext(ctx, manager, launchTimeout, sharedCleanup)
-		})
+		done <- launchManagerWithTimeoutAndCleanupContext(ctx, manager, time.Minute, newOnceCleanup(manager.Close))
 	}()
-
-	select {
-	case <-manager.launchStarted:
-	case <-time.After(time.Second):
-		t.Fatal("Launch was not started")
-	}
-
-	if got := manager.closeCalls.Load(); got != 0 {
-		t.Fatalf("manager.Close called %d times before Launch returned, want 0", got)
-	}
-
+	<-manager.launchStarted
 	cancel()
-
 	select {
-	case err := <-done:
-		if !errors.Is(err, context.Canceled) {
-			t.Fatalf("runBlockingStageWithContext error = %v, want context.Canceled", err)
-		}
-	case <-time.After(time.Second):
-		t.Fatal("runBlockingStageWithContext did not return after cancellation")
+	case <-done:
+		t.Fatal("returned before owned launch/cleanup finished")
+	case <-time.After(30 * time.Millisecond):
 	}
-
-	if got := manager.closeCalls.Load(); got != 0 {
-		t.Fatalf("manager.Close called %d times before Launch returned after cancellation, want 0", got)
+	if manager.closeCalls.Load() != 0 {
+		t.Fatal("closed before Launch returned")
 	}
-
 	close(manager.releaseLaunch)
-
 	select {
-	case <-manager.launchReturned:
-	case <-time.After(time.Second):
-		t.Fatal("Launch did not return after release")
-	}
-
-	select {
-	case <-manager.firstClose:
-	case <-time.After(time.Second):
-		t.Fatal("cleanup did not run after Launch returned")
-	}
-
-	if manager.earlyClose.Load() {
-		t.Fatal("cleanup ran before Launch returned")
-	}
-
-	time.Sleep(50 * time.Millisecond)
-
-	if got := manager.closeCalls.Load(); got != 1 {
-		t.Fatalf("manager.Close called %d times, want 1", got)
-	}
-}
-
-func TestRunBlockingStageWithContextDefersCleanupUntilStageReturns(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	started := make(chan struct{})
-	release := make(chan struct{})
-	stageReturned := make(chan struct{})
-	closed := make(chan struct{})
-
-	done := make(chan error, 1)
-	go func() {
-		done <- runBlockingStageWithContext(ctx, func() {
-			select {
-			case <-closed:
-			default:
-				close(closed)
-			}
-		}, func() error {
-			close(started)
-			<-release
-			close(stageReturned)
-			return nil
-		})
-	}()
-
-	select {
-	case <-started:
-	case <-time.After(time.Second):
-		t.Fatal("blocking stage did not start")
-	}
-
-	cancel()
-
-	select {
-	case <-closed:
-		t.Fatal("cleanup should wait until the blocking stage returns")
-	default:
-	}
-
-	select {
-	case err := <-done:
-		if !errors.Is(err, context.Canceled) {
-			t.Fatalf("runBlockingStageWithContext error = %v, want context.Canceled", err)
+	case e := <-done:
+		if !errors.Is(e, context.Canceled) {
+			t.Fatal(e)
 		}
 	case <-time.After(time.Second):
-		t.Fatal("blocking stage did not return after cancellation")
+		t.Fatal("closure did not complete")
 	}
-
-	close(release)
-
-	select {
-	case <-stageReturned:
-	case <-time.After(time.Second):
-		t.Fatal("blocking stage goroutine did not return after release")
-	}
-	select {
-	case <-closed:
-	case <-time.After(time.Second):
-		t.Fatal("cleanup did not run after the blocking stage returned")
+	if manager.closeCalls.Load() != 1 || manager.earlyClose.Load() {
+		t.Fatal("closure proof invalid")
 	}
 }
 
@@ -451,7 +303,7 @@ func TestBlockingStageInterruptAfterReturnRunsCleanupOnce(t *testing.T) {
 
 func TestBuildAutomationBrowserConfigEnablesCloakBrowserMode(t *testing.T) {
 	account := Account{
-		StoreID: 869,
+		StoreID: "00000000-0000-4000-8000-000000000869",
 		Proxy:   "http://10.42.0.1:31069",
 	}
 	cfg := AutomationConfig{
@@ -468,27 +320,27 @@ func TestBuildAutomationBrowserConfigEnablesCloakBrowserMode(t *testing.T) {
 	if got := managerCfg.StealthProvider; got != "cloakbrowser" {
 		t.Fatalf("StealthProvider = %q, want %q", got, "cloakbrowser")
 	}
-	if got := managerCfg.FingerprintSeed; got != int32(account.StoreID) {
-		t.Fatalf("FingerprintSeed = %d, want %d", got, account.StoreID)
+	if got := managerCfg.FingerprintSeed; got != 0 {
+		t.Fatalf("FingerprintSeed = %d, want %d", got, 0)
 	}
 }
 
-func TestBuildAutomationBrowserConfigCanIgnoreStoreProxy(t *testing.T) {
+func TestBuildAutomationBrowserConfigUsesExplicitProxyDespiteRetiredEnvironment(t *testing.T) {
 	t.Setenv("TASK_PROCESSOR_SHEIN_IGNORE_STORE_PROXY", "1")
 	account := Account{
-		StoreID: 869,
+		StoreID: "00000000-0000-4000-8000-000000000869",
 		Proxy:   "http://10.42.0.1:31069",
 	}
 
 	managerCfg := buildAutomationBrowserConfig(account, AutomationConfig{})
 
-	if got := managerCfg.ProxyServer; got != "" {
-		t.Fatalf("ProxyServer = %q, want empty when proxy ignored", got)
+	if got := managerCfg.ProxyServer; got != account.Proxy {
+		t.Fatalf("ProxyServer = %q, want explicit binding proxy", got)
 	}
 }
 
 func TestBuildAutomationBrowserConfigKeepsDefaultModeForNonCloakBrowser(t *testing.T) {
-	account := Account{StoreID: 869}
+	account := Account{StoreID: "00000000-0000-4000-8000-000000000869"}
 	cfg := AutomationConfig{
 		BrowserPath:    "/app/chromium/chrome",
 		ViewportWidth:  1600,
@@ -531,7 +383,7 @@ func TestBuildAutomationBrowserConfigKeepsDefaultModeForNonCloakBrowser(t *testi
 }
 
 func TestBuildAutomationFingerprintAlignsWithBrowserConfig(t *testing.T) {
-	account := Account{StoreID: 869}
+	account := Account{StoreID: "00000000-0000-4000-8000-000000000869"}
 	cfg := buildAutomationBrowserConfig(account, AutomationConfig{ChromeVersion: "144"})
 
 	fp := buildAutomationFingerprint(account, cfg)

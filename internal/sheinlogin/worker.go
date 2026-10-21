@@ -2,524 +2,374 @@ package sheinlogin
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"os"
-	"strconv"
-	"strings"
+	"sync"
 	"time"
+
+	"github.com/google/uuid"
+	"task-processor/internal/storecenter"
 )
 
-// RunWorker consumes durable login attempts. It is intentionally hosted by a
-// dedicated process: a browser session stays owned by this worker through the
-// verification-code window and is never reconstructed in the API process.
+// RunWorker is the only browser execution entry. Producers never call it.
 func (s *Service) RunWorker(ctx context.Context, workerID string) error {
-	if s == nil || s.store == nil {
-		return fmt.Errorf("shein login worker is not initialized")
-	}
-	if err := s.store.EnsureLoginAttemptConsumerGroup(ctx); err != nil {
-		return fmt.Errorf("ensure SHEIN login consumer group: %w", err)
-	}
-	workerID = strings.TrimSpace(workerID)
 	if workerID == "" {
-		workerID = defaultLoginWorkerID()
+		workerID = uuid.NewString()
 	}
-
-	for {
-		if err := ctx.Err(); err != nil {
-			return nil
-		}
-		messages, err := s.store.ReadLoginAttemptJobs(ctx, workerID, time.Second)
-		if err != nil {
+	if e := s.store.EnsureGroup(ctx); e != nil {
+		return e
+	}
+	ctx, cancelWorker := context.WithCancel(ctx)
+	sem := make(chan struct{}, s.config.MaxConcurrentLogins)
+	var wg sync.WaitGroup
+	var running sync.Map
+	defer func() { cancelWorker(); wg.Wait() }()
+	for ctx.Err() == nil {
+		messages, e := s.store.ReadJobs(ctx, workerID)
+		if e != nil {
 			if ctx.Err() != nil {
 				return nil
 			}
-			return fmt.Errorf("read SHEIN login attempts: %w", err)
+			return e
 		}
 		for _, message := range messages {
-			if err := s.processLoginAttemptMessage(ctx, workerID, message.ID, message.Values); err != nil {
-				sheinLoginServiceLogger.WithError(err).WithField("worker_id", workerID).Error("process SHEIN login attempt")
+			id, _ := message.Values["attempt_id"].(string)
+			if !validUUID(id) {
+				_ = s.store.Ack(ctx, message.ID)
+				continue
 			}
-		}
-		if err := s.interruptStaleLoginAttempts(ctx, workerID); err != nil {
-			sheinLoginServiceLogger.WithError(err).WithField("worker_id", workerID).Warn("recover stale SHEIN login attempts")
-		}
-	}
-}
-
-func (s *Service) interruptStaleLoginAttempts(ctx context.Context, workerID string) error {
-	messages, err := s.store.ClaimStaleLoginAttemptJobs(ctx, workerID, 45*time.Second)
-	if err != nil || len(messages) == 0 {
-		return err
-	}
-	for _, message := range messages {
-		attemptID, _ := message.Values["attempt_id"].(string)
-		attempt, loadErr := s.store.LoadLoginAttempt(ctx, strings.TrimSpace(attemptID))
-		if loadErr != nil {
-			return loadErr
-		}
-		if attempt == nil || !attempt.Status.IsActive() {
-			if err := s.store.AcknowledgeLoginAttemptJob(ctx, message.ID); err != nil {
-				return err
+			select {
+			case sem <- struct{}{}:
+			case <-ctx.Done():
+				return nil
 			}
-			continue
+			running.Store(id, true)
+			wg.Add(1)
+			go func(attemptID, messageID string) {
+				defer wg.Done()
+				defer func() { <-sem; running.Delete(attemptID) }()
+				_ = s.processAttempt(ctx, attemptID)
+				if final, e := s.store.Load(context.WithoutCancel(ctx), attemptID); e == nil && !final.Status.IsActive() && final.SyncStatus != "pending" && final.SyncStatus != "unavailable" {
+					_ = s.store.Ack(context.WithoutCancel(ctx), messageID)
+				}
+			}(id, message.ID)
 		}
-		if err := s.completeLoginAttempt(ctx, attempt, LoginAttemptInterrupted, "WORKER_RESTARTED", "worker restarted before the browser session could be recovered", message.ID); err != nil {
-			return err
+		stale, e := s.store.Stale(ctx, workerID)
+		if e != nil && ctx.Err() == nil {
+			return ErrUnavailable
+		}
+		for _, message := range stale {
+			id, _ := message.Values["attempt_id"].(string)
+			if _, ok := running.Load(id); ok {
+				continue
+			}
+			a, e := s.store.Load(ctx, id)
+			if e == nil && a.Status == LoginAttemptSucceeded && (a.SyncStatus == "pending" || a.SyncStatus == "unavailable") {
+				if s.resumePending(ctx, *a) == nil {
+					_ = s.store.Ack(ctx, message.ID)
+				}
+				continue
+			}
+			if e == nil && a.Status.IsActive() {
+				_ = s.complete(ctx, *a, LoginAttemptInterrupted, "WORKER_INTERRUPTED")
+			}
+			// Reclaim acknowledges unrecoverable work; it NEVER clears Store ownership,
+			// starts a replacement browser or treats a terminal attempt as closure proof.
+			_ = s.store.Ack(ctx, message.ID)
 		}
 	}
 	return nil
 }
-
-func (s *Service) processLoginAttemptMessage(ctx context.Context, workerID, messageID string, values map[string]any) error {
-	attemptID, _ := values["attempt_id"].(string)
-	attemptID = strings.TrimSpace(attemptID)
-	if attemptID == "" {
-		return s.store.AcknowledgeLoginAttemptJob(ctx, messageID)
+func (s *Service) processAttempt(parent context.Context, id string) error {
+	a, e := s.store.Load(parent, id)
+	if e != nil {
+		return e
 	}
-	attempt, err := s.store.LoadLoginAttempt(ctx, attemptID)
-	if err != nil {
-		return err
-	}
-	if attempt == nil || !attempt.Status.IsActive() {
-		return s.store.AcknowledgeLoginAttemptJob(ctx, messageID)
-	}
-	now := time.Now().UTC()
-	attempt.Status = LoginAttemptLaunching
-	attempt.WorkerID = workerID
-	attempt.StartedAt = &now
-	updated, err := s.updateActiveAttemptState(ctx, attempt, messageID)
-	if err != nil {
-		return err
-	}
-	if !updated {
+	if !a.Status.IsActive() {
 		return nil
 	}
-
-	attemptCtx, cancelAttempt := context.WithCancel(ctx)
-	defer cancelAttempt()
-	control := s.startAttemptControlLoop(attemptCtx, attempt, cancelAttempt)
-	defer control.Stop()
-
-	account, err := s.provider.GetAccount(attemptCtx, attempt.TenantID, attempt.StoreID)
-	if err != nil {
-		if ctx.Err() != nil && !control.Cancelled() {
-			return nil
-		}
-		return s.completeLoginAttempt(context.Background(), attempt, LoginAttemptFailed, "LOGIN_ACCOUNT_FAILED", err.Error(), messageID)
+	parent = executionContext(parent, *a)
+	binding, e := s.config.Binding(a.Scope.OrganizationID, a.Scope.StoreID)
+	if e != nil {
+		return e
 	}
-	if !attempt.ForceLogin {
-		if ttl, ok, ttlErr := s.store.CookieTTL(attemptCtx, account.TenantID, account.StoreID); ttlErr == nil && ok && ttl > 0 {
-			result := s.existingCookieLoginResult(account, ttl)
-			return s.completeLoginAttempt(context.Background(), attempt, LoginAttemptSucceeded, "", result.Message, messageID)
-		} else if ttlErr != nil {
-			if ctx.Err() != nil && !control.Cancelled() {
-				return nil
+	scope := s.config.Scope(binding)
+	scope.Generation = a.Scope.Generation
+	if scope != a.Scope {
+		return ErrInvalidInput
+	}
+	nonce := uuid.NewString()
+	if e = s.owner.Claim(parent, a.Scope, a.ActorID, a.MemberID, a.ID, nonce); e != nil {
+		_ = s.complete(parent, *a, LoginAttemptFailed, safeCode(e))
+		return e
+	}
+	// Active ownership survives every error until this exact process has finished
+	// all browser/verification/HTTP work and can synchronously confirm closure.
+	ctx, cancel := context.WithTimeout(parent, 12*time.Minute)
+	var session VerifySession
+	closed := true
+	defer func() {
+		cancel()
+		if session != nil && session.Close() != nil {
+			closed = false
+		}
+		if closed {
+			closeCtx, done := context.WithTimeout(context.Background(), 10*time.Second)
+			defer done()
+			_ = s.owner.ConfirmClosed(closeCtx, a.Scope, a.ID, nonce)
+		}
+	}()
+	next := *a
+	next.OwnerNonce = nonce
+	next.Status = LoginAttemptLaunching
+	if e = s.store.CompareAndSwap(ctx, *a, next, nil); e != nil {
+		return e
+	}
+	*a = next
+	identity := *a
+	monitorCtx, stopMonitor := context.WithCancel(ctx)
+	monitorDone := make(chan struct{})
+	go func() {
+		defer close(monitorDone)
+		ticker := time.NewTicker(300 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-monitorCtx.Done():
+				return
+			case <-ticker.C:
+				current, e := s.store.Load(monitorCtx, identity.ID)
+				if e != nil || current.Status == LoginAttemptCancelled || current.Status == LoginAttemptInterrupted {
+					cancel()
+					return
+				}
+				if s.owner.CheckOwner(monitorCtx, scope, identity.ActorID, identity.MemberID, identity.ID, nonce) != nil {
+					cancel()
+					return
+				}
 			}
-			return s.completeLoginAttempt(context.Background(), attempt, LoginAttemptFailed, "LOGIN_STATUS_FAILED", ttlErr.Error(), messageID)
+		}
+	}()
+	defer func() { stopMonitor(); <-monitorDone }()
+	check := func() error { return s.owner.CheckOwner(ctx, scope, a.ActorID, a.MemberID, a.ID, nonce) }
+	account, e := binding.LoadAccount(ctx, scope)
+	if e != nil {
+		_ = s.complete(context.WithoutCancel(ctx), *a, LoginAttemptFailed, "CREDENTIAL_INPUT_UNAVAILABLE")
+		return e
+	}
+	var state map[string]any
+	if !a.ForceLogin {
+		var ok bool
+		state, ok, e = s.store.Cookie(ctx, scope)
+		if e != nil {
+			return e
+		}
+		if !ok {
+			state = nil
 		}
 	}
+	if state == nil {
+		if e = check(); e != nil {
+			return e
+		}
+		result, owned, e := s.automation.StartLogin(ctx, account, AutomationConfig{Headless: binding.Headless, ProfileRoot: s.config.ProfileRoot, ArtifactDir: s.config.ArtifactRoot, BrowserPath: s.config.BrowserPath, DriverDirectory: s.config.DriverDirectory, ViewportWidth: s.config.ViewportWidth, ViewportHeight: s.config.ViewportHeight})
+		session = owned
+		if e == nil && result != nil && result.WaitingForVerifyCode {
+			next = *a
+			next.Status = LoginAttemptWaitingVerifyCode
+			if e = s.store.CompareAndSwap(ctx, *a, next, nil); e == nil {
+				*a = next
+				result, e = s.waitVerification(ctx, *a, session, check)
+			}
+		}
+		if e != nil || result == nil || cookieCount(result.BrowserState) == 0 {
+			if current, loadErr := s.store.Load(context.WithoutCancel(ctx), a.ID); loadErr == nil && current.Status.IsActive() {
+				status, code := LoginAttemptFailed, "LOGIN_FAILED"
+				if ctx.Err() != nil {
+					status = LoginAttemptInterrupted
+					code = "EXECUTION_INTERRUPTED"
+				}
+				_ = s.complete(context.WithoutCancel(ctx), *current, status, code)
+			}
+			return ErrUnavailable
+		}
+		state = result.BrowserState
+	}
+	if e = check(); e != nil {
+		return e
+	}
+	next = *a
+	next.Status = LoginAttemptSucceeded
+	next.SyncStatus = "pending"
+	now := time.Now().UTC()
+	next.CompletedAt = &now
+	if e = s.store.CompareAndSwap(ctx, *a, next, state); e != nil {
+		return e
+	}
+	*a = next
+	return s.syncPending(ctx, a, account, state, check)
+}
 
-	runResult, session, runErr := s.runLoginStart(attemptCtx, account, LoginRequest{
-		ForceLogin: attempt.ForceLogin,
-		Headless:   attempt.Headless,
-	})
-	if runErr != nil {
-		if control.Cancelled() || errors.Is(runErr, context.Canceled) && control.Cancelled() {
-			return s.completeLoginAttempt(context.Background(), attempt, LoginAttemptCancelled, "LOGIN_CANCELLED", "verification cancelled by user", messageID)
-		}
-		if ctx.Err() != nil {
-			return nil
-		}
-		return s.completeLoginAttempt(context.Background(), attempt, LoginAttemptFailed, "LOGIN_FAILED", runErr.Error(), messageID)
+// Only a prior confirmed-close permits another executor to resume the original
+// bounded pending sync. A crashed/UNKNOWN browser owner remains fenced. This
+// path cannot launch a browser or persist/refresh a cookie.
+func (s *Service) resumePending(parent context.Context, a LoginAttempt) error {
+	parent = executionContext(parent, a)
+	binding, e := s.config.Binding(a.Scope.OrganizationID, a.Scope.StoreID)
+	if e != nil {
+		return e
 	}
-	if session != nil {
-		defer session.Close()
+	scope := s.config.Scope(binding)
+	scope.Generation = a.Scope.Generation
+	if scope != a.Scope {
+		return ErrInvalidInput
 	}
-	if runResult != nil && runResult.WaitingForVerifyCode {
-		if control.Cancelled() {
-			return s.completeLoginAttempt(context.Background(), attempt, LoginAttemptCancelled, "LOGIN_CANCELLED", "verification cancelled by user", messageID)
-		}
-		updated, err := s.transitionAttemptToVerifyWait(context.Background(), attempt, account, runResult, messageID)
-		if err != nil {
+	nonce := uuid.NewString()
+	if e = s.owner.Claim(parent, scope, a.ActorID, a.MemberID, a.ID, nonce); e != nil {
+		return e
+	}
+	defer func() {
+		closeCtx, done := context.WithTimeout(context.Background(), 10*time.Second)
+		defer done()
+		_ = s.owner.ConfirmClosed(closeCtx, scope, a.ID, nonce)
+	}()
+	ctx, cancel := context.WithTimeout(parent, 45*time.Second)
+	defer cancel()
+	next := a
+	next.OwnerNonce = nonce
+	next.SyncStatus = "pending"
+	if e = s.store.CompareAndSwap(ctx, a, next, nil); e != nil {
+		return e
+	}
+	a = next
+	state, ok, e := s.store.Cookie(ctx, scope)
+	if e != nil || !ok {
+		return ErrUnavailable
+	}
+	// A readonly identity request needs endpoint/proxy metadata, never a password.
+	account, e := binding.LoadAccount(ctx, scope)
+	if e != nil {
+		return e
+	}
+	check := func() error { return s.owner.CheckOwner(ctx, scope, a.ActorID, a.MemberID, a.ID, nonce) }
+	return s.syncPending(ctx, &a, account, state, check)
+}
+func (s *Service) syncPending(ctx context.Context, a *LoginAttempt, account Account, state map[string]any, check func() error) error {
+	scope := a.Scope
+	nonce := a.OwnerNonce
+	next := *a
+	var e error
+	if e = check(); e != nil {
+		return e
+	}
+	merchant := a.MerchantID
+	if merchant == "" {
+		merchant, e = s.identityReader.Merchant(ctx, account, state)
+	}
+	if e != nil {
+		next = *a
+		next.SyncStatus = "unavailable"
+		next.ErrorCode = "IDENTITY_READ_UNAVAILABLE"
+		if err := s.store.CompareAndSwap(context.WithoutCancel(ctx), *a, next, nil); err != nil {
 			return err
 		}
-		if !updated {
-			return nil
+		if next.SyncStatus == "unavailable" {
+			return ErrUnavailable
 		}
-		// Keep the stream entry pending while this process owns the browser
-		// session. If the worker exits, another worker can claim the entry and
-		// mark the otherwise unrecoverable session as interrupted.
-		return s.waitForAttemptVerifyCode(ctx, attemptCtx, attempt, account, session, control, messageID)
-	}
-	if runResult != nil && runResult.BrowserState != nil {
-		return s.completeSuccessfulAttempt(context.Background(), attempt, account, runResult.BrowserState, "login succeeded", messageID)
-	}
-	message := "SHEIN login failed"
-	errorCode := "LOGIN_FAILED"
-	if runResult != nil {
-		message = failureMessage(runResult)
-		if runResult.ErrorCode != "" {
-			errorCode = runResult.ErrorCode
-		}
-	}
-	return s.completeFailedLoginAttempt(context.Background(), attempt, errorCode, message, messageID, runResultFailureSummary(runResult))
-}
-
-func (s *Service) updateActiveAttemptState(ctx context.Context, attempt *LoginAttempt, messageID string) (bool, error) {
-	if attempt == nil {
-		return false, nil
-	}
-	updated, err := s.store.UpdateLoginAttemptIfActive(ctx, attempt)
-	if err != nil {
-		return false, err
-	}
-	if updated {
-		return true, nil
-	}
-	current, err := s.store.LoadLoginAttempt(ctx, attempt.ID)
-	if err != nil {
-		return false, err
-	}
-	if current != nil {
-		*attempt = *current
-	}
-	if strings.TrimSpace(messageID) == "" {
-		return false, nil
-	}
-	if current == nil || !current.Status.IsActive() {
-		if err := s.store.AcknowledgeLoginAttemptJob(ctx, messageID); err != nil {
-			return false, err
-		}
-	}
-	return false, nil
-}
-
-type loginAttemptControlEvent struct {
-	code      string
-	received  bool
-	cancelled bool
-	err       error
-}
-
-type loginAttemptControlLoop struct {
-	events    chan loginAttemptControlEvent
-	done      chan struct{}
-	cancelled chan struct{}
-	stop      context.CancelFunc
-}
-
-func (l *loginAttemptControlLoop) Cancelled() bool {
-	if l == nil {
-		return false
-	}
-	select {
-	case <-l.cancelled:
-		return true
-	default:
-		return false
-	}
-}
-
-func (l *loginAttemptControlLoop) markCancelled() {
-	if l == nil {
-		return
-	}
-	select {
-	case <-l.cancelled:
-	default:
-		close(l.cancelled)
-	}
-}
-
-func (l *loginAttemptControlLoop) Stop() {
-	if l == nil {
-		return
-	}
-	l.stop()
-	<-l.done
-}
-
-func (s *Service) startAttemptControlLoop(ctx context.Context, attempt *LoginAttempt, cancelAttempt context.CancelFunc) *loginAttemptControlLoop {
-	loopCtx, stop := context.WithCancel(ctx)
-	loop := &loginAttemptControlLoop{
-		events:    make(chan loginAttemptControlEvent, 4),
-		done:      make(chan struct{}),
-		cancelled: make(chan struct{}),
-		stop:      stop,
-	}
-	go func() {
-		defer close(loop.done)
-		defer close(loop.events)
-		if attempt == nil {
-			return
-		}
-		for {
-			code, received, cancelled, err := s.store.WaitAndConsumeVerifyCodeOrCancel(loopCtx, attempt.TenantID, attempt.StoreID, attempt.ID, time.Second)
-			if err != nil {
-				if loopCtx.Err() != nil {
-					return
-				}
-				select {
-				case loop.events <- loginAttemptControlEvent{err: err}:
-				case <-loopCtx.Done():
-				}
-				return
-			}
-			if cancelled {
-				loop.markCancelled()
-				select {
-				case loop.events <- loginAttemptControlEvent{cancelled: true}:
-				case <-loopCtx.Done():
-				}
-				cancelAttempt()
-				return
-			}
-			if received {
-				select {
-				case loop.events <- loginAttemptControlEvent{code: code, received: true}:
-				case <-loopCtx.Done():
-					return
-				}
-			}
-		}
-	}()
-	return loop
-}
-
-type loginAttemptWaitResult struct {
-	result *AutomationResult
-	err    error
-}
-
-func waitForLoginResult(ctx context.Context, session VerifySession) <-chan loginAttemptWaitResult {
-	watcher, ok := session.(VerifySessionLoginWatcher)
-	if !ok || watcher == nil {
 		return nil
 	}
-	ch := make(chan loginAttemptWaitResult, 1)
-	go func() {
-		result, err := watcher.WaitForLogin(ctx)
-		ch <- loginAttemptWaitResult{result: result, err: err}
-		close(ch)
-	}()
-	return ch
+	if a.MerchantID == "" {
+		st, e := s.owner.ReadStore(ctx, scope, a.ActorID, a.MemberID)
+		if e != nil {
+			return e
+		}
+		next = *a
+		next.MerchantID = merchant
+		next.ExpectedStoreVersion = st.Version
+		if e = s.store.CompareAndSwap(ctx, *a, next, nil); e != nil {
+			return e
+		}
+		*a = next
+	}
+	if e = check(); e != nil {
+		return e
+	}
+	receipt, e := s.owner.RecordSheinLoginIdentity(ctx, storecenter.SheinIdentityCommand{Scope: scope, ActorID: a.ActorID, MemberID: a.MemberID, AttemptID: a.ID, OwnerNonce: nonce, ExpectedStoreVersion: a.ExpectedStoreVersion, MerchantID: a.MerchantID})
+	next = *a
+	if e != nil {
+		next.SyncStatus = "unavailable"
+		next.ErrorCode = "STORE_SYNC_UNAVAILABLE"
+	} else {
+		next.SyncStatus = receipt.Status
+		if receipt.Status == "blocked" {
+			next.ErrorCode = "SYNC_BLOCKED"
+		}
+	}
+	// A response-loss replay keeps exactly the fixed payload; it never logs in or
+	// derives a new merchant/version. The Store receipt is the durable authority.
+	if e != nil && ctx.Err() == nil {
+		receipt, replayErr := s.owner.RecordSheinLoginIdentity(ctx, storecenter.SheinIdentityCommand{Scope: scope, ActorID: a.ActorID, MemberID: a.MemberID, AttemptID: a.ID, OwnerNonce: nonce, ExpectedStoreVersion: a.ExpectedStoreVersion, MerchantID: a.MerchantID})
+		if replayErr == nil {
+			next.SyncStatus = receipt.Status
+			next.ErrorCode = ""
+			if receipt.Status == "blocked" {
+				next.ErrorCode = "SYNC_BLOCKED"
+			}
+		}
+	}
+	if err := s.store.CompareAndSwap(context.WithoutCancel(ctx), *a, next, nil); err != nil {
+		return err
+	}
+	if next.SyncStatus == "unavailable" {
+		return ErrUnavailable
+	}
+	return nil
 }
 
-func (s *Service) waitForAttemptVerifyCode(parentCtx, attemptCtx context.Context, attempt *LoginAttempt, account *Account, session VerifySession, control *loginAttemptControlLoop, messageID string) error {
-	if attempt == nil || account == nil || session == nil {
-		return nil
+func (s *Service) waitVerification(ctx context.Context, a LoginAttempt, session VerifySession, check func() error) (*AutomationResult, error) {
+	if session == nil {
+		return nil, ErrUnavailable
 	}
-	verifyCtx, cancel := context.WithTimeout(attemptCtx, 10*time.Minute)
+	waitCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
-	waitCh := waitForLoginResult(verifyCtx, session)
-	var controlEvents <-chan loginAttemptControlEvent
-	if control != nil {
-		controlEvents = control.events
+	type watched struct {
+		result *AutomationResult
+		err    error
 	}
+	results := make(chan watched, 1)
+	done := make(chan struct{})
+	if watcher, ok := session.(VerifySessionLoginWatcher); ok {
+		go func() { defer close(done); r, e := watcher.WaitForLogin(waitCtx); results <- watched{r, e} }()
+	} else {
+		close(done)
+	}
+	defer func() { cancel(); <-done }()
+	ticker := time.NewTicker(250 * time.Millisecond)
+	defer ticker.Stop()
 	for {
 		select {
-		case <-parentCtx.Done():
-			if control.Cancelled() {
-				return s.completeLoginAttempt(context.Background(), attempt, LoginAttemptCancelled, "LOGIN_CANCELLED", "verification cancelled by user", messageID)
+		case <-waitCtx.Done():
+			return nil, waitCtx.Err()
+		case v := <-results:
+			if v.err == nil && v.result != nil && cookieCount(v.result.BrowserState) > 0 {
+				return v.result, nil
 			}
-			// Do not acknowledge or complete the attempt on worker shutdown. The
-			// pending stream job is the durable recovery signal for the next worker.
-			return nil
-		case <-verifyCtx.Done():
-			if control.Cancelled() {
-				return s.completeLoginAttempt(context.Background(), attempt, LoginAttemptCancelled, "LOGIN_CANCELLED", "verification cancelled by user", messageID)
+		case <-ticker.C:
+			code, e := s.store.ConsumeCode(waitCtx, a.ID)
+			if e != nil {
+				return nil, e
 			}
-			if parentCtx.Err() != nil {
-				return nil
-			}
-			if errors.Is(verifyCtx.Err(), context.DeadlineExceeded) {
-				return s.completeLoginAttempt(context.Background(), attempt, LoginAttemptFailed, "VERIFY_CODE_TIMEOUT", "verification code wait expired", messageID)
-			}
-			return s.completeLoginAttempt(context.Background(), attempt, LoginAttemptFailed, "VERIFY_CODE_WAIT_FAILED", verifyCtx.Err().Error(), messageID)
-		case event, ok := <-controlEvents:
-			if !ok {
-				controlEvents = nil
+			if code == "" {
 				continue
 			}
-			if event.err != nil {
-				if control.Cancelled() {
-					return s.completeLoginAttempt(context.Background(), attempt, LoginAttemptCancelled, "LOGIN_CANCELLED", "verification cancelled by user", messageID)
-				}
-				if parentCtx.Err() != nil {
-					return nil
-				}
-				return s.completeLoginAttempt(context.Background(), attempt, LoginAttemptFailed, "VERIFY_CODE_WAIT_FAILED", event.err.Error(), messageID)
+			if e = check(); e != nil {
+				return nil, e
 			}
-			if event.cancelled {
-				return s.completeLoginAttempt(context.Background(), attempt, LoginAttemptCancelled, "LOGIN_CANCELLED", "verification cancelled by user", messageID)
+			result, e := session.SubmitCode(waitCtx, code)
+			if e != nil {
+				return nil, e
 			}
-			if !event.received {
-				continue
+			if result != nil && cookieCount(result.BrowserState) > 0 {
+				return result, nil
 			}
-			runResult, err := session.SubmitCode(verifyCtx, event.code)
-			if err != nil {
-				if control != nil && control.Cancelled() {
-					return s.completeLoginAttempt(context.Background(), attempt, LoginAttemptCancelled, "LOGIN_CANCELLED", "verification cancelled by user", messageID)
-				}
-				if parentCtx.Err() != nil {
-					return nil
-				}
-				if errors.Is(verifyCtx.Err(), context.DeadlineExceeded) {
-					return s.completeLoginAttempt(context.Background(), attempt, LoginAttemptFailed, "VERIFY_CODE_TIMEOUT", "verification code wait expired", messageID)
-				}
-				return s.completeLoginAttempt(context.Background(), attempt, LoginAttemptFailed, "VERIFY_CODE_SUBMIT_FAILED", err.Error(), messageID)
-			}
-			done, finishErr := s.finishAttemptVerifyResult(attempt, account, runResult, messageID)
-			if finishErr != nil || done {
-				return finishErr
-			}
-		case waitResult, ok := <-waitCh:
-			if !ok {
-				waitCh = nil
-				continue
-			}
-			if waitResult.err != nil || waitResult.result == nil || waitResult.result.BrowserState == nil {
-				waitCh = nil
-				continue
-			}
-			return s.completeSuccessfulAttempt(context.Background(), attempt, account, waitResult.result.BrowserState, "login succeeded", messageID)
 		}
 	}
-}
-
-func (s *Service) finishAttemptVerifyResult(attempt *LoginAttempt, account *Account, runResult *AutomationResult, messageID string) (bool, error) {
-	if attempt == nil || account == nil {
-		return true, nil
-	}
-	if runResult != nil && runResult.BrowserState != nil {
-		return true, s.completeSuccessfulAttempt(context.Background(), attempt, account, runResult.BrowserState, "login succeeded", messageID)
-	}
-	if runResult != nil && runResult.WaitingForVerifyCode {
-		updated, err := s.transitionAttemptToVerifyWait(context.Background(), attempt, account, runResult, messageID)
-		if err != nil {
-			return true, err
-		}
-		if !updated {
-			return true, nil
-		}
-		return false, nil
-	}
-	return true, s.completeFailedLoginAttempt(
-		context.Background(),
-		attempt,
-		failureCode(runResult),
-		failureMessage(runResult),
-		messageID,
-		runResultFailureSummary(runResult),
-	)
-}
-
-func (s *Service) completeLoginAttempt(ctx context.Context, attempt *LoginAttempt, status LoginAttemptStatus, errorCode, message, messageID string) error {
-	return s.completeLoginAttemptWithFailureSummary(ctx, attempt, status, errorCode, message, messageID, nil)
-}
-
-func (s *Service) completeFailedLoginAttempt(ctx context.Context, attempt *LoginAttempt, errorCode, message, messageID string, summary *FailureSummary) error {
-	return s.completeLoginAttemptWithFailureSummary(ctx, attempt, LoginAttemptFailed, errorCode, message, messageID, summary)
-}
-
-func (s *Service) completeLoginAttemptWithFailureSummary(ctx context.Context, attempt *LoginAttempt, status LoginAttemptStatus, errorCode, message, messageID string, summary *FailureSummary) error {
-	if attempt == nil {
-		return nil
-	}
-	statusBeforeCompletion := attempt.Status
-	now := time.Now().UTC()
-	attempt.Status = status
-	attempt.ErrorCode = errorCode
-	attempt.Message = message
-	attempt.CompletedAt = &now
-	completed, err := s.store.CompleteLoginAttemptIfActive(ctx, attempt)
-	if err != nil {
-		return err
-	}
-	if completed && status == LoginAttemptFailed {
-		s.persistCommittedWorkerFailure(ctx, attempt, statusBeforeCompletion, errorCode, message, summary)
-	}
-	if !completed {
-		current, loadErr := s.store.LoadLoginAttempt(ctx, attempt.ID)
-		if loadErr != nil {
-			return loadErr
-		}
-		if current != nil {
-			*attempt = *current
-		}
-	}
-	if strings.TrimSpace(messageID) == "" {
-		return nil
-	}
-	return s.store.AcknowledgeLoginAttemptJob(ctx, messageID)
-}
-
-func (s *Service) transitionAttemptToVerifyWait(ctx context.Context, attempt *LoginAttempt, account *Account, runResult *AutomationResult, messageID string) (bool, error) {
-	if attempt == nil || account == nil {
-		return false, nil
-	}
-	summary := runResultFailureSummary(runResult)
-	if summary == nil {
-		summary = verifyCodeFailureSummary(account)
-	}
-	attempt.Status = LoginAttemptWaitingVerifyCode
-	attempt.Message = summary.ErrorMessage
-	attempt.ErrorCode = summary.ErrorCode
-	updated, err := s.store.PersistVerifyWaitAndUpdateAttemptIfActive(ctx, attempt, summary, 10*time.Minute, 30*24*time.Hour)
-	if err != nil {
-		return false, err
-	}
-	if updated {
-		return true, nil
-	}
-	current, loadErr := s.store.LoadLoginAttempt(ctx, attempt.ID)
-	if loadErr != nil {
-		return false, loadErr
-	}
-	if current != nil {
-		*attempt = *current
-	}
-	if strings.TrimSpace(messageID) == "" {
-		return false, nil
-	}
-	return false, s.store.AcknowledgeLoginAttemptJob(ctx, messageID)
-}
-
-func (s *Service) completeSuccessfulAttempt(ctx context.Context, attempt *LoginAttempt, account *Account, browserState map[string]any, message, messageID string) error {
-	if attempt == nil || account == nil {
-		return nil
-	}
-	now := time.Now().UTC()
-	attempt.Status = LoginAttemptSucceeded
-	attempt.ErrorCode = ""
-	attempt.Message = message
-	attempt.CompletedAt = &now
-	completed, err := s.store.CompleteSuccessfulLoginAttemptIfActive(ctx, attempt, browserState, now)
-	if err != nil {
-		return err
-	}
-	if completed {
-		s.syncStoreIDAfterLogin(ctx, *account)
-	} else {
-		current, loadErr := s.store.LoadLoginAttempt(ctx, attempt.ID)
-		if loadErr != nil {
-			return loadErr
-		}
-		if current != nil {
-			*attempt = *current
-		}
-	}
-	if strings.TrimSpace(messageID) == "" {
-		return nil
-	}
-	return s.store.AcknowledgeLoginAttemptJob(ctx, messageID)
-}
-
-func defaultLoginWorkerID() string {
-	host, err := os.Hostname()
-	if err != nil || strings.TrimSpace(host) == "" {
-		host = "shein-login-worker"
-	}
-	return host + "-" + strconv.Itoa(os.Getpid())
 }

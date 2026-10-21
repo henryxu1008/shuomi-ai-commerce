@@ -90,17 +90,6 @@ platforms:
   shein:
     fetchMode: "local"       # 本地开发默认直接走本地浏览器抓取，避免误走 shared distributed 配置
     # SHEIN 登录态刷新配置；cookie 失效时调用 login 服务重新登录并回写 Redis
-    loginService:
-      baseURL: "http://localhost:8000"
-      sharedKey: ""
-      tenantID: "1"
-      identifier: "2"
-    cookieRedis:
-      host: "localhost"
-      port: 6379
-      password: ""
-      db: 9
-
     # ListingKit 上架资料定价配置；关闭时沿用 SDS 成本/价格
 
 

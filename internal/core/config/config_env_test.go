@@ -265,36 +265,6 @@ func TestNewViper_BindsRedisEnvironmentVariables(t *testing.T) {
 	assert.Equal(t, "legacy-pass", v.GetString("redis.password"))
 }
 
-func TestNewViper_BindsSheinCookieRedisEnvironmentVariables(t *testing.T) {
-	t.Setenv("TASK_PROCESSOR_SHEIN_COOKIE_REDIS_HOST", "login-redis.example")
-	t.Setenv("TASK_PROCESSOR_SHEIN_COOKIE_REDIS_PORT", "6379")
-	t.Setenv("TASK_PROCESSOR_SHEIN_COOKIE_REDIS_PASSWORD", "cookie-pass")
-	t.Setenv("TASK_PROCESSOR_SHEIN_COOKIE_REDIS_DB", "9")
-
-	v := newViper()
-
-	assert.Equal(t, "login-redis.example", v.GetString("platforms.shein.cookieRedis.host"))
-	assert.Equal(t, 6379, v.GetInt("platforms.shein.cookieRedis.port"))
-	assert.Equal(t, "cookie-pass", v.GetString("platforms.shein.cookieRedis.password"))
-	assert.Equal(t, 9, v.GetInt("platforms.shein.cookieRedis.db"))
-}
-
-func TestNewViper_BindsSheinLoginServiceDefaultHeadlessEnvironmentVariable(t *testing.T) {
-	t.Setenv("TASK_PROCESSOR_SHEIN_LOGIN_SERVICE_DEFAULT_HEADLESS", "true")
-
-	v := newViper()
-
-	assert.True(t, v.GetBool("platforms.shein.loginService.defaultHeadless"))
-}
-
-func TestNewViper_BindsSheinLoginServiceForceHeadlessEnvironmentVariable(t *testing.T) {
-	t.Setenv("TASK_PROCESSOR_SHEIN_LOGIN_SERVICE_FORCE_HEADLESS", "true")
-
-	v := newViper()
-
-	assert.True(t, v.GetBool("platforms.shein.loginService.forceHeadless"))
-}
-
 func TestNewViper_BindsSDSLoginServiceEnvironmentVariables(t *testing.T) {
 	t.Setenv("TASK_PROCESSOR_SDS_LOGIN_SERVICE_BASE_URL", "http://login.svc:8000")
 	t.Setenv("TASK_PROCESSOR_SDS_LOGIN_SERVICE_SHARED_KEY", "sds-key")

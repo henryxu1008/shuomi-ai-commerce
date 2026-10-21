@@ -2,7 +2,9 @@ package sheinlogin
 
 import (
 	"context"
+	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -13,6 +15,7 @@ import (
 )
 
 type AutomationConfig struct {
+	DriverDirectory   string
 	Headless          bool
 	ProfileRoot       string
 	ArtifactDir       string
@@ -71,8 +74,8 @@ func validatedCookieOnlyBrowserState(cookies any) (map[string]any, error) {
 }
 
 type artifactMetadata struct {
-	TenantID               int64            `json:"tenant_id"`
-	StoreID                int64            `json:"store_id"`
+	OrganizationID         string           `json:"organization_id"`
+	StoreID                string           `json:"store_id"`
 	Username               string           `json:"username"`
 	Stage                  string           `json:"stage"`
 	Error                  string           `json:"error"`
@@ -104,7 +107,6 @@ type artifactMetadata struct {
 }
 
 type Automation interface {
-	Login(ctx context.Context, account Account, cfg AutomationConfig, store *RedisStore) (*AutomationResult, error)
 	StartLogin(ctx context.Context, account Account, cfg AutomationConfig) (*AutomationResult, VerifySession, error)
 }
 
@@ -149,58 +151,37 @@ var sheinLoginErrorSelectors = []string{
 	"[role='dialog']",
 }
 
-func (a *PlaywrightAutomation) Login(ctx context.Context, account Account, cfg AutomationConfig, store *RedisStore) (*AutomationResult, error) {
-	result, session, err := a.StartLogin(ctx, account, cfg)
-	if err != nil {
-		return nil, err
-	}
-	if result.WaitingForVerifyCode {
-		defer session.Close()
-		if store != nil {
-			_ = store.SetVerifyWait(ctx, account.TenantID, account.StoreID, 10*time.Minute)
-			if code, ok, consumeErr := store.WaitAndConsumeVerifyCode(ctx, account.TenantID, account.StoreID, 10*time.Minute); consumeErr != nil {
-				return nil, consumeErr
-			} else if ok && strings.TrimSpace(code) != "" {
-				return session.SubmitCode(ctx, code)
-			}
-		} else {
-			<-ctx.Done()
-			return nil, ctx.Err()
-		}
-		return &AutomationResult{
-			WaitingForVerifyCode: true,
-			ErrorCode:            "VERIFY_CODE_REQUIRED",
-			ErrorMessage:         "登录等待验证码",
-		}, nil
-	}
-	if session != nil {
-		defer session.Close()
-	}
-	return result, nil
-}
-
 func (a *PlaywrightAutomation) StartLogin(ctx context.Context, account Account, cfg AutomationConfig) (*AutomationResult, VerifySession, error) {
-	profileDir, err := resolveProfileDir(cfg.ProfileRoot, account.TenantID, account.StoreID)
+	profileDir, err := prepareProfile(cfg.ProfileRoot, account)
 	if err != nil {
 		return nil, nil, err
 	}
-	if err := os.MkdirAll(profileDir, 0o755); err != nil {
+	if err := os.MkdirAll(profileDir, 0o700); err != nil {
 		return nil, nil, err
+	}
+	if !filepath.IsAbs(cfg.BrowserPath) || !filepath.IsAbs(cfg.DriverDirectory) {
+		return nil, nil, ErrInvalidInput
+	}
+	if info, err := os.Lstat(cfg.BrowserPath); err != nil || !info.Mode().IsRegular() {
+		return nil, nil, ErrInvalidInput
 	}
 	managerCfg := buildAutomationBrowserConfig(account, cfg)
 	manager := sharedbrowser.NewManager(managerCfg)
+	owned := &ownedBrowserSession{manager: manager}
 	manager.SetUserDataDir(profileDir)
 	manager.SetFingerprint(buildAutomationFingerprint(account, managerCfg))
 	launchCleanup := newOnceCleanup(manager.Close)
 	if err := ctx.Err(); err != nil {
 		closeManagerProfile(manager, profileDir)
-		return nil, nil, err
+		return nil, owned, err
 	}
-	if err := runBlockingStageWithContext(ctx, launchCleanup, manager.Install); err != nil {
+	if err := runBlockingStageWithContext(ctx, launchCleanup, func() error {
+		return manager.RunDriver(&playwright.RunOptions{DriverDirectory: cfg.DriverDirectory, SkipInstallBrowsers: true, Stdout: io.Discard, Stderr: io.Discard})
+	}); err != nil {
 		if shouldCloseManagerAfterStageError(err) {
 			closeManagerProfile(manager, profileDir)
 		}
-		return nil, nil, err
+		return nil, owned, err
 	}
 	if err := runBlockingStageWithContext(ctx, nil, func() error {
 		return launchManagerWithProfileRecoveryContext(ctx, manager, profileDir, launchCleanup)
@@ -208,13 +189,13 @@ func (a *PlaywrightAutomation) StartLogin(ctx context.Context, account Account, 
 		if shouldCloseManagerAfterStageError(err) {
 			closeManagerProfile(manager, profileDir)
 		}
-		return nil, nil, err
+		return nil, owned, err
 	}
 
 	page, err := manager.NewPage()
 	if err != nil {
 		closeManagerProfile(manager, profileDir)
-		return nil, nil, err
+		return nil, owned, err
 	}
 	_ = installPageNetworkCapture(page)
 	if err := runBlockingStageWithContext(ctx, func() {
@@ -229,22 +210,22 @@ func (a *PlaywrightAutomation) StartLogin(ctx context.Context, account Account, 
 		if shouldCloseManagerAfterStageError(err) {
 			closeManagerProfile(manager, profileDir)
 		}
-		return nil, nil, err
+		return nil, owned, err
 	}
 	surface, err := waitForLoginSurface(ctx, page)
 	if err != nil {
 		if ctx.Err() != nil {
 			closeManagerProfile(manager, profileDir)
-			return nil, nil, ctx.Err()
+			return nil, owned, ctx.Err()
 		}
 		result, resultErr := artifactResult(page, cfg.ArtifactDir, account, "wait_login_surface", err)
 		closeManagerProfile(manager, profileDir)
-		return result, nil, resultErr
+		return result, owned, resultErr
 	}
 	if surface == loginSurfaceAuthenticated {
 		result, resultErr := exportAuthenticatedBrowserState(ctx, manager, page, account, cfg.ArtifactDir, profileDir, "export_state_already_logged_in")
 		closeManagerProfile(manager, profileDir)
-		return result, nil, resultErr
+		return result, owned, resultErr
 	}
 	if surface == loginSurfaceVerifyCode {
 		return &AutomationResult{
@@ -262,32 +243,32 @@ func (a *PlaywrightAutomation) StartLogin(ctx context.Context, account Account, 
 	if err := fillLogin(ctx, page, account); err != nil {
 		if ctx.Err() != nil {
 			closeManagerProfile(manager, profileDir)
-			return nil, nil, ctx.Err()
+			return nil, owned, ctx.Err()
 		}
 		result, resultErr := artifactResult(page, cfg.ArtifactDir, account, "fill_login", err)
 		closeManagerProfile(manager, profileDir)
-		return result, nil, resultErr
+		return result, owned, resultErr
 	}
 	waitForDeviceContextReady(ctx, page, 12*time.Second)
 	if err := submitLogin(ctx, page); err != nil {
 		if ctx.Err() != nil {
 			closeManagerProfile(manager, profileDir)
-			return nil, nil, ctx.Err()
+			return nil, owned, ctx.Err()
 		}
 		result, resultErr := artifactResult(page, cfg.ArtifactDir, account, "submit_login", err)
 		closeManagerProfile(manager, profileDir)
-		return result, nil, resultErr
+		return result, owned, resultErr
 	}
 	if waiting, err := waitForLoginOutcome(ctx, page); err != nil {
 		if ctx.Err() != nil {
 			closeManagerProfile(manager, profileDir)
-			return nil, nil, ctx.Err()
+			return nil, owned, ctx.Err()
 		}
 		_ = settleAfterSubmit(ctx, page, 8*time.Second)
 		if loggedIn, loginErr := isLoggedIn(page); loginErr == nil && loggedIn {
 			result, resultErr := exportAuthenticatedBrowserState(ctx, manager, page, account, cfg.ArtifactDir, profileDir, "export_state_after_recover")
 			closeManagerProfile(manager, profileDir)
-			return result, nil, resultErr
+			return result, owned, resultErr
 		}
 		if verifyRequired, verifyErr := isVerifyCodeRequired(page); verifyErr == nil && verifyRequired {
 			return &AutomationResult{
@@ -304,7 +285,7 @@ func (a *PlaywrightAutomation) StartLogin(ctx context.Context, account Account, 
 		}
 		result, resultErr := artifactResult(page, cfg.ArtifactDir, account, "wait_login", err)
 		closeManagerProfile(manager, profileDir)
-		return result, nil, resultErr
+		return result, owned, resultErr
 	} else if waiting {
 		return &AutomationResult{
 				WaitingForVerifyCode: true,
@@ -321,5 +302,5 @@ func (a *PlaywrightAutomation) StartLogin(ctx context.Context, account Account, 
 
 	result, resultErr := exportAuthenticatedBrowserState(ctx, manager, page, account, cfg.ArtifactDir, profileDir, "export_state")
 	closeManagerProfile(manager, profileDir)
-	return result, nil, resultErr
+	return result, owned, resultErr
 }

@@ -10,7 +10,6 @@ COPY cmd/shein-login-worker/ cmd/shein-login-worker/
 COPY cmd/playwright-installer/ cmd/playwright-installer/
 COPY cmd/fingerprint-browser-installer/ cmd/fingerprint-browser-installer/
 COPY internal/ internal/
-COPY config/ config/
 
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
@@ -28,11 +27,11 @@ WORKDIR /app
 ENV TZ=Asia/Shanghai
 ENV FINGERPRINT_CHROME_VERSION=144
 ENV FINGERPRINT_CHROME_DIR=/app/chrome
+ENV PLAYWRIGHT_DRIVER_PATH=/app/playwright-driver
 
 COPY --from=builder /out/shein-login-worker /app/shein-login-worker
 COPY --from=builder /out/playwright-installer /usr/local/bin/playwright-installer
 COPY --from=builder /out/fingerprint-browser-installer /usr/local/bin/fingerprint-browser-installer
-COPY --from=builder /src/config /app/config
 
 # Bake and verify Chrome in the Worker image so it never downloads a browser at
 # login time or depends on an image-external /opt path.
@@ -44,4 +43,5 @@ RUN chmod +x /usr/local/bin/playwright-installer /usr/local/bin/fingerprint-brow
     chmod +x /app/shein-login-worker
 
 EXPOSE 8086
-CMD ["/app/shein-login-worker", "-config", "config/config-prod.yaml", "-log-level", "info", "-health-port", "8086"]
+ENTRYPOINT ["/app/shein-login-worker"]
+CMD ["-config", "/run/shein-login-worker/current.json", "-log-level", "info", "-health-port", "8086"]

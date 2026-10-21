@@ -2,8 +2,6 @@
 package client
 
 import (
-	"fmt"
-
 	"github.com/sirupsen/logrus"
 )
 
@@ -12,7 +10,6 @@ type AuthManager struct {
 	config        *AuthConfig
 	retryHandler  RetryHandler
 	errorDetector ErrorDetector
-	pauseHandler  PauseHandler
 	logger        *logrus.Entry
 }
 
@@ -20,14 +17,12 @@ type AuthManager struct {
 func NewAuthManager(logger *logrus.Entry) *AuthManager {
 	config := DefaultAuthConfig()
 	errorDetector := NewTemuErrorDetector(config, logger)
-	pauseHandler := NewTemuPauseHandler(logger)
-	retryHandler := NewTemuRetryHandler(config, errorDetector, pauseHandler, logger)
+	retryHandler := NewTemuRetryHandler(config, errorDetector, logger)
 
 	return &AuthManager{
 		config:        config,
 		retryHandler:  retryHandler,
 		errorDetector: errorDetector,
-		pauseHandler:  pauseHandler,
 		logger:        logger,
 	}
 }
@@ -37,14 +32,12 @@ func NewAuthManagerWithDependencies(
 	config *AuthConfig,
 	retryHandler RetryHandler,
 	errorDetector ErrorDetector,
-	pauseHandler PauseHandler,
 	logger *logrus.Entry,
 ) *AuthManager {
 	return &AuthManager{
 		config:        config,
 		retryHandler:  retryHandler,
 		errorDetector: errorDetector,
-		pauseHandler:  pauseHandler,
 		logger:        logger,
 	}
 }
@@ -63,41 +56,7 @@ func (a *AuthManager) SendRequestWithAuth(client ClientAPI, request map[string]a
 // validateCookies 验证Cookie状态
 func (a *AuthManager) validateCookies(client ClientAPI) error {
 	if !client.HasCookies() {
-		a.logger.Warnf("店铺ID=%d没有Cookie数据，尝试重新加载Cookie", client.GetStoreID())
-
-		// 尝试重新加载Cookie
-		if err := client.ReloadCookies(); err != nil {
-			a.logger.Errorf("重新加载Cookie失败: %v", err)
-
-			// 设置暂停键
-			if pauseErr := a.pauseHandler.SetPauseKeyForAuthExpired(client, "从管理系统获取Cookie失败: Cookie数据为空"); pauseErr != nil {
-				a.logger.Errorf("设置暂停键失败: %v", pauseErr)
-			}
-
-			return NewAuthExpiredError(
-				fmt.Sprintf("店铺ID=%d没有Cookie数据且重新加载失败，请先在管理系统中设置Cookie", client.GetStoreID()),
-				err,
-			)
-		}
-
-		// 再次检查Cookie
-		if !client.HasCookies() {
-			a.logger.Warn("Cookie数据为空")
-
-			if pauseErr := a.pauseHandler.SetPauseKeyForAuthExpired(client, "Cookie数据为空"); pauseErr != nil {
-				a.logger.Errorf("设置暂停键失败: %v", pauseErr)
-			}
-
-			return NewAuthExpiredError(
-				fmt.Sprintf("店铺ID=%d没有Cookie数据，请先在管理系统中设置Cookie", client.GetStoreID()),
-				nil,
-			)
-		}
-
-		a.logger.Infof("成功重新加载Cookie，数量: %d", client.GetCookieCount())
-	} else {
-		a.logger.Debugf("Cookie检查通过，数量: %d", client.GetCookieCount())
+		return NewAuthExpiredError("explicit TEMU session required", nil)
 	}
-
 	return nil
 }

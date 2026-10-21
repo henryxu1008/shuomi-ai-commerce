@@ -73,14 +73,6 @@ platforms:
   shein:
     fetchMode: "local"       # SHEIN 上架服务直接走本地浏览器抓取，不依赖爬虫 API / 分布式队列
     # SHEIN 登录态刷新配置；线上 k8s 通过集群内 login Service 调用登录 API
-    loginService:
-      baseURL: "http://login:8000"
-      sharedKey: ""
-      defaultHeadless: true
-
-
-
-
   # SDS 登录态刷新配置；线上 k8s 通过集群内 login Service 调用登录 API
   sds:
     loginService:

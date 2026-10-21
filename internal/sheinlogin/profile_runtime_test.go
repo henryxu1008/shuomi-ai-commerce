@@ -7,54 +7,26 @@ import (
 	"testing"
 )
 
-func TestResolveProfileDirReturnsAbsolutePath(t *testing.T) {
-	dir, err := resolveProfileDir("./.local/tmp/shein-login/profiles", 1, 2)
-	if err != nil {
-		t.Fatalf("resolveProfileDir: %v", err)
+func TestProfileUsesCurrentScopeAndRejectsRelativeRoot(t *testing.T) {
+	scope := fixtureAttempt().Scope
+	if _, e := resolveProfileDir("relative", scope); e == nil {
+		t.Fatal("relative root accepted")
 	}
-	if !filepath.IsAbs(dir) {
-		t.Fatalf("expected absolute path, got %s", dir)
-	}
-	if filepath.Base(dir) != "2" || filepath.Base(filepath.Dir(dir)) != "1" {
-		t.Fatalf("unexpected profile dir structure: %s", dir)
-	}
-}
-
-func TestClearProfileLockFiles(t *testing.T) {
 	root := t.TempDir()
-	for _, name := range profileLockFiles {
-		if err := os.WriteFile(filepath.Join(root, name), []byte("lock"), 0o644); err != nil {
-			t.Fatalf("write %s: %v", name, err)
-		}
+	dir, e := resolveProfileDir(root, scope)
+	if e != nil {
+		t.Fatal(e)
 	}
-	if !clearProfileLockFiles(root) {
-		t.Fatal("expected lock files to be cleared")
+	if !filepath.IsAbs(dir) || filepath.Base(dir) != scope.BindingRevision || filepath.Base(filepath.Dir(dir)) != scope.StoreID {
+		t.Fatal(dir)
 	}
-	for _, name := range profileLockFiles {
-		if _, err := os.Stat(filepath.Join(root, name)); !os.IsNotExist(err) {
-			t.Fatalf("expected %s to be removed, err=%v", name, err)
-		}
+	scope.OrganizationID = "org-b"
+	other, e := resolveProfileDir(root, scope)
+	if e != nil || other == dir {
+		t.Fatal("organizations share profile")
 	}
-}
-
-func TestTrimProfileDirRemovesCacheDirectories(t *testing.T) {
-	root := t.TempDir()
-	targets := []string{
-		filepath.Join(root, "Default", "Cache"),
-		filepath.Join(root, "Crashpad"),
-	}
-	for _, target := range targets {
-		if err := os.MkdirAll(target, 0o755); err != nil {
-			t.Fatalf("mkdir %s: %v", target, err)
-		}
-	}
-	if removed := trimProfileDir(root); removed < len(targets) {
-		t.Fatalf("expected at least %d directories removed, got %d", len(targets), removed)
-	}
-	for _, target := range targets {
-		if _, err := os.Stat(target); !os.IsNotExist(err) {
-			t.Fatalf("expected %s to be removed, err=%v", target, err)
-		}
+	if _, e = os.Stat(filepath.Join(root, "SingletonLock")); !os.IsNotExist(e) {
+		t.Fatal("profile resolver touched files")
 	}
 }
 

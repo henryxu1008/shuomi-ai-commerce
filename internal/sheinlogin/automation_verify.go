@@ -91,7 +91,7 @@ func (s *playwrightVerifySession) Close() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.manager != nil {
-		closeManagerProfile(s.manager, s.profileDir)
+		return s.manager.CloseWithResult()
 	}
 	return nil
 }
@@ -143,3 +143,12 @@ func submitVerifyCode(ctx context.Context, page playwright.Page, code string) er
 	}
 	return clickWithFallback(page, button)
 }
+
+// Non-verification results still return their owner so the worker can inspect
+// closure errors even when the automation already attempted cleanup.
+type ownedBrowserSession struct{ manager *sharedbrowser.Manager }
+
+func (s *ownedBrowserSession) SubmitCode(context.Context, string) (*AutomationResult, error) {
+	return nil, ErrInvalidInput
+}
+func (s *ownedBrowserSession) Close() error { return s.manager.CloseWithResult() }

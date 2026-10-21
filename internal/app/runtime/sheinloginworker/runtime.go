@@ -2,184 +2,203 @@ package sheinloginworker
 
 import (
 	"context"
-	"errors"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/sirupsen/logrus"
-
 	"task-processor/internal/app/configadapter"
-	"task-processor/internal/core/config"
-	"task-processor/internal/listingadmin"
-	platformdatabase "task-processor/internal/platform/database"
-	sheinloginbootstrap "task-processor/internal/sheinlogin/bootstrap"
+	"task-processor/internal/authruntime/zitadel"
+	"task-processor/internal/authz"
+	memberstore "task-processor/internal/integration/persistence/organization/membership"
+	"task-processor/internal/platform/database"
+	"task-processor/internal/sheinlogin"
+	"task-processor/internal/sheinlogin/bootstrap"
+	"task-processor/internal/storecenter"
 )
 
-var errSheinLoginWorkerUnavailable = errors.New("SHEIN login worker is unavailable")
-
-type sheinLoginWorkerRuntimeDependencies struct {
-	LoadConfig            func(string) (*config.Config, error)
-	BuildDatabaseStoreAPI func(*config.Config) (listingadmin.StoreAPI, listingadmin.StoreRepository, func() error, error)
-	BuildLoginService     func(*config.Config, listingadmin.StoreAPI, listingadmin.StoreRepository) (*sheinloginbootstrap.BuildResult, func() error, error)
-}
-
-type sheinLoginWorkerRuntime struct {
-	result  *sheinloginbootstrap.BuildResult
+type runtime struct {
+	config  sheinlogin.Config
+	service *sheinlogin.Service
+	auth    *sheinlogin.Authorization
 	closers []func() error
 }
 
-func (r *sheinLoginWorkerRuntime) Close() error {
-	if r == nil {
-		return nil
+func (r *runtime) Close() {
+	for i := len(r.closers) - 1; i >= 0; i-- {
+		_ = r.closers[i]()
 	}
-	var closeErrors []error
-	for _, closeFn := range r.closers {
-		if closeFn == nil {
-			continue
-		}
-		if err := closeFn(); err != nil {
-			closeErrors = append(closeErrors, err)
-		}
-	}
-	return errors.Join(closeErrors...)
 }
-
-// Run starts only the dependencies required by the dedicated
-// browser worker. It deliberately does not construct an HTTP server.
-func Run(logger *logrus.Logger, options Options) error {
-	workerRuntime, err := buildSheinLoginWorkerRuntime(options.ConfigPath)
-	if err != nil {
-		return fmt.Errorf("build SHEIN login worker runtime: %w", err)
+func build(ctx context.Context, path string) (*runtime, error) {
+	cfg, e := sheinlogin.LoadConfig(ctx, path)
+	if e != nil {
+		return nil, e
 	}
+	r := &runtime{config: cfg}
+	success := false
 	defer func() {
-		if err := workerRuntime.Close(); err != nil {
-			logger.WithError(err).Warn("close SHEIN login worker runtime")
+		if !success {
+			r.Close()
 		}
 	}()
-	result := workerRuntime.result
-	var healthServer *http.Server
-	if options.Port > 0 {
+	db, e := database.OpenExistingWritableContext(ctx, configadapter.Database(&cfg.StoreDatabase))
+	if e != nil {
+		return nil, sheinlogin.ErrUnavailable
+	}
+	r.closers = append(r.closers, func() error { return database.Close(db) })
+	if storecenter.VerifySheinLoginRuntime(ctx, db) != nil {
+		return nil, sheinlogin.ErrUnavailable
+	}
+	permissions, e := authz.NewListingKitAuthorizer(nil, nil)
+	if e != nil {
+		return nil, sheinlogin.ErrUnavailable
+	}
+	if cfg.Auth.RolePolicyDatabase != nil {
+		if cfg.Auth.RolePolicyDatabase.User != memberstore.RolePolicyReaderRole {
+			return nil, sheinlogin.ErrInvalidInput
+		}
+		policyDB, e := database.OpenExistingReadOnlyContext(ctx, configadapter.Database(cfg.Auth.RolePolicyDatabase))
+		if e != nil {
+			return nil, sheinlogin.ErrUnavailable
+		}
+		r.closers = append(r.closers, func() error { return database.Close(policyDB) })
+		reader, e := memberstore.NewRolePolicyReader(ctx, policyDB, cfg.Auth.ProjectID)
+		if e != nil {
+			return nil, sheinlogin.ErrUnavailable
+		}
+		permissions.SetRolePolicyReader(reader)
+	}
+	secret, e := sheinlogin.ReadPrivate(ctx, cfg.Auth.ClientSecretFile, 65536)
+	if e != nil {
+		return nil, e
+	}
+	httpClient := &http.Client{Timeout: 5 * time.Second}
+	r.auth = &sheinlogin.Authorization{Verifier: zitadel.NewVerifier(zitadel.Config{IssuerURL: cfg.Auth.IssuerURL, ClientID: cfg.Auth.ClientID, ClientSecret: strings.TrimSpace(string(secret)), ProjectID: cfg.Auth.ProjectID, HTTPClient: httpClient}), Grants: zitadel.NewAuthorizationClient(cfg.Auth.AuthorizationAPIURL, httpClient), ServiceToken: func(ctx context.Context) (string, error) {
+		data, e := sheinlogin.ReadPrivate(ctx, cfg.Auth.ServiceTokenFile, 65536)
+		return strings.TrimSpace(string(data)), e
+	}, ProjectID: cfg.Auth.ProjectID, IssuerURL: cfg.Auth.IssuerURL, ClientID: cfg.Auth.ClientID, Permissions: permissions}
+	owner, e := storecenter.NewSheinLoginRepository(db, r.auth)
+	if e != nil {
+		return nil, e
+	}
+	result, e := bootstrap.BuildService(bootstrap.BuildInput{Config: cfg, Owner: owner})
+	if e != nil {
+		return nil, e
+	}
+	r.service = result.Service
+	r.closers = append(r.closers, result.Close)
+	success = true
+	return r, nil
+}
+func Run(logger *logrus.Logger, o Options) error {
+	if o.Action == "" {
+		o.Action = "serve"
+	}
+	switch o.Action {
+	case "serve", "login", "status", "verify", "cancel", "activate", "quiesce":
+	default:
+		return sheinlogin.ErrInvalidInput
+	}
+	if o.Input == nil {
+		o.Input = os.Stdin
+	}
+	if o.Output == nil {
+		o.Output = os.Stdout
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	signalCh := o.ShutdownSignal
+	if signalCh == nil {
+		signalCh = make(chan os.Signal, 1)
+		signal.Notify(signalCh, os.Interrupt, syscall.SIGTERM)
+		defer signal.Stop(signalCh)
+	}
+	go func() {
+		select {
+		case <-signalCh:
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+	startup, done := context.WithTimeout(ctx, 15*time.Second)
+	r, e := build(startup, o.ConfigPath)
+	done()
+	if e != nil {
+		return e
+	}
+	defer r.Close()
+	if o.Action != "serve" {
+		commandCtx, done := context.WithTimeout(ctx, 30*time.Second)
+		defer done()
+		return execute(commandCtx, r.service, r.auth, o)
+	}
+	if o.OrganizationID != "" || o.StoreID != "" || o.TokenFile != "" || o.AttemptID != "" || o.RequestKey != "" || o.ForceLogin {
+		return sheinlogin.ErrInvalidInput
+	}
+	if e = sheinlogin.PrepareOwnedRoots(r.config); e != nil {
+		return e
+	}
+	if o.Port > 0 {
 		mux := http.NewServeMux()
-		mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-			health := result.Service.Health(r.Context())
-			if !health.Initialized || !health.RedisReady || !health.ManagementReady {
+		mux.HandleFunc("/healthz", func(w http.ResponseWriter, req *http.Request) {
+			check, done := context.WithTimeout(req.Context(), time.Second)
+			defer done()
+			ready := r.service.Ready(check)
+			w.Header().Set("Content-Type", "application/json")
+			if !ready {
 				w.WriteHeader(http.StatusServiceUnavailable)
 			}
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = fmt.Fprintf(w, `{"initialized":%t,"redis_ready":%t,"management_ready":%t}`+"\n", health.Initialized, health.RedisReady, health.ManagementReady)
+			_ = json.NewEncoder(w).Encode(map[string]bool{"ready": ready})
 		})
-		healthServer = &http.Server{Addr: fmt.Sprintf(":%d", options.Port), Handler: mux}
+		server := &http.Server{Addr: fmt.Sprintf(":%d", o.Port), Handler: mux, ReadHeaderTimeout: 5 * time.Second}
 		go func() {
-			if err := healthServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-				logger.WithError(err).Error("SHEIN login worker health server exited")
+			if e := server.ListenAndServe(); e != nil && e != http.ErrServerClosed {
+				logger.Error("SHEIN worker health server unavailable")
+				cancel()
 			}
 		}()
 		defer func() {
-			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), options.shutdownTimeout())
-			defer shutdownCancel()
-			_ = healthServer.Shutdown(shutdownCtx)
+			shutdown, done := context.WithTimeout(context.Background(), o.shutdownTimeout())
+			defer done()
+			_ = server.Shutdown(shutdown)
 		}()
 	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	sigChan := options.ShutdownSignal
-	if sigChan == nil {
-		sigChan = make(chan os.Signal, 1)
-		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-		defer signal.Stop(sigChan)
-	}
-	go func() {
-		<-sigChan
-		cancel()
-	}()
-
-	return result.Service.RunWorker(ctx, "")
+	return r.service.RunWorker(ctx, "")
 }
 
-func loadSheinLoginWorkerConfig(configPath string) (*config.Config, error) {
-	cfg, err := config.LoadConfigFromFileWithoutValidation(configPath)
-	if err != nil {
-		return nil, fmt.Errorf("load config: %w", err)
-	}
-	login := &cfg.Platforms.Shein.LoginService
-	login.BaseURL = ""
-	login.SharedKey = ""
-	login.TenantID = ""
-	login.Identifier = ""
-	login.MerchantName = ""
-	login.Username = ""
-	login.Password = ""
-	return cfg, nil
+type commandService interface {
+	Execute(context.Context, sheinlogin.Command) (sheinlogin.Result, error)
+}
+type commandAuth interface {
+	Authenticate(context.Context, string, string) (context.Context, string, string, error)
 }
 
-func buildSheinLoginWorkerRuntime(configPath string) (*sheinLoginWorkerRuntime, error) {
-	return buildSheinLoginWorkerRuntimeWithDependencies(configPath, sheinLoginWorkerRuntimeDependencies{
-		LoadConfig:            loadSheinLoginWorkerConfig,
-		BuildDatabaseStoreAPI: buildSheinLoginWorkerDatabaseStoreAPI,
-		BuildLoginService:     buildSheinLoginWorkerService,
-	})
-}
-
-func buildSheinLoginWorkerRuntimeWithDependencies(configPath string, dependencies sheinLoginWorkerRuntimeDependencies) (*sheinLoginWorkerRuntime, error) {
-	if dependencies.LoadConfig == nil || dependencies.BuildDatabaseStoreAPI == nil || dependencies.BuildLoginService == nil {
-		return nil, fmt.Errorf("SHEIN login worker runtime dependencies are incomplete")
+func execute(ctx context.Context, service commandService, auth commandAuth, o Options) error {
+	token, e := sheinlogin.ReadPrivate(ctx, o.TokenFile, 65536)
+	if e != nil {
+		return e
 	}
-
-	cfg, err := dependencies.LoadConfig(configPath)
-	if err != nil {
-		return nil, err
+	authorized, actor, member, e := auth.Authenticate(ctx, strings.TrimSpace(string(token)), o.OrganizationID)
+	if e != nil {
+		return e
 	}
-
-	storeAPI, accountRepository, storeCloser, err := dependencies.BuildDatabaseStoreAPI(cfg)
-	if err != nil {
-		return nil, fmt.Errorf("build SHEIN login worker database StoreAPI: %w", err)
+	code := ""
+	if o.Action == "verify" {
+		data, e := io.ReadAll(io.LimitReader(o.Input, 65537))
+		if e != nil || len(data) > 65536 {
+			return sheinlogin.ErrInvalidInput
+		}
+		code = strings.TrimSpace(string(data))
 	}
-
-	result, loginCloser, err := dependencies.BuildLoginService(cfg, storeAPI, accountRepository)
-	if err != nil {
-		return nil, errors.Join(fmt.Errorf("build SHEIN login worker service: %w", err), closeWorkerRuntimeClosers(loginCloser, storeCloser))
+	result, e := service.Execute(authorized, sheinlogin.Command{Action: o.Action, OrganizationID: o.OrganizationID, StoreID: o.StoreID, ActorID: actor, MemberID: member, RequestKey: o.RequestKey, AttemptID: o.AttemptID, ForceLogin: o.ForceLogin, Code: code, ExpectedGeneration: o.ExpectedGeneration})
+	if e != nil {
+		return e
 	}
-	if result == nil || result.Service == nil {
-		return nil, errors.Join(errSheinLoginWorkerUnavailable, closeWorkerRuntimeClosers(loginCloser, storeCloser))
-	}
-
-	return &sheinLoginWorkerRuntime{
-		result:  result,
-		closers: []func() error{loginCloser, storeCloser},
-	}, nil
-}
-
-func buildSheinLoginWorkerDatabaseStoreAPI(cfg *config.Config) (listingadmin.StoreAPI, listingadmin.StoreRepository, func() error, error) {
-	if cfg == nil || cfg.Database == nil || strings.TrimSpace(cfg.Database.Host) == "" {
-		return nil, nil, nil, nil
-	}
-	db, err := platformdatabase.Open(configadapter.Database(cfg.Database))
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	repository := listingadmin.NewGormStoreRepository(db)
-	return listingadmin.NewGormStoreAPI(repository), repository, func() error {
-		return platformdatabase.Close(db)
-	}, nil
-}
-
-func closeWorkerRuntimeClosers(closers ...func() error) error {
-	runtime := &sheinLoginWorkerRuntime{closers: closers}
-	return runtime.Close()
-}
-
-func buildSheinLoginWorkerService(cfg *config.Config, storeAPI listingadmin.StoreAPI, accountRepository listingadmin.StoreRepository) (*sheinloginbootstrap.BuildResult, func() error, error) {
-	result, err := sheinloginbootstrap.BuildService(sheinloginbootstrap.BuildInput{Config: cfg, StoreAPI: storeAPI, AccountRepository: accountRepository})
-	if err != nil {
-		return nil, nil, err
-	}
-	if result == nil {
-		return nil, nil, nil
-	}
-	return result, result.Close, nil
+	return json.NewEncoder(o.Output).Encode(result)
 }

@@ -1,6 +1,7 @@
 package browser
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -18,6 +19,7 @@ type Manager struct {
 	userAgents  []string
 	generator   *FingerprintGenerator
 	userDataDir string // 用户数据目录（用于持久化上下文）
+	closeErr    error
 	installer   *PlaywrightInstaller
 }
 
@@ -75,12 +77,15 @@ func (m *Manager) Launch() error {
 
 	// 启动浏览器上下文
 	browser, context, err := launcher.Launch(userAgent)
+	m.browser = browser
+	m.context = context
 	if err != nil {
+		if browser == nil && context == nil {
+			m.closeErr = errors.Join(m.closeErr, ErrBrowserClosureUnknown)
+		}
 		return err
 	}
 
-	m.browser = browser
-	m.context = context
 	return nil
 }
 
@@ -118,19 +123,40 @@ func (m *Manager) NavigateTo(page playwright.Page, url string) error {
 
 // Close 关闭浏览器，并将所有字段置 nil，
 // 使后续 NewPage() 等调用能立即检测到已关闭状态而不是 hang 住。
-func (m *Manager) Close() {
+var ErrBrowserClosureUnknown = errors.New("browser closure is unconfirmed")
+
+func (m *Manager) Close() { _ = m.CloseWithResult() }
+
+// CloseWithResult preserves native errors across repeated Close calls. A nil
+// field after a failed close is not proof that the owned browser stopped.
+func (m *Manager) CloseWithResult() error {
 	if m.context != nil {
-		m.context.Close()
+		m.closeErr = errors.Join(m.closeErr, m.context.Close())
 		m.context = nil
 	}
 	if m.browser != nil {
-		m.browser.Close()
+		m.closeErr = errors.Join(m.closeErr, m.browser.Close())
 		m.browser = nil
 	}
 	if m.pw != nil {
-		(*m.pw).Stop()
+		m.closeErr = errors.Join(m.closeErr, (*m.pw).Stop())
 		m.pw = nil
 	}
+	return m.closeErr
+}
+
+// RunDriver initializes an explicitly provisioned driver without shared-cache
+// fallback, auto-installation or downloads. Other callers retain Install().
+func (m *Manager) RunDriver(options *playwright.RunOptions) error {
+	if options == nil || !filepath.IsAbs(options.DriverDirectory) {
+		return fmt.Errorf("explicit driver directory required")
+	}
+	pw, err := playwright.Run(options)
+	if err != nil {
+		return err
+	}
+	m.pw = pw
+	return nil
 }
 
 // GetContext 获取浏览器上下文（供子类使用）

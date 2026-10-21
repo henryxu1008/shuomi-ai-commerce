@@ -46,22 +46,7 @@ func (b *BaseAPIClient) createHeaders(requestURL string) map[string]string {
 	apiPath := b.extractAPIPath(requestURL)
 
 	// 基础请求头配置
-	headers := map[string]string{
-		"priority":           "u=1, i",
-		"referer":            baseURL + "/",
-		"sec-ch-ua":          `"Google Chrome";v="138", "Chromium";v="138", "Not/A)Brand";v="24"`,
-		"sec-ch-ua-mobile":   "?0",
-		"sec-ch-ua-platform": `"Windows"`,
-		"sec-fetch-dest":     "empty",
-		"sec-fetch-mode":     "cors",
-		"sec-fetch-site":     "same-origin",
-		"user-agent":         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36",
-	}
-
-	// 添加标准请求头
-	headers["front-version"] = "20250207"
-	headers["x-lt-language"] = "CN"
-	headers["x-req-zone-id"] = "America/Los_Angeles"
+	headers := sessionHeaders(baseURL, apiPath)
 
 	// 根据API路径设置特定请求头（仅保留必要的）
 	switch {

@@ -82,20 +82,20 @@ func normalizeText(value string) string {
 }
 
 func artifactResult(page playwright.Page, root string, account Account, stage string, cause error) (*AutomationResult, error) {
-	if strings.TrimSpace(root) == "" {
+	if _, err := safeArtifactRoot(root, account); err != nil {
 		return nil, cause
 	}
-	dir := filepath.Join(root, fmt.Sprintf("%d_%d_%s_%d", account.TenantID, account.StoreID, stage, time.Now().Unix()))
-	_ = os.MkdirAll(dir, 0o755)
+	dir := filepath.Join(root, fmt.Sprintf("%s_%s_%d", scopeFingerprint(account.Scope), stage, time.Now().UnixNano()))
+	_ = os.MkdirAll(dir, 0o700)
 	metadata := collectArtifactMetadata(page, account, stage, cause)
 	if bytes, err := page.Screenshot(playwright.PageScreenshotOptions{FullPage: playwright.Bool(true)}); err == nil {
-		_ = os.WriteFile(filepath.Join(dir, "page.png"), bytes, 0o644)
+		_ = os.WriteFile(filepath.Join(dir, "page.png"), bytes, 0o600)
 	}
 	if html, err := page.Content(); err == nil {
-		_ = os.WriteFile(filepath.Join(dir, "page.html"), []byte(html), 0o644)
+		_ = os.WriteFile(filepath.Join(dir, "page.html"), []byte(html), 0o600)
 	}
 	if payload, err := json.MarshalIndent(metadata, "", "  "); err == nil {
-		_ = os.WriteFile(filepath.Join(dir, "metadata.json"), payload, 0o644)
+		_ = os.WriteFile(filepath.Join(dir, "metadata.json"), payload, 0o600)
 	}
 	errorCode := classifyLoginFailure(metadata)
 	if errors.Is(cause, ErrNoUsableCookie) {
@@ -126,12 +126,12 @@ func artifactResult(page playwright.Page, root string, account Account, stage st
 func collectArtifactMetadata(page playwright.Page, account Account, stage string, cause error) artifactMetadata {
 	debugEnabled := sheinLoginDebugEnabled()
 	metadata := artifactMetadata{
-		TenantID:   account.TenantID,
-		StoreID:    account.StoreID,
-		Username:   account.Username,
-		Stage:      stage,
-		Error:      cause.Error(),
-		CapturedAt: time.Now().Format(time.RFC3339),
+		OrganizationID: account.OrganizationID,
+		StoreID:        account.StoreID,
+		Username:       account.Username,
+		Stage:          stage,
+		Error:          cause.Error(),
+		CapturedAt:     time.Now().Format(time.RFC3339),
 	}
 	if page == nil {
 		metadata.ErrorCode = classifyLoginFailure(metadata)

@@ -2,1243 +2,174 @@ package sheinlogin
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"os"
-	"path/filepath"
-	"strconv"
-	"strings"
-	"sync"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"reflect"
 	"time"
 
-	"task-processor/internal/core/config"
 	"task-processor/internal/core/logger"
-	"task-processor/internal/listingadmin"
-	sheinother "task-processor/internal/shein/api/other"
-	sheinwarehouse "task-processor/internal/shein/api/warehouse"
-	sheinclient "task-processor/internal/shein/client"
+	"task-processor/internal/storecenter"
 )
-
-type LocalRefresher interface {
-	ForceLogin(ctx context.Context, tenantID int64, storeID int64) error
-}
-
-type Service struct {
-	provider           AccountProvider
-	store              *RedisStore
-	runtime            *Runtime
-	automation         Automation
-	defaultHeadless    bool
-	forceHeadless      bool
-	executionMode      string
-	profileRoot        string
-	artifactDir        string
-	browserPath        string
-	chromeVersion      string
-	chromeDownloadDir  string
-	viewportWidth      int
-	viewportHeight     int
-	sessionsMu         sync.Mutex
-	sessions           map[verifySessionKey]VerifySession
-	sheinAPIClientFor  func(account Account) *sheinclient.APIClient
-	resolveStoreID     func(ctx context.Context, account Account) (int64, error)
-	storeClientFor     func(tenantID int64) StoreSyncClient
-	findDuplicateStore func(ctx context.Context, account Account, actualStoreID string) (*listingadmin.StoreRespDTO, error)
-}
-
-type verifySessionKey struct {
-	tenantID int64
-	storeID  int64
-}
-
-type StoreSyncClient interface {
-	UpdateStoreId(req *listingadmin.StoreIdUpdateReqDTO) (bool, error)
-	UpdateStoreStatus(req *listingadmin.StoreStatusUpdateReqDTO) (bool, error)
-}
 
 var sheinLoginServiceLogger = logger.GetGlobalLogger("sheinlogin_service")
 
-const maxAutomaticVerifyCodesPerDay = 2
-
-func NewService(cfg config.LoginServiceConfig, redisCfg config.RedisConfig, browserCfg config.BrowserConfig, provider AccountProvider) (*Service, error) {
-	store, err := NewRedisStore(redisCfg)
-	if err != nil {
-		return nil, err
-	}
-	runtime := NewRuntime(cfg.MaxConcurrentLogins)
-	return &Service{
-		provider:          provider,
-		store:             store,
-		runtime:           runtime,
-		automation:        NewPlaywrightAutomation(),
-		defaultHeadless:   cfg.DefaultHeadless,
-		forceHeadless:     cfg.ForceHeadless,
-		executionMode:     normalizeLoginExecutionMode(cfg.ExecutionMode),
-		profileRoot:       cfg.ProfileRootDir,
-		artifactDir:       cfg.ArtifactDir,
-		browserPath:       browserCfg.BrowserPath,
-		chromeVersion:     "144",
-		chromeDownloadDir: "./chrome",
-		viewportWidth:     browserCfg.ViewportWidth,
-		viewportHeight:    browserCfg.ViewportHeight,
-		sessions:          make(map[verifySessionKey]VerifySession),
-	}, nil
+type StoreOwner interface {
+	Activate(context.Context, storecenter.SheinBindingCommand) (storecenter.SheinBinding, error)
+	Quiesce(context.Context, storecenter.SheinBindingCommand) (storecenter.SheinBinding, error)
+	ReadBinding(context.Context, storecenter.SheinLoginScope, string, string) (storecenter.SheinBinding, error)
+	ReadStore(context.Context, storecenter.SheinLoginScope, string, string) (storecenter.StoreSnapshot, error)
+	Claim(context.Context, storecenter.SheinLoginScope, string, string, string, string) error
+	CheckOwner(context.Context, storecenter.SheinLoginScope, string, string, string, string) error
+	ConfirmClosed(context.Context, storecenter.SheinLoginScope, string, string) error
+	RecordSheinLoginIdentity(context.Context, storecenter.SheinIdentityCommand) (storecenter.SheinIdentityReceipt, error)
+}
+type SessionIdentityReader interface {
+	Merchant(context.Context, Account, map[string]any) (string, error)
+	Warehouses(context.Context, Account, map[string]any) ([]WarehouseOption, error)
+}
+type Service struct {
+	config         Config
+	store          *RedisStore
+	owner          StoreOwner
+	automation     Automation
+	identityReader SessionIdentityReader
 }
 
-func (s *Service) Close() error {
-	s.sessionsMu.Lock()
-	for key, session := range s.sessions {
-		_ = session.Close()
-		delete(s.sessions, key)
+func NewService(c Config, redis *RedisStore, owner StoreOwner) (*Service, error) {
+	if c.Validate() != nil || redis == nil || owner == nil {
+		return nil, ErrInvalidInput
 	}
-	s.sessionsMu.Unlock()
-	return s.store.Close()
+	return &Service{config: c, store: redis, owner: owner, automation: NewPlaywrightAutomation(), identityReader: NewSessionIdentityReader()}, nil
+}
+func (s *Service) Close() error { return s.store.Close() }
+func (s *Service) Ready(ctx context.Context) bool {
+	return s != nil && s.store != nil && s.store.Ready(ctx)
 }
 
-func (s *Service) Health(ctx context.Context) ServiceHealth {
-	return ServiceHealth{
-		Initialized:         s != nil && s.provider != nil && s.store != nil,
-		RedisReady:          s.store.Ready(ctx),
-		ManagementReady:     s.provider != nil,
-		MaxConcurrentLogins: s.runtime.MaxConcurrent(),
-	}
+type Command struct {
+	Action                                                            string
+	OrganizationID, StoreID, ActorID, MemberID, RequestKey, AttemptID string
+	ForceLogin                                                        bool
+	Code                                                              string
+	ExpectedGeneration                                                int64
 }
 
-func (s *Service) ListAccounts(ctx context.Context, tenantID int64) ([]AccountStatus, error) {
-	accounts, err := s.provider.ListAccounts(ctx, tenantID)
-	if err != nil {
-		return nil, err
+func (s *Service) Execute(ctx context.Context, c Command) (Result, error) {
+	if !validOpaque(c.OrganizationID) || !validUUID(c.StoreID) || !validOpaque(c.ActorID) || !validOpaque(c.MemberID) {
+		return Result{}, ErrInvalidInput
 	}
-	result := make([]AccountStatus, 0, len(accounts))
-	for _, account := range accounts {
-		status, statusErr := s.Status(ctx, tenantID, account.StoreID)
-		if statusErr == nil {
-			result = append(result, *status)
+	b, e := s.config.Binding(c.OrganizationID, c.StoreID)
+	if e != nil {
+		return Result{}, e
+	}
+	scope := s.config.Scope(b)
+	if c.Action == "activate" {
+		if !validUUID(c.RequestKey) || c.AttemptID != "" || c.ForceLogin || c.Code != "" {
+			return Result{}, ErrInvalidInput
 		}
-	}
-	return result, nil
-}
-
-func (s *Service) Status(ctx context.Context, tenantID int64, storeID int64) (*AccountStatus, error) {
-	account, err := s.provider.GetAccount(ctx, tenantID, storeID)
-	if err != nil {
-		return nil, err
-	}
-	ttl, _, err := s.store.CookieTTL(ctx, account.TenantID, account.StoreID)
-	if err != nil {
-		return nil, err
-	}
-	hasCookie, err := s.store.HasCookie(ctx, account.TenantID, account.StoreID)
-	if err != nil {
-		return nil, err
-	}
-	waiting, err := s.store.IsWaitingVerifyCode(ctx, account.TenantID, account.StoreID)
-	if err != nil {
-		return nil, err
-	}
-	lastLogin, err := s.store.LastLoginTime(ctx, account.TenantID, account.StoreID)
-	if err != nil {
-		return nil, err
-	}
-	lastFailure, err := s.store.LastFailure(ctx, account.TenantID, account.StoreID)
-	if err != nil {
-		return nil, err
-	}
-	latestAttempt, err := s.store.LatestLoginAttempt(ctx, account.TenantID, account.StoreID)
-	if err != nil {
-		return nil, err
-	}
-	if s.loadSession(account.TenantID, account.StoreID) != nil {
-		if !waiting {
-			s.clearSession(account.TenantID, account.StoreID)
-			lastFailure = verifyCodeWaitExpiredFailureSummary(lastFailure, account)
-			_ = s.store.RecordLastFailure(ctx, account.TenantID, account.StoreID, lastFailure, 30*24*time.Hour)
-		} else if lastFailure == nil || !lastFailure.WaitingForVerifyCode {
-			lastFailure = verifyCodeFailureSummary(account)
+		binding, e := s.owner.Activate(ctx, storecenter.SheinBindingCommand{Scope: scope, ActorID: c.ActorID, MemberID: c.MemberID, RequestKey: c.RequestKey, ExpectedGeneration: c.ExpectedGeneration})
+		if e != nil {
+			return Result{}, e
 		}
+		return Result{OrganizationID: c.OrganizationID, StoreID: c.StoreID, Status: binding.State, Generation: binding.Generation}, nil
 	}
-	if waiting {
-		if lastFailure == nil || !lastFailure.WaitingForVerifyCode {
-			lastFailure = verifyCodeFailureSummary(account)
+	if c.Action == "status" || c.Action == "verify" || c.Action == "cancel" {
+		if c.RequestKey != "" || !validUUID(c.AttemptID) || c.ForceLogin {
+			return Result{}, ErrInvalidInput
 		}
-	}
-	recommendedAction := deriveRecommendedAction(waiting, lastFailure)
-	return &AccountStatus{
-		Account:              *account,
-		HasCookie:            hasCookie,
-		CookieTTL:            int64(ttl.Seconds()),
-		WaitingForVerifyCode: waiting,
-		LastLoginTime:        lastLogin,
-		LoginInProgress:      s.runtime.IsInFlight(account.TenantID, account.StoreID) || (latestAttempt != nil && latestAttempt.Status.IsActive()),
-		LastFailure:          lastFailure,
-		RecommendedAction:    recommendedAction,
-		LatestAttempt:        latestAttempt,
-	}, nil
-}
-
-func (s *Service) ListWarehouses(ctx context.Context, tenantID int64, storeID int64) ([]WarehouseOption, error) {
-	_, err := s.provider.GetAccount(ctx, tenantID, storeID)
-	if err != nil {
-		return nil, err
-	}
-	apiClient := s.sheinAPIClient(Account{StoreID: storeID, TenantID: tenantID})
-	if apiClient == nil {
-		return nil, fmt.Errorf("shein api client is nil")
-	}
-	if !apiClient.HasCookies() {
-		if err := apiClient.ReloadCookies(); err != nil {
-			return nil, err
+		// Read authorization is live but status does not change an attempt, launch a
+		// browser, refresh cookies or trigger Store synchronization.
+		if _, e = s.owner.ReadStore(ctx, scope, c.ActorID, c.MemberID); e != nil {
+			return Result{}, e
 		}
-	}
-	if !apiClient.HasCookies() {
-		return nil, fmt.Errorf("shein store cookie is unavailable")
-	}
-	baseAPI := sheinclient.NewBaseAPIClient(
-		apiClient.GetBaseURL(),
-		apiClient.GetTenantID(),
-		storeID,
-		apiClient.GetHTTPClient(),
-	)
-	baseAPI.SetAuthRefreshFunc(apiClient.ForceRefreshCookies)
-	warehouseAPI := sheinwarehouse.NewClient(baseAPI)
-	warehouses, err := warehouseAPI.GetWarehouses()
-	if err != nil {
-		return nil, err
-	}
-	items := make([]WarehouseOption, 0, len(warehouses.Data))
-	for _, item := range warehouses.Data {
-		items = append(items, WarehouseOption{
-			WarehouseCode:   strings.TrimSpace(item.WarehouseCode),
-			WarehouseName:   strings.TrimSpace(item.WarehouseName),
-			SaleCountryList: append([]string(nil), item.SaleCountryList...),
-			WarehouseType:   item.WarehouseType,
-		})
-	}
-	return items, nil
-}
-
-func (s *Service) Login(ctx context.Context, tenantID int64, storeID int64, req LoginRequest) (*LoginResult, error) {
-	if s.workerExecutionEnabled() {
-		return s.enqueueLogin(ctx, tenantID, storeID, req)
-	}
-	return s.loginInline(ctx, tenantID, storeID, req)
-}
-
-func (s *Service) existingCookieLoginResult(account *Account, ttl time.Duration) *LoginResult {
-	if account == nil {
-		return nil
-	}
-	return &LoginResult{
-		Success:   true,
-		Message:   "账号已有可用 Cookie，无需重新登录 / Existing cookie is still valid",
-		StoreID:   account.StoreID,
-		TenantID:  account.TenantID,
-		Username:  account.Username,
-		CookieTTL: int64(ttl.Seconds()),
-		LoginType: "existing",
-	}
-}
-
-func (s *Service) resolveHeadless(req LoginRequest) bool {
-	headless := s.defaultHeadless
-	if s.forceHeadless {
-		return true
-	}
-	if req.Headless != nil {
-		headless = *req.Headless
-	}
-	return headless
-}
-
-func (s *Service) loginAutomationConfig(headless bool) AutomationConfig {
-	return AutomationConfig{
-		Headless:          headless,
-		ProfileRoot:       s.profileRoot,
-		ArtifactDir:       s.artifactDir,
-		BrowserPath:       s.browserPath,
-		ChromeVersion:     s.chromeVersion,
-		ChromeDownloadDir: s.chromeDownloadDir,
-		ViewportWidth:     s.viewportWidth,
-		ViewportHeight:    s.viewportHeight,
-	}
-}
-
-func (s *Service) runLoginStart(ctx context.Context, account *Account, req LoginRequest) (*AutomationResult, VerifySession, error) {
-	if account == nil {
-		return nil, nil, fmt.Errorf("shein login account is required")
-	}
-	var (
-		runResult *AutomationResult
-		session   VerifySession
-	)
-	err := s.runtime.withStoreLock(account.TenantID, account.StoreID, func() error {
-		var runErr error
-		runResult, session, runErr = s.automation.StartLogin(ctx, *account, s.loginAutomationConfig(s.resolveHeadless(req)))
-		return runErr
-	})
-	return runResult, session, err
-}
-
-func (s *Service) persistVerifyWait(ctx context.Context, account *Account, runResult *AutomationResult) error {
-	if account == nil {
-		return fmt.Errorf("shein login account is required")
-	}
-	summary := runResult.FailureSummary
-	if summary == nil {
-		summary = verifyCodeFailureSummary(account)
-	}
-	_ = s.store.RecordLastFailure(ctx, account.TenantID, account.StoreID, summary, 30*24*time.Hour)
-	return s.store.SetVerifyWait(ctx, account.TenantID, account.StoreID, 10*time.Minute)
-}
-
-func (s *Service) persistSuccessfulBrowserState(ctx context.Context, account Account, browserState map[string]any) (int, error) {
-	cookies, _ := browserState["cookies"].([]any)
-	if err := s.store.SaveCookieState(ctx, account.TenantID, account.StoreID, browserState, 30*24*time.Hour); err != nil {
-		return 0, err
-	}
-	_ = s.store.RecordLastLoginTime(ctx, account.TenantID, account.StoreID, time.Now())
-	_ = s.store.ClearLastFailure(ctx, account.TenantID, account.StoreID)
-	_ = s.store.ClearPauseKeys(ctx, account.TenantID, account.StoreID)
-	_, _ = s.store.CancelVerifyWait(ctx, account.TenantID, account.StoreID)
-	s.syncStoreIDAfterLogin(ctx, account)
-	return len(cookies), nil
-}
-
-// loginInline retains the current browser execution semantics for migration and
-// is called by the dedicated worker after it has claimed an attempt.
-func (s *Service) loginInline(ctx context.Context, tenantID int64, storeID int64, req LoginRequest) (*LoginResult, error) {
-	account, err := s.provider.GetAccount(ctx, tenantID, storeID)
-	if err != nil {
-		return nil, err
-	}
-	if !req.ForceLogin {
-		if hasCookie, err := s.store.HasCookie(ctx, account.TenantID, account.StoreID); err == nil && hasCookie {
-			ttl, _, _ := s.store.CookieTTL(ctx, account.TenantID, account.StoreID)
-			return s.existingCookieLoginResult(account, ttl), nil
+		a, e := s.store.Load(ctx, c.AttemptID)
+		if e != nil {
+			return Result{}, e
 		}
-	}
-
-	var result *LoginResult
-	err = s.runtime.withStoreLock(account.TenantID, account.StoreID, func() error {
-		headless := s.defaultHeadless
-		if s.forceHeadless {
-			headless = true
-		} else if req.Headless != nil {
-			headless = *req.Headless
+		expected := scope
+		expected.Generation = a.Scope.Generation
+		if !reflect.DeepEqual(expected, a.Scope) || a.ActorID != c.ActorID || a.MemberID != c.MemberID {
+			return Result{}, ErrInvalidInput
 		}
-		runResult, session, runErr := s.automation.StartLogin(ctx, *account, AutomationConfig{
-			Headless:          headless,
-			ProfileRoot:       s.profileRoot,
-			ArtifactDir:       s.artifactDir,
-			BrowserPath:       s.browserPath,
-			ChromeVersion:     s.chromeVersion,
-			ChromeDownloadDir: s.chromeDownloadDir,
-			ViewportWidth:     s.viewportWidth,
-			ViewportHeight:    s.viewportHeight,
-		})
-		if runErr != nil {
-			return runErr
-		}
-		if runResult.WaitingForVerifyCode {
-			summary := runResult.FailureSummary
-			if summary == nil {
-				summary = verifyCodeFailureSummary(account)
+		if c.Action != "status" {
+			current, e := s.owner.ReadBinding(ctx, scope, c.ActorID, c.MemberID)
+			if e != nil || current.State != "active" || current.Generation != a.Scope.Generation {
+				return Result{}, storecenter.ErrSheinLoginFenced
 			}
-			_ = s.store.RecordLastFailure(ctx, account.TenantID, account.StoreID, summary, 30*24*time.Hour)
-			if err := s.store.SetVerifyWait(ctx, account.TenantID, account.StoreID, 10*time.Minute); err != nil {
-				if session != nil {
-					_ = session.Close()
-				}
-				return err
+			if c.Action == "verify" {
+				e = s.store.SubmitCode(ctx, *a, c.Code)
+			} else {
+				e = s.store.Cancel(ctx, *a)
 			}
-			s.setSession(account.TenantID, account.StoreID, session)
-			s.watchVerifySession(*account, session)
-			result = &LoginResult{
-				Success:              false,
-				Message:              runResult.ErrorMessage,
-				StoreID:              account.StoreID,
-				TenantID:             account.TenantID,
-				Username:             account.Username,
-				WaitingForVerifyCode: true,
-				ErrorCode:            runResult.ErrorCode,
-				FailureArtifactPath:  runResult.FailureArtifactPath,
+			if e != nil {
+				return Result{}, e
 			}
-			return nil
-		}
-		if session != nil {
-			defer session.Close()
-		}
-		if runResult == nil || runResult.BrowserState == nil {
-			summary := runResultFailureSummary(runResult)
-			if summary != nil {
-				_ = s.store.RecordLastFailure(ctx, account.TenantID, account.StoreID, summary, 30*24*time.Hour)
-			}
-			result = &LoginResult{
-				Success:             false,
-				Message:             failureMessage(runResult),
-				StoreID:             account.StoreID,
-				TenantID:            account.TenantID,
-				Username:            account.Username,
-				ErrorCode:           failureCode(runResult),
-				FailureArtifactPath: failureArtifactPath(runResult),
-				LastFailure:         summary,
-			}
-			return nil
-		}
-		cookies, _ := runResult.BrowserState["cookies"].([]any)
-		if err := s.store.SaveCookieState(ctx, account.TenantID, account.StoreID, runResult.BrowserState, 30*24*time.Hour); err != nil {
-			return err
-		}
-		now := time.Now()
-		_ = s.store.RecordLastLoginTime(ctx, account.TenantID, account.StoreID, now)
-		_ = s.store.ClearLastFailure(ctx, account.TenantID, account.StoreID)
-		_ = s.store.ClearPauseKeys(ctx, account.TenantID, account.StoreID)
-		_, _ = s.store.CancelVerifyWait(ctx, account.TenantID, account.StoreID)
-		s.syncStoreIDAfterLogin(ctx, *account)
-		result = &LoginResult{
-			Success:     true,
-			Message:     "登录成功",
-			StoreID:     account.StoreID,
-			TenantID:    account.TenantID,
-			Username:    account.Username,
-			CookieCount: len(cookies),
-			LoginType:   "new",
-			LoginTime:   now,
-		}
-		return nil
-	})
-	if err != nil {
-		summary := loginLaunchFailureSummary(err)
-		_ = s.store.RecordLastFailure(ctx, account.TenantID, account.StoreID, summary, 30*24*time.Hour)
-		return &LoginResult{
-			Success:     false,
-			Message:     err.Error(),
-			StoreID:     account.StoreID,
-			TenantID:    account.TenantID,
-			Username:    account.Username,
-			ErrorCode:   "LOGIN_FAILED",
-			LastFailure: summary,
-		}, nil
-	}
-	return result, nil
-}
-
-func (s *Service) enqueueLogin(ctx context.Context, tenantID int64, storeID int64, req LoginRequest) (*LoginResult, error) {
-	account, err := s.provider.GetAccount(ctx, tenantID, storeID)
-	if err != nil {
-		return nil, err
-	}
-	attempt, created, err := s.store.EnqueueLoginAttempt(ctx, account.TenantID, account.StoreID, req)
-	if err != nil {
-		return nil, err
-	}
-	message := "login queued"
-	if !created {
-		message = "login already in progress"
-	}
-	return &LoginResult{
-		Success:         false,
-		Message:         message,
-		StoreID:         account.StoreID,
-		TenantID:        account.TenantID,
-		Username:        account.Username,
-		AttemptID:       attempt.ID,
-		ExecutionStatus: attempt.Status,
-	}, nil
-}
-
-func (s *Service) workerExecutionEnabled() bool {
-	return s != nil && s.executionMode == "worker"
-}
-
-func normalizeLoginExecutionMode(value string) string {
-	if strings.EqualFold(strings.TrimSpace(value), "worker") {
-		return "worker"
-	}
-	return "inline"
-}
-
-func loginLaunchFailureSummary(err error) *FailureSummary {
-	if err == nil {
-		return nil
-	}
-	return &FailureSummary{
-		ErrorCode:    "LOGIN_LAUNCH_FAILED",
-		ErrorMessage: err.Error(),
-		Stage:        "browser_launch",
-		CapturedAt:   time.Now(),
-	}
-}
-
-func (s *Service) ForceLogin(ctx context.Context, tenantID int64, storeID int64) error {
-	day := time.Now().In(sheinLoginLocalLocation())
-	if count, err := s.store.AutoVerifyCodeSendCount(ctx, tenantID, storeID, day); err != nil {
-		return err
-	} else if count >= maxAutomaticVerifyCodesPerDay {
-		return fmt.Errorf("今天自动验证码已达到 %d 次，请手动登录处理", maxAutomaticVerifyCodesPerDay)
-	}
-
-	result, err := s.Login(ctx, tenantID, storeID, LoginRequest{ForceLogin: true})
-	if err != nil {
-		return err
-	}
-	if result != nil && result.WaitingForVerifyCode {
-		if _, err := s.store.RecordAutoVerifyCodeSent(ctx, tenantID, storeID, day); err != nil {
-			return err
-		}
-	}
-	if result != nil && result.ExecutionStatus.IsActive() {
-		result, err = s.waitForLoginAttempt(ctx, result.AttemptID)
-		if err != nil {
-			return err
-		}
-	}
-	if result == nil || !result.Success {
-		message := "empty login result"
-		if result != nil {
-			message = result.Message
-		}
-		return fmt.Errorf("shein login failed: %s", message)
-	}
-	return nil
-}
-
-func (s *Service) waitForLoginAttempt(ctx context.Context, attemptID string) (*LoginResult, error) {
-	ticker := time.NewTicker(250 * time.Millisecond)
-	defer ticker.Stop()
-	for {
-		attempt, err := s.store.LoadLoginAttempt(ctx, attemptID)
-		if err != nil {
-			return nil, err
-		}
-		if attempt == nil {
-			return nil, fmt.Errorf("queued SHEIN login attempt %q is unavailable", attemptID)
-		}
-		if !attempt.Status.IsActive() {
-			return &LoginResult{
-				Success:         attempt.Status == LoginAttemptSucceeded,
-				Message:         attempt.Message,
-				StoreID:         attempt.StoreID,
-				TenantID:        attempt.TenantID,
-				AttemptID:       attempt.ID,
-				ErrorCode:       attempt.ErrorCode,
-				ExecutionStatus: attempt.Status,
-			}, nil
-		}
-		select {
-		case <-ctx.Done():
-			return nil, fmt.Errorf("wait for SHEIN login attempt %s: %w", attemptID, ctx.Err())
-		case <-ticker.C:
-		}
-	}
-}
-
-func (s *Service) SubmitVerifyCode(ctx context.Context, tenantID int64, storeID int64, code string, expireSeconds int) error {
-	account, err := s.provider.GetAccount(ctx, tenantID, storeID)
-	if err != nil {
-		return err
-	}
-	if session := s.loadSession(account.TenantID, account.StoreID); session != nil {
-		result, runErr := session.SubmitCode(ctx, code)
-		if runErr != nil {
-			return runErr
-		}
-		if result != nil && result.BrowserState != nil {
-			if err := s.store.SaveCookieState(ctx, account.TenantID, account.StoreID, result.BrowserState, 30*24*time.Hour); err != nil {
-				return err
-			}
-			now := time.Now()
-			_ = s.store.RecordLastLoginTime(ctx, account.TenantID, account.StoreID, now)
-			_ = s.store.ClearLastFailure(ctx, account.TenantID, account.StoreID)
-			_ = s.store.ClearPauseKeys(ctx, account.TenantID, account.StoreID)
-			_, _ = s.store.CancelVerifyWait(ctx, account.TenantID, account.StoreID)
-			s.syncStoreIDAfterLogin(ctx, *account)
-			s.clearSession(account.TenantID, account.StoreID)
-			return nil
-		}
-		if result != nil && result.WaitingForVerifyCode {
-			summary := runResultFailureSummary(result)
-			if summary == nil {
-				summary = verifyCodeFailureSummary(account)
-			}
-			_ = s.store.RecordLastFailure(ctx, account.TenantID, account.StoreID, summary, 30*24*time.Hour)
-			if err := s.store.SetVerifyWait(ctx, account.TenantID, account.StoreID, 10*time.Minute); err != nil {
-				return err
-			}
-			return nil
-		}
-	}
-	ttl := 10 * time.Minute
-	if expireSeconds > 0 {
-		ttl = time.Duration(expireSeconds) * time.Second
-	}
-	return s.store.SubmitVerifyCode(ctx, account.TenantID, account.StoreID, code, ttl)
-}
-
-// SubmitVerifyCodeForAttempt is the cross-process verification path. Supplying
-// an attempt ID binds the code to the active browser session owned by a Worker;
-// callers without one retain the legacy in-process behaviour during rollout.
-func (s *Service) SubmitVerifyCodeForAttempt(ctx context.Context, tenantID int64, storeID int64, attemptID, code string, expireSeconds int) error {
-	attemptID = strings.TrimSpace(attemptID)
-	if attemptID == "" {
-		if s.workerExecutionEnabled() {
-			attempt, err := s.store.LatestLoginAttempt(ctx, tenantID, storeID)
-			if err != nil {
-				return err
-			}
-			if attempt == nil || attempt.Status != LoginAttemptWaitingVerifyCode {
-				return fmt.Errorf("verification attempt is unavailable")
-			}
-			attemptID = attempt.ID
-		} else {
-			return s.SubmitVerifyCode(ctx, tenantID, storeID, code, expireSeconds)
-		}
-	}
-	account, err := s.provider.GetAccount(ctx, tenantID, storeID)
-	if err != nil {
-		return err
-	}
-	attempt, err := s.store.LoadLoginAttempt(ctx, attemptID)
-	if err != nil {
-		return err
-	}
-	if attempt == nil || attempt.TenantID != account.TenantID || attempt.StoreID != account.StoreID || attempt.Status != LoginAttemptWaitingVerifyCode {
-		return fmt.Errorf("verification attempt is unavailable")
-	}
-	ttl := 10 * time.Minute
-	if expireSeconds > 0 {
-		ttl = time.Duration(expireSeconds) * time.Second
-	}
-	return s.store.SubmitVerifyCodeForAttempt(ctx, account.TenantID, account.StoreID, attemptID, code, ttl)
-}
-
-func (s *Service) watchVerifySession(account Account, session VerifySession) {
-	watcher, ok := session.(VerifySessionLoginWatcher)
-	if !ok || watcher == nil {
-		return
-	}
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-		defer cancel()
-
-		result, err := watcher.WaitForLogin(ctx)
-		if err != nil || result == nil || result.BrowserState == nil {
-			return
-		}
-		if current := s.loadSession(account.TenantID, account.StoreID); current != session {
-			return
-		}
-		if err := s.store.SaveCookieState(ctx, account.TenantID, account.StoreID, result.BrowserState, 30*24*time.Hour); err != nil {
-			sheinLoginServiceLogger.WithError(err).WithFields(map[string]any{
-				"tenant_id": account.TenantID,
-				"store_id":  account.StoreID,
-			}).Warn("persist SHEIN cookie after manual verification failed")
-			return
-		}
-		s.clearSession(account.TenantID, account.StoreID)
-		now := time.Now()
-		_ = s.store.RecordLastLoginTime(ctx, account.TenantID, account.StoreID, now)
-		_ = s.store.ClearLastFailure(ctx, account.TenantID, account.StoreID)
-		_ = s.store.ClearPauseKeys(ctx, account.TenantID, account.StoreID)
-		_, _ = s.store.CancelVerifyWait(ctx, account.TenantID, account.StoreID)
-		s.syncStoreIDAfterLogin(ctx, account)
-	}()
-}
-
-func verifyCodeFailureSummary(account *Account) *FailureSummary {
-	if account == nil {
-		return &FailureSummary{
-			ErrorCode:            "VERIFY_CODE_REQUIRED",
-			ErrorMessage:         "登录等待验证码",
-			PageState:            "verification",
-			ActionKey:            "submit_verify_code",
-			ActionMessage:        "提交验证码并继续当前登录会话",
-			WaitingForVerifyCode: true,
-		}
-	}
-	return &FailureSummary{
-		ErrorCode:            "VERIFY_CODE_REQUIRED",
-		ErrorMessage:         "登录等待验证码",
-		PageState:            "verification",
-		ActionKey:            "submit_verify_code",
-		ActionMessage:        "提交验证码并继续当前登录会话",
-		WaitingForVerifyCode: true,
-		Stage:                "wait_login",
-		URL:                  loginURLForAccount(*account),
-		Title:                "SHEIN全球商家中心",
-	}
-}
-
-func verifyCodeWaitExpiredFailureSummary(summary *FailureSummary, account *Account) *FailureSummary {
-	expired := verifyCodeFailureSummary(account)
-	if summary != nil {
-		copySummary := *summary
-		expired = &copySummary
-	}
-	expired.ErrorCode = "VERIFY_CODE_WAIT_EXPIRED"
-	expired.ErrorMessage = "验证码等待已超时，请重新发起登录"
-	expired.PageState = "verification_timeout"
-	expired.ActionKey = "retry_login"
-	expired.ActionMessage = "验证码等待已超时，请重新发起登录"
-	expired.WaitingForVerifyCode = false
-	if strings.TrimSpace(expired.Stage) == "" {
-		expired.Stage = "wait_login"
-	}
-	return expired
-}
-
-func runResultFailureSummary(runResult *AutomationResult) *FailureSummary {
-	if runResult == nil {
-		return &FailureSummary{ErrorCode: "LOGIN_FAILED", ErrorMessage: "login failed"}
-	}
-	if runResult.FailureSummary != nil {
-		summary := *runResult.FailureSummary
-		if strings.TrimSpace(summary.ErrorCode) == "" {
-			summary.ErrorCode = failureCode(runResult)
-		}
-		if strings.TrimSpace(summary.ErrorMessage) == "" {
-			summary.ErrorMessage = failureMessage(runResult)
-		}
-		if strings.TrimSpace(summary.ArtifactPath) == "" {
-			summary.ArtifactPath = failureArtifactPath(runResult)
-		}
-		if runResult.WaitingForVerifyCode {
-			summary.WaitingForVerifyCode = true
-		}
-		return &summary
-	}
-	if runResult.ErrorCode == "" && runResult.ErrorMessage == "" && runResult.FailureArtifactPath == "" {
-		return nil
-	}
-	return &FailureSummary{
-		ErrorCode:            failureCode(runResult),
-		ErrorMessage:         failureMessage(runResult),
-		ArtifactPath:         failureArtifactPath(runResult),
-		WaitingForVerifyCode: runResult.WaitingForVerifyCode,
-		ActionKey:            "inspect_artifact",
-		ActionMessage:        "查看失败详情和 artifact，确认当前页面分支后再处理",
-	}
-}
-
-func workerFailureSummary(attemptStatus LoginAttemptStatus, errorCode, message string, summary *FailureSummary) *FailureSummary {
-	if summary == nil && strings.TrimSpace(errorCode) == "" && strings.TrimSpace(message) == "" {
-		return nil
-	}
-	var merged FailureSummary
-	if summary != nil {
-		merged = *summary
-	}
-	if strings.TrimSpace(merged.ErrorCode) == "" {
-		merged.ErrorCode = strings.TrimSpace(errorCode)
-	}
-	if strings.TrimSpace(merged.ErrorCode) == "" {
-		merged.ErrorCode = "LOGIN_FAILED"
-	}
-	if strings.TrimSpace(merged.ErrorMessage) == "" {
-		merged.ErrorMessage = strings.TrimSpace(message)
-	}
-	if strings.TrimSpace(merged.ErrorMessage) == "" {
-		merged.ErrorMessage = "login failed"
-	}
-	if merged.CapturedAt.IsZero() {
-		merged.CapturedAt = time.Now().UTC()
-	}
-	if strings.TrimSpace(merged.Stage) == "" {
-		switch {
-		case attemptStatus == LoginAttemptWaitingVerifyCode || strings.HasPrefix(strings.TrimSpace(merged.ErrorCode), "VERIFY_CODE_"):
-			merged.Stage = "wait_login"
-		default:
-			merged.Stage = "start_login"
-		}
-	}
-	if strings.TrimSpace(merged.ActionKey) == "" && strings.TrimSpace(merged.ActionMessage) == "" {
-		merged.ActionKey, merged.ActionMessage = deriveFailureAction(
-			strings.TrimSpace(merged.PageState),
-			merged.WaitingForVerifyCode,
-			strings.TrimSpace(merged.ErrorCode),
-		)
-	}
-	return &merged
-}
-
-func failureMessage(runResult *AutomationResult) string {
-	if runResult != nil && strings.TrimSpace(runResult.ErrorMessage) != "" {
-		return runResult.ErrorMessage
-	}
-	return "login failed"
-}
-
-func failureCode(runResult *AutomationResult) string {
-	if runResult != nil && strings.TrimSpace(runResult.ErrorCode) != "" {
-		return runResult.ErrorCode
-	}
-	return "LOGIN_FAILED"
-}
-
-func failureArtifactPath(runResult *AutomationResult) string {
-	if runResult == nil {
-		return ""
-	}
-	return strings.TrimSpace(runResult.FailureArtifactPath)
-}
-
-func deriveRecommendedAction(waitingForVerifyCode bool, lastFailure *FailureSummary) RecommendedAction {
-	if waitingForVerifyCode {
-		return RecommendedAction{
-			Key:     "submit_verify_code",
-			Message: "提交验证码并继续当前登录会话",
-		}
-	}
-	if lastFailure != nil {
-		if strings.TrimSpace(lastFailure.ActionKey) != "" || strings.TrimSpace(lastFailure.ActionMessage) != "" {
-			return RecommendedAction{
-				Key:     strings.TrimSpace(lastFailure.ActionKey),
-				Message: strings.TrimSpace(lastFailure.ActionMessage),
+			a, e = s.store.Load(ctx, a.ID)
+			if e != nil {
+				return Result{}, e
 			}
 		}
-		key, message := deriveFailureAction(strings.TrimSpace(lastFailure.PageState), lastFailure.WaitingForVerifyCode, strings.TrimSpace(lastFailure.ErrorCode))
-		if key != "" || message != "" {
-			return RecommendedAction{Key: key, Message: message}
+		return a.Result(), nil
+	}
+	current, e := s.owner.ReadBinding(ctx, scope, c.ActorID, c.MemberID)
+	if e != nil {
+		return Result{}, e
+	}
+	scope.Generation = current.Generation
+	if c.Action == "quiesce" {
+		if !validUUID(c.RequestKey) || c.AttemptID != "" || c.ForceLogin || c.Code != "" {
+			return Result{}, ErrInvalidInput
 		}
-	}
-	return RecommendedAction{}
-}
-
-func failureDetailFromSummary(summary *FailureSummary) *FailureDetail {
-	if summary == nil {
-		return nil
-	}
-	return &FailureDetail{
-		ErrorCode:            summary.ErrorCode,
-		ErrorMessage:         summary.ErrorMessage,
-		PageState:            summary.PageState,
-		ActionKey:            summary.ActionKey,
-		ActionMessage:        summary.ActionMessage,
-		ArtifactPath:         summary.ArtifactPath,
-		CapturedAt:           summary.CapturedAt,
-		Stage:                summary.Stage,
-		URL:                  summary.URL,
-		Title:                summary.Title,
-		LoginError:           summary.LoginError,
-		WaitingForVerifyCode: summary.WaitingForVerifyCode,
-	}
-}
-
-func failureDetailFromArtifact(summary *FailureSummary, metadata artifactMetadata) *FailureDetail {
-	detail := failureDetailFromSummary(summary)
-	if detail == nil {
-		detail = &FailureDetail{}
-	}
-	if strings.TrimSpace(metadata.ErrorCode) != "" {
-		detail.ErrorCode = metadata.ErrorCode
-	}
-	if strings.TrimSpace(metadata.Error) != "" {
-		detail.ErrorMessage = metadata.Error
-	}
-	if strings.TrimSpace(metadata.PageState) != "" {
-		detail.PageState = metadata.PageState
-	}
-	if strings.TrimSpace(metadata.ActionKey) != "" {
-		detail.ActionKey = metadata.ActionKey
-	}
-	if strings.TrimSpace(metadata.ActionMessage) != "" {
-		detail.ActionMessage = metadata.ActionMessage
-	}
-	if when := capturedAtFromMetadata(metadata); !when.IsZero() {
-		detail.CapturedAt = when
-	}
-	if strings.TrimSpace(metadata.Stage) != "" {
-		detail.Stage = metadata.Stage
-	}
-	if strings.TrimSpace(metadata.URL) != "" {
-		detail.URL = metadata.URL
-	}
-	if strings.TrimSpace(metadata.Title) != "" {
-		detail.Title = metadata.Title
-	}
-	if strings.TrimSpace(metadata.LoginError) != "" {
-		detail.LoginError = metadata.LoginError
-	}
-	if metadata.VerifyCodeVisible != nil {
-		detail.WaitingForVerifyCode = *metadata.VerifyCodeVisible
-	}
-	if metadata.OnLoginPage != nil {
-		detail.OnLoginPage = *metadata.OnLoginPage
-	}
-	if metadata.RequestFailureModal != nil {
-		detail.RequestFailureModal = *metadata.RequestFailureModal
-	}
-	if metadata.LoginFormVisible != nil {
-		detail.LoginFormVisible = *metadata.LoginFormVisible
-	}
-	if metadata.SellerHubVisible != nil {
-		detail.SellerHubVisible = *metadata.SellerHubVisible
-	}
-	if metadata.VerificationVisible != nil {
-		detail.VerificationVisible = *metadata.VerificationVisible
-	}
-	if metadata.PermissionVisible != nil {
-		detail.PermissionVisible = *metadata.PermissionVisible
-	}
-	if metadata.AgreementVisible != nil {
-		detail.AgreementVisible = *metadata.AgreementVisible
-	}
-	if metadata.CredentialErrorVisible != nil {
-		detail.CredentialErrorVisible = *metadata.CredentialErrorVisible
-	}
-	detail.BodyText = strings.TrimSpace(metadata.BodyText)
-	if len(metadata.SelectorStates) > 0 {
-		detail.SelectorStates = metadata.SelectorStates
-	}
-	if len(metadata.NetworkPayloads) > 0 {
-		detail.NetworkPayloads = metadata.NetworkPayloads
-	}
-	return detail
-}
-
-func (s *Service) CancelVerifyCodeWait(ctx context.Context, tenantID int64, storeID int64) (bool, error) {
-	account, err := s.provider.GetAccount(ctx, tenantID, storeID)
-	if err != nil {
-		return false, err
-	}
-	attempt, attemptCancelled, err := s.store.CancelLoginAttempt(ctx, account.TenantID, account.StoreID, "verification cancelled by user")
-	if err != nil {
-		return false, err
-	}
-	s.clearSession(account.TenantID, account.StoreID)
-	waitCancelled, err := s.store.CancelVerifyWait(ctx, account.TenantID, account.StoreID)
-	if err != nil {
-		return false, err
-	}
-	if attemptCancelled && attempt != nil {
-		return true, nil
-	}
-	return waitCancelled, nil
-}
-
-func (s *Service) ClearCookie(ctx context.Context, tenantID int64, storeID int64) error {
-	account, err := s.provider.GetAccount(ctx, tenantID, storeID)
-	if err != nil {
-		return err
-	}
-	if _, _, err := s.store.CancelLoginAttempt(ctx, account.TenantID, account.StoreID, "login cancelled while clearing cookie"); err != nil {
-		return err
-	}
-	s.clearSession(account.TenantID, account.StoreID)
-	if _, err := s.store.CancelVerifyWait(ctx, account.TenantID, account.StoreID); err != nil {
-		return err
-	}
-	return s.store.ClearCookie(ctx, account.TenantID, account.StoreID)
-}
-
-func (s *Service) ClearLastFailure(ctx context.Context, tenantID int64, storeID int64) error {
-	account, err := s.provider.GetAccount(ctx, tenantID, storeID)
-	if err != nil {
-		return err
-	}
-	return s.store.ClearLastFailure(ctx, account.TenantID, account.StoreID)
-}
-
-func (s *Service) GetLastFailureDetail(ctx context.Context, tenantID int64, storeID int64) (*FailureDetail, error) {
-	account, err := s.provider.GetAccount(ctx, tenantID, storeID)
-	if err != nil {
-		return nil, err
-	}
-	summary, err := s.store.LastFailure(ctx, account.TenantID, account.StoreID)
-	if err != nil {
-		return nil, err
-	}
-	if summary == nil {
-		return nil, nil
-	}
-	if detail, err := s.store.LastFailureDetail(ctx, account.TenantID, account.StoreID); err != nil {
-		return nil, err
-	} else if detail != nil {
-		return detail, nil
-	}
-	detail := failureDetailFromSummary(summary)
-	if strings.TrimSpace(summary.ArtifactPath) == "" {
-		return detail, nil
-	}
-	payload, err := os.ReadFile(filepath.Join(summary.ArtifactPath, "metadata.json"))
-	if err != nil {
-		return detail, nil
-	}
-	var metadata artifactMetadata
-	if err := json.Unmarshal(payload, &metadata); err != nil {
-		return detail, nil
-	}
-	return failureDetailFromArtifact(summary, metadata), nil
-}
-
-func (s *Service) cacheLastFailureDetail(ctx context.Context, tenantID, storeID int64) {
-	detail, err := s.GetLastFailureDetail(ctx, tenantID, storeID)
-	if err != nil || detail == nil {
-		return
-	}
-	if err := s.store.RecordLastFailureDetail(ctx, tenantID, storeID, detail, 30*24*time.Hour); err != nil {
-		sheinLoginServiceLogger.WithError(err).WithFields(map[string]any{
-			"tenant_id": tenantID,
-			"store_id":  storeID,
-		}).Warn("cache SHEIN login failure detail failed")
-	}
-}
-
-func (s *Service) persistCommittedWorkerFailure(ctx context.Context, attempt *LoginAttempt, statusBeforeCompletion LoginAttemptStatus, errorCode, message string, summary *FailureSummary) {
-	if s == nil || s.store == nil || attempt == nil {
-		return
-	}
-	merged := workerFailureSummary(statusBeforeCompletion, errorCode, message, summary)
-	if merged == nil {
-		return
-	}
-	if err := s.store.RecordLastFailure(ctx, attempt.TenantID, attempt.StoreID, merged, 30*24*time.Hour); err != nil {
-		sheinLoginServiceLogger.WithError(err).WithFields(map[string]any{
-			"tenant_id":  attempt.TenantID,
-			"store_id":   attempt.StoreID,
-			"attempt_id": attempt.ID,
-		}).Warn("persist SHEIN login failure summary failed")
-		return
-	}
-	s.cacheLastFailureDetail(ctx, attempt.TenantID, attempt.StoreID)
-}
-
-func (s *Service) setSession(tenantID int64, storeID int64, session VerifySession) {
-	if session == nil {
-		return
-	}
-	key := verifySessionKey{tenantID: tenantID, storeID: storeID}
-	s.sessionsMu.Lock()
-	defer s.sessionsMu.Unlock()
-	if existing := s.sessions[key]; existing != nil {
-		_ = existing.Close()
-	}
-	s.sessions[key] = session
-}
-
-func (s *Service) loadSession(tenantID int64, storeID int64) VerifySession {
-	key := verifySessionKey{tenantID: tenantID, storeID: storeID}
-	s.sessionsMu.Lock()
-	defer s.sessionsMu.Unlock()
-	return s.sessions[key]
-}
-
-func (s *Service) clearSession(tenantID int64, storeID int64) {
-	key := verifySessionKey{tenantID: tenantID, storeID: storeID}
-	s.sessionsMu.Lock()
-	defer s.sessionsMu.Unlock()
-	if session := s.sessions[key]; session != nil {
-		_ = session.Close()
-	}
-	delete(s.sessions, key)
-}
-
-func (s *Service) syncStoreIDAfterLogin(ctx context.Context, account Account) {
-	if account.TenantID <= 0 || account.StoreID <= 0 {
-		sheinLoginServiceLogger.WithField("failure", "invalid_account_scope").Warn("skip SHEIN store sync")
-		return
-	}
-	actualStoreID, err := s.resolveActualStoreID(ctx, account)
-	if err != nil {
-		sheinLoginServiceLogger.WithError(err).WithFields(map[string]any{
-			"tenant_id": account.TenantID,
-			"store_id":  account.StoreID,
-			"username":  account.Username,
-		}).Warn("resolve actual SHEIN store id after login failed")
-		return
-	}
-	if actualStoreID <= 0 {
-		return
-	}
-
-	storeClient := s.storeClient(account.TenantID)
-	if storeClient == nil {
-		return
-	}
-
-	actualStoreIDText := strconv.FormatInt(actualStoreID, 10)
-	duplicateStore, err := s.lookupDuplicateStore(ctx, account, actualStoreIDText)
-	if err != nil {
-		// An incomplete lookup cannot authorize either Store write. Do not log
-		// arbitrary provider errors that may include another tenant's metadata.
-		sheinLoginServiceLogger.WithField("failure", "duplicate_lookup_failed").Warn("skip SHEIN store sync")
-		return
-	} else if duplicateStore != nil {
-		if duplicateStore.TenantID != account.TenantID || duplicateStore.ID <= 0 ||
-			duplicateStore.ID == account.StoreID || duplicateStore.Status != 0 ||
-			!strings.EqualFold(strings.TrimSpace(duplicateStore.Platform), "SHEIN") ||
-			strings.TrimSpace(duplicateStore.StoreID) != actualStoreIDText {
-			sheinLoginServiceLogger.WithField("failure", "invalid_duplicate_scope").Warn("skip SHEIN store sync")
-			return
+		result, e := s.owner.Quiesce(ctx, storecenter.SheinBindingCommand{Scope: scope, ActorID: c.ActorID, MemberID: c.MemberID, RequestKey: c.RequestKey, ExpectedGeneration: c.ExpectedGeneration})
+		if e != nil {
+			return Result{}, e
 		}
-		duplicateStoreName := strings.TrimSpace(duplicateStore.Name)
-		if duplicateStoreName == "" {
-			duplicateStoreName = "-"
-		}
-		if _, err := storeClient.UpdateStoreStatus(&listingadmin.StoreStatusUpdateReqDTO{
-			ID:     account.StoreID,
-			Status: 1,
-			Remark: fmt.Sprintf(
-				"自动登录识别到重复店铺ID，已禁用：store_id=%s duplicate_store_row_id=%d duplicate_tenant_id=%d duplicate_store_name=%s",
-				actualStoreIDText,
-				duplicateStore.ID,
-				duplicateStore.TenantID,
-				duplicateStoreName,
-			),
-		}); err != nil {
-			sheinLoginServiceLogger.WithError(err).WithFields(map[string]any{
-				"tenant_id":              account.TenantID,
-				"store_id":               account.StoreID,
-				"actual_store_id":        actualStoreIDText,
-				"duplicate_store_row_id": duplicateStore.ID,
-				"duplicate_tenant_id":    duplicateStore.TenantID,
-				"duplicate_store_name":   duplicateStoreName,
-			}).Warn("disable duplicate SHEIN store failed")
-		}
-		return
+		return Result{OrganizationID: c.OrganizationID, StoreID: c.StoreID, Status: result.State, Generation: result.Generation}, nil
 	}
-
-	recordedStoreID := strings.TrimSpace(account.StoreName)
-	if recordedStoreID == "" {
-		if _, err := storeClient.UpdateStoreId(&listingadmin.StoreIdUpdateReqDTO{
-			ID:      account.StoreID,
-			StoreID: actualStoreIDText,
-		}); err != nil {
-			sheinLoginServiceLogger.WithError(err).WithFields(map[string]any{
-				"tenant_id":       account.TenantID,
-				"store_id":        account.StoreID,
-				"actual_store_id": actualStoreIDText,
-			}).Warn("persist actual SHEIN store id after login failed")
-		}
-		return
+	if c.Action != "login" || !validUUID(c.RequestKey) || c.AttemptID != "" || c.Code != "" || current.State != "active" {
+		return Result{}, ErrInvalidInput
 	}
-
-	recordedNumericStoreID, err := strconv.ParseInt(recordedStoreID, 10, 64)
-	if err != nil {
-		sheinLoginServiceLogger.WithError(err).WithFields(map[string]any{
-			"tenant_id":         account.TenantID,
-			"store_id":          account.StoreID,
-			"recorded_store_id": recordedStoreID,
-		}).Warn("stored SHEIN store id is not numeric, skip mismatch handling")
-		return
+	a, e := s.store.Enqueue(ctx, LoginAttempt{ID: c.RequestKey, Scope: scope, ActorID: c.ActorID, MemberID: c.MemberID, ForceLogin: c.ForceLogin, CreatedAt: time.Now().UTC()})
+	if e != nil {
+		return Result{}, e
 	}
-	if recordedNumericStoreID == actualStoreID {
-		return
+	return a.Result(), nil
+}
+func (s *Service) complete(ctx context.Context, a LoginAttempt, status LoginAttemptStatus, code string) error {
+	next := a
+	next.Status = status
+	next.ErrorCode = code
+	now := time.Now().UTC()
+	next.CompletedAt = &now
+	return s.store.CompareAndSwap(ctx, a, next, nil)
+}
+func safeCode(e error) string {
+	if errors.Is(e, storecenter.ErrSheinLoginFenced) {
+		return "EXECUTION_FENCED"
 	}
-
-	if _, err := storeClient.UpdateStoreStatus(&listingadmin.StoreStatusUpdateReqDTO{
-		ID:     account.StoreID,
-		Status: 1,
-		Remark: fmt.Sprintf("自动登录识别到店铺ID不一致，已禁用：stored=%s actual=%s", recordedStoreID, actualStoreIDText),
-	}); err != nil {
-		sheinLoginServiceLogger.WithError(err).WithFields(map[string]any{
-			"tenant_id":         account.TenantID,
-			"store_id":          account.StoreID,
-			"recorded_store_id": recordedStoreID,
-			"actual_store_id":   actualStoreIDText,
-		}).Warn("disable store on SHEIN store id mismatch failed")
+	if errors.Is(e, storecenter.ErrIdempotencyConflict) {
+		return "PAYLOAD_CONFLICT"
 	}
+	return "DEPENDENCY_UNAVAILABLE"
+}
+func scopeFingerprint(scope storecenter.SheinLoginScope) string {
+	h := sha256.Sum256([]byte(scope.OrganizationID + "\x00" + scope.StoreID + "\x00" + scope.BindingRevision))
+	return hex.EncodeToString(h[:])
 }
 
-func (s *Service) resolveActualStoreID(ctx context.Context, account Account) (int64, error) {
-	if s != nil && s.resolveStoreID != nil {
-		return s.resolveStoreID(ctx, account)
+func PublicErrorCode(err error) string {
+	if errors.Is(err, ErrInvalidInput) || errors.Is(err, storecenter.ErrNotFound) {
+		return "NOT_ALLOWED_OR_INVALID"
 	}
-	apiClient := s.sheinAPIClient(account)
-	if apiClient == nil {
-		return 0, fmt.Errorf("shein api client is nil")
+	if errors.Is(err, storecenter.ErrIdempotencyConflict) {
+		return "PAYLOAD_CONFLICT"
 	}
-	if !apiClient.HasCookies() {
-		if err := apiClient.ReloadCookies(); err != nil {
-			return 0, err
-		}
+	if errors.Is(err, storecenter.ErrSheinLoginFenced) {
+		return "EXECUTION_FENCED"
 	}
-	if !apiClient.HasCookies() {
-		return 0, fmt.Errorf("shein store cookie is unavailable")
+	if errors.Is(err, storecenter.ErrVersionConflict) {
+		return "STATE_CHANGED"
 	}
-
-	baseAPI := sheinclient.NewBaseAPIClient(
-		apiClient.GetBaseURL(),
-		apiClient.GetTenantID(),
-		account.StoreID,
-		apiClient.GetHTTPClient(),
-	)
-	baseAPI.SetAuthRefreshFunc(apiClient.ForceRefreshCookies)
-	otherAPI := sheinother.NewClient(baseAPI)
-	supplierInfo, err := otherAPI.GetSupplierOperateInfo()
-	if err != nil {
-		return 0, err
-	}
-	return supplierInfo.Info.StoreID, nil
-}
-
-func (s *Service) storeClient(tenantID int64) StoreSyncClient {
-	if s != nil && s.storeClientFor != nil {
-		return s.storeClientFor(tenantID)
-	}
-	return nil
-}
-
-func (s *Service) lookupDuplicateStore(ctx context.Context, account Account, actualStoreID string) (*listingadmin.StoreRespDTO, error) {
-	if s != nil && s.findDuplicateStore != nil {
-		return s.findDuplicateStore(ctx, account, actualStoreID)
-	}
-	return nil, fmt.Errorf("SHEIN duplicate lookup is not configured")
-}
-
-func (s *Service) ConfigureRuntimeSheinAPIClients() {
-	if s == nil {
-		return
-	}
-	s.sheinAPIClientFor = func(account Account) *sheinclient.APIClient {
-		return sheinclient.NewAPIClientWithStoreConfig(account.StoreID, &sheinclient.StoreConfig{
-			ID:       account.StoreID,
-			TenantID: account.TenantID,
-			Name:     strings.TrimSpace(account.ShopName),
-			Platform: strings.TrimSpace(account.Platform),
-			LoginURL: strings.TrimSpace(account.LoginURL),
-			Proxy:    strings.TrimSpace(account.Proxy),
-			StoreID:  strings.TrimSpace(account.StoreName),
-		}, serviceCookieProvider{store: s.store, tenantID: account.TenantID})
-	}
-}
-
-func (s *Service) ConfigureStoreSyncClientFactory(factory func(tenantID int64) StoreSyncClient) {
-	if s == nil {
-		return
-	}
-	s.storeClientFor = factory
-}
-
-func (s *Service) ConfigureDuplicateStoreLookup(lookup func(ctx context.Context, account Account, actualStoreID string) (*listingadmin.StoreRespDTO, error)) {
-	if s == nil {
-		return
-	}
-	s.findDuplicateStore = lookup
-}
-
-func (s *Service) sheinAPIClient(account Account) *sheinclient.APIClient {
-	if s != nil && s.sheinAPIClientFor != nil {
-		return s.sheinAPIClientFor(account)
-	}
-	return nil
-}
-
-type serviceCookieProvider struct {
-	store    *RedisStore
-	tenantID int64
-}
-
-func (p serviceCookieProvider) GetCookie(ctx context.Context, storeID int64) (*sheinclient.CookieLookupResult, error) {
-	if p.store == nil || p.tenantID <= 0 || storeID <= 0 {
-		return nil, nil
-	}
-	raw, ok, err := p.store.LoadCookieState(ctx, p.tenantID, storeID)
-	if err != nil || !ok {
-		return nil, err
-	}
-	return &sheinclient.CookieLookupResult{
-		TenantID:   p.tenantID,
-		CookieJSON: raw,
-	}, nil
+	return "DEPENDENCY_UNAVAILABLE"
 }
