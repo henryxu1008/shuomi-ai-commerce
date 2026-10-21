@@ -8,11 +8,18 @@ import (
 	"task-processor/internal/imageagent"
 )
 
-// This read DTO describes original paid effects; it never grants dispatch or
+// This read DTO describes proved original outcomes; it never grants dispatch or
 // changes the historical workflow state, failure, or Commercial receipt.
 type fullImageOutputRecoverySummary struct {
-	SettledPoints int64                     `json:"settledPoints"`
-	Slots         []fullImagePaidOutputSlot `json:"slots"`
+	SettledPoints int64                         `json:"settledPoints"`
+	Slots         []fullImagePaidOutputSlot     `json:"slots"`
+	ReleasedSlots []fullImageReleasedOutputSlot `json:"releasedSlots,omitempty"`
+}
+
+type fullImageReleasedOutputSlot struct {
+	SlotID  string `json:"slotId"`
+	Attempt int    `json:"attempt"`
+	Points  int64  `json:"points"`
 }
 
 type fullImagePaidOutputSlot struct {
@@ -27,7 +34,8 @@ func (a *fullImageApplication) outputRecoverySummary(ctx context.Context, p imag
 		(p.Run.Status != imageagent.RunStatusBlocked && p.Run.Status != imageagent.RunStatusFailed) {
 		return nil, nil
 	}
-	result := &fullImageOutputRecoverySummary{}
+	result := &fullImageOutputRecoverySummary{Slots: []fullImagePaidOutputSlot{}}
+	var releasedPoints int64
 	seen := map[string]bool{}
 	for _, slot := range p.Slots {
 		if seen[slot.Slot.ID] {
@@ -58,6 +66,14 @@ func (a *fullImageApplication) outputRecoverySummary(ctx context.Context, p imag
 			(p.AssetCatalog.Manifest.Hash != "" && intent.CatalogHash != p.AssetCatalog.Manifest.Hash) {
 			return nil, imageagent.ErrRevisionConflict
 		}
+		if fact.State == imageagent.GenerationNoEffect && fact.Settlement.State == "released" && fact.Settlement.ReservationID != "" {
+			if releasedPoints > math.MaxInt64-fact.Settlement.Points {
+				return nil, imageagent.ErrValidation
+			}
+			releasedPoints += fact.Settlement.Points
+			result.ReleasedSlots = append(result.ReleasedSlots, fullImageReleasedOutputSlot{SlotID: definition.ID, Attempt: slot.Attempt, Points: fact.Settlement.Points})
+			continue
+		}
 		if fact.State != imageagent.GenerationSucceeded || fact.Settlement.State != "committed" || fact.Settlement.ReservationID == "" {
 			continue
 		}
@@ -68,10 +84,10 @@ func (a *fullImageApplication) outputRecoverySummary(ctx context.Context, p imag
 		result.SettledPoints += fact.Settlement.Points
 		result.Slots = append(result.Slots, fullImagePaidOutputSlot{SlotID: definition.ID, Attempt: slot.Attempt, Points: fact.Settlement.Points, Unavailable: fact.Success.ResultUnavailable != "" || urlErr != nil})
 	}
-	if len(result.Slots) == 0 {
+	if len(result.Slots) == 0 && len(result.ReleasedSlots) == 0 {
 		return nil, nil
 	}
-	if result.SettledPoints > p.Plan.Set.MaxPoints {
+	if result.SettledPoints > p.Plan.Set.MaxPoints || releasedPoints > p.Plan.Set.MaxPoints-result.SettledPoints {
 		return nil, imageagent.ErrRevisionConflict
 	}
 	return result, nil

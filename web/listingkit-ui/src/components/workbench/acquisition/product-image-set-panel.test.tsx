@@ -1665,3 +1665,32 @@ it("restores a paid output whose original recoverable binding exists only in Run
  expect(await screen.findByRole("heading",{name:"已生成，结果待恢复"})).toBeVisible();
  expect(screen.getByRole("button",{name:"恢复原结果"})).toBeEnabled();
 });
+
+it("shows a released sibling separately from paid and genuinely UNKNOWN effects without unlocking the run",async()=>{
+ state=projection("blocked","44444444-4444-4444-8444-444444444444");
+ const unknown={...state.slots[1],slotId:"unknown"};
+ state.slots.push(unknown);
+ Object.assign(state,{images:3,points:30,settledPoints:10,resultDigest:"",approvalAvailable:false,candidateSelectionAvailable:false,regenerationAvailable:false,outputRecoverySummary:{settledPoints:10,slots:[{slotId:"main",attempt:1,points:10,unavailable:false}],releasedSlots:[{slotId:"detail",attempt:1,points:10}]},recoverableEffects:state.slots.map(s=>({SlotID:s.slotId,Attempt:1,Code:"slot_provider_outcome_unknown"})),block:{Code:"slot_provider_outcome_unknown"}});
+ for(const slot of state.slots)Object.assign(slot,{status:"blocked",candidates:[],closure:null,errorCode:"slot_provider_outcome_unknown"});
+ localStorage.setItem(`product-image-set:actor:org:acquisition:${operation}:run`,runId);
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ expect(await screen.findByText(/detail：未生成，点数已释放/)).toBeVisible();
+ expect(screen.queryByText(/detail：原调用待核实/)).toBeNull();
+ expect(screen.getByText(/unknown：原调用待核实，点数预留保留/)).toBeVisible();
+ expect(screen.getAllByRole("button",{name:"核实原调用"})).toHaveLength(1);
+ expect(screen.getAllByRole("button",{name:"恢复原结果"})).toHaveLength(1);
+ expect(screen.getByRole("combobox",{name:"本次计划使用的图片模型"})).toBeDisabled();
+ expect(fetch.mock.calls.some(([,init])=>init?.method==="POST")).toBe(false);
+});
+
+it.each(["attempt","points","duplicate","closed"])("rejects an unbound released summary for %s",scenario=>{
+ const state=projection("blocked",templateId);
+ for(const slot of state.slots)Object.assign(slot,{status:"blocked",candidates:[],closure:null,errorCode:"slot_provider_outcome_unknown"});
+ const released={slotId:"detail",attempt:1,points:10};
+ const payload={...state,settledPoints:10,outputRecoverySummary:{settledPoints:10,slots:[{slotId:"main",attempt:1,points:10,unavailable:false}],releasedSlots:[released]}};
+ if(scenario==="attempt")released.attempt=2;
+ if(scenario==="points")released.points=11;
+ if(scenario==="duplicate")released.slotId="main";
+ if(scenario==="closed")Object.assign(payload.slots[1],{closure:{Kind:"settled",Points:0}});
+ expect(imageSetRunSchema.safeParse(payload).success).toBe(false);
+});

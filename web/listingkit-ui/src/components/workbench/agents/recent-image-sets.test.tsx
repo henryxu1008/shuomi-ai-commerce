@@ -94,3 +94,10 @@ it("shows charged original output awaiting recovery without changing genuine UNK
  expect(screen.getByText("已停止 · 供应链商品 · 通用素材")).toBeVisible();
  expect(fetch).toHaveBeenCalledTimes(1);
 });
+
+it("does not call a partially released run paid or wholly released",async()=>{
+ fetch.mockResolvedValue(Response.json({items:[{...item(0),outputRecoverySummary:{settledPoints:0,slots:[],releasedSlots:[{slotId:"detail",attempt:1,points:1}]}}],nextCursor:""}));
+ render(<RecentImageSets scope={scope} nonce={0}/>);
+ expect(await screen.findByText("已停止 · 供应链商品 · 通用素材")).toBeVisible();
+ expect(screen.queryByText(/已扣点|未生成，点数已释放|已生成，结果待恢复/)).toBeNull();
+});

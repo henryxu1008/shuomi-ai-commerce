@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -140,4 +141,90 @@ func TestPaidOriginalOutputSummaryAcceptsOriginalBlockFallback(t *testing.T) {
 	require.NotNil(t, summary)
 	require.EqualValues(t, 1, summary.SettledPoints)
 	require.Nil(t, p.RecoverableEffects, "a read must not rewrite the historical snapshot")
+}
+
+func TestOriginalOutputSummaryDistinguishesReleasedAndUnknownSiblings(t *testing.T) {
+	for _, includePaid := range []bool{true, false} {
+		t.Run(map[bool]string{true: "paid_released_unknown", false: "released_unknown"}[includePaid], func(t *testing.T) {
+			p, paid := paidImageOutputFixture(t)
+			facts := map[string]imageagent.GenerationFact{"main": paid}
+			for _, name := range []string{"released", "unknown"} {
+				definition := p.Plan.Slots[0]
+				definition.ID = name
+				p.Plan.Slots = append(p.Plan.Slots, definition)
+				definition.Status = imageagent.SlotStatusBlocked
+				p.Slots = append(p.Slots, imageagent.SlotProjection{Slot: definition, Attempt: 1, ErrorCode: imageagent.SlotProviderOutcomeUnknownCode})
+				p.RecoverableEffects = append(p.RecoverableEffects, imageagent.RecoverableEffect{SlotID: name, Attempt: 1, Code: imageagent.SlotProviderOutcomeUnknownCode})
+				intent := paid.Intent
+				intent.Identity.SlotID = name
+				fact, err := imageagent.NewGenerationFact(intent)
+				require.NoError(t, err)
+				reservation := paid.Reservation
+				reservation.IntentID, reservation.Fingerprint = fact.IntentID, fact.Fingerprint
+				reservation.OperationID, reservation.ReservationID = "image-reserve:"+fact.IntentID, name+"-reservation"
+				fact, err = fact.BindReservation(reservation)
+				require.NoError(t, err)
+				if name == "released" {
+					fact, err = fact.RecordNoGeneration()
+					require.NoError(t, err)
+					fact, err = fact.BindSettlement(imageagent.GenerationSettlementReceipt{IntentID: fact.IntentID, Fingerprint: fact.Fingerprint, OperationID: "image-finalize:" + fact.IntentID, ReservationID: reservation.ReservationID, State: "released", ProofDigest: fact.TerminalProofDigest(), Points: 1})
+				} else {
+					fact, _, err = fact.BeginDispatch()
+					require.NoError(t, err)
+					fact, err = fact.MarkUnknown()
+				}
+				require.NoError(t, err)
+				facts[name] = fact
+			}
+			if !includePaid {
+				p.Plan.Slots, p.Slots, p.RecoverableEffects = p.Plan.Slots[1:], p.Slots[1:], p.RecoverableEffects[1:]
+			}
+			p.Plan.Set.MaxPoints = int64(len(p.Slots))
+			a := &fullImageApplication{generationFacts: imageReleaseFactReader(func(_ context.Context, id imageagent.SlotExternalEffectIdentity) (imageagent.GenerationFact, error) {
+				return facts[id.SlotID], nil
+			})}
+			summary, err := a.outputRecoverySummary(context.Background(), p)
+			require.NoError(t, err)
+			require.NotNil(t, summary)
+			var wire map[string]any
+			data, err := json.Marshal(summary)
+			require.NoError(t, err)
+			require.NoError(t, json.Unmarshal(data, &wire))
+			require.Equal(t, []any{map[string]any{"slotId": "released", "attempt": float64(1), "points": float64(1)}}, wire["releasedSlots"])
+			require.EqualValues(t, map[bool]int{true: 1, false: 0}[includePaid], summary.SettledPoints)
+			release, err := a.releaseSummary(context.Background(), p)
+			require.NoError(t, err)
+			require.Nil(t, release, "one released slot cannot label the whole run released")
+		})
+	}
+}
+
+func TestOriginalOutputSummaryDoesNotInferReleasedSlots(t *testing.T) {
+	for _, scenario := range []string{"unsettled", "no_reservation", "unknown", "wrong_member", "wrong_attempt", "corrupt", "closed"} {
+		t.Run(scenario, func(t *testing.T) {
+			p, fact := imageReleaseFixture(t)
+			switch scenario {
+			case "unsettled":
+				fact.Settlement = imageagent.GenerationSettlementReceipt{}
+			case "no_reservation":
+				fact.Reservation = imageagent.GenerationReservationReceipt{}
+				fact.Settlement.ReservationID, fact.Settlement.State = "", "no_reservation"
+			case "unknown":
+				fact.State, fact.Settlement = imageagent.GenerationUnknown, imageagent.GenerationSettlementReceipt{}
+			case "wrong_member":
+				p.Run.MemberID = "other"
+			case "wrong_attempt":
+				p.RecoverableEffects[0].Attempt = 2
+			case "corrupt":
+				fact.Settlement.ProofDigest = "corrupt"
+			case "closed":
+				p.Slots[0].Closure = &imageagent.ImageSlotClosure{Kind: "settled", Points: 0}
+			}
+			a := &fullImageApplication{generationFacts: imageReleaseFactReader(func(context.Context, imageagent.SlotExternalEffectIdentity) (imageagent.GenerationFact, error) {
+				return fact, nil
+			})}
+			summary, _ := a.outputRecoverySummary(context.Background(), p)
+			require.Nil(t, summary)
+		})
+	}
 }
