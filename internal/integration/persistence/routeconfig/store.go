@@ -34,10 +34,14 @@ func InstallSchema(ctx context.Context, db *gorm.DB) error {
 		if e := tx.Exec(SchemaSQL).Error; e != nil {
 			return e
 		}
-		return VerifySchema(ctx, tx)
+		return VerifySchema(ctx, tx, true)
 	})
 }
-func VerifySchema(ctx context.Context, db *gorm.DB) error {
+func VerifySchema(ctx context.Context, db *gorm.DB, imageOptions ...bool) error {
+	if len(imageOptions) > 1 {
+		return d.ErrUnavailable
+	}
+	requireOptions := len(imageOptions) == 1 && imageOptions[0]
 	if ctx == nil || db == nil || db.Dialector.Name() != "postgres" {
 		return d.ErrUnavailable
 	}
@@ -52,6 +56,13 @@ func VerifySchema(ctx context.Context, db *gorm.DB) error {
 		}
 		_ = rows.Close()
 	}
+	if requireOptions {
+		rows, e := db.WithContext(ctx).Raw(`SELECT organization_id,capability,binding_id,revision_id FROM public.ai_route_config_options LIMIT 0`).Rows()
+		if e != nil {
+			return d.ErrUnavailable
+		}
+		_ = rows.Close()
+	}
 	// A partial/drifted schema must not silently bypass scoped CAS or history
 	// identity. Installation remains the only DDL path; startup only inspects.
 	for _, constraint := range []struct{ table, name, definition string }{
@@ -59,7 +70,12 @@ func VerifySchema(ctx context.Context, db *gorm.DB) error {
 		{"ai_route_config_revisions", "ai_route_config_request_scope", "UNIQUE (organization_id, capability, idempotency_key)"},
 		{"ai_route_config_current", "ai_route_config_current_scope", "PRIMARY KEY (organization_id, capability)"},
 		{"ai_route_config_current", "ai_route_config_current_revision", "FOREIGN KEY (organization_id, capability, revision_id) REFERENCES ai_route_config_revisions(organization_id, capability, revision_id)"},
+		{"ai_route_config_options", "ai_route_config_option_scope", "PRIMARY KEY (organization_id, capability, binding_id)"},
+		{"ai_route_config_options", "ai_route_config_option_revision", "FOREIGN KEY (organization_id, capability, revision_id) REFERENCES ai_route_config_revisions(organization_id, capability, revision_id)"},
 	} {
+		if constraint.table == "ai_route_config_options" && !requireOptions {
+			continue
+		}
 		var definition string
 		e := db.WithContext(ctx).Raw(`SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid=to_regclass(?) AND conname=? AND convalidated`, "public."+constraint.table, constraint.name).Scan(&definition).Error
 		if e != nil || definition != constraint.definition {
@@ -69,12 +85,17 @@ func VerifySchema(ctx context.Context, db *gorm.DB) error {
 	return nil
 }
 
-func VerifyReader(ctx context.Context, db *gorm.DB) error {
-	if e := VerifySchema(ctx, db); e != nil {
+func VerifyReader(ctx context.Context, db *gorm.DB, imageOptions ...bool) error {
+	if e := VerifySchema(ctx, db, imageOptions...); e != nil {
 		return e
 	}
 	var writes bool
 	e := db.WithContext(ctx).Raw(`SELECT has_table_privilege(current_user,'public.ai_route_config_revisions','INSERT,UPDATE,DELETE,TRUNCATE') OR has_table_privilege(current_user,'public.ai_route_config_current','INSERT,UPDATE,DELETE,TRUNCATE')`).Scan(&writes).Error
+	if len(imageOptions) == 1 && imageOptions[0] && e == nil {
+		var extra bool
+		e = db.WithContext(ctx).Raw(`SELECT has_any_column_privilege(current_user,'public.ai_route_config_options','INSERT,UPDATE,REFERENCES') OR has_table_privilege(current_user,'public.ai_route_config_options','DELETE,TRUNCATE,TRIGGER')`).Scan(&extra).Error
+		writes = writes || extra
+	}
 	if e != nil || writes {
 		return d.ErrUnavailable
 	}
@@ -83,8 +104,8 @@ func VerifyReader(ctx context.Context, db *gorm.DB) error {
 
 // VerifyWriter rejects serving/owner pools and credential table write/read-key
 // privileges. The metadata view is the only credential grant needed here.
-func VerifyWriter(ctx context.Context, db *gorm.DB) error {
-	if e := VerifySchema(ctx, db); e != nil {
+func VerifyWriter(ctx context.Context, db *gorm.DB, imageOptions ...bool) error {
+	if e := VerifySchema(ctx, db, imageOptions...); e != nil {
 		return e
 	}
 	var ok bool
@@ -104,6 +125,11 @@ func VerifyWriter(ctx context.Context, db *gorm.DB) error {
  AND NOT has_table_privilege(current_user,'public.ai_client_credentials','DELETE')
  AND NOT has_schema_privilege(current_user,'public','CREATE')
  FROM pg_roles r,pg_class c WHERE r.rolname=current_user AND c.oid='public.ai_route_config_revisions'::regclass`).Scan(&ok).Error
+	if len(imageOptions) == 1 && imageOptions[0] && e == nil {
+		var extra bool
+		e = db.WithContext(ctx).Raw(`SELECT has_table_privilege(current_user,'public.ai_route_config_options','INSERT') AND has_table_privilege(current_user,'public.ai_route_config_options','UPDATE') AND NOT has_any_column_privilege(current_user,'public.ai_route_config_options','REFERENCES') AND NOT has_table_privilege(current_user,'public.ai_route_config_options','DELETE,TRUNCATE,TRIGGER')`).Scan(&extra).Error
+		ok = ok && extra
+	}
 	if e != nil || !ok {
 		return d.ErrUnavailable
 	}
@@ -183,6 +209,18 @@ func (s *Store) Current(ctx context.Context, scope d.Scope) (d.Revision, error) 
 	}
 	return s.Revision(ctx, scope, id)
 }
+
+func (s *Store) Optional(ctx context.Context, scope d.Scope, binding string) (d.Revision, error) {
+	var id string
+	r := s.db.WithContext(ctx).Raw("SELECT revision_id FROM public.ai_route_config_options WHERE organization_id=? AND capability=? AND binding_id=?", scope.OrganizationID, scope.Capability, binding).Scan(&id)
+	if r.Error != nil {
+		return d.Revision{}, d.ErrUnavailable
+	}
+	if r.RowsAffected == 0 {
+		return d.Revision{}, d.ErrNotFound
+	}
+	return s.Revision(ctx, scope, id)
+}
 func (s *Store) History(ctx context.Context, scope d.Scope, cursor string, limit int) ([]d.Revision, error) {
 	if !scope.Valid() || limit < 1 || limit > 50 || cursor != "" && !d.ValidFact(cursor, 128) {
 		return nil, d.ErrInvalid
@@ -233,8 +271,16 @@ func (s *Store) Publish(ctx context.Context, cmd d.Command, build func(d.Credent
 	if e != nil {
 		return d.Revision{}, e
 	}
+	if payload.Optional != cmd.Input.Optional || cmd.Input.Optional && (cmd.Scope.Capability != d.ImageCapability || payload.BindingID != cmd.Input.BindingID) {
+		return d.Revision{}, d.ErrInvalid
+	}
 	var current string
-	res := tx.Raw("SELECT revision_id FROM public.ai_route_config_current WHERE organization_id=? AND capability=? FOR UPDATE", cmd.Scope.OrganizationID, cmd.Scope.Capability).Scan(&current)
+	var res *gorm.DB
+	if cmd.Input.Optional {
+		res = tx.Raw("SELECT revision_id FROM public.ai_route_config_options WHERE organization_id=? AND capability=? AND binding_id=? FOR UPDATE", cmd.Scope.OrganizationID, cmd.Scope.Capability, cmd.Input.BindingID).Scan(&current)
+	} else {
+		res = tx.Raw("SELECT revision_id FROM public.ai_route_config_current WHERE organization_id=? AND capability=? FOR UPDATE", cmd.Scope.OrganizationID, cmd.Scope.Capability).Scan(&current)
+	}
 	if res.Error != nil {
 		return d.Revision{}, d.ErrUnavailable
 	}
@@ -257,7 +303,13 @@ func (s *Store) Publish(ctx context.Context, cmd d.Command, build func(d.Credent
 	if e != nil {
 		return s.conflict(ctx, tx, cmd, e)
 	}
-	if current == d.NoRevision {
+	if cmd.Input.Optional {
+		if current == d.NoRevision {
+			res = tx.Exec(`INSERT INTO public.ai_route_config_options(organization_id,capability,binding_id,revision_id) VALUES(?,?,?,?) ON CONFLICT DO NOTHING`, cmd.Scope.OrganizationID, cmd.Scope.Capability, cmd.Input.BindingID, id)
+		} else {
+			res = tx.Exec(`UPDATE public.ai_route_config_options SET revision_id=? WHERE organization_id=? AND capability=? AND binding_id=? AND revision_id=?`, id, cmd.Scope.OrganizationID, cmd.Scope.Capability, cmd.Input.BindingID, current)
+		}
+	} else if current == d.NoRevision {
 		res = tx.Exec(`INSERT INTO public.ai_route_config_current(organization_id,capability,revision_id) VALUES(?,?,?) ON CONFLICT DO NOTHING`, cmd.Scope.OrganizationID, cmd.Scope.Capability, id)
 	} else {
 		res = tx.Exec(`UPDATE public.ai_route_config_current SET revision_id=? WHERE organization_id=? AND capability=? AND revision_id=?`, id, cmd.Scope.OrganizationID, cmd.Scope.Capability, current)
@@ -293,9 +345,9 @@ func (s *Store) conflict(ctx context.Context, tx *gorm.DB, cmd d.Command, cause 
 // GrantSQL is consumed only by explicit schema installation; never startup.
 func GrantSQL(role string, writer bool) string {
 	identifier := pgx.Identifier{role}.Sanitize()
-	q := fmt.Sprintf("GRANT SELECT ON public.ai_route_config_revisions,public.ai_route_config_current,public.ai_client_credential_bindings TO %s;", identifier)
+	q := fmt.Sprintf("GRANT SELECT ON public.ai_route_config_revisions,public.ai_route_config_current,public.ai_route_config_options,public.ai_client_credential_bindings TO %s;", identifier)
 	if writer {
-		q += fmt.Sprintf("GRANT INSERT ON public.ai_route_config_revisions TO %s;GRANT INSERT,UPDATE ON public.ai_route_config_current TO %s;", identifier, identifier)
+		q += fmt.Sprintf("GRANT INSERT ON public.ai_route_config_revisions TO %s;GRANT INSERT,UPDATE ON public.ai_route_config_current,public.ai_route_config_options TO %s;", identifier, identifier)
 	}
 	return q
 }

@@ -85,7 +85,7 @@ func TestOrganizationImageRuntimeRoleHasOnlyCurrentAPIGrants(t *testing.T) {
 	require.Error(t, verifyOrganizationRuntimePermissions(ctx, owner, role))
 	require.NoError(t, owner.AutoMigrate(&openai.AIClientCredential{}))
 	require.NoError(t, routeconfigstore.InstallSchema(ctx, owner))
-	for _, relation := range []string{"ai_route_config_revisions", "ai_route_config_current", "ai_client_credential_bindings"} {
+	for _, relation := range []string{"ai_route_config_revisions", "ai_route_config_current", "ai_route_config_options", "ai_client_credential_bindings"} {
 		t.Run("unneeded_managed_read_"+relation, func(t *testing.T) {
 			require.NoError(t, owner.Exec("GRANT SELECT ON "+relation+" TO "+role).Error)
 			require.Error(t, verifyOrganizationRuntimePermissions(ctx, runtimeDB, role), "only the worker pool reads managed image routes")

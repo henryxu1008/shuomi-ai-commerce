@@ -17,7 +17,10 @@ import (
 
 // The transport supplies identities only. URLs, dimensions, prompt, quote and
 // requirement claims are resolved by the existing source/config/rule owners.
+var ErrImageRouteChanged = errors.New("selected image route version is unavailable")
+
 type PrepareImageSetInput struct {
+	Route                                                     *ImageRouteSelection   `json:",omitempty"`
 	Text                                                      *ImageTextSelection    `json:",omitempty"`
 	Method                                                    *agent.SkillVersionRef `json:",omitempty"`
 	ExpectedModeRevision                                      string
@@ -62,7 +65,19 @@ type ImageSetSourceGuard interface {
 }
 
 type ImageSetQuoteReader interface {
-	ReadImageGenerationQuote(context.Context, ExecutionIdentity) (ImageGenerationQuote, error)
+	ReadImageGenerationQuote(context.Context, ExecutionIdentity, *ImageRouteSelection) (ImageGenerationQuote, error)
+}
+
+// Member-facing projection excludes endpoints and credential references.
+type ImageGenerationOption struct {
+	Route      *ImageRouteSelection `json:"route,omitempty"`
+	Model      string               `json:"model"`
+	Quality    string               `json:"quality"`
+	Resolution string               `json:"resolution"`
+	Points     int64                `json:"points"`
+}
+type ImageGenerationOptionsReader interface {
+	ReadImageGenerationOptions(context.Context, ExecutionIdentity) ([]ImageGenerationOption, error)
 }
 
 type ImageSetDependencies struct {
@@ -116,6 +131,9 @@ func (s *Service) GetPreparedImageSet(ctx context.Context, kind ImageSourceConte
 }
 
 func validPrepareImageSetInput(input PrepareImageSetInput) bool {
+	if input.Route != nil && !input.Route.Valid() {
+		return false
+	}
 	if input.Text != nil && !input.Text.Valid() {
 		return false
 	}
@@ -292,7 +310,7 @@ func (s *Service) PrepareImageSet(ctx context.Context, input PrepareImageSetInpu
 	if err != nil {
 		return PreparedImageSet{}, err
 	}
-	quote, err := s.imageSets.Quotes.ReadImageGenerationQuote(ctx, identity)
+	quote, err := s.imageSets.Quotes.ReadImageGenerationQuote(ctx, identity, input.Route)
 	if err != nil {
 		return PreparedImageSet{}, err
 	}
@@ -391,6 +409,7 @@ func buildImageSetPlan(input PrepareImageSetInput, resolved ImageSetPreparation,
 	}
 	plan := Plan{Revision: 1, IdempotencyKey: input.RequestID, CreatedBy: actor, SourceAssetIDs: sources, Set: &ImageSetPlan{Method: method, Schema: ImageSetSchema, Source: resolved.Source, Target: resolved.Target, Configuration: snapshot.Ref(), ConfigurationEpoch: snapshot.Epoch, ParametersDigest: snapshot.ParametersDigest, InputDigest: snapshot.InputDigest}}
 	plan.Set.Text = CloneImageTextBinding(text)
+	plan.Set.Route = CloneImageRoute(input.Route)
 	// Identity and snapshot version remain in the frozen source/catalog. They
 	// are operational bindings, never content to place on a product image.
 	type visualProductFacts struct {
@@ -592,7 +611,7 @@ func (s *Service) ConfirmImagePlan(ctx context.Context, input ConfirmImagePlanIn
 		defer release()
 		// Only a new admission consumes the current quote. A durable original
 		// receipt remains authoritative after ImageDB persistence/ACK loss.
-		quote, err := s.imageSets.Quotes.ReadImageGenerationQuote(ctx, identity)
+		quote, err := s.imageSets.Quotes.ReadImageGenerationQuote(ctx, identity, current.Plan.Set.Route)
 		if err != nil {
 			return RunProjection{}, err
 		}
