@@ -165,12 +165,6 @@ func NewDefaultConfig() *Config {
 			},
 		},
 		ImageAgent: ImageAgentConfig{},
-		Updater: UpdaterConfig{
-			Enabled:            false,
-			UpdateURL:          "https://auto-update-1303159911.cos.ap-shanghai.myqcloud.com/task-processor/version.json",
-			CheckInterval:      300,
-			InsecureSkipVerify: false,
-		},
 		ListingKit: ListingKitConfig{
 			ImageUpload: ListingKitImageUploadConfig{},
 			Zitadel:     ListingKitZitadelConfig{},

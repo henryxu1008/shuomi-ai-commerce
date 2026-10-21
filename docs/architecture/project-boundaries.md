@@ -1,5 +1,7 @@
 # Project Boundary Rules
 
+> #872 当前校准：[用户确认的完整队列/代理/配置尾部边界](legacy-queue-proxy-config-tail-closure-retirement-boundary.md)源退无当前消费者的 platform/queue/rabbitmq、数字 Store 代理及专属声明、Updater 配置和 cache/perf/types/fileio。queue/rabbitmq 不再是当前 runtime owner；不把旧表中的队列迁移目标恢复为新机制。当前 workerpool/Retry/Temporal/config/logger/共享基础层、采集/Store和独立 SHEIN 登录同步保持，原历史计数及其它边界不改。
+
 > #870 当前校准：按[用户确认的完整旧宿主退休边界](legacy-host-runtime-closure-retirement-boundary.md)整批 RETIRE 七个无当前消费者旧根 infra/httpx、infra/auth、app/monitoring、app/lifecycle、core/errors、app/ports、app/updater。下文 Phase 2 将 auth 迁到组织 adapter、拆分 httpx 和保留组件/ports/updater 的表述仅为历史目标，不能据此迁移、包装或恢复。当前 owner 为 authruntime/authidentity/authz/workbenchcontext、app/runtime/currentapplication、app/httpapi、kernel/module、platform 和独立 SHEIN/Store；当前合同不变。历史 closure counts、inventory及其它边界不改，无真实状态处置或新增试用前置。
 
 > #827 [confirmed Publishing runtime closure](legacy-shein-publishing-runtime-closure-retirement-boundary.md): The complete unused SHEIN Publishing runtime/cache/remote-submit closure is source-retired. publishing/shein remains the current pure draft/value/strict-codec owner; listing/submission retains the 13 official Kernel/intent/receipt/effects files, not the retired attempt/lease/recovery helpers. Current platform rules, Store/tenant/content/worker owners remain; no new compatibility or persistence boundary. Workflows, dependencies, ceilings, runtime/data and trial prerequisites are unchanged.
@@ -167,7 +169,6 @@ Current runtime-foundation owners:
 - `internal/platform/logging`
 - `internal/platform/database`
 - `internal/platform/redis`
-- `internal/platform/queue/rabbitmq`
 - `internal/platform/workerpool`
 - `internal/platform/temporal`
 - `internal/platform/featureflags`

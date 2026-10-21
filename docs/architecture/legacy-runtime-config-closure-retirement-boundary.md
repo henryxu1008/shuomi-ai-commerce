@@ -1,5 +1,7 @@
 # 旧数字任务与刊登专属配置：完整退休闭包设计
 
+> #872 后续精确收口：[用户确认的完整队列/代理/配置尾部边界](legacy-queue-proxy-config-tail-closure-retirement-boundary.md)退休已失去最后消费者的 platform/queue/rabbitmq 包及 tests/test_config.yaml、数字 Store 代理两入口、四份 shein-listing-secret 源与 prod 专属装配，并清理 Updater 配置尾部。本文对此批准确对象的旧保留目标仅为历史；通用 RetryConfig、真实 workerpool、当前 config/采集/Store/独立 SHEIN 登录同步、共享 Namespace/base、middleware broker 声明及其它当前能力保持。没有实际实例/数据/Secret/队列操作；workflow、历史计数与原检查不改。
+
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
 > Status: **IMPLEMENTATION_READY；用户已确认冻结设计 `209b40f54` 并明确授权按§5/§6/§6.1/§7在 #836 整批实施；源码退休已完成，待最终独立检查/合并授权。** Design Basis: **Independent Architecture**。调查基线 main `cb211d5072b6268fc846be346dacc9fa9e19f981`（2026-10-19），包含 #833/#834/#835；主要 PR 记录准确 HEAD/CI/review。一个 Writer、一个完整配置闭包，不按字段、配置组或文件数拆 PR。设计阶段只新增本文和索引；独立设计检查完成、用户确认及 Issue Ready 记录读回之后，才实施以下矩阵。准确实施 HEAD/测试/CI/review 与权限记录在 #836，不把源码完成记作运行或用户验收。
