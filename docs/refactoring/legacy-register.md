@@ -1,5 +1,7 @@
 # Legacy Register
 
+> #301 **PROPOSED / DESIGN_ONLY**：[旧水印检测/去除与专属配置完整退休设计](../architecture/legacy-watermark-config-closure-retirement-boundary.md)核对 12 个包内源/示例、Config.Watermark 与开发 YAML 专属根。当前 Design Basis N/A，未来拟 Reuse Existing Architecture / NOT_READY，待用户确认 §1–§7（含 §6.1）才实施；当前源码/测试/配置未改，不把提案写成已退休。当前图像风险、百炼 watermark 生成参数、共享工具、采集/Store/独立 SHEIN 登录与同步保留；workflow/inventory/依赖/ceilings/保护均零改，不操作实例/数据/凭据/进程，不增加试用前置，#301 OPEN。旧 inventory 的暂留分类仅在未来确认此准确边界后由本设计/登记注记取代，历史正文不改。
+
 > #301 / #872 [用户确认的旧RabbitMQ、数字Store代理与宿主配置/helper完整闭包](../architecture/legacy-queue-proxy-config-tail-closure-retirement-boundary.md)：冻结设计f59bdf89c §1–§7（含§6.1）已获明确确认，Reuse Existing Architecture / Ready；Issue/PR准入读回后，原唯一Writer同批RETIRE三组47准确专属源、七混合配置源及原guard/文档尾部，无新EXTRACT/替代owner。仅删除获准的core/logger→pkg/fileio一条CURRENT inventory行，历史/计数/ceilings/准确性检查逻辑不改。下文旧RabbitMQ/数字代理与Secret源/Updater配置/闲置helper的保留或迁移目标仅在准确矩阵上失效；其它有效合同和历史证据原样。当前能力、共享Namespace/base、workerpool/Retry/基础层、采集/Store与独立SHEIN登录同步保留；workflow/依赖/保护零改，不操作实例/数据/凭据/进程，无新试用前置，#301 OPEN。准确实现HEAD/CI/最终复核留PR。
 
 > #301 / #870 [用户确认的完整旧宿主退休边界](../architecture/legacy-host-runtime-closure-retirement-boundary.md)：冻结设计a76db47d7 §1–§7（含§6.1）已获用户明确确认；Reuse Existing Architecture / Ready，原唯一Writer同一PR整批实施。三组七根的38个准确Go文件及专属尾部RETIRE，无新EXTRACT/替代owner；原guard改为根缺席/禁入，保留解析/读取失败和全部当前安全合同。下文旧目录迁移/存在性/第三方更新替换要求仅在此精确矩阵上失效；历史计数/失败和其它当前合同保留。当前身份/HTTP/共享基础层、采集、Store与独立SHEIN登录同步保持；token/更新文件/进程/实例/数据/凭据不操作，workflow/inventory/依赖/ceilings/保护零改，无新试用前置，#301 OPEN。准确实现HEAD/CI/最终复核留PR。
