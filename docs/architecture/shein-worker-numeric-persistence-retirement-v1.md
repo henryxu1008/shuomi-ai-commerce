@@ -1,5 +1,8 @@
 # #301 独立 SHEIN worker：旧数字账号、Store 与 Profile/Redis 完整退休闭包
 
+> **Implementation admission (2026-10-21): Independent Architecture / IMPLEMENTATION_READY / FROZEN.** The user confirmed §1–§7, including the authorized CLI, optional Store execution-ownership table and §6.1, and authorized the complete batch in #863. Frozen design HEAD: `94fa4cab189650aaee770225657a35e784aeaeb0`; [independent design review](https://github.com/qq550723504/task-processor/pull/863#issuecomment-6306296890) completed without remaining findings. [Implementation receipt](https://github.com/qq550723504/task-processor/pull/863#issuecomment-6306911694). The proposal/pending language below records the design-stage history and is superseded only by this explicit approval. One writer implements this complete closure in the same PR. Task-owned temporary PostgreSQL/Redis and synthetic fixtures are authorized; existing instances/data/credentials, workflows and trial prerequisites are unchanged. UNKNOWN never permits automatic takeover. #301 stays OPEN; merge, deployment and runtime acceptance remain separately authorized.
+
+
 Refs [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
 Status: **PROPOSED / DESIGN_ONLY / 待用户确认**。Design Basis: **Independent Architecture**；生产实施 **NOT_READY / NOT_AUTHORIZED**。调查基线为 `main e174977d35fe779e966c29018ac01889747e8887`（2026-10-21）。用户本轮授权完整设计，不授权实现、真实环境操作、合并或关单；适用独立检查与用户确认完成后才冻结为 IMPLEMENTATION_READY。
