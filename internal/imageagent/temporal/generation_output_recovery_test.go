@@ -47,7 +47,7 @@ func (generationOutputResourceAuth) AuthorizeImageGeneration(context.Context, im
 }
 
 func TestGenerationOutputRestartRecoversBothV3Entrypoints(t *testing.T) {
-	for _, entry := range []string{"execute_claimed", "recover_unknown", "execute_unknown", "recover_staging", "recover_ack", "recover_already_charged", "recover_bundle", "altered_input", "revoked", "unknown"} {
+	for _, entry := range []string{"execute_claimed", "recover_unknown", "execute_unknown", "recover_staging", "recover_ack", "recover_already_charged", "recover_vip_exhausted", "recover_bundle", "altered_input", "revoked", "unknown"} {
 		t.Run(entry, func(t *testing.T) {
 			ctx := context.Background()
 			dsn := filepath.Join(t.TempDir(), "image.db") + "?_busy_timeout=5000&_journal_mode=WAL"
@@ -82,6 +82,9 @@ func TestGenerationOutputRestartRecoversBothV3Entrypoints(t *testing.T) {
 			require.True(t, won)
 			facts := repo.(imageagent.GenerationFactRepository)
 			intent := imageagent.GenerationIntent{Identity: reservation.Identity, MemberID: run.MemberID, CatalogHash: catalog.Manifest.Hash, SourceDigest: strings.Repeat("b", 64), PromptVersion: "p1", RouteReference: "r1", CredentialReference: "c1", ConfigurationVersion: "v1", Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", PriceVersion: "price1", Points: 12, LimitVersion: 1, MonthStart: orgresource.AIPointMonthStart(time.Now())}
+			if entry == "recover_vip_exhausted" {
+				intent.Model, intent.Quality = "gpt-image-2-vip", "medium"
+			}
 			_, err = facts.PrepareGenerationIntent(ctx, intent)
 			require.NoError(t, err)
 			commercial, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "commercial.db")), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
@@ -92,7 +95,11 @@ func TestGenerationOutputRestartRecoversBothV3Entrypoints(t *testing.T) {
 			require.NoError(t, commercial.Exec("INSERT INTO saas_organization_resource_buckets (organization_id,resource_type,available,reserved,consumed,created_at,updated_at) VALUES (?, 'ai_point', 100, 0, 0, ?, ?)", run.TenantID, time.Now(), time.Now()).Error)
 			limits, err := resourceadapter.NewGormMemberLimitRepository(commercial, resourceadapter.TransactionConfig{})
 			require.NoError(t, err)
-			_, err = limits.SetMonthlyLimit(ctx, orgresource.SetMemberLimitExecution{OrganizationID: run.TenantID, MemberID: run.MemberID, ActorID: "admin", OperationID: "limit", Target: 20})
+			limit := int64(20)
+			if entry == "recover_vip_exhausted" {
+				limit = 12
+			}
+			_, err = limits.SetMonthlyLimit(ctx, orgresource.SetMemberLimitExecution{OrganizationID: run.TenantID, MemberID: run.MemberID, ActorID: "admin", OperationID: "limit", Target: limit})
 			require.NoError(t, err)
 			resources, err := resourceadapter.NewGormImageGenerationRepository(commercial, resourceadapter.TransactionConfig{}, facts, generationOutputResourceAuth{})
 			require.NoError(t, err)
@@ -114,16 +121,16 @@ func TestGenerationOutputRestartRecoversBothV3Entrypoints(t *testing.T) {
 				_, _ = w.Write(tinyPNGBytes(t))
 			}))
 			defer server.Close()
-			client := grsai.NewClient(grsai.Config{Model: "gpt-image-2.5", SubmitURL: server.URL, HTTPClient: server.Client(), MaxAttempts: 1})
+			client := grsai.NewClient(grsai.Config{Model: intent.Model, SubmitURL: server.URL, HTTPClient: server.Client(), MaxAttempts: 1})
 			if entry != "unknown" {
-				_, err = client.EditImageOnce(ctx, &ai.ImageEditRequest{Model: "gpt-image-2.5", Prompt: "white", Image: tinyPNGBytes(t), ImageContentType: "image/png", N: 1}, func(ctx context.Context, o grsai.GenerationObservation) error {
+				_, err = client.EditImageOnce(ctx, &ai.ImageEditRequest{Model: intent.Model, Quality: intent.Quality, Prompt: "white", Image: tinyPNGBytes(t), ImageContentType: "image/png", N: 1}, func(ctx context.Context, o grsai.GenerationObservation) error {
 					_, err := facts.RecordGenerationSuccess(ctx, intent, imageagent.GenerationSuccess{ResponseID: o.ResponseID, RequestID: o.RequestID, ResultDigest: o.ResultDigest}.WithResultLocator(o.ResultURL, o.ResultUnavailable))
 					return err
 				})
 				require.NoError(t, err)
 			}
 			// Interruption after success persistence, before any download or bundle.
-			if entry == "recover_already_charged" {
+			if entry == "recover_already_charged" || entry == "recover_vip_exhausted" {
 				settled, e := resources.FinalizeImageGeneration(ctx, intent.Identity)
 				require.NoError(t, e)
 				_, e = facts.BindGenerationSettlement(ctx, intent, settled)

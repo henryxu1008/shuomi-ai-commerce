@@ -1,5 +1,7 @@
 # Architecture Documentation
 
+- [`vip-original-output-recovery.md`](vip-original-output-recovery.md): #840 admitted reuse of original success/Commercial settlement proofs and GET-only recovery; accurate paid-result presentation, exact result-host DNS diagnosis, no generation, new state, charge or default change.
+
 - [`image-plan-optional-route-v1.md`](image-plan-optional-route-v1.md): #840 independent design admitted before implementation; maintainer optional publication without changing enterprise default, exact VIP selection frozen per product image plan, original quote/admission/dispatch/recovery owners and UNKNOWN preserved. Supersedes the prior batch's maintenance-only scope; no runtime publication or real-call authority.
 
 - [`source-business-closure-v1.md`](source-business-closure-v1.md): #30/#307 user-confirmed complete source business closure, Independent Architecture / IMPLEMENTATION_READY. Current SRC/Catalog/Collection facts and pinned reads, original Preparation/Asset human approval and Product-input diagnostics are composed without Store/AI/upload prerequisites. Product/Figma increment 8130:2280 was explicitly approved on 2026-10-21; implementation and exact evidence remain in #859. No workflow or retained runtime/data/credential operations, no new trial prerequisite; #301 stays OPEN and standalone SHEIN login/Store sync remain.
