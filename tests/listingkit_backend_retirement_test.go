@@ -14,6 +14,38 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+var retiredHostRuntimePackages = []string{
+	"internal/infra/httpx", "internal/infra/auth", "internal/app/monitoring",
+	"internal/app/lifecycle", "internal/core/errors", "internal/app/ports", "internal/app/updater",
+}
+
+func TestOldHostRuntimeClosureStaysRetired(t *testing.T) {
+	for _, relative := range retiredHostRuntimePackages {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Errorf("retired host runtime root %s must be absent: %v", relative, err)
+		}
+	}
+	for _, root := range []string{"internal", "cmd"} {
+		index, err := loadGoFileIndex(filepath.Join("..", root), "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		for path, facts := range index.files {
+			for literal := range facts.imports {
+				imported, err := decodeGoImportPath(literal)
+				if err != nil {
+					t.Fatalf("decode import in %s: %v", path, err)
+				}
+				for _, relative := range retiredHostRuntimePackages {
+					if importMatchesPrefix(imported, "task-processor/"+relative) {
+						t.Errorf("%s imports retired host runtime %s", path, imported)
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestNumericContextAndValueContractsAreRetired(t *testing.T) {
 	for _, relative := range []string{"internal/listingruntime/rules.go", "internal/listingruntime/operation_strategy.go"} {
 		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
@@ -2377,7 +2409,7 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 				t.Fatalf("go list current command: %v\n%s", err, output)
 			}
 			for _, dependency := range strings.Fields(string(output)) {
-				for _, relative := range append(append([]string{}, retiredTEMUListingPackages...), retiredAmazonListingPackages...) {
+				for _, relative := range append(append(append([]string{}, retiredTEMUListingPackages...), retiredAmazonListingPackages...), retiredHostRuntimePackages...) {
 					retired := "task-processor/" + relative
 					if dependency == retired || strings.HasPrefix(dependency, retired+"/") {
 						t.Errorf("%s still compiles retired listing dependency %s", command, dependency)

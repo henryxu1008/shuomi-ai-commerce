@@ -1,5 +1,7 @@
 # Module Target Mapping
 
+> #301 / #870 [用户确认的完整旧宿主退休边界](../architecture/legacy-host-runtime-closure-retirement-boundary.md)（冻结设计a76db47d7，Reuse Existing Architecture / Ready）已确认并整批实施。仅 supersede 七个旧根 infra/httpx、infra/auth、app/monitoring、app/lifecycle、core/errors、app/ports、app/updater 的旧迁移/保留/存在性/替换目标；38准确Go文件与专属文档/原guard同退，无新EXTRACT或替代框架。当前身份/HTTP/module/Retry/观测/共享基础层、采集、Store及独立SHEIN登录/同步继续原owner。历史正文/计数/失败保留，workflow/inventory/依赖与真实文件/进程/凭据/数据不改，无新试用前置，#301 OPEN；准确证据留PR。
+
 > #301 / #868 implements the [approved complete numeric context/value-contract retirement](../architecture/legacy-numeric-value-contract-closure-retirement-boundary.md), frozen design 01d8b8a50 / Independent Architecture / IMPLEMENTATION_READY. Existing pricing/activity owners directly consume the extracted 5/8 value fields; old numeric logging/sharding APIs, both listingruntime rule types and SourceIdentity alias derivation/Key retire together. ProductImportMapping/MappingInfo, both SHEIN attributes, all four zero-value source JSON slots and original normalization/hash/read rejection contracts remain. This precisely supersedes only #867's retention of those two old input types and alias behavior; current acquisition, Store and standalone SHEIN login/sync keep their owners. Workflows/inventory/dependencies/runtime/data/credentials are untouched; #301 remains OPEN, with no new trial prerequisite.
 
 

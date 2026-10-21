@@ -12,7 +12,7 @@ Status: **CONFIRMED / Reuse Existing Architecture / Ready → In Progress**。�
 2. `internal/app/monitoring` → `internal/app/lifecycle`、`internal/core/errors`，加已无消费者的 `internal/app/ports`：旧组件监控、生命周期、错误/重试包装及采集/Task/Prompt 装配接口。
 3. `internal/app/updater`：版本元数据、比较、下载/校验/重试、替换/重启、标记/错误日志和 adapter 的完整闭包。
 
-**本轮仅授权只读调查、本文、Architecture README/Legacy Register 提案入口及 #301/PR 维护。生产源码、测试、schema、配置、workflow、inventory、依赖/锁、ceilings、保护零改。** 不手动调用旧会话/更新 constructor、应用、业务 CLI、旧脚本或任何 dry-run；不读既有 token、私密配置、更新产物、进程环境或运行报告，不操作实例、业务数据、凭据、源码外文件、Profile、数据库、队列、浏览器或 provider。不启动本地 PG/Redis/browser；原 CI 按既有规则运行已有隔离 fixture，不取得真实环境权限。设计确认后才实施；合并、部署、关单另行授权。
+**原设计阶段仅授权只读调查、本文、Architecture README/Legacy Register 提案入口及 #301/PR 维护。生产源码、测试、schema、配置、workflow、inventory、依赖/锁、ceilings、保护零改。** 不手动调用旧会话/更新 constructor、应用、业务 CLI、旧脚本或任何 dry-run；不读既有 token、私密配置、更新产物、进程环境或运行报告，不操作实例、业务数据、凭据、源码外文件、Profile、数据库、队列、浏览器或 provider。不启动本地 PG/Redis/browser；原 CI 按既有规则运行已有隔离 fixture，不取得真实环境权限。设计确认后才实施；合并、部署、关单另行授权。
 
 ## 2. Design Basis、Authority 与边界
 

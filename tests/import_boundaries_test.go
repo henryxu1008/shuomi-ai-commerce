@@ -519,9 +519,13 @@ func TestPortsManagementAPIPackageIsRetired(t *testing.T) {
 func TestGlobalPortsFacadePackageStaysRetired(t *testing.T) {
 	path := filepath.Join("..", "internal", "ports", "contracts.go")
 	if _, err := os.Stat(path); err == nil {
-		t.Fatalf("%s still exists; import app/ports directly instead of reviving the global ports facade package", path)
+		t.Fatalf("%s still exists; use current owner contracts; neither retired ports root may be revived", path)
 	} else if !os.IsNotExist(err) {
 		t.Fatalf("stat %s: %v", path, err)
+	}
+
+	if _, err := os.Stat(filepath.Join("..", "internal", "app", "ports")); !os.IsNotExist(err) {
+		t.Fatalf("retired app/ports root must be absent: %v", err)
 	}
 
 	index, err := loadGoFileIndex(filepath.Join("..", "internal"), "")
@@ -529,8 +533,15 @@ func TestGlobalPortsFacadePackageStaysRetired(t *testing.T) {
 		t.Fatal(err)
 	}
 	for path, facts := range index.files {
-		if _, ok := facts.imports[`"task-processor/internal/ports"`]; ok {
-			t.Fatalf("%s imports retired global ports facade; use task-processor/internal/app/ports directly", path)
+		for literal := range facts.imports {
+			imported, err := decodeGoImportPath(literal)
+			if err != nil {
+				t.Fatalf("decode import in %s: %v", path, err)
+			}
+			if importMatchesPrefix(imported, "task-processor/internal/ports") ||
+				importMatchesPrefix(imported, "task-processor/internal/app/ports") {
+				t.Fatalf("%s imports retired ports facade %s; use current owner contracts; neither retired root may be revived", path, imported)
+			}
 		}
 	}
 }
