@@ -9,6 +9,7 @@ import (
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authruntime/zitadel"
 	"task-processor/internal/authz"
+	"task-processor/internal/storecenter"
 )
 
 type verifiedSubject struct {
@@ -126,5 +127,55 @@ func TestCLIRequiresVerifiedJWTAndFreshExactMember(t *testing.T) {
 	}
 	if v.calls < 7 || g.calls < 4 {
 		t.Fatal("native/live authority was not consulted")
+	}
+}
+
+// This is the existing optional overlay contract, not a production policy owner.
+type denyOnlyOrganizationFixture struct {
+	suspended   bool
+	unavailable bool
+	calls       int
+}
+
+func (f *denyOnlyOrganizationFixture) IsOrganizationSuspended(_ context.Context, org string) (bool, error) {
+	f.calls++
+	if org != "123" || f.unavailable {
+		return false, ErrUnavailable
+	}
+	return f.suspended, nil
+}
+
+func TestOptionalOrganizationPolicyIsDenyOnlyAndRechecked(t *testing.T) {
+	policy, err := authz.NewListingKitAuthorizer(nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	g := &exactGrant{member: "member", state: "STATE_ACTIVE", organization: "123"}
+	a := &Authorization{Grants: g, ServiceToken: func(context.Context) (string, error) { return "synthetic-service-token", nil }, ProjectID: "project", Permissions: policy}
+	ctx := executionContext(context.Background(), LoginAttempt{ActorID: "actor", MemberID: "member", Scope: storecenter.SheinLoginScope{OrganizationID: "123"}})
+	if _, err = a.AuthorizeStoreMember(ctx, "123"); err != nil {
+		t.Fatal("nil overlay changed native authority", err)
+	}
+	f := &denyOnlyOrganizationFixture{}
+	a.OrganizationStatus = f
+	if _, err = a.AuthorizeStoreMember(ctx, "123"); err != nil {
+		t.Fatal(err)
+	}
+	f.suspended = true
+	if _, err = a.AuthorizeStoreMember(ctx, "123"); err == nil {
+		t.Fatal("configured suspension was ignored")
+	}
+	f.suspended = false
+	f.unavailable = true
+	if _, err = a.AuthorizeStoreMember(ctx, "123"); err == nil {
+		t.Fatal("configured policy outage was ignored")
+	}
+	f.unavailable = false
+	g.state = "STATE_INACTIVE"
+	if _, err = a.AuthorizeStoreMember(ctx, "123"); err == nil {
+		t.Fatal("clear overlay granted revoked native access")
+	}
+	if f.calls != 3 {
+		t.Fatal("optional overlay was cached or used as authority", f.calls)
 	}
 }
