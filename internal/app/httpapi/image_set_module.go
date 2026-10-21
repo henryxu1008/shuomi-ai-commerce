@@ -621,7 +621,14 @@ func (a *fullImageApplication) readRecent(ctx context.Context, contextID, cursor
 			if err != nil {
 				return nil, "", err
 			}
-			result = append(result, fullImageRecentRun{ImageSetRunSummary: item, ReleaseSummary: release})
+			var paid *fullImageOutputRecoverySummary
+			if release == nil {
+				paid, err = a.outputRecoverySummary(ctx, projections[index])
+				if err != nil {
+					return nil, "", err
+				}
+			}
+			result = append(result, fullImageRecentRun{ImageSetRunSummary: item, ReleaseSummary: release, OutputRecoverySummary: paid})
 		}
 	}
 	return result, next, nil
@@ -727,6 +734,18 @@ func (a *fullImageApplication) response(ctx context.Context, p imageagent.RunPro
 	}
 	if release != nil {
 		response["releaseSummary"] = release
+		return response, nil
+	}
+	paid, err := a.outputRecoverySummary(ctx, p)
+	if err != nil {
+		return nil, err
+	}
+	if paid != nil {
+		if settled < 0 || paid.SettledPoints > p.Plan.Set.MaxPoints-settled {
+			return nil, imageagent.ErrRevisionConflict
+		}
+		response["outputRecoverySummary"] = paid
+		response["settledPoints"] = settled + paid.SettledPoints
 	}
 	return response, nil
 }

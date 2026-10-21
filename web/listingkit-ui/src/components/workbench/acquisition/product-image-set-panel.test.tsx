@@ -1627,3 +1627,30 @@ it(`retains an unresolved cancel intent for ${mismatch} without another mutation
  expect(fetch.mock.calls.some(([,init])=>init?.method==="POST")).toBe(false);
 });
 }
+
+
+it("restores a paid original through the existing recovery command and keeps unknown siblings",async()=>{
+ state=projection("blocked","44444444-4444-4444-8444-444444444444");
+ Object.assign(state,{resultDigest:"",approvalAvailable:false,candidateSelectionAvailable:false,regenerationAvailable:false,settledPoints:10,outputRecoverySummary:{settledPoints:10,slots:[{slotId:"main",attempt:1,points:10,unavailable:false}]},recoverableEffects:[{SlotID:"main",Attempt:1,Code:"slot_provider_outcome_unknown"},{SlotID:"detail",Attempt:1,Code:"slot_provider_outcome_unknown"}],block:{Code:"slot_provider_outcome_unknown"}});
+ for(const slot of state.slots)Object.assign(slot,{status:"blocked",candidates:[],closure:null,errorCode:"slot_provider_outcome_unknown"});
+ localStorage.setItem(`product-image-set:actor:org:acquisition:${operation}:run`,runId);
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ expect(await screen.findByRole("heading",{name:"已生成，结果待恢复"})).toBeVisible();
+ expect(screen.getByText(/已结算用量 10 点/)).toBeVisible();
+ expect(screen.getByText(/detail：原调用待核实，点数预留保留/)).toBeVisible();
+ fireEvent.click(screen.getByRole("button",{name:"恢复原结果"}));
+ await waitFor(()=>expect(fetch.mock.calls.some(([u,init])=>String(u).endsWith("/recover")&&init?.method==="POST")).toBe(true));
+ const [,request]=fetch.mock.calls.find(([u,init])=>String(u).endsWith("/recover")&&init?.method==="POST")!;
+ expect(JSON.parse(request!.body as string)).toMatchObject({planRevision:1,slotId:"main",attempt:1});
+ expect(fetch.mock.calls.some(([u])=>/\/(prepare|confirm|regenerate|approve)$/.test(String(u)))).toBe(false);
+});
+
+it("does not offer recovery of a proved unavailable paid original",async()=>{
+ state=projection("blocked","44444444-4444-4444-8444-444444444444");
+ Object.assign(state,{resultDigest:"",approvalAvailable:false,candidateSelectionAvailable:false,regenerationAvailable:false,settledPoints:20,outputRecoverySummary:{settledPoints:20,slots:[{slotId:"main",attempt:1,points:10,unavailable:true},{slotId:"detail",attempt:1,points:10,unavailable:true}]},recoverableEffects:[{SlotID:"main",Attempt:1,Code:"slot_provider_outcome_unknown"},{SlotID:"detail",Attempt:1,Code:"slot_provider_outcome_unknown"}]});
+ for(const slot of state.slots)Object.assign(slot,{status:"blocked",candidates:[],closure:null,errorCode:"slot_provider_outcome_unknown"});
+ localStorage.setItem(`product-image-set:actor:org:acquisition:${operation}:run`,runId);
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ expect(await screen.findByRole("heading",{name:"已扣点，原结果不可用"})).toBeVisible();
+ expect(screen.queryByRole("button",{name:"恢复原结果"})).toBeNull();
+});
