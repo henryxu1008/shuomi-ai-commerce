@@ -24,7 +24,7 @@ const organizationSchema = z
     name: safeDisplayNameSchema,
     roles: z.array(roleSchema).max(128),
     permissions: z.array(safeIdSchema).max(128),
-    capabilities: z.object({ "workbench.source_account.manage": z.boolean(), "workbench.chat.use": z.boolean() }).strict().optional(),
+    capabilities: z.object({ "workbench.source_account.manage": z.boolean(), "workbench.chat.use": z.boolean(), storeServiceEnterpriseFunding: z.boolean().optional() }).strict().optional(),
   })
   .strict();
 

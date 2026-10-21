@@ -20,6 +20,14 @@ const VALID_CONTEXT = {
 
 describe("workbench context API", () => {
 
+  it.each([true, false])("preserves the server Store service funding projection %s through GET and switch", async allowed => {
+    const payload = { ...VALID_CONTEXT, organizations: VALID_CONTEXT.organizations.map(org => ({ ...org, capabilities: { "workbench.source_account.manage": false, "workbench.chat.use": false, storeServiceEnterpriseFunding: allowed } })) };
+    vi.stubGlobal("fetch", vi.fn().mockImplementation(async () => Response.json(payload)));
+    await expect(fetchWorkbenchContext()).resolves.toEqual(payload);
+    await expect(switchEffectiveOrganization("org-a")).resolves.toEqual(payload);
+    expect(parseWorkbenchContextPayload({ ...payload, organizations: payload.organizations.map(org => ({ ...org, capabilities: { ...org.capabilities, storeServiceEnterpriseFunding: "true" } })) }).success).toBe(false);
+  });
+
   it("accepts only server-derived boolean storage capacity availability",()=>{
     expect(parseWorkbenchContextPayload({...VALID_CONTEXT,storageCapacityAvailable:true}).success).toBe(true);
     expect(parseWorkbenchContextPayload({...VALID_CONTEXT,storageCapacityAvailable:false}).success).toBe(true);
