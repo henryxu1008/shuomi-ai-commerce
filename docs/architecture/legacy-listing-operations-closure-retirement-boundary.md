@@ -1,5 +1,7 @@
 # 旧数字刊登运维源码：完整退休闭包设计
 
+> 当前校准：#867 用户确认的[数字采集与平台尾链完整闭包](legacy-numeric-acquisition-tail-closure-retirement-boundary.md)仅替代本文对旧 fetch/cache/数字 Task HTTP、SHEIN 数字 Cookie/StoreInfo 及专属 Amazon 运维源的广泛保留表述；本文其余平台 API/规则、两种 SHEIN 属性、价格、当前采集/共享浏览器、Store 与独立 SHEIN 登录/同步的保留决定继续有效。历史执行证据不改，不授权运行资源操作。
+
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
 > Status: **IMPLEMENTATION_READY；用户已确认冻结设计 `0871cb591` 并授权按§5/§6/§6.1/§7在 #839 整批实施；源码退休已完成，待原CI与最终独立检查/合并授权。** Design Basis: **Independent Architecture**。静态调查基线 main `dd169971651d02ea4b6d81e0b44d6c32e10c6724`（2026-10-20，#836 合并后）；准确设计 HEAD、检查结论与确认写主要 PR。一个 Writer、一个完整运维源码闭包，不按目录、平台或文件数拆 PR。设计先于实现；用户确认及两Issue Ready记录已读回（PR评论6281156340），再修改正式源。准确实施HEAD/测试/CI/最终检查留在PR；不是部署、运行清理或用户验收。

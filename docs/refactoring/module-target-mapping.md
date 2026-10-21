@@ -1,5 +1,15 @@
 # Module Target Mapping
 
+> #301 / #870 [用户确认的完整旧宿主退休边界](../architecture/legacy-host-runtime-closure-retirement-boundary.md)（冻结设计a76db47d7，Reuse Existing Architecture / Ready）已确认并整批实施。仅 supersede 七个旧根 infra/httpx、infra/auth、app/monitoring、app/lifecycle、core/errors、app/ports、app/updater 的旧迁移/保留/存在性/替换目标；38准确Go文件与专属文档/原guard同退，无新EXTRACT或替代框架。当前身份/HTTP/module/Retry/观测/共享基础层、采集、Store及独立SHEIN登录/同步继续原owner。历史正文/计数/失败保留，workflow/inventory/依赖与真实文件/进程/凭据/数据不改，无新试用前置，#301 OPEN；准确证据留PR。
+
+> #301 / #868 implements the [approved complete numeric context/value-contract retirement](../architecture/legacy-numeric-value-contract-closure-retirement-boundary.md), frozen design 01d8b8a50 / Independent Architecture / IMPLEMENTATION_READY. Existing pricing/activity owners directly consume the extracted 5/8 value fields; old numeric logging/sharding APIs, both listingruntime rule types and SourceIdentity alias derivation/Key retire together. ProductImportMapping/MappingInfo, both SHEIN attributes, all four zero-value source JSON slots and original normalization/hash/read rejection contracts remain. This precisely supersedes only #867's retention of those two old input types and alias behavior; current acquisition, Store and standalone SHEIN login/sync keep their owners. Workflows/inventory/dependencies/runtime/data/credentials are untouched; #301 remains OPEN, with no new trial prerequisite.
+
+
+> #867 当前校准：按[完整数字采集/平台尾链边界](../architecture/legacy-numeric-acquisition-tail-closure-retirement-boundary.md)整批退休无当前装配的 fetch/cache/Task、数字 Cookie/StoreInfo 适配及 Amazon 专属运维源。当前采集 Processor/browser/source port、平台 API/规则、两种 SHEIN 属性、品牌/定价、Store 与独立 SHEIN 登录/同步保留；旧工厂不是后续迁移/重建目标。只删除获准七条 CURRENT inventory 消费者行；下文历史观测/计数保持，workflow/ceilings不变。
+
+> #301/#863 supersedes only the numeric worker/Store retention rows below under user-confirmed frozen design 94fa4cab §1–§7 (Independent Architecture / IMPLEMENTATION_READY). The complete numeric account/Store/Profile/Redis/TEMU StoreRuntime source closure retires together; current opaque Organization/Store, authorized CLI, private fresh bindings and optional Store execution ownership preserve login/Store sync. The unchanged historical race target is test-only. No workflow, real runtime/data/credential action or trial prerequisite; UNKNOWN never auto-takes-over and #301 stays OPEN. Exact implementation evidence stays in #863.
+
+
 > #29 / #301 [user-confirmed parent-retirement closeout](../architecture/legacy-retirement-parent-closure-boundary.md), frozen design 5fb20f877 / Design Basis N/A, is record-calibrated in #854. Historical target/checkpoint rows now apply through the approved R1-R10/A1-A7/O1-O6 current owner/evidence mapping: old root/bridge/execution closures are retired, while current Product/Listing/Marketplace/Organization owners, native Login V2, shared pure contracts and standalone SHEIN login/Store sync remain. #29 source-level closure evidence is prepared, with merge/closure separately authorized; #301 remains OPEN because its retained numeric persistence owner and unexecuted runtime scope are not cleared by zero bridge imports. Original mappings/counts, production/tests/workflows/inventories/dependencies and real assets remain unchanged; no new trial prerequisite.
 
 > #29 / #301 [user-confirmed complete API token-tool retirement](../architecture/legacy-api-token-tools-retirement-boundary.md), frozen design e6ac780d7 / Reuse Existing Architecture, is source-implemented in #852 after both Issue Ready readbacks. Three obsolete fetch/save/auth-check sources and inline helpers have no replacement token store, issuer or API target; five direct operating documents receive narrow historical headers. Existing Auth.js handoff, native Login V2 probe, acquisition/Store/standalone SHEIN login and sync keep their owners. Original mappings/counts, workflows/inventories/dependencies, credentials/runtime/data and trial prerequisites remain unchanged; exact HEAD/CI/final review stay in the PR.
@@ -303,7 +313,7 @@ Do not add a new internal compatibility wrapper just because retirement is incon
 
 | New work type | Preferred landing zone | Do not default to |
 | --- | --- | --- |
-| Amazon source crawler | `internal/integration/crawler/amazon` | retained Amazon subpackages and old crawler roots; root numeric executor absent |
+| Amazon source crawler | `internal/integration/crawler/amazon` | current AmazonProcessor/browser/extractor and source port; numeric Task/HTTP/cache factory closure retired by #867 |
 | 1688 source crawler | `internal/integration/crawler/a1688` | `internal/crawler/alibaba1688`, compatibility handoff |
 | Source normalization / lineage | `internal/product/sourcing` | crawler DTOs, root ListingKit |
 | Product facts/assets/enrichment/image | `internal/product/{catalog,asset,enrichment,image}` | retired ProductEnrich/ProductImage/catalog/asset roots |

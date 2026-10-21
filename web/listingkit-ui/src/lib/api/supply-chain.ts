@@ -1,3 +1,4 @@
+import {sourceProductInputsSchema} from "@/lib/contracts/source-materials";
 import { z } from "zod";
 import * as c from "../contracts/supply-chain";
 import {completionContentEqual} from "../contracts/completion-content";
@@ -162,3 +163,10 @@ function commandResult(value:unknown,intent:SupplyIntent,mutates:boolean){
 export const readSupplyOptimizationOptions=(scope:SupplyScope,q:Query={},signal?:AbortSignal)=>send(`${base}/optimization-options${query(q)}`,scope,c.optimizationOptionsSchema,signal);
 
 export async function readSupplyUploadAttempt(scope:SupplyScope,record:string,attempt:string,signal?:AbortSignal){const v=await send(`${base}/uploads/${collectionID.parse(record)}/${collectionID.parse(attempt)}`,scope,c.uploadAttemptSchema,signal);if(v.recordId!==record||v.attemptId!==attempt)throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return v;}
+
+export async function readSourceProductInputs(scope:SupplyScope,source:c.SupplySourceDetail,signal?:AbortSignal){
+ const value=await send(`${base}/sources/${collectionID.parse(source.source.id)}/product-inputs`,scope,sourceProductInputsSchema,signal);
+ const original=source.source.source;
+ if(value.sourceId!==source.source.id||value.inputs.product_key!==original.productKey||value.inputs.product_version!==original.version||value.inputs.publication_id!==original.publicationId)throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);
+ return value;
+}

@@ -567,6 +567,13 @@ describe("buildWorkbenchUpstreamRequest", () => {
 });
 
 describe("buildWorkbenchBrowserResponse", () => {
+  it.each([true, false])("forwards the validated Store service funding projection %s without exposing upstream headers", async allowed => {
+    const payload = { ...contextPayload, organizations: contextPayload.organizations.map(org => ({ ...org, capabilities: { "workbench.source_account.manage": false, "workbench.chat.use": false, storeServiceEnterpriseFunding: allowed } })) };
+    const response = await buildWorkbenchBrowserResponse(Response.json(payload, { headers: { "set-cookie": "private=value" } }));
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual(payload);
+    expect(response.headers.get("set-cookie")).not.toContain("private=value");
+  });
   it("preserves a validated error status and body while forcing safe response headers", async () => {
     const payload = {
       code: "ORGANIZATION_SUSPENDED",

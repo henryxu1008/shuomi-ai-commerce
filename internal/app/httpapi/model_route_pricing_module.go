@@ -45,7 +45,7 @@ func (m modelRoutePricingModule) Register(r *kernelmodule.Registry) error {
 	return nil
 }
 func (m modelRoutePricingModule) routes() []httproute.Descriptor {
-	specs := []struct{ method, path, op string }{{"GET", "", "capabilities"}, {"GET", "/:family/:capability", "current"}, {"GET", "/:family/:capability/bindings", "bindings"}, {"GET", "/:family/:capability/history", "history"}, {"GET", "/:family/:capability/receipts/:key", "receipt"}, {"POST", "/:family/:capability/validate", "validate"}, {"POST", "/:family/:capability/publish", "publish"}}
+	specs := []struct{ method, path, op string }{{"GET", "", "capabilities"}, {"GET", "/:family/:capability", "current"}, {"GET", "/:family/:capability/bindings", "bindings"}, {"GET", "/:family/:capability/options", "options"}, {"GET", "/:family/:capability/history", "history"}, {"GET", "/:family/:capability/receipts/:key", "receipt"}, {"POST", "/:family/:capability/validate", "validate"}, {"POST", "/:family/:capability/publish", "publish"}}
 	out := []httproute.Descriptor{}
 	for _, s := range specs {
 		out = append(out, httproute.Descriptor{Method: s.method, Path: modelRouteBase + s.path, Module: m.Name(), AuthPolicy: httproute.AuthPolicyCurrentIdentity, OrganizationAccessPolicy: httproute.OrganizationAccessPolicyLiveWrite, Permission: authz.PermissionListingKitPlatformAdm, RequestTimeout: 30 * time.Second, RejectUnreadRequestBody: s.method == "GET", Handler: func(c *gin.Context) { m.serve(c, s.op) }})
@@ -178,6 +178,13 @@ func (m modelRoutePricingModule) serve(c *gin.Context, op string) {
 			return
 		}
 		c.JSON(200, gin.H{"bindings": v})
+	case "options":
+		v, e := s.PublishedOptions(ctx, scope)
+		if e != nil {
+			modelRouteFailure(c, e)
+			return
+		}
+		c.JSON(200, gin.H{"revisions": v})
 	case "history":
 		limit := 20
 		if q.Has("limit") {

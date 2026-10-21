@@ -41,6 +41,7 @@ var organizationWorkerRuntimeTables = []struct{ name, privileges string }{
 var organizationWorkerRuntimeOptionalReads = []struct{ name, kind string }{
 	{"ai_route_config_revisions", "r"},
 	{"ai_route_config_current", "r"},
+	{"ai_route_config_options", "r"},
 	{"ai_client_credential_bindings", "v"},
 }
 

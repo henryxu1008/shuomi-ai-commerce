@@ -1,5 +1,7 @@
 # Project Boundary Rules
 
+> #870 当前校准：按[用户确认的完整旧宿主退休边界](legacy-host-runtime-closure-retirement-boundary.md)整批 RETIRE 七个无当前消费者旧根 infra/httpx、infra/auth、app/monitoring、app/lifecycle、core/errors、app/ports、app/updater。下文 Phase 2 将 auth 迁到组织 adapter、拆分 httpx 和保留组件/ports/updater 的表述仅为历史目标，不能据此迁移、包装或恢复。当前 owner 为 authruntime/authidentity/authz/workbenchcontext、app/runtime/currentapplication、app/httpapi、kernel/module、platform 和独立 SHEIN/Store；当前合同不变。历史 closure counts、inventory及其它边界不改，无真实状态处置或新增试用前置。
+
 > #827 [confirmed Publishing runtime closure](legacy-shein-publishing-runtime-closure-retirement-boundary.md): The complete unused SHEIN Publishing runtime/cache/remote-submit closure is source-retired. publishing/shein remains the current pure draft/value/strict-codec owner; listing/submission retains the 13 official Kernel/intent/receipt/effects files, not the retired attempt/lease/recovery helpers. Current platform rules, Store/tenant/content/worker owners remain; no new compatibility or persistence boundary. Workflows, dependencies, ceilings, runtime/data and trial prerequisites are unchanged.
 
 > #824 supersedes the historical core/metrics relocation debt below: unused Task/SHEIN singleton metrics and their numeric Task/hook consumers are source-retired under the [confirmed support boundary](legacy-numeric-listing-support-closure-retirement-boundary.md). Current platform workerpool metrics, ImageAgent/Temporal, BusinessTask and resource/AI accounting stay with their original owners; this is not a new shared metrics facade or a ceiling change.

@@ -5,7 +5,6 @@
 监控能力由这几部分组成：
 
 - `kube-prometheus-stack`
-- `amazon-crawler-api` 指标、告警和 Grafana 看板
 - Prometheus PVC 低空间告警及其同 namespace 窄路由
 - 企业微信告警适配器
 - Grafana 域名入口
@@ -17,7 +16,6 @@
 ## 当前部署清单
 
 - `deployments/kubernetes/monitoring/kube-prometheus-stack-values.yaml`
-- `deployments/kubernetes/monitoring/amazon-crawler-api`
 - `deployments/kubernetes/monitoring/prometheus-storage`
 - `deployments/kubernetes/monitoring/alertmanager-wecom`
 - `deployments/kubernetes/monitoring/grafana-ingress`
@@ -48,7 +46,6 @@ helm upgrade --install monitoring oci://ghcr.io/prometheus-community/charts/kube
   --timeout 10m \
   -f deployments/kubernetes/monitoring/kube-prometheus-stack-values.yaml
 
-kubectl apply -k deployments/kubernetes/monitoring/amazon-crawler-api
 kubectl apply -k deployments/kubernetes/monitoring/prometheus-storage
 ```
 
@@ -67,35 +64,15 @@ kubectl -n monitoring create secret generic alertmanager-wecom-secret \
 
 当前默认只转发：
 
-- `service=amazon-crawler-api`
 - `monitoring` namespace 中唯一 `service=monitoring`、`alertname=PrometheusStorageAtRisk` 的共享存储告警
 
-原 task-processor namespace 的配置只匹配 Amazon；存储规则及窄 AlertmanagerConfig 位于 monitoring，沿默认 OnNamespace 隔离匹配，复用原接收器/分组/时长设置。固定 Chart 88.3.0 的原 selector 默认值保持；没有禁用全局 namespace enforcement。
+原 task-processor namespace 的 Amazon 专属配置已退休；存储规则及窄 AlertmanagerConfig 位于 monitoring，沿默认 OnNamespace 隔离匹配，复用原接收器/分组/时长设置。固定 Chart 88.3.0 的原 selector 默认值保持；没有禁用全局 namespace enforcement。
 
 ## 当前监控覆盖
 
-- 每个 `amazon-crawler-api` pod 的抓取吞吐
-- 每个 pod 的失败率
-- 每个 pod 的并发占用
-- 按错误类型拆分失败趋势
-- `region_guard` 阻断趋势
-- 浏览器池初始化失败、实例重建成功/失败、活跃重建数量
-- 浏览器池当前实例数与配置池大小对比、`processor_unavailable` 快速定位
-- 任务提交失败和 `dedupe` 等待超时
-- Prometheus PVC 可用空间低于 20% 持续 15 分钟；不依赖旧 TaskEvent 迁移/decoder
-- 企业微信中文告警
-
-## Amazon Crawler 当前分层部署
-
-当前 `amazon-crawler-api` 已拆成两套 `DaemonSet`，但 pod 仍保留统一标签 `app=amazon-crawler-api`，所以现有 `Service`、`PodMonitor`、告警规则和 Grafana 看板不需要额外修改：
-
-- `amazon-crawler-api-lite`：运行在 `2C4G` 节点
-- `amazon-crawler-api-heavy`：运行在 `4C8G` 节点
-
-监控上仍然会按 pod 维度展示；如果要区分规格层级，可以后续在看板里追加 `crawler-tier` 维度。
+保留通用 Prometheus/Grafana 和 WeCom 适配器，以及 `monitoring/prometheus-storage` 的 PVC 保护规则。规则与路由同在 monitoring，只匹配 `service=monitoring` 和 `alertname=PrometheusStorageAtRisk`。旧数字 Amazon Service 的 PodMonitor、dashboard、规则及 task-processor 专属路由已在 #867 退出，不用无 matcher 的广泛路由替代。
 
 ## 当前已知注意点
 
 - Grafana 使用 `local-path` 持久卷，因此 values 里关闭了 `initChownData`，避免滚动升级时权限修复失败
-- `amazon-crawler-api` 监控依赖 Prometheus Operator CRD 和 Grafana dashboard sidecar
 - 旧 TaskEvent 兼容观察、两个发布周期及14天窗口属于历史方案，不是已完成的运行验收，也不是当前试用前置。此前七条旧告警、两个 PodMonitor 和两份 dashboard 源已退休；通用存储规则及当前 Amazon/适配器/stack 保留。

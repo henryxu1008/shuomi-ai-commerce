@@ -35,6 +35,34 @@ type acquisitionHTTPTransport func(*http.Request) (*http.Response, error)
 
 func (f acquisitionHTTPTransport) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
+// These fixtures consume current enterprise role policies, not retired operator
+// role names. The underlying grant fixture retains failure/revocation controls.
+type acquisitionCurrentGrants struct{ *titleGrants }
+
+func (g acquisitionCurrentGrants) Load(ctx context.Context, source workbenchcontext.GrantSource, req workbenchcontext.GrantRequest) (workbenchcontext.GrantResult, error) {
+	result, err := g.titleGrants.Load(ctx, source, req)
+	for i := range result.Grants {
+		for j, role := range result.Grants[i].Roles {
+			if role == "listingkit_operator" {
+				result.Grants[i].Roles[j] = authz.EnterpriseRoleKey(result.Grants[i].OrganizationID, 1)
+			}
+		}
+	}
+	return result, err
+}
+
+type acquisitionCurrentPolicies struct{}
+
+func (acquisitionCurrentPolicies) RoleModules(_ context.Context, org string, keys []string) (map[string][]string, error) {
+	out := map[string][]string{}
+	for _, key := range keys {
+		if key == authz.EnterpriseRoleKey(org, 1) {
+			out[key] = []string{"acquisition", "supply-mine", "data-mine"}
+		}
+	}
+	return out, nil
+}
+
 type acquisitionHTTPFixture struct {
 	db, owner      *gorm.DB
 	grants         *titleGrants
@@ -116,12 +144,13 @@ func (f *acquisitionHTTPFixture) server(t *testing.T) *httptest.Server {
 	t.Helper()
 	deps := newRouteAuthDependencies()
 	deps.workbenchVerifier = titleVerifier{}
-	deps.organizationResolver = workbenchcontext.NewResolver(f.grants, "project", "v1", nil)
+	deps.organizationResolver = workbenchcontext.NewResolver(acquisitionCurrentGrants{f.grants}, "project", "v1", nil)
 	factories := currentApplicationFactories{
 		buildWorkbench: func(*config.Config, *logrus.Logger) (workbenchContextBuildResult, error) {
 			return workbenchContextBuildResult{module: currentApplicationTestModule{name: "workbench", routes: currentWorkbenchApplicationRoutes[:4]}, authDependencies: &deps}, nil
 		},
-		buildSourceAccount: func(*gorm.DB, *authz.ListingKitAuthorizer) (kernelmodule.Module, error) {
+		buildSourceAccount: func(_ *gorm.DB, a *authz.ListingKitAuthorizer) (kernelmodule.Module, error) {
+			a.SetRolePolicyReader(acquisitionCurrentPolicies{})
 			return currentApplicationTestModule{name: "source", routes: currentWorkbenchApplicationRoutes[5:]}, nil
 		},
 		buildCommercial: func(*gorm.DB, *gorm.DB, *authz.ListingKitAuthorizer) (kernelmodule.Module, error) {

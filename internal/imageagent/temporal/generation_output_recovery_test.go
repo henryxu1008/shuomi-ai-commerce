@@ -1,9 +1,11 @@
 package temporal
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -12,12 +14,15 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	sdklog "go.temporal.io/sdk/log"
+	"go.temporal.io/sdk/testsuite"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
 	"task-processor/internal/ai"
 	"task-processor/internal/imageagent"
+	"task-processor/internal/imageagent/objectstore"
 	"task-processor/internal/imageagent/store"
 	"task-processor/internal/integration/grsai"
 	resourceadapter "task-processor/internal/integration/orgresource"
@@ -47,7 +52,7 @@ func (generationOutputResourceAuth) AuthorizeImageGeneration(context.Context, im
 }
 
 func TestGenerationOutputRestartRecoversBothV3Entrypoints(t *testing.T) {
-	for _, entry := range []string{"execute_claimed", "recover_unknown", "execute_unknown", "recover_staging", "recover_ack", "recover_already_charged", "recover_bundle", "altered_input", "revoked", "unknown"} {
+	for _, entry := range []string{"execute_claimed", "recover_unknown", "execute_unknown", "recover_staging", "recover_ack", "recover_already_charged", "recover_vip_exhausted", "recover_bundle", "altered_input", "revoked", "unknown", "diagnostic_read_bundle", "diagnostic_materialize", "diagnostic_prepare_material", "diagnostic_save_bundle", "diagnostic_restore_staging", "diagnostic_conflict_read", "diagnostic_manifest", "diagnostic_bundle_canceled", "diagnostic_bundle_deadline"} {
 		t.Run(entry, func(t *testing.T) {
 			ctx := context.Background()
 			dsn := filepath.Join(t.TempDir(), "image.db") + "?_busy_timeout=5000&_journal_mode=WAL"
@@ -82,6 +87,9 @@ func TestGenerationOutputRestartRecoversBothV3Entrypoints(t *testing.T) {
 			require.True(t, won)
 			facts := repo.(imageagent.GenerationFactRepository)
 			intent := imageagent.GenerationIntent{Identity: reservation.Identity, MemberID: run.MemberID, CatalogHash: catalog.Manifest.Hash, SourceDigest: strings.Repeat("b", 64), PromptVersion: "p1", RouteReference: "r1", CredentialReference: "c1", ConfigurationVersion: "v1", Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", PriceVersion: "price1", Points: 12, LimitVersion: 1, MonthStart: orgresource.AIPointMonthStart(time.Now())}
+			if entry == "recover_vip_exhausted" {
+				intent.Model, intent.Quality = "gpt-image-2-vip", "medium"
+			}
 			_, err = facts.PrepareGenerationIntent(ctx, intent)
 			require.NoError(t, err)
 			commercial, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "commercial.db")), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
@@ -92,7 +100,11 @@ func TestGenerationOutputRestartRecoversBothV3Entrypoints(t *testing.T) {
 			require.NoError(t, commercial.Exec("INSERT INTO saas_organization_resource_buckets (organization_id,resource_type,available,reserved,consumed,created_at,updated_at) VALUES (?, 'ai_point', 100, 0, 0, ?, ?)", run.TenantID, time.Now(), time.Now()).Error)
 			limits, err := resourceadapter.NewGormMemberLimitRepository(commercial, resourceadapter.TransactionConfig{})
 			require.NoError(t, err)
-			_, err = limits.SetMonthlyLimit(ctx, orgresource.SetMemberLimitExecution{OrganizationID: run.TenantID, MemberID: run.MemberID, ActorID: "admin", OperationID: "limit", Target: 20})
+			limit := int64(20)
+			if entry == "recover_vip_exhausted" {
+				limit = 12
+			}
+			_, err = limits.SetMonthlyLimit(ctx, orgresource.SetMemberLimitExecution{OrganizationID: run.TenantID, MemberID: run.MemberID, ActorID: "admin", OperationID: "limit", Target: limit})
 			require.NoError(t, err)
 			resources, err := resourceadapter.NewGormImageGenerationRepository(commercial, resourceadapter.TransactionConfig{}, facts, generationOutputResourceAuth{})
 			require.NoError(t, err)
@@ -114,16 +126,16 @@ func TestGenerationOutputRestartRecoversBothV3Entrypoints(t *testing.T) {
 				_, _ = w.Write(tinyPNGBytes(t))
 			}))
 			defer server.Close()
-			client := grsai.NewClient(grsai.Config{Model: "gpt-image-2.5", SubmitURL: server.URL, HTTPClient: server.Client(), MaxAttempts: 1})
+			client := grsai.NewClient(grsai.Config{Model: intent.Model, SubmitURL: server.URL, HTTPClient: server.Client(), MaxAttempts: 1})
 			if entry != "unknown" {
-				_, err = client.EditImageOnce(ctx, &ai.ImageEditRequest{Model: "gpt-image-2.5", Prompt: "white", Image: tinyPNGBytes(t), ImageContentType: "image/png", N: 1}, func(ctx context.Context, o grsai.GenerationObservation) error {
+				_, err = client.EditImageOnce(ctx, &ai.ImageEditRequest{Model: intent.Model, Quality: intent.Quality, Prompt: "white", Image: tinyPNGBytes(t), ImageContentType: "image/png", N: 1}, func(ctx context.Context, o grsai.GenerationObservation) error {
 					_, err := facts.RecordGenerationSuccess(ctx, intent, imageagent.GenerationSuccess{ResponseID: o.ResponseID, RequestID: o.RequestID, ResultDigest: o.ResultDigest}.WithResultLocator(o.ResultURL, o.ResultUnavailable))
 					return err
 				})
 				require.NoError(t, err)
 			}
 			// Interruption after success persistence, before any download or bundle.
-			if entry == "recover_already_charged" {
+			if entry == "recover_already_charged" || entry == "recover_vip_exhausted" || strings.HasPrefix(entry, "diagnostic_") {
 				settled, e := resources.FinalizeImageGeneration(ctx, intent.Identity)
 				require.NoError(t, e)
 				_, e = facts.BindGenerationSettlement(ctx, intent, settled)
@@ -178,6 +190,93 @@ func TestGenerationOutputRestartRecoversBothV3Entrypoints(t *testing.T) {
 				require.Equal(t, "product", in.TargetPlatform)
 				require.Equal(t, *input.ImagePolicyContext, *in.ImagePolicyContext)
 				return imageagent.SlotGeneratedOutput{SlotID: in.Slot.ID, Attempt: in.Attempt, SourceAssetID: "source-1", Assets: []imageagent.GeneratedAsset{{Bytes: tinyPNGBytes(t), ContentType: "image/png", Width: 1, Height: 1, SourceURL: "https://source.example/image.png", Operations: []string{productimage.SourceWhiteBackgroundOperation}}}}, nil
+			}
+			if strings.HasPrefix(entry, "diagnostic_") {
+				failure := strings.TrimPrefix(entry, "diagnostic_")
+				fault := errors.New("private error: https://output.example/result.png?signature=private approved copy and credential")
+				if failure == "bundle_canceled" {
+					fault = errors.Join(fault, context.Canceled)
+				} else if failure == "bundle_deadline" {
+					fault = errors.Join(fault, context.DeadlineExceeded)
+				}
+				failingArtifacts := &diagnosticRecoveryArtifacts{DurableArtifactStore: artifacts, failure: failure, fault: fault}
+				activities.artifactStore = failingArtifacts
+				if failure == "materialize" {
+					activities.generationOutputRecovery = func(context.Context, imageagent.SlotExecutionInput, imageagent.GenerationFact) (imageagent.SlotGeneratedOutput, error) {
+						gets++
+						return imageagent.SlotGeneratedOutput{}, fault
+					}
+				}
+				if failure == "restore_staging" {
+					activities.slotEffectsV3 = &diagnosticStagingRestore{SlotExternalEffectV3Repository: effects, fault: fault}
+				}
+				beforeFact, e := facts.ReadGenerationFact(ctx, reservation.Identity)
+				require.NoError(t, e)
+				beforeEffect, e := effects.GetSlotExternalEffectV3(ctx, reservation.Identity)
+				require.NoError(t, e)
+				var beforeBucket, afterBucket struct{ Consumed, Reserved int64 }
+				require.NoError(t, commercial.Table("saas_organization_resource_buckets").Take(&beforeBucket).Error)
+				var logs bytes.Buffer
+				var suite testsuite.WorkflowTestSuite
+				suite.SetLogger(sdklog.NewStructuredLogger(slog.New(slog.NewJSONHandler(&logs, nil))))
+				env := suite.NewTestActivityEnvironment()
+				var originalErr error
+				testRecovery := func(activityCtx context.Context) error {
+					_, originalErr = activities.recoverSucceededGenerationOutput(activityCtx, slotExecutionInputV3(input), reservation, beforeEffect)
+					return originalErr
+				}
+				env.RegisterActivity(testRecovery)
+				_, e = env.ExecuteActivity(testRecovery)
+				require.Error(t, e)
+				if failure == "restore_staging" {
+					require.ErrorIs(t, originalErr, fault, "retain original restoration error")
+				} else {
+					require.ErrorIs(t, originalErr, imageagent.ErrValidation, "retain original validation mapping")
+				}
+				stages := map[string]string{"read_bundle": "read_recovery_bundle", "materialize": "materialize_result", "prepare_material": "prepare_material", "save_bundle": "save_recovery_bundle", "restore_staging": "restore_staging", "conflict_read": "read_recovery_bundle", "manifest": "validate_manifest", "bundle_canceled": "read_recovery_bundle", "bundle_deadline": "read_recovery_bundle"}
+				diagnostics := 0
+				for _, line := range strings.Split(strings.TrimSpace(logs.String()), "\n") {
+					var record map[string]any
+					require.NoError(t, json.Unmarshal([]byte(line), &record))
+					if record["event"] != "image_output_recovery_diagnostic" {
+						continue
+					}
+					diagnostics++
+					require.Equal(t, stages[failure], record["stage"])
+					wantReason := "dependency_error"
+					if failure == "manifest" {
+						wantReason = "validation_error"
+					} else if failure == "bundle_canceled" {
+						wantReason = "context_canceled"
+					} else if failure == "bundle_deadline" {
+						wantReason = "deadline_exceeded"
+					}
+					require.Equal(t, wantReason, record["reason"])
+					require.Len(t, record["run_id_hash"], 64)
+					for _, secret := range []string{"private error", "signature", "output.example", "approved copy", "credential", "run-recovery"} {
+						require.NotContains(t, line, secret)
+					}
+				}
+				require.Equal(t, 1, diagnostics)
+				afterFact, e := facts.ReadGenerationFact(ctx, reservation.Identity)
+				require.NoError(t, e)
+				afterEffect, e := effects.GetSlotExternalEffectV3(ctx, reservation.Identity)
+				require.NoError(t, e)
+				require.Equal(t, beforeFact, afterFact)
+				require.Equal(t, beforeEffect, afterEffect)
+				require.NoError(t, commercial.Table("saas_organization_resource_buckets").Take(&afterBucket).Error)
+				require.Equal(t, beforeBucket, afterBucket, "diagnostics cannot charge or release points")
+				wantGets := 1
+				if failure == "read_bundle" || strings.HasPrefix(failure, "bundle_") {
+					wantGets = 0
+				}
+				require.Equal(t, wantGets, gets)
+				require.Equal(t, 1, posts, "only the fixture's original generation")
+				require.Zero(t, executor.GenerateCalls())
+				if failure == "save_bundle" {
+					require.Equal(t, recoveryBundlePersistenceAttempts, failingArtifacts.preserves, "retain existing bundle retry policy")
+				}
+				return
 			}
 			if entry == "altered_input" {
 				altered := input
@@ -240,4 +339,51 @@ func TestGenerationOutputRestartRecoversBothV3Entrypoints(t *testing.T) {
 			}
 		})
 	}
+}
+
+type diagnosticRecoveryArtifacts struct {
+	DurableArtifactStore
+	failure   string
+	fault     error
+	reads     int
+	preserves int
+}
+
+func (s *diagnosticRecoveryArtifacts) RecoverSlotArtifacts(ctx context.Context, id imageagent.SlotExternalEffectIdentity, manifest imageagent.StagingManifest) (objectstore.PreparedSlotArtifacts, error) {
+	s.reads++
+	if s.failure == "read_bundle" || strings.HasPrefix(s.failure, "bundle_") || s.failure == "conflict_read" && s.reads > 1 {
+		return objectstore.PreparedSlotArtifacts{}, s.fault
+	}
+	return s.DurableArtifactStore.RecoverSlotArtifacts(ctx, id, manifest)
+}
+
+func (s *diagnosticRecoveryArtifacts) PrepareSlotArtifacts(in objectstore.PrepareSlotArtifactsInput) (objectstore.PreparedSlotArtifacts, error) {
+	if s.failure == "prepare_material" {
+		return objectstore.PreparedSlotArtifacts{}, s.fault
+	}
+	prepared, err := s.DurableArtifactStore.PrepareSlotArtifacts(in)
+	if err == nil && s.failure == "manifest" {
+		prepared.Manifest.Assets[0].ObjectKey = "unbound-object"
+	}
+	return prepared, err
+}
+
+func (s *diagnosticRecoveryArtifacts) PreserveSlotArtifacts(ctx context.Context, id imageagent.SlotExternalEffectIdentity, prepared objectstore.PreparedSlotArtifacts) error {
+	s.preserves++
+	if s.failure == "save_bundle" {
+		return s.fault
+	}
+	if s.failure == "conflict_read" {
+		return objectstore.ErrObjectConflict
+	}
+	return s.DurableArtifactStore.PreserveSlotArtifacts(ctx, id, prepared)
+}
+
+type diagnosticStagingRestore struct {
+	imageagent.SlotExternalEffectV3Repository
+	fault error
+}
+
+func (s *diagnosticStagingRestore) RecoverGenerationStaging(context.Context, imageagent.SlotEffectV3Reservation, imageagent.GenerationIntent, string, imageagent.StagingManifest) (imageagent.SlotEffectV3Attempt, error) {
+	return imageagent.SlotEffectV3Attempt{}, s.fault
 }

@@ -132,14 +132,7 @@ func NewDefaultConfig() *Config {
 			},
 		},
 		Amazon: AmazonConfig{
-			Enabled:           false,
-			DataFreshnessDays: 7,
-			ProductDedupe: ProductDedupeConfig{
-				LockTTLSeconds:     300,
-				ResultTTLSeconds:   600,
-				WaitTimeoutSeconds: 120,
-				PollIntervalMillis: 500,
-			},
+			Enabled: false,
 			FailureArtifacts: FailureArtifactsConfig{
 				Enabled:      false,
 				Directory:    "./.local/tmp/amazon-failure-artifacts",
@@ -154,12 +147,6 @@ func NewDefaultConfig() *Config {
 				NetworkRecreateThreshold:        2,
 				ServerErrorRecreateThreshold:    3,
 			},
-			RegionGuard: AmazonRegionGuardConfig{
-				Enabled:                 true,
-				FailureThreshold:        3,
-				EvaluationWindowSeconds: 300,
-				CooldownSeconds:         180,
-			},
 			QualityControl: AmazonQualityControlConfig{
 				RetryOnValidationFailure:   true,
 				ValidationRetryMaxAttempts: 2,
@@ -168,17 +155,6 @@ func NewDefaultConfig() *Config {
 				Enabled:                false,
 				Strategy:               "round_robin",
 				FailureCooldownSeconds: 300,
-			},
-			ConcurrencyControl: AmazonConcurrencyControlConfig{
-				Enabled:               false,
-				MaxInFlight:           12,
-				MaxWaiting:            50,
-				AcquireTimeoutSeconds: 20,
-			},
-			RemoteAPI: RemoteAPIConfig{
-				Enabled: false,
-				BaseURL: "",
-				Timeout: 300,
 			},
 			SPAPI: SPAPIConfig{
 				Enabled:                false,
@@ -201,19 +177,10 @@ func NewDefaultConfig() *Config {
 		},
 		Platforms: PlatformsConfig{
 			Temu: PlatformConfig{
-				FetchMode:  "auto",
 				HTTPClient: *DefaultHTTPClientConfig(),
 			},
 			Shein: PlatformConfig{
-				FetchMode:  "auto",
 				HTTPClient: *DefaultHTTPClientConfig(),
-				LoginService: LoginServiceConfig{
-					MaxConcurrentLogins: 3,
-					ProfileRootDir:      "./.local/tmp/shein-login/profiles",
-					ArtifactDir:         "./.local/tmp/shein-login/artifacts",
-					DefaultHeadless:     true,
-					ExecutionMode:       "inline",
-				},
 			},
 			Alibaba1688: Alibaba1688Config{
 				Enabled:        false,

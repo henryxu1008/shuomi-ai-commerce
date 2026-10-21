@@ -3,42 +3,7 @@ package authorizedbrand
 import (
 	"context"
 	"testing"
-
-	"task-processor/internal/listingruntime"
 )
-
-func TestConfigFromStore_UsesTrimmedEnabledFields(t *testing.T) {
-	enabled := true
-	cfg := ConfigFromStore(&listingruntime.StoreInfo{
-		EnableBrandAuthorization: &enabled,
-		AuthorizedBrandCode:      "  2fd1n  ",
-		AuthorizedBrandName:      "  Logitech  ",
-	})
-
-	if !cfg.Enabled {
-		t.Fatal("ConfigFromStore().Enabled = false, want true")
-	}
-	if cfg.Code != "2fd1n" {
-		t.Fatalf("ConfigFromStore().Code = %q, want 2fd1n", cfg.Code)
-	}
-	if cfg.Name != "Logitech" {
-		t.Fatalf("ConfigFromStore().Name = %q, want Logitech", cfg.Name)
-	}
-}
-
-func TestConfigFromStore_DisablesWhenSwitchOff(t *testing.T) {
-	cfg := ConfigFromStore(&listingruntime.StoreInfo{
-		AuthorizedBrandCode: "2fd1n",
-		AuthorizedBrandName: "Logitech",
-	})
-
-	if cfg.Enabled {
-		t.Fatalf("ConfigFromStore().Enabled = true, want false: %+v", cfg)
-	}
-	if cfg.Code != "" || cfg.Name != "" {
-		t.Fatalf("ConfigFromStore() = %+v, want zero-value config", cfg)
-	}
-}
 
 func TestWithResolvedFromContext_PreservesEnabledValue(t *testing.T) {
 	resolved := &Resolved{

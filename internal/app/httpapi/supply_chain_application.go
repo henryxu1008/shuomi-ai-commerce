@@ -21,7 +21,6 @@ import (
 	record "task-processor/internal/listing/record/target"
 	"task-processor/internal/listing/submission"
 	temurules "task-processor/internal/marketplace/temu/rules"
-	"task-processor/internal/product/asset"
 	"task-processor/internal/product/collection"
 	"task-processor/internal/storecenter"
 	"task-processor/internal/workbenchcontext"
@@ -110,20 +109,8 @@ func buildSupplyChainModule(ctx context.Context, productDB, storeDB *gorm.DB, d 
 	tiktokRules := supplyapp.TikTokRuleReader{Stores: supplyapp.OfficialTikTokRuleStore{Access: access}}
 	walmartStores := supplyapp.OfficialWalmartRuleStore{Access: access}
 	walmartRules := supplyapp.WalmartRuleReader{Stores: walmartStores}
-	assets, err := assetstore.NewBoundedApprovedInventoryReader(d.AssetDB, record.MaxPayloadBytes)
-	if err != nil {
-		return empty, err
-	}
-	assetRepo, err := assetstore.NewRepository(d.AssetDB)
-	if err != nil {
-		return empty, err
-	}
-	approvalsReader, err := assetstore.NewBoundedApprovalCommitReader(d.AssetDB, record.MaxPayloadBytes)
-	if err != nil {
-		return empty, err
-	}
 	selections := supplyapp.SourceImageReader{Sources: sources, Products: effective, Authorization: auth}
-	approvals, err := asset.NewSourceApprovalService(selections, assetRepo, approvalsReader)
+	assets, approvals, err := composeSourceApprovals(d.AssetDB, selections)
 	if err != nil {
 		return empty, err
 	}
@@ -184,7 +171,7 @@ func buildSupplyChainModule(ctx context.Context, productDB, storeDB *gorm.DB, d 
 	return supplyChainModule{app: app, worker: currentWorker, routes: supplyhttp.SupplyRoutes(app, binder.Bind), executionAuthorization: executionAuth}, nil
 }
 func validateSupplyDescriptor(route httproute.Descriptor) error {
-	for _, expected := range supplyhttp.SupplyRoutes(nil, nil) {
+	for _, expected := range append(supplyhttp.SupplyRoutes(nil, nil), supplyhttp.SourceMaterialRoutes(nil, nil)...) {
 		if route.Method == expected.Method && route.Path == expected.Path {
 			if route.Module != expected.Module || route.Permission != expected.Permission || route.AuthPolicy != expected.AuthPolicy || route.OrganizationAccessPolicy != expected.OrganizationAccessPolicy || route.OrganizationTargetResolver != nil || route.RequestTimeout != expected.RequestTimeout || route.RejectUnreadRequestBody != expected.RejectUnreadRequestBody || route.Handler == nil {
 				return errors.New("supply route loses live private source boundary")

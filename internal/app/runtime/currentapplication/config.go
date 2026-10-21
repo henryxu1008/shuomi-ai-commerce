@@ -58,6 +58,7 @@ type Config struct {
 	ProductCollections                   bool                                      `json:"productCollections,omitempty"`
 	AcquisitionPlans                     bool                                      `json:"acquisitionPlans,omitempty"`
 	SupplyCompletionDrafts               bool                                      `json:"supplyCompletionDrafts,omitempty"`
+	SourceMaterials                      *SourceMaterialsConfig                    `json:"sourceMaterials,omitempty"`
 	SupplyChain                          *SupplyChainConfig                        `json:"supplyChain,omitempty"`
 	SupplyMarket                         *SupplyMarketConfig                       `json:"supplyMarket,omitempty"`
 	POD                                  *PODConfig                                `json:"pod,omitempty"`
@@ -462,6 +463,9 @@ func (cfg *Config) validate() error {
 		return err
 	}
 	if err := cfg.validateSupplyChain(); err != nil {
+		return err
+	}
+	if err := cfg.validateSourceMaterials(); err != nil {
 		return err
 	}
 	if cfg.SourceMediaIsolatedTrial && (cfg.SourceMedia == nil || !cfg.StorageCapacity) {

@@ -1,5 +1,8 @@
 # Product Sourcing
 
+Identity inputs are the six `Source*` fields. Source-specific requests map their native IDs explicitly; `SourceIdentity` never derives or backfills identity from `Platform`, `Region`, `ProductID`, or `StoreID`, and has no legacy `Key()`. The four retained slots preserve the existing JSON layout and strict publication rejection contract. Their original whitespace normalization and final publication clearing remain, so canonical EnvelopeJSON, SnapshotJSON, InputHash and lineage are unchanged. Use `SourceKey()` for source identity.
+
+
 Owns the provider-neutral source boundary for product facts.
 
 Source adapters create `SourceEnvelope` values. This package validates and

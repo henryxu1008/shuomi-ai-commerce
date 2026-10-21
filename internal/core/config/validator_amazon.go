@@ -6,50 +6,13 @@ func ValidateAmazonConfig(amazon *AmazonConfig) []error {
 		return errors
 	}
 
-	if amazon.Enabled || amazon.RemoteAPI.Enabled || amazon.SPAPI.Enabled {
-		if amazon.DataFreshnessDays <= 0 {
-			errors = append(errors, &ValidationError{
-				Field:   "amazon.dataFreshnessDays",
-				Message: "Amazon dataFreshnessDays must be greater than 0",
-				Hint:    "set a positive freshness window in days for amazon.dataFreshnessDays",
-			})
-		}
+	if amazon.Enabled || amazon.SPAPI.Enabled {
 		if amazon.CrawlTimeout <= 0 {
 			errors = append(errors, &ValidationError{
 				Field:   "amazon.crawlTimeout",
 				Message: "Amazon crawlTimeout must be greater than 0",
 				Hint:    "set a positive crawl timeout in seconds for amazon.crawlTimeout",
 			})
-		}
-		if hasExplicitAmazonProductDedupeConfig(amazon) {
-			if amazon.ProductDedupe.LockTTLSeconds <= 0 {
-				errors = append(errors, &ValidationError{
-					Field:   "amazon.productDedupe.lockTTLSeconds",
-					Message: "Amazon productDedupe lockTTLSeconds must be greater than 0",
-					Hint:    "set a positive lock TTL in seconds for amazon.productDedupe.lockTTLSeconds",
-				})
-			}
-			if amazon.ProductDedupe.ResultTTLSeconds <= 0 {
-				errors = append(errors, &ValidationError{
-					Field:   "amazon.productDedupe.resultTTLSeconds",
-					Message: "Amazon productDedupe resultTTLSeconds must be greater than 0",
-					Hint:    "set a positive result cache TTL in seconds for amazon.productDedupe.resultTTLSeconds",
-				})
-			}
-			if amazon.ProductDedupe.WaitTimeoutSeconds <= 0 {
-				errors = append(errors, &ValidationError{
-					Field:   "amazon.productDedupe.waitTimeoutSeconds",
-					Message: "Amazon productDedupe waitTimeoutSeconds must be greater than 0",
-					Hint:    "set a positive wait timeout in seconds for amazon.productDedupe.waitTimeoutSeconds",
-				})
-			}
-			if amazon.ProductDedupe.PollIntervalMillis <= 0 {
-				errors = append(errors, &ValidationError{
-					Field:   "amazon.productDedupe.pollIntervalMillis",
-					Message: "Amazon productDedupe pollIntervalMillis must be greater than 0",
-					Hint:    "set a positive polling interval in milliseconds for amazon.productDedupe.pollIntervalMillis",
-				})
-			}
 		}
 		if amazon.FailureArtifacts.Enabled {
 			if amazon.FailureArtifacts.Directory == "" {
@@ -84,22 +47,6 @@ func ValidateAmazonConfig(amazon *AmazonConfig) []error {
 				})
 			}
 		}
-		if amazon.RegionGuard.Enabled {
-			regionGuardFields := map[string]int{
-				"amazon.regionGuard.failureThreshold":        amazon.RegionGuard.FailureThreshold,
-				"amazon.regionGuard.evaluationWindowSeconds": amazon.RegionGuard.EvaluationWindowSeconds,
-				"amazon.regionGuard.cooldownSeconds":         amazon.RegionGuard.CooldownSeconds,
-			}
-			for field, value := range regionGuardFields {
-				if value <= 0 {
-					errors = append(errors, &ValidationError{
-						Field:   field,
-						Message: "Amazon regionGuard setting must be greater than 0",
-						Hint:    "set a positive value for " + field,
-					})
-				}
-			}
-		}
 		if amazon.QualityControl.RetryOnValidationFailure && amazon.QualityControl.ValidationRetryMaxAttempts <= 0 {
 			errors = append(errors, &ValidationError{
 				Field:   "amazon.qualityControl.validationRetryMaxAttempts",
@@ -129,55 +76,6 @@ func ValidateAmazonConfig(amazon *AmazonConfig) []error {
 					Hint:    "configure at least one proxy server under amazon.proxyPool.proxies",
 				})
 			}
-		}
-		if amazon.ConcurrencyControl.Enabled {
-			if amazon.ConcurrencyControl.MaxInFlight <= 0 {
-				errors = append(errors, &ValidationError{
-					Field:   "amazon.concurrencyControl.maxInFlight",
-					Message: "Amazon concurrencyControl maxInFlight must be greater than 0 when enabled",
-					Hint:    "set a positive in-flight concurrency limit for amazon.concurrencyControl.maxInFlight",
-				})
-			}
-			if amazon.ConcurrencyControl.MaxWaiting < 0 {
-				errors = append(errors, &ValidationError{
-					Field:   "amazon.concurrencyControl.maxWaiting",
-					Message: "Amazon concurrencyControl maxWaiting must be 0 or greater when enabled",
-					Hint:    "set maxWaiting to 0 or a positive queue limit for amazon.concurrencyControl.maxWaiting",
-				})
-			}
-			if amazon.ConcurrencyControl.AcquireTimeoutSeconds <= 0 {
-				errors = append(errors, &ValidationError{
-					Field:   "amazon.concurrencyControl.acquireTimeoutSeconds",
-					Message: "Amazon concurrencyControl acquireTimeoutSeconds must be greater than 0 when enabled",
-					Hint:    "set a positive timeout in seconds for amazon.concurrencyControl.acquireTimeoutSeconds",
-				})
-			}
-			for region, limit := range amazon.ConcurrencyControl.PerRegion {
-				if limit <= 0 {
-					errors = append(errors, &ValidationError{
-						Field:   "amazon.concurrencyControl.perRegion." + region,
-						Message: "Amazon concurrencyControl per-region limit must be greater than 0",
-						Hint:    "set a positive concurrency limit for amazon.concurrencyControl.perRegion." + region,
-					})
-				}
-			}
-		}
-	}
-
-	if amazon.RemoteAPI.Enabled {
-		if amazon.RemoteAPI.BaseURL == "" {
-			errors = append(errors, &ValidationError{
-				Field:   "amazon.remoteAPI.baseURL",
-				Message: "Amazon remoteAPI baseURL cannot be empty",
-				Hint:    "set amazon.remoteAPI.baseURL in YAML or export TASK_PROCESSOR_AMAZON_REMOTE_API_BASE_URL",
-			})
-		}
-		if amazon.RemoteAPI.Timeout <= 0 {
-			errors = append(errors, &ValidationError{
-				Field:   "amazon.remoteAPI.timeout",
-				Message: "Amazon remoteAPI timeout must be greater than 0",
-				Hint:    "set a positive timeout in seconds for amazon.remoteAPI.timeout",
-			})
 		}
 	}
 
@@ -234,14 +132,4 @@ func ValidateAmazonConfig(amazon *AmazonConfig) []error {
 	}
 
 	return errors
-}
-
-func hasExplicitAmazonProductDedupeConfig(amazon *AmazonConfig) bool {
-	if amazon == nil {
-		return false
-	}
-	return amazon.ProductDedupe.LockTTLSeconds != 0 ||
-		amazon.ProductDedupe.ResultTTLSeconds != 0 ||
-		amazon.ProductDedupe.WaitTimeoutSeconds != 0 ||
-		amazon.ProductDedupe.PollIntervalMillis != 0
 }

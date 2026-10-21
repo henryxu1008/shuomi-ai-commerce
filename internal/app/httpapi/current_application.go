@@ -191,6 +191,8 @@ type currentApplicationOptions struct {
 	collectionSourceMedia        *collectionSourceMediaDependencies
 	productCollections           int
 	acquisitionPlans             int
+	sourceMaterials              int
+	sourceMaterialDB             *gorm.DB
 	supplyCompletionDrafts       int
 	supplyChains                 int
 	supplyChain                  *SupplyChainDependencies
@@ -432,6 +434,9 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	}
 	if supplied.privateDraftTrials > 1 || supplied.privateDraftTrials > 0 && (supplied.privateDraftTrial == nil || supplied.privateDraftTrial.Scope.Validate() != nil || !collection.ValidID(supplied.privateDraftTrial.StoreID) || supplied.supplyMarkets > 0 || supplied.pods > 0 || supplied.supplyChains > 0 || supplied.localTrials > 0 || supplied.officialStoreApplications != nil || supplied.productAgents > 0 || supplied.imageAgents > 0 || supplied.agentCustomizations != 1 || supplied.productCollections != 1 || supplied.storeCenters != 1 || supplied.productAcquisitionDB == nil) {
 		return nil, errors.New("private draft trial assembly not admitted")
+	}
+	if supplied.sourceMaterials > 1 || supplied.sourceMaterials > 0 && (supplied.sourceMaterialDB == nil || supplied.sourceMaterialDB == supplied.productAcquisitionDB || supplied.productCollections != 1 || supplied.acquisitionPlans != 1 || supplied.privateDraftTrials > 0 || cfg.ListingKit.Zitadel.TenantDirectoryToken == "" || supplied.supplyChain != nil && supplied.supplyChain.AssetDB != supplied.sourceMaterialDB) {
+		return nil, errors.New("source materials require one current Preparation and independent canonical Asset owner")
 	}
 	if supplied.supplyChains > 1 || supplied.supplyChains > 0 && (supplied.supplyChain == nil || supplied.supplyChain.AssetDB == nil || supplied.supplyChain.Starter == nil || supplied.supplyChain.NewWorker == nil || supplied.supplyChain.Worker == nil || supplied.productCollections != 1 || supplied.productAcquisitionDB == nil || supplied.storeCenters != 1 || supplied.officialStoreApplications == nil || cfg.ListingKit.Zitadel.TenantDirectoryToken == "") {
 		return nil, errors.New("supply chain requires current Product, Store, Asset and workflow owners")
@@ -940,11 +945,26 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		modules = append(modules, module)
 		supplyRuntime = &module
 	}
+	var sourceMaterialsRuntime *sourceMaterialsModule
+	if supplied.sourceMaterials > 0 {
+		var full *supplyapp.Application
+		if supplyRuntime != nil {
+			full = supplyRuntime.app
+		}
+		module, e := buildSourceMaterialsModule(ctx, supplied.productAcquisitionDB, supplied.sourceMaterialDB, *workbench.authDependencies, authorizer, planCollections, full)
+		if e != nil {
+			return nil, fmt.Errorf("compose current source materials: %w", e)
+		}
+		modules = append(modules, module)
+		sourceMaterialsRuntime = &module
+	}
 	var completionRuntime *completionDraftModule
 	if supplied.supplyCompletionDrafts > 0 {
 		var full *supplyapp.Application
 		if supplyRuntime != nil {
 			full = supplyRuntime.app
+		} else if sourceMaterialsRuntime != nil {
+			full = sourceMaterialsRuntime.app
 		}
 		module, e := composeCompletionDrafts(ctx, supplied.productAcquisitionDB, *workbench.authDependencies, authorizer, planCollections, full)
 		if e != nil {
@@ -966,6 +986,8 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			full = supplyRuntime.app
 		} else if completionRuntime != nil {
 			full = completionRuntime.app
+		} else if sourceMaterialsRuntime != nil {
+			full = sourceMaterialsRuntime.app
 		}
 		module, e := composeAcquisitionPlans(ctx, module, supplied.productAcquisitionDB, *workbench.authDependencies, authorizer, planCollections, full)
 		if e != nil {
@@ -1201,6 +1223,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		DataServices:        supplied.dataServices != nil,
 		Ecoservices:         supplied.ecoservices != nil,
 		SupplyChain:         fullSupply,
+		SourceMaterials:     supplied.sourceMaterials > 0,
 		AcquisitionPlans:    supplied.acquisitionPlans > 0,
 		CompletionDrafts:    supplied.supplyCompletionDrafts > 0,
 		SupplyMarket:        supplied.supplyMarkets > 0,
@@ -1332,6 +1355,7 @@ type currentApplicationOptionalRoutes struct {
 	ToolMarket          bool
 	Ecoservices         bool
 	SupplyChain         bool
+	SourceMaterials     bool
 	AcquisitionPlans    bool
 	CompletionDrafts    bool
 	Collections         bool
@@ -1418,6 +1442,14 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 	}
 	if optional.SupplyChain {
 		for _, r := range supplyhttp.SupplyRoutes(nil, nil) {
+			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
+		}
+	}
+	if optional.SourceMaterials {
+		if !optional.Collections || !optional.AcquisitionPlans || optional.PrivateDraftTrial {
+			return errors.New("source materials require normal current Preparation")
+		}
+		for _, r := range supplyhttp.SourceMaterialRoutes(nil, nil) {
 			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
 		}
 	}
@@ -1751,7 +1783,7 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 				}
 				continue
 			}
-			if !optional.SupplyChain && (!(optional.AcquisitionPlans || optional.CompletionDrafts) || !supplyhttp.IsPreparationRoute(descriptor.Method, descriptor.Path)) && (!optional.PrivateDraftTrial || !supplyhttp.IsPrivateDraftReadRoute(descriptor.Method, descriptor.Path)) {
+			if !optional.SupplyChain && !(optional.SourceMaterials && supplyhttp.IsSourceMaterialRoute(descriptor.Method, descriptor.Path)) && (!(optional.AcquisitionPlans || optional.CompletionDrafts) || !supplyhttp.IsPreparationRoute(descriptor.Method, descriptor.Path)) && (!optional.PrivateDraftTrial || !supplyhttp.IsPrivateDraftReadRoute(descriptor.Method, descriptor.Path)) {
 				return errors.New("supply chain feature not admitted")
 			}
 			if e := validateSupplyDescriptor(descriptor); e != nil {

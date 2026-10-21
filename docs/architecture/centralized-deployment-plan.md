@@ -1,5 +1,7 @@
 # Centralized Deployment Plan
 
+> HISTORICAL / 已被部分或全部替代：#867 按[完整闭包](legacy-numeric-acquisition-tail-closure-retirement-boundary.md)退休旧 Amazon 数字 Task/HTTP 服务、RawJSON fetch/cache 工厂及其发布/部署/监控源。下文有关 Service、remoteAPI、去重/regionGuard/并发门与旧发布命令只保留历史设计，不是当前构建、部署或验收指令。当前采集入口为 `integration/crawler/amazon` → `CreateProcessor` → `AmazonProcessor`，见[当前运行链](amazon-crawler-runtime-flow.md)；通用队列/workerpool、共享浏览器和独立 SHEIN worker 保留。未操作既有实例、数据或凭据。
+
 > **DATED EVIDENCE / 旧刊登链历史材料**：#723 已按用户确认退休三个旧 CLI 及专属
 > 调度/消费链。下列旧命令、部署与验收步骤不再是当前操作说明，不得用于启动/发布或
 > 作为当前内部试用前置。历史事实保留；当前入口见
@@ -107,7 +109,7 @@
 - Redis：独立部署
 - PostgreSQL：独立部署
 
-## 3.1 当前推荐的落地方式
+## 3.1 历史推荐（已失效，不执行）
 
 在现阶段代码里，最推荐优先落地的不是 “task + RabbitMQ distributed crawler”，而是：
 

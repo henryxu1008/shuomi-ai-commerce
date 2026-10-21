@@ -71,16 +71,7 @@ listingkit:
 platforms:
   # SHEIN 平台配置
   shein:
-    fetchMode: "local"       # SHEIN 上架服务直接走本地浏览器抓取，不依赖爬虫 API / 分布式队列
     # SHEIN 登录态刷新配置；线上 k8s 通过集群内 login Service 调用登录 API
-    loginService:
-      baseURL: "http://login:8000"
-      sharedKey: ""
-      defaultHeadless: true
-
-
-
-
   # SDS 登录态刷新配置；线上 k8s 通过集群内 login Service 调用登录 API
   sds:
     loginService:
@@ -118,13 +109,7 @@ browser:
 amazon:
   # Amazon 爬虫配置
   enabled: true
-  dataFreshnessDays: 15  # 数据新鲜度天数，默认15天
   crawlTimeout: 300      # 爬虫超时时间（秒），默认5分钟
-  remoteAPI:
-    enabled: false
-    baseURL: "http://amazon-crawler-api:8080"
-    timeout: 300
-  
   # Amazon SP-API 配置（用于上架）
   # 注意：以下凭证仅为示例，请替换为你自己的真实凭证
   # 获取方法：登录 Amazon Seller Central > 设置 > 用户权限 > 开发者中心

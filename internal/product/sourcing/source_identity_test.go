@@ -2,7 +2,32 @@ package sourcing
 
 import "testing"
 
-func TestSourceRequestIdentityPreservesLegacyKey(t *testing.T) {
+func TestSourceIdentityDoesNotDeriveOrBackfillRetiredAliases(t *testing.T) {
+	for _, input := range []SourceIdentity{
+		{Platform: " Amazon ", Region: " UK ", ProductID: " B001 ", StoreID: 42},
+		{SourcePlatform: "amazon", SourceID: "B001", Platform: "amazon"},
+		{SourceType: SourceTypeCrawler, SourceID: "B001", Platform: "amazon"},
+		{SourceType: SourceTypeCrawler, SourcePlatform: "amazon", ProductID: "B001"},
+	} {
+		normalized := NormalizeSourceIdentity(input)
+		if normalized.SourceType != input.SourceType || normalized.SourcePlatform != input.SourcePlatform || normalized.SourceID != input.SourceID || normalized.Valid() {
+			t.Fatalf("retired slots supplied missing identity values: %+v -> %+v", input, normalized)
+		}
+		if _, err := Normalize(SourceEnvelope{Identity: input}); err != ErrSourceIdentityRequired {
+			t.Fatalf("incomplete canonical envelope error = %v, want ErrSourceIdentityRequired", err)
+		}
+	}
+	id := NormalizeSourceIdentity(SourceIdentity{SourceType: " CRAWLER ", SourcePlatform: " Amazon ", SourceID: " B001 "})
+	if id.SourceKey() != "crawler:amazon:B001" || id.Platform != "" || id.Region != "" || id.ProductID != "" || id.StoreID != 0 {
+		t.Fatalf("canonical identity changed or backfilled aliases: %+v", id)
+	}
+	request := (SourceRequest{Platform: "amazon", Region: "uk", ProductID: "B001", StoreID: 42}).Identity()
+	if request != id {
+		t.Fatalf("request identity = %+v, want %+v", request, id)
+	}
+}
+
+func TestSourceRequestIdentityUsesCanonicalKey(t *testing.T) {
 	id := SourceRequest{
 		Platform:  " Amazon ",
 		Region:    " UK ",
@@ -19,8 +44,8 @@ func TestSourceRequestIdentityPreservesLegacyKey(t *testing.T) {
 	if id.SourceID != "B001" {
 		t.Fatalf("SourceID = %q, want B001", id.SourceID)
 	}
-	if got := id.Key(); got != "amazon:uk:B001:42" {
-		t.Fatalf("Key() = %q, want legacy key", got)
+	if id.Platform != "" || id.Region != "" || id.ProductID != "" || id.StoreID != 0 {
+		t.Fatalf("retired identity slots populated: %+v", id)
 	}
 	if got := id.SourceKey(); got != "crawler:amazon:B001" {
 		t.Fatalf("SourceKey() = %q, want source key", got)

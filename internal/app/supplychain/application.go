@@ -19,6 +19,7 @@ import (
 )
 
 type Application struct {
+	SourceMaterialsOnly   bool
 	SheinPublication      *SheinPublicationService
 	WalmartCatalog        WalmartRuleReader
 	Preparations          *preparation.Service
@@ -257,7 +258,10 @@ func (a *Application) ReadRecord(ctx context.Context, id string) (record.TargetR
 	return value, nil
 }
 func (a *Application) Inventory(ctx context.Context, input asset.SourceSelectionRequest) (asset.ApprovedAssetInventory, error) {
-	reader := SourceImageReader{Sources: a.Sources, Products: a.Products, Authorization: a.Authorization}
+	if a == nil || a.Assets == nil {
+		return asset.ApprovedAssetInventory{}, preparation.ErrUnavailable
+	}
+	reader := SourceImageReader{Sources: a.Sources, Products: a.Products, Authorization: a.Authorization, OriginalOnly: a.SourceMaterialsOnly}
 	selection, err := reader.ReadSourceSelection(ctx, input)
 	if err != nil {
 		return asset.ApprovedAssetInventory{}, err

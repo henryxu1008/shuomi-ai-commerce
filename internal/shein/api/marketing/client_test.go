@@ -45,7 +45,7 @@ func TestClientAutoPartakeUsesV2Endpoints(t *testing.T) {
 	}))
 	defer server.Close()
 
-	baseClient := sheinclient.NewBaseAPIClient(server.URL, 1, 2, req.C())
+	baseClient := sheinclient.NewBaseAPIClient(server.URL, req.C())
 	client := NewClient(baseClient)
 
 	if _, err := client.GetAvailableSkcList(&GetAvailableSkcListRequest{PageNum: 1, PageSize: 20}); err != nil {
@@ -94,7 +94,7 @@ func TestClientSaveConfigSendsPromotionType(t *testing.T) {
 	}))
 	defer server.Close()
 
-	baseClient := sheinclient.NewBaseAPIClient(server.URL, 1, 2, req.C())
+	baseClient := sheinclient.NewBaseAPIClient(server.URL, req.C())
 	client := NewClient(baseClient)
 
 	_, err := client.SaveConfig(&SaveConfigRequest{
@@ -136,7 +136,7 @@ func TestClientSaveConfigSendsStockForLimitedPromotionType(t *testing.T) {
 	}))
 	defer server.Close()
 
-	baseClient := sheinclient.NewBaseAPIClient(server.URL, 1, 2, req.C())
+	baseClient := sheinclient.NewBaseAPIClient(server.URL, req.C())
 	client := NewClient(baseClient)
 
 	_, err := client.SaveConfig(&SaveConfigRequest{
@@ -182,7 +182,7 @@ func TestClientUpdateConfigStateUsesV2Endpoint(t *testing.T) {
 	}))
 	defer server.Close()
 
-	baseClient := sheinclient.NewBaseAPIClient(server.URL, 1, 2, req.C())
+	baseClient := sheinclient.NewBaseAPIClient(server.URL, req.C())
 	client := NewClient(baseClient)
 
 	_, err := client.UpdateConfigState(&UpdateConfigStateRequest{

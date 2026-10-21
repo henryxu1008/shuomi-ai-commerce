@@ -96,11 +96,6 @@ func setAmazonDefaults(v *viper.Viper, defaults *Config) {
 	a := defaults.Amazon
 
 	v.SetDefault("amazon.enabled", a.Enabled)
-	v.SetDefault("amazon.dataFreshnessDays", a.DataFreshnessDays)
-	v.SetDefault("amazon.productDedupe.lockTTLSeconds", a.ProductDedupe.LockTTLSeconds)
-	v.SetDefault("amazon.productDedupe.resultTTLSeconds", a.ProductDedupe.ResultTTLSeconds)
-	v.SetDefault("amazon.productDedupe.waitTimeoutSeconds", a.ProductDedupe.WaitTimeoutSeconds)
-	v.SetDefault("amazon.productDedupe.pollIntervalMillis", a.ProductDedupe.PollIntervalMillis)
 	v.SetDefault("amazon.failureArtifacts.enabled", a.FailureArtifacts.Enabled)
 	v.SetDefault("amazon.failureArtifacts.directory", a.FailureArtifacts.Directory)
 	v.SetDefault("amazon.failureArtifacts.captureHTML", a.FailureArtifacts.CaptureHTML)
@@ -111,10 +106,6 @@ func setAmazonDefaults(v *viper.Viper, defaults *Config) {
 	v.SetDefault("amazon.riskControl.timeoutRecreateThreshold", a.RiskControl.TimeoutRecreateThreshold)
 	v.SetDefault("amazon.riskControl.networkRecreateThreshold", a.RiskControl.NetworkRecreateThreshold)
 	v.SetDefault("amazon.riskControl.serverErrorRecreateThreshold", a.RiskControl.ServerErrorRecreateThreshold)
-	v.SetDefault("amazon.regionGuard.enabled", a.RegionGuard.Enabled)
-	v.SetDefault("amazon.regionGuard.failureThreshold", a.RegionGuard.FailureThreshold)
-	v.SetDefault("amazon.regionGuard.evaluationWindowSeconds", a.RegionGuard.EvaluationWindowSeconds)
-	v.SetDefault("amazon.regionGuard.cooldownSeconds", a.RegionGuard.CooldownSeconds)
 	v.SetDefault("amazon.qualityControl.retryOnValidationFailure", a.QualityControl.RetryOnValidationFailure)
 	v.SetDefault("amazon.qualityControl.validationRetryMaxAttempts", a.QualityControl.ValidationRetryMaxAttempts)
 	v.SetDefault("amazon.proxyPool.enabled", a.ProxyPool.Enabled)
@@ -122,14 +113,6 @@ func setAmazonDefaults(v *viper.Viper, defaults *Config) {
 	v.SetDefault("amazon.proxyPool.failureCooldownSeconds", a.ProxyPool.FailureCooldownSeconds)
 	v.SetDefault("amazon.proxyPool.proxyFile", a.ProxyPool.ProxyFile)
 	v.SetDefault("amazon.proxyPool.proxies", a.ProxyPool.Proxies)
-	v.SetDefault("amazon.concurrencyControl.enabled", a.ConcurrencyControl.Enabled)
-	v.SetDefault("amazon.concurrencyControl.maxInFlight", a.ConcurrencyControl.MaxInFlight)
-	v.SetDefault("amazon.concurrencyControl.maxWaiting", a.ConcurrencyControl.MaxWaiting)
-	v.SetDefault("amazon.concurrencyControl.acquireTimeoutSeconds", a.ConcurrencyControl.AcquireTimeoutSeconds)
-	v.SetDefault("amazon.concurrencyControl.perRegion", a.ConcurrencyControl.PerRegion)
-	v.SetDefault("amazon.remoteAPI.enabled", a.RemoteAPI.Enabled)
-	v.SetDefault("amazon.remoteAPI.baseURL", a.RemoteAPI.BaseURL)
-	v.SetDefault("amazon.remoteAPI.timeout", a.RemoteAPI.Timeout)
 
 	sp := defaults.Amazon.SPAPI
 	v.SetDefault("amazon.spapi.enabled", sp.Enabled)
@@ -182,30 +165,12 @@ func setSDSDefaults(v *viper.Viper, p *SDSPlatformConfig) {
 }
 
 func setTemuDefaults(v *viper.Viper, p *PlatformConfig) {
-	v.SetDefault("platforms.temu.fetchMode", p.FetchMode)
 	v.SetDefault("platforms.temu.httpClient.insecureSkipVerify", p.HTTPClient.InsecureSkipVerify)
 
 }
 
 func setSheinDefaults(v *viper.Viper, p *PlatformConfig) {
-	v.SetDefault("platforms.shein.fetchMode", p.FetchMode)
 	v.SetDefault("platforms.shein.httpClient.insecureSkipVerify", p.HTTPClient.InsecureSkipVerify)
-	v.SetDefault("platforms.shein.cookieRedis.host", p.CookieRedis.Host)
-	v.SetDefault("platforms.shein.cookieRedis.port", p.CookieRedis.Port)
-	v.SetDefault("platforms.shein.cookieRedis.password", p.CookieRedis.Password)
-	v.SetDefault("platforms.shein.cookieRedis.db", p.CookieRedis.DB)
-	v.SetDefault("platforms.shein.cookieRedis.pool_size", p.CookieRedis.PoolSize)
-	v.SetDefault("platforms.shein.loginService.tenantID", p.LoginService.TenantID)
-	v.SetDefault("platforms.shein.loginService.identifier", p.LoginService.Identifier)
-	v.SetDefault("platforms.shein.loginService.merchantName", p.LoginService.MerchantName)
-	v.SetDefault("platforms.shein.loginService.username", p.LoginService.Username)
-	v.SetDefault("platforms.shein.loginService.password", p.LoginService.Password)
-	v.SetDefault("platforms.shein.loginService.maxConcurrentLogins", p.LoginService.MaxConcurrentLogins)
-	v.SetDefault("platforms.shein.loginService.profileRootDir", p.LoginService.ProfileRootDir)
-	v.SetDefault("platforms.shein.loginService.artifactDir", p.LoginService.ArtifactDir)
-	v.SetDefault("platforms.shein.loginService.defaultHeadless", p.LoginService.DefaultHeadless)
-	v.SetDefault("platforms.shein.loginService.forceHeadless", p.LoginService.ForceHeadless)
-	v.SetDefault("platforms.shein.loginService.executionMode", p.LoginService.ExecutionMode)
 
 }
 

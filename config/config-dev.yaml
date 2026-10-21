@@ -88,19 +88,7 @@ listingkit:
 platforms:
   # SHEIN 平台配置
   shein:
-    fetchMode: "local"       # 本地开发默认直接走本地浏览器抓取，避免误走 shared distributed 配置
     # SHEIN 登录态刷新配置；cookie 失效时调用 login 服务重新登录并回写 Redis
-    loginService:
-      baseURL: "http://localhost:8000"
-      sharedKey: ""
-      tenantID: "1"
-      identifier: "2"
-    cookieRedis:
-      host: "localhost"
-      port: 6379
-      password: ""
-      db: 9
-
     # ListingKit 上架资料定价配置；关闭时沿用 SDS 成本/价格
 
 
@@ -142,13 +130,7 @@ browser:
 amazon:
   # Amazon 爬虫配置
   enabled: true
-  dataFreshnessDays: 15  # 数据新鲜度天数，默认15天
   crawlTimeout: 300      # 爬虫超时时间（秒），默认5分钟
-  remoteAPI:
-    enabled: false
-    baseURL: "http://localhost:8080"
-    timeout: 300
-  
   # Amazon SP-API 配置（用于上架）
   # 注意：以下凭证仅为示例，请替换为你自己的真实凭证
   # 获取方法：登录 Amazon Seller Central > 设置 > 用户权限 > 开发者中心

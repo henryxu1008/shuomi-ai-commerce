@@ -269,18 +269,13 @@ func amazonSourceIdentity(req sourcing.SourceRequest, product *model.Product) so
 	id := sourcing.SourceIdentity{
 		SourceType:     sourcing.SourceTypeCrawler,
 		SourcePlatform: AmazonSourcePlatform,
-		Region:         req.Region,
-		Platform:       AmazonSourcePlatform,
-		StoreID:        req.StoreID,
 	}
 	if product != nil {
 		id.SourceID = strings.TrimSpace(product.Asin)
 		id.SourceURL = strings.TrimSpace(product.URL)
-		id.ProductID = strings.TrimSpace(product.Asin)
 	}
 	if id.SourceID == "" {
 		id.SourceID = req.ProductID
-		id.ProductID = req.ProductID
 	}
 	return sourcing.NormalizeSourceIdentity(id)
 }

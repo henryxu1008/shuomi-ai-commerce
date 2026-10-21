@@ -14,6 +14,152 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+var retiredHostRuntimePackages = []string{
+	"internal/infra/httpx", "internal/infra/auth", "internal/app/monitoring",
+	"internal/app/lifecycle", "internal/core/errors", "internal/app/ports", "internal/app/updater",
+}
+
+func TestOldHostRuntimeClosureStaysRetired(t *testing.T) {
+	for _, relative := range retiredHostRuntimePackages {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Errorf("retired host runtime root %s must be absent: %v", relative, err)
+		}
+	}
+	for _, root := range []string{"internal", "cmd"} {
+		index, err := loadGoFileIndex(filepath.Join("..", root), "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		for path, facts := range index.files {
+			for literal := range facts.imports {
+				imported, err := decodeGoImportPath(literal)
+				if err != nil {
+					t.Fatalf("decode import in %s: %v", path, err)
+				}
+				for _, relative := range retiredHostRuntimePackages {
+					if importMatchesPrefix(imported, "task-processor/"+relative) {
+						t.Errorf("%s imports retired host runtime %s", path, imported)
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestNumericContextAndValueContractsAreRetired(t *testing.T) {
+	for _, relative := range []string{"internal/listingruntime/rules.go", "internal/listingruntime/operation_strategy.go"} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Errorf("retired rule owner %s must be absent: %v", relative, err)
+		}
+	}
+	for relative, retired := range map[string][]string{
+		"internal/platform/logging/helpers.go":                 {"LogTaskStart", "LogTaskComplete", "LogTaskFailed", "WithTaskContext", "WithStoreContext", "FieldTaskID", "FieldTenantID", "FieldStoreID"},
+		"internal/core/logger/compat.go":                       {"WithTaskContext", "WithStoreContext", "FieldTaskID", "FieldTenantID", "FieldStoreID"},
+		"internal/shared/hashx/hashutil.go":                    {"SimpleHash", "ShardForTenantShop"},
+		"internal/shein/pricing/calculator.go":                 {"listingruntime"},
+		"internal/shein/activity/registration_config.go":       {"listingruntime"},
+		"internal/shein/activity/promotion_create_products.go": {"listingruntime"},
+		"internal/product/sourcing/source_identity.go":         {"func (id SourceIdentity) Key()", "id.SourcePlatform = id.Platform", "id.Platform = id.SourcePlatform", "id.SourceID = id.ProductID", "id.ProductID = id.SourceID"},
+	} {
+		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, declaration := range retired {
+			if strings.Contains(string(content), declaration) {
+				t.Errorf("%s retains %q", relative, declaration)
+			}
+		}
+	}
+	for _, rule := range []struct {
+		path, name string
+		fields     []string
+	}{
+		{"internal/shein/pricing/calculator.go", "AutoPricingRule", []string{"PriceMin", "PriceMax", "RuleType", "RuleValue", "FixedValue"}},
+		{"internal/shein/activity/registration_config.go", "activityStrategy", []string{"ActivityDiscountRate", "ActivityLimitedDiscountRate", "ActivityStockRatio", "ActivityMinProfitRate", "ActivityLimitedMinProfitRate", "ActivityPriceMode", "ActivityPartakeType", "FixedPriceAdjustment"}},
+	} {
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(rule.path)), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var fields []string
+		ast.Inspect(file, func(node ast.Node) bool {
+			declaration, ok := node.(*ast.TypeSpec)
+			if !ok || declaration.Name.Name != rule.name {
+				return true
+			}
+			shape, ok := declaration.Type.(*ast.StructType)
+			if !ok {
+				t.Errorf("%s must be a direct value struct", rule.name)
+				return false
+			}
+			for _, field := range shape.Fields.List {
+				for _, name := range field.Names {
+					fields = append(fields, name.Name)
+				}
+			}
+			return false
+		})
+		if !reflect.DeepEqual(fields, rule.fields) {
+			t.Errorf("%s fields = %v, want %v", rule.name, fields, rule.fields)
+		}
+	}
+}
+
+func TestNumericAcquisitionAndPlatformTailClosureIsRetired(t *testing.T) {
+	for _, relative := range []string{
+		"internal/platformbase", "internal/crawler/fetcher", "internal/marketplace/sourceproduct", "internal/domain/task",
+		"internal/crawler/amazon/api_service.go", "internal/crawler/amazon/crawler_service.go", "internal/crawler/amazon/worker_processor.go",
+		"internal/crawler/amazon/concurrency_control.go", "internal/crawler/amazon/region_guard.go", "internal/crawler/amazon/service_metrics.go",
+		"internal/crawler/shared/base_service.go", "internal/crawler/shared/errors.go", "internal/crawler/shared/job_handler.go",
+		"internal/crawler/shared/result.go", "internal/crawler/shared/task.go", "internal/crawler/shared/util.go",
+		"internal/infra/httpx/crawler_service.go", "internal/infra/httpx/crawler_base_handler.go", "internal/infra/httpx/crawler_amazon_handler.go",
+		"internal/shein/client/api_client.go", "internal/shein/client/cookie_manager.go", "internal/shein/client/runtime_types.go",
+		"internal/shein/sherr/cookie_errors.go", "internal/pricing/cost_calculator.go",
+		"deployments/docker/Dockerfile.amazon-crawler-api", "deployments/docker/docker-compose.amazon-crawler-api.yml",
+		"scripts/push-amazon-crawler-api-dockerhub.ps1", "config/config-amazon-crawler-api.yaml",
+		"deployments/kubernetes/amazon-crawler-api", "deployments/kubernetes/amazon-crawler-external-lb",
+		"deployments/kubernetes/monitoring/amazon-crawler-api", "deployments/kubernetes/monitoring/alertmanager-wecom/alertmanagerconfig.yaml",
+	} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Errorf("retired numeric acquisition artifact %s must be absent: %v", relative, err)
+		}
+	}
+	for _, relative := range []string{
+		"deployments/kubernetes/shein-listing/base/secret.example.yaml",
+		"deployments/kubernetes/shein-listing/overlays/prod-store-shards-example/secret.example.yaml",
+		"deployments/kubernetes/shein-listing/overlays/prod/secret.example.yaml",
+		"deployments/kubernetes/shein-listing/overlays/prod/external-secret.yaml",
+	} {
+		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(content), "AMAZON_REMOTE_API_") {
+			t.Errorf("%s retains retired remote endpoint configuration", relative)
+		}
+	}
+	for relative, retired := range map[string][]string{
+		"internal/shein/client/base_client.go":        {"tenantID", "shopID", "GetTenantID", "GetShopID"},
+		"internal/shein/api/types.go":                 {"TenantID", "ShopID", "type CookieError"},
+		"internal/shein/authorizedbrand/types.go":     {"ConfigFromStore", "listingruntime"},
+		"internal/listingruntime/types.go":            {"type StoreInfo"},
+		"internal/product/sourcing/source_request.go": {"TenantID"},
+		"internal/core/config/type_amazon.go":         {"DataFreshnessDays", "ProductDedupe", "RegionGuard", "ConcurrencyControl", "RemoteAPI"},
+		"internal/core/config/type_platform.go":       {"FetchMode"},
+	} {
+		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, token := range retired {
+			if strings.Contains(string(content), token) {
+				t.Errorf("%s retains retired declaration %q", relative, token)
+			}
+		}
+	}
+}
+
 func TestLegacyKubernetesReleaseExecutionClosureIsRetired(t *testing.T) {
 	for _, relative := range []string{
 		"deployments/kubernetes/listingkit-workbench/base/product-listing-api-deployment.yaml",
@@ -190,8 +336,6 @@ func TestRetiredListingOperationsClosure(t *testing.T) {
 		"shein-listing/base/namespace.yaml", "shein-listing/base/secret.example.yaml",
 		"shein-listing/overlays/prod/secret.example.yaml", "shein-listing/overlays/prod/external-secret.yaml",
 		"shein-listing/overlays/prod-store-shards-example/secret.example.yaml",
-		"monitoring/amazon-crawler-api/podmonitor.yaml", "monitoring/amazon-crawler-api/prometheusrule.yaml",
-		"monitoring/amazon-crawler-api/grafana-dashboard-configmap.yaml",
 	} {
 		var resource struct {
 			Kind     string                `yaml:"kind"`
@@ -208,7 +352,7 @@ func TestRetiredListingOperationsClosure(t *testing.T) {
 	for relative, tokens := range map[string][]string{
 		"deployments/kubernetes/shein-proxy-sync/shein-proxy-sync.yaml":                       {"shein-listing-secret", "DATABASE_SECRET"},
 		"scripts/sync-shein-store-proxies.ps1":                                                {"shein-listing-secret"},
-		"deployments/kubernetes/listingkit-workbench/base/shein-login-worker-deployment.yaml": {"listingkit-workbench-secret", "app: shein-login-worker", "/healthz"},
+		"deployments/kubernetes/listingkit-workbench/base/shein-login-worker-deployment.yaml": {"shein-login-worker-current", "app: shein-login-worker", "/healthz"},
 	} {
 		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
 		if err != nil {
@@ -255,21 +399,24 @@ func TestRetiredListingOperationsClosure(t *testing.T) {
 			Receivers []any          `yaml:"receivers"`
 		}
 	}
-	var original, shared alertmanagerConfig
-	readYAML("monitoring/alertmanager-wecom/alertmanagerconfig.yaml", &original)
+	var shared alertmanagerConfig
 	readYAML("monitoring/prometheus-storage/alertmanagerconfig.yaml", &shared)
-	if original.Metadata.Namespace != "task-processor" || !reflect.DeepEqual(original.Spec.Route["matchers"], []any{map[string]any{"name": "service", "value": "amazon-crawler-api", "matchType": "=~"}}) {
-		t.Error("original route must retain only the Amazon branch in its namespace")
-	}
 	if shared.APIVersion != "monitoring.coreos.com/v1alpha1" || shared.Kind != "AlertmanagerConfig" || shared.Metadata.Name != "prometheus-storage-wecom" || shared.Metadata.Namespace != alert.Labels["namespace"] {
 		t.Error("storage route must share the rule namespace under OnNamespace enforcement")
 	}
-	original.Spec.Route["matchers"] = []any{
-		map[string]any{"name": "service", "value": alert.Labels["service"], "matchType": "="},
-		map[string]any{"name": "alertname", "value": alert.Alert, "matchType": "="},
+	wantRoute := map[string]any{
+		"groupBy":   []any{"alertname", "service", "severity"},
+		"groupWait": "30s", "groupInterval": "5m", "repeatInterval": "2h", "receiver": "wecom-webhook",
+		"matchers": []any{
+			map[string]any{"name": "service", "value": alert.Labels["service"], "matchType": "="},
+			map[string]any{"name": "alertname", "value": alert.Alert, "matchType": "="},
+		},
 	}
-	if !reflect.DeepEqual(shared.Spec, original.Spec) {
-		t.Error("storage route must match only its alert and retain original grouping/receiver settings")
+	wantReceivers := []any{map[string]any{"name": "wecom-webhook", "webhookConfigs": []any{
+		map[string]any{"url": "http://alertmanager-wecom.monitoring.svc.cluster.local:8080/webhook", "sendResolved": true, "maxAlerts": 10, "timeout": "10s"},
+	}}}
+	if !reflect.DeepEqual(shared.Spec.Route, wantRoute) || !reflect.DeepEqual(shared.Spec.Receivers, wantReceivers) {
+		t.Error("storage route must match only its alert and retain grouping/receiver settings")
 	}
 	var stack map[string]any
 	readYAML("monitoring/kube-prometheus-stack-values.yaml", &stack)
@@ -296,11 +443,9 @@ func TestRetiredTaskAndListingRuntimeConfigClosure(t *testing.T) {
 		}
 	}
 	retiredRoots := []string{"processor", "worker", "listingControlPlane", "rabbitmq"}
-	retiredPlatform := []string{"enabled", "schedulerEnabled", "autoPricing", "listingPricing", "productSync", "inventorySync", "activityRegistration", "sync", "monitor", "configPaths"}
+	retiredPlatform := []string{"enabled", "schedulerEnabled", "autoPricing", "listingPricing", "productSync", "inventorySync", "activityRegistration", "sync", "monitor", "configPaths", "fetchMode"}
 	for _, relative := range []string{
 		"config/config-dev.yaml", "config/config-prod.yaml", "config/config-test.yaml",
-		"deployments/kubernetes/amazon-crawler-api/base/configmap-lite.yaml",
-		"deployments/kubernetes/amazon-crawler-api/base/configmap-heavy.yaml",
 	} {
 		t.Run(relative, func(t *testing.T) {
 			content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
@@ -337,6 +482,13 @@ func TestRetiredTaskAndListingRuntimeConfigClosure(t *testing.T) {
 				}
 			}
 			for _, cfg := range configs {
+				if amazon, ok := cfg["amazon"].(map[string]any); ok {
+					for _, key := range []string{"dataFreshnessDays", "productDedupe", "regionGuard", "concurrencyControl", "remoteAPI"} {
+						if _, exists := amazon[key]; exists {
+							t.Errorf("retired Amazon config %s remains", key)
+						}
+					}
+				}
 				for _, key := range retiredRoots {
 					if _, exists := cfg[key]; exists {
 						t.Errorf("retired root %s remains", key)
@@ -1631,10 +1783,7 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/listingruntime/types.go": {
 			"type ImportTask struct", "type ScheduledTaskConfig struct", "type TaskStatusUpdate struct",
 		},
-		"internal/listingadmin/schema_migrate.go": {"ImportTask", "importTask"},
-		"internal/listingadmin/management_api_types.go": {
-			"type InventoryRecordCreateReqDTO struct", "type InventoryRecordRespDTO struct", "type InventoryRecordAPI interface",
-		},
+
 		"internal/app/runtime/listingkitschemamigrate/runtime_test.go": {
 			"func openRuntimeSchemaTestDB(", "\"listing_product_import_task\"",
 		},
@@ -1700,37 +1849,23 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			"func ValidImageObservation(", "func resolveImages(", "inventory asset.ApprovedAssetInventory",
 		},
 		"internal/temu/api/client/client.go": {
-			"func NewAPIClient(", "func (c *APIClient) initializeMallID(",
-			"func (c *APIClient) GetMallID(", "func (c *APIClient) SetMallID(", ".UpdateStoreId(",
+			"func NewAPIClient(",
+			"func (c *APIClient) GetMallID(", "func (c *APIClient) SetMallID(",
 		},
-		"internal/temu/api/client/interfaces.go":     {"type StoreRuntime interface", "GetStoreAPI(", "type ClientAPI interface {", "SendTEMURequest(request map[string]any, result any) error"},
-		"internal/temu/api/client/cookie_manager.go": {"type CookieManager struct"},
+		"internal/temu/api/client/interfaces.go": {"type ClientAPI interface {", "SendTEMURequest(request map[string]any, result any) error"},
 		"internal/temu/api/product/goods_types.go": {
 			"type Product struct", "type GoodsBasicInfo struct", "type ServicePromise struct", "type ExtraInfo struct",
 			"type CategoryTree struct", "type Disclaimer struct",
 		},
-		"internal/shared/ptr/pointer.go":            {"func BoolPtr("},
-		"internal/listingadmin/gorm_store_api.go":   {"func NewGormStoreAPI(", "func (a gormStoreAPI) GetStore(", "func (a gormStoreAPI) UpdateStoreId(", "func (a gormStoreAPI) UpdateStoreStatus("},
-		"internal/listingadmin/store_repository.go": {"type GormStoreRepository struct", "func (r *GormStoreRepository) GetStore("},
-		"internal/storecenter/gorm_repository.go":   {"type GormStoreRepository struct"},
-		"internal/pkg/appenv/apputil.go":            {"func GetInstanceID("},
+		"internal/shared/ptr/pointer.go":          {"func BoolPtr("},
+		"internal/storecenter/gorm_repository.go": {"type GormStoreRepository struct"},
+		"internal/pkg/appenv/apputil.go":          {"func GetInstanceID("},
 		"internal/marketplace/temu/goods/builder.go": {
 			"func Build(", "snapshot.SelectableLeaf", "func checkLocal(",
 			"p.ServicePromise.ShipmentLimitDay", "value.ID == p.ServicePromise.CostTemplateID",
 		},
 		"internal/marketplace/temu/goods/supplier_category.go": {"func checkSupplierCategory(", "SelectableLeaf()"},
 		"internal/marketplace/temu/rules/local_variations.go":  {"func CheckLocalVariations("},
-		"internal/crawler/fetcher/contracts.go": {
-			"type ProductReader interface", "type ProductCache interface", "type ProductFetcherStats interface",
-			"FetchVariants(", "CacheVariants(",
-		},
-		"internal/marketplace/sourceproduct/product_fetcher.go": {
-			"func (f *ProductFetcher) FetchVariants(", "func (f *ProductFetcher) CacheVariants(", "VariantFetchRequest(",
-		},
-		"internal/marketplace/sourceproduct/cache_manager.go": {"func (c *CacheManager) CacheVariants("},
-		"internal/crawler/fetcher/remote_fetcher.go": {
-			"func (f *RemoteAPIProductFetcher) FetchVariants(", "func (f *RemoteAPIProductFetcher) CacheVariants(",
-		},
 		"internal/marketplace/productpolicy/rule_checker.go": {
 			"type RuleChecker struct", "func NewRuleChecker(", "CheckPriceRange(", "CheckInventory(", "CheckRating(",
 			"CheckReviewCount(", "CheckDeliveryTime(", "CheckFulfillmentType(", "CheckAllRules(",
@@ -1742,9 +1877,6 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/marketplace/temu/goods/supplier_properties.go": {"func CheckSupplierProperties("},
 		"internal/marketplace/temu/goods/supplier_specs.go":      {"func checkSupplierSpecifications("},
 		"internal/marketplace/temu/rules/local_numbers.go":       {"func (c *Catalog) CheckLocalNumbers("},
-		"internal/listingadmin/management_api_types.go": {
-			"type StoreAPI interface", "type StoreRespDTO struct", "type StoreIdUpdateReqDTO struct", "type StoreStatusUpdateReqDTO struct",
-		},
 		"internal/temu/api/inventory/inventory.go": {
 			"type RelistRequest struct", "type RelistResponse struct", "type SearchRequest struct", "type SearchResponse struct",
 			"func (a *API) Relist(", "func (a *API) SearchOffline(",
@@ -2227,14 +2359,12 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 
 func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 	for _, relative := range []string{
-		"internal/crawler/fetcher/contracts.go", "internal/crawler/fetcher/remote_fetcher.go",
-		"internal/platformbase/fetcher_mode.go", "internal/platformbase/fetcher_builder.go",
 		"internal/amazon/api/client.go",
-		"internal/listingruntime/types.go", "internal/listingadmin/schema_migrate.go",
+		"internal/listingruntime/types.go",
 		"internal/core/config/type_platform.go",
 		"internal/temu/api/api.go", "internal/temu/api/client/interfaces.go",
-		"internal/temu/api/client/client.go", "internal/temu/api/client/cookie_manager.go",
-		"internal/temu/api/client/auth_pause_handler.go", "internal/temu/api/inventory/inventory.go",
+		"internal/temu/api/client/client.go", "internal/temu/api/client/auth.go",
+		"internal/temu/api/client/auth_retry_handler.go", "internal/temu/api/inventory/inventory.go",
 		"internal/temu/api/product/request_types.go",
 		"internal/temu/api/product/api.go", "internal/temu/api/query/query.go", "internal/temu/api/query/query_types.go",
 		"internal/shein/productsync/product_sync_types.go", "internal/shein/productsync/marketing_client_boundary_test.go",
@@ -2279,14 +2409,14 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 				t.Fatalf("go list current command: %v\n%s", err, output)
 			}
 			for _, dependency := range strings.Fields(string(output)) {
-				for _, relative := range append(append([]string{}, retiredTEMUListingPackages...), retiredAmazonListingPackages...) {
+				for _, relative := range append(append(append([]string{}, retiredTEMUListingPackages...), retiredAmazonListingPackages...), retiredHostRuntimePackages...) {
 					retired := "task-processor/" + relative
 					if dependency == retired || strings.HasPrefix(dependency, retired+"/") {
 						t.Errorf("%s still compiles retired listing dependency %s", command, dependency)
 					}
 				}
-				for _, retired := range []string{"task-processor/internal/shein/product", "task-processor/internal/shein/productdata", "task-processor/internal/shein/publish", "task-processor/internal/shein/mapping", "task-processor/internal/shein/validation", "task-processor/internal/shein/translate", "task-processor/internal/shein/addresscopy", "task-processor/internal/shein/managedclient", "task-processor/internal/shein/store", "task-processor/internal/shein/context", "task-processor/internal/shein/languageconfig", "task-processor/internal/shein/siteconfig", "task-processor/internal/sheinbridge/saleattribute", "task-processor/internal/shein/inventory", "task-processor/internal/temu/sync", "task-processor/internal/temu/bulkrelist", "task-processor/internal/temu/store", "task-processor/internal/app/bootstrap", "task-processor/internal/app/consumer", "task-processor/internal/app/runner", "task-processor/internal/app/scheduler", "task-processor/internal/app/runtime/listingcontrol", "task-processor/internal/app/runtime/sheinplatformrecovery", "task-processor/internal/listingcontrol", "task-processor/internal/app/task", "task-processor/internal/app/taskstatus", "task-processor/internal/processor", "task-processor/internal/app/crawler/distributed", "task-processor/internal/listingruntime/local", "task-processor/internal/platforms", "task-processor/internal/listingkit", "task-processor/internal/tenantbridge", "task-processor/internal/compatibility", "task-processor/internal/sourceaccount", "task-processor/internal/integration/persistence/sourceaccount/ownershipmigration", "task-processor/internal/taskrpcapi", "task-processor/internal/workspace/shein", "task-processor/internal/core/metrics", "task-processor/internal/publishing/sheinmanaged", "task-processor/internal/shein/category", "task-processor/internal/shein/aicache"} {
-					if dependency == retired || strings.HasPrefix(dependency, retired+"/") {
+				for _, retired := range []string{"task-processor/internal/platformbase", "task-processor/internal/crawler/fetcher", "task-processor/internal/marketplace/sourceproduct", "task-processor/internal/domain/task", "task-processor/internal/crawler/shared", "task-processor/internal/shein/product", "task-processor/internal/shein/productdata", "task-processor/internal/shein/publish", "task-processor/internal/shein/mapping", "task-processor/internal/shein/validation", "task-processor/internal/shein/translate", "task-processor/internal/shein/addresscopy", "task-processor/internal/shein/managedclient", "task-processor/internal/shein/store", "task-processor/internal/shein/context", "task-processor/internal/shein/languageconfig", "task-processor/internal/shein/siteconfig", "task-processor/internal/sheinbridge/saleattribute", "task-processor/internal/shein/inventory", "task-processor/internal/temu/sync", "task-processor/internal/temu/bulkrelist", "task-processor/internal/temu/store", "task-processor/internal/app/bootstrap", "task-processor/internal/app/consumer", "task-processor/internal/app/runner", "task-processor/internal/app/scheduler", "task-processor/internal/app/runtime/listingcontrol", "task-processor/internal/app/runtime/sheinplatformrecovery", "task-processor/internal/listingcontrol", "task-processor/internal/app/task", "task-processor/internal/app/taskstatus", "task-processor/internal/processor", "task-processor/internal/app/crawler/distributed", "task-processor/internal/listingruntime/local", "task-processor/internal/platforms", "task-processor/internal/listingkit", "task-processor/internal/tenantbridge", "task-processor/internal/compatibility", "task-processor/internal/sourceaccount", "task-processor/internal/integration/persistence/sourceaccount/ownershipmigration", "task-processor/internal/taskrpcapi", "task-processor/internal/workspace/shein", "task-processor/internal/core/metrics", "task-processor/internal/publishing/sheinmanaged", "task-processor/internal/shein/category", "task-processor/internal/shein/aicache"} {
+					if dependency == retired || (retired != "task-processor/internal/crawler/shared" && strings.HasPrefix(dependency, retired+"/")) {
 						t.Errorf("%s still compiles retired business dependency %s", command, dependency)
 					}
 				}
@@ -2651,9 +2781,10 @@ func TestNumericStoreManagementClosureIsRetired(t *testing.T) {
 			}
 		}
 	}
+	// #863 supersedes the earlier numeric Store retention boundary.
 	for _, name := range []string{"StoreRepository", "Store", "listingStore", "StoreRespDTO", "StoreQuery", "StorePageReqDTO", "takeStoreAccessRow", "updateStoreAccessRow"} {
-		if !seen[name] {
-			t.Errorf("retained Store declaration %s is absent", name)
+		if seen[name] {
+			t.Errorf("retired Store declaration remains: %s", name)
 		}
 	}
 }
@@ -2924,9 +3055,6 @@ func TestNumericContentConfigurationClosureIsRetired(t *testing.T) {
 	}
 	for relative, required := range map[string][]string{
 		"internal/publishing/shein/submit_prep_sensitive_adapter.go": {"content.NewSensitiveWordServiceInMemory()"},
-		"internal/listingadmin/schema_migrate.go":                    {"func ensureOwnerAuditColumns("},
-		"internal/listingadmin/repo_paging.go":                       {"func applyOwnedTenantQuery(", "func normalizePage(", "func findPagedRows["},
-		"internal/listingadmin/access_scope.go":                      {"func WithOwnerUserID(", "func applyOwnerScopeForUser(", "func requestHasTenantAdminAccess("},
 		"internal/shein/content/cleanup_context.go":                  {"type CleanupContext struct"},
 		"internal/shein/generationtopics/registry.go":                {"func ResolveSheinTopicKeys(", "func ResolveSheinTopicDefinitionsWithOverlay(", "func AssembleSheinPolicySummary(", "func CollectLexiconsFromDefinitions("},
 	} {

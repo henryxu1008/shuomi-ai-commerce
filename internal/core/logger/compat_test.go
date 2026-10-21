@@ -51,17 +51,12 @@ func TestCompatibilityFacadeSharesPlatformSingletonAndExports(t *testing.T) {
 
 	_ = WithComponent("component")
 	_ = WithPlatform("platform")
-	_ = WithTaskContext(1, "product")
-	_ = WithStoreContext(2, 3)
 	_ = ShouldLog(0)
 
 	fields := []string{
 		FieldComponent,
 		FieldPlatform,
-		FieldTaskID,
 		FieldProductID,
-		FieldTenantID,
-		FieldStoreID,
 		FieldTraceID,
 		FieldRequestID,
 		FieldDurationMs,
@@ -73,7 +68,7 @@ func TestCompatibilityFacadeSharesPlatformSingletonAndExports(t *testing.T) {
 		FieldUserID,
 		FieldSessionID,
 	}
-	if len(fields) != 16 {
-		t.Fatalf("compatibility field constants = %d, want 16", len(fields))
+	if len(fields) != 13 {
+		t.Fatalf("compatibility field constants = %d, want 13", len(fields))
 	}
 }

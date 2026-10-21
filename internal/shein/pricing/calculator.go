@@ -1,7 +1,14 @@
 // Package pricing 提供SHEIN平台的自动核价计算功能
 package pricing
 
-import "task-processor/internal/listingruntime"
+// AutoPricingRule contains only the values consumed by automatic pricing.
+type AutoPricingRule struct {
+	PriceMin   *float64
+	PriceMax   *float64
+	RuleType   string
+	RuleValue  *float64
+	FixedValue *float64
+}
 
 // AutoPricingCalculator 自动核价计算器，负责根据规则计算价格
 type AutoPricingCalculator struct{}
@@ -12,7 +19,7 @@ func NewAutoPricingCalculator() *AutoPricingCalculator {
 }
 
 // GetAutoPrice 获取自动核价
-func (c *AutoPricingCalculator) GetAutoPrice(originPrice float64, rules []listingruntime.PricingRule) float64 {
+func (c *AutoPricingCalculator) GetAutoPrice(originPrice float64, rules []AutoPricingRule) float64 {
 	for _, rule := range rules {
 		// 判断是否在规则范围内
 		if rule.PriceMin != nil && rule.PriceMax != nil &&
@@ -24,7 +31,7 @@ func (c *AutoPricingCalculator) GetAutoPrice(originPrice float64, rules []listin
 }
 
 // ApplyRule 应用自动核价规则
-func (c *AutoPricingCalculator) ApplyRule(originPrice float64, rule listingruntime.PricingRule) float64 {
+func (c *AutoPricingCalculator) ApplyRule(originPrice float64, rule AutoPricingRule) float64 {
 	if rule.RuleValue == nil {
 		return originPrice
 	}
