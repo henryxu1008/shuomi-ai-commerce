@@ -32,9 +32,9 @@ func Normalize(in SourceEnvelope) (SourceEnvelope, error) {
 }
 
 // NormalizePublicationEnvelope enforces the current source-neutral identity
-// contract at the durable publication boundary. Legacy product-fetch identity
-// fields may still serve older in-memory paths, but they cannot be persisted as
-// source evidence or used to derive its identity.
+// contract at the durable publication boundary. The four retained encoding
+// slots must be zero after their original whitespace normalization; they never
+// supply identity values.
 func NormalizePublicationEnvelope(in SourceEnvelope) (SourceEnvelope, error) {
 	identity := in.Identity
 	if strings.TrimSpace(identity.SourceType) == "" ||
@@ -51,8 +51,8 @@ func NormalizePublicationEnvelope(in SourceEnvelope) (SourceEnvelope, error) {
 	if err != nil {
 		return SourceEnvelope{}, err
 	}
-	// Generic normalization backfills compatibility aliases for legacy callers.
-	// The new durable publication contract intentionally strips those aliases.
+	// Preserve the existing zero-slot encoding for empty and whitespace input.
+	// No retained slot participates in source identity derivation.
 	out.Identity.Platform = ""
 	out.Identity.Region = ""
 	out.Identity.ProductID = ""

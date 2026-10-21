@@ -14,6 +14,66 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+func TestNumericContextAndValueContractsAreRetired(t *testing.T) {
+	for _, relative := range []string{"internal/listingruntime/rules.go", "internal/listingruntime/operation_strategy.go"} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Errorf("retired rule owner %s must be absent: %v", relative, err)
+		}
+	}
+	for relative, retired := range map[string][]string{
+		"internal/platform/logging/helpers.go":                 {"LogTaskStart", "LogTaskComplete", "LogTaskFailed", "WithTaskContext", "WithStoreContext", "FieldTaskID", "FieldTenantID", "FieldStoreID"},
+		"internal/core/logger/compat.go":                       {"WithTaskContext", "WithStoreContext", "FieldTaskID", "FieldTenantID", "FieldStoreID"},
+		"internal/shared/hashx/hashutil.go":                    {"SimpleHash", "ShardForTenantShop"},
+		"internal/shein/pricing/calculator.go":                 {"listingruntime"},
+		"internal/shein/activity/registration_config.go":       {"listingruntime"},
+		"internal/shein/activity/promotion_create_products.go": {"listingruntime"},
+		"internal/product/sourcing/source_identity.go":         {"func (id SourceIdentity) Key()", "id.SourcePlatform = id.Platform", "id.Platform = id.SourcePlatform", "id.SourceID = id.ProductID", "id.ProductID = id.SourceID"},
+	} {
+		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, declaration := range retired {
+			if strings.Contains(string(content), declaration) {
+				t.Errorf("%s retains %q", relative, declaration)
+			}
+		}
+	}
+	for _, rule := range []struct {
+		path, name string
+		fields     []string
+	}{
+		{"internal/shein/pricing/calculator.go", "AutoPricingRule", []string{"PriceMin", "PriceMax", "RuleType", "RuleValue", "FixedValue"}},
+		{"internal/shein/activity/registration_config.go", "activityStrategy", []string{"ActivityDiscountRate", "ActivityLimitedDiscountRate", "ActivityStockRatio", "ActivityMinProfitRate", "ActivityLimitedMinProfitRate", "ActivityPriceMode", "ActivityPartakeType", "FixedPriceAdjustment"}},
+	} {
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(rule.path)), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var fields []string
+		ast.Inspect(file, func(node ast.Node) bool {
+			declaration, ok := node.(*ast.TypeSpec)
+			if !ok || declaration.Name.Name != rule.name {
+				return true
+			}
+			shape, ok := declaration.Type.(*ast.StructType)
+			if !ok {
+				t.Errorf("%s must be a direct value struct", rule.name)
+				return false
+			}
+			for _, field := range shape.Fields.List {
+				for _, name := range field.Names {
+					fields = append(fields, name.Name)
+				}
+			}
+			return false
+		})
+		if !reflect.DeepEqual(fields, rule.fields) {
+			t.Errorf("%s fields = %v, want %v", rule.name, fields, rule.fields)
+		}
+	}
+}
+
 func TestNumericAcquisitionAndPlatformTailClosureIsRetired(t *testing.T) {
 	for _, relative := range []string{
 		"internal/platformbase", "internal/crawler/fetcher", "internal/marketplace/sourceproduct", "internal/domain/task",

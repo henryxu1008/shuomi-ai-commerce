@@ -47,10 +47,10 @@ func TestSourceRequestIdentityKey(t *testing.T) {
 		StoreID:   42,
 	}.Identity()
 
-	if identity.Platform != "amazon" || identity.Region != "uk" || identity.ProductID != "B001" || identity.StoreID != 42 {
+	if identity.SourceType != SourceTypeCrawler || identity.SourcePlatform != "amazon" || identity.SourceID != "B001" || identity.Platform != "" || identity.Region != "" || identity.ProductID != "" || identity.StoreID != 0 {
 		t.Fatalf("Identity() = %+v, want normalized identity", identity)
 	}
-	if got := identity.Key(); got != "amazon:uk:B001:42" {
-		t.Fatalf("Key() = %q, want amazon:uk:B001:42", got)
+	if got := identity.SourceKey(); got != "crawler:amazon:B001" {
+		t.Fatalf("SourceKey() = %q, want crawler:amazon:B001", got)
 	}
 }

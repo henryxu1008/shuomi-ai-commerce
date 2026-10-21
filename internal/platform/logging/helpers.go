@@ -10,10 +10,7 @@ import (
 const (
 	FieldComponent  = "component"
 	FieldPlatform   = "platform"
-	FieldTaskID     = "task_id"
 	FieldProductID  = "product_id"
-	FieldTenantID   = "tenant_id"
-	FieldStoreID    = "store_id"
 	FieldTraceID    = "trace_id"
 	FieldRequestID  = "request_id"
 	FieldDurationMs = "duration_ms"
@@ -103,27 +100,6 @@ func (h *LoggerHelper) LogRetry(operation string, retryCount, maxRetries int, er
 	}).Warn("操作失败，准备重试")
 }
 
-// LogTaskStart 记录任务开始
-func (h *LoggerHelper) LogTaskStart(taskID int64, productID string) {
-	h.logger.WithFields(logrus.Fields{
-		FieldTaskID:    taskID,
-		FieldProductID: productID,
-	}).Info("任务开始")
-}
-
-// LogTaskComplete 记录任务完成
-func (h *LoggerHelper) LogTaskComplete(taskID int64, duration time.Duration) {
-	h.logger.WithFields(logrus.Fields{
-		FieldTaskID:     taskID,
-		FieldDurationMs: duration.Milliseconds(),
-	}).Info("任务完成")
-}
-
-// LogTaskFailed 记录任务失败
-func (h *LoggerHelper) LogTaskFailed(taskID int64, err error) {
-	h.logger.WithError(err).WithField(FieldTaskID, taskID).Error("任务失败")
-}
-
 // LogAPICall 记录API调用
 func (h *LoggerHelper) LogAPICall(method, url string, statusCode int, duration time.Duration) {
 	fields := logrus.Fields{
@@ -189,22 +165,6 @@ func WithComponent(component string) *logrus.Entry {
 // WithPlatform 创建带平台名的logger
 func WithPlatform(platform string) *logrus.Entry {
 	return GetGlobalLogger("core/logger").WithField(FieldPlatform, platform)
-}
-
-// WithTaskContext 创建带任务上下文的logger
-func WithTaskContext(taskID int64, productID string) *logrus.Entry {
-	return GetGlobalLogger("core/logger").WithFields(logrus.Fields{
-		FieldTaskID:    taskID,
-		FieldProductID: productID,
-	})
-}
-
-// WithStoreContext 创建带店铺上下文的logger
-func WithStoreContext(tenantID, storeID int64) *logrus.Entry {
-	return GetGlobalLogger("core/logger").WithFields(logrus.Fields{
-		FieldTenantID: tenantID,
-		FieldStoreID:  storeID,
-	})
 }
 
 // ShouldLog 判断是否应该记录日志（用于采样）
