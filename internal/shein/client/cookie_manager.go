@@ -4,10 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
-	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"task-processor/internal/core/logger"
@@ -168,57 +165,7 @@ func (cm *CookieManager) RefreshCookies() ([]*http.Cookie, error) {
 }
 
 func (cm *CookieManager) ForceRefreshCookies() ([]*http.Cookie, error) {
-	tenantID := cm.forceLoginTenantID()
-	if tenantID <= 0 {
-		return nil, fmt.Errorf("cannot determine tenant for SHEIN store %d", cm.storeID)
-	}
-
-	if localRefresher := loadLocalLoginRefresher(); localRefresher != nil {
-		if err := localRefresher.ForceLogin(context.Background(), tenantID, cm.storeID); err != nil {
-			return nil, err
-		}
-	} else {
-		return nil, fmt.Errorf("local SHEIN login refresher is not configured for store %d tenant %d", cm.storeID, tenantID)
-	}
-	cm.resolvedTenantID = tenantID
-
-	if cm.cookieProvider != nil {
-		cookieStr, refreshedTenantID, err := cm.loadCookieJSONFromSource()
-		if err != nil {
-			return nil, fmt.Errorf("read SHEIN cookie after refresh: %w", err)
-		}
-		if refreshedTenantID > 0 {
-			cm.resolvedTenantID = refreshedTenantID
-		}
-		if strings.TrimSpace(cookieStr) != "" {
-			cookies, parseErr := cm.parseCookieString(cookieStr)
-			if parseErr != nil {
-				return nil, fmt.Errorf("parse SHEIN cookie after refresh: %w", parseErr)
-			}
-			return cookies, nil
-		}
-	}
-
-	return cm.LoadCookies()
-}
-
-type LocalLoginRefresher interface {
-	ForceLogin(ctx context.Context, tenantID int64, storeID int64) error
-}
-
-var localLoginRefresherMu sync.RWMutex
-var localLoginRefresher LocalLoginRefresher
-
-func ConfigureLocalLoginRefresher(refresher LocalLoginRefresher) {
-	localLoginRefresherMu.Lock()
-	defer localLoginRefresherMu.Unlock()
-	localLoginRefresher = refresher
-}
-
-func loadLocalLoginRefresher() LocalLoginRefresher {
-	localLoginRefresherMu.RLock()
-	defer localLoginRefresherMu.RUnlock()
-	return localLoginRefresher
+	return nil, fmt.Errorf("SHEIN session expired; explicit authorized login required")
 }
 
 func (cm *CookieManager) loadCookieJSONFromSource() (string, int64, error) {
@@ -240,103 +187,7 @@ func (cm *CookieManager) cookieLookupStoreIDs() []int64 {
 	if cm.storeID > 0 {
 		return []int64{cm.storeID}
 	}
-	if configured := cm.configuredLoginStoreID(); configured > 0 {
-		return []int64{configured}
-	}
 	return nil
-}
-
-func (cm *CookieManager) configuredLoginStoreID() int64 {
-	identifier := strings.TrimSpace(loadSheinLoginAccountConfig().identifier)
-	if identifier == "" {
-		return 0
-	}
-	value, err := strconv.ParseInt(identifier, 10, 64)
-	if err != nil || value <= 0 {
-		return 0
-	}
-	return value
-}
-
-func (cm *CookieManager) forceLoginTenantID() int64 {
-	if cm.resolvedTenantID > 0 {
-		return cm.resolvedTenantID
-	}
-	if tenantID := cm.resolveTenantID(); tenantID > 0 {
-		return tenantID
-	}
-	return 0
-}
-
-func (cm *CookieManager) resolveTenantID() int64 {
-	if cm.storeConfigProvider == nil {
-		return 0
-	}
-	store, err := cm.storeConfigProvider.GetStoreConfig(context.Background(), cm.storeID)
-	if err != nil || store == nil {
-		return 0
-	}
-	return store.TenantID
-}
-
-type sheinLoginAccountConfig struct {
-	tenantID   string
-	identifier string
-}
-
-var sheinLoginServiceConfigMu sync.RWMutex
-var sheinLoginServiceConfigOverride sheinLoginAccountConfig
-
-func ConfigureLoginAccount(account ...string) {
-	sheinLoginServiceConfigMu.Lock()
-	defer sheinLoginServiceConfigMu.Unlock()
-
-	tenantID := ""
-	identifier := ""
-	if len(account) > 0 {
-		tenantID = account[0]
-	}
-	if len(account) > 1 {
-		identifier = account[1]
-	}
-	sheinLoginServiceConfigOverride = sheinLoginAccountConfig{
-		tenantID:   strings.TrimSpace(tenantID),
-		identifier: strings.TrimSpace(identifier),
-	}
-}
-
-func loadSheinLoginAccountConfig() sheinLoginAccountConfig {
-	cfg := sheinLoginAccountConfig{
-		tenantID: firstNonEmptyEnv(
-			"TASK_PROCESSOR_SHEIN_LOGIN_SERVICE_TENANT_ID",
-			"TASK_PROCESSOR_LOGIN_SERVICE_TENANT_ID",
-		),
-		identifier: firstNonEmptyEnv(
-			"TASK_PROCESSOR_SHEIN_LOGIN_SERVICE_IDENTIFIER",
-			"TASK_PROCESSOR_LOGIN_SERVICE_IDENTIFIER",
-		),
-	}
-
-	sheinLoginServiceConfigMu.RLock()
-	override := sheinLoginServiceConfigOverride
-	sheinLoginServiceConfigMu.RUnlock()
-	if override.tenantID != "" {
-		cfg.tenantID = override.tenantID
-	}
-	if override.identifier != "" {
-		cfg.identifier = override.identifier
-	}
-	return cfg
-}
-
-func firstNonEmptyEnv(keys ...string) string {
-	for _, key := range keys {
-		value := strings.TrimSpace(strings.Trim(os.Getenv(key), `"'`))
-		if value != "" {
-			return value
-		}
-	}
-	return ""
 }
 
 func (cm *CookieManager) TestConnection() error {

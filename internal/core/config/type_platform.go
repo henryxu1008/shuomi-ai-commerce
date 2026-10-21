@@ -10,17 +10,6 @@ type PlatformsConfig struct {
 	Alibaba1688 Alibaba1688Config `mapstructure:"alibaba1688" yaml:"alibaba1688"` // 1688平台配置
 }
 
-func (c *Config) EffectiveSheinCookieRedis() RedisConfig {
-	if c == nil {
-		return RedisConfig{}
-	}
-	cookieRedis := c.Platforms.Shein.CookieRedis
-	if strings.TrimSpace(cookieRedis.Host) == "" && c.Redis != nil {
-		cookieRedis = *c.Redis
-	}
-	return cookieRedis
-}
-
 func (c *Config) EffectiveSDSAuthRedis() RedisConfig {
 	if c == nil {
 		return RedisConfig{}
@@ -34,10 +23,8 @@ func (c *Config) EffectiveSDSAuthRedis() RedisConfig {
 
 // PlatformConfig 单个平台的完整配置
 type PlatformConfig struct {
-	FetchMode    string             `yaml:"fetchMode"`                                // 商品抓取模式：auto/local/distributed/remote-api
-	CookieRedis  RedisConfig        `yaml:"cookieRedis"`                              // 登录程序写入的 Cookie Redis 配置
-	LoginService LoginServiceConfig `mapstructure:"loginService" yaml:"loginService"` // 统一登录服务配置
-	HTTPClient   HTTPClientConfig   `yaml:"httpClient"`
+	FetchMode  string           `yaml:"fetchMode"` // 商品抓取模式：auto/local/distributed/remote-api
+	HTTPClient HTTPClientConfig `yaml:"httpClient"`
 }
 
 type SDSPlatformConfig struct {

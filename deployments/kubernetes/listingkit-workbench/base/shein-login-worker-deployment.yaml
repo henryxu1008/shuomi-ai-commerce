@@ -1,3 +1,6 @@
+# Source example for a separately authorized fresh installation/namespace.
+# Does not authorize applying over a retained numeric worker; see
+# docs/operations/shein-login-worker-current.md. No resource/data cutover here.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -21,70 +24,29 @@ spec:
         - name: shein-login-worker
           image: xuwei190/task-processor-shein-login-worker:latest
           imagePullPolicy: IfNotPresent
-          env:
-            - name: TASK_PROCESSOR_BROWSER_PATH
-              value: /app/chrome/chrome-144/chrome
-            - name: TASK_PROCESSOR_DATABASE_HOST
-              valueFrom:
-                secretKeyRef:
-                  name: listingkit-workbench-secret
-                  key: TASK_PROCESSOR_DATABASE_HOST
-                  optional: false
-            - name: TASK_PROCESSOR_DATABASE_PORT
-              valueFrom:
-                secretKeyRef:
-                  name: listingkit-workbench-secret
-                  key: TASK_PROCESSOR_DATABASE_PORT
-                  optional: false
-            - name: TASK_PROCESSOR_DATABASE_USER
-              valueFrom:
-                secretKeyRef:
-                  name: listingkit-workbench-secret
-                  key: TASK_PROCESSOR_DATABASE_USER
-                  optional: false
-            - name: TASK_PROCESSOR_DATABASE_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: listingkit-workbench-secret
-                  key: TASK_PROCESSOR_DATABASE_PASSWORD
-                  optional: false
-            - name: TASK_PROCESSOR_DATABASE_NAME
-              valueFrom:
-                secretKeyRef:
-                  name: listingkit-workbench-secret
-                  key: TASK_PROCESSOR_DATABASE_NAME
-                  optional: false
-            - name: TASK_PROCESSOR_SHEIN_COOKIE_REDIS_HOST
-              valueFrom:
-                secretKeyRef:
-                  name: listingkit-workbench-secret
-                  key: TASK_PROCESSOR_SHEIN_COOKIE_REDIS_HOST
-                  optional: false
-            - name: TASK_PROCESSOR_SHEIN_COOKIE_REDIS_PORT
-              valueFrom:
-                secretKeyRef:
-                  name: listingkit-workbench-secret
-                  key: TASK_PROCESSOR_SHEIN_COOKIE_REDIS_PORT
-                  optional: false
-            - name: TASK_PROCESSOR_SHEIN_COOKIE_REDIS_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: listingkit-workbench-secret
-                  key: TASK_PROCESSOR_SHEIN_COOKIE_REDIS_PASSWORD
-                  optional: false
-            - name: TASK_PROCESSOR_SHEIN_COOKIE_REDIS_DB
-              valueFrom:
-                secretKeyRef:
-                  name: listingkit-workbench-secret
-                  key: TASK_PROCESSOR_SHEIN_COOKIE_REDIS_DB
-                  optional: false
-          envFrom:
-            - configMapRef:
-                name: listingkit-workbench-config
+          # Fresh-installation input only; never reuse numeric worker Secrets.
+          args: ["-config", "/run/shein-login-worker/current.json", "-health-port", "8086"]
           ports:
             - name: health
               containerPort: 8086
           volumeMounts:
+            # subPath exposes regular private files, not projected symlink paths.
+            - name: worker-current
+              mountPath: /run/shein-login-worker/current.json
+              subPath: current.json
+              readOnly: true
+            - name: worker-current
+              mountPath: /run/shein-login-worker/client-secret
+              subPath: client-secret
+              readOnly: true
+            - name: worker-current
+              mountPath: /run/shein-login-worker/service-token
+              subPath: service-token
+              readOnly: true
+            - name: worker-current
+              mountPath: /run/shein-login-worker/login.json
+              subPath: login.json
+              readOnly: true
             - name: tmp
               mountPath: /app/tmp
             - name: logs
@@ -93,14 +55,14 @@ spec:
               mountPath: /dev/shm
           startupProbe:
             httpGet:
-              path: /healthz
+              path: /livez
               port: health
             periodSeconds: 5
             timeoutSeconds: 3
             failureThreshold: 30
           livenessProbe:
             httpGet:
-              path: /healthz
+              path: /livez
               port: health
             periodSeconds: 15
             timeoutSeconds: 3
@@ -120,6 +82,11 @@ spec:
               cpu: "2"
               memory: 3Gi
       volumes:
+        - name: worker-current
+          secret:
+            secretName: shein-login-worker-current
+            defaultMode: 0400
+            optional: false
         - name: tmp
           emptyDir: {}
         - name: logs

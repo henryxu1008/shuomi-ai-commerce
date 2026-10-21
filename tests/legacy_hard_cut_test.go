@@ -13,6 +13,63 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestSheinWorkerNumericPersistenceClosureStaysRetired(t *testing.T) {
+	// Walk source text, including inactive build-tag files. A test-only historical
+	// CI target cannot become a production facade under another filename.
+	index, err := loadGoFileIndex(filepath.Join("..", "internal"), "")
+	require.NoError(t, err)
+	for path, facts := range index.files {
+		relative := filepath.ToSlash(path)
+		if strings.Contains(relative, "/sheinloginmanaged/") {
+			t.Errorf("retired bridge remains: %s", path)
+		}
+		if strings.Contains(relative, "/listingadmin/") && !strings.HasSuffix(path, "_test.go") {
+			t.Errorf("numeric production owner remains: %s", path)
+		}
+		for quoted := range facts.imports {
+			imported := strings.Trim(quoted, `"`)
+			if importMatchesPrefix(imported, "task-processor/internal/listingadmin") || importMatchesPrefix(imported, "task-processor/internal/sheinloginmanaged") {
+				t.Errorf("%s imports retired owner %s", path, imported)
+			}
+		}
+		if strings.Contains(relative, "/sheinlogin/") || strings.Contains(relative, "/app/runtime/sheinloginworker/") {
+			if strings.HasSuffix(path, "_test.go") {
+				continue
+			}
+			file, e := parser.ParseFile(token.NewFileSet(), path, facts.source, 0)
+			require.NoError(t, e)
+			ast.Inspect(file, func(n ast.Node) bool {
+				switch v := n.(type) {
+				case *ast.Field:
+					for _, name := range v.Names {
+						if name.Name == "TenantID" {
+							t.Errorf("%s recreates numeric tenant account scope", path)
+						}
+					}
+				case *ast.Ident:
+					if v.Name == "EffectiveSheinCookieRedis" || v.Name == "ListingAdminAccountProvider" || v.Name == "terminateProfileBrowserProcesses" || v.Name == "clearProfileLockFiles" {
+						t.Errorf("%s recreates retired login edge %s", path, v.Name)
+					}
+				}
+				return true
+			})
+		}
+	}
+	for _, name := range []string{"accounts.go", "runtime.go"} {
+		_, e := os.Stat(filepath.Join("..", "internal", "sheinlogin", name))
+		require.True(t, os.IsNotExist(e), "retired numeric owner %s", name)
+	}
+	for _, relative := range []string{
+		"internal/temu/api/client/cookie_manager.go",
+		"internal/temu/api/client/auth_pause_handler.go",
+		"internal/temu/api/client/manager.go",
+		"internal/shein/client/login_service_config.go",
+	} {
+		_, e := os.Stat(filepath.Join("..", filepath.FromSlash(relative)))
+		require.True(t, os.IsNotExist(e), "retired numeric wiring %s", relative)
+	}
+}
+
 func TestLegacyPreviewAdapterStaysRetired(t *testing.T) {
 	sources := trackedProductionTextSources(t, []string{"internal/compatibility/listingkit"}, func(path string) bool {
 		return strings.HasSuffix(path, ".go")

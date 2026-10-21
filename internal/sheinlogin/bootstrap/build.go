@@ -1,60 +1,38 @@
 package bootstrap
 
 import (
-	"task-processor/internal/core/config"
-	"task-processor/internal/listingadmin"
-	sheinclient "task-processor/internal/shein/client"
+	"context"
 	"task-processor/internal/sheinlogin"
-	sheinloginmanaged "task-processor/internal/sheinloginmanaged"
+	"time"
 )
 
 type BuildInput struct {
-	Config            *config.Config
-	StoreAPI          listingadmin.StoreAPI
-	AccountRepository listingadmin.StoreRepository
+	Config sheinlogin.Config
+	Owner  sheinlogin.StoreOwner
 }
-
 type BuildResult struct {
 	Service *sheinlogin.Service
 	Close   func() error
 }
 
 func BuildService(input BuildInput) (*BuildResult, error) {
-	if input.Config == nil {
-		return nil, nil
+	if input.Config.Validate() != nil || input.Owner == nil {
+		return nil, sheinlogin.ErrInvalidInput
 	}
-
-	if !HasRedisStoreConfig(input.Config) {
-		return nil, nil
-	}
-
-	provider := buildAccountProvider(input.AccountRepository)
-	if provider == nil {
-		return nil, nil
-	}
-
-	svc, err := sheinlogin.NewService(input.Config.Platforms.Shein.LoginService, input.Config.EffectiveSheinCookieRedis(), input.Config.Browser, provider)
+	redis, err := sheinlogin.NewRedisStore(input.Config.Redis, input.Config.InstallationID)
 	if err != nil {
 		return nil, err
 	}
-	svc.ConfigureRuntimeSheinAPIClients()
-	if input.StoreAPI != nil {
-		svc.ConfigureStoreSyncClientFactory(sheinloginmanaged.NewStoreSyncClientFactoryWithStoreAPI(input.StoreAPI))
-		svc.ConfigureDuplicateStoreLookup(sheinloginmanaged.NewDuplicateStoreLookupWithStoreAPI(input.StoreAPI))
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := redis.Initialize(ctx); err != nil {
+		redis.Close()
+		return nil, err
 	}
-	sheinclient.ConfigureLocalLoginRefresher(svc)
-
-	return &BuildResult{
-		Service: svc,
-		Close: func() error {
-			return svc.Close()
-		},
-	}, nil
-}
-
-func buildAccountProvider(repository listingadmin.StoreRepository) sheinlogin.AccountProvider {
-	if repository == nil {
-		return nil
+	service, err := sheinlogin.NewService(input.Config, redis, input.Owner)
+	if err != nil {
+		redis.Close()
+		return nil, err
 	}
-	return sheinlogin.NewListingAdminAccountProvider(repository)
+	return &BuildResult{Service: service, Close: service.Close}, nil
 }
