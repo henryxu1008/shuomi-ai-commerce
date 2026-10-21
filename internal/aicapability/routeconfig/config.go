@@ -366,6 +366,29 @@ func (s *Service) Options(ctx context.Context, scope Scope) ([]Revision, error) 
 	}
 	return rows, nil
 }
+
+// PublishedOptions is a maintenance-only head projection. Invalidated credentials
+// remove member eligibility, not the durable CAS identity needed to replace it.
+func (s *Service) PublishedOptions(ctx context.Context, scope Scope) ([]Revision, error) {
+	if !s.supported(scope) || scope.Capability != ImageCapability {
+		return nil, ErrUnavailable
+	}
+	rows := []Revision{}
+	for _, id := range s.Catalog.Candidates(scope) {
+		r, e := s.Repository.Optional(ctx, scope, id)
+		if errors.Is(e, ErrNotFound) {
+			continue
+		}
+		if e != nil {
+			return nil, e
+		}
+		if !r.Payload.Optional || r.Payload.BindingID != id {
+			return nil, ErrNeedsConfiguration
+		}
+		rows = append(rows, r)
+	}
+	return rows, nil
+}
 func (s *Service) canonical(ctx context.Context, scope Scope, in Input) (Input, error) {
 	if !s.supported(scope) || in.Optional && scope.Capability != ImageCapability || !ValidFact(in.ExpectedRevision, 128) || !ValidFact(in.BindingID, 64) || !ValidFact(in.CredentialVersion, 128) || in.RollbackFrom != "" && !ValidFact(in.RollbackFrom, 128) {
 		return Input{}, ErrInvalid

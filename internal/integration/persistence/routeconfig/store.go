@@ -34,20 +34,30 @@ func InstallSchema(ctx context.Context, db *gorm.DB) error {
 		if e := tx.Exec(SchemaSQL).Error; e != nil {
 			return e
 		}
-		return VerifySchema(ctx, tx)
+		return VerifySchema(ctx, tx, true)
 	})
 }
-func VerifySchema(ctx context.Context, db *gorm.DB) error {
+func VerifySchema(ctx context.Context, db *gorm.DB, imageOptions ...bool) error {
+	if len(imageOptions) > 1 {
+		return d.ErrUnavailable
+	}
+	requireOptions := len(imageOptions) == 1 && imageOptions[0]
 	if ctx == nil || db == nil || db.Dialector.Name() != "postgres" {
 		return d.ErrUnavailable
 	}
 	for _, q := range []string{
 		`SELECT revision_id,organization_id,capability,parent_revision,schema_version,payload,payload_digest,actor_id,published_at,idempotency_key,request_fingerprint,rollback_from FROM public.ai_route_config_revisions LIMIT 0`,
 		`SELECT organization_id,capability,revision_id FROM public.ai_route_config_current LIMIT 0`,
-		`SELECT organization_id,capability,binding_id,revision_id FROM public.ai_route_config_options LIMIT 0`,
 		`SELECT id,tenant_id,user_id,client_name,base_url,model,api_style,timeout_second,enabled,updated_at,key_present FROM public.ai_client_credential_bindings LIMIT 0`,
 	} {
 		rows, e := db.WithContext(ctx).Raw(q).Rows()
+		if e != nil {
+			return d.ErrUnavailable
+		}
+		_ = rows.Close()
+	}
+	if requireOptions {
+		rows, e := db.WithContext(ctx).Raw(`SELECT organization_id,capability,binding_id,revision_id FROM public.ai_route_config_options LIMIT 0`).Rows()
 		if e != nil {
 			return d.ErrUnavailable
 		}
@@ -63,6 +73,9 @@ func VerifySchema(ctx context.Context, db *gorm.DB) error {
 		{"ai_route_config_options", "ai_route_config_option_scope", "PRIMARY KEY (organization_id, capability, binding_id)"},
 		{"ai_route_config_options", "ai_route_config_option_revision", "FOREIGN KEY (organization_id, capability, revision_id) REFERENCES ai_route_config_revisions(organization_id, capability, revision_id)"},
 	} {
+		if constraint.table == "ai_route_config_options" && !requireOptions {
+			continue
+		}
 		var definition string
 		e := db.WithContext(ctx).Raw(`SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid=to_regclass(?) AND conname=? AND convalidated`, "public."+constraint.table, constraint.name).Scan(&definition).Error
 		if e != nil || definition != constraint.definition {
@@ -72,12 +85,17 @@ func VerifySchema(ctx context.Context, db *gorm.DB) error {
 	return nil
 }
 
-func VerifyReader(ctx context.Context, db *gorm.DB) error {
-	if e := VerifySchema(ctx, db); e != nil {
+func VerifyReader(ctx context.Context, db *gorm.DB, imageOptions ...bool) error {
+	if e := VerifySchema(ctx, db, imageOptions...); e != nil {
 		return e
 	}
 	var writes bool
-	e := db.WithContext(ctx).Raw(`SELECT has_table_privilege(current_user,'public.ai_route_config_revisions','INSERT,UPDATE,DELETE,TRUNCATE') OR has_table_privilege(current_user,'public.ai_route_config_current','INSERT,UPDATE,DELETE,TRUNCATE') OR has_table_privilege(current_user,'public.ai_route_config_options','INSERT,UPDATE,DELETE,TRUNCATE')`).Scan(&writes).Error
+	e := db.WithContext(ctx).Raw(`SELECT has_table_privilege(current_user,'public.ai_route_config_revisions','INSERT,UPDATE,DELETE,TRUNCATE') OR has_table_privilege(current_user,'public.ai_route_config_current','INSERT,UPDATE,DELETE,TRUNCATE')`).Scan(&writes).Error
+	if len(imageOptions) == 1 && imageOptions[0] && e == nil {
+		var extra bool
+		e = db.WithContext(ctx).Raw(`SELECT has_any_column_privilege(current_user,'public.ai_route_config_options','INSERT,UPDATE,REFERENCES') OR has_table_privilege(current_user,'public.ai_route_config_options','DELETE,TRUNCATE,TRIGGER')`).Scan(&extra).Error
+		writes = writes || extra
+	}
 	if e != nil || writes {
 		return d.ErrUnavailable
 	}
@@ -86,8 +104,8 @@ func VerifyReader(ctx context.Context, db *gorm.DB) error {
 
 // VerifyWriter rejects serving/owner pools and credential table write/read-key
 // privileges. The metadata view is the only credential grant needed here.
-func VerifyWriter(ctx context.Context, db *gorm.DB) error {
-	if e := VerifySchema(ctx, db); e != nil {
+func VerifyWriter(ctx context.Context, db *gorm.DB, imageOptions ...bool) error {
+	if e := VerifySchema(ctx, db, imageOptions...); e != nil {
 		return e
 	}
 	var ok bool
@@ -101,16 +119,17 @@ func VerifyWriter(ctx context.Context, db *gorm.DB) error {
  AND has_table_privilege(current_user,'public.ai_route_config_current','UPDATE')
  AND NOT has_table_privilege(current_user,'public.ai_route_config_current','DELETE')
  AND NOT has_table_privilege(current_user,'public.ai_route_config_current','TRUNCATE')
- AND has_table_privilege(current_user,'public.ai_route_config_options','INSERT')
- AND has_table_privilege(current_user,'public.ai_route_config_options','UPDATE')
- AND NOT has_table_privilege(current_user,'public.ai_route_config_options','DELETE')
- AND NOT has_table_privilege(current_user,'public.ai_route_config_options','TRUNCATE')
  AND NOT has_column_privilege(current_user,'public.ai_client_credentials','api_key','SELECT')
  AND NOT has_any_column_privilege(current_user,'public.ai_client_credentials','UPDATE')
  AND NOT has_table_privilege(current_user,'public.ai_client_credentials','INSERT')
  AND NOT has_table_privilege(current_user,'public.ai_client_credentials','DELETE')
  AND NOT has_schema_privilege(current_user,'public','CREATE')
  FROM pg_roles r,pg_class c WHERE r.rolname=current_user AND c.oid='public.ai_route_config_revisions'::regclass`).Scan(&ok).Error
+	if len(imageOptions) == 1 && imageOptions[0] && e == nil {
+		var extra bool
+		e = db.WithContext(ctx).Raw(`SELECT has_table_privilege(current_user,'public.ai_route_config_options','INSERT') AND has_table_privilege(current_user,'public.ai_route_config_options','UPDATE') AND NOT has_any_column_privilege(current_user,'public.ai_route_config_options','REFERENCES') AND NOT has_table_privilege(current_user,'public.ai_route_config_options','DELETE,TRUNCATE,TRIGGER')`).Scan(&extra).Error
+		ok = ok && extra
+	}
 	if e != nil || !ok {
 		return d.ErrUnavailable
 	}

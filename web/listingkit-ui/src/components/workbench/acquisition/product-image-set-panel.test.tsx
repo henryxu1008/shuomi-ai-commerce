@@ -81,6 +81,21 @@ it("sends the exact VIP selection in a new plan and retains it with the original
  expect(fetch.mock.calls.filter(([url])=>String(url).endsWith("/prepare"))).toHaveLength(1);
 });
 
+it.each(["prepare","regenerate"])("restores the exact pending VIP for %s and archives a definite route refusal before unlocking",async action=>{
+ const key=`product-image-set:actor:org:acquisition:${operation}:intent`,route={BindingID:"image-vip",RevisionID:"route-vip"};
+ const raw=JSON.stringify({action,...action==="regenerate"?{runId}:{},requestKey:templateId,body:{route,text:{mode:"none"},expectedModeRevision:"0",target:{Platform:"product"}}},null,2);localStorage.setItem(key,raw);
+ const original=fetch.getMockImplementation()!;fetch.mockImplementation((url,init)=>String(url).endsWith("/model-options")?Promise.resolve(Response.json({contextKind:"acquisition",contextId:operation,options:[{model:"qwen-image-3.0-pro",quality:"auto",resolution:"1024x1024",points:1},{route,model:"gpt-image-2-vip",quality:"medium",resolution:"1024x1024",points:2}]})):String(url).endsWith(`/${action}`)?Promise.resolve(Response.json({code:"IMAGE_ROUTE_CHANGED"},{status:409})):original(url,init));
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ const picker=await screen.findByRole("combobox",{name:"本次计划使用的图片模型"});expect(picker).toHaveValue(JSON.stringify(route));expect(picker).toBeDisabled();
+ fireEvent.click(screen.getByRole("button",{name:"继续原操作"}));
+ await screen.findByText(/所选图片模型版本已不可用/);
+ await waitFor(()=>expect(localStorage.getItem(key)).toBeNull());
+ expect(Object.keys(localStorage).some(k=>localStorage.getItem(k)===raw)).toBe(true);
+ expect(screen.getByRole("combobox",{name:"本次计划使用的图片模型"})).toBeEnabled();
+ expect(screen.queryByRole("button",{name:"继续原操作"})).toBeNull();
+ expect(fetch.mock.calls.filter(([url])=>String(url).endsWith(`/${action}`))).toHaveLength(1);
+});
+
 it("archives a definite image-review rejection and unlocks correction without generating",async()=>{
  const real=fetch.getMockImplementation()!;
  fetch.mockImplementation((url,init)=>String(url).endsWith("/prepare")?Promise.resolve(Response.json({code:"IMAGE_TEXT_REVIEW_CHANGED"},{status:409})):real(url,init));

@@ -47,6 +47,13 @@ func TestOptionalPublicationDoesNotMoveEnterpriseDefault(t *testing.T) {
 	require.Equal(t, option.ID, replay.ID)
 }
 
+func TestTextConfigurationSchemaDoesNotRequireImageOptions(t *testing.T) {
+	db, _ := fixture(t)
+	require.NoError(t, db.Exec("DROP TABLE public.ai_route_config_options").Error)
+	require.NoError(t, VerifySchema(context.Background(), db), "text-only configuration must retain its own schema boundary")
+	require.Error(t, VerifySchema(context.Background(), db, true), "image consumers must still require the relation")
+}
+
 func TestOptionalServiceQualifiedVersionTenantRollbackAndCredentialGuards(t *testing.T) {
 	db, repo := fixture(t)
 	ctx := context.Background()
@@ -94,6 +101,10 @@ func TestOptionalServiceQualifiedVersionTenantRollbackAndCredentialGuards(t *tes
 	options, e = s.Options(ctx, scope)
 	require.NoError(t, e)
 	require.Empty(t, options)
+	heads, e := s.PublishedOptions(ctx, scope)
+	require.NoError(t, e)
+	require.Len(t, heads, 1)
+	require.Equal(t, second.ID, heads[0].ID, "maintenance CAS retains the head even after credential invalidation")
 	replayed, e := s.Publish(ctx, scope, "maintainer", "option-first", d.Input{Optional: true, ExpectedRevision: d.NoRevision, BindingID: row.ClientName, CredentialVersion: in.CredentialVersion, Rates: in.Rates})
 	require.NoError(t, e)
 	require.Equal(t, first.ID, replayed.ID, "durable receipt remains readable after revocation")
@@ -400,6 +411,10 @@ func TestRestrictedWriterPublicationRotationRollbackAndLostResponse(t *testing.T
 	require.NoError(t, e)
 	t.Cleanup(func() { raw, _ := writer.DB(); _ = raw.Close() })
 	require.NoError(t, VerifyWriter(ctx, writer))
+	require.NoError(t, VerifyWriter(ctx, writer, true))
+	require.NoError(t, db.Exec("REVOKE UPDATE ON ai_route_config_options FROM "+role).Error)
+	require.Error(t, VerifyWriter(ctx, writer, true), "image writer requires both INSERT and UPDATE")
+	require.NoError(t, db.Exec("GRANT UPDATE ON ai_route_config_options TO "+role).Error)
 	require.Error(t, VerifyReader(ctx, writer), "configuration writer must never be injected as serving reader")
 	require.Error(t, writer.Exec("UPDATE public.ai_client_credentials SET enabled=false").Error)
 	var secret string

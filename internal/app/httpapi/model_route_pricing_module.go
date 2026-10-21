@@ -179,7 +179,7 @@ func (m modelRoutePricingModule) serve(c *gin.Context, op string) {
 		}
 		c.JSON(200, gin.H{"bindings": v})
 	case "options":
-		v, e := s.Options(ctx, scope)
+		v, e := s.PublishedOptions(ctx, scope)
 		if e != nil {
 			modelRouteFailure(c, e)
 			return

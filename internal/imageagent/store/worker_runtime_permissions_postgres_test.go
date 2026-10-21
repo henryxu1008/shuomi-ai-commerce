@@ -62,19 +62,19 @@ func TestOrganizationImageWorkerRuntimeRoleHasOnlyCurrentWorkerGrants(t *testing
 	require.Error(t, verifyOrganizationWorkerRuntimePermissions(ctx, owner, role))
 	require.NoError(t, routeconfigstore.InstallSchema(ctx, owner))
 	require.NoError(t, verifyOrganizationWorkerRuntimePermissions(ctx, runtimeDB, role), "installation alone does not require optional grants")
-	require.Error(t, routeconfigstore.VerifyReader(ctx, runtimeDB), "managed startup still requires explicit reader grants")
+	require.Error(t, routeconfigstore.VerifyReader(ctx, runtimeDB, true), "managed startup still requires explicit reader grants")
 	require.NoError(t, grantOrganizationWorkerRuntimePermissions(ctx, owner, role))
-	require.Error(t, routeconfigstore.VerifyReader(ctx, runtimeDB), "base worker maintenance must not auto-grant managed reads")
+	require.Error(t, routeconfigstore.VerifyReader(ctx, runtimeDB, true), "base worker maintenance must not auto-grant managed reads")
 	require.NoError(t, owner.Exec(routeconfigstore.GrantSQL(role, false)).Error)
-	require.NoError(t, routeconfigstore.VerifyReader(ctx, runtimeDB))
+	require.NoError(t, routeconfigstore.VerifyReader(ctx, runtimeDB, true))
 	require.NoError(t, verifyOrganizationWorkerRuntimePermissions(ctx, runtimeDB, role), "explicitly installed managed image reads must be admitted")
 	for _, relation := range []string{"ai_route_config_revisions", "ai_route_config_current", "ai_route_config_options", "ai_client_credential_bindings"} {
 		t.Run("missing_managed_read_"+relation, func(t *testing.T) {
 			require.NoError(t, owner.Exec("REVOKE SELECT ON "+relation+" FROM "+role).Error)
 			require.NoError(t, verifyOrganizationWorkerRuntimePermissions(ctx, runtimeDB, role))
-			require.Error(t, routeconfigstore.VerifyReader(ctx, runtimeDB))
+			require.Error(t, routeconfigstore.VerifyReader(ctx, runtimeDB, true))
 			require.NoError(t, owner.Exec("GRANT SELECT ON "+relation+" TO "+role).Error)
-			require.NoError(t, routeconfigstore.VerifyReader(ctx, runtimeDB))
+			require.NoError(t, routeconfigstore.VerifyReader(ctx, runtimeDB, true))
 		})
 		t.Run("wrong_managed_kind_"+relation, func(t *testing.T) {
 			kind := "TABLE"

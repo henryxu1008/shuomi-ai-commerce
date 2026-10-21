@@ -11,6 +11,28 @@ const revision=(id="r1",key="old")=>({id,scope:{organizationId:"org-a",capabilit
 const bindings={bindings:[{id:"image-a",credentialVersion:"credential-a",provider:"grsai",model:"gpt-image-2.5",protocol:"grsai-json-sync-v1",maximumPointsPerImage:20}]};
 const clients:QueryClient[]=[];
 
+it("keeps optional publication mode when editing a historical option and clears it on discard",async()=>{
+ const user=userEvent.setup(),vip={...payload,optional:true as const,bindingId:"image-vip",image:{...payload.image,model:"gpt-image-2-vip"}},old={...revision("vip-old"),payload:vip};
+ const fetch=fixtures(async()=>Response.json({})),original=fetch.getMockImplementation()!;
+ fetch.mockImplementation(async(url:string,init:RequestInit={})=>{
+  if(url.endsWith("/bindings"))return Response.json({bindings:[...bindings.bindings,{...bindings.bindings[0],id:"image-vip",model:"gpt-image-2-vip"}]});
+  if(url.endsWith("/history"))return Response.json({revisions:[old],nextCursor:""});
+  if(url.endsWith("/options"))return Response.json({revisions:[old]});
+  if(url.endsWith("/validate")){const input=JSON.parse(String(init.body));return Response.json({payload:{...vip,...input.optional?{optional:true}:{},rates:input.rates},expectedRevision:input.expectedRevision,digest:"preview"})}
+  return original(url,init);
+ });vi.stubGlobal("fetch",fetch);mount();
+ await user.click(await screen.findByRole("button",{name:"以历史配置创建新预览"}));
+ await screen.findByRole("button",{name:"确认发布为可选，不设为默认"});
+ const rate=screen.getByLabelText(/每张图片 AI 点数/);await user.clear(rate);await user.type(rate,"9");
+ await user.click(screen.getByRole("button",{name:"校验配置并预览"}));
+ await screen.findByRole("button",{name:"确认发布为可选，不设为默认"});
+ const last=fetch.mock.calls.filter(([u])=>u.endsWith("/validate")).at(-1)!;
+ expect(JSON.parse(String(last[1]!.body)).optional).toBe(true);
+ await user.click(screen.getByRole("button",{name:"放弃编辑"}));
+ await user.selectOptions(screen.getByLabelText(/已准入图片绑定/),"image-vip");
+ expect(screen.getByRole("checkbox",{name:"发布为可选，不设为默认"})).not.toBeChecked();
+});
+
 it("publishes VIP as an optional version using its own head without switching default",async()=>{
  const user=userEvent.setup(),fetch=fixtures(async init=>{const input=JSON.parse(String(init.body));return Response.json({receipt:{...revision("vip-r2",new Headers(init.headers).get("Idempotency-Key")!),payload:{...payload,optional:true,bindingId:input.bindingId,image:{...payload.image,model:"gpt-image-2-vip"}},parent:"NONE"}})});
  const original=fetch.getMockImplementation()!;

@@ -29,7 +29,7 @@ import {ImageTextCopy,imageTextLanguageNames} from "./image-text-copy";
 
 type Props={translationItemId?:string;kind:ImageSetScope["kind"];contextId:string;target?:ImageSetPrepare["target"];effectiveVersion?:string;applyReceiptId?:string;onSaved?:()=>void;initialRunId?:string;initialSkill?:SkillSelection};
 type Intent={action:ImageSetRoute;runId?:string;requestKey?:string;body:unknown};
-type RetainedRequest={key:string;raw:string;intent:Intent};
+type RetainedRequest={key:string;raw:string;intent:Intent;reason?:"IMAGE_ROUTE_CHANGED"};
 type PhotoView={url:string;label:string;width?:number;height?:number};
 type ChoiceView={key:string;url:string;label:string;choice:ImageSetChoice};
 const stateNames:Record<string,string>={awaiting_plan_approval:"等待点数确认",executing:"生成中",evaluating:"处理结果中",repairing:"处理结果中",awaiting_final_approval:"等待人工选择",blocked:"已阻止",completed:"已保存正式素材",failed:"生成失败",cancelled:"已取消",pending:"等待执行",accepted:"已生成",rejected:"失败"};
@@ -78,11 +78,11 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
  const [intent,setIntent]=useState<Intent|null>(null),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true),[error,setError]=useState(""),[message,setMessage]=useState("");
  const savedIntentRaw=useRef<string|null>(null);
  const [retainedRequests,setRetainedRequests]=useState<RetainedRequest[]>([]);
- const rejectedPreparations=retainedRequests.filter(record=>record.intent.action==="prepare");
+ const rejectedPreparations=retainedRequests.filter(record=>record.reason!=="IMAGE_ROUTE_CHANGED"&&record.intent.action==="prepare");
  const needsPreparationReview=rejectedPreparations.length>0;
  const textKey=JSON.stringify([sources?.source,template?.templateId,template?.version,template?.image.language,rejectedPreparations.map(record=>record.key),needsPreparationReview?tasks:null]);
  const textSelection=textDraft?.key===textKey?textDraft.value?.mode==="reviewed"&&textDraft.tasksKey!==JSON.stringify(tasks)?null:textDraft.value:needsPreparationReview?null:{mode:"none" as const};
- const rejectedRegenerations=retainedRequests.filter(record=>record.intent.action==="regenerate"&&record.intent.runId===run?.runId);
+ const rejectedRegenerations=retainedRequests.filter(record=>record.reason!=="IMAGE_ROUTE_CHANGED"&&record.intent.action==="regenerate"&&record.intent.runId===run?.runId);
  const needsRegenerationReview=rejectedRegenerations.length>0;
  const regenerationTextKey=JSON.stringify([run?.runId,run?.plan.Source,run?.template,regenerate,rejectedRegenerations.map(record=>record.key)]);
  const [regenerationTextDraft,setRegenerationTextDraft]=useState<{key:string;value:ImageSetPrepare["text"]|null}>();
@@ -101,11 +101,11 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
  const fail=useCallback((value:unknown)=>{setError(value instanceof ImageSetError?value.code:value instanceof Error?value.message:"IMAGE_UNAVAILABLE")},[]);
  const remember=useCallback((p:ImageSetRun)=>{if(!active.current)return;if(routeRun.current!==p.runId){routeRun.current=p.runId;setRouteDraft(undefined)}setRun(p);localStorage.setItem(storageKey+":run",p.runId)},[storageKey]);
  const clearIntent=useCallback(()=>{localStorage.removeItem(storageKey+":intent");savedIntentRaw.current=null;setIntent(null)},[storageKey]);
- function retainOriginalRequest(command:Intent){
+ function retainOriginalRequest(command:Intent,reason?:"IMAGE_ROUTE_CHANGED"){
   const raw=savedIntentRaw.current;
   try{
    if(!raw||localStorage.getItem(storageKey+":intent")!==raw)throw new Error("changed");
-   const key=retainedImageRequestKey(storageKey,command),existing=localStorage.getItem(key);
+   const key=retainedImageRequestKey(storageKey,command,reason),existing=localStorage.getItem(key);
    if(existing!==null&&existing!==raw)throw new Error("conflict");
    localStorage.setItem(key,raw);
    if(localStorage.getItem(key)!==raw)throw new Error("not retained");
@@ -229,8 +229,8 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
    }
   }catch(e){if(!controller.signal.aborted){
    fail(e);
-   if(e instanceof ImageSetError&&e.status===409&&e.code==="IMAGE_TEXT_REVIEW_CHANGED"&&(command.action==="prepare"||command.action==="regenerate")){
-    try{retainOriginalRequest(command)}catch(retentionError){fail(retentionError)}
+   if(e instanceof ImageSetError&&e.status===409&&(e.code==="IMAGE_TEXT_REVIEW_CHANGED"||e.code==="IMAGE_ROUTE_CHANGED")&&(command.action==="prepare"||command.action==="regenerate")){
+    try{if(e.code==="IMAGE_ROUTE_CHANGED"){setRouteDraft((command.body as ImageSetPrepare).route??null);retainOriginalRequest(command,"IMAGE_ROUTE_CHANGED")}else retainOriginalRequest(command)}catch(retentionError){fail(retentionError)}
    }else if(!replay&&e instanceof ImageSetError&&e.code!=="OUTCOME_UNKNOWN"){
     clearIntent();if((command.action==="prepare"||command.action==="regenerate")&&e.code==="IMAGE_CONFIGURATION_CHANGED")setModeNonce(v=>v+1);
    }
@@ -351,7 +351,7 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
    {retainedRequests.map(record=><details key={record.key} className="break-all text-muted-foreground"><summary className="cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">原请求编号：{imageIntentRequestId(record.intent)}</summary><div className="mt-2 space-y-2"><p>原任务：{record.intent.runId??"尚未创建"} · 操作：{({prepare:"准备图片计划",regenerate:"重新准备图片计划",recover:"核实原调用",cancel:"取消剩余工作",restart:"恢复原失败任务",confirm:"确认点数并生成",resume:"核实原保存"} as Partial<Record<ImageSetRoute,string>>)[record.intent.action]}</p><pre className="max-h-80 overflow-auto whitespace-pre-wrap break-all text-xs">{record.raw}</pre></div></details>)}
   </section>:null}
   {!loading&&sources&&context.permissions.includes("listingkit.image_agent.write")?<SkillPicker scope={stableScope} target="product-image" initialSelection={initialSkill} disabled={locked} onChange={onMethodChange}/>:null}
-  {!loading&&sources&&entry?.canUse?<ImagePlanRoutePicker scope={stableScope} value={routeDraft===undefined?run?.plan.Route??null:routeDraft} disabled={locked} onChange={setRouteDraft} onValidity={setRouteReady}/>:null}
+  {!loading&&sources&&entry?.canUse?<ImagePlanRoutePicker scope={stableScope} value={intent&&(intent.action==="prepare"||intent.action==="regenerate")?(intent.body as ImageSetPrepare).route??null:routeDraft===undefined?run?.plan.Route??null:routeDraft} disabled={locked} onChange={setRouteDraft} onValidity={setRouteReady}/>:null}
   {!loading&&sources&&!sources.originals.length?<p className="text-sm text-muted-foreground">当前商品没有原始图片，补充真实素材后才能准备生成计划。</p>:null}
   {available&&sources?<>
    {template&&!compatibleImageTemplate(template,platform)?<p className="text-sm text-warning-foreground">当前模板不适用于此素材目标，请选择匹配的模板或切换目标。</p>:null}
@@ -414,12 +414,13 @@ function parseImageIntent(raw:string):Intent|undefined{
 }
 function isRetainableImageIntent(intent:Intent){return ["prepare","regenerate","recover","cancel","restart","confirm","resume"].includes(intent.action)}
 function imageIntentRequestId(intent:Intent){return intent.requestKey??(intent.action==="restart"?intent.runId:(intent.body as {actionId:string}).actionId)}
-function retainedImageRequestKey(storageKey:string,intent:Intent){return `${storageKey}:verified-intent:${intent.runId}:${intent.action}:${imageIntentRequestId(intent)}`}
+function retainedImageRequestKey(storageKey:string,intent:Intent,reason?:"IMAGE_ROUTE_CHANGED"){return `${storageKey}:${reason?"verified-route-intent":"verified-intent"}:${intent.runId}:${intent.action}:${imageIntentRequestId(intent)}`}
 function readRetainedImageRequests(storageKey:string):RetainedRequest[]{
- return Object.keys(localStorage).filter(key=>key.startsWith(storageKey+":verified-intent:")).flatMap(key=>{
+ return Object.keys(localStorage).filter(key=>(key.startsWith(storageKey+":verified-intent:")||key.startsWith(storageKey+":verified-route-intent:"))).flatMap(key=>{
   const raw=localStorage.getItem(key);if(!raw)return [];
   const intent=parseImageIntent(raw);
-  return intent&&isRetainableImageIntent(intent)&&retainedImageRequestKey(storageKey,intent)===key?[{key,raw,intent}]:[];
+  const reason=key.startsWith(storageKey+":verified-route-intent:")?"IMAGE_ROUTE_CHANGED" as const:undefined;
+  return intent&&isRetainableImageIntent(intent)&&retainedImageRequestKey(storageKey,intent,reason)===key?[{key,raw,intent,...reason?{reason}:{}}]:[];
  });
 }
 

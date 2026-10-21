@@ -73,7 +73,9 @@ route reader/image worker and INSERT,UPDATE to the existing configuration writer
 Immutable revision INSERT and metadata SELECT remain as today. No secret grant,
 new role or image API direct DB grant. Update formal permission inventory, strict
 reader/writer verification and image-worker optional relation admission together;
-wrong relation kinds/RLS/owner/extra writes fail closed. Startup inspects only.
+wrong relation kinds/RLS/owner/extra writes fail closed. The image family explicitly
+requires the option relation; text-only verification retains its existing schema
+boundary. Startup inspects only.
 No retained instance DDL/grant/data operation is part of this development authority.
 
 Imageagent owns new prepare `Route *ImageRouteSelection` and the same optional
@@ -88,6 +90,8 @@ points/credential reference. No new GenerationIntent columns or ledger.
 
 1. Original maintainer routeconfig Validate/Publish accepts optional mode only for
    exact qualified VIP. Current default and optional current are read separately.
+   Maintenance head reads retain the raw published option CAS identity even when
+   its credential is no longer qualified; member options remain qualified only.
    Existing preview/receipt/history expose publication mode and exact published
    option revision. The maintenance editor labels its explicit confirm action
    “发布为可选，不设为默认”; rates remain maintainer-specified, positive and within

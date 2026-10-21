@@ -108,10 +108,14 @@ func prepareModelRouteServices(ctx context.Context, reader, writer *gorm.DB, def
 	if reader == nil || writer == nil || reader == writer {
 		return nil, nil, d.ErrUnavailable
 	}
-	if e := store.VerifyReader(ctx, reader); e != nil {
+	imageOptions := false
+	for _, def := range defs {
+		imageOptions = imageOptions || def.Scope.Capability == d.ImageCapability
+	}
+	if e := store.VerifyReader(ctx, reader, imageOptions); e != nil {
 		return nil, nil, e
 	}
-	if e := store.VerifyWriter(ctx, writer); e != nil {
+	if e := store.VerifyWriter(ctx, writer, imageOptions); e != nil {
 		return nil, nil, e
 	}
 	catalog, e := qualified.NewCatalog(defs)
