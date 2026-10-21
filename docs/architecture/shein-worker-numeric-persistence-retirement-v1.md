@@ -13,12 +13,13 @@ Status: **PROPOSED / DESIGN_ONLY / 待用户确认**。Design Basis: **Independe
 1. 独立 worker 使用**正常创建的当前 Organization + 当前 Store UUID**；每个 Store 最多一个部署配置的网页登录 binding。账号凭据来自任务/环境 owner 新提供的私有配置引用，不扩展 1688 SourceAccountRegistry，不新增账号页面、账号注册表或凭据 vault。
 2. 登录后识别的 merchant 只经 **Store Center** 的有权、幂等窄命令同步至当前 Store；网页登录不构成官方连接、付费服务激活或发布权限。重复/不匹配阻止本 binding 的同步及后续使用，不自动禁用当前 Store、另一店铺或 paid entitlement。
 3. 新 worker 只消费新 namespace 和新 Profile root；不续跑旧数字行、Redis attempt、Cookie 或 Profile。源码退休不要求删除、迁移或停止既有资源；这些资源完全不在本轮权限内。
+4. 同一个独立二进制增加有限 CLI producer，使登录/验证码/取消/状态真正可达；沿当前身份与Store授权，不恢复旧HTTP，也不是新增验收工具。此必要入口随整份设计待用户确认。
 
 Authority：[Greenfield](../product/greenfield-no-legacy-migration.md)、[Hard-Cut](../refactoring/legacy-hard-cut-policy.md)、[当前项目边界](project-boundaries.md)、[Store current application](store-center-current-application-v1.md)、[Store 平台观察](store-center-platform-observations-v1.md)、[原 worker 身份边界](shein-worker-identity-persistence-boundary.md)、[#854 源级收口](legacy-retirement-parent-closure-boundary.md)、[Issue 规则](../engineering/issue-driven-development.md)。当前身份和成员资格继续归原 ZITADEL/Organization/授权 owner。**本提案只在用户确认后替代旧 worker 文档 §1/§3/§4/§6/§7 及收口文档 §4.1 对准确数字实现的保留，不取消其安全行为。**
 
 Must：独立登录/Store 同步能力保留；明确唯一事实 owner；同组织授权、撤权、取消、同键/异载荷、终态和迟到响应保护；Store 付费/官方连接不受网页登录影响；无旧 ID 映射/兼容/双读写；当前采集、Store 观察同步、图像、平台 API/规则及其它保留能力不变。
 
-Out of Scope：来源采集功能或真实验收、账号/Store UI、官方 onboarding/发布、支付、新 IAM/调度/恢复平台、生产准备、旧数据或凭据读取/迁移/清理、实例启停、浏览器/provider 调用、workflow/inventory/依赖/锁/保护规则改变。#29 不重开，#301 继续 OPEN；本轮不增加内部试用前置。没有新增 Accepted Risk；网页挑战、正常外部限流等沿已有边界。Figma N/A：没有新增页面、导航、HTTP 登录入口或用户交互布局。
+Out of Scope：来源采集功能或真实验收、账号/Store UI、官方 onboarding/发布、支付、新 IAM/调度/恢复平台、生产准备、旧数据或凭据读取/迁移/清理、实例启停、浏览器/provider 调用、workflow/inventory/依赖/锁/保护规则改变。#29 不重开，#301 继续 OPEN；本轮不增加内部试用前置。没有新增 Accepted Risk；网页挑战、正常外部限流等沿已有边界。Figma N/A：没有新增页面、导航、HTTP 登录入口或页面交互布局；有限CLI产品行为在§3.1单独明确。
 
 ## 2. Design Basis、调查证据和实际消费者
 
@@ -28,7 +29,7 @@ Out of Scope：来源采集功能或真实验收、账号/Store UI、官方 onbo
 
 | 实际消费者 / 调用链 | 当前事实和风险 | 本闭包处置 |
 | --- | --- | --- |
-| `cmd/shein-login-worker` → `app/runtime/sheinloginworker/runtime.go` → `sheinlogin/bootstrap/build.go` | 直接打开全局 `config.Database`；构造 `listingadmin.NewGormStoreRepository/NewGormStoreAPI`；只启动 health HTTP，不存在当前 Console 登录 HTTP producer | 保留命令、独立进程和 health；改为显式当前 Store/授权/worker 配置接线，不复活旧 HTTP |
+| `cmd/shein-login-worker` → `app/runtime/sheinloginworker/runtime.go` → `sheinlogin/bootstrap/build.go` | 直接打开全局 `config.Database`；构造 `listingadmin.NewGormStoreRepository/NewGormStoreAPI`；只启动 health HTTP，生产代码没有enqueue/verify/cancel producer | 保留命令、独立进程和 health；同一二进制增加§3.1有限CLI，不把Service port当可达入口；显式当前Store/授权配置，不复活旧HTTP |
 | `sheinlogin/accounts.go` → `ListingAdminAccountProvider` → `listingadmin.StoreRepository` | 从 `listing_store` 的数字 tenant/row ID、用户名、密码、代理和 URL 形成账号；5 秒缓存按旧角色/用户隔离 | 数字 provider/cache/DTO 退出；按当前组织/Store binding 精确读取，不缓存活授权或把配置当授权 |
 | `sheinlogin/service.go`、`types.go`、`runtime.go`、`worker.go` | Account、attempt、Cookie、session、锁均以两项 int64 为 scope；worker 自行重读凭据；验证码会话只属于 worker | 有效服务/并发/状态行为原位抽取为当前 scope；不把 int64 改名成 Organization，不保留数字 overload |
 | `sheinloginmanaged/bridge.go` → StoreAPI page/get/update | 同 tenant 分页查重、空 merchant 回填、不一致/重复禁用旧行；完整页失败关闭是 #722 有效安全要求 | 替换为当前 Store 的单事务命令；退出旧 DTO、factory 和分页接线，不复制另一 Store 仓库 |
@@ -51,7 +52,11 @@ Out of Scope：来源采集功能或真实验收、账号/Store UI、官方 onbo
 - **Credentials**：环境 owner 新提供的私有文件/secret mount；现有正常配置加载方式和 OS/挂载保护复用，不开发 vault/取 token 工具。绝对路径、非仓库公共文件、有限尺寸；启动不打印内容，读取失败不 fallback。配置中的 org/actor/role/Store 字符串从来不是 verified authority。
 - **Access**：服务命令入口消费当前 verified identity 和已有 Organization/live-write、StoreMemberAuthorizer/成员 grant。每次 enqueue、控制、worker 执行和 Store commit 重新验证相同 actor/member/org/store；Store grant/组织撤权或 binding revision 改变即拒绝。没有当前授权依赖时 worker 不就绪，不以固定 operator、配置布尔值、Redis载荷或缓存代替授权。runtime 只装配既有当前授权 client/port，不新建 IAM。
 - **重启后的活授权依据**：复用 `internal/app/worker/imageagent/organization_scope.go` 已有的 ZITADEL `AuthorizationClient.ReadExactServiceProjectAuthorization` + 私有服务 token + 当前角色策略的调用形态，核对持久化的 actor/member/org仍是同一 active grant，并沿现有 OrganizationBusinessStatusChecker拒绝停用组织；应用层针对 `PermissionWorkbenchStoreLifecycle` 装配该现有能力，并由 StoreMemberAuthorizer再次核对当前成员和目标Store。只复用当前授权算法/接口，不引入 ImageAgent、Run、AI权限或其DB依赖，不保存/续用用户旧JWT，不仅凭Redis字段重建“已验证身份”。服务 token 由既有私有配置正常提供，本轮不申请、读取或创建凭据。
-- **对外入口**：保留独立命令 `shein-login-worker -config <private-current-config>`、health 和已有 Service 命令 port；不新增 UI/HTTP producer、不直接教操作者写 Redis。原来没有当前 Console producer 的事实如实保留，源码能力测试不宣称已对用户开放登录页。
+- **对外入口**：同一 `shein-login-worker -config <private-current-config>` 二进制默认 `-action serve` 保留原health/RunWorker；新增 `login/status/verify/cancel` 四个有限CLI动作，调用当前Service命令port。producer模式不启动worker循环、HTTP或浏览器，不调用旧inline Login/ForceLogin，不直接教操作者写Redis。无当前Console登录页/新HTTP服务。
+
+**正常CLI合同（拟议，设计确认后才实现）**：四动作均需要 `-organization <opaque ID> -store <current UUID> -token-file <private absolute file>`；复用当前JWT verifier验证签名/issuer/audience/expiry，再用上述当前grant与Store成员授权，不信任flags里的组织声明。login携带明确 `-request-key <UUID>`，只有显式 `-force-login` 才强制登录；返回attempt UUID和状态，不等到完成、不自动重试。status必须按原attempt UUID只读，无自动登录/Store同步；verify/cancel必须给原attempt UUID，错scope/已终态明确拒绝。验证码仅stdin输入，不进argv、日志或JSON结果；token-file是调用者经现有正常身份流程私下提供的新有效token，本轮不新增取token脚本、不创建/读取任何真实token。
+
+CLI的安全JSON只返回scope/attempt ID、登录状态、sync状态和通用错误；不输出密码、Cookie、验证码或raw provider/artifact。超时/响应丢失返回UNKNOWN并提示沿**同request-key/原attempt**查询，不能自动生成新key。verify/cancel的当前成员与actor必须与原attempt一致；status也先授权再读。producer读取有界binding元数据和当前Store，不读登录密码；仅worker执行时读取新私有credential引用。用户可在登录待码时另起相同二进制提交验证码，worker继续持有原浏览器。这是已有保留能力的操作入口，未增加测试session、runner、部署或内部试用门禁。
 
 拟议接线（箭头为组合，不是新增事实 owner）：
 
@@ -71,7 +76,7 @@ cmd/shein-login-worker → 当前 worker runtime / 显式配置
 
 复用 `MemberScopedStoreRepository` 的 live authorizer、成员 grant 锁、当前 Store 行/版本、`identityKey`/组织内唯一索引和 GORM 本地事务。事务内：核对当前 active SHEIN Store/region、版本和原值；原值为空时设 external ID 并更新 identity_key/version/updated metadata，原值相同作幂等确认；不同或唯一冲突记录安全的 blocked 结果，不重绑、不禁用其它 Store。当前唯一性按组织+平台+region，不搬旧分页 DTO，不泄露冲突行的信息。
 
-命令以原 `workbench_store_audit_logs` 的 `(org, attempt UUID, 新的 login_identity_sync action)` 作为操作回执，payload fingerprint 包含 Store、binding revision、expected version 和识别结果；成功/blocked 结果与 Store 修改在**同一借用事务**记录。复用原 audit 字段，不新建通用回执表或状态平台；新增 action/失败码和严格校验属于本批领域合同变化。相同键/载荷重读原安全回执及结果版本；不同载荷 conflict；后来的 Store 改动不被原重放改回。审计回执不得包含密码、Cookie、验证码或任意 provider body。
+命令以原 `workbench_store_audit_logs` 的 `(org, attempt UUID, 新的 login_identity_sync action)` 作为操作回执，payload fingerprint 包含 Store、binding revision、expected version 和识别结果；成功/blocked 结果与 Store 修改在**同一借用事务**记录。复用原 audit 字段，不新建通用回执表或状态平台；新增 action/失败码和严格校验属于本批领域合同变化。相同键/载荷重读原安全回执及结果版本；不同载荷 conflict；后来的 Store 改动不被原重放改回。审计回执不得包含密码、Cookie、验证码或任意 provider body。目标Store/grant加锁后，在更新merchant前设GORM/PostgreSQL savepoint；唯一冲突先回滚到该savepoint，再于仍持有目标锁的外层事务记录blocked回执，不能在已经aborted的事务里继续写audit。无新跨库事务框架。
 
 **明确的行为变化，待用户确认**：旧“禁用 listing_store 行”退出；冲突只阻止本 login binding 的同步/使用并显示 `sync_blocked`。当前 Store 的 record/service/官方连接生命周期及已购买期限不因网页登录失败改变。网页登录成功和 Store 同步成功分别可观察，不将前者报作后者，不自动使官方 Connection ready，不把 Cookie接入当前官方 Observation/Submission。
 
@@ -94,6 +99,8 @@ cmd/shein-login-worker → 当前 worker runtime / 显式配置
 
 配置/命令解码拒绝未知字段和尾随内容：当前组织/actor/member沿原200字节上限，Store/attempt/installation/binding revision为canonical UUID；配置文件最多1 MiB、单credential文件最多64 KiB、单命令最多64 KiB。新root/credential路径只能来自可信部署配置，不能来自队列或用户请求；binding revision不能含路径片段。沿原有限并发、请求deadline及验证码/Cookie TTL上限，不因换owner取消限额。失败摘要/公共结果继续有界且不含secret，原raw network/body/私有artifact不得进入Store audit、队列或普通日志；artifact只在该worker新专属root下保留。
 
+binding配置在一个新installation内不可热更或并行运行不同revision：启动把非secret配置fingerprint与installation标记原子核对，不同内容拒绝加入该installation。producer/worker使用相同fingerprint；每次命令/外部读取/提交核对标记与binding revision。修订配置属于另行授权的新安装/重启配置动作，本设计不执行，也不把旧installation的任务/Cookie/Profile搬入新安装。scope的active-lock不按revision拆分；revision保存在attempt/Cookie/profile元数据并精确比对，避免同一Store因不同revision获得两个active attempt。没有新的热旋转或rolling-upgrade协议。
+
 Profile 只处理当前 worker 创建、标记且在新root以内的目录；使用原 Playwright persistent context/session Close 和进程生命周期。profile busy 时失败关闭，不扫描并杀死全机浏览器、不删除无法证明拥有的锁。缓存修剪只在已关闭的自有 Profile 内按有限相对清单进行，不递归触碰 root 外路径。重启不重建验证码浏览器；旧缓存/登录态不承接。
 
 ### 4.2 保留登录状态机，分清 Store 同步
@@ -105,7 +112,7 @@ Profile 只处理当前 worker 创建、标记且在新root以内的目录；使
 | 失败/并发位置 | 必须得到的结果与唯一恢复责任 |
 | --- | --- |
 | enqueue 响应丢失、重复提交 | 原 Redis Lua 原子去重；同 key 重读，不生成第二次登录；授权失败不得返回其它主体旧结果 |
-| 取消与迟到浏览器成功竞争 | 原 active/attempt比较原子保护；取消/终态后不得写 Cookie、Store或覆盖新 attempt；控制事件带完整 scope |
+| 取消与迟到浏览器成功竞争 | 原 active/attempt比较原子保护；cancelled/failed/interrupted后不得写Cookie或Store；succeeded仅允许本attempt已固定的pending Store同步，不允许重新登录/覆盖Cookie或后来attempt。终态后的cancel返回未接受，不能伪造已取消同步；控制事件带完整scope |
 | worker 在验证码窗口崩溃 | 原 pending reclaim 将不可恢复浏览器attempt记 interrupted；不重新登录、不把验证码交给新attempt；只关闭本进程自有session |
 | Cookie成功提交后、Store事务前崩溃 | 登录成功保持，sync仍pending；worker原reclaim路径只恢复只读识别/原Store命令，不发登录/验证码，不新增后台恢复器 |
 | Store commit成功但响应丢失 / Redis记录未成功 | 唯一Store audit key+fingerprint重读原回执，再把原attempt sync标applied；不回滚Cookie、不重写Store、不换key |
@@ -126,7 +133,7 @@ Store 同步仅本地数据库可重放；supplier/warehouse GET不更新平台�
 | `sheinloginmanaged/bridge.go`、其 `bridge_test.go/duplicate_store_test.go` | RETIRE整个旧managed包；EXTRACT有效scope拒绝/重复及失败关闭断言至Store与登录owner | 当前Store单事务/同region组织唯一冲突测试覆盖后，原package与测试删除 |
 | `sheinlogin/{types,service,worker,runtime,store}.go` | EXTRACT保留有效命令、登录/验证码/取消/终态/Lua算法；RETIRE数字scope方法/旧wire键/旧Task pause副作用 | 所有公开/私有scope为当前组织+UUID；原有效测试改写并先RED，不保留数字overload或新旧双分支 |
 | `sheinlogin/profile_runtime.go` 及 automation系列、`browser_state.go` | EXTRACT浏览器检测/登录/验证码/只存Cookie/自有session关闭；RETIRE数字路径、宽进程kill/不受控解锁和专属断言 | 新root和scope安全测试成立，原有效页面/验证码行为保留；不执行真实浏览器 |
-| `app/runtime/sheinloginworker/{runtime,options}.go`、`cmd/shein-login-worker/main.go` | 保留独立命令/端口/信号/close顺序；替换数字DB与隐式配置接线 | current Store reader/sync、当前授权、new Redis、new root全部显式验证；不装当前应用HTTP/Temporal/平台发布 |
+| `app/runtime/sheinloginworker/{runtime,options}.go`、`cmd/shein-login-worker/main.go` | 保留独立命令/端口/信号/close顺序；新增有限CLI producer，替换数字DB与隐式配置接线 | 四CLI动作经JWT/live授权调用当前命令；serve/producer不混启动浏览器，current Store/new Redis/new root显式验证，不装当前应用HTTP/Temporal/平台发布 |
 | `shein/client/{runtime_types,cookie_manager,api_client,login_service_config}.go` 的数字Cookie/refresher接线，以及 service中的 `serviceCookieProvider/ConfigureRuntimeSheinAPIClients` | RETIRE worker对数字wrapper、全局refresher和数字StoreConfig的依赖；EXTRACT需要的supplier/warehouse/session HTTP能力至现有SHEIN transport owner | 先确认包外consumer；仍有有效APIconsumer的公开合同保持，不能删平台API/DTO/TLS/HTTP。新的worker不包装旧wrapper，不用0/哈希int替代真实scope |
 | TEMU `client.go`/`interfaces.go`/`cookie_manager.go`/`auth_pause_handler.go`/`manager.go` 的 StoreRuntime及调用尾部 | RETIRE无生产注入的数字Store/Cookie/暂停/MallID回写支路；保留被各platform API消费的ClientAPI/HTTP/错误处理 | 保留有效HTTP构造/平台合同；无外部实现在全tracked代码再确认。禁止转移旧StoreAPI为TEMU同名facade |
 | `core/config` 的SHEIN专属数字fallback/load/default/env/example及worker直接引用 | RETIRE仅准确失去消费者的SHEIN旧配置；保留SDS/1688/共享Redis/browser/HTTP当前合同 | 字段/函数消费者归零后删；SDS的共用LoginServiceConfig字段不可因SHEIN迁出一并删 |
@@ -158,6 +165,7 @@ Cutover/deletion condition: 新配置/当前scope/授权/Store事务与原安全
 | --- | --- |
 | 真正退休/没有旁路 | 原tracked AST/import/dependency guards更新为旧生产owner无import、TEMU StoreRuntime无实现/消费、独立worker及current-application依赖无listingadmin/managed；现有guard覆盖build tags，不能仅grep名字 |
 | 当前scope/凭据/撤权 | 原账号与service测试改写；两个不透明org/Store UUID、同值数字org文本不转int、错member/Store/disabled/依赖失败、换revision/撤权后拒绝、日志与队列不含secret |
+| 入口实际可达 | 现有cmd/runtime测试扩为同一二进制serve/login/status/verify/cancel合成调用；producer不启动浏览器、当前JWT/成员拒绝、验证码stdin、同key查询、错attempt与UNKNOWN；不是只绕过CLI直接测Service |
 | Cookie/attempt/验证码 | 原miniredis及worker mock测试保留并发enqueue、取消/迟成功、错attempt验证码、原终态、重启interrupted、Cookie-only、同步pending与原key核实 |
 | Store事务与权限 | 当前Store既有SQLite/PG fixture：member隔离、同region唯一冲突、空值填充/相同重放/不匹配blocked、回执+Store原子性、响应丢失后重放、不同载荷冲突、后续version不倒退、paid/connection字段和role权限不变 |
 | Profile/配置/生命周期 | 新临时路径/合成配置测试：root越界/旧namespace/隐式全局Redis拒绝，错revision不复用，busy不kill/unlock，health/关闭资源顺序保持；不启动真实浏览器/worker |
@@ -169,7 +177,7 @@ Cutover/deletion condition: 新配置/当前scope/授权/Store事务与原安全
 
 本轮交付独立设计、准确索引、#301当前段与一个主要PR。适用独立高风险检查仅核对本次当前scope/凭据输入、Store事务/授权、Redis成功与同步恢复、Profile归属、完整退休矩阵及§6.1，最多两轮正常设计检查；不重开当前官方Store/计费/采集全局架构。finding先分类，只有明确命中当前Must的BLOCKER重开设计；非阻塞建议进入实现测试或Backlog。
 
-用户需确认**§1三项产品/持久化增量、§3/§4的owner与状态/恢复、§5整批矩阵及§6.1保留有效race路径**。在此之前本提案不改变既有worker保留决定，不签生产IMPLEMENTATION_READY。确认与适用独立准入满足后，才在同一主要PR实施；实现/CI/最终检查完成交In Review，合并仍需准确HEAD授权。
+用户需确认**§1四项产品/持久化增量（含有限CLI）、§3/§4的owner与状态/恢复、§5整批矩阵及§6.1保留有效race路径**。在此之前本提案不改变既有worker保留决定，不签生产IMPLEMENTATION_READY。确认与适用独立准入满足后，才在同一主要PR实施；实现/CI/最终检查完成交In Review，合并仍需准确HEAD授权。
 
 源码完成条件是旧数字账号/Store生产owner、旧键/Profile/配置与旁路消费者退出，保留行为由当前owner安全承接；不以更名、空壳、注释或只绿CI替代。当前应用/独立worker去旧数字依赖证据与旧实例资源状态分别记录；即使完成本批，#301整体关闭仍待原验收及另行明确授权，不能自动关闭。
 
