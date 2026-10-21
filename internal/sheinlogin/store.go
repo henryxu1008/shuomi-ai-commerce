@@ -270,7 +270,7 @@ func (s *RedisStore) EnsureGroup(ctx context.Context) error {
 	return nil
 }
 func (s *RedisStore) ReadJobs(ctx context.Context, consumer string) ([]redis.XMessage, error) {
-	streams, e := s.client.XReadGroup(ctx, &redis.XReadGroupArgs{Group: attemptGroup, Consumer: consumer, Streams: []string{s.stream(), ">"}, Count: 10, Block: time.Second}).Result()
+	streams, e := s.client.XReadGroup(ctx, &redis.XReadGroupArgs{Group: attemptGroup, Consumer: consumer, Streams: []string{s.stream(), ">"}, Count: 1, Block: time.Second}).Result()
 	if errors.Is(e, redis.Nil) {
 		return nil, nil
 	}

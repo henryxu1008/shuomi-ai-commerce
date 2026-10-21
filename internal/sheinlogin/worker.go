@@ -23,23 +23,29 @@ func (s *Service) RunWorker(ctx context.Context, workerID string) error {
 	var running sync.Map
 	defer func() { cancelWorker(); wg.Wait() }()
 	for ctx.Err() == nil {
+		// Reserve capacity before delivery enters the consumer group's PEL.
+		select {
+		case sem <- struct{}{}:
+		case <-ctx.Done():
+			return nil
+		}
 		messages, e := s.store.ReadJobs(ctx, workerID)
 		if e != nil {
+			<-sem
 			if ctx.Err() != nil {
 				return nil
 			}
 			return e
 		}
+		if len(messages) == 0 {
+			<-sem
+		}
 		for _, message := range messages {
 			id, _ := message.Values["attempt_id"].(string)
 			if !validUUID(id) {
+				<-sem
 				_ = s.store.Ack(ctx, message.ID)
 				continue
-			}
-			select {
-			case sem <- struct{}{}:
-			case <-ctx.Done():
-				return nil
 			}
 			running.Store(id, true)
 			wg.Add(1)

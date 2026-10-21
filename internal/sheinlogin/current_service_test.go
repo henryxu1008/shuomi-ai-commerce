@@ -154,6 +154,47 @@ func TestAnotherConsumerCannotInterruptOwnedVerificationAttempt(t *testing.T) {
 		t.Fatal("original consumer did not cancel")
 	}
 }
+
+func TestWorkerDoesNotPrefetchWhileExecutionSlotIsOccupied(t *testing.T) {
+	s, _, _, automation, _ := currentService(t)
+	s.config.MaxConcurrentLogins = 1
+	allow := make(chan struct{})
+	close(allow)
+	automation.waiting = true
+	automation.session = &closingSession{closeStarted: make(chan struct{}), allowClose: allow}
+	first := enqueueCurrent(t, s)
+	b := s.config.Bindings[0]
+	b.StoreID = uuid.NewString()
+	s.config.Bindings = append(s.config.Bindings, b)
+	scope := s.config.Scope(b)
+	scope.Generation = 1
+	second, err := s.store.Enqueue(context.Background(), LoginAttempt{ID: uuid.NewString(), Scope: scope, ActorID: "actor", MemberID: "member", CreatedAt: time.Now().UTC()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan error, 1)
+	go func() { done <- s.RunWorker(ctx, "single-slot-owner") }()
+	waitStatus(t, s, first.RequestKey, LoginAttemptWaitingVerifyCode)
+	pending, err := s.store.client.XPending(context.Background(), s.store.stream(), attemptGroup).Result()
+	if err != nil || pending.Count != 1 {
+		t.Error("unstarted login was prefetched into PEL", pending, err)
+	}
+	a, err := s.store.Load(context.Background(), second.ID)
+	if err != nil || a.Status != LoginAttemptQueued {
+		t.Error("unstarted login changed", a, err)
+	}
+	cancel()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("worker did not shut down")
+	}
+}
 func syntheticState() map[string]any {
 	return map[string]any{"cookies": []any{map[string]any{"name": "session", "value": "private-cookie"}}}
 }

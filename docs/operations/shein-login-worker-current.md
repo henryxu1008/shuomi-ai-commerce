@@ -54,6 +54,8 @@ Execution ownership is Store-scoped across Redis namespaces/installations. Every
 
 Explicit force-login bypasses both the cached Cookie and the ordinary persistent browser session: it uses a new attempt UUID directory beneath the owned binding Profile, refusing to reuse any existing forced-attempt directory. It does not clear/copy the ordinary Profile. Stream reclaim checks Store ownership before changing an attempt; a still-unclosed owner keeps its state and delivery pending, even if the stream has been idle for 45 seconds. An idle quiesce records/replays `quiesced`; a quiesce that originally awaited an owner records/replays `quiescing`, even after later closure or a new generation. That immutable result is not a fresh closure assertion.
 
+The consumer reserves one actual execution slot before reading one stream entry. While all slots are occupied, further requests stay undelivered rather than entering the pending list as unstarted local work; another normally available consumer can read them. This keeps stale recovery from dropping valid requests merely because a verification wait occupied the configured capacity.
+
 TTL, stream ACK, terminal login status, a lost connection, heartbeat absence and stale-job reclaim do not prove a browser has stopped. A crashed/UNKNOWN owner remains fenced. There is no force-takeover, automatic process scan/kill, lock deletion or private Profile adoption. Profile busy fails closed. Any real exclusion/repair of an old executor requires separate authorization to its environment owner; this source implementation does not perform it.
 
 ## Evidence and limits
