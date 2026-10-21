@@ -1529,9 +1529,9 @@ func TestAmazonUsesManagementAPIPortAliases(t *testing.T) {
 
 func TestTemuRuntimeErrorsUseCapabilityNames(t *testing.T) {
 	paths := []string{
-		filepath.Join("..", "internal", "temu", "api", "client", "auth_pause_handler.go"),
 		filepath.Join("..", "internal", "temu", "api", "client", "client.go"),
-		filepath.Join("..", "internal", "temu", "api", "client", "cookie_manager.go"),
+		filepath.Join("..", "internal", "temu", "api", "client", "auth.go"),
+		filepath.Join("..", "internal", "temu", "api", "client", "auth_retry_handler.go"),
 	}
 	for _, path := range paths {
 		content, err := os.ReadFile(path)
@@ -2890,10 +2890,8 @@ func TestTEMUProductStoreAndSchedulerRetiredManagementImportsStayBlocked(t *test
 
 func TestTEMURuntimeAndBridgeRetiredManagementImportsStayBlocked(t *testing.T) {
 	allowedFiles := map[string]struct{}{
-		filepath.Clean(filepath.Join("..", "internal", "temu", "api", "client", "client.go")):         {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "api", "client", "cookie_manager.go")): {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "api", "client", "manager.go")):        {},
-		filepath.Clean(filepath.Join("..", "internal", "temu", "processor.go")):                       {},
+		filepath.Clean(filepath.Join("..", "internal", "temu", "api", "client", "client.go")): {},
+		filepath.Clean(filepath.Join("..", "internal", "temu", "processor.go")):               {},
 	}
 
 	for _, root := range []string{

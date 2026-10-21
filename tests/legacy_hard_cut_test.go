@@ -59,6 +59,15 @@ func TestSheinWorkerNumericPersistenceClosureStaysRetired(t *testing.T) {
 		_, e := os.Stat(filepath.Join("..", "internal", "sheinlogin", name))
 		require.True(t, os.IsNotExist(e), "retired numeric owner %s", name)
 	}
+	for _, relative := range []string{
+		"internal/temu/api/client/cookie_manager.go",
+		"internal/temu/api/client/auth_pause_handler.go",
+		"internal/temu/api/client/manager.go",
+		"internal/shein/client/login_service_config.go",
+	} {
+		_, e := os.Stat(filepath.Join("..", filepath.FromSlash(relative)))
+		require.True(t, os.IsNotExist(e), "retired numeric wiring %s", relative)
+	}
 }
 
 func TestLegacyPreviewAdapterStaysRetired(t *testing.T) {
