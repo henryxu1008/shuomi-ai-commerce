@@ -207,7 +207,9 @@ required before any provider request; UNKNOWN/refusal/exception stops immediatel
 
 ## Scoped rollout addendum: shared writer capacity (2026-10-21)
 
-Status: DESIGN_REVIEW_PENDING; no production changes for this addendum yet.
+Status: IMPLEMENTATION_READY. Original independent Reviewer admitted design-only
+HEAD 1ac294ad5f921a11c7e56560b61bb5c232a5688c before production edits, no new BLOCKER.
+The implementation tests below remain required before merge/rollout.
 The user expressly approved a bounded connection repair in the original PR.
 Normal maintainer login reproduced image management HTTP 503 while text worked.
 The retained cluster reports `model_route_config_writer` rolconnlimit=2 and two
