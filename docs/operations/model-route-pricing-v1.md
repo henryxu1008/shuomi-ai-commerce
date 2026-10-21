@@ -16,8 +16,8 @@
 
 以下步骤均需单独环境操作授权，不能把文档命令当作执行授权。
 
-1. 原 ProductAgent/Run DB 和 ImageAgent DB、原消费依赖及凭据须已安装。复用原 schema owner；预先准备各库独立的 `model_route_config_writer` LOGIN 角色（有界连接，非 owner/super/DDL，不能读 Key 或改凭据）。不用 HTTP/worker pool 写 current。
-2. 对每个启用库用原 `agent-configuration-schema-init` 的 `--model-route-pricing-only --runtime-role <原读取角色> --model-route-writer-role model_route_config_writer`。DSN 仍从私密 `AGENT_CONFIGURATION_SCHEMA_DSN` 提供。显式安装只增加 revision/current、去密 view 和窄 grants，不写凭据、seed current、导入旧 map 或修改历史。若同库有第二原读取角色，沿同一显式入口授 SELECT；不使用 owner pool 运行服务。
+1. 原 ProductAgent/Run DB 和 ImageAgent DB、原消费依赖及凭据须已安装。复用原 schema owner；预先准备各库独立的 `model_route_config_writer` LOGIN 角色（有界连接，非 owner/super/DDL，不能读 Key 或改凭据），并显式授予目标数据库 `CONNECT` 和 `public` schema 的 `USAGE`。不用 HTTP/worker pool 写 current；安装器的关系授权不代替这两项连接前置。
+2. 对每个启用库用原 `agent-configuration-schema-init` 的 `--model-route-pricing-only --runtime-role <原读取角色> --model-route-writer-role model_route_config_writer`。文本指定原 Run 读取角色；图片必须指定 `image_agent_worker_runtime`，API 报价和执行均复用此 pool，不能给 `image_agent_runtime` 增加无用的配置读取。DSN 仍从私密 `AGENT_CONFIGURATION_SCHEMA_DSN` 提供。显式安装只增加 revision/current、去密 view 和窄 grants，不写凭据、seed current、导入旧 map 或修改历史；不使用 owner pool 运行服务。
 3. 私密 current-application manifest 中按需增加 `modelRoutePricing.textWriter` / `imageWriter`（复用原 DatabaseConfig 形状，host/port/database 必须匹配原执行 owner，user 固定上述窄角色，maxConnections ≤ 2）。省略某个 family 使它保持原批准的未管理运行方式；纳入管理后没有 manifest/member/global-Key fallback。
 4. `modelRoutePricing.bindings` 是私密部署准入描述数组（`routeconfiguration.Definition`），不是当前选择。文本原各用途描述作为基础候选，额外候选必须属于已启用组织/用途，prompt/schema/currency 一致，token/bytes/deadline 不扩大，沿原 adapter/usage 校验。选品/诊断保留原单次半程成本上界，其它文本保留原运行成本上界。图片每个原允许组织须显式给出 `imageagent.generation` 候选，provider/model/endpoint/version 均精确绑定到原 adapter；不能推断 provider。
 5. 文本额外绑定沿原私密 `product-agent-credential-provision -config <private.json> -input <private.json>`，consumer 为 title/content/materials/selection/diagnosis/planning；clientName 必须匹配本用途候选，仍使用 `title_credential_writer`，只写组织行，返回去密 credentialVersion/endpoint digest。先固定可信 endpoint，准备独立新 clientName，取得版本后绑定准入描述；切换不用 upsert 覆盖原任务凭据。图片沿原 Image credential owner 的私密维护方式准备独立组织绑定；管理页不录入 Key。
@@ -28,6 +28,8 @@
 在 managed image 模式，原 `imageAgent.generation.pointsPerImage` 仅作为部署硬预算上界（候选最大点数不得超出），不再选择当前价格；原 `priceVersion` 不进入新 quote/intent。实际 points/price/configurationVersion 全来自已发布 current。两份原 API/worker配置的一致性检查仍保留，不能以改费率为由扩大 hard limits。
 
 数据库 writer 与原 reader 的连接生命周期由现有 currentapplication 管理；启动失败停止开放管理，不自动修表或回落。schema 检查拒绝缺失 scoped PK/唯一键/FK；serving reader 不能写配置表，writer 不能改历史、删 current、读 Key 或写 credential。
+
+图片 worker 的正式权限清单仅可选允许 `public.ai_route_config_revisions`、`public.ai_route_config_current` 两张普通表及 `public.ai_client_credential_bindings` 去密 view 的 `SELECT`。未管理实例不要求安装或授权这三处关系，原 worker grant 入口也不会自动授予；启用管理后，原 `VerifyReader` / `VerifySchema` 仍强制检查完整对象及读取权限。错误关系类型、RLS、runtime 所有权及额外写权限继续拒绝；HTTP Image role 对这三处关系的额外读取也继续拒绝。
 
 ## 任务影响与验证
 
