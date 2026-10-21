@@ -1654,3 +1654,14 @@ it("does not offer recovery of a proved unavailable paid original",async()=>{
  expect(await screen.findByRole("heading",{name:"已扣点，原结果不可用"})).toBeVisible();
  expect(screen.queryByRole("button",{name:"恢复原结果"})).toBeNull();
 });
+
+
+it("restores a paid output whose original recoverable binding exists only in Run.Block",async()=>{
+ state=projection("blocked","44444444-4444-4444-8444-444444444444");
+ Object.assign(state,{approvalAvailable:false,candidateSelectionAvailable:false,regenerationAvailable:false,outputRecoverySummary:{settledPoints:10,slots:[{slotId:"main",attempt:1,points:10,unavailable:false}]},recoverableEffects:null,block:{Code:"slot_provider_outcome_unknown",SlotID:"main"}});
+ Object.assign(state.slots[0]!,{status:"blocked",candidates:[],closure:null,errorCode:"slot_provider_outcome_unknown"});
+ localStorage.setItem(`product-image-set:actor:org:acquisition:${operation}:run`,runId);
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ expect(await screen.findByRole("heading",{name:"已生成，结果待恢复"})).toBeVisible();
+ expect(screen.getByRole("button",{name:"恢复原结果"})).toBeEnabled();
+});

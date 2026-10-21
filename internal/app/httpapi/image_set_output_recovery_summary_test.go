@@ -127,3 +127,17 @@ func TestPaidOriginalOutputSummaryKeepsUnknownSiblingsAndClosedPointsSeparate(t 
 	require.NoError(t, err)
 	require.Nil(t, summary)
 }
+
+func TestPaidOriginalOutputSummaryAcceptsOriginalBlockFallback(t *testing.T) {
+	p, fact := paidImageOutputFixture(t)
+	p.RecoverableEffects = nil
+	p.Run.Block.SlotID = "main"
+	a := &fullImageApplication{generationFacts: imageReleaseFactReader(func(context.Context, imageagent.SlotExternalEffectIdentity) (imageagent.GenerationFact, error) {
+		return fact, nil
+	})}
+	summary, err := a.outputRecoverySummary(context.Background(), p)
+	require.NoError(t, err)
+	require.NotNil(t, summary)
+	require.EqualValues(t, 1, summary.SettledPoints)
+	require.Nil(t, p.RecoverableEffects, "a read must not rewrite the historical snapshot")
+}
