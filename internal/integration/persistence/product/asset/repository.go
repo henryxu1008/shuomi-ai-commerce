@@ -154,8 +154,10 @@ func (r *repository) commitApproval(ctx context.Context, commit productasset.App
 
 func loadExistingReceipt(tx *gorm.DB, commit productasset.ApprovalCommit, payloadHash string, receipt *productasset.ApprovalReceipt) error {
 	var existing ApprovalReceiptRecord
-	err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
-		Where("tenant_id = ? AND action_id = ?", commit.TenantID, commit.ActionID).
+	// INSERT ON CONFLICT above already waits for the original transaction.
+	// Receipts are immutable; locking this read would require UPDATE authority
+	// that the source runtime must never have on these durable facts.
+	err := tx.Where("tenant_id = ? AND action_id = ?", commit.TenantID, commit.ActionID).
 		Take(&existing).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

@@ -1,0 +1,31 @@
+/* Approved #859 / Figma 8130:2280 tokens, scoped to the new panel. */
+.panel {
+  --card: var(--sumi-bg-surface, #0e1430);
+  --card-foreground: var(--sumi-text-primary, #f6f7ff);
+  --foreground: var(--sumi-text-primary, #f6f7ff);
+  --muted: var(--sumi-bg-panel, #121936);
+  --muted-foreground: var(--sumi-text-secondary, #a9b2cf);
+  --border: var(--sumi-border-soft, #27315c);
+  --input: var(--sumi-border-soft, #27315c);
+  --background: var(--sumi-bg-panel, #121936);
+  --primary: var(--sumi-accent-blue, #5d7cff);
+  --primary-foreground: var(--sumi-text-primary, #f6f7ff);
+  --success-foreground: var(--sumi-success, #52d6a0);
+  --ring: var(--sumi-accent-blue, #5d7cff);
+}
+
+/* The current Console light theme remains available under the same contract. */
+:global(.light) .panel {
+  --card: #fff;
+  --card-foreground: #142239;
+  --foreground: #142239;
+  --muted: #eef4fa;
+  --muted-foreground: #526984;
+  --border: #d4e1f0;
+  --input: #bccfe4;
+  --background: #f4f7fc;
+  --primary: #087f78;
+  --primary-foreground: #fff;
+  --success-foreground: #17684a;
+  --ring: #087f78;
+}
