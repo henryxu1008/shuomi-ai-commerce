@@ -8,11 +8,13 @@ import (
 	"task-processor/internal/integration/httpimage"
 	"task-processor/internal/pkg/imagex"
 	productimage "task-processor/internal/product/image"
+
+	"github.com/sirupsen/logrus"
 )
 
 // No credential resolver, current price, provider client or source fetch is
 // reachable from this GET-only recovery closure.
-func generationOutputRecovery(fetch func(context.Context, string) ([]byte, error)) imageagent.GenerationOutputRecovery {
+func generationOutputRecovery(fetch func(context.Context, string) ([]byte, error), logger *logrus.Logger) imageagent.GenerationOutputRecovery {
 	if fetch == nil {
 		fetch = func(ctx context.Context, raw string) ([]byte, error) {
 			return httpimage.Download(ctx, httpimage.NewPublicImageHTTPClient(), raw, productimage.MaxInlineArtifactBytes)
@@ -84,7 +86,10 @@ func generationOutputRecovery(fetch func(context.Context, string) ([]byte, error
 		if err != nil {
 			return imageagent.SlotGeneratedOutput{}, imageagent.ErrInvalidGeneratedOutput
 		}
-		if (input.ImageSet != nil || input.Artwork != nil) && (width != 1024 || height != 1024) {
+		if (input.ImageSet != nil || input.Artwork != nil || fact.Intent.Provider == "grsai" && fact.Intent.Model == "gpt-image-2-vip") && (width != 1024 || height != 1024) {
+			if logger != nil {
+				imageDimensionsDiagnostic(logrus.NewEntry(logger), fact.Intent.Provider, fact.Intent.Model)(1024, 1024, width, height)
+			}
 			return imageagent.SlotGeneratedOutput{}, imageagent.ErrInvalidGeneratedOutput
 		}
 		info, err := imagex.Inspect(data)
@@ -92,5 +97,16 @@ func generationOutputRecovery(fetch func(context.Context, string) ([]byte, error
 			return imageagent.SlotGeneratedOutput{}, imageagent.ErrInvalidGeneratedOutput
 		}
 		return imageagent.SlotGeneratedOutput{SlotID: input.Slot.ID, Attempt: input.Attempt, SourceAssetID: sourceID, Assets: []imageagent.GeneratedAsset{{Bytes: append([]byte(nil), data...), ContentType: contentType, Width: width, Height: height, SourceURL: sourceURL, Operations: []string{operation}, ProviderReceiptID: fact.Success.RequestID, Artwork: artwork}}}, nil
+	}
+}
+
+// Only immutable route identity and measured dimensions reach the log. Neither
+// prompts nor provider result URLs belong in a dimension diagnostic.
+func imageDimensionsDiagnostic(logger *logrus.Entry, provider, model string) func(int, int, int, int) {
+	if logger == nil {
+		return nil
+	}
+	return func(expectedWidth, expectedHeight, actualWidth, actualHeight int) {
+		logger.WithFields(logrus.Fields{"provider": provider, "model": model, "expected_width": expectedWidth, "expected_height": expectedHeight, "actual_width": actualWidth, "actual_height": actualHeight}).Warn("Generated image output dimensions mismatch")
 	}
 }

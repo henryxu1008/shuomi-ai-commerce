@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"image"
 	"image/color"
 	"image/png"
@@ -177,6 +178,39 @@ func TestProductImageSourceWhiteBackgroundIsOneEditAndRejectsBadOutput(t *testin
 			require.Equal(t, []string{productimage.SourceWhiteBackgroundOperation}, result.Asset.Operations)
 			require.Equal(t, source.SourceAssetID, result.Asset.SourceAssetID)
 			require.Contains(t, images.lastEdit.Prompt, "preserve shape, proportions, colors, materials, patterns, text and accessory count")
+		})
+	}
+}
+
+func TestVIPSourceWhiteBackgroundRequiresOriginal1024WithoutTransformation(t *testing.T) {
+	for _, size := range []int{1024, 1254} {
+		t.Run(fmt.Sprint(size), func(t *testing.T) {
+			content := productImagePNG(t, size, size)
+			images := &productImageGeneratorStub{response: &ai.ImageResponse{Data: []ai.ImageData{{B64JSON: base64.StdEncoding.EncodeToString(content)}}}}
+			cfg := validProductImageAdapterConfig(images, &productImageChatStub{})
+			cfg.Provider, cfg.ImageModel = "grsai", "gpt-image-2-vip"
+			diagnostics := 0
+			cfg.DiagnoseOutputDimensions = func(ew, eh, aw, ah int) {
+				diagnostics++
+				require.Equal(t, []int{1024, 1024, size, size}, []int{ew, eh, aw, ah})
+			}
+			adapter, err := NewProductImageAdapter(cfg)
+			require.NoError(t, err)
+			sourceBytes := productImagePNG(t, 2, 2)
+			result, err := adapter.RenderWhiteBackground(context.Background(), productimage.RenderRequest{Source: productImageSource("source-1", "https://source.example/item.png"), SourceOnly: true, SourceBytes: sourceBytes, Product: productImageContext()})
+			require.Equal(t, 1, images.editCalls)
+			require.Equal(t, sourceBytes, images.lastEdit.Image)
+			require.Equal(t, "1024x1024", images.lastEdit.Size)
+			require.Equal(t, "medium", images.lastEdit.Quality)
+			if size == 1024 {
+				require.NoError(t, err)
+				require.Equal(t, content, result.Asset.Bytes)
+				require.Zero(t, diagnostics)
+			} else {
+				require.ErrorIs(t, err, productimage.ErrOutputValidation)
+				require.Empty(t, result.Asset.Bytes)
+				require.Equal(t, 1, diagnostics)
+			}
 		})
 	}
 }

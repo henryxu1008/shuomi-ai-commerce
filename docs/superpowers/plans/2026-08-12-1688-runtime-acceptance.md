@@ -1,5 +1,7 @@
 # 1688 Runtime Acceptance Implementation Plan
 
+> #852 / #29 / #301 [user-confirmed API token-tool retirement](../../architecture/legacy-api-token-tools-retirement-boundary.md), frozen design `e6ac780d7`: this is a historical implementation plan. The obsolete runtime-acceptance script and API token-file/environment recipe below are not current execution or trial requirements; do not restore retired endpoints or scripts from these steps. Current acquisition, Auth.js handoff, native Login V2 probe, Store and standalone SHEIN login/sync keep their existing owners. All original modes, safety constraints, evidence and body remain unchanged; no credential/runtime/data operation or new trial prerequisite.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Add a safe PowerShell operator tool that runs read-only 1688 runtime preflight by default and can explicitly execute a crawler-only or crawler-to-ListingKit acceptance flow.

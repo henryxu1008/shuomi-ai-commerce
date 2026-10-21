@@ -34,6 +34,16 @@ var organizationWorkerRuntimeTables = []struct{ name, privileges string }{
 	{"product_approved_inventory_version_heads", "SELECT,INSERT,UPDATE"},
 }
 
+// Managed image routes reuse this worker pool, including API quotes. These
+// reads are optional for unmanaged installations and are granted only by the
+// explicit route-config installer. Enabled managed startup also verifies its
+// complete schema and reader grants through routeconfigstore.VerifyReader.
+var organizationWorkerRuntimeOptionalReads = []struct{ name, kind string }{
+	{"ai_route_config_revisions", "r"},
+	{"ai_route_config_current", "r"},
+	{"ai_client_credential_bindings", "v"},
+}
+
 // GrantOrganizationWorkerRuntimePermissions is explicit owner maintenance.
 // It never creates a role or runs during ordinary worker startup.
 func GrantOrganizationWorkerRuntimePermissions(ctx context.Context, db *gorm.DB) error {
@@ -105,7 +115,20 @@ func organizationWorkerRuntimePermissionQuery() string {
 			values = append(values, "('"+table.name+"','"+privilege+"')")
 		}
 	}
-	return `WITH admitted(table_name,privilege) AS (VALUES ` + strings.Join(values, ",") + `)
+	var optional []string
+	for _, relation := range organizationWorkerRuntimeOptionalReads {
+		optional = append(optional, "('"+relation.name+"','"+relation.kind+"')")
+	}
+	return `WITH required(table_name,privilege) AS (VALUES ` + strings.Join(values, ",") + `),
+ optional_reads(table_name,kind) AS (VALUES ` + strings.Join(optional, ",") + `),
+ admitted(table_name,privilege) AS (
+   SELECT table_name,privilege FROM required
+   UNION ALL
+   SELECT o.table_name,'SELECT' FROM optional_reads o
+   JOIN pg_class c ON c.relname=o.table_name AND c.relkind::text=o.kind
+   JOIN pg_namespace n ON n.oid=c.relnamespace AND n.nspname='public'
+   WHERE NOT c.relrowsecurity AND NOT c.relforcerowsecurity
+   AND c.relowner<>(SELECT oid FROM pg_roles WHERE rolname=current_user))
  SELECT current_user::text,
  session_user=current_user
  AND current_schemas(false)=ARRAY['public']::name[]
@@ -114,8 +137,8 @@ func organizationWorkerRuntimePermissionQuery() string {
  AND has_schema_privilege(current_user,'public','USAGE')
  AND EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND rolcanlogin
    AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls)
- AND NOT EXISTS(SELECT 1 FROM admitted WHERE NOT coalesce(has_table_privilege(current_user,format('public.%I',table_name),privilege),false))
- AND NOT EXISTS(SELECT 1 FROM admitted WHERE to_regclass(format('public.%I',table_name)) IS NULL),
+ AND NOT EXISTS(SELECT 1 FROM required WHERE NOT coalesce(has_table_privilege(current_user,format('public.%I',table_name),privilege),false))
+ AND NOT EXISTS(SELECT 1 FROM required WHERE to_regclass(format('public.%I',table_name)) IS NULL),
  has_database_privilege(current_user,current_database(),'CREATE')
  OR EXISTS(SELECT 1 FROM pg_auth_members WHERE member=(SELECT oid FROM pg_roles WHERE rolname=current_user))
  OR EXISTS(SELECT 1 FROM pg_namespace n WHERE n.nspname NOT LIKE 'pg_%' AND n.nspname<>'information_schema'
@@ -128,7 +151,7 @@ func organizationWorkerRuntimePermissionQuery() string {
      ELSE has_table_privilege(current_user,c.oid,p.privilege) END
    AND NOT EXISTS(SELECT 1 FROM admitted a WHERE n.nspname='public' AND a.table_name=c.relname AND a.privilege=p.privilege))
  OR EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
-   WHERE n.nspname='public' AND c.relname IN (SELECT table_name FROM admitted)
+   WHERE n.nspname='public' AND c.relname IN (SELECT table_name FROM required)
    AND (c.relkind<>'r' OR c.relrowsecurity OR c.relforcerowsecurity OR c.relowner=(SELECT oid FROM pg_roles WHERE rolname=current_user)))
  OR EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
    WHERE c.relkind='S' AND n.nspname NOT LIKE 'pg_%' AND n.nspname<>'information_schema'

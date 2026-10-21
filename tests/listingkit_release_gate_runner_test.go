@@ -46,9 +46,7 @@ func TestListingKitReleaseGateRunnersArePreinstalledAndZeroReplica(t *testing.T)
 	}
 
 	want := map[string]string{
-		"product-listing-api-schema-migrate-runner": "/app/product-listing-api-schema-migrate",
-		"listingkit-schema-migrate-runner":          "/app/listingkit-schema-migrate",
-		"image-agent-temporal-v3-canary-runner":     "/app/image-agent-temporal-worker",
+		"image-agent-temporal-v3-canary-runner": "/app/image-agent-temporal-worker",
 	}
 	seen := map[string]bool{}
 	decoder := yaml.NewDecoder(bytes.NewReader(content))
@@ -83,7 +81,7 @@ func TestListingKitReleaseGateRunnersArePreinstalledAndZeroReplica(t *testing.T)
 }
 
 const (
-	releaseGateTestDeployment = "listingkit-schema-migrate-runner"
+	releaseGateTestDeployment = "image-agent-temporal-v3-canary-runner"
 	releaseGateTestImage      = "docker.io/example/api@sha256:" + "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	releaseGateHoldImage      = "registry.k8s.io/pause@sha256:ee6521f290b2168b6e0935a181d4cff9be1ac3f505666ef0e3c98fae8199917a"
 )
@@ -120,8 +118,8 @@ func TestListingKitReleaseGateRunnerBindsReadinessToCurrentInvocation(t *testing
 	if firstErr != nil {
 		t.Fatalf("first current-rollout invocation failed: %v\n%s", firstErr, firstOutput)
 	}
-	firstInvocation := "listingkit-release-gate-v1:listingkit-schema-migrate-runner:424242:1"
-	secondInvocation := "listingkit-release-gate-v1:listingkit-schema-migrate-runner:424242:2"
+	firstInvocation := "listingkit-release-gate-v1:image-agent-temporal-v3-canary-runner:424242:1"
+	secondInvocation := "listingkit-release-gate-v1:image-agent-temporal-v3-canary-runner:424242:2"
 	firstGeneration := releaseGateLatestAvailableGeneration(t, shared)
 
 	blockedOutput, blockedLog, blockedErr := runReleaseGateScenario(t, releaseGateScenario{
@@ -163,30 +161,6 @@ func TestListingKitReleaseGateRunnerBindsReadinessToCurrentInvocation(t *testing
 		}
 		if !strings.Contains(check.log, `"listingkit.sh/release-gate-invocation":"`+check.invocation+`"`) {
 			t.Errorf("%s invocation must patch the trusted Pod-template annotation %q:\n%s", check.name, check.invocation, check.log)
-		}
-	}
-}
-
-func TestListingKitReleaseGateRoleForbidsPodPermissions(t *testing.T) {
-	t.Parallel()
-
-	content, err := os.ReadFile(filepath.Join("..", "deployments", "kubernetes", "listingkit-workbench", "release-authority", "listingkit-api-release-role.yaml"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var role struct {
-		Rules []struct {
-			Resources []string `yaml:"resources"`
-		} `yaml:"rules"`
-	}
-	if err := yaml.Unmarshal(content, &role); err != nil {
-		t.Fatalf("parse API release Role: %v", err)
-	}
-	for _, rule := range role.Rules {
-		for _, resource := range rule.Resources {
-			if resource == "pods" || resource == "pods/status" {
-				t.Fatalf("API release Role must not grant Pod permissions: %#v", rule.Resources)
-			}
 		}
 	}
 }
@@ -289,7 +263,7 @@ func TestListingKitReleaseGateRunnerRejectsResourceDrift(t *testing.T) {
 
 func TestListingKitReleaseGateRunnerRejectsInvocationAnnotationDrift(t *testing.T) {
 	t.Parallel()
-	output, logText, err := runReleaseGateScenario(t, releaseGateScenario{invocationDrift: "listingkit-release-gate-v1:listingkit-schema-migrate-runner:424242:999"})
+	output, logText, err := runReleaseGateScenario(t, releaseGateScenario{invocationDrift: "listingkit-release-gate-v1:image-agent-temporal-v3-canary-runner:424242:999"})
 	if err == nil || !strings.Contains(output, "live release-gate runner contract differs from reviewed manifest") {
 		t.Fatalf("invocation annotation drift must fail canonical comparison, err=%v output=%s", err, output)
 	}
@@ -317,8 +291,9 @@ func TestListingKitReleaseGateRunnerRejectsCredentialScopeDrift(t *testing.T) {
 	t.Parallel()
 	assertReleaseGateContractRejected(t, func(deployment map[string]any) {
 		env := runnerInitContainer(deployment)["env"].([]any)
-		valueFrom := env[0].(map[string]any)["valueFrom"].(map[string]any)
-		valueFrom["secretKeyRef"].(map[string]any)["name"] = "unreviewed-secret"
+		env[0].(map[string]any)["valueFrom"] = map[string]any{
+			"secretKeyRef": map[string]any{"name": "unreviewed-secret", "key": "unreviewed-key"},
+		}
 	})
 }
 

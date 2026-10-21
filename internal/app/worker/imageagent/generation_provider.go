@@ -48,7 +48,7 @@ func (f generationProviderFactory) prepare(ctx context.Context, observe func(con
 		return imageagent.PreparedGenerationProvider{}, err
 	}
 	build := func(bound ai.RouteBoundImageGenerator) (*openai.ProductImageAdapter, error) {
-		return openai.NewProductImageAdapter(openai.ProductImageAdapterConfig{ImageClient: bound, Provider: metadata.Provider, ImageModel: cfg.Model, RouteReference: metadata.RouteReference, CredentialReference: metadata.CredentialReference, ConfigurationVersion: metadata.ConfigurationVersion, Prompts: openai.DefaultProductImagePrompts(), PricingVersion: metadata.PriceVersion, MaximumSceneOutputs: 1, GeneratedImageFetcher: f.generatedFetcher})
+		return openai.NewProductImageAdapter(openai.ProductImageAdapterConfig{ImageClient: bound, Provider: metadata.Provider, ImageModel: cfg.Model, RouteReference: metadata.RouteReference, CredentialReference: metadata.CredentialReference, ConfigurationVersion: metadata.ConfigurationVersion, Prompts: openai.DefaultProductImagePrompts(), PricingVersion: metadata.PriceVersion, MaximumSceneOutputs: 1, GeneratedImageFetcher: f.generatedFetcher, DiagnoseOutputDimensions: imageDimensionsDiagnostic(f.logger, metadata.Provider, cfg.Model)})
 	}
 	var provider synchronousImageProvider
 	var generate func(context.Context, *ai.ImageGenerateRequest) (*ai.ImageResponse, error)
@@ -99,7 +99,7 @@ func (f generationProviderFactory) prepare(ctx context.Context, observe func(con
 		return imageagent.PreparedGenerationProvider{}, err
 	}
 	executor := tools.NewProductImageSlotExecutor(tools.Dependencies{SourceEditor: editor, WhiteBackgroundRenderer: white, UsageQuoter: provider, ProfileResolver: f.profile})
-	return imageagent.PreparedGenerationProvider{Metadata: metadata, Executor: scopedGenerationExecutor{product: executor, artwork: tools.NewArtworkSlotExecutor(artworkCreator{generate: generate, model: cfg.Model, fetch: f.generatedFetcher})}, Rejection: func(err error) (imageagent.GenerationRejection, bool) {
+	return imageagent.PreparedGenerationProvider{Metadata: metadata, Executor: scopedGenerationExecutor{product: executor, artwork: tools.NewArtworkSlotExecutor(artworkCreator{generate: generate, model: cfg.Model, quality: imageagent.GenerationRouteQuality(metadata.Provider, metadata.Model, metadata.Protocol), fetch: f.generatedFetcher})}, Rejection: func(err error) (imageagent.GenerationRejection, bool) {
 		var quota *bailian.QuotaRejection
 		if metadata.Provider == "bailian" && errors.As(err, &quota) {
 			return imageagent.GenerationRejection{Kind: "bailian_free_tier", Digest: quota.ResponseDigest, RequestID: quota.RequestID, HTTPStatus: 403, ProviderCode: "AllocationQuota.FreeTierOnly"}, true
@@ -171,7 +171,7 @@ func (f generationProviderFactory) resolve(ctx context.Context) (*openai.ClientC
 			return invalid()
 		}
 		provider, protocol, route = "bailian", bailian.Protocol, "bailian-sync:"+generationConfigDigest(endpoint)
-	case cfg.APIStyle == "grsai" && cfg.Model == "gpt-image-2.5":
+	case cfg.APIStyle == "grsai" && (cfg.Model == "gpt-image-2.5" || cfg.Model == "gpt-image-2-vip"):
 		switch strings.TrimSuffix(u.Path, "/") {
 		case "", "/v1", "/v1/api/generate":
 		default:

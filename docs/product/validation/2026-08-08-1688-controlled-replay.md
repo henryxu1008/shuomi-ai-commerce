@@ -1,5 +1,7 @@
 # 1688 Controlled Replay Validation — 2026-08-08
 
+> #852 / #29 / #301 [user-confirmed API token-tool retirement](../../architecture/legacy-api-token-tools-retirement-boundary.md), frozen design `e6ac780d7`: the later Runtime acceptance tool section is historical; its maintained-operator-tool claim, obsolete script and API token-file/environment recipe are superseded for current execution and trial requirements. The original replay results, limitations, modes, safety statements and body remain unchanged; they do not establish current live acceptance. Current acquisition, Auth.js handoff, Login V2, Store and standalone SHEIN login/sync retain their owners. No rerun, credentials/runtime/data operation or new trial prerequisite.
+
 ## Baseline
 
 - Repository: `task-processor`

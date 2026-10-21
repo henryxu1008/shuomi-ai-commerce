@@ -14,6 +14,117 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+func TestLegacyKubernetesReleaseExecutionClosureIsRetired(t *testing.T) {
+	for _, relative := range []string{
+		"deployments/kubernetes/listingkit-workbench/base/product-listing-api-deployment.yaml",
+		"deployments/kubernetes/listingkit-workbench/base/product-listing-api-service.yaml",
+		"deployments/kubernetes/listingkit-workbench/jobs/listingkit-schema-migrate-job.yaml",
+		"deployments/kubernetes/listingkit-workbench/jobs/product-listing-api-schema-migrate-job.yaml",
+		"deployments/kubernetes/listingkit-workbench/jobs/pod-image-index-backfill-job.yaml",
+		"scripts/listingkit-schema-migrate-job.sh",
+		"scripts/tests/listingkit-schema-migrate-job-test.sh",
+		"scripts/listingkit-image-agent-v2-drain-check.sh",
+		"scripts/verify-listingkit-api-release-attestation.sh",
+		"tests/listingkit_v2_drain_script_test.go",
+		"policy/listingkit-release-authority/fixtures/negative/release-identity-owner-drift.yaml",
+		"scripts/validate-listingkit-invitation-secret.sh",
+		"tests/listingkit_invitation_secret_preflight_test.go",
+		"deployments/kubernetes/listingkit-workbench/base/member-invitation-secret.example.yaml",
+		"deployments/kubernetes/listingkit-workbench/base/tencent-sms-secret.example.yaml",
+		"deployments/kubernetes/listingkit-workbench/release-authority/listingkit-api-release-role.yaml",
+		"deployments/kubernetes/listingkit-workbench/release-authority/listingkit-api-release-rolebinding.yaml",
+		"deployments/kubernetes/listingkit-workbench/release-authority/listingkit-ui-release-role.yaml",
+		"deployments/kubernetes/listingkit-workbench/release-authority/listingkit-ui-release-rolebinding.yaml",
+		"deployments/kubernetes/listingkit-workbench/release-authority/kubernetes-authentication-config.example.yaml",
+		"scripts/listingkit-configure-github-oidc-kubeconfig.sh",
+		"scripts/listingkit-refresh-github-oidc-kubeconfig.sh",
+		"scripts/tests/listingkit-github-oidc-refresh-test.sh",
+		"policy/listingkit-release-authority/fixtures/negative/excess-rbac-verbs.yaml",
+		"policy/listingkit-release-authority/fixtures/negative/excess-rbac-resources.yaml",
+		"policy/listingkit-release-authority/fixtures/negative/excess-rbac-resource-names.yaml",
+		"policy/listingkit-release-authority/fixtures/negative/shared-environment.yaml",
+		"policy/listingkit-release-authority/fixtures/negative/shared-subject.yaml",
+		"policy/listingkit-release-authority/fixtures/negative/missing-id-token.yaml",
+		"policy/listingkit-release-authority/fixtures/negative/wrong-audience.yaml",
+		"policy/listingkit-release-authority/fixtures/negative/workflow-job-owner-drift.yaml",
+		"policy/listingkit-release-authority/fixtures/negative/workflow-step-owner-drift.yaml",
+		"policy/listingkit-release-authority/fixtures/negative/with-target-bypass.yaml",
+		"policy/listingkit-release-authority/fixtures/negative/workflow-ref-feature-branch.yaml",
+		"policy/listingkit-release-authority/fixtures/negative/workflow-ref-tag.yaml",
+		"policy/listingkit-release-authority/fixtures/negative/workflow-ref-path-prefix-lookalike.yaml",
+		"policy/listingkit-release-authority/fixtures/negative/workflow-ref-missing.yaml",
+		"policy/listingkit-release-authority/fixtures/negative/trusted-workflow-ref-policy-drift.yaml",
+	} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Errorf("retired Kubernetes release artifact %s must be absent: %v", relative, err)
+		}
+	}
+	// Scan the complete governed source directory: an unregistered or nested
+	// manifest must not evade the explicit Conftest input bundle.
+	authorityRoot := filepath.Join("..", "deployments", "kubernetes", "listingkit-workbench", "release-authority")
+	retainedYAML := map[string]bool{
+		"kustomization.yaml":                   true,
+		"release-policy.yaml":                  true,
+		"listingkit-release-gate-runners.yaml": true,
+	}
+	if err := filepath.WalkDir(authorityRoot, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		ext := strings.ToLower(filepath.Ext(path))
+		if entry.IsDir() || (ext != ".yaml" && ext != ".yml") {
+			return nil
+		}
+		relative, err := filepath.Rel(authorityRoot, path)
+		if err != nil {
+			return err
+		}
+		if !retainedYAML[relative] {
+			t.Errorf("unexpected release-authority YAML source %s; only the three retained inputs are allowed", relative)
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("scan governed release-authority inventory: %v", err)
+	}
+
+	for relative, retired := range map[string][]string{
+		"deployments/kubernetes/listingkit-workbench/release-authority/kustomization.yaml": {"listingkit-api-release-role.yaml", "listingkit-api-release-rolebinding.yaml", "listingkit-ui-release-role.yaml", "listingkit-ui-release-rolebinding.yaml", "kubernetes-authentication-config.example.yaml", "listingkit-configure-github-oidc-kubeconfig.sh", "listingkit-refresh-github-oidc-kubeconfig.sh"},
+		"scripts/verify-listingkit-release-authority-policy.sh":                            {"listingkit-api-release-role.yaml", "listingkit-api-release-rolebinding.yaml", "listingkit-ui-release-role.yaml", "listingkit-ui-release-rolebinding.yaml", "kubernetes-authentication-config.example.yaml", "listingkit-configure-github-oidc-kubeconfig.sh", "listingkit-refresh-github-oidc-kubeconfig.sh"},
+		"deployments/kubernetes/listingkit-workbench/base/kustomization.yaml":              {"product-listing-api-deployment.yaml", "product-listing-api-service.yaml"},
+		"deployments/kubernetes/listingkit-workbench/base/configmap.yaml":                  {"http://product-listing-api:8085"},
+		"deployments/kubernetes/listingkit-workbench/base/ingress.yaml":                    {"product-listing-api", "/api/v1/listing-kits/integrations/zitadel/sms"},
+		"deployments/kubernetes/listingkit-workbench/overlays/prod/patch-ingress.yaml":     {"product-listing-api", "/api/v1/listing-kits/integrations/zitadel/sms"},
+		"deployments/kubernetes/listingkit-workbench/base/secret.example.yaml":             {"listingkit-member-invitation-secret", "release-scoped identity preflight"},
+	} {
+		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, value := range retired {
+			if strings.Contains(string(content), value) {
+				t.Errorf("%s retains retired wiring %q", relative, value)
+			}
+		}
+	}
+	content, err := os.ReadFile(filepath.Join("..", "deployments", "kubernetes", "listingkit-workbench", "release-authority", "release-policy.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var bundle map[string]any
+	if err := yaml.Unmarshal(content, &bundle); err != nil {
+		t.Fatal(err)
+	}
+	authority, ok := bundle["releaseAuthority"].(map[string]any)
+	if !ok {
+		t.Fatal("release bundle must contain its machine policy object")
+	}
+	for _, key := range []string{"producerRouting", "releaseAttestation", "releaseIdentity", "oidc", "rbac", "protectedResources"} {
+		if _, exists := authority[key]; exists {
+			t.Errorf("retired producer policy %s remains", key)
+		}
+	}
+}
+
 func TestRetiredListingOperationsClosure(t *testing.T) {
 	for _, relative := range []string{
 		"tools/listingkit-pricing-cache-inspector/main.go",
@@ -2235,7 +2346,6 @@ func TestLegacyReleaseIdentityPreflightIsRetired(t *testing.T) {
 	for _, relative := range []string{
 		"deployments/docker/Dockerfile.product-listing-api",
 		"deployments/kubernetes/listingkit-workbench/release-authority/release-policy.yaml",
-		"deployments/kubernetes/listingkit-workbench/release-authority/listingkit-api-release-role.yaml",
 		"deployments/kubernetes/listingkit-workbench/release-authority/listingkit-release-gate-runners.yaml",
 	} {
 		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
@@ -2287,6 +2397,9 @@ func TestRetiredLocalLaunchersRejectBeforeOperations(t *testing.T) {
 		"scripts/image-agent-local-acceptance.Tests.ps1",
 		"scripts/tests/image-agent-local-acceptance-script-test.ps1",
 		"deployments/docker/image-agent-acceptance/docker-compose.yml",
+		"scripts/listingkit-fetch-machine-token.ps1",
+		"scripts/listingkit-save-token.ps1",
+		"scripts/listingkit-auth-check.ps1",
 	} {
 		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
 			t.Errorf("retired local launch/acceptance source must be absent: %s (stat: %v)", relative, err)

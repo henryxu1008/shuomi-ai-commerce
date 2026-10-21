@@ -45,15 +45,6 @@ func TestListingKitRetiredReleaseEntrypointsHaveOnlyFixedFailure(t *testing.T) {
 	}
 }
 
-// TestListingKitProductionReleaseAuthorityRejectsCallerChosenProductionInputs
-// catches a release workflow that can be redirected to a tag, arbitrary commit,
-// or caller-provided image.  Those values are not provenance; only the exact
-// main workflow commit or a previously verified release attestation is.
-
-// TestListingKitProductionReleaseAuthorityUsesFreshOIDCAndImmutableActions
-// catches the expired-token pattern: a single OIDC credential is reused across
-// multiple 900-second gates or a mutable third-party action can change code.
-
 // TestListingKitUIReleaseHasAnExclusiveAuthorizationConfigMap catches a UI
 // principal that can rewrite API/worker runtime configuration or shares a
 // ConfigMap with a different release owner.
@@ -75,13 +66,6 @@ func TestListingKitUIReleaseHasAnExclusiveAuthorizationConfigMap(t *testing.T) {
 	}
 	if strings.Contains(string(sharedConfig), "ZITADEL_SCOPES") || !strings.Contains(string(uiConfig), "ZITADEL_SCOPES") {
 		t.Fatal("ZITADEL_SCOPES must exist only in the UI-owned ConfigMap")
-	}
-	role, err := os.ReadFile(filepath.Join("..", "deployments", "kubernetes", "listingkit-workbench", "release-authority", "listingkit-ui-release-role.yaml"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if strings.Contains(string(role), "listingkit-workbench-config") || !strings.Contains(string(role), "listingkit-ui-auth-config") {
-		t.Fatal("UI release Role must mutate only listingkit-ui-auth-config")
 	}
 }
 

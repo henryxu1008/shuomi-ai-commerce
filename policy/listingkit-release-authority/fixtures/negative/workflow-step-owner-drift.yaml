@@ -1,2 +1,0 @@
-identity: {allowedSteps: [Configure release]}
-workflow: {steps: [Configure release, Direct production fallback]}

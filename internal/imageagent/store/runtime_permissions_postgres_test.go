@@ -19,10 +19,13 @@ import (
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/imageagent"
+	"task-processor/internal/integration/openai"
 	assetpersistence "task-processor/internal/integration/persistence/product/asset"
+	routeconfigstore "task-processor/internal/integration/persistence/routeconfig"
 )
 
-func TestOrganizationImageRuntimeRoleHasOnlyCurrentAPIGrants(t *testing.T) {
+func imageRuntimePermissionTestDSN(t *testing.T) string {
+	t.Helper()
 	dsn := os.Getenv("ISSUE487_TEST_DSN")
 	if dsn == "" {
 		if os.Getenv("CI") == "" {
@@ -41,6 +44,11 @@ func TestOrganizationImageRuntimeRoleHasOnlyCurrentAPIGrants(t *testing.T) {
 	}
 	require.Contains(t, dsn, "host=127.0.0.1")
 	require.Contains(t, dsn, "user=issue487_owner")
+	return dsn
+}
+
+func TestOrganizationImageRuntimeRoleHasOnlyCurrentAPIGrants(t *testing.T) {
+	dsn := imageRuntimePermissionTestDSN(t)
 	ctx := context.Background()
 	root, err := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	require.NoError(t, err)
@@ -75,6 +83,16 @@ func TestOrganizationImageRuntimeRoleHasOnlyCurrentAPIGrants(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, pool.Close()) })
 	require.NoError(t, verifyOrganizationRuntimePermissions(ctx, runtimeDB, role))
 	require.Error(t, verifyOrganizationRuntimePermissions(ctx, owner, role))
+	require.NoError(t, owner.AutoMigrate(&openai.AIClientCredential{}))
+	require.NoError(t, routeconfigstore.InstallSchema(ctx, owner))
+	for _, relation := range []string{"ai_route_config_revisions", "ai_route_config_current", "ai_client_credential_bindings"} {
+		t.Run("unneeded_managed_read_"+relation, func(t *testing.T) {
+			require.NoError(t, owner.Exec("GRANT SELECT ON "+relation+" TO "+role).Error)
+			require.Error(t, verifyOrganizationRuntimePermissions(ctx, runtimeDB, role), "only the worker pool reads managed image routes")
+			require.NoError(t, owner.Exec("REVOKE SELECT ON "+relation+" FROM "+role).Error)
+			require.NoError(t, verifyOrganizationRuntimePermissions(ctx, runtimeDB, role))
+		})
+	}
 	run := manualRun("392ed0a2-0f01-4c94-9aa4-eb50271fae9c", "org-runtime")
 	run.ScopeProtocol = imageagent.OrganizationScopeProtocol
 	run.MemberID = "member-runtime"

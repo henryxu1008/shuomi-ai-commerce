@@ -22,11 +22,6 @@ run_conftest test --combine \
   --namespace listingkit_release_authority \
   --policy "$policy_dir" \
   "$authority_dir/release-policy.yaml" \
-  "$authority_dir/kubernetes-authentication-config.example.yaml" \
-  "$authority_dir/listingkit-api-release-role.yaml" \
-  "$authority_dir/listingkit-api-release-rolebinding.yaml" \
-  "$authority_dir/listingkit-ui-release-role.yaml" \
-  "$authority_dir/listingkit-ui-release-rolebinding.yaml" \
   "$authority_dir/kustomization.yaml" \
   "$authority_dir/listingkit-release-gate-runners.yaml" \
   deployments/kubernetes/listingkit-workbench/base/configmap.yaml \

@@ -158,48 +158,6 @@ func assertImageAgentDeployment(t *testing.T, manifest imageAgentWorkloadManifes
 	}
 }
 
-func TestListingKitSchemaMigrationJobDeadlineMatchesDriverWait(t *testing.T) {
-	manifestPath := filepath.Join("..", "deployments", "kubernetes", "listingkit-workbench", "jobs", "listingkit-schema-migrate-job.yaml")
-	content, err := os.ReadFile(manifestPath)
-	if err != nil {
-		t.Fatalf("read ListingKit schema migration Job manifest: %v", err)
-	}
-
-	var job struct {
-		Spec struct {
-			ActiveDeadlineSeconds int `yaml:"activeDeadlineSeconds"`
-		} `yaml:"spec"`
-	}
-	if err := yaml.Unmarshal(content, &job); err != nil {
-		t.Fatalf("parse ListingKit schema migration Job: %v", err)
-	}
-
-	if job.Spec.ActiveDeadlineSeconds != 15*60 {
-		t.Fatalf("schema migration Job deadline must match the driver's 15-minute wait, got %d seconds", job.Spec.ActiveDeadlineSeconds)
-	}
-}
-
-func TestProductListingAPISchemaMigrationJobDeadlineMatchesDriverWait(t *testing.T) {
-	manifestPath := filepath.Join("..", "deployments", "kubernetes", "listingkit-workbench", "jobs", "product-listing-api-schema-migrate-job.yaml")
-	content, err := os.ReadFile(manifestPath)
-	if err != nil {
-		t.Fatalf("read product-listing API schema migration Job manifest: %v", err)
-	}
-
-	var job struct {
-		Spec struct {
-			ActiveDeadlineSeconds int `yaml:"activeDeadlineSeconds"`
-		} `yaml:"spec"`
-	}
-	if err := yaml.Unmarshal(content, &job); err != nil {
-		t.Fatalf("parse product-listing API schema migration Job: %v", err)
-	}
-
-	if job.Spec.ActiveDeadlineSeconds != 15*60 {
-		t.Fatalf("product-listing API schema migration Job deadline must match the driver's 15-minute wait, got %d seconds", job.Spec.ActiveDeadlineSeconds)
-	}
-}
-
 func TestListingKitProductListingAPIImageCarriesV3NewStartsContract(t *testing.T) {
 	t.Parallel()
 

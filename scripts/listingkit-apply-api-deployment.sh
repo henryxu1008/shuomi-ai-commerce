@@ -7,13 +7,13 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$script_dir/lib/listingkit-immutable-image.sh"
 
 usage() {
-  printf 'Usage: %s --manifest PATH --namespace NAMESPACE --image IMMUTABLE_IMAGE [--container NAME] [--deployment NAME --enforce-env-from-configmap NAME]...\n' "$0" >&2
+  printf 'Usage: %s --manifest PATH --namespace NAMESPACE --image IMMUTABLE_IMAGE --container NAME [--deployment NAME --enforce-env-from-configmap NAME]...\n' "$0" >&2
 }
 
 MANIFEST=""
 K8S_NAMESPACE=""
 IMAGE=""
-CONTAINER="product-listing-api"
+CONTAINER=""
 DEPLOYMENT=""
 ENV_FROM_CONFIGMAPS=()
 
@@ -56,7 +56,7 @@ while [[ "$#" -gt 0 ]]; do
   esac
 done
 
-if [[ -z "$MANIFEST" || -z "$K8S_NAMESPACE" ]]; then
+if [[ -z "$MANIFEST" || -z "$K8S_NAMESPACE" || -z "$CONTAINER" ]]; then
   usage
   exit 2
 fi

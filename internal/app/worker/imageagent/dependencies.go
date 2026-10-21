@@ -396,7 +396,7 @@ func resolveImageAgentTemporalDependenciesForMode(configPath string, logger *log
 			return appruntime.ImageAgentTemporalDependencies{}, nil, err
 		}
 		dependencies.GenerationRecovery = recovery
-		dependencies.GenerationOutputRecovery = generationOutputRecovery(nil)
+		dependencies.GenerationOutputRecovery = generationOutputRecovery(nil, logger)
 		dependencies.StagedSlotExecutor = organizationMainSlotExecutor{delegate: v3Executor, generation: generation}
 	}
 	dependencies.ArtifactStore = artifactStore
