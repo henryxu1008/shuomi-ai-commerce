@@ -22,17 +22,18 @@ import {imageTemplatesPageSchema,imageTemplateSchema,carouselTasks,detailTasks,t
 import {genericImagePresetForSkill,matchesGenericImagePreset} from "@/lib/image-template-presets";
 import {ImageSetError,imageSetRequest,type ImageSetScope} from "@/lib/api/product-image-set";
 import {isAcquisitionUUID} from "@/lib/contracts/product-acquisition";
-import {imageSetApprovalSchema,imageSetRunSchema,imageSetSourcesSchema,imageSetRecentSchema,imageSetInventorySchema,imageSetPreviewSchema,imageSetAcceptedSchema,imageSetRequirementsSchema,imageSetRequestSchema,type ImageSetRun,type ImageSetPrepare,type ImageSetChoice,type ImageSetSelection,type ImageSetRequirements,type ImageSetInventory,type ImageSetRoute} from "@/lib/contracts/product-image-set";
+import {imageSetApprovalSchema,imageSetRunSchema,imageSetSourcesSchema,imageSetRecentSchema,imageSetInventorySchema,imageSetPreviewSchema,imageSetAcceptedSchema,imageSetRequirementsSchema,imageSetRequestSchema,type ImageSetRun,type ImageSetPrepare,type ImageSetChoice,type ImageSetSelection,type ImageSetRequirements,type ImageSetInventory,type ImageSetRoute,type ImageRouteSelection} from "@/lib/contracts/product-image-set";
 
+import {ImagePlanRoutePicker} from "./image-plan-route-picker";
 import {ImageTextCopy,imageTextLanguageNames} from "./image-text-copy";
 
 type Props={translationItemId?:string;kind:ImageSetScope["kind"];contextId:string;target?:ImageSetPrepare["target"];effectiveVersion?:string;applyReceiptId?:string;onSaved?:()=>void;initialRunId?:string;initialSkill?:SkillSelection};
 type Intent={action:ImageSetRoute;runId?:string;requestKey?:string;body:unknown};
-type RetainedRequest={key:string;raw:string;intent:Intent};
+type RetainedRequest={key:string;raw:string;intent:Intent;reason?:"IMAGE_ROUTE_CHANGED"};
 type PhotoView={url:string;label:string;width?:number;height?:number};
 type ChoiceView={key:string;url:string;label:string;choice:ImageSetChoice};
 const stateNames:Record<string,string>={awaiting_plan_approval:"等待点数确认",executing:"生成中",evaluating:"处理结果中",repairing:"处理结果中",awaiting_final_approval:"等待人工选择",blocked:"已阻止",completed:"已保存正式素材",failed:"生成失败",cancelled:"已取消",pending:"等待执行",accepted:"已生成",rejected:"失败"};
-const reasons:Record<string,string>={IMAGE_TEXT_REVIEW_CHANGED:"审核译文已变化或不可用于本次图片，请重新读取并确认文案后准备计划；原请求和准确技能版本已保留。",IMAGE_METHOD_UNAVAILABLE:"所选图片技能版本已不可用，请重新选择或明确不使用技能，再准备新计划。原请求仍可核实。",OUTCOME_UNKNOWN:"本次请求结果尚未确认，请核实原请求。",IMAGE_UNAVAILABLE:"当前图片执行或依赖不可用。",IMAGE_AGENT_DISABLED:"请先由管理员启用商品图片智能体。",IMAGE_BLOCKED:"当前素材、任务依据或平台位置不满足要求，请核实后重新准备。",IMAGE_CONFIGURATION_CHANGED:"配置已变化，请重新读取并准备计划。",IMAGE_CONFLICT:"原任务或版本已变化，请读取当前结果。",IMAGE_SELECTION_CHANGED:"正式图片集合或规则已变化，请刷新后重新选择。",FORBIDDEN:"当前身份没有这项操作的权限。",IMAGE_ASSETS_NOT_READY:"图片或结算依据尚未收束，请继续核实原任务。",IMAGE_NOT_FOUND:"原请求暂未找到，请保留原编号继续核实。"};
+const reasons:Record<string,string>={IMAGE_ROUTE_CHANGED:"所选图片模型版本已不可用，请重新读取并显式选择模型后准备新计划。原任务和准确技能版本保留，不会自动切换百炼。",IMAGE_TEXT_REVIEW_CHANGED:"审核译文已变化或不可用于本次图片，请重新读取并确认文案后准备计划；原请求和准确技能版本已保留。",IMAGE_METHOD_UNAVAILABLE:"所选图片技能版本已不可用，请重新选择或明确不使用技能，再准备新计划。原请求仍可核实。",OUTCOME_UNKNOWN:"本次请求结果尚未确认，请核实原请求。",IMAGE_UNAVAILABLE:"当前图片执行或依赖不可用。",IMAGE_AGENT_DISABLED:"请先由管理员启用商品图片智能体。",IMAGE_BLOCKED:"当前素材、任务依据或平台位置不满足要求，请核实后重新准备。",IMAGE_CONFIGURATION_CHANGED:"配置已变化，请重新读取并准备计划。",IMAGE_CONFLICT:"原任务或版本已变化，请读取当前结果。",IMAGE_SELECTION_CHANGED:"正式图片集合或规则已变化，请刷新后重新选择。",FORBIDDEN:"当前身份没有这项操作的权限。",IMAGE_ASSETS_NOT_READY:"图片或结算依据尚未收束，请继续核实原任务。",IMAGE_NOT_FOUND:"原请求暂未找到，请保留原编号继续核实。"};
 const labels=new Map<string,string>([...carouselTasks,...detailTasks].map(task=>[task.purpose,task.label]));
 
 export function ProductImageSetPanel(props:Props){
@@ -57,6 +58,8 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
  useEffect(()=>{savedCallback.current=onSaved},[onSaved]);
  const [entry,setEntry]=useState<z.infer<typeof catalogEntrySchema>>(),[templates,setTemplates]=useState<ImageAgentTemplate[]>([]),[cursor,setCursor]=useState("");
  const [template,setTemplate]=useState<ImageAgentTemplate>(),[sources,setSources]=useState<z.infer<typeof imageSetSourcesSchema>>(),[run,setRun]=useState<ImageSetRun>();
+ const [routeDraft,setRouteDraft]=useState<ImageRouteSelection|null|undefined>(),[routeReady,setRouteReady]=useState(true),[routeNonce,setRouteNonce]=useState(0);
+ const routeRun=useRef("");
  const [textDraft,setTextDraft]=useState<{key:string;tasksKey:string;value:ImageSetPrepare["text"]|null}>();
  const [runTemplate,setRunTemplate]=useState<ImageAgentTemplate>();
  const [runSources,setRunSources]=useState<z.infer<typeof imageSetSourcesSchema>>();
@@ -75,11 +78,12 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
  const [intent,setIntent]=useState<Intent|null>(null),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true),[error,setError]=useState(""),[message,setMessage]=useState("");
  const savedIntentRaw=useRef<string|null>(null);
  const [retainedRequests,setRetainedRequests]=useState<RetainedRequest[]>([]);
- const rejectedPreparations=retainedRequests.filter(record=>record.intent.action==="prepare");
+ const routeRejectedPlan=!!run&&retainedRequests.some(record=>{const body=record.intent.body as {planRevision?:number;planDigest?:string;quoteDigest?:string};return record.reason==="IMAGE_ROUTE_CHANGED"&&record.intent.action==="confirm"&&record.intent.runId===run.runId&&body.planRevision===run.planRevision&&body.planDigest===run.planDigest&&body.quoteDigest===run.quoteDigest});
+ const rejectedPreparations=retainedRequests.filter(record=>record.reason!=="IMAGE_ROUTE_CHANGED"&&record.intent.action==="prepare");
  const needsPreparationReview=rejectedPreparations.length>0;
  const textKey=JSON.stringify([sources?.source,template?.templateId,template?.version,template?.image.language,rejectedPreparations.map(record=>record.key),needsPreparationReview?tasks:null]);
  const textSelection=textDraft?.key===textKey?textDraft.value?.mode==="reviewed"&&textDraft.tasksKey!==JSON.stringify(tasks)?null:textDraft.value:needsPreparationReview?null:{mode:"none" as const};
- const rejectedRegenerations=retainedRequests.filter(record=>record.intent.action==="regenerate"&&record.intent.runId===run?.runId);
+ const rejectedRegenerations=retainedRequests.filter(record=>record.reason!=="IMAGE_ROUTE_CHANGED"&&record.intent.action==="regenerate"&&record.intent.runId===run?.runId);
  const needsRegenerationReview=rejectedRegenerations.length>0;
  const regenerationTextKey=JSON.stringify([run?.runId,run?.plan.Source,run?.template,regenerate,rejectedRegenerations.map(record=>record.key)]);
  const [regenerationTextDraft,setRegenerationTextDraft]=useState<{key:string;value:ImageSetPrepare["text"]|null}>();
@@ -92,17 +96,18 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
  const {userId,organizationId,kind,contextId}=scope;
  const stableScope=useMemo(()=>({userId,organizationId,kind,contextId}),[userId,organizationId,kind,contextId]);
  const locked=busy||!!intent||mediaBlocked;
+ const unresolvedRun=!run?.releaseSummary&&(!!run?.pendingCommand||!!run?.recoverableEffects?.length);
  const releasedIntent=!!intent&&imageIntentTargetsReleasedRun(intent,run);
  useEffect(()=>context.registerOrganizationSwitchGuard(()=>!flight.current),[context]);
  useEffect(()=>{active.current=true;return()=>{active.current=false;abort.current?.abort()}},[]);
  const fail=useCallback((value:unknown)=>{setError(value instanceof ImageSetError?value.code:value instanceof Error?value.message:"IMAGE_UNAVAILABLE")},[]);
- const remember=useCallback((p:ImageSetRun)=>{if(!active.current)return;setRun(p);localStorage.setItem(storageKey+":run",p.runId)},[storageKey]);
+ const remember=useCallback((p:ImageSetRun)=>{if(!active.current)return;if(routeRun.current!==p.runId){routeRun.current=p.runId;setRouteDraft(undefined)}setRun(p);localStorage.setItem(storageKey+":run",p.runId)},[storageKey]);
  const clearIntent=useCallback(()=>{localStorage.removeItem(storageKey+":intent");savedIntentRaw.current=null;setIntent(null)},[storageKey]);
- function retainOriginalRequest(command:Intent){
+ function retainOriginalRequest(command:Intent,reason?:"IMAGE_ROUTE_CHANGED"){
   const raw=savedIntentRaw.current;
   try{
    if(!raw||localStorage.getItem(storageKey+":intent")!==raw)throw new Error("changed");
-   const key=retainedImageRequestKey(storageKey,command),existing=localStorage.getItem(key);
+   const key=retainedImageRequestKey(storageKey,command,reason),existing=localStorage.getItem(key);
    if(existing!==null&&existing!==raw)throw new Error("conflict");
    localStorage.setItem(key,raw);
    if(localStorage.getItem(key)!==raw)throw new Error("not retained");
@@ -162,6 +167,7 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
   const controller=new AbortController();abort.current=controller;
   void (async()=>{
    try{
+    setRetainedRequests(readRetainedImageRequests(storageKey));
     const saved=localStorage.getItem(storageKey+":intent");
     if(saved){
      const parsed=parseImageIntent(saved);
@@ -172,7 +178,7 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
     if(!agent.canReadRuns)return;
     const query=new URLSearchParams();if(effectiveVersion)query.set("effectiveCatalogVersion",effectiveVersion);if(applyReceiptId)query.set("applyReceiptId",applyReceiptId);
     let source:z.infer<typeof imageSetSourcesSchema>|undefined;setSources(undefined);
-    try{source=await imageSetRequest(stableScope,"sources",imageSetSourcesSchema,{query:query.toString(),signal:controller.signal});if(controller.signal.aborted)return;setSources(source);setRetainedRequests(readRetainedImageRequests(storageKey))}catch(e){if(controller.signal.aborted)return;fail(e)}
+    try{source=await imageSetRequest(stableScope,"sources",imageSetSourcesSchema,{query:query.toString(),signal:controller.signal});if(controller.signal.aborted)return;setSources(source)}catch(e){if(controller.signal.aborted)return;fail(e)}
     // Recover the known run before optional template or recent-run discovery.
     const id=initialRunId??localStorage.getItem(storageKey+":run");
     if(id){try{await readRun(id,controller.signal)}catch(e){if(!controller.signal.aborted)fail(e)}}
@@ -226,8 +232,8 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
    }
   }catch(e){if(!controller.signal.aborted){
    fail(e);
-   if(e instanceof ImageSetError&&e.status===409&&e.code==="IMAGE_TEXT_REVIEW_CHANGED"&&(command.action==="prepare"||command.action==="regenerate")){
-    try{retainOriginalRequest(command)}catch(retentionError){fail(retentionError)}
+   if(e instanceof ImageSetError&&e.status===409&&(command.action==="prepare"||command.action==="regenerate"?e.code==="IMAGE_TEXT_REVIEW_CHANGED"||e.code==="IMAGE_ROUTE_CHANGED":command.action==="confirm"&&e.code==="IMAGE_ROUTE_CHANGED")){
+    try{if(e.code==="IMAGE_ROUTE_CHANGED"){setRouteDraft(command.action==="confirm"?undefined:(command.body as ImageSetPrepare).route??null);retainOriginalRequest(command,"IMAGE_ROUTE_CHANGED");setRouteReady(false);setRouteNonce(v=>v+1)}else retainOriginalRequest(command)}catch(retentionError){fail(retentionError)}
    }else if(!replay&&e instanceof ImageSetError&&e.code!=="OUTCOME_UNKNOWN"){
     clearIntent();if((command.action==="prepare"||command.action==="regenerate")&&e.code==="IMAGE_CONFIGURATION_CHANGED")setModeNonce(v=>v+1);
    }
@@ -267,7 +273,7 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
  }
  function newPreparation(parent?:ImageSetRun){
   const content=parent?runTemplate:template,preparationSources=parent?runSources:sources;
-  if(locked||!methodReady||!content||!preparationSources||!(parent?regenerate:tasks).length)return;
+  if(locked||unresolvedRun||!routeReady||!methodReady||!content||!preparationSources||!(parent?regenerate:tasks).length)return;
   const selectedTasks=parent?regenerate:tasks;
   const groups=parent?{carousel:content.image.carousel.filter(t=>selectedTasks.includes(t.id)).length,detail:content.image.detail.filter(t=>selectedTasks.includes(t.id)).length}:null;
   const selectedTarget=parent?parent.plan.Target.Platform==="shein"?parent.plan.Target:{Platform:"product" as const}:platform==="shein"&&editorTarget?editorTarget:{Platform:"product" as const};
@@ -280,7 +286,8 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
   const text:ImageSetPrepare["text"]|null=parent&&needsRegenerationReview?regenerationTextSelection:parent&&inherited?inherited.Mode==="reviewed"&&inherited.Copy&&inherited.TaskIDs?.some(id=>selectedTasks.includes(id))?{mode:"reviewed",review:inherited.Copy.Review,taskIds:inherited.TaskIDs.filter(id=>selectedTasks.includes(id))}:{mode:"none"}:textSelection;
   if(!text){setError("请先核对目标语言文案，或明确选择不加文字。");return}
   const selectedMethod=parent?parent.plan.Method?{skillId:parent.plan.Method.Skill.id,version:parent.plan.Method.Skill.version,digest:parent.plan.Method.Skill.digest}:undefined:method;
-  const body:ImageSetPrepare={text,expectedModeRevision:executionMode.data.revision,...selectedMethod?{skill:selectedMethod}:{},template:{templateId:content.templateId,revision:content.version},target:selectedTarget,selectedTaskIds:selectedTasks,effectiveCatalogVersion:selectedSource.EffectiveVersion,...selectedSource.ApplyReceiptID?{applyReceiptId:selectedSource.ApplyReceiptID}:{},...content.image.shareOriginals?{sharedOriginalIds:parent?originals():shared}:{carouselOriginalIds:parent?originals("carousel"):groups&&!groups.carousel?[]:carousel,detailOriginalIds:parent?originals("detail"):groups&&!groups.detail?[]:detail},...selectedTarget.Platform==="shein"?{officialPlacements:Object.fromEntries(selectedTasks.flatMap(id=>{const position=positions[id];return position?[[id,position]]:[]}))}:{}};
+  const chosenRoute=routeDraft===undefined?run?.plan.Route:routeDraft;
+  const body:ImageSetPrepare={...(chosenRoute?{route:chosenRoute}:{}),text,expectedModeRevision:executionMode.data.revision,...selectedMethod?{skill:selectedMethod}:{},template:{templateId:content.templateId,revision:content.version},target:selectedTarget,selectedTaskIds:selectedTasks,effectiveCatalogVersion:selectedSource.EffectiveVersion,...selectedSource.ApplyReceiptID?{applyReceiptId:selectedSource.ApplyReceiptID}:{},...content.image.shareOriginals?{sharedOriginalIds:parent?originals():shared}:{carouselOriginalIds:parent?originals("carousel"):groups&&!groups.carousel?[]:carousel,detailOriginalIds:parent?originals("detail"):groups&&!groups.detail?[]:detail},...selectedTarget.Platform==="shein"?{officialPlacements:Object.fromEntries(selectedTasks.flatMap(id=>{const position=positions[id];return position?[[id,position]]:[]}))}:{}};
   void send({action:parent?"regenerate":"prepare",runId:parent?.runId,requestKey:crypto.randomUUID(),body});
  }
  function useCurrentTarget(){
@@ -330,8 +337,8 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
  const allTasks=template?[...template.image.carousel.map(t=>({...t,group:"carousel" as const})),...template.image.detail.map(t=>({...t,group:"detail" as const}))]:[];
  const preparePositionsReady=currentOfficialPositions(tasks.map(id=>positions[id]),requirements),regeneratePositionsReady=currentOfficialPositions(regenerate.map(id=>positions[id]),requirements);
  const positionHint="请选择当前规则允许的位置和类型，并为同一图片组设置不重复的排序。";
- const canPrepare=available&&methodReady&&!!executionMode.data&&!!template&&compatibleImageTemplate(template,platform)&&tasks.length>0&&(template.image.shareOriginals?shared.length>0:(!template.image.carousel.some(t=>tasks.includes(t.id))||carousel.length>0)&&(!template.image.detail.some(t=>tasks.includes(t.id))||detail.length>0))&&(platform==="product"||preparePositionsReady);
- const canRegenerate=available&&methodReady&&!!executionMode.data&&!!runTemplate&&compatibleImageTemplate(runTemplate,run?.plan.Target.Platform)&&!!runSources&&regenerate.length>0&&regenerate.every(id=>[...runTemplate.image.carousel,...runTemplate.image.detail].some(task=>task.id===id))&&(!needsRegenerationReview||!!regenerationTextSelection)&&(run?.plan.Target.Platform!=="shein"||regeneratePositionsReady);
+ const canPrepare=available&&!unresolvedRun&&routeReady&&methodReady&&!!executionMode.data&&!!template&&compatibleImageTemplate(template,platform)&&tasks.length>0&&(template.image.shareOriginals?shared.length>0:(!template.image.carousel.some(t=>tasks.includes(t.id))||carousel.length>0)&&(!template.image.detail.some(t=>tasks.includes(t.id))||detail.length>0))&&(platform==="product"||preparePositionsReady);
+ const canRegenerate=available&&!unresolvedRun&&routeReady&&methodReady&&!!executionMode.data&&!!runTemplate&&compatibleImageTemplate(runTemplate,run?.plan.Target.Platform)&&!!runSources&&regenerate.length>0&&regenerate.every(id=>[...runTemplate.image.carousel,...runTemplate.image.detail].some(task=>task.id===id))&&(!needsRegenerationReview||!!regenerationTextSelection)&&(run?.plan.Target.Platform!=="shein"||regeneratePositionsReady);
  function originalChoices(group:string,values:string[],change:(next:string[])=>void){return <section className="space-y-3"><h4 className="text-sm font-medium">{group} · {values.length}/8</h4><div className="grid grid-cols-3 gap-2 sm:grid-cols-4">{sources?.originals.map((image,i)=><label key={image.id} className={`rounded-lg border p-2 ${values.includes(image.id)?"border-success-foreground bg-success":"border-border"}`}><Image src={image.displayUrl} width={100} height={100} unoptimized alt={`原始素材 ${i+1}`} className="h-20 w-full object-contain"/><span className="mt-2 flex items-center gap-1 text-xs"><input type="checkbox" aria-label={`${group} 素材 ${i+1}`} disabled={locked||!values.includes(image.id)&&values.length>=8} checked={values.includes(image.id)} onChange={e=>change(e.target.checked?[...values,image.id]:values.filter(id=>id!==image.id))}/>素材 {i+1}</span></label>)}</div></section>}
  const official=run?.plan.Target.Platform==="shein";
  const selectedPositionsReady=!official||currentOfficialPositions(selected.map(item=>item.choice.official_placement?fromPosition(item.choice.official_placement):undefined),requirements,false);
@@ -347,6 +354,7 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
    {retainedRequests.map(record=><details key={record.key} className="break-all text-muted-foreground"><summary className="cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">原请求编号：{imageIntentRequestId(record.intent)}</summary><div className="mt-2 space-y-2"><p>原任务：{record.intent.runId??"尚未创建"} · 操作：{({prepare:"准备图片计划",regenerate:"重新准备图片计划",recover:"核实原调用",cancel:"取消剩余工作",restart:"恢复原失败任务",confirm:"确认点数并生成",resume:"核实原保存"} as Partial<Record<ImageSetRoute,string>>)[record.intent.action]}</p><pre className="max-h-80 overflow-auto whitespace-pre-wrap break-all text-xs">{record.raw}</pre></div></details>)}
   </section>:null}
   {!loading&&sources&&context.permissions.includes("listingkit.image_agent.write")?<SkillPicker scope={stableScope} target="product-image" initialSelection={initialSkill} disabled={locked} onChange={onMethodChange}/>:null}
+  {!loading&&sources&&entry?.canUse?<ImagePlanRoutePicker key={routeNonce} scope={stableScope} value={intent&&(intent.action==="prepare"||intent.action==="regenerate")?(intent.body as ImageSetPrepare).route??null:routeDraft===undefined?run?.plan.Route??null:routeDraft} disabled={locked||unresolvedRun} onChange={setRouteDraft} onValidity={setRouteReady}/>:null}
   {!loading&&sources&&!sources.originals.length?<p className="text-sm text-muted-foreground">当前商品没有原始图片，补充真实素材后才能准备生成计划。</p>:null}
   {available&&sources?<>
    {template&&!compatibleImageTemplate(template,platform)?<p className="text-sm text-warning-foreground">当前模板不适用于此素材目标，请选择匹配的模板或切换目标。</p>:null}
@@ -371,7 +379,7 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
    {run.modeUnavailableReason==="EXECUTION_MODE_CHANGED"?<p className="text-sm text-warning-foreground">权限配置已变化，本次运行不能获得新权限；请保留原请求，重新确认新运行。</p>:null}
    {run.executionMode==="read_only"?<p className="text-sm">只读模式不能生成图片或保存正式素材。</p>:null}
    {run.policyAdoption?<p className="text-sm">正式素材已按完全访问策略采用，未经逐项人工审阅。{run.status!=="completed"?"原工作流状态仍在核实，请沿用原操作编号。":""}</p>:null}
-   {run.status==="awaiting_plan_approval"?<div className="space-y-3 rounded-xl bg-success p-4"><p>本次生成 {run.images} 张，点数上限 <strong className="text-warning-foreground">{run.points}</strong> 点。主图与详情图分别调用模型；原图及正式素材复用不调用模型。</p>{run.plan.Method?.PolicyVersion==="image-method-prompt-v1"&&<p role="status">该计划保留历史图片方法，不能新增生成。请重新选择可执行版本并准备新计划；已有结果和恢复记录仍保留。</p>}<Button disabled={locked||!available||!run.generationAllowed||run.plan.Method?.PolicyVersion==="image-method-prompt-v1"} onClick={()=>void send({action:"confirm",runId:run.runId,body:{actionId:crypto.randomUUID(),planRevision:run.planRevision,planDigest:run.planDigest,quoteDigest:run.quoteDigest}})}>确认点数并生成</Button></div>:null}
+   {run.status==="awaiting_plan_approval"?<div className="space-y-3 rounded-xl bg-success p-4"><p>图片模型：{run.slots[0]?.recipe.Quote.Model??"原计划冻结模型"} · {run.slots[0]?.recipe.Quote.Quality??"原计划质量"} · {run.slots[0]?.recipe.Quote.Resolution??"1024x1024"}{run.plan.Route?` · 可选版本 ${run.plan.Route.RevisionID}`:" · 企业默认版本"}。修改模型需重新准备计划。</p><p>本次生成 {run.images} 张，点数上限 <strong className="text-warning-foreground">{run.points}</strong> 点。主图与详情图分别调用模型；原图及正式素材复用不调用模型。</p>{run.plan.Method?.PolicyVersion==="image-method-prompt-v1"&&<p role="status">该计划保留历史图片方法，不能新增生成。请重新选择可执行版本并准备新计划；已有结果和恢复记录仍保留。</p>}{routeRejectedPlan?<p role="status">该计划模型版本已被明确拒绝，请重新准备计划；原计划和确认请求已保留。</p>:null}<Button disabled={locked||routeRejectedPlan||!available||!run.generationAllowed||run.plan.Method?.PolicyVersion==="image-method-prompt-v1"} onClick={()=>void send({action:"confirm",runId:run.runId,body:{actionId:crypto.randomUUID(),planRevision:run.planRevision,planDigest:run.planDigest,quoteDigest:run.quoteDigest}})}>确认点数并生成</Button></div>:null}
    {run.block?<p className="text-sm text-warning-foreground">任务暂时停止：{run.block.Code}</p>:null}
    <div className="grid gap-4 md:grid-cols-2">{run.slots.map(slot=><article key={slot.slotId} className="space-y-3 rounded-xl border border-border p-4"><div className="flex justify-between gap-3"><h4 className="font-medium">{imageSlotLabel(slot)}</h4><span className="text-xs text-muted-foreground">{stateNames[slot.status]??slot.status}</span></div><div className="grid grid-cols-2 gap-3"><div><p className="mb-2 text-xs text-muted-foreground">原始素材</p>{slot.recipe.References.map((ref,index)=>{const image=run.originals.find(a=>a.ID===ref.AssetID);return image?<ImageSetPhoto key={ref.AssetID} photo={{url:image.DisplayURL,label:`原图 ${index+1}`,width:image.Width,height:image.Height}} alt="本图使用的原始素材" className="h-32 w-full object-contain" onPreview={setPhoto}/>:null})}</div><div><p className="mb-2 text-xs text-muted-foreground">生成结果</p>{slot.candidates.map(candidate=>{const choice:ImageSetChoice={kind:"generated",run_id:run.runId,plan_revision:run.planRevision,slot_id:slot.slotId,attempt:slot.attempt,result_digest:run.resultDigest,asset_id:candidate.assetId,presentation:{group:slot.recipe.Placement.Group,order:1},...slot.recipe.OfficialPlacement?{official_placement:toPosition(slot.recipe.OfficialPlacement)}:{}};const view={key:`generated:${run.runId}:${candidate.assetId}`,url:candidate.url,label:imageSlotLabel(slot),choice};return <div key={candidate.assetId}><ImageSetPhoto photo={{url:candidate.url,label:`${view.label} · 生成结果`,width:candidate.width,height:candidate.height}} alt="生成结果" className="h-32 w-full object-contain" onPreview={setPhoto}/><Button size="sm" variant="outline" className="mt-2" disabled={locked||!run.approvalAvailable} onClick={()=>choose(view)}>{selected.some(v=>v.key===view.key)?"取消采用":"选择采用"}</Button></div>})}{!slot.candidates.length?<p className="flex h-32 items-center justify-center rounded-lg bg-muted text-xs text-muted-foreground">{slot.errorCode||stateNames[slot.status]||slot.status}</p>:null}</div></div>{run.regenerationAvailable?<label className="flex items-center gap-2 text-xs"><input type="checkbox" disabled={locked} checked={regenerate.includes(slot.slotId)} onChange={e=>{setRegenerationTextDraft(undefined);setRegenerate(old=>e.target.checked?[...old,slot.slotId]:old.filter(id=>id!==slot.slotId))}}/>重新生成此项，另行确认点数</label>:null}{official&&regenerate.includes(slot.slotId)?<div className="space-y-2"><OfficialPosition value={positions[slot.slotId]} requirements={requirements} disabled={locked||!requirements} generated onChange={position=>setPositions(old=>({...old,[slot.slotId]:position}))}/>{!currentOfficialPosition(positions[slot.slotId],requirements)?<p className="text-sm text-warning-foreground">请按当前规则确认此项的图片位置与类型。</p>:null}</div>:null}</article>)}</div>
    {priorRuns.length?<section className="space-y-3 rounded-xl border border-border p-4"><h4 className="font-medium">原任务成功结果</h4><p className="text-xs text-muted-foreground">可与本次重生成结果一起明确选择，保留原结果身份，不再次生成或扣点。</p><div className="grid gap-3 sm:grid-cols-2">{priorRuns.flatMap(parent=>parent.slots.flatMap(slot=>slot.status==="accepted"?slot.candidates.map(candidate=>{const view=priorChoice(parent,slot,candidate);return <article key={view.key} className="space-y-2"><p className="text-sm">{view.label}</p><p className="text-xs text-muted-foreground">任务 {parent.runId}</p><ImageSetPhoto photo={{url:view.url,label:view.label,width:candidate.width,height:candidate.height}} alt={view.label} className="h-32 w-full object-contain" onPreview={setPhoto}/><Button size="sm" variant="outline" disabled={locked||!run.approvalAvailable||!parent.candidateSelectionAvailable} onClick={()=>choose(view)}>{selected.some(v=>v.key===view.key)?"取消采用原任务结果":"采用原任务结果"}</Button></article>}):[]))}</div>{priorRuns.at(-1)?.plan.Regeneration&&!priorRuns.some(p=>p.runId===priorRuns.at(-1)?.plan.Regeneration?.RunID)?<Button size="sm" variant="outline" disabled={locked} onClick={()=>void readEarlierParent()}>读取更早的原任务结果</Button>:null}</section>:null}
@@ -409,12 +417,13 @@ function parseImageIntent(raw:string):Intent|undefined{
 }
 function isRetainableImageIntent(intent:Intent){return ["prepare","regenerate","recover","cancel","restart","confirm","resume"].includes(intent.action)}
 function imageIntentRequestId(intent:Intent){return intent.requestKey??(intent.action==="restart"?intent.runId:(intent.body as {actionId:string}).actionId)}
-function retainedImageRequestKey(storageKey:string,intent:Intent){return `${storageKey}:verified-intent:${intent.runId}:${intent.action}:${imageIntentRequestId(intent)}`}
+function retainedImageRequestKey(storageKey:string,intent:Intent,reason?:"IMAGE_ROUTE_CHANGED"){return `${storageKey}:${reason?"verified-route-intent":"verified-intent"}:${intent.runId}:${intent.action}:${imageIntentRequestId(intent)}`}
 function readRetainedImageRequests(storageKey:string):RetainedRequest[]{
- return Object.keys(localStorage).filter(key=>key.startsWith(storageKey+":verified-intent:")).flatMap(key=>{
+ return Object.keys(localStorage).filter(key=>(key.startsWith(storageKey+":verified-intent:")||key.startsWith(storageKey+":verified-route-intent:"))).flatMap(key=>{
   const raw=localStorage.getItem(key);if(!raw)return [];
   const intent=parseImageIntent(raw);
-  return intent&&isRetainableImageIntent(intent)&&retainedImageRequestKey(storageKey,intent)===key?[{key,raw,intent}]:[];
+  const reason=key.startsWith(storageKey+":verified-route-intent:")?"IMAGE_ROUTE_CHANGED" as const:undefined;
+  return intent&&isRetainableImageIntent(intent)&&retainedImageRequestKey(storageKey,intent,reason)===key?[{key,raw,intent,...reason?{reason}:{}}]:[];
  });
 }
 

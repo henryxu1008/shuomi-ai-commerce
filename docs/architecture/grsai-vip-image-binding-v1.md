@@ -1,5 +1,10 @@
 # GRSAI VIP 图片可选绑定 V1
 
+Subsequent product decision: PD-IMAGE-PLAN-VIP-2026-10-21 in
+[image-plan-optional-route-v1](image-plan-optional-route-v1.md) supersedes this
+batch's maintenance-only/per-plan-out-of-scope restriction for the new admitted
+increment. The original binding contract and historical evidence below remain.
+
 Status: IMPLEMENTATION_READY. Execution: #840.
 Original independent Reviewer admitted design HEAD
 2538d3be3775b0a98cda3661b7b23b6c744388ab with no BLOCKER before production edits.

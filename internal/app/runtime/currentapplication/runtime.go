@@ -31,6 +31,7 @@ import (
 	imagetemporal "task-processor/internal/imageagent/temporal"
 	governed "task-processor/internal/integration/aicapability/einomodel"
 	qualified "task-processor/internal/integration/aicapability/routeconfig"
+	routestore "task-processor/internal/integration/persistence/routeconfig"
 	"task-processor/internal/knowledge"
 )
 
@@ -804,6 +805,17 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 		defs, e := cfg.modelRouteDefinitions()
 		if e != nil {
 			return e
+		}
+		// The role limit is shared across owner databases. Inspect the entire
+		// configured budget before opening either writer, using existing readers.
+		for _, family := range []string{"text", "image"} {
+			writerConfig, reader := cfg.ModelRoutePricing.TextWriter, agentDB
+			if family == "image" {
+				writerConfig, reader = cfg.ModelRoutePricing.ImageWriter, imageWorkerDB
+			}
+			if writerConfig != nil && routestore.VerifyWriterConnections(startupContext, reader, cfg.ModelRoutePricing.writerConnections(*writerConfig)) != nil {
+				return errors.New("model route writer connection capacity insufficient or unavailable")
+			}
 		}
 		for _, family := range []string{"text", "image"} {
 			writerConfig := cfg.ModelRoutePricing.TextWriter
