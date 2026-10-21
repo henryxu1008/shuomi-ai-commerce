@@ -17,8 +17,6 @@ import (
 // BaseAPIClient 基础API客户端实现
 type BaseAPIClient struct {
 	baseUrl     string
-	tenantID    int64
-	shopID      int64
 	shopType    string // 添加shopType字段
 	httpClient  *req.Client
 	refreshMu   sync.Mutex
@@ -26,11 +24,9 @@ type BaseAPIClient struct {
 }
 
 // NewBaseAPIClient 创建新的基础API客户端
-func NewBaseAPIClient(baseUrl string, tenantID, shopID int64, httpClient *req.Client) *BaseAPIClient {
+func NewBaseAPIClient(baseUrl string, httpClient *req.Client) *BaseAPIClient {
 	return &BaseAPIClient{
 		baseUrl:    baseUrl,
-		tenantID:   tenantID,
-		shopID:     shopID,
 		httpClient: httpClient,
 	}
 }
@@ -108,10 +104,8 @@ func (b *BaseAPIClient) apiRequest(method, url string, requestBody any, result a
 			if refreshErr := b.refreshAuthentication(); refreshErr != nil {
 				code, msg := extractResponseCodeMsg(result)
 				return &api.AuthenticationExpiredError{
-					TenantID: b.tenantID,
-					ShopID:   b.shopID,
-					Code:     code,
-					Message:  fmt.Sprintf("%s; refresh shein auth failed: %v", msg, refreshErr),
+					Code:    code,
+					Message: fmt.Sprintf("%s; refresh shein auth failed: %v", msg, refreshErr),
 				}
 			}
 			continue
@@ -310,10 +304,8 @@ func (b *BaseAPIClient) ProcessAPIResponse(resp *api.APIResponse, expectedCode s
 	// 检查是否为认证过期错误（子系统登录重定向）
 	if resp.Code == "20302" && strings.Contains(resp.Msg, "子系统登录重定向") {
 		return &api.AuthenticationExpiredError{
-			TenantID: b.tenantID,
-			ShopID:   b.shopID,
-			Code:     resp.Code,
-			Message:  fmt.Sprintf("认证已过期，需要重新登录: %s", resp.Msg),
+			Code:    resp.Code,
+			Message: fmt.Sprintf("认证已过期，需要重新登录: %s", resp.Msg),
 		}
 	}
 
@@ -329,15 +321,8 @@ func (b *BaseAPIClient) ProcessError(err error) error {
 		return nil
 	}
 
-	// 检查是否为认证过期错误（包括Redis Cookie错误）
+	// 检查是否为认证过期错误
 	if authErr, isAuthExpired := api.IsAuthenticationExpired(err); isAuthExpired {
-		// 确保错误包含正确的租户和店铺信息
-		if authErr.TenantID == 0 {
-			authErr.TenantID = b.tenantID
-		}
-		if authErr.ShopID == 0 {
-			authErr.ShopID = b.shopID
-		}
 		return authErr
 	}
 
@@ -352,23 +337,11 @@ func (b *BaseAPIClient) CheckCode(code, msg, url, failMsg string) error {
 	}
 	if code == "20302" {
 		return &api.AuthenticationExpiredError{
-			TenantID: b.tenantID,
-			ShopID:   b.shopID,
-			Code:     code,
-			Message:  fmt.Sprintf("认证已过期: %s", msg),
+			Code:    code,
+			Message: fmt.Sprintf("认证已过期: %s", msg),
 		}
 	}
 	return &api.APIError{StatusCode: 0, Message: fmt.Sprintf("%s: %s", failMsg, msg), URL: url}
-}
-
-// GetTenantID 获取租户ID
-func (b *BaseAPIClient) GetTenantID() int64 {
-	return b.tenantID
-}
-
-// GetShopID 获取店铺ID
-func (b *BaseAPIClient) GetShopID() int64 {
-	return b.shopID
 }
 
 // GetShopType 获取店铺类型

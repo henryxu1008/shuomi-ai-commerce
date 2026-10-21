@@ -1,5 +1,7 @@
 # Architecture Documentation
 
+- [`legacy-numeric-acquisition-tail-closure-retirement-boundary.md`](legacy-numeric-acquisition-tail-closure-retirement-boundary.md): #301 / #867 user-confirmed complete numeric acquisition/platform tail retirement, Reuse Existing Architecture. Orphan fetch/cache/Task factories, numeric Amazon HTTP/result service and exclusive operations sources, numeric SHEIN Cookie providers and Store/cost adapters retire together. Current Amazon Processor/browser, platform APIs/rules, Store and standalone SHEIN login/sync remain; existing Cookie values and quality metric helpers stay with their current consumers. Exact seven CURRENT inventory rows only; workflows/runtime/data untouched, no new trial prerequisite; #301 OPEN.
+
 - [`vip-original-output-recovery.md`](vip-original-output-recovery.md): #840 admitted reuse of original success/Commercial settlement proofs and GET-only recovery; accurate paid-result presentation, exact result-host DNS diagnosis, no generation, new state, charge or default change.
 
 - [`image-plan-optional-route-v1.md`](image-plan-optional-route-v1.md): #840 independent design admitted before implementation; maintainer optional publication without changing enterprise default, exact VIP selection frozen per product image plan, original quote/admission/dispatch/recovery owners and UNKNOWN preserved. Supersedes the prior batch's maintenance-only scope; no runtime publication or real-call authority.

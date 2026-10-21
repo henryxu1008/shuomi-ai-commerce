@@ -45,7 +45,6 @@ func TestIsRetryableError(t *testing.T) {
 		{"可重试错误", sherr.NewRetryableError("网络超时", errors.New("timeout")), true},
 		{"不可重试错误", sherr.NewNonRetryableError("业务错误", errors.New("invalid")), false},
 		{"过滤错误不可重试", sherr.NewFilteredError("低于筛选规则"), false},
-		{"Cookie加载错误不可重试", sherr.NewCookieLoadError(1, 2, "cookie失效"), false},
 		{"显式可重试错误不会被内部404字符串覆盖", sherr.NewRetryableError("fetch product data failed", errors.New("driver download failed: 404 Not Found")), true},
 		// 普通 error 默认可重试（兜底策略）
 		{"普通错误默认可重试", errors.New("unknown error"), true},
@@ -72,34 +71,6 @@ func TestNewRetryableError_AuthExpired(t *testing.T) {
 	}
 	if sherr.IsRetryableError(wrapped) {
 		t.Error("auth expired error should not be retryable")
-	}
-}
-
-// TestCookieLoadError 验证 CookieLoadError 的创建和识别
-func TestCookieLoadError(t *testing.T) {
-	err := sherr.NewCookieLoadError(100, 200, "cookie已过期")
-
-	// 验证错误消息格式
-	if err.Error() == "" {
-		t.Error("CookieLoadError.Error() should not be empty")
-	}
-
-	// 验证 IsCookieLoadError 识别
-	cookieErr, ok := sherr.IsCookieLoadError(err)
-	if !ok {
-		t.Fatal("IsCookieLoadError should return true for CookieLoadError")
-	}
-	if cookieErr.TenantID != 100 {
-		t.Errorf("TenantID: want 100, got %d", cookieErr.TenantID)
-	}
-	if cookieErr.StoreID != 200 {
-		t.Errorf("StoreID: want 200, got %d", cookieErr.StoreID)
-	}
-
-	// 普通错误不是 CookieLoadError
-	_, ok = sherr.IsCookieLoadError(errors.New("other"))
-	if ok {
-		t.Error("IsCookieLoadError should return false for non-CookieLoadError")
 	}
 }
 

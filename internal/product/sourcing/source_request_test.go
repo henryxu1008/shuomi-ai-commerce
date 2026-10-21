@@ -4,7 +4,6 @@ import "testing"
 
 func TestVariantSourceRequestPreservesSourceScopedFields(t *testing.T) {
 	base := SourceRequest{
-		TenantID:   10,
 		Platform:   "shein",
 		Region:     "uk",
 		ProductID:  "parent",
@@ -21,7 +20,7 @@ func TestVariantSourceRequestPreservesSourceScopedFields(t *testing.T) {
 	if got.Zipcode != "W1A 1AA" {
 		t.Fatalf("Zipcode = %q, want inherited zipcode", got.Zipcode)
 	}
-	if got.Platform != base.Platform || got.Region != base.Region || got.TenantID != base.TenantID || got.StoreID != base.StoreID || got.CategoryID != base.CategoryID || got.Creator != base.Creator {
+	if got.Platform != base.Platform || got.Region != base.Region || got.StoreID != base.StoreID || got.CategoryID != base.CategoryID || got.Creator != base.Creator {
 		t.Fatalf("source-scoped fields were not preserved: %+v", got)
 	}
 }

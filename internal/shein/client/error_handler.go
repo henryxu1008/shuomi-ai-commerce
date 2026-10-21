@@ -42,10 +42,8 @@ func (h *APIErrorHandler) ProcessAPIResponse(response *api.APIResponse, expected
 // HandleAuthenticationError 处理认证错误
 func (h *APIErrorHandler) HandleAuthenticationError(code, message string) error {
 	return &api.AuthenticationExpiredError{
-		TenantID: h.baseClient.GetTenantID(),
-		ShopID:   h.baseClient.GetShopID(),
-		Code:     code,
-		Message:  message,
+		Code:    code,
+		Message: message,
 	}
 }
 

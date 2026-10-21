@@ -1404,7 +1404,7 @@ func TestConsumerProductFetcherBuilderStaysRetired(t *testing.T) {
 		"func PlatformUsesLocalFetcher(",
 	} {
 		if strings.Contains(string(content), phrase) {
-			t.Fatalf("%s exposes %s; keep platform fetcher mode rules in platformbase and construction in bootstrap fetchers", path, phrase)
+			t.Fatalf("%s exposes %s; use the current Product sourcing port, not retired fetcher factories", path, phrase)
 		}
 	}
 }
@@ -1851,7 +1851,7 @@ func TestInfraProductCrawlerAdapterIsRetired(t *testing.T) {
 func TestAppCrawlerFetcherCompatibilityLayerIsRetired(t *testing.T) {
 	path := filepath.Join("..", "internal", "app", "crawler", "fetcher")
 	if _, err := os.Stat(path); err == nil {
-		t.Fatalf("%s still exists; use internal/crawler/fetcher for product fetcher contracts and implementations", path)
+		t.Fatalf("%s still exists; use current Product sourcing ports and integration/crawler adapters", path)
 	} else if !os.IsNotExist(err) {
 		t.Fatalf("stat %s: %v", path, err)
 	}
@@ -1986,7 +1986,6 @@ func TestInfrastructurePackagesDoNotImportBusinessDomains(t *testing.T) {
 		filepath.Join("..", "internal", "infra"),
 		filepath.Join("..", "internal", "integration"),
 		filepath.Join("..", "internal", "platform"),
-		filepath.Join("..", "internal", "platformbase"),
 	} {
 		t.Run(filepath.ToSlash(infraRoot), func(t *testing.T) {
 			assertNoBannedImportPrefixes(t, infraRoot, []string{
@@ -2643,25 +2642,8 @@ func TestStateRetiredManagementImportsStayBlocked(t *testing.T) {
 
 func TestPlatformBaseRetiredManagementImportsStayBlocked(t *testing.T) {
 	root := filepath.Join("..", "internal", "platformbase")
-	allowedFiles := map[string]struct{}{
-		filepath.Clean(filepath.Join(root, "base_factory.go")): {},
-	}
-
-	index, err := loadGoFileIndex(root, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for path, facts := range index.files {
-		if pathAllowed(path, allowedFiles) {
-			continue
-		}
-		for quotedImport := range facts.imports {
-			importPath := strings.Trim(quotedImport, `"`)
-			if importMatchesPrefix(importPath, "task-processor/internal/infra/clients/management") {
-				t.Errorf("%s imports %s; keep platformbase management dependencies limited to current platform-factory retirement seams and prefer in-repository database/repository access for new platform data", path, importPath)
-			}
-		}
+	if _, err := os.Stat(root); !os.IsNotExist(err) {
+		t.Fatalf("retired platformbase root must stay absent: %v", err)
 	}
 }
 
@@ -2806,23 +2788,8 @@ func TestSheinLoginServiceRetiredManagementImportsStayBlocked(t *testing.T) {
 
 func TestSharedPricingRetiredManagementImportsStayBlocked(t *testing.T) {
 	root := filepath.Join("..", "internal", "pricing")
-	allowedFiles := map[string]struct{}{}
-
-	index, err := loadGoFileIndex(root, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for path, facts := range index.files {
-		if pathAllowed(path, allowedFiles) {
-			continue
-		}
-		for quotedImport := range facts.imports {
-			importPath := strings.Trim(quotedImport, `"`)
-			if importMatchesPrefix(importPath, "task-processor/internal/infra/clients/management") {
-				t.Errorf("%s imports %s; keep shared pricing management dependencies limited to current pricing-config retirement seams and prefer in-repository database/repository access for new pricing data", path, importPath)
-			}
-		}
+	if _, err := os.Stat(root); !os.IsNotExist(err) {
+		t.Fatalf("retired numeric cost wrapper root must stay absent: %v", err)
 	}
 }
 

@@ -4,7 +4,6 @@ import "github.com/spf13/viper"
 
 func BuildPlatformConfig(v *viper.Viper, prefix string) PlatformConfig {
 	cfg := PlatformConfig{
-		FetchMode:  v.GetString(prefix + ".fetchMode"),
 		HTTPClient: BuildHTTPClientConfig(v, prefix+".httpClient"),
 	}
 

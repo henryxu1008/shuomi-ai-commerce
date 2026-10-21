@@ -84,7 +84,6 @@ browser:
 amazon:
   # Amazon 爬虫配置
   enabled: false
-  dataFreshnessDays: 15  # 数据新鲜度天数，默认15天
   crawlTimeout: 300      # 爬虫超时时间（秒），默认5分钟
 
   # Amazon SP-API 配置（用于上架）

@@ -355,18 +355,6 @@ func knownEnvBindings() map[string]envBinding {
 			Primary:    "TASK_PROCESSOR_AMAZON_SPAPI_DEFAULT_CONDITION",
 			Deprecated: []string{"AMAZON_SPAPI_DEFAULT_CONDITION"},
 		},
-		"amazon.remoteAPI.enabled": {
-			Primary:    "TASK_PROCESSOR_AMAZON_REMOTE_API_ENABLED",
-			Deprecated: []string{"AMAZON_REMOTE_API_ENABLED"},
-		},
-		"amazon.remoteAPI.baseURL": {
-			Primary:    "TASK_PROCESSOR_AMAZON_REMOTE_API_BASE_URL",
-			Deprecated: []string{"AMAZON_REMOTE_API_BASE_URL"},
-		},
-		"amazon.remoteAPI.timeout": {
-			Primary:    "TASK_PROCESSOR_AMAZON_REMOTE_API_TIMEOUT",
-			Deprecated: []string{"AMAZON_REMOTE_API_TIMEOUT"},
-		},
 		"browser.browserPath": {
 			Primary:    "TASK_PROCESSOR_BROWSER_PATH",
 			Deprecated: []string{"BROWSER_PATH"},

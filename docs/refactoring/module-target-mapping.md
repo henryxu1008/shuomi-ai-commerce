@@ -1,5 +1,7 @@
 # Module Target Mapping
 
+> #867 当前校准：按[完整数字采集/平台尾链边界](../architecture/legacy-numeric-acquisition-tail-closure-retirement-boundary.md)整批退休无当前装配的 fetch/cache/Task、数字 Cookie/StoreInfo 适配及 Amazon 专属运维源。当前采集 Processor/browser/source port、平台 API/规则、两种 SHEIN 属性、品牌/定价、Store 与独立 SHEIN 登录/同步保留；旧工厂不是后续迁移/重建目标。只删除获准七条 CURRENT inventory 消费者行；下文历史观测/计数保持，workflow/ceilings不变。
+
 > #301/#863 supersedes only the numeric worker/Store retention rows below under user-confirmed frozen design 94fa4cab §1–§7 (Independent Architecture / IMPLEMENTATION_READY). The complete numeric account/Store/Profile/Redis/TEMU StoreRuntime source closure retires together; current opaque Organization/Store, authorized CLI, private fresh bindings and optional Store execution ownership preserve login/Store sync. The unchanged historical race target is test-only. No workflow, real runtime/data/credential action or trial prerequisite; UNKNOWN never auto-takes-over and #301 stays OPEN. Exact implementation evidence stays in #863.
 
 
@@ -306,7 +308,7 @@ Do not add a new internal compatibility wrapper just because retirement is incon
 
 | New work type | Preferred landing zone | Do not default to |
 | --- | --- | --- |
-| Amazon source crawler | `internal/integration/crawler/amazon` | retained Amazon subpackages and old crawler roots; root numeric executor absent |
+| Amazon source crawler | `internal/integration/crawler/amazon` | current AmazonProcessor/browser/extractor and source port; numeric Task/HTTP/cache factory closure retired by #867 |
 | 1688 source crawler | `internal/integration/crawler/a1688` | `internal/crawler/alibaba1688`, compatibility handoff |
 | Source normalization / lineage | `internal/product/sourcing` | crawler DTOs, root ListingKit |
 | Product facts/assets/enrichment/image | `internal/product/{catalog,asset,enrichment,image}` | retired ProductEnrich/ProductImage/catalog/asset roots |

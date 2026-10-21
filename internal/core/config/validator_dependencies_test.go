@@ -26,9 +26,8 @@ func TestValidateOpenAIConfig_ClientsMustBeComplete(t *testing.T) {
 
 func TestValidateAmazonConfig_SPAPIRequiresCredentials(t *testing.T) {
 	cfg := AmazonConfig{
-		Enabled:           true,
-		DataFreshnessDays: 7,
-		CrawlTimeout:      30,
+		Enabled:      true,
+		CrawlTimeout: 30,
 		RiskControl: AmazonRiskControlConfig{
 			CaptchaRecreateThreshold:        1,
 			AuthenticationRecreateThreshold: 1,
@@ -36,12 +35,6 @@ func TestValidateAmazonConfig_SPAPIRequiresCredentials(t *testing.T) {
 			TimeoutRecreateThreshold:        3,
 			NetworkRecreateThreshold:        2,
 			ServerErrorRecreateThreshold:    3,
-		},
-		RegionGuard: AmazonRegionGuardConfig{
-			Enabled:                 true,
-			FailureThreshold:        3,
-			EvaluationWindowSeconds: 300,
-			CooldownSeconds:         180,
 		},
 		QualityControl: AmazonQualityControlConfig{
 			RetryOnValidationFailure:   true,
@@ -75,9 +68,8 @@ func TestValidateConfig_CatchesDependencyErrors(t *testing.T) {
 			ViewportHeight: 1,
 		},
 		Amazon: AmazonConfig{
-			Enabled:           true,
-			DataFreshnessDays: 1,
-			CrawlTimeout:      1,
+			Enabled:      true,
+			CrawlTimeout: 1,
 			RiskControl: AmazonRiskControlConfig{
 				CaptchaRecreateThreshold:        1,
 				AuthenticationRecreateThreshold: 1,
@@ -85,12 +77,6 @@ func TestValidateConfig_CatchesDependencyErrors(t *testing.T) {
 				TimeoutRecreateThreshold:        3,
 				NetworkRecreateThreshold:        2,
 				ServerErrorRecreateThreshold:    3,
-			},
-			RegionGuard: AmazonRegionGuardConfig{
-				Enabled:                 true,
-				FailureThreshold:        3,
-				EvaluationWindowSeconds: 300,
-				CooldownSeconds:         180,
 			},
 			QualityControl: AmazonQualityControlConfig{
 				RetryOnValidationFailure:   true,

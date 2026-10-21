@@ -16,7 +16,6 @@ openai:
   timeout: 30
 amazon:
   enabled: true
-  dataFreshnessDays: 7
   crawlTimeout: 120
   proxyPool:
     enabled: true
@@ -86,7 +85,6 @@ openai:
   timeout: 30
 amazon:
   enabled: true
-  dataFreshnessDays: 7
   crawlTimeout: 120
   proxyPool:
     enabled: true
