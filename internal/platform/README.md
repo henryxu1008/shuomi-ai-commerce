@@ -8,7 +8,6 @@ Owned runtime mechanisms:
 - logging
 - database runtime and Goose migration
 - Redis
-- RabbitMQ queue runtime
 - worker pool
 - Temporal dial
 - feature flags
