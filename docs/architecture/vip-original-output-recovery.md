@@ -7,6 +7,40 @@ Execution: Issue #840. Product decision: 2026-10-21 user requests recovery of th
 An authorized member can distinguish a successful, committed generation whose original media needs recovery from a genuinely UNKNOWN provider effect. The same original result is retrieved with the existing recovery command; no new plan, provider POST, reservation, or price lookup is introduced.
 Figma authority (updated before implementation): file tg48P46SSXl6TBy9lZwg63, page 31:463, editable dark 8229:2346 / light 8229:2406, wrapper 8229:2345. Original designs remain.
 
+### Original-output recovery diagnostics (2026-10-21)
+
+Design Basis: N/A for this observational bugfix. The user authorized only
+stage/category diagnostics and regression tests; the existing recovery,
+retry, return-error, settlement and permission contracts stay unchanged.
+Before implementation, editable Figma note
+[8402:2368](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=8402-2368)
+and Issue #840 describe this scope. Original DNS/recovery notes remain.
+
+The first English-result recovery and the successful recovery had identical
+inputs except ActionID. The first activity's generic validation error erased
+the failing I/O stage/cause; the precise historical transport/storage cause
+remains unproved. New diagnostics cannot reconstruct or rewrite that history.
+
+Use the existing worker logrus and Temporal activity logger to report fixed
+stages for input/fact validation, recovery-bundle reads, original-result GET,
+image inspection, material preparation, bundle preservation and staging
+restoration. Classify errors by allowlisted types/categories, with bounded
+HTTP status and hashed run correlation. Never log raw error text, result or
+source URLs, credentials, prompts or approved copy. Diagnostics are local
+metadata, never provider, usage, settlement or recovery facts. Expected missing
+bundles still fall through to the original GET; all error identities, retry
+policies, strict original dimensions, TLS/SSRF gates and business projections
+retain their existing behavior. No new schema, command, state or fact owner.
+
+TDD reuses local worker/Temporal fixtures to cover download and artifact-stage
+failures, log privacy and unchanged errors/call counts/immutable success.
+Existing recovery tests retain success, true UNKNOWN, revoked/mismatched
+input and already-settled/exhausted-member cases. No retained business writes,
+provider calls, generation, extra charge, publication or config/default change
+are authorized. Reservation b945b71a-9467-4e42-b891-8199d3351bab remains reserved
+5 points; a historical DNS diagnostic is not terminal usage evidence. Runtime
+deployment, original-request replay and merge remain separately authorized.
+
 ### Saved-approval completion clarification (2026-10-21)
 
 The user authorized a separate append of the recovered VIP candidate to the
