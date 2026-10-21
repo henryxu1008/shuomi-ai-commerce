@@ -1,5 +1,7 @@
 # Updater Third-Party Validation
 
+> RETIRED / 历史：#870 [用户确认的完整旧宿主退休边界](legacy-host-runtime-closure-retirement-boundary.md)已确认整批退休无当前消费者的 internal/app/updater 及专属 adapter/test。下文的当前行为保留、第三方替换、验证/后续要求仅为旧宿主历史，不再是实现、发布或内部试用前置；不创建替代 updater/wrapper。历史正文/结果保留，任何 token/更新产物/实例/进程/数据/凭据均不检查、不操作。
+
 ## Goal
 
 在不改变当前上线行为的前提下，为后续评估第三方自更新库建立一个明确的验证边界。
