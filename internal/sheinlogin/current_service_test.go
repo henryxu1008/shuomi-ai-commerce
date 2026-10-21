@@ -67,10 +67,16 @@ func syntheticState() map[string]any {
 	return map[string]any{"cookies": []any{map[string]any{"name": "session", "value": "private-cookie"}}}
 }
 
-type syntheticReader struct{ calls atomic.Int32 }
+type syntheticReader struct {
+	calls       atomic.Int32
+	unavailable atomic.Bool
+}
 
 func (r *syntheticReader) Merchant(context.Context, Account, map[string]any) (string, error) {
 	r.calls.Add(1)
+	if r.unavailable.Load() {
+		return "", ErrUnavailable
+	}
 	return "merchant", nil
 }
 func (r *syntheticReader) Warehouses(context.Context, Account, map[string]any) ([]WarehouseOption, error) {
@@ -153,6 +159,12 @@ func TestCurrentWorkerResponseLossResumesOnlyFixedSync(t *testing.T) {
 	if e != nil || attempt.Status != LoginAttemptSucceeded || attempt.SyncStatus != "unavailable" || attempt.MerchantID != "merchant" || attempt.ExpectedStoreVersion != 1 {
 		t.Fatalf("pending=%+v %v", attempt, e)
 	}
+	if e = os.Remove(s.config.Bindings[0].CredentialFile); e != nil {
+		t.Fatal(e)
+	}
+	if e = s.store.client.Del(context.Background(), s.store.scopeKey(attempt.Scope)+":cookie").Err(); e != nil {
+		t.Fatal(e)
+	}
 	if e = s.resumePending(context.Background(), *attempt); e != nil {
 		t.Fatal(e)
 	}
@@ -169,6 +181,79 @@ func TestCurrentWorkerResponseLossResumesOnlyFixedSync(t *testing.T) {
 		if strings.Contains(string(raw), secret) {
 			t.Fatal("private input queued")
 		}
+	}
+}
+
+func TestPendingIdentityReadAndCachedCookieDoNotRequireLoginSecret(t *testing.T) {
+	for _, pending := range []bool{true, false} {
+		t.Run(map[bool]string{true: "pending-identity", false: "cached-cookie"}[pending], func(t *testing.T) {
+			s, _, _, automation, reader := currentService(t)
+			reader.unavailable.Store(pending)
+			c := enqueueCurrent(t, s)
+			err := s.processAttempt(context.Background(), c.RequestKey)
+			if pending && !errors.Is(err, ErrUnavailable) || !pending && err != nil {
+				t.Fatal(err)
+			}
+			if err = os.Remove(s.config.Bindings[0].CredentialFile); err != nil {
+				t.Fatal(err)
+			}
+			reader.unavailable.Store(false)
+			if pending {
+				a, loadErr := s.store.Load(context.Background(), c.RequestKey)
+				if loadErr != nil {
+					t.Fatal(loadErr)
+				}
+				err = s.resumePending(context.Background(), *a)
+			} else {
+				c = enqueueCurrent(t, s)
+				err = s.processAttempt(context.Background(), c.RequestKey)
+			}
+			if err != nil {
+				t.Fatal("readonly Cookie path reopened login secret", err)
+			}
+			a, err := s.store.Load(context.Background(), c.RequestKey)
+			if err != nil || a.SyncStatus != "applied" || automation.calls.Load() != 1 || reader.calls.Load() != 2 {
+				t.Fatalf("readonly path=%+v %v", a, err)
+			}
+		})
+	}
+}
+
+type countedOwner struct {
+	StoreOwner
+	checks atomic.Int32
+}
+
+func (o *countedOwner) CheckOwner(ctx context.Context, s storecenter.SheinLoginScope, actor, member, attempt, nonce string) error {
+	o.checks.Add(1)
+	return o.StoreOwner.CheckOwner(ctx, s, actor, member, attempt, nonce)
+}
+
+func TestVerificationCancellationDoesNotContinuouslyPollLiveAuthorization(t *testing.T) {
+	s, owner, _, automation, _ := currentService(t)
+	counted := &countedOwner{StoreOwner: owner}
+	s.owner = counted
+	allow := make(chan struct{})
+	close(allow)
+	automation.waiting = true
+	automation.session = &closingSession{closeStarted: make(chan struct{}), allowClose: allow}
+	c := enqueueCurrent(t, s)
+	done := make(chan error, 1)
+	go func() { done <- s.processAttempt(context.Background(), c.RequestKey) }()
+	waitStatus(t, s, c.RequestKey, LoginAttemptWaitingVerifyCode)
+	checks := counted.checks.Load()
+	time.Sleep(1100 * time.Millisecond)
+	if counted.checks.Load() != checks {
+		t.Error("local cancellation polling called live authorization repeatedly")
+	}
+	c.Action, c.AttemptID, c.RequestKey = "cancel", c.RequestKey, ""
+	if _, err := s.Execute(context.Background(), c); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("local cancellation waited for remote revalidation interval")
 	}
 }
 
@@ -219,7 +304,7 @@ func TestQuiesceRequiresActualSessionCloseAndUnknownCannotTakeOver(t *testing.T)
 	}
 	select {
 	case <-session.closeStarted:
-	case <-time.After(5 * time.Second):
+	case <-time.After(20 * time.Second):
 		t.Fatal("owner did not drain")
 	}
 	scope := s.config.Scope(s.config.Bindings[0])

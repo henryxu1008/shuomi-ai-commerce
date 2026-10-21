@@ -160,10 +160,33 @@ func (c Config) Scope(b Binding) storecenter.SheinLoginScope {
 	sum := sha256.Sum256(data)
 	return storecenter.SheinLoginScope{OrganizationID: b.OrganizationID, StoreID: b.StoreID, InstallationID: c.InstallationID, BindingRevision: b.Revision, ConfigFingerprint: hex.EncodeToString(sum[:])}
 }
-func (b Binding) LoadAccount(ctx context.Context, s storecenter.SheinLoginScope) (Account, error) {
-	// Producer code uses Binding/Scope only and never calls this method.
+
+// SessionAccount loads only endpoint/proxy metadata for Cookie-bearing reads.
+// It never opens the separate username/password input.
+func (b Binding) SessionAccount(ctx context.Context, s storecenter.SheinLoginScope) (Account, error) {
 	if s.OrganizationID != b.OrganizationID || s.StoreID != b.StoreID || s.BindingRevision != b.Revision {
 		return Account{}, ErrInvalidInput
+	}
+	proxy := ""
+	if b.ProxyFile != "" {
+		data, e := ReadPrivate(ctx, b.ProxyFile, 65536)
+		if e != nil {
+			return Account{}, e
+		}
+		proxy = strings.TrimSpace(string(data))
+		u, e := url.Parse(proxy)
+		if e != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https" && u.Scheme != "socks5") {
+			return Account{}, ErrInvalidInput
+		}
+	}
+	return Account{Scope: s, OrganizationID: s.OrganizationID, StoreID: s.StoreID, BindingRevision: s.BindingRevision, Generation: s.Generation, LoginURL: b.LoginURL, Proxy: proxy}, nil
+}
+
+func (b Binding) LoadAccount(ctx context.Context, s storecenter.SheinLoginScope) (Account, error) {
+	// Only the executor starting a browser needs login credentials.
+	account, e := b.SessionAccount(ctx, s)
+	if e != nil {
+		return Account{}, e
 	}
 	var private struct {
 		Username string `json:"username"`
@@ -176,17 +199,6 @@ func (b Binding) LoadAccount(ctx context.Context, s storecenter.SheinLoginScope)
 	if DecodeStrict(data, &private, 65536) != nil || private.Username == "" || private.Password == "" || len(private.Username) > 500 || len(private.Password) > 4096 {
 		return Account{}, ErrInvalidInput
 	}
-	proxy := ""
-	if b.ProxyFile != "" {
-		data, e = ReadPrivate(ctx, b.ProxyFile, 65536)
-		if e != nil {
-			return Account{}, e
-		}
-		proxy = strings.TrimSpace(string(data))
-		u, e := url.Parse(proxy)
-		if e != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https" && u.Scheme != "socks5") {
-			return Account{}, ErrInvalidInput
-		}
-	}
-	return Account{Scope: s, OrganizationID: s.OrganizationID, StoreID: s.StoreID, BindingRevision: s.BindingRevision, Generation: s.Generation, Username: private.Username, Password: private.Password, LoginURL: b.LoginURL, Proxy: proxy}, nil
+	account.Username, account.Password = private.Username, private.Password
+	return account, nil
 }

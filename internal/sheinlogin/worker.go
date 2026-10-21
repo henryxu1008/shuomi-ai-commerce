@@ -131,6 +131,8 @@ func (s *Service) processAttempt(parent context.Context, id string) error {
 		defer close(monitorDone)
 		ticker := time.NewTicker(300 * time.Millisecond)
 		defer ticker.Stop()
+		authorization := time.NewTicker(15 * time.Second)
+		defer authorization.Stop()
 		for {
 			select {
 			case <-monitorCtx.Done():
@@ -141,6 +143,7 @@ func (s *Service) processAttempt(parent context.Context, id string) error {
 					cancel()
 					return
 				}
+			case <-authorization.C:
 				if s.owner.CheckOwner(monitorCtx, scope, identity.ActorID, identity.MemberID, identity.ID, nonce) != nil {
 					cancel()
 					return
@@ -150,11 +153,6 @@ func (s *Service) processAttempt(parent context.Context, id string) error {
 	}()
 	defer func() { stopMonitor(); <-monitorDone }()
 	check := func() error { return s.owner.CheckOwner(ctx, scope, a.ActorID, a.MemberID, a.ID, nonce) }
-	account, e := binding.LoadAccount(ctx, scope)
-	if e != nil {
-		_ = s.complete(context.WithoutCancel(ctx), *a, LoginAttemptFailed, "CREDENTIAL_INPUT_UNAVAILABLE")
-		return e
-	}
 	var state map[string]any
 	if !a.ForceLogin {
 		var ok bool
@@ -165,6 +163,16 @@ func (s *Service) processAttempt(parent context.Context, id string) error {
 		if !ok {
 			state = nil
 		}
+	}
+	var account Account
+	if state == nil {
+		account, e = binding.LoadAccount(ctx, scope)
+	} else {
+		account, e = binding.SessionAccount(ctx, scope)
+	}
+	if e != nil {
+		_ = s.complete(context.WithoutCancel(ctx), *a, LoginAttemptFailed, "SESSION_INPUT_UNAVAILABLE")
+		return e
 	}
 	if state == nil {
 		if e = check(); e != nil {
@@ -240,14 +248,19 @@ func (s *Service) resumePending(parent context.Context, a LoginAttempt) error {
 		return e
 	}
 	a = next
-	state, ok, e := s.store.Cookie(ctx, scope)
-	if e != nil || !ok {
-		return ErrUnavailable
-	}
-	// A readonly identity request needs endpoint/proxy metadata, never a password.
-	account, e := binding.LoadAccount(ctx, scope)
-	if e != nil {
-		return e
+	var state map[string]any
+	var account Account
+	if a.MerchantID == "" {
+		var ok bool
+		state, ok, e = s.store.Cookie(ctx, scope)
+		if e != nil || !ok {
+			return ErrUnavailable
+		}
+		// An identity read needs endpoint/proxy metadata, never a password.
+		account, e = binding.SessionAccount(ctx, scope)
+		if e != nil {
+			return e
+		}
 	}
 	check := func() error { return s.owner.CheckOwner(ctx, scope, a.ActorID, a.MemberID, a.ID, nonce) }
 	return s.syncPending(ctx, &a, account, state, check)
