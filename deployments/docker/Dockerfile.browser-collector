@@ -10,6 +10,9 @@ RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /out/collector ./cmd/1688-public-
 
 FROM debian:bookworm-slim AS runtime
 ENV PLAYWRIGHT_DRIVER_PATH=/opt/playwright-driver PLAYWRIGHT_BROWSERS_PATH=/opt/playwright-browsers
+# Chromium's crashpad needs writable user directories; uid 65534 has no home.
+# Keep these in the collector's ephemeral /tmp, including read-only deployments.
+ENV XDG_CONFIG_HOME=/tmp/chromium-config XDG_CACHE_HOME=/tmp/chromium-cache
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /out/playwright-driver /usr/local/bin/playwright-driver
 RUN playwright-driver install --with-deps chromium && \
