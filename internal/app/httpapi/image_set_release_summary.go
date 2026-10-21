@@ -16,7 +16,8 @@ type fullImageReleaseSummary struct {
 
 type fullImageRecentRun struct {
 	imageagent.ImageSetRunSummary
-	ReleaseSummary *fullImageReleaseSummary `json:"releaseSummary,omitempty"`
+	ReleaseSummary        *fullImageReleaseSummary        `json:"releaseSummary,omitempty"`
+	OutputRecoverySummary *fullImageOutputRecoverySummary `json:"outputRecoverySummary,omitempty"`
 }
 
 type imageGenerationFactReader interface {
