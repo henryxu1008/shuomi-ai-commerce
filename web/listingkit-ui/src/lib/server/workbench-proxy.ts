@@ -1025,7 +1025,7 @@ export async function buildWorkbenchUpstreamRequest(
       route.requestContract==="supply-completion-history"?`${path[2]}:${new URL(request.url).searchParams.get("before")??0}:${new URL(request.url).searchParams.get("limit")??20}`:
       route.requestContract==="supply-completion-history-detail"?`${path[2]}:${path[5]}`:
       (route.requestContract==="supply-target"||route.requestContract==="supply-publication"||route.requestContract==="supply-publication-status") ? `${path[2]}:${path[4]}` :
-      ["supply-item-completion-drafts","supply-completion-draft","supply-completion-drafts","supply-source","supply-preparation","supply-record","supply-operation","supply-ensure","supply-cancel"].includes(route.requestContract) ? (["supply-preparation","supply-completion-drafts"].includes(route.requestContract)?path[1]:path[2]) :
+      ["supply-product-inputs","supply-item-completion-drafts","supply-completion-draft","supply-completion-drafts","supply-source","supply-preparation","supply-record","supply-operation","supply-ensure","supply-cancel"].includes(route.requestContract) ? (["supply-preparation","supply-completion-drafts"].includes(route.requestContract)?path[1]:path[2]) :
       route.requestContract === "collection-detail" || route.requestContract === "collection-batch" ? path[2] :
       route.requestContract === "collection-history" ? path[2] :
       route.requestContract === "collection-history-detail" ? `${path[2]}:${path[4]}` :
