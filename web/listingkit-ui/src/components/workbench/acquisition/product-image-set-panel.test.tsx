@@ -1493,6 +1493,49 @@ it(`notifies a saved SHEIN result and verifies its original resume receipt despi
  expect(fetch.mock.calls.some(([url])=>/\/(prepare|regenerate|confirm|resume|approve)$/.test(String(url)))).toBe(false);
 });
 }
+it("finishes the original saved action and refreshes four ordered materials without saving again",async()=>{
+ state=projection("awaiting_final_approval",templateId);
+ Object.assign(state,{approvalAvailable:false,regenerationAvailable:false,pendingCommand:{ActionID:operation,Kind:"approve_results",Phase:"approval.persist_complete"}});
+ const assets=["existing-main-1","existing-main-2","existing-detail-1","vip-detail-2"].map((id,i)=>({id,role:"gallery",url:`https://images.test/${id}.png`,width:1024,height:1024,presentation:{group:i<2?"carousel":"detail",order:i%2+1}}));
+ const saved=vi.fn(),real=fetch.getMockImplementation()!;
+ fetch.mockImplementation((url,init)=>{
+  if(String(url).endsWith(`/runs/${runId}/resume`)){state={...state,status:"completed",pendingCommand:null};return Promise.resolve(Response.json({runId,status:"accepted"},{status:202}))}
+  if(String(url).endsWith("/inventory"))return Promise.resolve(Response.json({target:{approval_action_id:operation,head:{action_id:operation,payload_hash:sha},assets},generic:null}));
+  return real(url,init);
+ });
+ const mounted=render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialRunId={runId} onSaved={saved}/>);
+ fireEvent.click(await screen.findByRole("button",{name:"继续核实原保存操作"}));
+ await screen.findByRole("heading",{name:"已保存正式素材"});
+ await waitFor(()=>expect(saved).toHaveBeenCalledOnce());
+ const ordered=screen.getAllByRole("img",{name:/^正式素材 \d$/});
+ expect(ordered.map(image=>image.getAttribute("src"))).toEqual(assets.map(image=>image.url));
+ expect(ordered.map(image=>image.closest("figure")?.querySelector("figcaption")?.textContent)).toEqual(["主图 / 轮播 · 1","主图 / 轮播 · 2","详情 · 1","详情 · 2"]);
+ expect(fetch.mock.calls.filter(([url])=>String(url).endsWith("/inventory")).length).toBeGreaterThanOrEqual(2);
+ expect(fetch.mock.calls.filter(([,init])=>init?.method==="POST").map(([url])=>String(url))).toEqual([expect.stringContaining(`/runs/${runId}/resume`)]);
+ expect(JSON.parse(String(fetch.mock.calls.find(([url])=>String(url).endsWith(`/runs/${runId}/resume`))![1]!.body))).toEqual({actionId:operation});
+ mounted.unmount();
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ await screen.findByRole("heading",{name:"已保存正式素材"});
+ expect(screen.getAllByRole("img",{name:/^正式素材 \d$/}).map(image=>image.getAttribute("src"))).toEqual(assets.map(image=>image.url));
+ expect(fetch.mock.calls.filter(([,init])=>init?.method==="POST")).toHaveLength(1);
+});
+
+it("keeps a genuine UNKNOWN recovery request locked during read-only verification",async()=>{
+ state=projection("blocked",templateId);
+ Object.assign(state,{approvalAvailable:false,regenerationAvailable:false,recoverableEffects:[{SlotID:"main",Attempt:1,Code:"slot_provider_outcome_unknown"}],block:{Code:"slot_provider_outcome_unknown"}});
+ state.slots=state.slots.map(slot=>({...slot,status:"blocked",candidates:[],closure:null,errorCode:"slot_provider_outcome_unknown"}));
+ const key=`product-image-set:actor:org:acquisition:${operation}:intent`,raw=JSON.stringify({action:"recover",runId,body:{actionId:operation,planRevision:1,slotId:"main",attempt:1}});
+ localStorage.setItem(`product-image-set:actor:org:acquisition:${operation}:run`,runId);localStorage.setItem(key,raw);
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ fireEvent.click(await screen.findByRole("button",{name:"核实原请求"}));
+ await waitFor(()=>expect(screen.getByRole("button",{name:"核实原请求"})).toBeEnabled());
+ expect(localStorage.getItem(key)).toBe(raw);
+ expect(screen.queryByRole("heading",{name:"已保存正式素材"})).toBeNull();
+ expect(screen.queryByRole("button",{name:"人工批准并保存素材"})).toBeNull();
+ expect(screen.getByRole("button",{name:"准备整套图片计划（2 项）"})).toBeDisabled();
+ expect(fetch.mock.calls.some(([,init])=>init?.method==="POST")).toBe(false);
+});
+
 for (const receiptFound of [true,false]) {
 it(`verifies a lost resume response using its original immutable approval receipt (found=${receiptFound})`,async()=>{
  state=projection("completed",templateId);
