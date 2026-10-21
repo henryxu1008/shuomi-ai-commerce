@@ -1,5 +1,7 @@
 # #301 旧宿主 HTTP、会话与运行辅助层完整退休设计
 
+> #872 后续精确收口：[用户确认的完整队列/代理/配置尾部边界](legacy-queue-proxy-config-tail-closure-retirement-boundary.md)进一步退休无当前消费者的旧 RabbitMQ 包、cache/perf/types/fileio 及 Updater 配置 schema/default/build/示例尾部。本文对该旧队列包的广泛保留含义被精确取代；有效 core/config/logger、RetryConfig/真实 workerpool/Temporal/观测/HTTP、采集/Store和独立 SHEIN 登录同步仍保持。无替代更新器/队列 owner，不操作文件/进程/实例/凭据；其它合同及原历史正文/计数保留。
+
 Status: **CONFIRMED / Reuse Existing Architecture / Ready → In Progress**。用户已明确确认冻结设计 `a76db47d78037631573b42d81010ace8e23cb19d` 的 §1–§7（含 §6.1），授权在 #870 同批实施。#301/PR 准入已在生产修改前记录；下列原设计阶段时态保留为历史，实施权限以本状态及用户确认取代，删除/保留矩阵和停止条件不变。调查基线 main `245dcc60ccaf81b846603ba34f4cb39911018733`（#869 已合并），[准确 push/main CI39586724728](https://github.com/qq550723504/task-processor/actions/runs/39586724728) 已成功，仅作基线证据。#868 的源码退休与准确 main CI 已完成；#301 保持 OPEN，#29 不重开。本设计与后续实施沿一个 Writer、一个主要分支/PR 连续交付，不按包、文件或 helper 机械拆小批。准确设计 HEAD、CI、独立检查与用户确认留主要 PR。
 
 ## 1. 用户结果、范围与权限

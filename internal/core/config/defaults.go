@@ -49,7 +49,6 @@ func setDefaults(v *viper.Viper) {
 	setBrowserDefaults(v, defaults)
 	setAmazonDefaults(v, defaults)
 	setImageAgentDefaults(v, defaults)
-	setUpdaterDefaults(v, defaults)
 	setPlatformDefaults(v, defaults)
 }
 
@@ -120,15 +119,6 @@ func setAmazonDefaults(v *viper.Viper, defaults *Config) {
 	v.SetDefault("amazon.spapi.defaultMarketplace", sp.DefaultMarketplace)
 	v.SetDefault("amazon.spapi.defaultFulfillmentType", sp.DefaultFulfillmentType)
 	v.SetDefault("amazon.spapi.defaultCondition", sp.DefaultCondition)
-}
-
-func setUpdaterDefaults(v *viper.Viper, defaults *Config) {
-	u := defaults.Updater
-
-	v.SetDefault("updater.enabled", u.Enabled)
-	v.SetDefault("updater.updateURL", u.UpdateURL)
-	v.SetDefault("updater.checkInterval", u.CheckInterval)
-	v.SetDefault("updater.insecureSkipVerify", u.InsecureSkipVerify)
 }
 
 func setPlatformDefaults(v *viper.Viper, defaults *Config) {

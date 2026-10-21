@@ -19,6 +19,47 @@ var retiredHostRuntimePackages = []string{
 	"internal/app/lifecycle", "internal/core/errors", "internal/app/ports", "internal/app/updater",
 }
 
+func TestLegacyQueueProxyAndConfigTailClosureIsRetired(t *testing.T) {
+	retiredPackages := []string{
+		"internal/platform/queue/rabbitmq", "internal/pkg/cache", "internal/pkg/perf",
+		"internal/pkg/types", "internal/pkg/fileio",
+	}
+	retiredArtifacts := []string{
+		"internal/platform/queue/README.md", "scripts/validate-rabbitmq-flow.ps1", "tests/test_config.yaml",
+		"scripts/sync-shein-store-proxies.ps1", "deployments/kubernetes/shein-proxy-sync",
+		"deployments/kubernetes/shein-listing/base/secret.example.yaml",
+		"deployments/kubernetes/shein-listing/overlays/prod-store-shards-example/secret.example.yaml",
+		"deployments/kubernetes/shein-listing/overlays/prod/secret.example.yaml",
+		"deployments/kubernetes/shein-listing/overlays/prod/external-secret.yaml",
+		"deployments/kubernetes/shein-listing/overlays/prod/kustomization.yaml",
+		"internal/core/config/type_updater.go",
+	}
+	for _, relative := range append(retiredPackages, retiredArtifacts...) {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Errorf("retired queue/proxy/config artifact %s must be absent: %v", relative, err)
+		}
+	}
+	for _, root := range []string{"internal", "cmd"} {
+		index, err := loadGoFileIndex(filepath.Join("..", root), "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		for path, facts := range index.files {
+			for literal := range facts.imports {
+				imported, err := decodeGoImportPath(literal)
+				if err != nil {
+					t.Fatalf("decode import in %s: %v", path, err)
+				}
+				for _, relative := range retiredPackages {
+					if importMatchesPrefix(imported, "task-processor/"+relative) {
+						t.Errorf("%s imports retired queue/proxy/config package %s", path, imported)
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestOldHostRuntimeClosureStaysRetired(t *testing.T) {
 	for _, relative := range retiredHostRuntimePackages {
 		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
@@ -123,20 +164,6 @@ func TestNumericAcquisitionAndPlatformTailClosureIsRetired(t *testing.T) {
 	} {
 		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
 			t.Errorf("retired numeric acquisition artifact %s must be absent: %v", relative, err)
-		}
-	}
-	for _, relative := range []string{
-		"deployments/kubernetes/shein-listing/base/secret.example.yaml",
-		"deployments/kubernetes/shein-listing/overlays/prod-store-shards-example/secret.example.yaml",
-		"deployments/kubernetes/shein-listing/overlays/prod/secret.example.yaml",
-		"deployments/kubernetes/shein-listing/overlays/prod/external-secret.yaml",
-	} {
-		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if strings.Contains(string(content), "AMAZON_REMOTE_API_") {
-			t.Errorf("%s retains retired remote endpoint configuration", relative)
 		}
 	}
 	for relative, retired := range map[string][]string{
@@ -317,7 +344,6 @@ func TestRetiredListingOperationsClosure(t *testing.T) {
 	}
 	for relative, resources := range map[string][]string{
 		"shein-listing/base/kustomization.yaml":            {"namespace.yaml"},
-		"shein-listing/overlays/prod/kustomization.yaml":   {"../../base", "external-secret.yaml"},
 		"monitoring/prometheus-storage/kustomization.yaml": {"prometheusrule.yaml", "alertmanagerconfig.yaml"},
 	} {
 		var assembly struct {
@@ -333,25 +359,18 @@ func TestRetiredListingOperationsClosure(t *testing.T) {
 		}
 	}
 	for _, relative := range []string{
-		"shein-listing/base/namespace.yaml", "shein-listing/base/secret.example.yaml",
-		"shein-listing/overlays/prod/secret.example.yaml", "shein-listing/overlays/prod/external-secret.yaml",
-		"shein-listing/overlays/prod-store-shards-example/secret.example.yaml",
+		"shein-listing/base/namespace.yaml",
 	} {
 		var resource struct {
 			Kind     string                `yaml:"kind"`
 			Metadata struct{ Name string } `yaml:"metadata"`
 		}
 		readYAML(relative, &resource)
-		if strings.Contains(relative, "secret") && resource.Metadata.Name != "shein-listing-secret" {
-			t.Errorf("%s must retain the Store proxy sync credential name", relative)
-		}
 		if resource.Kind == "Namespace" && resource.Metadata.Name != "task-processor" {
 			t.Error("shared task-processor namespace must remain")
 		}
 	}
 	for relative, tokens := range map[string][]string{
-		"deployments/kubernetes/shein-proxy-sync/shein-proxy-sync.yaml":                       {"shein-listing-secret", "DATABASE_SECRET"},
-		"scripts/sync-shein-store-proxies.ps1":                                                {"shein-listing-secret"},
 		"deployments/kubernetes/listingkit-workbench/base/shein-login-worker-deployment.yaml": {"shein-login-worker-current", "app: shein-login-worker", "/healthz"},
 	} {
 		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
@@ -442,7 +461,7 @@ func TestRetiredTaskAndListingRuntimeConfigClosure(t *testing.T) {
 			t.Errorf("retired config artifact %s must be absent: %v", relative, err)
 		}
 	}
-	retiredRoots := []string{"processor", "worker", "listingControlPlane", "rabbitmq"}
+	retiredRoots := []string{"processor", "worker", "listingControlPlane", "rabbitmq", "updater"}
 	retiredPlatform := []string{"enabled", "schedulerEnabled", "autoPricing", "listingPricing", "productSync", "inventorySync", "activityRegistration", "sync", "monitor", "configPaths", "fetchMode"}
 	for _, relative := range []string{
 		"config/config-dev.yaml", "config/config-prod.yaml", "config/config-test.yaml",
@@ -531,9 +550,7 @@ func TestRetiredTaskAndListingRuntimeConfigClosure(t *testing.T) {
 		})
 	}
 	for _, relative := range []string{
-		"listingkit-workbench/base/secret.example.yaml", "shein-listing/base/secret.example.yaml",
-		"shein-listing/overlays/prod/secret.example.yaml", "shein-listing/overlays/prod-store-shards-example/secret.example.yaml",
-		"shein-listing/overlays/prod/external-secret.yaml",
+		"listingkit-workbench/base/secret.example.yaml",
 	} {
 		content, err := os.ReadFile(filepath.Join("..", "deployments", "kubernetes", filepath.FromSlash(relative)))
 		if err != nil {

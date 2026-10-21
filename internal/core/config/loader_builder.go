@@ -142,12 +142,6 @@ func BuildConfig(v *viper.Viper) *Config {
 				},
 			},
 		},
-		Updater: UpdaterConfig{
-			Enabled:            v.GetBool("updater.enabled"),
-			UpdateURL:          v.GetString("updater.updateURL"),
-			CheckInterval:      v.GetInt("updater.checkInterval"),
-			InsecureSkipVerify: v.GetBool("updater.insecureSkipVerify"),
-		},
 		ListingKit: ListingKitConfig{
 			RolePolicyDatabase: rolePolicyDatabase(v),
 			PlatformAdminUsers: getStringSlice(v, "listingkit.platformAdminUsers"),
