@@ -58,7 +58,7 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
  useEffect(()=>{savedCallback.current=onSaved},[onSaved]);
  const [entry,setEntry]=useState<z.infer<typeof catalogEntrySchema>>(),[templates,setTemplates]=useState<ImageAgentTemplate[]>([]),[cursor,setCursor]=useState("");
  const [template,setTemplate]=useState<ImageAgentTemplate>(),[sources,setSources]=useState<z.infer<typeof imageSetSourcesSchema>>(),[run,setRun]=useState<ImageSetRun>();
- const [routeDraft,setRouteDraft]=useState<ImageRouteSelection|null|undefined>(),[routeReady,setRouteReady]=useState(true);
+ const [routeDraft,setRouteDraft]=useState<ImageRouteSelection|null|undefined>(),[routeReady,setRouteReady]=useState(true),[routeNonce,setRouteNonce]=useState(0);
  const routeRun=useRef("");
  const [textDraft,setTextDraft]=useState<{key:string;tasksKey:string;value:ImageSetPrepare["text"]|null}>();
  const [runTemplate,setRunTemplate]=useState<ImageAgentTemplate>();
@@ -231,7 +231,7 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
   }catch(e){if(!controller.signal.aborted){
    fail(e);
    if(e instanceof ImageSetError&&e.status===409&&(e.code==="IMAGE_TEXT_REVIEW_CHANGED"||e.code==="IMAGE_ROUTE_CHANGED")&&(command.action==="prepare"||command.action==="regenerate")){
-    try{if(e.code==="IMAGE_ROUTE_CHANGED"){setRouteDraft((command.body as ImageSetPrepare).route??null);retainOriginalRequest(command,"IMAGE_ROUTE_CHANGED")}else retainOriginalRequest(command)}catch(retentionError){fail(retentionError)}
+    try{if(e.code==="IMAGE_ROUTE_CHANGED"){setRouteDraft((command.body as ImageSetPrepare).route??null);retainOriginalRequest(command,"IMAGE_ROUTE_CHANGED");setRouteReady(false);setRouteNonce(v=>v+1)}else retainOriginalRequest(command)}catch(retentionError){fail(retentionError)}
    }else if(!replay&&e instanceof ImageSetError&&e.code!=="OUTCOME_UNKNOWN"){
     clearIntent();if((command.action==="prepare"||command.action==="regenerate")&&e.code==="IMAGE_CONFIGURATION_CHANGED")setModeNonce(v=>v+1);
    }
@@ -352,7 +352,7 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
    {retainedRequests.map(record=><details key={record.key} className="break-all text-muted-foreground"><summary className="cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">原请求编号：{imageIntentRequestId(record.intent)}</summary><div className="mt-2 space-y-2"><p>原任务：{record.intent.runId??"尚未创建"} · 操作：{({prepare:"准备图片计划",regenerate:"重新准备图片计划",recover:"核实原调用",cancel:"取消剩余工作",restart:"恢复原失败任务",confirm:"确认点数并生成",resume:"核实原保存"} as Partial<Record<ImageSetRoute,string>>)[record.intent.action]}</p><pre className="max-h-80 overflow-auto whitespace-pre-wrap break-all text-xs">{record.raw}</pre></div></details>)}
   </section>:null}
   {!loading&&sources&&context.permissions.includes("listingkit.image_agent.write")?<SkillPicker scope={stableScope} target="product-image" initialSelection={initialSkill} disabled={locked} onChange={onMethodChange}/>:null}
-  {!loading&&sources&&entry?.canUse?<ImagePlanRoutePicker scope={stableScope} value={intent&&(intent.action==="prepare"||intent.action==="regenerate")?(intent.body as ImageSetPrepare).route??null:routeDraft===undefined?run?.plan.Route??null:routeDraft} disabled={locked||unresolvedRun} onChange={setRouteDraft} onValidity={setRouteReady}/>:null}
+  {!loading&&sources&&entry?.canUse?<ImagePlanRoutePicker key={routeNonce} scope={stableScope} value={intent&&(intent.action==="prepare"||intent.action==="regenerate")?(intent.body as ImageSetPrepare).route??null:routeDraft===undefined?run?.plan.Route??null:routeDraft} disabled={locked||unresolvedRun} onChange={setRouteDraft} onValidity={setRouteReady}/>:null}
   {!loading&&sources&&!sources.originals.length?<p className="text-sm text-muted-foreground">当前商品没有原始图片，补充真实素材后才能准备生成计划。</p>:null}
   {available&&sources?<>
    {template&&!compatibleImageTemplate(template,platform)?<p className="text-sm text-warning-foreground">当前模板不适用于此素材目标，请选择匹配的模板或切换目标。</p>:null}

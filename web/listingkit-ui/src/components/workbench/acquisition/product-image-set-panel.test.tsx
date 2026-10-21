@@ -104,9 +104,13 @@ it("keeps model switching and new preparation locked while the original run has 
 it.each(["prepare","regenerate"])("restores the exact pending VIP for %s and archives a definite route refusal before unlocking",async action=>{
  const key=`product-image-set:actor:org:acquisition:${operation}:intent`,route={BindingID:"image-vip",RevisionID:"route-vip"};
  const raw=JSON.stringify({action,...action==="regenerate"?{runId}:{},requestKey:templateId,body:{route,text:{mode:"none"},expectedModeRevision:"0",target:{Platform:"product"}}},null,2);localStorage.setItem(key,raw);
- const original=fetch.getMockImplementation()!;fetch.mockImplementation((url,init)=>String(url).endsWith("/model-options")?Promise.resolve(Response.json({contextKind:"acquisition",contextId:operation,options:[{model:"qwen-image-3.0-pro",quality:"auto",resolution:"1024x1024",points:1},{route,model:"gpt-image-2-vip",quality:"medium",resolution:"1024x1024",points:2}]})):String(url).endsWith(`/${action}`)?Promise.resolve(Response.json({code:"IMAGE_ROUTE_CHANGED"},{status:409})):original(url,init));
+ const nextRoute={...route,RevisionID:"route-new"};let reads=0,finishRead!:(value:Response)=>void;
+ const refreshed=new Promise<Response>(resolve=>{finishRead=resolve});
+ const options=(selected:typeof route)=>({contextKind:"acquisition",contextId:operation,options:[{model:"qwen-image-3.0-pro",quality:"auto",resolution:"1024x1024",points:1},{route:selected,model:"gpt-image-2-vip",quality:"medium",resolution:"1024x1024",points:2}]});
+ const original=fetch.getMockImplementation()!;fetch.mockImplementation((url,init)=>String(url).endsWith("/model-options")?(++reads===1?Promise.resolve(Response.json(options(route))):refreshed):String(url).endsWith(`/${action}`)?Promise.resolve(Response.json({code:"IMAGE_ROUTE_CHANGED"},{status:409})):original(url,init));
  render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
  const picker=await screen.findByRole("combobox",{name:"本次计划使用的图片模型"});expect(picker).toHaveValue(JSON.stringify(route));expect(picker).toBeDisabled();
+ await screen.findByText(/gpt-image-2-vip · medium · 原始输出/);
  fireEvent.click(screen.getByRole("button",{name:"继续原操作"}));
  await screen.findByText(/所选图片模型版本已不可用/);
  await waitFor(()=>expect(localStorage.getItem(key)).toBeNull());
@@ -114,6 +118,16 @@ it.each(["prepare","regenerate"])("restores the exact pending VIP for %s and arc
  expect(screen.getByRole("combobox",{name:"本次计划使用的图片模型"})).toBeEnabled();
  expect(screen.queryByRole("button",{name:"继续原操作"})).toBeNull();
  expect(fetch.mock.calls.filter(([url])=>String(url).endsWith(`/${action}`))).toHaveLength(1);
+ await waitFor(()=>expect(reads).toBe(2));
+ fireEvent.click(screen.getByRole("checkbox",{name:"共用原始素材 素材 1"}));
+ const prepareButton=screen.getByRole("button",{name:"准备整套图片计划（2 项）"});
+ expect(prepareButton).toBeDisabled();
+ fireEvent.click(prepareButton);expect(fetch.mock.calls.filter(([url])=>String(url).endsWith(`/${action}`))).toHaveLength(1);
+ await act(async()=>finishRead(Response.json(options(nextRoute))));
+ await screen.findByRole("option",{name:/原选版本 route-vip/});expect(prepareButton).toBeDisabled();
+ fireEvent.change(screen.getByRole("combobox",{name:"本次计划使用的图片模型"}),{target:{value:JSON.stringify(nextRoute)}});
+ await waitFor(()=>expect(prepareButton).toBeEnabled());
+ expect(Object.keys(localStorage).some(k=>localStorage.getItem(k)===raw)).toBe(true);
 });
 
 it("archives a definite image-review rejection and unlocks correction without generating",async()=>{
