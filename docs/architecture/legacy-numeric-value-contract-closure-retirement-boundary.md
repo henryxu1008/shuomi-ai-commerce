@@ -1,6 +1,8 @@
 # #301 旧数字上下文与共享值合同完整退休设计
 
-Status: **PROPOSED / DESIGN ONLY / 待用户确认**。设计调查基线为 main `23bde99ec2a436b96085e9dc3f02748f144a67b4`（#867 实际合并），[准确 push/main CI39570885435](https://github.com/qq550723504/task-processor/actions/runs/39570885435) 已通过，仅作基线证据。#301 OPEN；#29 已源级关闭，不重开。准确设计 HEAD、原 CI 与独立复核记录在本批 PR，不把设计审核或源码退出当运行/用户验收。
+Status: **Independent Architecture / IMPLEMENTATION_READY / 用户已确认 / 实施中**。冻结设计 HEAD `01d8b8a5087486849d2b883f6c4f554164713857` 的原 CI 与适用独立设计复核均已完成，用户明确确认 §1–§7（含 §6.1）；[实施准入](https://github.com/qq550723504/task-processor/pull/868#issuecomment-6312908855) 已先于生产代码记录 Ready → In Progress。下文设计阶段的权限与待确认表述保留为历史阶段条件，由本状态和该授权精确替代；同一 Writer、分支和 PR 整批实施 §5，workflow/inventory 零改，合并/部署/关单仍未授权。
+
+设计调查及实施开始基线为 main `23bde99ec2a436b96085e9dc3f02748f144a67b4`（#867 实际合并），[准确 push/main CI39570885435](https://github.com/qq550723504/task-processor/actions/runs/39570885435) 已通过，仅作基线证据。#301 OPEN；#29 已源级关闭，不重开。准确设计 HEAD、原 CI 与独立复核记录在本批 PR，不把设计审核或源码退出当运行/用户验收。
 
 ## 1. 用户结果、范围与权限
 
