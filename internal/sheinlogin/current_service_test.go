@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -48,13 +49,15 @@ func (a *liveMember) AuthorizeStoreMember(context.Context, string) (storecenter.
 }
 
 type syntheticAutomation struct {
-	calls   atomic.Int32
-	waiting bool
-	session VerifySession
+	calls        atomic.Int32
+	waiting      bool
+	session      VerifySession
+	freshProfile string
 }
 
 func (a *syntheticAutomation) StartLogin(ctx context.Context, account Account, cfg AutomationConfig) (*AutomationResult, VerifySession, error) {
 	a.calls.Add(1)
+	a.freshProfile = cfg.FreshProfileID
 	if account.Password != "private-password" {
 		return nil, nil, ErrInvalidInput
 	}
@@ -62,6 +65,70 @@ func (a *syntheticAutomation) StartLogin(ctx context.Context, account Account, c
 		return &AutomationResult{WaitingForVerifyCode: true}, a.session, nil
 	}
 	return &AutomationResult{BrowserState: syntheticState()}, a.session, nil
+}
+
+func TestForceLoginSelectsFreshAttemptProfileEvenWithCachedCookie(t *testing.T) {
+	s, _, _, automation, _ := currentService(t)
+	first := enqueueCurrent(t, s)
+	if err := s.processAttempt(context.Background(), first.RequestKey); err != nil {
+		t.Fatal(err)
+	}
+	c := first
+	c.RequestKey = uuid.NewString()
+	c.ForceLogin = true
+	if _, err := s.Execute(context.Background(), c); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.processAttempt(context.Background(), c.RequestKey); err != nil {
+		t.Fatal(err)
+	}
+	if automation.calls.Load() != 2 || automation.freshProfile != c.RequestKey {
+		t.Fatal("force-login reused persistent session", automation.freshProfile)
+	}
+}
+
+func TestAnotherConsumerCannotInterruptOwnedVerificationAttempt(t *testing.T) {
+	s, _, _, automation, _ := currentService(t)
+	if err := s.store.EnsureGroup(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	allow := make(chan struct{})
+	close(allow)
+	automation.waiting = true
+	automation.session = &closingSession{closeStarted: make(chan struct{}), allowClose: allow}
+	c := enqueueCurrent(t, s)
+	jobs, err := s.store.ReadJobs(context.Background(), "first-consumer")
+	if err != nil || len(jobs) != 1 {
+		t.Fatal(jobs, err)
+	}
+	done := make(chan error, 1)
+	go func() { done <- s.processAttempt(context.Background(), c.RequestKey) }()
+	waitStatus(t, s, c.RequestKey, LoginAttemptWaitingVerifyCode)
+	claimed, err := s.store.client.XClaim(context.Background(), &redis.XClaimArgs{Stream: s.store.stream(), Group: attemptGroup, Consumer: "second-consumer", Messages: []string{jobs[0].ID}}).Result()
+	if err != nil || len(claimed) != 1 {
+		t.Fatal(claimed, err)
+	}
+	second, err := NewService(s.config, s.store, s.owner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ack, err := second.handleReclaimedAttempt(context.Background(), c.RequestKey)
+	if err != nil || ack {
+		t.Error("live owner was reclaimed/acknowledged", ack, err)
+	}
+	a, err := s.store.Load(context.Background(), c.RequestKey)
+	if err != nil || a.Status != LoginAttemptWaitingVerifyCode || automation.calls.Load() != 1 {
+		t.Error("other process interrupted verification", a, err)
+	}
+	c.Action, c.AttemptID, c.RequestKey = "cancel", c.RequestKey, ""
+	if _, err := s.Execute(context.Background(), c); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("original consumer did not cancel")
+	}
 }
 func syntheticState() map[string]any {
 	return map[string]any{"cookies": []any{map[string]any{"name": "session", "value": "private-cookie"}}}

@@ -97,3 +97,61 @@ func TestSheinLoginFenceAndIdentityReceipts(t *testing.T) {
 		t.Fatal("cross organization allowed")
 	}
 }
+
+func TestSheinQuiesceReplaysOriginalCompletionResult(t *testing.T) {
+	for _, active := range []bool{false, true} {
+		t.Run(map[bool]string{false: "idle", true: "owned"}[active], func(t *testing.T) {
+			db := openStoreDB(t)
+			if err := storecenter.AutoMigrateSheinLoginForTests(db); err != nil {
+				t.Fatal(err)
+			}
+			repo, _ := storecenter.NewGormStoreRepository(db)
+			s := newPersistenceStore(t, "org-a", uuid.NewString(), uuid.NewString(), "", "Current", "SG", "", time.Now().UTC())
+			if _, _, err := repo.CreateOrReplay(context.Background(), "org-a", s); err != nil {
+				t.Fatal(err)
+			}
+			owner, _ := storecenter.NewSheinLoginRepository(db, sheinMember{"org-a"})
+			scope := storecenter.SheinLoginScope{OrganizationID: "org-a", StoreID: s.ID(), InstallationID: uuid.NewString(), BindingRevision: uuid.NewString(), ConfigFingerprint: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+			cmd := storecenter.SheinBindingCommand{Scope: scope, ActorID: "operator", MemberID: "membership", RequestKey: uuid.NewString()}
+			b, err := owner.Activate(context.Background(), cmd)
+			if err != nil {
+				t.Fatal(err)
+			}
+			scope.Generation = b.Generation
+			attempt, nonce := uuid.NewString(), uuid.NewString()
+			if active {
+				if err = owner.Claim(context.Background(), scope, "operator", "membership", attempt, nonce); err != nil {
+					t.Fatal(err)
+				}
+			}
+			q := cmd
+			q.Scope = scope
+			q.RequestKey = uuid.NewString()
+			first, err := owner.Quiesce(context.Background(), q)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertReplay := func() {
+				t.Helper()
+				replay, err := owner.Quiesce(context.Background(), q)
+				if err != nil || replay.State != first.State || replay.Generation != first.Generation || replay.ClosedConfirmed != first.ClosedConfirmed {
+					t.Fatalf("original=%+v replay=%+v %v", first, replay, err)
+				}
+			}
+			assertReplay()
+			if active {
+				if err = owner.ConfirmClosed(context.Background(), scope, attempt, nonce); err != nil {
+					t.Fatal(err)
+				}
+			}
+			assertReplay()
+			next := cmd
+			next.RequestKey = uuid.NewString()
+			next.ExpectedGeneration = scope.Generation
+			if _, err = owner.Activate(context.Background(), next); err != nil {
+				t.Fatal(err)
+			}
+			assertReplay()
+		})
+	}
+}

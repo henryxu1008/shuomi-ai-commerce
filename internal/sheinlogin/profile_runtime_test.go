@@ -46,3 +46,32 @@ func TestIsProfileInUseError(t *testing.T) {
 		t.Fatal("did not expect unrelated error to match profile-in-use")
 	}
 }
+
+func TestForcedProfileIsFreshAndDoesNotAlterExistingSession(t *testing.T) {
+	root := t.TempDir()
+	scope := fixtureAttempt().Scope
+	privateFixture(t, filepath.Join(root, ".shein-login-owner"), []byte("shein-login:v1:"+scope.InstallationID))
+	a := Account{Scope: scope, Generation: scope.Generation}
+	old, err := prepareProfile(root, a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldSession := filepath.Join(old, "synthetic-authenticated-session")
+	if err = os.WriteFile(oldSession, []byte("retained synthetic session"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	id := fixtureAttempt().ID
+	fresh, err := prepareAutomationProfile(root, a, id)
+	if err != nil || fresh == old {
+		t.Fatal("force profile was not isolated", fresh, err)
+	}
+	if _, err = os.Stat(filepath.Join(fresh, "synthetic-authenticated-session")); !os.IsNotExist(err) {
+		t.Fatal("old session was copied")
+	}
+	if data, err := os.ReadFile(oldSession); err != nil || string(data) != "retained synthetic session" {
+		t.Fatal("old session was changed")
+	}
+	if _, err = prepareAutomationProfile(root, a, id); err == nil {
+		t.Fatal("prior forced attempt profile was silently adopted")
+	}
+}

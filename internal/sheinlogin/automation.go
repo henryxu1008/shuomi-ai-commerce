@@ -15,6 +15,7 @@ import (
 )
 
 type AutomationConfig struct {
+	FreshProfileID    string
 	DriverDirectory   string
 	Headless          bool
 	ProfileRoot       string
@@ -152,7 +153,7 @@ var sheinLoginErrorSelectors = []string{
 }
 
 func (a *PlaywrightAutomation) StartLogin(ctx context.Context, account Account, cfg AutomationConfig) (*AutomationResult, VerifySession, error) {
-	profileDir, err := prepareProfile(cfg.ProfileRoot, account)
+	profileDir, err := prepareAutomationProfile(cfg.ProfileRoot, account, cfg.FreshProfileID)
 	if err != nil {
 		return nil, nil, err
 	}

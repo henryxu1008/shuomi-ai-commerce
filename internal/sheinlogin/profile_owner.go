@@ -106,6 +106,33 @@ func prepareProfile(root string, a Account) (string, error) {
 	}
 	return dir, nil
 }
+
+// A forced login gets a new attempt-owned browser directory. Existing session
+// files are never cleared, copied, unlocked or silently adopted.
+func prepareAutomationProfile(root string, a Account, freshID string) (string, error) {
+	if freshID != "" && !validUUID(freshID) {
+		return "", ErrInvalidInput
+	}
+	base, err := prepareProfile(root, a)
+	if err != nil || freshID == "" {
+		return base, err
+	}
+	parent := filepath.Join(base, "forced")
+	if noSymlinkComponents(parent) != nil {
+		return "", ErrInvalidInput
+	}
+	if err = os.MkdirAll(parent, 0700); err != nil {
+		return "", ErrUnavailable
+	}
+	dir := filepath.Join(parent, freshID)
+	if err = os.Mkdir(dir, 0700); err != nil {
+		if os.IsExist(err) {
+			return "", ErrInvalidInput
+		}
+		return "", ErrUnavailable
+	}
+	return dir, nil
+}
 func safeArtifactRoot(root string, a Account) (string, error) {
 	marker, e := os.ReadFile(filepath.Join(root, ".shein-login-owner"))
 	if e != nil || strings.TrimSpace(string(marker)) != "shein-login:v1:"+a.Scope.InstallationID || noSymlinkComponents(root) != nil {

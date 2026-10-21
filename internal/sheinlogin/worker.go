@@ -61,22 +61,40 @@ func (s *Service) RunWorker(ctx context.Context, workerID string) error {
 			if _, ok := running.Load(id); ok {
 				continue
 			}
-			a, e := s.store.Load(ctx, id)
-			if e == nil && a.Status == LoginAttemptSucceeded && (a.SyncStatus == "pending" || a.SyncStatus == "unavailable") {
-				if s.resumePending(ctx, *a) == nil {
-					_ = s.store.Ack(ctx, message.ID)
-				}
-				continue
+			if ack, _ := s.handleReclaimedAttempt(ctx, id); ack {
+				_ = s.store.Ack(ctx, message.ID)
 			}
-			if e == nil && a.Status.IsActive() {
-				_ = s.complete(ctx, *a, LoginAttemptInterrupted, "WORKER_INTERRUPTED")
-			}
-			// Reclaim acknowledges unrecoverable work; it NEVER clears Store ownership,
-			// starts a replacement browser or treats a terminal attempt as closure proof.
-			_ = s.store.Ack(ctx, message.ID)
 		}
 	}
 	return nil
+}
+
+func (s *Service) handleReclaimedAttempt(ctx context.Context, id string) (bool, error) {
+	if !validUUID(id) {
+		return true, nil
+	}
+	a, err := s.store.Load(ctx, id)
+	if err != nil {
+		return false, err
+	}
+	if a.Status == LoginAttemptSucceeded && (a.SyncStatus == "pending" || a.SyncStatus == "unavailable") {
+		err = s.resumePending(ctx, *a)
+		return err == nil, err
+	}
+	if a.Status.IsActive() {
+		b, err := s.owner.ReadBinding(executionContext(ctx, *a), a.Scope, a.ActorID, a.MemberID)
+		if err != nil {
+			return false, err
+		}
+		// Stream idle time cannot distinguish a live browser from a crashed owner.
+		// Keep its state AND delivery pending until exact closure is established.
+		if b.Generation == a.Scope.Generation && b.ActiveAttemptID == a.ID && !b.ClosedConfirmed {
+			return false, nil
+		}
+		err = s.complete(ctx, *a, LoginAttemptInterrupted, "WORKER_INTERRUPTED")
+		return err == nil, err
+	}
+	return true, nil
 }
 func (s *Service) processAttempt(parent context.Context, id string) error {
 	a, e := s.store.Load(parent, id)
@@ -178,7 +196,11 @@ func (s *Service) processAttempt(parent context.Context, id string) error {
 		if e = check(); e != nil {
 			return e
 		}
-		result, owned, e := s.automation.StartLogin(ctx, account, AutomationConfig{Headless: binding.Headless, ProfileRoot: s.config.ProfileRoot, ArtifactDir: s.config.ArtifactRoot, BrowserPath: s.config.BrowserPath, DriverDirectory: s.config.DriverDirectory, ViewportWidth: s.config.ViewportWidth, ViewportHeight: s.config.ViewportHeight})
+		freshProfile := ""
+		if a.ForceLogin {
+			freshProfile = a.ID
+		}
+		result, owned, e := s.automation.StartLogin(ctx, account, AutomationConfig{FreshProfileID: freshProfile, Headless: binding.Headless, ProfileRoot: s.config.ProfileRoot, ArtifactDir: s.config.ArtifactRoot, BrowserPath: s.config.BrowserPath, DriverDirectory: s.config.DriverDirectory, ViewportWidth: s.config.ViewportWidth, ViewportHeight: s.config.ViewportHeight})
 		session = owned
 		if e == nil && result != nil && result.WaitingForVerifyCode {
 			next = *a

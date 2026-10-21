@@ -180,7 +180,11 @@ func (r *SheinLoginRepository) control(ctx context.Context, c SheinBindingComman
 			out = SheinBinding{SheinLoginScope: c.Scope, State: "active", ClosedConfirmed: true}
 			out.Generation = old.StoreVersion
 			if quiesce {
-				out.State = "quiescing"
+				out.State = "quiesced"
+				if old.Outcome == AuditOutcomeUnknown {
+					out.State = "quiescing"
+					out.ClosedConfirmed = false
+				}
 			}
 			return nil
 		}
@@ -218,7 +222,11 @@ func (r *SheinLoginRepository) control(ctx context.Context, c SheinBindingComman
 		if e != nil {
 			return e
 		}
-		event := newAuditEvent(c.Scope.OrganizationID, c.Scope.StoreID, c.RequestKey, action, AuditOutcomeSucceeded, c.ActorID, nil, RecordStatus(st.RecordStatus), RecordStatus(st.RecordStatus), AuditFailureNone, time.Now().UTC())
+		outcome := AuditOutcomeSucceeded
+		if quiesce && row.State == "quiescing" {
+			outcome = AuditOutcomeUnknown
+		}
+		event := newAuditEvent(c.Scope.OrganizationID, c.Scope.StoreID, c.RequestKey, action, outcome, c.ActorID, nil, RecordStatus(st.RecordStatus), RecordStatus(st.RecordStatus), AuditFailureNone, time.Now().UTC())
 		event.PayloadFingerprint = fp
 		event.StoreVersion = row.Generation
 		if _, _, e = audit.Record(ctx, event); e != nil {

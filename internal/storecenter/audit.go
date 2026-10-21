@@ -254,8 +254,10 @@ func validTaskFiveAuditCombination(event AuditEvent) bool {
 	switch event.Action {
 	case AuditActionSheinIdentitySync:
 		return event.PreviousState == RecordStatusActive && event.NewState == RecordStatusActive && exactSafeFields(event.SafeFieldNames, "external_store_id") && len(event.PayloadFingerprint) == 64 && event.StoreVersion > 0 && (succeeded || event.Outcome == AuditOutcomeFailed && event.FailureCode == AuditFailureAlreadyExists)
-	case AuditActionSheinActivate, AuditActionSheinQuiesce:
+	case AuditActionSheinActivate:
 		return succeeded && event.PreviousState == RecordStatusActive && event.NewState == RecordStatusActive && len(event.SafeFieldNames) == 0 && len(event.PayloadFingerprint) == 64
+	case AuditActionSheinQuiesce:
+		return (succeeded || unknown) && event.PreviousState == RecordStatusActive && event.NewState == RecordStatusActive && len(event.SafeFieldNames) == 0 && len(event.PayloadFingerprint) == 64
 	case AuditActionStoreUpdateStarted:
 		return unknown && sameMutableState && profileFields
 	case AuditActionStoreUpdated:
