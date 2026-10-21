@@ -50,7 +50,8 @@ func (m fullImageModule) Register(reg *kernelmodule.Registry) error {
 }
 
 type fullImagePrepareBody struct {
-	Text  *imageagent.ImageTextSelection `json:"text,omitempty"`
+	Route *imageagent.ImageRouteSelection `json:"route,omitempty"`
+	Text  *imageagent.ImageTextSelection  `json:"text,omitempty"`
 	Skill *struct {
 		ID      string `json:"skillId"`
 		Version uint64 `json:"version"`
@@ -113,6 +114,7 @@ func (m fullImageModule) routes() []httproute.Descriptor {
 	}{{acquisitionImageSetBase, "operation_id", imageagent.ImageSourceAcquisition}, {supplyImageSetBase, "source_id", imageagent.ImageSourceSupply}} {
 		for _, action := range []struct{ method, suffix, name string }{
 			{http.MethodGet, "/sources", "sources"}, {http.MethodPost, "/prepare", "prepare"},
+			{http.MethodGet, "/model-options", "model-options"},
 			{http.MethodPost, "/requirements", "requirements"},
 			{http.MethodGet, "/runs", "recent"},
 			{http.MethodGet, "/by-key/:request_id", "verify-prepare"},
@@ -162,6 +164,27 @@ func (m fullImageModule) handle(c *gin.Context, kind imageagent.ImageSourceConte
 		return
 	}
 	exec := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, TenantID: identity.TenantID, UserID: identity.UserID, MemberID: identity.EffectiveMemberID, BusinessTaskID: contextID}
+	if action == "model-options" {
+		if !emptyAcquisitionImageBody(c) {
+			return
+		}
+		if _, e := a.readSources.ReadImageSetSource(ctx, exec, imageagent.PrepareImageSetInput{ContextKind: kind, ContextID: contextID, Target: imageagent.ImageTargetSelection{Platform: "product"}}); e != nil {
+			writeFullImageError(c, e, false)
+			return
+		}
+		reader, ok := a.quotes.(imageagent.ImageGenerationOptionsReader)
+		if !ok {
+			writeFullImageError(c, imageagent.ErrBudgetQuoteUnavailable, false)
+			return
+		}
+		rows, e := reader.ReadImageGenerationOptions(ctx, exec)
+		if e != nil {
+			writeFullImageError(c, e, false)
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"contextKind": kind, "contextId": contextID, "options": rows})
+		return
+	}
 	if action == "requirements" {
 		var body fullImagePrepareBody
 		if err = readFullImageJSON(c.Request, &body); err != nil {
@@ -306,7 +329,7 @@ func (m fullImageModule) handle(c *gin.Context, kind imageagent.ImageSourceConte
 			writeFullImageError(c, e, false)
 			return
 		}
-		input := imageagent.PrepareImageSetInput{Text: body.Text, ContextKind: kind, RequestID: keys[0], ContextID: contextID, Template: body.Template, Target: body.Target, SharedOriginalIDs: body.SharedOriginalIDs, CarouselOriginalIDs: body.CarouselOriginalIDs, DetailOriginalIDs: body.DetailOriginalIDs, SelectedTaskIDs: body.SelectedTaskIDs, OfficialPlacements: body.OfficialPlacements, EffectiveCatalogVersion: version, ApplyReceiptID: body.ApplyReceiptID}
+		input := imageagent.PrepareImageSetInput{Route: body.Route, Text: body.Text, ContextKind: kind, RequestID: keys[0], ContextID: contextID, Template: body.Template, Target: body.Target, SharedOriginalIDs: body.SharedOriginalIDs, CarouselOriginalIDs: body.CarouselOriginalIDs, DetailOriginalIDs: body.DetailOriginalIDs, SelectedTaskIDs: body.SelectedTaskIDs, OfficialPlacements: body.OfficialPlacements, EffectiveCatalogVersion: version, ApplyReceiptID: body.ApplyReceiptID}
 		if action == "regenerate" {
 			p, e := a.service.Get(ctx, c.Param("run_id"))
 			if e == nil {
@@ -755,6 +778,8 @@ func writeFullImageError(c *gin.Context, err error, mutation bool) {
 		c.JSON(http.StatusConflict, gin.H{"code": "IMAGE_BLOCKED"})
 	case errors.Is(err, imageagent.ErrBudgetQuoteUnavailable):
 		c.JSON(http.StatusServiceUnavailable, gin.H{"code": "IMAGE_UNAVAILABLE"})
+	case errors.Is(err, imageagent.ErrImageRouteChanged):
+		c.JSON(http.StatusConflict, gin.H{"code": "IMAGE_ROUTE_CHANGED"})
 	case errors.Is(err, asset.ErrInvalidApproval), errors.Is(err, asset.ErrInvalidInventoryScope):
 		c.JSON(http.StatusBadRequest, gin.H{"code": "INVALID_IMAGE_SELECTION"})
 	case errors.Is(err, asset.ErrApprovalConflict):

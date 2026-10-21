@@ -177,7 +177,7 @@ func buildAgentConfigurationModule(ctx context.Context, db *gorm.DB, resolver or
 				} else if !imageRuntime.gate.AllowTenantStart(ctx, id.TenantID) {
 					capability.Reason = "当前企业尚未开放图片生成"
 				} else {
-					_, err := imageRuntime.quotes.ReadImageGenerationQuote(ctx, imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, TenantID: id.TenantID, UserID: id.UserID, MemberID: id.EffectiveMemberID})
+					_, err := imageRuntime.quotes.ReadImageGenerationQuote(ctx, imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, TenantID: id.TenantID, UserID: id.UserID, MemberID: id.EffectiveMemberID}, nil)
 					if err == nil {
 						capability.Readiness = "AVAILABLE"
 						capability.Reason = "可准备整套计划，确认点数后生成"

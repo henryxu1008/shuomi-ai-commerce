@@ -22,3 +22,12 @@ CREATE TABLE IF NOT EXISTS public.ai_route_config_current (
  CONSTRAINT ai_route_config_current_revision FOREIGN KEY(organization_id,capability,revision_id)
  REFERENCES public.ai_route_config_revisions(organization_id,capability,revision_id)
 );
+CREATE TABLE IF NOT EXISTS public.ai_route_config_options (
+ organization_id varchar(128) NOT NULL,
+ capability varchar(128) NOT NULL,
+ binding_id varchar(64) NOT NULL,
+ revision_id varchar(128) NOT NULL,
+ CONSTRAINT ai_route_config_option_scope PRIMARY KEY(organization_id,capability,binding_id),
+ CONSTRAINT ai_route_config_option_revision FOREIGN KEY(organization_id,capability,revision_id)
+ REFERENCES public.ai_route_config_revisions(organization_id,capability,revision_id)
+);

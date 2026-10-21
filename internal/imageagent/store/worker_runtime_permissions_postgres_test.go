@@ -68,7 +68,7 @@ func TestOrganizationImageWorkerRuntimeRoleHasOnlyCurrentWorkerGrants(t *testing
 	require.NoError(t, owner.Exec(routeconfigstore.GrantSQL(role, false)).Error)
 	require.NoError(t, routeconfigstore.VerifyReader(ctx, runtimeDB))
 	require.NoError(t, verifyOrganizationWorkerRuntimePermissions(ctx, runtimeDB, role), "explicitly installed managed image reads must be admitted")
-	for _, relation := range []string{"ai_route_config_revisions", "ai_route_config_current", "ai_client_credential_bindings"} {
+	for _, relation := range []string{"ai_route_config_revisions", "ai_route_config_current", "ai_route_config_options", "ai_client_credential_bindings"} {
 		t.Run("missing_managed_read_"+relation, func(t *testing.T) {
 			require.NoError(t, owner.Exec("REVOKE SELECT ON "+relation+" FROM "+role).Error)
 			require.NoError(t, verifyOrganizationWorkerRuntimePermissions(ctx, runtimeDB, role))

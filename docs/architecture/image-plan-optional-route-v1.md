@@ -1,9 +1,11 @@
 # Single-product image plan optional route V1
 
-Status: DESIGNING / NOT_READY. Execution Issue #840. Source baseline:
+Status: IMPLEMENTATION_READY. Execution Issue #840. Source baseline:
 `773389eefe2ded6027a72c9351e9b2aa50bac96b`.
 Design Basis: Independent Architecture. No production edits before the original
-independent Reviewer explicitly admits IMPLEMENTATION_READY.
+independent Reviewer explicitly admits IMPLEMENTATION_READY. The original Reviewer
+admitted design HEAD 6791f283ef2ad5c9467439d59db37fd94ba3c3fc, no BLOCKER,
+before production edits. Required implementation tests are frozen in Validation.
 
 ## Product outcome and authority
 

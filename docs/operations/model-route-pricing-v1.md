@@ -29,7 +29,7 @@
 
 数据库 writer 与原 reader 的连接生命周期由现有 currentapplication 管理；启动失败停止开放管理，不自动修表或回落。schema 检查拒绝缺失 scoped PK/唯一键/FK；serving reader 不能写配置表，writer 不能改历史、删 current、读 Key 或写 credential。
 
-图片 worker 的正式权限清单仅可选允许 `public.ai_route_config_revisions`、`public.ai_route_config_current` 两张普通表及 `public.ai_client_credential_bindings` 去密 view 的 `SELECT`。未管理实例不要求安装或授权这三处关系，原 worker grant 入口也不会自动授予；启用管理后，原 `VerifyReader` / `VerifySchema` 仍强制检查完整对象及读取权限。错误关系类型、RLS、runtime 所有权及额外写权限继续拒绝；HTTP Image role 对这三处关系的额外读取也继续拒绝。
+图片 worker 的正式权限清单仅可选允许 `public.ai_route_config_revisions`、`public.ai_route_config_current`、`public.ai_route_config_options` 三张普通表及 `public.ai_client_credential_bindings` 去密 view 的 `SELECT`。未管理实例不要求安装或授权这四处关系，原 worker grant 入口也不会自动授予；启用管理后，原 `VerifyReader` / `VerifySchema` 仍强制检查完整对象及读取权限。错误关系类型、RLS、runtime 所有权及额外写权限继续拒绝；HTTP Image role 对这四处关系的额外读取也继续拒绝。
 
 ## 任务影响与验证
 
@@ -38,3 +38,7 @@
 开发验证：`go test ./internal/aicapability/routeconfig ./internal/integration/aicapability/einomodel ./internal/app/worker/imageagent ./internal/app/httpapi ./internal/app/runtime/currentapplication`；事务测试可设置仅指向任务隔离 PG 的 `ISSUE830_TEST_DSN`。CI 的 routeconfig 测试复用 testcontainers 自动创建和清理独立 PostgreSQL。前端测试 `pnpm exec vitest run src/components/workbench/account/model-route-pricing.test.tsx src/lib/server/model-route-pricing-proxy.test.ts`、typecheck/build。所有配置/模型试验均使用 fixture/fake transport；无 provider 在线探测。
 
 独立检查、自检、CI 与用户实际试用分开记录在 #830/实现 PR。保留环境安装、真实模型、真实费用及用户验收保持 NOT_RUN，待相应授权。
+
+## 单商品计划可选 VIP
+
+显式安装原 schema/grants 时同时安装 ai_route_config_options；ordinary startup 只检查不安装。维护者以准确可选 head 校验和“发布为可选、不设为默认”，仅新增不可变版本并 CAS 该 binding 的可选指针，企业 default current 不变。新计划显式选择准确版本，费率由维护者填写并发布，不继承独立试验零点。替换或凭据不可用时旧报价停止；原请求/回执、已派发结果、UNKNOWN 及预留沿原 owner 核实，不能切模型重发。没有可选发布时成员只使用企业默认；artwork 继续默认。升级前需另获准安装关系与窄权限，再切换新程序，不能放松启动校验或清空现有数据。

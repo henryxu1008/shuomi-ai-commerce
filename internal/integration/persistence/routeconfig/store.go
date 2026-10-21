@@ -44,6 +44,7 @@ func VerifySchema(ctx context.Context, db *gorm.DB) error {
 	for _, q := range []string{
 		`SELECT revision_id,organization_id,capability,parent_revision,schema_version,payload,payload_digest,actor_id,published_at,idempotency_key,request_fingerprint,rollback_from FROM public.ai_route_config_revisions LIMIT 0`,
 		`SELECT organization_id,capability,revision_id FROM public.ai_route_config_current LIMIT 0`,
+		`SELECT organization_id,capability,binding_id,revision_id FROM public.ai_route_config_options LIMIT 0`,
 		`SELECT id,tenant_id,user_id,client_name,base_url,model,api_style,timeout_second,enabled,updated_at,key_present FROM public.ai_client_credential_bindings LIMIT 0`,
 	} {
 		rows, e := db.WithContext(ctx).Raw(q).Rows()
@@ -59,6 +60,8 @@ func VerifySchema(ctx context.Context, db *gorm.DB) error {
 		{"ai_route_config_revisions", "ai_route_config_request_scope", "UNIQUE (organization_id, capability, idempotency_key)"},
 		{"ai_route_config_current", "ai_route_config_current_scope", "PRIMARY KEY (organization_id, capability)"},
 		{"ai_route_config_current", "ai_route_config_current_revision", "FOREIGN KEY (organization_id, capability, revision_id) REFERENCES ai_route_config_revisions(organization_id, capability, revision_id)"},
+		{"ai_route_config_options", "ai_route_config_option_scope", "PRIMARY KEY (organization_id, capability, binding_id)"},
+		{"ai_route_config_options", "ai_route_config_option_revision", "FOREIGN KEY (organization_id, capability, revision_id) REFERENCES ai_route_config_revisions(organization_id, capability, revision_id)"},
 	} {
 		var definition string
 		e := db.WithContext(ctx).Raw(`SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid=to_regclass(?) AND conname=? AND convalidated`, "public."+constraint.table, constraint.name).Scan(&definition).Error
@@ -74,7 +77,7 @@ func VerifyReader(ctx context.Context, db *gorm.DB) error {
 		return e
 	}
 	var writes bool
-	e := db.WithContext(ctx).Raw(`SELECT has_table_privilege(current_user,'public.ai_route_config_revisions','INSERT,UPDATE,DELETE,TRUNCATE') OR has_table_privilege(current_user,'public.ai_route_config_current','INSERT,UPDATE,DELETE,TRUNCATE')`).Scan(&writes).Error
+	e := db.WithContext(ctx).Raw(`SELECT has_table_privilege(current_user,'public.ai_route_config_revisions','INSERT,UPDATE,DELETE,TRUNCATE') OR has_table_privilege(current_user,'public.ai_route_config_current','INSERT,UPDATE,DELETE,TRUNCATE') OR has_table_privilege(current_user,'public.ai_route_config_options','INSERT,UPDATE,DELETE,TRUNCATE')`).Scan(&writes).Error
 	if e != nil || writes {
 		return d.ErrUnavailable
 	}
@@ -98,6 +101,10 @@ func VerifyWriter(ctx context.Context, db *gorm.DB) error {
  AND has_table_privilege(current_user,'public.ai_route_config_current','UPDATE')
  AND NOT has_table_privilege(current_user,'public.ai_route_config_current','DELETE')
  AND NOT has_table_privilege(current_user,'public.ai_route_config_current','TRUNCATE')
+ AND has_table_privilege(current_user,'public.ai_route_config_options','INSERT')
+ AND has_table_privilege(current_user,'public.ai_route_config_options','UPDATE')
+ AND NOT has_table_privilege(current_user,'public.ai_route_config_options','DELETE')
+ AND NOT has_table_privilege(current_user,'public.ai_route_config_options','TRUNCATE')
  AND NOT has_column_privilege(current_user,'public.ai_client_credentials','api_key','SELECT')
  AND NOT has_any_column_privilege(current_user,'public.ai_client_credentials','UPDATE')
  AND NOT has_table_privilege(current_user,'public.ai_client_credentials','INSERT')
@@ -183,6 +190,18 @@ func (s *Store) Current(ctx context.Context, scope d.Scope) (d.Revision, error) 
 	}
 	return s.Revision(ctx, scope, id)
 }
+
+func (s *Store) Optional(ctx context.Context, scope d.Scope, binding string) (d.Revision, error) {
+	var id string
+	r := s.db.WithContext(ctx).Raw("SELECT revision_id FROM public.ai_route_config_options WHERE organization_id=? AND capability=? AND binding_id=?", scope.OrganizationID, scope.Capability, binding).Scan(&id)
+	if r.Error != nil {
+		return d.Revision{}, d.ErrUnavailable
+	}
+	if r.RowsAffected == 0 {
+		return d.Revision{}, d.ErrNotFound
+	}
+	return s.Revision(ctx, scope, id)
+}
 func (s *Store) History(ctx context.Context, scope d.Scope, cursor string, limit int) ([]d.Revision, error) {
 	if !scope.Valid() || limit < 1 || limit > 50 || cursor != "" && !d.ValidFact(cursor, 128) {
 		return nil, d.ErrInvalid
@@ -233,8 +252,16 @@ func (s *Store) Publish(ctx context.Context, cmd d.Command, build func(d.Credent
 	if e != nil {
 		return d.Revision{}, e
 	}
+	if payload.Optional != cmd.Input.Optional || cmd.Input.Optional && (cmd.Scope.Capability != d.ImageCapability || payload.BindingID != cmd.Input.BindingID) {
+		return d.Revision{}, d.ErrInvalid
+	}
 	var current string
-	res := tx.Raw("SELECT revision_id FROM public.ai_route_config_current WHERE organization_id=? AND capability=? FOR UPDATE", cmd.Scope.OrganizationID, cmd.Scope.Capability).Scan(&current)
+	var res *gorm.DB
+	if cmd.Input.Optional {
+		res = tx.Raw("SELECT revision_id FROM public.ai_route_config_options WHERE organization_id=? AND capability=? AND binding_id=? FOR UPDATE", cmd.Scope.OrganizationID, cmd.Scope.Capability, cmd.Input.BindingID).Scan(&current)
+	} else {
+		res = tx.Raw("SELECT revision_id FROM public.ai_route_config_current WHERE organization_id=? AND capability=? FOR UPDATE", cmd.Scope.OrganizationID, cmd.Scope.Capability).Scan(&current)
+	}
 	if res.Error != nil {
 		return d.Revision{}, d.ErrUnavailable
 	}
@@ -257,7 +284,13 @@ func (s *Store) Publish(ctx context.Context, cmd d.Command, build func(d.Credent
 	if e != nil {
 		return s.conflict(ctx, tx, cmd, e)
 	}
-	if current == d.NoRevision {
+	if cmd.Input.Optional {
+		if current == d.NoRevision {
+			res = tx.Exec(`INSERT INTO public.ai_route_config_options(organization_id,capability,binding_id,revision_id) VALUES(?,?,?,?) ON CONFLICT DO NOTHING`, cmd.Scope.OrganizationID, cmd.Scope.Capability, cmd.Input.BindingID, id)
+		} else {
+			res = tx.Exec(`UPDATE public.ai_route_config_options SET revision_id=? WHERE organization_id=? AND capability=? AND binding_id=? AND revision_id=?`, id, cmd.Scope.OrganizationID, cmd.Scope.Capability, cmd.Input.BindingID, current)
+		}
+	} else if current == d.NoRevision {
 		res = tx.Exec(`INSERT INTO public.ai_route_config_current(organization_id,capability,revision_id) VALUES(?,?,?) ON CONFLICT DO NOTHING`, cmd.Scope.OrganizationID, cmd.Scope.Capability, id)
 	} else {
 		res = tx.Exec(`UPDATE public.ai_route_config_current SET revision_id=? WHERE organization_id=? AND capability=? AND revision_id=?`, id, cmd.Scope.OrganizationID, cmd.Scope.Capability, current)
@@ -293,9 +326,9 @@ func (s *Store) conflict(ctx context.Context, tx *gorm.DB, cmd d.Command, cause 
 // GrantSQL is consumed only by explicit schema installation; never startup.
 func GrantSQL(role string, writer bool) string {
 	identifier := pgx.Identifier{role}.Sanitize()
-	q := fmt.Sprintf("GRANT SELECT ON public.ai_route_config_revisions,public.ai_route_config_current,public.ai_client_credential_bindings TO %s;", identifier)
+	q := fmt.Sprintf("GRANT SELECT ON public.ai_route_config_revisions,public.ai_route_config_current,public.ai_route_config_options,public.ai_client_credential_bindings TO %s;", identifier)
 	if writer {
-		q += fmt.Sprintf("GRANT INSERT ON public.ai_route_config_revisions TO %s;GRANT INSERT,UPDATE ON public.ai_route_config_current TO %s;", identifier, identifier)
+		q += fmt.Sprintf("GRANT INSERT ON public.ai_route_config_revisions TO %s;GRANT INSERT,UPDATE ON public.ai_route_config_current,public.ai_route_config_options TO %s;", identifier, identifier)
 	}
 	return q
 }

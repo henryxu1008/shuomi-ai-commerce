@@ -67,6 +67,20 @@ async function prepare(){
  const button=screen.getByRole("button",{name:"准备整套图片计划（2 项）"});await waitFor(()=>expect(button).toBeEnabled());fireEvent.click(button);
 }
 
+it("sends the exact VIP selection in a new plan and retains it with the original unknown request",async()=>{
+ const original=fetch.getMockImplementation()!,route={BindingID:"image-vip",RevisionID:"route-vip"};
+ fetch.mockImplementation((url,init)=>String(url).endsWith("/model-options")?Promise.resolve(Response.json({contextKind:"acquisition",contextId:operation,options:[{model:"qwen-image-3.0-pro",quality:"auto",resolution:"1024x1024",points:1},{route,model:"gpt-image-2-vip",quality:"medium",resolution:"1024x1024",points:2}]})):String(url).endsWith("/prepare")?Promise.resolve(Response.json({code:"OUTCOME_UNKNOWN"},{status:503})):original(url,init));
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ await screen.findByRole("option",{name:"GPT Image VIP · 2 点/张"});
+ fireEvent.change(screen.getByRole("combobox",{name:"本次计划使用的图片模型"}),{target:{value:JSON.stringify(route)}});
+ await prepare();await screen.findByRole("button",{name:"核实原请求"});
+ const sent=fetch.mock.calls.find(([url])=>String(url).endsWith("/prepare"))!;
+ expect(JSON.parse(String(sent[1]!.body)).route).toEqual(route);
+ expect(JSON.parse(localStorage.getItem(`product-image-set:actor:org:acquisition:${operation}:intent`)!).body.route).toEqual(route);
+ expect(screen.getByRole("combobox",{name:"本次计划使用的图片模型"})).toBeDisabled();
+ expect(fetch.mock.calls.filter(([url])=>String(url).endsWith("/prepare"))).toHaveLength(1);
+});
+
 it("archives a definite image-review rejection and unlocks correction without generating",async()=>{
  const real=fetch.getMockImplementation()!;
  fetch.mockImplementation((url,init)=>String(url).endsWith("/prepare")?Promise.resolve(Response.json({code:"IMAGE_TEXT_REVIEW_CHANGED"},{status:409})):real(url,init));
