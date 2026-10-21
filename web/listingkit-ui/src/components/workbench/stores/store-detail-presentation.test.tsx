@@ -6,6 +6,7 @@ const state=vi.hoisted(()=>({summary:{} as Record<string,unknown>}));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>({user:{id:"actor"},effectiveOrganization:{id:"org-a"},permissions:["workbench.store.read","workbench.store.update"],roles:[]})}));
 vi.mock("@tanstack/react-query",()=>({useQueryClient:()=>({invalidateQueries:vi.fn()}),useQuery:({queryKey}:{queryKey:string[]})=>queryKey[0]==="store-summary"?state.summary:{data:{items:[]}}}));
 vi.mock("./store-catalog-dialogs",()=>({StoreCatalogDialogs:({dialog}:{dialog:{kind:string;initialKind?:string}})=> <div role="dialog">{dialog.kind==="sync"?`同步 ${dialog.initialKind}`:"归属设置"}</div>}));
+vi.mock("./store-official-connection",()=>({StoreOfficialConnection:()=> <div>当前店铺官方连接入口</div>}));
 import {StoreDetailPresentation} from "./store-detail-presentation";
 const metric={value:0,complete:true,unknown:0,reason:""};
 const item={id:"11111111-1111-4111-8111-111111111111",name:"A 店铺",region:"US",platform:"shein",version:1,recordStatus:"active",serviceStatus:"pending_activation",connectionStatus:"disconnected",profile:{storeId:"11111111-1111-4111-8111-111111111111",profileVersion:0,groupId:null,responsibleMemberId:null,lowStockThreshold:null,updatedAt:null},signals:{products:metric,orders:metric,inventory:metric,syncHealthy:false,observedAt:null},attention:"attention"} as CatalogItem;
@@ -28,4 +29,13 @@ it("opens TEMU product sync while leaving unsupported order sync disabled",async
  expect(orders.getByRole("button",{name:"立即同步"})).toBeDisabled();
  await userEvent.click(products.getByRole("button",{name:"立即同步"}));
  expect(screen.getByRole("dialog")).toHaveTextContent("同步 products");
+});
+it("selects authorization when the same-page next-step link changes history without hashchange",async()=>{
+ state.summary={data:item,isPending:false,isError:false};
+ render(<StoreDetailPresentation store={item} canUpdate={true} onRefresh={vi.fn()} actions={null} editForm={null}/>);
+ const preventNative=(event:Event)=>event.preventDefault();
+ window.addEventListener("click",preventNative);
+ try{await userEvent.click(screen.getByRole("link",{name:/查看本店授权信息/}));}finally{window.removeEventListener("click",preventNative);}
+ expect(screen.getByRole("tab",{name:"授权信息"})).toHaveAttribute("aria-selected","true");
+ expect(screen.getByText("当前店铺官方连接入口")).toBeVisible();
 });

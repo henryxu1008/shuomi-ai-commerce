@@ -332,7 +332,7 @@ function ScopedPage({
         ];
   if (!caps.isError && caps.data && !caps.data.available) {
     const route = findConsoleRoute(kind === "products" ? "/workbench/store-products" : "/workbench/store-orders")!;
-    return <ConsolePage title={route.node.label} breadcrumbs={route.trail} description="同步并查看店铺的平台商品、订单、物流和异常记录。"><ConsoleState kind="unavailable" title={caps.data.runtimeReady?(kind==="products"?"店铺同步内部已就绪，平台待配置":"店铺同步内部已就绪，SHEIN 待配置"):"店铺同步暂不可用"}>配置和本店资格齐备后才开放平台读取与同步；当前没有发起同步。</ConsoleState><SelectedStoreReadiness storeId={store} scope={scope} permissions={permissions} caps={caps} kind={kind}/></ConsolePage>;
+    return <ConsolePage title={route.node.label} breadcrumbs={route.trail} description="同步并查看店铺的平台商品、订单、物流和异常记录。"><ConsoleState kind="unavailable" title={caps.isFetching?"正在确认店铺同步状态":caps.data.runtimeReady?(kind==="products"?"店铺同步内部已就绪，平台待配置":"店铺同步内部已就绪，SHEIN 待配置"):"店铺同步暂不可用"}>配置和本店资格齐备后才开放平台读取与同步；当前没有发起同步。</ConsoleState><SelectedStoreReadiness storeId={store} scope={scope} permissions={permissions} caps={caps} kind={kind}/></ConsolePage>;
   }
   return (
     <ConsolePage

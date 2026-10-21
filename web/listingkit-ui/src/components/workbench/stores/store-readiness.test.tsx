@@ -30,9 +30,9 @@ it("explains member permissions without offering a privileged connection action"
  expect(screen.getByText(/请联系企业配置管理员/)).toBeVisible();
  expect(screen.queryByRole("link",{name:/查看本店授权信息/})).not.toBeInTheDocument();
 });
-function Harness({organizationId="org-a",allowed=permissions,storeId=id}:{organizationId?:string;allowed?:string[];storeId?:string}){
+function Harness({organizationId="org-a",allowed=permissions,storeId=id,admitted=true}:{organizationId?:string;allowed?:string[];storeId?:string;admitted?:boolean}){
  const scope={organizationId,userId:"actor"};
- const caps=useStoreReadiness(scope,allowed,true);
+ const caps=useStoreReadiness(scope,allowed,admitted);
  return <SelectedStoreReadiness storeId={storeId} scope={scope} permissions={allowed} caps={caps} kind="products"/>;
 }
 function mount(props:Parameters<typeof Harness>[0]={}){
@@ -65,4 +65,13 @@ it("does not trust an invalid or inaccessible query-string store selection",asyn
  await waitFor(()=>expect(state.summary).toHaveBeenCalled());
  expect(screen.queryByRole("link",{name:/查看本店授权信息/})).not.toBeInTheDocument();
  expect(screen.getByRole("link",{name:/前往我的店铺/})).toHaveAttribute("href","/workbench/stores");
+});
+it("hides a previously ready capability when runtime admission closes",async()=>{
+ state.capabilities.mockResolvedValue({...pending,available:true,canSync:true,providerConfigured:true});state.summary.mockResolvedValue(store);
+ const {view,wrap}=mount();
+ expect(await screen.findByText("内部运行：已就绪")).toBeVisible();
+ view.rerender(wrap({admitted:false}));
+ expect(screen.getByText("内部运行：待确认")).toBeVisible();
+ expect(screen.getByText("平台读取：待确认")).toBeVisible();
+ expect(state.capabilities).toHaveBeenCalledTimes(1);
 });

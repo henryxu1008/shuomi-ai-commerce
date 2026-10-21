@@ -3,22 +3,23 @@ import userEvent from "@testing-library/user-event";
 import {QueryClient,QueryClientProvider} from "@tanstack/react-query";
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
 import type {CatalogItem} from "@/lib/api/store-center";
-const state=vi.hoisted(()=>({request:vi.fn()}));
-vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>({permissions:["workbench.store.read","workbench.store.update","workbench.store.products.read","workbench.store.products.sync","workbench.store.orders.read","workbench.store.orders.sync"]})}));
+const state=vi.hoisted(()=>({request:vi.fn(),admitted:true}));
+vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>({storeObservationsAvailable:state.admitted,permissions:["workbench.store.read","workbench.store.update","workbench.store.products.read","workbench.store.products.sync","workbench.store.orders.read","workbench.store.orders.sync"]})}));
 vi.mock("@/lib/api/store-observations",async(importOriginal)=>({...await importOriginal<typeof import("@/lib/api/store-observations")>(),observationRequest:state.request}));
 import {StoreSyncDialog} from "./store-sync-dialog";
 import {ObservationError} from "@/lib/api/store-observations";
 const store={id:"11111111-1111-4111-8111-111111111111",name:"TEMU 店铺",platform:"temu"} as CatalogItem;
 const scope={organizationId:"org-a",userId:"actor"};
 beforeEach(()=>{
- sessionStorage.clear();state.request.mockReset();
+ sessionStorage.clear();state.request.mockReset();state.admitted=true;
  state.request.mockImplementation(async(path:string)=>{if(path.includes("/commands/"))throw Error("receipt pending");return path.endsWith("/capabilities")?{available:true,canSync:true,site:"configured"}:{syncs:[]}});
  HTMLDialogElement.prototype.showModal=function(){this.setAttribute("open","")};HTMLDialogElement.prototype.close=function(){this.removeAttribute("open")};
 });
 afterEach(()=>{sessionStorage.clear();vi.clearAllMocks()});
 function show(initialKind:"products"|"orders"="products",platform="temu"){
  const client=new QueryClient({defaultOptions:{queries:{retry:false},mutations:{retry:false}}});
- return render(<QueryClientProvider client={client}><StoreSyncDialog store={{...store,platform} as CatalogItem} scope={scope} initialKind={initialKind} onClose={vi.fn()} onChanged={vi.fn().mockResolvedValue(null)}/></QueryClientProvider>);
+ const content=()=> <QueryClientProvider client={client}><StoreSyncDialog store={{...store,platform} as CatalogItem} scope={scope} initialKind={initialKind} onClose={vi.fn()} onChanged={vi.fn().mockResolvedValue(null)}/></QueryClientProvider>;
+ const view=render(content());return {...view,rerenderDialog:()=>view.rerender(content())};
 }
 it("blocks new Walmart orders and explicitly releases inaccessible local tracking",async()=>{
  const view=show("products","walmart");
@@ -60,4 +61,12 @@ it("explains provider preparation without replacing the original request or disp
  expect(screen.getByRole("button",{name:"重试原同步请求"})).toBeDisabled();
  expect(sessionStorage.getItem("store-dialog-sync:org-a:actor")).toBe(saved);
  expect(state.request.mock.calls.every(([path])=>path.endsWith("/capabilities"))).toBe(true);
+});
+it("removes old ready facts when the dialog loses runtime admission",async()=>{
+ state.request.mockResolvedValue({available:true,canSync:true,runtimeReady:true,providerConfigured:true});
+ const view=show();expect(await screen.findByText("内部运行：已就绪")).toBeVisible();
+ state.admitted=false;view.rerenderDialog();
+ expect(screen.getByText("内部运行：待确认")).toBeVisible();
+ expect(screen.getByRole("button",{name:"开始同步"})).toBeDisabled();
+ expect(state.request).toHaveBeenCalledTimes(1);
 });

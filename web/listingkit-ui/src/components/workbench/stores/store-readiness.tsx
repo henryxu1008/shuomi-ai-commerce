@@ -13,15 +13,15 @@ type ReadinessStore = Pick<WorkbenchStore, "id" | "name" | "connectionStatus" | 
 
 export function useStoreReadiness(scope: StoreCenterScope, permissions: string[], admitted: boolean, kind: ObservationKind = "products") {
   return useQuery({
-    queryKey: ["store-readiness", scope.organizationId, scope.userId, kind, permissions],
+    queryKey: ["store-readiness", scope.organizationId, scope.userId, kind, permissions, admitted],
     queryFn: ({ signal }) => observationRequest(`${kind}/capabilities`, scope, observationCapabilitiesSchema, signal),
     enabled: Boolean(admitted && scope.organizationId && scope.userId && permissions.includes(`workbench.store.${kind}.read`)),
     retry: false, gcTime: 0,
   });
 }
 
-export function StoreReadinessNotice({ caps, permissions, kind = "products", store, compact = false }: {
-  caps: CapabilityView; permissions: string[]; kind?: ObservationKind; store?: ReadinessStore; compact?: boolean;
+export function StoreReadinessNotice({ caps, permissions, kind = "products", store, compact = false, onAuthorizationSelect }: {
+  caps: CapabilityView; permissions: string[]; kind?: ObservationKind; store?: ReadinessStore; compact?: boolean; onAuthorizationSelect?: () => void;
 }) {
   const data = !caps.isError && !caps.isPending && !caps.isFetching ? caps.data : undefined;
   const canRead = permissions.includes(`workbench.store.${kind}.read`), canSync = permissions.includes(`workbench.store.${kind}.sync`);
@@ -44,7 +44,7 @@ export function StoreReadinessNotice({ caps, permissions, kind = "products", sto
     </div></> : null}
     {store ? <p>本店连接：{connection[store.connectionStatus] ?? "待确认"} · 店铺服务：{store.serviceStatus ? service[store.serviceStatus] : "尚未建立"}</p> : null}
     <div className={styles.readinessNext}><p>下一步：{!canManage&&!next.includes("请联系企业配置管理员")?"请联系企业配置管理员。":""}{next}</p>
-      {canViewStore && (!store || canManage) ? <Link prefetch={false} href={store && observationID.safeParse(store.id).success ? `/workbench/stores/${store.id}#authorization` : "/workbench/stores"}>{store ? "查看本店授权信息" : "前往我的店铺查看接入条件"} →</Link> : null}
+      {canViewStore && (!store || canManage) ? <Link prefetch={false} href={store && observationID.safeParse(store.id).success ? `/workbench/stores/${store.id}#authorization` : "/workbench/stores"} onClick={onAuthorizationSelect && store && observationID.safeParse(store.id).success ? event=>{if(event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;event.preventDefault();onAuthorizationSelect();}:undefined}>{store ? "查看本店授权信息" : "前往我的店铺查看接入条件"} →</Link> : null}
     </div>
   </section>;
 }
