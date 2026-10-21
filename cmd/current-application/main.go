@@ -231,6 +231,9 @@ func execute() error {
 			if features.ProductCollections {
 				options = append(options, httpapi.WithProductCollections())
 			}
+			if features.SourceMaterials {
+				options = append(options, httpapi.WithSourceMaterials(features.SupplyAssetDB))
+			}
 			if features.AcquisitionPlans {
 				options = append(options, httpapi.WithAcquisitionPlans())
 			}

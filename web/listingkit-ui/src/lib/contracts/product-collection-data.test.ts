@@ -1,9 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { collectionCommandSchema,parseCollectionResponse } from "./product-collection";
+import { collectionCommandSchema,collectionDetailSchema,parseCollectionResponse } from "./product-collection";
 
 describe("data-service original collection references", () => {
   const id = "0511e1d2-b555-4970-b323-3b629a901901";
   const createdAt = "2026-10-09T12:00:00Z";
+  it("projects persisted lineage and warnings while discarding arbitrary source metadata",()=>{
+    const detail=collectionDetailSchema.parse({item:{id,batchId:id,source:{productKey:"product",publicationId:id,version:"1",kind:"acquisition",operationId:id},revision:1,createdAt},product:{sources:[{type:"crawler",platform:"1688",source_id:"981645030344",source_version:"capture-v1",snapshot_id:id,checksum:"a".repeat(64),captured_at:createdAt,metadata:{untrusted:"not projected"}}],warnings:[{code:"missing",field:"price",message:"价格缺失"}],review:{needs_review:true,reasons:["price"]}}});
+    expect(detail.product.sources?.[0]).toMatchObject({source_version:"capture-v1",snapshot_id:id,checksum:"a".repeat(64),captured_at:createdAt});
+    expect(detail.product.sources?.[0]).not.toHaveProperty("metadata");
+    expect(detail.product.review?.needs_review).toBe(true);
+    expect(detail.product.warnings?.[0]?.message).toBe("价格缺失");
+  });
   it("binds a revision to the exact original tuple and rejects fields from other commands",()=>{
     const command={action:"revise_product",itemId:id,expectedRevision:3,expectedSourceVersion:"9007199254740993",expectedPublicationId:id,product:{title:"新版",description:"",images:[]}};
     expect(collectionCommandSchema.safeParse(command).success).toBe(true);
