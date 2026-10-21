@@ -1,0 +1,29 @@
+# VIP original output recovery and paid-result presentation
+
+Design Basis: Reuse Existing Architecture. Status: READY for bounded implementation.
+Execution: Issue #840. Product decision: 2026-10-21 user requests recovery of the paid original VIP result, accurate settlement presentation, no generation/recharge/retry, preserved original request/Skill/default/reservations/audit.
+
+## Product outcome and authority
+An authorized member can distinguish a successful, committed generation whose original media needs recovery from a genuinely UNKNOWN provider effect. The same original result is retrieved with the existing recovery command; no new plan, provider POST, reservation, or price lookup is introduced.
+Figma authority (updated before implementation): file tg48P46SSXl6TBy9lZwg63, page 31:463, editable dark 8229:2346 / light 8229:2406, wrapper 8229:2345. Original designs remain.
+
+## Reused contracts and owners
+Reuse product-image-agent-v1, grsai-vip-image-binding-v1, image-plan-optional-route-v1 and image-text-language-confirmation-v1. Existing GenerationFact owns success and the fixed private locator; Commercial owns committed/released reservations; imageagent owns original identity, immutable plan/Skill/quote and bounded GET-only recovery; Asset owns candidate materialization and separate human save. AdGuard dnsproxy remains the retained runtime DNS owner.
+
+Contract -> implementation -> injection -> consumer: original credential/route -> single synchronous GRSAI dispatch -> durable success observer and Commercial settlement -> public-URL safety/strict original dimensions -> original effect recovery/staging -> authorized HTTP read DTO -> existing product image panel and recent-task list. No new schema/state, fact owner, public command, retry protocol, grant, credential, ledger, or provider SDK.
+
+## Root cause and minimal changes
+The actual original result host file1.aitohumanize.com resolves inside the retained backend to 198.18.2.5 through the default upstream. The unchanged httpimage client correctly rejects this special-use address. The existing selective DNS upstream currently covers www.ikea.com and aliyuncs.com only; prepare an exact additional result-host rule through the same pinned dnsproxy and verified HTTPS resolver. Do not permit private/reserved IPs, disable TLS, use a proxy to evade target validation, or replace the recorded result URL. Deployment/config activation remains separately gated; do not edit host-wide networking.
+
+A post-success output error is wrapped into the original generic provider_outcome_unknown phase. Keep that original phase/error/event intact as audit, but derive a read-only outputRecoverySummary from valid original GenerationSucceeded + committed settlement proofs matched to the authorized run/member/plan/slot/attempt/quote. Never infer payment from run usage or provider metadata alone. Pending original media must not be counted as a usable candidate. Correct settledPoints without double-counting slots that already have closures. Genuine UNKNOWN, unsettled, missing/corrupt/mismatched facts do not qualify. No new stored status or history rewrite.
+
+Panel and recent list show generated/result awaiting recovery for proved paid output; the relevant row says points settled, and uses the existing recover command with original slot/attempt. Unknown siblings retain their original warning/action. Original raw failure and settlement basis remain expandable. Keep existing cancel, task-switch locks, selection/save permissions and unsafe retry prohibitions. The successful output is still manually selected and separately saved.
+
+The original-result recovery already has no provider-submission capability and uses its fixed saved locator. Add a bounded regression proving VIP medium/1024 recovery with committed points and current exhausted member limit does not reserve, dispatch, reprice, or charge again. Keep strict original dimension rejection and immutable source/Skill/route digests.
+
+## Scope, limits and verification
+Must: reproduce fake/reserved DNS rejection; correct authorized paid presentation and genuine-UNKNOWN distinction; original result recovery with unchanged settlement; preserve ordinary-member/tenant/source authorization; relevant backend/UI contract tests and light/dark inspection. Reuse existing tests/fixtures only. No new runner/platform. Runtime investigation is a non-production GET-only spike, never production code.
+
+Out of scope: new model calls, quota increases, refunds by inference, default switch, rescaling/reencoding, URL replacement, automatic recovery, new attempt, save/publication, broad network changes, historical migration. Legacy decision: N/A; only current owners, no legacy wrapper or second facts.
+
+The old UNKNOWN reservation remains reserved 5 points. The new successful original has committed 1 point and member usage 4/4; never describe it as a retained reservation. Audit and raw bytes/receipts are preserved. If original media is inaccessible or wrong-sized, stop with an accurate paid result status, never regenerate. No real model budget is authorized by this design. Merge/deployment/Issue closure require their applicable authority; development ends In Review, user acceptance pending.
