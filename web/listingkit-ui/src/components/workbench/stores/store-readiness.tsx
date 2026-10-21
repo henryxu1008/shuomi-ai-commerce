@@ -8,22 +8,23 @@ import { catalogItemSchema, storeCenterRequest, type StoreCenterScope } from "@/
 import type { WorkbenchStore } from "@/lib/api/workbench-stores";
 import styles from "./store-catalog.module.css";
 
-type CapabilityView = { data?: z.infer<typeof observationCapabilitiesSchema>; isPending?: boolean; isFetching?: boolean; isError?: boolean };
+type CapabilityView = { data?: z.infer<typeof observationCapabilitiesSchema>; isPending?: boolean; isFetching?: boolean; isError?: boolean; admitted?: boolean };
 type ReadinessStore = Pick<WorkbenchStore, "id" | "name" | "connectionStatus" | "serviceStatus">;
 
 export function useStoreReadiness(scope: StoreCenterScope, permissions: string[], admitted: boolean, kind: ObservationKind = "products") {
-  return useQuery({
+  const query = useQuery({
     queryKey: ["store-readiness", scope.organizationId, scope.userId, kind, permissions, admitted],
     queryFn: ({ signal }) => observationRequest(`${kind}/capabilities`, scope, observationCapabilitiesSchema, signal),
     enabled: Boolean(admitted && scope.organizationId && scope.userId && permissions.includes(`workbench.store.${kind}.read`)),
     retry: false, gcTime: 0,
   });
+  return {...query, admitted};
 }
 
 export function StoreReadinessNotice({ caps, permissions, kind = "products", store, compact = false, onAuthorizationSelect }: {
   caps: CapabilityView; permissions: string[]; kind?: ObservationKind; store?: ReadinessStore; compact?: boolean; onAuthorizationSelect?: () => void;
 }) {
-  const data = !caps.isError && !caps.isPending && !caps.isFetching ? caps.data : undefined;
+  const data = caps.admitted!==false && !caps.isError && !caps.isPending && !caps.isFetching ? caps.data : undefined;
   const canRead = permissions.includes(`workbench.store.${kind}.read`), canSync = permissions.includes(`workbench.store.${kind}.sync`);
   const canManage = permissions.includes("workbench.store.update"), canViewStore = permissions.includes("workbench.store.read");
   const label = kind === "products" ? "商品" : "订单";
@@ -33,6 +34,8 @@ export function StoreReadinessNotice({ caps, permissions, kind = "products", sto
   const service = { active: "有效", pending_activation: "待激活", expired: "已到期", suspended: "已暂停" };
   const next = !canRead ? `请联系企业配置管理员核对${label}读取权限；店铺可见不代表可以读取或同步。`
     : caps.isError ? "本次未取得平台读取状态，请刷新后核对。"
+    : caps.admitted === false ? "当前未取得店铺同步运行入口，请联系企业配置管理员核对同步运行配置与当前权限。"
+    : data?.runtimeReady === false ? "店铺同步运行暂不可用，请配置管理员核对店铺同步运行配置和服务健康。"
     : data?.providerConfigured === false ? "请由配置管理员完成官方应用和平台读取配置，再核对本店授权。"
     : store && (store.connectionStatus !== "connected" || store.serviceStatus !== "active") ? "请在本店授权信息核对官方连接和店铺服务。"
     : !canSync ? "请联系企业配置管理员核对同步权限；读取权限不包含同步权限。"

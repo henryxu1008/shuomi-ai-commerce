@@ -40,7 +40,7 @@ export function StoreSyncDialog({store,scope,onClose,onChanged,initialKind="prod
   <p>读取平台数据并保存观察结果，经营操作继续在平台处理。TEMU 与 Walmart 当前只开放商品同步；Walmart 库存缺项仍显示未知。</p>
   <label>同步数据<Select value={kind} disabled={Boolean(intent)||start.isPending} onChange={event=>setSelectedKind(event.target.value as ObservationKind)}><option value="products">商品与库存</option><option value="orders" disabled={!intent&&store.platform!=="shein"}>订单</option></Select></label>
   <label>同步范围<Select value={intent?(intent.input.stores.length?"original":"all"):all?"all":"current"} disabled={Boolean(intent)||start.isPending} onChange={event=>setAll(event.target.value==="all")}>{intent?.input.stores.length?<option value="original">原选定店铺：{intent.input.stores.map(id=>id===store.id?store.name:id).join("、")}</option>:null}<option value="current">当前店铺：{store.name}</option><option value="all">当前全部授权店铺</option></Select></label>
-  <StoreReadinessNotice caps={caps} permissions={context.permissions} kind={kind} store={readinessStore}/>
+  <StoreReadinessNotice caps={{...caps,admitted:context.storeObservationsAvailable}} permissions={context.permissions} kind={kind} store={readinessStore}/>
   {kind==="orders"?<p className={styles.hint}>全托管消费者订单沿平台合同未开放。</p>:null}
   {intent?<p>原命令键：{intent.key}</p>:null}
   {canDiscard?<div><p>原同步回执不存在或当前成员无权访问。清除此页记录只停止本地跟踪，不取消旧同步或证明请求未受理。</p><Button variant="outline" onClick={discard}>清除此页同步记录</Button></div>:null}

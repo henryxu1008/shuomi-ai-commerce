@@ -73,5 +73,12 @@ it("hides a previously ready capability when runtime admission closes",async()=>
  view.rerender(wrap({admitted:false}));
  expect(screen.getByText("内部运行：待确认")).toBeVisible();
  expect(screen.getByText("平台读取：待确认")).toBeVisible();
+ expect(screen.getByText(/核对同步运行配置与当前权限/)).toBeVisible();
  expect(state.capabilities).toHaveBeenCalledTimes(1);
+});
+it("directs a connected active store to runtime maintenance when runtime is unavailable",()=>{
+ render(<StoreReadinessNotice permissions={permissions} store={{...store,connectionStatus:"connected",serviceStatus:"active"}} caps={{data:{...pending,providerConfigured:true,runtimeReady:false}}}/>);
+ expect(screen.getByText("内部运行：暂不可用")).toBeVisible();
+ expect(screen.getByText(/核对店铺同步运行配置和服务健康/)).toBeVisible();
+ expect(screen.queryByText(/同步以执行入口的检查为准/)).not.toBeInTheDocument();
 });

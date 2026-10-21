@@ -84,7 +84,7 @@ export function ObservationPage({ kind }: { kind: ObservationKind }) {
     return <ConsoleState kind="unavailable" title="请先选择可访问的企业" />;
   if (!context.storeObservationsAvailable) {
     const route = findConsoleRoute(kind === "products" ? "/workbench/store-products" : "/workbench/store-orders")!;
-    return <ConsolePage title={route.node.label} breadcrumbs={route.trail} description="同步并查看店铺的平台商品、订单、物流和异常记录。"><ConsoleState kind="unavailable" title="店铺同步尚未配置">当前没有取得可用的同步入口，请核对运行配置和当前成员权限。</ConsoleState><SelectedStoreReadiness storeId={initialStore} scope={{organizationId:org,userId:user}} permissions={context.permissions} caps={{}} kind={kind}/></ConsolePage>;
+    return <ConsolePage title={route.node.label} breadcrumbs={route.trail} description="同步并查看店铺的平台商品、订单、物流和异常记录。"><ConsoleState kind="unavailable" title="店铺同步尚未配置">当前没有取得可用的同步入口，请核对运行配置和当前成员权限。</ConsoleState><SelectedStoreReadiness storeId={initialStore} scope={{organizationId:org,userId:user}} permissions={context.permissions} caps={{admitted:false}} kind={kind}/></ConsolePage>;
   }
   return (
     <ScopedPage
