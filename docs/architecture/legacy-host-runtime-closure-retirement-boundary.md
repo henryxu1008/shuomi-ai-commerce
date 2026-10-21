@@ -1,6 +1,6 @@
 # #301 旧宿主 HTTP、会话与运行辅助层完整退休设计
 
-Status: **PROPOSED / DESIGN ONLY / 待用户确认**。调查基线 main `245dcc60ccaf81b846603ba34f4cb39911018733`（#869 已合并），[准确 push/main CI39586724728](https://github.com/qq550723504/task-processor/actions/runs/39586724728) 已成功，仅作基线证据。#868 的源码退休与准确 main CI 已完成；#301 保持 OPEN，#29 不重开。本设计与后续实施沿一个 Writer、一个主要分支/PR 连续交付，不按包、文件或 helper 机械拆小批。准确设计 HEAD、CI、独立检查与用户确认留主要 PR。
+Status: **CONFIRMED / Reuse Existing Architecture / Ready → In Progress**。用户已明确确认冻结设计 `a76db47d78037631573b42d81010ace8e23cb19d` 的 §1–§7（含 §6.1），授权在 #870 同批实施。#301/PR 准入已在生产修改前记录；下列原设计阶段时态保留为历史，实施权限以本状态及用户确认取代，删除/保留矩阵和停止条件不变。调查基线 main `245dcc60ccaf81b846603ba34f4cb39911018733`（#869 已合并），[准确 push/main CI39586724728](https://github.com/qq550723504/task-processor/actions/runs/39586724728) 已成功，仅作基线证据。#868 的源码退休与准确 main CI 已完成；#301 保持 OPEN，#29 不重开。本设计与后续实施沿一个 Writer、一个主要分支/PR 连续交付，不按包、文件或 helper 机械拆小批。准确设计 HEAD、CI、独立检查与用户确认留主要 PR。
 
 ## 1. 用户结果、范围与权限
 
@@ -16,7 +16,7 @@ Status: **PROPOSED / DESIGN ONLY / 待用户确认**。调查基线 main `245dcc
 
 ## 2. Design Basis、Authority 与边界
 
-当前只读/文档工作：**Design Basis: N/A**。未来实施：**Reuse Existing Architecture / DESIGNING / NOT_READY**，复用下列已批准当前架构，不新增或修改现役权限、租户、事实 owner、状态机、事务、恢复或副作用协议：
+当前只读/文档工作：**Design Basis: N/A**。当前实施：**Reuse Existing Architecture / Ready → In Progress**，复用下列已批准当前架构，不新增或修改现役权限、租户、事实 owner、状态机、事务、恢复或副作用协议：
 
 - [Greenfield 产品决定](../product/greenfield-no-legacy-migration.md)、[Hard-Cut](../refactoring/legacy-hard-cut-policy.md)、[Legacy Register](../refactoring/legacy-register.md)、[项目边界](project-boundaries.md)、[Issue 规则](../engineering/issue-driven-development.md)。未装配旧设计只作 RETIRE，保留能力继续原 owner；没有 Compatibility 类别、迁移、旧 ID 映射、wrapper、fallback、双读写或第二事实源。
 - [当前身份/组织合同](auth-and-tenancy.md)及其引用的已批准 Identity/Organization 设计；当前 `authruntime/zitadel`、`authidentity`、`authz`、`workbenchcontext`、`app/httpapi/server_auth.go` 与 Auth.js handoff。旧 `infra/auth` 的 Java API token/本地 Session 不是这些 owner 的实现或持久化适配器。
