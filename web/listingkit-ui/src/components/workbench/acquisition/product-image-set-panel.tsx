@@ -95,6 +95,7 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
  const {userId,organizationId,kind,contextId}=scope;
  const stableScope=useMemo(()=>({userId,organizationId,kind,contextId}),[userId,organizationId,kind,contextId]);
  const locked=busy||!!intent||mediaBlocked;
+ const unresolvedRun=!!run?.pendingCommand||!!run?.recoverableEffects?.length;
  const releasedIntent=!!intent&&imageIntentTargetsReleasedRun(intent,run);
  useEffect(()=>context.registerOrganizationSwitchGuard(()=>!flight.current),[context]);
  useEffect(()=>{active.current=true;return()=>{active.current=false;abort.current?.abort()}},[]);
@@ -270,7 +271,7 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
  }
  function newPreparation(parent?:ImageSetRun){
   const content=parent?runTemplate:template,preparationSources=parent?runSources:sources;
-  if(locked||!routeReady||!methodReady||!content||!preparationSources||!(parent?regenerate:tasks).length)return;
+  if(locked||unresolvedRun||!routeReady||!methodReady||!content||!preparationSources||!(parent?regenerate:tasks).length)return;
   const selectedTasks=parent?regenerate:tasks;
   const groups=parent?{carousel:content.image.carousel.filter(t=>selectedTasks.includes(t.id)).length,detail:content.image.detail.filter(t=>selectedTasks.includes(t.id)).length}:null;
   const selectedTarget=parent?parent.plan.Target.Platform==="shein"?parent.plan.Target:{Platform:"product" as const}:platform==="shein"&&editorTarget?editorTarget:{Platform:"product" as const};
@@ -334,8 +335,8 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
  const allTasks=template?[...template.image.carousel.map(t=>({...t,group:"carousel" as const})),...template.image.detail.map(t=>({...t,group:"detail" as const}))]:[];
  const preparePositionsReady=currentOfficialPositions(tasks.map(id=>positions[id]),requirements),regeneratePositionsReady=currentOfficialPositions(regenerate.map(id=>positions[id]),requirements);
  const positionHint="请选择当前规则允许的位置和类型，并为同一图片组设置不重复的排序。";
- const canPrepare=available&&methodReady&&!!executionMode.data&&!!template&&compatibleImageTemplate(template,platform)&&tasks.length>0&&(template.image.shareOriginals?shared.length>0:(!template.image.carousel.some(t=>tasks.includes(t.id))||carousel.length>0)&&(!template.image.detail.some(t=>tasks.includes(t.id))||detail.length>0))&&(platform==="product"||preparePositionsReady);
- const canRegenerate=available&&routeReady&&methodReady&&!!executionMode.data&&!!runTemplate&&compatibleImageTemplate(runTemplate,run?.plan.Target.Platform)&&!!runSources&&regenerate.length>0&&regenerate.every(id=>[...runTemplate.image.carousel,...runTemplate.image.detail].some(task=>task.id===id))&&(!needsRegenerationReview||!!regenerationTextSelection)&&(run?.plan.Target.Platform!=="shein"||regeneratePositionsReady);
+ const canPrepare=available&&!unresolvedRun&&routeReady&&methodReady&&!!executionMode.data&&!!template&&compatibleImageTemplate(template,platform)&&tasks.length>0&&(template.image.shareOriginals?shared.length>0:(!template.image.carousel.some(t=>tasks.includes(t.id))||carousel.length>0)&&(!template.image.detail.some(t=>tasks.includes(t.id))||detail.length>0))&&(platform==="product"||preparePositionsReady);
+ const canRegenerate=available&&!unresolvedRun&&routeReady&&methodReady&&!!executionMode.data&&!!runTemplate&&compatibleImageTemplate(runTemplate,run?.plan.Target.Platform)&&!!runSources&&regenerate.length>0&&regenerate.every(id=>[...runTemplate.image.carousel,...runTemplate.image.detail].some(task=>task.id===id))&&(!needsRegenerationReview||!!regenerationTextSelection)&&(run?.plan.Target.Platform!=="shein"||regeneratePositionsReady);
  function originalChoices(group:string,values:string[],change:(next:string[])=>void){return <section className="space-y-3"><h4 className="text-sm font-medium">{group} · {values.length}/8</h4><div className="grid grid-cols-3 gap-2 sm:grid-cols-4">{sources?.originals.map((image,i)=><label key={image.id} className={`rounded-lg border p-2 ${values.includes(image.id)?"border-success-foreground bg-success":"border-border"}`}><Image src={image.displayUrl} width={100} height={100} unoptimized alt={`原始素材 ${i+1}`} className="h-20 w-full object-contain"/><span className="mt-2 flex items-center gap-1 text-xs"><input type="checkbox" aria-label={`${group} 素材 ${i+1}`} disabled={locked||!values.includes(image.id)&&values.length>=8} checked={values.includes(image.id)} onChange={e=>change(e.target.checked?[...values,image.id]:values.filter(id=>id!==image.id))}/>素材 {i+1}</span></label>)}</div></section>}
  const official=run?.plan.Target.Platform==="shein";
  const selectedPositionsReady=!official||currentOfficialPositions(selected.map(item=>item.choice.official_placement?fromPosition(item.choice.official_placement):undefined),requirements,false);
@@ -351,7 +352,7 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
    {retainedRequests.map(record=><details key={record.key} className="break-all text-muted-foreground"><summary className="cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">原请求编号：{imageIntentRequestId(record.intent)}</summary><div className="mt-2 space-y-2"><p>原任务：{record.intent.runId??"尚未创建"} · 操作：{({prepare:"准备图片计划",regenerate:"重新准备图片计划",recover:"核实原调用",cancel:"取消剩余工作",restart:"恢复原失败任务",confirm:"确认点数并生成",resume:"核实原保存"} as Partial<Record<ImageSetRoute,string>>)[record.intent.action]}</p><pre className="max-h-80 overflow-auto whitespace-pre-wrap break-all text-xs">{record.raw}</pre></div></details>)}
   </section>:null}
   {!loading&&sources&&context.permissions.includes("listingkit.image_agent.write")?<SkillPicker scope={stableScope} target="product-image" initialSelection={initialSkill} disabled={locked} onChange={onMethodChange}/>:null}
-  {!loading&&sources&&entry?.canUse?<ImagePlanRoutePicker scope={stableScope} value={intent&&(intent.action==="prepare"||intent.action==="regenerate")?(intent.body as ImageSetPrepare).route??null:routeDraft===undefined?run?.plan.Route??null:routeDraft} disabled={locked} onChange={setRouteDraft} onValidity={setRouteReady}/>:null}
+  {!loading&&sources&&entry?.canUse?<ImagePlanRoutePicker scope={stableScope} value={intent&&(intent.action==="prepare"||intent.action==="regenerate")?(intent.body as ImageSetPrepare).route??null:routeDraft===undefined?run?.plan.Route??null:routeDraft} disabled={locked||unresolvedRun} onChange={setRouteDraft} onValidity={setRouteReady}/>:null}
   {!loading&&sources&&!sources.originals.length?<p className="text-sm text-muted-foreground">当前商品没有原始图片，补充真实素材后才能准备生成计划。</p>:null}
   {available&&sources?<>
    {template&&!compatibleImageTemplate(template,platform)?<p className="text-sm text-warning-foreground">当前模板不适用于此素材目标，请选择匹配的模板或切换目标。</p>:null}

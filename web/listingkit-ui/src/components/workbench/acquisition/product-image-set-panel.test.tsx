@@ -81,6 +81,26 @@ it("sends the exact VIP selection in a new plan and retains it with the original
  expect(fetch.mock.calls.filter(([url])=>String(url).endsWith("/prepare"))).toHaveLength(1);
 });
 
+it("disables preparing a new plan until a restored unavailable VIP is explicitly reselected",async()=>{
+ const route={BindingID:"image-vip",RevisionID:"route-old"};Object.assign(state.plan,{Route:route});localStorage.setItem(`product-image-set:actor:org:acquisition:${operation}:run`,runId);
+ const original=fetch.getMockImplementation()!;fetch.mockImplementation((url,init)=>String(url).endsWith("/model-options")?Promise.resolve(Response.json({contextKind:"acquisition",contextId:operation,options:[{model:"qwen-image-3.0-pro",quality:"auto",resolution:"1024x1024",points:1}]})):original(url,init));
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ fireEvent.click(await screen.findByRole("checkbox",{name:"共用原始素材 素材 1"}));
+ await screen.findByText(/原选版本不可用或尚未核实/);
+ expect(screen.getByRole("button",{name:"准备整套图片计划（2 项）"})).toBeDisabled();
+ fireEvent.change(screen.getByRole("combobox",{name:"本次计划使用的图片模型"}),{target:{value:"default"}});
+ await waitFor(()=>expect(screen.getByRole("button",{name:"准备整套图片计划（2 项）"})).toBeEnabled());
+});
+
+it("keeps model switching and new preparation locked while the original run has unresolved effects",async()=>{
+ state=projection("blocked");Object.assign(state,{recoverableEffects:[{SlotID:"main",Attempt:1,Code:"provider_outcome_unknown"}]});localStorage.setItem(`product-image-set:actor:org:acquisition:${operation}:run`,runId);
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ fireEvent.click(await screen.findByRole("checkbox",{name:"共用原始素材 素材 1"}));
+ expect(screen.getByRole("combobox",{name:"本次计划使用的图片模型"})).toBeDisabled();
+ expect(screen.getByRole("button",{name:"准备整套图片计划（2 项）"})).toBeDisabled();
+ expect(screen.getByRole("button",{name:"核实原调用"})).toBeEnabled();
+});
+
 it.each(["prepare","regenerate"])("restores the exact pending VIP for %s and archives a definite route refusal before unlocking",async action=>{
  const key=`product-image-set:actor:org:acquisition:${operation}:intent`,route={BindingID:"image-vip",RevisionID:"route-vip"};
  const raw=JSON.stringify({action,...action==="regenerate"?{runId}:{},requestKey:templateId,body:{route,text:{mode:"none"},expectedModeRevision:"0",target:{Platform:"product"}}},null,2);localStorage.setItem(key,raw);
