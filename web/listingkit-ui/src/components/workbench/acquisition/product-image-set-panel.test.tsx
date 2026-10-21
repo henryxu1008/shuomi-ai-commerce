@@ -130,12 +130,12 @@ it.each(["prepare","regenerate"])("restores the exact pending VIP for %s and arc
  expect(Object.keys(localStorage).some(k=>localStorage.getItem(k)===raw)).toBe(true);
 });
 
-it.each(["fresh","restored"])("retains a %s refused confirmation and keeps that immutable plan disabled after refresh",async scenario=>{
+it.each(["fresh","restored","sources-unavailable"])("retains a %s refused confirmation and keeps that immutable plan disabled after refresh",async scenario=>{
  const route={BindingID:"image-vip",RevisionID:"route-old"},nextRoute={...route,RevisionID:"route-new"};Object.assign(state.plan,{Route:route});
  const key=`product-image-set:actor:org:acquisition:${operation}:intent`;localStorage.setItem(key.replace(/:intent$/,":run"),runId);
  if(scenario==="restored")localStorage.setItem(key,JSON.stringify({action:"confirm",runId,body:{actionId:operation,planRevision:1,planDigest:sha,quoteDigest:digest}},null,2));
- let reads=0,raw="";const original=fetch.getMockImplementation()!;
- fetch.mockImplementation((url,init)=>String(url).endsWith("/model-options")?Promise.resolve(Response.json({contextKind:"acquisition",contextId:operation,options:[{model:"qwen-image-3.0-pro",quality:"auto",resolution:"1024x1024",points:1},{route:++reads===1?route:nextRoute,model:"gpt-image-2-vip",quality:"medium",resolution:"1024x1024",points:2}]})):String(url).endsWith("/confirm")?(raw=localStorage.getItem(key)!,Promise.resolve(Response.json({code:"IMAGE_ROUTE_CHANGED"},{status:409}))):original(url,init));
+ let reads=0,raw="",sourcesUnavailable=false;const original=fetch.getMockImplementation()!;
+ fetch.mockImplementation((url,init)=>sourcesUnavailable&&String(url).endsWith("/sources")?Promise.resolve(Response.json({code:"IMAGE_UNAVAILABLE"},{status:503})):String(url).endsWith("/model-options")?Promise.resolve(Response.json({contextKind:"acquisition",contextId:operation,options:[{model:"qwen-image-3.0-pro",quality:"auto",resolution:"1024x1024",points:1},{route:++reads===1?route:nextRoute,model:"gpt-image-2-vip",quality:"medium",resolution:"1024x1024",points:2}]})):String(url).endsWith("/confirm")?(raw=localStorage.getItem(key)!,Promise.resolve(Response.json({code:"IMAGE_ROUTE_CHANGED"},{status:409}))):original(url,init));
  const view=render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
  await screen.findByText(/gpt-image-2-vip · medium · 原始输出/);
  fireEvent.click(screen.getByRole("button",{name:scenario==="restored"?"继续原确认":"确认点数并生成"}));
@@ -149,8 +149,9 @@ it.each(["fresh","restored"])("retains a %s refused confirmation and keeps that 
  fireEvent.click(screen.getByRole("checkbox",{name:"共用原始素材 素材 1"}));
  await waitFor(()=>expect(screen.getByRole("button",{name:"准备整套图片计划（2 项）"})).toBeEnabled());
  expect(screen.getByRole("button",{name:"确认点数并生成"})).toBeDisabled();
- view.unmount();render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
- await screen.findByRole("option",{name:/原选版本 route-old/});
+ view.unmount();sourcesUnavailable=scenario==="sources-unavailable";render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ await screen.findByRole("button",{name:"确认点数并生成"});
+ if(!sourcesUnavailable)await screen.findByRole("option",{name:/原选版本 route-old/});
  expect(screen.getByRole("button",{name:"确认点数并生成"})).toBeDisabled();
  expect(fetch.mock.calls.filter(([url])=>String(url).endsWith("/confirm"))).toHaveLength(1);
  expect(Object.keys(localStorage).some(k=>localStorage.getItem(k)===raw)).toBe(true);

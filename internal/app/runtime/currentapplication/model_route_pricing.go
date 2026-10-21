@@ -21,6 +21,16 @@ type ModelRoutePricingConfig struct {
 	Bindings    []qualified.Definition `json:"bindings,omitempty"`
 }
 
+func (m *ModelRoutePricingConfig) writerConnections(target DatabaseConfig) int {
+	required := 0
+	for _, writer := range []*DatabaseConfig{m.TextWriter, m.ImageWriter} {
+		if writer != nil && writer.Host == target.Host && writer.Port == target.Port && writer.User == target.User {
+			required += writer.MaxConnections
+		}
+	}
+	return required
+}
+
 func (c *Config) modelRouteDefinitions() ([]qualified.Definition, error) {
 	m := c.ModelRoutePricing
 	if m == nil {

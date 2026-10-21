@@ -167,6 +167,7 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
   const controller=new AbortController();abort.current=controller;
   void (async()=>{
    try{
+    setRetainedRequests(readRetainedImageRequests(storageKey));
     const saved=localStorage.getItem(storageKey+":intent");
     if(saved){
      const parsed=parseImageIntent(saved);
@@ -177,7 +178,7 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
     if(!agent.canReadRuns)return;
     const query=new URLSearchParams();if(effectiveVersion)query.set("effectiveCatalogVersion",effectiveVersion);if(applyReceiptId)query.set("applyReceiptId",applyReceiptId);
     let source:z.infer<typeof imageSetSourcesSchema>|undefined;setSources(undefined);
-    try{source=await imageSetRequest(stableScope,"sources",imageSetSourcesSchema,{query:query.toString(),signal:controller.signal});if(controller.signal.aborted)return;setSources(source);setRetainedRequests(readRetainedImageRequests(storageKey))}catch(e){if(controller.signal.aborted)return;fail(e)}
+    try{source=await imageSetRequest(stableScope,"sources",imageSetSourcesSchema,{query:query.toString(),signal:controller.signal});if(controller.signal.aborted)return;setSources(source)}catch(e){if(controller.signal.aborted)return;fail(e)}
     // Recover the known run before optional template or recent-run discovery.
     const id=initialRunId??localStorage.getItem(storageKey+":run");
     if(id){try{await readRun(id,controller.signal)}catch(e){if(!controller.signal.aborted)fail(e)}}

@@ -16,7 +16,7 @@
 
 以下步骤均需单独环境操作授权，不能把文档命令当作执行授权。
 
-1. 原 ProductAgent/Run DB 和 ImageAgent DB、原消费依赖及凭据须已安装。复用原 schema owner；预先准备各库独立的 `model_route_config_writer` LOGIN 角色（有界连接，非 owner/super/DDL，不能读 Key 或改凭据），并显式授予目标数据库 `CONNECT` 和 `public` schema 的 `USAGE`。不用 HTTP/worker pool 写 current；安装器的关系授权不代替这两项连接前置。
+1. 原 ProductAgent/Run DB 和 ImageAgent DB、原消费依赖及凭据须已安装。复用原 schema owner；预先准备 `model_route_config_writer` LOGIN 角色（有界连接，非 owner/super/DDL，不能读 Key 或改凭据），并显式授予目标数据库 `CONNECT` 和 `public` schema 的 `USAGE`。同一 PostgreSQL 集群的角色及其连接上限跨数据库共享；不是每库各有一份角色预算。不用 HTTP/worker pool 写 current；安装器的关系授权不代替这两项连接前置。
 2. 对每个启用库用原 `agent-configuration-schema-init` 的 `--model-route-pricing-only --runtime-role <原读取角色> --model-route-writer-role model_route_config_writer`。文本指定原 Run 读取角色；图片必须指定 `image_agent_worker_runtime`，API 报价和执行均复用此 pool，不能给 `image_agent_runtime` 增加无用的配置读取。DSN 仍从私密 `AGENT_CONFIGURATION_SCHEMA_DSN` 提供。显式安装只增加 revision/current、去密 view 和窄 grants，不写凭据、seed current、导入旧 map 或修改历史；不使用 owner pool 运行服务。
 3. 私密 current-application manifest 中按需增加 `modelRoutePricing.textWriter` / `imageWriter`（复用原 DatabaseConfig 形状，host/port/database 必须匹配原执行 owner，user 固定上述窄角色，maxConnections ≤ 2）。省略某个 family 使它保持原批准的未管理运行方式；纳入管理后没有 manifest/member/global-Key fallback。
 4. `modelRoutePricing.bindings` 是私密部署准入描述数组（`routeconfiguration.Definition`），不是当前选择。文本原各用途描述作为基础候选，额外候选必须属于已启用组织/用途，prompt/schema/currency 一致，token/bytes/deadline 不扩大，沿原 adapter/usage 校验。选品/诊断保留原单次半程成本上界，其它文本保留原运行成本上界。图片每个原允许组织须显式给出 `imageagent.generation` 候选，provider/model/endpoint/version 均精确绑定到原 adapter；不能推断 provider。
@@ -28,6 +28,8 @@
 在 managed image 模式，原 `imageAgent.generation.pointsPerImage` 仅作为部署硬预算上界（候选最大点数不得超出），不再选择当前价格；原 `priceVersion` 不进入新 quote/intent。实际 points/price/configurationVersion 全来自已发布 current。两份原 API/worker配置的一致性检查仍保留，不能以改费率为由扩大 hard limits。
 
 数据库 writer 与原 reader 的连接生命周期由现有 currentapplication 管理；启动失败停止开放管理，不自动修表或回落。schema 检查拒绝缺失 scoped PK/唯一键/FK；serving reader 不能写配置表，writer 不能改历史、删 current、读 Key 或写 credential。
+
+连接预算：每个 writer pool 仍最多 2；启动在打开任何 writer 前，使用原 reader 只读检查固定角色的有限上限（仅 2 或 4），按相同显式 host/port/user 聚合已配置的池上限，数据库名不分割预算。角色缺失、无限、容量不足或不可读时明确停止。仅单 family 可用总限 2；同 cluster 文字和图片各 maxConnections=2 须总限 4。经单独环境授权后，在原安装命令显式加 `--model-route-writer-connections 4`，只修改既有非特权 LOGIN 角色的 CONNECTION LIMIT；也接受显式 2，但拒绝降低已有较大的有限上限。不传参数则不改角色，包括重新安装已设为 4 的环境。此设置与原安装在同一事务，失败回滚；不创建角色、不修改密码/权限/默认模型/费率/额度，不以重启抢占连接代替修复。
 
 图片 worker 的正式权限清单仅可选允许 `public.ai_route_config_revisions`、`public.ai_route_config_current`、`public.ai_route_config_options` 三张普通表及 `public.ai_client_credential_bindings` 去密 view 的 `SELECT`。未管理实例不要求安装或授权这四处关系，原 worker grant 入口也不会自动授予；启用管理后，原 `VerifyReader` / `VerifySchema` 仍强制检查完整对象及读取权限。错误关系类型、RLS、runtime 所有权及额外写权限继续拒绝；HTTP Image role 对这四处关系的额外读取也继续拒绝。
 
