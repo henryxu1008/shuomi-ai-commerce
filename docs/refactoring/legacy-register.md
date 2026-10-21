@@ -1,5 +1,7 @@
 # Legacy Register
 
+> #301 [数字上下文与共享值合同完整退休提案](../architecture/legacy-numeric-value-contract-closure-retirement-boundary.md)：设计基线为#867实际main23bde99ec；当前只调查/设计，未来Independent Architecture准入及用户确认前NOT_READY。一个批次覆盖旧日志/分片API、两个旧规则输入类型的5/8有效值抽取、来源别名赋值互填/旧Key退出。ProductImportMapping/两属性完整保持；四来源JSON零值槽位与原SRC编码/hash/拒绝合同保持，不新建兼容reader/codec或迁移。仅在用户确认准确矩阵后替代#867对应类型/行为的旧保留表述；当前采集/API/规则/身份/Store/独立SHEIN登录同步保持，源码/测试/workflow/inventory/真实环境零改，无新试用前置，#301 OPEN。
+
 > #301 / #867 [用户确认的数字采集与平台尾链完整闭包](../architecture/legacy-numeric-acquisition-tail-closure-retirement-boundary.md)：冻结设计 d3c33d86c §1–§7（含§6.1），Reuse Existing Architecture，单批 RETIRE 无装配的 platformbase/fetcher/sourceproduct、TaskEventV2、Amazon 数字 Task/HTTP/结果与专属运维源、SHEIN 数字 Cookie providers 和孤立数字成本/StoreInfo 适配。当前 Processor/browser、平台 API/规则、两种 SHEIN 属性、SourceKey/lineage、Organization/Store、独立登录/同步保持；Cookie 值转换与质量指标的既有纯值 helper 原样留给现有消费者，无新 owner。仅删七条 CURRENT inventory 行，历史/计数/ceilings和全部workflow不改；不触碰真实资源/数据/凭据，不增加试用前置，#301 OPEN。下文旧保留结论仅在此准确矩阵上成为历史。
 
 > #301 / #863: 用户确认 [独立 SHEIN worker 数字持久化完整退休设计](../architecture/shein-worker-numeric-persistence-retirement-v1.md) 94fa4cab §1–§7，Independent Architecture / IMPLEMENTATION_READY。当前整批实施旧数字账号、listingadmin 生产 Store、managed bridge、Profile/Redis 和孤立 TEMU StoreRuntime 闭包；有效登录、验证码、取消与 Store 同步归当前组织/Store、授权 CLI 与可选执行 fence。仅取代下文相关“保留数字 worker owner”结论；无迁移/兼容或真实资源切换。§6.1 历史 race 路径为实际执行当前合同的 test-only 目录，workflow 不改。UNKNOWN 不自动接管；#301 OPEN；真实运行和用户验收 NOT_RUN，不增加试用前置。准确实施 HEAD/CI/最终复核留 #863。
