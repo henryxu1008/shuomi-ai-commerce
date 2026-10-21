@@ -135,6 +135,8 @@ Cutover/deletion condition: 用户确认完整矩阵及 §6.1 后，三组无消
 
 已针对七个准确包扫描全部 tracked docs 的同根因引用。phase1-summary/phase1-acceptance-report、dated superpowers plans/specs 和 test-baseline.txt 属历史证据，保持原文/计数，不恢复当前权威；phase2-runtime-inventory.md 连历史说明也零改。当前开发指南遗漏已在上表明确纳入本闭包，不能只删源码后留作推荐导入路径。
 
+实施原 CI39594552356 证实四处同根因 guard 尾部：`TestProductSourceCompatibilityAliasStaysRetired` 的旧 app/ports/platform.go 正向读取改为缺席，保留全 internal 的 ProductSource 禁令；`TestProjectBoundaryDomainsDoNotImportListingKitFacade`、`TestInfrastructurePackagesDoNotImportBusinessDomains` 与 `TestPhase2LegacyRootsDoNotGrow` 对最后旧子包退出后的 infra 空父根复用现有 retained-ancestor/subtree 索引。当前 internal 读取/解析仍 fail-closed、其它根存在性/禁入保持，原 ceilings（含 infra=16）及 inventory/workflow 不改。该 §6.1 实现校准归 IMPLEMENTATION_TEST，不改变冻结设计/当前合同或新增试用前置；首轮失败、RED→GREEN 与准确最终证据留 #870。
+
 ## 7. 设计确认、复核与停止点
 
 1. 本轮交付完整三组设计与实际证据，集中一次独立最终设计检查核对 §2/§3/§4/§5/§6.1，不默认增加 AI 互验线程、不重复同 SHA Running 请求，不为已存在且未改的当前架构重新做全局审核。

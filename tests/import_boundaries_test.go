@@ -1354,12 +1354,8 @@ func TestListingRuntimeLocalCompatibilityFacadeStaysRetired(t *testing.T) {
 
 func TestProductSourceCompatibilityAliasStaysRetired(t *testing.T) {
 	path := filepath.Join("..", "internal", "app", "ports", "platform.go")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	if strings.Contains(string(content), "type ProductSource") {
-		t.Fatalf("%s exposes ProductSource; keep the crawl capability named CrawlSource instead of reviving ProductSource compatibility", path)
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("retired app/ports source must be absent: %v", err)
 	}
 
 	index, err := loadGoFileIndex(filepath.Join("..", "internal"), "")
@@ -1372,7 +1368,7 @@ func TestProductSourceCompatibilityAliasStaysRetired(t *testing.T) {
 			t.Fatalf("read %s: %v", path, err)
 		}
 		if strings.Contains(string(content), "ProductSource") {
-			t.Fatalf("%s mentions ProductSource; keep the crawl capability named CrawlSource", path)
+			t.Fatalf("%s mentions ProductSource; use the current source owner contracts", path)
 		}
 	}
 }
@@ -1961,7 +1957,7 @@ func TestProjectBoundaryDomainsDoNotImportListingKitFacade(t *testing.T) {
 		filepath.Join("..", "internal", "workspace"),
 	} {
 		t.Run(filepath.ToSlash(domainRoot), func(t *testing.T) {
-			if domainRoot == filepath.Join("..", "internal", "workspace") {
+			if domainRoot == filepath.Join("..", "internal", "workspace") || domainRoot == filepath.Join("..", "internal", "infra") {
 				assertNoBannedImportPrefixesBelow(t, filepath.Join("..", "internal"), domainRoot, []string{
 					"task-processor/internal/listingkit",
 				}, nil)
@@ -1999,7 +1995,13 @@ func TestInfrastructurePackagesDoNotImportBusinessDomains(t *testing.T) {
 		filepath.Join("..", "internal", "platform"),
 	} {
 		t.Run(filepath.ToSlash(infraRoot), func(t *testing.T) {
-			assertNoBannedImportPrefixes(t, infraRoot, []string{
+			assertPrefixes := assertNoBannedImportPrefixes
+			if infraRoot == filepath.Join("..", "internal", "infra") {
+				assertPrefixes = func(t *testing.T, root string, banned []string, allowed map[string]struct{}) {
+					assertNoBannedImportPrefixesBelow(t, filepath.Join("..", "internal"), root, banned, allowed)
+				}
+			}
+			assertPrefixes(t, infraRoot, []string{
 				"task-processor/internal/amazon",
 				"task-processor/internal/amazonlisting",
 				"task-processor/internal/asset",
@@ -2015,7 +2017,7 @@ func TestInfrastructurePackagesDoNotImportBusinessDomains(t *testing.T) {
 				"task-processor/internal/temu",
 				"task-processor/internal/workspace",
 			}, submissionAdapterOnly)
-			assertNoBannedImportPrefixes(t, infraRoot, []string{
+			assertPrefixes(t, infraRoot, []string{
 				"task-processor/internal/product/catalog",
 			}, catalogAdapterOnly)
 		})

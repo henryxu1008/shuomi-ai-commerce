@@ -483,7 +483,23 @@ func phase2ConcreteImporterCeilings() []importerCeiling {
 func TestPhase2LegacyRootsDoNotGrow(t *testing.T) {
 	root := filepath.Join("..", "internal")
 	for _, tc := range phase2LegacyRootCeilings() {
-		if got := productionGoFileCount(t, filepath.Join(root, tc.name)); got > tc.max {
+		var got int
+		if tc.name == "infra" {
+			// The last old-host packages are retired. Scan the retained ancestor
+			// so absence counts as zero while read/parse failures still fail closed.
+			index, err := loadGoFileSubtreeIndex(root, filepath.Join(root, tc.name))
+			if err != nil {
+				t.Fatal(err)
+			}
+			for path := range index.files {
+				if !strings.HasSuffix(path, "_test.go") {
+					got++
+				}
+			}
+		} else {
+			got = productionGoFileCount(t, filepath.Join(root, tc.name))
+		}
+		if got > tc.max {
 			t.Errorf("internal/%s production files = %d, baseline max = %d", tc.name, got, tc.max)
 		}
 	}
