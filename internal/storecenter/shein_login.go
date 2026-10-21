@@ -165,7 +165,13 @@ func (r *SheinLoginRepository) control(ctx context.Context, c SheinBindingComman
 	if quiesce {
 		action = AuditActionSheinQuiesce
 	}
-	fp := hashTuple("shein-control-v1", c.Scope.OrganizationID, c.Scope.StoreID, c.Scope.InstallationID, c.Scope.BindingRevision, c.Scope.ConfigFingerprint, c.ActorID, c.MemberID, fmtInt(c.ExpectedGeneration), fmtInt(c.Scope.Generation), string(action))
+	requestGeneration := c.Scope.Generation
+	if quiesce {
+		// CLI derives the live fence generation, not a new request intent. Replays
+		// retain the original audit generation even after a later activation.
+		requestGeneration = 0
+	}
+	fp := hashTuple("shein-control-v1", c.Scope.OrganizationID, c.Scope.StoreID, c.Scope.InstallationID, c.Scope.BindingRevision, c.Scope.ConfigFingerprint, c.ActorID, c.MemberID, fmtInt(c.ExpectedGeneration), fmtInt(requestGeneration), string(action))
 	err = r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		st, e := r.authorizedStore(ctx, tx, c.Scope, c.ActorID, c.MemberID)
 		if e != nil {

@@ -87,6 +87,30 @@ func TestForceLoginSelectsFreshAttemptProfileEvenWithCachedCookie(t *testing.T) 
 	}
 }
 
+func TestCLIQuiesceReplayKeepsOriginalResultAfterReactivation(t *testing.T) {
+	s, owner, _, _, _ := currentService(t)
+	q := Command{Action: "quiesce", OrganizationID: "123", StoreID: s.config.Bindings[0].StoreID, ActorID: "actor", MemberID: "member", RequestKey: uuid.NewString()}
+	first, err := s.Execute(context.Background(), q)
+	if err != nil || first.Status != "quiesced" {
+		t.Fatal(first, err)
+	}
+	activate := q
+	activate.Action = "activate"
+	activate.RequestKey = uuid.NewString()
+	activate.ExpectedGeneration = first.Generation
+	if _, err = s.Execute(context.Background(), activate); err != nil {
+		t.Fatal(err)
+	}
+	replay, err := s.Execute(context.Background(), q)
+	if err != nil || replay.Status != first.Status || replay.Generation != first.Generation {
+		t.Fatal("same CLI intent lost original receipt", replay, err)
+	}
+	b, err := owner.ReadBinding(context.Background(), s.config.Scope(s.config.Bindings[0]), "actor", "member")
+	if err != nil || b.State != "active" || b.Generation != first.Generation+1 {
+		t.Fatal("replay quiesced the new generation", b, err)
+	}
+}
+
 func TestAnotherConsumerCannotInterruptOwnedVerificationAttempt(t *testing.T) {
 	s, _, _, automation, _ := currentService(t)
 	if err := s.store.EnsureGroup(context.Background()); err != nil {
