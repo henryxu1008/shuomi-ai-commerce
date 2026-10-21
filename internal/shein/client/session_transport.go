@@ -60,12 +60,8 @@ func (s *SessionTransport) Read(ctx context.Context, path string, body any, out 
 	if e != nil {
 		return errors.New("SHEIN request unavailable")
 	}
-	headers := sessionHeaders(s.base, path)
+	headers := sessionHeaders(s.base, path, "")
 	headers["content-type"] = "application/json"
-	if strings.Contains(path, "/sso/public/account/supplier/getSupplierOperateInfo") {
-		headers["gmpsso-language"] = "CN"
-		headers["path"] = "/sso/public/account/supplier/getSupplierOperateInfo"
-	}
 	for k, v := range headers {
 		r.Header.Set(k, v)
 	}
@@ -89,9 +85,20 @@ func (s *SessionTransport) Read(ctx context.Context, path string, body any, out 
 
 // Shared value behavior extracted from the original API transport; callers
 // retain the same platform headers without constructing a numeric Store owner.
-func sessionHeaders(base, path string) map[string]string {
+func sessionHeaders(base, path, shopType string) map[string]string {
 	h := map[string]string{"priority": "u=1, i", "referer": base + "/", "sec-ch-ua": `"Google Chrome";v="138", "Chromium";v="138", "Not/A)Brand";v="24"`, "sec-ch-ua-mobile": "?0", "sec-ch-ua-platform": `"Windows"`, "sec-fetch-dest": "empty", "sec-fetch-mode": "cors", "sec-fetch-site": "same-origin", "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36", "front-version": "20250207", "x-lt-language": "CN", "x-req-zone-id": "America/Los_Angeles"}
 
+	h["method"], h["scheme"] = "POST", "https"
+	switch {
+	case strings.Contains(path, "sso-prefix/auth/getUser"):
+		h["method"], h["x-sso-scene"], h["gmpsso-language"] = "GET", "sw", "CN"
+	case strings.Contains(path, "/sso/public/account/supplier/getSupplierOperateInfo"):
+		h["path"] = "/sso/public/account/supplier/getSupplierOperateInfo"
+		if shopType != "self_operated" {
+			h["gmpsso-language"], h["sso-frontend-version"] = "CN", "1.0.0"
+			h["time-zone"], h["x-sso-scene"] = "America/Los_Angeles", "sw"
+		}
+	}
 	return h
 }
 

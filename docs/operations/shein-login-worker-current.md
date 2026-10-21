@@ -22,7 +22,7 @@ Build the existing binary with `go build -o shein-login-worker.exe ./cmd/shein-l
 
 | Action | Additional input | Behavior |
 | --- | --- | --- |
-| `serve` (default) | Optional `-health-port 8086`; 0 disables | Starts only the independent consumer and health-only `/healthz`; prepares only its new marked roots. |
+| `serve` (default) | Optional `-health-port 8086`; 0 disables | Starts only the independent consumer and health-only `/livez` / `/healthz`; prepares only its new marked roots. |
 | `activate` | `-request-key <UUID>`; first claim uses expected generation 0 | Live-authorized Store transaction claims this installation/revision. A later activation requires `-expected-generation <confirmed-prior-generation>`. |
 | `login` | `-request-key <UUID>`; optional explicit `-force-login` | Enqueues a credential-free attempt; request UUID is its attempt UUID. Producer never launches a browser. |
 | `status` | `-attempt <original-UUID>` | Reads only that actor/member/scope's original attempt; no login, Cookie refresh or Store sync. |
@@ -31,6 +31,8 @@ Build the existing binary with `go build -o shein-login-worker.exe ./cmd/shein-l
 | `quiesce` | `-request-key <UUID>` | Fences new claims, drains the exact active owner and waits for its actual browser/HTTP closure confirmation. |
 
 For example, after separate installation/activation authorization:
+
+`/livez` is process liveness. `/healthz` is bounded readiness for Redis, the current Store database, any configured role-policy database, native token verification and the scoped authorization API. It verifies the configured service token and performs a readonly lookup for that service identity in one configured organization; an empty grant is healthy and grants no business permission. Dependency loss returns 503; recovery can restore readiness. The source Kubernetes startup/liveness probes use `/livez`, so a provider outage does not itself restart an executor or turn UNKNOWN into closure proof.
 
 ```powershell
 ./shein-login-worker.exe -config C:/private/new-shein-worker/current.json -action serve

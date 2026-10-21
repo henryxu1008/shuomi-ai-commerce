@@ -25,6 +25,25 @@ type Authorization struct {
 	OrganizationStatus             workbenchcontext.OrganizationBusinessStatusChecker
 }
 
+// Ready checks the existing service credential against the native verifier and
+// scoped authorization API. An empty grant is a healthy read, never permission
+// for this service identity to execute business commands.
+func (a *Authorization) Ready(ctx context.Context, organization string) bool {
+	if a == nil || a.Verifier == nil || a.Grants == nil || a.ServiceToken == nil || !validOpaque(a.ProjectID) || !validOpaque(organization) || ctx.Err() != nil {
+		return false
+	}
+	token, err := a.ServiceToken(ctx)
+	if err != nil || strings.TrimSpace(token) == "" {
+		return false
+	}
+	identity, err := a.Verifier.Verify(ctx, token)
+	if err != nil || !validOpaque(identity.UserID) {
+		return false
+	}
+	_, err = a.Grants.ReadExactServiceProjectAuthorization(ctx, token, identity.UserID, a.ProjectID, organization)
+	return err == nil && ctx.Err() == nil
+}
+
 // Authenticate reuses the native verifier's provider-backed verification.
 // ParseUnverified is used only AFTER that succeeds, to narrow the accepted JWT
 // issuer/audience/expiry contract; it cannot authorize a signature on its own.

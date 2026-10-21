@@ -28,6 +28,7 @@ type runtime struct {
 	service *sheinlogin.Service
 	auth    *sheinlogin.Authorization
 	closers []func() error
+	ready   func(context.Context) bool
 }
 
 func (r *runtime) Close() {
@@ -52,6 +53,11 @@ func build(ctx context.Context, path string) (*runtime, error) {
 		return nil, sheinlogin.ErrUnavailable
 	}
 	r.closers = append(r.closers, func() error { return database.Close(db) })
+	sqlDB, e := db.DB()
+	if e != nil {
+		return nil, sheinlogin.ErrUnavailable
+	}
+	pings := []func(context.Context) error{sqlDB.PingContext}
 	if storecenter.VerifySheinLoginRuntime(ctx, db) != nil {
 		return nil, sheinlogin.ErrUnavailable
 	}
@@ -68,6 +74,11 @@ func build(ctx context.Context, path string) (*runtime, error) {
 			return nil, sheinlogin.ErrUnavailable
 		}
 		r.closers = append(r.closers, func() error { return database.Close(policyDB) })
+		policySQL, e := policyDB.DB()
+		if e != nil {
+			return nil, sheinlogin.ErrUnavailable
+		}
+		pings = append(pings, policySQL.PingContext)
 		reader, e := memberstore.NewRolePolicyReader(ctx, policyDB, cfg.Auth.ProjectID)
 		if e != nil {
 			return nil, sheinlogin.ErrUnavailable
@@ -93,6 +104,16 @@ func build(ctx context.Context, path string) (*runtime, error) {
 	}
 	r.service = result.Service
 	r.closers = append(r.closers, result.Close)
+	r.ready = func(ctx context.Context) bool {
+		return workerDependenciesReady(ctx, r.service.RedisReady, func(ctx context.Context) error {
+			for _, ping := range pings {
+				if err := ping(ctx); err != nil {
+					return err
+				}
+			}
+			return nil
+		}, func(ctx context.Context) bool { return r.auth.Ready(ctx, cfg.Bindings[0].OrganizationID) })
+	}
 	success = true
 	return r, nil
 }
@@ -145,18 +166,7 @@ func Run(logger *logrus.Logger, o Options) error {
 		return e
 	}
 	if o.Port > 0 {
-		mux := http.NewServeMux()
-		mux.HandleFunc("/healthz", func(w http.ResponseWriter, req *http.Request) {
-			check, done := context.WithTimeout(req.Context(), time.Second)
-			defer done()
-			ready := r.service.Ready(check)
-			w.Header().Set("Content-Type", "application/json")
-			if !ready {
-				w.WriteHeader(http.StatusServiceUnavailable)
-			}
-			_ = json.NewEncoder(w).Encode(map[string]bool{"ready": ready})
-		})
-		server := &http.Server{Addr: fmt.Sprintf(":%d", o.Port), Handler: mux, ReadHeaderTimeout: 5 * time.Second}
+		server := &http.Server{Addr: fmt.Sprintf(":%d", o.Port), Handler: healthHandler(r.ready), ReadHeaderTimeout: 5 * time.Second}
 		go func() {
 			if e := server.ListenAndServe(); e != nil && e != http.ErrServerClosed {
 				logger.Error("SHEIN worker health server unavailable")
@@ -170,6 +180,29 @@ func Run(logger *logrus.Logger, o Options) error {
 		}()
 	}
 	return r.service.RunWorker(ctx, "")
+}
+
+func workerDependenciesReady(ctx context.Context, redis func(context.Context) bool, store func(context.Context) error, authorization func(context.Context) bool) bool {
+	return ctx.Err() == nil && redis != nil && store != nil && authorization != nil && redis(ctx) && store(ctx) == nil && authorization(ctx) && ctx.Err() == nil
+}
+
+func healthHandler(ready func(context.Context) bool) http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/livez", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]bool{"alive": true})
+	})
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, req *http.Request) {
+		check, done := context.WithTimeout(req.Context(), time.Second)
+		defer done()
+		available := ready != nil && ready(check)
+		w.Header().Set("Content-Type", "application/json")
+		if !available {
+			w.WriteHeader(http.StatusServiceUnavailable)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]bool{"ready": available})
+	})
+	return mux
 }
 
 type commandService interface {

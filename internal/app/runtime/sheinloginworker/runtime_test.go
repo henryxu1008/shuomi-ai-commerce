@@ -3,6 +3,9 @@ package sheinloginworker
 import (
 	"bytes"
 	"context"
+	"errors"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"os/user"
@@ -12,6 +15,58 @@ import (
 	"task-processor/internal/sheinlogin"
 	"testing"
 )
+
+func TestHealthDependencyOutageDoesNotFailProcessLiveness(t *testing.T) {
+	available := false
+	calls := 0
+	h := healthHandler(func(context.Context) bool { calls++; return available })
+	for _, path := range []string{"/livez", "/healthz"} {
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, path, nil))
+		want := http.StatusOK
+		if path == "/healthz" {
+			want = http.StatusServiceUnavailable
+		}
+		if w.Code != want {
+			t.Fatalf("%s=%d, want %d", path, w.Code, want)
+		}
+	}
+	if calls != 1 {
+		t.Fatal("liveness called external dependencies")
+	}
+	available = true
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+	if w.Code != http.StatusOK {
+		t.Fatal("recovered dependency did not restore readiness")
+	}
+}
+
+func TestWorkerReadinessRequiresAllCurrentDependencies(t *testing.T) {
+	for _, failed := range []string{"", "redis", "store", "authorization"} {
+		t.Run(failed, func(t *testing.T) {
+			redis := func(context.Context) bool { return failed != "redis" }
+			store := func(context.Context) error {
+				if failed == "store" {
+					return errors.New("synthetic Store outage")
+				}
+				return nil
+			}
+			auth := func(context.Context) bool { return failed != "authorization" }
+			if workerDependenciesReady(context.Background(), redis, store, auth) != (failed == "") {
+				t.Fatal("unavailable dependency reported ready")
+			}
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+			if workerDependenciesReady(ctx, redis, store, auth) {
+				t.Fatal("expired health deadline reported ready")
+			}
+		})
+	}
+	if workerDependenciesReady(context.Background(), nil, nil, nil) {
+		t.Fatal("unconfigured dependencies reported ready")
+	}
+}
 
 type producerFixture struct {
 	received sheinlogin.Command

@@ -27,14 +27,58 @@ func (v *verifiedSubject) Verify(context.Context, string) (authidentity.Authenti
 type exactGrant struct {
 	member, state, organization string
 	calls                       int
+	unavailable                 bool
 }
 
 func (g *exactGrant) ReadExactServiceProjectAuthorization(_ context.Context, token, actor, project, org string) (zitadel.ExactServiceProjectAuthorization, error) {
 	g.calls++
+	if g.unavailable {
+		return zitadel.ExactServiceProjectAuthorization{}, ErrUnavailable
+	}
 	if token != "synthetic-service-token" || actor != "actor" || project != "project" || org != g.organization {
 		return zitadel.ExactServiceProjectAuthorization{}, ErrInvalidInput
 	}
-	return zitadel.ExactServiceProjectAuthorization{Found: true, AuthorizationID: g.member, State: g.state, Roles: []string{"listingkit_admin"}}, nil
+	return zitadel.ExactServiceProjectAuthorization{Found: g.member != "", AuthorizationID: g.member, State: g.state, Roles: []string{"listingkit_admin"}}, nil
+}
+
+func TestReadinessRequiresLiveNativeVerificationAndAuthorizationAPI(t *testing.T) {
+	v := &verifiedSubject{}
+	g := &exactGrant{organization: "123"}
+	missingToken := false
+	a := &Authorization{Verifier: v, Grants: g, ProjectID: "project", ServiceToken: func(context.Context) (string, error) {
+		if missingToken {
+			return "", ErrUnavailable
+		}
+		return "synthetic-service-token", nil
+	}}
+	if !a.Ready(context.Background(), "123") || v.calls != 1 || g.calls != 1 {
+		t.Fatal("healthy native dependencies were not checked")
+	}
+	// Readiness observes the service identity and provider availability; it does
+	// not require or fabricate a business member/operator grant for that identity.
+	v.denied = true
+	if a.Ready(context.Background(), "123") {
+		t.Fatal("revoked service token remained ready")
+	}
+	v.denied = false
+	g.unavailable = true
+	if a.Ready(context.Background(), "123") {
+		t.Fatal("authorization API outage remained ready")
+	}
+	g.unavailable = false
+	missingToken = true
+	if a.Ready(context.Background(), "123") {
+		t.Fatal("missing private service token remained ready")
+	}
+	missingToken = false
+	if !a.Ready(context.Background(), "123") {
+		t.Fatal("recovered dependencies remained unavailable")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if a.Ready(ctx, "123") {
+		t.Fatal("cancelled readiness request succeeded")
+	}
 }
 func TestCLIRequiresVerifiedJWTAndFreshExactMember(t *testing.T) {
 	policy, e := authz.NewListingKitAuthorizer(nil, nil)

@@ -43,7 +43,7 @@ func NewService(c Config, redis *RedisStore, owner StoreOwner) (*Service, error)
 	return &Service{config: c, store: redis, owner: owner, automation: NewPlaywrightAutomation(), identityReader: NewSessionIdentityReader()}, nil
 }
 func (s *Service) Close() error { return s.store.Close() }
-func (s *Service) Ready(ctx context.Context) bool {
+func (s *Service) RedisReady(ctx context.Context) bool {
 	return s != nil && s.store != nil && s.store.Ready(ctx)
 }
 

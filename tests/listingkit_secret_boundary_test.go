@@ -29,9 +29,12 @@ type podTemplate struct {
 }
 
 type workloadContainer struct {
-	Name         string   `yaml:"name"`
-	Args         []string `yaml:"args"`
-	VolumeMounts []struct {
+	Name           string            `yaml:"name"`
+	Args           []string          `yaml:"args"`
+	StartupProbe   workloadHTTPProbe `yaml:"startupProbe"`
+	LivenessProbe  workloadHTTPProbe `yaml:"livenessProbe"`
+	ReadinessProbe workloadHTTPProbe `yaml:"readinessProbe"`
+	VolumeMounts   []struct {
 		Name      string `yaml:"name"`
 		MountPath string `yaml:"mountPath"`
 		SubPath   string `yaml:"subPath"`
@@ -53,6 +56,12 @@ type workloadContainer struct {
 			} `yaml:"secretKeyRef"`
 		} `yaml:"valueFrom"`
 	} `yaml:"env"`
+}
+
+type workloadHTTPProbe struct {
+	HTTPGet struct {
+		Path string `yaml:"path"`
+	} `yaml:"httpGet"`
 }
 
 func TestListingKitWorkloadsUseLeastPrivilegeSharedSecretKeys(t *testing.T) {
@@ -168,6 +177,9 @@ func loadOnlyContainer(t *testing.T, relativePath string) workloadContainer {
 
 func TestSheinWorkerUsesOnlyFreshPrivateFileInputs(t *testing.T) {
 	c := loadOnlyContainer(t, "base/shein-login-worker-deployment.yaml")
+	if c.StartupProbe.HTTPGet.Path != "/livez" || c.LivenessProbe.HTTPGet.Path != "/livez" || c.ReadinessProbe.HTTPGet.Path != "/healthz" {
+		t.Fatal("dependency readiness must not restart an owned executor")
+	}
 	if len(c.Env) != 0 || len(c.EnvFrom) != 0 {
 		t.Fatal("worker must not import numeric environment or shared ConfigMap")
 	}
