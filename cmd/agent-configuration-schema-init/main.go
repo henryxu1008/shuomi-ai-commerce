@@ -27,6 +27,7 @@ func main() {
 	artworkOnly := flag.Bool("artwork-configuration-only", false, "add only exact POD creative configuration checks; retain existing facts, activations and grants")
 	modelRoutesOnly := flag.Bool("model-route-pricing-only", false, "install only route revision/current and credential metadata projection; no current config or credential changes")
 	writerRole := flag.String("model-route-writer-role", "", "existing dedicated bounded model route writer")
+	writerConnections := flag.Int("model-route-writer-connections", 0, "explicit existing writer role connection limit: 2 or 4; omitted leaves unchanged")
 	flag.Parse()
 	selected := 0
 	for _, v := range []bool{*modesOnly, *contentOnly, *materialsOnly, *skillsOnly, *artworkOnly, *modelRoutesOnly} {
@@ -34,7 +35,7 @@ func main() {
 			selected++
 		}
 	}
-	if (*modelRoutesOnly && *writerRole != "model_route_config_writer") || (!*modelRoutesOnly && *writerRole != "") || *writerRole == *role || flag.NArg() != 0 || selected > 1 || !regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`).MatchString(*role) {
+	if (*modelRoutesOnly && *writerRole != "model_route_config_writer") || (!*modelRoutesOnly && (*writerRole != "" || *writerConnections != 0)) || (*writerConnections != 0 && *writerConnections != 2 && *writerConnections != 4) || *writerRole == *role || flag.NArg() != 0 || selected > 1 || !regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`).MatchString(*role) {
 		fmt.Fprintln(os.Stderr, "requires --runtime-role with an existing role")
 		os.Exit(2)
 	}
@@ -57,6 +58,9 @@ func main() {
 	defer raw.Close()
 	e = db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if *modelRoutesOnly {
+			if e := routestore.ConfigureWriterConnections(ctx, tx, *writerConnections); e != nil {
+				return e
+			}
 			if e := routestore.InstallSchema(ctx, tx); e != nil {
 				return e
 			}

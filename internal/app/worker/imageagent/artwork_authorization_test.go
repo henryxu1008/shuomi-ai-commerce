@@ -78,10 +78,12 @@ func TestAdmittedArtworkChecksCurrentModeAndConfigurationBeforeProviderPreparati
 				panic("denied generation cannot read limits")
 			}, ReadSourceBytes: func(context.Context, imageagent.SlotExecutionInput) ([]byte, error) {
 				panic("source-free generation cannot read originals")
-			}, PrepareProvider: func(context.Context, func(context.Context, imageagent.GenerationSuccess) error) (imageagent.PreparedGenerationProvider, error) {
+			}, PrepareProvider: func(context.Context, imageagent.SlotExecutionInput, func(context.Context, imageagent.GenerationSuccess) error) (imageagent.PreparedGenerationProvider, error) {
 				providerPreparations++
 				return imageagent.PreparedGenerationProvider{}, imageagent.ErrCommandBlocked
-			}, RevalidateProvider: func(context.Context, imageagent.GenerationProviderMetadata) error { return nil }})
+			}, RevalidateProvider: func(context.Context, imageagent.SlotExecutionInput, imageagent.GenerationProviderMetadata) error {
+				return nil
+			}})
 			require.NoError(t, err)
 			_, err = executor.QuoteSlot(context.Background(), input, imageagent.BudgetPolicy{})
 			require.Error(t, err)

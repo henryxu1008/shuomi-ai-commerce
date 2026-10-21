@@ -86,11 +86,14 @@ func (c *setContextFixture) RevalidateImageSet(context.Context, imageagent.Execu
 }
 
 type setQuoteFixture struct {
-	quote imageagent.ImageGenerationQuote
+	quote      imageagent.ImageGenerationQuote
+	selections []*imageagent.ImageRouteSelection
+	err        error
 }
 
-func (q *setQuoteFixture) ReadImageGenerationQuote(context.Context, imageagent.ExecutionIdentity) (imageagent.ImageGenerationQuote, error) {
-	return q.quote, nil
+func (q *setQuoteFixture) ReadImageGenerationQuote(_ context.Context, _ imageagent.ExecutionIdentity, selection *imageagent.ImageRouteSelection) (imageagent.ImageGenerationQuote, error) {
+	q.selections = append(q.selections, imageagent.CloneImageRoute(selection))
+	return q.quote, q.err
 }
 
 func TestPrepareImageSetRejectsAnotherSourceOwner(t *testing.T) {
@@ -110,6 +113,35 @@ func TestPrepareImageSetQuotesOnlyExplicitlySelectedTasks(t *testing.T) {
 	require.Equal(t, "overview", prepared.Projection.Plan.Slots[0].ID)
 	require.EqualValues(t, 12, prepared.Points)
 	require.Zero(t, workflows.starts)
+}
+
+func TestPrepareImageSetFreezesExplicitRouteAndConflictsOnChangedSelection(t *testing.T) {
+	s, _, _, _, _, quote, ctx, input := imageSetServiceFixture(t, imageagent.WithImageMethodContext(&methodFixture{text: "A clean detail photograph."}))
+	ref := imageMethodRef()
+	input.Method = &ref
+	quote.quote.Model, quote.quote.Quality = "gpt-image-2-vip", "medium"
+	quote.quote.ConfigurationVersion, quote.quote.PriceVersion = "route-vip", "route-vip"
+	require.NoError(t, json.Unmarshal([]byte(`{"Route":{"BindingID":"image-vip","RevisionID":"route-vip"}}`), &input))
+	p, err := s.PrepareImageSet(ctx, input)
+	require.NoError(t, err)
+	raw, err := json.Marshal(p.Projection.Plan.Set)
+	require.NoError(t, err)
+	var fields map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(raw, &fields))
+	require.JSONEq(t, `{"BindingID":"image-vip","RevisionID":"route-vip"}`, string(fields["Route"]))
+	require.Equal(t, ref, p.Projection.Plan.Set.Method.Skill)
+	_, err = s.ConfirmImagePlan(ctx, confirmSetInput(p))
+	require.NoError(t, err)
+	require.Len(t, quote.selections, 2)
+	require.Equal(t, p.Projection.Plan.Set.Route, quote.selections[0])
+	require.Equal(t, quote.selections[0], quote.selections[1])
+	quote.err = imageagent.ErrBudgetQuoteUnavailable
+	_, err = s.ConfirmImagePlan(ctx, confirmSetInput(p))
+	require.NoError(t, err, "original admission restores without choosing a new route")
+	require.Len(t, quote.selections, 2)
+	require.NoError(t, json.Unmarshal([]byte(`{"Route":{"BindingID":"image-vip","RevisionID":"route-other"}}`), &input))
+	_, err = s.PrepareImageSet(ctx, input)
+	require.ErrorIs(t, err, imageagent.ErrRevisionConflict)
 }
 
 func TestNewImageSetPromptContainsVisualFactsWithoutInternalIdentityFields(t *testing.T) {

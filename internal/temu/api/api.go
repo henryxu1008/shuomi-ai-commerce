@@ -13,10 +13,8 @@ import (
 // 重新导出客户端相关类型
 type (
 	APIClient          = client.APIClient
-	APIClientManager   = client.APIClientManager
 	APIClientInterface = client.ClientAPI
 	Config             = client.Config
-	CookieManager      = client.CookieManager
 	HTTPManager        = client.HTTPManager
 	AuthManager        = client.AuthManager
 )
@@ -127,8 +125,6 @@ type (
 // 重新导出构造函数
 var (
 	NewAPIClient          = client.NewAPIClient
-	NewAPIClientManager   = client.NewAPIClientManager
-	NewCookieManager      = client.NewCookieManager
 	NewHTTPManager        = client.NewHTTPManager
 	NewAuthManager        = client.NewAuthManager
 	DefaultConfig         = client.DefaultConfig

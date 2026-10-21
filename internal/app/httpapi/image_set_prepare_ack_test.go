@@ -51,7 +51,7 @@ func (imageSetPrepareACKContexts) RevalidateImageSet(context.Context, imageagent
 
 type imageSetPrepareACKQuote struct{}
 
-func (imageSetPrepareACKQuote) ReadImageGenerationQuote(context.Context, imageagent.ExecutionIdentity) (imageagent.ImageGenerationQuote, error) {
+func (imageSetPrepareACKQuote) ReadImageGenerationQuote(context.Context, imageagent.ExecutionIdentity, *imageagent.ImageRouteSelection) (imageagent.ImageGenerationQuote, error) {
 	return imageagent.ImageGenerationQuote{Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", Resolution: "1024x1024", Quality: "auto", PriceVersion: "price", Points: 3, RouteReference: "route", CredentialReference: "credential", ConfigurationVersion: "config"}, nil
 }
 

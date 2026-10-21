@@ -208,7 +208,7 @@ func TestRetiredListingOperationsClosure(t *testing.T) {
 	for relative, tokens := range map[string][]string{
 		"deployments/kubernetes/shein-proxy-sync/shein-proxy-sync.yaml":                       {"shein-listing-secret", "DATABASE_SECRET"},
 		"scripts/sync-shein-store-proxies.ps1":                                                {"shein-listing-secret"},
-		"deployments/kubernetes/listingkit-workbench/base/shein-login-worker-deployment.yaml": {"listingkit-workbench-secret", "app: shein-login-worker", "/healthz"},
+		"deployments/kubernetes/listingkit-workbench/base/shein-login-worker-deployment.yaml": {"shein-login-worker-current", "app: shein-login-worker", "/healthz"},
 	} {
 		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
 		if err != nil {
@@ -1631,10 +1631,7 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/listingruntime/types.go": {
 			"type ImportTask struct", "type ScheduledTaskConfig struct", "type TaskStatusUpdate struct",
 		},
-		"internal/listingadmin/schema_migrate.go": {"ImportTask", "importTask"},
-		"internal/listingadmin/management_api_types.go": {
-			"type InventoryRecordCreateReqDTO struct", "type InventoryRecordRespDTO struct", "type InventoryRecordAPI interface",
-		},
+
 		"internal/app/runtime/listingkitschemamigrate/runtime_test.go": {
 			"func openRuntimeSchemaTestDB(", "\"listing_product_import_task\"",
 		},
@@ -1700,20 +1697,17 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			"func ValidImageObservation(", "func resolveImages(", "inventory asset.ApprovedAssetInventory",
 		},
 		"internal/temu/api/client/client.go": {
-			"func NewAPIClient(", "func (c *APIClient) initializeMallID(",
-			"func (c *APIClient) GetMallID(", "func (c *APIClient) SetMallID(", ".UpdateStoreId(",
+			"func NewAPIClient(",
+			"func (c *APIClient) GetMallID(", "func (c *APIClient) SetMallID(",
 		},
-		"internal/temu/api/client/interfaces.go":     {"type StoreRuntime interface", "GetStoreAPI(", "type ClientAPI interface {", "SendTEMURequest(request map[string]any, result any) error"},
-		"internal/temu/api/client/cookie_manager.go": {"type CookieManager struct"},
+		"internal/temu/api/client/interfaces.go": {"type ClientAPI interface {", "SendTEMURequest(request map[string]any, result any) error"},
 		"internal/temu/api/product/goods_types.go": {
 			"type Product struct", "type GoodsBasicInfo struct", "type ServicePromise struct", "type ExtraInfo struct",
 			"type CategoryTree struct", "type Disclaimer struct",
 		},
-		"internal/shared/ptr/pointer.go":            {"func BoolPtr("},
-		"internal/listingadmin/gorm_store_api.go":   {"func NewGormStoreAPI(", "func (a gormStoreAPI) GetStore(", "func (a gormStoreAPI) UpdateStoreId(", "func (a gormStoreAPI) UpdateStoreStatus("},
-		"internal/listingadmin/store_repository.go": {"type GormStoreRepository struct", "func (r *GormStoreRepository) GetStore("},
-		"internal/storecenter/gorm_repository.go":   {"type GormStoreRepository struct"},
-		"internal/pkg/appenv/apputil.go":            {"func GetInstanceID("},
+		"internal/shared/ptr/pointer.go":          {"func BoolPtr("},
+		"internal/storecenter/gorm_repository.go": {"type GormStoreRepository struct"},
+		"internal/pkg/appenv/apputil.go":          {"func GetInstanceID("},
 		"internal/marketplace/temu/goods/builder.go": {
 			"func Build(", "snapshot.SelectableLeaf", "func checkLocal(",
 			"p.ServicePromise.ShipmentLimitDay", "value.ID == p.ServicePromise.CostTemplateID",
@@ -1742,9 +1736,6 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/marketplace/temu/goods/supplier_properties.go": {"func CheckSupplierProperties("},
 		"internal/marketplace/temu/goods/supplier_specs.go":      {"func checkSupplierSpecifications("},
 		"internal/marketplace/temu/rules/local_numbers.go":       {"func (c *Catalog) CheckLocalNumbers("},
-		"internal/listingadmin/management_api_types.go": {
-			"type StoreAPI interface", "type StoreRespDTO struct", "type StoreIdUpdateReqDTO struct", "type StoreStatusUpdateReqDTO struct",
-		},
 		"internal/temu/api/inventory/inventory.go": {
 			"type RelistRequest struct", "type RelistResponse struct", "type SearchRequest struct", "type SearchResponse struct",
 			"func (a *API) Relist(", "func (a *API) SearchOffline(",
@@ -2230,11 +2221,11 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 		"internal/crawler/fetcher/contracts.go", "internal/crawler/fetcher/remote_fetcher.go",
 		"internal/platformbase/fetcher_mode.go", "internal/platformbase/fetcher_builder.go",
 		"internal/amazon/api/client.go",
-		"internal/listingruntime/types.go", "internal/listingadmin/schema_migrate.go",
+		"internal/listingruntime/types.go",
 		"internal/core/config/type_platform.go",
 		"internal/temu/api/api.go", "internal/temu/api/client/interfaces.go",
-		"internal/temu/api/client/client.go", "internal/temu/api/client/cookie_manager.go",
-		"internal/temu/api/client/auth_pause_handler.go", "internal/temu/api/inventory/inventory.go",
+		"internal/temu/api/client/client.go", "internal/temu/api/client/auth.go",
+		"internal/temu/api/client/auth_retry_handler.go", "internal/temu/api/inventory/inventory.go",
 		"internal/temu/api/product/request_types.go",
 		"internal/temu/api/product/api.go", "internal/temu/api/query/query.go", "internal/temu/api/query/query_types.go",
 		"internal/shein/productsync/product_sync_types.go", "internal/shein/productsync/marketing_client_boundary_test.go",
@@ -2651,9 +2642,10 @@ func TestNumericStoreManagementClosureIsRetired(t *testing.T) {
 			}
 		}
 	}
+	// #863 supersedes the earlier numeric Store retention boundary.
 	for _, name := range []string{"StoreRepository", "Store", "listingStore", "StoreRespDTO", "StoreQuery", "StorePageReqDTO", "takeStoreAccessRow", "updateStoreAccessRow"} {
-		if !seen[name] {
-			t.Errorf("retained Store declaration %s is absent", name)
+		if seen[name] {
+			t.Errorf("retired Store declaration remains: %s", name)
 		}
 	}
 }
@@ -2924,9 +2916,6 @@ func TestNumericContentConfigurationClosureIsRetired(t *testing.T) {
 	}
 	for relative, required := range map[string][]string{
 		"internal/publishing/shein/submit_prep_sensitive_adapter.go": {"content.NewSensitiveWordServiceInMemory()"},
-		"internal/listingadmin/schema_migrate.go":                    {"func ensureOwnerAuditColumns("},
-		"internal/listingadmin/repo_paging.go":                       {"func applyOwnedTenantQuery(", "func normalizePage(", "func findPagedRows["},
-		"internal/listingadmin/access_scope.go":                      {"func WithOwnerUserID(", "func applyOwnerScopeForUser(", "func requestHasTenantAdminAccess("},
 		"internal/shein/content/cleanup_context.go":                  {"type CleanupContext struct"},
 		"internal/shein/generationtopics/registry.go":                {"func ResolveSheinTopicKeys(", "func ResolveSheinTopicDefinitionsWithOverlay(", "func AssembleSheinPolicySummary(", "func CollectLexiconsFromDefinitions("},
 	} {

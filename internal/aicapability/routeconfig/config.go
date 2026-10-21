@@ -161,6 +161,7 @@ type Catalog interface {
 	Qualify(Scope, string, Credential) (Binding, error)
 }
 type Payload struct {
+	Optional          bool                       `json:"optional,omitempty"`
 	BindingID         string                     `json:"bindingId"`
 	CredentialVersion string                     `json:"credentialVersion"`
 	Rates             Rates                      `json:"rates"`
@@ -205,6 +206,7 @@ func Freeze(b Binding, r Rates, revision string) (Payload, error) {
 }
 
 type Input struct {
+	Optional          bool   `json:"optional,omitempty"`
 	ExpectedRevision  string `json:"expectedRevision"`
 	BindingID         string `json:"bindingId"`
 	CredentialVersion string `json:"credentialVersion"`
@@ -231,6 +233,7 @@ type Command struct {
 }
 type Repository interface {
 	CredentialReader
+	Optional(context.Context, Scope, string) (Revision, error)
 	Current(context.Context, Scope) (Revision, error)
 	Receipt(context.Context, Scope, string) (Revision, error)
 	Revision(context.Context, Scope, string) (Revision, error)
@@ -239,6 +242,12 @@ type Repository interface {
 }
 type CurrentReader interface {
 	Current(context.Context, Scope) (Revision, error)
+}
+
+type OptionalReader interface {
+	CurrentReader
+	Optional(context.Context, Scope, string) (Revision, error)
+	Options(context.Context, Scope) ([]Revision, error)
 }
 
 type Service struct {
@@ -300,18 +309,88 @@ func (s *Service) Current(ctx context.Context, scope Scope) (Revision, error) {
 	if e != nil {
 		return r, e
 	}
+	if r.Payload.Optional {
+		return r, ErrNeedsConfiguration
+	}
+	return s.qualifiedRevision(ctx, scope, r)
+}
+
+func (s *Service) qualifiedRevision(ctx context.Context, scope Scope, r Revision) (Revision, error) {
 	b, e := s.binding(ctx, scope, r.Payload.BindingID, r.Payload.CredentialVersion, s.Repository)
 	if e != nil {
 		return r, ErrNeedsConfiguration
 	}
 	p, e := Freeze(b, r.Payload.Rates, r.ID)
+	p.Optional = r.Payload.Optional
+	if p.Optional && !optionalBinding(scope, b) {
+		return r, ErrNeedsConfiguration
+	}
 	if e != nil || !reflect.DeepEqual(p, r.Payload) {
 		return r, ErrNeedsConfiguration
 	}
 	return r, nil
 }
+
+func optionalBinding(scope Scope, b Binding) bool {
+	return scope.Capability == ImageCapability && b.Image != nil && b.Provider == "grsai" && b.Model == "gpt-image-2-vip" && b.Protocol == "grsai-json-sync-v1"
+}
+
+func (s *Service) Optional(ctx context.Context, scope Scope, binding string) (Revision, error) {
+	if !s.supported(scope) || scope.Capability != ImageCapability || !ValidFact(binding, 64) {
+		return Revision{}, ErrUnavailable
+	}
+	r, e := s.Repository.Optional(ctx, scope, binding)
+	if e != nil {
+		return r, e
+	}
+	if !r.Payload.Optional || r.Payload.BindingID != binding {
+		return r, ErrNeedsConfiguration
+	}
+	return s.qualifiedRevision(ctx, scope, r)
+}
+
+func (s *Service) Options(ctx context.Context, scope Scope) ([]Revision, error) {
+	if !s.supported(scope) || scope.Capability != ImageCapability {
+		return nil, ErrUnavailable
+	}
+	rows := []Revision{}
+	for _, id := range s.Catalog.Candidates(scope) {
+		r, e := s.Optional(ctx, scope, id)
+		if errors.Is(e, ErrNotFound) || errors.Is(e, ErrNeedsConfiguration) {
+			continue
+		}
+		if e != nil {
+			return nil, e
+		}
+		rows = append(rows, r)
+	}
+	return rows, nil
+}
+
+// PublishedOptions is a maintenance-only head projection. Invalidated credentials
+// remove member eligibility, not the durable CAS identity needed to replace it.
+func (s *Service) PublishedOptions(ctx context.Context, scope Scope) ([]Revision, error) {
+	if !s.supported(scope) || scope.Capability != ImageCapability {
+		return nil, ErrUnavailable
+	}
+	rows := []Revision{}
+	for _, id := range s.Catalog.Candidates(scope) {
+		r, e := s.Repository.Optional(ctx, scope, id)
+		if errors.Is(e, ErrNotFound) {
+			continue
+		}
+		if e != nil {
+			return nil, e
+		}
+		if !r.Payload.Optional || r.Payload.BindingID != id {
+			return nil, ErrNeedsConfiguration
+		}
+		rows = append(rows, r)
+	}
+	return rows, nil
+}
 func (s *Service) canonical(ctx context.Context, scope Scope, in Input) (Input, error) {
-	if !s.supported(scope) || !ValidFact(in.ExpectedRevision, 128) || !ValidFact(in.BindingID, 64) || !ValidFact(in.CredentialVersion, 128) || in.RollbackFrom != "" && !ValidFact(in.RollbackFrom, 128) {
+	if !s.supported(scope) || in.Optional && scope.Capability != ImageCapability || !ValidFact(in.ExpectedRevision, 128) || !ValidFact(in.BindingID, 64) || !ValidFact(in.CredentialVersion, 128) || in.RollbackFrom != "" && !ValidFact(in.RollbackFrom, 128) {
 		return Input{}, ErrInvalid
 	}
 	var e error
@@ -323,16 +402,21 @@ func (s *Service) payload(ctx context.Context, scope Scope, in Input, reader Cre
 	if e != nil {
 		return Payload{}, e
 	}
+	if in.Optional && !optionalBinding(scope, b) {
+		return Payload{}, ErrInvalid
+	}
 	if in.RollbackFrom != "" {
 		old, e := s.Repository.Revision(ctx, scope, in.RollbackFrom)
 		if e != nil {
 			return Payload{}, e
 		}
-		if old.Payload.BindingID != in.BindingID || old.Payload.CredentialVersion != in.CredentialVersion || old.Payload.Rates != in.Rates {
+		if old.Payload.Optional != in.Optional || old.Payload.BindingID != in.BindingID || old.Payload.CredentialVersion != in.CredentialVersion || old.Payload.Rates != in.Rates {
 			return Payload{}, ErrConflict
 		}
 	}
-	return Freeze(b, in.Rates, revision)
+	p, e := Freeze(b, in.Rates, revision)
+	p.Optional = in.Optional
+	return p, e
 }
 func (s *Service) Validate(ctx context.Context, scope Scope, in Input) (Payload, error) {
 	in, e := s.canonical(ctx, scope, in)
@@ -340,6 +424,9 @@ func (s *Service) Validate(ctx context.Context, scope Scope, in Input) (Payload,
 		return Payload{}, e
 	}
 	current, e := s.Repository.Current(ctx, scope)
+	if in.Optional {
+		current, e = s.Repository.Optional(ctx, scope, in.BindingID)
+	}
 	if e != nil && !errors.Is(e, ErrNotFound) {
 		return Payload{}, e
 	}

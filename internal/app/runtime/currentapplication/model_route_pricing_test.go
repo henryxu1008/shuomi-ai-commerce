@@ -13,6 +13,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestModelRouteWriterCapacityAggregatesClusterRoleAcrossDatabases(t *testing.T) {
+	text := &DatabaseConfig{Host: "127.0.0.1", Port: 5432, User: "model_route_config_writer", Database: "product_agent", MaxConnections: 2}
+	image := *text
+	image.Database = "image_agent"
+	m := &ModelRoutePricingConfig{TextWriter: text, ImageWriter: &image}
+	require.Equal(t, 4, m.writerConnections(*text))
+	require.Equal(t, 4, m.writerConnections(image))
+	image.Port = 5433
+	require.Equal(t, 2, m.writerConnections(*text), "different explicit endpoints keep independent budgets")
+	require.Equal(t, 2, m.writerConnections(image))
+	m.ImageWriter = nil
+	require.Equal(t, 2, m.writerConnections(*text))
+	m.TextWriter = nil
+	require.Zero(t, m.writerConnections(*text))
+}
+
 func TestManagedCandidateUsesExistingPrivateProvisionOwner(t *testing.T) {
 	c, in := contentProvisionFixture()
 	c.ProductAgent.Enabled = true

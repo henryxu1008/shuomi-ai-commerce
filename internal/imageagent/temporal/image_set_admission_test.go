@@ -59,10 +59,10 @@ func TestImageSetSourceDenialBeforeQuoteClosesWithoutGeneration(t *testing.T) {
 				ReadSourceBytes: func(context.Context, imageagent.SlotExecutionInput) ([]byte, error) {
 					panic("denied source cannot fetch bytes")
 				},
-				PrepareProvider: func(context.Context, func(context.Context, imageagent.GenerationSuccess) error) (imageagent.PreparedGenerationProvider, error) {
+				PrepareProvider: func(context.Context, imageagent.SlotExecutionInput, func(context.Context, imageagent.GenerationSuccess) error) (imageagent.PreparedGenerationProvider, error) {
 					panic("denied source cannot prepare provider")
 				},
-				RevalidateProvider: func(context.Context, imageagent.GenerationProviderMetadata) error {
+				RevalidateProvider: func(context.Context, imageagent.SlotExecutionInput, imageagent.GenerationProviderMetadata) error {
 					panic("denied source cannot revalidate provider")
 				},
 			})

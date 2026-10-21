@@ -207,13 +207,6 @@ func NewDefaultConfig() *Config {
 			Shein: PlatformConfig{
 				FetchMode:  "auto",
 				HTTPClient: *DefaultHTTPClientConfig(),
-				LoginService: LoginServiceConfig{
-					MaxConcurrentLogins: 3,
-					ProfileRootDir:      "./.local/tmp/shein-login/profiles",
-					ArtifactDir:         "./.local/tmp/shein-login/artifacts",
-					DefaultHeadless:     true,
-					ExecutionMode:       "inline",
-				},
 			},
 			Alibaba1688: Alibaba1688Config{
 				Enabled:        false,

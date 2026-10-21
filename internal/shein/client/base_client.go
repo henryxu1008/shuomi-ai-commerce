@@ -46,49 +46,7 @@ func (b *BaseAPIClient) createHeaders(requestURL string) map[string]string {
 	apiPath := b.extractAPIPath(requestURL)
 
 	// 基础请求头配置
-	headers := map[string]string{
-		"priority":           "u=1, i",
-		"referer":            baseURL + "/",
-		"sec-ch-ua":          `"Google Chrome";v="138", "Chromium";v="138", "Not/A)Brand";v="24"`,
-		"sec-ch-ua-mobile":   "?0",
-		"sec-ch-ua-platform": `"Windows"`,
-		"sec-fetch-dest":     "empty",
-		"sec-fetch-mode":     "cors",
-		"sec-fetch-site":     "same-origin",
-		"user-agent":         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36",
-	}
-
-	// 添加标准请求头
-	headers["front-version"] = "20250207"
-	headers["x-lt-language"] = "CN"
-	headers["x-req-zone-id"] = "America/Los_Angeles"
-
-	// 根据API路径设置特定请求头（仅保留必要的）
-	switch {
-	case b.contains(apiPath, "sso-prefix/auth/getUser"):
-		headers["method"] = "GET"
-		headers["scheme"] = "https"
-		headers["x-sso-scene"] = "sw"
-		headers["gmpsso-language"] = "CN"
-
-	case b.contains(apiPath, "/sso/public/account/supplier/getSupplierOperateInfo"):
-		headers["method"] = "POST"
-		headers["path"] = "/sso/public/account/supplier/getSupplierOperateInfo"
-		headers["scheme"] = "https"
-		// 根据shopType设置特定头
-		if b.shopType != "self_operated" { // 假设自营店铺的类型标识
-			headers["gmpsso-language"] = "CN"
-			headers["sso-frontend-version"] = "1.0.0"
-			headers["time-zone"] = "America/Los_Angeles"
-			headers["x-sso-scene"] = "sw"
-		}
-
-	default:
-		headers["method"] = "POST"
-		headers["scheme"] = "https"
-	}
-
-	return headers
+	return sessionHeaders(baseURL, apiPath, b.shopType)
 }
 
 // extractBaseURL 从完整URL中提取基础URL
@@ -120,11 +78,6 @@ func (b *BaseAPIClient) extractAPIPath(fullURL string) string {
 		return fullURL
 	}
 	return parsedURL.Path
-}
-
-// contains 检查字符串是否包含子字符串
-func (b *BaseAPIClient) contains(s, substr string) bool {
-	return strings.Contains(s, substr)
 }
 
 // GetHTTPClient 获取HTTP客户端（导出方法）

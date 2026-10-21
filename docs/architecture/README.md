@@ -1,5 +1,9 @@
 # Architecture Documentation
 
+- [`vip-original-output-recovery.md`](vip-original-output-recovery.md): #840 admitted reuse of original success/Commercial settlement proofs and GET-only recovery; accurate paid-result presentation, exact result-host DNS diagnosis, no generation, new state, charge or default change.
+
+- [`image-plan-optional-route-v1.md`](image-plan-optional-route-v1.md): #840 independent design admitted before implementation; maintainer optional publication without changing enterprise default, exact VIP selection frozen per product image plan, original quote/admission/dispatch/recovery owners and UNKNOWN preserved. Supersedes the prior batch's maintenance-only scope; no runtime publication or real-call authority.
+
 - [`source-business-closure-v1.md`](source-business-closure-v1.md): #30/#307 user-confirmed complete source business closure, Independent Architecture / IMPLEMENTATION_READY. Current SRC/Catalog/Collection facts and pinned reads, original Preparation/Asset human approval and Product-input diagnostics are composed without Store/AI/upload prerequisites. Product/Figma increment 8130:2280 was explicitly approved on 2026-10-21; implementation and exact evidence remain in #859. No workflow or retained runtime/data/credential operations, no new trial prerequisite; #301 stays OPEN and standalone SHEIN login/Store sync remain.
 
 - [`grsai-vip-image-binding-v1.md`](grsai-vip-image-binding-v1.md): #840 IMPLEMENTATION_READY after original independent review; maintainer-only GPT Image VIP binding, fixed medium and exact original 1024 dimensions; no per-plan selector, automatic publication, default change, new persistence or real provider authorization. Existing route/pricing/generation/recovery owners remain.
@@ -49,6 +53,8 @@ implementation decisions. Use plans and runbooks for context, not as newer
 boundary rules unless they explicitly supersede a stable document.
 
 ## Boundary Designs Awaiting Confirmation
+
+- [`shein-worker-numeric-persistence-retirement-v1.md`](shein-worker-numeric-persistence-retirement-v1.md): #301 user-confirmed complete standalone SHEIN worker numeric persistence retirement, Independent Architecture / IMPLEMENTATION_READY under frozen design 94fa4cab. One batch in #863 preserves login/Store sync using current organization/Store owners, authorized CLI, isolated Redis/Profile scope and an optional Store execution fence; UNKNOWN cannot auto-takeover. Includes the test-only historical CI target. No workflow, existing runtime/data/credential action or new trial prerequisite.
 
 - [`legacy-runtime-config-closure-retirement-boundary.md`](legacy-runtime-config-closure-retirement-boundary.md): #29/#301 complete retired task/listing configuration closure, source-implemented in #836 after user confirmation of frozen design 209b40f54 and Independent Architecture / IMPLEMENTATION_READY admission. Retires unused schema/default/load/env/validation/example and exclusive test tails together. Real crawler workerpool, independent queue/Retry, current identity/billing/images/Store and standalone SHEIN login/Store sync retain their owners. Original checks transfer only obsolete assertions; workflows/inventory/runtime/data and trial prerequisites remain unchanged. Exact implementation HEAD/CI/final review stay in the PR.
 

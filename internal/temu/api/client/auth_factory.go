@@ -25,21 +25,18 @@ func (f *AuthManagerFactory) CreateAuthManager() *AuthManager {
 // CreateAuthManagerWithCustomConfig 使用自定义配置创建认证管理器
 func (f *AuthManagerFactory) CreateAuthManagerWithCustomConfig(config *AuthConfig) *AuthManager {
 	errorDetector := NewTemuErrorDetector(config, f.logger)
-	pauseHandler := NewTemuPauseHandler(f.logger)
-	retryHandler := NewTemuRetryHandler(config, errorDetector, pauseHandler, f.logger)
+	retryHandler := NewTemuRetryHandler(config, errorDetector, f.logger)
 
-	return NewAuthManagerWithDependencies(config, retryHandler, errorDetector, pauseHandler, f.logger)
+	return NewAuthManagerWithDependencies(config, retryHandler, errorDetector, f.logger)
 }
 
 // CreateComponents 创建所有认证组件（用于测试）
 func (f *AuthManagerFactory) CreateComponents(config *AuthConfig) (
 	ErrorDetector,
-	PauseHandler,
 	RetryHandler,
 ) {
 	errorDetector := NewTemuErrorDetector(config, f.logger)
-	pauseHandler := NewTemuPauseHandler(f.logger)
-	retryHandler := NewTemuRetryHandler(config, errorDetector, pauseHandler, f.logger)
+	retryHandler := NewTemuRetryHandler(config, errorDetector, f.logger)
 
-	return errorDetector, pauseHandler, retryHandler
+	return errorDetector, retryHandler
 }

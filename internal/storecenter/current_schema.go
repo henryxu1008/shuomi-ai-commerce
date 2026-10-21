@@ -140,6 +140,7 @@ func InstallCoreSchemaTx(ctx context.Context, tx *sql.Tx) error {
 }
 
 var currentColumnNames = map[string][]string{
+	"workbench_store_shein_login_bindings":            strings.Fields("organization_id store_id installation_id binding_revision config_fingerprint generation state active_attempt_id owner_nonce closed_confirmed"),
 	"workbench_store_walmart_oauth_attempts":          strings.Fields("organization_id attempt_id store_id actor_id member_id app_id app_revision environment callback_url state_hash nonce store_version connection_version grant_id grant_generation grant_version seller_id state key_id ciphertext expires_at created_at updated_at"),
 	"workbench_store_walmart_oauth_grants":            strings.Fields("organization_id id store_id app_id app_revision environment merchant_identity_hash seller_id merchant_name generation version status key_id ciphertext scopes_hash access_expires_at refresh_expires_at refresh_operation_id refresh_input_hash refresh_actor_id refresh_member_id refresh_generation claim_expires_at created_at updated_at"),
 	"workbench_store_groups":                          strings.Fields("organization_id id name version updated_by updated_at deleted_at"),
@@ -182,6 +183,11 @@ func VerifyCurrentSchemaForCapabilities(ctx context.Context, db *gorm.DB, capabi
 			return err
 		}
 	}
+	if capabilities.SheinLogin {
+		if err := verifySheinLoginSchema(ctx, sqlDB); err != nil {
+			return err
+		}
+	}
 	if capabilities.WalmartUS {
 		return verifyWalmartSchema(ctx, sqlDB)
 	}
@@ -197,13 +203,16 @@ type coreSchemaQueryer interface {
 
 func verifyCoreSchema(ctx context.Context, sqlDB coreSchemaQueryer, capabilities RuntimeCapabilities, definitions map[string]string) error {
 	for table, want := range currentColumnNames {
+		if table == sheinLoginTable && !capabilities.SheinLogin {
+			continue
+		}
 		if !capabilities.TikTokShop && isTikTokSchemaTable(table) {
 			continue
 		}
 		if !capabilities.WalmartUS && strings.HasPrefix(table, "workbench_store_walmart_") {
 			continue
 		}
-		rows, err := sqlDB.QueryContext(ctx, `SELECT column_name,is_nullable,data_type,coalesce(character_maximum_length,0) FROM information_schema.columns WHERE table_schema='public' AND table_name=$1 ORDER BY ordinal_position`, table)
+		rows, err := sqlDB.QueryContext(ctx, `SELECT a.attname,CASE WHEN a.attnotnull THEN 'NO' ELSE 'YES' END,format_type(a.atttypid,NULL),CASE WHEN a.atttypid IN ('varchar'::regtype,'bpchar'::regtype) THEN greatest(a.atttypmod-4,0) ELSE 0 END FROM pg_catalog.pg_attribute a JOIN pg_catalog.pg_type t ON t.oid=a.atttypid AND t.typnamespace='pg_catalog'::regnamespace AND t.typtype='b' JOIN pg_catalog.pg_class c ON c.oid=a.attrelid JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname=$1 AND a.attnum>0 AND NOT a.attisdropped ORDER BY a.attnum`, table)
 		if err != nil {
 			return err
 		}
@@ -353,7 +362,7 @@ const storeRuntimePermissionQuery = `SELECT current_user,
 
 // RuntimeCapabilities admits only explicitly enabled feature tables.
 // The default Store boundary continues to reject every additional privilege.
-type RuntimeCapabilities struct{ Observations, OperationsCockpit, TikTokShop, WalmartUS bool }
+type RuntimeCapabilities struct{ Observations, OperationsCockpit, TikTokShop, WalmartUS, SheinLogin bool }
 
 func VerifyRuntimePermissions(ctx context.Context, db *gorm.DB) error {
 	return VerifyRuntimePermissionsForCapabilities(ctx, db, RuntimeCapabilities{})
@@ -429,6 +438,14 @@ func currentColumnType(table, name string) schemaColumnType {
 		return schemaColumnType{kind: "character varying", length: 32}
 	}
 	switch name {
+	case "installation_id", "binding_revision":
+		return schemaColumnType{kind: "character", length: 36}
+	case "active_attempt_id", "owner_nonce":
+		return schemaColumnType{kind: "character varying", length: 36}
+	case "config_fingerprint":
+		return schemaColumnType{kind: "character varying", length: 64}
+	case "closed_confirmed":
+		return schemaColumnType{kind: "boolean"}
 	case "identity_partition":
 		return schemaColumnType{kind: "character varying", length: 16}
 	case "authorization_method":

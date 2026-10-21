@@ -119,7 +119,7 @@ func (cl *ContextLauncher) launchPersistentContext(userAgent string) (playwright
 	if cl.config == nil || cl.config.StealthProvider != StealthProviderCloakBrowser {
 		if err := applyContextFingerprint(context, cl.config, cl.fingerprint); err != nil {
 			context.Close()
-			return nil, fmt.Errorf("注入浏览器反检测脚本失败: %w", err)
+			return context, fmt.Errorf("注入浏览器反检测脚本失败: %w", err)
 		}
 	}
 
@@ -151,13 +151,13 @@ func (cl *ContextLauncher) launchNormalContext(userAgent string) (playwright.Bro
 	context, err := browser.NewContext(contextOptions)
 	if err != nil {
 		browser.Close()
-		return nil, nil, fmt.Errorf("创建浏览器上下文失败: %w", err)
+		return browser, nil, fmt.Errorf("创建浏览器上下文失败: %w", err)
 	}
 	if cl.config == nil || cl.config.StealthProvider != StealthProviderCloakBrowser {
 		if err := applyContextFingerprint(context, cl.config, cl.fingerprint); err != nil {
 			context.Close()
 			browser.Close()
-			return nil, nil, fmt.Errorf("注入浏览器反检测脚本失败: %w", err)
+			return browser, context, fmt.Errorf("注入浏览器反检测脚本失败: %w", err)
 		}
 	}
 

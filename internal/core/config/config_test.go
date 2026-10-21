@@ -25,7 +25,7 @@ func TestCurrentConfigDoesNotRequireRetiredTaskInputs(t *testing.T) {
 	for i := 0; i < platformType.NumField(); i++ {
 		names = append(names, platformType.Field(i).Name)
 	}
-	assert.ElementsMatch(t, []string{"FetchMode", "CookieRedis", "LoginService", "HTTPClient"}, names)
+	assert.ElementsMatch(t, []string{"FetchMode", "HTTPClient"}, names)
 	v := viper.New()
 	setDefaults(v)
 	keys := v.AllKeys()
@@ -38,7 +38,7 @@ func TestCurrentConfigDoesNotRequireRetiredTaskInputs(t *testing.T) {
 			assert.False(t, strings.HasPrefix(normalized, strings.ToLower(prefix)), "retired default/env %s", key)
 		}
 		for _, platform := range []string{"temu", "shein"} {
-			for _, field := range []string{"enabled", "schedulerEnabled", "autoPricing", "listingPricing", "productSync", "inventorySync", "activityRegistration", "sync", "monitor", "configPaths"} {
+			for _, field := range []string{"enabled", "schedulerEnabled", "autoPricing", "listingPricing", "productSync", "inventorySync", "activityRegistration", "sync", "monitor", "configPaths", "cookieRedis", "loginService"} {
 				prefix := strings.ToLower("platforms." + platform + "." + field)
 				assert.False(t, normalized == prefix || strings.HasPrefix(normalized, prefix+"."), "retired platform default/env %s", key)
 			}
@@ -57,28 +57,12 @@ openai:
 platforms:
   shein:
     fetchMode: local
-    cookieRedis:
-      host: cookie.fixture
-      port: 6381
-      db: 7
-    loginService:
-      baseURL: http://login.fixture:8000
-      sharedKey: fixture-shared-key
-      executionMode: worker
-      maxConcurrentLogins: 4
     httpClient:
       timeout: 42
       insecureSkipVerify: true
 `))
 	require.NoError(t, err)
 	assert.Equal(t, "local", cfg.Platforms.Shein.FetchMode)
-	assert.Equal(t, "cookie.fixture", cfg.EffectiveSheinCookieRedis().Host)
-	assert.Equal(t, 6381, cfg.EffectiveSheinCookieRedis().Port)
-	assert.Equal(t, 7, cfg.EffectiveSheinCookieRedis().DB)
-	assert.Equal(t, "http://login.fixture:8000", cfg.Platforms.Shein.LoginService.BaseURL)
-	assert.Equal(t, "fixture-shared-key", cfg.Platforms.Shein.LoginService.SharedKey)
-	assert.Equal(t, "worker", cfg.Platforms.Shein.LoginService.ExecutionMode)
-	assert.Equal(t, 4, cfg.Platforms.Shein.LoginService.MaxConcurrentLogins)
 	assert.Equal(t, 42*time.Second, cfg.Platforms.Shein.HTTPClient.Timeout)
 	assert.True(t, cfg.Platforms.Shein.HTTPClient.InsecureSkipVerify)
 	assert.Equal(t, 3, DefaultRetryConfig().MaxRetries)
@@ -159,8 +143,6 @@ func TestConfigBuild(t *testing.T) {
 	v.Set("platforms.shein.fetchMode", "local")
 	v.Set("platforms.alibaba1688.profileRootDir", "C:/task-processor-test/1688-profiles")
 	v.Set("platforms.temu.httpClient.insecureSkipVerify", true)
-	v.Set("platforms.shein.loginService.tenantID", "1")
-	v.Set("platforms.shein.loginService.identifier", "869")
 	v.Set("platforms.sds.loginService.baseURL", "http://login:8000")
 	v.Set("platforms.sds.loginService.sharedKey", "sds-key")
 	v.Set("platforms.sds.loginService.tenantID", "1")
@@ -188,8 +170,6 @@ func TestConfigBuild(t *testing.T) {
 	assert.True(t, cfg.Platforms.Temu.HTTPClient.InsecureSkipVerify)
 	assert.Equal(t, "local", cfg.Platforms.Shein.FetchMode)
 	assert.Equal(t, "C:/task-processor-test/1688-profiles", cfg.Platforms.Alibaba1688.ProfileRootDir)
-	assert.Equal(t, "1", cfg.Platforms.Shein.LoginService.TenantID)
-	assert.Equal(t, "869", cfg.Platforms.Shein.LoginService.Identifier)
 	assert.Equal(t, "http://login:8000", cfg.Platforms.SDS.LoginService.BaseURL)
 	assert.Equal(t, "sds-key", cfg.Platforms.SDS.LoginService.SharedKey)
 	assert.Equal(t, "1", cfg.Platforms.SDS.LoginService.TenantID)
