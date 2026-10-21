@@ -127,10 +127,13 @@ Cutover/deletion condition: 用户确认完整矩阵及 §6.1 后，三组无消
 | tests/import_boundaries_test.go | 原 global ports 根缺席继续保留；引导“use app/ports”的两条诊断改为“使用当前 owner 合同，两个旧根都不可复活”，同批补 app/ports 缺席/禁入 | 原索引/读取失败、import decoding、其它边界和当前 native/授权/商业守卫不变 |
 | tests/architecture_docs_test.go 与当前 guard 索引 | 如实际引用必须校准，仅更新上述已退出准确目标/guard含义；旧目录词可作为历史保留，不为原 phrase 检查造空包或重写历史 | Architecture README/Review Checklist 一致性、原历史 closure counts、其它架构/源码检查与 ratchet 不变 |
 | 当前文档与直接说明 | Architecture README/Legacy Register/module-target-mapping/code-health 顶注；project-boundaries、app-assembly-boundaries、httpapi-assembly-boundaries 的准确旧目标加窄失效/当前 owner 指引；updater-third-party-validation 与 open-source-replacement-evaluation 对旧 updater 的待替换要求加 superseded 指引；code-health 的 Amazon source adapter 行明确 httpx 说明已过时，仅去已退测试目标，保留当前 source adapter | 原产品/Figma、身份/worker/Store/平台合同和所有 dated 历史正文/执行/失败/计数；不把旧 Task 示例改造成新需求或进行全仓文档重写 |
+| 当前错误处理指南与同根因引用 | docs/development/error-handling-guide.md 整份旧 core/errors 指南标记 RETIRED/历史，撤销其当前导入/迁移指导及 errors.go、examples_test.go、errors_test.go 三个“当前参考”；原 Task/错误码示例只保留为明确历史。amazon-crawler-commercialization-execution-plan.md 对旧 httpx/health.go 的准确说明补窄失效指引，沿原 #867 历史定位 | 不创建新的统一错误框架/迁移手册，不改变现役错误/拒绝合同，不按旧 Amazon 商业化计划启动新任务；历史示例不冒作当前可编译入口 |
 | phase2-runtime-inventory.md / ceilings | **零改**。已核对 CURRENT 消费者表没有因本轮删除而退出的受管 provider→consumer 行；历史 debtor 行、旧迁移计划/计数不改 | 若实施原 CI 证明存在冲突，先给出准确行与真实消费者证据、报告用户，不自行删表/改计数或改 guard 绕过 |
 | 所有 workflow / CI、依赖与保护 | **零改**，沿原分类/触发执行；不新增 missing-skip 或把安全检查改成成功空壳 | 两套 workflow、必需/安全/PG/资金/商业/发布、当前 listingadmin test-only race 与当前入口构建，依赖锁/ceilings/保护全部保持 |
 
 本轮设计提交只包含本文与索引/登记两处提案入口；以上源码、测试和其它文档校准均未应用。它们只有在用户确认后才属于同一主要 PR 的实施范围。
+
+已针对七个准确包扫描全部 tracked docs 的同根因引用。phase1-summary/phase1-acceptance-report、dated superpowers plans/specs 和 test-baseline.txt 属历史证据，保持原文/计数，不恢复当前权威；phase2-runtime-inventory.md 连历史说明也零改。当前开发指南遗漏已在上表明确纳入本闭包，不能只删源码后留作推荐导入路径。
 
 ## 7. 设计确认、复核与停止点
 
