@@ -1,5 +1,7 @@
 # 旧 Amazon 刊登整链与专属闭包退休边界
 
+> 当前校准：#867 用户确认的[数字采集与平台尾链完整闭包](legacy-numeric-acquisition-tail-closure-retirement-boundary.md)仅替代本文对旧 fetch/cache/数字 Task HTTP、SHEIN 数字 Cookie/StoreInfo 及专属 Amazon 运维源的广泛保留表述；本文其余平台 API/规则、两种 SHEIN 属性、价格、当前采集/共享浏览器、Store 与独立 SHEIN 登录/同步的保留决定继续有效。历史执行证据不改，不授权运行资源操作。
+
 > #824 后续按用户确认的[共享支撑边界](legacy-numeric-listing-support-closure-retirement-boundary.md)退休八类闲置 listingadmin 管理链、孤立 listingruntime 声明与旧 Task/Workspace 尾部。本文对这些准确对象的保留仅为历史；Store/敏感词/话题、四种有效值合同、Amazon API/来源采集、有效共享能力及独立 SHEIN worker/Store 同步仍保留，不操作运行态或数据。
 
 > Execution：[#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)

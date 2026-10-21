@@ -4,7 +4,6 @@ import "strings"
 
 // SourceRequest carries source-identifying fields shared by product fetch paths.
 type SourceRequest struct {
-	TenantID   int64
 	Platform   string
 	Region     string
 	ProductID  string

@@ -1,8 +1,10 @@
 # #301 旧数字采集与平台身份尾链完整退休边界
 
-实施准入：**用户已确认 / Design Basis: Reuse Existing Architecture / Ready → In Progress**。冻结设计为 `d3c33d86cb5edbad9a6958df9c9ba85a1259eb84` 的 §1–§7（含 §6.1）；用户在准确设计交付后回复“没问题，继续”，授权同一 #867 整批实施。下文设计阶段状态保留为准入历史，以本段及 #301 当前正文为当前实施状态。原单 Writer、分支和 PR 不变；合并、部署、关单及真实资源操作仍未授权。
+实施准入：**用户已确认 / Design Basis: Reuse Existing Architecture / Ready → In Progress → In Review**。冻结设计为 `d3c33d86cb5edbad9a6958df9c9ba85a1259eb84` 的 §1–§7（含 §6.1）；用户在准确设计交付后回复“没问题，继续”，授权同一 #867 整批实施。下文设计阶段状态保留为准入历史，以本段及 #301 当前正文为当前实施状态。原单 Writer、分支和 PR 不变；合并、部署、关单及真实资源操作仍未授权。
 
 Status: **PROPOSED / DESIGN ONLY / 待用户确认**。调查基线为 main `8cca4a45e5c9dfacef336e61728e239247fe3bca`，即 #863 实际合并提交；其准确 push/main CI 为 [39554937146](https://github.com/qq550723504/task-processor/actions/runs/39554937146)，已成功。本文不把该证据当成本设计未来实施的 CI，也不把源码退休当作运行验收。#301 保持 OPEN，#29 已源级关闭，不重开。
+
+实施结果：§5 专属闭包已同批退出；混合源码只收缩旧数字上下文/配置/StoreInfo，当前规则与平台 transport 保留。§6.1 七条 CURRENT 行准确删除，历史/计数及 workflow/依赖/锁/ceilings零改。保留现有 Cookie 与 qualityMetrics 纯值声明（见下文实施发现），不恢复旧 owner；共享 Secret 源只去旧 remoteAPI 非凭据映射。原退休守卫已先 RED，相关纯规则/API/source/worker与当前构建已自检；准确实现 HEAD、CI及最终独立复核以 #867 为准，不把设计 CI当实现证据。源码交付不等于运行/用户验收，#301仍OPEN。
 
 ## 1. 用户结果、范围与权限
 
@@ -24,6 +26,8 @@ Status: **PROPOSED / DESIGN ONLY / 待用户确认**。调查基线为 main `8cc
 - 先前数字执行/刊登、配置、运维与 API token 退休设计的准确历史证据。旧广泛保留表述仅在用户确认本矩阵后，由本矩阵明确替代；不重写旧证据。
 
 本提案不增加/转交当前事实 owner、表、schema、授权、公共当前领域合同、事务、幂等键、状态机、retry/UNKNOWN/recovery 或外部副作用。超过 30 文件和大删除量的风险提示线由这里的完整矩阵及既有当前合同覆盖，不通过拆批规避。SHEIN 内部基础客户端的旧数字诊断参数/错误字段收缩已在 §5 单列，平台请求/响应 DTO、HTTP 方法、headers、认证失败识别及既有显式刷新合同不变。若真实消费者要求改变上述当前边界，停止对应项并报告，按适用 Independent Architecture 准入处理，不能在删除时临时发明新架构。
+
+实施发现（IMPLEMENTATION_TEST）：编译证明当前 `SessionTransport.CookiesFromBrowserState` 仍消费旧 cookie_manager.go 中 `CookieData` 与 `buildCookiesFromJSON`。这两个既有纯值声明原样抽取至同包 `cookie_values.go`；SessionTransport 与测试字节保持，domain/expiry/SameSite不变。其余数字 manager/provider、字符串fallback和旧构造器仍退休，无新 owner/协议/副作用。同一根因的 Amazon `qualityMetrics` 仍引用 service_metrics.go 的 `normalizeMetricsRegion`/`copyInt64Map`，两函数同样原样归入现有 quality_metrics.go；旧 Task/去重/regionGuard service 指标主体退出。此项校正 §5.1 的文件独占判断，服从保留当前能力不变量。
 
 ## 3. 实际消费者与完整闭包
 

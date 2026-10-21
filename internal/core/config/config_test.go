@@ -25,7 +25,7 @@ func TestCurrentConfigDoesNotRequireRetiredTaskInputs(t *testing.T) {
 	for i := 0; i < platformType.NumField(); i++ {
 		names = append(names, platformType.Field(i).Name)
 	}
-	assert.ElementsMatch(t, []string{"FetchMode", "HTTPClient"}, names)
+	assert.ElementsMatch(t, []string{"HTTPClient"}, names)
 	v := viper.New()
 	setDefaults(v)
 	keys := v.AllKeys()
@@ -37,8 +37,12 @@ func TestCurrentConfigDoesNotRequireRetiredTaskInputs(t *testing.T) {
 		for _, prefix := range []string{"processor.", "worker.", "rabbitmq.", "listingControlPlane.", "debug.save_publish_json", "listingkit.sheinSubmitDebugDumpDir", "listingkit.generationUsageLedger"} {
 			assert.False(t, strings.HasPrefix(normalized, strings.ToLower(prefix)), "retired default/env %s", key)
 		}
+		for _, field := range []string{"dataFreshnessDays", "productDedupe", "regionGuard", "concurrencyControl", "remoteAPI"} {
+			prefix := strings.ToLower("amazon." + field)
+			assert.False(t, normalized == prefix || strings.HasPrefix(normalized, prefix+"."), "retired Amazon default/env %s", key)
+		}
 		for _, platform := range []string{"temu", "shein"} {
-			for _, field := range []string{"enabled", "schedulerEnabled", "autoPricing", "listingPricing", "productSync", "inventorySync", "activityRegistration", "sync", "monitor", "configPaths", "cookieRedis", "loginService"} {
+			for _, field := range []string{"enabled", "schedulerEnabled", "autoPricing", "listingPricing", "productSync", "inventorySync", "activityRegistration", "sync", "monitor", "configPaths", "cookieRedis", "loginService", "fetchMode"} {
 				prefix := strings.ToLower("platforms." + platform + "." + field)
 				assert.False(t, normalized == prefix || strings.HasPrefix(normalized, prefix+"."), "retired platform default/env %s", key)
 			}
@@ -56,13 +60,11 @@ openai:
   apiKey: fixture-key
 platforms:
   shein:
-    fetchMode: local
     httpClient:
       timeout: 42
       insecureSkipVerify: true
 `))
 	require.NoError(t, err)
-	assert.Equal(t, "local", cfg.Platforms.Shein.FetchMode)
 	assert.Equal(t, 42*time.Second, cfg.Platforms.Shein.HTTPClient.Timeout)
 	assert.True(t, cfg.Platforms.Shein.HTTPClient.InsecureSkipVerify)
 	assert.Equal(t, 3, DefaultRetryConfig().MaxRetries)
@@ -94,15 +96,10 @@ func TestAmazonConfigDefaults(t *testing.T) {
 	setDefaults(v)
 
 	assert.False(t, v.GetBool("amazon.enabled"))
-	assert.Equal(t, 7, v.GetInt("amazon.dataFreshnessDays"))
 	assert.Equal(t, 1, v.GetInt("amazon.riskControl.captchaRecreateThreshold"))
 	assert.Equal(t, 1, v.GetInt("amazon.riskControl.authenticationRecreateThreshold"))
 	assert.Equal(t, 1, v.GetInt("amazon.riskControl.browserCrashRecreateThreshold"))
 	assert.Equal(t, 3, v.GetInt("amazon.riskControl.timeoutRecreateThreshold"))
-	assert.True(t, v.GetBool("amazon.regionGuard.enabled"))
-	assert.Equal(t, 3, v.GetInt("amazon.regionGuard.failureThreshold"))
-	assert.Equal(t, 300, v.GetInt("amazon.regionGuard.evaluationWindowSeconds"))
-	assert.Equal(t, 180, v.GetInt("amazon.regionGuard.cooldownSeconds"))
 	assert.True(t, v.GetBool("amazon.qualityControl.retryOnValidationFailure"))
 	assert.Equal(t, 2, v.GetInt("amazon.qualityControl.validationRetryMaxAttempts"))
 	assert.False(t, v.GetBool("amazon.spapi.enabled"))
@@ -122,14 +119,6 @@ func TestAlibaba1688ConfigDefaults(t *testing.T) {
 	assert.Equal(t, "./.local/tmp/browser-profiles/1688-accounts", v.GetString("platforms.alibaba1688.profileRootDir"))
 }
 
-func TestPlatformFetchModeDefaults(t *testing.T) {
-	v := viper.New()
-	setDefaults(v)
-
-	assert.Equal(t, "auto", v.GetString("platforms.temu.fetchMode"))
-	assert.Equal(t, "auto", v.GetString("platforms.shein.fetchMode"))
-}
-
 func TestConfigBuild(t *testing.T) {
 	v := viper.New()
 	v.Set("browser.enabled", true)
@@ -139,8 +128,6 @@ func TestConfigBuild(t *testing.T) {
 	v.Set("browser.randomConfig.strategy", "stable")
 	v.Set("browser.randomConfig.presetName", "mac_high_end")
 	v.Set("amazon.enabled", true)
-	v.Set("amazon.dataFreshnessDays", 10)
-	v.Set("platforms.shein.fetchMode", "local")
 	v.Set("platforms.alibaba1688.profileRootDir", "C:/task-processor-test/1688-profiles")
 	v.Set("platforms.temu.httpClient.insecureSkipVerify", true)
 	v.Set("platforms.sds.loginService.baseURL", "http://login:8000")
@@ -166,9 +153,7 @@ func TestConfigBuild(t *testing.T) {
 	assert.Equal(t, "stable", cfg.Browser.RandomConfig.Strategy)
 	assert.Equal(t, "mac_high_end", cfg.Browser.RandomConfig.PresetName)
 	assert.True(t, cfg.Amazon.Enabled)
-	assert.Equal(t, 10, cfg.Amazon.DataFreshnessDays)
 	assert.True(t, cfg.Platforms.Temu.HTTPClient.InsecureSkipVerify)
-	assert.Equal(t, "local", cfg.Platforms.Shein.FetchMode)
 	assert.Equal(t, "C:/task-processor-test/1688-profiles", cfg.Platforms.Alibaba1688.ProfileRootDir)
 	assert.Equal(t, "http://login:8000", cfg.Platforms.SDS.LoginService.BaseURL)
 	assert.Equal(t, "sds-key", cfg.Platforms.SDS.LoginService.SharedKey)
@@ -239,9 +224,8 @@ func TestConfigValidation(t *testing.T) {
 			},
 		},
 		Amazon: AmazonConfig{
-			Enabled:           true,
-			DataFreshnessDays: 7,
-			CrawlTimeout:      30,
+			Enabled:      true,
+			CrawlTimeout: 30,
 			RiskControl: AmazonRiskControlConfig{
 				CaptchaRecreateThreshold:        1,
 				AuthenticationRecreateThreshold: 1,
@@ -249,12 +233,6 @@ func TestConfigValidation(t *testing.T) {
 				TimeoutRecreateThreshold:        3,
 				NetworkRecreateThreshold:        2,
 				ServerErrorRecreateThreshold:    3,
-			},
-			RegionGuard: AmazonRegionGuardConfig{
-				Enabled:                 true,
-				FailureThreshold:        3,
-				EvaluationWindowSeconds: 300,
-				CooldownSeconds:         180,
 			},
 			QualityControl: AmazonQualityControlConfig{
 				RetryOnValidationFailure:   true,
