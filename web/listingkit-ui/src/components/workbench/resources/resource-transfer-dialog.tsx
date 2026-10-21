@@ -216,7 +216,7 @@ export function TransferDialog({
         资源类型
         <select
           value={type}
-          disabled={operation !== null}
+          disabled={operation !== null || quoting}
           onChange={(event) => {
             setType(event.target.value as MemberTransferInput["resourceType"]);
             setQuantity("");
@@ -243,7 +243,7 @@ export function TransferDialog({
               数据价格
               <select
                 value={offerId || prices.data?.offers[0]?.offerId || ""}
-                disabled={operation !== null || !prices.data?.offers.length}
+                disabled={operation !== null || quoting || !prices.data?.offers.length}
                 onChange={(event) => {
                   setOfferId(event.target.value);
                   setQuote(null);
@@ -266,7 +266,7 @@ export function TransferDialog({
                 value={amount}
                 inputMode="decimal"
                 maxLength={21}
-                disabled={operation !== null}
+                disabled={operation !== null || quoting}
                 onChange={(event) => {
                   setAmount(event.target.value);
                   setQuote(null);
