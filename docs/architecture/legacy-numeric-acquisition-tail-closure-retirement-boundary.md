@@ -117,7 +117,7 @@ Status: **PROPOSED / DESIGN ONLY / 待用户确认**。调查基线为 main `8cc
 
 已核对两个旧子树 namespace.yaml 都声明 `task-processor`，没有其它保留 kustomization 引用它们；本轮只退旧子树内的重复声明和引用。保留 `shein-listing/base/namespace.yaml`、`listingkit-workbench/base/namespace.yaml` 及其当前消费者，保留所有 SHEIN/其它 workload 凭据声明、WeCom 服务/部署/configmap/secret 引用和 `monitoring/prometheus-storage` 规则/窄路由。删除源码声明不授权删除实际 Namespace/Secret/endpoint/监控对象或修改现有凭据。
 
-当前 `config-dev.yaml/config-prod.yaml` 等 tracked 示例只删上表已无消费者的键，不读取/重写任何运行配置或凭据值。源码树外/ignored 的同名配置、旧报告、缓存和 Profile 不碰。
+当前 `config-dev.yaml/config-prod.yaml` 等 tracked 示例只删上表已无消费者的键，不读取/重写任何运行配置或凭据值。另已核对四个共享源仍声明旧 Amazon remoteAPI 非凭据配置：`shein-listing/base/secret.example.yaml`、`overlays/prod-store-shards-example/secret.example.yaml`、`overlays/prod/secret.example.yaml`、`overlays/prod/external-secret.yaml`。同批只去其中对应已退出 RemoteAPIConfig 的 enabled/baseURL/timeout 配置项及映射；Secret/ExternalSecret 资源本身、其它有效配置与全部凭据键/引用原样保留，不复制/读取值或操作实际 Secret。源码树外/ignored 的同名配置、旧报告、缓存和 Profile 不碰。
 
 直接文档同批加窄失效/替代顶注并校准当前操作段：Amazon commercialization checklist/execution-plan/runtime-flow、centralized-deployment-plan、Kubernetes readme/monitoring/WeCom README；旧 dated 记录只留历史，不改写为 PASS。Architecture README、Legacy Register、module-target-mapping/code-health/current guard 清单同步实际 owner。先前 #742/#743/#744/#819/#822/#839 对此次准确专属源的保留说明改为历史并引用本设计；平台 API、两属性类型、规则、当前采集与 worker 的保留决定继续有效。
 
