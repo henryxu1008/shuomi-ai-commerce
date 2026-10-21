@@ -53,6 +53,8 @@ Threat Model 仅覆盖本批实际改变的来源身份派生、当前证据编�
 2. `integration/persistence/product/sourcing.repository.read/verifyLoaded` 解码现有 EnvelopeJSON，重算 InputHash，并把 NormalizePublicationEnvelope 后重新编码的 bytes 与原 bytes 精确比较。
 3. 当前严格发布已拒绝四旧字段非零/非空输入；通用正常化随后填入别名，发布正常化再清空它们。**即便字段值全空，原 struct 的默认 JSON 仍包含四个槽位**；物理删除、改 tag/omitempty、改类型/字段顺序均会改变当前编码、InputHash 和有效证据读取结果。
 
+原 guard 使用 TrimSpace：Platform/Region/ProductID 仅含空白时仍属原来允许的输入，随后被原 trim 和发布层清空规范为零值。**三个槽位的原 TrimSpace 和 NormalizePublicationEnvelope 四项最终清空均保留**，保证空白与空串的规范编码/hash一致；不能同时删除这两层，也不能改成拒绝原本合法空白。
+
 所以本批建议：退休双轨**行为和当前调用方依赖**；保留四槽位现有声明/顺序/零值 JSON 与严格拒绝作为当前持久化合同。不给这些槽位赋身份语义，不读旧值派生新身份，不新增 codec/兼容 reader、不重写旧记录。若用户将来要求物理删除这些当前编码槽位，必须先另作明确产品决定与持久化设计；本批不把它作为试用前置，也不暗设迁移许可。
 
 ## 4. owner、不变量、持久化与失败边界
@@ -64,7 +66,7 @@ Threat Model 仅覆盖本批实际改变的来源身份派生、当前证据编�
 | 来源语义身份 | sourcing 六个 Source*、SourceKey、原弱身份 fingerprint | 相同当前六值产生相同 key/fingerprint；不再用旧四字段补值或接受旧值作为身份。弱值识别/显式准入与严格发布要求保留 |
 | localagent 回执 | 原 Job/claim/token/过期/terminal 状态；EnvelopeSummary | summary.ProductID 改读相同来源 SourceID，外部 product_id/source_key/其余字段和值不变；不改状态、授权、重试或 terminal API。SubmitResult 的现有 HTTP 回执只返回 summary，不增加返回 envelope 或新入口 |
 | 当前 SRC/Catalog 事实 | 原 ProductDB 事务、SRC receipt/evidence + Catalog bridge | schema、repository、事务/锁、幂等键、ExpectedBaseVersion、原版本读取/刷新不变；有效 canonical envelope bytes、InputHash、SnapshotHash/EnvelopeHash 和 publication identity 不变 |
-| 四个来源编码槽位 | 原 SourceIdentity layout + 原严格发布/完整性验证 | KEEP 原四字段类型/声明顺序/默认 JSON，不删除/重排/omitempty/换codec；非零/非空照旧拒绝。仅退互填、来源适配器赋值和旧 Key；原发布 reject/preflight 不删 |
+| 四个来源编码槽位 | 原 SourceIdentity layout + 原严格发布/完整性验证 | KEEP 原四字段类型/声明顺序/默认 JSON、三个字符串原 trim 和发布四项最终清空，不删除/重排/omitempty/换codec；TrimSpace 后非空或 StoreID 非零照旧拒绝。仅退互填、来源适配器赋值和旧 Key；原发布 reject/preflight 不删 |
 | 纯规则 | 现有 shein/pricing 与 shein/activity | 仅抽取 5/8 字段到消费 owner，公式、默认/边界/风险判断不变；没有新的 manager/provider/平台调用 |
 | 共享属性 | ProductImportMapping + EnrichedSkuInfo/EnrichedSkcInfo | 全部字段/JSON/平台类型完整保持，不按字段名清空 MappingInfo 或删结构 |
 | 独立 SHEIN worker/Store | #863 current native owner 与原审计/UNKNOWN fence | 源码/配置/持久化/Redis/Profile/CLI/SessionTransport 均不变，保留独立登录与同步 |
@@ -96,11 +98,11 @@ Threat Model 仅覆盖本批实际改变的来源身份派生、当前证据编�
 
 | 精确位置 | 退出行为 | 当前合同/消费者处置 |
 | --- | --- | --- |
-| sourcing/source_identity.go | SourceType/SourcePlatform/SourceID 从旧字段补值；向旧 Platform/ProductID 反填；旧字段专属 trim；Key() 及只为它的 strconv import/旧迁移注释 | 六 Source* 正常化、Validation/Valid/WeakButFingerprintable、fingerprint/SourceKey 算法保留；四编码字段声明/类型/顺序/JSON默认保持，标明只参与现有编码和拒绝检查，不再是身份输入 |
+| sourcing/source_identity.go | SourceType/SourcePlatform/SourceID 从旧字段补值；向旧 Platform/ProductID 反填；Key() 及只为它的 strconv import/旧迁移注释 | 六 Source* 正常化、Validation/Valid/WeakButFingerprintable、fingerprint/SourceKey 算法保留；四编码字段声明/类型/顺序/JSON默认及三个字符串原 trim 保持，标明只参与现有编码/规范化和拒绝检查，不再是身份输入 |
 | sourcing/source_request.go/test | Identity() 向旧 Platform/Region/ProductID/StoreID 赋值；只断言旧 Key/alias 的测试部分 | 显式由当前 source request 的 Platform/ProductID 构造 SourceTypeCrawler、SourcePlatform、SourceID；request 的其余字段、正常化/variant 行为保持；断言 current Source* 和 SourceKey，不新增 fallback |
 | integration/crawler/amazon 与 a1688/product_source.go 及对应测试 | SourceIdentity 旧四字段赋值、Key 专属断言 | 直接构造六 Source*；现有平台源 ID/URL 获取和缺失事实规则、Processor/browser/raw checksum/商品/图像/变体/价格不变；当前 SourceKey 值、真实来源错误/取消断言保留 |
 | localagent/service.go/test | summary 从旧 Identity.ProductID 读取 | 直接读 Identity.SourceID，原 summary.product_id 值和 API/CLI/client 合同不变；不改 Job 状态或 token/claim/URL校验 |
-| sourcing/normalize.go/test、source_identity_test.go、source_request_test.go 等直接尾部 | 仅旧互填/旧 Key 可用的实现细节期望；发布层清空自动回填的冗余步骤可随回填退出 | NormalizePublicationEnvelope 的六值要求与四槽位非零拒绝、preflight/输入上限、description校验原样；原负例保留，不改为忽略非法字段 |
+| sourcing/normalize.go/test、source_identity_test.go、source_request_test.go 等直接尾部 | 仅旧互填/旧 Key 可用的实现细节期望；原发布层四项最终清空全部保留 | NormalizePublicationEnvelope 的六值要求与四槽位非零拒绝、preflight/输入上限、description校验原样；原负例保留，不改为忽略非法字段 |
 | sourcing/publication*、catalog_asset_handoff、acquisition、SRC repository、source evidence projection、各当前 producer | 不作业务改造 | 保留现有编码/hash/lineage/授权/保存读取/刷新与同值 key；现有 canonical 当前 producer 无需跟随新“协议”重写。仓库/SQL/schema不改，已有损坏/旧字段拒绝用例保留 |
 
 本组没有承诺物理删除四 JSON 槽位或迁移现有来源记录。当前四槽位只支持原严格零值合同；没有双读、旧值派生、wrapper、兼容 codec、对历史记录的放宽或任何新 Compatibility 类别。
@@ -120,7 +122,7 @@ Cutover/deletion condition: 用户确认完整矩阵+适用独立复核+IMPLEMEN
 
 1. 五日志API/两别名/三常量、分片闭包及两旧类型不存在；通用日志/hash helper保留；原包import/AST方向保持。
 2. 抽取 5/8 字段后原价格、库存/折扣/风险/多SKU用例同值通过，无平台 mutation。
-3. 当前六 Source* 正常化/弱值fingerprint/SourceKey、1688/Amazon结果与 localagent summary 同值；legacy-only不能产生有效来源身份；原严格发布四非零槽位仍拒绝，输入上限/取消不变。
+3. 当前六 Source* 正常化/弱值fingerprint/SourceKey、1688/Amazon结果与 localagent summary 同值；legacy-only不能产生有效来源身份；原严格发布对 TrimSpace 后非空字符串/非零 StoreID 仍拒绝，输入上限/取消不变；三个槽位为纯空白/空串时沿原 trim+最终清空得到相同零值 JSON/InputHash，不改成更严格拒绝。
 4. 用任务自有**合成的当前 canonical envelope**，复用原 producer/store 单测绑定原基线编码/hash作前后比较，精确检查 EnvelopeJSON/SnapshotJSON/InputHash/PublicationIdentity 与原相同；保存/读取/相同键不同输入/损坏拒绝沿原有效测试。只允许在现有测试内加必要 fixture，不建新runner、黄金文件平台、脚本或故障矩阵。不读取既有业务记录。
 5. 原日志/价格/活动/sourcing/source adapters/localagent 与原 current-application/shein-login-worker 构建；完整原CI只在稳定候选运行。原CI内PG/权限/资金/race照常，不能把PR CI或源码编译当真实实例/用户验收。
 
