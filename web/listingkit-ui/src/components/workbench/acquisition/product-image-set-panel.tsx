@@ -95,7 +95,7 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
  const {userId,organizationId,kind,contextId}=scope;
  const stableScope=useMemo(()=>({userId,organizationId,kind,contextId}),[userId,organizationId,kind,contextId]);
  const locked=busy||!!intent||mediaBlocked;
- const unresolvedRun=!!run?.pendingCommand||!!run?.recoverableEffects?.length;
+ const unresolvedRun=!run?.releaseSummary&&(!!run?.pendingCommand||!!run?.recoverableEffects?.length);
  const releasedIntent=!!intent&&imageIntentTargetsReleasedRun(intent,run);
  useEffect(()=>context.registerOrganizationSwitchGuard(()=>!flight.current),[context]);
  useEffect(()=>{active.current=true;return()=>{active.current=false;abort.current?.abort()}},[]);
