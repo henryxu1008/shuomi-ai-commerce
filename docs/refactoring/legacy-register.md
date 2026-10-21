@@ -1,5 +1,7 @@
 # Legacy Register
 
+> #301 / #872 [用户确认的旧RabbitMQ、数字Store代理与宿主配置/helper完整闭包](../architecture/legacy-queue-proxy-config-tail-closure-retirement-boundary.md)：冻结设计f59bdf89c §1–§7（含§6.1）已获明确确认，Reuse Existing Architecture / Ready；Issue/PR准入读回后，原唯一Writer同批RETIRE三组47准确专属源、七混合配置源及原guard/文档尾部，无新EXTRACT/替代owner。仅删除获准的core/logger→pkg/fileio一条CURRENT inventory行，历史/计数/ceilings/准确性检查逻辑不改。下文旧RabbitMQ/数字代理与Secret源/Updater配置/闲置helper的保留或迁移目标仅在准确矩阵上失效；其它有效合同和历史证据原样。当前能力、共享Namespace/base、workerpool/Retry/基础层、采集/Store与独立SHEIN登录同步保留；workflow/依赖/保护零改，不操作实例/数据/凭据/进程，无新试用前置，#301 OPEN。准确实现HEAD/CI/最终复核留PR。
+
 > #301 / #870 [用户确认的完整旧宿主退休边界](../architecture/legacy-host-runtime-closure-retirement-boundary.md)：冻结设计a76db47d7 §1–§7（含§6.1）已获用户明确确认；Reuse Existing Architecture / Ready，原唯一Writer同一PR整批实施。三组七根的38个准确Go文件及专属尾部RETIRE，无新EXTRACT/替代owner；原guard改为根缺席/禁入，保留解析/读取失败和全部当前安全合同。下文旧目录迁移/存在性/第三方更新替换要求仅在此精确矩阵上失效；历史计数/失败和其它当前合同保留。当前身份/HTTP/共享基础层、采集、Store与独立SHEIN登录同步保持；token/更新文件/进程/实例/数据/凭据不操作，workflow/inventory/依赖/ceilings/保护零改，无新试用前置，#301 OPEN。准确实现HEAD/CI/最终复核留PR。
 
 > #301 / #868 [用户确认的数字上下文与共享值合同完整退休闭包](../architecture/legacy-numeric-value-contract-closure-retirement-boundary.md)：冻结设计01d8b8a50 §1–§7（含§6.1），Independent Architecture / IMPLEMENTATION_READY；原单Writer同一PR整批实施。两规则5/8有效字段先抽取至pricing/activity，旧数字日志/分片API、两旧规则类型、来源别名赋值互填/Key同批退出。ProductImportMapping/MappingInfo、两属性、四来源JSON零值槽位和原trim/发布清空、SRC编码/hash/读取拒绝合同完整保持，无兼容reader/codec、迁移或第二owner。仅精确替代#867对应两类型/别名行为的旧保留表述；当前采集/API/规则/身份/Store/独立SHEIN登录同步保持，workflow/inventory/依赖/真实环境零改，无新试用前置，#301 OPEN。

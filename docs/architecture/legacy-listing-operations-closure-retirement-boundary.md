@@ -1,5 +1,7 @@
 # 旧数字刊登运维源码：完整退休闭包设计
 
+> #872 后续精确收口：[用户确认的完整队列/代理/配置尾部边界](legacy-queue-proxy-config-tail-closure-retirement-boundary.md)同批退休 sync-shein-store-proxies.ps1、shein-proxy-sync 全部专属声明/内联实现、失去最后源码消费者的四份 shein-listing-secret 模板及 prod 装配。本文对这些准确对象的 KEEP 被取代；共享 Namespace/base、Prometheus 存储规则与同 namespace 窄路由、通用转发/诊断、当前工作负载和独立 SHEIN 登录/Store 同步原样。仅源退休，不读取/清理真实 Secret、远端属性、旧表、实例或进程；原历史正文/计数及其它合同保留。
+
 > 当前校准：#867 用户确认的[数字采集与平台尾链完整闭包](legacy-numeric-acquisition-tail-closure-retirement-boundary.md)仅替代本文对旧 fetch/cache/数字 Task HTTP、SHEIN 数字 Cookie/StoreInfo 及专属 Amazon 运维源的广泛保留表述；本文其余平台 API/规则、两种 SHEIN 属性、价格、当前采集/共享浏览器、Store 与独立 SHEIN 登录/同步的保留决定继续有效。历史执行证据不改，不授权运行资源操作。
 
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。

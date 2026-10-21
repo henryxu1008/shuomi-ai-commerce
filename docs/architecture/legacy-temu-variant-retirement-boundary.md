@@ -1,5 +1,7 @@
 # 旧 TEMU 变体读取、后处理与缓存编排退休边界
 
+> #872 后续精确收口：原 SHEIN/TEMU 消费者现已退出，pkg/perf 无包外生产/测试消费者，按[用户确认的完整尾部边界](legacy-queue-proxy-config-tail-closure-retirement-boundary.md)与 cache/types/fileio 同批源码退休。下文当时的 pkg/perf 保留判断只作历史，不据此新建 shared Tracker 或兼容 wrapper；当前 AI/SKU/价格/平台/图像/Store/独立 SHEIN 登录同步及其它有效共享合同保持，原历史正文/计数不改。
+
 > 后续用户已确认 [#819 TEMU剩余整链边界](legacy-temu-listing-closure-retirement-boundary.md) §5/§6/§6.1/§7。本文件对该闭包内旧 TEMU AI/SKU/spec、PriceHandler/PriceCalculator、property/context/TemplateState、pipeline/skugen及专属纯规则/管理投影/prompt的保留描述仅为历史边界，现由#819精确替代；当前平台API/规则、共享合同、SHEIN价格/两属性、采集/图像/Store观察与独立SHEIN登录/Store同步继续保留。原证据不改，不授权实例或数据操作。
 
 > 后续用户已确认 [#817 整链退休边界](legacy-shein-listing-closure-retirement-boundary.md) §5–§7。仅替代下文 SHEIN productdata 的 handler/lookup 与 publish mapping_helper 消费/保留描述；共享 Reader/Cache、FetchVariants/CacheVariants、perf 与其余当前消费者仍保留。 原调查与验证证据保持历史属性；不据其复活旧 owner，不授权运行或数据操作。

@@ -12,7 +12,7 @@ import (
 )
 
 func TestCurrentConfigDoesNotRequireRetiredTaskInputs(t *testing.T) {
-	for _, name := range []string{"Processor", "Worker", "RabbitMQ", "Debug", "ListingControlPlane"} {
+	for _, name := range []string{"Processor", "Worker", "RabbitMQ", "Debug", "ListingControlPlane", "Updater"} {
 		_, exists := reflect.TypeOf(Config{}).FieldByName(name)
 		assert.False(t, exists, "retired root %s", name)
 	}
@@ -34,7 +34,7 @@ func TestCurrentConfigDoesNotRequireRetiredTaskInputs(t *testing.T) {
 	}
 	for _, key := range keys {
 		normalized := strings.ToLower(key)
-		for _, prefix := range []string{"processor.", "worker.", "rabbitmq.", "listingControlPlane.", "debug.save_publish_json", "listingkit.sheinSubmitDebugDumpDir", "listingkit.generationUsageLedger"} {
+		for _, prefix := range []string{"processor.", "worker.", "rabbitmq.", "listingControlPlane.", "debug.save_publish_json", "listingkit.sheinSubmitDebugDumpDir", "listingkit.generationUsageLedger", "updater."} {
 			assert.False(t, strings.HasPrefix(normalized, strings.ToLower(prefix)), "retired default/env %s", key)
 		}
 		for _, field := range []string{"dataFreshnessDays", "productDedupe", "regionGuard", "concurrencyControl", "remoteAPI"} {

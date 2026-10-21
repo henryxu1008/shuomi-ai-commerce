@@ -36,7 +36,6 @@ type Config struct {
 	// 1688 browser collector process (design D13).
 	BrowserCollector                                      BrowserCollectorConfig        `yaml:"browserCollector"`
 	Amazon                                                AmazonConfig                  `yaml:"amazon"`
-	Updater                                               UpdaterConfig                 `yaml:"updater"`
 	Platforms                                             PlatformsConfig               `yaml:"platforms"`
 	Watermark                                             *watermark.Config             `yaml:"watermark"`
 	ImageAgent                                            ImageAgentConfig              `yaml:"imageagent"`

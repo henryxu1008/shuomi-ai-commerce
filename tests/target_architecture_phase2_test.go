@@ -571,7 +571,11 @@ func TestTargetDomainsDoNotImportConcreteInfrastructure(t *testing.T) {
 }
 
 func TestPlatformQueueRabbitMQDoesNotImportApplicationOrLegacyInfrastructure(t *testing.T) {
-	index, err := loadGoFileIndex(filepath.Join("..", "internal", "platform", "queue", "rabbitmq"), "")
+	retired := filepath.Join("..", "internal", "platform", "queue", "rabbitmq")
+	if _, err := os.Stat(retired); !os.IsNotExist(err) {
+		t.Errorf("retired RabbitMQ package must be absent: %v", err)
+	}
+	index, err := loadGoFileIndex(filepath.Join("..", "internal"), "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -581,14 +585,8 @@ func TestPlatformQueueRabbitMQDoesNotImportApplicationOrLegacyInfrastructure(t *
 			if err != nil {
 				t.Fatalf("%s has invalid import %s: %v", filepath.ToSlash(path), imp, err)
 			}
-			for _, forbidden := range []string{
-				"task-processor/internal/app",
-				"task-processor/internal/core",
-				"task-processor/internal/infra",
-			} {
-				if importMatchesPrefix(clean, forbidden) {
-					t.Errorf("%s imports forbidden package %s", filepath.ToSlash(path), clean)
-				}
+			if importMatchesPrefix(clean, "task-processor/internal/platform/queue/rabbitmq") {
+				t.Errorf("%s imports retired RabbitMQ package %s", filepath.ToSlash(path), clean)
 			}
 		}
 	}

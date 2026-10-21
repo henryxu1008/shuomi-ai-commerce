@@ -1,5 +1,7 @@
 # RabbitMQ 主链验收手册
 
+> #872 当前边界：旧 platform/queue/rabbitmq 实现、validate-rabbitmq-flow.ps1 及孤立 tests/test_config.yaml 已按[确认的完整闭包](../architecture/legacy-queue-proxy-config-tail-closure-retirement-boundary.md)源退。下列探针/旧接口/consumer 操作仍只作 DATED EVIDENCE，不是当前可运行入口，不作为试用前置；当前 workerpool/Retry/Temporal、采集/Store与独立SHEIN登录同步保持。没有操作实际 broker/消息/实例，真实运行验收 NOT_RUN。
+
 > **DATED EVIDENCE / 旧刊登链历史材料**：#723 已按用户确认退休三个旧 CLI 及专属
 > 调度/消费链。下列旧命令、部署与验收步骤不再是当前操作说明，不得用于启动/发布或
 > 作为当前内部试用前置。历史事实保留；当前入口见
