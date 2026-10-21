@@ -157,7 +157,7 @@ func TestCurrentWorkerResponseLossResumesOnlyFixedSync(t *testing.T) {
 		t.Fatal(e)
 	}
 	done, e := s.store.Load(context.Background(), c.RequestKey)
-	if e != nil || done.SyncStatus != "applied" || automation.calls.Load() != 1 || reader.calls.Load() != 1 {
+	if e != nil || done.SyncStatus != "applied" || done.ErrorCode != "" || automation.calls.Load() != 1 || reader.calls.Load() != 1 {
 		t.Fatalf("replayed login/read=%+v %v", done, e)
 	}
 	replay, e := s.Execute(context.Background(), c)

@@ -299,6 +299,7 @@ func (s *Service) syncPending(ctx context.Context, a *LoginAttempt, account Acco
 		next.ErrorCode = "STORE_SYNC_UNAVAILABLE"
 	} else {
 		next.SyncStatus = receipt.Status
+		next.ErrorCode = ""
 		if receipt.Status == "blocked" {
 			next.ErrorCode = "SYNC_BLOCKED"
 		}
