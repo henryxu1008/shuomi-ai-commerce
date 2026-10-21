@@ -15,7 +15,7 @@ export function ImagePlanRoutePicker({scope,value,disabled,onChange,onValidity}:
  return <section aria-label="本次计划图片模型" className="space-y-2 rounded-lg border border-border p-4">
   <label className="flex flex-col gap-2 text-sm font-medium">本次计划使用的图片模型<select className="rounded-md border border-input bg-background p-2 text-foreground" value={key} disabled={disabled} onChange={e=>onChange(e.target.value==="default"?null:data?.options.find(o=>o.route&&routeKey(o.route)===e.target.value)?.route??null)}>
    <option value="default">跟随企业默认{data?.options[0]?`（${data.options[0].model}）`:""}</option>
-   {data?.options.filter(o=>o.route).map(o=><option key={o.route!.RevisionID} value={routeKey(o.route)}>GPT Image VIP · {o.points} 点/张</option>)}
+   {data?.options.filter(o=>o.route).map(o=><option key={o.route!.RevisionID} value={routeKey(o.route!)}>GPT Image VIP · {o.points} 点/张</option>)}
    {value&&!selected?<option value={key}>原选版本 {value.RevisionID}（尚未核实可用）</option>:null}
   </select></label>
   {selected?<p className="text-xs text-muted-foreground">{selected.model} · {selected.quality} · 原始输出 1024×1024 · {selected.points} 点/张{selected.route?` · 版本 ${selected.route.RevisionID} · 严格校验，不缩放`:""}</p>:null}
