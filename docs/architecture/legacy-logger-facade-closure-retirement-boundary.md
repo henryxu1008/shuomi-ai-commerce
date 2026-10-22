@@ -158,7 +158,8 @@ Cutover/deletion condition: §1–§7/§6.1获复核和用户确认/Ready；全1
 | --- | --- | --- |
 | tests/listingkit_backend_retirement_test.go | 在原AST/decoded-import设施加core/logger整根及专属helper源缺席/全追踪导入禁入；保护业务不通过platform/logging/appenv取新全局门面、SHEIN包级捕获退出、当前入口旧依赖退出 | 原所有退休/KEEP约束、错误必须fail；不missing-skip、不加dummy或旧alias |
 | 同文件 TestNumericContextAndValueContractsAreRetired | 对compat.go“必须读文件且不得有旧数字字段”转为整个logger根缺席/禁止全部消费者；可复用本批helper | platform/logging/helpers.go 原数字字段/Task/Store helper禁止及所有其它值/hash/规则断言原样保持；不能只忽略文件不存在 |
-| 原integration_provider_logger_contract、s3、SDK/SSA/phase2/import检查 | 保持实现/原禁止列表；运行适用原检查证明新接线不新增concrete依赖、provider或隐藏global getter | 不改logger method-set/constructor inventory、SSA/decoded parser/ceilings或SDK豁免，不为过CI改规则 |
+| 敏感词 adapter 的原 import/退休检查（用户已另行确认的准确例外） | 仅 TestPublishingSheinSubmitPrepUsesOnlySensitiveWordAdapter 允许 content 与 Logrus 类型、恰好一个 func(string) *logrus.Entry 参数且原样转交；tests/listingkit_backend_retirement_test.go 两项原退休 KEEP token 从零参数改为 (logs) | 仍强制直接返回原 NewSensitiveWordServiceInMemory；不允许其它依赖/参数/逻辑/全局获取/持久化选择，所有其它检查与生产行为不变 |
+| 原integration_provider_logger_contract、s3、SDK/SSA/phase2/import检查 | 除上行敏感词 adapter 的技术签名准确例外外，保持实现/原禁止列表；运行适用原检查证明新接线不新增concrete依赖、provider或隐藏global getter | 不改logger method-set/constructor inventory、SSA/decoded parser/ceilings或SDK豁免，不为过CI改规则 |
 | 原日志/各消费包测试 | 使用现有Logrus值/fake和临时sink，校准技术构造参数，必要添加上述真实行为断言；pure compat测试随根退出 | 不删有效业务/安全/隔离/日志行为测试，不运行真实外部入口 |
 | .golangci.yml / Code Health / deps | **零改**；退根由原Go guard加强，现有Platform/业务方向和provider规则继续约束 | 无lint豁免/新允许项、无升级/tidy/锁变化、无ceiling或accuracy逻辑调整 |
 | CURRENT inventory | 仅下方17删/1增，逐行精确更新实际消费者关系 | 整个其它文本、历史计数/表、ceilings/映射和检查逻辑不改，不能删除仍存在core/config或workerpool行 |
