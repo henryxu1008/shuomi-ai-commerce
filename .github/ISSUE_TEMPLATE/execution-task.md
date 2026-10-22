@@ -6,7 +6,7 @@ labels: ""
 assignees: ""
 ---
 
-依据：[Issue 驱动派工规则 V1](https://github.com/qq550723504/task-processor/blob/main/docs/engineering/issue-driven-development.md)。TDD、Legacy 与 Architecture First 准入沿用 [AGENTS.md](https://github.com/qq550723504/task-processor/blob/main/AGENTS.md)。所有正式开发任务必须填写 Design Basis；只有符合规则的简单任务才可写 N/A。
+依据：[Issue 驱动派工规则 V1](https://github.com/qq550723504/shuomi-ai-commerce/blob/main/docs/engineering/issue-driven-development.md)。TDD、Legacy 与 Architecture First 准入沿用 [AGENTS.md](https://github.com/qq550723504/shuomi-ai-commerce/blob/main/AGENTS.md)。所有正式开发任务必须填写 Design Basis；只有符合规则的简单任务才可写 N/A。
 
 ## 目标
 

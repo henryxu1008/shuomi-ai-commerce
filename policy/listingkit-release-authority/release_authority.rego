@@ -182,7 +182,7 @@ deny contains msg if {
 
 deny contains "machine policy repository or namespace drifted" if {
   count(release_policies) == 1
-  not policy.repository == "qq550723504/task-processor"
+  not policy.repository == "qq550723504/shuomi-ai-commerce"
 }
 
 deny contains "machine policy repository or namespace drifted" if {
