@@ -18,7 +18,7 @@ import (
 
 func TestCreateJobUsesVerifiedTenant(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	service := localagent.NewService(func() time.Time { return time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC) })
+	service := localagent.NewService(func() time.Time { return time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC) }, nil)
 	handler := NewHandler(service)
 	r := gin.New()
 	r.POST("/api/v1/local-agent/1688-jobs", handler.Create)
@@ -38,7 +38,7 @@ func TestCreateJobUsesVerifiedTenant(t *testing.T) {
 func TestSubmitResultAcknowledgesCleanDeclaredPayload(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	clock := func() time.Time { return time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC) }
-	service := localagent.NewService(clock)
+	service := localagent.NewService(clock, nil)
 	handler := NewHandler(service)
 	actorCtx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{TenantID: "tenant-a", UserID: "user-a"})
 
@@ -77,7 +77,7 @@ func TestSubmitResultAcknowledgesCleanDeclaredPayload(t *testing.T) {
 func TestSubmitResultRejectsUndeclaredSourceAccountID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	clock := func() time.Time { return time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC) }
-	service := localagent.NewService(clock)
+	service := localagent.NewService(clock, nil)
 	handler := NewHandler(service)
 	actorCtx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{TenantID: "tenant-a", UserID: "user-a"})
 
@@ -102,7 +102,7 @@ func TestSubmitResultRejectsUndeclaredSourceAccountID(t *testing.T) {
 func TestSubmitResultExposesInvalidSnapshotError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	clock := func() time.Time { return time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC) }
-	service := localagent.NewService(clock)
+	service := localagent.NewService(clock, nil)
 	handler := NewHandler(service)
 	actorCtx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{TenantID: "tenant-a", UserID: "user-a"})
 	job, err := service.Create(localagent.Actor{TenantID: "tenant-a", UserID: "user-a"}, "https://detail.1688.com/offer/1052008074197.html")
@@ -140,7 +140,7 @@ func TestProductSnapshotRequestMapsSnakeCaseFields(t *testing.T) {
 func TestSubmitResultRejectsUndeclaredPriceRangeCountInSnapshot(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	clock := func() time.Time { return time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC) }
-	service := localagent.NewService(clock)
+	service := localagent.NewService(clock, nil)
 	handler := NewHandler(service)
 	actorCtx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{TenantID: "tenant-a", UserID: "user-a"})
 	job, err := service.Create(localagent.Actor{TenantID: "tenant-a", UserID: "user-a"}, "https://detail.1688.com/offer/1052008074197.html")
@@ -164,7 +164,7 @@ func TestSubmitResultRejectsUndeclaredPriceRangeCountInSnapshot(t *testing.T) {
 func TestSubmitResultDuplicateSubmissionOriginalTokenReturnsConflict(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	clock := func() time.Time { return time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC) }
-	service := localagent.NewService(clock)
+	service := localagent.NewService(clock, nil)
 	handler := NewHandler(service)
 	actorCtx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{TenantID: "tenant-a", UserID: "user-a"})
 
@@ -206,7 +206,7 @@ func TestSubmitResultDuplicateSubmissionOriginalTokenReturnsConflict(t *testing.
 func TestSubmitResultDuplicateSubmissionWrongTokenReturnsForbidden(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	clock := func() time.Time { return time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC) }
-	service := localagent.NewService(clock)
+	service := localagent.NewService(clock, nil)
 	handler := NewHandler(service)
 	actorCtx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{TenantID: "tenant-a", UserID: "user-a"})
 
@@ -273,7 +273,7 @@ func TestDecodeStrictJSONRejectsTrailingValuesForReadersAndRawMessages(t *testin
 }
 
 func TestCreateRejectsOversizedRequestBodyBeforeBinding(t *testing.T) {
-	service := localagent.NewService(nil)
+	service := localagent.NewService(nil, nil)
 	handler := NewHandler(service)
 	actorCtx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{TenantID: "tenant-a", UserID: "user-a"})
 	r := gin.New()
@@ -285,7 +285,7 @@ func TestCreateRejectsOversizedRequestBodyBeforeBinding(t *testing.T) {
 }
 
 func TestHandlersRequireVerifiedIdentity(t *testing.T) {
-	handler := NewHandler(localagent.NewService(nil))
+	handler := NewHandler(localagent.NewService(nil, nil))
 	r := gin.New()
 	r.POST("/api/v1/local-agent/1688-jobs", handler.Create)
 	response := httptest.NewRecorder()
@@ -294,7 +294,7 @@ func TestHandlersRequireVerifiedIdentity(t *testing.T) {
 }
 
 func TestSubmitResultRejectsOversizedRequestBodyBeforeBinding(t *testing.T) {
-	service := localagent.NewService(nil)
+	service := localagent.NewService(nil, nil)
 	handler := NewHandler(service)
 	actorCtx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{TenantID: "tenant-a", UserID: "user-a"})
 	r := gin.New()

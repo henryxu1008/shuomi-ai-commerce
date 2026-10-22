@@ -7,7 +7,7 @@ import (
 )
 
 func TestValidateAndFixPriceRangesSortsAndFiltersRanges(t *testing.T) {
-	extractor := NewPriceExtractor()
+	extractor := NewPriceExtractor(nil)
 	product := &model.Product1688{
 		PriceRanges: []model.PriceRange{
 			{MinQuantity: 10, MaxQuantity: 0, Price: 9.9},
@@ -42,7 +42,7 @@ func TestValidateAndFixPriceRangesSortsAndFiltersRanges(t *testing.T) {
 }
 
 func TestValidateAndFixPriceRangesCollapsesDuplicateMinQuantity(t *testing.T) {
-	extractor := NewPriceExtractor()
+	extractor := NewPriceExtractor(nil)
 	product := &model.Product1688{
 		PriceRanges: []model.PriceRange{
 			{MinQuantity: 300, MaxQuantity: 0, Price: 699},

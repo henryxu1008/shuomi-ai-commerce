@@ -15,7 +15,6 @@ import (
 	"time"
 	"unicode/utf8"
 
-	coreLogger "task-processor/internal/core/logger"
 	alibaba1688 "task-processor/internal/crawler/alibaba1688"
 	"task-processor/internal/crawler/alibaba1688/model"
 	sourcea1688 "task-processor/internal/integration/crawler/a1688"
@@ -59,6 +58,8 @@ var (
 )
 
 type Service struct {
+	loggerDependency
+
 	mu   sync.Mutex
 	now  func() time.Time
 	jobs map[string]*record
@@ -72,11 +73,12 @@ type record struct {
 	claimAttempts                int
 }
 
-func NewService(now func() time.Time) *Service {
+func NewService(now func() time.Time, logs func(string) *logrus.Entry) *Service {
 	if now == nil {
 		now = time.Now
 	}
-	return &Service{now: now, jobs: make(map[string]*record)}
+	return &Service{loggerDependency: loggerDependency{logFor: logs},
+		now: now, jobs: make(map[string]*record)}
 }
 
 func (s *Service) Create(actor Actor, rawURL string) (Job, error) {
@@ -210,7 +212,7 @@ func (s *Service) SubmitSuccess(actor Actor, jobID, token string, product *sourc
 	if strings.TrimSpace(product.ID) == "" || product.ID != sourcea1688.ExtractAlibaba1688ProductID(claimedURL) {
 		return Job{}, fmt.Errorf("%w: %w: product id does not match claimed offer", ErrSnapshotInvalid, ErrInvalidClaim)
 	}
-	if err := validateCrawlerSnapshot(product); err != nil {
+	if err := validateCrawlerSnapshot(product, s.logFor); err != nil {
 		return Job{}, ErrSnapshotInvalid
 	}
 	envelope := sourcea1688.Alibaba1688SourceEnvelope(sourcea1688.Alibaba1688SourceEnvelopeInput{
@@ -250,13 +252,13 @@ func (s *Service) SubmitSuccess(actor Actor, jobID, token string, product *sourc
 	rec.terminalExecutionTokenDigest = executionTokenDigest(rec.executionToken)
 	rec.executionToken = ""
 	rec.retainedUntil = s.now().UTC().Add(terminalRetention)
-	logTransition(rec.job, "succeeded", "")
+	logTransition(rec.job, "succeeded", "", s.logFor)
 	completed := rec.job
 	completed.Envelope = &envelope
 	return completed, nil
 }
 
-func validateCrawlerSnapshot(product *sourcea1688.Alibaba1688ProductSnapshot) error {
+func validateCrawlerSnapshot(product *sourcea1688.Alibaba1688ProductSnapshot, logs func(string) *logrus.Entry) error {
 	videos := make([]model.Video, 0, len(product.Videos))
 	for _, video := range product.Videos {
 		videos = append(videos, model.Video{VideoURL: video.VideoURL, CoverURL: video.CoverURL})
@@ -273,7 +275,7 @@ func validateCrawlerSnapshot(product *sourcea1688.Alibaba1688ProductSnapshot) er
 	if product.PackInfo != nil {
 		packInfo = &model.PackInfo{PackageType: product.PackInfo.PackageType, Weight: product.PackInfo.Weight, PackageImages: product.PackInfo.PackageImages, Instructions: product.PackInfo.Instructions}
 	}
-	return alibaba1688.NewProductChecker().ValidateProduct(&model.Product1688{
+	return alibaba1688.NewProductChecker(logs).ValidateProduct(&model.Product1688{
 		Title:            product.Title,
 		URL:              product.URL,
 		Images:           product.Images,
@@ -345,7 +347,7 @@ func (s *Service) SubmitFailure(actor Actor, jobID, token string, failure Failur
 	rec.terminalExecutionTokenDigest = executionTokenDigest(rec.executionToken)
 	rec.executionToken = ""
 	rec.retainedUntil = s.now().UTC().Add(terminalRetention)
-	logTransition(rec.job, "failed", failure.Kind)
+	logTransition(rec.job, "failed", failure.Kind, s.logFor)
 	return rec.job, nil
 }
 
@@ -452,7 +454,7 @@ func newID() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-func logTransition(job Job, state string, failureKind FailureKind) {
+func logTransition(job Job, state string, failureKind FailureKind, logs func(string) *logrus.Entry) {
 	fields := logrus.Fields{
 		"job_id":    job.ID,
 		"tenant_id": job.TenantID,
@@ -461,5 +463,5 @@ func logTransition(job Job, state string, failureKind FailureKind) {
 	if failureKind != "" {
 		fields["failure_kind"] = failureKind
 	}
-	coreLogger.GetGlobalLogger("local-agent").WithFields(fields).Info("local-agent job transition")
+	componentLogger(logs, "local-agent").WithFields(fields).Info("local-agent job transition")
 }

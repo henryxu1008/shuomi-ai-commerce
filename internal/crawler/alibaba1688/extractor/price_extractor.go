@@ -2,25 +2,29 @@
 package extractor
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"sort"
 	"strconv"
-	"task-processor/internal/core/logger"
+
 	"task-processor/internal/crawler/alibaba1688/model"
 
 	"github.com/mxschmitt/playwright-go"
 )
 
 // PriceExtractor 价格提取器（包含价格范围功能）
-type PriceExtractor struct{}
+type PriceExtractor struct {
+	loggerDependency
+}
 
 // NewPriceExtractor 创建价格提取器
-func NewPriceExtractor() *PriceExtractor {
-	return &PriceExtractor{}
+func NewPriceExtractor(logs func(string) *logrus.Entry) *PriceExtractor {
+	return &PriceExtractor{loggerDependency: loggerDependency{logFor: logs}}
 }
 
 // Extract 提取价格信息 - 支持两种数据结构
 func (pe *PriceExtractor) Extract(page playwright.Page, product *model.Product1688) error {
-	logger.GetGlobalLogger("crawler/alibaba1688").Debug("开始提取价格信息")
+	pe.componentLogger("crawler/alibaba1688").Debug("开始提取价格信息")
 
 	// 从结构化数据中获取价格信息，支持两种数据结构
 	priceResult, err := page.Evaluate(`() => {
@@ -218,7 +222,7 @@ func (pe *PriceExtractor) Extract(page playwright.Page, product *model.Product16
 	}`, nil)
 
 	if err != nil {
-		logger.GetGlobalLogger("crawler/alibaba1688").Debugf("提取价格信息失败: %v", err)
+		pe.componentLogger("crawler/alibaba1688").Debugf("提取价格信息失败: %v", err)
 		return err
 	}
 
@@ -245,7 +249,7 @@ func (pe *PriceExtractor) processPriceResult(priceResult any, product *model.Pro
 	// 验证和修复价格区间
 	pe.validateAndFixPriceRanges(product)
 
-	logger.GetGlobalLogger("crawler/alibaba1688").Debugf("提取到价格信息: %.2f-%.2f, 起订量=%d, 价格区间数=%d",
+	pe.componentLogger("crawler/alibaba1688").Debugf("提取到价格信息: %.2f-%.2f, 起订量=%d, 价格区间数=%d",
 		product.MinPrice, product.MaxPrice, product.MinOrderQuantity, len(product.PriceRanges))
 
 	return nil

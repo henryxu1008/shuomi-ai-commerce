@@ -12,8 +12,6 @@ import (
 	"task-processor/internal/pkg/jsonx"
 	"time"
 
-	"task-processor/internal/core/logger"
-
 	"github.com/sirupsen/logrus"
 )
 
@@ -38,13 +36,13 @@ type AuthManager struct {
 }
 
 // NewAuthManager 创建认证管理器
-func NewAuthManager(clientID, clientSecret, refreshToken string) *AuthManager {
+func NewAuthManager(clientID, clientSecret, refreshToken string, logs func(string) *logrus.Entry) *AuthManager {
 	return &AuthManager{
 		clientID:     clientID,
 		clientSecret: clientSecret,
 		refreshToken: refreshToken,
 		httpClient:   httpclient.NewSimple(),
-		logger:       logger.GetGlobalLogger("AuthManager"),
+		logger:       componentLogger(logs, "AuthManager"),
 	}
 }
 

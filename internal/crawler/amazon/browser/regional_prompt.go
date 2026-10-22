@@ -1,11 +1,11 @@
 package browser
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"net/url"
 	"strings"
 	"time"
-
-	"task-processor/internal/core/logger"
 
 	"github.com/mxschmitt/playwright-go"
 )
@@ -71,12 +71,12 @@ func looksLikeRegionalPrompt(page playwright.Page) bool {
 	return false
 }
 
-func DismissRegionalPrompt(page playwright.Page, targetURL string) bool {
+func DismissRegionalPrompt(page playwright.Page, targetURL string, logs func(string) *logrus.Entry) bool {
 	if page == nil || page.IsClosed() || !looksLikeRegionalPrompt(page) {
 		return false
 	}
 
-	log := logger.GetGlobalLogger("crawler/amazon")
+	log := componentLogger(logs, "crawler/amazon")
 	log.Info("检测到跨站点访问提示弹窗，尝试关闭或继续留在当前 Amazon 站点")
 
 	for _, selector := range regionalPromptActionSelectors(targetURL) {

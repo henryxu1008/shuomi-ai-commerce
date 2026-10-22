@@ -12,7 +12,7 @@ import (
 )
 
 func TestInstanceProcessorRetriesOnProductQualityFailure(t *testing.T) {
-	ip := NewInstanceProcessor(NewURLHelper(), NewProductChecker(), NewProductResultValidator())
+	ip := NewInstanceProcessor(NewURLHelper(), NewProductChecker(nil), nil, NewProductResultValidator())
 	ip.SetQualityControlOptions(true, 2)
 	metrics := newQualityMetrics()
 	ip.SetQualityMetricsRecorder(metrics)
@@ -61,7 +61,7 @@ func TestInstanceProcessorRetriesOnProductQualityFailure(t *testing.T) {
 }
 
 func TestInstanceProcessorStopsAfterQualityRetryLimit(t *testing.T) {
-	ip := NewInstanceProcessor(NewURLHelper(), NewProductChecker(), NewProductResultValidator())
+	ip := NewInstanceProcessor(NewURLHelper(), NewProductChecker(nil), nil, NewProductResultValidator())
 	ip.SetQualityControlOptions(true, 2)
 	metrics := newQualityMetrics()
 	ip.SetQualityMetricsRecorder(metrics)
@@ -138,7 +138,7 @@ func TestInstanceProcessorResolveDefaultZipcodeForTargetContext(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			ip := NewInstanceProcessor(NewURLHelper(), NewProductChecker(), NewProductResultValidator())
+			ip := NewInstanceProcessor(NewURLHelper(), NewProductChecker(nil), nil, NewProductResultValidator())
 			metrics := newQualityMetrics()
 			ip.matchTargetContext = tc.matchTargetContext
 			ip.SetQualityMetricsRecorder(metrics)

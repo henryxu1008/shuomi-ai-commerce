@@ -167,6 +167,8 @@ Must not depend on:
 
 ### 3.6 Platform and integration modules
 
+Current #301/#893 supersession: the user-confirmed [complete logger facade retirement](legacy-logger-facade-closure-retirement-boundary.md) removes `internal/core/logger` and its consumer wiring. Current runtime composition injects Logrus entries/local component callbacks; Platform retains logging state/configuration/output. The historical forwarding facade and 82-importer ceiling below remain historical evidence, not permission to recreate the facade or import Platform from business packages. No other owner, ceiling, runtime capability or trial requirement changes.
+
 Current runtime-foundation owners:
 
 - `internal/platform/logging`

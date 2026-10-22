@@ -6,8 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"task-processor/internal/core/logger"
-
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 )
@@ -25,16 +23,9 @@ type promptLoader struct {
 	log *logrus.Entry
 }
 
-// NewPromptLoader 创建一个新的 PromptLoader 实例
-func NewPromptLoader() PromptLoader {
-	return &promptLoader{
-		log: logger.GetGlobalLogger("prompt.loader"),
-	}
-}
-
 // NewPromptLoaderWithLogger 创建一个使用指定 logger 的 PromptLoader 实例
 func NewPromptLoaderWithLogger(log *logrus.Entry) PromptLoader {
-	return &promptLoader{log: log}
+	return &promptLoader{log: diagnosticLogger(log)}
 }
 
 // LoadAll 递归加载目录下所有 .yaml 文件，合并所有 key

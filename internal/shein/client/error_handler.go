@@ -2,21 +2,26 @@
 package client
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"errors"
 	"fmt"
-	"task-processor/internal/core/logger"
+
 	"task-processor/internal/shein/api"
 )
 
 // APIErrorHandler API错误处理器
 type APIErrorHandler struct {
+	loggerDependency
+
 	baseClient *BaseAPIClient
 }
 
 // NewAPIErrorHandler 创建API错误处理器
-func NewAPIErrorHandler(baseClient *BaseAPIClient) *APIErrorHandler {
+func NewAPIErrorHandler(baseClient *BaseAPIClient, logs func(string) *logrus.Entry) *APIErrorHandler {
 	return &APIErrorHandler{
-		baseClient: baseClient,
+		loggerDependency: loggerDependency{logFor: logs},
+		baseClient:       baseClient,
 	}
 }
 
@@ -93,7 +98,7 @@ func (h *APIErrorHandler) LogError(err error, operation string) {
 		return
 	}
 
-	logger.GetGlobalLogger("shein_api_client").
+	h.componentLogger("shein_api_client").
 		WithField("operation", operation).
 		WithError(err).
 		Error("API错误")

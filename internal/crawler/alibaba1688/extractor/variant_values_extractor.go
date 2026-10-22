@@ -2,19 +2,23 @@
 package extractor
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"strings"
-	"task-processor/internal/core/logger"
+
 	"task-processor/internal/crawler/alibaba1688/model"
 
 	"github.com/mxschmitt/playwright-go"
 )
 
 // VariantValuesExtractor 变体值提取器
-type VariantValuesExtractor struct{}
+type VariantValuesExtractor struct {
+	loggerDependency
+}
 
 // NewVariantValuesExtractor 创建变体值提取器
-func NewVariantValuesExtractor() *VariantValuesExtractor {
-	return &VariantValuesExtractor{}
+func NewVariantValuesExtractor(logs func(string) *logrus.Entry) *VariantValuesExtractor {
+	return &VariantValuesExtractor{loggerDependency: loggerDependency{logFor: logs}}
 }
 
 // Extract 提取变体值信息 - 支持两种数据结构
@@ -132,7 +136,7 @@ func (vve *VariantValuesExtractor) Extract(page playwright.Page, product *model.
 	}`, nil)
 
 	if err != nil {
-		logger.GetGlobalLogger("crawler/alibaba1688").Debugf("提取变体值失败: %v", err)
+		vve.componentLogger("crawler/alibaba1688").Debugf("提取变体值失败: %v", err)
 		return err
 	}
 
@@ -175,7 +179,7 @@ func (vve *VariantValuesExtractor) Extract(page playwright.Page, product *model.
 	}
 
 	product.VariationsValues = variationValues
-	logger.GetGlobalLogger("crawler/alibaba1688").Debugf("提取到 %d 个变体值", len(variationValues))
+	vve.componentLogger("crawler/alibaba1688").Debugf("提取到 %d 个变体值", len(variationValues))
 
 	return nil
 }

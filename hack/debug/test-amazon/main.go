@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"task-processor/internal/pkg/appenv"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -32,7 +33,7 @@ func main() {
 		log.Fatalf("load config failed: %v", err)
 	}
 
-	processor := amazon.NewAmazonProcessor(cfg)
+	processor := amazon.NewAmazonProcessor(cfg, appenv.ComponentLoggers())
 	defer processor.Shutdown()
 
 	testURL := "https://www.amazon.com/dp/B0FHVPK4SL"

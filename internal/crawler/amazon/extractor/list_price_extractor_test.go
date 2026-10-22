@@ -9,7 +9,7 @@ import (
 )
 
 func TestListPriceExtractor_validatePriorityPrice(t *testing.T) {
-	extractor := NewListPriceExtractor("US")
+	extractor := NewListPriceExtractor("US", nil)
 
 	tests := []struct {
 		name          string
@@ -59,7 +59,7 @@ func TestListPriceExtractor_validatePriorityPrice(t *testing.T) {
 }
 
 func TestListPriceExtractor_PriceBreakdownAssignment(t *testing.T) {
-	extractor := NewListPriceExtractor("US")
+	extractor := NewListPriceExtractor("US", nil)
 
 	// 测试价格解析和赋值逻辑
 	product := &model.Product{
@@ -105,7 +105,7 @@ func TestContainsListPriceMarker(t *testing.T) {
 }
 
 func TestListPriceExtractor_NoListPriceScenario(t *testing.T) {
-	extractor := NewListPriceExtractor("US")
+	extractor := NewListPriceExtractor("US", nil)
 
 	// 测试没有原价的情况
 	product := &model.Product{
@@ -123,7 +123,7 @@ func TestListPriceExtractor_NoListPriceScenario(t *testing.T) {
 }
 
 func TestListPriceExtractor_containsOtherASIN(t *testing.T) {
-	extractor := NewListPriceExtractor("US")
+	extractor := NewListPriceExtractor("US", nil)
 
 	tests := []struct {
 		name        string
@@ -166,7 +166,7 @@ func TestListPriceExtractor_containsOtherASIN(t *testing.T) {
 }
 
 func TestListPriceExtractor_containsOtherProductURL(t *testing.T) {
-	extractor := NewListPriceExtractor("US")
+	extractor := NewListPriceExtractor("US", nil)
 
 	tests := []struct {
 		name        string
@@ -215,7 +215,7 @@ func TestIsExcludedListPriceContainerClass(t *testing.T) {
 }
 
 func TestListPriceExtractor_shouldSkipCandidateByText(t *testing.T) {
-	extractor := NewListPriceExtractor("US")
+	extractor := NewListPriceExtractor("US", nil)
 
 	assert.True(t, extractor.shouldSkipCandidateByText("$15.98", 15.98))
 	assert.False(t, extractor.shouldSkipCandidateByText("$21.99", 15.98))

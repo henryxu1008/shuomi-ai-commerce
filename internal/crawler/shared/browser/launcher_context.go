@@ -1,6 +1,8 @@
 package browser
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"encoding/json"
 	"fmt"
 	"os"
@@ -8,13 +10,14 @@ import (
 	"runtime"
 	"sort"
 	"strings"
-	"task-processor/internal/core/logger"
 
 	"github.com/mxschmitt/playwright-go"
 )
 
 // ContextLauncher 浏览器上下文启动器
 type ContextLauncher struct {
+	loggerDependency
+
 	pw          *playwright.Playwright
 	config      *BrowserConfig
 	fingerprint *FingerprintConfig
@@ -24,12 +27,13 @@ type ContextLauncher struct {
 const persistentBrowserLaunchTimeout = 60_000
 
 // NewContextLauncher 创建上下文启动器
-func NewContextLauncher(pw *playwright.Playwright, cfg *BrowserConfig, fingerprint *FingerprintConfig, userDataDir string) *ContextLauncher {
+func NewContextLauncher(pw *playwright.Playwright, cfg *BrowserConfig, fingerprint *FingerprintConfig, userDataDir string, logs func(string) *logrus.Entry) *ContextLauncher {
 	return &ContextLauncher{
-		pw:          pw,
-		config:      cfg,
-		fingerprint: fingerprint,
-		userDataDir: userDataDir,
+		loggerDependency: loggerDependency{logFor: logs},
+		pw:               pw,
+		config:           cfg,
+		fingerprint:      fingerprint,
+		userDataDir:      userDataDir,
 	}
 }
 
@@ -81,7 +85,7 @@ func (cl *ContextLauncher) launchPersistentContext(userAgent string) (playwright
 		}
 		options.UserAgent = playwright.String(userAgent)
 		options.Locale = playwright.String(contextLocale(cl.config))
-		options.TimezoneId = contextTimezone(cl.config)
+		options.TimezoneId = contextTimezone(cl.config, cl.logFor)
 	} else {
 		options.Viewport = &playwright.Size{
 			Width:  cl.config.ViewportWidth,
@@ -95,21 +99,21 @@ func (cl *ContextLauncher) launchPersistentContext(userAgent string) (playwright
 	// 设置浏览器路径（支持自动下载）
 	browserPath, err := cl.ensureBrowserPath()
 	if err != nil {
-		logger.GetGlobalLogger("crawler/shared").Warnf("获取浏览器路径失败: %v，使用默认浏览器", err)
+		cl.componentLogger("crawler/shared").Warnf("获取浏览器路径失败: %v，使用默认浏览器", err)
 	} else if browserPath != "" {
 		options.ExecutablePath = &browserPath
-		logger.GetGlobalLogger("crawler/shared").Infof("使用浏览器路径: %s", browserPath)
+		cl.componentLogger("crawler/shared").Infof("使用浏览器路径: %s", browserPath)
 	}
 
 	// 配置代理
 	if cl.config.ProxyServer != "" {
 		if proxy := parseProxyServer(cl.config.ProxyServer); proxy != nil {
 			options.Proxy = proxy
-			logger.GetGlobalLogger("crawler/shared").Infof("使用代理服务器: %s", proxy.Server)
+			cl.componentLogger("crawler/shared").Infof("使用代理服务器: %s", proxy.Server)
 		}
 	}
 
-	logger.GetGlobalLogger("crawler/shared").Info("使用持久化上下文启动浏览器")
+	cl.componentLogger("crawler/shared").Info("使用持久化上下文启动浏览器")
 
 	// 启动持久化上下文
 	context, err := (*cl.pw).Chromium.LaunchPersistentContext(userDataDir, options)
@@ -129,15 +133,15 @@ func (cl *ContextLauncher) launchPersistentContext(userAgent string) (playwright
 // launchNormalContext 使用普通方式启动
 func (cl *ContextLauncher) launchNormalContext(userAgent string) (playwright.Browser, playwright.BrowserContext, error) {
 	// 创建启动选项
-	launchOptions := CreateLaunchOptions(cl.config, cl.fingerprint)
+	launchOptions := CreateLaunchOptions(cl.config, cl.fingerprint, cl.logFor)
 
 	// 设置浏览器路径（支持自动下载）
 	browserPath, err := cl.ensureBrowserPath()
 	if err != nil {
-		logger.GetGlobalLogger("crawler/shared").Warnf("获取浏览器路径失败: %v，使用默认浏览器", err)
+		cl.componentLogger("crawler/shared").Warnf("获取浏览器路径失败: %v，使用默认浏览器", err)
 	} else if browserPath != "" {
 		launchOptions.ExecutablePath = &browserPath
-		logger.GetGlobalLogger("crawler/shared").Infof("使用浏览器路径: %s", browserPath)
+		cl.componentLogger("crawler/shared").Infof("使用浏览器路径: %s", browserPath)
 	}
 
 	browser, err := (*cl.pw).Chromium.Launch(launchOptions)
@@ -146,7 +150,7 @@ func (cl *ContextLauncher) launchNormalContext(userAgent string) (playwright.Bro
 	}
 
 	// 创建浏览器上下文选项
-	contextOptions := CreateContextOptions(cl.config, userAgent)
+	contextOptions := CreateContextOptions(cl.config, userAgent, cl.logFor)
 
 	context, err := browser.NewContext(contextOptions)
 	if err != nil {
@@ -254,12 +258,12 @@ func contextLocale(cfg *BrowserConfig) string {
 	return "en-US"
 }
 
-func contextTimezone(cfg *BrowserConfig) *string {
+func contextTimezone(cfg *BrowserConfig, logs func(string) *logrus.Entry) *string {
 	value := ""
 	if cfg != nil && strings.TrimSpace(cfg.Timezone) != "" {
 		value = strings.TrimSpace(cfg.Timezone)
 	} else if cfg != nil {
-		if inferred := GetTimezoneForRegion(cfg.ProxyServer); inferred != nil {
+		if inferred := GetTimezoneForRegion(cfg.ProxyServer, logs); inferred != nil {
 			value = strings.TrimSpace(*inferred)
 		}
 	}
@@ -344,16 +348,16 @@ func (cl *ContextLauncher) ensureBrowserPath() (string, error) {
 	if cl.config.BrowserPath != "" {
 		// Windows exe 在非 Windows 系统上直接跳过，走自动下载
 		if runtime.GOOS != "windows" && strings.HasSuffix(strings.ToLower(cl.config.BrowserPath), ".exe") {
-			logger.GetGlobalLogger("crawler/shared").Infof("当前系统为 %s，跳过 Windows 浏览器路径: %s", runtime.GOOS, cl.config.BrowserPath)
+			cl.componentLogger("crawler/shared").Infof("当前系统为 %s，跳过 Windows 浏览器路径: %s", runtime.GOOS, cl.config.BrowserPath)
 		} else if _, err := os.Stat(cl.config.BrowserPath); err == nil {
 			return cl.config.BrowserPath, nil
 		} else {
-			logger.GetGlobalLogger("crawler/shared").Warnf("配置的浏览器路径不存在: %s，尝试自动下载", cl.config.BrowserPath)
+			cl.componentLogger("crawler/shared").Warnf("配置的浏览器路径不存在: %s，尝试自动下载", cl.config.BrowserPath)
 		}
 	}
 
 	if managedPath, err := findManagedPlaywrightBrowser(); err == nil && managedPath != "" {
-		logger.GetGlobalLogger("crawler/shared").Infof("使用 Playwright 预装浏览器: %s", managedPath)
+		cl.componentLogger("crawler/shared").Infof("使用 Playwright 预装浏览器: %s", managedPath)
 		return managedPath, nil
 	}
 
@@ -369,7 +373,7 @@ func (cl *ContextLauncher) ensureBrowserPath() (string, error) {
 	}
 
 	// 创建下载器并检查/下载 Chrome
-	downloader := NewChromeDownloader(version, downloadDir)
+	downloader := NewChromeDownloader(version, downloadDir, cl.logFor)
 	chromePath, err := downloader.CheckAndDownload(cl.config.BrowserPath)
 	if err != nil {
 		return "", fmt.Errorf("自动下载 Chrome 失败: %w", err)

@@ -104,7 +104,7 @@ func TestSheinDiagnosticBrowserFixture(t *testing.T) {
 	require.NoError(t, err)
 	resolver := workbenchcontext.NewResolver(f, "project", "v1", nil)
 	application := func() *http.Server {
-		app, _, e := NewSheinRecordApplication(db, f, resolver, authorizer)
+		app, _, e := NewSheinRecordApplication(db, f, resolver, authorizer, nil)
 		require.NoError(t, e)
 		return app
 	}

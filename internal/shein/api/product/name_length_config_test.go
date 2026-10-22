@@ -46,7 +46,7 @@ func TestClientQueryProductNameLengthConfig(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(sheinclient.NewBaseAPIClient(server.URL, req.C()))
+	client := NewClient(sheinclient.NewBaseAPIClient(server.URL, req.C()), nil)
 	got, err := client.QueryProductNameLengthConfig(1772)
 	if err != nil {
 		t.Fatalf("QueryProductNameLengthConfig() error = %v", err)

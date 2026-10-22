@@ -1,6 +1,6 @@
 # #301 旧日志门面与全部消费接线完整退休设计
 
-Status: **PROPOSED / DESIGN_ONLY / 源码 NOT_READY**。本轮仅只读核对和三份设计文档；具体 §1–§7（含 §6.1）获确认及 Ready 读回前不实施。#301 OPEN，#29 不重开。准确设计 HEAD、CI、独立复核及后续批准留 PR，不在本文滚动追加状态提交。
+Status: **USER_CONFIRMED / SOURCE_IMPLEMENTED，待原实现 CI 与最终交付复核**。用户已确认冻结设计 cace5c1f4 §1–§7（含 §6.1），Reuse Existing Architecture / Ready 已在 Issue/PR 读回后才改生产源码；授权/准入证据 [#301 / 6342053569](https://github.com/qq550723504/shuomi-ai-commerce/issues/301#issuecomment-6342053569)。本批在 #893 整批实施，#301 OPEN，#29 不重开。准确实现 HEAD、CI、独立复核及后续批准留 PR，不在本文滚动追加状态提交。
 
 调查基线 main **cbf2821d9a7fa18319e40907c8eae08dd184c28b**。#891 已按 ea36d44d1 正常合并，准确 push/main CI39777246449 attempt1 完整 SUCCESS；这是前批证据，不代替本设计或未来源码 CI。接单见 [#301 / 6341047238](https://github.com/qq550723504/shuomi-ai-commerce/issues/301#issuecomment-6341047238)。
 
@@ -10,13 +10,13 @@ Status: **PROPOSED / DESIGN_ONLY / 源码 NOT_READY**。本轮仅只读核对和
 
 闭包包含：core/logger 两源、publishing/shein 专属全局转发 helper、17 直接消费包的79个已知生产文件，以及这些构造/辅助函数向上到装配入口、向下到子组件和测试/debug 的全部日志传参尾部。保留当前业务行为，必要的注入字段/签名调整在同一 Delivery Batch 完成；不按文件数、目录或审核机械拆 PR。79是调查到的直接消费清单，不是用来遗漏无直接 import 的 constructor/caller 的文件上限。
 
-设计阶段仅本文、Architecture 索引和 Legacy Register 的 PROPOSED 注记。生产源码、测试、配置、inventory、lint/workflow、依赖/锁及保护零改；未来实施只覆盖 §5 和 §6.1 的日志依赖切换/最小敏感日志修订。确认设计不授权合并、部署、关单或真实资源操作。
+设计阶段仅本文、Architecture 索引和 Legacy Register；用户确认后实施严格覆盖 §5/§6.1 的日志依赖切换、原 guard 转换和两条敏感日志参数修订。历史、计数、ceilings/其它检查、lint/workflow、依赖/锁及保护保持。设计/实施授权均不包括合并、部署、关单或真实资源操作。
 
 不读取既有凭据、私密配置/状态/日志、Cookie/Profile/缓存，不执行应用/worker、浏览器/下载器/安装器、登录、provider、数据库或 Redis，不操作既有实例、数据、凭据或进程，不清 ignored 文件。调查只读 Git 追踪源码、文档及依赖元数据；测试、CI、编译与运行验收分别记录。
 
 ## 2. Design Basis、Authority 与保留不变量
 
-本轮 **Design Basis: N/A**：只读调查/三文档。未来源码拟采用 **Reuse Existing Architecture，当前 NOT_READY**，直接复用：
+设计阶段 **Design Basis: N/A**（只读调查/三文档）；用户确认后的源码实施为 **Reuse Existing Architecture / Ready**，完整复用以下现有 owner/合同，不新增领域或持久化事实：
 
 - [Greenfield](../product/greenfield-no-legacy-migration.md)、[Hard-Cut Policy](../refactoring/legacy-hard-cut-policy.md)、[Legacy Register](../refactoring/legacy-register.md)和[Issue 驱动规则](../engineering/issue-driven-development.md)：只 EXTRACT/RETIRE，无旧 compatibility、双读/双写、迁移或第二事实源。
 - [Project Target Architecture](project-target-architecture.md)、[Project Boundaries](project-boundaries.md) §3.6 和 [Phase2 runtime inventory](../refactoring/phase2-runtime-inventory.md)：Platform 保有日志实现/生命周期，当前门面只是暂留债务，业务最终使用消费端窄依赖。历史 ceiling 82/9 不是允许把79处业务 import直接替换为 Platform 的依据。
@@ -152,7 +152,7 @@ Cutover/deletion condition: §1–§7/§6.1获复核和用户确认/Ready；全1
 
 ### 6.1 原检查、CURRENT inventory、文档与workflow精确处置
 
-以下全部是**未来提案，尚未应用**：
+以下为用户确认的**同批准确实施矩阵**；CURRENT 严格 17 删/1 增，其它对象按下列边界执行：
 
 | 对象 | 同批准确处置 | 不得改变 |
 | --- | --- | --- |
@@ -197,7 +197,7 @@ Platform直接内部importer保持原有3个总量：移除core/logger、加入a
 
 ## 7. 准入、停止与父目标关闭边界
 
-1. 当前只交设计。用户确认具体§1–§7/§6.1（含17删/1增及两条Cookie值日志）并完成适用复核后，才更新/读回#301和PR Reuse Existing Architecture / Ready并进入同一PR整批实施。本接单/设计CI/旧批次授权不能代替。
+1. 冻结设计 cace5c1f4 的独立复核/原 CI 已完成，用户确认具体§1–§7/§6.1（含17删/1增及两条Cookie值日志）；#301/PR Reuse Existing Architecture / Ready已读回后才进入同一PR整批实施。设计/旧批次证据不替代准确实现 HEAD 的原 CI、最终交付检查或合并授权。
 2. 同一Writer连续完成，形成稳定最终候选前核对实际main与消费者；不为保持最新持续merge-main或重复全量评审。对已确认未变化证据明确复用，不冒充新HEAD直接执行。
 3. 若真实消费者需要当前日志之外的新管理/配置/持久化/恢复/权限/平台副作用，或需要表外owner/冻结KEEP变更，先报告具体当前用户操作、最小改动和成本；不把旧facade搬家或用global setter/fallback“解决编译”。
 4. 若仅是表中owner内的纯日志传参/fixture细化，在同批完成并维护实际清单；发现新的外部可观察兼容义务或当前Must的真实BLOCKER时停止对应部分并报告。不能由Reviewer自行新增compatibility、通用框架、运行验收矩阵或试用前置。

@@ -13,6 +13,7 @@ import (
 	supplyhttp "task-processor/internal/app/supplychain/httpapi"
 	imageworker "task-processor/internal/app/worker/imageagent"
 	billinghttp "task-processor/internal/commercial/billing/httpapi"
+	"task-processor/internal/pkg/appenv"
 	"task-processor/internal/product/collection"
 	markethttp "task-processor/internal/product/supplymarket/httpapi"
 	"task-processor/internal/shopdiagnosis"
@@ -336,7 +337,7 @@ func defaultCurrentApplicationFactories(ctx context.Context, projectIDs ...strin
 			if !ok || resolver == nil {
 				return nil, errors.New("#36 local trial requires current workbench resolver")
 			}
-			return buildIssue36TrialModule(ctx, db, resolver, authorizer)
+			return buildIssue36TrialModule(ctx, db, resolver, authorizer, appenv.ComponentLoggers())
 		},
 		buildSourceAccount: func(db *gorm.DB, authorizer *authz.ListingKitAuthorizer) (kernelmodule.Module, error) {
 			if err := sourceaccountstore.VerifyRuntimePermissions(ctx, db); err != nil {
@@ -722,7 +723,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			workbench.handler.SetOperationsCockpitAvailable(true)
 		}
 	}
-	sms, err := buildZitadelSMSModule(ctx)
+	sms, err := buildZitadelSMSModule(ctx, appenv.ComponentLoggers()("zitadel-sms"))
 	if err != nil {
 		return nil, err
 	}

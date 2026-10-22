@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"task-processor/internal/core/logger"
+
 	"task-processor/internal/model"
 	"task-processor/internal/pkg/timeout"
 
@@ -15,7 +15,9 @@ import (
 )
 
 // RatingExtractor 评分提取器
-type RatingExtractor struct{}
+type RatingExtractor struct {
+	loggerDependency
+}
 
 // Extract 提取评分和评论数据（并行优化版本）
 func (e *RatingExtractor) Extract(page playwright.Page, product *model.Product) error {
@@ -30,7 +32,7 @@ func (e *RatingExtractor) Extract(page playwright.Page, product *model.Product) 
 	go func() {
 		defer wg.Done()
 		if err := e.extractRating(ctx, page, product); err != nil {
-			logger.GetGlobalLogger("crawler/amazon").Warnf("提取评分失败: %v", err)
+			e.componentLogger("crawler/amazon").Warnf("提取评分失败: %v", err)
 		}
 	}()
 
@@ -38,13 +40,13 @@ func (e *RatingExtractor) Extract(page playwright.Page, product *model.Product) 
 	go func() {
 		defer wg.Done()
 		if err := e.extractReviewsCount(ctx, page, product); err != nil {
-			logger.GetGlobalLogger("crawler/amazon").Warnf("提取评论数失败: %v", err)
+			e.componentLogger("crawler/amazon").Warnf("提取评论数失败: %v", err)
 		}
 	}()
 
 	wg.Wait()
 
-	logger.GetGlobalLogger("crawler/amazon").Infof("评分提取结果: Rating=%.1f, ReviewsCount=%d", product.Rating, product.ReviewsCount)
+	e.componentLogger("crawler/amazon").Infof("评分提取结果: Rating=%.1f, ReviewsCount=%d", product.Rating, product.ReviewsCount)
 	return nil
 }
 
@@ -111,7 +113,7 @@ func (e *RatingExtractor) extractRating(_ context.Context, page playwright.Page,
 		// 解析评分
 		if rating := e.parseRating(text); rating > 0 {
 			product.Rating = rating
-			logger.GetGlobalLogger("crawler/amazon").Infof("成功提取评分: %.1f", rating)
+			e.componentLogger("crawler/amazon").Infof("成功提取评分: %.1f", rating)
 			return nil
 		}
 	}
@@ -119,7 +121,7 @@ func (e *RatingExtractor) extractRating(_ context.Context, page playwright.Page,
 	// 尝试从页面源码中提取评分
 	if rating := e.extractRatingFromPageSource(page); rating > 0 {
 		product.Rating = rating
-		logger.GetGlobalLogger("crawler/amazon").Infof("从页面源码提取评分: %.1f", rating)
+		e.componentLogger("crawler/amazon").Infof("从页面源码提取评分: %.1f", rating)
 		return nil
 	}
 
@@ -161,12 +163,12 @@ func (e *RatingExtractor) extractReviewsCount(_ context.Context, page playwright
 		// 解析评论数
 		if reviewCount := e.parseReviewsCount(text); reviewCount > 0 {
 			product.ReviewsCount = reviewCount
-			logger.GetGlobalLogger("crawler/amazon").Infof("成功提取评论数: %d", reviewCount)
+			e.componentLogger("crawler/amazon").Infof("成功提取评论数: %d", reviewCount)
 			return nil
 		}
 
 		if e.looksLikeReviewSectionLabel(text) {
-			logger.GetGlobalLogger("crawler/amazon").Infof("页面存在评论区入口但未展示评论数，保持 ReviewsCount=0: %q", strings.TrimSpace(text))
+			e.componentLogger("crawler/amazon").Infof("页面存在评论区入口但未展示评论数，保持 ReviewsCount=0: %q", strings.TrimSpace(text))
 			return nil
 		}
 	}
@@ -174,12 +176,12 @@ func (e *RatingExtractor) extractReviewsCount(_ context.Context, page playwright
 	// 尝试从页面源码中提取评论数
 	if reviewCount := e.extractReviewsCountFromPageSource(page); reviewCount > 0 {
 		product.ReviewsCount = reviewCount
-		logger.GetGlobalLogger("crawler/amazon").Infof("从页面源码提取评论数: %d", reviewCount)
+		e.componentLogger("crawler/amazon").Infof("从页面源码提取评论数: %d", reviewCount)
 		return nil
 	}
 
 	if e.hasReviewSectionWithoutCount(page) {
-		logger.GetGlobalLogger("crawler/amazon").Info("页面存在评论区但未发现数字评论数，保持 ReviewsCount=0")
+		e.componentLogger("crawler/amazon").Info("页面存在评论区但未发现数字评论数，保持 ReviewsCount=0")
 		return nil
 	}
 

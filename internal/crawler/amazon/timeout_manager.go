@@ -7,8 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"task-processor/internal/core/logger"
-
 	"github.com/sirupsen/logrus"
 )
 
@@ -21,10 +19,10 @@ type TimeoutManager struct {
 }
 
 // NewTimeoutManager 创建超时管理器
-func NewTimeoutManager(defaultTimeout time.Duration) *TimeoutManager {
+func NewTimeoutManager(defaultTimeout time.Duration, logs func(string) *logrus.Entry) *TimeoutManager {
 	return &TimeoutManager{
 		defaultTimeout: defaultTimeout,
-		logger:         logger.GetGlobalLogger("TimeoutManager"),
+		logger:         componentLogger(logs, "TimeoutManager"),
 		activeContexts: make(map[string]context.CancelFunc),
 	}
 }

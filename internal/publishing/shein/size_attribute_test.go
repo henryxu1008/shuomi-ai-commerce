@@ -55,7 +55,7 @@ func TestAssemblerBuildAppliesStructuredProductSizeToPreviewPayload(t *testing.T
 				},
 			},
 		},
-	})
+	}, nil)
 	canonicalProduct := &canonical.Product{
 		Title: "Oversized Tee",
 		Images: []canonical.Image{
@@ -113,7 +113,7 @@ func TestAssemblerBuildUsesTemplateSizeChartAttributeIDs(t *testing.T) {
 				},
 			},
 		},
-	})
+	}, nil)
 	canonicalProduct := &canonical.Product{
 		Title: "Tee Dress",
 		Images: []canonical.Image{
@@ -177,7 +177,7 @@ func TestAssemblerBuildUsesSizeAttributeHeaderResolverForUnknownSDSHeader(t *tes
 			},
 		},
 		SizeAttributeHeaderResolver: resolver,
-	})
+	}, nil)
 	canonicalProduct := &canonical.Product{
 		Title: "Tee Dress",
 		Images: []canonical.Image{
@@ -241,7 +241,7 @@ func TestAssemblerBuildSkipsOptionalTemplateSizeChartAttributes(t *testing.T) {
 			},
 		},
 		SizeAttributeHeaderResolver: resolver,
-	})
+	}, nil)
 	canonicalProduct := &canonical.Product{
 		Title: "Tee Dress",
 		Images: []canonical.Image{
@@ -297,7 +297,7 @@ func TestAssemblerBuildSkipsSizeHeaderResolverWhenNoSizeSaleAttributeExists(t *t
 			},
 		},
 		SizeAttributeHeaderResolver: resolver,
-	})
+	}, nil)
 	canonicalProduct := &canonical.Product{
 		Title: "Pillow Cover",
 		Images: []canonical.Image{

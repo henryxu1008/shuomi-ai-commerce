@@ -2,19 +2,23 @@
 package extractor
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"strings"
-	"task-processor/internal/core/logger"
+
 	"task-processor/internal/crawler/alibaba1688/model"
 
 	"github.com/mxschmitt/playwright-go"
 )
 
 // ImageExtractor 图片提取器
-type ImageExtractor struct{}
+type ImageExtractor struct {
+	loggerDependency
+}
 
 // NewImageExtractor 创建图片提取器
-func NewImageExtractor() *ImageExtractor {
-	return &ImageExtractor{}
+func NewImageExtractor(logs func(string) *logrus.Entry) *ImageExtractor {
+	return &ImageExtractor{loggerDependency: loggerDependency{logFor: logs}}
 }
 
 // Extract 提取轮播图大图 - 支持两种数据结构
@@ -72,7 +76,7 @@ func (ie *ImageExtractor) Extract(page playwright.Page, product *model.Product16
 	}`, nil)
 
 	if err != nil {
-		logger.GetGlobalLogger("crawler/alibaba1688").Debugf("提取图片失败: %v", err)
+		ie.componentLogger("crawler/alibaba1688").Debugf("提取图片失败: %v", err)
 		return err
 	}
 
@@ -98,7 +102,7 @@ func (ie *ImageExtractor) Extract(page playwright.Page, product *model.Product16
 				mainImage = ie.processImageURL(mainImg)
 			}
 
-			logger.GetGlobalLogger("crawler/alibaba1688").Debugf("提取到 %d 张轮播图", len(images))
+			ie.componentLogger("crawler/alibaba1688").Debugf("提取到 %d 张轮播图", len(images))
 		}
 	}
 

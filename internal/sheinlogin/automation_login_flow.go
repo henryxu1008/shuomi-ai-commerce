@@ -1,6 +1,8 @@
 package sheinlogin
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"context"
 	"fmt"
 	"time"
@@ -48,7 +50,7 @@ func isLoginFormVisible(page playwright.Page) bool {
 	return passwordErr == nil
 }
 
-func exportAuthenticatedBrowserState(ctx context.Context, manager *sharedbrowser.Manager, page playwright.Page, account Account, artifactDir, profileDir, stage string) (*AutomationResult, error) {
+func exportAuthenticatedBrowserState(ctx context.Context, manager *sharedbrowser.Manager, page playwright.Page, account Account, artifactDir, profileDir, stage string, logs func(string) *logrus.Entry) (*AutomationResult, error) {
 	targetURL := postLoginTargetURL(account)
 	if err := runBlockingStageWithContext(ctx, func() {
 		closeManagerProfile(manager, profileDir)
@@ -62,7 +64,7 @@ func exportAuthenticatedBrowserState(ctx context.Context, manager *sharedbrowser
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
-		sheinLoginServiceLogger.WithError(err).WithFields(map[string]any{
+		componentLogger(logs, "sheinlogin_service").WithError(err).WithFields(map[string]any{
 			"organization_id": account.OrganizationID,
 			"store_id":        account.StoreID,
 			"target_url":      targetURL,
@@ -74,7 +76,7 @@ func exportAuthenticatedBrowserState(ctx context.Context, manager *sharedbrowser
 	}
 	state, err := validatedCookieOnlyBrowserState(storageState.Cookies)
 	if err != nil {
-		sheinLoginServiceLogger.WithFields(map[string]any{
+		componentLogger(logs, "sheinlogin_service").WithFields(map[string]any{
 			"organization_id": account.OrganizationID,
 			"store_id":        account.StoreID,
 			"target_url":      targetURL,
@@ -82,7 +84,7 @@ func exportAuthenticatedBrowserState(ctx context.Context, manager *sharedbrowser
 		}).Warn("SHEIN login completed without exportable cookies")
 		return artifactResult(page, artifactDir, account, stage, err)
 	}
-	sheinLoginServiceLogger.WithFields(map[string]any{
+	componentLogger(logs, "sheinlogin_service").WithFields(map[string]any{
 		"organization_id": account.OrganizationID,
 		"store_id":        account.StoreID,
 		"target_url":      targetURL,

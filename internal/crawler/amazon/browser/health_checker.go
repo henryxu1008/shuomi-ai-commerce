@@ -2,9 +2,11 @@
 package browser
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"context"
 	"fmt"
-	"task-processor/internal/core/logger"
+
 	"time"
 
 	"github.com/mxschmitt/playwright-go"
@@ -12,15 +14,18 @@ import (
 
 // HealthChecker 健康检查器
 type HealthChecker struct {
+	loggerDependency
+
 	pool *BrowserPool
 }
 
 const healthCheckTimeout = 5 * time.Second
 
 // NewHealthChecker 创建健康检查器
-func NewHealthChecker(pool *BrowserPool) *HealthChecker {
+func NewHealthChecker(pool *BrowserPool, logs func(string) *logrus.Entry) *HealthChecker {
 	return &HealthChecker{
-		pool: pool,
+		loggerDependency: loggerDependency{logFor: logs},
+		pool:             pool,
 	}
 }
 
@@ -46,7 +51,7 @@ func (hc *HealthChecker) HealthCheck(instance *BrowserInstance) bool {
 		if err == nil {
 			err = closeErr
 		} else if closeErr != nil {
-			logger.GetGlobalLogger("crawler/amazon").Warnf("浏览器实例 %d 健康检查收尾失败: %v", instance.ID, closeErr)
+			hc.componentLogger("crawler/amazon").Warnf("浏览器实例 %d 健康检查收尾失败: %v", instance.ID, closeErr)
 		}
 		ch <- evalResult{err}
 	}()
@@ -54,12 +59,12 @@ func (hc *HealthChecker) HealthCheck(instance *BrowserInstance) bool {
 	select {
 	case res := <-ch:
 		if res.err != nil {
-			logger.GetGlobalLogger("crawler/amazon").Infof("浏览器实例 %d 健康检查失败: %v", instance.ID, res.err)
+			hc.componentLogger("crawler/amazon").Infof("浏览器实例 %d 健康检查失败: %v", instance.ID, res.err)
 			return false
 		}
 		return true
 	case <-time.After(healthCheckTimeout):
-		logger.GetGlobalLogger("crawler/amazon").Warnf("浏览器实例 %d 健康检查超时(%s)", instance.ID, healthCheckTimeout)
+		hc.componentLogger("crawler/amazon").Warnf("浏览器实例 %d 健康检查超时(%s)", instance.ID, healthCheckTimeout)
 		return false
 	}
 }
@@ -118,7 +123,7 @@ func (hc *HealthChecker) GetPoolStats() map[string]any {
 // LogPoolStats 记录浏览器池统计信息
 func (hc *HealthChecker) LogPoolStats() {
 	stats := hc.GetPoolStats()
-	logger.GetGlobalLogger("crawler/amazon").Infof("📊 浏览器池状态: 总计=%d, 可用=%d, 使用中=%d, 健康=%d",
+	hc.componentLogger("crawler/amazon").Infof("📊 浏览器池状态: 总计=%d, 可用=%d, 使用中=%d, 健康=%d",
 		stats["total_instances"], stats["available_instances"],
 		stats["in_use_instances"], stats["healthy_instances"])
 }
@@ -128,7 +133,7 @@ func (hc *HealthChecker) StartHealthCheckRoutine(ctx context.Context) {
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				logger.GetGlobalLogger("crawler/amazon").Errorf("浏览器池健康检查goroutine panic: %v", r)
+				hc.componentLogger("crawler/amazon").Errorf("浏览器池健康检查goroutine panic: %v", r)
 			}
 		}()
 
@@ -138,7 +143,7 @@ func (hc *HealthChecker) StartHealthCheckRoutine(ctx context.Context) {
 		for {
 			select {
 			case <-ctx.Done():
-				logger.GetGlobalLogger("crawler/amazon").Info("浏览器池健康检查例程停止")
+				hc.componentLogger("crawler/amazon").Info("浏览器池健康检查例程停止")
 				return
 			case <-ticker.C:
 				hc.performHealthCheck()
@@ -146,13 +151,13 @@ func (hc *HealthChecker) StartHealthCheckRoutine(ctx context.Context) {
 		}
 	}()
 
-	logger.GetGlobalLogger("crawler/amazon").Info("🏥 浏览器池健康检查例程已启动")
+	hc.componentLogger("crawler/amazon").Info("🏥 浏览器池健康检查例程已启动")
 }
 
 // performHealthCheck 执行健康检查。
 // 先取快照（锁内），再在锁外做 HealthCheck，避免持锁期间调用 Playwright 操作导致死锁。
 func (hc *HealthChecker) performHealthCheck() {
-	logger.GetGlobalLogger("crawler/amazon").Info("🔍 开始浏览器池健康检查...")
+	hc.componentLogger("crawler/amazon").Info("🔍 开始浏览器池健康检查...")
 
 	hc.LogPoolStats()
 
@@ -173,7 +178,7 @@ func (hc *HealthChecker) performHealthCheck() {
 
 	// 重建不健康的实例
 	for _, instance := range unhealthyInstances {
-		logger.GetGlobalLogger("crawler/amazon").Infof("⚠️ 发现不健康的浏览器实例 %d，准备重建", instance.ID)
+		hc.componentLogger("crawler/amazon").Infof("⚠️ 发现不健康的浏览器实例 %d，准备重建", instance.ID)
 
 		// 必须先从 available channel 中取出该实例，否则池里会有僵尸实例占位，
 		// 同时异步重建的新实例也无法放回（channel 已满），导致池永久缩容。
@@ -212,13 +217,13 @@ func (hc *HealthChecker) performHealthCheck() {
 		if drained {
 			hc.pool.instanceManager.RecreateInstanceAsync(instance)
 		} else {
-			logger.GetGlobalLogger("crawler/amazon").Infof("浏览器实例 %d 已被取走，跳过重建", instance.ID)
+			hc.componentLogger("crawler/amazon").Infof("浏览器实例 %d 已被取走，跳过重建", instance.ID)
 		}
 	}
 
 	if len(unhealthyInstances) == 0 {
-		logger.GetGlobalLogger("crawler/amazon").Info("✅ 所有浏览器实例健康状态良好")
+		hc.componentLogger("crawler/amazon").Info("✅ 所有浏览器实例健康状态良好")
 	} else {
-		logger.GetGlobalLogger("crawler/amazon").Infof("🔧 发现 %d 个不健康实例，已启动重建", len(unhealthyInstances))
+		hc.componentLogger("crawler/amazon").Infof("🔧 发现 %d 个不健康实例，已启动重建", len(unhealthyInstances))
 	}
 }

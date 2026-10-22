@@ -2,6 +2,8 @@
 package extractor
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"regexp"
 	"strings"
 	"task-processor/internal/model"
@@ -40,10 +42,10 @@ var listPriceSignalContainers = []string{
 }
 
 // NewListPriceExtractor 创建原价提取器
-func NewListPriceExtractor(marketplace string) *ListPriceExtractor {
+func NewListPriceExtractor(marketplace string, logs func(string) *logrus.Entry) *ListPriceExtractor {
 	return &ListPriceExtractor{
 		marketplace: marketplace,
-		parser:      NewPriceParser(marketplace),
+		parser:      NewPriceParser(marketplace, logs),
 	}
 }
 

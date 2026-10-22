@@ -6,6 +6,7 @@ package localtrial
 import (
 	"context"
 	"errors"
+	"github.com/sirupsen/logrus"
 	"time"
 
 	"gorm.io/gorm"
@@ -79,7 +80,7 @@ func (r storeReference) GetStoreReference(ctx context.Context, organizationID, s
 	return record.StoreReference{OrganizationID: organizationID, StoreID: storeID, Platform: string(stored.Platform())}, nil
 }
 
-func PrepareSample(ctx context.Context, db *gorm.DB, organizationID, actorID string, sourceWiring SourceWiring) (Sample, error) {
+func PrepareSample(ctx context.Context, db *gorm.DB, organizationID, actorID string, sourceWiring SourceWiring, logs func(string) *logrus.Entry) (Sample, error) {
 	if ctx == nil || db == nil || db.Dialector.Name() != "postgres" || !authidentity.IsBoundedIdentifier(organizationID) || !authidentity.IsBoundedIdentifier(actorID) || sourceWiring.NewProducer == nil || sourceWiring.NewTransactionReader == nil {
 		return Sample{}, errors.New("local trial sample dependencies unavailable")
 	}
@@ -168,7 +169,7 @@ func PrepareSample(ctx context.Context, db *gorm.DB, organizationID, actorID str
 	}
 	listing, err := record.NewService(record.ServiceDependencies{
 		Products: reader, Assets: approved, Stores: storeReference{repository: storeRepository}, Records: records,
-		Builder: draft.Builder{}, Evaluator: sheinvalidator.ExactApprovedAssetValidator{}, Authorizer: authorizer,
+		Builder: draft.Builder{LogFor: logs}, Evaluator: sheinvalidator.ExactApprovedAssetValidator{}, Authorizer: authorizer,
 		Now: time.Now, RuleRevision: sheinvalidator.DiagnosticRuleVersion, PolicyRevision: sheinvalidator.BindingVersion,
 	})
 	if err != nil {

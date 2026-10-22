@@ -1,6 +1,8 @@
 package shein
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"context"
 	"regexp"
 	"strings"
@@ -17,7 +19,7 @@ type listingCopy struct {
 	DescriptionError error
 }
 
-func buildSheinListingCopy(runtimeCtx context.Context, canonical *canonical.Product, fallbackTitle string, aiClient TextGenerator) listingCopy {
+func buildSheinListingCopy(runtimeCtx context.Context, canonical *canonical.Product, fallbackTitle string, aiClient TextGenerator, logs func(string) *logrus.Entry) listingCopy {
 	titleResolution := resolveListingTitle(runtimeCtx, canonical, fallbackTitle, aiClient)
 	titleResolution = enrichResolvedListingTitle(runtimeCtx, titleResolution, canonical, fallbackTitle, aiClient)
 	title := titleResolution.title
@@ -34,16 +36,16 @@ func buildSheinListingCopy(runtimeCtx context.Context, canonical *canonical.Prod
 		},
 		DescriptionError: descriptionErr,
 	}
-	sanitizeSheinListingCopy(&copy, runtimeCtx, nil)
+	sanitizeSheinListingCopy(&copy, runtimeCtx, nil, logs)
 	return copy
 }
 
-func NormalizeListingCopy(runtimeCtx context.Context, pkg *Package, canonical *canonical.Product, language string) bool {
+func NormalizeListingCopy(runtimeCtx context.Context, pkg *Package, canonical *canonical.Product, language string, logs func(string) *logrus.Entry) bool {
 	NormalizePackageSemanticFields(pkg)
 	if pkg == nil {
 		return false
 	}
-	copy := buildSheinListingCopy(runtimeCtx, canonical, firstNonEmpty(pkg.ProductNameEn, pkg.SpuName), nil)
+	copy := buildSheinListingCopy(runtimeCtx, canonical, firstNonEmpty(pkg.ProductNameEn, pkg.SpuName), nil, logs)
 	changed := false
 	if copy.Title != "" && (strings.TrimSpace(pkg.ProductNameEn) == "" || containsCJK(pkg.ProductNameEn)) {
 		pkg.ProductNameEn = copy.Title

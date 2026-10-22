@@ -2,7 +2,8 @@
 package extractor
 
 import (
-	"task-processor/internal/core/logger"
+	"github.com/sirupsen/logrus"
+
 	"task-processor/internal/model"
 
 	"github.com/mxschmitt/playwright-go"
@@ -10,15 +11,18 @@ import (
 
 // DescriptionExtractor 描述提取器
 type DescriptionExtractor struct {
+	loggerDependency
+
 	textCleaner   *TextCleaner
 	textValidator *TextValidator
 }
 
 // NewDescriptionExtractor 创建描述提取器
-func NewDescriptionExtractor() *DescriptionExtractor {
+func NewDescriptionExtractor(logs func(string) *logrus.Entry) *DescriptionExtractor {
 	return &DescriptionExtractor{
-		textCleaner:   NewTextCleaner(),
-		textValidator: NewTextValidator(),
+		loggerDependency: loggerDependency{logFor: logs},
+		textCleaner:      NewTextCleaner(),
+		textValidator:    NewTextValidator(),
 	}
 }
 
@@ -62,7 +66,7 @@ func (e *DescriptionExtractor) extractDescription(page playwright.Page) string {
 
 // extractProductDescription 提取产品详细描述
 func (e *DescriptionExtractor) extractProductDescription(page playwright.Page) string {
-	logger.GetGlobalLogger("crawler/amazon").Info("开始提取产品详细描述")
+	e.componentLogger("crawler/amazon").Info("开始提取产品详细描述")
 
 	// 第一组：精确的产品描述选择器
 	primarySelectors := []string{
@@ -93,7 +97,7 @@ func (e *DescriptionExtractor) extractProductDescription(page playwright.Page) s
 		return description
 	}
 
-	logger.GetGlobalLogger("crawler/amazon").Info("未能提取到产品详细描述")
+	e.componentLogger("crawler/amazon").Info("未能提取到产品详细描述")
 	return ""
 }
 

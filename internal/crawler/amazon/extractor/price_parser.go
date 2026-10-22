@@ -2,24 +2,28 @@
 package extractor
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
-	"task-processor/internal/core/logger"
 
 	"github.com/mxschmitt/playwright-go"
 )
 
 // PriceParser 价格解析器
 type PriceParser struct {
+	loggerDependency
+
 	marketplace string
 }
 
 // NewPriceParser 创建价格解析器
-func NewPriceParser(marketplace string) *PriceParser {
+func NewPriceParser(marketplace string, logs func(string) *logrus.Entry) *PriceParser {
 	return &PriceParser{
-		marketplace: marketplace,
+		loggerDependency: loggerDependency{logFor: logs},
+		marketplace:      marketplace,
 	}
 }
 
@@ -71,7 +75,7 @@ func (p *PriceParser) ParsePrice(priceText string) float64 {
 
 	price, err := strconv.ParseFloat(priceStr, 64)
 	if err != nil {
-		logger.GetGlobalLogger("crawler/amazon").Warnf("价格解析错误: %s -> %s (欧洲格式: %v)", priceText, priceStr, isEuropeanFormat)
+		p.componentLogger("crawler/amazon").Warnf("价格解析错误: %s -> %s (欧洲格式: %v)", priceText, priceStr, isEuropeanFormat)
 		return 0
 	}
 

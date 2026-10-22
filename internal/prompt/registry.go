@@ -9,7 +9,6 @@ import (
 	"strings"
 	"sync"
 
-	"task-processor/internal/core/logger"
 	sharedtenantctx "task-processor/internal/shared/tenantctx"
 
 	"github.com/sirupsen/logrus"
@@ -50,14 +49,12 @@ func (r *registryImpl) SetTenantPromptStore(store TenantPromptStore) {
 
 // NewRegistry 创建一个新的 PromptRegistry 实例。
 func NewRegistry(log *logrus.Entry) *registryImpl {
-	if log == nil {
-		log = logger.GetGlobalLogger("prompt.registry")
-	}
+	log = diagnosticLogger(log)
 	return &registryImpl{
 		rawCache:    make(map[string]string),
 		cache:       make(map[string]string),
 		tenantCache: make(map[string]map[string]string),
-		loader:      NewPromptLoader(),
+		loader:      NewPromptLoaderWithLogger(log.WithField("component", "prompt.loader")),
 		renderer:    NewTemplateRenderer(),
 		log:         log,
 	}

@@ -37,13 +37,13 @@ func NewProcessor(source Source) *Processor {
 }
 
 // NewLegacySource constructs the legacy Amazon crawler behind the integration source interface.
-func NewLegacySource(cfg *config.Config, logger *logrus.Logger) Source {
-	return legacyamazon.CreateProcessor(cfg, logger)
+func NewLegacySource(cfg *config.Config, logger *logrus.Logger, logs func(string) *logrus.Entry) Source {
+	return legacyamazon.CreateProcessor(cfg, logger, logs)
 }
 
 // NewLegacyCrawlSource constructs a legacy-backed crawl source.
-func NewLegacyCrawlSource(cfg *config.Config, logger *logrus.Logger) *LegacyCrawlSource {
-	return &LegacyCrawlSource{source: NewLegacySource(cfg, logger)}
+func NewLegacyCrawlSource(cfg *config.Config, logger *logrus.Logger, logs func(string) *logrus.Entry) *LegacyCrawlSource {
+	return &LegacyCrawlSource{source: NewLegacySource(cfg, logger, logs)}
 }
 
 // Process fetches one Amazon source product.

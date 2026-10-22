@@ -1,6 +1,8 @@
 package extractor
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"task-processor/internal/crawler/amazon/variations"
 	"task-processor/internal/model"
 
@@ -17,6 +19,8 @@ func GetDefaultVariationsConfig() *VariationsConfig {
 
 // VariationsExtractor 变体信息提取器（向后兼容）
 type VariationsExtractor struct {
+	loggerDependency
+
 	extractor *variations.Extractor
 	config    *VariationsConfig
 }
@@ -25,20 +29,22 @@ type VariationsExtractor struct {
 type VariationsData = variations.VariationsData
 
 // NewVariationsExtractor 创建变体信息提取器实例
-func NewVariationsExtractor() *VariationsExtractor {
-	extractor := variations.NewExtractor()
+func NewVariationsExtractor(logs func(string) *logrus.Entry) *VariationsExtractor {
+	extractor := variations.NewExtractor(logs)
 	return &VariationsExtractor{
-		extractor: extractor,
-		config:    variations.GetDefaultConfig(),
+		loggerDependency: loggerDependency{logFor: logs},
+		extractor:        extractor,
+		config:           variations.GetDefaultConfig(),
 	}
 }
 
 // NewVariationsExtractorWithConfig 使用自定义配置创建变体信息提取器实例
-func NewVariationsExtractorWithConfig(config *VariationsConfig) *VariationsExtractor {
-	extractor := variations.NewExtractorWithConfig(config)
+func NewVariationsExtractorWithConfig(config *VariationsConfig, logs func(string) *logrus.Entry) *VariationsExtractor {
+	extractor := variations.NewExtractorWithConfig(config, logs)
 	return &VariationsExtractor{
-		extractor: extractor,
-		config:    config,
+		loggerDependency: loggerDependency{logFor: logs},
+		extractor:        extractor,
+		config:           config,
 	}
 }
 
@@ -97,13 +103,13 @@ func (ve *VariationsExtractor) ValuesMatchGeneric(value1, value2 string) bool {
 
 // MapAttributeNames 将通用属性名映射为语义化名称
 func (ve *VariationsExtractor) MapAttributeNames(attributes map[string]any) map[string]any {
-	mapper := variations.NewMapper(ve.config)
+	mapper := variations.NewMapper(ve.config, ve.logFor)
 	return mapper.MapAttributeNames(attributes)
 }
 
 // InferAttributeType 公开的属性类型推断方法，用于测试
 func (ve *VariationsExtractor) InferAttributeType(value any) string {
-	mapper := variations.NewMapper(ve.config)
+	mapper := variations.NewMapper(ve.config, ve.logFor)
 	return mapper.InferAttributeType(value)
 }
 

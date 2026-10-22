@@ -2,6 +2,7 @@ package product
 
 import (
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"net/http"
 	"task-processor/internal/shein/api"
 	"task-processor/internal/shein/client"
@@ -17,8 +18,8 @@ type Client struct {
 }
 
 // NewClient 创建新的产品API客户端
-func NewClient(baseClient *client.BaseAPIClient) *Client {
-	errorHandler := client.NewAPIErrorHandler(baseClient)
+func NewClient(baseClient *client.BaseAPIClient, logs func(string) *logrus.Entry) *Client {
+	errorHandler := client.NewAPIErrorHandler(baseClient, logs)
 	return &Client{
 		BaseAPIClient: baseClient,
 		productMgr:    newProductManager(baseClient, errorHandler),

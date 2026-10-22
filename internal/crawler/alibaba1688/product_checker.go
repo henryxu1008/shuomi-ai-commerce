@@ -2,10 +2,12 @@
 package alibaba1688
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"fmt"
 	"math"
 	"strings"
-	"task-processor/internal/core/logger"
+
 	"task-processor/internal/crawler/alibaba1688/model"
 )
 
@@ -33,6 +35,8 @@ func newRequiredFieldsError(format string, args ...any) error {
 
 // ProductChecker 1688产品检查器
 type ProductChecker struct {
+	loggerDependency
+
 	// 敏感词列表
 	sensitiveWords []string
 	// 必需字段列表
@@ -40,8 +44,9 @@ type ProductChecker struct {
 }
 
 // NewProductChecker 创建新的产品检查器
-func NewProductChecker() *ProductChecker {
+func NewProductChecker(logs func(string) *logrus.Entry) *ProductChecker {
 	return &ProductChecker{
+		loggerDependency: loggerDependency{logFor: logs},
 		sensitiveWords: []string{
 			// 违禁词示例
 			"假货", "仿品", "高仿", "A货", "山寨",
@@ -92,7 +97,7 @@ func (pc *ProductChecker) ValidateProduct(product *model.Product1688) error {
 		return fmt.Errorf("图片验证失败: %w", err)
 	}
 
-	logger.GetGlobalLogger("crawler/alibaba1688").Debugf("产品验证通过: %s", product.Title)
+	pc.componentLogger("crawler/alibaba1688").Debugf("产品验证通过: %s", product.Title)
 	return nil
 }
 

@@ -47,7 +47,7 @@ func TestRunExtractorsStopsBeforeLaterStageAfterCancellation(t *testing.T) {
 		}),
 	}
 
-	err := runExtractors(ctx, nil, &model.Product1688{}, extractors)
+	err := runExtractors(ctx, nil, &model.Product1688{}, extractors, nil)
 
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("runExtractors() error = %v, want context.Canceled", err)

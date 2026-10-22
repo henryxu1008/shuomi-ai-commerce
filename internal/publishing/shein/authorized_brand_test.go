@@ -52,7 +52,7 @@ func TestAssemblerBuildWritesAuthorizedBrandMetadataAndPreviewBrandCode(t *testi
 		Images: []canonical.Image{{URL: "main.jpg"}},
 	}
 
-	pkg := NewAssembler(AssemblerConfig{}).Build(req, product)
+	pkg := NewAssembler(AssemblerConfig{}, nil).Build(req, product)
 	if pkg == nil {
 		t.Fatal("Build() = nil, want package")
 	}
@@ -86,7 +86,7 @@ func TestSanitizeSheinListingCopyPreservesAuthorizedBrandFromRuntimeContext(t *t
 		Enabled: true,
 		Name:    "Amazon Basics",
 		NameEn:  "Amazon Basics",
-	}), nil)
+	}), nil, nil)
 	if changed {
 		t.Fatalf("changed = true, want authorized brand preserved without cleanup")
 	}
@@ -119,7 +119,7 @@ func TestSanitizeDraftPayloadSensitiveContentPreservesAuthorizedBrandFromRuntime
 		NameEn:  "Amazon Basics",
 	}), "101")
 
-	changed := SanitizeDraftPayloadSensitiveContent(pkg, runtimeCtx, nil)
+	changed := SanitizeDraftPayloadSensitiveContent(pkg, runtimeCtx, nil, nil)
 	if changed {
 		t.Fatalf("changed = true, want authorized brand preserved without cleanup")
 	}

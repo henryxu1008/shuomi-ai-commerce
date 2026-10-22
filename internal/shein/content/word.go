@@ -2,24 +2,26 @@
 package content
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"context"
-	corelogger "task-processor/internal/core/logger"
+
 	"task-processor/internal/pkg/recovery"
 )
 
 // NewSensitiveWordService 创建敏感词服务
-func NewSensitiveWordService() *SensitiveWordService {
-	return NewSensitiveWordServiceInMemory()
+func NewSensitiveWordService(logs func(string) *logrus.Entry) *SensitiveWordService {
+	return NewSensitiveWordServiceInMemory(logs)
 }
 
 // NewSensitiveWordServiceInMemory 创建纯内存敏感词服务，不依赖本地配置文件。
-func NewSensitiveWordServiceInMemory() *SensitiveWordService {
+func NewSensitiveWordServiceInMemory(logs func(string) *logrus.Entry) *SensitiveWordService {
 	service := &SensitiveWordService{
 		persistConfig: false,
 		ctx:           context.Background(),
 		saveQueue:     make(chan struct{}, 10),
 		stopSave:      make(chan struct{}),
-		logger:        corelogger.GetGlobalLogger("shein.sensitive_word"),
+		logger:        componentLogger(logs, "shein.sensitive_word"),
 	}
 
 	service.startSaveWorker()
@@ -29,14 +31,14 @@ func NewSensitiveWordServiceInMemory() *SensitiveWordService {
 
 // NewSensitiveWordServiceInMemoryWithPath 创建只读加载配置文件的内存敏感词服务。
 // 它会读取现有词库，但不会将运行时动态词持久化回磁盘。
-func NewSensitiveWordServiceInMemoryWithPath(configPath string) *SensitiveWordService {
+func NewSensitiveWordServiceInMemoryWithPath(configPath string, logs func(string) *logrus.Entry) *SensitiveWordService {
 	service := &SensitiveWordService{
 		configPath:    configPath,
 		persistConfig: false,
 		ctx:           context.Background(),
 		saveQueue:     make(chan struct{}, 10),
 		stopSave:      make(chan struct{}),
-		logger:        corelogger.GetGlobalLogger("shein.sensitive_word"),
+		logger:        componentLogger(logs, "shein.sensitive_word"),
 	}
 
 	service.startSaveWorker()
@@ -50,14 +52,14 @@ func NewSensitiveWordServiceInMemoryWithPath(configPath string) *SensitiveWordSe
 }
 
 // NewSensitiveWordServiceWithPath 使用指定路径创建敏感词服务
-func NewSensitiveWordServiceWithPath(configPath string) *SensitiveWordService {
+func NewSensitiveWordServiceWithPath(configPath string, logs func(string) *logrus.Entry) *SensitiveWordService {
 	service := &SensitiveWordService{
 		configPath:    configPath,
 		persistConfig: true,
 		ctx:           context.Background(),
 		saveQueue:     make(chan struct{}, 10),
 		stopSave:      make(chan struct{}),
-		logger:        corelogger.GetGlobalLogger("shein.sensitive_word"),
+		logger:        componentLogger(logs, "shein.sensitive_word"),
 	}
 
 	service.startSaveWorker()

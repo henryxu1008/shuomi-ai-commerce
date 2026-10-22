@@ -1,6 +1,8 @@
 package browser
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"errors"
 	"fmt"
 	"os"
@@ -11,6 +13,8 @@ import (
 
 // Manager 通用浏览器管理器
 type Manager struct {
+	loggerDependency
+
 	pw          *playwright.Playwright
 	browser     playwright.Browser
 	context     playwright.BrowserContext
@@ -24,12 +28,13 @@ type Manager struct {
 }
 
 // NewManager 创建浏览器管理器
-func NewManager(cfg *BrowserConfig) *Manager {
+func NewManager(cfg *BrowserConfig, logs func(string) *logrus.Entry) *Manager {
 	return &Manager{
-		config:     cfg,
-		userAgents: GetUserAgentPool(),
-		generator:  NewFingerprintGenerator(),
-		installer:  NewPlaywrightInstaller(),
+		loggerDependency: loggerDependency{logFor: logs},
+		config:           cfg,
+		userAgents:       GetUserAgentPool(),
+		generator:        NewFingerprintGenerator(),
+		installer:        NewPlaywrightInstaller(logs),
 	}
 }
 
@@ -73,7 +78,7 @@ func (m *Manager) Launch() error {
 	userAgent := GenerateUserAgent(m.config.UserAgent, m.userAgents)
 
 	// 创建上下文启动器
-	launcher := NewContextLauncher(m.pw, m.config, m.fingerprint, m.userDataDir)
+	launcher := NewContextLauncher(m.pw, m.config, m.fingerprint, m.userDataDir, m.logFor)
 
 	// 启动浏览器上下文
 	browser, context, err := launcher.Launch(userAgent)

@@ -13,7 +13,7 @@ import (
 )
 
 func TestLocalAgentRoutesRequireZitadelAndPermission(t *testing.T) {
-	routes := AppendRouteDescriptors(nil, NewHandler(localagent.NewService(nil)))
+	routes := AppendRouteDescriptors(nil, NewHandler(localagent.NewService(nil, nil)))
 	require.Len(t, routes, 4)
 	for _, route := range routes {
 		require.Equal(t, ModuleName, route.Module)

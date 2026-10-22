@@ -2,11 +2,13 @@ package bootstrap
 
 import (
 	"context"
+	"github.com/sirupsen/logrus"
 	"task-processor/internal/sheinlogin"
 	"time"
 )
 
 type BuildInput struct {
+	Logs   func(string) *logrus.Entry
 	Config sheinlogin.Config
 	Owner  sheinlogin.StoreOwner
 }
@@ -29,7 +31,7 @@ func BuildService(input BuildInput) (*BuildResult, error) {
 		redis.Close()
 		return nil, err
 	}
-	service, err := sheinlogin.NewService(input.Config, redis, input.Owner)
+	service, err := sheinlogin.NewService(input.Config, redis, input.Owner, input.Logs)
 	if err != nil {
 		redis.Close()
 		return nil, err

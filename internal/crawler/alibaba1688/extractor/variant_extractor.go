@@ -2,24 +2,28 @@
 package extractor
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"strconv"
-	"task-processor/internal/core/logger"
+
 	"task-processor/internal/crawler/alibaba1688/model"
 
 	"github.com/mxschmitt/playwright-go"
 )
 
 // VariantExtractor 新的变体数据提取器
-type VariantExtractor struct{}
+type VariantExtractor struct {
+	loggerDependency
+}
 
 // NewVariantExtractorNew 创建新的变体数据提取器
-func NewVariantExtractor() *VariantExtractor {
-	return &VariantExtractor{}
+func NewVariantExtractor(logs func(string) *logrus.Entry) *VariantExtractor {
+	return &VariantExtractor{loggerDependency: loggerDependency{logFor: logs}}
 }
 
 // Extract 提取变体数据（包含属性、价格、库存等）- 支持两种数据结构
 func (ve *VariantExtractor) Extract(page playwright.Page, product *model.Product1688) error {
-	logger.GetGlobalLogger("crawler/alibaba1688").Debug("开始提取变体数据")
+	ve.componentLogger("crawler/alibaba1688").Debug("开始提取变体数据")
 
 	// 直接从结构化数据中提取变体信息，支持两种数据结构
 	result, err := page.Evaluate(`() => {
@@ -370,7 +374,7 @@ func (ve *VariantExtractor) Extract(page playwright.Page, product *model.Product
 	}`, nil)
 
 	if err != nil {
-		logger.GetGlobalLogger("crawler/alibaba1688").Debugf("JavaScript执行失败: %v", err)
+		ve.componentLogger("crawler/alibaba1688").Debugf("JavaScript执行失败: %v", err)
 		return err
 	}
 
@@ -459,11 +463,11 @@ func (ve *VariantExtractor) Extract(page playwright.Page, product *model.Product
 				if minPrice > 0 {
 					product.MinPrice = minPrice
 					product.MaxPrice = maxPrice
-					logger.GetGlobalLogger("crawler/alibaba1688").Debugf("设置价格范围: %.2f - %.2f", minPrice, maxPrice)
+					ve.componentLogger("crawler/alibaba1688").Debugf("设置价格范围: %.2f - %.2f", minPrice, maxPrice)
 				}
 			}
 
-			logger.GetGlobalLogger("crawler/alibaba1688").Debugf("成功提取 %d 个变体", len(variants))
+			ve.componentLogger("crawler/alibaba1688").Debugf("成功提取 %d 个变体", len(variants))
 		}
 	}
 

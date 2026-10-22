@@ -1,9 +1,11 @@
 package browser
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"fmt"
 	"os"
-	"task-processor/internal/core/logger"
+
 	"time"
 
 	"github.com/mxschmitt/playwright-go"
@@ -184,7 +186,7 @@ func AddFingerprintArgs(args []string, cfg *BrowserConfig, fingerprint *Fingerpr
 }
 
 // CreateLaunchOptions 创建浏览器启动选项
-func CreateLaunchOptions(cfg *BrowserConfig, fingerprint *FingerprintConfig) playwright.BrowserTypeLaunchOptions {
+func CreateLaunchOptions(cfg *BrowserConfig, fingerprint *FingerprintConfig, logs func(string) *logrus.Entry) playwright.BrowserTypeLaunchOptions {
 	// 构建启动参数
 	args := GetBrowserLaunchArgs(cfg)
 	if cfg == nil || cfg.StealthProvider != StealthProviderCloakBrowser {
@@ -201,9 +203,9 @@ func CreateLaunchOptions(cfg *BrowserConfig, fingerprint *FingerprintConfig) pla
 	if cfg.BrowserPath != "" {
 		if _, err := os.Stat(cfg.BrowserPath); err == nil {
 			launchOptions.ExecutablePath = &cfg.BrowserPath
-			logger.GetGlobalLogger("crawler/shared").Infof("使用指定浏览器: %s", cfg.BrowserPath)
+			componentLogger(logs, "crawler/shared").Infof("使用指定浏览器: %s", cfg.BrowserPath)
 		} else {
-			logger.GetGlobalLogger("crawler/shared").Warnf("浏览器路径不存在: %s，使用默认浏览器", cfg.BrowserPath)
+			componentLogger(logs, "crawler/shared").Warnf("浏览器路径不存在: %s，使用默认浏览器", cfg.BrowserPath)
 		}
 	}
 
@@ -211,7 +213,7 @@ func CreateLaunchOptions(cfg *BrowserConfig, fingerprint *FingerprintConfig) pla
 	if cfg.ProxyServer != "" {
 		if proxy := parseProxyServer(cfg.ProxyServer); proxy != nil {
 			launchOptions.Proxy = proxy
-			logger.GetGlobalLogger("crawler/shared").Infof("使用代理: %s", proxy.Server)
+			componentLogger(logs, "crawler/shared").Infof("使用代理: %s", proxy.Server)
 		}
 	}
 
@@ -219,7 +221,7 @@ func CreateLaunchOptions(cfg *BrowserConfig, fingerprint *FingerprintConfig) pla
 }
 
 // CreateContextOptions 创建浏览器上下文选项
-func CreateContextOptions(cfg *BrowserConfig, userAgent string) playwright.BrowserNewContextOptions {
+func CreateContextOptions(cfg *BrowserConfig, userAgent string, logs func(string) *logrus.Entry) playwright.BrowserNewContextOptions {
 	if cfg != nil && cfg.StealthProvider == StealthProviderCloakBrowser {
 		options := playwright.BrowserNewContextOptions{
 			Viewport: &playwright.Size{
@@ -240,7 +242,7 @@ func CreateContextOptions(cfg *BrowserConfig, userAgent string) playwright.Brows
 		},
 		UserAgent:         playwright.String(userAgent),
 		Locale:            playwright.String(contextLocale(cfg)),
-		TimezoneId:        contextTimezone(cfg),
+		TimezoneId:        contextTimezone(cfg, logs),
 		IgnoreHttpsErrors: playwright.Bool(true),
 	}
 }

@@ -2,18 +2,21 @@
 package extractor
 
 import (
-	"task-processor/internal/core/logger"
+	"github.com/sirupsen/logrus"
+
 	"task-processor/internal/crawler/alibaba1688/model"
 
 	"github.com/mxschmitt/playwright-go"
 )
 
 // TitleExtractor 标题提取器
-type TitleExtractor struct{}
+type TitleExtractor struct {
+	loggerDependency
+}
 
 // NewTitleExtractor 创建标题提取器
-func NewTitleExtractor() *TitleExtractor {
-	return &TitleExtractor{}
+func NewTitleExtractor(logs func(string) *logrus.Entry) *TitleExtractor {
+	return &TitleExtractor{loggerDependency: loggerDependency{logFor: logs}}
 }
 
 // Extract 提取产品标题和基础信息 - 直接从结构化数据获取
@@ -53,7 +56,7 @@ func (te *TitleExtractor) Extract(page playwright.Page, product *model.Product16
 	}`, nil)
 
 	if err != nil {
-		logger.GetGlobalLogger("crawler/alibaba1688").Debugf("提取标题信息失败: %v", err)
+		te.componentLogger("crawler/alibaba1688").Debugf("提取标题信息失败: %v", err)
 		return err
 	}
 
@@ -62,13 +65,13 @@ func (te *TitleExtractor) Extract(page playwright.Page, product *model.Product16
 			// 设置标题
 			if title, ok := titleData["title"].(string); ok && title != "" {
 				product.Title = title
-				logger.GetGlobalLogger("crawler/alibaba1688").Debugf("提取到产品标题: %s", title)
+				te.componentLogger("crawler/alibaba1688").Debugf("提取到产品标题: %s", title)
 			}
 
 			// 设置ID
 			if id, ok := titleData["id"].(string); ok && id != "" {
 				product.ID = id
-				logger.GetGlobalLogger("crawler/alibaba1688").Debugf("提取到产品ID: %s", id)
+				te.componentLogger("crawler/alibaba1688").Debugf("提取到产品ID: %s", id)
 			}
 
 			// 设置URL

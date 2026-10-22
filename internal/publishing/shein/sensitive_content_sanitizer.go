@@ -1,6 +1,8 @@
 package shein
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"context"
 	"strings"
 	"unicode"
@@ -10,12 +12,12 @@ import (
 	"task-processor/internal/shein/content"
 )
 
-func sanitizeSheinListingCopy(copy *listingCopy, runtimeCtx context.Context, ctx *content.CleanupContext) bool {
+func sanitizeSheinListingCopy(copy *listingCopy, runtimeCtx context.Context, ctx *content.CleanupContext, logs func(string) *logrus.Entry) bool {
 	if copy == nil {
 		return false
 	}
 	ctx = ensureSanitizerContext(runtimeCtx, ctx)
-	service := newSheinSensitiveWordSanitizer()
+	service := newSheinSensitiveWordSanitizer(logs)
 	changed := false
 	changed = sanitizeStringField(service, ctx, &copy.Title) || changed
 	changed = sanitizeStringField(service, ctx, &copy.Description) || changed
@@ -26,13 +28,13 @@ func sanitizeSheinListingCopy(copy *listingCopy, runtimeCtx context.Context, ctx
 	return changed
 }
 
-func SanitizeDraftPayloadSensitiveContent(pkg *Package, runtimeCtx context.Context, ctx *content.CleanupContext) bool {
+func SanitizeDraftPayloadSensitiveContent(pkg *Package, runtimeCtx context.Context, ctx *content.CleanupContext, logs func(string) *logrus.Entry) bool {
 	pkg = NormalizePackageSemanticFields(pkg)
 	if pkg == nil || pkg.DraftPayload == nil {
 		return false
 	}
 	ctx = ensureSanitizerContext(runtimeCtx, ctx)
-	service := newSheinSensitiveWordSanitizer()
+	service := newSheinSensitiveWordSanitizer(logs)
 	changed := false
 
 	changed = sanitizeCommonAttributes(service, ctx, pkg.ProductAttributes) || changed

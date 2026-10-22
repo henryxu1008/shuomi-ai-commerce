@@ -1,15 +1,18 @@
 package variations
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"strconv"
 	"strings"
-	"task-processor/internal/core/logger"
 
 	"github.com/mxschmitt/playwright-go"
 )
 
 // Extractor 变体信息提取器
 type Extractor struct {
+	loggerDependency
+
 	config     *Config
 	parser     *Parser
 	matcher    *Matcher
@@ -18,25 +21,27 @@ type Extractor struct {
 }
 
 // NewExtractor 创建变体信息提取器实例
-func NewExtractor() *Extractor {
+func NewExtractor(logs func(string) *logrus.Entry) *Extractor {
 	config := GetDefaultConfig()
 	return &Extractor{
-		config:     config,
-		parser:     NewParser(config),
-		matcher:    NewMatcher(config),
-		combinator: NewCombinator(config),
-		mapper:     NewMapper(config),
+		loggerDependency: loggerDependency{logFor: logs},
+		config:           config,
+		parser:           NewParser(config, logs),
+		matcher:          NewMatcher(config),
+		combinator:       NewCombinator(config),
+		mapper:           NewMapper(config, logs),
 	}
 }
 
 // NewExtractorWithConfig 使用自定义配置创建变体信息提取器实例
-func NewExtractorWithConfig(config *Config) *Extractor {
+func NewExtractorWithConfig(config *Config, logs func(string) *logrus.Entry) *Extractor {
 	return &Extractor{
-		config:     config,
-		parser:     NewParser(config),
-		matcher:    NewMatcher(config),
-		combinator: NewCombinator(config),
-		mapper:     NewMapper(config),
+		loggerDependency: loggerDependency{logFor: logs},
+		config:           config,
+		parser:           NewParser(config, logs),
+		matcher:          NewMatcher(config),
+		combinator:       NewCombinator(config),
+		mapper:           NewMapper(config, logs),
 	}
 }
 
@@ -56,7 +61,7 @@ func (e *Extractor) BuildVariations(
 	var variations []Variation
 
 	if e.config.EnableDebugLogging {
-		logger.GetGlobalLogger("crawler/amazon").Infof("[DEBUG] Building variations from %d variation values", len(variationsValues))
+		e.componentLogger("crawler/amazon").Infof("[DEBUG] Building variations from %d variation values", len(variationsValues))
 	}
 
 	// 获取所有变体维度
@@ -81,7 +86,7 @@ func (e *Extractor) BuildVariations(
 	}
 
 	if e.config.EnableDebugLogging {
-		logger.GetGlobalLogger("crawler/amazon").Infof("[DEBUG] Generated %d combinations", len(combinations))
+		e.componentLogger("crawler/amazon").Infof("[DEBUG] Generated %d combinations", len(combinations))
 	}
 
 	successCount := 0
@@ -113,7 +118,7 @@ func (e *Extractor) BuildVariations(
 	}
 
 	if e.config.EnableDebugLogging {
-		logger.GetGlobalLogger("crawler/amazon").Infof("[DEBUG] Successfully created %d variations out of %d combinations", successCount, len(combinations))
+		e.componentLogger("crawler/amazon").Infof("[DEBUG] Successfully created %d variations out of %d combinations", successCount, len(combinations))
 	}
 
 	return variations

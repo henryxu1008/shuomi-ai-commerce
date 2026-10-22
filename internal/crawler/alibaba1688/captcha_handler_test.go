@@ -8,7 +8,7 @@ import (
 )
 
 func TestCaptchaManualFallbackCanBeDisabled(t *testing.T) {
-	handler := NewCaptchaHandler()
+	handler := NewCaptchaHandler(nil)
 
 	result := handler.fallbackCaptchaResult(context.Background(), nil, CaptchaTypeSlider, "滑动验证码", false)
 	if result.Status != CaptchaStatusFailed {
@@ -24,7 +24,7 @@ func TestHandlePageCaptchaReturnsCancellationPromptly(t *testing.T) {
 	cancel()
 
 	started := time.Now()
-	err := NewCaptchaHandler().HandlePageCaptcha(ctx, nil)
+	err := NewCaptchaHandler(nil).HandlePageCaptcha(ctx, nil)
 
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("HandlePageCaptcha() error = %v, want context.Canceled", err)
@@ -39,7 +39,7 @@ func TestWaitForManualCaptchaReturnsCancellationPromptly(t *testing.T) {
 	cancel()
 
 	started := time.Now()
-	result := NewCaptchaHandler().waitForManualCaptchaWithResult(ctx, nil, CaptchaTypeText, "文字验证码")
+	result := NewCaptchaHandler(nil).waitForManualCaptchaWithResult(ctx, nil, CaptchaTypeText, "文字验证码")
 
 	if !errors.Is(result.Error, context.Canceled) {
 		t.Fatalf("manual captcha error = %v, want context.Canceled", result.Error)

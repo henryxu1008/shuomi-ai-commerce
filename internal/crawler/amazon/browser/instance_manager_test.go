@@ -11,7 +11,7 @@ func TestValidateInstanceRequiresActiveContext(t *testing.T) {
 	instance := &BrowserInstance{
 		ID: 1,
 		Manager: &BrowserManager{
-			Manager: sharedbrowser.NewManager(&sharedbrowser.BrowserConfig{}),
+			Manager: sharedbrowser.NewManager(&sharedbrowser.BrowserConfig{}, nil),
 		},
 	}
 

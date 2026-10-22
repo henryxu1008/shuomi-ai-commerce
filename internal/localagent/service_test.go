@@ -13,7 +13,7 @@ import (
 const offerURL = "https://detail.1688.com/offer/1052008074197.html"
 
 func TestServiceClaimIsTenantScopedAndSingleUse(t *testing.T) {
-	service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)))
+	service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)), nil)
 	owner := Actor{TenantID: "tenant-a", UserID: "user-a"}
 	_, err := service.Create(owner, offerURL)
 	require.NoError(t, err)
@@ -31,7 +31,7 @@ func TestServiceClaimIsTenantScopedAndSingleUse(t *testing.T) {
 }
 
 func TestServiceClaimJobTargetsCreatedJob(t *testing.T) {
-	service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)))
+	service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)), nil)
 	actor := Actor{TenantID: "tenant-a", UserID: "user-a"}
 	first, err := service.Create(actor, offerURL)
 	require.NoError(t, err)
@@ -46,7 +46,7 @@ func TestServiceClaimJobTargetsCreatedJob(t *testing.T) {
 }
 
 func TestServiceBuildsEnvelopeFromAcceptedSnapshot(t *testing.T) {
-	service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)))
+	service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)), nil)
 	actor := Actor{TenantID: "tenant-a", UserID: "user-a"}
 	job, err := service.Create(actor, offerURL)
 	require.NoError(t, err)
@@ -66,7 +66,7 @@ func TestServiceBuildsEnvelopeFromAcceptedSnapshot(t *testing.T) {
 }
 
 func TestServiceBoundsRetainedEnvelopeSummary(t *testing.T) {
-	service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)))
+	service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)), nil)
 	actor := Actor{TenantID: "tenant-a", UserID: "user-a"}
 	job, err := service.Create(actor, offerURL)
 	require.NoError(t, err)
@@ -92,7 +92,7 @@ func TestServiceBoundsRetainedEnvelopeSummary(t *testing.T) {
 
 func TestServiceRejectsExpiredClaim(t *testing.T) {
 	clock := newMutableClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC))
-	service := NewService(clock.Now)
+	service := NewService(clock.Now, nil)
 	actor := Actor{TenantID: "tenant-a", UserID: "user-a"}
 	job, err := service.Create(actor, offerURL)
 	require.NoError(t, err)
@@ -105,7 +105,7 @@ func TestServiceRejectsExpiredClaim(t *testing.T) {
 }
 
 func TestServiceRejectsOversizedSnapshotAndKeepsClaimActive(t *testing.T) {
-	service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)))
+	service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)), nil)
 	actor := Actor{TenantID: "tenant-a", UserID: "user-a"}
 	job, err := service.Create(actor, offerURL)
 	require.NoError(t, err)
@@ -121,7 +121,7 @@ func TestServiceRejectsOversizedSnapshotAndKeepsClaimActive(t *testing.T) {
 }
 
 func TestServiceRejectsEmptySnapshotAsNonRetryable(t *testing.T) {
-	service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)))
+	service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)), nil)
 	actor := Actor{TenantID: "tenant-a", UserID: "user-a"}
 	job, err := service.Create(actor, offerURL)
 	require.NoError(t, err)
@@ -134,7 +134,7 @@ func TestServiceRejectsEmptySnapshotAsNonRetryable(t *testing.T) {
 }
 
 func TestServiceRejectsSnapshotMissingCrawlerRequiredFacts(t *testing.T) {
-	service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)))
+	service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)), nil)
 	actor := Actor{TenantID: "tenant-a", UserID: "user-a"}
 	job, err := service.Create(actor, offerURL)
 	require.NoError(t, err)
@@ -177,7 +177,7 @@ func TestServiceRejectsMalformedOptionalAssetURLs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)))
+			service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)), nil)
 			actor := Actor{TenantID: "tenant-a", UserID: "user-a"}
 			job, err := service.Create(actor, offerURL)
 			require.NoError(t, err)
@@ -210,7 +210,7 @@ func TestServiceRejectsImpossibleOptionalSupplierNumbers(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)))
+			service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)), nil)
 			actor := Actor{TenantID: "tenant-a", UserID: "user-a"}
 			job, err := service.Create(actor, offerURL)
 			require.NoError(t, err)
@@ -234,7 +234,7 @@ func TestServiceRejectsUnsafeSupplierShopURLs(t *testing.T) {
 		"https://shop.example/supplier?redirect=https://evil.example",
 	} {
 		t.Run(shopURL, func(t *testing.T) {
-			service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)))
+			service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)), nil)
 			actor := Actor{TenantID: "tenant-a", UserID: "user-a"}
 			job, err := service.Create(actor, offerURL)
 			require.NoError(t, err)
@@ -250,7 +250,7 @@ func TestServiceRejectsUnsafeSupplierShopURLs(t *testing.T) {
 }
 
 func TestServiceValidatesSnapshotOutsideGlobalLock(t *testing.T) {
-	service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)))
+	service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)), nil)
 	actor := Actor{TenantID: "tenant-a", UserID: "user-a"}
 	job, err := service.Create(actor, offerURL)
 	require.NoError(t, err)
@@ -320,7 +320,7 @@ func TestServiceRejectsImpossibleProductNumbers(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)))
+			service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)), nil)
 			actor := Actor{TenantID: "tenant-a", UserID: "user-a"}
 			job, err := service.Create(actor, offerURL)
 			require.NoError(t, err)
@@ -350,7 +350,7 @@ func TestServiceRejectsImpossibleVariantNumbers(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)))
+			service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)), nil)
 			actor := Actor{TenantID: "tenant-a", UserID: "user-a"}
 			job, err := service.Create(actor, offerURL)
 			require.NoError(t, err)
@@ -368,7 +368,7 @@ func TestServiceRejectsImpossibleVariantNumbers(t *testing.T) {
 func TestServiceRejectsReservedVariantNumericAttributes(t *testing.T) {
 	for _, key := range []string{"stock", "price", " Stock ", "Price"} {
 		t.Run(key, func(t *testing.T) {
-			service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)))
+			service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)), nil)
 			actor := Actor{TenantID: "tenant-a", UserID: "user-a"}
 			job, err := service.Create(actor, offerURL)
 			require.NoError(t, err)
@@ -401,7 +401,7 @@ func TestServiceRejectsNonFiniteSnapshotNumbersAsInvalid(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)))
+			service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)), nil)
 			actor := Actor{TenantID: "tenant-a", UserID: "user-a"}
 			job, err := service.Create(actor, offerURL)
 			require.NoError(t, err)
@@ -417,7 +417,7 @@ func TestServiceRejectsNonFiniteSnapshotNumbersAsInvalid(t *testing.T) {
 }
 
 func TestServiceAcceptsOnlySnapshotForClaimedURL(t *testing.T) {
-	service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)))
+	service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)), nil)
 	actor := Actor{TenantID: "tenant-a", UserID: "user-a"}
 	job, err := service.Create(actor, offerURL)
 	require.NoError(t, err)
@@ -435,7 +435,7 @@ func TestServiceAcceptsOnlySnapshotForClaimedURL(t *testing.T) {
 }
 
 func TestServiceRejectsOversizedFailureDiagnostic(t *testing.T) {
-	service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)))
+	service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)), nil)
 	actor := Actor{TenantID: "tenant-a", UserID: "user-a"}
 	job, err := service.Create(actor, offerURL)
 	require.NoError(t, err)
@@ -446,7 +446,7 @@ func TestServiceRejectsOversizedFailureDiagnostic(t *testing.T) {
 }
 
 func TestServiceRejectsNonPublicOfferURL(t *testing.T) {
-	service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)))
+	service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)), nil)
 	_, err := service.Create(Actor{TenantID: "tenant-a", UserID: "user-a"}, "https://www.1688.com/offer/1052008074197.html")
 	require.ErrorIs(t, err, ErrInvalidURL)
 	_, err = service.Create(Actor{TenantID: "tenant-a", UserID: "user-a"}, "https://detail.1688.com/offer/1052008074197")
@@ -468,7 +468,7 @@ func TestServiceRejectsNonPublicOfferURL(t *testing.T) {
 }
 
 func TestServiceCapacityIsIsolatedPerTenant(t *testing.T) {
-	service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)))
+	service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)), nil)
 	noisy := Actor{TenantID: "tenant-noisy", UserID: "user-a"}
 	other := Actor{TenantID: "tenant-other", UserID: "user-b"}
 	for i := 0; i < maxJobsPerTenant; i++ {
@@ -488,7 +488,7 @@ func TestClaimLeaseOutlivesManagedBrowserDownload(t *testing.T) {
 
 func TestServiceClaimExtendsJobExpiryForFullLease(t *testing.T) {
 	clock := newMutableClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC))
-	service := NewService(clock.Now)
+	service := NewService(clock.Now, nil)
 	actor := Actor{TenantID: "tenant-a", UserID: "user-a"}
 	job, err := service.Create(actor, offerURL)
 	require.NoError(t, err)
@@ -501,7 +501,7 @@ func TestServiceClaimExtendsJobExpiryForFullLease(t *testing.T) {
 
 func TestServiceCleansExpiredAndRetainedTerminalJobs(t *testing.T) {
 	clock := newMutableClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC))
-	service := NewService(clock.Now)
+	service := NewService(clock.Now, nil)
 	actor := Actor{TenantID: "tenant-a", UserID: "user-a"}
 	_, err := service.Create(actor, offerURL)
 	require.NoError(t, err)
@@ -525,7 +525,7 @@ func TestServiceCleansExpiredAndRetainedTerminalJobs(t *testing.T) {
 }
 
 func TestServiceRejectsWrongTokenAndDuplicateTerminalResult(t *testing.T) {
-	service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)))
+	service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)), nil)
 	actor := Actor{TenantID: "tenant-a", UserID: "user-a"}
 	job, err := service.Create(actor, offerURL)
 	require.NoError(t, err)
@@ -541,7 +541,7 @@ func TestServiceRejectsWrongTokenAndDuplicateTerminalResult(t *testing.T) {
 }
 
 func TestServiceTerminalSuccessRetryClassifiesOriginalAndWrongTokens(t *testing.T) {
-	service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)))
+	service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)), nil)
 	actor := Actor{TenantID: "tenant-a", UserID: "user-a"}
 	job, err := service.Create(actor, offerURL)
 	require.NoError(t, err)
@@ -560,7 +560,7 @@ func TestServiceTerminalSuccessRetryClassifiesOriginalAndWrongTokens(t *testing.
 }
 
 func TestServiceTerminalFailureRetryClassifiesOriginalAndWrongTokens(t *testing.T) {
-	service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)))
+	service := NewService(fixedClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)), nil)
 	actor := Actor{TenantID: "tenant-a", UserID: "user-a"}
 	job, err := service.Create(actor, offerURL)
 	require.NoError(t, err)
@@ -580,7 +580,7 @@ func TestServiceTerminalFailureRetryClassifiesOriginalAndWrongTokens(t *testing.
 
 func TestServiceRequeuesExpiredClaimWhileJobIsAlive(t *testing.T) {
 	clock := newMutableClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC))
-	service := NewService(clock.Now)
+	service := NewService(clock.Now, nil)
 	actor := Actor{TenantID: "tenant-a", UserID: "user-a"}
 	_, err := service.Create(actor, offerURL)
 	require.NoError(t, err)
@@ -595,7 +595,7 @@ func TestServiceRequeuesExpiredClaimWhileJobIsAlive(t *testing.T) {
 
 func TestServiceEvictsJobAfterThreeExpiredClaims(t *testing.T) {
 	clock := newMutableClock(time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC))
-	service := NewService(clock.Now)
+	service := NewService(clock.Now, nil)
 	actor := Actor{TenantID: "tenant-a", UserID: "user-a"}
 	_, err := service.Create(actor, offerURL)
 	require.NoError(t, err)

@@ -12,7 +12,7 @@ import (
 )
 
 func TestLocalAgentProtocolCompletesWithoutListingKitTask(t *testing.T) {
-	service := NewService(fixedClockForE2E())
+	service := NewService(fixedClockForE2E(), nil)
 	actor := Actor{TenantID: "tenant-a", UserID: "user-a"}
 	created, err := service.Create(actor, offerURL)
 	require.NoError(t, err)

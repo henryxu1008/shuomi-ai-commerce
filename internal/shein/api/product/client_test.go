@@ -44,7 +44,7 @@ func TestQueryBrandList(t *testing.T) {
 	defer server.Close()
 
 	baseClient := sheinclient.NewBaseAPIClient(server.URL, req.C())
-	client := NewClient(baseClient)
+	client := NewClient(baseClient, nil)
 
 	resp, err := client.QueryBrandList()
 	if err != nil {

@@ -27,7 +27,7 @@ func TestBuildScopedSelectorsWithoutScopes(t *testing.T) {
 }
 
 func TestSyncInitialPriceWithListPrice(t *testing.T) {
-	extractor := NewPriceExtractor("UK")
+	extractor := NewPriceExtractor("UK", nil)
 	listPrice := 29.99
 	product := &model.Product{
 		FinalPrice: 19.93,
@@ -42,7 +42,7 @@ func TestSyncInitialPriceWithListPrice(t *testing.T) {
 }
 
 func TestSyncInitialPriceWithListPriceClearsMissingOriginalPrice(t *testing.T) {
-	extractor := NewPriceExtractor("UK")
+	extractor := NewPriceExtractor("UK", nil)
 	product := &model.Product{
 		FinalPrice:   19.93,
 		InitialPrice: 19.93,

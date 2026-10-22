@@ -2,9 +2,11 @@
 package browser
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"fmt"
 	"strings"
-	"task-processor/internal/core/logger"
+
 	"time"
 
 	"github.com/mxschmitt/playwright-go"
@@ -14,6 +16,8 @@ const zipcodeVerificationSettleWindow = 4 * time.Second
 
 // ZipcodeSetter 邮编设置器
 type ZipcodeSetter struct {
+	loggerDependency
+
 	browserManager *BrowserManager
 	maxRetries     int
 	getter         *ZipcodeGetter
@@ -22,13 +26,14 @@ type ZipcodeSetter struct {
 }
 
 // NewZipcodeSetter 创建邮编设置器实例
-func NewZipcodeSetter(browserManager *BrowserManager) *ZipcodeSetter {
+func NewZipcodeSetter(browserManager *BrowserManager, logs func(string) *logrus.Entry) *ZipcodeSetter {
 	return &ZipcodeSetter{
-		browserManager: browserManager,
-		maxRetries:     3,
-		getter:         NewZipcodeGetter(),
-		inputHandler:   NewZipcodeInputHandler(),
-		validator:      NewZipcodeValidator(),
+		loggerDependency: loggerDependency{logFor: logs},
+		browserManager:   browserManager,
+		maxRetries:       3,
+		getter:           NewZipcodeGetter(logs),
+		inputHandler:     NewZipcodeInputHandler(logs),
+		validator:        NewZipcodeValidator(logs),
 	}
 }
 
@@ -49,7 +54,7 @@ func (zs *ZipcodeSetter) SetTargetURL(targetURL string) {
 func (zs *ZipcodeSetter) SetAndVerifyZipcode(page playwright.Page, zipcode string) error {
 	// 如果邮编为空，跳过设置
 	if zipcode == "" {
-		logger.GetGlobalLogger("crawler/amazon").Infof("邮编为空，跳过设置")
+		zs.componentLogger("crawler/amazon").Infof("邮编为空，跳过设置")
 		return nil
 	}
 
@@ -57,7 +62,7 @@ func (zs *ZipcodeSetter) SetAndVerifyZipcode(page playwright.Page, zipcode strin
 	needsRefreshBeforeRetry := false
 
 	for attempt := 1; attempt <= zs.maxRetries; attempt++ {
-		logger.GetGlobalLogger("crawler/amazon").Infof("尝试设置邮编 (第 %d/%d 次): %s", attempt, zs.maxRetries, zipcode)
+		zs.componentLogger("crawler/amazon").Infof("尝试设置邮编 (第 %d/%d 次): %s", attempt, zs.maxRetries, zipcode)
 
 		// 检查页面是否仍然有效
 		if page.IsClosed() {
@@ -71,19 +76,19 @@ func (zs *ZipcodeSetter) SetAndVerifyZipcode(page playwright.Page, zipcode strin
 			}
 		}
 
-		DismissRegionalPrompt(page, zs.inputHandler.targetURL)
+		DismissRegionalPrompt(page, zs.inputHandler.targetURL, zs.logFor)
 
 		// 先验证当前邮编是否正确
 		if isValid, err := zs.isZipcodeValid(page, zipcode); err == nil && isValid {
-			logger.GetGlobalLogger("crawler/amazon").Infof("当前邮编已经是目标邮编: %s，无需设置", zipcode)
+			zs.componentLogger("crawler/amazon").Infof("当前邮编已经是目标邮编: %s，无需设置", zipcode)
 			return nil
 		}
 
-		logger.GetGlobalLogger("crawler/amazon").Infof("当前邮编不匹配，需要设置邮编")
+		zs.componentLogger("crawler/amazon").Infof("当前邮编不匹配，需要设置邮编")
 
 		// 设置邮编
 		if err := zs.inputHandler.SetZipcode(page, zipcode); err != nil {
-			logger.GetGlobalLogger("crawler/amazon").Infof("设置邮编失败: %v", err)
+			zs.componentLogger("crawler/amazon").Infof("设置邮编失败: %v", err)
 			// 检查是否是页面关闭导致的错误
 			if page.IsClosed() {
 				return fmt.Errorf("页面已关闭: %w", err)
@@ -99,7 +104,7 @@ func (zs *ZipcodeSetter) SetAndVerifyZipcode(page playwright.Page, zipcode strin
 
 			// 第一次失败后等待，第二次失败会在下次循环开始时刷新页面
 			if attempt == 1 {
-				logger.GetGlobalLogger("crawler/amazon").Infof("等待 2 秒后重试")
+				zs.componentLogger("crawler/amazon").Infof("等待 2 秒后重试")
 				time.Sleep(2 * time.Second)
 			}
 			continue
@@ -110,7 +115,7 @@ func (zs *ZipcodeSetter) SetAndVerifyZipcode(page playwright.Page, zipcode strin
 			repeatedStableMismatch := false
 			if mismatchValue := zs.detectStableMismatch(page, zipcode); mismatchValue != "" {
 				if lastObservedMismatch != "" && lastObservedMismatch == mismatchValue {
-					logger.GetGlobalLogger("crawler/amazon").Infof("邮编仍停留在稳定错误上下文: %s，下一轮优先刷新页面后重试", mismatchValue)
+					zs.componentLogger("crawler/amazon").Infof("邮编仍停留在稳定错误上下文: %s，下一轮优先刷新页面后重试", mismatchValue)
 					repeatedStableMismatch = true
 				}
 				lastObservedMismatch = mismatchValue
@@ -137,13 +142,13 @@ func (zs *ZipcodeSetter) SetAndVerifyZipcode(page playwright.Page, zipcode strin
 
 			// 第一次失败后等待，第二次失败会在下次循环开始时刷新页面
 			if attempt == 1 {
-				logger.GetGlobalLogger("crawler/amazon").Infof("等待 2 秒后重试")
+				zs.componentLogger("crawler/amazon").Infof("等待 2 秒后重试")
 				time.Sleep(2 * time.Second)
 			}
 			continue
 		}
 
-		logger.GetGlobalLogger("crawler/amazon").Infof("成功设置并验证邮编: %s", zipcode)
+		zs.componentLogger("crawler/amazon").Infof("成功设置并验证邮编: %s", zipcode)
 		return nil
 	}
 
@@ -164,7 +169,7 @@ func (zs *ZipcodeSetter) shouldFailFast(err error) bool {
 
 	for _, marker := range fatalMarkers {
 		if strings.Contains(message, marker) {
-			logger.GetGlobalLogger("crawler/amazon").Infof("检测到不可恢复的邮编设置错误，立即终止当前实例重试: %s", err)
+			zs.componentLogger("crawler/amazon").Infof("检测到不可恢复的邮编设置错误，立即终止当前实例重试: %s", err)
 			return true
 		}
 	}
@@ -246,11 +251,11 @@ func (zs *ZipcodeSetter) isZipcodeValid(page playwright.Page, expectedZipcode st
 
 // refreshPageForRetry 为重试刷新页面
 func (zs *ZipcodeSetter) refreshPageForRetry(page playwright.Page) error {
-	logger.GetGlobalLogger("crawler/amazon").Infof("重试前刷新页面")
+	zs.componentLogger("crawler/amazon").Infof("重试前刷新页面")
 	if _, err := page.Reload(playwright.PageReloadOptions{
 		Timeout: playwright.Float(15000), // 15秒超时，防止 WebSocket 断连时永久 hang
 	}); err != nil {
-		logger.GetGlobalLogger("crawler/amazon").Infof("刷新页面失败: %v", err)
+		zs.componentLogger("crawler/amazon").Infof("刷新页面失败: %v", err)
 		return fmt.Errorf("刷新页面失败: %w", err)
 	}
 
@@ -259,10 +264,10 @@ func (zs *ZipcodeSetter) refreshPageForRetry(page playwright.Page) error {
 		State:   playwright.LoadStateDomcontentloaded,
 		Timeout: playwright.Float(15000),
 	}); err != nil {
-		logger.GetGlobalLogger("crawler/amazon").Infof("等待页面加载失败: %v", err)
+		zs.componentLogger("crawler/amazon").Infof("等待页面加载失败: %v", err)
 	}
 
-	logger.GetGlobalLogger("crawler/amazon").Infof("页面已刷新，继续尝试设置邮编")
-	DismissRegionalPrompt(page, zs.inputHandler.targetURL)
+	zs.componentLogger("crawler/amazon").Infof("页面已刷新，继续尝试设置邮编")
+	DismissRegionalPrompt(page, zs.inputHandler.targetURL, zs.logFor)
 	return nil
 }

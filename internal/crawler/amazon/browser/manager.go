@@ -1,10 +1,12 @@
 package browser
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"fmt"
 	"strings"
 	"task-processor/internal/core/config"
-	"task-processor/internal/core/logger"
+
 	sharedbrowser "task-processor/internal/crawler/shared/browser"
 
 	"github.com/mxschmitt/playwright-go"
@@ -12,19 +14,21 @@ import (
 
 // BrowserManager Amazon专用的浏览器管理器，继承shared的功能
 type BrowserManager struct {
+	loggerDependency
+
 	*sharedbrowser.Manager
 	config        *config.Config
 	configManager *ConfigManager
 }
 
 // NewBrowserManager 创建Amazon浏览器管理器（保持向后兼容）
-func NewBrowserManager(cfg *config.Config) *BrowserManager {
-	return NewBrowserManagerWithConfig(cfg, "windows", "windows_high_end", 0)
+func NewBrowserManager(cfg *config.Config, logs func(string) *logrus.Entry) *BrowserManager {
+	return NewBrowserManagerWithConfig(cfg, "windows", "windows_high_end", 0, logs)
 }
 
 // NewBrowserManagerWithConfig 使用指定配置创建Amazon浏览器管理器
-func NewBrowserManagerWithConfig(cfg *config.Config, strategy string, presetName string, instanceID int) *BrowserManager {
-	configManager := NewConfigManager()
+func NewBrowserManagerWithConfig(cfg *config.Config, strategy string, presetName string, instanceID int, logs func(string) *logrus.Entry) *BrowserManager {
+	configManager := NewConfigManager(logs)
 
 	var browserConfig *sharedbrowser.BrowserConfig
 
@@ -48,13 +52,14 @@ func NewBrowserManagerWithConfig(cfg *config.Config, strategy string, presetName
 			ViewportHeight: cfg.Browser.ViewportHeight,
 			UserAgent:      "", // 使用默认用户代理
 		}
-		logger.GetGlobalLogger("crawler/amazon").Infof("实例 %d 使用传统浏览器配置", instanceID)
+		componentLogger(logs, "crawler/amazon").Infof("实例 %d 使用传统浏览器配置", instanceID)
 	}
 
 	return &BrowserManager{
-		Manager:       sharedbrowser.NewManager(browserConfig),
-		config:        cfg,
-		configManager: configManager,
+		loggerDependency: loggerDependency{logFor: logs},
+		Manager:          sharedbrowser.NewManager(browserConfig, logs),
+		config:           cfg,
+		configManager:    configManager,
 	}
 }
 
@@ -67,7 +72,7 @@ func (bm *BrowserManager) GetConfigManager() *ConfigManager {
 func (bm *BrowserManager) NavigateTo(page playwright.Page, url string) error {
 	// Set language preference cookies before navigation
 	if err := bm.setLanguageCookies(url); err != nil {
-		logger.GetGlobalLogger("crawler/amazon").Infof("设置语言Cookie失败: %v", err)
+		bm.componentLogger("crawler/amazon").Infof("设置语言Cookie失败: %v", err)
 	}
 
 	// 使用父类的导航方法
