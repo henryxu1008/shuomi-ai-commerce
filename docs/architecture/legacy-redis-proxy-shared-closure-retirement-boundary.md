@@ -1,18 +1,18 @@
 # #301 旧 DB 代理、Redis 封装与 shared helper 完整退休设计
 
-Status: **PROPOSED / AWAITING_USER_CONFIRMATION**。本次 **Design Basis: N/A** 仅覆盖只读调查与纯文档；未来源码实施拟 **Reuse Existing Architecture / NOT_READY**，须用户确认本文 §1–§7（含 §6.1）并在 #301/同一主要 PR 记录准入后才能开始。调查基线 main `6266629b79a7ac100a6b007f77eadacefc46ec5e`；一个 Writer、一个分支、一个主要 PR，三组完整闭包不机械拆批。#301 保持 OPEN，#29 不重开；准确设计 HEAD、原 CI/复核和后续实施证据留 PR，不把提案写成源码已退休。
+Status: **USER_CONFIRMED / SOURCE_IMPLEMENTED**。用户已确认冻结设计 `023567fe47f0262e23b56b58f02b34c195921bea` §1–§7（含 §6.1），在 #880 整批实施。[用户确认与实施准入](https://github.com/qq550723504/task-processor/pull/880#issuecomment-6333413341)及 #301/PR 的 Ready 读回先于正式源码修改；设计阶段 N/A，本轮 **Design Basis: Reuse Existing Architecture / Ready**。调查与开工同步 main 同为 `6266629b79a7ac100a6b007f77eadacefc46ec5e`，消费者刷新不变；以下冻结矩阵与停止条件保持，仅校准当前状态。一个 Writer、一个分支、一个主要 PR，三组完整闭包不机械拆批。#301 OPEN，#29 不重开；准确实现 HEAD、RED/GREEN、原 CI/最终复核留 PR，不把源码完成当作运行或用户验收。
 
 ## 1. 用户结果、范围与权限
 
 使用者是维护当前应用、采集、图像、Store 与独立 SHEIN worker 的维护者。预期源码结果是一起退出无现役调用的 ConnectionProxy、旧 platform Redis/唯一闲置 adapter，以及 hashx/mathx/strx 三组专属闭包，避免把已无消费者的技术包装误认为当前可用产品能力。没有证据说明这些残留正在阻塞核心用户操作；不新增业务功能、替代基础设施或内部试用前置。
 
-本次只交付完整设计、引用登记及原适用文档检查。未来获确认后，§5 的 22 个完整工件与 §6.1 原检查/当前文档尾部同批实施；不为包、文件数、测试或审核拆分 PR。当前 DB 共享池与 schema owner、原生 Redis 和现役行为均留在原 owner。
+本轮已按用户确认的 §5/§6.1 同批源码退休 22 个完整工件及原检查/当前文档尾部；不为包、文件数、测试或审核拆分 PR。当前 DB 共享池与 schema owner、原生 Redis 和现役行为均留在原 owner。
 
 不执行旧 constructor、ConnectionProxy.Execute/Close、Redis New/Ping/锁/Lua/Scan/Delete、MemoryLock ticker 或当前业务命令；不运行应用/worker/dry-run，不读有效运行配置、既有凭据、Profile/binding/Secret/token、进程环境、日志或既有报告。不操作既有实例、数据、凭据或进程，不启动 PG/Redis/browser/provider，不使用 Docker/Compose/kubectl/SQL。只读 Git 追踪的源码/文档与 `go list` 依赖元数据；物理状态/外部人工使用 UNKNOWN，运行与用户验收 NOT_RUN。
 
 ## 2. Design Basis、Authority 与不变量
 
-设计阶段 **N/A**；未来实施完全复用已有架构，拟 **Reuse Existing Architecture**：
+设计阶段 **N/A**；本轮用户确认和 Ready 读回后以 **Reuse Existing Architecture** 实施，直接复用：
 
 - [Greenfield 产品决定](../product/greenfield-no-legacy-migration.md)、[Hard-Cut Policy](../refactoring/legacy-hard-cut-policy.md)、[Legacy Register](../refactoring/legacy-register.md)、[项目边界](project-boundaries.md)和[Issue 驱动规则](../engineering/issue-driven-development.md)。仅 EXTRACT/RETIRE，无兼容层、旧 Service 包装、迁移、双读/双写或第二事实源。
 - 当前 `platform/database.OpenShared/CloseShared`、GORM/Goose、`app/configadapter.Database`；当前 `core/config.RedisConfig` 与各 owner 的原生 `github.com/redis/go-redis/v9` 使用；不改变连接、关闭、schema 或资源 owner。
@@ -39,7 +39,7 @@ Must：完整闭包退出，现役能力/共享合同不变，原必需与安全
 | 当前 Redis/SHEIN | sheinlogin/store.go 的 NewRedisStore 直接消费 core/config.RedisConfig 并构造原生 redis.Client；各当前 Redis/SDS 配置和入口仍有效 | 保留原配置/默认/env/Build/校验、原生客户端、key/TTL/owner/fence/UNKNOWN 及当前注入，不改为旧 platform 包 |
 | 其它 shared/基础层 | ptr、resilience、aiidentity、tenantctx 及 logger/workerpool 等仍有现役消费者 | 保留；不按 shared/platform 名字或零默认入口误退显式保留的平台 API/规则 |
 
-`app/configadapter` 的包级 import 会使入口编译依赖 platform Redis，但不能证明 Redis adapter 函数被执行。未来实施应消除这条闲置编译依赖，而不是重新注入它。三个当前入口 `current-application`、`shein-login-worker`、`image-agent-temporal-worker` 的实际依赖须退出四个旧包；当前 DB/core-config/原生 Redis 依赖不退出。
+`app/configadapter` 的包级 import 在冻结基线使入口编译依赖 platform Redis，但不能证明 Redis adapter 函数被执行。本轮删除这条闲置编译依赖，不重新注入它。三个当前入口 `current-application`、`shein-login-worker`、`image-agent-temporal-worker` 的实际依赖须退出四个旧包；当前 DB/core-config/原生 Redis 依赖不退出。
 
 ## 4. 配置、持久化与副作用 owner
 
@@ -96,10 +96,10 @@ internal/shared/strx/strings_test.go
 - 全部成熟 SDK/依赖/锁保持；不 tidy/升级或改安全配置。不因无默认入口删显式保留的平台 API，不复制这些 helper 到新位置。
 
 ```text
-Legacy decision: RETIRE（提案，尚未实施）
+Legacy decision: RETIRE（用户确认，已整批源码实施）
 Reusable behavior: 无新 EXTRACT；有当前使用价值的 DB、Redis、纯规则/值合同已有保留 owner
 Current owner: platform/database + app/configadapter.Database；core/config + 各现役原生 Redis/业务 owner；当前共享/规则 owner
-Cutover/deletion condition: 用户确认 §1–§7（含 §6.1）、Ready 读回及消费者刷新无冲突后，22 工件/原检查/直接文档尾部一起退出，无物理状态处置
+Cutover/deletion condition: 已获用户确认 §1–§7（含 §6.1）、Ready 读回和消费者刷新无冲突，22 工件/原检查/直接文档尾部同退，无物理状态处置
 ```
 
 ## 6. 必要验证与证据边界
@@ -110,7 +110,7 @@ Cutover/deletion condition: 用户确认 §1–§7（含 §6.1）、Ready 读回
 
 ### 6.1 原检查、当前文档、inventory 与 workflow 的精确处置
 
-下表是未来实施范围，当前设计 PR 不应用测试/源代码调整：
+下表为用户确认的同批实施范围，本轮已据此精确校准，没有扩大到其它源/配置/检查：
 
 | 对象 | 同批最小校准 | 必须保留 |
 | --- | --- | --- |
@@ -121,7 +121,7 @@ Cutover/deletion condition: 用户确认 §1–§7（含 §6.1）、Ready 读回
 | 同文件 provider adapter matrix fixtures | 四处 shared/strx 示例路径精确替换为仍有效 shared/ptr，包括三个 allowed 和 httpimage forbidden 示例 | isAllowedIntegrationProviderAdapterImport 的现行共享/产品/平台允许拒绝策略、fixture 期望/解析/所有其它样例保持，不扩大 allowlist |
 | 原 phase2 ceilings / inventory accuracy / depguard | **零改**：platform/redis max=8 是 dated ceiling，不要求包存在；app/configadapter 是原精确豁免的 intentional wiring，没有 CURRENT consumer 行需删。旧 internal/pkg/hashx/mathx/strx 的 depguard 禁入条款也保留 | 完整 phase2-runtime-inventory.md 的 CURRENT、历史/计数/ceilings/映射及所有准确性/解析检查逻辑、.golangci.yml、test-baseline.txt 原样；不新申请不存在的 stale 行例外 |
 | project-boundaries.md §3.6 / internal/platform/README.md | 仅当前 runtime owner 列表退 platform Redis 项，增加本准确退休注记：原生 Redis/core/config/现役消费者及 DB bootstrap/共享池仍有效 | dated Phase2 原文及旧 Config/flags/tracing/RabbitMQ 退役说明、Goose/workerpool/Temporal/其它 integration owner 和必需文档词句原样；不宣称 Redis 能力退役 |
-| Architecture README / Legacy Register / 本文 | 设计阶段只加 PROPOSED 引用，确认实施后才校准为确认/源码退出和实际 guard 证据 | 其它 owner、旧正文/计数/历史失败和保留矩阵保持；不把全仓/shared/database 宣称清零 |
+| Architecture README / Legacy Register / 本文 | 设计阶段只加 PROPOSED 引用，本轮确认实施后校准为确认/源码退出和实际 guard 证据 | 其它 owner、旧正文/计数/历史失败和保留矩阵保持；不把全仓/shared/database 宣称清零 |
 | 全部 workflow / 依赖与锁 / 保护 | **零改**；无本闭包独立 workflow 目标需要精确替换，原 CI 正常执行 | 原触发/分类/权限/并发/Required CI Gate、必需和安全检查、SDK 约束与 ceilings 不变 |
 
 若原 CI/实际消费者与矩阵冲突，给准确失败及最小处置后报告；不先改 inventory/workflow/ceilings/安全检查求绿，不扩大到其它旧包、配置、依赖或真实状态。用户确认的精确范围不能由未来 Reviewer 的理论 hardening 扩展。
@@ -129,7 +129,7 @@ Cutover/deletion condition: 用户确认 §1–§7（含 §6.1）、Ready 读回
 ## 7. 设计确认、交接与停止点
 
 1. 在同一主要 PR 提交本设计及引用，记录准确设计 HEAD、基线、原文档检查/CI；一次有界原 GitHub 设计复核仅审本闭包与保留合同。同 SHA Running 不重复触发，不默认新增 AI 互验线程；无新高风险边界不重开全局架构。
-2. 交用户确认 §1–§7（含 §6.1）后，在 #301/PR 记录冻结设计 HEAD、唯一 Writer 与 **Reuse Existing Architecture / Ready** 并读回，才开始生产源码。当前 N/A/设计复核完成都不自动授权实施。
+2. 交用户确认 §1–§7（含 §6.1）后，在 #301/PR 记录冻结设计 HEAD、唯一 Writer 与 **Reuse Existing Architecture / Ready** 并读回，才开始生产源码。本轮已取得明确确认并在源码修改前读回；N/A/设计复核完成本身都不授权实施。
 3. 三组 22 工件及上述专属尾部一起实施；原必要测试、提交/推送、范围内 CI/review 修复留同一 PR。开工同步一次实际 main，最终候选再同步一次；仅验证真实组合风险，不持续 merge-main 或重复审核未变化代码。
 4. 发现具体现役消费者/外部可观察义务、新事实/权限/状态/事务/恢复/副作用边界、需兼容/迁移或额外 workflow/inventory/源删除时，停止对应部分并报告受影响 Must、阻塞层级和最小差异。只有真实 BLOCKER 重开冻结设计；非阻塞建议按原分类，不新增试用前置。
 5. 实施后一次集中独立最终检查核对真实 diff、保留能力和有效证据；修复仅审增量。交付准确实现 HEAD、原 CI、复核与限制供用户准确 HEAD 合并授权，之后才确认实际 merge SHA 匹配的 completed/SUCCESS push/main 整 run；PR CI/Gate 单项不能替代。

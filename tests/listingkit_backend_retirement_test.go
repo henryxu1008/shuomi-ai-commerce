@@ -20,6 +20,105 @@ var retiredHostRuntimePackages = []string{
 	"internal/app/lifecycle", "internal/core/errors", "internal/app/ports", "internal/app/updater",
 }
 
+func TestLegacyRedisProxyAndSharedClosureIsRetired(t *testing.T) {
+	retiredPackages := []string{
+		"internal/platform/redis", "internal/shared/hashx", "internal/shared/mathx", "internal/shared/strx",
+	}
+	retiredArtifacts := []string{
+		"internal/platform/database/connection_proxy.go", "internal/platform/database/connection_proxy_test.go",
+		"internal/platform/redis/client.go", "internal/platform/redis/client_test.go", "internal/platform/redis/config.go",
+		"internal/platform/redis/lock.go", "internal/platform/redis/lock_test.go",
+		"internal/platform/redis/memory_lock.go", "internal/platform/redis/memory_lock_test.go", "internal/platform/redis/README.md",
+		"internal/app/configadapter/redis.go", "internal/app/configadapter/redis_test.go",
+		"internal/shared/hashx/hashutil.go", "internal/shared/mathx/math.go", "internal/shared/mathx/math_test.go",
+		"internal/shared/strx/cleaner.go", "internal/shared/strx/join.go", "internal/shared/strx/join_test.go",
+		"internal/shared/strx/parse.go", "internal/shared/strx/string.go", "internal/shared/strx/string_test.go", "internal/shared/strx/strings_test.go",
+	}
+	for _, relative := range append(append([]string{}, retiredPackages...), retiredArtifacts...) {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Errorf("retired Redis/proxy/shared artifact %s must be absent: %v", relative, err)
+		}
+	}
+	for _, relative := range trackedFiles(t, ".") {
+		if !strings.HasSuffix(relative, ".go") {
+			continue
+		}
+		var retiredDeclarations []string
+		if !strings.HasSuffix(relative, "_test.go") {
+			switch {
+			case strings.HasPrefix(relative, "internal/platform/database/"):
+				retiredDeclarations = []string{"ConnectionProxy", "ConnectionProxyConfig", "ProxyLogger", "NewConnectionProxy"}
+			case strings.HasPrefix(relative, "internal/app/configadapter/"):
+				retiredDeclarations = []string{"Redis"}
+			}
+		}
+		mode := parser.ImportsOnly
+		if len(retiredDeclarations) > 0 {
+			mode = 0
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(relative)), nil, mode)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, spec := range file.Imports {
+			imported, err := decodeGoImportPath(spec.Path.Value)
+			if err != nil {
+				t.Fatalf("decode import in %s: %v", relative, err)
+			}
+			for _, retired := range retiredPackages {
+				if importMatchesPrefix(imported, "task-processor/"+retired) {
+					t.Errorf("%s imports retired Redis/shared package %s", relative, imported)
+				}
+			}
+		}
+		if len(retiredDeclarations) == 0 {
+			continue
+		}
+		for _, declaration := range file.Decls {
+			var names []string
+			switch declaration := declaration.(type) {
+			case *ast.FuncDecl:
+				if declaration.Recv == nil {
+					names = append(names, declaration.Name.Name)
+				}
+			case *ast.GenDecl:
+				for _, spec := range declaration.Specs {
+					switch spec := spec.(type) {
+					case *ast.TypeSpec:
+						names = append(names, spec.Name.Name)
+					case *ast.ValueSpec:
+						for _, name := range spec.Names {
+							names = append(names, name.Name)
+						}
+					}
+				}
+			}
+			for _, name := range names {
+				if slices.Contains(retiredDeclarations, name) {
+					t.Errorf("%s recreates retired owner declaration %s", relative, name)
+				}
+			}
+		}
+	}
+	for _, command := range []string{"current-application", "shein-login-worker", "image-agent-temporal-worker"} {
+		t.Run(command, func(t *testing.T) {
+			cmd := exec.Command("go", "list", "-deps", "./cmd/"+command)
+			cmd.Dir = ".."
+			output, err := cmd.CombinedOutput()
+			if err != nil {
+				t.Fatalf("go list current command: %v\n%s", err, output)
+			}
+			for _, dependency := range strings.Fields(string(output)) {
+				for _, retired := range retiredPackages {
+					if importMatchesPrefix(dependency, "task-processor/"+retired) {
+						t.Errorf("%s still compiles retired Redis/shared dependency %s", command, dependency)
+					}
+				}
+			}
+		})
+	}
+}
+
 func TestLegacyHostConfigFeatureFlagTracingClosureIsRetired(t *testing.T) {
 	retiredPackages := []string{"internal/platform/config", "internal/platform/featureflag", "internal/platform/observability"}
 	for _, relative := range append(append([]string{}, retiredPackages...),
@@ -249,7 +348,6 @@ func TestNumericContextAndValueContractsAreRetired(t *testing.T) {
 	for relative, retired := range map[string][]string{
 		"internal/platform/logging/helpers.go":                 {"LogTaskStart", "LogTaskComplete", "LogTaskFailed", "WithTaskContext", "WithStoreContext", "FieldTaskID", "FieldTenantID", "FieldStoreID"},
 		"internal/core/logger/compat.go":                       {"WithTaskContext", "WithStoreContext", "FieldTaskID", "FieldTenantID", "FieldStoreID"},
-		"internal/shared/hashx/hashutil.go":                    {"SimpleHash", "ShardForTenantShop"},
 		"internal/shein/pricing/calculator.go":                 {"listingruntime"},
 		"internal/shein/activity/registration_config.go":       {"listingruntime"},
 		"internal/shein/activity/promotion_create_products.go": {"listingruntime"},
@@ -2286,44 +2384,8 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			}
 		}
 	}
-	strxPaths, err := filepath.Glob(filepath.Join("..", "internal", "shared", "strx", "*.go"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, path := range strxPaths {
-		if strings.HasSuffix(path, "_test.go") {
-			continue
-		}
-		file, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
-		if err != nil {
-			t.Fatal(err)
-		}
-		// Only package declarations recreate the retired shared contract.
-		// SHEIN receiver methods, fields, selectors and local names are unrelated.
-		for _, declaration := range file.Decls {
-			var names []*ast.Ident
-			switch declaration := declaration.(type) {
-			case *ast.FuncDecl:
-				if declaration.Recv == nil {
-					names = append(names, declaration.Name)
-				}
-			case *ast.GenDecl:
-				for _, spec := range declaration.Specs {
-					switch spec := spec.(type) {
-					case *ast.TypeSpec:
-						names = append(names, spec.Name)
-					case *ast.ValueSpec:
-						names = append(names, spec.Names...)
-					}
-				}
-			}
-			for _, name := range names {
-				if name.Name == "CleanProductTitle" || name.Name == "CleanWhitespace" {
-					t.Errorf("%s recreates retired shared text declaration %s", path, name.Name)
-				}
-			}
-		}
-	}
+	// The complete strx owner, including its retired text declarations, is
+	// protected by TestLegacyRedisProxyAndSharedClosureIsRetired.
 	contextPaths, err := filepath.Glob(filepath.Join("..", "internal", "temu", "context", "*.go"))
 	if err != nil {
 		t.Fatal(err)

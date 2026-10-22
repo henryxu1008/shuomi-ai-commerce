@@ -167,7 +167,6 @@ Current runtime-foundation owners:
 
 - `internal/platform/logging`
 - `internal/platform/database`
-- `internal/platform/redis`
 - `internal/platform/workerpool`
 - `internal/platform/temporal`
 - `internal/integration/openai`
@@ -182,6 +181,15 @@ feature-flag and tracing owners are source-retired under the
 [confirmed #301 boundary](legacy-host-config-featureflag-tracing-retirement-boundary.md).
 This exact boundary supersedes their retention in the dated Phase 2 observations
 below; it introduces no replacement runtime or plural featureflags alias.
+
+The dormant platform Redis wrapper/adapter, database ConnectionProxy and
+hashx/mathx/strx helpers are source-retired under the
+[confirmed #301 boundary](legacy-redis-proxy-shared-closure-retirement-boundary.md).
+Current Redis configuration/native clients stay with their existing owners,
+including standalone SHEIN login/Store sync. Database bootstrap and the shared
+OpenShared/CloseShared lifecycle remain in `internal/platform/database`.
+Only this exact closure supersedes the dated Phase 2 retention below;
+it introduces no replacement runtime or pool.
 
 Own:
 
