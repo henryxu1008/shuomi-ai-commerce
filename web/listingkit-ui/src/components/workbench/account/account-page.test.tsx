@@ -19,6 +19,14 @@ function mount(page: "profile" | "profile-settings" | "profile-business" | "prof
 }
 afterEach(() => { cleanup(); clients.splice(0).forEach(c => c.clear()); vi.unstubAllGlobals(); state.context = { user: { id: "u1" }, homeOrganizationId: "A", effectiveOrganization: { id: "B", name: "企业乙", roles: ["viewer"], permissions: [] }, roles: ["viewer"], permissions: [], isLoading: false, isSwitching: false, selectionRequired: false, error: null, blockingError: null }; });
 describe("AccountPage read-only projection", () => {
+  it.each(["profile", "profile-business", "profile-verification"] as const)("removes the duplicate personal skill manager from %s", async page => {
+    const business = {schemaVersion: "account-business-profile-v1", userId: "u1", userRole: "", shopSituation: "", factorySituation: "", platforms: [], sites: [], shopType: "", services: [], source: "account_profile", updatedAt: null, readAt: profile.readAt};
+    const fetcher = vi.fn((url: string) => Promise.resolve(url === "/api/account/profile" ? Response.json(profile) : url === "/api/account/business-profile" ? Response.json(business) : url === "/api/account/organization" ? Response.json(organization) : Response.json({code: "DEPENDENCY_UNAVAILABLE", message: "", requestId: "", fieldErrors: []}, {status: 503})));
+    vi.stubGlobal("fetch", withSelfReads(fetcher));
+    mount(page);
+    expect(await screen.findByRole("heading", {name: "本人甲"})).toBeVisible();
+    expect(screen.queryByRole("button", {name: "我的技能"})).not.toBeInTheDocument();
+  });
   it("clears enterprise read projections when permissions change without changing the native role", async () => {
     state.context.permissions = ["workbench.store.read"] as never[];
     const fetcher = vi.fn().mockResolvedValue(Response.json(organization));

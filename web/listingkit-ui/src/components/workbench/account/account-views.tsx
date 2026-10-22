@@ -20,7 +20,6 @@ import { AccountOverview } from "./account-overview";
 import { ConsoleState } from "../console/console-page";
 import { SubjectVerification } from "./subject-verification";
 import {IdentityDates,RegionSettings,RegionValue} from "./account-facts";
-import {SkillManagerTrigger} from "../skills/skill-manager";
 
 const provided = (value: string | null) => value?.trim() || "未设置";
 const verification = (value: boolean | null) => value === true ? "已验证" : value === false ? "未验证" : "未提供";
@@ -39,7 +38,7 @@ export function AccountOverviewView(props: { profile: AccountProfile; business: 
 type ProfileSection = "summary" | "settings" | "business" | "verification";
 
 export function ProfileView({ data, business, organization, organizationId, section = "summary", identityVerificationOutcomeUnknown = false, onIdentityVerificationOutcomeUnknown, identityContactOutcomeUnknown = false, onIdentityContactOutcomeUnknown }: { data: AccountProfile; business?: AccountBusinessProfile | null; organization?: AccountOrganization | null; organizationId?: string; section?: ProfileSection; identityVerificationOutcomeUnknown?: boolean; onIdentityVerificationOutcomeUnknown?: () => void; identityContactOutcomeUnknown?: boolean; onIdentityContactOutcomeUnknown?: () => void }) {
-  const identity = <><ProfileIdentity data={data}/><SkillManagerTrigger key={`${data.userId}:${organizationId??""}`} scope={{userId:data.userId,organizationId}} space="personal"/></>;
+  const identity = <ProfileIdentity data={data}/>;
   if (section === "settings") return <section className={styles.settingsWorkspace} aria-label="账户资料设置"><AccountSettingsPanel data={data} editable returnTo="/workbench/account/profile/settings" identityContactOutcomeUnknown={identityContactOutcomeUnknown} onIdentityContactOutcomeUnknown={onIdentityContactOutcomeUnknown} /><Provenance data={data} /></section>;
   if (section === "business") return <>{identity}<BusinessProfilePanel profile={business} organizationId={organizationId} /><Provenance data={data} /></>;
   if (section === "verification") return <>{identity}<VerificationPanel data={data} interactive organization={organization} returnTo="/workbench/account/profile/verification" identityVerificationOutcomeUnknown={identityVerificationOutcomeUnknown} onIdentityVerificationOutcomeUnknown={onIdentityVerificationOutcomeUnknown} /><Provenance data={data} /></>;
