@@ -45,7 +45,7 @@ Must：完整闭包退出，现役能力/共享合同不变，原必需与安全
 
 | 边界 | 旧实现可产生的效果 | 删除与保留边界 |
 | --- | --- | --- |
-| ConnectionProxy | OpenShared 得到 GORM 共享句柄；semaphore/maxOps、activeOps/WaitGroup、mutex/closeOnce 控制 callback 与关闭；Close 释放共享引用 | 无当前构造、无独立 durable 业务事实；仅删 proxy 自身。OpenShared/CloseShared/sharedDatabases/sharedDatabaseKey 与当前业务事务/关闭协议保留，不引入另一连接池 |
+| ConnectionProxy | OpenShared 得到 GORM 共享句柄；semaphore/maxOps、activeOps/WaitGroup、mutex/closeOnce 控制 callback 与关闭；Close 等待 activeWG 后通过 master.DB() 直接 sqlDB.Close()，不调用 CloseShared、不减少共享登记引用，可能留下指向已关闭池的登记 | 无当前生产构造、无独立 durable 业务事实；旧关闭缺陷不扩成代理修复，本轮整代理源码退休且不运行 Close/清理真实登记。现役 OpenShared/CloseShared/sharedDatabases/sharedDatabaseKey 及当前业务事务/关闭协议原样保留，不继承旧代理关闭路径、不引入另一连接池 |
 | Redis Client | NewClient + 5 秒 Ping，RPush/Get/Set/SetNX/Del/Scan/集合及 TxPipelined ReplaceSet、Close | 删除无调用封装及专属 Config；不连接/扫描/删除任何 key，不把源码退出记成数据库清理或连接关闭 |
 | RedisLock | UUID owner、SETNX、Lua compare-owner unlock/pexpire、TTL/Close | 删除闲置 owner 实现，不重新归属现有 Redis 锁或当前执行 fence；不调用锁/脚本、不自动接管 UNKNOWN |
 | MemoryLock | 进程内 map/mutex/expiry、10 秒清理 ticker/goroutine 与 Close | 删除源码不等于停止既有进程/goroutine；不运行 constructor、自测或清理 |
