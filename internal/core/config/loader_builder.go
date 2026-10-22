@@ -25,15 +25,6 @@ func BuildConfig(v *viper.Viper) *Config {
 
 	cfg := &Config{
 		StorageCapacity: v.GetBool("storageCapacity"),
-		FeatureFlags:    buildFeatureFlagsConfig(v),
-		Observability: ObservabilityConfig{
-			Tracing: TracingConfig{
-				Enabled:     v.GetBool("observability.tracing.enabled"),
-				ServiceName: v.GetString("observability.tracing.serviceName"),
-				Endpoint:    v.GetString("observability.tracing.endpoint"),
-				Insecure:    v.GetBool("observability.tracing.insecure"),
-			},
-		},
 		OpenAI: OpenAIConfig{
 			APIKey:  v.GetString("openai.apiKey"),
 			Model:   v.GetString("openai.model"),
@@ -233,22 +224,6 @@ func databaseConfigFromViper(v *viper.Viper, prefix string) *DatabaseConfig {
 		MaxIdleConnections:    v.GetInt(prefix + ".max_idle_connections"),
 		ConnectionMaxLifetime: time.Duration(v.GetInt64(prefix + ".connection_max_lifetime")),
 	}
-}
-
-func buildFeatureFlagsConfig(v *viper.Viper) FeatureFlagsConfig {
-	const (
-		flagsConfigKey = "featureFlags.flags"
-		autoMigrateKey = "product-listing-runtime-auto-migrate"
-	)
-
-	rawFlags := v.GetStringMap(flagsConfigKey)
-	flags := make(map[string]bool, len(rawFlags)+1)
-	for key := range rawFlags {
-		flags[key] = v.GetBool(flagsConfigKey + "." + key)
-	}
-	flags[autoMigrateKey] = v.GetBool(flagsConfigKey + "." + autoMigrateKey)
-
-	return FeatureFlagsConfig{Flags: flags}
 }
 
 func legacyListingKitUsernameAllowlistConfigured(v *viper.Viper) bool {
