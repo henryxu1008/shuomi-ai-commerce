@@ -6,8 +6,8 @@ import {OfficialKnowledgePage} from "./official-knowledge-page";
 
 const fixture = vi.hoisted(() => ({context: {user: {id: "reader"}, effectiveOrganization: {id: "org-a", permissions: ["workbench.knowledge.read"]}, isLoading: false, isSwitching: false, error: null, blockingError: null, retry: vi.fn()}}));
 vi.mock("@/components/providers/workbench-context-provider", () => ({useWorkbenchContext: () => fixture.context}));
-const summary = {id: "ai-commerce-guide", revision: "1", title: "AI电商应用指南", summary: "知识选择、标题优化与人工审核", category: "AI电商应用指南", updatedAt: "2026-10-11", maintainedBy: "硕米", digest: "a".repeat(64)};
-const article = {...summary, body: "Human Review\n<script>unsafe()</script>", sources: [{title: "仓库设计依据", url: "https://github.com/qq550723504/task-processor/blob/60d432aa/docs/architecture/agent-knowledge-context-v1.md"}]};
+const summary = {id: "ai-commerce-guide", revision: "2", title: "AI电商应用指南", summary: "知识选择、标题优化与人工审核", category: "AI电商应用指南", updatedAt: "2026-10-22", maintainedBy: "硕米", digest: "a".repeat(64)};
+const article = {...summary, body: "Human Review\n<script>unsafe()</script>", sources: [{title: "企业知识与引用规则"}]};
 afterEach(() => {cleanup(); vi.unstubAllGlobals(); fixture.context.effectiveOrganization = {id: "org-a", permissions: ["workbench.knowledge.read"]}; fixture.context.isSwitching = false; fixture.context.retry.mockReset();});
 function mount(id?: string, revision?: string) {
   const client = new QueryClient({defaultOptions: {queries: {retry: false}}});
@@ -17,8 +17,8 @@ function mount(id?: string, revision?: string) {
 it("browses real versioned content independently of enterprise storage and offers no AI selection", async () => {
   const fetcher = vi.fn(async () => Response.json({items: [summary]})); vi.stubGlobal("fetch", fetcher);
   mount(); await screen.findByRole("heading", {name: summary.title});
-  expect(screen.getByRole("link", {name: "查看内容"})).toHaveAttribute("href", "/workbench/ai/knowledge/official/ai-commerce-guide/revisions/1");
-  expect(screen.getByText(/v1/)).toHaveTextContent("2026-10-11");
+  expect(screen.getByRole("link", {name: "查看内容"})).toHaveAttribute("href", "/workbench/ai/knowledge/official/ai-commerce-guide/revisions/2");
+  expect(screen.getByText(/v2/)).toHaveTextContent("2026-10-22");
   expect(screen.getByText(/AI 引用尚未开放/)).toBeVisible();
   expect(screen.queryByRole("button", {name: "选择使用"})).not.toBeInTheDocument();
   const [url, init] = fetcher.mock.calls[0] as unknown as [string, RequestInit];
@@ -29,7 +29,9 @@ it("browses real versioned content independently of enterprise storage and offer
 it("shows exact revision and sources as inert text", async () => {
   vi.stubGlobal("fetch", vi.fn(async () => Response.json(article))); mount(article.id, article.revision);
   expect(await screen.findByRole("region", {name: "官方资料正文"})).toHaveTextContent("Human Review"); expect(document.querySelector("pre script")).toBeNull();
-  expect(screen.getByRole("link", {name: "仓库设计依据"})).toHaveAttribute("href", article.sources[0].url);
+  const sources = screen.getByRole("heading", {name: "内容依据"}).closest(".official-knowledge-sources")!;
+  expect(sources).toHaveTextContent("企业知识与引用规则");
+  expect(sources.querySelector("a")).toBeNull();
   expect(screen.getByText(/SHA-256/)).toHaveTextContent(article.digest);
 });
 it("hides cached content on a denied refresh and requires fresh context confirmation", async () => {
