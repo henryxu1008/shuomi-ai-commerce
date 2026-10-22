@@ -56,7 +56,7 @@ func TestListingKitReleaseAuthorityMachinePolicyOwnsAllSecurityInputs(t *testing
 	}
 
 	authority := policy.ReleaseAuthority
-	if authority.Repository != "qq550723504/task-processor" || authority.Namespace != "task-processor" {
+	if authority.Repository != "qq550723504/shuomi-ai-commerce" || authority.Namespace != "task-processor" {
 		t.Fatalf("release policy repository/namespace drifted: %#v", authority)
 	}
 	if authority.Tools.ConftestVersion == "" || authority.Tools.OPAVersion == "" || strings.Contains(authority.Tools.ConftestVersion, "latest") || strings.Contains(authority.Tools.OPAVersion, "latest") {

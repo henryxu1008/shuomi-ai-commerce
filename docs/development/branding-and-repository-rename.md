@@ -1,8 +1,8 @@
 # 硕米智能引擎 / Shuomi AI Commerce 品牌与仓库更名清单
 
-依据 [#884](https://github.com/qq550723504/task-processor/issues/884) 的 2026-10-22 产品决定。
-本文件交付 Phase 0/1 盘点与文档品牌落地，并记录后续更名前核实结果；不是实际更名或部署指令。
-Design Basis: N/A，纯调查与文档，不改变产品、领域合同或运行语义。
+依据 [#884](https://github.com/qq550723504/shuomi-ai-commerce/issues/884) 的 2026-10-22 产品决定。
+本文件记录品牌盘点、保留标识与更名切换规则；实际授权、操作时间和验证结果以 #884 / 对应 PR 为准。
+Design Basis: N/A，调查、文档与已证明不改变运行语义的静态仓库元数据同步；不改变产品或领域合同。
 UI / IA 继续使用[最终 Figma Authority](../product/final-ui-ia-authority.md)。
 
 ## 名称与本批结果
@@ -12,15 +12,25 @@ UI / IA 继续使用[最终 Figma Authority](../product/final-ui-ia-authority.md
 | 中文产品名 | 硕米智能引擎 |
 | 英文产品名 | Shuomi AI Commerce |
 | 品类 / 定位 | AI Commerce Agent Platform，AI 驱动的跨境电商智能体平台 |
-| 当前仓库 | `qq550723504/task-processor`，尚未更名 |
-| 计划仓库 | `qq550723504/shuomi-ai-commerce`，等待切换条件与单独授权 |
+| 当前仓库 | `qq550723504/shuomi-ai-commerce`；原名 `qq550723504/task-processor` |
+| 切换执行 | 用户已单独授权；准确操作与验证状态见 #884 / 切换 PR |
 | 展示层 | 本批统一 README、产品战略、前端说明、目录地图和本地账户构建/运行说明 |
-| 仓库 About 建议文案 | `硕米智能引擎 / Shuomi AI Commerce — AI Commerce Agent Platform`；仅准备，尚未修改远端设置 |
+| 仓库 About 建议文案 | `硕米智能引擎 / Shuomi AI Commerce — AI Commerce Agent Platform`；随获授权更名同步，实际结果见 #884 |
 
 `task-processor` 作为工程旧称、实际模块/路径/资源标识保留；ListingKit 仍按既有
 EXTRACT / RETIRE 边界处理，不能因品牌变化恢复旧产品或误删有效前端代码。
 当前启动仍见 [README](../../README.md#当前正式运行入口)、
 [Console](../../web/listingkit-ui/README.md) 和[账户环境](../../deployments/docker/account-compose/README.md)。
+
+## 当前切换范围与历史说明
+
+本轮按用户明确更名授权，仅同步当前 README / badge / 模板入口与四处 repository 精确值。
+Go module/import、实际工作区、镜像、namespace、Compose、卷、数据、凭据、保护规则和其他会话保留。
+旧 publisher 保持固定失败；官方知识依据以已合并 V2 冻结合同为准，不恢复 GitHub 来源字段。
+共享 Git common dir 的 origin 只更新一次；不移动/重命名任何工作目录，不中断其他 PR/检查。
+原静态检查与负例保持；精确 HEAD、CI、App Homepage/OIDC/集成实际观察只在 Issue/PR 维护。
+
+以下为有日期/基线的准备历史；其中“延后”“尚未授权/执行”“当前没有改动四处”等旧状态由本节和 Issue 最新记录替代，保留证据原貌。
 
 ## 盘点基线与复查方法
 

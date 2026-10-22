@@ -1,5 +1,5 @@
 releaseAuthority:
-  repository: qq550723504/task-processor
+  repository: qq550723504/shuomi-ai-commerce
   namespace: task-processor
   tools:
     conftestVersion: 0.68.2

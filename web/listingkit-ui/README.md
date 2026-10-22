@@ -4,7 +4,7 @@
 [最终 UI / IA Authority](../../docs/product/final-ui-ia-authority.md) 为准。
 当前事实、授权和副作用由各领域 owner 管理，前端不建立第二事实源。
 
-产品品类为 **AI Commerce Agent Platform**。品牌名称依据 [#884](https://github.com/qq550723504/task-processor/issues/884)；工程旧称 `task-processor`，实际目录与包名保持现状，见[品牌与仓库更名清单](../../docs/development/branding-and-repository-rename.md)。本次文档命名不改变页面文字、路由或 Figma 交互。
+产品品类为 **AI Commerce Agent Platform**。品牌名称依据 [#884](https://github.com/qq550723504/shuomi-ai-commerce/issues/884)；工程旧称 `task-processor`，实际目录与包名保持现状，见[品牌与仓库更名清单](../../docs/development/branding-and-repository-rename.md)。本次文档命名不改变页面文字、路由或 Figma 交互。
 
 ## 启动
 

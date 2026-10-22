@@ -2,12 +2,12 @@
 
 **AI Commerce Agent Platform · AI 驱动的跨境电商智能体平台**
 
-[![CI](https://github.com/qq550723504/task-processor/actions/workflows/ci.yml/badge.svg)](https://github.com/qq550723504/task-processor/actions/workflows/ci.yml)
+[![CI](https://github.com/qq550723504/shuomi-ai-commerce/actions/workflows/ci.yml/badge.svg)](https://github.com/qq550723504/shuomi-ai-commerce/actions/workflows/ci.yml)
 [![Go Version](https://img.shields.io/badge/Go-1.26+-00ADD8?style=flat&logo=go)](https://golang.org/)
 
 硕米智能引擎（**Shuomi AI Commerce**）以 **AI工作台和专业智能体** 为核心，结合供应、店铺、数据、工具和生态能力，让用户从操作零散功能转向表达业务目标、查看结果并作出必要决策。
 
-工程旧称 `task-processor`，当前 GitHub 仓库仍为 [`qq550723504/task-processor`](https://github.com/qq550723504/task-processor)。计划仓库名为 `shuomi-ai-commerce`，尚未执行更名；Go 模块、开发目录和运行资源继续使用现有标识。处理范围、影响盘点与切换条件见 [#884](https://github.com/qq550723504/task-processor/issues/884) 和[品牌与仓库更名清单](./docs/development/branding-and-repository-rename.md)。
+工程旧称 `task-processor`，当前 GitHub 仓库为 [`qq550723504/shuomi-ai-commerce`](https://github.com/qq550723504/shuomi-ai-commerce)。仓库已更名为 `shuomi-ai-commerce`；Go 模块、开发目录和运行资源继续使用现有标识。处理范围、影响盘点与切换条件见 [#884](https://github.com/qq550723504/shuomi-ai-commerce/issues/884) 和[品牌与仓库更名清单](./docs/development/branding-and-repository-rename.md)。
 
 **最终产品的 UI、信息架构、导航、页面命名和交互语义，以已批准 Figma 当前可见、非归档终稿为准。ListingKit 是需要退休的旧产品投影与混合架构，不是新平台的子产品、默认工作台或永久执行引擎。** 详见 [最终 UI / IA Authority](./docs/product/final-ui-ia-authority.md) 与下方[退休边界](#listingkit-退休边界)。
 
@@ -66,7 +66,7 @@ Agent 通过受控 Tool Contract 使用领域服务，负责确有价值的理�
 
 **设计目标、代码存在、运行接线、已部署和产品验收是五件不同的事。** 本 README 不维护第二份滚动进度表，也不把旧 SHEIN / ListingKit 路径的成熟度写成新产品已经交付。
 
-- 当前排序和任务范围：[#137](https://github.com/qq550723504/task-processor/issues/137) 及对应执行 Issue。
+- 当前排序和任务范围：[#137](https://github.com/qq550723504/shuomi-ai-commerce/issues/137) 及对应执行 Issue。
 - 当前实现、准确 HEAD、CI 和运行证据：对应 PR 与独立验收记录。
 - 历史成熟度与退休进度：[重构状态基线](./docs/refactoring/current-refactoring-status.md)，按文档所注明的日期与 SHA 阅读，不冒充今天的全量验证。
 
@@ -99,7 +99,7 @@ Agent 通过受控 Tool Contract 使用领域服务，负责确有价值的理�
 | 业务事实、领域归属、权限、事务、资金、幂等与外部副作用 | [架构索引](./docs/architecture/README.md)与当前领域合同；Figma 示例不替代它们。 |
 | 什么旧设计要退出、有效行为归哪里 | [全新系统基线](./docs/product/greenfield-no-legacy-migration.md)、[Legacy Policy](./docs/refactoring/legacy-hard-cut-policy.md)、[Register](./docs/refactoring/legacy-register.md)、[Mapping](./docs/refactoring/module-target-mapping.md)。 |
 | 从哪里启动、去哪里修改 | [Repository Structure](./docs/development/repository-structure.md#current-entrypoint-map)。 |
-| 当前先做什么、已交付什么、有哪些操作权限 | [#137](https://github.com/qq550723504/task-processor/issues/137)、具体 Issue / PR 和准确证据，遵循 [AGENTS](./AGENTS.md) 与 [Issue 派工规则](./docs/engineering/issue-driven-development.md)。 |
+| 当前先做什么、已交付什么、有哪些操作权限 | [#137](https://github.com/qq550723504/shuomi-ai-commerce/issues/137)、具体 Issue / PR 和准确证据，遵循 [AGENTS](./AGENTS.md) 与 [Issue 派工规则](./docs/engineering/issue-driven-development.md)。 |
 
 旧 ListingKit 目标和执行计划是历史材料，不是当前子产品定义或派工依据。`next-phase-plan.md` 等历史实施记录不覆盖当前 Issue，也不恢复已退休要求。
 
