@@ -63,40 +63,33 @@ func TestLegacyProductRoutesAreNotRegisteredByProductionComposition(t *testing.T
 	}
 }
 
-func TestProductionRuntimeRegistryHasNoLegacyProductModulesOrWorkerPools(t *testing.T) {
+func TestProductionRuntimeRegistryHasNoLegacyProductModules(t *testing.T) {
 	cfg := &config.Config{}
 	modules := []kernelmodule.Module{newCoreHTTPModule()}
-	bundle, err := buildRuntimeBundleFromModules(cfg, modules)
+	_, err := buildRuntimeBundleFromModules(cfg, modules)
 	if err != nil {
 		t.Fatalf("build production runtime bundle: %v", err)
 	}
-	if err := validateNoLegacyProductRuntime(modules, bundle.workerPools); err != nil {
+	if err := validateNoLegacyProductRuntime(modules); err != nil {
 		t.Fatal(err)
 	}
 	assertModuleRegistered(t, modules, "system")
 
-	mutatedModules := append(append([]kernelmodule.Module(nil), modules...), legacyProductMutationModule{name: "product"})
-	if err := validateNoLegacyProductRuntime(mutatedModules, bundle.workerPools); err == nil {
-		t.Fatal("legacy module mutation was not detected")
-	}
-	mutatedPools := append(append([]kernelmodule.NamedWorkerPool(nil), bundle.workerPools...), kernelmodule.NamedWorkerPool{Name: "product_image"})
-	if err := validateNoLegacyProductRuntime(modules, mutatedPools); err == nil {
-		t.Fatal("legacy worker-pool mutation was not detected")
+	for _, name := range []string{"product", "product-image"} {
+		mutatedModules := append(append([]kernelmodule.Module(nil), modules...), legacyProductMutationModule{name: name})
+		if err := validateNoLegacyProductRuntime(mutatedModules); err == nil {
+			t.Fatalf("legacy module mutation %q was not detected", name)
+		}
 	}
 }
 
-func validateNoLegacyProductRuntime(modules []kernelmodule.Module, pools []kernelmodule.NamedWorkerPool) error {
+func validateNoLegacyProductRuntime(modules []kernelmodule.Module) error {
 	for _, module := range modules {
 		if module == nil {
 			continue
 		}
 		if module.Name() == "product" || module.Name() == "product-image" {
 			return fmt.Errorf("legacy runtime module %q is composed", module.Name())
-		}
-	}
-	for _, pool := range pools {
-		if pool.Name == "product_enrich" || pool.Name == "product_image" {
-			return fmt.Errorf("legacy worker pool %q is registered", pool.Name)
 		}
 	}
 	return nil

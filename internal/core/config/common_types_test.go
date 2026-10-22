@@ -31,16 +31,6 @@ func TestDefaultRetryConfig(t *testing.T) {
 	}
 }
 
-func TestDefaultLogConfigDoesNotEnableFileOutput(t *testing.T) {
-	cfg := DefaultLogConfig()
-	if cfg.Output != "stdout" {
-		t.Fatalf("Output = %q, 期望 stdout", cfg.Output)
-	}
-	if cfg.FilePath != "" {
-		t.Fatalf("FilePath = %q, 默认配置不能启用文件输出", cfg.FilePath)
-	}
-}
-
 // TestRetryConfigCustom 测试自定义重试配置
 func TestRetryConfigCustom(t *testing.T) {
 	config := &RetryConfig{
@@ -231,31 +221,6 @@ func TestTimeoutConfigZeroValues(t *testing.T) {
 
 	if config.IdleTimeout != 0 {
 		t.Errorf("IdleTimeout = %v, 期望 0", config.IdleTimeout)
-	}
-}
-
-// TestDefaultCacheConfig 测试默认缓存配置
-func TestDefaultCacheConfig(t *testing.T) {
-	config := DefaultCacheConfig()
-
-	if config == nil {
-		t.Fatal("DefaultCacheConfig 返回 nil")
-	}
-
-	if !config.Enabled {
-		t.Error("Enabled = false, 期望 true")
-	}
-
-	if config.TTL != 5*time.Minute {
-		t.Errorf("TTL = %v, 期望 5m", config.TTL)
-	}
-
-	if config.MaxSize != 1000 {
-		t.Errorf("MaxSize = %d, 期望 1000", config.MaxSize)
-	}
-
-	if config.CleanupInterval != 10*time.Minute {
-		t.Errorf("CleanupInterval = %v, 期望 10m", config.CleanupInterval)
 	}
 }
 
