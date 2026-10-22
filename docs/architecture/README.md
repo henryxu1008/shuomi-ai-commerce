@@ -180,6 +180,12 @@ Official Knowledge's approved reading scope and admission record are tracked in
 reviewed status must be checked before implementation; it is separate from the
 enterprise Knowledge owner and has no AI-consumption or online-publisher scope.
 
+The #884 user decision removes GitHub provenance URLs from that reading contract.
+[`official-knowledge-provenance-v2.md`](official-knowledge-provenance-v2.md) is the
+IMPLEMENTATION_READY frozen increment: named product provenance, strict title-only
+sources, published guide v2 and exact missing-v1 behavior, with the same owner and
+authorization and no new publisher, storage or external fetch.
+
 TikTok Shop's US cross-border feature Design Basis is frozen IMPLEMENTATION_READY
 in [`tiktok-shop-us-v1.md`](tiktok-shop-us-v1.md) / execution Issue #669;
 [`tiktok-shop-us-contract-evidence.md`](tiktok-shop-us-contract-evidence.md)

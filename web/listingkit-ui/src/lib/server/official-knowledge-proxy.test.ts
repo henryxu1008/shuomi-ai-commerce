@@ -9,6 +9,18 @@ function request(path = "", extra: HeadersInit = {}) {
   vi.stubEnv("LISTINGKIT_SERVICE_API_BASE", "http://127.0.0.1:9000/api/v1");
   return new Request("http://localhost/api/workbench/official-knowledge" + path, { headers: { ...headers, ...extra } });
 }
+it("forwards exact v2 articles with named product provenance and no source URLs", async () => {
+  const article = { ...summary, revision: "2", body: "正文", sources: [{ title: "企业知识与引用规则" }] };
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(article)));
+  const response = await proxyKnowledge(request("/ai-commerce-guide/revisions/2"), "server-token", "actor");
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual(article);
+});
+it("rejects URL-bearing provenance instead of tolerating the withdrawn response shape", async () => {
+  const article = { ...summary, revision: "2", body: "正文", sources: [{ title: "依据", url: "https://github.com/qq550723504/task-processor/blob/main/docs/architecture/agent-knowledge-context-v1.md" }] };
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(article)));
+  expect((await proxyKnowledge(request("/ai-commerce-guide/revisions/2"), "server-token", "actor")).status).toBe(502);
+});
 it("forwards official reads with the current server token and organization, independent of enterprise storage", async () => {
   const fetch = vi.fn().mockResolvedValue(Response.json({ items: [summary] })); vi.stubGlobal("fetch", fetch);
   const response = await proxyKnowledge(request(), "server-token", "actor");
@@ -36,7 +48,7 @@ it("rejects stale organization, invalid revisions, queries and mutation paths be
   expect(fetch).not.toHaveBeenCalled();
 });
 it("rejects an article returned for another exact revision or identity", async () => {
-  const article = { ...summary, body: "正文", sources: [{ title: "依据", url: "https://github.com/qq550723504/task-processor/blob/main/docs/architecture/agent-knowledge-context-v1.md" }] };
+  const article = { ...summary, body: "正文", sources: [{ title: "依据" }] };
   for (const changed of [{ revision: "2" }, { id: "other-guide" }]) {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ ...article, ...changed })));
     expect((await proxyKnowledge(request("/ai-commerce-guide/revisions/1"), "server-token", "actor")).status).toBe(502);
@@ -49,7 +61,7 @@ it("rejects oversized and ambiguous upstream JSON instead of accepting a partial
   }
 });
 it("enforces the official body's byte limit for Chinese text", async () => {
-  const article = {...summary, body: "字".repeat(22 * 1024), sources: [{title: "依据", url: "https://github.com/qq550723504/task-processor/blob/main/docs/architecture/agent-knowledge-context-v1.md"}]};
+  const article = {...summary, body: "字".repeat(22 * 1024), sources: [{title: "依据"}]};
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(article)));
   expect((await proxyKnowledge(request("/ai-commerce-guide/revisions/1"), "server-token", "actor")).status).toBe(502);
 });

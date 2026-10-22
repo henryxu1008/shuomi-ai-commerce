@@ -1,13 +1,42 @@
 package official
 
 import (
+	"encoding/json"
 	"github.com/stretchr/testify/require"
 	"strings"
 	"testing"
 )
 
+func TestEmbeddedGuideUsesProductProvenanceV2(t *testing.T) {
+	c, err := NewEmbeddedCatalog()
+	require.NoError(t, err)
+	require.Equal(t, "2", c.List()[0].Revision)
+	a, err := c.Get("ai-commerce-guide", "2")
+	require.NoError(t, err)
+	data, err := json.Marshal(a)
+	require.NoError(t, err)
+	require.NotContains(t, string(data), "github.com")
+	var projection map[string]any
+	require.NoError(t, json.Unmarshal(data, &projection))
+	for _, source := range projection["sources"].([]any) {
+		require.Equal(t, 1, len(source.(map[string]any)))
+		require.NotEmpty(t, source.(map[string]any)["title"])
+	}
+	require.Contains(t, a.Body, "本指南 v2")
+	require.Equal(t, "2026-10-22", a.UpdatedAt)
+	_, err = c.Get("ai-commerce-guide", "1")
+	require.ErrorIs(t, err, ErrNotFound)
+}
+
+func TestCatalogAcceptsNamedProvenanceWithoutURLs(t *testing.T) {
+	a := article("2", "text")
+	a.Sources = []Source{{Title: "企业知识与引用规则"}}
+	_, err := NewCatalog([]Article{a})
+	require.NoError(t, err)
+}
+
 func article(revision, body string) Article {
-	return Article{Summary: Summary{ID: "guide", Revision: revision, Title: "Guide", Summary: "How to use", Category: "AI电商应用指南", UpdatedAt: "2026-10-11", MaintainedBy: "硕米", Digest: Digest(body)}, Body: body, Sources: []Source{{Title: "Source", URL: "https://github.com/qq550723504/task-processor/blob/main/docs/architecture/agent-knowledge-context-v1.md"}}}
+	return Article{Summary: Summary{ID: "guide", Revision: revision, Title: "Guide", Summary: "How to use", Category: "AI电商应用指南", UpdatedAt: "2026-10-22", MaintainedBy: "硕米", Digest: Digest(body)}, Body: body, Sources: []Source{{Title: "Source"}}}
 }
 func TestCatalogExactVersionAndImmutableCopies(t *testing.T) {
 	original := article("1", "original")
@@ -29,16 +58,17 @@ func TestCatalogExactVersionAndImmutableCopies(t *testing.T) {
 	_, err = c.Get("guide", "01")
 	require.ErrorIs(t, err, ErrInvalid)
 }
-func TestCatalogRejectsCorruptionAndUnapprovedSources(t *testing.T) {
+func TestCatalogRejectsCorruptionAndMalformedSourceNames(t *testing.T) {
 	for _, modify := range []func(*Article){
 		func(a *Article) { a.Digest = strings.Repeat("0", 64) },
 		func(a *Article) { a.Body = strings.Repeat("x", MaxBodyBytes+1); a.Digest = Digest(a.Body) },
 		func(a *Article) { a.Revision = "01" }, func(a *Article) { a.ID = "../secret" },
-		func(a *Article) { a.Sources[0].URL = "javascript:alert(1)" },
-		func(a *Article) {
-			a.Sources[0].URL = "https://github.com.evil.test/qq550723504/task-processor/blob/main/x"
-		},
-		func(a *Article) { a.Sources[0].URL = "https://github.com/other/repo/blob/main/x" },
+		func(a *Article) { a.Sources[0].Title = "" },
+		func(a *Article) { a.Sources[0].Title = strings.Repeat("x", 513) },
+		func(a *Article) { a.Sources[0].Title = "bad\x00name" },
+		func(a *Article) { a.Sources[0].Title = string([]byte{0xff}) },
+		func(a *Article) { a.Sources = nil },
+		func(a *Article) { a.Sources = make([]Source, 11) },
 		func(a *Article) { a.Body = ""; a.Digest = Digest(a.Body) },
 	} {
 		a := article("1", "text")
