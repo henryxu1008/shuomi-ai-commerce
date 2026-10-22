@@ -1,7 +1,7 @@
 # 硕米智能引擎 / Shuomi AI Commerce 品牌与仓库更名清单
 
 依据 [#884](https://github.com/qq550723504/task-processor/issues/884) 的 2026-10-22 产品决定。
-本文件交付 Phase 0 影响盘点与 Phase 1 文档品牌落地；不是实际更名或部署指令。
+本文件交付 Phase 0/1 盘点与文档品牌落地，并记录后续更名前核实结果；不是实际更名或部署指令。
 Design Basis: N/A，纯调查与文档，不改变产品、领域合同或运行语义。
 UI / IA 继续使用[最终 Figma Authority](../product/final-ui-ia-authority.md)。
 
@@ -61,7 +61,7 @@ git remote -v
 | 源码引用 | `extensions/1688-capture/package.json` 与 lock 的 `@task-processor/1688-capture`；前端 `listingkit-ui` 包名、目录、lock | 保留工程标识，无发布命名空间迁移。外部 npm 发布/依赖方 UNKNOWN。owner：扩展/前端维护者 |
 | 构建引用 | Makefile、Dockerfile、release/build 脚本与 config | 实际入口与路径保持；根 config YAML/Makefile 没有命中 `task-processor`，不能据此断言所有运行配置无关。owner：构建/运行 owner |
 | CI 标识 | `.github/workflows/ci.yml` concurrency 的 `task-processor-ci-*` 与 classifier 测试 | 保留，避免切换时产生另一组并发任务；通知 URL/仓库名消费 `github.repository`，改名后仍需实测。owner：CI 维护者 |
-| 安全身份 | `release-policy.yaml` 的 `releaseAuthority.repository`、`policy/listingkit-release-authority/{release_authority,negative_fixtures}.rego` 与 `tests/listingkit_release_authority_policy_test.go` | **切换前阻碍**：硬编码旧仓库身份。不能当文案替换或改为接受任意仓库；需授权后保持精确身份、负例和拒绝语义，评估该安全边界准入。owner：release authority |
+| 静态安全元数据 | `release-policy.yaml` 的 `releaseAuthority.repository`、`policy/listingkit-release-authority/{release_authority,negative_fixtures}.rego` 与 `tests/listingkit_release_authority_policy_test.go` | **切换时同步项，不是当前发布故障证据**：四处旧仓库字符串只约束保留的静态策略一致性；旧 API/UI publisher 已固定失败退役，旧 OIDC/RBAC 字段已退出。准确调用路径与后续最小同步范围见下方核实增量。owner：原静态安全检查维护者 |
 | 运行期资源 | SHEIN worker workflow、`scripts/build-push-shein-runtime-base.ps1`、Kustomize 的 `xuwei190/task-processor-*` 镜像与 tag | 保留 Docker Hub 命名与 release tag；GitHub 改名不等于镜像仓库迁移。制品消费者/部署现状 UNKNOWN。owner：镜像/运行 owner |
 | 运行期资源 | Kubernetes `task-processor` namespace、`task-processor/crawler-tier`、SecretStore 名、MinIO DNS、monitoring receiver | 保留，禁止机械替换。命名影响选择器、DNS、RBAC 和现存资源；本批不访问集群。owner：各运行 owner |
 | 运行期资源 | account/acquisition/referrals Compose 示例、chain1 Compose name、`.env.example`、Temporal dev 容器名与相邻脚本测试 | 保留项目前缀、容器/卷标识和原 stop/restart 路径。更换项目名会选择不同资源；本批不启动、停止或销毁环境。owner：原环境 owner |
@@ -94,9 +94,9 @@ git remote -v
 
 1. **授权与窗口**：取得对实际 GitHub 更名的单独明确授权；确认目标可用、切换负责人及回退负责人。
    刷新开放 PR/Actions，和活跃 owner 确认窗口；不得从 admin 权限推定许可。
-2. **精确安全身份**：先明确 release authority 策略的影响、owner、适用设计准入与发布方式；
-   准备同一切换变更中的 policy/guard/test 精确一致更新及原负例验证。保留 namespace；
-   不删除检查、不接受任意仓库、不借更名修改 CI gate/保护。未收敛前不执行切换。
+2. **静态策略同步**：四处仓库字符串按下方最小范围在实际更名的同一切换窗口内同步，原静态检查、
+   负例及 namespace 保留；不新增 publisher 或重新启用旧发布。当前无需为了此项重新设计授权体系。
+   若查到实际 OIDC 信任消费者，先单独明确该消费者的精确 subject 与适用准入，不能混为静态文案。
 3. **外部集成**：由 owner 解决上表会影响当前消费者的 UNKNOWN，尤其 webhook、App/OIDC、
    外部 `uses:`/clone 与发布引用。GitHub 官方说明 action 调用不会因仓库更名自动重定向；
    不用普通链接重定向替代集成验证。未确认影响时保持待切换。
@@ -120,8 +120,77 @@ GitHub 行为依据：[Renaming a repository](https://docs.github.com/en/reposit
 - **已执行更名后**：停止进一步切换/发布；由获授权 owner 核实旧名仍可用，再取得回退授权，
   将同一仓库改回 `task-processor`（不删除/重建仓库）。按实际已执行清单反向恢复 remote、
   当前链接和精确安全身份；不撤销无关业务提交、不改镜像/namespace/卷。
-- 更名回退不保证已失败 CI/webhook 自动恢复。重新核对 clone/fetch/push、准确 HEAD 的 CI、
-  hook 投递及已确认的外部消费者；未验证保持 UNKNOWN，不能通过关闭安全检查完成回退。
+- 更名回退不保证已失败 CI/webhook 或 OIDC subject 自动恢复。GitHub 当前说明更名会迁移到含固定 ID
+  的 subject 格式；不能承诺改回旧仓库名就回到旧 subject。重新读取 OIDC 配置，由实际信任 owner
+  核对精确格式；不自动添加双 subject、通配符或回退身份。重新核对 clone/fetch/push、准确 HEAD 的 CI、
+  hook 响应正文及已确认的外部消费者；未验证保持 UNKNOWN，不能通过关闭安全检查完成回退。
+
+## 更名前核实增量（2026-10-22）
+
+本节以 #886 合并提交 `3b50940f3b4ee9a5bd1f4491712ca43a355c0c33` 为源码基线，
+补充同日仓库 API、设置页面及官方文档的只读证据，取代上方初次快照中已核实项的 UNKNOWN。
+滚动 HEAD/CI/合并记录仍只维护在 #884/对应 PR；本节没有实际更名、配置修改、令牌签发或消息重投。
+
+### 原发布策略疑点：已明确最小范围
+
+原消费者链为：机器策略 YAML + 当前配置/已退役 workflow 文件 → 原 verifier 的固定输入
+→ Rego 静态一致性检查、Go 合同测试 → 既有 CI。`policy.repository` 只与固定字符串比较，
+不读取当前 GitHub 仓库上下文，不请求令牌，不安装任何发布身份。
+
+依据 [#850 已确认退休边界](../architecture/legacy-kubernetes-release-principal-retirement-boundary.md)
+和[部署参考当前顶部说明](../../deployments/kubernetes/listingkit-workbench/README.md)，
+旧 OIDC/RBAC principal 已从源码退出；`listingkit-deploy.yml` / `listingkit-ui-deploy.yml`
+只有 `permissions: {}` 与固定 `exit 1`。因此旧仓库字符串本身不能证明更名会打断当前发布。
+
+| 项目 | Finding 分类 / 处置 |
+| --- | --- |
+| 将静态字符串认定为当前 publisher 的架构 BLOCKER | NOT_APPLICABLE；不存在该源码消费者，不为它新建身份、发布或兼容机制 |
+| #884 当前准确仓库元数据要求 | 实际切换时同步四处值，保持原输入/规则/拒绝/负例，随后跑原检查；无需提前把旧仓库配置写成新仓库 |
+| 当前运行环境是否仍有旧信任 | owner 在本会话明确确认没有当前使用中的外部 OIDC/云/Kubernetes 信任、Vercel 项目或离线部署名称依赖；不再作为本次更名前置。未做物理撤权检查，不将该声明写成历史资源已清零，不恢复旧 publisher |
+
+四处同步值均为 `qq550723504/task-processor` → `qq550723504/shuomi-ai-commerce`：
+
+1. `deployments/kubernetes/listingkit-workbench/release-authority/release-policy.yaml` 的 `repository`。
+2. `policy/listingkit-release-authority/release_authority.rego` 的精确仓库断言。
+3. `policy/listingkit-release-authority/negative_fixtures.rego` 的精确仓库断言。
+4. `tests/listingkit_release_authority_policy_test.go` 的精确仓库断言。
+
+保持 namespace `task-processor`、原 verifier 输入、固定失败发布、canary/UI 隔离和负例拒绝。
+适用验证为原 `TestListingKitReleaseAuthorityMachinePolicyOwnsAllSecurityInputs`、原策略 verifier
+及既有必需 CI。仅上述元数据等值替换且不改变消费者/运行语义时，可按 N/A 机械调整准入；
+这不授权真实更名，也不覆盖新增 OIDC/授权合同。当前没有改动这四个文件。
+
+### 集成事实与剩余确认
+
+| 对象 | 本次结果 | 对实际切换的影响 / owner 下一步 |
+| --- | --- | --- |
+| 稳定仓库 ID | `1108239623`；owner ID `6007227`，当前 public/main | 切换后核对仍为同一仓库，不删除重建。记录新 URL，保留 Issue/PR/历史 |
+| 目标名称 | 公开仓库列表未见目标名，目标 GET 404；General 页面只输入过未提交名称草稿，未返回明确可用性提示，随后已丢弃草稿 | 未发现占用，不是预留承诺；获授权实际执行时由 GitHub 最终校验，不为取得可用性提示提前点击 Rename |
+| 分支保护 | main strict=true、enforce_admins=true；唯一 required context 为 GitHub Actions 的 `Required CI Gate`（app_id=15368）；rulesets=[] | 原保护保持；当前没有由旧仓库字符串命名的必需 context，不改规则来方便更名 |
+| runner | 仓库级 self-hosted runner 数量 0；当前 workflow 使用 github-hosted | 无本仓库 self-hosted 重注册事项；不推断其他机器无 clone/集成 |
+| Environment / Secrets 元数据 | production、development-admission-publisher 两环境；后者保留 required reviewer。仓库四个 Secret 名为 DOCKERHUB_TOKEN、DOCKERHUB_USERNAME、KUBE_CONFIG、WECOM_WEBHOOK_URL；后者环境另有 DEVELOPMENT_ADMISSION_APP_PRIVATE_KEY；仓库及两环境变量均空，production 环境 Secret 为空 | 只读名字/保护，未读取值；这些环境/凭据没有因为更名而需要复制、轮换或删除的当前证据，保留原配置。App 私钥存在不证明 publisher 在当前执行 |
+| 当前源码 OIDC | API：use_default=true、use_immutable_subject=false、sub_claim_prefix=`repo:qq550723504/task-processor`；5 个 workflow 无 `id-token` 或 `self-hosted` | 当前源码无令牌签发消费者。不能将历史 Kubernetes subject 当作当前接线；实际外部信任仍由 owner 确认 |
+| 更名的 OIDC 影响 | GitHub 当前文档说明 2026-07-15 后的 rename/transfer 也迁移到 immutable subject 格式；owner 已确认无当前外部消费者 | 已排除当前信任切换前置，仍保留事实/回退说明。切换后重读配置，不签发 token、修改 trust 或自动开启 immutable 配置；以后新消费者按新准入使用实际 subject |
+| 直接 Webhook | 唯一仓库 hook `631752654`，事件 workflow_job/workflow_run，receiver host 为 qyapi.weixin.qq.com。近期已有投递 HTTP 200，但响应正文 errcode=40008（消息格式错误） | 已确认的既有通知故障，不能把 200 写成业务成功。与新旧仓库名无关，分类 BACKLOG；不冒充已修复或自动视为可关闭。owner 可另行决定停用该直连或修复；本批不改 hook、不重投消息、不新建适配服务 |
+| 已有 CI 通知 | ci.yml 构造企业微信 markdown 并检查 errcode=0；仓库/链接来自 github.repository。job 为 continue-on-error，日志可能因缺少 Secret 而跳过 | 复用已有能力；通知 job 绿灯不证明实际送达。切换后分别核对原 hook 响应正文、CI 通知日志，不把它们与 Required CI Gate 混为一谈 |
+| GitHub Apps | owner 完成 GitHub 二次认证后只读核对8个详细配置：Governance 为 Only select repositories，准确选中 DOM 对象 selected-repository-1108239623；其余7个均为 All repositories | 安装授权范围已核实，无重新安装/扩大权限事项。Governance/Cursor/Vercel 的待批准权限升级保持未批准，不是更名条件；不将安装范围事实当成第三方服务端已通过更名实测 |
+| 自有 Governance App | app_id=4799675，installation_id=158369358；Webhook Active=0、URL空，Setup/Callback URL空；Homepage仍为旧仓库URL | 无当前回调地址切换；Homepage仅展示链接，可在更名窗口同步。保留原仓库ID授权与权限，不新增publisher或处理消息 |
+| 外部消费者 owner 声明 | 本会话用户明确回复「没有此类当前外部依赖」，对应问题明确覆盖当前 Vercel 项目、云/Kubernetes OIDC 信任或离线部署脚本对旧仓库地址/subject的依赖 | 该具体事实缺口已收敛，不继续要求为不存在的当前消费者建设或测试通用机制；历史资源/第三方底层缓存未执行验证仍不宣称清零 |
+| 外部源码消费者 | owner 范围 GitHub code search：旧 full_name 在 .github/workflows 中0条，go.mod 定向搜索0条；本仓库无导出 action 或 workflow_call | 仅索引可见范围，无结果不是全网/私有/离线消费者清零；无需为品牌改 module。已知外部 owner 声明存在消费者时只收敛该具体路径 |
+| 发布/外部状态 | 最近5条 GitHub deployment 记录均为历史 GitHub Actions production（2026-08-25/26）；本次 merge 的传统 commit statuses 为空 | 不证明 Kubernetes/Vercel 没有实际运行部署；不据此启动/停机/撤权。保留运行资源名，现有集成 owner 只确认名称依赖 |
+| 活跃协作 | 本次核对开放 #692、#885；本批同一 Writer 续用原独立 worktree，未改共享 remote | 协调切换窗口，不接管其他任务。共享 Git common dir 更新一次 remote，其他独立 clone 由其 owner 更新；不移动工作区或结束用户会话 |
+
+### 当前可以执行与尚未具备的条件
+
+- **准备完成**：源码消费者定位、静态策略最小同步范围、保留标识/保护/环境清单、8个App的安装授权、Webhook 实际错误与回退限制已明确；owner确认没有当前外部名称/subject依赖。当前没有已证实、尚未收敛的技术硬阻碍。
+- **切换时同步**：上述四处静态值、当前 badge/模板/入口链接、Governance App Homepage展示链接与各 clone remote；原 CI/拒绝语义与运行资源保持。
+- **不作为切换前置**：修复无关的既有直连通知、批准App权限升级、恢复旧publisher、重命名module/镜像/namespace、为无当前依赖的第三方项目新增部署测试。各自未执行项不记PASS。
+- **仍需实际动作授权与窗口核对**：用户对实际更名的单独授权、当前PR/Actions及活跃owner状态、GitHub执行时的目标名最终校验、准确操作与回退负责人。开放PR本身不要求先合并或关闭；不擅自中断其他会话。当前只完成准备，没有执行更名。
+
+官方依据（2026-10-22 查阅）：[GitHub OIDC reference](https://docs.github.com/en/actions/reference/security/oidc#immutable-subject-claims)、
+[仓库更名](https://docs.github.com/en/repositories/creating-and-managing-repositories/renaming-a-repository)、
+[Webhook delivery API](https://docs.github.com/en/rest/repos/webhooks#deliveries)。仓库设置/API 快照与外部接收方实际状态分别记录；
+未经 owner 事实确认的配置不做推断。
 
 ## 本批验证与未执行
 
