@@ -1,5 +1,7 @@
 # Code Health Decisions
 
+> #301 / #885 [完整旧 SDS 退休闭包](../architecture/legacy-sds-runtime-closure-retirement-boundary.md)已获用户确认并实施，仅取代下文 `scripts/refresh-sds-auth-via-portforward.ps1`、`tools/cloakbrowser-poc/sds-login.mjs`、`tools/cloakbrowser-poc/sds-login-redis.mjs` 三行 retained-deferred 的当前保留含义；专属 PoC manifest/lock 与源码同退。原表格/状态/计数/失败正文保留为历史，不授权执行旧恢复或清理状态；当前 SDS/POD、共享浏览器/Redis、独立 SHEIN 登录与 Store 同步保持。
+
 > #301 / #872 [用户确认的完整队列/代理/配置尾部边界](../architecture/legacy-queue-proxy-config-tail-closure-retirement-boundary.md)同批退休旧 RabbitMQ、数字 Store 代理两入口/专属声明/Secret源、Updater配置及孤立cache/perf/types/fileio。仅精确取代下文 sync-shein-store-proxies.ps1 的 retained-deferred 判断和这些准确对象的旧迁移/保留目标；不因台账登记制造假消费者。通用 start-shein-local-rabbitmq-portforward、有效共享基础层/workerpool/Retry、当前采集/Store与独立SHEIN登录同步保留；原历史正文/计数不改，无真实实例/数据/凭据/进程操作。
 
 > #301 / #870 [用户确认的完整旧宿主退休边界](../architecture/legacy-host-runtime-closure-retirement-boundary.md)（冻结设计a76db47d7，Reuse Existing Architecture / Ready）已确认并整批实施。仅 supersede 七个旧根 infra/httpx、infra/auth、app/monitoring、app/lifecycle、core/errors、app/ports、app/updater 的旧迁移/保留/存在性/替换目标；38准确Go文件与专属文档/原guard同退，无新EXTRACT或替代框架。当前身份/HTTP/module/Retry/观测/共享基础层、采集、Store及独立SHEIN登录/同步继续原owner。历史正文/计数/失败保留，workflow/inventory/依赖与真实文件/进程/凭据/数据不改，无新试用前置，#301 OPEN；准确证据留PR。

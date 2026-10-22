@@ -2211,9 +2211,7 @@ func businessHTTPPackages(root string) map[string]struct{} {
 		filepath.Clean(filepath.Join(root, "imageagent", "httpapi")) + string(os.PathSeparator):            {},
 		filepath.Clean(filepath.Join(root, "kernel", "module")) + string(os.PathSeparator):                 {},
 		filepath.Clean(filepath.Join(root, "promptmgmt", "api")) + string(os.PathSeparator):                {},
-		filepath.Clean(filepath.Join(root, "sds", "httpapi")) + string(os.PathSeparator):                   {},
 		filepath.Clean(filepath.Join(root, "sourceaccountregistry", "httpapi")) + string(os.PathSeparator): {},
-		filepath.Clean(filepath.Join(root, "sdslogin")) + string(os.PathSeparator):                         {},
 		filepath.Clean(filepath.Join(root, "sheinlogin")) + string(os.PathSeparator):                       {},
 		filepath.Clean(filepath.Join(root, "taskrpcapi")) + string(os.PathSeparator):                       {},
 		filepath.Clean(filepath.Join(root, "listingkit", "studio_session_handler.go")):                     {},
@@ -2705,8 +2703,11 @@ func assertNoRetiredTaskRPCActionSurface(t *testing.T, path string) {
 }
 
 func TestSDSClientRetiredManagementImportsStayBlocked(t *testing.T) {
-	root := filepath.Join("..", "internal", "sds", "client")
+	root := filepath.Join("..", "internal")
 	allowedFiles := map[string]struct{}{}
+	for _, relative := range trackedFiles(t, "internal/sds/client") {
+		t.Errorf("retired SDS client source remains: %s", relative)
+	}
 
 	index, err := loadGoFileIndex(root, "")
 	if err != nil {
@@ -2719,8 +2720,8 @@ func TestSDSClientRetiredManagementImportsStayBlocked(t *testing.T) {
 		}
 		for quotedImport := range facts.imports {
 			importPath := strings.Trim(quotedImport, `"`)
-			if importMatchesPrefix(importPath, "task-processor/internal/infra/clients/management") {
-				t.Errorf("%s imports %s; keep sds/client management dependencies limited to current SDS auth bootstrap retirement seams and prefer in-repository database/repository access for new SDS state data", path, importPath)
+			if importMatchesPrefix(importPath, "task-processor/internal/sds/client") {
+				t.Errorf("%s imports %s; the complete old SDS client is retired, including its former management seam", path, importPath)
 			}
 		}
 	}
@@ -3211,7 +3212,7 @@ func TestAppHTTPAPILoginRouteDescriptorHelpersStayRetired(t *testing.T) {
 		"/api/v1/sds-login/",
 	} {
 		if strings.Contains(string(content), phrase) {
-			t.Fatalf("%s mentions %q; delegate login route descriptors to their owning login modules instead of duplicating them in app/httpapi", path, phrase)
+			t.Fatalf("%s mentions %q; keep retired login routes absent and preserve the current standalone SHEIN service owner", path, phrase)
 		}
 	}
 }
@@ -3227,7 +3228,7 @@ func TestAppHTTPAPISDSCatalogRouteDescriptorHelperStaysRetired(t *testing.T) {
 		"/api/v1/sds/",
 	} {
 		if strings.Contains(string(content), phrase) {
-			t.Fatalf("%s mentions %q; delegate SDS catalog route descriptors to internal/sds/httpapi instead of duplicating module-owned routes in app/httpapi", path, phrase)
+			t.Fatalf("%s mentions %q; old SDS catalog routes are retired, and current POD routes retain their current owner", path, phrase)
 		}
 	}
 }
@@ -3407,7 +3408,6 @@ func TestAppHTTPAPIListingKitSupportImportsStayAllowlisted(t *testing.T) {
 		`"task-processor/internal/listingkit/store"`:       {},
 		`"task-processor/internal/listingsubscription"`:    {},
 		`"task-processor/internal/publishing/shein"`:       {},
-		`"task-processor/internal/sds/usecase"`:            {},
 		`"task-processor/internal/sheinlogin"`:             {},
 		`"task-processor/internal/tenantbridge"`:           {},
 	}
