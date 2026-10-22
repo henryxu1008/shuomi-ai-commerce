@@ -33,12 +33,10 @@ const store = {
   serviceStatus: "active",
   version: 2,
 } as WorkbenchStore;
-function tree(administrator = false, connected = true, record = store) {
+function tree(administrator = false, connected = true, record = store, client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
   return (
     <QueryClientProvider
-      client={
-        new QueryClient({ defaultOptions: { queries: { retry: false } } })
-      }
+      client={client}
     >
       <StoreServiceActions
         store={record}
@@ -66,8 +64,8 @@ beforeEach(() => {
     },
   });
   state.renew.mockReset();
-  state.balance.mockResolvedValue(commercialResourcesFixture("org-1"));
-  state.members.mockResolvedValue({
+  state.balance.mockReset().mockResolvedValue(commercialResourcesFixture("org-1"));
+  state.members.mockReset().mockResolvedValue({
     organizationId: "org-1",
     members: [
       { memberId: "current-member", userId: "actor", periods: { free: "2" } },
@@ -142,4 +140,77 @@ it("admin renewal uses unallocated balance and closes first activation when disc
   unmount();
   render(tree(false, false, { ...store, serviceStatus: "pending_activation" }));
   expect(screen.getByRole("button", { name: "开通服务" })).toBeDisabled();
+});
+
+it.each([true, false])("reports failed period reads and retries only the correct funding query (admin=%s)", async administrator => {
+  const read = administrator ? state.balance : state.members;
+  const other = administrator ? state.members : state.balance;
+  let finish!: () => void;
+  const result = administrator ? commercialResourcesFixture("org-1") : { organizationId: "org-1", members: [{ userId: "actor", periods: { free: "2" } }] };
+  read.mockRejectedValueOnce(new Error("synthetic read failure"))
+    .mockImplementationOnce(() => new Promise(resolve => { finish = () => resolve(result); }));
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const view = render(tree(administrator, true, store, client));
+  await userEvent.click(screen.getByRole("button", { name: "续费服务" }));
+  await vi.waitFor(() => expect(client.getQueryCache().getAll().some(query => query.state.status === "error")).toBe(true));
+  expect(screen.queryByText("可用 正在读取 期")).not.toBeInTheDocument();
+  expect(screen.getByRole("alert")).toHaveTextContent("可用期数读取失败");
+  expect(screen.getByRole("button", { name: "确认续费服务" })).toBeDisabled();
+  await userEvent.click(screen.getByRole("button", { name: "重新读取期数" }));
+  expect(screen.getByText("正在读取可用期数…")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "确认续费服务" })).toBeDisabled();
+  finish();
+  await screen.findByText(`可用 ${administrator ? "1" : "2"} 期`);
+  expect(screen.getByRole("button", { name: "确认续费服务" })).toBeEnabled();
+  expect(read).toHaveBeenCalledTimes(2);
+  expect(other).not.toHaveBeenCalled();
+  expect(state.renew).not.toHaveBeenCalled();
+  view.unmount(); client.clear();
+});
+
+it.each([true, false])("keeps missing period facts unknown instead of loading or zero (admin=%s)", async administrator => {
+  state.balance.mockResolvedValue({ ...commercialResourcesFixture("org-1"), resources: [] });
+  state.members.mockResolvedValue({ organizationId: "org-1", members: [] });
+  render(tree(administrator));
+  await userEvent.click(screen.getByRole("button", { name: "续费服务" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("当前未取得可用期数");
+  expect(screen.queryByText("可用 0 期")).not.toBeInTheDocument();
+  expect(screen.queryByText(/正在读取/)).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "重新读取期数" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "确认续费服务" })).toBeDisabled();
+  expect(state.renew).not.toHaveBeenCalled();
+});
+
+it("reads period balances without changing or replaying an UNKNOWN renewal", async () => {
+  state.renew.mockRejectedValue(new WorkbenchAPIError(503, "STORE_SERVICE_OUTCOME_UNKNOWN", "safe", "", []));
+  const first = render(tree());
+  await userEvent.click(screen.getByRole("button", { name: "续费服务" }));
+  await screen.findByText("可用 2 期");
+  await userEvent.click(screen.getByRole("button", { name: "确认续费服务" }));
+  await screen.findByText(/续费结果未确认/);
+  const original = state.renew.mock.calls[0];
+  const saved = { ...sessionStorage };
+  first.unmount();
+  state.members.mockRejectedValueOnce(new Error("synthetic read failure"));
+  render(tree(false, true, { ...store, version: 3 }));
+  await userEvent.click(screen.getByRole("button", { name: "续费服务" }));
+  await screen.findByText("可用期数读取失败，请重试。");
+  await userEvent.click(screen.getByRole("button", { name: "重新读取期数" }));
+  await screen.findByText("可用 2 期");
+  expect(state.renew).toHaveBeenCalledOnce();
+  expect({ ...sessionStorage }).toEqual(saved);
+  await userEvent.click(screen.getByRole("button", { name: "核验原操作" }));
+  await screen.findByText(/续费结果未确认/);
+  expect(state.renew.mock.calls[1]).toEqual(original);
+});
+
+it("shows a member's recorded zero without treating it as a read failure", async () => {
+  state.members.mockResolvedValue({ organizationId: "org-1", members: [{ userId: "actor", periods: { free: "0" } }] });
+  render(tree());
+  await userEvent.click(screen.getByRole("button", { name: "续费服务" }));
+  await screen.findByText("可用 0 期");
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "重新读取期数" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "确认续费服务" })).toBeDisabled();
+  expect(state.balance).not.toHaveBeenCalled();
 });

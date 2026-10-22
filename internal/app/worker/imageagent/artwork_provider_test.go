@@ -49,7 +49,7 @@ func TestArtworkProviderProducesActualNewPixelsAfterDurableObservation(t *testin
 				require.Equal(t, 1, observations, "provider outcome must be persisted before downloading pixels")
 				return pixels.Bytes(), nil
 			}}
-			prepared, err := factory.prepare(context.Background(), func(_ context.Context, proof imageagent.GenerationSuccess) error {
+			prepared, err := factory.prepare(context.Background(), imageagent.SlotExecutionInput{}, func(_ context.Context, proof imageagent.GenerationSuccess) error {
 				observations++
 				require.Equal(t, "artwork-response", proof.ResponseID)
 				return nil

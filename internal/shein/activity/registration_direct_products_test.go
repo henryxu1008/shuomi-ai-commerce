@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"task-processor/internal/listingruntime"
 	"task-processor/internal/shein/api/marketing"
 
 	"github.com/sirupsen/logrus"
@@ -235,13 +234,12 @@ func promotionFloat64Ptr(value float64) *float64 { return &value }
 func TestPromotionConfigRulesFromSnapshots(t *testing.T) {
 	for _, tc := range []struct {
 		name                                          string
-		strategy                                      *listingruntime.OperationStrategy
+		strategy                                      *activityStrategy
 		products                                      []marketing.SkcInfo
 		wantRegular, wantLimited, wantStock, wantRows int
 		wantTypes                                     []int
 	}{
-		{name: "UsesProvidedPriceAndStockWhenAttributesAreMissing", strategy: &listingruntime.OperationStrategy{
-			StoreID:               870,
+		{name: "UsesProvidedPriceAndStockWhenAttributesAreMissing", strategy: &activityStrategy{
 			ActivityPriceMode:     "PROFIT",
 			ActivityMinProfitRate: 0.15,
 			ActivityStockRatio:    0.5,
@@ -256,8 +254,7 @@ func TestPromotionConfigRulesFromSnapshots(t *testing.T) {
 				IsAvailable: true,
 			}},
 		}}, wantRegular: 0, wantLimited: 0, wantStock: 499, wantRows: 1, wantTypes: []int{marketing.AutoPartakeActivityTypeRegular}},
-		{name: "AllowsZeroMinProfitRateWithProvidedProductSnapshot", strategy: &listingruntime.OperationStrategy{
-			StoreID:               870,
+		{name: "AllowsZeroMinProfitRateWithProvidedProductSnapshot", strategy: &activityStrategy{
 			ActivityPriceMode:     "PROFIT",
 			ActivityMinProfitRate: 0,
 			ActivityStockRatio:    0.5,
@@ -272,8 +269,7 @@ func TestPromotionConfigRulesFromSnapshots(t *testing.T) {
 				IsAvailable: true,
 			}},
 		}}, wantRegular: 1, wantLimited: 0, wantStock: 0, wantRows: 1, wantTypes: []int{marketing.AutoPartakeActivityTypeRegular}},
-		{name: "UsesBreakevenDropRateWithProvidedProductSnapshot", strategy: &listingruntime.OperationStrategy{
-			StoreID:            870,
+		{name: "UsesBreakevenDropRateWithProvidedProductSnapshot", strategy: &activityStrategy{
 			ActivityPriceMode:  "BREAKEVEN",
 			ActivityStockRatio: 0.5,
 		}, products: []marketing.SkcInfo{{
@@ -287,8 +283,7 @@ func TestPromotionConfigRulesFromSnapshots(t *testing.T) {
 				IsAvailable: true,
 			}},
 		}}, wantRegular: 40, wantLimited: 0, wantStock: 5, wantRows: 1, wantTypes: []int{marketing.AutoPartakeActivityTypeRegular}},
-		{name: "AcceptsPromotionMultiSkuDifferentPrices", strategy: &listingruntime.OperationStrategy{
-			StoreID:            870,
+		{name: "AcceptsPromotionMultiSkuDifferentPrices", strategy: &activityStrategy{
 			ActivityPriceMode:  "BREAKEVEN",
 			ActivityStockRatio: 0.5,
 		}, products: []marketing.SkcInfo{marketing.SkcInfo{
@@ -323,8 +318,7 @@ func TestPromotionConfigRulesFromSnapshots(t *testing.T) {
 				{SkuCode: "sku-large", CostPrice: 20.5, Currency: "USD"},
 			},
 		}}, wantRegular: 0, wantLimited: 0, wantStock: 0, wantRows: 1, wantTypes: []int{marketing.AutoPartakeActivityTypeRegular}},
-		{name: "AllowsPromotionMultiSkuSamePrices", strategy: &listingruntime.OperationStrategy{
-			StoreID:               870,
+		{name: "AllowsPromotionMultiSkuSamePrices", strategy: &activityStrategy{
 			ActivityPriceMode:     "PROFIT",
 			ActivityMinProfitRate: 0.1,
 			ActivityStockRatio:    0.5,
@@ -360,8 +354,7 @@ func TestPromotionConfigRulesFromSnapshots(t *testing.T) {
 				{SkuCode: "sku-large", CostPrice: 18, Currency: "USD"},
 			},
 		}}, wantRegular: 0, wantLimited: 0, wantStock: 0, wantRows: 1, wantTypes: []int{marketing.AutoPartakeActivityTypeRegular}},
-		{name: "KeepsLimitedBreakevenDropRateGreaterThanRegular", strategy: &listingruntime.OperationStrategy{
-			StoreID:             870,
+		{name: "KeepsLimitedBreakevenDropRateGreaterThanRegular", strategy: &activityStrategy{
 			ActivityPriceMode:   "BREAKEVEN",
 			ActivityPartakeType: "BOTH",
 			ActivityStockRatio:  0.5,
@@ -376,8 +369,7 @@ func TestPromotionConfigRulesFromSnapshots(t *testing.T) {
 				IsAvailable: true,
 			}},
 		}}, wantRegular: 39, wantLimited: 40, wantStock: 0, wantRows: 1, wantTypes: []int{marketing.AutoPartakeActivityTypeRegular, marketing.AutoPartakeActivityTypeLimited}},
-		{name: "AllowsRegularPartakeWithoutStockRatio", strategy: &listingruntime.OperationStrategy{
-			StoreID:               870,
+		{name: "AllowsRegularPartakeWithoutStockRatio", strategy: &activityStrategy{
 			ActivityPriceMode:     "PROFIT",
 			ActivityPartakeType:   "REGULAR",
 			ActivityMinProfitRate: 0,
@@ -392,8 +384,7 @@ func TestPromotionConfigRulesFromSnapshots(t *testing.T) {
 				IsAvailable: true,
 			}},
 		}}, wantRegular: 0, wantLimited: 0, wantStock: 0, wantRows: 1, wantTypes: []int{marketing.AutoPartakeActivityTypeRegular}},
-		{name: "UsesLimitedPartakeStrategy", strategy: &listingruntime.OperationStrategy{
-			StoreID:               870,
+		{name: "UsesLimitedPartakeStrategy", strategy: &activityStrategy{
 			ActivityPriceMode:     "PROFIT",
 			ActivityPartakeType:   "LIMITED",
 			ActivityMinProfitRate: 0,
@@ -409,8 +400,7 @@ func TestPromotionConfigRulesFromSnapshots(t *testing.T) {
 				IsAvailable: true,
 			}},
 		}}, wantRegular: 0, wantLimited: 0, wantStock: 0, wantRows: 1, wantTypes: []int{marketing.AutoPartakeActivityTypeLimited}},
-		{name: "UsesBothPartakeStrategy", strategy: &listingruntime.OperationStrategy{
-			StoreID:                      870,
+		{name: "UsesBothPartakeStrategy", strategy: &activityStrategy{
 			ActivityPriceMode:            "PROFIT",
 			ActivityPartakeType:          "BOTH",
 			ActivityMinProfitRate:        0.1,
@@ -427,8 +417,7 @@ func TestPromotionConfigRulesFromSnapshots(t *testing.T) {
 				IsAvailable: true,
 			}},
 		}}, wantRegular: 0, wantLimited: 0, wantStock: 0, wantRows: 1, wantTypes: []int{marketing.AutoPartakeActivityTypeRegular, marketing.AutoPartakeActivityTypeLimited}},
-		{name: "UsesLimitedDiscountForBothPartake", strategy: &listingruntime.OperationStrategy{
-			StoreID:                     870,
+		{name: "UsesLimitedDiscountForBothPartake", strategy: &activityStrategy{
 			ActivityPriceMode:           "DISCOUNT",
 			ActivityPartakeType:         "BOTH",
 			ActivityDiscountRate:        0.2,
@@ -445,8 +434,7 @@ func TestPromotionConfigRulesFromSnapshots(t *testing.T) {
 				IsAvailable: true,
 			}},
 		}}, wantRegular: 20, wantLimited: 25, wantStock: 0, wantRows: 1, wantTypes: []int{marketing.AutoPartakeActivityTypeRegular, marketing.AutoPartakeActivityTypeLimited}},
-		{name: "UsesLimitedMinProfitForBothPartake", strategy: &listingruntime.OperationStrategy{
-			StoreID:                      870,
+		{name: "UsesLimitedMinProfitForBothPartake", strategy: &activityStrategy{
 			ActivityPriceMode:            "PROFIT",
 			ActivityPartakeType:          "BOTH",
 			ActivityMinProfitRate:        0.2,
@@ -463,8 +451,7 @@ func TestPromotionConfigRulesFromSnapshots(t *testing.T) {
 				IsAvailable: true,
 			}},
 		}}, wantRegular: 37, wantLimited: 44, wantStock: 0, wantRows: 1, wantTypes: []int{marketing.AutoPartakeActivityTypeRegular, marketing.AutoPartakeActivityTypeLimited}},
-		{name: "KeepsLimitedProfitDropRateGreaterAfterRounding", strategy: &listingruntime.OperationStrategy{
-			StoreID:                      870,
+		{name: "KeepsLimitedProfitDropRateGreaterAfterRounding", strategy: &activityStrategy{
 			ActivityPriceMode:            "PROFIT",
 			ActivityPartakeType:          "BOTH",
 			ActivityMinProfitRate:        0.01,
@@ -481,8 +468,8 @@ func TestPromotionConfigRulesFromSnapshots(t *testing.T) {
 				IsAvailable: true,
 			}},
 		}}, wantRegular: 43, wantLimited: 44, wantStock: 0, wantRows: 1, wantTypes: []int{marketing.AutoPartakeActivityTypeRegular, marketing.AutoPartakeActivityTypeLimited}},
-		{name: "UsesLowestSKUPriceAndHighestCostForBoth", strategy: &listingruntime.OperationStrategy{
-			StoreID: 177, ActivityPriceMode: "BREAKEVEN", ActivityPartakeType: "BOTH", ActivityStockRatio: 0.5,
+		{name: "UsesLowestSKUPriceAndHighestCostForBoth", strategy: &activityStrategy{
+			ActivityPriceMode: "BREAKEVEN", ActivityPartakeType: "BOTH", ActivityStockRatio: 0.5,
 		}, products: []marketing.SkcInfo{marketing.SkcInfo{
 			Skc:   "sh260625180761728097751",
 			Stock: 10989,
@@ -497,8 +484,8 @@ func TestPromotionConfigRulesFromSnapshots(t *testing.T) {
 				{SkuCode: "SKU-HIGH", CostPrice: 30, Currency: "USD"},
 			},
 		}}, wantRegular: 24, wantLimited: 25, wantStock: 0, wantRows: 1, wantTypes: []int{marketing.AutoPartakeActivityTypeRegular, marketing.AutoPartakeActivityTypeLimited}},
-		{name: "UsesSupplyPriceForBreakevenDropRate", strategy: &listingruntime.OperationStrategy{
-			StoreID: 1043, ActivityPriceMode: "BREAKEVEN", ActivityPartakeType: "BOTH", ActivityStockRatio: 0.5,
+		{name: "UsesSupplyPriceForBreakevenDropRate", strategy: &activityStrategy{
+			ActivityPriceMode: "BREAKEVEN", ActivityPartakeType: "BOTH", ActivityStockRatio: 0.5,
 		}, products: []marketing.SkcInfo{marketing.SkcInfo{
 			Skc: "sz260708164727639531767", Stock: 7992, SupplyPrice: 82.16,
 			SkuPriceInfoList: []marketing.SkuSitePriceInfo{
@@ -510,8 +497,8 @@ func TestPromotionConfigRulesFromSnapshots(t *testing.T) {
 				{SkuCode: "sku-two", CostPrice: 26.12, Currency: "USD"},
 			},
 		}}, wantRegular: 67, wantLimited: 68, wantStock: 0, wantRows: 1, wantTypes: []int{marketing.AutoPartakeActivityTypeRegular, marketing.AutoPartakeActivityTypeLimited}},
-		{name: "UsesSavedSKUPricesForCandidate", strategy: &listingruntime.OperationStrategy{
-			StoreID: 687, ActivityPriceMode: "BREAKEVEN", ActivityPartakeType: "BOTH", ActivityStockRatio: 0.5,
+		{name: "UsesSavedSKUPricesForCandidate", strategy: &activityStrategy{
+			ActivityPriceMode: "BREAKEVEN", ActivityPartakeType: "BOTH", ActivityStockRatio: 0.5,
 		}, products: []marketing.SkcInfo{marketing.SkcInfo{
 			Skc: "sq-live-prices", Stock: 100,
 			SkuPriceInfoList: []marketing.SkuSitePriceInfo{
@@ -523,8 +510,8 @@ func TestPromotionConfigRulesFromSnapshots(t *testing.T) {
 				{SkuCode: "SKU-TWO", CostPrice: 5, Currency: "USD"},
 			},
 		}}, wantRegular: 0, wantLimited: 0, wantStock: 0, wantRows: 1, wantTypes: []int{marketing.AutoPartakeActivityTypeRegular, marketing.AutoPartakeActivityTypeLimited}},
-		{name: "UsesSavedSKUPricesWhenRealtimePricesAreMissing", strategy: &listingruntime.OperationStrategy{
-			StoreID: 1043, ActivityPriceMode: "BREAKEVEN", ActivityPartakeType: "REGULAR",
+		{name: "UsesSavedSKUPricesWhenRealtimePricesAreMissing", strategy: &activityStrategy{
+			ActivityPriceMode: "BREAKEVEN", ActivityPartakeType: "REGULAR",
 		}, products: []marketing.SkcInfo{{
 			Skc: "sq-common-live-price", Stock: 100,
 			SkuPriceInfoList: []marketing.SkuSitePriceInfo{
@@ -538,8 +525,8 @@ func TestPromotionConfigRulesFromSnapshots(t *testing.T) {
 				{SkuCode: "sku-three", CostPrice: 15, Currency: "USD"},
 			},
 		}}, wantRegular: 0, wantLimited: 0, wantStock: 0, wantRows: 1, wantTypes: []int{marketing.AutoPartakeActivityTypeRegular}},
-		{name: "DoesNotFilterCandidateForMissingRealtimePrices", strategy: &listingruntime.OperationStrategy{
-			StoreID: 687, ActivityPriceMode: "BREAKEVEN", ActivityPartakeType: "REGULAR",
+		{name: "DoesNotFilterCandidateForMissingRealtimePrices", strategy: &activityStrategy{
+			ActivityPriceMode: "BREAKEVEN", ActivityPartakeType: "REGULAR",
 		}, products: []marketing.SkcInfo{{
 			Skc: "sq-live-prices-incomplete", Stock: 100,
 			SkuPriceInfoList: []marketing.SkuSitePriceInfo{
@@ -551,8 +538,8 @@ func TestPromotionConfigRulesFromSnapshots(t *testing.T) {
 				{SkuCode: "sku-two", CostPrice: 5, Currency: "USD"},
 			},
 		}}, wantRegular: 0, wantLimited: 0, wantStock: 0, wantRows: 1, wantTypes: []int{marketing.AutoPartakeActivityTypeRegular}},
-		{name: "RejectsPartialMultiSKUPrices", strategy: &listingruntime.OperationStrategy{
-			StoreID: 177, ActivityPriceMode: "BREAKEVEN", ActivityPartakeType: "REGULAR", ActivityStockRatio: 0.5,
+		{name: "RejectsPartialMultiSKUPrices", strategy: &activityStrategy{
+			ActivityPriceMode: "BREAKEVEN", ActivityPartakeType: "REGULAR", ActivityStockRatio: 0.5,
 		}, products: []marketing.SkcInfo{{
 			Skc: "skc-partial", Stock: 10,
 			SkuPriceInfoList: []marketing.SkuSitePriceInfo{
@@ -601,7 +588,7 @@ func TestPromotionConfigRulesFromSnapshots(t *testing.T) {
 
 func TestApplyPromotionCreateConfigKeepsFullStockRatioUnlimited(t *testing.T) {
 	cfg := activityRuleInputs{StockPercent: 100}
-	applyPromotionCreateConfig(&cfg, &listingruntime.OperationStrategy{ActivityStockRatio: 1})
+	applyPromotionCreateConfig(&cfg, &activityStrategy{ActivityStockRatio: 1})
 	if cfg.StockLimit {
 		t.Fatal("full stock ratio must remain unlimited")
 	}
@@ -684,8 +671,7 @@ func TestExtractedPromotionRiskRules(t *testing.T) {
 }
 
 func TestPromotionRequestRulesAcceptsPromotionMultiSkuDifferentPrices(t *testing.T) {
-	strategy := &listingruntime.OperationStrategy{
-		StoreID:            870,
+	strategy := &activityStrategy{
 		ActivityPriceMode:  "BREAKEVEN",
 		ActivityStockRatio: 0.5,
 	}
@@ -776,8 +762,7 @@ func TestPromotionRequestRulesAcceptsPromotionMultiSkuDifferentPrices(t *testing
 }
 
 func TestPromotionRequestRulesUsesSkuPricesForSaleAttributeGoods(t *testing.T) {
-	strategy := &listingruntime.OperationStrategy{
-		StoreID:              870,
+	strategy := &activityStrategy{
 		ActivityPriceMode:    "DISCOUNT",
 		ActivityDiscountRate: 0.2,
 		ActivityStockRatio:   0.5,
@@ -858,8 +843,7 @@ func TestPromotionRequestRulesUsesSkuPricesForSaleAttributeGoods(t *testing.T) {
 }
 
 func TestPromotionRequestRulesUsesProvidedSkuPricesOverPromotionGoodsSkuPrices(t *testing.T) {
-	strategy := &listingruntime.OperationStrategy{
-		StoreID:              870,
+	strategy := &activityStrategy{
 		ActivityPriceMode:    "DISCOUNT",
 		ActivityDiscountRate: 0.2,
 		ActivityStockRatio:   0.5,
@@ -937,8 +921,7 @@ func TestPromotionRequestRulesUsesProvidedSkuPricesOverPromotionGoodsSkuPrices(t
 }
 
 func TestPromotionRequestRulesUsesCandidateSalePriceOverPromotionGoodsPrice(t *testing.T) {
-	strategy := &listingruntime.OperationStrategy{
-		StoreID:              870,
+	strategy := &activityStrategy{
 		ActivityPriceMode:    "DISCOUNT",
 		ActivityDiscountRate: 0.2,
 		ActivityStockRatio:   0.5,
@@ -995,8 +978,7 @@ func TestPromotionRequestRulesUsesCandidateSalePriceOverPromotionGoodsPrice(t *t
 }
 
 func TestPromotionRequestRulesUsesRequestedProfitModeSkuActivityPrices(t *testing.T) {
-	strategy := &listingruntime.OperationStrategy{
-		StoreID:               870,
+	strategy := &activityStrategy{
 		ActivityPriceMode:     "PROFIT",
 		ActivityMinProfitRate: 0,
 	}
@@ -1049,8 +1031,7 @@ func TestPromotionRequestRulesUsesRequestedProfitModeSkuActivityPrices(t *testin
 }
 
 func TestPromotionRequestRulesUsesSKUCostsForProfitModeSkuActivityPrices(t *testing.T) {
-	strategy := &listingruntime.OperationStrategy{
-		StoreID:               870,
+	strategy := &activityStrategy{
 		ActivityPriceMode:     "PROFIT",
 		ActivityMinProfitRate: 0,
 	}
@@ -1101,8 +1082,7 @@ func TestPromotionRequestRulesUsesSKUCostsForProfitModeSkuActivityPrices(t *test
 }
 
 func TestPromotionRequestRulesUsesSKUCostsForBreakevenModeSkuActivityPrices(t *testing.T) {
-	strategy := &listingruntime.OperationStrategy{
-		StoreID:           870,
+	strategy := &activityStrategy{
 		ActivityPriceMode: "BREAKEVEN",
 	}
 	products := []marketing.SkcInfo{{

@@ -1,5 +1,5 @@
 import {z} from "zod";
-import {routeFact,routeInput,routeCurrent,routeReceipt,routePreview,routeHistory,routeBindings,routeCapabilities,routeCapabilityLabels} from "../contracts/model-route-pricing";
+import {routeFact,routeOptions,routeInput,routeCurrent,routeReceipt,routePreview,routeHistory,routeBindings,routeCapabilities,routeCapabilityLabels} from "../contracts/model-route-pricing";
 import {readBoundedStrictJSON} from "../api/strict-json-response";
 import {hasTrustedSameOriginWrite} from "./same-origin-write";
 import {WORKBENCH_COOKIE_NAME} from "./workbench-proxy";
@@ -15,7 +15,7 @@ export async function proxyModelRoutePricing(request:Request,token:string,userId
  if(!path&&request.method==="GET")output=routeCapabilities;
  else if(parts.length>=2&&["text","image"].includes(parts[0])&&Object.hasOwn(routeCapabilityLabels,parts[1])&&(parts[0]==="image")===(parts[1]==="imageagent.generation")){
   if(parts.length===2&&request.method==="GET")output=routeCurrent;
-  else if(parts.length===3&&request.method==="GET"&&["history","bindings"].includes(op))output=op==="history"?routeHistory:routeBindings;
+  else if(parts.length===3&&request.method==="GET"&&["history","bindings","options"].includes(op))output=op==="history"?routeHistory:op==="options"?routeOptions:routeBindings;
   else if(parts.length===4&&op==="receipts"&&routeFact.safeParse(parts[3]).success&&request.method==="GET")output=routeReceipt;
   else if(parts.length===3&&write&&["validate","publish"].includes(op))output=publish?routeReceipt:routePreview;
   else return routeFailure(400,"INVALID");
@@ -40,10 +40,10 @@ export async function proxyModelRoutePricing(request:Request,token:string,userId
   if(response.status!==200){const parsed=z.strictObject({code:z.string().regex(/^[A-Z_]{1,80}$/)}).safeParse(payload);return routeFailure(response.status>=400&&response.status<600?response.status:502,publish&&response.status>=500?"OUTCOME_UNKNOWN":parsed.success?parsed.data.code:publish?"OUTCOME_UNKNOWN":"UNAVAILABLE")}
   const parsed=output.parse(payload) as Record<string,unknown>;
   if(output===routeCapabilities){if(parsed.organizationId!==org)throw new Error()}
-  const revisions=output===routeHistory?routeHistory.parse(parsed).revisions:output===routeCurrent?[routeCurrent.parse(parsed).revision].filter(v=>!!v):output===routeReceipt?[routeReceipt.parse(parsed).receipt]:[];
+  const revisions=output===routeOptions?routeOptions.parse(parsed).revisions:output===routeHistory?routeHistory.parse(parsed).revisions:output===routeCurrent?[routeCurrent.parse(parsed).revision].filter(v=>!!v):output===routeReceipt?[routeReceipt.parse(parsed).receipt]:[];
   for(const r of revisions){if(!r||r.scope.organizationId!==org||r.scope.capability!==parts[1]||("image" in r.payload)!==(parts[0]==="image"))throw new Error()}
-  if(output===routeReceipt){const r=routeReceipt.parse(parsed).receipt;if(r.key!==(publish?headers.get("Idempotency-Key"):parts[3]))throw new Error();if(publish){const in_=routeInput.parse(JSON.parse(body!));if(r.actorId!==userId||r.parent!==in_.expectedRevision||r.payload.bindingId!==in_.bindingId||r.payload.credentialVersion!==in_.credentialVersion||r.rollbackFrom!==(in_.rollbackFrom||undefined))throw new Error()}}
-  if(output===routePreview){const in_=routeInput.parse(JSON.parse(body!)),p=routePreview.parse(parsed);if(p.expectedRevision!==in_.expectedRevision||p.payload.bindingId!==in_.bindingId||p.payload.credentialVersion!==in_.credentialVersion)throw new Error()}
+  if(output===routeReceipt){const r=routeReceipt.parse(parsed).receipt;if(r.key!==(publish?headers.get("Idempotency-Key"):parts[3]))throw new Error();if(publish){const in_=routeInput.parse(JSON.parse(body!));if(r.actorId!==userId||r.parent!==in_.expectedRevision||("optional" in r.payload?r.payload.optional:undefined)!==in_.optional||r.payload.bindingId!==in_.bindingId||r.payload.credentialVersion!==in_.credentialVersion||r.rollbackFrom!==(in_.rollbackFrom||undefined))throw new Error()}}
+  if(output===routePreview){const in_=routeInput.parse(JSON.parse(body!)),p=routePreview.parse(parsed);if(p.expectedRevision!==in_.expectedRevision||("optional" in p.payload?p.payload.optional:undefined)!==in_.optional||p.payload.bindingId!==in_.bindingId||p.payload.credentialVersion!==in_.credentialVersion)throw new Error()}
   return Response.json(parsed,{headers:{"Cache-Control":"private, no-store","X-Content-Type-Options":"nosniff"}});
  }catch{return routeFailure(controller.signal.aborted?504:502,publish&&dispatched?"OUTCOME_UNKNOWN":dispatched?"UNAVAILABLE":"INVALID")}
  finally{clearTimeout(timer);request.signal.removeEventListener("abort",abort)}

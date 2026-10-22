@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -31,7 +30,7 @@ func buildAutomationBrowserConfig(account Account, cfg AutomationConfig) *shared
 		ViewportWidth:                  defaultViewport(cfg.ViewportWidth, 1440),
 		ViewportHeight:                 defaultViewport(cfg.ViewportHeight, 900),
 		UserAgent:                      fmt.Sprintf("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/%s Safari/537.36", chromeBrandVersion),
-		FingerprintSeed:                int32(account.StoreID),
+		FingerprintSeed:                0,
 		FingerprintPlatform:            "windows",
 		FingerprintPlatformVersion:     "10.0",
 		FingerprintBrand:               "Chrome",
@@ -59,22 +58,7 @@ func buildAutomationBrowserConfig(account Account, cfg AutomationConfig) *shared
 	return managerCfg
 }
 
-func automationProxyServer(account Account) string {
-	if shouldIgnoreStoreProxy() {
-		return ""
-	}
-	return strings.TrimSpace(account.Proxy)
-}
-
-func shouldIgnoreStoreProxy() bool {
-	value := strings.TrimSpace(os.Getenv("TASK_PROCESSOR_SHEIN_IGNORE_STORE_PROXY"))
-	switch strings.ToLower(value) {
-	case "1", "true", "yes", "on":
-		return true
-	default:
-		return false
-	}
-}
+func automationProxyServer(account Account) string { return strings.TrimSpace(account.Proxy) }
 
 func buildAutomationFingerprint(account Account, cfg *sharedbrowser.BrowserConfig) *sharedbrowser.FingerprintConfig {
 	_ = account
@@ -194,24 +178,7 @@ func launchManagerWithProfileRecoveryContext(ctx context.Context, manager browse
 	if !isProfileInUseError(err) {
 		return err
 	}
-	terminateProfileBrowserProcesses(profileDir)
-	cleared := clearProfileLockFiles(profileDir)
-	if !cleared {
-		return fmt.Errorf("SHEIN 浏览器 profile 正在使用，请稍后重试或关闭当前登录窗口: %w", err)
-	}
-	if ctxErr := ctx.Err(); ctxErr != nil {
-		return ctxErr
-	}
-	if retryErr := launchManagerWithTimeoutAndCleanupContext(ctx, manager, sheinBrowserLaunchTimeout, cleanup); retryErr != nil {
-		if ctxErr := ctx.Err(); ctxErr != nil {
-			return ctxErr
-		}
-		if isProfileInUseError(retryErr) {
-			return fmt.Errorf("SHEIN 浏览器 profile 正在使用，请稍后重试或关闭当前登录窗口: %w", retryErr)
-		}
-		return retryErr
-	}
-	return nil
+	return fmt.Errorf("SHEIN profile busy; owner closure required: %w", err)
 }
 
 func launchManagerWithTimeout(manager browserLaunchManager, timeout time.Duration) error {
@@ -241,9 +208,11 @@ func launchManagerWithTimeoutAndCleanupContext(ctx context.Context, manager brow
 		return err
 	case <-ctx.Done():
 		stage.interrupt()
+		<-stage.result // closure proof requires the owned blocking stage to finish
 		return ctx.Err()
 	case <-timer.C:
 		stage.interrupt()
+		<-stage.result
 		return fmt.Errorf("SHEIN browser launch timed out after %s: %w", timeout, context.DeadlineExceeded)
 	}
 }
@@ -261,6 +230,7 @@ func runBlockingStageWithContext(ctx context.Context, onCancel func(), fn func()
 		return err
 	case <-ctx.Done():
 		stage.interrupt()
+		<-stage.result // closure proof requires the owned blocking stage to finish
 		return ctx.Err()
 	}
 }
@@ -287,5 +257,5 @@ func closeManagerProfile(manager *sharedbrowser.Manager, profileDir string) {
 	if manager != nil {
 		manager.Close()
 	}
-	trimProfileDir(profileDir)
+
 }

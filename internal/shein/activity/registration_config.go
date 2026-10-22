@@ -4,11 +4,22 @@ import (
 	"fmt"
 	"strings"
 
-	"task-processor/internal/listingruntime"
 	"task-processor/internal/shein/api/marketing"
 
 	"github.com/sirupsen/logrus"
 )
+
+// activityStrategy contains only the strategy values read by activity rules.
+type activityStrategy struct {
+	ActivityDiscountRate         float64
+	ActivityLimitedDiscountRate  float64
+	ActivityStockRatio           float64
+	ActivityMinProfitRate        float64
+	ActivityLimitedMinProfitRate float64
+	ActivityPriceMode            string
+	ActivityPartakeType          string
+	FixedPriceAdjustment         float64
+}
 
 // activityRuleInputs contains only values read by stateless platform rules.
 // Platform request metadata is supplied through the existing marketing DTOs.
@@ -26,7 +37,7 @@ type activityRuleInputs struct {
 
 func buildActivityConfigsFromProvidedProducts(
 	products []marketing.SkcInfo,
-	strategy *listingruntime.OperationStrategy,
+	strategy *activityStrategy,
 	priceMode string,
 	logger *logrus.Entry,
 ) []marketing.ActivityConfig {
@@ -74,7 +85,7 @@ func buildActivityConfigsFromProvidedProducts(
 
 func dropRateFromProvidedProduct(
 	product marketing.SkcInfo,
-	strategy *listingruntime.OperationStrategy,
+	strategy *activityStrategy,
 	priceMode string,
 	logger *logrus.Entry,
 ) (int, bool) {
@@ -299,7 +310,7 @@ func ensureLimitedPromotionDropRatesGreater(regularConfigs, limitedConfigs []mar
 	return out
 }
 
-func validateAutoPartakeDiscountsForStrategy(strategy *listingruntime.OperationStrategy) error {
+func validateAutoPartakeDiscountsForStrategy(strategy *activityStrategy) error {
 	if strategy == nil {
 		return nil
 	}
@@ -326,7 +337,7 @@ func validateAutoPartakeDiscountsForStrategy(strategy *listingruntime.OperationS
 	return nil
 }
 
-func autoPartakePriceModeFromStrategy(strategy *listingruntime.OperationStrategy) string {
+func autoPartakePriceModeFromStrategy(strategy *activityStrategy) string {
 	if strategy == nil {
 		return "DISCOUNT"
 	}
@@ -337,7 +348,7 @@ func autoPartakePriceModeFromStrategy(strategy *listingruntime.OperationStrategy
 	return priceMode
 }
 
-func autoPartakeActivityTypesFromStrategy(strategy *listingruntime.OperationStrategy) []int {
+func autoPartakeActivityTypesFromStrategy(strategy *activityStrategy) []int {
 	if strategy == nil {
 		return []int{marketing.AutoPartakeActivityTypeRegular}
 	}
@@ -351,7 +362,7 @@ func autoPartakeActivityTypesFromStrategy(strategy *listingruntime.OperationStra
 	}
 }
 
-func autoPartakeStockRatioFromStrategy(strategy *listingruntime.OperationStrategy) float64 {
+func autoPartakeStockRatioFromStrategy(strategy *activityStrategy) float64 {
 	if strategy == nil {
 		return 1
 	}
@@ -361,7 +372,7 @@ func autoPartakeStockRatioFromStrategy(strategy *listingruntime.OperationStrateg
 	return strategy.ActivityStockRatio
 }
 
-func autoPartakeRequiresStockRatio(strategy *listingruntime.OperationStrategy) bool {
+func autoPartakeRequiresStockRatio(strategy *activityStrategy) bool {
 	if strategy == nil {
 		return false
 	}
@@ -373,7 +384,7 @@ func autoPartakeRequiresStockRatio(strategy *listingruntime.OperationStrategy) b
 	}
 }
 
-func promotionConfigListForActivityType(products []marketing.SkcInfo, configList []marketing.ActivityConfig, activityType int, strategy *listingruntime.OperationStrategy, priceMode string, logger *logrus.Entry) []marketing.ActivityConfig {
+func promotionConfigListForActivityType(products []marketing.SkcInfo, configList []marketing.ActivityConfig, activityType int, strategy *activityStrategy, priceMode string, logger *logrus.Entry) []marketing.ActivityConfig {
 	copied := append([]marketing.ActivityConfig(nil), configList...)
 	if activityType == marketing.AutoPartakeActivityTypeRegular &&
 		priceMode == "BREAKEVEN" &&

@@ -1,31 +1,5 @@
 package listingruntime
 
-type StoreInfo struct {
-	ID                       int64
-	TenantID                 int64
-	OwnerUserID              string
-	StoreID                  string
-	Username                 string
-	Platform                 string
-	Name                     string
-	Region                   string
-	ShopType                 string
-	LoginURL                 string
-	Proxy                    string
-	PriceType                string
-	DailyLimit               *int
-	DailyLimitType           string
-	EnableDraft              *bool
-	EnableAutoListing        *bool
-	FixedStockCount          *int
-	SkuGenerateStrategy      string
-	Prefix                   string
-	Suffix                   string
-	EnableBrandAuthorization *bool
-	AuthorizedBrandCode      string
-	AuthorizedBrandName      string
-}
-
 type ProductImportMapping struct {
 	ID                      int64
 	ImportTaskID            int64

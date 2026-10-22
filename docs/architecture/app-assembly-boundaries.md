@@ -1,5 +1,7 @@
 # App Assembly Boundaries
 
+> #870 当前校准：[用户确认的完整旧宿主退休边界](legacy-host-runtime-closure-retirement-boundary.md)已确认整批退出旧 app/monitoring、app/lifecycle、core/errors、app/ports 及 updater（连同旧 httpx/auth）。下文 bootstrap/runner/consumer、组件监控与 lifecycle/ports 示例仅为历史装配说明，不是待迁移/接线目标。当前 currentapplication、kernel/module、原 closers 与 platform 观测继续既有合同；独立 SHEIN 登录/Store 同步保留，不新增替代 manager 或试用前置。
+
 ## Goal
 
 This note captures the assembly-layer boundaries that are emerging in the

@@ -31,6 +31,7 @@ import (
 	imagetemporal "task-processor/internal/imageagent/temporal"
 	governed "task-processor/internal/integration/aicapability/einomodel"
 	qualified "task-processor/internal/integration/aicapability/routeconfig"
+	routestore "task-processor/internal/integration/persistence/routeconfig"
 	"task-processor/internal/knowledge"
 )
 
@@ -117,6 +118,7 @@ type ApplicationFeatures struct {
 	ProductCollections                                   bool
 	AcquisitionPlans                                     bool
 	SupplyCompletionDrafts                               bool
+	SourceMaterials                                      bool
 	PrivateDraftTrial                                    *PrivateDraftTrialConfig
 	SupplyAssetDB                                        *gorm.DB
 	StoreObservationsWorkflow                            client.Client
@@ -245,6 +247,9 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 	}
 	if cfg.SupplyChain != nil && (dependencies.OpenSupplyAssets == nil || dependencies.DialSupplyWorkflow == nil || dependencies.NewApplicationWithFeatures == nil) {
 		return errors.New("supply chain runtime dependencies unavailable")
+	}
+	if cfg.SourceMaterials != nil && (dependencies.OpenSupplyAssets == nil || dependencies.NewApplicationWithFeatures == nil) {
+		return errors.New("source materials Asset runtime dependencies unavailable")
 	}
 	if (cfg.PrivateDraftTrial != nil || cfg.SupplyCompletionDrafts) && dependencies.NewApplicationWithFeatures == nil {
 		return errors.New("private draft trial composition unavailable")
@@ -516,6 +521,9 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 	var supplyWorkflow client.Client
 	var supplyWorker supplyapp.OperationWorker
 	var assetConfig *DatabaseConfig
+	if cfg.SourceMaterials != nil {
+		assetConfig = &cfg.SourceMaterials.AssetDatabase
+	}
 	if cfg.SupplyChain != nil {
 		assetConfig = &cfg.SupplyChain.AssetDatabase
 	}
@@ -533,7 +541,7 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 			}
 		}
 		defer func() { resultErr = errors.Join(resultErr, dependencies.CloseDatabase(pool)) }()
-		if cfg.SupplyChain != nil {
+		if cfg.SupplyChain != nil || cfg.SourceMaterials != nil {
 			supplyAssetDB = pool
 		}
 		if cfg.ImageAgent != nil && cfg.ImageAgent.WorkerConfigFile != "" {
@@ -798,6 +806,17 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 		if e != nil {
 			return e
 		}
+		// The role limit is shared across owner databases. Inspect the entire
+		// configured budget before opening either writer, using existing readers.
+		for _, family := range []string{"text", "image"} {
+			writerConfig, reader := cfg.ModelRoutePricing.TextWriter, agentDB
+			if family == "image" {
+				writerConfig, reader = cfg.ModelRoutePricing.ImageWriter, imageWorkerDB
+			}
+			if writerConfig != nil && routestore.VerifyWriterConnections(startupContext, reader, cfg.ModelRoutePricing.writerConnections(*writerConfig)) != nil {
+				return errors.New("model route writer connection capacity insufficient or unavailable")
+			}
+		}
 		for _, family := range []string{"text", "image"} {
 			writerConfig := cfg.ModelRoutePricing.TextWriter
 			reader := agentDB
@@ -833,7 +852,7 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 		}
 	}
 	if dependencies.NewApplicationWithFeatures != nil {
-		server, err = dependencies.NewApplicationWithFeatures(startupContext, sourceAccountDB, ApplicationFeatures{ModelRouteText: textManager, ModelRouteImage: imageManager, CurrentTextPolicies: textReader, CurrentImagePolicies: imageReader, DataServicesDB: dataDB, DataServices: cfg.DataServices, DataServicesProvider: dataProvider, DataServicesWorkflow: dataWorkflow, DataServicesWorker: &dataWorker, ReportCenterDB: reportDB, MarketStorage: marketStorage, POD: cfg.POD, PODCredentials: podCredentials, PODAssetDB: podAssetDB, PODWorkflow: podWorkflow, PODWorker: &podWorker, AgentCustomizationDB: customizationDB, ProjectCenterDB: projectDB, OperationsCockpit: cfg.StoreCenter != nil && cfg.StoreCenter.Enabled && cfg.StoreCenter.OperationsCockpit, ToolMarketDB: toolMarketDB, ToolMarket: cfg.ToolMarket, Ecoservices: ecoservicesRuntime, NotificationCenterDB: notificationDB, Knowledge: knowledgeService, OfficialStoreApplications: officialApplications, StoreCenterDB: storeDB, LocalTrialDB: trialDB, MoneyOwnerDB: moneyOwnerDB, ProductAgentDB: agentDB, ProductReviewDB: agentReviewDB, ProductAgentAssetDB: agentAssetDB, ProductAgent: cfg.ProductAgent, AIWorkbenchDB: workbenchDB, AIWorkbench: cfg.AIWorkbench, CommercialOwnerDB: commercialOwnerDB, ProductAcquisitionDB: productDB, ProductCollections: cfg.ProductCollections, AcquisitionPlans: cfg.AcquisitionPlans, SupplyCompletionDrafts: cfg.SupplyCompletionDrafts, PrivateDraftTrial: cfg.PrivateDraftTrial, SourceMediaStorage: sourceMediaStorage, SupplyAssetDB: supplyAssetDB, StoreObservationsWorkflow: observationWorkflow, StoreObservationsLifecycle: &observationLifecycle, StoreObservationsPreparationOnly: cfg.StoreCenter != nil && cfg.StoreCenter.Observations != nil && cfg.StoreCenter.Observations.PreparationOnly, SupplyWorkflow: supplyWorkflow, SupplyWorker: &supplyWorker, ImageAgentDB: imageDB, ImageSetAssetDB: imageAssetDB, ImageSetWorkerDB: imageWorkerDB, ImageSetWorkerConfig: imageWorkerConfig, ImageSetTemporal: imageTemporal, ImageSetWorker: &imageWorker, AccountAuditImageDB: auditImageDB, AccountAuditProductDB: auditProductDB, ImageAgentWorkflow: imageWorkflow, ReferralDB: referralDB, MembershipDB: membershipDB, Membership: cfg.Membership, RuntimeContext: ctx}, core, logger)
+		server, err = dependencies.NewApplicationWithFeatures(startupContext, sourceAccountDB, ApplicationFeatures{ModelRouteText: textManager, ModelRouteImage: imageManager, CurrentTextPolicies: textReader, CurrentImagePolicies: imageReader, DataServicesDB: dataDB, DataServices: cfg.DataServices, DataServicesProvider: dataProvider, DataServicesWorkflow: dataWorkflow, DataServicesWorker: &dataWorker, ReportCenterDB: reportDB, MarketStorage: marketStorage, POD: cfg.POD, PODCredentials: podCredentials, PODAssetDB: podAssetDB, PODWorkflow: podWorkflow, PODWorker: &podWorker, AgentCustomizationDB: customizationDB, ProjectCenterDB: projectDB, OperationsCockpit: cfg.StoreCenter != nil && cfg.StoreCenter.Enabled && cfg.StoreCenter.OperationsCockpit, ToolMarketDB: toolMarketDB, ToolMarket: cfg.ToolMarket, Ecoservices: ecoservicesRuntime, NotificationCenterDB: notificationDB, Knowledge: knowledgeService, OfficialStoreApplications: officialApplications, StoreCenterDB: storeDB, LocalTrialDB: trialDB, MoneyOwnerDB: moneyOwnerDB, ProductAgentDB: agentDB, ProductReviewDB: agentReviewDB, ProductAgentAssetDB: agentAssetDB, ProductAgent: cfg.ProductAgent, AIWorkbenchDB: workbenchDB, AIWorkbench: cfg.AIWorkbench, CommercialOwnerDB: commercialOwnerDB, ProductAcquisitionDB: productDB, ProductCollections: cfg.ProductCollections, AcquisitionPlans: cfg.AcquisitionPlans, SupplyCompletionDrafts: cfg.SupplyCompletionDrafts, SourceMaterials: cfg.SourceMaterials != nil, PrivateDraftTrial: cfg.PrivateDraftTrial, SourceMediaStorage: sourceMediaStorage, SupplyAssetDB: supplyAssetDB, StoreObservationsWorkflow: observationWorkflow, StoreObservationsLifecycle: &observationLifecycle, StoreObservationsPreparationOnly: cfg.StoreCenter != nil && cfg.StoreCenter.Observations != nil && cfg.StoreCenter.Observations.PreparationOnly, SupplyWorkflow: supplyWorkflow, SupplyWorker: &supplyWorker, ImageAgentDB: imageDB, ImageSetAssetDB: imageAssetDB, ImageSetWorkerDB: imageWorkerDB, ImageSetWorkerConfig: imageWorkerConfig, ImageSetTemporal: imageTemporal, ImageSetWorker: &imageWorker, AccountAuditImageDB: auditImageDB, AccountAuditProductDB: auditProductDB, ImageAgentWorkflow: imageWorkflow, ReferralDB: referralDB, MembershipDB: membershipDB, Membership: cfg.Membership, RuntimeContext: ctx}, core, logger)
 	} else if membershipDB != nil {
 		server, err = dependencies.NewApplicationWithMembership(startupContext, sourceAccountDB, membershipDB, core, cfg.Membership, logger)
 	} else if referralDB != nil {

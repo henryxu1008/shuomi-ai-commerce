@@ -3,14 +3,13 @@ package pricing_test
 import (
 	"testing"
 
-	"task-processor/internal/listingruntime"
 	"task-processor/internal/shein/pricing"
 )
 
 func float64Ptr(v float64) *float64 { return &v }
 
-func makeRule(ruleType string, ruleValue, fixedValue, priceMin, priceMax *float64) listingruntime.PricingRule {
-	return listingruntime.PricingRule{
+func makeRule(ruleType string, ruleValue, fixedValue, priceMin, priceMax *float64) pricing.AutoPricingRule {
+	return pricing.AutoPricingRule{
 		RuleType:   ruleType,
 		RuleValue:  ruleValue,
 		FixedValue: fixedValue,
@@ -21,7 +20,7 @@ func makeRule(ruleType string, ruleValue, fixedValue, priceMin, priceMax *float6
 
 func TestAutoPricingCalculator_GetAutoPrice_MatchRule(t *testing.T) {
 	calc := pricing.NewAutoPricingCalculator()
-	rules := []listingruntime.PricingRule{
+	rules := []pricing.AutoPricingRule{
 		makeRule("fixed", float64Ptr(5), nil, float64Ptr(10), float64Ptr(50)),
 	}
 	got := calc.GetAutoPrice(20, rules)
@@ -33,7 +32,7 @@ func TestAutoPricingCalculator_GetAutoPrice_MatchRule(t *testing.T) {
 
 func TestAutoPricingCalculator_GetAutoPrice_NoMatchRule(t *testing.T) {
 	calc := pricing.NewAutoPricingCalculator()
-	rules := []listingruntime.PricingRule{
+	rules := []pricing.AutoPricingRule{
 		makeRule("fixed", float64Ptr(5), nil, float64Ptr(10), float64Ptr(50)),
 	}
 	// 价格超出规则范围
@@ -130,7 +129,7 @@ func TestAutoPricingCalculator_ApplyRule(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			rule := listingruntime.PricingRule{
+			rule := pricing.AutoPricingRule{
 				RuleType:   tc.ruleType,
 				RuleValue:  tc.ruleValue,
 				FixedValue: tc.fixedValue,

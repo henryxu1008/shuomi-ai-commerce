@@ -291,6 +291,14 @@ func SupplyRoutes(app *supplyapp.Application, bind func(context.Context, string)
 					return
 				}
 				in.ActionID = key
+				if app.SourceMaterialsOnly && len(in.Approved) != 0 {
+					supplyError(c, preparation.ErrInvalid)
+					return
+				}
+				if app.Approvals == nil {
+					supplyError(c, preparation.ErrUnavailable)
+					return
+				}
 				output, err = app.Approvals.Approve(ctx, in)
 			case "inventory":
 				var body supplyImageSourceBody

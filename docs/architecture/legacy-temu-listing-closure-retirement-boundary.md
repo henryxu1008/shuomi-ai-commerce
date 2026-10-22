@@ -1,5 +1,7 @@
 # 旧 TEMU 数字刊登剩余整链退休边界
 
+> 当前校准：#867 用户确认的[数字采集与平台尾链完整闭包](legacy-numeric-acquisition-tail-closure-retirement-boundary.md)仅替代本文对旧 fetch/cache/数字 Task HTTP、SHEIN 数字 Cookie/StoreInfo 及专属 Amazon 运维源的广泛保留表述；本文其余平台 API/规则、两种 SHEIN 属性、价格、当前采集/共享浏览器、Store 与独立 SHEIN 登录/同步的保留决定继续有效。历史执行证据不改，不授权运行资源操作。
+
 > #824 后续按用户确认的[共享支撑边界](legacy-numeric-listing-support-closure-retirement-boundary.md)退休失去最后消费者的八类 listingadmin 管理链及专属 DTO 值 helper、孤立 listingruntime 声明与旧 Task/Workspace 尾部。本文对这些对象的保留仅为历史；Store/敏感词/话题、四种有效值合同、当前平台/采集/图像/Store 与独立 SHEIN worker 保留。原证据和历史数据不处理。
 
 > 后续 #822 已按用户确认整退旧 Amazon 刊登及专属 state/timex/httpbootstrap 闭包；本文关于这些对象的保留仅为 #819 当时消费者证据，新状态见[Amazon 边界](legacy-amazon-listing-closure-retirement-boundary.md)。其他当前平台/共享/worker 能力保留不变，原数字与执行证据不重写。

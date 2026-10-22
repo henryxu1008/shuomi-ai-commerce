@@ -483,7 +483,23 @@ func phase2ConcreteImporterCeilings() []importerCeiling {
 func TestPhase2LegacyRootsDoNotGrow(t *testing.T) {
 	root := filepath.Join("..", "internal")
 	for _, tc := range phase2LegacyRootCeilings() {
-		if got := productionGoFileCount(t, filepath.Join(root, tc.name)); got > tc.max {
+		var got int
+		if tc.name == "infra" {
+			// The last old-host packages are retired. Scan the retained ancestor
+			// so absence counts as zero while read/parse failures still fail closed.
+			index, err := loadGoFileSubtreeIndex(root, filepath.Join(root, tc.name))
+			if err != nil {
+				t.Fatal(err)
+			}
+			for path := range index.files {
+				if !strings.HasSuffix(path, "_test.go") {
+					got++
+				}
+			}
+		} else {
+			got = productionGoFileCount(t, filepath.Join(root, tc.name))
+		}
+		if got > tc.max {
 			t.Errorf("internal/%s production files = %d, baseline max = %d", tc.name, got, tc.max)
 		}
 	}
@@ -555,7 +571,11 @@ func TestTargetDomainsDoNotImportConcreteInfrastructure(t *testing.T) {
 }
 
 func TestPlatformQueueRabbitMQDoesNotImportApplicationOrLegacyInfrastructure(t *testing.T) {
-	index, err := loadGoFileIndex(filepath.Join("..", "internal", "platform", "queue", "rabbitmq"), "")
+	retired := filepath.Join("..", "internal", "platform", "queue", "rabbitmq")
+	if _, err := os.Stat(retired); !os.IsNotExist(err) {
+		t.Errorf("retired RabbitMQ package must be absent: %v", err)
+	}
+	index, err := loadGoFileIndex(filepath.Join("..", "internal"), "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -565,14 +585,8 @@ func TestPlatformQueueRabbitMQDoesNotImportApplicationOrLegacyInfrastructure(t *
 			if err != nil {
 				t.Fatalf("%s has invalid import %s: %v", filepath.ToSlash(path), imp, err)
 			}
-			for _, forbidden := range []string{
-				"task-processor/internal/app",
-				"task-processor/internal/core",
-				"task-processor/internal/infra",
-			} {
-				if importMatchesPrefix(clean, forbidden) {
-					t.Errorf("%s imports forbidden package %s", filepath.ToSlash(path), clean)
-				}
+			if importMatchesPrefix(clean, "task-processor/internal/platform/queue/rabbitmq") {
+				t.Errorf("%s imports retired RabbitMQ package %s", filepath.ToSlash(path), clean)
 			}
 		}
 	}
@@ -924,16 +938,13 @@ func TestIntegrationProviderBoundaryDecodesAllowedAndForbiddenGoImportLiterals(t
 }
 
 func TestLegacyMonitoringPathIsRetired(t *testing.T) {
-	if present := presentRetiredPathsInTrackedFiles([]string{"internal/infra/monitoring"}, trackedFiles(t, "internal")); len(present) != 0 {
+	if present := presentRetiredPathsInTrackedFiles([]string{"internal/infra/monitoring", "internal/app/monitoring"}, trackedFiles(t, "internal")); len(present) != 0 {
 		t.Errorf("legacy monitoring path must stay retired: %v", present)
 	}
-	targetRoot := filepath.Join("..", "internal", "app", "monitoring")
-	targetIndex, err := loadGoFileIndex(targetRoot, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(targetIndex.files) == 0 {
-		t.Fatal("internal/app/monitoring must contain tracked Go files")
+	for _, relative := range []string{"internal/infra/monitoring", "internal/app/monitoring"} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Errorf("retired monitoring root %s must be absent: %v", relative, err)
+		}
 	}
 
 	index, err := loadGoFileIndex(filepath.Join("..", "internal"), "")
@@ -946,7 +957,8 @@ func TestLegacyMonitoringPathIsRetired(t *testing.T) {
 			if err != nil {
 				t.Fatalf("decode import in %s: %v", filepath.ToSlash(path), err)
 			}
-			if importMatchesPrefix(importPath, "task-processor/internal/infra/monitoring") {
+			if importMatchesPrefix(importPath, "task-processor/internal/infra/monitoring") ||
+				importMatchesPrefix(importPath, "task-processor/internal/app/monitoring") {
 				t.Errorf("%s imports retired monitoring path %s", filepath.ToSlash(path), importPath)
 			}
 		}

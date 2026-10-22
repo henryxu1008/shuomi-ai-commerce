@@ -16,7 +16,8 @@ const context = vi.hoisted(() => ({
 vi.mock("@/components/providers/workbench-context-provider", () => ({
   useWorkbenchContext: () => context,
 }));
-vi.mock("@/lib/api/workbench-stores", () => ({
+vi.mock("@/lib/api/workbench-stores", async original => ({
+  ...await original<typeof import("@/lib/api/workbench-stores")>(),
   listWorkbenchStores: vi
     .fn()
     .mockResolvedValue({ items: [], pagination: { total: 0 } }),
@@ -108,6 +109,14 @@ it.each(["products", "orders"] as const)("shows provider pending for %s after wo
  expect(screen.queryByRole("button",{name:kind === "products"?"同步商品":"同步订单"})).not.toBeInTheDocument();
  expect(request).toHaveBeenCalledTimes(1);
  expect(request.mock.calls[0][0]).toContain("/capabilities");
+});
+it("provides the next preparation step while leaving missing platform facts unknown",async()=>{
+ const request=vi.fn().mockResolvedValue(Response.json({organizationId:"org-a",userId:"actor-a",data:{available:false,canSync:false,runtimeReady:true,providerConfigured:false,kind:"products",site:"shein-us",platformUrl:"https://sellerhub.shein.com/"}}));
+ vi.stubGlobal("fetch",request);renderPage();
+ expect(await screen.findByText("平台读取：待配置")).toBeVisible();
+ expect(screen.getByText(/请联系企业配置管理员/)).toBeVisible();
+ expect(screen.queryByRole("table")).not.toBeInTheDocument();
+ expect(request.mock.calls.every(([path])=>String(path).endsWith("/capabilities"))).toBe(true);
 });
 function baseFetch() {
   return vi.fn().mockImplementation((path: string, init?: RequestInit) => {

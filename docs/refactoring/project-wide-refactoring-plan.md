@@ -1,5 +1,7 @@
 # Task Processor Project-wide Refactoring Plan
 
+> #301 / #872 当前精确校准：[已确认完整闭包](../architecture/legacy-queue-proxy-config-tail-closure-retirement-boundary.md)源码退休无当前消费者的 platform/queue/rabbitmq 与专属 probe/fixture、数字 Store 代理/专属声明、Updater 配置及孤立 cache/perf/types/fileio。下文 Queue connection → internal/platform/queue 目标对该已退实现仅为历史，不要求新建队列 owner/搬包；当前 workerpool/Retry/Temporal、采集/Store/独立 SHEIN 登录同步和其它有效合同保持。原历史行/计数不改，无真实资源操作或新试用前置。
+
 > Status: **SUPERSEDED FOR GREENFIELD**. This is historical planning evidence, not a current implementation authority. [PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08](../product/greenfield-no-legacy-migration.md) requires current owners and `EXTRACT | RETIRE`; do not follow compatibility-facade or bridge directions in this plan for new work.
 
 > Scope: this document captures a project-level refactoring direction for `task-processor`, beyond the existing ListingKit-only restructuring notes. It is intended to guide incremental refactoring without forcing a high-risk rewrite.

@@ -25,7 +25,7 @@ func TestImageSetQuoteUsesOriginalProviderResolutionWithoutCallingProvider(t *te
 			reader := imageGenerationQuoteReader{factory: generationProviderFactory{resolver: resolver, price: config.ImageAgentGenerationConfig{PriceVersion: "price", PointsPerImage: 12}}}
 			identity := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, TenantID: "org", UserID: "actor", MemberID: "member", BusinessTaskID: "source"}
 			ctx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{TenantID: "org", EffectiveOrganizationID: "org", UserID: "actor", EffectiveMemberID: "member"})
-			quote, err := reader.ReadImageGenerationQuote(ctx, identity)
+			quote, err := reader.ReadImageGenerationQuote(ctx, identity, nil)
 			require.NoError(t, err)
 			require.True(t, quote.Valid())
 			require.Equal(t, route.quality, quote.Quality)
@@ -36,9 +36,9 @@ func TestImageSetQuoteUsesOriginalProviderResolutionWithoutCallingProvider(t *te
 			require.Equal(t, metadata.ConfigurationVersion, quote.ConfigurationVersion)
 			require.Equal(t, metadata.CredentialReference, quote.CredentialReference)
 			identity.MemberID = "another-member"
-			_, err = reader.ReadImageGenerationQuote(ctx, identity)
+			_, err = reader.ReadImageGenerationQuote(ctx, identity, nil)
 			require.ErrorIs(t, err, imageagent.ErrIdentityRequired)
-			_, err = reader.ReadImageGenerationQuote(context.Background(), identity)
+			_, err = reader.ReadImageGenerationQuote(context.Background(), identity, nil)
 			require.ErrorIs(t, err, imageagent.ErrIdentityRequired)
 			require.Zero(t, requests)
 			_, err = NewImageGenerationQuoteReader(nil, reader.factory.price)
@@ -52,13 +52,13 @@ func TestImageSetQuoteAdmitsExplicitBeijingQwenRouteWithoutDispatch(t *testing.T
 	reader := imageGenerationQuoteReader{factory: generationProviderFactory{resolver: resolver, price: config.ImageAgentGenerationConfig{PriceVersion: "trial-qwen3-v1", PointsPerImage: 1}}}
 	id := imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, TenantID: "org", UserID: "actor", MemberID: "member"}
 	ctx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{TenantID: "org", EffectiveOrganizationID: "org", UserID: "actor", EffectiveMemberID: "member"})
-	q, err := reader.ReadImageGenerationQuote(ctx, id)
+	q, err := reader.ReadImageGenerationQuote(ctx, id, nil)
 	require.NoError(t, err)
 	require.True(t, q.Valid())
 	require.Equal(t, "bailian", q.Provider)
 	require.Equal(t, "qwen-image-3.0", q.Model)
 	require.Equal(t, "dashscope-image-sync-v1", q.Protocol)
 	resolver.resolved.Config.BaseURL = "https://dashscope-intl.aliyuncs.com"
-	_, err = reader.ReadImageGenerationQuote(ctx, id)
+	_, err = reader.ReadImageGenerationQuote(ctx, id, nil)
 	require.Error(t, err)
 }

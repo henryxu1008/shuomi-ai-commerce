@@ -12,7 +12,7 @@ function imageSetBase(scope:ImageSetScope){
 export async function imageSetRequest<T>(scope:ImageSetScope,action:ImageSetRoute,schema:z.ZodType<T>,options:{runId?:string;requestKey?:string;body?:unknown;signal?:AbortSignal;query?:string;approvalId?:string}={}):Promise<T>{
  const method=imageSetMethods[action],mutation=method==="POST"&&action!=="preview"&&action!=="requirements";
  let path=imageSetBase(scope);
- if(action==="sources"||action==="prepare"||action==="requirements")path+="/"+action;
+ if(action==="model-options"||action==="sources"||action==="prepare"||action==="requirements")path+="/"+action;
  else if(action==="verify-prepare"){
   if(!isAcquisitionUUID(options.requestKey??""))throw new ImageSetError("INVALID_IMAGE_REQUEST",400);path+="/by-key/"+options.requestKey;
  }else if(action==="recent")path+="/runs";

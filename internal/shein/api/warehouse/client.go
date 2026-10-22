@@ -134,7 +134,7 @@ func (a *Client) getWarehousesFromStoreAddress(cause error) (*WarehouseResponse,
 		}
 		return nil, err
 	}
-	warehouseInfo := convertStoreAddresses(*storeAddressInfo)
+	warehouseInfo := WarehousesFromStoreAddresses(*storeAddressInfo)
 	if len(warehouseInfo.Data) == 0 {
 		if cause != nil {
 			return nil, cause
@@ -150,7 +150,7 @@ func (a *Client) getWarehousesFromStoreAddress(cause error) (*WarehouseResponse,
 	return warehouseInfo, nil
 }
 
-func convertStoreAddresses(info StoreAddressListInfo) *WarehouseResponse {
+func WarehousesFromStoreAddresses(info StoreAddressListInfo) *WarehouseResponse {
 	resp := &WarehouseResponse{
 		Data: make([]Warehouse, 0, len(info.Addresses)),
 	}

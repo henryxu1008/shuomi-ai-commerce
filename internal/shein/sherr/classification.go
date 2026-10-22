@@ -17,10 +17,6 @@ func isNonRetryableError(err error) bool {
 	if errors.As(err, &fe) {
 		return true
 	}
-	var cookieErr *CookieLoadError
-	if errors.As(err, &cookieErr) {
-		return true
-	}
 
 	notFoundPatterns := []string{
 		"不是有效的产品页面", "产品页面不存在", "产品页面缺少必要元素",

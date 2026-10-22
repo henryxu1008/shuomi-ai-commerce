@@ -3,7 +3,6 @@ package sourcing
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"strconv"
 	"strings"
 )
 
@@ -20,9 +19,9 @@ const (
 
 // SourceIdentity is the stable identity for a sourced product/design record.
 //
-// The Source* fields are the product-sourcing MVP model. Platform, Region,
-// ProductID, and StoreID are kept for compatibility with existing product fetch
-// identity keys while callers migrate toward the source-neutral fields.
+// The six Source* fields are the identity inputs. Platform, Region, ProductID,
+// and StoreID retain the existing zero-value JSON layout and rejection checks;
+// they do not supply identity values.
 type SourceIdentity struct {
 	SourceType        string
 	SourcePlatform    string
@@ -31,7 +30,7 @@ type SourceIdentity struct {
 	SourceVersion     string
 	SourceFingerprint string
 
-	// Legacy product-fetch identity fields.
+	// Zero-value slots in the current source evidence encoding contract.
 	Platform  string
 	Region    string
 	ProductID string
@@ -69,7 +68,7 @@ func (v SourceIdentityValidation) WeakButFingerprintable() bool {
 }
 
 // NormalizeSourceIdentity trims all fields, normalizes source type/platform
-// tokens, fills legacy compatibility fields when possible, and derives a stable
+// tokens, preserves existing slot trimming, and derives a stable
 // fingerprint for weak identities when source facts are available.
 func NormalizeSourceIdentity(id SourceIdentity) SourceIdentity {
 	id.SourceType = strings.ToLower(strings.TrimSpace(id.SourceType))
@@ -82,21 +81,6 @@ func NormalizeSourceIdentity(id SourceIdentity) SourceIdentity {
 	id.Region = strings.ToLower(strings.TrimSpace(id.Region))
 	id.ProductID = strings.TrimSpace(id.ProductID)
 
-	if id.SourceType == "" && id.Platform != "" {
-		id.SourceType = SourceTypeCrawler
-	}
-	if id.SourcePlatform == "" {
-		id.SourcePlatform = id.Platform
-	}
-	if id.Platform == "" {
-		id.Platform = id.SourcePlatform
-	}
-	if id.SourceID == "" {
-		id.SourceID = id.ProductID
-	}
-	if id.ProductID == "" {
-		id.ProductID = id.SourceID
-	}
 	if id.SourceFingerprint == "" && canFingerprintSourceIdentity(id) {
 		id.SourceFingerprint = deriveSourceFingerprint(id)
 	}
@@ -115,19 +99,7 @@ func (id SourceIdentity) Validation() SourceIdentityValidation {
 	}
 }
 
-// Key returns a stable string key for existing product-fetch identity comparisons
-// and caches. It intentionally preserves the legacy platform:region:product_id
-// shape and only appends StoreID when set.
-func (id SourceIdentity) Key() string {
-	id = NormalizeSourceIdentity(id)
-	parts := []string{id.Platform, id.Region, id.ProductID}
-	if id.StoreID > 0 {
-		parts = append(parts, strconv.FormatInt(id.StoreID, 10))
-	}
-	return strings.Join(parts, ":")
-}
-
-// SourceKey returns a source-neutral identity key for future product-sourcing
+// SourceKey returns the source-neutral identity key for product-sourcing
 // dedupe, lineage, and retry paths.
 func (id SourceIdentity) SourceKey() string {
 	id = NormalizeSourceIdentity(id)

@@ -14,6 +14,38 @@ type SupplyChainConfig struct {
 	TemporalNamespace string         `json:"temporalNamespace"`
 }
 
+// SourceMaterials admits only original source approval and Product diagnostics.
+// It consumes the existing Asset owner without Store, Agent or workflow workers.
+type SourceMaterialsConfig struct {
+	AssetDatabase DatabaseConfig `json:"assetDatabase"`
+}
+
+func (c *Config) validateSourceMaterials() error {
+	s := c.SourceMaterials
+	if s == nil {
+		return nil
+	}
+	if !c.ProductCollections || !c.AcquisitionPlans || c.PrivateDraftTrial != nil || c.Identity.TenantDirectoryToken == "" {
+		return errors.New("source materials require current collections, acquisition plans and live membership")
+	}
+	if err := s.AssetDatabase.validate("sourceMaterials.assetDatabase"); err != nil {
+		return err
+	}
+	if s.AssetDatabase.User != "supply_asset_runtime" || s.AssetDatabase.MaxConnections > 8 {
+		return errors.New("source materials require bounded supply_asset_runtime Asset access")
+	}
+	if err := c.validateAssetOwnerIsolation(s.AssetDatabase); err != nil {
+		return err
+	}
+	if c.SupplyChain != nil && c.SupplyChain.AssetDatabase != s.AssetDatabase ||
+		c.ImageAgent != nil && !sameDatabaseTarget(s.AssetDatabase, c.ImageAgent.Database) ||
+		c.ImageAgent != nil && c.ImageAgent.WorkerConfigFile != "" && c.ImageAgent.AssetDatabase != s.AssetDatabase ||
+		c.ProductAgent != nil && c.ProductAgent.Enabled && !c.ProductAgent.ContentTitleOnly && !c.ProductAgent.ContentOnly && !sameDatabaseTarget(s.AssetDatabase, c.ProductAgent.AssetDatabase) {
+		return errors.New("source materials must share the current canonical Asset owner")
+	}
+	return nil
+}
+
 func (c *Config) validateSupplyChain() error {
 	s := c.SupplyChain
 	if s == nil {

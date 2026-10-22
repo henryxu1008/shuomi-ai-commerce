@@ -3,12 +3,18 @@ package imageagentworker
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"image"
 	"image/png"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -95,7 +101,17 @@ func TestGenerationOutputRecoveryOnlyFetchesBoundOriginalResult(t *testing.T) {
 	fact, err = fact.RecordSuccess(proof)
 	require.NoError(t, err)
 	responseStatuses := map[string]int{"forbidden_set": http.StatusForbidden, "gone_set": http.StatusGone, "not_found_set": http.StatusNotFound, "timeout_set": http.StatusRequestTimeout, "throttle_set": http.StatusTooManyRequests, "unavailable_set": http.StatusServiceUnavailable}
-	for _, mode := range []string{"valid", "image_set", "changed_set", "bad_set", "truncated_pixels", "wrong_size", "empty_set", "oversized_declared", "oversized_streamed", "fetch_failure_set", "forbidden_set", "gone_set", "not_found_set", "timeout_set", "throttle_set", "unavailable_set", "canceled_set", "unavailable_locator_set", "malformed_locator_set", "private_locator_set", "oversized_locator_set", "changed_unavailable_set", "private", "oversized_locator", "member", "catalog", "unknown", "bad_image", "fetch_failure"} {
+	fetchErrors := map[string]error{
+		"dns":             &url.Error{Op: "Get", URL: proof.ResultURL, Err: &net.DNSError{Err: "private diagnostic text", Name: "private-host"}},
+		"certificate":     &url.Error{Op: "Get", URL: proof.ResultURL, Err: x509.UnknownAuthorityError{}},
+		"tls":             tls.RecordHeaderError{Msg: "private diagnostic text"},
+		"deadline":        fmt.Errorf("private diagnostic text: %w", context.DeadlineExceeded),
+		"network_timeout": &net.DNSError{IsTimeout: true, Err: "private diagnostic text"},
+		"network":         &net.OpError{Op: "read", Net: "tcp", Err: errors.New("private diagnostic text")},
+		"tcp_timeout":     &net.OpError{Op: "read", Net: "tcp", Err: os.ErrDeadlineExceeded},
+		"invalid_status":  &httpimage.HTTPStatusError{StatusCode: 987654},
+	}
+	for _, mode := range []string{"valid", "image_set", "changed_set", "bad_set", "truncated_pixels", "wrong_size", "empty_set", "oversized_declared", "oversized_streamed", "fetch_failure_set", "forbidden_set", "gone_set", "not_found_set", "timeout_set", "throttle_set", "unavailable_set", "canceled_set", "unavailable_locator_set", "malformed_locator_set", "private_locator_set", "oversized_locator_set", "changed_unavailable_set", "private", "oversized_locator", "member", "catalog", "unknown", "bad_image", "fetch_failure", "dns", "certificate", "tls", "deadline", "network_timeout", "network", "tcp_timeout", "invalid_status", "bad_source"} {
 		t.Run(mode, func(t *testing.T) {
 			calls := 0
 			logger, hook := logtest.NewNullLogger()
@@ -147,12 +163,19 @@ func TestGenerationOutputRecoveryOnlyFetchesBoundOriginalResult(t *testing.T) {
 				in.OrganizationIdentity.MemberID = "other"
 			case "catalog":
 				in.AssetCatalog.Manifest.Hash = "catalog-v1:" + strings.Repeat("d", 64)
+			case "bad_source":
+				in.AssetCatalog.Assets = append([]imageagent.AuthorizedAsset(nil), in.AssetCatalog.Assets...)
+				in.AssetCatalog.Assets[0].URL = "https://127.0.0.1/private-source"
+				in.AssetCatalog.Assets[0].SourceURL = in.AssetCatalog.Assets[0].URL
 			case "unknown":
 				current, _ = started.MarkUnknown()
 			}
 			materialize := generationOutputRecovery(func(_ context.Context, raw string) ([]byte, error) {
 				calls++
 				require.Equal(t, proof.ResultURL, raw)
+				if fetchErr := fetchErrors[mode]; fetchErr != nil {
+					return nil, fetchErr
+				}
 				if status := responseStatuses[mode]; status != 0 {
 					return httpimage.Download(context.Background(), &http.Client{Transport: outputResponseTransport{status: status}}, raw, 10)
 				}
@@ -191,13 +214,70 @@ func TestGenerationOutputRecoveryOnlyFetchesBoundOriginalResult(t *testing.T) {
 				}
 				return encoded.Bytes(), nil
 			}, logger)
+			before, marshalErr := json.Marshal(current)
+			require.NoError(t, marshalErr)
 			got, err := materialize(context.Background(), in, current)
+			after, marshalErr := json.Marshal(current)
+			require.NoError(t, marshalErr)
+			require.Equal(t, before, after, "diagnostics cannot change the original success/receipt")
 			if mode == "wrong_size" {
-				require.Len(t, hook.AllEntries(), 1)
-				require.Equal(t, logrus.Fields{"provider": "grsai", "model": "gpt-image-2.5", "expected_width": 1024, "expected_height": 1024, "actual_width": 1254, "actual_height": 1254}, hook.LastEntry().Data)
+				require.Len(t, hook.AllEntries(), 2)
+				require.Equal(t, logrus.Fields{"provider": "grsai", "model": "gpt-image-2.5", "expected_width": 1024, "expected_height": 1024, "actual_width": 1254, "actual_height": 1254}, hook.AllEntries()[0].Data)
 				require.Equal(t, imageagent.GenerationSucceeded, current.State)
-			} else {
+			} else if err == nil {
 				require.Empty(t, hook.AllEntries())
+			} else {
+				require.Len(t, hook.AllEntries(), 1)
+			}
+			if err != nil {
+				entry := hook.LastEntry()
+				require.Equal(t, "image_output_recovery_diagnostic", entry.Data["event"])
+				require.Len(t, entry.Data["run_id_hash"], 64)
+				stage, reason := "validate_input", "validation_error"
+				switch mode {
+				case "private", "oversized_locator", "unavailable_locator_set", "malformed_locator_set", "private_locator_set", "oversized_locator_set":
+					stage = "validate_result"
+				case "bad_image", "bad_set", "truncated_pixels", "wrong_size", "empty_set":
+					stage, reason = "inspect_result", "invalid_output"
+				case "oversized_declared", "oversized_streamed":
+					stage, reason = "download_result", "body_too_large"
+				case "fetch_failure", "fetch_failure_set":
+					stage, reason = "download_result", "transport_error"
+				case "canceled_set":
+					stage, reason = "download_result", "context_canceled"
+				case "dns", "network_timeout":
+					stage, reason = "download_result", "dns_error"
+				case "certificate":
+					stage, reason = "download_result", "tls_certificate_error"
+				case "tls":
+					stage, reason = "download_result", "tls_error"
+				case "deadline":
+					stage, reason = "download_result", "deadline_exceeded"
+				case "network":
+					stage, reason = "download_result", "network_error"
+				case "tcp_timeout":
+					stage, reason = "download_result", "network_timeout"
+				case "invalid_status":
+					stage, reason = "download_result", "http_error"
+				case "bad_source":
+					stage = "validate_source"
+				}
+				if status := responseStatuses[mode]; status != 0 {
+					stage, reason = "download_result", "http_error"
+					require.Equal(t, status, entry.Data["http_status"])
+				}
+				wantFields := 4
+				if responseStatuses[mode] != 0 {
+					wantFields++
+				}
+				require.Len(t, entry.Data, wantFields, "diagnostics have an exact safe field set")
+				require.Equal(t, stage, entry.Data["stage"])
+				require.Equal(t, reason, entry.Data["reason"])
+				wire, e := json.Marshal(entry.Data)
+				require.NoError(t, e)
+				for _, secret := range []string{"signature", "output.example", "source.example", "private diagnostic text", "private-host", "run-1"} {
+					require.NotContains(t, string(wire), secret)
+				}
 			}
 			if mode == "valid" || mode == "image_set" {
 				require.NoError(t, err)
@@ -220,7 +300,7 @@ func TestGenerationOutputRecoveryOnlyFetchesBoundOriginalResult(t *testing.T) {
 			} else if mode != "bad_image" {
 				require.NotErrorIs(t, err, imageagent.ErrInvalidGeneratedOutput)
 			}
-			if mode == "valid" || mode == "image_set" || mode == "bad_image" || mode == "fetch_failure" || mode == "bad_set" || mode == "truncated_pixels" || mode == "wrong_size" || mode == "empty_set" || mode == "oversized_declared" || mode == "oversized_streamed" || mode == "fetch_failure_set" || responseStatuses[mode] != 0 || mode == "canceled_set" {
+			if mode == "valid" || mode == "image_set" || mode == "bad_image" || mode == "fetch_failure" || mode == "bad_set" || mode == "truncated_pixels" || mode == "wrong_size" || mode == "empty_set" || mode == "oversized_declared" || mode == "oversized_streamed" || mode == "fetch_failure_set" || responseStatuses[mode] != 0 || mode == "canceled_set" || fetchErrors[mode] != nil {
 				require.Equal(t, 1, calls)
 			} else {
 				require.Zero(t, calls)

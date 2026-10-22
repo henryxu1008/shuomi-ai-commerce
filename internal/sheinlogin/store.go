@@ -2,997 +2,302 @@ package sheinlogin
 
 import (
 	"context"
-	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strconv"
+	"reflect"
 	"strings"
 	"time"
 
+	"github.com/redis/go-redis/v9"
 	"task-processor/internal/core/config"
-
-	goredis "github.com/redis/go-redis/v9"
+	"task-processor/internal/storecenter"
 )
 
 var ErrNoUsableCookie = errors.New("SHEIN browser state does not contain a usable cookie")
 
-const (
-	cookieKeyPrefix           = "shein:cookie"
-	verifyCodePrefix          = "shein:verify_code"
-	verifyCodeQueuePrefix     = "shein:verify_code_queue"
-	verifyAttemptCodePrefix   = "shein:verify_code_attempt"
-	verifyAttemptQueuePrefix  = "shein:verify_code_attempt_queue"
-	verifyWaitPrefix          = "shein:wait_verify_code"
-	autoVerifyCodePrefix      = "shein:auto_verify_code_count"
-	lastLoginTimePrefix       = "shein:last_login_time"
-	lastFailurePrefix         = "shein:last_failure"
-	lastFailureDetailPrefix   = "shein:last_failure_detail"
-	loginAttemptPrefix        = "shein:login_attempt"
-	loginAttemptActivePrefix  = "shein:login_attempt_active"
-	loginAttemptLatestPrefix  = "shein:login_attempt_latest"
-	loginAttemptStream        = "shein:login_attempts"
-	loginAttemptGroup         = "shein-login-workers"
-	loginAttemptControlPrefix = "shein:login_attempt_control"
-)
-
-const (
-	loginAttemptTTL       = 30 * 24 * time.Hour
-	activeAttemptLeaseTTL = 15 * time.Minute
-)
+const cookieTTL = 30 * 24 * time.Hour
+const attemptTTL = 30 * 24 * time.Hour
+const attemptGroup = "shein-login-workers-v1"
 
 type RedisStore struct {
-	client *goredis.Client
+	client               *redis.Client
+	installation, prefix string
 }
 
-func newRedisStoreFromClient(client *goredis.Client) *RedisStore {
-	return &RedisStore{client: client}
+func NewRedisStoreFromClient(c *redis.Client, installation string) (*RedisStore, error) {
+	if c == nil || !validUUID(installation) {
+		return nil, ErrInvalidInput
+	}
+	return &RedisStore{c, installation, "shein-login:v1:" + installation + ":"}, nil
 }
-
-func NewRedisStore(cfg config.RedisConfig) (*RedisStore, error) {
-	if strings.TrimSpace(cfg.Host) == "" {
-		return nil, fmt.Errorf("shein login redis host is empty")
+func NewRedisStore(c config.RedisConfig, installation string) (*RedisStore, error) {
+	if c.Host == "" || c.Port < 1 {
+		return nil, ErrInvalidInput
 	}
-	poolSize := cfg.PoolSize
-	if poolSize <= 0 {
-		poolSize = 10
+	client := redis.NewClient(&redis.Options{Addr: fmt.Sprintf("%s:%d", c.Host, c.Port), Password: c.Password, DB: c.DB, PoolSize: 10, DialTimeout: 5 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 5 * time.Second})
+	s, e := NewRedisStoreFromClient(client, installation)
+	if e != nil {
+		client.Close()
+		return nil, e
 	}
-	client := goredis.NewClient(&goredis.Options{
-		Addr:     fmt.Sprintf("%s:%d", cfg.Host, cfg.Port),
-		Password: cfg.Password,
-		DB:       cfg.DB,
-		PoolSize: poolSize,
-	})
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if err := client.Ping(ctx).Err(); err != nil {
-		_ = client.Close()
-		return nil, err
-	}
-	return &RedisStore{client: client}, nil
+	return s, nil
 }
-
-func (s *RedisStore) Close() error {
-	if s == nil || s.client == nil {
-		return nil
-	}
-	return s.client.Close()
-}
-
-func (s *RedisStore) Ready(ctx context.Context) bool {
-	return s != nil && s.client != nil && s.client.Ping(ctx).Err() == nil
-}
-
-func (s *RedisStore) SaveCookieState(ctx context.Context, tenantID, storeID int64, payload map[string]any, ttl time.Duration) error {
-	state := cookieOnlyBrowserState(payload)
-	if cookieCount(state) == 0 {
-		return ErrNoUsableCookie
-	}
-	body, err := json.Marshal(state)
+func (s *RedisStore) Initialize(ctx context.Context) error {
+	marker := s.prefix + "owner"
+	expected := "shein-login:v1:" + s.installation
+	value, err := s.client.Eval(ctx, `redis.call('SET',KEYS[1],ARGV[1],'NX');return redis.call('GET',KEYS[1])`, []string{marker}, expected).Text()
 	if err != nil {
-		return err
+		return ErrUnavailable
 	}
-	return s.client.Set(ctx, cookieKey(tenantID, storeID), body, ttl).Err()
+	if value != expected {
+		return ErrInvalidInput
+	}
+	return nil
 }
-
-func (s *RedisStore) ClearCookie(ctx context.Context, tenantID, storeID int64) error {
-	return s.client.Del(ctx, cookieKey(tenantID, storeID)).Err()
+func (s *RedisStore) Close() error                   { return s.client.Close() }
+func (s *RedisStore) Ready(ctx context.Context) bool { return s.client.Ping(ctx).Err() == nil }
+func (s *RedisStore) stream() string                 { return s.prefix + "attempts" }
+func (s *RedisStore) attemptKey(id string) string    { return s.prefix + "attempt:" + id }
+func (s *RedisStore) scopeKey(scope storecenter.SheinLoginScope) string {
+	b, _ := json.Marshal(scope)
+	h := sha256.Sum256(b)
+	return s.prefix + "scope:" + hex.EncodeToString(h[:])
 }
-
-func (s *RedisStore) CookieTTL(ctx context.Context, tenantID, storeID int64) (time.Duration, bool, error) {
-	ttl, err := s.client.TTL(ctx, cookieKey(tenantID, storeID)).Result()
-	if err == goredis.Nil {
-		return 0, false, nil
-	}
-	if err != nil {
-		return 0, false, err
-	}
-	if ttl <= 0 {
-		return 0, false, nil
-	}
-	return ttl, true, nil
+func (s *RedisStore) validScope(scope storecenter.SheinLoginScope) bool {
+	return scope.Validate() == nil && scope.Generation > 0 && scope.InstallationID == s.installation
 }
-
-func (s *RedisStore) HasCookie(ctx context.Context, tenantID, storeID int64) (bool, error) {
-	ttl, ok, err := s.CookieTTL(ctx, tenantID, storeID)
-	if err != nil {
-		return false, err
-	}
-	if !ok || ttl <= 0 {
-		return false, nil
-	}
-	raw, found, err := s.LoadCookieState(ctx, tenantID, storeID)
-	if err != nil || !found {
-		return false, err
-	}
-	var state map[string]any
-	if err := json.Unmarshal([]byte(raw), &state); err != nil {
-		return false, err
-	}
-	return cookieCount(state) > 0, nil
-}
-
 func cookieCount(state map[string]any) int {
 	if state == nil {
 		return 0
 	}
-	raw, err := json.Marshal(state["cookies"])
-	if err != nil {
-		return 0
+	switch c := state["cookies"].(type) {
+	case []any:
+		return len(c)
+	case []map[string]any:
+		return len(c)
 	}
-	var cookies []json.RawMessage
-	if err := json.Unmarshal(raw, &cookies); err != nil {
-		return 0
-	}
-	return len(cookies)
-}
-
-func (s *RedisStore) LoadCookieState(ctx context.Context, tenantID, storeID int64) (string, bool, error) {
-	raw, err := s.client.Get(ctx, cookieKey(tenantID, storeID)).Result()
-	if err == goredis.Nil {
-		return "", false, nil
-	}
-	if err != nil {
-		return "", false, err
-	}
-	return raw, strings.TrimSpace(raw) != "", nil
-}
-
-func (s *RedisStore) SetVerifyWait(ctx context.Context, tenantID, storeID int64, ttl time.Duration) error {
-	return s.client.Set(ctx, verifyWaitKey(tenantID, storeID), "waiting", ttl).Err()
-}
-
-func (s *RedisStore) CancelVerifyWait(ctx context.Context, tenantID, storeID int64) (bool, error) {
-	n, err := s.client.Del(ctx, verifyWaitKey(tenantID, storeID)).Result()
-	return n > 0, err
-}
-
-func (s *RedisStore) IsWaitingVerifyCode(ctx context.Context, tenantID, storeID int64) (bool, error) {
-	n, err := s.client.Exists(ctx, verifyWaitKey(tenantID, storeID)).Result()
-	return n > 0, err
-}
-
-func (s *RedisStore) AutoVerifyCodeSendCount(ctx context.Context, tenantID, storeID int64, day time.Time) (int64, error) {
-	raw, err := s.client.Get(ctx, autoVerifyCodeCountKey(tenantID, storeID, day)).Int64()
-	if err == goredis.Nil {
-		return 0, nil
-	}
-	return raw, err
-}
-
-func (s *RedisStore) RecordAutoVerifyCodeSent(ctx context.Context, tenantID, storeID int64, day time.Time) (int64, error) {
-	key := autoVerifyCodeCountKey(tenantID, storeID, day)
-	count, err := s.client.Incr(ctx, key).Result()
-	if err != nil {
-		return 0, err
-	}
-	if count == 1 {
-		_ = s.client.ExpireAt(ctx, key, nextLocalMidnight(day)).Err()
-	}
-	return count, nil
-}
-
-func (s *RedisStore) SubmitVerifyCode(ctx context.Context, tenantID, storeID int64, code string, ttl time.Duration) error {
-	pipe := s.client.TxPipeline()
-	pipe.Set(ctx, verifyCodeKey(tenantID, storeID), code, ttl)
-	pipe.Set(ctx, verifyWaitKey(tenantID, storeID), "waiting", ttl)
-	pipe.Del(ctx, verifyCodeQueueKey(tenantID, storeID))
-	pipe.RPush(ctx, verifyCodeQueueKey(tenantID, storeID), code)
-	pipe.Expire(ctx, verifyCodeQueueKey(tenantID, storeID), ttl)
-	_, err := pipe.Exec(ctx)
-	return err
-}
-
-func (s *RedisStore) ConsumeVerifyCode(ctx context.Context, tenantID, storeID int64) (string, bool, error) {
-	key := verifyCodeKey(tenantID, storeID)
-	value, err := s.client.Get(ctx, key).Result()
-	if err == goredis.Nil {
-		return "", false, nil
-	}
-	if err != nil {
-		return "", false, err
-	}
-	pipe := s.client.TxPipeline()
-	pipe.Del(ctx, key)
-	pipe.Del(ctx, verifyWaitKey(tenantID, storeID))
-	pipe.Del(ctx, verifyCodeQueueKey(tenantID, storeID))
-	_, execErr := pipe.Exec(ctx)
-	return value, true, execErr
-}
-
-func (s *RedisStore) WaitAndConsumeVerifyCode(ctx context.Context, tenantID, storeID int64, timeout time.Duration) (string, bool, error) {
-	if code, ok, err := s.ConsumeVerifyCode(ctx, tenantID, storeID); err != nil || ok {
-		return code, ok, err
-	}
-	if timeout <= 0 {
-		return "", false, nil
-	}
-
-	values, err := s.client.BLPop(ctx, timeout, verifyCodeQueueKey(tenantID, storeID)).Result()
-	if err == goredis.Nil {
-		return "", false, nil
-	}
-	if err != nil {
-		return "", false, err
-	}
-	if len(values) != 2 {
-		return "", false, nil
-	}
-	code := strings.TrimSpace(values[1])
-	if code == "" {
-		return "", false, nil
-	}
-
-	pipe := s.client.TxPipeline()
-	pipe.Del(ctx, verifyCodeKey(tenantID, storeID))
-	pipe.Del(ctx, verifyWaitKey(tenantID, storeID))
-	pipe.Del(ctx, verifyCodeQueueKey(tenantID, storeID))
-	_, execErr := pipe.Exec(ctx)
-	if execErr != nil {
-		return "", false, execErr
-	}
-	return code, true, nil
-}
-
-func (s *RedisStore) SubmitVerifyCodeForAttempt(ctx context.Context, tenantID, storeID int64, attemptID, code string, ttl time.Duration) error {
-	pipe := s.client.TxPipeline()
-	pipe.Set(ctx, verifyAttemptCodeKey(tenantID, storeID, attemptID), code, ttl)
-	pipe.Set(ctx, verifyWaitKey(tenantID, storeID), "waiting", ttl)
-	pipe.Del(ctx, verifyAttemptQueueKey(tenantID, storeID, attemptID))
-	pipe.RPush(ctx, verifyAttemptQueueKey(tenantID, storeID, attemptID), code)
-	pipe.Expire(ctx, verifyAttemptQueueKey(tenantID, storeID, attemptID), ttl)
-	_, err := pipe.Exec(ctx)
-	return err
-}
-
-func (s *RedisStore) WaitAndConsumeVerifyCodeForAttempt(ctx context.Context, tenantID, storeID int64, attemptID string, timeout time.Duration) (string, bool, error) {
-	codeKey := verifyAttemptCodeKey(tenantID, storeID, attemptID)
-	queueKey := verifyAttemptQueueKey(tenantID, storeID, attemptID)
-	if value, err := s.client.Get(ctx, codeKey).Result(); err == nil {
-		pipe := s.client.TxPipeline()
-		pipe.Del(ctx, codeKey)
-		pipe.Del(ctx, verifyWaitKey(tenantID, storeID))
-		pipe.Del(ctx, queueKey)
-		_, execErr := pipe.Exec(ctx)
-		return value, strings.TrimSpace(value) != "", execErr
-	} else if err != goredis.Nil {
-		return "", false, err
-	}
-	if timeout <= 0 {
-		return "", false, nil
-	}
-	values, err := s.client.BLPop(ctx, timeout, queueKey).Result()
-	if err == goredis.Nil {
-		return "", false, nil
-	}
-	if err != nil {
-		return "", false, err
-	}
-	if len(values) != 2 {
-		return "", false, nil
-	}
-	code := strings.TrimSpace(values[1])
-	pipe := s.client.TxPipeline()
-	pipe.Del(ctx, codeKey)
-	pipe.Del(ctx, verifyWaitKey(tenantID, storeID))
-	pipe.Del(ctx, queueKey)
-	_, execErr := pipe.Exec(ctx)
-	return code, code != "", execErr
-}
-
-func (s *RedisStore) RecordLastLoginTime(ctx context.Context, tenantID, storeID int64, when time.Time) error {
-	return s.client.Set(ctx, lastLoginKey(tenantID, storeID), strconv.FormatInt(when.Unix(), 10), 30*24*time.Hour).Err()
-}
-
-func (s *RedisStore) LastLoginTime(ctx context.Context, tenantID, storeID int64) (*time.Time, error) {
-	raw, err := s.client.Get(ctx, lastLoginKey(tenantID, storeID)).Result()
-	if err == goredis.Nil {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	unixSeconds, parseErr := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
-	if parseErr != nil {
-		return nil, nil
-	}
-	when := time.Unix(unixSeconds, 0)
-	return &when, nil
-}
-
-func (s *RedisStore) ClearPauseKeys(ctx context.Context, tenantID, storeID int64) error {
-	return s.client.Del(ctx, pauseKeys(tenantID, storeID)...).Err()
-}
-
-func (s *RedisStore) RecordLastFailure(ctx context.Context, tenantID, storeID int64, summary *FailureSummary, ttl time.Duration) error {
-	if summary == nil {
-		return s.ClearLastFailure(ctx, tenantID, storeID)
-	}
-	body, err := json.Marshal(summary)
-	if err != nil {
-		return err
-	}
-	pipe := s.client.TxPipeline()
-	pipe.Set(ctx, lastFailureKey(tenantID, storeID), body, ttl)
-	pipe.Del(ctx, lastFailureDetailKey(tenantID, storeID))
-	_, err = pipe.Exec(ctx)
-	return err
-}
-
-func (s *RedisStore) LastFailure(ctx context.Context, tenantID, storeID int64) (*FailureSummary, error) {
-	raw, err := s.client.Get(ctx, lastFailureKey(tenantID, storeID)).Result()
-	if err == goredis.Nil {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	var summary FailureSummary
-	if err := json.Unmarshal([]byte(raw), &summary); err != nil {
-		return nil, nil
-	}
-	return &summary, nil
-}
-
-func (s *RedisStore) ClearLastFailure(ctx context.Context, tenantID, storeID int64) error {
-	return s.client.Del(ctx, lastFailureKey(tenantID, storeID), lastFailureDetailKey(tenantID, storeID)).Err()
-}
-
-func (s *RedisStore) RecordLastFailureDetail(ctx context.Context, tenantID, storeID int64, detail *FailureDetail, ttl time.Duration) error {
-	if detail == nil {
-		return s.client.Del(ctx, lastFailureDetailKey(tenantID, storeID)).Err()
-	}
-	body, err := json.Marshal(detail)
-	if err != nil {
-		return err
-	}
-	return s.client.Set(ctx, lastFailureDetailKey(tenantID, storeID), body, ttl).Err()
-}
-
-func (s *RedisStore) LastFailureDetail(ctx context.Context, tenantID, storeID int64) (*FailureDetail, error) {
-	raw, err := s.client.Get(ctx, lastFailureDetailKey(tenantID, storeID)).Result()
-	if err == goredis.Nil {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	var detail FailureDetail
-	if err := json.Unmarshal([]byte(raw), &detail); err != nil {
-		return nil, err
-	}
-	return &detail, nil
-}
-
-// EnqueueLoginAttempt creates at most one active login attempt for a store and
-// writes only store identifiers and requested browser options to Redis. Store
-// credentials intentionally never cross this queue boundary.
-func (s *RedisStore) EnqueueLoginAttempt(ctx context.Context, tenantID, storeID int64, req LoginRequest) (*LoginAttempt, bool, error) {
-	id, err := newLoginAttemptID()
-	if err != nil {
-		return nil, false, err
-	}
-	attempt := &LoginAttempt{
-		ID:         id,
-		TenantID:   tenantID,
-		StoreID:    storeID,
-		ForceLogin: req.ForceLogin,
-		Headless:   req.Headless,
-		Status:     LoginAttemptQueued,
-		CreatedAt:  time.Now().UTC(),
-	}
-	body, err := json.Marshal(attempt)
-	if err != nil {
-		return nil, false, err
-	}
-
-	const createAttemptScript = `
-local active = redis.call("GET", KEYS[1])
-if active then return {0, active} end
-redis.call("SET", KEYS[1], ARGV[1], "PX", ARGV[2])
-redis.call("SET", KEYS[2], ARGV[3], "PX", ARGV[4])
-redis.call("SET", KEYS[3], ARGV[1], "PX", ARGV[4])
-redis.call("XADD", KEYS[4], "*", "attempt_id", ARGV[1])
-return {1, ARGV[1]}`
-	result, err := s.client.Eval(ctx, createAttemptScript,
-		[]string{
-			loginAttemptActiveKey(tenantID, storeID),
-			loginAttemptKey(attempt.ID),
-			loginAttemptLatestKey(tenantID, storeID),
-			loginAttemptStream,
-		},
-		attempt.ID,
-		activeAttemptLeaseTTL.Milliseconds(),
-		body,
-		loginAttemptTTL.Milliseconds(),
-	).Result()
-	if err != nil {
-		return nil, false, err
-	}
-	values, ok := result.([]any)
-	if !ok || len(values) != 2 {
-		return nil, false, fmt.Errorf("unexpected login attempt create result: %v", result)
-	}
-	created, ok := values[0].(int64)
-	if !ok {
-		return nil, false, fmt.Errorf("unexpected login attempt create flag: %v", values[0])
-	}
-	if created == 1 {
-		return attempt, true, nil
-	}
-	existingID, ok := values[1].(string)
-	if !ok || strings.TrimSpace(existingID) == "" {
-		return nil, false, fmt.Errorf("unexpected active login attempt id: %v", values[1])
-	}
-	existing, err := s.LoadLoginAttempt(ctx, existingID)
-	if err != nil {
-		return nil, false, err
-	}
-	if existing == nil {
-		return nil, false, fmt.Errorf("active login attempt %q is still being created; retry the request", existingID)
-	}
-	return existing, false, nil
-}
-
-func (s *RedisStore) LoadLoginAttempt(ctx context.Context, attemptID string) (*LoginAttempt, error) {
-	raw, err := s.client.Get(ctx, loginAttemptKey(attemptID)).Result()
-	if err == goredis.Nil {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	var attempt LoginAttempt
-	if err := json.Unmarshal([]byte(raw), &attempt); err != nil {
-		return nil, err
-	}
-	return &attempt, nil
-}
-
-func (s *RedisStore) LatestLoginAttempt(ctx context.Context, tenantID, storeID int64) (*LoginAttempt, error) {
-	id, err := s.client.Get(ctx, loginAttemptLatestKey(tenantID, storeID)).Result()
-	if err == goredis.Nil {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return s.LoadLoginAttempt(ctx, id)
-}
-
-func (s *RedisStore) UpdateLoginAttempt(ctx context.Context, attempt *LoginAttempt) error {
-	if attempt == nil || strings.TrimSpace(attempt.ID) == "" {
-		return fmt.Errorf("login attempt is required")
-	}
-	if !attempt.Status.IsActive() {
-		_, err := s.CompleteLoginAttemptIfActive(ctx, attempt)
-		return err
-	}
-	if err := s.saveLoginAttempt(ctx, attempt); err != nil {
-		return err
-	}
-	if attempt.Status.IsActive() {
-		return s.refreshLoginAttemptLease(ctx, attempt)
-	}
-	return s.releaseLoginAttemptLease(ctx, attempt)
-}
-
-func (s *RedisStore) UpdateLoginAttemptIfActive(ctx context.Context, attempt *LoginAttempt) (bool, error) {
-	if attempt == nil || strings.TrimSpace(attempt.ID) == "" {
-		return false, fmt.Errorf("login attempt is required")
-	}
-	if !attempt.Status.IsActive() {
-		return false, fmt.Errorf("guarded login attempt update requires an active status")
-	}
-	body, err := json.Marshal(attempt)
-	if err != nil {
-		return false, err
-	}
-	const updateAttemptIfActiveScript = `
-local raw = redis.call("GET", KEYS[2])
-if not raw then
 	return 0
-end
-local current = cjson.decode(raw)
-local status = tostring(current["status"] or "")
-if status ~= "queued" and status ~= "launching" and status ~= "waiting_verify_code" then
-	return 0
-end
-redis.call("SET", KEYS[1], ARGV[1], "PX", ARGV[3])
-redis.call("SET", KEYS[2], ARGV[2], "PX", ARGV[4])
-redis.call("SET", KEYS[3], ARGV[1], "PX", ARGV[4])
-return 1`
-	result, err := s.client.Eval(ctx, updateAttemptIfActiveScript,
-		[]string{
-			loginAttemptActiveKey(attempt.TenantID, attempt.StoreID),
-			loginAttemptKey(attempt.ID),
-			loginAttemptLatestKey(attempt.TenantID, attempt.StoreID),
-		},
-		attempt.ID,
-		body,
-		activeAttemptLeaseTTL.Milliseconds(),
-		loginAttemptTTL.Milliseconds(),
-	).Int()
-	if err != nil {
-		return false, err
-	}
-	return result == 1, nil
 }
-
-func (s *RedisStore) CompleteLoginAttemptIfActive(ctx context.Context, attempt *LoginAttempt) (bool, error) {
-	if attempt == nil || strings.TrimSpace(attempt.ID) == "" {
-		return false, fmt.Errorf("login attempt is required")
-	}
-	if attempt.Status.IsActive() {
-		return false, fmt.Errorf("login attempt completion requires a terminal status")
-	}
-	body, err := json.Marshal(attempt)
-	if err != nil {
-		return false, err
-	}
-	controlKey := loginAttemptControlKey(attempt.ID)
-	codeKey := verifyAttemptCodeKey(attempt.TenantID, attempt.StoreID, attempt.ID)
-	queueKey := verifyAttemptQueueKey(attempt.TenantID, attempt.StoreID, attempt.ID)
-	const completeAttemptIfActiveScript = `
-if redis.call("GET", KEYS[1]) ~= ARGV[1] then
-	return 0
-end
-local raw = redis.call("GET", KEYS[2])
-if not raw then
-	return 0
-end
-local current = cjson.decode(raw)
-local status = tostring(current["status"] or "")
-if status ~= "queued" and status ~= "launching" and status ~= "waiting_verify_code" then
-	return 0
-end
-redis.call("SET", KEYS[2], ARGV[2], "PX", ARGV[3])
-redis.call("SET", KEYS[3], ARGV[1], "PX", ARGV[3])
-if ARGV[4] == "failed" then
-	redis.call("DEL", KEYS[4], KEYS[5], KEYS[6], KEYS[7])
-end
-redis.call("DEL", KEYS[1])
-return 1`
-	result, err := s.client.Eval(ctx, completeAttemptIfActiveScript,
-		[]string{
-			loginAttemptActiveKey(attempt.TenantID, attempt.StoreID),
-			loginAttemptKey(attempt.ID),
-			loginAttemptLatestKey(attempt.TenantID, attempt.StoreID),
-			verifyWaitKey(attempt.TenantID, attempt.StoreID),
-			controlKey,
-			codeKey,
-			queueKey,
-		},
-		attempt.ID,
-		body,
-		loginAttemptTTL.Milliseconds(),
-		string(attempt.Status),
-	).Int()
-	if err != nil {
-		return false, err
-	}
-	return result == 1, nil
+func attemptFingerprint(a LoginAttempt) string {
+	data, _ := json.Marshal(struct {
+		Scope             storecenter.SheinLoginScope
+		ID, Actor, Member string
+		Force             bool
+	}{a.Scope, a.ID, a.ActorID, a.MemberID, a.ForceLogin})
+	h := sha256.Sum256(data)
+	return hex.EncodeToString(h[:])
 }
-
-func (s *RedisStore) PersistVerifyWaitAndUpdateAttemptIfActive(ctx context.Context, attempt *LoginAttempt, summary *FailureSummary, waitTTL, failureTTL time.Duration) (bool, error) {
-	if attempt == nil || strings.TrimSpace(attempt.ID) == "" {
-		return false, fmt.Errorf("login attempt is required")
+func (s *RedisStore) Enqueue(ctx context.Context, a LoginAttempt) (*LoginAttempt, error) {
+	if !s.validScope(a.Scope) || !validUUID(a.ID) || !validOpaque(a.ActorID) || !validOpaque(a.MemberID) {
+		return nil, ErrInvalidInput
 	}
-	if !attempt.Status.IsActive() {
-		return false, fmt.Errorf("verify wait persistence requires an active login attempt status")
+	a.Fingerprint = attemptFingerprint(a)
+	a.Status = LoginAttemptQueued
+	a.SyncStatus = "not_requested"
+	a.MerchantID = ""
+	a.ExpectedStoreVersion = 0
+	a.OwnerNonce = ""
+	a.ErrorCode = ""
+	a.CompletedAt = nil
+	data, _ := json.Marshal(a)
+	if len(data) > 65536 {
+		return nil, ErrInvalidInput
 	}
-	attemptBody, err := json.Marshal(attempt)
-	if err != nil {
-		return false, err
+	result, e := s.client.Eval(ctx, `
+ local old=redis.call('GET',KEYS[1]);if old then return old end
+ if redis.call('EXISTS',KEYS[2])==1 then return 'BUSY' end
+ redis.call('SET',KEYS[1],ARGV[1],'EX',ARGV[2]);redis.call('SET',KEYS[2],ARGV[3],'EX',ARGV[2])
+ redis.call('XADD',KEYS[3],'*','attempt_id',ARGV[3]);return ARGV[1]`, []string{s.attemptKey(a.ID), s.scopeKey(a.Scope) + ":active", s.stream()}, string(data), int(attemptTTL.Seconds()), a.ID).Text()
+	if e != nil {
+		return nil, ErrUnavailable
 	}
-	summaryBody := ""
-	if summary != nil {
-		raw, err := json.Marshal(summary)
-		if err != nil {
-			return false, err
+	if result == "BUSY" {
+		return nil, storecenter.ErrSheinLoginFenced
+	}
+	var old LoginAttempt
+	if DecodeStrict([]byte(result), &old, 65536) != nil || old.Fingerprint != a.Fingerprint || !reflect.DeepEqual(old.Scope, a.Scope) || old.ActorID != a.ActorID || old.MemberID != a.MemberID {
+		return nil, storecenter.ErrIdempotencyConflict
+	}
+	return &old, nil
+}
+func (s *RedisStore) Load(ctx context.Context, id string) (*LoginAttempt, error) {
+	if !validUUID(id) {
+		return nil, ErrInvalidInput
+	}
+	data, e := s.client.Get(ctx, s.attemptKey(id)).Bytes()
+	if errors.Is(e, redis.Nil) {
+		return nil, ErrInvalidInput
+	}
+	if e != nil {
+		return nil, ErrUnavailable
+	}
+	var a LoginAttempt
+	if DecodeStrict(data, &a, 65536) != nil || !s.validScope(a.Scope) || a.ID != id || a.Fingerprint != attemptFingerprint(a) || !validOpaque(a.ActorID) || !validOpaque(a.MemberID) {
+		return nil, ErrInvalidInput
+	}
+	return &a, nil
+}
+func validTransition(old, next LoginAttempt, cookie map[string]any) bool {
+	if old.ID != next.ID || !reflect.DeepEqual(old.Scope, next.Scope) || old.ActorID != next.ActorID || old.MemberID != next.MemberID || old.Fingerprint != next.Fingerprint || old.ForceLogin != next.ForceLogin || !old.CreatedAt.Equal(next.CreatedAt) {
+		return false
+	}
+	if old.Status.IsActive() {
+		if next.Status == LoginAttemptSucceeded && old.Status == LoginAttemptQueued {
+			return false
 		}
-		summaryBody = string(raw)
+		if next.Status == LoginAttemptWaitingVerifyCode && old.Status == LoginAttemptQueued {
+			return false
+		}
+		if next.Status == LoginAttemptLaunching && old.Status == LoginAttemptWaitingVerifyCode {
+			return false
+		}
+		if next.Status == LoginAttemptQueued && old.Status != LoginAttemptQueued {
+			return false
+		}
+		if next.Status != LoginAttemptQueued && next.Status != LoginAttemptLaunching && next.Status != LoginAttemptWaitingVerifyCode && next.Status != LoginAttemptSucceeded && next.Status != LoginAttemptFailed && next.Status != LoginAttemptCancelled && next.Status != LoginAttemptInterrupted {
+			return false
+		}
+		if next.Status == LoginAttemptSucceeded {
+			return cookieCount(cookie) > 0 && next.SyncStatus == "pending" && next.MerchantID == "" && next.ExpectedStoreVersion == 0
+		}
+		return cookie == nil && next.SyncStatus == "not_requested" && next.MerchantID == "" && next.ExpectedStoreVersion == 0 && (old.OwnerNonce == "" || old.OwnerNonce == next.OwnerNonce)
 	}
-	const persistVerifyWaitScript = `
-local raw = redis.call("GET", KEYS[2])
-if not raw then
-	return 0
-end
-local current = cjson.decode(raw)
-local status = tostring(current["status"] or "")
-if status ~= "queued" and status ~= "launching" and status ~= "waiting_verify_code" then
-	return 0
-end
-redis.call("SET", KEYS[1], ARGV[1], "PX", ARGV[4])
-redis.call("SET", KEYS[2], ARGV[2], "PX", ARGV[3])
-redis.call("SET", KEYS[3], ARGV[1], "PX", ARGV[3])
-redis.call("SET", KEYS[4], "waiting", "PX", ARGV[5])
-if ARGV[6] ~= "" then
-	redis.call("SET", KEYS[5], ARGV[6], "PX", ARGV[7])
-	redis.call("DEL", KEYS[6])
-else
-	redis.call("DEL", KEYS[5], KEYS[6])
-end
-return 1`
-	result, err := s.client.Eval(ctx, persistVerifyWaitScript,
-		[]string{
-			loginAttemptActiveKey(attempt.TenantID, attempt.StoreID),
-			loginAttemptKey(attempt.ID),
-			loginAttemptLatestKey(attempt.TenantID, attempt.StoreID),
-			verifyWaitKey(attempt.TenantID, attempt.StoreID),
-			lastFailureKey(attempt.TenantID, attempt.StoreID),
-			lastFailureDetailKey(attempt.TenantID, attempt.StoreID),
-		},
-		attempt.ID,
-		attemptBody,
-		loginAttemptTTL.Milliseconds(),
-		activeAttemptLeaseTTL.Milliseconds(),
-		waitTTL.Milliseconds(),
-		summaryBody,
-		failureTTL.Milliseconds(),
-	).Int()
-	if err != nil {
-		return false, err
+	if old.Status != LoginAttemptSucceeded || next.Status != old.Status || cookie != nil {
+		return false
 	}
-	return result == 1, nil
+	if old.SyncStatus != "pending" && old.SyncStatus != "unavailable" {
+		return false
+	}
+	if old.MerchantID != "" && (old.MerchantID != next.MerchantID || old.ExpectedStoreVersion != next.ExpectedStoreVersion) {
+		return false
+	}
+	return next.SyncStatus == "pending" || next.SyncStatus == "applied" || next.SyncStatus == "blocked" || next.SyncStatus == "unavailable"
 }
-
-func (s *RedisStore) CompleteSuccessfulLoginAttemptIfActive(ctx context.Context, attempt *LoginAttempt, browserState map[string]any, when time.Time) (bool, error) {
-	if attempt == nil || strings.TrimSpace(attempt.ID) == "" {
-		return false, fmt.Errorf("login attempt is required")
+func (s *RedisStore) CompareAndSwap(ctx context.Context, old, next LoginAttempt, cookie map[string]any) error {
+	if !s.validScope(old.Scope) || !validTransition(old, next, cookie) {
+		return ErrInvalidInput
 	}
-	if attempt.Status.IsActive() {
-		return false, fmt.Errorf("successful login attempt completion requires a terminal status")
+	oldData, _ := json.Marshal(old)
+	data, _ := json.Marshal(next)
+	cookieData := ""
+	if cookie != nil {
+		v, _ := json.Marshal(struct {
+			Scope storecenter.SheinLoginScope `json:"scope"`
+			State map[string]any              `json:"state"`
+		}{old.Scope, cookieOnlyBrowserState(cookie)})
+		if len(v) > 1<<20 {
+			return ErrInvalidInput
+		}
+		cookieData = string(v)
 	}
-	attemptBody, err := json.Marshal(attempt)
-	if err != nil {
-		return false, err
+	result, e := s.client.Eval(ctx, `
+ if redis.call('GET',KEYS[1])~=ARGV[1] then return 0 end
+ redis.call('SET',KEYS[1],ARGV[2],'EX',ARGV[3])
+ if ARGV[4]~='' then redis.call('SET',KEYS[3],ARGV[4],'EX',ARGV[5]) end
+ if ARGV[6]=='terminal' and redis.call('GET',KEYS[2])==ARGV[7] then redis.call('DEL',KEYS[2]);redis.call('DEL',KEYS[4]) end
+ return 1`, []string{s.attemptKey(old.ID), s.scopeKey(old.Scope) + ":active", s.scopeKey(old.Scope) + ":cookie", s.attemptKey(old.ID) + ":code"}, string(oldData), string(data), int(attemptTTL.Seconds()), cookieData, int(cookieTTL.Seconds()), map[bool]string{true: "terminal", false: "active"}[!next.Status.IsActive()], old.ID).Int()
+	if e != nil {
+		return ErrUnavailable
 	}
-	cookieBody, err := json.Marshal(cookieOnlyBrowserState(browserState))
-	if err != nil {
-		return false, err
-	}
-	pauseKeySet := pauseKeys(attempt.TenantID, attempt.StoreID)
-	const completeSuccessfulAttemptScript = `
-local raw = redis.call("GET", KEYS[2])
-if not raw then
-	return 0
-end
-local current = cjson.decode(raw)
-local status = tostring(current["status"] or "")
-if status ~= "queued" and status ~= "launching" and status ~= "waiting_verify_code" then
-	return 0
-end
-redis.call("SET", KEYS[2], ARGV[2], "PX", ARGV[3])
-redis.call("SET", KEYS[3], ARGV[1], "PX", ARGV[3])
-redis.call("SET", KEYS[4], ARGV[4], "PX", ARGV[5])
-redis.call("SET", KEYS[5], ARGV[6], "PX", ARGV[7])
-redis.call("DEL", KEYS[6], KEYS[7], KEYS[8], KEYS[9], KEYS[10])
-if redis.call("GET", KEYS[1]) == ARGV[1] then
-	redis.call("DEL", KEYS[1])
-end
-return 1`
-	result, err := s.client.Eval(ctx, completeSuccessfulAttemptScript,
-		[]string{
-			loginAttemptActiveKey(attempt.TenantID, attempt.StoreID),
-			loginAttemptKey(attempt.ID),
-			loginAttemptLatestKey(attempt.TenantID, attempt.StoreID),
-			cookieKey(attempt.TenantID, attempt.StoreID),
-			lastLoginKey(attempt.TenantID, attempt.StoreID),
-			lastFailureKey(attempt.TenantID, attempt.StoreID),
-			lastFailureDetailKey(attempt.TenantID, attempt.StoreID),
-			verifyWaitKey(attempt.TenantID, attempt.StoreID),
-			pauseKeySet[0],
-			pauseKeySet[1],
-		},
-		attempt.ID,
-		attemptBody,
-		loginAttemptTTL.Milliseconds(),
-		string(cookieBody),
-		loginAttemptTTL.Milliseconds(),
-		strconv.FormatInt(when.Unix(), 10),
-		loginAttemptTTL.Milliseconds(),
-	).Int()
-	if err != nil {
-		return false, err
-	}
-	return result == 1, nil
-}
-
-func (s *RedisStore) EnsureLoginAttemptConsumerGroup(ctx context.Context) error {
-	err := s.client.XGroupCreateMkStream(ctx, loginAttemptStream, loginAttemptGroup, "0").Err()
-	if err != nil && !strings.Contains(err.Error(), "BUSYGROUP") {
-		return err
+	if result != 1 {
+		return storecenter.ErrVersionConflict
 	}
 	return nil
 }
-
-func (s *RedisStore) ReadLoginAttemptJobs(ctx context.Context, consumer string, block time.Duration) ([]goredis.XMessage, error) {
-	streams, err := s.client.XReadGroup(ctx, &goredis.XReadGroupArgs{
-		Group:    loginAttemptGroup,
-		Consumer: consumer,
-		Streams:  []string{loginAttemptStream, ">"},
-		Count:    1,
-		Block:    block,
-		NoAck:    false,
-	}).Result()
-	if err == goredis.Nil {
-		return nil, nil
+func (s *RedisStore) Cookie(ctx context.Context, scope storecenter.SheinLoginScope) (map[string]any, bool, error) {
+	if !s.validScope(scope) {
+		return nil, false, ErrInvalidInput
 	}
-	if err != nil {
-		return nil, err
+	data, e := s.client.Get(ctx, s.scopeKey(scope)+":cookie").Bytes()
+	if errors.Is(e, redis.Nil) {
+		return nil, false, nil
 	}
-	var messages []goredis.XMessage
-	for _, stream := range streams {
-		messages = append(messages, stream.Messages...)
+	if e != nil {
+		return nil, false, ErrUnavailable
 	}
-	return messages, nil
+	var v struct {
+		Scope storecenter.SheinLoginScope `json:"scope"`
+		State map[string]any              `json:"state"`
+	}
+	if DecodeStrict(data, &v, 1<<20) != nil || !reflect.DeepEqual(scope, v.Scope) || cookieCount(v.State) == 0 {
+		return nil, false, ErrInvalidInput
+	}
+	return cookieOnlyBrowserState(v.State), true, nil
 }
-
-func (s *RedisStore) AcknowledgeLoginAttemptJob(ctx context.Context, messageID string) error {
-	return s.client.XAck(ctx, loginAttemptStream, loginAttemptGroup, messageID).Err()
-}
-
-func (s *RedisStore) ClaimStaleLoginAttemptJobs(ctx context.Context, consumer string, minIdle time.Duration) ([]goredis.XMessage, error) {
-	messages, _, err := s.client.XAutoClaim(ctx, &goredis.XAutoClaimArgs{
-		Stream:   loginAttemptStream,
-		Group:    loginAttemptGroup,
-		Consumer: consumer,
-		MinIdle:  minIdle,
-		Start:    "0-0",
-		Count:    10,
-	}).Result()
-	if err == goredis.Nil {
-		return nil, nil
+func (s *RedisStore) Cancel(ctx context.Context, a LoginAttempt) error {
+	if !a.Status.IsActive() {
+		return nil
 	}
-	return messages, err
-}
-
-// CancelLoginAttempt durably signals the worker that owns the browser session
-// and marks the attempt terminal before allowing another attempt for the store.
-func (s *RedisStore) CancelLoginAttempt(ctx context.Context, tenantID, storeID int64, message string) (*LoginAttempt, bool, error) {
-	attempt, err := s.LatestLoginAttempt(ctx, tenantID, storeID)
-	if err != nil || attempt == nil {
-		return attempt, false, err
-	}
-	if attempt.Status == LoginAttemptCancelled {
-		return attempt, true, nil
-	}
-	if !attempt.Status.IsActive() {
-		return attempt, false, nil
-	}
+	next := a
+	next.Status = LoginAttemptCancelled
 	now := time.Now().UTC()
-	attempt.Status = LoginAttemptCancelled
-	attempt.Message = message
-	attempt.ErrorCode = "LOGIN_CANCELLED"
-	attempt.CompletedAt = &now
-	body, err := json.Marshal(attempt)
-	if err != nil {
-		return nil, false, err
+	next.CompletedAt = &now
+	next.ErrorCode = "LOGIN_CANCELLED"
+	return s.CompareAndSwap(ctx, a, next, nil)
+}
+func (s *RedisStore) SubmitCode(ctx context.Context, a LoginAttempt, code string) error {
+	if a.Status != LoginAttemptWaitingVerifyCode || len(code) < 4 || len(code) > 16 || strings.Trim(code, "0123456789") != "" {
+		return ErrInvalidInput
 	}
-	const cancelAttemptScript = `
-local raw = redis.call("GET", KEYS[2])
-if not raw then
-	return 0
-end
-local current = cjson.decode(raw)
-local status = tostring(current["status"] or "")
-if status == "cancelled" then
-	return 2
-end
-if status ~= "queued" and status ~= "launching" and status ~= "waiting_verify_code" then
-	return 0
-end
-redis.call("SET", KEYS[2], ARGV[2], "PX", ARGV[3])
-redis.call("SET", KEYS[3], ARGV[1], "PX", ARGV[3])
-redis.call("RPUSH", KEYS[4], "cancel")
-redis.call("PEXPIRE", KEYS[4], ARGV[4])
-if redis.call("GET", KEYS[1]) == ARGV[1] then
-	redis.call("DEL", KEYS[1])
-end
-return 1`
-	result, err := s.client.Eval(ctx, cancelAttemptScript,
-		[]string{
-			loginAttemptActiveKey(tenantID, storeID),
-			loginAttemptKey(attempt.ID),
-			loginAttemptLatestKey(tenantID, storeID),
-			loginAttemptControlKey(attempt.ID),
-		},
-		attempt.ID,
-		body,
-		loginAttemptTTL.Milliseconds(),
-		activeAttemptLeaseTTL.Milliseconds(),
-	).Int()
-	if err != nil {
-		return nil, false, err
+	data, _ := json.Marshal(a)
+	n, e := s.client.Eval(ctx, `if redis.call('GET',KEYS[1])~=ARGV[1] then return 0 end;redis.call('SET',KEYS[2],ARGV[2],'EX',120);return 1`, []string{s.attemptKey(a.ID), s.attemptKey(a.ID) + ":code"}, string(data), code).Int()
+	if e != nil {
+		return ErrUnavailable
 	}
-	if result == 2 {
-		current, loadErr := s.LoadLoginAttempt(ctx, attempt.ID)
-		if loadErr != nil {
-			return nil, false, loadErr
-		}
-		if current != nil {
-			return current, true, nil
-		}
+	if n != 1 {
+		return storecenter.ErrVersionConflict
 	}
-	if result != 1 {
-		current, loadErr := s.LoadLoginAttempt(ctx, attempt.ID)
-		if loadErr != nil {
-			return nil, false, loadErr
-		}
-		return current, false, nil
+	return nil
+}
+func (s *RedisStore) ConsumeCode(ctx context.Context, id string) (string, error) {
+	v, e := s.client.GetDel(ctx, s.attemptKey(id)+":code").Result()
+	if errors.Is(e, redis.Nil) {
+		return "", nil
 	}
-	return attempt, true, nil
+	if e != nil {
+		return "", ErrUnavailable
+	}
+	return v, nil
+}
+func (s *RedisStore) EnsureGroup(ctx context.Context) error {
+	e := s.client.XGroupCreateMkStream(ctx, s.stream(), attemptGroup, "0").Err()
+	if e != nil && !strings.Contains(e.Error(), "BUSYGROUP") {
+		return ErrUnavailable
+	}
+	return nil
+}
+func (s *RedisStore) ReadJobs(ctx context.Context, consumer string) ([]redis.XMessage, error) {
+	streams, e := s.client.XReadGroup(ctx, &redis.XReadGroupArgs{Group: attemptGroup, Consumer: consumer, Streams: []string{s.stream(), ">"}, Count: 1, Block: time.Second}).Result()
+	if errors.Is(e, redis.Nil) {
+		return nil, nil
+	}
+	if e != nil {
+		return nil, ErrUnavailable
+	}
+	var out []redis.XMessage
+	for _, st := range streams {
+		out = append(out, st.Messages...)
+	}
+	return out, nil
+}
+func (s *RedisStore) Ack(ctx context.Context, id string) error {
+	return s.client.XAck(ctx, s.stream(), attemptGroup, id).Err()
+}
+func (s *RedisStore) Stale(ctx context.Context, consumer string) ([]redis.XMessage, error) {
+	v, _, e := s.client.XAutoClaim(ctx, &redis.XAutoClaimArgs{Stream: s.stream(), Group: attemptGroup, Consumer: consumer, Start: "0-0", MinIdle: 45 * time.Second, Count: 10}).Result()
+	return v, e
 }
 
-// WaitAndConsumeVerifyCodeOrCancel wakes for either the matching verification
-// code or a cancellation command sent by the API to the session-owning worker.
-func (s *RedisStore) WaitAndConsumeVerifyCodeOrCancel(ctx context.Context, tenantID, storeID int64, attemptID string, timeout time.Duration) (code string, received bool, cancelled bool, err error) {
-	controlKey := loginAttemptControlKey(attemptID)
-	if command, popErr := s.client.LPop(ctx, controlKey).Result(); popErr == nil {
-		return "", false, strings.EqualFold(strings.TrimSpace(command), "cancel"), nil
-	} else if popErr != goredis.Nil {
-		return "", false, false, popErr
+// A daily cap is scoped to this installation and exact current binding. It
+// never releases Store ownership or authorizes browser work by itself.
+func (s *RedisStore) ReserveAutomaticCode(ctx context.Context, scope storecenter.SheinLoginScope) (bool, error) {
+	if !s.validScope(scope) {
+		return false, ErrInvalidInput
 	}
-	codeKey := verifyAttemptCodeKey(tenantID, storeID, attemptID)
-	queueKey := verifyAttemptQueueKey(tenantID, storeID, attemptID)
-	if value, getErr := s.client.Get(ctx, codeKey).Result(); getErr == nil {
-		pipe := s.client.TxPipeline()
-		pipe.Del(ctx, codeKey, verifyWaitKey(tenantID, storeID), queueKey)
-		_, execErr := pipe.Exec(ctx)
-		return value, strings.TrimSpace(value) != "", false, execErr
-	} else if getErr != goredis.Nil {
-		return "", false, false, getErr
-	}
-	if timeout <= 0 {
-		return "", false, false, nil
-	}
-	deadline := time.Now().Add(timeout)
-	for {
-		if err := ctx.Err(); err != nil {
-			return "", false, false, err
-		}
-		remaining := time.Until(deadline)
-		if remaining <= 0 {
-			return "", false, false, nil
-		}
-		block := time.Second
-		if remaining < block {
-			block = remaining
-		}
-		values, popErr := s.client.BLPop(ctx, block, queueKey, controlKey).Result()
-		if popErr == goredis.Nil {
-			continue
-		}
-		if popErr != nil {
-			return "", false, false, popErr
-		}
-		if len(values) != 2 {
-			continue
-		}
-		if values[0] == controlKey {
-			return "", false, strings.EqualFold(strings.TrimSpace(values[1]), "cancel"), nil
-		}
-		code = strings.TrimSpace(values[1])
-		pipe := s.client.TxPipeline()
-		pipe.Del(ctx, codeKey, verifyWaitKey(tenantID, storeID), queueKey)
-		_, execErr := pipe.Exec(ctx)
-		return code, code != "", false, execErr
-	}
-}
-
-func (s *RedisStore) saveLoginAttempt(ctx context.Context, attempt *LoginAttempt) error {
-	body, err := json.Marshal(attempt)
-	if err != nil {
-		return err
-	}
-	pipe := s.client.TxPipeline()
-	pipe.Set(ctx, loginAttemptKey(attempt.ID), body, loginAttemptTTL)
-	pipe.Set(ctx, loginAttemptLatestKey(attempt.TenantID, attempt.StoreID), attempt.ID, loginAttemptTTL)
-	_, err = pipe.Exec(ctx)
-	return err
-}
-
-func (s *RedisStore) releaseLoginAttemptLease(ctx context.Context, attempt *LoginAttempt) error {
-	const releaseLeaseScript = `if redis.call("GET", KEYS[1]) == ARGV[1] then return redis.call("DEL", KEYS[1]) end return 0`
-	return s.client.Eval(ctx, releaseLeaseScript, []string{loginAttemptActiveKey(attempt.TenantID, attempt.StoreID)}, attempt.ID).Err()
-}
-
-func (s *RedisStore) refreshLoginAttemptLease(ctx context.Context, attempt *LoginAttempt) error {
-	const refreshLeaseScript = `if redis.call("GET", KEYS[1]) == ARGV[1] then return redis.call("PEXPIRE", KEYS[1], ARGV[2]) end return 0`
-	return s.client.Eval(ctx, refreshLeaseScript, []string{loginAttemptActiveKey(attempt.TenantID, attempt.StoreID)}, attempt.ID, activeAttemptLeaseTTL.Milliseconds()).Err()
-}
-
-func newLoginAttemptID() (string, error) {
-	bytes := make([]byte, 16)
-	if _, err := rand.Read(bytes); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(bytes), nil
-}
-
-func cookieKey(tenantID, storeID int64) string {
-	return fmt.Sprintf("%s:%d:%d", cookieKeyPrefix, tenantID, storeID)
-}
-func verifyCodeKey(tenantID, storeID int64) string {
-	return fmt.Sprintf("%s:%d:%d", verifyCodePrefix, tenantID, storeID)
-}
-func verifyWaitKey(tenantID, storeID int64) string {
-	return fmt.Sprintf("%s:%d:%d", verifyWaitPrefix, tenantID, storeID)
-}
-func autoVerifyCodeCountKey(tenantID, storeID int64, day time.Time) string {
-	localDay := day.In(sheinLoginLocalLocation())
-	return fmt.Sprintf("%s:%d:%d:%s", autoVerifyCodePrefix, tenantID, storeID, localDay.Format("20060102"))
-}
-func verifyCodeQueueKey(tenantID, storeID int64) string {
-	return fmt.Sprintf("%s:%d:%d", verifyCodeQueuePrefix, tenantID, storeID)
-}
-func verifyAttemptCodeKey(tenantID, storeID int64, attemptID string) string {
-	return fmt.Sprintf("%s:%d:%d:%s", verifyAttemptCodePrefix, tenantID, storeID, attemptID)
-}
-func verifyAttemptQueueKey(tenantID, storeID int64, attemptID string) string {
-	return fmt.Sprintf("%s:%d:%d:%s", verifyAttemptQueuePrefix, tenantID, storeID, attemptID)
-}
-func lastLoginKey(tenantID, storeID int64) string {
-	return fmt.Sprintf("%s:%d:%d", lastLoginTimePrefix, tenantID, storeID)
-}
-func lastFailureKey(tenantID, storeID int64) string {
-	return fmt.Sprintf("%s:%d:%d", lastFailurePrefix, tenantID, storeID)
-}
-func lastFailureDetailKey(tenantID, storeID int64) string {
-	return fmt.Sprintf("%s:%d:%d", lastFailureDetailPrefix, tenantID, storeID)
-}
-func loginAttemptKey(attemptID string) string {
-	return fmt.Sprintf("%s:%s", loginAttemptPrefix, attemptID)
-}
-func loginAttemptActiveKey(tenantID, storeID int64) string {
-	return fmt.Sprintf("%s:%d:%d", loginAttemptActivePrefix, tenantID, storeID)
-}
-func loginAttemptLatestKey(tenantID, storeID int64) string {
-	return fmt.Sprintf("%s:%d:%d", loginAttemptLatestPrefix, tenantID, storeID)
-}
-func loginAttemptControlKey(attemptID string) string {
-	return fmt.Sprintf("%s:%s", loginAttemptControlPrefix, attemptID)
-}
-
-func pauseKeys(tenantID, storeID int64) []string {
-	return []string{
-		fmt.Sprintf("listing:task:pause:shein:%d:%d", tenantID, storeID),
-		fmt.Sprintf("listing:task:pause:%d:%d", tenantID, storeID),
-	}
-}
-
-func nextLocalMidnight(day time.Time) time.Time {
-	local := day.In(sheinLoginLocalLocation())
-	y, m, d := local.Date()
-	return time.Date(y, m, d+1, 0, 0, 0, 0, local.Location())
-}
-
-func sheinLoginLocalLocation() *time.Location {
-	loc, err := time.LoadLocation("Asia/Shanghai")
-	if err != nil {
-		return time.Local
-	}
-	return loc
+	day := time.Now().UTC().Format("2006-01-02")
+	n, e := s.client.Eval(ctx, `local n=tonumber(redis.call('GET',KEYS[1]) or '0');if n>=2 then return 0 end;redis.call('INCR',KEYS[1]);redis.call('EXPIRE',KEYS[1],172800);return 1`, []string{s.scopeKey(scope) + ":automatic-code:" + day}).Int()
+	return n == 1, e
 }

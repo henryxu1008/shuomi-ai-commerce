@@ -29,7 +29,17 @@ type podTemplate struct {
 }
 
 type workloadContainer struct {
-	Name    string `yaml:"name"`
+	Name           string            `yaml:"name"`
+	Args           []string          `yaml:"args"`
+	StartupProbe   workloadHTTPProbe `yaml:"startupProbe"`
+	LivenessProbe  workloadHTTPProbe `yaml:"livenessProbe"`
+	ReadinessProbe workloadHTTPProbe `yaml:"readinessProbe"`
+	VolumeMounts   []struct {
+		Name      string `yaml:"name"`
+		MountPath string `yaml:"mountPath"`
+		SubPath   string `yaml:"subPath"`
+		ReadOnly  bool   `yaml:"readOnly"`
+	} `yaml:"volumeMounts"`
 	EnvFrom []struct {
 		SecretRef *struct {
 			Name     string `yaml:"name"`
@@ -48,6 +58,12 @@ type workloadContainer struct {
 	} `yaml:"env"`
 }
 
+type workloadHTTPProbe struct {
+	HTTPGet struct {
+		Path string `yaml:"path"`
+	} `yaml:"httpGet"`
+}
+
 func TestListingKitWorkloadsUseLeastPrivilegeSharedSecretKeys(t *testing.T) {
 	want := map[string]map[string]string{
 		"base/listingkit-ui-deployment.yaml": {
@@ -60,17 +76,7 @@ func TestListingKitWorkloadsUseLeastPrivilegeSharedSecretKeys(t *testing.T) {
 			"TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_ROLES":      "TASK_PROCESSOR_LISTINGKIT_ZITADEL_ALLOWED_ROLES",
 			"LISTINGKIT_DEMO_WEBHOOK_URL":                          "LISTINGKIT_DEMO_WEBHOOK_URL",
 		},
-		"base/shein-login-worker-deployment.yaml": {
-			"TASK_PROCESSOR_DATABASE_HOST":               "TASK_PROCESSOR_DATABASE_HOST",
-			"TASK_PROCESSOR_DATABASE_PORT":               "TASK_PROCESSOR_DATABASE_PORT",
-			"TASK_PROCESSOR_DATABASE_USER":               "TASK_PROCESSOR_DATABASE_USER",
-			"TASK_PROCESSOR_DATABASE_PASSWORD":           "TASK_PROCESSOR_DATABASE_PASSWORD",
-			"TASK_PROCESSOR_DATABASE_NAME":               "TASK_PROCESSOR_DATABASE_NAME",
-			"TASK_PROCESSOR_SHEIN_COOKIE_REDIS_HOST":     "TASK_PROCESSOR_SHEIN_COOKIE_REDIS_HOST",
-			"TASK_PROCESSOR_SHEIN_COOKIE_REDIS_PORT":     "TASK_PROCESSOR_SHEIN_COOKIE_REDIS_PORT",
-			"TASK_PROCESSOR_SHEIN_COOKIE_REDIS_PASSWORD": "TASK_PROCESSOR_SHEIN_COOKIE_REDIS_PASSWORD",
-			"TASK_PROCESSOR_SHEIN_COOKIE_REDIS_DB":       "TASK_PROCESSOR_SHEIN_COOKIE_REDIS_DB",
-		},
+		"base/shein-login-worker-deployment.yaml": {},
 		"base/imgproxy-deployment.yaml": {
 			"IMGPROXY_KEY":          "IMGPROXY_KEY",
 			"IMGPROXY_SALT":         "IMGPROXY_SALT",
@@ -167,4 +173,68 @@ func loadOnlyContainer(t *testing.T, relativePath string) workloadContainer {
 		t.Fatalf("%s has %d containers, want exactly one", path, len(manifest.Spec.Template.Spec.Containers))
 	}
 	return manifest.Spec.Template.Spec.Containers[0]
+}
+
+func TestSheinWorkerUsesOnlyFreshPrivateFileInputs(t *testing.T) {
+	c := loadOnlyContainer(t, "base/shein-login-worker-deployment.yaml")
+	if c.StartupProbe.HTTPGet.Path != "/livez" || c.LivenessProbe.HTTPGet.Path != "/livez" || c.ReadinessProbe.HTTPGet.Path != "/healthz" {
+		t.Fatal("dependency readiness must not restart an owned executor")
+	}
+	if len(c.Env) != 0 || len(c.EnvFrom) != 0 {
+		t.Fatal("worker must not import numeric environment or shared ConfigMap")
+	}
+	if len(c.Args) < 2 || c.Args[0] != "-config" || c.Args[1] != "/run/shein-login-worker/current.json" {
+		t.Fatal("explicit current config missing")
+	}
+	required := map[string]bool{"current.json": false, "client-secret": false, "service-token": false, "login.json": false}
+	for _, m := range c.VolumeMounts {
+		if m.Name != "worker-current" {
+			continue
+		}
+		if _, ok := required[m.SubPath]; !ok || !m.ReadOnly || m.MountPath != "/run/shein-login-worker/"+m.SubPath {
+			t.Fatal("private regular-file mount mismatch")
+		}
+		required[m.SubPath] = true
+	}
+	for key, present := range required {
+		if !present {
+			t.Fatal("missing private file", key)
+		}
+	}
+	path := filepath.Join("..", "deployments", "kubernetes", "listingkit-workbench", "base", "shein-login-worker-deployment.yaml")
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var manifest struct {
+		Spec struct {
+			Template struct {
+				Spec struct {
+					Volumes []struct {
+						Name   string
+						Secret *struct {
+							SecretName  string `yaml:"secretName"`
+							DefaultMode int    `yaml:"defaultMode"`
+							Optional    bool
+						}
+					}
+				}
+			}
+		}
+	}
+	if err = yaml.Unmarshal(contents, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, v := range manifest.Spec.Template.Spec.Volumes {
+		if v.Name == "worker-current" {
+			found = true
+			if v.Secret == nil || v.Secret.SecretName != "shein-login-worker-current" || v.Secret.DefaultMode != 0400 || v.Secret.Optional {
+				t.Fatal("private current Secret boundary mismatch")
+			}
+		}
+	}
+	if !found {
+		t.Fatal("current private Secret missing")
+	}
 }

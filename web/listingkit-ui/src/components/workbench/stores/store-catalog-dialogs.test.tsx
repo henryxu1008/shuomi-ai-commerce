@@ -35,3 +35,20 @@ it("shows authorized catalog group counts and keeps absent counts unknown",async
  render(<StoreCatalogDialogs dialog={{kind:"groups"}} scope={scope} groups={[{...known,count:42}]} canManageGroups={true} onClose={vi.fn()} onChanged={vi.fn()}/>);
  expect(await screen.findByText("42 家店铺")).toBeInTheDocument();expect(screen.getByText("数量待确认")).toBeInTheDocument();expect(screen.queryByText("版本 3")).not.toBeInTheDocument();
 });
+
+it("retries the frozen grouping command after an unknown result even when catalog versions advance",async()=>{
+ state.request.mockRejectedValue(new StoreCenterError(503,"OUTCOME_UNKNOWN"));
+ const props={scope,groups:[],canManageGroups:false,onClose:vi.fn(),onChanged:vi.fn().mockResolvedValue(null)};
+ const view=render(<StoreCatalogDialogs {...props} dialog={{kind:"assign",items:[item]}}/>);
+ await waitFor(()=>expect(screen.getByRole("button",{name:"保存设置"})).toBeEnabled());
+ await userEvent.click(screen.getByRole("button",{name:"保存设置"}));
+ await screen.findByText(/操作结果待确认/);
+ const original=state.request.mock.calls[0];
+ expect(original[3].command.stores).toEqual([{storeId:item.id,profileVersion:0}]);
+ const saved=sessionStorage.getItem("store-metadata:org-a:actor");
+ view.rerender(<StoreCatalogDialogs {...props} dialog={{kind:"assign",items:[{...item,profile:{...item.profile,profileVersion:2}}]}}/>);
+ await userEvent.click(screen.getByRole("button",{name:"重试原请求"}));
+ await waitFor(()=>expect(state.request).toHaveBeenCalledTimes(2));
+ expect(state.request.mock.calls[1]).toEqual(original);
+ expect(sessionStorage.getItem("store-metadata:org-a:actor")).toBe(saved);
+});

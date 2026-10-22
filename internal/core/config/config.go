@@ -36,7 +36,6 @@ type Config struct {
 	// 1688 browser collector process (design D13).
 	BrowserCollector                                      BrowserCollectorConfig        `yaml:"browserCollector"`
 	Amazon                                                AmazonConfig                  `yaml:"amazon"`
-	Updater                                               UpdaterConfig                 `yaml:"updater"`
 	Platforms                                             PlatformsConfig               `yaml:"platforms"`
 	Watermark                                             *watermark.Config             `yaml:"watermark"`
 	ImageAgent                                            ImageAgentConfig              `yaml:"imageagent"`
@@ -355,18 +354,6 @@ func knownEnvBindings() map[string]envBinding {
 			Primary:    "TASK_PROCESSOR_AMAZON_SPAPI_DEFAULT_CONDITION",
 			Deprecated: []string{"AMAZON_SPAPI_DEFAULT_CONDITION"},
 		},
-		"amazon.remoteAPI.enabled": {
-			Primary:    "TASK_PROCESSOR_AMAZON_REMOTE_API_ENABLED",
-			Deprecated: []string{"AMAZON_REMOTE_API_ENABLED"},
-		},
-		"amazon.remoteAPI.baseURL": {
-			Primary:    "TASK_PROCESSOR_AMAZON_REMOTE_API_BASE_URL",
-			Deprecated: []string{"AMAZON_REMOTE_API_BASE_URL"},
-		},
-		"amazon.remoteAPI.timeout": {
-			Primary:    "TASK_PROCESSOR_AMAZON_REMOTE_API_TIMEOUT",
-			Deprecated: []string{"AMAZON_REMOTE_API_TIMEOUT"},
-		},
 		"browser.browserPath": {
 			Primary:    "TASK_PROCESSOR_BROWSER_PATH",
 			Deprecated: []string{"BROWSER_PATH"},
@@ -455,36 +442,6 @@ func knownEnvBindings() map[string]envBinding {
 		"redis.pool_size": {
 			Primary:    "TASK_PROCESSOR_REDIS_POOL_SIZE",
 			Deprecated: []string{"REDIS_POOL_SIZE"},
-		},
-		"platforms.shein.cookieRedis.host": {
-			Primary: "TASK_PROCESSOR_SHEIN_COOKIE_REDIS_HOST",
-		},
-		"platforms.shein.cookieRedis.port": {
-			Primary: "TASK_PROCESSOR_SHEIN_COOKIE_REDIS_PORT",
-		},
-		"platforms.shein.cookieRedis.password": {
-			Primary: "TASK_PROCESSOR_SHEIN_COOKIE_REDIS_PASSWORD",
-		},
-		"platforms.shein.cookieRedis.db": {
-			Primary: "TASK_PROCESSOR_SHEIN_COOKIE_REDIS_DB",
-		},
-		"platforms.shein.cookieRedis.pool_size": {
-			Primary: "TASK_PROCESSOR_SHEIN_COOKIE_REDIS_POOL_SIZE",
-		},
-		"platforms.shein.loginService.tenantID": {
-			Primary: "TASK_PROCESSOR_SHEIN_LOGIN_SERVICE_TENANT_ID",
-		},
-		"platforms.shein.loginService.identifier": {
-			Primary: "TASK_PROCESSOR_SHEIN_LOGIN_SERVICE_IDENTIFIER",
-		},
-		"platforms.shein.loginService.defaultHeadless": {
-			Primary: "TASK_PROCESSOR_SHEIN_LOGIN_SERVICE_DEFAULT_HEADLESS",
-		},
-		"platforms.shein.loginService.forceHeadless": {
-			Primary: "TASK_PROCESSOR_SHEIN_LOGIN_SERVICE_FORCE_HEADLESS",
-		},
-		"platforms.shein.loginService.executionMode": {
-			Primary: "TASK_PROCESSOR_SHEIN_LOGIN_SERVICE_EXECUTION_MODE",
 		},
 		"platforms.sds.loginService.baseURL": {
 			Primary: "TASK_PROCESSOR_SDS_LOGIN_SERVICE_BASE_URL",

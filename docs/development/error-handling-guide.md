@@ -1,8 +1,10 @@
 # 错误处理最佳实践指南
 
+> RETIRED / 仅历史：#301 / #870 [完整旧宿主退休边界](../architecture/legacy-host-runtime-closure-retirement-boundary.md)已确认整批退出 internal/core/errors 及其最后旧 monitoring 消费者。本文所有导入、Task/错误码示例、最佳实践与迁移步骤只记录旧实现，不是当前可编译入口或迁移要求；禁止据此新增依赖、统一错误框架、adapter 或兼容层。现役领域错误、标准库错误链及 HTTP 拒绝合同继续既有 owner；不改当前业务/安全行为，不增加试用前置。
+
 ## 概述
 
-本项目已经有一个完善的错误处理包 `internal/core/errors`,本指南说明如何正确使用它。
+历史旧宿主曾使用 `internal/core/errors`；该包已退休，以下说明和示例仅保留原设计记录，不能用于当前实现。
 
 ## 核心功能
 
@@ -208,17 +210,17 @@ func httpStatusCodeFromErrorCode(code errors.ErrorCode) int {
 5. **统一响应**: 在 HTTP API 层统一转换错误为 JSON 响应
 6. **不要吞掉错误**: 始终返回或记录错误,不要忽略
 
-## 迁移指南
+## 历史迁移指南（已撤销）
 
-如果要改进现有代码的错误处理:
+以下旧迁移步骤已撤销，不应用到当前代码：
 
 1. 识别缺少上下文的错误返回点
 2. 使用 `errors.Wrap` 包装,添加 Details
 3. 在日志中添加 error_code 和 details 字段
 4. 确保 HTTP handler 使用统一的错误响应
 
-## 参考
+## 历史参考（源码已退休）
 
-- 完整 API 文档: `internal/core/errors/errors.go`
-- 使用示例: `internal/core/errors/examples_test.go`
-- 测试用例: `internal/core/errors/errors_test.go`
+- 旧 API 源码（已删除）: `internal/core/errors/errors.go`
+- 旧示例（已删除）: `internal/core/errors/examples_test.go`
+- 旧测试（已删除）: `internal/core/errors/errors_test.go`

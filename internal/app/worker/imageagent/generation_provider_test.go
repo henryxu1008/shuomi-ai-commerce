@@ -88,7 +88,7 @@ func testGenerationProviderFactoryUsesBoundQwenAdapter(t *testing.T, model strin
 		require.Equal(t, expectedObservations, observed, "durable success precedes output materialization")
 		return pngBytes.Bytes(), nil
 	}}
-	prepared, err := factory.prepare(context.Background(), func(_ context.Context, proof imageagent.GenerationSuccess) error {
+	prepared, err := factory.prepare(context.Background(), imageagent.SlotExecutionInput{}, func(_ context.Context, proof imageagent.GenerationSuccess) error {
 		observed++
 		require.Equal(t, "qwen-receipt", proof.ResponseID)
 		require.False(t, proof.UsageKnown)
@@ -142,12 +142,12 @@ func testGenerationProviderFactoryUsesBoundQwenAdapter(t *testing.T, model strin
 	require.Equal(t, 1, dispatches)
 	require.Equal(t, 1, observed)
 	require.Equal(t, 1, downloads)
-	require.NoError(t, factory.revalidate(context.Background(), prepared.Metadata))
+	require.NoError(t, factory.revalidate(context.Background(), imageagent.SlotExecutionInput{}, prepared.Metadata))
 	resolver.resolved.Config.Model = "qwen-image-3.0"
 	if model == "qwen-image-3.0" {
 		resolver.resolved.Config.Model = "qwen-image-3.0-pro"
 	}
-	require.ErrorIs(t, factory.revalidate(context.Background(), prepared.Metadata), imageagent.ErrRevisionConflict)
+	require.ErrorIs(t, factory.revalidate(context.Background(), imageagent.SlotExecutionInput{}, prepared.Metadata), imageagent.ErrRevisionConflict)
 	resolver.resolved.Config.Model = model
 	packages, err := skill.OfficialPackages()
 	require.NoError(t, err)
@@ -191,7 +191,7 @@ func testGenerationProviderFactoryUsesBoundQwenAdapter(t *testing.T, model strin
 	}
 	require.Equal(t, 3, imageMethods)
 	resolver.resolved.Config.Model = "qwen-mt-image-2.0"
-	require.Error(t, factory.revalidate(context.Background(), prepared.Metadata))
+	require.Error(t, factory.revalidate(context.Background(), imageagent.SlotExecutionInput{}, prepared.Metadata))
 }
 
 type generationConfigTestResolver struct{ resolved *openai.ResolvedClientConfig }
@@ -225,7 +225,7 @@ func TestGenerationProviderFactoryUsesPinnedGRSAIProtocol(t *testing.T) {
 				require.Equal(t, 1, observed)
 				return pngBytes.Bytes(), nil
 			}}
-			prepared, err := factory.prepare(context.Background(), func(_ context.Context, proof imageagent.GenerationSuccess) error {
+			prepared, err := factory.prepare(context.Background(), imageagent.SlotExecutionInput{}, func(_ context.Context, proof imageagent.GenerationSuccess) error {
 				observed++
 				require.Equal(t, "response-1", proof.ResponseID)
 				require.False(t, proof.UsageKnown)
@@ -245,9 +245,9 @@ func TestGenerationProviderFactoryUsesPinnedGRSAIProtocol(t *testing.T) {
 			require.Len(t, result.Assets, 1)
 			require.Equal(t, 1, dispatches)
 			require.Equal(t, 1, downloads)
-			require.NoError(t, factory.revalidate(context.Background(), prepared.Metadata))
+			require.NoError(t, factory.revalidate(context.Background(), imageagent.SlotExecutionInput{}, prepared.Metadata))
 			resolver.resolved.CacheKey = "db:1:2:image_gpt_image_2"
-			require.ErrorIs(t, factory.revalidate(context.Background(), prepared.Metadata), imageagent.ErrRevisionConflict)
+			require.ErrorIs(t, factory.revalidate(context.Background(), imageagent.SlotExecutionInput{}, prepared.Metadata), imageagent.ErrRevisionConflict)
 			require.Equal(t, 1, dispatches, "route checks never submit")
 		})
 	}
@@ -281,7 +281,7 @@ func TestGenerationProviderFactoryMissingPriceOrWrongRouteCannotBecomeAvailable(
 				cfg.Timeout = 0
 			}
 			factory := generationProviderFactory{resolver: &generationConfigTestResolver{resolved: &openai.ResolvedClientConfig{Config: cfg, CacheKey: "db:1:1:profile"}}, price: price, profile: synchronousEditProfile{}}
-			_, err := factory.prepare(context.Background(), func(context.Context, imageagent.GenerationSuccess) error { return nil })
+			_, err := factory.prepare(context.Background(), imageagent.SlotExecutionInput{}, func(context.Context, imageagent.GenerationSuccess) error { return nil })
 			require.ErrorIs(t, err, imageagent.ErrBudgetQuoteUnavailable)
 			require.NotContains(t, err.Error(), "must-not-log")
 			require.NotContains(t, err.Error(), "controlled-only")

@@ -3,11 +3,10 @@ package activity
 import (
 	"strings"
 
-	"task-processor/internal/listingruntime"
 	"task-processor/internal/shein/api/marketing"
 )
 
-func applyPromotionCreateConfig(config *activityRuleInputs, strategy *listingruntime.OperationStrategy) {
+func applyPromotionCreateConfig(config *activityRuleInputs, strategy *activityStrategy) {
 	if config == nil || strategy == nil {
 		return
 	}

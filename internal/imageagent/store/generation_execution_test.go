@@ -133,10 +133,12 @@ func TestSetGenerationExecutionUsesFrozenInputAndOriginalEconomicOwner(t *testin
 							return []byte("different bytes"), nil
 						}
 						return data, nil
-					}, PrepareProvider: func(_ context.Context, observe func(context.Context, imageagent.GenerationSuccess) error) (imageagent.PreparedGenerationProvider, error) {
+					}, PrepareProvider: func(_ context.Context, _ imageagent.SlotExecutionInput, observe func(context.Context, imageagent.GenerationSuccess) error) (imageagent.PreparedGenerationProvider, error) {
 						provider.observer = observe
 						return imageagent.PreparedGenerationProvider{Executor: provider, Metadata: imageagent.GenerationProviderMetadata{Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1", PromptVersion: "old-white-prompt", PriceVersion: "price-1", Points: 12}}, nil
-					}, RevalidateProvider: func(context.Context, imageagent.GenerationProviderMetadata) error { return nil }})
+					}, RevalidateProvider: func(context.Context, imageagent.SlotExecutionInput, imageagent.GenerationProviderMetadata) error {
+						return nil
+					}})
 					require.NoError(t, err)
 					if useMethod {
 						input.ImageSet.Method.PolicyVersion = imageagent.HistoricalImageMethodPolicyVersion
@@ -237,7 +239,7 @@ func TestGenerationExecutionPreservesProviderOutcomeAndNeverRedispatches(t *test
 				ReadSourceBytes: func(context.Context, imageagent.SlotExecutionInput) ([]byte, error) {
 					return []byte("exact-source-bytes"), nil
 				},
-				PrepareProvider: func(_ context.Context, observer func(context.Context, imageagent.GenerationSuccess) error) (imageagent.PreparedGenerationProvider, error) {
+				PrepareProvider: func(_ context.Context, _ imageagent.SlotExecutionInput, observer func(context.Context, imageagent.GenerationSuccess) error) (imageagent.PreparedGenerationProvider, error) {
 					provider.observer = observer
 					prepared := imageagent.PreparedGenerationProvider{Executor: provider, Metadata: imageagent.GenerationProviderMetadata{Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1", PromptVersion: "prompt-1", PriceVersion: "price-1", Points: 12}}
 					if provider.vip {
@@ -253,7 +255,9 @@ func TestGenerationExecutionPreservesProviderOutcomeAndNeverRedispatches(t *test
 					}
 					return prepared, nil
 				},
-				RevalidateProvider: func(context.Context, imageagent.GenerationProviderMetadata) error { return nil },
+				RevalidateProvider: func(context.Context, imageagent.SlotExecutionInput, imageagent.GenerationProviderMetadata) error {
+					return nil
+				},
 			})
 			require.NoError(t, err)
 			quote, err := executor.QuoteSlot(ctx, input, imageagent.BudgetPolicy{})
@@ -327,11 +331,11 @@ func TestGenerationExecutionPreDispatchFencesAndLostACK(t *testing.T) {
 				ReadSourceBytes: func(context.Context, imageagent.SlotExecutionInput) ([]byte, error) {
 					return []byte("exact-source-bytes"), nil
 				},
-				PrepareProvider: func(_ context.Context, observer func(context.Context, imageagent.GenerationSuccess) error) (imageagent.PreparedGenerationProvider, error) {
+				PrepareProvider: func(_ context.Context, _ imageagent.SlotExecutionInput, observer func(context.Context, imageagent.GenerationSuccess) error) (imageagent.PreparedGenerationProvider, error) {
 					provider.observer = observer
 					return imageagent.PreparedGenerationProvider{Executor: provider, Metadata: imageagent.GenerationProviderMetadata{Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1", PromptVersion: "prompt-1", PriceVersion: priceVersion, Points: 12}}, nil
 				},
-				RevalidateProvider: func(context.Context, imageagent.GenerationProviderMetadata) error {
+				RevalidateProvider: func(context.Context, imageagent.SlotExecutionInput, imageagent.GenerationProviderMetadata) error {
 					if mode == "route_drift" {
 						return imageagent.ErrRevisionConflict
 					}

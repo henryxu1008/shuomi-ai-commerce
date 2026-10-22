@@ -17,10 +17,7 @@ type (
 const (
 	FieldComponent  = platformlogging.FieldComponent
 	FieldPlatform   = platformlogging.FieldPlatform
-	FieldTaskID     = platformlogging.FieldTaskID
 	FieldProductID  = platformlogging.FieldProductID
-	FieldTenantID   = platformlogging.FieldTenantID
-	FieldStoreID    = platformlogging.FieldStoreID
 	FieldTraceID    = platformlogging.FieldTraceID
 	FieldRequestID  = platformlogging.FieldRequestID
 	FieldDurationMs = platformlogging.FieldDurationMs
@@ -44,8 +41,6 @@ var (
 	NewLoggerHelper     = platformlogging.NewLoggerHelper
 	WithComponent       = platformlogging.WithComponent
 	WithPlatform        = platformlogging.WithPlatform
-	WithTaskContext     = platformlogging.WithTaskContext
-	WithStoreContext    = platformlogging.WithStoreContext
 	ShouldLog           = platformlogging.ShouldLog
 	WithLogger          = platformlogging.WithLogger
 	FromContext         = platformlogging.FromContext
