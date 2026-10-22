@@ -234,9 +234,10 @@ official read API/BFF → 前端 `officialArticleSchema` 校验 → 官方知识
 [Webhook delivery API](https://docs.github.com/en/rest/repos/webhooks#deliveries)。仓库设置/API 快照与外部接收方实际状态分别记录；
 未经 owner 事实确认的配置不做推断。
 
-## 本批验证与未执行
+## 验证范围与未执行
 
-仅做文档差异、相对链接和保留命令/路径检查；无新业务行为，不添加 TDD 测试或验证工具。
-CI 按原工作流执行，准确 HEAD/结果和独立最终检查记录于对应 PR，不在本文件滚动追加。
-Go build/test、前端运行、真实 provider、镜像发布、部署、实际更名与切换后集成验证均 NOT_RUN。
-历史性能/验收记录保持原文，不因本批品牌统一成为当前 PASS。
+最初Phase 0/1只做文档差异、相对链接和保留命令/路径检查；该历史阶段无新业务行为，未添加TDD测试。
+用户后续批准的官方知识V2按冻结设计完成目标TDD、Go owner/HTTP装配与授权、前端BFF/页面和类型检查；
+准确HEAD、CI、独立最终检查及限制记录于PR #887，不将旧文档阶段或旧SHA结果冒充本轮验证。
+真实provider、镜像发布、实例更新/部署、实际更名、切换后集成与用户产品验收仍为NOT_RUN。
+历史性能/验收记录保持原文，不因品牌统一或V2源码交付成为当前运行PASS。
