@@ -1,14 +1,16 @@
 # #301 旧 SDS 登录、商品同步与专属尾部完整退休设计
 
-Status: **USER_CONFIRMED / SOURCE_IMPLEMENTED**。用户已明确确认冻结设计 f83ddb2ecd494adea13badfa84586b3a3d07c172 §1–§7（含§6.1），在同一 #885 整批实施，inventory 只删除准确四条CURRENT行。[用户确认/Ready准入](https://github.com/qq550723504/task-processor/pull/885#issuecomment-6335862745)及 #301/PR Ready 读回先于生产修改；设计阶段N/A，本轮 **Design Basis: Reuse Existing Architecture / Ready**。唯一Writer已按§5/§6.1完整退出79专属工件、12混合源及原guard/直接文档尾部，无新EXTRACT/替代owner，不机械拆批。原设计全审/授权只读增量PASS及设计CI保持历史证据；准确实现HEAD、RED/GREEN、必要验证、原CI及最终交付检查写PR，不冒充运行/用户验收。#301 OPEN，#29不重开。
+Status: **USER_CONFIRMED / SOURCE_IMPLEMENTED**。用户已明确确认冻结设计 f83ddb2ecd494adea13badfa84586b3a3d07c172 §1–§7（含§6.1），在同一 #885 整批实施，inventory 只删除准确四条CURRENT行。[用户确认/Ready准入](https://github.com/qq550723504/task-processor/pull/885#issuecomment-6335862745)及 #301/PR Ready 读回先于生产修改；设计阶段N/A，本轮 **Design Basis: Reuse Existing Architecture / Ready**。唯一Writer已按§5/§6.1完整退出81专属工件、13混合源及原guard/直接文档尾部，无新EXTRACT/替代owner，不机械拆批。原设计全审/授权只读增量PASS及设计CI保持历史证据；准确实现HEAD、RED/GREEN、必要验证、原CI及最终交付检查写PR，不冒充运行/用户验收。#301 OPEN，#29不重开。
 
-调查基线main26179374cb4d7e0142c06f70022125149746499c，设计候选同步124a4de006326bf5930b1a3b4533254dd3591968；本轮开工同步main3b50940f3b4ee9a5bd1f4491712ca43a355c0c33，仅#886六品牌文档，无当前闭包/保留owner变化。实际根Go、debug、前端和config消费者刷新符合冻结设计。以下冻结矩阵/停止条件保持，只校准已确认、已实施的当前状态。
+调查基线main26179374cb4d7e0142c06f70022125149746499c，设计候选同步124a4de006326bf5930b1a3b4533254dd3591968；本轮开工同步main3b50940f3b4ee9a5bd1f4491712ca43a355c0c33，仅#886六品牌文档，无当前闭包/保留owner变化。实际根Go、debug、前端和config消费者刷新符合冻结设计。除用户明确允许的下述三对象尾部例外外，原矩阵/停止条件保持。
+
+原CI发现旧SDS退出后的三个孤立尾部，归类IMPLEMENTATION_TEST；[精确提案](https://github.com/qq550723504/task-processor/pull/885#issuecomment-6337518484)及[用户确认/Ready接续](https://github.com/qq550723504/task-processor/pull/885#issuecomment-6337551715)先于增量生产修改。最小例外仅删除api-error.ts、response-schema.ts与upstream-identity.ts中三行AuthenticatedUpstreamRequest类型；原共享身份运行行为和全部测试保持，原guard与本文/当前索引登记窄校准。原CI失败及准确新HEAD验证留PR，不改Code Health检查/配置、inventory四行之外内容或workflow。
 
 ## 1. 用户结果、完整范围与权限
 
 使用者是维护当前应用、采集、图像、Store 和独立 SHEIN worker 的维护者。本批源码结果是完整退出无当前注入的旧 SDS 登录、客户端、模板/设计/同步、HTTP 和专属配置/工具/UI 尾部，避免残留的老入口继续表示已不可用的旧设计。没有已证实的当前核心操作被这些残留阻塞，不扩建产品、治理或试用前置。
 
-本设计覆盖一个完整闭包：61 个旧包 Go 工件、18 个专属尾部工件、12 个混合配置/启动/路由策略源的精确尾部，以及原检查/直接文档的相应处置；不按包、文件数或审核机械拆 PR。保留当前 SDS/POD 业务，不把“退出旧 SDS 实现”写成“退出 SDS 能力”。唯一实现者在同一分支/PR 连续交付，本文确认后再进入源码阶段。
+本设计覆盖一个完整闭包：61 个旧包 Go 工件、20 个专属尾部工件、13 个混合配置/启动/路由策略源的精确尾部，以及原检查/直接文档的相应处置；不按包、文件数或审核机械拆 PR。保留当前 SDS/POD 业务，不把“退出旧 SDS 实现”写成“退出 SDS 能力”。唯一实现者在同一分支/PR 连续交付，本文确认后再进入源码阶段。
 
 调查阶段只读 Git 追踪的源码/样例键结构、文档和依赖元数据；本轮按用户确认和Ready准入修改准确追踪源/测试/配置/文档。不运行旧 constructor/自测、登录浏览器、旧调试命令、脚本、应用/worker/dry-run、HTTP/provider、Redis/SQL、Docker/Compose/kubectl。不读取实际运行配置、环境凭据、token/私密文件、Profile/缓存/日志/旧报告，不操作既有实例、数据、凭据或进程。不读取/复制源码内嵌的敏感默认值到设计/日志/新测试；旧工具源码随闭包删除，不授权真实账号改密、rotation、历史重写或凭据清理。
 
@@ -40,8 +42,8 @@ Must：完整退出旧源码闭包；当前能力、共享合同及必要/安全
 | sds/template、design、workflow、usecase、adapter 父包 | import/call 链只在旧闭包内：bootstrap → usecase → adapter/workflow → design/template → client；旧模板/渲染/上传/同步返回值无当前外部消费者 | 全链 RETIRE；不为旧行为复制 facade/helper |
 | sds/adapter/product_source | 独立子包、10 文件；marketplace/shein/publishing 的 pod_submit_readiness_policy 消费 NormalizeExecution/SubmissionBlocked/ReadinessMessage；纯值逻辑仅依赖 canonical，不依赖旧父包 | 完整 KEEP，包路径与值/hash/规范化/readiness 合同不搬家；禁止按 adapter 或 sds 父目录递归删除 |
 | 当前 SDS/POD | runtime/currentapplication → app/pod → integration/sds + product/pod + Submission/Asset/Collection；当前 CredentialSource/私密文件格式、binding revision 和 owner 已独立 | 完整 KEEP；不会读旧 Platforms.SDS、cookie 自动恢复或全局 Redis key |
-| 旧前端 /api/sds/* | 4 个 Next GET route 自动注册并经 shared.ts 指向旧 /api/v1/sds；无当前 Workbench 页消费者。旧 schema 仅自测，types 仅这些 route/schema 与 recent-variants helper，helper 仅自测 | 10 个旧 BFF/DTO/schema/cache 工件同退；不能把自动路由当成普通零引用文件忽略 |
-| 当前 SDS Workbench | workbench/supply/catalogs/sds 页面使用 components/workbench/pod、lib/contracts/pod、lib/api/pod 及当前 service BFF | KEEP 当前目录/合同/权限；共享 lib/server/upstream-identity.ts 及全部有效身份转发测试 KEEP |
+| 旧前端 /api/sds/* | 4 个 Next GET route 自动注册并经 shared.ts 指向旧 /api/v1/sds；无当前 Workbench 页消费者。旧 schema 仅自测，types 仅这些 route/schema 与 recent-variants helper，helper 仅自测 | 12 个旧 BFF/DTO/schema/cache/解析工件及闲置请求类型同退；不能把自动路由当成普通零引用文件忽略 |
+| 当前 SDS Workbench | workbench/supply/catalogs/sds 页面使用 components/workbench/pod、lib/contracts/pod、lib/api/pod 及当前 service BFF | KEEP 当前目录/合同/权限；共享 lib/server/upstream-identity.ts 的运行行为及全部有效身份转发测试 KEEP；仅旧四路由消费的 AuthenticatedUpstreamRequest 三行闲置类型依用户例外 RETIRE |
 | 专属手工工具 | wrapper → cloakbrowser-poc package scripts → 两 SDS 登录脚本；整个 package manifest/lock 只服务这两入口 | 5 源工件同退；共享浏览器/当前采集/SHEIN 不依赖该 Node 工具目录 |
 | 混合配置/启动尾部 | Platforms.SDS / EffectiveSDSAuthRedis / LoginServiceConfig 和两个 builder 的生产消费者只在旧闭包；UI launcher 只额外写两个旧 SDS API base | 只移除精确旧尾部，保留当前 Redis/Browser/SHEIN/POD 配置与启动路径 |
 | 共享路由策略 SDS 专属尾部 | authz/httpapi/route_authorization.go 仍有旧 SDS health public 例外、sds/sds-login 模块识别及 sds-login 平台管理员映射；全追踪 Go 检索除旧模块/原guard外无对应descriptor，当前 POD module=supply-market且显式AuthPolicyCurrentIdentity/Permission | 仅删除这些旧 SDS 声明；不改共享认证/授权算法或当前路由策略 |
@@ -133,7 +135,7 @@ internal/sdslogin/service_test.go
 internal/sdslogin/types.go
 ```
 
-### 5.2 RETIRE：18 个专属尾部工件
+### 5.2 RETIRE：20 个专属尾部工件
 
 ```text
 hack/debug/test-sds/main.go
@@ -151,6 +153,8 @@ web/listingkit-ui/src/app/api/sds/shared.ts
 web/listingkit-ui/src/app/api/sds/shipment-areas/route.ts
 web/listingkit-ui/src/lib/api/sds-products-schema.ts
 web/listingkit-ui/src/lib/api/sds-products-schema.test.ts
+web/listingkit-ui/src/lib/api/api-error.ts
+web/listingkit-ui/src/lib/api/response-schema.ts
 web/listingkit-ui/src/lib/types/sds.ts
 web/listingkit-ui/src/lib/utils/sds-recent-variants.ts
 web/listingkit-ui/src/lib/utils/sds-recent-variants.test.ts
@@ -158,7 +162,7 @@ web/listingkit-ui/src/lib/utils/sds-recent-variants.test.ts
 
 只删精确追踪源，不删除 hack/debug 父模块/go.mod/go.sum、tools 父根、sds/adapter 或 sds 父根，不清 ignored 目录。专属 PoC 的两个 package 文件属于本次退休源，不授权其它依赖/锁的 tidy/升级/删除。
 
-### 5.3 12 个混合源：只去旧尾部
+### 5.3 13 个混合源：只去旧尾部
 
 | 文件 | 准确退出对象 | 保留 |
 | --- | --- | --- |
@@ -173,6 +177,7 @@ web/listingkit-ui/src/lib/utils/sds-recent-variants.test.ts
 | scripts/start-listingkit-local-ui.ps1 | Set-UiApiBases 中 SDS_API_BASE/SDS_LOGIN_API_BASE 两项赋值 | 当前 UI/loopback/身份/token handoff、其它 API base 和启动流程 |
 | scripts/start-listingkit-local-ui.Tests.ps1 | 同一场景 names 中两个 SDS 项及两项断言 | 测试本体、环境恢复、loopback 拒绝、其它 API base/身份/启动检查 |
 | internal/authz/httpapi/route_authorization.go | RouteRequiresZitadelAuth 的 GET /api/v1/sds-login/health 例外、return表达式的 sds/sds-login 两模块项；routeRequiredPermission 的 sds-login case | 显式 AuthPolicy 优先级、SHEIN health、其它模块/permission、SMS callback/HMAC边界、角色/组织authorizer及全部错误响应；不改当前POD显式身份/权限 |
+| web/listingkit-ui/src/lib/server/upstream-identity.ts | 仅三行闲置 AuthenticatedUpstreamRequest 类型，旧四 SDS route 是其全部消费者；用户已明确允许该准确 KEEP 例外 | 全部运行行为、其它类型/导入及全部原身份/权限/租户测试 |
 
 不扩展 retired runtime reject registry 或引入兼容键/替代配置。删除后旧键不会被当前 owner 使用；原未知键/环境解析语义保持。确认实施时以 AST/配置文本检查保护准确字段/default/env 不复活。
 
@@ -194,7 +199,7 @@ internal/sds/adapter/product_source/model.go
 ```
 
 - `internal/integration/sds/**`、`internal/app/pod/**`、`internal/product/pod/**`、`internal/app/runtime/currentapplication/pod_credentials.go`/`supply_market.go` 及当前 POD worker/HTTP/Console、credential 安全/准入/合成协议测试保持；当前 UI `workbench/supply/catalogs/sds/**`、`components/workbench/pod/**`、`lib/contracts/pod.ts`、`lib/api/pod.ts` 和当前 service BFF 保持。
-- `web/listingkit-ui/src/lib/server/upstream-identity.ts` 及全部有效测试保持。测试请求中用 /api/sds/products 作为普通合成 URL 不代表依赖旧 route handler，保留原身份/租户测试，不为文本同名而删除。
+- `web/listingkit-ui/src/lib/server/upstream-identity.ts` 的全部运行行为及全部有效测试保持；仅按用户确认例外删除三行闲置 AuthenticatedUpstreamRequest 类型，其余内容零改。测试请求中用 /api/sds/products 作为普通合成 URL 不代表依赖旧 route handler，保留原身份/租户测试，不为文本同名而删除。
 - 当前采集/1688/Amazon 来源、图像/百炼图片参数/风险判断、有效平台 API/DTO/规则、AI/prompt/Asset/预算、MappingInfo、两种 SHEIN 属性、PriceManager/PriceCalculator、原规范化/hash/JSON 零值槽位、Store 观察同步、当前身份/计费、独立 SHEIN 登录与 Store 同步及 UNKNOWN/fence 全保留。
 - 当前 DB/Goose、原生 Redis/core/config.RedisConfig、共享 browser/CloakBrowser、workerpool/通用队列/Retry/Temporal、共享 http/image/json/logging 等保留。其它零默认 importer 的显式保留 API/规则、localagent/Prompt/其它集成不纳入本次。
 - 无新 EXTRACT：当前行为已归现有 owner；保留 product_source 原包而非复制/搬迁。若刷新后发现必须抽取的新有效规则，先明确具体行为/owner并报告，不能实现时临时拓展设计。
@@ -220,14 +225,15 @@ Cutover/deletion condition: §1–§7（含 §6.1 四条 CURRENT 行）经复核
 
 | 对象 | 同批最小校准 | 不得改变 |
 | --- | --- | --- |
-| tests/listingkit_backend_retirement_test.go | 复用原工具增加 §5 的79工件/九旧包精确缺席、生产/测试 decoded imports 禁入、混合配置 owner 顶层声明/字段及 YAML/default/env 缺席；adapter 仅 parent package 禁入，product_source 明确保留；三个当前入口旧依赖退出 | 全部先前退休/安全合同、读取/解析/依赖失败报错；不 missing-skip、不用 dummy/alias 满足检查 |
+| tests/listingkit_backend_retirement_test.go | 复用原工具增加 §5 的81工件/九旧包精确缺席、生产/测试 decoded imports 禁入、混合配置 owner 顶层声明/字段及 YAML/default/env 缺席；adapter 仅 parent package 禁入，product_source 明确保留；三个当前入口旧依赖退出 | 全部先前退休/安全合同、读取/解析/依赖失败报错；不 missing-skip、不用 dummy/alias 满足检查 |
 | tests/import_boundaries_test.go / TestSDSClientRetiredManagementImportsStayBlocked | 旧 root 必须读取的管理禁入检查转为更强 client 根缺席/全追踪 decoded import 禁入保护，可复用同批 guard，保持原测试名以保留文档引用 | 不能简单忽略不存在目录；原其它 management/tenant/SDK/decoded import 检查不动 |
 | 同文件 businessHTTPPackages | 仅移除 sds/httpapi 和 sdslogin 两项已退出 HTTP 允许前缀 | 当前 HTTP owner/所有其它允许拒绝项、解析逻辑不改 |
 | 同文件旧 route helper bans | 保留 /api/v1/sds/、/api/v1/sds-login/、appendSDS* 等旧 helper/alias/module 禁止项；将“委派旧 module”的陈旧失败说明改成旧路由已退休、保留当前 POD route owner | 不能删禁止条件或恢复旧路由；SHEIN 有效模块与其它检查保持 |
 | 同文件 listingkit_support 精确 import allowlist | 仅删旧 sds/usecase 允许项 | 其它条目/静态解析/错误处理保持；已退休 helper不能复活 |
 | phase3 product/depguard/repository_structure | **零改**：sds 根仍含 product_source，原 platform-neutral/product边界扫描有效；sdslogin/data 不得出现及 .local artifact fixture 仍是有效负例 | .golangci.yml、SDK边界、字面量decoder、build-target扫描、本地数据检测继续有效 |
 | internal/core/config 原测试/退休 guard | 按 §5.2/§5.3 删除专属自测/fixture；在原 guard 精确保护旧 Platforms.SDS/类型/builder/default/env 退出 | Viper、RedisConfig/Config.Redis、Browser/SHEIN/当前POD、安全/身份测试及 retired registry语义保持 |
-| web src/test/legacy-ui-retirement.test.ts | 原 absence/import/request-target 设施覆盖10个旧工件、旧 route/helper/type imports及旧请求目标，负例不得匹配当前 /api/service/pod 或 Workbench 页面 | 共享 upstream identity全部原测试与当前 POD/Collection/permission 合同；不删基于通用URL的身份安全用例 |
+| web src/test/legacy-ui-retirement.test.ts | 原 absence/import/request-target 设施覆盖12个旧工件、旧 route/helper/type imports及旧请求目标，负例不得匹配当前 /api/service/pod 或 Workbench 页面 | 共享 upstream identity全部运行行为/原测试与当前 POD/Collection/permission 合同；不删基于通用URL的身份安全用例 |
+| upstream-identity 原共享模块/原退休guard | 仅删除用户确认的三行闲置类型；原Go退休guard保护该类型名缺席，原前端guard补两个解析文件缺席/禁入 | 共享身份运行实现、Session/NextRequest仍用导入、全部有效测试；不把闲置类型例外扩展为身份重构 |
 | UI launcher 原Pester | 仅 §5.3 两env项/断言退出，保留原合成fixture和环境恢复；通过原适用检查验证，不调用启动应用/真实凭据 | token handoff、loopback/权限拒绝、当前 UI/其它入口 |
 | authz/httpapi 原策略/测试与原退休guard | §5.3精确移除SDS-only路径/module/permission声明；在原退休guard保护route_authorization.go这四个准确旧字符串缺席，保留原策略单测和当前POD descriptor检查 | TestRoutePolicyPreservesVerifiedIdentityAndExplicitPublicAuthority、TestRoleMiddlewareUsesVerifiedContextAndOriginalPermissionPolicy完整保留；现有身份/权限/组织/拒绝、SHEIN和SMS规则不变，不把修改泛化成auth重构 |
 | internal/sds/README.md | 顶部加窄历史适用注记与当前 product_source/integration/sds/POD owner 链接，旧说明不再是操作入口 | 2026-04-23及后续历史正文/真实样本不重写，不复核真实状态 |

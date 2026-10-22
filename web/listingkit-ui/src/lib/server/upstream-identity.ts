@@ -13,9 +13,6 @@ import { readZitadelServerAccessToken } from "@/lib/server/zitadel-server-token"
 import { logRequestInfo, logRequestWarn } from "@/lib/server/request-log";
 
 export type VerifiedIdentity = ZitadelVerifiedIdentity;
-export type AuthenticatedUpstreamRequest = NextRequest & {
-  auth: Session | null;
-};
 export type VerifiedIdentityResult =
   | {
       identity?: VerifiedIdentity;

@@ -114,6 +114,8 @@ func TestLegacySDSRuntimeClosureIsRetired(t *testing.T) {
 		"web/listingkit-ui/src/app/api/sds/shipment-areas/route.ts",
 		"web/listingkit-ui/src/lib/api/sds-products-schema.ts",
 		"web/listingkit-ui/src/lib/api/sds-products-schema.test.ts",
+		"web/listingkit-ui/src/lib/api/api-error.ts",
+		"web/listingkit-ui/src/lib/api/response-schema.ts",
 		"web/listingkit-ui/src/lib/types/sds.ts",
 		"web/listingkit-ui/src/lib/utils/sds-recent-variants.ts",
 		"web/listingkit-ui/src/lib/utils/sds-recent-variants.test.ts",
@@ -206,8 +208,9 @@ func TestLegacySDSRuntimeClosureIsRetired(t *testing.T) {
 		}
 	}
 	for path, retired := range map[string][]string{
-		"internal/authz/httpapi/route_authorization.go": {`"/api/v1/sds-login/health"`, `"sds"`, `"sds-login"`},
-		"scripts/start-listingkit-local-ui.ps1":         {"SDS_API_BASE", "SDS_LOGIN_API_BASE"},
+		"web/listingkit-ui/src/lib/server/upstream-identity.ts": {"AuthenticatedUpstreamRequest"},
+		"internal/authz/httpapi/route_authorization.go":         {`"/api/v1/sds-login/health"`, `"sds"`, `"sds-login"`},
+		"scripts/start-listingkit-local-ui.ps1":                 {"SDS_API_BASE", "SDS_LOGIN_API_BASE"},
 	} {
 		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(path)))
 		if err != nil {

@@ -24,6 +24,7 @@ describe("retired Task-first frontend", () => {
     "lib/query/use-child-task-retry.ts", "lib/api/submit.ts", "lib/listingkit",
     "lib/api/generated",
     "app/api/sds", "lib/api/sds-products-schema.ts", "lib/api/sds-products-schema.test.ts",
+    "lib/api/api-error.ts", "lib/api/response-schema.ts",
     "lib/types/sds.ts", "lib/utils/sds-recent-variants.ts", "lib/utils/sds-recent-variants.test.ts",
   ])("keeps source files under %s physically absent", (relative) => {
     const target = path.join(sourceRoot, relative);
@@ -48,7 +49,7 @@ describe("retired Task-first frontend", () => {
   });
 
   it("keeps current sources free of old SDS imports and request targets", () => {
-    const retired = /(?:@\/(?:app\/api\/sds|lib\/types\/sds|lib\/api\/sds-products-schema|lib\/utils\/sds-recent-variants)(?:\/|["'])|["'`]\/(?:api\/sds|api\/v1\/sds(?:-login)?)(?:\/|["'`?]))/;
+    const retired = /(?:@\/(?:app\/api\/sds|lib\/types\/sds|lib\/api\/(?:sds-products-schema|api-error|response-schema)|lib\/utils\/sds-recent-variants)(?:\/|["'])|["'`]\/(?:api\/sds|api\/v1\/sds(?:-login)?)(?:\/|["'`?]))/;
     const consumers = productionSources(sourceRoot).filter((file) =>
       retired.test(readFileSync(file, "utf8")),
     ).map((file) => path.relative(sourceRoot, file));
