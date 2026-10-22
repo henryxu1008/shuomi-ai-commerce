@@ -20,6 +20,80 @@ var retiredHostRuntimePackages = []string{
 	"internal/app/lifecycle", "internal/core/errors", "internal/app/ports", "internal/app/updater",
 }
 
+var retiredListingPreviewDownloadPackages = []string{
+	"internal/listing/preview", "internal/listing/platform", "internal/pkg/downloader",
+}
+
+func assertLegacyListingPreviewDownloadSourcesRetired(t *testing.T) {
+	t.Helper()
+	for _, relative := range append(slices.Clone(retiredListingPreviewDownloadPackages),
+		"internal/listing/export", "internal/listing/revision", "internal/listing/settings", "internal/listing/workflow") {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Errorf("retired listing preview/download owner %s must be absent: %v", relative, err)
+		}
+	}
+	// Parse every tracked target, including tests and the independent debug module.
+	// Import literals are decoded; aliases and escaped/raw strings cannot bypass it.
+	for _, relative := range trackedFiles(t, ".") {
+		if !strings.HasSuffix(relative, ".go") {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(relative)), nil, parser.ImportsOnly)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, spec := range file.Imports {
+			imported, err := decodeGoImportPath(spec.Path.Value)
+			if err != nil {
+				t.Fatalf("decode import in %s: %v", relative, err)
+			}
+			for _, retired := range retiredListingPreviewDownloadPackages {
+				if importMatchesPrefix(imported, "task-processor/"+retired) {
+					t.Errorf("%s imports retired listing preview/download owner %s", relative, imported)
+				}
+			}
+		}
+	}
+}
+
+func TestLegacyListingPreviewDownloadClosureIsRetired(t *testing.T) {
+	assertLegacyListingPreviewDownloadSourcesRetired(t)
+	rule, ok := loadDepguardRules(t, filepath.Join("..", ".golangci.yml"))["listing_preview_platform_neutral"]
+	if !ok || !reflect.DeepEqual(rule.Files, []string{"**/*.go"}) {
+		t.Fatal("listing_preview_platform_neutral must block retired imports across production Go files")
+	}
+	var wantDenied []string
+	for _, retired := range retiredListingPreviewDownloadPackages {
+		wantDenied = append(wantDenied, "task-processor/"+retired+"$", "task-processor/"+retired+"/")
+	}
+	denied := depguardDenyPackageSet(rule)
+	if len(denied) != len(wantDenied) {
+		t.Errorf("retired preview/download depguard must only deny %v, got %v", wantDenied, denied)
+	}
+	for _, imported := range wantDenied {
+		if _, exists := denied[imported]; !exists {
+			t.Errorf("retired preview/download depguard must deny %s", imported)
+		}
+	}
+	for _, command := range []string{"current-application", "shein-login-worker", "image-agent-temporal-worker"} {
+		t.Run(command, func(t *testing.T) {
+			cmd := exec.Command("go", "list", "-deps", "./cmd/"+command)
+			cmd.Dir = ".."
+			output, err := cmd.CombinedOutput()
+			if err != nil {
+				t.Fatalf("go list current command: %v\n%s", err, output)
+			}
+			for _, dependency := range strings.Fields(string(output)) {
+				for _, retired := range retiredListingPreviewDownloadPackages {
+					if importMatchesPrefix(dependency, "task-processor/"+retired) {
+						t.Errorf("%s still compiles retired listing preview/download dependency %s", command, dependency)
+					}
+				}
+			}
+		})
+	}
+}
+
 func TestLegacySDSRuntimeClosureIsRetired(t *testing.T) {
 	retiredPackages := []string{
 		"internal/sds/client", "internal/sds/template", "internal/sds/design",

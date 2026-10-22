@@ -1,3 +1,5 @@
+> #301 / #891 [confirmed complete preview/download retirement](legacy-listing-preview-download-closure-retirement-boundary.md): unused Task preview/platform assembly, listing downloader and unimplemented directory declarations are source-retired. Current Product/Catalog/Asset and real Listing contracts retain their owners. The original preview guard and its single depguard rule now enforce retired-package import bans/source absence across production and decoded test/debug/build-target imports. Other checks, workflows, dependencies, historical counts/ceilings and current capabilities remain; inventory only drops the approved logger-to-downloader CURRENT row. Independent SHEIN login and Store sync remain; no runtime/data/credential/process operation or new trial prerequisite.
+
 # Project Boundary Rules
 
 > #301 / #885：按用户确认的[完整旧 SDS 退休边界](legacy-sds-runtime-closure-retirement-boundary.md)退出旧登录、catalog/design/sync、BFF、配置/工具及 SDS 专属授权尾部。`TestSDSClientRetiredManagementImportsStayBlocked` 现在保护整旧 client 的源缺席/禁入，原管理 seam 不再保留；现役 `sds/adapter/product_source`、当前 `integration/sds`/POD/Submission/Asset 和独立 SHEIN 登录/Store 同步保持原 owner。旧 HTTP 允许项和准确策略声明删除不改变显式 AuthPolicy/Permission、组织授权、SHEIN/SMS规则或其它必需检查。历史设计/计数、workflow/保护不改，inventory只删用户授权的四条CURRENT行；无运行/数据/凭据/进程操作或新试用前置。
@@ -546,7 +548,7 @@ Use this table when adding new code:
 | Request parsing / response writing | API package owned by the current module |
 | Internal task lifecycle / workflow orchestration | existing runtime owner (Temporal/queue) and `internal/listing/*` contracts; no new legacy Task owner |
 | User-visible BusinessTask | #298 Product Projection; never a renamed internal Task |
-| Platform-neutral preview rules | `internal/listing/preview`; see `listing-preview-boundaries.md` |
+| Platform-neutral preview rules | Current Product/Catalog/Asset and Listing owners; old Task preview/platform are RETIRED; see `legacy-listing-preview-download-closure-retirement-boundary.md` |
 | Legacy preview facade / task-result aggregation | EXTRACT valid behavior to the current Listing owner, then RETIRE the facade |
 | Export aggregation / revision history | current Listing/domain owner; extract valid behavior, do not extend legacy shells |
 | Submission state / retry / recovery | `internal/listing/submission`; do not recreate `internal/listingkit/submission` |

@@ -1,16 +1,17 @@
 # Listing Domain
 
-This directory is the long-term home of listing-task orchestration.
+Current listing contracts keep their existing owners:
 
-Planned ownership:
+- `preparation` transfers selected Collection items into preparations; `materials`
+  and `completiondraft` own the current material/draft contracts.
+- `record` owns listing records and their read contracts; `task` retains only the
+  authenticated, tenant/owner-scoped canonical-subject lookup contract.
+- `submission` retains the current execution intents, receipts and platform
+  effect contracts. `readiness` and `sourcefacts` retain pure readiness rules.
 
-- task lifecycle
-- workflow entrypoints
-- preview aggregation
-- export aggregation
-- revision coordination
-- submission orchestration
-- studio orchestration
-- settings orchestration
-
-During migration, legacy `internal/listingkit` code should move here in bounded slices.
+Product facts and approved assets stay in `internal/product/catalog` and
+`internal/product/asset`; source/approval lineage is not owned by a Task preview.
+The unused preview/platform assembly and export/revision/settings/workflow
+placeholders are source-retired under the [confirmed #301 boundary](../../docs/architecture/legacy-listing-preview-download-closure-retirement-boundary.md).
+Do not migrate the legacy ListingKit facade or create a replacement Task lifecycle.
+Current capabilities, including independent SHEIN login and Store sync, remain.

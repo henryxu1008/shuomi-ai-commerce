@@ -1,3 +1,5 @@
+> #301 / #891 narrowly supersedes this document's historical KEEP of `internal/pkg/downloader`: its complete unused listing download/anti-bot/random-fingerprint closure is source-retired under the [confirmed boundary](legacy-listing-preview-download-closure-retirement-boundary.md). Current image decoding/encoding, filling/upload, ImageAgent/SRC and SHEIN API downloads, shared httpclient/TLS, acquisition, Store and independent SHEIN login/Store sync remain with their existing owners. Only the obsolete package's KEEP is superseded; the original historical body and evidence below are preserved verbatim. No runtime/data/credential/process operation or new trial prerequisite.
+
 # 剩余旧 TEMU 图片构建、标注与上传子链退休边界设计
 
 > 后续用户已确认 [#819 TEMU剩余整链边界](legacy-temu-listing-closure-retirement-boundary.md) §5/§6/§6.1/§7。本文件对该闭包内旧 TEMU AI/SKU/spec、PriceHandler/PriceCalculator、property/context/TemplateState、pipeline/skugen及专属纯规则/管理投影/prompt的保留描述仅为历史边界，现由#819精确替代；当前平台API/规则、共享合同、SHEIN价格/两属性、采集/图像/Store观察与独立SHEIN登录/Store同步继续保留。原证据不改，不授权实例或数据操作。

@@ -334,7 +334,6 @@ internal wiring is intentionally excluded; no other package class is excluded.
 | `task-processor/internal/core/logger` | `task-processor/internal/crawler/shared/browser` | crawler business consumer | product + marketplace / Phases 3-4 |
 | `task-processor/internal/core/logger` | `task-processor/internal/localagent` | agent business consumer | agent owner / Phase 6 |
 | `task-processor/internal/core/logger` | `task-processor/internal/pkg/appenv` | runtime-support debt | app retirement / Phase 8 |
-| `task-processor/internal/core/logger` | `task-processor/internal/pkg/downloader` | mixed business helper | product + marketplace / Phases 3-4 |
 | `task-processor/internal/core/logger` | `task-processor/internal/prompt` | agent business consumer | agent owner / Phase 6 |
 | `task-processor/internal/core/logger` | `task-processor/internal/publishing/shein` | marketplace business consumer | marketplace owner / Phase 4 |
 | `task-processor/internal/core/logger` | `task-processor/internal/shein/client` | marketplace business consumer | marketplace owner / Phase 4 |

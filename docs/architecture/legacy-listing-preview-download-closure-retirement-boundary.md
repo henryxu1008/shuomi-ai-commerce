@@ -1,6 +1,6 @@
 # #301 旧 Task 预览与刊登素材辅助尾部完整退休设计
 
-Status: **PROPOSED / DESIGN_ONLY / 源码 NOT_READY**。本轮仅核对和交付设计，尚未获本矩阵的源码实施授权；设计 CI、评审或旧批次授权均不替代用户确认。#301 保持 OPEN，#29 不重开。准确设计 HEAD、CI 和评审证据写关联 PR，不在本文滚动追加 SHA。
+Status: **USER_CONFIRMED / SOURCE_IMPLEMENTED**。用户已确认冻结设计 **7c2c7e3b62471491bd6f7f396ab7330ffa735123** §1–§7（含§6.1），[Issue准入/归档](https://github.com/qq550723504/shuomi-ai-commerce/issues/301#issuecomment-6340083885)及[PR准入](https://github.com/qq550723504/shuomi-ai-commerce/pull/891#issuecomment-6340084358)和两处 Ready 读回先于生产修改。设计阶段 N/A，本轮 **Design Basis: Reuse Existing Architecture / Ready**；唯一Writer已按47专属工件/15精确尾部整批实施，无新EXTRACT/替代owner。原guard先RED后GREEN，准确实现HEAD/必要自检/原CI及最终交付检查留PR，不冒充运行/用户验收。#301 OPEN，#29不重开。
 
 调查基线：main **eb5b1e06deb529fe04a1e3bf416d8ed9f67fdb0f**，同一仓库 ID 1108239623 已由原 owner 更名为 shuomi-ai-commerce。#885 已正常合并，实际 merge 0b683911dc84b0bfe8bd82d4e2dc190b0596d08b 的 push/main CI39763961555 attempt1 完整 SUCCESS；这是前批完成证据，不是本设计或未来实现的 CI。
 
@@ -10,13 +10,13 @@ Status: **PROPOSED / DESIGN_ONLY / 源码 NOT_READY**。本轮仅核对和交付
 
 本批一次覆盖两个已经失去消费者的旧刊登分支及完整专属尾部：Task 预览/平台 section 拼装，以及刊登素材 downloader/随机指纹扰动；连同四个未实现目录声明、唯一外部测试尾部、原 guard/lint 和直接文档一起收口。它们不构成一条仍运行的业务链，不编造新的共同运行 owner；同批完成源退和过时 owner 声明清理，不按包、文件数、测试或评审机械拆 PR。
 
-设计阶段只改本文、Architecture 索引和 Legacy Register 的 PROPOSED 注记，生产源码、测试、配置、workflow、inventory、依赖和保护规则零改。未来实施范围仅为 §5/§6.1 的具体矩阵，用户确认并完成 Issue/PR Ready 读回后，同一 Writer 在同一 PR 连续实施。
+设计阶段仅本文及两个PROPOSED索引/登记；用户确认及Issue/PR Ready读回后，同一Writer在同一PR按§5/§6.1整批实施。inventory仅获准一条CURRENT，workflow/依赖/锁/保护及其它检查不改；设计阶段零源码diff的证据保留PR。
 
 仅检查 Git 追踪源码、文档、样例结构和依赖元数据。不运行旧 downloader/构造器、网络探测、图片处理、脚本、浏览器、应用、worker、provider、数据库或 Redis；不读取实际凭据、私密状态、配置值、日志或旧输出，不操作既有实例、数据、凭据或进程，不清理 ignored 目录/文件。#301 不关单，不增加内部试用前置；合并、部署、运行/用户验收另行授权。
 
 ## 2. Design Basis、Authority 与不变量
 
-本轮 **Design Basis: N/A**：只读调查与三份文档，不改变产品、领域、状态、权限、持久化或外部副作用语义。未来源码拟采用 **Reuse Existing Architecture**，目前 NOT_READY，依据：
+设计阶段 **Design Basis: N/A**；用户确认和Ready读回后，本轮 **Reuse Existing Architecture / Ready**。当前owner/产品/领域/状态/权限/持久化/外部副作用语义保持，依据：
 
 - [Greenfield 产品决定](../product/greenfield-no-legacy-migration.md)、[Hard-Cut Policy](../refactoring/legacy-hard-cut-policy.md)、[Legacy Register](../refactoring/legacy-register.md)、[项目边界](project-boundaries.md)和[Issue 驱动规则](../engineering/issue-driven-development.md)。旧内部 Task/Workspace 不是当前产品 authority，不包装、迁移或复活。
 - [当前完整来源业务闭环](source-business-closure-v1.md)：来源输入、Catalog/Collection lineage、刷新/读取、显式资产批准与 readiness 已由当前 owner 承担，不由旧 preview.Attachment 或 Task 预览建立第二事实源。
@@ -74,14 +74,14 @@ Must：§5 完整退出；当前能力及业务/权限/隔离/确定性合同保
 | internal/pkg/downloader（4） | anti_bot.go; image_downloader.go; image_downloader_test.go; image_processor.go | 全退增强下载/风控重试/随机指纹扰动及专属构造测试 |
 | 旧空目录声明（4） | internal/listing/export/README.md; internal/listing/revision/README.md; internal/listing/settings/README.md; internal/listing/workflow/README.md | 撤回旧 Task 迁移占位，不新增对应目录/实现 |
 
-**混合尾部与文档**：仅 §6.1 明确的 15 文件，同一 PR 收齐；与47个专属工件合计62文件。设计阶段只其中三份设计文档有变更，其余尚未应用。
+**混合尾部与文档**：仅 §6.1 明确的15文件，与47专属工件合计62文件，已在同一PR整批应用；设计阶段三文档及其CI/复核证据保留PR。
 
 **KEEP**：当前 Product Catalog/Sourcing/Collection/Asset，readiness/sourcefacts，Listing record/preparation/materials/completiondraft/submission 以及 task/canonical_subject.go 和其测试；当前平台 API/DTO/规则、AI/SKU/spec/MappingInfo、两种 SHEIN 属性、PriceManager/PriceCalculator、规范化/hash/四个 JSON 零值槽位；当前身份/计费、采集/1688/Amazon 来源、图像/风险判断/百炼参数、Store、通用 DB/Redis/队列/Retry/Temporal/workerpool/http/image/logging，以及独立 SHEIN 登录/Store 同步/UNKNOWN/fence。路径里出现 Task/preview/image 等词不足以删除真实当前消费者。
 
 **EXTRACT：无新增代码**。当前有效行为已经由上述 owner 提供；BuildAttachment 不承载新的规则，不为两项自身比较断言创造值对象。共享 net/http、httpclient 的 TLS 和图像编码能力原位保留，不复制旧 downloader，不把退役包改造成通用下载器。
 
 ```text
-Legacy decision: RETIRE（拟议，待本设计具体确认）
+Legacy decision: RETIRE（用户确认，已整批源码实施）
 Reusable behavior: 当前 Catalog/Asset/Listing/图像/下载/平台规则原 owner 保留，无新 EXTRACT
 Current owner: product/*、listing 当前真实包、imageagent、当前 SRC/crawler/transport、平台 API 和独立 SHEIN/Store
 Cutover/deletion condition: §1–§7/§6.1 获用户确认及 Ready 读回；刷新无保留消费者；47专属工件和15精确尾部整批退出，原必需检查有效；不操作物理状态
@@ -99,7 +99,7 @@ Cutover/deletion condition: §1–§7/§6.1 获用户确认及 Ready 读回；�
 
 ### 6.1 原检查、直接文档、inventory 与 workflow 精确处置
 
-本节全部为**未来提案**，设计阶段未改以下源/测试/lint/inventory。用户具体确认本节后，以下15文件与47专属工件在同一 PR 完成：
+本节为**用户确认的准确实施边界，已整批应用**；设计阶段零源/测试/lint/inventory diff证据留PR。以下15文件与47专属工件在同一PR完成：
 
 | 文件 | 同批最小处置 | 保留条件 |
 | --- | --- | --- |
@@ -119,7 +119,7 @@ Cutover/deletion condition: §1–§7/§6.1 获用户确认及 Ready 读回；�
 | docs/refactoring/legacy-register.md | PROPOSED 注记转为确认的准确 RETIRE/KEEP 与本设计链接，旧 preview adapter 行中“当前 preview”的有效性仅由窄 supersession 取代 | 旧登记行/历史正文保留，不授权其它 legacy 复活或扩大删除 |
 | 本文 | 只更新实际确认/Ready/源码阶段及准确范围；新增真实消费者或边界问题按 §7 停止 | 本文不是运行验收，也不替代 PR 中准确 HEAD/证据 |
 
-唯一提议删除的 CURRENT 行（设计阶段零改）：
+用户准确确认且已删除的唯一 CURRENT 行（设计阶段零改证据保留）：
 
 ```text
 | `task-processor/internal/core/logger` | `task-processor/internal/pkg/downloader` | mixed business helper | product + marketplace / Phases 3-4 |
@@ -129,7 +129,7 @@ Cutover/deletion condition: §1–§7/§6.1 获用户确认及 Ready 读回；�
 
 ## 7. 实施准入、停止与关闭边界
 
-1. 当前停在设计交付；具体 §1–§7（含 §6.1 一条 CURRENT 与单条 depguard 转换）经适用复核和用户确认后，更新并读回 #301/PR 的 Reuse Existing Architecture / Ready，再允许生产源码修改。同一 Writer/同一主要 PR，不派生常驻并行实现者，不机械拆小批。
+1. 冻结设计§1–§7（含§6.1一条CURRENT与单条depguard转换）已获用户明确确认；#301/PR Reuse Existing Architecture / Ready更新及读回先于生产修改。同一Writer/同一主要PR整批实施，不机械拆批；准确源码CI/最终交付检查后再交合并授权。
 2. 形成最终源码候选前核对实际 main/保留消费者，处理真实组合风险；不为“始终最新”持续同步或重复 AI 全审。准确 final HEAD 的原 CI/交付检查后再交合并授权。
 3. 若发现当前入口、HTTP/前端/脚本/独立模块或具体外部可观察合同仍需要这些包，报告具体用户操作、owner、最小缺口和成本；停止该删除，不自创 compatibility、双读/双写、fallback 或替代值模型。
 4. 若必须新增抽取规则、改变保留文件运行行为/权限/事实 owner/状态/恢复边界，先指出具体差异并取得设计决定；普通实现问题按 BLOCKER/IMPLEMENTATION_TEST/BACKLOG/ACCEPTED_RISK/NOT_APPLICABLE 分类，不无限重开全局架构。
