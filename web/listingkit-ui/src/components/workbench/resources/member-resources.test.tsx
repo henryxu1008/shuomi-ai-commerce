@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { MemberResources } from "./member-resources";
@@ -39,12 +39,10 @@ const member = {
   periods: position,
   dataRows: position,
 };
-function tree() {
+function tree(client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
   return (
     <QueryClientProvider
-      client={
-        new QueryClient({ defaultOptions: { queries: { retry: false } } })
-      }
+      client={client}
     >
       <MemberResources
         userId="actor"
@@ -57,6 +55,9 @@ function tree() {
 }
 beforeEach(() => {
   sessionStorage.clear();
+  state.read.mockReset();
+  state.balance.mockReset();
+  state.prices.mockReset();
   Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
     configurable: true,
     value: function () {
@@ -171,3 +172,106 @@ it("keeps departed member holdings visible and allows only reclaim", async () =>
   expect(screen.getByRole("button", { name: "回收资源" })).toBeEnabled();
   expect(screen.queryByText("未提供")).not.toBeInTheDocument();
 });
+
+const directoryKey = ["workbench", "actor", "org-1", "member-resources"];
+function directory(entry = member) {
+  return {
+    schemaVersion: "member-resource-directory-v1",
+    organizationId: "org-1",
+    observedAt: "2026-09-29T00:00:00Z",
+    members: [entry],
+  };
+}
+async function openTransfer(action: "分配资源" | "回收资源", client?: QueryClient) {
+  render(tree(client));
+  await screen.findByText("张琳");
+  await userEvent.click(screen.getByRole("button", { name: action }));
+  return within(screen.getByRole("dialog", { name: action }));
+}
+it.each(["store_renewal_period", "data_row"])(
+  "uses the refreshed %s holding for a new reclaim after debt repayment",
+  async (resourceType) => {
+    const updated = {
+      ...member,
+      periods: { ...position, free: "1", version: "2" },
+      dataRows: { ...position, free: "1", version: "2" },
+    };
+    state.write.mockImplementationOnce(async () => {
+      state.read.mockResolvedValue(directory(updated));
+      return { debtRepaid: "1", netCredit: "0" };
+    }).mockResolvedValue({ debtRepaid: "0", netCredit: "1" });
+    const dialog = await openTransfer("回收资源");
+    await userEvent.selectOptions(dialog.getByRole("combobox", { name: "资源类型" }), resourceType);
+    const input = dialog.getByRole("textbox", { name: /本次期数|本次条数/ });
+    await userEvent.type(input, "1");
+    await userEvent.click(dialog.getByRole("button", { name: "确认回收" }));
+    await dialog.findByText("已回收，偿还企业欠额 1，转入未分配余额 0。");
+    expect(screen.getByRole("table")).toHaveTextContent("1 条");
+    await userEvent.clear(input);
+    await userEvent.type(input, "2");
+    expect(dialog.getByRole("button", { name: "确认回收" })).toBeDisabled();
+    await userEvent.clear(input);
+    await userEvent.type(input, "1");
+    await userEvent.click(dialog.getByRole("button", { name: "确认回收" }));
+    expect(state.write).toHaveBeenCalledTimes(2);
+    expect(state.write.mock.calls[1][2]).toEqual({
+      resourceType, action: "reclaim", quantity: "1", expectedVersion: "2",
+    });
+    expect(state.write.mock.calls[1][3]).not.toBe(state.write.mock.calls[0][3]);
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  },
+);
+
+it.each(["pending", "error", "missing"])(
+  "does not submit from the old selection when the directory is %s",
+  async (result) => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const dialog = await openTransfer("回收资源", client);
+    await userEvent.type(dialog.getByRole("textbox", { name: /本次期数/ }), "1");
+    await waitFor(() => expect(dialog.getByRole("button", { name: "确认回收" })).toBeEnabled());
+    if (result === "pending") state.read.mockImplementation(() => new Promise(() => {}));
+    else if (result === "error") state.read.mockRejectedValue(new Error("directory unavailable"));
+    else state.read.mockResolvedValue({ ...directory(), members: [] });
+    await act(async () => {
+      const refresh = client.invalidateQueries({ queryKey: directoryKey });
+      if (result !== "pending") await refresh;
+    });
+    await waitFor(() => expect(dialog.getByRole("button", { name: "确认回收" })).toBeDisabled());
+    await userEvent.click(dialog.getByRole("button", { name: "确认回收" }));
+    expect(state.write).not.toHaveBeenCalled();
+    client.clear();
+  },
+);
+
+it("uses the current member version for an allocation after a directory refresh", async () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const dialog = await openTransfer("分配资源", client);
+  await userEvent.type(dialog.getByRole("textbox", { name: /本次期数/ }), "1");
+  state.read.mockResolvedValue(directory({ ...member, periods: { ...position, version: "2" } }));
+  await act(() => client.invalidateQueries({ queryKey: directoryKey }));
+  await waitFor(() => expect(dialog.getByRole("button", { name: "确认分配" })).toBeEnabled());
+  state.write.mockResolvedValue({ debtRepaid: "0", netCredit: "0" });
+  await userEvent.click(dialog.getByRole("button", { name: "确认分配" }));
+  expect(state.write.mock.calls[0][2].expectedVersion).toBe("2");
+});
+
+it.each(["分配资源", "回收资源"] as const)(
+  "keeps the original UNKNOWN %s command frozen across directory refresh",
+  async (action) => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    state.write.mockRejectedValueOnce(new MemberResourceError(502, "RESULT_UNVERIFIED", "unknown"))
+      .mockResolvedValue({ debtRepaid: "0", netCredit: "0" });
+    const dialog = await openTransfer(action, client);
+    await userEvent.type(dialog.getByRole("textbox", { name: /本次期数/ }), "1");
+    await waitFor(() => expect(dialog.getByRole("button", { name: /确认/ })).toBeEnabled());
+    await userEvent.click(dialog.getByRole("button", { name: /确认/ }));
+    await dialog.findByText(/操作结果未确认/);
+    const original = state.write.mock.calls[0];
+    state.read.mockResolvedValue(directory({ ...member, periods: { ...position, free: "1", version: "2" } }));
+    await act(() => client.invalidateQueries({ queryKey: directoryKey }));
+    await userEvent.click(dialog.getByRole("button", { name: "核验原操作" }));
+    expect(state.write).toHaveBeenCalledTimes(2);
+    expect(state.write.mock.calls[1]).toEqual(original);
+    expect(original[2].expectedVersion).toBe("1");
+  },
+);

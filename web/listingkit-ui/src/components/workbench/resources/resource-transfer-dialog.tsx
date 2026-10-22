@@ -25,12 +25,14 @@ type TransferCommand = {
 };
 export function TransferDialog({
   member,
+  memberAvailable,
   action,
   scope,
   onClose,
   onChanged,
 }: {
   member: MemberResourceEntry;
+  memberAvailable: boolean;
   action: "allocate" | "reclaim";
   scope: MemberResourceScope;
   onClose: () => void;
@@ -105,6 +107,7 @@ export function TransferDialog({
   const dataAmount = type === "data_row" && action === "allocate";
   const count = dataAmount ? (quote?.quantity ?? "") : quantity;
   const valid =
+    memberAvailable &&
     pending.ready &&
     resourceInteger.safeParse(count).success &&
     count !== "0" &&
@@ -230,13 +233,17 @@ export function TransferDialog({
       </label>
       <section className={styles.allocationSection}>
         <h3>{type === "data_row" ? "数据额度" : "续费期数"}</h3>
-        <p>
+        {memberAvailable ? <p>
           成员可用 {holding.free} {type === "data_row" ? "条" : "期"} ·{" "}
           {action === "allocate"
             ? `管理员可用 ${limit ?? "正在读取"}`
             : `本次可回收 ${limit}`}{" "}
           · 预留 {holding.reserved}
-        </p>
+        </p> : (
+          <p role="alert">
+            当前成员资源尚未确认，请等待读取完成；若读取失败，请关闭弹窗并刷新成员资源后重试。
+          </p>
+        )}
         {dataAmount ? (
           <>
             <label className={styles.dialogField}>

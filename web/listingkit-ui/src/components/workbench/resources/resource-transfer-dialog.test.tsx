@@ -30,7 +30,7 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); client.clear(); });
 async function open() {
-  render(<QueryClientProvider client={client}><TransferDialog member={member} action="allocate" scope={scope} onClose={vi.fn()} onChanged={vi.fn().mockResolvedValue(undefined)} /></QueryClientProvider>);
+  render(<QueryClientProvider client={client}><TransferDialog member={member} memberAvailable action="allocate" scope={scope} onClose={vi.fn()} onChanged={vi.fn().mockResolvedValue(undefined)} /></QueryClientProvider>);
   await userEvent.selectOptions(screen.getByRole("combobox", { name: "资源类型" }), "data_row");
   await screen.findByRole("option", { name: "data · 10 分/条" });
   await userEvent.type(screen.getByRole("textbox", { name: "分配金额（元）" }), "100");
