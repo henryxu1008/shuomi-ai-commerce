@@ -33,7 +33,6 @@ func TestUniqueCleanPathsPreservesFirstOccurrenceOrder(t *testing.T) {
 func TestNewViper_BindsPrimaryEnvironmentVariables(t *testing.T) {
 	t.Setenv("TASK_PROCESSOR_AMAZON_SPAPI_CLIENT_ID", "amzn-client")
 	t.Setenv("TASK_PROCESSOR_AMAZON_SPAPI_DEFAULT_MARKETPLACE", "ATVPDKIKX0DER")
-	t.Setenv("TASK_PROCESSOR_AMAZON_REMOTE_API_BASE_URL", "http://crawler.internal:8080")
 	t.Setenv("TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_API_KEY", "image-key")
 	t.Setenv("TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_BASE_URL", "https://image.example.test/v1")
 	t.Setenv("TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_API_STYLE", "nanobanana")
@@ -45,7 +44,6 @@ func TestNewViper_BindsPrimaryEnvironmentVariables(t *testing.T) {
 
 	assert.Equal(t, "amzn-client", v.GetString("amazon.spapi.clientID"))
 	assert.Equal(t, "ATVPDKIKX0DER", v.GetString("amazon.spapi.defaultMarketplace"))
-	assert.Equal(t, "http://crawler.internal:8080", v.GetString("amazon.remoteAPI.baseURL"))
 	assert.Equal(t, "image-key", v.GetString("openai.clients.image.apiKey"))
 	assert.Equal(t, "https://image.example.test/v1", v.GetString("openai.clients.image.baseURL"))
 	assert.Equal(t, "nanobanana", v.GetString("openai.clients.image.apiStyle"))
@@ -263,36 +261,6 @@ func TestNewViper_BindsRedisEnvironmentVariables(t *testing.T) {
 	assert.Equal(t, "redis.example", v.GetString("redis.host"))
 	assert.Equal(t, 6380, v.GetInt("redis.port"))
 	assert.Equal(t, "legacy-pass", v.GetString("redis.password"))
-}
-
-func TestNewViper_BindsSheinCookieRedisEnvironmentVariables(t *testing.T) {
-	t.Setenv("TASK_PROCESSOR_SHEIN_COOKIE_REDIS_HOST", "login-redis.example")
-	t.Setenv("TASK_PROCESSOR_SHEIN_COOKIE_REDIS_PORT", "6379")
-	t.Setenv("TASK_PROCESSOR_SHEIN_COOKIE_REDIS_PASSWORD", "cookie-pass")
-	t.Setenv("TASK_PROCESSOR_SHEIN_COOKIE_REDIS_DB", "9")
-
-	v := newViper()
-
-	assert.Equal(t, "login-redis.example", v.GetString("platforms.shein.cookieRedis.host"))
-	assert.Equal(t, 6379, v.GetInt("platforms.shein.cookieRedis.port"))
-	assert.Equal(t, "cookie-pass", v.GetString("platforms.shein.cookieRedis.password"))
-	assert.Equal(t, 9, v.GetInt("platforms.shein.cookieRedis.db"))
-}
-
-func TestNewViper_BindsSheinLoginServiceDefaultHeadlessEnvironmentVariable(t *testing.T) {
-	t.Setenv("TASK_PROCESSOR_SHEIN_LOGIN_SERVICE_DEFAULT_HEADLESS", "true")
-
-	v := newViper()
-
-	assert.True(t, v.GetBool("platforms.shein.loginService.defaultHeadless"))
-}
-
-func TestNewViper_BindsSheinLoginServiceForceHeadlessEnvironmentVariable(t *testing.T) {
-	t.Setenv("TASK_PROCESSOR_SHEIN_LOGIN_SERVICE_FORCE_HEADLESS", "true")
-
-	v := newViper()
-
-	assert.True(t, v.GetBool("platforms.shein.loginService.forceHeadless"))
 }
 
 func TestNewViper_BindsSDSLoginServiceEnvironmentVariables(t *testing.T) {

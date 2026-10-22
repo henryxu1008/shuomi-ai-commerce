@@ -102,3 +102,22 @@ func (m *qualityMetrics) Snapshot() map[string]any {
 		"target_context_check_error_by_region":     copyInt64Map(m.targetContextCheckErrorByRegion),
 	}
 }
+
+func copyInt64Map(src map[string]int64) map[string]int64 {
+	dst := make(map[string]int64, len(src))
+	for key, value := range src {
+		dst[key] = value
+	}
+	return dst
+}
+
+func normalizeMetricsRegion(region string) string {
+	switch region {
+	case "us", "uk", "de", "fr", "it", "es", "ca", "jp", "au", "mx", "br", "in", "ae", "sa":
+		return region
+	case "":
+		return "unknown"
+	default:
+		return region
+	}
+}

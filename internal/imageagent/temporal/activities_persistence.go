@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 	"task-processor/internal/imageagent"
 )
@@ -206,7 +207,7 @@ func (a *Activities) PersistRunState(ctx context.Context, input PersistRunStateA
 		reflect.DeepEqual(current.Run.Block, input.Projection.Block) && reflect.DeepEqual(current.Plan, input.Projection.Plan) &&
 		reflect.DeepEqual(current.Slots, input.Projection.Slots) && current.ResultDigest == input.Projection.ResultDigest &&
 		reflect.DeepEqual(current.PendingCommand, input.Projection.PendingCommand) &&
-		reflect.DeepEqual(current.RecoverableEffects, input.Projection.RecoverableEffects) {
+		slices.Equal(current.RecoverableEffects, input.Projection.RecoverableEffects) {
 		return nil
 	}
 	updated := current

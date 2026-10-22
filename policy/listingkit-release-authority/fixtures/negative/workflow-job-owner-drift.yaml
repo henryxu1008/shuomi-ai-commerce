@@ -1,2 +1,0 @@
-identity: {job: deploy-api}
-workflow: {job: deploy-unowned}

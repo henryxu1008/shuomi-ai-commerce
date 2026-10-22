@@ -5,7 +5,7 @@
 ## 包含内容
 
 - 轻量 Python webhook 适配器
-- `AlertmanagerConfig`
+- 存储保护的窄 `AlertmanagerConfig` 位于相邻 `prometheus-storage` 装配
 - `Service`
 
 ## Secret
@@ -25,10 +25,6 @@ kubectl apply -k deployments/kubernetes/monitoring/alertmanager-wecom
 
 ## 当前路由范围
 
-原 task-processor namespace 的配置只接收：
+#867 已退休 task-processor namespace 下只匹配旧 Amazon service 的专属 AlertmanagerConfig。共享适配器、Deployment/Service/ConfigMap 和 Secret 引用保留，本装配不注册无 matcher 的兜底路由。
 
-- `service=amazon-crawler-api`
-
-共享 Prometheus 存储保护由相邻 `prometheus-storage` 装配：规则与窄配置均位于 monitoring，只匹配 `service=monitoring` 且 `alertname=PrometheusStorageAtRisk`，接受默认 namespace 隔离；沿用本适配器、原 receiver URL、分组与超时，不新建程序或修改 Secret。旧 SHEIN 专属分支已退休，见[完整边界](../../../../docs/architecture/legacy-listing-operations-closure-retirement-boundary.md)。本批只更新源码，真实安装/发送/收信 NOT_RUN。
-
-如果后续要扩展到其他服务，可以继续在 `matcher` 里追加，或拆分成新的 `AlertmanagerConfig`。
+共享 Prometheus 存储保护由相邻 `prometheus-storage` 装配：规则与窄配置同在 monitoring，只匹配 `service=monitoring` 且 `alertname=PrometheusStorageAtRisk`，保持默认 namespace 隔离；receiver URL、分组、超时及凭据引用不变。见[完整边界](../../../../docs/architecture/legacy-numeric-acquisition-tail-closure-retirement-boundary.md)。本轮只改源码，真实安装/发送/收信 NOT_RUN。

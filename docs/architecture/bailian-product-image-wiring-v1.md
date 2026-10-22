@@ -61,6 +61,12 @@ Out of Scope：真实模型调用、另设点数账本或默认价格、跨企�
 
 ## 副作用与恢复
 
+### GRSAI 精确尺寸实测边界（2026-10-20，#840）
+
+独立单次对照按 [GRSAI 公开协议](https://qmy27nhsd9.apifox.cn/452409160e0) 发送 `gpt-image-2.5`、`aspectRatio=1024x1024`、`quality=auto`、`replyType=json`，但原始返回 PNG 的 IHDR 是 **1254×1254**。偏差已在远端返回媒体中存在，不能归因于本地显示，也不能把网关“1K”档位或请求字段当成实际像素证明；网关内部转发/上游原因仍未核实。
+
+保留原严格输出校验：原图不合格不能缩放、裁剪或重写尺寸后冒充合格，成功生成与输出不可用、费用结算分别保留。新鲜编辑及原成功结果恢复的安全诊断仅包含 provider/model 和请求/实际宽高，不记录图片 URL、文案、凭据或响应正文。诊断不改变错误分类、成功事实、UNKNOWN、恢复或结算合同；不证明此网关已能可靠生成精确1024原图。百炼默认配置及所有原请求、准确技能版本和审计保持，新的真实验证仍须独立有界授权、异常即停。
+
 沿原 ImageSet confirm → 原准入回执 → worker → Resource reserve → 原 unique effect claim → provider POST → GenerationSuccess observation → 原下载/物化/采用路径。原 Skill 方法锁和来源/当前成员权限栅栏保持；未选方法继续原合同。
 
 POST 交给 transport 后的超时、连接断开、响应丢失、不完整 JSON、无法证明结果的非2xx均不能自动重新提交；保留原 UNKNOWN 事实/预留与核实入口。明确派发前的参数/权限/预算失败不消耗调用；不能仅凭收到错误字符串宣称 provider 没有执行。成功观察已保存但下载/进程退出失败时只沿原结果 URL 恢复下载/物化，不再次生成。观察回调失败也不能重发 POST。相同键换 payload/route/method 与原 digest 冲突；确认/采用回执仍优先恢复。

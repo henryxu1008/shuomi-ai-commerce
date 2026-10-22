@@ -221,7 +221,7 @@ func (s *Service) SubmitSuccess(actor Actor, jobID, token string, product *sourc
 	summary := EnvelopeSummary{
 		SourceKey:    envelope.Identity.SourceKey(),
 		SourceURL:    envelope.Identity.SourceURL,
-		ProductID:    envelope.Identity.ProductID,
+		ProductID:    envelope.Identity.SourceID,
 		Title:        envelope.ProductCandidate.Title,
 		AssetCount:   len(envelope.AssetCandidates),
 		VariantCount: len(envelope.ProductCandidate.Variants),

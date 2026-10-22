@@ -2,34 +2,16 @@ package config
 
 // AmazonConfig Amazon爬虫配置
 type AmazonConfig struct {
-	Enabled            bool                           `yaml:"enabled"`
-	Zipcodes           map[string]string              `yaml:"zipcodes"`
-	DataFreshnessDays  int                            `yaml:"dataFreshnessDays"`
-	CrawlTimeout       int                            `yaml:"crawlTimeout"` // 爬虫超时时间（秒）
-	ProductDedupe      ProductDedupeConfig            `yaml:"productDedupe"`
-	FailureArtifacts   FailureArtifactsConfig         `yaml:"failureArtifacts"`
-	RiskControl        AmazonRiskControlConfig        `yaml:"riskControl"`
-	RegionGuard        AmazonRegionGuardConfig        `yaml:"regionGuard"`
-	QualityControl     AmazonQualityControlConfig     `yaml:"qualityControl"`
-	ProxyPool          AmazonProxyPoolConfig          `yaml:"proxyPool"`
-	ConcurrencyControl AmazonConcurrencyControlConfig `yaml:"concurrencyControl"`
-	RemoteAPI          RemoteAPIConfig                `yaml:"remoteAPI"`
-	SPAPI              SPAPIConfig                    `yaml:"spapi"`
-	ConfigPaths        AmazonConfigPaths              `yaml:"configPaths"` // 业务配置文件路径（统一管理）
+	Enabled          bool                       `yaml:"enabled"`
+	Zipcodes         map[string]string          `yaml:"zipcodes"`
+	CrawlTimeout     int                        `yaml:"crawlTimeout"` // 爬虫超时时间（秒）
+	FailureArtifacts FailureArtifactsConfig     `yaml:"failureArtifacts"`
+	RiskControl      AmazonRiskControlConfig    `yaml:"riskControl"`
+	QualityControl   AmazonQualityControlConfig `yaml:"qualityControl"`
+	ProxyPool        AmazonProxyPoolConfig      `yaml:"proxyPool"`
+	SPAPI            SPAPIConfig                `yaml:"spapi"`
+	ConfigPaths      AmazonConfigPaths          `yaml:"configPaths"` // 业务配置文件路径（统一管理）
 
-}
-
-type ProductDedupeConfig struct {
-	LockTTLSeconds     int `yaml:"lockTTLSeconds"`
-	ResultTTLSeconds   int `yaml:"resultTTLSeconds"`
-	WaitTimeoutSeconds int `yaml:"waitTimeoutSeconds"`
-	PollIntervalMillis int `yaml:"pollIntervalMillis"`
-}
-
-type RemoteAPIConfig struct {
-	Enabled bool   `yaml:"enabled"`
-	BaseURL string `yaml:"baseURL"`
-	Timeout int    `yaml:"timeout"`
 }
 
 type FailureArtifactsConfig struct {
@@ -48,13 +30,6 @@ type AmazonRiskControlConfig struct {
 	ServerErrorRecreateThreshold    int `yaml:"serverErrorRecreateThreshold"`
 }
 
-type AmazonRegionGuardConfig struct {
-	Enabled                 bool `yaml:"enabled"`
-	FailureThreshold        int  `yaml:"failureThreshold"`
-	EvaluationWindowSeconds int  `yaml:"evaluationWindowSeconds"`
-	CooldownSeconds         int  `yaml:"cooldownSeconds"`
-}
-
 type AmazonQualityControlConfig struct {
 	RetryOnValidationFailure   bool `yaml:"retryOnValidationFailure"`
 	ValidationRetryMaxAttempts int  `yaml:"validationRetryMaxAttempts"`
@@ -66,14 +41,6 @@ type AmazonProxyPoolConfig struct {
 	FailureCooldownSeconds int      `yaml:"failureCooldownSeconds"`
 	ProxyFile              string   `yaml:"proxyFile"`
 	Proxies                []string `yaml:"proxies"`
-}
-
-type AmazonConcurrencyControlConfig struct {
-	Enabled               bool           `yaml:"enabled"`
-	MaxInFlight           int            `yaml:"maxInFlight"`
-	MaxWaiting            int            `yaml:"maxWaiting"`
-	AcquireTimeoutSeconds int            `yaml:"acquireTimeoutSeconds"`
-	PerRegion             map[string]int `yaml:"perRegion"`
 }
 
 // AmazonConfigPaths Amazon业务配置文件路径

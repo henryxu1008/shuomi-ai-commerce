@@ -18,6 +18,7 @@ func (a *Activities) recoverSucceededGenerationOutput(ctx context.Context, input
 	// The store repeats this check under its owner transaction.
 	if effect.Identity != reservation.Identity || effect.IdempotencyKey != reservation.IdempotencyKey || effect.InputFingerprint != reservation.InputFingerprint ||
 		!reflect.DeepEqual(effect.Quote, reservation.Quote) || !reflect.DeepEqual(effect.Policy, reservation.Policy) {
+		outputRecoveryDiagnostic(ctx, input.RunID, "validate_input", imageagent.ErrRevisionConflict)
 		return effect, imageagent.ErrRevisionConflict
 	}
 	switch effect.Phase {
@@ -27,6 +28,7 @@ func (a *Activities) recoverSucceededGenerationOutput(ctx context.Context, input
 	}
 	facts, ok := a.repository.(imageagent.GenerationFactRepository)
 	if !ok {
+		outputRecoveryDiagnostic(ctx, input.RunID, "read_success_fact", imageagent.ErrValidation)
 		return effect, imageagent.ErrValidation
 	}
 	fact, err := facts.ReadGenerationFact(ctx, reservation.Identity)
@@ -34,9 +36,11 @@ func (a *Activities) recoverSucceededGenerationOutput(ctx context.Context, input
 		return effect, nil
 	}
 	if err != nil {
+		outputRecoveryDiagnostic(ctx, input.RunID, "read_success_fact", err)
 		return effect, err
 	}
 	if fact.Validate() != nil || fact.Intent.Identity != reservation.Identity || fact.Intent.MemberID != input.OrganizationIdentity.MemberID || fact.Intent.CatalogHash != input.AssetCatalog.Manifest.Hash {
+		outputRecoveryDiagnostic(ctx, input.RunID, "validate_fact", imageagent.ErrRevisionConflict)
 		return effect, imageagent.ErrRevisionConflict
 	}
 	if fact.State != imageagent.GenerationSucceeded {
@@ -46,6 +50,7 @@ func (a *Activities) recoverSucceededGenerationOutput(ctx context.Context, input
 		if closure, closureErr := imageagent.ImageGenerationClosure(fact); closureErr == nil {
 			current, readErr := a.repository.GetProjection(ctx, reservation.Identity.RunScope)
 			if readErr != nil {
+				outputRecoveryDiagnostic(ctx, input.RunID, "read_projection", readErr)
 				return effect, readErr
 			}
 			if hasClosedInvalidImageSetOutput(current, input, closure) {
@@ -55,14 +60,17 @@ func (a *Activities) recoverSucceededGenerationOutput(ctx context.Context, input
 	}
 	restorer, ok := a.slotEffectsV3.(imageagent.GenerationStagingRecoveryRepository)
 	if !ok {
+		outputRecoveryDiagnostic(ctx, input.RunID, "restore_staging", imageagent.ErrValidation)
 		return effect, imageagent.ErrValidation
 	}
 	prepared, err := a.artifactStore.RecoverSlotArtifacts(ctx, reservation.Identity, effect.StagingManifest)
 	if err != nil {
 		if !errors.Is(err, objectstore.ErrArtifactUnavailable) {
+			outputRecoveryDiagnostic(ctx, input.RunID, "read_recovery_bundle", err)
 			return effect, imageagent.ErrValidation
 		}
 		if fact.Success.ResultURL == "" && input.ImageSet == nil && input.Artwork == nil {
+			outputRecoveryDiagnostic(ctx, input.RunID, "validate_result", imageagent.ErrValidation)
 			return effect, blockedSlotEffectV3Error(slotProviderOutcomeUnknownCode)
 		}
 		generated, getErr := a.generationOutputRecovery(ctx, input, fact)
@@ -72,28 +80,38 @@ func (a *Activities) recoverSucceededGenerationOutput(ctx context.Context, input
 				// this charged failure; immutable economic proof stays intact.
 				return effect, nil
 			}
+			outputRecoveryDiagnostic(ctx, input.RunID, "materialize_result", getErr)
 			return effect, imageagent.ErrValidation
 		}
 		prepared, err = prepareGeneratedSlotArtifacts(input, generated, a.artifactStore)
 		if err != nil {
+			outputRecoveryDiagnostic(ctx, input.RunID, "prepare_material", err)
 			return effect, imageagent.ErrValidation
 		}
 		if _, err = expectedFinalManifestV3(input, prepared.Manifest); err != nil {
+			outputRecoveryDiagnostic(ctx, input.RunID, "validate_manifest", err)
 			return effect, imageagent.ErrValidation
 		}
 		if err = a.preserveSlotRecoveryBundle(ctx, reservation.Identity, prepared); err != nil {
 			// Concurrent safe GETs must converge on the first immutable bundle.
 			if !errors.Is(err, objectstore.ErrObjectConflict) {
+				outputRecoveryDiagnostic(ctx, input.RunID, "save_recovery_bundle", err)
 				return effect, imageagent.ErrValidation
 			}
 			prepared, err = a.artifactStore.RecoverSlotArtifacts(ctx, reservation.Identity, effect.StagingManifest)
 			if err != nil {
+				outputRecoveryDiagnostic(ctx, input.RunID, "read_recovery_bundle", err)
 				return effect, imageagent.ErrValidation
 			}
 		}
 	}
 	if _, err = expectedFinalManifestV3(input, prepared.Manifest); err != nil {
+		outputRecoveryDiagnostic(ctx, input.RunID, "validate_manifest", err)
 		return effect, imageagent.ErrValidation
 	}
-	return restorer.RecoverGenerationStaging(ctx, reservation, fact.Intent, fact.TerminalProofDigest(), prepared.Manifest)
+	recovered, err := restorer.RecoverGenerationStaging(ctx, reservation, fact.Intent, fact.TerminalProofDigest(), prepared.Manifest)
+	if err != nil {
+		outputRecoveryDiagnostic(ctx, input.RunID, "restore_staging", err)
+	}
+	return recovered, err
 }

@@ -36,7 +36,7 @@ func TestSourceAccountApplicationPostgresAcceptance(t *testing.T) {
 	}
 	beforeTables := sourceAccountApplicationTables(t, db)
 	authFixture := newSourceAccountAuthFixture()
-	authorizer, err := authz.NewListingKitAuthorizer(nil, nil)
+	authorizer, err := newCurrentRoleTestAuthorizer(nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -386,9 +386,9 @@ func (f *sourceAccountAuthFixture) Load(_ context.Context, source workbenchconte
 		return workbenchcontext.GrantResult{}, errors.New("grant dependency unavailable")
 	}
 	grants := map[string][]authidentity.OrganizationGrant{
-		"actor-1":  {{OrganizationID: "org-a", ProjectID: "project", Roles: []string{"listingkit_viewer"}}, {OrganizationID: "org-b", ProjectID: "project", Roles: []string{"listingkit_operator"}}},
+		"actor-1":  {{OrganizationID: "org-a", ProjectID: "project", Roles: []string{authz.EnterpriseRoleKey("org-a", 2)}}, {OrganizationID: "org-b", ProjectID: "project", Roles: []string{authz.EnterpriseRoleKey("org-b", 2)}}},
 		"viewer-1": {{OrganizationID: "org-b", ProjectID: "project", Roles: []string{"listingkit_viewer"}}},
-		"other-1":  {{OrganizationID: "org-a", ProjectID: "project", Roles: []string{"listingkit_operator"}}},
+		"other-1":  {{OrganizationID: "org-a", ProjectID: "project", Roles: []string{authz.EnterpriseRoleKey("org-a", 2)}}},
 	}[request.Subject]
 	if f.revoked && request.Subject == "actor-1" {
 		grants = grants[:1]

@@ -5,6 +5,7 @@ import {ProductImageSetPanel} from "./product-image-set-panel";
 import {imageTemplateSchema} from "@/lib/contracts/image-set-configuration";
 import {imageSetRunSchema} from "@/lib/contracts/product-image-set";
 import {genericImagePresets} from "@/lib/image-template-presets";
+import {contentProposalFixture} from "@/test/product-content-review-fixture";
 const calls=vi.hoisted(()=>({context:{} as Record<string,unknown>,mode:vi.fn()}));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>calls.context}));
 vi.mock("@/lib/api/agent-configuration",async original=>{const actual=await original<typeof import("@/lib/api/agent-configuration")>();return {...actual,configurationRequest:(...args:Parameters<typeof actual.configurationRequest>)=>args[1].startsWith("execution-modes/")?calls.mode(...args):actual.configurationRequest(...args)}});
@@ -65,6 +66,237 @@ async function prepare(){
  fireEvent.click(await screen.findByRole("checkbox",{name:"共用原始素材 素材 1"}));
  const button=screen.getByRole("button",{name:"准备整套图片计划（2 项）"});await waitFor(()=>expect(button).toBeEnabled());fireEvent.click(button);
 }
+
+it("sends the exact VIP selection in a new plan and retains it with the original unknown request",async()=>{
+ const original=fetch.getMockImplementation()!,route={BindingID:"image-vip",RevisionID:"route-vip"};
+ fetch.mockImplementation((url,init)=>String(url).endsWith("/model-options")?Promise.resolve(Response.json({contextKind:"acquisition",contextId:operation,options:[{model:"qwen-image-3.0-pro",quality:"auto",resolution:"1024x1024",points:1},{route,model:"gpt-image-2-vip",quality:"medium",resolution:"1024x1024",points:2}]})):String(url).endsWith("/prepare")?Promise.resolve(Response.json({code:"OUTCOME_UNKNOWN"},{status:503})):original(url,init));
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ await screen.findByRole("option",{name:"GPT Image VIP · 2 点/张"});
+ fireEvent.change(screen.getByRole("combobox",{name:"本次计划使用的图片模型"}),{target:{value:JSON.stringify(route)}});
+ await prepare();await screen.findByRole("button",{name:"核实原请求"});
+ const sent=fetch.mock.calls.find(([url])=>String(url).endsWith("/prepare"))!;
+ expect(JSON.parse(String(sent[1]!.body)).route).toEqual(route);
+ expect(JSON.parse(localStorage.getItem(`product-image-set:actor:org:acquisition:${operation}:intent`)!).body.route).toEqual(route);
+ expect(screen.getByRole("combobox",{name:"本次计划使用的图片模型"})).toBeDisabled();
+ expect(fetch.mock.calls.filter(([url])=>String(url).endsWith("/prepare"))).toHaveLength(1);
+});
+
+it("disables preparing a new plan until a restored unavailable VIP is explicitly reselected",async()=>{
+ const route={BindingID:"image-vip",RevisionID:"route-old"};Object.assign(state.plan,{Route:route});localStorage.setItem(`product-image-set:actor:org:acquisition:${operation}:run`,runId);
+ const original=fetch.getMockImplementation()!;fetch.mockImplementation((url,init)=>String(url).endsWith("/model-options")?Promise.resolve(Response.json({contextKind:"acquisition",contextId:operation,options:[{model:"qwen-image-3.0-pro",quality:"auto",resolution:"1024x1024",points:1}]})):original(url,init));
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ fireEvent.click(await screen.findByRole("checkbox",{name:"共用原始素材 素材 1"}));
+ await screen.findByText(/原选版本不可用或尚未核实/);
+ expect(screen.getByRole("button",{name:"准备整套图片计划（2 项）"})).toBeDisabled();
+ fireEvent.change(screen.getByRole("combobox",{name:"本次计划使用的图片模型"}),{target:{value:"default"}});
+ await waitFor(()=>expect(screen.getByRole("button",{name:"准备整套图片计划（2 项）"})).toBeEnabled());
+});
+
+it("keeps model switching and new preparation locked while the original run has unresolved effects",async()=>{
+ state=projection("blocked");Object.assign(state,{recoverableEffects:[{SlotID:"main",Attempt:1,Code:"provider_outcome_unknown"}]});localStorage.setItem(`product-image-set:actor:org:acquisition:${operation}:run`,runId);
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ fireEvent.click(await screen.findByRole("checkbox",{name:"共用原始素材 素材 1"}));
+ expect(screen.getByRole("combobox",{name:"本次计划使用的图片模型"})).toBeDisabled();
+ expect(screen.getByRole("button",{name:"准备整套图片计划（2 项）"})).toBeDisabled();
+ expect(screen.getByRole("button",{name:"核实原调用"})).toBeEnabled();
+});
+
+it.each(["prepare","regenerate"])("restores the exact pending VIP for %s and archives a definite route refusal before unlocking",async action=>{
+ const key=`product-image-set:actor:org:acquisition:${operation}:intent`,route={BindingID:"image-vip",RevisionID:"route-vip"};
+ const raw=JSON.stringify({action,...action==="regenerate"?{runId}:{},requestKey:templateId,body:{route,text:{mode:"none"},expectedModeRevision:"0",target:{Platform:"product"}}},null,2);localStorage.setItem(key,raw);
+ const nextRoute={...route,RevisionID:"route-new"};let reads=0,finishRead!:(value:Response)=>void;
+ const refreshed=new Promise<Response>(resolve=>{finishRead=resolve});
+ const options=(selected:typeof route)=>({contextKind:"acquisition",contextId:operation,options:[{model:"qwen-image-3.0-pro",quality:"auto",resolution:"1024x1024",points:1},{route:selected,model:"gpt-image-2-vip",quality:"medium",resolution:"1024x1024",points:2}]});
+ const original=fetch.getMockImplementation()!;fetch.mockImplementation((url,init)=>String(url).endsWith("/model-options")?(++reads===1?Promise.resolve(Response.json(options(route))):refreshed):String(url).endsWith(`/${action}`)?Promise.resolve(Response.json({code:"IMAGE_ROUTE_CHANGED"},{status:409})):original(url,init));
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ const picker=await screen.findByRole("combobox",{name:"本次计划使用的图片模型"});expect(picker).toHaveValue(JSON.stringify(route));expect(picker).toBeDisabled();
+ await screen.findByText(/gpt-image-2-vip · medium · 原始输出/);
+ fireEvent.click(screen.getByRole("button",{name:"继续原操作"}));
+ await screen.findByText(/所选图片模型版本已不可用/);
+ await waitFor(()=>expect(localStorage.getItem(key)).toBeNull());
+ expect(Object.keys(localStorage).some(k=>localStorage.getItem(k)===raw)).toBe(true);
+ expect(screen.getByRole("combobox",{name:"本次计划使用的图片模型"})).toBeEnabled();
+ expect(screen.queryByRole("button",{name:"继续原操作"})).toBeNull();
+ expect(fetch.mock.calls.filter(([url])=>String(url).endsWith(`/${action}`))).toHaveLength(1);
+ await waitFor(()=>expect(reads).toBe(2));
+ fireEvent.click(screen.getByRole("checkbox",{name:"共用原始素材 素材 1"}));
+ const prepareButton=screen.getByRole("button",{name:"准备整套图片计划（2 项）"});
+ expect(prepareButton).toBeDisabled();
+ fireEvent.click(prepareButton);expect(fetch.mock.calls.filter(([url])=>String(url).endsWith(`/${action}`))).toHaveLength(1);
+ await act(async()=>finishRead(Response.json(options(nextRoute))));
+ await screen.findByRole("option",{name:/原选版本 route-vip/});expect(prepareButton).toBeDisabled();
+ fireEvent.change(screen.getByRole("combobox",{name:"本次计划使用的图片模型"}),{target:{value:JSON.stringify(nextRoute)}});
+ await waitFor(()=>expect(prepareButton).toBeEnabled());
+ expect(Object.keys(localStorage).some(k=>localStorage.getItem(k)===raw)).toBe(true);
+});
+
+it.each(["fresh","restored","sources-unavailable"])("retains a %s refused confirmation and keeps that immutable plan disabled after refresh",async scenario=>{
+ const route={BindingID:"image-vip",RevisionID:"route-old"},nextRoute={...route,RevisionID:"route-new"};Object.assign(state.plan,{Route:route});
+ const key=`product-image-set:actor:org:acquisition:${operation}:intent`;localStorage.setItem(key.replace(/:intent$/,":run"),runId);
+ if(scenario==="restored")localStorage.setItem(key,JSON.stringify({action:"confirm",runId,body:{actionId:operation,planRevision:1,planDigest:sha,quoteDigest:digest}},null,2));
+ let reads=0,raw="",sourcesUnavailable=false;const original=fetch.getMockImplementation()!;
+ fetch.mockImplementation((url,init)=>sourcesUnavailable&&String(url).endsWith("/sources")?Promise.resolve(Response.json({code:"IMAGE_UNAVAILABLE"},{status:503})):String(url).endsWith("/model-options")?Promise.resolve(Response.json({contextKind:"acquisition",contextId:operation,options:[{model:"qwen-image-3.0-pro",quality:"auto",resolution:"1024x1024",points:1},{route:++reads===1?route:nextRoute,model:"gpt-image-2-vip",quality:"medium",resolution:"1024x1024",points:2}]})):String(url).endsWith("/confirm")?(raw=localStorage.getItem(key)!,Promise.resolve(Response.json({code:"IMAGE_ROUTE_CHANGED"},{status:409}))):original(url,init));
+ const view=render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ await screen.findByText(/gpt-image-2-vip · medium · 原始输出/);
+ fireEvent.click(screen.getByRole("button",{name:scenario==="restored"?"继续原确认":"确认点数并生成"}));
+ await screen.findByText(/所选图片模型版本已不可用/);
+ await waitFor(()=>expect(localStorage.getItem(key)).toBeNull());
+ expect(Object.keys(localStorage).some(k=>localStorage.getItem(k)===raw)).toBe(true);
+ await waitFor(()=>expect(reads).toBe(2));
+ const picker=screen.getByRole("combobox",{name:"本次计划使用的图片模型"});expect(picker).toHaveValue(JSON.stringify(route));
+ expect(screen.getByRole("button",{name:"确认点数并生成"})).toBeDisabled();
+ fireEvent.change(picker,{target:{value:JSON.stringify(nextRoute)}});
+ fireEvent.click(screen.getByRole("checkbox",{name:"共用原始素材 素材 1"}));
+ await waitFor(()=>expect(screen.getByRole("button",{name:"准备整套图片计划（2 项）"})).toBeEnabled());
+ expect(screen.getByRole("button",{name:"确认点数并生成"})).toBeDisabled();
+ view.unmount();sourcesUnavailable=scenario==="sources-unavailable";render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ await screen.findByRole("button",{name:"确认点数并生成"});
+ if(!sourcesUnavailable)await screen.findByRole("option",{name:/原选版本 route-old/});
+ expect(screen.getByRole("button",{name:"确认点数并生成"})).toBeDisabled();
+ expect(fetch.mock.calls.filter(([url])=>String(url).endsWith("/confirm"))).toHaveLength(1);
+ expect(Object.keys(localStorage).some(k=>localStorage.getItem(k)===raw)).toBe(true);
+});
+
+it("archives a definite image-review rejection and unlocks correction without generating",async()=>{
+ const real=fetch.getMockImplementation()!;
+ fetch.mockImplementation((url,init)=>String(url).endsWith("/prepare")?Promise.resolve(Response.json({code:"IMAGE_TEXT_REVIEW_CHANGED"},{status:409})):real(url,init));
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);await prepare();
+ await screen.findByText(/审核译文已变化/);
+ const key=`product-image-set:actor:org:acquisition:${operation}:intent`;
+ const sent=fetch.mock.calls.find(([url])=>String(url).endsWith("/prepare"))!;
+ const requestKey=new Headers(sent[1]!.headers).get("Idempotency-Key");
+ expect(localStorage.getItem(key)).toBeNull();
+ expect(Object.keys(localStorage).some(k=>k.includes(":verified-intent:")&&JSON.parse(localStorage.getItem(k)!).requestKey===requestKey)).toBe(true);
+ expect(screen.queryByRole("button",{name:"核实原请求"})).toBeNull();
+ expect(screen.getByRole("button",{name:"准备整套图片计划（2 项）"})).toBeDisabled();
+ fireEvent.change(screen.getByRole("combobox",{name:"图片文字方式"}),{target:{value:"none"}});
+ expect(screen.getByRole("button",{name:"准备整套图片计划（2 项）"})).toBeEnabled();
+ fireEvent.click(screen.getByRole("checkbox",{name:"商品识别主图"}));expect(screen.getByRole("button",{name:"准备整套图片计划（1 项）"})).toBeDisabled();
+ fireEvent.click(screen.getByRole("checkbox",{name:"商品识别主图"}));expect(screen.getByRole("button",{name:"准备整套图片计划（2 项）"})).toBeDisabled();
+ fireEvent.change(screen.getByRole("combobox",{name:"图片文字方式"}),{target:{value:"none"}});expect(screen.getByRole("button",{name:"准备整套图片计划（2 项）"})).toBeEnabled();
+ expect(fetch.mock.calls.filter(([,init])=>init?.method==="POST")).toHaveLength(1);
+});
+
+it.each(["prepare","regenerate"])("preserves restored %s bytes when the original replay gets a definite review rejection",async action=>{
+ const key=`product-image-set:actor:org:acquisition:${operation}:intent`;
+ const raw=JSON.stringify({action,...action==="regenerate"?{runId}:{},requestKey:templateId,body:{expectedModeRevision:"0",target:{Platform:"product"},skill:{skillId:operation,version:2,digest:sha},text:{mode:"none"}}},null,2);
+ localStorage.setItem(key,raw);const real=fetch.getMockImplementation()!;
+ fetch.mockImplementation((url,init)=>String(url).endsWith(`/${action}`)?Promise.resolve(Response.json({code:"IMAGE_TEXT_REVIEW_CHANGED"},{status:409})):real(url,init));
+ const view=render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ fireEvent.click(await screen.findByRole("button",{name:"继续原操作"}));
+ await screen.findByText(/审核译文已变化/);
+ expect(localStorage.getItem(key)).toBeNull();
+ expect(Object.keys(localStorage).some(k=>k.includes(":verified-intent:")&&localStorage.getItem(k)===raw)).toBe(true);
+ const sent=fetch.mock.calls.find(([url])=>String(url).endsWith(`/${action}`))!;
+ expect(new Headers(sent[1]!.headers).get("Idempotency-Key")).toBe(templateId);expect(JSON.parse(String(sent[1]!.body))).toEqual(JSON.parse(raw).body);
+ view.unmount();render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ const history=await screen.findByText("已核实的原请求");
+ expect(history.closest("section")!.querySelector("pre")!.textContent).toBe(raw);
+ if(action==="prepare"){
+  fireEvent.click(screen.getByRole("checkbox",{name:"共用原始素材 素材 1"}));
+  expect(screen.getByRole("button",{name:"准备整套图片计划（2 项）"})).toBeDisabled();
+  fireEvent.change(screen.getByRole("combobox",{name:"图片文字方式"}),{target:{value:"none"}});
+  expect(screen.getByRole("button",{name:"准备整套图片计划（2 项）"})).toBeEnabled();
+ }
+ expect(fetch.mock.calls.filter(([,init])=>init?.method==="POST")).toHaveLength(1);
+});
+
+it("requires a freshly confirmed Review after a definite initial preparation rejection",async()=>{
+ const fixture=contentProposalFixture(),reviewId=fixture.proposal_id,selection={targetLanguage:"en",title:true,sellingPoints:true},values=[{field:"title",value:"Women's organizer"},{field:"selling_points",value:'["Size: 13\\\" × 15\\\""]'}];
+ const accepted={...fixture,input:{product_key:"p",base_version:"1"},state:"accepted",content:{...fixture.content,selection,before:values,after:values},execution:{...fixture.execution,binding:{...fixture.execution.binding,ProductKey:"p"},ContentSelection:selection}};
+ let reviewRevision="2",preparations=0;const real=fetch.getMockImplementation()!;
+ fetch.mockImplementation((url,init)=>String(url).endsWith(`/text-proposals/${reviewId}`)?Promise.resolve(Response.json({...accepted,revision:reviewRevision})):String(url).endsWith("/prepare")?Promise.resolve(++preparations===1?Response.json({code:"IMAGE_TEXT_REVIEW_CHANGED"},{status:409}):Response.json(state,{status:201})):real(url,init));
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ const initialCopy=within(await screen.findByRole("region",{name:"图片文字语言"}));
+ fireEvent.change(initialCopy.getByRole("combobox",{name:"图片文字方式"}),{target:{value:"reviewed"}});
+ fireEvent.change(initialCopy.getByLabelText("文案审核编号"),{target:{value:reviewId}});fireEvent.click(initialCopy.getByRole("button",{name:"读取审核译文"}));await initialCopy.findByText("本次图片文案 · 最多两条");
+ fireEvent.click(initialCopy.getByRole("checkbox",{name:"确认目标语言图片文案"}));await prepare();
+ await screen.findByText(/审核译文已变化/);
+ const button=screen.getByRole("button",{name:"准备整套图片计划（2 项）"}),archived=Object.keys(localStorage).find(key=>key.includes(":verified-intent:"))!,raw=localStorage.getItem(archived)!;
+ expect(JSON.parse(raw).body.text.review).toEqual({proposalId:reviewId,revision:"2"});expect(button).toBeDisabled();expect(preparations).toBe(1);
+ reviewRevision="3";
+ const copy=within(screen.getByRole("region",{name:"图片文字语言"}));
+ const read=copy.getByRole("button",{name:"读取审核译文"});await waitFor(()=>expect(read).toBeEnabled());fireEvent.click(read);await copy.findByText("本次图片文案 · 最多两条");expect(button).toBeDisabled();
+ fireEvent.click(copy.getByRole("checkbox",{name:"确认目标语言图片文案"}));await waitFor(()=>expect(button).toBeEnabled());fireEvent.click(button);
+ await waitFor(()=>expect(preparations).toBe(2));
+ const request=fetch.mock.calls.filter(([url])=>String(url).endsWith("/prepare"))[1]!;
+ expect(JSON.parse(String(request[1]!.body)).text).toEqual({mode:"reviewed",review:{proposalId:reviewId,revision:"3"},taskIds:["main","detail"]});
+ expect(localStorage.getItem(archived)).toBe(raw);expect(fetch.mock.calls.filter(([,init])=>init?.method==="POST")).toHaveLength(2);
+});
+
+it("keeps a rejected preparation locked if its original request cannot be archived",async()=>{
+ const key=`product-image-set:actor:org:acquisition:${operation}:intent`,real=fetch.getMockImplementation()!;
+ const write=Storage.prototype.setItem;
+ vi.spyOn(Storage.prototype,"setItem").mockImplementation(function(this:Storage,k,v){if(k.includes(":verified-intent:"))throw new Error("storage full");return write.call(this,k,v)});
+ fetch.mockImplementation((url,init)=>String(url).endsWith("/prepare")?Promise.resolve(Response.json({code:"IMAGE_TEXT_REVIEW_CHANGED"},{status:409})):real(url,init));
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);await prepare();
+ await screen.findByText(/原请求未能完整保留/);
+ expect(localStorage.getItem(key)).toBeTruthy();
+ expect(screen.getByRole("button",{name:"准备整套图片计划（2 项）"})).toBeDisabled();
+ expect(fetch.mock.calls.filter(([,init])=>init?.method==="POST")).toHaveLength(1);
+});
+
+it.each(["fresh","restored","no-text"])("uses explicitly corrected copy for %s rejected regeneration while preserving its parent and original request",async scenario=>{
+ const parentTemplateId="55555555-5555-4555-8555-555555555555",reviewId="12345678-1234-4234-8234-123456789abc";
+ const parentTemplate={...template,templateId:parentTemplateId,version:"2",revision:"2",name:"Frozen French",image:{...template.image,language:"fr"}};
+ const skill={skillId:operation,version:2,digest:sha},oldText={mode:"reviewed",review:{proposalId:reviewId,revision:"2"},taskIds:["detail"]};
+ state=projection("awaiting_final_approval",operation);
+ state.template={templateId:parentTemplateId,revision:"2"};
+ Object.assign(state.plan,{Method:{Skill:{kind:"skill-version-v1",id:skill.skillId,ownerKind:"PLATFORM",ownerId:"official",version:skill.version,digest:skill.digest,policyVersion:"skill-method-v1"},PolicyVersion:"image-method-visual-brief-v4"},Text:{PolicyVersion:"image-reviewed-text-v1",Mode:"reviewed",Language:"fr",TaskIDs:["detail"],Copy:{Review:oldText.review,ProductID:"p",PublicationID:"publication",Version:"1",Language:"fr",OriginRunID:runId,ModeSnapshot:{Kind:"agent-execution-mode-v1",ID:runId,Digest:sha},Lines:["Ancien texte"]}}});
+ const frozenParent=JSON.stringify(state.plan),storage=`product-image-set:actor:org:acquisition:${operation}`,real=fetch.getMockImplementation()!;
+ const rejected={action:"regenerate",runId,requestKey:templateId,body:{expectedModeRevision:"0",template:{templateId:parentTemplateId,revision:"2"},target:{Platform:"product"},effectiveCatalogVersion:"1",sharedOriginalIds:["original"],selectedTaskIds:["detail"],skill,text:oldText}};
+ const restoredRaw=JSON.stringify(rejected,null,2);
+ localStorage.setItem(storage+":run",runId);if(scenario==="restored")localStorage.setItem(storage+":intent",restoredRaw);
+ const fixture=contentProposalFixture(),selection={targetLanguage:"fr",title:true,sellingPoints:true},values=[{field:"title",value:"Boîte de rangement"},{field:"selling_points",value:'["Pour les objets du quotidien"]'}];
+ const reviewed={...fixture,proposal_id:reviewId,input:{product_key:"p",base_version:"1"},state:"accepted",revision:"3",content:{...fixture.content,selection,before:values,after:values},execution:{...fixture.execution,binding:{...fixture.execution.binding,ProductKey:"p"},ContentSelection:selection}};
+ let regenerations=0;
+ fetch.mockImplementation((url,init)=>String(url).includes(`/templates/${parentTemplateId}/revisions/2`)?Promise.resolve(Response.json(parentTemplate)):String(url).endsWith(`/text-proposals/${reviewId}`)?Promise.resolve(Response.json(reviewed)):String(url).endsWith("/regenerate")?Promise.resolve(++regenerations===1?Response.json({code:"IMAGE_TEXT_REVIEW_CHANGED"},{status:409}):Response.json(projection(),{status:201})):real(url,init));
+ let view=render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ if(scenario==="restored")fireEvent.click(await screen.findByRole("button",{name:"继续原操作"}));
+ else{fireEvent.click((await screen.findAllByRole("checkbox",{name:"重新生成此项，另行确认点数"}))[1]);const button=screen.getByRole("button",{name:"准备所选 1 项的新计划"});await waitFor(()=>expect(button).toBeEnabled());fireEvent.click(button)}
+ await screen.findByText(/审核译文已变化/);
+ const archived=Object.keys(localStorage).find(key=>key.includes(":verified-intent:"))!,raw=localStorage.getItem(archived)!;
+ expect(JSON.parse(raw).body).toMatchObject(rejected.body);
+ expect(localStorage.getItem(storage+":intent")).toBeNull();if(scenario==="restored")expect(raw).toBe(restoredRaw);
+ // Correction must also survive a reload, without replaying or rewriting the rejected request.
+ view.unmount();view=render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ fireEvent.click((await screen.findAllByRole("checkbox",{name:"重新生成此项，另行确认点数"}))[1]);
+ const correction=within(await screen.findByRole("region",{name:"重新生成文案纠正"}));
+ expect(correction.getByText("目标语言：法语（fr）")).toBeVisible();
+ const button=screen.getByRole("button",{name:"准备所选 1 项的新计划"});expect(button).toBeDisabled();expect(regenerations).toBe(1);
+ if(scenario==="no-text")fireEvent.change(correction.getByRole("combobox",{name:"图片文字方式"}),{target:{value:"none"}});
+ else{
+  fireEvent.change(correction.getByLabelText("文案审核编号"),{target:{value:reviewId}});fireEvent.click(correction.getByRole("button",{name:"读取审核译文"}));
+  await correction.findByText("本次图片文案 · 最多两条");expect(button).toBeDisabled();
+  fireEvent.click(correction.getByRole("checkbox",{name:"确认目标语言图片文案"}));
+ }
+ await waitFor(()=>expect(button).toBeEnabled());
+ if(scenario==="no-text"){
+  // A different slot subset requires a fresh explicit text choice.
+  fireEvent.click(screen.getAllByRole("checkbox",{name:"重新生成此项，另行确认点数"})[0]);expect(screen.getByRole("button",{name:"准备所选 2 项的新计划"})).toBeDisabled();
+  fireEvent.click(screen.getAllByRole("checkbox",{name:"重新生成此项，另行确认点数"})[0]);expect(button).toBeDisabled();
+  fireEvent.change(within(screen.getByRole("region",{name:"重新生成文案纠正"})).getByRole("combobox",{name:"图片文字方式"}),{target:{value:"none"}});
+ }
+ fireEvent.click(button);
+ await waitFor(()=>expect(regenerations).toBe(2));
+ const request=fetch.mock.calls.filter(([url])=>String(url).endsWith("/regenerate"))[1]!;
+ expect(JSON.parse(String(request[1]!.body))).toMatchObject({...rejected.body,text:scenario==="no-text"?{mode:"none"}:{...oldText,review:{proposalId:reviewId,revision:"3"}}});
+ expect(new Headers(request[1]!.headers).get("Idempotency-Key")).not.toBe(JSON.parse(raw).requestKey);
+ expect(JSON.stringify(state.plan)).toBe(frozenParent);expect(localStorage.getItem(archived)).toBe(raw);
+ expect(fetch.mock.calls.filter(([,init])=>init?.method==="POST")).toHaveLength(2);
+});
+
+it.each(["OUTCOME_UNKNOWN","IMAGE_NOT_FOUND"])("does not offer correction for an unresolved regeneration returning %s",async code=>{
+ state=projection("awaiting_final_approval",operation);
+ const storage=`product-image-set:actor:org:acquisition:${operation}`,raw=JSON.stringify({action:"regenerate",runId,requestKey:templateId,body:{expectedModeRevision:"0",target:{Platform:"product"},text:{mode:"reviewed",review:{proposalId:operation,revision:"2"},taskIds:["detail"]}}});
+ localStorage.setItem(storage+":run",runId);localStorage.setItem(storage+":intent",raw);const real=fetch.getMockImplementation()!;
+ fetch.mockImplementation((url,init)=>String(url).endsWith("/regenerate")?Promise.resolve(Response.json({code},{status:code==="OUTCOME_UNKNOWN"?503:404})):real(url,init));
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ fireEvent.click(await screen.findByRole("button",{name:"继续原操作"}));await screen.findByRole("alert");
+ expect(localStorage.getItem(storage+":intent")).toBe(raw);expect(Object.keys(localStorage).some(key=>key.includes(":verified-intent:"))).toBe(false);
+ expect(screen.queryByRole("region",{name:"重新生成文案纠正"})).toBeNull();expect(screen.getByRole("button",{name:"准备所选 0 项的新计划"})).toBeDisabled();
+ expect(fetch.mock.calls.filter(([,init])=>init?.method==="POST")).toHaveLength(1);
+});
 
 it("shows frozen translated copy and language on restored plans without translation or model writes",async()=>{
  Object.assign(state.plan,{Method:{Skill:{kind:"skill-version-v1",id:operation,ownerKind:"PLATFORM",ownerId:"official",version:2,digest:sha,policyVersion:"skill-method-v1"},PolicyVersion:"image-method-visual-brief-v4"},Text:{PolicyVersion:"image-reviewed-text-v1",Mode:"reviewed",Language:"en",TaskIDs:["detail"],Copy:{Review:{proposalId:operation,revision:"2"},ProductID:"p",PublicationID:"publication",Version:"1",Language:"en",OriginRunID:runId,ModeSnapshot:{Kind:"agent-execution-mode-v1",ID:runId,Digest:sha},Lines:["Fabric storage box","Holds everyday items"]}}});
@@ -1261,6 +1493,49 @@ it(`notifies a saved SHEIN result and verifies its original resume receipt despi
  expect(fetch.mock.calls.some(([url])=>/\/(prepare|regenerate|confirm|resume|approve)$/.test(String(url)))).toBe(false);
 });
 }
+it("finishes the original saved action and refreshes four ordered materials without saving again",async()=>{
+ state=projection("awaiting_final_approval",templateId);
+ Object.assign(state,{approvalAvailable:false,regenerationAvailable:false,pendingCommand:{ActionID:operation,Kind:"approve_results",Phase:"approval.persist_complete"}});
+ const assets=["existing-main-1","existing-main-2","existing-detail-1","vip-detail-2"].map((id,i)=>({id,role:"gallery",url:`https://images.test/${id}.png`,width:1024,height:1024,presentation:{group:i<2?"carousel":"detail",order:i%2+1}}));
+ const saved=vi.fn(),real=fetch.getMockImplementation()!;
+ fetch.mockImplementation((url,init)=>{
+  if(String(url).endsWith(`/runs/${runId}/resume`)){state={...state,status:"completed",pendingCommand:null};return Promise.resolve(Response.json({runId,status:"accepted"},{status:202}))}
+  if(String(url).endsWith("/inventory"))return Promise.resolve(Response.json({target:{approval_action_id:operation,head:{action_id:operation,payload_hash:sha},assets},generic:null}));
+  return real(url,init);
+ });
+ const mounted=render(<ProductImageSetPanel kind="acquisition" contextId={operation} initialRunId={runId} onSaved={saved}/>);
+ fireEvent.click(await screen.findByRole("button",{name:"继续核实原保存操作"}));
+ await screen.findByRole("heading",{name:"已保存正式素材"});
+ await waitFor(()=>expect(saved).toHaveBeenCalledOnce());
+ const ordered=screen.getAllByRole("img",{name:/^正式素材 \d$/});
+ expect(ordered.map(image=>image.getAttribute("src"))).toEqual(assets.map(image=>image.url));
+ expect(ordered.map(image=>image.closest("figure")?.querySelector("figcaption")?.textContent)).toEqual(["主图 / 轮播 · 1","主图 / 轮播 · 2","详情 · 1","详情 · 2"]);
+ expect(fetch.mock.calls.filter(([url])=>String(url).endsWith("/inventory")).length).toBeGreaterThanOrEqual(2);
+ expect(fetch.mock.calls.filter(([,init])=>init?.method==="POST").map(([url])=>String(url))).toEqual([expect.stringContaining(`/runs/${runId}/resume`)]);
+ expect(JSON.parse(String(fetch.mock.calls.find(([url])=>String(url).endsWith(`/runs/${runId}/resume`))![1]!.body))).toEqual({actionId:operation});
+ mounted.unmount();
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ await screen.findByRole("heading",{name:"已保存正式素材"});
+ expect(screen.getAllByRole("img",{name:/^正式素材 \d$/}).map(image=>image.getAttribute("src"))).toEqual(assets.map(image=>image.url));
+ expect(fetch.mock.calls.filter(([,init])=>init?.method==="POST")).toHaveLength(1);
+});
+
+it("keeps a genuine UNKNOWN recovery request locked during read-only verification",async()=>{
+ state=projection("blocked",templateId);
+ Object.assign(state,{approvalAvailable:false,regenerationAvailable:false,recoverableEffects:[{SlotID:"main",Attempt:1,Code:"slot_provider_outcome_unknown"}],block:{Code:"slot_provider_outcome_unknown"}});
+ state.slots=state.slots.map(slot=>({...slot,status:"blocked",candidates:[],closure:null,errorCode:"slot_provider_outcome_unknown"}));
+ const key=`product-image-set:actor:org:acquisition:${operation}:intent`,raw=JSON.stringify({action:"recover",runId,body:{actionId:operation,planRevision:1,slotId:"main",attempt:1}});
+ localStorage.setItem(`product-image-set:actor:org:acquisition:${operation}:run`,runId);localStorage.setItem(key,raw);
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ fireEvent.click(await screen.findByRole("button",{name:"核实原请求"}));
+ await waitFor(()=>expect(screen.getByRole("button",{name:"核实原请求"})).toBeEnabled());
+ expect(localStorage.getItem(key)).toBe(raw);
+ expect(screen.queryByRole("heading",{name:"已保存正式素材"})).toBeNull();
+ expect(screen.queryByRole("button",{name:"人工批准并保存素材"})).toBeNull();
+ expect(screen.getByRole("button",{name:"准备整套图片计划（2 项）"})).toBeDisabled();
+ expect(fetch.mock.calls.some(([,init])=>init?.method==="POST")).toBe(false);
+});
+
 for (const receiptFound of [true,false]) {
 it(`verifies a lost resume response using its original immutable approval receipt (found=${receiptFound})`,async()=>{
  state=projection("completed",templateId);
@@ -1395,3 +1670,70 @@ it(`retains an unresolved cancel intent for ${mismatch} without another mutation
  expect(fetch.mock.calls.some(([,init])=>init?.method==="POST")).toBe(false);
 });
 }
+
+
+it("restores a paid original through the existing recovery command and keeps unknown siblings",async()=>{
+ state=projection("blocked","44444444-4444-4444-8444-444444444444");
+ Object.assign(state,{resultDigest:"",approvalAvailable:false,candidateSelectionAvailable:false,regenerationAvailable:false,settledPoints:10,outputRecoverySummary:{settledPoints:10,slots:[{slotId:"main",attempt:1,points:10,unavailable:false}]},recoverableEffects:[{SlotID:"main",Attempt:1,Code:"slot_provider_outcome_unknown"},{SlotID:"detail",Attempt:1,Code:"slot_provider_outcome_unknown"}],block:{Code:"slot_provider_outcome_unknown"}});
+ for(const slot of state.slots)Object.assign(slot,{status:"blocked",candidates:[],closure:null,errorCode:"slot_provider_outcome_unknown"});
+ localStorage.setItem(`product-image-set:actor:org:acquisition:${operation}:run`,runId);
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ expect(await screen.findByRole("heading",{name:"已生成，结果待恢复"})).toBeVisible();
+ expect(screen.getByText(/已结算用量 10 点/)).toBeVisible();
+ expect(screen.getByText(/detail：原调用待核实，点数预留保留/)).toBeVisible();
+ fireEvent.click(screen.getByRole("button",{name:"恢复原结果"}));
+ await waitFor(()=>expect(fetch.mock.calls.some(([u,init])=>String(u).endsWith("/recover")&&init?.method==="POST")).toBe(true));
+ const [,request]=fetch.mock.calls.find(([u,init])=>String(u).endsWith("/recover")&&init?.method==="POST")!;
+ expect(JSON.parse(request!.body as string)).toMatchObject({planRevision:1,slotId:"main",attempt:1});
+ expect(fetch.mock.calls.some(([u])=>/\/(prepare|confirm|regenerate|approve)$/.test(String(u)))).toBe(false);
+});
+
+it("does not offer recovery of a proved unavailable paid original",async()=>{
+ state=projection("blocked","44444444-4444-4444-8444-444444444444");
+ Object.assign(state,{resultDigest:"",approvalAvailable:false,candidateSelectionAvailable:false,regenerationAvailable:false,settledPoints:20,outputRecoverySummary:{settledPoints:20,slots:[{slotId:"main",attempt:1,points:10,unavailable:true},{slotId:"detail",attempt:1,points:10,unavailable:true}]},recoverableEffects:[{SlotID:"main",Attempt:1,Code:"slot_provider_outcome_unknown"},{SlotID:"detail",Attempt:1,Code:"slot_provider_outcome_unknown"}]});
+ for(const slot of state.slots)Object.assign(slot,{status:"blocked",candidates:[],closure:null,errorCode:"slot_provider_outcome_unknown"});
+ localStorage.setItem(`product-image-set:actor:org:acquisition:${operation}:run`,runId);
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ expect(await screen.findByRole("heading",{name:"已扣点，原结果不可用"})).toBeVisible();
+ expect(screen.queryByRole("button",{name:"恢复原结果"})).toBeNull();
+});
+
+
+it("restores a paid output whose original recoverable binding exists only in Run.Block",async()=>{
+ state=projection("blocked","44444444-4444-4444-8444-444444444444");
+ Object.assign(state,{approvalAvailable:false,candidateSelectionAvailable:false,regenerationAvailable:false,outputRecoverySummary:{settledPoints:10,slots:[{slotId:"main",attempt:1,points:10,unavailable:false}]},recoverableEffects:null,block:{Code:"slot_provider_outcome_unknown",SlotID:"main"}});
+ Object.assign(state.slots[0]!,{status:"blocked",candidates:[],closure:null,errorCode:"slot_provider_outcome_unknown"});
+ localStorage.setItem(`product-image-set:actor:org:acquisition:${operation}:run`,runId);
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ expect(await screen.findByRole("heading",{name:"已生成，结果待恢复"})).toBeVisible();
+ expect(screen.getByRole("button",{name:"恢复原结果"})).toBeEnabled();
+});
+
+it("shows a released sibling separately from paid and genuinely UNKNOWN effects without unlocking the run",async()=>{
+ state=projection("blocked","44444444-4444-4444-8444-444444444444");
+ const unknown={...state.slots[1],slotId:"unknown"};
+ state.slots.push(unknown);
+ Object.assign(state,{images:3,points:30,settledPoints:10,resultDigest:"",approvalAvailable:false,candidateSelectionAvailable:false,regenerationAvailable:false,outputRecoverySummary:{settledPoints:10,slots:[{slotId:"main",attempt:1,points:10,unavailable:false}],releasedSlots:[{slotId:"detail",attempt:1,points:10}]},recoverableEffects:state.slots.map(s=>({SlotID:s.slotId,Attempt:1,Code:"slot_provider_outcome_unknown"})),block:{Code:"slot_provider_outcome_unknown"}});
+ for(const slot of state.slots)Object.assign(slot,{status:"blocked",candidates:[],closure:null,errorCode:"slot_provider_outcome_unknown"});
+ localStorage.setItem(`product-image-set:actor:org:acquisition:${operation}:run`,runId);
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ expect(await screen.findByText(/detail：未生成，点数已释放/)).toBeVisible();
+ expect(screen.queryByText(/detail：原调用待核实/)).toBeNull();
+ expect(screen.getByText(/unknown：原调用待核实，点数预留保留/)).toBeVisible();
+ expect(screen.getAllByRole("button",{name:"核实原调用"})).toHaveLength(1);
+ expect(screen.getAllByRole("button",{name:"恢复原结果"})).toHaveLength(1);
+ expect(screen.getByRole("combobox",{name:"本次计划使用的图片模型"})).toBeDisabled();
+ expect(fetch.mock.calls.some(([,init])=>init?.method==="POST")).toBe(false);
+});
+
+it.each(["attempt","points","duplicate","closed"])("rejects an unbound released summary for %s",scenario=>{
+ const state=projection("blocked",templateId);
+ for(const slot of state.slots)Object.assign(slot,{status:"blocked",candidates:[],closure:null,errorCode:"slot_provider_outcome_unknown"});
+ const released={slotId:"detail",attempt:1,points:10};
+ const payload={...state,settledPoints:10,outputRecoverySummary:{settledPoints:10,slots:[{slotId:"main",attempt:1,points:10,unavailable:false}],releasedSlots:[released]}};
+ if(scenario==="attempt")released.attempt=2;
+ if(scenario==="points")released.points=11;
+ if(scenario==="duplicate")released.slotId="main";
+ if(scenario==="closed")Object.assign(payload.slots[1],{closure:{Kind:"settled",Points:0}});
+ expect(imageSetRunSchema.safeParse(payload).success).toBe(false);
+});

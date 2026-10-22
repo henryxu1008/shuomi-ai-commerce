@@ -1025,7 +1025,7 @@ export async function buildWorkbenchUpstreamRequest(
       route.requestContract==="supply-completion-history"?`${path[2]}:${new URL(request.url).searchParams.get("before")??0}:${new URL(request.url).searchParams.get("limit")??20}`:
       route.requestContract==="supply-completion-history-detail"?`${path[2]}:${path[5]}`:
       (route.requestContract==="supply-target"||route.requestContract==="supply-publication"||route.requestContract==="supply-publication-status") ? `${path[2]}:${path[4]}` :
-      ["supply-item-completion-drafts","supply-completion-draft","supply-completion-drafts","supply-source","supply-preparation","supply-record","supply-operation","supply-ensure","supply-cancel"].includes(route.requestContract) ? (["supply-preparation","supply-completion-drafts"].includes(route.requestContract)?path[1]:path[2]) :
+      ["supply-product-inputs","supply-item-completion-drafts","supply-completion-draft","supply-completion-drafts","supply-source","supply-preparation","supply-record","supply-operation","supply-ensure","supply-cancel"].includes(route.requestContract) ? (["supply-preparation","supply-completion-drafts"].includes(route.requestContract)?path[1]:path[2]) :
       route.requestContract === "collection-detail" || route.requestContract === "collection-batch" ? path[2] :
       route.requestContract === "collection-history" ? path[2] :
       route.requestContract === "collection-history-detail" ? `${path[2]}:${path[4]}` :
@@ -1186,7 +1186,7 @@ export async function buildWorkbenchBrowserResponse(
     }
     const code=payload&&typeof payload==="object"&&"code" in payload&&typeof payload.code==="string"?payload.code:"";
     const statuses:Record<string,number>={INVALID_AGENT_REQUEST:400,FORBIDDEN:403,AGENT_CONFLICT:409,PRODUCT_AGENT_UNAVAILABLE:503,KNOWLEDGE_CONTEXT_TOO_LARGE:409,KNOWLEDGE_FORBIDDEN:403,KNOWLEDGE_DISABLED:409,KNOWLEDGE_NOT_READY:409,KNOWLEDGE_NOT_FOUND:409,...acquisitionErrorStatuses,
-      CONFIGURATION_CHANGED:409,AGENT_NOT_ENABLED:409,TEMPLATE_ARCHIVED:409,AGENT_DEFINITION_UNAVAILABLE:409,
+      CONFIGURATION_CHANGED:409,AGENT_NOT_ENABLED:409,TEMPLATE_ARCHIVED:409,AGENT_DEFINITION_UNAVAILABLE:409,MANUAL_REVIEW_REQUIRED:409,
       NOT_FOUND:404,TEMPLATE_IS_DEFAULT:409,REVISION_MISMATCH:412,PRECONDITION_REQUIRED:428,
       SKILL_INVALID:400,SKILL_UNSUPPORTED_FIELD:400,SKILL_FORBIDDEN:403,SKILL_NOT_FOUND:409,SKILL_NOT_ENABLED:409,SKILL_IDEMPOTENCY_CONFLICT:409,SKILL_REVISION_MISMATCH:409,SKILL_UNAVAILABLE:503};
     if(upstream.status===404 && statuses[code]===undefined)return protocolError(503,"PRODUCT_AGENT_UNAVAILABLE","Product Agent is not enabled",options.requestId??"");

@@ -1,6 +1,9 @@
 package sheinlogin
 
-import "time"
+import (
+	"task-processor/internal/storecenter"
+	"time"
+)
 
 type FailureSummary struct {
 	ErrorCode            string    `json:"error_code,omitempty"`
@@ -48,21 +51,18 @@ type RecommendedAction struct {
 	Message string `json:"message,omitempty"`
 }
 
+// Account is loaded only inside the executor from a fresh private binding.
+// Login material is never serialized into attempts or public output.
 type Account struct {
-	StoreID   int64  `json:"store_id"`
-	TenantID  int64  `json:"tenant_id"`
-	Username  string `json:"username"`
-	Password  string `json:"-"`
-	LoginURL  string `json:"login_url"`
-	Proxy     string `json:"proxy,omitempty"`
-	ShopName  string `json:"shop_name,omitempty"`
-	Platform  string `json:"platform"`
-	StoreName string `json:"store_name,omitempty"`
-}
-
-type LoginRequest struct {
-	ForceLogin bool  `json:"force_login"`
-	Headless   *bool `json:"headless,omitempty"`
+	Scope           storecenter.SheinLoginScope `json:"-"`
+	OrganizationID  string                      `json:"-"`
+	StoreID         string                      `json:"-"`
+	BindingRevision string                      `json:"-"`
+	Generation      int64                       `json:"-"`
+	Username        string                      `json:"-"`
+	Password        string                      `json:"-"`
+	LoginURL        string                      `json:"-"`
+	Proxy           string                      `json:"-"`
 }
 
 type LoginAttemptStatus string
@@ -81,63 +81,42 @@ func (s LoginAttemptStatus) IsActive() bool {
 	return s == LoginAttemptQueued || s == LoginAttemptLaunching || s == LoginAttemptWaitingVerifyCode
 }
 
-// LoginAttempt is the durable, credential-free contract between the API and
-// the browser worker. The worker reloads the store account itself.
 type LoginAttempt struct {
-	ID          string             `json:"id"`
-	TenantID    int64              `json:"tenant_id"`
-	StoreID     int64              `json:"store_id"`
-	ForceLogin  bool               `json:"force_login"`
-	Headless    *bool              `json:"headless,omitempty"`
-	Status      LoginAttemptStatus `json:"status"`
-	WorkerID    string             `json:"worker_id,omitempty"`
-	Message     string             `json:"message,omitempty"`
-	ErrorCode   string             `json:"error_code,omitempty"`
-	CreatedAt   time.Time          `json:"created_at"`
-	StartedAt   *time.Time         `json:"started_at,omitempty"`
-	CompletedAt *time.Time         `json:"completed_at,omitempty"`
+	ID                   string                      `json:"id"`
+	Scope                storecenter.SheinLoginScope `json:"scope"`
+	ActorID              string                      `json:"actor_id"`
+	MemberID             string                      `json:"member_id"`
+	Fingerprint          string                      `json:"fingerprint"`
+	ForceLogin           bool                        `json:"force_login"`
+	Status               LoginAttemptStatus          `json:"status"`
+	ErrorCode            string                      `json:"error_code,omitempty"`
+	SyncStatus           string                      `json:"sync_status"`
+	MerchantID           string                      `json:"merchant_id,omitempty"`
+	ExpectedStoreVersion int64                       `json:"expected_store_version,omitempty"`
+	OwnerNonce           string                      `json:"owner_nonce,omitempty"`
+	CreatedAt            time.Time                   `json:"created_at"`
+	CompletedAt          *time.Time                  `json:"completed_at,omitempty"`
 }
 
-type LoginResult struct {
-	Success              bool               `json:"success"`
-	Message              string             `json:"message"`
-	StoreID              int64              `json:"store_id"`
-	TenantID             int64              `json:"tenant_id"`
-	Username             string             `json:"username,omitempty"`
-	CookieTTL            int64              `json:"cookie_ttl,omitempty"`
-	CookieCount          int                `json:"cookie_count,omitempty"`
-	WaitingForVerifyCode bool               `json:"waiting_for_verify_code,omitempty"`
-	ErrorCode            string             `json:"error_code,omitempty"`
-	LoginType            string             `json:"login_type,omitempty"`
-	LoginTime            time.Time          `json:"login_time,omitempty"`
-	FailureArtifactPath  string             `json:"failure_artifact_path,omitempty"`
-	LastFailure          *FailureSummary    `json:"last_failure,omitempty"`
-	AttemptID            string             `json:"attempt_id,omitempty"`
-	ExecutionStatus      LoginAttemptStatus `json:"execution_status,omitempty"`
+// Result is the only CLI response. It deliberately excludes credentials,
+// provider bodies, cookies, verification codes and private artifacts.
+type Result struct {
+	OrganizationID string `json:"organization_id"`
+	StoreID        string `json:"store_id"`
+	AttemptID      string `json:"attempt_id,omitempty"`
+	Status         string `json:"status"`
+	SyncStatus     string `json:"sync_status,omitempty"`
+	ErrorCode      string `json:"error_code,omitempty"`
+	Generation     int64  `json:"generation"`
 }
 
-type AccountStatus struct {
-	Account              Account           `json:"account"`
-	HasCookie            bool              `json:"has_cookie"`
-	CookieTTL            int64             `json:"cookie_ttl,omitempty"`
-	WaitingForVerifyCode bool              `json:"waiting_for_verify_code"`
-	LastLoginTime        *time.Time        `json:"last_login_time,omitempty"`
-	LoginInProgress      bool              `json:"login_in_progress"`
-	LastFailure          *FailureSummary   `json:"last_failure,omitempty"`
-	RecommendedAction    RecommendedAction `json:"recommended_action,omitempty"`
-	LatestAttempt        *LoginAttempt     `json:"latest_attempt,omitempty"`
+func (a LoginAttempt) Result() Result {
+	return Result{a.Scope.OrganizationID, a.Scope.StoreID, a.ID, string(a.Status), a.SyncStatus, a.ErrorCode, a.Scope.Generation}
 }
 
 type WarehouseOption struct {
-	WarehouseCode   string   `json:"warehouse_code,omitempty"`
-	WarehouseName   string   `json:"warehouse_name,omitempty"`
-	SaleCountryList []string `json:"sale_country_list,omitempty"`
-	WarehouseType   int      `json:"warehouse_type,omitempty"`
-}
-
-type ServiceHealth struct {
-	Initialized         bool `json:"initialized"`
-	RedisReady          bool `json:"redis_ready"`
-	ManagementReady     bool `json:"management_ready"`
-	MaxConcurrentLogins int  `json:"max_concurrent_logins"`
+	WarehouseCode   string   `json:"warehouse_code"`
+	WarehouseName   string   `json:"warehouse_name"`
+	SaleCountryList []string `json:"sale_country_list"`
+	WarehouseType   int      `json:"warehouse_type"`
 }

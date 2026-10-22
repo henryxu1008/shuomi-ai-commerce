@@ -116,7 +116,7 @@ func (s *Service) PrepareArtwork(ctx context.Context, input PrepareArtworkInput)
 	if snapshot.Scope != (agent.Scope{OrganizationID: id.TenantID, ActorID: id.UserID}) || snapshot.MemberID != id.MemberID || snapshot.RunID != runID || snapshot.ContextID != input.ContextID || snapshot.RequestKey != input.RequestID || snapshot.TargetPlatform != "sds" || snapshot.AgentVersion != agentconfig.ArtworkAgentVersion || snapshot.SourceDigest != intent || snapshot.InputDigest != intent || !snapshot.ArtworkParameters.Valid() || !snapshot.ModeSnapshotRef.Valid() || !snapshot.HardLimits.Valid() || snapshot.HardLimits.Images != 1 {
 		return PreparedArtwork{}, ErrRevisionConflict
 	}
-	quote, err := s.artworks.Quotes.ReadImageGenerationQuote(ctx, id)
+	quote, err := s.artworks.Quotes.ReadImageGenerationQuote(ctx, id, nil)
 	if err != nil {
 		return PreparedArtwork{}, err
 	}
@@ -185,7 +185,7 @@ func (s *Service) ConfirmArtwork(ctx context.Context, input ConfirmArtworkInput)
 		if !s.tenantStartAllowed(ctx, id.TenantID) {
 			return p, ErrCommandBlocked
 		}
-		quote, quoteErr := s.artworks.Quotes.ReadImageGenerationQuote(ctx, id)
+		quote, quoteErr := s.artworks.Quotes.ReadImageGenerationQuote(ctx, id, nil)
 		if quoteErr != nil {
 			return p, quoteErr
 		}

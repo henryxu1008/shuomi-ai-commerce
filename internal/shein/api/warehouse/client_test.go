@@ -39,7 +39,7 @@ func TestGetWarehousesUsesLegacyEndpointWhenAvailable(t *testing.T) {
 	}))
 	defer server.Close()
 
-	baseClient := sheinclient.NewBaseAPIClient(server.URL, 1, 2, req.C())
+	baseClient := sheinclient.NewBaseAPIClient(server.URL, req.C())
 	client := NewClient(baseClient)
 
 	resp, err := client.GetWarehouses()
@@ -104,7 +104,7 @@ func TestGetWarehousesFallsBackToStoreAddressEndpoint(t *testing.T) {
 	}))
 	defer server.Close()
 
-	baseClient := sheinclient.NewBaseAPIClient(server.URL, 1, 2, req.C())
+	baseClient := sheinclient.NewBaseAPIClient(server.URL, req.C())
 	client := NewClient(baseClient)
 
 	resp, err := client.GetWarehouses()
@@ -152,7 +152,7 @@ func TestAddStoreAddress(t *testing.T) {
 	}))
 	defer server.Close()
 
-	baseClient := sheinclient.NewBaseAPIClient(server.URL, 1, 2, req.C())
+	baseClient := sheinclient.NewBaseAPIClient(server.URL, req.C())
 	client := NewClient(baseClient)
 
 	err := client.AddStoreAddress(&StoreAddressAddRequest{
@@ -237,7 +237,7 @@ func TestListStoreAddresses(t *testing.T) {
 	}))
 	defer server.Close()
 
-	baseClient := sheinclient.NewBaseAPIClient(server.URL, 1, 2, req.C())
+	baseClient := sheinclient.NewBaseAPIClient(server.URL, req.C())
 	client := NewClient(baseClient)
 
 	resp, err := client.ListStoreAddresses(2)
@@ -305,7 +305,7 @@ func TestCheckStoreAddress(t *testing.T) {
 	}))
 	defer server.Close()
 
-	baseClient := sheinclient.NewBaseAPIClient(server.URL, 1, 2, req.C())
+	baseClient := sheinclient.NewBaseAPIClient(server.URL, req.C())
 	client := NewClient(baseClient)
 
 	resp, err := client.CheckStoreAddress(&StoreAddressCheckRequest{

@@ -296,6 +296,55 @@ func TestImageSetCommittedApprovalCompletionSurvivesRevocation(t *testing.T) {
 	require.NoError(t, f.activities.PersistRunState(context.Background(), f.complete), "lost completion ACK also replays exactly")
 }
 
+func TestImageSetCommittedApprovalCompletionAcceptsEmptyRecoveryRepresentations(t *testing.T) {
+	for _, empty := range []struct {
+		name    string
+		effects []imageagent.RecoverableEffect
+	}{{name: "nil"}, {name: "empty", effects: []imageagent.RecoverableEffect{}}} {
+		t.Run(empty.name, func(t *testing.T) {
+			f := newApprovalRecoveryFixture(t)
+			original := f.loseCommittedACK(t)
+			f.complete.Projection.RecoverableEffects = empty.effects
+			scope := imageagent.RunScope{TenantID: f.publish.Identity.TenantID, OwnerUserID: f.publish.Identity.UserID, RunID: f.publish.RunID}
+			before, err := f.activities.repository.GetProjection(context.Background(), scope)
+			require.NoError(t, err)
+			require.Nil(t, before.RecoverableEffects, "the persisted snapshot has no recovery effects")
+
+			require.NoError(t, f.activities.PersistRunState(context.Background(), f.complete))
+			completed, err := f.activities.repository.GetProjection(context.Background(), scope)
+			require.NoError(t, err)
+			require.Equal(t, imageagent.RunStatusCompleted, completed.Run.Status)
+			require.Nil(t, completed.PendingCommand)
+			require.Equal(t, before.Plan, completed.Plan)
+			require.Equal(t, before.Slots, completed.Slots)
+			require.Equal(t, before.ResultDigest, completed.ResultDigest)
+
+			require.NoError(t, f.activities.PersistRunState(context.Background(), f.complete), "lost ACK reuses the same completion")
+			replayed, err := f.activities.repository.GetProjection(context.Background(), scope)
+			require.NoError(t, err)
+			require.Equal(t, completed, replayed, "replay must not append another completion or change the snapshot")
+			retained, err := f.assets.(productasset.ApprovalCommitReader).ReadApprovalCommit(context.Background(), f.publish.Identity.TenantID, f.publish.Selection.ActionID)
+			require.NoError(t, err)
+			require.Equal(t, original, retained)
+			require.Equal(t, 1, f.selector.calls, "completion must not repeat Select or overwrite approved materials")
+		})
+	}
+}
+
+func TestImageSetCommittedApprovalCompletionRejectsUnexpectedUnknownEffect(t *testing.T) {
+	f := newApprovalRecoveryFixture(t)
+	f.loseCommittedACK(t)
+	scope := imageagent.RunScope{TenantID: f.publish.Identity.TenantID, OwnerUserID: f.publish.Identity.UserID, RunID: f.publish.RunID}
+	before, err := f.activities.repository.GetProjection(context.Background(), scope)
+	require.NoError(t, err)
+	f.complete.Projection.RecoverableEffects = []imageagent.RecoverableEffect{{SlotID: before.Slots[0].Slot.ID, Attempt: before.Slots[0].Attempt, Code: imageagent.SlotProviderOutcomeUnknownCode}}
+	require.ErrorIs(t, f.activities.PersistRunState(context.Background(), f.complete), imageagent.ErrRevisionConflict)
+	retained, err := f.activities.repository.GetProjection(context.Background(), scope)
+	require.NoError(t, err)
+	require.Equal(t, before, retained, "an existing approval cannot clear an unexpected UNKNOWN or its pending action")
+	require.Equal(t, 1, f.selector.calls)
+}
+
 func TestImageSetCommittedApprovalPendingRecoverySurvivesRevocation(t *testing.T) {
 	f := newApprovalRecoveryFixture(t)
 	f.loseCommittedACK(t)

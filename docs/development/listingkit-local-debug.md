@@ -1,5 +1,9 @@
 # Historical ListingKit Local Debug Reference
 
+> #852 / #29 / #301 [用户确认的 API token 工具完整退休](../architecture/legacy-api-token-tools-retirement-boundary.md)，冻结设计 `e6ac780d7`：旧取 token、保存与 auth-check 三脚本已从仓库删除；下文旧 API token 文件/环境约定及脚本命令仅为历史，不是当前操作或试用要求。当前 Auth.js handoff、原生身份及 Login V2 探针保持原 owner；当前采集、Store 和独立 SHEIN 登录/Store 同步保留。历史正文原样，未读取现有凭据或操作实例/数据，不增加试用前置。
+
+> #846 / #29 / #301 [已确认完整退休](../architecture/legacy-local-acceptance-closure-retirement-boundary.md)：旧 API/dev launcher 源及其专属验收编排已删除，下文旧命令不能启动当前应用。当前 UI launcher/测试、token handoff、原生身份 CLI/库和通用工具保留；既有 Account Compose / 私密 current-application manifest 入口、#529 身份与发布边界及其余历史正文保持。未操作实例或数据，不增加试用前置。
+
 > #529 / #301 retire the old API/local-stack source and coordinated release
 > identity-preflight. The startup and token-helper examples below describe the
 > historical ListingKit stack, not a current-application delivery procedure.

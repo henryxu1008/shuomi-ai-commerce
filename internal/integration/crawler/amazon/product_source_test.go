@@ -187,8 +187,8 @@ func TestAmazonSourceEnvelopeMapsProductFacts(t *testing.T) {
 	if envelope.Identity.SourceID != "B001" {
 		t.Fatalf("SourceID = %q, want B001", envelope.Identity.SourceID)
 	}
-	if got := envelope.Identity.Key(); got != "amazon:uk:B001:7" {
-		t.Fatalf("Key() = %q, want legacy key with store", got)
+	if envelope.Identity.Platform != "" || envelope.Identity.Region != "" || envelope.Identity.ProductID != "" || envelope.Identity.StoreID != 0 {
+		t.Fatalf("retired identity slots populated: %+v", envelope.Identity)
 	}
 	if got := envelope.Identity.SourceKey(); got != "crawler:amazon:B001" {
 		t.Fatalf("SourceKey() = %q, want source key", got)
@@ -450,13 +450,13 @@ func TestNormalizeAmazonBatchResultsAlignsResultsWithSourceIdentities(t *testing
 	if len(got) != 3 {
 		t.Fatalf("len(got) = %d, want 3", len(got))
 	}
-	if got[0].Identity.Key() != "amazon:uk:B001" || got[0].Product == nil || got[0].Product.Asin != "B001" {
+	if got[0].Identity.SourceKey() != "crawler:amazon:B001" || got[0].Product == nil || got[0].Product.Asin != "B001" {
 		t.Fatalf("got[0] = %+v, want first product with normalized identity", got[0])
 	}
-	if got[1].Identity.Key() != "amazon:uk:B002" || !errors.Is(got[1].Error, sourceErr) {
+	if got[1].Identity.SourceKey() != "crawler:amazon:B002" || !errors.Is(got[1].Error, sourceErr) {
 		t.Fatalf("got[1] = %+v, want second error with normalized identity", got[1])
 	}
-	if got[2].Identity.Key() != "amazon:uk:B003" || got[2].Product != nil || got[2].Error != nil {
+	if got[2].Identity.SourceKey() != "crawler:amazon:B003" || got[2].Product != nil || got[2].Error != nil {
 		t.Fatalf("got[2] = %+v, want missing source result placeholder", got[2])
 	}
 }

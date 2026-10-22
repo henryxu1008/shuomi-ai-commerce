@@ -1,3 +1,0 @@
-identity: {target: product-listing-api}
-workflow:
-  with: {target: listingkit-ui}

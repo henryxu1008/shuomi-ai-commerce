@@ -39,16 +39,16 @@ type generationProviderFactory struct {
 	generatedFetcher   func(context.Context, string) ([]byte, error)
 }
 
-func (f generationProviderFactory) prepare(ctx context.Context, observe func(context.Context, imageagent.GenerationSuccess) error) (imageagent.PreparedGenerationProvider, error) {
+func (f generationProviderFactory) prepare(ctx context.Context, input imageagent.SlotExecutionInput, observe func(context.Context, imageagent.GenerationSuccess) error) (imageagent.PreparedGenerationProvider, error) {
 	if observe == nil || f.profile == nil {
 		return imageagent.PreparedGenerationProvider{}, imageagent.ErrBudgetQuoteUnavailable
 	}
-	cfg, metadata, err := f.resolve(ctx)
+	cfg, metadata, err := f.resolve(ctx, selectedImageRoute(input))
 	if err != nil {
 		return imageagent.PreparedGenerationProvider{}, err
 	}
 	build := func(bound ai.RouteBoundImageGenerator) (*openai.ProductImageAdapter, error) {
-		return openai.NewProductImageAdapter(openai.ProductImageAdapterConfig{ImageClient: bound, Provider: metadata.Provider, ImageModel: cfg.Model, RouteReference: metadata.RouteReference, CredentialReference: metadata.CredentialReference, ConfigurationVersion: metadata.ConfigurationVersion, Prompts: openai.DefaultProductImagePrompts(), PricingVersion: metadata.PriceVersion, MaximumSceneOutputs: 1, GeneratedImageFetcher: f.generatedFetcher})
+		return openai.NewProductImageAdapter(openai.ProductImageAdapterConfig{ImageClient: bound, Provider: metadata.Provider, ImageModel: cfg.Model, RouteReference: metadata.RouteReference, CredentialReference: metadata.CredentialReference, ConfigurationVersion: metadata.ConfigurationVersion, Prompts: openai.DefaultProductImagePrompts(), PricingVersion: metadata.PriceVersion, MaximumSceneOutputs: 1, GeneratedImageFetcher: f.generatedFetcher, DiagnoseOutputDimensions: imageDimensionsDiagnostic(f.logger, metadata.Provider, cfg.Model)})
 	}
 	var provider synchronousImageProvider
 	var generate func(context.Context, *ai.ImageGenerateRequest) (*ai.ImageResponse, error)
@@ -99,7 +99,7 @@ func (f generationProviderFactory) prepare(ctx context.Context, observe func(con
 		return imageagent.PreparedGenerationProvider{}, err
 	}
 	executor := tools.NewProductImageSlotExecutor(tools.Dependencies{SourceEditor: editor, WhiteBackgroundRenderer: white, UsageQuoter: provider, ProfileResolver: f.profile})
-	return imageagent.PreparedGenerationProvider{Metadata: metadata, Executor: scopedGenerationExecutor{product: executor, artwork: tools.NewArtworkSlotExecutor(artworkCreator{generate: generate, model: cfg.Model, fetch: f.generatedFetcher})}, Rejection: func(err error) (imageagent.GenerationRejection, bool) {
+	return imageagent.PreparedGenerationProvider{Metadata: metadata, Executor: scopedGenerationExecutor{product: executor, artwork: tools.NewArtworkSlotExecutor(artworkCreator{generate: generate, model: cfg.Model, quality: imageagent.GenerationRouteQuality(metadata.Provider, metadata.Model, metadata.Protocol), fetch: f.generatedFetcher})}, Rejection: func(err error) (imageagent.GenerationRejection, bool) {
 		var quota *bailian.QuotaRejection
 		if metadata.Provider == "bailian" && errors.As(err, &quota) {
 			return imageagent.GenerationRejection{Kind: "bailian_free_tier", Digest: quota.ResponseDigest, RequestID: quota.RequestID, HTTPStatus: 403, ProviderCode: "AllocationQuota.FreeTierOnly"}, true
@@ -120,8 +120,15 @@ type synchronousImageProvider interface {
 	productimage.UsageQuoter
 }
 
-func (f generationProviderFactory) revalidate(ctx context.Context, expected imageagent.GenerationProviderMetadata) error {
-	_, current, err := f.resolve(ctx)
+func selectedImageRoute(input imageagent.SlotExecutionInput) *imageagent.ImageRouteSelection {
+	if input.ImageSet == nil {
+		return nil
+	}
+	return input.ImageSet.Route
+}
+
+func (f generationProviderFactory) revalidate(ctx context.Context, input imageagent.SlotExecutionInput, expected imageagent.GenerationProviderMetadata) error {
+	_, current, err := f.resolve(ctx, selectedImageRoute(input))
 	if err != nil {
 		return err
 	}
@@ -131,11 +138,21 @@ func (f generationProviderFactory) revalidate(ctx context.Context, expected imag
 	return nil
 }
 
-func (f generationProviderFactory) resolve(ctx context.Context) (*openai.ClientConfig, imageagent.GenerationProviderMetadata, error) {
+func (f generationProviderFactory) resolve(ctx context.Context, choices ...*imageagent.ImageRouteSelection) (*openai.ClientConfig, imageagent.GenerationProviderMetadata, error) {
 	invalid := func() (*openai.ClientConfig, imageagent.GenerationProviderMetadata, error) {
 		return nil, imageagent.GenerationProviderMetadata{}, imageagent.ErrBudgetQuoteUnavailable
 	}
 	if f.resolver == nil || f.current == nil && !f.price.Configured() {
+		return invalid()
+	}
+	if len(choices) > 1 {
+		return invalid()
+	}
+	var choice *imageagent.ImageRouteSelection
+	if len(choices) == 1 {
+		choice = choices[0]
+	}
+	if choice != nil && (!choice.Valid() || f.current == nil) {
 		return invalid()
 	}
 	// No process-wide key/model fallback: the organization credential owner
@@ -147,7 +164,27 @@ func (f generationProviderFactory) resolve(ctx context.Context) (*openai.ClientC
 		if !ok || identity.TenantID == "" || identity.EffectiveOrganizationID != identity.TenantID {
 			return invalid()
 		}
-		revision, e := f.current.Current(ctx, d.Scope{OrganizationID: identity.TenantID, Capability: d.ImageCapability})
+		var revision d.Revision
+		var e error
+		if choice != nil {
+			options, ok := f.current.(d.OptionalReader)
+			if !ok {
+				return invalid()
+			}
+			revision, e = options.Optional(ctx, d.Scope{OrganizationID: identity.TenantID, Capability: d.ImageCapability}, choice.BindingID)
+			if errors.Is(e, d.ErrNotFound) || errors.Is(e, d.ErrNeedsConfiguration) {
+				return nil, imageagent.GenerationProviderMetadata{}, imageagent.ErrImageRouteChanged
+			}
+			if e != nil {
+				return invalid()
+			}
+			if revision.ID != choice.RevisionID || !revision.Payload.Optional || revision.Payload.BindingID != choice.BindingID {
+				return nil, imageagent.GenerationProviderMetadata{}, imageagent.ErrImageRouteChanged
+			}
+		}
+		if choice == nil {
+			revision, e = f.current.Current(ctx, d.Scope{OrganizationID: identity.TenantID, Capability: d.ImageCapability})
+		}
 		if e != nil || revision.Payload.Image == nil {
 			return invalid()
 		}
@@ -171,7 +208,7 @@ func (f generationProviderFactory) resolve(ctx context.Context) (*openai.ClientC
 			return invalid()
 		}
 		provider, protocol, route = "bailian", bailian.Protocol, "bailian-sync:"+generationConfigDigest(endpoint)
-	case cfg.APIStyle == "grsai" && cfg.Model == "gpt-image-2.5":
+	case cfg.APIStyle == "grsai" && (cfg.Model == "gpt-image-2.5" || cfg.Model == "gpt-image-2-vip"):
 		switch strings.TrimSuffix(u.Path, "/") {
 		case "", "/v1", "/v1/api/generate":
 		default:

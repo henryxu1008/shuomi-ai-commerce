@@ -3,6 +3,20 @@ import {buildWorkbenchBrowserResponse,buildWorkbenchUpstreamRequest} from "./wor
 const context="11111111-1111-4111-8111-111111111111",run="22222222-2222-4222-8222-222222222222",action="33333333-3333-4333-8333-333333333333";
 const path=["sourcing","1688","acquisitions",context,"images"];
 const expected=JSON.stringify({kind:"acquisition",contextId:context,runId:run});
+it("binds member model choices to the source context and rejects leaked maintenance fields",async()=>{
+ const read=await buildWorkbenchUpstreamRequest(request("GET","/model-options"),[...path,"model-options"],"token","actor");expect(read).not.toBeInstanceOf(Response);
+ const option={route:{BindingID:"image-vip",RevisionID:"route-vip"},model:"gpt-image-2-vip",quality:"medium",resolution:"1024x1024",points:1};
+ const payload={contextKind:"acquisition",contextId:context,options:[option]};const binding=JSON.stringify({kind:"acquisition",contextId:context});
+ expect((await buildWorkbenchBrowserResponse(Response.json(payload),"image-set-model-options",binding)).status).toBe(200);
+ expect((await buildWorkbenchBrowserResponse(Response.json({...payload,contextId:run}),"image-set-model-options",binding)).status).toBe(502);
+ expect((await buildWorkbenchBrowserResponse(Response.json({...payload,options:[{...option,credentialReference:"private"}]}),"image-set-model-options",binding)).status).toBe(502);
+});
+it.each(["prepare","regenerate"] as const)("preserves a definite review rejection for %s without changing UNKNOWN handling",async action=>{
+ const response=await buildWorkbenchBrowserResponse(Response.json({code:"IMAGE_TEXT_REVIEW_CHANGED"},{status:409}),`image-set-${action}`,expected,{sourceMutation:true});
+ expect(response.status).toBe(409);expect((await response.json()).code).toBe("IMAGE_TEXT_REVIEW_CHANGED");
+ const uncertain=await buildWorkbenchBrowserResponse(Response.json({code:"OUTCOME_UNKNOWN"},{status:503}),`image-set-${action}`,expected,{sourceMutation:true});
+ expect(uncertain.status).toBe(503);expect((await uncertain.json()).code).toBe("OUTCOME_UNKNOWN");
+});
 
 it("preserves signed-64-bit catalog versions through image source reads and preparation bodies",async()=>{
  const version="9223372036854775807";

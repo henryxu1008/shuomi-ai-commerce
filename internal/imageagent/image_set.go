@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
@@ -41,6 +43,7 @@ type ImageTarget struct {
 }
 
 type ImageSetPlan struct {
+	Route                                                          *ImageRouteSelection  `json:",omitempty"`
 	Text                                                           *ImageTextBinding     `json:",omitempty"`
 	Method                                                         *ImageMethodBinding   `json:",omitempty"`
 	ModeSnapshotRef                                                agent.ModeSnapshotRef `json:",omitzero"`
@@ -51,6 +54,20 @@ type ImageSetPlan struct {
 	ConfigurationEpoch, ParametersDigest, InputDigest, QuoteDigest string
 	MaxPoints                                                      int64
 	Regeneration                                                   *ImageSetRegeneration `json:",omitempty"`
+}
+
+type ImageRouteSelection struct{ BindingID, RevisionID string }
+
+func (r ImageRouteSelection) Valid() bool {
+	return len(r.BindingID) > 0 && len(r.BindingID) <= 64 && len(r.RevisionID) > 0 && len(r.RevisionID) <= 128 && utf8.ValidString(r.BindingID+r.RevisionID) && strings.IndexFunc(r.BindingID+r.RevisionID, func(c rune) bool { return unicode.IsControl(c) || unicode.IsSpace(c) }) < 0
+}
+
+func CloneImageRoute(r *ImageRouteSelection) *ImageRouteSelection {
+	if r == nil {
+		return nil
+	}
+	v := *r
+	return &v
 }
 
 type ImageSetRegeneration struct {
@@ -110,7 +127,7 @@ type ImageSlotClosure struct {
 }
 
 func (q ImageGenerationQuote) Valid() bool {
-	return validGenerationRoute(q.Provider, q.Model, q.Protocol) && q.Resolution == "1024x1024" && q.Quality == "auto" && q.Points > 0 && canonicalImageValue(q.PriceVersion) && canonicalImageValue(q.RouteReference) && canonicalImageValue(q.CredentialReference) && canonicalImageValue(q.ConfigurationVersion)
+	return validGenerationRoute(q.Provider, q.Model, q.Protocol) && q.Resolution == "1024x1024" && q.Quality == GenerationRouteQuality(q.Provider, q.Model, q.Protocol) && q.Points > 0 && canonicalImageValue(q.PriceVersion) && canonicalImageValue(q.RouteReference) && canonicalImageValue(q.CredentialReference) && canonicalImageValue(q.ConfigurationVersion)
 }
 
 func canonicalImageValue(value string) bool {
@@ -142,6 +159,25 @@ func SlotRoleForImagePurpose(purpose string) SlotRole {
 }
 
 func ValidateImageSetPlan(plan Plan) error {
+	if plan.Set != nil && plan.Set.Route != nil {
+		r := plan.Set.Route
+		if !r.Valid() || len(plan.Slots) == 0 {
+			return ErrValidation
+		}
+		var first ImageGenerationQuote
+		for i, slot := range plan.Slots {
+			if slot.Recipe == nil {
+				return ErrValidation
+			}
+			q := slot.Recipe.Quote
+			if i == 0 {
+				first = q
+			}
+			if q != first || q.Provider != "grsai" || q.Model != "gpt-image-2-vip" || q.Quality != "medium" || q.ConfigurationVersion != r.RevisionID || q.PriceVersion != r.RevisionID {
+				return ErrValidation
+			}
+		}
+	}
 	if plan.Set != nil && plan.Set.Method != nil && !plan.Set.Method.Valid() {
 		return ErrValidation
 	}
@@ -184,7 +220,11 @@ func ValidateImageSetPlan(plan Plan) error {
 			return ErrValidation
 		}
 		for _, label := range r.VisibleText {
-			if !validDetailLabel(label) {
+			valid := validDetailLabel(label)
+			if s.Text != nil {
+				valid = validReviewedImageText(label)
+			}
+			if !valid {
 				return ErrValidation
 			}
 		}
@@ -268,6 +308,14 @@ func ImageSetQuoteDigest(plan Plan) (string, error) {
 		}
 		quotes = append(quotes, quotedSlot{slot.ID, slot.Recipe.Quote})
 	}
+	if plan.Set != nil && plan.Set.Route != nil {
+		return resultDigestSHA256(struct {
+			Quotes []quotedSlot
+			Route  *ImageRouteSelection
+			Method *ImageMethodBinding `json:",omitempty"`
+			Text   *ImageTextBinding   `json:",omitempty"`
+		}{quotes, plan.Set.Route, plan.Set.Method, plan.Set.Text})
+	}
 	if plan.Set != nil && plan.Set.Text != nil {
 		return resultDigestSHA256(struct {
 			Quotes []quotedSlot
@@ -310,6 +358,7 @@ func CloneImageSetPlan(set *ImageSetPlan) *ImageSetPlan {
 		return nil
 	}
 	clone := *set
+	clone.Route = CloneImageRoute(set.Route)
 	clone.Text = CloneImageTextBinding(set.Text)
 	if set.Method != nil {
 		method := *set.Method

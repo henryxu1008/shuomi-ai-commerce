@@ -36,8 +36,8 @@ type GenerationExecutionDependencies struct {
 	Authorizer         ExecutionAuthorizer
 	ReadMemberLimit    func(context.Context, string, string) (GenerationMemberLimit, error)
 	ReadSourceBytes    func(context.Context, SlotExecutionInput) ([]byte, error)
-	PrepareProvider    func(context.Context, func(context.Context, GenerationSuccess) error) (PreparedGenerationProvider, error)
-	RevalidateProvider func(context.Context, GenerationProviderMetadata) error
+	PrepareProvider    func(context.Context, SlotExecutionInput, func(context.Context, GenerationSuccess) error) (PreparedGenerationProvider, error)
+	RevalidateProvider func(context.Context, SlotExecutionInput, GenerationProviderMetadata) error
 	MaxSourceBytes     int
 }
 type GenerationExecution struct {
@@ -65,7 +65,7 @@ func (e *GenerationExecution) QuoteSlot(ctx context.Context, input SlotExecution
 	}
 	defer release()
 	input = preparedInput
-	provider, err := e.dependencies.PrepareProvider(ctx, func(context.Context, GenerationSuccess) error { return ErrProviderContractViolation })
+	provider, err := e.dependencies.PrepareProvider(ctx, input, func(context.Context, GenerationSuccess) error { return ErrProviderContractViolation })
 	if err != nil {
 		return SlotUsageQuote{}, err
 	}
@@ -97,7 +97,7 @@ func (e *GenerationExecution) GenerateQuotedSlot(ctx context.Context, input Slot
 	defer release()
 	input = preparedInput
 	var intent GenerationIntent
-	provider, err := e.dependencies.PrepareProvider(ctx, func(observeCtx context.Context, success GenerationSuccess) error {
+	provider, err := e.dependencies.PrepareProvider(ctx, input, func(observeCtx context.Context, success GenerationSuccess) error {
 		finalCtx, cancel := generationFinalizationContext(observeCtx)
 		defer cancel()
 		if _, err := e.dependencies.Facts.RecordGenerationSuccess(finalCtx, intent, success); err != nil {
@@ -159,7 +159,7 @@ func (e *GenerationExecution) GenerateQuotedSlot(ctx context.Context, input Slot
 		return reject(err)
 	}
 	m := provider.Metadata
-	intent = GenerationIntent{Identity: id, MemberID: input.OrganizationIdentity.MemberID, CatalogHash: input.AssetCatalog.Manifest.Hash, SourceDigest: sourceDigest, PromptVersion: m.PromptVersion, RouteReference: m.RouteReference, CredentialReference: m.CredentialReference, ConfigurationVersion: m.ConfigurationVersion, Provider: m.Provider, Model: m.Model, Protocol: m.Protocol, Resolution: "1024x1024", Quality: "auto", PriceVersion: m.PriceVersion, Points: m.Points, LimitVersion: limit.Version, MonthStart: limit.MonthStart}
+	intent = GenerationIntent{Identity: id, MemberID: input.OrganizationIdentity.MemberID, CatalogHash: input.AssetCatalog.Manifest.Hash, SourceDigest: sourceDigest, PromptVersion: m.PromptVersion, RouteReference: m.RouteReference, CredentialReference: m.CredentialReference, ConfigurationVersion: m.ConfigurationVersion, Provider: m.Provider, Model: m.Model, Protocol: m.Protocol, Resolution: "1024x1024", Quality: GenerationRouteQuality(m.Provider, m.Model, m.Protocol), PriceVersion: m.PriceVersion, Points: m.Points, LimitVersion: limit.Version, MonthStart: limit.MonthStart}
 	if input.Artwork != nil {
 		intent.InputProtocol, intent.InputDigest, intent.PromptVersion = ArtworkSchema, sourceDigest, input.Artwork.PromptVersion
 	} else if input.ImageSet != nil {
@@ -210,7 +210,7 @@ func (e *GenerationExecution) GenerateQuotedSlot(ctx context.Context, input Slot
 	if err = e.authorize(ctx, input); err != nil {
 		return closeBeforeDispatch(err)
 	}
-	if err = e.dependencies.RevalidateProvider(ctx, m); err != nil {
+	if err = e.dependencies.RevalidateProvider(ctx, input, m); err != nil {
 		return closeBeforeDispatch(err)
 	}
 	if err = ctx.Err(); err != nil {

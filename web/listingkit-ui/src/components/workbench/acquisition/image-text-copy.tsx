@@ -17,7 +17,7 @@ import {ContentComparison} from "../task-center/content-review-presentation";
 import {isAcquisitionUUID} from "@/lib/contracts/product-acquisition";
 
 export const imageTextLanguageNames:Record<string,string>={en:"英语",zh:"中文",es:"西班牙语",fr:"法语",de:"德语",ja:"日语"};
-type Props={scope:ImageSetScope;source:ImageSetRun["plan"]["Source"];language:string;templateKey:string;taskIds:string[];taskLabels?:Record<string,string>;ownItemId?:string;disabled:boolean;onChange:(value:ImageTextSelection|null)=>void};
+type Props={scope:ImageSetScope;source:ImageSetRun["plan"]["Source"];language:string;templateKey:string;taskIds:string[];taskLabels?:Record<string,string>;ownItemId?:string;initialMode?:"none"|"reviewed";disabled:boolean;onChange:(value:ImageTextSelection|null)=>void};
 type Original={key:string;start:StartIntent};
 type ReviewIntent={key:string;proposalId:string;body:ProductTitleDecisionInput};
 
@@ -33,7 +33,7 @@ export function ImageTextCopy(props:Props){
  const {scope,source,language,templateKey,taskIds,ownItemId,disabled,onChange}=props;
  const context=useWorkbenchContext();
  const storage=`image-text:${scope.userId}:${scope.organizationId}:${scope.kind}:${scope.contextId}:${source.EffectiveVersion}:${templateKey}:${language}`;
- const [mode,setMode]=useState<"none"|"reviewed">("none"),[expanded,setExpanded]=useState(false),[ready,setReady]=useState(false);
+ const [mode,setMode]=useState<"none"|"reviewed">(props.initialMode??"none"),[expanded,setExpanded]=useState(false),[ready,setReady]=useState(false);
  const [original,setOriginal]=useState<Original>(),[ownSource,setOwnSource]=useState<OwnSourceSelection>();
  const [proposalId,setProposalId]=useState(""),[proposal,setProposal]=useState<ProductTitleProposal>();
  const [pending,setPending]=useState<ReviewIntent>(),[busy,setBusy]=useState(false),[error,setError]=useState("");

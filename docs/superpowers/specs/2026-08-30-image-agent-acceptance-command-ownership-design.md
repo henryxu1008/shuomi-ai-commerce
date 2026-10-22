@@ -1,5 +1,7 @@
 # Image Agent Acceptance Command Ownership Design
 
+> **Historical / SUPERSEDED — #846 / #29 / #301:** The [confirmed complete retirement boundary](../../architecture/legacy-local-acceptance-closure-retirement-boundary.md) supersedes only the old Task local-acceptance, seed and dedicated runtime/orchestration contract below; its launcher/orchestrator/test/Compose sources are deleted. Historical Proposed/Implementation Ready statements do not authorize restoring or running those entries. Current command ownership, native identity CLI/library, token handoff, UI and image safety remain with their existing owners. The dated body and failure evidence are preserved; no runtime/data action or new trial prerequisite is implied.
+
 **Date:** 2026-08-30
 
 ## Context

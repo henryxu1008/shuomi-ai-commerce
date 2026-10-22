@@ -149,8 +149,6 @@ try {
     Write-Host "  `$env:TASK_PROCESSOR_DATABASE_PASSWORD='<fill-real-password>'"
     Write-Host "  `$env:TASK_PROCESSOR_REDIS_HOST='127.0.0.1'"
     Write-Host "  `$env:TASK_PROCESSOR_REDIS_PORT='${LocalRedisPort}'"
-    Write-Host "  `$env:TASK_PROCESSOR_SHEIN_COOKIE_REDIS_HOST='127.0.0.1'"
-    Write-Host "  `$env:TASK_PROCESSOR_SHEIN_COOKIE_REDIS_PORT='${LocalRedisPort}'"
     if ($IncludeTemporal) {
         Write-Host "  `$env:LISTINGKIT_TEMPORAL_ENABLED='true'"
         Write-Host "  `$env:LISTINGKIT_TEMPORAL_ADDRESS='127.0.0.1:${LocalTemporalPort}'"

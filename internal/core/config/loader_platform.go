@@ -4,16 +4,7 @@ import "github.com/spf13/viper"
 
 func BuildPlatformConfig(v *viper.Viper, prefix string) PlatformConfig {
 	cfg := PlatformConfig{
-		FetchMode: v.GetString(prefix + ".fetchMode"),
-		CookieRedis: RedisConfig{
-			Host:     v.GetString(prefix + ".cookieRedis.host"),
-			Port:     v.GetInt(prefix + ".cookieRedis.port"),
-			Password: v.GetString(prefix + ".cookieRedis.password"),
-			DB:       v.GetInt(prefix + ".cookieRedis.db"),
-			PoolSize: v.GetInt(prefix + ".cookieRedis.pool_size"),
-		},
-		LoginService: BuildLoginServiceConfig(v, prefix+".loginService"),
-		HTTPClient:   BuildHTTPClientConfig(v, prefix+".httpClient"),
+		HTTPClient: BuildHTTPClientConfig(v, prefix+".httpClient"),
 	}
 
 	return cfg

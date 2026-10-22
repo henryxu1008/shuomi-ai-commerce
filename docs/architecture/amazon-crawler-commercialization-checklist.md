@@ -1,5 +1,7 @@
 # Amazon Crawler Commercialization Checklist
 
+> HISTORICAL / 已被部分或全部替代：#867 按[完整闭包](legacy-numeric-acquisition-tail-closure-retirement-boundary.md)退休旧 Amazon 数字 Task/HTTP 服务、RawJSON fetch/cache 工厂及其发布/部署/监控源。下文有关 Service、remoteAPI、去重/regionGuard/并发门与旧发布命令只保留历史设计，不是当前构建、部署或验收指令。当前采集入口为 `integration/crawler/amazon` → `CreateProcessor` → `AmazonProcessor`，见[当前运行链](amazon-crawler-runtime-flow.md)；通用队列/workerpool、共享浏览器和独立 SHEIN worker 保留。未操作既有实例、数据或凭据。
+
 本文档用于梳理 `amazon-crawler-api` 从“可运行”走向“可商用稳定运行”还缺少的关键能力。
 
 这里的“商用”不只是指功能可用，而是指：

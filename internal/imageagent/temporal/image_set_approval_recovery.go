@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"slices"
 
 	"task-processor/internal/imageagent"
 	productasset "task-processor/internal/product/asset"
@@ -120,7 +121,7 @@ func (a *Activities) restoreImageSetCompletionIdentity(ctx context.Context, inpu
 	}
 	if current.Run.ActivePlanRevision != input.PlanRevision || input.Projection.Block != nil || input.Projection.PendingCommand != nil ||
 		!reflect.DeepEqual(current.Plan, input.Projection.Plan) || !reflect.DeepEqual(current.Slots, input.Projection.Slots) ||
-		current.ResultDigest != input.Projection.ResultDigest || !reflect.DeepEqual(current.RecoverableEffects, input.Projection.RecoverableEffects) {
+		current.ResultDigest != input.Projection.ResultDigest || !slices.Equal(current.RecoverableEffects, input.Projection.RecoverableEffects) {
 		return nil, nil, imageagent.ErrRevisionConflict
 	}
 	if current.Run.Status == imageagent.RunStatusCompleted && current.Run.CurrentNode == "complete" && current.Run.Block == nil && current.PendingCommand == nil {

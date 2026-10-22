@@ -2,6 +2,7 @@ package routeconfigstore
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/url"
 	"os"
@@ -20,6 +21,137 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
+
+func TestOptionalPublicationDoesNotMoveEnterpriseDefault(t *testing.T) {
+	_, s := fixture(t)
+	ctx := context.Background()
+	scope := d.Scope{OrganizationID: "org-a", Capability: d.ImageCapability}
+	initial, err := s.Publish(ctx, command(scope, "bailian-default", d.NoRevision), build)
+	require.NoError(t, err)
+	cmd := command(scope, "vip-option", d.NoRevision)
+	require.NoError(t, json.Unmarshal([]byte(`{"optional":true,"bindingId":"vip","expectedRevision":"NONE"}`), &cmd.Input))
+	option, err := s.Publish(ctx, cmd, func(reader d.CredentialReader, id string) (d.Payload, error) {
+		p, e := build(reader, id)
+		require.NoError(t, json.Unmarshal([]byte(`{"optional":true,"bindingId":"vip"}`), &p))
+		return p, e
+	})
+	require.NoError(t, err, "optional publication must use its own CAS head")
+	current, err := s.Current(ctx, scope)
+	require.NoError(t, err)
+	require.Equal(t, initial.ID, current.ID, "optional publication must not change Bailian default")
+	replay, err := s.Publish(ctx, cmd, func(d.CredentialReader, string) (d.Payload, error) {
+		t.Fatal("receipt must not rebuild")
+		return d.Payload{}, nil
+	})
+	require.NoError(t, err)
+	require.Equal(t, option.ID, replay.ID)
+}
+
+func TestTextConfigurationSchemaDoesNotRequireImageOptions(t *testing.T) {
+	db, _ := fixture(t)
+	require.NoError(t, db.Exec("DROP TABLE public.ai_route_config_options").Error)
+	require.NoError(t, VerifySchema(context.Background(), db), "text-only configuration must retain its own schema boundary")
+	require.Error(t, VerifySchema(context.Background(), db, true), "image consumers must still require the relation")
+}
+
+func TestOptionalServiceQualifiedVersionTenantRollbackAndCredentialGuards(t *testing.T) {
+	db, repo := fixture(t)
+	ctx := context.Background()
+	scope := d.Scope{OrganizationID: "org-a", Capability: d.ImageCapability}
+	credentials := openai.NewGormCredentialResolver(db)
+	require.NoError(t, credentials.SaveCredential(ctx, openai.AIClientCredential{TenantID: scope.OrganizationID, ClientName: "image-vip", APIKey: "fixture", BaseURL: "https://provider.example.test/v1", Model: "gpt-image-2-vip", APIStyle: "grsai", TimeoutSecond: 30, Enabled: true}))
+	row, e := credentials.GetCredential(ctx, scope.OrganizationID, "", "image-vip")
+	require.NoError(t, e)
+	catalog, e := qualified.NewCatalog([]qualified.Definition{{Scope: scope, Image: &qualified.ImageAdmission{ClientName: row.ClientName, Provider: "grsai", Model: row.Model, Endpoint: row.BaseURL, CredentialVersion: openai.CredentialVersion(*row), MaximumPointsPerImage: 10}}})
+	require.NoError(t, e)
+	s := &d.Service{Repository: repo, Catalog: catalog}
+	options, e := s.Options(ctx, scope)
+	require.NoError(t, e)
+	require.Empty(t, options, "qualified candidate alone is not published")
+	in := d.Input{Optional: true, ExpectedRevision: d.NoRevision, BindingID: row.ClientName, CredentialVersion: openai.CredentialVersion(*row), Rates: d.Rates{PointsPerImage: "2"}}
+	first, e := s.Publish(ctx, scope, "maintainer", "option-first", in)
+	require.NoError(t, e)
+	_, e = s.Current(ctx, scope)
+	require.ErrorIs(t, e, d.ErrNotFound, "optional publication cannot initialize default")
+	options, e = s.Options(ctx, scope)
+	require.NoError(t, e)
+	require.Len(t, options, 1)
+	require.Equal(t, first.ID, options[0].ID)
+	_, e = s.Optional(ctx, d.Scope{OrganizationID: "org-b", Capability: d.ImageCapability}, row.ClientName)
+	require.Error(t, e)
+	wrongMode := in
+	wrongMode.Optional = false
+	wrongMode.RollbackFrom = first.ID
+	_, e = s.Publish(ctx, scope, "maintainer", "bad-mode", wrongMode)
+	require.ErrorIs(t, e, d.ErrConflict)
+	_, e = s.Publish(ctx, scope, "maintainer", "option-first", wrongMode)
+	require.ErrorIs(t, e, d.ErrConflict, "same key cannot change publication mode")
+	in.ExpectedRevision = first.ID
+	second, e := s.Publish(ctx, scope, "maintainer", "option-second", in)
+	require.NoError(t, e)
+	latest, e := s.Optional(ctx, scope, row.ClientName)
+	require.NoError(t, e)
+	require.Equal(t, second.ID, latest.ID)
+	_, e = s.Publish(ctx, scope, "maintainer", "stale-head", in)
+	require.ErrorIs(t, e, d.ErrConflict)
+	row.Enabled = false
+	require.NoError(t, credentials.SaveCredential(ctx, *row))
+	_, e = s.Optional(ctx, scope, row.ClientName)
+	require.ErrorIs(t, e, d.ErrNeedsConfiguration)
+	options, e = s.Options(ctx, scope)
+	require.NoError(t, e)
+	require.Empty(t, options)
+	heads, e := s.PublishedOptions(ctx, scope)
+	require.NoError(t, e)
+	require.Len(t, heads, 1)
+	require.Equal(t, second.ID, heads[0].ID, "maintenance CAS retains the head even after credential invalidation")
+	replayed, e := s.Publish(ctx, scope, "maintainer", "option-first", d.Input{Optional: true, ExpectedRevision: d.NoRevision, BindingID: row.ClientName, CredentialVersion: in.CredentialVersion, Rates: in.Rates})
+	require.NoError(t, e)
+	require.Equal(t, first.ID, replayed.ID, "durable receipt remains readable after revocation")
+}
+
+func TestConcurrentOptionalInitialPublicationUsesOneHeadAndKeepsDefault(t *testing.T) {
+	db, s := fixture(t)
+	ctx := context.Background()
+	scope := d.Scope{OrganizationID: "org-a", Capability: d.ImageCapability}
+	initial, e := s.Publish(ctx, command(scope, "default", d.NoRevision), build)
+	require.NoError(t, e)
+	var wg sync.WaitGroup
+	errs := make(chan error, 2)
+	for _, key := range []string{"option-a", "option-b"} {
+		wg.Add(1)
+		go func(key string) {
+			defer wg.Done()
+			cmd := command(scope, key, d.NoRevision)
+			cmd.Input.Optional = true
+			cmd.Input.BindingID = "vip"
+			_, e := s.Publish(ctx, cmd, func(r d.CredentialReader, id string) (d.Payload, error) {
+				p, e := build(r, id)
+				p.Optional = true
+				p.BindingID = "vip"
+				return p, e
+			})
+			errs <- e
+		}(key)
+	}
+	wg.Wait()
+	close(errs)
+	wins := 0
+	for e := range errs {
+		if e == nil {
+			wins++
+		} else {
+			require.ErrorIs(t, e, d.ErrConflict)
+		}
+	}
+	require.Equal(t, 1, wins)
+	current, e := s.Current(ctx, scope)
+	require.NoError(t, e)
+	require.Equal(t, initial.ID, current.ID)
+	var count int64
+	require.NoError(t, db.Raw("SELECT count(*) FROM ai_route_config_revisions").Scan(&count).Error)
+	require.EqualValues(t, 2, count, "loser revision is rolled back")
+}
 
 func TestCommitAcknowledgementLossRecoversOriginalReceipt(t *testing.T) {
 	db, s := fixture(t)
@@ -279,6 +411,10 @@ func TestRestrictedWriterPublicationRotationRollbackAndLostResponse(t *testing.T
 	require.NoError(t, e)
 	t.Cleanup(func() { raw, _ := writer.DB(); _ = raw.Close() })
 	require.NoError(t, VerifyWriter(ctx, writer))
+	require.NoError(t, VerifyWriter(ctx, writer, true))
+	require.NoError(t, db.Exec("REVOKE UPDATE ON ai_route_config_options FROM "+role).Error)
+	require.Error(t, VerifyWriter(ctx, writer, true), "image writer requires both INSERT and UPDATE")
+	require.NoError(t, db.Exec("GRANT UPDATE ON ai_route_config_options TO "+role).Error)
 	require.Error(t, VerifyReader(ctx, writer), "configuration writer must never be injected as serving reader")
 	require.Error(t, writer.Exec("UPDATE public.ai_client_credentials SET enabled=false").Error)
 	var secret string

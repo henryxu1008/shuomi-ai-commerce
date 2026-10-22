@@ -32,6 +32,7 @@
 | 两份配置的 artifactStore | 相同公开 base 与 bucket；worker YAML 含既有 S3 私有凭据、region/endpoint 与不可覆盖模式。API manifest 不含 worker 的存储凭据 |
 | `commercialOwnerDatabase` | 当前 orgresource owner 的窄权限 pool，实际点数与成员月限；无需另建账本 |
 | 企业模型 credential owner | 当前企业的 `image_gpt_image_2` route；HTTPS submit URL、`api_style=grsai`、`model=gpt-image-2.5`、有效私有 credential，超时最多5分钟 |
+| 可选 `modelRoutePricing.imageWriter` | 沿[模型与费率显式安装](model-route-pricing-v1.md)启用管理。配置读取复用 `image_agent_worker_runtime`，仅显式增加三张 `ai_route_config_*` 普通表（revisions/current/options）与 `ai_client_credential_bindings` 去密 view 的 SELECT；HTTP `image_agent_runtime` 不新增读取。未启用时不要求这些可选权限，启用后仍强制完整 reader/schema 校验；启动及原 worker grant 不自动授权 |
 | 当前 IAM | `identity.tenantDirectoryToken` 与当前授权 API，逐次核对实际企业、成员与来源权限；通用模式同样必须提供 |
 | 可选 `sourceMedia` | 依赖当前 Product collections 与既有不可变存储，提供商品 JPEG/PNG 文件上传和读回，无需官方应用。缺少该 port 时只关闭人工上传替换 |
 

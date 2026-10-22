@@ -63,9 +63,9 @@ func exportAuthenticatedBrowserState(ctx context.Context, manager *sharedbrowser
 			return nil, ctx.Err()
 		}
 		sheinLoginServiceLogger.WithError(err).WithFields(map[string]any{
-			"tenant_id":  account.TenantID,
-			"store_id":   account.StoreID,
-			"target_url": targetURL,
+			"organization_id": account.OrganizationID,
+			"store_id":        account.StoreID,
+			"target_url":      targetURL,
 		}).Warn("open SHEIN post-login target before exporting cookies failed")
 	}
 	storageState, err := manager.GetContext().StorageState()
@@ -75,18 +75,18 @@ func exportAuthenticatedBrowserState(ctx context.Context, manager *sharedbrowser
 	state, err := validatedCookieOnlyBrowserState(storageState.Cookies)
 	if err != nil {
 		sheinLoginServiceLogger.WithFields(map[string]any{
-			"tenant_id":    account.TenantID,
-			"store_id":     account.StoreID,
-			"target_url":   targetURL,
-			"cookie_count": cookieCount(cookieOnlyBrowserState(map[string]any{"cookies": storageState.Cookies})),
+			"organization_id": account.OrganizationID,
+			"store_id":        account.StoreID,
+			"target_url":      targetURL,
+			"cookie_count":    cookieCount(cookieOnlyBrowserState(map[string]any{"cookies": storageState.Cookies})),
 		}).Warn("SHEIN login completed without exportable cookies")
 		return artifactResult(page, artifactDir, account, stage, err)
 	}
 	sheinLoginServiceLogger.WithFields(map[string]any{
-		"tenant_id":    account.TenantID,
-		"store_id":     account.StoreID,
-		"target_url":   targetURL,
-		"cookie_count": cookieCount(state),
+		"organization_id": account.OrganizationID,
+		"store_id":        account.StoreID,
+		"target_url":      targetURL,
+		"cookie_count":    cookieCount(state),
 	}).Info("exported SHEIN cookies after authenticated login")
 	return &AutomationResult{BrowserState: state}, nil
 }

@@ -15,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sirupsen/logrus"
+	logtest "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 
 	"task-processor/internal/agent"
@@ -51,14 +53,24 @@ func TestGenerationProviderRefusalSurvivesCapabilityAndToolBoundaries(t *testing
 	testGenerationProviderFactoryUsesBoundQwenAdapter(t, "qwen-image-3.0-pro", true)
 }
 
+func TestGenerationProviderReportsMeasuredSizeMismatchWithoutRetry(t *testing.T) {
+	testGenerationProviderFactoryUsesBoundQwenAdapter(t, "qwen-image-3.0-pro", false, true)
+}
+
 func testGenerationProviderFactoryUsesBoundQwenAdapter(t *testing.T, model string, refused ...bool) {
 	var pngBytes bytes.Buffer
-	require.NoError(t, png.Encode(&pngBytes, image.NewRGBA(image.Rect(0, 0, 1024, 1024))))
+	dimension := 1024
+	mismatch := len(refused) > 1 && refused[1]
+	if mismatch {
+		dimension = 1254
+	}
+	require.NoError(t, png.Encode(&pngBytes, image.NewRGBA(image.Rect(0, 0, dimension, dimension))))
+	logger, hook := logtest.NewNullLogger()
 	dispatches, observed, downloads := 0, 0, 0
 	expectedObservations := 1
 	expectedPrompt := "approved exact product and method"
 	resolver := &generationConfigTestResolver{resolved: &openai.ResolvedClientConfig{CacheKey: "org-image-v1", Config: &openai.ClientConfig{APIKey: "fixture-only", APIStyle: "dashscope", Model: model, BaseURL: "https://workspace.cn-beijing.maas.aliyuncs.com", Timeout: time.Second}}}
-	factory := generationProviderFactory{resolver: resolver, price: config.ImageAgentGenerationConfig{PriceVersion: "trial-price", PointsPerImage: 1}, profile: synchronousEditProfile{}, providerHTTPClient: &http.Client{Transport: qwenFactoryTransport(func(r *http.Request) (*http.Response, error) {
+	factory := generationProviderFactory{logger: logrus.NewEntry(logger), resolver: resolver, price: config.ImageAgentGenerationConfig{PriceVersion: "trial-price", PointsPerImage: 1}, profile: synchronousEditProfile{}, providerHTTPClient: &http.Client{Transport: qwenFactoryTransport(func(r *http.Request) (*http.Response, error) {
 		dispatches++
 		require.Equal(t, "/api/v1/services/aigc/multimodal-generation/generation", r.URL.Path)
 		var payload map[string]any
@@ -76,7 +88,7 @@ func testGenerationProviderFactoryUsesBoundQwenAdapter(t *testing.T, model strin
 		require.Equal(t, expectedObservations, observed, "durable success precedes output materialization")
 		return pngBytes.Bytes(), nil
 	}}
-	prepared, err := factory.prepare(context.Background(), func(_ context.Context, proof imageagent.GenerationSuccess) error {
+	prepared, err := factory.prepare(context.Background(), imageagent.SlotExecutionInput{}, func(_ context.Context, proof imageagent.GenerationSuccess) error {
 		observed++
 		require.Equal(t, "qwen-receipt", proof.ResponseID)
 		require.False(t, proof.UsageKnown)
@@ -98,6 +110,22 @@ func testGenerationProviderFactoryUsesBoundQwenAdapter(t *testing.T, model strin
 	require.Equal(t, "bailian", quote.Operations[0].Provider)
 	require.Equal(t, model, quote.Operations[0].Model)
 	result, err := prepared.Executor.GenerateQuotedSlot(context.Background(), input, quote)
+	if mismatch {
+		require.Error(t, err)
+		require.Empty(t, result.Assets)
+		require.Equal(t, 1, dispatches)
+		require.Equal(t, 1, observed, "size rejection must not erase provider success")
+		require.Equal(t, 1, downloads)
+		var entries []*logrus.Entry
+		for _, entry := range hook.AllEntries() {
+			if entry.Message == "Generated image output dimensions mismatch" {
+				entries = append(entries, entry)
+			}
+		}
+		require.Len(t, entries, 1)
+		require.Equal(t, logrus.Fields{"provider": "bailian", "model": model, "expected_width": 1024, "expected_height": 1024, "actual_width": 1254, "actual_height": 1254}, entries[0].Data)
+		return
+	}
 	if len(refused) > 0 && refused[0] {
 		require.Error(t, err)
 		proof, known := prepared.Rejection(err)
@@ -114,12 +142,12 @@ func testGenerationProviderFactoryUsesBoundQwenAdapter(t *testing.T, model strin
 	require.Equal(t, 1, dispatches)
 	require.Equal(t, 1, observed)
 	require.Equal(t, 1, downloads)
-	require.NoError(t, factory.revalidate(context.Background(), prepared.Metadata))
+	require.NoError(t, factory.revalidate(context.Background(), imageagent.SlotExecutionInput{}, prepared.Metadata))
 	resolver.resolved.Config.Model = "qwen-image-3.0"
 	if model == "qwen-image-3.0" {
 		resolver.resolved.Config.Model = "qwen-image-3.0-pro"
 	}
-	require.ErrorIs(t, factory.revalidate(context.Background(), prepared.Metadata), imageagent.ErrRevisionConflict)
+	require.ErrorIs(t, factory.revalidate(context.Background(), imageagent.SlotExecutionInput{}, prepared.Metadata), imageagent.ErrRevisionConflict)
 	resolver.resolved.Config.Model = model
 	packages, err := skill.OfficialPackages()
 	require.NoError(t, err)
@@ -163,7 +191,7 @@ func testGenerationProviderFactoryUsesBoundQwenAdapter(t *testing.T, model strin
 	}
 	require.Equal(t, 3, imageMethods)
 	resolver.resolved.Config.Model = "qwen-mt-image-2.0"
-	require.Error(t, factory.revalidate(context.Background(), prepared.Metadata))
+	require.Error(t, factory.revalidate(context.Background(), imageagent.SlotExecutionInput{}, prepared.Metadata))
 }
 
 type generationConfigTestResolver struct{ resolved *openai.ResolvedClientConfig }
@@ -173,49 +201,56 @@ func (r *generationConfigTestResolver) ResolveClientConfig(context.Context, stri
 }
 
 func TestGenerationProviderFactoryUsesPinnedGRSAIProtocol(t *testing.T) {
-	var pngBytes bytes.Buffer
-	require.NoError(t, png.Encode(&pngBytes, image.NewRGBA(image.Rect(0, 0, 2, 2))))
-	dispatches, observed, downloads := 0, 0, 0
-	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		dispatches++
-		require.Equal(t, "/v1/api/generate", r.URL.Path)
-		var body map[string]any
-		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
-		require.Equal(t, "gpt-image-2.5", body["model"])
-		require.Equal(t, "json", body["replyType"])
-		_, _ = w.Write([]byte(`{"id":"response-1","status":"succeeded","results":[{"url":"https://output.example/image.png"}]}`))
-	}))
-	defer server.Close()
-	resolver := &generationConfigTestResolver{resolved: &openai.ResolvedClientConfig{CacheKey: "db:1:1:image_gpt_image_2", Config: &openai.ClientConfig{APIKey: "controlled-only", APIStyle: "grsai", Model: "gpt-image-2.5", BaseURL: server.URL, Timeout: time.Second}}}
-	factory := generationProviderFactory{resolver: resolver, price: config.ImageAgentGenerationConfig{PriceVersion: "test-price", PointsPerImage: 17}, profile: synchronousEditProfile{}, providerHTTPClient: server.Client(), generatedFetcher: func(context.Context, string) ([]byte, error) {
-		downloads++
-		require.Equal(t, 1, observed)
-		return pngBytes.Bytes(), nil
-	}}
-	prepared, err := factory.prepare(context.Background(), func(_ context.Context, proof imageagent.GenerationSuccess) error {
-		observed++
-		require.Equal(t, "response-1", proof.ResponseID)
-		require.False(t, proof.UsageKnown)
-		return nil
-	})
-	require.NoError(t, err)
-	require.Zero(t, dispatches)
-	require.EqualValues(t, 17, prepared.Metadata.Points)
-	sum := sha256.Sum256(pngBytes.Bytes())
-	input := imageagent.SlotExecutionInput{RunID: "run-1", IdempotencyKey: "attempt-key", TenantID: "org-1", UserID: "user-1", PlanRevision: 1, Attempt: 1, TargetPlatform: "product", ImagePolicyContext: &imageagent.ImagePolicyContext{Country: "zz", Family: "default", SceneCategory: "general"}, Slot: imageagent.Slot{ID: "main-1", Role: imageagent.SlotRoleMain, SourceAssetIDs: []string{"source-1"}, IdempotencyKey: "slot-key"}, AssetCatalog: imageagent.AssetCatalog{Assets: []imageagent.AuthorizedAsset{{ID: "source-1", Type: imageagent.AuthorizedAssetSource, URL: "https://source.example/image.png"}}}, ProductContext: imageagent.ProductContextRef{ProductID: "product-1", Title: "Product"}, SourceBytes: pngBytes.Bytes(), SourceDigest: hex.EncodeToString(sum[:])}
-	quote, err := prepared.Executor.QuoteSlot(context.Background(), input, imageagent.BudgetPolicy{})
-	require.NoError(t, err)
-	require.Len(t, quote.Operations, 1)
-	require.Equal(t, "grsai", quote.Operations[0].Provider)
-	result, err := prepared.Executor.GenerateQuotedSlot(context.Background(), input, quote)
-	require.NoError(t, err)
-	require.Len(t, result.Assets, 1)
-	require.Equal(t, 1, dispatches)
-	require.Equal(t, 1, downloads)
-	require.NoError(t, factory.revalidate(context.Background(), prepared.Metadata))
-	resolver.resolved.CacheKey = "db:1:2:image_gpt_image_2"
-	require.ErrorIs(t, factory.revalidate(context.Background(), prepared.Metadata), imageagent.ErrRevisionConflict)
-	require.Equal(t, 1, dispatches, "route checks never submit")
+	for _, route := range []struct{ model, quality string }{{"gpt-image-2.5", "auto"}, {"gpt-image-2-vip", "medium"}} {
+		t.Run(route.model, func(t *testing.T) {
+
+			var pngBytes bytes.Buffer
+			require.NoError(t, png.Encode(&pngBytes, image.NewRGBA(image.Rect(0, 0, 1024, 1024))))
+			dispatches, observed, downloads := 0, 0, 0
+			server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				dispatches++
+				require.Equal(t, "/v1/api/generate", r.URL.Path)
+				var body map[string]any
+				require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+				require.Equal(t, route.model, body["model"])
+				require.Equal(t, "json", body["replyType"])
+				require.Equal(t, route.quality, body["quality"])
+				require.Equal(t, "1024x1024", body["aspectRatio"])
+				_, _ = w.Write([]byte(`{"id":"response-1","status":"succeeded","results":[{"url":"https://output.example/image.png"}]}`))
+			}))
+			defer server.Close()
+			resolver := &generationConfigTestResolver{resolved: &openai.ResolvedClientConfig{CacheKey: "db:1:1:image_gpt_image_2", Config: &openai.ClientConfig{APIKey: "controlled-only", APIStyle: "grsai", Model: route.model, BaseURL: server.URL, Timeout: time.Second}}}
+			factory := generationProviderFactory{resolver: resolver, price: config.ImageAgentGenerationConfig{PriceVersion: "test-price", PointsPerImage: 17}, profile: synchronousEditProfile{}, providerHTTPClient: server.Client(), generatedFetcher: func(context.Context, string) ([]byte, error) {
+				downloads++
+				require.Equal(t, 1, observed)
+				return pngBytes.Bytes(), nil
+			}}
+			prepared, err := factory.prepare(context.Background(), imageagent.SlotExecutionInput{}, func(_ context.Context, proof imageagent.GenerationSuccess) error {
+				observed++
+				require.Equal(t, "response-1", proof.ResponseID)
+				require.False(t, proof.UsageKnown)
+				return nil
+			})
+			require.NoError(t, err)
+			require.Zero(t, dispatches)
+			require.EqualValues(t, 17, prepared.Metadata.Points)
+			sum := sha256.Sum256(pngBytes.Bytes())
+			input := imageagent.SlotExecutionInput{RunID: "run-1", IdempotencyKey: "attempt-key", TenantID: "org-1", UserID: "user-1", PlanRevision: 1, Attempt: 1, TargetPlatform: "product", ImagePolicyContext: &imageagent.ImagePolicyContext{Country: "zz", Family: "default", SceneCategory: "general"}, Slot: imageagent.Slot{ID: "main-1", Role: imageagent.SlotRoleMain, SourceAssetIDs: []string{"source-1"}, IdempotencyKey: "slot-key"}, AssetCatalog: imageagent.AssetCatalog{Assets: []imageagent.AuthorizedAsset{{ID: "source-1", Type: imageagent.AuthorizedAssetSource, URL: "https://source.example/image.png"}}}, ProductContext: imageagent.ProductContextRef{ProductID: "product-1", Title: "Product"}, SourceBytes: pngBytes.Bytes(), SourceDigest: hex.EncodeToString(sum[:])}
+			quote, err := prepared.Executor.QuoteSlot(context.Background(), input, imageagent.BudgetPolicy{})
+			require.NoError(t, err)
+			require.Len(t, quote.Operations, 1)
+			require.Equal(t, "grsai", quote.Operations[0].Provider)
+			result, err := prepared.Executor.GenerateQuotedSlot(context.Background(), input, quote)
+			require.NoError(t, err)
+			require.Len(t, result.Assets, 1)
+			require.Equal(t, 1, dispatches)
+			require.Equal(t, 1, downloads)
+			require.NoError(t, factory.revalidate(context.Background(), imageagent.SlotExecutionInput{}, prepared.Metadata))
+			resolver.resolved.CacheKey = "db:1:2:image_gpt_image_2"
+			require.ErrorIs(t, factory.revalidate(context.Background(), imageagent.SlotExecutionInput{}, prepared.Metadata), imageagent.ErrRevisionConflict)
+			require.Equal(t, 1, dispatches, "route checks never submit")
+		})
+	}
 }
 
 func TestGenerationProviderFactoryMissingPriceOrWrongRouteCannotBecomeAvailable(t *testing.T) {
@@ -246,7 +281,7 @@ func TestGenerationProviderFactoryMissingPriceOrWrongRouteCannotBecomeAvailable(
 				cfg.Timeout = 0
 			}
 			factory := generationProviderFactory{resolver: &generationConfigTestResolver{resolved: &openai.ResolvedClientConfig{Config: cfg, CacheKey: "db:1:1:profile"}}, price: price, profile: synchronousEditProfile{}}
-			_, err := factory.prepare(context.Background(), func(context.Context, imageagent.GenerationSuccess) error { return nil })
+			_, err := factory.prepare(context.Background(), imageagent.SlotExecutionInput{}, func(context.Context, imageagent.GenerationSuccess) error { return nil })
 			require.ErrorIs(t, err, imageagent.ErrBudgetQuoteUnavailable)
 			require.NotContains(t, err.Error(), "must-not-log")
 			require.NotContains(t, err.Error(), "controlled-only")

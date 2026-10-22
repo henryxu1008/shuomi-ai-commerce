@@ -51,11 +51,15 @@ type SourceImageReader struct {
 	Sources       record.TargetSourceSelector
 	Products      record.EffectiveTargetProductReader
 	Authorization preparation.Authorizer
+	OriginalOnly  bool
 }
 
 func (r SourceImageReader) ReadSourceSelection(ctx context.Context, input asset.SourceSelectionRequest) (asset.SourceSelection, error) {
 	if ctx == nil || r.Sources == nil || r.Products == nil || r.Authorization == nil || input.TargetPlatform != "shein" && input.TargetPlatform != "temu" && input.TargetPlatform != "tiktokshop" && input.TargetPlatform != "product" && input.TargetPlatform != "walmart" {
 		return asset.SourceSelection{}, asset.ErrSourceApprovalForbidden
+	}
+	if r.OriginalOnly && (input.ContextKind != "" || input.TargetPlatform != "product" || input.ApplyReceiptID != "" || input.EffectiveCatalogVersion != input.OriginalSnapshotVersion) {
+		return asset.SourceSelection{}, asset.ErrApprovalConflict
 	}
 	scope, err := r.Authorization.Authorize(ctx, preparation.PermissionManage)
 	if err != nil {
@@ -78,6 +82,9 @@ func (r SourceImageReader) ReadSourceSelection(ctx context.Context, input asset.
 		if source.Type == "agent_generated" || source.Platform == "pod_artwork" || source.ReferenceType == "pod-artwork-v1" {
 			result.GeneratedArtwork = true
 		}
+	}
+	if r.OriginalOnly && result.GeneratedArtwork {
+		return asset.SourceSelection{}, asset.ErrSourceApprovalForbidden
 	}
 	return result, nil
 }

@@ -228,6 +228,14 @@ pool as specified by Figma 1788:359. The dialog names that funding source before
 confirmation; it is frozen in the intent. Do not add an unrequested selector
 that lets an administrator spend a member's assigned balance.
 
+The existing per-Organization WorkbenchContext projects
+`capabilities.storeServiceEnterpriseFunding` from the same configured
+`IsTenantAdmin(userID, grant.Roles)` used by Store service commands. Detail and
+binding dialogs consume that boolean; a missing/false projection never falls
+back to role names or member-management permission. This read-only projection
+does not authorize a command or let the browser select its funding source:
+the Store owner still checks live access and freezes the original intent.
+
 After reservation binding, lock Store + assignment + service intent locally;
 verify original version/connection reference and current authorized admission,
 apply the pure transition, and atomically save Store version/dates and terminal

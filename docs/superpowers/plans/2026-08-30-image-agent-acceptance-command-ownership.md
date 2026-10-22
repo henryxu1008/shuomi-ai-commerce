@@ -1,5 +1,7 @@
 # Image Agent Acceptance Command Ownership Implementation Plan
 
+> **Historical / SUPERSEDED — #846 / #29 / #301:** Under the [confirmed complete retirement boundary](../../architecture/legacy-local-acceptance-closure-retirement-boundary.md), the old local-acceptance launcher/orchestrator/test/Compose sources are deleted. The implementation, script-test, manual-acceptance, stop/Reset and agent/sub-skill instructions below are historical evidence, not current dispatch or execution authority; do not execute them. Current native identity, token handoff, UI, image and generic-tool owners remain unchanged. The original plan is preserved without a replacement acceptance flow, runtime/data action or new trial prerequisite.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Move the local Image Agent acceptance seed executable out of the ListingKit business-domain tree and enforce application-owned command assembly without depguard exceptions.

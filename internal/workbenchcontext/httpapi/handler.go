@@ -194,7 +194,7 @@ func (h *Handler) writeContext(c *gin.Context) {
 			Name:         grant.OrganizationName,
 			Roles:        roles,
 			Permissions:  permissions,
-			Capabilities: organizationCapabilitiesResponse{SourceAccountManage: canManageSourceAccount, ChatUse: canUseChat},
+			Capabilities: organizationCapabilitiesResponse{SourceAccountManage: canManageSourceAccount, ChatUse: canUseChat, StoreServiceEnterpriseFunding: h.workbenchAuthorizer.IsTenantAdmin(identity.UserID, grant.Roles)},
 		})
 	}
 
@@ -304,8 +304,9 @@ type organizationResponse struct {
 }
 
 type organizationCapabilitiesResponse struct {
-	SourceAccountManage bool `json:"workbench.source_account.manage"`
-	ChatUse             bool `json:"workbench.chat.use"`
+	SourceAccountManage           bool `json:"workbench.source_account.manage"`
+	ChatUse                       bool `json:"workbench.chat.use"`
+	StoreServiceEnterpriseFunding bool `json:"storeServiceEnterpriseFunding"`
 }
 
 func writeProtocolError(c *gin.Context, status int, code string, message string) {

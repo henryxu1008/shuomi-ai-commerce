@@ -31,6 +31,7 @@ type generationExecutionProvider struct {
 	unknown    bool
 	imageSet   bool
 	bailian    bool
+	vip        bool
 	input      imageagent.SlotExecutionInput
 }
 
@@ -70,6 +71,9 @@ func (p *generationExecutionProvider) QuoteSlot(context.Context, imageagent.Slot
 		operation = "render_source_edit"
 	}
 	provider, model := "grsai", "gpt-image-2.5"
+	if p.vip {
+		model = "gpt-image-2-vip"
+	}
 	if p.bailian {
 		provider, model = "bailian", "qwen-image-3.0-pro"
 	}
@@ -129,10 +133,12 @@ func TestSetGenerationExecutionUsesFrozenInputAndOriginalEconomicOwner(t *testin
 							return []byte("different bytes"), nil
 						}
 						return data, nil
-					}, PrepareProvider: func(_ context.Context, observe func(context.Context, imageagent.GenerationSuccess) error) (imageagent.PreparedGenerationProvider, error) {
+					}, PrepareProvider: func(_ context.Context, _ imageagent.SlotExecutionInput, observe func(context.Context, imageagent.GenerationSuccess) error) (imageagent.PreparedGenerationProvider, error) {
 						provider.observer = observe
 						return imageagent.PreparedGenerationProvider{Executor: provider, Metadata: imageagent.GenerationProviderMetadata{Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1", PromptVersion: "old-white-prompt", PriceVersion: "price-1", Points: 12}}, nil
-					}, RevalidateProvider: func(context.Context, imageagent.GenerationProviderMetadata) error { return nil }})
+					}, RevalidateProvider: func(context.Context, imageagent.SlotExecutionInput, imageagent.GenerationProviderMetadata) error {
+						return nil
+					}})
 					require.NoError(t, err)
 					if useMethod {
 						input.ImageSet.Method.PolicyVersion = imageagent.HistoricalImageMethodPolicyVersion
@@ -209,9 +215,9 @@ func (*generationExecutionProvider) BuildSlotResult(context.Context, imageagent.
 }
 
 func TestGenerationExecutionPreservesProviderOutcomeAndNeverRedispatches(t *testing.T) {
-	for _, outcome := range []string{"success", "unknown", "quota_rejected"} {
-		unknown := outcome != "success"
-		name := "success_then_download_failure"
+	for _, outcome := range []string{"success", "unknown", "quota_rejected", "vip_success", "vip_unknown"} {
+		unknown := outcome != "success" && outcome != "vip_success"
+		name := outcome + "_then_download_failure"
 		if unknown {
 			name = outcome
 		}
@@ -224,7 +230,7 @@ func TestGenerationExecutionPreservesProviderOutcomeAndNeverRedispatches(t *test
 			require.NoError(t, err)
 			input := imageagent.SlotExecutionInput{RunID: intent.Identity.RunID, TenantID: intent.Identity.TenantID, UserID: intent.Identity.OwnerUserID, PlanRevision: 1, Attempt: 1, TargetPlatform: "product", ImagePolicyContext: &imageagent.ImagePolicyContext{Country: "zz", Family: "default", SceneCategory: "general"}, Slot: imageagent.Slot{ID: "slot-1", Role: imageagent.SlotRoleMain, SourceAssetIDs: []string{"source-1"}}, AssetCatalog: catalog,
 				OrganizationIdentity: imageagent.ExecutionIdentity{ScopeProtocol: imageagent.OrganizationScopeProtocol, RunID: intent.Identity.RunID, TenantID: intent.Identity.TenantID, UserID: intent.Identity.OwnerUserID, MemberID: intent.MemberID, BusinessTaskID: "task-" + intent.Identity.RunID}}
-			provider := &generationExecutionProvider{unknown: unknown, bailian: outcome == "quota_rejected"}
+			provider := &generationExecutionProvider{unknown: unknown, bailian: outcome == "quota_rejected", vip: strings.HasPrefix(outcome, "vip_")}
 			auth := &generationExecutionAuth{}
 			executor, err := imageagent.NewGenerationExecution(imageagent.GenerationExecutionDependencies{Facts: owner, Resources: resources, Authorizer: auth, MaxSourceBytes: 1024,
 				ReadMemberLimit: func(context.Context, string, string) (imageagent.GenerationMemberLimit, error) {
@@ -233,9 +239,12 @@ func TestGenerationExecutionPreservesProviderOutcomeAndNeverRedispatches(t *test
 				ReadSourceBytes: func(context.Context, imageagent.SlotExecutionInput) ([]byte, error) {
 					return []byte("exact-source-bytes"), nil
 				},
-				PrepareProvider: func(_ context.Context, observer func(context.Context, imageagent.GenerationSuccess) error) (imageagent.PreparedGenerationProvider, error) {
+				PrepareProvider: func(_ context.Context, _ imageagent.SlotExecutionInput, observer func(context.Context, imageagent.GenerationSuccess) error) (imageagent.PreparedGenerationProvider, error) {
 					provider.observer = observer
 					prepared := imageagent.PreparedGenerationProvider{Executor: provider, Metadata: imageagent.GenerationProviderMetadata{Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1", PromptVersion: "prompt-1", PriceVersion: "price-1", Points: 12}}
+					if provider.vip {
+						prepared.Metadata.Model = "gpt-image-2-vip"
+					}
 					if provider.bailian {
 						prepared.Metadata.Provider = "bailian"
 						prepared.Metadata.Model = "qwen-image-3.0-pro"
@@ -246,7 +255,9 @@ func TestGenerationExecutionPreservesProviderOutcomeAndNeverRedispatches(t *test
 					}
 					return prepared, nil
 				},
-				RevalidateProvider: func(context.Context, imageagent.GenerationProviderMetadata) error { return nil },
+				RevalidateProvider: func(context.Context, imageagent.SlotExecutionInput, imageagent.GenerationProviderMetadata) error {
+					return nil
+				},
 			})
 			require.NoError(t, err)
 			quote, err := executor.QuoteSlot(ctx, input, imageagent.BudgetPolicy{})
@@ -258,6 +269,12 @@ func TestGenerationExecutionPreservesProviderOutcomeAndNeverRedispatches(t *test
 			require.NoError(t, err)
 			sum := sha256.Sum256([]byte("exact-source-bytes"))
 			require.Equal(t, hex.EncodeToString(sum[:]), fact.Intent.SourceDigest)
+			if provider.vip {
+				require.Equal(t, "medium", fact.Intent.Quality)
+				require.Equal(t, "gpt-image-2-vip", fact.Intent.Model)
+			} else {
+				require.Equal(t, "auto", fact.Intent.Quality)
+			}
 			read, err := limits.ReadMonthlyLimit(ctx, intent.Identity.TenantID, intent.MemberID)
 			require.NoError(t, err)
 			if provider.bailian {
@@ -314,11 +331,11 @@ func TestGenerationExecutionPreDispatchFencesAndLostACK(t *testing.T) {
 				ReadSourceBytes: func(context.Context, imageagent.SlotExecutionInput) ([]byte, error) {
 					return []byte("exact-source-bytes"), nil
 				},
-				PrepareProvider: func(_ context.Context, observer func(context.Context, imageagent.GenerationSuccess) error) (imageagent.PreparedGenerationProvider, error) {
+				PrepareProvider: func(_ context.Context, _ imageagent.SlotExecutionInput, observer func(context.Context, imageagent.GenerationSuccess) error) (imageagent.PreparedGenerationProvider, error) {
 					provider.observer = observer
 					return imageagent.PreparedGenerationProvider{Executor: provider, Metadata: imageagent.GenerationProviderMetadata{Provider: "grsai", Model: "gpt-image-2.5", Protocol: "grsai-json-sync-v1", RouteReference: "route-1", CredentialReference: "credential-1", ConfigurationVersion: "config-1", PromptVersion: "prompt-1", PriceVersion: priceVersion, Points: 12}}, nil
 				},
-				RevalidateProvider: func(context.Context, imageagent.GenerationProviderMetadata) error {
+				RevalidateProvider: func(context.Context, imageagent.SlotExecutionInput, imageagent.GenerationProviderMetadata) error {
 					if mode == "route_drift" {
 						return imageagent.ErrRevisionConflict
 					}
