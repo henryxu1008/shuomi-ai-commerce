@@ -8,7 +8,6 @@ import (
 	"strings"
 	"sync"
 	topupconfig "task-processor/internal/integration/wallettopup/config"
-	"task-processor/internal/pkg/watermark"
 	logger "task-processor/internal/platform/logging"
 
 	"github.com/spf13/viper"
@@ -37,7 +36,6 @@ type Config struct {
 	BrowserCollector                                      BrowserCollectorConfig        `yaml:"browserCollector"`
 	Amazon                                                AmazonConfig                  `yaml:"amazon"`
 	Platforms                                             PlatformsConfig               `yaml:"platforms"`
-	Watermark                                             *watermark.Config             `yaml:"watermark"`
 	ImageAgent                                            ImageAgentConfig              `yaml:"imageagent"`
 	ProductCollectionSourceMedia                          ImageAgentArtifactStoreConfig `yaml:"productCollectionSourceMedia"`
 	ProductCollectionSourceMediaIsolatedTrial             bool                          `yaml:"productCollectionSourceMediaIsolatedTrial"`
