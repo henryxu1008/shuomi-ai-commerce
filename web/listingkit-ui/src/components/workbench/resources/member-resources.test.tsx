@@ -275,3 +275,110 @@ it.each(["分配资源", "回收资源"] as const)(
     expect(original[2].expectedVersion).toBe("1");
   },
 );
+
+it.each(["store_renewal_period", "data_row"])(
+  "shows an allocation %s read failure and retries only the scoped balance read",
+  async (resourceType) => {
+    let resolve!: (value: ReturnType<typeof commercialResourcesFixture>) => void;
+    state.balance.mockRejectedValueOnce(new Error("balance unavailable"))
+      .mockImplementationOnce(() => new Promise<ReturnType<typeof commercialResourcesFixture>>(ok => { resolve = ok; }));
+    const dialog = await openTransfer("分配资源");
+    await userEvent.selectOptions(dialog.getByRole("combobox", { name: "资源类型" }), resourceType);
+    if (resourceType === "store_renewal_period") {
+      await userEvent.type(dialog.getByRole("textbox", { name: /本次期数/ }), "1");
+    }
+    await dialog.findByText("管理员可用余额读取失败，请重试。");
+    expect(dialog.queryByText(/管理员可用 正在读取/)).not.toBeInTheDocument();
+    expect(dialog.getByRole("button", { name: "确认分配" })).toBeDisabled();
+    const reads = state.balance.mock.calls.length;
+    await userEvent.click(dialog.getByRole("button", { name: "重新读取管理员余额" }));
+    expect(state.balance).toHaveBeenCalledTimes(reads + 1);
+    expect(state.balance.mock.calls.at(-1)).toEqual(["actor", "org-1", expect.any(AbortSignal)]);
+    expect(dialog.getByRole("status")).toHaveTextContent("正在读取管理员可用余额");
+    expect(dialog.queryByRole("button", { name: "重新读取管理员余额" })).not.toBeInTheDocument();
+    expect(dialog.getByRole("button", { name: "确认分配" })).toBeDisabled();
+    await act(async () => resolve(commercialResourcesFixture("org-1")));
+    await waitFor(() => expect(dialog.queryByRole("status")).not.toBeInTheDocument());
+    if (resourceType === "store_renewal_period") {
+      expect(dialog.getByRole("textbox", { name: /本次期数/ })).toHaveValue("1");
+      await waitFor(() => expect(dialog.getByRole("button", { name: "确认分配" })).toBeEnabled());
+    }
+    expect(state.write).not.toHaveBeenCalled();
+  },
+);
+
+it.each(["store_renewal_period", "data_row"])(
+  "shows a missing %s allocation balance as unknown with a read retry",
+  async (resourceType) => {
+    state.balance.mockResolvedValue({ ...commercialResourcesFixture("org-1"), resources: [] });
+    const dialog = await openTransfer("分配资源");
+    await userEvent.selectOptions(dialog.getByRole("combobox", { name: "资源类型" }), resourceType);
+    await dialog.findByText("当前未取得管理员可用余额，请重新读取。");
+    expect(dialog.queryByText(/管理员可用 0|管理员可用 正在读取/)).not.toBeInTheDocument();
+    expect(dialog.getByRole("button", { name: "重新读取管理员余额" })).toBeEnabled();
+    expect(dialog.getByRole("button", { name: "确认分配" })).toBeDisabled();
+    expect(state.write).not.toHaveBeenCalled();
+  },
+);
+
+it.each(["store_renewal_period", "data_row"].flatMap(resourceType =>
+  ["recorded", "not_recorded"].map(resourceState => ({ resourceType, resourceState })),
+))(
+  "keeps $resourceType $resourceState zero distinct from allocation read errors",
+  async ({ resourceType, resourceState }) => {
+    const resources = commercialResourcesFixture("org-1");
+    state.balance.mockResolvedValue({
+      ...resources,
+      resources: resources.resources.map(entry => entry.resource_type !== resourceType ? entry : {
+        ...entry, state: resourceState,
+        ...Object.fromEntries(["available", "allocated", "reserved", "consumed", "debt"].map(key =>
+          [key, resourceState === "recorded" ? "0" : null],
+        )),
+        updated_at: resourceState === "recorded" ? resources.observed_at : null,
+      }),
+    });
+    const dialog = await openTransfer("分配资源");
+    await userEvent.selectOptions(dialog.getByRole("combobox", { name: "资源类型" }), resourceType);
+    await dialog.findByText(/管理员可用 0/);
+    expect(dialog.queryByRole("button", { name: "重新读取管理员余额" })).not.toBeInTheDocument();
+    expect(dialog.getByRole("button", { name: "确认分配" })).toBeDisabled();
+    expect(state.write).not.toHaveBeenCalled();
+  },
+);
+
+it("allows reclaim from the member holding when the administrator balance read fails", async () => {
+  state.balance.mockRejectedValue(new Error("balance unavailable"));
+  state.write.mockResolvedValue({ debtRepaid: "0", netCredit: "1" });
+  const dialog = await openTransfer("回收资源");
+  await userEvent.type(dialog.getByRole("textbox", { name: /本次期数/ }), "1");
+  await waitFor(() => expect(dialog.getByRole("button", { name: "确认回收" })).toBeEnabled());
+  expect(dialog.queryByText(/管理员可用余额读取失败/)).not.toBeInTheDocument();
+  await userEvent.click(dialog.getByRole("button", { name: "确认回收" }));
+  expect(state.write).toHaveBeenCalledTimes(1);
+  expect(state.write.mock.calls[0][2]).toEqual({
+    resourceType: "store_renewal_period", action: "reclaim", quantity: "1", expectedVersion: "1",
+  });
+});
+
+it("does not change or replay an UNKNOWN allocation when retrying the balance read", async () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  state.write.mockRejectedValueOnce(new MemberResourceError(502, "RESULT_UNVERIFIED", "unknown"))
+    .mockResolvedValue({ debtRepaid: "0", netCredit: "0" });
+  const dialog = await openTransfer("分配资源", client);
+  await userEvent.type(dialog.getByRole("textbox", { name: /本次期数/ }), "1");
+  await waitFor(() => expect(dialog.getByRole("button", { name: "确认分配" })).toBeEnabled());
+  await userEvent.click(dialog.getByRole("button", { name: "确认分配" }));
+  await dialog.findByText(/操作结果未确认/);
+  const original = state.write.mock.calls[0];
+  const pending = { ...sessionStorage };
+  state.balance.mockRejectedValue(new Error("balance unavailable"));
+  await act(() => client.invalidateQueries({ queryKey: ["workbench", "commercial-resources", "actor", "org-1"] }));
+  await dialog.findByText("管理员可用余额读取失败，请重试。");
+  state.balance.mockResolvedValue(commercialResourcesFixture("org-1"));
+  await userEvent.click(dialog.getByRole("button", { name: "重新读取管理员余额" }));
+  await waitFor(() => expect(dialog.queryByText("管理员可用余额读取失败，请重试。")).not.toBeInTheDocument());
+  expect({ ...sessionStorage }).toEqual(pending);
+  expect(state.write).toHaveBeenCalledTimes(1);
+  await userEvent.click(dialog.getByRole("button", { name: "核验原操作" }));
+  expect(state.write.mock.calls[1]).toEqual(original);
+});

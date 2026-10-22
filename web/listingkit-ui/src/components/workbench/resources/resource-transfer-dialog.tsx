@@ -233,17 +233,35 @@ export function TransferDialog({
       </label>
       <section className={styles.allocationSection}>
         <h3>{type === "data_row" ? "数据额度" : "续费期数"}</h3>
-        {memberAvailable ? <p>
-          成员可用 {holding.free} {type === "data_row" ? "条" : "期"} ·{" "}
-          {action === "allocate"
-            ? `管理员可用 ${limit ?? "正在读取"}`
-            : `本次可回收 ${limit}`}{" "}
-          · 预留 {holding.reserved}
-        </p> : (
+        {memberAvailable ? (
+          <p>
+            成员可用 {holding.free} {type === "data_row" ? "条" : "期"} ·{" "}
+            {action === "reclaim" ? `本次可回收 ${limit} · ` : null}
+            预留 {holding.reserved}
+          </p>
+        ) : (
           <p role="alert">
             当前成员资源尚未确认，请等待读取完成；若读取失败，请关闭弹窗并刷新成员资源后重试。
           </p>
         )}
+        {action === "allocate" ? (
+          balances.isPending || balances.isFetching ? (
+            <p role="status">正在读取管理员可用余额…</p>
+          ) : balances.isError || limit === null ? (
+            <div role="alert">
+              <p>
+                {balances.isError
+                  ? "管理员可用余额读取失败，请重试。"
+                  : "当前未取得管理员可用余额，请重新读取。"}
+              </p>
+              <Button variant="outline" onClick={() => void balances.refetch()}>
+                重新读取管理员余额
+              </Button>
+            </div>
+          ) : (
+            <p>管理员可用 {limit}</p>
+          )
+        ) : null}
         {dataAmount ? (
           <>
             <label className={styles.dialogField}>
