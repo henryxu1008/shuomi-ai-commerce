@@ -308,7 +308,7 @@ func TestProjectBoundaryDocumentKeepsPreviewPlacementAlignedWithStablePreviewBou
 	}
 
 	required := []string{
-		"| Platform-neutral preview rules | `internal/listing/preview`; see `listing-preview-boundaries.md` |",
+		"| Platform-neutral preview rules | Current Product/Catalog/Asset and Listing owners; old Task preview/platform are RETIRED; see `legacy-listing-preview-download-closure-retirement-boundary.md` |",
 		"| Legacy preview facade / task-result aggregation | EXTRACT valid behavior to the current Listing owner, then RETIRE the facade |",
 		"legacy-hard-cut-policy.md",
 		"depguard: listing_preview_platform_neutral",
@@ -1943,6 +1943,20 @@ func TestListingPreviewBoundaryDocumentTracksPlatformNeutralGuard(t *testing.T) 
 		t.Fatalf("read %s: %v", path, err)
 	}
 
+	current := strings.SplitN(string(content), "# Listing Preview Boundaries", 2)[0]
+	for _, phrase := range []string{
+		"SOURCE_RETIRED / SUPERSEDED EXECUTION AUTHORITY",
+		"legacy-listing-preview-download-closure-retirement-boundary.md",
+		"internal/product/catalog", "internal/product/asset", "internal/listing/record",
+		"retired-package import bans and source absence",
+		"depguard: listing_preview_platform_neutral",
+		"TestListingPreviewImportsStayPlatformNeutralAcrossBuildTargets",
+	} {
+		if !strings.Contains(current, phrase) {
+			t.Errorf("%s current supersession must mention %q", path, phrase)
+		}
+	}
+
 	required := []string{
 		"# Listing Preview Boundaries",
 		"project-boundaries.md",
@@ -1956,7 +1970,7 @@ func TestListingPreviewBoundaryDocumentTracksPlatformNeutralGuard(t *testing.T) 
 	}
 	for _, phrase := range required {
 		if !strings.Contains(string(content), phrase) {
-			t.Errorf("%s must mention %q so preview extraction keeps a stable platform-neutral boundary", path, phrase)
+			t.Errorf("%s must mention %q so the historical boundary and current retirement protection remain traceable", path, phrase)
 		}
 	}
 }

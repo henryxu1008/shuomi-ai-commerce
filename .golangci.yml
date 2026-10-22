@@ -384,30 +384,23 @@ linters-settings:
             desc: "ListingKit root production code must not depend on management API DTO contracts"
 
       listing_preview_platform_neutral:
-        # Keep the platform-neutral preview domain independent from marketplace implementations.
-        # The repository-wide issues.exclude-files excludes _test.go; test-only imports stay outside this guard.
+        # Old Task preview/platform and listing downloader owners are retired.
+        # Tests/debug/build-constrained imports are also protected by the decoded-import guard.
         files:
-          - "**/internal/listing/preview/*.go"
-          - "**/internal/listing/preview/**/*.go"
+          - "**/*.go"
         deny:
-          - pkg: "task-processor/internal/listingkit$"
-            desc: "Platform-neutral preview code must not depend on ListingKit"
-          - pkg: "task-processor/internal/marketplace/amazon$"
-            desc: "Platform-neutral preview code must not depend on Amazon marketplace code"
-          - pkg: "task-processor/internal/marketplace/shein$"
-            desc: "Platform-neutral preview code must not depend on SHEIN marketplace code"
-          - pkg: "task-processor/internal/publishing/shein$"
-            desc: "Platform-neutral preview code must not depend on SHEIN publishing code"
-          - pkg: "task-processor/internal/workspace/shein$"
-            desc: "Platform-neutral preview code must not depend on SHEIN workspace code"
-          - pkg: "task-processor/internal/shein$"
-            desc: "Platform-neutral preview code must not depend on legacy SHEIN code"
-          - pkg: "task-processor/internal/temu$"
-            desc: "Platform-neutral preview code must not depend on TEMU code"
-          - pkg: "task-processor/internal/amazon$"
-            desc: "Platform-neutral preview code must not depend on legacy Amazon code"
-          - pkg: "task-processor/internal/amazonlisting$"
-            desc: "Platform-neutral preview code must not depend on legacy Amazon Listing code"
+          - pkg: "task-processor/internal/listing/preview$"
+            desc: "Old Task preview and listing image-download owners are retired"
+          - pkg: "task-processor/internal/listing/preview/"
+            desc: "Old Task preview and listing image-download owners are retired"
+          - pkg: "task-processor/internal/listing/platform$"
+            desc: "Old Task preview and listing image-download owners are retired"
+          - pkg: "task-processor/internal/listing/platform/"
+            desc: "Old Task preview and listing image-download owners are retired"
+          - pkg: "task-processor/internal/pkg/downloader$"
+            desc: "Old Task preview and listing image-download owners are retired"
+          - pkg: "task-processor/internal/pkg/downloader/"
+            desc: "Old Task preview and listing image-download owners are retired"
 
       listingkit_subdomains_root_facade:
         # ListingKit subdomains must not depend back on the root facade package.

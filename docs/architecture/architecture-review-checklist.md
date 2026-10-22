@@ -33,9 +33,12 @@ Before merging a structural or feature PR, verify:
    keeps SDK types out of domain-facing contracts.
 6. New platform-specific rules do not grow the root `internal/listingkit`
    facade when a marketplace, publishing, or product module owns the behavior.
-7. Preview extraction follows `docs/architecture/listing-preview-boundaries.md`:
-   platform-neutral preview behavior belongs in `internal/listing/preview`, not
-   in marketplace-specific implementation packages.
+7. Old Task preview/platform and listing downloader owners are source-retired
+   under `docs/architecture/legacy-listing-preview-download-closure-retirement-boundary.md`.
+   Product/Catalog/Asset and current Listing contracts retain their owners;
+   the original preview guard/depguard now enforce source absence and retired-package
+   import bans. The historical `docs/architecture/listing-preview-boundaries.md`
+   migration instructions do not authorize a replacement legacy preview seam.
 8. New remote-service behavior follows
    `docs/architecture/external-client-boundary-inventory.md`: prefer a local
    interface and avoid leaking a concrete external client adapter into

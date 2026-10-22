@@ -19,7 +19,6 @@ import (
 	a1688 "task-processor/internal/integration/crawler/a1688"
 	assetdb "task-processor/internal/integration/persistence/product/asset"
 	catalogdb "task-processor/internal/integration/persistence/product/catalog"
-	"task-processor/internal/listing/preview"
 	"task-processor/internal/listing/readiness"
 	"task-processor/internal/product/asset"
 	"task-processor/internal/product/catalog"
@@ -249,9 +248,9 @@ func TestIssue30ProductApprovalAndReadinessUseDurableCurrentOwners(t *testing.T)
 	require.Equal(t, envelope.AssetCandidates[0].SourceID, inventory.Assets[0].SourceAssetID)
 	require.NotEqual(t, persisted.Snapshot.Images[0].URL, inventory.Assets[0].URL)
 	require.True(t, readiness.ProductInputs(persisted, &inventory, "shein").Ready)
-	attachment := preview.BuildAttachment(preview.AttachmentInput{CatalogProduct: &persisted.Snapshot, ApprovedAssetInventory: &inventory})
-	require.Equal(t, persisted.Snapshot.Sources, attachment.CatalogProduct.Sources)
-	require.Equal(t, inventory.Assets, attachment.ApprovedAssetInventory.Assets)
+	require.Equal(t, envelope.Identity.SourceID, persisted.Snapshot.Sources[0].SourceID)
+	require.Equal(t, envelope.RawReference.ReferenceID, persisted.Snapshot.Sources[0].Detail)
+	require.Equal(t, scope, inventory.Scope)
 	for _, other := range []asset.InventoryScope{
 		{TenantID: "org-b", ProductKey: scope.ProductKey, TargetPlatform: "shein", SourceSnapshotVersion: 1},
 		{TenantID: "org-a", ProductKey: "other-product", TargetPlatform: "shein", SourceSnapshotVersion: 1},
