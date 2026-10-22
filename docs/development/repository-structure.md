@@ -1,5 +1,9 @@
 # Repository Structure
 
+本仓库承载 **硕米智能引擎 / Shuomi AI Commerce**（AI Commerce Agent Platform）。
+工程旧称 `task-processor`；以下均为真实源码路径，不随品牌文案改变。
+GitHub 更名、模块与运行标识处理见[品牌与仓库更名清单](branding-and-repository-rename.md)。
+
 > #729 retires only the unregistered numeric task/status/processor, root Amazon
 > executor and exclusive distributed crawler wiring. The maintained command set,
 > current acquisition/Store observations, platform APIs/rules/shared contracts and

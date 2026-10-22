@@ -1,9 +1,13 @@
-# 硕米智能引擎 — AI Commerce Agent Platform
+# 硕米智能引擎 / Shuomi AI Commerce
+
+**AI Commerce Agent Platform · AI 驱动的跨境电商智能体平台**
 
 [![CI](https://github.com/qq550723504/task-processor/actions/workflows/ci.yml/badge.svg)](https://github.com/qq550723504/task-processor/actions/workflows/ci.yml)
 [![Go Version](https://img.shields.io/badge/Go-1.26+-00ADD8?style=flat&logo=go)](https://golang.org/)
 
-`task-processor` 是硕米 AI 电商经营平台的工程仓库。产品以 **AI工作台和专业智能体** 为核心，结合供应、店铺、数据、工具和生态能力，让用户从操作零散功能转向表达业务目标、查看结果并作出必要决策。
+硕米智能引擎（**Shuomi AI Commerce**）以 **AI工作台和专业智能体** 为核心，结合供应、店铺、数据、工具和生态能力，让用户从操作零散功能转向表达业务目标、查看结果并作出必要决策。
+
+工程旧称 `task-processor`，当前 GitHub 仓库仍为 [`qq550723504/task-processor`](https://github.com/qq550723504/task-processor)。计划仓库名为 `shuomi-ai-commerce`，尚未执行更名；Go 模块、开发目录和运行资源继续使用现有标识。处理范围、影响盘点与切换条件见 [#884](https://github.com/qq550723504/task-processor/issues/884) 和[品牌与仓库更名清单](./docs/development/branding-and-repository-rename.md)。
 
 **最终产品的 UI、信息架构、导航、页面命名和交互语义，以已批准 Figma 当前可见、非归档终稿为准。ListingKit 是需要退休的旧产品投影与混合架构，不是新平台的子产品、默认工作台或永久执行引擎。** 详见 [最终 UI / IA Authority](./docs/product/final-ui-ia-authority.md) 与下方[退休边界](#listingkit-退休边界)。
 

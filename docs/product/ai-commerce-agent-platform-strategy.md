@@ -1,4 +1,4 @@
-# AI Commerce Agent Platform 产品战略
+# 硕米智能引擎 / Shuomi AI Commerce 产品战略
 
 > 状态：Active strategic direction；产品 UI / IA 以最终 Figma Authority 为准  
 > 原战略日期：2026-08-12；ListingKit 退休与产品投影校准：2026-09-26  
@@ -7,11 +7,11 @@
 
 ## 1. 战略决策
 
-`task-processor` 的长期产品目标调整为：
+硕米智能引擎（**Shuomi AI Commerce**）的长期产品目标为（品类定位：**AI Commerce Agent Platform**）：
 
 > **构建 AI 驱动的新一代跨境电商智能体平台，让用户从“操作软件功能”逐步转向“给 AI 一个电商目标，由 Agent 调用受控电商能力完成工作”。**
 
-面向用户的产品为硕米智能引擎。其导航、页面命名、交互语义和能力投影以 [最终 Figma UI / IA Authority](final-ui-ia-authority.md) 中当前可见、非归档终稿为准；本文的技术能力分解不能成为另一套产品菜单。
+中英文品牌依据 [#884](https://github.com/qq550723504/task-processor/issues/884) 的 2026-10-22 产品决定。工程旧称 `task-processor`，仓库、模块与运行资源尚未更名，见[影响盘点](../development/branding-and-repository-rename.md)。产品导航、页面命名、交互语义和能力投影以 [最终 Figma UI / IA Authority](final-ui-ia-authority.md) 中当前可见、非归档终稿为准；本文的技术能力分解不能成为另一套产品菜单。
 
 这不是一次推倒重建，也不是把现有确定性工作流改写成大模型工作流。当前有效的 Product Sourcing、Product Enrichment、Product Image、Marketplace、Temporal/RabbitMQ、ZITADEL 与 AI Capability 能力继续按各自 owner 复用；旧 ListingKit / Task-first 的混合职责和产品投影必须按 EXTRACT → RETIRE 收口，不能整体保留为子产品或长期执行引擎。有效行为不等于旧 owner，详见 §9。
 
