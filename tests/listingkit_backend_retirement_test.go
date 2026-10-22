@@ -24,6 +24,114 @@ var retiredListingPreviewDownloadPackages = []string{
 	"internal/listing/preview", "internal/listing/platform", "internal/pkg/downloader",
 }
 
+func TestLegacyRuntimeSkeletonAndIdleConfigClosureIsRetired(t *testing.T) {
+	for _, relative := range []string{"internal/app/runtime/temporal_bundle.go", "internal/app/runtime/temporal_bundle_test.go"} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Errorf("retired Temporal module bundle %s must be absent: %v", relative, err)
+		}
+	}
+	retiredKernelTypes := []string{"TaskHandler", "WorkflowHandler", "TemporalWorkerStarter", "NamedWorkerPool", "NamedTemporalWorker", "WorkflowRegistry"}
+	retiredRegistryMethods := []string{"AddWorkerPool", "WorkerPools", "AddTemporalWorker", "TemporalWorkers", "RegisterTaskHandler", "RegisterWorkflowHandler"}
+	retiredRegistryFields := []string{"workerPools", "workerPoolNames", "temporalWorkers", "temporalWorkerNames", "taskHandlers", "workflowNames"}
+	retiredConfig := []string{"CacheConfig", "DefaultCacheConfig", "LogConfig", "DefaultLogConfig", "MonitoringConfig", "DefaultMonitoringConfig"}
+	// Owner-qualified declarations avoid banning current same-name workflows,
+	// platform logging or real workerpool/Temporal dependencies.
+	retained := map[string]map[string]bool{
+		"internal/kernel/module":    {"Module": false, "Registry": false, "NewRegistry": false, "Registry.AddRoutes": false, "Registry.Routes": false, "Registry.routes": false},
+		"internal/core/config":      {"Config": false, "LoggingConfig": false, "TimeoutConfig": false, "DefaultTimeoutConfig": false, "HTTPClientConfig": false, "DefaultHTTPClientConfig": false, "RateLimitConfig": false, "DefaultRateLimitConfig": false, "RetryConfig": false, "DefaultRetryConfig": false},
+		"internal/platform/logging": {"LogConfig": false, "DefaultLogConfig": false},
+	}
+	for _, relative := range trackedFiles(t, ".") {
+		if !strings.HasSuffix(relative, ".go") {
+			continue
+		}
+		owner := filepath.ToSlash(filepath.Dir(relative))
+		if owner != "internal/kernel/module" && owner != "internal/app/httpapi" && owner != "internal/core/config" && owner != "internal/platform/logging" {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(relative)), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if owner == "internal/kernel/module" {
+			for _, spec := range file.Imports {
+				imported, err := decodeGoImportPath(spec.Path.Value)
+				if err != nil {
+					t.Fatalf("decode import in %s: %v", relative, err)
+				}
+				if importMatchesPrefix(imported, "task-processor/internal/platform/workerpool") {
+					t.Errorf("%s retains the retired kernel workerpool import %s", relative, imported)
+				}
+			}
+		}
+		for _, declaration := range file.Decls {
+			switch declaration := declaration.(type) {
+			case *ast.FuncDecl:
+				name := declaration.Name.Name
+				receiver := ""
+				if declaration.Recv != nil && len(declaration.Recv.List) > 0 {
+					shape := declaration.Recv.List[0].Type
+					if pointer, ok := shape.(*ast.StarExpr); ok {
+						shape = pointer.X
+					}
+					if typ, ok := shape.(*ast.Ident); ok {
+						receiver = typ.Name
+					}
+				}
+				if owner == "internal/kernel/module" && ((receiver == "Registry" && slices.Contains(retiredRegistryMethods, name)) || (receiver == "WorkflowRegistry" && name == "Register") || (receiver == "" && name == "isNilInterface")) {
+					t.Errorf("%s retains retired kernel method/helper %s.%s", relative, receiver, name)
+				}
+				if owner == "internal/app/httpapi" && receiver == "runtimeBundle" && name == "pools" {
+					t.Errorf("%s retains retired HTTP runtimeBundle.pools", relative)
+				}
+				if receiver == "" && owner == "internal/core/config" && slices.Contains(retiredConfig, name) {
+					t.Errorf("%s retains retired core config declaration %s", relative, name)
+				}
+				if receiver != "" {
+					name = receiver + "." + name
+				}
+				if _, exists := retained[owner][name]; exists {
+					retained[owner][name] = true
+				}
+			case *ast.GenDecl:
+				for _, spec := range declaration.Specs {
+					typ, ok := spec.(*ast.TypeSpec)
+					if !ok {
+						continue
+					}
+					name := typ.Name.Name
+					if (owner == "internal/kernel/module" && slices.Contains(retiredKernelTypes, name)) || (owner == "internal/core/config" && slices.Contains(retiredConfig, name)) {
+						t.Errorf("%s retains retired owner declaration %s", relative, name)
+					}
+					if _, exists := retained[owner][name]; exists {
+						retained[owner][name] = true
+					}
+					if shape, ok := typ.Type.(*ast.StructType); ok {
+						for _, field := range shape.Fields.List {
+							for _, fieldName := range field.Names {
+								if (owner == "internal/kernel/module" && name == "Registry" && slices.Contains(retiredRegistryFields, fieldName.Name)) || (owner == "internal/app/httpapi" && name == "runtimeBundle" && fieldName.Name == "workerPools") {
+									t.Errorf("%s retains retired field %s.%s", relative, name, fieldName.Name)
+								}
+								key := name + "." + fieldName.Name
+								if _, exists := retained[owner][key]; exists {
+									retained[owner][key] = true
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	for owner, declarations := range retained {
+		for name, found := range declarations {
+			if !found {
+				t.Errorf("current owner %s must retain %s", owner, name)
+			}
+		}
+	}
+}
+
 func assertLegacyLoggerFacadeRetired(t *testing.T) {
 	t.Helper()
 	for _, relative := range []string{"internal/core/logger", "internal/publishing/shein/logging.go"} {
