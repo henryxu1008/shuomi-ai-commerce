@@ -8,7 +8,7 @@ Status: **PROPOSED / DESIGN_REVIEW；源码实施 NOT_READY**。用户本轮确�
 
 使用者是维护当前应用、采集、图像、Store 和独立 SHEIN worker 的维护者。本批源码结果是完整退出无当前注入的旧 SDS 登录、客户端、模板/设计/同步、HTTP 和专属配置/工具/UI 尾部，避免残留的老入口继续表示已不可用的旧设计。没有已证实的当前核心操作被这些残留阻塞，不扩建产品、治理或试用前置。
 
-本设计覆盖一个完整闭包：61 个旧包 Go 工件、18 个专属尾部工件、11 个混合配置/启动源的精确尾部，以及原检查/直接文档的相应处置；不按包、文件数或审核机械拆 PR。保留当前 SDS/POD 业务，不把“退出旧 SDS 实现”写成“退出 SDS 能力”。唯一实现者在同一分支/PR 连续交付，本文确认后再进入源码阶段。
+本设计覆盖一个完整闭包：61 个旧包 Go 工件、18 个专属尾部工件、12 个混合配置/启动/路由策略源的精确尾部，以及原检查/直接文档的相应处置；不按包、文件数或审核机械拆 PR。保留当前 SDS/POD 业务，不把“退出旧 SDS 实现”写成“退出 SDS 能力”。唯一实现者在同一分支/PR 连续交付，本文确认后再进入源码阶段。
 
 本轮仅允许读 Git 追踪的源码/样例键结构、文档和依赖元数据。不运行旧 constructor/自测、登录浏览器、旧调试命令、脚本、应用/worker/dry-run、HTTP/provider、Redis/SQL、Docker/Compose/kubectl。不读取实际运行配置、环境凭据、token/私密文件、Profile/缓存/日志/旧报告，不操作既有实例、数据、凭据或进程。不读取/复制源码内嵌的敏感默认值到设计/日志/新测试；旧工具源码随闭包删除，不授权真实账号改密、rotation、历史重写或凭据清理。
 
@@ -44,6 +44,7 @@ Must：完整退出旧源码闭包；当前能力、共享合同及必要/安全
 | 当前 SDS Workbench | workbench/supply/catalogs/sds 页面使用 components/workbench/pod、lib/contracts/pod、lib/api/pod 及当前 service BFF | KEEP 当前目录/合同/权限；共享 lib/server/upstream-identity.ts 及全部有效身份转发测试 KEEP |
 | 专属手工工具 | wrapper → cloakbrowser-poc package scripts → 两 SDS 登录脚本；整个 package manifest/lock 只服务这两入口 | 5 源工件同退；共享浏览器/当前采集/SHEIN 不依赖该 Node 工具目录 |
 | 混合配置/启动尾部 | Platforms.SDS / EffectiveSDSAuthRedis / LoginServiceConfig 和两个 builder 的生产消费者只在旧闭包；UI launcher 只额外写两个旧 SDS API base | 只移除精确旧尾部，保留当前 Redis/Browser/SHEIN/POD 配置与启动路径 |
+| 共享路由策略 SDS 专属尾部 | authz/httpapi/route_authorization.go 仍有旧 SDS health public 例外、sds/sds-login 模块识别及 sds-login 平台管理员映射；全追踪 Go 检索除旧模块/原guard外无对应descriptor，当前 POD module=supply-market且显式AuthPolicyCurrentIdentity/Permission | 仅删除这些旧 SDS 声明；不改共享认证/授权算法或当前路由策略 |
 
 当前 `current-application` 依赖旧目录命中的只有保留的 product_source，并同时依赖当前 integration/sds；`shein-login-worker`、`image-agent-temporal-worker` 无本批旧依赖。设计不宣称现有外部脚本、用户浏览器或真实部署已经无调用；若发现具体当前外部可观察契约/保留消费者，按 §7 停止，不加 compatibility。
 
@@ -157,7 +158,7 @@ web/listingkit-ui/src/lib/utils/sds-recent-variants.test.ts
 
 只删精确追踪源，不删除 hack/debug 父模块/go.mod/go.sum、tools 父根、sds/adapter 或 sds 父根，不清 ignored 目录。专属 PoC 的两个 package 文件属于本次退休源，不授权其它依赖/锁的 tidy/升级/删除。
 
-### 5.3 11 个混合源：只去旧尾部
+### 5.3 12 个混合源：只去旧尾部
 
 | 文件 | 准确退出对象 | 保留 |
 | --- | --- | --- |
@@ -171,6 +172,7 @@ web/listingkit-ui/src/lib/utils/sds-recent-variants.test.ts
 | config/config-dev.yaml、config/config-prod.yaml | 仅 platforms.sds 子树与直接专属注释 | 其它平台、共享 Redis/browser/current schema；config-test.yaml 无此子树，零改 |
 | scripts/start-listingkit-local-ui.ps1 | Set-UiApiBases 中 SDS_API_BASE/SDS_LOGIN_API_BASE 两项赋值 | 当前 UI/loopback/身份/token handoff、其它 API base 和启动流程 |
 | scripts/start-listingkit-local-ui.Tests.ps1 | 同一场景 names 中两个 SDS 项及两项断言 | 测试本体、环境恢复、loopback 拒绝、其它 API base/身份/启动检查 |
+| internal/authz/httpapi/route_authorization.go | RouteRequiresZitadelAuth 的 GET /api/v1/sds-login/health 例外、return表达式的 sds/sds-login 两模块项；routeRequiredPermission 的 sds-login case | 显式 AuthPolicy 优先级、SHEIN health、其它模块/permission、SMS callback/HMAC边界、角色/组织authorizer及全部错误响应；不改当前POD显式身份/权限 |
 
 不扩展 retired runtime reject registry 或引入兼容键/替代配置。删除后旧键不会被当前 owner 使用；原未知键/环境解析语义保持。确认实施时以 AST/配置文本检查保护准确字段/default/env 不复活。
 
@@ -227,6 +229,7 @@ Cutover/deletion condition: §1–§7（含 §6.1 四条 CURRENT 行）经复核
 | internal/core/config 原测试/退休 guard | 按 §5.2/§5.3 删除专属自测/fixture；在原 guard 精确保护旧 Platforms.SDS/类型/builder/default/env 退出 | Viper、RedisConfig/Config.Redis、Browser/SHEIN/当前POD、安全/身份测试及 retired registry语义保持 |
 | web src/test/legacy-ui-retirement.test.ts | 原 absence/import/request-target 设施覆盖10个旧工件、旧 route/helper/type imports及旧请求目标，负例不得匹配当前 /api/service/pod 或 Workbench 页面 | 共享 upstream identity全部原测试与当前 POD/Collection/permission 合同；不删基于通用URL的身份安全用例 |
 | UI launcher 原Pester | 仅 §5.3 两env项/断言退出，保留原合成fixture和环境恢复；通过原适用检查验证，不调用启动应用/真实凭据 | token handoff、loopback/权限拒绝、当前 UI/其它入口 |
+| authz/httpapi 原策略/测试与原退休guard | §5.3精确移除SDS-only路径/module/permission声明；在原退休guard保护route_authorization.go这四个准确旧字符串缺席，保留原策略单测和当前POD descriptor检查 | TestRoutePolicyPreservesVerifiedIdentityAndExplicitPublicAuthority、TestRoleMiddlewareUsesVerifiedContextAndOriginalPermissionPolicy完整保留；现有身份/权限/组织/拒绝、SHEIN和SMS规则不变，不把修改泛化成auth重构 |
 | internal/sds/README.md | 顶部加窄历史适用注记与当前 product_source/integration/sds/POD owner 链接，旧说明不再是操作入口 | 2026-04-23及后续历史正文/真实样本不重写，不复核真实状态 |
 | docs/refactoring/code-health-decisions.md | 仅新增窄 superseded 注记，指向三条 SDS 手工工具 retained-deferred 行的本轮替代依据 | 旧表格/状态/计数/失败原文不改，不扩展其它工具 |
 | docs/architecture/project-boundaries.md、Architecture README、Legacy Register、本文 | 当前 SDS guard 解释/新设计状态按准确确认校准；设计阶段只本文与 PROPOSED索引/登记 | 既有当前owner/guard清单、dated设计/计划/产品证据不改；#664和#880只在§5精确对象上被取代 |
