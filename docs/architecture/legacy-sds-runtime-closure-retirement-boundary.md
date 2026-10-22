@@ -253,4 +253,3 @@ Cutover/deletion condition: §1–§7（含 §6.1 四条 CURRENT 行）经复核
 5. 稳定准确 HEAD 才交用户另行合并授权；正常 expected-head 合并后，只用实际 merge SHA、event=push/head_branch=main 对应完整 run 的 completed/SUCCESS 确认，不以 PR CI/Required Gate 单项或其它 main提交替代。
 6. #301 必须 OPEN，#29不重开；当前段之外从“以下保留 #726 已合并批次与历史证据，不扩大本轮权限。”开始历史后缀逐字保留，不改历史勾选，不超正文长度。源码退休完成不代表全仓清零或运行/产品验收，也不授权关单。
 7. 始终保留独立 SHEIN 登录与 Store 同步及此前有效能力；不操作既有实例、数据、凭据、浏览器存储或进程，不读实际私密文件，不增加内部试用前置。只删除追踪源码，不把删除路径变成真实资源清理。
-
