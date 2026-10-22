@@ -1,5 +1,5 @@
 import {afterEach, beforeAll, beforeEach, expect, it, vi} from "vitest";
-import {cleanup, fireEvent, render, screen, waitFor} from "@testing-library/react";
+import {cleanup, fireEvent, render, screen, waitFor, within} from "@testing-library/react";
 import {skillRequest} from "@/lib/api/skill";
 import type {SkillProjection} from "@/lib/contracts/skill";
 import {SkillLibraryPage} from "./skill-library-page";
@@ -33,6 +33,7 @@ it("manages personal skills without an organization or a modal", async () => {
   expect(await screen.findByRole("button", {name: "新建技能"})).toBeEnabled();
   expect(screen.getByRole("heading", {level: 1, name: "我的技能"})).toBeInTheDocument();
   expect(screen.getByRole("link", {name: "我的技能"})).toHaveAttribute("aria-current", "page");
+  expect(within(screen.getByRole("navigation", {name: "面包屑"})).getByRole("link", {name: "AI工作台"})).toHaveAttribute("href", "/workbench/ai");
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   expect(vi.mocked(skillRequest).mock.calls.every(([scope, path]) => scope.userId === "alice" && !scope.organizationId && path.startsWith("personal"))).toBe(true);
 });
