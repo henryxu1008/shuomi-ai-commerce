@@ -1,6 +1,6 @@
 # #301 旧通用执行骨架与闲置宿主配置完整退休设计
 
-Status: **DESIGN_REVIEW / 待用户确认；生产实施未授权**。本轮只读调查和三份文档；准确设计 HEAD、原 CI、独立复核及后续批准写主要 PR，不在本文滚动追加状态提交。接单及前当前段存档见 [#301 / 6344768952](https://github.com/qq550723504/shuomi-ai-commerce/issues/301#issuecomment-6344768952)。
+Status: **USER_CONFIRMED / SOURCE_IMPLEMENTED**。用户已确认 §1–§7（含 §6.1），Reuse Existing Architecture / Ready 在 Issue/PR 读回后，同一 Writer 在 #897 整批实施；未授权合并。准确设计/实现 HEAD、原 CI、独立复核和批准写主要 PR，不为滚动证据制造状态提交。接单及前当前段存档见 [#301 / 6344768952](https://github.com/qq550723504/shuomi-ai-commerce/issues/301#issuecomment-6344768952)。
 
 调查基线为 main **c30826ad893b0bca9c0380a156d78f0c3757496d**。#893 已按 259ce6d67 正常合并；对应 push/main CI39801396912 attempt2 完整 SUCCESS，首轮临时 PostgreSQL fixture 镜像缺失及一次失败 jobs 重试保留于该 PR。这些是前批证据，不替代本批设计或未来源码验证。
 
@@ -16,11 +16,11 @@ Status: **DESIGN_REVIEW / 待用户确认；生产实施未授权**。本轮只�
 
 保留当前 `kernelmodule.Module`、`Registry/NewRegistry/AddRoutes/Routes` 和现有 HTTP 生产消费者；不搬迁、重命名或新建路由 owner。保留真实采集 workerpool、当前 Temporal/ImageAgent worker、独立 SHEIN 登录与 Store 同步及此前全部当前能力。三组共同结果是退出旧宿主执行骨架及无消费者配置，不引入替代调度器或治理系统。
 
-本轮授权仅设计。实现、合并、部署、关单另行授权；不读取既有凭据、私密配置/日志/状态、Cookie/Profile/缓存，不执行应用/worker/浏览器/下载/安装/provider/PG/Redis，不操作既有实例、数据、凭据或进程，不清 ignored 文件。调查只读 Git 追踪源码、文档和依赖元数据。
+用户已授权本设计范围内整批实施、必要自检、提交/推送和维护同一 PR。合并、部署、关单另行授权；不读取既有凭据、私密配置/日志/状态、Cookie/Profile/缓存，不执行应用/worker/浏览器/下载/安装/provider/PG/Redis，不操作既有实例、数据、凭据或进程，不清 ignored 文件。调查只读 Git 追踪源码、文档和依赖元数据。
 
 ## 2. Design Basis、Authority 与保留不变量
 
-设计阶段 **Design Basis: N/A**（只读调查/三文档，不改生产运行语义）。用户确认后的实施拟为 **Reuse Existing Architecture**；本设计获确认、范围/owner/验证完整并在 Issue/PR 读回 Ready 后才能正式编码。
+设计阶段 **Design Basis: N/A**（只读调查/三文档，不改生产运行语义）已完成。用户确认后的实施为 **Reuse Existing Architecture**；本设计范围/owner/验证获确认，Issue/PR 的 **Ready / IMPLEMENTATION_READY** 已在正式编码前读回。
 
 适用依据：
 
@@ -108,7 +108,7 @@ Cutover/deletion condition: 用户确认本设计/Ready读回；闲置分支无�
 
 ### 6.1 原检查、CURRENT inventory、文档与 workflow 精确处置
 
-本矩阵是待用户确认的整批实施提案，设计阶段全部不应用：
+本矩阵已获用户确认，随 #897 整批实施；设计阶段未提前应用：
 
 | 对象 | 同批准确处置 | 不得改变 |
 | --- | --- | --- |
@@ -119,7 +119,7 @@ Cutover/deletion condition: 用户确认本设计/Ready读回；闲置分支无�
 | `.golangci.yml`、Code Health、其它 import/provider/SDK/SSA/Phase2 checks | **零改**，运行适用原检查 | 不加豁免/新允许项、改 ceiling、放松当前消费者准确性或改检查逻辑求绿 |
 | 全部 workflow/命令/部署/依赖/锁/保护 | **零改**，原 Backend/Frontend/Required/Security/Admission 等保持 | 不删/跳过检查、不改 build 目标/flag/镜像/tag、强推或管理员绕过 |
 
-唯一拟删除 CURRENT 行：
+唯一删除的 CURRENT 行：
 
 ```text
 | `task-processor/internal/platform/workerpool` | `task-processor/internal/kernel/module` | runtime-support debt | app retirement / Phase 8 |
@@ -129,8 +129,8 @@ Cutover/deletion condition: 用户确认本设计/Ready读回；闲置分支无�
 
 ## 7. 准入、复核、停止及父目标边界
 
-1. 当前仅设计，N/A 三文档；原 CI 与一次独立设计复核完成后交用户确认。未获具体实施确认前，不写 guard/port/生产代码、不删除源文件或 CURRENT 行，不把设计 CI/评审当源码结果。
-2. 用户确认 §1–§7（含 §6.1）后，同一 Writer 在同一主要 PR 记录 Reuse Existing Architecture / Ready 并读回，才整批实施。既有边界足够则不重复全局架构审核；若实际必须改变当前合同/权限/持久化/状态/恢复/副作用边界，停止相应正式实现并升级准入。
+1. 设计阶段 N/A 三文档、原 CI 和一次独立只读设计复核已完成；用户随后确认具体设计与整批实施。设计阶段没有提前写 guard/生产代码或删除源/CURRENT；设计 CI/评审不替代源码结果。
+2. 用户确认 §1–§7（含 §6.1）后，同一 Writer 已在同一主要 PR 记录 Reuse Existing Architecture / Ready 并读回，再整批实施。既有边界足够则不重复全局架构审核；若实际必须改变当前合同/权限/持久化/状态/恢复/副作用边界，停止相应正式实现并升级准入。
 3. 实施最终候选只做一次完整真实 diff/调用路径/保留能力/证据检查；已确认未变化部分复用，finding 先分类，修复只复核增量。不得由 Reviewer 增加新的试用资格或验收平台。
 4. 原 CI 真失败先读准确日志并查同根因 sibling paths；矩阵外修订/冻结 KEEP 变化给出最小精确提案，不能自行改 workflow、历史/ceilings、检查或默认恢复旧兼容构造。
 5. 发现当前外部可观察契约/持久化运行态似乎要求兼容时先报告；没有可执行的 migration/compatibility Exception。不接管其它 owner，不因同名 Task/Workflow/Config 扩大删除。

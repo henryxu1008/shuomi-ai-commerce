@@ -116,7 +116,7 @@ func TestBuildHTTPServerBundleFromModulesSkipsNilModules(t *testing.T) {
 	require.Equal(t, http.StatusOK, resp.Code)
 }
 
-func TestBuildRuntimeBundleFromModulesCollectsRoutesAndWorkerPools(t *testing.T) {
+func TestBuildRuntimeBundleFromModulesCollectsRoutes(t *testing.T) {
 	t.Parallel()
 
 	bundle, err := buildRuntimeBundleFromModules(&config.Config{}, []kernelmodule.Module{
@@ -131,14 +131,12 @@ func TestBuildRuntimeBundleFromModulesCollectsRoutesAndWorkerPools(t *testing.T)
 						c.Status(http.StatusOK)
 					},
 				})
-				return reg.AddWorkerPool("custom_pool", stubWorkerPool{})
+				return nil
 			},
 		},
 	})
 	require.NoError(t, err)
 	require.Equal(t, []string{"GET /health"}, routeKeys(bundle.routes))
-	require.Len(t, bundle.workerPools, 1)
-	require.Equal(t, "custom_pool", bundle.workerPools[0].Name)
 }
 
 func routeKeys(routes []httproute.Descriptor) []string {
