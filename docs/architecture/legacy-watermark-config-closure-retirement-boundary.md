@@ -1,6 +1,6 @@
 # #301 旧水印检测/去除与专属配置完整退休设计
 
-Status: **PROPOSED / DESIGN_ONLY**。用户已同意先做本完整闭包的设计，尚未确认本文或授权源码实施。当前 Design Basis 为 **N/A**（只读调查、本文、Architecture README/Legacy Register 提案入口及 Issue/PR 维护）；未来实施拟 **Reuse Existing Architecture / NOT_READY**，待 §7 的明确确认。调查基线 main `398ee52a7caa9769f0197c67f46f17947b7cbcfd`，其 push/main CI39625847629 completed/SUCCESS 仅为基线证据，不冒充本设计或未来实现 CI。#301 保持 OPEN，#29 不重开；一个 Writer、一个分支、一个主要 PR，不按检测器、去除器或配置机械拆批。
+Status: **CONFIRMED / Reuse Existing Architecture / Ready → In Progress**。用户已确认冻结设计 `e7ebd1d8dbecb92b78ce5b2b23aeae3eda1768d1` 的 §1–§7（含 §6.1），授权在 #874 整批实施；[实施准入](https://github.com/qq550723504/task-processor/pull/874#issuecomment-6329871523)和 #301 Ready 已在生产修改前读回。下列设计阶段时态保留为历史，当前权限以本状态取代；准确删除/保留矩阵不变。11 个生产源与 1 个示例、Config.Watermark import/字段和开发 YAML 专属根同批 RETIRE，无新 EXTRACT/兼容/替代 owner。原 guard/config 检查先捕获 RED 后校准至 GREEN；准确实现 HEAD、原 CI 与最终独立检查留 PR。调查基线 main `398ee52a7caa9769f0197c67f46f17947b7cbcfd`，其 push/main CI39625847629 SUCCESS 仅为基线证据。#301 保持 OPEN，#29 不重开；一个 Writer、一个分支、一个主要 PR，不机械拆批。workflow/inventory/依赖/ceilings/保护零改，当前能力及独立 SHEIN 登录/Store 同步保留，无既有实例/数据/凭据/进程操作或新试用前置。
 
 ## 1. 用户结果、范围与权限
 
