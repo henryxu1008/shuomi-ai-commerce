@@ -1,4 +1,10 @@
-# Local account center Compose
+# Shuomi AI Commerce / 硕米智能引擎 — Local account center Compose
+
+This is the local account environment for **Shuomi AI Commerce** (AI Commerce
+Agent Platform). The engineering name `task-processor` remains in project names,
+paths and commands. Keep the original project name when operating an existing
+environment; changing it selects different Compose resources. See the
+[branding and repository rename inventory](../../../docs/development/branding-and-repository-rename.md).
 
 Optional ZITADEL/Tencent SMS delivery configuration and the remaining local
 provider connection prerequisite are documented in [SMS.md](SMS.md).
