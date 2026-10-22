@@ -110,6 +110,7 @@ export function StoreServiceActions({
         ? "0"
         : null
     : (own?.periods.free ?? null);
+  const fundingRead = administrator ? balance : members;
   const action =
     store.serviceStatus === "active"
       ? "renew"
@@ -247,7 +248,22 @@ export function StoreServiceActions({
           <p>
             {store.name} · {administrator ? "企业未分配期数" : "本人已分配期数"}
           </p>
-          <p>可用 {available ?? "正在读取"} 期</p>
+          {fundingRead.isFetching || fundingRead.isPending ? (
+            <p role="status">正在读取可用期数…</p>
+          ) : fundingRead.isError || available === null ? (
+            <div role="alert">
+              <p>
+                {fundingRead.isError
+                  ? "可用期数读取失败，请重试。"
+                  : "当前未取得可用期数，请重试或联系管理员。"}
+              </p>
+              <Button variant="outline" onClick={() => void fundingRead.refetch()}>
+                重新读取期数
+              </Button>
+            </div>
+          ) : (
+            <p>可用 {available} 期</p>
+          )}
           <label className={styles.dialogField}>
             本次续费期数
             <input

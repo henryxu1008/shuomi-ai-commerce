@@ -6,7 +6,7 @@ vi.mock("next/navigation",()=>({usePathname:()=>"/workbench/stores",useRouter:()
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>({user:{id:"actor"},effectiveOrganization:{id:state.org,name:"A"},permissions:state.permissions,isSwitching:state.switching,retry:state.retry})}));
 vi.mock("@/lib/query/use-store-catalog",()=>({useStoreCatalog:(filters:unknown,valid:boolean)=>{state.filters(filters,valid);return state.query}}));
 vi.mock("@tanstack/react-query",()=>({useQueryClient:()=>({invalidateQueries:vi.fn()}),useQuery:()=>({})}));
-vi.mock("./store-catalog-dialogs",()=>({StoreCatalogDialogs:({dialog}:{dialog:unknown})=>{state.dialog(dialog);return <div role="dialog">归属设置</div>}}));
+vi.mock("./store-catalog-dialogs",()=>({StoreCatalogDialogs:({dialog,onClose}:{dialog:unknown;onClose:()=>void})=>{state.dialog(dialog);return <div role="dialog">归属设置<button onClick={onClose}>关闭设置</button></div>}}));
 vi.mock("./store-lifecycle-actions",()=>({StoreLifecycleActions:()=>null}));
 import {StoreListPage} from "./store-list-page";
 const metric={value:null,unknown:0,complete:false,reason:"unavailable"};
@@ -50,4 +50,28 @@ it.each(["PERMISSION_DENIED","STORE_NOT_FOUND","ORGANIZATION_CONTEXT_CHANGED","O
  await userEvent.click(screen.getByRole("checkbox",{name:"选择A 店铺"}));await userEvent.click(screen.getByRole("button",{name:"加入分组"}));expect(screen.getByRole("dialog")).toBeInTheDocument();
  state.query={data,isPending:false,isError:true,error:{code}};view.rerender(<StoreListPage/>);expect(screen.queryByRole("dialog")).not.toBeInTheDocument();expect(screen.queryByText("A 店铺")).not.toBeInTheDocument();
  state.query={data,isPending:false,isError:false};view.rerender(<StoreListPage/>);expect(screen.getByRole("checkbox",{name:"选择A 店铺"})).not.toBeChecked();
+});
+
+it.each(["选择A 店铺","选择本页"])("captures refreshed profile versions for a new grouping intent after %s",async(selection)=>{
+ state.permissions=["workbench.store.read","workbench.store.update"];state.query={data,isPending:false,isError:false};const view=render(<StoreListPage/>);
+ await userEvent.click(screen.getByRole("checkbox",{name:selection}));
+ await userEvent.click(screen.getByRole("button",{name:"加入分组"}));
+ const captured=state.dialog.mock.lastCall![0];
+ const updated={...item,profile:{...item.profile,profileVersion:2,groupId:"22222222-2222-4222-8222-222222222222"}};
+ state.query={data:{...data,items:[updated]},isPending:false,isError:false};view.rerender(<StoreListPage/>);
+ // An open intent must remain frozen even while the directory advances.
+ expect(state.dialog.mock.lastCall![0]).toBe(captured);
+ expect(captured.items[0].profile.profileVersion).toBe(0);
+ await userEvent.click(screen.getByRole("button",{name:"关闭设置"}));
+ expect(screen.getByRole("checkbox",{name:"选择A 店铺"})).toBeChecked();
+ await userEvent.click(screen.getByRole("button",{name:"加入分组"}));
+ expect(state.dialog.mock.lastCall![0].items).toEqual([updated]);
+});
+it("clears missing selected stores and does not restore their selection on a later read",async()=>{
+ state.permissions=["workbench.store.read","workbench.store.update"];state.query={data,isPending:false,isError:false};const view=render(<StoreListPage/>);
+ await userEvent.click(screen.getByRole("checkbox",{name:"选择A 店铺"}));
+ state.query={data:{...data,items:[]},isPending:false,isError:false};view.rerender(<StoreListPage/>);
+ expect(screen.queryByRole("button",{name:"加入分组"})).not.toBeInTheDocument();
+ state.query={data,isPending:false,isError:false};view.rerender(<StoreListPage/>);
+ expect(screen.getByRole("checkbox",{name:"选择A 店铺"})).not.toBeChecked();
 });
