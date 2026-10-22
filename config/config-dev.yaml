@@ -82,14 +82,6 @@ platforms:
 
 
 
-  # SDS 登录态刷新配置；cookie/token 失效时会调用 login 服务自动恢复后重试
-  sds:
-    loginService:
-      baseURL: "http://localhost:8000"
-      sharedKey: ""
-      tenantID: "1"
-      identifier: "869"
-
   # 1688 平台配置
   alibaba1688:
     enabled: false   # 是否启用1688处理器

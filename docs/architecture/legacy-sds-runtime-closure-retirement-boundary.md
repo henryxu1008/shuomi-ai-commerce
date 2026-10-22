@@ -1,8 +1,8 @@
 # #301 旧 SDS 登录、商品同步与专属尾部完整退休设计
 
-Status: **PROPOSED / DESIGN_REVIEW；源码实施 NOT_READY**。用户本轮确认把 SDS 候选范围整理为可复核的完整设计；本 PR 只交本文和 PROPOSED 索引/登记，**Design Basis: N/A（纯文档、只读消费者调查）**。尚未获本文具体 §1–§7（含 §6.1 四条 CURRENT inventory 例外）的正式实施确认，不修改生产源码。当前基线 main `26179374cb4d7e0142c06f70022125149746499c`，唯一 Writer/分支/设计复核/准确 HEAD 与 CI 记录在 #301/同一主要 PR。#301 OPEN，#29 不重开，不以源码证据代替运行或用户验收。
+Status: **USER_CONFIRMED / SOURCE_IMPLEMENTED**。用户已明确确认冻结设计 f83ddb2ecd494adea13badfa84586b3a3d07c172 §1–§7（含§6.1），在同一 #885 整批实施，inventory 只删除准确四条CURRENT行。[用户确认/Ready准入](https://github.com/qq550723504/task-processor/pull/885#issuecomment-6335862745)及 #301/PR Ready 读回先于生产修改；设计阶段N/A，本轮 **Design Basis: Reuse Existing Architecture / Ready**。唯一Writer已按§5/§6.1完整退出79专属工件、12混合源及原guard/直接文档尾部，无新EXTRACT/替代owner，不机械拆批。原设计全审/授权只读增量PASS及设计CI保持历史证据；准确实现HEAD、RED/GREEN、必要验证、原CI及最终交付检查写PR，不冒充运行/用户验收。#301 OPEN，#29不重开。
 
-最终设计候选前已一次同步 main `124a4de006326bf5930b1a3b4533254dd3591968`；相对调查基线仅 #883 四个成员资源 UI/测试文件变化，不触及本闭包/保留 owner 或三份设计文档，原消费者映射可复用。不是对无关账户修复的重复评审或运行验收。
+调查基线main26179374cb4d7e0142c06f70022125149746499c，设计候选同步124a4de006326bf5930b1a3b4533254dd3591968；本轮开工同步main3b50940f3b4ee9a5bd1f4491712ca43a355c0c33，仅#886六品牌文档，无当前闭包/保留owner变化。实际根Go、debug、前端和config消费者刷新符合冻结设计。以下冻结矩阵/停止条件保持，只校准已确认、已实施的当前状态。
 
 ## 1. 用户结果、完整范围与权限
 
@@ -10,13 +10,13 @@ Status: **PROPOSED / DESIGN_REVIEW；源码实施 NOT_READY**。用户本轮确�
 
 本设计覆盖一个完整闭包：61 个旧包 Go 工件、18 个专属尾部工件、12 个混合配置/启动/路由策略源的精确尾部，以及原检查/直接文档的相应处置；不按包、文件数或审核机械拆 PR。保留当前 SDS/POD 业务，不把“退出旧 SDS 实现”写成“退出 SDS 能力”。唯一实现者在同一分支/PR 连续交付，本文确认后再进入源码阶段。
 
-本轮仅允许读 Git 追踪的源码/样例键结构、文档和依赖元数据。不运行旧 constructor/自测、登录浏览器、旧调试命令、脚本、应用/worker/dry-run、HTTP/provider、Redis/SQL、Docker/Compose/kubectl。不读取实际运行配置、环境凭据、token/私密文件、Profile/缓存/日志/旧报告，不操作既有实例、数据、凭据或进程。不读取/复制源码内嵌的敏感默认值到设计/日志/新测试；旧工具源码随闭包删除，不授权真实账号改密、rotation、历史重写或凭据清理。
+调查阶段只读 Git 追踪的源码/样例键结构、文档和依赖元数据；本轮按用户确认和Ready准入修改准确追踪源/测试/配置/文档。不运行旧 constructor/自测、登录浏览器、旧调试命令、脚本、应用/worker/dry-run、HTTP/provider、Redis/SQL、Docker/Compose/kubectl。不读取实际运行配置、环境凭据、token/私密文件、Profile/缓存/日志/旧报告，不操作既有实例、数据、凭据或进程。不读取/复制源码内嵌的敏感默认值到设计/日志/新测试；旧工具源码随闭包删除，不授权真实账号改密、rotation、历史重写或凭据清理。
 
-设计阶段生产源码、测试、配置、workflow、inventory、依赖/锁/ceilings/保护规则零改。四条 CURRENT inventory 行只在 §6.1 提供未来精确提案，尚未应用。源码确认不授权合并、关单、部署或真实环境操作。
+设计阶段仅三文档；本轮源码实施已按§5/§6.1整批完成，inventory仅删除用户明确允许的四条CURRENT行，历史/计数/ceilings/检查逻辑不改。workflow/其余依赖/锁/保护零改；源码确认不授权合并、关单、部署或真实环境操作。
 
 ## 2. Design Basis、Authority 与保留不变量
 
-当前纯设计 **N/A**。未来实施拟为 **Reuse Existing Architecture / NOT_READY**，复用：
+设计阶段 **N/A**；本轮用户确认/Ready读回后以 **Reuse Existing Architecture / Ready** 实施，复用：
 
 - [Greenfield 产品决定](../product/greenfield-no-legacy-migration.md)、[Hard-Cut Policy](../refactoring/legacy-hard-cut-policy.md)、[Legacy Register](../refactoring/legacy-register.md)、[项目边界](project-boundaries.md)和[Issue 驱动规则](../engineering/issue-driven-development.md)。仅 EXTRACT/RETIRE，不引入旧 owner facade、fallback、迁移、旧 ID 映射、双读/双写、状态同步或第二事实源。
 - [供应市场及当前 SDS/POD](supply-market-v1.md) §3/§4/§7/§8 已明确旧 design/client 自动重试、补偿删除、结果替代与本地登录 bootstrap 不适用；当前 Product POD/Submission/Asset 及 integration/sds 窄 transport 是现有 owner。当前 [POD Design Agent](pod-design-agent-v1.md) 及能力准入保持，不重新实施或验收这些功能。
@@ -200,7 +200,7 @@ internal/sds/adapter/product_source/model.go
 - 无新 EXTRACT：当前行为已归现有 owner；保留 product_source 原包而非复制/搬迁。若刷新后发现必须抽取的新有效规则，先明确具体行为/owner并报告，不能实现时临时拓展设计。
 
 ```text
-Legacy decision: RETIRE（提案，待具体设计确认后实施）
+Legacy decision: RETIRE（用户确认，已整批源码实施）
 Reusable behavior: 无新 EXTRACT；当前 SDS/POD、product_source 值规则、共享身份/浏览器/Redis及现役能力原样保留
 Current owner: Product POD/Submission/Asset/Collection + integration/sds + 当前 app/runtime/Console；SHEIN readiness/product_source及独立 SHEIN 原 owner
 Cutover/deletion condition: §1–§7（含 §6.1 四条 CURRENT 行）经复核和用户明确确认，Issue/PR Ready 先读回，实际消费者刷新无冲突；完整源码/专属尾部同退，无真实状态处置
@@ -216,7 +216,7 @@ Cutover/deletion condition: §1–§7（含 §6.1 四条 CURRENT 行）经复核
 
 ### 6.1 原检查、文档、inventory 与 workflow 的精确处置
 
-以下为未来实施提案，设计 PR 中全部零改：
+以下为用户确认的同批实施范围，当前已精确应用；原设计阶段全部零改的证据留PR：
 
 | 对象 | 同批最小校准 | 不得改变 |
 | --- | --- | --- |
@@ -233,10 +233,10 @@ Cutover/deletion condition: §1–§7（含 §6.1 四条 CURRENT 行）经复核
 | internal/sds/README.md | 顶部加窄历史适用注记与当前 product_source/integration/sds/POD owner 链接，旧说明不再是操作入口 | 2026-04-23及后续历史正文/真实样本不重写，不复核真实状态 |
 | docs/refactoring/code-health-decisions.md | 仅新增窄 superseded 注记，指向三条 SDS 手工工具 retained-deferred 行的本轮替代依据 | 旧表格/状态/计数/失败原文不改，不扩展其它工具 |
 | docs/architecture/project-boundaries.md、Architecture README、Legacy Register、本文 | 当前 SDS guard 解释/新设计状态按准确确认校准；设计阶段只本文与 PROPOSED索引/登记 | 既有当前owner/guard清单、dated设计/计划/产品证据不改；#664和#880只在§5精确对象上被取代 |
-| **CURRENT inventory四行** | 仅在用户具体确认后删除下方四行；设计PR仍零改 | 历史/计数/ceilings/映射、accuracy/parser/depguard/guard逻辑全部不改 |
+| **CURRENT inventory四行** | 用户已具体确认，仅删除下方四行；设计阶段零改证据保留 | 历史/计数/ceilings/映射、accuracy/parser/depguard/guard逻辑全部不改 |
 | workflow/依赖/保护 | 两套 workflow 及其它全部 workflow 零改；根/前端/debug go.mod/go.sum/package锁零改，仅 §5.2 专属 PoC 自有 package.json/package-lock.json 随源退休 | 必需与安全检查、基线、ceilings、分支保护不降级；不新增/retry/cancel CI 或绕过门禁 |
 
-**准备但不应用的唯一 inventory 补丁**（从 CURRENT consumer table 删除准确四行，无新增行，无历史/计数更改）：
+**用户明确允许并已应用的唯一 inventory 补丁**（从 CURRENT consumer table 删除准确四行，无新增行，无历史/计数更改）：
 
 ```diff
 -| `task-processor/internal/core/logger` | `task-processor/internal/sds/client` | marketplace business consumer | marketplace owner / Phase 4 |
@@ -245,7 +245,7 @@ Cutover/deletion condition: §1–§7（含 §6.1 四条 CURRENT 行）经复核
 -| `task-processor/internal/integration/httpimage` | `task-processor/internal/sds/design` | marketplace business consumer | marketplace owner / Phase 4 |
 ```
 
-完整删除使这四条当前消费者失效；若坚持完整 inventory 零改，原 accuracy检查与完整退休将直接冲突。不能保留假消费者、dummy import、跳过检查或改统计逻辑。本设计请求后续确认 §6.1 的四行例外，未得到具体确认前不应用；不得据本次“确认设计”推定该例外已生效。
+完整删除使这四条当前消费者失效；若坚持完整 inventory 零改，原 accuracy检查与完整退休将直接冲突。不能保留假消费者、dummy import、跳过检查或改统计逻辑。用户本轮已明确确认 §1–§7（含§6.1）并明确允许这四行最小校准，准入/读回先于应用；不扩展到其它inventory记录或检查逻辑。
 
 ## 7. 实施准入、停止点与关闭边界
 

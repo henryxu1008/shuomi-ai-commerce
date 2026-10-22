@@ -83,8 +83,6 @@ Describe "start-listingkit-local-ui authentication" {
         $names = @(
             "LISTINGKIT_API_BASE",
             "LISTINGKIT_SERVICE_API_BASE",
-            "SDS_API_BASE",
-            "SDS_LOGIN_API_BASE",
             "SHEIN_LOGIN_API_BASE",
             "NEXT_PUBLIC_LISTINGKIT_API_BASE"
         )
@@ -102,8 +100,6 @@ Describe "start-listingkit-local-ui authentication" {
 
             $env:LISTINGKIT_API_BASE | Should Be "http://127.0.0.1:18085/api/v1/listing-kits"
             $env:LISTINGKIT_SERVICE_API_BASE | Should Be "http://127.0.0.1:18085/api/v1"
-            $env:SDS_API_BASE | Should Be "http://127.0.0.1:18085/api/v1/sds"
-            $env:SDS_LOGIN_API_BASE | Should Be "http://127.0.0.1:18085/api/v1/sds-login"
             $env:SHEIN_LOGIN_API_BASE | Should Be "http://127.0.0.1:18085/api/v1/shein-login"
             $env:NEXT_PUBLIC_LISTINGKIT_API_BASE | Should Be "/api/listing-kits"
         } finally {

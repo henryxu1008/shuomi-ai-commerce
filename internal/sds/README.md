@@ -1,5 +1,7 @@
 # sds
 
+> #301 / #885：用户确认的[完整旧 SDS 退休边界](../../docs/architecture/legacy-sds-runtime-closure-retirement-boundary.md)已将下述旧 client/login/template/design/workflow/adapter/usecase/HTTP 与专属工具源码退休。本目录只保留 `adapter/product_source` 的现役纯值/readiness合同；当前 SDS/POD 由 `internal/integration/sds`、`internal/app/pod`、`internal/product/pod` 和 Submission/Asset 原 owner 提供。以下 dated 联调样本、登录/恢复操作说明逐字保留为历史，不是当前操作入口，不授权读取/迁移/清理旧 cookie、Redis、Profile 或真实成品。独立 SHEIN 登录与 Store 同步保留。
+
 `sds` 负责对接 SDS 网站的登录态请求链路，不依赖浏览器自动化。
 
 当前目标：

@@ -20,6 +20,222 @@ var retiredHostRuntimePackages = []string{
 	"internal/app/lifecycle", "internal/core/errors", "internal/app/ports", "internal/app/updater",
 }
 
+func TestLegacySDSRuntimeClosureIsRetired(t *testing.T) {
+	retiredPackages := []string{
+		"internal/sds/client", "internal/sds/template", "internal/sds/design",
+		"internal/sds/workflow", "internal/sds/adapter", "internal/sds/usecase",
+		"internal/sds/httpapi", "internal/sds/httpbootstrap", "internal/sdslogin",
+	}
+	isRetired := func(path string) bool {
+		if importMatchesPrefix(path, "internal/sds/adapter/product_source") {
+			return false
+		}
+		for _, retired := range retiredPackages {
+			if importMatchesPrefix(path, retired) {
+				return true
+			}
+		}
+		return false
+	}
+	for _, relative := range []string{
+		"internal/sds/adapter/service.go",
+		"internal/sds/adapter/service_test.go",
+		"internal/sds/adapter/types.go",
+		"internal/sds/client/auth.go",
+		"internal/sds/client/auth_bootstrap.go",
+		"internal/sds/client/auth_bootstrap_local.go",
+		"internal/sds/client/auth_bootstrap_local_test.go",
+		"internal/sds/client/auth_bootstrap_test.go",
+		"internal/sds/client/auth_state.go",
+		"internal/sds/client/auth_test.go",
+		"internal/sds/client/client.go",
+		"internal/sds/client/config.go",
+		"internal/sds/client/config_test.go",
+		"internal/sds/client/errors.go",
+		"internal/sds/client/request.go",
+		"internal/sds/client/session_store.go",
+		"internal/sds/client/session_store_test.go",
+		"internal/sds/client/transient_upload_error.go",
+		"internal/sds/client/transient_upload_error_test.go",
+		"internal/sds/design/material_helpers.go",
+		"internal/sds/design/models.go",
+		"internal/sds/design/payload.go",
+		"internal/sds/design/render_validation.go",
+		"internal/sds/design/render_validation_test.go",
+		"internal/sds/design/rendered_images.go",
+		"internal/sds/design/sensitive_words.go",
+		"internal/sds/design/service.go",
+		"internal/sds/design/service_test.go",
+		"internal/sds/design/types.go",
+		"internal/sds/httpapi/config.go",
+		"internal/sds/httpapi/config_test.go",
+		"internal/sds/httpapi/handler.go",
+		"internal/sds/httpapi/handler_test.go",
+		"internal/sds/httpapi/http_module.go",
+		"internal/sds/httpapi/http_module_test.go",
+		"internal/sds/httpbootstrap/support.go",
+		"internal/sds/httpbootstrap/support_test.go",
+		"internal/sds/template/models.go",
+		"internal/sds/template/service.go",
+		"internal/sds/template/service_test.go",
+		"internal/sds/template/types.go",
+		"internal/sds/usecase/service.go",
+		"internal/sds/usecase/service_test.go",
+		"internal/sds/usecase/types.go",
+		"internal/sds/workflow/approved_asset.go",
+		"internal/sds/workflow/service.go",
+		"internal/sds/workflow/service_test.go",
+		"internal/sds/workflow/types.go",
+		"internal/sdslogin/api.go",
+		"internal/sdslogin/automation.go",
+		"internal/sdslogin/automation_test.go",
+		"internal/sdslogin/bootstrap/build.go",
+		"internal/sdslogin/bootstrap/build_test.go",
+		"internal/sdslogin/build.go",
+		"internal/sdslogin/build_test.go",
+		"internal/sdslogin/http_module.go",
+		"internal/sdslogin/http_module_test.go",
+		"internal/sdslogin/redis_store.go",
+		"internal/sdslogin/service.go",
+		"internal/sdslogin/service_test.go",
+		"internal/sdslogin/types.go",
+		"hack/debug/test-sds/main.go",
+		"hack/debug/test-sds/README.md",
+		"scripts/refresh-sds-auth-via-portforward.ps1",
+		"tools/cloakbrowser-poc/package.json",
+		"tools/cloakbrowser-poc/package-lock.json",
+		"tools/cloakbrowser-poc/sds-login.mjs",
+		"tools/cloakbrowser-poc/sds-login-redis.mjs",
+		"internal/core/config/sds_auth_redis_test.go",
+		"web/listingkit-ui/src/app/api/sds/categories/route.ts",
+		"web/listingkit-ui/src/app/api/sds/products/[productId]/route.ts",
+		"web/listingkit-ui/src/app/api/sds/products/route.ts",
+		"web/listingkit-ui/src/app/api/sds/shared.ts",
+		"web/listingkit-ui/src/app/api/sds/shipment-areas/route.ts",
+		"web/listingkit-ui/src/lib/api/sds-products-schema.ts",
+		"web/listingkit-ui/src/lib/api/sds-products-schema.test.ts",
+		"web/listingkit-ui/src/lib/types/sds.ts",
+		"web/listingkit-ui/src/lib/utils/sds-recent-variants.ts",
+		"web/listingkit-ui/src/lib/utils/sds-recent-variants.test.ts",
+	} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Errorf("retired SDS artifact %s must be absent: %v", relative, err)
+		}
+	}
+	retiredDeclarations := strings.Fields("SDSPlatformConfig SDSAuthBootstrapConfig LoginServiceConfig SDSLoginServiceConfig EffectiveSDSAuthRedis BuildLoginServiceConfig BuildSDSAuthBootstrapConfig setSDSDefaults")
+	for _, relative := range trackedFiles(t, ".") {
+		if !strings.HasSuffix(relative, ".go") {
+			continue
+		}
+		if isRetired(relative) {
+			t.Errorf("retired SDS package source remains: %s", relative)
+		}
+		configOwner := strings.HasPrefix(relative, "internal/core/config/") && !strings.HasSuffix(relative, "_test.go")
+		mode := parser.ImportsOnly
+		if configOwner {
+			mode = 0
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(relative)), nil, mode)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, spec := range file.Imports {
+			imported, err := decodeGoImportPath(spec.Path.Value)
+			if err != nil {
+				t.Fatalf("decode import in %s: %v", relative, err)
+			}
+			if isRetired(strings.TrimPrefix(imported, "task-processor/")) {
+				t.Errorf("%s imports retired SDS package %s", relative, imported)
+			}
+		}
+		if !configOwner {
+			continue
+		}
+		ast.Inspect(file, func(node ast.Node) bool {
+			switch node := node.(type) {
+			case *ast.FuncDecl:
+				if slices.Contains(retiredDeclarations, node.Name.Name) {
+					t.Errorf("%s recreates retired SDS declaration %s", relative, node.Name.Name)
+				}
+			case *ast.TypeSpec:
+				if slices.Contains(retiredDeclarations, node.Name.Name) {
+					t.Errorf("%s recreates retired SDS type %s", relative, node.Name.Name)
+				}
+				if node.Name.Name == "PlatformsConfig" {
+					if body, ok := node.Type.(*ast.StructType); ok {
+						for _, field := range body.Fields.List {
+							for _, name := range field.Names {
+								if name.Name == "SDS" {
+									t.Errorf("%s retains PlatformsConfig.SDS", relative)
+								}
+							}
+						}
+					}
+				}
+			case *ast.BasicLit:
+				if node.Kind == token.STRING {
+					value, err := decodeGoImportPath(node.Value)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if strings.HasPrefix(value, "platforms.sds.") || strings.HasPrefix(value, "TASK_PROCESSOR_SDS_") {
+						t.Errorf("%s retains retired SDS config key %s", relative, value)
+					}
+				}
+			}
+			return true
+		})
+	}
+	for _, name := range []string{"config-dev.yaml", "config-prod.yaml", "config-test.yaml"} {
+		content, err := os.ReadFile(filepath.Join("..", "config", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var document map[string]any
+		if err := yaml.Unmarshal(content, &document); err != nil {
+			t.Fatal(err)
+		}
+		if value, exists := document["platforms"]; exists {
+			platforms, ok := value.(map[string]any)
+			if !ok {
+				t.Fatalf("%s platforms is not a mapping", name)
+			}
+			if _, exists := platforms["sds"]; exists {
+				t.Errorf("%s retains retired platforms.sds", name)
+			}
+		}
+	}
+	for path, retired := range map[string][]string{
+		"internal/authz/httpapi/route_authorization.go": {`"/api/v1/sds-login/health"`, `"sds"`, `"sds-login"`},
+		"scripts/start-listingkit-local-ui.ps1":         {"SDS_API_BASE", "SDS_LOGIN_API_BASE"},
+	} {
+		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(path)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, value := range retired {
+			if strings.Contains(string(content), value) {
+				t.Errorf("%s retains retired SDS policy/config reference %s", path, value)
+			}
+		}
+	}
+	for _, command := range []string{"current-application", "shein-login-worker", "image-agent-temporal-worker"} {
+		t.Run(command, func(t *testing.T) {
+			cmd := exec.Command("go", "list", "-deps", "./cmd/"+command)
+			cmd.Dir = ".."
+			output, err := cmd.CombinedOutput()
+			if err != nil {
+				t.Fatalf("go list current command: %v\n%s", err, output)
+			}
+			for _, dependency := range strings.Fields(string(output)) {
+				if isRetired(strings.TrimPrefix(dependency, "task-processor/")) {
+					t.Errorf("%s still compiles retired SDS dependency %s", command, dependency)
+				}
+			}
+		})
+	}
+}
+
 func TestLegacyRedisProxyAndSharedClosureIsRetired(t *testing.T) {
 	retiredPackages := []string{
 		"internal/platform/redis", "internal/shared/hashx", "internal/shared/mathx", "internal/shared/strx",
