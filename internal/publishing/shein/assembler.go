@@ -24,6 +24,8 @@ type Assembler interface {
 }
 
 type assembler struct {
+	loggerDependency
+
 	categoryResolver            CategoryResolver
 	attributeResolver           AttributeResolver
 	saleAttributeResolver       SaleAttributeResolver
@@ -32,8 +34,9 @@ type assembler struct {
 	titleOptimizer              TextGenerator
 }
 
-func NewAssembler(config AssemblerConfig) Assembler {
+func NewAssembler(config AssemblerConfig, logs func(string) *logrus.Entry) Assembler {
 	return &assembler{
+		loggerDependency:            loggerDependency{logFor: logs},
 		categoryResolver:            config.CategoryResolver,
 		attributeResolver:           config.AttributeResolver,
 		saleAttributeResolver:       config.SaleAttributeResolver,
@@ -47,11 +50,11 @@ func (a *assembler) Build(req *BuildRequest, product *canonical.Product) *Packag
 	if product == nil {
 		return &Package{ReviewNotes: []string{"canonical product is empty"}}
 	}
-	log := sheinLogger("shein/assembler")
+	log := a.componentLogger("shein/assembler")
 
 	images := common.BuildImages(product)
 	spuName := common.WithBrandHint(product.Title, req.BrandHint)
-	copy := buildSheinListingCopy(req.Context, product, spuName, a.titleOptimizer)
+	copy := buildSheinListingCopy(req.Context, product, spuName, a.titleOptimizer, a.logFor)
 	brand := common.ResolveBrand(req.BrandHint, product)
 	authorizedBrandCode := ""
 	authorizedBrandName := ""
@@ -159,13 +162,13 @@ func (a *assembler) Build(req *BuildRequest, product *canonical.Product) *Packag
 			}).Info("completed SHEIN sale attribute resolution")
 		}
 	}
-	NormalizeListingCopy(req.Context, pkg, product, req.Language)
+	NormalizeListingCopy(req.Context, pkg, product, req.Language, a.logFor)
 	groups := buildVariantGroups(copy.SKCTitleBase, variants, images, pkg.SaleAttributeResolution)
 	pkg.SkcList = buildSKCs(groups)
 	supplierCode := firstSupplierCode(pkg.SkcList)
 	pkg.DraftPayload.SupplierCode = supplierCode
 	pkg.DraftPayload.SKCList = buildRequestSKCs(groups, images, siteList, product, a.pricingPolicy)
-	SanitizeDraftPayloadSensitiveContent(pkg, req.Context, nil)
+	SanitizeDraftPayloadSensitiveContent(pkg, req.Context, nil, a.logFor)
 	ApplySaleAttributeResolution(pkg, pkg.SaleAttributeResolution)
 	applyProductSizeAttributesWithResolver(pkg, req.ProductSize, a.sizeAttributeHeaderResolver, req.Context)
 	SetPreviewPayload(pkg, BuildPreviewProduct(pkg))

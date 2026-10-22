@@ -78,7 +78,7 @@ func TestSanitizeDraftPayloadSensitiveContent_CleansDraftTextFields(t *testing.T
 		},
 	}
 
-	changed := SanitizeDraftPayloadSensitiveContent(pkg, sharedtenantctx.WithTenantID(context.Background(), "101"), nil)
+	changed := SanitizeDraftPayloadSensitiveContent(pkg, sharedtenantctx.WithTenantID(context.Background(), "101"), nil, nil)
 	if !changed {
 		t.Fatal("changed = false, want true")
 	}
@@ -112,7 +112,7 @@ func TestSanitizeDraftPayloadSensitiveContent_PreservesAuthorizedBrandFromRuntim
 		}},
 	}}
 
-	if !SanitizeDraftPayloadSensitiveContent(pkg, ctx, nil) {
+	if !SanitizeDraftPayloadSensitiveContent(pkg, ctx, nil, nil) {
 		t.Fatal("sensitive content was not sanitized")
 	}
 
@@ -153,7 +153,7 @@ func TestSanitizeDraftPayloadSensitiveContent_CleansFreeTextAttributesAndSKCName
 		}},
 	}}
 
-	if !SanitizeDraftPayloadSensitiveContent(pkg, sharedtenantctx.WithTenantID(context.Background(), "101"), nil) {
+	if !SanitizeDraftPayloadSensitiveContent(pkg, sharedtenantctx.WithTenantID(context.Background(), "101"), nil, nil) {
 		t.Fatal("sensitive content was not sanitized")
 	}
 

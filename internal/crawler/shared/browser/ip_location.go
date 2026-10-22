@@ -1,10 +1,12 @@
 package browser
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"encoding/json"
 	"fmt"
 	"strings"
-	"task-processor/internal/core/logger"
+
 	"task-processor/internal/pkg/httpclient"
 	"time"
 )
@@ -43,7 +45,7 @@ func GetLocationInfoByIP(ip string) (*IPLocationInfo, error) {
 }
 
 // GetTimezoneForRegion 根据代理IP地理位置返回对应时区
-func GetTimezoneForRegion(proxyServer string) *string {
+func GetTimezoneForRegion(proxyServer string, logs func(string) *logrus.Entry) *string {
 	ip := extractIPFromProxy(proxyServer)
 	if ip == "" {
 		timezone := "America/Los_Angeles"
@@ -52,12 +54,12 @@ func GetTimezoneForRegion(proxyServer string) *string {
 
 	info, err := GetLocationInfoByIP(ip)
 	if err != nil {
-		logger.GetGlobalLogger("crawler/shared").Warnf("获取IP地理位置失败: %v，使用默认时区", err)
+		componentLogger(logs, "crawler/shared").Warnf("获取IP地理位置失败: %v，使用默认时区", err)
 		timezone := "America/Los_Angeles"
 		return &timezone
 	}
 
-	logger.GetGlobalLogger("crawler/shared").Infof("IP %s 对应时区: %s, 国家: %s", ip, info.Timezone, info.Country)
+	componentLogger(logs, "crawler/shared").Infof("IP %s 对应时区: %s, 国家: %s", ip, info.Timezone, info.Country)
 	return &info.Timezone
 }
 

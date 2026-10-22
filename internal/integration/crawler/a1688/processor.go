@@ -5,6 +5,7 @@ package a1688
 import (
 	"context"
 	"errors"
+	"github.com/sirupsen/logrus"
 
 	"task-processor/internal/core/config"
 	legacy "task-processor/internal/crawler/alibaba1688"
@@ -34,8 +35,8 @@ func NewProcessor(source Source) *Processor {
 }
 
 // NewLegacyProcessor builds an adapter backed by the legacy 1688 crawler.
-func NewLegacyProcessor(cfg *config.Config) *Processor {
-	return NewProcessor(legacy.NewAlibaba1688Processor(cfg))
+func NewLegacyProcessor(cfg *config.Config, logs func(string) *logrus.Entry) *Processor {
+	return NewProcessor(legacy.NewAlibaba1688Processor(cfg, logs))
 }
 
 // Prepare provisions the legacy crawler's browser dependencies before a job

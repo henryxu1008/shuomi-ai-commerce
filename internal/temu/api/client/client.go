@@ -4,8 +4,6 @@ package client
 import (
 	"net/http"
 
-	"task-processor/internal/core/logger"
-
 	"github.com/imroc/req/v3"
 	"github.com/sirupsen/logrus"
 )
@@ -25,11 +23,11 @@ type APIClient struct {
 // NewAPIClient 创建TEMU API客户端
 // NewAPIClient constructs only an explicit platform HTTP session. It does not
 // read Store rows, fetch cookies, write MallID or mutate task pause state.
-func NewAPIClient(storeID int64, config *Config, proxyURL string, cookies []*http.Cookie) *APIClient {
+func NewAPIClient(storeID int64, config *Config, proxyURL string, cookies []*http.Cookie, logs func(string) *logrus.Entry) *APIClient {
 	if config == nil {
 		config = DefaultConfig()
 	}
-	log := logger.GetGlobalLogger("TEMUAPIClient").WithField("storeID", storeID)
+	log := componentLogger(logs, "TEMUAPIClient").WithField("storeID", storeID)
 	c := &APIClient{config: config, storeID: storeID, proxyURL: proxyURL, logger: log}
 	c.httpManager = NewHTTPManager(proxyURL, log, config)
 	c.authManager = NewAuthManager(log)
@@ -82,7 +80,7 @@ func (c *APIClient) SetCookieValue(name, value string) {
 	for _, cookie := range c.cookies {
 		if cookie.Name == name {
 			cookie.Value = value
-			c.logger.Infof("更新Cookie %s 的值为: %s", name, value)
+			c.logger.Infof("更新Cookie %s", name)
 			// 更新req客户端的Cookie
 			c.client.SetCommonCookies(c.cookies...)
 			return
@@ -97,7 +95,7 @@ func (c *APIClient) SetCookieValue(name, value string) {
 		Path:   "/",
 	}
 	c.cookies = append(c.cookies, newCookie)
-	c.logger.Infof("创建新Cookie %s 的值为: %s", name, value)
+	c.logger.Infof("创建新Cookie %s", name)
 	// 更新req客户端的Cookie
 	c.client.SetCommonCookies(c.cookies...)
 }

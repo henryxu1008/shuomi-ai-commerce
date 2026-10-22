@@ -11,7 +11,7 @@ import (
 func TestSanitizeDisplayTextWithContext_PreservesAuthorizedAmazonBrand(t *testing.T) {
 	t.Parallel()
 
-	service := content.NewSensitiveWordServiceInMemory()
+	service := content.NewSensitiveWordServiceInMemory(nil)
 	cleanupCtx := &content.CleanupContext{
 		AuthorizedBrand: &authorizedbrand.Resolved{
 			Enabled: true,
@@ -29,7 +29,7 @@ func TestSanitizeDisplayTextWithContext_PreservesAuthorizedAmazonBrand(t *testin
 func TestSanitizeDisplayTextWithContext_RemovesContextBrandButKeepsAuthorizedBrand(t *testing.T) {
 	t.Parallel()
 
-	service := content.NewSensitiveWordServiceInMemory()
+	service := content.NewSensitiveWordServiceInMemory(nil)
 	cleanupCtx := &content.CleanupContext{
 		AuthorizedBrand: &authorizedbrand.Resolved{
 			Enabled: true,

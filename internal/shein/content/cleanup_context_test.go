@@ -10,7 +10,7 @@ import (
 )
 
 func TestCleanupContextPreservesAuthorizedAndSourceBrandRules(t *testing.T) {
-	service := NewSensitiveWordServiceInMemory()
+	service := NewSensitiveWordServiceInMemory(nil)
 	defer service.Close()
 	ctx := &CleanupContext{Context: context.Background(), SourceBrand: "Sony", AuthorizedBrand: &authorizedbrand.Resolved{Enabled: true, Name: "Logitech", NameEn: "Logitech"}}
 	got := service.SanitizeDisplayTextWithContext(ctx, "Logitech mouse by Sony for Office")
@@ -37,7 +37,7 @@ func TestCleanupValidationResultPreservesLanguageAndSKCJSON(t *testing.T) {
 	if result.Form != "f" || result.FormName != "name" || result.Module != "m" {
 		t.Fatalf("validation metadata lost: %+v", result)
 	}
-	service := NewSensitiveWordServiceInMemory()
+	service := NewSensitiveWordServiceInMemory(nil)
 	defer service.Close()
 	found := service.extractSensitiveWordsFromValidation([]ValidationResult{result})
 	for _, word := range []string{"OuterForbidden", "LanguageForbidden", "SKCForbidden", "SKCLanguageForbidden"} {
@@ -68,7 +68,7 @@ func TestCleanupValidationResultPreservesLanguageAndSKCJSON(t *testing.T) {
 }
 
 func TestInMemoryCleanupUsesExplicitCustomPhrasesWithoutChangingDefaults(t *testing.T) {
-	service := NewSensitiveWordServiceInMemory()
+	service := NewSensitiveWordServiceInMemory(nil)
 	defer service.Close()
 	ctx := &CleanupContext{Context: context.Background()}
 	input := "Whimsy BPA Free Office curtain"

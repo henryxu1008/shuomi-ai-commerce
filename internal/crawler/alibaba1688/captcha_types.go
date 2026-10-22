@@ -2,6 +2,8 @@
 package alibaba1688
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"sync/atomic"
 	"time"
 )
@@ -69,6 +71,8 @@ type CaptchaStatistics struct {
 
 // CaptchaHandler 验证码处理器
 type CaptchaHandler struct {
+	loggerDependency
+
 	statistics    CaptchaStatistics
 	lastAttempt   time.Time
 	successStreak int32
@@ -76,16 +80,18 @@ type CaptchaHandler struct {
 }
 
 // NewCaptchaHandler 创建新的验证码处理器
-func NewCaptchaHandler() *CaptchaHandler {
+func NewCaptchaHandler(logs func(string) *logrus.Entry) *CaptchaHandler {
 	return &CaptchaHandler{
-		maxRetries: 3,
+		loggerDependency: loggerDependency{logFor: logs},
+		maxRetries:       3,
 	}
 }
 
 // NewCaptchaHandlerWithConfig 使用配置创建验证码处理器
-func NewCaptchaHandlerWithConfig(maxRetries int) *CaptchaHandler {
+func NewCaptchaHandlerWithConfig(maxRetries int, logs func(string) *logrus.Entry) *CaptchaHandler {
 	return &CaptchaHandler{
-		maxRetries: maxRetries,
+		loggerDependency: loggerDependency{logFor: logs},
+		maxRetries:       maxRetries,
 	}
 }
 

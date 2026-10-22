@@ -8,8 +8,6 @@ import (
 	"task-processor/internal/pkg/httpclient"
 	"time"
 
-	"task-processor/internal/core/logger"
-
 	"github.com/sirupsen/logrus"
 )
 
@@ -41,15 +39,15 @@ type Config struct {
 }
 
 // NewClient 创建Amazon SP-API客户端
-func NewClient(cfg *Config) *Client {
+func NewClient(cfg *Config, logs func(string) *logrus.Entry) *Client {
 	if cfg.BaseURL == "" {
 		cfg.BaseURL = getRegionEndpoint(cfg.Region)
 	}
 
 	// 创建认证管理器
-	authManager := NewAuthManager(cfg.ClientID, cfg.ClientSecret, cfg.RefreshToken)
+	authManager := NewAuthManager(cfg.ClientID, cfg.ClientSecret, cfg.RefreshToken, logs)
 
-	logger := logger.GetGlobalLogger("AmazonAPIClient").WithField("region", cfg.Region)
+	logger := componentLogger(logs, "AmazonAPIClient").WithField("region", cfg.Region)
 
 	logger.Info("✅ 使用生产环境 - 所有操作将影响真实数据")
 
@@ -72,7 +70,7 @@ func NewClient(cfg *Config) *Client {
 		sellerID:       cfg.SellerID,
 		logger:         logger,
 		rateLimits:     NewAPIRateLimits(),
-		circuitBreaker: NewCircuitBreaker(5, 3, 60*time.Second),
+		circuitBreaker: NewCircuitBreaker(5, 3, 60*time.Second, logs),
 	}
 }
 

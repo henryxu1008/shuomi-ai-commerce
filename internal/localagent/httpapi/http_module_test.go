@@ -11,7 +11,7 @@ import (
 )
 
 func TestHTTPModuleRegistersLocalAgentRoutes(t *testing.T) {
-	result := BuildModule(localagent.NewService(nil))
+	result := BuildModule(localagent.NewService(nil, nil))
 	require.NotNil(t, result)
 	require.Equal(t, ModuleName, result.Module.Name())
 	require.True(t, result.Module.Enabled(&config.Config{}))

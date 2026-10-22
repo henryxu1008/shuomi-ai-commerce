@@ -2,10 +2,12 @@
 package browser
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"fmt"
 	"net/url"
 	"strings"
-	"task-processor/internal/core/logger"
+
 	"time"
 
 	"github.com/mxschmitt/playwright-go"
@@ -13,6 +15,8 @@ import (
 
 // CurrencySetter 货币设置器
 type CurrencySetter struct {
+	loggerDependency
+
 	browserManager *BrowserManager
 	maxRetries     int
 }
@@ -25,10 +29,11 @@ const (
 )
 
 // NewCurrencySetter 创建货币设置器实例
-func NewCurrencySetter(browserManager *BrowserManager) *CurrencySetter {
+func NewCurrencySetter(browserManager *BrowserManager, logs func(string) *logrus.Entry) *CurrencySetter {
 	return &CurrencySetter{
-		browserManager: browserManager,
-		maxRetries:     3,
+		loggerDependency: loggerDependency{logFor: logs},
+		browserManager:   browserManager,
+		maxRetries:       3,
 	}
 }
 
@@ -36,12 +41,12 @@ func NewCurrencySetter(browserManager *BrowserManager) *CurrencySetter {
 func (cs *CurrencySetter) SetAndVerifyCurrency(page playwright.Page, expectedCurrency string) error {
 	// 如果货币为空，跳过设置
 	if expectedCurrency == "" {
-		logger.GetGlobalLogger("crawler/amazon").Infof("货币为空，跳过设置")
+		cs.componentLogger("crawler/amazon").Infof("货币为空，跳过设置")
 		return nil
 	}
 
 	for attempt := 1; attempt <= cs.maxRetries; attempt++ {
-		logger.GetGlobalLogger("crawler/amazon").Infof("尝试设置货币 (第 %d/%d 次): %s", attempt, cs.maxRetries, expectedCurrency)
+		cs.componentLogger("crawler/amazon").Infof("尝试设置货币 (第 %d/%d 次): %s", attempt, cs.maxRetries, expectedCurrency)
 
 		// 检查页面是否仍然有效
 		if page.IsClosed() {
@@ -51,16 +56,16 @@ func (cs *CurrencySetter) SetAndVerifyCurrency(page playwright.Page, expectedCur
 		// 先验证当前货币是否正确
 		currentCurrency, err := cs.getCurrentCurrency(page)
 		if err == nil && strings.EqualFold(currentCurrency, expectedCurrency) {
-			logger.GetGlobalLogger("crawler/amazon").Infof("当前货币已经是目标货币: %s，无需设置", expectedCurrency)
+			cs.componentLogger("crawler/amazon").Infof("当前货币已经是目标货币: %s，无需设置", expectedCurrency)
 			return nil
 		}
 
-		logger.GetGlobalLogger("crawler/amazon").Infof("当前货币: %s, 目标货币: %s，需要设置", currentCurrency, expectedCurrency)
+		cs.componentLogger("crawler/amazon").Infof("当前货币: %s, 目标货币: %s，需要设置", currentCurrency, expectedCurrency)
 
 		// 设置货币
 		err = cs.setCurrency(page, expectedCurrency)
 		if err != nil {
-			logger.GetGlobalLogger("crawler/amazon").Infof("设置货币失败: %v", err)
+			cs.componentLogger("crawler/amazon").Infof("设置货币失败: %v", err)
 			if page.IsClosed() {
 				return fmt.Errorf("页面已关闭: %w", err)
 			}
@@ -74,7 +79,7 @@ func (cs *CurrencySetter) SetAndVerifyCurrency(page playwright.Page, expectedCur
 		// 验证货币
 		currentCurrency, err = cs.getCurrentCurrency(page)
 		if err != nil || !strings.EqualFold(currentCurrency, expectedCurrency) {
-			logger.GetGlobalLogger("crawler/amazon").Warnf("货币验证失败 - 期望: %s, 当前: %s", expectedCurrency, currentCurrency)
+			cs.componentLogger("crawler/amazon").Warnf("货币验证失败 - 期望: %s, 当前: %s", expectedCurrency, currentCurrency)
 			if page.IsClosed() {
 				return fmt.Errorf("页面已关闭: %w", err)
 			}
@@ -85,7 +90,7 @@ func (cs *CurrencySetter) SetAndVerifyCurrency(page playwright.Page, expectedCur
 			continue
 		}
 
-		logger.GetGlobalLogger("crawler/amazon").Infof("成功设置并验证货币: %s", expectedCurrency)
+		cs.componentLogger("crawler/amazon").Infof("成功设置并验证货币: %s", expectedCurrency)
 		return nil
 	}
 
@@ -95,7 +100,7 @@ func (cs *CurrencySetter) SetAndVerifyCurrency(page playwright.Page, expectedCur
 // getCurrentCurrency 获取当前页面的货币设置
 func (cs *CurrencySetter) getCurrentCurrency(page playwright.Page) (string, error) {
 	if currency := extractCurrencyFromURL(page.URL()); currency != "" {
-		logger.GetGlobalLogger("crawler/amazon").Infof("从URL参数获取到货币: %s", currency)
+		cs.componentLogger("crawler/amazon").Infof("从URL参数获取到货币: %s", currency)
 		return currency, nil
 	}
 
@@ -115,28 +120,28 @@ func (cs *CurrencySetter) getCurrentCurrency(page playwright.Page) (string, erro
 				text = strings.TrimSpace(text)
 				// 根据货币符号判断货币类型
 				if strings.Contains(text, "£") {
-					logger.GetGlobalLogger("crawler/amazon").Infof("从价格符号获取到货币: GBP (符号: %s)", text)
+					cs.componentLogger("crawler/amazon").Infof("从价格符号获取到货币: GBP (符号: %s)", text)
 					return "GBP", nil
 				} else if strings.Contains(text, "HK$") {
-					logger.GetGlobalLogger("crawler/amazon").Infof("从价格符号获取到货币: HKD (符号: %s)", text)
+					cs.componentLogger("crawler/amazon").Infof("从价格符号获取到货币: HKD (符号: %s)", text)
 					return "HKD", nil
 				} else if strings.Contains(text, "S$") {
-					logger.GetGlobalLogger("crawler/amazon").Infof("从价格符号获取到货币: SGD (符号: %s)", text)
+					cs.componentLogger("crawler/amazon").Infof("从价格符号获取到货币: SGD (符号: %s)", text)
 					return "SGD", nil
 				} else if strings.Contains(text, "C$") || strings.Contains(text, "CA$") {
-					logger.GetGlobalLogger("crawler/amazon").Infof("从价格符号获取到货币: CAD (符号: %s)", text)
+					cs.componentLogger("crawler/amazon").Infof("从价格符号获取到货币: CAD (符号: %s)", text)
 					return "CAD", nil
 				} else if strings.Contains(text, "A$") || strings.Contains(text, "AU$") {
-					logger.GetGlobalLogger("crawler/amazon").Infof("从价格符号获取到货币: AUD (符号: %s)", text)
+					cs.componentLogger("crawler/amazon").Infof("从价格符号获取到货币: AUD (符号: %s)", text)
 					return "AUD", nil
 				} else if strings.Contains(text, "¥") {
-					logger.GetGlobalLogger("crawler/amazon").Infof("从价格符号获取到货币: JPY (符号: %s)", text)
+					cs.componentLogger("crawler/amazon").Infof("从价格符号获取到货币: JPY (符号: %s)", text)
 					return "JPY", nil
 				} else if strings.Contains(text, "$") {
-					logger.GetGlobalLogger("crawler/amazon").Infof("从价格符号获取到货币: USD (符号: %s)", text)
+					cs.componentLogger("crawler/amazon").Infof("从价格符号获取到货币: USD (符号: %s)", text)
 					return "USD", nil
 				} else if strings.Contains(text, "€") {
-					logger.GetGlobalLogger("crawler/amazon").Infof("从价格符号获取到货币: EUR (符号: %s)", text)
+					cs.componentLogger("crawler/amazon").Infof("从价格符号获取到货币: EUR (符号: %s)", text)
 					return "EUR", nil
 				}
 			}
@@ -169,26 +174,26 @@ func (cs *CurrencySetter) getCurrentCurrency(page playwright.Page) (string, erro
 			if err == nil {
 				text = strings.TrimSpace(text)
 				if currency := parseCurrencyCodeFromText(text); currency != "" {
-					logger.GetGlobalLogger("crawler/amazon").Infof("从选择器 %s 获取到货币: %s", selector, currency)
+					cs.componentLogger("crawler/amazon").Infof("从选择器 %s 获取到货币: %s", selector, currency)
 					return currency, nil
 				}
 			}
 		}
 	}
 
-	logger.GetGlobalLogger("crawler/amazon").Warnf("无法从任何选择器获取货币信息")
+	cs.componentLogger("crawler/amazon").Warnf("无法从任何选择器获取货币信息")
 	return "", fmt.Errorf("无法获取当前货币")
 }
 
 // setCurrency 设置货币
 func (cs *CurrencySetter) setCurrency(page playwright.Page, currency string) error {
-	logger.GetGlobalLogger("crawler/amazon").Infof("使用导航栏货币选择器设置货币: %s", currency)
+	cs.componentLogger("crawler/amazon").Infof("使用导航栏货币选择器设置货币: %s", currency)
 	return cs.setCurrencyViaNavBar(page, currency)
 }
 
 // setCurrencyViaNavBar 通过导航栏货币选择器设置货币
 func (cs *CurrencySetter) setCurrencyViaNavBar(page playwright.Page, currency string) error {
-	logger.GetGlobalLogger("crawler/amazon").Infof("通过导航栏设置货币: %s", currency)
+	cs.componentLogger("crawler/amazon").Infof("通过导航栏设置货币: %s", currency)
 
 	// 1. 点击导航栏的语言/货币按钮
 	navButtonSelectors := []string{
@@ -210,19 +215,19 @@ func (cs *CurrencySetter) setCurrencyViaNavBar(page playwright.Page, currency st
 			State:   playwright.WaitForSelectorStateVisible,
 			Timeout: playwright.Float(3000),
 		}); err != nil {
-			logger.GetGlobalLogger("crawler/amazon").Debugf("导航栏按钮 %s 未找到", selector)
+			cs.componentLogger("crawler/amazon").Debugf("导航栏按钮 %s 未找到", selector)
 			continue
 		}
 
 		count, err := locator.Count()
 		if err == nil && count > 0 {
-			logger.GetGlobalLogger("crawler/amazon").Infof("找到导航栏货币按钮: %s", selector)
+			cs.componentLogger("crawler/amazon").Infof("找到导航栏货币按钮: %s", selector)
 			if err := locator.Click(); err == nil {
-				logger.GetGlobalLogger("crawler/amazon").Infof("成功点击导航栏货币按钮")
+				cs.componentLogger("crawler/amazon").Infof("成功点击导航栏货币按钮")
 				clicked = true
 				break
 			} else {
-				logger.GetGlobalLogger("crawler/amazon").Warnf("点击导航栏按钮失败: %v", err)
+				cs.componentLogger("crawler/amazon").Warnf("点击导航栏按钮失败: %v", err)
 			}
 		}
 	}
@@ -246,19 +251,19 @@ func (cs *CurrencySetter) setCurrencyViaNavBar(page playwright.Page, currency st
 			State:   playwright.WaitForSelectorStateVisible,
 			Timeout: playwright.Float(float64(currencyOptionWaitTimeout.Milliseconds())),
 		}); err != nil {
-			logger.GetGlobalLogger("crawler/amazon").Debugf("货币选项 %s 未找到", selector)
+			cs.componentLogger("crawler/amazon").Debugf("货币选项 %s 未找到", selector)
 			continue
 		}
 
 		count, err := locator.Count()
 		if err == nil && count > 0 {
-			logger.GetGlobalLogger("crawler/amazon").Infof("找到货币选项: %s", selector)
+			cs.componentLogger("crawler/amazon").Infof("找到货币选项: %s", selector)
 			if err := locator.Click(); err == nil {
-				logger.GetGlobalLogger("crawler/amazon").Infof("成功点击货币选项: %s", currency)
+				cs.componentLogger("crawler/amazon").Infof("成功点击货币选项: %s", currency)
 				currencyClicked = true
 				break
 			} else {
-				logger.GetGlobalLogger("crawler/amazon").Warnf("点击货币选项失败: %v", err)
+				cs.componentLogger("crawler/amazon").Warnf("点击货币选项失败: %v", err)
 			}
 		}
 	}
@@ -268,18 +273,18 @@ func (cs *CurrencySetter) setCurrencyViaNavBar(page playwright.Page, currency st
 	}
 
 	// 3. 等待页面刷新完成
-	logger.GetGlobalLogger("crawler/amazon").Infof("等待页面刷新...")
+	cs.componentLogger("crawler/amazon").Infof("等待页面刷新...")
 	cs.waitForCurrencyURL(page, currency)
 
 	// 4. 验证URL是否包含货币参数
 	currentURL := page.URL()
 	expectedParam := fmt.Sprintf("currency=%s", currency)
 	if strings.Contains(currentURL, expectedParam) {
-		logger.GetGlobalLogger("crawler/amazon").Infof("货币设置成功,URL已更新: %s", currentURL)
+		cs.componentLogger("crawler/amazon").Infof("货币设置成功,URL已更新: %s", currentURL)
 		return nil
 	}
 
-	logger.GetGlobalLogger("crawler/amazon").Warnf("URL未包含预期的货币参数,当前URL: %s", currentURL)
+	cs.componentLogger("crawler/amazon").Warnf("URL未包含预期的货币参数,当前URL: %s", currentURL)
 	return nil // 即使URL未更新也返回成功,因为货币可能已经生效
 }
 

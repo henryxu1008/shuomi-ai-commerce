@@ -2,10 +2,12 @@
 package browser
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"fmt"
 	"net/url"
 	"strings"
-	"task-processor/internal/core/logger"
+
 	"time"
 
 	"github.com/mxschmitt/playwright-go"
@@ -39,17 +41,20 @@ func truncateString(s string, maxLen int) string {
 
 // ZipcodeInputHandler 邮编输入处理器
 type ZipcodeInputHandler struct {
+	loggerDependency
+
 	strategies []ZipcodeStrategy // 邮编输入策略列表
 	targetURL  string
 }
 
 // NewZipcodeInputHandler 创建邮编输入处理器实例
-func NewZipcodeInputHandler() *ZipcodeInputHandler {
+func NewZipcodeInputHandler(logs func(string) *logrus.Entry) *ZipcodeInputHandler {
 	return &ZipcodeInputHandler{
+		loggerDependency: loggerDependency{logFor: logs},
 		strategies: []ZipcodeStrategy{
-			NewCityDropdownStrategy(),    // 城市下拉框策略（沙特、阿联酋）
-			NewJapaneseZipcodeStrategy(), // 日本站分离式输入策略
-			NewStandardZipcodeStrategy(), // 标准单一输入框策略（兜底）
+			NewCityDropdownStrategy(logs),    // 城市下拉框策略（沙特、阿联酋）
+			NewJapaneseZipcodeStrategy(logs), // 日本站分离式输入策略
+			NewStandardZipcodeStrategy(logs), // 标准单一输入框策略（兜底）
 		},
 	}
 }
@@ -71,7 +76,7 @@ func (zih *ZipcodeInputHandler) SetZipcode(page playwright.Page, zipcode string)
 	}
 
 	// 先处理跨站点访问提示，例如 "Visiting from Singapore"
-	DismissRegionalPrompt(page, zih.targetURL)
+	DismissRegionalPrompt(page, zih.targetURL, zih.logFor)
 
 	// 触发邮编设置界面
 	if err := zih.triggerZipcodeInterface(page); err != nil {
@@ -93,7 +98,7 @@ func (zih *ZipcodeInputHandler) SetZipcode(page playwright.Page, zipcode string)
 		return err
 	}
 
-	logger.GetGlobalLogger("crawler/amazon").Infof("邮编设置操作完成")
+	zih.componentLogger("crawler/amazon").Infof("邮编设置操作完成")
 	return nil
 }
 
@@ -115,7 +120,7 @@ func (zih *ZipcodeInputHandler) checkSignInDialog(page playwright.Page) error {
 		locator := page.Locator(selector)
 		if count, err := locator.Count(); err == nil && count > 0 {
 			if isVisible, err := locator.IsVisible(); err == nil && isVisible {
-				logger.GetGlobalLogger("crawler/amazon").Infof("检测到登录弹窗: %s", selector)
+				zih.componentLogger("crawler/amazon").Infof("检测到登录弹窗: %s", selector)
 				return fmt.Errorf("SIGN_IN_REQUIRED: 检测到需要登录才能更新位置，需要重建浏览器实例")
 			}
 		}
@@ -126,7 +131,7 @@ func (zih *ZipcodeInputHandler) checkSignInDialog(page playwright.Page) error {
 // triggerZipcodeInterface 触发邮编设置界面
 func (zih *ZipcodeInputHandler) triggerZipcodeInterface(page playwright.Page) error {
 	if zih.isZipcodeInterfaceReady(page) {
-		logger.GetGlobalLogger("crawler/amazon").Infof("邮编设置界面已就绪，跳过重复触发")
+		zih.componentLogger("crawler/amazon").Infof("邮编设置界面已就绪，跳过重复触发")
 		return nil
 	}
 
@@ -166,11 +171,11 @@ func (zih *ZipcodeInputHandler) triggerZipcodeInterface(page playwright.Page) er
 			if page.IsClosed() {
 				return fmt.Errorf("页面在点击触发元素时被关闭: %w", err)
 			}
-			logger.GetGlobalLogger("crawler/amazon").Infof("点击触发元素失败，继续尝试下一组入口: selector=%s err=%v", selector, err)
+			zih.componentLogger("crawler/amazon").Infof("点击触发元素失败，继续尝试下一组入口: selector=%s err=%v", selector, err)
 			continue
 		}
 
-		logger.GetGlobalLogger("crawler/amazon").Infof("成功点击触发元素: %s", selector)
+		zih.componentLogger("crawler/amazon").Infof("成功点击触发元素: %s", selector)
 		triggered = true
 
 		// 等待弹窗出现(等待对话框或下拉框)
@@ -187,36 +192,36 @@ func (zih *ZipcodeInputHandler) triggerZipcodeInterface(page playwright.Page) er
 				State:   playwright.WaitForSelectorStateVisible,
 				Timeout: playwright.Float(1500),
 			}); err == nil {
-				logger.GetGlobalLogger("crawler/amazon").Infof("弹窗已出现: %s", dialogSelector)
+				zih.componentLogger("crawler/amazon").Infof("弹窗已出现: %s", dialogSelector)
 				waitSuccess = true
 				break
 			}
 		}
 
 		if !waitSuccess {
-			logger.GetGlobalLogger("crawler/amazon").Infof("等待弹窗超时,继续尝试")
+			zih.componentLogger("crawler/amazon").Infof("等待弹窗超时,继续尝试")
 		}
 		zih.waitForZipcodeInterfaceReady(page)
 		break
 	}
 
 	if !triggered {
-		if DismissRegionalPrompt(page, zih.targetURL) {
-			logger.GetGlobalLogger("crawler/amazon").Infof("已处理跨站点访问提示弹窗，重新尝试查找地址触发元素")
+		if DismissRegionalPrompt(page, zih.targetURL, zih.logFor) {
+			zih.componentLogger("crawler/amazon").Infof("已处理跨站点访问提示弹窗，重新尝试查找地址触发元素")
 			return zih.triggerZipcodeInterface(page)
 		}
 
-		logger.GetGlobalLogger("crawler/amazon").Infof("警告: 未找到任何可点击的触发元素")
+		zih.componentLogger("crawler/amazon").Infof("警告: 未找到任何可点击的触发元素")
 		// 页面已经有价格，但地址弹层/输入框没起来时，继续尝试输入通常只会空耗时间。
 		// 让外层在下一轮直接刷新页面，再重新对齐配送上下文。
-		if shouldRefreshAfterPriceVisibleTriggerFailure(CheckIfPriceAvailable(page), zih.isZipcodeInterfaceReady(page)) {
-			logger.GetGlobalLogger("crawler/amazon").Infof("页面已有价格但邮编界面不可用，返回刷新信号给上层重试")
+		if shouldRefreshAfterPriceVisibleTriggerFailure(CheckIfPriceAvailable(page, zih.logFor), zih.isZipcodeInterfaceReady(page)) {
+			zih.componentLogger("crawler/amazon").Infof("页面已有价格但邮编界面不可用，返回刷新信号给上层重试")
 			return fmt.Errorf("ZIPCODE_INTERFACE_REFRESH_REQUIRED: 页面已有价格但邮编界面未就绪")
 		}
 
 		// 在英语页面上，某些地区可能不需要设置邮编
-		if CheckIfPriceAvailable(page) {
-			logger.GetGlobalLogger("crawler/amazon").Infof("页面已显示价格信息，可能不需要设置邮编，跳过")
+		if CheckIfPriceAvailable(page, zih.logFor) {
+			zih.componentLogger("crawler/amazon").Infof("页面已显示价格信息，可能不需要设置邮编，跳过")
 			return nil
 		}
 
@@ -286,15 +291,15 @@ func (zih *ZipcodeInputHandler) handleCountrySelection(page playwright.Page, zip
 	// 优先根据目标 Amazon 站点确定配送国家/货币环境，再用邮编做补充兜底。
 	targetCountry := inferDeliveryCountry(zih.targetURL, zipcode)
 	if targetCountry == "" {
-		logger.GetGlobalLogger("crawler/amazon").Infof("检测到国家选择框，但无法从目标URL=%s 或邮编=%s 推断目标配送国家，跳过国家选择直接尝试填写邮编", zih.targetURL, zipcode)
+		zih.componentLogger("crawler/amazon").Infof("检测到国家选择框，但无法从目标URL=%s 或邮编=%s 推断目标配送国家，跳过国家选择直接尝试填写邮编", zih.targetURL, zipcode)
 		return nil
 	}
 
-	logger.GetGlobalLogger("crawler/amazon").Infof("检测到国家选择框，尝试选择目标配送国家: %s (目标URL: %s, 邮编: %s)", targetCountry, zih.targetURL, zipcode)
+	zih.componentLogger("crawler/amazon").Infof("检测到国家选择框，尝试选择目标配送国家: %s (目标URL: %s, 邮编: %s)", targetCountry, zih.targetURL, zipcode)
 
 	countryQueries := buildCountrySelectionQueries(targetCountry)
 	if len(countryQueries) == 0 {
-		logger.GetGlobalLogger("crawler/amazon").Infof("目标配送国家 %s 不适合通过 GLUXCountryList 切换，跳过国家选择，继续尝试填写邮编", targetCountry)
+		zih.componentLogger("crawler/amazon").Infof("目标配送国家 %s 不适合通过 GLUXCountryList 切换，跳过国家选择，继续尝试填写邮编", targetCountry)
 		return nil
 	}
 
@@ -343,13 +348,13 @@ func (zih *ZipcodeInputHandler) handleCountrySelection(page playwright.Page, zip
 		return fmt.Errorf("查找国家选项失败: %w", err)
 	}
 	if result == nil {
-		logger.GetGlobalLogger("crawler/amazon").Warnf("国家选择框存在，但未拿到任何选项结果，跳过国家切换并继续尝试填写邮编: %s", targetCountry)
+		zih.componentLogger("crawler/amazon").Warnf("国家选择框存在，但未拿到任何选项结果，跳过国家切换并继续尝试填写邮编: %s", targetCountry)
 		return nil
 	}
 
 	resultMap, ok := result.(map[string]interface{})
 	if !ok {
-		logger.GetGlobalLogger("crawler/amazon").Warnf("国家选项结果格式无效，跳过国家切换并继续尝试填写邮编: %v", result)
+		zih.componentLogger("crawler/amazon").Warnf("国家选项结果格式无效，跳过国家切换并继续尝试填写邮编: %v", result)
 		return nil
 	}
 
@@ -357,9 +362,9 @@ func (zih *ZipcodeInputHandler) handleCountrySelection(page playwright.Page, zip
 	matchedText, _ := resultMap["text"].(string)
 	if countryValue == "" {
 		if options, ok := resultMap["options"]; ok {
-			logger.GetGlobalLogger("crawler/amazon").Warnf("未找到匹配的国家选项: %s，可用选项=%v，跳过国家切换并继续尝试填写邮编", targetCountry, options)
+			zih.componentLogger("crawler/amazon").Warnf("未找到匹配的国家选项: %s，可用选项=%v，跳过国家切换并继续尝试填写邮编", targetCountry, options)
 		} else {
-			logger.GetGlobalLogger("crawler/amazon").Warnf("未找到匹配的国家选项: %s，跳过国家切换并继续尝试填写邮编", targetCountry)
+			zih.componentLogger("crawler/amazon").Warnf("未找到匹配的国家选项: %s，跳过国家切换并继续尝试填写邮编", targetCountry)
 		}
 		return nil
 	}
@@ -376,7 +381,7 @@ func (zih *ZipcodeInputHandler) handleCountrySelection(page playwright.Page, zip
 		return fmt.Errorf("设置国家值失败: %w", err)
 	}
 
-	logger.GetGlobalLogger("crawler/amazon").Infof("成功选择国家: %s (命中文案: %s, value: %s)", targetCountry, matchedText, countryValue)
+	zih.componentLogger("crawler/amazon").Infof("成功选择国家: %s (命中文案: %s, value: %s)", targetCountry, matchedText, countryValue)
 	zih.waitForZipcodeInterfaceReady(page)
 	return nil
 }
@@ -451,7 +456,7 @@ func (zih *ZipcodeInputHandler) handleZipcodeInput(page playwright.Page, zipcode
 	// 遍历所有策略，找到第一个可以处理的策略
 	for _, strategy := range zih.strategies {
 		if strategy.CanHandle(page, zipcode) {
-			logger.GetGlobalLogger("crawler/amazon").Infof("使用策略: %s", strategy.GetName())
+			zih.componentLogger("crawler/amazon").Infof("使用策略: %s", strategy.GetName())
 			return strategy.Handle(page, zipcode)
 		}
 	}
@@ -565,7 +570,7 @@ func (zih *ZipcodeInputHandler) closeLocationDialogIfVisible(page playwright.Pag
 			return false
 		}
 
-		logger.GetGlobalLogger("crawler/amazon").Infof("地址弹层仍存在，发送 ESC 关闭 (第%d次)", i+1)
+		zih.componentLogger("crawler/amazon").Infof("地址弹层仍存在，发送 ESC 关闭 (第%d次)", i+1)
 		if err := dialogLocator.WaitFor(playwright.LocatorWaitForOptions{
 			State:   playwright.WaitForSelectorStateHidden,
 			Timeout: playwright.Float(800),
@@ -602,11 +607,11 @@ func (zih *ZipcodeInputHandler) confirmZipcodeSuccessDialog(page playwright.Page
 		if err := locator.Click(playwright.LocatorClickOptions{
 			Timeout: playwright.Float(2500),
 		}); err != nil {
-			logger.GetGlobalLogger("crawler/amazon").Infof("点击邮编成功确认按钮失败: selector=%s err=%v", selector, err)
+			zih.componentLogger("crawler/amazon").Infof("点击邮编成功确认按钮失败: selector=%s err=%v", selector, err)
 			continue
 		}
 
-		logger.GetGlobalLogger("crawler/amazon").Infof("已确认邮编更新成功弹层: %s", selector)
+		zih.componentLogger("crawler/amazon").Infof("已确认邮编更新成功弹层: %s", selector)
 		_ = page.Locator(".a-popover-modal:visible").First().WaitFor(playwright.LocatorWaitForOptions{
 			State:   playwright.WaitForSelectorStateHidden,
 			Timeout: playwright.Float(3000),
@@ -629,7 +634,7 @@ func (zih *ZipcodeInputHandler) confirmZipcodeSuccessDialog(page playwright.Page
 	}`)
 	if err == nil {
 		if clicked, _ := ok.(bool); clicked {
-			logger.GetGlobalLogger("crawler/amazon").Infof("已通过脚本兜底确认邮编更新成功弹层")
+			zih.componentLogger("crawler/amazon").Infof("已通过脚本兜底确认邮编更新成功弹层")
 			_ = page.Locator(".a-popover-modal:visible").First().WaitFor(playwright.LocatorWaitForOptions{
 				State:   playwright.WaitForSelectorStateHidden,
 				Timeout: playwright.Float(3000),
@@ -654,13 +659,13 @@ func (zih *ZipcodeInputHandler) waitForZipcodeApplyCompletion(page playwright.Pa
 
 		currentText := zih.getAddressDisplayText(page)
 		if beforeText != "" && currentText != "" && currentText != beforeText {
-			logger.GetGlobalLogger("crawler/amazon").Infof("检测到地址文本变化: '%s' -> '%s'", beforeText, currentText)
+			zih.componentLogger("crawler/amazon").Infof("检测到地址文本变化: '%s' -> '%s'", beforeText, currentText)
 			return
 		}
 
 		modalText := zih.getVisibleLocationModalText(page)
 		if isZipcodeSuccessConfirmationText(modalText) {
-			logger.GetGlobalLogger("crawler/amazon").Infof("检测到邮编成功确认弹层，等待确认按钮处理")
+			zih.componentLogger("crawler/amazon").Infof("检测到邮编成功确认弹层，等待确认按钮处理")
 			return
 		}
 
@@ -687,7 +692,7 @@ func (zih *ZipcodeInputHandler) waitForAddressTextChange(page playwright.Page, b
 
 		currentText := zih.getAddressDisplayText(page)
 		if currentText != "" && currentText != beforeText {
-			logger.GetGlobalLogger("crawler/amazon").Infof("确认弹层关闭后地址已更新: '%s' -> '%s'", beforeText, currentText)
+			zih.componentLogger("crawler/amazon").Infof("确认弹层关闭后地址已更新: '%s' -> '%s'", beforeText, currentText)
 			return
 		}
 
@@ -750,14 +755,14 @@ func (zih *ZipcodeInputHandler) submitZipcodeChange(page playwright.Page) error 
 				// 双重检查:确保不是购物车相关按钮
 				if text, err := locator.TextContent(); err == nil {
 					lowerText := strings.ToLower(strings.TrimSpace(text))
-					logger.GetGlobalLogger("crawler/amazon").Infof("检查Apply按钮文本: '%s' (选择器: %s)", text, selector)
+					zih.componentLogger("crawler/amazon").Infof("检查Apply按钮文本: '%s' (选择器: %s)", text, selector)
 
 					// 严格排除购物车相关按钮
 					if strings.Contains(lowerText, "cart") ||
 						strings.Contains(lowerText, "buy") ||
 						strings.Contains(lowerText, "add to") ||
 						strings.Contains(lowerText, "purchase") {
-						logger.GetGlobalLogger("crawler/amazon").Infof("跳过购物车相关按钮: %s", text)
+						zih.componentLogger("crawler/amazon").Infof("跳过购物车相关按钮: %s", text)
 						continue
 					}
 
@@ -766,7 +771,7 @@ func (zih *ZipcodeInputHandler) submitZipcodeChange(page playwright.Page) error 
 
 				applyButton = locator
 				selectedSelector = selector
-				logger.GetGlobalLogger("crawler/amazon").Infof("找到Apply按钮: %s (文本: %s)", selector, buttonText)
+				zih.componentLogger("crawler/amazon").Infof("找到Apply按钮: %s (文本: %s)", selector, buttonText)
 				break
 			}
 		}
@@ -774,7 +779,7 @@ func (zih *ZipcodeInputHandler) submitZipcodeChange(page playwright.Page) error 
 
 	if applyButton == nil {
 		// 如果没有找到Apply按钮，尝试按回车键
-		logger.GetGlobalLogger("crawler/amazon").Infof("未找到Apply按钮,尝试按回车键")
+		zih.componentLogger("crawler/amazon").Infof("未找到Apply按钮,尝试按回车键")
 		if err := page.Keyboard().Press("Enter"); err != nil {
 			if page.IsClosed() {
 				return fmt.Errorf("页面在按回车键时被关闭: %w", err)
@@ -783,23 +788,23 @@ func (zih *ZipcodeInputHandler) submitZipcodeChange(page playwright.Page) error 
 		}
 	} else {
 		// 点击Apply按钮
-		logger.GetGlobalLogger("crawler/amazon").Infof("准备点击Apply按钮: %s", selectedSelector)
+		zih.componentLogger("crawler/amazon").Infof("准备点击Apply按钮: %s", selectedSelector)
 		if err := applyButton.Click(playwright.LocatorClickOptions{
 			Timeout: playwright.Float(5000), // 5s 超时，防止 WebSocket 断连时 hang
 		}); err != nil {
 			if page.IsClosed() {
 				return fmt.Errorf("页面在点击Apply按钮时被关闭: %w", err)
 			}
-			logger.GetGlobalLogger("crawler/amazon").Infof("点击Apply按钮失败，尝试脚本点击兜底: %v", err)
+			zih.componentLogger("crawler/amazon").Infof("点击Apply按钮失败，尝试脚本点击兜底: %v", err)
 			if fallbackErr := zih.fallbackApplyZipcodeChange(page, selectedSelector); fallbackErr != nil {
 				return fmt.Errorf("点击Apply按钮失败: %w", err)
 			}
 		} else {
-			logger.GetGlobalLogger("crawler/amazon").Infof("成功点击Apply按钮")
+			zih.componentLogger("crawler/amazon").Infof("成功点击Apply按钮")
 		}
 	}
 
-	logger.GetGlobalLogger("crawler/amazon").Infof("等待Apply按钮处理完成，等待地址信息更新...")
+	zih.componentLogger("crawler/amazon").Infof("等待Apply按钮处理完成，等待地址信息更新...")
 	zih.waitForZipcodeApplyCompletion(page, beforeText)
 
 	// 检查页面状态
@@ -816,7 +821,7 @@ func (zih *ZipcodeInputHandler) submitZipcodeChange(page playwright.Page) error 
 
 	currentText := zih.getAddressDisplayText(page)
 	if shouldRefreshAfterSuccessfulZipcodeConfirmation(beforeText, currentText, confirmedSuccess) {
-		logger.GetGlobalLogger("crawler/amazon").Infof("成功确认邮编后地址文本仍未更新，立即刷新页面同步配送上下文")
+		zih.componentLogger("crawler/amazon").Infof("成功确认邮编后地址文本仍未更新，立即刷新页面同步配送上下文")
 		if _, err := page.Reload(playwright.PageReloadOptions{
 			Timeout: playwright.Float(15000),
 		}); err == nil {
@@ -844,7 +849,7 @@ func (zih *ZipcodeInputHandler) fallbackApplyZipcodeChange(page playwright.Page,
 		}`, selector)
 		if err == nil {
 			if clicked, _ := ok.(bool); clicked {
-				logger.GetGlobalLogger("crawler/amazon").Infof("已通过脚本兜底点击Apply按钮: %s", selector)
+				zih.componentLogger("crawler/amazon").Infof("已通过脚本兜底点击Apply按钮: %s", selector)
 				return nil
 			}
 		}
@@ -854,6 +859,6 @@ func (zih *ZipcodeInputHandler) fallbackApplyZipcodeChange(page playwright.Page,
 		return fmt.Errorf("Apply兜底失败，按回车键失败: %w", err)
 	}
 
-	logger.GetGlobalLogger("crawler/amazon").Infof("已通过回车键兜底提交邮编更新")
+	zih.componentLogger("crawler/amazon").Infof("已通过回车键兜底提交邮编更新")
 	return nil
 }

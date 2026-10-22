@@ -8,11 +8,11 @@ import (
 )
 
 // CreateProcessor 创建Amazon处理器
-func CreateProcessor(cfg *config.Config, logger *logrus.Logger) *AmazonProcessor {
+func CreateProcessor(cfg *config.Config, logger *logrus.Logger, logs func(string) *logrus.Entry) *AmazonProcessor {
 	logger.Info("🔧 创建Amazon爬虫处理器...")
 
 	// 创建Amazon爬虫处理器
-	amazonProcessor := NewAmazonProcessor(cfg)
+	amazonProcessor := NewAmazonProcessor(cfg, logs)
 	effectivePoolSize := effectiveBrowserPoolSize(cfg)
 
 	if amazonProcessor != nil && amazonProcessor.initErr != nil {

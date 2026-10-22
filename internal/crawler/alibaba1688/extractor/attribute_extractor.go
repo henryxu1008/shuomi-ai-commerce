@@ -2,24 +2,28 @@
 package extractor
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"strings"
-	"task-processor/internal/core/logger"
+
 	"task-processor/internal/crawler/alibaba1688/model"
 
 	"github.com/mxschmitt/playwright-go"
 )
 
 // AttributeExtractor 优化的商品属性提取器
-type AttributeExtractor struct{}
+type AttributeExtractor struct {
+	loggerDependency
+}
 
 // NewAttributeExtractor 创建优化的商品属性提取器
-func NewAttributeExtractor() *AttributeExtractor {
-	return &AttributeExtractor{}
+func NewAttributeExtractor(logs func(string) *logrus.Entry) *AttributeExtractor {
+	return &AttributeExtractor{loggerDependency: loggerDependency{logFor: logs}}
 }
 
 // Extract 提取商品属性信息 - 支持两种数据结构
 func (aeo *AttributeExtractor) Extract(page playwright.Page, product *model.Product1688) error {
-	logger.GetGlobalLogger("crawler/alibaba1688").Debug("开始提取商品属性信息")
+	aeo.componentLogger("crawler/alibaba1688").Debug("开始提取商品属性信息")
 
 	// 直接从结构化数据中获取属性信息，支持两种数据结构
 	attrResult, err := page.Evaluate(`() => {
@@ -138,7 +142,7 @@ func (aeo *AttributeExtractor) Extract(page playwright.Page, product *model.Prod
 	}`, nil)
 
 	if err != nil {
-		logger.GetGlobalLogger("crawler/alibaba1688").Debugf("提取属性失败: %v", err)
+		aeo.componentLogger("crawler/alibaba1688").Debugf("提取属性失败: %v", err)
 		return err
 	}
 
@@ -161,7 +165,7 @@ func (aeo *AttributeExtractor) Extract(page playwright.Page, product *model.Prod
 				}
 			}
 
-			logger.GetGlobalLogger("crawler/alibaba1688").Debugf("提取到 %d 个商品属性", len(attributes))
+			aeo.componentLogger("crawler/alibaba1688").Debugf("提取到 %d 个商品属性", len(attributes))
 		}
 	}
 

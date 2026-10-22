@@ -51,7 +51,7 @@ func TestWaitForManualSliderReturnsCancellationPromptly(t *testing.T) {
 	cancel()
 
 	started := time.Now()
-	result := NewCaptchaHandler().waitForManualSliderWithResult(ctx, nil)
+	result := NewCaptchaHandler(nil).waitForManualSliderWithResult(ctx, nil)
 
 	if !errors.Is(result.Error, context.Canceled) {
 		t.Fatalf("manual slider error = %v, want context.Canceled", result.Error)
@@ -62,7 +62,7 @@ func TestWaitForManualSliderReturnsCancellationPromptly(t *testing.T) {
 }
 
 func TestCalculateMathExpression(t *testing.T) {
-	handler := NewCaptchaHandler()
+	handler := NewCaptchaHandler(nil)
 
 	tests := []struct {
 		expression string
@@ -84,7 +84,7 @@ func TestCalculateMathExpression(t *testing.T) {
 }
 
 func TestComplexEasing(t *testing.T) {
-	handler := NewCaptchaHandler()
+	handler := NewCaptchaHandler(nil)
 
 	tests := []struct {
 		input     float64
@@ -105,7 +105,7 @@ func TestComplexEasing(t *testing.T) {
 }
 
 func TestComplexEasingWithVariation(t *testing.T) {
-	handler := NewCaptchaHandler()
+	handler := NewCaptchaHandler(nil)
 
 	result := handler.complexEasingWithVariation(0.5)
 	if result < 0 || result > 1 {
@@ -114,7 +114,7 @@ func TestComplexEasingWithVariation(t *testing.T) {
 }
 
 func TestStatisticsReset(t *testing.T) {
-	handler := NewCaptchaHandler()
+	handler := NewCaptchaHandler(nil)
 
 	handler.recordSuccess(CaptchaTypeSlider)
 	handler.recordFailure(CaptchaTypeImage)

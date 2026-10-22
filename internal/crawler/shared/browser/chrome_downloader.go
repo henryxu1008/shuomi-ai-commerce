@@ -1,6 +1,8 @@
 package browser
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"archive/zip"
 	"context"
 	"encoding/json"
@@ -16,12 +18,12 @@ import (
 
 	"task-processor/internal/pkg/httpclient"
 	"task-processor/internal/pkg/timeout"
-
-	logger "task-processor/internal/core/logger"
 )
 
 // ChromeDownloader fingerprint-chromium 下载器
 type ChromeDownloader struct {
+	loggerDependency
+
 	version         string // Chrome 版本，如 "144"
 	downloadDir     string // 下载目录
 	downloadTimeout time.Duration
@@ -29,12 +31,12 @@ type ChromeDownloader struct {
 }
 
 // NewChromeDownloader 创建 Chrome 下载器
-func NewChromeDownloader(version, downloadDir string) *ChromeDownloader {
-	return NewChromeDownloaderWithTimeout(version, downloadDir, timeout.DownloadTimeout)
+func NewChromeDownloader(version, downloadDir string, logs func(string) *logrus.Entry) *ChromeDownloader {
+	return NewChromeDownloaderWithTimeout(version, downloadDir, timeout.DownloadTimeout, logs)
 }
 
 // NewChromeDownloaderWithTimeout 创建带自定义下载超时的 Chrome 下载器
-func NewChromeDownloaderWithTimeout(version, downloadDir string, downloadTimeout time.Duration) *ChromeDownloader {
+func NewChromeDownloaderWithTimeout(version, downloadDir string, downloadTimeout time.Duration, logs func(string) *logrus.Entry) *ChromeDownloader {
 	if version == "" {
 		version = "144" // 默认使用最新版本
 	}
@@ -55,10 +57,11 @@ func NewChromeDownloaderWithTimeout(version, downloadDir string, downloadTimeout
 	}
 
 	return &ChromeDownloader{
-		version:         version,
-		downloadDir:     downloadDir,
-		downloadTimeout: downloadTimeout,
-		httpClient:      httpclient.New(httpConfig, logger.GetGlobalLogManager().GetRawLogger()),
+		loggerDependency: loggerDependency{logFor: logs},
+		version:          version,
+		downloadDir:      downloadDir,
+		downloadTimeout:  downloadTimeout,
+		httpClient:       httpclient.New(httpConfig, componentLogger(logs, "crawler/shared").Logger),
 	}
 }
 
@@ -94,7 +97,7 @@ func (cd *ChromeDownloader) resolveFullVersion() (string, error) {
 	}
 
 	// 通过 GitHub API 查找匹配主版本号的最新 release
-	logger.GetGlobalLogger("crawler/shared").Infof("查找 fingerprint-chromium 主版本 %s 对应的完整版本号...", cd.version)
+	cd.componentLogger("crawler/shared").Infof("查找 fingerprint-chromium 主版本 %s 对应的完整版本号...", cd.version)
 
 	apiURL := "https://api.github.com/repos/adryfish/fingerprint-chromium/releases"
 	req, err := http.NewRequest("GET", apiURL, nil)
@@ -122,7 +125,7 @@ func (cd *ChromeDownloader) resolveFullVersion() (string, error) {
 	prefix := cd.version + "."
 	for _, r := range releases {
 		if strings.HasPrefix(r.TagName, prefix) {
-			logger.GetGlobalLogger("crawler/shared").Infof("找到完整版本号: %s", r.TagName)
+			cd.componentLogger("crawler/shared").Infof("找到完整版本号: %s", r.TagName)
 			return r.TagName, nil
 		}
 	}
@@ -143,8 +146,8 @@ func (cd *ChromeDownloader) Download() (string, error) {
 		return "", err
 	}
 
-	logger.GetGlobalLogger("crawler/shared").Infof("开始下载 fingerprint-chromium v%s...", cd.version)
-	logger.GetGlobalLogger("crawler/shared").Infof("下载地址: %s", downloadURL)
+	cd.componentLogger("crawler/shared").Infof("开始下载 fingerprint-chromium v%s...", cd.version)
+	cd.componentLogger("crawler/shared").Infof("下载地址: %s", downloadURL)
 
 	// 下载文件
 	downloadPath := filepath.Join(cd.downloadDir, filepath.Base(downloadURL))
@@ -152,7 +155,7 @@ func (cd *ChromeDownloader) Download() (string, error) {
 		return "", fmt.Errorf("下载失败: %w", downloadErr)
 	}
 
-	logger.GetGlobalLogger("crawler/shared").Info("下载完成，开始解压...")
+	cd.componentLogger("crawler/shared").Info("下载完成，开始解压...")
 
 	// 解压文件
 	extractPath, err := cd.extractFile(downloadPath)
@@ -160,7 +163,7 @@ func (cd *ChromeDownloader) Download() (string, error) {
 		return "", fmt.Errorf("解压失败: %w", err)
 	}
 
-	logger.GetGlobalLogger("crawler/shared").Infof("解压完成: %s", extractPath)
+	cd.componentLogger("crawler/shared").Infof("解压完成: %s", extractPath)
 
 	// 查找 Chrome 可执行文件
 	chromePath, err := cd.findChromeExecutable(extractPath)
@@ -168,7 +171,7 @@ func (cd *ChromeDownloader) Download() (string, error) {
 		return "", fmt.Errorf("查找 Chrome 可执行文件失败: %w", err)
 	}
 
-	logger.GetGlobalLogger("crawler/shared").Infof("Chrome 可执行文件路径: %s", chromePath)
+	cd.componentLogger("crawler/shared").Infof("Chrome 可执行文件路径: %s", chromePath)
 	return chromePath, nil
 }
 
@@ -202,13 +205,13 @@ func (cd *ChromeDownloader) downloadFile(url, filepath string) error {
 	defer out.Close()
 
 	// 写入文件（显示下载进度）
-	logger.GetGlobalLogger("crawler/shared").Infof("开始写入文件: %s", filepath)
+	cd.componentLogger("crawler/shared").Infof("开始写入文件: %s", filepath)
 	written, err := io.Copy(out, resp.Body)
 	if err != nil {
 		return fmt.Errorf("写入文件失败: %w", err)
 	}
 
-	logger.GetGlobalLogger("crawler/shared").Infof("文件下载完成，大小: %.2f MB", float64(written)/(1024*1024))
+	cd.componentLogger("crawler/shared").Infof("文件下载完成，大小: %.2f MB", float64(written)/(1024*1024))
 	return nil
 }
 
@@ -241,7 +244,7 @@ func (cd *ChromeDownloader) extractTarXZ(archivePath, destPath string) error {
 		return fmt.Errorf("tar 解压失败: %w", err)
 	}
 
-	logger.GetGlobalLogger("crawler/shared").Infof("tar.xz 解压完成: %s", destPath)
+	cd.componentLogger("crawler/shared").Infof("tar.xz 解压完成: %s", destPath)
 	return nil
 }
 
@@ -359,12 +362,12 @@ func (cd *ChromeDownloader) CheckAndDownload(configPath string) (string, error) 
 	if configPath != "" {
 		// Windows exe 在非 Windows 系统上跳过，走自动下载
 		if runtime.GOOS != "windows" && strings.HasSuffix(strings.ToLower(configPath), ".exe") {
-			logger.GetGlobalLogger("crawler/shared").Infof("当前系统为 %s，跳过 Windows 浏览器路径: %s，将自动下载 Linux 版本", runtime.GOOS, configPath)
+			cd.componentLogger("crawler/shared").Infof("当前系统为 %s，跳过 Windows 浏览器路径: %s，将自动下载 Linux 版本", runtime.GOOS, configPath)
 		} else if _, err := os.Stat(configPath); err == nil {
-			logger.GetGlobalLogger("crawler/shared").Infof("使用配置的 Chrome 路径: %s", configPath)
+			cd.componentLogger("crawler/shared").Infof("使用配置的 Chrome 路径: %s", configPath)
 			return configPath, nil
 		} else {
-			logger.GetGlobalLogger("crawler/shared").Warnf("配置的 Chrome 路径不存在: %s", configPath)
+			cd.componentLogger("crawler/shared").Warnf("配置的 Chrome 路径不存在: %s", configPath)
 		}
 	}
 
@@ -372,11 +375,11 @@ func (cd *ChromeDownloader) CheckAndDownload(configPath string) (string, error) 
 	extractPath := filepath.Join(cd.downloadDir, fmt.Sprintf("chrome-%s", cd.version))
 	chromePath, err := cd.findChromeExecutable(extractPath)
 	if err == nil {
-		logger.GetGlobalLogger("crawler/shared").Infof("找到已下载的 Chrome: %s", chromePath)
+		cd.componentLogger("crawler/shared").Infof("找到已下载的 Chrome: %s", chromePath)
 		return chromePath, nil
 	}
 
 	// 下载 Chrome
-	logger.GetGlobalLogger("crawler/shared").Info("未找到 Chrome，开始自动下载...")
+	cd.componentLogger("crawler/shared").Info("未找到 Chrome，开始自动下载...")
 	return cd.Download()
 }

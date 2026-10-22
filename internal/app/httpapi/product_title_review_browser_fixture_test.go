@@ -94,7 +94,7 @@ func TestProductTitleReviewBrowserFixture(t *testing.T) {
 		require.NoError(t, e)
 		return app
 	}
-	listing, _, err := NewSheinRecordApplication(f.db, identity, resolver, authorizer)
+	listing, _, err := NewSheinRecordApplication(f.db, identity, resolver, authorizer, nil)
 	require.NoError(t, err)
 	var current atomic.Pointer[http.Server]
 	current.Store(application())

@@ -46,7 +46,7 @@ func sharedRegressionApplication(t *testing.T, db *gorm.DB, g *sharedRegressionG
 	t.Helper()
 	auth, err := authz.NewListingKitAuthorizer(nil, nil)
 	require.NoError(t, err)
-	server, reader, err := NewSheinRecordApplication(db, recordVerifier{}, workbenchcontext.NewResolver(g, "project", "v1", nil), auth)
+	server, reader, err := NewSheinRecordApplication(db, recordVerifier{}, workbenchcontext.NewResolver(g, "project", "v1", nil), auth, nil)
 	require.NoError(t, err)
 	ts := httptest.NewUnstartedServer(server.Handler)
 	ts.Config.ReadTimeout, ts.Config.WriteTimeout = server.ReadTimeout, server.WriteTimeout

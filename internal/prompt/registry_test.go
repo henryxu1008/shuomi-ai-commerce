@@ -23,6 +23,21 @@ func newTestRegistry() *registryImpl {
 	return r
 }
 
+func TestRegistryPropagatesExplicitLoggerAndDisablesMissingDiagnostics(t *testing.T) {
+	raw := logrus.New()
+	raw.SetOutput(io.Discard)
+	entry := raw.WithField("request_id", "synthetic-request")
+	registry := NewRegistry(entry)
+	loader := registry.loader.(*promptLoader)
+	if registry.log != entry || loader.log.Logger != raw || loader.log.Data["request_id"] != "synthetic-request" || loader.log.Data["component"] != "prompt.loader" {
+		t.Fatal("registry/loader lost their explicit logger or context")
+	}
+	missing := NewRegistry(nil)
+	if missing.log.Logger.Out != io.Discard || missing.loader.(*promptLoader).log.Logger.Out != io.Discard {
+		t.Fatal("nil diagnostic dependency must not initialize or consult the global logger")
+	}
+}
+
 func TestRegistry_Get_Hit(t *testing.T) {
 	r := newTestRegistry()
 	r.cache["foo.bar"] = "hello"

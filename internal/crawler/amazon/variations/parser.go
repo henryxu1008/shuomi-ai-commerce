@@ -1,6 +1,8 @@
 package variations
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"github.com/mxschmitt/playwright-go"
 )
 
@@ -11,10 +13,10 @@ type Parser struct {
 }
 
 // NewParser 创建解析器
-func NewParser(config *Config) *Parser {
+func NewParser(config *Config, logs func(string) *logrus.Entry) *Parser {
 	return &Parser{
 		config: config,
-		mapper: NewMapper(config),
+		mapper: NewMapper(config, logs),
 	}
 }
 

@@ -46,7 +46,7 @@ func TestBuildSheinListingCopyGeneratesMissingEnglishDescriptionWithAI(t *testin
 	copy := buildSheinListingCopy(context.Background(), &canonical.Product{
 		Title:        "Pillow Cover",
 		CategoryPath: []string{"Home", "Pillow Covers"},
-	}, "Pillow Cover", stubTitleAIClient{response: "Soft polyester pillow cover with a concealed zipper."})
+	}, "Pillow Cover", stubTitleAIClient{response: "Soft polyester pillow cover with a concealed zipper."}, nil)
 
 	if got, want := copy.Description, "Soft polyester pillow cover with a concealed zipper."; got != want {
 		t.Fatalf("description = %q, want %q", got, want)
@@ -64,7 +64,7 @@ func TestBuildSheinListingCopyKeepsStructuredEnglishTitle(t *testing.T) {
 		},
 	}
 
-	copy := buildSheinListingCopy(nil, canonical, canonical.Title, nil)
+	copy := buildSheinListingCopy(nil, canonical, canonical.Title, nil, nil)
 	if copy.Title != "Flannel Non-slip Floor Mat" {
 		t.Fatalf("title = %q, want clean structured title", copy.Title)
 	}
@@ -81,7 +81,7 @@ func TestBuildSheinListingCopySanitizesPromptLikeTitleWithRules(t *testing.T) {
 		},
 	}
 
-	copy := buildSheinListingCopy(nil, canonical, canonical.Title, nil)
+	copy := buildSheinListingCopy(nil, canonical, canonical.Title, nil, nil)
 	if copy.Title != "Flannel non-slip floor mat" {
 		t.Fatalf("title = %q, want sanitized base title", copy.Title)
 	}
@@ -103,7 +103,7 @@ func TestBuildSheinListingCopyUsesLLMWhenRuleExtractionCannotRecover(t *testing.
 
 	copy := buildSheinListingCopy(nil, canonical, canonical.Title, stubTitleAIClient{
 		response: `{"title":"Flannel Floral Floor Mat"}`,
-	})
+	}, nil)
 	if copy.Title != "Flannel Floral Floor Mat" {
 		t.Fatalf("title = %q, want llm extracted title", copy.Title)
 	}
@@ -123,7 +123,7 @@ func TestBuildSheinListingCopyLeavesPromptTitleUnresolvedWhenLLMReturnsPromptLik
 
 	copy := buildSheinListingCopy(nil, canonical, canonical.Title, stubTitleAIClient{
 		response: `{"title":"Please design a floral image for this floor mat with 3D graphics"}`,
-	})
+	}, nil)
 	if copy.Title != "" {
 		t.Fatalf("title = %q, want empty unresolved title", copy.Title)
 	}
@@ -152,7 +152,7 @@ func TestBuildSheinListingCopyDoesNotFallbackWhenPromptTitleNeedsLLMButLLMUnavai
 
 	copy := buildSheinListingCopy(nil, canonical, canonical.Title, stubTitleAIClient{
 		err: errors.New("OpenAI API error: insufficient credits in account balance"),
-	})
+	}, nil)
 	if copy.Title != "" {
 		t.Fatalf("title = %q, want empty when prompt-like title cannot be safely resolved", copy.Title)
 	}
@@ -189,7 +189,7 @@ func TestBuildSheinListingCopyEnrichesShortStructuredTitleWithLLMAddition(t *tes
 
 	copy := buildSheinListingCopy(nil, canonical, canonical.Title, stubTitleAIClient{
 		response: `{"addition":"Rock Typography Graphic Print"}`,
-	})
+	}, nil)
 	if copy.Title != "Door curtain with Rock Typography Graphic Print" {
 		t.Fatalf("title = %q, want enriched ecommerce title", copy.Title)
 	}
@@ -212,7 +212,7 @@ func TestBuildSheinListingCopyKeepsLongStructuredTitleWithoutLLMAddition(t *test
 
 	copy := buildSheinListingCopy(nil, canonical, canonical.Title, stubTitleAIClient{
 		response: `{"addition":"Floral Theme"}`,
-	})
+	}, nil)
 	if copy.Title != "Flannel Non-slip Floor Mat" {
 		t.Fatalf("title = %q, want original long structured title", copy.Title)
 	}
@@ -234,7 +234,7 @@ func TestBuildSheinListingCopyEnrichesRealDoorCurtainTaskTitle(t *testing.T) {
 
 	copy := buildSheinListingCopy(nil, canonical, canonical.Title, stubTitleAIClient{
 		response: `{"addition":"Rock Typography Graphic Print"}`,
-	})
+	}, nil)
 	if copy.Title != "Door curtain with Rock Typography Graphic Print" {
 		t.Fatalf("title = %q, want enriched title from real task prompt", copy.Title)
 	}
@@ -255,7 +255,7 @@ func TestBuildSheinListingCopyCleansSensitiveWords(t *testing.T) {
 		},
 	}
 
-	copy := buildSheinListingCopy(sharedtenantctx.WithTenantID(context.Background(), "101"), canonical, canonical.Title, nil)
+	copy := buildSheinListingCopy(sharedtenantctx.WithTenantID(context.Background(), "101"), canonical, canonical.Title, nil, nil)
 
 	assertNoSensitivePhrase(t, copy.Title, "title")
 	assertNoSensitivePhrase(t, copy.Description, "description")
@@ -271,7 +271,7 @@ func TestBuildSheinListingCopyDoesNotFallbackToSyntheticCustomTitle(t *testing.T
 		},
 	}
 
-	copy := buildSheinListingCopy(nil, canonical, canonical.Title, nil)
+	copy := buildSheinListingCopy(nil, canonical, canonical.Title, nil, nil)
 	if copy.Title != "" {
 		t.Fatalf("title = %q, want empty instead of synthetic custom fallback", copy.Title)
 	}

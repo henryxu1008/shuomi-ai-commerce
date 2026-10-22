@@ -2,25 +2,30 @@
 package browser
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"fmt"
 	"sync"
-	"task-processor/internal/core/logger"
+
 	sharedbrowser "task-processor/internal/crawler/shared/browser"
 	"time"
 )
 
 // InstanceManager 实例管理器
 type InstanceManager struct {
+	loggerDependency
+
 	pool          *BrowserPool
 	rebuildingMu  sync.Mutex
 	rebuildingIDs map[int]bool // 正在重建中的实例ID，防止重复重建
 }
 
 // NewInstanceManager 创建实例管理器
-func NewInstanceManager(pool *BrowserPool) *InstanceManager {
+func NewInstanceManager(pool *BrowserPool, logs func(string) *logrus.Entry) *InstanceManager {
 	return &InstanceManager{
-		pool:          pool,
-		rebuildingIDs: make(map[int]bool),
+		loggerDependency: loggerDependency{logFor: logs},
+		pool:             pool,
+		rebuildingIDs:    make(map[int]bool),
 	}
 }
 
@@ -42,7 +47,7 @@ func (im *InstanceManager) CreateInstance(id int) (*BrowserInstance, error) {
 	}
 
 	// 使用新的配置管理器创建管理器
-	manager := NewBrowserManagerWithConfig(&cfgCopy, strategy, presetName, id)
+	manager := NewBrowserManagerWithConfig(&cfgCopy, strategy, presetName, id, im.logFor)
 
 	// 如果启用随机指纹，为每个实例生成指纹
 	if im.pool.UseRandomFingerprint() && im.pool.GetFingerprintGenerator() != nil {
@@ -52,15 +57,15 @@ func (im *InstanceManager) CreateInstance(id int) (*BrowserInstance, error) {
 		switch strategy {
 		case "random":
 			fingerprint = im.pool.GetFingerprintGenerator().GenerateRandomFingerprint("")
-			logger.GetGlobalLogger("crawler/amazon").Infof("实例 %d 使用随机指纹", id)
+			im.componentLogger("crawler/amazon").Infof("实例 %d 使用随机指纹", id)
 		case "stable":
 			userID := fmt.Sprintf("instance_%d", id)
 			fingerprint = im.pool.GetFingerprintGenerator().GenerateStableFingerprint(userID)
-			logger.GetGlobalLogger("crawler/amazon").Infof("实例 %d 使用稳定指纹 (用户ID: %s)", id, userID)
+			im.componentLogger("crawler/amazon").Infof("实例 %d 使用稳定指纹 (用户ID: %s)", id, userID)
 		default:
 			// 默认使用随机指纹
 			fingerprint = im.pool.GetFingerprintGenerator().GenerateRandomFingerprint("")
-			logger.GetGlobalLogger("crawler/amazon").Infof("实例 %d 使用默认随机指纹", id)
+			im.componentLogger("crawler/amazon").Infof("实例 %d 使用默认随机指纹", id)
 		}
 
 		manager.SetFingerprint(fingerprint)
@@ -86,8 +91,8 @@ func (im *InstanceManager) CreateInstance(id int) (*BrowserInstance, error) {
 
 // closeManagerWithTimeout 关闭 BrowserManager，最多等待 timeout，超时后强制继续。
 // 防止 WebSocket 断连时 Close() 永久 hang 导致重建 goroutine 卡死。
-func closeManagerWithTimeout(manager interface{ Close() }, instanceID int, timeout time.Duration) {
-	log := logger.GetGlobalLogger("crawler/amazon")
+func closeManagerWithTimeout(manager interface{ Close() }, instanceID int, timeout time.Duration, logs func(string) *logrus.Entry) {
+	log := componentLogger(logs, "crawler/amazon")
 	done := make(chan struct{}, 1)
 	go func() {
 		manager.Close()
@@ -103,11 +108,11 @@ func closeManagerWithTimeout(manager interface{ Close() }, instanceID int, timeo
 
 // RecreateInstanceSync 同步重新创建浏览器实例（用于任务内重试）
 func (im *InstanceManager) RecreateInstanceSync(oldInstance *BrowserInstance) *BrowserInstance {
-	logger.GetGlobalLogger("crawler/amazon").Infof("开始同步重新创建浏览器实例 %d", oldInstance.ID)
+	im.componentLogger("crawler/amazon").Infof("开始同步重新创建浏览器实例 %d", oldInstance.ID)
 
 	// 先关闭旧实例（加超时保护，防止 WebSocket 断连时 hang）
 	if oldInstance.Manager != nil {
-		closeManagerWithTimeout(oldInstance.Manager, oldInstance.ID, 10*time.Second)
+		closeManagerWithTimeout(oldInstance.Manager, oldInstance.ID, 10*time.Second, im.logFor)
 	}
 
 	// 等待短暂时间，让资源释放
@@ -116,15 +121,15 @@ func (im *InstanceManager) RecreateInstanceSync(oldInstance *BrowserInstance) *B
 	// 创建新实例
 	newInstance, err := im.CreateInstance(oldInstance.ID)
 	if err != nil {
-		logger.GetGlobalLogger("crawler/amazon").Errorf("同步重新创建浏览器实例 %d 失败: %v", oldInstance.ID, err)
+		im.componentLogger("crawler/amazon").Errorf("同步重新创建浏览器实例 %d 失败: %v", oldInstance.ID, err)
 
 		// 如果创建失败，等待更长时间后再次尝试
-		logger.GetGlobalLogger("crawler/amazon").Infof("等待5秒后进行第二次创建尝试...")
+		im.componentLogger("crawler/amazon").Infof("等待5秒后进行第二次创建尝试...")
 		time.Sleep(5 * time.Second)
 
 		newInstance, err = im.CreateInstance(oldInstance.ID)
 		if err != nil {
-			logger.GetGlobalLogger("crawler/amazon").Errorf("第二次同步重新创建浏览器实例 %d 失败: %v", oldInstance.ID, err)
+			im.componentLogger("crawler/amazon").Errorf("第二次同步重新创建浏览器实例 %d 失败: %v", oldInstance.ID, err)
 			im.pool.recordSyncRecreateResult(false)
 			// 返回nil，让调用方处理
 			return nil
@@ -135,13 +140,13 @@ func (im *InstanceManager) RecreateInstanceSync(oldInstance *BrowserInstance) *B
 	im.pool.UpdateInstance(oldInstance, newInstance)
 	im.pool.recordSyncRecreateResult(true)
 
-	logger.GetGlobalLogger("crawler/amazon").Infof("✅ 成功同步重新创建浏览器实例 %d", oldInstance.ID)
+	im.componentLogger("crawler/amazon").Infof("✅ 成功同步重新创建浏览器实例 %d", oldInstance.ID)
 	return newInstance
 }
 
 // RecreateInstanceAsync 异步重新创建浏览器实例（用于后台健康检查）
 func (im *InstanceManager) RecreateInstanceAsync(oldInstance *BrowserInstance) {
-	log := logger.GetGlobalLogger("crawler/amazon")
+	log := im.componentLogger("crawler/amazon")
 
 	// 防止对同一实例重复触发重建
 	im.rebuildingMu.Lock()
@@ -167,7 +172,7 @@ func (im *InstanceManager) RecreateInstanceAsync(oldInstance *BrowserInstance) {
 
 		// 先关闭旧实例（加超时保护，防止 WebSocket 断连时 hang）
 		if oldInstance.Manager != nil {
-			closeManagerWithTimeout(oldInstance.Manager, oldInstance.ID, 10*time.Second)
+			closeManagerWithTimeout(oldInstance.Manager, oldInstance.ID, 10*time.Second, im.logFor)
 		}
 
 		// 带退避的重建循环，最多尝试5次，确保实例不会永久丢失
@@ -233,7 +238,7 @@ func (im *InstanceManager) CloseInstance(instance *BrowserInstance) {
 	}
 
 	if instance.Manager != nil {
-		closeManagerWithTimeout(instance.Manager, instance.ID, 10*time.Second)
+		closeManagerWithTimeout(instance.Manager, instance.ID, 10*time.Second, im.logFor)
 	}
 }
 
@@ -244,11 +249,11 @@ func (im *InstanceManager) ValidateInstance(instance *BrowserInstance) bool {
 	}
 
 	if instance.Manager == nil {
-		logger.GetGlobalLogger("crawler/amazon").Infof("浏览器实例 %d 管理器为空", instance.ID)
+		im.componentLogger("crawler/amazon").Infof("浏览器实例 %d 管理器为空", instance.ID)
 		return false
 	}
 	if instance.Manager.GetContext() == nil {
-		logger.GetGlobalLogger("crawler/amazon").Infof("浏览器实例 %d 上下文为空", instance.ID)
+		im.componentLogger("crawler/amazon").Infof("浏览器实例 %d 上下文为空", instance.ID)
 		return false
 	}
 
@@ -289,7 +294,7 @@ func (im *InstanceManager) RestartInstance(instance *BrowserInstance) (*BrowserI
 		return nil, fmt.Errorf("实例为空")
 	}
 
-	logger.GetGlobalLogger("crawler/amazon").Infof("重启浏览器实例 %d", instance.ID)
+	im.componentLogger("crawler/amazon").Infof("重启浏览器实例 %d", instance.ID)
 
 	// 关闭旧实例
 	im.CloseInstance(instance)
@@ -303,6 +308,6 @@ func (im *InstanceManager) RestartInstance(instance *BrowserInstance) (*BrowserI
 		return nil, fmt.Errorf("重启实例失败: %w", err)
 	}
 
-	logger.GetGlobalLogger("crawler/amazon").Infof("✅ 成功重启浏览器实例 %d", instance.ID)
+	im.componentLogger("crawler/amazon").Infof("✅ 成功重启浏览器实例 %d", instance.ID)
 	return newInstance, nil
 }

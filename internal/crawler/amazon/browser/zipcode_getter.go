@@ -2,19 +2,22 @@
 package browser
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"fmt"
 	"strings"
-	"task-processor/internal/core/logger"
 
 	"github.com/mxschmitt/playwright-go"
 )
 
 // ZipcodeGetter 邮编获取器
-type ZipcodeGetter struct{}
+type ZipcodeGetter struct {
+	loggerDependency
+}
 
 // NewZipcodeGetter 创建邮编获取器实例
-func NewZipcodeGetter() *ZipcodeGetter {
-	return &ZipcodeGetter{}
+func NewZipcodeGetter(logs func(string) *logrus.Entry) *ZipcodeGetter {
+	return &ZipcodeGetter{loggerDependency: loggerDependency{logFor: logs}}
 }
 
 // GetCurrentZipcode 获取当前邮编或城市名称
@@ -27,7 +30,7 @@ func (zg *ZipcodeGetter) GetCurrentZipcode(page playwright.Page) (string, error)
 		"#nav-global-location-slot",   // 导航栏位置槽
 	}
 
-	logger.GetGlobalLogger("crawler/amazon").Infof("开始查找当前邮编或城市信息")
+	zg.componentLogger("crawler/amazon").Infof("开始查找当前邮编或城市信息")
 
 	// 优先从主要位置获取邮编
 	for _, selector := range zipDisplaySelectors {
@@ -45,27 +48,27 @@ func (zg *ZipcodeGetter) GetCurrentZipcode(page playwright.Page) (string, error)
 
 		text, err := locator.TextContent()
 		if err == nil && text != "" {
-			logger.GetGlobalLogger("crawler/amazon").Infof("从选择器 %s 获取到文本: %s", selector, text)
+			zg.componentLogger("crawler/amazon").Infof("从选择器 %s 获取到文本: %s", selector, text)
 
 			// 先尝试提取邮编（通常是数字）
 			zipcode := ExtractZipcode(text)
 			if zipcode != "" {
-				logger.GetGlobalLogger("crawler/amazon").Infof("成功提取邮编: %s", zipcode)
+				zg.componentLogger("crawler/amazon").Infof("成功提取邮编: %s", zipcode)
 				return zipcode, nil
 			}
 
 			// 如果没有提取到邮编,尝试提取城市名称(沙特等站点)
 			cityName := extractCityName(text)
 			if cityName != "" {
-				logger.GetGlobalLogger("crawler/amazon").Infof("成功提取城市名称: %s", cityName)
+				zg.componentLogger("crawler/amazon").Infof("成功提取城市名称: %s", cityName)
 				return cityName, nil
 			}
 
 			// 如果既没有提取到邮编也没有提取到城市名，但文本不为空
 			// 直接返回文本内容（用于英国等站点的部分邮编显示）
 			// 但需要过滤掉已知的占位文字（如 "Update location"、"Deliver to" 等）
-			if len(text) > 0 && !isLocationPlaceholder(text) {
-				logger.GetGlobalLogger("crawler/amazon").Infof("无法提取标准邮编格式，返回原始文本: %s", text)
+			if len(text) > 0 && !isLocationPlaceholder(text, zg.logFor) {
+				zg.componentLogger("crawler/amazon").Infof("无法提取标准邮编格式，返回原始文本: %s", text)
 				return text, nil
 			}
 		}
@@ -93,7 +96,7 @@ func (zg *ZipcodeGetter) GetCurrentZipcode(page playwright.Page) (string, error)
 // isLocationPlaceholder 判断文本是否为纯位置占位符（未设置邮编时的提示文字）
 // 注意：只有当文本清理后完全等于占位符时才返回 true，
 // 避免误杀包含真实地址的容器元素（如 "Delivering to Balzac T4B 2T\nUpdate location"）
-func isLocationPlaceholder(text string) bool {
+func isLocationPlaceholder(text string, logs func(string) *logrus.Entry) bool {
 	// 清理文本：压缩所有空白为单个空格
 	cleaned := strings.ToUpper(strings.TrimSpace(text))
 	cleaned = locationWhitespacePattern.ReplaceAllString(cleaned, " ")
@@ -110,7 +113,7 @@ func isLocationPlaceholder(text string) bool {
 	}
 	for _, p := range purePlaceholders {
 		if cleaned == p {
-			logger.GetGlobalLogger("crawler/amazon").Infof("检测到位置占位符文字，跳过: %s", text)
+			componentLogger(logs, "crawler/amazon").Infof("检测到位置占位符文字，跳过: %s", text)
 			return true
 		}
 	}

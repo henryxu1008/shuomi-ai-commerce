@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"task-processor/internal/core/logger"
 	sharedresilience "task-processor/internal/shared/resilience"
 
 	"github.com/sirupsen/logrus"
@@ -110,8 +109,8 @@ type CircuitBreaker struct {
 }
 
 // NewCircuitBreaker 创建断路器
-func NewCircuitBreaker(failureThreshold, successThreshold int, timeout time.Duration) *CircuitBreaker {
-	logEntry := logger.GetGlobalLogger("CircuitBreaker")
+func NewCircuitBreaker(failureThreshold, successThreshold int, timeout time.Duration, logs func(string) *logrus.Entry) *CircuitBreaker {
+	logEntry := componentLogger(logs, "CircuitBreaker")
 
 	return &CircuitBreaker{
 		breaker: sharedresilience.NewCircuitBreaker(sharedresilience.CircuitBreakerConfig{

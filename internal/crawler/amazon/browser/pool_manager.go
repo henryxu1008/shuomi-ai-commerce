@@ -9,8 +9,6 @@ import (
 	"task-processor/internal/model"
 	"time"
 
-	"task-processor/internal/core/logger"
-
 	"github.com/sirupsen/logrus"
 )
 
@@ -42,10 +40,10 @@ type PoolManager struct {
 const strongStickyWaitBudget = 8 * time.Second
 
 // NewEnhancedPoolManager 创建增强的浏览器池管理器
-func NewPoolManager(pool *BrowserPool) *PoolManager {
+func NewPoolManager(pool *BrowserPool, logs func(string) *logrus.Entry) *PoolManager {
 	return &PoolManager{
 		pool:   pool,
-		logger: logger.GetGlobalLogger("EnhancedPoolManager"),
+		logger: componentLogger(logs, "EnhancedPoolManager"),
 	}
 }
 

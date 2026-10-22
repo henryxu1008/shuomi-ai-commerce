@@ -1,6 +1,8 @@
 package sheinlogin
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"context"
 	"io"
 	"os"
@@ -124,9 +126,13 @@ type VerifySessionLoginWatcher interface {
 	WaitForLogin(ctx context.Context) (*AutomationResult, error)
 }
 
-type PlaywrightAutomation struct{}
+type PlaywrightAutomation struct {
+	loggerDependency
+}
 
-func NewPlaywrightAutomation() *PlaywrightAutomation { return &PlaywrightAutomation{} }
+func NewPlaywrightAutomation(logs func(string) *logrus.Entry) *PlaywrightAutomation {
+	return &PlaywrightAutomation{loggerDependency: loggerDependency{logFor: logs}}
+}
 
 type pageNetworkCapture struct {
 	mu        sync.Mutex
@@ -167,7 +173,7 @@ func (a *PlaywrightAutomation) StartLogin(ctx context.Context, account Account, 
 		return nil, nil, ErrInvalidInput
 	}
 	managerCfg := buildAutomationBrowserConfig(account, cfg)
-	manager := sharedbrowser.NewManager(managerCfg)
+	manager := sharedbrowser.NewManager(managerCfg, a.logFor)
 	owned := &ownedBrowserSession{manager: manager}
 	manager.SetUserDataDir(profileDir)
 	manager.SetFingerprint(buildAutomationFingerprint(account, managerCfg))
@@ -224,7 +230,7 @@ func (a *PlaywrightAutomation) StartLogin(ctx context.Context, account Account, 
 		return result, owned, resultErr
 	}
 	if surface == loginSurfaceAuthenticated {
-		result, resultErr := exportAuthenticatedBrowserState(ctx, manager, page, account, cfg.ArtifactDir, profileDir, "export_state_already_logged_in")
+		result, resultErr := exportAuthenticatedBrowserState(ctx, manager, page, account, cfg.ArtifactDir, profileDir, "export_state_already_logged_in", a.logFor)
 		closeManagerProfile(manager, profileDir)
 		return result, owned, resultErr
 	}
@@ -234,11 +240,12 @@ func (a *PlaywrightAutomation) StartLogin(ctx context.Context, account Account, 
 				ErrorCode:            "VERIFY_CODE_REQUIRED",
 				ErrorMessage:         "登录等待验证码",
 			}, &playwrightVerifySession{
-				account:     account,
-				manager:     manager,
-				page:        page,
-				artifactDir: cfg.ArtifactDir,
-				profileDir:  profileDir,
+				loggerDependency: loggerDependency{logFor: a.logFor},
+				account:          account,
+				manager:          manager,
+				page:             page,
+				artifactDir:      cfg.ArtifactDir,
+				profileDir:       profileDir,
 			}, nil
 	}
 	if err := fillLogin(ctx, page, account); err != nil {
@@ -267,7 +274,7 @@ func (a *PlaywrightAutomation) StartLogin(ctx context.Context, account Account, 
 		}
 		_ = settleAfterSubmit(ctx, page, 8*time.Second)
 		if loggedIn, loginErr := isLoggedIn(page); loginErr == nil && loggedIn {
-			result, resultErr := exportAuthenticatedBrowserState(ctx, manager, page, account, cfg.ArtifactDir, profileDir, "export_state_after_recover")
+			result, resultErr := exportAuthenticatedBrowserState(ctx, manager, page, account, cfg.ArtifactDir, profileDir, "export_state_after_recover", a.logFor)
 			closeManagerProfile(manager, profileDir)
 			return result, owned, resultErr
 		}
@@ -277,11 +284,12 @@ func (a *PlaywrightAutomation) StartLogin(ctx context.Context, account Account, 
 					ErrorCode:            "VERIFY_CODE_REQUIRED",
 					ErrorMessage:         "登录等待验证码",
 				}, &playwrightVerifySession{
-					account:     account,
-					manager:     manager,
-					page:        page,
-					artifactDir: cfg.ArtifactDir,
-					profileDir:  profileDir,
+					loggerDependency: loggerDependency{logFor: a.logFor},
+					account:          account,
+					manager:          manager,
+					page:             page,
+					artifactDir:      cfg.ArtifactDir,
+					profileDir:       profileDir,
 				}, nil
 		}
 		result, resultErr := artifactResult(page, cfg.ArtifactDir, account, "wait_login", err)
@@ -293,15 +301,16 @@ func (a *PlaywrightAutomation) StartLogin(ctx context.Context, account Account, 
 				ErrorCode:            "VERIFY_CODE_REQUIRED",
 				ErrorMessage:         "登录等待验证码",
 			}, &playwrightVerifySession{
-				account:     account,
-				manager:     manager,
-				page:        page,
-				artifactDir: cfg.ArtifactDir,
-				profileDir:  profileDir,
+				loggerDependency: loggerDependency{logFor: a.logFor},
+				account:          account,
+				manager:          manager,
+				page:             page,
+				artifactDir:      cfg.ArtifactDir,
+				profileDir:       profileDir,
 			}, nil
 	}
 
-	result, resultErr := exportAuthenticatedBrowserState(ctx, manager, page, account, cfg.ArtifactDir, profileDir, "export_state")
+	result, resultErr := exportAuthenticatedBrowserState(ctx, manager, page, account, cfg.ArtifactDir, profileDir, "export_state", a.logFor)
 	closeManagerProfile(manager, profileDir)
 	return result, owned, resultErr
 }

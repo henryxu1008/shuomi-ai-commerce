@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"task-processor/internal/pkg/appenv"
 
 	"task-processor/internal/core/config"
 	"task-processor/internal/integration/crawler/a1688"
@@ -62,7 +63,7 @@ func run(ctx context.Context, args []string) error {
 	} else if installed := detectInstalledChrome(); installed != "" {
 		crawlerConfig.Browser.BrowserPath = installed
 	}
-	crawler := a1688.NewLegacyProcessor(crawlerConfig)
+	crawler := a1688.NewLegacyProcessor(crawlerConfig, appenv.ComponentLoggers())
 	authConfig := deviceauth.Config{IssuerURL: cfg.IssuerURL, ClientID: cfg.ClientID, ProjectID: cfg.ProjectID, Scopes: scopes}
 	var preparationErr error
 	var token string

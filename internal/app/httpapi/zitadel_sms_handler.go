@@ -6,11 +6,14 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	corelogger "task-processor/internal/core/logger"
+	"github.com/sirupsen/logrus"
 	"task-processor/internal/integration/zitadelsms"
 )
 
-type zitadelSMSHandler struct{ Service *zitadelsms.Service }
+type zitadelSMSHandler struct {
+	Service *zitadelsms.Service
+	Log     *logrus.Entry
+}
 
 const zitadelSMSWebhookMaxBodyBytes int64 = 64 * 1024
 
@@ -46,7 +49,7 @@ func (h zitadelSMSHandler) Deliver(c *gin.Context) {
 	case errors.Is(err, zitadelsms.ErrDeliveryFailed):
 		var failure *zitadelsms.DeliveryFailure
 		if errors.As(err, &failure) {
-			corelogger.GetGlobalLogger("zitadel-sms").WithField("provider_code", failure.Code).Warn("Tencent SMS delivery failed")
+			h.diagnosticLogger().WithField("provider_code", failure.Code).Warn("Tencent SMS delivery failed")
 		}
 		c.Status(http.StatusBadGateway)
 	default:
@@ -60,4 +63,13 @@ func readZitadelSMSWebhookBody(c *gin.Context) ([]byte, bool) {
 		return nil, false
 	}
 	return body, true
+}
+
+func (h zitadelSMSHandler) diagnosticLogger() *logrus.Entry {
+	if h.Log != nil {
+		return h.Log
+	}
+	l := logrus.New()
+	l.SetOutput(io.Discard)
+	return l.WithField("component", "zitadel-sms")
 }

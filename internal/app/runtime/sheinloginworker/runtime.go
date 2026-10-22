@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"task-processor/internal/pkg/appenv"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -98,7 +99,7 @@ func build(ctx context.Context, path string) (*runtime, error) {
 	if e != nil {
 		return nil, e
 	}
-	result, e := bootstrap.BuildService(bootstrap.BuildInput{Config: cfg, Owner: owner})
+	result, e := bootstrap.BuildService(bootstrap.BuildInput{Config: cfg, Owner: owner, Logs: appenv.ComponentLoggers()})
 	if e != nil {
 		return nil, e
 	}

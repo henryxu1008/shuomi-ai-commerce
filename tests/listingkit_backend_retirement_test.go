@@ -24,6 +24,75 @@ var retiredListingPreviewDownloadPackages = []string{
 	"internal/listing/preview", "internal/listing/platform", "internal/pkg/downloader",
 }
 
+func assertLegacyLoggerFacadeRetired(t *testing.T) {
+	t.Helper()
+	for _, relative := range []string{"internal/core/logger", "internal/publishing/shein/logging.go"} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Errorf("retired logger facade/helper %s must be absent: %v", relative, err)
+		}
+	}
+	businessRoots := []string{"internal/amazon/api", "internal/crawler", "internal/localagent", "internal/prompt", "internal/publishing/shein", "internal/shein/client", "internal/shein/content", "internal/sheinlogin", "internal/temu/api/client"}
+	for _, relative := range trackedFiles(t, ".") {
+		if !strings.HasSuffix(relative, ".go") {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(relative)), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		business := false
+		for _, root := range businessRoots {
+			business = business || importMatchesPrefix(relative, root)
+		}
+		for _, spec := range file.Imports {
+			imported, err := decodeGoImportPath(spec.Path.Value)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if importMatchesPrefix(imported, "task-processor/internal/core/logger") ||
+				(business && (importMatchesPrefix(imported, "task-processor/internal/platform/logging") || imported == "task-processor/internal/pkg/appenv")) {
+				t.Errorf("%s imports retired/global logging owner %s; inject a consumer-local dependency", relative, imported)
+			}
+		}
+		if !business {
+			continue
+		}
+		if importMatchesPrefix(relative, "internal/prompt") {
+			for _, declaration := range file.Decls {
+				if function, ok := declaration.(*ast.FuncDecl); ok && function.Recv == nil && (function.Name.Name == "NewPromptLoader" || function.Name.Name == "NewFileWatcher") {
+					t.Errorf("%s recreates the retired default diagnostic constructor %s", relative, function.Name.Name)
+				}
+			}
+		}
+		ast.Inspect(file, func(node ast.Node) bool {
+			if selector, ok := node.(*ast.SelectorExpr); ok && (selector.Sel.Name == "GetGlobalLogger" || selector.Sel.Name == "GetGlobalLogManager") {
+				t.Errorf("%s retains global logger lookup %s", relative, selector.Sel.Name)
+			}
+			if name, ok := node.(*ast.Ident); ok && name.Name == "sheinLoginServiceLogger" {
+				t.Errorf("%s retains SHEIN package-initialization logger capture", relative)
+			}
+			return true
+		})
+	}
+}
+
+func TestLegacyLoggerFacadeClosureIsRetired(t *testing.T) {
+	assertLegacyLoggerFacadeRetired(t)
+	for _, command := range []string{"current-application", "shein-login-worker", "image-agent-temporal-worker"} {
+		cmd := exec.Command("go", "list", "-deps", "./cmd/"+command)
+		cmd.Dir = ".."
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("go list %s: %v\n%s", command, err, output)
+		}
+		for _, dependency := range strings.Fields(string(output)) {
+			if importMatchesPrefix(dependency, "task-processor/internal/core/logger") {
+				t.Errorf("%s retains retired logger dependency %s", command, dependency)
+			}
+		}
+	}
+}
+
 func assertLegacyListingPreviewDownloadSourcesRetired(t *testing.T) {
 	t.Helper()
 	for _, relative := range append(slices.Clone(retiredListingPreviewDownloadPackages),
@@ -636,6 +705,7 @@ func TestOldHostRuntimeClosureStaysRetired(t *testing.T) {
 }
 
 func TestNumericContextAndValueContractsAreRetired(t *testing.T) {
+	assertLegacyLoggerFacadeRetired(t)
 	for _, relative := range []string{"internal/listingruntime/rules.go", "internal/listingruntime/operation_strategy.go"} {
 		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
 			t.Errorf("retired rule owner %s must be absent: %v", relative, err)
@@ -643,7 +713,6 @@ func TestNumericContextAndValueContractsAreRetired(t *testing.T) {
 	}
 	for relative, retired := range map[string][]string{
 		"internal/platform/logging/helpers.go":                 {"LogTaskStart", "LogTaskComplete", "LogTaskFailed", "WithTaskContext", "WithStoreContext", "FieldTaskID", "FieldTenantID", "FieldStoreID"},
-		"internal/core/logger/compat.go":                       {"WithTaskContext", "WithStoreContext", "FieldTaskID", "FieldTenantID", "FieldStoreID"},
 		"internal/shein/pricing/calculator.go":                 {"listingruntime"},
 		"internal/shein/activity/registration_config.go":       {"listingruntime"},
 		"internal/shein/activity/promotion_create_products.go": {"listingruntime"},
@@ -2469,7 +2538,7 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/publishing/shein/submit_site_sku_policy.go":                   {"sheinmarketpub.DefaultSiteListByRegion("},
 		"internal/publishing/shein/sensitive_content_sanitizer.go":              {"content.CleanupContext", "ensureSanitizerContext", "authorizedbrand.FromContext"},
 
-		"internal/publishing/shein/submit_prep_sensitive_adapter.go": {"content.NewSensitiveWordServiceInMemory()"},
+		"internal/publishing/shein/submit_prep_sensitive_adapter.go": {"content.NewSensitiveWordServiceInMemory(logs)"},
 	} {
 		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
 		if err != nil {
@@ -3582,7 +3651,7 @@ func TestNumericContentConfigurationClosureIsRetired(t *testing.T) {
 		}
 	}
 	for relative, required := range map[string][]string{
-		"internal/publishing/shein/submit_prep_sensitive_adapter.go": {"content.NewSensitiveWordServiceInMemory()"},
+		"internal/publishing/shein/submit_prep_sensitive_adapter.go": {"content.NewSensitiveWordServiceInMemory(logs)"},
 		"internal/shein/content/cleanup_context.go":                  {"type CleanupContext struct"},
 		"internal/shein/generationtopics/registry.go":                {"func ResolveSheinTopicKeys(", "func ResolveSheinTopicDefinitionsWithOverlay(", "func AssembleSheinPolicySummary(", "func CollectLexiconsFromDefinitions("},
 	} {

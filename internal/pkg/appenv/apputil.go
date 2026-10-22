@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	loggerPkg "task-processor/internal/core/logger"
+	loggerPkg "task-processor/internal/platform/logging"
 
 	"github.com/sirupsen/logrus"
 )
@@ -14,8 +14,14 @@ import (
 // 日志
 // =============================================================================
 
+// ComponentLoggers supplies the current Platform getter to runtime composition.
+// Consumers receive this dependency; they never import appenv to look it up.
+func ComponentLoggers() func(string) *logrus.Entry {
+	return loggerPkg.GetGlobalLogger
+}
+
 // SetupLogger 初始化全局日志管理器（info 级别），返回底层 *logrus.Logger。
-// 业务代码通过 logger.GetGlobalLogger(component) 获取带组件标识的 Entry。
+// 运行入口向消费端注入当前 Logrus Entry 或组件日志回调。
 func SetupLogger() *logrus.Logger {
 	return SetupLoggerWithLevel("info")
 }

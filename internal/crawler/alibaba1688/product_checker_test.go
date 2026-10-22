@@ -19,7 +19,7 @@ func newValidProductForValidation() *model.Product1688 {
 }
 
 func TestValidatePricingAcceptsAscendingPriceRanges(t *testing.T) {
-	checker := NewProductChecker()
+	checker := NewProductChecker(nil)
 	product := &model.Product1688{
 		MinPrice:         7.5,
 		MaxPrice:         12.5,
@@ -37,7 +37,7 @@ func TestValidatePricingAcceptsAscendingPriceRanges(t *testing.T) {
 }
 
 func TestValidatePricingRejectsDuplicateMinQuantity(t *testing.T) {
-	checker := NewProductChecker()
+	checker := NewProductChecker(nil)
 	product := &model.Product1688{
 		MinPrice:         7.5,
 		MaxPrice:         12.5,
@@ -54,7 +54,7 @@ func TestValidatePricingRejectsDuplicateMinQuantity(t *testing.T) {
 }
 
 func TestValidateProductRejectsMissingRequiredFields(t *testing.T) {
-	checker := NewProductChecker()
+	checker := NewProductChecker(nil)
 	product := &model.Product1688{URL: "https://detail.1688.com/offer/1.html", MainImage: "https://img.example/product.jpg"}
 
 	if err := checker.ValidateProduct(product); err == nil {
@@ -63,7 +63,7 @@ func TestValidateProductRejectsMissingRequiredFields(t *testing.T) {
 }
 
 func TestValidateProductAcceptsCompleteRequiredFields(t *testing.T) {
-	checker := NewProductChecker()
+	checker := NewProductChecker(nil)
 	product := newValidProductForValidation()
 
 	if err := checker.ValidateProduct(product); err != nil {
@@ -72,7 +72,7 @@ func TestValidateProductAcceptsCompleteRequiredFields(t *testing.T) {
 }
 
 func TestValidateProductRejectsHostlessOptionalImageURL(t *testing.T) {
-	checker := NewProductChecker()
+	checker := NewProductChecker(nil)
 	product := newValidProductForValidation()
 	product.Variants = []model.Variant{{Image: "https:///.jpg"}}
 
@@ -82,7 +82,7 @@ func TestValidateProductRejectsHostlessOptionalImageURL(t *testing.T) {
 }
 
 func TestValidateProductRejectsMediaURLsWithUserInfoWithoutEchoingCredentials(t *testing.T) {
-	checker := NewProductChecker()
+	checker := NewProductChecker(nil)
 	badURL := credentialedExternalURLForTest()
 
 	tests := []struct {

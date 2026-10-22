@@ -113,7 +113,7 @@ func TestZitadelSMSPrivateConfig(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Setenv("ZITADEL_SMS_CONFIG_FILE", writeSMSPrivateConfig(t, tc.body))
-			m, err := buildZitadelSMSModule(context.Background())
+			m, err := buildZitadelSMSModule(context.Background(), nil)
 			if tc.valid {
 				if err != nil || m == nil {
 					t.Fatalf("valid private config rejected: %v", err)
@@ -127,7 +127,7 @@ func TestZitadelSMSPrivateConfig(t *testing.T) {
 	}
 	t.Run("relative", func(t *testing.T) {
 		t.Setenv("ZITADEL_SMS_CONFIG_FILE", "sms.json")
-		if _, err := buildZitadelSMSModule(context.Background()); err == nil {
+		if _, err := buildZitadelSMSModule(context.Background(), nil); err == nil {
 			t.Fatal("relative path admitted")
 		}
 	})
@@ -135,7 +135,7 @@ func TestZitadelSMSPrivateConfig(t *testing.T) {
 		t.Setenv("ZITADEL_SMS_CONFIG_FILE", writeSMSPrivateConfig(t, validSMSPrivateConfig))
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
-		if _, err := buildZitadelSMSModule(ctx); err == nil {
+		if _, err := buildZitadelSMSModule(ctx, nil); err == nil {
 			t.Fatal("cancelled startup admitted")
 		}
 	})
@@ -149,7 +149,7 @@ func TestZitadelSMSPrivateConfig(t *testing.T) {
 			t.Fatal(err)
 		}
 		t.Setenv("ZITADEL_SMS_CONFIG_FILE", path)
-		if _, err := buildZitadelSMSModule(context.Background()); err == nil {
+		if _, err := buildZitadelSMSModule(context.Background(), nil); err == nil {
 			t.Fatal("public config admitted")
 		}
 	})

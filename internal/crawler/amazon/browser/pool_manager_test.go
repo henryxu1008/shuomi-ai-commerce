@@ -445,7 +445,7 @@ func TestHealthChecker_DrainBeforeRecreate(t *testing.T) {
 		},
 	}
 
-	hc := NewHealthChecker(bp)
+	hc := NewHealthChecker(bp, nil)
 
 	// 模拟两个实例都不健康：直接调用 performHealthCheck，
 	// 但 HealthCheck 依赖真实页面，所以我们绕过它，直接测试 drain 逻辑。

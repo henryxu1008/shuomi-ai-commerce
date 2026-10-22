@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"task-processor/internal/core/logger"
-
 	"github.com/fsnotify/fsnotify"
 	"github.com/sirupsen/logrus"
 )
@@ -25,25 +23,13 @@ type fileWatcher struct {
 	log     *logrus.Entry
 }
 
-// NewFileWatcher 创建一个新的 FileWatcher 实例
-func NewFileWatcher() (FileWatcher, error) {
-	w, err := fsnotify.NewWatcher()
-	if err != nil {
-		return nil, fmt.Errorf("创建 fsnotify watcher 失败: %w", err)
-	}
-	return &fileWatcher{
-		watcher: w,
-		log:     logger.GetGlobalLogger("prompt.watcher"),
-	}, nil
-}
-
 // NewFileWatcherWithLogger 创建一个使用指定 logger 的 FileWatcher 实例
 func NewFileWatcherWithLogger(log *logrus.Entry) (FileWatcher, error) {
 	w, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, fmt.Errorf("创建 fsnotify watcher 失败: %w", err)
 	}
-	return &fileWatcher{watcher: w, log: log}, nil
+	return &fileWatcher{watcher: w, log: diagnosticLogger(log)}, nil
 }
 
 // Watch 开始监听目录，Write 和 Create 事件触发后延迟 200ms 再调用 callback

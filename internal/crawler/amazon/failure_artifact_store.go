@@ -1,6 +1,8 @@
 package amazon
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,7 +14,6 @@ import (
 	"unicode"
 
 	"task-processor/internal/core/config"
-	"task-processor/internal/core/logger"
 
 	"github.com/mxschmitt/playwright-go"
 )
@@ -47,22 +48,25 @@ type failureArtifactMetadata struct {
 }
 
 type FailureArtifactStore struct {
+	loggerDependency
+
 	enabled      bool
 	directory    string
 	captureHTML  bool
 	maxHTMLBytes int
 }
 
-func NewFailureArtifactStore(cfg *config.Config) *FailureArtifactStore {
+func NewFailureArtifactStore(cfg *config.Config, logs func(string) *logrus.Entry) *FailureArtifactStore {
 	if cfg == nil || !cfg.Amazon.FailureArtifacts.Enabled {
 		return nil
 	}
 
 	return &FailureArtifactStore{
-		enabled:      true,
-		directory:    cfg.Amazon.FailureArtifacts.Directory,
-		captureHTML:  cfg.Amazon.FailureArtifacts.CaptureHTML,
-		maxHTMLBytes: cfg.Amazon.FailureArtifacts.MaxHTMLBytes,
+		loggerDependency: loggerDependency{logFor: logs},
+		enabled:          true,
+		directory:        cfg.Amazon.FailureArtifacts.Directory,
+		captureHTML:      cfg.Amazon.FailureArtifacts.CaptureHTML,
+		maxHTMLBytes:     cfg.Amazon.FailureArtifacts.MaxHTMLBytes,
 	}
 }
 
@@ -133,7 +137,7 @@ func (s *FailureArtifactStore) Capture(page failureArtifactPage, input FailureAr
 		return errors.New(strings.Join(captureErrors, "; "))
 	}
 
-	logger.GetGlobalLogger("crawler/amazon").Infof("已保存失败样本: %s", metadataPath)
+	s.componentLogger("crawler/amazon").Infof("已保存失败样本: %s", metadataPath)
 	return nil
 }
 

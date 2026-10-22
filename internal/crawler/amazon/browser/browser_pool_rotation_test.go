@@ -111,7 +111,7 @@ func TestPoolStatsIncludesRebuildAndInitCounters(t *testing.T) {
 		instanceManager: im,
 	}
 	im.pool = bp
-	bp.healthChecker = NewHealthChecker(bp)
+	bp.healthChecker = NewHealthChecker(bp, nil)
 
 	bp.recordInitFailure()
 	bp.recordSyncRecreateResult(true)

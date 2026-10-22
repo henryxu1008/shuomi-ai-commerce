@@ -2,23 +2,26 @@
 package extractor
 
 import (
-	"task-processor/internal/core/logger"
+	"github.com/sirupsen/logrus"
+
 	"task-processor/internal/model"
 
 	"github.com/mxschmitt/playwright-go"
 )
 
 // ImageExtractor 图片提取器 - 只提取轮播图
-type ImageExtractor struct{}
+type ImageExtractor struct {
+	loggerDependency
+}
 
 // NewImageExtractor 创建图片提取器实例
-func NewImageExtractor() *ImageExtractor {
-	return &ImageExtractor{}
+func NewImageExtractor(logs func(string) *logrus.Entry) *ImageExtractor {
+	return &ImageExtractor{loggerDependency: loggerDependency{logFor: logs}}
 }
 
 // Extract 提取产品轮播图 - 从colorImages提取，优先hiRes，fallback到large
 func (ie *ImageExtractor) Extract(page playwright.Page, product *model.Product) error {
-	logger.GetGlobalLogger("crawler/amazon").Infof("开始提取产品轮播图...")
+	ie.componentLogger("crawler/amazon").Infof("开始提取产品轮播图...")
 
 	// 从colorImages提取图片，优先hiRes，如果为null则使用large并转换为高分辨率
 	result, err := page.Evaluate(`() => {
@@ -89,7 +92,7 @@ func (ie *ImageExtractor) Extract(page playwright.Page, product *model.Product) 
 	}`)
 
 	if err != nil {
-		logger.GetGlobalLogger("crawler/amazon").Errorf("提取轮播图失败: %v", err)
+		ie.componentLogger("crawler/amazon").Errorf("提取轮播图失败: %v", err)
 		return err
 	}
 
@@ -108,9 +111,9 @@ func (ie *ImageExtractor) Extract(page playwright.Page, product *model.Product) 
 		product.ImageURL = images[0]
 		product.Images = images
 		product.ImagesCount = len(images)
-		logger.GetGlobalLogger("crawler/amazon").Infof("提取到 %d 张轮播图", len(images))
+		ie.componentLogger("crawler/amazon").Infof("提取到 %d 张轮播图", len(images))
 	} else {
-		logger.GetGlobalLogger("crawler/amazon").Infof("未提取到轮播图")
+		ie.componentLogger("crawler/amazon").Infof("未提取到轮播图")
 	}
 
 	return nil

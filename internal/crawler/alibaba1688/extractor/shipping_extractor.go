@@ -2,19 +2,23 @@
 package extractor
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"strings"
-	"task-processor/internal/core/logger"
+
 	"task-processor/internal/crawler/alibaba1688/model"
 
 	"github.com/mxschmitt/playwright-go"
 )
 
 // ShippingExtractor 物流信息提取器
-type ShippingExtractor struct{}
+type ShippingExtractor struct {
+	loggerDependency
+}
 
 // NewShippingExtractor 创建物流信息提取器
-func NewShippingExtractor() *ShippingExtractor {
-	return &ShippingExtractor{}
+func NewShippingExtractor(logs func(string) *logrus.Entry) *ShippingExtractor {
+	return &ShippingExtractor{loggerDependency: loggerDependency{logFor: logs}}
 }
 
 // Extract 提取物流信息 - 支持两种数据结构
@@ -181,7 +185,7 @@ func (se *ShippingExtractor) Extract(page playwright.Page, product *model.Produc
 				shippingInfo.ShippingMethods = methods
 			}
 
-			logger.GetGlobalLogger("crawler/alibaba1688").Debugf("通过%s提取到物流信息: 发货地=%s, 重量=%.0fg", source, shippingInfo.ShippingFrom, func() float64 {
+			se.componentLogger("crawler/alibaba1688").Debugf("通过%s提取到物流信息: 发货地=%s, 重量=%.0fg", source, shippingInfo.ShippingFrom, func() float64 {
 				if product.PackInfo != nil {
 					return product.PackInfo.Weight
 				}
@@ -225,7 +229,7 @@ func (se *ShippingExtractor) extractShippingFromDOM(page playwright.Page, shippi
 			cleanText := strings.TrimSpace(shippingText)
 			if se.isValidShippingLocation(cleanText) {
 				shippingInfo.ShippingFrom = cleanText
-				logger.GetGlobalLogger("crawler/alibaba1688").Debugf("通过选择器 %s 提取到发货地: %s", selector, cleanText)
+				se.componentLogger("crawler/alibaba1688").Debugf("通过选择器 %s 提取到发货地: %s", selector, cleanText)
 				return
 			}
 		}
@@ -254,7 +258,7 @@ func (se *ShippingExtractor) extractShippingFromDOM(page playwright.Page, shippi
 			// 清理发货地信息
 			cleanedLocation := se.cleanLocationText(location)
 			shippingInfo.ShippingFrom = cleanedLocation
-			logger.GetGlobalLogger("crawler/alibaba1688").Debugf("通过JavaScript方法提取到发货地: %s", cleanedLocation)
+			se.componentLogger("crawler/alibaba1688").Debugf("通过JavaScript方法提取到发货地: %s", cleanedLocation)
 		}
 	}
 }

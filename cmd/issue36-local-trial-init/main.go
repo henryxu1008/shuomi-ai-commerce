@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"task-processor/internal/pkg/appenv"
 	"time"
 
 	"task-processor/internal/app/httpapi"
@@ -100,7 +101,7 @@ func execute(args []string, output io.Writer) error {
 		}
 		return nil
 	}
-	sample, err := localtrial.PrepareSample(ctx, db, *organizationID, *actorID, httpapi.Issue36LocalTrialSourceWiring())
+	sample, err := localtrial.PrepareSample(ctx, db, *organizationID, *actorID, httpapi.Issue36LocalTrialSourceWiring(), appenv.ComponentLoggers())
 	if err != nil {
 		return fmt.Errorf("prepare local trial sample: %w", err)
 	}

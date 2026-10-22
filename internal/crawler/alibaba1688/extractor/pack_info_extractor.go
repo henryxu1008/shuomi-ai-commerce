@@ -2,23 +2,26 @@
 package extractor
 
 import (
-	"task-processor/internal/core/logger"
+	"github.com/sirupsen/logrus"
+
 	"task-processor/internal/crawler/alibaba1688/model"
 
 	"github.com/mxschmitt/playwright-go"
 )
 
 // PackInfoExtractor 产品包装信息提取器
-type PackInfoExtractor struct{}
+type PackInfoExtractor struct {
+	loggerDependency
+}
 
 // NewPackInfoExtractor 创建产品包装信息提取器
-func NewPackInfoExtractor() *PackInfoExtractor {
-	return &PackInfoExtractor{}
+func NewPackInfoExtractor(logs func(string) *logrus.Entry) *PackInfoExtractor {
+	return &PackInfoExtractor{loggerDependency: loggerDependency{logFor: logs}}
 }
 
 // Extract 提取产品包装信息 - 支持两种数据结构
 func (pie *PackInfoExtractor) Extract(page playwright.Page, product *model.Product1688) error {
-	logger.GetGlobalLogger("crawler/alibaba1688").Debug("开始提取产品包装信息")
+	pie.componentLogger("crawler/alibaba1688").Debug("开始提取产品包装信息")
 
 	// 从结构化数据中获取包装信息，支持两种数据结构
 	packInfoResult, err := page.Evaluate(`() => {
@@ -75,7 +78,7 @@ func (pie *PackInfoExtractor) Extract(page playwright.Page, product *model.Produ
 	}`, nil)
 
 	if err != nil {
-		logger.GetGlobalLogger("crawler/alibaba1688").Debugf("提取包装信息失败: %v", err)
+		pie.componentLogger("crawler/alibaba1688").Debugf("提取包装信息失败: %v", err)
 		return err
 	}
 
@@ -89,7 +92,7 @@ func (pie *PackInfoExtractor) Extract(page playwright.Page, product *model.Produ
 				}
 
 				product.PackInfo = packInfo
-				logger.GetGlobalLogger("crawler/alibaba1688").Debugf("成功提取包装信息，重量: %.0fg", unitWeight)
+				pie.componentLogger("crawler/alibaba1688").Debugf("成功提取包装信息，重量: %.0fg", unitWeight)
 			}
 		}
 	}

@@ -133,7 +133,7 @@ func TestAnotherConsumerCannotInterruptOwnedVerificationAttempt(t *testing.T) {
 	if err != nil || len(claimed) != 1 {
 		t.Fatal(claimed, err)
 	}
-	second, err := NewService(s.config, s.store, s.owner)
+	second, err := NewService(s.config, s.store, s.owner, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -328,7 +328,7 @@ func currentService(t *testing.T) (*Service, *storecenter.SheinLoginRepository, 
 	credential := filepath.Join(root, "fresh-credential.json")
 	privateFixture(t, credential, []byte(`{"username":"private-user","password":"private-password"}`))
 	cfg := Config{InstallationID: redis.installation, StoreDatabase: config.DatabaseConfig{Host: "synthetic", Port: 5432, Database: "synthetic", User: "shein_login_worker"}, Redis: config.RedisConfig{Host: "synthetic", Port: 6379}, ProfileRoot: filepath.Join(root, "profiles"), ArtifactRoot: filepath.Join(root, "artifacts"), MaxConcurrentLogins: 2, BrowserPath: filepath.Join(root, "browser.exe"), DriverDirectory: filepath.Join(root, "driver"), Auth: AuthConfig{IssuerURL: "https://identity.example", AuthorizationAPIURL: "https://identity.example", ClientID: "client", ProjectID: "project", ClientSecretFile: filepath.Join(root, "client-secret"), ServiceTokenFile: filepath.Join(root, "service-token")}, Bindings: []Binding{{OrganizationID: "123", StoreID: store.ID(), Revision: uuid.NewString(), LoginURL: "https://sellerhub.shein.com", CredentialFile: credential, Headless: true}}}
-	service, e := NewService(cfg, redis, owner)
+	service, e := NewService(cfg, redis, owner, nil)
 	if e != nil {
 		t.Fatal(e)
 	}

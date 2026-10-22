@@ -23,7 +23,7 @@ func TestClientQuerySiteList(t *testing.T) {
 		_, _ = w.Write([]byte(`{"code":"0","msg":"OK","info":{"data":[{"main_site":"shein","main_site_name":"SHEIN","sub_site_list":[{"site_name":"SHEIN美国站","site_abbr":"shein-us","site_status":1,"store_type":1,"currency":"USD"}]}]}}`))
 	}))
 	defer server.Close()
-	client := NewClient(sheinclient.NewBaseAPIClient(server.URL, req.C()))
+	client := NewClient(sheinclient.NewBaseAPIClient(server.URL, req.C()), nil)
 	got, err := client.QuerySiteList()
 	if err != nil {
 		t.Fatal(err)

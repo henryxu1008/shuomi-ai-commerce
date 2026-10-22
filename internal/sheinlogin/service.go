@@ -1,6 +1,8 @@
 package sheinlogin
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -8,11 +10,8 @@ import (
 	"reflect"
 	"time"
 
-	"task-processor/internal/core/logger"
 	"task-processor/internal/storecenter"
 )
-
-var sheinLoginServiceLogger = logger.GetGlobalLogger("sheinlogin_service")
 
 type StoreOwner interface {
 	Activate(context.Context, storecenter.SheinBindingCommand) (storecenter.SheinBinding, error)
@@ -36,11 +35,11 @@ type Service struct {
 	identityReader SessionIdentityReader
 }
 
-func NewService(c Config, redis *RedisStore, owner StoreOwner) (*Service, error) {
+func NewService(c Config, redis *RedisStore, owner StoreOwner, logs func(string) *logrus.Entry) (*Service, error) {
 	if c.Validate() != nil || redis == nil || owner == nil {
 		return nil, ErrInvalidInput
 	}
-	return &Service{config: c, store: redis, owner: owner, automation: NewPlaywrightAutomation(), identityReader: NewSessionIdentityReader()}, nil
+	return &Service{config: c, store: redis, owner: owner, automation: NewPlaywrightAutomation(logs), identityReader: NewSessionIdentityReader()}, nil
 }
 func (s *Service) Close() error { return s.store.Close() }
 func (s *Service) RedisReady(ctx context.Context) bool {

@@ -853,19 +853,32 @@ func TestPublishingSheinSubmitPrepUsesOnlySensitiveWordAdapter(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	contentAlias := ""
+	contentAlias, loggerAlias := "", ""
 	for _, imp := range file.Imports {
-		if imp.Path.Value != `"task-processor/internal/shein/content"` {
-			t.Errorf("%s imports %s; current sensitive adapter must only depend on content", filePath, imp.Path.Value)
+		alias := ""
+		switch imp.Path.Value {
+		case `"task-processor/internal/shein/content"`:
+			alias = "content"
+		case `"github.com/sirupsen/logrus"`:
+			alias = "logrus"
+		default:
+			t.Errorf("%s imports %s; sensitive adapter may only depend on content and its Logrus diagnostic type", filePath, imp.Path.Value)
 			continue
 		}
-		contentAlias = "content"
 		if imp.Name != nil {
-			contentAlias = imp.Name.Name
+			alias = imp.Name.Name
+		}
+		if alias == "." || alias == "_" {
+			t.Fatal("sensitive adapter imports must not be obscured")
+		}
+		if imp.Path.Value == `"task-processor/internal/shein/content"` {
+			contentAlias = alias
+		} else {
+			loggerAlias = alias
 		}
 	}
-	if contentAlias == "" || contentAlias == "." || contentAlias == "_" {
-		t.Fatal("current content owner import is missing or obscured")
+	if contentAlias == "" || loggerAlias == "" {
+		t.Fatal("current content owner and Logrus diagnostic type imports are required")
 	}
 	factoryFound := false
 	for _, declaration := range file.Decls {
@@ -878,16 +891,41 @@ func TestPublishingSheinSubmitPrepUsesOnlySensitiveWordAdapter(t *testing.T) {
 			continue
 		}
 		factoryFound = true
-		if factory.Recv != nil || factory.Type.Params.NumFields() != 0 || factory.Body == nil || len(factory.Body.List) != 1 {
-			t.Fatal("current sensitive factory must directly return the existing in-memory content service without injection")
+		if factory.Recv != nil || factory.Type.Params.NumFields() != 1 || factory.Body == nil || len(factory.Body.List) != 1 {
+			t.Fatal("sensitive factory must directly return the existing in-memory content service with one diagnostic dependency")
+		}
+		param := factory.Type.Params.List[0]
+		if len(param.Names) != 1 || param.Names[0].Name == "_" {
+			t.Fatal("sensitive factory must name its single diagnostic dependency")
+		}
+		callback, ok := param.Type.(*ast.FuncType)
+		if !ok || callback.Params.NumFields() != 1 || callback.Results.NumFields() != 1 {
+			t.Fatal("diagnostic dependency must have type func(string) *logrus.Entry")
+		}
+		component, componentOK := callback.Params.List[0].Type.(*ast.Ident)
+		entryPointer, pointerOK := callback.Results.List[0].Type.(*ast.StarExpr)
+		if !componentOK || component.Name != "string" || !pointerOK {
+			t.Fatal("diagnostic dependency must accept one component string and return a Logrus entry")
+		}
+		entry, entryOK := entryPointer.X.(*ast.SelectorExpr)
+		if !entryOK {
+			t.Fatal("diagnostic dependency must return *logrus.Entry")
+		}
+		logger, loggerOK := entry.X.(*ast.Ident)
+		if !loggerOK || logger.Name != loggerAlias || entry.Sel.Name != "Entry" {
+			t.Fatal("diagnostic dependency must use the imported Logrus Entry type")
 		}
 		ret, ok := factory.Body.List[0].(*ast.ReturnStmt)
 		if !ok || len(ret.Results) != 1 {
 			t.Fatal("sensitive factory must directly return content service")
 		}
 		call, ok := ret.Results[0].(*ast.CallExpr)
-		if !ok || len(call.Args) != 0 {
-			t.Fatal("sensitive factory must use the original no-argument content factory")
+		if !ok || len(call.Args) != 1 || call.Ellipsis.IsValid() {
+			t.Fatal("sensitive factory must pass only its existing diagnostic dependency")
+		}
+		arg, ok := call.Args[0].(*ast.Ident)
+		if !ok || arg.Name != param.Names[0].Name {
+			t.Fatal("sensitive factory must forward the diagnostic dependency unchanged")
 		}
 		selector, ok := call.Fun.(*ast.SelectorExpr)
 		if !ok {

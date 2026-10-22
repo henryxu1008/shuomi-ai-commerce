@@ -112,7 +112,7 @@ func TestSaleAttributeResolutionAppliesAssignmentsAcrossGroupedSKCs(t *testing.T
 }
 
 func TestAssemblerBuildCreatesDefaultSKCWhenCanonicalVariantsMissing(t *testing.T) {
-	assembler := NewAssembler(AssemblerConfig{})
+	assembler := NewAssembler(AssemblerConfig{}, nil)
 	canonical := &canonical.Product{
 		Title:       "Minimal Product",
 		Description: "fallback variant",
@@ -143,7 +143,7 @@ func TestAssemblerBuildCreatesDefaultSKCWhenCanonicalVariantsMissing(t *testing.
 }
 
 func TestAssemblerBuildMarks1688LLMOnlyFactsForReview(t *testing.T) {
-	assembler := NewAssembler(AssemblerConfig{})
+	assembler := NewAssembler(AssemblerConfig{}, nil)
 	canonical := &canonical.Product{
 		Title:         "1688 Product",
 		Description:   "Scraped description",
@@ -191,7 +191,7 @@ func TestAssemblerBuildAppliesPricingPolicyToRequestDraft(t *testing.T) {
 			MarkupRate:   0.25,
 			RoundTo:      0.01,
 		},
-	})
+	}, nil)
 	canonical := &canonical.Product{
 		Title: "Priced Product",
 		Variants: []canonical.Variant{{
@@ -306,7 +306,7 @@ func TestAssemblerBuildCreatesGroupedSKCsWhenSaleAttributeResolverMapsSourceDime
 		SaleAttributeResolver: assemblerStubSaleAttributeResolver{resolution: &SaleAttributeResolution{Status: "resolved", PrimarySourceDimension: "color", SecondarySourceDimension: "size", PrimaryAttributeID: 501, SecondaryAttributeID: 502,
 			SKCValueAssignments: map[string]ResolvedSaleAttribute{"red": {Value: "Red", AttributeID: 501, AttributeValueID: &red}, "blue": {Value: "Blue", AttributeID: 501, AttributeValueID: &blue}},
 			SKUValueAssignments: map[string]ResolvedSaleAttribute{"42": {Value: "42", AttributeID: 502, AttributeValueID: &size42}, "43": {Value: "43", AttributeID: 502, AttributeValueID: &size43}}}},
-	})
+	}, nil)
 	canonical := &canonical.Product{
 		Title:       "Fallback Matrix Product",
 		Description: "fallback matrix",
@@ -339,7 +339,7 @@ func TestAssemblerBuildCreatesGroupedSKCsWhenSaleAttributeResolverMapsSourceDime
 func TestAssemblerBuildDoesNotPropagatePromptTextIntoSKCNames(t *testing.T) {
 	assembler := NewAssembler(AssemblerConfig{
 		SaleAttributeResolver: assemblerStubSaleAttributeResolver{resolution: &SaleAttributeResolution{Status: "resolved", PrimarySourceDimension: "color", PrimaryAttributeID: 27, SKCValueAssignments: map[string]ResolvedSaleAttribute{"black": {Value: "Black", AttributeID: 27}}}},
-	})
+	}, nil)
 	canonical := &canonical.Product{
 		Title: "Flannel non-slip floor mat",
 		Attributes: map[string]canonical.Attribute{
@@ -412,7 +412,7 @@ func TestAssemblerBuildDoesNotTriggerRuleBasedCategoryReview(t *testing.T) {
 			},
 		},
 		SaleAttributeResolver: assemblerStubSaleAttributeResolver{resolution: &SaleAttributeResolution{Status: "resolved", PrimarySourceDimension: "color", PrimaryAttributeID: 27, SKCValueAssignments: map[string]ResolvedSaleAttribute{"black": {Value: "Black", AttributeID: 27}}}},
-	})
+	}, nil)
 
 	canonical := &canonical.Product{
 		Title:        "420ml stainless steel tumbler",
@@ -467,7 +467,7 @@ func TestAssemblerBuildDoesNotRequestAlternativeCategoryOnSaleReview(t *testing.
 				CategoryReviewReason:    "current category needs review",
 			},
 		},
-	})
+	}, nil)
 
 	product := testCanonicalProduct()
 	product.Images = []canonical.Image{{URL: "main.jpg"}}

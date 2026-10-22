@@ -2,11 +2,13 @@
 package amazon
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"context"
 	"fmt"
 	"sync"
 	"task-processor/internal/core/config"
-	"task-processor/internal/core/logger"
+
 	"task-processor/internal/crawler/amazon/browser"
 	"task-processor/internal/model"
 	"time"
@@ -14,6 +16,8 @@ import (
 
 // AmazonProcessor Amazon爬虫处理器
 type AmazonProcessor struct {
+	loggerDependency
+
 	browserPool          *browser.BrowserPool
 	poolManager          *browser.PoolManager
 	config               *config.Config
@@ -41,7 +45,7 @@ func effectiveBrowserPoolSize(cfg *config.Config) int {
 	return defaultAmazonBrowserPoolSize
 }
 
-func newAmazonBrowserPoolConfig(cfg *config.Config) *browser.BrowserPoolConfig {
+func newAmazonBrowserPoolConfig(cfg *config.Config, logs func(string) *logrus.Entry) *browser.BrowserPoolConfig {
 	poolConfig := browser.DefaultBrowserPoolConfig()
 	poolConfig.Size = effectiveBrowserPoolSize(cfg)
 
@@ -54,48 +58,49 @@ func newAmazonBrowserPoolConfig(cfg *config.Config) *browser.BrowserPoolConfig {
 		poolConfig.MaxRetries = cfg.Browser.RandomConfig.MaxRetries
 		poolConfig.MaxInstanceUses = cfg.Browser.RandomConfig.MaxUsesPerInstance
 
-		logger.GetGlobalLogger("crawler/amazon").Infof("启用随机配置 - 策略: %s, 预设: %s, 指纹策略: %s",
+		componentLogger(logs, "crawler/amazon").Infof("启用随机配置 - 策略: %s, 预设: %s, 指纹策略: %s",
 			cfg.Browser.RandomConfig.Strategy, cfg.Browser.RandomConfig.PresetName, cfg.Browser.RandomConfig.FingerprintStrategy)
 	} else {
 		poolConfig.UseRandomFingerprint = false
-		logger.GetGlobalLogger("crawler/amazon").Info("使用传统浏览器配置")
+		componentLogger(logs, "crawler/amazon").Info("使用传统浏览器配置")
 	}
 
 	configuredSize := 0
 	if cfg != nil {
 		configuredSize = cfg.Browser.PoolSize
 	}
-	logger.GetGlobalLogger("crawler/amazon").Infof("创建Amazon处理器，浏览器池大小: %d (配置值: %d)", poolConfig.Size, configuredSize)
+	componentLogger(logs, "crawler/amazon").Infof("创建Amazon处理器，浏览器池大小: %d (配置值: %d)", poolConfig.Size, configuredSize)
 	return poolConfig
 }
 
-func initializeAmazonBrowserPool(cfg *config.Config) (*browser.BrowserPool, *browser.PoolManager, error) {
-	poolConfig := newAmazonBrowserPoolConfig(cfg)
-	browserPool := browser.NewBrowserPool(cfg, poolConfig)
+func initializeAmazonBrowserPool(cfg *config.Config, logs func(string) *logrus.Entry) (*browser.BrowserPool, *browser.PoolManager, error) {
+	poolConfig := newAmazonBrowserPoolConfig(cfg, logs)
+	browserPool := browser.NewBrowserPool(cfg, poolConfig, logs)
 
 	if err := browserPool.Initialize(); err != nil {
-		logger.GetGlobalLogger("crawler/amazon").Errorf("初始化浏览器池失败: %v", err)
+		componentLogger(logs, "crawler/amazon").Errorf("初始化浏览器池失败: %v", err)
 		return browserPool, nil, newProcessorUnavailableError(fmt.Sprintf("初始化浏览器池失败: %v", err), err)
 	}
 
-	logger.GetGlobalLogger("crawler/amazon").Info("浏览器池初始化成功")
-	return browserPool, browser.NewPoolManager(browserPool), nil
+	componentLogger(logs, "crawler/amazon").Info("浏览器池初始化成功")
+	return browserPool, browser.NewPoolManager(browserPool, logs), nil
 }
 
 // NewAmazonProcessor 使用全局配置创建Amazon处理器
-func NewAmazonProcessor(cfg *config.Config) *AmazonProcessor {
+func NewAmazonProcessor(cfg *config.Config, logs func(string) *logrus.Entry) *AmazonProcessor {
 	// 创建辅助组件（需要在浏览器池初始化前创建，因为池管理器需要它们）
 	urlHelper := NewURLHelper()
-	productChecker := NewProductChecker()
+	productChecker := NewProductChecker(logs)
 
-	browserPool, poolManager, initErr := initializeAmazonBrowserPool(cfg)
+	browserPool, poolManager, initErr := initializeAmazonBrowserPool(cfg, logs)
 
 	batchProcessor := NewBatchProcessor()
-	timeoutManager := NewTimeoutManager(5 * time.Minute) // 默认5分钟超时
-	failureArtifactStore := NewFailureArtifactStore(cfg)
+	timeoutManager := NewTimeoutManager(5*time.Minute, logs) // 默认5分钟超时
+	failureArtifactStore := NewFailureArtifactStore(cfg, logs)
 	qualityMetrics := newQualityMetrics()
 
 	processor := &AmazonProcessor{
+		loggerDependency:     loggerDependency{logFor: logs},
 		browserPool:          browserPool,
 		poolManager:          poolManager,
 		config:               cfg,
@@ -124,7 +129,7 @@ func (ap *AmazonProcessor) ProcessWithContext(ctx context.Context, url string, z
 		return nil, err
 	}
 
-	logger.GetGlobalLogger("crawler/amazon").Infof("开始处理Amazon产品: %s", url)
+	ap.componentLogger("crawler/amazon").Infof("开始处理Amazon产品: %s", url)
 
 	return ap.processWithPoolManager(ctx, url, zipcode)
 }
@@ -175,8 +180,8 @@ func (ap *AmazonProcessor) retryInitialize(ctx context.Context) error {
 	default:
 	}
 
-	logger.GetGlobalLogger("crawler/amazon").Warn("浏览器池初始化曾失败，尝试重新初始化")
-	browserPool, poolManager, initErr := initializeAmazonBrowserPool(ap.config)
+	ap.componentLogger("crawler/amazon").Warn("浏览器池初始化曾失败，尝试重新初始化")
+	browserPool, poolManager, initErr := initializeAmazonBrowserPool(ap.config, ap.logFor)
 	if initErr != nil {
 		ap.mu.Lock()
 		ap.browserPool = browserPool
@@ -204,7 +209,7 @@ func (ap *AmazonProcessor) processWithPoolManager(ctx context.Context, url strin
 	timeout := 3 * time.Minute // 单个产品处理超时3分钟
 
 	// 创建实例处理器
-	processor := NewInstanceProcessor(ap.urlHelper, ap.productChecker, ap.resultValidator)
+	processor := NewInstanceProcessor(ap.urlHelper, ap.productChecker, ap.logFor, ap.resultValidator)
 	processor.SetFailureArtifactStore(ap.failureArtifactStore)
 	processor.SetQualityControlOptions(ap.config.Amazon.QualityControl.RetryOnValidationFailure, ap.config.Amazon.QualityControl.ValidationRetryMaxAttempts)
 	processor.SetQualityMetricsRecorder(ap.qualityMetrics)
@@ -269,7 +274,7 @@ func (ap *AmazonProcessor) ProcessBatchWithContext(ctx context.Context, requests
 		return []model.ProductResult{}
 	}
 
-	logger.GetGlobalLogger("crawler/amazon").Infof("开始批量处理 %d 个Amazon产品", len(requests))
+	ap.componentLogger("crawler/amazon").Infof("开始批量处理 %d 个Amazon产品", len(requests))
 	startTime := time.Now()
 
 	if err := ap.ensureReady(ctx); err != nil {
@@ -297,14 +302,14 @@ func (ap *AmazonProcessor) ProcessBatchWithContext(ctx context.Context, requests
 		}
 	}
 
-	logger.GetGlobalLogger("crawler/amazon").Infof("批量处理完成: 成功 %d/%d, 耗时: %v", successCount, len(requests), duration)
+	ap.componentLogger("crawler/amazon").Infof("批量处理完成: 成功 %d/%d, 耗时: %v", successCount, len(requests), duration)
 	return results
 }
 
 // Shutdown 关闭处理器
 func (ap *AmazonProcessor) Shutdown() {
 	ap.shutdownOnce.Do(func() {
-		logger.GetGlobalLogger("crawler/amazon").Info("开始关闭Amazon处理器")
+		ap.componentLogger("crawler/amazon").Info("开始关闭Amazon处理器")
 
 		ap.mu.Lock()
 		ap.closed = true
@@ -322,10 +327,10 @@ func (ap *AmazonProcessor) Shutdown() {
 
 		// 关闭浏览器池
 		if ap.browserPool != nil {
-			logger.GetGlobalLogger("crawler/amazon").Info("关闭浏览器池...")
+			ap.componentLogger("crawler/amazon").Info("关闭浏览器池...")
 			ap.browserPool.Shutdown()
 		}
 
-		logger.GetGlobalLogger("crawler/amazon").Info("Amazon处理器已关闭")
+		ap.componentLogger("crawler/amazon").Info("Amazon处理器已关闭")
 	})
 }
