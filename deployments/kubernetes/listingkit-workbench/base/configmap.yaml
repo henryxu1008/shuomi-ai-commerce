@@ -17,9 +17,6 @@ data:
   # ImageAgent runs, so tasks blocked on approved assets can recover.
   TASK_PROCESSOR_IMAGEAGENT_ADMISSION_ENABLED: "true"
   TASK_PROCESSOR_IMAGEAGENT_ADMISSION_ALLOWED_TENANT_IDS: "373211199677923496"
-  # Kubernetes Pods do not have an X server. SDS browser login must run
-  # headlessly unless a dedicated interactive browser environment is provided.
-  TASK_PROCESSOR_SDS_LOGIN_SERVICE_DEFAULT_HEADLESS: "true"
   # SHEIN has a dedicated login runtime. Keep its browser mode explicit rather
   # than inheriting an image-level default.
   TASK_PROCESSOR_SHEIN_LOGIN_SERVICE_DEFAULT_HEADLESS: "true"

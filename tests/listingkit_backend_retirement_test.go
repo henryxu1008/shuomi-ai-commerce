@@ -208,6 +208,9 @@ func TestLegacySDSRuntimeClosureIsRetired(t *testing.T) {
 		}
 	}
 	for path, retired := range map[string][]string{
+		"deployments/kubernetes/listingkit-workbench/base/configmap.yaml":      {"TASK_PROCESSOR_SDS_"},
+		"deployments/kubernetes/listingkit-workbench/base/secret.example.yaml": {"TASK_PROCESSOR_SDS_"},
+		"hack/debug/README.md":                                  {"go run ./test-sds"},
 		"web/listingkit-ui/src/lib/server/upstream-identity.ts": {"AuthenticatedUpstreamRequest"},
 		"internal/authz/httpapi/route_authorization.go":         {`"/api/v1/sds-login/health"`, `"sds"`, `"sds-login"`},
 		"scripts/start-listingkit-local-ui.ps1":                 {"SDS_API_BASE", "SDS_LOGIN_API_BASE"},
