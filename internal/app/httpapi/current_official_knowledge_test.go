@@ -96,8 +96,11 @@ func TestOfficialKnowledgeUsesLiveAccessWithoutEnterpriseStorage(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &list))
 	require.Len(t, list.Items, 1)
-	require.Equal(t, 200, read(officialhttp.Base+"/ai-commerce-guide/revisions/1", "u1").Code)
-	require.Equal(t, 404, read(officialhttp.Base+"/ai-commerce-guide/revisions/2", "u1").Code)
+	articleResponse := read(officialhttp.Base+"/ai-commerce-guide/revisions/2", "u1")
+	require.Equal(t, 200, articleResponse.Code)
+	require.NotContains(t, articleResponse.Body.String(), "github.com")
+	require.NotContains(t, articleResponse.Body.String(), `"url"`)
+	require.Equal(t, 404, read(officialhttp.Base+"/ai-commerce-guide/revisions/1", "u1").Code)
 	require.Equal(t, 400, read(officialhttp.Base+"?organization=other", "u1").Code)
 	r := httptest.NewRequest(http.MethodGet, officialhttp.Base, nil)
 	r.Header.Set("Authorization", "Bearer u1")
@@ -108,7 +111,7 @@ func TestOfficialKnowledgeUsesLiveAccessWithoutEnterpriseStorage(t *testing.T) {
 	server.Handler.ServeHTTP(w, r)
 	require.Equal(t, 400, w.Code)
 	policy.enabled = false
-	require.Equal(t, 403, read(officialhttp.Base+"/ai-commerce-guide/revisions/1", "u1").Code)
+	require.Equal(t, 403, read(officialhttp.Base+"/ai-commerce-guide/revisions/2", "u1").Code)
 	policy.enabled = true
 	f.revoked.Store(true)
 	require.Equal(t, 403, read(officialhttp.Base, "u1").Code)

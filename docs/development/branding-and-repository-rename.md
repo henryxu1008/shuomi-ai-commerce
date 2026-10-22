@@ -58,7 +58,7 @@ git remote -v
 | 源码引用 | 根 `go.mod` 的 `module task-processor`；cmd/internal/hack 下 import | **保留**。模块路径是独立源码标识，不由 GitHub 仓库名自动派生。更名不要求改 module，不新增 wrapper/双路径解析。owner：Go 构建/领域 owner |
 | 源码引用 | `hack/debug/go.mod` 的 `task-processor/debugtools`、`require task-processor` 和本地 `replace`；`tools/go.mod`、`tmp/go.mod` | 保留所有模块及本地解析关系。将来若明确决定更改 module，必须原子覆盖嵌套模块与仓库外消费者，另行评估合同准入 |
 | 源码引用 | `.golangci.yml` 的 depguard、tests 中 import/架构断言、scripts 中 AST/依赖解析与 fixture | 保留准确旧 module 字符串；禁止为名称统一削弱 guard。owner：现有边界/测试维护者 |
-| 当前生产出处合同 | `internal/knowledge/official/catalog.go` 的内置 sourceRoot/URL校验、`web/listingkit-ui/src/lib/api/official-knowledge.ts` 的严格来源schema及相邻测试 | 明确保留已发布v1固定SHA出处与两端旧prefix，作为原准确版本出处合同；不是普通展示链接。详见下方原子保留决定，禁止单边改新URL导致catalog装配或读取失败。owner：官方知识内容/读取owner |
+| 当前生产依据合同 | `internal/knowledge/official/catalog.go`、`web/listingkit-ui/src/lib/api/official-knowledge.ts`、原BFF/页面及相邻测试 | 用户新决定下，V2已退出sourceRoot/URL字段/双端GitHub白名单，以资料名称/维护方/准确版本表达依据；旧原子保留方案仅历史。owner：官方知识内容/读取owner |
 | 源码引用 | `extensions/1688-capture/package.json` 与 lock 的 `@task-processor/1688-capture`；前端 `listingkit-ui` 包名、目录、lock | 保留工程标识，无发布命名空间迁移。外部 npm 发布/依赖方 UNKNOWN。owner：扩展/前端维护者 |
 | 构建引用 | Makefile、Dockerfile、release/build 脚本与 config | 实际入口与路径保持；根 config YAML/Makefile 没有命中 `task-processor`，不能据此断言所有运行配置无关。owner：构建/运行 owner |
 | CI 标识 | `.github/workflows/ci.yml` concurrency 的 `task-processor-ci-*` 与 classifier 测试 | 保留，避免切换时产生另一组并发任务；通知 URL/仓库名消费 `github.repository`，改名后仍需实测。owner：CI 维护者 |
@@ -103,8 +103,8 @@ git remote -v
    不用普通链接重定向替代集成验证。未确认影响时保持待切换。
 4. **实际切换**：上述条件满足后，由获授权 owner 更名并记录新 URL、时间及仓库 ID；
    更新当前 README badge/模板/活动开发文档 URL、准确策略引用及各 clone 的 remote。
-   保留历史证据、官方知识v1固定版本出处与匹配白名单，以及 Go 模块、目录、镜像、资源名；
-   不在旧名称下新建仓库覆盖重定向，不把当前版本出处批量替换成新URL。
+   保留历史工程证据及 Go 模块、目录、镜像、资源名；官方知识V2已不依赖GitHub来源URL，
+   不为更名重新加入URL/白名单。不在旧名称下新建仓库覆盖重定向。
 5. **切换后核对**：新 URL clone/fetch 成功；由获授权 owner 用现有正常提交验证 push/Actions；
    PR/Issue 保留、必需检查/原策略负例保持；原 webhook 新事件投递和外部消费者由各 owner 确认。
    标签触发的部署仍需独立授权，不为测试更名发布部署 tag。
@@ -167,7 +167,8 @@ GitHub 行为依据：[Renaming a repository](https://docs.github.com/en/reposit
 **最新决定（2026-10-22）**：用户要求「官方知识库不要使用github地址」。下文原子保留方案
 仅为此前准备/评审证据，已被[产品内依据V2设计](../architecture/official-knowledge-provenance-v2.md)
 替代，不再指导实际切换。V2将从API/前后端/正文中退出GitHub来源URL，采用来源名称、维护方与
-准确版本；不只隐藏链接。当前V2设计待独立准入，正式实现尚未开始。
+准确版本；不只隐藏链接。V2已完成独立设计准入并按冻结合同实现，准确验证状态记录于PR；
+未更新当前实例，不把源码交付写成运行已切换。
 
 四处静态值不是全部生产引用。独立最终检查指出遗漏的当前官方知识来源组，已按
 IMPLEMENTATION_TEST（当前盘点文档Must、切换正确性）收敛到如下明确处理，不做单边替换。
@@ -223,7 +224,7 @@ official read API/BFF → 前端 `officialArticleSchema` 校验 → 官方知识
 ### 当前可以执行与尚未具备的条件
 
 - **已核实准备**：源码消费者定位（包括当前官方知识出处生成/校验/读取及相邻测试）、静态策略最小同步范围、保留标识/保护/环境清单、8个App的安装授权、Webhook实际错误与回退限制已明确；owner确认没有当前外部名称/subject依赖。
-- **最新范围**：用户已撤回官方知识GitHub来源的保留方案，先完成V2独立准入及实现，不把旧方案/旧评审或CI当新要求完成。
+- **最新范围**：用户已撤回官方知识GitHub来源的保留方案，V2独立准入及源码实现按新合同完成；最终CI/独立检查见PR，不把旧方案/旧评审或CI当新要求完成。
 - **切换时同步/保留**：上述四处静态值、普通当前badge/模板/入口链接、Governance App Homepage展示链接与各clone remote需要同步；官方知识来源处理以V2当前设计为准。原CI/拒绝语义与运行资源保持。
 - **不作为切换前置**：修复无关的既有直连通知、批准App权限升级、恢复旧publisher、重命名module/镜像/namespace、为无当前依赖的第三方项目新增部署测试。各自未执行项不记PASS。
 - **仍需实际动作授权与窗口核对**：用户对实际更名的单独授权、当前PR/Actions及活跃owner状态、GitHub执行时的目标名最终校验、准确操作与回退负责人。开放PR本身不要求先合并或关闭；不擅自中断其他会话。当前只完成准备，没有执行更名。

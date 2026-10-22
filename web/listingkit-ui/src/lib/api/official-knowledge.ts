@@ -10,11 +10,8 @@ const officialSummarySchema = z.strictObject({
 });
 export const officialListSchema = z.strictObject({ items: z.array(officialSummarySchema).max(100) })
   .refine(v => new Set(v.items.map(a => a.id)).size === v.items.length);
-const sourceURL = z.string().max(2048).refine(value => {
-  try { const u = new URL(value); return u.protocol === "https:" && u.host === "github.com" && !u.username && !u.password && !u.search && u.pathname.startsWith("/qq550723504/task-processor/blob/"); } catch { return false; }
-});
 export const officialArticleSchema = officialSummarySchema.extend({
-  body: z.string().min(1).max(64 * 1024).refine(value => new TextEncoder().encode(value).byteLength <= 64 * 1024), sources: z.array(z.strictObject({ title: z.string().min(1).max(512), url: sourceURL })).min(1).max(10),
+  body: z.string().min(1).max(64 * 1024).refine(value => new TextEncoder().encode(value).byteLength <= 64 * 1024), sources: z.array(z.strictObject({ title: z.string().min(1).max(512) })).min(1).max(10),
 });
 export function readOfficialList(scope: KnowledgeScope, signal: AbortSignal) {
   return knowledgeRequest(scope, "official-knowledge", officialListSchema, { signal }, 128 * 1024);

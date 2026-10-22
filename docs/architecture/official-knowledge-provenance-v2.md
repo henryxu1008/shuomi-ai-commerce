@@ -1,6 +1,6 @@
 # 官方知识库 V2：产品内依据，不使用 GitHub 地址
 
-Status: DESIGNING / architecture review pending。生产代码尚未修改。
+Status: IMPLEMENTATION_READY / FROZEN。独立设计复核完成后进入实现。
 Execution: [#884](https://github.com/qq550723504/task-processor/issues/884)，同一 Writer / PR #887。
 Design Basis: Independent Architecture（官方 Article 公共读取合同变化）。
 
@@ -72,4 +72,8 @@ Cutover/deletion condition: 新读取合同同PR配套、相关测试与必要CI
 
 ## Review / Admission
 
-Round 1 pending。只有独立设计复核达到 IMPLEMENTATION_READY 后才修改正式Go/TS/内容路径。
+Round 1：独立 Architecture Review 对设计HEAD `24fa7579bfee600e4c228ae5309560e001781f67`
+于2026-10-22T08:57:59.409499Z完成，无finding/未解决finding，
+[复核记录](https://github.com/qq550723504/task-processor/pull/887#issuecomment-6335777014)。
+准入结论：IMPLEMENTATION_READY。该依据先于正式Go/TS/内容修改；按本冻结合同实施，
+只有真实BLOCKER才重开架构，非阻塞细节由实现测试收敛。
