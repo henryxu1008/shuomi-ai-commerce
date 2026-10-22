@@ -5,7 +5,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { TransferDialog } from "./resource-transfer-dialog";
 import type { MemberDataQuote } from "@/lib/api/member-resources";
 
-const state = vi.hoisted(() => ({ quote: vi.fn(), write: vi.fn() }));
+const state = vi.hoisted(() => ({ quote: vi.fn(), write: vi.fn(), balance: vi.fn() }));
 vi.mock("@/lib/api/member-resources", async original => ({
   ...await original<typeof import("@/lib/api/member-resources")>(),
   getMemberDataPrices: vi.fn().mockResolvedValue({ organizationId: "org-1", offers: [
@@ -15,7 +15,7 @@ vi.mock("@/lib/api/member-resources", async original => ({
   quoteMemberData: state.quote, transferMemberResource: state.write,
 }));
 vi.mock("@/lib/api/commercial-billing", () => ({
-  getCommercialResources: vi.fn().mockResolvedValue({ organization_id: "org-1", resources: [{ resource_type: "data_row", state: "recorded", available: "2000" }] }),
+  getCommercialResources: state.balance,
 }));
 const position = { free: "0", reserved: "0", consumed: "0", version: "3", recorded: true };
 const member = { memberId: "member-1", userId: "member-user", displayName: "成员 A", loginName: "member@example.test", state: "active", roles: [], permissions: [], storeCount: "0", periods: position, dataRows: position };
@@ -24,13 +24,14 @@ const quote: MemberDataQuote = { organizationId: "org-1", quoteId: "100-yuan", q
 let client: QueryClient;
 beforeEach(() => {
   sessionStorage.clear(); state.quote.mockReset(); state.write.mockReset().mockResolvedValue({ netCredit: "0", debtRepaid: "0" });
+  state.balance.mockReset().mockResolvedValue({ organization_id: "org-1", resources: [{ resource_type: "data_row", state: "recorded", available: "2000" }] });
   HTMLDialogElement.prototype.showModal = function () { this.open = true; };
   HTMLDialogElement.prototype.close = function () { this.open = false; };
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 });
 afterEach(() => { cleanup(); client.clear(); });
 async function open() {
-  render(<QueryClientProvider client={client}><TransferDialog member={member} action="allocate" scope={scope} onClose={vi.fn()} onChanged={vi.fn().mockResolvedValue(undefined)} /></QueryClientProvider>);
+  render(<QueryClientProvider client={client}><TransferDialog member={member} memberAvailable action="allocate" scope={scope} onClose={vi.fn()} onChanged={vi.fn().mockResolvedValue(undefined)} /></QueryClientProvider>);
   await userEvent.selectOptions(screen.getByRole("combobox", { name: "资源类型" }), "data_row");
   await screen.findByRole("option", { name: "data · 10 分/条" });
   await userEvent.type(screen.getByRole("textbox", { name: "分配金额（元）" }), "100");
@@ -68,5 +69,23 @@ it.each(["amount", "price", "type"])("invalidates a completed quote when %s chan
     await userEvent.selectOptions(screen.getByRole("combobox", { name: "资源类型" }), "data_row");
   }
   expect(screen.getByRole("button", { name: "确认分配" })).toBeDisabled();
+  expect(state.write).not.toHaveBeenCalled();
+});
+
+it("preserves a completed data quote when retrying only the administrator balance read", async () => {
+  state.quote.mockResolvedValue(quote);
+  await open();
+  await userEvent.click(screen.getByRole("button", { name: "换算数据条数" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "确认分配" })).toBeEnabled());
+  state.balance.mockRejectedValue(new Error("balance unavailable"));
+  await act(() => client.invalidateQueries({ queryKey: ["workbench", "commercial-resources", "admin", "org-1"] }));
+  await screen.findByText("管理员可用余额读取失败，请重试。");
+  expect(screen.getByRole("button", { name: "确认分配" })).toBeDisabled();
+  state.balance.mockResolvedValue({ organization_id: "org-1", resources: [{ resource_type: "data_row", state: "recorded", available: "2000" }] });
+  await userEvent.click(screen.getByRole("button", { name: "重新读取管理员余额" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "确认分配" })).toBeEnabled());
+  expect(screen.getByRole("textbox", { name: "分配金额（元）" })).toHaveValue("100");
+  expect(screen.getByText(/预计换算：1000 条/)).toBeInTheDocument();
+  expect(state.quote).toHaveBeenCalledTimes(1);
   expect(state.write).not.toHaveBeenCalled();
 });
