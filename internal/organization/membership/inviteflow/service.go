@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"github.com/google/uuid"
 	"net/mail"
 	"strings"
@@ -83,7 +84,13 @@ func (s *Service) Create(ctx context.Context, key, contact, role string) (Invita
 	if replay {
 		return s.visible(saved), nil
 	}
-	return s.deliver(ctx, saved)
+	delivered, err := s.deliver(ctx, saved)
+	if errors.Is(err, ErrConflict) {
+		// The invitation is already durable. A delivery race cannot establish
+		// a no-effect create refusal; retain the original key for recovery.
+		return delivered, ErrUnavailable
+	}
+	return delivered, err
 }
 func (s *Service) List(ctx context.Context, limit, offset int) (Page, error) {
 	if s == nil || s.Store == nil || s.Manager == nil || limit < 1 || limit > 100 || offset < 0 || offset > 10000 {
