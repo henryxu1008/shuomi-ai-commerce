@@ -19,6 +19,57 @@ var retiredHostRuntimePackages = []string{
 	"internal/app/lifecycle", "internal/core/errors", "internal/app/ports", "internal/app/updater",
 }
 
+func TestLegacyWatermarkClosureIsRetired(t *testing.T) {
+	const retired = "task-processor/internal/pkg/watermark"
+	if _, err := os.Stat(filepath.Join("..", "internal", "pkg", "watermark")); !os.IsNotExist(err) {
+		t.Errorf("retired watermark package and examples must be absent: %v", err)
+	}
+	for _, relative := range trackedFiles(t, ".") {
+		if !strings.HasSuffix(relative, ".go") || strings.HasSuffix(relative, "_test.go") {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(relative)), nil, parser.ImportsOnly)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, spec := range file.Imports {
+			imported, err := decodeGoImportPath(spec.Path.Value)
+			if err != nil {
+				t.Fatalf("decode import in %s: %v", relative, err)
+			}
+			if importMatchesPrefix(imported, retired) {
+				t.Errorf("%s imports retired watermark package %s", relative, imported)
+			}
+		}
+	}
+	content, err := os.ReadFile(filepath.Join("..", "config", "config-dev.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document map[string]any
+	if err := yaml.Unmarshal(content, &document); err != nil {
+		t.Fatal(err)
+	}
+	if _, exists := document["watermark"]; exists {
+		t.Error("retired watermark sample root must be absent")
+	}
+	for _, command := range []string{"current-application", "shein-login-worker", "image-agent-temporal-worker"} {
+		t.Run(command, func(t *testing.T) {
+			cmd := exec.Command("go", "list", "-deps", "./cmd/"+command)
+			cmd.Dir = ".."
+			output, err := cmd.CombinedOutput()
+			if err != nil {
+				t.Fatalf("go list current command: %v\n%s", err, output)
+			}
+			for _, dependency := range strings.Fields(string(output)) {
+				if importMatchesPrefix(dependency, retired) {
+					t.Errorf("%s still compiles retired watermark dependency %s", command, dependency)
+				}
+			}
+		})
+	}
+}
+
 func TestLegacyQueueProxyAndConfigTailClosureIsRetired(t *testing.T) {
 	retiredPackages := []string{
 		"internal/platform/queue/rabbitmq", "internal/pkg/cache", "internal/pkg/perf",
