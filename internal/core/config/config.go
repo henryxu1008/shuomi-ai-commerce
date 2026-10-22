@@ -24,13 +24,11 @@ var (
 )
 
 type Config struct {
-	StorageCapacity bool                `yaml:"storageCapacity"`
-	Referrals       ReferralsConfig     `yaml:"-"`
-	FeatureFlags    FeatureFlagsConfig  `yaml:"featureFlags"`
-	Observability   ObservabilityConfig `yaml:"observability"`
-	Logging         LoggingConfig       `yaml:"logging"`
-	OpenAI          OpenAIConfig        `yaml:"openai"`
-	Browser         BrowserConfig       `yaml:"browser"`
+	StorageCapacity bool            `yaml:"storageCapacity"`
+	Referrals       ReferralsConfig `yaml:"-"`
+	Logging         LoggingConfig   `yaml:"logging"`
+	OpenAI          OpenAIConfig    `yaml:"openai"`
+	Browser         BrowserConfig   `yaml:"browser"`
 	// BrowserCollector is the opt-in wiring to the standalone anonymous public
 	// 1688 browser collector process (design D13).
 	BrowserCollector                                      BrowserCollectorConfig        `yaml:"browserCollector"`
@@ -52,21 +50,6 @@ type Config struct {
 	ListingKit              ListingKitConfig   `yaml:"listingkit"`
 	Workbench               WorkbenchConfig    `yaml:"workbench"`
 	WalletTopUp             topupconfig.Config `yaml:"walletTopUp"`
-}
-
-type FeatureFlagsConfig struct {
-	Flags map[string]bool `yaml:"flags"`
-}
-
-type ObservabilityConfig struct {
-	Tracing TracingConfig `yaml:"tracing"`
-}
-
-type TracingConfig struct {
-	Enabled     bool   `yaml:"enabled"`
-	ServiceName string `yaml:"serviceName"`
-	Endpoint    string `yaml:"endpoint"`
-	Insecure    bool   `yaml:"insecure"`
 }
 
 type PromptsConfig struct {
@@ -238,21 +221,6 @@ func bindKnownEnvs(v *viper.Viper) {
 
 func knownEnvBindings() map[string]envBinding {
 	return map[string]envBinding{
-		"observability.tracing.enabled": {
-			Primary: "TASK_PROCESSOR_OBSERVABILITY_TRACING_ENABLED",
-		},
-		"observability.tracing.serviceName": {
-			Primary: "TASK_PROCESSOR_OBSERVABILITY_TRACING_SERVICE_NAME",
-		},
-		"observability.tracing.endpoint": {
-			Primary: "TASK_PROCESSOR_OBSERVABILITY_TRACING_ENDPOINT",
-		},
-		"observability.tracing.insecure": {
-			Primary: "TASK_PROCESSOR_OBSERVABILITY_TRACING_INSECURE",
-		},
-		"featureFlags.flags.product-listing-runtime-auto-migrate": {
-			Primary: "TASK_PROCESSOR_API_RUNTIME_AUTOMIGRATE",
-		},
 		"imageagent.admission.enabled": {
 			Primary: "TASK_PROCESSOR_IMAGEAGENT_ADMISSION_ENABLED",
 		},

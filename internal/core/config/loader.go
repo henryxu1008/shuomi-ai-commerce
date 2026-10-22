@@ -96,17 +96,6 @@ func validateAmazonCrawlerAPIConfig(cfg *Config) error {
 
 func NewDefaultConfig() *Config {
 	return &Config{
-		FeatureFlags: FeatureFlagsConfig{
-			Flags: map[string]bool{"product-listing-runtime-auto-migrate": true},
-		},
-		Observability: ObservabilityConfig{
-			Tracing: TracingConfig{
-				Enabled:     false,
-				ServiceName: "task-processor",
-				Endpoint:    "",
-				Insecure:    false,
-			},
-		},
 		OpenAI: OpenAIConfig{
 			APIKey:  "",
 			Model:   "gemini-2.0-flash",

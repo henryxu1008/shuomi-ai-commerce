@@ -165,19 +165,23 @@ Must not depend on:
 
 Current runtime-foundation owners:
 
-- `internal/platform/config`
 - `internal/platform/logging`
 - `internal/platform/database`
 - `internal/platform/redis`
 - `internal/platform/workerpool`
 - `internal/platform/temporal`
-- `internal/platform/featureflags`
-- `internal/platform/observability`
 - `internal/integration/openai`
 - `internal/integration/geminiimage`
 - `internal/integration/grsai`
 - `internal/integration/s3`
 - `internal/integration/httpimage`
+
+Current configuration loading, environment overrides and validation remain at
+the existing `internal/core/config` entry points. The dormant platform config,
+feature-flag and tracing owners are source-retired under the
+[confirmed #301 boundary](legacy-host-config-featureflag-tracing-retirement-boundary.md).
+This exact boundary supersedes their retention in the dated Phase 2 observations
+below; it introduces no replacement runtime or plural featureflags alias.
 
 Own:
 

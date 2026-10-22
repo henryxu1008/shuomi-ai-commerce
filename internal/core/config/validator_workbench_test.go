@@ -3,7 +3,6 @@ package config
 import (
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -124,19 +123,4 @@ func TestConfigValidateWithErrorIncludesWorkbenchZitadelConfig(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "listingkit.zitadel.projectID")
-}
-
-func TestConfigManagerValidateIncludesWorkbenchZitadelConfig(t *testing.T) {
-	cfg := NewDefaultConfig()
-	cfg.OpenAI.APIKey = "test-openai-key"
-	cfg.Workbench.Enabled = true
-	cfg.ListingKit.Zitadel.IssuerURL = "https://issuer.example"
-	cfg.ListingKit.Zitadel.AuthorizationAPIURL = "https://issuer.example"
-	manager := NewConfigManager(logrus.New())
-
-	err := manager.Validate(cfg)
-
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "listingkit.zitadel.projectID")
-	require.Error(t, manager.Validate(nil))
 }

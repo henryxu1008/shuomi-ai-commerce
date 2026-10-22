@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -17,6 +18,107 @@ import (
 var retiredHostRuntimePackages = []string{
 	"internal/infra/httpx", "internal/infra/auth", "internal/app/monitoring",
 	"internal/app/lifecycle", "internal/core/errors", "internal/app/ports", "internal/app/updater",
+}
+
+func TestLegacyHostConfigFeatureFlagTracingClosureIsRetired(t *testing.T) {
+	retiredPackages := []string{"internal/platform/config", "internal/platform/featureflag", "internal/platform/observability"}
+	for _, relative := range append(append([]string{}, retiredPackages...),
+		"internal/core/config/manager.go", "internal/core/config/defaults_applier.go", "internal/core/config/merge.go",
+		"internal/platform/config/codec.go", "internal/platform/config/loader.go", "internal/platform/config/path.go",
+		"internal/platform/config/source.go", "internal/platform/config/source_test.go", "internal/platform/config/README.md",
+		"internal/platform/featureflag/runtime.go", "internal/platform/featureflag/runtime_test.go",
+		"internal/platform/observability/config.go", "internal/platform/observability/tracing.go", "internal/platform/observability/tracing_test.go",
+	) {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Errorf("retired host config/flag/tracing artifact %s must be absent: %v", relative, err)
+		}
+	}
+	retiredDeclarations := strings.Fields("ConfigManager managerImpl NewConfigManager DefaultsApplier NewDefaultsApplier MergeConfigs MergeMaps FeatureFlagsConfig ObservabilityConfig TracingConfig buildFeatureFlagsConfig")
+	for _, relative := range trackedFiles(t, ".") {
+		if !strings.HasSuffix(relative, ".go") {
+			continue
+		}
+		configOwner := strings.HasPrefix(relative, "internal/core/config/") && !strings.HasSuffix(relative, "_test.go")
+		mode := parser.ImportsOnly
+		if configOwner {
+			mode = 0
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(relative)), nil, mode)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, spec := range file.Imports {
+			imported, err := decodeGoImportPath(spec.Path.Value)
+			if err != nil {
+				t.Fatalf("decode import in %s: %v", relative, err)
+			}
+			for _, retired := range retiredPackages {
+				if importMatchesPrefix(imported, "task-processor/"+retired) {
+					t.Errorf("%s imports retired host config/flag/tracing package %s", relative, imported)
+				}
+			}
+		}
+		if !configOwner {
+			continue
+		}
+		for _, declaration := range file.Decls {
+			var names []string
+			switch declaration := declaration.(type) {
+			case *ast.FuncDecl:
+				if declaration.Recv == nil {
+					names = append(names, declaration.Name.Name)
+				}
+			case *ast.GenDecl:
+				for _, spec := range declaration.Specs {
+					switch spec := spec.(type) {
+					case *ast.TypeSpec:
+						names = append(names, spec.Name.Name)
+					case *ast.ValueSpec:
+						for _, name := range spec.Names {
+							names = append(names, name.Name)
+						}
+					}
+				}
+			}
+			for _, name := range names {
+				if slices.Contains(retiredDeclarations, name) {
+					t.Errorf("%s recreates retired core/config declaration %s", relative, name)
+				}
+			}
+		}
+	}
+	for _, name := range []string{"config-dev.yaml", "config-test.yaml", "config-prod.yaml"} {
+		content, err := os.ReadFile(filepath.Join("..", "config", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var document map[string]any
+		if err := yaml.Unmarshal(content, &document); err != nil {
+			t.Fatal(err)
+		}
+		for _, root := range []string{"featureFlags", "observability"} {
+			if _, exists := document[root]; exists {
+				t.Errorf("%s retains retired host config root %s", name, root)
+			}
+		}
+	}
+	for _, command := range []string{"current-application", "shein-login-worker", "image-agent-temporal-worker"} {
+		t.Run(command, func(t *testing.T) {
+			cmd := exec.Command("go", "list", "-deps", "./cmd/"+command)
+			cmd.Dir = ".."
+			output, err := cmd.CombinedOutput()
+			if err != nil {
+				t.Fatalf("go list current command: %v\n%s", err, output)
+			}
+			for _, dependency := range strings.Fields(string(output)) {
+				for _, retired := range retiredPackages {
+					if importMatchesPrefix(dependency, "task-processor/"+retired) {
+						t.Errorf("%s still compiles retired host config/flag/tracing dependency %s", command, dependency)
+					}
+				}
+			}
+		})
+	}
 }
 
 func TestLegacyWatermarkClosureIsRetired(t *testing.T) {

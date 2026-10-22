@@ -965,13 +965,13 @@ func TestLegacyMonitoringPathIsRetired(t *testing.T) {
 	}
 }
 
-func TestPlatformObservabilityDoesNotImportCoreOrApp(t *testing.T) {
-	index, err := loadGoFileIndex(filepath.Join("..", "internal", "platform", "observability"), "")
+func TestPlatformObservabilityStaysRetired(t *testing.T) {
+	if _, err := os.Stat(filepath.Join("..", "internal", "platform", "observability")); !os.IsNotExist(err) {
+		t.Errorf("retired platform observability root must be absent: %v", err)
+	}
+	index, err := loadGoFileIndex(filepath.Join("..", "internal"), "")
 	if err != nil {
 		t.Fatal(err)
-	}
-	if len(index.files) == 0 {
-		t.Fatal("internal/platform/observability must contain tracked Go files")
 	}
 	for path, facts := range index.files {
 		for importLiteral := range facts.imports {
@@ -979,9 +979,8 @@ func TestPlatformObservabilityDoesNotImportCoreOrApp(t *testing.T) {
 			if err != nil {
 				t.Fatalf("decode import in %s: %v", filepath.ToSlash(path), err)
 			}
-			if importMatchesPrefix(importPath, "task-processor/internal/core") ||
-				importMatchesPrefix(importPath, "task-processor/internal/app") {
-				t.Errorf("%s imports forbidden package %s", filepath.ToSlash(path), importPath)
+			if importMatchesPrefix(importPath, "task-processor/internal/platform/observability") {
+				t.Errorf("%s imports retired observability package %s", filepath.ToSlash(path), importPath)
 			}
 		}
 	}
