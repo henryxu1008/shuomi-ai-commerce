@@ -77,7 +77,7 @@ core/logger/compat.go 无独立实现或状态：5个类型 alias、13个字段 
 | 业务日志获取 | 只换显式依赖/传参，按原位置/级别记录，不添加后台队列、重试、日志上传或第二配置源 | 同一业务输出/错误/取消/超时/并发/外部请求语义 |
 | Prompt/敏感词 | 只传日志，复用现有WithLogger；不调用构造器读取当前文件或启动watch/save worker | 通用Prompt/租户覆盖/管理/既有文件语义；敏感词当前内存/只读/持久化选择、goroutine关闭与recovery |
 | SHEIN/Store/采集/下载/安装 | 只改日志依赖。Config/secret/Profile/Redis/PG/绑定、attempt、fence、UNKNOWN、文件名/输出、浏览器持有者均不变 | 独立登录、Store同步、当前采集/来源、代理/风险/浏览器管理、API/规则、当前能力 |
-| **TEMU UpdateCookie两条敏感日志** | client.go更新/新增Cookie两个分支当前把value传给Infof；同批精确改为仅记录Cookie名称/动作，删除value参数。用合成secret和内存log capture断言不输出value | Cookie选择、值赋写、请求头、返回、认证/平台副作用原样；不读取/处理真实Cookie，不新增脱敏框架/认证需求 |
+| **TEMU SetCookieValue两条敏感日志** | client.go更新/新增Cookie两个分支当前把value传给Infof；同批精确改为仅记录Cookie名称/动作，删除value参数。用合成secret和内存log capture断言不输出value | Cookie选择、值赋写、请求头、返回、认证/平台副作用原样；不读取/处理真实Cookie，不新增脱敏框架/认证需求 |
 | 当前身份/计费/SMS | 技术日志注入不改变HMAC/鉴权、provider_code选择或计费 | 不新发SMS/登录/AI请求、不增加授权/准入门禁，不把日志注入扩为权限或计费设计 |
 
 ## 5. 删除、保留、抽取与完整文件闭包
