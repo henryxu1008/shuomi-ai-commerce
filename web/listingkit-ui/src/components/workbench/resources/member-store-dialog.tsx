@@ -228,6 +228,11 @@ export function MemberStores({
                 : null}
             </select>
           </label>
+          {available.isPending || available.isFetching ? (
+            <p role="status">正在读取可选店铺…</p>
+          ) : available.isError ? (
+            <p role="alert">可选店铺读取失败，请刷新店铺授权后重试。</p>
+          ) : null}
           <div className={styles.rowActions}>
             <Button
               variant="outline"
@@ -275,8 +280,18 @@ export function MemberStores({
               })
             }
           >
-            {grant.data?.active ? "已授权" : "确认授权"}
+            {!grant.isPending &&
+            !grant.isFetching &&
+            !grant.isError &&
+            grant.data?.active
+              ? "已授权"
+              : "确认授权"}
           </Button>
+          {storeId && (grant.isPending || grant.isFetching) ? (
+            <p role="status">正在读取所选店铺授权状态…</p>
+          ) : storeId && grant.isError ? (
+            <p role="alert">所选店铺授权状态读取失败，请刷新店铺授权后重试。</p>
+          ) : null}
           <p>授权允许成员管理这一家店铺，不会开通服务或代替 SHEIN 官方连接。</p>
         </section>
       ) : null}
