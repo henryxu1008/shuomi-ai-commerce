@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
@@ -124,68 +125,6 @@ func TestNewViper_BindsRedisEnvironmentVariables(t *testing.T) {
 	assert.Equal(t, "legacy-pass", v.GetString("redis.password"))
 }
 
-func TestNewViper_BindsSDSLoginServiceEnvironmentVariables(t *testing.T) {
-	t.Setenv("TASK_PROCESSOR_SDS_LOGIN_SERVICE_BASE_URL", "http://login.svc:8000")
-	t.Setenv("TASK_PROCESSOR_SDS_LOGIN_SERVICE_SHARED_KEY", "sds-key")
-	t.Setenv("TASK_PROCESSOR_SDS_LOGIN_SERVICE_TENANT_ID", "manual")
-	t.Setenv("TASK_PROCESSOR_SDS_LOGIN_SERVICE_IDENTIFIER", "default")
-	t.Setenv("TASK_PROCESSOR_SDS_MERCHANT_NAME", "merchant")
-	t.Setenv("TASK_PROCESSOR_SDS_USERNAME", "tester")
-	t.Setenv("TASK_PROCESSOR_SDS_PASSWORD", "secret")
-	t.Setenv("TASK_PROCESSOR_SDS_LOGIN_SERVICE_DEFAULT_HEADLESS", "true")
-	t.Setenv("TASK_PROCESSOR_SDS_LOGIN_SERVICE_CLOAKBROWSER_ENABLED", "true")
-	t.Setenv("TASK_PROCESSOR_SDS_LOGIN_SERVICE_CLOAKBROWSER_PATH", "C:/cloak/chrome.exe")
-
-	v := newViper()
-
-	assert.Equal(t, "http://login.svc:8000", v.GetString("platforms.sds.loginService.baseURL"))
-	assert.Equal(t, "sds-key", v.GetString("platforms.sds.loginService.sharedKey"))
-	assert.Equal(t, "manual", v.GetString("platforms.sds.loginService.tenantID"))
-	assert.Equal(t, "default", v.GetString("platforms.sds.loginService.identifier"))
-	assert.Equal(t, "merchant", v.GetString("platforms.sds.loginService.merchantName"))
-	assert.Equal(t, "tester", v.GetString("platforms.sds.loginService.username"))
-	assert.Equal(t, "secret", v.GetString("platforms.sds.loginService.password"))
-	assert.True(t, v.GetBool("platforms.sds.loginService.defaultHeadless"))
-	assert.True(t, v.GetBool("platforms.sds.loginService.cloakBrowserEnabled"))
-	assert.Equal(t, "C:/cloak/chrome.exe", v.GetString("platforms.sds.loginService.cloakBrowserPath"))
-}
-
-func TestNewViper_BindsSDSAuthRedisEnvironmentVariables(t *testing.T) {
-	t.Setenv("TASK_PROCESSOR_SDS_AUTH_REDIS_HOST", "sds-redis.example")
-	t.Setenv("TASK_PROCESSOR_SDS_AUTH_REDIS_PORT", "6381")
-	t.Setenv("TASK_PROCESSOR_SDS_AUTH_REDIS_PASSWORD", "sds-pass")
-	t.Setenv("TASK_PROCESSOR_SDS_AUTH_REDIS_DB", "9")
-	t.Setenv("TASK_PROCESSOR_SDS_AUTH_REDIS_POOL_SIZE", "16")
-
-	v := newViper()
-
-	assert.Equal(t, "sds-redis.example", v.GetString("platforms.sds.authRedis.host"))
-	assert.Equal(t, 6381, v.GetInt("platforms.sds.authRedis.port"))
-	assert.Equal(t, "sds-pass", v.GetString("platforms.sds.authRedis.password"))
-	assert.Equal(t, 9, v.GetInt("platforms.sds.authRedis.db"))
-	assert.Equal(t, 16, v.GetInt("platforms.sds.authRedis.pool_size"))
-}
-
-func TestNewViper_BindsSDSAuthBootstrapEnvironmentVariables(t *testing.T) {
-	t.Setenv("TASK_PROCESSOR_SDS_ACCESS_TOKEN", "access-token")
-	t.Setenv("TASK_PROCESSOR_SDS_OUT_ACCESS_TOKEN", "out-token")
-	t.Setenv("TASK_PROCESSOR_SDS_MERCHANT_ID", "12345")
-	t.Setenv("TASK_PROCESSOR_SDS_COOKIE", "cookie=value")
-	t.Setenv("TASK_PROCESSOR_SDS_DOMAIN_NAME", "www.sdsdiy.com")
-	t.Setenv("TASK_PROCESSOR_SDS_VERIFY_CAPTCHA_PARAM", "captcha-param")
-	t.Setenv("TASK_PROCESSOR_SDS_EXTRA_INFO", "{\"risk\":1}")
-
-	v := newViper()
-
-	assert.Equal(t, "access-token", v.GetString("platforms.sds.authBootstrap.staticAccessToken"))
-	assert.Equal(t, "out-token", v.GetString("platforms.sds.authBootstrap.staticOutToken"))
-	assert.Equal(t, int64(12345), v.GetInt64("platforms.sds.authBootstrap.staticMerchantID"))
-	assert.Equal(t, "cookie=value", v.GetString("platforms.sds.authBootstrap.staticCookie"))
-	assert.Equal(t, "www.sdsdiy.com", v.GetString("platforms.sds.authBootstrap.loginDomainName"))
-	assert.Equal(t, "captcha-param", v.GetString("platforms.sds.authBootstrap.loginVerifyCaptchaParam"))
-	assert.Equal(t, "{\"risk\":1}", v.GetString("platforms.sds.authBootstrap.loginExtraInfo"))
-}
-
 func TestNewViper_BindsListingKitEnvironmentVariables(t *testing.T) {
 	t.Setenv("LISTINGKIT_DEBUG_SUBMIT_DUMP_DIR", "D:/tmp/shein-submit-dumps")
 	t.Setenv("LISTINGKIT_PLATFORM_ADMIN_USERS", "user-a,user-b")
@@ -218,6 +157,20 @@ func TestNewViper_BindsListingKitEnvironmentVariables(t *testing.T) {
 func TestKnownEnvBindingsDoesNotExposeListingKitAuthenticationToggle(t *testing.T) {
 	_, exists := knownEnvBindings()["listingkit.zitadel.authRequired"]
 	assert.False(t, exists, "ListingKit authentication must not be configurable")
+}
+
+func TestOldSDSConfigurationIsRetired(t *testing.T) {
+	_, exists := reflect.TypeOf(PlatformsConfig{}).FieldByName("SDS")
+	assert.False(t, exists, "PlatformsConfig must not expose the old SDS login owner")
+	for key, binding := range knownEnvBindings() {
+		assert.False(t, strings.HasPrefix(key, "platforms.sds."), key)
+		assert.False(t, strings.HasPrefix(binding.Primary, "TASK_PROCESSOR_SDS_"), binding.Primary)
+	}
+	v := viper.New()
+	setDefaults(v)
+	for _, key := range v.AllKeys() {
+		assert.False(t, strings.HasPrefix(key, "platforms.sds."), key)
+	}
 }
 
 func TestKnownEnvBindingsDoNotExposeListingKitOwnerScopeToggle(t *testing.T) {

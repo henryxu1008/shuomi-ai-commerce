@@ -35,17 +35,6 @@ func BuildConfig(v *viper.Viper) *Config {
 		Platforms: PlatformsConfig{
 			Temu:  BuildPlatformConfig(v, "platforms.temu"),
 			Shein: BuildPlatformConfig(v, "platforms.shein"),
-			SDS: SDSPlatformConfig{
-				LoginService: BuildLoginServiceConfig(v, "platforms.sds.loginService"),
-				AuthRedis: RedisConfig{
-					Host:     v.GetString("platforms.sds.authRedis.host"),
-					Port:     v.GetInt("platforms.sds.authRedis.port"),
-					Password: v.GetString("platforms.sds.authRedis.password"),
-					DB:       v.GetInt("platforms.sds.authRedis.db"),
-					PoolSize: v.GetInt("platforms.sds.authRedis.pool_size"),
-				},
-				AuthBootstrap: BuildSDSAuthBootstrapConfig(v, "platforms.sds.authBootstrap"),
-			},
 			Alibaba1688: Alibaba1688Config{
 				Enabled:        v.GetBool("platforms.alibaba1688.enabled"),
 				Timeout:        v.GetInt("platforms.alibaba1688.timeout"),

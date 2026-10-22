@@ -28,7 +28,7 @@ func RouteRequiresZitadelAuth(route httproute.Descriptor) bool {
 	case httproute.AuthPolicyPublic:
 		return false
 	}
-	if route.Method == http.MethodGet && (route.Path == "/api/v1/shein-login/health" || route.Path == "/api/v1/sds-login/health") {
+	if route.Method == http.MethodGet && route.Path == "/api/v1/shein-login/health" {
 		return false
 	}
 	if route.Module == "listing-kit-zitadel-sms-webhook" {
@@ -41,8 +41,6 @@ func RouteRequiresZitadelAuth(route httproute.Descriptor) bool {
 		route.Module == "listing-kit-platform-admin" ||
 		route.Module == "listing-kit-prompts" ||
 		route.Module == "shein-login" ||
-		route.Module == "sds" ||
-		route.Module == "sds-login" ||
 		route.Module == "product-sourcing" ||
 		route.Module == "local-agent" ||
 		route.Module == "crawler-1688" ||
@@ -66,8 +64,6 @@ func routeRequiredPermission(route httproute.Descriptor) string {
 		if route.Method == http.MethodPut || route.Method == http.MethodPatch {
 			return authz.PermissionListingKitPromptWrite
 		}
-	case "sds-login":
-		return authz.PermissionListingKitPlatformAdm
 	default:
 		return ""
 	}

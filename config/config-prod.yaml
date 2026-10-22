@@ -61,14 +61,6 @@ platforms:
   # SHEIN 平台配置
   shein:
     # SHEIN 登录态刷新配置；线上 k8s 通过集群内 login Service 调用登录 API
-  # SDS 登录态刷新配置；线上 k8s 通过集群内 login Service 调用登录 API
-  sds:
-    loginService:
-      baseURL: "http://login:8000"
-      sharedKey: ""
-      tenantID: "1"
-      identifier: "869"
-
   # 1688 平台配置
   alibaba1688:
     enabled: true   # 是否启用1688处理器
