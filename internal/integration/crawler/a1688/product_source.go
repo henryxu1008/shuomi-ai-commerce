@@ -400,10 +400,6 @@ func alibaba1688SourceIdentity(input Alibaba1688CrawlRequestInput, product *Alib
 		SourcePlatform: Alibaba1688SourcePlatform,
 		SourceID:       productID,
 		SourceURL:      sourceURL,
-		Platform:       Alibaba1688SourcePlatform,
-		Region:         "cn",
-		ProductID:      productID,
-		StoreID:        input.StoreID,
 	})
 }
 

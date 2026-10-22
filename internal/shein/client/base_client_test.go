@@ -36,7 +36,7 @@ func TestBaseAPIClientRefreshesAuthOnBusinessAuthExpired(t *testing.T) {
 
 	httpClient := req.C()
 	httpClient.SetCommonCookies(&http.Cookie{Name: "session", Value: "stale", Path: "/"})
-	baseClient := NewBaseAPIClient(server.URL, 227, 869, httpClient)
+	baseClient := NewBaseAPIClient(server.URL, httpClient)
 	baseClient.SetAuthRefreshFunc(func() error {
 		refreshCalls++
 		fresh = true
@@ -71,7 +71,7 @@ func TestBaseAPIClientDoesNotRefreshAuthOnCostPriceForbidden(t *testing.T) {
 	}))
 	defer server.Close()
 
-	baseClient := NewBaseAPIClient(server.URL, 227, 870, req.C())
+	baseClient := NewBaseAPIClient(server.URL, req.C())
 	baseClient.SetAuthRefreshFunc(func() error {
 		refreshCalls++
 		return nil

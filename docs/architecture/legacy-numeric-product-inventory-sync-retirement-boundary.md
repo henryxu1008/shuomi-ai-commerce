@@ -1,5 +1,7 @@
 # 旧 SHEIN/TEMU 数字商品与库存同步链退休边界
 
+> 当前校准：#867 用户确认的[数字采集与平台尾链完整闭包](legacy-numeric-acquisition-tail-closure-retirement-boundary.md)仅替代本文对旧 fetch/cache/数字 Task HTTP、SHEIN 数字 Cookie/StoreInfo 及专属 Amazon 运维源的广泛保留表述；本文其余平台 API/规则、两种 SHEIN 属性、价格、当前采集/共享浏览器、Store 与独立 SHEIN 登录/同步的保留决定继续有效。历史执行证据不改，不授权运行资源操作。
+
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
 
 > 后续已确认的[活动退休边界](legacy-shein-activity-retirement-boundary.md) §5–§7 在 #744 退出活动编排/reader/调度 DTO，并将有效规则解到无 IO 接缝。下列活动 reader/JSON/mapping 消费描述与保留待决定仅是本批次基线；当前两种属性仍由纯 SKU 成本规则消费并完整保留，不恢复 productsync 服务。

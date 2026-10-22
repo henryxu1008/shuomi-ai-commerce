@@ -41,6 +41,7 @@ function ContextProbe() {
       <p>home:{context.homeOrganizationId ?? "none"}</p>
       <p>organization:{context.effectiveOrganization?.name ?? "none"}</p>
       <p>roles:{context.roles.join(",") || "none"}</p>
+      <p>enterprise-funding:{String(context.effectiveOrganization?.capabilities?.storeServiceEnterpriseFunding === true)}</p>
       <p>selection:{String(context.selectionRequired)}</p>
       <p>switching:{String(context.isSwitching)}</p>
       <button onClick={() => context.switchOrganization("org-b")}>switch</button>
@@ -104,6 +105,17 @@ function createQueryClient() {
 }
 
 describe("WorkbenchContextProvider", () => {
+  it("selects the funding projection from the effective grant and replaces it after switching", async () => {
+    const payload = { ...ORG_A_CONTEXT, organizations: ORG_A_CONTEXT.organizations.map((org, i) => ({ ...org, capabilities: { "workbench.source_account.manage": false, "workbench.chat.use": false, storeServiceEnterpriseFunding: i === 0 } })) };
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json(payload))
+      .mockResolvedValueOnce(Response.json({ ...payload, effectiveOrganizationId: "org-b" })));
+    renderProvider();
+    await screen.findByText("enterprise-funding:true");
+    await userEvent.click(screen.getByRole("button", { name: "switch" }));
+    await screen.findByText("organization:星海贸易");
+    expect(screen.getByText("enterprise-funding:false")).toBeInTheDocument();
+  });
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();

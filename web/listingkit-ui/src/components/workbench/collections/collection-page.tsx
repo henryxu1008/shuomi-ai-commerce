@@ -106,7 +106,7 @@ function ScopedCollectionPage({ scope,agentAvailable,supplyAvailable,initialBatc
   },[scope,initialItemId,replace]);
 
   function refresh() { setLoading(true); setReload(value => value + 1); }
-  function changeView(nextTab: "batches" | "own", selected: string | null = null) { setTab(nextTab); setBatchId(selected); setAfter(undefined); setKeyword(""); setSearch(""); setLoading(true); setItems([]); setError(null); }
+  function changeView(nextTab: "batches" | "own", selected: string | null = null) { setTab(nextTab); setBatchId(selected); setAfter(undefined); setKeyword(""); setSearch(""); refresh(); setItems([]); setError(null); }
   async function command(input:CollectionCommand,original?:CollectionIntent,verify=false){
     if(inFlight.current)return;
     return commands.run(input,original,verify);
@@ -136,7 +136,7 @@ function ScopedCollectionPage({ scope,agentAvailable,supplyAvailable,initialBatc
       <button role="tab" aria-selected={false} disabled className="pb-3 text-muted-foreground" title="数据集尚未开放">数据集</button>
     </div>
     <Card className="mb-5 flex flex-wrap items-center gap-3 p-4">
-      <form className="flex min-w-60 flex-1 gap-2" onSubmit={event => { event.preventDefault(); setAfter(undefined); setKeyword(search); setLoading(true); }}>
+      <form className="flex min-w-60 flex-1 gap-2" onSubmit={event => { event.preventDefault(); setAfter(undefined); setKeyword(search); refresh(); }}>
         <Input aria-label={displayingItems ? "搜索商品名称或标识" : "搜索批次名称"} placeholder={displayingItems ? "搜索商品名称或标识" : "搜索批次名称"} value={search} onChange={event => setSearch(event.target.value)} />
         <Button type="submit" variant="outline">搜索</Button>
       </form>

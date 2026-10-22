@@ -7,12 +7,13 @@ heavy ConfigMap 的唯一仓库消费为已退 ownership-controller，lite Confi
 退出两个专属 ConfigMap 源文件及其装配，本目录不再提供旧配置部署操作。
 
 原内容包含通用字段不表示该特定资源仍是当前共享合同。有效 core/config、Viper
-解析、通用 RabbitMQ 基础层、平台/API/采集和独立 SHEIN 登录 worker 仍在各自
+解析、通用 Retry/workerpool、平台/API/采集和独立 SHEIN 登录 worker 仍在各自
 原 owner 下保留；不把旧样例包装为新部署模板，不新增协调/兼容/恢复入口。
 
 #839 [完整运维源码闭包](../../../../../docs/architecture/legacy-listing-operations-closure-retirement-boundary.md)
-退出其余旧刊登 ConfigMap/空 overlay 装配及专属监控；Store 代理同步仍使用的
-shein-listing-secret 源、共享 Namespace 和独立登录/Store 同步保持。
+退出其余旧刊登 ConfigMap/空 overlay 装配及专属监控。#872 [完整尾部闭包](../../../../../docs/architecture/legacy-queue-proxy-config-tail-closure-retirement-boundary.md)
+进一步退休旧数字 Store 代理链及其最后消费的 shein-listing-secret 源与 prod 装配；
+共享 Namespace/base 和[#863 当前独立登录/Store 同步](../../../../../docs/architecture/shein-worker-numeric-persistence-retirement-v1.md)保持，不迁移或处理实际 Secret/旧表/代理值。
 
 没有操作实际 ConfigMap、Secret、实例、镜像、Redis ownership/锁、DB、消息或
 其它数据。仓库无消费者不等于真实集群无消费者；真实状态和持久化 owner 未转移，

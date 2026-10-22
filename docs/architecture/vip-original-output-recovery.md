@@ -7,6 +7,76 @@ Execution: Issue #840. Product decision: 2026-10-21 user requests recovery of th
 An authorized member can distinguish a successful, committed generation whose original media needs recovery from a genuinely UNKNOWN provider effect. The same original result is retrieved with the existing recovery command; no new plan, provider POST, reservation, or price lookup is introduced.
 Figma authority (updated before implementation): file tg48P46SSXl6TBy9lZwg63, page 31:463, editable dark 8229:2346 / light 8229:2406, wrapper 8229:2345. Original designs remain.
 
+### Original-output recovery diagnostics (2026-10-21)
+
+Design Basis: N/A for this observational bugfix. The user authorized only
+stage/category diagnostics and regression tests; the existing recovery,
+retry, return-error, settlement and permission contracts stay unchanged.
+Before implementation, editable Figma note
+[8402:2368](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=8402-2368)
+and Issue #840 describe this scope. Original DNS/recovery notes remain.
+
+The first English-result recovery and the successful recovery had identical
+inputs except ActionID. The first activity's generic validation error erased
+the failing I/O stage/cause; the precise historical transport/storage cause
+remains unproved. New diagnostics cannot reconstruct or rewrite that history.
+
+Use the existing worker logrus and Temporal activity logger to report fixed
+stages for input/fact validation, recovery-bundle reads, original-result GET,
+image inspection, material preparation, bundle preservation and staging
+restoration. Classify errors by allowlisted types/categories, with bounded
+HTTP status and hashed run correlation. Never log raw error text, result or
+source URLs, credentials, prompts or approved copy. Diagnostics are local
+metadata, never provider, usage, settlement or recovery facts. Expected missing
+bundles still fall through to the original GET; all error identities, retry
+policies, strict original dimensions, TLS/SSRF gates and business projections
+retain their existing behavior. No new schema, command, state or fact owner.
+
+TDD reuses local worker/Temporal fixtures to cover download and artifact-stage
+failures, log privacy and unchanged errors/call counts/immutable success.
+Existing recovery tests retain success, true UNKNOWN, revoked/mismatched
+input and already-settled/exhausted-member cases. No retained business writes,
+provider calls, generation, extra charge, publication or config/default change
+are authorized. Reservation b945b71a-9467-4e42-b891-8199d3351bab remains reserved
+5 points; a historical DNS diagnostic is not terminal usage evidence. Runtime
+deployment, original-request replay and merge remain separately authorized.
+
+### Saved-approval completion clarification (2026-10-21)
+
+The user authorized a separate append of the recovered VIP candidate to the
+IKEA 365+ trial product, retaining the three existing images and their order.
+Asset committed all four under the original save action, but completion failed:
+the workflow carried an empty recovery slice while the stored projection used
+nil. Deep comparison treated these equivalent zero-item collections as drift.
+
+Reuse the existing approved recovery contract; this is a representation bug,
+not a new recovery protocol. Compare recovery collections element by element in
+both the completion guard and already-persisted-state check, treating nil and
+empty as equal. Nonempty collections keep their exact slot, attempt, code and
+order checks. Preserve all identity, plan, slot, result, original approval
+receipt and projection CAS checks. Do not normalize or rewrite stored requests,
+plans, effects, settlement, or audit. Resume only the existing pending save
+action and its committed receipt; never select/save again or call a provider.
+
+Before implementation Figma adds editable dark 8287:2354 / light 8287:2381,
+wrapper [8287:2353](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=8287-2353):
+saved material awaiting task verification, completed four-image readback, and
+genuine UNKNOWN remaining locked. Existing UI and buttons are reused. Expected
+inventory order is carousel 1, carousel 2, detail 1, then VIP detail 2. The
+original approval rows and evidence remain immutable; the source product's
+original image/version is not overwritten by approved-material adoption.
+
+TDD reuses the committed-approval fixtures for both empty representations,
+same-action completion and lost-ACK replay without another Asset Select, plus
+nonempty UNKNOWN/digest/identity/CAS rejection. Reuse existing UI tests for
+four-image refresh/readback and original-request/UNKNOWN locks. Runtime
+completion and user acceptance are recorded separately from isolated tests.
+No new schema, owner, command, budget, grant, default, configuration, migration,
+or generic validation tool is introduced. The original committed point and old
+five-point UNKNOWN reservation remain untouched. This addendum supersedes the
+earlier out-of-scope save restriction only for the user's explicitly authorized
+original save and its completion; merge/deployment remain separately gated.
+
 ## Reused contracts and owners
 Reuse product-image-agent-v1, grsai-vip-image-binding-v1, image-plan-optional-route-v1 and image-text-language-confirmation-v1. Existing GenerationFact owns success and the fixed private locator; Commercial owns committed/released reservations; imageagent owns original identity, immutable plan/Skill/quote and bounded GET-only recovery; Asset owns candidate materialization and separate human save. AdGuard dnsproxy remains the retained runtime DNS owner.
 

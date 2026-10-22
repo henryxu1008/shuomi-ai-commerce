@@ -4,7 +4,6 @@ import "strings"
 
 // SourceRequest carries source-identifying fields shared by product fetch paths.
 type SourceRequest struct {
-	TenantID   int64
 	Platform   string
 	Region     string
 	ProductID  string
@@ -32,10 +31,6 @@ func (req SourceRequest) Identity() SourceIdentity {
 		SourceType:     SourceTypeCrawler,
 		SourcePlatform: normalized.Platform,
 		SourceID:       normalized.ProductID,
-		Platform:       normalized.Platform,
-		Region:         normalized.Region,
-		ProductID:      normalized.ProductID,
-		StoreID:        normalized.StoreID,
 	})
 }
 

@@ -90,6 +90,47 @@ func validPublicationCommand() PublicationCommand {
 	}
 }
 
+func TestInternalProducerPreservesCanonicalEncodingBaseline(t *testing.T) {
+	store := &publicationStoreStub{}
+	producer, err := NewInternalProducer(admissionFunc(func(context.Context) (PublicationScope, error) {
+		return PublicationScope{OrganizationID: "org-a", ActorID: "actor-a"}, nil
+	}), store, ProducerDescriptor{Kind: "controlled_snapshot", Version: "v1"})
+	require.NoError(t, err)
+	baseline, err := producer.prepare(context.Background(), validPublicationCommand())
+	require.NoError(t, err)
+	key, publication, err := PublicationIdentity(baseline.Envelope)
+	require.NoError(t, err)
+	// Captured from the original canonical producer at design HEAD 01d8b8a50,
+	// before retiring aliases. These bytes are current persistence contracts.
+	const envelopeJSON = `{"Identity":{"SourceType":"manual_import","SourcePlatform":"controlled","SourceID":"source-1","SourceURL":"","SourceVersion":"v1","SourceFingerprint":"35895db2c60a3427fc5c495d8dc36218a86238a4413a47bddf7ffd85f7b2e13d","Platform":"","Region":"","ProductID":"","StoreID":0},"RawReference":{"ReferenceType":"snapshot","ReferenceID":"raw-1","URL":"","SnapshotID":"","Checksum":"sha256:abc","CapturedAt":"0001-01-01T00:00:00Z","Metadata":null},"ProductCandidate":{"Title":"Bottle","Description":"","Brand":"","CategoryPath":null,"Attributes":{"color":"blue"},"Variants":null},"AssetCandidates":null,"SupplierOrCostFacts":{"SupplierID":"","SupplierName":"","Currency":"","Cost":"","Price":"","Facts":null},"Warnings":[{"Code":"missing_weight","Message":"unavailable","Field":"weight"}],"MissingFacts":[{"Field":"weight","Reason":"source omitted"}],"Trace":{"SourceRunID":"run-1","RequestID":"request-1","Notes":null}}`
+	const snapshotJSON = `{"title":"Bottle","attributes":[{"name":"color","value":"blue","trace":{}}],"review":{"needs_review":true,"reasons":["unavailable"]},"sources":[{"type":"manual_import","detail":"raw-1","platform":"controlled","source_id":"source-1","source_version":"v1","reference_type":"snapshot","checksum":"sha256:abc","captured_at":"0001-01-01T00:00:00Z","source_run_id":"run-1","request_id":"request-1"}],"warnings":[{"code":"missing_weight","field":"weight","message":"unavailable"}]}`
+	require.Equal(t, envelopeJSON, string(baseline.EnvelopeJSON))
+	require.Equal(t, snapshotJSON, string(baseline.SnapshotJSON))
+	require.Equal(t, "343506f7d4291a49a8747b3dfd76c76761047079fbb9d766268f1c8533eedacb", baseline.InputHash)
+	require.Equal(t, "manual_import:controlled:source-1", key)
+	require.Equal(t, "source-run:run-1", publication)
+	for _, whitespace := range []string{"", " \t\n "} {
+		command := validPublicationCommand()
+		command.Envelope.Identity.Platform = whitespace
+		command.Envelope.Identity.Region = whitespace
+		command.Envelope.Identity.ProductID = whitespace
+		receipt, err := producer.Publish(context.Background(), command)
+		require.NoError(t, err)
+		require.Equal(t, baseline.EnvelopeJSON, store.last.EnvelopeJSON)
+		require.Equal(t, baseline.SnapshotJSON, store.last.SnapshotJSON)
+		require.Equal(t, baseline.InputHash, receipt.InputHash)
+		gotKey, gotPublication, err := PublicationIdentity(command.Envelope)
+		require.NoError(t, err)
+		require.Equal(t, key, gotKey)
+		require.Equal(t, publication, gotPublication)
+		store.persisted = PersistedPublication{Receipt: receipt, Envelope: store.last.Envelope, Snapshot: store.last.Snapshot}
+		read, err := producer.Read(context.Background(), command.PublicationID)
+		require.NoError(t, err)
+		require.Equal(t, baseline.Envelope, read.Envelope)
+		require.Equal(t, baseline.Snapshot, read.Snapshot)
+	}
+}
+
 func TestInternalProducerPublishesCanonicalEvidenceWithTenSecondDeadline(t *testing.T) {
 	store := &publicationStoreStub{receipt: PublicationReceipt{OrganizationID: "org-a", PublicationID: "pub-1", ProductKey: "product-1", CatalogVersion: 1}}
 	producer, err := NewInternalProducer(admissionFunc(func(context.Context) (PublicationScope, error) {

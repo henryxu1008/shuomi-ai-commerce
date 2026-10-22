@@ -80,8 +80,8 @@ func TestAlibaba1688SourceEnvelopeMapsProductFacts(t *testing.T) {
 	if envelope.Identity.SourceID != "123" {
 		t.Fatalf("SourceID = %q, want 123", envelope.Identity.SourceID)
 	}
-	if got := envelope.Identity.Key(); got != "1688:cn:123:9" {
-		t.Fatalf("Key() = %q, want legacy key with store", got)
+	if envelope.Identity.Platform != "" || envelope.Identity.Region != "" || envelope.Identity.ProductID != "" || envelope.Identity.StoreID != 0 {
+		t.Fatalf("retired identity slots populated: %+v", envelope.Identity)
 	}
 	if got := envelope.Identity.SourceKey(); got != "crawler:1688:123" {
 		t.Fatalf("SourceKey() = %q, want source key", got)
@@ -277,11 +277,11 @@ func TestAlibaba1688SourceRequestUsesOfferIDIdentity(t *testing.T) {
 		AccountID: 42,
 	}).Identity()
 
-	if got.Platform != "1688" || got.Region != "cn" || got.ProductID != "123456789" || got.StoreID != 0 {
-		t.Fatalf("Identity() = %+v, want 1688 cn offer identity", got)
+	if got.SourceType != sourcing.SourceTypeCrawler || got.SourcePlatform != "1688" || got.SourceID != "123456789" || got.Platform != "" || got.Region != "" || got.ProductID != "" || got.StoreID != 0 {
+		t.Fatalf("Identity() = %+v, want canonical 1688 offer identity", got)
 	}
-	if key := got.Key(); key != "1688:cn:123456789" {
-		t.Fatalf("Key() = %q, want 1688:cn:123456789", key)
+	if key := got.SourceKey(); key != "crawler:1688:123456789" {
+		t.Fatalf("SourceKey() = %q, want crawler:1688:123456789", key)
 	}
 }
 
@@ -301,8 +301,8 @@ func TestAlibaba1688SourceRequestFallsBackToCleanURL(t *testing.T) {
 		URL: "detail.1688.com/item/custom?foo=bar#frag",
 	}).Identity()
 
-	if got.ProductID != "https://detail.1688.com/item/custom" {
-		t.Fatalf("ProductID fallback = %q, want cleaned URL", got.ProductID)
+	if got.SourceID != "https://detail.1688.com/item/custom" {
+		t.Fatalf("SourceID fallback = %q, want cleaned URL", got.SourceID)
 	}
 }
 
@@ -314,8 +314,8 @@ func TestNormalizeAlibaba1688SourceResultAttachesIdentity(t *testing.T) {
 		URL: "https://detail.1688.com/offer/123.html",
 	}, product, wantErr)
 
-	if got.Identity.Key() != "1688:cn:123" {
-		t.Fatalf("Identity.Key() = %q, want 1688:cn:123", got.Identity.Key())
+	if got.Identity.SourceKey() != "crawler:1688:123" {
+		t.Fatalf("Identity.SourceKey() = %q, want crawler:1688:123", got.Identity.SourceKey())
 	}
 	if got.Product != product {
 		t.Fatalf("Product was not preserved")
@@ -339,10 +339,10 @@ func TestNormalizeAlibaba1688BatchResultsAlignsShortResults(t *testing.T) {
 	if len(got) != 2 {
 		t.Fatalf("len(got) = %d, want 2", len(got))
 	}
-	if got[0].Identity.Key() != "1688:cn:1" || got[0].Product.Title != "first" {
+	if got[0].Identity.SourceKey() != "crawler:1688:1" || got[0].Product.Title != "first" {
 		t.Fatalf("got[0] = %+v, want first request result", got[0])
 	}
-	if got[1].Identity.Key() != "1688:cn:2" || got[1].Product != nil || got[1].Error != nil {
+	if got[1].Identity.SourceKey() != "crawler:1688:2" || got[1].Product != nil || got[1].Error != nil {
 		t.Fatalf("got[1] = %+v, want empty result aligned to second request", got[1])
 	}
 }

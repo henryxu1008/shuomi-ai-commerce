@@ -236,9 +236,9 @@ func TestLegacy1688TaskHandoffAndRouteStayRetired(t *testing.T) {
 		_, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative)))
 		require.True(t, os.IsNotExist(err), "retired numeric source-account artifact must remain absent: %s (%v)", relative, err)
 	}
-	for _, relative := range []string{"internal/crawler/alibaba1688", "internal/infra/httpx"} {
-		assertNoBannedImportPrefixes(t, filepath.Join("..", filepath.FromSlash(relative)), []string{"task-processor/internal/sourceaccount"}, nil)
-	}
+	_, httpxErr := os.Stat(filepath.Join("..", "internal", "infra", "httpx"))
+	require.True(t, os.IsNotExist(httpxErr), "retired host HTTP root must remain absent: %v", httpxErr)
+	assertNoBannedImportPrefixes(t, filepath.Join("..", "internal", "crawler", "alibaba1688"), []string{"task-processor/internal/sourceaccount"}, nil)
 	assertNoBannedImportPrefixes(t, filepath.Join("..", "internal", "crawler", "alibaba1688"), []string{
 		"task-processor/internal/platform/workerpool",
 		"task-processor/internal/infra/httpx",

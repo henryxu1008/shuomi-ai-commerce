@@ -36,7 +36,6 @@ type Config struct {
 	// 1688 browser collector process (design D13).
 	BrowserCollector                                      BrowserCollectorConfig        `yaml:"browserCollector"`
 	Amazon                                                AmazonConfig                  `yaml:"amazon"`
-	Updater                                               UpdaterConfig                 `yaml:"updater"`
 	Platforms                                             PlatformsConfig               `yaml:"platforms"`
 	Watermark                                             *watermark.Config             `yaml:"watermark"`
 	ImageAgent                                            ImageAgentConfig              `yaml:"imageagent"`
@@ -354,18 +353,6 @@ func knownEnvBindings() map[string]envBinding {
 		"amazon.spapi.defaultCondition": {
 			Primary:    "TASK_PROCESSOR_AMAZON_SPAPI_DEFAULT_CONDITION",
 			Deprecated: []string{"AMAZON_SPAPI_DEFAULT_CONDITION"},
-		},
-		"amazon.remoteAPI.enabled": {
-			Primary:    "TASK_PROCESSOR_AMAZON_REMOTE_API_ENABLED",
-			Deprecated: []string{"AMAZON_REMOTE_API_ENABLED"},
-		},
-		"amazon.remoteAPI.baseURL": {
-			Primary:    "TASK_PROCESSOR_AMAZON_REMOTE_API_BASE_URL",
-			Deprecated: []string{"AMAZON_REMOTE_API_BASE_URL"},
-		},
-		"amazon.remoteAPI.timeout": {
-			Primary:    "TASK_PROCESSOR_AMAZON_REMOTE_API_TIMEOUT",
-			Deprecated: []string{"AMAZON_REMOTE_API_TIMEOUT"},
 		},
 		"browser.browserPath": {
 			Primary:    "TASK_PROCESSOR_BROWSER_PATH",

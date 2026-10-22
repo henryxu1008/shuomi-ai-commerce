@@ -23,7 +23,6 @@ func (c *Config) EffectiveSDSAuthRedis() RedisConfig {
 
 // PlatformConfig 单个平台的完整配置
 type PlatformConfig struct {
-	FetchMode  string           `yaml:"fetchMode"` // 商品抓取模式：auto/local/distributed/remote-api
 	HTTPClient HTTPClientConfig `yaml:"httpClient"`
 }
 

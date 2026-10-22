@@ -22,6 +22,40 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+it.each(["batches", "own", "batch-items"])("completes empty and repeated keyword searches in %s without mutations", async view => {
+  const batch = "550e8400-e29b-41d4-a716-446655440000";
+  const entry = { id: batch, name: "可读取的批次", kind: "manual", revision: 1, count: 1, createdAt: "2026-10-08T00:00:00Z" };
+  state.list.mockResolvedValue({ items: [entry], total: 1 });
+  state.items.mockResolvedValue({ items: [{ id: "550e8400-e29b-41d4-a716-446655440001", batchId: batch, title: "可读取的商品", source: { kind: "own" }, revision: 1, createdAt: entry.createdAt }], total: 1 });
+  const read = view === "batches" ? state.list : state.items;
+  const title = view === "batches" ? entry.name : "可读取的商品";
+  render(<CollectionPage initialView={view === "own" ? "own" : "batches"} initialBatchId={view === "batch-items" ? batch : undefined} />);
+  await screen.findByText(title);
+  await userEvent.click(screen.getByRole("button", { name: "搜索" }));
+  await waitFor(() => expect(read).toHaveBeenCalledTimes(2));
+  await screen.findByText(title);
+  const input = screen.getByRole("textbox", { name: view === "batches" ? "搜索批次名称" : "搜索商品名称或标识" });
+  await userEvent.type(input, "测试");
+  await userEvent.click(screen.getByRole("button", { name: "搜索" }));
+  await waitFor(() => expect(read).toHaveBeenCalledTimes(3));
+  await screen.findByText(title);
+  await userEvent.click(screen.getByRole("button", { name: "搜索" }));
+  await waitFor(() => expect(read).toHaveBeenCalledTimes(4));
+  await screen.findByText(title);
+  expect(screen.queryByText("正在读取商品资料…")).not.toBeInTheDocument();
+  expect(state.mutate).not.toHaveBeenCalled(); expect(state.supplyWrite).not.toHaveBeenCalled();
+});
+
+it.each(["batches", "own"] as const)("rereads the already selected %s tab instead of leaving loading stuck", async view => {
+  render(<CollectionPage initialView={view} />);
+  const read = view === "own" ? state.items : state.list;
+  await waitFor(() => expect(read).toHaveBeenCalledOnce());
+  await userEvent.click(screen.getByRole("tab", { name: view === "own" ? "自有商品库" : "采集批次" }));
+  await waitFor(() => expect(read).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(screen.queryByText("正在读取商品资料…")).not.toBeInTheDocument());
+  expect(state.mutate).not.toHaveBeenCalled(); expect(state.supplyWrite).not.toHaveBeenCalled();
+});
+
 it("opens content processing from the exact saved acquisition without mutating the original data", async () => {
  const item="550e8400-e29b-41d4-a716-446655440002", batch="550e8400-e29b-41d4-a716-446655440000", operation="550e8400-e29b-41d4-a716-446655440003";
  state.context.permissions=["workbench.collection.read","workbench.agent.use","local_agent.write"];

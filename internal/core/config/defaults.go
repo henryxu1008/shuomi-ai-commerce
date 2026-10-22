@@ -49,7 +49,6 @@ func setDefaults(v *viper.Viper) {
 	setBrowserDefaults(v, defaults)
 	setAmazonDefaults(v, defaults)
 	setImageAgentDefaults(v, defaults)
-	setUpdaterDefaults(v, defaults)
 	setPlatformDefaults(v, defaults)
 }
 
@@ -96,11 +95,6 @@ func setAmazonDefaults(v *viper.Viper, defaults *Config) {
 	a := defaults.Amazon
 
 	v.SetDefault("amazon.enabled", a.Enabled)
-	v.SetDefault("amazon.dataFreshnessDays", a.DataFreshnessDays)
-	v.SetDefault("amazon.productDedupe.lockTTLSeconds", a.ProductDedupe.LockTTLSeconds)
-	v.SetDefault("amazon.productDedupe.resultTTLSeconds", a.ProductDedupe.ResultTTLSeconds)
-	v.SetDefault("amazon.productDedupe.waitTimeoutSeconds", a.ProductDedupe.WaitTimeoutSeconds)
-	v.SetDefault("amazon.productDedupe.pollIntervalMillis", a.ProductDedupe.PollIntervalMillis)
 	v.SetDefault("amazon.failureArtifacts.enabled", a.FailureArtifacts.Enabled)
 	v.SetDefault("amazon.failureArtifacts.directory", a.FailureArtifacts.Directory)
 	v.SetDefault("amazon.failureArtifacts.captureHTML", a.FailureArtifacts.CaptureHTML)
@@ -111,10 +105,6 @@ func setAmazonDefaults(v *viper.Viper, defaults *Config) {
 	v.SetDefault("amazon.riskControl.timeoutRecreateThreshold", a.RiskControl.TimeoutRecreateThreshold)
 	v.SetDefault("amazon.riskControl.networkRecreateThreshold", a.RiskControl.NetworkRecreateThreshold)
 	v.SetDefault("amazon.riskControl.serverErrorRecreateThreshold", a.RiskControl.ServerErrorRecreateThreshold)
-	v.SetDefault("amazon.regionGuard.enabled", a.RegionGuard.Enabled)
-	v.SetDefault("amazon.regionGuard.failureThreshold", a.RegionGuard.FailureThreshold)
-	v.SetDefault("amazon.regionGuard.evaluationWindowSeconds", a.RegionGuard.EvaluationWindowSeconds)
-	v.SetDefault("amazon.regionGuard.cooldownSeconds", a.RegionGuard.CooldownSeconds)
 	v.SetDefault("amazon.qualityControl.retryOnValidationFailure", a.QualityControl.RetryOnValidationFailure)
 	v.SetDefault("amazon.qualityControl.validationRetryMaxAttempts", a.QualityControl.ValidationRetryMaxAttempts)
 	v.SetDefault("amazon.proxyPool.enabled", a.ProxyPool.Enabled)
@@ -122,14 +112,6 @@ func setAmazonDefaults(v *viper.Viper, defaults *Config) {
 	v.SetDefault("amazon.proxyPool.failureCooldownSeconds", a.ProxyPool.FailureCooldownSeconds)
 	v.SetDefault("amazon.proxyPool.proxyFile", a.ProxyPool.ProxyFile)
 	v.SetDefault("amazon.proxyPool.proxies", a.ProxyPool.Proxies)
-	v.SetDefault("amazon.concurrencyControl.enabled", a.ConcurrencyControl.Enabled)
-	v.SetDefault("amazon.concurrencyControl.maxInFlight", a.ConcurrencyControl.MaxInFlight)
-	v.SetDefault("amazon.concurrencyControl.maxWaiting", a.ConcurrencyControl.MaxWaiting)
-	v.SetDefault("amazon.concurrencyControl.acquireTimeoutSeconds", a.ConcurrencyControl.AcquireTimeoutSeconds)
-	v.SetDefault("amazon.concurrencyControl.perRegion", a.ConcurrencyControl.PerRegion)
-	v.SetDefault("amazon.remoteAPI.enabled", a.RemoteAPI.Enabled)
-	v.SetDefault("amazon.remoteAPI.baseURL", a.RemoteAPI.BaseURL)
-	v.SetDefault("amazon.remoteAPI.timeout", a.RemoteAPI.Timeout)
 
 	sp := defaults.Amazon.SPAPI
 	v.SetDefault("amazon.spapi.enabled", sp.Enabled)
@@ -137,15 +119,6 @@ func setAmazonDefaults(v *viper.Viper, defaults *Config) {
 	v.SetDefault("amazon.spapi.defaultMarketplace", sp.DefaultMarketplace)
 	v.SetDefault("amazon.spapi.defaultFulfillmentType", sp.DefaultFulfillmentType)
 	v.SetDefault("amazon.spapi.defaultCondition", sp.DefaultCondition)
-}
-
-func setUpdaterDefaults(v *viper.Viper, defaults *Config) {
-	u := defaults.Updater
-
-	v.SetDefault("updater.enabled", u.Enabled)
-	v.SetDefault("updater.updateURL", u.UpdateURL)
-	v.SetDefault("updater.checkInterval", u.CheckInterval)
-	v.SetDefault("updater.insecureSkipVerify", u.InsecureSkipVerify)
 }
 
 func setPlatformDefaults(v *viper.Viper, defaults *Config) {
@@ -182,13 +155,11 @@ func setSDSDefaults(v *viper.Viper, p *SDSPlatformConfig) {
 }
 
 func setTemuDefaults(v *viper.Viper, p *PlatformConfig) {
-	v.SetDefault("platforms.temu.fetchMode", p.FetchMode)
 	v.SetDefault("platforms.temu.httpClient.insecureSkipVerify", p.HTTPClient.InsecureSkipVerify)
 
 }
 
 func setSheinDefaults(v *viper.Viper, p *PlatformConfig) {
-	v.SetDefault("platforms.shein.fetchMode", p.FetchMode)
 	v.SetDefault("platforms.shein.httpClient.insecureSkipVerify", p.HTTPClient.InsecureSkipVerify)
 
 }

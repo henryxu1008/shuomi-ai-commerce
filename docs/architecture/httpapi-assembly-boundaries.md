@@ -1,5 +1,7 @@
 # HTTP API Assembly Boundaries
 
+> #870 当前校准：[用户确认的完整旧宿主退休边界](legacy-host-runtime-closure-retirement-boundary.md)整批退休旧 infra/httpx→infra/auth 及三组专属闭包；旧 parser/response/CORS/放行认证/health/metrics 与本地 Session 不迁入当前 HTTP，也不保留兼容 facade。当前 app/httpapi/currentapplication、各域模块与 authruntime/authidentity/authz/workbenchcontext 继续原授权/组织/health/ready owner；下文旧宿主接线仅是历史例子，当前有效装配原则及独立 SHEIN/Store 保持。
+
 > #822 当前校准：旧 internal/amazonlisting（含 api/httpapi/store）及专属 internal/httpbootstrap 已完整源码退休。下文对它们的 builder/route/repo/pool 说明只保留为历史边界证据，不是当前装配、目标 owner 或恢复入口；当前 HTTP 与独立 SHEIN worker 保持原 owner。见[Amazon 退休边界](legacy-amazon-listing-closure-retirement-boundary.md)。
 
 ## Goal

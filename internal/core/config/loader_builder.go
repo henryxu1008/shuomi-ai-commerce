@@ -82,16 +82,9 @@ func BuildConfig(v *viper.Viper) *Config {
 			},
 		},
 		Amazon: AmazonConfig{
-			Enabled:           v.GetBool("amazon.enabled"),
-			Zipcodes:          v.GetStringMapString("amazon.zipcodes"),
-			DataFreshnessDays: v.GetInt("amazon.dataFreshnessDays"),
-			CrawlTimeout:      v.GetInt("amazon.crawlTimeout"),
-			ProductDedupe: ProductDedupeConfig{
-				LockTTLSeconds:     v.GetInt("amazon.productDedupe.lockTTLSeconds"),
-				ResultTTLSeconds:   v.GetInt("amazon.productDedupe.resultTTLSeconds"),
-				WaitTimeoutSeconds: v.GetInt("amazon.productDedupe.waitTimeoutSeconds"),
-				PollIntervalMillis: v.GetInt("amazon.productDedupe.pollIntervalMillis"),
-			},
+			Enabled:      v.GetBool("amazon.enabled"),
+			Zipcodes:     v.GetStringMapString("amazon.zipcodes"),
+			CrawlTimeout: v.GetInt("amazon.crawlTimeout"),
 			FailureArtifacts: FailureArtifactsConfig{
 				Enabled:      v.GetBool("amazon.failureArtifacts.enabled"),
 				Directory:    v.GetString("amazon.failureArtifacts.directory"),
@@ -106,12 +99,6 @@ func BuildConfig(v *viper.Viper) *Config {
 				NetworkRecreateThreshold:        v.GetInt("amazon.riskControl.networkRecreateThreshold"),
 				ServerErrorRecreateThreshold:    v.GetInt("amazon.riskControl.serverErrorRecreateThreshold"),
 			},
-			RegionGuard: AmazonRegionGuardConfig{
-				Enabled:                 v.GetBool("amazon.regionGuard.enabled"),
-				FailureThreshold:        v.GetInt("amazon.regionGuard.failureThreshold"),
-				EvaluationWindowSeconds: v.GetInt("amazon.regionGuard.evaluationWindowSeconds"),
-				CooldownSeconds:         v.GetInt("amazon.regionGuard.cooldownSeconds"),
-			},
 			QualityControl: AmazonQualityControlConfig{
 				RetryOnValidationFailure:   v.GetBool("amazon.qualityControl.retryOnValidationFailure"),
 				ValidationRetryMaxAttempts: v.GetInt("amazon.qualityControl.validationRetryMaxAttempts"),
@@ -125,18 +112,6 @@ func BuildConfig(v *viper.Viper) *Config {
 					getStringSlice(v, "amazon.proxyPool.proxies"),
 					readLineList(v.GetString("amazon.proxyPool.proxyFile")),
 				),
-			},
-			ConcurrencyControl: AmazonConcurrencyControlConfig{
-				Enabled:               v.GetBool("amazon.concurrencyControl.enabled"),
-				MaxInFlight:           v.GetInt("amazon.concurrencyControl.maxInFlight"),
-				MaxWaiting:            v.GetInt("amazon.concurrencyControl.maxWaiting"),
-				AcquireTimeoutSeconds: v.GetInt("amazon.concurrencyControl.acquireTimeoutSeconds"),
-				PerRegion:             getStringIntMap(v, "amazon.concurrencyControl.perRegion"),
-			},
-			RemoteAPI: RemoteAPIConfig{
-				Enabled: v.GetBool("amazon.remoteAPI.enabled"),
-				BaseURL: v.GetString("amazon.remoteAPI.baseURL"),
-				Timeout: v.GetInt("amazon.remoteAPI.timeout"),
 			},
 		},
 		ImageAgent: ImageAgentConfig{
@@ -166,12 +141,6 @@ func BuildConfig(v *viper.Viper) *Config {
 					COSImmutableNonVersionedBucketPolicy: v.GetBool("imageagent.artifactStore.s3.cosImmutableNonVersionedBucketPolicy"),
 				},
 			},
-		},
-		Updater: UpdaterConfig{
-			Enabled:            v.GetBool("updater.enabled"),
-			UpdateURL:          v.GetString("updater.updateURL"),
-			CheckInterval:      v.GetInt("updater.checkInterval"),
-			InsecureSkipVerify: v.GetBool("updater.insecureSkipVerify"),
 		},
 		ListingKit: ListingKitConfig{
 			RolePolicyDatabase: rolePolicyDatabase(v),
@@ -366,40 +335,6 @@ func phoneVerificationExpiryMinutes(v *viper.Viper) int {
 		}
 	}
 	return -1
-}
-
-func getStringIntMap(v *viper.Viper, key string) map[string]int {
-	raw := v.GetStringMap(key)
-	if len(raw) == 0 {
-		return nil
-	}
-
-	result := make(map[string]int, len(raw))
-	for mapKey, value := range raw {
-		mapKey = strings.TrimSpace(mapKey)
-		if mapKey == "" {
-			continue
-		}
-		switch typed := value.(type) {
-		case int:
-			result[mapKey] = typed
-		case int64:
-			result[mapKey] = int(typed)
-		case float64:
-			result[mapKey] = int(typed)
-		case float32:
-			result[mapKey] = int(typed)
-		case string:
-			parsed, err := strconv.Atoi(strings.TrimSpace(typed))
-			if err == nil {
-				result[mapKey] = parsed
-			}
-		}
-	}
-	if len(result) == 0 {
-		return nil
-	}
-	return result
 }
 
 func buildSplitByLevelConfig(v *viper.Viper) []logger.LevelFileConfig {
