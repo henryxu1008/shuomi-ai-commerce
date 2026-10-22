@@ -91,6 +91,10 @@ export function TransferDialog({
     gcTime: 0,
     staleTime: 0,
   });
+  const selectedOffer = offerId
+    ? prices.data?.offers.find((offer) => offer.offerId === offerId)
+    : prices.data?.offers[0];
+  const pricesAvailable = prices.isSuccess && !prices.isFetching;
   const holding = position(member, type);
   const balance =
     !balances.isPending && !balances.isFetching && !balances.isError
@@ -115,7 +119,7 @@ export function TransferDialog({
     BigInt(count) <= BigInt(limit) &&
     (!dataAmount || !!quote);
   async function preview() {
-    if (quoting || operation) return;
+    if (quoting || operation || !pricesAvailable || !selectedOffer) return;
     setQuoting(true);
     setMessage("");
     setQuote(null);
@@ -130,7 +134,7 @@ export function TransferDialog({
       setQuote(
         await quoteMemberData(
           scope,
-          offerId || prices.data?.offers[0]?.offerId || "",
+          selectedOffer.offerId,
           minor,
         ),
       );
@@ -267,13 +271,20 @@ export function TransferDialog({
             <label className={styles.dialogField}>
               数据价格
               <select
-                value={offerId || prices.data?.offers[0]?.offerId || ""}
-                disabled={operation !== null || quoting || !prices.data?.offers.length}
+                value={selectedOffer?.offerId ?? ""}
+                disabled={
+                  operation !== null || quoting || !pricesAvailable || !prices.data?.offers.length
+                }
                 onChange={(event) => {
                   setOfferId(event.target.value);
                   setQuote(null);
                 }}
               >
+                {!selectedOffer ? (
+                  <option value="" disabled>
+                    请选择当前数据价格
+                  </option>
+                ) : null}
                 {prices.data?.offers.map((offer) => (
                   <option key={offer.offerId} value={offer.offerId}>
                     {offer.offerId} · {offer.unitPriceMinor} 分/条
@@ -281,9 +292,21 @@ export function TransferDialog({
                 ))}
               </select>
             </label>
-            {prices.isError ||
-            (!prices.isPending && !prices.data?.offers.length) ? (
-              <p role="alert">当前未配置可用的数据价格，不能分配数据。</p>
+            {prices.isPending || prices.isFetching ? (
+              <p role="status">正在读取数据价格…</p>
+            ) : prices.isError ? (
+              <p role="alert">数据价格读取失败，请重试。</p>
+            ) : !prices.data?.offers.length ? (
+              <p role="alert">当前未配置可用的数据价格，不能开始新换算。</p>
+            ) : null}
+            {prices.isError || prices.isFetching ? (
+              <Button
+                variant="outline"
+                disabled={operation !== null || quoting || prices.isFetching}
+                onClick={() => void prices.refetch()}
+              >
+                重新读取数据价格
+              </Button>
             ) : null}
             <label className={styles.dialogField}>
               分配金额（元）
@@ -301,7 +324,7 @@ export function TransferDialog({
             <Button
               variant="outline"
               disabled={
-                operation !== null || quoting || !prices.data?.offers.length
+                operation !== null || quoting || !pricesAvailable || !selectedOffer
               }
               onClick={() => void preview()}
             >
