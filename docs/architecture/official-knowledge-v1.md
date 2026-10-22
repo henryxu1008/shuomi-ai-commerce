@@ -1,5 +1,10 @@
 # Official Knowledge V1 — Product Gate and design proposal
 
+> 2026-10-22 用户新决定（#884）：官方知识库不使用GitHub地址。
+> 本文GitHub来源URL/白名单和已发布v1运行保留方案由
+> [产品内依据V2设计](official-knowledge-provenance-v2.md)替代；其余owner/鉴权/有界只读合同沿用。
+> V2已完成独立设计准入并按冻结合同实现；旧IMPLEMENTATION_READY仅证明历史V1，当前合同见V2。
+
 > Status: **APPROVED / IMPLEMENTATION_READY** — approved reading scope only.
 >
 > Independent read-only Architecture Review: `official_architecture_review`,
