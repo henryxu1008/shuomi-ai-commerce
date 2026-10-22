@@ -6,10 +6,11 @@ The legacy RabbitMQ queue runtime is source-retired under the [confirmed #301 bo
 
 The dormant host configuration, feature flags and tracing owners are source-retired under the [confirmed #301 boundary](../../docs/architecture/legacy-host-config-featureflag-tracing-retirement-boundary.md). Current configuration loading, environment overrides and validation remain with the existing `internal/core/config` entry points. No replacement runtime is introduced.
 
+The dormant Redis wrapper/adapter and database ConnectionProxy are source-retired under the [confirmed #301 boundary](../../docs/architecture/legacy-redis-proxy-shared-closure-retirement-boundary.md). Current Redis configuration and native clients remain with `internal/core/config` and their existing consumers, including standalone SHEIN login/Store sync. Database bootstrap, shared OpenShared/CloseShared lifecycle and Goose remain in `internal/platform/database`; no replacement runtime or pool is introduced.
+
 Owned runtime mechanisms:
 
 - logging
 - database runtime and Goose migration
-- Redis
 - worker pool
 - Temporal dial

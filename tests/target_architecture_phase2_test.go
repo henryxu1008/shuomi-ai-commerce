@@ -700,7 +700,8 @@ func TestSharedResilienceDoesNotImportInternalPackages(t *testing.T) {
 }
 
 func TestSharedPackageTargetsExist(t *testing.T) {
-	for _, name := range []string{"hashx", "mathx", "ptr", "resilience", "strx"} {
+	// The retired hashx/mathx/strx owners are covered by the complete closure guard.
+	for _, name := range []string{"ptr", "resilience"} {
 		info, err := os.Stat(filepath.Join("..", "internal", "shared", name))
 		if err != nil || !info.IsDir() {
 			t.Errorf("internal/shared/%s must exist as a directory: %v", name, err)
@@ -785,7 +786,7 @@ func TestIntegrationProviderAdaptersEnforceRootSpecificContractMatrix(t *testing
 			name: "openai",
 			allowed: []string{
 				"task-processor/internal/ai",
-				"task-processor/internal/shared/strx",
+				"task-processor/internal/shared/ptr",
 				"task-processor/internal/integration/httpimage",
 				"task-processor/internal/product/enrichment",
 				"task-processor/internal/product/image",
@@ -800,7 +801,7 @@ func TestIntegrationProviderAdaptersEnforceRootSpecificContractMatrix(t *testing
 			name: "geminiimage",
 			allowed: []string{
 				"task-processor/internal/ai",
-				"task-processor/internal/shared/strx",
+				"task-processor/internal/shared/ptr",
 				"task-processor/internal/integration/httpimage",
 			},
 			forbidden: []string{
@@ -811,7 +812,7 @@ func TestIntegrationProviderAdaptersEnforceRootSpecificContractMatrix(t *testing
 		},
 		{
 			name:    "grsai",
-			allowed: []string{"task-processor/internal/ai", "task-processor/internal/shared/strx", "task-processor/internal/integration/httpimage", "task-processor/internal/product/image"},
+			allowed: []string{"task-processor/internal/ai", "task-processor/internal/shared/ptr", "task-processor/internal/integration/httpimage", "task-processor/internal/product/image"},
 			forbidden: []string{
 				"task-processor/internal/integration/httpimage/child",
 				"task-processor/internal/product/enrichment",
@@ -823,7 +824,7 @@ func TestIntegrationProviderAdaptersEnforceRootSpecificContractMatrix(t *testing
 			allowed: []string{"task-processor/internal/product/image"},
 			forbidden: []string{
 				"task-processor/internal/ai",
-				"task-processor/internal/shared/strx",
+				"task-processor/internal/shared/ptr",
 				"task-processor/internal/integration/httpimage",
 				"task-processor/internal/integration/httpimage/child",
 				"task-processor/internal/product/enrichment",
