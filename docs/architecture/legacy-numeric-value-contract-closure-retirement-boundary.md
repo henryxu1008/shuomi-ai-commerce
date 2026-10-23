@@ -1,3 +1,5 @@
+> 当前适用边界（#301 / #912）：用户已确认并按[旧 SHEIN 闲置策略与辅助合同完整退休闭包](legacy-shein-policy-contract-closure-retirement-boundary.md) §1–§7（含 §6.1）整批实施，仅替代本文件中抽取到旧 pricing/activity 的5/8字段规则及两种 Attributes 的 KEEP；ProductImportMapping、SourceIdentity 四JSON零槽位及规范化/hash/读取拒绝完整保留及对应旧 KEEP 检查；准确删除/保留矩阵以新设计 §2/§5/§6.1 为准，其它当前 API/有效规则/采集/独立 SHEIN 登录与 Store 同步不变。下方原历史正文、数字和证据逐字保留，不提供旧 JSON 迁移或运行/数据操作授权。
+
 # #301 旧数字上下文与共享值合同完整退休设计
 
 Status: **Independent Architecture / IMPLEMENTATION_READY / 用户已确认 / 实施中**。冻结设计 HEAD `01d8b8a5087486849d2b883f6c4f554164713857` 的原 CI 与适用独立设计复核均已完成，用户明确确认 §1–§7（含 §6.1）；[实施准入](https://github.com/qq550723504/task-processor/pull/868#issuecomment-6312908855) 已先于生产代码记录 Ready → In Progress。下文设计阶段的权限与待确认表述保留为历史阶段条件，由本状态和该授权精确替代；同一 Writer、分支和 PR 整批实施 §5，workflow/inventory 零改，合并/部署/关单仍未授权。

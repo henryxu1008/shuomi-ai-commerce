@@ -1,3 +1,5 @@
+> 当前适用边界（#301 / #912）：用户已确认并按[旧 SHEIN 闲置策略与辅助合同完整退休闭包](legacy-shein-policy-contract-closure-retirement-boundary.md) §1–§7（含 §6.1）整批实施，仅替代本文件中generationtopics/namelimit 与本批价格/活动/属性辅助的 KEEP；当前草稿严格解码、版本及有效规则保持及对应旧 KEEP 检查；准确删除/保留矩阵以新设计 §2/§5/§6.1 为准，其它当前 API/有效规则/采集/独立 SHEIN 登录与 Store 同步不变。下方原历史正文、数字和证据逐字保留，不提供旧 JSON 迁移或运行/数据操作授权。
+
 > #301 / #904 用户确认的[完整 JSON 别名退休设计](legacy-shein-draft-json-alias-retirement-v1.md) §5/§6.1 仅替代本文三旧 Package 字段、回填/镜像/custom JSON、summary-only SKU 就绪回退及旧绑定/规则版本的 KEEP 或双输出要求。当前仅 canonical 字段，typed v1.2 / diagnostic v2.2 / binding go-json.v2；当前类型、有效规则、严格解码、原持久化 owner、独立 SHEIN 登录与 Store 同步保留。不迁移已有记录、不改 workflow/inventory、不增加试用前置。以下历史正文原样保留。
 
 # 旧 SHEIN Publishing 运行适配、解析器与提交恢复完整闭包退休边界

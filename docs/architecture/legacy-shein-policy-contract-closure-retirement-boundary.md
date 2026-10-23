@@ -2,10 +2,10 @@
 
 Refs [#301](https://github.com/qq550723504/shuomi-ai-commerce/issues/301)。#301 保持 OPEN，#29 不重开。
 
-- Status: **DESIGN_ONLY / REVIEW_PENDING / USER_CONFIRMATION_PENDING**；本轮只有设计授权，没有正式源码实施、合并、部署或关单授权。
-- Design Basis: **Independent Architecture**。本批将替代此前明确 KEEP 的共享 Attributes JSON 类型、PriceManager 和纯策略合同，不能作为普通删文件或以零 import 自行放行。独立检查完成后才可标 IMPLEMENTATION_READY；用户确认 §1–§7（含 §6.1）后仍须先记录、读回 Issue/PR Ready，再改生产代码。
+- Status: **USER_CONFIRMED / SOURCE_IMPLEMENTED / FINAL_REVIEW_PENDING**；用户已确认 §1–§7（含 §6.1），同一 PR #912 整批实施。合并、部署、关单仍须另行授权。准确实现 HEAD、CI、最终复核及授权证据留 PR。
+- Design Basis: **Independent Architecture / IMPLEMENTATION_READY**。此前明确 KEEP 的共享 Attributes JSON 类型、旧 PriceManager 和纯策略合同只按下列准确矩阵替代；独立设计检查通过、用户确认及 Issue/PR Ready 记录读回均先于生产修改，不以零 import 自行放行。
 - 调查基线：main 91f5164438078b1d13c2f546bb85cd4605aa4a09。唯一 Writer 使用原独占 worktree，新分支 codex/issue301-shein-policy-contract-closure-design；无新增 Writer/子代理。
-- 本设计阶段只增加本文并更新架构索引、Legacy Register 两个入口；准确 HEAD、CI、检查结论、用户确认及后续实施证据留主要 PR，不为滚动证据增加仓库提交。
+- 设计阶段只增加本文及架构索引、Legacy Register；现按已确认矩阵整批退休旧源码、转换原检查并校准专属文档尾部，无新增生产实现。以下 §1–§7 保留冻结设计的范围与“确认后”等阶段时态，附录为设计时清单；当前实施状态以上述 Status 和主要 PR 的准确证据为准，不为滚动证据增加仓库提交。
 
 ## 1. 用户结果、依据与范围
 
@@ -107,6 +107,7 @@ Legacy decision: **RETIRE**。Reusable behavior: 当前仍要求的行为已在�
 | 同文件 TestCurrentCommandsDoNotCompileLegacyBusinessBackends | 保留文件表只移除本批十一准确退出文件，pricing_repo.go/营销API/共享值合同仍存在；依赖禁入加入 activity/productsync/generationtopics/namelimit 四根及 root shein **精确包** | 禁止用 shein 前缀误伤子包，禁止整根 pricing，原 workflow/race/必需与安全目标逐字保持 |
 | 同文件 TestNumericContentConfigurationClosureIsRetired | 只将 generationtopics/registry.go 的四符号 KEEP 改为其整根缺席/禁入 | content 当前工厂/Store/旧配置owner缺席断言全部保持，通用Prompt/其它检查不动 |
 | tests/import_boundaries_test.go / TestSheinRetiredManagementImportsStayBlocked | 仅删除本批退出 root models.go、pricing/calculator.go、calculator_test.go、productsync/product_sync_types.go 四个准确 allowlist 项 | 原扫描所有仍存 SHEIN 源、禁止 retired management 依赖及失败即失败不变；其它历史豁免不顺手修改，不扩新allowlist |
+| 同原 retirement 文件 TestSheinListingMixedDeclarationsAreRetired（用户准确例外） | 仅将 root internal/shein 的 *.go 必须存在改为必须缺席；根目录有效子包不删，原 root 声明禁入循环继续保留 | content 的存在性/CleanupContext 字段检查、category/aicache 缺席、原全部声明禁入及其它断言不变；不增加 skip/fallback/空列表绕过 |
 | 本文、docs/architecture/README.md、docs/refactoring/legacy-register.md | 设计阶段只三文档；确认后更新同一状态/准确替代矩阵 | 滚动 HEAD/CI/复核/授权留PR；历史正文/计数/勾选保持 |
 | 附录 B 十一旧设计 | 实施时每份只加一条链接本文的准确 superseded 顶注，限定22工件/旧KEEP检查，其他有效API/规则/能力不变 | 确认前零改，原历史正文/数字/证据逐字保留；其它泛化历史提及由当前索引/Register限定，不全仓扫词改历史 |
 | docs/development/repository-structure.md、docs/refactoring/module-target-mapping.md | 实施时各加窄当前说明/本文链接，仅校准旧PriceManager接线、话题和属性暂留含义 | 原历史段落/计数/链接保留；不是重画全局架构 |

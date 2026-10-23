@@ -1,3 +1,5 @@
+> 当前适用边界（#301 / #912）：用户已确认并按[旧 SHEIN 闲置策略与辅助合同完整退休闭包](legacy-shein-policy-contract-closure-retirement-boundary.md) §1–§7（含 §6.1）整批实施，仅替代本文件中旧 SHEIN pricing.PriceManager/计算器与本批辅助合同的广泛 KEEP；当前平台 pricing_repo.go 和 api/product 同名 PriceManager 不在退休范围及对应旧 KEEP 检查；准确删除/保留矩阵以新设计 §2/§5/§6.1 为准，其它当前 API/有效规则/采集/独立 SHEIN 登录与 Store 同步不变。下方原历史正文、数字和证据逐字保留，不提供旧 JSON 迁移或运行/数据操作授权。
+
 # #301 旧商品筛选与价格/库存推断策略完整退休闭包设计
 
 Status: **USER_CONFIRMED / SOURCE_IMPLEMENTED** in #909。用户已确认冻结设计 §1–§7（含 §6.1）；正式修改前 #301/主要 PR 已记录并读回 **Design Basis: Reuse Existing Architecture / Ready**。六个旧 Go 工件、原四项 KEEP→整根缺席/decoded import/限定 owner 声明保护、十二旧依据窄顶注及唯一失效链接已整批切换；不新增替代策略。原 guard 已实测 RED→GREEN，准确实现 HEAD/必要自检/原 CI/最终复核证据在主要 PR 维护，不以设计检查冒充实现或运行验收。以下冻结设计矩阵保留为实施依据；合并、部署、既有资源操作和关单未授权，#301 保持 OPEN，#29 不重开。

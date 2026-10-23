@@ -1,3 +1,5 @@
+> 当前说明（#301 / #912）：已确认并整批实施[旧 SHEIN 闲置策略与辅助合同完整退休闭包](../architecture/legacy-shein-policy-contract-closure-retirement-boundary.md) §1–§7（含 §6.1）。旧 SHEIN 价格/活动/话题/标题/属性辅助暂留映射只在附录 A 的22工件及对应旧 KEEP 检查上被替代，不产生新模块或事实 owner；平台 API/transport、当前规则/JSON、采集、独立登录和 Store同步保持；下方原历史段落/计数/链接保留。workflow/inventory 与既有实例/数据/凭据/进程不动，不增加试用前置，#301 OPEN。
+
 # Module Target Mapping
 
 > #301 / #870 [用户确认的完整旧宿主退休边界](../architecture/legacy-host-runtime-closure-retirement-boundary.md)（冻结设计a76db47d7，Reuse Existing Architecture / Ready）已确认并整批实施。仅 supersede 七个旧根 infra/httpx、infra/auth、app/monitoring、app/lifecycle、core/errors、app/ports、app/updater 的旧迁移/保留/存在性/替换目标；38准确Go文件与专属文档/原guard同退，无新EXTRACT或替代框架。当前身份/HTTP/module/Retry/观测/共享基础层、采集、Store及独立SHEIN登录/同步继续原owner。历史正文/计数/失败保留，workflow/inventory/依赖与真实文件/进程/凭据/数据不改，无新试用前置，#301 OPEN；准确证据留PR。
