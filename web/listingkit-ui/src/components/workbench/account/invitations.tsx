@@ -11,7 +11,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EnterpriseRole } from "@/lib/api/enterprise-roles";
-import { MemberScope, MemberRole } from "@/lib/api/members";
+import { MemberError, MemberScope, MemberRole } from "@/lib/api/members";
 import {
   createInvitation,
   readAdminInvitation,
@@ -35,6 +35,7 @@ const subscribePending = (notify: () => void) => {
   };
 };
 const noPending = () => null;
+type CreateIntent = { key: string; input: { email: string; role: MemberRole } };
 const pendingChanged = () =>
   window.dispatchEvent(new Event("membership-pending"));
 const roles: Record<string,string> = {listingkit_admin:"管理员"};
@@ -131,21 +132,31 @@ export function InvitationsPanel({
     controller.current = c;
     return () => c.abort();
   }, [storageKey]);
+  function clearCreateIntent(create: CreateIntent) {
+    const current = JSON.parse(sessionStorage.getItem(storageKey) ?? "null");
+    if (!current || current.key !== create.key) return false;
+    const input = invitationInput.parse(current.input);
+    if (input.email !== create.input.email || input.role !== create.input.role)
+      return false;
+    sessionStorage.removeItem(storageKey);
+    pendingChanged();
+    return true;
+  }
   async function run(
     action: () => Promise<InvitationResult>,
-    isCreate = false,
+    create?: CreateIntent,
   ) {
     const c = controller.current;
     if (!c || c.signal.aborted || active.current) return;
     active.current = true;
     setBusy(true);
     setError("");
+    let resultConfirmed = false;
     try {
       await action();
+      resultConfirmed = true;
       if (!c.signal.aborted) {
-        if (isCreate) {
-          sessionStorage.removeItem(storageKey);
-          pendingChanged();
+        if (create && clearCreateIntent(create)) {
           setClosedRequest(inviteRequest);
         }
         await query.refetch();
@@ -154,6 +165,24 @@ export function InvitationsPanel({
     } catch (failure) {
       if (!c.signal.aborted) {
         onAuthorityFailure(failure);
+        // Only a first submission can establish a no-effect refusal. A replay
+        // after an unknown result must keep its original identity and payload.
+        if (
+          create && !unconfirmed && !resultConfirmed &&
+          failure instanceof MemberError &&
+          ((failure.status === 409 && failure.code === "MEMBER_OPERATION_CONFLICT") ||
+            (failure.status === 400 && failure.code === "INVALID_REQUEST"))
+        ) {
+          try {
+            if (clearCreateIntent(create)) {
+              setClosedRequest(inviteRequest);
+              setError("本次邀请已被拒绝，未创建新邀请。请检查已有邀请或修改邮箱后重新邀请。");
+              return;
+            }
+          } catch {
+            // Unreadable, changed or unremovable recovery records stay intact.
+          }
+        }
         setError("本次结果未确认，请刷新原邀请；创建结果未知时可核实原标识。");
       }
     } finally {
@@ -211,7 +240,10 @@ export function InvitationsPanel({
                         email: unconfirmed.email,
                         role: unconfirmed.role,
                       }),
-                    true,
+                    {
+                      key: unconfirmed.key,
+                      input: { email: unconfirmed.email, role: unconfirmed.role },
+                    },
                   )
                 }
               >
@@ -241,7 +273,7 @@ export function InvitationsPanel({
                     pendingChanged();
                     void run(
                       () => createInvitation(requestScope(), key, input.data),
-                      true,
+                      { key, input: input.data },
                     );
                   } catch {
                     setError("无法保存邀请标识，本次尚未发送。");
