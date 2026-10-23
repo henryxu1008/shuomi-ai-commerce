@@ -3,16 +3,13 @@ package shein
 import "encoding/json"
 
 // ClonePackageForPersistence copies a SHEIN package using its persisted JSON
-// contract while preserving owner-private resolution state. Semantic aliases
-// are normalized on a shallow copy so cloning never mutates the source.
+// contract while preserving owner-private resolution state without mutating the source.
 func ClonePackageForPersistence(pkg *Package) (*Package, error) {
 	if pkg == nil {
 		return nil, nil
 	}
 
-	normalized := *pkg
-	NormalizePackageSemanticFields(&normalized)
-	encoded, err := json.Marshal(&normalized)
+	encoded, err := json.Marshal(pkg)
 	if err != nil {
 		return nil, err
 	}

@@ -57,7 +57,7 @@ func TestMissingFinalDraftBlocksBothInputContractsAndActions(t *testing.T) {
 }
 
 func TestCorrectedImageRuleVersionsRejectFormerRevisions(t *testing.T) {
-	if RuleVersion != "shein.offline_package.v1.1" || DiagnosticRuleVersion != "shein.offline_package.v2.1" || BindingVersion != "shein.persisted-input.go-json.v1" {
+	if RuleVersion != "shein.offline_package.v1.2" || DiagnosticRuleVersion != "shein.offline_package.v2.2" || BindingVersion != "shein.persisted-input.go-json.v2" {
 		t.Fatal("corrected rule versions or unchanged binding version drifted")
 	}
 	typedRequest := request(readyPackage())
@@ -113,19 +113,19 @@ func TestDiagnosticFixedEncodingVectors(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		const emptyDigest = "sha256:fcc2aaeb1c7bda2d707d423cbc296d9a2793a77f5e7c1275cabc08604f8e79fa"
+		const emptyDigest = "sha256:82ab67d23adad2d3eeb38dbb22309f364c630e765a75e21891a575fa46f546b3"
 		if got.Input.Digest != emptyDigest {
-			t.Errorf("empty normalized vector: %s", got.Input.Digest)
+			t.Errorf("empty canonical vector: %s", got.Input.Digest)
 		}
 	}
-	for _, raw := range []string{`{"preview_payload":{"spu_name":"sku"}}`, `{"preview_product":{"spu_name":"sku"}}`, `{"preview_payload":{"spu_name":"sku"},"preview_product":{"spu_name":"sku"}}`} {
+	for _, raw := range []string{`{"preview_payload":{"spu_name":"sku"}}`, `{ "preview_payload": { "spu_name": "sku" } }`, `{"preview_payload":{"spu_name":"sku"},"review_notes":[]}`} {
 		got, err := (DiagnosticValidator{}).Validate(diagnosticRequest(raw))
 		if err != nil {
 			t.Fatal(err)
 		}
-		const sdkDigest = "sha256:f5318507e79ca0f9f79488cd1c7af8698717b950bfb9a7a50473ad42cfb650ea"
+		const sdkDigest = "sha256:10e8edc0efe4eac90d9a60897672d6dd5285350e31c92753c07eaa2f304e7c0d"
 		if got.Input.Digest != sdkDigest {
-			t.Errorf("SDK alias vector: %s", got.Input.Digest)
+			t.Errorf("SDK canonical vector: %s", got.Input.Digest)
 		}
 	}
 }
@@ -250,8 +250,8 @@ func TestDiagnosticConcurrentDeterminism(t *testing.T) {
 
 func TestDiagnosticEncodingResourceFailuresAreZero(t *testing.T) {
 	for name, raw := range map[string]string{
-		"normalized aliases": `{"preview_payload":{"spu_name":"` + strings.Repeat("x", 1100000) + `"}}`,
-		"report":             `{"metadata":{"variant_image_coverage_status":"blocked","variant_image_coverage_message":"` + strings.Repeat("x", 1100000) + `"}}`,
+		"canonical encoding expansion": `{"preview_payload":{"spu_name":"` + strings.Repeat("<", 400000) + `"}}`,
+		"report":                       `{"metadata":{"variant_image_coverage_status":"blocked","variant_image_coverage_message":"` + strings.Repeat("x", 1100000) + `"}}`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			got, err := (DiagnosticValidator{}).Validate(diagnosticRequest(raw))
@@ -344,5 +344,36 @@ func TestDiagnosticClockRollbackIsEvaluationFailure(t *testing.T) {
 	var typed *contract.Error
 	if !errors.As(err, &typed) || typed.Code != contract.EvaluationFailed || !reflect.DeepEqual(got, contract.DiagnosticResult{}) {
 		t.Fatal("clock rollback code", err)
+	}
+}
+
+func TestCanonicalVersionsAndOldAliasesAreRejected(t *testing.T) {
+	for _, version := range []string{"shein.offline_package.v1", "shein.offline_package.v1.1"} {
+		r := request(readyPackage())
+		r.RuleVersion = version
+		_, err := (Validator{}).Validate(r)
+		var e *contract.Error
+		if !errors.As(err, &e) || e.Code != contract.UnsupportedVersion {
+			t.Fatalf("old typed version accepted: %v", err)
+		}
+	}
+	for _, change := range []func(*contract.BoundRequest[[]byte]){
+		func(r *contract.BoundRequest[[]byte]) { r.RuleVersion = "shein.offline_package.v2.1" },
+		func(r *contract.BoundRequest[[]byte]) { r.BindingVersion = "shein.persisted-input.go-json.v1" },
+	} {
+		r := diagnosticRequest(`{}`)
+		change(&r)
+		_, err := (DiagnosticValidator{}).Validate(r)
+		var e *contract.Error
+		if !errors.As(err, &e) || e.Code != contract.UnsupportedVersion {
+			t.Fatalf("old bound version accepted: %v", err)
+		}
+	}
+	for _, raw := range []string{`{"preview_product":{"spu_name":"sku"}}`, `{"preview_payload":{"spu_name":"sku"},"preview_product":{"spu_name":"sku"}}`} {
+		_, err := (DiagnosticValidator{}).Validate(diagnosticRequest(raw))
+		var e *contract.Error
+		if !errors.As(err, &e) || e.Code != contract.InvalidInput {
+			t.Fatalf("retired alias accepted: %v", err)
+		}
 	}
 }

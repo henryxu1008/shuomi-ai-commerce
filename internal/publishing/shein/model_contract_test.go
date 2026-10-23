@@ -6,28 +6,28 @@ import (
 	common "task-processor/internal/publishing/common"
 )
 
-func TestDraftPayloadOfNormalizesLegacyRequestDraft(t *testing.T) {
-	legacy := &RequestDraft{SpuName: "Legacy product"}
-	pkg := &Package{RequestDraft: legacy}
+func TestDraftPayloadOfReadsCanonicalDraft(t *testing.T) {
+	canonical := &RequestDraft{SpuName: "Canonical product"}
+	pkg := &Package{DraftPayload: canonical}
 
 	got := DraftPayloadOf(pkg)
-	if got != legacy {
-		t.Fatalf("DraftPayloadOf() = %p, want legacy draft %p", got, legacy)
+	if got != canonical {
+		t.Fatalf("DraftPayloadOf() = %p, want canonical draft %p", got, canonical)
 	}
-	if pkg.DraftPayload != legacy {
-		t.Fatalf("DraftPayload = %p, want legacy draft %p", pkg.DraftPayload, legacy)
+	if pkg.DraftPayload != canonical {
+		t.Fatalf("DraftPayload = %p, want canonical draft %p", pkg.DraftPayload, canonical)
 	}
 }
 
-func TestSetDraftPayloadMirrorsLegacyCompatibilityAlias(t *testing.T) {
+func TestSetDraftPayloadWritesCanonicalField(t *testing.T) {
 	pkg := &Package{}
 	draft := &RequestDraft{SpuName: "Semantic product"}
 
 	if got := SetDraftPayload(pkg, draft); got != pkg {
 		t.Fatalf("SetDraftPayload() returned %p, want package %p", got, pkg)
 	}
-	if pkg.DraftPayload != draft || pkg.RequestDraft != draft {
-		t.Fatalf("draft aliases = semantic %p, legacy %p; want both %p", pkg.DraftPayload, pkg.RequestDraft, draft)
+	if pkg.DraftPayload != draft {
+		t.Fatalf("draft = %p, want %p", pkg.DraftPayload, draft)
 	}
 }
 
@@ -75,4 +75,15 @@ func hasDraftIssueCode(issues []DraftPayloadIssue, want string) bool {
 		}
 	}
 	return false
+}
+
+func TestCanonicalSettersHandleNil(t *testing.T) {
+	if DraftPayloadOf(nil) != nil || SetDraftPayload(nil, nil) != nil || SetPreviewPayload(nil, nil) != nil {
+		t.Fatal("nil package must remain nil")
+	}
+	pkg := &Package{DraftPayload: &RequestDraft{}}
+	SetDraftPayload(pkg, nil)
+	if pkg.DraftPayload != nil {
+		t.Fatal("canonical draft not cleared")
+	}
 }

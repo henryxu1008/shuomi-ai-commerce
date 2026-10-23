@@ -114,3 +114,10 @@ func TestHasSubmitImageChecksPackageDraftAndPreviewImages(t *testing.T) {
 		t.Fatal("HasSubmitImage(preview skc image) = false, want true")
 	}
 }
+
+func TestHasAnySubmitSKURejectsSummaryWithoutDraft(t *testing.T) {
+	pkg := &Package{SkcList: []SKCPackage{{SKUs: []common.Variant{{SKU: "summary-only"}}}}}
+	if HasAnySubmitSKU(pkg) {
+		t.Fatal("summary-only SKU must not be ready without canonical draft")
+	}
+}

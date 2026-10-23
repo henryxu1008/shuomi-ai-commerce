@@ -17,9 +17,9 @@ func TestDecodePersistedPackageStrict(t *testing.T) {
 		"case": `{"Spu_Name":"a"}`, "null": `null`, "array": `[]`, "trailing": `{} {}`,
 		"surrogate": `{"spu_name":"\ud800"}`, "low surrogate": `{"spu_name":"\udc00"}`,
 		"utf8": "{\"spu_name\":\"\xff\"}", "overflow": `{"pricing":{"rule_snapshot":{"exchange_rate":1e999}}}`,
-		"alias conflict":  `{"preview_payload":{"spu_name":"a"},"preview_product":{"spu_name":"b"}}`,
-		"float underflow": `{"pricing":{"rule_snapshot":{"exchange_rate":1e-999}}}`,
-		"depth":           `{"metadata":` + strings.Repeat(`[`, 64) + `0` + strings.Repeat(`]`, 64) + `}`,
+		"retired alias conflict": `{"preview_payload":{"spu_name":"a"},"preview_product":{"spu_name":"b"}}`,
+		"float underflow":        `{"pricing":{"rule_snapshot":{"exchange_rate":1e-999}}}`,
+		"depth":                  `{"metadata":` + strings.Repeat(`[`, 64) + `0` + strings.Repeat(`]`, 64) + `}`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			p, err := DecodePersistedPackageStrict([]byte(raw))
@@ -80,9 +80,7 @@ func TestPersistedPackageCustomDecodersAreAudited(t *testing.T) {
 			if typ == reflect.TypeOf(time.Time{}) {
 				return
 			}
-			if typ != reflect.TypeOf(Package{}) {
-				t.Errorf("unaudited custom decoder: %s", typ)
-			}
+			t.Errorf("unaudited custom decoder: %s", typ)
 		}
 		switch typ.Kind() {
 		case reflect.Pointer, reflect.Slice, reflect.Array:
