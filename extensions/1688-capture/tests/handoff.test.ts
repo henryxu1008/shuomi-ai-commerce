@@ -22,6 +22,7 @@ describe('handoff is bounded transport, never publication authority', () => {
   it.each([
     { ...sender, origin: 'https://evil.test' }, { ...sender, url: `${app}/other` },
     { ...sender, url: 'https://app.example.test:8443/capture/1688' },
+    { ...sender, url: 'https://app.example.test/capture/amazon' },
     { ...sender, frameId: 1 }, { ...sender, tab: { id: 43 } },
     { ...sender, origin: undefined }, { ...sender, id: 'another-extension' },
   ])('rejects mismatched or missing sender fields', bad => {

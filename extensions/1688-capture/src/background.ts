@@ -1,19 +1,20 @@
 import { Controller } from './controller';
-import { pageSource, validateCapture } from './validation';
+import { capturePageSource, validatePlatformCapture } from './platforms';
 declare const APP_CAPTURE_URL: string;
+declare const APP_AMAZON_CAPTURE_URL: string;
 
 async function extractCurrent() {
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
   if (tabs.length !== 1 || tabs[0].id === undefined || !tabs[0].url) throw Error('INVALID_PAGE');
-  const tab = tabs[0]; const source = pageSource(tab.url!);
+  const tab = tabs[0]; const source = capturePageSource(tab.url!);
   const results = await chrome.scripting.executeScript({ target: { tabId: tab.id!, frameIds: [0] }, world: 'ISOLATED', files: ['extractor.js'] });
   const result = results[0]?.result as { ok?: boolean; payload?: unknown } | undefined;
   if (results.length !== 1 || results[0].frameId !== 0 || !results[0].documentId || !result?.ok) throw Error('CAPTURE_REJECTED');
-  const payload = validateCapture(result.payload);
+  const payload = validatePlatformCapture(result.payload);
   // Verify the same document is still current without reading any other tab.
   const check = await chrome.scripting.executeScript({ target: { tabId: tab.id!, documentIds: [results[0].documentId] }, world: 'ISOLATED',
     func: () => document.URL });
-  if (check.length !== 1 || check[0].documentId !== results[0].documentId || pageSource(check[0].result as string).sourceURL !== source.sourceURL
+  if (check.length !== 1 || check[0].documentId !== results[0].documentId || capturePageSource(check[0].result as string).sourceURL !== source.sourceURL
     || payload.evidence.sourceURL !== source.sourceURL) throw Error('PAGE_CHANGED');
   return payload;
 }
@@ -21,7 +22,8 @@ const newController = () => new Controller(APP_CAPTURE_URL, extractCurrent, asyn
   const tab = await chrome.tabs.create({ url });
   if (tab.id === undefined) throw Error('HANDOFF_UNAVAILABLE');
   return tab.id;
-}, () => chrome.runtime.id);
+}, () => chrome.runtime.id, validatePlatformCapture,
+  payload => capturePageSource(payload.evidence.sourceURL).platform === 'amazon' ? APP_AMAZON_CAPTURE_URL : APP_CAPTURE_URL);
 let controller = newController();
 
 chrome.runtime.onMessage.addListener((message, sender, respond) => {
