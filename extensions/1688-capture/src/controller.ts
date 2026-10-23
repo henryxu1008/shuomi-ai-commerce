@@ -1,22 +1,28 @@
-import type { CapturePayload } from './wire';
+import type { PlatformCapturePayload } from './wire';
 import { Handoff } from './handoff';
 import { validateCapture } from './validation';
 
 export class Controller {
-  private payload?: CapturePayload;
+  private payload?: PlatformCapturePayload;
   private capturing?: Promise<void>;
   private delivering?: Promise<void>;
   private handed = false;
   private deliveryFailed = false;
-  private readonly flow: Handoff;
-  constructor(app: string, private readonly extract: () => Promise<CapturePayload>,
-    private readonly createTab: (url: string) => Promise<number>, private readonly extensionID: () => string) {
+  private flow: Handoff;
+  constructor(app: string, private readonly extract: () => Promise<PlatformCapturePayload>,
+    private readonly createTab: (url: string) => Promise<number>, private readonly extensionID: () => string,
+    private readonly validate: (value: unknown) => PlatformCapturePayload = validateCapture,
+    private readonly receiver: (payload: PlatformCapturePayload) => string = () => app) {
     this.flow = new Handoff(app);
   }
   capture(): Promise<void> {
     if (this.capturing) return this.capturing;
     if (this.payload) return Promise.resolve();
-    this.capturing = this.extract().then(value => { this.payload = validateCapture(value); }).finally(() => { this.capturing = undefined; });
+    this.capturing = this.extract().then(value => {
+      const payload = this.validate(value);
+      this.flow = new Handoff(this.receiver(payload));
+      this.payload = payload;
+    }).finally(() => { this.capturing = undefined; });
     return this.capturing;
   }
   handoff(): Promise<void> {
