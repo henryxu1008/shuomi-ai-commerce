@@ -10,7 +10,11 @@ import (
 func TestToolMarketInstallReleaseMustMatchExactReceiver(t *testing.T) {
 	dir := t.TempDir()
 	c := &ToolMarketConfig{CaptureAppURL: "https://localhost:31544/capture/1688", PackageDirectory: dir}
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "release.json"), []byte(`{"schemaVersion":1,"captureAppUrl":"https://localhost:31444/capture/1688","sha256":"untrusted","filename":"shuomi-1688-capture.zip"}`), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "release.json"), []byte(`{"schemaVersion":1,"captureAppUrl":"https://localhost:31544/capture/1688","sha256":"recorded","filename":"shuomi-product-capture.zip"}`), 0600))
+	packaged := c.PackageConfig()
+	require.NotNil(t, packaged)
+	require.Equal(t, filepath.Join(dir, "shuomi-product-capture.zip"), packaged.Path)
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "release.json"), []byte(`{"schemaVersion":1,"captureAppUrl":"https://localhost:31444/capture/1688","sha256":"untrusted","filename":"shuomi-product-capture.zip"}`), 0600))
 	require.Nil(t, c.PackageConfig(), "same hostname with a different port is not this installation")
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "release.json"), []byte(`{"schemaVersion":1,"captureAppUrl":"https://localhost:31544/capture/1688","sha256":"recorded","filename":"../../other.zip"}`), 0600))
 	require.Nil(t, c.PackageConfig())

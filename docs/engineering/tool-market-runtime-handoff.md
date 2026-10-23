@@ -57,14 +57,14 @@ events和attachments SELECT/INSERT、commands SELECT/INSERT/UPDATE；无schema C
 
 ## 插件包
 
-已有扩展依赖先按extensions/1688-capture文档安装。实际安装须使用自己的已验证HTTPS接收地址：
+已有扩展依赖先按extensions/product-capture文档安装。实际安装须使用自己的已验证HTTPS接收地址：
 
 ```powershell
 ./scripts/build-tool-market-plugin.ps1 -CaptureAppUrl 'https://你的应用域名/capture/1688' -OutputDirectory './.local/tool-market-release'
 ```
 
 脚本只调用已有非fixture build和标准Compress-Archive，不创建第二采集器。
-将zip、release.json及当前安装的完整CAPTURE_APP_URL作为同一次可信发布记录交接；
+产物为 `shuomi-product-capture.zip`；将该zip、匹配的release.json及当前安装的完整CAPTURE_APP_URL作为同一次可信发布记录交接；
 runtime读取record的sha256，将**当前安装接收地址**传入`Handler.ConfigurePackage`的PackageConfig。
 不能仅凭manifest的hostname绑定地址，也不能把客户端参数作为地址/路径/sha来源。
 当前安装地址与record.captureAppUrl必须完全相同，否则不得加载包。

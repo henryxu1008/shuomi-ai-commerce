@@ -1,5 +1,7 @@
 # 插件采集增量架构：规格图片与 Amazon 接收保存 V1
 
+> 2026-10-23 命名更新：当前源码/操作入口为 `extensions/product-capture`，私有 npm 包为 `@shuomi/product-capture`。下文原设计中的旧目录名保留为冻结依据的历史路径；本次不改变平台路由、合同或运行实例。
+
 Refs [#902](https://github.com/qq550723504/shuomi-ai-commerce/issues/902)，主要文档 PR #903。字段依据：[插件上架字段设计](../product/plugin-capture-listing-fields-v1.md)。
 
 Status: **IMPLEMENTATION_READY（本增量架构设计层） / DEVELOPMENT_NOT_AUTHORIZED**。
