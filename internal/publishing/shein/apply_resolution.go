@@ -1,7 +1,6 @@
 package shein
 
 func ApplyCategoryResolution(pkg *Package, resolution *CategoryResolution) {
-	pkg = NormalizePackageSemanticFields(pkg)
 	if pkg == nil || resolution == nil {
 		return
 	}
@@ -19,7 +18,6 @@ func ApplyCategoryResolution(pkg *Package, resolution *CategoryResolution) {
 }
 
 func ApplyAttributeResolution(pkg *Package, resolution *AttributeResolution) {
-	pkg = NormalizePackageSemanticFields(pkg)
 	if pkg == nil || resolution == nil {
 		return
 	}
@@ -30,7 +28,6 @@ func ApplyAttributeResolution(pkg *Package, resolution *AttributeResolution) {
 }
 
 func ApplySaleAttributeResolution(pkg *Package, resolution *SaleAttributeResolution) {
-	pkg = NormalizePackageSemanticFields(pkg)
 	if pkg == nil || resolution == nil || pkg.DraftPayload == nil {
 		return
 	}

@@ -3,7 +3,7 @@
 Refs #335 / #47 / #44. This is the first bounded repository regression slice,
 not production source collection, remote publishing, human approval or Agent eval.
 
-`manifest.json` identifies dataset `product-shein-shared`, version `1.0.1`, the
+`manifest.json` identifies dataset `product-shein-shared`, version `1.0.2`, the
 SHA-256 of the **exact UTF-8 bytes of cases.json including its final LF**, fixed
 semantic time, rule and binding versions. Local attributes pin JSON to LF on
 Windows and Linux. The digest excludes the manifest itself and this README.
@@ -178,3 +178,10 @@ deterministic and stable across restart. This suite does not assert byte equalit
 between independent new assembler builds, or let this defect excuse a changed
 digest on a re-read of the same record. No listed Blocker consequence was found;
 fixing the assembler's ordering is outside #335's test-only authority.
+
+Revision 1.0.2 (#904) changes only the rule/binding versions and PS-008's
+empty envelope vector / PS-009's matching subject digest. The empty and nested
+SDK vectors were independently recomputed with Python JSON/SHA-256 using the
+approved ordered envelope and existing Product/Extra zero-value field order.
+Canonical fields only; no alias normalization. All 9 PS IDs, layers and 15
+checklist rules are retained. Exact current review evidence is in #904.

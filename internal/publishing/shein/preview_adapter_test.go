@@ -35,7 +35,7 @@ func TestToResolvedAttributesSetsSingleCompositionPercentToHundred(t *testing.T)
 				AttributeType:    4,
 			},
 		},
-		RequestDraft: &RequestDraft{},
+		DraftPayload: &RequestDraft{},
 	}
 
 	got := toResolvedAttributes(pkg)
@@ -70,7 +70,7 @@ func TestToResolvedAttributesSkipsNumericDisplayAttributes(t *testing.T) {
 				AttributeType:    4,
 			},
 		},
-		RequestDraft: &RequestDraft{},
+		DraftPayload: &RequestDraft{},
 	}
 
 	got := toResolvedAttributes(pkg)
@@ -97,7 +97,7 @@ func TestToResolvedAttributesInfersQuantityExtraValueFromProductTitle(t *testing
 				AttributeType:    4,
 			},
 		},
-		RequestDraft: &RequestDraft{},
+		DraftPayload: &RequestDraft{},
 	}
 
 	got := toResolvedAttributes(pkg)
@@ -126,7 +126,7 @@ func TestToResolvedAttributesInfersQuantityExtraValueFromProductAttributes(t *te
 				AttributeType:    4,
 			},
 		},
-		RequestDraft: &RequestDraft{},
+		DraftPayload: &RequestDraft{},
 	}
 
 	got := toResolvedAttributes(pkg)
@@ -153,7 +153,7 @@ func TestToResolvedAttributesFallsBackQuantityExtraValueToOne(t *testing.T) {
 				AttributeType:    4,
 			},
 		},
-		RequestDraft: &RequestDraft{},
+		DraftPayload: &RequestDraft{},
 	}
 
 	got := toResolvedAttributes(pkg)
@@ -179,7 +179,7 @@ func TestToResolvedAttributesExtractsNumericExtraValueFromResolvedValue(t *testi
 				AttributeType:    4,
 			},
 		},
-		RequestDraft: &RequestDraft{},
+		DraftPayload: &RequestDraft{},
 	}
 
 	got := toResolvedAttributes(pkg)
@@ -213,7 +213,7 @@ func TestToResolvedAttributesKeepsMultipleValuesForSameAttribute(t *testing.T) {
 				AttributeType:    4,
 			},
 		},
-		RequestDraft: &RequestDraft{},
+		DraftPayload: &RequestDraft{},
 	}
 
 	got := toResolvedAttributes(pkg)

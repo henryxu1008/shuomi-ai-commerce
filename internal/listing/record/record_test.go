@@ -317,3 +317,19 @@ func TestInputRequiresExactStoreAndAction(t *testing.T) {
 	}
 	require.NoError(t, fixtureInput.Validate())
 }
+
+func TestCanonicalInputHashBindsRuleAndPolicyRevisions(t *testing.T) {
+	actor := listingtask.Actor{TenantID: "org", UserID: "user"}
+	input := Input{ProductKey: "product", SnapshotVersion: 7, StoreID: fixtureStoreID, Country: "US", Language: "en", Action: contract.SaveDraft}
+	old, err := canonicalInputHash(actor, input, "product-hash", "inventory-hash", "shein.offline_package.v2.1", "shein.persisted-input.go-json.v1")
+	require.NoError(t, err)
+	for _, versions := range [][2]string{
+		{sheinvalidator.DiagnosticRuleVersion, "shein.persisted-input.go-json.v1"},
+		{"shein.offline_package.v2.1", sheinvalidator.BindingVersion},
+		{sheinvalidator.DiagnosticRuleVersion, sheinvalidator.BindingVersion},
+	} {
+		current, err := canonicalInputHash(actor, input, "product-hash", "inventory-hash", versions[0], versions[1])
+		require.NoError(t, err)
+		require.NotEqual(t, old, current)
+	}
+}

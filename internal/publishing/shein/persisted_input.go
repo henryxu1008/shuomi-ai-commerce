@@ -17,9 +17,8 @@ const MaxPersistedPackageDepth = 64
 
 var ErrInvalidPersistedPackage = errors.New("invalid bounded SHEIN persisted package")
 
-// DecodePersistedPackageStrict accepts only a persisted JSON copy. A distinct
-// defined type bypasses Package.UnmarshalJSON so its permissive decoder cannot
-// swallow unknown/duplicate fields. No resolver-private state can be injected.
+// DecodePersistedPackageStrict rejects unknown/duplicate fields in bounded canonical JSON.
+// No resolver-private state can be injected.
 func DecodePersistedPackageStrict(raw []byte) (*Package, error) {
 	if len(raw) == 0 || len(raw) > MaxPersistedPackageBytes || !utf8.Valid(raw) || !json.Valid(raw) || !validPersistedSyntaxBounds(raw) || !validPersistedNumbers(raw) {
 		return nil, ErrInvalidPersistedPackage
@@ -34,10 +33,6 @@ func DecodePersistedPackageStrict(raw []byte) (*Package, error) {
 		return nil, ErrInvalidPersistedPackage
 	}
 	pkg := Package(decoded)
-	if conflictingPersistedAliases(&pkg) {
-		return nil, ErrInvalidPersistedPackage
-	}
-	NormalizePackageSemanticFields(&pkg)
 	return &pkg, nil
 }
 
@@ -70,15 +65,6 @@ func validPersistedNumbers(raw []byte) bool {
 			return false
 		}
 	}
-}
-
-func equalPersistedAliases(a, b any) bool {
-	left, err := json.Marshal(a)
-	if err != nil {
-		return false
-	}
-	right, err := json.Marshal(b)
-	return err == nil && bytes.Equal(left, right)
 }
 
 // Syntax is parsed by encoding/json and typed decoding by sigs.k8s.io/json.

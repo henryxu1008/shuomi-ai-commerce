@@ -10,8 +10,8 @@ import (
 	sheinpub "task-processor/internal/publishing/shein"
 )
 
-const DiagnosticRuleVersion = "shein.offline_package.v2.1"
-const BindingVersion = "shein.persisted-input.go-json.v1"
+const DiagnosticRuleVersion = "shein.offline_package.v2.2"
+const BindingVersion = "shein.persisted-input.go-json.v2"
 const MaxDiagnosticBytes = 2 << 20
 
 type DiagnosticValidator struct{}

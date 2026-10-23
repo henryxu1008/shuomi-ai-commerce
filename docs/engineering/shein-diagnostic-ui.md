@@ -1,5 +1,7 @@
 # SHEIN 资料诊断页面与受控浏览器验收
 
+当前 #904 wire 合同：`shein.offline_package.v2.2` / `shein.persisted-input.go-json.v2`，前后端同时切换且拒绝旧精确版本。字段路径使用 `draft_payload` / `preview_payload` / `final_submission_draft`；稳定检查 ID、中文标签、导航和交互保持。含旧 JSON 别名的输入由原严格解码拒绝，不迁移或重写已有记录。
+
 Refs #324；BFF 与跨进程 fixture 由 #323 独占，见 [BFF 合同和启动说明](shein-diagnostic-bff-fixture.md)。最终验收 HEAD、CI 与独立复核记录在 PR，不以本说明代替当前 PR 状态。
 
 ## 页面与行为

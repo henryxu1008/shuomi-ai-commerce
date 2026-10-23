@@ -8,24 +8,14 @@ import (
 	sheinproduct "task-processor/internal/shein/api/product"
 )
 
-// HasAnySubmitSKU reports whether the package has at least one SKU. When a
-// semantic draft exists, it is authoritative; the package summary is only a
-// compatibility fallback for historical packages without a draft payload.
+// HasAnySubmitSKU reports whether the canonical draft contains at least one SKU.
 func HasAnySubmitSKU(pkg *Package) bool {
 	draft := DraftPayloadOf(pkg)
-	if pkg == nil {
+	if draft == nil {
 		return false
 	}
-	if draft != nil {
-		for _, skc := range draft.SKCList {
-			if len(skc.SKUList) > 0 {
-				return true
-			}
-		}
-		return false
-	}
-	for _, skc := range pkg.SkcList {
-		if len(skc.SKUs) > 0 {
+	for _, skc := range draft.SKCList {
+		if len(skc.SKUList) > 0 {
 			return true
 		}
 	}
@@ -34,7 +24,6 @@ func HasAnySubmitSKU(pkg *Package) bool {
 
 // FinalSubmitImagesReady reports whether final submit images are ready for an action.
 func FinalSubmitImagesReady(pkg *Package, action string) (bool, string) {
-	pkg = NormalizePackageSemanticFields(pkg)
 	input := sheinmarketpub.FinalSubmitImageReadinessInput{
 		HasFinalDraft: pkg != nil && pkg.FinalSubmissionDraft != nil,
 		RequiresSKC:   sheinmarketpub.FinalSubmitImagesRequireSKC(action),
@@ -54,7 +43,6 @@ func FinalSubmitImagesReady(pkg *Package, action string) (bool, string) {
 
 // HasFinalGalleryImage reports whether the final draft has at least one gallery-capable image.
 func HasFinalGalleryImage(pkg *Package) bool {
-	pkg = NormalizePackageSemanticFields(pkg)
 	if pkg == nil || pkg.DraftPayload == nil || pkg.DraftPayload.ImageInfo == nil {
 		return false
 	}
@@ -63,7 +51,6 @@ func HasFinalGalleryImage(pkg *Package) bool {
 
 // HasSKCImage reports whether the package has an SKC or fallback single-SKC image.
 func HasSKCImage(pkg *Package) bool {
-	pkg = NormalizePackageSemanticFields(pkg)
 	if pkg == nil {
 		return false
 	}
@@ -89,7 +76,6 @@ func HasSKCImage(pkg *Package) bool {
 
 // HasSwatchRole reports whether final image roles include an explicit swatch/SKC role or an SKC image fallback exists.
 func HasSwatchRole(pkg *Package) bool {
-	pkg = NormalizePackageSemanticFields(pkg)
 	if pkg == nil || pkg.FinalSubmissionDraft == nil {
 		return true
 	}
@@ -104,7 +90,6 @@ func HasSwatchRole(pkg *Package) bool {
 
 // HasSingleSKC reports whether the package has exactly one SKC across draft/package/preview data.
 func HasSingleSKC(pkg *Package) bool {
-	pkg = NormalizePackageSemanticFields(pkg)
 	if pkg == nil {
 		return false
 	}
@@ -121,7 +106,6 @@ func HasSingleSKC(pkg *Package) bool {
 
 // HasFinalMainImage reports whether any final-submit main image source is present.
 func HasFinalMainImage(pkg *Package) bool {
-	pkg = NormalizePackageSemanticFields(pkg)
 	if pkg == nil {
 		return false
 	}
@@ -139,7 +123,6 @@ func HasFinalMainImage(pkg *Package) bool {
 
 // SubmitPricingReady reports whether draft SKU prices are complete and positive.
 func SubmitPricingReady(pkg *Package) bool {
-	pkg = NormalizePackageSemanticFields(pkg)
 	if pkg == nil || pkg.DraftPayload == nil {
 		return false
 	}
@@ -170,13 +153,11 @@ func FinalReviewReady(pkg *Package, action string) bool {
 	if !sheinmarketpub.FinalReviewRequired(action) {
 		return true
 	}
-	pkg = NormalizePackageSemanticFields(pkg)
 	return pkg == nil || pkg.FinalSubmissionDraft == nil || pkg.FinalSubmissionDraft.Confirmed
 }
 
 // HasSubmitImage reports whether package, draft, or preview payload data contains any submit image.
 func HasSubmitImage(pkg *Package) bool {
-	pkg = NormalizePackageSemanticFields(pkg)
 	if pkg == nil {
 		return false
 	}

@@ -16,7 +16,6 @@ var (
 )
 
 func BuildPreviewProduct(pkg *Package) *sheinproduct.Product {
-	NormalizePackageSemanticFields(pkg)
 	if pkg == nil || pkg.DraftPayload == nil {
 		return nil
 	}
@@ -49,7 +48,6 @@ func BuildPreviewProduct(pkg *Package) *sheinproduct.Product {
 }
 
 func BuildProductAttributes(pkg *Package) []sheinproduct.ProductAttribute {
-	NormalizePackageSemanticFields(pkg)
 	return toResolvedAttributes(pkg)
 }
 
@@ -103,7 +101,6 @@ func toResolvedAttributes(pkg *Package) []sheinproduct.ProductAttribute {
 			return result
 		}
 	}
-	NormalizePackageSemanticFields(pkg)
 	if pkg == nil || pkg.DraftPayload == nil {
 		return nil
 	}
