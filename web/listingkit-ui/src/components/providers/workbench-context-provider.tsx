@@ -30,6 +30,7 @@ import { loadSupplyIntent, saveSupplyIntent } from "@/lib/api/supply-intent";
 type WorkbenchContextValue = {
   user: WorkbenchContext["user"] | null;
   homeOrganizationId: string | null;
+ effectiveMemberId?: string;
   organizations: WorkbenchOrganization[];
   effectiveOrganization: WorkbenchOrganization | null;
   roles: string[];
@@ -224,6 +225,7 @@ export function WorkbenchContextProvider({ children }: PropsWithChildren) {
     () => ({
       user: currentContext?.user ?? null,
       homeOrganizationId: currentContext?.homeOrganizationId ?? null,
+ effectiveMemberId: currentContext?.effectiveMemberId,
       organizations: currentContext?.organizations ?? [],
       effectiveOrganization,
       roles: effectiveOrganization?.roles ?? [],

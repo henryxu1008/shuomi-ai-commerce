@@ -33,6 +33,7 @@ const workbenchContextSchema = z
     user: z.object({ id: safeIdSchema }).strict(),
     homeOrganizationId: safeIdSchema,
     effectiveOrganizationId: safeIdSchema.nullable(),
+ effectiveMemberId: safeIdSchema.optional(),
     selectionRequired: z.boolean(),
     aiWorkbenchAvailable: z.boolean().optional(),
     storageCapacityAvailable: z.boolean().optional(),
