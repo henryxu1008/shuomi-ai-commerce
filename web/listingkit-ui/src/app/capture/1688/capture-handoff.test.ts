@@ -1,12 +1,26 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { parseCaptureEntry, readCaptureHandoff, notifyCaptureStatus } from "./capture-handoff";
 import { browserCaptureFixture } from "@/lib/contracts/browser-capture.fixture";
+import { z } from "zod";
 const key = "22222222-2222-4222-8222-22222222222b";
 const handoffId = "11111111-1111-4111-8111-11111111111a";
 const extensionId = "a".repeat(32);
 const url = `http://localhost/capture/1688#extensionId=${extensionId}&handoffId=${handoffId}&idempotencyKey=${key}`;
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
 describe("frozen external handoff", () => {
+  it("uses an explicit platform path and the platform owner's strict schema", async () => {
+    const amazonURL=url.replace("/1688#","/amazon#");
+    expect(parseCaptureEntry(amazonURL)).toBeNull();
+    expect(parseCaptureEntry(url,"amazon")).toBeNull();
+    const entry=parseCaptureEntry(amazonURL,"amazon");
+    expect(entry).toEqual({kind:"handoff",extensionId,handoffId,key});
+    if(entry?.kind!=="handoff") throw Error("fixture");
+    const payload={captureVersion:2 as const,source:"amazon" as const};
+    const schema=z.object({captureVersion:z.literal(2),source:z.literal("amazon")}).strict();
+    const sendMessage=vi.fn((_id,_message,callback)=>callback({version:1,type:"capture.payload",handoffId,idempotencyKey:key,payload}));
+    vi.stubGlobal("chrome",{runtime:{sendMessage}});
+    expect(await readCaptureHandoff(entry,new AbortController().signal,schema)).toEqual(payload);
+  });
   it("admits exact handoff or recovery fragment without authority", () => {
     expect(parseCaptureEntry(url)).toEqual({ kind: "handoff", extensionId, handoffId, key });
     expect(parseCaptureEntry(`http://localhost/capture/1688#operationKey=${key}`)).toEqual({ kind: "recovery", key });
