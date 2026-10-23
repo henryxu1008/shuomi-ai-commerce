@@ -1,3 +1,5 @@
+> #301 / #915 **USER_CONFIRMED / SOURCE_IMPLEMENTED**：按[旧宿主、HTTP 与图像辅助完整退休闭包 §1–§7/§6.1](legacy-host-image-helper-closure-retirement-boundary.md)的用户确认矩阵，仅替代共享辅助暂留中的 appenv 旧宿主/日志配置/平台辅助、httpclient 两闲置 helper 及孤立 ServerConfig；保留当前日志/版本、HTTP server/health/ready、HTTP/TLS/retry/有效配置和其它当前能力。 仅该准确矩阵取代本文件对应 KEEP，其余边界及以下全部历史正文保留；workflow/inventory 与既有资源不动，独立 SHEIN 登录及 Store 同步保持，#301 OPEN。
+
 > #301 / #914 **USER_CONFIRMED / SOURCE_IMPLEMENTED**：[旧闲置配置与运行辅助合同完整退休边界](legacy-idle-support-contract-closure-retirement-boundary.md)冻结 §1–§7（含 §6.1），Reuse Existing Architecture / Ready 读回先于源码修改。仅替代闲置 goroutine.Manager/TaskInfo/NewManager 分支、§5.2准确timeout声明及 jsonx/marshal.go 的广泛helper暂留；goroutine.Processor/原Amazon浏览器debug、活跃AI短超时/下载常量、jsonx泛型解析/LLM清理与当前严格JSON均保留，不整退有效包或其它owner。 下方历史正文逐字保留，其它KEEP/计数/证据不改；workflow/inventory及既有资源零改，无新试用前置，独立SHEIN登录与Store同步保持，#301 OPEN。
 
 # #301 旧宿主 HTTP、会话与运行辅助层完整退休设计

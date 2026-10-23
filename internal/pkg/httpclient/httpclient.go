@@ -45,17 +45,6 @@ func New(config Config, logger *logrus.Logger) *Client {
 	}
 }
 
-// DefaultConfig 返回默认配置
-func DefaultConfig() Config {
-	return Config{
-		Timeout:       30 * time.Second,
-		MaxRetries:    3,
-		RetryDelay:    time.Second,
-		EnableLogging: true,
-		SkipTLSVerify: false,
-	}
-}
-
 // Do 执行 HTTP 请求（带重试）
 func (c *Client) Do(ctx context.Context, req *http.Request) (*http.Response, error) {
 	var lastErr error
@@ -109,9 +98,4 @@ func NewSimple() *http.Client {
 // NewSimpleWithTimeout 创建指定超时的 http.Client
 func NewSimpleWithTimeout(timeout time.Duration) *http.Client {
 	return &http.Client{Timeout: timeout}
-}
-
-// NewWithTransport 创建带自定义 Transport 的 http.Client
-func NewWithTransport(timeout time.Duration, transport *http.Transport) *http.Client {
-	return &http.Client{Timeout: timeout, Transport: transport}
 }
