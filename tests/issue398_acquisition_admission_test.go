@@ -52,6 +52,9 @@ func issue398AcquisitionAPIViolations(sources []listingKitImageBoundarySource) (
 		{"cmd/product-acquisition-init", "task-processor/internal/app/productsourcing", map[string][]string{"cmd/product-acquisition-init/main.go": {"InitializeAcquisitionDatabase", "EnableAcquisitionPlans", "EnableCompletionDrafts", "EnableSupplyChain"}}},
 		// #637: precise composition and additive explicit initializer; no sibling admission.
 		{"internal/app/httpapi/acquisition_plan_application.go", "task-processor/internal/app/productsourcing", map[string][]string{"internal/app/httpapi/acquisition_plan_application.go": {"PlanAuthority", "NewAcquisitionPlanService", "AcquisitionPlanService", "CreatePlanInput"}}},
+		// #902/#903 frozen plugin design: only the free capture composition and
+		// its receipt/authorizer constructors, without charge or initializer APIs.
+		{"internal/app/httpapi/amazon_browser_capture_application.go", "task-processor/internal/app/productsourcing", map[string][]string{"internal/app/httpapi/amazon_browser_capture_application.go": {"NewAmazonBrowserCapture", "NewAmazonCaptureContextAuthorizer", "AmazonCaptureResult"}}},
 		// #399/#561 constructor edges; #605 adds only current Collection publication.
 		// #612 frozen full-image design adds only its explicitly authorized read-only receipt constructor.
 		{"internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing", map[string][]string{"internal/app/httpapi/product_acquisition_application.go": {"NewPublicAcquisition", "NewBrowserAcquisition", "NewBrowserPublicAcquisition", "PublishedAcquisition", "NewPublishedAcquisitionReader", "NewScopedPublishedAcquisitionReader", "NewAcquisitionChargeOwner", "AcquisitionPublicationOption", "WithCollectionPublication"}}},
@@ -255,6 +258,12 @@ func TestIssue398CurrentLeafAndInitializerAPIGuard(t *testing.T) {
 		{"plan cannot open database", "internal/app/httpapi/acquisition_plan_application.go", "task-processor/internal/app/productsourcing", "InitializeAcquisitionDatabase", false},
 		{"initializer target subpackage", "cmd/product-acquisition-init/main.go", "task-processor/internal/app/productsourcing/httpapi", "InitializeAcquisitionDatabase", false},
 		{"module build", "internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing", "NewPublicAcquisition", true},
+		{"Amazon capture constructor", "internal/app/httpapi/amazon_browser_capture_application.go", "task-processor/internal/app/productsourcing", "NewAmazonBrowserCapture", true},
+		{"Amazon capture authorizer", "internal/app/httpapi/amazon_browser_capture_application.go", "task-processor/internal/app/productsourcing", "NewAmazonCaptureContextAuthorizer", true},
+		{"Amazon capture receipt", "internal/app/httpapi/amazon_browser_capture_application.go", "task-processor/internal/app/productsourcing", "AmazonCaptureResult", true},
+		{"Amazon capture cannot charge", "internal/app/httpapi/amazon_browser_capture_application.go", "task-processor/internal/app/productsourcing", "NewAcquisitionChargeOwner", false},
+		{"Amazon capture cannot initialize", "internal/app/httpapi/amazon_browser_capture_application.go", "task-processor/internal/app/productsourcing", "InitializeAcquisitionDatabase", false},
+		{"Amazon capture target subpackage", "internal/app/httpapi/amazon_browser_capture_application.go", "task-processor/internal/app/productsourcing/httpapi", "NewAmazonBrowserCapture", false},
 		{"Browser module build", "internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing", "NewBrowserAcquisition", true},
 		{"module cannot publish", "internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing", "Publish", false},
 		{"Browser module target subpackage", "internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing/httpapi", "NewBrowserAcquisition", false},

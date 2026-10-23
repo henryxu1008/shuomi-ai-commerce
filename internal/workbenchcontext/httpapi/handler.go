@@ -254,6 +254,7 @@ func (h *Handler) writeContext(c *gin.Context) {
 		User:                         userResponse{ID: identity.UserID},
 		HomeOrganizationID:           identity.HomeOrganizationID,
 		EffectiveOrganizationID:      effectiveOrganizationID,
+		EffectiveMemberID:            identity.EffectiveMemberID,
 		SelectionRequired:            effectiveOrganizationID == nil && len(organizations) > 1,
 		Organizations:                organizations,
 		AIWorkbenchAvailable:         available,
@@ -275,6 +276,7 @@ func containsRole(roles []string, want string) bool {
 }
 
 type contextResponse struct {
+	EffectiveMemberID             string                 `json:"effectiveMemberId,omitempty"`
 	AIWorkbenchExecutionKind      string                 `json:"aiWorkbenchExecutionKind,omitempty"`
 	AIWorkbenchExecutionReadiness string                 `json:"aiWorkbenchExecutionReadiness,omitempty"`
 	OperationsCockpitAvailable    bool                   `json:"operationsCockpitAvailable,omitempty"`

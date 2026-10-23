@@ -27,6 +27,17 @@ func browserCaptureRecovery() gin.HandlerFunc {
 }
 
 func browserCaptureRecoveryLabels(method, route string) (string, string, bool) {
+	for _, candidate := range []struct{ method, path string }{
+		{http.MethodPost, amazonCaptureBase},
+		{http.MethodPost, amazonCaptureBase + "/verify"},
+		{http.MethodGet, amazonCaptureBase + "/by-key/:key"},
+		{http.MethodGet, amazonCaptureBase + "/:capture_id"},
+		{http.MethodGet, amazonCaptureBase + "/:capture_id/published"},
+	} {
+		if method == candidate.method && route == candidate.path {
+			return candidate.method, candidate.path, true
+		}
+	}
 	switch {
 	case method == http.MethodPost && route == browserCaptureBase:
 		return http.MethodPost, browserCaptureBase, true

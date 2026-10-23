@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"task-processor/internal/product/amazonidentity"
 	"time"
 	"unicode/utf8"
 
@@ -27,31 +28,24 @@ var (
 
 const PriceFen int64 = 5
 
-type Site struct {
-	Code   string `json:"code"`
-	Domain string `json:"domain"`
-	Name   string `json:"name"`
-}
+type Site = amazonidentity.Site
 
-var siteList = []Site{
-	{"us", "www.amazon.com", "美国"}, {"uk", "www.amazon.co.uk", "英国"}, {"de", "www.amazon.de", "德国"},
-	{"fr", "www.amazon.fr", "法国"}, {"it", "www.amazon.it", "意大利"}, {"es", "www.amazon.es", "西班牙"},
-	{"ca", "www.amazon.ca", "加拿大"}, {"jp", "www.amazon.co.jp", "日本"}, {"au", "www.amazon.com.au", "澳大利亚"},
-	{"mx", "www.amazon.com.mx", "墨西哥"}, {"br", "www.amazon.com.br", "巴西"}, {"in", "www.amazon.in", "印度"},
-	{"ae", "www.amazon.ae", "阿联酋"}, {"sa", "www.amazon.sa", "沙特阿拉伯"},
-}
-
-func Sites() []Site { return append([]Site(nil), siteList...) }
+func Sites() []Site { return amazonidentity.Sites() }
 func ResolveSite(code string) (Site, error) {
-	for _, s := range siteList {
-		if s.Code == code {
-			return s, nil
-		}
+	site, err := amazonidentity.ResolveSite(code)
+	if err != nil {
+		return Site{}, ErrInvalid
 	}
-	return Site{}, ErrInvalid
+	return site, nil
+}
+func NormalizeASIN(site Site, value string) (string, error) {
+	asin, err := amazonidentity.NormalizeASIN(site, value)
+	if err != nil {
+		return "", ErrInvalid
+	}
+	return asin, nil
 }
 
-var asinPattern = regexp.MustCompile(`^[A-Z0-9]{10}$`)
 var nodePattern = regexp.MustCompile(`^[0-9]{1,20}$`)
 var currencyPattern = regexp.MustCompile(`^[A-Z]{3}$`)
 var fields = map[string]bool{"title": true, "description": true, "brand": true, "images": true, "price": true, "currency": true, "availability": true, "attributes": true, "variants": true, "rating": true, "reviewCount": true, "sourceUrl": true, "capturedAt": true, "asin": true, "site": true}
@@ -70,25 +64,6 @@ type Query struct {
 	Fields       []string `json:"fields,omitempty"`
 }
 
-func NormalizeASIN(site Site, value string) (string, error) {
-	value = strings.TrimSpace(value)
-	if strings.HasPrefix(value, "https://") {
-		u, err := url.Parse(value)
-		if err != nil || u.User != nil || u.Port() != "" || u.Fragment != "" || (u.Hostname() != site.Domain && u.Hostname() != strings.TrimPrefix(site.Domain, "www.")) {
-			return "", ErrInvalid
-		}
-		parts := strings.Split(strings.Trim(u.Path, "/"), "/")
-		if len(parts) != 2 || parts[0] != "dp" {
-			return "", ErrInvalid
-		}
-		value = parts[1]
-	}
-	value = strings.ToUpper(value)
-	if !asinPattern.MatchString(value) {
-		return "", ErrInvalid
-	}
-	return value, nil
-}
 func NormalizeQuery(q Query) (Query, error) {
 	site, err := ResolveSite(q.Site)
 	if err != nil || q.Limit < 1 || q.Limit > 200 || len(q.ASINs) > 200 || len(q.Fields) > 32 || !utf8.ValidString(q.Keyword) || len([]rune(q.Keyword)) > 200 || strings.ContainsAny(q.Keyword, "\x00\r\n") {
