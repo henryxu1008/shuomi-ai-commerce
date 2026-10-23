@@ -2,8 +2,9 @@
 
 Refs [#301](https://github.com/qq550723504/shuomi-ai-commerce/issues/301)。#301 保持 OPEN，#29 不重开。
 
-- Status: **PROPOSED / DESIGN_ONLY / USER_CONFIRMATION_PENDING**。本轮仅获准先做完整设计；生产源码、原测试与旧依据的实施校准尚未修改。设计复核、准确 HEAD 与原 CI 证据留主要 PR；用户确认后才进入整批实施，不自动授权合并、部署或关单。
-- Design Basis：本次文档交付 **N/A**，只读调查和三份文档，不改变运行语义；拟实施采用 **Reuse Existing Architecture**，复用全新系统/Hard-Cut、当前 Config/HTTP/Retry、浏览器 Processor、context timeout 与 JSON decoder owner。没有新公共业务合同、事实 owner、状态机或恢复协议；本分类不是生产开工批准。
+- Status: **USER_CONFIRMED / SOURCE_IMPLEMENTED / FINAL_REVIEW_PENDING**。用户已确认设计 c1f956766 的 §1–§7（含 §6.1），同一 PR #914 整批实施；准确实现 HEAD、原 CI、最终交付检查与另行合并授权留 PR。无真实运行或产品验收结论。
+- Design Basis：设计交付为 **N/A**；当前整批实施为 **Reuse Existing Architecture / Ready**。用户确认与 Issue/PR Ready 记录读回先于源码修改，复用当前 Config/HTTP/Retry、浏览器 Processor、context/time、JSON/LLM/严格 codec 及 Store/登录 owner，不新增领域合同、状态/权限/事实/恢复/副作用边界。
+- 下列 §1–§7 保留已确认设计的矩阵和阶段时态；源码状态以上述 Status 和主要 PR 的准确证据为准，不为滚动证据反复改仓库。
 - 调查基线：main **2bbaea9027a4a529fb77e1d96a3df54ad13faa34**。唯一 Writer 使用原独占 worktree、分支 codex/issue301-idle-support-contract-closure-design，无新增实现者或 AI 线程。起始 main 已同步；#913 四个扩展/交接文件不触及本矩阵。
 
 ## 1. 用户结果、产品依据与完整范围

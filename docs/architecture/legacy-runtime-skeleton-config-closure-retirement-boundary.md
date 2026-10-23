@@ -1,3 +1,5 @@
+> #301 / #914 **USER_CONFIRMED / SOURCE_IMPLEMENTED**：[旧闲置配置与运行辅助合同完整退休边界](legacy-idle-support-contract-closure-retirement-boundary.md)冻结 §1–§7（含 §6.1），Reuse Existing Architecture / Ready 读回先于源码修改。仅替代 TimeoutConfig/DefaultTimeoutConfig、RateLimitConfig/DefaultRateLimitConfig 及四项专属测试的旧 KEEP；HTTPClientConfig/RetryConfig/default、Config/LoggingConfig、现役Registry路由与platform日志及原安全断言保持。 下方历史正文逐字保留，其它KEEP/计数/证据不改；workflow/inventory及既有资源零改，无新试用前置，独立SHEIN登录与Store同步保持，#301 OPEN。
+
 # #301 旧通用执行骨架与闲置宿主配置完整退休设计
 
 Status: **USER_CONFIRMED / SOURCE_IMPLEMENTED**。用户已确认 §1–§7（含 §6.1），Reuse Existing Architecture / Ready 在 Issue/PR 读回后，同一 Writer 在 #897 整批实施；未授权合并。准确设计/实现 HEAD、原 CI、独立复核和批准写主要 PR，不为滚动证据制造状态提交。接单及前当前段存档见 [#301 / 6344768952](https://github.com/qq550723504/shuomi-ai-commerce/issues/301#issuecomment-6344768952)。
