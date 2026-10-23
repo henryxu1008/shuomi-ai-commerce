@@ -27,11 +27,11 @@ func TestPackageSemanticFieldNamesRemainUsable(t *testing.T) {
 	}
 }
 
-func TestPackageJSONIncludesLegacyAndSemanticFieldNames(t *testing.T) {
-	pkg := NormalizePackageSemanticFields(&Package{
+func TestPackageJSONIncludesOnlyCanonicalFieldNames(t *testing.T) {
+	pkg := &Package{
 		DraftPayload:         &RequestDraft{SpuName: "Semantic Field Product"},
 		FinalSubmissionDraft: &FinalDraft{Confirmed: true},
-	})
+	}
 	SetPreviewPayload(pkg, BuildPreviewProduct(pkg))
 
 	data, err := json.Marshal(pkg)
@@ -40,15 +40,17 @@ func TestPackageJSONIncludesLegacyAndSemanticFieldNames(t *testing.T) {
 	}
 	text := string(data)
 	for _, key := range []string{
-		`"request_draft"`,
 		`"draft_payload"`,
-		`"preview_product"`,
 		`"preview_payload"`,
-		`"final_draft"`,
 		`"final_submission_draft"`,
 	} {
 		if !strings.Contains(text, key) {
 			t.Fatalf("json output missing %s: %s", key, text)
+		}
+	}
+	for _, key := range []string{`"request_draft"`, `"preview_product"`, `"final_draft"`} {
+		if strings.Contains(text, key) {
+			t.Fatalf("retired JSON key %s emitted: %s", key, text)
 		}
 	}
 }
@@ -60,5 +62,29 @@ func TestPackageRejectsRetiredExecutionFields(t *testing.T) {
 				t.Fatal("retired execution field accepted")
 			}
 		})
+	}
+}
+
+func TestPackageRejectsRetiredJSONAliases(t *testing.T) {
+	for _, key := range []string{"request_draft", "preview_product", "final_draft"} {
+		for _, value := range []string{"null", "{}"} {
+			t.Run(key+value, func(t *testing.T) {
+				if _, err := DecodePersistedPackageStrict([]byte(`{"` + key + `":` + value + `}`)); err == nil {
+					t.Fatal("retired alias accepted")
+				}
+			})
+		}
+	}
+}
+
+func TestCanonicalPackageAllowsMetadataWithHistoricalNames(t *testing.T) {
+	pkg, err := DecodePersistedPackageStrict([]byte(`{"metadata":{"request_draft":"note","preview_product":"note","final_draft":"note"}}`))
+	if err != nil || len(pkg.Metadata) != 3 {
+		t.Fatalf("free metadata keys rejected: %v", err)
+	}
+	for _, pair := range [][2]string{{"request_draft", "draft_payload"}, {"preview_product", "preview_payload"}, {"final_draft", "final_submission_draft"}} {
+		if _, err := DecodePersistedPackageStrict([]byte(`{"` + pair[0] + `":{},"` + pair[1] + `":{}}`)); err == nil {
+			t.Fatalf("equal retired alias %s accepted", pair[0])
+		}
 	}
 }

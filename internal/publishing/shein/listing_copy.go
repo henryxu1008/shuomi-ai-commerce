@@ -41,7 +41,6 @@ func buildSheinListingCopy(runtimeCtx context.Context, canonical *canonical.Prod
 }
 
 func NormalizeListingCopy(runtimeCtx context.Context, pkg *Package, canonical *canonical.Product, language string, logs func(string) *logrus.Entry) bool {
-	NormalizePackageSemanticFields(pkg)
 	if pkg == nil {
 		return false
 	}

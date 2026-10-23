@@ -5,8 +5,8 @@ const blocker = { rule: "fixture", code: "missing_asset", category: "asset", sta
 export const diagnosticFixture = () => ({
   diagnostic_only: true, scope: "shein.offline_package",
   target: { marketplace: "shein", site: "" }, action: "publish",
-  rule_version: "shein.offline_package.v2.1",
-  input: { actual_digest: `sha256:${"a".repeat(64)}`, binding_version: "shein.persisted-input.go-json.v1", read_at: "2026-09-06T01:02:03.123456789Z", evaluated_at: "2026-09-06T01:02:04Z" },
+  rule_version: "shein.offline_package.v2.2",
+  input: { actual_digest: `sha256:${"a".repeat(64)}`, binding_version: "shein.persisted-input.go-json.v2", read_at: "2026-09-06T01:02:03.123456789Z", evaluated_at: "2026-09-06T01:02:04Z" },
   external_freshness: { status: "not_evaluated", coverage: [] },
   not_evaluated: ["external_package_freshness", "online_template_freshness", "store_authorization", "cookie", "pod", "human_review", "approved_asset_provenance_and_consent", "submission_gate"],
   not_evaluated_reasons: { external_package_freshness: "no_authoritative_package_freshness" },
@@ -17,8 +17,10 @@ export const diagnosticFixture = () => ({
 describe("Shein diagnostic wire contract", () => {
   it("accepts corrected image rules and rejects the former rule revision", () => {
     const value = diagnosticFixture();
-    expect(parseSheinDiagnostic({ ...value, rule_version: "shein.offline_package.v2.1" })).not.toBeNull();
+    expect(parseSheinDiagnostic({ ...value, rule_version: "shein.offline_package.v2.2" })).not.toBeNull();
     expect(parseSheinDiagnostic({ ...value, rule_version: "shein.offline_package.v2" })).toBeNull();
+    expect(parseSheinDiagnostic({ ...value, rule_version: "shein.offline_package.v2.1" })).toBeNull();
+    expect(parseSheinDiagnostic({ ...value, input: { ...value.input, binding_version: "shein.persisted-input.go-json.v1" } })).toBeNull();
   });
   it("validates adverse freshness metadata without losing bounded nonstandard coverage", () => {
     const freshness = { status: "stale", coverage: ["owner_scope"], causes: ["stale", "subject_mismatch"] };

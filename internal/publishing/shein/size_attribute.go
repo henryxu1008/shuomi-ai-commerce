@@ -25,7 +25,6 @@ type SizeAttributeHeaderResolution struct {
 }
 
 func applyProductSizeAttributesWithResolver(pkg *Package, productSize string, resolver SizeAttributeHeaderResolver, ctx context.Context) bool {
-	pkg = NormalizePackageSemanticFields(pkg)
 	if pkg == nil || pkg.DraftPayload == nil {
 		return false
 	}
@@ -64,7 +63,6 @@ func resolveSDSSizeHeaderAttributeIDs(ctx context.Context, productSize string, t
 }
 
 func collectSizeSaleAttributeRefs(pkg *Package) []sheinpublishing.SizeSaleAttributeRef {
-	pkg = NormalizePackageSemanticFields(pkg)
 	if pkg == nil || pkg.DraftPayload == nil {
 		return nil
 	}
@@ -104,7 +102,6 @@ func collectSizeSaleAttributeRefs(pkg *Package) []sheinpublishing.SizeSaleAttrib
 }
 
 func collectSizeChartTemplateAttributes(pkg *Package) []sheinpublishing.SizeChartTemplateAttribute {
-	pkg = NormalizePackageSemanticFields(pkg)
 	if pkg == nil || pkg.AttributeResolution == nil {
 		return nil
 	}

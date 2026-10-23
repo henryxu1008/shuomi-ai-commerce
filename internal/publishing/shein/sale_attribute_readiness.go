@@ -9,7 +9,6 @@ import (
 
 // SecondarySaleAttributeRequired reports whether SKU-level sale attributes are required for submit.
 func SecondarySaleAttributeRequired(pkg *Package) bool {
-	pkg = NormalizePackageSemanticFields(pkg)
 	if pkg == nil || pkg.SaleAttributeResolution == nil {
 		return false
 	}
@@ -147,7 +146,6 @@ func SaleAttributesReadyForSubmit(pkg *Package) bool {
 
 // SaleAttributesReadinessFailureReasons returns sale-attribute submit blockers.
 func SaleAttributesReadinessFailureReasons(pkg *Package) []string {
-	pkg = NormalizePackageSemanticFields(pkg)
 	var reasons []string
 	if !SaleAttributeStatusResolved(pkg) {
 		reasons = append(reasons, "sale attribute status is not resolved or primary attribute id is missing")

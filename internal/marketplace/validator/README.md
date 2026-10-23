@@ -4,33 +4,36 @@
 
 The typed API and strict Snapshot checks remain unchanged. The opt-in SHEIN
 `DiagnosticValidator.Validate(BoundRequest[[]byte])` uses rule version
-`shein.offline_package.v2.1` and binding version `shein.persisted-input.go-json.v1`.
+`shein.offline_package.v2.2` and binding version `shein.persisted-input.go-json.v2`.
 It accepts persisted JSON, not an in-memory Package with private resolver state.
 Both versions call one shared evaluator; neither retries the other version.
 
 Issue #36 retires the missing-final-draft compatibility pass: `final_images` is
 blocking when the final image draft is absent, for both publish and save_draft.
-The typed rule revision is `shein.offline_package.v1.1`; the persisted revision
+The typed rule revision is `shein.offline_package.v1.2`; the persisted revision
 above binds the same correction into the content digest. Former rule revisions
-are unsupported. Input contracts and binding encoding do not change. Draft's
+are unsupported. Issue #904 also removes three legacy Package JSON aliases and their normalization,
+and requires a canonical draft for SKU readiness; the binding version changes with
+this schema. All other limits and rules remain. Draft's
 separate policy still allows readiness blockers and does not turn them into ready.
 Listing diagnostic reads re-evaluate retained package bytes with the current rule;
 historical creation reports remain stored unchanged, without reseeding or migration.
 
-`publishing/shein.DecodePersistedPackageStrict` creates the exclusive normalized
-copy used for both SHA-256 identity and rule evaluation. Raw input, normalized
+`publishing/shein.DecodePersistedPackageStrict` creates the exclusive canonical
+copy used for both SHA-256 identity and rule evaluation. Raw input, canonical
 binding envelope, and encoded report each have a 2 MiB limit; JSON depth is 64.
 Duplicate/unknown/case-mismatched fields, invalid UTF-8 or surrogate pairs,
-numeric overflow/underflow, conflicting aliases and trailing values fail closed.
-Strict field decoding reuses pinned `sigs.k8s.io/json`; the root Package custom
-decoder is bypassed, with a test auditing reachable custom decoders. Numbers use
+numeric overflow/underflow, retired aliases and trailing values fail closed.
+Strict field decoding reuses pinned `sigs.k8s.io/json`; Package uses the standard codec, with a test auditing reachable custom decoders. Numbers use
 the current Go schema's numeric semantics, including ordinary binary64 rounding.
 Private resolver maps cannot be supplied through persisted JSON.
 
 Binding hashes Go JSON encoding of the ordered envelope `binding_version`,
 `marketplace`, `site`, `action`, `rule_version`, `package`. Map keys are sorted;
-array order is significant. Existing Package normalization/MarshalJSON defines
-alias and nil/empty behavior; fixed vectors pin these and nested SDK fields.
+array order is significant. Draft/preview/final payloads use only the canonical
+`draft_payload`, `preview_payload` and `final_submission_draft` fields; all other
+current Package fields remain. Old root aliases are rejected even when null or equal.
+Fixed vectors pin nil/empty behavior and nested SDK fields.
 This is a versioned Go encoding, not a cross-language JSON canonicalization API.
 Future writers may use existing `json.Marshal(Package)` and must admit the bytes
 through `DecodePersistedPackageStrict`; encoding alone is not admission. This

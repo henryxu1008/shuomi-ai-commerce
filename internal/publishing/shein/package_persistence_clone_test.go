@@ -8,7 +8,7 @@ import (
 	sheinproduct "task-processor/internal/shein/api/product"
 )
 
-func TestClonePackageForPersistencePreservesSemanticAliasesAndPrivateAssignmentsWithoutSharingState(t *testing.T) {
+func TestClonePackageForPersistencePreservesCanonicalFieldsAndPrivateAssignmentsWithoutSharingState(t *testing.T) {
 	draft := &RequestDraft{SpuName: "original-draft"}
 	preview := &sheinproduct.Product{SPUName: "original-preview"}
 	finalDraft := &FinalDraft{MainImageURL: "https://img.example/original.jpg"}
@@ -23,11 +23,8 @@ func TestClonePackageForPersistencePreservesSemanticAliasesAndPrivateAssignments
 		skuValueAssignments: map[string]ResolvedSaleAttribute{"xl": {Value: "XL", AttributeValueID: &privateValueID}},
 	}
 	pkg := &Package{
-		RequestDraft:            draft,
 		DraftPayload:            draft,
-		PreviewProduct:          preview,
 		PreviewPayload:          preview,
-		FinalDraft:              finalDraft,
 		FinalSubmissionDraft:    finalDraft,
 		SaleAttributeResolution: resolution,
 		Metadata:                map[string]string{"owner": "source"},
@@ -37,14 +34,14 @@ func TestClonePackageForPersistencePreservesSemanticAliasesAndPrivateAssignments
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cloned.RequestDraft != cloned.DraftPayload || cloned.RequestDraft == pkg.RequestDraft {
-		t.Fatal("draft semantic aliases were split or still share source state")
+	if cloned.DraftPayload == nil || cloned.DraftPayload == pkg.DraftPayload {
+		t.Fatal("draft canonical field is missing or shares source state")
 	}
-	if cloned.PreviewProduct != cloned.PreviewPayload || cloned.PreviewProduct == pkg.PreviewProduct {
-		t.Fatal("preview semantic aliases were split or still share source state")
+	if cloned.PreviewPayload == nil || cloned.PreviewPayload == pkg.PreviewPayload {
+		t.Fatal("preview canonical field is missing or shares source state")
 	}
-	if cloned.FinalDraft != cloned.FinalSubmissionDraft || cloned.FinalDraft == pkg.FinalDraft {
-		t.Fatal("final-draft semantic aliases were split or still share source state")
+	if cloned.FinalSubmissionDraft == nil || cloned.FinalSubmissionDraft == pkg.FinalSubmissionDraft {
+		t.Fatal("final-draft canonical field is missing or shares source state")
 	}
 	got := cloned.SaleAttributeResolution
 	if got == nil || got.skcAssignments["SKC-1"].Value != "Blue" || got.skuAssignments["SKU-1"][0].Value != "XL" || got.skcValueAssignments["blue"].Value != "Blue" || got.skuValueAssignments["xl"].Value != "XL" {

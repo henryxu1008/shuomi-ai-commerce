@@ -39,26 +39,19 @@ type Package struct {
 	ProductAttributes       []common.Attribute       `json:"product_attributes,omitempty"`
 	ResolvedAttributes      []ResolvedAttribute      `json:"resolved_attributes,omitempty"`
 	SiteList                []common.Site            `json:"site_list,omitempty"`
-	// SkcList is the compatibility/workbench summary of the SKC/SKU hierarchy.
+	// SkcList is the current review/image summary of the SKC/SKU hierarchy.
 	// New draft writes must target DraftPayload; this summary remains because
-	// existing review, image, and recovery paths still consume it.
+	// existing review and image paths still consume it.
 	SkcList     []SKCPackage               `json:"skc_list,omitempty"`
 	Images      *common.ImageSet           `json:"images,omitempty"`
 	ImageBundle *common.PublishImageBundle `json:"image_bundle,omitempty"`
-	// Deprecated: kept only for JSON/history compatibility. New business code
-	// should use DraftPayloadOf, EnsureDraftPayload, or SetDraftPayload.
-	RequestDraft *RequestDraft `json:"request_draft,omitempty"`
 	// DraftPayload is the canonical SHEIN draft payload used by current business
 	// logic. It is the platform adapter output, not part of canonical.Product.
 	DraftPayload *RequestDraft `json:"draft_payload,omitempty"`
-	// Deprecated: kept only for JSON/history compatibility. New business code should use PreviewPayload.
-	PreviewProduct *sheinproduct.Product `json:"preview_product,omitempty"`
 	// PreviewPayload is the canonical SHEIN preview payload used by current business logic.
 	PreviewPayload *sheinproduct.Product `json:"preview_payload,omitempty"`
 	Pricing        *PricingReview        `json:"pricing,omitempty"`
 	SizeAttributes *SizeAttributeReview  `json:"size_attributes,omitempty"`
-	// Deprecated: kept only for JSON/history compatibility. New business code should use FinalSubmissionDraft.
-	FinalDraft *FinalDraft `json:"final_draft,omitempty"`
 	// FinalSubmissionDraft is the canonical SHEIN final submission draft used by current business logic.
 	FinalSubmissionDraft    *FinalDraft                              `json:"final_submission_draft,omitempty"`
 	CustomAttributeRelation []sheinattribute.CustomAttributeRelation `json:"custom_attribute_relation,omitempty"`
