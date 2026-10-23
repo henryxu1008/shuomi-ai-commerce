@@ -18,7 +18,7 @@ Design Basis: **Independent Architecture**（新增来源接收合同、producer
 - 原SRC publication与Catalog同事务保存；Collection有`AppendDataPublication`可参与原Product事务。旧`AppendPublished`批次名/类型固定1688，不用于Amazon。
 - `capturedResultReader.Verify`是收费job结果验证，固定producer/checksum；它不作为插件结果读入口，也不为插件放宽验证。
 
-明确Must：准确规格关联、原身份/企业/成员隔离、同键异载荷冲突、Product三方原子保存、UNKNOWN原键核实、插件免费且无服务端采集。Should：原接收页/我的数据UI复用，缺失与读取状态清楚。Out of Scope如上。没有新增Accepted Risk或放宽原保护规则。
+明确Must：准确规格关联、插件执行/回执的原身份/企业/成员隔离、同键异载荷冲突、Product三方原子保存、UNKNOWN原键核实、插件免费且无服务端采集。已保存Collection/Catalog资产继续当前org+actor owner与有效访问权限，不新增“原member永久独占资产”的产品规则。Should：原接收页/我的数据UI复用，缺失与读取状态清楚。Out of Scope如上。没有新增Accepted Risk或放宽原保护规则。
 
 ## 2. 唯一owner与调用路径
 
@@ -59,6 +59,10 @@ v2的每个规格直接内嵌`images: [{url, role}]`，与`sourceID / sku / attr
 
 1688新命令固定descriptor `browser_acquisition/v2`，metadata包含v2 contract/parser/capture digest；`StartPrepared`、repository.validCommand、`browserCaptureOperation`必须按确切descriptor/version验证原冻结命令。新版本fingerprint包含v2contract及服务端canonical payload digest；v1原算法/历史命令不重算。发布guard仍走原browser acquisition免费渠道证明，不通过换producer绕开原operation guard。
 
+1688版本判别固定如下，不能试算多个hash猜版本：v1沿原`captureVersion=1 / schemaVersion=1 / browser_acquisition/v1 / src2b-acquisition-v1 / 1688-browser-dom/v2`；v2固定`captureVersion=2 / schemaVersion=2 / browser_acquisition/v2 / src2b-browser-capture-v2 / 1688-browser-dom/v3`。v2 fingerprint为对`["src2b-browser-capture-v2", "browser_capture", canonicalSourceURL, serverPayloadSHA256]`作既有JSON数组规范编码后SHA-256，原operation org+actor+key命名不变，因此同键跨版本仍冲突。
+
+v2只能经`StartPrepared`把原命令与operation原子保存，不创建v2空command的acquiring阶段。持久读取先有界解析原command，再由严格producer版本、contract/parser/channel一致组合选择**唯一**验证器，最后检查该版本fingerprint、command hash及原Source身份；Claim/Verify/恢复同样如此。browser capture记录无command、未知组合或不一致一律STATE_INVALID，不降级。既有非capture acquiring路径及旧版本校验保持原合同；不得为新v2复用空命令路径。新增中立字段必须保证冻结v1命令的编码不变（例如独立v2 DTO映射及可省略空字段），以原命令字节/哈希回归证明，而非重算历史记录。
+
 Amazon v2映射同一已有Variant.Images，不采用服务端Amazon Evidence的float64/无变体结构承载完整插件输入。共用中立属性/十进制/图片纯校验及SourceEnvelope，不共用两平台来源ID。来源金额保留精确十进制和币种，沿现有1688“可精确投影才给Catalog数值，否则保留源事实与precision warning”的行为EXTRACT；来源库存缺失不转成可售库存。
 
 Source/Catalog精确版本读取、`CollectionSourceDetail`投影/前端strict contract须显式带规格images；源码中已有的Catalog规范化与只读内容消费者优先复用。图片被源→快照→详情/JSON下载读回必须仍绑定相同规格。接收/读取层不能`strip unknown`后报告成功。Asset批准与Target/SKU显式配对路径保持原规则。
@@ -72,7 +76,9 @@ Source/Catalog精确版本读取、`CollectionSourceDetail`投影/前端strict c
 - GET同base的`/:capture_id`与`/:capture_id/published`：准确回执及固定版本详情。ID均为下节定义的UUID，不能任意指定ProductKey。
 - 同源BFF采用既有serverAuth、可信后端base、当前expected-user/org校验与Origin/CSRF保护；浏览器不接触服务端凭据，不接受客户端URL覆盖。
 
-保存需要当前登录身份、有效企业/精确成员及`product_sourcing.write`和`workbench.collection.manage`；读取需要原scope与现有source/collection.read能力，复用原CachedRead/LiveWrite策略及其失效语义，**不是用写权限代替所有读取权限**。POST在准入及事务发布前用原LiveWrite精确核验，成员撤销/重建不复活旧marker。跨企业/他人/不同原member不返回原回执或Product引用。
+保存需要当前登录身份、有效企业/精确成员及`product_sourcing.write`和`workbench.collection.manage`；插件Verify/ByKey/Read/Published需要原scope/member及现有source/collection.read能力，复用原CachedRead/LiveWrite策略及其失效语义，**不是用写权限代替所有读取权限**。POST在准入及事务发布前用原LiveWrite精确核验，成员撤销/重建不复活旧marker。跨企业/他人/不同原member不能继续原capture执行或读取其插件回执。
+
+保存完成后的Collection列表、详情、JSON下载及Catalog资产，继续现有org+actor owner与当前有效成员/权限规则。合法重新加入同企业的同actor能否读取已有资产由当前规则决定，不以旧capture的member metadata增加全局资产过滤。插件回执的执行上下文绑定与资产所有权是两种既有职责，不互相替代。
 
 新receiver固定为同一获配HTTPS安装origin下`/capture/amazon`；原1688固定`/capture/1688`。插件按显式source分支选择编译固定path，不接收页面消息中的destination。站点初期沿当前Figma明确的us/ca/uk/de/jp五站、准确amazon域名，1688沿原detail.1688.com；其它现有服务端站点保持原合同，不随本设计开放插件。
 
@@ -110,6 +116,8 @@ Amazon service通过显式Product UoW，使用同一个受限Product pool：
 事务锁顺序：SRC capture advisory lock → Catalog product/publication slot与head → Collection batch → item，沿现有owner算法。同一ProductKey不同key并发由Catalog版本锁/ExpectedBase冲突收敛，不重排已有表。无外部provider或Resource调用。事务/请求最长沿现有Source publication/HTTP有界预算（最大20秒，事务执行不超过10秒），外部IAM沿现有5秒上限，剩余deadline不足即拒绝继续。
 
 **实现注意**：现有NewTransactionWriter复用调用方tx而不会代COMMIT；外层必须只在所有owner成功后提交。`PublicationReceipt.InputHash`含ExpectedBase；重放必须先用固定存储内容，不按最新head重建command再Publish。原Collection数据若后续已移动/归档，重放仍返回原已保存receipt并如实表示当前可见状态，不创建新批次/引用。
+
+三方检查是各当前owner的窄内部只读port，不是新修复服务：SRC用`NewTransactionReader`验证原证据+回执，Catalog按org/publicationID确认存在性并按原ProductKey/Version校验，Collection按org+actor+确定itemID读取**含归档行**及当前batch/归档状态，核对publicationID/version/kind/operationID与原记录。不能使用会隐藏归档行的普通ReadItem/ReadBatch的404推断未保存；首次三方不存在检查与重放检查都在同一捕获锁及调用方事务内。Collection现有member_id可核对原执行上下文，但不改变普通资产读取策略；移动后不要求当前batchID等于初始batchID，也不把移动/归档当损坏。内部port不向客户端提供任意scope、ProductKey或包含归档数据的通用查询。
 
 ## 6. UNKNOWN、重试、浏览器丢失与并发
 
@@ -175,4 +183,12 @@ Legacy decision: **EXTRACT**（只抽取仍正确的当前纯解析/桥接行为
 - 必要HTTP/BFF和UI原键恢复：权限/组织切换、未登录拒绝、原payload丢失、不产生收费job/reservation/provider调用；接收页只确认保存，不自动转入或发布。
 - 仅在用户另行授权后，真实浏览器采集、保存读回、安装、试用和实际运行接线；否则全部NOT_RUN。设计评审/CI不等于用户验收。
 
-Independent Architecture Review轮次：**R1待执行**。Finding先按AGENTS分类，BLOCKER须对应越权、数据损坏/重复副作用或核心happy path无法完成等具体后果；非阻塞缺口归IMPLEMENTATION_TEST/BACKLOG，不扩威胁模型。最多两轮正常评审；未获得明确IMPLEMENTATION_READY前保持NOT_READY。即使评审通过，本次用户“暂不开发”仍有效。
+Independent Architecture Review轮次：**R1已完成，R2增量待复核**。R1按AGENTS分类后处理：
+
+| Finding / 当前Must | 分类与阻塞层级 | 文档处置 / 实施验证 |
+| --- | --- | --- |
+| 原member绑定与Collection资产org+actor读取承诺冲突 | BLOCKER，实施准入；按原稿会违反其宣称的访问控制 | §1/4明确插件原执行与回执绑定；资产读取沿既有规则，无新增全局member过滤 |
+| 1688 v2持久版本判别未明确 | IMPLEMENTATION_TEST；未满足则阻止未来实现合并 | §3明确版本组合、StartPrepared、解析/校验顺序和单一fingerprint；未来覆盖Read/Claim/Verify/恢复与跨版本冲突 |
+| 无新操作表依赖外层事务及含归档重放检查 | IMPLEMENTATION_TEST；未满足则阻止未来实现合并 | §5明确同SRC锁/READ COMMITTED及三方窄port；未来验证部分状态拒绝、归档/移动不回填及COMMIT未知恢复 |
+
+R1确认无需新增规格图片表、Amazon插件操作表或公共解析平台，现有固定版本详情/JSON下载不依赖收费job。R2只复核上述修订及实际受影响边界。最多两轮正常评审；未获得明确IMPLEMENTATION_READY前保持NOT_READY。即使评审通过，本次用户“暂不开发”仍有效。准确候选HEAD与独立review证据在PR维护，不把旧SHA评审当新HEAD认可。
