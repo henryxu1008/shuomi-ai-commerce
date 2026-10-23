@@ -197,9 +197,9 @@ export async function captureDocument(doc: Document, source: string, now: Date):
     name: string(path(n, 'name')) ?? fail('UNSUPPORTED_PAGE'), value: string(path(n, 'value')) ?? fail('UNSUPPORTED_PAGE'),
   }));
   e.images = array(path(data, 'gallery', 'fields', 'offerImgList')).map(n => ({ url: string(n) ?? fail('UNSUPPORTED_PAGE'), role: 'source' }));
-  const price = (node: Node, field: string, amountKey = 'price'): Price | null => {
-    const amount = string(path(node, amountKey), true);
-    if (amount === null) { missing(field); return null; }
+  const price = (node: Node, field: string, reportMissing = true): Price | null => {
+    const amount = string(path(node, 'price'), true);
+    if (amount === null) { if (reportMissing) missing(field); return null; }
     const currency = string(path(node, 'currency'));
     if (currency === null) missing(`${field}.currency`);
     const minQuantity = string(path(node, 'beginAmount'), true);
@@ -210,8 +210,23 @@ export async function captureDocument(doc: Document, source: string, now: Date):
   const dataKeys = (data?.type === 'object' ? data.children?.map(pair => pair.children?.[0].value as string) : undefined) ?? [];
   for (const key of [...dataKeys].sort()) {
     for (const item of array(path(data, key, 'fields', 'finalPriceModel', 'tradeWithoutPromotion', 'offerPriceRanges'))) {
-      const value = price(item, `priceFacts[${e.priceFacts.length}]`);
+      const value = price(item, `priceFacts[${e.priceFacts.length}]`, false);
       if (value) e.priceFacts.push(value);
+    }
+  }
+  if (!e.priceFacts.length) {
+    for (const item of array(path(model, 'orderParamModel', 'orderParam', 'skuParam', 'skuRangePrices'))) {
+      const value = price(item, `priceFacts[${e.priceFacts.length}]`, false);
+      if (value) e.priceFacts.push(value);
+    }
+  }
+  if (!e.priceFacts.length) {
+    for (const key of [...dataKeys].sort()) {
+      for (const item of array(path(data, key, 'fields', 'priceModel', 'currentPrices'))) {
+        const value = price(item, `priceFacts[${e.priceFacts.length}]`, false);
+        if (value) e.priceFacts.push(value);
+      }
+      if (e.priceFacts.length) break;
     }
   }
   const sku = path(model, 'skuModel');
@@ -250,12 +265,25 @@ export async function captureDocument(doc: Document, source: string, now: Date):
   // Only explicitly identified, already rendered description text. Never frames
   // or external detailUrl fetches, and never whole-body text/HTML.
   const description = doc.querySelector('#desc-lazyload-container');
-  if (description && !description.querySelector('script,iframe,input,form')) {
+  if (description) {
     const texts = doc.createTreeWalker(description, 4); const parts: string[] = []; let length = 0;
+    let block: Element | null = null;
     for (let n = texts.nextNode(); n; n = texts.nextNode()) {
-      length += (n as Text).length;
+      if (++nodes > MAX_NODES) fail('CAPTURE_TOO_LARGE');
+      const parent = n.parentElement;
+      if (!parent || parent.closest('script,style,noscript,template,iframe,input,form,[hidden],[aria-hidden="true"]')) continue;
+      let hidden = false;
+      for (let p: Element | null = parent; p; p = p.parentElement) {
+        const style = (p as HTMLElement).style;
+        if (style?.display === 'none' || style?.visibility === 'hidden') { hidden = true; break; }
+      }
+      if (hidden) continue;
+      const value = n.nodeValue ?? '';
+      const nextBlock = parent.closest('p,div,li,section,tr');
+      const separator = block && block !== nextBlock && parts.length ? '\n' : '';
+      length += byteLength(separator) + byteLength(value);
       if (length > 8192) fail('CAPTURE_TOO_LARGE');
-      parts.push((n as Text).data);
+      parts.push(separator + value); block = nextBlock;
     }
     e.description = parts.join('').trim() || null;
   }

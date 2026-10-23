@@ -19,6 +19,7 @@ type Service struct {
 	snapshots    catalog.VersionedSnapshotReader
 	media        SourceMedia
 	history      sourcing.OwnHistoryReadStore
+	quotes       SourceQuoteReader
 }
 
 func NewService(store Repository, auth Authorizer, acquisitions sourcing.PublishedAcquisitionReader) (*Service, error) {
@@ -242,7 +243,8 @@ func (s *Service) readItem(ctx context.Context, scope Scope, itemID string) (Ite
 	if snapshot.Identity.TenantID != scope.OrganizationID || snapshot.Identity.ProductKey != item.Source.ProductKey || snapshot.Version != item.Source.Version || snapshot.PublicationID != item.Source.PublicationID {
 		return ItemDetail{}, ErrUnavailable
 	}
-	return ItemDetail{Item: item, Product: snapshot.Snapshot}, nil
+	quotes := s.readSourceQuotes(ctx, scope, item.Source)
+	return ItemDetail{Item: item, Product: snapshot.Snapshot, SourceQuotes: &quotes}, nil
 }
 func (s *Service) ReadOperation(ctx context.Context, key string) (Receipt, error) {
 	ctx, cancel := context.WithTimeout(ctx, Timeout)

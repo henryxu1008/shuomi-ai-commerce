@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { COLLECTION_MAX_BYTES, collectionID, collectionCommandSchema, collectionBatchesSchema, collectionBatchSchema, collectionItemsSchema, collectionDetailSchema, collectionReceiptSchema, type CollectionCommand } from "../contracts/product-collection";
+import { COLLECTION_MAX_BYTES, COLLECTION_DETAIL_RESPONSE_MAX_BYTES, collectionID, collectionCommandSchema, collectionBatchesSchema, collectionBatchSchema, collectionItemsSchema, collectionDetailSchema, collectionReceiptSchema, type CollectionCommand } from "../contracts/product-collection";
 import { readBoundedStrictJSON } from "./strict-json-response";
 import {importPreviewSchema,importTemplateSchema,mediaImageSchema,mediaHashSchema} from "../contracts/product-collection";
 import {collectionVersion,collectionOwnHistorySchema,collectionOwnVersionSchema} from "../contracts/product-collection";
@@ -30,7 +30,7 @@ export function listCollectionItems(scope: CollectionScope, batchId: string, que
 }
 export async function readCollectionItem(scope: CollectionScope, itemId: string, signal?: AbortSignal) {
   collectionID.parse(itemId);
-  const detail = await send(`${base}/items/${itemId}`, scope, collectionDetailSchema, signal);
+  const detail = await send(`${base}/items/${itemId}`, scope, collectionDetailSchema, signal, undefined, undefined, COLLECTION_DETAIL_RESPONSE_MAX_BYTES);
   if (detail.item.id !== itemId) throw new CollectionAPIError("DEPENDENCY_UNAVAILABLE", 502);
   return detail;
 }
@@ -71,7 +71,7 @@ export async function readSourceImage(intent:MediaIntent,signal?:AbortSignal){
  const result=await send(`${base}/media/${intent.hash}?bytes=${intent.bytes}`,intent,mediaImageSchema,signal);
  if(result.hash!==intent.hash||result.bytes!==intent.bytes)throw new CollectionAPIError("DEPENDENCY_UNAVAILABLE",502);return result;
 }
-async function send<T>(path: string, scope: CollectionScope, schema: z.ZodType<T>, signal?: AbortSignal, mutation?: { key: string; command: CollectionCommand },binary?:{raw:ArrayBuffer;type:string;hash?:string}): Promise<T> {
+async function send<T>(path: string, scope: CollectionScope, schema: z.ZodType<T>, signal?: AbortSignal, mutation?: { key: string; command: CollectionCommand },binary?:{raw:ArrayBuffer;type:string;hash?:string},responseMaxBytes=COLLECTION_MAX_BYTES): Promise<T> {
   const boundedID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
   if (!boundedID.test(scope.userId) || !boundedID.test(scope.organizationId)) throw new CollectionAPIError("INVALID_REQUEST", 400);
   if (signal?.aborted) throw new CollectionAPIError("DEADLINE_EXCEEDED", 504);
@@ -87,7 +87,7 @@ async function send<T>(path: string, scope: CollectionScope, schema: z.ZodType<T
     if(binary){headers.set("Content-Type",binary.type);if(binary.hash)headers.set("X-Content-SHA256",binary.hash);}
     const response = await fetch(path, { method: mutation || binary ? "POST" : "GET", headers, body: binary?.raw ?? (mutation ? JSON.stringify(mutation.command) : undefined),
       credentials: "same-origin", cache: "no-store", redirect: "error", signal: controller.signal });
-    const payload = await readBoundedStrictJSON(response, COLLECTION_MAX_BYTES, controller.signal);
+    const payload = await readBoundedStrictJSON(response, responseMaxBytes, controller.signal);
     if (!response.ok) {
       const error = z.object({ code: z.string().regex(/^[A-Z][A-Z0-9_]{0,79}$/) }).safeParse(payload);
       if (error.success) throw new CollectionAPIError(error.data.code, response.status);

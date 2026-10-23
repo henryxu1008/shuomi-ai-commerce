@@ -7,6 +7,28 @@ import { amazonPageSource, validateAmazonCapture } from '../src/amazon/validatio
 const page = (domain = 'www.amazon.com', price = 'US$19.99') => new JSDOM(`<span id="productTitle">Cotton bag</span><input id="ASIN" value="B012345678"><img id="landingImage" src="https://m.media-amazon.com/images/I/blue.jpg"><div id="variation_color"><span class="a-form-label">Color:</span><span class="selection">Blue</span></div><div id="corePrice_feature_div"><span class="a-price"><span class="a-offscreen">${price}</span></span></div>`, { url: `https://${domain}/dp/B012345678` }).window.document;
 const inlinePage = () => new JSDOM(readFileSync(new URL('./fixtures/amazon-inline-product.html', import.meta.url), 'utf8'), { url: 'https://www.amazon.com/dp/B0BDLGZCTY' }).window.document;
 describe('Amazon single product module', () => {
+  it('captures rendered product facts and gallery without assigning unbound gallery images to a variant', async () => {
+    const doc = page();
+    doc.body.insertAdjacentHTML('beforeend', `<div id="productOverview_feature_div"><table><tr><td><span>Brand</span></td><td><span>EHEYCIGA</span></td></tr><tr hidden><td>Private</td><td>hidden</td></tr></table></div>
+      <table id="productDetails_detailBullets_sections1"><tr><th>Material</th><td>Polyester</td></tr></table>
+      <div id="availability"><span>In Stock</span></div><div id="altImages"><ul>
+      <li><img src="https://m.media-amazon.com/images/I/blue.jpg"></li><li><img src="https://m.media-amazon.com/images/I/side.jpg"></li>
+      <li class="videoThumbnail"><img src="https://m.media-amazon.com/images/I/video.jpg"></li></ul></div>
+      <div id="recommendations"><img src="https://m.media-amazon.com/images/I/other.jpg"></div>`);
+    const { evidence } = await captureAmazonDocument(doc, doc.URL);
+    expect(evidence.attributes).toEqual([{ name: 'Brand', value: 'EHEYCIGA' }, { name: 'Material', value: 'Polyester' }, { name: 'Availability', value: 'In Stock' }]);
+    expect(evidence.images).toEqual([{ url: 'https://m.media-amazon.com/images/I/blue.jpg', role: 'main' }, { url: 'https://m.media-amazon.com/images/I/side.jpg', role: 'gallery' }]);
+    expect(evidence.variants[0].images).toEqual([evidence.images[0]]);
+    expect(evidence.missingFacts.some(f => f.field === 'inventory')).toBe(true);
+  });
+  it('ignores struck reference prices and keeps conflicting explicit currencies unknown', async () => {
+    const doc = page();
+    doc.querySelector('#corePrice_feature_div')!.insertAdjacentHTML('afterbegin', '<span class="a-price a-text-price"><span class="a-offscreen">US$99.00</span></span>');
+    doc.head.insertAdjacentHTML('beforeend', '<meta itemprop="priceCurrency" content="EUR">');
+    const { evidence } = await captureAmazonDocument(doc, doc.URL);
+    expect(evidence.priceFacts).toEqual([{ amount: '19.99', currency: null }]);
+    expect(evidence.missingFacts).toContainEqual({field:'price.currency',reason:'conflicting explicit source currencies were omitted'});
+  });
   it.each(['amazon.com', 'amazon.ca', 'amazon.co.uk', 'amazon.de', 'amazon.co.jp'])('admits only current five sites %s', domain => expect(amazonPageSource(`https://${domain}/dp/B012345678`).sourceID).toBe('B012345678'));
   it('keeps explicit variant images and partial observation', async () => {
     const payload = await captureAmazonDocument(page(), 'https://www.amazon.com/dp/B012345678', new Date('2026-10-23T00:00:00Z'));
