@@ -2,6 +2,13 @@
 
 Refs [执行 Issue #621](https://github.com/qq550723504/task-processor/issues/621)，Parent #137。
 
+> 当前新增采集交付阶段（2026-10-23）：用户选择 Amazon / 1688 插件优先，先做
+> [#902](https://github.com/qq550723504/shuomi-ai-commerce/issues/902)
+> [上架资料字段对照设计](../product/plugin-capture-listing-fields-v1.md)，服务端采集
+> 新增工作暂缓，先不开发。本设计的既有冻结合同、运行能力和历史证据保留；不关闭
+> 服务、不操作已有数据。该决定不自动扩成数据集定制/API等无关工作的停工，也不
+> 授权将现有收费Amazon job伪装为免费插件保存。插件新合同仍须独立准入。
+
 - Product Decision：`PD-DATA-SERVICES-2026-10-09`，见 §1。
 - Design Basis：**Independent Architecture**。
 - Admission：**IMPLEMENTATION_READY**。本文先于生产实现；R1 于设计候选 `6921e70816dadb4f0f552cbd138e60fd94aeaec0` 完成，无 BLOCKER。共享窄合同 Writer 已由用户确认。
