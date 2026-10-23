@@ -42,7 +42,7 @@ func NewBrowserAcquisition(ctx context.Context, db *gorm.DB, live sourcing.LiveO
 	if err != nil {
 		return nil, err
 	}
-	producer, err := sourcing.NewInternalProducer(authorizer, store, sourcing.ProducerDescriptor{Kind: sourcing.BrowserAcquisitionProducerKind, Version: "v1"})
+	producer, err := sourcing.NewInternalProducer(authorizer, store, sourcing.ProducerDescriptor{Kind: sourcing.BrowserAcquisitionProducerKind, Version: "v1"}, sourcing.ProducerDescriptor{Kind: sourcing.BrowserAcquisitionProducerKind, Version: "v2"})
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +67,7 @@ func (s *BrowserCaptureService) request(ctx context.Context, key string, body []
 	}
 	op := acquisitionOperation(scope, key, capture.Source)
 	op.CaptureSHA256 = capture.PayloadSHA256
-	op.Fingerprint, err = sourcing.BrowserAcquisitionFingerprint(op.Source, op.CaptureSHA256)
+	op.Fingerprint, err = sourcing.BrowserCaptureFingerprint(capture.Evidence.SchemaVersion, op.Source, op.CaptureSHA256)
 	return op, capture.Evidence, err
 }
 
@@ -79,7 +79,7 @@ func (s *BrowserCaptureService) Capture(ctx context.Context, key string, body []
 		return sourcing.AcquisitionResult{}, err
 	}
 	// Validate factual content before admitting an operation or consuming capacity.
-	envelope, err := sourcing.MapAcquisitionEvidence(request.Source, evidence, "browser_capture", request.ID)
+	envelope, err := sourcing.MapBrowserCaptureEvidence(request.Source, evidence, request.ID)
 	if err != nil {
 		return sourcing.AcquisitionResult{}, err
 	}
@@ -104,7 +104,11 @@ func (s *BrowserCaptureService) Capture(ctx context.Context, key string, body []
 	if err := s.core.authorizeScope(ctx, request.Scope); err != nil {
 		return sourcing.AcquisitionResult{}, err
 	}
-	command := sourcing.PublicationCommand{PublicationID: publicationID, ProductKey: productKey, Producer: sourcing.ProducerDescriptor{Kind: sourcing.BrowserAcquisitionProducerKind, Version: "v1"}, ExpectedBaseVersion: &base, Envelope: envelope}
+	version := "v1"
+	if evidence.SchemaVersion == 2 {
+		version = "v2"
+	}
+	command := sourcing.PublicationCommand{PublicationID: publicationID, ProductKey: productKey, Producer: sourcing.ProducerDescriptor{Kind: sourcing.BrowserAcquisitionProducerKind, Version: version}, ExpectedBaseVersion: &base, Envelope: envelope}
 	preparedStore, ok := s.core.operations.(sourcing.PreparedAcquisitionOperationStore)
 	if !ok {
 		return sourcing.AcquisitionResult{}, sourcing.ErrAcquisitionUnavailable
@@ -263,16 +267,20 @@ func browserCaptureOperation(scope sourcing.PublicationScope, op sourcing.Acquis
 	if op.Scope != scope || !canonicalAcquisitionKey(op.Key) || op.ID != acquisitionOperation(scope, op.Key, op.Source).ID {
 		return sourcing.ErrAcquisitionUnavailable
 	}
-	fingerprint, err := sourcing.BrowserAcquisitionFingerprint(op.Source, op.CaptureSHA256)
+	if op.Command == nil {
+		return sourcing.ErrAcquisitionUnavailable
+	}
+	version, err := sourcing.BrowserCaptureCommandVersion(*op.Command)
+	if err != nil {
+		return sourcing.ErrAcquisitionUnavailable
+	}
+	fingerprint, err := sourcing.BrowserCaptureFingerprint(version, op.Source, op.CaptureSHA256)
 	if err != nil || fingerprint != op.Fingerprint {
 		return sourcing.ErrAcquisitionConflict
 	}
-	if op.Command == nil && op.State != sourcing.AcquisitionAcquiring && op.State != sourcing.AcquisitionFailed {
-		return sourcing.ErrAcquisitionUnavailable
-	}
 	if op.Command != nil {
 		metadata := op.Command.Envelope.RawReference.Metadata
-		if op.Command.Producer != (sourcing.ProducerDescriptor{Kind: sourcing.BrowserAcquisitionProducerKind, Version: "v1"}) || metadata["capture_sha256"] != op.CaptureSHA256 || metadata["channel"] != "browser_capture" || metadata["parser_version"] != sourcing.BrowserCaptureParserVersion || metadata["contract_version"] != sourcing.AcquisitionContractVersion {
+		if metadata["capture_sha256"] != op.CaptureSHA256 {
 			return sourcing.ErrAcquisitionUnavailable
 		}
 	}

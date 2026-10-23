@@ -207,7 +207,9 @@ func TestBrowserCaptureReadOnlyRecoveryAllStates(t *testing.T) {
 			result, err := service.Verify(context.Background(), op.Key, body)
 			switch state {
 			case sourcing.AcquisitionAcquiring:
-				require.ErrorIs(t, err, sourcing.ErrAcquisitionUnknown)
+				// Capture records must contain their frozen command; unlike the
+				// public provider path, an empty acquiring record is invalid.
+				require.ErrorIs(t, err, sourcing.ErrAcquisitionUnavailable)
 				require.Zero(t, publisher.verifies)
 			case sourcing.AcquisitionFailed:
 				require.NoError(t, err)

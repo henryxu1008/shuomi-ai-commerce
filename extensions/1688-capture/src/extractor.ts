@@ -1,5 +1,5 @@
 import { parseTree, type Node, type ParseError } from 'jsonc-parser';
-import type { CapturePayload, Evidence, Price } from './wire';
+import type { CapturePayload, EvidenceV2, Price, Image } from './wire';
 import { byteLength, fail, MAX_BYTES, pageSource, validateCapture } from './validation';
 
 // Observed live payloads reach ~16.5k nodes, so the previous 16384 bound rejected
@@ -185,9 +185,9 @@ export async function captureDocument(doc: Document, source: string, now: Date):
   if (string(path(model, 'tempModel', 'offerId'), true) !== identity.offerID) fail('PAGE_CHANGED');
   const title = string(path(data, 'productTitle', 'fields', 'title'));
   if (!title?.trim() || /验证码|请登录|访问受限|captcha|access denied/i.test(title)) fail('UNSUPPORTED_PAGE');
-  const e: Evidence = {
-    schemaVersion: 1, ...identity, title, description: null, attributes: [], variants: [], priceFacts: [], images: [],
-    capturedAt: now.toISOString(), contentSHA256: '0'.repeat(64), parserVersion: '1688-browser-dom/v2', warnings: [], missingFacts: [],
+  const e: EvidenceV2 = {
+    schemaVersion: 2, ...identity, title, description: null, attributes: [], variants: [], priceFacts: [], images: [],
+    capturedAt: now.toISOString(), contentSHA256: '0'.repeat(64), parserVersion: '1688-browser-dom/v3', warnings: [], missingFacts: [],
   };
   const missing = (field: string) => {
     e.missingFacts.push({ field, reason: 'not_observed' });
@@ -215,7 +215,17 @@ export async function captureDocument(doc: Document, source: string, now: Date):
     }
   }
   const sku = path(model, 'skuModel');
-  const props = array(path(sku, 'skuProps')).map(n => string(path(n, 'prop')) ?? fail('UNSUPPORTED_PAGE'));
+  const propNodes = array(path(sku, 'skuProps'));
+  const props = propNodes.map(n => string(path(n, 'prop')) ?? fail('UNSUPPORTED_PAGE'));
+  const propImages = propNodes.map(prop => {
+    const values = new Map<string, string | null>();
+    for (const value of array(path(prop, 'value'))) {
+      const name = string(path(value, 'name')) ?? fail('UNSUPPORTED_PAGE');
+      if (values.has(name)) fail('UNSUPPORTED_PAGE');
+      values.set(name, string(path(value, 'imageUrl')));
+    }
+    return values;
+  });
   const info = path(sku, 'skuInfoMap');
   if (info && (info.type !== 'object' || (info.children?.length ?? 0) > 256)) fail('UNSUPPORTED_PAGE');
   for (const pair of info?.children ?? []) {
@@ -225,8 +235,17 @@ export async function captureDocument(doc: Document, source: string, now: Date):
     missing(`variants[${e.variants.length}].sku`);
     const values = key.split('&gt;');
     if (values.length !== props.length) fail('UNSUPPORTED_PAGE');
+    const images: Image[] = [];
+    const addImage = (url: string | null) => {
+      if (url && !images.some(image => image.url === url)) images.push({ url, role: 'source' });
+    };
+    // Only an image declared on this exact SKU or this exact dimension value.
+    // Product gallery order never establishes a relationship to a variant.
+    addImage(string(path(item, 'imageUrl')));
+    values.forEach((value, i) => addImage(propImages[i].get(value) ?? null));
     e.variants.push({ sourceID: id, sku: null, title: null,
-      attributes: props.map((name, i) => ({ name, value: values[i] })), price: price(item, `variants[${e.variants.length}].price`) });
+      attributes: props.map((name, i) => ({ name, value: values[i] })), price: price(item, `variants[${e.variants.length}].price`), images });
+    if (!images.length) missing(`variants[${e.variants.length - 1}].images`);
   }
   // Only explicitly identified, already rendered description text. Never frames
   // or external detailUrl fetches, and never whole-body text/HTML.
@@ -243,7 +262,7 @@ export async function captureDocument(doc: Document, source: string, now: Date):
   for (const field of ['description', 'attributes', 'variants', 'priceFacts', 'images'] as const) {
     if (!e[field] || e[field].length === 0) missing(field);
   }
-  const payload = validateCapture({ captureVersion: 1, evidence: e });
+  const payload = validateCapture({ captureVersion: 2, evidence: e });
   const projection = JSON.stringify({ sourceURL: e.sourceURL, offerID: e.offerID, title: e.title, description: e.description,
     attributes: e.attributes, variants: e.variants, priceFacts: e.priceFacts, images: e.images });
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(projection));

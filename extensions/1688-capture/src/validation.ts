@@ -35,17 +35,21 @@ export function publicImage(value: string) {
       && !sensitiveName.test(url.pathname) && !/%(?:00|0a|0d)/i.test(value);
   } catch { return false; }
 }
+const image = z.strictObject({ url: text.refine(publicImage), role: text });
+const variant = z.strictObject({ sourceID: text.nullable(), sku: text.nullable(), title: text.nullable(), attributes: attrs, price: price.nullable() });
 const evidence = z.strictObject({
   schemaVersion: z.literal(1), sourceURL: text, offerID: text.regex(/^[1-9][0-9]{0,19}$/),
   title: text.min(1).nullable(), description: text.nullable(), attributes: attrs,
-  variants: z.array(z.strictObject({ sourceID: text.nullable(), sku: text.nullable(), title: text.nullable(), attributes: attrs, price: price.nullable() })).max(256),
-  priceFacts: z.array(price).max(256), images: z.array(z.strictObject({ url: text.refine(publicImage), role: text })).max(256),
+  variants: z.array(variant).max(256),
+  priceFacts: z.array(price).max(256), images: z.array(image).max(256),
   capturedAt: text.refine(v => /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,9})?Z$/.test(v) && Number.isFinite(Date.parse(v))),
   contentSHA256: text.regex(/^[a-f0-9]{64}$/), parserVersion: z.literal('1688-browser-dom/v2'),
   warnings: z.array(z.strictObject({ code: text, field: text })).max(256),
   missingFacts: z.array(z.strictObject({ field: text, reason: text })).max(256),
 });
-const schema = z.strictObject({ captureVersion: z.literal(1), evidence });
+const evidenceV2 = evidence.extend({ schemaVersion: z.literal(2), parserVersion: z.literal('1688-browser-dom/v3'),
+  variants: z.array(variant.extend({ images: z.array(image).max(256) })).max(256) });
+const schema = z.discriminatedUnion('captureVersion', [z.strictObject({ captureVersion: z.literal(1), evidence }), z.strictObject({ captureVersion: z.literal(2), evidence: evidenceV2 })]);
 export function validateCapture(value: unknown): CapturePayload {
   const parsed = schema.safeParse(value);
   if (!parsed.success) fail('INVALID_CAPTURE');
@@ -54,8 +58,16 @@ export function validateCapture(value: unknown): CapturePayload {
   if (!e.title?.trim() || pageSource(e.sourceURL).offerID !== e.offerID || pageSource(e.sourceURL).sourceURL !== e.sourceURL) fail('INVALID_CAPTURE');
   let items = e.attributes.length + e.variants.length + e.priceFacts.length + e.images.length + e.warnings.length + e.missingFacts.length;
   const ids = new Set<string>(); const skus = new Set<string>();
+  const combinations = new Set<string>();
   for (const v of e.variants) {
     items += v.attributes.length;
+    if (payload.captureVersion === 2) {
+      if (!('images' in v)) fail('INVALID_CAPTURE');
+      items += v.images.length;
+      const combination = JSON.stringify([...v.attributes].sort((a,b)=>a.name.localeCompare(b.name)));
+      if ((!v.sourceID && v.attributes.length === 0) || (v.attributes.length > 0 && combinations.has(combination))) fail('INVALID_CAPTURE');
+      combinations.add(combination);
+    }
     if ((v.sourceID && ids.has(v.sourceID)) || (v.sku && skus.has(v.sku))) fail('INVALID_CAPTURE');
     if (v.sourceID) ids.add(v.sourceID); if (v.sku) skus.add(v.sku);
   }
