@@ -1,3 +1,5 @@
+> 当前说明（#301 / #912）：已确认并整批实施[旧 SHEIN 闲置策略与辅助合同完整退休闭包](../architecture/legacy-shein-policy-contract-closure-retirement-boundary.md) §1–§7（含 §6.1）。旧 pricing.PriceManager 包装接线、generationtopics/namelimit 与两种 productsync 属性/最后根 AmazonMonitorData 的暂留说明已按准确矩阵退休；pricing_repo.go 与 api/product 同名 PriceManager、有效子包和当前 JSON/共享合同仍保留；下方原历史段落/计数/链接保留。workflow/inventory 与既有实例/数据/凭据/进程不动，不增加试用前置，#301 OPEN。
+
 # Repository Structure
 
 本仓库承载 **硕米智能引擎 / Shuomi AI Commerce**（AI Commerce Agent Platform）。

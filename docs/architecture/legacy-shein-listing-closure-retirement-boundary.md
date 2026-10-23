@@ -1,3 +1,5 @@
+> 当前适用边界（#301 / #912）：用户已确认并按[旧 SHEIN 闲置策略与辅助合同完整退休闭包](legacy-shein-policy-contract-closure-retirement-boundary.md) §1–§7（含 §6.1）整批实施，仅替代本文件中附录 A 四组22工件的 KEEP，包含最后根 AmazonMonitorData；有效 SHEIN 子包和平台 API 不随 root Go 合同退出及对应旧 KEEP 检查；准确删除/保留矩阵以新设计 §2/§5/§6.1 为准，其它当前 API/有效规则/采集/独立 SHEIN 登录与 Store 同步不变。下方原历史正文、数字和证据逐字保留，不提供旧 JSON 迁移或运行/数据操作授权。
+
 # 旧 SHEIN 数字刊登整链：完整退休边界设计
 
 > #827 [confirmed Publishing runtime closure](legacy-shein-publishing-runtime-closure-retirement-boundary.md): Supersedes only the earlier retention of the then-consumed Publishing runtime/managed/resolver/cache/remote submission helper closure. Exact mixed current pure values/assembly/strict codec and platform/Store/independent worker preservation still apply. Original #817 evidence below is unchanged. Workflows, dependencies, ceilings, runtime/data and trial prerequisites are unchanged.
