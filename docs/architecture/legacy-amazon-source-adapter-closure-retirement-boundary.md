@@ -1,6 +1,6 @@
 # #301 旧 Amazon 来源适配层完整退休闭包设计
 
-Status: **DESIGN_REVIEW / 待用户确认；生产实施未授权**。本轮只读调查与三文档；准确设计 HEAD、原 CI、独立设计复核和后续批准记录在主要 PR。接单及前当前段存档见 [#301 / 6357545307](https://github.com/qq550723504/shuomi-ai-commerce/issues/301#issuecomment-6357545307)。
+Status: **USER_CONFIRMED / SOURCE_IMPLEMENTED**。用户已确认 §1–§7（含 §6.1），源码修改前已在 #301/主要 PR 记录并读回 **Reuse Existing Architecture / Ready**；七个准确工件及专属文档尾部在同一 PR 整批退休。当前采集、原浏览器/池/有效池大小测试与调试、共享合同及独立 SHEIN 登录/Store 同步保持；workflow/inventory/其它检查/依赖/保护不改，没有真实资源操作或新试用前置。下文设计阶段的“确认前/拟/待授权”描述保留为冻结设计依据，不撤回本次准确实施授权。准确源码 HEAD、RED/GREEN、原 CI、源码最终复核及另行合并批准留主要 PR，设计证据不替代实现或运行验收。接单及前当前段存档见 [#301 / 6357545307](https://github.com/qq550723504/shuomi-ai-commerce/issues/301#issuecomment-6357545307)，实施接单见 [#901 / 6358228880](https://github.com/qq550723504/shuomi-ai-commerce/pull/901#issuecomment-6358228880)。#301 保持 OPEN。
 
 调查基线 main **`eeb54dda7cb0da9fef0b310456cb8594b9dc3bf3`**，已包含 #900；该 merge 的 push/main CI39899645077 完整 SUCCESS 是前批证据，不代替本次设计或后续实现检查。
 

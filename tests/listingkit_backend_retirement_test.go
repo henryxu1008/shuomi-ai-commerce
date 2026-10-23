@@ -26,6 +26,105 @@ var retiredListingPreviewDownloadPackages = []string{
 	"internal/listing/preview", "internal/listing/platform", "internal/pkg/downloader",
 }
 
+func TestLegacyAmazonSourceAdapterClosureIsRetired(t *testing.T) {
+	for _, relative := range []string{
+		"internal/integration/crawler/amazon",
+		"internal/integration/crawler/amazon/processor.go", "internal/integration/crawler/amazon/product_source.go",
+		"internal/integration/crawler/amazon/processor_test.go", "internal/integration/crawler/amazon/product_source_test.go",
+		"internal/integration/crawler/amazon/README.md",
+		"internal/crawler/amazon/factory.go", "internal/crawler/amazon/scraper.go",
+	} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Errorf("retired Amazon source adapter artifact %s must be absent: %v", relative, err)
+		}
+	}
+	retained := map[string]bool{}
+	for _, name := range strings.Fields("AmazonProcessor NewAmazonProcessor effectiveBrowserPoolSize AmazonProcessor.Process AmazonProcessor.ProcessWithContext AmazonProcessor.ProcessBatch AmazonProcessor.ProcessBatchWithContext AmazonProcessor.Shutdown") {
+		retained[name] = false
+	}
+	for _, relative := range trackedFiles(t, ".") {
+		if !strings.HasSuffix(relative, ".go") {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(relative)), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, spec := range file.Imports {
+			imported, err := decodeGoImportPath(spec.Path.Value)
+			if err != nil {
+				t.Fatalf("decode import in %s: %v", relative, err)
+			}
+			if importMatchesPrefix(imported, "task-processor/internal/integration/crawler/amazon") {
+				t.Errorf("%s imports retired Amazon source adapter %s", relative, imported)
+			}
+		}
+		// Only the original browser owner loses these declarations. Current
+		// Source/Processor/Scraper contracts in other owners remain valid.
+		if filepath.ToSlash(filepath.Dir(relative)) != "internal/crawler/amazon" || strings.HasSuffix(relative, "_test.go") {
+			continue
+		}
+		for _, declaration := range file.Decls {
+			switch declaration := declaration.(type) {
+			case *ast.FuncDecl:
+				name := declaration.Name.Name
+				if declaration.Recv == nil && name == "CreateProcessor" {
+					t.Errorf("%s retains retired Amazon factory CreateProcessor", relative)
+				}
+				if declaration.Recv != nil && len(declaration.Recv.List) > 0 {
+					shape := declaration.Recv.List[0].Type
+					if pointer, ok := shape.(*ast.StarExpr); ok {
+						shape = pointer.X
+					}
+					if receiver, ok := shape.(*ast.Ident); ok {
+						name = receiver.Name + "." + name
+					}
+				}
+				if _, exists := retained[name]; exists {
+					retained[name] = true
+				}
+			case *ast.GenDecl:
+				for _, spec := range declaration.Specs {
+					if typ, ok := spec.(*ast.TypeSpec); ok {
+						if typ.Name.Name == "Scraper" {
+							t.Errorf("%s retains retired Amazon Scraper declaration", relative)
+						}
+						if _, exists := retained[typ.Name.Name]; exists {
+							retained[typ.Name.Name] = true
+						}
+					}
+				}
+			}
+		}
+	}
+	for name, found := range retained {
+		if !found {
+			t.Errorf("original Amazon browser owner must retain %s", name)
+		}
+	}
+	for relative, tokens := range map[string][]string{
+		"internal/crawler/amazon/factory_test.go": {
+			"func TestEffectiveBrowserPoolSizeUsesConfiguredValue(", "func TestEffectiveBrowserPoolSizeFallsBackToAmazonDefault(", "effectiveBrowserPoolSize(",
+		},
+		"hack/debug/test-amazon/main.go": {
+			"\"task-processor/internal/crawler/amazon\"", "amazon.NewAmazonProcessor(", "processor.Process(", "processor.Shutdown()",
+		},
+		"internal/app/runtime/currentapplication/runtime.go": {
+			"\"task-processor/internal/integration/acquisition/amazon\"", "amazon.New(amazon.Options{",
+		},
+	} {
+		body, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, token := range tokens {
+			if !strings.Contains(string(body), token) {
+				t.Errorf("current Amazon consumer %s must retain %q", relative, token)
+			}
+		}
+	}
+}
+
 func TestLegacyWorkerpoolSensitiveWordRecoveryClosureIsRetired(t *testing.T) {
 	exprString := func(node ast.Node) string {
 		var formatted bytes.Buffer
