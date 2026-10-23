@@ -4,8 +4,12 @@ Owns source-specific crawling adapters that feed product sourcing pipelines.
 
 Current approved children:
 
-- `internal/integration/crawler/amazon`
 - `internal/integration/crawler/a1688`
+
+Current Amazon acquisition belongs to `internal/integration/acquisition/amazon`.
+The original browser processor remains in `internal/crawler/amazon`, with its
+direct debugging entry in `hack/debug/test-amazon`; the unused Amazon source
+adapter and its exclusive factory/interface tails have retired under #301/#901.
 
 Use this area for:
 

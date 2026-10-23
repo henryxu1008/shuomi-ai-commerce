@@ -27,7 +27,7 @@ facts do not require a top-level Listing Center or a platform Workbench.
 
 | Responsibility | Current owner | Boundary |
 | --- | --- | --- |
-| Fetching, parsing, provider DTOs | `internal/integration/crawler/a1688`, `internal/integration/crawler/amazon` | Adapter-local snapshots become neutral `SourceEnvelope`; no Product service/workflow ownership |
+| Fetching, parsing, provider DTOs | `internal/integration/crawler/a1688`, `internal/integration/acquisition/amazon` | Adapter-local snapshots become neutral `SourceEnvelope`; no Product service/workflow ownership |
 | POD/design evidence | `internal/sds/adapter/product_source` | Preserve SDS specialization; not generic source onboarding |
 | Identity, normalization, provenance, warnings | `internal/product/sourcing` | `SourceIdentity`, `SourceEnvelope`, `Normalize`, `ToSnapshot`; no crawler/integration/runtime imports |
 | Canonical publication | `internal/product/sourcing.Publisher` → `internal/product/catalog.Publisher` | Explicit tenant/product/publication identity; Catalog owns `ProductSnapshot`, immutable versions and replay/conflict semantics |

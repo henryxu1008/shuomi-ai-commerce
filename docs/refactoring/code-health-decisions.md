@@ -1,5 +1,7 @@
 # Code Health Decisions
 
+> #301 / #901 按[用户确认的完整 Amazon 来源适配层退休边界](../architecture/legacy-amazon-source-adapter-closure-retirement-boundary.md)整批退出 integration/crawler/amazon 旧包与专属测试/README、最后消费者退出后的 CreateProcessor 工厂和孤立 Scraper 接口。仅 supersede 这些准确对象的旧 retained/当前入口含义；原 crawler/amazon 的 NewAmazonProcessor、浏览器/池/规则、effectiveBrowserPoolSize 与 factory_test/debug 保持，当前采集由 acquisition/amazon 持有。原表格/状态/88与5等历史计数/失败正文逐字保留，不因历史台账制造消费者或改变检查/ceilings；共享合同、独立 SHEIN 登录/Store 同步保持，无真实实例/数据/凭据/进程操作。
+
 > #301 / #885 [完整旧 SDS 退休闭包](../architecture/legacy-sds-runtime-closure-retirement-boundary.md)已获用户确认并实施，仅取代下文 `scripts/refresh-sds-auth-via-portforward.ps1`、`tools/cloakbrowser-poc/sds-login.mjs`、`tools/cloakbrowser-poc/sds-login-redis.mjs` 三行 retained-deferred 的当前保留含义；专属 PoC manifest/lock 与源码同退。原表格/状态/计数/失败正文保留为历史，不授权执行旧恢复或清理状态；当前 SDS/POD、共享浏览器/Redis、独立 SHEIN 登录与 Store 同步保持。
 
 > #301 / #872 [用户确认的完整队列/代理/配置尾部边界](../architecture/legacy-queue-proxy-config-tail-closure-retirement-boundary.md)同批退休旧 RabbitMQ、数字 Store 代理两入口/专属声明/Secret源、Updater配置及孤立cache/perf/types/fileio。仅精确取代下文 sync-shein-store-proxies.ps1 的 retained-deferred 判断和这些准确对象的旧迁移/保留目标；不因台账登记制造假消费者。通用 start-shein-local-rabbitmq-portforward、有效共享基础层/workerpool/Retry、当前采集/Store与独立SHEIN登录同步保留；原历史正文/计数不改，无真实实例/数据/凭据/进程操作。
