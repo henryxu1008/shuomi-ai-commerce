@@ -1,7 +1,7 @@
 # 插件资料补齐与来源报价只读展示 V1
 
 Refs #916；基线 [插件接收架构](plugin-capture-ingestion-v1.md)、[上架字段设计](../product/plugin-capture-listing-fields-v1.md)。
-Status: **DRAFT / NOT_IMPLEMENTATION_READY**。2026-10-24 用户已授权先评审、后开发/测试并提交一个主要PR；不含合并、运行更新、真实重采/保存或部署。
+Status: **IMPLEMENTATION_READY**。2026-10-24 用户已授权先评审、后开发/测试并提交一个主要PR；不含合并、运行更新、真实重采/保存或部署。
 
 ## 1. 产品边界、依据与交付
 
@@ -46,7 +46,7 @@ ItemDetail增加：
 sourceQuotes.prices字段来自sourcing owner的纯投影函数，复用现有AcquisitionPrice十进制/币种/数量校验：
 - 仅读取price_fact.N，按数值N排序；最多256项。索引或JSON不合法、重复/未知price字段、金额/币种/数量不合现有合同→unavailable，不能静默丢项。
 - amount保持原十进制字符串；currency为明确三字母代码或null；minQuantity为明确原数量字符串或null，不默认1，不推断数量单位。
-- 非price_fact商业facts不透传；整份Envelope、metadata、内部scope/hash均不外发。既有2MiB envelope/snapshot预算保持，新增报价DTO每项沿原8KiB字符串/256项上限；原10秒Collection deadline覆盖子读，BFF响应预算必须容纳原snapshot加该有界增量，不能截断已知事实。
+- 非price_fact商业facts不透传；整份Envelope、metadata、内部scope/hash均不外发。既有2MiB envelope/snapshot预算保持，新增报价DTO编码最多64KiB、最多256项，字段沿现有金额/数量/币种正则。报价子读最多2秒且受原10秒父deadline约束；父请求不足以保留响应余量时直接unavailable。仅详情GET的Go handler、BFF及浏览器API总响应预算对齐3MiB，写请求/其它响应仍2MiB，不能截断已知事实。
 
 事务/失败：全部只读，无发布/charge/补偿。并发新保存/归档不改变已选不可变版本；本次不新增跨请求撤权或归档协议，入口和仓库仍执行现有live/actor限制。响应丢失可重新GET原item，没有写入副作用。
 
@@ -81,4 +81,13 @@ Amazon：
 实现TDD：先让新增Amazon属性/图库/供货、1688补充报价模型/安全正文回归失败，再最小修复。复用原extension、Go sourcing/Collection、BFF/schema与详情测试：准确scope/publication/version、拒绝错配SRC事实且已知product保留；报价按原十进制/币种空/数量未知投影；图片归属/未知不伪造；无新增写入或provider路径。复用既有测试夹具和测试DB策略，不连接保留数据库。
 
 最终稳定候选再同步main，处理真实组合问题，独立检查实际diff和路径，必要CI绑定准确HEAD；一个主要PR同时承载设计和实现。不合并、不关Issue、不装载插件或更新实例，真实产品验收/重采/运行部署NOT_RUN。
+
+## 7. 独立设计评审记录
+
+2026-10-24，独立Reviewer amazon_fix_review核对设计SHA `fe6670e5b49d75ca346979804194ca6742b07271`、#916正文及实际Collection/SRC/HTTP/BFF路径，结论 **IMPLEMENTATION_READY**，无BLOCKER。该结论为设计准入，不代表实现或产品验收。
+
+- Finding：Go HTTP与BFF的详情响应预算需一致。Product requirement affected：附加报价不得吞掉已知商品。Classification：IMPLEMENTATION_TEST。Action：按第3节仅扩大详情GET响应至3MiB，测试接近原上限的商品加报价完整返回。
+- Finding：报价子读需早于外层10秒结束。Product requirement affected：报价失败仍显示已知商品。Classification：IMPLEMENTATION_TEST。Action：第3节2秒子预算与父deadline余量检查，测试超时降级为unavailable且没有后台重试。
+
+以上为评审指出的实现收敛，未改变事实owner、权限、状态、事务或恢复协议；设计基线在正式实现前冻结。
 
