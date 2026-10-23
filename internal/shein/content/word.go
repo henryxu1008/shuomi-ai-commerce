@@ -1,104 +1,13 @@
 // Package content 提供SHEIN平台的敏感词服务核心功能
 package content
 
-import (
-	"github.com/sirupsen/logrus"
-
-	"context"
-
-	"task-processor/internal/pkg/recovery"
-)
-
-// NewSensitiveWordService 创建敏感词服务
-func NewSensitiveWordService(logs func(string) *logrus.Entry) *SensitiveWordService {
-	return NewSensitiveWordServiceInMemory(logs)
-}
+import "github.com/sirupsen/logrus"
 
 // NewSensitiveWordServiceInMemory 创建纯内存敏感词服务，不依赖本地配置文件。
 func NewSensitiveWordServiceInMemory(logs func(string) *logrus.Entry) *SensitiveWordService {
-	service := &SensitiveWordService{
-		persistConfig: false,
-		ctx:           context.Background(),
-		saveQueue:     make(chan struct{}, 10),
-		stopSave:      make(chan struct{}),
-		logger:        componentLogger(logs, "shein.sensitive_word"),
-	}
-
-	service.startSaveWorker()
+	service := &SensitiveWordService{logger: componentLogger(logs, "shein.sensitive_word")}
 	service.initDefaultConfig()
 	return service
-}
-
-// NewSensitiveWordServiceInMemoryWithPath 创建只读加载配置文件的内存敏感词服务。
-// 它会读取现有词库，但不会将运行时动态词持久化回磁盘。
-func NewSensitiveWordServiceInMemoryWithPath(configPath string, logs func(string) *logrus.Entry) *SensitiveWordService {
-	service := &SensitiveWordService{
-		configPath:    configPath,
-		persistConfig: false,
-		ctx:           context.Background(),
-		saveQueue:     make(chan struct{}, 10),
-		stopSave:      make(chan struct{}),
-		logger:        componentLogger(logs, "shein.sensitive_word"),
-	}
-
-	service.startSaveWorker()
-
-	if err := service.loadConfig(); err != nil {
-		service.logger.Errorf("加载敏感词配置失败: %v，使用默认配置", err)
-		service.initDefaultConfig()
-	}
-
-	return service
-}
-
-// NewSensitiveWordServiceWithPath 使用指定路径创建敏感词服务
-func NewSensitiveWordServiceWithPath(configPath string, logs func(string) *logrus.Entry) *SensitiveWordService {
-	service := &SensitiveWordService{
-		configPath:    configPath,
-		persistConfig: true,
-		ctx:           context.Background(),
-		saveQueue:     make(chan struct{}, 10),
-		stopSave:      make(chan struct{}),
-		logger:        componentLogger(logs, "shein.sensitive_word"),
-	}
-
-	service.startSaveWorker()
-
-	if err := service.loadConfig(); err != nil {
-		service.logger.Errorf("加载敏感词配置失败: %v，使用默认配置", err)
-		service.initDefaultConfig()
-	}
-
-	return service
-}
-
-// startSaveWorker 启动保存工作协程
-func (s *SensitiveWordService) startSaveWorker() {
-	s.wg.Add(1)
-	go func() {
-		defer s.wg.Done()
-		defer recovery.Recover("保存工作协程", s.logger)
-
-		for {
-			select {
-			case <-s.saveQueue:
-				if err := s.saveConfig(); err != nil {
-					s.logger.Errorf("保存敏感词配置失败: %v", err)
-				} else {
-					s.logger.Debug("敏感词配置已保存")
-				}
-			case <-s.stopSave:
-				for len(s.saveQueue) > 0 {
-					<-s.saveQueue
-					if err := s.saveConfig(); err != nil {
-						s.logger.Errorf("保存敏感词配置失败: %v", err)
-					}
-				}
-				s.logger.Info("保存工作协程已停止")
-				return
-			}
-		}
-	}()
 }
 
 // initDefaultConfig 初始化默认配置
@@ -149,11 +58,9 @@ func (s *SensitiveWordService) HandleValidationErrors(ctx *CleanupContext, valid
 	s.logger.Infof("从验证错误中提取到敏感词: %v", extractedWords)
 	s.AddDynamicSensitiveWords(extractedWords)
 
-	// 同步保存，确保新词持久化后再继续，避免异步保存未完成时实例被丢弃导致词表丢失
-	if err := s.saveConfig(); err != nil {
-		s.logger.Errorf("同步保存敏感词配置失败: %v", err)
-		// 保存失败不阻断流程，词表已在内存中生效
-	}
+	s.mutex.Lock()
+	s.markConfigUpdatedLocked()
+	s.mutex.Unlock()
 
 	if err := s.ProcessProductData(ctx); err != nil {
 		s.logger.Errorf("重新处理产品数据失败: %v", err)
@@ -215,36 +122,42 @@ func (s *SensitiveWordService) GetSensitiveWordsByLanguage(language string) (sta
 
 // AddDynamicSensitiveWords 添加动态敏感词（自动检测语言）
 func (s *SensitiveWordService) AddDynamicSensitiveWords(words []string) {
-	s.addSensitiveWords(words, s.config.DynamicWords, "动态")
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.addSensitiveWordsLocked(words, s.config.DynamicWords, "动态")
 }
 
 // AddStaticSensitiveWords 添加静态敏感词（自动检测语言）
 func (s *SensitiveWordService) AddStaticSensitiveWords(words []string) {
-	s.addSensitiveWords(words, s.config.StaticWords, "静态")
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.addSensitiveWordsLocked(words, s.config.StaticWords, "静态")
 }
 
 // AddStaticSensitiveWordsByLanguage 按指定语言添加静态敏感词
 func (s *SensitiveWordService) AddStaticSensitiveWordsByLanguage(language string, words []string) {
-	s.addWordsByLanguage(s.config.StaticWords, language, words, "静态")
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.addWordsByLanguageLocked(s.config.StaticWords, language, words, "静态")
 }
 
-// addSensitiveWords 通用：按语言分类后添加到指定词表
-func (s *SensitiveWordService) addSensitiveWords(words []string, target map[string][]string, kind string) {
+// addSensitiveWordsLocked 按语言分类后添加；调用者持有原 mutex 写锁。
+func (s *SensitiveWordService) addSensitiveWordsLocked(words []string, target map[string][]string, kind string) {
 	if len(words) == 0 {
 		return
 	}
 	wordsByLang := s.classifyWordsByLanguage(words)
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
 	if totalAdded := s.addWordsToConfig(target, wordsByLang, kind); totalAdded > 0 {
 		s.logger.Infof("✅ 成功添加 %d 个%s敏感词", totalAdded, kind)
-		s.saveConfigAsync()
+		s.markConfigUpdatedLocked()
 	}
 }
 
 // AddDynamicSensitiveWordsByLanguage 按指定语言添加动态敏感词
 func (s *SensitiveWordService) AddDynamicSensitiveWordsByLanguage(language string, words []string) {
-	s.addWordsByLanguage(s.config.DynamicWords, language, words, "动态")
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.addWordsByLanguageLocked(s.config.DynamicWords, language, words, "动态")
 }
 
 // ClearDynamicSensitiveWords 清空动态敏感词列表
@@ -255,5 +168,5 @@ func (s *SensitiveWordService) ClearDynamicSensitiveWords() {
 	oldCount := s.countWordsInConfig(s.config.DynamicWords)
 	s.config.DynamicWords = make(map[string][]string)
 	s.logger.Infof("✅ 已清空 %d 个动态敏感词", oldCount)
-	s.saveConfigAsync()
+	s.markConfigUpdatedLocked()
 }

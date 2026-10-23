@@ -246,31 +246,6 @@ func (s *SensitiveWordService) countWordsInConfig(configMap map[string][]string)
 	return total
 }
 
-// logConfigLoadStats 记录配置加载统计信息
-func (s *SensitiveWordService) logConfigLoadStats() {
-	staticTotal := s.countWordsInConfig(s.config.StaticWords)
-	dynamicTotal := s.countWordsInConfig(s.config.DynamicWords)
-
-	s.logger.WithFields(map[string]any{
-		"static_total":  staticTotal,
-		"dynamic_total": dynamicTotal,
-		"total":         staticTotal + dynamicTotal,
-		"version":       s.config.Version,
-		"last_updated":  s.config.LastUpdated.Format("2006-01-02 15:04:05"),
-	}).Info("✅ 敏感词配置加载完成")
-
-	for lang, words := range s.config.StaticWords {
-		if len(words) > 0 {
-			s.logger.Infof("  📝 静态敏感词 [%s]: %d个", lang, len(words))
-		}
-	}
-	for lang, words := range s.config.DynamicWords {
-		if len(words) > 0 {
-			s.logger.Infof("  🔄 动态敏感词 [%s]: %d个", lang, len(words))
-		}
-	}
-}
-
 // logSensitiveWordStats 记录敏感词统计信息
 func (s *SensitiveWordService) logSensitiveWordStats() {
 	s.mutex.RLock()
@@ -299,6 +274,5 @@ func (s *SensitiveWordService) logSensitiveWordStats() {
 	s.logger.Infof("   Amazon品牌词: %d 个", amazonBrandWordsCount)
 	s.logger.Infof("   总计: 静态(%d) + 动态(%d) + 品牌词(%d) = %d 个",
 		staticTotal, dynamicTotal, amazonBrandWordsCount, staticTotal+dynamicTotal+amazonBrandWordsCount)
-	s.logger.Infof("   配置文件: %s", s.configPath)
 	s.logger.Infof("   最后更新: %s", s.config.LastUpdated.Format("2006-01-02 15:04:05"))
 }

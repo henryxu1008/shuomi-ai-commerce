@@ -1,7 +1,9 @@
 package tests
 
 import (
+	"bytes"
 	"go/ast"
+	"go/format"
 	"go/parser"
 	"go/token"
 	"os"
@@ -22,6 +24,145 @@ var retiredHostRuntimePackages = []string{
 
 var retiredListingPreviewDownloadPackages = []string{
 	"internal/listing/preview", "internal/listing/platform", "internal/pkg/downloader",
+}
+
+func TestLegacyWorkerpoolSensitiveWordRecoveryClosureIsRetired(t *testing.T) {
+	exprString := func(node ast.Node) string {
+		var formatted bytes.Buffer
+		if err := format.Node(&formatted, token.NewFileSet(), node); err != nil {
+			t.Fatal(err)
+		}
+		return formatted.String()
+	}
+	for _, relative := range []string{
+		"internal/platform/workerpool", "internal/pkg/recovery",
+		"internal/platform/workerpool/config.go", "internal/platform/workerpool/interfaces.go",
+		"internal/platform/workerpool/metrics.go", "internal/platform/workerpool/pool.go",
+		"internal/platform/workerpool/types.go", "internal/platform/workerpool/worker.go",
+		"internal/platform/workerpool/pool_lifecycle_test.go", "internal/platform/workerpool/worker_test.go",
+		"internal/pkg/recovery/panic_handler.go",
+	} {
+		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Errorf("retired workerpool/recovery artifact %s must be absent: %v", relative, err)
+		}
+	}
+	retiredFunctions := strings.Fields("resolveConfigPath NewSensitiveWordService NewSensitiveWordServiceInMemoryWithPath NewSensitiveWordServiceWithPath")
+	retiredMethods := strings.Fields("loadConfig saveConfig saveConfigUnlocked ReloadConfig saveConfigAsync Close startSaveWorker logConfigLoadStats")
+	retiredFields := strings.Fields("configPath persistConfig ctx saveQueue stopSave wg")
+	retained := map[string]bool{}
+	for _, name := range strings.Fields("NewSensitiveWordServiceInMemory SensitiveWordConfig SensitiveWordService SensitiveWordService.config SensitiveWordService.mutex SensitiveWordService.logger createDefaultConfig ProcessProductData HandleValidationErrors GetSensitiveWordsByLanguage getWordsFromConfig classifyWordsByLanguage addWordsToConfig deduplicateWords") {
+		retained[name] = false
+	}
+	wantConfig := map[string]string{
+		"StaticWords": "map[string][]string|static_words", "DynamicWords": "map[string][]string|dynamic_words",
+		"LastUpdated": "time.Time|last_updated", "Version": "string|version",
+	}
+	gotConfig := map[string]string{}
+	for _, relative := range trackedFiles(t, ".") {
+		if !strings.HasSuffix(relative, ".go") {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(relative)), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		content := filepath.ToSlash(filepath.Dir(relative)) == "internal/shein/content" && !strings.HasSuffix(relative, "_test.go")
+		for _, spec := range file.Imports {
+			imported, err := decodeGoImportPath(spec.Path.Value)
+			if err != nil {
+				t.Fatalf("decode import in %s: %v", relative, err)
+			}
+			for _, retired := range []string{"task-processor/internal/platform/workerpool", "task-processor/internal/pkg/recovery"} {
+				if importMatchesPrefix(imported, retired) {
+					t.Errorf("%s imports retired package %s", relative, imported)
+				}
+			}
+			if content && (imported == "os" || imported == "path/filepath") {
+				t.Errorf("content must not retain file persistence import %s in %s", imported, relative)
+			}
+		}
+		if !content {
+			continue
+		}
+		ast.Inspect(file, func(node ast.Node) bool {
+			if _, ok := node.(*ast.GoStmt); ok {
+				t.Errorf("content must not retain a save goroutine in %s", relative)
+			}
+			return true
+		})
+		for _, declaration := range file.Decls {
+			switch declaration := declaration.(type) {
+			case *ast.FuncDecl:
+				name := declaration.Name.Name
+				receiver := ""
+				if declaration.Recv != nil && len(declaration.Recv.List) > 0 {
+					shape := declaration.Recv.List[0].Type
+					if pointer, ok := shape.(*ast.StarExpr); ok {
+						shape = pointer.X
+					}
+					if ident, ok := shape.(*ast.Ident); ok {
+						receiver = ident.Name
+					}
+				}
+				if (receiver == "" && slices.Contains(retiredFunctions, name)) || (receiver == "SensitiveWordService" && slices.Contains(retiredMethods, name)) {
+					t.Errorf("%s retains retired content declaration %s.%s", relative, receiver, name)
+				}
+				if _, exists := retained[name]; exists && (receiver == "SensitiveWordService" || receiver == "") {
+					retained[name] = true
+				}
+				if receiver == "" && name == "NewSensitiveWordServiceInMemory" {
+					params := declaration.Type.Params.List
+					if len(params) != 1 || len(params[0].Names) != 1 || params[0].Names[0].Name != "logs" || exprString(params[0].Type) != "func(string) *logrus.Entry" {
+						t.Errorf("current in-memory factory must retain its explicit logs callback")
+					}
+				}
+			case *ast.GenDecl:
+				for _, spec := range declaration.Specs {
+					typ, ok := spec.(*ast.TypeSpec)
+					if !ok {
+						continue
+					}
+					if _, exists := retained[typ.Name.Name]; exists {
+						retained[typ.Name.Name] = true
+					}
+					shape, ok := typ.Type.(*ast.StructType)
+					if !ok {
+						continue
+					}
+					for _, field := range shape.Fields.List {
+						for _, name := range field.Names {
+							key := typ.Name.Name + "." + name.Name
+							if _, exists := retained[key]; exists {
+								retained[key] = true
+							}
+							if typ.Name.Name == "SensitiveWordService" && slices.Contains(retiredFields, name.Name) {
+								t.Errorf("content retains retired lifecycle field %s", key)
+							}
+							if typ.Name.Name == "SensitiveWordConfig" {
+								tag := ""
+								if field.Tag != nil {
+									decoded, err := decodeGoImportPath(field.Tag.Value)
+									if err != nil {
+										t.Fatal(err)
+									}
+									tag = reflect.StructTag(decoded).Get("json")
+								}
+								gotConfig[name.Name] = exprString(field.Type) + "|" + tag
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	for name, found := range retained {
+		if !found {
+			t.Errorf("current content owner must retain %s", name)
+		}
+	}
+	if !reflect.DeepEqual(gotConfig, wantConfig) {
+		t.Errorf("sensitive-word configuration contract changed: got %v, want %v", gotConfig, wantConfig)
+	}
 }
 
 func TestLegacyRuntimeSkeletonAndIdleConfigClosureIsRetired(t *testing.T) {
