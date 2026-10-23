@@ -24,7 +24,6 @@ type PackageTemplateValidation struct {
 
 // BuildPackageTemplateValidation builds SHEIN template validation state from package data and prepared payload validation.
 func BuildPackageTemplateValidation(pkg *sheinpub.Package, submitPayloadErr error) PackageTemplateValidation {
-	pkg = sheinpub.NormalizePackageSemanticFields(pkg)
 	result := PackageTemplateValidation{
 		CategoryReady:        pkg != nil && IsCategoryResolved(pkg) && pkg.CategoryID > 0 && pkg.ProductTypeID != nil && *pkg.ProductTypeID > 0,
 		CategoryReviewReady:  !sheinpub.SaleAttributeReviewPending(pkg),

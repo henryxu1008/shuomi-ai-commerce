@@ -1,6 +1,7 @@
 package workspace
 
 import (
+	common "task-processor/internal/publishing/common"
 	"testing"
 
 	sheinpub "task-processor/internal/publishing/shein"
@@ -118,4 +119,11 @@ func findReadinessCheck(t *testing.T, checks []ReadinessCheckSpec, key string) R
 	}
 	t.Fatalf("missing readiness check %q in %+v", key, checks)
 	return ReadinessCheckSpec{}
+}
+
+func TestSummaryOnlySKUsDoNotMakeCanonicalDraftReady(t *testing.T) {
+	pkg := &sheinpub.Package{SkcList: []sheinpub.SKCPackage{{SKUs: []common.Variant{{SKU: "summary"}}}}}
+	checks := BuildSubmitPayloadReadinessChecks(pkg, "publish")
+	assertReadinessCheck(t, checks, "request_draft", false)
+	assertReadinessCheck(t, checks, "variants", false)
 }

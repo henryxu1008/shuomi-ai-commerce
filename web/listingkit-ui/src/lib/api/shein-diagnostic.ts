@@ -26,8 +26,8 @@ const freshness = z.union([
 const diagnostic = z.strictObject({
   diagnostic_only: z.literal(true), scope: z.literal("shein.offline_package"),
   target: z.strictObject({ marketplace: z.literal("shein"), site: z.literal("") }),
-  action: sheinDiagnosticActionSchema, rule_version: z.literal("shein.offline_package.v2.1"),
-  input: z.strictObject({ actual_digest: sheinDigestSchema, binding_version: z.literal("shein.persisted-input.go-json.v1"), read_at: timestamp, evaluated_at: timestamp }),
+  action: sheinDiagnosticActionSchema, rule_version: z.literal("shein.offline_package.v2.2"),
+  input: z.strictObject({ actual_digest: sheinDigestSchema, binding_version: z.literal("shein.persisted-input.go-json.v2"), read_at: timestamp, evaluated_at: timestamp }),
   external_freshness: freshness, not_evaluated: z.array(text),
   not_evaluated_reasons: z.record(text, text).optional(),
   offline_checks: z.strictObject({ status: z.enum(["ready", "ready_with_warnings", "blocked"]), checks: z.array(check).min(1), blockers: z.array(check), warnings: z.array(check) }),

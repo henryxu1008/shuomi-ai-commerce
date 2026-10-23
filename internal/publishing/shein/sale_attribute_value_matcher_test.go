@@ -16,7 +16,7 @@ func TestApplySaleAttributeResolutionDoesNotFallbackToAttributeOnlyPlaceholder(t
 				SKUs:         []common.Variant{{SKU: "SCRAPED-SET"}},
 			},
 		},
-		RequestDraft: &RequestDraft{
+		DraftPayload: &RequestDraft{
 			SKCList: []SKCRequestDraft{{
 				SupplierCode: "SCRAPED-SET",
 				SKUList:      []SKUDraft{{SupplierSKU: "SCRAPED-SET"}},
@@ -35,8 +35,8 @@ func TestApplySaleAttributeResolutionDoesNotFallbackToAttributeOnlyPlaceholder(t
 
 	ApplySaleAttributeResolution(pkg, resolution)
 
-	if pkg.RequestDraft.SKCList[0].SaleAttribute != nil {
-		t.Fatalf("expected no placeholder SKC sale attribute, got %+v", pkg.RequestDraft.SKCList[0].SaleAttribute)
+	if pkg.DraftPayload.SKCList[0].SaleAttribute != nil {
+		t.Fatalf("expected no placeholder SKC sale attribute, got %+v", pkg.DraftPayload.SKCList[0].SaleAttribute)
 	}
 }
 
@@ -75,7 +75,7 @@ func TestApplySaleAttributeResolutionUsesSerializedValueAssignments(t *testing.T
 			SupplierCode: "SKC-1",
 			Attributes:   map[string]string{"ai_style": "Style A"},
 		}},
-		RequestDraft: &RequestDraft{SKCList: []SKCRequestDraft{{
+		DraftPayload: &RequestDraft{SKCList: []SKCRequestDraft{{
 			SupplierCode: "SKC-1",
 			SKUList:      []SKUDraft{{SupplierSKU: "SKU-1"}},
 		}}},
@@ -83,7 +83,7 @@ func TestApplySaleAttributeResolutionUsesSerializedValueAssignments(t *testing.T
 
 	ApplySaleAttributeResolution(pkg, &decoded)
 
-	got := pkg.RequestDraft.SKCList[0].SaleAttribute
+	got := pkg.DraftPayload.SKCList[0].SaleAttribute
 	if got == nil || got.AttributeValueID == nil || *got.AttributeValueID != 9001 {
 		t.Fatalf("skc sale attribute = %+v, want serialized value id 9001", got)
 	}
