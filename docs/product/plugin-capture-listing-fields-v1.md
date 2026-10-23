@@ -56,7 +56,7 @@ Status: **FIELD_DESIGN_DRAFT / NOT_IMPLEMENTATION_READY**。本次只交付字�
 | 通用属性：材质、尺寸、颜色等原名/原值 | 必采（页面提供时） | 已有featureAttributes，来源形态覆盖有限 | 已有Attributes，但来源部分为说明块文本 | 原文与结构化值区分；不自动映射成目标枚举ID，不臆测单位 |
 | 明确的规格维度、取值及组合 | 必采（来源声明多规格时） | 已读skuProps/skuInfoMap，覆盖较窄 | 当前parser标variants缺失；需新增插件提取行为 | 显式记录已选/已发现范围；不生成页面没有的笛卡尔组合，不静默丢规格 |
 | 来源规格ID/子ASIN与属性配对 | 必采（来源提供时） | sourceID有值时保留；卖家SKU为null | ASIN/父子关系与源SKU分开，不强求页面给卖家SKU | 来源无SKU编码可以保留明确规格属性；不能把源ID重命名为商家SKU |
-| 规格图片与来源规格关联 | 必采（页面可提供时） | Variant、AcquisitionVariant均无图片关联字段 | 原生Amazon Evidence也无variants关系合同 | **公共合同缺口**；不按数组位置硬配。若目标需要规格图则在目标准备中明确配图 |
+| 规格图片与来源规格关联 | 必采（页面可提供时） | 插件wire及AcquisitionVariant缺关联；中立Source/Catalog Variant.Images已存在 | 原生Amazon Evidence无variants关系合同；插件应映射已有中立图片能力 | **接收wire/映射缺口**；不新建图片owner，不按数组位置硬配。若目标需要规格图则在目标准备中明确配图 |
 | 来源报价、阶梯价、每规格价格 | 必采（页面提供时） | 已有priceFacts和variant.price；漏其它合法价格模型 | 原生Price/Currency可参考，当前Price为float64 | 保留来源价格类型及范围，不把促销/起售价混成每SKU价；新wire以源十进制语义设计，不改变现有合同 |
 | 来源币种、价格单位 | 必采（记录价格时） | currency可空，不猜CNY | 现有parser只接受明确币种证据 | 金额有而币种不明记缺失；不得按站点猜币种、隐式换汇或作最终销售价 |
 | 最小起订量/阶梯数量 | 允许缺失；1688有采购参考价值 | minQuantity已可承载，视来源可见性 | Amazon通常不构成同一语义，不能默认1 | 未知不补1/0；已填写依赖该事实的规则时未知不当匹配 |
@@ -99,7 +99,7 @@ Status: **FIELD_DESIGN_DRAFT / NOT_IMPLEMENTATION_READY**。本次只交付字�
 | 适配与人工候选 | CompletionDraft、Target与当前SHEIN显式映射和validator | 当前Completion只编辑既有SKU的价格/库存，不增删SKU或改来源规格/图片；不能承诺“缺规格以后随便补”。缺规格先重采或沿已存在的合法目标编辑能力显式处理；新编辑能力必须另获范围授权 |
 | 规则/批量 | 1688计划/规则、Amazon DataQuery各有原owner | 本次只做字段依据，不将客户端任务伪装为原服务端计划，不新增调度/通用插件执行平台 |
 
-**根因**：现有两份提取器与保存合同覆盖不等。1688插件只识别较窄的context、图片和价格来源；当前浏览器服务端提取器另有INIT_DATA/SKU/价格模型，提取行为已发生漂移。图片角色/规格图更是当前wire/domain结构缺口，不能仅修DOM selector。Amazon既有原生抓取也未形成完整变体/库存数量/评分证据。根治应先确定共同语义和正确owner，再做窄提取/合同补齐，不以“后续人工补”代替可修提取缺陷。
+**根因**：现有两份提取器与保存合同覆盖不等。1688插件只识别较窄的context、图片和价格来源；当前浏览器服务端提取器另有INIT_DATA/SKU/价格模型，提取行为已发生漂移。规格图是当前浏览器wire/AcquisitionVariant映射缺口，中立Source/Catalog、快照映射和Collection详情已有Variant.Images与相关测试，不能仅修DOM selector，也不应重复创建图片模型。Amazon既有原生抓取也未形成完整变体/库存数量/评分证据。根治应先确定共同语义和正确owner，再做窄提取/合同补齐，不以“后续人工补”代替可修提取缺陷。
 
 ## 7. 必须保留的不变量
 
@@ -111,7 +111,7 @@ Status: **FIELD_DESIGN_DRAFT / NOT_IMPLEMENTATION_READY**。本次只交付字�
 
 ## 8. 范围协调、验证与下一步准入
 
-本次唯一文档Writer为会话01a16741-448c-78a0-8f3e-fa4d39b17516，分支codex/plugin-capture-fields，独立worktree。没有派新实现线程或Reviewer。
+本次唯一文档Writer为会话01a16741-448c-78a0-8f3e-fa4d39b17516，分支codex/plugin-capture-fields，独立worktree。字段阶段没有派新实现线程或Reviewer；用户随后明确授权补齐两项架构并独立评审，沿同一分支及PR推进，仍暂不开发。
 
 只读确认另一会话“你验证一下1688的远端采集能力”当前用户另行授权本地模拟调试、148/固定种子/手动验证码与确认后同页提取；它不属于本次字段文档写入范围，不接管其调试、正式采集或运行配置。旧代码退休会话的删除范围同样不触碰。此处阶段决定不宣称已停止其它获授权会话；后续正式插件实施前须重新核对唯一owner。
 
@@ -119,4 +119,4 @@ Status: **FIELD_DESIGN_DRAFT / NOT_IMPLEMENTATION_READY**。本次只交付字�
 
 后续的最小产品核对可沿已有测试及保存读取路径：相同已获准商品/明确页面范围中比较标题、图像角色、规格身份和价格来源；再确认保存后同一版本读回一致。先使用隔离的现有样例/纯解析测试，再在明确授权下看真实页面。不得上传整页账户数据、用fixtures证明真实来源完整，或为了达到“齐全”补造数据。
 
-未来若实施Amazon插件producer/接收、规格图片/富文本/跨来源identity等公共合同，需要独立且有界的Architecture Design明确contract→implementation→injection→consumer、来源proof、权限、持久化/幂等/UNKNOWN和切换边界；完成适用review、IMPLEMENTATION_READY及用户开发授权前不修改生产路径。**本字段文档不是完整架构准入，也不授权合并/部署/真实数据操作。**
+规格图片关联与Amazon插件接收保存的独立设计见[插件采集增量架构](../architecture/plugin-capture-ingestion-v1.md)，评审状态以该文档为准。富文本及本轮未纳入的公共合同仍需后续有界设计。完成适用review、IMPLEMENTATION_READY及用户开发授权前不修改生产路径。**本字段文档不是完整架构准入，也不授权合并/部署/真实数据操作。**
