@@ -1,6 +1,6 @@
 # Legacy Register
 
-> #301 **DESIGN_REVIEW / USER_CONFIRMATION_PENDING**：[旧商品筛选与价格/库存推断策略完整退休设计](../architecture/legacy-product-policy-closure-retirement-boundary.md)提议整退无包外生产消费者的 marketplace/productpolicy 六工件，原四项 KEEP 检查转整根缺席/decoded import 禁入，十二份准确旧依据尾部同批收齐，不机械拆批。设计阶段 N/A、仅三文档；实施拟 Reuse Existing Architecture，确认前不改源码/guard/旧 KEEP。只提议替代本文 #754 与 #822/#891 等本包的旧保留含义，不恢复旧规则/迁移或新建替代策略。当前采集/原浏览器/debug、平台 API/有效规则、共享 model、PriceManager/PriceCalculator 与独立 SHEIN 登录/Store 同步保持；workflow/inventory/依赖/历史/计数/ceilings/其它检查及既有资源零改，无新试用前置，#301 OPEN。准确 HEAD/CI/检查与后续授权留主要 PR。
+> #301 / #909 **USER_CONFIRMED / SOURCE_IMPLEMENTED**：[旧商品筛选与价格/库存推断策略完整退休边界](../architecture/legacy-product-policy-closure-retirement-boundary.md)冻结 §1–§7（含 §6.1）已获确认，正式修改前已读回 Reuse Existing Architecture / Ready。无包外生产消费者的 marketplace/productpolicy 六工件整退，原四项 KEEP 转整根缺席/全追踪 Go decoded import（含子路径）/限定退休 owner 声明保护，十二旧依据窄顶注和唯一失效目录链接同批收齐，不机械拆批。仅替代本文 #754 与 #822/#891 等本包旧保留含义，原历史正文/数字/证据不改，不恢复旧规则或新建替代策略。当前有效规则/采集/原浏览器/debug、平台 API、共享 model、价格服务及独立 SHEIN 登录/Store 同步保持。workflow/inventory/依赖/历史/计数/ceilings/其它检查/既有资源零改，不增加试用前置，#301 OPEN；准确实现 HEAD/原 CI/最终复核和另行合并授权留主要 PR。
 
 > #301 / #904 **USER_CONFIRMED / IMPLEMENTATION_READY**：[旧 SHEIN 草稿 JSON 别名完整退休设计](../architecture/legacy-shein-draft-json-alias-retirement-v1.md) §1–§7（含 §6.1）已获确认，Ready 先于生产修改。三旧字段/回填镜像/custom JSON/Normalize/helper、summary-only SKU就绪回退及原测试/版本尾部同批退休；仅替代§5指定的#827/#824 KEEP。canonical草稿/预览/严格解码/有效规则、原持久化/权限/幂等owner及独立SHEIN登录与Store同步保留；workflow/inventory零改，不读或操作既有实例/数据/凭据/进程，无试用前置。扩大Cookie接口退休提议已撤回，不在本轮范围。准确实现CI/最终复核留#904，#301保持OPEN，合并另授权。
 

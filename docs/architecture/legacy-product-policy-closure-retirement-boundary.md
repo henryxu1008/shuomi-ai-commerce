@@ -1,6 +1,6 @@
 # #301 旧商品筛选与价格/库存推断策略完整退休闭包设计
 
-Status: **DESIGN_REVIEW / USER_CONFIRMATION_PENDING**。本轮获准设计，尚未获准删除生产源码或修改测试。Design Basis: **N/A（设计阶段）**；实施拟 **Reuse Existing Architecture**，须完成本设计检查、用户确认 §1–§7（含 §6.1）并在 #301/主要 PR 记录及读回 Ready 后开工。#301 保持 OPEN，#29 不重开。
+Status: **USER_CONFIRMED / SOURCE_IMPLEMENTED** in #909。用户已确认冻结设计 §1–§7（含 §6.1）；正式修改前 #301/主要 PR 已记录并读回 **Design Basis: Reuse Existing Architecture / Ready**。六个旧 Go 工件、原四项 KEEP→整根缺席/decoded import/限定 owner 声明保护、十二旧依据窄顶注及唯一失效链接已整批切换；不新增替代策略。原 guard 已实测 RED→GREEN，准确实现 HEAD/必要自检/原 CI/最终复核证据在主要 PR 维护，不以设计检查冒充实现或运行验收。以下冻结设计矩阵保留为实施依据；合并、部署、既有资源操作和关单未授权，#301 保持 OPEN，#29 不重开。
 
 调查基线 main **`7a220abb22903294b834e8a6c726e07628fac980`**，包含已完成的 #904。[前批 push/main CI39924638080](https://github.com/qq550723504/shuomi-ai-commerce/actions/runs/39924638080) completed/SUCCESS 只证明前批组合，不代替本轮 CI/设计检查或未来实现验证。接单及前批当前段存档见 [#301 / 6362114181](https://github.com/qq550723504/shuomi-ai-commerce/issues/301#issuecomment-6362114181)。唯一 Writer 复用原独占 worktree，新分支 `codex/issue301-product-policy-closure-retirement-design`；不接管当前采集 #903/#907/#908 或 Store schema #692。
 
@@ -12,7 +12,7 @@ Status: **DESIGN_REVIEW / USER_CONFIRMATION_PENDING**。本轮获准设计，尚
 
 旧策略包括：价格 original→list/initial/final 选择，运费恒 0，stock_min 超过 30 则按 30 比较，可售但无数量推定 31，整链固定用 24 小时检查配送，以及以 Amazon 字样判断配送/自营。它们在基线没有生产消费者，不能据此声称当前业务正在错误计算；本批 RETIRE 这套闲置假定，不修补算法、不把它们移进当前采集或官方平台规则。
 
-授权仅覆盖只读调查、本文及 Architecture README/Legacy Register 三文档、#301 当前段与主要 PR 维护。设计确认前生产/测试/配置/schema/guard/依赖/锁/workflow/inventory/保护零改。实施、合并、部署、关单分别待授权；不读或操作既有实例、数据、凭据、私密配置、Profile 或进程，不运行应用/浏览器/provider/数据库入口。扩大 Cookie 接口退休提议已撤回，本批不恢复该提议。
+设计阶段原授权仅覆盖只读调查和三文档/Issue/PR；本轮用户已确认本文冻结 §1–§7（含 §6.1），授权同一 PR 整批实施六 Go 工件、原 guard 和准确文档尾部，必要自检/提交/推送。配置/schema/依赖/锁/workflow/inventory/保护零改；合并、部署、关单仍分别待授权；不读或操作既有实例、数据、凭据、私密配置、Profile 或进程，不运行应用/浏览器/provider/数据库入口。扩大 Cookie 接口退休提议已撤回，本批不恢复该提议。
 
 ## 2. Design Basis、Authority 与不变量
 
