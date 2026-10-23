@@ -19,6 +19,20 @@ Original contract: [SRC-2B2 R1](https://github.com/qq550723504/task-processor/is
 [recovery clarification](https://github.com/qq550723504/task-processor/issues/399#issuecomment-5642876140),
 and the [src2b-acquisition-v1 owner contract](https://github.com/qq550723504/task-processor/issues/398#issuecomment-5637525452).
 
+## Directory and package naming
+
+The source directory is `extensions/product-capture`; the private npm package is
+`@shuomi/product-capture`. The Tool Market build produces
+`shuomi-product-capture.zip` with its matching `release.json`. The trusted build
+record and archive belong to the same release; receiver URLs and runtime
+configuration still use their existing values.
+
+This source rename does not update an installed extension. Keep an existing
+installation's unpacked/loading directory and identity; do not load the new source
+path as a second extension or remove browser data. An installation update must be
+handled separately after pending handoffs and original-key UNKNOWN recovery have
+been resolved. No new manifest key, extension ID or automatic reinstall is added.
+
 ## Build and local checks
 
 Requires Node 24 and npm. Install with `npm ci`, then run `npm test`,

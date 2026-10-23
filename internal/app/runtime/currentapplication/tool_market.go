@@ -66,7 +66,7 @@ func (t *ToolMarketConfig) PackageConfig() *tm.PackageConfig {
 		SHA256        string `json:"sha256"`
 		Filename      string `json:"filename"`
 	}
-	if json.Unmarshal(raw, &record) != nil || record.SchemaVersion != 1 || record.CaptureAppURL != t.CaptureAppURL || record.Filename != "shuomi-1688-capture.zip" {
+	if json.Unmarshal(raw, &record) != nil || record.SchemaVersion != 1 || record.CaptureAppURL != t.CaptureAppURL || record.Filename != "shuomi-product-capture.zip" {
 		return nil
 	}
 	return &tm.PackageConfig{Path: filepath.Join(t.PackageDirectory, record.Filename), SHA256: record.SHA256, CaptureAppURL: t.CaptureAppURL}

@@ -2,7 +2,7 @@ package batchcapture
 
 // The browser-side tests here are fixture-only: they substitute the public 1688
 // page response and a transport-only receiver, exactly as
-// extensions/1688-capture/scripts/browser-smoke.mjs does. They cannot prove 1688
+// extensions/product-capture/scripts/browser-smoke.mjs does. They cannot prove 1688
 // or backend acceptance, and they deliberately never touch a real 1688 account
 // (design section 17 item 8).
 //
@@ -161,7 +161,7 @@ func requireFixtureEnv(t *testing.T) (string, string) {
 		// report success while testing nothing.
 		t.Fatalf("fixture build must declare host_permissions https://detail.1688.com/* "+
 			"(activeTab cannot be granted without a real action click, which Chromium 144 cannot synthesize); "+
-			"current host_permissions=%v; rebuild from extensions/1688-capture or do not set BATCHCAPTURE_EXTENSION_DIST",
+			"current host_permissions=%v; rebuild from extensions/product-capture or do not set BATCHCAPTURE_EXTENSION_DIST",
 			parsed.HostPermissions)
 	}
 	return browser, extDir
