@@ -1,5 +1,7 @@
 # #301 旧数字采集与平台身份尾链完整退休边界
 
+> 用户已确认 [#909 productpolicy 完整退休边界](legacy-product-policy-closure-retirement-boundary.md) §1–§7（含 §6.1）。本文件对 `internal/marketplace/productpolicy` 六工件（doc/filter_rule/rule_checker/price_helper/fulfillment 及专属测试）和四项 KEEP 检查的保留含义已由该边界精确替代为 RETIRE；其余有效规则/API/采集、共享合同及独立 SHEIN 登录与 Store 同步不变。以下原正文、历史数字与验收证据保留，不恢复旧策略或授权既有实例/数据/凭据/进程操作。
+
 当前后续决定：#868 用户确认[数字上下文与共享值合同完整退休矩阵](legacy-numeric-value-contract-closure-retirement-boundary.md) §1–§7（含§6.1），精确替代本文 §4/§5 对完整旧 PricingRule/OperationStrategy 输入类型与 SourceIdentity 别名行为的保留结论。5/8 有效规则值归原 pricing/activity owner；MappingInfo/两属性、四 JSON 零值槽位与当前规范化/hash/拒绝合同继续保持。本文其余边界、执行和历史证据不改。
 
 

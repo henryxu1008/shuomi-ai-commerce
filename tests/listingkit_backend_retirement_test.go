@@ -2408,6 +2408,58 @@ func TestTemuListingClosureSourcesAreRetired(t *testing.T) {
 }
 
 func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
+	const retiredPolicyRoot = "internal/marketplace/productpolicy"
+	if _, err := os.Lstat(filepath.Join("..", filepath.FromSlash(retiredPolicyRoot))); !os.IsNotExist(err) {
+		t.Errorf("retired product policy root must be absent: %v", err)
+	}
+	retiredPolicyDeclarations := map[string]bool{}
+	for _, name := range strings.Fields("FilterRule RuleChecker NewRuleChecker CheckPriceRange CheckInventory CheckRating CheckReviewCount CheckDeliveryTime CheckFulfillmentType CheckAllRules GetProductPrice GetFreight GetInventory extractStockFromAvailability IsFBAFulfillment IsAMZSeller") {
+		retiredPolicyDeclarations[name] = true
+	}
+	for _, relative := range trackedFiles(t, ".") {
+		if !strings.HasSuffix(relative, ".go") {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(relative)), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, spec := range file.Imports {
+			imported, err := decodeGoImportPath(spec.Path.Value)
+			if err != nil {
+				t.Fatalf("decode import in %s: %v", relative, err)
+			}
+			if importMatchesPrefix(imported, "task-processor/"+retiredPolicyRoot) {
+				t.Errorf("%s imports retired product policy %s", relative, imported)
+			}
+		}
+		// Scope declarations to the retired root/owner. Same-named platform
+		// APIs, rule methods and negative fixture strings elsewhere remain valid.
+		if !importMatchesPrefix(filepath.ToSlash(relative), retiredPolicyRoot) && file.Name.Name != "productpolicy" {
+			continue
+		}
+		for _, declaration := range file.Decls {
+			var names []*ast.Ident
+			switch declaration := declaration.(type) {
+			case *ast.FuncDecl:
+				names = append(names, declaration.Name)
+			case *ast.GenDecl:
+				for _, spec := range declaration.Specs {
+					switch spec := spec.(type) {
+					case *ast.TypeSpec:
+						names = append(names, spec.Name)
+					case *ast.ValueSpec:
+						names = append(names, spec.Names...)
+					}
+				}
+			}
+			for _, name := range names {
+				if retiredPolicyDeclarations[name.Name] {
+					t.Errorf("%s recreates retired product policy declaration %s", relative, name.Name)
+				}
+			}
+		}
+	}
 	for _, relative := range []string{"internal/temu/image", "internal/temu/handlerbase/types.go", "internal/temu/api/image", "prompts/temu/vision_detector.yaml", "prompts/shein/attribute_selector.yaml", "prompts/shein/attribute_value_fallback.yaml", "prompts/shein/translation.yaml"} {
 		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
 			t.Errorf("retired image artifact remains: %s (stat: %v)", relative, err)
@@ -2846,15 +2898,8 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			"func Build(", "snapshot.SelectableLeaf", "func checkLocal(",
 			"p.ServicePromise.ShipmentLimitDay", "value.ID == p.ServicePromise.CostTemplateID",
 		},
-		"internal/marketplace/temu/goods/supplier_category.go": {"func checkSupplierCategory(", "SelectableLeaf()"},
-		"internal/marketplace/temu/rules/local_variations.go":  {"func CheckLocalVariations("},
-		"internal/marketplace/productpolicy/rule_checker.go": {
-			"type RuleChecker struct", "func NewRuleChecker(", "CheckPriceRange(", "CheckInventory(", "CheckRating(",
-			"CheckReviewCount(", "CheckDeliveryTime(", "CheckFulfillmentType(", "CheckAllRules(",
-		},
-		"internal/marketplace/productpolicy/filter_rule.go":      {"type FilterRule struct"},
-		"internal/marketplace/productpolicy/price_helper.go":     {"func GetProductPrice(", "func GetInventory("},
-		"internal/marketplace/productpolicy/fulfillment.go":      {"func IsFBAFulfillment(", "func IsAMZSeller("},
+		"internal/marketplace/temu/goods/supplier_category.go":   {"func checkSupplierCategory(", "SelectableLeaf()"},
+		"internal/marketplace/temu/rules/local_variations.go":    {"func CheckLocalVariations("},
 		"internal/marketplace/temu/goods/local_properties.go":    {"func CheckLocalProperties("},
 		"internal/marketplace/temu/goods/supplier_properties.go": {"func CheckSupplierProperties("},
 		"internal/marketplace/temu/goods/supplier_specs.go":      {"func checkSupplierSpecifications("},

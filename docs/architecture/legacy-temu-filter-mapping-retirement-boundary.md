@@ -1,5 +1,7 @@
 # 旧 TEMU 变体筛选与 AI SKU 映射前置编排退休边界
 
+> 用户已确认 [#909 productpolicy 完整退休边界](legacy-product-policy-closure-retirement-boundary.md) §1–§7（含 §6.1）。本文件对 `internal/marketplace/productpolicy` 六工件（doc/filter_rule/rule_checker/price_helper/fulfillment 及专属测试）和四项 KEEP 检查的保留含义已由该边界精确替代为 RETIRE；其余有效规则/API/采集、共享合同及独立 SHEIN 登录与 Store 同步不变。以下原正文、历史数字与验收证据保留，不恢复旧策略或授权既有实例/数据/凭据/进程操作。
+
 > 后续用户已确认 [#819 TEMU剩余整链边界](legacy-temu-listing-closure-retirement-boundary.md) §5/§6/§6.1/§7。本文件对该闭包内旧 TEMU AI/SKU/spec、PriceHandler/PriceCalculator、property/context/TemplateState、pipeline/skugen及专属纯规则/管理投影/prompt的保留描述仅为历史边界，现由#819精确替代；当前平台API/规则、共享合同、SHEIN价格/两属性、采集/图像/Store观察与独立SHEIN登录/Store同步继续保留。原证据不改，不授权实例或数据操作。
 
 Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](https://github.com/qq550723504/task-processor/issues/301)。
@@ -25,7 +27,7 @@ Refs [#29](https://github.com/qq550723504/task-processor/issues/29) / [#301](htt
 
 - [全新系统基线](../product/greenfield-no-legacy-migration.md)、[Hard-Cut](../refactoring/legacy-hard-cut-policy.md)、[Legacy register](../refactoring/legacy-register.md)、[项目边界](project-boundaries.md)：只有 EXTRACT / RETIRE；无 legacy wrapper、fallback、旧 ID 映射、双读双写或第二事实源。
 - 已确认的 [CLI](legacy-listing-cli-retirement-boundary.md)、[control-plane](legacy-listing-control-plane-retirement-boundary.md)、[数字执行链](legacy-numeric-task-execution-retirement-boundary.md)、[数字持久化](legacy-numeric-task-persistence-retirement-boundary.md)、[TEMU 前置](legacy-temu-preflight-retirement-boundary.md) 与 [变体读取/缓存](legacy-temu-variant-retirement-boundary.md)：旧数字执行入口已退出；本轮接续此前保留的闲置筛选与 AI 前置链，不推翻其它保留项。
-- [既有商品规则 owner](../../internal/marketplace/productpolicy)、[TEMU publishing owner](../../internal/marketplace/temu/publishing/README.md)、[持久化规则状态](../../internal/listingadmin/rule_status.go)、FilterRuleAPI/DTO/仓库与现有 SKU processor/batch 合同：有效行为继续原 owner，不把旧 Task 编排包装成新能力。
+- [历史商品规则 owner（已由 #909 退休）](legacy-product-policy-closure-retirement-boundary.md)、[TEMU publishing owner](../../internal/marketplace/temu/publishing/README.md)、[持久化规则状态](../../internal/listingadmin/rule_status.go)、FilterRuleAPI/DTO/仓库与现有 SKU processor/batch 合同：有效行为继续原 owner，不把旧 Task 编排包装成新能力。
 - [独立 worker 身份/持久化](shein-worker-identity-persistence-boundary.md)、[当前 Store](store-center-current-application-v1.md)、[observations](store-center-platform-observations-v1.md)、[准备接线](store-observations-preparation-runtime.md)：当前事实、身份、授权、retry/UNKNOWN 继续原 owner。Figma N/A，无 UI/IA 修改。
 
 实施采用 **Reuse Existing Architecture**：用户明确确认 §5、§6、§6.1、§7 后，已在 #29/#301 记录冻结设计、用户结果、上述引用、原 owner/调用路径、不变量、验证、唯一 Writer 及 **Ready**，再删除完整专属闭包/旧测试/专属输入，并精确校准四条对应登记。不新增生产函数/类型/入口、公共领域合同、事实/schema、权限/tenant/身份、状态机/事务、幂等、retry/UNKNOWN/recovery 或 provider 副作用 owner。

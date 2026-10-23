@@ -1,5 +1,7 @@
 # #301 旧 Task 预览与刊登素材辅助尾部完整退休设计
 
+> 用户已确认 [#909 productpolicy 完整退休边界](legacy-product-policy-closure-retirement-boundary.md) §1–§7（含 §6.1）。本文件对 `internal/marketplace/productpolicy` 六工件（doc/filter_rule/rule_checker/price_helper/fulfillment 及专属测试）和四项 KEEP 检查的保留含义已由该边界精确替代为 RETIRE；其余有效规则/API/采集、共享合同及独立 SHEIN 登录与 Store 同步不变。以下原正文、历史数字与验收证据保留，不恢复旧策略或授权既有实例/数据/凭据/进程操作。
+
 Status: **USER_CONFIRMED / SOURCE_IMPLEMENTED**。用户已确认冻结设计 **7c2c7e3b62471491bd6f7f396ab7330ffa735123** §1–§7（含§6.1），[Issue准入/归档](https://github.com/qq550723504/shuomi-ai-commerce/issues/301#issuecomment-6340083885)及[PR准入](https://github.com/qq550723504/shuomi-ai-commerce/pull/891#issuecomment-6340084358)和两处 Ready 读回先于生产修改。设计阶段 N/A，本轮 **Design Basis: Reuse Existing Architecture / Ready**；唯一Writer已按47专属工件/15精确尾部整批实施，无新EXTRACT/替代owner。原guard先RED后GREEN，准确实现HEAD/必要自检/原CI及最终交付检查留PR，不冒充运行/用户验收。#301 OPEN，#29不重开。
 
 调查基线：main **eb5b1e06deb529fe04a1e3bf416d8ed9f67fdb0f**，同一仓库 ID 1108239623 已由原 owner 更名为 shuomi-ai-commerce。#885 已正常合并，实际 merge 0b683911dc84b0bfe8bd82d4e2dc190b0596d08b 的 push/main CI39763961555 attempt1 完整 SUCCESS；这是前批完成证据，不是本设计或未来实现的 CI。
