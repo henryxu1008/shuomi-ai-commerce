@@ -67,7 +67,7 @@ Threat Model 仅覆盖误删真实采集/共享值/有效测试、漏留 Legacy 
 | internal/crawler/amazon/factory.go | 最后调用者退出后整退 CreateProcessor 和仅它使用的构造/池日志尾部 | processor.go、NewAmazonProcessor、effectiveBrowserPoolSize、factory_test.go 原两个有效池大小断言完整零改 |
 | internal/crawler/amazon/scraper.go | 整退孤立 Scraper 与自身 compile assertion | 原 Processor 的全部方法/接口实现能力与其它同名当前合同保持 |
 
-共七个准确整退工件（六 Go/含两个专属测试 + 一个 README）。再加 §6.1 的原 guard、三个准确当前说明以及本轮三文档，共十四个范围工件，同一主要 PR 整批完成；不删原 crawler 根，不扩展至其它未装配平台或 HTTP 包。
+共七个准确整退工件（六 Go/含两个专属测试 + 一个 README）。再加 §6.1 的原 guard、五个准确当前说明以及本轮三文档，共十六个范围工件，同一主要 PR 整批完成；不删原 crawler 根，不扩展至其它未装配平台或 HTTP 包。独立设计复核识别的两处 ACTIVE/current Amazon owner 说明在下表明确收齐，不把它们归入 dated 观察豁免；这只校准设计的完整文档尾部，七工件及源码/共享合同保留边界不变。
 
 ```text
 Legacy decision: RETIRE
@@ -94,6 +94,8 @@ Cutover/deletion condition: 设计确认及 Reuse Existing Architecture / Ready 
 | internal/integration/crawler/README.md | 仅准确移除旧 Amazon approved child，指向当前 acquisition/amazon，并保留原浏览器/debug owner；不改变 a1688 或父 guard 的其余合同 | 本轮不重写父边界/其它子包规则，不改 doc.go/boundary_guard_test.go |
 | docs/architecture/amazon-crawler-runtime-flow.md | 准确区分当前 runtime→acquisition/amazon 与 debug→原 NewAmazonProcessor；去掉旧 Source/CreateProcessor 的“当前入口/测试”指令，原浏览器 owner/能力和真实状态限制保持 | 不恢复旧发布/Task/缓存、不修改真实实例或把 debug 宣称已部署业务入口 |
 | docs/refactoring/code-health-decisions.md | 仅添加本轮准确 supersession 顶注：旧 adapter 和 CreateProcessor/Scraper 退出，原 crawler 其余 owner 与测试保持 | 原表格、retained 状态/88与5等历史计数/失败正文逐字保留；不改变检查/ceiling/扫描算法或借台账制造消费者 |
+| internal/product/sourcing/README.md | 仅将“Concrete source adapters currently live in”列表的 `internal/integration/crawler/amazon` 路径替换为当前 `internal/integration/acquisition/amazon` | 原六 Source*、四 JSON 零槽/规范化/hash、Atomic source publication、事实/权限/事务/接口和其它列表条目（含1688/SDS）全部不改 |
+| docs/product/product-sourcing-handoff.md | 仅将 ACTIVE/current owner 表 Fetching/parsing/provider DTOs 一行中的旧 Amazon 路径替换为当前 `internal/integration/acquisition/amazon` | 该行其它 owner/cells、原产品/共享合同/权限/事实 owner/历史观察基线及其余正文原样，不顺带校准其它平台或改当前需求 |
 | 本文、Architecture README、Legacy Register | 三文档的本批设计/当前索引与准确 supersession | 原 #822/#867/#868/#900 及其它历史正文/矩阵/计数保留；dated product-sourcing inventory/roadmap/module mapping、历史 commercialization/deployment 记录不作为当前调用证据，准确本闭包由本文及更新 runtime flow 指引 |
 | phase2-runtime-inventory.md 及其它 inventory | **零改**；本包不占四条 CURRENT 行，本轮无需校准 | CURRENT/历史/计数/全部 ceilings/accuracy/parser/排除规则原样；自然减少源码不修改上限 |
 | 其它测试/lint/CodeHealth/import/SDK/SSA、全部 workflow/命令/部署/依赖/锁/保护 | **零改**，原目标和检查照常执行 | 不删skip门禁、不重跑求绿/管理员绕过/强推，不更新任一 go.mod/go.sum（含 debug）或读取凭据 |
