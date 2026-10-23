@@ -14,12 +14,15 @@ import (
 )
 
 const (
-	BrowserCaptureVersion        = 1
-	BrowserCaptureParserVersion  = "1688-browser-dom/v2"
-	BrowserCaptureMaxBytes       = 2 * 1024 * 1024
-	browserCaptureMaxStringBytes = 8 * 1024
-	browserCaptureMaxCollection  = 256
-	browserCaptureMaxAggregate   = 1024
+	BrowserCaptureVersion         = 1
+	BrowserCaptureParserVersion   = "1688-browser-dom/v2"
+	BrowserCaptureV2Version       = 2
+	BrowserCaptureV2ParserVersion = "1688-browser-dom/v3"
+	BrowserCaptureV2Contract      = "src2b-browser-capture-v2"
+	BrowserCaptureMaxBytes        = 2 * 1024 * 1024
+	browserCaptureMaxStringBytes  = 8 * 1024
+	browserCaptureMaxCollection   = 256
+	browserCaptureMaxAggregate    = 1024
 )
 
 // ErrInvalidBrowserCapture deliberately contains no untrusted input.
@@ -32,6 +35,21 @@ const BrowserAcquisitionProducerKind = "browser_acquisition"
 // BrowserAcquisitionFingerprint binds the action, canonical source and server
 // payload digest. The original org/actor/key operation namespace is unchanged.
 func BrowserAcquisitionFingerprint(source AcquisitionSource, captureSHA256 string) (string, error) {
+	return browserFingerprint(source, captureSHA256, AcquisitionContractVersion)
+}
+
+func BrowserCaptureFingerprint(version int, source AcquisitionSource, captureSHA256 string) (string, error) {
+	switch version {
+	case 1:
+		return BrowserAcquisitionFingerprint(source, captureSHA256)
+	case 2:
+		return browserFingerprint(source, captureSHA256, BrowserCaptureV2Contract)
+	default:
+		return "", ErrInvalidBrowserCapture
+	}
+}
+
+func browserFingerprint(source AcquisitionSource, captureSHA256, contract string) (string, error) {
 	canonical, err := Canonical1688Source(source.URL)
 	if err != nil || canonical != source {
 		return "", ErrInvalidBrowserCapture
@@ -40,9 +58,34 @@ func BrowserAcquisitionFingerprint(source AcquisitionSource, captureSHA256 strin
 	if err != nil || len(raw) != sha256.Size || hex.EncodeToString(raw) != captureSHA256 {
 		return "", ErrInvalidBrowserCapture
 	}
-	input, _ := json.Marshal([]string{AcquisitionContractVersion, "browser_capture", source.URL, captureSHA256})
+	input, _ := json.Marshal([]string{contract, "browser_capture", source.URL, captureSHA256})
 	digest := sha256.Sum256(input)
 	return hex.EncodeToString(digest[:]), nil
+}
+
+// BrowserCaptureCommandVersion uses persisted authority, never trial hashes.
+// The frozen v1 descriptor and metadata retain their original bytes.
+func BrowserCaptureCommandVersion(command PublicationCommand) (int, error) {
+	m := command.Envelope.RawReference.Metadata
+	if command.Producer.Kind != BrowserAcquisitionProducerKind || m["channel"] != AcquisitionChannelBrowser || !acquisitionDigest.MatchString(m["capture_sha256"]) {
+		return 0, ErrInvalidBrowserCapture
+	}
+	switch command.Producer.Version {
+	case "v1":
+		if m["contract_version"] == AcquisitionContractVersion && m["parser_version"] == BrowserCaptureParserVersion {
+			for _, variant := range command.Envelope.ProductCandidate.Variants {
+				if len(variant.Images) != 0 {
+					return 0, ErrInvalidBrowserCapture
+				}
+			}
+			return 1, nil
+		}
+	case "v2":
+		if m["contract_version"] == BrowserCaptureV2Contract && m["parser_version"] == BrowserCaptureV2ParserVersion && command.Envelope.RawReference.ReferenceType == "browser_capture_evidence_v2" {
+			return 2, nil
+		}
+	}
+	return 0, ErrInvalidBrowserCapture
 }
 
 // BrowserCapture carries a transport receipt and the existing domain evidence.
@@ -56,24 +99,45 @@ type BrowserCapture struct {
 
 // ParseBrowserCapture validates and canonicalizes the frozen Browser wire.
 func ParseBrowserCapture(body []byte) (BrowserCapture, error) {
+	if len(body) == 0 || len(body) > BrowserCaptureMaxBytes {
+		return BrowserCapture{}, ErrInvalidBrowserCapture
+	}
+	// This header selects exactly one strict validator; it never admits fields.
+	var header struct {
+		CaptureVersion int `json:"captureVersion"`
+	}
+	if json.Unmarshal(body, &header) != nil {
+		return BrowserCapture{}, ErrInvalidBrowserCapture
+	}
+	switch header.CaptureVersion {
+	case 1:
+		return parseBrowserCapture[browserVariantWire](body, 1, BrowserCaptureParserVersion)
+	case 2:
+		return parseBrowserCapture[browserVariantWireV2](body, 2, BrowserCaptureV2ParserVersion)
+	default:
+		return BrowserCapture{}, ErrInvalidBrowserCapture
+	}
+}
+
+func parseBrowserCapture[V any](body []byte, version int, parser string) (BrowserCapture, error) {
 	if len(body) == 0 || len(body) > BrowserCaptureMaxBytes || !utf8.Valid(body) || !browserUnicodeEscapesValid(body) {
 		return BrowserCapture{}, ErrInvalidBrowserCapture
 	}
 	decoder := json.NewDecoder(bytes.NewReader(body))
 	decoder.UseNumber()
 	aggregate := 0
-	if err := checkBrowserWire(decoder, reflect.TypeFor[browserCaptureWire](), &aggregate); err != nil {
+	if err := checkBrowserWire(decoder, reflect.TypeFor[browserWire[V]](), &aggregate); err != nil {
 		return BrowserCapture{}, ErrInvalidBrowserCapture
 	}
 	if _, err := decoder.Token(); err != io.EOF {
 		return BrowserCapture{}, ErrInvalidBrowserCapture
 	}
-	var wire browserCaptureWire
+	var wire browserWire[V]
 	if err := json.Unmarshal(body, &wire); err != nil {
 		return BrowserCapture{}, ErrInvalidBrowserCapture
 	}
 	e := &wire.Evidence
-	if wire.CaptureVersion != BrowserCaptureVersion || e.SchemaVersion != 1 || e.ParserVersion != BrowserCaptureParserVersion {
+	if wire.CaptureVersion != version || e.SchemaVersion != version || e.ParserVersion != parser {
 		return BrowserCapture{}, ErrInvalidBrowserCapture
 	}
 	source, err := Canonical1688Source(e.SourceURL)
@@ -151,19 +215,22 @@ func browserUnicodeEscapesValid(body []byte) bool {
 
 // These private structs are the frozen transport shape, not a second domain
 // evidence model. Declaration order fixes canonical bytes. Nothing is omitted.
-type browserCaptureWire struct {
-	CaptureVersion int                 `json:"captureVersion"`
-	Evidence       browserEvidenceWire `json:"evidence"`
+type browserCaptureWire = browserWire[browserVariantWire]
+type browserEvidenceWire = browserEvidence[browserVariantWire]
+
+type browserWire[V any] struct {
+	CaptureVersion int                `json:"captureVersion"`
+	Evidence       browserEvidence[V] `json:"evidence"`
 }
 
-type browserEvidenceWire struct {
+type browserEvidence[V any] struct {
 	SchemaVersion int                    `json:"schemaVersion"`
 	SourceURL     string                 `json:"sourceURL"`
 	OfferID       string                 `json:"offerID"`
 	Title         *string                `json:"title"`
 	Description   *string                `json:"description"`
 	Attributes    []browserAttributeWire `json:"attributes"`
-	Variants      []browserVariantWire   `json:"variants"`
+	Variants      []V                    `json:"variants"`
 	PriceFacts    []browserPriceWire     `json:"priceFacts"`
 	Images        []browserImageWire     `json:"images"`
 	CapturedAt    string                 `json:"capturedAt"`
@@ -184,6 +251,15 @@ type browserVariantWire struct {
 	Title      *string                `json:"title"`
 	Attributes []browserAttributeWire `json:"attributes"`
 	Price      *browserPriceWire      `json:"price"`
+}
+
+type browserVariantWireV2 struct {
+	SourceID   *string                `json:"sourceID"`
+	SKU        *string                `json:"sku"`
+	Title      *string                `json:"title"`
+	Attributes []browserAttributeWire `json:"attributes"`
+	Price      *browserPriceWire      `json:"price"`
+	Images     []browserImageWire     `json:"images"`
 }
 
 type browserPriceWire struct {
@@ -207,7 +283,7 @@ type browserMissingWire struct {
 	Reason string `json:"reason"`
 }
 
-func (e browserEvidenceWire) domain(capturedAt time.Time) AcquisitionEvidence {
+func (e browserEvidence[V]) domain(capturedAt time.Time) AcquisitionEvidence {
 	result := AcquisitionEvidence{
 		SchemaVersion: e.SchemaVersion, SourceURL: e.SourceURL, OfferID: e.OfferID,
 		Title: e.Title, Description: e.Description,
@@ -219,7 +295,16 @@ func (e browserEvidenceWire) domain(capturedAt time.Time) AcquisitionEvidence {
 		Warnings:     make([]SourceWarning, len(e.Warnings)),
 		MissingFacts: make([]MissingFact, len(e.MissingFacts)),
 	}
-	for i, v := range e.Variants {
+	for i, item := range e.Variants {
+		var v browserVariantWire
+		var images []browserImageWire
+		switch variant := any(item).(type) {
+		case browserVariantWire:
+			v = variant
+		case browserVariantWireV2:
+			v = browserVariantWire{SourceID: variant.SourceID, SKU: variant.SKU, Title: variant.Title, Attributes: variant.Attributes, Price: variant.Price}
+			images = variant.Images
+		}
 		result.Variants[i] = AcquisitionVariant{
 			SourceID: v.SourceID, SKU: v.SKU, Title: v.Title,
 			Attributes: browserDomainAttributes(v.Attributes),
@@ -227,6 +312,9 @@ func (e browserEvidenceWire) domain(capturedAt time.Time) AcquisitionEvidence {
 		if v.Price != nil {
 			price := v.Price.domain()
 			result.Variants[i].Price = &price
+		}
+		for _, image := range images {
+			result.Variants[i].Images = append(result.Variants[i].Images, AcquisitionImage{URL: image.URL, Role: image.Role})
 		}
 	}
 	for i, p := range e.PriceFacts {

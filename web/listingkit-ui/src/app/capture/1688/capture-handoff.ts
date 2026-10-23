@@ -4,10 +4,10 @@ import { isAcquisitionUUID } from "@/lib/contracts/product-acquisition";
 
 export type CaptureHandoff = Readonly<{ kind: "handoff"; extensionId: string; handoffId: string; key: string }>;
 export type CaptureEntry = CaptureHandoff | Readonly<{ kind: "recovery"; key: string }>;
-export function parseCaptureEntry(rawURL: string): CaptureEntry | null {
+export function parseCaptureEntry(rawURL: string, platform: "1688" | "amazon" = "1688"): CaptureEntry | null {
   try {
     const url = new URL(rawURL);
-    if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || url.pathname !== "/capture/1688" || url.search || rawURL.split("#")[0]!.endsWith("?")) return null;
+    if (!["1688","amazon"].includes(platform) || !["http:", "https:"].includes(url.protocol) || url.username || url.password || url.pathname !== `/capture/${platform}` || url.search || rawURL.split("#")[0]!.endsWith("?")) return null;
     const params = new URLSearchParams(url.hash.slice(1));
     const names = [...params.keys()];
     if (new Set(names).size !== names.length) return null;
@@ -34,8 +34,10 @@ function externalMessage(entry: CaptureHandoff, message: unknown, signal?: Abort
     try { runtime.sendMessage(entry.extensionId, message, (response) => finish(!runtime.lastError, response)); } catch { finish(false); }
   });
 }
-export async function readCaptureHandoff(entry: CaptureHandoff, signal: AbortSignal): Promise<BrowserCapturePayload> {
-  const responseSchema = z.object({ version: z.literal(1), type: z.literal("capture.payload"), handoffId: z.literal(entry.handoffId), idempotencyKey: z.literal(entry.key), payload: browserCaptureSchema }).strict();
+export function readCaptureHandoff(entry: CaptureHandoff, signal: AbortSignal): Promise<BrowserCapturePayload>;
+export function readCaptureHandoff<T>(entry: CaptureHandoff, signal: AbortSignal, schema: z.ZodType<T>): Promise<T>;
+export async function readCaptureHandoff(entry: CaptureHandoff, signal: AbortSignal, schema: z.ZodType = browserCaptureSchema): Promise<unknown> {
+  const responseSchema = z.object({ version: z.literal(1), type: z.literal("capture.payload"), handoffId: z.literal(entry.handoffId), idempotencyKey: z.literal(entry.key), payload: schema }).strict();
   for (let attempt = 0; attempt < 3; attempt++) {
     signal.throwIfAborted();
     try {

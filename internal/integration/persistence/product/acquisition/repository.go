@@ -134,7 +134,7 @@ func (r *Repository) transaction(ctx context.Context, fn func(*gorm.DB) error) e
 }
 
 func (r *Repository) Start(ctx context.Context, requested sourcing.AcquisitionOperation) (op sourcing.AcquisitionOperation, claim bool, err error) {
-	if !validIdentity(requested) {
+	if requested.CaptureSHA256 != "" || !validIdentity(requested) {
 		return op, false, sourcing.ErrInvalidAcquisition
 	}
 	err = r.transaction(ctx, func(tx *gorm.DB) error {
@@ -220,6 +220,7 @@ func (r *Repository) RecordCapacityRejection(ctx context.Context, requested sour
 // StartPrepared performs admission and command persistence in one transaction.
 // A committed browser operation is therefore always recoverable from its key.
 func (r *Repository) StartPrepared(ctx context.Context, requested sourcing.AcquisitionOperation, cmd sourcing.PublicationCommand) (op sourcing.AcquisitionOperation, claim bool, err error) {
+	requested.Command = &cmd
 	if !validIdentity(requested) || !validCommand(requested, cmd) {
 		return op, false, sourcing.ErrInvalidAcquisition
 	}
@@ -401,7 +402,7 @@ func read(db *gorm.DB, scope sourcing.PublicationScope, field, key string, lock 
 		return empty, sourcing.ErrAcquisitionNotFound
 	}
 	op := sourcing.AcquisitionOperation{Scope: sourcing.PublicationScope{OrganizationID: row.OrganizationID, ActorID: row.ActorID}, Key: row.IdempotencyKey, ID: row.OperationID, Source: sourcing.AcquisitionSource{OfferID: row.OfferID, URL: row.SourceURL}, Fingerprint: row.Fingerprint, CaptureSHA256: row.CaptureSHA256, State: row.State, Fence: row.Fence, LeaseUntil: row.LeaseUntil, CommandHash: row.CommandHash, FailureCode: row.FailureCode}
-	if !validIdentity(op) || op.Fence < 1 || row.CommandBytes > sourcing.MaxAcquisitionCommandBytes {
+	if op.Fence < 1 || row.CommandBytes > sourcing.MaxAcquisitionCommandBytes {
 		return empty, sourcing.ErrAcquisitionUnavailable
 	}
 	if row.CommandBytes > 0 {
@@ -411,10 +412,16 @@ func read(db *gorm.DB, scope sourcing.PublicationScope, field, key string, lock 
 		var cmd sourcing.PublicationCommand
 		decoder := json.NewDecoder(strings.NewReader(string(row.Command)))
 		decoder.DisallowUnknownFields()
-		if decoder.Decode(&cmd) != nil || !validCommand(op, cmd) {
+		if decoder.Decode(&cmd) != nil {
 			return empty, sourcing.ErrAcquisitionUnavailable
 		}
 		op.Command = &cmd
+		if !validCommand(op, cmd) {
+			return empty, sourcing.ErrAcquisitionUnavailable
+		}
+	}
+	if !validIdentity(op) || op.CaptureSHA256 != "" && op.Command == nil {
+		return empty, sourcing.ErrAcquisitionUnavailable
 	}
 	if (op.Command == nil) != (op.CommandHash == "") {
 		return empty, sourcing.ErrAcquisitionUnavailable
@@ -448,7 +455,15 @@ func validIdentity(op sourcing.AcquisitionOperation) bool {
 	}
 	id, _ := json.Marshal([]string{op.Scope.OrganizationID, op.Scope.ActorID, op.Key})
 	if op.CaptureSHA256 != "" {
-		fingerprint, err := sourcing.BrowserAcquisitionFingerprint(source, op.CaptureSHA256)
+		version := 1 // Unpersisted frozen v1 intent only; read requires a command.
+		if op.Command != nil {
+			var err error
+			version, err = sourcing.BrowserCaptureCommandVersion(*op.Command)
+			if err != nil {
+				return false
+			}
+		}
+		fingerprint, err := sourcing.BrowserCaptureFingerprint(version, source, op.CaptureSHA256)
 		return err == nil && op.ID == uuid.NewSHA1(uuid.NameSpaceURL, id).String() && op.Fingerprint == fingerprint
 	}
 	input, _ := json.Marshal([]string{sourcing.AcquisitionContractVersion, "acquire", source.URL})
@@ -456,12 +471,17 @@ func validIdentity(op sourcing.AcquisitionOperation) bool {
 }
 
 func validCommand(op sourcing.AcquisitionOperation, cmd sourcing.PublicationCommand) bool {
+	op.Command = &cmd
 	producer := sourcing.ProducerDescriptor{Kind: sourcing.AcquisitionProducerKind, Version: "v1"}
 	metadata := cmd.Envelope.RawReference.Metadata
 	if op.CaptureSHA256 != "" {
 		producer.Kind = sourcing.BrowserAcquisitionProducerKind
-		if metadata["capture_sha256"] != op.CaptureSHA256 || metadata["channel"] != "browser_capture" || metadata["parser_version"] != sourcing.BrowserCaptureParserVersion || metadata["contract_version"] != sourcing.AcquisitionContractVersion {
+		version, err := sourcing.BrowserCaptureCommandVersion(cmd)
+		if err != nil || metadata["capture_sha256"] != op.CaptureSHA256 {
 			return false
+		}
+		if version == 2 {
+			producer.Version = "v2"
 		}
 	} else if (metadata["channel"] != sourcing.AcquisitionChannelPublicHTTP && metadata["channel"] != sourcing.AcquisitionChannelPublicBrowser) || metadata["capture_sha256"] != "" {
 		// Empty CaptureSHA256 is the anonymous public family: public_http and

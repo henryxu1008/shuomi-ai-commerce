@@ -51,6 +51,7 @@ export const acquisitionProductSchema = z.object({
   schemaVersion: z.literal(1), operationId: uuid,
   productKey: z.string().regex(/^crawler:1688:[1-9][0-9]{0,19}$/), publicationId: z.string().max(128), catalogVersion: version,
   title: bounded.optional(), sources: z.array(sourceSchema).max(4096), images: z.array(imageSchema).max(4096), specifications: z.array(specificationSchema).max(4096),
+  variants:z.array(z.object({sourceId:bounded.optional(),sku:bounded.optional(),title:bounded.optional(),attributes:z.array(specificationSchema).max(256),images:z.array(imageSchema).max(256)}).strict()).max(256).optional(),
   warnings: z.array(z.object({ code: bounded, field: bounded, count: count.optional() }).strict()).max(256),
   missingFacts: z.array(z.object({ field: bounded, reason: bounded, count: count.optional() }).strict()).max(256),
 }).strict().superRefine((value, ctx) => {

@@ -26,16 +26,16 @@ function fixture(extra = '') {
 describe('explicit current-page capture', () => {
   it('matches the shared browser wire golden without a second sourcing mapper', async () => {
     const html=readFileSync('tests/fixtures/product.html','utf8');
-    const golden=JSON.parse(readFileSync('tests/fixtures/capture-v1.json','utf8'));
+    const golden=JSON.parse(readFileSync('tests/fixtures/capture-v2.json','utf8'));
     const doc=new JSDOM(html,{url:source}).window.document;
     expect(await captureDocument(doc,source,new Date('2026-09-12T00:00:00Z'))).toEqual(golden);
   });
-  it('projects actual facts, exact decimals and missing currency into v1 evidence', async () => {
+  it('projects actual facts, exact decimals and missing currency into v2 evidence', async () => {
     const dom = fixture('<div id="desc-lazyload-container">实际商品描述</div>');
     const payload = await captureDocument(dom.window.document, source, new Date('2026-09-12T00:00:00Z'));
-    expect(payload.captureVersion).toBe(1);
-    expect(payload.evidence).toMatchObject({ schemaVersion: 1, sourceURL: source, offerID: '981645030344',
-      parserVersion: '1688-browser-dom/v2', title: '公开商品 <img onerror=alert(1)>',
+    expect(payload.captureVersion).toBe(2);
+    expect(payload.evidence).toMatchObject({ schemaVersion: 2, sourceURL: source, offerID: '981645030344',
+      parserVersion: '1688-browser-dom/v3', title: '公开商品 <img onerror=alert(1)>',
       attributes: [{ name: '材质', value: '棉' }],
       variants: [{ sourceID: '99999999999999999999', price: { amount: '1.23000001', currency: null } }],
       priceFacts: [{ amount: '12.34000001', currency: null, minQuantity: '2' }],
@@ -47,7 +47,7 @@ describe('explicit current-page capture', () => {
 
   it('captures the observed 1688 shape where the payload is an IIFE argument', async () => {
     const html = readFileSync('tests/fixtures/product-real-shape.html', 'utf8');
-    const golden = JSON.parse(readFileSync('tests/fixtures/capture-v1.json', 'utf8'));
+    const golden = JSON.parse(readFileSync('tests/fixtures/capture-v2.json', 'utf8'));
     const doc = new JSDOM(html, { url: source }).window.document;
     expect(await captureDocument(doc, source, new Date('2026-09-12T00:00:00Z'))).toEqual(golden);
   });

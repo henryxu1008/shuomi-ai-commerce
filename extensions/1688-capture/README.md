@@ -1,10 +1,21 @@
-# 1688 browser capture
+# 1688 / Amazon browser capture
 
-A Manifest V3 extension for an explicit capture of the current 1688 product
+A Manifest V3 extension for an explicit capture of the current 1688 or Amazon single-product
 detail page. Chrome and Edge use the same build. This directory owns capture
 and ephemeral transport; it cannot publish a Product or authorize an import.
 
-Contract: [SRC-2B2 R1](https://github.com/qq550723504/task-processor/issues/399#issuecomment-5642868657),
+Current increment: [execution #906](https://github.com/qq550723504/shuomi-ai-commerce/issues/906), based on the frozen [ingestion design](https://github.com/qq550723504/shuomi-ai-commerce/blob/dca554da18b8c126d25681bc75e34e37ccf61bcd/docs/architecture/plugin-capture-ingestion-v1.md).
+New 1688 captures use the exact `captureVersion=2 / schemaVersion=2 / browser_acquisition/v2 / src2b-browser-capture-v2 / 1688-browser-dom/v3` combination. Each variant carries its own `images: [{url, role}]`. Only an explicit image on the SKU entry or its exact property value (`skuProps[].value[].imageUrl`) establishes that relationship. A product album never supplies a guessed SKU image. Other DOM structures remain unsupported in this increment.
+
+The 1688 receiver is `/capture/1688`. The same extension also selects Amazon's exact US/CA/UK/DE/JP product URLs and sends them only to the compiled sibling `/capture/amazon` at the same application origin; there is no second shell or runtime destination. Amazon's strict source/observation contract, selected-product extractor and receiver/save backend are owned by [execution #905](https://github.com/qq550723504/shuomi-ai-commerce/issues/905). Its platform module was consumed from commit `25e42f0edb7d2c729e0a29184fc7f396479744b7`. Amazon currently observes the selected product, explicit selected attributes and main image; it does not traverse or claim a complete variant family. Both source validators run before document-bound handoff.
+
+The existing 1688 receiver is `/capture/1688`. After explicit confirmation under the current user and organization, the original save chain returns an operation receipt. Open **我的数据 → the saved batch → 商品详情 → 规格图片** to expand each source variant; **下载原始资料** keeps the exact version and nested image relationships. Images are source URL candidates, with the existing asset approval requirements.
+
+The v1 wire fixture, canonical bytes and command hash remain frozen for historical recovery. New captures never fall back to v1. Capture records without a frozen command or with a mixed descriptor/contract/parser combination fail closed. No schema, image table or migration is added.
+
+Local Go/PostgreSQL, UI, and browser transport fixtures are development evidence. Installing into the user's browser, real source collection/save, retained-instance changes and user acceptance require their separate authorized run; they have not been performed by this increment.
+
+Original contract: [SRC-2B2 R1](https://github.com/qq550723504/task-processor/issues/399#issuecomment-5642868657),
 [recovery clarification](https://github.com/qq550723504/task-processor/issues/399#issuecomment-5642876140),
 and the [src2b-acquisition-v1 owner contract](https://github.com/qq550723504/task-processor/issues/398#issuecomment-5637525452).
 
@@ -25,14 +36,14 @@ npm run build
 
 A retained local installation can use its already trusted
 `https://localhost:<explicit non-default port>/capture/1688` receiver. Set that
-exact URL at build time; certificate trust remains the user's normal browser
+exact URL at build time; `/capture/amazon` is derived from that same origin, never configured separately. Certificate trust remains the user's normal browser
 requirement. This uses the real application and release build, with the same
 permissions and exact sender origin/port/path checks. It permits no runtime
 destination input or private IP receiver. Captured images remain public HTTPS
 URLs; the local application exception does not apply to image admission.
 
 Load the resulting `dist` directory as an unpacked extension. The application
-at `/capture/1688` must implement the receiving contract below. A build alone
+at `/capture/1688` and the Amazon application from #905 at `/capture/amazon` must implement the receiving contract below. A build alone
 does not establish that the receiving application is available.
 
 Task fixtures use a separate, visibly labelled artifact:
@@ -70,26 +81,19 @@ only its closed disposable profiles after preserving the receipts.
 
 ## Capture boundary
 
-- Permissions are exactly `activeTab` and `scripting`, plus a host grant narrowed
-  to the single page kind this extension reads: `https://detail.1688.com/*`
-  (https only, no subdomain wildcard, no `<all_urls>`). No cookies, storage,
-  tabs, history, webRequest, clipboard or downloads permissions.
-- The host grant exists because `activeTab` alone is a per-gesture grant: it is
-  valid for one user action on one tab, and the batch executor drives tabs
-  unattended. The grant does not widen what is read — the extractor still
-  rejects every URL that is not `detail.1688.com/offer/<ID>.html`, and the
-  injection is still main-frame and isolated-world only.
+- Permissions are exactly `activeTab` and `scripting`, plus exact HTTPS host grants for `detail.1688.com`, `www.amazon.com`, `www.amazon.ca`, `www.amazon.co.uk`, `www.amazon.de`, and `www.amazon.co.jp`. No subdomain wildcard or `<all_urls>`, cookies, storage, tabs, history, webRequest, clipboard or downloads permissions.
+- Injection follows the user's explicit current-tab capture and validates the product path. No batch or background traversal is introduced. It remains main-frame and isolated-world only.
 - The popup's explicit capture action selects only the active tab. Injection
   targets its main frame in the isolated world. The same document ID and
   canonical source are checked again after extraction.
-- Accepted pages have the exact `detail.1688.com/offer/<ID>.html` shape. IDs
+- Accepted 1688 pages have the exact `detail.1688.com/offer/<ID>.html` shape. IDs
   remain decimal strings, 1–20 digits without leading zero. Tracking query
   and fragment are discarded. The backend independently derives identity.
-- Only the known static `context.result` product structure and the identified
-  rendered description node are read. No page scripts execute on behalf of
+- For 1688, only the known static `context.result` product structure and the identified
+  rendered description node are read. Amazon uses its dedicated selected-product DOM module. No page scripts execute on behalf of
   the extension; no global objects, forms, cookies, storage or other tabs are
   inspected. Unknown structures and challenge/login pages fail explicitly.
-- Product fields are projected onto the existing v1 wire: no raw HTML,
+- Product fields are projected onto the strict v2 wire: no raw HTML,
   arbitrary metadata, actor, organization, role, Catalog identity or trusted
   asset status. Image URLs are candidates only, never downloaded by capture.
 - Missing data stays null/empty with warnings. Amounts and SKU identifiers
@@ -99,8 +103,8 @@ only its closed disposable profiles after preserving the receipts.
   8 KiB; a collection to 256 items; aggregate fact items to 1024. Extraction
   also has bounded node/depth work and an 8-second deadline.
 
-`tests/fixtures/capture-v1.json` is a deterministic lower-case wire golden
-for the controlled product fixture at a fixed timestamp. Its content hash
+`tests/fixtures/capture-v2.json` is the new deterministic lower-case wire golden
+for the controlled product fixture at a fixed timestamp. `capture-v1.json` remains unchanged as a historical wire oracle. Its content hash
 covers the ordered public field projection only: sourceURL, offerID, title,
 description, attributes, variants, priceFacts, images. This is a **capture
 claim**, not an authenticity signature or the backend's canonical intent
@@ -142,10 +146,10 @@ Effective Organization, and obtain explicit confirmation using the existing
 BFF context-drift protections. Login, organization change, revocation and
 authorization checks belong to that app/backend owner, not this extension.
 
-The planned browser ingress is
+The browser ingress is
 `/api/v1/workbench/sourcing/1688/browser-captures`, with `/verify`,
-`/by-key/:key` and `/:operation_id`. **These endpoints and the Web receiver
-are delivered by the #398 owner, not this directory.** Public `{source}`
+`/by-key/:key` and `/:operation_id`. These endpoints and the Web receiver
+are owned by Product Sourcing and the application, not this transport directory. Public `{source}`
 acquisition is not a substitute for uploading BrowserCapturePayload.
 
 One handoff lives only in worker memory, for at most five minutes. Chrome may
@@ -153,7 +157,7 @@ terminate an idle worker much earlier. There is no keepalive or storage;
 after loss/expiry, capture reads fail. If a request may already have been
 submitted, the app's original key recovery URL remains the recovery entry.
 The backend must reauthorize that scope and read the original staging command
-through SRC-1 Verify/Read, without creating, fetching, claiming or publishing.
+through the existing SRC Verify/Read path. The original 1688 ByKey path may resume a previously frozen command under its existing guarded Claim/Finish protocol; it never captures a new page or replaces the command.
 A missing receipt does not authorize an automatic new POST/key. The extension
 cannot recover a forgotten key after restart; it tells the user to use the
 original app page. Beginning another capture requires an explicit new action.

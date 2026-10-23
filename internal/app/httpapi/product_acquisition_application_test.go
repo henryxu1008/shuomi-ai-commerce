@@ -29,6 +29,29 @@ type acquisitionHTTPSpy struct {
 	err                   error
 }
 
+func TestAcquisitionExactProductProjectionRetainsVariantImages(t *testing.T) {
+	operation := uuid.NewString()
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	writeAcquisitionProduct(c, sourcing.PublishedAcquisition{
+		Result:   sourcing.AcquisitionResult{Operation: sourcing.AcquisitionOperation{ID: operation, State: sourcing.AcquisitionPublished}, Publication: &sourcing.PersistedPublication{Receipt: sourcing.PublicationReceipt{PublicationID: "source-run:acquisition:" + operation, ProductKey: "crawler:1688:981645030344", CatalogVersion: 7}}},
+		Snapshot: catalog.PublishedSnapshot{Snapshot: catalog.ProductSnapshot{Title: "two variants", Variants: []catalog.Variant{{SourceID: "blue", Images: []catalog.Image{{URL: "https://cbu01.alicdn.com/blue.jpg", Role: "source"}}}, {SourceID: "red", Images: []catalog.Image{{URL: "https://cbu01.alicdn.com/red.jpg", Role: "source"}}}}}},
+	})
+	require.Equal(t, http.StatusOK, w.Code)
+	var body map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	require.Contains(t, body, "variants")
+	var variants []struct {
+		SourceID string                       `json:"sourceId"`
+		Images   []acquisitionProductImageDTO `json:"images"`
+	}
+	require.NoError(t, json.Unmarshal(body["variants"], &variants))
+	require.Equal(t, "blue", variants[0].SourceID)
+	require.Equal(t, "https://cbu01.alicdn.com/blue.jpg", variants[0].Images[0].URL)
+	require.Equal(t, "red", variants[1].SourceID)
+	require.Equal(t, "https://cbu01.alicdn.com/red.jpg", variants[1].Images[0].URL)
+}
+
 func (s *acquisitionHTTPSpy) Acquire(context.Context, string, string) (sourcing.AcquisitionResult, error) {
 	s.acquire++
 	return s.result, s.err

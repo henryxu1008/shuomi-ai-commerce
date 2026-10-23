@@ -69,7 +69,7 @@ export const collectionDetailSchema = z.object({ item: collectionItemSchema, pro
   specifications: z.object({ dimensions: dimensions.optional(), weight: weight.optional(), package: z.object({ dimensions: dimensions.optional(), weight: weight.optional(), quantity: count.optional() }).optional(), technical: z.record(bytes(8192), bytes(8192)).optional() }).optional(),
   warnings: z.array(z.object({ code: bytes(128), field: bytes(8192).optional(), message: bytes(8192) })).max(256).optional(),
   review: z.object({needs_review:z.boolean(),reasons:z.array(bytes(8192)).max(128).optional()}).optional(),
-  sources: z.array(z.object({ type: bytes(128).optional(), platform: bytes(128).optional(), source_id: bytes(128).optional(), url: bytes(2048).optional(), reference_type: bytes(128).optional(), source_version:bytes(128).optional(), snapshot_id:bytes(128).optional(), checksum:bytes(128).optional(), captured_at:timestamp.optional() })).max(4096).optional(),
+  sources: z.array(z.object({ type: bytes(128).optional(), detail:bytes(8192).optional(), platform: bytes(128).optional(), source_id: bytes(128).optional(), url: bytes(2048).optional(), reference_type: bytes(128).optional(), source_version:bytes(128).optional(), snapshot_id:bytes(128).optional(), checksum:bytes(128).optional(), captured_at:timestamp.optional(), metadata:z.record(bytes(8192),bytes(8192)).refine(value=>Object.keys(value).length<=256).optional(), source_run_id:bytes(8192).optional(), request_id:bytes(8192).optional(), notes:z.array(bytes(8192)).max(256).optional() })).max(4096).optional(),
 }) });
 export type CollectionBatch = z.infer<typeof collectionBatchSchema>;
 export type CollectionItem = z.infer<typeof collectionItemSchema>;

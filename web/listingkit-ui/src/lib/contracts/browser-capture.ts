@@ -16,22 +16,25 @@ function wellFormed(value: string) {
 const text = z.string().refine(wellFormed);
 const attribute = z.object({ name: text, value: text }).strict();
 const price = z.object({ amount: text, currency: text.nullable(), minQuantity: text.nullable().optional() }).strict();
+const image = z.object({ url: text, role: text }).strict();
+const variant = z.object({ sourceID: text.nullable(), sku: text.nullable(), title: text.nullable(), attributes: z.array(attribute).max(256), price: price.nullable() }).strict();
 const evidence = z.object({
   schemaVersion: z.literal(1), sourceURL: text, offerID: text,
   title: text.nullable(), description: text.nullable(),
   attributes: z.array(attribute).max(256),
-  variants: z.array(z.object({ sourceID: text.nullable(), sku: text.nullable(), title: text.nullable(), attributes: z.array(attribute).max(256), price: price.nullable() }).strict()).max(256),
+  variants: z.array(variant).max(256),
   priceFacts: z.array(price).max(256),
-  images: z.array(z.object({ url: text, role: text }).strict()).max(256),
+  images: z.array(image).max(256),
   capturedAt: text.refine((v) => /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/.test(v) && Number.isFinite(Date.parse(v))),
   contentSHA256: z.string().regex(/^[0-9a-f]{64}$/), parserVersion: z.literal("1688-browser-dom/v2"),
   warnings: z.array(z.object({ code: text, field: text }).strict()).max(256),
   missingFacts: z.array(z.object({ field: text, reason: text }).strict()).max(256),
 }).strict();
 // Transport only: Go owns canonicalization, digest and business mapping.
-export const browserCaptureSchema = z.object({ captureVersion: z.literal(1), evidence }).strict().refine(({ evidence: e }) => {
+const evidenceV2 = evidence.extend({schemaVersion:z.literal(2),parserVersion:z.literal("1688-browser-dom/v3"),variants:z.array(variant.extend({images:z.array(image).max(256)})).max(256)});
+export const browserCaptureSchema = z.discriminatedUnion("captureVersion",[z.object({ captureVersion: z.literal(1), evidence }).strict(),z.object({captureVersion:z.literal(2),evidence:evidenceV2}).strict()]).refine(({ evidence: e }) => {
   const source = canonical1688Source(e.sourceURL);
-  const count = e.attributes.length + e.variants.length + e.variants.reduce((n, v) => n + v.attributes.length, 0) + e.priceFacts.length + e.images.length + e.warnings.length + e.missingFacts.length;
+  const count = e.attributes.length + e.variants.length + e.variants.reduce((n, v) => n + v.attributes.length + ("images" in v ? v.images.length : 0), 0) + e.priceFacts.length + e.images.length + e.warnings.length + e.missingFacts.length;
   return source === `https://detail.1688.com/offer/${e.offerID}.html` && count <= 1024;
 }).refine((v) => new TextEncoder().encode(JSON.stringify(v)).byteLength <= BROWSER_CAPTURE_MAX_BYTES);
 export type BrowserCapturePayload = z.infer<typeof browserCaptureSchema>;

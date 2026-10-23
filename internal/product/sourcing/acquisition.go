@@ -41,6 +41,7 @@ type AcquisitionVariant struct {
 	Title      *string                `json:"title"`
 	Attributes []AcquisitionAttribute `json:"attributes"`
 	Price      *AcquisitionPrice      `json:"price"`
+	Images     []AcquisitionImage     `json:"images,omitempty"`
 }
 
 type AcquisitionImage struct {
@@ -126,8 +127,33 @@ func Canonical1688Source(input string) (AcquisitionSource, error) {
 //     CaptureSHA256-empty, content-independent fingerprint as public_http.
 //   - browser_capture: browser-captured payload submitted by the client.
 func MapAcquisitionEvidence(source AcquisitionSource, e AcquisitionEvidence, channel, operationID string) (SourceEnvelope, error) {
+	for _, variant := range e.Variants {
+		if len(variant.Images) != 0 {
+			return SourceEnvelope{}, ErrInvalidAcquisition
+		}
+	}
+	return mapAcquisitionEvidence(source, e, channel, operationID, false)
+}
+
+// MapBrowserCaptureEvidence is the explicit v2 admission. Public acquisition and
+// frozen v1 commands cannot silently consume the new relationship.
+func MapBrowserCaptureEvidence(source AcquisitionSource, e AcquisitionEvidence, operationID string) (SourceEnvelope, error) {
+	if e.SchemaVersion == 1 && e.ParserVersion == BrowserCaptureParserVersion {
+		return MapAcquisitionEvidence(source, e, AcquisitionChannelBrowser, operationID)
+	}
+	if e.SchemaVersion != 2 || e.ParserVersion != BrowserCaptureV2ParserVersion {
+		return SourceEnvelope{}, ErrInvalidAcquisition
+	}
+	return mapAcquisitionEvidence(source, e, AcquisitionChannelBrowser, operationID, true)
+}
+
+func mapAcquisitionEvidence(source AcquisitionSource, e AcquisitionEvidence, channel, operationID string, v2 bool) (SourceEnvelope, error) {
 	canonical, err := Canonical1688Source(source.URL)
-	if err != nil || canonical != source || e.SchemaVersion != 1 || e.OfferID != source.OfferID || e.SourceURL != source.URL || !admittedAcquisitionChannel(channel) || operationID == "" || len(operationID) > 128 || !acquisitionDigest.MatchString(e.ContentSHA256) || e.CapturedAt.IsZero() || e.ParserVersion == "" || len(e.ParserVersion) > 128 {
+	version := 1
+	if v2 {
+		version = 2
+	}
+	if err != nil || canonical != source || e.SchemaVersion != version || e.OfferID != source.OfferID || e.SourceURL != source.URL || !admittedAcquisitionChannel(channel) || operationID == "" || len(operationID) > 128 || !acquisitionDigest.MatchString(e.ContentSHA256) || e.CapturedAt.IsZero() || e.ParserVersion == "" || len(e.ParserVersion) > 128 {
 		return SourceEnvelope{}, ErrInvalidAcquisition
 	}
 	if err := validateAcquisitionEvidenceSize(e); err != nil {
@@ -146,6 +172,10 @@ func MapAcquisitionEvidence(source AcquisitionSource, e AcquisitionEvidence, cha
 		ProductCandidate: ProductCandidate{Title: strings.TrimSpace(*e.Title), Attributes: attributes},
 		Trace:            SourceTrace{SourceRunID: "acquisition:" + operationID},
 	}
+	if v2 {
+		envelope.RawReference.ReferenceType = "browser_capture_evidence_v2"
+		envelope.RawReference.Metadata["contract_version"] = BrowserCaptureV2Contract
+	}
 	missing := func(field, reason string) {
 		envelope.MissingFacts = append(envelope.MissingFacts, MissingFact{Field: field, Reason: reason})
 		envelope.Warnings = append(envelope.Warnings, SourceWarning{Code: "missing_source_fact", Field: field, Message: reason})
@@ -162,6 +192,7 @@ func MapAcquisitionEvidence(source AcquisitionSource, e AcquisitionEvidence, cha
 		missing("variants", "source did not supply variants")
 	}
 	seenIDs, seenSKUs := map[string]bool{}, map[string]bool{}
+	seenCombinations := map[string]bool{}
 	hasPrice := len(e.PriceFacts) > 0
 	for i, variant := range e.Variants {
 		attrs, err := acquisitionAttributes(variant.Attributes)
@@ -169,6 +200,26 @@ func MapAcquisitionEvidence(source AcquisitionSource, e AcquisitionEvidence, cha
 			return SourceEnvelope{}, err
 		}
 		candidate := ProductVariantCandidate{SourceID: acquisitionValue(variant.SourceID), SKU: acquisitionValue(variant.SKU), Title: acquisitionValue(variant.Title), Attributes: attrs}
+		if v2 {
+			combination, _ := json.Marshal(attrs)
+			if len(attrs) == 0 && candidate.SourceID == "" || len(attrs) > 0 && seenCombinations[string(combination)] {
+				return SourceEnvelope{}, ErrInvalidAcquisition
+			}
+			seenCombinations[string(combination)] = true
+			seen := map[string]bool{}
+			for _, image := range variant.Images {
+				if !validAcquisitionImageURL(image.URL) {
+					return SourceEnvelope{}, ErrInvalidAcquisition
+				}
+				if !seen[image.URL] {
+					candidate.Images = append(candidate.Images, AssetCandidate{URL: image.URL, MediaType: "image", Role: image.Role})
+					seen[image.URL] = true
+				}
+			}
+			if len(variant.Images) == 0 {
+				missing(fmt.Sprintf("variants.%d.images", i), "source did not supply variant image candidates")
+			}
+		}
 		if candidate.SourceID != "" && seenIDs[candidate.SourceID] || candidate.SKU != "" && seenSKUs[candidate.SKU] {
 			return SourceEnvelope{}, ErrInvalidAcquisition
 		}
@@ -330,6 +381,14 @@ func validateAcquisitionEvidenceSize(e AcquisitionEvidence) error {
 		}
 		if v.Price != nil && !add(v.Price.Amount, acquisitionRawValue(v.Price.Currency), acquisitionRawValue(v.Price.MinQuantity)) {
 			return ErrSourcePublicationTooLarge
+		}
+		if !b.addItems(len(v.Images)) {
+			return ErrSourcePublicationTooLarge
+		}
+		for _, image := range v.Images {
+			if !add(image.URL, image.Role) {
+				return ErrSourcePublicationTooLarge
+			}
 		}
 	}
 	for _, p := range e.PriceFacts {
