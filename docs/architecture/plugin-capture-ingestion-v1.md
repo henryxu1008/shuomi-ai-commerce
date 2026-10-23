@@ -2,7 +2,7 @@
 
 Refs [#902](https://github.com/qq550723504/shuomi-ai-commerce/issues/902)，主要文档 PR #903。字段依据：[插件上架字段设计](../product/plugin-capture-listing-fields-v1.md)。
 
-Status: **DESIGN_REVIEW_PENDING / NOT_IMPLEMENTATION_READY**。
+Status: **IMPLEMENTATION_READY（本增量架构设计层） / DEVELOPMENT_NOT_AUTHORIZED**。
 Design Basis: **Independent Architecture**（新增来源接收合同、producer准入、原键/保存恢复与现有规格图片映射）。用户2026-10-23批准继续设计及独立评审，**暂不开发**。评审通过也不自动产生开发、合并、部署、插件安装或真实采集授权。
 
 ## 1. 产品边界、范围与现状
@@ -183,7 +183,7 @@ Legacy decision: **EXTRACT**（只抽取仍正确的当前纯解析/桥接行为
 - 必要HTTP/BFF和UI原键恢复：权限/组织切换、未登录拒绝、原payload丢失、不产生收费job/reservation/provider调用；接收页只确认保存，不自动转入或发布。
 - 仅在用户另行授权后，真实浏览器采集、保存读回、安装、试用和实际运行接线；否则全部NOT_RUN。设计评审/CI不等于用户验收。
 
-Independent Architecture Review轮次：**R1已完成，R2增量待复核**。R1按AGENTS分类后处理：
+Independent Architecture Review轮次：**R1与R2增量复核已完成，架构设计冻结为IMPLEMENTATION_READY**。R1按AGENTS分类后处理：
 
 | Finding / 当前Must | 分类与阻塞层级 | 文档处置 / 实施验证 |
 | --- | --- | --- |
@@ -191,4 +191,4 @@ Independent Architecture Review轮次：**R1已完成，R2增量待复核**。R1
 | 1688 v2持久版本判别未明确 | IMPLEMENTATION_TEST；未满足则阻止未来实现合并 | §3明确版本组合、StartPrepared、解析/校验顺序和单一fingerprint；未来覆盖Read/Claim/Verify/恢复与跨版本冲突 |
 | 无新操作表依赖外层事务及含归档重放检查 | IMPLEMENTATION_TEST；未满足则阻止未来实现合并 | §5明确同SRC锁/READ COMMITTED及三方窄port；未来验证部分状态拒绝、归档/移动不回填及COMMIT未知恢复 |
 
-R1确认无需新增规格图片表、Amazon插件操作表或公共解析平台，现有固定版本详情/JSON下载不依赖收费job。R2只复核上述修订及实际受影响边界。最多两轮正常评审；未获得明确IMPLEMENTATION_READY前保持NOT_READY。即使评审通过，本次用户“暂不开发”仍有效。准确候选HEAD与独立review证据在PR维护，不把旧SHA评审当新HEAD认可。
+R1确认无需新增规格图片表、Amazon插件操作表或公共解析平台，现有固定版本详情/JSON下载不依赖收费job。R2复核上述修订及实际受影响边界，确认原BLOCKER已解决，无新增BLOCKER，结论IMPLEMENTATION_READY。两项IMPLEMENTATION_TEST保留，未来实现合并前须满足本轮Must，不等于已测试或用户验收。本次用户“暂不开发”仍有效。准确候选HEAD、状态收口提交与独立review证据在PR维护，不把旧SHA评审当新HEAD认可。
