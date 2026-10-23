@@ -16,7 +16,7 @@ go run ./cmd/current-application -config C:\private\current-application.json
 
 前端在 `web/listingkit-ui` 用 `pnpm install --frozen-lockfile`、`pnpm dev` 正常启动，沿现有 HTTPS 应用 origin 与可信后端 `LISTINGKIT_SERVICE_API_BASE` 接线。保留原 serverAuth、Origin 和 CSRF 配置，不向浏览器交付后端凭据。
 
-扩展构建沿 [现有扩展说明](../../extensions/1688-capture/README.md)，由 #906 公共壳登记 Amazon 模块。编译固定应用 origin 的 `/capture/amazon`，来源页无法指定接收地址。本批次没有安装到用户日常浏览器，也未修改保留实例。
+扩展构建沿 [现有扩展说明](../../extensions/1688-capture/README.md)，本候选已复用 #906 交付的同一公共壳并登记 Amazon 模块，同时包含原“我的数据”规格图片展示。编译固定应用 origin 的 `/capture/amazon`，来源页无法指定接收地址。本批次没有安装到用户日常浏览器，也未修改保留实例。
 
 ## 用户操作
 
