@@ -60,7 +60,11 @@ func buildProductCollectionService(ctx context.Context, db *gorm.DB, dependencie
 	if err != nil {
 		return nil, err
 	}
-	return service.WithSnapshots(snapshots).WithOwnHistory(history), nil
+	quotes, err := productsourcing.NewCollectionSourceQuoteReader(db)
+	if err != nil {
+		return nil, err
+	}
+	return service.WithSnapshots(snapshots).WithOwnHistory(history).WithSourceQuotes(quotes), nil
 }
 func buildProductCollectionModule(ctx context.Context, db *gorm.DB, dependencies routeAuthDependencies, permissions *authz.ListingKitAuthorizer, supply ...bool) (kernelmodule.Module, error) {
 	service, err := buildProductCollectionService(ctx, db, dependencies, permissions, supply...)

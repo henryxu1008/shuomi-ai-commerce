@@ -1,9 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { collectionCommandSchema,collectionDetailSchema,parseCollectionResponse } from "./product-collection";
+import { collectionCommandSchema,collectionDetailSchema,parseCollectionResponse,parseSourcePriceFact } from "./product-collection";
 
 describe("data-service original collection references", () => {
   const id = "0511e1d2-b555-4970-b323-3b629a901901";
   const createdAt = "2026-10-09T12:00:00Z";
+  it("does not render malformed or duplicate stored variant price facts as valid amounts",()=>{
+    for(const raw of ['{"amount":"1","amount":"2","currency":null}','{"amount":"1","currency":null,"stock":2}','{"amount":"1","currency":"$"}','{"amount":"1","currency":null,"minQuantity":"0"}'])expect(parseSourcePriceFact(raw)).toBeNull();
+    expect(parseSourcePriceFact('{"amount":"27.00000001","currency":null}')).toEqual({amount:"27.00000001",currency:null});
+  });
+  it("preserves fixed-version source quotes and refuses mismatched or guessed fields",()=>{
+    const input={item:{id,batchId:id,source:{productKey:"product",publicationId:id,version:"1",kind:"acquisition"},revision:1,createdAt},product:{title:"known"},sourceQuotes:{state:"available",publicationId:id,version:"1",prices:[{amount:"27.00000001",currency:null,minQuantity:null}]}};
+    expect(collectionDetailSchema.parse(input)).toHaveProperty("sourceQuotes",input.sourceQuotes);
+    for(const quotes of [{...input.sourceQuotes,version:"2"},{...input.sourceQuotes,publicationId:"foreign"},{...input.sourceQuotes,prices:[{amount:"27",currency:"$",minQuantity:null}]},{state:"unavailable",prices:input.sourceQuotes.prices}])expect(collectionDetailSchema.safeParse({...input,sourceQuotes:quotes}).success).toBe(false);
+    expect(collectionDetailSchema.parse({...input,sourceQuotes:{state:"unavailable"}}).product.title).toBe("known");
+  });
   it("preserves bounded persisted lineage metadata as source data",()=>{
     const detail=collectionDetailSchema.parse({item:{id,batchId:id,source:{productKey:"product",publicationId:id,version:"1",kind:"acquisition",operationId:id},revision:1,createdAt},product:{sources:[{type:"crawler",platform:"1688",source_id:"981645030344",source_version:"capture-v1",snapshot_id:id,checksum:"a".repeat(64),captured_at:createdAt,metadata:{untrusted:"not projected"}}],warnings:[{code:"missing",field:"price",message:"价格缺失"}],review:{needs_review:true,reasons:["price"]}}});
     expect(detail.product.sources?.[0]).toMatchObject({source_version:"capture-v1",snapshot_id:id,checksum:"a".repeat(64),captured_at:createdAt});

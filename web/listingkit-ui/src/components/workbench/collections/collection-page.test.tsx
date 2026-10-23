@@ -22,6 +22,22 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+it("shows source amounts with unknown currency and keeps raw price JSON out of product text",async()=>{
+ const item="550e8400-e29b-41d4-a716-446655440002";
+ state.context.permissions=["workbench.collection.read"];
+ state.readItem.mockResolvedValue({item:{id:item,source:{kind:"acquisition",productKey:"source",version:"1",publicationId:item}},sourceQuotes:{state:"available",publicationId:item,version:"1",prices:[{amount:"27.00",currency:null,minQuantity:"2"}]},product:{title:"来源资料",variants:[{source_id:"blue",attributes:[{name:"颜色",value:"蓝色"},{name:"source.price.fact",value:'{"amount":"28.00","currency":null}'},{name:"source.price.amount",value:"28.00"}]}]}});
+ render(<CollectionPage initialItemId={item}/>);
+ expect(await screen.findByRole("region",{name:"来源报价（参考）"})).toHaveTextContent("27.00 · 币种待确认 · 起订数量 2");
+ const variant=screen.getByRole("group",{name:"规格 blue"});expect(variant).toHaveTextContent("来源金额 28.00 · 币种待确认");expect(variant).not.toHaveTextContent("source.price");
+ expect(state.mutate).not.toHaveBeenCalled();
+});
+it.each(["unavailable","empty"])("keeps known product when quotes are %s",async stateValue=>{
+ const item="550e8400-e29b-41d4-a716-446655440002";
+ state.context.permissions=["workbench.collection.read"];
+ state.readItem.mockResolvedValue({item:{id:item,source:{kind:"acquisition",productKey:"source",version:"1",publicationId:item}},sourceQuotes:stateValue==="empty"?{state:"available",publicationId:item,version:"1",prices:[]}:{state:"unavailable"},product:{title:"已保存商品"}});
+ render(<CollectionPage initialItemId={item}/>);expect(await screen.findByText("已保存商品")).toBeInTheDocument();expect(screen.getByText(stateValue==="empty"?"本次未记录商品级报价，规格报价见规格资料。":"来源报价暂未能读取。")).toBeInTheDocument();expect(state.mutate).not.toHaveBeenCalled();
+});
+
 it("shows original images grouped by their exact saved source variant", async () => {
  const item="550e8400-e29b-41d4-a716-446655440002";
  state.context.permissions=["workbench.collection.read"];
