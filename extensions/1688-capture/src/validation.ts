@@ -65,7 +65,7 @@ export function validateCapture(value: unknown): CapturePayload {
       if (!('images' in v)) fail('INVALID_CAPTURE');
       items += v.images.length;
       const combination = JSON.stringify([...v.attributes].sort((a,b)=>a.name.localeCompare(b.name)));
-      if (e.variants.length > 1 && ((!v.sourceID && v.attributes.length === 0) || (v.attributes.length > 0 && combinations.has(combination)))) fail('INVALID_CAPTURE');
+      if ((!v.sourceID && v.attributes.length === 0) || (v.attributes.length > 0 && combinations.has(combination))) fail('INVALID_CAPTURE');
       combinations.add(combination);
     }
     if ((v.sourceID && ids.has(v.sourceID)) || (v.sku && skus.has(v.sku))) fail('INVALID_CAPTURE');

@@ -22,6 +22,26 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+it("shows original images grouped by their exact saved source variant", async () => {
+ const item="550e8400-e29b-41d4-a716-446655440002";
+ state.context.permissions=["workbench.collection.read"];
+ state.readItem.mockResolvedValue({item:{id:item,source:{kind:"acquisition",productKey:"source",version:"7",publicationId:"saved-publication"}},product:{title:"两规格商品",variants:[
+  {source_id:"blue-s",attributes:[{name:"颜色",value:"蓝色"},{name:"尺码",value:"S"}],images:[{url:"https://cbu01.alicdn.com/blue.jpg",role:"source"}]},
+  {source_id:"red-m",attributes:[{name:"颜色",value:"红色"}],images:[{url:"https://cbu01.alicdn.com/red.jpg",role:"source"}]},
+  {source_id:"empty",attributes:[],images:[]},
+ ]}});
+ render(<CollectionPage initialItemId={item} />);
+ const blue = await screen.findByRole("group",{name:/blue-s/});
+ const red = screen.getByRole("group",{name:/red-m/});
+ await userEvent.click(blue.querySelector('summary')!); await userEvent.click(red.querySelector('summary')!);
+ expect(blue).toHaveTextContent("颜色：蓝色"); expect(blue).toHaveTextContent("尺码：S");
+ expect(blue.querySelector('img')).toHaveAttribute("src",`/api/image-proxy?url=${encodeURIComponent("https://cbu01.alicdn.com/blue.jpg")}`);
+ expect(red.querySelector('img')).toHaveAttribute("src",`/api/image-proxy?url=${encodeURIComponent("https://cbu01.alicdn.com/red.jpg")}`);
+ const empty = screen.getByRole("group",{name:/empty/}); await userEvent.click(empty.querySelector('summary')!);
+ await waitFor(()=>expect(empty).toHaveTextContent("未记录规格图片"));
+ expect(state.mutate).not.toHaveBeenCalled();
+});
+
 it.each(["batches", "own", "batch-items"])("completes empty and repeated keyword searches in %s without mutations", async view => {
   const batch = "550e8400-e29b-41d4-a716-446655440000";
   const entry = { id: batch, name: "可读取的批次", kind: "manual", revision: 1, count: 1, createdAt: "2026-10-08T00:00:00Z" };

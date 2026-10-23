@@ -208,12 +208,13 @@ func TestBrowserCaptureBusinessChainReadOnlyUnknownStates(t *testing.T) {
 			command := *request.Command
 			request.Command = nil
 			ctx := acquisitionIdentity(request.Scope.OrganizationID, request.Scope.ActorID)
-			op, claim, err := service.core.operations.Start(ctx, request)
+			op, claim, err := service.core.operations.(sourcing.PreparedAcquisitionOperationStore).StartPrepared(ctx, request, command)
 			require.NoError(t, err)
 			require.True(t, claim)
-			if state == sourcing.AcquisitionPrepared {
-				_, err = service.core.operations.Prepare(ctx, op, command)
-				require.NoError(t, err)
+			if state == sourcing.AcquisitionAcquiring {
+				// Corrupt only this task-owned fixture to represent an old empty
+				// command record. Capture recovery must reject it, not downgrade.
+				require.NoError(t, db.Exec("UPDATE product_acquisition_operations SET state='acquiring',command=NULL,command_hash='' WHERE operation_id=?", op.ID).Error)
 			}
 			if state == sourcing.AcquisitionFailed {
 				require.NoError(t, service.core.operations.Finish(ctx, op, state, "INVALID_SOURCE"))
@@ -221,14 +222,20 @@ func TestBrowserCaptureBusinessChainReadOnlyUnknownStates(t *testing.T) {
 			recovery, err := NewBrowserAcquisition(context.Background(), browserReadOnlyDatabase(t, db), live, permissions)
 			require.NoError(t, err)
 			_, err = recovery.Verify(ctx, op.Key, body)
-			if state == sourcing.AcquisitionFailed {
+			if state == sourcing.AcquisitionAcquiring {
+				require.ErrorIs(t, err, sourcing.ErrAcquisitionUnavailable)
+			} else if state == sourcing.AcquisitionFailed {
 				require.NoError(t, err)
 			} else {
 				require.ErrorIs(t, err, sourcing.ErrAcquisitionUnknown)
 			}
 			current, err := service.core.operations.ByKey(ctx, op.Scope, op.Key)
-			require.NoError(t, err)
-			require.Equal(t, state, current.State)
+			if state == sourcing.AcquisitionAcquiring {
+				require.ErrorIs(t, err, sourcing.ErrAcquisitionUnavailable)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, state, current.State)
+			}
 			var count int64
 			require.NoError(t, db.Table("product_source_publications").Count(&count).Error)
 			require.Zero(t, count)

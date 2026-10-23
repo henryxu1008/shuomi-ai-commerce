@@ -7,6 +7,11 @@ const result={schemaVersion:1,operationId:key,outcome:"published",replayed:false
 const product={schemaVersion:1,operationId:key,productKey:"crawler:1688:981645030344",publicationId:`source-run:acquisition:${key}`,catalogVersion:"1",title:"Captured bottle",sources:[{platform:"1688",url:"https://detail.1688.com/offer/981645030344.html"}],images:[{url:"https://img.test/1.jpg",role:"candidate"}],specifications:[{name:"material",value:"glass"}],warnings:[],missingFacts:[{field:"sku",reason:"not captured"}]};
 afterEach(()=>vi.unstubAllGlobals());
 describe("acquisition client",()=>{
+  it("retains exact source variants and their images in the strict read contract",async()=>{
+    const detail={...product,variants:[{sourceId:"blue",attributes:[{name:"颜色",value:"蓝色"}],images:[{url:"https://cbu01.alicdn.com/blue.jpg",role:"source"}]}]};
+    vi.stubGlobal("fetch",vi.fn().mockResolvedValue(Response.json(detail)));
+    await expect(readAcquisitionProduct(key,operation)).resolves.toEqual(detail);
+  });
   it("uses explicit original intent, safe same-origin transport and verify only",async()=>{
     const fetcher=vi.fn().mockImplementation(async()=>Response.json(result));vi.stubGlobal("fetch",fetcher);
     expect(await acquire1688(operation)).toEqual(result);expect(await verify1688(operation)).toEqual(result);expect(await readAcquisition(key,operation)).toEqual(result);
