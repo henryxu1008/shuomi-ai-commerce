@@ -1,6 +1,6 @@
 import { parseTree, type Node, type ParseError } from 'jsonc-parser';
 import type { CapturePayload, EvidenceV2, Price, Image } from './wire';
-import { byteLength, fail, MAX_BYTES, pageSource, validateCapture } from './validation';
+import { byteLength, fail, MAX_BYTES, pageSource, validateCapture, validPriceAmount } from './validation';
 
 // Observed live payloads reach ~16.5k nodes, so the previous 16384 bound rejected
 // real pages. The 2MB candidate bound remains the primary resource guard.
@@ -199,7 +199,7 @@ export async function captureDocument(doc: Document, source: string, now: Date):
   e.images = array(path(data, 'gallery', 'fields', 'offerImgList')).map(n => ({ url: string(n) ?? fail('UNSUPPORTED_PAGE'), role: 'source' }));
   const price = (node: Node, field: string, reportMissing = true): Price | null => {
     const amount = string(path(node, 'price'), true);
-    if (amount === null) { if (reportMissing) missing(field); return null; }
+    if (amount === null || !reportMissing && !validPriceAmount(amount)) { if (reportMissing) missing(field); return null; }
     const currency = string(path(node, 'currency'));
     if (currency === null) missing(`${field}.currency`);
     const minQuantity = string(path(node, 'beginAmount'), true);

@@ -24,9 +24,22 @@ describe('Amazon single product module', () => {
   it('ignores struck reference prices and keeps conflicting explicit currencies unknown', async () => {
     const doc = page();
     doc.querySelector('#corePrice_feature_div')!.insertAdjacentHTML('afterbegin', '<span class="a-price a-text-price"><span class="a-offscreen">US$99.00</span></span>');
-    doc.head.insertAdjacentHTML('beforeend', '<meta itemprop="priceCurrency" content="EUR">');
+    doc.querySelector('#corePrice_feature_div')!.insertAdjacentHTML('beforeend', '<meta itemprop="priceCurrency" content="EUR">');
     const { evidence } = await captureAmazonDocument(doc, doc.URL);
     expect(evidence.priceFacts).toEqual([{ amount: '19.99', currency: null }]);
+    expect(evidence.missingFacts).toContainEqual({field:'price.currency',reason:'conflicting explicit source currencies were omitted'});
+  });
+  it('ignores currencies outside the current price and detects all bound metadata conflicts',async()=>{
+    const doc=page('www.amazon.com','$19.99');
+    doc.head.insertAdjacentHTML('beforeend','<meta itemprop="priceCurrency" content="CAD">');
+    doc.body.insertAdjacentHTML('beforeend','<div id="recommendations"><meta itemprop="priceCurrency" content="EUR"></div>');
+    expect((await captureAmazonDocument(doc,doc.URL)).evidence.priceFacts[0].currency).toBeNull();
+    const root=doc.querySelector('#corePrice_feature_div')!;
+    root.insertAdjacentHTML('beforeend','<meta itemprop="priceCurrency" content="USD">');
+    expect((await captureAmazonDocument(doc,doc.URL)).evidence.priceFacts[0].currency).toBe('USD');
+    root.insertAdjacentHTML('beforeend','<meta itemprop="priceCurrency" content="EUR">');
+    const {evidence}=await captureAmazonDocument(doc,doc.URL);
+    expect(evidence.priceFacts[0].currency).toBeNull();
     expect(evidence.missingFacts).toContainEqual({field:'price.currency',reason:'conflicting explicit source currencies were omitted'});
   });
   it.each(['amazon.com', 'amazon.ca', 'amazon.co.uk', 'amazon.de', 'amazon.co.jp'])('admits only current five sites %s', domain => expect(amazonPageSource(`https://${domain}/dp/B012345678`).sourceID).toBe('B012345678'));

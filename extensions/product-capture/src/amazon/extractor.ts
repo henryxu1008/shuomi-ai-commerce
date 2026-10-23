@@ -109,9 +109,22 @@ export async function captureAmazonDocument(doc: Document, source: string, now =
   const priceNodes = doc.querySelectorAll('#corePrice_feature_div .a-price .a-offscreen,#corePriceDisplay_desktop_feature_div .a-price .a-offscreen');
   if (priceNodes.length > 256) fail('CAPTURE_TOO_LARGE');
   const currentPrices = new Set<string>();
+  const currencies = new Set<string>();
+  const priceRoots = new Set<Element>();
   for (const node of priceNodes) {
     if (node.closest('.a-text-price,s,del')) continue;
-    const amount = text(node); if (amount) currentPrices.add(amount);
+    const amount = text(node); if (!amount) continue;
+    currentPrices.add(amount);
+    const root = node.closest('#corePrice_feature_div,#corePriceDisplay_desktop_feature_div');
+    if (!root || priceRoots.has(root)) continue;
+    priceRoots.add(root);
+    const metadata = root.querySelectorAll('meta[itemprop=priceCurrency]');
+    if (metadata.length > 256) fail('CAPTURE_TOO_LARGE');
+    for (const meta of metadata) {
+      charge(); if (excluded(meta)) continue;
+      const currency = meta.getAttribute('content');
+      if (currency && /^[A-Z]{3}$/.test(currency)) currencies.add(currency);
+    }
   }
   const rawPrice = currentPrices.size === 1 ? [...currentPrices][0] : null;
   let price: { amount: string; currency: string | null } | null = null;
@@ -120,11 +133,10 @@ export async function captureAmazonDocument(doc: Document, source: string, now =
   if (rawPrice) {
     const normalized = rawPrice.replace(/\s/g, '').replace(/^(?:US\$|CA\$|CDN\$|\$|£|€|￥|¥)/, '').replace(/(?:€|円)$/, '');
     const amount = identity.site === 'de' ? normalized.replace(',', '.') : normalized;
-    const explicitCurrency = doc.querySelector('meta[itemprop=priceCurrency]')?.getAttribute('content');
     const symbolCurrency = /^US\$/.test(rawPrice) ? 'USD' : /^(?:CA\$|CDN\$)/.test(rawPrice) ? 'CAD' : /£/.test(rawPrice) ? 'GBP' : /€/.test(rawPrice) ? 'EUR' : /円/.test(rawPrice) ? 'JPY' : null;
-    const metadataCurrency = explicitCurrency && /^[A-Z]{3}$/.test(explicitCurrency) ? explicitCurrency : null;
-    currencyConflict = Boolean(metadataCurrency && symbolCurrency && metadataCurrency !== symbolCurrency);
-    const currency = currencyConflict ? null : metadataCurrency || symbolCurrency;
+    if (symbolCurrency) currencies.add(symbolCurrency);
+    currencyConflict = currencies.size > 1;
+    const currency = currencies.size === 1 ? [...currencies][0] : null;
     if (/^(0|[1-9][0-9]{0,15})(\.[0-9]{1,8})?$/.test(amount)) price = { amount, currency };
   }
   const missingFacts = [{ field: 'variants', reason: 'only selected product observed; variant family not traversed' }, { field: 'inventory', reason: 'source inventory quantity not observed' }];

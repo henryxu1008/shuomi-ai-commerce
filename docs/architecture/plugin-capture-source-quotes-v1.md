@@ -28,6 +28,8 @@ Collection新增只读SourceQuoteReader窄port，通过Service.WithSourceQuotes�
 
 app/productsourcing实现只读adapter，httpapi/product_collection_application注入。adapter用当前Product DB的READ ONLY / REPEATABLE READ事务复用sourcingpersistence.NewTransactionReader(tx,newCatalogBridge)；其既有Read验证SRC receipt/envelope/snapshot hash及准确Catalog绑定。无schema安装或新grants。不能调用PublishedAcquisitionReader.ReadPublished或BrowserCaptureService.ByKey来恢复/推进操作；它们不是此报价事实的读入口。
 
+沿Issue398现有精确leaf登记方式，只为`internal/app/httpapi/product_collection_application.go`登记`NewCollectionSourceQuoteReader`；其它已受guard覆盖的consumer、subpackage及写入/provider/charge API保持原拒绝规则，不改CI或保护策略。
+
 读取后逐一核验Receipt.OrganizationID==Scope.OrganizationID、ActorID==Scope.ActorID、ProductKey==Source.ProductKey、PublicationID==Source.PublicationID、CatalogVersion==Source.Version。当前member只由原Collection live授权约束，不追加旧member永久独占资产规则。
 
 只投影已批准插件producer：browser_acquisition/v1或v2、amazon_browser_capture/v1；其它producer/own资料为not_applicable。不存在以解析失败切换producer/v1的兼容路径。

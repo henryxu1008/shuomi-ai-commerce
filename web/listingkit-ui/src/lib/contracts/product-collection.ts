@@ -5,7 +5,7 @@ import { isAcquisitionUUID } from "./product-acquisition";
 
 export const COLLECTION_MAX_BYTES = 2 * 1024 * 1024;
 export const COLLECTION_DETAIL_RESPONSE_MAX_BYTES = 3 * 1024 * 1024;
-export const sourcePriceSchema = z.object({amount:z.string().regex(/^(0|[1-9][0-9]{0,15})(\.[0-9]{1,8})?$/),currency:z.string().regex(/^[A-Z]{3}$/).nullable(),minQuantity:z.string().regex(/^[1-9][0-9]{0,19}$/).nullable().optional()}).strict();
+const sourcePriceSchema = z.object({amount:z.string().regex(/^(0|[1-9][0-9]{0,15})(\.[0-9]{1,8})?$/),currency:z.string().regex(/^[A-Z]{3}$/).nullable(),minQuantity:z.string().regex(/^[1-9][0-9]{0,19}$/).nullable().optional()}).strict();
 export function parseSourcePriceFact(raw:string|undefined){
   if(!raw||new TextEncoder().encode(raw).length>8192)return null;
   try{

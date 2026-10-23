@@ -28,7 +28,7 @@ describe('explicit current-page capture', () => {
     const doc = fixture('<div id="desc-lazyload-container"><p>实际正文</p><script>private()</script><iframe></iframe><form>secret</form><span hidden>隐藏</span><span aria-hidden="true">不可见</span><p>第二段</p></div>').window.document;
     expect((await captureDocument(doc, source, new Date())).evidence.description).toBe('实际正文\n第二段');
   });
-  it.each(['skuRangePrices', 'currentPrices'])('reads %s only when higher-priority ranges have no price', async shape => {
+  it.each(['skuRangePrices', 'currentPrices'].flatMap(shape=>[null,'','  ','invalid','-1'].map(amount=>({shape,amount}))))('reads $shape when higher-priority amount is $amount', async ({shape,amount}) => {
     const cloned = structuredClone(model);
     const value = { ...cloned, result: { ...cloned.result, data: { ...cloned.result.data,
       Root: { fields: { dataJson: { ...cloned.result.data.Root.fields.dataJson, orderParamModel: { orderParam: { skuParam: { skuRangePrices: [] as {price:string;beginAmount:string}[] } } } } } },
@@ -37,7 +37,7 @@ describe('explicit current-page capture', () => {
     value.result.data.price.fields.finalPriceModel.tradeWithoutPromotion.offerPriceRanges = [];
     value.result.data.Root.fields.dataJson.orderParamModel = { orderParam: { skuParam: { skuRangePrices: shape === 'skuRangePrices' ? [{ price: '27.00000001', beginAmount: '3' }] : [] } } };
     value.result.data.price.fields.priceModel = { currentPrices: [{ price: '28.00', currency: 'CNY', beginAmount: '5' }] };
-    const raw = JSON.stringify(value).replace('"offerPriceRanges":[]', '"offerPriceRanges":[{"price":null}]');
+    const raw = JSON.stringify(value).replace('"offerPriceRanges":[]', `"offerPriceRanges":[{"price":${JSON.stringify(amount)}}]`);
     const doc = new JSDOM(`<script>window.context=${raw};</script>`, { url: source }).window.document;
     const captured = await captureDocument(doc, source, new Date());
     expect(captured.evidence.missingFacts.some(fact => fact.field === 'priceFacts[0]')).toBe(false);
@@ -46,6 +46,14 @@ describe('explicit current-page capture', () => {
     value.result.data.price.fields.finalPriceModel.tradeWithoutPromotion.offerPriceRanges = [{ price: '12.34000001', beginAmount: '2' }];
     doc.querySelector('script')!.textContent = `window.context=${JSON.stringify(value)};`;
     expect((await captureDocument(doc, source, new Date())).evidence.priceFacts).toEqual([{ amount: '12.34000001', currency: null, minQuantity: '2' }]);
+  });
+  it('rejects invalid currency and quantity on a usable lower-priority quote',async()=>{
+    const raw=JSON.stringify(model).replace('"price":"12.34000001","beginAmount":"2"','"price":null');
+    for(const price of [{price:'27.00',currency:'$'},{price:'27.00',beginAmount:'-1'}]){
+      const payload=raw.replace('"skuModel":',`"orderParamModel":{"orderParam":{"skuParam":{"skuRangePrices":[${JSON.stringify(price)}]}}},"skuModel":`);
+      const doc=new JSDOM(`<script>window.context=${payload};</script>`,{url:source}).window.document;
+      await expect(captureDocument(doc,source,new Date())).rejects.toThrow('INVALID_CAPTURE');
+    }
   });
   it('matches the shared browser wire golden without a second sourcing mapper', async () => {
     const html=readFileSync('tests/fixtures/product.html','utf8');
