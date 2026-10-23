@@ -26,4 +26,11 @@ describe('Amazon single product module', () => {
     const payload = await captureAmazonDocument(page(), 'https://www.amazon.com/dp/B012345678');
     expect(() => validateAmazonCapture({ ...payload, evidence: { ...payload.evidence, title: 'a'.repeat(2001) } })).toThrow();
   });
+  it('bounds node and text reads before materializing product text', async () => {
+    const doc=page();const description=doc.createElement('div');description.id='productDescription';description.append(doc.createTextNode('Observed description'));doc.body.append(description);
+    Object.defineProperty(description,'textContent',{get(){throw new Error('UNBOUNDED_TEXT_READ');}});
+    const captured=await captureAmazonDocument(doc,doc.URL);expect(captured.evidence.description).toBe('Observed description');
+    for(let i=0;i<257;i++){const variation=doc.createElement('div');variation.id=`variation_${i}`;variation.innerHTML='<span class="a-form-label">Color:</span><span class="selection">Blue</span>';doc.body.append(variation);}
+    await expect(captureAmazonDocument(doc,doc.URL)).rejects.toThrow('CAPTURE_TOO_LARGE');
+  });
 });

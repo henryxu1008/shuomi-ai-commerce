@@ -1,4 +1,4 @@
-import { fail, publicImage } from '../validation';
+import { byteLength, fail, publicImage } from '../validation';
 import { amazonPageSource, validateAmazonCapture } from './validation';
 import type { AmazonCapturePayload, AmazonImage } from './wire';
 
@@ -7,18 +7,30 @@ import type { AmazonCapturePayload, AmazonImage } from './wire';
 export async function captureAmazonDocument(doc: Document, source: string, now = new Date()): Promise<AmazonCapturePayload> {
   const identity = amazonPageSource(source);
   if (amazonPageSource(doc.URL).sourceURL !== identity.sourceURL) fail('SOURCE_CHANGED');
-  const value = (selector: string) => doc.querySelector(selector)?.textContent?.trim() || null;
-  const title = value('#productTitle'); if (!title) fail('UNSUPPORTED_PAGE');
+  let examined=0;
+  const charge=()=>{if(++examined>65536)fail('CAPTURE_TOO_LARGE');};
+  const text=(element:Element|null,max=8192)=>{
+    if(!element)return null;let result='';let bytes=0;
+    const walker=doc.createTreeWalker(element,4);let node:Node|null;
+    while((node=walker.nextNode())){charge();const value=node.nodeValue??'';if(value.length>max)fail('CAPTURE_TOO_LARGE');bytes+=byteLength(value);if(bytes>max)fail('CAPTURE_TOO_LARGE');result+=value;}
+    return result.trim()||null;
+  };
+  const value = (selector: string,max=8192) => text(doc.querySelector(selector),max);
+  const title = value('#productTitle',2000); if (!title) fail('UNSUPPORTED_PAGE');
   const observedASIN = doc.querySelector<HTMLInputElement>('input#ASIN')?.value;
   if (observedASIN && observedASIN !== identity.sourceID) fail('SOURCE_CHANGED');
   const images: AmazonImage[] = [];
   const main = doc.querySelector<HTMLImageElement>('#landingImage, #imgBlkFront');
   const mainURL = main?.getAttribute('data-old-hires') || main?.getAttribute('src');
+  if(mainURL && mainURL.length>2048)fail('CAPTURE_TOO_LARGE');
   if (mainURL && publicImage(mainURL)) images.push({ url: mainURL, role: 'main' });
   const attributes: { name: string; value: string }[] = [];
-  for (const node of doc.querySelectorAll('[id^="variation_"]')) {
-    const name = node.querySelector('.a-form-label')?.textContent?.trim().replace(/:$/, '');
-    const selected = node.querySelector('.selection')?.textContent?.trim();
+  const variationWalker=doc.createTreeWalker(doc.body,1);let current:Node|null;let variationCount=0;
+  while((current=variationWalker.nextNode())) {
+    charge();const node=current as Element;if(!node.id.startsWith('variation_'))continue;
+    if(++variationCount>256)fail('CAPTURE_TOO_LARGE');
+    const name = text(node.querySelector('.a-form-label'))?.replace(/:$/, '');
+    const selected = text(node.querySelector('.selection'));
     if (name && selected && !attributes.some(v => v.name === name)) attributes.push({ name, value: selected });
   }
   const rawPrice = value('#corePrice_feature_div .a-price .a-offscreen') || value('#corePriceDisplay_desktop_feature_div .a-price .a-offscreen');
