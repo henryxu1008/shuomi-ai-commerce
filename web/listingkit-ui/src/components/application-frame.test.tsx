@@ -66,6 +66,7 @@ describe("isPublicRoute", () => {
 describe("isWorkbenchRoute", () => {
   it("admits only the frozen Browser capture page, never as public", () => {
     expect(isWorkbenchRoute("/capture/1688")).toBe(true);
+    expect(isWorkbenchRoute("/capture/amazon")).toBe(true);
     expect(isPublicRoute("/capture/1688")).toBe(false);
     for (const path of ["/capture/1688/", "/capture/1688/child", "/capture/16880", "/capture/other", null]) expect(isWorkbenchRoute(path)).toBe(false);
   });
@@ -79,8 +80,8 @@ describe("isWorkbenchRoute", () => {
 });
 
 describe("ApplicationFrame", () => {
-  it("mounts the current provider/shell chain for the exact Browser receiver", () => {
-    vi.mocked(usePathname).mockReturnValue("/capture/1688");
+  it.each(["/capture/1688", "/capture/amazon"])("mounts the current provider/shell chain for %s", (path) => {
+    vi.mocked(usePathname).mockReturnValue(path);
     render(<ApplicationFrame><p>capture child</p></ApplicationFrame>);
     expect(screen.getByTestId("theme-provider")).toContainElement(screen.getByTestId("query-provider"));
     expect(screen.getByTestId("query-provider")).toContainElement(screen.getByTestId("toast-provider"));
