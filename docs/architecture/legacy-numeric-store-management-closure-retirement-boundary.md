@@ -1,3 +1,5 @@
+> 当前适用边界（#301 / #912）：用户已确认并按[旧 SHEIN 闲置策略与辅助合同完整退休闭包](legacy-shein-policy-contract-closure-retirement-boundary.md) §1–§7（含 §6.1）整批实施，仅替代本文件中旧 productsync Attributes 及其成本策略的 KEEP；当前 Store observations 与独立登录/Store同步仍归原 owner及对应旧 KEEP 检查；准确删除/保留矩阵以新设计 §2/§5/§6.1 为准，其它当前 API/有效规则/采集/独立 SHEIN 登录与 Store 同步不变。下方原历史正文、数字和证据逐字保留，不提供旧 JSON 迁移或运行/数据操作授权。
+
 # 旧数字 Store 管理与刊登配置：完整退休闭包
 
 > #833 [旧数字内容配置完整闭包](legacy-numeric-content-management-closure-retirement-boundary.md)：冻结设计 d139bcccc 已确认并整批实施，三族无生产注入的词库/话题配置仓库读写、DTO、全局 setter、专属 schema/迁移和调用尾部源码退出；此前整体保留表述仅在该设计 §5/§6.1 的准确对象上被替代。当前默认清理直接复用原 content 内存工厂，品牌/字段/runtimeCtx、generationtopics 纯规则、Store/API/schema/权限与独立登录/Store 同步保持。物理对象 UNKNOWN、不操作；原历史矩阵/计数保留，全部 workflow/inventory 不改，无新试用前置。

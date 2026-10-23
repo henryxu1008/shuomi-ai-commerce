@@ -26,6 +26,11 @@ var retiredListingPreviewDownloadPackages = []string{
 	"internal/listing/preview", "internal/listing/platform", "internal/pkg/downloader",
 }
 
+var retiredSheinPolicyContractPackages = []string{
+	"internal/shein/activity", "internal/shein/productsync",
+	"internal/shein/generationtopics", "internal/shein/namelimit",
+}
+
 func TestLegacyAmazonSourceAdapterClosureIsRetired(t *testing.T) {
 	for _, relative := range []string{
 		"internal/integration/crawler/amazon",
@@ -1060,11 +1065,8 @@ func TestNumericContextAndValueContractsAreRetired(t *testing.T) {
 		}
 	}
 	for relative, retired := range map[string][]string{
-		"internal/platform/logging/helpers.go":                 {"LogTaskStart", "LogTaskComplete", "LogTaskFailed", "WithTaskContext", "WithStoreContext", "FieldTaskID", "FieldTenantID", "FieldStoreID"},
-		"internal/shein/pricing/calculator.go":                 {"listingruntime"},
-		"internal/shein/activity/registration_config.go":       {"listingruntime"},
-		"internal/shein/activity/promotion_create_products.go": {"listingruntime"},
-		"internal/product/sourcing/source_identity.go":         {"func (id SourceIdentity) Key()", "id.SourcePlatform = id.Platform", "id.Platform = id.SourcePlatform", "id.SourceID = id.ProductID", "id.ProductID = id.SourceID"},
+		"internal/platform/logging/helpers.go":         {"LogTaskStart", "LogTaskComplete", "LogTaskFailed", "WithTaskContext", "WithStoreContext", "FieldTaskID", "FieldTenantID", "FieldStoreID"},
+		"internal/product/sourcing/source_identity.go": {"func (id SourceIdentity) Key()", "id.SourcePlatform = id.Platform", "id.Platform = id.SourcePlatform", "id.SourceID = id.ProductID", "id.ProductID = id.SourceID"},
 	} {
 		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
 		if err != nil {
@@ -1076,39 +1078,8 @@ func TestNumericContextAndValueContractsAreRetired(t *testing.T) {
 			}
 		}
 	}
-	for _, rule := range []struct {
-		path, name string
-		fields     []string
-	}{
-		{"internal/shein/pricing/calculator.go", "AutoPricingRule", []string{"PriceMin", "PriceMax", "RuleType", "RuleValue", "FixedValue"}},
-		{"internal/shein/activity/registration_config.go", "activityStrategy", []string{"ActivityDiscountRate", "ActivityLimitedDiscountRate", "ActivityStockRatio", "ActivityMinProfitRate", "ActivityLimitedMinProfitRate", "ActivityPriceMode", "ActivityPartakeType", "FixedPriceAdjustment"}},
-	} {
-		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(rule.path)), nil, 0)
-		if err != nil {
-			t.Fatal(err)
-		}
-		var fields []string
-		ast.Inspect(file, func(node ast.Node) bool {
-			declaration, ok := node.(*ast.TypeSpec)
-			if !ok || declaration.Name.Name != rule.name {
-				return true
-			}
-			shape, ok := declaration.Type.(*ast.StructType)
-			if !ok {
-				t.Errorf("%s must be a direct value struct", rule.name)
-				return false
-			}
-			for _, field := range shape.Fields.List {
-				for _, name := range field.Names {
-					fields = append(fields, name.Name)
-				}
-			}
-			return false
-		})
-		if !reflect.DeepEqual(fields, rule.fields) {
-			t.Errorf("%s fields = %v, want %v", rule.name, fields, rule.fields)
-		}
-	}
+	// The former 5/8-field rules leave with their owners. Their complete
+	// absence is enforced by TestListingKitTaskBackendSourcesAreRetired.
 }
 
 func TestNumericAcquisitionAndPlatformTailClosureIsRetired(t *testing.T) {
@@ -2408,6 +2379,20 @@ func TestTemuListingClosureSourcesAreRetired(t *testing.T) {
 }
 
 func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
+	for _, relative := range retiredSheinPolicyContractPackages {
+		if _, err := os.Lstat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Errorf("retired SHEIN policy/contract root %s must be absent: %v", relative, err)
+		}
+	}
+	for _, relative := range []string{
+		"internal/shein/models.go", "internal/shein/pricing/price_manager.go",
+		"internal/shein/pricing/calculator.go", "internal/shein/pricing/calculator_test.go",
+		"internal/shein/pricing/cost_profit_calculator.go", "internal/shein/pricing/cost_profit_calculator_test.go",
+	} {
+		if _, err := os.Lstat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Errorf("retired SHEIN policy/contract artifact %s must be absent: %v", relative, err)
+		}
+	}
 	const retiredPolicyRoot = "internal/marketplace/productpolicy"
 	if _, err := os.Lstat(filepath.Join("..", filepath.FromSlash(retiredPolicyRoot))); !os.IsNotExist(err) {
 		t.Errorf("retired product policy root must be absent: %v", err)
@@ -2431,6 +2416,43 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			}
 			if importMatchesPrefix(imported, "task-processor/"+retiredPolicyRoot) {
 				t.Errorf("%s imports retired product policy %s", relative, imported)
+			}
+			for _, retired := range retiredSheinPolicyContractPackages {
+				if importMatchesPrefix(imported, "task-processor/"+retired) {
+					t.Errorf("%s imports retired SHEIN policy/contract %s", relative, imported)
+				}
+			}
+			// Only the root package retires; API/client/content subpackages remain.
+			if imported == "task-processor/internal/shein" {
+				t.Errorf("%s imports retired root SHEIN contract %s", relative, imported)
+			}
+		}
+		owner := filepath.ToSlash(filepath.Dir(relative))
+		for _, declaration := range file.Decls {
+			var names []*ast.Ident
+			switch declaration := declaration.(type) {
+			case *ast.FuncDecl:
+				names = append(names, declaration.Name)
+			case *ast.GenDecl:
+				for _, spec := range declaration.Specs {
+					switch spec := spec.(type) {
+					case *ast.TypeSpec:
+						names = append(names, spec.Name)
+					case *ast.ValueSpec:
+						names = append(names, spec.Names...)
+					}
+				}
+			}
+			for _, name := range names {
+				if owner == "internal/shein" && name.Name == "AmazonMonitorData" {
+					t.Errorf("%s recreates retired root SHEIN declaration %s", relative, name.Name)
+				}
+				if owner == "internal/shein/pricing" && slices.Contains([]string{
+					"PriceManager", "NewPriceManager", "CostPriceRequest", "AutoPricingRule",
+					"AutoPricingCalculator", "NewAutoPricingCalculator", "CostProfitCalculator", "NewCostProfitCalculator",
+				}, name.Name) {
+					t.Errorf("%s recreates retired SHEIN pricing declaration %s", relative, name.Name)
+				}
 			}
 		}
 		// Scope declarations to the retired root/owner. Same-named platform
@@ -2914,18 +2936,6 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			"type CreateCommitRequest struct", "type CreateCommitResponse struct",
 			"type PriceQueryRequest struct", "type PriceQueryResponse struct", "type MaxRetailPriceQueryItem struct", "type MaxRetailPriceResultItem struct",
 		},
-		"internal/shein/activity/price_calculator.go": {"func calculateActivityPrice(", "func amazonCostBySKU("},
-		"internal/shein/activity/registration_config.go": {
-			"type activityRuleInputs struct", "func minimumPromotionSKUDiscountRate(", "func calculateActivityStock(",
-			"func buildActivityConfigsFromProvidedProducts(", "func ensureLimitedPromotionDropRatesGreater(", "func promotionConfigListForActivityType(",
-		},
-		"internal/shein/activity/promotion_create_products.go":                  {"func buildCalculateRequestForPromotionProducts(", "func promotionSKUPriceInputs("},
-		"internal/shein/activity/time_limited.go":                               {"func buildCreateActivityRequest(", "func isTimeLimitedDiscountValid(", "func validatePriceRisk("},
-		"internal/shein/activity/validation_utils.go":                           {"func ValidateDropRate(", "func CalculateDropRateFromDiscount("},
-		"internal/shein/activity/errors.go":                                     {"ErrProductPriceRisk"},
-		"internal/shein/pricing/price_manager.go":                               {"type PriceManager struct", "func NewPriceManager(", "type CostPriceRequest struct"},
-		"internal/shein/models.go":                                              {"type AmazonMonitorData struct", "ASIN", "LastCheckTime", "json:\"asin\"", "json:\"last_check_time\""},
-		"internal/shein/productsync/product_sync_types.go":                      {"type EnrichedSkuInfo struct", "type EnrichedSkcInfo struct", "AmazonMonitorData"},
 		"internal/marketplace/shein/publishing/attribute_value_match_policy.go": {"func MatchPlatformAttributeValue("},
 		"internal/marketplace/shein/publishing/site_policy.go":                  {"func DefaultSiteListByRegion("},
 		"internal/shein/content/cleanup_context.go":                             {"type CleanupContext struct", "type ValidationResult struct", "type SKCValidationMessages struct", "SourceBrand", "other_language_message_map", "otherLanguageMessageMap"},
@@ -3290,62 +3300,6 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			}
 		}
 	}
-	activityRoot := filepath.Join("..", "internal", "shein", "activity")
-	activityFiles, err := os.ReadDir(activityRoot)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, entry := range activityFiles {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") || strings.HasSuffix(entry.Name(), "_test.go") {
-			continue
-		}
-		content, err := os.ReadFile(filepath.Join(activityRoot, entry.Name()))
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, retired := range []string{
-			"ActivityRegistrationService", "activityRegistrationServiceImpl", "PromotionRegistrationBridge",
-			"PromotionRegistrationSession", "promotionRegistrationSession", "PromotionRegistrationResult", "ProductDataHelper",
-			"TimeLimitedDiscountConfig", "ErrInvalidActivityName", "ErrInvalidActivityTime", "ErrInvalidTimeZone",
-			"ErrNoAvailableProducts", "ErrInsufficientStock", "ErrActivityCreationFailed", "ErrActivityAlreadyExists",
-			"buildCalculateRequestWithPriceMode", "GenerateActivityName", "defaultActivityStartLeadTime",
-			"\"context\"", "task-processor/internal/listingadmin", "task-processor/internal/core/logger",
-			"task-processor/internal/infra/clients/management", "marketing.MarketingAPI", "marketing.NewClient(",
-			".SaveConfig(", ".UpdateConfigState(", ".CreateActivity(", ".QueryPromotionGoods(", ".CalculateSupplyPrice(",
-		} {
-			if strings.Contains(string(content), retired) {
-				t.Errorf("%s must not recreate retired SHEIN activity orchestration %q", entry.Name(), retired)
-			}
-		}
-	}
-	attributePath := filepath.Join("..", "internal", "shein", "productsync", "product_sync_types.go")
-	attributes, err := os.ReadFile(attributePath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, retained := range []string{"type EnrichedSkuInfo struct", "type EnrichedSkcInfo struct"} {
-		if !strings.Contains(string(attributes), retained) {
-			t.Errorf("shared SHEIN attribute contract must remain: %s", retained)
-		}
-	}
-	entries, err := os.ReadDir(filepath.Dir(attributePath))
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") || strings.HasSuffix(entry.Name(), "_test.go") {
-			continue
-		}
-		content, err := os.ReadFile(filepath.Join(filepath.Dir(attributePath), entry.Name()))
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, retired := range []string{"type ProductSyncService interface", "func NewProductSyncService(", "type ProductSnapshot struct", "func sheinProductDataFromSnapshot("} {
-			if strings.Contains(string(content), retired) {
-				t.Errorf("%s must not recreate retired product synchronization %q", entry.Name(), retired)
-			}
-		}
-	}
 }
 
 func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
@@ -3358,16 +3312,11 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 		"internal/temu/api/client/auth_retry_handler.go", "internal/temu/api/inventory/inventory.go",
 		"internal/temu/api/product/request_types.go",
 		"internal/temu/api/product/api.go", "internal/temu/api/query/query.go", "internal/temu/api/query/query_types.go",
-		"internal/shein/productsync/product_sync_types.go", "internal/shein/productsync/marketing_client_boundary_test.go",
 		"internal/shein/api/marketing/client.go", "internal/shein/api/marketing/client_test.go",
 		"internal/shein/api/marketing/interface.go", "internal/shein/api/marketing/activity_types.go",
 		"internal/shein/api/marketing/price_types.go", "internal/shein/api/marketing/promotion_types.go",
 		"internal/shein/api/marketing/workflow_example.go",
-		"internal/shein/activity/price_calculator_test.go", "internal/shein/activity/activity_stock_validation_test.go",
-		"internal/shein/activity/registration_direct_products_test.go", "internal/shein/activity/validation_utils_test.go",
-		"internal/shein/pricing/price_manager.go", "internal/shein/pricing/pricing_repo.go",
-		"internal/shein/pricing/calculator.go", "internal/shein/pricing/calculator_test.go",
-		"internal/shein/pricing/cost_profit_calculator.go", "internal/shein/pricing/cost_profit_calculator_test.go",
+		"internal/shein/pricing/pricing_repo.go",
 	} {
 		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); err != nil {
 			t.Errorf("retained platform/shared contract %s must remain: %v", relative, err)
@@ -3400,6 +3349,14 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 				t.Fatalf("go list current command: %v\n%s", err, output)
 			}
 			for _, dependency := range strings.Fields(string(output)) {
+				if dependency == "task-processor/internal/shein" {
+					t.Errorf("%s still compiles retired root SHEIN contract %s", command, dependency)
+				}
+				for _, relative := range retiredSheinPolicyContractPackages {
+					if importMatchesPrefix(dependency, "task-processor/"+relative) {
+						t.Errorf("%s still compiles retired SHEIN policy/contract %s", command, dependency)
+					}
+				}
 				for _, relative := range append(append(append([]string{}, retiredTEMUListingPackages...), retiredAmazonListingPackages...), retiredHostRuntimePackages...) {
 					retired := "task-processor/" + relative
 					if dependency == retired || strings.HasPrefix(dependency, retired+"/") {
@@ -3902,7 +3859,11 @@ func TestSheinListingMixedDeclarationsAreRetired(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(paths) == 0 {
+		if relative == "internal/shein" {
+			if len(paths) != 0 {
+				t.Errorf("retired root SHEIN Go package must be absent: %v", paths)
+			}
+		} else if len(paths) == 0 {
 			t.Fatalf("retained mixed package is absent: %s", relative)
 		}
 		for _, path := range paths {
@@ -3972,6 +3933,10 @@ func TestSheinListingMixedDeclarationsAreRetired(t *testing.T) {
 }
 
 func TestNumericContentConfigurationClosureIsRetired(t *testing.T) {
+	// Full decoded-import protection lives in TestListingKitTaskBackendSourcesAreRetired.
+	if _, err := os.Lstat(filepath.Join("..", "internal", "shein", "generationtopics")); !os.IsNotExist(err) {
+		t.Errorf("retired SHEIN generationtopics root must be absent: %v", err)
+	}
 	for _, relative := range []string{
 		"internal/listingadmin/sensitive_word.go",
 		"internal/listingadmin/sensitive_word_repository.go",
@@ -4047,7 +4012,6 @@ func TestNumericContentConfigurationClosureIsRetired(t *testing.T) {
 	for relative, required := range map[string][]string{
 		"internal/publishing/shein/submit_prep_sensitive_adapter.go": {"content.NewSensitiveWordServiceInMemory(logs)"},
 		"internal/shein/content/cleanup_context.go":                  {"type CleanupContext struct"},
-		"internal/shein/generationtopics/registry.go":                {"func ResolveSheinTopicKeys(", "func ResolveSheinTopicDefinitionsWithOverlay(", "func AssembleSheinPolicySummary(", "func CollectLexiconsFromDefinitions("},
 	} {
 		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
 		if err != nil {

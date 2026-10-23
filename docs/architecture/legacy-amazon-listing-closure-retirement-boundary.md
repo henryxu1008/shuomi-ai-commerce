@@ -1,3 +1,5 @@
+> 当前适用边界（#301 / #912）：用户已确认并按[旧 SHEIN 闲置策略与辅助合同完整退休闭包](legacy-shein-policy-contract-closure-retirement-boundary.md) §1–§7（含 §6.1）整批实施，仅替代本文件中两种 SHEIN 属性/最后 AmazonMonitorData 及旧价格辅助的广泛 KEEP；当前 Amazon 来源采集与原浏览器/debug 不变及对应旧 KEEP 检查；准确删除/保留矩阵以新设计 §2/§5/§6.1 为准，其它当前 API/有效规则/采集/独立 SHEIN 登录与 Store 同步不变。下方原历史正文、数字和证据逐字保留，不提供旧 JSON 迁移或运行/数据操作授权。
+
 # 旧 Amazon 刊登整链与专属闭包退休边界
 
 > 用户已确认 [#909 productpolicy 完整退休边界](legacy-product-policy-closure-retirement-boundary.md) §1–§7（含 §6.1）。本文件对 `internal/marketplace/productpolicy` 六工件（doc/filter_rule/rule_checker/price_helper/fulfillment 及专属测试）和四项 KEEP 检查的保留含义已由该边界精确替代为 RETIRE；其余有效规则/API/采集、共享合同及独立 SHEIN 登录与 Store 同步不变。以下原正文、历史数字与验收证据保留，不恢复旧策略或授权既有实例/数据/凭据/进程操作。
