@@ -1991,6 +1991,7 @@ var retiredNumericListingSupportFiles = []string{
 
 var retiredNumericListingSupportDeclarations = map[string][]string{
 	"internal/publishing/shein": strings.Fields(`
+Package.RequestDraft Package.PreviewProduct Package.FinalDraft Package.MarshalJSON Package.UnmarshalJSON NormalizePackageSemanticFields conflictingPersistedAliases equalPersistedAliases
 AttributeAPI BuildRequest.SheinStoreID BuildRequest.Text CategoryAPI CleanSubmitProductSensitiveWords CloneImageUploadCache
 CloneResolutionCacheInfo ConfigureSubmitPrepRepositories DistinctSKCMainImageCount EnforceVariantImageCoverage EnsureDraftPayload GormResolutionCacheStore
 GormResolutionCacheStore.DeleteResolutionCache GormResolutionCacheStore.DeleteResolutionCacheByShortKey GormResolutionCacheStore.GetManualResolutionCacheByProductIdentity GormResolutionCacheStore.GetManualResolutionCacheBySourceIdentity GormResolutionCacheStore.GetResolutionCache GormResolutionCacheStore.SaveResolutionCache
@@ -4011,6 +4012,53 @@ func TestNumericContentConfigurationClosureIsRetired(t *testing.T) {
 			if !strings.Contains(string(content), symbol) {
 				t.Errorf("%s is missing retained content/Store rule %s", relative, symbol)
 			}
+		}
+	}
+}
+
+func TestSheinCanonicalDraftContractIsRetained(t *testing.T) {
+	required := map[string]bool{}
+	for _, name := range strings.Fields("Package Package.DraftPayload Package.PreviewPayload Package.FinalSubmissionDraft RequestDraft FinalDraft DraftPayloadOf SetDraftPayload SetPreviewPayload DecodePersistedPackageStrict ClonePackageForPersistence") {
+		required[name] = false
+	}
+	for _, source := range trackedProductionTextSources(t, []string{"internal/publishing/shein"}, func(path string) bool { return strings.HasSuffix(path, ".go") && !strings.HasSuffix(path, "_test.go") }) {
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(source.path)), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ast.Inspect(file, func(node ast.Node) bool {
+			switch n := node.(type) {
+			case *ast.FuncDecl:
+				if n.Recv == nil {
+					if _, ok := required[n.Name.Name]; ok {
+						required[n.Name.Name] = true
+					}
+				}
+			case *ast.TypeSpec:
+				if _, ok := required[n.Name.Name]; ok {
+					required[n.Name.Name] = true
+				}
+				if n.Name.Name == "Package" {
+					shape, ok := n.Type.(*ast.StructType)
+					if !ok {
+						t.Fatal("Package must remain a struct")
+					}
+					for _, f := range shape.Fields.List {
+						for _, name := range f.Names {
+							key := "Package." + name.Name
+							if _, ok := required[key]; ok {
+								required[key] = true
+							}
+						}
+					}
+				}
+			}
+			return true
+		})
+	}
+	for name, found := range required {
+		if !found {
+			t.Errorf("current SHEIN contract missing: %s", name)
 		}
 	}
 }

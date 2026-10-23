@@ -2,6 +2,7 @@ package draft
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"task-processor/internal/listing/record"
@@ -34,6 +35,13 @@ func TestBuilderUsesOnlyControlledExactApprovedAssets(t *testing.T) {
 		again, buildErr := (Builder{}).Build(context.Background(), snapshot, inventory, input)
 		require.NoError(t, buildErr)
 		require.Equal(t, raw, again, "pure draft mapping must be byte-deterministic")
+	}
+	var wire map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(raw, &wire))
+	require.Contains(t, wire, "draft_payload")
+	require.Contains(t, wire, "preview_payload")
+	for _, key := range []string{"request_draft", "preview_product", "final_draft"} {
+		require.NotContains(t, wire, key)
 	}
 	pkg, err := sheinpub.DecodePersistedPackageStrict(raw)
 	require.NoError(t, err)

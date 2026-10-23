@@ -103,7 +103,6 @@ func (a *assembler) Build(req *BuildRequest, product *canonical.Product) *Packag
 		pkg.ReviewNotes = append(pkg.ReviewNotes, "英文描述生成失败，无法进入最终提交")
 		pkg.Metadata["english_description_generation"] = "failed"
 	}
-	NormalizePackageSemanticFields(pkg)
 	if copy.TitleDiagnostics != nil {
 		pkg.Metadata["title_source"] = copy.TitleDiagnostics.Source
 		if copy.TitleDiagnostics.PromptContaminated {
@@ -172,7 +171,6 @@ func (a *assembler) Build(req *BuildRequest, product *canonical.Product) *Packag
 	ApplySaleAttributeResolution(pkg, pkg.SaleAttributeResolution)
 	applyProductSizeAttributesWithResolver(pkg, req.ProductSize, a.sizeAttributeHeaderResolver, req.Context)
 	SetPreviewPayload(pkg, BuildPreviewProduct(pkg))
-	NormalizePackageSemanticFields(pkg)
 	log.WithFields(logrus.Fields{
 		"category_id": pkg.CategoryID,
 		"skc_count":   len(pkg.SkcList),

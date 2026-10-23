@@ -128,7 +128,7 @@ func TestValidateRejectsInvalidRequestWithZeroResult(t *testing.T) {
 	}
 }
 
-func TestValidateDeterministicConcurrentAndDoesNotNormalizeCaller(t *testing.T) {
+func TestValidateDeterministicConcurrentAndDoesNotMutateCaller(t *testing.T) {
 	pkg := readyPackage()
 	r := request(pkg)
 	baseline, err := (Validator{}).Validate(r)
@@ -145,9 +145,6 @@ func TestValidateDeterministicConcurrentAndDoesNotNormalizeCaller(t *testing.T) 
 		})
 	}
 	group.Wait()
-	if pkg.RequestDraft != nil || pkg.PreviewProduct != nil || pkg.FinalDraft != nil {
-		t.Fatal("validator normalized caller aliases")
-	}
 	if !reflect.DeepEqual(pkg, readyPackage()) {
 		t.Fatal("validator mutated caller facts")
 	}

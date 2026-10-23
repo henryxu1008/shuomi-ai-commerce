@@ -29,7 +29,6 @@ func sanitizeSheinListingCopy(copy *listingCopy, runtimeCtx context.Context, ctx
 }
 
 func SanitizeDraftPayloadSensitiveContent(pkg *Package, runtimeCtx context.Context, ctx *content.CleanupContext, logs func(string) *logrus.Entry) bool {
-	pkg = NormalizePackageSemanticFields(pkg)
 	if pkg == nil || pkg.DraftPayload == nil {
 		return false
 	}

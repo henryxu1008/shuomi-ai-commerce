@@ -14,24 +14,20 @@ type DraftPayloadIssue struct {
 	Message string `json:"message"`
 }
 
-// DraftPayloadOf returns the semantic SHEIN draft after normalizing the
-// historical request_draft alias.
+// DraftPayloadOf returns the canonical SHEIN draft.
 func DraftPayloadOf(pkg *Package) *RequestDraft {
-	pkg = NormalizePackageSemanticFields(pkg)
 	if pkg == nil {
 		return nil
 	}
 	return pkg.DraftPayload
 }
 
-// SetDraftPayload makes the semantic draft the single new write target while
-// mirroring it to the legacy JSON compatibility field.
+// SetDraftPayload updates the canonical draft payload.
 func SetDraftPayload(pkg *Package, draft *RequestDraft) *Package {
 	if pkg == nil {
 		return nil
 	}
 	pkg.DraftPayload = draft
-	pkg.RequestDraft = draft
 	return pkg
 }
 

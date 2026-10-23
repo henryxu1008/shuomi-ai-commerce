@@ -82,7 +82,7 @@ func TestSaleAttributeResolutionAppliesAssignmentsAcrossGroupedSKCs(t *testing.T
 	pkg := &Package{
 		CategoryID: 100,
 		SkcList:    buildSKCs(groups),
-		RequestDraft: &RequestDraft{
+		DraftPayload: &RequestDraft{
 			SKCList: buildRequestSKCs(groups, images, common.DefaultSites("US"), canonical, PricingPolicy{}),
 		},
 	}
@@ -94,20 +94,20 @@ func TestSaleAttributeResolutionAppliesAssignmentsAcrossGroupedSKCs(t *testing.T
 	resolution := resolver.Resolve(&BuildRequest{}, canonical, pkg)
 	ApplySaleAttributeResolution(pkg, resolution)
 
-	if pkg.RequestDraft.SKCList[0].SaleAttribute == nil || pkg.RequestDraft.SKCList[0].SaleAttribute.AttributeValueID == nil || *pkg.RequestDraft.SKCList[0].SaleAttribute.AttributeValueID != 11 {
-		t.Fatalf("first skc sale attribute = %+v, want red value id 11", pkg.RequestDraft.SKCList[0].SaleAttribute)
+	if pkg.DraftPayload.SKCList[0].SaleAttribute == nil || pkg.DraftPayload.SKCList[0].SaleAttribute.AttributeValueID == nil || *pkg.DraftPayload.SKCList[0].SaleAttribute.AttributeValueID != 11 {
+		t.Fatalf("first skc sale attribute = %+v, want red value id 11", pkg.DraftPayload.SKCList[0].SaleAttribute)
 	}
-	if pkg.RequestDraft.SKCList[1].SaleAttribute == nil || pkg.RequestDraft.SKCList[1].SaleAttribute.AttributeValueID == nil || *pkg.RequestDraft.SKCList[1].SaleAttribute.AttributeValueID != 12 {
-		t.Fatalf("second skc sale attribute = %+v, want blue value id 12", pkg.RequestDraft.SKCList[1].SaleAttribute)
+	if pkg.DraftPayload.SKCList[1].SaleAttribute == nil || pkg.DraftPayload.SKCList[1].SaleAttribute.AttributeValueID == nil || *pkg.DraftPayload.SKCList[1].SaleAttribute.AttributeValueID != 12 {
+		t.Fatalf("second skc sale attribute = %+v, want blue value id 12", pkg.DraftPayload.SKCList[1].SaleAttribute)
 	}
-	if len(pkg.RequestDraft.SKCList[0].SKUList[0].SaleAttributes) != 1 || pkg.RequestDraft.SKCList[0].SKUList[0].SaleAttributes[0].AttributeValueID == nil || *pkg.RequestDraft.SKCList[0].SKUList[0].SaleAttributes[0].AttributeValueID != 21 {
-		t.Fatalf("first sku sale attributes = %+v, want size value id 21", pkg.RequestDraft.SKCList[0].SKUList[0].SaleAttributes)
+	if len(pkg.DraftPayload.SKCList[0].SKUList[0].SaleAttributes) != 1 || pkg.DraftPayload.SKCList[0].SKUList[0].SaleAttributes[0].AttributeValueID == nil || *pkg.DraftPayload.SKCList[0].SKUList[0].SaleAttributes[0].AttributeValueID != 21 {
+		t.Fatalf("first sku sale attributes = %+v, want size value id 21", pkg.DraftPayload.SKCList[0].SKUList[0].SaleAttributes)
 	}
-	if len(pkg.RequestDraft.SKCList[0].SKUList[1].SaleAttributes) != 1 || pkg.RequestDraft.SKCList[0].SKUList[1].SaleAttributes[0].AttributeValueID == nil || *pkg.RequestDraft.SKCList[0].SKUList[1].SaleAttributes[0].AttributeValueID != 22 {
-		t.Fatalf("second sku sale attributes = %+v, want size value id 22", pkg.RequestDraft.SKCList[0].SKUList[1].SaleAttributes)
+	if len(pkg.DraftPayload.SKCList[0].SKUList[1].SaleAttributes) != 1 || pkg.DraftPayload.SKCList[0].SKUList[1].SaleAttributes[0].AttributeValueID == nil || *pkg.DraftPayload.SKCList[0].SKUList[1].SaleAttributes[0].AttributeValueID != 22 {
+		t.Fatalf("second sku sale attributes = %+v, want size value id 22", pkg.DraftPayload.SKCList[0].SKUList[1].SaleAttributes)
 	}
-	if len(pkg.RequestDraft.SKCList[1].SKUList[0].SaleAttributes) != 1 || pkg.RequestDraft.SKCList[1].SKUList[0].SaleAttributes[0].AttributeValueID == nil || *pkg.RequestDraft.SKCList[1].SKUList[0].SaleAttributes[0].AttributeValueID != 21 {
-		t.Fatalf("third sku sale attributes = %+v, want size value id 21", pkg.RequestDraft.SKCList[1].SKUList[0].SaleAttributes)
+	if len(pkg.DraftPayload.SKCList[1].SKUList[0].SaleAttributes) != 1 || pkg.DraftPayload.SKCList[1].SKUList[0].SaleAttributes[0].AttributeValueID == nil || *pkg.DraftPayload.SKCList[1].SKUList[0].SaleAttributes[0].AttributeValueID != 21 {
+		t.Fatalf("third sku sale attributes = %+v, want size value id 21", pkg.DraftPayload.SKCList[1].SKUList[0].SaleAttributes)
 	}
 }
 
@@ -125,20 +125,20 @@ func TestAssemblerBuildCreatesDefaultSKCWhenCanonicalVariantsMissing(t *testing.
 	}
 
 	pkg := assembler.Build(&BuildRequest{Country: "US", Language: "en", TargetCategoryHint: "4004"}, canonical)
-	if pkg == nil || pkg.RequestDraft == nil {
+	if pkg == nil || pkg.DraftPayload == nil {
 		t.Fatalf("expected package with request draft")
 	}
-	if len(pkg.RequestDraft.SKCList) != 1 {
-		t.Fatalf("request draft skc count = %d, want 1", len(pkg.RequestDraft.SKCList))
+	if len(pkg.DraftPayload.SKCList) != 1 {
+		t.Fatalf("request draft skc count = %d, want 1", len(pkg.DraftPayload.SKCList))
 	}
-	if len(pkg.RequestDraft.SKCList[0].SKUList) != 1 {
-		t.Fatalf("request draft sku count = %d, want 1", len(pkg.RequestDraft.SKCList[0].SKUList))
+	if len(pkg.DraftPayload.SKCList[0].SKUList) != 1 {
+		t.Fatalf("request draft sku count = %d, want 1", len(pkg.DraftPayload.SKCList[0].SKUList))
 	}
-	if pkg.RequestDraft.SKCList[0].SKUList[0].SupplierSKU != "DEFAULT-001" {
-		t.Fatalf("default supplier sku = %q, want DEFAULT-001", pkg.RequestDraft.SKCList[0].SKUList[0].SupplierSKU)
+	if pkg.DraftPayload.SKCList[0].SKUList[0].SupplierSKU != "DEFAULT-001" {
+		t.Fatalf("default supplier sku = %q, want DEFAULT-001", pkg.DraftPayload.SKCList[0].SKUList[0].SupplierSKU)
 	}
-	if pkg.PreviewProduct == nil || len(pkg.PreviewProduct.SKCList) != 1 {
-		t.Fatalf("preview product skc count = %d, want 1", len(pkg.PreviewProduct.SKCList))
+	if pkg.PreviewPayload == nil || len(pkg.PreviewPayload.SKCList) != 1 {
+		t.Fatalf("preview product skc count = %d, want 1", len(pkg.PreviewPayload.SKCList))
 	}
 }
 
@@ -209,10 +209,10 @@ func TestAssemblerBuildAppliesPricingPolicyToRequestDraft(t *testing.T) {
 
 	pkg := assembler.Build(&BuildRequest{Country: "US", Language: "en"}, canonical)
 
-	if len(pkg.RequestDraft.SKCList) != 1 || len(pkg.RequestDraft.SKCList[0].SKUList) != 1 {
-		t.Fatalf("request draft skus = %+v", pkg.RequestDraft.SKCList)
+	if len(pkg.DraftPayload.SKCList) != 1 || len(pkg.DraftPayload.SKCList[0].SKUList) != 1 {
+		t.Fatalf("request draft skus = %+v", pkg.DraftPayload.SKCList)
 	}
-	sku := pkg.RequestDraft.SKCList[0].SKUList[0]
+	sku := pkg.DraftPayload.SKCList[0].SKUList[0]
 	if sku.CostPrice != "8" {
 		t.Fatalf("cost price = %q, want 8", sku.CostPrice)
 	}
@@ -322,17 +322,17 @@ func TestAssemblerBuildCreatesGroupedSKCsWhenSaleAttributeResolverMapsSourceDime
 	}
 
 	pkg := assembler.Build(&BuildRequest{Country: "US", Language: "en", TargetCategoryHint: "4004"}, canonical)
-	if pkg == nil || pkg.RequestDraft == nil {
+	if pkg == nil || pkg.DraftPayload == nil {
 		t.Fatalf("expected package with request draft")
 	}
-	if len(pkg.RequestDraft.SKCList) != 2 {
-		t.Fatalf("request draft skc count = %d, want 2; resolution=%#v", len(pkg.RequestDraft.SKCList), pkg.SaleAttributeResolution)
+	if len(pkg.DraftPayload.SKCList) != 2 {
+		t.Fatalf("request draft skc count = %d, want 2; resolution=%#v", len(pkg.DraftPayload.SKCList), pkg.SaleAttributeResolution)
 	}
-	if len(pkg.RequestDraft.SKCList[0].SKUList) != 2 {
-		t.Fatalf("first skc sku count = %d, want 2", len(pkg.RequestDraft.SKCList[0].SKUList))
+	if len(pkg.DraftPayload.SKCList[0].SKUList) != 2 {
+		t.Fatalf("first skc sku count = %d, want 2", len(pkg.DraftPayload.SKCList[0].SKUList))
 	}
-	if pkg.RequestDraft.SKCList[0].SkcName != "Fallback Matrix Product - Red" || pkg.RequestDraft.SKCList[1].SkcName != "Fallback Matrix Product - Blue" {
-		t.Fatalf("skc names = %q, %q; want Fallback Matrix Product - Red/Fallback Matrix Product - Blue", pkg.RequestDraft.SKCList[0].SkcName, pkg.RequestDraft.SKCList[1].SkcName)
+	if pkg.DraftPayload.SKCList[0].SkcName != "Fallback Matrix Product - Red" || pkg.DraftPayload.SKCList[1].SkcName != "Fallback Matrix Product - Blue" {
+		t.Fatalf("skc names = %q, %q; want Fallback Matrix Product - Red/Fallback Matrix Product - Blue", pkg.DraftPayload.SKCList[0].SkcName, pkg.DraftPayload.SKCList[1].SkcName)
 	}
 }
 

@@ -1,8 +1,8 @@
 {
   "dataset_id": "product-shein-shared",
-  "version": "1.0.1",
-  "content_digest": "sha256:9e1eabd0a917188ade61ef09e402365de25c073adc1a909c9f8b78abc88e0ae7",
-  "rule_version": "shein.offline_package.v2.1",
-  "binding_version": "shein.persisted-input.go-json.v1",
+  "version": "1.0.2",
+  "content_digest": "sha256:7cc60d14ece81866115b9297c411fb26fc371239fc04a72ec6ff4f007a3972cc",
+  "rule_version": "shein.offline_package.v2.2",
+  "binding_version": "shein.persisted-input.go-json.v2",
   "semantic_time": "2026-09-06T00:00:00Z"
 }

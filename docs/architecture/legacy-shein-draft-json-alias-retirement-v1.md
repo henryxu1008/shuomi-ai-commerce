@@ -1,8 +1,8 @@
 # #301 旧 SHEIN 草稿 JSON 别名兼容整链退休设计
 
-Status: **DESIGN_REVIEW / 方案候选；尚未 IMPLEMENTATION_READY，生产实施未授权**。Design Basis: **Independent Architecture**。本次实际只提交本文、Architecture README 与 Legacy Register 三文档；源码、原测试、fixture、workflow/inventory 全不改。准确设计 HEAD、CI、独立设计复核和用户确认留主要 PR。接单及上一当前段存档见 [#301 / 6358945095](https://github.com/qq550723504/shuomi-ai-commerce/issues/301#issuecomment-6358945095)。
+Status: **IMPLEMENTATION_READY / USER_CONFIRMED / SOURCE_IMPLEMENTED；待准确实现 CI 与最终交付复核**。Design Basis: **Independent Architecture**。设计 HEAD `5770b8c0899600a6e576555c6d5ec9a6237b9382` 已独立复核 PASS、原 CI39914388170 SUCCESS，证据见 [#904 / 6359569239](https://github.com/qq550723504/shuomi-ai-commerce/pull/904#issuecomment-6359569239)。用户明确要求执行本设计并撤回扩大 Cookie 接口退休的提议；#301/PR Ready 已在源码修改前记录并读回。以下 §1–§7 为已确认的冻结边界，版本表“拟”指本批目标，不增加新范围；实施/最终 CI/复核证据留 PR，合并另授权。
 
-调查基线：main `3ba87121afe83244631ee8714a8311f3f34f7b78`（#901 正常合并；其 push/main CI39909308665 成功是前批证据，不代替本设计或未来实现）。以下处置均是待确认设计；#827 的原 KEEP 在本方案获确认前仍有效。
+调查基线：main `3ba87121afe83244631ee8714a8311f3f34f7b78`（#901 正常合并；其 push/main CI39909308665 成功是前批证据，不代替本设计或未来实现）。以下冻结处置已获用户确认；仅 §5 指定的 #827/#824 KEEP 被替代。
 
 ## 1. 用户结果、范围与 Authority
 
@@ -99,7 +99,7 @@ Legacy decision: **RETIRE**。Reusable behavior: 当前草稿/预览/严格codec
 
 ### 6.1 原检查、fixture、文档和冻结边界
 
-生产范围仅附录A的19文件；测试/fixture范围仅附录B的23文件；文档范围仅附录C的9文件，合计51个范围工件（不要求为计数制造无效修改）。本轮实际仍仅三文档。
+生产范围仅附录A的19文件；测试/fixture范围仅附录B的23文件；文档范围仅附录C的9文件，合计51个范围工件（不要求为计数制造无效修改）。设计阶段实际仅三文档；实施仅按本节矩阵。
 
 | 对象 | 获实施授权后的最小处置 | 不得改变 |
 | --- | --- | --- |
@@ -118,7 +118,7 @@ Legacy decision: **RETIRE**。Reusable behavior: 当前草稿/预览/严格codec
 
 ## 7. 评审、Ready、交付与停止点
 
-1. 当前仅Independent Architecture设计候选，生产未Ready。独立设计检查绑定准确HEAD，最多两轮正常评审；finding先按当前Must与实际后果分类，IMPLEMENTATION_TEST在实现层收敛，非BLOCKER不无限重开设计。
+1. 本设计已完成Independent Architecture准入及用户确认、Ready读回。独立设计检查绑定准确HEAD，最多两轮正常评审；finding先按当前Must与实际后果分类，IMPLEMENTATION_TEST在实现层收敛，非BLOCKER不无限重开设计。
 2. 准确设计复核PASS/IMPLEMENTATION_READY且用户确认§1–§7/§6.1后，在#301/主要PR读回Ready，原唯一Writer同一分支整批实施。设计授权不等于生产修改/合并/部署/关单授权。
 3. 原GitHub设计/最终复核Running不重复触发；启动失败不当finding/PASS。未经用户本轮授权不默认新增AI互验线程；设计与源码最终复核授权/准确HEAD分别记录，修复只复核增量。
 4. 实现与必要自检/原CI完成后进入In Review，交付准确source HEAD、真实diff/调用路径和一次最终检查；不自签产品/环境验收。合并必须另获准确HEAD授权，合并后仅实际merge SHA的push/main整轮CI才是主干证据。
