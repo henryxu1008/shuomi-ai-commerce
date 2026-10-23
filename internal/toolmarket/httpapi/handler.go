@@ -268,7 +268,7 @@ func (h *Handler) serve(c *gin.Context, s spec) {
 					return
 				}
 				c.Header("Cache-Control", "private, no-store")
-				c.Header("Content-Disposition", `attachment; filename="shuomi-1688-capture.zip"`)
+				c.Header("Content-Disposition", `attachment; filename="shuomi-product-capture.zip"`)
 				c.Header("X-Content-Type-Options", "nosniff")
 				c.Data(200, "application/zip", h.plugin)
 				return

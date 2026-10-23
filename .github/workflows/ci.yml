@@ -242,14 +242,14 @@ jobs:
         run: pnpm build
 
   capture-extension:
-    name: 1688 Capture Extension Checks
+    name: Product Capture Extension Checks
     needs: changes
     if: ${{ github.event_name == 'push' || needs.changes.outputs.capture_extension == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     defaults:
       run:
-        working-directory: extensions/1688-capture
+        working-directory: extensions/product-capture
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -261,7 +261,7 @@ jobs:
         with:
           node-version: "24"
           cache: npm
-          cache-dependency-path: extensions/1688-capture/package-lock.json
+          cache-dependency-path: extensions/product-capture/package-lock.json
 
       - name: Install extension dependencies
         run: npm ci
@@ -489,7 +489,7 @@ jobs:
               f"> Release Authority：`{os.environ.get('RELEASE_AUTHORITY_RESULT', 'unknown')}`",
               f"> Backend：`{backend}`",
               f"> Frontend：`{frontend}`",
-              f"> 1688 Capture Extension：`{os.environ.get('CAPTURE_EXTENSION_RESULT', 'unknown')}`",
+              f"> Product Capture Extension：`{os.environ.get('CAPTURE_EXTENSION_RESULT', 'unknown')}`",
               f"> Code Health：`{code_health}`",
               f"> Required CI Gate：`{required_gate}`",
               f"> 提交：`{sha[:7] if sha else '-'}`",

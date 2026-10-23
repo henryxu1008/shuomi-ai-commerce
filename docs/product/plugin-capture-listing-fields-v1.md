@@ -1,5 +1,7 @@
 # Amazon / 1688 插件采集：上架资料字段对照 V1
 
+> 2026-10-23 命名更新：当前源码/操作入口为 `extensions/product-capture`，私有 npm 包为 `@shuomi/product-capture`。下文原设计中的旧目录名保留为冻结依据的历史路径；本次不改变平台路由、合同或运行实例。
+
 Refs [设计 Issue #902](https://github.com/qq550723504/shuomi-ai-commerce/issues/902)，Related #399 / #613 / #621 / #637。
 
 Status: **FIELD_DESIGN_DRAFT / NOT_IMPLEMENTATION_READY**。本次只交付字段与复用边界，不编写生产代码、修改schema/权限/协议或构建插件。文中的字段分级是待用户审阅的设计建议，不改变现有采集/保存/上架准入，不宣称已实现或已验收。

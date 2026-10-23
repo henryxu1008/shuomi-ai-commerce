@@ -69,7 +69,7 @@ git remote -v
 | 源码引用 | `hack/debug/go.mod` 的 `task-processor/debugtools`、`require task-processor` 和本地 `replace`；`tools/go.mod`、`tmp/go.mod` | 保留所有模块及本地解析关系。将来若明确决定更改 module，必须原子覆盖嵌套模块与仓库外消费者，另行评估合同准入 |
 | 源码引用 | `.golangci.yml` 的 depguard、tests 中 import/架构断言、scripts 中 AST/依赖解析与 fixture | 保留准确旧 module 字符串；禁止为名称统一削弱 guard。owner：现有边界/测试维护者 |
 | 当前生产依据合同 | `internal/knowledge/official/catalog.go`、`web/listingkit-ui/src/lib/api/official-knowledge.ts`、原BFF/页面及相邻测试 | 用户新决定下，V2已退出sourceRoot/URL字段/双端GitHub白名单，以资料名称/维护方/准确版本表达依据；旧原子保留方案仅历史。owner：官方知识内容/读取owner |
-| 源码引用 | `extensions/1688-capture/package.json` 与 lock 的 `@task-processor/1688-capture`；前端 `listingkit-ui` 包名、目录、lock | 保留工程标识，无发布命名空间迁移。外部 npm 发布/依赖方 UNKNOWN。owner：扩展/前端维护者 |
+| 源码引用 | `extensions/product-capture/package.json` 与 lock 的 `@shuomi/product-capture`；前端 `listingkit-ui` 包名、目录、lock | 用户2026-10-23新批准公共插件目录/包名机械更名，当前包仍 private、不发布npm；前端标识保留。Go module/imports及运行资源不随此调整。外部 npm 消费方 UNKNOWN。owner：#906公共插件维护者 |
 | 构建引用 | Makefile、Dockerfile、release/build 脚本与 config | 实际入口与路径保持；根 config YAML/Makefile 没有命中 `task-processor`，不能据此断言所有运行配置无关。owner：构建/运行 owner |
 | CI 标识 | `.github/workflows/ci.yml` concurrency 的 `task-processor-ci-*` 与 classifier 测试 | 保留，避免切换时产生另一组并发任务；通知 URL/仓库名消费 `github.repository`，改名后仍需实测。owner：CI 维护者 |
 | 静态安全元数据 | `release-policy.yaml` 的 `releaseAuthority.repository`、`policy/listingkit-release-authority/{release_authority,negative_fixtures}.rego` 与 `tests/listingkit_release_authority_policy_test.go` | **切换时同步项，不是当前发布故障证据**：四处旧仓库字符串只约束保留的静态策略一致性；旧 API/UI publisher 已固定失败退役，旧 OIDC/RBAC 字段已退出。准确调用路径与后续最小同步范围见下方核实增量。owner：原静态安全检查维护者 |
