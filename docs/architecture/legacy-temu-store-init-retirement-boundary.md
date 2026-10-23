@@ -1,3 +1,5 @@
+> #301 / #915 **USER_CONFIRMED / SOURCE_IMPLEMENTED**：按[旧宿主、HTTP 与图像辅助完整退休闭包 §1–§7/§6.1](legacy-host-image-helper-closure-retirement-boundary.md)的用户确认矩阵，仅将 appenv.GetInstanceID 及其宿主实例/平台辅助闭包的旧 KEEP 替换为精确 RETIRE；当前 ComponentLoggers、SetupLoggerWithLevel、VersionInfo/PrintVersionInfo、其它同名 owner 及 Store/API/身份合同保持。 仅该准确矩阵取代本文件对应 KEEP，其余边界及以下全部历史正文保留；workflow/inventory 与既有资源不动，独立 SHEIN 登录及 Store 同步保持，#301 OPEN。
+
 # 旧 TEMU 店铺上下文与商品初始化链退休边界
 
 > 后续用户已确认 [#819 TEMU剩余整链边界](legacy-temu-listing-closure-retirement-boundary.md) §5/§6/§6.1/§7。本文件对该闭包内旧 TEMU AI/SKU/spec、PriceHandler/PriceCalculator、property/context/TemplateState、pipeline/skugen及专属纯规则/管理投影/prompt的保留描述仅为历史边界，现由#819精确替代；当前平台API/规则、共享合同、SHEIN价格/两属性、采集/图像/Store观察与独立SHEIN登录/Store同步继续保留。原证据不改，不授权实例或数据操作。

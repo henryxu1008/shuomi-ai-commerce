@@ -1,3 +1,5 @@
+> #301 / #915 **USER_CONFIRMED / SOURCE_IMPLEMENTED**：按[旧宿主、HTTP 与图像辅助完整退休闭包 §1–§7/§6.1](legacy-host-image-helper-closure-retirement-boundary.md)的用户确认矩阵，仅退休 imagex 无消费者的编码/格式 helper、专属 Format 类型/常量及原 Size 测试调用尾部；保留 ImageInfo、FromBytesWithFormat、Inspect 与 JPEG/PNG/WebP 生产注册，当前处理/填充/上传及平台合同不变。 仅该准确矩阵取代本文件对应 KEEP，其余边界及以下全部历史正文保留；workflow/inventory 与既有资源不动，独立 SHEIN 登录及 Store 同步保持，#301 OPEN。
+
 > #301 / #891 narrowly supersedes this document's historical KEEP of `internal/pkg/downloader`: its complete unused listing download/anti-bot/random-fingerprint closure is source-retired under the [confirmed boundary](legacy-listing-preview-download-closure-retirement-boundary.md). Current image decoding/encoding, filling/upload, ImageAgent/SRC and SHEIN API downloads, shared httpclient/TLS, acquisition, Store and independent SHEIN login/Store sync remain with their existing owners. Only the obsolete package's KEEP is superseded; the original historical body and evidence below are preserved verbatim. No runtime/data/credential/process operation or new trial prerequisite.
 
 # 剩余旧 TEMU 图片构建、标注与上传子链退休边界设计

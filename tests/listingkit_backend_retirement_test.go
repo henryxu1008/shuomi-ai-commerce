@@ -275,7 +275,7 @@ func TestLegacyRuntimeSkeletonAndIdleConfigClosureIsRetired(t *testing.T) {
 			t.Errorf("retired Temporal module bundle %s must be absent: %v", relative, err)
 		}
 	}
-	for _, relative := range []string{"internal/core/config/platform_common.go", "internal/core/config/platform_common_test.go", "internal/pkg/jsonx/marshal.go"} {
+	for _, relative := range []string{"internal/core/config/platform_common.go", "internal/core/config/platform_common_test.go", "internal/pkg/jsonx/marshal.go", "internal/core/config/type_server.go"} {
 		if _, err := os.Lstat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
 			t.Errorf("retired idle support file %s must be absent: %v", relative, err)
 		}
@@ -283,12 +283,15 @@ func TestLegacyRuntimeSkeletonAndIdleConfigClosureIsRetired(t *testing.T) {
 	retiredKernelTypes := []string{"TaskHandler", "WorkflowHandler", "TemporalWorkerStarter", "NamedWorkerPool", "NamedTemporalWorker", "WorkflowRegistry"}
 	retiredRegistryMethods := []string{"AddWorkerPool", "WorkerPools", "AddTemporalWorker", "TemporalWorkers", "RegisterTaskHandler", "RegisterWorkflowHandler"}
 	retiredRegistryFields := []string{"workerPools", "workerPoolNames", "temporalWorkers", "temporalWorkerNames", "taskHandlers", "workflowNames"}
-	retiredConfig := []string{"CacheConfig", "DefaultCacheConfig", "LogConfig", "DefaultLogConfig", "MonitoringConfig", "DefaultMonitoringConfig", "CostCalculationConfig", "DefaultCostCalculationConfig", "TimeoutConfig", "DefaultTimeoutConfig", "RateLimitConfig", "DefaultRateLimitConfig"}
+	retiredConfig := []string{"CacheConfig", "DefaultCacheConfig", "LogConfig", "DefaultLogConfig", "MonitoringConfig", "DefaultMonitoringConfig", "CostCalculationConfig", "DefaultCostCalculationConfig", "TimeoutConfig", "DefaultTimeoutConfig", "RateLimitConfig", "DefaultRateLimitConfig", "ServerConfig"}
 	retiredSupport := map[string][]string{
-		"internal/core/config":   {"CostCalculationConfig.CalculateTotalCost"},
-		"internal/pkg/goroutine": {"TaskInfo", "Manager", "NewManager", "Manager.Start", "Manager.Wait", "Manager.WaitWithTimeout", "Manager.GetRunningCount", "Manager.GetStatus"},
-		"internal/pkg/timeout":   {"AITimeout", "AILongTimeout", "HTTPTimeout", "HTTPShortTimeout", "HTTPLongTimeout", "TaskTimeout", "TaskShortTimeout", "TaskLongTimeout", "TaskExtraTimeout", "ShutdownTimeout", "HealthTimeout", "WithAITimeout", "WithAILongTimeout", "WithHTTPTimeout", "WithHTTPShortTimeout", "WithHTTPLongTimeout", "WithTaskTimeout", "WithTaskShortTimeout", "WithTaskLongTimeout", "WithTaskExtraTimeout", "WithDownloadTimeout", "WithShutdownTimeout", "WithHealthTimeout", "WithCustomTimeout"},
-		"internal/pkg/jsonx":     {"MarshalWithoutHTMLEscape", "MarshalIndentWithoutHTMLEscape", "MarshalPretty", "UnmarshalStrict", "ToJSONString", "ToJSONStringPretty", "IsValidJSON", "CompactJSON", "SaveToFile"},
+		"internal/core/config":    {"CostCalculationConfig.CalculateTotalCost"},
+		"internal/pkg/goroutine":  {"TaskInfo", "Manager", "NewManager", "Manager.Start", "Manager.Wait", "Manager.WaitWithTimeout", "Manager.GetRunningCount", "Manager.GetStatus"},
+		"internal/pkg/timeout":    {"AITimeout", "AILongTimeout", "HTTPTimeout", "HTTPShortTimeout", "HTTPLongTimeout", "TaskTimeout", "TaskShortTimeout", "TaskLongTimeout", "TaskExtraTimeout", "ShutdownTimeout", "HealthTimeout", "WithAITimeout", "WithAILongTimeout", "WithHTTPTimeout", "WithHTTPShortTimeout", "WithHTTPLongTimeout", "WithTaskTimeout", "WithTaskShortTimeout", "WithTaskLongTimeout", "WithTaskExtraTimeout", "WithDownloadTimeout", "WithShutdownTimeout", "WithHealthTimeout", "WithCustomTimeout"},
+		"internal/pkg/jsonx":      {"MarshalWithoutHTMLEscape", "MarshalIndentWithoutHTMLEscape", "MarshalPretty", "UnmarshalStrict", "ToJSONString", "ToJSONStringPretty", "IsValidJSON", "CompactJSON", "SaveToFile"},
+		"internal/pkg/appenv":     {"SetupLogger", "LoggingConfig", "ApplyLoggingConfig", "InstanceInfo", "GetInstanceID", "GetPodName", "GetNamespace", "GetInstanceInfo", "ParsePlatformList", "ContainsPlatform"},
+		"internal/pkg/httpclient": {"DefaultConfig", "NewWithTransport"},
+		"internal/pkg/imagex":     {"Format", "FormatJPEG", "FormatPNG", "FormatAuto", "ToBase64", "ToBase64JPEG", "ToBase64PNG", "FromBase64", "FromBytes", "ToBytes", "FromReader", "Encode", "Size", "FormatFromBytes", "HasTransparency", "OptimalFormat"},
 	}
 	// Owner-qualified declarations avoid banning current same-name workflows,
 	// platform logging or real workerpool/Temporal dependencies.
@@ -299,18 +302,37 @@ func TestLegacyRuntimeSkeletonAndIdleConfigClosureIsRetired(t *testing.T) {
 		"internal/pkg/goroutine":    {"Task": false, "Result": false, "ProcessFunc": false, "Processor": false, "NewProcessor": false, "Processor.ProcessParallel": false, "Processor.worker": false, "Processor.executeTask": false},
 		"internal/pkg/timeout":      {"AIShortTimeout": false, "DownloadTimeout": false, "DownloadLongTimeout": false, "WithAIShortTimeout": false},
 		"internal/pkg/jsonx":        {"UnmarshalString": false, "UnmarshalBytes": false, "CleanLLMResponse": false},
+		"internal/pkg/appenv":       {"ComponentLoggers": false, "SetupLoggerWithLevel": false, "VersionInfo": false, "VersionInfo.Version": false, "VersionInfo.BuildTime": false, "PrintVersionInfo": false},
+		"internal/pkg/httpclient":   {"Config": false, "Client": false, "New": false, "Client.Do": false, "NewSimple": false, "NewSimpleWithTimeout": false, "ClientConfig": false, "Build": false, "buildTLSConfig": false},
+		"internal/pkg/imagex":       {"ImageInfo": false, "ImageInfo.Width": false, "ImageInfo.Height": false, "ImageInfo.Format": false, "ImageInfo.Size": false, "FromBytesWithFormat": false, "Inspect": false},
 	}
+	decoders := map[string]bool{"image/jpeg": false, "image/png": false, "golang.org/x/image/webp": false}
 	for _, relative := range trackedFiles(t, ".") {
 		if !strings.HasSuffix(relative, ".go") {
 			continue
 		}
 		owner := filepath.ToSlash(filepath.Dir(relative))
-		if owner != "internal/kernel/module" && owner != "internal/app/httpapi" && owner != "internal/core/config" && owner != "internal/platform/logging" && owner != "internal/pkg/goroutine" && owner != "internal/pkg/timeout" && owner != "internal/pkg/jsonx" {
+		if owner != "internal/kernel/module" && owner != "internal/app/httpapi" && owner != "internal/core/config" && owner != "internal/platform/logging" && owner != "internal/pkg/goroutine" && owner != "internal/pkg/timeout" && owner != "internal/pkg/jsonx" && owner != "internal/pkg/appenv" && owner != "internal/pkg/httpclient" && owner != "internal/pkg/imagex" {
 			continue
 		}
 		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(relative)), nil, 0)
 		if err != nil {
 			t.Fatal(err)
+		}
+		if relative == "internal/pkg/imagex/imageutil.go" {
+			for _, spec := range file.Imports {
+				imported, err := decodeGoImportPath(spec.Path.Value)
+				if err != nil {
+					t.Fatalf("decode image decoder import in %s: %v", relative, err)
+				}
+				if _, required := decoders[imported]; required {
+					if spec.Name == nil || spec.Name.Name != "_" {
+						t.Errorf("%s must explicitly retain production decoder registration for %s", relative, imported)
+					} else {
+						decoders[imported] = true
+					}
+				}
+			}
 		}
 		if owner == "internal/kernel/module" {
 			for _, spec := range file.Imports {
@@ -385,6 +407,15 @@ func TestLegacyRuntimeSkeletonAndIdleConfigClosureIsRetired(t *testing.T) {
 					if shape, ok := typ.Type.(*ast.StructType); ok {
 						for _, field := range shape.Fields.List {
 							for _, fieldName := range field.Names {
+								if owner == "internal/pkg/imagex" && name == "ImageInfo" {
+									want := map[string]string{"Width": "int", "Height": "int", "Format": "string", "Size": "int"}[fieldName.Name]
+									if want != "" {
+										fieldType, ok := field.Type.(*ast.Ident)
+										if !ok || fieldType.Name != want {
+											t.Errorf("%s must retain ImageInfo.%s type %s", relative, fieldName.Name, want)
+										}
+									}
+								}
 								if (owner == "internal/kernel/module" && name == "Registry" && slices.Contains(retiredRegistryFields, fieldName.Name)) || (owner == "internal/app/httpapi" && name == "runtimeBundle" && fieldName.Name == "workerPools") {
 									t.Errorf("%s retains retired field %s.%s", relative, name, fieldName.Name)
 								}
@@ -404,6 +435,11 @@ func TestLegacyRuntimeSkeletonAndIdleConfigClosureIsRetired(t *testing.T) {
 			if !found {
 				t.Errorf("current owner %s must retain %s", owner, name)
 			}
+		}
+	}
+	for imported, found := range decoders {
+		if !found {
+			t.Errorf("imageutil.go must retain production blank import %s", imported)
 		}
 	}
 }
@@ -2946,7 +2982,7 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		},
 		"internal/shared/ptr/pointer.go":          {"func BoolPtr("},
 		"internal/storecenter/gorm_repository.go": {"type GormStoreRepository struct"},
-		"internal/pkg/appenv/apputil.go":          {"func GetInstanceID("},
+		"internal/pkg/appenv/apputil.go":          {"func ComponentLoggers(", "func SetupLoggerWithLevel(", "type VersionInfo struct", "func PrintVersionInfo("},
 		"internal/marketplace/temu/goods/builder.go": {
 			"func Build(", "snapshot.SelectableLeaf", "func checkLocal(",
 			"p.ServicePromise.ShipmentLimitDay", "value.ID == p.ServicePromise.CostTemplateID",

@@ -1,3 +1,5 @@
+> #301 / #915 **USER_CONFIRMED / SOURCE_IMPLEMENTED**：按[旧宿主、HTTP 与图像辅助完整退休闭包 §1–§7/§6.1](legacy-host-image-helper-closure-retirement-boundary.md)的用户确认矩阵，仅替代 imagex/httpclient 广泛 KEEP 中的准确孤立声明：旧编码/格式辅助和 DefaultConfig/NewWithTransport；保留当前解码/metadata/注册、HTTP/TLS/retry、Amazon API/原浏览器/debug 与共享合同。 仅该准确矩阵取代本文件对应 KEEP，其余边界及以下全部历史正文保留；workflow/inventory 与既有资源不动，独立 SHEIN 登录及 Store 同步保持，#301 OPEN。
+
 > 当前适用边界（#301 / #912）：用户已确认并按[旧 SHEIN 闲置策略与辅助合同完整退休闭包](legacy-shein-policy-contract-closure-retirement-boundary.md) §1–§7（含 §6.1）整批实施，仅替代本文件中两种 SHEIN 属性/最后 AmazonMonitorData 及旧价格辅助的广泛 KEEP；当前 Amazon 来源采集与原浏览器/debug 不变及对应旧 KEEP 检查；准确删除/保留矩阵以新设计 §2/§5/§6.1 为准，其它当前 API/有效规则/采集/独立 SHEIN 登录与 Store 同步不变。下方原历史正文、数字和证据逐字保留，不提供旧 JSON 迁移或运行/数据操作授权。
 
 # 旧 Amazon 刊登整链与专属闭包退休边界

@@ -2,8 +2,8 @@
 
 Refs [#301](https://github.com/qq550723504/shuomi-ai-commerce/issues/301)。#301 保持 OPEN，#29 不重开。
 
-- Status: **DESIGNING / AWAITING_USER_CONFIRMATION**。用户仅授权本设计，未授权生产源码或测试实施。准确设计 HEAD、CI、独立检查和确认记录留主要 PR。
-- Design Basis：本次三文档设计 **N/A**；拟实施 **Reuse Existing Architecture / NOT_READY**，设计交接并获用户确认后，先更新 Issue/PR 的 Ready 记录并读回，再修改生产源码。本文不签发实现、合并或运行验收。
+- Status: **USER_CONFIRMED / SOURCE_IMPLEMENTED**。用户已确认准确设计 HEAD `156162acf813cb3d49baf0f8dc10938661914777` 的 §1–§7（含 §6.1），授权同一 #915 整批实施。当前待原 CI 与最终交付复核，不代表产品验收或合并授权；准确实现 HEAD/证据留主要 PR。
+- Design Basis：实施 **Reuse Existing Architecture / Ready**；[接单与 Ready 准入6368596913](https://github.com/qq550723504/shuomi-ai-commerce/issues/301#issuecomment-6368596913)及 Issue/PR 读回先于源码修改。原纯文档设计 N/A 的 CI/只读复核证据留 #915，不冒充实现证据；合并与运行验收仍需分别授权。
 - 调查基线：main **de6b2cb349e9b1398269674b91a94d2d902fc96f**，tree **25ed7530cd1237df675647cd8e92be4aa6c54fa4**。前批 #914 的准确 push/main CI39965667687 整 run SUCCESS，仅作基线证据。
 - 唯一 Writer 沿原独占 worktree，分支 `codex/issue301-host-image-helper-closure-design`；不新增 Writer，不按包、文件或检查机械拆批。
 
@@ -11,7 +11,7 @@ Refs [#301](https://github.com/qq550723504/shuomi-ai-commerce/issues/301)。#301
 
 使用者是维护当前采集、HTTP、图像、登录和 Store 源码的维护者。结果是一份四组完整删除/保留矩阵，清除无当前需求与消费者、仍被历史 KEEP 保活的辅助分支，同时保留同包真实行为。没有当前核心用户操作因此阻塞；本次整理不增加内部试用前置，不建设新的日志、HTTP 或图片工具产品。
 
-一个 Delivery Batch / 一个主要 PR 覆盖：① appenv 旧日志配置/实例/平台辅助；② HTTP 两项孤立 helper；③ imagex 旧编码/格式辅助及完整专属类型、常量和测试调用尾部；④ 孤立 ServerConfig。原退休 guard 和直接冲突的六份旧 KEEP 文档同批收齐。当前阶段只交付本文及两个索引，不提前删除源码/测试。
+一个 Delivery Batch / 一个主要 PR 覆盖：① appenv 旧日志配置/实例/平台辅助；② HTTP 两项孤立 helper；③ imagex 旧编码/格式辅助及完整专属类型、常量和测试调用尾部；④ 孤立 ServerConfig。原退休 guard 和直接冲突的六份旧 KEEP 文档同批收齐。设计阶段仅交付本文及两个索引；用户确认后的实施严格限 §6.1 的十五工件。
 
 Product Authority 为本轮用户明确范围、[Greenfield 决定](../product/greenfield-no-legacy-migration.md)、[Hard-Cut Policy](../refactoring/legacy-hard-cut-policy.md)、[Legacy Register](../refactoring/legacy-register.md)、[Issue 驱动规则](../engineering/issue-driven-development.md) 和当前消费 owner。UI/IA/Figma N/A，不改页面/交互。既有代码、历史 KEEP 和旧测试不自动构成当前产品需求；新矩阵经确认后才精确替代 §2 指定对象。
 
@@ -94,7 +94,7 @@ EXTRACT：无新业务实现或替代工具。活跃行为已在正确 owner；�
 
 仅设计确认后同一主要 PR 实施：先写 Ready 并读回；扩展 §6.1 原退休 guard，在旧声明仍存在时确认准确 RED；再一次退休四源码工件、转换原图像测试并收齐六旧依据顶注至 GREEN。不要为未变化的业务规则制造替代实现或形式化 RED。
 
-保留混合文件的完整当前函数/字段/默认值；复用现有 diff/AST 检查确认 KEEP 代码语义不变、禁止项零变更、六旧文档原正文精确 suffix。当前设计只改三文档，不运行 constructor/main/浏览器或访问真实服务，也不提前修改测试。
+保留混合文件的完整当前函数/字段/默认值；复用现有 diff/AST 检查确认 KEEP 代码语义不变、禁止项零变更、六旧文档原正文精确 suffix。设计阶段仅改三文档；获确认后按 §6.1 转换原检查/测试，不运行 constructor/main/浏览器或访问真实服务。
 
 实施必要自检：原两项退休 guard 与 Architecture README 四项检查；appenv 原装配 getter 测试；httpclient 原 TLS/请求设置回归（仅原 loopback fixture）；imagex 注册/解码回归和原 ImageAgent/objectstore/平台图像适用测试；原 ChromeDownloader/installer timeout、独立 SHEIN 登录与 Store 的适用合成 fixture 原测试。只执行与改动直接相关的选定原测试，不手工重复原完整 CI。
 
@@ -129,7 +129,7 @@ README/Legacy Register 只维护本批当前入口/状态，原正文/历史/计
 
 ### 7.1 设计交付
 
-本阶段仅本文、Architecture README 和 Legacy Register 三文档。完成原适用文档检查、准确设计 HEAD 原 CI 与一次适用独立只读检查；记录实际审核 SHA/结论/finding 分类，设计交用户确认。生产代码/原测试实施前仍须用户确认 §1–§7（含 §6.1），再记录拟实施 Reuse Existing Architecture / Ready 并读回，不用纯文档 N/A 授权生产删除。
+设计阶段仅本文、Architecture README 和 Legacy Register 三文档。完成原适用文档检查、准确设计 HEAD 原 CI 与一次适用独立只读检查；记录实际审核 SHA/结论/finding 分类，设计交用户确认。生产代码/原测试实施前仍须用户确认 §1–§7（含 §6.1），再记录拟实施 Reuse Existing Architecture / Ready 并读回，不用纯文档 N/A 授权生产删除。
 
 ### 7.2 实施与证据
 
