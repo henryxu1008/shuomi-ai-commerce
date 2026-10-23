@@ -110,14 +110,11 @@ func (s *SensitiveWordService) splitWords(wordsStr string) []string {
 	return cleanWords
 }
 
-// addWordsByLanguage 按指定语言添加敏感词
-func (s *SensitiveWordService) addWordsByLanguage(configMap map[string][]string, language string, words []string, wordType string) {
+// addWordsByLanguageLocked 按指定语言添加；调用者持有原 mutex 写锁。
+func (s *SensitiveWordService) addWordsByLanguageLocked(configMap map[string][]string, language string, words []string, wordType string) {
 	if len(words) == 0 {
 		return
 	}
-
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
 
 	if configMap == nil {
 		s.logger.Errorf("配置映射为空，无法添加%s敏感词", wordType)
@@ -132,7 +129,7 @@ func (s *SensitiveWordService) addWordsByLanguage(configMap map[string][]string,
 	s.logger.Infof("✅ 已添加 %d 个%s敏感词到语言 [%s]，当前总数: %d",
 		len(words), wordType, language, len(configMap[language]))
 
-	s.saveConfigAsync()
+	s.markConfigUpdatedLocked()
 }
 
 // addWordsToConfig 将分类后的敏感词添加到配置中

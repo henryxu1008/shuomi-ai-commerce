@@ -1,6 +1,6 @@
 # #301 旧工作池、SHEIN 敏感词文件尾部与恢复辅助层完整退休设计
 
-Status: **DESIGN_REVIEW / 待用户确认；生产实施未授权**。本次仅只读调查和三份文档；准确 HEAD、原 CI、独立设计复核和后续批准写主要 PR，不为滚动状态制造仓库提交。接单及前当前段存档见 [#301 / 6354620829](https://github.com/qq550723504/shuomi-ai-commerce/issues/301#issuecomment-6354620829)。
+Status: **USER_CONFIRMED / SOURCE_IMPLEMENTED；待原 CI 与准确源码最终交付复核**。用户已确认 §1–§7（含 §4.1/§4.2/§6.1），Issue/PR 的 Reuse Existing Architecture / Ready 在源码修改前读回；原唯一 Writer 在同一主要 PR 整批实施。准确 HEAD、原 CI、设计与源码复核、合并批准写主要 PR，不为滚动状态制造仓库提交。接单及前当前段存档见 [#301 / 6354620829](https://github.com/qq550723504/shuomi-ai-commerce/issues/301#issuecomment-6354620829)。
 
 调查/开工基线 main **71758518b24a72454b75c0b59d03fcf0e6dfc713**，已含 #897；相对其 merge 4c9cfcef3 只多 #899 邀请流程四文件，无本批变化。#897 的实际 push/main CI39815055773 完整 SUCCESS 是前批证据，不替代本批设计或实施检查。
 
@@ -16,11 +16,11 @@ Status: **DESIGN_REVIEW / 待用户确认；生产实施未授权**。本次仅�
 2. `internal/shein/content` 的闲置构造器、路径查找/文件读写、保存队列/协程/关闭、专属日志尾部；保留有效清理、内存词表、元数据和原互斥锁。
 3. `internal/pkg/recovery/panic_handler.go` 的全部接口/包装/恢复函数；只能在前两组准确消费者退出后删除，不搬包或重建 wrapper。
 
-本轮仅设计。确认前不修改生产路径/测试、运行旧工厂或触发保存；不读既有凭据、私密配置/词库/日志/Cookie/Profile/ignored 状态，不操作既有实例、数据、文件或进程，不执行应用/worker/provider/PG/Redis/浏览器入口。实施、合并、部署、关单另授权；#301 保持 OPEN，#29 不重开。
+本轮已按用户确认整批实施；设计阶段未提前修改生产路径/测试。全程不运行旧工厂或触发文件保存；不读既有凭据、私密配置/词库/日志/Cookie/Profile/ignored 状态，不操作既有实例、数据、文件或进程，不执行应用/worker/provider/PG/Redis/浏览器入口。实施已授权；合并、部署、关单另授权，#301 保持 OPEN，#29 不重开。
 
 ## 2. Design Basis、Authority 与不变量
 
-设计阶段 **Design Basis: N/A**，仅只读调查和三文档。实施拟 **Reuse Existing Architecture**：复用已批准的当前 content 内存清理 owner、现有 `sync.RWMutex`、Logrus 注入和标准库 `time`；原文件分支/工作池无现役消费者，不转交任何新持久化 owner。用户确认 §1–§7（含 §6.1），Issue/PR 的 Reuse Existing Architecture / Ready 读回后才改源码。
+设计阶段 **Design Basis: N/A**，仅只读调查和三文档；设计 CI 与一次用户授权独立只读设计复核已完成。实施 **Design Basis: Reuse Existing Architecture**：复用已批准的当前 content 内存清理 owner、现有 `sync.RWMutex`、Logrus 注入和标准库 `time`；原文件分支/工作池无现役消费者，不转交任何新持久化 owner。用户已确认 §1–§7（含 §4.1/§4.2/§6.1），Issue/PR 的 Reuse Existing Architecture / Ready 已在修改源码前读回。
 
 适用依据：
 
@@ -75,7 +75,7 @@ Should：原 guard/原测试设施、现有锁与标准库解决，不新造框�
 
 ## 5. 完整删除、保留与抽取矩阵
 
-| 准确工件 | 拟整批处置 | 必须保留 |
+| 准确工件 | 已确认整批处置 | 必须保留 |
 | --- | --- | --- |
 | internal/platform/workerpool/config.go、interfaces.go、metrics.go、pool.go、types.go、worker.go | 六生产文件整退：Pool/Worker/Processor/WorkerPool/WorkerJob/JobHandler、PoolConfig/默认/校验、QueueStats、Metrics/Snapshot、ErrQueueFull/ErrPoolClosed 和全部启停/钩子/队列日志 | 真实采集 browser pool、shared browser、Temporal/ImageAgent/SHEIN worker及其关闭/恢复/资源保护零改 |
 | internal/platform/workerpool/pool_lifecycle_test.go、worker_test.go | 两个完整专属测试随旧 owner 退休；不迁移旧数字任务执行协议 | 其它现役 worker/采集/并发/安全测试不动 |
@@ -105,7 +105,7 @@ Cutover/deletion condition: 设计确认/Ready读回后，先原guard RED，再�
 
 ### 6.1 原检查、测试、inventory、文档与 workflow 精确处置
 
-本矩阵当前只是设计提案，确认前全部不应用：
+本矩阵已获用户确认，实施只应用以下准确边界；其它冻结 KEEP 不变：
 
 | 对象 | 实施获准后的准确处置 | 不得改变 |
 | --- | --- | --- |
@@ -120,8 +120,8 @@ Cutover/deletion condition: 设计确认/Ready读回后，先原guard RED，再�
 
 ## 7. 准入、独立复核、停止及父目标边界
 
-1. 当前只交 N/A 设计三文档及适用原检查/准确设计复核，等待用户确认；不把设计 CI/PASS当实施或运行结果。
-2. 用户确认 §1–§7（含 §4.1/§4.2 与 §6.1）后，原单 Writer 在同一主要 PR 记录 Reuse Existing Architecture / Ready 并读回，再整批实施；不机械拆分或增加常驻实现者。需改变当前事实/授权/状态/恢复等边界则停止并升级准入。
+1. N/A 设计三文档、适用原检查/准确设计复核已完成并获用户确认；设计 CI/PASS仍不当实施或运行结果。
+2. 用户已确认 §1–§7（含 §4.1/§4.2 与 §6.1）；原单 Writer 已在同一主要 PR 记录 Reuse Existing Architecture / Ready 并读回，再整批实施；不机械拆分或增加常驻实现者。需改变当前事实/授权/状态/恢复等边界则停止并升级准入。
 3. 设计复核和完整源码最终交付复核分别绑定准确 HEAD；已有未变证据可复用，finding按当前Must/后果/阻塞层先分类，修复只复核对应增量。GitHub启动失败不当成PASS，也不对Running复核重复触发；未经用户授权不默认新增AI互验线程。
 4. 若发现具体当前外部可观察文件合同/持久化运行态必须兼容，先报告用户；没有可执行兼容/迁移Exception，不添加临时fallback/双读/读旧JSON/空壳Close。不因旧测试或导出名称恢复休眠owner。
 5. 不接管其它现有任务/PR（包括#692），不批量清理共享helper/词库默认值/当前状态、平台或实例。不把源码缺席当物理清理或用户验收。
