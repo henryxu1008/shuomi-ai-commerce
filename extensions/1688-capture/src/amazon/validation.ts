@@ -17,12 +17,12 @@ const sensitive = /(?:cookie|authorization|password|passwd|token|session|profile
 const attr = z.strictObject({ name: text.min(1).refine(v => !sensitive.test(v) && !v.startsWith('source.')), value: text });
 const attrs = z.array(attr).max(256).refine(a => new Set(a.map(v => v.name.trim())).size === a.length);
 const price = z.strictObject({ amount: text.regex(/^(0|[1-9][0-9]{0,15})(\.[0-9]{1,8})?$/), currency: text.regex(/^[A-Z]{3}$/).nullable(), minQuantity: text.regex(/^[1-9][0-9]{0,19}$/).nullable().optional() });
-const image = z.strictObject({ url: text.refine(publicImage), role: z.enum(['main', 'detail', 'variant', 'gallery']) });
+const image = z.strictObject({ url: text.refine(v => byteLength(v) <= 2048 && publicImage(v)), role: z.enum(['main', 'detail', 'variant', 'gallery']) });
 const images = z.array(image).max(256);
-const variant = z.strictObject({ sourceID: text.regex(/^[A-Z0-9]{10}$/).nullable(), sku: text.nullable(), title: text.nullable(), attributes: attrs, price: price.nullable(), images });
+const variant = z.strictObject({ sourceID: text.regex(/^[A-Z0-9]{10}$/).nullable(), sku: text.refine(v=>byteLength(v)<=200).nullable(), title: text.refine(v=>byteLength(v)<=2000).nullable(), attributes: attrs, price: price.nullable(), images });
 const schema = z.strictObject({ captureVersion: z.literal(2), source: z.literal('amazon'), evidence: z.strictObject({
   schemaVersion: z.literal(2), site: z.enum(['us', 'ca', 'uk', 'de', 'jp']), sourceID: text.regex(/^[A-Z0-9]{10}$/), sourceURL: text,
-  title: text.min(1), description: text.nullable(), attributes: attrs, variants: z.array(variant).max(256), priceFacts: z.array(price).max(256), images,
+  title: text.min(1).refine(v=>byteLength(v)<=2000), description: text.nullable(), attributes: attrs, variants: z.array(variant).max(256), priceFacts: z.array(price).max(256), images,
   observation: z.strictObject({ scope: z.enum(['selected_product', 'partial_family']), parentASIN: text.regex(/^[A-Z0-9]{10}$/).nullable() }),
   capturedAt: text.refine(v => /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,9})?Z$/.test(v) && Number.isFinite(Date.parse(v))),
   contentSHA256: text.regex(/^[a-f0-9]{64}$/), parserVersion: z.literal('amazon-browser-dom/v1'),

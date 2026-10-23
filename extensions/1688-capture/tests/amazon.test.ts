@@ -22,4 +22,8 @@ describe('Amazon single product module', () => {
     await expect(captureAmazonDocument(page(), 'https://www.amazon.com/dp/B012345679')).rejects.toThrow('SOURCE_CHANGED');
     expect(() => amazonPageSource('https://www.amazon.fr/dp/B012345678')).toThrow();
   });
+  it('rejects product text outside the current saved-detail bounds', async () => {
+    const payload = await captureAmazonDocument(page(), 'https://www.amazon.com/dp/B012345678');
+    expect(() => validateAmazonCapture({ ...payload, evidence: { ...payload.evidence, title: 'a'.repeat(2001) } })).toThrow();
+  });
 });
