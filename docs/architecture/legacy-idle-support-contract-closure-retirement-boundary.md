@@ -50,7 +50,7 @@ Threat Model 限于误删混合文件中的当前行为、把同名类型/字段
 | 其余 11 timeout 常量 / 13 包装 | 全仓无限定生产或测试 caller；只存在各包装互引、声明/历史记录 | §5 精确 RETIRE，不改请求 timeout、deadline 或真实 worker |
 | pkg/jsonx/marshal.go 九函数 | 没有包外调用；MarshalPretty/ToJSONString 等仅文件内互调，SaveToFile 无 caller | 整文件 RETIRE，不执行写文件 helper，不替换其它 owner 同名 UnmarshalStrict |
 | pkg/jsonx/unmarshal.go、llm.go | amazon/api/auth.go、request.go、uploads.go 用 UnmarshalBytes；publishing/shein/title_resolution.go 用 UnmarshalString/CleanLLMResponse | 原泛型解析/LLM清理文件与当前严格草稿 decoder 完整 KEEP |
-| 当前 Store 与独立登录 | storecenter/observations、sheinloginmanaged/bootstrap/worker 仍用原模型/注入/持久化/执行 fence；无拟退声明调用 | 原 Store 同步与独立登录、UNKNOWN 不自动接管保持，无新 owner |
+| 当前 Store 与独立登录 | Store 持久化由 internal/storecenter 原 owner 持有；独立登录路径 cmd/shein-login-worker → internal/app/runtime/sheinloginworker/runtime.go → internal/sheinlogin/bootstrap/build.go / internal/sheinlogin/worker.go，仍用原模型/注入/执行 fence；无拟退声明调用 | 原 Store 同步与独立登录、UNKNOWN 不自动接管保持，无新 owner |
 
 以上区分测试、注释、同包互调、默认命令和独立 browser/debug。实施前重查实际消费者和 main 组合；不能只搜名字不看 alias/receiver，也不把其它 owner 的 Manager/TimeoutConfig/UnmarshalStrict 或平台费用字段误判为拟退合同。
 
