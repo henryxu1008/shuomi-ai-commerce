@@ -57,58 +57,6 @@ func TestRetryConfigCustom(t *testing.T) {
 	}
 }
 
-// TestDefaultTimeoutConfig 测试默认超时配置
-func TestDefaultTimeoutConfig(t *testing.T) {
-	config := DefaultTimeoutConfig()
-
-	if config == nil {
-		t.Fatal("DefaultTimeoutConfig 返回 nil")
-	}
-
-	// 验证默认值
-	if config.ConnectTimeout != 10*time.Second {
-		t.Errorf("ConnectTimeout = %v, 期望 10s", config.ConnectTimeout)
-	}
-
-	if config.ReadTimeout != 30*time.Second {
-		t.Errorf("ReadTimeout = %v, 期望 30s", config.ReadTimeout)
-	}
-
-	if config.WriteTimeout != 30*time.Second {
-		t.Errorf("WriteTimeout = %v, 期望 30s", config.WriteTimeout)
-	}
-
-	if config.IdleTimeout != 90*time.Second {
-		t.Errorf("IdleTimeout = %v, 期望 90s", config.IdleTimeout)
-	}
-}
-
-// TestTimeoutConfigCustom 测试自定义超时配置
-func TestTimeoutConfigCustom(t *testing.T) {
-	config := &TimeoutConfig{
-		ConnectTimeout: 5 * time.Second,
-		ReadTimeout:    15 * time.Second,
-		WriteTimeout:   20 * time.Second,
-		IdleTimeout:    60 * time.Second,
-	}
-
-	if config.ConnectTimeout != 5*time.Second {
-		t.Errorf("ConnectTimeout = %v, 期望 5s", config.ConnectTimeout)
-	}
-
-	if config.ReadTimeout != 15*time.Second {
-		t.Errorf("ReadTimeout = %v, 期望 15s", config.ReadTimeout)
-	}
-
-	if config.WriteTimeout != 20*time.Second {
-		t.Errorf("WriteTimeout = %v, 期望 20s", config.WriteTimeout)
-	}
-
-	if config.IdleTimeout != 60*time.Second {
-		t.Errorf("IdleTimeout = %v, 期望 60s", config.IdleTimeout)
-	}
-}
-
 // TestDefaultHTTPClientConfig 测试默认HTTP客户端配置
 func TestDefaultHTTPClientConfig(t *testing.T) {
 	config := DefaultHTTPClientConfig()
@@ -199,48 +147,5 @@ func TestRetryConfigZeroValues(t *testing.T) {
 
 	if config.BackoffFactor != 0 {
 		t.Errorf("BackoffFactor = %v, 期望 0", config.BackoffFactor)
-	}
-}
-
-// TestTimeoutConfigZeroValues 测试零值配置
-func TestTimeoutConfigZeroValues(t *testing.T) {
-	config := &TimeoutConfig{}
-
-	// 零值应该是有效的
-	if config.ConnectTimeout != 0 {
-		t.Errorf("ConnectTimeout = %v, 期望 0", config.ConnectTimeout)
-	}
-
-	if config.ReadTimeout != 0 {
-		t.Errorf("ReadTimeout = %v, 期望 0", config.ReadTimeout)
-	}
-
-	if config.WriteTimeout != 0 {
-		t.Errorf("WriteTimeout = %v, 期望 0", config.WriteTimeout)
-	}
-
-	if config.IdleTimeout != 0 {
-		t.Errorf("IdleTimeout = %v, 期望 0", config.IdleTimeout)
-	}
-}
-
-// TestDefaultRateLimitConfig 测试默认限流配置
-func TestDefaultRateLimitConfig(t *testing.T) {
-	config := DefaultRateLimitConfig()
-
-	if config == nil {
-		t.Fatal("DefaultRateLimitConfig 返回 nil")
-	}
-
-	if !config.Enabled {
-		t.Error("Enabled = false, 期望 true")
-	}
-
-	if config.RequestsPerSecond != 10.0 {
-		t.Errorf("RequestsPerSecond = %v, 期望 10.0", config.RequestsPerSecond)
-	}
-
-	if config.BurstSize != 20 {
-		t.Errorf("BurstSize = %d, 期望 20", config.BurstSize)
 	}
 }

@@ -1,3 +1,5 @@
+> #301 / #914 **USER_CONFIRMED / SOURCE_IMPLEMENTED**：[旧闲置配置与运行辅助合同完整退休边界](legacy-idle-support-contract-closure-retirement-boundary.md)冻结 §1–§7（含 §6.1），Reuse Existing Architecture / Ready 读回先于源码修改。仅替代闲置 goroutine.Manager/TaskInfo/NewManager 分支、§5.2准确timeout声明及 jsonx/marshal.go 的广泛helper暂留；goroutine.Processor/原Amazon浏览器debug、活跃AI短超时/下载常量、jsonx泛型解析/LLM清理与当前严格JSON均保留，不整退有效包或其它owner。 下方历史正文逐字保留，其它KEEP/计数/证据不改；workflow/inventory及既有资源零改，无新试用前置，独立SHEIN登录与Store同步保持，#301 OPEN。
+
 # #301 旧宿主 HTTP、会话与运行辅助层完整退休设计
 
 > #872 后续精确收口：[用户确认的完整队列/代理/配置尾部边界](legacy-queue-proxy-config-tail-closure-retirement-boundary.md)进一步退休无当前消费者的旧 RabbitMQ 包、cache/perf/types/fileio 及 Updater 配置 schema/default/build/示例尾部。本文对该旧队列包的广泛保留含义被精确取代；有效 core/config/logger、RetryConfig/真实 workerpool/Temporal/观测/HTTP、采集/Store和独立 SHEIN 登录同步仍保持。无替代更新器/队列 owner，不操作文件/进程/实例/凭据；其它合同及原历史正文/计数保留。
