@@ -4,7 +4,7 @@ import type { AmazonCapturePayload } from './wire';
 
 const domains = { us: 'www.amazon.com', ca: 'www.amazon.ca', uk: 'www.amazon.co.uk', de: 'www.amazon.de', jp: 'www.amazon.co.jp' } as const;
 export function amazonPageSource(input: string) {
-  if (byteLength(input) > 2048 || /[\\\u0000-\u0020]/.test(input)) fail('INVALID_PAGE');
+  if (input.length>2048 || byteLength(input) > 2048 || /[\\\u0000-\u0020]/.test(input)) fail('INVALID_PAGE');
   let url: URL; try { url = new URL(input); } catch { return fail('INVALID_PAGE'); }
   const site = (Object.keys(domains) as (keyof typeof domains)[]).find(key => url.hostname === domains[key] || url.hostname === domains[key].slice(4));
   // Bounded current product URL only; tracking query/fragment never become identity.
