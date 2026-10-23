@@ -12,6 +12,8 @@ go run ./cmd/current-application -config C:\private\current-application.json
 
 当前装配在既有 Product acquisition 数据库和 Collection 能力均启用时，显式加入 `WithAmazonBrowserCapture()`。缺少 Collection、原 schema、当前授权或受限 Product pool 时拒绝开放；接收保存本身不依赖 Amazon Data Services 的 provider、Temporal 或余额。此实现不初始化/迁移现有实例。
 
+冻结设计 §2 的当前 application 装配对应 `internal/app/httpapi/amazon_browser_capture_application.go`。既有精确依赖 guard 仅登记此文件的 `NewAmazonBrowserCapture`、`NewAmazonCaptureContextAuthorizer` 与 `AmazonCaptureResult`，其他文件仍不准入；该文件不能调用收费 owner、数据库初始化或目标子包。
+
 前端在 `web/listingkit-ui` 用 `pnpm install --frozen-lockfile`、`pnpm dev` 正常启动，沿现有 HTTPS 应用 origin 与可信后端 `LISTINGKIT_SERVICE_API_BASE` 接线。保留原 serverAuth、Origin 和 CSRF 配置，不向浏览器交付后端凭据。
 
 扩展构建沿 [现有扩展说明](../../extensions/1688-capture/README.md)，由 #906 公共壳登记 Amazon 模块。编译固定应用 origin 的 `/capture/amazon`，来源页无法指定接收地址。本批次没有安装到用户日常浏览器，也未修改保留实例。
