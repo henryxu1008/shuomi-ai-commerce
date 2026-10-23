@@ -36,6 +36,8 @@ Native base：`/api/v1/workbench/sourcing/amazon/browser-captures`；同源 BFF 
 - 同键异载荷冲突；COMMIT 未知保留 `OUTCOME_UNKNOWN`。SRC 同锁与 READ COMMITTED 新语句核实，SRC/Catalog/Collection 部分存在时拒绝修补。
 - 免费来自固定 `amazon_browser_capture/v1` producer 与无收费 port 的装配。不会创建收费 job、reservation 或 provider 调用。
 - 金额保留十进制原事实；模糊 `$` 不推断币种。缺少规格、父子关系、图片或库存不补造。超过当前详情可读长度/诊断数量的输入在保存前拒绝，不截断后报告完整。
+- 当前选中属性读取既有 `variation_*` 和新版 inline twister 标题中的维度/选中值；不读取其它选项或遍历变体。重复布局值相同只保留一次，冲突值省略并标明缺失，显式隐藏节点不作为选中事实。
+- `#feature-bullets` 的商品要点按来源顺序写入现有纯文本 `description`；原 `#productDescription` 有值时保留在前，段间空行、要点间换行。脚本、显式隐藏内容、区块标题和区块外详情链接不带入。合并后仍受原 8 KiB UTF-8 上限，不截断保存；未观察到描述、要点或选中属性时由原 `missingFacts` 提示。此处没有新增卖点字段、富文本或保存 owner。
 - 富文本、批量、关键词、自动转入、真实来源采集、安装部署、保留环境保存/计费和用户验收均不在本次执行授权内，均为 **NOT_RUN**。
 
 开发测试使用本任务独立 PostgreSQL 的空测试库与合成 DOM。运行入口与访问说明不构成真实环境操作授权。
