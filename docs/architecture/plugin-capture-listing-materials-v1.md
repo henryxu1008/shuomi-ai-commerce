@@ -2,7 +2,7 @@
 
 Refs #916；基线 plugin-capture-ingestion-v1、plugin-capture-source-quotes-v1。
 
-Status: DESIGN_REVIEW_PENDING。Design Basis: Reuse Existing Architecture；用户明确要求先独立设计评审，通过前不修改生产代码。
+Status: IMPLEMENTATION_READY。Design Basis: Reuse Existing Architecture。独立 Reviewer initial_revision_final_review 已核对设计提交 339dee012fd4cdc5068a62ec20c8e8ff47533191、Issue #916 当前范围、两平台解析/validator 和 Go v2→Envelope→Catalog 映射，确认现有合同可承载本轮资料，无设计 finding；准入记录先于生产代码修改。此结论不代表用户验收或运行更新授权。
 
 ## 用户结果与边界
 
