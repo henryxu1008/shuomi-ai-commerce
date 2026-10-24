@@ -3,6 +3,8 @@
 Refs #916；基线 [插件接收架构](plugin-capture-ingestion-v1.md)、[上架字段设计](../product/plugin-capture-listing-fields-v1.md)。
 Status: **IMPLEMENTATION_READY**。2026-10-24 用户已授权先评审、后开发/测试并提交一个主要PR；不含合并、运行更新、真实重采/保存或部署。
 
+2026-10-24 后续资料批次：高清相册的静态元数据读取、商品参数、正文/详情图和重量以 [listing-materials 增量](plugin-capture-listing-materials-v1.md) 为当前范围；第5节的“仅已呈现相册URL”由该有界升级规则补充，禁止猜测URL/完整规格族的边界保留。来源报价读取合同和下文历史评审不变。
+
 ## 1. 产品边界、依据与交付
 
 使用者是已登录企业采集人员。用户在已有“我的数据 → 原始商品资料”查看插件保存的固定版本，能看到来源属性、当前商品图、来源报价及准确缺失提示。Product/Figma Authority沿[final-ui-ia-authority](../product/final-ui-ia-authority.md)和字段设计引用的Figma tg48P46SSXl6TBy9lZwg63 / 31:463；只扩展现有详情内容，无新页面/路由/菜单。

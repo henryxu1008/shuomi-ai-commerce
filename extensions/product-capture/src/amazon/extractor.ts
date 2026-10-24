@@ -1,28 +1,17 @@
 import { byteLength, fail, publicImage } from '../validation';
 import { amazonPageSource, validateAmazonCapture } from './validation';
 import type { AmazonCapturePayload, AmazonImage } from './wire';
+import { excluded, productText, tableFacts, putFact, detailImages } from '../dom-materials';
+import { albumURLs } from './album';
 
-// Reads only visible product text and selected-product image nodes. No script
-// execution, page-global state, network, credentials or variant traversal.
+// Reads product DOM and statically bound album literals. No script execution,
+// page-global state, network, credentials or variant traversal.
 export async function captureAmazonDocument(doc: Document, source: string, now = new Date()): Promise<AmazonCapturePayload> {
   const identity = amazonPageSource(source);
   if (amazonPageSource(doc.URL).sourceURL !== identity.sourceURL) fail('SOURCE_CHANGED');
-  let examined=0;
-  const charge=()=>{if(++examined>65536)fail('CAPTURE_TOO_LARGE');};
-  const excluded = (element: Element) => {
-    if (element.closest('script,style,noscript,template,[hidden],[aria-hidden="true"]')) return true;
-    for (let parent: Element | null = element; parent; parent = parent.parentElement) {
-      const style = (parent as HTMLElement).style;
-      if (style?.display === 'none' || style?.visibility === 'hidden') return true;
-    }
-    return false;
-  };
-  const text=(element:Element|null,max=8192)=>{
-    if(!element || excluded(element))return null;let result='';let bytes=0;
-    const walker=doc.createTreeWalker(element,4);let node:Node|null;
-    while((node=walker.nextNode())){charge();if(node.parentElement && excluded(node.parentElement))continue;const value=node.nodeValue??'';if(value.length>max)fail('CAPTURE_TOO_LARGE');bytes+=byteLength(value);if(bytes>max)fail('CAPTURE_TOO_LARGE');result+=value;}
-    return result.trim()||null;
-  };
+  let examined=0; const started = performance.now();
+  const charge=()=>{if(++examined>65536)fail('CAPTURE_TOO_LARGE');if(performance.now()-started>8000)fail('CAPTURE_TIMEOUT');};
+  const text=(element:Element|null,max=8192)=>productText(doc,element,charge,max);
   const value = (selector: string,max=8192) => text(doc.querySelector(selector),max);
   const title = value('#productTitle',2000); if (!title) fail('UNSUPPORTED_PAGE');
   const observedASIN = doc.querySelector<HTMLInputElement>('input#ASIN')?.value;
@@ -35,31 +24,34 @@ export async function captureAmazonDocument(doc: Document, source: string, now =
   const selectedImages = [...images];
   const gallery = doc.querySelectorAll<HTMLImageElement>('#altImages li img');
   if (gallery.length > 256) fail('CAPTURE_TOO_LARGE');
+  const thumbs: string[] = [];
   for (const image of gallery) {
     charge();
     if (excluded(image) || image.closest('.videoThumbnail,.video-block,[data-video-url],[data-video-id]')) continue;
     const url = image.getAttribute('src');
-    if (url && url.length > 2048) fail('CAPTURE_TOO_LARGE');
-    if (url && publicImage(url) && !images.some(item => item.url === url)) images.push({ url, role: 'gallery' });
+    if (url && byteLength(url) > 2048) fail('CAPTURE_TOO_LARGE');
+    if (url && publicImage(url) && !thumbs.includes(url)) thumbs.push(url);
+  }
+  const album = albumURLs(doc, images[0]?.url, thumbs, charge);
+  for (const thumb of thumbs) {
+    const url = album.urls.get(thumb) ?? thumb;
+    if (!images.some(item => item.url === url)) {
+      if (images.length >= 256) fail('CAPTURE_TOO_LARGE');
+      images.push({ url, role: 'gallery' });
+    }
+  }
+  for (const url of detailImages(doc, '#productDescription img,#aplus img,#aplus_feature_div img,.aplus-v2 .aplus-module-content img', charge)) {
+    if (!images.some(item => item.url === url)) {
+      if (images.length >= 256) fail('CAPTURE_TOO_LARGE');
+      images.push({ url, role: 'detail' });
+    }
   }
   const productFacts = new Map<string, { name: string; value: string }>();
   const factConflicts = new Set<string>();
   const fact = (name: string | null, value: string | null) => {
-    name = name?.replace(/\s+/g, ' ').replace(/[:：]$/, '').trim() || null;
-    value = value?.replace(/\s+/g, ' ').trim() || null;
-    if (!name || !value) return;
-    const key = name.toLowerCase();
-    if (factConflicts.has(key)) return;
-    if (productFacts.has(key) && productFacts.get(key)!.value !== value) { productFacts.delete(key); factConflicts.add(key); }
-    else productFacts.set(key, { name, value });
+    putFact(productFacts, factConflicts, name, value);
   };
-  const rows = doc.querySelectorAll('#productOverview_feature_div tr,#productDetails_detailBullets_sections1 tr,#productDetails_techSpec_section_1 tr');
-  if (rows.length > 256) fail('CAPTURE_TOO_LARGE');
-  for (const row of rows) {
-    charge(); if (excluded(row)) continue;
-    const cells = row.querySelectorAll('th,td');
-    if (cells.length === 2) fact(text(cells[0]), text(cells[1]));
-  }
+  for (const item of tableFacts(doc, '#productOverview_feature_div tr,#productDetails_detailBullets_sections1 tr,#productDetails_techSpec_section_1 tr,#technicalSpecifications_section_1 tr', charge)) fact(item.name,item.value);
   fact('Availability', value('#availability'));
   const dimensions = new Map<string, { name: string; value: string }>();
   const conflicts = new Set<string>();
@@ -105,6 +97,19 @@ export async function captureAmazonDocument(doc: Document, source: string, now =
       }
     }
   }
+  const paragraphs = doc.querySelectorAll('#aplus .aplus-module p,#aplus_feature_div .celwidget p,.aplus-v2 .aplus-module-content p');
+  if (paragraphs.length > 256) fail('CAPTURE_TOO_LARGE');
+  const knownParagraphs = new Set(description.split(/\n+/).map(p=>p.replace(/\s+/g,' ').trim()));
+  let addedParagraphs = 0;
+  for (const paragraph of paragraphs) {
+    charge();
+    const value = text(paragraph)?.replace(/\s+/g,' ');
+    if (!value || knownParagraphs.has(value)) continue;
+    const separator = description ? addedParagraphs ? '\n' : '\n\n' : '';
+    descriptionBytes += byteLength(separator) + byteLength(value);
+    if (descriptionBytes > 8192) fail('CAPTURE_TOO_LARGE');
+    description += separator + value; knownParagraphs.add(value); addedParagraphs++;
+  }
   const attributes = [...dimensions.values()];
   const priceNodes = doc.querySelectorAll('#corePrice_feature_div .a-price .a-offscreen,#corePriceDisplay_desktop_feature_div .a-price .a-offscreen');
   if (priceNodes.length > 256) fail('CAPTURE_TOO_LARGE');
@@ -140,6 +145,7 @@ export async function captureAmazonDocument(doc: Document, source: string, now =
     if (/^(0|[1-9][0-9]{0,15})(\.[0-9]{1,8})?$/.test(amount)) price = { amount, currency };
   }
   const missingFacts = [{ field: 'variants', reason: 'only selected product observed; variant family not traversed' }, { field: 'inventory', reason: 'source inventory quantity not observed' }];
+  if (album.reason) missingFacts.push({ field: 'images.hiRes', reason: album.reason });
   if (!attributes.length || incompleteDimension) missingFacts.push({ field: 'variants[0].attributes', reason: 'selected dimension label or value not observed' });
   if (conflicts.size) missingFacts.push({ field: 'variants[0].attributes', reason: 'conflicting selected dimension values were omitted' });
   if (!observedBullets) missingFacts.push({ field: 'description.featureBullets', reason: 'feature bullet text not observed' });

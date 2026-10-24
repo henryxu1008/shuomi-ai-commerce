@@ -71,6 +71,10 @@ The 1688 receiver is `/capture/1688`. The same extension also selects Amazon's e
 
 1688 also reads existing `skuRangePrices` and `currentPrices` models when higher-priority `offerPriceRanges` has no amount. It retains decimal strings and reads safe, already-loaded description text while skipping executable, form, hidden and frame subtrees. It does not fetch external descriptions. The original confirmation/save path and wire versions are unchanged.
 
+The listing-material increment also reads Amazon's explicit `colorImages.initial` metadata using static Acorn/JSON parsing. Only a group bound to the observed MAIN image can upgrade exact visible thumbnail URLs using `hiRes`, then the original `large`; URLs are never manufactured. Conflicts or unsupported metadata preserve known images with a missing-fact reason. The main/thumbnail duplicate is merged, and gallery/detail images never become implicit variant images. Current-product technical parameters, safe A+ paragraphs and product-description images reuse the existing attributes/description/images fields.
+
+1688 supplements the known context attributes with two-cell parameter rows and images inside the already-loaded description container. Original packaging/shipping `unitWeight` values retain their decimal text; an absent unit is labelled explicitly rather than assumed or converted. Supplier services, videos, hidden galleries, external description fetches and other SKU families remain outside this increment. See [listing-material design](../../docs/architecture/plugin-capture-listing-materials-v1.md).
+
 The existing 1688 receiver is `/capture/1688`. After explicit confirmation under the current user and organization, the original save chain returns an operation receipt. Open **我的数据 → the saved batch → 商品详情 → 规格图片** to expand each source variant; **下载原始资料** keeps the exact version and nested image relationships. Images are source URL candidates, with the existing asset approval requirements.
 
 In that same detail, **来源报价（参考）** reads the existing SRC facts for the selected publication/version. Amounts retain their original strings; unknown currency and minimum quantity are labelled explicitly. Quotes are reference information, separate from the merchant's selling price and stock. A failed supplementary quote read leaves known product data visible. Empty quotes mean no product-level quote was recorded, not that the source page has no price. Variant quote facts use the same human-readable format; the JSON download retains the original attributes and fixed-version quote projection. This change does not recapture or backfill older records.
@@ -160,7 +164,7 @@ only its closed disposable profiles after preserving the receipts.
 
 ## Capture boundary
 
-- Permissions are exactly `activeTab` and `scripting`, plus exact HTTPS host grants for `detail.1688.com`, `www.amazon.com`, `www.amazon.ca`, `www.amazon.co.uk`, `www.amazon.de`, and `www.amazon.co.jp`. No subdomain wildcard or `<all_urls>`, cookies, storage, tabs, history, webRequest, clipboard or downloads permissions.
+- Permissions remain `activeTab`, `scripting` and the existing return-location `storage` permission, plus exact HTTPS host grants for `detail.1688.com`, `www.amazon.com`, `www.amazon.ca`, `www.amazon.co.uk`, `www.amazon.de`, and `www.amazon.co.jp`. No subdomain wildcard or `<all_urls>`, cookies, tabs, history, webRequest, clipboard or downloads permissions.
 - A static main-frame ISOLATED script mounts only the source-page control on supported product paths. Product extraction follows an explicit capture click/shortcut/popup action and validates the product path. No batch or background traversal is introduced.
 - The named shortcut fixes its triggering tab; the popup selects its active tab once. Injection
   targets its main frame in the isolated world. The same document ID and
@@ -169,7 +173,7 @@ only its closed disposable profiles after preserving the receipts.
   remain decimal strings, 1–20 digits without leading zero. Tracking query
   and fragment are discarded. The backend independently derives identity.
 - For 1688, only the known static `context.result` product structure and the identified
-  rendered description node are read. Amazon uses its dedicated selected-product DOM module. No page scripts execute on behalf of
+  rendered description node are read. Amazon uses its dedicated selected-product DOM and statically bound image-literal module. No page scripts execute on behalf of
   the extension; no global objects, forms, cookies, storage or other tabs are
   inspected. Unknown structures and challenge/login pages fail explicitly.
 - Product fields are projected onto the strict v2 wire: no raw HTML,
