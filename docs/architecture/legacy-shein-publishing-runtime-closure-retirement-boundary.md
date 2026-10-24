@@ -1,3 +1,5 @@
+> #301 / #923 **SUPERSEDED，仅旧租户 Prompt 闭包**：用户已确认[完整退休设计 §1–§7（含 §4.2/§6.1）](legacy-tenant-prompt-closure-retirement-boundary.md)。本文涉及旧 `internal/prompt`、`internal/promptmgmt`、`shared/tenantctx`、五 YAML 及其现役 KEEP/复用建议仅在该准确矩阵内被退休决定替代；如涉及镜像打包，仅退出两条 `prompts` COPY。当前 AI/图像/采集、身份/有效规则、独立 SHEIN 登录与 Store 同步及其它 KEEP 不变。停止全新 schema 创建旧 Prompt 表，不改 Goose 登记或已有表/行，不新增替代 Store/迁移/兼容。以下原正文、历史数字/勾选/证据完整保留，不扩大实施、合并或真实资源权限。
+
 > 当前适用边界（#301 / #912）：用户已确认并按[旧 SHEIN 闲置策略与辅助合同完整退休闭包](legacy-shein-policy-contract-closure-retirement-boundary.md) §1–§7（含 §6.1）整批实施，仅替代本文件中generationtopics/namelimit 与本批价格/活动/属性辅助的 KEEP；当前草稿严格解码、版本及有效规则保持及对应旧 KEEP 检查；准确删除/保留矩阵以新设计 §2/§5/§6.1 为准，其它当前 API/有效规则/采集/独立 SHEIN 登录与 Store 同步不变。下方原历史正文、数字和证据逐字保留，不提供旧 JSON 迁移或运行/数据操作授权。
 
 > #301 / #904 用户确认的[完整 JSON 别名退休设计](legacy-shein-draft-json-alias-retirement-v1.md) §5/§6.1 仅替代本文三旧 Package 字段、回填/镜像/custom JSON、summary-only SKU 就绪回退及旧绑定/规则版本的 KEEP 或双输出要求。当前仅 canonical 字段，typed v1.2 / diagnostic v2.2 / binding go-json.v2；当前类型、有效规则、严格解码、原持久化 owner、独立 SHEIN 登录与 Store 同步保留。不迁移已有记录、不改 workflow/inventory、不增加试用前置。以下历史正文原样保留。

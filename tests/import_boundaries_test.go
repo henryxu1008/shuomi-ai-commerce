@@ -2223,7 +2223,6 @@ func businessHTTPPackages(root string) map[string]struct{} {
 		filepath.Clean(filepath.Join(root, "httproute")) + string(os.PathSeparator):                        {},
 		filepath.Clean(filepath.Join(root, "imageagent", "httpapi")) + string(os.PathSeparator):            {},
 		filepath.Clean(filepath.Join(root, "kernel", "module")) + string(os.PathSeparator):                 {},
-		filepath.Clean(filepath.Join(root, "promptmgmt", "api")) + string(os.PathSeparator):                {},
 		filepath.Clean(filepath.Join(root, "sourceaccountregistry", "httpapi")) + string(os.PathSeparator): {},
 		filepath.Clean(filepath.Join(root, "sheinlogin")) + string(os.PathSeparator):                       {},
 		filepath.Clean(filepath.Join(root, "taskrpcapi")) + string(os.PathSeparator):                       {},

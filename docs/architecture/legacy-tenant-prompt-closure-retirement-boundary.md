@@ -2,8 +2,8 @@
 
 Refs [#301](https://github.com/qq550723504/shuomi-ai-commerce/issues/301)。#301 保持 OPEN，#29 不重开。
 
-- Status: **DESIGNING / AWAITING_USER_CONFIRMATION**。本次只新增本文并前置两个索引；不实施下列源码、测试、资源、打包或旧文档转换。
-- Design Basis：当前三文档交付 **N/A**；拟实施 **Independent Architecture / NOT_READY**。适用设计复核、用户确认 §1–§7（含 §6.1）、IMPLEMENTATION_READY 与 Issue/PR Ready 读回先于正式源码修改。
+- Status: **USER_CONFIRMED / SOURCE_IMPLEMENTED**。用户已确认 §1–§7（含 §4.2/§6.1），在 #923 同批实施完整65工件，不机械拆批。
+- Design Basis：**Independent Architecture / IMPLEMENTATION_READY；Issue/PR Admission: Ready**。准确设计原 CI 与本轮独立只读设计复核 PASS、无 finding；[人类确认/接单6380854744](https://github.com/qq550723504/shuomi-ai-commerce/issues/301#issuecomment-6380854744)及 Issue/PR Ready 已读回，先于正式源码修改。
 - 基线 main **e651da8e8b3e70646c4ac54a00c536a28ba21d81**，tree **84fa36bd5e3c77a76b6fbab5ce93c320f8368ab7**。#921 的 push/main CI40066055622 SUCCESS 只是前批证据。
 - 唯一 Writer 原会话/独占 worktree，分支 `codex/issue301-tenant-prompt-closure-design`；[接单及前批当前段逐字归档6380591455](https://github.com/qq550723504/shuomi-ai-commerce/issues/301#issuecomment-6380591455)。首次 git fetch 连接失败；GitHub API 核实 main 后使用本地同一 commit 对象，不把失败写成同步成功。准确 HEAD、CI、实际复核与用户决定留主要 PR。
 
@@ -149,7 +149,7 @@ Cutover/deletion condition: 本文复核、用户确认§1–§7/§6.1及IMPLEME
 
 ## 6. 实施顺序与必要验证
 
-当前只做三文档设计的原索引/相对链接/准确范围检查、原完整 PR CI、适用只读独立设计复核；不执行生产路径或业务测试。确认后同一 Writer/主要 PR 先按 §6.1 扩展原 guard 与原 schema 临时 fixture，在旧目标尚存在时记录准确 RED；再 stage 精确删除、转换六测试旧 context/建表/打包/脚本/旧依据至 GREEN。不以 missing-skip/删有效断言或重建旧模块换绿。
+设计阶段只做三文档设计的原索引/相对链接/准确范围检查、原完整 PR CI、适用只读独立设计复核；不执行生产路径或业务测试。确认后同一 Writer/主要 PR 先按 §6.1 扩展原 guard 与原 schema 临时 fixture，在旧目标尚存在时记录准确 RED；再 stage 精确删除、转换六测试旧 context/建表/打包/脚本/旧依据至 GREEN。不以 missing-skip/删有效断言或重建旧模块换绿。
 
 实施必要自检只复用原 schema package（任务自有 `t.TempDir` SQLite）、六个受影响 SHEIN 用例、修改的原 guard/边界 helper、原 Architecture README 检查及当前身份/SourceIdentity JSON/hash/拒绝与独立 SHEIN/Store 原适用合成 fixture。旧专属 Prompt 测试随 owner 退出，不迁移为新 Prompt 框架。保留原八命令依赖检查；编译 current-application、image-agent-temporal-worker、shein-login-worker、source-account-registry-schema-init、product-listing-api-schema-migrate、listingkit-schema-migrate、1688-local-agent、1688-batch-import、1688-public-browser-collector 和 `hack/debug/test-amazon` 独立模块，产物仅任务 temp，全部不执行。
 
@@ -185,4 +185,4 @@ schema 的当前源码唯一变化是 §4.2 明确的 Prompt 注册退出，不�
 
 同 HEAD GitHub 评审运行时不重复触发；仅明确启动失败后一次受控重试。空正式 reviews/摘要布尔值/标签不是实际 PASS。**未经用户本轮授权不默认新增 AI 互验线程**；此前 #921 设计/源码子代理授权不覆盖本轮。备用只读设计或源码复核先提供准确 HEAD、边界与失败证据，获用户决定后启动，不从旧 plan 派工文字推定权限。
 
-本轮只授权设计、必要文档检查、提交/推送及同一主要 PR/Issue 维护。源码/测试/资源正式实施、合并、部署、#301 关闭及既有实例/数据/凭据/进程操作均 NOT_AUTHORIZED；不新增试用前置。#301 OPEN，#29 不重开，真实环境 UNKNOWN，运行/产品验收 NOT_RUN。未来获准确 HEAD 正常合并授权后，只以实际 merge SHA 对应 event=push/head_branch=main 完整 CI completed/SUCCESS 确认，不用 PR CI 或单 Gate 替代。
+设计阶段仅授权三文档；用户随后已明确确认本文并授权同一 #923 整批实施、必要隔离自检、提交/推送及 PR/Issue 维护。合并、部署、#301 关闭及既有实例/数据/凭据/进程操作仍 NOT_AUTHORIZED；不新增试用前置。#301 OPEN，#29 不重开，真实环境 UNKNOWN，运行/产品验收 NOT_RUN。未来获准确 HEAD 正常合并授权后，只以实际 merge SHA 对应 event=push/head_branch=main 完整 CI completed/SUCCESS 确认，不用 PR CI 或单 Gate 替代。
