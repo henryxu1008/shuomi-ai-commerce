@@ -1536,7 +1536,10 @@ func TestAmazonServicesUseStoreAPIPort(t *testing.T) {
 
 func TestAmazonUsesManagementAPIPortAliases(t *testing.T) {
 	root := filepath.Join("..", "internal", "amazon")
-	index, err := loadGoFileIndex(root, "")
+	if _, err := os.Lstat(root); !os.IsNotExist(err) {
+		t.Fatalf("retired Amazon owner must stay absent: %v", err)
+	}
+	index, err := loadGoFileSubtreeIndex(filepath.Join("..", "internal"), root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1548,27 +1551,23 @@ func TestAmazonUsesManagementAPIPortAliases(t *testing.T) {
 }
 
 func TestTemuRuntimeErrorsUseCapabilityNames(t *testing.T) {
+	// The runtime and its diagnostic files retired together; none may return.
 	paths := []string{
+		filepath.Join("..", "internal", "temu"),
 		filepath.Join("..", "internal", "temu", "api", "client", "client.go"),
 		filepath.Join("..", "internal", "temu", "api", "client", "auth.go"),
 		filepath.Join("..", "internal", "temu", "api", "client", "auth_retry_handler.go"),
 	}
 	for _, path := range paths {
-		content, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatalf("read %s: %v", path, err)
-		}
-		for _, phrase := range []string{"管理客户端未初始化", "管理客户端为空", "管理系统客户端为空"} {
-			if strings.Contains(string(content), phrase) {
-				t.Fatalf("%s mentions %q; use store/pricing/service runtime names for TEMU runtime dependencies", path, phrase)
-			}
+		if _, err := os.Lstat(path); !os.IsNotExist(err) {
+			t.Fatalf("retired TEMU runtime artifact %s must stay absent: %v", path, err)
 		}
 	}
 }
 
 func TestTemuContextUsesManagementAPIPortAliases(t *testing.T) {
 	root := filepath.Join("..", "internal", "temu", "context")
-	index, err := loadGoFileIndex(filepath.Dir(root), "")
+	index, err := loadGoFileSubtreeIndex(filepath.Join("..", "internal"), root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1584,7 +1583,7 @@ func TestTemuContextUsesManagementAPIPortAliases(t *testing.T) {
 
 func TestTemuFilterUsesManagementAPIPortAliases(t *testing.T) {
 	root := filepath.Join("..", "internal", "temu", "filter")
-	index, err := loadGoFileIndex(filepath.Dir(root), "")
+	index, err := loadGoFileSubtreeIndex(filepath.Join("..", "internal"), root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1600,7 +1599,7 @@ func TestTemuFilterUsesManagementAPIPortAliases(t *testing.T) {
 
 func TestTemuRulesUsesManagementAPIPortAliases(t *testing.T) {
 	root := filepath.Join("..", "internal", "temu", "rules")
-	index, err := loadGoFileIndex(filepath.Dir(root), "")
+	index, err := loadGoFileSubtreeIndex(filepath.Join("..", "internal"), root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1616,7 +1615,7 @@ func TestTemuRulesUsesManagementAPIPortAliases(t *testing.T) {
 
 func TestTemuHandlerBaseUsesManagementAPIPortAliases(t *testing.T) {
 	root := filepath.Join("..", "internal", "temu", "handlerbase")
-	index, err := loadGoFileIndex(filepath.Dir(root), "")
+	index, err := loadGoFileSubtreeIndex(filepath.Join("..", "internal"), root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1632,7 +1631,7 @@ func TestTemuHandlerBaseUsesManagementAPIPortAliases(t *testing.T) {
 
 func TestTemuStoreUsesManagementAPIPortAliases(t *testing.T) {
 	root := filepath.Join("..", "internal", "temu", "store")
-	index, err := loadGoFileIndex(filepath.Dir(root), "")
+	index, err := loadGoFileSubtreeIndex(filepath.Join("..", "internal"), root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1648,7 +1647,7 @@ func TestTemuStoreUsesManagementAPIPortAliases(t *testing.T) {
 
 func TestTemuSkuUsesManagementAPIPortAliases(t *testing.T) {
 	root := filepath.Join("..", "internal", "temu", "sku")
-	index, err := loadGoFileIndex(filepath.Dir(root), "")
+	index, err := loadGoFileSubtreeIndex(filepath.Join("..", "internal"), root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1664,7 +1663,7 @@ func TestTemuSkuUsesManagementAPIPortAliases(t *testing.T) {
 
 func TestTemuProductUsesManagementAPIPortAliases(t *testing.T) {
 	root := filepath.Join("..", "internal", "temu", "product")
-	index, err := loadGoFileIndex(filepath.Dir(root), "")
+	index, err := loadGoFileSubtreeIndex(filepath.Join("..", "internal"), root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1680,7 +1679,7 @@ func TestTemuProductUsesManagementAPIPortAliases(t *testing.T) {
 
 func TestTemuPricingUsesManagementAPIPortAliases(t *testing.T) {
 	root := filepath.Join("..", "internal", "temu", "pricing")
-	index, err := loadGoFileIndex(filepath.Dir(root), "")
+	index, err := loadGoFileSubtreeIndex(filepath.Join("..", "internal"), root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1696,7 +1695,7 @@ func TestTemuPricingUsesManagementAPIPortAliases(t *testing.T) {
 
 func TestTemuAPIClientUsesManagementAPIPortAliases(t *testing.T) {
 	root := filepath.Join("..", "internal", "temu", "api", "client")
-	index, err := loadGoFileIndex(root, "")
+	index, err := loadGoFileSubtreeIndex(filepath.Join("..", "internal"), root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1970,7 +1969,8 @@ func TestProjectBoundaryDomainsDoNotImportListingKitFacade(t *testing.T) {
 		filepath.Join("..", "internal", "workspace"),
 	} {
 		t.Run(filepath.ToSlash(domainRoot), func(t *testing.T) {
-			if domainRoot == filepath.Join("..", "internal", "workspace") || domainRoot == filepath.Join("..", "internal", "infra") {
+			if domainRoot == filepath.Join("..", "internal", "workspace") || domainRoot == filepath.Join("..", "internal", "infra") ||
+				domainRoot == filepath.Join("..", "internal", "amazon") || domainRoot == filepath.Join("..", "internal", "temu") {
 				assertNoBannedImportPrefixesBelow(t, filepath.Join("..", "internal"), domainRoot, []string{
 					"task-processor/internal/listingkit",
 				}, nil)
@@ -2474,7 +2474,7 @@ func TestAmazonExternalClientImportsStayAllowlisted(t *testing.T) {
 		filepath.Clean(filepath.Join(root, "processor.go")): {},
 	}
 
-	index, err := loadGoFileIndex(root, "")
+	index, err := loadGoFileSubtreeIndex(filepath.Join("..", "internal"), root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2822,7 +2822,7 @@ func TestTEMUSyncAndPricingRetiredManagementImportsStayBlocked(t *testing.T) {
 		filepath.Join("..", "internal", "temu", "pricing"),
 	} {
 		t.Run(filepath.ToSlash(root), func(t *testing.T) {
-			index, err := loadGoFileIndex(filepath.Join("..", "internal", "temu"), "")
+			index, err := loadGoFileSubtreeIndex(filepath.Join("..", "internal"), root)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -2850,7 +2850,7 @@ func TestTEMUProductStoreAndSchedulerRetiredManagementImportsStayBlocked(t *test
 
 	// Index the stable parent so the retired store directory can stay absent,
 	// while both original subtrees remain covered if sources are reintroduced.
-	index, err := loadGoFileIndex(filepath.Join("..", "internal", "temu"), "")
+	index, err := loadGoFileIndex(filepath.Join("..", "internal"), "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2891,7 +2891,7 @@ func TestTEMURuntimeAndBridgeRetiredManagementImportsStayBlocked(t *testing.T) {
 		filepath.Join("..", "internal", "temu", "rules"),
 	} {
 		t.Run(filepath.ToSlash(root), func(t *testing.T) {
-			index, err := loadGoFileIndex(filepath.Join("..", "internal", "temu"), "")
+			index, err := loadGoFileSubtreeIndex(filepath.Join("..", "internal"), root)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -2914,7 +2914,7 @@ func TestTEMURuntimeAndBridgeRetiredManagementImportsStayBlocked(t *testing.T) {
 	}
 
 	root := filepath.Join("..", "internal", "temu")
-	index, err := loadGoFileIndex(root, "")
+	index, err := loadGoFileSubtreeIndex(filepath.Join("..", "internal"), root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2939,7 +2939,7 @@ func TestTEMUOpenAIImportsStayAllowlisted(t *testing.T) {
 		filepath.Clean(filepath.Join(root, "pipeline_registry.go")): {},
 	}
 
-	index, err := loadGoFileIndex(root, "")
+	index, err := loadGoFileSubtreeIndex(filepath.Join("..", "internal"), root)
 	if err != nil {
 		t.Fatal(err)
 	}

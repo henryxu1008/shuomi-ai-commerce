@@ -2,10 +2,10 @@
 
 Refs [#301](https://github.com/qq550723504/shuomi-ai-commerce/issues/301)。#301 保持 OPEN，#29 不重开。
 
-- Status: **USER_CONFIRMED / SOURCE_IMPLEMENTED**。用户已确认冻结设计 f3dcb8cfb 的 §1–§7（含 §6.1），同一 #926 整批151工件已完成；必要本地自检与九命令/独立debug编译通过。原CI与最终源码复核待准确候选结果，不等于运行或产品验收。
+- Status: **USER_CONFIRMED / SOURCE_IMPLEMENTED**。用户已确认冻结设计 f3dcb8cfb 的 §1–§7（含 §6.1），同一 #926 整批152工件已完成；必要本地自检与九命令/独立debug编译通过。原CI与最终源码复核待准确候选结果，不等于运行或产品验收。
 - Design Basis：**Independent Architecture / IMPLEMENTATION_READY；Issue/PR Admission: Ready**。设计原CI40075488938及独立设计/修复增量复核PASS、用户确认与[实施接单6381745955](https://github.com/qq550723504/shuomi-ai-commerce/issues/301#issuecomment-6381745955)/Ready读回先于正式源码修改。设计阶段三文档N/A仅是历史阶段，不作为实现准入。
 - 基线 main **067ffafa01c91376ff53a5e10c83d65e1b476bb4**，tree **e16fe8fb7b4c2e4a5474626bf73f62f95c481478**；#923 已合并，只复用前批完成事实，不冒充本轮设计/实现/运行证据。
-- 形成设计候选前已同步实际 main **7d82be549f0aded91b57d9c3efee0b55d5da9c4f**（#925，tree **1514cde83b57243e222c4f77e5006481889164ef**）。该增量只涉及采集扩展/说明/脚本与共同索引，本批全部旧 API/配置/保留 owner 的调查代码未变化；共同 README 的 #925 项完整保留。该设计候选相对该 main 仅三文档；当前实施按本文151工件，不重复实施 #925。
+- 形成设计候选前已同步实际 main **7d82be549f0aded91b57d9c3efee0b55d5da9c4f**（#925，tree **1514cde83b57243e222c4f77e5006481889164ef**）。该增量只涉及采集扩展/说明/脚本与共同索引，本批全部旧 API/配置/保留 owner 的调查代码未变化；共同 README 的 #925 项完整保留。该设计候选相对该 main 仅三文档；当前实施按本文152工件，不重复实施 #925。
 - 唯一 Writer 原会话 `01a133ef-757c-73e3-b8f6-76958c642397`，独占原 worktree，分支 `codex/issue301-legacy-platform-api-closure-design`；[接单及前批当前段逐字归档6381325202](https://github.com/qq550723504/shuomi-ai-commerce/issues/301#issuecomment-6381325202)。已 fetch 并同步上述 main。#925 采集入口有独立 owner，本轮不重复派工或改其源码/文档，只给共同 Architecture README 加前缀索引。
 
 ## 1. 用户结果、范围与产品依据
@@ -107,9 +107,9 @@ SHEIN root api.APIResponse/APIError/auth-expired helper 只服务死客户端，
 
 以上路径相对于 internal/shein。它们是当前领域消费者真实合同，不是保活旧 Service 的 compatibility 类别。其它全文件 KEEP 包括 client/session_transport.go、cookie_values.go、所有当前 publishing/marketplace/rules/content/authorizedbrand、sheinlogin、storecenter/official integrations、当前 acquisition/AI/images/身份/计费/schema 等。
 
-### 5.3 十八个其它 mixed 工件与两个新纯值文件
+### 5.3 十九个其它 mixed 工件与两个新纯值文件
 
-与 §5.2 五 mixed 合计 **23 mixed 工件**：
+与 §5.2 五 mixed 合计 **24 mixed 工件**：
 
 | 精确文件 | 唯一允许修改 |
 | --- | --- |
@@ -129,6 +129,7 @@ SHEIN root api.APIResponse/APIError/auth-expired helper 只服务死客户端，
 | internal/core/config/validator_dependencies_test.go | 仅 §6.1 两原函数 |
 | config/config-dev.yaml、config/config-prod.yaml、config/config-test.yaml | 仅 §4.2 实际存在的三旧子树和专属注释；其它字节/键值不改，不读私密配置 |
 | tests/listingkit_backend_retirement_test.go | 仅 §6.1 三原函数及它们直接调用的本轮局部 AST/缺席 helper；其它函数/global/helper逐字保留 |
+| tests/import_boundaries_test.go | 原 CI 证实退出根仍被强制读取；仅 §6.1 的17原函数精确校准，复用现有稳定父目录扫描；其它函数/global/helper逐字保留 |
 
 新增仅 internal/shein/api/warehouse/address_conversion.go 与 address_conversion_test.go；先测试原纯值合同，再原样迁两函数，不新建平台 adapter/测试 runner。ConfigPaths 是未注入的属性映射路径槽，不是当前 browser profile/root/采集入口；不迁移其未知实际路径或内容。
 
@@ -166,13 +167,13 @@ SHEIN root api.APIResponse/APIError/auth-expired helper 只服务死客户端，
 
 当前本文、Architecture README 与 Legacy Register 三文档同步当前状态/边界，两个索引原历史后缀保留。dependency-baseline、phase2-runtime-inventory、external-client-boundary-inventory 等所有 inventory/历史计数文件**零改**；其历史行不构成重建旧 owner 义务，由本文/当前 Register说明，不静默校准计数。其它仅历史 API 名称不全仓扫改。
 
-实施拟定 **96整退 + 23 mixed + 2纯值文件 + 27窄顶注 + 3当前文档 = 151工件**，同一主要 PR 完成。设计阶段实际修改只有三当前文档。
+实施拟定 **96整退 + 24 mixed + 2纯值文件 + 27窄顶注 + 3当前文档 = 152工件**，同一主要 PR 完成。设计阶段实际修改只有三当前文档。
 
 ```text
 Legacy decision: EXTRACT | RETIRE
 Reusable behavior: worker仓库地址转换两项纯函数原样抽到同包；其余现役规则/JSON/SessionTransport/Store/采集直接保留原owner
 Current owner: 当前shein DTO/warehouse纯值包、sheinlogin/session transport、官方integration/Store与各当前领域owner
-Cutover/deletion condition: 完成适用设计复核和用户确认§1–§7/§6.1、记录并读回IMPLEMENTATION_READY/Ready；先抽纯函数再按151工件收齐；原有效检查及保留合同通过；合并另获授权
+Cutover/deletion condition: 完成适用设计复核和用户确认§1–§7/§6.1、记录并读回IMPLEMENTATION_READY/Ready；先抽纯函数再按152工件收齐；原有效检查及保留合同通过；合并另获授权
 ```
 
 ## 6. 实施顺序与必要验证
@@ -183,7 +184,7 @@ Cutover/deletion condition: 完成适用设计复核和用户确认§1–§7/§6
 
 必要自检限 core/config 原适用合成测试、现役 session/warehouse 纯值测试、当前 SHEIN DTO/草稿/预览/严格JSON/有效规则、独立登录/Store 原适用合成测试、原 retirement/import guards 与 Architecture README 四项检查。保留原八命令依赖检查；编译 current-application、image-agent-temporal-worker、shein-login-worker、source-account-registry-schema-init、product-listing-api-schema-migrate、listingkit-schema-migrate、1688-local-agent、1688-batch-import、1688-public-browser-collector 及 hack/debug/test-amazon 独立模块，产物仅任务 temp、不执行。不得读取现有 .env/私密配置以运行测试，不建数据库/Redis/真实浏览器/provider环境；原CI隔离fixture不是运行/产品验收。
 
-稳定候选用原完整 CI，不人工重复全量 CI 或加 runner/验收 session。最终严格核对151路径及 mixed允许范围、27原文历史后缀、两个索引后缀、全部 KEEP 和 workflow/inventory/依赖/锁/保护零差异；真实范围外新消费者/CI要改冻结项时，先报告准确原因与补丁，不能自行扩权。
+稳定候选用原完整 CI，不人工重复全量 CI 或加 runner/验收 session。最终严格核对152路径及 mixed允许范围、27原文历史后缀、两个索引后缀、全部 KEEP 和 workflow/inventory/依赖/锁/保护零差异；真实范围外新消费者/CI要改冻结项时，先报告准确原因与补丁，不能自行扩权。
 
 ### 6.1 原检查/测试精确转换矩阵
 
@@ -199,7 +200,10 @@ Cutover/deletion condition: 完成适用设计复核和用户确认§1–§7/§6
 | 同文件 / TestAmazonConfigDefaults、TestConfigBuild | 前者仅去五SPAPI默认值断言，absence在上项覆盖；后者只去旧Temu HTTP set/assert（通用行为由上一项保留） | 所有当前browser/Amazon风险/质量/1688/OpenAI断言不变 |
 | core/config/config_env_test.go / TestNewViper_BindsPrimaryEnvironmentVariables、TestNewViper_BindsLegacyEnvironmentAliases | 各只删两条SPAPI t.Setenv与两条对应assert | 原AI/image/DB主env、其它alias行为与全部其它函数不变 |
 | core/config/validator_dependencies_test.go / TestValidateAmazonConfig_SPAPIRequiresCredentials、TestValidateConfig_CatchesDependencyErrors | 只退第一整函数；第二只去SPAPI literal | 原有效OpenAI/依赖断言，TestValidateConfigPreservesValidationGroupOrder全函数/六聚合/全部format测试不变 |
-| 其它原检查 | **零改**：assertLegacyLoggerFacadeRetired、TestSheinListingMixedDeclarationsAreRetired、TestSheinCanonicalDraftContractIsRetained、SKU guard、legacy_hard_cut/import_boundaries全部原函数、.golangci、Architecture检查、所有workflow/inventory | 已批准已退出旧owner不复活；不存在文件的历史allowlist/业务根字符串不要求无价值清扫 |
+| tests/import_boundaries_test.go / 15项原索引函数 | AmazonUsesManagementAPIPortAliases/ExternalClientImportsStayAllowlisted；Temu Context/Filter/Rules/HandlerBase/Store/Sku/Product/Pricing/APIClient 的 UsesManagementAPIPortAliases；TEMU SyncAndPricing/ProductStoreAndScheduler/RuntimeAndBridge 的 RetiredManagementImportsStayBlocked 与 OpenAIImportsStayAllowlisted。共16处索引：15处复用 loadGoFileSubtreeIndex(retained internal, 原root)，ProductStoreAndScheduler一处直接从retained internal索引，原root过滤/管理API与OpenAI禁入/allowlist/错误处理均不变；Amazon aliases增加旧amazon整根Lstat必须缺席 | 当前采集/原Amazon浏览器/debug均在其它owner，零改；无新helper或missing-skip |
+| 同文件 / TestTemuRuntimeErrorsUseCapabilityNames | 原3旧客户端文件“必须可读/短语不得出现”转换为Lstat必须缺席，并要求旧internal/temu整根缺席 | 仅该已退休owner的诊断检查转换；不恢复旧文件 |
+| 同文件 / TestProjectBoundaryDomainsDoNotImportListingKitFacade | 仅amazon/temu两旧根进入现有Below(retained internal)分支；原域列表、全部当前域、禁入prefix与其它分支保持 | 不跳过当前域或读取/解析错误；其余原函数/global/helper逐字零改 |
+| 其它原检查 | **零改**：assertLegacyLoggerFacadeRetired、TestSheinListingMixedDeclarationsAreRetired、TestSheinCanonicalDraftContractIsRetained、SKU guard、legacy_hard_cut全部原函数、import_boundaries除本表17原函数外全部原函数、.golangci、Architecture检查、所有workflow/inventory | 已批准已退出旧owner不复活；不存在文件的历史allowlist/业务根字符串不要求无价值清扫 |
 
 声明禁入必须限定本文旧owner与receiver，不能让 API/Client/PriceManager 等名字影响现役不同 owner。复用既有 Go AST/helper 检查与局部表，不创建新通用 checker/框架；新增小 helper 只能直接服务三原函数，不得修改其余 helper/global，尤其 logger facade helper零改。
 
@@ -213,7 +217,7 @@ Cutover/deletion condition: 完成适用设计复核和用户确认§1–§7/§6
 
 ### 7.2 最终交付检查
 
-实现完成后一次集中只读最终检查完整真实diff、151工件/实际mixed范围、当前能力/JSON与SHEIN/Store保留及已有证据；不只采信作者报告。finding先分类，真正命中项目BLOCKER的新事实才重开冻结设计；普通实现或测试问题同PR修复，仅复核相关增量，理论hardening不阻止有界交付。实现/CI/AI复核均不等于用户或运行验收。
+实现完成后一次集中只读最终检查完整真实diff、152工件/实际mixed范围、当前能力/JSON与SHEIN/Store保留及已有证据；不只采信作者报告。finding先分类，真正命中项目BLOCKER的新事实才重开冻结设计；普通实现或测试问题同PR修复，仅复核相关增量，理论hardening不阻止有界交付。实现/CI/AI复核均不等于用户或运行验收。
 
 ### 7.3 评审与授权
 
