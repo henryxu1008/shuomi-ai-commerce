@@ -1,6 +1,6 @@
 # Product capture entry and original-tab return
 
-Execution: [#920](https://github.com/qq550723504/shuomi-ai-commerce/issues/920). Design Basis: **Reuse Existing Architecture**. Status: **DESIGN_REVIEW_PENDING**; no production implementation before the requested review.
+Execution: [#920](https://github.com/qq550723504/shuomi-ai-commerce/issues/920). Design Basis: **Reuse Existing Architecture**. Status: **READY** after independent review of design `56875bed8105dfbdd111d4f78dc4aa1ede4122ef` by the existing `amazon_fix_review`. No BLOCKER; complete-entry/reset concurrency and own-tab/window failure behavior are IMPLEMENTATION_TEST within this design. Review evidence is maintained in the Issue/PR.
 
 ## Product basis and scope
 

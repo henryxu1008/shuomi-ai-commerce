@@ -59,4 +59,5 @@ export class Handoff {
   recoveryURL(): string | null {
     return this.pending ? `${this.app}#operationKey=${this.pending.idempotencyKey}` : null;
   }
+  applicationTabID(): number | undefined { return this.pending?.tabId; }
 }
