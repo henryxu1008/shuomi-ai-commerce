@@ -1,3 +1,5 @@
+> #301 / #934 **USER_CONFIRMED**：[旧闲置 adapter/helper 完整退休闭包](../../architecture/legacy-idle-adapter-helper-closure-retirement-boundary.md) §1–§7（含 §6.1）已获用户确认，Reuse Existing Architecture / Ready 与 Issue/PR 读回先于源码修改。仅替代 logging 闲置 helper/context/全导出保活、shared/resilience 闲置 limiter/breaker，以及 CachedClientConfig/ResilientClientConfig 与两未装配 decorator 的保活含义。保留 LogManager/配置/singleton/hook/writer、Retry、当前 ClientConfig/PoolConfig/ManagerConfig 显式非序列化 Logger、Client/RequestPool/Manager/自身 RateLimiter 与配置缓存/路由。历史全量迁包/别名计划不恢复已退休 owner。只按准确矩阵替代本项旧 KEEP；以下原文/已有顶注/数字/勾选/批准/历史证据完整逐字保留。workflow/完整 inventory/依赖/保护及既有实例/数据/凭据/进程零改，保留独立 SHEIN 登录与 Store 同步，不增试用前置，#301 OPEN。
+
 # Internal 目标架构迁移阶段 2 Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
