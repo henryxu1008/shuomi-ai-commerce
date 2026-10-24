@@ -21,7 +21,8 @@ it('builds only activeTab/scripting with exact app messaging, and rejects implic
   // Exact approved origins only; each source parser also validates the product
   // path before injection. No subdomain wildcard or implicit new destination.
   expect(manifest.host_permissions).toEqual(hosts);
-  for(const key of ['optional_permissions','optional_host_permissions','content_scripts','web_accessible_resources']) expect(manifest[key]).toBeUndefined();
+  for(const key of ['optional_permissions','optional_host_permissions','web_accessible_resources']) expect(manifest[key]).toBeUndefined();
+  expect(manifest.content_scripts).toEqual([{ matches: ['https://detail.1688.com/offer/*', ...hosts.slice(1).flatMap(host => [host.replace('/*','/dp/*'), host.replace('/*','/*/dp/*')])], js:['page.js'], run_at:'document_idle', all_frames:false, world:'ISOLATED' }]);
   expect(manifest.externally_connectable).toEqual(receivers('http://127.0.0.1'));
   expect(manifest.content_security_policy.extension_pages).toContain("connect-src 'none'");
   expect(manifest.content_security_policy.extension_pages).not.toMatch(/unsafe-inline|unsafe-eval/);
@@ -31,6 +32,7 @@ it('builds only activeTab/scripting with exact app messaging, and rejects implic
   const shipped=JSON.parse(readFileSync('dist/manifest.json','utf8'));
   expect(shipped.permissions).toEqual(manifest.permissions);
   expect(shipped.commands).toEqual(manifest.commands);
+  expect(shipped.content_scripts).toEqual(manifest.content_scripts);
   expect(shipped.host_permissions).toEqual(manifest.host_permissions);
   expect(shipped.externally_connectable).toEqual(receivers('https://app.example.com'));
   execFileSync(process.execPath,[build],{env:{...env,CAPTURE_APP_URL:'https://localhost:31544/capture/1688'},stdio:'pipe'});
