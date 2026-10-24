@@ -2,17 +2,17 @@
 
 Refs [#301](https://github.com/qq550723504/shuomi-ai-commerce/issues/301)。#301 保持 OPEN，#29 不重开。
 
-- Status: **PROPOSED / DESIGNING / NOT_READY**。本轮用户仅授权完整设计；本文待适用独立设计复核与用户确认，不授权正式源码删除。
-- Design Basis：设计交付 **N/A（仅三文档）**；拟实施 **Independent Architecture**。替代旧公共平台调用合同与显式 KEEP，跨平台且超过30工件，必须先明确 IMPLEMENTATION_READY / Issue/PR Ready，再改生产路径。
+- Status: **USER_CONFIRMED / SOURCE_IMPLEMENTED**。用户已确认冻结设计 f3dcb8cfb 的 §1–§7（含 §6.1），同一 #926 整批151工件已完成；必要本地自检与九命令/独立debug编译通过。原CI与最终源码复核待准确候选结果，不等于运行或产品验收。
+- Design Basis：**Independent Architecture / IMPLEMENTATION_READY；Issue/PR Admission: Ready**。设计原CI40075488938及独立设计/修复增量复核PASS、用户确认与[实施接单6381745955](https://github.com/qq550723504/shuomi-ai-commerce/issues/301#issuecomment-6381745955)/Ready读回先于正式源码修改。设计阶段三文档N/A仅是历史阶段，不作为实现准入。
 - 基线 main **067ffafa01c91376ff53a5e10c83d65e1b476bb4**，tree **e16fe8fb7b4c2e4a5474626bf73f62f95c481478**；#923 已合并，只复用前批完成事实，不冒充本轮设计/实现/运行证据。
-- 形成设计候选前已同步实际 main **7d82be549f0aded91b57d9c3efee0b55d5da9c4f**（#925，tree **1514cde83b57243e222c4f77e5006481889164ef**）。该增量只涉及采集扩展/说明/脚本与共同索引，本批全部旧 API/配置/保留 owner 的调查代码未变化；共同 README 的 #925 项完整保留。本轮相对该 main 仍只有三文档，不重复实施 #925。
+- 形成设计候选前已同步实际 main **7d82be549f0aded91b57d9c3efee0b55d5da9c4f**（#925，tree **1514cde83b57243e222c4f77e5006481889164ef**）。该增量只涉及采集扩展/说明/脚本与共同索引，本批全部旧 API/配置/保留 owner 的调查代码未变化；共同 README 的 #925 项完整保留。该设计候选相对该 main 仅三文档；当前实施按本文151工件，不重复实施 #925。
 - 唯一 Writer 原会话 `01a133ef-757c-73e3-b8f6-76958c642397`，独占原 worktree，分支 `codex/issue301-legacy-platform-api-closure-design`；[接单及前批当前段逐字归档6381325202](https://github.com/qq550723504/shuomi-ai-commerce/issues/301#issuecomment-6381325202)。已 fetch 并同步上述 main。#925 采集入口有独立 owner，本轮不重复派工或改其源码/文档，只给共同 Architecture README 加前缀索引。
 
 ## 1. 用户结果、范围与产品依据
 
 使用者是当前平台合同、来源采集与独立 SHEIN worker 的维护者；可见交付结果为旧平台调用实现及专属配置/测试/保活检查/文档尾部一次退出，当前用户仍能沿原入口采集、准备草稿、登录及同步 Store。当前没有因此阻塞的核心用户操作，不为父目标清零创造新产品、验收平台或内部试用前置。一个 Delivery Batch / 主要 PR 覆盖完整闭包，不按目录、行数、测试或平台机械拆批。
 
-Authority 为本轮用户“可以，先按 Independent Architecture 设计、确认后实施”的直接决定、[Greenfield 产品基线](../product/greenfield-no-legacy-migration.md)、[Hard-Cut Policy](../refactoring/legacy-hard-cut-policy.md)、[Legacy Register](../refactoring/legacy-register.md)与[Issue 驱动规则](../engineering/issue-driven-development.md)。原“通过 Cookie 访问的接口都可退休”提议已被用户撤回，不是本轮依据；不能以认证方式推导删除权限。UI/IA/Figma N/A：不改变当前页面、导航、用户交互、平台开放范围或发布准入。
+Authority 为用户随后明确确认本文并整批实施的直接决定（实施接单6381745955）、[Greenfield 产品基线](../product/greenfield-no-legacy-migration.md)、[Hard-Cut Policy](../refactoring/legacy-hard-cut-policy.md)、[Legacy Register](../refactoring/legacy-register.md)与[Issue 驱动规则](../engineering/issue-driven-development.md)。原“通过 Cookie 访问的接口都可退休”提议已被用户撤回，不是本轮依据；不能以认证方式推导删除权限。UI/IA/Figma N/A：不改变当前页面、导航、用户交互、平台开放范围或发布准入。
 
 Scope 为三组整链：`internal/amazon/api`，`internal/temu/api`，SHEIN 闲置 API/通用客户端/定价调用及完整 helper/DTO 尾部；覆盖其已失去消费者的配置类型、加载/default/env/校验分类、三个受管 YAML 样例及 §5/§6.1 的准确尾部。先 EXTRACT worker 使用的两项纯转换函数，当前 DTO 原位保留。不是退休 Amazon 浏览器爬虫，也不是删除所有 SHEIN API 路径。
 
@@ -24,7 +24,7 @@ Threat Model 限误删现役 DTO/JSON 字段或 worker 只读流程，旧 refres
 
 ## 2. Design Basis、根因与前批 KEEP 替代
 
-根因是旧刊登/任务消费者先退出后，平台 API/manager/请求响应互相引用，显式历史 KEEP 与原“文件必须存在”检查继续保活；SHEIN 还把现役纯转换与闲置 HTTP Client 放在同一文件，当前测试尾部又构造旧 BaseAPIClient。零 importer 只是现状证据，不能撤销用户已经批准的 KEEP。本文提出准确替代，必须在用户确认后才生效。
+根因是旧刊登/任务消费者先退出后，平台 API/manager/请求响应互相引用，显式历史 KEEP 与原“文件必须存在”检查继续保活；SHEIN 还把现役纯转换与闲置 HTTP Client 放在同一文件，当前测试尾部又构造旧 BaseAPIClient。零 importer 只是现状证据，不能撤销用户已经批准的 KEEP。本文准确替代已获用户确认，只在 §5/§6.1 明确矩阵内生效。
 
 | 旧依据 | 本轮确认后仅替代 | 仍然有效 |
 | --- | --- | --- |
@@ -134,7 +134,7 @@ SHEIN root api.APIResponse/APIError/auth-expired helper 只服务死客户端，
 
 ### 5.4 二十七份直接历史依据的窄顶注
 
-未来实施时只给以下每份原文增加准确 superseding 顶注；原完整正文/原顶注/链接/批准/历史数字/勾选/证据逐字后缀保留。只替代本文矩阵内的旧 API/manager/client/SPAPI/Temu/Shein 包装配置的 KEEP/当前 owner 含义，不 blanket 替代“平台 API”或其它有效能力。
+实施时只给以下每份原文增加准确 superseding 顶注；原完整正文/原顶注/链接/批准/历史数字/勾选/证据逐字后缀保留。只替代本文矩阵内的旧 API/manager/client/SPAPI/Temu/Shein 包装配置的 KEEP/当前 owner 含义，不 blanket 替代“平台 API”或其它有效能力。
 
 1. docs/architecture/legacy-amazon-listing-closure-retirement-boundary.md
 2. docs/architecture/legacy-amazon-source-adapter-closure-retirement-boundary.md
@@ -177,7 +177,7 @@ Cutover/deletion condition: 完成适用设计复核和用户确认§1–§7/§6
 
 ## 6. 实施顺序与必要验证
 
-本轮只做三文档范围、索引/链接/历史后缀检查、原完整设计 PR CI 与适用只读设计复核；设计不执行生产/浏览器/平台路径，也不跑旧 API 专属测试。
+设计阶段只做三文档范围、索引/链接/历史后缀检查、原完整设计 PR CI 与适用只读设计复核；设计不执行生产/浏览器/平台路径，也不跑旧 API 专属测试。
 
 获确认后先按 §6.1 扩展原 retirement guard 记录目标仍存在的准确 RED；补任务自有内存纯值 fixture，捕获抽取函数的空值/顺序合同（已有正确行为不伪造失败）。先 EXTRACT 两函数并转换现役 header 测试，再按整闭包删除/配置/原检查/历史顶注收齐至 GREEN。禁止 missing-skip、删除有效断言或为旧测试加替代 adapter。原当前 worker/Store/JSON 源码保持，只有原合成 fixture 作为保留证据，不做环境验收。
 
@@ -190,7 +190,7 @@ Cutover/deletion condition: 完成适用设计复核和用户确认§1–§7/§6
 | 文件 / 原函数或项 | 唯一允许转换 | 必须保持 |
 | --- | --- | --- |
 | tests/listingkit_backend_retirement_test.go / TestCurrentCommandsDoNotCompileLegacyBusinessBackends | 原强制存在列表只去 §5.1 old API/pricing 文件，type_platform.go 仍存在；加准确旧根/子根缺席、SHEIN root api 仅直接Go文件缺席、mixed owner-qualified retired声明禁入及当前必需DTO声明保留；复用 trackedFiles/parser/decodeGoImportPath/importMatchesPrefix 对全 tracked Go（含tests/build tags/nested模块）禁旧 Amazon/TEMU根、SHEIN死子根与pricing根 imports，SHEIN api根只exact match，不禁保留子包；原八命令依赖禁入同样加准确根 | 原命令数/错误、现役DTO/SessionTransport/cookie文件存在、三个endpoint原值、当前worker/Store、type_platform/Alibaba/通用HTTP/Retry、workflow/race/安全原断言；解析/读取错误fail closed，无全仓通用名字禁词 |
-| 同文件 / TestListingKitTaskBackendSourcesAreRetired | required map 只去 internal/temu/api 项，替换为同根fail-closed缺席保护（可调用上项同一局部helper） | 当前 marketplace/temu/goods/rules、shared ptr/appenv/store与SHEIN规则/清理各required项、其它原逻辑全保持 |
+| 同文件 / TestListingKitTaskBackendSourcesAreRetired | required map 只去 internal/temu/api 项，替换为同根fail-closed缺席保护；已获准确例外批准：两处WalkDir及末尾pricing的loadGoFileIndex起点从退出的internal/temu上移到保留的internal（批准6381899021/6381919144），原callback/过滤/断言/错误处理逐字保持 | 当前 marketplace/temu/goods/rules、shared ptr/appenv/store与SHEIN规则/清理各required项、其它原逻辑全保持 |
 | 同文件 / TestNumericAcquisitionAndPlatformTailClosureIsRetired | 原两条强读 base_client.go/types.go 的字段禁入转为这两个文件明确缺席；其余不变 | 原数字映射/SourceIdentity/采集/配置禁入及全部tracked import检查保持 |
 | internal/shein/client/session_transport_test.go / TestCurrentSessionRetainsProviderEndpointHeaders | 最后 b:=BaseAPIClient 与 h:=b.createHeaders 两行改为 h:=sessionHeaders("https://sellerhub.shein.com",GetSupplierOperateInfoEndpoint(),"self_operated")，仅调窄对应注释 | 原h四项断言、2 origins×3 endpoints的原header/request断言全部保留；另一个TLS/Cookie域/redirect测试、helper全不改 |
 | warehouse/client_test.go → address_conversion_test.go | 旧Client HTTP测试随整文件退；把原有效仓库名称/code/count断言作为直接纯函数fixture，补空code/国家去重顺序/Meta.Count/空Data与nil/empty区别 | 不保留旧HTTP client构造；当前 worker 原merchant/warehouse/address只读/fallback与同步测试原样；不发请求或改worker |
@@ -207,9 +207,9 @@ Cutover/deletion condition: 完成适用设计复核和用户确认§1–§7/§6
 
 ### 7.1 设计交接 / 实施准入
 
-本次提交只有本文、Architecture README 与 Legacy Register；设计原CI/准确SHA/实际review/finding分类留主要PR，不能用前批CI或自动review启动状态冒充通过。适用Independent Architecture复核检查真实消费者/当前owner、前批KEEP替代、两函数EXTRACT、配置公共面、平台与持久化边界及§6.1。完成复核且用户明确确认本文后，先记录并读回 IMPLEMENTATION_READY / Ready，再让唯一Writer在同一PR整批实施。
+设计阶段提交只有本文、Architecture README 与 Legacy Register；准确设计HEAD f3dcb8cfb 的原CI/独立设计复核已PASS并获用户确认，实施接单与Ready读回先于源码修改。实现准确HEAD/原CI/源码最终复核仍须留主要PR，不能把设计证据冒充实现PASS。适用Independent Architecture复核检查真实消费者/当前owner、前批KEEP替代、两函数EXTRACT、配置公共面、平台与持久化边界及§6.1。完成复核且用户明确确认本文后，先记录并读回 IMPLEMENTATION_READY / Ready，再让唯一Writer在同一PR整批实施。
 
-用户确认将批准上述准确旧API/配置KEEP替代与样例键退出，不授权其它cookie接口退出、未知记录处理或真实环境操作。本阶段合并/部署/#301关闭/实现仍 NOT_AUTHORIZED。#301 OPEN，#29不重开，不加试用前置。
+用户确认已批准上述准确旧API/配置KEEP替代与样例键退出，不授权其它cookie接口退出、未知记录处理或真实环境操作。用户已授权同一Writer整批实施、必要自检/提交/推送/PR维护；合并/部署/#301关闭仍 NOT_AUTHORIZED。#301 OPEN，#29不重开，不加试用前置。
 
 ### 7.2 最终交付检查
 

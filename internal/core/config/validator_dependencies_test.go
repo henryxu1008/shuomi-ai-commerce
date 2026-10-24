@@ -24,32 +24,6 @@ func TestValidateOpenAIConfig_ClientsMustBeComplete(t *testing.T) {
 	assert.Contains(t, errors[len(errors)-1].Error(), "openai.clients.vision.apiKey")
 }
 
-func TestValidateAmazonConfig_SPAPIRequiresCredentials(t *testing.T) {
-	cfg := AmazonConfig{
-		Enabled:      true,
-		CrawlTimeout: 30,
-		RiskControl: AmazonRiskControlConfig{
-			CaptchaRecreateThreshold:        1,
-			AuthenticationRecreateThreshold: 1,
-			BrowserCrashRecreateThreshold:   1,
-			TimeoutRecreateThreshold:        3,
-			NetworkRecreateThreshold:        2,
-			ServerErrorRecreateThreshold:    3,
-		},
-		QualityControl: AmazonQualityControlConfig{
-			RetryOnValidationFailure:   true,
-			ValidationRetryMaxAttempts: 2,
-		},
-		SPAPI: SPAPIConfig{
-			Enabled: true,
-			Region:  "us-east-1",
-		},
-	}
-
-	errors := ValidateAmazonConfig(&cfg)
-	assert.NotEmpty(t, errors)
-}
-
 func TestValidateConfig_CatchesDependencyErrors(t *testing.T) {
 	cfg := &Config{
 		OpenAI: OpenAIConfig{
@@ -81,10 +55,6 @@ func TestValidateConfig_CatchesDependencyErrors(t *testing.T) {
 			QualityControl: AmazonQualityControlConfig{
 				RetryOnValidationFailure:   true,
 				ValidationRetryMaxAttempts: 2,
-			},
-			SPAPI: SPAPIConfig{
-				Enabled: true,
-				Region:  "us-east-1",
 			},
 		},
 	}

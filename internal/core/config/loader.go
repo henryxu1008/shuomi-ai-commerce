@@ -70,13 +70,6 @@ func NewDefaultConfig() *Config {
 				Strategy:               "round_robin",
 				FailureCooldownSeconds: 300,
 			},
-			SPAPI: SPAPIConfig{
-				Enabled:                false,
-				Region:                 "us-east-1",
-				DefaultMarketplace:     "ATVPDKIKX0DER",
-				DefaultFulfillmentType: "FBM",
-				DefaultCondition:       "New",
-			},
 		},
 		ImageAgent: ImageAgentConfig{},
 		ListingKit: ListingKitConfig{
@@ -84,12 +77,6 @@ func NewDefaultConfig() *Config {
 			Zitadel:     ListingKitZitadelConfig{},
 		},
 		Platforms: PlatformsConfig{
-			Temu: PlatformConfig{
-				HTTPClient: *DefaultHTTPClientConfig(),
-			},
-			Shein: PlatformConfig{
-				HTTPClient: *DefaultHTTPClientConfig(),
-			},
 			Alibaba1688: Alibaba1688Config{
 				Enabled:        false,
 				Timeout:        120,

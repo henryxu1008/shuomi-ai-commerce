@@ -292,34 +292,6 @@ func knownEnvBindings() map[string]envBinding {
 			Primary:    "TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_TIMEOUT",
 			Deprecated: nil,
 		},
-		"amazon.spapi.clientID": {
-			Primary:    "TASK_PROCESSOR_AMAZON_SPAPI_CLIENT_ID",
-			Deprecated: []string{"AMAZON_SPAPI_CLIENT_ID"},
-		},
-		"amazon.spapi.clientSecret": {
-			Primary:    "TASK_PROCESSOR_AMAZON_SPAPI_CLIENT_SECRET",
-			Deprecated: []string{"AMAZON_SPAPI_CLIENT_SECRET"},
-		},
-		"amazon.spapi.refreshToken": {
-			Primary:    "TASK_PROCESSOR_AMAZON_SPAPI_REFRESH_TOKEN",
-			Deprecated: []string{"AMAZON_SPAPI_REFRESH_TOKEN"},
-		},
-		"amazon.spapi.region": {
-			Primary:    "TASK_PROCESSOR_AMAZON_SPAPI_REGION",
-			Deprecated: []string{"AMAZON_SPAPI_REGION"},
-		},
-		"amazon.spapi.defaultMarketplace": {
-			Primary:    "TASK_PROCESSOR_AMAZON_SPAPI_DEFAULT_MARKETPLACE",
-			Deprecated: []string{"TASK_PROCESSOR_AMAZON_SPAPI_MARKETPLACE_ID", "AMAZON_SPAPI_DEFAULT_MARKETPLACE", "AMAZON_SPAPI_MARKETPLACE_ID"},
-		},
-		"amazon.spapi.defaultFulfillmentType": {
-			Primary:    "TASK_PROCESSOR_AMAZON_SPAPI_DEFAULT_FULFILLMENT_TYPE",
-			Deprecated: []string{"AMAZON_SPAPI_DEFAULT_FULFILLMENT_TYPE"},
-		},
-		"amazon.spapi.defaultCondition": {
-			Primary:    "TASK_PROCESSOR_AMAZON_SPAPI_DEFAULT_CONDITION",
-			Deprecated: []string{"AMAZON_SPAPI_DEFAULT_CONDITION"},
-		},
 		"browser.browserPath": {
 			Primary:    "TASK_PROCESSOR_BROWSER_PATH",
 			Deprecated: []string{"BROWSER_PATH"},

@@ -1,17 +1,5 @@
 package attribute
 
-// AttributeAPI 属性相关API接口
-type AttributeAPI interface {
-	// GetAttributeTemplates 获取属性模板
-	GetAttributeTemplates(categoryID int) (*AttributeTemplateInfo, error)
-
-	// ValidateCustomAttributeValue 验证自定义属性值
-	ValidateCustomAttributeValue(attributeID int, attributeValue string, categoryID int, spuName string) (*ValidateAttributeResponse, error)
-
-	// AddCustomAttributeValue 添加自定义属性值
-	AddCustomAttributeValue(req *AddCustomAttributeValueRequest) (*AddCustomAttributeValueResponse, error)
-}
-
 // AttributeValueGroup 属性值组
 type AttributeValueGroup struct {
 	ID        int    `json:"id"`
@@ -64,72 +52,8 @@ type AttributeInfo struct {
 	SourceSystemIDList          []int            `json:"source_system_id_list"`
 }
 
-// AttributeTemplate 属性模板
-type AttributeTemplate struct {
-	ProductTypeID  int             `json:"product_type_id"`
-	BusinessMode   int             `json:"business_mode"`
-	AttributeInfos []AttributeInfo `json:"attribute_infos"`
-	AttributeID    []int           `json:"attribute_id"`
-}
-
-// AttributeTemplateInfo 属性模板信息
-type AttributeTemplateInfo struct {
-	Data []AttributeTemplate `json:"data"`
-	Meta struct {
-		Count     int `json:"count"`
-		CustomObj any `json:"customObj"`
-	} `json:"meta"`
-}
-
-// ValidateAttributeResponse 验证属性值响应
-type ValidateAttributeResponse struct {
-	Data struct {
-		AttributeID              int `json:"attribute_id"`
-		PreAttributeValueID      int `json:"pre_attribute_value_id"`
-		AttributeValueNameMultis []struct {
-			Language                string `json:"language"`
-			AttributeValueNameMulti string `json:"attribute_value_name_multi"`
-			WarningType             int    `json:"warning_type"`
-		} `json:"attribute_value_name_multis"`
-	} `json:"data"`
-}
-
-// AttributeValueNameMulti 多语言属性值名称
-type AttributeValueNameMulti struct {
-	Language           string `json:"language"`
-	AttributeValueName string `json:"attribute_value_name_multi"`
-	WarningType        int    `json:"warning_type"`
-}
-
-// PreAttributeValue 预定义属性值
-type PreAttributeValue struct {
-	AttributeID              int                       `json:"attribute_id"`
-	PreAttributeValueID      int64                     `json:"pre_attribute_value_id"`
-	AttributeValue           string                    `json:"attribute_value"`
-	AttributeValueNameMultis []AttributeValueNameMulti `json:"attribute_value_name_multis"`
-}
-
-// AddCustomAttributeValueRequest 添加自定义属性值请求
-type AddCustomAttributeValueRequest struct {
-	CategoryID            int                 `json:"category_id"`
-	PreAttributeValueList []PreAttributeValue `json:"pre_attribute_value_list"`
-	ProductTypeID         *int                `json:"product_type_id"`
-}
-
 // CustomAttributeRelation 自定义属性关系
 type CustomAttributeRelation struct {
 	PreAttributeValueID int64 `json:"pre_attribute_value_id"`
 	AttributeValueID    int64 `json:"attribute_value_id"`
-}
-
-// AddCustomAttributeValueResponse 添加自定义属性值响应
-type AddCustomAttributeValueResponse struct {
-	Code string `json:"code"`
-	Msg  string `json:"msg"`
-	Info struct {
-		Data struct {
-			CustomAttributeRelation []CustomAttributeRelation `json:"custom_attribute_relation"`
-		} `json:"data"`
-	} `json:"info"`
-	BBL *string `json:"bbl"`
 }

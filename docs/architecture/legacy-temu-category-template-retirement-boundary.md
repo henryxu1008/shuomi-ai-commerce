@@ -1,3 +1,5 @@
+> #301 / #926 **SUPERSEDED，仅本批旧平台调用闭包**：用户已确认[完整退休设计 §1–§7/§6.1](legacy-platform-api-closure-retirement-boundary.md)。本文涉及旧 Amazon/TEMU API、SHEIN 闲置 Client/manager/DTO、SPAPI/旧平台包装配置的 KEEP/当前 owner 建议，只在该准确删除/保留矩阵内被替代；不移植旧 auth refresh/retry 或平台副作用。当前 SHEIN DTO/完整 JSON/有效规则、SessionTransport/三个读取端点、采集/原 Amazon 浏览器/debug、官方 Store、独立 SHEIN 登录与 Store 同步及原 owner/fence/UNKNOWN 保留。只抽原仓库两纯函数，不加 compat；workflow/完整 inventory/计数/检查逻辑及既有实例/数据/凭据/进程不动，不增加试用前置。以下原完整正文、历史数字/勾选/批准/证据逐字保留。
+
 # 旧 TEMU 类目与模板查询编排退休边界设计
 
 > 用户已确认 [#909 productpolicy 完整退休边界](legacy-product-policy-closure-retirement-boundary.md) §1–§7（含 §6.1）。本文件对 `internal/marketplace/productpolicy` 六工件（doc/filter_rule/rule_checker/price_helper/fulfillment 及专属测试）和四项 KEEP 检查的保留含义已由该边界精确替代为 RETIRE；其余有效规则/API/采集、共享合同及独立 SHEIN 登录与 Store 同步不变。以下原正文、历史数字与验收证据保留，不恢复旧策略或授权既有实例/数据/凭据/进程操作。

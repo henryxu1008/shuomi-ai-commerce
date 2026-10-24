@@ -1162,7 +1162,7 @@ func TestNumericAcquisitionAndPlatformTailClosureIsRetired(t *testing.T) {
 		"internal/crawler/shared/base_service.go", "internal/crawler/shared/errors.go", "internal/crawler/shared/job_handler.go",
 		"internal/crawler/shared/result.go", "internal/crawler/shared/task.go", "internal/crawler/shared/util.go",
 		"internal/infra/httpx/crawler_service.go", "internal/infra/httpx/crawler_base_handler.go", "internal/infra/httpx/crawler_amazon_handler.go",
-		"internal/shein/client/api_client.go", "internal/shein/client/cookie_manager.go", "internal/shein/client/runtime_types.go",
+		"internal/shein/client/base_client.go", "internal/shein/api/types.go", "internal/shein/client/api_client.go", "internal/shein/client/cookie_manager.go", "internal/shein/client/runtime_types.go",
 		"internal/shein/sherr/cookie_errors.go", "internal/pricing/cost_calculator.go",
 		"deployments/docker/Dockerfile.amazon-crawler-api", "deployments/docker/docker-compose.amazon-crawler-api.yml",
 		"scripts/push-amazon-crawler-api-dockerhub.ps1", "config/config-amazon-crawler-api.yaml",
@@ -1174,8 +1174,6 @@ func TestNumericAcquisitionAndPlatformTailClosureIsRetired(t *testing.T) {
 		}
 	}
 	for relative, retired := range map[string][]string{
-		"internal/shein/client/base_client.go":        {"tenantID", "shopID", "GetTenantID", "GetShopID"},
-		"internal/shein/api/types.go":                 {"TenantID", "ShopID", "type CookieError"},
 		"internal/shein/authorizedbrand/types.go":     {"ConfigFromStore", "listingruntime"},
 		"internal/product/sourcing/source_request.go": {"TenantID"},
 		"internal/core/config/type_amazon.go":         {"DataFreshnessDays", "ProductDedupe", "RegionGuard", "ConcurrencyControl", "RemoteAPI"},
@@ -2468,6 +2466,9 @@ func TestTemuListingClosureSourcesAreRetired(t *testing.T) {
 }
 
 func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
+	if _, err := os.Lstat(filepath.Join("..", "internal", "temu", "api")); !os.IsNotExist(err) {
+		t.Errorf("retired TEMU API root remains: %v", err)
+	}
 	if _, err := os.Lstat(filepath.Join("..", "internal", "listingruntime")); !os.IsNotExist(err) {
 		t.Errorf("retired numeric mapping owner internal/listingruntime must be absent: %v", err)
 	}
@@ -2943,63 +2944,8 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		}
 	}
 	for relative, required := range map[string][]string{
-		"internal/temu/api/api.go": {
-			"InventoryAPI", "inventory.API", "inventory.RelistRequest", "inventory.RelistResponse",
-			"product.BulkRelistOptions", "product.BulkRelistSummary",
-			"product.SaveRequest", "product.SaveResponse", "product.SaveResult", "product.SubmitRequest", "product.SubmitResponse",
-			"product.CreateCommitRequest", "product.CreateCommitResponse", "query.CommitDetailRequest", "query.CommitDetailResponse",
-			"NewProductAPI", "NewSubmitAPI", "product.NewAPI",
-			"query.SkuSnCheckRequest", "query.SkuSnCheckResponse", "query.OutSkuSnItem", "query.OutGoodsSnCheckResult",
-			"product.PriceQueryRequest", "product.PriceQueryResponse", "product.MaxRetailPriceQueryItem", "product.MaxRetailPriceResultItem",
-			"CategoryAPI", "category.API", "NewCategoryAPI", "category.NewAPI",
-			"QueryAPIInterface", "query.QueryAPI", "NewQueryAPI", "query.NewAPI",
-			"query.CostTemplateRequest", "query.CostTemplateResponse",
-			"QueryAPI          = query.API", "QueryAPIInterface = query.QueryAPI",
-			"NewQueryAPI           = query.NewAPI",
-			"TextCheckRequest               = query.TextCheckRequest", "TextCheckResponse              = query.TextCheckResponse",
-		},
-		"internal/temu/api/category/category.go": {
-			"type API struct", "func NewAPI(", "func (a *API) Recommend(", "func (a *API) GetDisclaimer(",
-			"type RecommendRequest struct", "type RecommendResponse struct", "type RecommendResult struct", "type Category struct",
-			"type DisclaimRequest struct", "type DisclaimResponse struct", "type DisclaimResult struct", "type DisclaimerDTO struct",
-		},
-		"internal/temu/api/product/api.go": {
-			"func (a *API) Save(", "func (a *API) Submit(", "func (a *API) CreateCommit(",
-			"func (a *API) QueryMaxRetailPrice(",
-		},
-		"internal/temu/api/query/query.go": {
-			"func (a *API) QueryCommitDetail(", "func (a *API) CheckSkuSn(", "func (a *API) QuerySpec(",
-			"func (a *API) QueryTemplate(", "func (a *API) QueryTemplateAdvanced(", "func (a *API) QueryCostTemplate(",
-			"type QueryAPI interface {\n\tCheckText(request *TextCheckRequest) (*TextCheckResponse, error)",
-			"func (a *API) CheckText(request *TextCheckRequest) (*TextCheckResponse, error)",
-			"a.postQuery(\"/mms/marigold/query/commit/check_text\", request, a.defaultHeaders(), &result)",
-			"func (a *API) postQuery(url string, body any, headers map[string]string, result any) error {",
-			"\"method\": \"POST\"", "return a.client.SendTEMURequest(req, result)",
-		},
-		"internal/temu/api/query/query_types.go": {
-			"type CommitDetailRequest struct", "type CommitDetailResponse struct", "type CommitDetailResult struct", "type CommitDetailCategoryTree struct",
-			"type SkuSnCheckRequest struct", "type SkuSnCheckResponse struct", "type OutSkuSnItem struct",
-			"type OutGoodsSnCheckResult struct", "type OutSkuSnFailItem struct",
-			"type TemplateQueryRequest struct", "type TemplateQueryResponse struct", "type TemplateInfo struct",
-			"type CostTemplateRequest struct", "type CostTemplateResponse struct", "type CostTemplateResult struct", "type CostTemplateItem struct",
-			"type TextCheckRequest struct {\n\tContent string `json:\"content\"`\n\tType    int    `json:\"type\"`\n}",
-			"type TextCheckResponse struct {\n\tSuccess   bool `json:\"success\"`\n\tErrorCode int  `json:\"error_code\"`\n\tResult    struct {\n\t\tSuccess bool `json:\"success\"`\n\t} `json:\"result\"`\n}",
-		},
-		"internal/temu/api/template/types.go": {
-			"type TemplateQueryRequest struct", "type TemplateQueryResponse struct", "type TemplateQueryResult struct",
-			"type TemplateInfo struct", "type UserInputParentSpec struct",
-		},
 		"internal/marketplace/temu/goods/images.go": {
 			"func ValidImageObservation(", "func resolveImages(", "inventory asset.ApprovedAssetInventory",
-		},
-		"internal/temu/api/client/client.go": {
-			"func NewAPIClient(",
-			"func (c *APIClient) GetMallID(", "func (c *APIClient) SetMallID(",
-		},
-		"internal/temu/api/client/interfaces.go": {"type ClientAPI interface {", "SendTEMURequest(request map[string]any, result any) error"},
-		"internal/temu/api/product/goods_types.go": {
-			"type Product struct", "type GoodsBasicInfo struct", "type ServicePromise struct", "type ExtraInfo struct",
-			"type CategoryTree struct", "type Disclaimer struct",
 		},
 		"internal/shared/ptr/pointer.go":          {"func BoolPtr("},
 		"internal/storecenter/gorm_repository.go": {"type GormStoreRepository struct"},
@@ -3008,22 +2954,12 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			"func Build(", "snapshot.SelectableLeaf", "func checkLocal(",
 			"p.ServicePromise.ShipmentLimitDay", "value.ID == p.ServicePromise.CostTemplateID",
 		},
-		"internal/marketplace/temu/goods/supplier_category.go":   {"func checkSupplierCategory(", "SelectableLeaf()"},
-		"internal/marketplace/temu/rules/local_variations.go":    {"func CheckLocalVariations("},
-		"internal/marketplace/temu/goods/local_properties.go":    {"func CheckLocalProperties("},
-		"internal/marketplace/temu/goods/supplier_properties.go": {"func CheckSupplierProperties("},
-		"internal/marketplace/temu/goods/supplier_specs.go":      {"func checkSupplierSpecifications("},
-		"internal/marketplace/temu/rules/local_numbers.go":       {"func (c *Catalog) CheckLocalNumbers("},
-		"internal/temu/api/inventory/inventory.go": {
-			"type RelistRequest struct", "type RelistResponse struct", "type SearchRequest struct", "type SearchResponse struct",
-			"func (a *API) Relist(", "func (a *API) SearchOffline(",
-		},
-		"internal/temu/api/product/request_types.go": {
-			"type BulkRelistOptions struct", "type SkipConditions struct", "type BulkRelistSummary struct", "type CategoryStats struct",
-			"type SaveRequest struct", "type SaveResponse struct", "type SaveResult struct", "type SubmitRequest struct", "type SubmitResponse struct",
-			"type CreateCommitRequest struct", "type CreateCommitResponse struct",
-			"type PriceQueryRequest struct", "type PriceQueryResponse struct", "type MaxRetailPriceQueryItem struct", "type MaxRetailPriceResultItem struct",
-		},
+		"internal/marketplace/temu/goods/supplier_category.go":                  {"func checkSupplierCategory(", "SelectableLeaf()"},
+		"internal/marketplace/temu/rules/local_variations.go":                   {"func CheckLocalVariations("},
+		"internal/marketplace/temu/goods/local_properties.go":                   {"func CheckLocalProperties("},
+		"internal/marketplace/temu/goods/supplier_properties.go":                {"func CheckSupplierProperties("},
+		"internal/marketplace/temu/goods/supplier_specs.go":                     {"func checkSupplierSpecifications("},
+		"internal/marketplace/temu/rules/local_numbers.go":                      {"func (c *Catalog) CheckLocalNumbers("},
 		"internal/marketplace/shein/publishing/attribute_value_match_policy.go": {"func MatchPlatformAttributeValue("},
 		"internal/marketplace/shein/publishing/site_policy.go":                  {"func DefaultSiteListByRegion("},
 		"internal/shein/content/cleanup_context.go":                             {"type CleanupContext struct", "type ValidationResult struct", "type SKCValidationMessages struct", "SourceBrand", "other_language_message_map", "otherLanguageMessageMap"},
@@ -3043,7 +2979,7 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		}
 	}
 	productRoot := filepath.Join("..", "internal", "temu", "product")
-	if err := filepath.WalkDir(filepath.Dir(productRoot), func(path string, entry os.DirEntry, err error) error {
+	if err := filepath.WalkDir(filepath.Join("..", "internal"), func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -3125,7 +3061,7 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 	}
 	for _, pkg := range []string{"sku", "filter", "product", "rules", "handlerbase", "property"} {
 		root := filepath.Join("..", "internal", "temu", pkg)
-		if err := filepath.WalkDir(filepath.Dir(root), func(path string, entry os.DirEntry, err error) error {
+		if err := filepath.WalkDir(filepath.Join("..", "internal"), func(path string, entry os.DirEntry, err error) error {
 			if err != nil {
 				return err
 			}
@@ -3363,7 +3299,7 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 	}
 	for _, platform := range []string{"shein", "temu"} {
 		root := filepath.Join("..", "internal", platform, "pricing")
-		index, err := loadGoFileIndex(filepath.Dir(root), "")
+		index, err := loadGoFileIndex(filepath.Join("..", "internal"), "")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -3394,23 +3330,9 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 	if _, err := os.Lstat(filepath.Join("..", "internal", "listingruntime", "types.go")); !os.IsNotExist(err) {
 		t.Errorf("retired numeric mapping contract types.go must be absent: %v", err)
 	}
-	for _, relative := range []string{
-		"internal/amazon/api/client.go",
-		"internal/core/config/type_platform.go",
-		"internal/temu/api/api.go", "internal/temu/api/client/interfaces.go",
-		"internal/temu/api/client/client.go", "internal/temu/api/client/auth.go",
-		"internal/temu/api/client/auth_retry_handler.go", "internal/temu/api/inventory/inventory.go",
-		"internal/temu/api/product/request_types.go",
-		"internal/temu/api/product/api.go", "internal/temu/api/query/query.go", "internal/temu/api/query/query_types.go",
-		"internal/shein/api/marketing/client.go", "internal/shein/api/marketing/client_test.go",
-		"internal/shein/api/marketing/interface.go", "internal/shein/api/marketing/activity_types.go",
-		"internal/shein/api/marketing/price_types.go", "internal/shein/api/marketing/promotion_types.go",
-		"internal/shein/api/marketing/workflow_example.go",
-		"internal/shein/pricing/pricing_repo.go",
-	} {
-		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(relative))); err != nil {
-			t.Errorf("retained platform/shared contract %s must remain: %v", relative, err)
-		}
+	assertLegacyPlatformAPICallClosureRetired(t)
+	if _, err := os.Stat(filepath.Join("..", "internal", "core", "config", "type_platform.go")); err != nil {
+		t.Fatal(err)
 	}
 	for _, relative := range []string{".github/workflows/ci.yml", ".github/workflows/commercial-readiness.yml"} {
 		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
@@ -3439,6 +3361,15 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 				t.Fatalf("go list current command: %v\n%s", err, output)
 			}
 			for _, dependency := range strings.Fields(string(output)) {
+				if dependency == "task-processor/internal/shein/api" {
+					t.Errorf("%s compiles retired root SHEIN API", command)
+				}
+				for _, root := range []string{"internal/amazon/api", "internal/temu/api", "internal/shein/api/category", "internal/shein/api/image", "internal/shein/api/marketing", "internal/shein/api/pricing", "internal/shein/api/translate", "internal/shein/pricing"} {
+					if importMatchesPrefix(dependency, "task-processor/"+root) {
+						t.Errorf("%s compiles retired platform API %s", command, dependency)
+					}
+				}
+
 				if dependency == "task-processor/internal/shein" {
 					t.Errorf("%s still compiles retired root SHEIN contract %s", command, dependency)
 				}
@@ -4169,6 +4100,160 @@ func TestSheinCanonicalDraftContractIsRetained(t *testing.T) {
 	for name, found := range required {
 		if !found {
 			t.Errorf("current SHEIN contract missing: %s", name)
+		}
+	}
+}
+
+func assertLegacyPlatformAPICallClosureRetired(t *testing.T) {
+	t.Helper()
+	retiredRoots := []string{"internal/amazon/api", "internal/temu/api", "internal/shein/api/category", "internal/shein/api/image", "internal/shein/api/marketing", "internal/shein/api/pricing", "internal/shein/api/translate", "internal/shein/pricing"}
+	for _, relative := range append(append([]string{}, retiredRoots...), []string{"internal/core/config/amazon_marketplace.go", "internal/core/config/amazon_marketplace_test.go", "internal/core/config/loader_platform.go", "internal/shein/api/attribute/client.go", "internal/shein/api/other/client.go", "internal/shein/api/product/client.go", "internal/shein/api/product/client_test.go", "internal/shein/api/product/cost_price.go", "internal/shein/api/product/cost_price_test.go", "internal/shein/api/product/image_helpers.go", "internal/shein/api/product/image_helpers_test.go", "internal/shein/api/product/interface.go", "internal/shein/api/product/inventory.go", "internal/shein/api/product/inventory_manager.go", "internal/shein/api/product/language_list.go", "internal/shein/api/product/language_list_test.go", "internal/shein/api/product/name_length_config.go", "internal/shein/api/product/name_length_config_test.go", "internal/shein/api/product/price.go", "internal/shein/api/product/price_manager.go", "internal/shein/api/product/product_manager.go", "internal/shein/api/product/request.go", "internal/shein/api/product/shelf.go", "internal/shein/api/product/site_list.go", "internal/shein/api/product/site_list_test.go", "internal/shein/api/product/stock.go", "internal/shein/api/types.go", "internal/shein/api/warehouse/client.go", "internal/shein/api/warehouse/client_test.go", "internal/shein/client/base_client.go", "internal/shein/client/base_client_test.go", "internal/shein/client/error_handler.go", "internal/shein/client/logger_port.go"}...) {
+		if _, err := os.Lstat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
+			t.Errorf("retired platform API artifact %s must be absent: %v", relative, err)
+		}
+	}
+	rootFiles, err := filepath.Glob(filepath.Join("..", "internal", "shein", "api", "*.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rootFiles) != 0 {
+		t.Errorf("retired root SHEIN API package remains: %v", rootFiles)
+	}
+	retiredByOwner := map[string][]string{
+		"internal/core/config":         {"ResolveAmazonMarketplaceID", "ResolveAmazonMarketplaceConfig", "firstEnabledAmazonMarketplaceID", "BuildPlatformConfig", "SPAPIConfig", "MarketplaceConfig", "AmazonConfigPaths", "PlatformConfig", "setTemuDefaults", "setSheinDefaults"},
+		"internal/shein/api":           {"APIResponse", "APIError", "AuthenticationExpiredError", "IsAuthenticationExpired"},
+		"internal/shein/api/attribute": {"Client", "NewClient", "AttributeAPI", "AttributeTemplate", "AttributeTemplateInfo", "ValidateAttributeResponse", "AttributeValueNameMulti", "PreAttributeValue", "AddCustomAttributeValueRequest", "AddCustomAttributeValueResponse"},
+		"internal/shein/api/category":  {"Client", "NewClient", "CategoryAPI", "CategoryInfo", "CategoryTreeResponse", "CategoryTreeNode", "SuggestCategoryResponse", "SuggestCategoryItem"},
+		"internal/shein/api/image":     {"imageDownloadProvider", "Client", "NewClient", "NewClientWithImageDownloader", "plainHTTPImageDownloader", "downloadImageWithPlainHTTP", "ImageAPI"},
+		"internal/shein/api/marketing": {"CreateActivityRequest", "ActivityBaseInfo", "ActivityRule", "CostAndStockInfo", "SkuCostInfo", "CreateActivityResponse", "ActivityCreateInfo", "Client", "NewClient", "MarketingAPI", "AutoPartakeActivityTypeRegular", "AutoPartakeActivityTypeLimited", "DefaultAutoPartakeActivityType", "AutoPartakeConfigStateOpen", "AutoPartakeConfigStateClosed", "GetAvailableSkcListRequest", "GetAvailableSkcListResponse", "AvailableSkcListInfo", "SkcInfo", "SitePriceInfo", "SkuSitePriceInfo", "SkuCostPriceInfo", "SaveConfigRequest", "ActivityConfig", "ActivitySitePriceInfo", "SaveConfigResponse", "GetConfigListRequest", "GetConfigListResponse", "ConfigListInfo", "ActivityConfigInfo", "ActivityConfigDetail", "UpdateConfigStateRequest", "UpdateConfigStateResponse", "CalculateSupplyPriceRequest", "SkcPriceInfo", "SkuPriceInfo", "CalculateSupplyPriceResponse", "SkcCalculationResult", "SkuCalculationInfo", "PriceInfo", "QueryPromotionGoodsRequest", "ActivityBaseInfoRequest", "QueryPromotionGoodsResponse", "PromotionGoodsInfo", "MetaInfo", "PromotionGoodsData", "PromotionSkuInfo", "SkuAttributeInfo", "SupplyPriceInfo", "CheckSupplyPrice", "CheckStock"},
+		"internal/shein/api/other":     {"Client", "NewClient", "OtherAPI", "SpuLimitCountResponse", "SpuLimitCountInfoWrapper", "SpuLimitCountInfo", "BatchCheckOnWayResponse", "GetUserResponse", "UserInfo", "ShelfQuotaResponse", "ShelfQuotaInfo"},
+		"internal/shein/api/pricing":   {"Client", "NewClient", "PricingAPI", "PageRequest", "BatchHandleCostDiscussRequest", "ConfirmInfo", "CreateCostDiscuss", "SkuCostInfoForReappeal", "BatchHandleCostDiscussResponse", "BargainPageResponse", "BargainPageData", "SkuCostPrice", "CostPriceHistory", "SkuCostPriceHistory", "BargainPageMeta", "BargainPageCustomObj", "BatchReQuoteRequest", "ReQuoteConfirmInfo", "BatchReQuoteResponse"},
+		"internal/shein/api/product":   {"Client", "NewClient", "CostPriceQueryRequest", "CostPriceQueryResponse", "CostPriceInfo", "SkcCostData", "CostSaleAttribute", "SkuCostInfo", "SaleAttributeItem", "CostPrice", "ChangeCostReason", "IsCostPriceUnavailable", "CollectSizeMapImageURLs", "ProductAPI", "InventoryQueryRequest", "InventoryQueryResponse", "InventoryInfo", "SkcInventory", "SkuInventory", "WarehouseInventory", "SkuSaleNameInfo", "InventoryUpdateRequest", "SkcInventoryUpdate", "SkuInventoryUpdate", "WarehouseInventoryUpdate", "InventoryUpdateResponse", "inventoryManager", "newInventoryManager", "InventoryManager", "NewInventoryManager", "LanguageListItem", "NameLengthConfigItem", "PriceQueryRequest", "PriceQueryResponse", "SkcPriceData", "SkuPriceInfo", "SaleNameInfo", "SkuPriceDetail", "PreCheckInfo", "priceManager", "newPriceManager", "PriceManager", "NewPriceManager", "productManager", "newProductManager", "ProductRecordRequest", "ProductListRequest", "ShelfOperateRequest", "SkcSiteInfo", "SubSite", "ShelfOperateResponse", "ShelfOperateResult", "SiteListSubSite", "SiteListGroup", "StockQueryRequest", "SpuSkcItem", "SkcNameItem", "StockQueryResponse", "StockData", "ProductListing", "SheinResponse", "ResponseInfo", "ResponseSKC", "ResponseSKU", "RecordResponse", "RecordItem", "PartInfoResponse", "PartInfo", "ProductType", "ProductResponse", "ProductInfoWrapper", "ConfirmPublishResponse", "ConfirmInfo", "ConfirmData", "ProductListResponse", "ProductListItem", "SkcInfoItem", "SkuInfo", "PreValidResult", "SkcErrorMessage"},
+		"internal/shein/api/translate": {"Request", "Item", "Response", "Info", "TranslationData", "Meta", "Client", "NewClient", "TranslateAPI"},
+		"internal/shein/api/warehouse": {"Client", "NewClient", "WarehouseAPI", "StoreAddressAddRequest", "StoreAddressCheckRequest", "StoreAddressCheckInfo", "CollectionOption", "LatLng", "CollectionJudgeRecord", "ProviderInfo"},
+		"internal/shein/client":        {"BaseAPIClient", "NewBaseAPIClient", "isCostPriceEndpoint", "isSheinAuthFailurePayload", "extractResponseCodeMsg", "fieldString", "APIErrorHandler", "NewAPIErrorHandler", "loggerDependency", "componentLogger", "dpasPrefix", "ssoPrefix", "mbrsPrefix", "productRecordEndpoint", "batchCheckOnWayEndpoint", "validateAttributeEndpoint", "addAttributeValueEndpoint", "getCategoryEndpoint", "getCategoryTreeEndpoint", "cvTextSuggestCategoryEndpoint", "getProductEndpoint", "queryBrandListEndpoint", "updateProductEndpoint", "deleteProductEndpoint", "confirmPublishEndpoint", "saveDraftEndpoint", "publishProductEndpoint", "productNameLengthConfigEndpoint", "languageListEndpoint", "siteListEndpoint", "uploadImageEndpoint", "translateTextEndpoint", "storeAddressAddEndpoint", "storeAddressCheckEndpoint", "getAttributeTemplatesEndpoint", "getPartInfoEndpoint", "batchHandleCostDiscussEndpoint", "bargainPageNewEndpoint", "batchReQuoteEndpoint", "getSpuLimitCountEndpoint", "getUserEndpoint", "productListEndpoint", "queryStockEndpoint", "queryPriceEndpoint", "queryCostPriceEndpoint", "queryInventoryEndpoint", "updateInventoryEndpoint", "operateShelfStatusEndpoint", "getAvailableSkcListEndpoint", "saveConfigEndpoint", "getConfigListEndpoint", "updateConfigStateEndpoint", "mrsPrefix", "queryPromotionGoodsEndpoint", "createActivityEndpoint", "capitalPrefix", "calculateSupplyPriceEndpoint", "queryShelfQuotaEndpoint", "GetEndpoint", "GetProductRecordEndpoint", "GetBatchCheckOnWayEndpoint", "GetValidateAttributeEndpoint", "GetAddAttributeValueEndpoint", "GetCategoryEndpoint", "GetCategoryTreeEndpoint", "GetCvTextSuggestCategoryEndpoint", "GetProductEndpoint", "GetQueryBrandListEndpoint", "GetUpdateProductEndpoint", "GetDeleteProductEndpoint", "GetConfirmPublishEndpoint", "GetSaveDraftEndpoint", "GetPublishProductEndpoint", "GetProductNameLengthConfigEndpoint", "GetLanguageListEndpoint", "GetSiteListEndpoint", "GetUploadImageEndpoint", "GetTranslateTextEndpoint", "GetStoreAddressAddEndpoint", "GetStoreAddressCheckEndpoint", "GetAttributeTemplatesEndpoint", "GetPartInfoEndpoint", "GetBatchHandleCostDiscussEndpoint", "GetBargainPageNewEndpoint", "GetBatchReQuoteEndpoint", "GetSpuLimitCountEndpoint", "GetUserEndpoint", "GetProductListEndpoint", "GetQueryStockEndpoint", "GetQueryPriceEndpoint", "GetQueryCostPriceEndpoint", "GetQueryInventoryEndpoint", "GetUpdateInventoryEndpoint", "GetOperateShelfStatusEndpoint", "GetAvailableSkcListEndpoint", "GetSaveConfigEndpoint", "GetConfigListEndpoint", "GetUpdateConfigStateEndpoint", "GetQueryPromotionGoodsEndpoint", "GetCalculateSupplyPriceEndpoint", "GetCreateActivityEndpoint", "GetQueryShelfQuotaEndpoint"},
+		"internal/shein/pricing":       {"PricingAPI", "NewPricingAPI"},
+	}
+	requiredByFile := map[string][]string{
+		"internal/core/config/common_types.go":               {"HTTPClientConfig", "DefaultHTTPClientConfig"},
+		"internal/core/config/type_platform.go":              {"PlatformsConfig", "Alibaba1688Config"},
+		"internal/core/config/type_rabbitmq.go":              {"RetryConfig", "DefaultRetryConfig"},
+		"internal/shein/api/attribute/interface.go":          {"AttributeInfo", "AttributeValue", "AttributeValueGroup", "CustomAttributeRelation"},
+		"internal/shein/api/other/interface.go":              {"FlexibleString", "SupplierOperateInfo", "SupplierOperateInfoResponse"},
+		"internal/shein/api/product/model.go":                {"Product", "Extra", "LanguageContent", "ProductAttribute", "ProductVideo", "SiteInfo", "SizeAttribute"},
+		"internal/shein/api/product/response.go":             {"BrandItem", "BrandListResponse"},
+		"internal/shein/api/product/skc_sku.go":              {"SKC", "SkcExtra", "SaleAttribute", "SKU", "SkuExtra", "FieldDisabledInfo", "QuantityInfo", "CostInfo", "PriceInfo", "StockInfo", "ImageInfo", "ImageDetail", "SiteDetailImageInfo", "DetailImage"},
+		"internal/shein/api/warehouse/address_conversion.go": {"WarehousesFromStoreAddresses", "collectSaleCountries"},
+		"internal/shein/api/warehouse/interface.go":          {"Warehouse", "WarehouseResponse", "StoreAddressListRequest", "StoreAddress", "StoreSiteInfo", "StoreAddressListInfo"},
+		"internal/shein/client/cookie_values.go":             {"CookieData", "buildCookiesFromJSON"},
+		"internal/shein/client/session_transport.go":         {"SessionTransport", "NewSessionTransport", "CookiesFromBrowserState", "sessionHeaders"},
+	}
+	for relative, names := range requiredByFile {
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(relative)), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		found := map[string]bool{}
+		for _, declaration := range file.Decls {
+			switch d := declaration.(type) {
+			case *ast.FuncDecl:
+				if d.Recv == nil {
+					found[d.Name.Name] = true
+				}
+			case *ast.GenDecl:
+				for _, spec := range d.Specs {
+					if v, ok := spec.(*ast.TypeSpec); ok {
+						found[v.Name.Name] = true
+					}
+				}
+			}
+		}
+		for _, name := range names {
+			if !found[name] {
+				t.Errorf("%s must retain current declaration %s", relative, name)
+			}
+		}
+	}
+	for _, relative := range trackedFiles(t, ".") {
+		if !strings.HasSuffix(relative, ".go") {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(relative)), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, spec := range file.Imports {
+			imported, err := decodeGoImportPath(spec.Path.Value)
+			if err != nil {
+				t.Fatalf("decode import in %s: %v", relative, err)
+			}
+			if imported == "task-processor/internal/shein/api" {
+				t.Errorf("%s imports retired root SHEIN API", relative)
+			}
+			for _, root := range retiredRoots {
+				if importMatchesPrefix(imported, "task-processor/"+root) {
+					t.Errorf("%s imports retired platform API %s", relative, imported)
+				}
+			}
+		}
+		owner := filepath.ToSlash(filepath.Dir(relative))
+		check := func(name string) {
+			if slices.Contains(retiredByOwner[owner], name) {
+				t.Errorf("%s recreates retired platform declaration %s", relative, name)
+			}
+		}
+		for _, declaration := range file.Decls {
+			switch d := declaration.(type) {
+			case *ast.FuncDecl:
+				if d.Recv == nil {
+					check(d.Name.Name)
+				} else {
+					receiver := d.Recv.List[0].Type
+					if p, ok := receiver.(*ast.StarExpr); ok {
+						receiver = p.X
+					}
+					if id, ok := receiver.(*ast.Ident); ok {
+						check(id.Name)
+					}
+				}
+			case *ast.GenDecl:
+				for _, spec := range d.Specs {
+					switch s := spec.(type) {
+					case *ast.TypeSpec:
+						check(s.Name.Name)
+						if owner == "internal/core/config" {
+							if st, ok := s.Type.(*ast.StructType); ok {
+								for _, field := range st.Fields.List {
+									for _, name := range field.Names {
+										if (s.Name.Name == "AmazonConfig" && (name.Name == "SPAPI" || name.Name == "ConfigPaths")) || (s.Name.Name == "PlatformsConfig" && (name.Name == "Temu" || name.Name == "Shein")) {
+											t.Errorf("%s retains retired config field %s.%s", relative, s.Name.Name, name.Name)
+										}
+									}
+								}
+							}
+						}
+					case *ast.ValueSpec:
+						for _, name := range s.Names {
+							check(name.Name)
+						}
+					}
+				}
+			}
+		}
+	}
+	endpointSources := map[string][]string{
+		"internal/shein/client/endpoint.go":  {`apiPrefix`, `"/spmp-api-prefix/spmp"`, `getSupplierOperateInfoEndpoint`, `"/sso/public/account/supplier/getSupplierOperateInfo"`, `getWarehousesEndpoint`, `"/inventory/query_merchant_warehouse"`, `storeAddressListEndpoint`, `"/gsp/store/address/list"`},
+		"internal/shein/client/endpoints.go": {`func GetSupplierOperateInfoEndpoint() string`, `return getSupplierOperateInfoEndpoint`, `func GetWarehousesEndpoint() string`, `return getWarehousesEndpoint`, `func GetStoreAddressListEndpoint() string`, `return storeAddressListEndpoint`},
+	}
+	for relative, required := range endpointSources {
+		content, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(relative)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, value := range required {
+			if !strings.Contains(string(content), value) {
+				t.Errorf("%s must retain endpoint contract %s", relative, value)
+			}
 		}
 	}
 }

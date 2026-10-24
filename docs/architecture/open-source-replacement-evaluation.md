@@ -1,3 +1,5 @@
+> #301 / #926 **SUPERSEDED，仅本批旧平台调用闭包**：用户已确认[完整退休设计 §1–§7/§6.1](legacy-platform-api-closure-retirement-boundary.md)。本文涉及旧 Amazon/TEMU API、SHEIN 闲置 Client/manager/DTO、SPAPI/旧平台包装配置的 KEEP/当前 owner 建议，只在该准确删除/保留矩阵内被替代；不移植旧 auth refresh/retry 或平台副作用。当前 SHEIN DTO/完整 JSON/有效规则、SessionTransport/三个读取端点、采集/原 Amazon 浏览器/debug、官方 Store、独立 SHEIN 登录与 Store 同步及原 owner/fence/UNKNOWN 保留。只抽原仓库两纯函数，不加 compat；workflow/完整 inventory/计数/检查逻辑及既有实例/数据/凭据/进程不动，不增加试用前置。以下原完整正文、历史数字/勾选/批准/证据逐字保留。
+
 # 开源替代方案评估
 
 > #870 精确 superseded：[用户确认的完整旧宿主退休边界](legacy-host-runtime-closure-retirement-boundary.md)已确认退休旧 internal/app/updater 全闭包，故下文针对这个旧宿主的第三方替换/验证要求与聚焦测试路径只保留历史，不再形成待办或试用前置，不引入新 wrapper。其它开源复用结论及历史结果保持；当前能力、独立 SHEIN 登录与 Store 同步不变，不处理真实更新文件或进程。

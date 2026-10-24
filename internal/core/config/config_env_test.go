@@ -19,8 +19,6 @@ func TestUniqueCleanPathsPreservesFirstOccurrenceOrder(t *testing.T) {
 }
 
 func TestNewViper_BindsPrimaryEnvironmentVariables(t *testing.T) {
-	t.Setenv("TASK_PROCESSOR_AMAZON_SPAPI_CLIENT_ID", "amzn-client")
-	t.Setenv("TASK_PROCESSOR_AMAZON_SPAPI_DEFAULT_MARKETPLACE", "ATVPDKIKX0DER")
 	t.Setenv("TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_API_KEY", "image-key")
 	t.Setenv("TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_BASE_URL", "https://image.example.test/v1")
 	t.Setenv("TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_API_STYLE", "nanobanana")
@@ -30,8 +28,6 @@ func TestNewViper_BindsPrimaryEnvironmentVariables(t *testing.T) {
 
 	v := newViper()
 
-	assert.Equal(t, "amzn-client", v.GetString("amazon.spapi.clientID"))
-	assert.Equal(t, "ATVPDKIKX0DER", v.GetString("amazon.spapi.defaultMarketplace"))
 	assert.Equal(t, "image-key", v.GetString("openai.clients.image.apiKey"))
 	assert.Equal(t, "https://image.example.test/v1", v.GetString("openai.clients.image.baseURL"))
 	assert.Equal(t, "nanobanana", v.GetString("openai.clients.image.apiStyle"))
@@ -86,16 +82,12 @@ func TestGetStringSlice_SplitsCommaSeparatedSingleEntry(t *testing.T) {
 }
 
 func TestNewViper_BindsLegacyEnvironmentAliases(t *testing.T) {
-	t.Setenv("AMAZON_SPAPI_CLIENT_SECRET", "legacy-secret")
-	t.Setenv("AMAZON_SPAPI_MARKETPLACE_ID", "LEGACY-MARKET")
 	t.Setenv("TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_APIKEY", "legacy-image-key")
 	t.Setenv("TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_BASEURL", "https://legacy-image.example.test/v1")
 	t.Setenv("TASK_PROCESSOR_OPENAI_CLIENTS_IMAGE_APISTYLE", "legacy-style")
 
 	v := newViper()
 
-	assert.Equal(t, "legacy-secret", v.GetString("amazon.spapi.clientSecret"))
-	assert.Equal(t, "LEGACY-MARKET", v.GetString("amazon.spapi.defaultMarketplace"))
 	assert.Equal(t, "legacy-image-key", v.GetString("openai.clients.image.apiKey"))
 	assert.Equal(t, "https://legacy-image.example.test/v1", v.GetString("openai.clients.image.baseURL"))
 	assert.Equal(t, "legacy-style", v.GetString("openai.clients.image.apiStyle"))

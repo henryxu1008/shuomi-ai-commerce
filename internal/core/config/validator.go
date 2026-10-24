@@ -70,14 +70,8 @@ func moduleFromField(field string) string {
 		return "OpenAI"
 	case strings.HasPrefix(field, "browser."):
 		return "Browser"
-	case strings.HasPrefix(field, "amazon.spapi."):
-		return "Amazon SP-API"
 	case strings.HasPrefix(field, "amazon."):
 		return "Amazon"
-	case strings.HasPrefix(field, "platforms.temu."):
-		return "Platforms.TEMU"
-	case strings.HasPrefix(field, "platforms.shein."):
-		return "Platforms.SHEIN"
 	case strings.HasPrefix(field, "platforms.alibaba1688."):
 		return "Platforms.1688"
 	default:
@@ -91,14 +85,8 @@ func validationModuleRank(module string) int {
 		return 1
 	case "Browser":
 		return 2
-	case "Amazon SP-API":
-		return 3
 	case "Amazon":
 		return 4
-	case "Platforms.TEMU":
-		return 6
-	case "Platforms.SHEIN":
-		return 7
 	case "Platforms.1688":
 		return 8
 	default:

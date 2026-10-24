@@ -3,7 +3,6 @@ package product
 
 import (
 	"task-processor/internal/shein/api/attribute"
-	"time"
 )
 
 // Product 产品完整信息
@@ -125,14 +124,4 @@ type SizeAttribute struct {
 	AttributeExtraValue        string `json:"attribute_extra_value"`
 	RelateSaleAttributeID      int    `json:"relate_sale_attribute_id"`
 	RelateSaleAttributeValueID int    `json:"relate_sale_attribute_value_id"`
-}
-
-// ProductListing 产品上架记录
-type ProductListing struct {
-	SupplierCode string    `json:"supplier_code"`
-	SpuName      string    `json:"spu_name"`
-	Status       string    `json:"status"`
-	Error        string    `json:"error"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
 }

@@ -1,3 +1,5 @@
+> #301 / #926 **SUPERSEDED，仅本批旧平台调用闭包**：用户已确认[完整退休设计 §1–§7/§6.1](legacy-platform-api-closure-retirement-boundary.md)。本文涉及旧 Amazon/TEMU API、SHEIN 闲置 Client/manager/DTO、SPAPI/旧平台包装配置的 KEEP/当前 owner 建议，只在该准确删除/保留矩阵内被替代；不移植旧 auth refresh/retry 或平台副作用。当前 SHEIN DTO/完整 JSON/有效规则、SessionTransport/三个读取端点、采集/原 Amazon 浏览器/debug、官方 Store、独立 SHEIN 登录与 Store 同步及原 owner/fence/UNKNOWN 保留。只抽原仓库两纯函数，不加 compat；workflow/完整 inventory/计数/检查逻辑及既有实例/数据/凭据/进程不动，不增加试用前置。以下原完整正文、历史数字/勾选/批准/证据逐字保留。
+
 # #301 旧 SDS 登录、商品同步与专属尾部完整退休设计
 
 Status: **USER_CONFIRMED / SOURCE_IMPLEMENTED**。用户已明确确认冻结设计 f83ddb2ecd494adea13badfa84586b3a3d07c172 §1–§7（含§6.1），在同一 #885 整批实施，inventory 只删除准确四条CURRENT行。[用户确认/Ready准入](https://github.com/qq550723504/task-processor/pull/885#issuecomment-6335862745)及 #301/PR Ready 读回先于生产修改；设计阶段N/A，本轮 **Design Basis: Reuse Existing Architecture / Ready**。唯一Writer已按§5/§6.1完整退出81专属工件、15混合源及原guard/直接文档尾部，无新EXTRACT/替代owner，不机械拆批。原设计全审/授权只读增量PASS及设计CI保持历史证据；准确实现HEAD、RED/GREEN、必要验证、原CI及最终交付检查写PR，不冒充运行/用户验收。#301 OPEN，#29不重开。

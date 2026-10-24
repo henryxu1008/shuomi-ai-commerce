@@ -1,3 +1,5 @@
+> #301 / #926 **SUPERSEDED，仅本批旧平台调用闭包**：用户已确认[完整退休设计 §1–§7/§6.1](legacy-platform-api-closure-retirement-boundary.md)。本文涉及旧 Amazon/TEMU API、SHEIN 闲置 Client/manager/DTO、SPAPI/旧平台包装配置的 KEEP/当前 owner 建议，只在该准确删除/保留矩阵内被替代；不移植旧 auth refresh/retry 或平台副作用。当前 SHEIN DTO/完整 JSON/有效规则、SessionTransport/三个读取端点、采集/原 Amazon 浏览器/debug、官方 Store、独立 SHEIN 登录与 Store 同步及原 owner/fence/UNKNOWN 保留。只抽原仓库两纯函数，不加 compat；workflow/完整 inventory/计数/检查逻辑及既有实例/数据/凭据/进程不动，不增加试用前置。以下原完整正文、历史数字/勾选/批准/证据逐字保留。
+
 # Platform Boundary Strategy
 
 > #822 对下文 AmazonListing 的旧归属说明作窄替代：旧 Task/Workbench 与 marketplace/amazon 专属闭包已退休，不把独立平台工作台搬迁成目标 owner。internal/amazon/api、Amazon 来源采集与其他有效当前平台/共享合同保持；见[完整边界](legacy-amazon-listing-closure-retirement-boundary.md)。
