@@ -103,7 +103,7 @@ under `artifacts`. It uses the official CDP `Extensions.loadUnpacked` and
 `Extensions.triggerAction` testing methods, with the test-only extension
 debugging flag. Automated CDP runs use headless mode to prevent unrelated
 desktop focus changes from closing the popup; omit `--cdp` for the manual
-headed loader. It opens the actual action popup, clicks capture and handoff,
+headed loader. It opens the actual action popup, clicks the combined capture/handoff button,
 checks the other-tab rejection, interrupts the task's workers, and reloads the
 receiver with the same recovery key. The flag is never part of the extension
 or a user's regular browser configuration. The debugger uses an OS-assigned
