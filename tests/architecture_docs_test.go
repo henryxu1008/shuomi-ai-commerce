@@ -10,6 +10,15 @@ import (
 	"testing"
 )
 
+func TestPluginCaptureSessionReturnDocumentKeepsNavigationOnlyOwner(t *testing.T) {
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "plugin-capture-session-return-v1.md"), []string{
+		"Independent Architecture", "IMPLEMENTATION_READY", "chrome.storage.session", "TRUSTED_CONTEXTS",
+		"ReturnSession", "pending | bound", "returnState: none | available |", "application's publication authority",
+		"No payload/title/images/prices", "No storage read error or", "before awaiting",
+		"never proof", "browser restart", "No merge, retained instance/plugin update",
+	})
+}
+
 func TestSupplyCompletionDraftDocumentPreservesOriginalAuthorityAndExplicitRollout(t *testing.T) {
 	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "supply-unbound-completion-drafts.md"), []string{
 		"IMPLEMENTATION_READY", "PD-SUPPLY-UNBOUND-COMPLETION-2026-10-12", "2667:1948",

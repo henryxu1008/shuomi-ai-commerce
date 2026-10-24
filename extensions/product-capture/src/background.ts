@@ -2,6 +2,8 @@ import { Controller, type CaptureTab } from './controller';
 import { capturePageSource, validatePlatformCapture } from './platforms';
 import { entryError, entryMessages, type EntryError } from './entry-errors';
 import { pageMessage, pageSender, type PageState } from './page-messages';
+import { ReturnSession } from './return-session';
+import { UUID } from './validation';
 declare const APP_CAPTURE_URL: string;
 declare const APP_AMAZON_CAPTURE_URL: string;
 
@@ -26,6 +28,8 @@ async function extractCurrent(target?: CaptureTab) {
   } catch { throw Error('PAGE_CHANGED'); }
   return payload;
 }
+const location = new ReturnSession(chrome.storage?.session);
+let revision: string = crypto.randomUUID();
 const newController = () => new Controller(APP_CAPTURE_URL, extractCurrent, async url => {
   const tab = await chrome.tabs.create({ url });
   if (tab.id === undefined) throw Error('HANDOFF_UNAVAILABLE');
@@ -36,16 +40,22 @@ const newController = () => new Controller(APP_CAPTURE_URL, extractCurrent, asyn
     const tab = await chrome.tabs.update(id, { active: true });
     if (!tab || tab.id !== id || !Number.isInteger(tab.windowId) || tab.windowId < 0) throw Error('ORIGINAL_TAB_UNAVAILABLE');
     await chrome.windows.update(tab.windowId, { focused: true });
-  });
+  }, { prepare: source => location.prepare(source, revision), bind: id => location.bind(id, revision), tabID: () => location.tabID() });
 let controller = newController();
-let revision = crypto.randomUUID();
+let resetting: Promise<void> | undefined;
+const ready = location.ready.then(() => { if (location.revision) revision = location.revision; });
 let error: EntryError | undefined;
 const commandName = 'capture-current-product';
+const isBusy = () => Boolean(resetting) || controller.isBusy();
+function entrySnapshot() {
+  return { ...controller.snapshot(), revision, loading: isBusy(), sourceURL: controller.snapshot().sourceURL ?? location.sourceURL ?? null,
+    returnState: location.state, error: location.unavailable ? 'RETURN_STATE_UNAVAILABLE' as const : error };
+}
 async function snapshot() {
   let shortcut: string | null = null;
   try { shortcut = (await chrome.commands.getAll()).find(command => command.name === commandName)?.shortcut ?? ''; }
   catch { /* Unknown assignment is different from an unassigned shortcut. */ }
-  return { ...controller.snapshot(), shortcut, error };
+  return { ...entrySnapshot(), shortcut };
 }
 async function report(code?: EntryError) {
   error = code;
@@ -55,25 +65,38 @@ async function report(code?: EntryError) {
   } catch { /* A badge failure cannot change a capture/handoff result. */ }
 }
 async function perform(type: string, tab?: CaptureTab) {
+  if (type !== 'popup.status') {
+    if (resetting) throw Error('ACTION_IN_PROGRESS');
+    location.assertReadable();
+  }
   switch (type) {
     case 'popup.captureAndHandoff':
+      if (location.state === 'available') { await controller.returnToApplication(); break; }
+      if (location.state === 'uncertain' && !controller.isBusy()) throw Error('HANDOFF_UNAVAILABLE');
       if (!controller.isBusy() && !controller.snapshot().captured) revision = crypto.randomUUID();
       await controller.captureAndHandoff(tab); break;
     case 'popup.return': await controller.returnToApplication(); break;
     case 'popup.new':
-      reset(); break;
+      await reset(); break;
     case 'popup.status': return;
     default: throw Error('INVALID_MESSAGE');
   }
   await report();
 }
-function reset() {
-  if (controller.isBusy()) throw Error('ACTION_IN_PROGRESS');
-  controller = newController(); revision = crypto.randomUUID();
+function reset(captureTab?: CaptureTab) {
+  if (isBusy()) throw Error('ACTION_IN_PROGRESS');
+  location.assertReadable();
+  resetting = Promise.resolve().then(async () => {
+    await location.clear();
+    controller = newController(); revision = crypto.randomUUID();
+    // Reserve the new entry before releasing reset's async busy boundary.
+    if (captureTab) await controller.captureAndHandoff(captureTab);
+  }).finally(() => { resetting = undefined; });
+  return resetting;
 }
 function pageSnapshot(sourceURL: string): PageState {
-  const state = controller.snapshot();
-  return { revision, loading: state.loading, captured: state.captured, handed: state.handed, sameProduct: state.sourceURL === sourceURL };
+  const state = entrySnapshot();
+  return { revision, loading: state.loading, captured: state.captured, handed: state.handed, sameProduct: state.sourceURL === sourceURL, returnState: state.returnState };
 }
 
 chrome.runtime.onMessage.addListener((message, sender, respond) => {
@@ -81,6 +104,7 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
     const target = pageSender(sender);
     if (!target) return false;
     void (async () => {
+      await ready;
       try {
         const check = await chrome.scripting.executeScript({ target: { tabId: target.id, documentIds: [target.documentId] }, world: 'ISOLATED', func: () => document.URL });
         if (check.length !== 1 || check[0].frameId !== 0 || check[0].documentId !== target.documentId
@@ -90,12 +114,13 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
         if (message.type !== 'page.status') {
           // Compare and reserve/reset synchronously after document validation.
           if (message.revision !== revision) throw Error('ENTRY_CHANGED');
-          if (message.type === 'page.capture' && (controller.isBusy() || controller.snapshot().captured)) throw Error('ENTRY_CHANGED');
-          if (message.type === 'page.return' && !controller.snapshot().handed) throw Error('ENTRY_CHANGED');
-          if (message.type === 'page.newCapture') reset();
-          await perform(message.type === 'page.return' ? 'popup.return' : 'popup.captureAndHandoff', target);
+          if (message.type === 'page.capture' && (isBusy() || controller.snapshot().captured || location.state !== 'none')) throw Error('ENTRY_CHANGED');
+          if (message.type === 'page.return' && location.state !== 'available') throw Error('ORIGINAL_TAB_UNAVAILABLE');
+          if (message.type === 'page.newCapture') { await reset(target); await report(); }
+          else await perform(message.type === 'page.return' ? 'popup.return' : 'popup.captureAndHandoff', target);
         }
-        respond({ ok: true, ...(error ? { code: error } : {}), state: pageSnapshot(target.sourceURL) });
+        const code = entrySnapshot().error;
+        respond({ ok: !location.unavailable, ...(code ? { code } : {}), state: pageSnapshot(target.sourceURL) });
       } catch (failure) {
         const code = entryError(failure); await report(code);
         respond({ ok: false, code, state: pageSnapshot(target.sourceURL) });
@@ -104,9 +129,15 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
     return true;
   }
   if (sender.id !== chrome.runtime.id || sender.url !== chrome.runtime.getURL('popup.html') || sender.tab
-    || !message || Object.keys(message).length !== 1 || typeof message.type !== 'string') return false;
+    || !message || typeof message.type !== 'string'
+    || (message.type === 'popup.new' ? Object.keys(message).length !== 2 || typeof message.revision !== 'string' || !UUID.test(message.revision)
+      : Object.keys(message).length !== 1)) return false;
   void (async () => {
-    try { await perform(message.type); respond({ ok: true, state: await snapshot() }); }
+    await ready;
+    try {
+      if (message.type === 'popup.new' && message.revision !== revision) throw Error('ENTRY_CHANGED');
+      await perform(message.type); respond({ ok: !location.unavailable, state: await snapshot() });
+    }
     catch (failure) {
       const code = entryError(failure); await report(code);
       respond({ ok: false, code, state: await snapshot() });
@@ -117,8 +148,9 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
 chrome.commands.onCommand.addListener((command, tab) => {
   if (command !== commandName) return;
   void (async () => {
+    await ready;
     try {
-      if (!controller.snapshot().handed && (!tab || tab.id === undefined || !tab.url)) throw Error('INVALID_PAGE');
+      if (location.state === 'none' && !controller.snapshot().handed && (!tab || tab.id === undefined || !tab.url)) throw Error('INVALID_PAGE');
       await perform('popup.captureAndHandoff', tab ? { id: tab.id, url: tab.url } : undefined);
     } catch (failure) { await report(entryError(failure)); }
   })();

@@ -1,5 +1,10 @@
 # Product capture: source-page primary entry
 
+> 2026-10-24: [#927 session return](plugin-capture-session-return-v1.md) adds only
+> trusted session navigation storage and a narrow returnState projection across
+> all three entries. It supersedes no-storage/no-worker-return below; payload,
+> application authority, source-document checks and no automatic replay remain.
+
 Execution: [#924](https://github.com/qq550723504/shuomi-ai-commerce/issues/924).
 Design Basis: **Independent Architecture**. Admission: **IMPLEMENTATION_READY** after independent review of design SHA `0caff981fd015336afb0f7cdefc9a94a18c5945b` by the existing `amazon_fix_review`; no design BLOCKER. Document binding, three-entry revision/concurrency and trusted intent/narrow replies remain IMPLEMENTATION_TEST within this frozen design. Review evidence is maintained in #924 and its main PR.
 

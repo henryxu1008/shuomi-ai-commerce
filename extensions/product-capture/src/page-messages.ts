@@ -1,9 +1,10 @@
 import { capturePageSource } from './platforms';
+import type { ReturnState } from './return-session';
 
 const sourceHosts = new Set(['detail.1688.com', 'www.amazon.com', 'www.amazon.ca', 'www.amazon.co.uk', 'www.amazon.de', 'www.amazon.co.jp']);
 const revisionPattern = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 export type PageMessage = { type: 'page.status' } | { type: 'page.capture' | 'page.return' | 'page.newCapture'; revision: string };
-export type PageState = { revision: string; loading: boolean; captured: boolean; handed: boolean; sameProduct: boolean };
+export type PageState = { revision: string; loading: boolean; captured: boolean; handed: boolean; sameProduct: boolean; returnState: ReturnState };
 export function pageSource(input: string) {
   const url = new URL(input);
   if (url.protocol !== 'https:' || url.port || !sourceHosts.has(url.hostname)) throw Error('INVALID_PAGE');
@@ -28,6 +29,7 @@ export function pageSender(sender: chrome.runtime.MessageSender) {
 export function isPageState(value: unknown): value is PageState {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const state = value as Record<string, unknown>;
-  return Object.keys(state).length === 5 && typeof state.revision === 'string' && revisionPattern.test(state.revision)
+  return Object.keys(state).length === 6 && typeof state.revision === 'string' && revisionPattern.test(state.revision)
+    && ['none', 'available', 'uncertain'].includes(state.returnState as string)
     && ['loading', 'captured', 'handed', 'sameProduct'].every(key => typeof state[key] === 'boolean');
 }

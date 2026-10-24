@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { returnStorage } from './fixtures/return-storage';
 
-type State = { revision: string; loading: boolean; captured: boolean; handed: boolean; sameProduct: boolean };
+type State = { revision: string; loading: boolean; captured: boolean; handed: boolean; sameProduct: boolean; returnState: 'none' | 'available' | 'uncertain' };
 type Reply = { ok: boolean; code?: string; state: State };
 type Listener = (message: unknown, sender: chrome.runtime.MessageSender, respond: (value: Reply) => void) => boolean;
 const payload = JSON.parse(readFileSync('tests/fixtures/capture-v2.json', 'utf8'));
@@ -9,7 +10,9 @@ const url = payload.evidence.sourceURL, id = 'a'.repeat(32);
 const tab = { id: 7, url } as chrome.tabs.Tab;
 const sender: chrome.runtime.MessageSender = { id, url, origin: new URL(url).origin, tab, frameId: 0, documentId: 'doc-1', documentLifecycle: 'active' };
 let listener: Listener, command: (name: string, tab?: chrome.tabs.Tab) => void;
+const storage = returnStorage();
 const api = {
+  storage,
   runtime: { id, getURL: (path: string) => `chrome-extension://${id}/${path}`,
     onMessage: { addListener: vi.fn((fn: Listener) => { listener = fn; }) }, onMessageExternal: { addListener: vi.fn() } },
   tabs: { query: vi.fn(async () => [tab]), create: vi.fn(async () => ({ id: 42, windowId: 2 })),
@@ -25,6 +28,7 @@ const status = () => send({ type: 'page.status' });
 const mutate = (type: string, revision: string) => send({ type, revision });
 beforeEach(async () => {
   vi.resetModules(); vi.clearAllMocks();
+  storage.reset();
   api.scripting.executeScript.mockImplementation(async options => [{ frameId: 0, documentId: 'doc-1', result: options.files ? { ok: true, payload } : url }]);
   api.tabs.create.mockResolvedValue({ id: 42, windowId: 2 }); api.tabs.update.mockResolvedValue({ id: 42, windowId: 2 });
   vi.stubGlobal('chrome', api); vi.stubGlobal('APP_CAPTURE_URL', 'https://app.example.com/capture/1688');
@@ -33,10 +37,23 @@ beforeEach(async () => {
 });
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
+it('restores return-only location and the same revision after background recreation', async () => {
+  const initial = await status();
+  const handed = await mutate('page.capture', initial.state.revision);
+  expect(handed.ok).toBe(true);
+  vi.resetModules(); await import('../src/background');
+  const restored = await status();
+  expect(restored.state).toMatchObject({ revision: handed.state.revision, returnState: 'available', captured: false, handed: false, sameProduct: true });
+  expect((await mutate('page.return', handed.state.revision)).ok).toBe(true);
+  expect(api.tabs.update).toHaveBeenCalledExactlyOnceWith(42, { active: true });
+  expect(api.tabs.create).toHaveBeenCalledOnce();
+  expect(api.scripting.executeScript.mock.calls.filter(([options]) => options.files)).toHaveLength(1);
+});
+
 it('loads a narrow read-only projection and captures only the browser sender document', async () => {
   const initial = await status();
   expect(initial.ok).toBe(true);
-  expect(Object.keys(initial.state).sort()).toEqual(['captured', 'handed', 'loading', 'revision', 'sameProduct']);
+  expect(Object.keys(initial.state).sort()).toEqual(['captured', 'handed', 'loading', 'returnState', 'revision', 'sameProduct']);
   expect(api.scripting.executeScript.mock.calls.every(([options]) => !options.files)).toBe(true);
   expect(api.tabs.create).not.toHaveBeenCalled();
   const result = await mutate('page.capture', initial.state.revision);
@@ -119,6 +136,6 @@ it('keeps unknown/original-tab errors narrow and never opens a replacement', asy
   expect(JSON.stringify(failed)).not.toMatch(/secret|payload|recoveryURL|operationKey/);
   expect(api.tabs.create).toHaveBeenCalledOnce();
   vi.resetModules(); await import('../src/background');
-  expect((await mutate('page.newCapture', handed.state.revision)).code).toBe('ENTRY_CHANGED');
+  expect((await mutate('page.capture', handed.state.revision)).code).toBe('ENTRY_CHANGED');
   expect(api.tabs.create).toHaveBeenCalledOnce();
 });
