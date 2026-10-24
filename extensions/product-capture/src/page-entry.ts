@@ -66,7 +66,10 @@ export function mountPageEntry(doc: Document, view: Window) {
       state = next; disconnected = false;
       if (next.captured) lostKnownOperation = false;
       if (typeof response.code === 'string' && Object.hasOwn(entryMessages, response.code)) code = response.code as EntryError;
-    } catch { disconnected = true; closeConfirmation(); }
+    } catch {
+      if (type !== 'page.status') lostKnownOperation = true;
+      disconnected = true; closeConfirmation();
+    }
     finally { pending = false; render(code); }
   }
   function onClick(button: HTMLButtonElement, callback: () => void) {
@@ -89,7 +92,10 @@ export function mountPageEntry(doc: Document, view: Window) {
   });
   onClick(refreshButton, () => { void action('page.status'); });
   const refresh = () => action('page.status');
-  for (const event of ['focus', 'pageshow', 'popstate', 'hashchange']) view.addEventListener(event, () => { void refresh(); });
+  for (const event of ['focus', 'pageshow', 'popstate', 'hashchange']) view.addEventListener(event, () => {
+    if (!source() || disconnected) return;
+    void refresh();
+  });
   doc.documentElement.append(host); void refresh();
   return { host, refresh };
 }

@@ -100,3 +100,20 @@ it('does not render a late response as current-product state after same-document
   expect(panel.button('primary').disabled).toBe(true);
   expect(send.mock.calls.filter(([message]) => (message as { type: string }).type === 'page.capture')).toHaveLength(1);
 });
+it('latches a first capture transport loss across focus and an empty restarted worker', async () => {
+  const panel = mounted(); await panel.refresh();
+  send.mockRejectedValueOnce(Error('response lost'));
+  trusted(panel.button('primary'));
+  await vi.waitFor(() => expect(panel.host.shadowRoot!.textContent).toContain('连接中断'));
+  const callsAfterLoss = send.mock.calls.length;
+  state = { ...empty, revision: crypto.randomUUID() };
+  dom.window.dispatchEvent(new dom.window.Event('focus'));
+  await Promise.resolve();
+  expect(send).toHaveBeenCalledTimes(callsAfterLoss);
+  expect(panel.button('primary').disabled).toBe(true);
+  await panel.refresh();
+  expect(panel.button('primary').disabled).toBe(true);
+  expect(panel.button('fresh').hidden).toBe(false); expect(panel.button('fresh').disabled).toBe(false);
+  trusted(panel.button('fresh')); trusted(panel.button('confirm'));
+  await vi.waitFor(() => expect(send).toHaveBeenCalledWith({ type: 'page.newCapture', revision: state.revision }));
+});
