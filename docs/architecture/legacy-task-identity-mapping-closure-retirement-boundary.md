@@ -2,8 +2,8 @@
 
 Refs [#301](https://github.com/qq550723504/shuomi-ai-commerce/issues/301)。#301 保持 OPEN，#29 不重开。
 
-- Status: **DESIGNING / AWAITING_USER_CONFIRMATION**。当前仅三文档，生产源码和测试未实施；准确 HEAD、CI、实际审核 SHA/结论与用户决定留主要 PR。
-- Design Basis：当前文档交付 **N/A**；拟实施 **Independent Architecture / NOT_READY**。这是对旧身份/持久化值合同及显式 KEEP 的完整退休设计，不新增身份机制。适用独立设计复核、用户确认和 Issue/PR Ready 读回完成前，不改正式源码。
+- Status: **USER_CONFIRMED / SOURCE_IMPLEMENTED**。用户确认冻结设计 `ad8f8f3c421b3a16c77badc209d08cdfbc94b2a8` §1–§7（含 §6.1），同一 #921 按准确矩阵整批实施；准确源码 HEAD、必要自检、CI、实际源码复核与权限留主要 PR，不把源码完成当运行/用户验收。
+- Design Basis：设计阶段三文档 **N/A**；本轮 **Independent Architecture / IMPLEMENTATION_READY**。[用户确认/实施接单6379938077](https://github.com/qq550723504/shuomi-ai-commerce/issues/301#issuecomment-6379938077)及 Issue/PR Ready 读回先于源码修改。设计原 CI 与授权独立只读设计复核 PASS，冻结矩阵/保留边界不扩展，无新身份机制。
 - 基线：main **c6e47a9060b12cacc367d10a671efb0ae4b97fc4**，tree **584d8b9d01503c29e388580a092941e20cca86a0**。#917 的准确 push/main CI40059797762 SUCCESS 仅为前批证据。
 - 唯一 Writer 沿原独占 worktree，分支 `codex/issue301-task-identity-mapping-closure-design`；[接单及前批当前段逐字归档6379721944](https://github.com/qq550723504/shuomi-ai-commerce/issues/301#issuecomment-6379721944)。一个主要 PR 覆盖两组完整闭包，不按工件数机械拆批。
 
@@ -93,7 +93,7 @@ TenantIDFromContext NormalizePersistedTenantID TenantMatchesContext TenantCanCre
 
 ### 5.3 二十二份直接依据的窄顶注
 
-下列清单是未来实施的准确文档范围；各文件只添加指向本文的 superseding 前缀，原完整正文逐字后缀保留，不能重写旧计数、历史勾选、批准或追修步骤。
+用户确认后已按下列准确文档范围同批补齐窄顶注；各文件只添加指向本文的 superseding 前缀，原完整正文逐字后缀保留，不能重写旧计数、历史勾选、批准或追修步骤。
 
 | 组 | 文件（相对 docs/） | 仅替代 |
 | --- | --- | --- |
@@ -114,7 +114,7 @@ TenantIDFromContext NormalizePersistedTenantID TenantMatchesContext TenantCanCre
 
 ### 6.1 原检查转换与三十一工件准确边界
 
-拟实施 **31 工件**＝5 整退源码/专属测试＋1 原 guard 文件＋22 窄顶注旧文档＋本文/Architecture README/Legacy Register 三当前文档。当前设计仅最后三文档，不提前修改下表或任何原源码/测试。
+本轮实施 **31 工件**＝5 整退源码/专属测试＋1 原 guard 文件＋22 窄顶注旧文档＋本文/Architecture README/Legacy Register 三当前文档。设计阶段仅最后三文档；用户确认及准入读回后，已按下表转换原四个函数，其它检查不变。
 
 `tests/listingkit_backend_retirement_test.go` **仅下列四个函数可变**，其余函数/global 变量、原声明清单、helper、全部其它检查逐字不变；不新增独立测试/检查框架：
 
@@ -133,7 +133,7 @@ aiidentity 完整包仍有现役 importer，故不能整体禁止 import；解�
 
 ### 7.1 设计交付
 
-三文档设计完成适用原检查、准确设计 HEAD 原 CI 与一次适用只读独立设计复核，记录实际 SHA/结论及 finding 分类后交用户确认 §1–§7（含 §6.1）。31 工件是完整删除闭包，不按风险提示线形式拆 PR。当前拟实施仍 NOT_READY；设计 CI 或文档 N/A 不授权源码。
+三文档设计完成适用原检查、准确设计 HEAD 原 CI 与一次适用只读独立设计复核，记录实际 SHA/结论及 finding 分类后交用户确认 §1–§7（含 §6.1）。31 工件是完整删除闭包，不按风险提示线形式拆 PR。本轮设计已获用户确认并完成 IMPLEMENTATION_READY/Ready 读回；设计证据仍不替代源码最终 CI 或复核。
 
 ### 7.2 实施交付
 
@@ -143,4 +143,4 @@ aiidentity 完整包仍有现役 importer，故不能整体禁止 import；解�
 
 同一 HEAD 的 GitHub 评审运行时不重复触发；仅明确启动失败后一次受控重试，空 reviews/标签/摘要布尔值不当实际 PASS。**未经用户本轮授权不默认新增 AI 互验线程**；#917 设计/源码子代理授权不覆盖本轮。备用设计或源码复核须提供准确 HEAD、只读范围和失败证据，先获用户决定；不得从旧 plan 的派工文字推定授权。
 
-设计确认、正式实施、合并、部署、运行/产品验收各自记录。当前源码/测试实施、合并/部署/关单及既有实例/数据/凭据/进程操作 NOT_AUTHORIZED，运行/产品验收 NOT_RUN；#301 保持 OPEN，无新试用前置。未来获准确 HEAD 正常合并授权后，只用实际 merge SHA 的 event=push/head_branch=main 整 run completed/SUCCESS确认，不用 PR CI、单 Gate 或其它 main 提交替代。
+设计确认、正式实施、合并、部署、运行/产品验收各自记录。本轮用户已授权冻结范围源码/测试实施、必要隔离自检、提交/推送与同一 PR 维护；合并/部署/关单及既有实例/数据/凭据/进程操作 NOT_AUTHORIZED，源码最终复核子代理须另获授权，运行/产品验收 NOT_RUN；#301 保持 OPEN，无新试用前置。未来获准确 HEAD 正常合并授权后，只用实际 merge SHA 的 event=push/head_branch=main 整 run completed/SUCCESS确认，不用 PR CI、单 Gate 或其它 main 提交替代。
