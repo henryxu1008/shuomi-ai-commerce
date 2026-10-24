@@ -275,7 +275,7 @@ func TestLegacyRuntimeSkeletonAndIdleConfigClosureIsRetired(t *testing.T) {
 			t.Errorf("retired Temporal module bundle %s must be absent: %v", relative, err)
 		}
 	}
-	for _, relative := range []string{"internal/core/config/platform_common.go", "internal/core/config/platform_common_test.go", "internal/pkg/jsonx/marshal.go", "internal/core/config/type_server.go", "internal/core/config/validator_validator.go"} {
+	for _, relative := range []string{"internal/core/config/platform_common.go", "internal/core/config/platform_common_test.go", "internal/pkg/jsonx/marshal.go", "internal/core/config/type_server.go", "internal/core/config/validator_validator.go", "internal/shared/aiidentity/envelope.go", "internal/shared/aiidentity/envelope_test.go", "internal/shared/aiidentity/tenant_scope.go", "internal/shared/aiidentity/tenant_scope_test.go"} {
 		if _, err := os.Lstat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
 			t.Errorf("retired idle support file %s must be absent: %v", relative, err)
 		}
@@ -285,26 +285,28 @@ func TestLegacyRuntimeSkeletonAndIdleConfigClosureIsRetired(t *testing.T) {
 	retiredRegistryFields := []string{"workerPools", "workerPoolNames", "temporalWorkers", "temporalWorkerNames", "taskHandlers", "workflowNames"}
 	retiredConfig := []string{"CacheConfig", "DefaultCacheConfig", "LogConfig", "DefaultLogConfig", "MonitoringConfig", "DefaultMonitoringConfig", "CostCalculationConfig", "DefaultCostCalculationConfig", "TimeoutConfig", "DefaultTimeoutConfig", "RateLimitConfig", "DefaultRateLimitConfig", "ServerConfig"}
 	retiredSupport := map[string][]string{
-		"internal/core/config":    {"CostCalculationConfig.CalculateTotalCost", "LoadConfigWithFallback", "LoadAmazonCrawlerAPIConfigWithFallback", "validateAmazonCrawlerAPIConfig", "Validator", "NewValidator", "Validator.Validate", "Validator.ValidateAndLog", "Validator.ValidateWithError", "Config.Validate", "Config.ValidateAndLog", "Config.ValidateWithError", "ValidateConfigAndLog"},
-		"internal/pkg/goroutine":  {"TaskInfo", "Manager", "NewManager", "Manager.Start", "Manager.Wait", "Manager.WaitWithTimeout", "Manager.GetRunningCount", "Manager.GetStatus"},
-		"internal/pkg/timeout":    {"AITimeout", "AILongTimeout", "HTTPTimeout", "HTTPShortTimeout", "HTTPLongTimeout", "TaskTimeout", "TaskShortTimeout", "TaskLongTimeout", "TaskExtraTimeout", "ShutdownTimeout", "HealthTimeout", "WithAITimeout", "WithAILongTimeout", "WithHTTPTimeout", "WithHTTPShortTimeout", "WithHTTPLongTimeout", "WithTaskTimeout", "WithTaskShortTimeout", "WithTaskLongTimeout", "WithTaskExtraTimeout", "WithDownloadTimeout", "WithShutdownTimeout", "WithHealthTimeout", "WithCustomTimeout"},
-		"internal/pkg/jsonx":      {"MarshalWithoutHTMLEscape", "MarshalIndentWithoutHTMLEscape", "MarshalPretty", "UnmarshalStrict", "ToJSONString", "ToJSONStringPretty", "IsValidJSON", "CompactJSON", "SaveToFile"},
-		"internal/pkg/appenv":     {"SetupLogger", "LoggingConfig", "ApplyLoggingConfig", "InstanceInfo", "GetInstanceID", "GetPodName", "GetNamespace", "GetInstanceInfo", "ParsePlatformList", "ContainsPlatform"},
-		"internal/pkg/httpclient": {"DefaultConfig", "NewWithTransport"},
-		"internal/pkg/imagex":     {"Format", "FormatJPEG", "FormatPNG", "FormatAuto", "ToBase64", "ToBase64JPEG", "ToBase64PNG", "FromBase64", "FromBytes", "ToBytes", "FromReader", "Encode", "Size", "FormatFromBytes", "HasTransparency", "OptimalFormat"},
+		"internal/shared/aiidentity": {"CurrentEnvelopeVersion", "ErrMissingIdentity", "ErrIdentityIntegrity", "ExecutionEnvelope", "PersistedExecutionEnvelope", "PersistedEnvelopeState", "PersistedEnvelopeAbsent", "PersistedEnvelopePartial", "PersistedEnvelopePresent", "envelopeContextKey", "ExecutionEnvelope.Validate", "CaptureExecutionEnvelope", "WithExecutionEnvelope", "ExecutionEnvelopeFromContext", "RestoreExecutionEnvelope", "EnsureExecutionEnvelopeContext", "PersistedExecutionEnvelopeFrom", "PersistedExecutionEnvelope.State", "PersistedExecutionEnvelope.ExecutionEnvelope", "PersistedExecutionEnvelope.executionEnvelope", "normalizePersistedEnvelope", "normalizeEnvelope", "validSource", "TenantIDFromContext", "NormalizePersistedTenantID", "TenantMatchesContext", "TenantCanCreateTask"},
+		"internal/core/config":       {"CostCalculationConfig.CalculateTotalCost", "LoadConfigWithFallback", "LoadAmazonCrawlerAPIConfigWithFallback", "validateAmazonCrawlerAPIConfig", "Validator", "NewValidator", "Validator.Validate", "Validator.ValidateAndLog", "Validator.ValidateWithError", "Config.Validate", "Config.ValidateAndLog", "Config.ValidateWithError", "ValidateConfigAndLog"},
+		"internal/pkg/goroutine":     {"TaskInfo", "Manager", "NewManager", "Manager.Start", "Manager.Wait", "Manager.WaitWithTimeout", "Manager.GetRunningCount", "Manager.GetStatus"},
+		"internal/pkg/timeout":       {"AITimeout", "AILongTimeout", "HTTPTimeout", "HTTPShortTimeout", "HTTPLongTimeout", "TaskTimeout", "TaskShortTimeout", "TaskLongTimeout", "TaskExtraTimeout", "ShutdownTimeout", "HealthTimeout", "WithAITimeout", "WithAILongTimeout", "WithHTTPTimeout", "WithHTTPShortTimeout", "WithHTTPLongTimeout", "WithTaskTimeout", "WithTaskShortTimeout", "WithTaskLongTimeout", "WithTaskExtraTimeout", "WithDownloadTimeout", "WithShutdownTimeout", "WithHealthTimeout", "WithCustomTimeout"},
+		"internal/pkg/jsonx":         {"MarshalWithoutHTMLEscape", "MarshalIndentWithoutHTMLEscape", "MarshalPretty", "UnmarshalStrict", "ToJSONString", "ToJSONStringPretty", "IsValidJSON", "CompactJSON", "SaveToFile"},
+		"internal/pkg/appenv":        {"SetupLogger", "LoggingConfig", "ApplyLoggingConfig", "InstanceInfo", "GetInstanceID", "GetPodName", "GetNamespace", "GetInstanceInfo", "ParsePlatformList", "ContainsPlatform"},
+		"internal/pkg/httpclient":    {"DefaultConfig", "NewWithTransport"},
+		"internal/pkg/imagex":        {"Format", "FormatJPEG", "FormatPNG", "FormatAuto", "ToBase64", "ToBase64JPEG", "ToBase64PNG", "FromBase64", "FromBytes", "ToBytes", "FromReader", "Encode", "Size", "FormatFromBytes", "HasTransparency", "OptimalFormat"},
 	}
 	// Owner-qualified declarations avoid banning current same-name workflows,
 	// platform logging or real workerpool/Temporal dependencies.
 	retained := map[string]map[string]bool{
-		"internal/kernel/module":    {"Module": false, "Registry": false, "NewRegistry": false, "Registry.AddRoutes": false, "Registry.Routes": false, "Registry.routes": false},
-		"internal/core/config":      {"Config": false, "LoggingConfig": false, "HTTPClientConfig": false, "DefaultHTTPClientConfig": false, "RetryConfig": false, "DefaultRetryConfig": false, "LoadConfig": false, "LoadConfigFromFile": false, "LoadConfigFromFileWithoutValidation": false, "LoadFromBytes": false, "NewDefaultConfig": false, "BuildConfig": false, "ValidateOpenAIConfig": false, "ValidateBrowserConfig": false, "ValidateAmazonConfig": false, "ValidatePlatformsConfig": false, "ValidateListingKitConfig": false, "ValidateWorkbenchConfig": false, "ValidateConfig": false, "ValidateConfigWithError": false, "ValidationError": false, "formatValidationErrors": false, "classifyValidationError": false, "moduleFromField": false, "validationModuleRank": false},
-		"internal/platform/logging": {"LogConfig": false, "DefaultLogConfig": false},
-		"internal/pkg/goroutine":    {"Task": false, "Result": false, "ProcessFunc": false, "Processor": false, "NewProcessor": false, "Processor.ProcessParallel": false, "Processor.worker": false, "Processor.executeTask": false},
-		"internal/pkg/timeout":      {"AIShortTimeout": false, "DownloadTimeout": false, "DownloadLongTimeout": false, "WithAIShortTimeout": false},
-		"internal/pkg/jsonx":        {"UnmarshalString": false, "UnmarshalBytes": false, "CleanLLMResponse": false},
-		"internal/pkg/appenv":       {"ComponentLoggers": false, "SetupLoggerWithLevel": false, "VersionInfo": false, "VersionInfo.Version": false, "VersionInfo.BuildTime": false, "PrintVersionInfo": false},
-		"internal/pkg/httpclient":   {"Config": false, "Client": false, "New": false, "Client.Do": false, "NewSimple": false, "NewSimpleWithTimeout": false, "ClientConfig": false, "Build": false, "buildTLSConfig": false},
-		"internal/pkg/imagex":       {"ImageInfo": false, "ImageInfo.Width": false, "ImageInfo.Height": false, "ImageInfo.Format": false, "ImageInfo.Size": false, "FromBytesWithFormat": false, "Inspect": false},
+		"internal/shared/aiidentity": {"Identity": false, "Identity.AgentRunID": false, "Identity.TenantID": false, "Identity.UserID": false, "Identity.BusinessTaskID": false, "Identity.TraceID": false, "WithIdentity": false, "FromContext": false, "RequestUserIDFromContext": false, "WithRequestRoles": false, "RequestRolesFromContext": false, "normalizeRequestRoles": false},
+		"internal/kernel/module":     {"Module": false, "Registry": false, "NewRegistry": false, "Registry.AddRoutes": false, "Registry.Routes": false, "Registry.routes": false},
+		"internal/core/config":       {"Config": false, "LoggingConfig": false, "HTTPClientConfig": false, "DefaultHTTPClientConfig": false, "RetryConfig": false, "DefaultRetryConfig": false, "LoadConfig": false, "LoadConfigFromFile": false, "LoadConfigFromFileWithoutValidation": false, "LoadFromBytes": false, "NewDefaultConfig": false, "BuildConfig": false, "ValidateOpenAIConfig": false, "ValidateBrowserConfig": false, "ValidateAmazonConfig": false, "ValidatePlatformsConfig": false, "ValidateListingKitConfig": false, "ValidateWorkbenchConfig": false, "ValidateConfig": false, "ValidateConfigWithError": false, "ValidationError": false, "formatValidationErrors": false, "classifyValidationError": false, "moduleFromField": false, "validationModuleRank": false},
+		"internal/platform/logging":  {"LogConfig": false, "DefaultLogConfig": false},
+		"internal/pkg/goroutine":     {"Task": false, "Result": false, "ProcessFunc": false, "Processor": false, "NewProcessor": false, "Processor.ProcessParallel": false, "Processor.worker": false, "Processor.executeTask": false},
+		"internal/pkg/timeout":       {"AIShortTimeout": false, "DownloadTimeout": false, "DownloadLongTimeout": false, "WithAIShortTimeout": false},
+		"internal/pkg/jsonx":         {"UnmarshalString": false, "UnmarshalBytes": false, "CleanLLMResponse": false},
+		"internal/pkg/appenv":        {"ComponentLoggers": false, "SetupLoggerWithLevel": false, "VersionInfo": false, "VersionInfo.Version": false, "VersionInfo.BuildTime": false, "PrintVersionInfo": false},
+		"internal/pkg/httpclient":    {"Config": false, "Client": false, "New": false, "Client.Do": false, "NewSimple": false, "NewSimpleWithTimeout": false, "ClientConfig": false, "Build": false, "buildTLSConfig": false},
+		"internal/pkg/imagex":        {"ImageInfo": false, "ImageInfo.Width": false, "ImageInfo.Height": false, "ImageInfo.Format": false, "ImageInfo.Size": false, "FromBytesWithFormat": false, "Inspect": false},
 	}
 	decoders := map[string]bool{"image/jpeg": false, "image/png": false, "golang.org/x/image/webp": false}
 	for _, relative := range trackedFiles(t, ".") {
@@ -312,7 +314,7 @@ func TestLegacyRuntimeSkeletonAndIdleConfigClosureIsRetired(t *testing.T) {
 			continue
 		}
 		owner := filepath.ToSlash(filepath.Dir(relative))
-		if owner != "internal/kernel/module" && owner != "internal/app/httpapi" && owner != "internal/core/config" && owner != "internal/platform/logging" && owner != "internal/pkg/goroutine" && owner != "internal/pkg/timeout" && owner != "internal/pkg/jsonx" && owner != "internal/pkg/appenv" && owner != "internal/pkg/httpclient" && owner != "internal/pkg/imagex" {
+		if owner != "internal/kernel/module" && owner != "internal/app/httpapi" && owner != "internal/core/config" && owner != "internal/platform/logging" && owner != "internal/pkg/goroutine" && owner != "internal/pkg/timeout" && owner != "internal/pkg/jsonx" && owner != "internal/pkg/appenv" && owner != "internal/pkg/httpclient" && owner != "internal/pkg/imagex" && owner != "internal/shared/aiidentity" {
 			continue
 		}
 		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(relative)), nil, 0)
@@ -1150,6 +1152,9 @@ func TestNumericContextAndValueContractsAreRetired(t *testing.T) {
 }
 
 func TestNumericAcquisitionAndPlatformTailClosureIsRetired(t *testing.T) {
+	if _, err := os.Lstat(filepath.Join("..", "internal", "listingruntime")); !os.IsNotExist(err) {
+		t.Errorf("retired numeric mapping owner internal/listingruntime must be absent: %v", err)
+	}
 	for _, relative := range []string{
 		"internal/platformbase", "internal/crawler/fetcher", "internal/marketplace/sourceproduct", "internal/domain/task",
 		"internal/crawler/amazon/api_service.go", "internal/crawler/amazon/crawler_service.go", "internal/crawler/amazon/worker_processor.go",
@@ -1172,7 +1177,6 @@ func TestNumericAcquisitionAndPlatformTailClosureIsRetired(t *testing.T) {
 		"internal/shein/client/base_client.go":        {"tenantID", "shopID", "GetTenantID", "GetShopID"},
 		"internal/shein/api/types.go":                 {"TenantID", "ShopID", "type CookieError"},
 		"internal/shein/authorizedbrand/types.go":     {"ConfigFromStore", "listingruntime"},
-		"internal/listingruntime/types.go":            {"type StoreInfo"},
 		"internal/product/sourcing/source_request.go": {"TenantID"},
 		"internal/core/config/type_amazon.go":         {"DataFreshnessDays", "ProductDedupe", "RegionGuard", "ConcurrencyControl", "RemoteAPI"},
 		"internal/core/config/type_platform.go":       {"FetchMode"},
@@ -1184,6 +1188,24 @@ func TestNumericAcquisitionAndPlatformTailClosureIsRetired(t *testing.T) {
 		for _, token := range retired {
 			if strings.Contains(string(content), token) {
 				t.Errorf("%s retains retired declaration %q", relative, token)
+			}
+		}
+	}
+	for _, relative := range trackedFiles(t, ".") {
+		if !strings.HasSuffix(relative, ".go") {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join("..", filepath.FromSlash(relative)), nil, parser.ImportsOnly)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, spec := range file.Imports {
+			imported, err := decodeGoImportPath(spec.Path.Value)
+			if err != nil {
+				t.Fatalf("decode import in %s: %v", relative, err)
+			}
+			if importMatchesPrefix(imported, "task-processor/internal/listingruntime") {
+				t.Errorf("%s imports retired numeric mapping owner %s", relative, imported)
 			}
 		}
 	}
@@ -2446,6 +2468,9 @@ func TestTemuListingClosureSourcesAreRetired(t *testing.T) {
 }
 
 func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
+	if _, err := os.Lstat(filepath.Join("..", "internal", "listingruntime")); !os.IsNotExist(err) {
+		t.Errorf("retired numeric mapping owner internal/listingruntime must be absent: %v", err)
+	}
 	for _, relative := range retiredSheinPolicyContractPackages {
 		if _, err := os.Lstat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
 			t.Errorf("retired SHEIN policy/contract root %s must be absent: %v", relative, err)
@@ -2876,7 +2901,7 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		"internal/listingadmin/store_statistics_test.go",
 		"internal/app/runtime/listing", "internal/app/runtime/listingscheduler",
 		"internal/app/bootstrap", "internal/app/consumer", "internal/app/runner", "internal/app/scheduler",
-		"internal/listingruntime/local", "internal/listingkit/sheinsync", "internal/listingkit/store",
+		"internal/listingruntime", "internal/listingkit/sheinsync", "internal/listingkit/store",
 		"internal/platforms", "internal/shein/scheduler", "internal/temu/scheduler",
 		"internal/platformtask", "internal/scheduler", "internal/shein/pipeline",
 		"internal/platformbase/base_factory.go", "internal/platformbase/display.go", "internal/platformbase/task_type.go",
@@ -2903,10 +2928,6 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 		})
 	}
 	for relative, retired := range map[string][]string{
-		"internal/listingruntime/types.go": {
-			"type ImportTask struct", "type ScheduledTaskConfig struct", "type TaskStatusUpdate struct",
-		},
-
 		"internal/app/runtime/listingkitschemamigrate/runtime_test.go": {
 			"func openRuntimeSchemaTestDB(", "\"listing_product_import_task\"",
 		},
@@ -3370,9 +3391,11 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 }
 
 func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
+	if _, err := os.Lstat(filepath.Join("..", "internal", "listingruntime", "types.go")); !os.IsNotExist(err) {
+		t.Errorf("retired numeric mapping contract types.go must be absent: %v", err)
+	}
 	for _, relative := range []string{
 		"internal/amazon/api/client.go",
-		"internal/listingruntime/types.go",
 		"internal/core/config/type_platform.go",
 		"internal/temu/api/api.go", "internal/temu/api/client/interfaces.go",
 		"internal/temu/api/client/client.go", "internal/temu/api/client/auth.go",
@@ -3430,7 +3453,7 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 						t.Errorf("%s still compiles retired listing dependency %s", command, dependency)
 					}
 				}
-				for _, retired := range []string{"task-processor/internal/platformbase", "task-processor/internal/crawler/fetcher", "task-processor/internal/marketplace/sourceproduct", "task-processor/internal/domain/task", "task-processor/internal/crawler/shared", "task-processor/internal/shein/product", "task-processor/internal/shein/productdata", "task-processor/internal/shein/publish", "task-processor/internal/shein/mapping", "task-processor/internal/shein/validation", "task-processor/internal/shein/translate", "task-processor/internal/shein/addresscopy", "task-processor/internal/shein/managedclient", "task-processor/internal/shein/store", "task-processor/internal/shein/context", "task-processor/internal/shein/languageconfig", "task-processor/internal/shein/siteconfig", "task-processor/internal/sheinbridge/saleattribute", "task-processor/internal/shein/inventory", "task-processor/internal/temu/sync", "task-processor/internal/temu/bulkrelist", "task-processor/internal/temu/store", "task-processor/internal/app/bootstrap", "task-processor/internal/app/consumer", "task-processor/internal/app/runner", "task-processor/internal/app/scheduler", "task-processor/internal/app/runtime/listingcontrol", "task-processor/internal/app/runtime/sheinplatformrecovery", "task-processor/internal/listingcontrol", "task-processor/internal/app/task", "task-processor/internal/app/taskstatus", "task-processor/internal/processor", "task-processor/internal/app/crawler/distributed", "task-processor/internal/listingruntime/local", "task-processor/internal/platforms", "task-processor/internal/listingkit", "task-processor/internal/tenantbridge", "task-processor/internal/compatibility", "task-processor/internal/sourceaccount", "task-processor/internal/integration/persistence/sourceaccount/ownershipmigration", "task-processor/internal/taskrpcapi", "task-processor/internal/workspace/shein", "task-processor/internal/core/metrics", "task-processor/internal/publishing/sheinmanaged", "task-processor/internal/shein/category", "task-processor/internal/shein/aicache"} {
+				for _, retired := range []string{"task-processor/internal/platformbase", "task-processor/internal/crawler/fetcher", "task-processor/internal/marketplace/sourceproduct", "task-processor/internal/domain/task", "task-processor/internal/crawler/shared", "task-processor/internal/shein/product", "task-processor/internal/shein/productdata", "task-processor/internal/shein/publish", "task-processor/internal/shein/mapping", "task-processor/internal/shein/validation", "task-processor/internal/shein/translate", "task-processor/internal/shein/addresscopy", "task-processor/internal/shein/managedclient", "task-processor/internal/shein/store", "task-processor/internal/shein/context", "task-processor/internal/shein/languageconfig", "task-processor/internal/shein/siteconfig", "task-processor/internal/sheinbridge/saleattribute", "task-processor/internal/shein/inventory", "task-processor/internal/temu/sync", "task-processor/internal/temu/bulkrelist", "task-processor/internal/temu/store", "task-processor/internal/app/bootstrap", "task-processor/internal/app/consumer", "task-processor/internal/app/runner", "task-processor/internal/app/scheduler", "task-processor/internal/app/runtime/listingcontrol", "task-processor/internal/app/runtime/sheinplatformrecovery", "task-processor/internal/listingcontrol", "task-processor/internal/app/task", "task-processor/internal/app/taskstatus", "task-processor/internal/processor", "task-processor/internal/app/crawler/distributed", "task-processor/internal/listingruntime", "task-processor/internal/listingruntime/local", "task-processor/internal/platforms", "task-processor/internal/listingkit", "task-processor/internal/tenantbridge", "task-processor/internal/compatibility", "task-processor/internal/sourceaccount", "task-processor/internal/integration/persistence/sourceaccount/ownershipmigration", "task-processor/internal/taskrpcapi", "task-processor/internal/workspace/shein", "task-processor/internal/core/metrics", "task-processor/internal/publishing/sheinmanaged", "task-processor/internal/shein/category", "task-processor/internal/shein/aicache"} {
 					if dependency == retired || (retired != "task-processor/internal/crawler/shared" && strings.HasPrefix(dependency, retired+"/")) {
 						t.Errorf("%s still compiles retired business dependency %s", command, dependency)
 					}

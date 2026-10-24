@@ -1,3 +1,5 @@
+> #301 / #921 当前适用边界：用户已确认并按[旧任务身份与数字映射合同完整闭包 §1–§7/§6.1](legacy-task-identity-mapping-closure-retirement-boundary.md)整批实施。仅替代旧 shared/aiidentity ExecutionEnvelope/PersistedExecutionEnvelope、capture/restore/context/分类/来源白名单、Task tenant 辅助和两专属测试的保留/实施含义；五工件闭包已在同一 PR 源码退休。当前 Identity/WithIdentity/FromContext/request roles、authidentity 与现役 ImageAgent/Commercetool 授权/隔离/恢复完整保留；不复建旧无 scope 放行或旧信封，不执行历史 plan 的派工/迁移/运行步骤。 当前能力/采集/图像、独立 SHEIN 登录与 Store 同步及原 owner/fence/UNKNOWN 保留；原历史正文/计数/批准/勾选完整保留为后缀，workflow/inventory 不改，不操作既有实例/数据/凭据/进程，不增加试用前置。
+
 # #301 旧 DB 代理、Redis 封装与 shared helper 完整退休设计
 
 Status: **USER_CONFIRMED / SOURCE_IMPLEMENTED**。用户已确认冻结设计 `023567fe47f0262e23b56b58f02b34c195921bea` §1–§7（含 §6.1），在 #880 整批实施。[用户确认与实施准入](https://github.com/qq550723504/task-processor/pull/880#issuecomment-6333413341)及 #301/PR 的 Ready 读回先于正式源码修改；设计阶段 N/A，本轮 **Design Basis: Reuse Existing Architecture / Ready**。调查与开工同步 main 同为 `6266629b79a7ac100a6b007f77eadacefc46ec5e`，消费者刷新不变；以下冻结矩阵与停止条件保持，仅校准当前状态。一个 Writer、一个分支、一个主要 PR，三组完整闭包不机械拆批。#301 OPEN，#29 不重开；准确实现 HEAD、RED/GREEN、原 CI/最终复核留 PR，不把源码完成当作运行或用户验收。

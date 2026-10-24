@@ -1,3 +1,5 @@
+> #301 / #921 当前适用边界：用户已确认并按[旧任务身份与数字映射合同完整闭包 §1–§7/§6.1](legacy-task-identity-mapping-closure-retirement-boundary.md)整批实施。本文旧 createProductImportMappingWithInput 等数字刊登映射实现示例仅为历史，不再是当前复用入口；本轮退出最后 listingruntime.ProductImportMapping 值合同。平台 API/DTO、当前来源/刊登/Store owner 和有效规则保持，不由这项源码退休触发平台写入或数据清理。 当前能力/采集/图像、独立 SHEIN 登录与 Store 同步及原 owner/fence/UNKNOWN 保留；原历史正文/计数/批准/勾选完整保留为后缀，workflow/inventory 不改，不操作既有实例/数据/凭据/进程，不增加试用前置。
+
 # TEMU Pipeline Stages
 
 ## Goal
