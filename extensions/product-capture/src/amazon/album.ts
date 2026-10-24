@@ -60,8 +60,7 @@ export function albumURLs(doc: Document, mainURL: string | undefined, thumbs: st
   if (!thumbs.length) return { urls, reason };
   reason = 'current-product high-resolution metadata not observed';
   const scripts = doc.querySelectorAll('script:not([src])');
-  if (scripts.length > 256) fail('CAPTURE_TOO_LARGE');
-  let bytes = 0; let matched = false; let conflict = false;
+  let candidates = 0; let bytes = 0; let matched = false; let conflict = false;
   for (const script of scripts) {
     charge();
     if (script.closest('form,iframe,input')) continue;
@@ -69,6 +68,8 @@ export function albumURLs(doc: Document, mainURL: string | undefined, thumbs: st
     if (!first || first.nodeType !== 3) continue;
     const text = (first as Text).data;
     if (!text.includes('colorImages')) continue;
+    // Unrelated page scripts still incur charge(), but do not use album slots.
+    if (++candidates > 256) fail('CAPTURE_TOO_LARGE');
     bytes += byteLength(text); if (bytes > MAX_BYTES) fail('CAPTURE_TOO_LARGE');
     let root: Syntax;
     try {
