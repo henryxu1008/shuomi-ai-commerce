@@ -2,9 +2,9 @@
 
 Refs [#301](https://github.com/qq550723504/shuomi-ai-commerce/issues/301)。#301 保持 OPEN，#29 不重开。
 
-- Status: **DESIGNING / AWAITING_USER_CONFIRMATION**。本轮仅获设计授权，生产源码和测试尚未实施；准确设计 HEAD、CI、实际审核 SHA/结论与用户确认留主要 PR。
-- Design Basis：当前三文档交付 **N/A**；拟实施 **Reuse Existing Architecture / NOT_READY**，设计交接并获用户确认后，先记录 Issue/PR Ready 并读回，再改生产路径。本文不是源码、合并、运行或关单授权。
-- 基线：main **12da6cc2856a693f2c58e8a28d6c2faf942d7de3**，tree **cf6f46689c5142ad807944652dec4a9bd995bea3**。#915 的 matching push/main CI39982851824 整 run SUCCESS 只作前批基线。
+- Status: **USER_CONFIRMED / SOURCE_IMPLEMENTED**。用户已确认冻结设计 `f88f791a1c7d4f55750050795b7aff77e05f5183` §1–§7（含 §6.1），同一主要 PR #917 整批实施；准确源码 HEAD、必要自检、CI、最终复核与权限留 PR，不把源码完成当运行/用户验收。
+- Design Basis：设计阶段三文档 **N/A**；本轮实施 **Reuse Existing Architecture / Ready**。[用户确认/接单6379330796](https://github.com/qq550723504/shuomi-ai-commerce/issues/301#issuecomment-6379330796)及 Issue/PR Ready 记录读回先于生产修改。冻结 §1–§7/§6.1 语义与矩阵不扩展；本文不是合并、运行或关单授权。
+- 基线：main **12da6cc2856a693f2c58e8a28d6c2faf942d7de3**，tree **cf6f46689c5142ad807944652dec4a9bd995bea3**。#915 的 matching push/main CI39982851824 整 run SUCCESS 只作前批基线。实施开工同步实际 main `11dddb74a06fae3f341c6fb2910842d285e15d6d` 的 #918 采集报价增量，不改本批配置/校验链；共享索引新增行保留。
 - 唯一 Writer 沿原独占 worktree，分支 `codex/issue301-config-facade-closure-design`；[接单及前批当前段逐字归档6369445835](https://github.com/qq550723504/shuomi-ai-commerce/issues/301#issuecomment-6369445835)。一个主要 PR 覆盖全部闭包，不按文件、方法或测试拆批。
 
 ## 1. 用户结果、范围与产品依据
@@ -93,7 +93,7 @@ Threat Model 限漏接有效校验、第一处错误即短路、聚合顺序/格
 
 ### 6.1 原检查转换与十四工件准确边界
 
-确认后同批实施 **14 工件**：四生产文件 + 四原测试文件 + 一个原退休 guard + 两旧 KEEP 文档 + 本文/Architecture README/Legacy Register 三当前文档。当前设计仅后三文档，未实施下面变更。
+确认后同批实施 **14 工件**：四生产文件 + 四原测试文件 + 一个原退休 guard + 两旧 KEEP 文档 + 本文/Architecture README/Legacy Register 三当前文档。设计阶段仅后三文档；用户确认及 Ready 读回后，已按下表同批完成源码与测试转换，原规则和表外检查不变。
 
 | 工件/原函数 | 唯一允许变更 | 必须保持 |
 | --- | --- | --- |
@@ -122,4 +122,4 @@ Threat Model 限漏接有效校验、第一处错误即短路、聚合顺序/格
 
 同一 HEAD 的 GitHub 复核运行时不重复触发；仅明确启动失败后一次受控重试，空 reviews/Completed 标签或摘要布尔值不冒充实际 PASS。**未经用户本轮授权不默认新增 AI 互验线程**；#915 设计/源码子代理授权均不覆盖本轮。备用设计/源码最终复核须列准确 HEAD、只读范围和原失败证据，先获用户决定，不自行启动 Reviewer/Writer。
 
-设计确认、源码实施、合并、部署及运行/产品验收各自记录。当前源码/测试实施、合并/部署/关单与既有实例/数据/凭据/进程操作 NOT_AUTHORIZED；运行/产品验收 NOT_RUN。#301 保持 OPEN，无新试用前置。未来获准确 HEAD 正常合并授权后，仅以实际 merge SHA 的 event=push/head_branch=main 整 run completed/SUCCESS确认，不能用PR CI、单独Gate或其它main提交替代。
+设计确认、源码实施、合并、部署及运行/产品验收各自记录。本轮用户已确认冻结设计并授权范围内源码/测试实施、隔离必要自检、提交/推送与同一 PR 维护；合并/部署/关单与既有实例/数据/凭据/进程操作 NOT_AUTHORIZED，源码最终复核子代理须另获授权；运行/产品验收 NOT_RUN。#301 保持 OPEN，无新试用前置。未来获准确 HEAD 正常合并授权后，仅以实际 merge SHA 的 event=push/head_branch=main 整 run completed/SUCCESS确认，不能用PR CI、单独Gate或其它main提交替代。

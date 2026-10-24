@@ -275,7 +275,7 @@ func TestLegacyRuntimeSkeletonAndIdleConfigClosureIsRetired(t *testing.T) {
 			t.Errorf("retired Temporal module bundle %s must be absent: %v", relative, err)
 		}
 	}
-	for _, relative := range []string{"internal/core/config/platform_common.go", "internal/core/config/platform_common_test.go", "internal/pkg/jsonx/marshal.go", "internal/core/config/type_server.go"} {
+	for _, relative := range []string{"internal/core/config/platform_common.go", "internal/core/config/platform_common_test.go", "internal/pkg/jsonx/marshal.go", "internal/core/config/type_server.go", "internal/core/config/validator_validator.go"} {
 		if _, err := os.Lstat(filepath.Join("..", filepath.FromSlash(relative))); !os.IsNotExist(err) {
 			t.Errorf("retired idle support file %s must be absent: %v", relative, err)
 		}
@@ -285,7 +285,7 @@ func TestLegacyRuntimeSkeletonAndIdleConfigClosureIsRetired(t *testing.T) {
 	retiredRegistryFields := []string{"workerPools", "workerPoolNames", "temporalWorkers", "temporalWorkerNames", "taskHandlers", "workflowNames"}
 	retiredConfig := []string{"CacheConfig", "DefaultCacheConfig", "LogConfig", "DefaultLogConfig", "MonitoringConfig", "DefaultMonitoringConfig", "CostCalculationConfig", "DefaultCostCalculationConfig", "TimeoutConfig", "DefaultTimeoutConfig", "RateLimitConfig", "DefaultRateLimitConfig", "ServerConfig"}
 	retiredSupport := map[string][]string{
-		"internal/core/config":    {"CostCalculationConfig.CalculateTotalCost"},
+		"internal/core/config":    {"CostCalculationConfig.CalculateTotalCost", "LoadConfigWithFallback", "LoadAmazonCrawlerAPIConfigWithFallback", "validateAmazonCrawlerAPIConfig", "Validator", "NewValidator", "Validator.Validate", "Validator.ValidateAndLog", "Validator.ValidateWithError", "Config.Validate", "Config.ValidateAndLog", "Config.ValidateWithError", "ValidateConfigAndLog"},
 		"internal/pkg/goroutine":  {"TaskInfo", "Manager", "NewManager", "Manager.Start", "Manager.Wait", "Manager.WaitWithTimeout", "Manager.GetRunningCount", "Manager.GetStatus"},
 		"internal/pkg/timeout":    {"AITimeout", "AILongTimeout", "HTTPTimeout", "HTTPShortTimeout", "HTTPLongTimeout", "TaskTimeout", "TaskShortTimeout", "TaskLongTimeout", "TaskExtraTimeout", "ShutdownTimeout", "HealthTimeout", "WithAITimeout", "WithAILongTimeout", "WithHTTPTimeout", "WithHTTPShortTimeout", "WithHTTPLongTimeout", "WithTaskTimeout", "WithTaskShortTimeout", "WithTaskLongTimeout", "WithTaskExtraTimeout", "WithDownloadTimeout", "WithShutdownTimeout", "WithHealthTimeout", "WithCustomTimeout"},
 		"internal/pkg/jsonx":      {"MarshalWithoutHTMLEscape", "MarshalIndentWithoutHTMLEscape", "MarshalPretty", "UnmarshalStrict", "ToJSONString", "ToJSONStringPretty", "IsValidJSON", "CompactJSON", "SaveToFile"},
@@ -297,7 +297,7 @@ func TestLegacyRuntimeSkeletonAndIdleConfigClosureIsRetired(t *testing.T) {
 	// platform logging or real workerpool/Temporal dependencies.
 	retained := map[string]map[string]bool{
 		"internal/kernel/module":    {"Module": false, "Registry": false, "NewRegistry": false, "Registry.AddRoutes": false, "Registry.Routes": false, "Registry.routes": false},
-		"internal/core/config":      {"Config": false, "LoggingConfig": false, "HTTPClientConfig": false, "DefaultHTTPClientConfig": false, "RetryConfig": false, "DefaultRetryConfig": false},
+		"internal/core/config":      {"Config": false, "LoggingConfig": false, "HTTPClientConfig": false, "DefaultHTTPClientConfig": false, "RetryConfig": false, "DefaultRetryConfig": false, "LoadConfig": false, "LoadConfigFromFile": false, "LoadConfigFromFileWithoutValidation": false, "LoadFromBytes": false, "NewDefaultConfig": false, "BuildConfig": false, "ValidateOpenAIConfig": false, "ValidateBrowserConfig": false, "ValidateAmazonConfig": false, "ValidatePlatformsConfig": false, "ValidateListingKitConfig": false, "ValidateWorkbenchConfig": false, "ValidateConfig": false, "ValidateConfigWithError": false, "ValidationError": false, "formatValidationErrors": false, "classifyValidationError": false, "moduleFromField": false, "validationModuleRank": false},
 		"internal/platform/logging": {"LogConfig": false, "DefaultLogConfig": false},
 		"internal/pkg/goroutine":    {"Task": false, "Result": false, "ProcessFunc": false, "Processor": false, "NewProcessor": false, "Processor.ProcessParallel": false, "Processor.worker": false, "Processor.executeTask": false},
 		"internal/pkg/timeout":      {"AIShortTimeout": false, "DownloadTimeout": false, "DownloadLongTimeout": false, "WithAIShortTimeout": false},

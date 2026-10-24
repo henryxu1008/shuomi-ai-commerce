@@ -544,7 +544,7 @@ func loadWithViper(v *viper.Viper) (*Config, error) {
 		return nil, err
 	}
 	cfg := BuildConfig(v)
-	if err := cfg.ValidateWithError(); err != nil {
+	if err := ValidateConfigWithError(cfg); err != nil {
 		return nil, err
 	}
 	return cfg, nil
