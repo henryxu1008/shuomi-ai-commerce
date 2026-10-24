@@ -19,7 +19,7 @@ await build({ entryPoints:[resolve(root,'src/injected.ts')], outfile:resolve(out
 await build({ entryPoints:[resolve(root,'src/page.ts')], outfile:resolve(outdir,'page.js'), bundle:true, format:'iife', platform:'browser', target:'chrome120' });
 const manifest = {
   manifest_version:3, name: fixture ? '1688 / Amazon 商品采集 — 任务 Fixture' : '1688 / Amazon 商品采集', version:'0.2.0', minimum_chrome_version:'120',
-  description:'用户点击后采集当前1688或Amazon单商品资料，并在当前应用确认导入。', permissions:['activeTab','scripting'],
+  description:'用户点击后采集当前1688或Amazon单商品资料，并在当前应用确认导入。', permissions:['activeTab','scripting','storage'],
   // Exact origins from the approved five-site plugin scope. The source parser
   // still validates the product path before injection. No subdomain wildcard.
   host_permissions:['https://detail.1688.com/*', 'https://www.amazon.com/*', 'https://www.amazon.ca/*', 'https://www.amazon.co.uk/*', 'https://www.amazon.de/*', 'https://www.amazon.co.jp/*'],

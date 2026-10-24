@@ -30,17 +30,18 @@ export function mountPageEntry(doc: Document, view: Window) {
   }
   function closeConfirmation() { confirmation.hidden = true; confirmationRevision = undefined; confirmationSource = undefined; }
   function render(code?: EntryError) {
-    primary.textContent = state?.handed ? state.sameProduct ? '返回应用核实' : '返回已有采集' : '采集并在应用确认';
+    const canReturn = state?.returnState === 'available';
+    primary.textContent = canReturn ? state?.sameProduct ? '返回应用核实' : '返回已有采集' : '采集并在应用确认';
     const busy = pending || Boolean(state?.loading);
-    primary.disabled = busy || disconnected || !state || lostKnownOperation;
-    fresh.hidden = !state?.captured && !lostKnownOperation;
-    fresh.disabled = busy || disconnected; confirm.disabled = busy || disconnected; cancel.disabled = busy;
+    primary.disabled = busy || disconnected || !state || state.returnState === 'uncertain' || (lostKnownOperation && !canReturn);
+    fresh.hidden = !state || (!state.captured && state.returnState === 'none' && !lostKnownOperation);
+    fresh.disabled = busy || disconnected || code === 'RETURN_STATE_UNAVAILABLE'; confirm.disabled = fresh.disabled; cancel.disabled = busy;
     refreshButton.disabled = pending;
     status.textContent = disconnected ? '插件连接中断，请先在原应用页核实；可刷新状态，不要重复保存。'
       : busy ? '正在处理当前采集…'
         : code ? entryMessages[code]
-          : lostKnownOperation ? '插件状态已变化，请先在原应用页核实此前操作。新采集需要再次确认。'
-            : state?.handed ? state.sameProduct ? '已交给应用，保存与结果请在原应用页确认。' : '已有另一件商品的采集，请先返回应用核实，或明确开始新操作。'
+          : canReturn ? state?.sameProduct ? '可返回原应用核实保存结果。' : '已有另一件商品的采集，请先返回应用核实，或明确开始新操作。'
+            : lostKnownOperation || state?.returnState === 'uncertain' ? '插件状态已变化，请先在原应用页核实此前操作。新采集需要再次确认。'
               : '点击采集后到应用确认保存。如曾交给应用，请先回原标签核实。';
   }
   async function action(type: PageMessage['type'], expectedRevision?: string) {
@@ -78,7 +79,7 @@ export function mountPageEntry(doc: Document, view: Window) {
       event.preventDefault(); event.stopPropagation(); callback();
     });
   }
-  onClick(primary, () => { if (state) void action(state.handed ? 'page.return' : 'page.capture', state.revision); });
+  onClick(primary, () => { if (state) void action(state.returnState === 'available' ? 'page.return' : 'page.capture', state.revision); });
   onClick(fresh, () => {
     if (!state) return;
     confirmationRevision = state.revision; confirmationSource = source(); confirmation.hidden = false; confirm.focus();

@@ -6,7 +6,7 @@ import { expect, it } from 'vitest';
 const hosts = ['https://detail.1688.com/*', 'https://www.amazon.com/*', 'https://www.amazon.ca/*', 'https://www.amazon.co.uk/*', 'https://www.amazon.de/*', 'https://www.amazon.co.jp/*'];
 const receivers = (origin: string) => ({matches:[`${origin}/capture/1688`,`${origin}/capture/amazon`]});
 
-it('builds only activeTab/scripting with exact app messaging, and rejects implicit or unsafe destinations', () => {
+it('builds only activeTab/scripting/storage with exact app messaging, and rejects implicit or unsafe destinations', () => {
   const build=resolve('scripts/build.mjs');
   const env={...process.env};delete env.CAPTURE_APP_URL;
   expect(()=>execFileSync(process.execPath,[build],{env,stdio:'pipe'})).toThrow();
@@ -15,7 +15,7 @@ it('builds only activeTab/scripting with exact app messaging, and rejects implic
   }
   execFileSync(process.execPath,[build,'--fixture'],{env:{...env,CAPTURE_APP_URL:'http://127.0.0.1:4399/capture/1688'},stdio:'pipe'});
   const manifest=JSON.parse(readFileSync('dist-fixture/manifest.json','utf8'));
-  expect(manifest.permissions).toEqual(['activeTab','scripting']);
+  expect(manifest.permissions).toEqual(['activeTab','scripting','storage']);
   expect(manifest.commands).toEqual({ 'capture-current-product': { suggested_key: { default: 'Alt+Shift+P' }, description: '采集当前商品并在应用确认' } });
   expect(manifest.action.default_popup).toBe('popup.html');
   // Exact approved origins only; each source parser also validates the product

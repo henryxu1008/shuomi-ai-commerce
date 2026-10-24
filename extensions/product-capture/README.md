@@ -41,10 +41,26 @@ extension shortcut settings. The command is browser-scoped, not global.
 Repeated entry after handoff and **返回原应用核实操作** activate the original
 own-created application tab/window, without navigation, a new recovery tab, key,
 capture or save. This preserves Amazon's original-tab session marker. A closed
-tab or lost worker is reported honestly; this change does not provide cross-tab
-or restart persistence. **开始新的采集** retains its explicit confirmation and is
+tab is reported honestly, without opening a replacement. **开始新的采集** retains its explicit confirmation and is
 refused while capture, delivery or return is in flight. Keep an original possibly
 submitted operation's page/key; a transport failure is not proof of a failed save.
+
+The reviewed [#927 session-return increment](../../docs/architecture/plugin-capture-session-return-v1.md)
+retains only one original-tab location in native `chrome.storage.session`, using
+the additional `storage` permission. A worker recreated within the same browser
+session can return through the source button, shortcut or popup even after its
+payload is lost. The record contains only revision, canonical product source,
+pending/bound stage and original tab ID; content scripts cannot read the store.
+It contains no payload, account, operation key, handoff nonce or saved result.
+All entries wait for initialization, and pending/invalid/unreadable location does
+not silently become an initial capture. Popup new-operation confirmation is also
+bound to the revision that was displayed when it was opened.
+
+The receiver and application save/original-key checks stay unchanged. Returning
+does not restore a transport payload, retry or save. Browser restart and extension
+disable/reload/update clear session storage, so those cases and pre-fix lost
+locations still require the original application page. No tab discovery,
+replacement, local/sync storage or backend recovery service is introduced.
 
 These source changes do not update an existing installed extension or runtime.
 
