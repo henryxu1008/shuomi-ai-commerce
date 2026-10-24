@@ -1,7 +1,7 @@
 import { parseTree, type Node, type ParseError } from 'jsonc-parser';
 import type { CapturePayload, EvidenceV2, Price, Image } from './wire';
 import { byteLength, fail, MAX_BYTES, pageSource, validateCapture, validPriceAmount } from './validation';
-import { detailImages, tableFacts, putFact } from './dom-materials';
+import { detailImages, tableFacts, putFact, excluded } from './dom-materials';
 
 // Observed live payloads reach ~16.5k nodes, so the previous 16384 bound rejected
 // real pages. The 2MB candidate bound remains the primary resource guard.
@@ -298,13 +298,7 @@ export async function captureDocument(doc: Document, source: string, now: Date):
     for (let n = texts.nextNode(); n; n = texts.nextNode()) {
       if (++nodes > MAX_NODES) fail('CAPTURE_TOO_LARGE');
       const parent = n.parentElement;
-      if (!parent || parent.closest('script,style,noscript,template,iframe,input,form,[hidden],[aria-hidden="true"]')) continue;
-      let hidden = false;
-      for (let p: Element | null = parent; p; p = p.parentElement) {
-        const style = (p as HTMLElement).style;
-        if (style?.display === 'none' || style?.visibility === 'hidden') { hidden = true; break; }
-      }
-      if (hidden) continue;
+      if (!parent || excluded(parent)) continue;
       const value = n.nodeValue ?? '';
       const nextBlock = parent.closest('p,div,li,section,tr');
       const separator = block && block !== nextBlock && parts.length ? '\n' : '';

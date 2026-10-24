@@ -40,7 +40,7 @@ export async function captureAmazonDocument(doc: Document, source: string, now =
       images.push({ url, role: 'gallery' });
     }
   }
-  for (const url of detailImages(doc, '#productDescription img,#aplus img,#aplus_feature_div img', charge)) {
+  for (const url of detailImages(doc, '#productDescription img,#aplus img,#aplus_feature_div img,.aplus-v2 .aplus-module-content img', charge)) {
     if (!images.some(item => item.url === url)) {
       if (images.length >= 256) fail('CAPTURE_TOO_LARGE');
       images.push({ url, role: 'detail' });

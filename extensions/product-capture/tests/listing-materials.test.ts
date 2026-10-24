@@ -84,6 +84,28 @@ describe('listing materials through existing v2 capture', () => {
     expect(e.attributes.some(a=>a.name==='Material')).toBe(false);
     expect(e.missingFacts.some(f=>f.field==='attributes'&&f.reason.includes('conflicting'))).toBe(true);
   });
+  it('does not admit album metadata from a form subtree',async()=>{
+    const doc=amazon(`<form><script>const privateData={colorImages:{initial:${JSON.stringify(initial)}}};</script></form>`,null);
+    const {evidence:e}=await captureAmazonDocument(doc,amazonURL);
+    expect(e.images.map(i=>i.url)).toEqual([main,thumb,sideThumb]);
+    expect(e.missingFacts.some(f=>f.field==='images.hiRes')).toBe(true);
+  });
+  it('excludes A+ recommendations, comparisons and links to other products from both text and images',async()=>{
+    const doc=amazon(`<div id="aplus"><div class="aplus-module"><p>Current product care.</p>
+      <div id="recommendations"><p>Other recommended item</p><img src="${cdn}other.jpg"></div>
+      <div class="aplus-comparison-table"><p>Other comparison item</p><img src="${cdn}comparison.jpg"></div>
+      <p><a href="/dp/B012345678">Other linked item<img src="${cdn}linked.jpg"></a></p>
+      <img src="${cdn}current-detail.jpg"></div></div>`);
+    const {evidence:e}=await captureAmazonDocument(doc,amazonURL);
+    expect(e.description).toBe('Current product care.');
+    expect(e.images.filter(i=>i.role==='detail')).toEqual([{url:`${cdn}current-detail.jpg`,role:'detail'}]);
+  });
+  it('reads text and detail images from the same standalone A+ v2 module root',async()=>{
+    const doc=amazon(`<div class="aplus-v2"><div class="aplus-module-content"><p>Standalone product detail.</p><img src="${cdn}standalone.jpg"></div></div>`);
+    const {evidence:e}=await captureAmazonDocument(doc,amazonURL);
+    expect(e.description).toBe('Standalone product detail.');
+    expect(e.images).toContainEqual({url:`${cdn}standalone.jpg`,role:'detail'});
+  });
   it('bounds candidate script bytes before parsing',async()=>{
     const doc=amazon('',`[]`);doc.querySelector('script')!.textContent='/*colorImages'+ ' '.repeat(2*1024*1024)+'*/';
     await expect(captureAmazonDocument(doc,amazonURL)).rejects.toThrow('CAPTURE_TOO_LARGE');
@@ -128,6 +150,12 @@ describe('listing materials through existing v2 capture', () => {
     const {evidence:e}=await captureDocument(doc,source1688,new Date());
     expect(e.attributes.some(a=>a.name==='材质'||a.name.includes('包装重量'))).toBe(false);
     expect(e.missingFacts.some(f=>f.field==='attributes'&&f.reason.includes('conflicting'))).toBe(true);
+  });
+  it('uses the same recommendation and other-product exclusions for 1688 description text',async()=>{
+    const doc=alibaba('<div id="desc-lazyload-container"><p>Current detail</p><div id="recommendations"><p>Recommended item</p><img src="https://cbu01.alicdn.com/other.jpg"></div><a href="https://detail.1688.com/offer/123456789.html">Other linked item</a></div>');
+    const {evidence:e}=await captureDocument(doc,source1688,new Date());
+    expect(e.description).toBe('Current detail');
+    expect(e.images.some(i=>i.url.endsWith('/other.jpg'))).toBe(false);
   });
   it.each(['parameters','images'])('bounds additional 1688 %s without truncation',async kind=>{
     const html=Array.from({length:257},(_,i)=>kind==='parameters'?`<tr><th>Field ${i}</th><td>Value</td></tr>`:`<img src="https://cbu01.alicdn.com/detail-${i}.jpg">`).join('');

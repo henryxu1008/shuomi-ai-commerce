@@ -4,6 +4,18 @@ import type { Attribute } from './wire';
 // Shared existing DOM admission rules; no HTML, page globals or external reads.
 export function excluded(element: Element): boolean {
   if (element.closest('script,style,noscript,template,iframe,input,form,[hidden],[aria-hidden="true"]')) return true;
+  if (element.closest('#recommendations,.recommendations,.aplus-comparison-table,[data-cel-widget*="recommend" i],[data-cel-widget*="comparison" i]')) return true;
+  const link = element.closest('a[href]');
+  if (link) {
+    try {
+      const current = new URL(element.ownerDocument.URL);
+      const target = new URL(link.getAttribute('href')!, current);
+      const product = (url: URL) => /\/dp\/([A-Z0-9]{10})(?:\/|$)/.exec(url.pathname)?.[1]
+        ?? /^\/offer\/([1-9][0-9]*)\.html$/.exec(url.pathname)?.[1];
+      const ownID = product(current); const linkedID = product(target);
+      if (ownID && linkedID && (ownID !== linkedID || current.hostname.replace(/^www\./,'') !== target.hostname.replace(/^www\./,''))) return true;
+    } catch { /* An unreadable link does not establish another product. */ }
+  }
   for (let parent: Element | null = element; parent; parent = parent.parentElement) {
     const style = (parent as HTMLElement).style;
     if (style?.display === 'none' || style?.visibility === 'hidden') return true;

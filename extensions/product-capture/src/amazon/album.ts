@@ -64,6 +64,7 @@ export function albumURLs(doc: Document, mainURL: string | undefined, thumbs: st
   let bytes = 0; let matched = false; let conflict = false;
   for (const script of scripts) {
     charge();
+    if (script.closest('form,iframe,input')) continue;
     const first = script.firstChild;
     if (!first || first.nodeType !== 3) continue;
     const text = (first as Text).data;
