@@ -43,6 +43,31 @@ describe('listing materials through existing v2 capture', () => {
     expect(e.observation.scope).toBe('selected_product');
     expect(e.contentSHA256).toMatch(/^[a-f0-9]{64}$/);
   });
+  it.each(['wrapped','array'])('ignores 320 unrelated inline scripts around %s album candidates',async kind=>{
+    const unrelated=Array.from({length:320},(_,i)=>`<script>var unrelated${i}={widget:"other"};</script>`);
+    const doc=amazon(unrelated.slice(160).join('')+`<script>const duplicate={colorImages:{initial:${JSON.stringify(initial)}}};</script>`,kind==='array'?JSON.stringify(initial):undefined);
+    doc.body.insertAdjacentHTML('afterbegin',unrelated.slice(0,160).join(''));
+    const {evidence:e}=await captureAmazonDocument(doc,amazonURL);
+    expect(e.images).toEqual([{url:main,role:'main'},{url:side,role:'gallery'}]);
+    expect(e.variants[0].images).toEqual([{url:main,role:'main'}]);
+    expect(e.missingFacts.some(f=>f.field==='images.hiRes')).toBe(false);
+  });
+  it('keeps known images and missing metadata when 320 unrelated scripts contain no album candidate',async()=>{
+    const doc=amazon('<script>var widget={enabled:true};</script>'.repeat(320),null);
+    const {evidence:e}=await captureAmazonDocument(doc,amazonURL);
+    expect(e.images.map(i=>i.url)).toEqual([main,thumb,sideThumb]);
+    expect(e.missingFacts).toContainEqual({field:'images.hiRes',reason:'current-product high-resolution metadata not observed'});
+  });
+  it('accepts 256 album candidates without counting excluded form scripts',async()=>{
+    const candidate=`<script>var album={colorImages:{initial:${JSON.stringify(initial)}}};</script>`;
+    const doc=amazon(candidate.repeat(255)+`<form>${candidate.repeat(257)}</form>`);
+    expect((await captureAmazonDocument(doc,amazonURL)).evidence.images).toEqual([{url:main,role:'main'},{url:side,role:'gallery'}]);
+  });
+  it.each(['valid','unsupported'])('rejects a 257th %s album candidate before accepting an incomplete scan',async kind=>{
+    const candidate=kind==='valid'?`var album={colorImages:{initial:${JSON.stringify(initial)}}};`:'colorImages = (';
+    const doc=amazon(`<script>${candidate}</script>`.repeat(256));
+    await expect(captureAmazonDocument(doc,amazonURL)).rejects.toThrow('CAPTURE_TOO_LARGE');
+  });
   it('uses the original large URL when hiRes is null without manufacturing an address',async()=>{
     const records=structuredClone(initial);records[1].hiRes=null as unknown as string;
     const {evidence:e}=await captureAmazonDocument(amazon('',JSON.stringify(records)),amazonURL);
