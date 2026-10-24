@@ -33,7 +33,7 @@ Threat Model 限误删仍有调用者的品牌值/context/清理/草稿 JSON，�
 | [#867 来源尾部](legacy-numeric-acquisition-tail-closure-retirement-boundary.md) 的 Config/Resolved/context 与其余 sherr KEEP | 只有 Config、旧 Resolver 和本轮五个 sherr 工件 | 原数字 Store adapter/旧 Cookie error 不复活；Resolved/context 与品牌清理保持 |
 | [#824 支撑闭包](legacy-numeric-listing-support-closure-retirement-boundary.md)、[#817 SHEIN 刊登](legacy-shein-listing-closure-retirement-boundary.md) 的 sherr/authorizedbrand KEEP | 旧查询错误重试/认证/过滤分类及其专属测试、旧 Resolver | TaskHandledError 等已退内容继续缺席；当前业务值与平台规则不动 |
 | [#831 Store 尾部](legacy-numeric-store-management-closure-retirement-boundary.md)、[#833 内容配置](legacy-numeric-content-management-closure-retirement-boundary.md)、[#836 运行配置](legacy-runtime-config-closure-retirement-boundary.md)、[#912 策略合同](legacy-shein-policy-contract-closure-retirement-boundary.md) 的广泛包 KEEP | 仅 §5 的旧查询与错误链 | 当前 Store、清理、共享值和其它明确 KEEP 不变 |
-| 旧品牌实施计划、Task 生命周期和 worker 身份文档 | 仅旧查询/错误 owner 的现役建议或装配图 | 原完整历史/批准/数字/勾选保留，当前 worker 身份及同步合同不改 |
+| 旧品牌设计规范/实施计划、Task 生命周期和 worker 身份文档 | 仅旧查询/错误 owner 的现役建议或装配图 | 原完整历史/批准/数字/勾选保留，当前 worker 身份及同步合同不改 |
 
 没有生产 EXTRACT：`findByCode/findByName/trimMatchKey/newResolved` 只服务旧查询 Resolver；“正确的旧算法”本身不构成当前消费需求，不为它们新造公共 helper 或替代 owner。当前品牌值清理/装配直接保留已有实现，不经旧 Resolver。
 
@@ -92,7 +92,7 @@ Threat Model 限误删仍有调用者的品牌值/context/清理/草稿 JSON，�
 
 全文件 KEEP：authorizedbrand/context.go、context_test.go；全部 content 生产/测试；publishing/shein/assembler.go、sensitive_content_sanitizer.go、authorized_brand_test.go、submit_prep_test.go 及其它当前草稿/预览/规则；其它 Product/SKC/SKU/属性 DTO；当前 session_transport.go、cookie_values.go、三端点；sheinlogin、官方 integrations/Store、采集/原浏览器/debug、AI/图像、共享基础层、当前身份和计费。没有新生产文件、DTO 迁包、字段替换、alias 或适配器。
 
-### 5.3 十一份专属历史建议与三份当前文档
+### 5.3 十二份专属历史建议与三份当前文档
 
 未来实施只对以下原文增加准确 superseding 顶注；完整原文/顶注/数字/勾选/批准/链接/证据逐字保留为后缀。只替代 §2/§5 的旧 Resolver/Config/sherr/品牌列表 DTO 含义，不 blanket 撤销 authorizedbrand 或平台/JSON KEEP：
 
@@ -107,10 +107,11 @@ Threat Model 限误删仍有调用者的品牌值/context/清理/草稿 JSON，�
 9. docs/architecture/shein-worker-identity-persistence-boundary.md
 10. docs/architecture/task-status-lifecycle.md
 11. docs/superpowers/plans/2026-06-16-shein-listing-authorized-brand.md
+12. docs/superpowers/specs/2026-06-16-shein-listing-authorized-brand-design.md
 
 本文、Architecture README 和 Legacy Register 三份当前文档同步准确状态/边界，两个索引原完整正文保留为后缀。#923 Prompt 文档关于 WithResolved/合法品牌清理的 KEEP 继续有效，全文件零改。所有 inventory、历史 test-baseline.txt、依赖、锁、workflow、lint/保护规则均零改；历史文字或不存在路径的 allowlist 不要求无价值全仓清扫。
 
-实施合计 **8 整退 + 2 mixed + 11 历史顶注 + 3 当前文档 = 24 工件**，一个主要 PR，不机械拆批。当前设计实际只修改三文档，以上是未来获准实施的完整清单。
+实施合计 **8 整退 + 2 mixed + 12 历史顶注 + 3 当前文档 = 25 工件**，一个主要 PR，不机械拆批。当前设计实际只修改三文档，以上是未来获准实施的完整清单。
 
 ```text
 Legacy decision: RETIRE
@@ -121,11 +122,11 @@ Cutover/deletion condition: 设计复核、用户确认§1–§7/§6.1、IMPLEME
 
 ## 6. 实施顺序与必要验证
 
-获用户确认及 Ready 读回后，在原 helper 中转换准确 KEEP 为明确缺席，先记录基线对象仍存在的真实 RED。随后同批退出八文件、Config、原 helper 的准确条目，添加十一窄顶注、校准三当前文档至 GREEN；不跑旧构造器/请求，不为旧 resolver 测试造新查询 owner。
+获用户确认及 Ready 读回后，在原 helper 中转换准确 KEEP 为明确缺席，先记录基线对象仍存在的真实 RED。随后同批退出八文件、Config、原 helper 的准确条目，添加十二窄顶注、校准三当前文档至 GREEN；不跑旧构造器/请求，不为旧 resolver 测试造新查询 owner。
 
 必要本地自检只覆盖原三退休 guard、authorizedbrand/context、content/品牌清理、publishing/marketplace SHEIN 草稿/JSON/预览、独立 worker/Store 的原适用合成 fixture、四项 Architecture README 检查。复用当前八命令依赖检查和必要当前命令编译，产物放任务 temp，不启动入口。不运行需要既有 .env/私密配置/实例的整包命令；CI 自有隔离 fixture 与运行验收分开，未变化代码证据明确引用，完整原 CI 留稳定候选，不重复全量或建设 runner/验收平台。
 
-最终核对24准确路径、两个 mixed 允许区间、十一原历史后缀及两个索引后缀，当前保留声明/方法/测试和 workflow/inventory/依赖/锁/保护零差异。发现真实范围外消费者或原 CI 要改冻结零改项时，先一次查齐同根问题并报告准确最小补丁，不自行扩权。
+最终核对25准确路径、两个 mixed 允许区间、十二原历史后缀及两个索引后缀，当前保留声明/方法/测试和 workflow/inventory/依赖/锁/保护零差异。发现真实范围外消费者或原 CI 要改冻结零改项时，先一次查齐同根问题并报告准确最小补丁，不自行扩权。
 
 ### 6.1 原检查/测试精确转换矩阵
 
@@ -142,7 +143,7 @@ Cutover/deletion condition: 设计复核、用户确认§1–§7/§6.1、IMPLEME
 
 ### 7.1 设计准入与事实界限
 
-本轮授权只是纯设计三文档；设计原 CI/实际审核 SHA/结论记录在主要 PR。适用独立设计复核聚焦前批 KEEP 替代、真实运行入口、旧 JSON/持久化边界、完整24工件、§6.1 与当前保留能力。设计候选形成后用户确认，先在 Issue/PR 记录并读回 IMPLEMENTATION_READY / Ready，再由唯一原 Writer 继续同一 PR 整批实施。设计证据不冒充实现、自检或运行证据。
+本轮授权只是纯设计三文档；设计原 CI/实际审核 SHA/结论记录在主要 PR。适用独立设计复核聚焦前批 KEEP 替代、真实运行入口、旧 JSON/持久化边界、完整25工件、§6.1 与当前保留能力。设计候选形成后用户确认，先在 Issue/PR 记录并读回 IMPLEMENTATION_READY / Ready，再由唯一原 Writer 继续同一 PR 整批实施。设计证据不冒充实现、自检或运行证据。
 
 finding 先按 AGENTS 分类，指出当前 Must/后果/阻塞层级；新事实确实命中 BLOCKER 才重开架构。普通实现/检查问题同一 PR 收敛，修复后只复核增量；最多两轮正常架构评审，不追求无限理论零 finding。
 
