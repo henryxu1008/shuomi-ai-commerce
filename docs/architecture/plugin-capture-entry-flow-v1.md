@@ -1,5 +1,7 @@
 # Product capture entry and original-tab return
 
+> 2026-10-24: the user's later [#924 page-entry decision](plugin-capture-page-entry-v1.md) adds a source-page primary button and a separate strictly validated content-script message adapter. It supersedes this document's no-source-button/exact-popup-only entry restriction for that increment; the original Controller/Handoff, external sender and application save/recovery boundaries remain in force.
+
 Execution: [#920](https://github.com/qq550723504/shuomi-ai-commerce/issues/920). Design Basis: **Reuse Existing Architecture**. Status: **READY** after independent review of design `56875bed8105dfbdd111d4f78dc4aa1ede4122ef` by the existing `amazon_fix_review`. No BLOCKER; complete-entry/reset concurrency and own-tab/window failure behavior are IMPLEMENTATION_TEST within this design. Review evidence is maintained in the Issue/PR.
 
 ## Product basis and scope

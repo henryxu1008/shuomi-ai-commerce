@@ -1,7 +1,6 @@
 // Task-only browser harness. It substitutes the public page response and a
 // transport-only receiver; it cannot prove Web/BFF/SRC1/Catalog acceptance.
 import { chromium } from '@playwright/test';
-import CDP from 'chrome-remote-interface';
 import { createServer } from 'node:http';
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
@@ -44,7 +43,7 @@ document.querySelector('#unknown').onclick=async()=>{
 readCapture().catch(()=>document.querySelector('#status').textContent='CAPTURE_UNAVAILABLE');
 </script></body></html>`;
 const server = createServer((req, res) => {
-  if (req.method !== 'GET' || req.url !== '/capture/1688') { res.writeHead(404); res.end(); return; }
+  if (req.method !== 'GET' || !['/capture/1688','/capture/amazon'].includes(req.url)) { res.writeHead(404); res.end(); return; }
   res.writeHead(200, { 'Content-Type':'text/html; charset=utf-8', 'Referrer-Policy':'no-referrer' }); res.end(receiver);
 });
 await new Promise((done, reject) => { server.once('error',reject); server.listen(4399,'127.0.0.1',done); });
@@ -58,6 +57,8 @@ try {
     const url = new URL(route.request().url());
     if (url.origin === 'https://detail.1688.com' && url.pathname === '/offer/981645030344.html') {
       await route.fulfill({ contentType:'text/html; charset=utf-8', body:await readFile(resolve(root,'tests/fixtures/product.html'),'utf8') });
+    } else if (url.origin === 'https://www.amazon.com' && url.pathname === '/dp/B0BDLGZCTY') {
+      await route.fulfill({ contentType:'text/html; charset=utf-8', body:await readFile(resolve(root,'tests/fixtures/amazon-inline-product.html'),'utf8') });
     } else if (url.origin === 'http://127.0.0.1:4399' || url.protocol === 'chrome-extension:') await route.continue();
     else await route.abort();
   });
@@ -65,7 +66,6 @@ try {
   if (!automated) await page.goto(browserName === 'edge' ? 'edge://extensions' : 'chrome://extensions');
   console.log(JSON.stringify({ stage:'LOAD_UNPACKED_IN_TASK_PROFILE', browserName, extensionPath:resolve(root,'dist-fixture'), artifacts }));
   let browserCDP;
-  let debugPort;
   let appPromise;
   if (automated) {
     browserCDP = await context.browser().newBrowserCDPSession();
@@ -74,7 +74,6 @@ try {
     const [port, browserPath] = (await readFile(resolve(profile, 'DevToolsActivePort'), 'utf8')).trim().split(/\r?\n/);
     if (!/^[0-9]+$/.test(port) || Number(port) < 1 || Number(port) > 65535
       || !/^\/devtools\/browser\/[a-f0-9-]+$/i.test(browserPath)) throw Error('Invalid task debugger endpoint');
-    debugPort = Number(port);
     console.log(await browserCDP.send('Extensions.loadUnpacked',{path:resolve(root,'dist-fixture')}));
   }
   const worker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker',{timeout:600000});
@@ -84,51 +83,63 @@ try {
   // smoke run that only checks "no host_permissions" would pass a widened grant silently.
   if (JSON.stringify(manifest.permissions) !== JSON.stringify(['activeTab','scripting']) || JSON.stringify(manifest.host_permissions) !== JSON.stringify(['https://detail.1688.com/*','https://www.amazon.com/*','https://www.amazon.ca/*','https://www.amazon.co.uk/*','https://www.amazon.de/*','https://www.amazon.co.jp/*'])) throw Error('Unexpected permissions');
   await page.goto('https://detail.1688.com/offer/981645030344.html');
-  console.log(JSON.stringify({ stage:'CLICK_EXTENSION_ACTION_AND_CAPTURE', id }));
+  console.log(JSON.stringify({ stage:'CLICK_SOURCE_PAGE_CAPTURE', id }));
   if (automated) {
-    const {targetInfos:tabs}=await browserCDP.send('Target.getTargets',{filter:[{type:'tab',exclude:false}]});
-    if(tabs.length!==1)throw Error('Expected exactly one task source tab');
-    await browserCDP.send('Extensions.triggerAction',{id,targetId:tabs[0].targetId});
-    let target;
-    for(let attempt=0;attempt<30;attempt++){
-      target=(await browserCDP.send('Target.getTargets')).targetInfos.find(t=>t.url===`chrome-extension://${id}/popup.html`);
-      if(target)break;
-      await new Promise(resolve=>setTimeout(resolve,100));
-    }
-    if(!target)throw Error('Extension action popup did not open');
-    // The target ID comes from this launch's Playwright pipe, not TCP discovery.
-    // local:true prevents the client from fetching metadata from another target.
-    const popup=await CDP({target:`ws://127.0.0.1:${debugPort}/devtools/page/${target.targetId}`,local:true});
-    const evaluate=async expression=>{
-      const result=await popup.Runtime.evaluate({expression,returnByValue:true,awaitPromise:true,userGesture:true});
-      if(result.exceptionDetails)throw Error(JSON.stringify(result.exceptionDetails));return result.result.value;
-    };
-    for(let attempt=0;attempt<50;attempt++){
-      if(await evaluate("document.readyState==='complete' && document.querySelector('#status')?.textContent?.includes('打开 1688')"))break;
-      await new Promise(resolve=>setTimeout(resolve,100));
-    }
-    if(!await evaluate("document.querySelector('#capture') && document.readyState==='complete'"))throw Error('Popup did not finish loading');
-    console.log(JSON.stringify({stage:'POPUP_OPEN',text:await evaluate('document.body.innerText')}));
-    if(await evaluate("Boolean(document.querySelector('#handoff')) || document.querySelector('#capture').disabled"))throw Error('Combined entry not ready');
-    const shot=await popup.Page.captureScreenshot();await writeFile(resolve(artifacts,'popup.png'),Buffer.from(shot.data,'base64'));
+    const button=page.getByRole('button',{name:'采集并在应用确认',exact:true});
+    await button.waitFor();
+    await page.waitForFunction(()=>!document.querySelector('#shuomi-product-capture')?.shadowRoot?.querySelector('#primary')?.disabled);
+    // A site-script click must not create a capture. Real browser input follows.
+    await button.evaluate(element=>element.click());
+    if(context.pages().length!==1)throw Error('Synthetic source-page click opened an application');
+    await page.screenshot({path:resolve(artifacts,'source-page.png')});
     appPromise=context.waitForEvent('page',{timeout:20000});
-    await evaluate("document.querySelector('#capture').click()").catch(()=>{});
-    await popup.close();
+    await button.click();
   }
-  const app = await (appPromise ?? context.waitForEvent('page', { timeout:600000 })).catch(async () => {
+  let app = await (appPromise ?? context.waitForEvent('page', { timeout:600000 })).catch(async () => {
     const found = context.pages().find(p=>p.url().startsWith('http://127.0.0.1:4399'));
     if(!found)throw Error('No own receiver tab');return found;
   });
   await app.waitForURL('http://127.0.0.1:4399/capture/1688**');
   await app.locator('#status').filter({hasText:'FIXTURE_CAPTURE_RECEIVED'}).waitFor({timeout:20000});
-  const capture = await app.evaluate(()=>window.fixtureReceived);
+  let capture = await app.evaluate(()=>window.fixtureReceived);
   if (!capture || /PASSWORD_CANARY|AUTH_CANARY|TOKEN_CANARY|SESSION_CANARY/.test(JSON.stringify(capture))) throw Error('Missing or sensitive capture');
   if (capture.payload.evidence.variants[0].sourceID !== '99999999999999999999') throw Error('SKU precision lost');
   if (capture.payload.evidence.variants[0].sku !== null) throw Error('Provider variant ID was fabricated into a SKU');
+  const firstCapture=capture;
+  const firstApp=app, firstURL=app.url(), pagesBeforeReturn=context.pages().length;
+  await page.bringToFront();
+  await page.getByRole('button',{name:'刷新状态',exact:true}).click();
+  await page.getByRole('button',{name:'返回应用核实',exact:true}).click();
+  await firstApp.waitForFunction(()=>document.visibilityState==='visible');
+  if(context.pages().length!==pagesBeforeReturn || firstApp.url()!==firstURL)throw Error('Source return replaced or navigated the original app tab');
   const wrong = await context.newPage(); await wrong.goto(app.url());
   const rejection = await wrong.evaluate(async ({id,capture})=>chrome.runtime.sendMessage(id,{version:1,type:'capture.read',handoffId:capture.handoffId,idempotencyKey:capture.idempotencyKey}),{id,capture});
   if(rejection.code!=='CAPTURE_UNAVAILABLE')throw Error('Other application tab read accepted');
   await wrong.close();
+  if(automated){
+    const amazon=await context.newPage(); await amazon.goto('https://www.amazon.com/dp/B0BDLGZCTY');
+    await amazon.getByRole('button',{name:'返回已有采集',exact:true}).waitFor();
+    await amazon.getByRole('button',{name:'采集当前商品（新操作）',exact:true}).click();
+    await amazon.getByRole('button',{name:'取消',exact:true}).click();
+    if(context.pages().length!==pagesBeforeReturn+1)throw Error('Cancel started a new capture');
+    await amazon.getByRole('button',{name:'采集当前商品（新操作）',exact:true}).click();
+    const secondApp=context.waitForEvent('page',{timeout:20000});
+    await amazon.getByRole('button',{name:'确认采集当前商品',exact:true}).click();
+    app=await secondApp;
+    await app.waitForURL('http://127.0.0.1:4399/capture/amazon**');
+    await app.locator('#status').filter({hasText:'FIXTURE_CAPTURE_RECEIVED'}).waitFor({timeout:20000});
+    capture=await app.evaluate(()=>window.fixtureReceived);
+    if(capture?.payload?.source!=='amazon' || capture.idempotencyKey===firstCapture.idempotencyKey)throw Error('Amazon explicit new capture failed');
+    if(firstApp.url()!==firstURL)throw Error('New capture modified previous app operation');
+    await writeFile(resolve(artifacts,'amazon-capture.json'),JSON.stringify(capture.payload,null,2));
+    await amazon.bringToFront();
+    await amazon.getByRole('button',{name:'刷新状态',exact:true}).click();
+    await amazon.getByRole('button',{name:'返回应用核实',exact:true}).waitFor();
+    const panelBounds=await amazon.locator('#shuomi-product-capture').boundingBox();
+    const viewport=await amazon.evaluate(()=>({width:innerWidth,height:innerHeight}));
+    if(!panelBounds || panelBounds.y<0 || panelBounds.y+panelBounds.height>viewport.height || panelBounds.x+panelBounds.width>viewport.width)throw Error('Source panel outside the viewport');
+    await amazon.screenshot({path:resolve(artifacts,'amazon-source-page.png')});
+  }
   await app.locator('#unknown').click();
   await app.locator('#status').filter({hasText:'FIXTURE_OUTCOME_UNKNOWN'}).waitFor();
   await app.screenshot({path:resolve(artifacts,'receiver.png')});
@@ -155,12 +166,12 @@ try {
   await app.reload();
   await app.locator('#status').filter({hasText:'恢复模式：只有原key，无自动POST'}).waitFor();
   if(app.url()!==recoveryURL)throw Error('Reload changed recovery identity');
-  await writeFile(resolve(artifacts,'capture.json'),JSON.stringify(capture.payload,null,2));
+  await writeFile(resolve(artifacts,'capture.json'),JSON.stringify(firstCapture.payload,null,2));
   const buildHashes={};
-  for(const name of ['manifest.json','background.js','extractor.js','popup.js','popup.html','popup.css']) buildHashes[name]=createHash('sha256').update(await readFile(resolve(root,'dist-fixture',name))).digest('hex');
+  for(const name of ['manifest.json','background.js','extractor.js','page.js','popup.js','popup.html','popup.css']) buildHashes[name]=createHash('sha256').update(await readFile(resolve(root,'dist-fixture',name))).digest('hex');
   await writeFile(resolve(artifacts,'receipt.json'),JSON.stringify({head,buildHashes,browserName,browserVersion:context.browser()?.version(),id,manifest,
-    result:'PASS_TRANSPORT_FIXTURE_ONLY',ownProfileDynamicEndpoint:automated,pipeBoundPopupTarget:automated,ownTabCapture:true,wrongAppTabRejected:true,unknownStatusSent:true,workerRestartRejected,workerStopOutcome,reloadPreservedKey:true,
-    backendIntegration:'NOT_RUN',real1688:'NOT_RUN'},null,2));
+    result:'PASS_TRANSPORT_FIXTURE_ONLY',ownProfileDynamicEndpoint:automated,sourcePageEntry:automated,syntheticClickRejected:automated,originalTabReturn:true,amazonExplicitNewCapture:automated,ownTabCapture:true,wrongAppTabRejected:true,unknownStatusSent:true,workerRestartRejected,workerStopOutcome,reloadPreservedKey:true,
+    backendIntegration:'NOT_RUN',real1688:'NOT_RUN',realAmazon:'NOT_RUN'},null,2));
   console.log(JSON.stringify({stage:'TRANSPORT_FIXTURE_PASS',artifacts}));
 } finally {
   if(context)await context.close();

@@ -6,6 +6,25 @@ and ephemeral transport; it cannot publish a Product or authorize an import.
 
 ## Direct entry and return to the original application
 
+[Execution #924](https://github.com/qq550723504/shuomi-ai-commerce/issues/924) adds
+the reviewed [source-page primary entry](../../docs/architecture/plugin-capture-page-entry-v1.md).
+Supported Amazon/1688 detail pages show **硕米 · 商品采集** with **采集并在应用确认**.
+Loading the page only mounts this control and reads limited status; extraction
+starts on a real user click. The isolated content script uses the existing exact
+HTTPS site grants, without additional hosts or permissions. It passes no product
+payload, destination, tab ID or operation key through page messages.
+Automatic button display requires the browser to allow the extension on that
+site; a withheld site grant cannot be replaced by the content script. The popup
+and shortcut remain alternative entries under the browser's normal permissions.
+
+After handoff the primary button becomes **返回应用核实**. Another product's page
+explicitly shows **返回已有采集**; it does not pretend the old operation belongs
+to the new product. **采集当前商品（新操作）** requires confirmation and rejects a
+stale confirmation after another entry changes the operation. Busy actions do not
+duplicate capture. A lost connection disables mutation and offers explicit status
+refresh; the original application remains the save/result authority. Shortcut and
+popup are secondary entries into the same Controller/Handoff.
+
 [Execution #920](https://github.com/qq550723504/shuomi-ai-commerce/issues/920) follows
 the reviewed [entry design](../../docs/architecture/plugin-capture-entry-flow-v1.md).
 On the current supported product page, the named browser shortcut (suggested
@@ -99,22 +118,23 @@ node scripts/port-isolation-check.mjs --edge
 ```
 
 The Windows harness starts an installed Chrome/Edge in its own new profile
-under `artifacts`. It uses the official CDP `Extensions.loadUnpacked` and
-`Extensions.triggerAction` testing methods, with the test-only extension
-debugging flag. Automated CDP runs use headless mode to prevent unrelated
-desktop focus changes from closing the popup; omit `--cdp` for the manual
-headed loader. It opens the actual action popup, clicks the combined capture/handoff button,
-checks the other-tab rejection, interrupts the task's workers, and reloads the
+under `artifacts`. It uses the official CDP `Extensions.loadUnpacked` testing
+method with the test-only extension debugging flag. Automated runs use headless
+mode; omit `--cdp` for the manual headed loader. It clicks the actual source-page
+button with trusted browser input, rejects a synthetic click, tests original-tab
+return, explicitly confirms a new Amazon fixture capture, checks the other-tab
+rejection, interrupts the task's workers, and reloads the
 receiver with the same recovery key. The flag is never part of the extension
 or a user's regular browser configuration. The debugger uses an OS-assigned
-dynamic port recorded in this launch's atomically allocated profile; popup
-targets come only from the same launch's Playwright pipe. No fixed-port
+dynamic port recorded in this launch's atomically allocated profile; all controls
+come from the same launch's Playwright pipe. No fixed-port
 target discovery is used. The regression wrapper occupies the old port 4398
 with a task-owned decoy and verifies zero queries reach it while capture still
 works. Receiver port 4399 must be free; an occupied receiver fails startup
 without connecting to or stopping its owner.
 
-The canonical 1688 document response is substituted with `tests/fixtures/product.html`;
+The canonical 1688 document response is substituted with `tests/fixtures/product.html`,
+and Amazon with `tests/fixtures/amazon-inline-product.html`;
 other page network requests are blocked except the task's loopback receiver.
 The receiver is explicitly a **transport fixture**, with no account, BFF,
 database or publication code. It never proves backend acceptance or real
@@ -125,7 +145,7 @@ only its closed disposable profiles after preserving the receipts.
 ## Capture boundary
 
 - Permissions are exactly `activeTab` and `scripting`, plus exact HTTPS host grants for `detail.1688.com`, `www.amazon.com`, `www.amazon.ca`, `www.amazon.co.uk`, `www.amazon.de`, and `www.amazon.co.jp`. No subdomain wildcard or `<all_urls>`, cookies, storage, tabs, history, webRequest, clipboard or downloads permissions.
-- Injection follows the user's explicit current-tab capture and validates the product path. No batch or background traversal is introduced. It remains main-frame and isolated-world only.
+- A static main-frame ISOLATED script mounts only the source-page control on supported product paths. Product extraction follows an explicit capture click/shortcut/popup action and validates the product path. No batch or background traversal is introduced.
 - The named shortcut fixes its triggering tab; the popup selects its active tab once. Injection
   targets its main frame in the isolated world. The same document ID and
   canonical source are checked again after extraction.
@@ -156,7 +176,7 @@ mapper; SRC-1 and Catalog own durable publication and exact read-back.
 
 ## Application handoff contract
 
-An explicit shortcut or combined popup action captures and opens the current app,
+An explicit source-page button, shortcut or combined popup action captures and opens the current app,
 where the user reviews the summary and confirms saving. The extension freezes one capture and UUID key, creates only its own app tab,
 and includes `extensionId`, `handoffId`, `idempotencyKey` in the fragment.
 No payload, credentials or identity claims are put in the URL.
@@ -204,6 +224,16 @@ through the existing SRC Verify/Read path. The original 1688 ByKey path may resu
 A missing receipt does not authorize an automatic new POST/key. The extension
 cannot recover a forgotten key after restart; it tells the user to use the
 original app page. Beginning another capture requires an explicit new action.
+
+## Release packaging limitation
+
+The release builder includes the new `page.js` asset in `shuomi-product-capture.zip`.
+The current Tool Market `LoadPackage` still pins six assets, the older single-platform
+name and one receiver; it already rejects the current dual-platform manifest.
+That existing download-server admission is outside #924's source-entry scope and
+must be resolved before distributing this new ZIP through Tool Market. An unpacked
+source build and transport fixture do not prove the download chain works. This PR
+does not update the retained package, server configuration or installed extension.
 
 ## Verification still required for delivery
 

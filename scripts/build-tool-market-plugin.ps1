@@ -12,7 +12,7 @@ try {
  Push-Location $extensionRoot
  try { npm.cmd run build; if($LASTEXITCODE -ne 0){throw 'Plugin build failed'} } finally { Pop-Location }
  New-Item -ItemType Directory -Path $destination -Force | Out-Null
- $files=@('manifest.json','background.js','popup.js','extractor.js','popup.html','popup.css') | ForEach-Object {Join-Path $extensionRoot "dist/$_"}
+ $files=@('manifest.json','background.js','popup.js','extractor.js','page.js','popup.html','popup.css') | ForEach-Object {Join-Path $extensionRoot "dist/$_"}
  $archive=Join-Path $destination 'shuomi-product-capture.zip'
  Compress-Archive -LiteralPath $files -DestinationPath $archive -Force
  $release=[ordered]@{schemaVersion=1;captureAppUrl=([Uri]$CaptureAppUrl).AbsoluteUri;sha256=(Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant();filename='shuomi-product-capture.zip'}
