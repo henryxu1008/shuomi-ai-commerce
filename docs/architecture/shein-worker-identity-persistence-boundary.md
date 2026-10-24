@@ -1,3 +1,5 @@
+> #301 / #929 **SUPERSEDED，仅旧 SHEIN 品牌查询与错误分类闭包**：用户已确认[完整退休设计 §1–§7（含 §4.2/§6.1）](legacy-shein-brand-error-closure-retirement-boundary.md)。本文只有旧 authorizedbrand.ProductAPI/Resolver/Config、查询/匹配 helper、sherr 及 BrandItem/BrandListResponse 的保留或现役建议被准确替代；不重建已退的 Store/Task/API 调用。完整 Resolved/context、当前清理/草稿 JSON/有效规则、采集、独立 SHEIN 登录与 Store 同步及原 owner/claim/fence/UNKNOWN 保留。无生产 EXTRACT 或替代 Resolver，不改 workflow/完整 inventory，不操作既有实例/数据/凭据/进程，不增加试用前置；#301 OPEN。以下完整原文/顶注/历史数字/勾选/批准/证据逐字保留。
+
 # 独立 SHEIN worker：身份与持久化边界设计
 
 > **Superseded numeric-retention boundary:** #301/#863 user-confirmed [complete current-scope retirement](shein-worker-numeric-persistence-retirement-v1.md), frozen design 94fa4cab §1–§7, now IMPLEMENTATION_READY, supersedes only this document's numeric account/Store/Profile/Redis retention and old duplicate-disable behavior. Independent SHEIN login/Store sync stays with current owners; no legacy data/credential/Profile adoption, workflow change or new trial prerequisite. Historical evidence below remains unchanged.
