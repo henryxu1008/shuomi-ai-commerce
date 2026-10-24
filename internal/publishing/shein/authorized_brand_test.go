@@ -6,7 +6,6 @@ import (
 
 	"task-processor/internal/product/catalog/canonical"
 	common "task-processor/internal/publishing/common"
-	sharedtenantctx "task-processor/internal/shared/tenantctx"
 	"task-processor/internal/shein/authorizedbrand"
 )
 
@@ -113,11 +112,11 @@ func TestSanitizeDraftPayloadSensitiveContentPreservesAuthorizedBrandFromRuntime
 		},
 	}
 
-	runtimeCtx := sharedtenantctx.WithTenantID(authorizedbrand.WithResolved(context.Background(), &authorizedbrand.Resolved{
+	runtimeCtx := authorizedbrand.WithResolved(context.Background(), &authorizedbrand.Resolved{
 		Enabled: true,
 		Name:    "Amazon Basics",
 		NameEn:  "Amazon Basics",
-	}), "101")
+	})
 
 	changed := SanitizeDraftPayloadSensitiveContent(pkg, runtimeCtx, nil, nil)
 	if changed {

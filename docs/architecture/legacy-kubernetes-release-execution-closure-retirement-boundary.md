@@ -1,3 +1,5 @@
+> #301 / #923 **SUPERSEDED，仅旧租户 Prompt 闭包**：用户已确认[完整退休设计 §1–§7（含 §4.2/§6.1）](legacy-tenant-prompt-closure-retirement-boundary.md)。本文涉及旧 `internal/prompt`、`internal/promptmgmt`、`shared/tenantctx`、五 YAML 及其现役 KEEP/复用建议仅在该准确矩阵内被退休决定替代；如涉及镜像打包，仅退出两条 `prompts` COPY。当前 AI/图像/采集、身份/有效规则、独立 SHEIN 登录与 Store 同步及其它 KEEP 不变。停止全新 schema 创建旧 Prompt 表，不改 Goose 登记或已有表/行，不新增替代 Store/迁移/兼容。以下原正文、历史数字/勾选/证据完整保留，不扩大实施、合并或真实资源权限。
+
 # 旧 Kubernetes API/Task 发布执行与 UI 专属接线：完整退休闭包
 
 > **Narrow source supersession — #850 / #29 / #301.** The [confirmed principal closure](legacy-kubernetes-release-principal-retirement-boundary.md) supersedes only §5.3's retained old API/UI principal/Role/Binding/authentication/OIDC-helper sources and their obsolete machine-policy inputs. Current canary, valid static safety, shared tools and all current owners remain. The original 42-file matrix and historical body below are unchanged; no live IAM/resource/data operation, recovery-owner change or new trial prerequisite is implied.
