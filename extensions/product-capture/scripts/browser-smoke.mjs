@@ -109,16 +109,10 @@ try {
     }
     if(!await evaluate("document.querySelector('#capture') && document.readyState==='complete'"))throw Error('Popup did not finish loading');
     console.log(JSON.stringify({stage:'POPUP_OPEN',text:await evaluate('document.body.innerText')}));
-    await evaluate("document.querySelector('#capture').click()");
-    for(let attempt=0;attempt<50;attempt++){
-      if(await evaluate("!document.querySelector('#handoff').disabled"))break;
-      await new Promise(resolve=>setTimeout(resolve,100));
-    }
-    console.log(JSON.stringify({stage:'CAPTURE_UI',text:await evaluate('document.body.innerText')}));
-    if(await evaluate("document.querySelector('#handoff').disabled"))throw Error('Capture did not enable handoff');
+    if(await evaluate("Boolean(document.querySelector('#handoff')) || document.querySelector('#capture').disabled"))throw Error('Combined entry not ready');
     const shot=await popup.Page.captureScreenshot();await writeFile(resolve(artifacts,'popup.png'),Buffer.from(shot.data,'base64'));
     appPromise=context.waitForEvent('page',{timeout:20000});
-    await evaluate("document.querySelector('#handoff').click()").catch(()=>{});
+    await evaluate("document.querySelector('#capture').click()").catch(()=>{});
     await popup.close();
   }
   const app = await (appPromise ?? context.waitForEvent('page', { timeout:600000 })).catch(async () => {
